@@ -52,6 +52,12 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   const out = new Uint8Array(N);
   const st = g.terrace.step;
   const phase = g.benchPhase * st;
+  const gr = g.grade;
+  const gs = hash32(seed, "grade", g.variation);
+  // (the benches' levels drift over a third of the map; the land's character, tableland or rolling ground,
+  // changes over a quarter of it, the share above `table` tableland)
+  const wide = Math.min(W, H);
+  const table = 0.6 * (0.5 - gr.mesa);
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
@@ -65,10 +71,15 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
         const over = L - (top - 1);
         L = top - 1 + over / (over + 1) + 0.49 * smoothstep(over / 2);
       }
+      // rolling ground (0) or tableland (1)
+      const mesa = smoothstep((fbm(gs + 1, x, y, wide / 4, 2) - table) / 0.1 + 0.5);
       if (st > 1 && g.terrace.share > 0) {
         const m = smoothstep((fbm(ts, x, y, g.terrace.cell, 2) + 1) / 2 - (1 - g.terrace.share) + 0.5);
-        if (m > 0.5) L = Math.floor((L - phase) / st + 0.5) * st + phase;
+        if (m > 0.5) L = bench(L, phase + gr.drift * st * fbm(gs, x, y, wide / 3, 2), st, gr.riser * (1 - mesa));
       }
+      // the rolling ground: swells and hollows of a level or two between the features (gentler on the
+      // tableland's tops, which keep broad level ground)
+      if (gr.roll > 0) L += gr.roll * (1 - 0.65 * mesa) * fbm(gs + 3, x, y, gr.rollCell, 3);
       // (the land stands a level above the beds' floor, item 47)
       out[i] = clamp(Math.round(L), BED_FLOOR + 1, maxLv);
     }
@@ -79,6 +90,18 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   mergeSmallRegions(out, W, H, 4);
   cleanPitsAndSpikes(out, W, H, null);
   return out;
+}
+
+/** A level `L` on benches `st` levels apart from `phase`: each bench level, then its step up as a flank over
+ *  `riser` of the way to the next (0 a cliff, as the benches always were; 1 no bench at all), so a flank the
+ *  land crosses slowly comes out in one-level steps. */
+export function bench(L: number, phase: number, st: number, riser: number): number {
+  const q = (L - phase) / st;
+  const k = Math.floor(q);
+  const f = q - k;
+  const lo = (1 - riser) / 2;
+  const up = f < lo ? 0 : f >= 1 - lo ? 1 : riser > 0 ? (f - lo) / riser : 1;
+  return (k + up) * st + phase;
 }
 
 /** The land's opening and closing by a 3×3 square, applied only where they move a tile two levels

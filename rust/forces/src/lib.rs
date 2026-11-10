@@ -4,6 +4,7 @@ use portable as portable_math;
 #[macro_use]
 mod json;
 mod rift;
+mod roll;
 mod deposit;
 mod erode;
 // The water a force plans with (a carve's oxbow lake, a glacier's floor) is rust/water's simulation and settle,
@@ -768,6 +769,7 @@ fn write_value(out: &mut Vec<u8>, v: &V) {
 enum Records {
     Erode(Box<erode::ErodeRecords>),
     Rift(Box<rift::RiftRecords>),
+    Roll(Box<roll::RollRecords>),
     Deposit(Box<deposit::DepositRecords>),
     Glaciate(Box<GlacierPlan>),
     Carve(Box<CarveRecords>),
@@ -827,6 +829,7 @@ impl Plan {
         let mut out = match &self.records {
             Records::Erode(r) => r.value(),
             Records::Rift(r) => r.value(),
+            Records::Roll(r) => r.value(),
             Records::Deposit(r) => r.value(),
             Records::Glaciate(r) => r.value(),
             Records::Carve(r) => r.value(),
@@ -924,6 +927,7 @@ pub fn prepare(input: &[u8]) -> Job {
         "rift" => 6.0,
         "deposit" => 7.0,
         "erode" => 8.0,
+        "roll" => 9.0,
         _ => panic!("force not ported"),
     };
     let index =
@@ -978,6 +982,7 @@ pub fn prepare(input: &[u8]) -> Job {
     command[33] = map.w as f64;
     if opcode == 6.0 || opcode == 7.0 { command[9] = if settings.mode == if opcode == 6.0 { "drop" } else { "fan" } {0.0} else {-1.0}; }
     if opcode == 8.0 { command[9] = if settings.mode == "wear" {0.0} else {-1.0}; }
+    if opcode == 9.0 { command[9] = if settings.mode == "roll" {0.0} else {-1.0}; }
     if opcode == 7.0 { command[5] = ["auto", "few", "many"].iter().position(|&x| x == job["settings"]["channels"].as_str().unwrap_or("")).map_or(-1.0, |i| i as f64); }
     if opcode == 6.0 { command[5] = ["auto", "sheer", "stepped"].iter().position(|&x| x == settings.walls).map_or(-1.0, |i| i as f64); }
     command[21] = (job["options"]["finish"].as_bool() == Some(false)) as u8 as f64;
@@ -1089,7 +1094,7 @@ fn refresh_id_bytes(task: &mut Job) {
         task.id_offsets.push(task.id_bytes.len() as u32);
     }
 }
-const FORCE_ERRORS: [&str; 41] = [
+const FORCE_ERRORS: [&str; 45] = [
     "",
     "Invalid impact settings",
     "Strike on the map",
@@ -1131,6 +1136,10 @@ const FORCE_ERRORS: [&str; 41] = [
     "Nothing here can wear away without leaving ground to fall",
     "There is no rock here that Erode may wear",
     "Erode leaves water and the ground that holds it as they are",
+    "Invalid Roll settings",
+    "Draw Roll on the map",
+    "the Floor and the working area leave nothing here to roll",
+    "Roll leaves water and the ground beside it as they are",
 ];
 fn operation_problem(m: &Map, c: &[f64; 44], path: &[f64], keep: &[u8]) -> u32 {
     let opcode = c[0] as u32;
@@ -1290,6 +1299,12 @@ fn operation_problem(m: &Map, c: &[f64; 44], path: &[f64], keep: &[u8]) -> u32 {
             if !whole(c[19],1.0,512.0) || points*2>path.len() || !path[..points*2].chunks_exact(2).all(|p|bounded(p[0],0.0,m.w as f64-1.0)&&bounded(p[1],0.0,m.h as f64-1.0)) {return 36;}
             0
         }
+        9 => {
+            // (Roll: Size 8 to 64 tiles across, or Auto; the Floor 1 to the ceiling)
+            if c[9] != 0.0 || !power || !seed || !(c[2].is_nan() || bounded(c[2],8.0,64.0)) || !(c[4].is_nan() || whole(c[4],1.0,m.ceiling)) {return 41;}
+            if !whole(c[19],1.0,512.0) || points*2>path.len() || !path[..points*2].chunks_exact(2).all(|p|bounded(p[0],0.0,m.w as f64-1.0)&&bounded(p[1],0.0,m.h as f64-1.0)) {return 42;}
+            0
+        }
         _ => 11,
     }
 }
@@ -1401,6 +1416,7 @@ pub fn plan(task: &mut Job) {
     let before = m.clone();
     let mut p = match c[0] as u32 {
         8 => erode::plan(&before, m, &settings, &intent, &task.keep, &task.area_depth),
+        9 => roll::plan(&before, m, &settings, &intent, &task.keep, &task.area_depth),
         7 => deposit::plan(&before,m,&settings,&intent,&task.keep,&task.area_depth,c[5] as u32),
         6 => rift::plan(&before, m, &settings, &intent, &task.keep, &task.area_depth, c[5] as u32),
         1 => crater(&before, m, &settings, &intent, &task.keep),
@@ -1542,7 +1558,7 @@ fn output_views(task: &mut Job) {
     }
     let g = &mut p.geometry;
     match &p.records {
-        Records::Erode(_) => {}
+        Records::Erode(_) | Records::Roll(_) => {}
         Records::Rift(r) => r.geometry(g),
         Records::Deposit(r) => r.geometry(g),
         Records::Glaciate(r) => {
@@ -1941,6 +1957,7 @@ fn describe(task: &mut Job) {
         match &p.records {
             Records::Erode(r) => {pair(d,10,&r.cells);pair(d,11,&r.buckets);pair(d,12,&r.stats);pair(d,13,&r.tiles);pair(d,14,&r.masks);},
             Records::Rift(r) => {pair(d,10,&r.arrival);pair(d,12,&r.stats);},
+            Records::Roll(r) => {pair(d,10,&r.arrival);pair(d,12,&r.stats);},
             Records::Deposit(r) => {pair(d,10,&r.arrival);pair(d,11,&r.channel);pair(d,12,&r.stats);pair(d,25,&r.stages);},
             Records::Glaciate(r) => {
                 pair(d, 10, &r.arrival);

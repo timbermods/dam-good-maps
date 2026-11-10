@@ -321,6 +321,8 @@ export interface Genome {
   ramps: number;
   /** Where terraces sit: a phase for the bench grid, in levels. */
   benchPhase: number;
+  /** Ground with grade (`levels.ts` `snapLevels`): the land between the features rolls in one-level steps. */
+  grade: Grade;
   /** Valley lakes: stretches of a river's valley deepened in their middle (hydro.ts), the mean count. */
   troughs: number;
   /** An island sea in the map's middle, with islands scattered through it (Islands; one of the
@@ -665,6 +667,45 @@ export function tallTop(vt: number): number {
  *  then ran dry over its upper course (Delta 128² seed 4, against D447). */
 const BACKDROP_THEMES = new Set<ThemeId>(["riverValley", "lakeBasin", "any"]);
 
+/** Ground with grade (the showcase round, 2026-11-10): loved Workshop maps are 44% dead flat with 81% of their
+ *  height steps one level; ours stood 52–66% flat, Highlands and Canyon on tabletops four levels apart with a
+ *  third of their steps one level. The land is two characters, region by region: tableland (benches ending in
+ *  cliffs, level on top: the plateaus and mesas) and rolling ground (benches graded into one-level flanks, swells
+ *  and hollows over them). `levels.ts` `snapLevels` reads these. */
+export interface Grade {
+  /** The share of the land that stays tableland. */
+  mesa: number;
+  /** On the rolling ground, the share of each bench's step that is a graded flank of one-level steps: 0 a
+   *  cliff, 1 no bench. */
+  riser: number;
+  /** How far the benches' levels wander over the map, in steps: benches at many levels, not on one grid. */
+  drift: number;
+  /** The rolling ground's height, in levels, and its size, in tiles: hills, swells and hollows. */
+  roll: number;
+  rollCell: number;
+}
+
+/** Each theme's grade, about the middle of its draw: Highlands and Canyon keep the most tableland (their
+ *  promises' cliffs and plateaus), the low themes roll gently so their floors stay broad. */
+const GRADE: Record<ThemeId, Grade> = {
+  highlands: { mesa: 0.45, riser: 0.6, drift: 0.5, roll: 3.8, rollCell: 18 },
+  canyon: { mesa: 0.35, riser: 0.6, drift: 0.5, roll: 2.2, rollCell: 18 },
+  riverValley: { mesa: 0.15, riser: 0.7, drift: 0.4, roll: 2.2, rollCell: 20 },
+  lakeBasin: { mesa: 0.15, riser: 0.7, drift: 0.4, roll: 1.8, rollCell: 20 },
+  delta: { mesa: 0.1, riser: 0.7, drift: 0.3, roll: 1.4, rollCell: 22 },
+  islands: { mesa: 0.2, riser: 0.6, drift: 0.4, roll: 1.8, rollCell: 18 },
+  any: { mesa: 0.25, riser: 0.6, drift: 0.5, roll: 2, rollCell: 20 },
+};
+
+/** A map's grade: its theme's, each value drawn within a fifth either way, from a stream of its own so the
+ *  rest of the genome keeps its draws. */
+export function drawGrade(theme: ThemeId, seed: number, attempt: number, variation: number): Grade {
+  const rng = stream(seed, "grade", theme, attempt, variation);
+  const t = GRADE[theme];
+  const j = (v: number) => v * (0.8 + 0.4 * rng.float());
+  return { mesa: clamp(j(t.mesa), 0, 1), riser: clamp(j(t.riser), 0, 1), drift: j(t.drift), roll: j(t.roll), rollCell: j(t.rollCell) };
+}
+
 export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, attempt: number, o: DrawOptions = {}): Genome {
   const variation = o.variation ?? 0;
   // a variation draws from the same stream as the map (so its settings and intentions match) and
@@ -760,6 +801,7 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
     wanderCell: 14,
     ramps: clamp(1 - 0.75 * v * v, 0.2, 1),
     benchPhase: rng.float(),
+    grade: drawGrade(theme, seed, attempt, variation),
     troughs: p.troughs,
     sea,
     falls: 1,
@@ -1513,12 +1555,14 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
   const bl = LEVEL3[s.terrain.buildableLand] - LEVEL3[p.buildableLand];
   if (bl > 0) {
     g.noise.amp *= 1 - 0.2 * bl;
+    g.grade.roll *= 1 - 0.35 * bl;
     g.regional.amp *= 1 - 0.15 * bl;
     g.ramps = clamp(g.ramps + 0.3 * bl, 0.1, 1);
     g.terrace.share = clamp(g.terrace.share + 0.2 * bl, 0, 1);
     g.top = Math.max(g.base + 4, g.top - 1.5 * bl);
   } else if (bl < 0) {
     g.terrace.step = Math.max(g.terrace.step, 2);
+    g.grade.roll *= 1 - 0.15 * bl;
     g.noise.amp *= 1 - 0.15 * bl;
     g.regional.amp *= 1 - 0.1 * bl;
     g.ramps = clamp(g.ramps + 0.2 * bl, 0.1, 1);
@@ -1529,6 +1573,7 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
   if (s.start.area === "large") {
     g.terrace.share = clamp(g.terrace.share + 0.15, 0, 1);
     g.noise.amp *= 0.85;
+    g.grade.roll *= 0.85;
   } else if (s.start.area === "small") g.noise.amp *= 1.1;
   // the highest terrain (item 36): a ceiling on every map that no Variety goes past (Kyler,
   // 2026-10-03; the release-gate generator hunt's finding 3: a land drawn tall by Variety kept the
@@ -1550,6 +1595,9 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
   const dt = (s.terrain.terracing - p.terracing) / 100;
   g.terrace.share = clamp(g.terrace.share + 0.9 * dt, 0, 1);
   if (dt >= 0.25 && g.terrace.step < 2) g.terrace.step = 2;
+  // (and more of the land is tableland, its benches ending in cliffs, the rest's flanks steeper)
+  g.grade.mesa = clamp(g.grade.mesa + 0.5 * dt, 0, 1);
+  g.grade.riser = clamp(g.grade.riser - 0.6 * dt, 0, 1);
   // (D333 (3): no springs added toward far land where the player asked for Generous buildable land,
   // which keeps its flats, or moved the Drought reserve from the theme's own, which plans the water
   // near the start itself: the added tributaries drew starts to water a Scarce reserve should lack
