@@ -563,6 +563,19 @@ const BLEND_NOISE_GAIN = Math.round((BLEND.noiseSpread / 0.163) * 1e3) / 1e3;
  *  much either way, so its patches vary over 2 to 8 tiles as the game's `Desert` texture × its detail texture do (the
  *  luma's spread over blocks of ¼, 1, 4 and 8 tiles: 9.4, 7.7, 5.3 and 3.4 % of its mean; tools/ground-variation.ts). */
 const DRY_BROAD = 0.29;
+/** How far dry ground drifts in broad patches toward its cooler (mauve) and warmer (tan) colours (D334), as a share of
+ *  their whole difference: the game's `Desert` texture × its detail texture keeps one tone, its red − blue varying over
+ *  blocks of ¼, 1, 4 and 8 tiles by 7.0, 5.1, 3.0 and 1.9 % of its luma's mean; ours, drifting all the way until
+ *  2026-11-10, by 9.6, 9.3, 7.7 and 5.8, and the widest views read mottled lilac and tan where the game's are one even
+ *  grey (fix/dry-widest; tools/ground-variation.ts). */
+const DRY_DRIFT = 0.25;
+/** The drift's own mean colour (its patches mixed in their shares, measured: the flat dry map's albedo mean, 100 away,
+ *  tools/ground-variation.ts), which dry ground drifts from, so its mean is the game's `Desert` texture's still (D497). */
+const DRY_DRIFT_MEAN: Rgb = [0.305, 0.253, 0.205];
+/** Dry ground's fine hue: its red and blue apart by up to this much either way over a quarter of a tile, as the game's
+ *  desert grains vary (its red − blue's spread over blocks of ¼ and 1 tile, 7.0 and 5.1 % of the luma's mean, comes
+ *  mostly from the texture's grains, little from its broad tone). */
+const DRY_GRAIN = 0.2;
 /** Grass's broad shade: its lightness by this much either way over a dozen tiles, its mean held (the game's `Grass`
  *  texture × its detail texture vary over 1, 4 and 8 tiles by 9.1, 5.7 and 3.6 % of their mean; ours by 10.3, 8.0 and
  *  6.8 % until 2026-11-08, when this was 0.27, and dark patches of it read as the grass's own colour on the start shots). */
@@ -1601,6 +1614,9 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         // tan and in lightness (D334); each plate its own shade, the cracks a fine, dark network
         vec3 c = mix(${glColor(GROUND.dryCool)}, ${glColor(GROUND.dry)}, smoothstep(0.28, 0.68, b1));
         c = mix(c, ${glColor(GROUND.dryWarm)}, smoothstep(0.32, 0.72, b2) * 0.85);
+        // (only a little of the way, as the game's one desert texture: DRY_DRIFT)
+        c = mix(${glColor(DRY_DRIFT_MEAN)}, c, ${f(DRY_DRIFT)});
+        c *= vec3(1.0 + ${f(DRY_GRAIN)} * (n2 - 0.5), 1.0, 1.0 - ${f(DRY_GRAIN)} * (n2 - 0.5));
         // (and its broad shade, over a few tiles, as the game's desert texture varies: DRY_BROAD)
         float b4 = vnoise(g * 0.23 + 131.0);
         c *= (0.97 + 0.16 * (b3 - 0.5) + 0.08 * (n1 - 0.5) + ${f(DRY_BROAD)} * (b4 - 0.5)) * (0.96 + 0.22 * (dry.y - 0.5) + detail * 0.20 * n3);

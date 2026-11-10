@@ -72,6 +72,48 @@ export const DEAD_FORM: Readonly<Record<string, { height: number; wood?: Rgb; le
   Succulent: { height: 0.75, ratio: [0.81, 0.7, 0.74], leaves: [0.248, 0.156, 0.116] },
 };
 
+/** A part of a dead tree's wood: a line of points (x, y, z, radius; radius 0 a point), its sides round and its shade
+ *  ("wood" the tree's dead wood, "dark" a stub a shade darker, "break" pale where a limb broke). */
+export interface DeadLimb {
+  line: readonly (readonly [number, number, number, number])[];
+  sides: number;
+  part: "wood" | "dark" | "break";
+}
+/** A stub of a branch from the trunk's axis at height y out to (x, z) and a little up, `length` long. */
+const stub = (x: number, y: number, z: number): DeadLimb => {
+  const d = Math.hypot(x, z), k = (2 * d - 0.09) / d;
+  return { line: [[0, y, 0, 0.035], [x * k, y + 0.04, z * k, 0]], sides: 4, part: "dark" };
+};
+/** The game's dead trees' wood at its size (its MatureDead models' trunks and limbs, read as slices: each slice's middle
+ *  and its mean distance from it, numbers only), in both looks: the pine a pole 0.12 thick at its foot and 0.06 near its
+ *  top, broken off askew at 2.37, with five stubs; the birch a trunk forking at 0.4 into two limbs that rise near upright,
+ *  0.25 apart, to 1.39; the oak a trunk 0.27 at its flared foot and 0.15 at 1.0, splitting into three limbs broken off
+ *  at 1.33, 0.3 out, a pale broken twig on each to 1.53 (its twig cards, cut by their texture's alpha to a sixth of
+ *  their area). Until 2026-11-10 ours were half as thick, so they covered 0.4 to 0.7 of what the game's do from the
+ *  widest views, and the dead birches' white read faint on the dry ground (fix/dry-widest, docs/progress/3d-view.md). */
+export const DEAD_LIMBS: Readonly<Record<"Pine" | "Birch" | "Oak", readonly DeadLimb[]>> = {
+  Pine: [
+    { line: [[0, 0, 0, 0.12], [0, 0.3, 0, 0.1], [0.01, 2.0, 0, 0.06], [0.08, 2.368, -0.04, 0]], sides: 6, part: "wood" },
+    stub(0.1, 1.06, -0.11),
+    stub(-0.17, 0.6, 0.04),
+    stub(0.13, 0.73, 0.07),
+    stub(-0.09, 0.89, -0.1),
+    stub(-0.02, 1.21, 0.12),
+  ],
+  Birch: [
+    { line: [[0, 0, 0, 0.073], [-0.01, 0.42, 0, 0.05]], sides: 6, part: "wood" },
+    { line: [[-0.01, 0.42, 0, 0.048], [-0.1, 1.0, 0, 0.032], [-0.05, 1.387, 0.01, 0.008]], sides: 5, part: "wood" },
+    { line: [[0, 0.39, 0.02, 0.046], [0.12, 1.0, 0.1, 0.036], [0.13, 1.38, 0.08, 0.01]], sides: 5, part: "wood" },
+  ],
+  Oak: [
+    { line: [[0, 0, 0, 0.27], [0, 0.2, 0, 0.21], [0, 0.97, 0, 0.148]], sides: 6, part: "wood" },
+    ...([[-0.24, 0.14], [0.22, 0.18], [0.04, -0.3]] as const).flatMap(([x, z]): DeadLimb[] => [
+      { line: [[x * 0.25, 0.92, z * 0.25, 0.08], [x, 1.33, z, 0.045]], sides: 5, part: "wood" },
+      { line: [[x, 1.3, z, 0.03], [x * 1.25, 1.533, z * 1.25, 0]], sides: 3, part: "break" },
+    ]),
+  ],
+};
+
 /** A living bark colour of `species` as its dead wood. */
 export function deadWood(species: string, bark: Rgb): [number, number, number] {
   const w = DEAD_FORM[species]?.wood ?? [1, 1, 1];

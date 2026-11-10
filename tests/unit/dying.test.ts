@@ -183,3 +183,32 @@ describe("a dead plant's form, by the game's numbers", () => {
     expect(has("Birch.dead", deadWood("Birch", TREE_COLOURS.birchBark))).toBe(true);
   });
 });
+
+describe("a dead tree at the game's size", () => {
+  // the game's MatureDead models' wood, its surface where their textures' alpha keeps it (trunk, limbs and stubs; the
+  // twig cards, a sixth kept, left out): until 2026-11-10 ours had 0.70 to 0.82 of it, half as thick, and the dead
+  // birches' white read faint from the widest views (fix/dry-widest)
+  const GAME_WOOD = { Pine: 1.29, Birch: 0.571, Oak: 1.646 };
+  const area = (p: ArrayLike<number>) => {
+    let a = 0;
+    for (let v = 0; v + 8 < p.length; v += 9) {
+      const [ux, uy, uz, wx, wy, wz] = [p[v + 3] - p[v], p[v + 4] - p[v + 1], p[v + 5] - p[v + 2], p[v + 6] - p[v], p[v + 7] - p[v + 1], p[v + 8] - p[v + 2]];
+      a += Math.hypot(uy * wz - uz * wy, uz * wx - ux * wz, ux * wy - uy * wx) / 2;
+    }
+    return a;
+  };
+  it("has the game's wood in every look, near and far", () => {
+    for (const species of ["Pine", "Birch", "Oak"] as const) {
+      const standard = area(modelOf(`${species}.dead`).pos);
+      const high = (["near", "far"] as const).map((d) => {
+        const g = model(species, 0, d, "dead");
+        const p = g.getAttribute("position").array as Float32Array;
+        return area(g.index ? Array.from(g.index.array as ArrayLike<number>, (i) => [p[3 * i], p[3 * i + 1], p[3 * i + 2]]).flat() : p);
+      });
+      for (const a of [standard, ...high]) {
+        expect(a / GAME_WOOD[species], species).toBeGreaterThan(0.85);
+        expect(a / GAME_WOOD[species], species).toBeLessThan(1.4);
+      }
+    }
+  });
+});
