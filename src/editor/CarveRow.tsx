@@ -40,7 +40,7 @@ export interface CarveUi {
   riverDepth: number | null;
   /** Banks (item 18): tiles of flat land each side, or null: drawn from the land and the seed. */
   banks: number | null;
-  /** Fall: at least this many levels from its lip to the water below, or null: the land's own edges. */
+  /** Fall: this many levels from its lip to the water below, or null: the land's own edges. */
   fall: number | null;
   /** Sources it reaches: ride with the ground, or cleared (the default). */
   sources: ForceSources;

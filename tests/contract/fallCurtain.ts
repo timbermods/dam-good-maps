@@ -12,6 +12,9 @@ export interface Settled {
   depth: ArrayLike<number>;
   /** The drop the curtain must give (3 on Auto, a set Fall's height). */
   need: number;
+  /** A set Fall's: the drop must be under this, never the land's own taller drop. The curtain judged is then the first
+   *  from the top (the river below may fall again past where the set fall's water lands). */
+  under?: number;
   /** The widest the stream's water on the high ground may run (tiles across); wider is a basin. */
   wide?: number;
 }
@@ -77,12 +80,17 @@ export function curtains(f: Settled): Curtain {
   return { ...judged, id };
   function judge(): Curtain {
   const weight = (g: number[]) => g.reduce((t, i) => t + now[i], 0);
-  const main = groups.reduce((a, b) => (weight(b) > weight(a) ? b : a));
+  const high = (g: number[]) => Math.max(...g.map((i) => f.after[i]));
+  const main =
+    f.under !== undefined && groups.some((g) => g.length >= 3)
+      ? groups.filter((g) => g.length >= 3).reduce((a, b) => (high(b) > high(a) || (high(b) === high(a) && weight(b) > weight(a)) ? b : a))
+      : groups.reduce((a, b) => (weight(b) > weight(a) ? b : a));
   const xs = main.map((i) => i % W), ys = main.map((i) => Math.floor(i / W));
   const lip = Math.max(...main.map((i) => f.after[i]));
   const drop = Math.max(...main.map((i) => now[i]));
   const what = `${main.length} tiles at ${lip} x ${Math.min(...xs)}-${Math.max(...xs)} y ${Math.min(...ys)}-${Math.max(...ys)} drop ${drop.toFixed(1)}`;
   if (drop < f.need) return { ok: false, note: `short: ${what}` };
+  if (f.under !== undefined && drop >= f.under) return { ok: false, note: `taller than set: ${what}` };
   if (main.length < 3) return { ok: false, note: `a sliver: ${what}` };
   // (another curtain within a few tiles of it: dry ground splits the fall)
   const cheb = (i: number, j: number) => Math.max(Math.abs((i % W) - (j % W)), Math.abs(Math.floor(i / W) - Math.floor(j / W)));

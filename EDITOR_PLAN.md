@@ -669,14 +669,18 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   rock knob in it; on Auto the river below runs at the lowest bed it reaches within those ten tiles, so the curtain
   falls whole and faces open ground with no ledge partway down, and the next fall is past them. A gentle Power (one
   that only scratches the land) and a catastrophe (Power 90 and up) make no falls of their own. A set Fall makes the
-  first fall at least that tall in one drop, in the water as the game settles it: the course below is cut down until
-  its water stands that far under the lip (past Canyon depth if it must be, and through the land's own lower edges),
-  and runs on to the stroke's end at any Power; where the land has no such edge the fall is where the ground the stroke
+  first fall that tall in one drop: the ground where its water lands is exactly that far under the lip, and in the water
+  as the game settles it the drop is within half a level of it (the water skims the lip and the landing alike). The
+  course below is cut down to that bed (past Canyon depth if it must be, and through the land's own lower edges) and
+  held there for ten tiles, however hard the Power cuts, then runs on to the stroke's end at any Power; where the land has no such edge the fall is where the ground the stroke
   starts on ends (an edge or the top of a slope), and a stroke whose ground never goes down is refused ("A fall needs
-  high ground to fall from…"). A Fall taller than the land can give from its lip down to a level over the Floor is
-  refused, never cut short ("No drop of 12 here: the land falls at most 10", D342), and so is one whose water below
-  can't leave the map within a level of the bed it is cut to, the stroke ending in a hollow of higher ground ("No drop
-  of 4 here: the stroke ends before the water below can drain; draw it on to lower ground"). Size sets the fall's width
+  high ground to fall from…"). A Fall taller than the land can give from its lip down to the Floor (and at least a
+  level over the map's foot) is refused, never cut short ("No drop of 12 here: the land falls at most 11", D342), and so is one whose water below
+  can't leave the map at the bed it is cut to, the stroke ending in a hollow of higher ground ("No drop of 4 here: the
+  stroke ends before the water below can drain; draw it on to lower ground"), and one shorter than the land already
+  falls where its water lands, or a few tiles on, where ground a fall's height lower would step it, since a carve only
+  cuts ("No drop of 2 here: the land falls at least 3 below the edge"). A bay of lower ground beside the stream that meets the face is cut to the landing with it, so water leaving
+  the stream's side falls the whole height with the curtain; the river's own sources stand back from the brink. Size sets the fall's width
   (on Auto the stream stays a stream; a set Size makes it as wide as the river). Unleash's course takes the land's own falls the same way (`rust/forces`, `carve_falls`, `hold_fall`). **Keep
   river** (default) leaves a source group at the origin (D314, `core/water/sourceGroups.ts`: a row across the heading,
   fewer where cramped) whose total strength follows the river's Width, not its Power; **Dry canyon** leaves none. Space pauses it. An oxbow lake holds its

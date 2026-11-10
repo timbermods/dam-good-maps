@@ -1,8 +1,8 @@
 // A fall from one stroke (showcase craft gaps 1, 2 and 20): a Carve drawn from high ground over its edge, or an
 // Unleash dragged the same way, cuts a stream a level deep on top, two levels into the ground, with a lip one level
-// down at the edge and the drop below it; it never bowls the high ground. With a Fall set, the water below stands at
-// least that far under the lip (the reach below cut down to it), where the land has an edge or only a slope; a stroke
-// with nowhere to fall is refused. Before: the stream cut five levels into the mesa, its banks lowered the tabletop
+// down at the edge and the drop below it; it never bowls the high ground. With a Fall set, the water below stands that
+// far under the lip (the reach below cut down to it and held there), where the land has an edge or only a slope; a
+// stroke with nowhere to fall, or whose land falls farther or less far than the Fall, is refused. Before: the stream cut five levels into the mesa, its banks lowered the tabletop
 // three levels across twenty tiles, and the water ran down a ramp to the floor with no fall.
 
 import { describe, expect, it } from "vitest";
@@ -60,12 +60,15 @@ function bowled(f: Fell, top: number, reach: number): number {
 }
 
 /** One whole curtain at least `need` tall, no pillar splitting it, no ledge, no basin above (fallCurtain.ts): why not. */
-function whole(f: Fell, need: number): string {
-  const v = curtains({ W: f.W, H: f.before.length / f.W, before: f.before, beforeDepth: new Float64Array(f.before.length), after: f.after, depth: f.depth, need });
+function whole(f: Fell, need: number, under?: number): string {
+  const v = curtains({ W: f.W, H: f.before.length / f.W, before: f.before, beforeDepth: new Float64Array(f.before.length), after: f.after, depth: f.depth, need, under });
   return v.ok ? "whole" : v.note;
 }
 
 const Y = 20;
+/** A set Fall's drop in the settled water: within half a level of the height (the ground falls exactly that far; the
+ *  water skims the lip and where it lands alike, a tenth or two deep). */
+const isFall = (drop: number, fall: number) => Math.abs(drop - fall) < 0.5;
 
 describe("a fall from one stroke (showcase craft gaps 1, 2 and 20)", () => {
   it("a Carve drawn off a mesa: a stream a level deep two levels into the top, a lip one level down at the edge, and the water falls below it", () => {
@@ -112,7 +115,7 @@ describe("a fall from one stroke (showcase craft gaps 1, 2 and 20)", () => {
     const a = across(f, Y, 6, 11);
     expect(a.ground).toBe(10);
     expect(a.depth(a.lip)).toBeGreaterThan(0.01);
-    expect(a.surface(a.lip) - a.surface(a.lip + 2)).toBeGreaterThanOrEqual(4);
+    expect(isFall(a.surface(a.lip) - a.surface(a.lip + 2), 4)).toBe(true);
     // the lip: at least three tiles across the stream at its level, the water pouring over each
     const lips = Array.from({ length: 9 }, (_, k) => (Y - 4 + k) * f.W + a.lip).filter((i) => f.after[i] === 10 && f.depth[i] > 0.01 && f.before[i] >= 10);
     expect(lips.length).toBeGreaterThanOrEqual(3);
@@ -134,8 +137,9 @@ describe("a fall from one stroke (showcase craft gaps 1, 2 and 20)", () => {
     const a = across(f, Y, 6, 15);
     expect(a.ground).toBe(14);
     expect(a.depth(a.lip - 3)).toBeGreaterThan(0.6);
-    expect(a.surface(a.lip) - a.surface(a.lip + 2)).toBeGreaterThanOrEqual(8);
-    expect(whole(f, 8)).toBe("whole");
+    const drop = a.surface(a.lip) - a.surface(a.lip + 2);
+    expect(isFall(drop, 8), `drop ${drop}`).toBe(true);
+    expect(whole(f, 7.5, 8.5)).toBe("whole");
   });
 
   it("a set Fall is made at any Power, or refused in one line with the drop the land can give (D342)", () => {
@@ -146,18 +150,43 @@ describe("a fall from one stroke (showcase craft gaps 1, 2 and 20)", () => {
       const gentle = stroke(fallStudy("mesa"), [6, Y], [71, Y], { fall, power });
       if (typeof gentle === "string") throw new Error(gentle);
       const a = across(gentle, Y, 6, 13);
-      expect(a.surface(a.lip) - a.surface(a.lip + 2), `Fall ${fall} at Power ${power}`).toBeGreaterThanOrEqual(fall);
+      const drop = a.surface(a.lip) - a.surface(a.lip + 2);
+      expect(isFall(drop, fall), `Fall ${fall} at Power ${power}: ${drop}`).toBe(true);
     }
     // (a stroke that ends where its water can leave no lower than the plain: it falls the height set)
     const plain = stroke(fallStudy("mesa"), [6, Y], [50, Y], { fall: 4 });
     if (typeof plain === "string") throw new Error(plain);
     const p = across(plain, Y, 6, 13);
-    expect(p.surface(p.lip) - p.surface(p.lip + 2)).toBeGreaterThanOrEqual(4);
+    expect(isFall(p.surface(p.lip) - p.surface(p.lip + 2), 4)).toBe(true);
     // (one that ends in a hollow of higher ground, its water pooling partway up the fall: refused, never cut short)
     for (const end of [34, 40]) expect(stroke(fallStudy("mesa"), [6, Y], [end, Y], { fall: 4 }), `to x ${end}`).toBe("No drop of 4 here: the stroke ends before the water below can drain; draw it on to lower ground");
     // (deeper than the land goes, or than the Floor lets it)
-    expect(stroke(fallStudy("mesa"), [6, Y], [71, Y], { fall: 12 })).toBe("No drop of 12 here: the land falls at most 10");
-    expect(stroke(fallStudy("mesa"), [6, Y], [71, Y], { fall: 8, floor: 6 })).toBe("No drop of 8 here: above the Floor the land falls at most 5");
+    expect(stroke(fallStudy("mesa"), [6, Y], [71, Y], { fall: 12 })).toBe("No drop of 12 here: the land falls at most 11");
+    expect(stroke(fallStudy("mesa"), [6, Y], [71, Y], { fall: 8, floor: 6 })).toBe("No drop of 8 here: above the Floor the land falls at most 6");
+  });
+
+  it("a set Fall is the drop, not a least: the same height at any Power, or refused where the land falls farther (D342)", () => {
+    // (Fall 2 to 8 once all fell the land's own 10 at Power 65 and 10.9 at Power 85: the bed below was capped from
+    // above only, and a strong carve cut it far deeper)
+    for (const fall of [4, 6, 8])
+      for (const power of [40, 65, 85]) {
+        const f = stroke(fallStudy("mesa"), [6, Y], [71, Y], { fall, power });
+        if (typeof f === "string") throw new Error(f);
+        const a = across(f, Y, 6, 13);
+        const drop = a.surface(a.lip) - a.surface(a.lip + 2);
+        expect(isFall(drop, fall), `Fall ${fall} at Power ${power}: ${drop}`).toBe(true);
+        // (and the ground: the lip, then where the water lands, exactly that far down)
+        expect(a.ground - a.below, `Fall ${fall} at Power ${power}`).toBe(fall);
+        expect(whole(f, fall - 0.5, fall + 0.5), `Fall ${fall} at Power ${power}`).toBe("whole");
+      }
+    // (a mesa whose foot is nine levels under its lip: the carve cuts, never fills, so Fall 4 can't be had there)
+    const tall = fallStudy("mesa");
+    for (let i = 0; i < tall.heights.length; i++) if (i % tall.W >= 30) tall.heights[i] -= 6;
+    expect(stroke(tall, [6, Y], [71, Y], { fall: 4 })).toBe("No drop of 4 here: the land falls at least 9 below the edge");
+    const nine = stroke(tall, [6, Y], [71, Y], { fall: 9 });
+    if (typeof nine === "string") throw new Error(nine);
+    const e = across(nine, Y, 6, 13);
+    expect(isFall(e.surface(e.lip) - e.surface(e.lip + 2), 9)).toBe(true);
   });
 
   it("a course down a gentle valley keeps its own carve: no slot cut level into it, and Walls still widen it", () => {
