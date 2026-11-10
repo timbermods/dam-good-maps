@@ -5,7 +5,7 @@
 //
 //   npx tsx tools/capture-objects.ts --label before|after [--only mine-close,ruins-low]
 //   npx tsx tools/capture-objects.ts --compose [--out docs/look/mine-ruins]
-//   npx tsx tools/capture-objects.ts --bench --label before|after [--seconds 8] [--look high]
+//   npx tsx tools/capture-objects.ts --bench --label before|after [--seconds 8] [--look high] [--close 30]
 //
 // The before run is made on the code before the change (the branch's base), the after run on the
 // branch; the after run takes every camera from the before run's record, so the two match exactly.
@@ -48,6 +48,8 @@ const OUT = arg("out") ?? "docs/look/mine-ruins";
 /** The look drawn (`--look high`; Standard by default, as these rounds were Standard's). */
 const LOOK = arg("look") === "high" ? "high" : "standard";
 const SECONDS = Number(arg("seconds") ?? 8);
+/** `--bench`'s near view: the ruin field from this far (`--close 30`, the editor's usual zoom; 60 by default). */
+const CLOSE = Number(arg("close") ?? 60);
 const RAW = ".scratch/objects";
 const PORT = Number(arg("port") ?? 4193);
 const DIST = ".scratch/capture-objects-dist";
@@ -584,7 +586,7 @@ async function bench(): Promise<void> {
     const runs: Record<string, unknown> = {};
     for (const [name, view] of [
       ["whole map, default camera", poses.find((p) => p.id === "overview")!.view],
-      ["ruin field, 60 away", { ...poses.find((p) => p.id === "ruins-close")!.view, distance: 60 }],
+      [`ruin field, ${CLOSE} away`, { ...poses.find((p) => p.id === "ruins-close")!.view, distance: CLOSE }],
     ] as const) {
       await page.evaluate((v) => {
         const r = window.dgm3d!.renderer as unknown as { setView(v: unknown): void; setClock(t: number | null): void };

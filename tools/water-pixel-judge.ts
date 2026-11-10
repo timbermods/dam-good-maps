@@ -896,6 +896,9 @@ async function openSite(browser: Browser, port: number, formula: boolean | null,
   await page.keyboard.press("Escape");
   await page.waitForTimeout(2500);
   await page.evaluate("window.dgmEditor.idle()");
+  // (the patterns made once a page: the water's, the still detail and the cliffs' normal map; a tree without the call
+  // has none to wait for)
+  await page.evaluate("window.dgm3d.renderer.patternsMade?.()");
   // the canvas the shot's size, alone
   await page.addStyleTag({ content: `.view3d { position: fixed !important; left: 0 !important; top: 0 !important; width: ${W_PX}px !important; height: ${H_PX}px !important; z-index: 2147483647 !important; } .view3d > :not(canvas) { visibility: hidden !important; } .view3d > canvas { width: ${W_PX}px !important; height: ${H_PX}px !important; }` });
   await page.evaluate("window.dispatchEvent(new Event('resize'))");

@@ -72,6 +72,7 @@ import { ALTITUDE_RAMP, BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUT
 import { GAME_BADWATER, GAME_WATER_SOURCE, WATER_GLSL, WATER_LIGHT, WATER_SHARE_BLEND, WATER_UI } from "./waterPalette";
 import { BADWATER_TEXTURE_SIZE, DETAIL_FLAT, GAME_SOURCE_SHAPE, WATER_ALBEDO, WATER_FLOW_GLSL, WATER_TEXTURE_SIZE } from "./waterTextures";
 import { GAME_SOIL_TEXTURE, SOIL_TEXTURE_SIZE } from "./soilTexture";
+import { cliffByte, GAME_CLIFF_NORMAL } from "./cliffNormal";
 import { SHORE_FILM, SHORE_FILM_TERRAIN_GLSL, SHORE_FILM_VERTEX_GLSL } from "./shoreFilm";
 import { EDGE_BAND, SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
 import { LIGHT_LEVELS, SUN_MARCH_STEP, SUN_MARCH_STEPS, type CaveLight } from "./caveLight";
@@ -165,6 +166,9 @@ export interface SceneUniforms extends RefractionUniforms {
   /** Contaminated ground's pattern (soilTexture.ts: RGB its colour, A its cover), shared by the page
    *  (`soilPatternTexture`). */
   soilTex: { value: DataTexture };
+  /** The cliffs' normal map (cliffNormal.ts, the game's `Cliff_N`: RG its slopes), shared by the page
+   *  (`cliffNormalTexture`). */
+  cliffNormalTex: { value: DataTexture };
   /** The light under roofs (caveLight.ts): RG a cell, the sky and the sun, and its size in cells
    *  (0, 0, 0 on a map with no air under a roof: the baked light everywhere). */
   caveTex: { value: Data3DTexture };
@@ -229,6 +233,7 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     badwaterTex: { value: badwaterPatternTexture() },
     detailTex: { value: detailTexture() },
     soilTex: { value: soilPatternTexture() },
+    cliffNormalTex: { value: cliffNormalTexture() },
     caveTex: { value: noCave },
     caveSize: { value: new Vector3(0, 0, 0) },
     caveTop: { value: 0 },
@@ -387,7 +392,9 @@ export function soilPatternTexture(): DataTexture {
 let detailTex: DataTexture | null = null;
 /** The still detail albedo (waterTextures.ts `makeDetailField`, Q9 P6), one for the page, one byte a texel: a single
  *  texel at its mean until the textures' worker has made it (`fillDetailTexture`), then `DETAIL_TEXTURE_SIZE` square,
- *  31 texels a tile as the game's. Repeating, mipmapped and filtered at a slant, as the game samples its own. */
+ *  31 texels a tile as the game's. Sampled as the game samples its own (its inline sampler, state 0x1: bilinear,
+ *  repeating, no anisotropy), but trilinear, so no seam shows where one mip gives way to the next (the mean the same),
+ *  as badwater's pattern. */
 export function detailTexture(): DataTexture {
   if (detailTex) return detailTex;
   const t = new DataTexture(new Uint8Array([DETAIL_FLAT]), 1, 1, RedFormat, UnsignedByteType);
@@ -395,10 +402,39 @@ export function detailTexture(): DataTexture {
   t.magFilter = LinearFilter;
   t.minFilter = LinearMipmapLinearFilter;
   t.generateMipmaps = true;
-  t.anisotropy = 8;
+  t.anisotropy = 1;
   t.unpackAlignment = 1;
   t.needsUpdate = true;
   return (detailTex = t);
+}
+
+let cliffTex: DataTexture | null = null;
+/** The cliffs' normal map (cliffNormal.ts `makeCliffNormal`, the game's `Cliff_N`), one for the page, two bytes a texel:
+ *  a single texel at its mean tilt until the textures' worker has made it (`fillCliffNormal`), then `CLIFF_NORMAL_SIZE`
+ *  square over its 8-tile repeat. Repeating, mipmapped and filtered at a slant of 16, as the game samples its own (its
+ *  texture's settings: trilinear, anisotropy 16, no mip bias). */
+export function cliffNormalTexture(): DataTexture {
+  if (cliffTex) return cliffTex;
+  const t = new DataTexture(new Uint8Array([cliffByte(GAME_CLIFF_NORMAL.mean[0]), cliffByte(GAME_CLIFF_NORMAL.mean[1])]), 1, 1, RGFormat, UnsignedByteType);
+  t.wrapS = t.wrapT = RepeatWrapping;
+  t.magFilter = LinearFilter;
+  t.minFilter = LinearMipmapLinearFilter;
+  t.generateMipmaps = true;
+  t.anisotropy = 16;
+  t.unpackAlignment = 2;
+  t.needsUpdate = true;
+  return (cliffTex = t);
+}
+
+/** The cliffs' normal map (bake.ts "cliffNormal", `size` square) into the page's texture, which grows from its one flat
+ *  texel to it (its GPU copy made again). */
+export function fillCliffNormal(data: Uint8Array, size: number): void {
+  const t = cliffNormalTexture();
+  if (t.image.width !== size) {
+    t.image = { data, width: size, height: size };
+    t.dispose();
+  } else (t.image.data as Uint8Array).set(data);
+  t.needsUpdate = true;
 }
 
 /** The still detail albedo (bake.ts "detailTexture", `size` square) into the page's texture, which grows from its one
@@ -1642,6 +1678,28 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         c = mix(c, soilPattern.rgb, vein * (1.0 - bed));
 ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.9 + 0.15 * n2), bed);
       }
+      #if !LITE
+        uniform sampler2D cliffNormalTex;
+        /** A wall's or a ceiling's normal as the game's cliffs light it (TerrainURP's Cliff variant, D497): its triplanar
+         *  \`Cliff_N\` (ours, cliffNormal.ts) at world × \`_Normal_Triplanar_Tile\`, Shader Graph's whiteout blend by |n| /
+         *  Σ|n|, which on a face square to an axis is that axis's projection alone; worked in the game's world (its z
+         *  ours negated), the slopes read × 2 − 1 and their z from them, as its program reads them. Sampled with the
+         *  gradients \`w\` takes outside any branch (\`wx\`, \`wy\`), as a wall's pixels are drawn in one. */
+        vec3 cliffNormal(vec3 n, vec3 w, vec3 wx, vec3 wy) {
+          vec3 gn = vec3(n.x, n.y, -n.z);
+          vec3 a = abs(gn);
+          bool onX = a.x > 0.5;
+          bool onZ = !onX && a.z > 0.5;
+          vec2 uv = onX ? w.zy : onZ ? w.xy : w.xz;
+          vec2 ux = onX ? wx.zy : onZ ? wx.xy : wx.xz;
+          vec2 uy = onX ? wy.zy : onZ ? wy.xy : wy.xz;
+          vec2 t = textureGrad(cliffNormalTex, uv, ux, uy).rg * 2.0 - 1.0;
+          float tz = sqrt(max(1.0 - min(dot(t, t), 1.0), 0.0));
+          vec3 b = onX ? vec3(gn.x * tz, t.y + gn.y, t.x + gn.z) : onZ ? vec3(t.x + gn.x, t.y + gn.y, gn.z * tz) : vec3(t.x + gn.x, gn.y * tz, t.y + gn.z);
+          b = normalize(b);
+          return vec3(b.x, b.y, -b.z);
+        }
+      #endif
       void main() {
         ${SUN_PX_GLSL}
         vec3 n = normalize(vNormal);
@@ -1662,6 +1720,14 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
         float capPx = max(fwidth(capU), 0.0001);
         vec3 c;
         vec3 light;
+        // (the normal the light takes: a face's own, a wall's and a ceiling's through the cliffs' normal map, its
+        // coordinate and how far it moves a pixel taken outside any branch)
+        vec3 ln = n;
+        #if !LITE
+          vec3 cliffW = vec3(vWorld.x, vWorld.y, -vWorld.z) * ${f(GAME_CLIFF_NORMAL.tiling)};
+          vec3 cliffWx = dFdx(cliffW);
+          vec3 cliffWy = dFdy(cliffW);
+        #endif
         float sunHere = 0.0;
         // (Markers' ledge and groove on a wall, an editing aid: put on after the grade)
         float ledge = 0.0;
@@ -1899,21 +1965,24 @@ ${hook(h, "wall")}          float py = fwidth(y);
               }
             }
           #endif
-          if (ceiling) light = gameLight(n, 0.0);
+          #if !LITE
+            ln = cliffNormal(n, cliffW, cliffWx, cliffWy);
+          #endif
+          if (ceiling) light = gameLight(ln, 0.0);
           else {
             sunHere = sunLit(g + out2 * 0.26, y);
-            light = gameLight(n, sunHere);
+            light = gameLight(ln, sunHere);
           }
         }
         // a face whose air is under a roof (a cave's floor, walls and ceiling, under an overhang or
         // an arch) takes that air's own light, not its tile top's
         vec3 cave = caveAt(vWorld, n);
-        if (cave.z > 0.5) light = caveLightOf(n, cave, sunHere);
+        if (cave.z > 0.5) light = caveLightOf(ln, cave, sunHere);
         vec3 albedo = c;
         c *= light;
         // (the light look, drawn in software, leaves out the specular: a few hundredths of the light, a third of its frame)
         #if LITE == 0
-        c += gameSpecular(n, albedo, n.y > 0.5 ? 0.0 : 0.05);
+        c += gameSpecular(ln, albedo, n.y > 0.5 ? 0.0 : 0.05);
         #endif
 ${hook(h, "lit")}
         // the slice's cut (D207): the tops of columns taller than the layer (with terrain above terrain, only the cap

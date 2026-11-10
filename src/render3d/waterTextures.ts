@@ -888,7 +888,7 @@ const PHASES = 4096;
  *  rows two at a time (one the real part of a transform, the other its imaginary). Row-major. With `axis` (0 x, 1 y),
  *  that field's slope along the axis instead: the gradient of a height whose slopes carry `power` by band, the two axes
  *  of one seed the two slopes of one surface. */
-function realSpectralField(size: number, repeat: number, bands: readonly number[], power: readonly number[], s: number, axis?: 0 | 1): Float64Array {
+export function realSpectralField(size: number, repeat: number, bands: readonly number[], power: readonly number[], s: number, axis?: 0 | 1): Float64Array {
   const N = size;
   const half = N / 2;
   // (each band by the squared frequency, cycles a repeat: a table of every k² the plane holds)

@@ -77,7 +77,7 @@ import { whenIdle } from "./idle";
 import { casterLevelsOf, castersChangedRects, DEFAULT_SUN, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, sunOfYaw, sunVector, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type Sun, type TileSpan } from "./light";
 import { CaveLight } from "./caveLight";
 import { casterPlaces, FADE_COVERAGE, FADE_DITHER, FADE_OFF, markEditingAid, OBJECT_FADE_EDGE, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
-import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fillAlbedoTexture, fillDetailTexture, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fillAlbedoTexture, fillCliffNormal, fillDetailTexture, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
 import { AID_LAYER, onAidLayer } from "./aidLayer";
 import { GameBloom, GAME_BLOOM_LOOKS, LAVA_BLOOM_ENDS } from "./bloom";
@@ -334,6 +334,22 @@ function albedoTextureMade(): Promise<void> {
     },
     (e: unknown) => {
       albedoMade = null;
+      throw e;
+    },
+  ));
+}
+
+let cliffMade: Promise<void> | null = null;
+/** The cliffs' normal map (cliffNormal.ts, the game's `Cliff_N`; Standard and High, the light look draws flat walls),
+ *  made once a page in the textures' own worker after the still detail albedo (about 0.2 s), and written into the page's
+ *  texture (materials.ts `fillCliffNormal`), flat at its mean until then. */
+function cliffNormalMade(): Promise<void> {
+  return (cliffMade ??= textureBake({ kind: "cliffNormal" }).then(
+    (r) => {
+      if (r.kind === "cliffNormal") fillCliffNormal(r.data, r.size);
+    },
+    (e: unknown) => {
+      cliffMade = null;
       throw e;
     },
   ));
@@ -4082,15 +4098,16 @@ export class MapRenderer {
     this.requestRender();
   }
 
-  /** Settles once the water's surface, badwater's pattern, contaminated ground's pattern and the still detail albedo
-   *  are made (they are flat at their means until then; the light look makes and reads only the still detail albedo
+  /** Settles once the water's surface, badwater's pattern, contaminated ground's pattern, the still detail albedo and
+   *  the cliffs' normal map are made (they are flat at their means until then; the light look makes and reads only the still detail albedo
    *  and the sources' pattern). For tests and pictures that read the patterns. */
   patternsMade(): Promise<void> {
     if (this.software) return detailTextureMade(true);
     // (the surface's job first: the water's own patterns land as soon as before, the detail after them)
     const surface = waterSurfaceMade();
     const detail = detailTextureMade(false);
-    return Promise.all([surface, detail, albedoTextureMade()]).then(() => undefined);
+    const cliff = cliffNormalMade();
+    return Promise.all([surface, detail, cliff, albedoTextureMade()]).then(() => undefined);
   }
 
   /** The sun for the camera as it stands, baked here at once (a picture, drawn in one frame). */
