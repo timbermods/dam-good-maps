@@ -50,6 +50,13 @@ pub(super) fn lumps(seed: f64, salt: u32, x: f64, y: f64, scale: f64) -> f64 {
 
 /// The land a force's surface gives (see the top of this file).
 pub(super) fn whole(surface: &[f64], before: &[u8], w: usize, h: usize, ceiling: f64, seed: f64, grain: f64) -> Vec<u8> {
+    part(surface, before, w, h, (0, 0), ceiling, seed, grain)
+}
+
+/// The same for a part of the map, `w` by `h` tiles from `origin` (a force that changes its surface in one
+/// place works that place out again, with a few tiles round it, and keeps the rest: the drift is the
+/// map's, so the part's steps fall where the whole map's do).
+pub(super) fn part(surface: &[f64], before: &[u8], w: usize, h: usize, origin: (usize, usize), ceiling: f64, seed: f64, grain: f64) -> Vec<u8> {
     let mut land = before.to_vec();
     let mut changed = vec![false; w * h];
     for y in 0..h {
@@ -74,7 +81,7 @@ pub(super) fn whole(surface: &[f64], before: &[u8], w: usize, h: usize, ceiling:
                 min((at(0, 1) - here).abs(), (here - at(0, -1)).abs()),
             );
             // (a surface on a whole level stays there: the drift moves steps, never floors)
-            let drift = (0.7 + 1.3 * smooth(slope / 0.12)) * (lumps(seed, 3320, x as f64, y as f64, grain) - 0.5);
+            let drift = (0.7 + 1.3 * smooth(slope / 0.12)) * (lumps(seed, 3320, (x + origin.0) as f64, (y + origin.1) as f64, grain) - 0.5);
             let target = here + drift;
             land[i] = clamp(round(round(target * 4096.0) / 4096.0), 0.0, min(255.0, ceiling)) as u8;
             changed[i] = land[i] != before[i];
@@ -118,12 +125,14 @@ fn nubs(land: &mut [u8], w: usize, h: usize, free: &[bool]) {
         };
         (at(-1, 0) && at(0, -1) && at(-1, -1)) || (at(1, 0) && at(0, -1) && at(1, -1)) || (at(-1, 0) && at(0, 1) && at(-1, 1)) || (at(1, 0) && at(0, 1) && at(1, 1))
     };
+    let mut odd: Vec<u32> = (0..w * h).filter(|&i| free[i] && !in_square(land, i % w, i / w)).map(|i| i as u32).collect();
     for _ in 0..6 {
         let mut moved = false;
-        for y in 0..h {
-            for x in 0..w {
-                let i = y * w + x;
-                if !free[i] || in_square(land, x, y) {
+        {
+            for &i in &odd {
+                let i = i as usize;
+                let (x, y) = (i % w, i / w);
+                if in_square(land, x, y) {
                     continue;
                 }
                 let own = land[i];
@@ -168,6 +177,8 @@ fn nubs(land: &mut [u8], w: usize, h: usize, free: &[bool]) {
         if !moved {
             break;
         }
+        // (a tile that moved can leave the ones beside it odd)
+        odd = (0..w * h).filter(|&i| free[i] && !in_square(land, i % w, i / w)).map(|i| i as u32).collect();
     }
 }
 

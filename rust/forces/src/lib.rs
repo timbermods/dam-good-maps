@@ -2321,6 +2321,9 @@ struct Crater {
     swell: (f64, f64),
     /// The floor's depth below the crater's ground, in whole levels.
     deep: f64,
+    /// (what depends on the bearing alone, worked out once per bearing: the rim's height, how far it
+    /// falls away, the debris's tongue and the rim's dip)
+    bearings: Vec<(f64, f64, f64, f64)>,
 }
 /// Value noise round a circle, 0–1: `cells` points, each its own hash, eased between.
 fn ring(seed: f64, salt: f64, theta: f64, cells: i64) -> f64 {
@@ -2610,7 +2613,15 @@ impl Crater {
             lumps: vec![],
             swell: (0.0, 0.0),
             deep,
+            bearings: vec![],
         };
+        let count = clamp((PI * 2.0 * 1.5 * max(a, b) * 2.0).ceil(), 64.0, 2048.0) as usize;
+        c.bearings = (0..count)
+            .map(|k| {
+                let theta = ((k as f64 + 0.5) / count as f64 - 0.5) * PI * 2.0;
+                (c.rim_at(theta), 0.23 * (0.6 + 0.9 * ring(seed, 1900.0, theta, 6)), ring(seed, 1990.0, theta, 7), c.dip(theta))
+            })
+            .collect();
         // Blocks slumped against a terraced wall, where the crater has room for them: ovals lying
         // along the wall, each turned a little its own way and at its own level, with gaps between
         // (there the wall stands whole), higher ones at the wall and lower ones further in. A bench is
@@ -2664,7 +2675,7 @@ impl Crater {
         // one side.
         if c.centre == "peak" && radius >= 8.0 {
             // (broad enough for its height: a mountain, never a tower)
-            let main = max(max(2.6, (deep + 3.0) / 1.45), radius * (0.26 + 0.05 * rnd(2301.0)));
+            let main = max(max(2.6, (deep + 3.5) / 1.35), radius * (0.26 + 0.05 * rnd(2301.0)));
             let (t0, off) = (rnd(2302.0) * PI * 2.0, radius * 0.08 * rnd(2303.0));
             let (mx, my) = (off * cos(t0), off * sin(t0));
             let axis = rnd(2304.0) * PI;
@@ -2852,25 +2863,27 @@ impl Crater {
     /// in broad tongues; both low on the rim's low side.
     fn apron(&self, e: f64, theta: f64, x: f64, y: f64) -> f64 {
         let r = 1.0 + max(0.0, e) / self.radius;
-        let crest = self.rim_at(theta) * (0.8 + 0.4 * lumps(self.seed, 1950, x, y, max(8.0, self.radius * 0.5)));
-        let fall = 0.23
-            * (0.6 + 0.9 * ring(self.seed, 1900.0, theta, 6))
-            * (0.8 + 0.4 * lumps(self.seed, 1960, x, y, max(8.0, self.radius * 0.4)));
-        let past = max(0.0, r - 1.0 - (2.3 + 1.8 * lumps(self.seed, 1970, x, y, max(8.0, self.radius * 0.4))) / self.radius);
-        let rim = crest * max(0.0, 1.0 - past / fall);
+        let count = self.bearings.len();
+        let (crest, fall, tongue, dip) = self.bearings[clamp(((theta / (PI * 2.0) + 0.5) * count as f64).floor(), 0.0, count as f64 - 1.0) as usize];
+        // (the rim, as far out as it can reach on this bearing)
+        let mut rim = 0.0;
+        if r - 1.0 - 4.1 / self.radius < fall * 1.2 {
+            let fall = fall * (0.8 + 0.4 * lumps(self.seed, 1960, x, y, max(8.0, self.radius * 0.4)));
+            let past = max(0.0, r - 1.0 - (2.3 + 1.8 * lumps(self.seed, 1970, x, y, max(8.0, self.radius * 0.4))) / self.radius);
+            rim = crest * (0.8 + 0.4 * lumps(self.seed, 1950, x, y, max(8.0, self.radius * 0.5))) * max(0.0, 1.0 - past / fall);
+        }
         // (the debris in tongues: far and thick on some bearings, short on others)
-        let tongue = ring(self.seed, 1990.0, theta, 7);
         let reach = if self.heavy { 1.6 + 1.4 * tongue } else { 1.2 + 0.4 * tongue };
         if r >= reach {
             return rim;
         }
-        let down = (1.0 + cos(theta)) * 0.5;
+        let thrown = if self.glance != 0.0 { 1.0 + self.glance * ((1.0 + cos(theta)) * 0.5 * 1.65 - 0.65) } else { 1.0 };
         let skirt = (if self.heavy { min(2.1 + self.depth * 0.36, 0.3 + self.depth * 0.72) } else { 0.9 })
             * exp(-(r - 1.0) * if self.heavy { 2.15 / (0.55 + 0.9 * tongue) } else { 7.0 })
             * smooth((reach - r) / 0.4)
-            * (1.0 + self.glance * (down * 1.65 - 0.65))
+            * thrown
             * (0.7 + 0.6 * lumps(self.seed, 1980, x, y, max(10.0, self.radius * 0.6)))
-            * (1.0 - 0.8 * self.dip(theta));
+            * (1.0 - 0.8 * dip);
         max(rim, skirt)
     }
     /// What the crater does at a tile.
@@ -2883,13 +2896,12 @@ impl Crater {
         let (qx, qy) = self.frame(x, y);
         let e = self.edge(qx, qy);
         let r = 1.0 + e / self.radius;
-        let theta = atan2(qy, qx);
         let tile = clamp(round(y), 0.0, self.h - 1.0) as usize * m.w + clamp(round(x), 0.0, self.w - 1.0) as usize;
         // (the land gives way to the crater's own ground inside the bowl; land that lies lower gives
         // way out past the rim too, so the rim stands whole, two tiles wide, beside a canyon or a lake and
         // holds its bowl)
         let mut plane = if (m.heights[tile] as f64) < self.ground(x, y) { 1.0 - smooth((r - 1.0 - 2.6 / self.radius) / 0.25) } else { 1.0 - smooth((r - 0.8) / 0.2) };
-        let mut add = self.apron(e, theta, x, y);
+        let add;
         let mut lift = 0.0;
         if r < 1.35 {
             let cavity = self.cavity(qx, qy, x, y);
@@ -2899,10 +2911,13 @@ impl Crater {
             plane *= 1.0 - smooth((fall + min(cavity, 0.0) - 0.5) / 2.0);
             // (the land above the crater's own ground, where the land still shows)
             let over = (m.heights[tile] as f64 - self.ground(x, y)) * (1.0 - plane);
-            add = min(add, cavity - over);
+            // (inside the bowl, on the crater's own ground, the rim and the debris stand above its surface)
+            add = if over == 0.0 && cavity <= 0.0 { cavity } else { min(self.apron(e, atan2(qy, qx), x, y), cavity - over) };
             if r < 1.0 {
                 lift = self.uplift(qx, qy, x, y);
             }
+        } else {
+            add = self.apron(e, atan2(qy, qx), x, y);
         }
         Plate { r, plane, add, lift }
     }
@@ -3096,11 +3111,37 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
         let clear = lake + 2.4;
         let aim = if k < 1.0 && clear > h { h + (clear - h) / k } else { clear };
         let mut height = max(a.depth * 0.6, aim - shape(top.0, &top.1, 0.0)) / top.1.lift;
+        // (only the uplift's own part of the map is worked out again, with a margin round it)
+        let (mut x0, mut x1, mut y0, mut y1) = (m.w, 0, m.h, 0);
+        for (i, _) in &lifted {
+            let (x, y) = (i % m.w, i / m.w);
+            (x0, x1, y0, y1) = (x0.min(x), x1.max(x), y0.min(y), y1.max(y));
+        }
+        let (x0, x1, y0, y1) = (x0.saturating_sub(8), (x1 + 8).min(m.w - 1), y0.saturating_sub(8), (y1 + 8).min(m.h - 1));
+        let (pw, ph) = (x1 - x0 + 1, y1 - y0 + 1);
+        let cut = |from: &[u8]| -> Vec<u8> { (0..pw * ph).map(|k| from[(y0 + k / pw) * m.w + x0 + k % pw]).collect() };
+        // (its outer tiles stay as the whole map made them: ground the part leaves alone, so what it
+        // makes inside them fits them)
+        let fixed = |k: usize| {
+            let (x, y) = (k % pw, k / pw);
+            (x < 3 && x0 > 0) || (y < 3 && y0 > 0) || (x + 3 >= pw && x1 < m.w - 1) || (y + 3 >= ph && y1 < m.h - 1)
+        };
+        let (mut old, was) = (cut(&before.heights), cut(&m.heights));
+        let mut own: Vec<f64> = (0..pw * ph).map(|k| surface[(y0 + k / pw) * m.w + x0 + k % pw]).collect();
+        for k in 0..pw * ph {
+            if fixed(k) {
+                old[k] = was[k];
+                own[k] = f64::NAN;
+            }
+        }
         for _ in 0..4 {
             for (i, p) in &lifted {
-                surface[*i] = tempered(before.heights[*i] as f64, shape(*i, p, height), k);
+                own[(i / m.w - y0) * pw + i % m.w - x0] = tempered(before.heights[*i] as f64, shape(*i, p, height), k);
             }
-            m.heights = levels::whole(&surface, &before.heights, m.w, m.h, ceiling, a.seed, grain);
+            let land = levels::part(&own, &old, pw, ph, (x0, y0), ceiling, a.seed, grain);
+            for k in 0..pw * ph {
+                m.heights[(y0 + k / pw) * m.w + x0 + k % pw] = land[k];
+            }
             // (the steps' wander or the tidying can take a level off a small top: then it stands a level higher)
             if lifted.iter().any(|(i, _)| m.heights[*i] as f64 >= min(lake + 2.0, ceiling)) {
                 break;
