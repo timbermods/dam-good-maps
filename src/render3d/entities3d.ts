@@ -32,7 +32,8 @@
 //   roots, rubble, cracks; rusty posts down into the pit round its lip, joined by beams, and ground in the
 //   pit's corners falling into it as an earthen bank; no scaffolding, as the game has none. With Markers, an outline
 //   round its footprint (the terrain shader). Geothermal fields: dark rock with glowing
-//   vents. Relics: broken stone columns on a plinth. Thorns: dark brambles. Blockages: the game's heap
+//   vents. Relics: the game's fallen telescope (small), crashed satellite (medium) and fallen dish antenna (large), at
+//   their measures and in their colours (smallRelics.ts, largeRelic.ts). Thorns: dark brambles. Blockages: the game's heap
 //   of grey rock with broken posts and pale plank shards (blockage.ts). Natural dams: heaps of stones. Timberborn 1.x objects, each shaped after the game's own render and in its game
 //   footprint: seeps (a stone slab at the ground round a pit, the terrain's tops over its 2 × 2
 //   cut out like a mine site's, heaped with rounded rocks to 0.57, or 0.40 for badwater, the gaps dark teal or
@@ -57,10 +58,11 @@ import { FOOTPRINTS, rotate, startEntranceTile, worldBlocks, type Orientation } 
 import { DEAD, DYING, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
 import { plantScale, RANDOMIZER } from "./plantSize";
 import { DEAD_FORM, DEAD_LIMBS, type DeadPart, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
-import { crownShade, GEOTHERMAL, GEOTHERMAL_ROCK, LANDMARK, MINE, OWN_LIGHTNESS, ownAlbedo, RELIC_STONE, RUIN, SLOPE, START, THORNS, TREE_COLOURS, WATER } from "./palette";
+import { crownShade, GEOTHERMAL, GEOTHERMAL_ROCK, LANDMARK, MINE, OWN_LIGHTNESS, ownAlbedo, RUIN, SLOPE, START, THORNS, TREE_COLOURS, WATER } from "./palette";
 import { objectSoilAt } from "./runSoil";
 import { blockageParts } from "./blockage";
 import { largeRelicParts } from "./largeRelic";
+import { mediumRelicParts, smallRelicParts } from "./smallRelics";
 import { LAND, LAND_GROW } from "./objectFade";
 
 type Rgb = readonly [number, number, number];
@@ -443,8 +445,9 @@ const MODELS: Record<string, () => Model> = {
     }
     return m;
   },
-  SmallRelic: () => relic(2, 1, [[-0.5, 0, 0.9], [0.5, 0, 0.45]], []),
-  MediumRelic: () => relic(3, 2, [[-1, -0.5, 1.2], [0, -0.5, 0.5], [1, -0.5, 0.95], [-1, 0.5, 0.35], [1, 0.5, 1.4]], [[0.1, 0.45, 1.0]]),
+  // (the game's fallen telescope and crashed satellite, at their measures and in their colours: smallRelics.ts)
+  SmallRelic: () => fromParts(smallRelicParts()),
+  MediumRelic: () => fromParts(mediumRelicParts()),
   // (the game's fallen dish antenna, at its measures and in its colours: largeRelic.ts)
   LargeRelic: () => {
     const m = new Model();
@@ -473,10 +476,10 @@ const MODELS: Record<string, () => Model> = {
   ReserveWarehouse: reserveWarehouse,
   ReserveTank: reserveTank,
 };
-/** The models in the game's own colours, its albedo straight (palette.ts `TREE_COLOURS`, `LANDMARK`, `LARGE_RELIC`, `BLOCKAGE`; the
+/** The models in the game's own colours, its albedo straight (palette.ts `TREE_COLOURS`, `LANDMARK`, `SMALL_RELIC`, `MEDIUM_RELIC`, `LARGE_RELIC`, `BLOCKAGE`; the
  *  ruins and the start are made apart). Every other model's colours are our own, drawn at `ownAlbedo` (palette.ts
  *  `OWN_LIGHTNESS`). */
-const GAME_COLOURED = new Set(["Pine", "Birch", "Oak", "BlueberryBush", "WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep", "LargeRelic", "Blockage"]);
+const GAME_COLOURED = new Set(["Pine", "Birch", "Oak", "BlueberryBush", "WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep", "SmallRelic", "MediumRelic", "LargeRelic", "Blockage"]);
 for (const key of Object.keys(MODELS))
   if (!GAME_COLOURED.has(key.split(".")[0])) {
     const make = MODELS[key];
@@ -1032,20 +1035,10 @@ export function mineOutline(v: EntityView, W: number, H: number, into?: Uint8Arr
 /** A vent's glow: brighter than any lit colour, so it shines in shade too. */
 const GLOW: Rgb = [GEOTHERMAL[0] * 1.3, GEOTHERMAL[1] * 1.3, GEOTHERMAL[2] * 1.3];
 
-/** A small or medium relic over its sx × sy footprint (centred on it): a worn plinth, broken columns [x, z, height] and
- *  fallen drums [x, z, turn] (ours; the large relic is the game's, largeRelic.ts). */
-function relic(sx: number, sy: number, columns: [number, number, number][], fallen: [number, number, number][]): Model {
-  const m = new Model().add(box(sx - 0.1, 0.16, sy - 0.1), [RELIC_STONE[0] * 0.8, RELIC_STONE[1] * 0.8, RELIC_STONE[2] * 0.8], { y: 0.08 });
-  const base = 0.16;
-  const inset = 0.8;
-  for (const [x, z, h] of columns) {
-    const px = x * inset;
-    const pz = z * inset;
-    m.add(cyl(0.2, 0.17, h, 6), RELIC_STONE, { x: px, y: base + h / 2, z: pz });
-    // a broken top, tilted
-    m.add(cyl(0.18, 0.14, 0.12, 6), [RELIC_STONE[0] * 1.08, RELIC_STONE[1] * 1.08, RELIC_STONE[2] * 1.08], { x: px + 0.02, y: base + h + 0.04, z: pz, rz: 0.35 });
-  }
-  for (const [x, z, turn] of fallen) m.add(cyl(0.17, 0.17, 0.7, 6), [RELIC_STONE[0] * 0.92, RELIC_STONE[1] * 0.92, RELIC_STONE[2] * 0.92], { rz: Math.PI / 2, ry: turn, x, y: base + 0.17, z });
+/** A model of triangles by colour (our own models of the game's, built as parts). */
+function fromParts(parts: readonly { points: number[]; colour: Rgb }[]): Model {
+  const m = new Model();
+  for (const { points, colour } of parts) m.tris(points, colour);
   return m;
 }
 
