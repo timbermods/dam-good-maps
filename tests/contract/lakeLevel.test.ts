@@ -183,15 +183,13 @@ describe("Lakes by number: the land that can't hold a lake at a level is refused
   });
 
   it("a notch that would drain another lake", () => {
-    // (a pond in the valley's east wall beside the top rim, fed by its own source, spilling east at 16 to the map's
-    // edge; a notch the valley's width cuts its banks down into the pond's wall)
+    // (the second basin's rim raised to 15: the top lake set to 15 needs its river a level lower, down through that
+    // rim, which would take the second lake from 15 to 14)
     const s = staircase({ shape: (h) => {
-      for (let y = 26; y <= 29; y++) for (let x = 37; x <= 39; x++) h[y * W + x] = 14;
-      for (let x = 40; x < W; x++) h[27 * W + x] = 16;
+      for (let y = 52; y <= 55; y++) for (let x = VALLEY.x0; x <= VALLEY.x1; x++) h[y * W + x] = 15;
     } });
-    expect(s.apply({ op: "placeEntity", params: { id: "00000000-0000-4000-8000-000000000099", template: "WaterSource", x: 38, y: 28, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 } } } }).errors).toEqual([]);
-    expect(Math.floor(surfaceAt(s, [37, 27]))).toBe(16);
-    expect(planLakeLevel(s, LAKE[0][0], LAKE[0][1], 15, 24).reason).toMatch(/^the notch would also drain the lake at X 3[7-9] · Y 2[6-9] from level 16 to 1[45]$/);
+    expect(Math.floor(surfaceAt(s, LAKE[1]))).toBe(15);
+    expect(planLakeLevel(s, LAKE[0][0], LAKE[0][1], 15).reason).toMatch(/^the notch would also drain the lake at X \d+ · Y (3\d|4\d|5[01]) from level 15 to 14$/);
   });
 
   it("a lake no source feeds", () => {

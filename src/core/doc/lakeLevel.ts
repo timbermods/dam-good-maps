@@ -168,7 +168,7 @@ function withSill(m: WaterModel, tiles: readonly number[], levels: readonly numb
   tiles.forEach((i, k) => (floor[i] = levels[k]));
   if (!m.stacked) return { ...m, floor };
   const mask = m.stacked.mask.slice();
-  for (const i of tiles) mask[i] = (2 ** floor[i] - 1) >>> 0;
+  for (const i of tiles) mask[i] = ((1 << floor[i]) - 1) >>> 0;
   return { ...m, floor, stacked: { ...m.stacked, mask } };
 }
 

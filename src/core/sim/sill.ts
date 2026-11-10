@@ -9,12 +9,12 @@
 //   tiles beside the lake, is cut to L; the rest a level lower, so the river falls off the crest and runs away (a notch
 //   flat at L all through a thick rim held the river back: a lake on a generated map, 30 tiles of notch, was still
 //   rising past L + 1 after six days of settle). Its floor is `width` tiles wide, a tile wider here and there, and its
-//   sides step up a level a tile to the ground: a river's bed, not a ruled canal with sheer walls.
+//   sides step up to the ground in benches of varied width: a river's bed, not a ruled canal with sheer walls.
 // - The sill stands lower than L: the outlet is closed at L on the fewest tiles and the least ground raised (a minimum
 //   cut between the lake, with the water flowing into it, and the map's edge), joined edge to edge into one bank. Its
 //   spillway, where the river crosses now, as wide as the river needs, stands at L; the rest of the bank a level
-//   higher, with a step down behind it. Two separate pieces mean the basin leaks elsewhere below L: refused, since one
-//   sill can't hold it.
+//   higher, two tiles thick, carried along the shore to land above the water at both ends, with a step down behind
+//   it. Two separate pieces mean the basin leaks elsewhere below L: refused, since one sill can't hold it.
 //
 // It never changes ground under an object that shapes the water (a source, an obstacle, a natural dam) or ground a
 // caller holds (`fixed`: a cave's columns and the ground holding up a roof).
@@ -161,35 +161,79 @@ export function sillFor(inp: SillInput, x: number, y: number, level: number, wid
     for (let c = end; c >= 0 && !lake[c]; c = prev[c]) if (top(c) > low) line.push(c);
     line.reverse();
     // the notch round the line: its floor `w` tiles wide and a tile wider here and there (a river's bed is never ruled),
-    // its sides stepping up a level a tile to the ground, so no wall stands sheer; the crest, its tiles beside the lake,
-    // at the level, and the rest a level lower (water crosses a tile's four sides only)
-    const target = new Int32Array(N).fill(1 << 20);
-    const rise = Math.max(0, CEILING - low);
+    // its sides stepping up to the ground in benches one or two tiles wide, varied along the river, so no wall stands
+    // sheer and no terrace runs on as a ruled ring; distances are 8-neighbour (Chebyshev) ones, so a bank along a
+    // diagonal course stays joined edge to edge. The crest, its tiles beside the lake, at the level, the rest of the floor
+    // a level lower (water crosses a tile's four sides only). Off the river's course nothing is cut lower than a level
+    // above the lake, so the sides never open a way into a dry valley. Integer arithmetic only, so every peer measures
+    // the same notch (D366)
+    const dist8 = new Int32Array(N).fill(-1);
+    const near = new Int32Array(N);
+    const queue: number[] = [];
     line.forEach((c, k) => {
+      dist8[c] = 0;
+      near[c] = k;
+      queue.push(c);
+    });
+    const rise = Math.max(0, CEILING - low);
+    const reachMax = (w >> 1) + 2 + 2 * rise;
+    for (let h = 0; h < queue.length; h++) {
+      const c = queue[h];
+      if (dist8[c] >= reachMax) continue;
       const cx = c % W;
       const cy = (c - cx) / W;
-      const r = (w - 1) / 2 + (Math.sin(k * 0.55 + (c % 7)) > 0.35 ? 1 : 0);
-      const reach = Math.ceil(r) + rise + 1;
-      for (let dy = -reach; dy <= reach; dy++)
-        for (let dx = -reach; dx <= reach; dx++) {
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
           const nx = cx + dx;
           const ny = cy + dy;
-          if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
-          const v = low + Math.max(0, Math.ceil(Math.hypot(dx, dy) - r - 0.5));
+          if ((!dx && !dy) || nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
           const n = ny * W + nx;
-          if (v < target[n]) target[n] = v;
+          if (dist8[n] >= 0) continue;
+          dist8[n] = dist8[c] + 1;
+          near[n] = near[c];
+          queue.push(n);
         }
-    });
-    const tiles: number[] = [];
-    const levels: number[] = [];
-    for (let i = 0; i < N; i++) {
-      if (lake[i] || target[i] >= top(i) || !editable(i)) continue;
-      const v = neighbours(i, W, H).some((n) => lake[n]) ? Math.max(level, target[i]) : target[i];
-      if (v >= top(i)) continue;
-      tiles.push(i);
-      levels.push(v);
     }
-    return { sill: "cut", level, tiles, levels, width: w, before, inflow };
+    // (a deterministic integer hash: the same on every peer)
+    const hash = (a: number) => Math.imul(a ^ (a >>> 15), 0x2c1b3c6d) >>> 0;
+    const levelAt = (i: number): number => {
+      const k = near[i];
+      // (the floor's half width, a tile wider for three tiles of every seven along the line)
+      const half = (w >> 1) + ((Math.floor(k / 3) + (line[k] % 7)) % 7 < 3 ? 1 : 0);
+      let out = dist8[i] - half;
+      if (out <= 0) return low;
+      // (benches one or two tiles wide, their widths changing every six tiles along the river)
+      const part = Math.floor(k / 6) * 97 + 13;
+      let v = low;
+      for (let j = 0; out > 0; j++) {
+        out -= 1 + (hash(part + j) & 1);
+        v++;
+      }
+      return v;
+    };
+    const set = new Map<number, number>();
+    for (const i of queue) {
+      if (lake[i] || !editable(i)) continue;
+      let v = levelAt(i);
+      if (neighbours(i, W, H).some((n) => lake[n])) v = Math.max(v, level);
+      if (!course[i]) v = Math.max(v, level + 1);
+      if (v < top(i)) set.set(i, v);
+    }
+    // a clean-up: a lone column above all four of its neighbours (or a lone pit below them) takes the nearest of their
+    // heights, so no tile stands alone or meets its kind at a corner only
+    const now = (i: number) => set.get(i) ?? top(i);
+    for (const [i, v] of [...set]) {
+      const hs = neighbours(i, W, H).map(now);
+      const hiN = Math.max(...hs);
+      const loN = Math.min(...hs);
+      let u = v > hiN ? hiN : v < loN && !course[i] ? loN : v;
+      if (neighbours(i, W, H).some((n) => lake[n])) u = Math.max(u, level);
+      if (!course[i]) u = Math.max(u, level + 1);
+      if (u >= top(i)) set.delete(i);
+      else set.set(i, u);
+    }
+    const tiles = [...set.keys()].sort((a, b) => a - b);
+    return { sill: "cut", level, tiles, levels: tiles.map((i) => set.get(i)!), width: w, before, inflow };
   }
 
   // ---- raise: the land below the level joined to (x, y), the lake with the water flowing into it, and its ways off
@@ -276,6 +320,37 @@ export function sillFor(inp: SillInput, x: number, y: number, level: number, wid
   const bank = Math.min(CEILING, level + 1);
   const set = new Map<number, number>();
   for (const i of sill) set.set(i, spillway.size && !spillway.has(i) ? bank : level);
+  if (bank > level) {
+    // the bank's ends carried along the shore at the level to ground above the water, so it joins the land at both ends
+    // (an end: a tile of the bank beside the shore, ground at the level or higher, none of it above the water)
+    for (const e of [...set.keys()]) {
+      if (set.get(e) !== bank) continue;
+      const shore = neighbours(e, W, H).filter((n) => !set.has(n) && !side[n] && !low[n]);
+      if (!shore.length || shore.some((n) => top(n) >= bank)) continue;
+      const from = new Map<number, number>([[e, -1]]);
+      const walk = [e];
+      let hit = -1;
+      for (let h = 0; h < walk.length && hit < 0 && walk.length < 400; h++)
+        for (const n of neighbours(walk[h], W, H)) {
+          if (from.has(n) || set.has(n) || side[n] || low[n]) continue;
+          from.set(n, walk[h]);
+          if (top(n) >= bank) {
+            hit = walk[h];
+            break;
+          }
+          if (editable(n) && !course[n]) walk.push(n);
+        }
+      for (let c = hit; c >= 0 && c !== e; c = from.get(c)!) set.set(c, bank);
+    }
+    // two tiles thick where it shows: each tile above the water takes the tile behind it, off the river's course
+    for (const [i, v] of [...set])
+      if (v === bank) for (const n of neighbours(i, W, H)) if (!set.has(n) && !side[n] && editable(n) && !course[n] && top(n) < bank) set.set(n, bank);
+    // a clean-up: a tile above the water with no other beside it (alone, or meeting the bank at a corner only) stays at
+    // the level
+    const above = (i: number) => (set.get(i) ?? top(i)) >= bank;
+    for (const [i, v] of [...set]) if (v === bank && !neighbours(i, W, H).some(above)) set.set(i, level);
+  }
+  // a step down behind it into the land below
   for (const [i, v] of [...set])
     for (const n of neighbours(i, W, H)) if (!set.has(n) && !side[n] && editable(n) && top(n) < v - 1) set.set(n, v - 1);
   const tiles = [...set.keys()].filter((i) => set.get(i)! > heights[i]).sort((a, b) => a - b);
