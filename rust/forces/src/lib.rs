@@ -2261,6 +2261,37 @@ struct Crater {
     walls: usize,
     rise: [f64; 5],
     bench: [f64; 4],
+    /// More cells round a large crater, so its arcs stay short.
+    cells: i64,
+    /// A central peak's massifs: each one's centre, reach and height, in the crater's own units.
+    massifs: Vec<(f64, f64, f64, f64)>,
+    /// A peak ring's centre (off the crater's) and its gap: bearing and half-width's cosine.
+    ring_at: (f64, f64),
+    ring_gap: (f64, f64),
+    /// (the crater's turn, its cosine and sine, worked out once)
+    turn: (f64, f64),
+    /// (what depends on the bearing alone, worked out once per bearing: the outline's reach, the
+    /// rim's height and the terraces, sampled finely enough that a step round the rim is under a
+    /// third of a tile)
+    bearings: Vec<Bearing>,
+}
+#[derive(Clone, Copy)]
+struct Bearing {
+    /// 1 over the outline's reach (r is the ellipse's radius times it).
+    edge: f64,
+    rim: f64,
+    terraces: Terraces,
+}
+/// Blocks round a circle, each its own offset in -0.5–0.5, stepping to the next at its end: slumped
+/// blocks that step out of line.
+fn blocks(seed: f64, salt: f64, theta: f64, cells: i64) -> f64 {
+    let t = (theta / (2.0 * PI) + 0.5) * cells as f64;
+    let k = t.floor();
+    let f = t - k;
+    let k = k as i64;
+    let a = hash(seed, salt + k.rem_euclid(cells) as f64) - 0.5;
+    let b = hash(seed, salt + (k + 1).rem_euclid(cells) as f64) - 0.5;
+    a + (b - a) * smooth((f - 0.8) / 0.2)
 }
 /// Value noise round a circle, 0–1: `cells` points, each its own hash, eased between.
 fn ring(seed: f64, salt: f64, theta: f64, cells: i64) -> f64 {
@@ -2287,6 +2318,7 @@ fn lumps(seed: f64, salt: u32, x: f64, y: f64, scale: f64) -> f64 {
 }
 /// A terraced crater's walls at one bearing: each wall's radius (inner to outer, the last the rim's
 /// inner face) and its width, both in the crater's own units.
+#[derive(Clone, Copy)]
 struct Terraces {
     r: [f64; 5],
     width: [f64; 5],
@@ -2461,7 +2493,19 @@ impl Crater {
         for v in bench.iter_mut() {
             *v *= 0.56 / total;
         }
-        Self {
+        // a central peak: two or three massifs of their own heights, off the centre
+        let mut massifs = vec![];
+        for j in 0..2 + (hash(seed, 2300.0) * 2.0).floor() as usize {
+            let jf = j as f64;
+            let t = hash(seed, 2310.0 + jf) * PI * 2.0;
+            let d = if j == 0 { 0.05 * hash(seed, 2320.0) } else { 0.09 + 0.1 * hash(seed, 2320.0 + jf) };
+            let reach = 0.18 + 0.1 * hash(seed, 2330.0 + jf);
+            let high = if j == 0 { 1.0 } else { 0.5 + 0.35 * hash(seed, 2340.0 + jf) };
+            massifs.push((d * cos(t), d * sin(t), reach, high));
+        }
+        let ring_bearing = hash(seed, 2400.0) * PI * 2.0;
+        let ring_off = 0.04 + 0.05 * hash(seed, 2401.0);
+        let mut c = Self {
             x,
             y,
             w: m.w as f64,
@@ -2486,7 +2530,129 @@ impl Crater {
             walls,
             rise,
             bench,
+            cells: (radius / 24.0).floor() as i64,
+            massifs,
+            ring_at: (ring_off * cos(ring_bearing), ring_off * sin(ring_bearing)),
+            ring_gap: (hash(seed, 2402.0) * PI * 2.0, cos(0.55 + 0.5 * hash(seed, 2403.0))),
+            turn: (cos(angle), sin(angle)),
+            bearings: vec![],
+        };
+        let count = clamp((PI * 2.0 * 1.45 * max(c.a, c.b) * 3.0).ceil(), 64.0, 4096.0) as usize;
+        let phase = hash(seed, 71.0) * PI * 2.0;
+        let terraced = s(s0, "walls") == "terraced";
+        c.bearings = (0..count)
+            .map(|k| {
+                let theta = ((k as f64 + 0.5) / count as f64 - 0.5) * PI * 2.0;
+                Bearing {
+                    edge: 1.0
+                        / (1.0 + 0.035 * sin(theta * 3.0 + phase) + 0.022 * sin(theta * 5.0 - phase * 0.6) + c.outline(theta)),
+                    rim: c.rim_at(theta),
+                    terraces: if terraced { c.terraces(theta) } else { Terraces { r: [0.0; 5], width: [0.0; 5] } },
+                }
+            })
+            .collect();
+        c
+    }
+    /// What depends on the bearing alone, at a bearing (-π to π).
+    fn bearing(&self, theta: f64) -> &Bearing {
+        let count = self.bearings.len();
+        let k = ((theta / (PI * 2.0) + 0.5) * count as f64).floor();
+        &self.bearings[clamp(k, 0.0, count as f64 - 1.0) as usize]
+    }
+    /// A tile in the crater's own units (the ellipse, before its outline).
+    fn local(&self, x: f64, y: f64) -> (f64, f64) {
+        let (dx, dy) = (x - self.x, y - self.y);
+        let (c, sn) = self.turn;
+        ((dx * c + dy * sn) / self.a, (-dx * sn + dy * c) / self.b)
+    }
+    /// A central peak's shape, 0 to its broad, uneven top (0.62–0.82): the highest of its massifs,
+    /// their flanks wobbling.
+    fn massif(&self, x: f64, y: f64) -> f64 {
+        let (u, v) = self.local(x, y);
+        // (its outline lobed and bayed at its own scale, and ragged at the tile's)
+        let wobble = 0.45 + 0.8 * lumps(self.seed, 2350, x, y, max(2.5, self.radius * 0.14))
+            + 0.3 * lumps(self.seed, 2355, x, y, max(1.5, self.radius * 0.05));
+        let mut shape: f64 = 0.0;
+        for &(cx, cy, reach, high) in &self.massifs {
+            let (du, dv) = (u - cx, v - cy);
+            // (a square root only where the massif reaches)
+            if (du * du + dv * dv) * wobble * wobble < reach * reach {
+                shape = max(shape, high * (1.0 - hypot(du, dv) * wobble / reach));
+            }
         }
+        if shape <= 0.0 {
+            return 0.0;
+        }
+        // (crags and gullies across its flanks, so no contour runs round it)
+        let rough = 0.3 * (lumps(self.seed, 2370, x, y, max(1.5, self.radius * 0.05)) - 0.5);
+        max(0.0, min(shape + rough * min(1.0, shape * 4.0), 0.62 + 0.2 * lumps(self.seed, 2360, x, y, max(2.5, self.radius * 0.1))))
+    }
+    /// A peak ring's height share at a tile: off the crater's centre, its radius wandering, broken
+    /// into arcs and open on one side.
+    fn peak_ring(&self, x: f64, y: f64) -> f64 {
+        let (u, v) = self.local(x, y);
+        let (qu, qv) = (u - self.ring_at.0, v - self.ring_at.1);
+        // (no square root: this runs on every tile inside the ring's reach of the largest craters,
+        // the cheap tests first)
+        let d2 = qu * qu + qv * qv;
+        if d2 > 0.5625 {
+            return 0.0;
+        }
+        let phi = atan2(qv, qu);
+        let arcs = smooth((ring(self.seed, 2420.0, phi, 6 + self.cells) - 0.22) / 0.2);
+        if arcs <= 0.0 {
+            return 0.0;
+        }
+        let (gap, half) = self.ring_gap;
+        let gate = 1.0 - smooth((cos(phi - gap) - half) / (1.0 - half));
+        if gate <= 0.0 {
+            return 0.0;
+        }
+        let radius = 0.36 + 0.1 * (ring(self.seed, 2410.0, phi, 5) - 0.5);
+        let width = 0.06 + 0.05 * lumps(self.seed, 2020, x, y, max(2.5, self.radius * 0.12));
+        // (the band's offset from its radius, near the band as (d² − radius²) / 2·radius)
+        let z = (d2 - radius * radius) / (2.0 * radius * width);
+        if z * z > 30.0 {
+            return 0.0;
+        }
+        exp(-z * z) * arcs * gate * (0.5 + 0.8 * lumps(self.seed, 2030, x, y, max(2.5, self.radius * 0.12)))
+    }
+    /// Ground the rim raises above the land, in fewer, wider steps (two levels where the rim is high)
+    /// whose edges wander, so the outer slope keeps the land's own contours, not new rings round it.
+    fn raised(&self, h: f64, target: f64, x: f64, y: f64) -> f64 {
+        let add = target - h;
+        if add <= 0.0 {
+            return target;
+        }
+        let step = if self.rim >= 2.5 { 2.0 } else { 1.0 };
+        let jitter = step * lumps(self.seed, 1970, x, y, max(3.0, self.radius * 0.18));
+        h + max(0.0, ((add - 0.5 * step + jitter) / step).floor() * step)
+    }
+    /// The level a lake in the bowl would stand at: the least, over every way from its centre to
+    /// lower ground past the crater or the map's edge, of the highest ground on the way.
+    fn spill(&self, heights: &[u8], w: usize, h: usize) -> u8 {
+        use std::cmp::Reverse;
+        use std::collections::BinaryHeap;
+        let start = clamp(round(self.y), 0.0, h as f64 - 1.0) as usize * w + clamp(round(self.x), 0.0, w as f64 - 1.0) as usize;
+        let mut seen = vec![false; w * h];
+        let mut queue = BinaryHeap::new();
+        seen[start] = true;
+        queue.push(Reverse((heights[start], start)));
+        while let Some(Reverse((level, i))) = queue.pop() {
+            let (x, y) = (i % w, i / w);
+            let (u, v) = self.local(x as f64, y as f64);
+            // (out past the crater, the water runs away where the ground falls below it, or off the map)
+            if x == 0 || y == 0 || x == w - 1 || y == h - 1 || (u * u + v * v > 2.56 && heights[i] < level) {
+                return level;
+            }
+            for j in [i - 1, i + 1, i - w, i + w] {
+                if !seen[j] {
+                    seen[j] = true;
+                    queue.push(Reverse((level.max(heights[j]), j)));
+                }
+            }
+        }
+        heights[start]
     }
     /// How far the rim reaches out at a bearing, as a share of the ellipse (0 is on it): a broad
     /// wander and scallops, arcs bulging out between cusps where the wall slumped.
@@ -2511,13 +2677,17 @@ impl Crater {
     fn terraces(&self, theta: f64) -> Terraces {
         let n = self.walls;
         let mut t = Terraces { r: [0.0; 5], width: [0.0; 5] };
-        let out = 0.92 + 0.08 * (ring(self.seed, 1450.0, theta, 5) - 0.5);
+        let more = self.cells;
+        let out = 0.885
+            + 0.11 * (ring(self.seed, 1450.0, theta, 5 + more) - 0.5)
+            + 0.04 * blocks(self.seed, 2490.0, theta, 6 + more);
         let mut gaps = [0.0; 4];
         let mut sum = 0.0;
         for k in 0..n - 1 {
             let salt = 1500.0 + 40.0 * k as f64;
-            let wide = 0.3 + 1.4 * ring(self.seed, salt, theta, 4 + (k as i64) % 3);
-            let pinch = smooth((ring(self.seed, salt + 200.0, theta, 3 + (k as i64) % 2) - 0.2) / 0.3);
+            let wide = 0.3 + 1.4 * ring(self.seed, salt, theta, 4 + (k as i64) % 3 + more);
+            // (each bench an arc: gone on a third of the way round or so, somewhere of its own)
+            let pinch = smooth((ring(self.seed, salt + 200.0, theta, 3 + (k as i64) % 2 + more) - 0.32) / 0.22);
             gaps[k] = self.bench[k] * wide * pinch;
             sum += gaps[k];
         }
@@ -2526,31 +2696,28 @@ impl Crater {
         for k in (0..n - 1).rev() {
             t.r[k] = t.r[k + 1] - gaps[k] * fit;
         }
+        // slumped blocks: each wall steps in and out of line from sector to sector
+        for k in 0..n - 1 {
+            t.r[k] += 0.07 * blocks(self.seed, 2500.0 + 40.0 * k as f64, theta, 5 + (k as i64) % 3 + more);
+        }
+        for k in (0..n - 1).rev() {
+            t.r[k] = max(0.3, min(t.r[k], t.r[k + 1]));
+        }
         for k in 0..n {
             t.width[k] = 0.022 + 0.03 * ring(self.seed, 1800.0 + 40.0 * k as f64, theta, 5);
         }
         t
     }
     fn field(&self, s0: &Settings, x: f64, y: f64) -> (f64, f64, f64, f64, f64) {
-        let dx = x - self.x;
-        let dy = y - self.y;
-        let c = cos(self.angle);
-        let sn = sin(self.angle);
-        let u = (dx * c + dy * sn) / self.a;
-        let v = (-dx * sn + dy * c) / self.b;
+        self.field_and_ellipse(s0, x, y).0
+    }
+    /// The field, and the tile's distance on the ellipse alone (the debris's arrival reads it).
+    fn field_and_ellipse(&self, s0: &Settings, x: f64, y: f64) -> ((f64, f64, f64, f64, f64), f64) {
+        let (dx, dy) = (x - self.x, y - self.y);
+        let (u, v) = self.local(x, y);
         let theta = atan2(v, u);
-        let phase = hash(n(s0, "seed"), 71.0) * PI * 2.0;
-        // (far out, past every reach whatever the outline, the ellipse alone: the outline is 0.83–1.17)
-        let plain = hypot(u, v);
-        let r = if plain > 3.5 {
-            plain
-        } else {
-            plain
-                / (1.0
-                    + 0.035 * sin(theta * 3.0 + phase)
-                    + 0.022 * sin(theta * 5.0 - phase * 0.6)
-                    + self.outline(theta))
-        };
+        let ellipse = hypot(u, v);
+        let r = ellipse * self.bearing(theta).edge;
         let down = (1.0 + cos(theta)) * 0.5;
         let heavy = s(s0, "debris") == "heavy";
         let edge_fade = if heavy && self.inset != 0.0 {
@@ -2605,7 +2772,7 @@ impl Crater {
                 }
             }
         }
-        (r, theta, down, ray_height, secondary)
+        ((r, theta, down, ray_height, secondary), ellipse)
     }
     fn value(&self) -> V {
         json!({"x":self.x,"y":self.y,"W":self.w,"H":self.h,"edgeInset":self.inset,"radius":self.radius,"a":self.a,"b":self.b,"angle":self.angle,"glance":self.glance,"diameter":self.diameter,"depth":self.depth,"rim":self.rim,"datum":self.datum,"floor":self.floor,"centre":self.centre,"rays":self.rays.iter().map(|r|json!({"dx":r.dx,"dy":r.dy,"start":r.start,"length":r.length,"width":r.width,"bend":r.bend,"phase":r.phase,"seed":r.seed,"pits":r.pits.iter().map(|&(x,y,r)|json!({"x":x,"y":y,"r":r})).collect::<Vec<_>>()})).collect::<Vec<_>>()})
@@ -2636,20 +2803,27 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
     let mut erased = 0;
     let mut flattened = 0;
     let mut bowl = vec![false; m.w * m.h];
+    let mut rayed = vec![false; m.w * m.h];
+    // (each tile's distance on the ellipse, kept for the debris's arrival; NaN where it was not shaped)
+    let mut ellipse = vec![f64::NAN; m.w * m.h];
+    // (a central peak goes on last, tall enough to stand clear of the lake the bowl would hold)
+    let mut peak: Vec<(usize, f64, f64)> = vec![];
     for y in 0..m.h {
         for x in 0..m.w {
             let i = y * m.w + x;
             if keep[i] != 0 {
                 continue;
             }
-            let (r, theta, down, ray, secondary) = a.field(s0, x as f64, y as f64);
+            let ((r, theta, down, ray, secondary), on) = a.field_and_ellipse(s0, x as f64, y as f64);
+            ellipse[i] = on;
             bowl[i] = r < 1.0;
+            rayed[i] = ray > 0.0 || secondary != 0.0;
             let h = before.heights[i] as f64;
             let mut target;
             // (the rim's crest and outer slope in lumps, so no contour runs round it evenly)
             // (beyond 1.45 the rim's outer slope, at most 0.45 wide, has ended)
             let rim = if r < 1.45 {
-                a.rim_at(theta) * (0.55 + 0.9 * lumps(a.seed, 1950, x as f64, y as f64, max(3.0, a.radius * 0.2)))
+                a.bearing(theta).rim * (0.55 + 0.9 * lumps(a.seed, 1950, x as f64, y as f64, max(3.0, a.radius * 0.2)))
             } else {
                 0.0
             };
@@ -2668,7 +2842,7 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
                     };
                     inside = a.floor + (base + rim) * t;
                 } else {
-                    let w = a.terraces(theta);
+                    let w = a.bearing(theta).terraces;
                     let n = a.walls;
                     let last = a.rise[n - 1];
                     let mut lower = 0.0;
@@ -2685,26 +2859,26 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
                     };
                     bench_from = w.r[0] + w.width[0] * 0.5;
                 }
-                // (a central peak or ring is a cluster of massifs, not a stepped cone)
-                let massif = |salt: u32| lumps(a.seed, salt, x as f64, y as f64, max(2.5, a.radius * 0.12));
-                if a.centre == "peak" {
-                    let rp = r * (0.7 + 0.6 * massif(2000));
-                    inside += a.depth * 0.69 * (0.7 + 0.5 * massif(2010)) * pow(max(0.0, 1.0 - rp / 0.31), 1.25);
-                }
-                if a.centre == "ring" {
-                    inside += a.depth
-                        * 0.55
-                        * exp(-pow((r - 0.38) / (0.07 + 0.06 * massif(2020)), 2.0))
-                        * (0.45 + 0.9 * massif(2030))
-                        * (1.0 + 0.18 * sin(theta * 7.0 + phase));
+                // (a ring is broken arcs, open on one side; a peak is a cluster of massifs, added last)
+                if a.centre == "ring" && r < 0.9 {
+                    inside += a.depth * 0.55 * a.peak_ring(x as f64, y as f64);
                 }
                 target = inside + (h - a.datum) * smooth((r - 0.84) / 0.16);
+                if a.centre == "peak" && r < 0.6 {
+                    let shape = a.massif(x as f64, y as f64);
+                    if shape > 0.0 {
+                        peak.push((i, target, shape));
+                    }
+                }
                 if s(s0, "walls") == "terraced"
                     && r > bench_from
                     && r < 0.93
                     && before.rock[clamp(round(target), 0.0, 22.0) as usize] > 0.5
                 {
                     target = target.ceil();
+                }
+                if r > 0.84 {
+                    target = a.raised(h, target, x as f64, y as f64);
                 }
             } else {
                 let rim = if rim > 0.0 {
@@ -2726,7 +2900,7 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
                     * smooth((reach - r) / 0.4)
                     * directional
                     * hummock;
-                target = h + max(rim, skirt);
+                target = a.raised(h, h + max(rim, skirt), x as f64, y as f64);
                 if ray > 0.0 {
                     target = max(h + ray, round(target) + ray);
                 }
@@ -2743,13 +2917,34 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
             m.heights[i] = target as u8;
         }
     }
-    // no one-tile pillar or pit in the bowl: a tile above (or below) all four of its neighbours
-    // takes the nearest of their levels
+    if !peak.is_empty() {
+        // the bowl's spill level (where a lake in it would stand), and a peak that stands clear of
+        // it, so a crater filled as a lake keeps its island
+        let spill = a.spill(&m.heights, m.w, m.h) as f64;
+        let natural = a.depth * 0.69 / 0.72;
+        let mut top = (0.0, a.floor);
+        for &(_, below, shape) in &peak {
+            if shape > top.0 {
+                top = (shape, below);
+            }
+        }
+        // (a broad dome whose top stands two levels or more above the lake and whose upper half
+        // clears it, its lesser massifs islets or shoals beside it)
+        let lift = spill + 3.0 - top.1;
+        for &(i, below, shape) in &peak {
+            let h = before.heights[i] as f64;
+            let dome = lift * (1.0 - pow(1.0 - min(1.0, shape / top.0), 2.0));
+            let target = tempered(h, below + max(natural * shape, dome), k);
+            m.heights[i] = clamp(round(round(target * 4096.0) / 4096.0), 0.0, min(22.0, m.ceiling)) as u8;
+        }
+    }
+    // no one-tile pillar or pit in the bowl or on the ground it raised round it (rays aside): a tile
+    // above (or below) all four of its neighbours takes the nearest of their levels
     let shaped = m.heights.clone();
     for y in 0..m.h {
         for x in 0..m.w {
             let i = y * m.w + x;
-            if !bowl[i] {
+            if !(bowl[i] || (keep[i] == 0 && !rayed[i] && shaped[i] != before.heights[i])) {
                 continue;
             }
             let mut hi = 0u8;
@@ -2861,13 +3056,15 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
     } else {
         1.48
     }) + if boolean(s0, "rays") { 1.4 } else { 0.0 };
-    let c = cos(a.angle);
-    let sn = sin(a.angle);
     for y in 0..m.h {
         for x in 0..m.w {
-            let dx = x as f64 - a.x;
-            let dy = y as f64 - a.y;
-            let r = hypot((dx * c + dy * sn) / a.a, (-dx * sn + dy * c) / a.b);
+            let r = ellipse[y * m.w + x];
+            let r = if r.is_nan() {
+                let (u, v) = a.local(x as f64, y as f64);
+                hypot(u, v)
+            } else {
+                r
+            };
             arrival[y * m.w + x] = (if r < 1.05 {
                 0.0
             } else {

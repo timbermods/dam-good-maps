@@ -468,7 +468,8 @@ describe("forces: the plan's footprint and the gesture's band, held against what
 
   it("a force reaching into a claim is refused from its plan; Try another counts the force it replaces", () => {
     const mirror = open();
-    const request = { verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 15 }, origin: [30, 30], cut: null } as unknown as ed.ForceRequest;
+    // (a crater whose next roll leaves standing an object this one removed: the record's check below needs one)
+    const request = { verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 20 }, origin: [30, 30], cut: null } as unknown as ed.ForceRequest;
     const first = planOf(request)!;
     expect(first).not.toBeNull();
     const c = new ClaimsState(W, W);

@@ -675,8 +675,11 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   sides than others and low on one (where the ground round it is lowest; the seed's side on level ground); terraced
   walls are two to five benches, fewer on a small crater, each wall its own height and each bench widening,
   narrowing and pinching out round the bowl so walls merge into taller ones, every bench one level all round, the
-  floor's edge following; a central peak or ring is a cluster of massifs; no one-tile pillar or pit is left in the
-  bowl. A streak falls, a flash, a shock ring, dust and thrown blocks (the camera never shakes, D265), the bowl opening at once and the
+  floor's edge following, its edge jogging out of line in blocks on a large crater; the outer slope falls in a few
+  uneven steps that end at different distances, over the land's own contours. A central peak is two or three massifs
+  of different heights, rough and broad-topped, and stands clear of the bowl's spill level (where a lake filling the
+  crater stands), so a crater filled as a lake keeps its island; a ring is broken arcs, off the crater's centre and
+  open on one side. No one-tile pillar or pit is left in the bowl. A streak falls, a flash, a shock ring, dust and thrown blocks (the camera never shakes, D265), the bowl opening at once and the
   debris landing ring by ring; trees inside the bowl are gone, those round it are knocked down (dead, standing
   upright where their ground held, gone where the blow broke it: D321, item 7). Newer impacts overprint older ones;
   heavy debris can dam a river; it strikes wherever aimed (the start's ground too, D257) and never adds water.

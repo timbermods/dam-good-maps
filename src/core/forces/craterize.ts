@@ -4,7 +4,9 @@
 // Rays; Try another (the next personality). A coherent crater field quantized once to whole game
 // levels: a morphology model, not a shock-physics solver, shaped to read as a natural crater, never a
 // stadium (showcase-craft gap 25): a scalloped, uneven rim, low on one side; terraces that widen, narrow,
-// pinch out and merge round the bowl, each bench one level all round. The newest bowl replaces the relief it
+// pinch out and merge round the bowl, each bench one level all round; a peak of two or three massifs that
+// clears the bowl's spill level (a crater filled as a lake keeps its island); a ring broken, off centre and
+// open on one side; an outer slope of a few uneven steps. The newest bowl replaces the relief it
 // lands on (overlapping impacts overprint older ones); only its outer lip rejoins the ground round
 // it. Trees inside the bowl are gone; round it they are knocked down, lying away from the blow (dead
 // trees, their pose the editor's); water and badwater sources and seeps ride the ground, and Sources

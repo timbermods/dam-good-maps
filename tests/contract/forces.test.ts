@@ -81,18 +81,18 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
   // (pinned to the prototype's until showcase-craft gap 25 reshaped the crater so it reads as a natural one, not a
   // stadium: a scalloped, uneven rim low on one side, terraces that pinch out and merge, a peak of massifs; D148)
   const CRATERS: Record<string, string> = {
-    "bowl 0": "0cb49dcd365b4d8f4d0234bdf1c4d00ac99d73742901adc088665c10d578afe7",
-    "peak 0": "39efcb32d5151d677433c404288c7836672bafdf8afd78e98842483ac1df555a",
-    "ring 0": "93a0ba095b2e8654eca19841cb553781c28e68db2231f00cefa6415333a1b71d",
-    "flat 0": "2089dc577bf5eb76323a5b3f440871166d07eb0aae831b89f5d003b2ed2d9081",
-    "bowl 1": "83e6cee164f68147ef555701b05dd65d36743ffea82f1be2c2adf9953f2c9d08",
-    "peak 1": "c12dec194a758a750327491d413f508caa42c1d8e32f97f732add4f302d3d7c1",
-    "ring 1": "d9416eb236288e733e85a99a2a2a2cd38851079bbbc77c87abe7824636c45624",
-    "flat 1": "1a12385dd2946e41103852d9ec2478d32da7b0a07424ec6cb8dd5f9b041d55c7",
-    "bowl 42": "973a2822a91a55c8b8b349102f859f8dbbeca50c9600c53575d968d097bca22c",
-    "peak 42": "4dcfade744c00ff96f95af4537f0a65d9dd934c0b0b3b7b55fdf7e53f579ede8",
-    "ring 42": "ba781e2c8a2dcc2d44812c1e518a0a6e2d7ee66f2ff8b89494b65b30a4cc19e8",
-    "flat 42": "f98342c2418650806f899e92d51bf046d06459b1676e0b3c478553dd3e34e4a3",
+    "bowl 0": "a3bc7bbee61e92e1858ee54e37554527cc6f66290536d6e9b3957fecddae14cb",
+    "peak 0": "b4ba29f24e824a5789b07d218f0bc99b27d286fb7d838ca76a9adfa90b460a76",
+    "ring 0": "94559c0d907c0f2f3d962f77ebd6284417b916c729d488926313bddb91dc91ad",
+    "flat 0": "0433438aa8dd5a11239c629154b70002a323659d7a6cc9aec3a97ca95a924ce2",
+    "bowl 1": "cf338409eb7661c3ec4744cd7806f7525c38aa0be937372aab884c3e192ff1ff",
+    "peak 1": "b8898941658eb8ffd95b9616dd5c6bc76ce7f0cc7a1bcfecbe15a17ed1ef65a4",
+    "ring 1": "97eaddf067fd30c4ec78e8bd2ee9815dd0ab5a752deb2274d3e1654a513f6de1",
+    "flat 1": "8b94d3862e610c3a831dda7993807c3acd25cb31783581867fe0f5410809c596",
+    "bowl 42": "c85728c151910eb5ba405648e65463de7ebd8eebb47761a88e9cdd5251471a26",
+    "peak 42": "e1f70420d3acefb1ca0e9ed30c3a7adec2f73d711374829359f4059e8ce82eac",
+    "ring 42": "215dd6bbf4c6d8c0025fb99dbc08bf717856bee97485b8d8777a5919a84db029",
+    "flat 42": "1499b1e18fdff128d194f2e704e76a8e6c38a870eb91551ee381defab500bcfd",
   };
   it("Craterize: every centre, with and without rays", () => {
     for (const seed of [0, 1, 42])
@@ -132,6 +132,48 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
             const n = [h[y * W + x - 1], h[y * W + x + 1], h[(y - 1) * W + x], h[(y + 1) * W + x]];
             expect(v > Math.max(...n) || v < Math.min(...n), `${what}: a one-tile pillar or pit at ${x},${y}`).toBe(false);
           }
+      }
+  });
+
+  it("Craterize: a central peak stands clear of the lake its crater would hold, so a crater filled as a lake keeps an island", () => {
+    for (const walls of ["terraced", "steep"] as const)
+      for (const seed of [0, 1, 2, 3]) {
+        const m = fixture("plain", 64);
+        const W = m.W;
+        const p = impact(snapshotMap(m), { ...CRATER_DEFAULTS, walls, centre: "peak", seed, power: 60, size: 40, rays: false, debris: "light" }, { origin: 32 * W + 32 });
+        const a = p.anatomy;
+        const h = p.map.heights;
+        const off = (i: number) => Math.hypot((i % W) - a.x, Math.floor(i / W) - a.y);
+        // the lake's level: the lowest pass from the bowl's lowest tile to lower ground past the crater or the
+        // map's edge (a minimax path)
+        let start = Math.round(a.y) * W + Math.round(a.x);
+        for (let i = 0; i < h.length; i++) if (off(i) < a.radius * 0.7 && h[i] < h[start]) start = i;
+        const best = new Array<number>(h.length).fill(Infinity);
+        best[start] = h[start];
+        const queue: [number, number][] = [[h[start], start]];
+        let lake = -1;
+        while (lake < 0 && queue.length) {
+          queue.sort((u, v) => u[0] - v[0]);
+          const [level, i] = queue.shift()!;
+          if (level > best[i]) continue;
+          const [x, y] = [i % W, Math.floor(i / W)];
+          if (x === 0 || y === 0 || x === W - 1 || y === m.H - 1 || (off(i) > a.radius * 1.6 && h[i] < level)) lake = level;
+          else
+            for (const j of [i - 1, i + 1, i - W, i + W]) {
+              const v = Math.max(level, h[j]);
+              if (v < best[j]) [best[j], queue[queue.length]] = [v, [v, j]];
+            }
+        }
+        let top = 0;
+        let island = 0;
+        for (let i = 0; i < h.length; i++)
+          if (off(i) < a.radius * 0.4) {
+            top = Math.max(top, h[i]);
+            if (h[i] > lake) island++;
+          }
+        const what = `${walls} ${seed}`;
+        expect(top, `${what}: the peak's top above the lake at ${lake}`).toBeGreaterThanOrEqual(lake + 2);
+        expect(island, `${what}: the island's tiles`).toBeGreaterThanOrEqual(8);
       }
   });
 
