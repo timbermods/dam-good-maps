@@ -269,11 +269,11 @@ export const FALLS: Fall[] = [
   { name: "Low Fall", from: 1, to: 0, face: "S", at: 84, span: [84, 97], notch: [], piers: [87, 91, 94], crest: 6, foot: 0 },
   { name: "Weir Fall", from: 2, to: 1, face: "W", at: 125, span: [93, 106], notch: [99], piers: [], crest: 10, foot: 2 },
   { name: "Crown Fall", from: 3, to: 2, face: "S", at: 128, span: [143, 156], notch: [149], piers: [], crest: 14, foot: 6 },
-  { name: "Great Fall", from: -1, to: 1, face: "S", at: 105, span: [79, 84], notch: [], piers: [], crest: 14, foot: 2 },
+  // the Great Fall is built by `greatFall` below (a diagonal lip): this entry keeps its place and its numbers
+  { name: "Great Fall", from: -1, to: 1, face: "S", at: 108, span: [78, 87], notch: [], piers: [], crest: 14, foot: 2 },
   // the Low Sill: Low Lake's own, wide and whole (no notch: the bottom lake keeps its water below the sill and
   // loses it only to the sun), into the gorge's pool
   { name: "Low Sill", from: 0, to: -1, face: "S", at: 22, span: [34, 46], notch: [], piers: [], crest: 2, foot: 0 },
-  { name: "Great Fall, west face", from: -1, to: 1, face: "W", at: 86, span: [100, 104], notch: [], piers: [], crest: 14, foot: 2 },
 ];
 
 /** How far the lip of a fall stands back upstream at `u` along its gap: none at the ends, two tiles in the middle. */
@@ -291,9 +291,7 @@ function recess(F: Fall, u: number): number {
 export const POOL: Sp[] = [[104, 127, 4.5], [108, 131, 4]];
 export const POOL_BED = 13;
 
-const HANG_PATH: Pt[] = [[101, 124], [96, 117], [91, 111], [88, 107], [88, 101.6]];
-/** The hanging valley's west arm, along the south face's lip. */
-const HANG_ARM: Pt[] = [[88, 106.5], [79.5, 106.5]];
+const HANG_PATH: Pt[] = [[101, 124], [96, 117], [91, 111], [87, 106.5]];
 const NECK_PATH: Pt[] = [[111, 133], [120, 139], [132, 145]];
 const OLD_PATH: Pt[] = [[101, 133], [98, 142], [104, 156], [120, 170], [140, 181], [165, 184], [183, 175], [187, 152], [187, 130], [186, 106], [179, 88], [171, 70], [161, 55], [143, 40], [126, 30], [112, 20], [104, 10], [104, -1]];
 const GORGE_PATH: Pt[] = [[40, 21], [39, 14], [41, 7], [40, -1]];
@@ -327,7 +325,6 @@ function brookBed(path: Pt[], from: number, to: number): (s: number) => number {
 
 export const CHANNELS: Channel[] = [
   { name: "Hanging valley", path: HANG_PATH, half: () => 2.4, bed: () => 14, bank: 1, bankWide: 3, wet: true, wander: 0, open: 1 },
-  { name: "Hanging valley arm", path: HANG_ARM, half: () => 1.6, bed: () => 14, bank: 1, bankWide: 3, wet: true, wander: 0, open: 1 },
   { name: "Neck", path: NECK_PATH, half: () => 2.1, bed: () => 14, bank: 1, bankWide: 3, wet: true, wander: 0, open: 1 },
   { name: "Old channel", path: OLD_PATH, half: (s) => (s < 7 ? 4.9 : s < 10 ? 3.6 : 2.6), follow: { start: 14, under: 2.7, end: 1, hold: 7 }, bank: 2, bankWide: 3, wet: false, wander: 2.2, open: 0.8 },
   { name: "Gorge", path: GORGE_PATH, half: (s) => (s < 3 ? 5.6 : s < 13 ? 2.6 : s < 16 ? 3.6 : 4.6), bed: () => 0, bank: 0, bankWide: 0, wet: true, wander: 0, open: 0 },
@@ -346,7 +343,7 @@ export const CHANNELS: Channel[] = [
 const chan = (name: string) => CHANNELS.findIndex((c) => c.name === name);
 
 /** The cliff behind Weir Lake that the Great Fall comes over: north of this line the land is the upper world. */
-const WALL: Pt[] = [[40, 97], [58, 100], [66, 104], [74, 105], [78.5, 105], [85.4, 105], [85.6, 98.5], [93, 99.5], [98, 107], [103, 113], [112, 115], [120, 111], [128, 106], [150, 104]];
+const WALL: Pt[] = [[40, 97], [58, 100], [66, 104], [73, 108], [78, 108], [87, 99], [93, 99.5], [98, 107], [103, 113], [112, 115], [120, 111], [128, 106], [150, 104]];
 function greatWall(x: number): number {
   if (x <= WALL[0][0]) return WALL[0][1];
   for (let k = 0; k + 1 < WALL.length; k++) {
@@ -358,6 +355,11 @@ function greatWall(x: number): number {
 }
 
 const SEED = 4107;
+/** The Great Fall's lip: ten tiles on a diagonal from (78, 108) south-east to (87, 99), a face 14 tiles long that
+ *  looks south-west. The game's first camera on this start looks 35 degrees east of north, and its sun rides
+ *  40 degrees clockwise of that: a south-west face is square to the camera (its whole length within two and a half
+ *  tiles of depth, so the lip stays inside the frame) and takes the light at 0.61 (a south face: 0.18). */
+export const GREAT_LIP: Pt[] = Array.from({ length: 10 }, (_, k) => [78 + k, 108 - k] as Pt);
 /** The start's middle tile: nine tiles in front of the Great Fall's lip, so the curtain fills the upper middle of the
  *  game's first camera (Cw0: it looks 35 degrees east of north). */
 export const START_AT: Pt = [78, 98];
@@ -453,7 +455,7 @@ export function designLand(): Land {
     return out;
   });
   const brooks = CHANNELS.map((c, k) => (c.brook ? k : -1)).filter((k) => k >= 0);
-  const topWater = [chan("Hanging valley"), chan("Hanging valley arm"), chan("Neck")];
+  const topWater = [chan("Hanging valley"), chan("Neck")];
 
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
@@ -541,7 +543,7 @@ export function designLand(): Land {
       land += 1.3 * scarp * Math.min(1, Math.max(0, (near - 22) / 5));
       const scarp2 = Math.max(-1, Math.min(1, fbm(x, y, 26, SEED + 23, 2) * 60));
       land += 1.0 * scarp2 * Math.min(1, Math.max(0, (near - 19) / 4));
-      if (near > 21 && fbm(x, y, 50, SEED + 24, 2) > -0.12) land = Math.round(land / 2) * 2;
+      if (near > 21) land = fbm(x, y, 50, SEED + 24, 2) > -0.25 ? Math.round(land / 3) * 3 : Math.round(land / 2) * 2;
       if (near > 4 && near < 9 && fbm(x, y, 9, SEED + 22, 2) > 0.42) land += 1;
       for (const r of RIDGES) {
         const { d } = pathDist(x + 0.5, y + 0.5, r.path);
@@ -677,6 +679,10 @@ export function designLand(): Land {
   // the falls: the gap between two shoulders, the crest (a horseshoe), the notch, the drop
   const crests: number[][] = [];
   for (const F of FALLS) {
+    if (F.name === "Great Fall") {
+      crests.push(greatFall(h, lake, channel));
+      continue;
+    }
     const tiles: number[] = [];
     const [a, b] = F.span;
     const mid = (a + b) / 2;
@@ -760,12 +766,6 @@ export function designLand(): Land {
     crests.push(tiles);
   }
 
-  for (let x = 85; x <= 91; x++) {
-    const i = 99 * W + x;
-    h[i] = 15;
-    lake[i] = 0;
-    channel[i] = 0;
-  }
   for (let y = START_AT[1] - 3; y <= START_AT[1] + 3; y++)
     for (let x = START_AT[0] - 3; x <= START_AT[0] + 3; x++) {
       const i = y * W + x;
@@ -824,6 +824,35 @@ export function designLand(): Land {
   const gates = [rowAt("Neck", 3, 5), rowAt("Hanging valley", 3, 5), rowAt("West Leat", 0.4, 2.6)];
   const brookHeads = CHANNELS.filter((c) => c.brook).map((c) => rowAt(c.name, 1, 2.6));
   return { heights: h, lake, channel, pool, crests, beds, plugs, guarded, gates, brookHeads };
+}
+
+/** The Great Fall: the lip's ten tiles and the row behind them at the hanging valley's bed (14), three more rows of
+ *  bed behind those; in front, the pool four tiles deep (each lip tile pours over its south and its west side). */
+function greatFall(h: Uint8Array, lake: Uint8Array, channel: Uint8Array): number[] {
+  const hv = chan("Hanging valley") + 1;
+  const tiles: number[] = [];
+  for (const [x, y] of GREAT_LIP) {
+    // the valley's bed behind the lip: toward the north-east
+    for (let d = 0; d <= 4; d++)
+      for (let e = 0; e <= d; e++) {
+        const i = (y + e) * W + x + (d - e);
+        h[i] = 14;
+        lake[i] = 0;
+        channel[i] = hv;
+      }
+    tiles.push(y * W + x);
+  }
+  for (const [x, y] of GREAT_LIP)
+    for (let a = 0; a <= 4; a++)
+      for (let b = 0; a + b <= 4; b++) {
+        if (a + b === 0) continue;
+        const i = (y - b) * W + x - a;
+        if (channel[i] === hv) continue;
+        h[i] = a + b >= 4 ? 3 : 2;
+        lake[i] = 2;
+        channel[i] = 0;
+      }
+  return tiles;
 }
 
 /** One-tile pits and spikes on the land go (the game's own look has none), and one-tile tongues. */

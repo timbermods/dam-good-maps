@@ -15,7 +15,7 @@ import { join } from "node:path";
 import { frameAt, orientationForHigh, reachWalk } from "./core";
 import { openingCamera, placeComponents, startMiddleTile, StartWaterDays, startWaterWithin, VISTA_ZOOM } from "./core";
 import { applyOps, checksOf, emptySimulationSingletons, exportFiles, fallsOf, GAME_VERSION, HazardRun, LAYERS, MapSession, rowOf, TICKS_PER_DAY, voxelsFromHeights, writeTimber, type TimberFile } from "./core";
-import { CHANNELS, designLand, FALLS, fbm, H, LAKES, measureLand, N, START_AT, TARNS, W, type Land } from "./four-lakes-design";
+import { CHANNELS, designLand, FALLS, fbm, GREAT_LIP, H, LAKES, measureLand, N, START_AT, TARNS, W, type Land } from "./four-lakes-design";
 import { writePicture } from "./four-lakes-view";
 
 const arg = (name: string, f: string) => {
@@ -462,27 +462,21 @@ function plantCount(s: MapSession): { trees: number; dead: number; berries: numb
 /** TOOL: a cave behind a fall (change 7): the Block tool takes the rock out of the Great Fall's cliff from its
  *  face, three levels high over the lake, six wide and three deep, and the large relic stands in it. */
 function greatCave(s: MapSession): void {
-  const F = FALLS[3];
-  const h = s.built.heights;
-  const mid = Math.round((F.span[0] + F.span[1]) / 2);
-  const face = (x: number) => {
-    let y = F.at;
-    while (h[y * W + x] < F.crest - 1 && y < F.at + 4) y++;
-    return y;
-  };
   try {
-    // six columns round the lip's middle that share one face
-    const y0 = face(mid);
-    const cols: number[] = [];
-    for (let x = mid - 3; x <= mid + 3 && cols.length < 6; x++) if (face(x) === y0) cols.push(x);
-    if (cols.length < 5) throw new Error("the lip's middle has no straight face six wide");
-    for (let depth = 0; depth < 3; depth++) {
-      const cells: [number, number, number][] = [];
-      for (const x of cols) for (let z = 7; z <= 9; z++) cells.push([x, y0 + depth, z]);
-      applyOps(s, [{ op: "blocks", params: { mode: "remove", side: "-y", at: cells, size: 1 }, label: "The cave behind the Great Fall" }]);
+    // five rows of the lip's middle; each row is opened from its own face and then inward (east), a tile at a time
+    let cut = 0;
+    for (let k = 3; k <= 7; k++) {
+      const [x, y] = GREAT_LIP[k];
+      const deep = k >= 4 && k <= 6 ? 4 : 2;
+      for (let d = 0; d <= deep; d++) {
+        const cells: [number, number, number][] = [7, 8, 9].map((z) => [x + d, y, z] as [number, number, number]);
+        applyOps(s, [{ op: "blocks", params: { mode: "remove", side: d === 0 ? "-y" : "-x", at: cells, size: 1 }, label: "The cave behind the Great Fall" }]);
+        cut += 3;
+      }
     }
-    applyOps(s, [{ op: "placeEntity", params: { id: newId(), template: "LargeRelic", x: cols[1], y: y0, z: 7, orientation: "Cw0" }, label: "The relic in the cave" }]);
-    log(`  the cave behind the Great Fall is cut (X ${cols[0]}-${cols[cols.length - 1]}, Y ${y0}-${y0 + 2}, levels 7-9), the large relic in it`);
+    const [rx, ry] = [GREAT_LIP[6][0], GREAT_LIP[6][1]];
+    applyOps(s, [{ op: "placeEntity", params: { id: newId(), template: "LargeRelic", x: rx, y: ry, z: 7, orientation: "Cw0" }, label: "The relic in the cave" }]);
+    log(`  the cave behind the Great Fall is cut (${cut} blocks, levels 7-9), the large relic in it at X ${rx} Y ${ry}`);
   } catch (e) {
     log(`    (the cave behind the Great Fall: ${(e as Error).message})`);
   }
@@ -717,20 +711,21 @@ function openBypass(s: MapSession, land: Land, brooks: boolean): void {
  *  first frame and pulled back to the widest (u across, v up, each -1 to 1 inside the frame). */
 function firstFrame(s: MapSession, land: Land): void {
   const st = startOf(s);
-  const lip = [...land.crests[3], ...land.crests[5]];
+  const lip = land.crests[3];
   const xs = lip.map((i) => i % W);
   const ys = lip.map((i) => Math.floor(i / W));
-  const x0 = Math.min(...xs);
-  const x1 = Math.max(...xs);
-  const yLip = Math.min(...ys);
   const top = 14.2;
   const foot = 6.4;
+  void xs;
+  void ys;
+  const a = lip[0];
+  const z = lip[lip.length - 1];
   for (const [name, cam] of [["first frame", openingCamera(st)], ["widest", openingCamera(st, VISTA_ZOOM)]] as const) {
     const pts = [
-      frameAt(cam, x0 + 0.5, yLip + 0.5, top),
-      frameAt(cam, x1 + 0.5, yLip + 0.5, top),
-      frameAt(cam, x0 + 0.5, yLip - 0.5, foot),
-      frameAt(cam, x1 + 0.5, yLip - 0.5, foot),
+      frameAt(cam, (a % W) + 0.5, Math.floor(a / W) + 0.5, top),
+      frameAt(cam, (z % W) + 0.5, Math.floor(z / W) + 0.5, top),
+      frameAt(cam, (a % W) - 0.5, Math.floor(a / W) - 0.5, foot),
+      frameAt(cam, (z % W) - 0.5, Math.floor(z / W) - 0.5, foot),
     ];
     const f = (p: { u: number; v: number } | null) => (p ? `(${p.u.toFixed(2)}, ${p.v.toFixed(2)})` : "behind");
     const inside = pts.every((p) => p && Math.abs(p.u) <= 1 && Math.abs(p.v) <= 1);
@@ -756,7 +751,7 @@ function shots(s: MapSession, weatherDays: { drought: number; badtide: number })
     { name: "03-best-side", label: "Best side: up the valley", view: best },
     { name: "04-far", label: "The whole map", view: far },
     { name: "05-top", label: "Top-down", top: true, view: { yaw: 0, pitch: 89 * deg, distance: 300, target: [96, 5, 96] } },
-    { name: "06-great-fall", label: "The Great Fall", view: { yaw: -36 * deg, pitch: 24 * deg, distance: 52, target: [82.5, 9, 102] } },
+    { name: "06-great-fall", label: "The Great Fall", view: { yaw: -45 * deg, pitch: 24 * deg, distance: 56, target: [82, 9, 103] } },
     { name: "07-low-fall", label: "Low Fall (Weir Lake into Low Lake)", view: { yaw: 14 * deg, pitch: 26 * deg, distance: 50, target: [90.5, 4, 83] } },
     { name: "08-weir-fall", label: "Weir Fall (Steam Lake into Weir Lake)", view: { yaw: -70 * deg, pitch: 26 * deg, distance: 50, target: [124, 8, 99.5] } },
     { name: "09-crown-fall", label: "Crown Fall (Crown Lake into Steam Lake)", view: { yaw: -14 * deg, pitch: 26 * deg, distance: 50, target: [149.5, 12, 127] } },
