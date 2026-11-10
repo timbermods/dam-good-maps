@@ -3,15 +3,16 @@
 // WaterSeep.Model, BadwaterSeep.Model). The start is a lantern tower 4.37 high on its 3 × 3; a water source an outcrop
 // of rock 1.0 high and about 1.15 across; a badwater source a flat crater 2.5 across; a mine site a pit 1.35 deep inside
 // its frame with nothing standing over it (no scaffolding); a seep a slab at the ground round a heap of rocks to 0.57
-// (water) or 0.40 (badwater). The large relic, the one relic drawn as the game's, is its fallen dish antenna
-// (LargeRelic.Model): 1.84 high in its 3 × 3; a blockage its heap of rock (Blockage.Model), 1.08 high. Standard's models
-// are High's and the light look's too, and Standard's baked shadows are fitted to them.
+// (water) or 0.40 (badwater). The relics are the game's: the small its fallen telescope (SmallRelic.Model), 0.29 high in
+// its 2 × 1; the medium its crashed satellite (MediumRelic.Model), 0.6 high in its 3 × 2; the large its fallen dish
+// antenna (LargeRelic.Model), 1.84 high in its 3 × 3. A blockage is its heap of rock (Blockage.Model), 1.08 high.
+// Standard's models are High's and the light look's too, and Standard's baked shadows are fitted to them.
 
 import { describe, expect, it } from "vitest";
 import { modelKeyOf, modelOf, modelTriangles } from "../../src/render3d/entities3d";
 import { LARGE_RELIC_SHADOW } from "../../src/render3d/largeRelic";
 import { litFraction, objectCasters, SHADOW_RES, shadowTops } from "../../src/render3d/light";
-import { BLOCKAGE, LARGE_RELIC, LIGHT } from "../../src/render3d/palette";
+import { BLOCKAGE, LARGE_RELIC, LIGHT, MEDIUM_RELIC, SMALL_RELIC } from "../../src/render3d/palette";
 import { entityView } from "../../src/render3d/model";
 
 function bounds(key: string): { x: number; z: number; lo: number; hi: number } {
@@ -153,6 +154,55 @@ describe("the landmarks at the game's measures", () => {
     };
     for (const c of [...LARGE_RELIC.face, LARGE_RELIC.steel, LARGE_RELIC.stone]) expect(has(c)).toBe(true);
     expect(modelTriangles("LargeRelic")).toBeLessThanOrEqual(1000);
+  });
+});
+
+describe("the small and medium relics at the game's measures", () => {
+  const has = (key: string, c: readonly number[]) => {
+    const col = modelOf(key).col;
+    for (let k = 0; k < col.length; k += 3) if (Math.abs(col[k] - c[0]) < 1e-3 && Math.abs(col[k + 1] - c[1]) < 1e-3 && Math.abs(col[k + 2] - c[2]) < 1e-3) return true;
+    return false;
+  };
+
+  it("the small relic is the game's fallen telescope: 0.29 high, lying along its 2 × 1, in its colours", () => {
+    const b = bounds(modelKeyOf("SmallRelic", 0));
+    // (the game's model reaches from −0.06 to 0.29 up, x −0.84…0.82 and z −0.32…0.37 about its footprint's middle,
+    // leaving out its footing of ground)
+    expect(b.hi).toBeGreaterThan(0.27);
+    expect(b.hi).toBeLessThan(0.31);
+    expect(b.lo).toBeGreaterThan(-0.1);
+    expect(b.x).toBeGreaterThan(1.6);
+    expect(b.x).toBeLessThan(1.75);
+    expect(b.z).toBeGreaterThan(0.7);
+    expect(b.z).toBeLessThan(0.8);
+    for (const c of [SMALL_RELIC.tube, SMALL_RELIC.collar, SMALL_RELIC.lens, SMALL_RELIC.leg, ...SMALL_RELIC.stone]) expect(has("SmallRelic", c)).toBe(true);
+    expect(modelTriangles("SmallRelic")).toBeLessThanOrEqual(400);
+  });
+
+  it("the medium relic is the game's crashed satellite: 0.6 high, its panels across its 3 × 2, in its colours", () => {
+    const b = bounds(modelKeyOf("MediumRelic", 0));
+    // (the game's model reaches from −0.31 to 0.60 up, x −1.27…1.31 and z −0.68…0.82 about its footprint's middle,
+    // leaving out its footing of ground)
+    expect(b.hi).toBeGreaterThan(0.58);
+    expect(b.hi).toBeLessThan(0.62);
+    expect(b.lo).toBeGreaterThan(-0.32);
+    expect(b.x).toBeGreaterThan(2.6);
+    expect(b.x).toBeLessThan(2.85);
+    expect(b.z).toBeGreaterThan(1.55);
+    expect(b.z).toBeLessThan(1.75);
+    for (const c of [MEDIUM_RELIC.body, MEDIUM_RELIC.cell, MEDIUM_RELIC.frame, MEDIUM_RELIC.dish, MEDIUM_RELIC.feed, ...MEDIUM_RELIC.stone]) expect(has("MediumRelic", c)).toBe(true);
+    expect(modelTriangles("MediumRelic")).toBeLessThanOrEqual(600);
+  });
+
+  // (lying on the ground, 0.29 and 0.6 high, what they cast past themselves is 0.14–0.31 and 0.16–0.49 tiles² by the
+  // sun's heading: thin slivers and the satellite's body, which stands between two tiles' middles where no disc can)
+  it("cast nothing in Standard's bake", () => {
+    const e = entityView([
+      { template: "SmallRelic", x: 2, y: 2, z: 3, orientation: "Cw0", owner: "s" },
+      { template: "MediumRelic", x: 8, y: 8, z: 3, orientation: "Cw90", owner: "m" },
+    ]);
+    const casters = objectCasters(16, 16, e);
+    expect(casters === null || casters.every((v) => v === 0)).toBe(true);
   });
 });
 
