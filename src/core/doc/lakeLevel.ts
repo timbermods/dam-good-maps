@@ -83,6 +83,9 @@ function measureNow(s: MapSession, x: number, y: number, level: number, width?: 
     // (a notch lowers this lake only: one that lowers another lake's rim is refused before the settle)
     const other = r.sill === "cut" ? otherLake(model, changed, s.waterNow().depth, r.tiles, at) : null;
     if (other) return none(other, r);
+    // (the sill must bring the lake's spill level to the level: a notch that falls short of its outlet is caught here)
+    const spills = spillLevels(changed)[at];
+    if (spills !== level) return none(`the sill measured for the lake at ${`X ${x} · Y ${y}`} leaves it spilling at level ${two(spills)}, not ${level}`, r);
     const water = canonicalSettle(changed);
     const depth = water.depth[at];
     const surface = changed.floor[at] + depth;
