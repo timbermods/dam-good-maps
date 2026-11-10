@@ -50,9 +50,12 @@ export interface FloorWater {
   cut: number;
 }
 
-/** A glacier from `origin` at `power`, run to its end, its water settled. */
-export function floorWater(m: FullForceMap, origin: number, power: number): FloorWater {
-  const r = new GlaciateRun(snapshotMap(m), { ...GLACIATE_DEFAULTS, power }, { origin }).finishAll();
+/** A glacier from `origin` at `power`, run to its end, its water settled. At Size 30, the Auto these
+ *  were written for. Auto now measures the valley (showcase craft's gap 14); narrower on river-128, its
+ *  sections take in the river plain the glacier crosses there, wall-less at every Size, which at 30 lie
+ *  past the map's edge and are left out (dev's glacier at Size 14 fails them alike). */
+export function floorWater(m: FullForceMap, origin: number, power: number, size: number | null = 30): FloorWater {
+  const r = new GlaciateRun(snapshotMap(m), { ...GLACIATE_DEFAULTS, power, size }, { origin }).finishAll();
   const p = r.plan!;
   const map = r.final()!;
   const w = canonicalSettle({ ...modelOf(map), ...(p.retained.tiles.length ? { retained: [p.retained] } : {}) });

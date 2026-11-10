@@ -396,7 +396,7 @@ export function useRows(ed: Ed): RowsSlice {
     const again = () => void forceAgain();
     if (tool === "craterize") return <CraterizeRow {...roll} force={force} ui={craterUi} onUi={setCraterUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.craterize as ReturnType<typeof craterSettingsOf> | undefined) ?? null} />;
     if (tool === "erupt") return <EruptRow {...roll} force={force} ui={eruptUi} onUi={setEruptUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.erupt as ReturnType<typeof eruptSettingsOf> | undefined) ?? null} />;
-    if (tool === "glaciate") return <GlaciateRow {...roll} force={force} ui={glaciateUi} onUi={setGlaciateUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.glaciate as GlaciateSettings | undefined) ?? null} />;
+    if (tool === "glaciate") return <GlaciateRow {...roll} force={force} ui={glaciateUi} onUi={setGlaciateUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.glaciate as GlaciateSettings | undefined) ?? null} side={{ W: info.W, H: info.H }} />;
     if (tool === "rift") return <RiftRow {...roll} force={force} ui={riftUi} onUi={setRiftUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.rift as RiftSettings | undefined) ?? null} />;
     if (tool === "deposit") return <DepositRow {...roll} force={force} ui={depositUi} onUi={setDepositUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.deposit as DepositSettings | undefined) ?? null} />;
     if (tool === "erode") return <ErodeRow {...roll} force={force} ui={erodeUi} onUi={setErodeUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.erode as ErodeSettings | undefined) ?? null} />;

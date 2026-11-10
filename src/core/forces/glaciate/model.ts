@@ -15,7 +15,8 @@ export interface GlaciateSettings {
   /** Sources (D474): they ride the ground, or the force clears them (clear.ts); absent, it clears. */
   sources?: SourcesRule;
   power: number;
-  /** The trough's width in tiles, or null: Auto (GLACIATE_AUTO_SIZE, whatever the Power). */
+  /** The trough's width in tiles, or null: Auto, the width of the valley it follows (the planner's
+   *  `glacier_auto_size`, whatever the Power). */
   size: number | null;
   meltwater: boolean;
   seed: number;
@@ -99,12 +100,18 @@ export { GLACIATE_SIZE_MAX, GLACIATE_SIZE_MIN };
 /** Try another's next personality (the investigation's series). */
 export const glaciateNextSeed = (s: number) => (Math.imul(s, 1664525) + 1013904223) >>> 0;
 
-/** The trough's width on Auto: round 4's at its default Power (D368 (3): Size is how wide, Power how
- *  deep, and neither drives the other, so Auto no longer follows Power). */
-export const GLACIATE_AUTO_SIZE = 30;
+/** The widest trough Auto takes on a map (showcase craft's gap 14): a sixth of its shorter side, at least 8.
+ *  Auto is the width of the valley the glacier follows (rust/forces `glacier_auto_size`: where the ground
+ *  stands a few levels above the valley's bottom, its median along the route), from 8 tiles to this, whatever the
+ *  Power (D368 (3): Size is how wide, Power how deep). The same sum as the planner's. */
+export const glaciateAutoMost = (W: number, H: number) => Math.max(8, Math.round(Math.min(W, H) / 6));
 
-/** The trough's width: set, or Auto (30, whatever the Power). */
-export const sizeOf = (s: Pick<GlaciateSettings, "size">) => s.size ?? GLACIATE_AUTO_SIZE;
+/** Auto's width before a glacier has found its valley (the ring at the cursor): what it takes across flat
+ *  ground, a tenth of the map's shorter side, 8 at the least. */
+export const glaciateAutoGuess = (W: number, H: number) => Math.min(glaciateAutoMost(W, H), Math.max(8, Math.round(Math.min(W, H) / 20) * 2));
+
+/** The trough's width: set, or Auto's guess on a W × H map until the glacier has found its valley. */
+export const sizeOf = (s: Pick<GlaciateSettings, "size">, W: number, H: number) => s.size ?? glaciateAutoGuess(W, H);
 
 /** Why these settings and gesture are not ones the row and the land could give (null when they are). */
 export function glaciateProblem(W: number, H: number, s: GlaciateSettings, intent: GlaciateIntent): string | null {

@@ -327,7 +327,7 @@ export function useForcePointer(ed: Ed): ForcePointerSlice {
       if (!at) return renderer.current?.clearForce();
       const u = glaciateUiRef.current;
       const z = mirror.current.heights[at[1] * W + at[0]] ?? 0;
-      renderer.current?.setForceMoment({ verb: "glaciate", phase: "gather", progress: 0, x: at[0], y: at[1], z, size: glacierSize(u), power: u.power, glaciate: { seconds: 0 } });
+      renderer.current?.setForceMoment({ verb: "glaciate", phase: "gather", progress: 0, x: at[0], y: at[1], z, size: glacierSize(u, W, H), power: u.power, glaciate: { seconds: 0 } });
     };
     const t: PointerTool = {
       surface: true,

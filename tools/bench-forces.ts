@@ -91,6 +91,8 @@ for (const W of SIZES) {
     ["quake lift", { verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 100 }, path: [{ x: 4, y: W * 0.3 }, { x: W - 5, y: W * 0.7 }], side: 1, cut: null }],
     ["quake slide", { verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power: 100 }, path: [{ x: 4, y: W * 0.3 }, { x: W - 5, y: W * 0.7 }], side: 1, cut: null }],
     ["glaciate", { verb: "glaciate", settings: { ...GLACIATE_DEFAULTS, power: 100, size: GLACIATE_SIZE_MAX }, origin: at, cut: null }],
+    // (its defaults too: Size Auto measures the valley, Power 60 levels the floor)
+    ["glaciate, defaults", { verb: "glaciate", settings: GLACIATE_DEFAULTS, origin: at, cut: null }],
   ];
   for (const [label, req] of cases) {
     const row = time(req, label, W);
