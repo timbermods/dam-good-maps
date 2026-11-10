@@ -1,14 +1,19 @@
 // The opening shot (D493): what the game's first camera shows of a new game, as a plain core question.
 // When a new game starts, the game sets its camera on the district center (Timberborn.GameStartup.cs,
 // `StartingBuildingInitializer.SetCamera`): looking down at 60°, turned to the start's orientation
-// angle + 35°, zoomed to the start's level × 0.1, centered on the building. The camera stands
-// `ZoomBase ^ ZoomLevel × BaseDistance` from its target (Timberborn.CameraSystem.cs, `CameraService`;
+// angle + 35°, zoomed to the start's level × 0.1, centered on the building. Centering keeps the line of
+// sight through the building's middle at its base level (`BlockObjectCenter.WorldCenterAtBaseZ`) but puts
+// the target where that line meets the plane y = 0 (Timberborn.SelectionSystem.cs,
+// `CameraTargeter.CenterCameraOn`), so a start above level 0 has its target past the building, z × cot 60°
+// tiles along the look, and the camera nearer the ground than a target at the start's height would put it
+// (DGM Probe 0.3.4 recorded the first camera on nine maps; tests/unit/opening.test.ts holds each). The
+// camera stands `ZoomBase ^ ZoomLevel × BaseDistance` from its target (Timberborn.CameraSystem.cs, `CameraService`;
 // the values are the game's `CameraService.blueprint.json`: ZoomBase 1.3, BaseDistance 32, the
 // default zoom's widest 6), its rotation AngleAxis(H, up) × AngleAxis(V, right). The vertical field
 // of view, 35°, is read from the game camera's prefab in `resources.assets` (near 0.01, far 600);
 // the frame is the game's usual 16:9.
 //
-// At the opening zoom itself the frame covers only about 30 × 45 tiles round the start; the first
+// At the opening zoom itself the frame covers only about 38 × 42 tiles round the start; the first
 // thing a player does is pull back, which keeps the camera's turn and target. So "the opening frame"
 // here is the opening camera at the default zoom's widest (`VISTA_ZOOM`), what the player sees of the
 // land round the colony before turning the camera: `openingFrame` gives the tiles in it (any zoom),
@@ -78,7 +83,8 @@ export interface OpeningStart {
 }
 
 export interface OpeningCamera {
-  /** The point looked at: the district center's middle, a level over its ground. */
+  /** The point looked at: where the line of sight through the district center's middle, at its base
+   *  level, meets height 0 (the game's `CenterCameraOn`). Pulling back keeps it. */
   target: [number, number, number];
   /** The camera's place (tile x, tile y, height in levels). */
   eye: [number, number, number];
@@ -93,11 +99,13 @@ export interface OpeningCamera {
 export function openingCamera(start: OpeningStart, zoom = start.z * OPENING.zoomPerLevel): OpeningCamera {
   const t = TURNS[start.orientation];
   const distance = pow(OPENING.zoomBase, zoom) * OPENING.baseDistance;
-  const tx = start.x + 0.5;
-  const ty = start.y + 0.5;
-  const tz = start.z + 1;
+  // the building's middle at its base level, followed down the line of sight to height 0 (the camera's
+  // MapMargin, 50 tiles past the map's edge, never clamps it)
+  const run = (start.z * COS_P) / SIN_P;
+  const tx = start.x + 0.5 + t.fx * run;
+  const ty = start.y + 0.5 + t.fy * run;
   const back = distance * COS_P;
-  return { target: [tx, ty, tz], eye: [tx - t.fx * back, ty - t.fy * back, tz + distance * SIN_P], look: [t.fx, t.fy], right: [t.rx, t.ry], distance, zoom };
+  return { target: [tx, ty, 0], eye: [tx - t.fx * back, ty - t.fy * back, distance * SIN_P], look: [t.fx, t.fy], right: [t.rx, t.ry], distance, zoom };
 }
 
 /** Where a point (tile x, tile y, height) falls in the camera's frame: u across (−1 left edge to 1
