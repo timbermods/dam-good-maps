@@ -12,9 +12,10 @@
 //   sides step up to the ground in benches of varied width: a river's bed, not a ruled canal with sheer walls.
 // - The sill stands lower than L: the outlet is closed at L on the fewest tiles and the least ground raised (a minimum
 //   cut between the lake, with the water flowing into it, and the map's edge), joined edge to edge into one bank. Its
-//   spillway, where the river crosses now, as wide as the river needs, stands at L; the rest of the bank a level
-//   higher, two tiles thick, carried along the shore to land above the water at both ends, with a step down behind
-//   it. Two separate pieces mean the basin leaks elsewhere below L: refused, since one sill can't hold it.
+//   spillway, where the river crosses now, as wide as the river needs, stands at L; the rest of the bank, the same
+//   cut a level up, is a ridge at L + 1 running to land above the water at both ends, two tiles thick, with a step
+//   down behind it (refused when no such ridge fits the map). Two separate pieces at L mean the basin leaks elsewhere
+//   below L: refused, since one sill can't hold it.
 //
 // It never changes ground under an object that shapes the water (a source, an obstacle, a natural dam) or ground a
 // caller holds (`fixed`: a cave's columns and the ground holding up a roof).
@@ -291,11 +292,42 @@ export function sillFor(inp: SillInput, x: number, y: number, level: number, wid
     return false;
   });
   if (!shoulder) return { reason: `level ${level} is above every rim round the lake at X ${x} · Y ${y}: its sill would have to ring it` };
-  // the bank: the cut joined edge to edge (two of its tiles meeting at a corner only take a tile between them, outside
-  // the lake where it can); its spillway the tiles the river crosses now, widened along the bank to the river's width,
-  // at the level; the rest a level higher; and a step down behind it into the land below, so it reads as a bank
-  const sill = new Set(cut.tiles);
-  for (const c of cut.tiles) {
+  // the bank: one ridge a level above the water, closing the lake at L + 1 (the same minimum cut, a level up), so it
+  // runs to land above the water at both ends, raising a shore that stands at the water's level along its line; its
+  // tiles joined edge to edge (two meeting at a corner only take a tile between them, outside the lake where it can)
+  const bank = Math.min(CEILING, level + 1);
+  let ridge = cut.tiles;
+  if (bank > level) {
+    const lowB = flood(W, H, at, (i) => top(i) < bank);
+    const sideB = new Uint8Array(N);
+    const up: number[] = [];
+    const markB = (i: number) => {
+      if (sideB[i]) return;
+      sideB[i] = 1;
+      up.push(i);
+    };
+    markB(at);
+    if (now) for (let i = 0; i < N; i++) if (now[i]) markB(i);
+    // (upstream a level up: the rivers that run into the lake, never the dry shore its water reaches at L + 1)
+    for (let h = 0; h < up.length; h++) for (const n of neighbours(up[h], W, H)) if (lowB[n] && (side[n] || (course[n] && spill[n] > before && spill[n] >= spill[up[h]]))) markB(n);
+    const capB = new Int32Array(N);
+    for (let i = 0; i < N; i++) if (lowB[i] && !sideB[i]) capB[i] = editable(i) ? (bank - heights[i]) * 16 + 1 : INF;
+    const cutB = up.some(off) ? null : minCut(W, H, lowB, sideB, capB, off);
+    if (!cutB || "open" in cutB) return { reason: `the bank holding the lake at X ${x} · Y ${y} at level ${level} can't reach land above the water` };
+    // (the piece of it at the outlet, within two tiles of the sill at the level: the cut a level up also closes the
+    // dry rims at the level elsewhere round the lake, which a bank here leaves as they are)
+    const close = new Uint8Array(N);
+    for (const c of cut.tiles) {
+      const cx = c % W;
+      const cy = (c - cx) / W;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (cx + dx >= 0 && cy + dy >= 0 && cx + dx < W && cy + dy < H) close[(cy + dy) * W + cx + dx] = 1;
+    }
+    const mine = pieces(W, H, cutB.tiles).filter((p) => p.some((i) => close[i]));
+    if (!mine.length) return { reason: `the bank holding the lake at X ${x} · Y ${y} at level ${level} can't reach land above the water` };
+    ridge = mine.flat();
+  }
+  const sill = new Set(ridge);
+  for (const c of ridge) {
     const cx = c % W;
     const cy = (c - cx) / W;
     for (const [dx, dy] of [[1, 1], [1, -1]]) {
@@ -304,65 +336,53 @@ export function sillFor(inp: SillInput, x: number, y: number, level: number, wid
       if (nx < 0 || ny < 0 || nx >= W || ny >= H || !sill.has(ny * W + nx)) continue;
       const a = cy * W + nx;
       const b = ny * W + cx;
-      if (sill.has(a) || sill.has(b) || top(a) >= level || top(b) >= level) continue;
+      if (sill.has(a) || sill.has(b) || top(a) >= bank || top(b) >= bank) continue;
       const pick = [a, b].filter((i) => editable(i)).sort((p, q) => side[p] - side[q] || p - q)[0];
       if (pick !== undefined) sill.add(pick);
     }
   }
+  // its spillway: one stretch of the bank as wide as the river needs, at the level, from where the river crosses it
+  // beside land above the water (else at its lowest ground, the middle of it), along the bank
   const w = sillWidthFor(inflow);
-  const spillway = new Set<number>();
-  // (from the lowest ground the river crosses, the middle of it where that is level, along the bank to the river's width)
   const crossed = [...sill].filter((i) => course[i]).sort((a, b) => a - b);
   const lowest = Math.min(...crossed.map((i) => heights[i]));
   const deep = crossed.filter((i) => heights[i] === lowest);
-  const reach = deep.length ? [deep[deep.length >> 1]] : [];
-  for (const i of reach) spillway.add(i);
-  for (let h = 0; h < reach.length && spillway.size < w; h++)
-    for (const n of neighbours(reach[h], W, H))
-      if (sill.has(n) && !spillway.has(n) && spillway.size < w) {
-        spillway.add(n);
-        reach.push(n);
-      }
-  const bank = Math.min(CEILING, level + 1);
-  const set = new Map<number, number>();
-  for (const i of sill) set.set(i, spillway.size && !spillway.has(i) ? bank : level);
-  if (bank > level) {
-    // the bank's ends carried along the shore at the level to ground above the water, so it joins the land at both ends
-    // (an end: a tile of the bank beside the shore, ground at the level or higher, none of it above the water)
-    let tries = 0;
-    for (const e of [...set.keys()]) {
-      if (set.get(e) !== bank || tries >= 4) continue;
-      const shore = neighbours(e, W, H).filter((n) => !set.has(n) && !side[n] && !low[n]);
-      if (!shore.length || shore.some((n) => top(n) >= bank)) continue;
-      tries++;
-      const from = new Map<number, number>([[e, -1]]);
-      const walk = [e];
-      let hit = -1;
-      for (let h = 0; h < walk.length && hit < 0 && walk.length < 400; h++)
-        for (const n of neighbours(walk[h], W, H)) {
-          if (from.has(n) || set.has(n) || side[n] || low[n]) continue;
-          from.set(n, walk[h]);
-          if (top(n) >= bank) {
-            hit = walk[h];
-            break;
-          }
-          if (editable(n) && !course[n]) walk.push(n);
+  const byLand = crossed.filter((i) => neighbours(i, W, H).some((n) => !sill.has(n) && top(n) >= bank));
+  /** The stretch from `seed` along the bank (its tiles 8-joined), up to the river's width. */
+  const stretch = (seed: number | undefined): Set<number> => {
+    const out = new Set<number>();
+    if (seed === undefined) return out;
+    const reach = [seed];
+    out.add(seed);
+    for (let h = 0; h < reach.length && out.size < w; h++) {
+      const cx = reach[h] % W;
+      const cy = (reach[h] - cx) / W;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const n = (cy + dy) * W + cx + dx;
+          if (cx + dx < 0 || cy + dy < 0 || cx + dx >= W || cy + dy >= H || !sill.has(n) || out.has(n) || out.size >= w) continue;
+          out.add(n);
+          reach.push(n);
         }
-      for (let c = hit; c >= 0 && c !== e; c = from.get(c)!) set.set(c, bank);
     }
-    // two tiles thick where it shows: each tile above the water takes the tile behind it, off the river's course and
-    // clear of the spillway's way out (a bank closing in on it held the river back: a settle three times as long)
+    return out;
+  };
+  let spillway = stretch(byLand[byLand.length >> 1]);
+  if (spillway.size < w) spillway = stretch(deep[deep.length >> 1]);
+  const set = new Map<number, number>();
+  for (const i of sill) set.set(i, spillway.has(i) ? level : bank);
+  // (the lake behind it once it stands: what the bank's back and its step down never touch)
+  const lakeSide = flood(W, H, at, (i) => !set.has(i) && top(i) < bank);
+  if (bank > level) {
+    // two tiles thick: each tile of the ridge takes the tile behind it, off the river's course and clear of the
+    // spillway's way out (a bank closing in on it holds the river back)
     const byWay = (n: number) => neighbours(n, W, H).some((m) => spillway.has(m));
     for (const [i, v] of [...set])
-      if (v === bank) for (const n of neighbours(i, W, H)) if (!set.has(n) && !side[n] && editable(n) && !course[n] && !byWay(n) && top(n) < bank) set.set(n, bank);
-    // a clean-up: a tile above the water with no other beside it (alone, or meeting the bank at a corner only) stays at
-    // the level
-    const above = (i: number) => (set.get(i) ?? top(i)) >= bank;
-    for (const [i, v] of [...set]) if (v === bank && !neighbours(i, W, H).some(above)) set.set(i, level);
+      if (v === bank) for (const n of neighbours(i, W, H)) if (!set.has(n) && !lakeSide[n] && editable(n) && !course[n] && !byWay(n) && top(n) < bank) set.set(n, bank);
   }
   // a step down behind it into the land below
   for (const [i, v] of [...set])
-    for (const n of neighbours(i, W, H)) if (!set.has(n) && !side[n] && editable(n) && top(n) < v - 1) set.set(n, v - 1);
+    for (const n of neighbours(i, W, H)) if (!set.has(n) && !lakeSide[n] && editable(n) && top(n) < v - 1) set.set(n, v - 1);
   const tiles = [...set.keys()].filter((i) => set.get(i)! > heights[i]).sort((a, b) => a - b);
   return { sill: "raise", level, tiles, levels: tiles.map((i) => set.get(i)!), width: spillway.size, before, inflow };
 }

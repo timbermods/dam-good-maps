@@ -1101,7 +1101,8 @@ Make a valley, drop a source, and there's a river.
   it so the water falls off the crest and runs away, as wide as its river needs (or as asked) and a tile wider here and
   there, its sides stepping up a level a tile to the ground, never a ruled canal with sheer walls. A lower one is
   closed by one bank across the outlet, joined edge to edge: its spillway where the river crosses at the level, the
-  rest a level above the water, with a step down behind it. The canonical settle confirms the water stands there
+  rest a ridge a level above the water, two tiles thick, running to land above the water at both ends, with a step
+  down behind it (refused when no such ridge closes the outlet). The canonical settle confirms the water stands there
   before anything changes, and that settle is the map's water after it (asking first and then setting the level
   settles once). Refused with one plain line when the land can't hold the lake: the level at or below its floor, a
   second way out below the level (one sill can't hold it), water that would spill off the map, a notch that would
