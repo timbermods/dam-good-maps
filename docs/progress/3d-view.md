@@ -3418,6 +3418,45 @@ High. The game's (`NaturalDam.Model`, 1 × 1, 179 triangles, one node) is the on
   the game's own light. (2) The heap's facets are its rings' 12 a ring, larger than the game's many small ones near.
   (3) The rest of the placeholders in the large relic's falls short (2) remain.
 
+## The badtide drain as the game draws it (D135, D178 as amended 2026-11-10, D496, D497; `fix/badtide-drain`)
+
+Ours drew the badtide drain as a grated box of our own colours, 0.81 high (the large relic's falls short (2)). The
+game's (`BadtideDrain.Model`, 391 triangles, one node) is the one model for every drain; the map stores its Coordinates
+and its orientation, the way it flows. Its footprint is 1 × 3: the box on the two ground tiles, the third the air its
+water falls through.
+
+- **Read from the game's model** (numbers only, `tools/game-model-albedo.py` and scratch fits): a box 1 × 1 × 2
+  filling its two tiles, 1.0 high, its faces flat and coloured by vertex colour: a rust-orange frame 0.1 wide round
+  every face (grey squares at its corners) and dark panels; two rails along its top and down its back; on each side two
+  pipes 0.1 wide rising from its foot in quarter bends (radii 0.5–0.6 and 0.2–0.3 round one point) and running on to its
+  front. At its front a recess 0.1 deep round a plate sloping back from 1.62 to 1.9, a round hole 0.8 across in it,
+  and behind the hole a black funnel narrowing to 0.28 and closing at 0.7; over the hole's upper half a rusted hood
+  0.12 thick reaching 0.37 out at its top and sloping back to the box at its sides. Its material is metallic (0.53,
+  smoothness 0.3), folded into albedo for our light as the relics' are (`palette.ts` `BADTIDE_DRAIN`): the frame and
+  pipes 0.233/0.143/0.09 from the game's 0.427/0.254/0.158, the corners 0.167/0.143/0.119, the panels 0.1/0.089/0.074,
+  the funnel 0.056/0.046/0.039 and the hood 0.166/0.102/0.065.
+- **Built** (`render3d/badtideDrain.ts`, new): our own model to those measures, 236 triangles (ours before, 244): the
+  faces as their frames, panels and rails tiled flat, the pipes as strips standing 0.006 off the sides, the plate, the
+  funnel as one cone, the hood in 8 steps round. On the relics' `Parts`. Standard and High draw the same model, in the
+  objects' game light, with the objects' fade near the pointer.
+- **Measured:** the bounds within 0.006 of the game's. The silhouette, against the game's from 16 cameras (8
+  headings, 30° and 60° down) and from above: 1.00–1.01 times the game's area, IoU 0.99–1.00.
+- **Standard's shadow:** it cast none. One upright disc round the middle of each of its two tiles
+  (`BADTIDE_DRAIN_SHADOW`, light.ts kind 19: 0 to 1.2 up, radius 0.8), fitted to the model's shadow along the 45° sun at
+  8 headings, shading nothing on its own tile (`OWN_TILE_LIT`), turned with the drain. On the ground it does not stand
+  over, 0.97–1.19 of the model's shadow a heading (longest with the sun along it), 1.00 in all; a column over each tile
+  cast 0.69–0.99, its diagonals short. `landmarksGame.test.ts` holds 0.9–1.25 a heading and 0.95–1.05 in all.
+- **Judged:** no game frame of ours holds a drain (the generator places none). Six placed on river valley 2's banks,
+  14 away, Standard and High alike: dark rusted boxes with orange frames, rails and bent pipes, the funnel black under
+  its hood, as the game's model renders offline, their sunlit faces no darker in Standard than in High.
+- **Cost:** −8 triangles a drain, the draw calls unchanged. `benchOrbit` on river valley 2 at 128 with the six drains
+  (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame, one run each, base → branch): Standard whole map
+  2.59 → 2.57 ms, the drains 14 away 2.89 → 2.78; High 2.36 → 1.67 and 3.80 → 3.80: within the runs' spread. Every
+  frame 7.0 ms at 144 Hz.
+- **Falls short:** (1) No game frame shows a drain; it is judged against the game's model rendered offline, not the
+  game's own light. (2) The game's pipes are drawn flat on the sides; ours stand 0.006 off them. (3) The rest of the
+  placeholders in the large relic's falls short (2) remain.
+
 ## A fall over a cave's mouth (D154 as amended 2026-11-08, D496; `fix/cave-mouth-curtain`)
 
 The in-game capture kit (#933) on Four Lakes r9: at the Great Fall the game draws one curtain over a dry cave's mouth
