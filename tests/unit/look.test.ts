@@ -367,7 +367,8 @@ describe("the models", () => {
     expect(modelKeyOf("RuinColumnH5", 0)).toBe("ruin");
     expect(modelKeyOf("StartingLocation", 0)).toBe("start");
     expect(modelKeyOf("Slope", 0)).toBe("Slope");
-    expect(modelKeyOf("Blockage", 0)).toBe("block");
+    // (a blockage is its own model since it became the game's heap, D178 as amended 2026-11-10, D148: it was a block)
+    expect(modelKeyOf("Blockage", 0)).toBe("Blockage");
     expect(modelKeyOf("SomethingNew", 0)).toBe("block");
     // small enough for tens of thousands of trees
     for (const k of ["Pine", "Birch", "Oak", "BlueberryBush", "Pine.dead", "Birch.dead", "Oak.dead"]) expect(modelTriangles(k)).toBeLessThanOrEqual(64);
