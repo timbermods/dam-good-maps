@@ -243,15 +243,9 @@ describe("the force: Aim, Defy gravity and Wander", () => {
     expect(depth(slot)).toBeGreaterThanOrEqual(8);
     expect(depth(lazy)).toBeLessThanOrEqual(2);
     expect(slot.metrics.cut / area(slot)).toBeGreaterThan((lazy.metrics.cut / area(lazy)) * 3);
-    // (the same course; above a fall Auto keeps the stream a stream, about six tiles, while a set Width makes it as
-    // wide as asked, since planning's order that the player sets a fall's width, D148: elsewhere the same ground)
     const linked = complete(mountain, { width: null });
     const explicit = complete(mountain, { width: naturalWidth(DEFAULTS.power) });
-    expect(linked.path).toEqual(explicit.path);
-    const differ = Array.from(mountain.heights.keys()).filter((i) => linked.map.heights[i] !== explicit.map.heights[i]);
-    const wide = naturalWidth(DEFAULTS.power) + 3;
-    expect(differ.filter((i) => !linked.path.some((p) => Math.hypot(p.x - (i % 64), p.y - Math.floor(i / 64)) <= wide))).toEqual([]);
-    expect(differ.filter((i) => explicit.map.heights[i] < linked.map.heights[i]).length).toBeGreaterThan(differ.length / 2);
+    expect(Array.from(linked.map.heights)).toEqual(Array.from(explicit.map.heights));
   });
 
   it("each seed (Try another path) is exact; another seed changes the course but never the rock", () => {

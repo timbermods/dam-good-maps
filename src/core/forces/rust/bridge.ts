@@ -96,6 +96,15 @@ const FORCE_ERRORS = [
   "A fall needs high ground to fall from: draw the stroke from it over an edge or down a slope",
 ];
 
+/** A set Fall the land can't give (codes 100 and 140 plus the most it can, rust/forces `FALL_SHORT`), in one line. */
+function fallShort(error: number, settings: object): string | null {
+  if (error < 100 || error >= 180) return null;
+  const asked = (settings as { fall?: number }).fall;
+  const most = error >= 140 ? error - 140 : error - 100;
+  const why = error >= 140 ? `above the Floor the land falls at most ${most}` : `the land falls at most ${most}`;
+  return `No drop of ${asked} here: ${why}`;
+}
+
 export type RustVerb = "craterize" | "erupt" | "quake" | "carve" | "glaciate" | "rift" | "deposit" | "erode";
 
 /** A force to plan: which, the map it starts from, its settings and where (each verb's intent), the
@@ -286,7 +295,7 @@ export function planInRust<V extends RustVerb>(job: RustJob & { verb: V }): Extr
     if (m.wet) view(69, Uint32Array).set(m.wet);
     x.forces_checkpoint(task);
     const error = x.forces_plan(task);
-    if (error) throw new Error(FORCE_ERRORS[error] ?? `the Rust forces refused (${error})`);
+    if (error) throw new Error(fallShort(error, job.settings) ?? FORCE_ERRORS[error] ?? `the Rust forces refused (${error})`);
     return readPlan(job, plain, view) as Extract<RustPlan, { verb: V }>;
   } finally {
     x.forces_free(task);

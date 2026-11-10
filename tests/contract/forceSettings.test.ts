@@ -32,7 +32,7 @@ const DEFAULTS: Record<Verb, Record<string, unknown>> = {
 
 const W = 16;
 const map: ForceMap = { W, H: W, heights: new Uint8Array(W * W).fill(4), entities: [], water: { depth: new Float64Array(W * W), contamination: new Float64Array(W * W) }, maxHeight: 22 };
-const ledge: ForceMap = { ...map, heights: Uint8Array.from({ length: W * W }, (_, i) => (i % W < W / 2 ? 12 : 4)) };
+const ledge: ForceMap = { ...map, heights: Uint8Array.from({ length: W * W }, (_, i) => (i % W < W / 2 ? 16 : 4)) };
 const path = [{ x: 2, y: 2 }, { x: 10, y: 10 }];
 
 /** Why each force refuses `s` when it starts (null: it starts). */
@@ -53,7 +53,7 @@ function atStart(verb: Verb, s: Record<string, unknown>): string | null {
     case "rift":
       return thrown(() => validateRift(s as never));
     case "carve":
-      // (a Fall set needs high ground to fall from, or the carve is refused for the land, not its settings: a ledge)
+      // (a Fall set needs high ground that drops by it, or the carve is refused for the land, not its settings: a ledge tall enough for the Fall range's top)
       return thrown(() => new CarveRun(s.fall == null ? map : ledge, s as never, { origin: 5 * W + 5 }));
     case "craterize":
       return thrown(() => validateCrater(s as never, map, { origin: 5 * W + 5 }));

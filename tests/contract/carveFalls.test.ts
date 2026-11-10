@@ -8,11 +8,11 @@
 import { describe, expect, it } from "vitest";
 import { waterSource } from "../../src/core/format/entities";
 import { plainEntities, type ForceMap, type FullForceMap } from "../../src/core/forces/force";
-import { DEFAULTS, type CarveSettings } from "../../src/core/forces/carve/run";
+import { CarveRun, DEFAULTS, type CarveSettings } from "../../src/core/forces/carve/run";
 import { modelOf } from "../../src/core/forces/runs";
 import { planForce, type ForceRequest } from "../../src/core/forces/start";
 import { canonicalSettle } from "../../src/core/sim/prefill";
-import { fallStudy } from "./carveFixtures";
+import { fallStudy, study } from "./carveFixtures";
 
 interface Fell {
   before: Uint8Array;
@@ -127,6 +127,40 @@ describe("a fall from one stroke (showcase craft gaps 1, 2 and 20)", () => {
     expect(a.ground).toBe(14);
     expect(a.depth(a.lip - 3)).toBeGreaterThan(0.6);
     expect(a.surface(a.lip) - a.surface(a.lip + 2)).toBeGreaterThanOrEqual(8);
+  });
+
+  it("a set Fall is made at any Power, or refused in one line with the drop the land can give (D342)", () => {
+    // (a gentle Power still cuts the reach below down to the Fall's drop)
+    const gentle = stroke(fallStudy("mesa"), [6, Y], [71, Y], { fall: 6, power: 20 });
+    if (typeof gentle === "string") throw new Error(gentle);
+    const a = across(gentle, Y, 6, 13);
+    expect(a.surface(a.lip) - a.surface(a.lip + 2)).toBeGreaterThanOrEqual(6);
+    // (deeper than the land goes, or than the Floor lets it)
+    expect(stroke(fallStudy("mesa"), [6, Y], [71, Y], { fall: 12 })).toBe("No drop of 12 here: the land falls at most 10");
+    expect(stroke(fallStudy("mesa"), [6, Y], [71, Y], { fall: 8, floor: 6 })).toBe("No drop of 8 here: above the Floor the land falls at most 5");
+  });
+
+  it("a course down a gentle valley keeps its own carve: no slot cut level into it, and Walls still widen it", () => {
+    // (the mountain study's valley runs from 12 down to 6 before its edge; a fall's reach measured from the origin once
+    // cut all of it to a flat slot at 4, seven wide with sheer walls, whatever the Walls)
+    const m = study("mountain", 64);
+    const run = (walls: "steep" | "wide") => {
+      const r = new CarveRun(m, { ...DEFAULTS, power: 65, walls }, { origin: 54 * 64 + 32 });
+      for (let k = 0; k < 1200 && !r.done; k++) r.step();
+      return r;
+    };
+    const steep = run("steep");
+    const at = (p: { x: number; y: number }) => Math.round(p.y) * 64 + Math.round(p.x);
+    const beds = steep.path.map((p) => steep.map.heights[at(p)]);
+    const ground = steep.path.map((p) => m.heights[at(p)]);
+    const q = Math.floor(beds.length / 4);
+    // the bed follows the land down as the carve's own canyon (in the slot it stood at 4 the length of the valley,
+    // under ground from 12 to 6): its first quarter well above its last, and never rising downstream
+    expect(Math.min(...beds.slice(0, q)) - Math.max(...beds.slice(-q))).toBeGreaterThanOrEqual(3);
+    expect(beds.every((b, k) => k === 0 || b <= beds[k - 1])).toBe(true);
+    expect(ground[0]).toBeGreaterThan(ground[ground.length - 2]);
+    const wide = run("wide");
+    expect(Array.from(m.heights.keys()).filter((i) => wide.map.heights[i] !== steep.map.heights[i]).length).toBeGreaterThan(20);
   });
 
   it("a Fall with nowhere to fall is refused, in one line", () => {
