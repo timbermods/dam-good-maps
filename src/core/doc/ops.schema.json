@@ -360,16 +360,17 @@
       }
     },
     "setLakeLevel": {
-      "description": "Lakes by number: the lake at 'at' made to hold at 'level', its water standing from the level up to under a level above it (the head of its flow over the sill). Its sill is cut down to the level (a notch 'width' tiles wide along the way out that moves the least ground) or raised up to it (across the outlet, on the fewest tiles raising the least ground), and its tiles are stored literally as runs [y, x0, x1], every one set to the level and left by the integrity pass. The engine checks the sill, measured on the map now, is the one stored; the core's question confirms the water stands at the level with the canonical settle before it makes the operation (doc/lakeLevel.ts).",
+      "description": "Lakes by number: the lake at 'at' made to hold at 'level', its water standing from the level up to under a level above it (the head of its flow over the sill). Its sill is cut down (a notch about 'width' tiles wide down the river's own course, its crest at the level, the rest a level lower, its sides stepping up to the ground) or raised (one bank across the outlet, its spillway at the level and the rest a level higher). Its tiles are stored literally: 'cells' as runs [y, x0, x1], and 'levels' the level of each, in the order of y·W + x; the integrity pass leaves them. The engine checks the sill, measured on the map now, is the one stored; the core's question confirms the water stands at the level with the canonical settle before it makes the operation (doc/lakeLevel.ts).",
       "type": "object",
       "additionalProperties": false,
-      "required": ["at", "level", "sill", "cells"],
+      "required": ["at", "level", "sill", "cells", "levels"],
       "properties": {
         "at": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
         "level": { "type": "integer", "minimum": 1, "maximum": 22 },
         "sill": { "enum": ["cut", "raise"] },
         "width": { "type": "integer", "minimum": 1, "maximum": 32 },
-        "cells": { "$ref": "#/$defs/runs" }
+        "cells": { "$ref": "#/$defs/runs" },
+        "levels": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 22 } }
       }
     },
     "tile": {

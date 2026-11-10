@@ -12,7 +12,7 @@
 import { CEILING } from "../format/world";
 import { runsToTiles, tilesToRuns } from "../math/grid";
 import { WATER } from "../sim/fed";
-import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
+import { canonicalSettle, spillLevels, type CanonicalWater } from "../sim/prefill";
 import { MAX_SILL_WIDTH, sillFor, type SillPlan, type SillWay } from "../sim/sill";
 import type { WaterModel } from "../sim/water";
 import type { OpOf, OpParams } from "./ops";
@@ -29,9 +29,11 @@ export interface LakeLevelPlan {
   op: OpOf<"setLakeLevel"> | null;
   /** Cut down or raised (null when refused before a sill was found). */
   sill: SillWay | null;
-  /** The sill's tiles, all set to the level, ascending (y·W + x); empty when refused before a sill was found. */
+  /** The tiles the sill changes, ascending (y·W + x); empty when refused before a sill was found. */
   tiles: number[];
-  /** A cut notch's width in tiles. */
+  /** The level each of `tiles` is set to, in their order. */
+  levels: number[];
+  /** A cut notch's width in tiles, or a raised bank's spillway's. */
   width?: number;
   /** Where the settled water stands at the lake's tile once the sill is changed (NaN when refused before settling). */
   surface: number;
@@ -51,9 +53,22 @@ export function planLakeLevel(s: MapSession, x: number, y: number, level: number
   return measure(s, x, y, level, width).plan;
 }
 
+/** The last measure on each session, kept while its map stands as it was measured (its `built`): the page asks the
+ *  question, then sets the level, and the second is the first's answer, never settled twice. */
+const lastMeasure = new WeakMap<MapSession, { built: object; key: string; result: ReturnType<typeof measureNow> }>();
+
 /** `planLakeLevel`, with the settle that confirmed it (the map's water model with the sill, and its canonical settle). */
-function measure(s: MapSession, x: number, y: number, level: number, width?: number): { plan: LakeLevelPlan; settled?: { model: WaterModel; water: CanonicalWater } } {
-  const none = (reason: string, sill: SillPlan | null = null, surface = NaN) => ({ plan: { reason, op: null, sill: sill?.sill ?? null, tiles: sill?.tiles ?? [], ...(sill?.width ? { width: sill.width } : {}), surface, lake: [] } });
+function measure(s: MapSession, x: number, y: number, level: number, width?: number): ReturnType<typeof measureNow> {
+  const key = `${x},${y},${level},${width ?? ""}`;
+  const was = lastMeasure.get(s);
+  if (was && was.built === s.built && was.key === key) return was.result;
+  const result = measureNow(s, x, y, level, width);
+  lastMeasure.set(s, { built: s.built, key, result });
+  return result;
+}
+
+function measureNow(s: MapSession, x: number, y: number, level: number, width?: number): { plan: LakeLevelPlan; settled?: { model: WaterModel; water: CanonicalWater } } {
+  const none = (reason: string, sill: SillPlan | null = null, surface = NaN) => ({ plan: { reason, op: null, sill: sill?.sill ?? null, tiles: sill?.tiles ?? [], levels: sill?.levels ?? [], ...(sill?.width ? { width: sill.width } : {}), surface, lake: [] } });
   const model = s.waterNow().model;
   const input = { model, heights: s.built.heights, fixed: heldOf(s) };
   let w = width;
@@ -65,7 +80,10 @@ function measure(s: MapSession, x: number, y: number, level: number, width?: num
     if (errors.length) return none(errors[0], r);
     const { W } = model;
     const at = y * W + x;
-    const changed = withSill(model, r.tiles, level);
+    const changed = withSill(model, r.tiles, r.levels);
+    // (a notch lowers this lake only: one that lowers another lake's rim is refused before the settle)
+    const other = r.sill === "cut" ? otherLake(model, changed, s.waterNow().depth, r.tiles, at) : null;
+    if (other) return none(other, r);
     const water = canonicalSettle(changed);
     const depth = water.depth[at];
     const surface = changed.floor[at] + depth;
@@ -78,10 +96,10 @@ function measure(s: MapSession, x: number, y: number, level: number, width?: num
         w = Math.min(MAX_SILL_WIDTH, r.width! + Math.max(1, Math.ceil(r.width! / 2)));
         continue;
       }
-      const span = r.sill === "cut" ? `a notch ${r.width} ${r.width === 1 ? "tile" : "tiles"} wide` : `a sill ${r.tiles.length} ${r.tiles.length === 1 ? "tile" : "tiles"} long`;
+      const span = r.sill === "cut" ? `a notch ${r.width} ${r.width === 1 ? "tile" : "tiles"} wide` : `a spillway ${r.width} ${r.width === 1 ? "tile" : "tiles"} wide`;
       return none(`the lake at ${where} would stand at ${two(surface)} over ${span}, above level ${level}: its river needs a wider sill`, r, surface);
     }
-    return { plan: { reason: null, op, sill: r.sill, tiles: r.tiles, ...(r.width ? { width: r.width } : {}), surface, lake: lakeTiles(changed, water.depth, at, surface) }, settled: { model: changed, water } };
+    return { plan: { reason: null, op, sill: r.sill, tiles: r.tiles, levels: r.levels, ...(r.width ? { width: r.width } : {}), surface, lake: lakeTiles(changed, water.depth, at, surface) }, settled: { model: changed, water } };
   }
 }
 
@@ -110,12 +128,13 @@ export function lakeLevelProblem(s: MapSession, p: OpParams["setLakeLevel"]): st
   const r = sillFor({ model: s.waterNow().model, heights: s.built.heights, fixed: heldOf(s) }, x, y, p.level, p.sill === "cut" ? p.width : undefined);
   if ("reason" in r) return r.reason;
   const stored = runsToTiles(p.cells, W).sort((a, b) => a - b);
-  if (r.sill !== p.sill || stored.length !== r.tiles.length || stored.some((i, k) => i !== r.tiles[k])) return "the lake's sill is no longer the one measured: set its level again";
+  const same = stored.length === r.tiles.length && stored.every((i, k) => i === r.tiles[k] && p.levels[k] === r.levels[k]);
+  if (r.sill !== p.sill || !same) return "the lake's sill is no longer the one measured: set its level again";
   return null;
 }
 
 function opOf(s: MapSession, x: number, y: number, r: SillPlan): OpOf<"setLakeLevel"> {
-  return { op: "setLakeLevel", params: { at: [x, y], level: r.level, sill: r.sill, ...(r.sill === "cut" ? { width: r.width! } : {}), cells: tilesToRuns(r.tiles, s.size.x) } };
+  return { op: "setLakeLevel", params: { at: [x, y], level: r.level, sill: r.sill, ...(r.sill === "cut" ? { width: r.width! } : {}), cells: tilesToRuns(r.tiles, s.size.x), levels: r.levels } };
 }
 
 /** The ground the sill leaves as it is on a map with caves (as Select's actions leave it): none on a heightfield. */
@@ -125,13 +144,31 @@ function heldOf(s: MapSession): ((i: number) => boolean) | undefined {
   return held.size ? (i) => held.has(i) : undefined;
 }
 
-/** The water model with the sill's tiles at `level` (no object on them shapes the water: sim/sill.ts leaves those). */
-function withSill(m: WaterModel, tiles: readonly number[], level: number): WaterModel {
+/** Why a notch can't be cut (null when it can): it lowers the level another lake spills at (standing water over a
+ *  level deep, not the picked lake's), named at its deepest tile. */
+function otherLake(before: WaterModel, after: WaterModel, depth: ArrayLike<number>, tiles: readonly number[], at: number): string | null {
+  const was = spillLevels(before);
+  const now = spillLevels(after);
+  const mine = was[at];
+  const cut = new Set(tiles);
+  let worst = -1;
+  for (let i = 0; i < was.length; i++) {
+    if (!(depth[i] > 1) || was[i] === mine || cut.has(i) || !(now[i] < was[i] - 0.5)) continue;
+    if (worst < 0 || depth[i] > depth[worst]) worst = i;
+  }
+  if (worst < 0) return null;
+  const { W } = before;
+  return `the notch would also drain the lake at X ${worst % W} · Y ${Math.floor(worst / W)} from level ${two(was[worst])} to ${two(now[worst])}`;
+}
+
+/** The water model with the sill's tiles at their levels (no object on them shapes the water: sim/sill.ts leaves
+ *  those). */
+function withSill(m: WaterModel, tiles: readonly number[], levels: readonly number[]): WaterModel {
   const floor = m.floor.slice();
-  for (const i of tiles) floor[i] = level;
+  tiles.forEach((i, k) => (floor[i] = levels[k]));
   if (!m.stacked) return { ...m, floor };
   const mask = m.stacked.mask.slice();
-  for (const i of tiles) mask[i] = level >= 32 ? 0xffffffff : (2 ** level - 1) >>> 0;
+  for (const i of tiles) mask[i] = (2 ** floor[i] - 1) >>> 0;
   return { ...m, floor, stacked: { ...m.stacked, mask } };
 }
 

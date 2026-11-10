@@ -74,20 +74,28 @@ describe("Lakes by number: four lakes stepping down a valley", () => {
       // (the question changes nothing)
       expect(s.history().length).toBe(steps + k);
       ways.push(plan.sill!);
-      // its tiles are the sill's: in the valley, between this lake and the next, every one set to the level
-      for (const i of plan.tiles) {
-        expect(i % W).toBeGreaterThanOrEqual(VALLEY.x0 - 1);
-        expect(i % W).toBeLessThanOrEqual(VALLEY.x1 + 1);
-        expect(Math.floor(i / W)).toBeGreaterThan(b.y1);
-      }
+      // its tiles are the sill's, between this lake and the next: a notch's crest at the level beside the lake, its
+      // channel a level lower past it and its sides stepping up; a bank's spillway at the level, the rest a level higher
+      // with a step down behind it
+      const basin = (t: number) => t % W >= VALLEY.x0 && t % W <= VALLEY.x1 && Math.floor(t / W) >= b.y0 && Math.floor(t / W) <= b.y1;
+      plan.tiles.forEach((i, j) => {
+        expect(basin(i)).toBe(false);
+        const beside = [i - W, i + W, i - 1, i + 1].some(basin);
+        if (plan.sill === "cut") expect(plan.levels[j]).toBeGreaterThanOrEqual(beside ? b.level : b.level - 1);
+        else expect(plan.levels[j]).toBeLessThanOrEqual(b.level + 1);
+      });
+      expect(plan.levels).toContain(b.level);
+      expect(plan.levels).toContain(plan.sill === "cut" ? b.level - 1 : b.level + 1);
       expect(plan.surface).toBeGreaterThanOrEqual(b.level);
       expect(plan.surface).toBeLessThan(b.level + 1);
       expect(plan.lake).toContain(y * W + x);
       const r = applyLakeLevel(s, x, y, b.level);
       expect(r.errors).toEqual([]);
+      // (setting the level is the question's answer, not measured again)
+      expect(r.plan).toBe(plan);
       expect(s.history().length).toBe(steps + k + 1);
       expect(s.history().at(-1)!.label).toBe(`${plan.sill === "cut" ? "Cut" : "Raise"} a lake's sill to level ${b.level}`);
-      for (const i of plan.tiles) expect(s.built.heights[i]).toBe(b.level);
+      plan.tiles.forEach((i, j) => expect(s.built.heights[i]).toBe(plan.levels[j]));
       // the map's water is the settle that confirmed it: where the plan said
       expect(surfaceAt(s, LAKE[k])).toBeCloseTo(plan.surface, 9);
     });
@@ -111,6 +119,19 @@ describe("Lakes by number: four lakes stepping down a valley", () => {
     expect(Array.from(reopened.built.heights)).toEqual(Array.from(s.built.heights));
     expect(Array.from(reopened.built.water)).toEqual(Array.from(s.built.water));
     expect(reopened.exportTimber().bytes).toEqual(s.exportTimber().bytes);
+  });
+
+  it("the water a lake's level leaves is the canonical settle: the same bytes as the operation applied on its own", () => {
+    const s = staircase();
+    const t = staircase();
+    for (const [k, b] of BASINS.entries()) {
+      const plan = planLakeLevel(s, LAKE[k][0], LAKE[k][1], b.level);
+      expect(applyLakeLevel(s, LAKE[k][0], LAKE[k][1], b.level).errors).toEqual([]);
+      // (the same operation, applied as any other is, settles the map afresh)
+      expect(t.apply(plan.op!).errors).toEqual([]);
+    }
+    expect(Array.from(s.built.water)).toEqual(Array.from(t.built.water));
+    expect(s.exportTimber().bytes).toEqual(t.exportTimber().bytes);
   });
 
   it("widens a cut notch for a strong river, so its water stands under a level over the sill", () => {
@@ -156,6 +177,23 @@ describe("Lakes by number: the land that can't hold a lake at a level is refused
     expect(planLakeLevel(s, 24, 14, 23).reason).toBe("the level must be a whole number from 1 to 22");
   });
 
+  it("a width for a lake whose sill must be raised", () => {
+    const s = staircase();
+    expect(planLakeLevel(s, LAKE[2][0], LAKE[2][1], 7, 4).reason).toBe("the lake at X 24 · Y 66 spills below level 7: its sill is raised across the outlet, which has no width");
+  });
+
+  it("a notch that would drain another lake", () => {
+    // (a pond in the valley's east wall beside the top rim, fed by its own source, spilling east at 16 to the map's
+    // edge; a notch the valley's width cuts its banks down into the pond's wall)
+    const s = staircase({ shape: (h) => {
+      for (let y = 26; y <= 29; y++) for (let x = 37; x <= 39; x++) h[y * W + x] = 14;
+      for (let x = 40; x < W; x++) h[27 * W + x] = 16;
+    } });
+    expect(s.apply({ op: "placeEntity", params: { id: "00000000-0000-4000-8000-000000000099", template: "WaterSource", x: 38, y: 28, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 } } } }).errors).toEqual([]);
+    expect(Math.floor(surfaceAt(s, [37, 27]))).toBe(16);
+    expect(planLakeLevel(s, LAKE[0][0], LAKE[0][1], 15, 24).reason).toMatch(/^the notch would also drain the lake at X 3[7-9] · Y 2[6-9] from level 16 to 1[45]$/);
+  });
+
   it("a lake no source feeds", () => {
     const s = staircase({ sources: 0 });
     expect(planLakeLevel(s, 24, 14, 15).reason).toBe("no water reaches the lake at X 24 · Y 14: a source must feed it");
@@ -168,7 +206,7 @@ describe("Lakes by number: the land that can't hold a lake at a level is refused
     } });
     const plan = planLakeLevel(s, LAKE[1][0], LAKE[1][1], 11);
     expect(plan.sill).toBe("raise");
-    expect(plan.reason).toMatch(/^the lake at X 24 · Y 40 would stand at 1[2-9](\.\d+)? over a sill 2 tiles long, above level 11: its river needs a wider sill$/);
+    expect(plan.reason).toMatch(/^the lake at X 24 · Y 40 would stand at 1[2-9](\.\d+)? over a spillway 2 tiles wide, above level 11: its river needs a wider sill$/);
   });
 
   it("an operation whose sill no longer fits the map", () => {
@@ -180,8 +218,9 @@ describe("Lakes by number: the land that can't hold a lake at a level is refused
     expect(s.apply({ op: "sculpt", params: { mode: "flatten", cells: [[27, 20, 20]], level: 16, exact: true } }).errors).toEqual([]);
     expect(s.apply(op).errors).toEqual(["the lake's sill is no longer the one measured: set its level again"]);
     // and an operation that names no sill's own tiles, or a width on a raise, is refused by the engine
-    const forged: OpOf<"setLakeLevel"> = { ...op, params: { ...op.params, cells: [[Math.floor(rim[0] / W), 0, 0]] } };
+    const forged: OpOf<"setLakeLevel"> = { ...op, params: { ...op.params, cells: [[Math.floor(rim[0] / W), 0, 0]], levels: [15] } };
     expect(s.apply(forged).errors).toEqual(["the lake's sill is no longer the one measured: set its level again"]);
+    expect(s.apply({ ...op, params: { ...op.params, levels: op.params.levels.slice(1) } }).errors).toEqual(["the sill needs one level for each of its cells"]);
     expect(s.apply({ op: "setLakeLevel", params: { ...op.params, sill: "raise" } }).errors).toEqual(["a raised sill spans the outlet: only a cut has a width"]);
   });
 });

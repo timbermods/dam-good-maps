@@ -27,7 +27,7 @@ import { mergeGame } from "../features/edits";
 import { REQUIRED } from "../validate/checks";
 import type { Feature, FeatureKind, StartFeature } from "../features/schema";
 import { makesRoomForStart, START_OPEN_GROUND, startOverRoof, startRoofProblem } from "./startFit";
-import type { Runs } from "../math/grid";
+import { runsToTiles, type Runs } from "../math/grid";
 import { checkSchema, validateFeatures } from "../spec/schema";
 import { brushProblems, type BrushParams } from "../features/raster/brush";
 import { forceProblems, type ForceResultParams } from "../forces/op";
@@ -121,8 +121,11 @@ export interface SetLakeLevelParams {
   sill: "cut" | "raise";
   /** A cut notch's width in tiles (a raised sill spans the outlet). */
   width?: number;
-  /** The sill's tiles as runs [y, x0, x1]: each is set to `level`, and the integrity pass leaves them. */
+  /** The tiles the sill changes as runs [y, x0, x1]; the integrity pass leaves them. */
   cells: Runs;
+  /** The level each tile of `cells` is set to, in the order of y·W + x: a notch's crest at `level`, its channel a level
+   *  lower and its sides stepping up; a bank's spillway at `level`, the rest a level higher and its step down behind. */
+  levels: number[];
 }
 
 export interface FillHollowParams {
@@ -765,6 +768,7 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       if (errors.length) return errors;
       if (p.sill === "raise" && p.width !== undefined) return ["a raised sill spans the outlet: only a cut has a width"];
       if (p.sill === "cut" && p.width === undefined) return ["a cut sill needs its width"];
+      if (new Set(runsToTiles(p.cells, W)).size !== p.levels.length) return ["the sill needs one level for each of its cells"];
       if (ctx.lockedColumns?.size) {
         for (const [y, x0, x1] of p.cells) for (let x = x0; x <= x1; x++) {
           if (ctx.lockedColumns.has(y * W + x)) return [`X ${x} · Y ${y} has a cave or overhang: shape its top with a brush`];

@@ -3,16 +3,21 @@
 // when the lowest way out of its basin, its sill, stands at L: the water then stands from L up to L plus the head
 // of the flow over the sill (under one level for a sill wide enough for its river).
 //
-// - The sill stands higher than L (the lake's spill level, `spillLevels`, is L + 1 or more): a notch is cut down to L
-//   through the rim, along the way out that moves the least ground (a Dijkstra walk from the lake at L to the
-//   nearest ground whose water drains at L or lower, or to the map's edge), `width` tiles wide.
-// - The sill stands lower than L: the outlet is raised to L across its whole width, on the fewest tiles and the least
-//   ground raised that close the lake at L off from every way off the map (a minimum cut between the lake, with the
-//   water flowing into it, and the map's edge). Two separate pieces mean the basin leaks elsewhere below L: refused,
-//   since one sill can't hold it.
+// - The sill stands higher than L (the lake's spill level, `spillLevels`, is L + 1 or more): a notch is cut down the
+//   river's own course (only ground the water runs over now: never a new way out), moving the least ground, to the
+//   nearest ground whose water drains at L - 1 or lower, or to where the river leaves the map. Its crest, the notch's
+//   tiles beside the lake, is cut to L; the rest a level lower, so the river falls off the crest and runs away (a notch
+//   flat at L all through a thick rim held the river back: a lake on a generated map, 30 tiles of notch, was still
+//   rising past L + 1 after six days of settle). Its floor is `width` tiles wide, a tile wider here and there, and its
+//   sides step up a level a tile to the ground: a river's bed, not a ruled canal with sheer walls.
+// - The sill stands lower than L: the outlet is closed at L on the fewest tiles and the least ground raised (a minimum
+//   cut between the lake, with the water flowing into it, and the map's edge), joined edge to edge into one bank. Its
+//   spillway, where the river crosses now, as wide as the river needs, stands at L; the rest of the bank a level
+//   higher, with a step down behind it. Two separate pieces mean the basin leaks elsewhere below L: refused, since one
+//   sill can't hold it.
 //
-// Every tile it changes is set to exactly L. It never changes ground under an object that shapes the water (a source,
-// an obstacle, a natural dam) or ground a caller holds (`fixed`: a cave's columns and the ground holding up a roof).
+// It never changes ground under an object that shapes the water (a source, an obstacle, a natural dam) or ground a
+// caller holds (`fixed`: a cave's columns and the ground holding up a roof).
 // Refusals are one plain line naming a tile. Pure: reads the water model and the terrain, changes nothing.
 
 import { CEILING } from "../format/world";
@@ -26,10 +31,12 @@ export type SillWay = "cut" | "raise";
 export interface SillPlan {
   sill: SillWay;
   level: number;
-  /** The tiles set to `level`, ascending (y·W + x). */
+  /** The tiles it changes, ascending (y·W + x). */
   tiles: number[];
-  /** A cut notch's width in tiles (the one asked for, or the one the lake's inflow needs); a raised sill spans the
-   *  outlet, so it has none. */
+  /** The level each of `tiles` is set to, in their order. */
+  levels: number[];
+  /** A cut notch's width in tiles (the one asked for, or the one the lake's inflow needs), or a raised bank's
+   *  spillway's (the operation stores a cut's only: a bank spans the outlet). */
   width?: number;
   /** The lake's spill level before: where its sill stood. */
   before: number;
@@ -82,21 +89,20 @@ export function sillFor(inp: SillInput, x: number, y: number, level: number, wid
   };
   const spill = spillLevels(m);
   const before = spill[at];
-  const inflow = flowThrough(m).q[at];
+  const flow = flowThrough(m);
+  const inflow = flow.q[at];
+  // (the ground the water runs over now: a cut follows it, and a raised sill's spillway is where it crosses)
+  const course = flow.path;
   if (before >= level && before < level + 1) return { reason: `the lake at X ${x} · Y ${y} already spills at level ${fmt(before)}` };
+  // (a sill is cut down its river's course, and a raised one's spillway is where the river crosses: a lake needs one)
+  if (!course[at]) return { reason: `no water reaches the lake at X ${x} · Y ${y}: a source must feed it` };
   const where = (i: number) => `X ${i % W} · Y ${Math.floor(i / W)}`;
 
   if (before >= level + 1) {
-    // ---- cut: the lake at the level (every tile below it joined to (x, y)), then the way out moving least ground
+    // ---- cut: the lake at the level (every tile below it joined to (x, y)), then a notch down its river's own course
     const lake = flood(W, H, at, (i) => top(i) < level);
-    const dist = new Float64Array(N).fill(Infinity);
-    const prev = new Int32Array(N).fill(-1);
-    const heap = new MinHeap();
-    for (let i = 0; i < N; i++)
-      if (lake[i]) {
-        dist[i] = 0;
-        heap.push(0, i);
-      }
+    // (the channel's level: a level under the crest, where the ground goes that low)
+    const low = level > 1 ? level - 1 : level;
     const w = width ?? sillWidthFor(inflow);
     const lo = Math.floor((w - 1) / 2);
     const hi = w - 1 - lo;
@@ -106,7 +112,7 @@ export function sillFor(inp: SillInput, x: number, y: number, level: number, wid
     for (let yy = 0; yy < H; yy++)
       for (let xx = 0; xx < W; xx++) {
         const i = yy * W + xx;
-        const c = top(i) > level && editable(i) ? top(i) - level : 0;
+        const c = top(i) > low && editable(i) ? top(i) - low : 0;
         sum[(yy + 1) * (W + 1) + xx + 1] = c + sum[yy * (W + 1) + xx + 1] + sum[(yy + 1) * (W + 1) + xx] - sum[yy * (W + 1) + xx];
       }
     const around = (i: number) => {
@@ -118,10 +124,19 @@ export function sillFor(inp: SillInput, x: number, y: number, level: number, wid
       const y1 = Math.min(H, iy + hi + 1);
       return sum[y1 * (W + 1) + x1] - sum[y0 * (W + 1) + x1] - sum[y1 * (W + 1) + x0] + sum[y0 * (W + 1) + x0];
     };
-    // (a level of ground cut on the line costs far more than the notch's sides, which cost more than a tile walked: the
-    // notch moves the least ground, then keeps off the sides, then is the shortest)
-    const step = (i: number) => (top(i) <= level ? 1 : editable(i) ? (top(i) - level) * 100000 + around(i) * 10 + 1 : Infinity);
-    const outlet = (i: number) => !lake[i] && (spill[i] <= level || (edge(i) && !emitting[i] && (top(i) <= level || editable(i))));
+    // the line: only ground the river runs over now is cut (its own course, never a new way out), the least ground
+    // first, then off the sides, then the shortest; it ends where the water drains a level under the crest, or where
+    // the river leaves the map
+    const step = (i: number) => (top(i) <= low ? 1 : editable(i) && course[i] ? (top(i) - low) * 100000 + around(i) * 10 + 1 : Infinity);
+    const outlet = (i: number) => !lake[i] && (spill[i] <= low || (edge(i) && course[i] && !emitting[i] && (top(i) <= low || editable(i))));
+    const dist = new Float64Array(N).fill(Infinity);
+    const prev = new Int32Array(N).fill(-1);
+    const heap = new MinHeap();
+    for (let i = 0; i < N; i++)
+      if (lake[i]) {
+        dist[i] = 0;
+        heap.push(0, i);
+      }
     let end = -1;
     while (heap.size) {
       const c = heap.pop();
@@ -141,27 +156,45 @@ export function sillFor(inp: SillInput, x: number, y: number, level: number, wid
         }
       }
     }
-    if (end < 0) return { reason: `at level ${level} the lake at X ${x} · Y ${y} has no way out that can be cut: caves or objects stand in the way` };
-    const path: number[] = [];
-    for (let c = end; c >= 0 && !lake[c]; c = prev[c]) if (top(c) > level) path.push(c);
-    const cut = new Set<number>();
-    for (const c of path) {
+    if (end < 0) return { reason: `at level ${level} the lake at X ${x} · Y ${y} has no way out along its river that can be cut: caves or objects stand in the way` };
+    const line: number[] = [];
+    for (let c = end; c >= 0 && !lake[c]; c = prev[c]) if (top(c) > low) line.push(c);
+    line.reverse();
+    // the notch round the line: its floor `w` tiles wide and a tile wider here and there (a river's bed is never ruled),
+    // its sides stepping up a level a tile to the ground, so no wall stands sheer; the crest, its tiles beside the lake,
+    // at the level, and the rest a level lower (water crosses a tile's four sides only)
+    const target = new Int32Array(N).fill(1 << 20);
+    const rise = Math.max(0, CEILING - low);
+    line.forEach((c, k) => {
       const cx = c % W;
       const cy = (c - cx) / W;
-      for (let dy = -lo; dy <= hi; dy++)
-        for (let dx = -lo; dx <= hi; dx++) {
+      const r = (w - 1) / 2 + (Math.sin(k * 0.55 + (c % 7)) > 0.35 ? 1 : 0);
+      const reach = Math.ceil(r) + rise + 1;
+      for (let dy = -reach; dy <= reach; dy++)
+        for (let dx = -reach; dx <= reach; dx++) {
           const nx = cx + dx;
           const ny = cy + dy;
           if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+          const v = low + Math.max(0, Math.ceil(Math.hypot(dx, dy) - r - 0.5));
           const n = ny * W + nx;
-          if (top(n) > level && editable(n)) cut.add(n);
+          if (v < target[n]) target[n] = v;
         }
+    });
+    const tiles: number[] = [];
+    const levels: number[] = [];
+    for (let i = 0; i < N; i++) {
+      if (lake[i] || target[i] >= top(i) || !editable(i)) continue;
+      const v = neighbours(i, W, H).some((n) => lake[n]) ? Math.max(level, target[i]) : target[i];
+      if (v >= top(i)) continue;
+      tiles.push(i);
+      levels.push(v);
     }
-    return { sill: "cut", level, tiles: [...cut].sort((a, b) => a - b), width: w, before, inflow };
+    return { sill: "cut", level, tiles, levels, width: w, before, inflow };
   }
 
   // ---- raise: the land below the level joined to (x, y), the lake with the water flowing into it, and its ways off
   // the map; the fewest tiles raising the least ground between them
+  if (width !== undefined) return { reason: `the lake at X ${x} · Y ${y} spills below level ${level}: its sill is raised across the outlet, which has no width` };
   const low = flood(W, H, at, (i) => top(i) < level);
   const side = new Uint8Array(N);
   // (the lake as it stands now, and the land upstream that drains into it: water higher than its sill that reaches it)
@@ -189,8 +222,7 @@ export function sillFor(inp: SillInput, x: number, y: number, level: number, wid
   const parts = pieces(W, H, cut.tiles);
   if (parts.length > 1) {
     // (the piece the water leaves by now is the sill; another is a leak elsewhere, named by its lowest ground)
-    const path = flowThrough(m).path;
-    const main = Math.max(0, parts.findIndex((p) => p.some((i) => path[i])));
+    const main = Math.max(0, parts.findIndex((p) => p.some((i) => course[i])));
     const other = parts[main === 0 ? 1 : 0];
     let lowest = other[0];
     for (const i of other) if (heights[i] < heights[lowest]) lowest = i;
@@ -209,7 +241,45 @@ export function sillFor(inp: SillInput, x: number, y: number, level: number, wid
     return false;
   });
   if (!shoulder) return { reason: `level ${level} is above every rim round the lake at X ${x} · Y ${y}: its sill would have to ring it` };
-  return { sill: "raise", level, tiles: cut.tiles.slice().sort((a, b) => a - b), before, inflow };
+  // the bank: the cut joined edge to edge (two of its tiles meeting at a corner only take a tile between them, outside
+  // the lake where it can); its spillway the tiles the river crosses now, widened along the bank to the river's width,
+  // at the level; the rest a level higher; and a step down behind it into the land below, so it reads as a bank
+  const sill = new Set(cut.tiles);
+  for (const c of cut.tiles) {
+    const cx = c % W;
+    const cy = (c - cx) / W;
+    for (const [dx, dy] of [[1, 1], [1, -1]]) {
+      const nx = cx + dx;
+      const ny = cy + dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H || !sill.has(ny * W + nx)) continue;
+      const a = cy * W + nx;
+      const b = ny * W + cx;
+      if (sill.has(a) || sill.has(b) || top(a) >= level || top(b) >= level) continue;
+      const pick = [a, b].filter((i) => editable(i)).sort((p, q) => side[p] - side[q] || p - q)[0];
+      if (pick !== undefined) sill.add(pick);
+    }
+  }
+  const w = sillWidthFor(inflow);
+  const spillway = new Set<number>();
+  // (from the lowest ground the river crosses, the middle of it where that is level, along the bank to the river's width)
+  const crossed = [...sill].filter((i) => course[i]).sort((a, b) => a - b);
+  const lowest = Math.min(...crossed.map((i) => heights[i]));
+  const deep = crossed.filter((i) => heights[i] === lowest);
+  const reach = deep.length ? [deep[deep.length >> 1]] : [];
+  for (const i of reach) spillway.add(i);
+  for (let h = 0; h < reach.length && spillway.size < w; h++)
+    for (const n of neighbours(reach[h], W, H))
+      if (sill.has(n) && !spillway.has(n) && spillway.size < w) {
+        spillway.add(n);
+        reach.push(n);
+      }
+  const bank = Math.min(CEILING, level + 1);
+  const set = new Map<number, number>();
+  for (const i of sill) set.set(i, spillway.size && !spillway.has(i) ? bank : level);
+  for (const [i, v] of [...set])
+    for (const n of neighbours(i, W, H)) if (!set.has(n) && !side[n] && editable(n) && top(n) < v - 1) set.set(n, v - 1);
+  const tiles = [...set.keys()].filter((i) => set.get(i)! > heights[i]).sort((a, b) => a - b);
+  return { sill: "raise", level, tiles, levels: tiles.map((i) => set.get(i)!), width: spillway.size, before, inflow };
 }
 
 /** The tiles 4-joined to `from` where `inside` holds. */

@@ -5,7 +5,7 @@
 import { fbm } from "../../math/noise";
 import { CEILING } from "../../format/world";
 import { hash32 } from "../../math/hash";
-import type { Runs } from "../../math/grid";
+import { runsToTiles, tilesToRuns, type Runs } from "../../math/grid";
 import { bedAt, floorAt, polygonMask, segmentDistance2 } from "../geometry";
 import { carveChannel, channelBounds, type ChannelPlan } from "../route";
 import type { Edge, Feature, LakeFeature, LandformFeature, RiverFeature, StartFeature } from "../schema";
@@ -375,14 +375,15 @@ export interface SculptEdit {
   params: { mode: string; cells: Runs; amount?: number; level?: number; step?: number; exact?: boolean; hold?: [number, number, number][] } | BrushParams | ForceResultParams | BlocksParams | LakeSillParams;
 }
 
-/** A lake's sill set to its level (the `setLakeLevel` operation, doc/lakeLevel.ts): its tiles, each set to the level,
- *  exactly. */
+/** A lake's sill set to its level (the `setLakeLevel` operation, doc/lakeLevel.ts): its tiles, each set to its own
+ *  level, exactly. */
 export interface LakeSillParams {
   at: [number, number];
   level: number;
   sill: "cut" | "raise";
   width?: number;
   cells: Runs;
+  levels: number[];
 }
 
 /** A lake's sill (`setLakeLevel`). */
@@ -450,7 +451,20 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
   // (the Block tool's operations are applied tile by tile with the tiles' masks: `applyBlocks`)
   if (isBlocks(s.params)) return;
   // a lake's sill: its tiles set to the lake's level, exactly (as Select's Flatten sets them)
-  if (isLakeSill(s.params)) return applySculpt({ params: { mode: "flatten", cells: s.params.cells, level: s.params.level, exact: true } }, t, keep, shown, floor);
+  if (isLakeSill(s.params)) {
+    // (as Select's Flatten sets them, a level at a time)
+    const { cells, levels } = s.params;
+    const by = new Map<number, number[]>();
+    runsToTiles(cells, W)
+      .sort((a, b) => a - b)
+      .forEach((i, k) => {
+        const at = by.get(levels[k]);
+        if (at) at.push(i);
+        else by.set(levels[k], [i]);
+      });
+    for (const [level, at] of [...by].sort((a, b) => a[0] - b[0])) applySculpt({ params: { mode: "flatten", cells: tilesToRuns(at, W), level, exact: true } }, t, keep, shown, floor);
+    return;
+  }
   if (isBrush(s.params)) {
     const b = brushBounds(s.params, W, t.H);
     if (!b || !t.touchesRegion(b)) return;
