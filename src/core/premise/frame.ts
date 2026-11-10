@@ -23,6 +23,8 @@ export const FRAME = {
   uSide: 0.95,
   /** The nearest a lip may stand: the start's 5 × 5 dry (`start.dry`) and a plunge pool two wide in front of the lip. */
   lipNearest: 5.5,
+  /** The farthest a lip may stand (§4.1's 5.5 to 7), under the top edge's own limit (7.6 for a landmark of 6). */
+  lipFarthest: 7,
   /** The share of the frame's width the landmark's lip spans. */
   lipShare: [0.35, 0.56] as const,
   /** The lip runs across the look within this angle: its sine. */

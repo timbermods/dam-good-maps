@@ -137,7 +137,7 @@ const luma = (c: Rgb) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
  *  bushes, the water sources and seeps, the ruins, the start) take its albedo straight. Until then they took it at our
  *  lightness, 1.318 times the game's (our grass by the water, 0.353/0.372/0.128, before `fix/land-tone`, over the
  *  game's grass texture's mean, 0.263/0.285/0.096), under a light of our own; the colours we chose by eye (the mines,
- *  thorns, geothermal fields, slopes, the 1.x objects, the succulent, the generic blocks, the birch's marks)
+ *  geothermal fields, slopes, the 1.x objects, the succulent, the generic blocks, the birch's marks)
  *  were chosen at that lightness. They are drawn at `ownAlbedo` of it, so they keep their place among the game's. */
 export const OWN_LIGHTNESS = luma([0.353, 0.372, 0.128]) / luma([0.263, 0.285, 0.096]);
 /** A colour of our own (chosen at our old lightness) as an albedo in the game's light. */
@@ -418,6 +418,26 @@ export const BADTIDE_DRAIN = {
   hood: [0.166, 0.102, 0.065] as Rgb,
 } as const;
 
+/** The unstable core as the game colours it (UnstableCore.Model, D178, D496): a ball of worn grey-brown metal panels,
+ *  pale, mid and dark, pale ribs and a pale strap over it, a pale ring round a grey lens, and dark studs with paler
+ *  gems. Its material (EnvironmentURP, `UnstableCore`) is metallic (0.5; smoothness 0.37, its lens 0.6), folded into
+ *  the albedo our objects' light needs to show the game's brightness as the large relic's is (`LARGE_RELIC`): from the
+ *  game's panels 0.318/0.272/0.203, 0.307/0.257/0.191 and 0.283/0.229/0.169, ribs 0.456/0.411/0.327, strap
+ *  0.423/0.354/0.274, ring 0.475/0.429/0.339, lens 0.265/0.255/0.232, studs 0.225/0.2/0.157 and gems
+ *  0.315/0.288/0.238 (texture × vertex colour, area-weighted, `tools/game-model-albedo.py`). Its lens is lit only while
+ *  its countdown runs (unstableCore.ts). */
+export const UNSTABLE_CORE = {
+  pale: [0.204, 0.184, 0.144] as Rgb,
+  mid: [0.197, 0.174, 0.136] as Rgb,
+  dark: [0.182, 0.155, 0.12] as Rgb,
+  rib: [0.294, 0.279, 0.231] as Rgb,
+  strap: [0.277, 0.246, 0.201] as Rgb,
+  ring: [0.307, 0.291, 0.241] as Rgb,
+  lens: [0.148, 0.15, 0.14] as Rgb,
+  stud: [0.149, 0.141, 0.117] as Rgb,
+  gem: [0.233, 0.224, 0.193] as Rgb,
+} as const;
+
 /** The natural dam as the game colours it (NaturalDam.Model, D178, D496): its albedo (texture × vertex colour,
  *  area-weighted, `tools/game-model-albedo.py`), its material the blockage's, not metallic, so straight. Its heap's rock
  *  in three shades, the thirds of its faces by lightness (the heap's mean 0.215/0.185/0.149), its logs brown, its flat
@@ -494,8 +514,18 @@ export const MEDIUM_RELIC = {
   stone: [[0.21, 0.191, 0.164], [0.217, 0.198, 0.169], [0.24, 0.223, 0.186]] as readonly Rgb[],
 } as const;
 
-/** Thorns: a low, dark red-brown bramble. */
-export const THORNS: Rgb = [0.34, 0.16, 0.14];
+/** Thorns as the game colours them (Thorns.Model, D178, D496): dark grey-brown spikes paling to their points among
+ *  paler twigs. Its material (EnvironmentURP, `Thorns`, its texture cut out by its alpha) is a little metallic (0.13
+ *  over the spikes, 0.15 over the twigs; smoothness 0.19 and 0.2), folded into the albedo our objects' light needs to
+ *  show the game's brightness as the large relic's is (`LARGE_RELIC`). The spikes' corners at their foot take the
+ *  game's darkest (0.141/0.119/0.098, folded) and their points the colour that makes a spike's mean over its sides the
+ *  game's (0.184/0.158/0.132, folded to 0.156/0.135/0.114), as its texture pales up them to 0.42/0.37/0.33 at the
+ *  point; the twigs the game's 0.236/0.203/0.171 (texture, area-weighted where it is not cut out). */
+export const THORNS = {
+  foot: [0.12, 0.103, 0.085] as Rgb,
+  point: [0.228, 0.2, 0.172] as Rgb,
+  twig: [0.199, 0.175, 0.149] as Rgb,
+} as const;
 
 /** The game's sky (D497): its camera's Skybox material (`resources.assets` "Skybox", shader path 1816, its pixel program
  *  read with D3DDisassemble), drawn without fog and graded by the post chain like the rest of the frame.
@@ -1002,7 +1032,15 @@ export function objectLegend(): LegendEntry[] {
       ),
       label: "Relic",
     },
-    { swatch: icon(`<path d="M4 13 L7 5 L9 12 L12 3 L14 12 L17 6 L20 13Z" fill="${own(THORNS)}"/>`, dry), label: "Thorns" },
+    {
+      // the game's spikes, dark paling to their points, among paler twigs
+      swatch: icon(
+        `<path d="M3 13 L6 9 M8 12 L5 5 M16 12 L20 6 M18 13 L21 10" stroke="${o(THORNS.twig)}" stroke-width="1"/>` +
+          `<path d="M4 13 L7 5 L9 12 L12 3 L14 12 L17 6 L20 13Z" fill="${o(THORNS.foot)}"/><path d="M6.3 7 L7 5 L7.7 7Z M11.2 5.5 L12 3 L12.8 5.5Z M16.3 8 L17 6 L17.7 8Z" fill="${o(THORNS.point)}"/>`,
+        dry,
+      ),
+      label: "Thorns",
+    },
     { swatch: icon(`<circle cx="9" cy="10" r="4" fill="#858380"/><circle cx="15" cy="11" r="3.5" fill="#6f6d6a"/><circle cx="12" cy="6" r="3" fill="#9a9894"/>`, dry), label: "Blockage" },
     { swatch: icon(`<rect x="7" y="4" width="10" height="9" fill="#858380"/>`, dry), label: "Other objects" },
     // the information layer

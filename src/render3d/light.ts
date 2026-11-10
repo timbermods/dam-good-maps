@@ -18,6 +18,7 @@ import { DEAD, ORIENTATION_NAMES, YOUNG, type EntityView, type SoilView, type Su
 import { BLOCKAGE_SHADOW } from "./blockage";
 import { NATURAL_DAM_SHADOW } from "./naturalDam";
 import { BADTIDE_DRAIN_SHADOW } from "./badtideDrain";
+import { UNSTABLE_CORE_CAST, UNSTABLE_CORE_SHADOW } from "./unstableCore";
 import { LARGE_RELIC_SHADOW } from "./largeRelic";
 import { DESERT, LIGHT } from "./palette";
 
@@ -141,6 +142,12 @@ const PLANT_SHAPES: readonly (readonly (readonly [number, number, number])[])[] 
   NATURAL_DAM_SHADOW,
   // the badtide drain's box, over each of its two tiles (`DRAIN_KIND`)
   BADTIDE_DRAIN_SHADOW,
+  // the unstable core's ball, over each of its four tiles, a kind for each corner of its tile the footprint's middle is
+  // at (`CORE_KIND`)
+  UNSTABLE_CORE_SHADOW,
+  UNSTABLE_CORE_SHADOW,
+  UNSTABLE_CORE_SHADOW,
+  UNSTABLE_CORE_SHADOW,
 ];
 /** Each kind's height (its highest disc's top): its caster's height over this scales the shape (a young plant). */
 const PLANT_TOPS = PLANT_SHAPES.map((d) => Math.max(0, ...d.map((q) => q[1])));
@@ -160,6 +167,20 @@ const BLOCKAGE_KIND = RELIC_KIND + 9;
 const NATURAL_DAM_KIND = BLOCKAGE_KIND + 1;
 /** The badtide drain's kind: each of the two tiles its box fills casts `PLANT_SHAPES[DRAIN_KIND]`. */
 const DRAIN_KIND = NATURAL_DAM_KIND + 1;
+/** The unstable core's first kind: each of the four tiles its ball stands over casts `PLANT_SHAPES[CORE_KIND + c]`, `c`
+ *  the corner of the tile its footprint's middle is at (`CORNER`). */
+const CORE_KIND = DRAIN_KIND + 1;
+/** The kinds cast toward a corner of their tile (`UNSTABLE_CORE_CAST`): their discs moved `shift` along each way toward
+ *  it, and the samples within `lit` of it, under the core's ball, shaded by them no higher than `cap` over its level,
+ *  under the ball's own faces there (its faces read the bake where they are, which the game's ball, lit by its model's
+ *  own shadow, does not darken; the ground at its foot reads the same samples and darkens). The corner, ±1 east and
+ *  south. */
+const CORNER: Readonly<Record<number, readonly [number, number]>> = {
+  [CORE_KIND]: [-1, -1],
+  [CORE_KIND + 1]: [1, -1],
+  [CORE_KIND + 2]: [-1, 1],
+  [CORE_KIND + 3]: [1, 1],
+};
 const POST_RADIUS: Readonly<Record<number, number>> = { [DEAD_KIND]: 0.3, [RUIN_KIND]: 0.75 };
 /** The kinds whose discs shade nothing on their own tile: a heap whose discs stand round it would shade its own sunlit
  *  faces (an object reads the bake at its own place and height), which the game's heap, lit by its model's own shadow,
@@ -179,16 +200,19 @@ const PLANT_REACH = 2;
 const SHADOW_DROP = 30;
 
 /** The widest disc any caster casts (tiles, after the inset; a plant's shape is never scaled up). */
-export const PLANT_WIDEST = Math.max(...PLANT_SHAPES.flat().map((d) => d[2] - PLANT_INSET), ...Object.values(POST_RADIUS).map((r) => r - PLANT_INSET));
+export const PLANT_WIDEST = Math.max(
+  ...PLANT_SHAPES.flatMap((s, kind) => s.map((d) => d[2] - PLANT_INSET + (CORNER[kind] ? Math.SQRT2 * UNSTABLE_CORE_CAST.shift : 0))),
+  ...Object.values(POST_RADIUS).map((r) => r - PLANT_INSET),
+);
 if (PLANT_WIDEST >= 0.5 + 0.5 / SHADOW_RES) throw new Error(`light.ts: a disc ${PLANT_WIDEST} wide reaches samples an edit of its tile does not redo`);
 
 /** Extra height that objects add to the shadow casters of their tile (trees, ruins, the start, the large relic, the
- *  blockage, the natural dam, the badtide drain). A
+ *  blockage, the natural dam, the badtide drain, the unstable core). A
  *  plant's and a ruin's is its height, and its shape is cast (`plantTopsInto`); the start's are columns over its tiles
  *  (its tower on the middle one, its walls on the rest), the large relic's discs fitted to its dish's shadow
  *  (`LARGE_RELIC_SHADOW`) over the tiles of its footprint that cast, a blockage's and a natural dam's their heaps'
  *  (`BLOCKAGE_SHADOW`, `NATURAL_DAM_SHADOW`), a badtide drain's its box's over each tile it fills
- *  (`BADTIDE_DRAIN_SHADOW`). The
+ *  (`BADTIDE_DRAIN_SHADOW`), an unstable core's its ball's over each of its four (`UNSTABLE_CORE_SHADOW`). The
  *  levels the objects stand on are noted with them, and after those the
  *  shapes' kinds. */
 export function objectCasters(W: number, H: number, e: EntityView | null): Float32Array | null {
@@ -244,6 +268,22 @@ export function objectCasters(W: number, H: number, e: EntityView | null): Float
         const by = y + dy;
         if (bx >= 0 && by >= 0 && bx < W && by < H) put(by * W + bx, PLANT_TOPS[DRAIN_KIND], e.z[k], DRAIN_KIND);
       }
+      continue;
+    }
+    // (the unstable core's ball: discs fitted to its model's shadow over each of its four tiles, unstableCore.ts
+    // `UNSTABLE_CORE_SHADOW`, each cast toward the footprint's middle, turned as the core is)
+    if (t === "UnstableCore") {
+      const o = ORIENTATION_NAMES[e.orientation[k]] as Orientation;
+      for (let j = 0; j < 2; j++)
+        for (let i = 0; i < 2; i++) {
+          const [dx, dy] = rotate(o, i, j);
+          const bx = x + dx;
+          const by = y + dy;
+          // (the way to the footprint's middle from the tile's)
+          const [mx, my] = rotate(o, 1 - 2 * i, 1 - 2 * j);
+          const kind = CORE_KIND + (mx > 0 ? 1 : 0) + (my > 0 ? 2 : 0);
+          if (bx >= 0 && by >= 0 && bx < W && by < H) put(by * W + bx, PLANT_TOPS[kind], e.z[k], kind);
+        }
       continue;
     }
     if (x < 0 || y < 0 || x >= W || y >= H) continue;
@@ -541,8 +581,9 @@ function plantTopsInto(out: Float32Array, W: number, H: number, heights: Uint8Ar
         if (r > reach) reach = r;
       }
       if (!nd) continue;
-      const cx = tx + 0.5;
-      const cy = ty + 0.5;
+      const corner = CORNER[kind];
+      const cx = tx + 0.5 + (corner ? corner[0] * UNSTABLE_CORE_CAST.shift : 0);
+      const cy = ty + 0.5 + (corner ? corner[1] * UNSTABLE_CORE_CAST.shift : 0);
       const top = g + tall;
       {
         // (how near the window comes to its middle: a ray to a sample there runs at least that less its width along
@@ -606,6 +647,8 @@ function plantTopsInto(out: Float32Array, W: number, H: number, heights: Uint8Ar
           const across = Math.abs(dx * uy - dy * ux);
           if (across >= reach || along + reach <= 0) continue;
           if (ownLit && Math.floor(sx / R) === tx && Math.floor(sy / R) === ty) continue;
+          // (under the core's ball, shaded no higher than `cap` over its level)
+          const cap = corner && Math.hypot((sx + 0.5) / R - tx - 0.5 - corner[0] / 2, (sy + 0.5) / R - ty - 0.5 - corner[1] / 2) < UNSTABLE_CORE_CAST.lit ? g + UNSTABLE_CORE_CAST.cap : Infinity;
           let ground = -Infinity;
           let n = 0;
           for (let q = 0; q < nd; q++) {
@@ -617,13 +660,15 @@ function plantTopsInto(out: Float32Array, W: number, H: number, heights: Uint8Ar
             const s1 = along - half > 0 ? along - half : 0;
             // (a piece under the sample's ground shades nothing there: left out, so how far the strip looked never
             // shows in the bytes)
-            const hi = plantDiscs[q * 3 + 1] - s1 * tanE;
+            const hi = Math.min(cap, plantDiscs[q * 3 + 1] - s1 * tanE);
             if (ground === -Infinity) {
               const t = Math.floor(sy / R) * W + Math.floor(sx / R);
               ground = rock && rock.flag[t] ? rock.bottom[t] : heights[t];
             }
             if (hi <= ground) continue;
-            plantSpans[n++] = plantDiscs[q * 3] - s2 * tanE;
+            const lo = plantDiscs[q * 3] - s2 * tanE;
+            if (lo >= hi) continue;
+            plantSpans[n++] = lo;
             plantSpans[n++] = hi;
           }
           if (!n) continue;

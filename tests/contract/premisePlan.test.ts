@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { frameAt, openingCamera } from "../../src/core/analysis/opening";
 import { failing, firstPlan } from "../../src/core/premise/draw";
 import { FRAME, frameCoefficients, frameLimit } from "../../src/core/premise/frame";
+import { pathLength } from "../../src/core/premise/geom";
 import { lakeStair, lakeStairEligible } from "../../src/core/premise/premises/lakeStair";
 import type { PremisePlan } from "../../src/core/premise/types";
 import { makeSpec, type MapSpec } from "../../src/core/spec/mapspec";
@@ -110,44 +111,72 @@ describe("Broken plans fail their invariants", () => {
   const s = spec(2, 192);
   const good = planOf(s);
   const copy = (): PremisePlan => JSON.parse(JSON.stringify(good));
+  const link = (plan: PremisePlan, id: string) => plan.links.find((l) => l.id === id)!;
 
-  it("a landmark of 8", () => {
-    const plan = copy();
-    const lm = plan.links.find((l) => l.id === plan.frame.landmark)!;
-    plan.stair!.H = 8;
-    lm.fall!.height = 8;
-    lm.fall!.crest += 1;
-    expect(fails(s, plan)).toContain("stair.levels");
+  // one hand-broken plan for each `plan` invariant, which must fail it: a drawn plan always passes, so only these
+  // catch an invariant that has stopped testing anything
+  const broken: [id: string, what: string, breakIt: (plan: PremisePlan) => void][] = [
+    ["plan.levels", "a channel's bed rising", (plan) => {
+      const neck = link(plan, plan.stair!.neck);
+      const bed = neck.bed as number[];
+      bed[bed.length - 1] = bed[0] + 1;
+    }],
+    ["plan.overlap", "two bodies on top of each other", (plan) => {
+      const tarn = plan.bodies.find((b) => b.kind === "tarn")!;
+      const lake = plan.bodies.find((b) => b.kind === "lake")!;
+      tarn.arms = [[[lake.arms[0][0][0], lake.arms[0][0][1], 4]]];
+    }],
+    ["plan.graph", "a brook leading nowhere", (plan) => {
+      plan.links.find((l) => l.kind === "brook")!.to = "nowhere";
+    }],
+    ["plan.works", "a work that needs itself", (plan) => {
+      const w = plan.works[plan.works.length - 1];
+      w.needs = [w.id];
+    }],
+    ["plan.skeleton", "water leaving by an edge the plan calls a ridge", (plan) => {
+      plan.edges[plan.exits[0].edge] = "ridge";
+    }],
+    ["stair.levels", "a landmark of 8", (plan) => {
+      const lm = link(plan, plan.frame.landmark);
+      plan.stair!.H = 8;
+      lm.fall!.height = 8;
+      lm.fall!.crest += 1;
+    }],
+    ["stair.shape", "a bypass with two rows of Blockages", (plan) => {
+      const by = link(plan, plan.stair!.bypass);
+      by.rows = by.rows.slice(0, 2);
+    }],
+    ["springs.side", "a spring tarn whose run meets a lake", (plan) => {
+      const run = plan.links.find((l) => l.kind === "brook" && l.wet && plan.exits.some((e) => e.id === l.to))!;
+      run.to = plan.stair!.lakes[0];
+    }],
+    ["frame.lip", "a lip past the frame's top edge", (plan) => {
+      const lm = link(plan, plan.frame.landmark);
+      const look = openingCamera(plan.frame.start).look;
+      lm.fall!.lip = lm.fall!.lip.map(([x, y]) => [x + 3 * look[0], y + 3 * look[1]]) as [[number, number], [number, number]];
+    }],
+    ["premise.graph", "a gate left off, so the open bypass still leaves the badtide a way down the stair", (plan) => {
+      link(plan, plan.stair!.neck).gates = [];
+    }],
+    ["ladder.plan", "a megadam 7 tiles long", (plan) => {
+      plan.works.find((w) => w.kind === "megadam")!.tiles = 7;
+    }],
+    ["stair.skeleton", "no wall for the gorge to cut", (plan) => {
+      plan.ridges = plan.ridges.filter((r) => r.role !== "wall");
+    }],
+  ];
+
+  it("has one broken plan for every plan invariant", () => {
+    const ids = lakeStair.invariants.filter((inv) => inv.at === "plan").map((inv) => inv.id);
+    expect(broken.map(([id]) => id).sort()).toEqual([...ids].sort());
   });
 
-  it("two bodies on top of each other", () => {
-    const plan = copy();
-    const tarn = plan.bodies.find((b) => b.kind === "tarn")!;
-    const lake = plan.bodies.find((b) => b.kind === "lake")!;
-    tarn.arms = [[[lake.arms[0][0][0], lake.arms[0][0][1], 4]]];
-    expect(fails(s, plan)).toContain("plan.overlap");
-  });
-
-  it("a lip past the frame's top edge", () => {
-    const plan = copy();
-    const lm = plan.links.find((l) => l.id === plan.frame.landmark)!;
-    const look = openingCamera(plan.frame.start).look;
-    lm.fall!.lip = lm.fall!.lip.map(([x, y]) => [x + 3 * look[0], y + 3 * look[1]]) as [[number, number], [number, number]];
-    expect(fails(s, plan)).toContain("frame.lip");
-  });
-
-  it("a gate left off, so the open bypass still leaves the badtide a way down the stair", () => {
-    const plan = copy();
-    plan.links.find((l) => l.id === plan.stair!.neck)!.gates = [];
-    expect(fails(s, plan)).toContain("premise.graph");
-  });
-
-  it("a spring tarn whose run meets a lake", () => {
-    const plan = copy();
-    const run = plan.links.find((l) => l.kind === "brook" && l.wet && plan.exits.some((e) => e.id === l.to))!;
-    run.to = plan.stair!.lakes[0];
-    expect(fails(s, plan)).toContain("springs.side");
-  });
+  for (const [id, what, breakIt] of broken)
+    it(`${id}: ${what}`, () => {
+      const plan = copy();
+      breakIt(plan);
+      expect(fails(s, plan)).toContain(id);
+    });
 });
 
 describe("Four Lakes as a plan (tests/fixtures/four-lakes.plan.json)", () => {
@@ -157,6 +186,10 @@ describe("Four Lakes as a plan (tests/fixtures/four-lakes.plan.json)", () => {
     s.premise = "lakeStair";
     s.settings.terrain.highestTerrain = plan.top;
     expect(fails(s, plan)).toEqual([]);
+    // the hand-built old channel, unstraightened (324.7 tiles, 323.7 from the pool's shore), and the map's own highest
+    // ground
+    expect(pathLength(plan.links.find((l) => l.id === "bypass")!.path!)).toBeCloseTo(323.7, 0);
+    expect(plan.top).toBe(21);
     expect(plan.stair).toMatchObject({ n: 4, f: 4, startLake: "lake1", H: 7, landmarkSource: "pool" });
   });
 });

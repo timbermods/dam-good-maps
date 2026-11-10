@@ -3,7 +3,7 @@
  "seed": 4107,
  "W": 192,
  "H": 192,
- "top": 22,
+ "top": 21,
  "line": "Four lakes step down below the Great Fall, each over a rock sill and a fall. The badtide comes down the whole stair within a day, unless you open the old channel and shut the gates at the springs' pool: then it runs round every lake.",
  "sources": [
   {
@@ -888,6 +888,10 @@
      133
     ],
     [
+     98,
+     142
+    ],
+    [
      104,
      156
     ],
@@ -944,7 +948,11 @@
      20
     ],
     [
-     110,
+     104,
+     10
+    ],
+    [
+     104,
      0
     ]
    ],
@@ -1474,7 +1482,7 @@
    "id": "exitBypass",
    "edge": "S",
    "at": [
-    110,
+    104,
     0
    ]
   },
