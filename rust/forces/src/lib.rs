@@ -3623,14 +3623,20 @@ struct CarveFall {
     end: usize,
     top: f64,
     stations: Vec<(f64, f64, f64)>,
+    /// The course's stations before its reach, and after it those on high ground again, whose channel the fall leaves
+    /// to the carve.
+    before: Vec<(f64, f64, f64)>,
+    after: Vec<(f64, f64, f64)>,
+    /// The rest of the course: its stations before the reach and after it.
+    course: Vec<(f64, f64)>,
     /// Its height when the player set it (`CarveSettings::fall`).
     height: Option<f64>,
 }
 /// How far the ground falls ahead of a station, within the next two stations (about 2.7 tiles), for the course to
 /// fall there rather than run down a slope: three levels, so a lip one level down still falls two.
 const FALL_DROP: f64 = 3.0;
-/// The widest a stream above a fall runs on Auto Width (a station's width; about six tiles across), so it reads as a
-/// stream on the high ground, not a flooded basin as wide as the river the carve leaves below.
+/// The widest a stream above a fall runs (a station's width; about six tiles across), so it reads as a stream on the
+/// high ground, not a flooded basin as wide as the river the carve leaves below; a narrower Size narrows it.
 const STREAM_WIDTH: f64 = 4.0;
 /// How far from where it falls the high ground keeps its own height against what the water below cuts (tiles):
 /// past the cut and the banks of the reach below, so the cliff stands and the lip holds.
@@ -3661,9 +3667,15 @@ fn carve_falls(m: &Map, path: &[CarveStation], height: Option<f64>) -> Option<Ve
         }
         end
     };
-    // (the stream's top is the lowest ground on its reach: a course that climbs a rise on its way cuts through it,
-    // and the ground it started on is high ground too, never a bowl)
-    let fall = |start: usize, k: usize| -> Option<CarveFall> {
+    // (the reach is the ground just above the edge: back from it while the course is at most a level above the edge's
+    // top, so a course that runs down a slope to an edge keeps its own carve on the slope and only the ground at the
+    // edge holds a stream; the stream's top is the lowest ground on its reach, so a course that climbs a rise on its
+    // way cuts through it, and the ground it started on is high ground too, never a bowl)
+    let fall = |from: usize, k: usize| -> Option<CarveFall> {
+        let mut start = k;
+        while start > from && raw[start - 1] <= raw[k] + 1.0 {
+            start -= 1;
+        }
         let top = raw[start..=k].iter().copied().fold(f64::INFINITY, min);
         let mut end = k;
         while end + 1 < n && raw[end + 1] >= top - 1.0 {
@@ -3677,6 +3689,10 @@ fn carve_falls(m: &Map, path: &[CarveStation], height: Option<f64>) -> Option<Ve
             end,
             top,
             stations: path[start..=end].iter().map(|p| (p.x, p.y, p.width)).collect(),
+            before: path[..start].iter().map(|p| (p.x, p.y, p.width)).collect(),
+            // (below, only where the course crosses high ground again: the cliff beside the fall stands)
+            after: path[end + 1..].iter().zip(&raw[end + 1..]).filter(|(_, &r)| r >= top - 1.0).map(|(p, _)| (p.x, p.y, p.width)).collect(),
+            course: path[..start].iter().chain(&path[end + 1..]).map(|p| (p.x, p.y)).collect(),
             height: None,
         })
     };
@@ -4209,7 +4225,9 @@ impl CarveState {
                                 self.original[i] as f64 - max(1.0, round(1.0 + 6.0 * work)),
                             );
                         }
-                        if let Some(depth) = self.depth {
+                        // (below a set Fall the river is cut down to its cap, deeper than Canyon depth if it must be, so
+                        // its water stands that far under the lip in one drop and no rim pools it partway down)
+                        if let (Some(depth), None) = (self.depth, self.foot_cap) {
                             t = max(t, self.original[i] as f64 - depth);
                         }
                         if let Some(floor) = held {
@@ -4243,7 +4261,8 @@ impl CarveState {
     }
     /// The bed's floor at the station about to be cut, when it is above a fall that holds: two levels under the
     /// fall's top. A fall holds when its reach comes to it with its bed (`old_bed`, the station before's) at that
-    /// floor or above, so the bed never rises downstream; then the ground round it is held too (`hold_fall`).
+    /// floor or above, so the bed never rises downstream; then the ground round it is held too (`hold_fall`). The course
+    /// coming to the reach keeps its bed at that floor or above too, however deep the carve cuts the higher ground.
     fn fall_floor(&mut self, old_bed: f64) -> Option<f64> {
         let k = self.path.len();
         while self.fall_at < self.falls.len() && self.falls[self.fall_at].end < k {
@@ -4257,9 +4276,18 @@ impl CarveState {
             self.fall_at += 1;
             self.fall_held = false;
         }
+        // (below a set Fall, the land's own falls whose stream would stand above the river's cap are cut through, so the
+        // water falls the height set in one drop, never onto a rim the carve left)
+        while let (Some(f), Some(cap)) = (self.falls.get(self.fall_at), self.foot_cap) {
+            if f.top - 2.0 <= cap {
+                break;
+            }
+            self.fall_at += 1;
+        }
         let f = self.falls.get(self.fall_at)?;
         if k < f.start {
-            return None;
+            // (the course coming to it keeps its bed at the stream's or above, so the fall holds when its reach comes)
+            return Some(f.top - 2.0);
         }
         let (floor, start) = (f.top - 2.0, f.start);
         if k == start {
@@ -4292,11 +4320,33 @@ impl CarveState {
         let mut near = vec![0u8; w * h];
         let mut owner = vec![usize::MAX; w * h];
         let mut tiles = vec![];
-        // the stream's width: the set Width, or on Auto at most a stream's (STREAM_WIDTH), however wide the river the
+        // (the high ground kept: what is nearer the reach than the rest of the course, which carves its own walls and
+        // banks; a breadth-first search from all the course's stations at once, each tile taking its nearest's side)
+        let mut zone = vec![0u8; w * h];
+        let mut queue = vec![];
+        for (k, (cx, cy)) in f.stations.iter().map(|&(x, y, _)| (x, y)).chain(f.course.iter().copied()).enumerate() {
+            let i = (clamp(round(cy), 0.0, (h - 1) as f64) as usize) * w + clamp(round(cx), 0.0, (w - 1) as f64) as usize;
+            if zone[i] == 0 {
+                zone[i] = if k < f.stations.len() { 1 } else { 2 };
+                queue.push(i);
+            }
+        }
+        let mut q = 0;
+        while q < queue.len() {
+            let i = queue[q];
+            q += 1;
+            let (xx, yy) = (i % w, i / w);
+            for j in [(xx > 0).then(|| i - 1), (xx + 1 < w).then(|| i + 1), (yy > 0).then(|| i - w), (yy + 1 < h).then(|| i + w)].into_iter().flatten() {
+                if zone[j] == 0 {
+                    zone[j] = zone[i];
+                    queue.push(j);
+                }
+            }
+        }
+        // the stream's width: the river's, at most a stream's (STREAM_WIDTH), however wide the river the
         // carve leaves below, so a stream crosses the high ground and no flooded basin opens on it
-        let set_width = self.settings.width.is_some();
         for (s, &(cx, cy, width)) in f.stations.iter().enumerate() {
-            let width = if set_width { width } else { min(width, STREAM_WIDTH) };
+            let width = min(width, STREAM_WIDTH);
             let radius = width + 3.0;
             for yy in max(0.0, (cy - radius).floor()) as usize..=min((h - 1) as f64, (cy + radius).ceil()) as usize {
                 for xx in max(0.0, (cx - radius).floor()) as usize..=min((w - 1) as f64, (cx + radius).ceil()) as usize {
@@ -4317,14 +4367,28 @@ impl CarveState {
                 }
             }
         }
-        // (3: the high ground joined to it)
+        // (4: the channel the course cuts before its reach and after it, left to the carve, so the river above runs into
+        // the stream and the river below cuts its way on through any high ground it crosses)
+        for &(cx, cy, width) in f.before.iter().chain(&f.after) {
+            let radius = width * 0.72 + 0.5;
+            let free = 2;
+            for yy in max(0.0, (cy - radius).floor()) as usize..=min((h - 1) as f64, (cy + radius).ceil()) as usize {
+                for xx in max(0.0, (cx - radius).floor()) as usize..=min((w - 1) as f64, (cx + radius).ceil()) as usize {
+                    let i = yy * w + xx;
+                    if (near[i] < free || near[i] == 4) && hypot(xx as f64 - cx, yy as f64 - cy) <= radius {
+                        near[i] = 4;
+                    }
+                }
+            }
+        }
+        // (3: the high ground joined to it, near it)
         let mut k = 0;
         while k < tiles.len() {
             let i = tiles[k];
             k += 1;
             let (xx, yy) = (i % w, i / w);
             for j in [(xx > 0).then(|| i - 1), (xx + 1 < w).then(|| i + 1), (yy > 0).then(|| i - w), (yy + 1 < h).then(|| i + w)].into_iter().flatten() {
-                if near[j] == 0 && high(j) {
+                if near[j] == 0 && high(j) && zone[j] == 1 {
                     near[j] = 3;
                     tiles.push(j);
                 }
@@ -4335,6 +4399,7 @@ impl CarveState {
         let mut cuts = vec![vec![]; f.stations.len()];
         let plan: Vec<(usize, u8, bool)> = tiles
             .into_iter()
+            .filter(|&i| near[i] != 4)
             .map(|i| {
                 let (xx, yy) = (i % w, i / w);
                 let lower = |j: usize| !high(j);

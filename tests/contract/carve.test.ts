@@ -127,12 +127,8 @@ describe("the force: Power, Width, walls and rock", () => {
   });
 
   it("wide walls make broad terraces; steep walls keep a narrower gorge", () => {
-    // (on the ridge: the mountain's course falls off its high ground, which a fall keeps whatever the walls, since Carve
-    // falls off high ground, showcase craft gaps 1, 2 and 20, D148)
-    const ridge = study("ridge", 96);
-    const aim = { origin: 80 * 96 + 48, end: 14 * 96 + 48 };
-    const steep = complete(ridge, { mode: "aim", power: 65, walls: "steep" }, aim);
-    const wide = complete(ridge, { mode: "aim", power: 65, walls: "wide" }, aim);
+    const steep = complete(mountain, { power: 65, walls: "steep" });
+    const wide = complete(mountain, { power: 65, walls: "wide" });
     expect(wide.metrics.bankCuts).toBeGreaterThan(steep.metrics.bankCuts * 1.4);
     expect(wide.metrics.cut).toBeGreaterThan(steep.metrics.cut);
   });
@@ -247,15 +243,9 @@ describe("the force: Aim, Defy gravity and Wander", () => {
     expect(depth(slot)).toBeGreaterThanOrEqual(8);
     expect(depth(lazy)).toBeLessThanOrEqual(2);
     expect(slot.metrics.cut / area(slot)).toBeGreaterThan((lazy.metrics.cut / area(lazy)) * 3);
-    // (the same course everywhere, and the same ground where it does not fall: above a fall Auto keeps the stream a
-    // stream, at most about six tiles, while a set Width sets it, since Carve falls off high ground, D148)
     const linked = complete(mountain, { width: null });
     const explicit = complete(mountain, { width: naturalWidth(DEFAULTS.power) });
-    expect(linked.path).toEqual(explicit.path);
-    const plain = complete(large, { mode: "aim", width: null }, largeAim);
-    const set = complete(large, { mode: "aim", width: naturalWidth(DEFAULTS.power) }, largeAim);
-    expect(plain.metrics.waterfalls).toBe(0);
-    expect(Array.from(plain.map.heights)).toEqual(Array.from(set.map.heights));
+    expect(Array.from(linked.map.heights)).toEqual(Array.from(explicit.map.heights));
   });
 
   it("each seed (Try another path) is exact; another seed changes the course but never the rock", () => {
@@ -532,6 +522,23 @@ describe("a carve in the document (breakage rule)", () => {
     expect(s.history().at(-1)?.label).toBe("Carve a dry canyon");
     expect(s.built.entities.filter((e) => e.template === "WaterSource").length).toBeLessThanOrEqual(sources);
     op.params.tiles.forEach((i, k) => expect(s.built.heights[i]).toBe(op.params.heights[k]));
+  });
+
+  it("a carve's Fall is kept with it: the saved project records it and reopens byte for byte with the same ground (D455)", () => {
+    const r = generate(makeSpec({ seed: 18, theme: "highlands", size: { x: 96, y: 96 } }), { forms: false });
+    const s = MapSession.fromGenerated(r, r.file);
+    s.setWaterMode("defer");
+    const op = carveOp(s, { mode: "aim", power: 65, fall: 4, seed: 1, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
+    expect(op.params.settings).toMatchObject({ fall: 4 });
+    expect(checkSchema(opsSchema as Record<string, unknown>, op)).toEqual([]);
+    expect(s.apply(op, "user").errors).toEqual([]);
+    s.settleCanonical();
+    const bytes = s.project();
+    const doc = decodeProject(bytes);
+    expect(doc.edits.map((e) => JSON.stringify(e)).filter((e) => e.includes('"fall":4'))).toHaveLength(1);
+    const again = MapSession.open(doc);
+    expect(Array.from(again.built.heights)).toEqual(Array.from(s.built.heights));
+    expect(Buffer.from(again.project()).equals(Buffer.from(bytes))).toBe(true);
   });
 
   it("an oxbow lake's water is kept with its carve: the map settles with it, the project and the file keep it, and undo takes it away", () => {

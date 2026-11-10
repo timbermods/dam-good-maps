@@ -655,16 +655,18 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   before the walls, wider inside a bend, at the river's waterline, the bed below them by the river's depth, at least
   two levels; moist for crops and may flood when the river refills, D307; `rust/forces`, `shape_river`) and **Fall**
   (showcase craft gaps 1, 2 and 20; Auto, "Edges", or 2 to 12): where the course leaves high ground over an edge (the
-  ground three levels or more lower within two stations) it falls: the stream on top runs a level deep with its bed two
-  levels under the top, as wide as the river (on Auto Width at most about six tiles, so a wide river's stream does not
-  flood a basin on the mesa), cut as the head reaches it, and leaves over a lip one level under the
-  top, as wide as the stream; the rest of the high ground joined to it is kept (no bowl, no ramp, the cliff beside the
-  fall standing). A gentle Power (one that only scratches the land) and a catastrophe (Power 90 and up) make no
+  ground three levels or more lower within two stations) it falls: on the ground just above the edge (back to where the
+  course runs more than a level higher, so a course down a slope keeps its own carve on the slope, its bed no lower than
+  the stream's) the stream runs a level deep with its bed two levels under the top, as wide as the river but at most
+  about six tiles (so a wide river's stream does not flood a basin on the mesa), cut as the head reaches it, and leaves
+  over a lip one level under the top, as wide as the stream; the high ground near it is kept (no bowl, no ramp, the
+  cliff beside the fall standing), except where the course runs on below, which it cuts through. A gentle Power (one that only scratches the land) and a catastrophe (Power 90 and up) make no
   falls of their own. A set Fall makes the
-  first fall at least that tall, the course below cut down until its water stands that far under the lip; where the
+  first fall at least that tall in one drop, the course below cut down until its water stands that far under the lip
+  (past Canyon depth if it must be, and through the land's own lower edges); where the
   land has no such edge the fall is where the ground the stroke starts on ends (an edge or the top of a slope), and a
-  stroke whose ground never goes down is refused ("A fall needs high ground to fall from…"). Size sets the fall's
-  width. Unleash's course takes the land's own falls the same way (`rust/forces`, `carve_falls`, `hold_fall`). **Keep
+  stroke whose ground never goes down is refused ("A fall needs high ground to fall from…"). A narrower Size narrows
+  the fall. Unleash's course takes the land's own falls the same way (`rust/forces`, `carve_falls`, `hold_fall`). **Keep
   river** (default) leaves a source group at the origin (D314, `core/water/sourceGroups.ts`: a row across the heading,
   fewer where cramped) whose total strength follows the river's Width, not its Power; **Dry canyon** leaves none. Space pauses it. An oxbow lake holds its
   water behind its sediment and evaporates when nothing feeds it (the quiet dot settles once the rest of the water
