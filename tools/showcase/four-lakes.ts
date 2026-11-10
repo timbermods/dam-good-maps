@@ -133,6 +133,9 @@ interface Work {
   kind: "blockage" | "dam";
   what: string;
   ids: string[];
+  /** A dam's height over its bed (1 if not given), or the level it stands to. */
+  rise?: number;
+  to?: number;
 }
 const WORKS: Work[] = [
   { key: "Crag Brook", name: "the notch on Crag Brook", rung: "small", kind: "blockage", what: "Birch Tarn's water into Hill Tarn's basin and down Hill Brook behind the start's bench, the bench's kettle, to Low Lake", ids: [] },
@@ -140,6 +143,7 @@ const WORKS: Work[] = [
   { key: "South Brook", name: "the notch on South Brook", rung: "small", kind: "blockage", what: "South Brook's old bed to Low Lake's south bay: a thread along a bed two deep", ids: [] },
   { key: "West Leat", name: "the West Leat's blockage", rung: "medium", kind: "blockage", what: "High Tarn, High Brook's bed and more water for Birch Tarn and everything below it", ids: [] },
   { key: "High dam", name: "a dam in High Brook's bed", rung: "small", kind: "dam", what: "a pond in High Brook's bed once the West Leat runs", ids: [] },
+  { key: "High levee", name: "a levee at High Tarn's spill point", rung: "small", kind: "dam", what: "High Tarn rises a level over its old beach, once the West Leat runs", ids: [], to: 14 },
   { key: "Steam Leat", name: "the Steam Leat's blockage", rung: "medium", kind: "blockage", what: "Bench Tarn, Bench Brook's bed to Low Lake by the weir, the South Leat to South Tarn", ids: [] },
 ];
 function placeDryHeads(s: MapSession, land: Land): void {
@@ -520,8 +524,8 @@ function plant(s: MapSession, land: Land): void {
   count.dead = paint("trees", "Birch", (i) => dry(i) && oldDist[i] >= 1 && oldDist[i] <= 6 && n(i, 10, 7) > -0.1, 0.3, 18, "The old channel's dead birches");
   count.dead += paint("trees", "Oak", (i) => dry(i) && oldDist[i] >= 3 && oldDist[i] <= 9 && n(i, 13, 8) > 0.25, 0.25, 19, "The old channel's dead oaks");
   // (r12) a dead wood at each empty basin's old shoreline
-  count.dead += paint("trees", "Birch", (i) => dry(i) && dBasin[i] >= 1 && dBasin[i] <= 3 && n(i, 8, 57) > -0.25, 0.5, 37, "The dead birches at the old shorelines");
-  count.dead += paint("trees", "Oak", (i) => dry(i) && dBasin[i] >= 2 && dBasin[i] <= 4 && n(i, 8, 58) > 0.1, 0.3, 38, "The dead oaks at the old shorelines");
+  count.dead += paint("trees", "Birch", (i) => dry(i) && dBasin[i] >= 1 && dBasin[i] <= 4 && n(i, 13, 57) > 0.02, 0.5, 37, "The dead birches at the old shorelines");
+  count.dead += paint("trees", "Oak", (i) => dry(i) && dBasin[i] >= 2 && dBasin[i] <= 4 && n(i, 13, 57) > 0.12, 0.3, 38, "The dead oaks at the old shorelines");
   // the dead wood: one stand of it, by the old aqueduct on the dry benches
   count.dead += paint("trees", "Pine", (i) => dry(i) && Math.hypot((i % W) - 157, Math.floor(i / W) - 44) < 10 && oldDist[i] > 1, 0.6, 23, "The dead wood by the old aqueduct");
   const dead = s.built.entities.filter((e) => !before.has(e.id) && (e.template === "Birch" || e.template === "Oak" || e.template === "Pine"));
@@ -845,6 +849,8 @@ function placeObjects(s: MapSession, land: Land): void {
         if (ramp(s, land, 138, 128, 11, mid, "The way up from Steam Lake, first half") && ramp(s, land, 138, 132, mid, 15, "The way up to Crown Lake, second half")) break;
       }
     }
+    // (r13) down from the bench to High Tarn's old beach
+    ramp(s, land, 76, 147, 14, 15, "The way down to High Tarn's old shore");
   } catch (e) {
     log(`    (a way up: ${(e as Error).message})`);
   }
@@ -965,11 +971,11 @@ function shots(s: MapSession, weatherDays: { drought: number; badtide: number })
 
 /** The map's own words, as the game shows them with the map (600 characters at most). */
 const DESCRIPTION =
-  "Four lakes step down a wooded valley over rock sills and falls; your first home stands at the foot of the Great Fall, a cave and a relic behind it. " +
-  "A brook runs to the rim on each side; the rest is dry, and each dry bed has its answer: a notch to clear, a bed to dam, a leat to open. " +
-  "In a drought each lake sinks through the gap in its sill: mend the old weir's breach, plug a notch, raise a sill. " +
-  "In a badtide the red comes down the whole stair in a day: clear the old channel, shut the gates at the springs, and it runs round every lake. " +
-  "The ridge behind Crown Lake stands over level 16.";
+  "Four lakes step down a valley over rock sills and falls; your first home stands at the foot of the Great Fall, a cave and a relic behind it. " +
+  "A brook runs to the rim on each side; the rest is dry, and each dry bed has its answer: a notch to clear, a bed to dam, a basin to close, a leat to open. " +
+  "Water led from a spring tarn runs red in a badtide: dam its notch. " +
+  "In a drought each lake sinks through the gap in its sill: mend the weir, plug a notch, raise a sill. " +
+  "In a badtide the red comes down the stair in a day: clear the old channel, shut the gates at the springs, and it runs round every lake.";
 
 /** The start's bench through a Normal drought, day by day: how much of it is still moist, Weir Lake's level, and
  *  the day the start's water goes by the editor's own rule. */
@@ -1208,7 +1214,7 @@ function irrigation(s: MapSession, land: Land): void {
       applyOps(s, [{ op: "deleteEntities", params: { entities: w.ids }, label: `Clear ${w.name}` }]);
     } else {
       const set = new Set(row);
-      const level = Math.max(...row.map((i) => s.built.heights[i])) + 1;
+      const level = w.to ?? Math.max(...row.map((i) => s.built.heights[i])) + (w.rise ?? 1);
       applyOps(s, [{ op: "sculpt", params: { mode: "flatten", cells: runsWhere((i) => set.has(i)), level, exact: true }, label: `Build ${w.name}` }]);
     }
     const g = greenNow();

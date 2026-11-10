@@ -266,7 +266,7 @@ export const LAKES: Lake[] = [
 /** The tarns: small lakes on the benches, each with its own spring, each the head of a brook. */
 export const TARNS: Lake[] = [
   // the west chain, fed from the springs' pool through the West Leat's one-tile notch
-  { name: "High Tarn", sill: 13, arms: [[[61, 148, 4], [68, 151, 6], [77, 153, 4.5]]], wander: 3.2, deep: 2, seed: [68, 151], meadow: 15, dry: true },
+  { name: "High Tarn", sill: 13, arms: [[[61, 148, 4], [68, 151, 6], [77, 153, 4.5]]], wander: 3.2, deep: 2, seed: [68, 151], meadow: 7, dry: true },
   { name: "Birch Tarn", sill: 9, arms: [[[38, 116, 7.5], [40, 108, 6.5]]], wander: 2.5, deep: 3, seed: [36, 112], meadow: 13, spring: [36, 112, 1.5] },
   { name: "Hill Tarn", sill: 7, arms: [[[49, 101, 4.5], [53, 98, 3.5]]], wander: 2.2, deep: 2, seed: [50, 100], meadow: 12, dry: true },
   // the east chain, fed from Steam Lake through a notch in its south shore
@@ -534,6 +534,7 @@ export function designLand(): Land {
       const el: { level: number; d: number; meadow: number; rim: number }[] = [];
       let near = Infinity;
       let nearWet = Infinity;
+      let nearBasin = Infinity;
       for (let k = 0; k < BODIES.length; k++) {
         const L = BODIES[k];
         let d = Infinity;
@@ -543,11 +544,13 @@ export function designLand(): Land {
           dw = Math.min(dw, spineDist(wx, wy, arm));
         }
         // (the outline itself wanders little: the lake's shape is the design's; the land round it wanders freely)
-        const own = d + L.wander * wob * Math.min(1, Math.max(0.15, (d + 14) / 14));
+        // (r13: an empty basin's outline has lobes: an old lake bed, never a square)
+        const own = d + L.wander * wob * Math.min(1, Math.max(0.15, (d + 14) / 14)) + (L.dry ? 2.0 * fbm(x, y, 6, SEED + 53, 2) : 0);
         g[k][i] = own < 6 ? own : Math.max(6, dw + L.wander * wob);
         el.push({ level: L.sill, d: g[k][i], meadow: L.meadow, rim: 3.2 });
         if (own < near) near = own;
         if (!L.dry && own < nearWet) nearWet = own;
+        if (L.dry && own < nearBasin) nearBasin = own;
       }
       for (const k of brooks) {
         const { d, s } = along[k][i];
@@ -617,7 +620,9 @@ export function designLand(): Land {
       const scarp2 = Math.max(-1, Math.min(1, fbm(x, y, 26, SEED + 23, 2) * 60));
       if (!dryLand) land += 1.0 * scarp2 * Math.min(1, Math.max(0, (near - 19) / 4));
       if (dryLand) {
-        if (near > 0.5) land = Math.round(land / 3) * 3;
+        // (r13: round an empty basin its old beach keeps its level, the sill + 1, a few tiles wide: the basin
+        // shelves from the bench to the beach to the floor, and the beach is what a levee at its spill point floods)
+        if (near > 0.5 && !(nearBasin < 3.5 + 2 * fbm(x, y, 8, SEED + 54, 2))) land = Math.round(land / 3) * 3;
       } else {
         if (near > 21) land = fbm(x, y, 50, SEED + 24, 2) > -0.25 ? Math.round(land / 3) * 3 : Math.round(land / 2) * 2;
         if (near > 4 && near < 9 && fbm(x, y, 9, SEED + 22, 2) > 0.42) land += 1;
@@ -751,7 +756,7 @@ export function designLand(): Land {
       let depth = Math.min(L.deep, shore === 0 ? 0 : shore === 1 ? (L.deep > 2 ? Math.min(2, channelDepth) : 1) : channelDepth);
       if (k >= LAKES.length) depth = Math.min(L.deep, Math.max(0, Math.floor((Math.min(-d, isle) - 0.6) / 2.4 + 1.5 * fbm(x + 3 * k, y - 5 * k, 5, SEED + 46, 2) + 0.2)));
       // (r12: an empty basin's floor is flat with uneven hollows, its deepest by its seep: no rings)
-      if (L.dry) depth = Math.hypot(x + 0.5 - L.seed[0], y + 0.5 - L.seed[1]) < 2.1 ? 2 : -d > 1.2 && fbm(x, y, 6, SEED + 52, 2) > -0.15 ? 1 : 0;
+      if (L.dry) depth = Math.hypot(x + 0.5 - L.seed[0] - 1.5, y + 0.5 - L.seed[1] + 1) + 1.2 * fbm(x, y, 4, SEED + 55, 2) < 2.3 ? 2 : -d > 2.4 + 1.2 * fbm(x, y, 5, SEED + 52, 2) ? 1 : 0;
       // (the cove's head has a cut bank: deep water right at the meadow, so a pump there works through a drought)
       if (k === 0 && Math.hypot(x + 0.5 - 69, y + 0.5 - 74) < 5.5) depth = 2;
       // (the Great Fall's bay, all of Weir Lake that the game's first frame holds: shallow. In the game water five
@@ -975,6 +980,8 @@ export function designLand(): Land {
     "Birch Brook": spanRow("Birch Brook", 1),
     "South Brook": spanRow("South Brook", 1),
     "High dam": spanRow("High Brook", 17.0, 17.6),
+    // (r13) High Tarn's spill point, beyond its beach: a levee here floods the beach
+    "High levee": spanRow("High Brook", 7.6, 8.1),
     "High Brook": spanRow("High Brook", 1),
     "Bench Brook": spanRow("Bench Brook", 1),
   };
