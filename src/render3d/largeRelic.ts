@@ -21,8 +21,7 @@
 // (`LARGE_RELIC_SHADOW`, light.ts `objectCasters`).
 
 import { LARGE_RELIC, type Rgb } from "./palette";
-
-type V = [number, number, number];
+import { add, cross, Parts, unit, type V } from "./relicParts";
 
 /** The dish's sphere in the game's local frame: its centre, its axis toward the back, and the two directions across it
  *  (`E1` the dish's own up, `E2` its side), φ measured from `E1` toward `E2`. */
@@ -80,15 +79,6 @@ export const LARGE_RELIC_SHADOW: readonly (readonly (readonly (readonly [number,
   [[], [], []],
 ];
 
-const add = (a: V, b: V, k = 1): V => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k];
-const sub = (a: V, b: V): V => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const cross = (a: V, b: V): V => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const dot = (a: V, b: V) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const unit = (a: V): V => {
-  const l = Math.hypot(a[0], a[1], a[2]);
-  return [a[0] / l, a[1] / l, a[2] / l];
-};
-
 /** A point on the dish's sphere at θ, φ (degrees) and `r` from its centre. */
 function onSphere(theta: number, phi: number, r: number): V {
   const s = Math.sin(theta * DEG);
@@ -97,62 +87,8 @@ function onSphere(theta: number, phi: number, r: number): V {
   return add(C, add([AX[0] * c, AX[1] * c, AX[2] * c], across, s), r);
 }
 
-/** The model's triangles by colour (our frame: centred on the footprint, x east, y up, z south). */
-class Parts {
-  readonly byColour = new Map<Rgb, number[]>();
-  /** A flat face (its corners in the game's local frame, in order round it), its front turned away from `from`. */
-  face(corners: V[], colour: Rgb, from: V): this {
-    // (corners that meet, at a cone's tip, are one)
-    const pts = corners.filter((p, i) => i === 0 || dot(sub(p, corners[i - 1]), sub(p, corners[i - 1])) > 1e-12).map(ours);
-    if (pts.length > 2 && dot(sub(pts[pts.length - 1], pts[0]), sub(pts[pts.length - 1], pts[0])) <= 1e-12) pts.pop();
-    if (pts.length < 3) return this;
-    let n: V = [0, 0, 0];
-    for (let i = 0; i < pts.length; i++) n = add(n, cross(pts[i], pts[(i + 1) % pts.length]));
-    let mid: V = [0, 0, 0];
-    for (const p of pts) mid = add(mid, p, 1 / pts.length);
-    if (dot(n, sub(mid, ours(from))) < 0) pts.reverse();
-    const out = this.byColour.get(colour) ?? [];
-    for (let i = 1; i + 1 < pts.length; i++) out.push(...pts[0], ...pts[i], ...pts[i + 1]);
-    this.byColour.set(colour, out);
-    return this;
-  }
-  /** A body turned round an axis through `centre` along `axis`, (`u`, `v`) across it: `profile` its (along, radius)
-   *  points, closed where a radius is 0; `sides` round. Its faces turn away from the axis at their middle's along. */
-  /** A body of revolution; with `core` (a point of a closed profile's section) a hoop, its faces turned away from it. */
-  revolve(centre: V, axis: V, u: V, v: V, profile: [number, number][], sides: number, colour: Rgb, core?: [number, number]): this {
-    const at = (a: number, r: number, k: number) => {
-      const t = (k * 2 * Math.PI) / sides;
-      return add(add(centre, axis, a), add([u[0] * Math.cos(t), u[1] * Math.cos(t), u[2] * Math.cos(t)], v, Math.sin(t)), r);
-    };
-    for (let i = 0; i + 1 < profile.length; i++) {
-      const [a0, r0] = profile[i];
-      const [a1, r1] = profile[i + 1];
-      // (a flat end faces along the axis, away from the body's middle; a side away from the axis)
-      const flat = Math.abs(a1 - a0) < 1e-9;
-      const mid = (profile[0][0] + profile[profile.length - 1][0]) / 2;
-      for (let k = 0; k < sides; k++) {
-        const from = core ? at(core[0], core[1], k + 0.5) : flat ? add(centre, axis, a0 + (a0 > mid ? -1 : 1)) : add(centre, axis, (a0 + a1) / 2);
-        this.face([at(a0, r0, k), at(a1, r1, k), at(a1, r1, k + 1), at(a0, r0, k + 1)], colour, from);
-      }
-    }
-    return this;
-  }
-  /** A beam of square section `w` across from `a` to `b` (open ends). */
-  beam(a: V, b: V, w: number, colour: Rgb): this {
-    const d = unit(sub(b, a));
-    const u = unit(cross(d, Math.abs(d[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]));
-    const v = cross(d, u);
-    const h = w / 2;
-    const corner = (p: V, s: number, t: number) => add(add(p, u, s * h), v, t * h);
-    const round = [[1, 1], [-1, 1], [-1, -1], [1, -1]];
-    const mid = add(a, sub(b, a), 0.5);
-    for (let k = 0; k < 4; k++) {
-      const [s0, t0] = round[k];
-      const [s1, t1] = round[(k + 1) % 4];
-      this.face([corner(a, s0, t0), corner(b, s0, t0), corner(b, s1, t1), corner(a, s1, t1)], colour, mid);
-    }
-    return this;
-  }
+/** The dish's parts: its own rings round its axis besides the shared shapes. */
+class DishParts extends Parts {
   /** A ring round the axis of section `section` ((θ, r) corners in order), from φ0 to φ1 in `segments`; `faces` the
    *  section's edges drawn (each from its corner to the next). */
   ring(section: [number, number][], phi0: number, phi1: number, segments: number, colour: Rgb, faces = [0, 1, 2, 3]): this {
@@ -171,14 +107,9 @@ class Parts {
   }
 }
 
-/** A point of the game's local frame in ours: the footprint's middle the origin, the game's z (the map's y) our −z. */
-function ours(p: V): V {
-  return [p[0] - 1.5, p[1], 1.5 - p[2]];
-}
-
 /** The large relic's triangles, by colour (about 800; the game's model has 1,605). */
 export function largeRelicParts(): { points: number[]; colour: Rgb }[] {
-  const m = new Parts();
+  const m = new DishParts([1.5, 1.5]);
   const R = LARGE_RELIC;
   // the face's panels, both sides
   for (let b = 0; b < 3; b++)
@@ -215,16 +146,12 @@ export function largeRelicParts(): { points: number[]; colour: Rgb }[] {
   const fu = unit(cross(n, [0, 1, 0]));
   const hoop: [number, number][] = [[-0.055, 0.315], [-0.054, 0.39], [0.002, 0.381], [0.045, 0.345], [0.045, 0.27], [-0.055, 0.315]];
   m.revolve([1.798, 0.782, 1.797], n, fu, cross(n, fu), hoop, 8, R.feed, [-0.005, 0.33]);
-  for (const line of STRUTS) for (let k = 0; k + 1 < line.length; k++) m.beam(line[k], line[k + 1], 0.06, R.feed);
+  for (const line of STRUTS) m.beam(line, 0.06, R.feed);
   const bit = unit([0.099, 0.061, 0.059]);
   const bu = unit(cross(bit, [0, 1, 0]));
   m.revolve([2.047, 0.071, 2.104], bit, bu, cross(bit, bu), [[0, 0], [0, 0.1], [0.13, 0.1], [0.13, 0]], 6, R.feed);
-  m.beam([1.725, 0.089, 2.059], [1.946, 0.081, 2.116], 0.08, R.feed).beam([1.956, 0.082, 1.962], [2.037, 0.098, 2.056], 0.064, R.feed);
+  m.beam([[1.725, 0.089, 2.059], [1.946, 0.081, 2.116]], 0.08, R.feed).beam([[1.956, 0.082, 1.962], [2.037, 0.098, 2.056]], 0.064, R.feed);
   // the stones round it
-  for (const [x, y, z, sx, sy, sz] of STONES) {
-    const c: V = [x, y, z];
-    const tips: V[] = [[sx / 2, 0, 0], [0, 0, sz / 2], [-sx / 2, 0, 0], [0, 0, -sz / 2]].map((d) => add(c, d as V));
-    for (const tip of [add(c, [0, sy / 2, 0]), add(c, [0, -sy / 2, 0])]) for (let k = 0; k < 4; k++) m.face([tip, tips[k], tips[(k + 1) % 4]], R.stone, c);
-  }
-  return [...m.byColour].map(([colour, points]) => ({ points, colour }));
+  for (const stone of STONES) m.stone(stone, R.stone);
+  return m.parts();
 }
