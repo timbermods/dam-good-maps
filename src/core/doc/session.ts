@@ -2271,7 +2271,7 @@ export class MapSession {
       // (D120), the way the game saves such a map (world.ts `stackedSimulationSingletons`)
       const cs = this.caveSoilOf(built);
       if (!cs) throw new Error("the settled water does not fit the map's caves: settle the water again");
-      const s = stackedSimulationSingletons(W, H, { cols: cs.cols, depth: stack.depth, overflow: stack.overflow, contamination: stack.contamination, sat: stack.sat, runs: runColumns(terrain), moisture: cs.soil.moisture, soilContamination: cs.soil.contamination });
+      const s = stackedSimulationSingletons(W, H, { cols: cs.cols, depth: stack.depth, overflow: stack.overflow, contamination: stack.contamination, sat: stack.sat, runs: runColumns(terrain), moisture: cs.soil.moisture, soilContamination: cs.soil.contamination, ...(stack.outflows ? { outflows: stack.outflows } : {}) });
       world = { ...world, singletons: withWaterSingletons(w.singletons, s) };
     }
     const redraw = this.drawsThumbnail(built);

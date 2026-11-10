@@ -26,7 +26,7 @@
 
 import { barrier, fail, HALO, sharedPool } from "./parallel";
 import { stackThreadsFor } from "./parallelPolicy";
-import { STACK_FIELD, STACK_OP, StackWater } from "./stackWater";
+import { edgeOutflows, flowsOfEdges, STACK_FIELD, STACK_OP, StackWater, type StackOutflows } from "./stackWater";
 
 /** Ticks between the settle's checks (rust/water/src/stack_prefill.rs `SettleRun.every`). */
 export const STACK_CHECK_TICKS = 128;
@@ -67,9 +67,13 @@ interface StackJob {
   /** Where the columns the strips have wet start (L·W·H, 1 for wet; stack.rs `wet_ever`), each strip's own
    *  rows written by that strip: the settle's reach (stackWater.ts `StackSettle.reach`). */
   reachAt: number;
-  /** Where each column's outflows start (4·L·W·H; stackWater.ts `columnFlows`), each strip's own rows written by that
-   *  strip at the end of each run: exact there, as their water is. */
+  /** Where the momentum of each edge of the whole map's column graph starts (one an edge, laid out by the whole map's
+   *  `start`: stackWater.ts `columnFlows` and `columnOutflows` read it), each strip's own rows written by that strip
+   *  at the end of each run: exact there, as their water is (a row's edges are the same in a strip as in the whole
+   *  map). */
   flowsAt: number;
+  /** The whole map's first edge of each slot's rows: `rowEdges[s·(H + 1) + y]` is its `start[s·W·H + y·W]`. */
+  rowEdges: Uint32Array;
   /** The shared memory's length. It starts with the whole map's depth, pressure and contamination (slot by
    *  slot, L·W·H each): the pre-fill's, then each run's end. */
   length: number;
@@ -209,22 +213,16 @@ class StackStrip {
     const at = this.job.reachAt + this.lo * W;
     for (let s = 0; s < reach.length / n; s++)
       for (let i = (y0 - this.lo) * W; i < (y1 - this.lo) * W; i++) if (reach[s * n + i]) this.f[at + s * N + i] = 1;
-    // and its own columns' outflows, from the block's momentum (slot by slot and row by row, each row's count first):
-    // each column's flows summed by their way (stackWater.ts `columnFlows`)
-    const start = this.m.view(STACK_FIELD.graphStart) as Uint32Array;
-    const dir = this.m.view(STACK_FIELD.graphDirection) as Uint8Array;
-    const flowsAt = this.job.flowsAt;
+    // and its own columns' outflows: the block's momentum (slot by slot and row by row, each row's count first), each
+    // row's edges where the whole map's graph has them
+    const { flowsAt, rowEdges } = this.job;
     let p = 3 + 4 * levels * k;
     for (let s = 0; s < levels; s++)
-      for (let r = y0 - this.lo; r < y1 - this.lo; r++) {
+      for (let y = y0; y < y1; y++) {
         const len = v[p++];
-        const a = start[s * n + r * W];
-        for (let x = 0; x < W; x++) {
-          const c = s * n + r * W + x;
-          const g = flowsAt + 4 * (s * N + (r + this.lo) * W + x);
-          this.f[g] = this.f[g + 1] = this.f[g + 2] = this.f[g + 3] = 0;
-          for (let e = start[c]; e < start[c + 1]; e++) this.f[g + dir[e]] += v[p + e - a];
-        }
+        const a = rowEdges[s * (H + 1) + y];
+        if (rowEdges[s * (H + 1) + y + 1] - a !== len) throw new Error("a strip's water columns differ from the map's");
+        this.f.set(v.subarray(p, p + len), flowsAt + a);
         p += len;
       }
     return barrier(ctl, T, dead);
@@ -360,7 +358,9 @@ export function stackThreads(whole: StackWater, W: number, H: number, mask: Uint
   const reachAt = at;
   at += L * N;
   const flowsAt = at;
-  at += 4 * L * N;
+  const rowEdges = new Uint32Array(L * (H + 1));
+  for (let s = 0; s < L; s++) for (let y = 0; y <= H; y++) rowEdges[s * (H + 1) + y] = start[Math.min(s * N + y * W, start.length - 1)];
+  at += start[start.length - 1];
   // (the live water's: each strip's rows from the whole map's engine, and room for its own rows' block, the length
   // export_rows gives it: its slots, then four numbers a column and each row's momentum with its count)
   let seeds: { block: Block; v: Float64Array }[] | undefined;
@@ -382,13 +382,13 @@ export function stackThreads(whole: StackWater, W: number, H: number, mask: Uint
       at += len;
     }
   }
-  const job: StackJob = { W, H, L, mask, objects, strips, down, up, reachAt, flowsAt, length: at, ...(seeds ? { seeds: seeds.map((x) => x.block), owns } : {}) };
+  const job: StackJob = { W, H, L, mask, objects, strips, down, up, reachAt, flowsAt, rowEdges, length: at, ...(seeds ? { seeds: seeds.map((x) => x.block), owns } : {}) };
   const f = new Float64Array(new SharedArrayBuffer(8 * job.length));
   const fields = [STACK_FIELD.depth, STACK_FIELD.overflow, STACK_FIELD.contamination];
   for (let q = 0; q < 3; q++) f.set((whole.view(fields[q]) as Float64Array).subarray(0, L * N), q * L * N);
   for (const x of seeds ?? []) f.set(x.v, x.block.at);
   try {
-    return new StackThreads(pool, job, f, held);
+    return new StackThreads(pool, job, f, held, { start, target: whole.copy(STACK_FIELD.graphTarget) as Int32Array, dir: whole.copy(STACK_FIELD.graphDirection) as Uint8Array });
   } catch {
     pool.give(held);
     return null;
@@ -410,6 +410,8 @@ export class StackThreads {
     private readonly f: Float64Array,
     /** The budget's threads it holds (`take`), given back when freed. */
     private readonly held: number,
+    /** The whole map's column graph (stackWater.ts `columnFlows`), the strips' momentum laid out by it. */
+    private readonly graph: { start: Uint32Array; target: Int32Array; dir: Uint8Array },
   ) {
     this.own = new StackStrip(job, f, 0);
     live.push(this);
@@ -489,8 +491,19 @@ export class StackThreads {
 
   /** Each column's outflows after the last run (4·L·W·H; stackWater.ts `columnFlows`), from the strips' own rows. */
   flows(): Float32Array {
+    return flowsOfEdges(this.graph.start, this.graph.dir, this.momentum());
+  }
+
+  /** Each column's outflows toward each target after the last run (stackWater.ts `columnOutflows`), from the strips'
+   *  own rows; none for the columns `still` marks. */
+  outflows(still?: ArrayLike<number>): StackOutflows {
+    return edgeOutflows(this.graph.start, this.graph.target, this.graph.dir, this.momentum(), still);
+  }
+
+  /** The momentum of every edge of the whole map's graph after the last run (`StackJob.flowsAt`). */
+  private momentum(): Float64Array {
     const at = this.job.flowsAt;
-    return Float32Array.from(this.f.subarray(at, at + 4 * this.job.L * this.job.W * this.job.H));
+    return this.f.subarray(at, at + this.graph.start[this.graph.start.length - 1]);
   }
 
   free(): void {
