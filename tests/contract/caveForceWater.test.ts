@@ -101,7 +101,12 @@ describe("a force's own water on a map with caves (D371)", () => {
     const mid = seen.map((q) => wetCut(ground, q.land, q.depth)).find((q) => q.cut >= cutAll.cut / 2)!;
     expect(mid.cut).toBeGreaterThan(20);
     expect(mid.wet, "water in the channel while it is still cut").toBeGreaterThan(0);
-    expect(cutAll.wet).toBeGreaterThan(mid.wet);
+    // (the river runs on into the ground cut after midway; the channel's wet tiles in all need not grow, since a stroke
+    // that falls off an edge pools behind its lip until the face in front is cut, and then runs shallower)
+    const half = seen.find((q) => wetCut(ground, q.land, q.depth).cut >= cutAll.cut / 2)!;
+    let later = 0;
+    for (let i = 0; i < N; i++) if (land[i] < ground[i] && half.land[i] >= ground[i] && seen.at(-1)!.depth[i] > 0.05) later++;
+    expect(later, "water in the ground cut after midway").toBeGreaterThan(0);
     // kept: the page goes on showing the water it showed, and the map's water flows on from it
     const last = ed.flowForceWater(0)!;
     const kept = ed.forceStop();

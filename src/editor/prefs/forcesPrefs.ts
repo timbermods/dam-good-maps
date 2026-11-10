@@ -17,7 +17,7 @@ export interface ForcesPrefs {
   /** The forces' Floor (D321, item 40): 1 unless set. */
   floor: number;
   more: Partial<Record<Verb, boolean>>;
-  carve: Pick<CarveUi, "wander" | "walls" | "depth" | "riverDepth" | "banks" | "sources">;
+  carve: Pick<CarveUi, "wander" | "walls" | "depth" | "riverDepth" | "banks" | "fall" | "sources">;
   craterize: Pick<CraterUi, "walls" | "centre" | "debris" | "rays" | "sources">;
   erupt: Pick<EruptUi, "shape" | "summit" | "flows" | "ridges" | "sources">;
   quake: Pick<QuakeUi, "scarp" | "sources">;
@@ -30,7 +30,7 @@ export const AUTO_FORCES_PREFS: ForcesPrefs = {
   watch: false,
   floor: FLOOR_DEFAULT,
   more: {},
-  carve: { wander: null, walls: null, depth: null, riverDepth: RIVER_DEPTH_DEFAULT, banks: null, sources: SOURCES_DEFAULT },
+  carve: { wander: null, walls: null, depth: null, riverDepth: RIVER_DEPTH_DEFAULT, banks: null, fall: null, sources: SOURCES_DEFAULT },
   craterize: { walls: null, centre: null, debris: null, rays: null, sources: SOURCES_DEFAULT },
   erupt: { shape: null, summit: null, flows: null, ridges: null, sources: SOURCES_DEFAULT },
   quake: { scarp: null, sources: SOURCES_DEFAULT },
@@ -64,6 +64,7 @@ export function loadForcesPrefs(): ForcesPrefs {
         depth: typeof s.carve?.depth === "number" ? s.carve.depth : null,
         riverDepth: s.carve?.riverDepth === null ? null : typeof s.carve?.riverDepth === "number" && Number.isInteger(s.carve.riverDepth) && s.carve.riverDepth >= 1 && s.carve.riverDepth <= 22 ? s.carve.riverDepth : RIVER_DEPTH_DEFAULT,
         banks: typeof s.carve?.banks === "number" && s.carve.banks >= 0 && s.carve.banks <= 10 ? s.carve.banks : null,
+        fall: typeof s.carve?.fall === "number" && Number.isInteger(s.carve.fall) && s.carve.fall >= 2 && s.carve.fall <= 12 ? s.carve.fall : null,
         sources: sourcesOf(s.carve),
       },
       craterize: { walls: among(s.craterize?.walls, ["steep", "terraced"]), centre: among(s.craterize?.centre, ["auto", "bowl", "peak", "ring", "flat"]), debris: among(s.craterize?.debris, ["light", "heavy"]), rays: typeof s.craterize?.rays === "boolean" ? s.craterize.rays : null , sources: sourcesOf(s.craterize) },
