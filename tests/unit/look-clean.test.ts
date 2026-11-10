@@ -141,7 +141,7 @@ describe("the clean view", () => {
     expect(storeys).toBe(4);
   });
 
-  it("colours dry ground a warm brown drifting to mauve and tan, cracked dark, as Timberborn's references (D334)", () => {
+  it("colours dry ground a warm brown drifting a little to mauve and tan, cracked dark, as Timberborn's references (D334) and the game's desert from afar", () => {
     // Kyler's approved inputs (D334: the earth may be warm brown and mauve; D346: a little greyer from above), scaled
     // together to the game's Desert texture (D497: their pattern's mean albedo is the texture's, tools/albedo-means.ts)
     expect(GROUND.dry).toEqual([0.293, 0.242, 0.193]);
@@ -161,6 +161,11 @@ describe("the clean view", () => {
     expect(src).toContain("vec2 dry = cracks(g * 3.1);");
     // (as deep from afar as near: the cracks' mean holds at every distance, as the game's textures' does, fix/land-tone)
     expect(src).toContain(`c = mix(c, ${gl(GROUND.crack)}, dry.x * 0.78);`);
+    // the drift only a quarter of the way from its own mean, as the game's one desert texture keeps one tone from afar
+    // (its red − blue varying over 4 and 8 tiles by 3.0 and 1.9 % of its luma; ours, drifting all the way, by 7.7 and 5.8;
+    // fix/dry-widest, tools/ground-variation.ts), its fine grains a little warmer and cooler, as the texture's
+    expect(src).toContain(`c = mix(${gl([0.305, 0.253, 0.205])}, c, 0.25);`);
+    expect(src).toContain("c *= vec3(1.0 + 0.2 * (n2 - 0.5), 1.0, 1.0 - 0.2 * (n2 - 0.5));");
   });
 
   it("draws grass as the game's terrain shader does (D497, fix/land-tone): one colour at every moisture, its mean the same at every distance", () => {

@@ -54,11 +54,11 @@
 // redraw looks the same.
 
 import { EntityGeometryCache } from "./entityGeometry";
-import { BoxGeometry, BufferGeometry, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, OctahedronGeometry, PlaneGeometry, Quaternion, Vector3, type ShaderMaterial } from "three";
+import { BoxGeometry, BufferGeometry, CircleGeometry, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, OctahedronGeometry, PlaneGeometry, Quaternion, Vector3, type ShaderMaterial } from "three";
 import { FOOTPRINTS, rotate, startEntranceTile, worldBlocks, type Orientation } from "../core/format/footprints";
 import { DEAD, DYING, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
 import { plantScale, RANDOMIZER } from "./plantSize";
-import { DEAD_FORM, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
+import { DEAD_FORM, DEAD_LIMBS, type DeadPart, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
 import { crownShade, GEOTHERMAL, GEOTHERMAL_ROCK, LANDMARK, MINE, OWN_LIGHTNESS, ownAlbedo, RUIN, SLOPE, START, THORNS, TREE_COLOURS, WATER } from "./palette";
 import { objectSoilAt } from "./runSoil";
 import { blockageParts } from "./blockage";
@@ -333,13 +333,8 @@ const MODELS: Record<string, () => Model> = {
       .add(cone(0.475, 0.72, 7), TREE_COLOURS.pine, { y: 1.84 + 0.36, ry: 0.45 })
       .add(cone(0.33, 0.6, 7), TREE_COLOURS.pine, { y: 2.4 + 0.3, ry: 0.9 })
       .graded("Pine"),
-  "Pine.dead": () => {
-    // a tall bare pole, its top broken off askew, a few stubs of branches
-    const m = new Model().add(post(0.075, 0.05, 1.25, 6), DEAD_WOOD, { y: 0.625 }).add(post(0.05, 0.03, 0.22, 5), DEAD_DARK, { x: 0.03, y: 1.33, rz: -0.35 });
-    branch(m, 0.78, 1.0, 0.5, 0.13, 0.03, DEAD_DARK);
-    branch(m, 1.02, 3.7, 0.55, 0.1, 0.025, DEAD_DARK);
-    return m;
-  },
+  // (each dead tree the game's at its size: dying.ts DEAD_LIMBS)
+  "Pine.dead": () => deadTree("Pine", { wood: DEAD_WOOD, dark: DEAD_DARK }),
   // the game's grown birch: a warm grey trunk forking low into two stems, under a round crown from 0.95 to 1.92, 1.0 across
   Birch: () =>
     new Model()
@@ -350,14 +345,7 @@ const MODELS: Record<string, () => Model> = {
       .add(ico(0.5), TREE_COLOURS.birch, { y: 1.42, sy: 0.98 })
       .add(oct(0.3), shade(TREE_COLOURS.birch, 1.08), { x: 0.2, y: 1.58, z: -0.14 })
       .graded("Birch"),
-  "Birch.dead": () => {
-    // a warm grey trunk forking into two bare arms, and a twig
-    const m = new Model().add(post(0.06, 0.045, 0.5, 5), DEAD_BIRCH, { y: 0.25 });
-    branch(m, 0.46, 0.3, 1.2, 0.55, 0.045, DEAD_BIRCH);
-    branch(m, 0.46, 3.4, 1.15, 0.5, 0.04, DEAD_BIRCH);
-    branch(m, 0.62, 1.9, 0.8, 0.2, 0.025, shade(DEAD_BIRCH, 0.8));
-    return m;
-  },
+  "Birch.dead": () => deadTree("Birch", { wood: DEAD_BIRCH }),
   // the game's grown oak: a thick trunk to 1.2, flared at the root, under one broad, flat-layered crown from 1.13 to 2.26,
   // 1.7 across
   Oak: () =>
@@ -368,12 +356,7 @@ const MODELS: Record<string, () => Model> = {
       .add(oct(0.4), shade(TREE_COLOURS.oak, 0.92), { x: -0.45, y: 1.48, z: -0.28, sy: 0.6, ry: 1.1 })
       .add(oct(0.44), shade(TREE_COLOURS.oak, 1.05), { y: 2.02, sy: 0.55, ry: 0.7 })
       .graded("Oak"),
-  "Oak.dead": () => {
-    // a thick bare trunk, its limbs broken off short, pale where they broke
-    const m = new Model().add(post(0.15, 0.11, 0.62, 6), DEAD_BARK, { y: 0.31 }).add(new CylinderGeometry(0.1, 0.1, 0.02, 6), DEAD_BREAK, { y: 0.62 });
-    for (let k = 0; k < 3; k++) branch(m, 0.56, 0.5 + (k * Math.PI * 2) / 3, 1.05, 0.26, 0.06, DEAD_BARK);
-    return m;
-  },
+  "Oak.dead": () => deadTree("Oak", { wood: DEAD_BARK, break: DEAD_BREAK }),
   Succulent: () => succulent(false),
   "Succulent.dead": () => succulent(true),
   // the game's grown blueberry bush: a low mound 0.4 tall, its berries on top; 0.94 across, as much as the game's leaves
@@ -521,6 +504,33 @@ for (const species of Object.keys(DEAD_FORM)) {
 // object, within its footprint (a model's x is east and z south; a footprint's local y runs north, so
 // −z) and centred on it (`CENTRED`). Flat vertex colours and low triangle counts, like the others;
 // both looks draw them. A seep's pit is a terrain cut-out (`mineCutout`), like a mine site's.
+
+/** A dead tree's wood (dying.ts `DEAD_LIMBS`) in its colours by part. */
+function deadTree(species: keyof typeof DEAD_LIMBS, colours: Partial<Record<DeadPart, Rgb>>): Model {
+  const m = new Model();
+  const colour = (part: DeadPart) => colours[part] ?? colours.wood!;
+  for (const { line, sides, part, tip, cap } of DEAD_LIMBS[species]) {
+    tube(m, line.slice(0, -1), sides, colour(part));
+    tube(m, line.slice(-2), sides, colour(tip ?? part));
+    if (!cap) continue;
+    // (the top end closed: a disc across it, facing along the last length)
+    const [a, b] = line.slice(-2);
+    const d = new Vector3(b[0] - a[0], b[1] - a[1], b[2] - a[2]).normalize();
+    m.add(new CircleGeometry(b[3], sides, -Math.PI / 2).applyQuaternion(new Quaternion().setFromUnitVectors(new Vector3(0, 0, 1), d)), colour(cap), { x: b[0], y: b[1], z: b[2] });
+  }
+  return m;
+}
+
+/** A tapering tube along a line of points (x, y, z, radius): an open cylinder of `sides` from each point to the next
+ *  (2 × sides triangles each), or a cone to a point of radius 0 (sides triangles). */
+function tube(m: Model, line: readonly (readonly number[])[], sides: number, color: Rgb): void {
+  for (let i = 0; i + 1 < line.length; i++) {
+    const [a, b] = [line[i], line[i + 1]];
+    const d = new Vector3(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+    const g = (b[3] > 0 ? new CylinderGeometry(b[3], a[3], d.length(), sides, 1, true) : new ConeGeometry(a[3], d.length(), sides, 1, true)).applyQuaternion(new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), d.clone().normalize()));
+    m.add(g, color, { x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2, z: (a[2] + b[2]) / 2 });
+  }
+}
 
 /** A square-sectioned bar of half-width r from a to b in space (8 triangles). */
 function beam(m: Model, a: readonly number[], b: readonly number[], r: number, color: Rgb): void {
