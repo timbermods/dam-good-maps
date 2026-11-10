@@ -784,6 +784,20 @@ export class StackRun {
     }
   }
 
+  /** Every emitter's strength as the run holds it now, by the engine's order (`setStrengths` takes them so). */
+  strengths(): Float64Array {
+    const params = this.m.view(STACK_FIELD.emitters) as Float64Array;
+    return Float64Array.from({ length: params.length / 4 }, (_, k) => params[4 * k]);
+  }
+
+  /** Sets every emitter's strength, by the engine's order, as the game's sources set theirs each tick (the drought's
+   *  ramp, cycles.ts); `run`'s `scale` still multiplies them. */
+  setStrengths(s: ArrayLike<number>): void {
+    const params = this.m.view(STACK_FIELD.emitters) as Float64Array;
+    if (s.length * 4 !== params.length) throw new Error("A strength for every emitter, in the engine's order.");
+    for (let k = 0; k < s.length; k++) params[4 * k] = s[k];
+  }
+
   /** `ticks` more, every source's strength times `scale` (0: a drought), the clean sources giving water
    *  of contamination `cleanContamination` (a badtide), or their own (null). */
   run(ticks: number, scale: number, cleanContamination: number | null = null): this {
