@@ -12,7 +12,7 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { orientationForHigh } from "./core";
+import { frameAt, orientationForHigh } from "./core";
 import { openingCamera, placeComponents, startMiddleTile, StartWaterDays, startWaterWithin, VISTA_ZOOM } from "./core";
 import { applyOps, checksOf, emptySimulationSingletons, exportFiles, fallsOf, GAME_VERSION, HazardRun, LAYERS, MapSession, rowOf, TICKS_PER_DAY, voxelsFromHeights, writeTimber, type TimberFile } from "./core";
 import { CHANNELS, designLand, FALLS, fbm, H, LAKES, measureLand, N, START_AT, TARNS, W, type Land } from "./four-lakes-design";
@@ -462,24 +462,25 @@ function plantCount(s: MapSession): { trees: number; dead: number; berries: numb
 function greatCave(s: MapSession): void {
   const F = FALLS[3];
   const h = s.built.heights;
+  const mid = Math.round((F.span[0] + F.span[1]) / 2);
+  const face = (x: number) => {
+    let y = F.at;
+    while (h[y * W + x] < F.crest - 1 && y < F.at + 4) y++;
+    return y;
+  };
   try {
+    // six columns round the lip's middle that share one face
+    const y0 = face(mid);
+    const cols: number[] = [];
+    for (let x = mid - 3; x <= mid + 3 && cols.length < 6; x++) if (face(x) === y0) cols.push(x);
+    if (cols.length < 5) throw new Error("the lip's middle has no straight face six wide");
     for (let depth = 0; depth < 3; depth++) {
-      const at: [number, number, number][] = [];
-      for (let x = 83; x <= 88; x++) {
-        // the cliff's face at this column: the first tile upstream of the lip row that stands at the crest
-        let y = F.at;
-        while (h[y * W + x] < F.crest - 1 && y < F.at + 4) y++;
-        for (let z = 7; z <= 9; z++) at.push([x, y + depth, z]);
-      }
-      // (one plane a stroke: the same y)
-      const byY = new Map<number, [number, number, number][]>();
-      for (const c of at) byY.set(c[1], [...(byY.get(c[1]) ?? []), c]);
-      for (const cells of byY.values()) applyOps(s, [{ op: "blocks", params: { mode: "remove", side: "-y", at: cells, size: 1 }, label: "The cave behind the Great Fall" }]);
+      const cells: [number, number, number][] = [];
+      for (const x of cols) for (let z = 7; z <= 9; z++) cells.push([x, y0 + depth, z]);
+      applyOps(s, [{ op: "blocks", params: { mode: "remove", side: "-y", at: cells, size: 1 }, label: "The cave behind the Great Fall" }]);
     }
-    let y0 = F.at;
-    while (h[y0 * W + 84] < F.crest - 1 && y0 < F.at + 4) y0++;
-    applyOps(s, [{ op: "placeEntity", params: { id: newId(), template: "LargeRelic", x: 84, y: y0, z: 7, orientation: "Cw0" }, label: "The relic in the cave" }]);
-    log("  the cave behind the Great Fall is cut, the large relic in it");
+    applyOps(s, [{ op: "placeEntity", params: { id: newId(), template: "LargeRelic", x: cols[1], y: y0, z: 7, orientation: "Cw0" }, label: "The relic in the cave" }]);
+    log(`  the cave behind the Great Fall is cut (X ${cols[0]}-${cols[cols.length - 1]}, Y ${y0}-${y0 + 2}, levels 7-9), the large relic in it`);
   } catch (e) {
     log(`    (the cave behind the Great Fall: ${(e as Error).message})`);
   }
@@ -558,7 +559,12 @@ function placeObjects(s: MapSession, land: Land): void {
   try {
     ramp(s, land, 66, 86, 3, 7, "The way up from Low Lake to the bench");
     ramp(s, land, 126, 88, 7, 11, "The way up from Weir Lake to Steam Lake");
-    ramp(s, land, 138, 128, 11, 15, "The way up from Steam Lake to Crown Lake");
+    if (!ramp(s, land, 138, 128, 11, 15, "The way up from Steam Lake to Crown Lake")) {
+      // (no straight cliff: two shorter ramps by way of a bench)
+      for (const mid of [13, 12, 14]) {
+        if (ramp(s, land, 138, 128, 11, mid, "The way up from Steam Lake, first half") && ramp(s, land, 138, 132, mid, 15, "The way up to Crown Lake, second half")) break;
+      }
+    }
   } catch (e) {
     log(`    (a way up: ${(e as Error).message})`);
   }
@@ -582,6 +588,31 @@ function openBypass(s: MapSession, land: Land, brooks: boolean): void {
   }
 }
 
+/** Where the Great Fall stands in the game's first camera (analysis/opening.ts): its lip's ends and its foot, in the
+ *  first frame and pulled back to the widest (u across, v up, each -1 to 1 inside the frame). */
+function firstFrame(s: MapSession, land: Land): void {
+  const st = startOf(s);
+  const lip = land.crests[3];
+  const xs = lip.map((i) => i % W);
+  const ys = lip.map((i) => Math.floor(i / W));
+  const x0 = Math.min(...xs);
+  const x1 = Math.max(...xs);
+  const yLip = Math.min(...ys);
+  const top = 14.2;
+  const foot = 6.4;
+  for (const [name, cam] of [["first frame", openingCamera(st)], ["widest", openingCamera(st, VISTA_ZOOM)]] as const) {
+    const pts = [
+      frameAt(cam, x0 + 0.5, yLip + 0.5, top),
+      frameAt(cam, x1 + 0.5, yLip + 0.5, top),
+      frameAt(cam, x0 + 0.5, yLip - 0.5, foot),
+      frameAt(cam, x1 + 0.5, yLip - 0.5, foot),
+    ];
+    const f = (p: { u: number; v: number } | null) => (p ? `(${p.u.toFixed(2)}, ${p.v.toFixed(2)})` : "behind");
+    const inside = pts.every((p) => p && Math.abs(p.u) <= 1 && Math.abs(p.v) <= 1);
+    log(`  the Great Fall in the ${name}: lip ${f(pts[0])} to ${f(pts[1])}, foot ${f(pts[2])} to ${f(pts[3])}${inside ? ": whole in the frame" : ": cut by the frame"}`);
+  }
+}
+
 // ------------------------------------------------------------------------------------------------ the shots
 
 /** The cameras a round is judged from (tools/showcase/capture.ts): the game's first camera on the start, pulled
@@ -600,7 +631,7 @@ function shots(s: MapSession, weatherDays: { drought: number; badtide: number })
     { name: "03-best-side", label: "Best side: up the valley", view: best },
     { name: "04-far", label: "The whole map", view: far },
     { name: "05-top", label: "Top-down", top: true, view: { yaw: 0, pitch: 89 * deg, distance: 300, target: [96, 5, 96] } },
-    { name: "06-great-fall", label: "The Great Fall", view: { yaw: -10 * deg, pitch: 22 * deg, distance: 58, target: [81.5, 9, 101] } },
+    { name: "06-great-fall", label: "The Great Fall", view: { yaw: -10 * deg, pitch: 22 * deg, distance: 58, target: [80.5, 9, 101] } },
     { name: "07-low-fall", label: "Low Fall (Weir Lake into Low Lake)", view: { yaw: 14 * deg, pitch: 26 * deg, distance: 50, target: [90.5, 4, 83] } },
     { name: "08-weir-fall", label: "Weir Fall (Steam Lake into Weir Lake)", view: { yaw: -70 * deg, pitch: 26 * deg, distance: 50, target: [124, 8, 99.5] } },
     { name: "09-crown-fall", label: "Crown Fall (Crown Lake into Steam Lake)", view: { yaw: -14 * deg, pitch: 26 * deg, distance: 50, target: [149.5, 12, 127] } },
@@ -644,6 +675,7 @@ function main(): void {
     }
   }
   placeStart(s);
+  firstFrame(s, land);
   lap("start");
   if (!has("bare")) {
     placeObjects(s, land);

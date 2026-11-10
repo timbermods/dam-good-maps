@@ -268,7 +268,7 @@ export const FALLS: Fall[] = [
   { name: "Low Fall", from: 1, to: 0, face: "S", at: 84, span: [84, 97], notch: [], piers: [87, 91, 94], crest: 6, foot: 0 },
   { name: "Weir Fall", from: 2, to: 1, face: "W", at: 125, span: [93, 106], notch: [99], piers: [], crest: 10, foot: 2 },
   { name: "Crown Fall", from: 3, to: 2, face: "S", at: 128, span: [143, 156], notch: [149], piers: [], crest: 14, foot: 6 },
-  { name: "Great Fall", from: -1, to: 1, face: "S", at: 104, span: [75, 88], notch: [], piers: [], crest: 14, foot: 2 },
+  { name: "Great Fall", from: -1, to: 1, face: "S", at: 104, span: [75, 86], notch: [], piers: [], crest: 14, foot: 2 },
   // the Low Sill: Low Lake's own, wide and whole (no notch: the bottom lake keeps its water below the sill and
   // loses it only to the sun), into the gorge's pool
   { name: "Low Sill", from: 0, to: -1, face: "S", at: 22, span: [34, 46], notch: [], piers: [], crest: 2, foot: 0 },
@@ -289,7 +289,7 @@ function recess(F: Fall, u: number): number {
 export const POOL: Sp[] = [[104, 127, 4.5], [108, 131, 4]];
 export const POOL_BED = 13;
 
-const HANG_PATH: Pt[] = [[101, 124], [94, 117], [87, 110], [81.5, 105]];
+const HANG_PATH: Pt[] = [[101, 124], [94, 117], [86, 110], [80.5, 105]];
 const HANG_LEN = pathLength(HANG_PATH);
 const NECK_PATH: Pt[] = [[111, 133], [120, 139], [132, 145]];
 const OLD_PATH: Pt[] = [[101, 133], [98, 142], [104, 156], [120, 170], [140, 181], [165, 184], [183, 175], [187, 152], [187, 130], [186, 106], [179, 88], [171, 70], [161, 55], [143, 40], [126, 30], [112, 20], [104, 10], [104, -1]];
@@ -321,7 +321,7 @@ function brookBed(path: Pt[], from: number, to: number): (s: number) => number {
 }
 
 export const CHANNELS: Channel[] = [
-  { name: "Hanging valley", path: HANG_PATH, half: (s) => (s > HANG_LEN - 7 ? 7.1 : s > HANG_LEN - 14 ? 4.6 : 2.6), bed: () => 14, bank: 1, bankWide: 3, wet: true, wander: 1.2, open: 1 },
+  { name: "Hanging valley", path: HANG_PATH, half: (s) => (s > HANG_LEN - 7 ? 6.1 : s > HANG_LEN - 14 ? 4.2 : 2.6), bed: () => 14, bank: 1, bankWide: 3, wet: true, wander: 1.2, open: 1 },
   { name: "Neck", path: NECK_PATH, half: () => 2.1, bed: () => 14, bank: 1, bankWide: 3, wet: true, wander: 0, open: 1 },
   { name: "Old channel", path: OLD_PATH, half: (s) => (s < 7 ? 4.9 : s < 10 ? 3.6 : 2.6), follow: { start: 14, under: 2.7, end: 1, hold: 7 }, bank: 2, bankWide: 3, wet: false, wander: 2.2, open: 0.8 },
   { name: "Gorge", path: GORGE_PATH, half: (s) => (s < 3 ? 5.6 : s < 13 ? 2.6 : s < 16 ? 3.6 : 4.6), bed: () => 0, bank: 0, bankWide: 0, wet: true, wander: 0, open: 0 },
@@ -353,7 +353,7 @@ function greatWall(x: number): number {
 const SEED = 4107;
 /** The start's middle tile: nine tiles in front of the Great Fall's lip, so the curtain fills the upper middle of the
  *  game's first camera (Cw0: it looks 35 degrees east of north). */
-export const START_AT: Pt = [77, 96];
+export const START_AT: Pt = [78, 97];
 
 /** How far the land has risen `t` tiles beyond a meadow's edge: a crag (`c1` levels in a tile), a bench `w1` wide
  *  that climbs a level, a second crag (`c2`), then a slope. Where `c1` is 1 the crag is a plain step: a way up. */
@@ -651,6 +651,7 @@ export function designLand(): Land {
       }
       let depth = Math.max(0, Math.floor((Math.min(-d, isle) - 1.0) / 2.6 + 0.5 * fbm(x, y, 8, SEED + 40 + k, 2)));
       depth = Math.min(L.deep, L.deep > 2 ? (depth === 0 ? 0 : depth === 1 ? 2 : depth === 2 ? 4 : 5) : depth);
+      if (k >= LAKES.length) depth = Math.min(L.deep, Math.max(0, Math.floor((Math.min(-d, isle) - 0.6) / 2.4 + 1.5 * fbm(x + 3 * k, y - 5 * k, 5, SEED + 46, 2) + 0.2)));
       // (the cove's head has a cut bank: deep water right at the meadow, so a pump there works through a drought)
       if (k === 0 && Math.hypot(x + 0.5 - 69, y + 0.5 - 74) < 5.5) depth = 2;
       h[i] = L.sill - depth;
