@@ -210,11 +210,13 @@ describe("a batch builds the land one call a batch built (D422, #868)", () => {
 
 describe("the page's record is the worker's, whatever its last call changed (#873)", () => {
   it("a last batch over the water that changes no tile still grows the record the operation keeps", async () => {
-    const { state, heights, N } = land(64, 52, 20);
+    // (the pond beyond the reach of the hill stroke's record: rule 6 records the water as far as
+    // moisture reaches round its working rectangle)
+    const { state, heights, N } = land(96, 80, 20);
     // the stroke across the hill, then dabs out over the pond's flat floor, where nothing weathers
     const dabs = strokeDabs();
     const over: number[] = [];
-    for (let y = 18; y <= 22; y++) over.push(52 * 4 + 2, y * 4 + 2);
+    for (let y = 18; y <= 22; y++) over.push(80 * 4 + 2, y * 4 + 2);
     // the worker's record (and land), as one preview of every dab builds it
     const recordWorker = settings();
     const shownWorker = heights.slice();
@@ -324,7 +326,7 @@ describe("a stroke with riding pieces keeps the worker's whole record (#875's re
       const params = sent!.params;
       expect(params.rigid?.length).toBeGreaterThan(0);
       const record = JSON.parse(ended!) as Record<string, unknown>;
-      for (const key of ["weathering", "shore", "pools", "moist"]) expect(JSON.stringify((params as unknown as Record<string, unknown>)[key])).toBe(JSON.stringify(record[key]));
+      for (const key of ["weathering", "shore", "pools", "moist", "wells"]) expect(JSON.stringify((params as unknown as Record<string, unknown>)[key])).toBe(JSON.stringify(record[key]));
     } finally {
       globalThis.requestAnimationFrame = raf;
       globalThis.cancelAnimationFrame = caf;

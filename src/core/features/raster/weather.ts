@@ -35,11 +35,17 @@
 //   stroke began, and its softening is three box passes (cheap to work out again round each change).
 // - Rule 4 is rule 3 with the scree's slope measured from every cliff (`shed`): rules 2 and 3 lost
 //   some cliffs' slopes, leaving cliffs that every pass cut back again, and replay so.
-// - Rule 5 (new strokes) is rule 4 with the scree building up at a cliff's foot from what its top
+// - Rule 5 is rule 4 with the scree building up at a cliff's foot from what its top
 //   loses (`shed`): each cliff's top comes down no more than its foot rises, and the reverse, so a
 //   cliff becomes a slope instead of being cut into small steps above a foot that stays; the slope
 //   may run out over all the stroke reaches. A cliff standing in water keeps its top (what it sheds
 //   the water takes away); above farmland or a stream it pulls back as before (D418).
+// - Rule 6 (new strokes; showcase-craft gap 12) is rule 5 with a cut bank standing in water slumping
+//   (`bankShape`, `slump`): along it, in stretches the size of Size, it stays a cut face or slumps back to
+//   the water's surface and climbs back up in steps, its back edge scalloped, so a ruler-straight bank (an
+//   outlet cut with Flatten) becomes an irregular one. Its moist ground may come down so far, so long as
+//   no moist tile dries: the moisture is worked out from where the water stood, as `sim/moisture.ts`
+//   spreads it (`moistGuard`), and what would dry one is taken back.
 // - It reads and writes only inside its rectangle (the stroke's bounds), so a rebuild gives the same land.
 //
 // Exact arithmetic only (+ − × ÷ and floor; PLAN §2.1, D366): the same stroke gives the same land on every
@@ -85,7 +91,7 @@ export interface WeatherInput {
   /** Rule 3: where the water stood on every tile of the map (in place of `shore` and `pools`, and the
    *  moist ground, which keeps its height), and how many times the land has changed since the
    *  stroke began (what the cache keeps is for that land). */
-  limits?: { lo: Uint8Array; wet: Uint8Array; moist: Uint8Array } | null;
+  limits?: { lo: Uint8Array; wet: Uint8Array; moist: Uint8Array; base?: Uint8Array; well?: Uint8Array } | null;
   version?: number;
   /** Rule 3: the land when the stroke began (the map's): no neighbouring pair ends in the other order
    *  from it, though dabs before this one left them level. */
@@ -222,8 +228,8 @@ export function weather(inp: WeatherInput, out: Uint8Array): Rect | null {
     const cache = inp.cache ?? new WeatherCache(inp.before, W, inp.H);
     // (the same rectangle as the last dab's: the same land and water before it, worked out once)
     const key = `${box.x0},${box.y0},${box.x1},${box.y1}:${inp.version ?? 0}`;
-    const p = cache.prepared?.key === key ? cache.prepared : (cache.prepared = prepare(inp, h0, bw, bh, key));
-    const { lo, hi, wet, shedHi, ring, w0, still, water } = p;
+    const p = cache.prepared?.key === key ? cache.prepared : (cache.prepared = prepare(inp, h0, bw, bh, key, cache));
+    const { lo, hi, wet, shedHi, ring, w0, still, water, bank } = p;
     // (rule 3: an edge wanders only where this dab presses harder than those before it)
     let fresh: Uint8Array | null = null;
     if (inp.was) {
@@ -235,8 +241,10 @@ export function weather(inp: WeatherInput, out: Uint8Array): Rect | null {
         }
     }
     h = wander(h0, I, bw, bh, box, inp.size, inp.strength, cache, hi, still, fresh);
-    shed(h, I, bw, bh, box, inp.strength, cache, lo, shedHi, inp.rule === 4 || inp.rule === 5, inp.rule === 5 ? water : null);
-    settle(h, I, bw, bh, box, inp.strength, cache, lo, wet);
+    shed(h, I, bw, bh, box, inp.strength, cache, lo, shedHi, (inp.rule ?? 0) >= 4, (inp.rule ?? 0) >= 5 ? water : null);
+    // (rule 6: banks standing in water slump; the terraces they leave are theirs, not settle's)
+    const slumped = bank ? slump(h, h0, I, bw, bh, bank) : null;
+    settle(h, I, bw, bh, box, inp.strength, cache, lo, wet, slumped);
     tidy(h, h0, I, bw, bh);
     // the limits: the working area's feather, the banks, the ceiling, the water
     for (let y = 1; y < bh - 1; y++)
@@ -280,7 +288,9 @@ export function weather(inp: WeatherInput, out: Uint8Array): Rect | null {
           khi[k] = Math.min(wet[k], base + inp.room[g]);
         }
     }
-    keepOrder(h, h0, I, bw, bh, ring, w0, klo, khi, p, ref);
+    // (rule 6: and no moist tile dries)
+    const guard = (inp.rule ?? 0) >= 6 && inp.limits?.base ? moistGuard(inp, bw, bh, p) : null;
+    keepOrder(h, h0, I, bw, bh, ring, w0, klo, khi, p, ref, guard);
     // (a roof keeps its lowest layer, D280 (3): only on a map with caves or overhangs)
     const floor = inp.floor;
     if (floor)
@@ -324,11 +334,15 @@ interface Prepared {
   still: Uint8Array;
   /** Where water stood when the stroke began (rule 3's limits). */
   water: Uint8Array;
+  /** Rule 6: the level each bank standing in water slumps to (`bankShape`; 255 where none does). */
+  bank: Uint8Array | null;
   /** The ways water could leave it before the stroke, worked out when first asked. */
   passages?: Passages;
+  /** Rule 6: the moisture round it before the dab (`moistGuard`), worked out when first asked. */
+  moisture?: MoistField;
 }
 
-function prepare(inp: WeatherInput, h0: Uint8Array, bw: number, bh: number, key: string): Prepared {
+function prepare(inp: WeatherInput, h0: Uint8Array, bw: number, bh: number, key: string, cache: WeatherCache): Prepared {
   const { box } = inp;
   const n = bw * bh;
   // what it must leave as it is, known before the land moves: where water stood (`wet`: a shore
@@ -351,6 +365,10 @@ function prepare(inp: WeatherInput, h0: Uint8Array, bw: number, bh: number, key:
         if (limits.moist[g]) lo[k] = h0[k];
         if (limits.wet[g]) water[k] = 1;
       }
+  // (rule 6: a bank standing in water slumps, `bankShape`: its moist ground may come down that far, so
+  // long as none dries, `moistGuard`)
+  const bank = (inp.rule ?? 0) >= 6 && limits?.base ? bankShape(h0, water, inp, bw, bh, cache) : null;
+  if (bank) for (let k = 0; k < n; k++) if (bank[k] < lo[k]) lo[k] = bank[k];
   const wet = hi.slice();
   const shedHi = hi.slice();
   const ring = ringLevels(h0, bw, bh, inp.rim ?? null);
@@ -375,8 +393,9 @@ function prepare(inp: WeatherInput, h0: Uint8Array, bw: number, bh: number, key:
     if (shedHi[k] < h0[k]) shedHi[k] = h0[k];
   }
   // a cliff of three levels or more, and the ground a few tiles round it, is left to shed: edges
-  // wander only away from cliffs
+  // wander only away from cliffs (rule 6: and a bank that slumps is the slump's)
   const still = new Uint8Array(n);
+  if (bank) for (let k = 0; k < n; k++) if (bank[k] < h0[k]) still[k] = 1;
   for (let y = 1; y < bh - 1; y++)
     for (let x = 1; x < bw - 1; x++) {
       const k = y * bw + x;
@@ -385,7 +404,127 @@ function prepare(inp: WeatherInput, h0: Uint8Array, bw: number, bh: number, key:
       for (let yy = Math.max(0, y - CLIFF_ROOM); yy <= Math.min(bh - 1, y + 1 + CLIFF_ROOM); yy++)
         for (let xx = Math.max(0, x - CLIFF_ROOM); xx <= Math.min(bw - 1, x + 1 + CLIFF_ROOM); xx++) still[yy * bw + xx] = 1;
     }
-  return { key, lo, hi, wet, shedHi, ring, w0, still, water };
+  return { key, lo, hi, wet, shedHi, ring, w0, still, water, bank };
+}
+
+// ------------------------------------------------------------------------------------------- slump
+
+const SLUMP_SEED = 0x736c756d;
+const TREAD_SEED = 0x74726561;
+const BITE_SEED = 0x62697465;
+/** A stretch of bank whose slump would bite less than this far back (in tiles) stays as it stands: a
+ *  cut face. */
+const BITE_LEAST = 0.6;
+
+/** Rule 6: the shape a bank standing in water slumps to, on each tile of the box (255 where it doesn't).
+ *  A bank up to 2 + Strength / 4 levels above the water's surface slumps (a taller one keeps its top, as
+ *  rule 5 keeps it). Along the bank, in stretches the size of Size, the map's noise says how far back:
+ *  none (a cut face stays) to 1.5 + 0.3 × Strength tiles. The slump lies at the water's surface
+ *  (rounded up: never below it, nor below the shore's floor, `shoreOf`), its back edge bitten into
+ *  scallops by a finer noise, then climbs back up the bank a level every two or three tiles (where the
+ *  noise says). So a ruler-straight cut bank becomes an irregular one. Only a cut bank slumps, one
+ *  standing two levels or more over its water at the edge: a shore that rises gently is left as it is.
+ *  Fixed to the map's tiles and measured from the water and the land as the stroke found it, so
+ *  painting again changes nothing more. */
+function bankShape(h0: Uint8Array, water: Uint8Array, inp: WeatherInput, bw: number, bh: number, cache: WeatherCache): Uint8Array | null {
+  const n = bw * bh;
+  const L = inp.limits!;
+  const base = L.base!;
+  const { W, box } = inp;
+  const strength = Math.max(1, Math.min(10, inp.strength));
+  // (the land as the stroke found it: a bank it slumps stays one painting again)
+  const was = (k: number) => (inp.origin ? inp.origin[(box.y0 + Math.floor(k / bw)) * W + box.x0 + (k % bw)] : h0[k]);
+  // each dry tile's distance from the water (in fifths of a tile: a straight step 5, a diagonal 7),
+  // that water's surface, and how high the bank stands at the water's edge there
+  const INF = 0x3fffffff;
+  const d = new Int32Array(n).fill(INF);
+  const surf = new Uint8Array(n);
+  const edge = new Uint8Array(n);
+  let any = false;
+  for (let y = 0; y < bh; y++)
+    for (let x = 0; x < bw; x++) {
+      const k = y * bw + x;
+      const b = base[(box.y0 + y) * W + box.x0 + x];
+      if (water[k] && b) (d[k] = 0), (surf[k] = b), (any = true);
+    }
+  if (!any) return null;
+  const relax = (k: number, j: number, c: number) => {
+    const v = d[j] + c;
+    if (v < d[k] || (v === d[k] && surf[j] > surf[k])) (d[k] = v), (surf[k] = surf[j]), (edge[k] = d[j] ? edge[j] : was(k));
+  };
+  for (let y = 0; y < bh; y++)
+    for (let x = 0; x < bw; x++) {
+      const k = y * bw + x;
+      if (!d[k]) continue;
+      if (x > 0) relax(k, k - 1, 5);
+      if (y > 0) {
+        relax(k, k - bw, 5);
+        if (x > 0) relax(k, k - bw - 1, 7);
+        if (x + 1 < bw) relax(k, k - bw + 1, 7);
+      }
+    }
+  for (let y = bh - 1; y >= 0; y--)
+    for (let x = bw - 1; x >= 0; x--) {
+      const k = y * bw + x;
+      if (!d[k]) continue;
+      if (x + 1 < bw) relax(k, k + 1, 5);
+      if (y + 1 < bh) {
+        relax(k, k + bw, 5);
+        if (x + 1 < bw) relax(k, k + bw + 1, 7);
+        if (x > 0) relax(k, k + bw - 1, 7);
+      }
+    }
+  // (the bank's stretches: shorter than the wander's, so one dab's reach holds a few; the scallops
+  // finer still)
+  const cell = Math.max(3, Math.min(12, Math.round(inp.size)));
+  const fine = Math.max(3, Math.min(8, Math.round(inp.size / 3)));
+  // (the widest a slump bites into the bank, in tiles, and the tallest bank that slumps: a taller one
+  // keeps its top, as rule 5 keeps it)
+  const widest = 1.5 + 0.3 * strength;
+  const tallest = 2 + Math.floor(strength / 4);
+  const out = new Uint8Array(n).fill(255);
+  for (let y = 1; y < bh - 1; y++)
+    for (let x = 1; x < bw - 1; x++) {
+      const k = y * bw + x;
+      if (water[k] || d[k] >= INF || h0[k] <= surf[k]) continue;
+      const gx = box.x0 + x;
+      const gy = box.y0 + y;
+      // (a cut bank: standing two levels or more over its water at the edge, no taller than `tallest`;
+      // a shore that rises gently is left as it is)
+      if (edge[k] - surf[k] < 2 || was(k) - surf[k] > tallest) continue;
+      // how far this stretch slumps back: none (a cut face stays) to `widest`, along the bank as the
+      // map's noise says
+      const u = (cache.noise(SLUMP_SEED, cell, gx, gy) + 0.45) / 0.9;
+      const bite = widest * Math.max(0, Math.min(1, u));
+      if (bite < BITE_LEAST) continue;
+      // (its back edge bitten into scallops: how far from the water the tile reads as, nudged by the
+      // map's finer noise)
+      const dk = Math.max(1, d[k] / 5 + 1.6 * cache.noise(BITE_SEED, fine, gx, gy));
+      if (dk > bite + 3 * tallest) continue;
+      const tread = cache.noise(TREAD_SEED, cell, gx, gy) > 0.1 ? 3 : 2;
+      // its level: the water's surface where the slump lies, then a level a tread back up the bank,
+      // never below the shore's floor
+      const t = dk <= bite ? 0 : Math.ceil((dk - bite) / tread);
+      const v = Math.max(surf[k] + t, L.lo[gy * W + gx]);
+      if (v < h0[k]) out[k] = v;
+    }
+  return out;
+}
+
+/** Rule 6: banks standing in water come down to the shape `bankShape` gives them, as far as the stroke
+ *  presses (fully from a half, nothing below a quarter, so it fades out with the ring). Only lowers.
+ *  Returns the tiles it lowered. */
+function slump(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, bh: number, bank: Uint8Array): Uint8Array {
+  const n = bw * bh;
+  const out = u8("slumped", n).fill(0);
+  for (let k = 0; k < n; k++) {
+    const v = bank[k];
+    if (v === 255 || !(I[k] > SHED_FROM) || v >= h[k]) continue;
+    const e = Math.min(1, (I[k] - SHED_FROM) / 0.25);
+    const t = h0[k] - Math.round(e * (h0[k] - v));
+    if (t < h[k]) (h[k] = t), (out[k] = 1);
+  }
+  return out;
 }
 
 // ------------------------------------------------------------------------------------------ wander
@@ -930,7 +1069,7 @@ function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect,
  *  wide terrace stays), leaves no step of three levels or more round it, and touches no ground the
  *  stroke doesn't reach. The land keeps its shape in fewer, chunkier terraces. Changes `h` in place,
  *  within `lo` and `hi`. */
-function settle(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect, strength: number, cache: WeatherCache, lo: Uint8Array, hi: Uint8Array): void {
+function settle(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect, strength: number, cache: WeatherCache, lo: Uint8Array, hi: Uint8Array, slumped: Uint8Array | null = null): void {
   const n = bw * bh;
   // each tile's distance to its terrace's edge, in fifths of a tile (a straight step 5, a diagonal 7)
   const d = i32("settle.d", n);
@@ -995,6 +1134,12 @@ function settle(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rec
         }
       }
       if (seam) continue;
+      // (rule 6: a bank's slump is left as it slumped)
+      if (slumped) {
+        let mine = false;
+        for (let q = 0; q < count && !mine; q++) if (slumped[members[q]]) mine = true;
+        if (mine) continue;
+      }
       // the level it borders most (the nearer to its own on a tie), where every neighbour stays within
       // two levels and the water allows, and it takes away more edges than it adds
       let best = -1;
@@ -1208,8 +1353,9 @@ function flood(h: Uint8Array, ring: Int16Array, bw: number, bh: number, out: Int
 /** How many rounds of repair a pass of `keepOrder` makes at most. */
 const ROUNDS = 128;
 
-/** Take back, toward the land as it was, whatever breaks the downhill order (see the head). */
-function keepOrder(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, bh: number, ring: Int16Array, w0: Int16Array, lo: Uint8Array, hi: Uint8Array, prepared: Prepared, ref: Uint8Array = h0): void {
+/** Take back, toward the land as it was, whatever breaks the downhill order (see the head), and (rule
+ *  6, `guard`) the tiles a moist tile's moisture came along, where it would dry. */
+function keepOrder(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, bh: number, ring: Int16Array, w0: Int16Array, lo: Uint8Array, hi: Uint8Array, prepared: Prepared, ref: Uint8Array = h0, guard: ((h: Uint8Array, h0: Uint8Array) => number[]) | null = null): void {
   const n = bw * bh;
   const passages = () => (prepared.passages ??= passagesBefore(h0, ring, bw, bh));
   const w1 = i16("keep.w1", n);
@@ -1473,6 +1619,8 @@ function keepOrder(h: Uint8Array, h0: Uint8Array, I: Float32Array, bw: number, b
       if (far.length) lowerRims(far, h, h0, w1, bw, pool, bad);
       keepPassages(h, h0, ring, bw, bh, passages(), bad);
     }
+    // (only once the order is kept: the moisture of the land as it then stands)
+    if (!bad.length && guard) bad.push(...guard(h, h0));
     if (!bad.length) return;
     let any = false;
     for (const s of bad) {
@@ -1660,6 +1808,148 @@ function keepPassages(h: Uint8Array, h0: Uint8Array, ring: Int16Array, bw: numbe
     return true;
   }
   return false;
+}
+
+// --------------------------------------------------------------------------------------- the moisture
+
+/** How far moisture reaches, in tiles: the most a tile of water gives (twice a cluster saturation of 8)
+ *  and one more; a step costs at least one. */
+export const MOIST_REACH = 17;
+/** Rule 6: a moist tile's moisture (worked out as `moistField` does) never ends below this, or below
+ *  what it was if that was less: well clear of the game's 0.01, whatever its rounding. */
+const MOIST_KEEP = 0.5;
+
+/** The moisture the stroke's water gives each tile of a rectangle, and the tile each one's came from. */
+interface MoistField {
+  x0: number;
+  y0: number;
+  rw: number;
+  rh: number;
+  m: Float64Array;
+  /** The tile (in the rectangle) each tile's moisture came from; -1 on water, or where none came. */
+  from: Int32Array;
+}
+
+/** The moisture on each tile of `r` by the game's soil rules on a heightfield (sim/moisture.ts), from the
+ *  wells (`base`, `well`) the stroke recorded, carried only across the tiles that were moist when it
+ *  began (`moist`). Never more than the game's: badwater and any water or moist ground outside `r` give
+ *  none, and nothing passes through ground that was dry (Thorns' tiles among it). `at` reads a height. */
+function moistField(r: Rect, W: number, base: Uint8Array, well: Uint8Array, moist: Uint8Array, at: (g: number) => number): MoistField {
+  const rw = r.x1 - r.x0 + 1;
+  const rh = r.y1 - r.y0 + 1;
+  const n = rw * rh;
+  const m = new Float64Array(n);
+  const from = new Int32Array(n).fill(-1);
+  const heap = new MinHeap();
+  const G = (k: number) => (r.y0 + Math.floor(k / rw)) * W + r.x0 + (k % rw);
+  // water gives what it gives; a moist tile beside it what reaches it from the water's surface
+  for (let k = 0; k < n; k++) {
+    const g = G(k);
+    if (base[g]) {
+      if (well[g]) heap.push(-(m[k] = well[g]), k);
+      continue;
+    }
+    if (!moist[g]) continue;
+    const x = k % rw;
+    const y = (k - x) / rw;
+    const h = at(g);
+    let best = 0;
+    let src = -1;
+    const look = (j: number, gj: number) => {
+      if (!well[gj]) return;
+      const v = well[gj] - 6 * Math.max(0, h - base[gj]);
+      if (v > best) (best = v), (src = j);
+    };
+    if (x > 0) look(k - 1, g - 1);
+    if (x + 1 < rw) look(k + 1, g + 1);
+    if (y > 0) look(k - rw, g - W);
+    if (y + 1 < rh) look(k + rw, g + W);
+    if (best > 0) {
+      m[k] = best;
+      from[k] = src;
+      heap.push(-best, k);
+    }
+  }
+  // and it spreads, a tile (or a diagonal one) at a time, and six for each level it climbs
+  while (heap.size > 0) {
+    const k = heap.pop();
+    const v0 = -heap.lastKey;
+    if (v0 < m[k] - 1e-9) continue;
+    const g = G(k);
+    const climb = base[g] || at(g);
+    const x = k % rw;
+    const y = (k - x) / rw;
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= rw || yy >= rh) continue;
+        const j = yy * rw + xx;
+        const gj = g + dy * W + dx;
+        if (base[gj] || !moist[gj]) continue;
+        const v = v0 - (dx && dy ? Math.SQRT2 : 1) - 6 * Math.max(0, at(gj) - climb);
+        if (v > m[j] + 1e-9) {
+          m[j] = v;
+          from[j] = k;
+          heap.push(-v, j);
+        }
+      }
+  }
+  return { x0: r.x0, y0: r.y0, rw, rh, m, from };
+}
+
+/** Rule 6's guard (D418: farmland is never lost): no tile moist when the stroke began dries. The moisture
+ *  round the dab's rectangle, as far as it reaches, is worked out on the land before the dab and on the
+ *  land it leaves (`moistField`, never more than the game's); a moist tile whose moisture would end below
+ *  `MOIST_KEEP` and below what it was has the tiles its moisture came along before the dab taken back,
+ *  so that way gives it what it gave. Ground the dab doesn't change is the same either side, and water
+ *  farther off than `MOIST_REACH` gives nothing to a tile it changes, so what moisture the game gives
+ *  every tile is kept, dab by dab. Returns, for `keepOrder`, the changed tiles (in the box) to take back. */
+function moistGuard(inp: WeatherInput, bw: number, bh: number, p: Prepared): (h: Uint8Array, h0: Uint8Array) => number[] {
+  const { W, H, box } = inp;
+  const L = inp.limits!;
+  const base = L.base!;
+  const well = L.well!;
+  const moist = L.moist;
+  const r = { x0: Math.max(0, box.x0 - MOIST_REACH), y0: Math.max(0, box.y0 - MOIST_REACH), x1: Math.min(W - 1, box.x1 + MOIST_REACH), y1: Math.min(H - 1, box.y1 + MOIST_REACH) };
+  const inBox = (g: number) => {
+    const x = g % W;
+    const y = (g - x) / W;
+    return x >= box.x0 && x <= box.x1 && y >= box.y0 && y <= box.y1 ? (y - box.y0) * bw + x - box.x0 : -1;
+  };
+  return (h, h0) => {
+    // (only a moist tile come down can dry one: water is never raised, nor moist ground)
+    let any = false;
+    for (let y = 0; y < bh && !any; y++)
+      for (let x = 0; x < bw; x++) {
+        const k = y * bw + x;
+        if (h[k] < h0[k] && moist[(box.y0 + y) * W + box.x0 + x]) {
+          any = true;
+          break;
+        }
+      }
+    if (!any) return [];
+    const before = (p.moisture ??= moistField(r, W, base, well, moist, (g) => inp.before[g]));
+    const after = moistField(r, W, base, well, moist, (g) => {
+      const k = inBox(g);
+      return k >= 0 ? h[k] : inp.before[g];
+    });
+    const out: number[] = [];
+    const taken = new Uint8Array(bw * bh);
+    for (let q = 0; q < after.m.length; q++) {
+      const g = (r.y0 + Math.floor(q / after.rw)) * W + r.x0 + (q % after.rw);
+      if (!moist[g] || base[g]) continue;
+      if (after.m[q] >= Math.min(before.m[q], MOIST_KEEP) - 1e-9) continue;
+      // the way its moisture came before the dab, back as it was
+      for (let t = q; t >= 0; t = before.from[t]) {
+        const gt = (r.y0 + Math.floor(t / before.rw)) * W + r.x0 + (t % before.rw);
+        const k = inBox(gt);
+        if (k >= 0 && h[k] !== h0[k] && !taken[k]) (taken[k] = 1), out.push(k);
+      }
+    }
+    return out;
+  };
 }
 
 // ------------------------------------------------------------------------------------------ the cache

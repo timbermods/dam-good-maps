@@ -272,7 +272,7 @@ export class RemotePreview {
 
   /** The worker's record: the rule and where the water stood, as the operation keeps them. */
   private take(s: Omit<BrushParams, "dabs">): void {
-    Object.assign(this.record, { weathering: s.weathering, ...(s.shore ? { shore: s.shore } : {}), ...(s.pools ? { pools: s.pools } : {}), ...(s.moist ? { moist: s.moist } : {}) });
+    Object.assign(this.record, { weathering: s.weathering, ...(s.shore ? { shore: s.shore } : {}), ...(s.pools ? { pools: s.pools } : {}), ...(s.moist ? { moist: s.moist } : {}), ...(s.wells ? { wells: s.wells } : {}) });
   }
 }
 
