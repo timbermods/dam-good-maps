@@ -2,7 +2,8 @@
 
 Each plant is drawn alone on level grass, in the game's light by day, from the start shots' camera (the pixel judge's
 `--objects`, tools/water-pixel-judge.ts), turned through a full circle, and sampled as the judge samples it: its crown's
-middle and its side across the sun's way, a 3 x 3 patch of the shot's pixels each, and its whole crown.
+middle and its side across the sun's way, a 3 x 3 patch of the shot's pixels each, and its whole crown, with the
+light and dark inside it (its luma's spread over its mean, and its 10th and 90th centiles).
 
 The game's side is its grown model (Timbermesh, `resources.assets`, read as tools/game-model-albedo.py reads it) drawn as
 its VegetationURP ForwardLit program draws it (disassembled with tools/game-water-shader.py --shader "Shader
@@ -299,6 +300,11 @@ def judge(mesh, species, yaw, pitch, px, rotations, shadows=True, bump=True, ss=
         acc.setdefault("area", []).append(plant.sum() * (2 * half / res) ** 2)
         acc.setdefault("crown", []).append(luma[plant].mean())
         acc.setdefault("crown albedo", []).append(a_luma[plant].mean())
+        # (the light and dark inside the crown: its luma's spread over its mean, and its 10th and 90th centiles')
+        acc.setdefault("crown spread", []).append(luma[plant].std() / luma[plant].mean())
+        lo, hi = np.percentile(luma[plant], [10, 90])
+        acc.setdefault("crown p10", []).append(lo)
+        acc.setdefault("crown p90", []).append(hi)
     return {k: float(np.mean(v)) for k, v in acc.items()}
 
 
@@ -358,6 +364,8 @@ def main():
             rel = "" if name == "game" else f"   {v['middle'] / g['middle']:.3f}, {v['side'] / g['side']:.3f}, {v['crown'] / g['crown']:.3f}, {v['area'] / g['area']:.2f}"
             pt = lambda s: f"{v[s] * 255:5.1f} ({v[s + ' plant'] * 100:3.0f} %, {v.get(s + ' albedo', float('nan')):.3f}, {v.get(s + ' light', float('nan')):.2f})"
             print(f"{sp:14s} {name:9s} {pt('middle')}   {pt('side')}   {v['side'] / v['middle']:.3f}    {v['crown'] * 255:5.1f} ({v['crown albedo']:.3f})  {v['area']:.2f}{rel}")
+            print(f"{'':14s} {'':9s} inside the crown: spread {v['crown spread']:.3f}, p10 {v['crown p10'] * 255:5.1f}, p90 {v['crown p90'] * 255:5.1f}"
+                  + ("" if name == "game" else f"   ours / the game's: spread {v['crown spread'] / g['crown spread']:.3f}, p90/p10 {(v['crown p90'] / v['crown p10']) / (g['crown p90'] / g['crown p10']):.3f}"))
             if "bark" in v:
                 print(f"{'':14s} {'':9s} bark {pt('bark')}" + ("" if name == "game" else f"   ours / the game's {v['bark'] / g['bark']:.3f}"))
 

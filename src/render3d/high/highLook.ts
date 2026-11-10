@@ -387,8 +387,8 @@ export class HighLook {
    *  wind's clock, the sun's depth map. */
   beforeRender(camera: Camera, pixels: number, time: number): void {
     this.vegTime.value = time;
-    // (a tree casts the model it is drawn with: a birch's far model is two octahedra, whose diamonds a close view's
-    // depth map kept when drawn from afar. Once the camera's changes to the models have settled the map is drawn
+    // (a tree casts the model it is drawn with: a birch's far model is one lump where its close-up has seven, which a
+    // close view's depth map kept when drawn from afar. Once the camera's changes to the models have settled the map is drawn
     // again, once, never through a zoom or a turn: `LOD_SETTLE`)
     if (this.forest && this.effects.vegetation && this.forest.update(camera, pixels, !this.lower)) {
       if (this.lodTimer) clearTimeout(this.lodTimer);

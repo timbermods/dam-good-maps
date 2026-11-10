@@ -1,6 +1,6 @@
 // The High look's trees and bushes (#66, investigation/vegetation models.ts; PLAN §20 D241): our own
 // procedural geometry, no textures or game assets. Distinct pine (a dark pointed cone of scalloped
-// tiers), birch (light broken clusters on a warm grey, marked trunk), oak (one broad round crown on
+// tiers), birch (light broken clusters on a warm grey, marked trunk), oak (two layers of leafy clumps on
 // heavy limbs) and blueberry bushes (low, with big blue fruit outside the leaves), each with bare dead
 // forms; three silhouettes a species close up and one far off. Colours are palette regions (the
 // vegetation material's uniforms), never baked, so tuning them rebuilds nothing.
@@ -9,7 +9,7 @@
 import { DEAD_FORM, deadLeaves, deadWood, DRYING, dryColour } from '../dying';
 import { plantScale, RANDOMIZER } from '../plantSize';
 import { crownShade, ownAlbedo, TREE_COLOURS } from '../palette';
-import { BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, OctahedronGeometry, TetrahedronGeometry, Matrix4, Quaternion, Vector3 } from 'three';
+import { BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, OctahedronGeometry, Matrix4, Quaternion, Vector3 } from 'three';
 
 export const species = ['Pine', 'Birch', 'Oak', 'BlueberryBush'] as const;
 export type Species = typeof species[number];
@@ -45,6 +45,8 @@ export const slots = Object.keys(paletteDefaults) as (keyof Palette)[];
 /** The foliage's slots, living and dying (their regions). */
 const FOLIAGE_SLOTS = new Set(Object.entries(FOLIAGE).flatMap(([slot, [, dry]]) => [slots.indexOf(slot as keyof Palette), slots.indexOf(dry)]));
 type V = [number, number, number];
+/** An icosahedron's tilt from a vertex-up ridge to a face up: atan(φ / (2φ + 1)), φ the golden ratio. */
+const FACE_UP = Math.atan(1.618034 / 4.236068);
 
 /** Integer mixing: stable placement, never time- or traversal-order dependent. */
 export function noise(x: number, y: number, salt = 0): number {
@@ -71,7 +73,8 @@ class Shape {
   dying = false;
   /** Every part scaled upright by this (a dead plant brought to the game's height for it). */
   upright = 1;
-  add(source: BufferGeometry, slot: keyof Palette, shade = 1, translate: V = [0, 0, 0], scale: V = [1, 1, 1], turn = 0) {
+  /** `smooth`: the source's own normals, carried through its transforms, in place of its facets'. */
+  add(source: BufferGeometry, slot: keyof Palette, shade = 1, translate: V = [0, 0, 0], scale: V = [1, 1, 1], turn = 0, smooth = false) {
     source.scale(...scale).rotateY(turn).translate(...translate);
     if (this.upright !== 1) source.scale(1, this.upright, 1);
     if (this.dying && slot in FOLIAGE) {
@@ -80,7 +83,7 @@ class Shape {
       slot = dry;
     }
     const g = source.index ? source.toNonIndexed() : source;
-    g.computeVertexNormals();
+    if (!smooth) g.computeVertexNormals();
     const p = g.getAttribute('position'), n = g.getAttribute('normal');
     for (let i = 0; i < p.count; i++) {
       this.positions.push(p.getX(i), p.getY(i), p.getZ(i)); this.normals.push(n.getX(i), n.getY(i), n.getZ(i));
@@ -96,6 +99,14 @@ class Shape {
   }
   crown(pos: V, scale: V, slot: keyof Palette, shade: number, turn = 0) {
     return this.add(new IcosahedronGeometry(1, 0), slot, shade, pos, scale, turn);
+  }
+  /** A leafy clump as the game's crowns gather their cards: an icosahedron whose normals are a sphere's about its middle,
+   *  as the game's cards' vertex normals are, not its facets'. */
+  clump(pos: V, scale: V, slot: keyof Palette, shade: number, turn = 0) {
+    const g = new IcosahedronGeometry(1, 0);
+    // (its corners lie on the unit sphere: each one's normal is its place)
+    g.setAttribute('normal', g.getAttribute('position').clone());
+    return this.add(g, slot, shade, pos, scale, turn, true);
   }
   geometry() {
     const g = new BufferGeometry();
@@ -157,7 +168,9 @@ export const registry: Record<Species, SpeciesDefinition> = {
     // 0.94 at about a third of its lightness)
     m.branch([0, 0, 0], [0.015, 0.94, 0], 0.07, bark, near ? 6 : 3, 0.5, near || dead ? 1 : 0.88);
     if (!near && !dead) {
-      for (const side of [-1, 1]) m.add(new OctahedronGeometry(1), 'birch', side === 1 ? 1.04 : 0.92, [side * 0.18, side === 1 ? 1.48 : 1.36, 0], [0.33, 0.46, 0.42]);
+      // From afar, one round crown as the game's reads there: an icosahedron with a face up, as wide as the game's cards
+      // draw (until 2026-11-09 two octahedra, which read as two flat diamonds and covered 0.75 of the game's area)
+      m.add(new IcosahedronGeometry(1, 0).rotateX(-FACE_UP), 'birch', 1, [0.02, 1.43, 0], [0.5, 0.52, 0.48], 0.5);
       return;
     }
     for (const side of [-1, 1]) {
@@ -180,28 +193,28 @@ export const registry: Record<Species, SpeciesDefinition> = {
       }
     }
   } },
-  // the game's grown oak: a thick trunk to about 1.2, under one broad, flat-layered crown from 1.13 to 2.26, 1.7 across
+  // the game's grown oak: a thick trunk to about 1.2, under a crown of two layers of clumps from 1.3 to 2.27, 1.7 across
   Oak: { height: 2.26, wind: 0.027, build(m, v, detail, dead) {
     const near = detail === 'near', bark = dead ? 'oakDead' : 'oakBark';
     m.branch([0, 0, 0], [0.02, dead ? 1.45 : 1.25, 0], dead ? 0.17 : 0.2, bark, near ? 7 : 3, dead ? 0.52 : 0.62);
-    if (!near && !dead) {
-      m.crown([0, 1.66, 0], [0.98, 0.56, 0.94], 'oak', 1.02);
-      m.add(new TetrahedronGeometry(1), 'oak', 1.06, [0.32, 1.4, 0.18], [0.5, 0.46, 0.48]);
-      return;
-    }
-    const n = near ? 5 : 3;
+    // (from afar a living oak shows no limbs)
+    const n = near ? 5 : dead ? 3 : 0;
     for (let i = 0; i < n; i++) {
       const a = i / n * Math.PI * 2 + v * 0.4;
       m.branch([0, 0.75 + i * 0.04, 0], [Math.cos(a) * 0.48, 1.5 + i * 0.07, Math.sin(a) * 0.48], near ? 0.06 : 0.04, bark, near ? 5 : 3, 0.18);
       if (dead && near) m.branch([Math.cos(a) * 0.36, 1.35 + i * 0.07, Math.sin(a) * 0.36], [Math.cos(a + 0.4) * 0.6, 1.72 + i * 0.07, Math.sin(a + 0.4) * 0.6], 0.032, bark, 3, 0.05);
     }
     if (!dead) {
-      // One broad, flat crown does the reading, as the game's layered one; small shoulders soften its edge.
-      const width = [1, 0.94, 1.04][v];
-      m.add(new IcosahedronGeometry(1, 1), 'oak', 1.02, [0, 1.66 + (v === 1 ? 0.05 : 0), 0], [0.84 * width, 0.5, 0.8 * width], v * 0.25);
-      m.crown([0.4, 1.42, 0.22], [0.46, 0.38, 0.44], 'oak', 1.06, v * 0.3);
-      m.crown([-0.42, 1.52, 0.14], [0.42, 0.38, 0.44], 'oak', 0.97, v * 0.7);
-      m.crown([0.04, 2.0, -0.1], [0.46, 0.3, 0.42], 'oak', 1.04, v);
+      // Six leafy clumps in two layers of three, the upper a sixth of a turn round from the lower, as the game's crown
+      // gathers its cards (its upper three about 0.4 out at 1.98, its lower three at 1.5): the upper shade the lower and
+      // the crown's far side from the sun as the game's cards do, which gives it the game's light and dark, near and far
+      // alike (until 2026-11-09 one broad crown and three shoulders, whose side read 13 % over the game's and its spread
+      // of light and dark 0.83 of it; from afar an icosahedron and a tetrahedron; docs/progress/3d-view.md).
+      for (let i = 0; i < 3; i++) {
+        const a = i * 2 * Math.PI / 3, b = a + Math.PI / 3;
+        m.clump([Math.cos(a) * 0.26, 2.0, Math.sin(a) * 0.26], [0.45, 0.32, 0.45], 'oak', 1, i + v * 0.3);
+        m.clump([Math.cos(b) * 0.5, 1.55, Math.sin(b) * 0.5], [0.45, 0.32, 0.45], 'oak', 1, i + 0.5 + v * 0.3);
+      }
     }
   } },
   // the game's grown blueberry bush: a low mound 0.4 tall, 0.97 across, as much as the game's leaves cover (its cards cut

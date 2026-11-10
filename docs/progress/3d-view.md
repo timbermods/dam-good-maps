@@ -3175,6 +3175,40 @@ birch bark 1.13, the crowns' sides 3–21 % under their middles, Standard's berr
   (4) Standard's baked shadows on open ground (`light.ts` `PLANT_SHAPES`) keep the reaches of High's old models. (5) High's far birch
   covers 0.75 of the game's area within its drawn width. (6) The water source's three samples still read 23 % over.
 
+### High's far birch and oak, their shapes (`fix/high-crowns-shape`)
+
+#916's look review found two crowns whose shape, not their colour, kept them from the game's: High's far birch read as
+two flat diamonds where the game's crown is round, and High's oak read 13 % over the game's on the frames, wanting more
+light and dark inside it rather than a lighter colour. `tools/game-crowns.py` now prints the light and dark inside each
+crown as well: its luma's spread over its mean, and its 10th and 90th centiles.
+
+- **The far birch: its cards' count and shape.** Its crown was two octahedra side by side. From the start shots' 55°
+  their outlines are two diamonds with a waist between them; they covered 0.75 of the game's area, and their lower
+  faces, turned down from the sun, put its side 12 % over and its middle 8 % under. The game's cards draw one round
+  crown (its outline over a turn an even oval, 0.88 across). Now one icosahedron with a face up, as wide as the game's
+  crown draws: 32 triangles (was 28).
+- **The oak: its own shadow.** Taken apart offline, the game's crown drawn without its own shadow reads as ours did
+  (its spread of luma 0.220, ours 0.224; its side 77, ours 78 of 255; its whole crown 77.5, ours 76.3), so its shadow is
+  what ours lacked. The game's crown is six clumps of cards in two layers of three (its cards grouped: the upper three
+  about 0.38 out at 1.98, the lower three 0.4–0.49 out at 1.5, a sixth of a turn round from them), and the sun goes in
+  between them: the upper clumps shade the lower ones and the crown's far side from the sun, 12 % of what the camera
+  sees of it (ours 7 %), there where the cards' normals still face the sun. One closed crown never shades itself where
+  it faces the sun. **Not the cause:** the normals (bent up as the game's point, the spread falls further, to 0.64–0.79
+  of the game's), the cards' vertex colours (by height the game's seen albedo climbs 0.458 a unit, ours 0.483), the
+  light's wrap (VegetationURP has none) or the gaps between cards (the game's side is all crown). The game's leaf
+  texture adds a fine light and dark of its own (its albedo's spread 0.10 within a crown, after its height's), which the
+  crown's spread no longer misses once its shadow is drawn. Now High's oak crown is the game's six clumps, each an
+  icosahedron with a sphere's normals about its middle as the game's cards' vertex normals are, near and far alike:
+  from afar fewer or sharper clumps shaded it less than the game's (four icosahedra: its side 1.11 of the game's; six
+  octahedra, 60 triangles: its whole crown 0.93 and spiky outlines).
+- **Measured offline** (High's middle, side, whole crown and area, ours over the game's, and the light and dark inside
+  the crown: its spread and its 90th over its 10th centile, ours over the game's; before → after):
+  | Plant | Middle, side, crown, area | Spread, p90/p10 |
+  |---|---|---|
+  | Birch far | 0.92, 1.12, 1.00, 0.75 → 1.05, 0.93, 0.98, 0.99 | 1.15, 1.01 → 0.99, 0.84 |
+  | Oak near | 0.95, 1.13, 1.02, 1.06 → 0.96, 0.91, 0.97, 0.98 | 0.83, 0.84 → 0.97, 1.00 |
+  | Oak far | 0.89, 1.13, 1.01, 1.13 → 0.96, 0.91, 0.98, 0.95 | 0.75, 0.79 → 0.96, 1.00 |
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:

@@ -2,8 +2,8 @@
 // §20 D147): the terrain, the trees and the ruins drawn from the sun into a depth map (2048², fitted to the map as
 // the sun sees it), which the High shaders read as four bilinear compares, spread as wide as the game's edge in play
 // (shaders.ts). It is redrawn only when what casts shadows changed (the terrain, the objects, and the trees' close-up
-// and far models once the camera's changes to them have settled, highLook.ts `LOD_SETTLE`: a birch's far crown is two
-// octahedra, which cast diamonds), never for the camera's moves themselves, the water's movement or the wind (the trees'
+// and far models once the camera's changes to them have settled, highLook.ts `LOD_SETTLE`: a birch's far crown is one
+// lump where its close-up has seven), never for the camera's moves themselves, the water's movement or the wind (the trees'
 // shadows stay still: their sway is a few hundredths of a tile).
 // Water, falls and the effects cast none. Objects faded round the pointer (objectFade.ts) cast none while faded: the
 // depth pass drops them by the objects' own test, and is drawn again when the region moves.

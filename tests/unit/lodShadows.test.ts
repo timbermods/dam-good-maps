@@ -1,6 +1,6 @@
 // High's depth map and the trees' close-up and far models (high/highLook.ts `LOD_SETTLE`): a tree casts the model it is
-// drawn with. A birch's far model is two octahedra, so a depth map drawn from afar kept their diamonds under the close-up
-// birches after a zoom in. The map is drawn again once the camera's changes to the models have settled, never through
+// drawn with. A birch's far model is one lump where its close-up has seven, so a depth map drawn from afar kept the far
+// shadows under the close-up birches after a zoom in. The map is drawn again once the camera's changes to the models have settled, never through
 // the zoom itself (drawn at every change, a zoom dropped frames: docs/progress/3d-view.md).
 
 import { afterEach, describe, expect, it, vi } from "vitest";
