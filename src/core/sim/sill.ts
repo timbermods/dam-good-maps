@@ -161,6 +161,51 @@ export function sillFor(inp: SillInput, x: number, y: number, level: number, wid
     const line: number[] = [];
     for (let c = end; c >= 0 && !lake[c]; c = prev[c]) if (top(c) > low) line.push(c);
     line.reverse();
+    // the river's bed: the line with its corners rounded (each point the mean of its seven along the line) and a meander
+    // laid across it (a fixed swing of up to three tiles, a bend every ten), tapering to nothing at both ends, so its
+    // ends and its fall stay; a point the bed may not take (off the river's course, ground that can't be cut, the lake)
+    // keeps the line's own. On flat ground the course is a straight flow line: this bends it as a river bends.
+    const SWING = [0, 1, 2, 2, 3, 3, 3, 2, 2, 1, 0, -1, -2, -2, -3, -3, -3, -2, -2, -1];
+    const fits = (i: number) => !lake[i] && (top(i) <= low || (editable(i) && course[i]));
+    const at2 = (i: number) => [i % W, Math.floor(i / W)];
+    const points = line.map((c, k) => {
+      let sx = 0;
+      let sy = 0;
+      let n = 0;
+      for (let j = Math.max(0, k - 3); j <= Math.min(line.length - 1, k + 3); j++) {
+        const [px, py] = at2(line[j]);
+        sx += px;
+        sy += py;
+        n++;
+      }
+      const mx = Math.floor((sx + (n >> 1)) / n);
+      const my = Math.floor((sy + (n >> 1)) / n);
+      // (across the line's way here, from three back to three on)
+      const [ax, ay] = at2(line[Math.max(0, k - 3)]);
+      const [bx, by] = at2(line[Math.min(line.length - 1, k + 3)]);
+      const along = Math.abs(bx - ax) >= Math.abs(by - ay);
+      const ends = Math.min(k, line.length - 1 - k);
+      const swing = Math.trunc((SWING[(k + (line[0] % 20)) % 20] * Math.min(8, ends)) / 8);
+      const qx = along ? mx : mx + swing;
+      const qy = along ? my + swing : my;
+      const q = qy * W + qx;
+      return qx >= 0 && qy >= 0 && qx < W && qy < H && fits(q) ? q : c;
+    });
+    // (joined tile by tile, across then along, through the tiles the bed may take)
+    const bed: number[] = [];
+    points.forEach((q, k) => {
+      if (k > 0) {
+        let [cx, cy] = at2(points[k - 1]);
+        const [qx, qy] = at2(q);
+        while (cx !== qx || cy !== qy) {
+          if (cx !== qx) cx += cx < qx ? 1 : -1;
+          else cy += cy < qy ? 1 : -1;
+          const t = cy * W + cx;
+          if (t !== q && fits(t)) bed.push(t);
+        }
+      }
+      bed.push(q);
+    });
     // the notch round the line: its floor `w` tiles wide and a tile wider here and there (a river's bed is never ruled),
     // its sides stepping up to the ground in benches one or two tiles wide, varied along the river, so no wall stands
     // sheer and no terrace runs on as a ruled ring; distances are 8-neighbour (Chebyshev) ones, so a bank along a
@@ -171,7 +216,8 @@ export function sillFor(inp: SillInput, x: number, y: number, level: number, wid
     const dist8 = new Int32Array(N).fill(-1);
     const near = new Int32Array(N);
     const queue: number[] = [];
-    line.forEach((c, k) => {
+    bed.forEach((c, k) => {
+      if (dist8[c] === 0) return;
       dist8[c] = 0;
       near[c] = k;
       queue.push(c);
@@ -201,7 +247,7 @@ export function sillFor(inp: SillInput, x: number, y: number, level: number, wid
     // along the line; the floor itself is 0)
     const outOf = (i: number) => {
       const k = near[i];
-      return Math.max(0, dist8[i] - (w >> 1) - ((Math.floor(k / 3) + (line[k] % 7)) % 7 < 3 ? 1 : 0));
+      return Math.max(0, dist8[i] - (w >> 1) - ((Math.floor(k / 3) + (bed[k] % 7)) % 7 < 3 ? 1 : 0));
     };
     // (the notch's sides, off the river's course, never lower than a level above the lake; its floor is the notch)
     const flank = (i: number, v: number) => (!course[i] && outOf(i) > 0 ? Math.max(v, level + 1) : v);
@@ -312,17 +358,25 @@ export function sillFor(inp: SillInput, x: number, y: number, level: number, wid
     for (let h = 0; h < up.length; h++) for (const n of neighbours(up[h], W, H)) if (lowB[n] && (side[n] || (course[n] && spill[n] > before && spill[n] >= spill[up[h]]))) markB(n);
     const capB = new Int32Array(N);
     for (let i = 0; i < N; i++) if (lowB[i] && !sideB[i]) capB[i] = editable(i) ? (bank - heights[i]) * 16 + 1 : INF;
-    const cutB = up.some(off) ? null : minCut(W, H, lowB, sideB, capB, off);
-    if (!cutB || "open" in cutB) return { reason: `the bank holding the lake at X ${x} · Y ${y} at level ${level} can't reach land above the water` };
-    // (the piece of it at the outlet, within two tiles of the sill at the level: the cut a level up also closes the
-    // dry rims at the level elsewhere round the lake, which a bank here leaves as they are)
+    // (found at the outlet: the cut a level up runs between the lake and the land below it past the sill, beyond two
+    // tiles of it, or the map's edge; the cheapest closure far downstream is not the lake's bank)
+    const sillAt = new Set(cut.tiles);
     const close = new Uint8Array(N);
     for (const c of cut.tiles) {
       const cx = c % W;
       const cy = (c - cx) / W;
       for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (cx + dx >= 0 && cy + dy >= 0 && cx + dx < W && cy + dy < H) close[(cy + dy) * W + cx + dx] = 1;
     }
-    const mine = pieces(W, H, cutB.tiles).filter((p) => p.some((i) => close[i]));
+    const lakeAtL = flood(W, H, at, (i) => low[i] === 1 && !sillAt.has(i));
+    const past = (i: number) => off(i) || (low[i] === 1 && !lakeAtL[i] && !sillAt.has(i) && !close[i]);
+    const cutB = up.some(off) ? null : minCut(W, H, lowB, sideB, capB, past);
+    if (!cutB || "open" in cutB) return { reason: `the bank holding the lake at X ${x} · Y ${y} at level ${level} can't reach land above the water` };
+    // (the piece of it at the outlet, within two tiles of the sill at the level: the cut a level up also closes the
+    // dry rims at the level elsewhere round the lake, which a bank here leaves as they are)
+    const nearOutlet = pieces(W, H, cutB.tiles).filter((p) => p.some((i) => close[i]));
+    // (the piece the river crosses, where one does: its spillway is there)
+    const crossing = nearOutlet.filter((p) => p.some((i) => course[i]));
+    const mine = crossing.length ? crossing : nearOutlet;
     if (!mine.length) return { reason: `the bank holding the lake at X ${x} · Y ${y} at level ${level} can't reach land above the water` };
     ridge = mine.flat();
   }
@@ -433,26 +487,40 @@ function minCut(W: number, H: number, region: Uint8Array, source: Uint8Array, ca
   const prev = new Int32Array(2 * N);
   const stamp = new Int32Array(2 * N);
   let round = 0;
+  // (the search starts from the source tiles beside the region only: the rest lead nowhere else)
   const starts: number[] = [];
-  for (let i = 0; i < N; i++) if (source[i]) starts.push(i);
+  for (let i = 0; i < N; i++) {
+    if (!source[i]) continue;
+    for (let k = 0; k < 4; k++) {
+      const j = nb(i, k);
+      if (j >= 0 && region[j] && !source[j]) {
+        starts.push(i);
+        break;
+      }
+    }
+  }
+  const queue = new Int32Array(2 * N);
+  let tail = 0;
+  let from = 0;
+  const visit = (u: number) => {
+    if (stamp[u] === round) return;
+    stamp[u] = round;
+    prev[u] = from;
+    queue[tail++] = u;
+  };
   /** A breadth-first search of the residual graph; the sink tile reached (its out), or −1. */
   const search = (): number => {
     round++;
-    const queue: number[] = [];
+    tail = 0;
     for (const i of starts) {
       stamp[2 * i + 1] = round;
       prev[2 * i + 1] = -1;
-      queue.push(2 * i + 1);
+      queue[tail++] = 2 * i + 1;
     }
-    for (let h = 0; h < queue.length; h++) {
+    for (let h = 0; h < tail; h++) {
       const v = queue[h];
       const i = v >> 1;
-      const visit = (u: number) => {
-        if (stamp[u] === round) return;
-        stamp[u] = round;
-        prev[u] = v;
-        queue.push(u);
-      };
+      from = v;
       if (v & 1) {
         if (!source[i] && sink(i)) return i;
         if (!source[i] && through[i] > 0) visit(2 * i);

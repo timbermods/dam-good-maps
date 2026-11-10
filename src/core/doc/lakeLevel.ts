@@ -70,10 +70,9 @@ function measure(s: MapSession, x: number, y: number, level: number, width?: num
 function measureNow(s: MapSession, x: number, y: number, level: number, width?: number): { plan: LakeLevelPlan; settled?: { model: WaterModel; water: CanonicalWater } } {
   const none = (reason: string, sill: SillPlan | null = null, surface = NaN) => ({ plan: { reason, op: null, sill: sill?.sill ?? null, tiles: sill?.tiles ?? [], levels: sill?.levels ?? [], ...(sill?.width ? { width: sill.width } : {}), surface, lake: [] } });
   const model = s.waterNow().model;
-  const input = { model, heights: s.built.heights, fixed: heldOf(s) };
   let w = width;
   for (let tries = 0; ; tries++) {
-    const r = sillFor(input, x, y, level, w);
+    const r = sillOf(s, x, y, level, w);
     if ("reason" in r) return none(r.reason);
     const op = opOf(s, x, y, r);
     const errors = s.check(op);
@@ -125,12 +124,25 @@ export function lakeLevelProblem(s: MapSession, p: OpParams["setLakeLevel"]): st
   const [x, y] = p.at;
   if (x >= W || y >= H) return `X ${x} · Y ${y} is off the map`;
   if (p.level > CEILING) return `level ${p.level} is above the ceiling (level ${CEILING})`;
-  const r = sillFor({ model: s.waterNow().model, heights: s.built.heights, fixed: heldOf(s) }, x, y, p.level, p.sill === "cut" ? p.width : undefined);
+  const r = sillOf(s, x, y, p.level, p.sill === "cut" ? p.width : undefined);
   if ("reason" in r) return r.reason;
   const stored = runsToTiles(p.cells, W).sort((a, b) => a - b);
   const same = stored.length === r.tiles.length && stored.every((i, k) => i === r.tiles[k] && p.levels[k] === r.levels[k]);
   if (r.sill !== p.sill || !same) return "the lake's sill is no longer the one measured: set its level again";
   return null;
+}
+
+/** The last sills measured on each session, kept while its map stands as measured: the question, the engine's check
+ *  of its operation and that check again as the operation is applied measure one sill once. */
+const lastSills = new WeakMap<MapSession, { built: object; sills: Map<string, ReturnType<typeof sillFor>> }>();
+
+function sillOf(s: MapSession, x: number, y: number, level: number, width?: number): ReturnType<typeof sillFor> {
+  let kept = lastSills.get(s);
+  if (!kept || kept.built !== s.built) lastSills.set(s, (kept = { built: s.built, sills: new Map() }));
+  const key = `${x},${y},${level},${width ?? ""}`;
+  let r = kept.sills.get(key);
+  if (!r) kept.sills.set(key, (r = sillFor({ model: s.waterNow().model, heights: s.built.heights, fixed: heldOf(s) }, x, y, level, width)));
+  return r;
 }
 
 function opOf(s: MapSession, x: number, y: number, r: SillPlan): OpOf<"setLakeLevel"> {

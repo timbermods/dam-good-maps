@@ -1099,7 +1099,7 @@ Make a valley, drop a source, and there's a river.
   sill), as the hover readout's "Water at level 7.4" reads level 7. A sill higher than the level gets a notch cut down
   its river's own course, never a new way out: a crest at the level beside the lake, the river's bed a level lower past
   it so the water falls off the crest and runs away, as wide as its river needs (or as asked) and a tile wider here and
-  there, its sides stepping up a level a tile to the ground, never a ruled canal with sheer walls. A lower one is
+  there, its corners rounded and a meander laid across its line, its sides stepping up a level a tile to the ground, never a ruled canal with sheer walls. A lower one is
   closed by one bank across the outlet, joined edge to edge: its spillway where the river crosses at the level, the
   rest a ridge a level above the water, two tiles thick, running to land above the water at both ends, with a step
   down behind it (refused when no such ridge closes the outlet). The canonical settle confirms the water stands there

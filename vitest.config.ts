@@ -18,6 +18,7 @@ const HEAVY = [
   "tests/contract/editSequences.heavy.test.ts", // sequences of edits on every theme add no object (D368 (10))
   "tests/contract/everySetting.heavy.test.ts", // the settings panel's extremes each make a map (D471)
   "tests/contract/everySettingLarge.heavy.test.ts", // and over 128² (D471)
+  "tests/contract/lakeLevel.heavy.test.ts", // lakes by number on a 192² generated map
   "tests/contract/collabClaims.heavy.test.ts", // every force's plan and gesture band against the claims' writes (D362)
   "tests/contract/collabSoak.heavy.test.ts", // collaborative editing: a few hundred mixed edits, checkpoints and a rejoin
   "tests/contract/collabUndoSoak.heavy.test.ts", // collaborative editing: a few hundred mixed edits with undo and redo asked at random
