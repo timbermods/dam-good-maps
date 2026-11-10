@@ -39,8 +39,9 @@
 //   footprint: seeps (a stone slab at the ground round a pit, the terrain's tops over its 2 × 2
 //   cut out like a mine site's, heaped with rounded rocks to 0.57, or 0.40 for badwater, the gaps dark teal or
 //   rust), the aquifer (a dry, dark rubble cross with a hole), its drill (a tall, narrow
-//   yellow-and-black auger tower on a stone footing, a dark housing and a pipe), the badtide drain (a
-//   rusty grated box, its open end out over the drop), the unstable core (a small dark segmented dome
+//   yellow-and-black auger tower on a stone footing, a dark housing and a pipe), the badtide drain (the
+//   game's box of rusted plate, a black funnel in its mouth under a hood out over the drop, badtideDrain.ts), the
+//   unstable core (a small dark segmented dome
 //   with a red eye, half sunk on a soft orange scorch mark), and the reserves (a pile: a log pen with a
 //   sign; a warehouse: a low layer of small crates in a plank yard with rope posts; a tank: a wooden
 //   barrel on legs with a pump).
@@ -61,6 +62,7 @@ import { plantScale, RANDOMIZER } from "./plantSize";
 import { DEAD_FORM, DEAD_LIMBS, type DeadPart, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
 import { crownShade, GEOTHERMAL, GEOTHERMAL_ROCK, LANDMARK, MINE, OWN_LIGHTNESS, ownAlbedo, RUIN, SLOPE, START, THORNS, TREE_COLOURS, WATER } from "./palette";
 import { objectSoilAt } from "./runSoil";
+import { badtideDrainParts } from "./badtideDrain";
 import { blockageParts } from "./blockage";
 import { naturalDamParts } from "./naturalDam";
 import { largeRelicParts } from "./largeRelic";
@@ -475,7 +477,8 @@ const MODELS: Record<string, () => Model> = {
   BadwaterSeep: () => seep(true),
   Aquifer: aquifer,
   AncientAquiferDrill: aquiferDrill,
-  BadtideDrain: badtideDrain,
+  // (the game's box of rusted plate with its mouth and hood, at its measures and in its colours: badtideDrain.ts)
+  BadtideDrain: () => fromParts(badtideDrainParts()),
   UnstableCore: unstableCore,
   ReservePile: reservePile,
   ReserveWarehouse: reserveWarehouse,
@@ -484,7 +487,7 @@ const MODELS: Record<string, () => Model> = {
 /** The models in the game's own colours, its albedo straight (palette.ts `TREE_COLOURS`, `LANDMARK`, `SMALL_RELIC`, `MEDIUM_RELIC`, `LARGE_RELIC`, `BLOCKAGE`; the
  *  ruins and the start are made apart). Every other model's colours are our own, drawn at `ownAlbedo` (palette.ts
  *  `OWN_LIGHTNESS`). */
-const GAME_COLOURED = new Set(["Pine", "Birch", "Oak", "BlueberryBush", "WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep", "SmallRelic", "MediumRelic", "LargeRelic", "Blockage", "NaturalDam"]);
+const GAME_COLOURED = new Set(["Pine", "Birch", "Oak", "BlueberryBush", "WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep", "SmallRelic", "MediumRelic", "LargeRelic", "Blockage", "NaturalDam", "BadtideDrain"]);
 for (const key of Object.keys(MODELS))
   if (!GAME_COLOURED.has(key.split(".")[0])) {
     const make = MODELS[key];
@@ -724,29 +727,6 @@ function aquiferDrill(): Model {
   // the pipe, off to the west, on two black trestles
   m.add(cyl(0.12, 0.12, 0.9, 6), [0.85, 0.82, 0.7], { x: -1.05, y: 0.95, z: 0.35, rz: Math.PI / 2 });
   for (const x of [-0.95, -1.3]) m.add(box(0.1, 0.5, 0.2), black, { x, y: 0.55, z: 0.35 });
-  return m;
-}
-
-/** The badtide drain (1 × 3, its back against a wall on the −y side): a rusty, grated metal box, its
- *  open end out over the drop. The model's north (−z) is the footprint's local +y. */
-function badtideDrain(): Model {
-  const rust: Rgb = [0.5, 0.29, 0.14];
-  const metal: Rgb = [0.2, 0.22, 0.22];
-  const m = new Model().add(box(0.9, 0.7, 2.7), metal, { y: 0.4, z: 0.1 });
-  // the grate: slats across the top
-  for (let k = 0; k < 7; k++) m.add(box(0.8, 0.05, 0.1), rust, { y: 0.77, z: 1.25 - 0.34 * k });
-  // the frame: rails along the top and posts at the corners
-  for (const s of [-1, 1]) {
-    m.add(box(0.07, 0.07, 2.7), shade(rust, 0.85), { x: s * 0.43, y: 0.78, z: 0.1 });
-    for (const z of [1.4, -1.2]) m.add(box(0.09, 0.7, 0.09), shade(rust, 0.9), { x: s * 0.43, y: 0.4, z });
-  }
-  m.add(box(0.9, 0.07, 0.07), shade(rust, 0.85), { y: 0.78, z: 1.4 });
-  // the open end: a dark mouth, its frame, and a lip of slats over the drop
-  m.add(box(0.7, 0.45, 0.04), [0.04, 0.04, 0.05], { y: 0.4, z: -1.255 });
-  for (const y of [0.18, 0.62]) m.add(box(0.9, 0.07, 0.07), rust, { y, z: -1.25 });
-  m.add(box(0.7, 0.05, 0.4), shade(rust, 1.1), { y: 0.14, z: -1.3 });
-  // two pipes bent along the side
-  for (const s of [-1, 1]) beam(m, [s * 0.47, 0.3, 0.9], [s * 0.47, 0.5, 0.3], 0.04, [0.38, 0.22, 0.12]);
   return m;
 }
 
