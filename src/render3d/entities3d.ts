@@ -57,7 +57,7 @@ import { FOOTPRINTS, rotate, startEntranceTile, worldBlocks, type Orientation } 
 import { DEAD, DYING, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
 import { plantScale, RANDOMIZER } from "./plantSize";
 import { DEAD_FORM, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
-import { GEOTHERMAL, GEOTHERMAL_ROCK, LANDMARK, MINE, RELIC_STONE, RUIN, SLOPE, START, THORNS, TREE_COLOURS, WATER } from "./palette";
+import { GEOTHERMAL, GEOTHERMAL_ROCK, LANDMARK, MINE, OWN_LIGHTNESS, ownAlbedo, RELIC_STONE, RUIN, SLOPE, START, THORNS, TREE_COLOURS, WATER } from "./palette";
 import { objectSoilAt } from "./runSoil";
 import { LAND, LAND_GROW } from "./objectFade";
 
@@ -122,6 +122,12 @@ class Model {
     const g = new BufferGeometry();
     g.setAttribute("position", new Float32BufferAttribute(points, 3));
     return this.add(g, color);
+  }
+
+  /** Its colours as albedos in the game's light, being colours of our own (palette.ts `ownAlbedo`). */
+  own(): this {
+    for (let k = 0; k < this.col.length; k++) this.col[k] /= OWN_LIGHTNESS;
+    return this;
   }
 
   geometry(): BufferGeometry {
@@ -317,7 +323,7 @@ const MODELS: Record<string, () => Model> = {
   Birch: () =>
     new Model()
       .add(cyl(0.075, 0.06, 0.45, 5), BIRCH_BARK, { y: 0.225 })
-      .add(cyl(0.077, 0.075, 0.06, 5), [0.18, 0.16, 0.15], { y: 0.3 })
+      .add(cyl(0.077, 0.075, 0.06, 5), ownAlbedo([0.18, 0.16, 0.15]), { y: 0.3 })
       .add(cyl(0.055, 0.035, 0.75, 4), BIRCH_BARK, { x: -0.07, y: 0.78, rz: 0.2 })
       .add(cyl(0.05, 0.035, 0.7, 4), BIRCH_BARK, { x: 0.07, y: 0.76, rz: -0.22, ry: 0.4 })
       .add(ico(0.5), TREE_COLOURS.birch, { y: 1.42, sy: 0.98 })
@@ -351,7 +357,9 @@ const MODELS: Record<string, () => Model> = {
   BlueberryBush: () => {
     const m = new Model().add(ico(0.56), BUSH_LEAVES, { y: 0.13, sy: 0.48 });
     const flowers: [number, number, number][] = [[0.28, 0.3, 0.2], [-0.16, 0.32, 0.26], [0.08, 0.32, -0.28], [0.4, 0.2, -0.2], [-0.36, 0.24, -0.12]];
-    for (const [x, y, z] of flowers) m.add(new OctahedronGeometry(0.07, 0), [0.46, 0.56, 1.0], { x, y, z });
+    // the berries: the blue of the game's blueberry texture (its texels bluer than both green and red by 0.08, 9 % of it,
+    // `tools/game-model-albedo.py`); until 2026-11-09 a blue of our own
+    for (const [x, y, z] of flowers) m.add(new OctahedronGeometry(0.07, 0), [0.294, 0.302, 0.414], { x, y, z });
     return m;
   },
   // the game's dead bush keeps its leaves, gone brown, and loses its berries (dying.ts `DEAD_FORM`)
@@ -452,6 +460,14 @@ const MODELS: Record<string, () => Model> = {
   ReserveWarehouse: reserveWarehouse,
   ReserveTank: reserveTank,
 };
+/** The models in the game's own colours, its albedo straight (palette.ts `TREE_COLOURS`, `LANDMARK`; the ruins and the
+ *  start are made apart). Every other model's colours are our own, drawn at `ownAlbedo` (palette.ts `OWN_LIGHTNESS`). */
+const GAME_COLOURED = new Set(["Pine", "Birch", "Oak", "BlueberryBush", "WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep"]);
+for (const key of Object.keys(MODELS))
+  if (!GAME_COLOURED.has(key.split(".")[0])) {
+    const make = MODELS[key];
+    MODELS[key] = () => make().own();
+  }
 // (each plant's dying form, drawn while it is dying: dying.ts; its dead form at the game's height for it)
 for (const species of Object.keys(DRYING)) MODELS[`${species}.dying`] = () => dyingOf(species, MODELS[species]());
 for (const species of Object.keys(DEAD_FORM)) {
@@ -1001,7 +1017,7 @@ function rubble(): Model {
   const m = new Model();
   const stones: [number, number, number, number, number][] = [[-0.18, 0.2, -0.15, 0.32, 1], [0.22, 0.17, 0.12, 0.28, 0.86], [-0.05, 0.14, 0.26, 0.24, 0.78], [0.16, 0.44, -0.1, 0.22, 0.94], [-0.2, 0.42, 0.14, 0.2, 0.9]];
   for (const [x, y, z, r, shade] of stones) m.add(ico(r), [shade, shade, shade], { x, y, z, sy: 0.8 });
-  return m;
+  return m.own();
 }
 const RUBBLE = new Set(["Blockage", "NaturalDam"]);
 
@@ -1015,7 +1031,7 @@ const LITE_MODELS: Record<string, () => Model> = {
   "Birch.dead": () => liteDead(0.07, 0.95, 0.4, DEAD_BIRCH),
   "Oak.dead": () => liteDead(0.14, 0.7, 0.26, DEAD_BARK),
   "BlueberryBush.dead": () => new Model().add(new OctahedronGeometry(0.56, 0), deadLeaves("BlueberryBush", BUSH_LEAVES), { y: 0.13, sy: 0.48 }),
-  Succulent: liteSucculent,
+  Succulent: () => liteSucculent().own(),
   BlueberryBush: () => new Model().add(new OctahedronGeometry(0.56, 0), BUSH_LEAVES, { y: 0.13, sy: 0.48 }),
 };
 for (const species of Object.keys(DRYING)) if (LITE_MODELS[species]) LITE_MODELS[`${species}.dying`] = () => dyingOf(species, LITE_MODELS[species]());
@@ -1094,7 +1110,8 @@ function entrance(): Model {
   return new Model()
     .add(box(0.62, 0.06, 0.62), [0.84, 0.78, 0.64], { y: 0.03 })
     .add(cyl(0.03, 0.03, 0.55, 4), [0.3, 0.22, 0.15], { x: 0.24, y: 0.3, z: 0.18 })
-    .add(box(0.12, 0.12, 0.12), [1.0, 0.85, 0.42], { x: 0.24, y: 0.6, z: 0.18 });
+    .add(box(0.12, 0.12, 0.12), [1.0, 0.85, 0.42], { x: 0.24, y: 0.6, z: 0.18 })
+    .own();
 }
 
 // ------------------------------------------------------------------------------ ruins
@@ -1534,7 +1551,7 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
     if (key === "block") {
       const fp = FOOTPRINTS[template];
       const color = genericColor(template);
-      const b = RUBBLE.has(template) ? batch("block.rubble", rubble) : batch("block", () => new Model().add(box(0.92, 0.92, 0.92), [1, 1, 1], { y: 0.46 }));
+      const b = RUBBLE.has(template) ? batch("block.rubble", rubble) : batch("block", () => new Model().add(box(0.92, 0.92, 0.92), [1, 1, 1], { y: 0.46 }).own());
       const o = ORIENTATION_NAMES[v.orientation[k]] as Orientation;
       if (fp) for (const bl of worldBlocks(fp, { template, x, y, z, orientation: o, flipped: !!(flags & FLIPPED) })) put(b, bl.x + 0.5, bl.z, -(bl.y + 0.5), 0, 1, color);
       else put(b, x + 0.5, z, -(y + 0.5), 0, 1, color);

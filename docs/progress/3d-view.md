@@ -2899,6 +2899,156 @@ cosine's convolution); its "falls short" waited on a capture of the probe the ga
   at 19.00), as the colours are set once a frame and a frame there spans hours; the colours and the probe of each
   record agree, which is what the rule needs, and the shots are taken paused.
 
+## Objects in the game's light (D135 as amended 2026-11-09, D178, D496, D497; `fix/objects-game-light`)
+
+The terrain took the game's light (D497) and its captured ambient probe (above); the trees, bushes, ruins, sources and
+the start kept a light of our own (the sky's colour × 1.15 × (0.8 + 0.2 n.y), darker toward the foot, a wrapped sun at
+half strength), and the game's albedo drawn at our lightness, 1.318 times it (our grass over the game's).
+
+- **The game's lit model, read** (the compiled VegetationURP and EnvironmentURP programs, disassembled locally;
+  `tools/game-model-albedo.py` now reports each model's occlusion, metallic and smoothness): both are URP's lit
+  model as the terrain's is, in display values: albedo × 0.96 × (1 − metallic) × (the ambient probe by the normal + the
+  sun × max(n·L, 0) × its shadow), with the environment's reflection and the sun's GGX highlight. No wrapped light.
+  VegetationURP has no occlusion term and its metallic map defaults to black (metallic 0, smoothness 0); EnvironmentURP
+  multiplies the ambient by `_AmbientOcclusion`, but RuinColumnA–E, StartingLocation and WaterSource have no map and
+  metallic 0 (Thorns: occlusion 0.88, metallic 0.16).
+- **What changed:** `materials.ts` `GAME_LIT` holds the terrain's light functions (its text unchanged) and adds
+  `gameObjectLight` (the terrain's `gameLight` at the objects' diffuse share, `GAME_LIGHT.objectDiffuse` 0.96) and
+  `gameObjectSpecular`; the object shader takes them in every look, with the foot's darkening, the wrapped sun and
+  High's vegetation sheen gone. The game's colours are drawn straight (`palette.ts` `TREE_COLOURS`, `LANDMARK`, `START`),
+  and the ruins take the game's own: RuinColumnA–E's albedo falls in five clusters (pale cream 10 %, tan 11 %, rust
+  20 %, mid brown 37 %, dark brown 23 %), so the posts and beams are its rust 0.424/0.209/0.099, the panels its cream
+  0.507/0.430/0.272, the far block its mean 0.332/0.225/0.129 and the ivy the game's Ivy_Wet 0.157/0.158/0.087 (ours
+  were #D4781F, #B86E30 and #405634). Standard's berries take the game's blue. High's trees lose `underSun`, which took
+  its own warm sun's tint out of their albedo: they see the game's sun now, so they take Standard's colours. Colours of
+  our own (the mines, thorns, relics, geothermal fields, slopes, the 1.x objects, the succulent, the generic blocks,
+  the birch's marks, the start's entrance) were chosen by eye at the old lightness, so they are drawn at `ownAlbedo`
+  (÷ 1.318, `palette.ts` `OWN_LIGHTNESS`; entities3d.ts `Model.own`, high/landmarks.ts `Parts.own`, High's slope
+  hook) and keep their place among the game's. The legend shows each object as its top shows in the game's light
+  (`objectTop`).
+- **Judged** (`tools/water-pixel-judge.ts --objects`, new: the probe's 16 day start shots, River Valley, Lake Basin,
+  Highlands, Canyon, Any, Delta, Islands 128² and Chaos 256², seeds 1 and 2, each camera fit on its own frame, 0.8 at
+  least; a 3 × 3 patch at each object's part as the camera sees it, nothing within seven tiles of the start, where the
+  game has put its district centre; mean Rec. 709 luma, ours over the game's, before → after):
+  - Standard: pine crown 0.822 → 0.986 (462 samples), oak 0.760 → 0.843 (842), birch 0.802 → 0.925 (585), bush
+    0.714 → 0.794 (679), birch bark 0.911 → 1.005 (587), ruin 1.036 → 0.964 (61), water source 1.137 → 1.236 (3).
+  - High: pine 0.913 → 1.012, oak 0.885 → 0.938, birch 0.804 → 0.870, bush 0.739 → 0.804, birch bark 1.046 → 1.128,
+    ruin 1.094 → 1.009, water source 1.217 → 1.228.
+  - The crowns' sides across the sun's way, over their middles: the game's 1.00–1.01 for every species; ours, Standard
+    0.88–0.98 → 0.81–0.97, High 0.85–1.00 → 0.79–0.99.
+  - Unchanged: the land's RMS on these shots (Standard all 15.7, grass 14.4, dry 15.1, cliff 23.9; High all 15.9,
+    dry 15.3 → 15.2), the water's (clean 13.2 Standard, 13.3 High).
+- **The bloom:** nothing an object draws passes the knee in the game's light now: the brightest, the birch's bark at its
+  brightest normal, reads 1.21 of 1.269 (1.03 upright), the mine's pale rubble 1.04 (`bloom.test.ts` holds them
+  there; the old rust, the pale rubble and the birch's bark had passed it, held at 1.346, 1.304 and 1.291). So by day
+  the bloom stays skipped and lifts nothing, as the game's frames lift at most 0.21 % of a frame by 2 luma (median
+  none); no flare.
+- **Cost:** none by construction (the same work a fragment, a few terms fewer). `benchOrbit`, River Valley 256²
+  seed 4242 (`tools/capture-objects.ts --bench`), 1280 × 800, the GPU's time a frame (the median over 6 s), two
+  rounds, #909's head → this branch: Standard whole map 5.85, 6.18 → 6.00, 5.93 ms, ruin field 6.36, 6.18 → 6.47,
+  6.31; High whole map 4.37, 4.33 → 4.28, 4.34, ruin field 4.34, 4.11 → 4.30, 4.09. Every frame 7.0 ms at the
+  display's 144 Hz.
+- **Falls short:** (1) The crowns still read under the game's, most the bush (0.79–0.80) and the oak (0.84 in
+  Standard): the light is the game's now, so the rest is our crowns' shape and colour mix (the game's leaves' texture
+  lighter at their tips, its crowns more open), not the light. (2) Our crowns' sides across the sun read 3–19 % under (High 1–21 %)
+  their middles, where the game's read the same: the game's foliage normals are rounded out from the crown, ours are a
+  few faceted cones and blobs. (3) High's birch bark reads 13 % over the game's (Standard's 0.5 % over), the same albedo on
+  High's own trunk model; not yet traced. (4) The water source's three samples read 23 % over, too few to act on.
+  (5) The start can't be judged: the game's start shot shows its district centre there.
+
+## The green round water against the game's (showcase gap 9; D135, D496; `fix/moisture-green-shape`)
+
+Showcase round 1 logged the green round sources and ponds as "near-perfect discs" that look stamped beside the game's
+irregular wet ground. Measured against the game's frames, the shape is the game's; nothing changed.
+
+- **The moisture is the game's.** On the probe's start snapshots (the moment the frames are taken, tick 0) the core's
+  steady state (`sim/moisture.ts` on the snapshot's water) gives the game's saved moisture on all but a few dry tiles:
+  River Valley 1 13,617 of 13,657 exact, Lake Basin 1 all 13,582, Highlands 1 13,740 of 13,783. It is an octile
+  distance from the water (1 a tile straight, √2 diagonally, 6 a level climbed), so on flat ground a lone source wets
+  an octagon in the game too: the sources on Highlands 1's and River Valley 1's plateaus are discs in the game's
+  frames, with the same soft fringe as ours. What breaks a disc up is the land (climbs, cliffs, the water's own
+  outline), which ours draws from the same moisture.
+- **The edge, frame against frame** (`tools/green-edge-check.py`, new: the judge's renders of the snapshot from its
+  fitted camera, `--ours`; the game's frame moved by the whole pixels that line the two up best; then a 0.1-tile grid
+  over visible level tops with no plant within two tiles, a point's grass share from its greenness G − (R + B)/2
+  between the frame's own dry ground and grass). Four frames line up well enough to read an edge (River Valley 1 and
+  2, Lake Basin 2, the ceiling set's plateau); Highlands 1 and 2 and Lake Basin 1 fit too loosely (their frames
+  correlate 0.65–0.77 with ours). Standard and High read the same to 0.01.
+  - *Where the edge falls*, the share by the tile's moisture, pooled (game / ours): moisture 0 beside moist tiles
+    0.02 / 0.00 (784 tiles); 0.01–1, 0.20 / 0.16 (173); 1–1.5, 0.53 / 0.48 (83); 1.5–2, 0.78 / 0.78 (100); 2–2.5,
+    0.94 / 0.95 (97); 3 and up 1.01 / 1.01. The edge tiles no longer read greener than the game's ("Dry land that
+    reads dry", above).
+  - *How far the boundary wanders* from the moisture contour (m 1.24, where the game's formula gives half grass on
+    average): the green/dry boundary's signed distance from it, its spread in tiles with the share smoothed over 0.1,
+    0.3, 0.7 and 1.1 tiles. The plateau (367 edge tiles, the frames correlating 0.94): game 0.49 / 0.47 / 0.33 / 0.32,
+    ours 0.51 / 0.46 / 0.38 / 0.33; its mean −0.02 against +0.10. River Valley 1: 0.67 / 0.67 / 0.71 / 0.67 against
+    0.50 / 0.46 / 0.35 / 0.27; River Valley 2: 0.97 / 0.90 / 0.58 / 0.37 against 0.87 / 0.82 / 0.64 / 0.56; Lake
+    Basin 2: 0.58 / 0.56 / 0.56 / 0.57 against 0.41 / 0.38 / 0.36 / 0.35. Pooled, the game's 0.70 to 0.46, ours 0.59
+    to 0.36.
+  - *The edge's width*, the share's 10–90 % across the contour: 1.0–1.5 tiles in the game, 1.25 in ours, on every frame.
+  - *The textures' own floor*, the share's spread over one-tile blocks on pure grass and pure dry ground: the plateau's
+    game 0.096 and 0.053, ours 0.080 and 0.046; River Valley's game 0.11–0.13 and 0.04–0.07, ours 0.074–0.082 and
+    0.035–0.037; Lake Basin 2's game grass 0.27 (its woods' crowns and shadows). The game's boundary wanders more than
+    ours where its own floor is higher: its trees, their shadows and what's left of the camera fit (the shift corrects
+    a translation only) move its boundary and none of them moves ours. Where its floor is near ours (the plateau) the
+    wander is the game's to 0.01–0.05 of a tile.
+- **Why it matches:** a tile's desert intensity is the game's formula from its unrounded moisture (`desertByte`), blended
+  by the game's four taps a fifth of a tile round the point with its noise multiplier and softness (`desertBlend`), and
+  the noise is held to the game's `BlendingNoise` texture's mean, spread and scale (#853, "Dry land that reads dry").
+  In both, the edge is a tile step softened by that blend and broken into patches by the noise.
+- **Falls short:** (1) The plateau's edge sits a tenth of a tile inside the game's (ours +0.10, the game's −0.02), a
+  pixel or two at the editor's usual zoom. (2) The game's grass varies a little more in green from tile to tile than
+  ours (the floors above): the grass texture's own variation, not the edge. (3) One clean frame (the plateau) isolates
+  the edge from trees and the fit; a probe frame of a lone source on bare flat ground would read it alone, not worth a
+  batch while the frames agree this well.
+
+## Grass and cliffs, their samples registered (D497; `fix/land-luma`)
+
+After #909, grass read 5–8 % under the game's and cliffs 3–6 %, in sun and in shade alike, while dry tops read 2 %
+over. The cause is the judge's samples, not the land: nothing in the renderer changes.
+
+- **Grass: too few samples, in one place.** #909's eight day shots held 137 grass samples, 108 of them on
+  riverValley-128-1, where the game's own `Grass` texture runs 4.1 % over its mean ("Grass in the game's light"). On the
+  probe's 16 day start shots (River Valley, Lake Basin, Highlands, Canyon, Any, Delta, Islands 128², Chaos 256², seeds 1
+  and 2; `--shots` as `--objects` takes them) grass has 594 samples and reads 0.987 of the game's in Standard and 0.976 in
+  High (riverValley-128-1 alone 0.943); dry tops 1.008 and 1.009 (12,513).
+- **Cliffs: samples off their faces.** The camera fit scores only the water's outline, so it can sit a few pixels off,
+  and a face is 10–15 pixels tall at the start shots' distance. The judge's new `--register` moves each face's game pixel
+  to where ours' picture round it (a 21 × 21 window) lines up with the game's, within 5 pixels (zero-mean normalised
+  correlation of luma, so neither side's brightness moves it), and leaves out a face that lines up under 0.6. Of 2,074
+  faces, 1,295 line up. The 779 that don't read 0.908 of the game's, almost all on the shots fitted worst: lakeBasin-128-1
+  (92 %), highlands-128-1 and -2, canyon-128-2 (83 %) and canyon-128-1 (its fit trades the field of view for the
+  distance: 29.9° from 117 away, the pose 84.8). There the game's pixels at those faces read 95–111 luma, between its
+  faces' 58–95 and its tops' 113–123: they show part of a top. On the shots fitted well the faces left out read as the
+  rest.
+- **Judged** (`tools/water-pixel-judge.ts --samples --shade --register`, the 16 day start shots, ours over the game's
+  mean Rec. 709 luma, Standard / High; #910's head, before → registered):
+  - cliffs 0.958 / 0.948 (2,074) → 1.010 / 1.000 (1,295; the same faces where the fit puts them 0.992 / 0.981); by face,
+    toward the sun's side 1.009 / 0.994, toward the camera 1.010 / 1.002, from the sun 1.018 / 1.014;
+  - walls turned from the sun 0.948 / 0.940 (231) → 1.018 / 1.014 (141);
+  - grass 0.987 / 0.976, dry tops 1.008 / 1.009, dry tops in shade 0.963 / 0.968 (100), unchanged (tops aren't moved);
+  - the land's RMS: Standard all 11.7 → 10.7, cliffs 14.4 (bias 9.8) → 4.7 (1.8); High 12.0 → 11.0, cliffs 14.8 → 5.3;
+    grass 10.8 / 12.0, dry 11.1 / 11.3 as before; clean water (the shipped formula) 9.5 / 9.5 in both runs.
+- **What the game's files say about walls** (Timberborn 1.1.2.8, read locally, numbers only): the `Cliff` material
+  leaves `_SplatFilterTex` unset, the shader's default black, and inverts it, so every wall is `CliffDetail` × the
+  gradient, with none of the top's albedo; the game's texture round the cliff samples is 1.001 of its mean. The terrain
+  is built of 120 block shapes (`Environment/Land`, Timbermesh): flat faces with their own normals (00uu-a, 16
+  vertices). Its triplanar `Cliff_N` (world × 0.125, Shader Graph's whiteout blend, aniso 16) has mean 0 and a spread
+  per component of 0.36 at 2048², 0.22 at 128² and 0.15 at 64²; through the game's light, at the start shots' 25–45
+  texels a pixel, it would leave a wall toward the sun 3–4 % darker than a flat one and a wall the sun grazes 1–2 %
+  lighter (0.93 and 1.015 at full resolution). The registered faces don't show it beyond 1–2 %, so it isn't drawn: that
+  would be fitting.
+- **Cost:** none (no file under `src/` changed). `benchOrbit` (Canyon 128² seed 1, 1280 × 800, the GPU's time a
+  frame, the median over 6 s, two rounds in opposite orders, before → after, ms): Standard 30 away 2.62, 2.20 → 1.21,
+  2.02, 90 away 1.70, 2.47 → 2.22, 2.15; High 30 away 1.68, 2.04 → 1.75, 1.85, 90 away 2.22, 2.30 → 2.44, 2.47. The same
+  shaders, so the runs' noise; every frame 7.00 ms at the display's 144 Hz.
+- **Falls short:** (1) 38 % of the faces still can't be judged; the fit itself (scored on the water's outline) is
+  unchanged, and canyon-128-1's needs the game's field of view held, not fitted. (2) High's grass reads 2.4 % under,
+  Standard's 1.3 %: High's own broad variation (#65) where the samples sit. (3) Dry tops in shade read 3–4 % under, on
+  100 samples. (4) The triplanar normal map's darkening of walls toward the sun, 3–4 % at the start shots' distance by
+  the game's own texture, isn't visible in the frames; up close (the editor's 30 away, the 256²–512² mips) it would be
+  6–7 %, which no frame here can check.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:

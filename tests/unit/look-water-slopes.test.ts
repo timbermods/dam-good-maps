@@ -173,15 +173,19 @@ describe("ruins", () => {
   // Kyler's ruins (D178): rusty posts and beige panels, his colours; they still stand apart from
   // contaminated ground in lightness, close up and from afar (each storey a lattice block, D305): its rusty veins and,
   // from afar, the pattern's mean over the soil (D154 as amended 2026-11-07: the game's pattern, no rust fill)
-  it("stand apart from contaminated ground: rusty posts and beige panels far lighter, and the far block too", () => {
+  it("stand apart from contaminated ground as the game's do: the panels lighter, the posts and the far block by hue", () => {
+    // (D135 as amended 2026-11-09: the ruins and the ground are both the game's albedo in the same light, so they compare
+    // as they are, with the readability the game has; until then the ruins were ours at 1.318 times the game's
+    // lightness, the posts and the far block 0.12 over every contaminated ground and the panels 0.2)
     for (const ground of [CONTAMINATED_GROUND.dry, CONTAMINATED_GROUND.grass, CONTAMINATION.vein]) {
-      expect(lum(RUIN.rust)).toBeGreaterThan(lum(ground) + 0.12);
-      // the panels the lightest of a ruin, as the game's are (since 2026-11-08 the game's colour, D496's rule, whose
-      // readability D135 as amended accepts: the gap of 0.35 over the ground #e3cf96 kept is no longer ours to add)
-      expect(lum(RUIN.panel)).toBeGreaterThan(lum(ground) + 0.2);
+      // the panels the lightest of a ruin, as the game's are
+      expect(lum(RUIN.panel)).toBeGreaterThan(lum(ground) + 0.1);
       expect(lum(RUIN.panel)).toBeGreaterThan(Math.max(lum(RUIN.rust), lum(RUIN.far)));
-      // from afar a storey is a lattice block in the near skeleton's own muted rust (D305)
-      expect(lum(RUIN.far)).toBeGreaterThan(lum(ground) + 0.12);
+    }
+    // the posts and, from afar, the lattice block (the game's ruins' mean) lighter than the veins, and more yellow
+    for (const c of [RUIN.rust, RUIN.far]) {
+      expect(lum(c)).toBeGreaterThan(lum(CONTAMINATION.vein) + 0.08);
+      expect(c[1] / c[0]).toBeGreaterThan(CONTAMINATION.vein[1] / CONTAMINATION.vein[0] + 0.05);
     }
     // the panels are beige, not rust: far less red for their lightness than the veins
     const hue = (c: readonly number[]) => (c[0] - c[2]) / lum(c);
