@@ -23,3 +23,7 @@ export { startWaterWithin } from "../../src/core/doc/droughtLine";
 export { placeComponents } from "../../src/core/doc/objectOps";
 export { orientationForHigh } from "../../src/core/features/setpieces";
 export { reachWalk } from "../../src/core/analysis/vertical";
+export { easyStartMeasures, easyTargets } from "../../src/core/analysis/easyStart";
+export { seenThroughRoofs } from "../../src/core/sim/stackWater";
+export { witheredByDay, DAYS_TO_DIE_DRY } from "../../src/core/sim/withering";
+export { handicap as hazardHandicap } from "../../investigation/cycles/weather";

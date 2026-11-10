@@ -215,6 +215,8 @@ export const LAKES: Lake[] = [
     wander: 2.5,
     deep: 5,
     seed: [104, 99],
+    // a birch islet in the Great Fall's bay, in the right half of the game's first frame
+    islands: [[91.8, 95.4, 0.5]],
     meadow: 15,
   },
   {
@@ -265,8 +267,10 @@ export const TARNS: Lake[] = [
 const BODIES: Lake[] = [...LAKES, ...TARNS];
 
 export const FALLS: Fall[] = [
-  // (no notch in the weir: Weir Lake is the start's water and keeps its level through a drought)
-  { name: "Low Fall", from: 1, to: 0, face: "S", at: 84, span: [84, 97], notch: [], piers: [87, 91, 94], crest: 6, foot: 0 },
+  // (the ruined weir is breached between two of its piers, two tiles wide and a level deep: in a drought Weir Lake
+  // sinks a level through it and the bay at the start drains to the drowned river's ribbon, which a pump at the
+  // start still draws; mending the breach, two tiles, is the first reservoir)
+  { name: "Low Fall", from: 1, to: 0, face: "S", at: 84, span: [84, 97], notch: [89, 90], piers: [87, 91, 94], crest: 6, foot: 0 },
   { name: "Weir Fall", from: 2, to: 1, face: "W", at: 125, span: [93, 106], notch: [99], piers: [], crest: 10, foot: 2 },
   { name: "Crown Fall", from: 3, to: 2, face: "S", at: 128, span: [143, 156], notch: [149], piers: [], crest: 14, foot: 6 },
   // the Great Fall is built by `greatFall` below (a diagonal lip): this entry keeps its place and its numbers
@@ -340,6 +344,13 @@ export const CHANNELS: Channel[] = [
   { name: "North Run", path: NORTH_RUN, half: () => 1.1, bed: brookBed(NORTH_RUN, 15, 9), bank: 0, bankWide: 0, wet: true, wander: 4.2, open: 0, brook: { meadow: 16 } },
   { name: "Gate Run", path: GATE_RUN, half: () => 1.1, bed: brookBed(GATE_RUN, 10, 6), bank: 0, bankWide: 0, wet: true, wander: 2.2, open: 0, brook: { meadow: 14 } },
 ];
+// The kettles: the two closed hollows by the springs that the game fills from the top water (r9's 16 and 4 stray
+// tiles), made deliberate: each a pond a level under the top water's bed, joined to it by a neck one tile wide below
+// the gate's place, so the gate that shuts the hanging valley or the neck shuts its pond too.
+CHANNELS.push(
+  { name: "Valley Kettle", path: [[96.3, 120.0], [94.6, 121.0], [91.3, 122.0]], half: (s) => (s < 2.6 ? 0.6 : 2.6), bed: (s) => (s < 2.6 ? 14 : 13), bank: 0, bankWide: 0, wet: true, wander: 0, open: 0 },
+  { name: "Neck Kettle", path: [[129.6, 144.4], [129.2, 146.8], [128.6, 149.6]], half: (s) => (s < 2.8 ? 0.6 : 2.1), bed: (s) => (s < 2.8 ? 14 : 13), bank: 0, bankWide: 0, wet: true, wander: 0, open: 0 },
+);
 const chan = (name: string) => CHANNELS.findIndex((c) => c.name === name);
 
 /** The cliff behind Weir Lake that the Great Fall comes over: north of this line the land is the upper world. */
@@ -355,6 +366,8 @@ function greatWall(x: number): number {
 }
 
 const SEED = 4107;
+/** The drowned river through the Great Fall's bay: from the fall's foot round the start to the breach in the weir. */
+const BAY_RIVER: Pt[] = [[83.5, 100.5], [84.5, 96.5], [87.5, 92.5], [90, 90.3], [89.9, 87.6]];
 /** The Great Fall's lip: ten tiles on a diagonal from (78, 108) south-east to (87, 99), a face 14 tiles long that
  *  looks south-west. The game's first camera on this start looks 35 degrees east of north, and its sun rides
  *  40 degrees clockwise of that: a south-west face is square to the camera (its whole length within two and a half
@@ -413,24 +426,27 @@ interface Ridge {
   path: Pt[];
   top: number;
   half: number;
-  fall: number;
+  /** Its one ledge: this far below the crest, this wide. Beyond it the land lies as it is: a crag, never a stair
+   *  (a slope of a level a tile is a row of treads in the game). */
+  drop: number;
+  ledge: number;
   /** How far its crest goes up and down. */
   rough: number;
 }
 
 const RIDGES: Ridge[] = [
   // the Gate: the ridge that closes the valley below Low Lake; the gorge is cut through it
-  { path: [[6, 40], [20, 22], [40, 13], [60, 10], [84, 12]], top: 10.6, half: 5, fall: 0.75, rough: 1.1 },
+  { path: [[6, 40], [20, 22], [40, 13], [60, 10], [84, 12]], top: 10.6, half: 5, drop: 3, ledge: 3, rough: 1.1 },
   // the Crown: the skyline behind the top lake (the one place over level 16: a ridge has to stand over its lake)
-  { path: [[110, 162], [124, 171], [146, 176], [166, 175], [178, 165], [181, 146], [179, 128]], top: 19.2, half: 2.2, fall: 1.0, rough: 1.8 },
+  { path: [[110, 162], [124, 171], [146, 176], [166, 175], [178, 165], [181, 146], [179, 128]], top: 19.2, half: 2.2, drop: 3, ledge: 2.6, rough: 1.8 },
   // spurs that close the valley at each fall
   // the crag over Hill Tarn
-  { path: [[56, 104], [59, 101]], top: 11.6, half: 1.4, fall: 2.6, rough: 0.5 },
-  { path: [[98, 86], [105, 84], [113, 80]], top: 8.2, half: 2.3, fall: 2.6, rough: 0.9 },
-  { path: [[127, 92], [130, 86], [136, 80]], top: 12.2, half: 2.3, fall: 2.6, rough: 0.9 },
-  { path: [[127, 107], [129, 113], [130, 120]], top: 12.2, half: 2.3, fall: 2.6, rough: 0.9 },
-  { path: [[142, 130], [135, 131], [127, 129]], top: 16, half: 2.3, fall: 2.6, rough: 0.7 },
-  { path: [[157, 130], [164, 132], [172, 131]], top: 16, half: 2.3, fall: 2.6, rough: 0.7 },
+  { path: [[56, 104], [59, 101]], top: 11.6, half: 1.4, drop: 2, ledge: 1.4, rough: 0.5 },
+  { path: [[98, 86], [105, 84], [113, 80]], top: 8.2, half: 2.3, drop: 2, ledge: 1.6, rough: 0.9 },
+  { path: [[127, 92], [130, 86], [136, 80]], top: 12.2, half: 2.3, drop: 2, ledge: 1.6, rough: 0.9 },
+  { path: [[127, 107], [129, 113], [130, 120]], top: 12.2, half: 2.3, drop: 2, ledge: 1.6, rough: 0.9 },
+  { path: [[142, 130], [135, 131], [127, 129]], top: 16, half: 2.3, drop: 2, ledge: 1.6, rough: 0.7 },
+  { path: [[157, 130], [164, 132], [172, 131]], top: 16, half: 2.3, drop: 2, ledge: 1.6, rough: 0.7 },
 ];
 /** The highest land: 16 everywhere but the Crown. */
 const CROWN_TOP = 21;
@@ -547,7 +563,9 @@ export function designLand(): Land {
       if (near > 4 && near < 9 && fbm(x, y, 9, SEED + 22, 2) > 0.42) land += 1;
       for (const r of RIDGES) {
         const { d } = pathDist(x + 0.5, y + 0.5, r.path);
-        const v = r.top + r.rough * fbm(x, y, 9, SEED + 18, 2) - r.fall * Math.max(0, d - r.half);
+        const t = d - r.half + 0.9 * fbm(x, y, 6, SEED + 70, 2);
+        const crest = r.top + r.rough * fbm(x, y, 9, SEED + 18, 2);
+        const v = t <= 0 ? crest : t <= r.ledge ? crest - r.drop : -Infinity;
         if (v > land && near > 2.5) land = v;
       }
       const cap = RIDGES[1] && pathDist(x + 0.5, y + 0.5, RIDGES[1].path).d < 9 ? CROWN_TOP : TOP;
@@ -623,7 +641,9 @@ export function designLand(): Land {
         channel[i] = k + 1;
       } else if (c.open > 0) {
         // banks open out (the gorge keeps its walls); a wet channel's first ring stays a level over its bed
-        const v = b + (d - half) * c.open + (c.wet ? 1.5 : 0.5);
+        // (a dry channel is a wadi: a strip a level over its bed, ragged, then its walls as the land stands)
+        const t = d - half;
+        const v = c.wet ? b + t * c.open + 1.5 : t < 1.7 + 1.3 * fbm(x, y, 7, SEED + 71, 2) ? b + 1 : Infinity;
         if (v < f[i]) f[i] = v;
       }
     }
@@ -670,6 +690,15 @@ export function designLand(): Land {
       if (k >= LAKES.length) depth = Math.min(L.deep, Math.max(0, Math.floor((Math.min(-d, isle) - 0.6) / 2.4 + 1.5 * fbm(x + 3 * k, y - 5 * k, 5, SEED + 46, 2) + 0.2)));
       // (the cove's head has a cut bank: deep water right at the meadow, so a pump there works through a drought)
       if (k === 0 && Math.hypot(x + 0.5 - 69, y + 0.5 - 74) < 5.5) depth = 2;
+      // (the Great Fall's bay, all of Weir Lake that the game's first frame holds: shallow. In the game water five
+      // deep is near black (luminance 18 of 255 in the r9 capture), water under half a level deep is the lightest
+      // there is (65); the drowned river's line keeps a level and a half of water through the bay, which a pump at
+      // the start still draws at the end of a Normal drought; the deep water begins east of the frame)
+      // (the drowned river's line is two deep: with the weir's breach open it is what a drought leaves at the start)
+      if (k === 1 && x < 102) {
+        const river = pathDist(x + 0.5 + 0.8 * fbm(x, y, 6, SEED + 49, 2), y + 0.5 + 0.8 * fbm(x, y, 6, SEED + 50, 2), BAY_RIVER).d;
+        depth = river < 1.15 ? 2 : Math.min(depth, x < 97 ? 1 : x < 99 ? 2 : x < 101 ? 3 : 4);
+      }
       h[i] = L.sill - depth;
       lake[i] = k + 1;
       channel[i] = 0;
@@ -828,11 +857,14 @@ export function designLand(): Land {
   return { heights: h, lake, channel, pool, crests, beds, plugs, guarded, gates, brookHeads };
 }
 
+/** The trench's beds: its foot row and its outer row. */
+const TRENCH: [number, number] = (process.env.FL_TRENCH ?? "6,5").split(",").map(Number) as [number, number];
 /** The tiles of the Great Fall's own pool (the start's pad leaves them). */
 const GREAT_POOL = new Set<number>();
 
 /** The Great Fall: the lip's ten tiles and the row behind them at the hanging valley's bed (14), three more rows of
- *  bed behind those; in front, the pool four tiles deep (each lip tile pours over its south and its west side). */
+ *  bed behind those; in front, a shelf two tiles wide under shallow water (each lip tile pours over its south and
+ *  its west side). */
 function greatFall(h: Uint8Array, lake: Uint8Array, channel: Uint8Array): number[] {
   const hv = chan("Hanging valley") + 1;
   const tiles: number[] = [];
@@ -853,13 +885,21 @@ function greatFall(h: Uint8Array, lake: Uint8Array, channel: Uint8Array): number
         if (a + b === 0) continue;
         const i = (y - b) * W + x - a;
         if (channel[i] === hv) continue;
-        h[i] = 2;
+        // (the foot is a shelf at the sill's level where the water lands, a level deeper beside it: light water)
+        // (west of the start the shelf is a trench between the cliff and the bench: it carries half the fall's water
+        // out past the start's corner, so its outer row is deep; r10a's two shallow rows put the water on the bench)
+        const k = x - 78;
+        h[i] = k <= 5 ? (a + b === 1 ? TRENCH[0] : TRENCH[1]) : a + b === 1 ? 6 : 5;
         lake[i] = 2;
         channel[i] = 0;
         GREAT_POOL.add(i);
       }
+  // the throat: the one way out of the trench, round the start's corner, is a tile wide; it is deep (the start's
+  // building stands between it and the first camera)
+  for (const [x, y] of THROAT) if (GREAT_POOL.has(y * W + x)) h[y * W + x] = Number(process.env.FL_THROAT ?? 3);
   return tiles;
 }
+const THROAT: Pt[] = [[81, 103], [82, 103], [82, 102], [83, 102], [83, 101]];
 
 /** One-tile pits and spikes on the land go (the game's own look has none), and one-tile tongues. */
 function tidy(h: Uint8Array, lake: Uint8Array, channel: Uint8Array, pool: Uint8Array): void {
