@@ -122,23 +122,24 @@ function placeStart(s: MapSession): void {
 
 /** The nearest place to (x, y) where a w x h footprint (its corner the returned tile) stands on level, dry, free
  *  ground of the design (no lake, channel or pool), a tile clear of anything already there. */
-function levelSpot(s: MapSession, land: Land, x: number, y: number, w: number, hgt: number): [number, number] {
+function levelSpot(s: MapSession, land: Land, x: number, y: number, w: number, hgt: number, exact = true): [number, number] {
   const b = s.built;
   const taken = new Set<number>();
   for (const e of b.entities) for (let dy = -1; dy <= 5; dy++) for (let dx = -1; dx <= 5; dx++) taken.add((e.y + dy) * W + e.x + dx);
   const fits = (cx: number, cy: number): boolean => {
     if (cx < 2 || cy < 2 || cx + w > W - 2 || cy + hgt > H - 2) return false;
     const z = b.heights[cy * W + cx];
-    for (let dy = -1; dy <= hgt; dy++)
-      for (let dx = -1; dx <= w; dx++) {
+    const ring = exact ? 1 : 3;
+    for (let dy = -ring; dy < hgt + ring; dy++)
+      for (let dx = -ring; dx < w + ring; dx++) {
         const i = (cy + dy) * W + cx + dx;
         const inside = dx >= 0 && dy >= 0 && dx < w && dy < hgt;
         if (land.lake[i] || land.channel[i] || land.pool[i] || b.water[i] > 0) return false;
-        if (inside && (b.heights[i] !== z || taken.has(i))) return false;
+        if (inside && (taken.has(i) || (exact ? b.heights[i] !== z : Math.abs(b.heights[i] - z) > 1))) return false;
       }
     return true;
   };
-  for (let r = 0; r <= 14; r++)
+  for (let r = 0; r <= 22; r++)
     for (let dy = -r; dy <= r; dy++)
       for (let dx = -r; dx <= r; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
@@ -278,9 +279,9 @@ function strayWater(s: MapSession, land: Land): { x: number; y: number; rgb: [nu
 /** A drought or a badtide of `days` on the settled water: each lake's level and badwater, every `step` of a day
  *  for the first `fine` days and daily after, and the day the start's water goes or turns bad (the editor's own
  *  rule, sim/startWaterDay.ts). Returns the run's last water. */
-function weather(s: MapSession, land: Land, hazard: "drought" | "badtide", days: number, fine = 0, step = 0.125): { depth: Float64Array; contamination: Float64Array; startDay: number; firstBad: number[]; fallsStop: number[] } {
-  const b = s.built;
-  const run = new HazardRun(b.waterModel, { depth: b.water, contamination: b.contamination } as never, hazard, days);
+function weather(s: MapSession, land: Land, hazard: "drought" | "badtide", days: number, fine = 0, step = 0.125, from: { depth: Float64Array; contamination: Float64Array } | null = null): { depth: Float64Array; contamination: Float64Array; startDay: number; firstBad: number[]; fallsStop: number[] } {
+  const b = from ? { ...s.built, water: from.depth, contamination: from.contamination } : s.built;
+  const run = new HazardRun(b.waterModel, { depth: b.water, contamination: b.contamination, stack: from ? null : (b.settle as unknown as { stack?: unknown }).stack ?? null } as never, hazard, days);
   log(`${hazard}, ${days} days:`);
   const st = startOf(s);
   const sw = new StartWaterDays(hazard, { depth: b.water, contamination: b.contamination }, { W, H, heights: b.heights, objects: b.entities as never, start: { x: st.x, y: st.y }, within: startWaterWithin(s) });
@@ -416,6 +417,10 @@ function plant(s: MapSession, land: Land): void {
   count.oak = paint("trees", "Oak", (i) => meadow(i) && grove(i) && !berries(i) && !nearStart(i, 7), 0.62, 13, "Oak groves on the meadows", "mixed");
   count.birch2 = paint("trees", "Birch", (i) => meadow(i) && !grove(i) && !berries(i) && !nearStart(i, 7), 0.12, 14, "Birches in the open meadow");
   count.pine = paint("trees", "Pine", (i) => pinewood(i) && !nearStart(i, 7) && n(i, 15, 9) > -0.22, 0.82, 15, "Pine woods on the high ground and the meadows' far side", "mixed");
+  // the start's own: berries and an oak wood on the meadow's own level, a short walk from the door
+  const level = (i: number) => b.heights[i] === st.z && moist(i);
+  count.startBerries = paint("bushes", "BlueberryBush", (i) => level(i) && !nearStart(i, 6) && nearStart(i, 13) && (i % W) < st.x - 1, 0.75, 21, "The start's berries");
+  count.startOaks = paint("trees", "Oak", (i) => level(i) && !nearStart(i, 7) && nearStart(i, 17) && (i % W) >= st.x - 1 && Math.floor(i / W) < st.y + 2, 0.7, 22, "The start's oak wood");
   // the dry land, dressed on purpose
   const dry = (i: number) => !(b.moisture[i] > 0) && !(b.water[i] > 0) && !land.lake[i] && !land.pool[i];
   count.succulents = paint("succulents", "Succulent", (i) => dry(i) && oldDist[i] > 3 && n(i, 21, 4) > 0.08, 0.2, 16, "Succulent fields on the dry benches");
@@ -451,13 +456,41 @@ function plantCount(s: MapSession): { trees: number; dead: number; berries: numb
 
 // ------------------------------------------------------------------------------------------------ objects
 
+/** TOOL: a cave behind a fall (change 7): the Block tool takes the rock out of the Great Fall's cliff from its
+ *  face, three levels high over the lake, six wide and three deep, and the large relic stands in it. */
+function greatCave(s: MapSession): void {
+  const F = FALLS[3];
+  const h = s.built.heights;
+  try {
+    for (let depth = 0; depth < 3; depth++) {
+      const at: [number, number, number][] = [];
+      for (let x = 83; x <= 88; x++) {
+        // the cliff's face at this column: the first tile upstream of the lip row that stands at the crest
+        let y = F.at;
+        while (h[y * W + x] < F.crest - 1 && y < F.at + 4) y++;
+        for (let z = 7; z <= 9; z++) at.push([x, y + depth, z]);
+      }
+      // (one plane a stroke: the same y)
+      const byY = new Map<number, [number, number, number][]>();
+      for (const c of at) byY.set(c[1], [...(byY.get(c[1]) ?? []), c]);
+      for (const cells of byY.values()) applyOps(s, [{ op: "blocks", params: { mode: "remove", side: "-y", at: cells, size: 1 }, label: "The cave behind the Great Fall" }]);
+    }
+    let y0 = F.at;
+    while (h[y0 * W + 84] < F.crest - 1 && y0 < F.at + 4) y0++;
+    applyOps(s, [{ op: "placeEntity", params: { id: newId(), template: "LargeRelic", x: 84, y: y0, z: 7, orientation: "Cw0" }, label: "The relic in the cave" }]);
+    log("  the cave behind the Great Fall is cut, the large relic in it");
+  } catch (e) {
+    log(`    (the cave behind the Great Fall: ${(e as Error).message})`);
+  }
+}
+
 /** The set pieces: each a place with a purpose on the route up the valley. */
 function placeObjects(s: MapSession, land: Land): void {
   const put = (template: string, x0: number, y0: number, label: string, extra: Record<string, unknown> = {}, size: [number, number] | null = null) => {
     let x = x0;
     let y = y0;
     try {
-      if (size) [x, y] = levelSpot(s, land, x0, y0, size[0], size[1]);
+      if (size) [x, y] = levelSpot(s, land, x0, y0, size[0], size[1], size[0] < 3);
       applyOps(s, [{ op: "placeEntity", params: { id: newId(), template, x, y, orientation: "Cw0", ...extra }, label }]);
       return true;
     } catch (e) {
@@ -475,8 +508,10 @@ function placeObjects(s: MapSession, land: Land): void {
   for (const [dx, hgt] of [[-1, 6], [-2, 5], [-3, 3]] as const) for (const v of [0, 1]) ruin(hgt - v, a + dx, F.at + v, "The ruined weir's west abutment", "ABCDE"[k++ % 5]);
   for (const [dx, hgt] of [[1, 6], [2, 4], [3, 2]] as const) for (const v of [0, 1]) ruin(hgt - v, b + dx, F.at + v, "The ruined weir's east abutment", "ABCDE"[k++ % 5]);
   // Steam Lake: the geothermal field, the underground ruins, a seep
-  put("GeothermalField", 172, 98, "Steam Lake's geothermal field", {}, [3, 3]);
-  put("UndergroundRuins", 131, 112, "The ruins under Steam Lake's shore", {}, [5, 5]);
+  put("GeothermalField", 174, 100, "Steam Lake's geothermal field", {}, [3, 3]);
+  put("UndergroundRuins", 134, 116, "The ruins under Steam Lake's shore", {}, [5, 5]);
+  // (a seep is left out: wherever it stood on open ground its water ran off into the old channel; it needs a basin)
+  if (has("cave")) greatCave(s);
   // the springs: aquifers, the old drill, unstable cores
   const aq = s.built.entities.find((e) => e.template === "Aquifer");
   if (aq) put("AncientAquiferDrill", aq.x, aq.y, "The ancient drill on the aquifer");
@@ -529,6 +564,13 @@ function shots(s: MapSession, weatherDays: { drought: number; badtide: number })
     { name: "12-badtide", label: `Badtide, day ${weatherDays.badtide}: best side`, hazard: "badtide", day: weatherDays.badtide, view: best },
   ];
 }
+
+/** The map's own words, as the game shows them with the map (600 characters at most). */
+const DESCRIPTION =
+  "Four lakes step down a wooded valley, each over a rock sill and a fall. The Great Fall drops eight levels into Weir Lake, over the cliff behind your first home. " +
+  "In a drought the falls stop from the top and the upper lakes sink a level through the notches in their sills: plug a notch, then raise a sill. " +
+  "In a badtide every spring runs red and the lakes turn within the day. An old dry channel leaves the springs behind three blockages: clear it, gate the two streams beside it, and the red runs round the lakes. " +
+  "Six tarns feed brooks you can dam one by one.";
 
 // --------------------------------------------------------------------------------------------------- main
 
@@ -600,6 +642,7 @@ function main(): void {
     weather(s, land, "badtide", 8, 2, 0.125);
     lap("badtide");
   }
+  applyOps(s, [{ op: "setDescription", params: { text: DESCRIPTION } }]);
   if (has("checks") || has("save")) {
     const c = checksOf(s);
     log(`  checks: ${c.blocking.length} blocking, ${c.warnings.length} warnings`);
@@ -614,17 +657,17 @@ function main(): void {
     log(`  saved ${join(OUT, `${ROUND}.timber`)} (${f.timber.length} bytes), project ${f.project.length} bytes`);
     lap("save");
   }
-  if (has("bypass")) {
-    log("the old channel opened (blockages cleared, gates on the neck and the hanging valley):");
+  if (has("bypass") && !has("cave")) {
+    // the lakes as they stand on the day the player opens the channel: full
+    const full = { depth: Float64Array.from(s.built.water), contamination: Float64Array.from(s.built.contamination) };
+    s.setWaterMode("defer");
+    log("the old channel opened on a full valley (blockages cleared, gates on the neck and the hanging valley):");
     openBypass(s, land, false);
-    lap("bypass settle");
-    printWater(readWater(s, land));
-    strayWater(s, land);
-    weather(s, land, "badtide", 8, 1, 0.25);
+    weather(s, land, "badtide", 8, 1, 0.25, full);
     lap("bypass badtide");
     log("and a dam at every brook's head:");
     openBypass2(s, land);
-    weather(s, land, "badtide", 8, 1, 0.25);
+    weather(s, land, "badtide", 8, 1, 0.25, full);
     lap("bypass and brooks badtide");
   }
   void CHANNELS;

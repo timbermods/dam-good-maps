@@ -245,18 +245,18 @@ export const LAKES: Lake[] = [
     deep: 5,
     seed: [153, 150],
     islands: [[157, 151, 2.2]],
-    meadow: 12,
+    meadow: 15,
   },
 ];
 
 /** The tarns: small lakes on the benches, each with its own spring, each the head of a brook. */
 export const TARNS: Lake[] = [
-  { name: "High Tarn", sill: 13, arms: [[[66, 150, 6], [74, 152, 5]]], wander: 2, deep: 2, seed: [70, 151], meadow: 13, spring: [70, 151, 1.5] },
-  { name: "Birch Tarn", sill: 9, arms: [[[40, 114, 7], [38, 106, 5]]], wander: 2, deep: 2, seed: [40, 112], meadow: 13, spring: [40, 112, 1.0] },
-  { name: "Bench Tarn", sill: 8, arms: [[[146, 70, 6], [153, 71, 5]]], wander: 2, deep: 2, seed: [149, 70], meadow: 13, spring: [149, 70, 1.2] },
-  { name: "Hill Tarn", sill: 7, arms: [[[55, 100, 5], [58, 96, 4.5]]], wander: 1.5, deep: 2, seed: [56, 98], meadow: 11, spring: [56, 98, 0.8] },
-  { name: "South Tarn", sill: 6, arms: [[[124, 48, 5.5], [130, 50, 4.5]]], wander: 2, deep: 2, seed: [126, 49], meadow: 13, spring: [126, 49, 1.0] },
-  { name: "North Tarn", sill: 15, arms: [[[82, 166, 5], [88, 167, 4.5]]], wander: 1.5, deep: 2, seed: [85, 166], meadow: 12, spring: [85, 166, 0.8] },
+  { name: "High Tarn", sill: 13, arms: [[[66, 150, 6], [74, 152, 5]]], wander: 2, deep: 2, seed: [70, 151], meadow: 15, spring: [70, 151, 1.5] },
+  { name: "Birch Tarn", sill: 9, arms: [[[40, 114, 7], [38, 106, 5]]], wander: 2, deep: 2, seed: [40, 112], meadow: 15, spring: [40, 112, 1.0] },
+  { name: "Bench Tarn", sill: 8, arms: [[[146, 70, 6], [153, 71, 5]]], wander: 2, deep: 2, seed: [149, 70], meadow: 15, spring: [149, 70, 1.2] },
+  { name: "Hill Tarn", sill: 7, arms: [[[55, 100, 5], [58, 96, 4.5]]], wander: 1.5, deep: 2, seed: [56, 98], meadow: 13, spring: [56, 98, 0.8] },
+  { name: "South Tarn", sill: 6, arms: [[[124, 48, 5.5], [130, 50, 4.5]]], wander: 2, deep: 2, seed: [126, 49], meadow: 15, spring: [126, 49, 1.0] },
+  { name: "North Tarn", sill: 15, arms: [[[82, 166, 5], [88, 167, 4.5]]], wander: 1.5, deep: 2, seed: [85, 166], meadow: 14, spring: [85, 166, 0.8] },
 ];
 const BODIES: Lake[] = [...LAKES, ...TARNS];
 
@@ -315,12 +315,12 @@ export const CHANNELS: Channel[] = [
   { name: "Neck", path: NECK_PATH, half: () => 2.1, bed: () => 14, bank: 1, bankWide: 3, wet: true, wander: 0, open: 1 },
   { name: "Old channel", path: OLD_PATH, half: (s) => (s < 9 ? 3.1 : 2.4), follow: { start: 14, under: 2.7, end: 1, hold: 6 }, bank: 2, bankWide: 3, wet: false, wander: 2.2, open: 0.8 },
   { name: "Gorge", path: GORGE_PATH, half: (s) => (s < 3 ? 5.6 : s < 13 ? 2.6 : s < 16 ? 3.6 : 4.6), bed: () => 0, bank: 0, bankWide: 0, wet: true, wander: 0, open: 0 },
-  { name: "High Brook", path: HIGH_BROOK, half: () => 1.2, bed: brookBed(HIGH_BROOK, 13, 11), bank: 0, bankWide: 0, wet: true, wander: 1.6, open: 0, brook: { meadow: 9 } },
-  { name: "Birch Brook", path: BIRCH_BROOK, half: () => 1.2, bed: brookBed(BIRCH_BROOK, 9, 4), bank: 0, bankWide: 0, wet: true, wander: 1.6, open: 0, brook: { meadow: 10 } },
-  { name: "Bench Brook", path: BENCH_BROOK, half: () => 1.2, bed: brookBed(BENCH_BROOK, 8, 4), bank: 0, bankWide: 0, wet: true, wander: 1.6, open: 0, brook: { meadow: 10 } },
-  { name: "Hill Brook", path: HILL_BROOK, half: () => 1.2, bed: brookBed(HILL_BROOK, 7, 2), bank: 0, bankWide: 0, wet: true, wander: 1.2, open: 0, brook: { meadow: 9 } },
-  { name: "South Brook", path: SOUTH_BROOK, half: () => 1.2, bed: brookBed(SOUTH_BROOK, 6, 4), bank: 0, bankWide: 0, wet: true, wander: 1.6, open: 0, brook: { meadow: 10 } },
-  { name: "North Brook", path: NORTH_BROOK, half: () => 1.2, bed: brookBed(NORTH_BROOK, 15, 14), bank: 0, bankWide: 0, wet: true, wander: 0.8, open: 0, brook: { meadow: 9 } },
+  { name: "High Brook", path: HIGH_BROOK, half: () => 1.2, bed: brookBed(HIGH_BROOK, 13, 11), bank: 0, bankWide: 0, wet: true, wander: 4.2, open: 0, brook: { meadow: 12 } },
+  { name: "Birch Brook", path: BIRCH_BROOK, half: () => 1.2, bed: brookBed(BIRCH_BROOK, 9, 4), bank: 0, bankWide: 0, wet: true, wander: 4.2, open: 0, brook: { meadow: 13 } },
+  { name: "Bench Brook", path: BENCH_BROOK, half: () => 1.2, bed: brookBed(BENCH_BROOK, 8, 4), bank: 0, bankWide: 0, wet: true, wander: 4.2, open: 0, brook: { meadow: 13 } },
+  { name: "Hill Brook", path: HILL_BROOK, half: () => 1.2, bed: brookBed(HILL_BROOK, 7, 2), bank: 0, bankWide: 0, wet: true, wander: 3.2, open: 0, brook: { meadow: 12 } },
+  { name: "South Brook", path: SOUTH_BROOK, half: () => 1.2, bed: brookBed(SOUTH_BROOK, 6, 4), bank: 0, bankWide: 0, wet: true, wander: 4.2, open: 0, brook: { meadow: 13 } },
+  { name: "North Brook", path: NORTH_BROOK, half: () => 1.2, bed: brookBed(NORTH_BROOK, 15, 14), bank: 0, bankWide: 0, wet: true, wander: 0.8, open: 0, brook: { meadow: 12 } },
 ];
 const chan = (name: string) => CHANNELS.findIndex((c) => c.name === name);
 
@@ -506,6 +506,8 @@ export function designLand(): Land {
       land += 0.7 * fbm(x, y, 21, SEED + 7, 3) * Math.min(1, Math.max(0, (near - 18) / 6));
       const scarp = Math.max(-1, Math.min(1, fbm(x, y, 44, SEED + 19, 2) * 60));
       land += 1.3 * scarp * Math.min(1, Math.max(0, (near - 22) / 5));
+      const scarp2 = Math.max(-1, Math.min(1, fbm(x, y, 26, SEED + 23, 2) * 60));
+      land += 1.0 * scarp2 * Math.min(1, Math.max(0, (near - 19) / 4));
       if (near > 4 && near < 9 && fbm(x, y, 9, SEED + 22, 2) > 0.42) land += 1;
       for (const r of RIDGES) {
         const { d } = pathDist(x + 0.5, y + 0.5, r.path);
