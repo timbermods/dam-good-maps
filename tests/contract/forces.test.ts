@@ -78,8 +78,8 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
         }
   });
 
-  // (pinned to the prototype's until showcase-craft gap 25 reshaped the crater so it reads as a natural one, not a
-  // stadium: a scalloped, uneven rim low on one side, terraces that pinch out and merge, a peak of massifs; D148)
+  // (pinned to the prototype's until showcase-craft gap 25 rebuilt the crater so it reads as a real landform, not a
+  // stadium: overlapping hollows, slumped blocks and merged crags, made land in the forces' shared last step; D148)
   const CRATERS: Record<string, string> = {
     "bowl 0": "829c3acdb91c788facbdbc5f7e142dae2f3caad218d46253a4404d5edb30d110",
     "peak 0": "470f2a4188e1e1ae16a3ae31ac128b0c20ecf625e19e9a31f7927ca672979480",

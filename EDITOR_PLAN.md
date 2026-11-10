@@ -684,8 +684,10 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   it: on a hillside the rim stands high uphill and the bowl is open downhill, where the land keeps its shape. A crater
   under 28 tiles across (Auto) is a simple crater: a shallow bowl with a level floor and no centre, its depth growing
   gently with its size (about a level for every eight tiles across; a crater with a floor about a level for every
-  eleven), never more than Power gives. The rim's crest is uneven all round and low on one side (where the ground
-  round it is lowest; the seed's side on level ground). Steep walls are a cliff. Terraced walls carry blocks slumped
+  eleven), never more than Power gives. The rim's crest is uneven all round and gone on one side, a gap (where the
+  ground round it is lowest; the seed's side on level ground), so a lake in the bowl spills at the level of the
+  ground round the crater. Beside lower land that is no slope (a canyon, a lake, a plateau's edge) the rim stands
+  whole on the crater's own ground and holds the bowl. Steep walls are a cliff. Terraced walls carry blocks slumped
   against the cliff: ovals lying along it, each turned its own way, at its own level, never its neighbour's, with gaps
   where the wall stands whole, so a bench is a short arc that pinches out within a quarter turn and none runs on round
   the bowl. The floor is level, with low hummocks on a large crater. A peak is a mountain: a main crag and three to
