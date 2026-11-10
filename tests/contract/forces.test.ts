@@ -79,20 +79,21 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
   });
 
   // (pinned to the prototype's until showcase-craft gap 25 rebuilt the crater so it reads as a real landform, not a
-  // stadium: overlapping hollows, slumped blocks and merged crags, made land in the forces' shared last step; D148)
+  // stadium: overlapping hollows, slumped blocks and a hill of wide plates, made land in the forces' shared last step;
+  // D148)
   const CRATERS: Record<string, string> = {
-    "bowl 0": "3d512741f201c6bc15c125a94a325738afb02fd765db6c162254d8996bff9dd9",
-    "peak 0": "e64461c3b8011a1cd90b700c40d44ee8e6ca1eeeabdf55e1be689b76ee78e1e9",
-    "ring 0": "dda9ca0f43f1d599c8d9df23dac898b7916e92a614da0239d89383c1885a90b2",
-    "flat 0": "6cc1fbb81f35cc1eb6a9d8f8d00a4973cd984cb58a575accad6cbefc06969b87",
-    "bowl 1": "7bb34a34886a358ec32c462ebbcc52e8095f41b3b242d4a7470c2be656cab11f",
-    "peak 1": "a2305894f388a4d292f02af766e49dacaf8045604358152444a2d5d4b210e602",
-    "ring 1": "faca8626da64eec012e5133e5b0c70d90c5699dbfe660547376ddd2119bee7f6",
-    "flat 1": "8c859a2cd6709da4f940ff7ab6a1264f4912eead35e20200f586b802b28b67bd",
-    "bowl 42": "a5ba1bdc66e9fac1deb6016f7f0cf393021f4740f1ca0d194f11a3a69afa9166",
-    "peak 42": "5a13133b031a2f8132160bfbf88879b63fd6c38ab156bceb0e7531257ba01343",
-    "ring 42": "46e3e0bd6dceeb3cdf81c599f16514753d0196a31d0335c2f291f251ce0bf662",
-    "flat 42": "6425e2379f045bd301dc48cc28337749e367143f5efa676c6e06af605edd62ad",
+    "bowl 0": "b9f4c4dcf977e1d0306869dc9039a4c7ebc366625ef9f58a33bcdae342087a81",
+    "peak 0": "7eacfb571c00781657c30064cf1a79a3c3ad78c4333dbca2f602ad299fbd702a",
+    "ring 0": "4c6d43259b0fda771b3273241645e63ed6bf959ed0575ca2d686fdf9e6aa44dd",
+    "flat 0": "250f91b8e9f58315d9bc3333b92a9ecc884178bb8d9e42fbc992987e361e714e",
+    "bowl 1": "01daee72e6693d90d83aac535ec5442787dc061146fcb0ca7aa10705f9ff09e0",
+    "peak 1": "79c09ab2bf840d6f00e186ae02df73002fa175e3e666b878b5e1bca021ca4abd",
+    "ring 1": "1e6ad1ca83de292c4f33e89d96e2f0a2a09a5fd4935f74dc5c97c4405f456b2c",
+    "flat 1": "fc73fc9c93f536ad2eda55ca1e58c3a457179dd86438e4e0302a6a36268f59d7",
+    "bowl 42": "ba1ca04f8083dc9136cee96a820acfd6a767c6943cff6b2ae9ae39a3aa99537c",
+    "peak 42": "113f1a7478b3884596f50050101061b3a233911215e6b7cd1eb8b3d21e59fbc9",
+    "ring 42": "98119812a50f6d370d15590f2f705f65f09878471e7b9b2848353776a76ee9b7",
+    "flat 42": "7e5de31f1dba2747994c962cee2ed7a7fd59080aba13a6b6090f269b2d385c52",
   };
   it("Craterize: every centre, with and without rays", () => {
     for (const seed of [0, 1, 42])

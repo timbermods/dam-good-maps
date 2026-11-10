@@ -2736,7 +2736,7 @@ impl Crater {
             // of them, the ones that stand two levels above the floor or more: its body. A lowest plate
             // one level up is its foot, a rise of the floor)
             let tiers = max(2.0, ((deep + 2.0) / 2.0).ceil());
-            let body = if (deep + 2.0) % 2.0 == 1.0 && tiers > 2.0 { tiers - 1.0 } else { tiers };
+            let body = if (deep as i64) & 1 == 1 && tiers > 2.0 { tiers - 1.0 } else { tiers };
             // (a ledge that lies across the grid's diagonal is two tiles wide only at three across)
             let crag = 3.0;
             let t0 = rnd(2302.0) * PI * 2.0;
@@ -3208,6 +3208,7 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
         h + (a.ground(xf, yf) - h) * p.plane + p.add
     };
     let mut surface = vec![f64::NAN; m.w * m.h];
+    let mut ground: Vec<f64> = before.heights.iter().map(|&l| l as f64).collect();
     // (the tiles of the central uplift, which goes on last)
     let mut lifted: Vec<(usize, Plate)> = vec![];
     for y in 0..m.h {
@@ -3233,13 +3234,16 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
                 target = h - secondary;
             }
             surface[i] = tempered(h, target, k);
+            // (what the crater's own shape stands on: the land, giving way to the crater's level
+            // datum inside the bowl)
+            ground[i] = tempered(h, h + (a.datum - h) * p.plane, k);
             if p.lift > 0.0 || p.tier > 0 {
                 lifted.push((i, p));
             }
         }
     }
     if lifted.is_empty() {
-        m.heights = levels::whole(&surface, &before.heights, m.w, m.h, ceiling, a.seed, grain);
+        m.heights = levels::whole(&surface, &ground, &before.heights, m.w, m.h, ceiling, a.seed, grain);
     } else {
         // The central uplift stands clear of the lake the bowl would hold, so a crater filled as a
         // lake keeps its island: its top two levels above the lake, at whatever strength the crater
@@ -3302,11 +3306,17 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
                     tempered(before.heights[*i] as f64, max(shape(*i, p), from + height * p.lift), k)
                 };
             }
-            m.heights = levels::whole(&surface, &before.heights, m.w, m.h, ceiling, a.seed, grain);
+            m.heights = levels::whole(&surface, &ground, &before.heights, m.w, m.h, ceiling, a.seed, grain);
             let now = a.lake(&bare(&m.heights), before) as f64;
-            let stands = lifted.iter().any(|(i, _)| m.heights[*i] as f64 >= min(now + 2.0, ceiling));
+            let mut highest = 0.0;
+            for (i, _) in &lifted {
+                highest = max(highest, m.heights[*i] as f64);
+            }
+            let stands = highest >= min(now + 2.0, ceiling);
             let wanted = height_for(now);
-            if stands && (now == lake || wanted >= height - 0.5 * step) {
+            // (done where it stands clear and no higher than it must: at most a level over, or as
+            // high as the land's own lake asks)
+            if stands && (now == lake || highest <= now + 3.0 || wanted >= height) {
                 break;
             }
             // (the steps' wander or the tidying can take a level off a small top: then it stands a level

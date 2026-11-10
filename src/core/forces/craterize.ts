@@ -4,12 +4,12 @@
 // Rays; Try another (the next personality). A coherent crater field quantized once to whole game
 // levels: a morphology model, not a shock-physics solver, shaped to read as a real landform at every size,
 // never a stadium, a shaft or a tower (showcase-craft gap 25). The cavity is a few overlapping hollows (a lobed
-// outline) on a plane that leans with the land; a small crater is a shallow bowl with no centre; the rim is
-// uneven and low on one side; terraced walls carry slumped blocks, so a bench is a short arc that pinches out;
-// a peak is a mountain of merged crags that clears the bowl's spill level (a crater filled as a lake keeps its
-// island); a ring is separate mountains, open on one side; the debris falls away in tongues. Its surface
-// becomes land in the forces' shared last step (rust/forces/src/levels.rs): no band narrower than two tiles,
-// no one-tile pillar, pit or lone block. The newest bowl replaces the relief it
+// outline) on a plane that leans with the land; a small crater is a shallow rounded bowl with no centre and a lip of
+// low lumps; the rim is uneven and low on one side; terraced walls carry slumped blocks, so a bench is a short arc
+// that pinches out; from 42 across (Auto) a peak: a broad, low hill of a few wide plates, never a tower, that
+// clears the bowl's spill level (a crater filled as a lake keeps its island); a ring is separate mountains, open on one side; the debris falls away in tongues. Its surface
+// becomes land in the forces' shared last step (rust/forces/src/levels.rs): its slopes cut into plates (no stair
+// of even steps running round), no band narrower than two tiles, no one-tile pillar, pit or lone block. The newest bowl replaces the relief it
 // lands on (overlapping impacts overprint older ones); only its outer lip rejoins the ground round
 // it. Trees inside the bowl are gone; round it they are knocked down, lying away from the blow (dead
 // trees, their pose the editor's); water and badwater sources and seeps ride the ground, and Sources

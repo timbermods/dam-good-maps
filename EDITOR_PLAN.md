@@ -682,20 +682,27 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   real landform at every size, never a stadium, a shaft or a tower (showcase-craft gap 25). Its cavity is a few
   hollows that overlap, so its outline is lobed with spurs between, cut into a plane that leans with the land round
   it: on a hillside the rim stands high uphill and the bowl is open downhill, where the land keeps its shape. A crater
-  under 28 tiles across (Auto) is a simple crater: a shallow bowl with a level floor and no centre, its depth growing
+  under 28 tiles across (Auto) is a simple crater: a shallow, rounded bowl with no centre, its depth growing
   gently with its size (about a level for every eight tiles across; a crater with a floor about a level for every
-  eleven), never more than Power gives. The rim's crest is uneven all round and gone on one side, a gap (where the
+  eleven, one with a peak every fourteen), never more than Power gives. With terraced walls it goes down in whole
+  levels, a step two tiles wide or more for each, and its lip is low lumps all round its outline but for the gap
+  (one level, two here and there where the rim stands highest), never a straight slab. From 28 to 41 across Auto
+  gives a floor with low hummocks and no peak (a bowl that small has no room for a hill that is broad for its
+  height); from 42 a peak, from 68 a ring. The rim's crest is uneven all round and gone on one side, a gap (where the
   ground round it is lowest; the seed's side on level ground), so a lake in the bowl spills at the level of the
   ground round the crater. Beside lower land that is no slope (a canyon, a lake, a plateau's edge) the rim stands
   whole on the crater's own ground and holds the bowl. Steep walls are a cliff. Terraced walls carry blocks slumped
   against the cliff: ovals lying along it, each turned its own way, at its own level, never its neighbour's, with gaps
   where the wall stands whole, so a bench is a short arc that pinches out within a quarter turn and none runs on round
-  the bowl. The floor is level, with low hummocks on a large crater. A peak is a mountain: a main crag and three to
-  five lower shoulders merged round it or in a line, each highest off its centre (one flank short, one long), its top
-  two levels above the bowl's spill level (where a lake filling the crater stands, worked out on the crater as made;
+  the bowl. The floor is level, with low hummocks on a large crater. A peak is a broad, low hill, never a tower, a plinth or a
+  stack of blocks: a few wide plates on whole levels two levels apart (no face higher), each wider than the one above
+  by a ledge of three tiles on one side (its crag) and more on the other (its ramp), with a spur of its own a level
+  lower on one side, so no two outlines are alike; its body keeps to the middle of the bowl, clear of the wall, and
+  its top stands off the hill's middle, four tiles across or more, two levels above the bowl's spill level (where a lake filling the crater stands, worked out on the crater as made;
   the level a Fill gives, where the land round the crater holds water only a little higher), so a crater filled as a
   lake keeps its island at any strength; a ring is three or four separate mountains round the centre, off it and
   open on one side, the tallest clear of the lake. A centre needs room: a peak a crater 16 tiles across, a ring 28.
+  Nothing is left standing inside the bowl: a ruin on ground that happens to keep its old level goes with the rest.
   The debris falls away in tongues, far on some bearings and short on others, and dies into the land's own shape;
   rays are streaks in clumps, their secondary pits two tiles across or more. The crater is made land in the forces'
   shared last step (Whole levels, above): no band narrower than two tiles, no one-tile pillar, pit or lone block.

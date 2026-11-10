@@ -52,8 +52,9 @@ describe("carrying the start leaves the force's land as the force made it (D257,
     expect(changed).toEqual([]);
   });
 
-  it("Islands 64², seed 6: a Craterize (Power 40) beside the start carries it; no tile the impact left alone changes level (it was: (55, 49) dropped from 2 to 1)", async () => {
-    const changed = await beyondTheForce("islands", 6, (st) => ({ verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 40 }, origin: [st.x + 2, st.y], cut: null, natural: true }));
+  // (with a Peak since #912, D148: at Power 40 the crater's own centre is now a level floor, where the start stays put)
+  it("Islands 64², seed 6: a Craterize (Power 40, a Peak) beside the start carries it; no tile the impact left alone changes level (it was: (55, 49) dropped from 2 to 1)", async () => {
+    const changed = await beyondTheForce("islands", 6, (st) => ({ verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 40, centre: "peak" }, origin: [st.x + 2, st.y], cut: null, natural: true }));
     expect(changed).toEqual([]);
   });
 });

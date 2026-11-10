@@ -5,21 +5,29 @@
 // becomes a stair of even one-tile bands (contour rings round whatever the force made), and noise
 // leaves one-tile pillars, pits and lone blocks. This stage takes the surface and gives the land:
 //
-//   let land = levels::whole(&surface, &before, w, h, ceiling, seed, grain);
+//   let land = levels::whole(&surface, &ground, &before, w, h, ceiling, seed, grain);
 //
 // - `surface`: the force's surface at each tile, in levels; NaN where the force leaves the ground alone
 //   (out of its reach, or ground it keeps: those tiles come back as `before`).
+// - `ground`: what the surface stands on at each tile: the land, where the force adds to it or cuts
+//   into it; the force's own level datum, where it replaces the land. The stage shapes what the
+//   surface adds to this (the force's own slopes) and leaves the ground's own relief as it is: a
+//   weak force on rough land changes it little.
 // - `before`: the ground the force started from. `ceiling`: the highest level allowed.
 // - `seed`, `grain`: the personality, and how broad the wander of the steps is, in tiles (about a
 //   third of the feature's radius; at least 6).
 //
 // What it promises, on the tiles the force changed (and the unchanged tiles right beside them):
 //
-// 1. Quantized once. Each tile is rounded once, after a slow drift is added (value noise `grain` tiles
-//    broad): at most 0.35 of a level on level ground, so a floor or a bench the force put on a whole
-//    level stays on it everywhere; up to a whole level where the surface slopes, so where each level
-//    ends wanders by a step's own width: the steps are of uneven width, they pinch out and merge
-//    instead of running round as even bands.
+// 1. Quantized once, and a slope is plates. Each tile is rounded once, after a slow drift is added
+//    (value noise `grain` tiles broad): at most 0.35 of a level on level ground, so a floor or a bench
+//    the force put on a whole level stays on it everywhere. A slope three tiles wide or more (up to a
+//    level a tile) is first cut into patches a few tiles across, smaller where it is steeper, each
+//    the tiles nearest one of a scatter of points, and each patch is drawn most of the way to its own
+//    mean height: a plate of its own size and shape, which ends against its neighbours in a step of
+//    a level or two. So a step runs a patch's length and no further: no stair of even steps runs on
+//    round a feature, whichever way the slope faces the grid. A narrow slope (a small hollow's wall)
+//    and a steeper one keep their shape.
 // 2. No band narrower than two tiles. Every tile lies in a two-by-two square of its own level, or is
 //    a single tile on the side of one (a tooth on a plate's edge, where several levels meet; a band
 //    the map's edge cuts can be one tile wide along the edge). Where
@@ -28,6 +36,9 @@
 //    the force made by intent (a jump in its surface) stays where it is, whole.
 // 3. No one-tile pillar, pit, ridge, trench or lone block: the same rule, a pit or a trench filling to
 //    the ground beside it.
+//
+// The land's own narrow ledges stay where the force changes the ground by a level or less: the tidying
+// never drops a brink the force only brushed down its cliff.
 //
 // Ground the force did not change is never touched except right beside ground it did (a sliver left
 // between the two would be a fault of the force). Integers, comparisons and the planner's own rounding
@@ -49,7 +60,7 @@ pub(super) fn lumps(seed: f64, salt: u32, x: f64, y: f64, scale: f64) -> f64 {
 }
 
 /// The land a force's surface gives (see the top of this file).
-pub(super) fn whole(surface: &[f64], before: &[u8], w: usize, h: usize, ceiling: f64, seed: f64, grain: f64) -> Vec<u8> {
+pub(super) fn whole(surface: &[f64], ground: &[f64], before: &[u8], w: usize, h: usize, ceiling: f64, seed: f64, grain: f64) -> Vec<u8> {
     let mut land = before.to_vec();
     let mut changed = vec![false; w * h];
     // The slopes' plates. A slope rounded tile by tile is a stair of even bands that run on round the
@@ -82,17 +93,18 @@ pub(super) fn whole(surface: &[f64], before: &[u8], w: usize, h: usize, ceiling:
             if surface[i].is_nan() {
                 continue;
             }
-            // (how much the surface slopes here: the lesser of its two steps along each axis, so the
-            // foot and the brink of a cliff count as the level ground they are)
+            // (how much the force's own shape slopes here, what its surface adds to its ground: the
+            // lesser of its two steps along each axis, so the foot and the brink of a cliff count as
+            // the level ground they are)
+            let here = surface[i] - ground[i];
             let at = |dx: i64, dy: i64| {
                 let (nx, ny) = (x as i64 + dx, y as i64 + dy);
                 if nx < 0 || ny < 0 || nx >= w as i64 || ny >= h as i64 {
-                    return surface[i];
+                    return here;
                 }
                 let j = ny as usize * w + nx as usize;
-                if surface[j].is_nan() { before[j] as f64 } else { surface[j] }
+                if surface[j].is_nan() { 0.0 } else { surface[j] - ground[j] }
             };
-            let here = surface[i];
             let slope = max(
                 min((at(1, 0) - here).abs(), (here - at(-1, 0)).abs()),
                 min((at(0, 1) - here).abs(), (here - at(0, -1)).abs()),
@@ -122,7 +134,7 @@ pub(super) fn whole(surface: &[f64], before: &[u8], w: usize, h: usize, ceiling:
             if surface[i].is_nan() {
                 continue;
             }
-            let (here, slope) = (surface[i], slopes[i] as f64);
+            let (here, slope) = (surface[i] - ground[i], slopes[i] as f64);
             let sloping = broad(x, y);
             if sloping > 0.0 {
                 let (xf, yf) = (x as f64 + 0.5, y as f64 + 0.5);
@@ -159,7 +171,7 @@ pub(super) fn whole(surface: &[f64], before: &[u8], w: usize, h: usize, ceiling:
             if patch_of[i] != u32::MAX {
                 // (a slope steeper than a level a tile keeps its shape: it is a cliff with ledges)
                 let (sum, weight) = sums[patch_of[i] as usize];
-                target += 0.85 * broad(x, y) * (1.0 - smooth((slope - 0.7) / 0.6)) * (sum / weight - here);
+                target += 0.85 * broad(x, y) * (1.0 - smooth((slope - 0.7) / 0.6)) * (sum / weight - (here - ground[i]));
             }
             land[i] = clamp(round(round(target * 4096.0) / 4096.0), 0.0, min(255.0, ceiling)) as u8;
             changed[i] = land[i] != before[i];
@@ -181,12 +193,35 @@ pub(super) fn whole(surface: &[f64], before: &[u8], w: usize, h: usize, ceiling:
             }
         }
     }
+    let rounded = land.clone();
     for _ in 0..4 {
         if !squares(&mut land, w, h, &free) {
             break;
         }
     }
     nubs(&mut land, w, h, &free);
+    // The land's own narrow ledges stay, where the force changes the ground by a level or less: a
+    // tile the tidying moved more than two levels from where it stood, with nothing round it changed
+    // by more than a level, goes back to where it stood (a brink one tile wide on a cliff the force
+    // only brushed would else fall the cliff's whole height).
+    let brushed = |i: usize| (rounded[i] as i32 - before[i] as i32).abs() <= 1;
+    for y in 0..h {
+        for x in 0..w {
+            let i = y * w + x;
+            if !free[i] || (land[i] as i32 - before[i] as i32).abs() <= 2 {
+                continue;
+            }
+            let mut all = true;
+            for ny in y.saturating_sub(1)..=(y + 1).min(h - 1) {
+                for nx in x.saturating_sub(1)..=(x + 1).min(w - 1) {
+                    all = all && brushed(ny * w + nx);
+                }
+            }
+            if all {
+                land[i] = before[i];
+            }
+        }
+    }
     land
 }
 
@@ -226,9 +261,12 @@ fn nubs(land: &mut [u8], w: usize, h: usize, free: &[bool]) {
                     if nx < 0 || ny < 0 || nx >= w as i64 || ny >= h as i64 { None } else { Some(land[ny as usize * w + nx as usize]) }
                 };
                 let mut best: Option<u8> = None;
+                // (as above: held by ground within two levels of its own, it joins none further off)
+                let far = |g: u8| (g as i32 - own as i32).abs() > 2;
+                let held = [(-1i64, 0i64), (1, 0), (0, -1), (0, 1)].iter().any(|&(dx, dy)| at(dx, dy).map_or(false, |g| !far(g)));
                 for (dx, dy) in [(-1i64, -1i64), (1, -1), (-1, 1), (1, 1)] {
                     if let (Some(a), Some(b), Some(c)) = (at(dx, 0), at(0, dy), at(dx, dy)) {
-                        if a == b && b == c && a != own {
+                        if a == b && b == c && a != own && !(held && far(a)) {
                             let nearer = |v: u8| (v as i32 - own as i32).abs();
                             if best.map_or(true, |v| nearer(a) < nearer(v) || (nearer(a) == nearer(v) && a < v)) {
                                 best = Some(a);
@@ -290,6 +328,22 @@ fn squares(heights: &mut [u8], w: usize, h: usize, free: &[bool]) -> bool {
             let i = i as usize;
             let tiles = [i, i + 1, i + w, i + w + 1];
             if tiles.iter().all(|&t| if free[t] { land[t] == UNSET || land[t] == l } else { heights[t] == l }) {
+                // (a tile more than two levels above the square that touches settled ground within
+                // two levels of its own stays up there, a tooth on that ground's side: the brink of
+                // a cliff never falls the cliff's height)
+                let held = |t: usize| {
+                    let (x, y) = (t % w, t / w);
+                    [(-1i64, 0i64), (1, 0), (0, -1), (0, 1)].iter().any(|&(dx, dy)| {
+                        let (nx, ny) = (x as i64 + dx, y as i64 + dy);
+                        nx >= 0 && ny >= 0 && nx < w as i64 && ny < h as i64 && {
+                            let g = land[ny as usize * w + nx as usize];
+                            g != UNSET && (g as i32 - heights[t] as i32).abs() <= 2
+                        }
+                    })
+                };
+                if tiles.iter().any(|&t| free[t] && land[t] == UNSET && heights[t] as usize > level + 2 && held(t)) {
+                    continue;
+                }
                 for t in tiles {
                     land[t] = l;
                 }
@@ -330,9 +384,13 @@ fn squares(heights: &mut [u8], w: usize, h: usize, free: &[bool]) -> bool {
                     }
                 }
             } else {
+                // (a tile that touches settled ground within two levels of its own never joins ground
+                // further off: the brink of a cliff stays on the cliff's top)
+                let far = |g: u8| (g as i32 - own as i32).abs() > 2;
+                let held = [(-1i64, 0i64), (1, 0), (0, -1), (0, 1)].iter().any(|&(dx, dy)| at(dx, dy) != UNSET && !far(at(dx, dy)));
                 for (dx, dy) in [(-1i64, -1i64), (1, -1), (-1, 1), (1, 1)] {
                     let (a, b, c) = (at(dx, 0), at(0, dy), at(dx, dy));
-                    if a != UNSET && a == b && b == c {
+                    if a != UNSET && a == b && b == c && !(held && far(a)) {
                         best = nearer(a, best, own);
                     }
                 }
@@ -370,7 +428,8 @@ mod tests {
     fn land_of(f: impl Fn(f64, f64) -> f64, seed: f64) -> (Vec<u8>, Vec<u8>) {
         let before = vec![8u8; W * W];
         let surface: Vec<f64> = (0..W * W).map(|i| f((i % W) as f64, (i / W) as f64)).collect();
-        (whole(&surface, &before, W, W, 22.0, seed, 8.0), before)
+        let ground: Vec<f64> = before.iter().map(|&l| l as f64).collect();
+        (whole(&surface, &ground, &before, W, W, 22.0, seed, 8.0), before)
     }
     /// Whether a tile lies in a two-by-two square of its own level.
     fn in_square(land: &[u8], x: usize, y: usize) -> bool {
@@ -506,7 +565,8 @@ mod tests {
                 if d < 9.0 { before[i] as f64 + 4.0 * (1.0 - d / 9.0) } else if d < 12.0 { before[i] as f64 } else { f64::NAN }
             })
             .collect();
-        let land = whole(&surface, &before, W, W, 22.0, 2.0, 8.0);
+        let ground: Vec<f64> = before.iter().map(|&l| l as f64).collect();
+        let land = whole(&surface, &ground, &before, W, W, 22.0, 2.0, 8.0);
         for i in 0..W * W {
             let (x, y) = ((i % W) as f64, (i / W) as f64);
             if portable_math::hypot(&[x - 22.0, y - 16.0]) >= 10.5 {
@@ -514,6 +574,36 @@ mod tests {
             }
         }
         assert!(land[16 * W + 22] >= 11);
+    }
+    #[test]
+    fn the_grounds_own_relief_is_left_as_it_is() {
+        // rough ground: a hillside of one-tile steps with a cliff across it; the force adds a tenth of
+        // a level everywhere, then a low mound in one corner
+        let before: Vec<u8> = (0..W * W).map(|i| (4 + (i % W) / 3 + if i / W > 30 { 5 } else { 0 }) as u8).collect();
+        let ground: Vec<f64> = before.iter().map(|&l| l as f64).collect();
+        let surface: Vec<f64> = ground.iter().map(|g| g + 0.1).collect();
+        assert_eq!(whole(&surface, &ground, &before, W, W, 40.0, 6.0, 8.0), before);
+        let mound: Vec<f64> = (0..W * W).map(|i| ground[i] + max(0.0, 3.0 - 0.3 * portable_math::hypot(&[(i % W) as f64 - 12.0, (i / W) as f64 - 12.0]))).collect();
+        let land = whole(&mound, &ground, &before, W, W, 40.0, 6.0, 8.0);
+        for i in 0..W * W {
+            let rise = land[i] as i32 - before[i] as i32;
+            assert!((-1..=4).contains(&rise), "{},{}: {} from {}", i % W, i / W, land[i], before[i]);
+            if portable_math::hypot(&[(i % W) as f64 - 12.0, (i / W) as f64 - 12.0]) > 13.0 {
+                assert_eq!(rise, 0, "{},{}", i % W, i / W);
+            }
+        }
+    }
+    #[test]
+    fn a_narrow_ledge_the_force_only_brushed_stays() {
+        // a cliff ten levels high with a brink one tile wide a level under its top; the force raises
+        // the low ground by a level and lowers the high ground by a level
+        let before: Vec<u8> = (0..W * W).map(|i| if i % W < 20 { 4 } else if i % W == 20 { 13 } else { 14 }).collect();
+        let ground: Vec<f64> = before.iter().map(|&l| l as f64).collect();
+        let surface: Vec<f64> = (0..W * W).map(|i| ground[i] + if i % W < 20 { 0.8 } else { -0.8 }).collect();
+        let land = whole(&surface, &ground, &before, W, W, 40.0, 3.0, 8.0);
+        for i in 0..W * W {
+            assert!((land[i] as i32 - before[i] as i32).abs() <= 2, "{},{}: {} from {}", i % W, i / W, land[i], before[i]);
+        }
     }
     #[test]
     fn the_same_land_every_time_and_never_above_the_ceiling() {
