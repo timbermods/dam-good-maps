@@ -2765,10 +2765,11 @@ function fallenOf(s: MapSession): Map<string, { dx: number; dy: number }> {
 }
 
 /** The open map as a force starts from it: its ground, its objects, the water as it stands (the
- *  water in flight, when it is still settling), its rock and the trees already down. */
+ *  water in flight, when it is still settling; else the water the map shows, a stored map's own while it keeps
+ *  it), its rock and the trees already down. */
 function sessionForceMap(s: MapSession): FullForceMap {
   const sim = waterJob && waterJob.session === s ? jobOf(waterJob).sim : null;
-  const m = fullForceMapOf(s.built, { ...(sim ? { water: { depth: sim.D, contamination: sim.C } } : {}), rockLayers: geologyOf(s), lava: rockOf(s), down: fallenOf(s), usedIds: s.usedEntityIds() });
+  const m = fullForceMapOf(s.built, { water: sim ? { depth: sim.D, contamination: sim.C } : s.waterShown(), rockLayers: geologyOf(s), lava: rockOf(s), down: fallenOf(s), usedIds: s.usedEntityIds() });
   // (a map with caves or overhangs: its voxels, which Erode reads and wears, D281)
   if (!s.columns.size) return m;
   const wet = s.caveWater();

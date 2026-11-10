@@ -93,7 +93,22 @@ const FORCE_ERRORS = [
   "Nothing here can wear away without leaving ground to fall",
   "There is no rock here that Erode may wear",
   "Erode leaves water and the ground that holds it as they are",
+  "A fall needs high ground to fall from: draw the stroke from it over an edge or down a slope",
 ];
+
+/** A set Fall the land can't give (codes 100 and 140 plus the most it can, rust/forces `FALL_SHORT`; 180, `FALL_UNDRAINED`: its water below can't drain; 181, `FALL_NONE`: no Fall fits; 200 plus the least it can, `FALL_STEEP`; 300 plus the most the water standing below lets it, `FALL_SHORT_WATER`), in one line. */
+function fallShort(error: number, settings: object): string | null {
+  const asked = (settings as { fall?: number }).fall;
+  if (error >= 300 && error <= 360) return `No drop of ${asked} here: the water standing below lets it fall at most ${error - 300}`;
+  if (error < 100 || error > 260) return null;
+  if (error >= 200) return `No drop of ${asked} here: the land falls at least ${error - 200} below the edge`;
+  if (error === 181) return `No drop of ${asked} here, nor any other: water stands below the edge and the land falls on past it; leave Fall on Edges`;
+  if (error > 180) return null;
+  if (error === 180) return `No drop of ${asked} here: the stroke ends before the water below can drain; draw it on to lower ground`;
+  const most = error >= 140 ? error - 140 : error - 100;
+  const why = error >= 140 ? `above the Floor the land falls at most ${most}` : `the land falls at most ${most}`;
+  return `No drop of ${asked} here: ${why}`;
+}
 
 export type RustVerb = "craterize" | "erupt" | "quake" | "carve" | "glaciate" | "rift" | "deposit" | "erode";
 
@@ -285,7 +300,7 @@ export function planInRust<V extends RustVerb>(job: RustJob & { verb: V }): Extr
     if (m.wet) view(69, Uint32Array).set(m.wet);
     x.forces_checkpoint(task);
     const error = x.forces_plan(task);
-    if (error) throw new Error(FORCE_ERRORS[error] ?? `the Rust forces refused (${error})`);
+    if (error) throw new Error(fallShort(error, job.settings) ?? FORCE_ERRORS[error] ?? `the Rust forces refused (${error})`);
     return readPlan(job, plain, view) as Extract<RustPlan, { verb: V }>;
   } finally {
     x.forces_free(task);

@@ -84,13 +84,13 @@ async function highGround(page: Page, drag = false): Promise<[number, number]> {
 test("Carve: its row is Power, Size and its one choice; a click unleashes a river that keeps itself as one step, Ctrl+Z takes it back, Esc skips it to its end, Try another path makes another roll, Shift+Tab shows the first again", async ({ page }) => {
   await openTopDown(page, "s=4242&z=96&d=n&t=highlands");
   // its settings, every one always shown (Kyler's option B: no More): Power, Size, What it leaves (River or Canyon,
-  // D289), Wander, Walls, Canyon depth, River depth, Banks, the Floor and Try another; a mode is the gesture
+  // D289), Wander, Walls, Canyon depth, River depth, Fall, Banks, the Floor and Try another; a mode is the gesture
   const carve = page.getByRole("button", { name: "Carve (Shift+1)" });
   await expect(carve).toBeVisible();
   await carve.click();
   const row = page.getByRole("group", { name: "Carve options" });
   await expect(row).toBeVisible();
-  expect(await row.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Power", "Size", "Wander", "Canyon depth", "River depth", "Banks", "Floor"]);
+  expect(await row.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Power", "Size", "Wander", "Canyon depth", "River depth", "Fall", "Banks", "Floor"]);
   await expect(row.getByRole("group", { name: "What it leaves" }).getByRole("button")).toHaveText(["River", "Canyon"]);
   await expect(row.getByRole("button", { name: "More" })).toHaveCount(0);
   await expect(row.getByRole("combobox")).toHaveCount(0);

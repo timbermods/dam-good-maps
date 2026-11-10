@@ -36,3 +36,16 @@ export function study(kind: StudyKind = "mountain", W = 96): ForceMap {
     for (let x = Math.floor(W * 0.43); x < W * 0.65; x += 3) entities.push(x % 2 ? tree({ ...at(x, y, `tree-${x}-${y}`), species: "Pine" }) : bush({ ...at(x, y, `bush-${x}-${y}`), ripe: true }));
   return { W, H, heights: h, entities, water: { depth, contamination: new Float64Array(W * H) }, maxHeight: 16 };
 }
+
+/** A W × H study of high ground and the land below it (showcase craft gaps 1, 2 and 20), for falls. "mesa": a
+ *  tabletop at `top` for x < 30 with a sheer edge onto a floor 4 levels down that steps down eastward to the map's
+ *  edge, where its water leaves. "slope": the same high ground running down a slope of a level every two tiles to
+ *  that floor instead of an edge. "flat": the tabletop everywhere. Each has its start on the high ground. */
+export function fallStudy(kind: "mesa" | "slope" | "flat", top = 13, W = 72, H = 40): ForceMap {
+  const h = new Uint8Array(W * H);
+  const floor = (x: number) => top - 4 - Math.floor((x - 30) / 14);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) h[y * W + x] = kind === "flat" || x < 30 ? top : kind === "slope" ? Math.max(floor(x), top - Math.ceil((x - 29) / 2)) : floor(x);
+  const entities: EntitySpec[] = [startingLocation({ x: 6, y: 4, z: top, id: "start", owner: "study", orientation: "Cw0" })];
+  return { W, H, heights: h, entities, water: { depth: new Float64Array(W * H), contamination: new Float64Array(W * H) }, maxHeight: Math.max(16, top + 2) };
+}

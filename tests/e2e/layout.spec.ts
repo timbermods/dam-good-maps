@@ -142,7 +142,7 @@ async function onTheCells(page: Page, state: string) {
   // nothing cut off (Kyler, 2026-10-04): every name in full beside its longest value and its Auto, every option and
   // button its whole word (the values put back as they were afterwards)
   const cut = await page.evaluate(() => {
-    const LONGEST: Record<string, string> = { Wander: "Meandering", Level: "Ground", "River depth": "Off", Banks: "None", Size: "180", Power: "100" };
+    const LONGEST: Record<string, string> = { Wander: "Meandering", Level: "Ground", "River depth": "Off", Banks: "10", Fall: "Edges", Size: "180", Power: "100" };
     const out: string[] = [];
     for (const set of document.querySelectorAll(".tool-settings .set")) {
       const label = set.querySelector(".set-label");
