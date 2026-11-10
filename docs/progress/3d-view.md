@@ -3180,6 +3180,48 @@ birch bark 1.13, the crowns' sides 3–21 % under their middles, Standard's berr
   (4) Standard's baked shadows on open ground (`light.ts` `PLANT_SHAPES`) keep the reaches of High's old models. (5) High's far birch
   covers 0.75 of the game's area within its drawn width. (6) The water source's three samples still read 23 % over.
 
+## The large relic as the game draws it (D135, D178 as amended 2026-11-10, D496, D497; `fix/relic-look`)
+
+In Four Lakes a large relic stands in a cave behind the Great Fall; ours drew it as plain white columns, a placeholder.
+The game's (`LargeRelic.Model`, 3 × 3, 1,605 triangles) is a fallen dish antenna.
+
+- **Read from the game's model** (numbers only, `tools/game-model-albedo.py` and scratch fits): a dish of radius 2.0
+  about a centre at (2.19, 1.45, 2.18) of its footprint, its back axis (−0.53, −0.60, −0.60), so it lies on its back
+  with its face up 37° toward the footprint's +x +y corner; panels in three bands (θ 9.3–20, 20–34, 34–46.8°), 15°
+  each, 36 of 54 present and the piece from φ 75° to 150° cracked off, darker; a rim lip round φ ±135°; a steel ring
+  across the face and one behind it; eight ribs 0.05 wide from inside the hub through the back ring to the rim; a hub
+  and boss; the feed, a hoop 0.78 across, fallen into the dish's mouth on four bent struts; two broken bits and 13
+  stones on the ground. Its ground footing (TerrainURP, 0.1 high) is left to the terrain.
+- **Built** (`render3d/largeRelic.ts`, new): our own model to those measures, 928 triangles (the placeholder 156).
+  Standard and High draw the same model (`high/landmarks.ts` copies it, as the start and the sources); both take the
+  objects' game light (`gameObjectLight`), Standard's baked shadow casts the dish's height over each of its 9 tiles
+  (`light.ts`, `LARGE_RELIC_CASTS`, 1.00–1.84), High's depth map casts the model itself, and its fade and shadow drop
+  by its footprint's middle (`objectFade.ts` `casterPlaces`).
+- **Colours** (`palette.ts` `LARGE_RELIC`): the game's albedo by part (the atlas × vertex colour). Its material is
+  partly metallic (0.13–0.23 on the panels, 0.5 on the fittings), which our objects' light has no term for, so each
+  part is given the albedo that light needs to show the game's brightness: URP's diffuse at that metallic, its
+  occlusion and the environment's Fresnel reflection, averaged over the part's normals, the sun round the compass at
+  45° and the camera 45° down. The panels become 0.24–0.53 by band and side (the game's 0.29–0.54), the steel 0.16.
+- **Measured:** the bounds within 1 % of the game's (ours −1.341…1.262 × −0.246…1.851 × −1.075…1.376 about the
+  footprint's middle; the game's −1.336…1.251 × −0.235…1.843 × −1.068…1.376). The silhouette, our model's triangles
+  against the game's projected from 16 cameras (8 headings, 30° and 60° down) and from above: ours covers 1.015–1.055
+  times the game's area, IoU 0.85–0.93 (the ribs first built as deep fins covered up to 1.13 times; the game's are thin
+  bars). From the game's own falls camera (DGM Probe, Four Lakes r9) the dish lies where the game's does.
+- **Cost:** +772 triangles a relic, the draw calls unchanged. `benchOrbit` on Four Lakes r9 (1600 × 900, headed
+  Chrome, RTX 2070 Super; the GPU's time a frame, median; base → two runs of the branch): Standard whole map 4.25 →
+  4.50, 4.24 ms, the relic 30 away 3.68 → 3.81, 3.65; High 3.25 → 3.46, 3.39 and 5.40 → 5.30, 5.44: within the runs'
+  own spread. Every frame 7.0 ms at 144 Hz, but High's orbit round the cave, whose p95 of 21 ms is the base's too.
+- **Tools:** `tools/game-water-shader.py` reads a texture kept inside its asset (the `BeaverCarryingModels` atlas), and
+  `tools/game-model-albedo.py` passes over TerrainURP parts.
+- **Falls short:** (1) The small and medium relics are still columns of our own (the game's are a fallen telescope,
+  480 triangles, 0.29 high, and a crashed satellite with solar panels, 1,072 triangles, 0.6 high; ours 1.2 and 1.7
+  high). (2) Of the other 1.0+ objects, drawn in colours of our own at our own measures: the geothermal field (game
+  0.24 high, ours 0.5), the blockage (game 1.08, ours a generic rubble block), the ancient aquifer drill (5.05, ours
+  5.0), the aquifer (0.13, ours 0.23), the unstable core (0.96, ours 0.57), thorns (0.72 reaching −0.26…1.33, ours
+  0.49), the badtide drain (1 × 1 × 2.37, ours 0.81), the reserve pile and warehouse (1.02, ours 0.75 and 0.80) and the
+  reserve tank (2.81, ours 2.66); the natural dam (179 triangles) has no model of ours. (3) The dish's look is judged
+  only through the falls' curtain in the game's frames; a frame of the cave from inside would judge its colours.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:
