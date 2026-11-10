@@ -228,7 +228,7 @@ function rollJobs(): { name: string; job: RustJob }[] {
   const out: { name: string; job: RustJob }[] = [];
   for (const [name, map, path] of [
     ["cliff", ground((x) => (x < 24 ? 3 : 12)), [{ x: 23.5, y: 12 }, { x: 23.5, y: 36 }]],
-    ["table", ground((x, y) => (Math.hypot(x - 24, y - 24) < 10 ? 10 : 6)), [{ x: 24, y: 24 }]],
+    ["table", ground((x, y) => ((x - 24) * (x - 24) + (y - 24) * (y - 24) < 100 ? 10 : 6)), [{ x: 24, y: 24 }]],
     ["ridge", ground((x) => (x === 24 || x === 25 ? 14 : 2)), [{ x: 18, y: 24 }, { x: 31, y: 24 }]],
     ["flat", ground(() => 6), [{ x: 24, y: 24 }]],
   ] as const)
