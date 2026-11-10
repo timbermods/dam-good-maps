@@ -675,12 +675,18 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   held there for ten tiles, however hard the Power cuts, then runs on to the stroke's end at any Power; where the land has no such edge the fall is where the ground the stroke
   starts on ends (an edge or the top of a slope), and a stroke whose ground never goes down is refused ("A fall needs
   high ground to fall from…"). A Fall taller than the land can give from its lip down to the Floor (and at least a
-  level over the map's foot) is refused, never cut short ("No drop of 12 here: the land falls at most 11", D342), and so is one whose water below
+  level over the map's foot) is refused, never cut short ("No drop of 12 here: the land falls at most 11", D342), and so is
+  one taller than the water already standing where it lands (a river or a lake, which no longer stroke lowers) lets it
+  fall: that names the most too, and wins over the next line. Below a set Fall the carve's sediment stays out of
+  standing water, so it never raises the river it lands in. Refused too is one whose water below
   can't leave the map at the bed it is cut to, the stroke ending in a hollow of higher ground ("No drop of 4 here: the
   stroke ends before the water below can drain; draw it on to lower ground"), and one shorter than the land already
   falls where its water lands, or a few tiles on, where ground a fall's height lower would step it, since a carve only
-  cuts ("No drop of 4 here: the land falls at least 5 below the edge"). A bay of lower ground beside the stream that meets the face is cut to the landing with it, so water leaving
-  the stream's side falls the whole height with the curtain; the river's own sources stand back from the brink. Size sets the fall's width
+  cuts ("No drop of 4 here: the land falls at least 5 below the edge"); where the water below holds every drop short of
+  that, no Fall fits ("…nor any other: … leave Fall on Edges"). A bay of lower ground beside the stream that meets the face is cut to the landing with it, so water leaving
+  the stream's side falls the whole height with the curtain, and a corner of the lip where its front meets that bay,
+  the face on two sides, is cut with the face so no dry block splits the curtain; the river's own sources stand back
+  from the brink. Size sets the fall's width
   (on Auto the stream stays a stream; a set Size makes it as wide as the river). Unleash's course takes the land's own falls the same way (`rust/forces`, `carve_falls`, `hold_fall`). **Keep
   river** (default) leaves a source group at the origin (D314, `core/water/sourceGroups.ts`: a row across the heading,
   fewer where cramped) whose total strength follows the river's Width, not its Power; **Dry canyon** leaves none. Space pauses it. An oxbow lake holds its
