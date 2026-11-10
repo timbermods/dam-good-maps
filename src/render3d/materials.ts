@@ -343,8 +343,10 @@ export function waterNormalTexture(): DataTexture {
 
 let badTex: DataTexture | null = null;
 /** Badwater's pattern the flow carries (waterTextures.ts `makeBadwaterTexture`), with the water sources' pattern in its
- *  A (its B unused), one for the page: flat at their means until the textures' worker has made it, sampled as the
- *  surface's. */
+ *  A (its B unused), one for the page: flat at their means until the textures' worker has made it with its mips, made
+ *  as the game's are (`linearMips`: in linear values, so the glow's mean climbs with distance as the game's does).
+ *  Sampled as the game samples its own (its inline sampler: bilinear, repeating, no anisotropy), but trilinear, so no
+ *  seam shows where one mip gives way to the next (the mean the same). */
 export function badwaterPatternTexture(): DataTexture {
   if (badTex) return badTex;
   const n = BADWATER_TEXTURE_SIZE;
@@ -358,7 +360,6 @@ export function badwaterPatternTexture(): DataTexture {
   t.magFilter = LinearFilter;
   t.minFilter = LinearMipmapLinearFilter;
   t.generateMipmaps = true;
-  t.anisotropy = 8;
   t.needsUpdate = true;
   return (badTex = t);
 }
@@ -428,10 +429,10 @@ export function fillAlbedoTexture(data: Uint8Array, size: number): void {
   t.needsUpdate = true;
 }
 
-/** The bake worker's normal (`normalSize` square), badwater's pattern and contaminated ground's (high/bake.ts
- *  `waterTexture`) into the page's textures; the normal's grows from its one flat texel to it (its GPU copy made
- *  again). */
-export function fillWaterTexture(normal: Uint8Array, normalSize: number, bad: Uint8Array, soil: Uint8Array): void {
+/** The bake worker's normal (`normalSize` square), badwater's pattern with its mips and contaminated ground's
+ *  (high/bake.ts `waterTexture`) into the page's textures; the normal's grows from its one flat texel to it (its GPU
+ *  copy made again), and badwater's takes its own mips in place of the GPU's. */
+export function fillWaterTexture(normal: Uint8Array, normalSize: number, bad: Uint8Array, badMips: Uint8Array[], soil: Uint8Array): void {
   const nt = waterNormalTexture();
   if (nt.image.width !== normalSize) {
     nt.image = { data: normal, width: normalSize, height: normalSize };
@@ -440,6 +441,9 @@ export function fillWaterTexture(normal: Uint8Array, normalSize: number, bad: Ui
   nt.needsUpdate = true;
   const b = badwaterPatternTexture();
   (b.image.data as Uint8Array).set(bad);
+  const n = BADWATER_TEXTURE_SIZE;
+  b.mipmaps = [{ data: b.image.data as Uint8Array, width: n, height: n }, ...badMips.map((data, k) => ({ data, width: n >> (k + 1), height: n >> (k + 1) }))];
+  b.generateMipmaps = false;
   b.needsUpdate = true;
   const s = soilPatternTexture();
   (s.image.data as Uint8Array).set(soil);
