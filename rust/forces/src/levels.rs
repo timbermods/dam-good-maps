@@ -1,0 +1,413 @@
+// Whole levels from a force's surface: the one last step for every force that shapes land.
+//
+// Timberborn's land is whole levels on a square grid. A force works out a real-valued surface (a
+// bowl, a cone, a fan); rounding it tile by tile gives the faults every reviewer names: a smooth slope
+// becomes a stair of even one-tile bands (contour rings round whatever the force made), and noise
+// leaves one-tile pillars, pits and lone blocks. This stage takes the surface and gives the land:
+//
+//   let land = levels::whole(&surface, &before, w, h, ceiling, seed, grain);
+//
+// - `surface`: the force's surface at each tile, in levels; NaN where the force leaves the ground alone
+//   (out of its reach, or ground it keeps: those tiles come back as `before`).
+// - `before`: the ground the force started from. `ceiling`: the highest level allowed.
+// - `seed`, `grain`: the personality, and how broad the wander of the steps is, in tiles (about a
+//   third of the feature's radius; at least 6).
+//
+// What it promises, on the tiles the force changed (and the unchanged tiles right beside them):
+//
+// 1. Quantized once. Each tile is rounded once, after a slow drift is added (value noise `grain` tiles
+//    broad): at most 0.35 of a level on level ground, so a floor or a bench the force put on a whole
+//    level stays on it everywhere; up to a whole level where the surface slopes, so where each level
+//    ends wanders by a step's own width: the steps are of uneven width, they pinch out and merge
+//    instead of running round as even bands.
+// 2. No band narrower than two tiles. Every tile lies in a two-by-two square of its own level (or is
+//    the one tile where a band two tiles wide jogs sideways, between two such squares; a band the
+//    map's edge cuts can be one tile wide along the edge). Where
+//    a slope is too steep for that (more than a level in two tiles), its one-tile steps join into
+//    wider steps between higher walls: a steep slope is a cliff with ledges, never a stair. A cliff
+//    the force made by intent (a jump in its surface) stays where it is, whole.
+// 3. No one-tile pillar, pit, ridge, trench or lone block: the same rule, a pit or a trench filling to
+//    the ground beside it.
+//
+// Ground the force did not change is never touched except right beside ground it did (a sliver left
+// between the two would be a fault of the force). Integers, comparisons and the planner's own rounding
+// only: the same bytes natively and in WebAssembly.
+use super::*;
+
+/// Value noise on the map, 0–1, `scale` tiles a cell.
+pub(super) fn lumps(seed: f64, salt: u32, x: f64, y: f64, scale: f64) -> f64 {
+    let (fx, fy) = (x / scale, y / scale);
+    let (x0, y0) = (fx.floor(), fy.floor());
+    let (tx, ty) = (smooth(fx - x0), smooth(fy - y0));
+    let l = |a: i64, b: i64| {
+        let k = ((x0 as i64 + a) as u32).wrapping_mul(73856093) ^ ((y0 as i64 + b) as u32).wrapping_mul(19349663) ^ salt;
+        hash(seed, (k & 0x7fff_ffff) as f64)
+    };
+    let top = l(0, 0) + (l(1, 0) - l(0, 0)) * tx;
+    let bottom = l(0, 1) + (l(1, 1) - l(0, 1)) * tx;
+    top + (bottom - top) * ty
+}
+
+/// The land a force's surface gives (see the top of this file).
+pub(super) fn whole(surface: &[f64], before: &[u8], w: usize, h: usize, ceiling: f64, seed: f64, grain: f64) -> Vec<u8> {
+    let mut land = before.to_vec();
+    let mut changed = vec![false; w * h];
+    for y in 0..h {
+        for x in 0..w {
+            let i = y * w + x;
+            if surface[i].is_nan() {
+                continue;
+            }
+            // (how much the surface slopes here: the lesser of its two steps along each axis, so the
+            // foot and the brink of a cliff count as the level ground they are)
+            let at = |dx: i64, dy: i64| {
+                let (nx, ny) = (x as i64 + dx, y as i64 + dy);
+                if nx < 0 || ny < 0 || nx >= w as i64 || ny >= h as i64 {
+                    return surface[i];
+                }
+                let j = ny as usize * w + nx as usize;
+                if surface[j].is_nan() { before[j] as f64 } else { surface[j] }
+            };
+            let here = surface[i];
+            let slope = max(
+                min((at(1, 0) - here).abs(), (here - at(-1, 0)).abs()),
+                min((at(0, 1) - here).abs(), (here - at(0, -1)).abs()),
+            );
+            // (a surface on a whole level stays there: the drift moves steps, never floors)
+            let drift = (0.7 + 1.3 * smooth(slope / 0.12)) * (lumps(seed, 3320, x as f64, y as f64, grain) - 0.5);
+            let target = here + drift;
+            land[i] = clamp(round(round(target * 4096.0) / 4096.0), 0.0, min(255.0, ceiling)) as u8;
+            changed[i] = land[i] != before[i];
+        }
+    }
+    // (the tiles it may tidy: the ones the force changed, and the force's own tiles right beside them)
+    let mut free = vec![false; w * h];
+    for y in 0..h {
+        for x in 0..w {
+            let i = y * w + x;
+            if !changed[i] {
+                continue;
+            }
+            for ny in y.saturating_sub(1)..=(y + 1).min(h - 1) {
+                for nx in x.saturating_sub(1)..=(x + 1).min(w - 1) {
+                    let j = ny * w + nx;
+                    free[j] = !surface[j].is_nan();
+                }
+            }
+        }
+    }
+    for _ in 0..4 {
+        if !squares(&mut land, w, h, &free) {
+            break;
+        }
+    }
+    nubs(&mut land, w, h, &free);
+    land
+}
+
+/// The last odd tiles: a free tile that stands in no square of its own level, and is not the jog of
+/// a band, takes the level of three tiles of one of its squares that share one (the nearest to its
+/// own), so it stands in a square; or, failing that, of the two tiles on opposite sides of it that
+/// share one.
+fn nubs(land: &mut [u8], w: usize, h: usize, free: &[bool]) {
+    let in_square = |land: &[u8], x: usize, y: usize| {
+        let l = land[y * w + x];
+        let at = |dx: i64, dy: i64| {
+            let (nx, ny) = (x as i64 + dx, y as i64 + dy);
+            nx >= 0 && ny >= 0 && nx < w as i64 && ny < h as i64 && land[ny as usize * w + nx as usize] == l
+        };
+        (at(-1, 0) && at(0, -1) && at(-1, -1)) || (at(1, 0) && at(0, -1) && at(1, -1)) || (at(-1, 0) && at(0, 1) && at(-1, 1)) || (at(1, 0) && at(0, 1) && at(1, 1))
+    };
+    for _ in 0..6 {
+        let mut moved = false;
+        for y in 0..h {
+            for x in 0..w {
+                let i = y * w + x;
+                if !free[i] || in_square(land, x, y) {
+                    continue;
+                }
+                let own = land[i];
+                let same = |land: &[u8], dx: i64, dy: i64| {
+                    let (nx, ny) = (x as i64 + dx, y as i64 + dy);
+                    nx >= 0 && ny >= 0 && nx < w as i64 && ny < h as i64 && land[ny as usize * w + nx as usize] == own && in_square(land, nx as usize, ny as usize)
+                };
+                if (same(land, -1, 0) && same(land, 1, 0)) || (same(land, 0, -1) && same(land, 0, 1)) {
+                    continue;
+                }
+                let at = |dx: i64, dy: i64| {
+                    let (nx, ny) = (x as i64 + dx, y as i64 + dy);
+                    if nx < 0 || ny < 0 || nx >= w as i64 || ny >= h as i64 { None } else { Some(land[ny as usize * w + nx as usize]) }
+                };
+                let mut best: Option<u8> = None;
+                for (dx, dy) in [(-1i64, -1i64), (1, -1), (-1, 1), (1, 1)] {
+                    if let (Some(a), Some(b), Some(c)) = (at(dx, 0), at(0, dy), at(dx, dy)) {
+                        if a == b && b == c && a != own {
+                            let nearer = |v: u8| (v as i32 - own as i32).abs();
+                            if best.map_or(true, |v| nearer(a) < nearer(v) || (nearer(a) == nearer(v) && a < v)) {
+                                best = Some(a);
+                            }
+                        }
+                    }
+                }
+                // (or, between two tiles of one level on opposite sides, theirs: it links them)
+                if best.is_none() {
+                    for (dx, dy) in [(1i64, 0i64), (0, 1)] {
+                        if let (Some(a), Some(b)) = (at(dx, dy), at(-dx, -dy)) {
+                            if a == b && a != own && best.map_or(true, |v| (a as i32 - own as i32).abs() < (v as i32 - own as i32).abs()) {
+                                best = Some(a);
+                            }
+                        }
+                    }
+                }
+                if let Some(to) = best {
+                    land[i] = to;
+                    moved = true;
+                }
+            }
+        }
+        if !moved {
+            break;
+        }
+    }
+}
+
+/// Every free tile in a two-by-two square of its own level. From the highest level down, each square
+/// whose lowest tile stands at that level takes it whole, where its tiles are still to be settled (a
+/// tile that is not free must stand at that level already): so a pillar, a ridge or a step one tile
+/// wide comes down to the widest ground beside it that holds a square, and a stair of one-tile steps
+/// becomes wider steps between higher walls. A tile no square reaches (a pit, a trench, a sliver
+/// between two levels) then joins the ground beside it: the lowest that is no lower than itself,
+/// else the highest. Whether any such tile was left over (then another turn may settle it).
+fn squares(heights: &mut [u8], w: usize, h: usize, free: &[bool]) -> bool {
+    if w < 2 || h < 2 {
+        return false;
+    }
+    const UNSET: u8 = u8::MAX;
+    // (each square with a free tile in it, under its lowest level)
+    let mut levels: Vec<Vec<u32>> = vec![vec![]; 256];
+    for y in 0..h - 1 {
+        for x in 0..w - 1 {
+            let i = y * w + x;
+            if free[i] || free[i + 1] || free[i + w] || free[i + w + 1] {
+                let low = heights[i].min(heights[i + 1]).min(heights[i + w]).min(heights[i + w + 1]);
+                levels[low as usize].push(i as u32);
+            }
+        }
+    }
+    let mut land: Vec<u8> = (0..w * h).map(|i| if free[i] { UNSET } else { heights[i] }).collect();
+    for level in (0..255usize).rev() {
+        let l = level as u8;
+        for &i in &levels[level] {
+            let i = i as usize;
+            let tiles = [i, i + 1, i + w, i + w + 1];
+            if tiles.iter().all(|&t| if free[t] { land[t] == UNSET || land[t] == l } else { heights[t] == l }) {
+                for t in tiles {
+                    land[t] = l;
+                }
+            }
+        }
+    }
+    // The tiles no square reached. Each joins a level that three settled tiles of one of its squares
+    // share (the nearest to its own, so it stands in a square there); where none does, a ring of
+    // them at a time joins the ground beside it (a trench fills from its sides, then stands in squares).
+    let mut left: Vec<u32> = (0..w * h).filter(|&i| land[i] == UNSET).map(|i| i as u32).collect();
+    let any = !left.is_empty();
+    let mut joined: Vec<(u32, u8)> = vec![];
+    let nearer = |to: u8, best: Option<u8>, own: u8| match best {
+        Some(b) if (b as i32 - own as i32).abs() < (to as i32 - own as i32).abs() || ((b as i32 - own as i32).abs() == (to as i32 - own as i32).abs() && b <= to) => Some(b),
+        _ => Some(to),
+    };
+    let mut ring = false;
+    while !left.is_empty() {
+        joined.clear();
+        for &i in &left {
+            let i = i as usize;
+            let (x, y) = (i % w, i / w);
+            let own = heights[i];
+            let at = |dx: i64, dy: i64| {
+                let (nx, ny) = (x as i64 + dx, y as i64 + dy);
+                if nx < 0 || ny < 0 || nx >= w as i64 || ny >= h as i64 { UNSET } else { land[ny as usize * w + nx as usize] }
+            };
+            let mut best = None;
+            if ring {
+                for (dx, dy) in [(-1i64, 0i64), (1, 0), (0, -1), (0, 1)] {
+                    let g = at(dx, dy);
+                    if g != UNSET {
+                        best = match best {
+                            // (the lowest that is no lower than itself, else the highest)
+                            Some(b) if (b >= own && (g < own || g >= b)) || (b < own && g < b) => Some(b),
+                            _ => Some(g),
+                        };
+                    }
+                }
+            } else {
+                for (dx, dy) in [(-1i64, -1i64), (1, -1), (-1, 1), (1, 1)] {
+                    let (a, b, c) = (at(dx, 0), at(0, dy), at(dx, dy));
+                    if a != UNSET && a == b && b == c {
+                        best = nearer(a, best, own);
+                    }
+                }
+            }
+            if let Some(to) = best {
+                joined.push((i as u32, to));
+            }
+        }
+        if joined.is_empty() {
+            if ring {
+                // (nothing settled beside them: they keep their levels)
+                for &i in &left {
+                    land[i as usize] = heights[i as usize];
+                }
+                break;
+            }
+            ring = true;
+            continue;
+        }
+        ring = false;
+        for &(i, to) in &joined {
+            land[i as usize] = to;
+        }
+        left.retain(|&i| land[i as usize] == UNSET);
+    }
+    heights.copy_from_slice(&land);
+    any
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    const W: usize = 48;
+    /// A surface from a function of the tile, on level ground at 8.
+    fn land_of(f: impl Fn(f64, f64) -> f64, seed: f64) -> (Vec<u8>, Vec<u8>) {
+        let before = vec![8u8; W * W];
+        let surface: Vec<f64> = (0..W * W).map(|i| f((i % W) as f64, (i / W) as f64)).collect();
+        (whole(&surface, &before, W, W, 22.0, seed, 8.0), before)
+    }
+    /// Whether a tile lies in a two-by-two square of its own level.
+    fn in_square(land: &[u8], x: usize, y: usize) -> bool {
+        let l = land[y * W + x];
+        let at = |dx: i64, dy: i64| {
+            let (nx, ny) = (x as i64 + dx, y as i64 + dy);
+            nx >= 0 && ny >= 0 && nx < W as i64 && ny < W as i64 && land[ny as usize * W + nx as usize] == l
+        };
+        (at(-1, 0) && at(0, -1) && at(-1, -1)) || (at(1, 0) && at(0, -1) && at(1, -1)) || (at(-1, 0) && at(0, 1) && at(-1, 1)) || (at(1, 0) && at(0, 1) && at(1, 1))
+    }
+    /// Whether a tile stands in ground two tiles wide: in a square of its level, or the one tile where
+    /// a band jogs, between two tiles of its level that are.
+    fn wide(land: &[u8], x: usize, y: usize) -> bool {
+        let l = land[y * W + x];
+        let same = |dx: i64, dy: i64| {
+            let (nx, ny) = (x as i64 + dx, y as i64 + dy);
+            nx >= 0 && ny >= 0 && nx < W as i64 && ny < W as i64 && land[ny as usize * W + nx as usize] == l && in_square(land, nx as usize, ny as usize)
+        };
+        in_square(land, x, y) || (same(-1, 0) && same(1, 0)) || (same(0, -1) && same(0, 1))
+    }
+    fn cone(x: f64, y: f64, slope: f64) -> f64 {
+        8.0 + max(0.0, 12.0 - slope * portable_math::hypot(&[x - 23.5, y - 23.5]))
+    }
+    #[test]
+    fn no_band_is_narrower_than_two_tiles_on_any_slope() {
+        for seed in [0.0, 1.0, 7.0] {
+            for slope in [0.2, 0.45, 0.8, 1.0, 1.6, 3.0] {
+                let (land, _) = land_of(|x, y| cone(x, y, slope), seed);
+                for y in 1..W - 1 {
+                    for x in 1..W - 1 {
+                        assert!(wide(&land, x, y), "slope {slope}, seed {seed}: a band one tile wide at {x},{y}");
+                    }
+                }
+                assert!(*land.iter().max().unwrap() >= 18, "slope {slope}: the cone keeps its height");
+            }
+        }
+    }
+    #[test]
+    fn steps_on_a_slope_are_of_uneven_width() {
+        // (a cone with a level every 3 tiles: rounded alone, every ring is 3 tiles wide)
+        let (land, _) = land_of(|x, y| cone(x, y, 1.0 / 3.0), 3.0);
+        let mut widths = std::collections::BTreeSet::new();
+        for (dx, dy) in [(1i64, 0i64), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, 1)] {
+            let (mut x, mut y, mut run) = (23i64, 23i64, 0);
+            let mut last = land[23 * W + 23];
+            while x > 0 && y > 0 && x < W as i64 - 1 && y < W as i64 - 1 {
+                x += dx;
+                y += dy;
+                let l = land[y as usize * W + x as usize];
+                if l == last {
+                    run += 1;
+                } else {
+                    if last > 8 {
+                        widths.insert(run + 1);
+                    }
+                    run = 0;
+                    last = l;
+                }
+            }
+        }
+        assert!(widths.len() >= 3, "the steps' widths: {widths:?}");
+    }
+    #[test]
+    fn a_floor_on_a_whole_level_stays_on_it_and_a_cliff_stays_whole() {
+        for seed in [0.0, 5.0] {
+            // a pit five levels deep with a level floor and sheer sides
+            let (land, _) = land_of(|x, y| if x >= 10.0 && x < 30.0 && y >= 12.0 && y < 36.0 { 3.0 } else { 8.0 }, seed);
+            for y in 0..W {
+                for x in 0..W {
+                    let inside = x >= 10 && x < 30 && y >= 12 && y < 36;
+                    assert_eq!(land[y * W + x], if inside { 3 } else { 8 }, "seed {seed}: {x},{y}");
+                }
+            }
+        }
+    }
+    #[test]
+    fn no_pillar_pit_ridge_trench_or_lone_block() {
+        let (land, _) = land_of(
+            |x, y| {
+                let (x, y) = (x as usize, y as usize);
+                if (x, y) == (10, 10) || (x == 20 && y > 5 && y < 30) {
+                    11.0 // a pillar and a ridge
+                } else if (x, y) == (30, 30) || (y == 40 && x > 8 && x < 40) {
+                    5.0 // a pit and a trench
+                } else if (x == 35 || x == 36) && y == 12 {
+                    9.0 // a block two tiles by one
+                } else {
+                    8.0
+                }
+            },
+            0.0,
+        );
+        assert!(land.iter().all(|&l| l == 8), "{:?}", land.iter().enumerate().filter(|(_, &l)| l != 8).collect::<Vec<_>>());
+    }
+    #[test]
+    fn ground_the_force_left_alone_is_never_touched() {
+        // the old ground has a pillar and a stair of one-tile steps; the force raises a mound elsewhere
+        let mut before = vec![8u8; W * W];
+        before[5 * W + 5] = 12;
+        for x in 0..6 {
+            for y in 30..W {
+                before[y * W + 40 + x] = 9 + x as u8;
+            }
+        }
+        let surface: Vec<f64> = (0..W * W)
+            .map(|i| {
+                let (x, y) = ((i % W) as f64, (i / W) as f64);
+                let d = portable_math::hypot(&[x - 22.0, y - 16.0]);
+                if d < 9.0 { before[i] as f64 + 4.0 * (1.0 - d / 9.0) } else if d < 12.0 { before[i] as f64 } else { f64::NAN }
+            })
+            .collect();
+        let land = whole(&surface, &before, W, W, 22.0, 2.0, 8.0);
+        for i in 0..W * W {
+            let (x, y) = ((i % W) as f64, (i / W) as f64);
+            if portable_math::hypot(&[x - 22.0, y - 16.0]) >= 10.5 {
+                assert_eq!(land[i], before[i], "{x},{y}");
+            }
+        }
+        assert!(land[16 * W + 22] >= 11);
+    }
+    #[test]
+    fn the_same_land_every_time_and_never_above_the_ceiling() {
+        let a = land_of(|x, y| cone(x, y, 0.7) + 6.0, 9.0).0;
+        let b = land_of(|x, y| cone(x, y, 0.7) + 6.0, 9.0).0;
+        assert_eq!(a, b);
+        assert!(a.iter().all(|&l| l <= 22));
+        assert_ne!(a, land_of(|x, y| cone(x, y, 0.7) + 6.0, 10.0).0, "another seed, other steps");
+    }
+}

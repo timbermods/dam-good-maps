@@ -103,78 +103,174 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
       }
   });
 
-  it("Craterize reads as a crater, not a stadium (showcase-craft gap 25): its rim's crest is uneven round it, and no one-tile pillar or pit is left in the bowl", () => {
-    for (const walls of ["terraced", "steep"] as const)
-      for (const seed of [0, 1, 2, 3]) {
-        const m = fixture("plain", 64);
-        const W = m.W;
-        const p = impact(snapshotMap(m), { ...CRATER_DEFAULTS, walls, seed, power: 60, size: 40, rays: false, debris: "light" }, { origin: 32 * W + 32 });
-        const a = p.anatomy;
-        const h = p.map.heights;
-        const what = `${walls} ${seed}`;
-        // the crest: the most the ground rose along each of 48 bearings, from inside the bowl out past the rim
-        const crest: number[] = [];
-        for (let k = 0; k < 48; k++) {
-          const t = (k / 48) * Math.PI * 2;
-          let top = 0;
-          for (let d = a.radius * 0.6; d < a.radius * 1.3; d += 0.5) {
-            const x = Math.round(a.x + Math.cos(t) * d);
-            const y = Math.round(a.y + Math.sin(t) * d);
-            if (x >= 0 && y >= 0 && x < W && y < m.H) top = Math.max(top, h[y * W + x] - m.heights[y * W + x]);
-          }
-          crest.push(top);
+  /** Whether a tile stands in ground two tiles wide: in a two-by-two square of its own level, or the one tile where
+   *  a band two tiles wide jogs, between two tiles of its level that are (rust/forces/src/levels.rs). */
+  const twoWide = (h: Uint8Array, W: number, H: number, x: number, y: number): boolean => {
+    const square = (x: number, y: number) => {
+      const l = h[y * W + x];
+      const at = (dx: number, dy: number) => x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H && h[(y + dy) * W + x + dx] === l;
+      return (at(-1, 0) && at(0, -1) && at(-1, -1)) || (at(1, 0) && at(0, -1) && at(1, -1)) || (at(-1, 0) && at(0, 1) && at(-1, 1)) || (at(1, 0) && at(0, 1) && at(1, 1));
+    };
+    const l = h[y * W + x];
+    const same = (dx: number, dy: number) => x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H && h[(y + dy) * W + x + dx] === l && square(x + dx, y + dy);
+    return square(x, y) || (same(-1, 0) && same(1, 0)) || (same(0, -1) && same(0, 1));
+  };
+  /** A crater on level ground with nothing on it (the land alone is judged). */
+  const bare = (W: number) => {
+    const m = fixture("plain", W);
+    m.entities = [];
+    return m;
+  };
+
+  it("Craterize leaves nothing narrower than two tiles (showcase-craft gap 25): no one-tile pillar, pit, ridge, trench, lone block or step, in the bowl, on the rim or in the debris, at any size, with either walls, every centre, both debris and rays", () => {
+    const W = 96;
+    for (const [size, power] of [[5, 20], [10, 30], [14, 40], [20, 55], [30, 55], [44, 60], [64, 75]] as const)
+      for (const walls of ["terraced", "steep"] as const)
+        for (const [k, centre] of (["auto", "bowl", "peak", "ring", "flat"] as const).entries()) {
+          const m = bare(W);
+          const settings = { ...CRATER_DEFAULTS, walls, centre, seed: k + size, power, size, rays: k % 2 === 0, debris: k % 3 === 0 ? ("light" as const) : ("heavy" as const) };
+          const h = impact(snapshotMap(m), settings, { origin: 48 * W + 48 }).map.heights;
+          const narrow: string[] = [];
+          for (let y = 1; y < W - 1; y++) for (let x = 1; x < W - 1; x++) if (h[y * W + x] !== m.heights[y * W + x] && !twoWide(h, W, W, x, y)) narrow.push(`${x},${y}`);
+          expect(narrow, `Size ${size}, ${walls}, ${centre}: ground one tile wide`).toEqual([]);
         }
-        expect(Math.max(...crest) - Math.min(...crest), `${what}: the crest's height round the rim`).toBeGreaterThanOrEqual(2);
-        for (let y = 1; y < m.H - 1; y++)
-          for (let x = 1; x < W - 1; x++) {
-            if (Math.hypot(x - a.x, y - a.y) > a.radius * 0.85) continue;
-            const v = h[y * W + x];
-            const n = [h[y * W + x - 1], h[y * W + x + 1], h[(y - 1) * W + x], h[(y + 1) * W + x]];
-            expect(v > Math.max(...n) || v < Math.min(...n), `${what}: a one-tile pillar or pit at ${x},${y}`).toBe(false);
-          }
-      }
   });
 
-  it("Craterize: a central peak stands clear of the lake its crater would hold, so a crater filled as a lake keeps an island", () => {
-    for (const walls of ["terraced", "steep"] as const)
-      for (const seed of [0, 1, 2, 3]) {
-        const m = fixture("plain", 64);
-        const W = m.W;
-        const p = impact(snapshotMap(m), { ...CRATER_DEFAULTS, walls, centre: "peak", seed, power: 60, size: 40, rays: false, debris: "light" }, { origin: 32 * W + 32 });
-        const a = p.anatomy;
-        const h = p.map.heights;
-        const off = (i: number) => Math.hypot((i % W) - a.x, Math.floor(i / W) - a.y);
-        // the lake's level: the lowest pass from the bowl's lowest tile to lower ground past the crater or the
-        // map's edge (a minimax path)
-        let start = Math.round(a.y) * W + Math.round(a.x);
-        for (let i = 0; i < h.length; i++) if (off(i) < a.radius * 0.7 && h[i] < h[start]) start = i;
-        const best = new Array<number>(h.length).fill(Infinity);
-        best[start] = h[start];
-        const queue: [number, number][] = [[h[start], start]];
-        let lake = -1;
-        while (lake < 0 && queue.length) {
-          queue.sort((u, v) => u[0] - v[0]);
-          const [level, i] = queue.shift()!;
-          if (level > best[i]) continue;
-          const [x, y] = [i % W, Math.floor(i / W)];
-          if (x === 0 || y === 0 || x === W - 1 || y === m.H - 1 || (off(i) > a.radius * 1.6 && h[i] < level)) lake = level;
-          else
-            for (const j of [i - 1, i + 1, i - W, i + W]) {
-              const v = Math.max(level, h[j]);
-              if (v < best[j]) [best[j], queue[queue.length]] = [v, [v, j]];
-            }
-        }
-        let top = 0;
-        let island = 0;
-        for (let i = 0; i < h.length; i++)
-          if (off(i) < a.radius * 0.4) {
-            top = Math.max(top, h[i]);
-            if (h[i] > lake) island++;
+  it("Craterize: a small crater is a shallow bowl with no centre, never a shaft, and a crater's depth grows with its size", () => {
+    const W = 96;
+    let last = 0;
+    for (const size of [6, 8, 10, 12, 14, 16, 20, 24, 27])
+      for (const walls of ["terraced", "steep"] as const)
+        for (const seed of [0, 1, 2]) {
+          const m = bare(W);
+          const p = impact(snapshotMap(m), { ...CRATER_DEFAULTS, walls, seed, power: 100, size, rays: false }, { origin: 48 * W + 48 });
+          const a = p.anatomy;
+          const h = p.map.heights;
+          const what = `Size ${size}, ${walls}, ${seed}`;
+          expect(a.centre, what).toBe("bowl");
+          let low = 255;
+          let middle = 0;
+          for (let i = 0; i < h.length; i++) {
+            const d = Math.hypot((i % W) - a.x, Math.floor(i / W) - a.y);
+            if (d < a.radius) low = Math.min(low, h[i]);
+            if (d < Math.max(1.5, a.radius * 0.3)) middle = Math.max(middle, h[i]);
           }
-        const what = `${walls} ${seed}`;
-        expect(top, `${what}: the peak's top above the lake at ${lake}`).toBeGreaterThanOrEqual(lake + 2);
-        expect(island, `${what}: the island's tiles`).toBeGreaterThanOrEqual(8);
-      }
+          // shallow: at most a level for every five tiles across, and one more
+          expect(a.datum - low, `${what}: its depth`).toBeLessThanOrEqual(Math.floor(size / 5) + 1);
+          expect(a.datum - low, `${what}: its depth`).toBeGreaterThanOrEqual(1);
+          // no centre: nothing in the middle stands above the floor's lowest step
+          expect(middle - low, `${what}: its middle above its floor`).toBeLessThanOrEqual(1);
+          expect(a.depth, `${what}: deeper than a smaller crater`).toBeGreaterThanOrEqual(last);
+          if (walls === "steep" && seed === 2) last = a.depth;
+        }
+  });
+
+  it("Craterize reads as a crater, not a stadium (showcase-craft gap 25): its rim's crest is uneven round it, and no bench of its wall runs more than a quarter turn round the bowl", () => {
+    for (const walls of ["terraced", "steep"] as const)
+      for (const [size, power] of [[40, 60], [64, 75]] as const)
+        for (const seed of [0, 1, 2, 3]) {
+          const W = 128;
+          const m = bare(W);
+          const p = impact(snapshotMap(m), { ...CRATER_DEFAULTS, walls, seed, power, size, rays: false, debris: "light" }, { origin: 64 * W + 64 });
+          const a = p.anatomy;
+          const h = p.map.heights;
+          const what = `${walls} ${size} ${seed}`;
+          // the crest: the most the ground rose along each of 48 bearings, from inside the bowl out past the rim
+          const crest: number[] = [];
+          for (let k = 0; k < 48; k++) {
+            const t = (k / 48) * Math.PI * 2;
+            let top = 0;
+            for (let d = a.radius * 0.6; d < a.radius * 1.3; d += 0.5) {
+              const x = Math.round(a.x + Math.cos(t) * d);
+              const y = Math.round(a.y + Math.sin(t) * d);
+              if (x >= 0 && y >= 0 && x < W && y < m.H) top = Math.max(top, h[y * W + x] - m.heights[y * W + x]);
+            }
+            crest.push(top);
+          }
+          expect(Math.max(...crest) - Math.min(...crest), `${what}: the crest's height round the rim`).toBeGreaterThanOrEqual(2);
+          // a bench: tiles of one level that touch, in the wall (past half the way out), above the floor and its
+          // hummocks and below the ground round the crater; the turn it takes is the whole circle less its widest gap
+          const floor = a.datum - Math.round(a.depth);
+          const inWall = (i: number) => {
+            const d = Math.hypot((i % W) - a.x, Math.floor(i / W) - a.y);
+            return h[i] > floor + 1 && h[i] < a.datum && d >= a.radius * 0.5 && d <= a.radius * 1.05;
+          };
+          const seen = new Uint8Array(h.length);
+          for (let s = 0; s < h.length; s++) {
+            if (seen[s] || !inWall(s)) continue;
+            const stack = [s];
+            const bearings: number[] = [];
+            seen[s] = 1;
+            while (stack.length) {
+              const i = stack.pop()!;
+              bearings.push(Math.atan2(Math.floor(i / W) - a.y, (i % W) - a.x));
+              for (const j of [i - 1, i + 1, i - W, i + W])
+                if (!seen[j] && h[j] === h[s] && inWall(j)) {
+                  seen[j] = 1;
+                  stack.push(j);
+                }
+            }
+            bearings.sort((u, v) => u - v);
+            let gap = bearings[0] + Math.PI * 2 - bearings[bearings.length - 1];
+            for (let k = 1; k < bearings.length; k++) gap = Math.max(gap, bearings[k] - bearings[k - 1]);
+            expect(((Math.PI * 2 - gap) * 180) / Math.PI, `${what}: a bench's turn round the bowl, at level ${h[s]}`).toBeLessThanOrEqual(90);
+          }
+        }
+  });
+
+  it("Craterize: a central peak stands clear of the lake its crater would hold, so a crater filled as a lake keeps an island; it is a mountain, below the rim's crest, never a tower", () => {
+    for (const walls of ["terraced", "steep"] as const)
+      for (const [size, power] of [[40, 60], [30, 55], [60, 5]] as const)
+        for (const seed of [0, 1, 2, 3]) {
+          const W = 128;
+          const m = bare(W);
+          const p = impact(snapshotMap(m), { ...CRATER_DEFAULTS, walls, centre: "peak", seed, power, size, rays: false, debris: "light" }, { origin: 64 * W + 64 });
+          const a = p.anatomy;
+          const h = p.map.heights;
+          const off = (i: number) => Math.hypot((i % W) - a.x, Math.floor(i / W) - a.y);
+          // the lake's level: the lowest pass from the bowl's lowest tile to lower ground past the crater or the
+          // map's edge (a minimax path)
+          let start = Math.round(a.y) * W + Math.round(a.x);
+          for (let i = 0; i < h.length; i++) if (off(i) < a.radius * 0.7 && h[i] < h[start]) start = i;
+          const best = new Array<number>(h.length).fill(Infinity);
+          best[start] = h[start];
+          const queue: [number, number][] = [[h[start], start]];
+          let lake = -1;
+          while (lake < 0 && queue.length) {
+            queue.sort((u, v) => u[0] - v[0]);
+            const [level, i] = queue.shift()!;
+            if (level > best[i]) continue;
+            const [x, y] = [i % W, Math.floor(i / W)];
+            if (x === 0 || y === 0 || x === W - 1 || y === m.H - 1 || (off(i) > a.radius * 1.6 && h[i] < level)) lake = level;
+            else
+              for (const j of [i - 1, i + 1, i - W, i + W]) {
+                const v = Math.max(level, h[j]);
+                if (v < best[j]) [best[j], queue[queue.length]] = [v, [v, j]];
+              }
+          }
+          let top = 0;
+          let island = 0;
+          let foot = 0;
+          let crest = 0;
+          let low = 255;
+          for (let i = 0; i < h.length; i++) {
+            if (off(i) < a.radius * 0.45) {
+              top = Math.max(top, h[i]);
+              low = Math.min(low, h[i]);
+              if (h[i] > lake) island++;
+            }
+            if (off(i) < a.radius * 1.4) crest = Math.max(crest, h[i]);
+          }
+          for (let i = 0; i < h.length; i++) if (off(i) < a.radius * 0.45 && h[i] > low + 1) foot++;
+          const what = `${walls} ${size} ${seed}`;
+          expect(top, `${what}: the peak's top above the lake at ${lake}`).toBeGreaterThanOrEqual(lake + 2);
+          expect(island, `${what}: the island's tiles`).toBeGreaterThanOrEqual(8);
+          if (power > 5) {
+            expect(top, `${what}: the peak's top, under the rim's crest at ${crest}`).toBeLessThanOrEqual(crest);
+            // a mountain: as broad at its foot as a cone that rises a level and a half a tile
+            expect(Math.sqrt(foot / Math.PI), `${what}: the peak's foot, ${foot} tiles, under a top ${top - low} levels up`).toBeGreaterThanOrEqual((top - low) / 1.5);
+          }
+        }
   });
 
   it("Erupt: Vent and Fissure, Steep and Broad (the prototype's height and reach, reshaped by D321 item 14; without the start: D257)", () => {
