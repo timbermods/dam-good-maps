@@ -707,6 +707,21 @@ function openBypass(s: MapSession, land: Land, brooks: boolean): void {
   }
 }
 
+/** The game's first camera as the game's own capture records it (C:/dgm-probe/captures/four-lakes-r8/captures.json:
+ *  position (69.79, 33.30, 86.06) for the start at (78, 98, level 7)): the line of sight passes the start's middle at
+ *  its ground's level, and the zoom's distance (ZoomBase ^ (0.1 z) x 32) is measured to where that line meets level
+ *  0, not to the start. analysis/opening.ts `openingCamera` measures it to the start a level up, so it puts the eye
+ *  about 8 levels too high and 4 tiles too far back. */
+function gameFirstCamera(st: { x: number; y: number; z: number }): { eye: [number, number, number]; look: [number, number]; right: [number, number]; distance: number; ground: [number, number] } {
+  const look: [number, number] = [0.573576436351046, 0.8191520442889918];
+  const right: [number, number] = [0.8191520442889918, -0.573576436351046];
+  const distance = Math.pow(1.3, 0.1 * st.z) * 32;
+  const reach = st.z / Math.sqrt(3);
+  const gx = st.x + 0.5 + look[0] * reach;
+  const gy = st.y + 0.5 + look[1] * reach;
+  return { eye: [gx - look[0] * distance * 0.5, gy - look[1] * distance * 0.5, distance * 0.8660254037844386], look, right, distance, ground: [gx, gy] };
+}
+
 /** Where the Great Fall stands in the game's first camera (analysis/opening.ts): its lip's ends and its foot, in the
  *  first frame and pulled back to the widest (u across, v up, each -1 to 1 inside the frame). */
 function firstFrame(s: MapSession, land: Land): void {
@@ -720,7 +735,7 @@ function firstFrame(s: MapSession, land: Land): void {
   void ys;
   const a = lip[0];
   const z = lip[lip.length - 1];
-  for (const [name, cam] of [["first frame", openingCamera(st)], ["widest", openingCamera(st, VISTA_ZOOM)]] as const) {
+  for (const [name, cam] of [["first frame (the game's own camera)", gameFirstCamera(st) as never], ["first frame by opening.ts", openingCamera(st)], ["widest", openingCamera(st, VISTA_ZOOM)]] as const) {
     const pts = [
       frameAt(cam, (a % W) + 0.5, Math.floor(a / W) + 0.5, top),
       frameAt(cam, (z % W) + 0.5, Math.floor(z / W) + 0.5, top),
@@ -740,14 +755,13 @@ function firstFrame(s: MapSession, land: Land): void {
 function shots(s: MapSession, weatherDays: { drought: number; badtide: number }): unknown[] {
   const st = startOf(s);
   const cam = openingCamera(st, VISTA_ZOOM);
-  const first = openingCamera(st);
   const deg = Math.PI / 180;
   const opening = (c: typeof cam) => ({ yaw: -35 * deg, pitch: 60 * deg, distance: c.distance, target: [c.target[0], c.target[2], c.target[1]] });
   const best = { yaw: -45 * deg, pitch: 27 * deg, distance: 215, target: [104, 6, 104] };
   const far = { yaw: -45 * deg, pitch: 52 * deg, distance: 330, target: [96, 5, 96] };
   return [
     { name: "01-opening", label: "The game's first camera, pulled back (vista)", view: opening(cam) },
-    { name: "02-opening-first", label: "The game's first frame", view: opening(first) },
+    { name: "02-opening-first", label: "The game's first frame (its own camera)", view: { yaw: -35 * deg, pitch: 60 * deg, distance: gameFirstCamera(st).distance, target: [gameFirstCamera(st).ground[0], 0, gameFirstCamera(st).ground[1]] } },
     { name: "03-best-side", label: "Best side: up the valley", view: best },
     { name: "04-far", label: "The whole map", view: far },
     { name: "05-top", label: "Top-down", top: true, view: { yaw: 0, pitch: 89 * deg, distance: 300, target: [96, 5, 96] } },
@@ -830,7 +844,6 @@ function main(): void {
       ]);
       lap("the route");
     }
-    dryStray(s, land);
     plant(s, land);
     const pc = plantCount(s);
     log(`  plants: ${pc.trees} living trees (${Math.round(pc.per10k.trees)} per 10,000 tiles), ${pc.dead} dead, ${pc.berries} berry bushes (${Math.round(pc.per10k.berries)} per 10,000), ${pc.succulents} succulents`);

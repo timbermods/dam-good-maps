@@ -362,7 +362,7 @@ const SEED = 4107;
 export const GREAT_LIP: Pt[] = Array.from({ length: 10 }, (_, k) => [78 + k, 108 - k] as Pt);
 /** The start's middle tile: nine tiles in front of the Great Fall's lip, so the curtain fills the upper middle of the
  *  game's first camera (Cw0: it looks 35 degrees east of north). */
-export const START_AT: Pt = [78, 98];
+export const START_AT: Pt = [80, 101];
 
 /** How far the land has risen `t` tiles beyond a meadow's edge: a crag (`c1` levels in a tile), a bench `w1` wide
  *  that climbs a level, a second crag (`c2`), then a slope. Where `c1` is 1 the crag is a plain step: a way up. */
@@ -666,7 +666,7 @@ export function designLand(): Land {
       const shore = Math.max(0, Math.floor((Math.min(-d, isle) - 1.0) / 1.5));
       const channelDepth = L.deep > 2 ? (line < 2.6 ? 5 : line < 4.8 ? 3 : 1) : line < 4.5 ? 2 : 1;
       // (a shelf at the sill's level, a shallow margin, then the drop into the channel: drop-offs, not rings)
-      let depth = Math.min(L.deep, shore === 0 ? 0 : shore === 1 ? 1 : channelDepth);
+      let depth = Math.min(L.deep, shore === 0 ? 0 : shore === 1 ? (L.deep > 2 ? Math.min(2, channelDepth) : 1) : channelDepth);
       if (k >= LAKES.length) depth = Math.min(L.deep, Math.max(0, Math.floor((Math.min(-d, isle) - 0.6) / 2.4 + 1.5 * fbm(x + 3 * k, y - 5 * k, 5, SEED + 46, 2) + 0.2)));
       // (the cove's head has a cut bank: deep water right at the meadow, so a pump there works through a drought)
       if (k === 0 && Math.hypot(x + 0.5 - 69, y + 0.5 - 74) < 5.5) depth = 2;
@@ -766,9 +766,11 @@ export function designLand(): Land {
     crests.push(tiles);
   }
 
-  for (let y = START_AT[1] - 3; y <= START_AT[1] + 3; y++)
-    for (let x = START_AT[0] - 3; x <= START_AT[0] + 3; x++) {
+  for (let y = START_AT[1] - 2; y <= START_AT[1] + 2; y++)
+    for (let x = START_AT[0] - 2; x <= START_AT[0] + 2; x++) {
       const i = y * W + x;
+      const own = Math.abs(x - START_AT[0]) <= 1 && Math.abs(y - START_AT[1]) <= 1;
+      if (!own && GREAT_POOL.has(i)) continue;
       h[i] = 7;
       lake[i] = 0;
       channel[i] = 0;
@@ -826,6 +828,9 @@ export function designLand(): Land {
   return { heights: h, lake, channel, pool, crests, beds, plugs, guarded, gates, brookHeads };
 }
 
+/** The tiles of the Great Fall's own pool (the start's pad leaves them). */
+const GREAT_POOL = new Set<number>();
+
 /** The Great Fall: the lip's ten tiles and the row behind them at the hanging valley's bed (14), three more rows of
  *  bed behind those; in front, the pool four tiles deep (each lip tile pours over its south and its west side). */
 function greatFall(h: Uint8Array, lake: Uint8Array, channel: Uint8Array): number[] {
@@ -843,14 +848,15 @@ function greatFall(h: Uint8Array, lake: Uint8Array, channel: Uint8Array): number
     tiles.push(y * W + x);
   }
   for (const [x, y] of GREAT_LIP)
-    for (let a = 0; a <= 4; a++)
-      for (let b = 0; a + b <= 4; b++) {
+    for (let a = 0; a <= 2; a++)
+      for (let b = 0; a + b <= 2; b++) {
         if (a + b === 0) continue;
         const i = (y - b) * W + x - a;
         if (channel[i] === hv) continue;
-        h[i] = a + b >= 4 ? 3 : 2;
+        h[i] = 2;
         lake[i] = 2;
         channel[i] = 0;
+        GREAT_POOL.add(i);
       }
   return tiles;
 }
