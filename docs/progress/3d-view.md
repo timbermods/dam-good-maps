@@ -3515,6 +3515,49 @@ core; the map stores its Coordinates, its orientation and flip (drawn turned, ne
   weathers them. (4) It is judged against the game's model rendered offline, not the game's own light. (5) The rest of
   the placeholders in the large relic's falls short (2) remain.
 
+## The thorns as the game draws them (D135, D178 as amended 2026-11-10, D496, D497; `fix/thorns`)
+
+Ours drew thorns as a low red-brown bramble of our own, two squashed balls with six canes (64 triangles), and High as a
+bramble of canes over a rock. The game's (`Thorns.Model`, 141 triangles, material `Thorns` on EnvironmentURP, its
+texture cut out by its alpha at 0.312) is the one model for every thorn bush; the map stores its Coordinates and its
+orientation and flip (drawn turned, never flipped).
+
+- **Its states:** none. No code of the game's names thorns beyond its blueprint; the bush is a block object with no
+  growth and no dying or dead form, unlike the plants, so it has one look in every season.
+- **Read from the game's model** (numbers only, scratch tools): 13 solid spikes, eight four-sided 0.35–0.49 high and five
+  three-sided about 0.18; and 35 two-sided twig cards whose texture keeps 10–16 % of each card, thin branches forked into
+  twigs. With its cut-out, it reaches −0.06 to 0.55 up and x −0.69…0.66, z −0.68…0.76 about its tile's middle,
+  overhanging it. Its texture over the spikes pales from 0.14 at their foot to 0.42 at their points (mean
+  0.184/0.158/0.132, metallic 0.13, smoothness 0.19), over the twigs 0.236/0.203/0.171 where not cut out (metallic 0.15,
+  smoothness 0.2), folded into albedo for our light as the relics' are (`palette.ts` `THORNS`): each spike's foot
+  0.12/0.103/0.085 and its point 0.228/0.2/0.172, so a spike's mean is the game's folded 0.156/0.135/0.114; the twigs
+  0.199/0.175/0.149.
+- **Built** (`render3d/thorns.ts`, new): the 13 spikes at the game's corners, coloured corner by corner; and of each of
+  the 22 branches its longest twigs (one or two, those longer than 0.15), each a three-sided cone from the branch's foot
+  to the twig's end, up to 0.05 thick at its foot: 164 triangles. On the relics' `Parts`; its own colour at each
+  corner. Standard and High draw the same model (High's bramble goes), in the objects' game light, with the objects'
+  fade near the pointer.
+- **Measured:** the bounds within 0.02 of the game's, but z's far side (0.68 against 0.76: its farthest twig is a side
+  twig). The silhouette, against the game's cut-out from 16 cameras (8 headings, 30° and 60° down) and from above: at
+  400 pixels 0.82–0.91 times the game's area, IoU 0.49–0.69; at 100 pixels, as a bush shows on a map, 0.62–0.79, IoU
+  0.51–0.70. The game's twigs are knobbly and branch again; our straight cones cover less where its forks spread.
+- **Standard's shadow:** none, as before. The game's model casts a lattice of thin twigs and spikes, about 0.5 tiles² off its
+  ground along the 45° sun but nowhere darker than 0.45 over half a tile, the bake's own sample. The best one or two
+  upright discs (the only shape the bake draws) share no more than 0.28 of their union with the model's shadow round the
+  compass, covering at most half of it, so they would draw a solid patch where the game draws a faint speckle. High casts the
+  model's own shadow.
+- **Judged:** offline, ours beside the game's model rendered with its texture's cut-out, from the 17 views: dark spikes
+  paling to their points among thin pale twigs, the bush's spread and height the game's; sparser, its twigs straight.
+- **Cost:** +100 triangles a bush in Standard; in High, where the bramble was, about 2,200 fewer a bush (its shadow's
+  pass counted); the draw calls unchanged. `benchOrbit` on river valley 2 at 128 with 16 thorn bushes (1600 × 900,
+  headed Chrome, RTX 2070 Super; the GPU's median a frame, one run each, base → branch): Standard whole map 2.64 → 1.31
+  ms, the bushes 14 away 2.81 → 2.58; High 1.92 → 1.43 and 3.80 → 3.80, triangles 289,874 → 253,970 and 297,250 →
+  261,346: within the runs' spread or better. Every frame 7.0 ms at 144 Hz.
+- **Falls short:** (1) The twigs are straight cones along the longest twigs alone; the game's knobbly, forking cards
+  and their side twigs are simplified, so ours reads sparser up close. (2) Standard casts no shadow where the game's
+  speckle darkens the ground a little. (3) It is judged against the game's model rendered offline, not the game's own
+  light. (4) The rest of the placeholders in the large relic's falls short (2) remain.
+
 ## A fall over a cave's mouth (D154 as amended 2026-11-08, D496; `fix/cave-mouth-curtain`)
 
 The in-game capture kit (#933) on Four Lakes r9: at the Great Fall the game draws one curtain over a dry cave's mouth

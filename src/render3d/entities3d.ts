@@ -33,7 +33,8 @@
 //   pit's corners falling into it as an earthen bank; no scaffolding, as the game has none. With Markers, an outline
 //   round its footprint (the terrain shader). Geothermal fields: dark rock with glowing
 //   vents. Relics: the game's fallen telescope (small), crashed satellite (medium) and fallen dish antenna (large), at
-//   their measures and in their colours (smallRelics.ts, largeRelic.ts). Thorns: dark brambles. Blockages: the game's heap
+//   their measures and in their colours (smallRelics.ts, largeRelic.ts). Thorns: the game's dark spikes paling to
+//   their points among thin forked twigs (thorns.ts). Blockages: the game's heap
 //   of grey rock with broken posts and pale plank shards (blockage.ts). Natural dams: the game's low heap of brown rock with
 //   logs through it and flat stones over it (naturalDam.ts). Timberborn 1.x objects, each shaped after the game's own render and in its game
 //   footprint: seeps (a stone slab at the ground round a pit, the terrain's tops over its 2 × 2
@@ -60,11 +61,12 @@ import { FOOTPRINTS, rotate, startEntranceTile, worldBlocks, type Orientation } 
 import { DEAD, DYING, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
 import { plantScale, RANDOMIZER } from "./plantSize";
 import { DEAD_FORM, DEAD_LIMBS, type DeadPart, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
-import { crownShade, GEOTHERMAL, GEOTHERMAL_ROCK, LANDMARK, MINE, OWN_LIGHTNESS, ownAlbedo, RUIN, SLOPE, START, THORNS, TREE_COLOURS, WATER } from "./palette";
+import { crownShade, GEOTHERMAL, GEOTHERMAL_ROCK, LANDMARK, MINE, OWN_LIGHTNESS, ownAlbedo, RUIN, SLOPE, START, TREE_COLOURS, WATER } from "./palette";
 import { objectSoilAt } from "./runSoil";
 import { badtideDrainParts } from "./badtideDrain";
 import { blockageParts } from "./blockage";
 import { naturalDamParts } from "./naturalDam";
+import { thornsParts } from "./thorns";
 import { unstableCoreParts } from "./unstableCore";
 import { largeRelicParts } from "./largeRelic";
 import { mediumRelicParts, smallRelicParts } from "./smallRelics";
@@ -468,11 +470,17 @@ const MODELS: Record<string, () => Model> = {
   // (the game's low heap of brown rock, logs through it and flat stones over it, at its measures and in its colours:
   // naturalDam.ts)
   NaturalDam: () => fromParts(naturalDamParts()),
+  // (the game's spikes and twigs, at their measures and in their colours, each corner its own: thorns.ts)
   Thorns: () => {
-    // a low, dark bramble with thorny canes sticking out
-    const m = new Model().add(ico(0.34), THORNS, { y: 0.2, sy: 0.6 }).add(ico(0.24), [0.28, 0.14, 0.12], { x: 0.18, y: 0.3, z: -0.1, sy: 0.8 });
-    for (let k = 0; k < 6; k++) branch(m, 0.14 + 0.06 * (k % 2), (k * Math.PI) / 3 + 0.3, 0.5 + 0.25 * (k % 3), 0.34, 0.035, k % 2 ? [0.4, 0.2, 0.16] : [0.25, 0.12, 0.1]);
-    return m;
+    const { points, colours } = thornsParts();
+    const g = new BufferGeometry();
+    g.setAttribute("position", new Float32BufferAttribute(points, 3));
+    let k = 0;
+    return new Model().add(g, () => {
+      const c: Rgb = [colours[k], colours[k + 1], colours[k + 2]];
+      k += 3;
+      return c;
+    });
   },
   WaterSeep: () => seep(false),
   BadwaterSeep: () => seep(true),
@@ -488,7 +496,7 @@ const MODELS: Record<string, () => Model> = {
 /** The models in the game's own colours, its albedo straight (palette.ts `TREE_COLOURS`, `LANDMARK`, `SMALL_RELIC`, `MEDIUM_RELIC`, `LARGE_RELIC`, `BLOCKAGE`; the
  *  ruins and the start are made apart). Every other model's colours are our own, drawn at `ownAlbedo` (palette.ts
  *  `OWN_LIGHTNESS`). */
-const GAME_COLOURED = new Set(["Pine", "Birch", "Oak", "BlueberryBush", "WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep", "SmallRelic", "MediumRelic", "LargeRelic", "Blockage", "NaturalDam", "BadtideDrain", "UnstableCore"]);
+const GAME_COLOURED = new Set(["Pine", "Birch", "Oak", "BlueberryBush", "WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep", "SmallRelic", "MediumRelic", "LargeRelic", "Blockage", "NaturalDam", "BadtideDrain", "UnstableCore", "Thorns"]);
 for (const key of Object.keys(MODELS))
   if (!GAME_COLOURED.has(key.split(".")[0])) {
     const make = MODELS[key];
