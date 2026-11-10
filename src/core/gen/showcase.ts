@@ -135,7 +135,7 @@ function formWord(f: StandingForm): string {
 }
 
 /** The game's first frame as the arc reads it (D493): the opening camera at the game's own zoom
- *  (the start's level × 0.1, about 30 × 45 tiles round the start), what the player sees as the game
+ *  (the start's level × 0.1, about 38 × 42 tiles round the start), what the player sees as the game
  *  opens, before pulling back. */
 interface FirstFrame {
   camera: OpeningCamera;
