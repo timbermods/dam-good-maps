@@ -398,6 +398,26 @@ const SEEP_BASIN = Number(process.env.FL_SEEP_BASIN ?? 0);
 const SEEP_BED = Number(process.env.FL_SEEP_BED ?? 0);
 const COVE_POOL = process.env.FL_COVE !== "0";
 const BENCH_SOUTH = Number(process.env.FL_BENCH ?? 79);
+/** (r14) The Still Pool: the start's first defence against a badtide, in the first frame. A shallow pool on the
+ *  lawn under the crag, beside the Great Fall, fed from the water at the fall's foot (which stands at 6.7, over the
+ *  bay's 6.3) through a neck one tile wide and two long. Its bed and the neck's are one level under the bench: one
+ *  levee on the neck shuts it, and it then holds clean water whose surface stays within a level of the bench, so
+ *  the game's soil carries it 16 tiles across the level lawn. Left alone it runs red with the fall, and in a drought
+ *  it drains out through its neck as the fall stops (a flat bed: nothing is held), so the start's drought numbers
+ *  are r13's. Rows are [y, first x, last x]. `FL_STILL=0` leaves it out. */
+const STILL = process.env.FL_STILL ?? "1";
+const STILL_ROWS: [number, number, number][] = [[107, 70, 74], [106, 69, 74], [105, 68, 73], [104, 68, 71]];
+const STILL_NECK: Pt[] = [[75, 106], [76, 106]];
+/** (Tried: a bed at 5. The water at the fall's foot lies behind a rock step at 6, so a deeper pool holds a level of
+ *  water through a drought with no work: the bench 46 % moist on day 9 against 25 %, the start's water never gone.
+ *  A pool three wide carries its water the soil's full 16 tiles; a longer pool along the crag gains no green.) */
+const STILL_BED = Number(process.env.FL_STILL_BED ?? 6);
+/** (r14) An empty basin's bank is a step of two levels at the old waterline all round (the beach a level over the
+ *  sill, the floor a level under it: no shelf between), but for one landing each, where a shelf at the sill keeps
+ *  the walk down to the floor: [x, y, radius] by the basin's name. */
+const LANDINGS: Record<string, [number, number, number]> = { "High Tarn": [79, 149, 3.6], "Hill Tarn": [56, 98, 3.2], "Bench Tarn": [139, 72, 3.4] };
+/** The old beach's width: a ring of this many tiles at the sill + 1 all round an empty basin. */
+const BEACH = Number(process.env.FL_BEACH ?? 2.3);
 /** The drowned river through the Great Fall's bay: from the fall's foot round the start to the breach in the weir. */
 const BAY_RIVER: Pt[] = [[83.5, 100.5], [84.5, 96.5], [87.5, 92.5], [90, 90.3], [89.9, 87.6]];
 /** The Great Fall's lip: ten tiles on a diagonal from (78, 108) south-east to (87, 99), a face 14 tiles long that
@@ -466,6 +486,8 @@ export interface Land {
   brookHeads: number[][];
   /** r12, the ladder's works: a row of bed tiles across a channel for each (a blockage row or a dam's place). */
   works: Record<string, number[]>;
+  /** r14: the Still Pool's tiles and its neck's (pool side first); empty without it. */
+  still: { pool: number[]; neck: number[] };
   /** r12: seeps (x, y, strength): a weak spring at the head of a dry bed or in an empty basin's hollow. Its water
    *  dries up within the bed or the basin (the game's evaporation: 1e-4 a second times 1.2 to 4.3 a tile). */
   seeps: [number, number, number][];
@@ -756,7 +778,12 @@ export function designLand(): Land {
       let depth = Math.min(L.deep, shore === 0 ? 0 : shore === 1 ? (L.deep > 2 ? Math.min(2, channelDepth) : 1) : channelDepth);
       if (k >= LAKES.length) depth = Math.min(L.deep, Math.max(0, Math.floor((Math.min(-d, isle) - 0.6) / 2.4 + 1.5 * fbm(x + 3 * k, y - 5 * k, 5, SEED + 46, 2) + 0.2)));
       // (r12: an empty basin's floor is flat with uneven hollows, its deepest by its seep: no rings)
-      if (L.dry) depth = Math.hypot(x + 0.5 - L.seed[0] - 1.5, y + 0.5 - L.seed[1] + 1) + 1.2 * fbm(x, y, 4, SEED + 55, 2) < 2.3 ? 2 : -d > 2.4 + 1.2 * fbm(x, y, 5, SEED + 52, 2) ? 1 : 0;
+      if (L.dry) {
+        const land0 = LANDINGS[L.name];
+        const landing = BEACH > 0 && land0 !== undefined && Math.hypot(x + 0.5 - land0[0], y + 0.5 - land0[1]) < land0[2];
+        const shelf = BEACH > 0 ? landing : !(-d > 2.4 + 1.2 * fbm(x, y, 5, SEED + 52, 2));
+        depth = Math.hypot(x + 0.5 - L.seed[0] - 1.5, y + 0.5 - L.seed[1] + 1) + 1.2 * fbm(x, y, 4, SEED + 55, 2) < 2.3 ? 2 : shelf ? 0 : 1;
+      }
       // (the cove's head has a cut bank: deep water right at the meadow, so a pump there works through a drought)
       if (k === 0 && Math.hypot(x + 0.5 - 69, y + 0.5 - 74) < 5.5) depth = 2;
       // (the Great Fall's bay, all of Weir Lake that the game's first frame holds: shallow. In the game water five
@@ -881,6 +908,41 @@ export function designLand(): Land {
       channel[i] = 0;
     }
 
+  // (r14) the old beach: a ring at the sill + 1 all round each empty basin, but beside a bed (the leat coming in,
+  // the brook going out keep their banks)
+  if (BEACH > 0)
+    for (let k = 0; k < BODIES.length; k++) {
+      const L = BODIES[k];
+      if (!L.dry) continue;
+      for (let i = 0; i < N; i++) {
+        const d = g[k][i];
+        if (!(d >= 0 && d < BEACH) || lake[i] || channel[i] || pool[i]) continue;
+        const x = i % W;
+        const y = (i - x) / W;
+        let bed = false;
+        for (let dy = -1; dy <= 1 && !bed; dy++)
+          for (let dx = -1; dx <= 1; dx++) {
+            const xx = x + dx;
+            const yy = y + dy;
+            if (xx >= 0 && yy >= 0 && xx < W && yy < H && channel[yy * W + xx]) bed = true;
+          }
+        if (!bed) h[i] = L.sill + 1;
+      }
+    }
+
+  // (r14) the Still Pool and its neck: part of Weir Lake's water (the fall's foot)
+  const still = { pool: [] as number[], neck: [] as number[] };
+  if (STILL !== "0") {
+    for (const [y, x0, x1] of STILL_ROWS) for (let x = x0; x <= x1; x++) still.pool.push(y * W + x);
+    for (const [x, y] of STILL_NECK) still.neck.push(y * W + x);
+    for (const i of [...still.pool, ...still.neck]) {
+      if (h[i] !== 7) throw new Error(`the Still Pool at ${i % W},${Math.floor(i / W)}: not the bench (${h[i]})`);
+      h[i] = STILL_BED;
+      lake[i] = 2;
+      channel[i] = 0;
+    }
+  }
+
   tidy(h, lake, channel, pool);
 
   // the plugs: a row of the old channel's tiles, across it
@@ -999,7 +1061,7 @@ export function designLand(): Land {
     const i = works[name].length ? below(name, works[name], 1.2) : -1;
     if (i >= 0) seeps.push([i % W, Math.floor(i / W), SEEP_BED]);
   }
-  return { heights: h, lake, channel, pool, crests, beds, plugs, guarded, gates, brookHeads, works, seeps };
+  return { heights: h, lake, channel, pool, crests, beds, plugs, guarded, gates, brookHeads, works, seeps, still };
 }
 
 /** The tiles of the Great Fall's own pool (the start's pad leaves them). */

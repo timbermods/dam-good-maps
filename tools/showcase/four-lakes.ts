@@ -383,14 +383,14 @@ function startOf(s: MapSession): { x: number; y: number; z: number; orientation:
 // ------------------------------------------------------------------------------------------------- plants
 
 /** Tiles' distance to water (4-neighbour steps), and how far each stands over that water's surface. */
-function waterReach(s: MapSession): { dist: Int16Array; over: Int8Array } {
+function waterReach(s: MapSession, skip: ReadonlySet<number> = new Set()): { dist: Int16Array; over: Int8Array } {
   const b = s.built;
   const dist = new Int16Array(N).fill(-1);
   const over = new Int8Array(N);
   const top = new Int8Array(N);
   let q: number[] = [];
   for (let i = 0; i < N; i++)
-    if (b.water[i] > 0.05) {
+    if (b.water[i] > 0.05 && !skip.has(i)) {
       dist[i] = 0;
       top[i] = Math.ceil(b.heights[i] + b.water[i]);
       q.push(i);
@@ -418,8 +418,14 @@ function waterReach(s: MapSession): { dist: Int16Array; over: Int8Array } {
 function plant(s: MapSession, land: Land): void {
   const b = s.built;
   const st = startOf(s);
-  const { dist, over } = waterReach(s);
-  const moist = (i: number) => b.moisture[i] > 0 && !(b.water[i] > 0);
+  // (r14) the Still Pool waters more of the bench and the ground west of it on day 1; the wood stays r13's: living
+  // plants stand only where the ground is moist without the pool (the soil of the same water with the pool empty)
+  const still = new Set([...land.still.pool, ...land.still.neck]);
+  const water0 = Float64Array.from(b.water);
+  for (const i of still) water0[i] = 0;
+  const moist0 = still.size ? hazardSoil(b.waterModel, b.heights, { depth: water0, contamination: b.contamination, stack: null } as never, b.entities as never).moisture : b.moisture;
+  const { dist, over } = waterReach(s, still);
+  const moist = (i: number) => b.moisture[i] > 0 && moist0[i] > 0 && !(b.water[i] > 0);
   const nearStart = (i: number, r: number) => Math.hypot((i % W) - st.x, Math.floor(i / W) - st.y) < r;
   const n = (i: number, scale: number, seed: number) => fbm(i % W, Math.floor(i / W), scale, 9000 + seed, 2);
   const oldBed = (i: number) => land.channel[i] > 0 && (CHANNELS[land.channel[i] - 1].name === "Old channel" || (CHANNELS[land.channel[i] - 1].brook !== undefined && !(b.water[i] > 0.05) && n(i, 9, 44) > 0.1));
@@ -519,13 +525,56 @@ function plant(s: MapSession, land: Land): void {
   const dry = (i: number) => !(b.moisture[i] > 0) && !(b.water[i] > 0) && !land.lake[i] && !land.pool[i];
   count.succulents = paint("succulents", "Succulent", (i) => dry(i) && oldDist[i] > 3 && (i % W) > 100 && Math.floor(i / W) < 100 && n(i, 26, 4) > -0.05 && n(i, 7, 41) > -0.12, 0.5, 16, "Succulent drifts on the limestone benches of the south-east: dry for good");
   count.thorns = paint("thorns", undefined, (i) => dry(i) && !nearStart(i, 34) && (oldBed(i) ? n(i, 12, 5) > 0.15 : oldDist[i] > 6 && n(i, 14, 6) > 0.52), 0.3, 17, "Thorns in the old channel and the dry gullies");
-  // dead woods along the old channel: the wood that stood by its water
+  // (r14) the dead wood stands as a few woods, never a scatter: in the game's far view bare white trees sprinkled
+  // over the grey benches read as noise. Each wood is a dense clump where water stood: on a dry bed and its banks
+  // (the old channel's, a dry brook's), or on an empty basin's old beach. The benches between stay bare.
   const before = new Set(s.built.entities.map((e) => e.id));
-  count.dead = paint("trees", "Birch", (i) => dry(i) && oldDist[i] >= 1 && oldDist[i] <= 6 && n(i, 10, 7) > -0.1, 0.3, 18, "The old channel's dead birches");
-  count.dead += paint("trees", "Oak", (i) => dry(i) && oldDist[i] >= 3 && oldDist[i] <= 9 && n(i, 13, 8) > 0.25, 0.25, 19, "The old channel's dead oaks");
-  // (r12) a dead wood at each empty basin's old shoreline
-  count.dead += paint("trees", "Birch", (i) => dry(i) && dBasin[i] >= 1 && dBasin[i] <= 4 && n(i, 13, 57) > 0.02, 0.5, 37, "The dead birches at the old shorelines");
-  count.dead += paint("trees", "Oak", (i) => dry(i) && dBasin[i] >= 2 && dBasin[i] <= 4 && n(i, 13, 57) > 0.12, 0.3, 38, "The dead oaks at the old shorelines");
+  void oldDist;
+  void dBasin;
+  const far = (i: number, j: number) => Math.hypot((i % W) - (j % W), Math.floor(i / W) - Math.floor(j / W));
+  const hash = (i: number, seed: number) => Math.imul(i ^ Math.imul(seed, 0x9e3779b1), 0x85ebca6b) >>> 0;
+  /** Up to `max` centres among `cand`, in a seeded order, each at least `apart` from the others and from `taken`. */
+  const centres = (cand: number[], apart: number, max: number, seed: number, taken: number[] = []): number[] => {
+    const order = cand.slice().sort((p, q) => hash(p, seed) - hash(q, seed) || p - q);
+    const c: number[] = [];
+    for (const i of order) {
+      if (c.length >= max) break;
+      if (c.every((j) => far(i, j) >= apart) && taken.every((j) => far(i, j) >= apart)) c.push(i);
+    }
+    return c;
+  };
+  const inWood = (c: number[], r: number, seed: number) => (i: number) => c.some((j) => far(i, j) < r + 1.5 * n(i, 5, seed));
+  const keepClear = [...Object.values(land.works).flat(), ...land.plugs.flat(), ...land.gates.flat()];
+  const dryBed = (i: number) => land.channel[i] > 0 && !(b.water[i] > 0.05) && !(b.moisture[i] > 0) && (CHANNELS[land.channel[i] - 1].name === "Old channel" || CHANNELS[land.channel[i] - 1].brook !== undefined);
+  const dBed = spread(dryBed, 4);
+  const aqueduct = 44 * W + 157;
+  const bedCentres = centres(
+    Array.from({ length: N }, (_, i) => i).filter((i) => dryBed(i) && !nearStart(i, 34) && far(i, aqueduct) > 24 && keepClear.every((j) => far(i, j) > 7)),
+    46,
+    6,
+    71,
+  );
+  const birchHere = (i: number) => n(i, 4, 61) > -0.12;
+  const bedWood = (i: number) => (dry(i) || dryBed(i)) && dBed[i] <= 4 && inWood(bedCentres, 6.5, 62)(i);
+  count.dead = paint("trees", "Birch", (i) => bedWood(i) && birchHere(i), 0.8, 18, "The dead woods on the dry beds: birch");
+  count.dead += paint("trees", "Oak", (i) => bedWood(i) && !birchHere(i), 0.8, 19, "The dead woods on the dry beds: oak");
+  const woodsAt: string[] = bedCentres.map((i) => `${i % W},${Math.floor(i / W)}`);
+  // a dead wood or two on each empty basin's old beach
+  for (const T of TARNS) {
+    if (!T.dry) continue;
+    const dT = spread((i) => tarnOf(i) === T, 6);
+    const c = centres(
+      Array.from({ length: N }, (_, i) => i).filter((i) => dry(i) && !land.channel[i] && dT[i] >= 2 && dT[i] <= 3 && keepClear.every((j) => far(i, j) > 5)),
+      20,
+      2,
+      72,
+    );
+    const shoreWood = (i: number) => dry(i) && !land.channel[i] && dT[i] >= 1 && dT[i] <= 5 && inWood(c, 5.5, 63)(i);
+    count.dead += paint("trees", "Birch", (i) => shoreWood(i) && birchHere(i), 0.8, 37, `The dead wood on ${T.name}'s old beach: birch`);
+    count.dead += paint("trees", "Oak", (i) => shoreWood(i) && !birchHere(i), 0.8, 38, `The dead wood on ${T.name}'s old beach: oak`);
+    woodsAt.push(...c.map((i) => `${i % W},${Math.floor(i / W)} (${T.name})`));
+  }
+  log(`  dead woods at: ${woodsAt.join("; ")}; and the one by the old aqueduct`);
   // the dead wood: one stand of it, by the old aqueduct on the dry benches
   count.dead += paint("trees", "Pine", (i) => dry(i) && Math.hypot((i % W) - 157, Math.floor(i / W) - 44) < 10 && oldDist[i] > 1, 0.6, 23, "The dead wood by the old aqueduct");
   const dead = s.built.entities.filter((e) => !before.has(e.id) && (e.template === "Birch" || e.template === "Oak" || e.template === "Pine"));
@@ -885,10 +934,35 @@ function placeObjects(s: MapSession, land: Land): void {
           if (d > far) (far = d), (pair = [p, q]);
         }
       if (!pair) continue;
-      const tall = w.rung === "medium" ? 5 : w.kind === "dam" ? 2 : 3;
+      // (r14) four piers in a row across the bed, two on each bank, the taller pair at the bed: an old sluice whose
+      // middle is gone, so the place of the answer reads from the far view
+      const tall = w.rung === "medium" ? 7 : w.kind === "dam" ? 4 : 5;
+      const cx = row.reduce((a, i) => a + (i % W), 0) / row.length;
+      const cy = row.reduce((a, i) => a + Math.floor(i / W), 0) / row.length;
+      const beyond = (p: number): number => {
+        const px = p % W;
+        const py = Math.floor(p / W);
+        const len = Math.hypot(px - cx, py - cy) || 1;
+        const qx = px + Math.round((px - cx) / len);
+        const qy = py + Math.round((py - cy) / len);
+        const q = qy * W + qx;
+        return qx >= 0 && qy >= 0 && qx < W && qy < H && q !== p && !set.has(q) && !land.channel[q] && !land.lake[q] && !land.pool[q] && !(s.built.water[q] > 0.05) ? q : -1;
+      };
       ruin(tall, pair[0] % W, Math.floor(pair[0] / W), `The old sluice at ${w.name}`, "A");
-      if (pair[1] !== pair[0]) ruin(tall + 1, pair[1] % W, Math.floor(pair[1] / W), `The old sluice at ${w.name}`, "C");
+      const o0 = beyond(pair[0]);
+      if (o0 >= 0) ruin(tall - 2, o0 % W, Math.floor(o0 / W), `The old sluice at ${w.name}`, "B");
+      if (pair[1] !== pair[0]) {
+        ruin(tall + 1, pair[1] % W, Math.floor(pair[1] / W), `The old sluice at ${w.name}`, "C");
+        const o1 = beyond(pair[1]);
+        if (o1 >= 0 && o1 !== o0) ruin(tall - 1, o1 % W, Math.floor(o1 / W), `The old sluice at ${w.name}`, "D");
+      }
     }
+  // (r14) the Still Pool's neck: two low piers on the bench beside it, in the first frame: a gate stood here
+  if (land.still.neck.length) {
+    const i = land.still.neck[0];
+    ruin(3, i % W, Math.floor(i / W) + 1, "The old sluice at the Still Pool's neck", "B");
+    ruin(2, i % W, Math.floor(i / W) - 1, "The old sluice at the Still Pool's neck", "D");
+  }
   // relics on the way
   put("MediumRelic", 49, 45, "The relic on Low Lake's island", {}, [3, 3]);
   put("SmallRelic", 46, 15, "The relic at the Gate", {}, [2, 2]);
@@ -971,11 +1045,12 @@ function shots(s: MapSession, weatherDays: { drought: number; badtide: number })
 
 /** The map's own words, as the game shows them with the map (600 characters at most). */
 const DESCRIPTION =
-  "Four lakes step down a valley over rock sills and falls; your first home stands at the foot of the Great Fall, a cave and a relic behind it. " +
-  "A brook runs to the rim on each side; the rest is dry, and each dry bed has its answer: a notch to clear, a bed to dam, a basin to close, a leat to open. " +
-  "Water led from a spring tarn runs red in a badtide: dam its notch. " +
-  "In a drought each lake sinks through the gap in its sill: mend the weir, plug a notch, raise a sill. " +
-  "In a badtide the red comes down the stair in a day: clear the old channel, shut the gates at the springs, and it runs round every lake.";
+  "Four lakes step down a valley over rock sills and falls; your first home stands under the Great Fall, a cave behind it. " +
+  "Before a badtide, put a levee on the Still Pool's neck by the fall: it stays clean and keeps half your lawn green. " +
+  "A brook runs to the rim on each side; each dry bed has an answer: a notch to clear, a bed to dam, a basin to close, a leat to open. " +
+  "A spring tarn's water runs red in a badtide: dam its notch. " +
+  "In a drought each lake sinks through its sill's gap: mend it. " +
+  "In a badtide the red comes down the stair in a day: clear the old channel and shut the gates at the springs.";
 
 /** The start's bench through a Normal drought, day by day: how much of it is still moist, Weir Lake's level, and
  *  the day the start's water goes by the editor's own rule. */
@@ -1017,6 +1092,89 @@ function benchReport(s: MapSession, land: Land): void {
   }
   run.dispose();
   log(`  the start's water is gone: ${sw.has ? (sw.day ? "day " + sw.day : "not in 9 days") : "no water a pump reaches"}`);
+}
+
+/** TOOL (r14): the first badtide (and a drought) at the start, both ways: left alone, and with the one small work,
+ *  a levee on the Still Pool's neck, built while the water is clean. By day: the pool's water (depth, volume, its
+ *  worst badwater), and the bench's ground: green (moist and clean), bad (contaminated) or dry, on the whole bench
+ *  and within 12 tiles of the start. The what-if keeps the settled water and changes only the neck's tile. */
+function firstBadtide(s: MapSession, land: Land): void {
+  const st = startOf(s);
+  const bay = 97 * W + 84;
+  const seen = new Uint8Array(N);
+  const q = [st.y * W + st.x];
+  seen[q[0]] = 1;
+  for (let k = 0; k < q.length; k++) {
+    const i = q[k];
+    const x = i % W;
+    for (const j of [i - 1, i + 1, i - W, i + W]) if (j >= 0 && j < N && Math.abs((j % W) - x) <= 1 && !seen[j] && s.built.heights[j] === st.z && !(s.built.water[j] > 0.05)) (seen[j] = 1), q.push(j);
+  }
+  const near = q.filter((i) => Math.hypot((i % W) - st.x, Math.floor(i / W) - st.y) <= 12);
+  const full = { depth: Float64Array.from(s.built.water), contamination: Float64Array.from(s.built.contamination), stack: (s.built.settle as unknown as { stack?: unknown }).stack ?? null };
+  if (land.still.pool.length) {
+    const cam = openingCamera(st);
+    const uv = [...land.still.pool, ...land.still.neck].map((i) => frameAt(cam, (i % W) + 0.5, Math.floor(i / W) + 0.5, 7));
+    const us = uv.map((p) => p?.u ?? NaN);
+    const vs = uv.map((p) => p?.v ?? NaN);
+    const p0 = land.still.pool[0];
+    log(`the Still Pool: ${land.still.pool.length} tiles and a neck of ${land.still.neck.length}; on day 1 it stands at ${(s.built.heights[p0] + s.built.water[p0]).toFixed(2)} (the bay ${(s.built.heights[bay] + s.built.water[bay]).toFixed(2)}); in the first frame u ${Math.min(...us).toFixed(2)} to ${Math.max(...us).toFixed(2)}, v ${Math.min(...vs).toFixed(2)} to ${Math.max(...vs).toFixed(2)}; the bench ${q.length} level tiles (${near.length} within 12)`);
+  }
+  const pct = (n: number, of: number) => Math.round((100 * n) / of);
+  const run = (hazard: "drought" | "badtide", days: number, label: string) => {
+    const b = s.built;
+    const r = new HazardRun(b.waterModel, { depth: full.depth, contamination: full.contamination, stack: full.stack } as never, hazard, days);
+    const sw = new StartWaterDays(hazard, { depth: full.depth, contamination: full.contamination }, { W, H, heights: b.heights, objects: b.entities as never, start: { x: st.x, y: st.y }, within: startWaterWithin(s) });
+    log(`${hazard}, ${days} days, ${label}:`);
+    let worst = 101;
+    let worstDay = 0;
+    for (let day = 1; day <= days; day++) {
+      r.step(TICKS_PER_DAY);
+      const w = r.water();
+      sw.see({ depth: w.depth, contamination: w.contamination });
+      const soil = hazardSoil(b.waterModel, b.heights, w as never, b.entities as never);
+      const green = (t: number[]) => t.filter((i) => soil.moisture[i] > 0 && !(soil.contamination[i] > 0)).length;
+      const bad = (t: number[]) => t.filter((i) => soil.contamination[i] > 0).length;
+      let vol = 0;
+      let c = 0;
+      let wet = 0;
+      for (const i of land.still.pool) {
+        if (!(w.depth[i] > 0.02)) continue;
+        wet++;
+        vol += w.depth[i];
+        c = Math.max(c, w.contamination[i]);
+      }
+      const g = pct(green(q), q.length);
+      if (g < worst) (worst = g), (worstDay = day);
+      log(`  day ${day}: the pool ${wet ? `${(vol / wet).toFixed(2)} deep on ${wet} tiles, ${vol.toFixed(1)} of water, ${c > 0.05 ? `bad ${(c * 100).toFixed(0)} %` : "clean"}` : "dry"}; the bench green ${g} %, bad ${pct(bad(q), q.length)} %, dry ${100 - g - pct(bad(q), q.length)} % (within 12 tiles: green ${pct(green(near), near.length)} %, bad ${pct(bad(near), near.length)} %); the bay ${(b.heights[bay] + w.depth[bay]).toFixed(2)}`);
+      if (has("diag") && (day === 1 || day === days)) {
+        const on = new Set(q);
+        for (let y = 109; y >= 79; y--) {
+          let row = `    y ${String(y).padStart(3)} `;
+          for (let x = 52; x <= 86; x++) {
+            const i = y * W + x;
+            row += on.has(i) ? (soil.contamination[i] > 0 ? "x" : soil.moisture[i] > 0 ? "m" : ".") : w.depth[i] > 0.05 ? (w.contamination[i] > 0.05 ? "#" : "~") : " ";
+          }
+          log(row);
+        }
+      }
+    }
+    r.dispose();
+    log(`  the bench's green at its worst: ${worst} % (day ${worstDay}); the start's water ${hazard === "drought" ? "is gone" : "turns bad"}: ${sw.has ? (sw.day ? "day " + sw.day : "not in " + days + " days") : "the start has no water a pump reaches"}`);
+  };
+  run("badtide", 8, "left alone");
+  run("drought", 9, "left alone");
+  if (!land.still.pool.length) return;
+  const neck = land.still.neck[0];
+  const was = s.built.heights[neck];
+  s.setWaterMode("defer");
+  applyOps(s, [{ op: "sculpt", params: { mode: "flatten", cells: runsWhere((i) => i === neck), level: st.z, exact: true }, label: "A levee on the Still Pool's neck" }]);
+  full.depth[neck] = 0;
+  run("badtide", 8, `one levee on the neck (${neck % W}, ${Math.floor(neck / W)})`);
+  run("drought", 9, "the same levee");
+  applyOps(s, [{ op: "sculpt", params: { mode: "flatten", cells: runsWhere((i) => i === neck), level: was, exact: true }, label: "The neck as it was" }]);
+  s.setWaterMode("canonical");
+  applyOps(s, [{ op: "setDescription", params: { text: DESCRIPTION + " " } }]);
+  applyOps(s, [{ op: "setDescription", params: { text: DESCRIPTION } }]);
 }
 
 // ------------------------------------------------------------------------------------------- how it plays
@@ -1396,7 +1554,7 @@ function main(): void {
       let row = `y ${String(y).padStart(3)}: `;
       for (let x = x0; x <= x1; x++) {
         const i = y * W + x;
-        row += s.built.water[i] > 0.02 ? (s.built.heights[i] + s.built.water[i]).toFixed(1).padStart(5) : `  ${String(s.built.heights[i]).padStart(2)} `;
+        row += has("beds") ? `${String(s.built.heights[i]).padStart(3)}${s.built.water[i] > 0.02 ? "~" : " "}` : s.built.water[i] > 0.02 ? (s.built.heights[i] + s.built.water[i]).toFixed(1).padStart(5) : `  ${String(s.built.heights[i]).padStart(2)} `;
       }
       log(row);
     }
@@ -1435,6 +1593,10 @@ function main(): void {
     writeFileSync(join(OUT, `${ROUND}-shots.json`), JSON.stringify(shots(s, { drought: 9, badtide: 8 }), null, 1));
     log(`  saved ${join(OUT, `${ROUND}.timber`)} (${f.timber.length} bytes), project ${f.project.length} bytes`);
     lap("save");
+  }
+  if (has("firstbad")) {
+    firstBadtide(s, land);
+    lap("the first badtide");
   }
   if (has("irrigate")) {
     irrigation(s, land);
