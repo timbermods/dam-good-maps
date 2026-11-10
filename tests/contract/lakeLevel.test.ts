@@ -134,6 +134,21 @@ describe("Lakes by number: four lakes stepping down a valley", () => {
     expect(s.exportTimber().bytes).toEqual(t.exportTimber().bytes);
   });
 
+  it("cuts a notch wider than the river's course where the outlet is a gap one tile wide", () => {
+    // (the top rim at 18 but for one tile at 17: the river crosses that tile alone)
+    const s = staircase({ shape: (h) => {
+      for (let y = 26; y <= 29; y++) for (let x = VALLEY.x0; x <= VALLEY.x1; x++) h[y * W + x] = x === 24 ? 17 : 18;
+    } });
+    const plan = planLakeLevel(s, LAKE[0][0], LAKE[0][1], 15);
+    expect(plan.reason).toBeNull();
+    expect(plan.sill).toBe("cut");
+    // (its floor, a level under the crest, spans the notch's width, not the one tile the river ran over)
+    const floor = plan.tiles.filter((i, k) => plan.levels[k] === 14 && Math.floor(i / W) === 28);
+    expect(floor.length).toBeGreaterThanOrEqual(plan.width!);
+    expect(plan.surface).toBeGreaterThanOrEqual(15);
+    expect(plan.surface).toBeLessThan(16);
+  });
+
   it("widens a cut notch for a strong river, so its water stands under a level over the sill", () => {
     // (four sources of 6: 24 blocks a second over the top rim)
     const s = staircase({ sources: 4, strength: 6 });

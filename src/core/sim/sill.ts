@@ -196,11 +196,17 @@ export function sillFor(inp: SillInput, x: number, y: number, level: number, wid
     }
     // (a deterministic integer hash: the same on every peer)
     const hash = (a: number) => Math.imul(a ^ (a >>> 15), 0x2c1b3c6d) >>> 0;
+    // (how far a tile stands out past the floor: the floor's half width a tile wider for three tiles of every seven
+    // along the line; the floor itself is 0)
+    const outOf = (i: number) => {
+      const k = near[i];
+      return Math.max(0, dist8[i] - (w >> 1) - ((Math.floor(k / 3) + (line[k] % 7)) % 7 < 3 ? 1 : 0));
+    };
+    // (the notch's sides, off the river's course, never lower than a level above the lake; its floor is the notch)
+    const flank = (i: number, v: number) => (!course[i] && outOf(i) > 0 ? Math.max(v, level + 1) : v);
     const levelAt = (i: number): number => {
       const k = near[i];
-      // (the floor's half width, a tile wider for three tiles of every seven along the line)
-      const half = (w >> 1) + ((Math.floor(k / 3) + (line[k] % 7)) % 7 < 3 ? 1 : 0);
-      let out = dist8[i] - half;
+      let out = outOf(i);
       if (out <= 0) return low;
       // (benches one or two tiles wide, their widths changing every six tiles along the river)
       const part = Math.floor(k / 6) * 97 + 13;
@@ -216,7 +222,7 @@ export function sillFor(inp: SillInput, x: number, y: number, level: number, wid
       if (lake[i] || !editable(i)) continue;
       let v = levelAt(i);
       if (neighbours(i, W, H).some((n) => lake[n])) v = Math.max(v, level);
-      if (!course[i]) v = Math.max(v, level + 1);
+      v = flank(i, v);
       if (v < top(i)) set.set(i, v);
     }
     // a clean-up: a lone column above all four of its neighbours (or a lone pit below them) takes the nearest of their
@@ -228,7 +234,7 @@ export function sillFor(inp: SillInput, x: number, y: number, level: number, wid
       const loN = Math.min(...hs);
       let u = v > hiN ? hiN : v < loN && !course[i] ? loN : v;
       if (neighbours(i, W, H).some((n) => lake[n])) u = Math.max(u, level);
-      if (!course[i]) u = Math.max(u, level + 1);
+      u = flank(i, u);
       if (u >= top(i)) set.delete(i);
       else set.set(i, u);
     }
@@ -323,10 +329,12 @@ export function sillFor(inp: SillInput, x: number, y: number, level: number, wid
   if (bank > level) {
     // the bank's ends carried along the shore at the level to ground above the water, so it joins the land at both ends
     // (an end: a tile of the bank beside the shore, ground at the level or higher, none of it above the water)
+    let tries = 0;
     for (const e of [...set.keys()]) {
-      if (set.get(e) !== bank) continue;
+      if (set.get(e) !== bank || tries >= 4) continue;
       const shore = neighbours(e, W, H).filter((n) => !set.has(n) && !side[n] && !low[n]);
       if (!shore.length || shore.some((n) => top(n) >= bank)) continue;
+      tries++;
       const from = new Map<number, number>([[e, -1]]);
       const walk = [e];
       let hit = -1;
@@ -342,9 +350,11 @@ export function sillFor(inp: SillInput, x: number, y: number, level: number, wid
         }
       for (let c = hit; c >= 0 && c !== e; c = from.get(c)!) set.set(c, bank);
     }
-    // two tiles thick where it shows: each tile above the water takes the tile behind it, off the river's course
+    // two tiles thick where it shows: each tile above the water takes the tile behind it, off the river's course and
+    // clear of the spillway's way out (a bank closing in on it held the river back: a settle three times as long)
+    const byWay = (n: number) => neighbours(n, W, H).some((m) => spillway.has(m));
     for (const [i, v] of [...set])
-      if (v === bank) for (const n of neighbours(i, W, H)) if (!set.has(n) && !side[n] && editable(n) && !course[n] && top(n) < bank) set.set(n, bank);
+      if (v === bank) for (const n of neighbours(i, W, H)) if (!set.has(n) && !side[n] && editable(n) && !course[n] && !byWay(n) && top(n) < bank) set.set(n, bank);
     // a clean-up: a tile above the water with no other beside it (alone, or meeting the bank at a corner only) stays at
     // the level
     const above = (i: number) => (set.get(i) ?? top(i)) >= bank;
