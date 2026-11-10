@@ -3785,9 +3785,18 @@ fn carve_falls(m: &Map, path: &[CarveStation], height: Option<f64>, floor: f64, 
     // (nor can it fall less than the land does: where its water lands, the ground in front of the lip across the stream's
     // width, the carve only cuts, so ground already lower than the bed below a set Fall gives a taller drop, or a step)
     // (just in front of the lip no lower than its bed; a few tiles on, no lower than a riffle under it, or the water
-    // falls again there, a step in the fall)
+    // falls again there, a step in the fall; and where water already stands there, a river or a lake the carve can't
+    // drain, its water lands on that, however long the stroke: the most it can fall. Levels to the nearest)
     let lip = falls[0].top - 1.0;
-    let least = max(lip - landing(m, &path[..=falls[0].end], set_width, 2.5), lip - landing(m, &path[..=falls[0].end], set_width, LANDING) - (FALL_DROP - 1.0));
+    let (near, standing) = landing(m, path, falls[0].end, set_width, 2.5);
+    let (far, _) = landing(m, path, falls[0].end, set_width, LANDING);
+    if standing.is_finite() {
+        let most = (lip - standing + 0.5).floor();
+        if height > most {
+            return Err(FALL_SHORT + max(0.0, most) as u32);
+        }
+    }
+    let least = max((lip - near - 0.5).ceil(), (lip - far - 0.5).ceil() - (FALL_DROP - 1.0));
     if least > height {
         return Err(FALL_STEEP + min(least, 60.0) as u32);
     }
@@ -3816,27 +3825,36 @@ fn carve_falls(m: &Map, path: &[CarveStation], height: Option<f64>, floor: f64, 
 /// How far in front of a fall's lip its water runs on as part of the same fall (tiles): ground a fall's height lower
 /// there drops it again a few tiles on, a step in the fall.
 const LANDING: f64 = 5.5;
-/// The lowest ground in front of a fall's lip, across its stream's width and, as its water spreads where it lands,
-/// as much wider each side as it is ahead: within `reach` tiles past the last station along its heading (`stations`:
-/// the course to the lip).
-fn landing(m: &Map, stations: &[CarveStation], set_width: bool, reach: f64) -> f64 {
-    let (e, p) = (&stations[stations.len() - 1], &stations[stations.len().saturating_sub(3)]);
-    let (hx, hy) = (e.x - p.x, e.y - p.y);
+/// The lowest surface in front of a fall's lip (the ground, or the water standing on it), across its stream's width
+/// and, as its water spreads where it lands, as much wider each side as it is ahead: within `reach` tiles past its
+/// lip station `end` of `path` along its heading; and the lowest surface of water standing there (infinite: none).
+fn landing(m: &Map, path: &[CarveStation], end: usize, set_width: bool, reach: f64) -> (f64, f64) {
+    let (e, p) = (&path[end], &path[end.saturating_sub(2)]);
+    // (where the stream is a station or two long, its heading on to the course past the lip)
+    let (hx, hy) = match path.get(end + 1) {
+        Some(q) if hypot(e.x - p.x, e.y - p.y) <= 0.5 => (q.x - e.x, q.y - e.y),
+        _ => (e.x - p.x, e.y - p.y),
+    };
     let len = hypot(hx, hy);
     let (hx, hy) = if len > 0.5 { (hx / len, hy / len) } else { (0.0, 0.0) };
     let half = max(FALL_WIDTH, if set_width { e.width } else { min(e.width, STREAM_WIDTH) }) * 0.72 + 0.5;
     let span = 2.0 * reach + half;
-    let mut low = f64::INFINITY;
+    let (mut low, mut wet) = (f64::INFINITY, f64::INFINITY);
     for y in max(0.0, (e.y - span).floor()) as usize..=min((m.h - 1) as f64, (e.y + span).ceil()) as usize {
         for x in max(0.0, (e.x - span).floor()) as usize..=min((m.w - 1) as f64, (e.x + span).ceil()) as usize {
             let (rx, ry) = (x as f64 - e.x, y as f64 - e.y);
             let along = rx * hx + ry * hy;
             if along > 0.5 && along <= reach && (rx * hy - ry * hx).abs() <= half + along {
-                low = min(low, m.heights[y * m.w + x] as f64);
+                let i = y * m.w + x;
+                let d = m.depth[i];
+                low = min(low, m.heights[i] as f64 + if d > 0.05 { d } else { 0.0 });
+                if d > 0.05 {
+                    wet = min(wet, m.heights[i] as f64 + d);
+                }
             }
         }
     }
-    low
+    (low, wet)
 }
 /// The level water standing on each tile rises to before it leaves the map, over `ground` (a priority flood from the
 /// map's edges, which drain).
@@ -3976,6 +3994,9 @@ struct CarveState {
     fall_cut_at: usize,
     /// The fall's face: the ground in front of its lip cut to where the water lands, once its stream is cut.
     fall_face: Vec<(usize, u8)>,
+    /// The face's tiles once cut: the carve's guard against a lone spike or pit (`reject_isolated`) never holds them
+    /// partway, so the face falls whole to its landing and no step of it stands dry inside the lip.
+    faced: Vec<u8>,
 }
 impl CarveState {
     fn new(
@@ -4147,6 +4168,7 @@ impl CarveState {
             fall_cuts: vec![],
             fall_cut_at: 0,
             fall_face: vec![],
+            faced: vec![0; n],
         };
         r.stamp(x, y);
         if !planning && r.character.wander >= 0.85 && p * r.character.intensity >= 0.6 {
@@ -4189,16 +4211,21 @@ impl CarveState {
             }
             // (a stream above a fall from the origin: its sources stand back from the brink of a drop a fall's height,
             // so none spills off the stream's side into a notch of the edge; the bank there stands, `hold_fall`)
-            if r.falls.first().is_some_and(|f| f.start == 0) {
+            // (and within the stream's own width, never on the high ground kept beside it)
+            if let Some(f) = r.falls.first().filter(|f| f.start == 0) {
                 let (w, h) = (before.w, before.h);
                 let z = before.heights[origin];
+                let set_width = r.settings.width.is_some() && r.options.unleashed.is_none();
+                let (sx, sy, sw) = f.stations[0];
+                let reach = max(FALL_WIDTH, if set_width { sw } else { min(sw, STREAM_WIDTH) }) * 0.72;
                 for i in 0..n {
                     let (xx, yy) = (i % w, i / w);
                     let brink = [(xx > 0).then(|| i - 1), (xx + 1 < w).then(|| i + 1), (yy > 0).then(|| i - w), (yy + 1 < h).then(|| i + w)]
                         .into_iter()
                         .flatten()
                         .any(|j| before.heights[j] as f64 <= z as f64 - FALL_DROP);
-                    if brink && i != origin {
+                    let beside = hypot(xx as f64 - sx, yy as f64 - sy) > reach;
+                    if (brink || beside) && i != origin {
                         occupied[i] = 1;
                     }
                 }
@@ -4621,7 +4648,12 @@ impl CarveState {
         // farther on, so the curtain falls whole and clean and faces open ground, never a dark slot)
         let mut face = vec![];
         if let (Some(&(ex, ey, ew)), Some(&(px, py, _))) = (f.stations.last(), f.stations.get(f.stations.len().saturating_sub(3))) {
-            let (hx, hy) = (ex - px, ey - py);
+            // (its heading along the stream, or where the stream is a station or two long, from its start on to the
+            // course past the lip: two stations a tile apart give a heading too rough to face the edge by)
+            let (hx, hy) = match f.course.get(f.before.len()) {
+                Some(&(nx, ny)) if hypot(ex - px, ey - py) <= 0.5 => (nx - ex, ny - ey),
+                _ => (ex - px, ey - py),
+            };
             let len = hypot(hx, hy);
             let ew = max(FALL_WIDTH, if set_width { ew } else { min(ew, STREAM_WIDTH) });
             let half = ew * 0.72 + 0.5;
@@ -4773,6 +4805,7 @@ impl CarveState {
                 if level < self.target[i] && self.sign[i] <= 0 {
                     self.target[i] = level;
                     self.channel[i] = 1;
+                    self.faced[i] = 1;
                     // (no bank raises it)
                     self.stream[i] = 1;
                     self.activate(i);
@@ -5303,12 +5336,15 @@ impl CarveState {
                 if (v < lo && self.map.heights[i] >= oldlo)
                     || (v > hi && self.map.heights[i] <= oldhi)
                 {
+                    // (a fall's face is cut whole however it steps on the way: its tiles are never held back)
                     if self.delta[i] != 0 {
-                        self.delta[i] = 0;
-                        again = true;
+                        if self.faced[i] == 0 {
+                            self.delta[i] = 0;
+                            again = true;
+                        }
                     } else {
                         for &j in &ns {
-                            if self.delta[j] != 0 {
+                            if self.delta[j] != 0 && self.faced[j] == 0 {
                                 self.delta[j] = 0;
                                 again = true;
                             }

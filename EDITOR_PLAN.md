@@ -654,7 +654,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   under the pool's spill level) and **Banks** (item 18, Auto: 0 to 10 tiles of flat land each side of the river
   before the walls, wider inside a bend, at the river's waterline, the bed below them by the river's depth, at least
   two levels; moist for crops and may flood when the river refills, D307; `rust/forces`, `shape_river`) and **Fall**
-  (showcase craft gaps 1, 2 and 20; Auto, "Edges", or 2 to 12): where the course leaves high ground over an edge (the
+  (showcase craft gaps 1, 2 and 20; Auto, "Edges", or 4 to 12: a landmark fall; lower is a rapid): where the course leaves high ground over an edge (the
   ground three levels or more lower within two stations, or an escarpment five down within four, its terraces too
   narrow to stand between two falls) it falls: on the ground just above the edge (back to where the course runs more
   than a level higher, so a course down a slope keeps its own carve on the slope, and on over any plateau above it the
@@ -679,7 +679,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   can't leave the map at the bed it is cut to, the stroke ending in a hollow of higher ground ("No drop of 4 here: the
   stroke ends before the water below can drain; draw it on to lower ground"), and one shorter than the land already
   falls where its water lands, or a few tiles on, where ground a fall's height lower would step it, since a carve only
-  cuts ("No drop of 2 here: the land falls at least 3 below the edge"). A bay of lower ground beside the stream that meets the face is cut to the landing with it, so water leaving
+  cuts ("No drop of 4 here: the land falls at least 5 below the edge"). A bay of lower ground beside the stream that meets the face is cut to the landing with it, so water leaving
   the stream's side falls the whole height with the curtain; the river's own sources stand back from the brink. Size sets the fall's width
   (on Auto the stream stays a stream; a set Size makes it as wide as the river). Unleash's course takes the land's own falls the same way (`rust/forces`, `carve_falls`, `hold_fall`). **Keep
   river** (default) leaves a source group at the origin (D314, `core/water/sourceGroups.ts`: a row across the heading,

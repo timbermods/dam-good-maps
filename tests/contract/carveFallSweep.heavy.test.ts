@@ -64,19 +64,21 @@ describe("a fall from one stroke holds one tile away too (showcase craft gaps 1,
   }, 600_000);
 
   it("a Carve with Fall 4 there, from every start within two tiles: the water lands four under the lip, or it is refused where the gorge a few tiles on would step it", () => {
-    // (KNOWN: from (61,66) the river's walls below cut the high ground at the lip's south corner to a step at 11, and
-    // a tenth of the stream's water trickles off it two tiles from the curtain; the curtain itself falls 4.0 whole)
-    const known = ["61,66"];
-    expect(failing(sweep([62, 68], [37, 68], { fall: 4 }, ...fallOf(4))).filter((l) => !known.some((k) => l.startsWith(`${k} `)))).toEqual([]);
+    // (before: from (61,66) a corner of the face stood at 11, and a tenth of the stream's water trickled off it two tiles
+    // from the curtain; the face is now cut whole)
+    expect(failing(sweep([62, 68], [37, 68], { fall: 4 }, ...fallOf(4)))).toEqual([]);
   }, 600_000);
 
-  it("Fall 4 off the east terrace to the map's edge: one curtain four levels down, its side bay part of it", () => {
+  it("Fall 4 off the east terrace to the map's edge, from every start within two tiles: one curtain four levels down, its side bay part of it", () => {
     // (before: from (60,50) the river's own source row spilled into the terrace's notch beside the stream and fell
-    // again from 11; from (60,48) it fell 6.9; from (61,46) a staircase lip fell 6.7 onto a ledge at 9)
-    const lines = [[60, 50], [60, 48], [61, 46]].flatMap(([x, y]) => sweep([x, y], [95, y], { fall: 4 }, ...fallOf(4), false, 0));
+    // again from 11; from (60,48) it fell 6.9; from (61,46) a staircase lip fell 6.7 onto a ledge at 9; from (59,50) a
+    // dry block of the terrace stood inside the lip and split the curtain; from (61,49) sources stood on the uncut
+    // terrace beside the cut and trickled off it two tiles from the curtain)
+    const lines: string[] = [];
+    for (let y = 46; y <= 50; y++) for (let x = 58; x <= 62; x++) lines.push(...sweep([x, y], [95, y], { fall: 4 }, ...fallOf(4), false, 0));
     expect(failing(lines)).toEqual([]);
     expect(lines.filter((l) => l.includes("refused"))).toEqual([]);
-  }, 600_000);
+  }, 900_000);
 
   it("an Unleash from every source within two tiles: a fall a player sees, never a slot", () => {
     // (KNOWN: a source at (55,48) stands on the mesa's back rim, and half its water runs off behind it, down to the

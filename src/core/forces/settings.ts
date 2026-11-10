@@ -27,8 +27,9 @@ export const RIVER_DEPTH_MAX = 22;
 /** Carve's Banks, in tiles (item 18). */
 export const BANKS_MIN = 0;
 export const BANKS_MAX = 10;
-/** Carve's Fall, in levels from its lip to the water below (showcase craft gaps 1, 2 and 20; null: the land's own). */
-export const FALL_MIN = 2;
+/** Carve's Fall, in levels from its lip to the water below (showcase craft gaps 1, 2 and 20; null: the land's own): a
+ *  landmark fall, four levels at least (planning's spec); lower is a rapid, not a fall. */
+export const FALL_MIN = 4;
 export const FALL_MAX = 12;
 /** Craterize's Size, in tiles across (null: it follows Power). */
 export const CRATER_SIZE_MIN = 4;

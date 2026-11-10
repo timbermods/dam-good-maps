@@ -64,7 +64,7 @@ export interface CarveSettings {
    *  the walls, 0 (none) to 10; absent, none. */
   banks?: number | null;
   /** Fall (showcase craft gaps 1, 2 and 20): this many levels from the lip of the fall its course runs over to where
-   *  its water lands, 2–12; the reach below is cut down to it and held there. Where the land has no edge that tall, the
+   *  its water lands, 4–12 (a landmark: lower is a rapid); the reach below is cut down to it and held there. Where the land has no edge that tall, the
    *  fall is where the ground the course starts on ends; where it never ends, or the land falls farther or less far
    *  than this, the carve is refused. Null or absent: the land's
    *  own falls only (where the ground drops 3 levels or more). Either way the stream above a fall keeps its bed two
