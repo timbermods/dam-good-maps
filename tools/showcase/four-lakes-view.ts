@@ -1,11 +1,11 @@
 // The Four Lakes design as a picture and its land measures, in a second, without the core:
-//   node tools/showcase/four-lakes-view.ts [out.png] [--scale 4]
+//   npx tsx tools/showcase/four-lakes-view.ts [out.png] [--scale 4]
 // The picture: the levels as colours (low green to high pale rock), lit from the north-west, the design's sketch
 // water in blue, north up. For judging the land's shape between real builds (four-lakes.ts makes the map).
 
 import { writeFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
-import { designLand, measureLand, sketchWater, H, N, W } from "./four-lakes-design.ts";
+import { designLand, measureLand, sketchWater, H, N, W } from "./four-lakes-design";
 
 function png(rgb: Uint8Array, w: number, h: number): Uint8Array {
   const crcT = new Uint32Array(256);

@@ -14,6 +14,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } fr
 import { join, resolve } from "node:path";
 import { chromium, type Page } from "@playwright/test";
 import { build, preview } from "vite";
+import { resolveRef } from "../smooth/builds";
 import { waitForEditor } from "../wait-editor";
 
 const arg = (name: string, d?: string) => {
@@ -70,9 +71,15 @@ async function holdDay(page: Page, hazard: string | undefined, day: number | und
 async function main(): Promise<void> {
   mkdirSync(OUT, { recursive: true });
   process.env.DGM_BASE = "/";
-  if (!existsSync(join(DIST, "index.html"))) {
-    console.log("building the site…");
+  // The site is built from this checkout and stamped with its identity (HEAD plus a hash of what differs from it, as
+  // tools/smooth/builds.ts names a worktree build); a build whose stamp differs is stale and is rebuilt.
+  const stamp = resolveRef("worktree").id;
+  const stampFile = join(DIST, ".build-stamp");
+  const built = existsSync(join(DIST, "index.html")) && existsSync(stampFile) ? readFileSync(stampFile, "utf8").trim() : "";
+  if (built !== stamp) {
+    console.log(built ? `the site was built from ${built}, this checkout is ${stamp}: rebuilding…` : "building the site…");
     await build({ configFile: "vite.config.ts", base: "/", logLevel: "warn", build: { outDir: DIST, emptyOutDir: true } });
+    writeFileSync(stampFile, `${stamp}\n`);
   }
   const server = await preview({ configFile: "vite.config.ts", base: "/", build: { outDir: DIST }, preview: { port: PORT, strictPort: true }, logLevel: "warn" });
   const browser = await chromium.launch({ channel: "chrome", headless: false, args: GPU_ARGS, ignoreDefaultArgs: ["--enable-unsafe-swiftshader"] });
