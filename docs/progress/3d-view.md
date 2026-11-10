@@ -3487,11 +3487,21 @@ core; the map stores its Coordinates, its orientation and flip (drawn turned, ne
 - **Measured:** the bounds within 0.02 of the game's (without its footing). The silhouette, against the game's ball,
   ribs, strap and studs from 16 cameras (8 headings, 30° and 60° down) and from above: 0.92–1.01 times the game's area,
   IoU 0.90–0.94.
-- **Standard's shadow:** it cast none. One upright disc round the middle of each of its four tiles
-  (`UNSTABLE_CORE_SHADOW`, light.ts kind 20: 0 to 0.7 up, radius 0.6), fitted to the model's shadow along the 45° sun at
-  8 headings, shading nothing on its own tile (`OWN_TILE_LIT`), turned with the core. On the ground it does not stand
-  over, 0.90–1.15 of the model's shadow a heading (longest with the sun along a diagonal), 1.01 in all.
-  `landmarksGame.test.ts` holds 0.85–1.2 a heading and 0.95–1.05 in all.
+- **Standard's shadow:** it cast none. One upright disc over each of its four tiles (`UNSTABLE_CORE_SHADOW`, light.ts
+  kinds 20–23, one for each corner of a tile the footprint's middle can be at: 0 to 0.9 up, radius 0.5), moved 0.3
+  along each way toward the footprint's middle (`UNSTABLE_CORE_CAST`), turned with the core. The samples under the ball
+  (within 0.6 of its middle) are shaded only to 0.4 over its level, under its faces there: its faces read the bake
+  where they are, and its sunlit ones stay lit (0.997 of them, against 0.84 with those samples shaded to the discs'
+  tops), while the ground at its foot, reading the same samples, darkens. Fitted to the model's shadow along the 45° sun
+  at 8 headings, where it falls as well as how large: on the ground it does not stand over, 0.87–1.03 of the model's
+  shadow a heading, 0.96 in all, with 0.73–0.78 of the model's shadow under it (IoU 0.57–0.71). Lit on its own tiles,
+  as the blockage's discs are, it shaded a band round its footprint of the model's shadow's size but only 0.10–0.19 of
+  it (IoU 0.06–0.10): the ball's shadow falls mostly on its own tiles.
+- **Where every fitted shadow falls:** `landmarksGame.test.ts` now holds each fitted-disc kind to where its shadow falls
+  as well as how large it is (`expectWhereItFalls`: the share of the model's shadow under Standard's, and their IoU, at
+  every heading). As measured: the blockage 0.64–0.78 (IoU 0.54–0.64), the natural dam 0.68–0.86 (0.55–0.75), the
+  badtide drain 0.79–0.95 (0.66–0.83), the core 0.73–0.78 (0.57–0.71), the large relic 0.53–0.71 (0.43–0.54, its dish's
+  rim a thin shadow). Two samples a tile, bilinear, blur a shadow narrower than a tile, so none reaches 1.
 - **Judged:** eight placed on river valley 2's banks, 4 to 14 away, Standard and High alike: grey-brown metal balls
   banded by pale ribs and a strap, dark studs over them, the port a grey lens in a pale ring, as the game's model renders
   offline.

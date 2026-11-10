@@ -37,7 +37,7 @@ function bounds(key: string): { x: number; z: number; lo: number; hi: number } {
  *  Cw0) on flat ground as the shader draws it, bilinear between the bake's samples, against its model's own triangles
  *  projected along the sun onto the ground, which is what High's depth map casts: tiles² of each at 8 headings of the
  *  sun, 45° up. */
-function shadowAreas(template: string, half: number | [number, number], seen = false): [number, number][] {
+function shadowAreas(template: string, half: number | [number, number], seen = false): [number, number, number][] {
   const [hx, hy] = typeof half === "number" ? [half, half] : half;
   const W = 24;
   const H = 24;
@@ -50,7 +50,7 @@ function shadowAreas(template: string, half: number | [number, number], seen = f
   const step = 0.05;
   const n = Math.round(14 / step);
   const R = SHADOW_RES;
-  const out: [number, number][] = [];
+  const out: [number, number, number][] = [];
   const at = (v: number) => Math.round((v - (X0 - 5.5)) / step - 0.5);
   // (the ground the model's triangles cover, cast along the sun's way (ux, uy) by their heights times `drop`)
   const cover = (ux: number, uy: number, drop: number) => {
@@ -85,6 +85,7 @@ function shadowAreas(template: string, half: number | [number, number], seen = f
     const T = (i: number, j: number) => tops[j * W * R + i];
     let standard = 0;
     let model = 0;
+    let both = 0;
     for (let j = 0; j < n; j++)
       for (let i = 0; i < n; i++) {
         const [u, v] = [(X0 - 5.5 + (i + 0.5) * step) * R - 0.5, (Y0 - 5.5 + (j + 0.5) * step) * R - 0.5];
@@ -92,12 +93,25 @@ function shadowAreas(template: string, half: number | [number, number], seen = f
         const [fu, fv] = [u - i0, v - j0];
         const top = (T(i0, j0) * (1 - fu) + T(i0 + 1, j0) * fu) * (1 - fv) + (T(i0, j0 + 1) * (1 - fu) + T(i0 + 1, j0 + 1) * fu) * fv;
         if (under[j * n + i]) continue;
-        standard += (1 - litFraction(G, top, top)) * step * step;
+        const dark = 1 - litFraction(G, top, top);
+        standard += dark * step * step;
         model += shade[j * n + i] * step * step;
+        both += Math.min(dark, shade[j * n + i]) * step * step;
       }
-    out.push([standard, model]);
+    out.push([standard, model, both]);
   }
   return out;
+}
+
+/** Where Standard's shadow falls against its model's (`shadowAreas`), held round the compass: at every heading, at least
+ *  `cover` of the model's shadow is under Standard's, and their overlap at least `iou` of the two together. As large is
+ *  not enough: a shadow the size of the model's beside it would pass. (Two samples a tile, bilinear, blur a shadow
+ *  narrower than a tile: none reaches 1.) */
+function expectWhereItFalls(areas: [number, number, number][], cover: number, iou: number): void {
+  for (const [s, m, both] of areas) {
+    expect(both / m).toBeGreaterThan(cover);
+    expect(both / (s + m - both)).toBeGreaterThan(iou);
+  }
 }
 
 describe("the landmarks at the game's measures", () => {
@@ -254,6 +268,8 @@ describe("the blockage at the game's measures", () => {
     expect(Math.max(...ratios)).toBeLessThan(1.05);
     expect(all).toBeGreaterThan(0.85);
     expect(all).toBeLessThan(1.05);
+    // (where it falls: 0.64–0.78 of the model's shadow under it, IoU 0.54–0.64)
+    expectWhereItFalls(areas, 0.6, 0.5);
   });
 });
 
@@ -291,6 +307,8 @@ describe("the natural dam at the game's measures", () => {
     expect(Math.max(...ratios)).toBeLessThan(1.05);
     expect(all).toBeGreaterThan(0.85);
     expect(all).toBeLessThan(1.0);
+    // (where it falls: 0.68–0.86 of the model's shadow under it, IoU 0.55–0.75)
+    expectWhereItFalls(areas, 0.62, 0.5);
   });
 });
 
@@ -326,6 +344,8 @@ describe("the badtide drain at the game's measures", () => {
     expect(Math.max(...ratios)).toBeLessThan(1.25);
     expect(all).toBeGreaterThan(0.95);
     expect(all).toBeLessThan(1.05);
+    // (where it falls: 0.79–0.95 of the model's shadow under it, IoU 0.66–0.83)
+    expectWhereItFalls(areas, 0.75, 0.6);
   });
 });
 
@@ -351,16 +371,20 @@ describe("the unstable core at the game's measures", () => {
     expect(modelTriangles("UnstableCore")).toBeLessThanOrEqual(380);
   });
 
-  // (it cast none before; a disc over each of its four tiles, nothing on its own: on the ground it does not stand over,
-  // 0.90–1.15 a heading as fitted, longest with the sun along a diagonal, 1.01 in all)
+  // (it cast none before; a disc over each of its four tiles, moved toward the footprint's middle: on the ground it does
+  // not stand over, 0.87–1.03 a heading as fitted, 0.96 in all)
   it("casts Standard's shadow about as large as its model's round the compass, from its four tiles as it turns", () => {
     const areas = shadowAreas("UnstableCore", 1, true);
     const ratios = areas.map(([s, m]) => s / m);
     const all = areas.reduce((t, [s]) => t + s, 0) / areas.reduce((t, [, m]) => t + m, 0);
-    expect(Math.min(...ratios)).toBeGreaterThan(0.85);
-    expect(Math.max(...ratios)).toBeLessThan(1.2);
-    expect(all).toBeGreaterThan(0.95);
-    expect(all).toBeLessThan(1.05);
+    expect(Math.min(...ratios)).toBeGreaterThan(0.8);
+    expect(Math.max(...ratios)).toBeLessThan(1.1);
+    expect(all).toBeGreaterThan(0.92);
+    expect(all).toBeLessThan(1.02);
+    // (where it falls: 0.73–0.78 of the model's shadow under it, IoU 0.57–0.71; cast from its tiles' middles and lit
+    // under the ball it shaded a band round its footprint the size of the model's shadow but 0.10–0.19 of it, IoU
+    // 0.06–0.10)
+    expectWhereItFalls(areas, 0.68, 0.52);
     const W = 32;
     const H = 32;
     for (const [orientation, sx, sy] of [["Cw0", 1, 1], ["Cw90", 1, -1], ["Cw180", -1, -1]] as const) {
@@ -368,6 +392,46 @@ describe("the unstable core at the game's measures", () => {
       const cast = [...casters.keys()].filter((i) => casters[i] > 0).sort((a, b) => a - b);
       const want = [0, 1].flatMap((j) => [0, 1].map((i) => (20 + sy * j) * W + 10 + sx * i)).sort((a, b) => a - b);
       expect(cast).toEqual(want);
+    }
+  });
+
+  // (the samples under the ball are shaded only to 0.4 over its level, under its faces there: they read the bake where
+  // they are, and its sunlit ones stay lit, as the game's, lit by its model's own shadow; 0.997 as fitted, 0.84 with
+  // the samples under it shaded to the discs' tops)
+  it("leaves its own sunlit faces lit in Standard's bake round the compass", () => {
+    const W = 24;
+    const H = 24;
+    const G = 3;
+    const [X0, Y0] = [10, 10];
+    const heights = new Uint8Array(W * H).fill(G);
+    const casters = objectCasters(W, H, entityView([{ template: "UnstableCore", x: X0, y: Y0, z: G, orientation: "Cw0", owner: "s" }]))!;
+    const p = modelOf("UnstableCore").pos;
+    const R = SHADOW_RES;
+    const [ce, se] = [Math.cos(LIGHT.sunElevation), Math.sin(LIGHT.sunElevation)];
+    for (let a = 0; a < 360; a += 45) {
+      const [ux, uy] = [Math.cos((a * Math.PI) / 180), Math.sin((a * Math.PI) / 180)];
+      const tops = shadowTops(W, H, heights, casters, LIGHT.sunElevation, { x: ux, y: uy });
+      const T = (i: number, j: number) => tops[j * W * R + i];
+      // (toward the sun in our frame: the map's +y our −z)
+      const L = [ux * ce, se, -uy * ce];
+      let lit = 0;
+      let all = 0;
+      for (let k = 0; k < p.length; k += 9) {
+        const e1 = [p[k + 3] - p[k], p[k + 4] - p[k + 1], p[k + 5] - p[k + 2]];
+        const e2 = [p[k + 6] - p[k], p[k + 7] - p[k + 1], p[k + 8] - p[k + 2]];
+        const n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
+        const l = Math.hypot(n[0], n[1], n[2]);
+        const nl = (n[0] * L[0] + n[1] * L[1] + n[2] * L[2]) / l;
+        if (!(nl > 0.1)) continue;
+        const [x, y, z] = [(p[k] + p[k + 3] + p[k + 6]) / 3, (p[k + 1] + p[k + 4] + p[k + 7]) / 3, (p[k + 2] + p[k + 5] + p[k + 8]) / 3];
+        const [u, v] = [(X0 + 1 + x) * R - 0.5, (Y0 + 1 - z) * R - 0.5];
+        const [i0, j0] = [Math.floor(u), Math.floor(v)];
+        const [fu, fv] = [u - i0, v - j0];
+        const top = (T(i0, j0) * (1 - fu) + T(i0 + 1, j0) * fu) * (1 - fv) + (T(i0, j0 + 1) * (1 - fu) + T(i0 + 1, j0 + 1) * fu) * fv;
+        lit += (l / 2) * nl * litFraction(G + Math.max(0, y), top, top);
+        all += (l / 2) * nl;
+      }
+      expect(lit / all).toBeGreaterThan(0.97);
     }
   });
 });
@@ -416,5 +480,7 @@ describe("the large relic's dish casts its shadow", () => {
     expect(Math.max(...ratios)).toBeLessThan(1.25);
     expect(all).toBeGreaterThan(0.9);
     expect(all).toBeLessThan(1.1);
+    // (where it falls: 0.53–0.71 of the model's shadow under it, IoU 0.43–0.54, the dish's rim a thin shadow)
+    expectWhereItFalls(areas, 0.48, 0.38);
   });
 });

@@ -84,11 +84,13 @@ const BEZEL_SINK = 0.02;
 /** How far under the ground its lowest points go, as the game's. */
 const FOOT = -0.03;
 
-/** The unstable core's shadow in Standard's bake (light.ts `objectCasters`, `PLANT_SHAPES`): upright discs round the
- *  middle of each of the four tiles of its footprint (bottom, top, radius; levels and tiles, before light.ts's inset),
- *  fitted as the shader draws them to the model's own shadow along the 45° sun at 8 headings, shading nothing on their
- *  own tile (light.ts `OWN_TILE_LIT`). */
-export const UNSTABLE_CORE_SHADOW: readonly (readonly [number, number, number])[] = [[0, 0.7, 0.6]];
+/** The unstable core's shadow in Standard's bake (light.ts `objectCasters`, `PLANT_SHAPES`): upright discs over each
+ *  of the four tiles of its footprint (bottom, top, radius; levels and tiles, before light.ts's inset), moved `shift`
+ *  along each way from the tile's middle toward the footprint's, shading the samples within `lit` of the footprint's
+ *  middle, under its ball, no higher than `cap`, below its faces there (light.ts `CORNER`): fitted as the shader draws them to the model's own shadow
+ *  along the 45° sun at 8 headings, both where it falls and how large. */
+export const UNSTABLE_CORE_SHADOW: readonly (readonly [number, number, number])[] = [[0, 0.9, 0.5]];
+export const UNSTABLE_CORE_CAST = { shift: 0.3, lit: 0.6, cap: 0.4 };
 
 const rad = (deg: number) => (deg * Math.PI) / 180;
 const scale = (a: V, k: number): V => [a[0] * k, a[1] * k, a[2] * k];
