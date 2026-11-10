@@ -15,6 +15,7 @@
 import { rotate, type Orientation } from "../core/format/footprints";
 import { DEAD_FORM } from "./dying";
 import { DEAD, ORIENTATION_NAMES, YOUNG, type EntityView, type SoilView, type SurfaceWater } from "./model";
+import { LARGE_RELIC_CASTS } from "./largeRelic";
 import { DESERT, LIGHT } from "./palette";
 
 /** Shadow samples per tile, along each axis. */
@@ -155,9 +156,10 @@ const SHADOW_DROP = 30;
 export const PLANT_WIDEST = Math.max(...PLANT_SHAPES.flat().map((d) => d[2] - PLANT_INSET), ...Object.values(POST_RADIUS).map((r) => r - PLANT_INSET));
 if (PLANT_WIDEST >= 0.5 + 0.5 / SHADOW_RES) throw new Error(`light.ts: a disc ${PLANT_WIDEST} wide reaches samples an edit of its tile does not redo`);
 
-/** Extra height that objects add to the shadow casters of their tile (trees, ruins, the start). A plant's and a
- *  ruin's is its height, and its shape is cast (`plantTopsInto`); the start's are columns over its tiles (its tower on
- *  the middle one, its walls on the rest). The levels the objects stand on are noted with them, and after those the
+/** Extra height that objects add to the shadow casters of their tile (trees, ruins, the start, the large relic). A
+ *  plant's and a ruin's is its height, and its shape is cast (`plantTopsInto`); the start's are columns over its tiles
+ *  (its tower on the middle one, its walls on the rest), the large relic's a column over each of its 9 at its dish's
+ *  height there. The levels the objects stand on are noted with them, and after those the
  *  shapes' kinds. */
 export function objectCasters(W: number, H: number, e: EntityView | null): Float32Array | null {
   if (!e || !e.count) return null;
@@ -186,6 +188,19 @@ export function objectCasters(W: number, H: number, e: EntityView | null): Float
       y += dy;
       for (let by = y - 1; by <= y + 1; by++)
         for (let bx = x - 1; bx <= x + 1; bx++) if ((bx !== x || by !== y) && bx >= 0 && by >= 0 && bx < W && by < H) put(by * W + bx, START_BASE, e.z[k], 0);
+    }
+    // (the large relic's dish: a column over each tile of its footprint, the dish's height there, largeRelic.ts; its
+    // holes are High's depth map's, which draws the model itself)
+    if (t === "LargeRelic") {
+      const o = ORIENTATION_NAMES[e.orientation[k]] as Orientation;
+      for (let j = 0; j < 3; j++)
+        for (let i = 0; i < 3; i++) {
+          const [dx, dy] = rotate(o, i, j);
+          const bx = x + dx;
+          const by = y + dy;
+          if (bx >= 0 && by >= 0 && bx < W && by < H) put(by * W + bx, LARGE_RELIC_CASTS[i][j], e.z[k], 0);
+        }
+      continue;
     }
     if (x < 0 || y < 0 || x >= W || y >= H) continue;
     let add = tall[t] ?? 0;
