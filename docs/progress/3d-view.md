@@ -2956,6 +2956,52 @@ half strength), and the game's albedo drawn at our lightness, 1.318 times it (ou
   High's own trunk model; not yet traced. (4) The water source's three samples read 23 % over, too few to act on.
   (5) The start can't be judged: the game's start shot shows its district centre there.
 
+## The green round water against the game's (showcase gap 9; D135, D496; `fix/moisture-green-shape`)
+
+Showcase round 1 logged the green round sources and ponds as "near-perfect discs" that look stamped beside the game's
+irregular wet ground. Measured against the game's frames, the shape is the game's; nothing changed.
+
+- **The moisture is the game's.** On the probe's start snapshots (the moment the frames are taken, tick 0) the core's
+  steady state (`sim/moisture.ts` on the snapshot's water) gives the game's saved moisture on all but a few dry tiles:
+  River Valley 1 13,617 of 13,657 exact, Lake Basin 1 all 13,582, Highlands 1 13,740 of 13,783. It is an octile
+  distance from the water (1 a tile straight, √2 diagonally, 6 a level climbed), so on flat ground a lone source wets
+  an octagon in the game too: the sources on Highlands 1's and River Valley 1's plateaus are discs in the game's
+  frames, with the same soft fringe as ours. What breaks a disc up is the land (climbs, cliffs, the water's own
+  outline), which ours draws from the same moisture.
+- **The edge, frame against frame** (`tools/green-edge-check.py`, new: the judge's renders of the snapshot from its
+  fitted camera, `--ours`; the game's frame moved by the whole pixels that line the two up best; then a 0.1-tile grid
+  over visible level tops with no plant within two tiles, a point's grass share from its greenness G − (R + B)/2
+  between the frame's own dry ground and grass). Four frames line up well enough to read an edge (River Valley 1 and
+  2, Lake Basin 2, the ceiling set's plateau); Highlands 1 and 2 and Lake Basin 1 fit too loosely (their frames
+  correlate 0.65–0.77 with ours). Standard and High read the same to 0.01.
+  - *Where the edge falls*, the share by the tile's moisture, pooled (game / ours): moisture 0 beside moist tiles
+    0.02 / 0.00 (784 tiles); 0.01–1, 0.20 / 0.16 (173); 1–1.5, 0.53 / 0.48 (83); 1.5–2, 0.78 / 0.78 (100); 2–2.5,
+    0.94 / 0.95 (97); 3 and up 1.01 / 1.01. The edge tiles no longer read greener than the game's ("Dry land that
+    reads dry", above).
+  - *How far the boundary wanders* from the moisture contour (m 1.24, where the game's formula gives half grass on
+    average): the green/dry boundary's signed distance from it, its spread in tiles with the share smoothed over 0.1,
+    0.3, 0.7 and 1.1 tiles. The plateau (367 edge tiles, the frames correlating 0.94): game 0.49 / 0.47 / 0.33 / 0.32,
+    ours 0.51 / 0.46 / 0.38 / 0.33; its mean −0.02 against +0.10. River Valley 1: 0.67 / 0.67 / 0.71 / 0.67 against
+    0.50 / 0.46 / 0.35 / 0.27; River Valley 2: 0.97 / 0.90 / 0.58 / 0.37 against 0.87 / 0.82 / 0.64 / 0.56; Lake
+    Basin 2: 0.58 / 0.56 / 0.56 / 0.57 against 0.41 / 0.38 / 0.36 / 0.35. Pooled, the game's 0.70 to 0.46, ours 0.59
+    to 0.36.
+  - *The edge's width*, the share's 10–90 % across the contour: 1.0–1.5 tiles in the game, 1.25 in ours, on every frame.
+  - *The textures' own floor*, the share's spread over one-tile blocks on pure grass and pure dry ground: the plateau's
+    game 0.096 and 0.053, ours 0.080 and 0.046; River Valley's game 0.11–0.13 and 0.04–0.07, ours 0.074–0.082 and
+    0.035–0.037; Lake Basin 2's game grass 0.27 (its woods' crowns and shadows). The game's boundary wanders more than
+    ours where its own floor is higher: its trees, their shadows and what's left of the camera fit (the shift corrects
+    a translation only) move its boundary and none of them moves ours. Where its floor is near ours (the plateau) the
+    wander is the game's to 0.01–0.05 of a tile.
+- **Why it matches:** a tile's desert intensity is the game's formula from its unrounded moisture (`desertByte`), blended
+  by the game's four taps a fifth of a tile round the point with its noise multiplier and softness (`desertBlend`), and
+  the noise is held to the game's `BlendingNoise` texture's mean, spread and scale (#853, "Dry land that reads dry").
+  In both, the edge is a tile step softened by that blend and broken into patches by the noise.
+- **Falls short:** (1) The plateau's edge sits a tenth of a tile inside the game's (ours +0.10, the game's −0.02), a
+  pixel or two at the editor's usual zoom. (2) The game's grass varies a little more in green from tile to tile than
+  ours (the floors above): the grass texture's own variation, not the edge. (3) One clean frame (the plateau) isolates
+  the edge from trees and the fit; a probe frame of a lone source on bare flat ground would read it alone, not worth a
+  batch while the frames agree this well.
+
 ## Grass and cliffs, their samples registered (D497; `fix/land-luma`)
 
 After #909, grass read 5–8 % under the game's and cliffs 3–6 %, in sun and in shade alike, while dry tops read 2 %
