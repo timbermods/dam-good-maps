@@ -10,7 +10,7 @@
 // A view's target is in tiles (x, level, y north); yaw is the camera's bearing in radians (0 looks north, positive
 // turns west, as the renderer's); pitch is the angle above the horizon. The field of view is the game's 35°.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { chromium, type Page } from "@playwright/test";
 import { build, preview } from "vite";
@@ -29,6 +29,14 @@ const PORT = Number(arg("port", "4391"));
 const LOOK = arg("look", "high")!;
 const [VW, VH] = arg("size", "1600x900")!.split("x").map(Number);
 const GPU_ARGS = ["--enable-gpu", "--use-angle=d3d11", "--ignore-gpu-blocklist"];
+
+const T0 = Date.now();
+/** Progress, in the terminal and in <out>/<name>-capture.log as it happens. */
+function say(what: string): void {
+  const line = `[${((Date.now() - T0) / 1000).toFixed(0)} s] ${what}`;
+  console.log(line);
+  appendFileSync(join(OUT, `${NAME}-capture.log`), `${line}\n`);
+}
 
 interface Shot {
   name: string;
@@ -76,15 +84,21 @@ async function main(): Promise<void> {
     const page = await context.newPage();
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(String(e)));
+    page.on("console", (m) => { if (m.type() === "error") say("console error: " + m.text().slice(0, 200)); });
+    say("opening the page");
     await page.goto(`http://localhost:${PORT}/#s=1&z=64&d=n&t=riverValley`);
-    await waitForEditor(page, 600_000);
+    await waitForEditor(page, 300_000);
+    say("the editor is up");
     await page.evaluate("window.dgmEditor.idle()");
     await page.evaluate("window.was = window.dgm3d.renderer.map");
-    await page.getByLabel("Open a map or a project").setInputFiles(PROJECT);
-    await page.waitForFunction("window.dgm3d.renderer.map !== window.was", undefined, { timeout: 900_000 });
-    await waitForEditor(page, 900_000);
+    await page.locator("input[type=file]").first().setInputFiles(PROJECT);
+    say("file given");
+    await page.waitForFunction("window.dgm3d.renderer.map !== window.was", undefined, { timeout: 300_000 });
+    say("the map is in the view");
+    await waitForEditor(page, 300_000);
     await page.evaluate("window.dgmEditor.idle()");
-    await page.waitForFunction("window.dgmEditor.waterSettled()", null, { timeout: 900_000 });
+    await page.waitForFunction("window.dgmEditor.waterSettled()", null, { timeout: 600_000 });
+    say("water settled");
     const gpu = (await page.evaluate(`(() => { const g = document.createElement('canvas').getContext('webgl'); const e = g.getExtension('WEBGL_debug_renderer_info'); return g.getParameter(e.UNMASKED_RENDERER_WEBGL); })()`)) as string;
     console.log(`GPU: ${gpu}`);
     await page.evaluate(`(() => { const r = window.dgm3d.renderer; if (${JSON.stringify(LOOK)} === 'high') for (const k of Object.keys(r.highEffects ?? {})) r.setHighEffect(k, true); r.setLookChoice?.(${JSON.stringify(LOOK)}, false); })()`);
@@ -130,7 +144,7 @@ async function main(): Promise<void> {
       const file = join(OUT, `${NAME}-${shot.name}.jpg`);
       writeFileSync(file, jpg);
       done.push({ file, label: shot.label ?? shot.name, b64: jpg.toString("base64") });
-      console.log(file);
+      say(file);
     }
     if (errors.length) console.log("page errors: " + errors.slice(0, 5).join(" | "));
     // the contact sheet: three across

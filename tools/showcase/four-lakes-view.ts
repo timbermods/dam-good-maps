@@ -134,6 +134,6 @@ if (process.argv[1] && /four-lakes-view\.(ts|mjs)$/.test(process.argv[1])) {
   writePicture(out, land.heights, water, scale);
   console.log(`design ${Math.round(performance.now() - t)} ms -> ${out}`);
   console.log(`flat(8) ${(m.flat8 * 100).toFixed(1)}%  flat(4) ${(m.flat4 * 100).toFixed(1)}%  one-level steps ${(m.step1 * 100).toFixed(1)}%  top-3 levels ${(m.top3 * 100).toFixed(1)}%  sketch water ${((wet / N) * 100).toFixed(1)}%  max step ${m.maxStep}`);
-  console.log("old channel land " + land.oldProfile.join(" "));
+  for (const [name, bed] of Object.entries(land.beds)) console.log(`${name} bed: ${bed.join(" ")}`);
   console.log("levels " + m.histogram.slice(0, 17).map((n, k) => `${k}:${((n / N) * 100).toFixed(1)}`).join(" "));
 }

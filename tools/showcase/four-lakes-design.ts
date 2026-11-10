@@ -112,7 +112,7 @@ export function pathLength(path: readonly Pt[]): number {
   return run;
 }
 
-// ------------------------------------------------------------------------------------------- the design
+/// ------------------------------------------------------------------------------------------- the design
 
 export interface Lake {
   name: string;
@@ -149,40 +149,54 @@ export interface Fall {
   foot: number;
 }
 
+/** A channel along a path: its bed's width, and its bed's level either given (`bed`) or following the land
+ *  (`follow`: from `start`, `under` levels under the land beside it, never rising, never below `end`). `wet`: it
+ *  carries water from the first day (the guard keeps its banks a level over its bed). */
 export interface Channel {
   name: string;
   path: Pt[];
   /** Half its bed's width, in tiles. */
   half: (s: number) => number;
-  /** Its bed's level, by how far along the path. */
-  bed: (s: number) => number;
+  bed?: (s: number) => number;
+  follow?: { start: number; under: number; end: number; hold?: number };
   /** Banks at least this far over the bed, this wide beside it (a raise): 0 for none. */
   bank: number;
   bankWide: number;
+  wet: boolean;
+  /** How far its course wanders from the path, in tiles. */
+  wander: number;
+  /** How fast its banks open out beside the bed, levels a tile (0: walls, the gorge). */
+  open: number;
+  /** A brook: it meanders widely and opens into small pools. */
+  brook?: boolean;
 }
+
+/** A plug in the old channel: a row of Blockages across it, `at` tiles along it. */
+export const PLUGS = [2.2, 160, 244];
 
 export const LAKES: Lake[] = [
   {
     name: "Low Lake",
     sill: 2,
     arms: [
-      [[44, 41, 12], [58, 50, 16], [72, 61, 12]],
-      [[72, 61, 10], [84, 71, 7], [88, 79, 6]],
-      [[44, 41, 9], [40, 30, 5]],
+      [[40, 36, 12], [52, 46, 17], [66, 56, 15], [76, 64, 11]],
+      [[76, 64, 10], [85, 72, 8], [88.5, 79, 6.5]],
+      [[42, 36, 10], [40, 29, 8.5], [40, 26, 7.5]],
+      [[40, 44, 9], [27, 50, 6]],
     ],
     wander: 4,
     deep: 2,
     seed: [60, 54],
-    islands: [[50, 44, 4.6], [66, 52, 2.4]],
+    islands: [[50, 45, 5.2], [66, 54, 3]],
   },
   {
     name: "Weir Lake",
     sill: 6,
     arms: [
-      [[93, 97, 10], [104, 99, 14], [115, 100, 10]],
-      [[100, 104, 10], [100, 113, 9]],
-      [[93, 97, 6], [89, 91, 4.5]],
-      [[115, 100, 7], [120, 100, 4.5]],
+      [[92, 97, 10], [104, 99, 15], [116, 100, 11]],
+      [[100, 104, 11], [100, 113, 10]],
+      [[92, 97, 7], [88.5, 91, 5.5]],
+      [[116, 100, 8], [121, 100, 5]],
     ],
     wander: 3,
     deep: 3,
@@ -192,9 +206,10 @@ export const LAKES: Lake[] = [
     name: "Steam Lake",
     sill: 10,
     arms: [
-      [[140, 104, 12], [153, 108, 14], [161, 98, 11]],
-      [[140, 104, 7], [131, 100, 4.5]],
-      [[150, 112, 8], [150, 122, 5]],
+      [[139, 104, 12], [153, 108, 15], [163, 99, 12]],
+      [[139, 104, 8], [131, 100, 5]],
+      [[150, 112, 9], [150, 122, 6]],
+      [[163, 99, 9], [170, 108, 6]],
     ],
     wander: 3,
     deep: 3,
@@ -205,49 +220,51 @@ export const LAKES: Lake[] = [
     name: "Crown Lake",
     sill: 14,
     arms: [
-      [[143, 143, 10], [154, 148, 12], [148, 157, 9]],
-      [[150, 140, 7], [150, 133, 5]],
+      [[141, 144, 10], [154, 150, 14], [151, 160, 10]],
+      [[150, 141, 8], [150, 133, 5]],
+      [[160, 156, 8], [166, 160, 5]],
     ],
     wander: 2.5,
     deep: 3,
-    seed: [152, 147],
+    seed: [153, 150],
+    islands: [[156, 152, 2.2]],
   },
 ];
 
 export const FALLS: Fall[] = [
-  { name: "Low Fall", from: 1, to: 0, face: "S", at: 85, span: [85, 92], notch: [88], piers: [], crest: 6, foot: 0 },
+  { name: "Low Fall", from: 1, to: 0, face: "S", at: 85, span: [84, 93], notch: [88], piers: [], crest: 6, foot: 0 },
   { name: "Weir Fall", from: 2, to: 1, face: "W", at: 125, span: [96, 103], notch: [100], piers: [], crest: 10, foot: 3 },
   { name: "Crown Fall", from: 3, to: 2, face: "S", at: 128, span: [146, 153], notch: [150], piers: [], crest: 14, foot: 7 },
   { name: "Great Fall", from: -1, to: 1, face: "S", at: 118, span: [96, 104], notch: [], piers: [], crest: 14, foot: 3 },
+  // the Low Sill: Low Lake's own, wide and whole (no notch: the bottom lake keeps its water), into the gorge's pool
+  { name: "Low Sill", from: 0, to: -1, face: "S", at: 22, span: [34, 46], notch: [], piers: [], crest: 2, foot: 0 },
 ];
 
-/** The springs' pool in the cirque (bed 13): the sources stand in it; three ways out, each a gate's width: the
- *  neck to Crown Lake, the hanging valley, and the old channel (plugged). */
-export const POOL: Sp[] = [[166, 169, 5.5], [171, 173, 4.5]];
+/** The springs' pool at the head of the hanging valley (bed 13): the sources stand in it; three ways out, each
+ *  a gate's width: the neck to Crown Lake, the hanging valley to the Great Fall, and the old channel (plugged). */
+export const POOL: Sp[] = [[119, 141, 5], [123, 145, 4.5]];
 export const POOL_BED = 13;
 
-const HANG_PATH: Pt[] = [[162, 172], [150, 176], [135, 172], [123, 160], [113, 146], [105, 133], [100, 125], [100, 118]];
+const HANG_PATH: Pt[] = [[116, 138], [109, 131], [103, 125], [100, 118]];
 const HANG_LEN = pathLength(HANG_PATH);
-const NECK_PATH: Pt[] = [[164, 165], [160, 160], [156, 154]];
-const OLD_PATH: Pt[] = [[174, 168], [180, 160], [182, 132], [181, 106], [176, 88], [162, 75], [144, 66], [126, 56], [112, 44], [106, 30], [104, 14], [104, -1]];
-const OLD_LEN = pathLength(OLD_PATH);
-const GORGE_PATH: Pt[] = [[40, 27], [38, 17], [41, 8], [40, -1]];
-
-/** The old channel's bed by how far along it: 14 at its mouth on the pool (under the plug), then down with the
- *  land beside it, two to three levels under it, never rising (`designLand` fills the table from the land). */
-const OLD_BED: number[] = [];
-function oldBed(s: number): number {
-  if (s < 5) return 14;
-  const k = Math.min(OLD_BED.length - 1, Math.max(0, Math.floor(s / 2)));
-  return OLD_BED.length ? OLD_BED[k] : 13;
-}
+const NECK_PATH: Pt[] = [[126, 146], [130, 146], [134, 146]];
+const OLD_PATH: Pt[] = [[120, 148], [121, 158], [132, 172], [150, 182], [168, 182], [181, 172], [185, 152], [185, 132], [184, 106], [178, 88], [162, 75], [144, 66], [126, 56], [112, 44], [106, 30], [104, 14], [104, -1]];
+const GORGE_PATH: Pt[] = [[40, 21], [39, 14], [41, 7], [40, -1]];
+/** Meadow Brook: out of the hanging valley's west bank, along the bench over the Great Fall's cliff, down the
+ *  hillside behind the start and across the meadow into Low Lake. It waters the west side of the valley. */
+const MEADOW_BROOK: Pt[] = [[106.5, 131.5], [96, 130], [84, 131], [72, 128], [62, 120], [54, 110], [46, 100], [38, 90], [32, 78], [28, 66], [27, 56], [28, 51]];
+/** Bench Brook: out of Steam Lake's south shore, along the bench under Weir Lake and into Low Lake's north-east arm. */
+const BENCH_BROOK: Pt[] = [[146, 95], [143, 88], [134, 81], [122, 76], [110, 72], [100, 70], [91, 70]];
 
 export const CHANNELS: Channel[] = [
-  { name: "Hanging valley", path: HANG_PATH, half: (s) => (s > HANG_LEN - 10 ? 4.6 : s > HANG_LEN - 22 ? 3 : 1.6), bed: () => 14, bank: 1, bankWide: 3 },
-  { name: "Neck", path: NECK_PATH, half: () => 1.6, bed: () => 14, bank: 2, bankWide: 3 },
-  { name: "Old channel", path: OLD_PATH, half: () => 2.1, bed: oldBed, bank: 2, bankWide: 3 },
-  { name: "Gorge", path: GORGE_PATH, half: () => 2.6, bed: (s) => (s < 4 ? 2 : s < 16 ? 1 : 0), bank: 0, bankWide: 0 },
+  { name: "Hanging valley", path: HANG_PATH, half: (s) => (s > HANG_LEN - 9 ? 4.6 : s > HANG_LEN - 18 ? 3.1 : 2.1), bed: () => 14, bank: 2, bankWide: 3, wet: true, wander: 1.5, open: 1 },
+  { name: "Neck", path: NECK_PATH, half: () => 1.1, bed: () => 14, bank: 2, bankWide: 3, wet: true, wander: 0, open: 1 },
+  { name: "Old channel", path: OLD_PATH, half: (s) => (s < 9 ? 1.3 : 2.1), follow: { start: 15, under: 2.7, end: 1, hold: 6 }, bank: 2, bankWide: 3, wet: false, wander: 2.2, open: 0.8 },
+  { name: "Gorge", path: GORGE_PATH, half: (s) => (s < 3 ? 5.6 : s < 13 ? 2.6 : s < 16 ? 3.6 : 4.6), bed: () => 0, bank: 0, bankWide: 0, wet: true, wander: 0, open: 0 },
+  { name: "Meadow Brook", path: MEADOW_BROOK, half: () => 1.3, follow: { start: 14, under: 1.2, end: 2, hold: 3 }, bank: 1, bankWide: 1.5, wet: true, wander: 2.4, open: 1.2, brook: true },
+  { name: "Bench Brook", path: BENCH_BROOK, half: () => 1.3, follow: { start: 10, under: 1.2, end: 2, hold: 3 }, bank: 1, bankWide: 1.5, wet: true, wander: 2.4, open: 1.2, brook: true },
 ];
+const chan = (name: string) => CHANNELS.findIndex((c) => c.name === name);
 
 /** The cliff behind Weir Lake that the Great Fall comes over: north of this line the land is the hanging
  *  valley's bench. */
@@ -258,14 +275,16 @@ function greatWall(x: number): number {
 
 const SEED = 4107;
 
-/** How far the land has risen `d` tiles from a lake's shore: a meadow, a slope, a bench (where `bench` puts it), a
- *  slope again. */
-function rise(d: number, meadow: number, bench: number): number {
-  const t = d - meadow;
+/** How far the land has risen `d` tiles from a lake's shore: a meadow at the shore's level, a low terrace one
+ *  level up (both green: the lake waters ground up to two levels over it), a slope, a bench, a slope again. */
+function rise(d: number, meadow: number, terrace: number, bench: number): number {
+  let t = d - meadow;
   if (t <= 0) return 0;
+  if (t < terrace) return 0.55 + 0.9 * (t / terrace);
+  t -= terrace;
   const first = 9 + 5 * bench; // tiles of the first slope
-  const lift = first / 2.9;
-  if (t < first) return t / 2.9;
+  const lift = 1.45 + first / 2.9;
+  if (t < first) return 1.45 + t / 2.9;
   const wide = 9 + 4 * bench;
   if (t < first + wide) return lift + (t - first) / 6;
   return lift + wide / 6 + (t - first - wide) / 3;
@@ -281,8 +300,12 @@ export interface Land {
   pool: Uint8Array;
   /** Crest tiles of each fall (in FALLS order). */
   crests: number[][];
-  /** The land's level along the old channel before it was cut, every 4 tiles (for setting its bed). */
-  oldProfile: number[];
+  /** Each follow channel's bed along it, every 2 tiles (for the log). */
+  beds: Record<string, number[]>;
+  /** Each plug's tiles: a row across the old channel. */
+  plugs: number[][];
+  /** Tiles the guard raised to keep the water in (a count, for the log). */
+  guarded: number;
 }
 
 /** A ridge: rock along a line, `top` high within `half` tiles of it, falling `fall` a tile beyond. */
@@ -302,11 +325,12 @@ export function designLand(): Land {
   const channel = new Uint8Array(N);
   const pool = new Uint8Array(N);
   const g: Float64Array[] = LAKES.map(() => new Float64Array(N));
+  const back = new Uint8Array(N);
 
   // what the outlands follow: each place's level in the stair (the lakes' sills, weighted by nearness)
   const anchors: [number, number, number][] = [];
   for (const L of LAKES) for (const arm of L.arms) for (const p of arm) anchors.push([p[0], p[1], L.sill]);
-  anchors.push([168, 170, 14], [40, 8, 1], [120, 165, 14], [104, 135, 13]);
+  anchors.push([121, 143, 14], [40, 8, 1], [120, 165, 14], [158, 178, 14], [185, 150, 13], [104, 135, 13]);
 
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
@@ -341,39 +365,53 @@ export function designLand(): Land {
         sv += w * lv;
       }
       const stair = sv / sw;
-      const far = Math.max(0, near - 26);
+      const far = Math.max(0, near - 30);
       const dry = Math.max(0, 1 - Math.abs(fbm(x, y, 24, SEED + 13, 3)) * 5) * Math.min(1, far / 12);
-      let out = stair + 4.2 - 0.3 * Math.max(0, stair - 8) + 3.1 * fbm(x, y, 46, SEED + 1, 4) + 1.2 * fbm(x, y, 13, SEED + 2, 3) - 0.085 * far - 2.2 * dry;
+      const lift = 3.4 * Math.max(0, 1 - stair / 10);
+      let out = stair + 4.2 + lift - 0.3 * Math.max(0, stair - 8) + 3.1 * fbm(x, y, 46, SEED + 1, 4) + 1.2 * fbm(x, y, 13, SEED + 2, 3) - 0.07 * far - 2.2 * dry;
       if (out > TOP) out = TOP;
       if (out < 4) out = 4 + 0.6 * fbm(x, y, 9, SEED + 14, 2);
       // behind the Great Fall's cliff the land is the upper world: the two lower lakes dig nothing there
       const upper = y >= greatWall(x) + 1.4 * fbm(x, y, 9, SEED + 9, 2);
+      const hv = Math.min(pathDist(x + 0.5, y + 0.5, HANG_PATH).d, pathDist(x + 0.5, y + 0.5, NECK_PATH).d, spineDist(x + 0.5, y + 0.5, POOL) + 2);
       // (its floor fades to the west and the east, where the cliff dies into the hillside)
       const upperFloor = 12.6 + 0.9 * fbm(x, y, 10, SEED + 15, 2) - 0.3 * Math.max(0, 82 - x) - 0.3 * Math.max(0, x - 122);
+      // (the hanging valley is a valley: the land beside it stands over its water)
+      const beside = 15.3 - 0.3 * Math.max(0, hv - 9);
+      if (out < beside) out = beside;
+      if (hv < 30 && out > 15.4) out = 15.4;
       if (upper && out < upperFloor) out = upperFloor;
       // the lower envelope of the lakes' bowls, a higher lake's rim kept from the lakes below it
       const warpA = fbm(x, y, 34, SEED + 4, 3);
       const warpB = fbm(x, y, 19, SEED + 5, 3);
       const gully = Math.abs(fbm(x, y, 15, SEED + 16, 3));
       const meadowN = fbm(x, y, 27, SEED + 6, 2);
+      const terraceN = fbm(x, y, 23, SEED + 21, 2);
       const benchN = fbm(x, y, 40, SEED + 17, 2);
       let land = out;
       for (let k = Math.max(0, top); k < LAKES.length; k++) {
         const d = Math.max(0, g[k][i]);
-        const open = Math.min(1, d / 7);
-        const dw = d * (1 + 0.4 * warpA) + (8 * warpB - 9 * Math.max(0, 0.16 - gully)) * open;
-        const meadow = 4 + 5 * meadowN + (k === 0 ? 3 : 0);
-        let v = LAKES[k].sill + 1 + rise(Math.max(0, dw), meadow, benchN);
+        // (the meadow is measured true from the shore: the lake waters 16 tiles of level ground; the hillside
+        // behind it wanders)
+        const meadow = 13 + 4 * meadowN;
+        const hill = Math.max(0, d - meadow);
+        const open = Math.min(1, hill / 7);
+        const dw = hill * (1 + 0.35 * warpA) + (7 * warpB - 9 * Math.max(0, 0.16 - gully)) * open;
+        const terrace = 4 + 2 * terraceN;
+        let v = LAKES[k].sill + 1 + rise(Math.max(0, dw), 0, terrace, benchN);
         if (upper && k < 2 && v < upperFloor) v = upperFloor;
         if (v < land) land = v;
       }
       // small relief everywhere but the meadows, and crags: bands of rock two or three levels high that wander
       // across the slopes (hillsides in one-level steps alone read as a staircase)
-      const over = Math.min(1, Math.max(0, (land - (top >= 0 ? LAKES[top].sill + 2 : 3.6)) / 2));
-      land += 0.6 * fbm(x, y, 7, SEED + 7, 2) * over;
-      const cr = fbm(x, y, 19, SEED + 19, 2);
-      const crag = Math.max(-1, Math.min(1, cr * 40));
-      land += 1.25 * crag * Math.min(1, Math.max(0, (land - (top >= 0 ? LAKES[top].sill + 3 : 5)) / 2));
+      // the hillsides roll (their contours wander; a slope of even one-level steps reads as a staircase), and a
+      // few bold scarps, two or three levels high, cross the outlands
+      const hillside = Math.min(1, Math.max(0, (near - 15) / 8));
+      land += (1.9 * fbm(x, y, 29, SEED + 7, 3) + 0.3 * fbm(x, y, 8, SEED + 8, 2)) * hillside;
+      const scarp = Math.max(-1, Math.min(1, fbm(x, y, 52, SEED + 19, 2) * 60));
+      land += 1.3 * scarp * Math.min(1, Math.max(0, (near - 24) / 6));
+      // knolls on the meadows: a level up, here and there (the lake still waters them)
+      if (near > 3.5 && near < 15 && fbm(x, y, 11, SEED + 22, 2) > 0.36) land += 1;
       // every lake keeps its rim: the shore a level over the sill, a low bank behind it where the land falls away
       for (let k = 0; k < LAKES.length; k++) {
         const d = g[k][i];
@@ -388,27 +426,42 @@ export function designLand(): Land {
       }
       if (land > TOP) land = TOP;
       f[i] = land;
+      // backwaters: creeks and ponds at the lake's level that finger into its meadows (they carry the green
+      // out: a lake waters 16 tiles of ground at its shore's level and no slope above that)
+      if (top < 0 || g[top][i] > 1.5) {
+        for (let k = 0; k < LAKES.length; k++) {
+          if (g[k][i] < 1.5 || g[k][i] > 24 || Math.round(land) !== LAKES[k].sill + 1) continue;
+          const c = Math.abs(fbm(x, y, 22, SEED + 70 + k, 2));
+          const pond = fbm(x, y, 13, SEED + 75, 2);
+          if (c < 0.11 + 0.12 * Math.max(0, pond)) back[i] = k + 1;
+        }
+      }
     }
 
   // the start's meadow: level 3, wide, north-west of Low Lake below the Low Fall's west shoulder
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
-      const d = spineDist(x + 0.5, y + 0.5, [[50, 68, 9], [66, 78, 12], [72, 84, 8]]) + 2.5 * fbm(x, y, 13, SEED + 20, 2);
+      const d = spineDist(x + 0.5, y + 0.5, [[50, 70, 9], [62, 80, 12], [70, 91, 9]]) + 2.5 * fbm(x, y, 13, SEED + 20, 2);
       if (d < 0 && g[0][i] > 0 && g[1][i] > 3.2) f[i] = 3;
+      // (the start's own ground stays whole)
+      if (Math.hypot(x - 70, y - 88) < 11) back[i] = 0;
     }
 
-  // channels: banks first (a raise), then the bed (a carve); their courses wander a little
+  // channels: their courses wander a little; a bed that follows the land is set from the land beside it
   const along: { d: number; s: number }[][] = CHANNELS.map((c) => {
     const out: { d: number; s: number }[] = new Array(N);
-    const w = c.name === "Gorge" || c.name === "Neck" ? 0 : 2.2;
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) out[y * W + x] = pathDist(x + 0.5 + w * fbm(x, y, 14, SEED + 60, 2), y + 0.5 + w * fbm(x, y, 14, SEED + 61, 2), c.path);
+    const me = c.brook ? 6 : 0;
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++)
+        out[y * W + x] = pathDist(x + 0.5 + c.wander * fbm(x, y, 14, SEED + 60, 2) + me * fbm(x, y, 30, SEED + 62, 2), y + 0.5 + c.wander * fbm(x, y, 14, SEED + 61, 2) + me * fbm(x, y, 30, SEED + 63, 2), c.path);
     return out;
   });
-  const oldProfile: number[] = [];
-  {
-    const k = CHANNELS.findIndex((c) => c.name === "Old channel");
-    const bins = Math.ceil(OLD_LEN / 2) + 1;
+  const beds: Record<string, number[]> = {};
+  const bedOf: ((s: number) => number)[] = CHANNELS.map((c, k) => {
+    if (c.bed) return c.bed;
+    const fo = c.follow!;
+    const bins = Math.ceil(pathLength(c.path) / 2) + 1;
     const sum = new Float64Array(bins);
     const cnt = new Float64Array(bins);
     for (let i = 0; i < N; i++) {
@@ -418,26 +471,27 @@ export function designLand(): Land {
       sum[key] += f[i];
       cnt[key]++;
     }
-    OLD_BED.length = 0;
-    let run = 13;
-    let last = 13;
+    const table: number[] = [];
+    let run = fo.start;
+    let last = fo.start;
     for (let b = 0; b < bins; b++) {
       const v = cnt[b] ? sum[b] / cnt[b] : last;
       last = v;
-      // (its last steps go down to the edge)
-      const want = Math.round(v - 2.7);
-      if (want < run) run = Math.max(want, run - 4);
-      OLD_BED.push(Math.max(1, run));
-      if (b % 2 === 0) oldProfile.push(Math.round(v * 10) / 10);
+      const want = Math.round(v - fo.under);
+      if (b * 2 >= (fo.hold ?? 0) && want < run) run = Math.max(want, run - 4);
+      table.push(Math.max(fo.end, run));
     }
-  }
+    beds[c.name] = table;
+    return (s: number) => table[Math.min(table.length - 1, Math.max(0, Math.floor(s / 2)))];
+  });
+  // banks first (a raise), then the bed (a carve)
   CHANNELS.forEach((c, k) => {
     if (!c.bank) return;
     for (let i = 0; i < N; i++) {
       const { d, s } = along[k][i];
       const half = c.half(s);
       if (d > half + c.bankWide) continue;
-      const need = c.bed(s) + c.bank - Math.max(0, d - half - 1.2) * 0.9;
+      const need = bedOf[k](s) + c.bank - Math.max(0, d - half - 1.2) * 0.9;
       if (f[i] < need) f[i] = Math.min(TOP, need);
     }
   });
@@ -446,21 +500,22 @@ export function designLand(): Land {
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
       const d = spineDist(x + 0.5, y + 0.5, POOL);
-      if (d < 4 && f[i] < 15.6) f[i] = 15.6;
+      if (d < 5 && f[i] < 15.6) f[i] = 15.6;
     }
   CHANNELS.forEach((c, k) => {
     for (let i = 0; i < N; i++) {
       const { d, s } = along[k][i];
       const x = i % W;
       const y = (i - x) / W;
-      const half = c.half(s) + (c.name === "Gorge" || c.name === "Neck" ? 0 : 0.9 * fbm(x, y, 9, SEED + 30 + k, 2));
-      const b = c.bed(s);
+      const half = c.half(s) + (c.wander ? (c.half(s) < 1.5 ? 0.35 : 0.9) * fbm(x, y, 9, SEED + 30 + k, 2) : 0) + (c.brook ? 2.4 * Math.max(0, fbm(x, y, 17, SEED + 64, 2) - 0.28) * 4 : 0);
+      const b = bedOf[k](s);
       if (d <= half) {
+        if (c.wet && channel[i] && CHANNELS[channel[i] - 1].wet && f[i] <= b) continue; // (a wet channel keeps the lower bed where two meet)
         f[i] = b;
         channel[i] = k + 1;
-      } else if (c.name !== "Gorge") {
-        // banks open out (the gorge keeps its walls)
-        const v = b + (d - half) * (c.name === "Old channel" ? 0.8 : 1.0) + 0.5;
+      } else if (c.open > 0) {
+        // banks open out (the gorge keeps its walls); a wet channel's first ring stays a level over its bed
+        const v = b + (d - half) * c.open + (c.wet ? 1.5 : 0.5);
         if (v < f[i]) f[i] = v;
       }
     }
@@ -491,15 +546,33 @@ export function designLand(): Land {
       const y = (i - x) / W;
       if (k === 1 && y >= greatWall(x) - 0.5) continue; // Weir Lake stops at the Great Fall's cliff
       let isle = Infinity;
-      for (const s of L.islands ?? []) isle = Math.min(isle, Math.hypot(x + 0.5 - s[0], y + 0.5 - s[1]) - s[2] + 1.5 * fbm(x, y, 6, SEED + 45, 2));
+      for (const s of L.islands ?? []) isle = Math.min(isle, Math.hypot((x + 0.5 - s[0]) * 0.7 + (y + 0.5 - s[1]) * 0.35, (y + 0.5 - s[1]) * 0.95 - (x + 0.5 - s[0]) * 0.3) - s[2] + 2.6 * fbm(x, y, 7, SEED + 45, 2));
       if (isle < 0) {
-        h[i] = L.sill + (isle < -2.2 ? 2 : 1);
+        h[i] = L.sill + 1;
+        channel[i] = 0;
         continue;
       }
       const depth = Math.min(L.deep, Math.max(0, Math.floor((Math.min(-d, isle) - 1.2) / 2.6 + 0.35 * fbm(x, y, 8, SEED + 40 + k, 2))));
       h[i] = L.sill - depth;
       lake[i] = k + 1;
       channel[i] = 0;
+    }
+  }
+
+  // the backwaters that reach their lake (the rest stay meadow): a level under the sill, so they hold through a drought
+  for (let k = 0; k < LAKES.length; k++) {
+    const stack: number[] = [];
+    for (let i = 0; i < N; i++) if (lake[i] === k + 1) stack.push(i);
+    while (stack.length) {
+      const i = stack.pop()!;
+      const x = i % W;
+      for (const j of [i - 1, i + 1, i - W, i + W]) {
+        if (j < 0 || j >= N || Math.abs((j % W) - x) > 1) continue;
+        if (back[j] !== k + 1 || lake[j] || channel[j] || pool[j] || h[j] !== LAKES[k].sill + 1) continue;
+        lake[j] = k + 1;
+        h[j] = LAKES[k].sill - 1;
+        stack.push(j);
+      }
     }
   }
 
@@ -531,14 +604,14 @@ export function designLand(): Land {
         const side = u < a ? a - 3.2 : b + 3.2;
         const dist = Math.hypot(u - side, (v - 1.2) * 1.25);
         const want = crest + 4.1 - 0.62 * Math.max(0, dist - 1.6) + 0.7 * fbm(x, y, 5, SEED + 50, 2);
-        const outGap = u < a ? a - u : u - b;
         // (the two tiles beside the gap are rock whatever the lake's outline says: the gap is exactly its span)
-        if (lake[i] && (outGap > 2 || v > 2)) continue;
-        const rock = outGap <= 2 && v <= 2;
+        if (lake[i] && (away > 2 || v > 2)) continue;
+        const rock = away <= 2 && v <= 2;
         const level = Math.min(TOP, Math.round(rock ? Math.max(want, crest + 3) : want));
         if (level > h[i] || (lake[i] && rock)) {
           h[i] = level;
           lake[i] = 0;
+          channel[i] = 0;
         }
       }
     for (let u = a; u <= b; u++) {
@@ -549,7 +622,7 @@ export function designLand(): Land {
         const i = at(u, v);
         h[i] = pier ? crest + 1 : notch ? crest - 1 : crest;
         lake[i] = up;
-        channel[i] = up ? 0 : channel[i];
+        if (up) channel[i] = 0;
         if (v === 0) tiles.push(i);
       }
       for (let v = 2; v <= 5; v++) {
@@ -557,6 +630,7 @@ export function designLand(): Land {
         if (!up) continue;
         if (h[i] > crest - 1) h[i] = crest - 1;
         lake[i] = up;
+        channel[i] = 0;
       }
     }
     // the drop: the lower lake's plunge pool at the cliff's foot, rounded
@@ -568,15 +642,56 @@ export function designLand(): Land {
         if (e > 1) continue;
         const inGap = u >= a && u <= b;
         if (!inGap && v === -1) continue;
-        const bedHere = F.foot + (e > 0.72 ? 1 : 0);
+        const bedHere = F.foot + (e > 0.72 && F.to >= 0 ? 1 : 0);
         if (!lake[i] || h[i] > bedHere) h[i] = bedHere;
         lake[i] = F.to + 1;
+        channel[i] = F.to < 0 ? chan("Gorge") + 1 : 0;
       }
     crests.push(tiles);
   }
 
   tidy(h, lake, channel, pool);
-  return { heights: h, lake, channel, pool, crests, oldProfile };
+
+  // the plugs: a row of the old channel's tiles, across it
+  const plugs: number[][] = [];
+  {
+    const k = chan("Old channel");
+    for (const s0 of PLUGS) {
+      const row: number[] = [];
+      for (let i = 0; i < N; i++) if (channel[i] === k + 1 && along[k][i].s >= s0 && along[k][i].s < s0 + 1.45) row.push(i);
+      plugs.push(row);
+    }
+  }
+
+  // the guard: every tile beside the water that would let it out stands a level over it. The ways out are the
+  // falls' lips, the gorge, and the old channel's mouth under its plug.
+  let guarded = 0;
+  {
+    // the level a wet tile's neighbours must reach: a lake's sill + 1; the top water's 15; a brook's own bed + 1
+    const need = new Int8Array(N).fill(-1);
+    for (let i = 0; i < N; i++) {
+      if (lake[i]) need[i] = LAKES[lake[i] - 1].sill + 1;
+      const c = channel[i];
+      if (pool[i]) need[i] = 15;
+      else if (c && CHANNELS[c - 1].wet && CHANNELS[c - 1].name !== "Gorge") need[i] = CHANNELS[c - 1].follow ? h[i] + 1 : 15;
+    }
+    const exit = new Uint8Array(N);
+    for (let i = 0; i < N; i++) {
+      const c = channel[i];
+      if (c && (CHANNELS[c - 1].name === "Gorge" || (CHANNELS[c - 1].name === "Old channel" && along[c - 1][i].s < 8))) exit[i] = 1;
+    }
+    for (let i = 0; i < N; i++) {
+      if (need[i] < 0) continue;
+      const x = i % W;
+      for (const j of [i - 1, i + 1, i - W, i + W]) {
+        if (j < 0 || j >= N || Math.abs((j % W) - x) > 1) continue;
+        if (need[j] >= 0 || exit[j] || h[j] >= need[i]) continue;
+        h[j] = need[i];
+        guarded++;
+      }
+    }
+  }
+  return { heights: h, lake, channel, pool, crests, beds, plugs, guarded };
 }
 
 /** One-tile pits and spikes on the land go (the game's own look has none), and one-tile pillars two or more over
@@ -688,7 +803,7 @@ export function sketchWater(land: Land): Float64Array {
     }
     if (land.pool[i]) d[i] = Math.max(0, 14.5 - h[i]);
     const c = land.channel[i];
-    if (c && (CHANNELS[c - 1].name === "Hanging valley" || CHANNELS[c - 1].name === "Neck" || CHANNELS[c - 1].name === "Gorge")) d[i] = 0.3;
+    if (c && CHANNELS[c - 1].wet) d[i] = 0.3;
   }
   return d;
 }
