@@ -25,55 +25,56 @@ Messages go on the Coordination issue (#236, D470) and directly between sessions
 magnificent in Timberborn. There are four steps: get a great map at once, understand it, make it yours, play it. The waves
 below each close the weakest of those steps.
 
-**Work is what changes what a player gets** (Kyler, 2026-10-29). Verifying is not progress. The export is proven: hundreds
-of maps have loaded on several machines. Probe batches, re-runs and audits of what already works don't run by routine,
-only where an implementation looks wrong.
+**Work is what changes what a player gets in the game** (Kyler, 2026-10-29 and 2026-11-10). The export is proven:
+hundreds of maps have loaded on several machines, so re-proving it is not progress. Seeing a map in Timberborn is
+different: it is the only view of the product a player ever has, so looking at our maps in the game, through the DGM
+Probe runner, is part of the work.
 
-**The free week** (Kyler, 2026-11-07, until about 11-14). Kyler is away and has given planning a free hand: rules may
-evolve, and features beyond this plan may be built where they make the maps or the editor better. Game launches are
-allowed again (Kyler, 2026-11-07), through the DGM Probe runner only and only where a change needs one; the companion
-mod and one-click play are set aside (#709 stays on `hold`). The work, in this order:
-- **Forces play:** the game's light on objects, grass and cliffs is done (#909–#911), and the round green water is the
-  game's own shape (#913). Next: deep badwater in low light, and dry tops in the sun. Then water with character: falls
-  pour, rivers wind, and badwater looks poisonous (PERFECT, Water 3). The full `npm run smooth` gate runs between its PRs.
-- **Milestone:** `game-look-done` and `naturalize-done` recorded in `docs/STATUS.md`; then a fall from one stroke
-  (showcase-craft gaps 1 and 2: Carve from a mesa and Unleash's course make a bowl, not a fall); then #532. #845 and
-  #822 stay on `hold` for Kyler's word on the collab fixture. After those, Wave 1's maps items, Wave 2's judging by
-  looks, and difficulty through terrain as its own design step (PERFECT's Challenge, D276), which planning rules on.
-- **Planning's streams** (since 2026-11-09, the map's shapes before more polish of the look: a judge sees the map in
-  the game):
-  - **force shapes at the source:** Craterize as a natural crater, not a stadium (#912, gap 25), and Glaciate as one
-    trough at the valley's width (#914, gaps 14 and 26). Each merges on a code review and a look review.
-  - **showcase-craft** round 3 then remakes the three hand-made maps with the fixed forces, logged in
-    `docs/progress/showcase-craft.md`. It sends the core and look gaps to their owners, at the top of Wave 1.
-  - **time-lapse** builds the build time-lapse (D205), taken out of Later.
-- **Releases:** `game-look-done` and `naturalize-done` are on `main`. Planning releases the next set once the force
-  shapes and the look items above are on a green dev.
+**The bar** (Kyler, 2026-11-10): "truly deliver that wow and magic. To the extent where even you cannot say it falls
+short." A map must make someone stop and stare, then want to play it. Planning keeps iterating until it can honestly
+say the maps and the editor don't fall short of that.
 
-**Wave 1, now**
-- **Maps as the game shows them** (milestone):
-  - the theme's signature water no longer mostly badwater (an amendment to D476);
-  - a landmark in view of the start on the default Generate (D493);
-  - 3D forms that are there and read as such;
-  - 256² maps that aren't mostly bare ground.
-- **Planning's builders:**
-  - island seas with a shore, not a rim (`addSea`, D410);
-  - natural ramps without stair causeways (`naturalRamps`);
-  - the start's berries through the first drought;
-  - **Easy start** (D495), an optional setting that gives the start room, calm ground, water and food;
-  - Delete under a layer cut and Fill's first try;
-  - the shelf's picked row in view (#668's fix, redone).
-- **The look** (renderer):
-  - badwater's colour as the game draws it: done (#826, #830, #832, #836, #839, #842, #844, #847, #851, #852);
-  - dry land that reads dry: done (#853);
-  - grass in the game's light: #854 (the light holds to a luma; Standard's shadow edge the game's in-play width, #855; the judge's gap is the textures where its samples sit);
-  - light in caves, and overhangs and arches that read: done (#820; captured again after #852–#855 on `fix/high-shadow-edge`: the roofed faces hold, cave 41 High / 43 Standard);
-  - High's shadow edge as the game's: `fix/high-shadow-edge` (0.5–0.6 → 0.13–0.17 of a tile at 128² with a 2048 map; the game's 4096 reaches its 0.11 and waits on the igpu-4x gate);
-  - the hero picture: done (#441, #809, #811);
-  - the first Erode's freeze: fixed on dev (the re-judge of the 10-29 audit, 2026-11-07);
-  - a calm placement outline: done (#679, merged 2026-10-30);
-  - the look audit's smaller items: done (re-judged 2026-11-07).
-- **Showcase maps made by hand** with the editor, to find what the tools can't yet do.
+**Where we stand against it** (planning's audit, 2026-11-10). The three hand-made showcase maps
+(`docs/progress/showcase-craft.md`) can't reach the bar and are retired. Measured from their files, with the study of
+130 loved Workshop maps beside them (`investigation/WORKSHOP.md`):
+- 67–77 % of tiles dead flat (Workshop 44 %), three quarters of each map on two or three exact levels four apart;
+- water on 6–7 % of tiles (Workshop 27 %), a fifth of the land green;
+- each a 128² seed with a feature 20–30 tiles across dug into one corner, and no idea a player could say in a line;
+- nothing to earn, divert or discover: none of the aquifers, cores, seeps, blockages or timed sources on the shelf;
+- never seen in the game: every look verdict was given on our own renderer;
+- one green: maple, chestnut, mangrove, dandelion and coffee bush couldn't be placed.
+
+**The order now: the map first, judged in the game.** Tools are built as the map demands them.
+1. **One map built from its idea at the scale of the whole map** (planning's author, `showcase/four-lakes`): "Four
+   Lakes", 192², four lakes stepping down a forested valley over 4-level falls, an 8-level landmark fall in the first
+   camera, a drought that stops the falls from the top and a badtide that comes down the stair lake by lake. It is
+   written as a script of operations and iterated against these targets: under 50 % dead flat, 60–80 % of height steps
+   one level, water on 15–25 % of tiles, bare ground under 40 %.
+2. **Seeing it in the game** (forces play, `feature/ingame-captures`): one command that loads a map through the Probe
+   runner and saves the first camera, the whole map and chosen angles, beside our view from the same camera. Look
+   verdicts on maps are given on these captures. The matching of the game's light, colour and edges stops at "good
+   enough to design in".
+3. **The tools the map needs** (milestone): a landmark fall in one stroke with its height and width set; lakes by
+   number (type a lake's level and its sill is cut or raised); ground with grade (land that rolls in one-level steps,
+   as a force and in the themes, in place of tabletops four levels apart); #532; the first ten cycles as a report
+   (days of water at the start in each drought, the day badwater arrives, the shortest dam that holds).
+4. **Planning's builders:**
+   - every plant a map may hold, placeable (`feature/more-plants`);
+   - the forces as landforms, each judged by eye: Craterize (#912), Glaciate (#914), then the rest from the audit of
+     every force;
+   - the stroke pipeline rebuilt on one ordered queue (`feature/edit-queue`; #410, #873, #880, #884, #868, #829), and
+     the brush's speed (#858, #856);
+   - then ruins as architecture (a broken dam, piers, a wall, not scatter), the map's page text (a description that
+     fits the edited map; no export warnings in what a player reads), and edges and litter (a map that ends on
+     purpose; no one-tile pillars).
+5. **Releases:** planning releases to `main` when a set that changes what players get is on a green dev.
+
+**Stopped:** further rounds on the three old maps; seed-by-seed statistics as progress; the time-lapse as showcase
+work. The companion mod and one-click play stay set aside (#709 on `hold`).
+
+**Wave 1** (2026-10-29 to 2026-11-09) closed with the look in the game's light (#826–#917), the page's tool gaps from
+showcase-craft (#771–#789), Easy start (D495) and Naturalize (`naturalize-done`). Its open maps items (a landmark in
+view of the start, D493; 256² maps that aren't mostly bare ground) continue inside "ground with grade" above.
 
 **Wave 2**
 - **Judging by looks:** Showcase mode and the audits rank maps rendered from the game's camera, not by text alone.
