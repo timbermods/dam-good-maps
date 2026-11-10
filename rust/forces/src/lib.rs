@@ -3635,8 +3635,9 @@ struct CarveFall {
 /// How far the ground falls ahead of a station, within the next two stations (about 2.7 tiles), for the course to
 /// fall there rather than run down a slope: three levels, so a lip one level down still falls two.
 const FALL_DROP: f64 = 3.0;
-/// The widest a stream above a fall runs (a station's width; about six tiles across), so it reads as a stream on the
-/// high ground, not a flooded basin as wide as the river the carve leaves below; a narrower Size narrows it.
+/// The widest a stream above a fall runs on Auto Width (a station's width; about six tiles across), so it reads as a
+/// stream on the high ground, not a flooded basin as wide as the river the carve leaves below; a set Size makes it as
+/// wide as the river, as the player asks.
 const STREAM_WIDTH: f64 = 4.0;
 /// How far from where it falls the high ground keeps its own height against what the water below cuts (tiles):
 /// past the cut and the banks of the reach below, so the cliff stands and the lip holds.
@@ -4323,6 +4324,7 @@ impl CarveState {
         // (the high ground kept: what is nearer the reach than the rest of the course, which carves its own walls and
         // banks; a breadth-first search from all the course's stations at once, each tile taking its nearest's side)
         let mut zone = vec![0u8; w * h];
+        let set_width = self.settings.width.is_some();
         let mut queue = vec![];
         for (k, (cx, cy)) in f.stations.iter().map(|&(x, y, _)| (x, y)).chain(f.course.iter().copied()).enumerate() {
             let i = (clamp(round(cy), 0.0, (h - 1) as f64) as usize) * w + clamp(round(cx), 0.0, (w - 1) as f64) as usize;
@@ -4343,10 +4345,10 @@ impl CarveState {
                 }
             }
         }
-        // the stream's width: the river's, at most a stream's (STREAM_WIDTH), however wide the river the
+        // the stream's width: the set Size, or on Auto at most a stream's (STREAM_WIDTH), however wide the river the
         // carve leaves below, so a stream crosses the high ground and no flooded basin opens on it
         for (s, &(cx, cy, width)) in f.stations.iter().enumerate() {
-            let width = min(width, STREAM_WIDTH);
+            let width = if set_width { width } else { min(width, STREAM_WIDTH) };
             let radius = width + 3.0;
             for yy in max(0.0, (cy - radius).floor()) as usize..=min((h - 1) as f64, (cy + radius).ceil()) as usize {
                 for xx in max(0.0, (cx - radius).floor()) as usize..=min((w - 1) as f64, (cx + radius).ceil()) as usize {
@@ -4402,7 +4404,9 @@ impl CarveState {
             .filter(|&i| near[i] != 4)
             .map(|i| {
                 let (xx, yy) = (i % w, i / w);
-                let lower = |j: usize| !high(j);
+                // (lower ground: below the lip, or the course's own channel through high ground past the edge, so the
+                // lip runs the whole width of the stream's front and no part of it stands dry between two curtains)
+                let lower = |j: usize| !high(j) || near[j] == 4;
                 let rim = (xx > 0 && lower(i - 1)) || (xx + 1 < w && lower(i + 1)) || (yy > 0 && lower(i - w)) || (yy + 1 < h && lower(i + w));
                 let level = match (near[i], rim) {
                     (2, true) => lip,

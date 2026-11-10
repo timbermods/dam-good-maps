@@ -243,9 +243,15 @@ describe("the force: Aim, Defy gravity and Wander", () => {
     expect(depth(slot)).toBeGreaterThanOrEqual(8);
     expect(depth(lazy)).toBeLessThanOrEqual(2);
     expect(slot.metrics.cut / area(slot)).toBeGreaterThan((lazy.metrics.cut / area(lazy)) * 3);
+    // (the same course; above a fall Auto keeps the stream a stream, about six tiles, while a set Width makes it as
+    // wide as asked, since planning's order that the player sets a fall's width, D148: elsewhere the same ground)
     const linked = complete(mountain, { width: null });
     const explicit = complete(mountain, { width: naturalWidth(DEFAULTS.power) });
-    expect(Array.from(linked.map.heights)).toEqual(Array.from(explicit.map.heights));
+    expect(linked.path).toEqual(explicit.path);
+    const differ = Array.from(mountain.heights.keys()).filter((i) => linked.map.heights[i] !== explicit.map.heights[i]);
+    const wide = naturalWidth(DEFAULTS.power) + 3;
+    expect(differ.filter((i) => !linked.path.some((p) => Math.hypot(p.x - (i % 64), p.y - Math.floor(i / 64)) <= wide))).toEqual([]);
+    expect(differ.filter((i) => explicit.map.heights[i] < linked.map.heights[i]).length).toBeGreaterThan(differ.length / 2);
   });
 
   it("each seed (Try another path) is exact; another seed changes the course but never the rock", () => {
@@ -554,8 +560,10 @@ describe("a carve in the document (breakage rule)", () => {
     // keep evaporating, as do Highlands 26 with seed 3 and Canyon 4 with seed 2, while its 144 with seed 1 settle whole;
     // Highlands 26 with the carve's seed 3 since Carve falls off high ground (showcase craft gaps 1, 2 and 20, D148):
     // Highlands 23 and 8 with seeds 1–6 seal none now, Highlands 26 with seed 3 seals 118; Highlands 18 with the carve's
-    // seed 2 once the high ground beside a fall's stream is kept (D148): Highlands 26, 23 and 8 and Canyon 4 and 12 with
-    // seeds 1–6 seal none now, Highlands 18 with seed 2 seals 104)
+    // seed 2 once the high ground beside a fall's stream is kept (D148): Highlands 26 with seed 3's course falls, and the
+    // ground its fall keeps beside the stream (cut to the bed before) no longer lets its bend seal, by decision, not a
+    // change in how Carve meanders; Highlands 26, 23 and 8 and Canyon 4 and 12 with seeds 1–6 seal none now, Highlands 18
+    // with seed 2 seals 104)
     // (without its 3D forms, D488: since they grow at the default Verticality this map has a cave on the
     // carve's way, which a force leaves as it is; the oxbow is the carve's, not the caves')
     const r = generate(makeSpec({ seed: 18, theme: "highlands", size: { x: 96, y: 96 } }), { forms: false });

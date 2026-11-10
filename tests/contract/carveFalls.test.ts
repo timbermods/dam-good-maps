@@ -110,6 +110,16 @@ describe("a fall from one stroke (showcase craft gaps 1, 2 and 20)", () => {
     expect(lips.length).toBeGreaterThanOrEqual(3);
   });
 
+  it("a set Size widens the fall: Size 10 pours over a lip about ten tiles wide", () => {
+    const f = stroke(fallStudy("mesa"), [6, Y], [44, Y], { width: 10 });
+    if (typeof f === "string") throw new Error(f);
+    const a = across(f, Y, 6, 13);
+    expect(a.ground).toBe(12);
+    const lips = Array.from({ length: 21 }, (_, k) => (Y - 10 + k) * f.W + a.lip).filter((i) => f.after[i] === 12 && f.depth[i] > 0.01);
+    expect(lips.length).toBeGreaterThanOrEqual(9);
+    expect(lips.length).toBeLessThanOrEqual(12);
+  });
+
   it("a landmark: Fall 8 off a tall mesa", () => {
     const f = stroke(fallStudy("mesa", 15), [6, Y], [71, Y], { fall: 8, width: 4 });
     if (typeof f === "string") throw new Error(f);
