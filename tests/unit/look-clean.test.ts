@@ -127,9 +127,10 @@ describe("the clean view", () => {
       { template: "Blockage", x: 22, y: 2, z: 2, orientation: "Cw0", owner: "f" },
     ];
     const names = [...meshesOf(list).keys()].sort();
-    expect(names).toEqual(["GeothermalField", "LargeRelic", "MediumRelic", "SmallRelic", "Thorns", "block.rubble"]);
-    // a blockage is still a block (its model key), drawn as a heap of stones
-    expect(modelKeyOf("Blockage", 0)).toBe("block");
+    expect(names).toEqual(["Blockage", "GeothermalField", "LargeRelic", "MediumRelic", "SmallRelic", "Thorns"]);
+    // a blockage is the game's heap, a model of its own (D178 as amended 2026-11-10, D148: it was a block, a heap of
+    // stones)
+    expect(modelKeyOf("Blockage", 0)).toBe("Blockage");
     // the light look draws each once
     for (const m of meshesOf(list, true).values()) expect(m.count).toBe(1);
   });

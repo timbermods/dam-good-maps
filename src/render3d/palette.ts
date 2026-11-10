@@ -393,6 +393,21 @@ export const GEOTHERMAL_ROCK: Rgb = [0.27, 0.26, 0.25];
  *  fallen telescope and a crashed satellite, not yet drawn). */
 export const RELIC_STONE: Rgb = [0.66, 0.62, 0.54];
 
+/** The blockage as the game colours it (Blockage.Model, D178, D496): its albedo (texture × vertex colour, area-weighted,
+ *  `tools/game-model-albedo.py`), its material not metallic, so straight. Its heap's rocks in the three greys of its
+ *  vertex colours (the heap's mean 0.173/0.160/0.133), its broken posts, the beam through it and the splinter brown, its plank shards pale,
+ *  each shard its own (front, and back where the game draws one). */
+export const BLOCKAGE = {
+  rock: [[0.155, 0.148, 0.127], [0.176, 0.167, 0.142], [0.194, 0.18, 0.152]] as readonly Rgb[],
+  post: [0.189, 0.145, 0.102] as Rgb,
+  splinter: [0.129, 0.086, 0.053] as Rgb,
+  beam: [0.171, 0.126, 0.086] as Rgb,
+  sawn: [0.219, 0.181, 0.137] as Rgb,
+  broken: [0.109, 0.075, 0.048] as Rgb,
+  shard: [[0.207, 0.178, 0.135], [0.294, 0.251, 0.19], [0.284, 0.245, 0.184], [0.267, 0.23, 0.175], [0.3, 0.252, 0.18], [0.288, 0.246, 0.182]] as readonly Rgb[],
+  shardBack: [[0.207, 0.178, 0.135], [0.294, 0.251, 0.19], [0.284, 0.245, 0.184], [0.209, 0.18, 0.137], [0.313, 0.265, 0.192], [0.288, 0.246, 0.182]] as readonly Rgb[],
+} as const;
+
 /** The large relic as the game colours it (LargeRelic.Model, D178, D496): a fallen dish antenna of weathered pale metal,
  *  darker toward its hub, on dark steel fittings, among dark stones. Its material (EnvironmentURP on the
  *  `BeaverCarryingModels` atlas) is partly metallic (0.13–0.23 on the panels, 0.5 on the rim and fittings; smoothness

@@ -32,8 +32,8 @@
 //   roots, rubble, cracks; rusty posts down into the pit round its lip, joined by beams, and ground in the
 //   pit's corners falling into it as an earthen bank; no scaffolding, as the game has none. With Markers, an outline
 //   round its footprint (the terrain shader). Geothermal fields: dark rock with glowing
-//   vents. Relics: broken stone columns on a plinth. Thorns: dark brambles. Blockages and natural
-//   dams: heaps of stones. Timberborn 1.x objects, each shaped after the game's own render and in its game
+//   vents. Relics: broken stone columns on a plinth. Thorns: dark brambles. Blockages: the game's heap
+//   of grey rock with broken posts and pale plank shards (blockage.ts). Natural dams: heaps of stones. Timberborn 1.x objects, each shaped after the game's own render and in its game
 //   footprint: seeps (a stone slab at the ground round a pit, the terrain's tops over its 2 × 2
 //   cut out like a mine site's, heaped with rounded rocks to 0.57, or 0.40 for badwater, the gaps dark teal or
 //   rust), the aquifer (a dry, dark rubble cross with a hole), its drill (a tall, narrow
@@ -59,6 +59,7 @@ import { plantScale, RANDOMIZER } from "./plantSize";
 import { DEAD_FORM, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
 import { crownShade, GEOTHERMAL, GEOTHERMAL_ROCK, LANDMARK, MINE, OWN_LIGHTNESS, ownAlbedo, RELIC_STONE, RUIN, SLOPE, START, THORNS, TREE_COLOURS, WATER } from "./palette";
 import { objectSoilAt } from "./runSoil";
+import { blockageParts } from "./blockage";
 import { largeRelicParts } from "./largeRelic";
 import { LAND, LAND_GROW } from "./objectFade";
 
@@ -467,6 +468,12 @@ const MODELS: Record<string, () => Model> = {
     for (const { points, colour } of largeRelicParts()) m.tris(points, colour);
     return m;
   },
+  // (the game's heap of rock, posts and plank shards, at its measures and in its colours: blockage.ts)
+  Blockage: () => {
+    const m = new Model();
+    for (const { points, colour } of blockageParts()) m.tris(points, colour);
+    return m;
+  },
   Thorns: () => {
     // a low, dark bramble with thorny canes sticking out
     const m = new Model().add(ico(0.34), THORNS, { y: 0.2, sy: 0.6 }).add(ico(0.24), [0.28, 0.14, 0.12], { x: 0.18, y: 0.3, z: -0.1, sy: 0.8 });
@@ -483,10 +490,10 @@ const MODELS: Record<string, () => Model> = {
   ReserveWarehouse: reserveWarehouse,
   ReserveTank: reserveTank,
 };
-/** The models in the game's own colours, its albedo straight (palette.ts `TREE_COLOURS`, `LANDMARK`, `LARGE_RELIC`; the
+/** The models in the game's own colours, its albedo straight (palette.ts `TREE_COLOURS`, `LANDMARK`, `LARGE_RELIC`, `BLOCKAGE`; the
  *  ruins and the start are made apart). Every other model's colours are our own, drawn at `ownAlbedo` (palette.ts
  *  `OWN_LIGHTNESS`). */
-const GAME_COLOURED = new Set(["Pine", "Birch", "Oak", "BlueberryBush", "WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep", "LargeRelic"]);
+const GAME_COLOURED = new Set(["Pine", "Birch", "Oak", "BlueberryBush", "WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep", "LargeRelic", "Blockage"]);
 for (const key of Object.keys(MODELS))
   if (!GAME_COLOURED.has(key.split(".")[0])) {
     const make = MODELS[key];
@@ -1032,14 +1039,14 @@ function relic(sx: number, sy: number, columns: [number, number, number][], fall
   return m;
 }
 
-/** A heap of stones on a block (blockages and natural dams), tinted by its template. */
+/** A heap of stones on a block (natural dams), tinted by its template. */
 function rubble(): Model {
   const m = new Model();
   const stones: [number, number, number, number, number][] = [[-0.18, 0.2, -0.15, 0.32, 1], [0.22, 0.17, 0.12, 0.28, 0.86], [-0.05, 0.14, 0.26, 0.24, 0.78], [0.16, 0.44, -0.1, 0.22, 0.94], [-0.2, 0.42, 0.14, 0.2, 0.9]];
   for (const [x, y, z, r, shade] of stones) m.add(ico(r), [shade, shade, shade], { x, y, z, sy: 0.8 });
   return m.own();
 }
-const RUBBLE = new Set(["Blockage", "NaturalDam"]);
+const RUBBLE = new Set(["NaturalDam"]);
 
 /** The light look's models, for browsers that render in software (a few triangles each; D110). */
 const LITE_MODELS: Record<string, () => Model> = {

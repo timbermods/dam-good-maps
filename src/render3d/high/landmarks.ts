@@ -1,9 +1,10 @@
 // Refreshed objects and landmarks for the High look (#67 stage 3, investigation/maplook-finish
 // landmarks.ts; PLAN §20 D250): procedural models of our own, in place of today's, on the same
 // transforms, footprints and tints: the small and medium relics as plain chipped stumps, geothermal vents, a
-// bramble of thorns, rubble and log debris for blockages and natural dams, and a few steel gussets and bolts on
+// bramble of thorns, rubble and log debris for natural dams, and a few steel gussets and bolts on
 // the ruins' scaffolds and the mine's frame. The start (the game's lantern tower), the water and badwater
-// sources (its rock outcrop and crater) and the large relic (its fallen dish antenna, largeRelic.ts) are
+// sources (its rock outcrop and crater), the large relic (its fallen dish antenna, largeRelic.ts) and the
+// blockage (its heap of rock, blockage.ts) are
 // Standard's models, the game's shapes (D496), in High's materials. Slopes keep their ramp in natural materials. Each replacement carries the original batch's
 // per-instance bookkeeping, so highlighting, removing and following the ground work as before; off, the
 // originals come back.
@@ -203,13 +204,13 @@ function geometryFor(name: string, batch: string, base: BufferGeometry): BufferG
   const key = name === "StartingLocation" || name.endsWith("Relic") || ["Thorns", "GeothermalField", "WaterSource", "BadwaterSource", "Blockage", "NaturalDam"].includes(name) ? name : `|${batch}`;
   let g = models.get(key);
   if (!g) {
-    // (the start, the sources and the large relic are the game's models, D496: Standard's own, in High's materials and
-    // light)
-    if (name === "StartingLocation" || name === "WaterSource" || name === "BadwaterSource" || name === "LargeRelic") g = new Parts().copy(base).geometry();
+    // (the start, the sources, the large relic and the blockage are the game's models, D496: Standard's own, in High's
+    // materials and light)
+    if (name === "StartingLocation" || name === "WaterSource" || name === "BadwaterSource" || name === "LargeRelic" || name === "Blockage") g = new Parts().copy(base).geometry();
     else if (name.endsWith("Relic")) g = relic(name);
     else if (name === "Thorns") g = bramble();
     else if (name === "GeothermalField") g = geothermal();
-    else if (name === "Blockage" || name === "NaturalDam") g = debris(name === "NaturalDam");
+    else if (name === "NaturalDam") g = debris(true);
     else g = augment(batch, base);
     models.set(key, g);
   }
