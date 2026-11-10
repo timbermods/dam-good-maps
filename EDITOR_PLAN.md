@@ -656,7 +656,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   two levels; moist for crops and may flood when the river refills, D307; `rust/forces`, `shape_river`) and **Fall**
   (showcase craft gaps 1, 2 and 20; Auto, "Edges", or 2 to 12): where the course leaves high ground over an edge (the
   ground three levels or more lower within two stations) it falls: the stream on top runs a level deep with its bed two
-  levels under the top, as wide as the river, cut as the head reaches it, and leaves over a lip one level under the
+  levels under the top, as wide as the river (on Auto Width at most about six tiles, so a wide river's stream does not
+  flood a basin on the mesa), cut as the head reaches it, and leaves over a lip one level under the
   top, as wide as the stream; the rest of the high ground joined to it is kept (no bowl, no ramp, the cliff beside the
   fall standing). A gentle Power (one that only scratches the land) and a catastrophe (Power 90 and up) make no
   falls of their own. A set Fall makes the

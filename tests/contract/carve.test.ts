@@ -127,8 +127,12 @@ describe("the force: Power, Width, walls and rock", () => {
   });
 
   it("wide walls make broad terraces; steep walls keep a narrower gorge", () => {
-    const steep = complete(mountain, { power: 65, walls: "steep" });
-    const wide = complete(mountain, { power: 65, walls: "wide" });
+    // (on the ridge: the mountain's course falls off its high ground, which a fall keeps whatever the walls, since Carve
+    // falls off high ground, showcase craft gaps 1, 2 and 20, D148)
+    const ridge = study("ridge", 96);
+    const aim = { origin: 80 * 96 + 48, end: 14 * 96 + 48 };
+    const steep = complete(ridge, { mode: "aim", power: 65, walls: "steep" }, aim);
+    const wide = complete(ridge, { mode: "aim", power: 65, walls: "wide" }, aim);
     expect(wide.metrics.bankCuts).toBeGreaterThan(steep.metrics.bankCuts * 1.4);
     expect(wide.metrics.cut).toBeGreaterThan(steep.metrics.cut);
   });
@@ -243,9 +247,15 @@ describe("the force: Aim, Defy gravity and Wander", () => {
     expect(depth(slot)).toBeGreaterThanOrEqual(8);
     expect(depth(lazy)).toBeLessThanOrEqual(2);
     expect(slot.metrics.cut / area(slot)).toBeGreaterThan((lazy.metrics.cut / area(lazy)) * 3);
+    // (the same course everywhere, and the same ground where it does not fall: above a fall Auto keeps the stream a
+    // stream, at most about six tiles, while a set Width sets it, since Carve falls off high ground, D148)
     const linked = complete(mountain, { width: null });
     const explicit = complete(mountain, { width: naturalWidth(DEFAULTS.power) });
-    expect(Array.from(linked.map.heights)).toEqual(Array.from(explicit.map.heights));
+    expect(linked.path).toEqual(explicit.path);
+    const plain = complete(large, { mode: "aim", width: null }, largeAim);
+    const set = complete(large, { mode: "aim", width: naturalWidth(DEFAULTS.power) }, largeAim);
+    expect(plain.metrics.waterfalls).toBe(0);
+    expect(Array.from(plain.map.heights)).toEqual(Array.from(set.map.heights));
   });
 
   it("each seed (Try another path) is exact; another seed changes the course but never the rock", () => {
@@ -536,13 +546,15 @@ describe("a carve in the document (breakage rule)", () => {
     // the D410 round, D148: seed 8 with the carve's seeds 1–6 seals at most 66 tiles now; Highlands 23 with seed 3 seals 92 that
     // keep evaporating, as do Highlands 26 with seed 3 and Canyon 4 with seed 2, while its 144 with seed 1 settle whole;
     // Highlands 26 with the carve's seed 3 since Carve falls off high ground (showcase craft gaps 1, 2 and 20, D148):
-    // Highlands 23 and 8 with seeds 1–6 seal none now, Highlands 26 with seed 3 seals 118)
+    // Highlands 23 and 8 with seeds 1–6 seal none now, Highlands 26 with seed 3 seals 118; Highlands 18 with the carve's
+    // seed 2 once the high ground beside a fall's stream is kept (D148): Highlands 26, 23 and 8 and Canyon 4 and 12 with
+    // seeds 1–6 seal none now, Highlands 18 with seed 2 seals 104)
     // (without its 3D forms, D488: since they grow at the default Verticality this map has a cave on the
     // carve's way, which a force leaves as it is; the oxbow is the carve's, not the caves')
-    const r = generate(makeSpec({ seed: 26, theme: "highlands", size: { x: 96, y: 96 } }), { forms: false });
+    const r = generate(makeSpec({ seed: 18, theme: "highlands", size: { x: 96, y: 96 } }), { forms: false });
     const s = MapSession.fromGenerated(r, r.file);
     const before = Array.from(s.built.water);
-    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 3, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
+    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 2, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
     const lake = op.params.lake!;
     expect(lake.tiles.length).toBeGreaterThan(70);
     expect(checkSchema(opsSchema as Record<string, unknown>, op)).toEqual([]);
