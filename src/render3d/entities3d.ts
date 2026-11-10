@@ -34,7 +34,8 @@
 //   round its footprint (the terrain shader). Geothermal fields: dark rock with glowing
 //   vents. Relics: the game's fallen telescope (small), crashed satellite (medium) and fallen dish antenna (large), at
 //   their measures and in their colours (smallRelics.ts, largeRelic.ts). Thorns: dark brambles. Blockages: the game's heap
-//   of grey rock with broken posts and pale plank shards (blockage.ts). Natural dams: heaps of stones. Timberborn 1.x objects, each shaped after the game's own render and in its game
+//   of grey rock with broken posts and pale plank shards (blockage.ts). Natural dams: the game's low heap of brown rock with
+//   logs through it and flat stones over it (naturalDam.ts). Timberborn 1.x objects, each shaped after the game's own render and in its game
 //   footprint: seeps (a stone slab at the ground round a pit, the terrain's tops over its 2 × 2
 //   cut out like a mine site's, heaped with rounded rocks to 0.57, or 0.40 for badwater, the gaps dark teal or
 //   rust), the aquifer (a dry, dark rubble cross with a hole), its drill (a tall, narrow
@@ -61,6 +62,7 @@ import { DEAD_FORM, DEAD_LIMBS, type DeadPart, deadLeaves, deadRatio, deadWood, 
 import { crownShade, GEOTHERMAL, GEOTHERMAL_ROCK, LANDMARK, MINE, OWN_LIGHTNESS, ownAlbedo, RUIN, SLOPE, START, THORNS, TREE_COLOURS, WATER } from "./palette";
 import { objectSoilAt } from "./runSoil";
 import { blockageParts } from "./blockage";
+import { naturalDamParts } from "./naturalDam";
 import { largeRelicParts } from "./largeRelic";
 import { mediumRelicParts, smallRelicParts } from "./smallRelics";
 import { LAND, LAND_GROW } from "./objectFade";
@@ -460,6 +462,9 @@ const MODELS: Record<string, () => Model> = {
     for (const { points, colour } of blockageParts()) m.tris(points, colour);
     return m;
   },
+  // (the game's low heap of brown rock, logs through it and flat stones over it, at its measures and in its colours:
+  // naturalDam.ts)
+  NaturalDam: () => fromParts(naturalDamParts()),
   Thorns: () => {
     // a low, dark bramble with thorny canes sticking out
     const m = new Model().add(ico(0.34), THORNS, { y: 0.2, sy: 0.6 }).add(ico(0.24), [0.28, 0.14, 0.12], { x: 0.18, y: 0.3, z: -0.1, sy: 0.8 });
@@ -479,7 +484,7 @@ const MODELS: Record<string, () => Model> = {
 /** The models in the game's own colours, its albedo straight (palette.ts `TREE_COLOURS`, `LANDMARK`, `SMALL_RELIC`, `MEDIUM_RELIC`, `LARGE_RELIC`, `BLOCKAGE`; the
  *  ruins and the start are made apart). Every other model's colours are our own, drawn at `ownAlbedo` (palette.ts
  *  `OWN_LIGHTNESS`). */
-const GAME_COLOURED = new Set(["Pine", "Birch", "Oak", "BlueberryBush", "WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep", "SmallRelic", "MediumRelic", "LargeRelic", "Blockage"]);
+const GAME_COLOURED = new Set(["Pine", "Birch", "Oak", "BlueberryBush", "WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep", "SmallRelic", "MediumRelic", "LargeRelic", "Blockage", "NaturalDam"]);
 for (const key of Object.keys(MODELS))
   if (!GAME_COLOURED.has(key.split(".")[0])) {
     const make = MODELS[key];
@@ -511,7 +516,7 @@ function deadTree(species: keyof typeof DEAD_LIMBS, colours: Partial<Record<Dead
     // (the top end closed: a disc across it, facing along the last length)
     const [a, b] = line.slice(-2);
     const d = new Vector3(b[0] - a[0], b[1] - a[1], b[2] - a[2]).normalize();
-    m.add(new CircleGeometry(b[3], sides).applyQuaternion(new Quaternion().setFromUnitVectors(new Vector3(0, 0, 1), d)), colour(cap), { x: b[0], y: b[1], z: b[2] });
+    m.add(new CircleGeometry(b[3], sides, -Math.PI / 2).applyQuaternion(new Quaternion().setFromUnitVectors(new Vector3(0, 0, 1), d)), colour(cap), { x: b[0], y: b[1], z: b[2] });
   }
   return m;
 }
@@ -1042,14 +1047,6 @@ function fromParts(parts: readonly { points: number[]; colour: Rgb }[]): Model {
   return m;
 }
 
-/** A heap of stones on a block (natural dams), tinted by its template. */
-function rubble(): Model {
-  const m = new Model();
-  const stones: [number, number, number, number, number][] = [[-0.18, 0.2, -0.15, 0.32, 1], [0.22, 0.17, 0.12, 0.28, 0.86], [-0.05, 0.14, 0.26, 0.24, 0.78], [0.16, 0.44, -0.1, 0.22, 0.94], [-0.2, 0.42, 0.14, 0.2, 0.9]];
-  for (const [x, y, z, r, shade] of stones) m.add(ico(r), [shade, shade, shade], { x, y, z, sy: 0.8 });
-  return m.own();
-}
-const RUBBLE = new Set(["NaturalDam"]);
 
 /** The light look's models, for browsers that render in software (a few triangles each; D110). */
 const LITE_MODELS: Record<string, () => Model> = {
@@ -1581,7 +1578,7 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
     if (key === "block") {
       const fp = FOOTPRINTS[template];
       const color = genericColor(template);
-      const b = RUBBLE.has(template) ? batch("block.rubble", rubble) : batch("block", () => new Model().add(box(0.92, 0.92, 0.92), [1, 1, 1], { y: 0.46 }).own());
+      const b = batch("block", () => new Model().add(box(0.92, 0.92, 0.92), [1, 1, 1], { y: 0.46 }).own());
       const o = ORIENTATION_NAMES[v.orientation[k]] as Orientation;
       if (fp) for (const bl of worldBlocks(fp, { template, x, y, z, orientation: o, flipped: !!(flags & FLIPPED) })) put(b, bl.x + 0.5, bl.z, -(bl.y + 0.5), 0, 1, color);
       else put(b, x + 0.5, z, -(y + 0.5), 0, 1, color);
