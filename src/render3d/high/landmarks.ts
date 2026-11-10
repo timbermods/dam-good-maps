@@ -1,11 +1,10 @@
 // Refreshed objects and landmarks for the High look (#67 stage 3, investigation/maplook-finish
 // landmarks.ts; PLAN §20 D250): procedural models of our own, in place of today's, on the same
-// transforms, footprints and tints: geothermal vents, a
-// bramble of thorns, and a few steel gussets and bolts on
+// transforms, footprints and tints: geothermal vents, and a few steel gussets and bolts on
 // the ruins' scaffolds and the mine's frame. The start (the game's lantern tower), the water and badwater
 // sources (its rock outcrop and crater), the relics (its fallen telescope, crashed satellite and fallen dish antenna,
-// smallRelics.ts, largeRelic.ts), the blockage (its heap of rock, blockage.ts) and the natural dam (its heap of brown rock
-// with logs through it, naturalDam.ts) are
+// smallRelics.ts, largeRelic.ts), the blockage (its heap of rock, blockage.ts), the natural dam (its heap of brown rock
+// with logs through it, naturalDam.ts) and the thorns (its spikes and twigs, thorns.ts) are
 // Standard's models, the game's shapes (D496), in High's materials. Slopes keep their ramp in natural materials. Each replacement carries the original batch's
 // per-instance bookkeeping, so highlighting, removing and following the ground work as before; off, the
 // originals come back.
@@ -14,7 +13,7 @@ import { BoxGeometry, BufferGeometry, CylinderGeometry, Float32BufferAttribute, 
 import type { EntityView } from "../model";
 import { whenIdle } from "../idle";
 import { disposeSharedBatch } from "./sharedBatch";
-import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, OWN_LIGHTNESS, ownAlbedo, RUIN, THORNS, type Rgb } from "../palette";
+import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, OWN_LIGHTNESS, ownAlbedo, RUIN, type Rgb } from "../palette";
 
 const shade = (c: Rgb, k: number): Rgb => [c[0] * k, c[1] * k, c[2] * k];
 const hash = (i: number) => {
@@ -91,25 +90,6 @@ function rock(m: Parts, x: number, y: number, z: number, r: number, c: Rgb, seed
   m.add(g, c, x, y, z, 0, seed, seed * 0.31, lod);
 }
 
-function bramble(): BufferGeometry {
-  const m = new Parts();
-  for (let k = 0; k < 10; k++) {
-    const a = k * 2.4;
-    const r = 0.22 + hash(k) * 0.13;
-    const x = Math.sin(a) * r;
-    const z = Math.cos(a) * r;
-    const end = [x * 1.27, 0.26 + hash(k + 1) * 0.28, z * 1.27];
-    m.beam([x * 0.3, 0.04, z * 0.3], end, 0.028, shade(THORNS, 0.72 + hash(k + 7) * 0.52));
-    m.beam(end, [end[0] * 0.4, end[1] * 1.25, end[2] * 0.4], 0.017, shade(THORNS, 1.22));
-    for (let j = 0; j < 3; j++) {
-      const y = 0.15 + j * 0.08;
-      m.beam([x * 0.8, y, z * 0.8], [x * 1.15, y + 0.11, z * 1.15], 0.013, [0.61, 0.39, 0.25], 1);
-    }
-  }
-  rock(m, 0, 0.12, 0, 0.22, shade(THORNS, 0.67), 11);
-  return m.own().geometry();
-}
-
 function geothermal(): BufferGeometry {
   const m = new Parts();
   for (let k = 0; k < 15; k++) rock(m, (hash(k) - 0.5) * 2.45, 0.16, (hash(k + 16) - 0.5) * 2.45, 0.35 + hash(k + 8) * 0.3, shade(GEOTHERMAL_ROCK, 0.9 + hash(k) * 0.4), k);
@@ -167,10 +147,9 @@ function geometryFor(name: string, batch: string, base: BufferGeometry): BufferG
   const key = name === "StartingLocation" || name.endsWith("Relic") || ["Thorns", "GeothermalField", "WaterSource", "BadwaterSource", "Blockage", "NaturalDam"].includes(name) ? name : `|${batch}`;
   let g = models.get(key);
   if (!g) {
-    // (the start, the sources, the relics, the blockage and the natural dam are the game's models, D496: Standard's own,
-    // in High's materials and light)
-    if (name === "StartingLocation" || name === "WaterSource" || name === "BadwaterSource" || name.endsWith("Relic") || name === "Blockage" || name === "NaturalDam") g = new Parts().copy(base).geometry();
-    else if (name === "Thorns") g = bramble();
+    // (the start, the sources, the relics, the blockage, the natural dam and the thorns are the game's models, D496:
+    // Standard's own, in High's materials and light)
+    if (name === "StartingLocation" || name === "WaterSource" || name === "BadwaterSource" || name.endsWith("Relic") || name === "Blockage" || name === "NaturalDam" || name === "Thorns") g = new Parts().copy(base).geometry();
     else if (name === "GeothermalField") g = geothermal();
     else g = augment(batch, base);
     models.set(key, g);

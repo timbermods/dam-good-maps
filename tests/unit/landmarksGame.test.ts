@@ -7,14 +7,15 @@
 // its 2 × 1; the medium its crashed satellite (MediumRelic.Model), 0.6 high in its 3 × 2; the large its fallen dish
 // antenna (LargeRelic.Model), 1.84 high in its 3 × 3. A blockage is its heap of rock (Blockage.Model), 1.08 high; a natural
 // dam its low heap of brown rock with logs through it (NaturalDam.Model), 0.72 high; a badtide drain its box of rusted
-// plate 1 high over two tiles, a hood over its mouth (BadtideDrain.Model).
+// plate 1 high over two tiles, a hood over its mouth (BadtideDrain.Model). A thorn bush is the game's spikes and twigs
+// (Thorns.Model), 0.55 high and overhanging its tile, with no state to draw (the game's has no growth or dying).
 // Standard's models are High's and the light look's too, and Standard's baked shadows are fitted to them.
 
 import { describe, expect, it } from "vitest";
 import { modelKeyOf, modelOf, modelTriangles } from "../../src/render3d/entities3d";
 import { LARGE_RELIC_SHADOW } from "../../src/render3d/largeRelic";
 import { litFraction, objectCasters, SHADOW_RES, shadowTops } from "../../src/render3d/light";
-import { BADTIDE_DRAIN, BLOCKAGE, LARGE_RELIC, LIGHT, MEDIUM_RELIC, NATURAL_DAM, SMALL_RELIC, UNSTABLE_CORE } from "../../src/render3d/palette";
+import { BADTIDE_DRAIN, BLOCKAGE, LARGE_RELIC, LIGHT, MEDIUM_RELIC, NATURAL_DAM, SMALL_RELIC, THORNS, UNSTABLE_CORE } from "../../src/render3d/palette";
 import { entityView } from "../../src/render3d/model";
 import { mediumRelicParts } from "../../src/render3d/smallRelics";
 
@@ -433,6 +434,36 @@ describe("the unstable core at the game's measures", () => {
       }
       expect(lit / all).toBeGreaterThan(0.97);
     }
+  });
+});
+
+describe("the thorns at the game's measures", () => {
+  it("are the game's spikes among twigs: 0.55 high, overhanging their tile, in its colours, about its triangles", () => {
+    const b = bounds(modelKeyOf("Thorns", 0));
+    // (the game's model, its twigs as its texture cuts them out, reaches from −0.06 to 0.55 up, x −0.69…0.66 and
+    // z −0.68…0.76 about its tile's middle)
+    expect(b.hi).toBeGreaterThan(0.52);
+    expect(b.hi).toBeLessThan(0.56);
+    expect(b.lo).toBeGreaterThan(-0.08);
+    expect(b.x).toBeGreaterThan(1.3);
+    expect(b.x).toBeLessThan(1.45);
+    expect(b.z).toBeGreaterThan(1.3);
+    expect(b.z).toBeLessThan(1.55);
+    const col = modelOf("Thorns").col;
+    const has = (c: readonly number[]) => {
+      for (let k = 0; k < col.length; k += 3) if (Math.abs(col[k] - c[0]) < 1e-3 && Math.abs(col[k + 1] - c[1]) < 1e-3 && Math.abs(col[k + 2] - c[2]) < 1e-3) return true;
+      return false;
+    };
+    for (const c of [THORNS.foot, THORNS.point, THORNS.twig]) expect(has(c)).toBe(true);
+    expect(modelTriangles("Thorns")).toBeLessThanOrEqual(180);
+  });
+
+  // (the game's shadow is a lattice of thin twigs, nowhere darker than 0.45 over half a tile, the bake's sample; the best
+  // upright discs share no more than 0.28 of their union with the model's shadow round the compass)
+  it("cast nothing in Standard's bake", () => {
+    const e = entityView([{ template: "Thorns", x: 4, y: 4, z: 3, orientation: "Cw90", owner: "t" }]);
+    const casters = objectCasters(12, 12, e);
+    expect(casters === null || casters.every((v) => v === 0)).toBe(true);
   });
 });
 
