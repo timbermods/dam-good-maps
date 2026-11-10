@@ -41,8 +41,7 @@ say the maps and the editor don't fall short of that.
 - water on 6–7 % of tiles (Workshop 27 %), a fifth of the land green;
 - each a 128² seed with a feature 20–30 tiles across dug into one corner, and no idea a player could say in a line;
 - nothing to earn, divert or discover: none of the aquifers, cores, seeps, blockages or timed sources on the shelf;
-- never seen in the game: every look verdict was given on our own renderer;
-- one green: maple, chestnut, mangrove, dandelion and coffee bush couldn't be placed.
+- never seen in the game: every look verdict was given on our own renderer.
 
 **The order now: the map first, judged in the game.** Tools are built as the map demands them.
 1. **One map built from its idea at the scale of the whole map** (planning's author, `showcase/four-lakes`): "Four
@@ -59,7 +58,6 @@ say the maps and the editor don't fall short of that.
    as a force and in the themes, in place of tabletops four levels apart); #532; the first ten cycles as a report
    (days of water at the start in each drought, the day badwater arrives, the shortest dam that holds).
 4. **Planning's builders:**
-   - every plant a map may hold, placeable (`feature/more-plants`);
    - the forces as landforms, each judged by eye: Craterize (#912), Glaciate (#914), then the rest from the audit of
      every force;
    - the stroke pipeline rebuilt on one ordered queue (`feature/edit-queue`; #410, #873, #880, #884, #868, #829), and
