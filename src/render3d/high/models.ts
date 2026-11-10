@@ -6,7 +6,7 @@
 // vegetation material's uniforms), never baked, so tuning them rebuilds nothing.
 
 // (ported from investigation/vegetation/models.ts)
-import { DEAD_FORM, deadLeaves, deadWood, DRYING, dryColour } from '../dying';
+import { DEAD_FORM, DEAD_LIMBS, type DeadPart, deadLeaves, deadWood, DRYING, dryColour } from '../dying';
 import { plantScale, RANDOMIZER } from '../plantSize';
 import { crownShade, ownAlbedo, TREE_COLOURS } from '../palette';
 import { BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, OctahedronGeometry, TetrahedronGeometry, Matrix4, Quaternion, Vector3 } from 'three';
@@ -127,6 +127,24 @@ function tier(m: Shape, radius: number, base: number, height: number, seed: numb
   m.add(g, 'pine');
 }
 
+/** A dead tree's wood, the game's at its size (dying.ts `DEAD_LIMBS`): near, each part with its own sides; far, with
+ *  three, each a little thicker so it is as wide on average as it is near (a polygon's mean width is its perimeter ÷ π). */
+function deadLimbs(m: Shape, spec: 'Pine' | 'Birch' | 'Oak', near: boolean, slot: keyof Palette) {
+  const width = (n: number) => n * Math.sin(Math.PI / n);
+  const shadeOf = (part: DeadPart) => part === 'dark' ? 0.85 : part === 'break' ? 1.35 : 1;
+  for (const { line, sides, part, tip, cap } of DEAD_LIMBS[spec]) {
+    const n = near ? sides : 3, k = width(sides) / width(n);
+    for (let i = 0; i + 1 < line.length; i++) {
+      const [a, b] = [line[i], line[i + 1]];
+      m.branch([a[0], a[1], a[2]], [b[0], b[1], b[2]], a[3] * k, slot, n, b[3] / a[3], shadeOf(i + 2 === line.length ? tip ?? part : part));
+    }
+    if (!cap) continue;
+    // (its top end, closed by the branch, in the cap's shade: a thin disc over it)
+    const [a, b] = line.slice(-2), d = new Vector3(b[0] - a[0], b[1] - a[1], b[2] - a[2]).normalize().multiplyScalar(0.004);
+    m.branch([b[0], b[1], b[2]], [b[0] + d.x, b[1] + d.y, b[2] + d.z], b[3] * k, slot, n, 1, shadeOf(cap));
+  }
+}
+
 export interface SpeciesDefinition { height: number; wind: number; build: (m: Shape, variant: number, detail: Detail, dead: boolean) => void }
 /** Add species here; batching, icons, ghosts and palette binding use this same registry. */
 export const registry: Record<Species, SpeciesDefinition> = {
@@ -135,28 +153,31 @@ export const registry: Record<Species, SpeciesDefinition> = {
   // covered 19 % more, `tools/game-crowns.py`)
   Pine: { height: 3.0, wind: 0.038, build(m, v, detail, dead) {
     const near = detail === 'near', h = 2.9 + v * 0.04;
-    m.branch([0, 0, 0], [0.015, dead ? h * 0.94 : h, 0], near ? 0.1 : 0.08, dead ? 'dead' : 'bark', near ? 6 : 3, 0.35);
-    if (dead) {
-      for (let i = 0; i < (near ? 7 : 3); i++) {
-        const a = i * 2.4 + v, y = 0.7 + i * 0.26;
-        m.branch([0, y, 0], [Math.cos(a) * 0.32, y + 0.14, Math.sin(a) * 0.32], 0.03, 'dead', 3, 0.1);
-      }
-    } else {
-      const n = near ? 4 : 3;
-      for (let i = 0; i < n; i++) {
-        const f = i / n;
-        tier(m, 0.56 * (1 - f * 0.42), 1.2 + f * (h - 1.85), 0.8 - f * 0.12, v * 4 + i, near);
-      }
-      if (near) tier(m, 0.16, h - 0.5, 0.5, v + 19, true);
+    if (dead) return deadLimbs(m, 'Pine', near, 'dead');
+    m.branch([0, 0, 0], [0.015, h, 0], near ? 0.1 : 0.08, 'bark', near ? 6 : 3, 0.35);
+    const n = near ? 4 : 3;
+    for (let i = 0; i < n; i++) {
+      const f = i / n;
+      tier(m, 0.56 * (1 - f * 0.42), 1.2 + f * (h - 1.85), 0.8 - f * 0.12, v * 4 + i, near);
     }
+    if (near) tier(m, 0.16, h - 0.5, 0.5, v + 19, true);
   } },
   // the game's grown birch: a warm grey trunk forking low into two stems, a round crown from 0.95 to 1.92, 1.0 across
   Birch: { height: 1.92, wind: 0.049, build(m, v, detail, dead) {
     const near = detail === 'near', bark = dead ? 'birchDead' : 'birchBark';
+    if (dead) {
+      deadLimbs(m, 'Birch', near, bark);
+      // (near, the dark marks on its trunk below the fork, as on the living one's below)
+      if (near) for (let i = 0; i < 3; i++) {
+        const y = 0.08 + i * 0.12;
+        m.branch([-0.01 * y / 0.42, y, 0], [-0.01 * (y + 0.035) / 0.42, y + 0.035, 0], 0.073 - 0.023 * (y + 0.0175) / 0.42 + 0.004, 'marks', 6, 1);
+      }
+      return;
+    }
     // (from afar its marks are too small to draw, so the trunk takes their share as a shade: they cover 0.175 of its
     // 0.94 at about a third of its lightness)
-    m.branch([0, 0, 0], [0.015, 0.94, 0], 0.07, bark, near ? 6 : 3, 0.5, near || dead ? 1 : 0.88);
-    if (!near && !dead) {
+    m.branch([0, 0, 0], [0.015, 0.94, 0], 0.07, bark, near ? 6 : 3, 0.5, near ? 1 : 0.88);
+    if (!near) {
       for (const side of [-1, 1]) m.add(new OctahedronGeometry(1), 'birch', side === 1 ? 1.04 : 0.92, [side * 0.18, side === 1 ? 1.48 : 1.36, 0], [0.33, 0.46, 0.42]);
       return;
     }
@@ -171,20 +192,20 @@ export const registry: Record<Species, SpeciesDefinition> = {
       const y = 0.15 + i * 0.135;
       m.branch([0, y, 0], [0.003, y + 0.035, 0], 0.07 * (1 - 0.5 * (y + 0.0175) / 0.94) + 0.004, 'marks', 5, 1);
     }
-    if (!dead) {
-      const n = near ? 7 : 2;
-      for (let i = 0; i < n; i++) {
-        const side = i % 2 ? 1 : -1, a = i * 2.4 + v * 0.7;
-        m.crown([side * (near ? 0.18 : 0.2), 1.1 + (near ? i * 0.09 : i * 0.2), near ? Math.sin(a) * 0.16 : 0],
-          [near ? 0.3 : 0.34, near ? 0.3 : 0.46, near ? 0.24 : 0.3], 'birch', 1, a);
-      }
+    const n = near ? 7 : 2;
+    for (let i = 0; i < n; i++) {
+      const side = i % 2 ? 1 : -1, a = i * 2.4 + v * 0.7;
+      m.crown([side * (near ? 0.18 : 0.2), 1.1 + (near ? i * 0.09 : i * 0.2), near ? Math.sin(a) * 0.16 : 0],
+        [near ? 0.3 : 0.34, near ? 0.3 : 0.46, near ? 0.24 : 0.3], 'birch', 1, a);
     }
   } },
   // the game's grown oak: a thick trunk to about 1.2, under one broad, flat-layered crown from 1.13 to 2.26, 1.7 across
   Oak: { height: 2.26, wind: 0.027, build(m, v, detail, dead) {
-    const near = detail === 'near', bark = dead ? 'oakDead' : 'oakBark';
-    m.branch([0, 0, 0], [0.02, dead ? 1.45 : 1.25, 0], dead ? 0.17 : 0.2, bark, near ? 7 : 3, dead ? 0.52 : 0.62);
-    if (!near && !dead) {
+    const near = detail === 'near';
+    if (dead) return deadLimbs(m, 'Oak', near, 'oakDead');
+    const bark = 'oakBark';
+    m.branch([0, 0, 0], [0.02, 1.25, 0], 0.2, bark, near ? 7 : 3, 0.62);
+    if (!near) {
       m.crown([0, 1.66, 0], [0.98, 0.56, 0.94], 'oak', 1.02);
       m.add(new TetrahedronGeometry(1), 'oak', 1.06, [0.32, 1.4, 0.18], [0.5, 0.46, 0.48]);
       return;
@@ -193,16 +214,13 @@ export const registry: Record<Species, SpeciesDefinition> = {
     for (let i = 0; i < n; i++) {
       const a = i / n * Math.PI * 2 + v * 0.4;
       m.branch([0, 0.75 + i * 0.04, 0], [Math.cos(a) * 0.48, 1.5 + i * 0.07, Math.sin(a) * 0.48], near ? 0.06 : 0.04, bark, near ? 5 : 3, 0.18);
-      if (dead && near) m.branch([Math.cos(a) * 0.36, 1.35 + i * 0.07, Math.sin(a) * 0.36], [Math.cos(a + 0.4) * 0.6, 1.72 + i * 0.07, Math.sin(a + 0.4) * 0.6], 0.032, bark, 3, 0.05);
     }
-    if (!dead) {
-      // One broad, flat crown does the reading, as the game's layered one; small shoulders soften its edge.
-      const width = [1, 0.94, 1.04][v];
-      m.add(new IcosahedronGeometry(1, 1), 'oak', 1.02, [0, 1.66 + (v === 1 ? 0.05 : 0), 0], [0.84 * width, 0.5, 0.8 * width], v * 0.25);
-      m.crown([0.4, 1.42, 0.22], [0.46, 0.38, 0.44], 'oak', 1.06, v * 0.3);
-      m.crown([-0.42, 1.52, 0.14], [0.42, 0.38, 0.44], 'oak', 0.97, v * 0.7);
-      m.crown([0.04, 2.0, -0.1], [0.46, 0.3, 0.42], 'oak', 1.04, v);
-    }
+    // One broad, flat crown does the reading, as the game's layered one; small shoulders soften its edge.
+    const width = [1, 0.94, 1.04][v];
+    m.add(new IcosahedronGeometry(1, 1), 'oak', 1.02, [0, 1.66 + (v === 1 ? 0.05 : 0), 0], [0.84 * width, 0.5, 0.8 * width], v * 0.25);
+    m.crown([0.4, 1.42, 0.22], [0.46, 0.38, 0.44], 'oak', 1.06, v * 0.3);
+    m.crown([-0.42, 1.52, 0.14], [0.42, 0.38, 0.44], 'oak', 0.97, v * 0.7);
+    m.crown([0.04, 2.0, -0.1], [0.46, 0.3, 0.42], 'oak', 1.04, v);
   } },
   // the game's grown blueberry bush: a low mound 0.4 tall, 0.97 across, as much as the game's leaves cover (its cards cut
   // by their texture's alpha: 0.93 across from above, its whole model 1.1; until 2026-11-09 ours was 1.24 across and

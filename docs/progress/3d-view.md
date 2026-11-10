@@ -3331,6 +3331,53 @@ are a fallen telescope (`SmallRelic.Model`, 2 × 1, 480 triangles) and a crashed
   its cells are shallow pits, where the game's catch the light in facets. (3) The rest of the placeholders in the
   large relic's falls short (2) remain, the natural dam next.
 
+## Dry ground and dead trees from the widest view (D135, D334 as amended 2026-11-10, D496, D497; `fix/dry-widest`)
+
+Four Lakes r12's widest frame (the game's `day1-widest`, posed in ours by `tools/capture-ingame.ts`) showed our dry
+ground mottled lilac and tan where the game's is one even grey-blue, and its dead birches as faint grey specks where the
+game's are white. Planning's ruling: match the dry tone there and the dead trees' white; nothing else of light or colour.
+
+- **The cause, dry ground.** Not the mean: under the game's mask of dry ground (209,127 pixels: grey, unsaturated, not
+  green) ours was already the game's to 0.005 a channel. The mottle was our own broad hue drift (D334: dry ground
+  drifting between `GROUND.dryCool` and `GROUND.dryWarm` over 4 to 11 tiles). The game draws one `Desert` texture × its
+  detail texture × 2: its red − blue varies over blocks of ¼, 1, 4 and 8 tiles by 7.0, 5.1, 3.0 and 1.9 % of its luma's
+  mean, mostly from its grains; ours drifted all the way, 9.6, 9.3, 7.7 and 5.8 (`tools/ground-variation.ts`, which now
+  prints this beside the luma's spread). The luma's spread was already the game's (`DRY_BROAD`), and neither the
+  altitude ramp, the moisture and contamination channels nor the mips added to it.
+- **The fix, dry ground.** The drift goes a quarter of the way from its own mean colour (`materials.ts` `DRY_DRIFT`,
+  `DRY_DRIFT_MEAN`), so the pattern's mean is unchanged (the flat dry map's albedo 69.1/57.1/46.3 against 69.2/57.2/46.4
+  before, the game's texture 69/57/46), and its fine grains are a little warmer and cooler over a quarter of a tile
+  (`DRY_GRAIN`), as the texture's: the hue's spread now 6.8, 4.2, 2.7 and 1.8 (Standard). The palette is unchanged.
+- **Measured** in the frame (mean, the 12-pixel blocks' spread, red − blue's spread), game / ours before → after:
+  Standard 0.474/0.516/0.497, 0.023/0.018/0.019, 0.020 / 0.471/0.511/0.498, 0.030/0.019/0.022, 0.034 →
+  0.472/0.511/0.496, 0.026/0.018/0.019, 0.023; High 0.463/0.506/0.495, 0.034/0.021/0.022, 0.036 → 0.465/0.507/0.494,
+  0.030/0.020/0.019, 0.025.
+- **The cause, dead trees.** Their colour is the game's (the dead birch's wood its light part, 0.517/0.466/0.388), but
+  ours were half as thick: their wood covered 0.70 to 0.82 of the area of the game's MatureDead models (where their
+  textures' alpha keeps it) and 0.4 to 0.7 of their outline from the widest views' 35 to 75° (High's far models 0.5 to
+  0.7). Most of r12's dead trees are birches (686 of 1,055).
+- **The fix, dead trees.** Each is built to the game's slices (`dying.ts` `DEAD_LIMBS`, used by both looks): the pine a
+  pole 0.12 thick at its foot and 0.06 near its top, broken off askew at 2.37, with five stubs; the birch a trunk forking
+  at 0.4 into two limbs rising near upright, 0.25 apart, to 1.39; the oak a trunk 0.27 at its flared foot and 0.15 at
+  1.0, splitting into three limbs broken off 0.3 out at 1.33, a pale broken twig on each to 1.53. High's far models
+  take three sides, each a little thicker so it is as wide on average. Their outlines are now 0.81 to 0.94 of the
+  game's (Standard and High near), High's far 0.70 to 0.92; their wood 0.93 to 1.36 of the game's area
+  (`dying.test.ts` holds 0.85 to 1.4 in every look). Every end that shows is closed: the oak's trunk top a pale broken
+  disc, its limbs' broken ends their pale twigs, the birch's limbs to a point (`dying.test.ts` looks straight down over
+  each trunk's top in every look). Standard 50, 48 and 61 triangles (the budget 64).
+- **Measured** in the frame, the dead trees' specks on the dry ground east (lighter than the ground round them by 0.1,
+  unsaturated): the game's 399 pixels, mean luma 0.668, the lightest tenth 0.792; Standard 183, 0.604, 0.670 → 216,
+  0.617, 0.698; High 171, 0.616, 0.720 → 214, 0.619, 0.713.
+- **Cost:** Standard +14,300 triangles on r12 (+2.7 %), High +25,700 (+3.5 %), draw calls unchanged. `benchOrbit` on r12
+  (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame, base → branch): Standard whole map 3.74 → 4.06
+  ms, dry ground 40 away 2.88 → 2.97; High 3.39 → 3.40 and 3.30 → 3.09. Every frame 7.0 ms at 144 Hz.
+- **Falls short:** (1) The game's dead birches still read whiter: its trunks, under a pixel wide from the widest view,
+  light whole pixels (its anti-aliasing is a post filter, `AntiAliasingType` 1 in the game's settings), where our
+  multisampling blends them with the ground at half their contrast. That is how every thin thing is drawn, not the dead
+  trees' look, and stays for its own decision. (2) The game's twig cards (a sixth of their area kept by their alpha) are
+  drawn only as the oak's three twigs. (3) Dry ground's blocks still spread 0.026 in red against the game's 0.023: the
+  rest of the frame's spread is its light on the land's slopes, which this did not touch.
+
 ## A fall over a cave's mouth (D154 as amended 2026-11-08, D496; `fix/cave-mouth-curtain`)
 
 The in-game capture kit (#933) on Four Lakes r9: at the Great Fall the game draws one curtain over a dry cave's mouth

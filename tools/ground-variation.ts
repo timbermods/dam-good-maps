@@ -1,7 +1,8 @@
 // How much our ground's albedo varies from place to place, against the game's textures (D497; docs/progress/3d-view.md,
 // "The land's tone"): grass and dry ground each over a whole flat map, drawn from straight above at the start shots'
 // distance with the terrain shader patched to its albedo alone (as tools/albedo-means.ts patches it), and the luma's
-// spread over blocks of ¼ to 8 tiles, as a share of its mean; and the blending noise (the desert's share and
+// spread over blocks of ¼ to 8 tiles, as a share of its mean, and its hue's (red − blue's) spread over the same blocks, as
+// a share of the luma's mean (dry ground's lilac and tan patches, fix/dry-widest); and the blending noise (the desert's share and
 // contamination's weight read it) drawn alone, its mean and its spread over blocks of a tenth of a tile to two. The game's
 // figures (its `Grass` and `Desert` textures × `GrassDetailsAlbedo` × 2, TerrainURP, and its `BlendingNoise`; the
 // textures read raw from `resources.assets` by tools/game-water-shader.py's readers, numbers only) are printed beside
@@ -30,6 +31,9 @@ const BLOCKS = [0.25, 0.5, 1, 2, 4, 8];
 /** The game's: the luma's spread over blocks of BLOCKS tiles, % of its mean (its textures at their projection: `Grass`
  *  and `Desert` every 16 tiles, the detail every 32; 2026-11-08, Timberborn 1.1.2.8). */
 const GAME: Record<string, number[]> = { grass: [10.8, 10.0, 9.1, 7.5, 5.7, 3.6], dry: [9.4, 8.5, 7.7, 6.7, 5.3, 3.4] };
+/** The game's dry ground's hue: red − blue's spread over the same blocks, % of the luma's mean (`Desert` × the detail × 2,
+ *  2026-11-10). */
+const GAME_HUE: Record<string, number[]> = { dry: [7.0, 6.0, 5.1, 4.0, 3.0, 1.9] };
 /** The game's blending noise (`BlendingNoise`, read at world × 0.2): its mean, and its spread over blocks of
  *  NOISE_BLOCKS tiles (0–1). */
 const NOISE_BLOCKS = [0.1, 0.25, 0.5, 1, 2];
@@ -115,21 +119,22 @@ const MEASURE = `async ([png, blocks]) => {
   out.mean = out.mean.map((v) => v / n);
   for (const bt of blocks) {
     const s = Math.max(1, Math.round(bt * ppt));
-    const v = [];
+    const v = [], h = [];
     for (let by = y0; by + s <= y1; by += s) for (let bx = x0; bx + s <= x1; bx += s) {
-      let l = 0;
-      for (let y = by; y < by + s; y++) for (let x = bx; x < bx + s; x++) { const o = (y * c.width + x) * 4; l += 0.299 * px[o] + 0.587 * px[o + 1] + 0.114 * px[o + 2]; }
+      let l = 0, rb = 0;
+      for (let y = by; y < by + s; y++) for (let x = bx; x < bx + s; x++) { const o = (y * c.width + x) * 4; l += 0.299 * px[o] + 0.587 * px[o + 1] + 0.114 * px[o + 2]; rb += px[o] - px[o + 2]; }
       v.push(l / (s * s));
+      h.push(rb / (s * s));
     }
-    const m = v.reduce((p, q) => p + q, 0) / v.length;
-    const sd = Math.sqrt(v.reduce((p, q) => p + (q - m) ** 2, 0) / v.length);
-    out.spread.push({ blocks: bt, n: v.length, pct: (100 * sd) / m, abs: sd / 255 });
+    const sd = (a) => { const m = a.reduce((p, q) => p + q, 0) / a.length; return [m, Math.sqrt(a.reduce((p, q) => p + (q - m) ** 2, 0) / a.length)]; };
+    const [m, lsd] = sd(v);
+    out.spread.push({ blocks: bt, n: v.length, pct: (100 * lsd) / m, abs: lsd / 255, hue: (100 * sd(h)[1]) / m });
   }
   return out;
 }`;
 
 process.env.DGM_BASE = "/";
-const server = await createServer({ root: ROOT, configFile: join(ROOT, "vite.config.ts"), server: { port: PORT, strictPort: true }, logLevel: "warn" });
+const server = await createServer({ root: ROOT, configFile: join(ROOT, "vite.config.ts"), cacheDir: resolve(ROOT, `.scratch/ground-variation-${PORT}-vite`), server: { port: PORT, strictPort: true }, logLevel: "warn" });
 await server.listen();
 const browser = await chromium.launch({ channel: "chrome", headless: false, args: ["--enable-gpu", "--use-angle=d3d11", "--ignore-gpu-blocklist"] });
 try {
@@ -180,7 +185,7 @@ try {
       await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null)))));
       const box = (await page.locator("[data-albedo-view]").boundingBox())!;
       const png = await page.screenshot({ type: "png", clip: box });
-      const got = (await page.evaluate(`(${MEASURE})(${JSON.stringify([png.toString("base64"), kind === "noise" ? NOISE_BLOCKS : BLOCKS])})`)) as { ppt: number; mean: number[]; spread: { blocks: number; n: number; pct: number; abs: number }[] };
+      const got = (await page.evaluate(`(${MEASURE})(${JSON.stringify([png.toString("base64"), kind === "noise" ? NOISE_BLOCKS : BLOCKS])})`)) as { ppt: number; mean: number[]; spread: { blocks: number; n: number; pct: number; abs: number; hue: number }[] };
       if (kind === "noise") {
         console.log(`${look} blending noise (${got.ppt.toFixed(1)} px a tile): mean ${(got.mean[0] / 255).toFixed(3)} (game ${GAME_NOISE.mean})`);
         console.log(`   spread over blocks of ${NOISE_BLOCKS.join("/")} tiles: ours ${got.spread.map((s) => s.abs.toFixed(4)).join("/")}  game ${GAME_NOISE.spread.join("/")}`);
@@ -188,6 +193,7 @@ try {
       }
       console.log(`${look} ${kind} (${got.ppt.toFixed(1)} px a tile): mean ${got.mean.map((v) => v.toFixed(1)).join("/")}`);
       console.log(`   luma spread, % of mean, blocks of ${BLOCKS.join("/")} tiles: ours ${got.spread.map((s) => s.pct.toFixed(1)).join("/")}  game ${GAME[kind].join("/")}`);
+      if (GAME_HUE[kind]) console.log(`   hue (red − blue) spread, % of the luma's mean: ours ${got.spread.map((s) => s.hue.toFixed(1)).join("/")}  game ${GAME_HUE[kind].join("/")}`);
     }
     await context.close();
   }
