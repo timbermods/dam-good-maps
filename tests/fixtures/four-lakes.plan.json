@@ -1,0 +1,2337 @@
+{
+ "premise": "lakeStair",
+ "seed": 4107,
+ "W": 192,
+ "H": 192,
+ "top": 21,
+ "line": "Four lakes step down below the Great Fall, each over a rock sill and a fall. The badtide comes down the whole stair within a day, unless you open the old channel and shut the gates at the springs' pool: then it runs round every lake.",
+ "sources": [
+  {
+   "id": "spring0",
+   "at": [
+    104,
+    127
+   ],
+   "strength": 3.4,
+   "into": "pool"
+  },
+  {
+   "id": "spring1",
+   "at": [
+    106,
+    129
+   ],
+   "strength": 3.4,
+   "into": "pool"
+  },
+  {
+   "id": "spring2",
+   "at": [
+    108,
+    131
+   ],
+   "strength": 3.4,
+   "into": "pool"
+  },
+  {
+   "id": "spring3",
+   "at": [
+    105,
+    125
+   ],
+   "strength": 3.4,
+   "into": "pool"
+  },
+  {
+   "id": "tarnSpring0",
+   "at": [
+    36,
+    112
+   ],
+   "strength": 1.5,
+   "into": "tarn1"
+  },
+  {
+   "id": "tarnSpring1",
+   "at": [
+    128,
+    49
+   ],
+   "strength": 1.2,
+   "into": "tarn4"
+  },
+  {
+   "id": "tarnSpring2",
+   "at": [
+    63,
+    14
+   ],
+   "strength": 1.2,
+   "into": "tarn5"
+  },
+  {
+   "id": "tarnSpring3",
+   "at": [
+    98,
+    180
+   ],
+   "strength": 1.5,
+   "into": "tarn6"
+  },
+  {
+   "id": "badwater",
+   "at": [
+    40.8,
+    5.3
+   ],
+   "strength": 1.5,
+   "into": "gorge",
+   "bad": true
+  }
+ ],
+ "bodies": [
+  {
+   "id": "lake0",
+   "kind": "lake",
+   "sill": 2,
+   "arms": [
+    [
+     [
+      38,
+      34,
+      11
+     ],
+     [
+      50,
+      44,
+      15
+     ],
+     [
+      64,
+      54,
+      14
+     ],
+     [
+      78,
+      64,
+      11
+     ],
+     [
+      90,
+      72,
+      9
+     ],
+     [
+      90.5,
+      76,
+      6.5
+     ]
+    ],
+    [
+     [
+      42,
+      36,
+      10
+     ],
+     [
+      40,
+      29,
+      8.5
+     ],
+     [
+      40,
+      28,
+      6
+     ]
+    ],
+    [
+     [
+      40,
+      44,
+      9
+     ],
+     [
+      27,
+      50,
+      6
+     ]
+    ],
+    [
+     [
+      72,
+      62,
+      9
+     ],
+     [
+      71,
+      69,
+      6
+     ],
+     [
+      69,
+      74,
+      4.5
+     ]
+    ],
+    [
+     [
+      62,
+      44,
+      7
+     ],
+     [
+      74,
+      40,
+      6
+     ]
+    ]
+   ],
+   "islands": [
+    [
+     [
+      49,
+      45,
+      5.2
+     ]
+    ],
+    [
+     [
+      80,
+      56,
+      2.6
+     ]
+    ]
+   ],
+   "meadow": 16,
+   "deep": 2,
+   "dry": false,
+   "region": "low"
+  },
+  {
+   "id": "lake1",
+   "kind": "lake",
+   "sill": 6,
+   "arms": [
+    [
+     [
+      98,
+      96,
+      8.5
+     ],
+     [
+      107,
+      99,
+      12.5
+     ],
+     [
+      115,
+      100,
+      9
+     ]
+    ],
+    [
+     [
+      97,
+      97,
+      7.5
+     ],
+     [
+      90,
+      94,
+      5.5
+     ],
+     [
+      85,
+      96,
+      4
+     ],
+     [
+      83.5,
+      99.5,
+      2.5
+     ]
+    ],
+    [
+     [
+      94,
+      95,
+      7.5
+     ],
+     [
+      90.5,
+      92,
+      6.5
+     ]
+    ],
+    [
+     [
+      116,
+      100,
+      8.5
+     ],
+     [
+      118,
+      99.5,
+      5.5
+     ]
+    ],
+    [
+     [
+      108,
+      108,
+      7
+     ],
+     [
+      112,
+      111,
+      4.5
+     ]
+    ]
+   ],
+   "islands": [
+    [
+     [
+      91.8,
+      95.4,
+      0.5
+     ]
+    ]
+   ],
+   "meadow": 15,
+   "deep": 5,
+   "dry": false,
+   "region": "home"
+  },
+  {
+   "id": "lake2",
+   "kind": "lake",
+   "sill": 10,
+   "arms": [
+    [
+     [
+      139,
+      104,
+      11
+     ],
+     [
+      153,
+      108,
+      14
+     ],
+     [
+      163,
+      99,
+      11
+     ]
+    ],
+    [
+     [
+      139,
+      104,
+      9
+     ],
+     [
+      134,
+      99.5,
+      6.5
+     ]
+    ],
+    [
+     [
+      150,
+      112,
+      9
+     ],
+     [
+      149.5,
+      119,
+      6
+     ]
+    ],
+    [
+     [
+      163,
+      99,
+      9
+     ],
+     [
+      170,
+      108,
+      6
+     ]
+    ],
+    [
+     [
+      146,
+      96,
+      7
+     ],
+     [
+      150,
+      90,
+      5
+     ]
+    ]
+   ],
+   "islands": [
+    [
+     [
+      158,
+      103,
+      2.8
+     ]
+    ]
+   ],
+   "meadow": 15,
+   "deep": 5,
+   "dry": false,
+   "region": "top"
+  },
+  {
+   "id": "lake3",
+   "kind": "lake",
+   "sill": 14,
+   "arms": [
+    [
+     [
+      141,
+      145,
+      9
+     ],
+     [
+      154,
+      150,
+      13
+     ],
+     [
+      151,
+      158,
+      9
+     ]
+    ],
+    [
+     [
+      150,
+      141,
+      8.5
+     ],
+     [
+      149.5,
+      136.5,
+      7.5
+     ]
+    ],
+    [
+     [
+      160,
+      156,
+      7
+     ],
+     [
+      165,
+      160,
+      4.5
+     ]
+    ]
+   ],
+   "islands": [
+    [
+     [
+      157,
+      151,
+      2.2
+     ]
+    ]
+   ],
+   "meadow": 15,
+   "deep": 5,
+   "dry": false,
+   "region": "top"
+  },
+  {
+   "id": "pool",
+   "kind": "pool",
+   "sill": 14,
+   "arms": [
+    [
+     [
+      104,
+      127,
+      4.5
+     ],
+     [
+      108,
+      131,
+      4
+     ]
+    ]
+   ],
+   "meadow": 6,
+   "deep": 1,
+   "dry": false,
+   "region": "top"
+  },
+  {
+   "id": "tarn0",
+   "kind": "basin",
+   "sill": 13,
+   "arms": [
+    [
+     [
+      61,
+      148,
+      4
+     ],
+     [
+      68,
+      151,
+      6
+     ],
+     [
+      77,
+      153,
+      4.5
+     ]
+    ]
+   ],
+   "meadow": 7,
+   "deep": 2,
+   "dry": true,
+   "region": "wet"
+  },
+  {
+   "id": "tarn1",
+   "kind": "tarn",
+   "sill": 9,
+   "arms": [
+    [
+     [
+      38,
+      116,
+      7.5
+     ],
+     [
+      39,
+      110,
+      5.5
+     ]
+    ]
+   ],
+   "meadow": 13,
+   "deep": 2,
+   "dry": false,
+   "region": "wet"
+  },
+  {
+   "id": "tarn2",
+   "kind": "basin",
+   "sill": 7,
+   "arms": [
+    [
+     [
+      49,
+      101,
+      4.5
+     ],
+     [
+      53,
+      98,
+      3.5
+     ]
+    ]
+   ],
+   "meadow": 12,
+   "deep": 2,
+   "dry": true,
+   "region": "wet"
+  },
+  {
+   "id": "tarn3",
+   "kind": "basin",
+   "sill": 8,
+   "arms": [
+    [
+     [
+      143,
+      71,
+      5
+     ],
+     [
+      150,
+      68,
+      6.5
+     ],
+     [
+      156,
+      72,
+      4.5
+     ]
+    ]
+   ],
+   "meadow": 15,
+   "deep": 2,
+   "dry": true,
+   "region": "wet"
+  },
+  {
+   "id": "tarn4",
+   "kind": "tarn",
+   "sill": 6,
+   "arms": [
+    [
+     [
+      124,
+      47,
+      3.5
+     ],
+     [
+      129,
+      49,
+      4.5
+     ]
+    ]
+   ],
+   "meadow": 12,
+   "deep": 2,
+   "dry": false,
+   "region": "wet"
+  },
+  {
+   "id": "tarn5",
+   "kind": "tarn",
+   "sill": 10,
+   "arms": [
+    [
+     [
+      58,
+      15,
+      3.5
+     ],
+     [
+      64,
+      14,
+      4.5
+     ]
+    ]
+   ],
+   "meadow": 15,
+   "deep": 2,
+   "dry": false,
+   "region": "wet"
+  },
+  {
+   "id": "tarn6",
+   "kind": "tarn",
+   "sill": 15,
+   "arms": [
+    [
+     [
+      90,
+      179,
+      3.5
+     ],
+     [
+      98,
+      180,
+      5
+     ],
+     [
+      106,
+      181,
+      3.5
+     ]
+    ]
+   ],
+   "meadow": 14,
+   "deep": 2,
+   "dry": false,
+   "region": "wet"
+  }
+ ],
+ "links": [
+  {
+   "id": "neck",
+   "from": "pool",
+   "to": "lake3",
+   "kind": "channel",
+   "path": [
+    [
+     111,
+     133
+    ],
+    [
+     120,
+     139
+    ],
+    [
+     132,
+     145
+    ]
+   ],
+   "half": 2.1,
+   "bed": [
+    14,
+    14,
+    14
+   ],
+   "wet": true,
+   "gates": [
+    2
+   ],
+   "rows": []
+  },
+  {
+   "id": "fall1",
+   "from": "lake1",
+   "to": "lake0",
+   "kind": "fall",
+   "fall": {
+    "height": 4,
+    "crest": 6,
+    "width": 14,
+    "face": "S",
+    "lip": [
+     [
+      84,
+      84
+     ],
+     [
+      97,
+      84
+     ]
+    ],
+    "notch": 0,
+    "piers": 3,
+    "breach": 1
+   },
+   "wet": true,
+   "gates": [],
+   "rows": []
+  },
+  {
+   "id": "fall2",
+   "from": "lake2",
+   "to": "lake1",
+   "kind": "fall",
+   "fall": {
+    "height": 4,
+    "crest": 10,
+    "width": 14,
+    "face": "W",
+    "lip": [
+     [
+      125,
+      93
+     ],
+     [
+      125,
+      106
+     ]
+    ],
+    "notch": 1,
+    "piers": 0,
+    "breach": 0
+   },
+   "wet": true,
+   "gates": [],
+   "rows": []
+  },
+  {
+   "id": "fall3",
+   "from": "lake3",
+   "to": "lake2",
+   "kind": "fall",
+   "fall": {
+    "height": 4,
+    "crest": 14,
+    "width": 14,
+    "face": "S",
+    "lip": [
+     [
+      143,
+      128
+     ],
+     [
+      156,
+      128
+     ]
+    ],
+    "notch": 1,
+    "piers": 0,
+    "breach": 0
+   },
+   "wet": true,
+   "gates": [],
+   "rows": []
+  },
+  {
+   "id": "gorge",
+   "from": "lake0",
+   "to": "exit",
+   "kind": "gorge",
+   "fall": {
+    "height": 2,
+    "crest": 2,
+    "width": 13,
+    "face": "S",
+    "lip": [
+     [
+      34,
+      22
+     ],
+     [
+      46,
+      22
+     ]
+    ],
+    "notch": 0,
+    "piers": 0,
+    "breach": 0
+   },
+   "path": [
+    [
+     40,
+     21
+    ],
+    [
+     39,
+     14
+    ],
+    [
+     41,
+     7
+    ],
+    [
+     40,
+     0
+    ]
+   ],
+   "half": 2.6,
+   "bed": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "wet": true,
+   "gates": [],
+   "rows": []
+  },
+  {
+   "id": "landmark",
+   "from": "pool",
+   "to": "lake1",
+   "kind": "fall",
+   "path": [
+    [
+     101,
+     124
+    ],
+    [
+     96,
+     117
+    ],
+    [
+     91,
+     111
+    ],
+    [
+     87.5,
+     107
+    ],
+    [
+     83.2,
+     104.2
+    ]
+   ],
+   "half": 2.4,
+   "bed": [
+    14,
+    14,
+    13,
+    13,
+    13
+   ],
+   "fall": {
+    "height": 7,
+    "crest": 13,
+    "width": 12,
+    "face": "SW",
+    "lip": [
+     [
+      78.3,
+      107.7
+     ],
+     [
+      88.1,
+      100.8
+     ]
+    ],
+    "notch": 0,
+    "piers": 0,
+    "breach": 0
+   },
+   "wet": true,
+   "gates": [
+    3
+   ],
+   "rows": []
+  },
+  {
+   "id": "bypass",
+   "from": "pool",
+   "to": "exitBypass",
+   "kind": "bypass",
+   "path": [
+    [
+     101,
+     133
+    ],
+    [
+     98,
+     142
+    ],
+    [
+     104,
+     156
+    ],
+    [
+     120,
+     170
+    ],
+    [
+     140,
+     181
+    ],
+    [
+     165,
+     184
+    ],
+    [
+     183,
+     175
+    ],
+    [
+     187,
+     152
+    ],
+    [
+     187,
+     130
+    ],
+    [
+     186,
+     106
+    ],
+    [
+     179,
+     88
+    ],
+    [
+     171,
+     70
+    ],
+    [
+     161,
+     55
+    ],
+    [
+     143,
+     40
+    ],
+    [
+     126,
+     30
+    ],
+    [
+     112,
+     20
+    ],
+    [
+     104,
+     10
+    ],
+    [
+     104,
+     0
+    ]
+   ],
+   "half": 2.6,
+   "mouth": 10,
+   "bed": {
+    "under": 2.7
+   },
+   "wet": false,
+   "gates": [],
+   "rows": [
+    2.2,
+    190,
+    272
+   ]
+  },
+  {
+   "id": "westLeat",
+   "from": "pool",
+   "to": "tarn0",
+   "kind": "leat",
+   "path": [
+    [
+     99.5,
+     127.5
+    ],
+    [
+     91,
+     130
+    ],
+    [
+     82,
+     137
+    ],
+    [
+     76,
+     145
+    ],
+    [
+     74.2,
+     147.4
+    ]
+   ],
+   "half": 0.55,
+   "bed": [
+    14,
+    14,
+    14,
+    14,
+    14
+   ],
+   "wet": false,
+   "gates": [
+    2
+   ],
+   "rows": [
+    1
+   ]
+  },
+  {
+   "id": "highBrook",
+   "from": "tarn0",
+   "to": "tarn1",
+   "kind": "brook",
+   "path": [
+    [
+     57,
+     146
+    ],
+    [
+     52,
+     138
+    ],
+    [
+     47,
+     129
+    ],
+    [
+     43,
+     121
+    ]
+   ],
+   "half": 1.6,
+   "bed": [
+    13,
+    13,
+    11,
+    11
+   ],
+   "wet": false,
+   "gates": [],
+   "rows": []
+  },
+  {
+   "id": "birchBrook",
+   "from": "tarn1",
+   "to": "lake0",
+   "kind": "brook",
+   "path": [
+    [
+     37,
+     101
+    ],
+    [
+     34,
+     91
+    ],
+    [
+     33,
+     80
+    ],
+    [
+     30,
+     68
+    ],
+    [
+     28,
+     58
+    ],
+    [
+     27.5,
+     55.7
+    ]
+   ],
+   "half": 1.6,
+   "bed": [
+    9,
+    8,
+    7,
+    5,
+    4,
+    4
+   ],
+   "wet": false,
+   "gates": [],
+   "rows": [
+    1
+   ]
+  },
+  {
+   "id": "cragBrook",
+   "from": "tarn1",
+   "to": "tarn2",
+   "kind": "brook",
+   "path": [
+    [
+     45,
+     111
+    ],
+    [
+     48,
+     107
+    ],
+    [
+     49.3,
+     105
+    ]
+   ],
+   "half": 1.1,
+   "bed": [
+    9,
+    9,
+    9
+   ],
+   "wet": false,
+   "gates": [],
+   "rows": [
+    1
+   ]
+  },
+  {
+   "id": "hillBrook",
+   "from": "tarn2",
+   "to": "lake0",
+   "kind": "brook",
+   "path": [
+    [
+     51,
+     94
+    ],
+    [
+     50,
+     87
+    ],
+    [
+     51,
+     79
+    ],
+    [
+     53,
+     72
+    ],
+    [
+     54.9,
+     64.2
+    ]
+   ],
+   "half": 1.1,
+   "bed": [
+    7,
+    7,
+    6,
+    5,
+    4
+   ],
+   "wet": false,
+   "gates": [],
+   "rows": []
+  },
+  {
+   "id": "steamLeat",
+   "from": "lake2",
+   "to": "tarn3",
+   "kind": "leat",
+   "path": [
+    [
+     150.1,
+     85.3
+    ],
+    [
+     151,
+     80
+    ],
+    [
+     150,
+     75
+    ]
+   ],
+   "half": 1.1,
+   "bed": [
+    10,
+    10,
+    10
+   ],
+   "wet": false,
+   "gates": [],
+   "rows": [
+    1
+   ]
+  },
+  {
+   "id": "benchBrook",
+   "from": "tarn3",
+   "to": "lake0",
+   "kind": "brook",
+   "path": [
+    [
+     139.5,
+     67.9
+    ],
+    [
+     129,
+     67
+    ],
+    [
+     117,
+     68
+    ],
+    [
+     106,
+     69
+    ],
+    [
+     98.2,
+     69.9
+    ]
+   ],
+   "half": 1.6,
+   "bed": [
+    8,
+    7,
+    6,
+    5,
+    4
+   ],
+   "wet": false,
+   "gates": [],
+   "rows": []
+  },
+  {
+   "id": "southLeat",
+   "from": "tarn3",
+   "to": "tarn4",
+   "kind": "leat",
+   "path": [
+    [
+     149,
+     62
+    ],
+    [
+     142,
+     56
+    ],
+    [
+     134,
+     52
+    ]
+   ],
+   "half": 1.1,
+   "bed": [
+    8,
+    8,
+    8
+   ],
+   "wet": false,
+   "gates": [],
+   "rows": []
+  },
+  {
+   "id": "southBrook",
+   "from": "tarn4",
+   "to": "lake0",
+   "kind": "brook",
+   "path": [
+    [
+     118,
+     47
+    ],
+    [
+     106,
+     45
+    ],
+    [
+     94,
+     43
+    ],
+    [
+     84,
+     41
+    ],
+    [
+     79.7,
+     40.4
+    ]
+   ],
+   "half": 1.6,
+   "bed": [
+    6,
+    6,
+    5,
+    4,
+    4
+   ],
+   "wet": false,
+   "gates": [],
+   "rows": [
+    1
+   ]
+  },
+  {
+   "id": "northRun",
+   "from": "tarn6",
+   "to": "exitNorth",
+   "kind": "brook",
+   "path": [
+    [
+     87,
+     179
+    ],
+    [
+     72,
+     178
+    ],
+    [
+     56,
+     180
+    ],
+    [
+     40,
+     176
+    ],
+    [
+     24,
+     172
+    ],
+    [
+     8,
+     168
+    ],
+    [
+     0,
+     167
+    ]
+   ],
+   "half": 1.1,
+   "bed": [
+    15,
+    14,
+    13,
+    12,
+    10,
+    9,
+    9
+   ],
+   "wet": true,
+   "gates": [],
+   "rows": []
+  },
+  {
+   "id": "westRun",
+   "from": "tarn1",
+   "to": "exitWest",
+   "kind": "brook",
+   "path": [
+    [
+     32.8,
+     111.5
+    ],
+    [
+     29,
+     110.5
+    ],
+    [
+     24,
+     109
+    ],
+    [
+     15,
+     110
+    ],
+    [
+     7,
+     106
+    ],
+    [
+     0,
+     105
+    ]
+   ],
+   "half": 1.1,
+   "bed": [
+    9,
+    9,
+    9,
+    8,
+    8,
+    8
+   ],
+   "wet": true,
+   "gates": [],
+   "rows": []
+  },
+  {
+   "id": "southRun",
+   "from": "tarn4",
+   "to": "exitBypass",
+   "kind": "brook",
+   "path": [
+    [
+     127.1,
+     44.5
+    ],
+    [
+     127.5,
+     38
+    ],
+    [
+     126,
+     33.5
+    ],
+    [
+     125.5,
+     30.5
+    ]
+   ],
+   "half": 1.1,
+   "bed": [
+    6,
+    5,
+    5,
+    5
+   ],
+   "wet": true,
+   "gates": [],
+   "rows": []
+  },
+  {
+   "id": "gateRun",
+   "from": "tarn5",
+   "to": "exitGate",
+   "kind": "brook",
+   "path": [
+    [
+     68,
+     13
+    ],
+    [
+     78,
+     12
+    ],
+    [
+     87,
+     9
+    ],
+    [
+     92,
+     4
+    ],
+    [
+     92,
+     0
+    ]
+   ],
+   "half": 1.1,
+   "bed": [
+    10,
+    9,
+    7,
+    6,
+    6
+   ],
+   "wet": true,
+   "gates": [],
+   "rows": []
+  }
+ ],
+ "exits": [
+  {
+   "id": "exit",
+   "edge": "S",
+   "at": [
+    40,
+    0
+   ]
+  },
+  {
+   "id": "exitBypass",
+   "edge": "S",
+   "at": [
+    104,
+    0
+   ]
+  },
+  {
+   "id": "exitNorth",
+   "edge": "W",
+   "at": [
+    0,
+    167
+   ]
+  },
+  {
+   "id": "exitWest",
+   "edge": "W",
+   "at": [
+    0,
+    105
+   ]
+  },
+  {
+   "id": "exitGate",
+   "edge": "S",
+   "at": [
+    92,
+    0
+   ]
+  }
+ ],
+ "regions": [
+  {
+   "id": "home",
+   "role": "home",
+   "problem": "Weir Lake sinks through the weir's breach in a drought; the red arrives on day 1 of a badtide",
+   "prize": "The first reservoir (the breach mended), the Still Pool, first metal on the weir, power at the Great Fall later",
+   "dayOne": "green",
+   "at": [
+    76,
+    102
+   ]
+  },
+  {
+   "id": "low",
+   "role": "low",
+   "problem": "Lowest, so the megadam drowns it",
+   "prize": "Level meadows to farm; the megadam's sea",
+   "dayOne": "green",
+   "at": [
+    60,
+    48
+   ]
+  },
+  {
+   "id": "wet",
+   "role": "wet",
+   "problem": "Dry basins and beds on day 1",
+   "prize": "Green benches and wood stands, a work at a time",
+   "dayOne": "dry",
+   "at": [
+    45,
+    115
+   ]
+  },
+  {
+   "id": "top",
+   "role": "top",
+   "problem": "Far, and across water",
+   "prize": "The gates at the springs' pool; aquifers and the drill; the tallest stair fall's power",
+   "dayOne": "green",
+   "at": [
+    106,
+    129
+   ]
+  },
+  {
+   "id": "dry",
+   "role": "dry",
+   "problem": "No water reaches it",
+   "prize": "Metal in the old channel, geothermal, succulent fields",
+   "dayOne": "dryForGood",
+   "at": [
+    184,
+    120
+   ]
+  }
+ ],
+ "ridges": [
+  {
+   "id": "skyline",
+   "role": "skyline",
+   "path": [
+    [
+     110,
+     162
+    ],
+    [
+     124,
+     171
+    ],
+    [
+     146,
+     176
+    ],
+    [
+     166,
+     175
+    ],
+    [
+     178,
+     165
+    ],
+    [
+     181,
+     146
+    ],
+    [
+     179,
+     128
+    ]
+   ],
+   "top": 21,
+   "half": 2.2,
+   "drop": 3,
+   "ledge": 2.6,
+   "rough": 1.8
+  },
+  {
+   "id": "wall",
+   "role": "wall",
+   "path": [
+    [
+     6,
+     40
+    ],
+    [
+     20,
+     22
+    ],
+    [
+     40,
+     13
+    ],
+    [
+     60,
+     10
+    ],
+    [
+     84,
+     12
+    ]
+   ],
+   "top": 10,
+   "half": 5,
+   "drop": 3,
+   "ledge": 3,
+   "rough": 1.1
+  },
+  {
+   "id": "spur0",
+   "role": "spur",
+   "path": [
+    [
+     56,
+     104
+    ],
+    [
+     59,
+     101
+    ]
+   ],
+   "top": 11,
+   "half": 1.4,
+   "drop": 2,
+   "ledge": 1.4,
+   "rough": 0.5
+  },
+  {
+   "id": "spur1",
+   "role": "spur",
+   "path": [
+    [
+     98,
+     86
+    ],
+    [
+     105,
+     84
+    ],
+    [
+     113,
+     80
+    ]
+   ],
+   "top": 8,
+   "half": 2.3,
+   "drop": 2,
+   "ledge": 1.6,
+   "rough": 0.9
+  },
+  {
+   "id": "spur2",
+   "role": "spur",
+   "path": [
+    [
+     127,
+     92
+    ],
+    [
+     130,
+     86
+    ],
+    [
+     136,
+     80
+    ]
+   ],
+   "top": 12,
+   "half": 2.3,
+   "drop": 2,
+   "ledge": 1.6,
+   "rough": 0.9
+  },
+  {
+   "id": "spur3",
+   "role": "spur",
+   "path": [
+    [
+     127,
+     107
+    ],
+    [
+     129,
+     113
+    ],
+    [
+     130,
+     120
+    ]
+   ],
+   "top": 12,
+   "half": 2.3,
+   "drop": 2,
+   "ledge": 1.6,
+   "rough": 0.9
+  },
+  {
+   "id": "spur4",
+   "role": "spur",
+   "path": [
+    [
+     142,
+     130
+    ],
+    [
+     135,
+     131
+    ],
+    [
+     127,
+     129
+    ]
+   ],
+   "top": 16,
+   "half": 2.3,
+   "drop": 2,
+   "ledge": 1.6,
+   "rough": 0.7
+  },
+  {
+   "id": "spur5",
+   "role": "spur",
+   "path": [
+    [
+     157,
+     130
+    ],
+    [
+     164,
+     132
+    ],
+    [
+     172,
+     131
+    ]
+   ],
+   "top": 16,
+   "half": 2.3,
+   "drop": 2,
+   "ledge": 1.6,
+   "rough": 0.7
+  }
+ ],
+ "edges": {
+  "N": "ridge",
+  "E": "falls away",
+  "S": "water leaves",
+  "W": "water leaves"
+ },
+ "frame": {
+  "start": {
+   "x": 76,
+   "y": 102,
+   "z": 7,
+   "orientation": "Cw0"
+  },
+  "landmark": "landmark",
+  "lipAhead": 5.9,
+  "bench": 760
+ },
+ "works": [
+  {
+   "id": "w0",
+   "rung": "first",
+   "kind": "levee",
+   "on": "landmark",
+   "at": [
+    72,
+    105
+   ],
+   "tiles": 1,
+   "needs": [],
+   "gives": {
+    "green": [
+     190,
+     300
+    ]
+   },
+   "region": "home"
+  },
+  {
+   "id": "w1",
+   "rung": "first",
+   "kind": "breach",
+   "on": "fall1",
+   "at": [
+    89,
+    84
+   ],
+   "tiles": 1,
+   "needs": [],
+   "gives": {
+    "green": [
+     0,
+     0
+    ],
+    "reservoir": [
+     600,
+     850
+    ]
+   },
+   "region": "home"
+  },
+  {
+   "id": "w2",
+   "rung": "small",
+   "kind": "breach",
+   "on": "fall2",
+   "at": [
+    125,
+    99
+   ],
+   "tiles": 1,
+   "needs": [],
+   "gives": {
+    "green": [
+     0,
+     0
+    ],
+    "reservoir": [
+     700,
+     1200
+    ]
+   },
+   "region": "top"
+  },
+  {
+   "id": "w3",
+   "rung": "small",
+   "kind": "breach",
+   "on": "fall3",
+   "at": [
+    149,
+    128
+   ],
+   "tiles": 1,
+   "needs": [],
+   "gives": {
+    "green": [
+     0,
+     0
+    ],
+    "reservoir": [
+     700,
+     1200
+    ]
+   },
+   "region": "top"
+  },
+  {
+   "id": "w4",
+   "rung": "small",
+   "kind": "notch",
+   "on": "birchBrook",
+   "at": [
+    37,
+    101
+   ],
+   "tiles": 3,
+   "needs": [],
+   "gives": {
+    "green": [
+     430,
+     570
+    ]
+   },
+   "tradeoff": "Birch Tarn's water runs red down it in a badtide",
+   "region": "wet"
+  },
+  {
+   "id": "w5",
+   "rung": "small",
+   "kind": "notch",
+   "on": "cragBrook",
+   "at": [
+    45,
+    111
+   ],
+   "tiles": 3,
+   "needs": [],
+   "gives": {
+    "green": [
+     430,
+     570
+    ]
+   },
+   "tradeoff": "Birch Tarn's water runs red down it in a badtide",
+   "region": "wet"
+  },
+  {
+   "id": "w6",
+   "rung": "small",
+   "kind": "notch",
+   "on": "southBrook",
+   "at": [
+    118,
+    47
+   ],
+   "tiles": 4,
+   "needs": [],
+   "gives": {
+    "green": [
+     430,
+     570
+    ]
+   },
+   "tradeoff": "South Tarn's water runs red down it in a badtide",
+   "region": "wet"
+  },
+  {
+   "id": "w7",
+   "rung": "medium",
+   "kind": "leat",
+   "on": "westLeat",
+   "at": [
+    99.5,
+    127.5
+   ],
+   "tiles": 3,
+   "needs": [],
+   "gives": {
+    "green": [
+     1000,
+     1500
+    ]
+   },
+   "region": "wet"
+  },
+  {
+   "id": "w8",
+   "rung": "medium",
+   "kind": "leat",
+   "on": "steamLeat",
+   "at": [
+    150,
+    86
+   ],
+   "tiles": 3,
+   "needs": [],
+   "gives": {
+    "green": [
+     1000,
+     1500
+    ]
+   },
+   "region": "wet"
+  },
+  {
+   "id": "w9",
+   "rung": "small",
+   "kind": "levee",
+   "on": "tarn2",
+   "at": [
+    51,
+    94
+   ],
+   "tiles": 8,
+   "needs": [
+    "w5"
+   ],
+   "gives": {
+    "green": [
+     260,
+     340
+    ]
+   },
+   "region": "wet"
+  },
+  {
+   "id": "w10",
+   "rung": "small",
+   "kind": "levee",
+   "on": "tarn0",
+   "at": [
+    57,
+    146
+   ],
+   "tiles": 8,
+   "needs": [
+    "w7"
+   ],
+   "gives": {
+    "green": [
+     260,
+     340
+    ]
+   },
+   "region": "wet"
+  },
+  {
+   "id": "w11",
+   "rung": "small",
+   "kind": "levee",
+   "on": "tarn3",
+   "at": [
+    141,
+    68
+   ],
+   "tiles": 8,
+   "needs": [
+    "w8"
+   ],
+   "gives": {
+    "green": [
+     260,
+     340
+    ]
+   },
+   "region": "wet"
+  },
+  {
+   "id": "w12",
+   "rung": "small",
+   "kind": "damToPond",
+   "on": "hillBrook",
+   "at": [
+    51,
+    79
+   ],
+   "tiles": 5,
+   "needs": [
+    "w5"
+   ],
+   "gives": {
+    "green": [
+     270,
+     470
+    ]
+   },
+   "region": "wet"
+  },
+  {
+   "id": "w13",
+   "rung": "small",
+   "kind": "damToPond",
+   "on": "benchBrook",
+   "at": [
+    117,
+    68
+   ],
+   "tiles": 5,
+   "needs": [
+    "w8"
+   ],
+   "gives": {
+    "green": [
+     270,
+     470
+    ]
+   },
+   "region": "wet"
+  },
+  {
+   "id": "w14",
+   "rung": "medium",
+   "kind": "raisedSill",
+   "on": "fall3",
+   "at": [
+    149,
+    128
+   ],
+   "tiles": 17,
+   "needs": [],
+   "gives": {
+    "green": [
+     0,
+     0
+    ],
+    "reservoir": [
+     600,
+     1400
+    ]
+   },
+   "region": "top"
+  },
+  {
+   "id": "w15",
+   "rung": "large",
+   "kind": "bypass",
+   "on": "bypass",
+   "at": [
+    101,
+    133
+   ],
+   "tiles": 30,
+   "needs": [],
+   "gives": {
+    "green": [
+     1100,
+     1500
+    ]
+   },
+   "tradeoff": "The water it carries is the badtide's: nothing below it can drink",
+   "region": "dry"
+  },
+  {
+   "id": "w16",
+   "rung": "large",
+   "kind": "megadam",
+   "on": "gorge",
+   "at": [
+    39,
+    14
+   ],
+   "tiles": 6,
+   "needs": [],
+   "gives": {
+    "green": [
+     0,
+     0
+    ],
+    "reservoir": [
+     14746,
+     18432
+    ]
+   },
+   "tradeoff": "It drowns the low meadows",
+   "region": "low"
+  }
+ ],
+ "setPieces": [
+  {
+   "id": "weir",
+   "kind": "ruinedWeir",
+   "on": "fall1"
+  },
+  {
+   "id": "stillPool",
+   "kind": "stillPool",
+   "on": "w0"
+  },
+  {
+   "id": "cave",
+   "kind": "cave",
+   "on": "landmark"
+  },
+  {
+   "id": "aquifer",
+   "kind": "aquifer",
+   "on": "pool"
+  },
+  {
+   "id": "drill",
+   "kind": "drill",
+   "on": "pool"
+  },
+  {
+   "id": "geothermal",
+   "kind": "geothermal",
+   "on": "bypass"
+  },
+  {
+   "id": "aqueduct",
+   "kind": "aqueduct",
+   "on": "bypass"
+  },
+  {
+   "id": "relic",
+   "kind": "relic",
+   "on": "lake2"
+  }
+ ],
+ "names": {
+  "lake0": "Low Lake",
+  "lake1": "Weir Lake",
+  "lake2": "Steam Lake",
+  "lake3": "Crown Lake",
+  "pool": "the springs' pool",
+  "tarn0": "High Tarn",
+  "tarn1": "Birch Tarn",
+  "tarn2": "Hill Tarn",
+  "tarn3": "Bench Tarn",
+  "tarn4": "South Tarn",
+  "tarn5": "Gate Tarn",
+  "tarn6": "Fell Tarn",
+  "neck": "the Neck",
+  "fall1": "the Low Fall",
+  "fall2": "the Weir Fall",
+  "fall3": "the Crown Fall",
+  "gorge": "the Gate Gorge",
+  "landmark": "the Great Fall",
+  "bypass": "the old channel",
+  "westLeat": "the West Leat",
+  "highBrook": "High Brook",
+  "birchBrook": "Birch Brook",
+  "cragBrook": "Crag Brook",
+  "hillBrook": "Hill Brook",
+  "steamLeat": "the Steam Leat",
+  "benchBrook": "Bench Brook",
+  "southLeat": "the South Leat",
+  "southBrook": "South Brook",
+  "northRun": "the North Run",
+  "westRun": "the West Run",
+  "southRun": "the South Run",
+  "gateRun": "the Gate Run"
+ },
+ "stair": {
+  "n": 4,
+  "lakes": [
+   "lake0",
+   "lake1",
+   "lake2",
+   "lake3"
+  ],
+  "f": 4,
+  "startLake": "lake1",
+  "H": 7,
+  "landmarkSource": "pool",
+  "valley": [
+   [
+    40,
+    0
+   ],
+   [
+    40,
+    21
+   ],
+   [
+    38,
+    34
+   ],
+   [
+    50,
+    44
+   ],
+   [
+    64,
+    54
+   ],
+   [
+    78,
+    64
+   ],
+   [
+    90,
+    72
+   ],
+   [
+    90.5,
+    84
+   ],
+   [
+    98,
+    96
+   ],
+   [
+    107,
+    99
+   ],
+   [
+    116,
+    100
+   ],
+   [
+    125,
+    99.5
+   ],
+   [
+    139,
+    104
+   ],
+   [
+    150,
+    112
+   ],
+   [
+    150,
+    128
+   ],
+   [
+    150,
+    141
+   ],
+   [
+    141,
+    145
+   ],
+   [
+    132,
+    145
+   ],
+   [
+    120,
+    139
+   ],
+   [
+    111,
+    133
+   ],
+   [
+    106,
+    129
+   ]
+  ],
+  "shape": "hook",
+  "turn": 0,
+  "pool": "pool",
+  "neck": "neck",
+  "bypass": "bypass",
+  "gorge": "gorge",
+  "flow": 14,
+  "meadow": 15
+ }
+}

@@ -26,6 +26,7 @@ const HEAVY = [
   "tests/unit/waterSkirts.heavy.test.ts", // no window between two waters on generated maps at 256² (D154)
   "tests/contract/carveFallSweep.heavy.test.ts", // a fall from one stroke from every start near the reviewed ones (gaps 1, 2, 20)
   "tests/contract/islandsCleanSea.heavy.test.ts", // Islands' sea clean at 128² and 256², settled and played on (D498, #446)
+  "tests/contract/premisePlan.heavy.test.ts", // the lake stair's plans on seeds 1 to 200 at three sizes (PREMISES §7 step 1)
 ];
 
 export default defineConfig({
