@@ -13,6 +13,7 @@ import { modelOf } from "../../src/core/forces/runs";
 import { planForce, type ForceRequest } from "../../src/core/forces/start";
 import { canonicalSettle } from "../../src/core/sim/prefill";
 import { fallStudy, study } from "./carveFixtures";
+import { curtains } from "./fallCurtain";
 
 interface Fell {
   before: Uint8Array;
@@ -58,6 +59,12 @@ function bowled(f: Fell, top: number, reach: number): number {
   return n;
 }
 
+/** One whole curtain at least `need` tall, no pillar splitting it, no ledge, no basin above (fallCurtain.ts): why not. */
+function whole(f: Fell, need: number): string {
+  const v = curtains({ W: f.W, H: f.before.length / f.W, before: f.before, beforeDepth: new Float64Array(f.before.length), after: f.after, depth: f.depth, need });
+  return v.ok ? "whole" : v.note;
+}
+
 const Y = 20;
 
 describe("a fall from one stroke (showcase craft gaps 1, 2 and 20)", () => {
@@ -80,6 +87,7 @@ describe("a fall from one stroke (showcase craft gaps 1, 2 and 20)", () => {
     expect(a.surface(a.lip) - a.surface(a.lip + 2)).toBeGreaterThanOrEqual(3);
     // no bowl: the tabletop is cut only within the stream's own width, winding as nature draws it too
     expect(bowled(f, 13, 4)).toBe(0);
+    expect(whole(f, 3)).toBe("whole");
     const wound = stroke(fallStudy("mesa"), [6, Y], [44, Y], { wander: null });
     if (typeof wound === "string") throw new Error(wound);
     expect(bowled(wound, 13, 4)).toBe(0);
@@ -127,14 +135,26 @@ describe("a fall from one stroke (showcase craft gaps 1, 2 and 20)", () => {
     expect(a.ground).toBe(14);
     expect(a.depth(a.lip - 3)).toBeGreaterThan(0.6);
     expect(a.surface(a.lip) - a.surface(a.lip + 2)).toBeGreaterThanOrEqual(8);
+    expect(whole(f, 8)).toBe("whole");
   });
 
   it("a set Fall is made at any Power, or refused in one line with the drop the land can give (D342)", () => {
-    // (a gentle Power still cuts the reach below down to the Fall's drop)
-    const gentle = stroke(fallStudy("mesa"), [6, Y], [71, Y], { fall: 6, power: 20 });
-    if (typeof gentle === "string") throw new Error(gentle);
-    const a = across(gentle, Y, 6, 13);
-    expect(a.surface(a.lip) - a.surface(a.lip + 2)).toBeGreaterThanOrEqual(6);
+    // (a gentle Power still cuts the reach below down to the Fall's drop, and runs it on to the stroke's end, where the
+    // water leaves the map: in the settled water it falls the whole height; Fall 9 at Power 20 once stopped short in
+    // hard ground and pooled at 7.2, a drop of 5)
+    for (const [fall, power] of [[6, 20], [9, 20], [10, 5]]) {
+      const gentle = stroke(fallStudy("mesa"), [6, Y], [71, Y], { fall, power });
+      if (typeof gentle === "string") throw new Error(gentle);
+      const a = across(gentle, Y, 6, 13);
+      expect(a.surface(a.lip) - a.surface(a.lip + 2), `Fall ${fall} at Power ${power}`).toBeGreaterThanOrEqual(fall);
+    }
+    // (a stroke that ends where its water can leave no lower than the plain: it falls the height set)
+    const plain = stroke(fallStudy("mesa"), [6, Y], [50, Y], { fall: 4 });
+    if (typeof plain === "string") throw new Error(plain);
+    const p = across(plain, Y, 6, 13);
+    expect(p.surface(p.lip) - p.surface(p.lip + 2)).toBeGreaterThanOrEqual(4);
+    // (one that ends in a hollow of higher ground, its water pooling partway up the fall: refused, never cut short)
+    for (const end of [34, 40]) expect(stroke(fallStudy("mesa"), [6, Y], [end, Y], { fall: 4 }), `to x ${end}`).toBe("No drop of 4 here: the stroke ends before the water below can drain; draw it on to lower ground");
     // (deeper than the land goes, or than the Floor lets it)
     expect(stroke(fallStudy("mesa"), [6, Y], [71, Y], { fall: 12 })).toBe("No drop of 12 here: the land falls at most 10");
     expect(stroke(fallStudy("mesa"), [6, Y], [71, Y], { fall: 8, floor: 6 })).toBe("No drop of 8 here: above the Floor the land falls at most 5");

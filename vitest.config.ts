@@ -23,6 +23,7 @@ const HEAVY = [
   "tests/contract/collabUndoSoak.heavy.test.ts", // collaborative editing: a few hundred mixed edits with undo and redo asked at random
   "mcp/tests/long.heavy.test.ts", // a 256² map through the MCP server, past the client's time limit (D501)
   "tests/unit/waterSkirts.heavy.test.ts", // no window between two waters on generated maps at 256² (D154)
+  "tests/contract/carveFallSweep.heavy.test.ts", // a fall from one stroke from every start near the reviewed ones (gaps 1, 2, 20)
 ];
 
 export default defineConfig({

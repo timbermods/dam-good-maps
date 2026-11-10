@@ -3631,7 +3631,14 @@ struct CarveFall {
     course: Vec<(f64, f64)>,
     /// Its height when the player set it (`CarveSettings::fall`).
     height: Option<f64>,
+    /// On Auto, where its water lands: the lowest bed the course reaches within `FOOT_REACH` tiles past the lip, and the
+    /// last station there, so the river below it runs at that bed from the lip on and never steps down a ledge first.
+    foot: f64,
+    foot_until: usize,
 }
+/// How far past the lip a fall's face reaches (tiles): the ground in front of the lip cut down to where its water
+/// lands, and on Auto the river below run at that foot, so no ledge or second fall stands within it.
+const FOOT_REACH: f64 = 10.0;
 /// How far the ground falls ahead of a station, within the next two stations (about 2.7 tiles), for the course to
 /// fall there rather than run down a slope: three levels, so a lip one level down still falls two.
 const FALL_DROP: f64 = 3.0;
@@ -3639,6 +3646,9 @@ const FALL_DROP: f64 = 3.0;
 /// stream on the high ground, not a flooded basin as wide as the river the carve leaves below; a set Size makes it as
 /// wide as the river, as the player asks.
 const STREAM_WIDTH: f64 = 4.0;
+/// The narrowest a stream above a fall runs (a station's width; five tiles across), so even an Unleash's thin river or
+/// the narrowest Size pours over a lip wide enough to read as a fall.
+const FALL_WIDTH: f64 = 3.0;
 /// How far from where it falls the high ground keeps its own height against what the water below cuts (tiles):
 /// past the cut and the banks of the reach below, so the cliff stands and the lip holds.
 /// The falls along a course, from the original ground under its stations: where the ground falls `FALL_DROP` levels
@@ -3648,9 +3658,11 @@ const STREAM_WIDTH: f64 = 4.0;
 /// set (`height`), the first fall takes it; where the land has none that tall, the fall is where the ground the
 /// course starts on (the stations at most a level under the first) ends, over an edge or at the top of a slope;
 /// None: the ground never goes down, and the carve is refused.
-/// The course's falls, or why a set Fall can't be made: 41 where it has no high ground to fall from, and where the land
-/// can't give the drop set, `FALL_SHORT` plus the most it can (`FALL_SHORT_FLOOR` plus it where the Floor is what stops it).
-fn carve_falls(m: &Map, path: &[CarveStation], height: Option<f64>, floor: f64, set_width: bool) -> Result<Vec<CarveFall>, u32> {
+/// The course's falls, or why a set Fall can't be made: 41 where it has no high ground to fall from, where the land
+/// can't give the drop set, `FALL_SHORT` plus the most it can (`FALL_SHORT_FLOOR` plus it where the Floor is what stops
+/// it), and `FALL_UNDRAINED` where the water below it has no way out that low. `fixed`: the tiles the carve can't cut
+/// (kept or rock), when a set Fall is checked.
+fn carve_falls(m: &Map, path: &[CarveStation], height: Option<f64>, floor: f64, set_width: bool, fixed: &dyn Fn(usize) -> bool) -> Result<Vec<CarveFall>, u32> {
     let raw: Vec<f64> = path.iter().map(|p| m.heights[m.at(p.x, p.y)] as f64).collect();
     let surface: Vec<f64> = path
         .iter()
@@ -3660,7 +3672,10 @@ fn carve_falls(m: &Map, path: &[CarveStation], height: Option<f64>, floor: f64, 
         })
         .collect();
     let n = raw.len();
-    let drop = |k: usize| raw[k] - (k + 1..=(k + 2).min(n - 1)).map(|j| raw[j]).fold(f64::INFINITY, min);
+    // (a fall: three levels down within the next two stations, or an escarpment, five down within four, its terraces
+    // too narrow to stand between two falls, so the course falls from the top of it)
+    let down = |k: usize, ahead: usize| raw[k] - (k + 1..=(k + ahead).min(n - 1)).map(|j| raw[j]).fold(f64::INFINITY, min);
+    let falls_at = |k: usize| down(k, 2) >= FALL_DROP || down(k, 4) >= FALL_DROP + 2.0;
     // the stations on the high ground from k on (those at most a level under its top), and the fall there with its
     // reach from `start`, where the reach holds
     let edge = |k: usize| {
@@ -3670,17 +3685,17 @@ fn carve_falls(m: &Map, path: &[CarveStation], height: Option<f64>, floor: f64, 
         }
         end
     };
-    // (whether lower ground than the stream's bed lies within its width of a station, beside it or behind it)
+    // (whether ground lower than the lip lies within the stream's width of a station, beside it or behind it)
     let notched = |k: usize, top: f64| -> bool {
         let (p, q) = (&path[k], &path[k.saturating_sub(1)]);
         let (hx, hy) = (p.x - q.x, p.y - q.y);
         let len = max(hypot(hx, hy), 1e-9);
-        let width = if set_width { p.width } else { min(p.width, STREAM_WIDTH) };
+        let width = max(FALL_WIDTH, if set_width { p.width } else { min(p.width, STREAM_WIDTH) });
         let r = width * 0.72 + 0.5;
         for yy in max(0.0, (p.y - r).floor()) as usize..=min((m.h - 1) as f64, (p.y + r).ceil()) as usize {
             for xx in max(0.0, (p.x - r).floor()) as usize..=min((m.w - 1) as f64, (p.x + r).ceil()) as usize {
                 let (rx, ry) = (xx as f64 - p.x, yy as f64 - p.y);
-                if hypot(rx, ry) <= r && (rx * hx + ry * hy) / len <= 0.5 && (m.heights[yy * m.w + xx] as f64) < top - 2.0 {
+                if hypot(rx, ry) <= r && (rx * hx + ry * hy) / len <= 0.5 && (m.heights[yy * m.w + xx] as f64) < top - 1.0 {
                     return true;
                 }
             }
@@ -3697,12 +3712,23 @@ fn carve_falls(m: &Map, path: &[CarveStation], height: Option<f64>, floor: f64, 
             start -= 1;
         }
         let top = raw[start..=k].iter().copied().fold(f64::INFINITY, min);
+        // (and back over a plateau above it, flat ground two levels or more higher, that the carve would cut down to the
+        // stream's bed or deeper anyway, and any high ground no higher behind it: it carries the stream, as narrow as on
+        // the edge and its high ground kept, never the carve's own canyon flooded flat to the stream's level; a slope
+        // rising above keeps its own carve)
+        if start > from && raw[start - 1] >= top + 2.0 {
+            let plateau = raw[start - 1];
+            while start > from && raw[start - 1] >= top - 1.0 && raw[start - 1] <= plateau && path[start - 1].bed <= top - 2.0 {
+                start -= 1;
+            }
+        }
         let mut end = k;
         while end + 1 < n && raw[end + 1] >= top - 1.0 {
             end += 1;
         }
-        // (the lip stands before any lower ground that reaches into the stream from its side, a notch of the edge, so
-        // the stream never spills onto a ledge first: the face below it is cut clean instead)
+        // (the lip stands before any lower ground that reaches into the stream from its side, a notch of the edge or an
+        // edge running aslant of the course, so the lip runs straight across the stream and never spills onto a ledge
+        // first: the face in front of it is cut clean instead)
         while end > start + 1 && notched(end, top) {
             end -= 1;
         }
@@ -3719,21 +3745,24 @@ fn carve_falls(m: &Map, path: &[CarveStation], height: Option<f64>, floor: f64, 
             after: path[end + 1..].iter().zip(&raw[end + 1..]).filter(|(_, &r)| r >= top - 1.0).map(|(p, _)| (p.x, p.y, p.width)).collect(),
             course: path[..start].iter().chain(&path[end + 1..]).map(|p| (p.x, p.y)).collect(),
             height: None,
+            foot: path[end + 1..].iter().take_while(|p| hypot(p.x - path[end].x, p.y - path[end].y) <= FOOT_REACH).map(|p| p.bed).fold(path[end + 1].bed, min),
+            foot_until: end + path[end + 1..].iter().take_while(|p| hypot(p.x - path[end].x, p.y - path[end].y) <= FOOT_REACH).count(),
         })
     };
     let mut falls = vec![];
     let mut start = 0;
     let mut k = 0;
     while k + 1 < n {
-        if drop(k) < FALL_DROP {
+        if !falls_at(k) {
             k += 1;
             continue;
         }
         start = match fall(start, k) {
             Some(f) => {
+                // (the next fall is past where this one's water lands: the ground between is its face, cut away)
                 let end = f.end;
                 falls.push(f);
-                end + 1
+                end + 1 + path[end + 1..].iter().take_while(|p| hypot(p.x - path[end].x, p.y - path[end].y) <= FOOT_REACH).count()
             }
             None => edge(k) + 1,
         };
@@ -3752,13 +3781,66 @@ fn carve_falls(m: &Map, path: &[CarveStation], height: Option<f64>, floor: f64, 
     if height > most {
         return Err(if floor > 1.0 { FALL_SHORT_FLOOR } else { FALL_SHORT } + max(0.0, most) as u32);
     }
+    // (the water below drains, as the game plays it, only where it can leave the map no higher than a level over the bed
+    // the river is cut to: with the course below the lip cut to that bed, the level its water rises to before it leaves;
+    // a stroke ending in a hollow of higher ground would pool it partway up the fall)
+    let bed = falls[0].top - 2.0 - height;
+    let mut ground = m.heights.clone();
+    for p in &path[falls[0].end + 1..] {
+        for y in max(0.0, (p.y - 1.0).floor()) as usize..=min((m.h - 1) as f64, (p.y + 1.0).ceil()) as usize {
+            for x in max(0.0, (p.x - 1.0).floor()) as usize..=min((m.w - 1) as f64, (p.x + 1.0).ceil()) as usize {
+                let i = y * m.w + x;
+                if hypot(x as f64 - p.x, y as f64 - p.y) <= 1.0 && !fixed(i) {
+                    ground[i] = min(ground[i] as f64, bed) as u8;
+                }
+            }
+        }
+    }
+    let foot = &path[falls[0].end + 1];
+    if spill_levels(m.w, m.h, &ground)[m.at(foot.x, foot.y)] as f64 > bed + 1.0 {
+        return Err(FALL_UNDRAINED);
+    }
     falls[0].height = Some(height);
     Ok(falls)
+}
+/// The level water standing on each tile rises to before it leaves the map, over `ground` (a priority flood from the
+/// map's edges, which drain).
+fn spill_levels(w: usize, h: usize, ground: &[u8]) -> Vec<u8> {
+    let top = ground.iter().copied().max().unwrap_or(0) as usize;
+    let mut spill = vec![u8::MAX; w * h];
+    let mut levels: Vec<Vec<usize>> = vec![vec![]; top + 1];
+    for (i, &g) in ground.iter().enumerate() {
+        let (x, y) = (i % w, i / w);
+        if x == 0 || y == 0 || x == w - 1 || y == h - 1 {
+            spill[i] = g;
+            levels[g as usize].push(i);
+        }
+    }
+    for level in 0..=top {
+        while let Some(i) = levels[level].pop() {
+            if spill[i] as usize != level {
+                continue;
+            }
+            let (x, y) = (i % w, i / w);
+            for (ok, j) in [(x > 0, i.wrapping_sub(1)), (x + 1 < w, i + 1), (y > 0, i.wrapping_sub(w)), (y + 1 < h, i + w)] {
+                if ok {
+                    let s = ground[j].max(level as u8);
+                    if s < spill[j] {
+                        spill[j] = s;
+                        levels[s as usize].push(j);
+                    }
+                }
+            }
+        }
+    }
+    spill
 }
 /// A set Fall the land can't give: this plus the most it can (the error codes past `FORCE_ERRORS`, worded by the bridge).
 const FALL_SHORT: u32 = 100;
 /// The same where the Floor is what stops it.
 const FALL_SHORT_FLOOR: u32 = 140;
+/// A set Fall whose water below has no way out under its drop: the stroke ends before it can drain.
+const FALL_UNDRAINED: u32 = 180;
 #[derive(Default)]
 struct CarveMetrics {
     cut: f64,
@@ -3838,6 +3920,8 @@ struct CarveState {
     fall_held: bool,
     /// Below a fall of a set height: the deepest the bed below may stand, so the water falls that far.
     foot_cap: Option<f64>,
+    /// Below a fall on Auto: its foot, to the station it runs to (`CarveFall::foot`).
+    auto_foot: Option<(f64, usize)>,
     /// A fall's height was set, and the course has nowhere to fall (`carve_falls`): the carve is refused.
     /// Why a set Fall can't be made (0: it can, or none is set).
     fall_error: u32,
@@ -3874,7 +3958,7 @@ impl CarveState {
         };
         let depth = cap.map_or(s.depth, |c| Some(min(c, s.depth.unwrap_or(c))));
         let seed = map_seed(before);
-        let character = RiverCharacter::new(before, &s, seed, intent);
+        let mut character = RiverCharacter::new(before, &s, seed, intent);
         let course = CarveCourse::new(before, &s, intent);
         let mut source_id = options
             .source_id
@@ -3903,10 +3987,30 @@ impl CarveState {
                 look.metrics.steps += 2;
                 look.advance();
             }
-            carve_falls(before, &look.path, settings.fall, settings.floor, settings.width.is_some()).map_or_else(|e| (vec![], e), |f| (f, 0))
+            let fixed = |i: usize| keep.get(i).copied().unwrap_or(0) != 0 || character.rock.get(i).copied().unwrap_or(0) != 0;
+            carve_falls(before, &look.path, settings.fall, settings.floor, settings.width.is_some() && options.unleashed.is_none(), &fixed).map_or_else(|e| (vec![], e), |f| (f, 0))
         };
         if let Some(f) = falls.first().filter(|f| f.start == 0) {
             bed = max(bed, f.top - 2.0);
+        }
+        // (no rock knob stands in a fall's stream or in front of its lip: it would split the curtain with a dry pillar)
+        for f in &falls {
+            let last = f.stations.last().copied();
+            let clear = |k: &Knob| {
+                f.stations.iter().any(|&(x, y, w)| hypot(k.x - x, k.y - y) <= k.radius + w + 3.0)
+                    || last.map_or(false, |(x, y, w)| hypot(k.x - x, k.y - y) <= k.radius + w + 12.0)
+            };
+            let (gone, kept): (Vec<Knob>, Vec<Knob>) = std::mem::take(&mut character.knobs).into_iter().partition(|k| clear(k));
+            character.knobs = kept;
+            for k in gone {
+                for yy in (k.y - k.radius).ceil() as i32..=(k.y + k.radius).floor() as i32 {
+                    for xx in (k.x - k.radius).ceil() as i32..=(k.x + k.radius).floor() as i32 {
+                        if xx >= 0 && yy >= 0 && xx < before.w as i32 && yy < before.h as i32 && hypot(xx as f64 - k.x, yy as f64 - k.y) <= k.radius {
+                            character.rock[yy as usize * before.w + xx as usize] = 0;
+                        }
+                    }
+                }
+            }
         }
         let energy = map.w.max(map.h) as f64 * (1.2 + 4.0 * p) * (1.0 + 0.6 * character.wander);
         let heading = course.guide(x, y);
@@ -3995,6 +4099,7 @@ impl CarveState {
             fall_at: 0,
             fall_held: false,
             foot_cap: None,
+            auto_foot: None,
             fall_error,
             hold: vec![0; n],
             stream: vec![0; n],
@@ -4168,6 +4273,13 @@ impl CarveState {
         if let Some(cap) = self.foot_cap {
             self.bed = max(0.0, min(self.bed, cap));
         }
+        if let Some((foot, until)) = self.auto_foot {
+            if self.path.len() <= until {
+                self.bed = max(self.settings.floor, min(self.bed, foot));
+            } else {
+                self.auto_foot = None;
+            }
+        }
         let reach = self.character.width(self.metrics.distance);
         let dx = cos(self.heading);
         let dy = sin(self.heading);
@@ -4311,6 +4423,9 @@ impl CarveState {
                 if let Some(height) = f.height {
                     // (its water a level deep, the height set below the lip)
                     self.foot_cap = Some(f.top - 1.0 - height - 1.0);
+                } else if f.foot <= f.top - 5.0 {
+                    // (on Auto it lands where the river below goes lowest near it, three levels or more down)
+                    self.auto_foot = Some((f.foot, f.foot_until));
                 }
             }
             self.fall_at += 1;
@@ -4327,7 +4442,8 @@ impl CarveState {
         let f = self.falls.get(self.fall_at)?;
         if k < f.start {
             // (to a set Fall the course keeps its bed at the stream's or above, so the fall holds when its reach comes;
-            // to the land's own, a carve that cuts deeper on the way runs on as its canyon, the land's slope kept)
+            // to the land's own, a carve that cuts deeper on the way runs on as its canyon, the land's slope kept: a
+            // plateau the carve would cut that deep is the reach's own, `carve_falls`)
             return f.height.map(|_| f.top - 2.0);
         }
         let (floor, start) = (f.top - 2.0, f.start);
@@ -4364,7 +4480,8 @@ impl CarveState {
         // (the high ground kept: what is nearer the reach than the rest of the course, which carves its own walls and
         // banks; a breadth-first search from all the course's stations at once, each tile taking its nearest's side)
         let mut zone = vec![0u8; w * h];
-        let set_width = self.settings.width.is_some();
+        // (an Unleash's width is its source's, not the player's Size: its stream takes Auto's)
+        let set_width = self.settings.width.is_some() && self.options.unleashed.is_none();
         let mut queue = vec![];
         for (k, (cx, cy)) in f.stations.iter().map(|&(x, y, _)| (x, y)).chain(f.course.iter().copied()).enumerate() {
             let i = (clamp(round(cy), 0.0, (h - 1) as f64) as usize) * w + clamp(round(cx), 0.0, (w - 1) as f64) as usize;
@@ -4388,7 +4505,7 @@ impl CarveState {
         // the stream's width: the set Size, or on Auto at most a stream's (STREAM_WIDTH), however wide the river the
         // carve leaves below, so a stream crosses the high ground and no flooded basin opens on it
         for (s, &(cx, cy, width)) in f.stations.iter().enumerate() {
-            let width = if set_width { width } else { min(width, STREAM_WIDTH) };
+            let width = max(FALL_WIDTH, if set_width { width } else { min(width, STREAM_WIDTH) });
             let radius = width + 3.0;
             for yy in max(0.0, (cy - radius).floor()) as usize..=min((h - 1) as f64, (cy + radius).ceil()) as usize {
                 for xx in max(0.0, (cx - radius).floor()) as usize..=min((w - 1) as f64, (cx + radius).ceil()) as usize {
@@ -4425,37 +4542,42 @@ impl CarveState {
                 }
             }
         }
-        // (5 too: the fall's face, in front of the lip as wide as the stream, along the stream's heading at its last
+        // (6: the fall's face, in front of the lip as wide as the stream, along the stream's heading at its last
         // station; the ground there is cut to where the water lands, ledges near the lip and any rib of high ground
         // farther on, so the curtain falls whole and clean and faces open ground, never a dark slot)
         let mut face = vec![];
         if let (Some(&(ex, ey, ew)), Some(&(px, py, _))) = (f.stations.last(), f.stations.get(f.stations.len().saturating_sub(3))) {
             let (hx, hy) = (ex - px, ey - py);
             let len = hypot(hx, hy);
-            let ew = if set_width { ew } else { min(ew, STREAM_WIDTH) };
+            let ew = max(FALL_WIDTH, if set_width { ew } else { min(ew, STREAM_WIDTH) });
             let half = ew * 0.72 + 0.5;
             if len > 0.5 {
                 let (hx, hy) = (hx / len, hy / len);
-                const REACH: f64 = 10.0;
+                const REACH: f64 = FOOT_REACH;
                 let span = REACH + half + 1.0;
                 let mut corridor = vec![];
                 for yy in max(0.0, (ey - span).floor()) as usize..=min((h - 1) as f64, (ey + span).ceil()) as usize {
                     for xx in max(0.0, (ex - span).floor()) as usize..=min((w - 1) as f64, (ex + span).ceil()) as usize {
                         let (rx, ry) = (xx as f64 - ex, yy as f64 - ey);
                         let along = rx * hx + ry * hy;
-                        if along > 0.5 && along <= REACH && (rx * hy - ry * hx).abs() <= half {
+                        // (a tile wider than the stream each side, so its corners meet the face, not the land's edge)
+                        if along > 0.5 && along <= REACH && (rx * hy - ry * hx).abs() <= half + 1.0 {
                             corridor.push((yy * w + xx, along));
                         }
                     }
                 }
-                // (where it lands: a set Fall's cap, or the ground just below the lip)
+                // (where it lands: a set Fall's cap, or on Auto the river's foot below it, or the ground just below the lip;
+                // every ledge and rib above it in front of the lip is cut away)
                 let landing = corridor.iter().filter(|&&(_, a)| a <= 3.5).map(|&(i, _)| original[i] as f64).fold(f64::INFINITY, min);
+                let landing = if f.foot <= f.top - 5.0 { min(landing, f.foot) } else { landing };
                 let foot = max(self.settings.floor, f.height.map_or(landing, |height| min(landing, lip - height - 1.0)));
                 if foot.is_finite() && foot < lip - 1.0 {
-                    for (i, along) in corridor {
+                    for (i, _) in corridor {
                         let o = original[i] as f64;
-                        if o > foot && (along <= 3.5 || o >= lip - 1.0) && self.keep[i] == 0 {
-                            near[i] = 5;
+                        if near[i] != 2 || o > foot {
+                            near[i] = 6;
+                        }
+                        if o > foot && self.keep[i] == 0 && self.character.rock[i] == 0 {
                             face.push((i, foot as u8));
                         }
                     }
@@ -4477,6 +4599,7 @@ impl CarveState {
         }
         // (each tile, the ground it keeps, and the station whose stream cuts it: in the stream, it is cut to the bed or
         // the lip, so the stream and its lip are as wide as the river)
+        let fronted = near.iter().any(|&n| n == 6);
         let mut cuts = vec![vec![]; f.stations.len()];
         let plan: Vec<(usize, u8, bool)> = tiles
             .into_iter()
@@ -4486,11 +4609,26 @@ impl CarveState {
                 // (lower ground: below the lip, or the course's own channel through high ground past the edge, so the
                 // lip runs the whole width of the stream's front and no part of it stands dry between two curtains)
                 // (the channel before the reach is not: the stream runs on from it with no sill)
-                let lower = |j: usize| !high(j) || near[j] == 5;
+                // (ground beside the stream no higher than the lip is lower too: its water, a little over the lip, would
+                // trickle off the side over it)
+                let lower = |j: usize| (original[j] as f64) < f.top && near[j] != 2 || near[j] >= 5;
                 let rim = (xx > 0 && lower(i - 1)) || (xx + 1 < w && lower(i + 1)) || (yy > 0 && lower(i - w)) || (yy + 1 < h && lower(i + w));
-                let level = match (near[i], rim) {
-                    (2, true) => lip,
-                    (2, false) => lip - 1.0,
+                // (where lower ground meets the stream from its side, not in front of the lip, its bank stands at the
+                // top, so the water leaves over the lip alone and no sliver of it pours off the side into a notch)
+                // (a tile at the front that also meets lower ground off to the side is the side's: no water off it there)
+                let ahead = |j: usize| near[j] == 6;
+                // (lower ground that meets the face too is the same cliff, the curtain's: aside is lower ground apart from it)
+                let by_face = |j: usize| {
+                    let (jx, jy) = (j % w, j / w);
+                    (jx > 0 && near[j - 1] == 6) || (jx + 1 < w && near[j + 1] == 6) || (jy > 0 && near[j - w] == 6) || (jy + 1 < h && near[j + w] == 6)
+                };
+                let aside = |j: usize| lower(j) && near[j] != 6 && !by_face(j);
+                let any = |f: &dyn Fn(usize) -> bool| (xx > 0 && f(i - 1)) || (xx + 1 < w && f(i + 1)) || (yy > 0 && f(i - w)) || (yy + 1 < h && f(i + w));
+                let front = !fronted || (any(&ahead) && !any(&aside));
+                let level = match (near[i], rim, front) {
+                    (2, true, true) => lip,
+                    (2, true, false) => min(original[i] as f64, f.top),
+                    (2, false, _) => lip - 1.0,
                     _ => original[i] as f64,
                 } as u8;
                 (i, level, near[i] == 2)
@@ -4785,11 +4923,15 @@ impl CarveState {
             self.original[ahead] as f64 - self.original[self.map.at(x, y)] as f64,
         );
         self.energy -= 1.0 + climb * (1.0 - p) * 8.0;
-        if self.energy <= 0.0 || self.metrics.distance > 3.0 * (w + h) as f64 {
+        // (below a set Fall the river runs on to the stroke's end at any Power, its water's way out: the carve checked
+        // at its start that the end drains, `carve_falls`)
+        let below_fall = self.foot_cap.is_some();
+        if (self.energy <= 0.0 && !below_fall) || self.metrics.distance > 3.0 * (w + h) as f64 {
             self.end("power spent");
             return;
         }
         if p < 0.28
+            && !below_fall
             && self.original[ahead] as f64 - self.bed > 4.0
             && self.hard(self.original[ahead] as f64, ahead) > 0.5
         {
