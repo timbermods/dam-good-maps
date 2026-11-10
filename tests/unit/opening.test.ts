@@ -67,7 +67,8 @@ describe("the opening camera against the game's", () => {
       const [mx, my] = startMiddleTile({ x: r.x, y: r.y, orientation: r.o });
       const cam = openingCamera({ x: mx, y: my, z: r.z, orientation: r.o });
       expect(Math.abs(cam.zoom - r.zoom)).toBeLessThan(1e-6);
-      // grid (x, y, height) against the game's world (x, height, y), within 2 thousandths of a tile (the game's floats)
+      // grid (x, y, height) against the game's world (x, height, y), within 10⁻⁴ of a tile (the recorded values to four
+      // decimals; the worst is 4.9 × 10⁻⁵)
       const err = Math.max(
         Math.abs(cam.target[0] - r.target[0]),
         Math.abs(cam.target[1] - r.target[2]),
@@ -76,7 +77,7 @@ describe("the opening camera against the game's", () => {
         Math.abs(cam.eye[1] - r.eye[2]),
         Math.abs(cam.eye[2] - r.eye[1]),
       );
-      expect(err).toBeLessThan(2e-3);
+      expect(err).toBeLessThan(1e-4);
     });
   }
 });
