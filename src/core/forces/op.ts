@@ -22,8 +22,8 @@ import type { ClearedSource, SourcesRule } from "./clear";
 
 export { forceSettingsProblems };
 
-export type Verb = "carve" | "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit" | "erode";
-export const VERBS: readonly Verb[] = ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit", "erode"];
+export type Verb = "carve" | "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit" | "erode" | "roll";
+export const VERBS: readonly Verb[] = ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit", "erode", "roll"];
 
 /** Where a force was asked to act, in tiles: a carve's origin and aimed end, an impact and the way
  *  its impactor travelled (Aim), a vent, a painted fissure or fault (sub-tile points, to 0.01) and
@@ -41,6 +41,7 @@ export interface ForceWhere {
  *  its Sources choice (D474: Clear when absent). */
 export type ForceSettingsRecord = { sources?: SourcesRule } & (
   | { mode: "wear"; power: number; size: number | null; seed: number; floor: number }
+  | { mode: "roll"; power: number; size: number | null; seed: number; floor: number }
   | { mode: "fan"; power: number; size: number | null; channels: "auto" | "few" | "many"; seed: number; floor: number }
   | { mode: "drop"; power: number; size: number | null; walls: "auto" | "sheer" | "stepped"; seed: number; floor: number }
   | { mode: "unleash" | "aim"; power: number; wander: number; width: number | null; seed: number; walls: "steep" | "wide"; defyGravity: boolean; dry: boolean; depth?: number | null; floor?: number; riverDepth?: number | null; banks?: number; fall?: number }
@@ -174,11 +175,12 @@ export function forceProblems(p: ForceResultParams, W: number, H: number, maxLev
   const mode = p.settings.mode;
   if (w.origin && !inMap(w.origin[0], w.origin[1])) return ["the force's point is off the map"];
   if (w.end && !inMap(w.end[0], w.end[1])) return ["the force's end point is off the map"];
-  const lined = p.verb === "rift" || p.verb === "deposit" || p.verb === "erode";
-  if (w.path && !(w.path.length >= (lined ? 1 : 2) && w.path.length <= 512 && w.path.every(([x, y]) => Number.isFinite(x) && Number.isFinite(y) && x >= 0 && y >= 0 && x <= W - 1 && y <= H - 1))) return [lined ? "a rift's, deposit's or erosion's line needs 1 to 512 points on the map" : "a painted line needs 2 to 512 points on the map"];
+  const lined = p.verb === "rift" || p.verb === "deposit" || p.verb === "erode" || p.verb === "roll";
+  if (w.path && !(w.path.length >= (lined ? 1 : 2) && w.path.length <= 512 && w.path.every(([x, y]) => Number.isFinite(x) && Number.isFinite(y) && x >= 0 && y >= 0 && x <= W - 1 && y <= H - 1))) return [lined ? "a rift's, deposit's, erosion's or roll's line needs 1 to 512 points on the map" : "a painted line needs 2 to 512 points on the map"];
   if (p.verb === "deposit" && !w.path?.length) return ["a deposit needs its origin"];
   if (p.verb === "rift" && !w.path?.length) return ["a rift needs its fault"];
   if (p.verb === "erode" && !w.path?.length) return ["an erosion needs where it was drawn"];
+  if (p.verb === "roll" && !w.path?.length) return ["a roll needs where it was drawn"];
   if (p.verb === "quake") {
     if (!w.path) return ["a quake needs its fault"];
     if (w.side !== 1 && w.side !== -1) return ["a quake's side is 1 or -1"];
@@ -297,5 +299,7 @@ function forceVerbLabel(p: ForceResultParams): string {
       return "Deposit";
     case "erode":
       return "Erode";
+    case "roll":
+      return "Roll";
   }
 }
