@@ -27,7 +27,7 @@ import { mergeGame } from "../features/edits";
 import { REQUIRED } from "../validate/checks";
 import type { Feature, FeatureKind, StartFeature } from "../features/schema";
 import { makesRoomForStart, START_OPEN_GROUND, startOverRoof, startRoofProblem } from "./startFit";
-import type { Runs } from "../math/grid";
+import { runsToTiles, type Runs } from "../math/grid";
 import { checkSchema, validateFeatures } from "../spec/schema";
 import { brushProblems, type BrushParams } from "../features/raster/brush";
 import { forceProblems, type ForceResultParams } from "../forces/op";
@@ -89,6 +89,9 @@ export interface OpParams {
    *  drag (terrain/blocks.ts). Refused, never clamped, when a cell is off the map or the layers or on
    *  an object, and when the result would leave ground the game drops. */
   blocks: BlocksParams;
+  /** Lakes by number (D342; doc/lakeLevel.ts `planLakeLevel`): the lake at `at` made to hold at `level`, its sill
+   *  cut down or raised to it, the sill's tiles stored literally (every one set to the level, exact). */
+  setLakeLevel: SetLakeLevelParams;
   /** The map's description, written by its player (doc/description.ts): the text the game shows with the
    *  map. Empty text takes it away and the generated one is used again. It changes nothing on the map, so
    *  it builds nothing. */
@@ -107,6 +110,22 @@ export interface RemoveUnfedWaterParams {
   area?: Runs;
   /** How many bodies of water (pools) it takes, for the history. */
   pools?: number;
+}
+
+export interface SetLakeLevelParams {
+  /** The lake's tile it was asked at, [x, y]. */
+  at: [number, number];
+  /** The level the lake holds at: its sill's level (the water stands from it up to under a level above it). */
+  level: number;
+  /** The sill cut down to the level, or raised up to it (sim/sill.ts). */
+  sill: "cut" | "raise";
+  /** A cut notch's width in tiles (a raised sill spans the outlet). */
+  width?: number;
+  /** The tiles the sill changes as runs [y, x0, x1]; the integrity pass leaves them. */
+  cells: Runs;
+  /** The level each tile of `cells` is set to, in the order of y·W + x: a notch's crest at `level`, its channel a level
+   *  lower and its sides stepping up; a bank's spillway at `level`, the rest a level higher and its step down behind. */
+  levels: number[];
 }
 
 export interface FillHollowParams {
@@ -156,7 +175,7 @@ interface Applied {
 export type AppliedOp = EditOp & Applied;
 export type AppliedOpOf<K extends OpName> = OpOf<K> & Applied;
 
-export type SculptOp = AppliedOpOf<"sculpt"> | AppliedOpOf<"brush"> | AppliedOpOf<"forceResult"> | AppliedOpOf<"blocks">;
+export type SculptOp = AppliedOpOf<"sculpt"> | AppliedOpOf<"brush"> | AppliedOpOf<"forceResult"> | AppliedOpOf<"blocks"> | AppliedOpOf<"setLakeLevel">;
 /** A force's operation. */
 export type ForceOp = AppliedOpOf<"forceResult">;
 export const isForceOp = (op: { op: string }): op is ForceOp => op.op === "forceResult";
@@ -308,6 +327,7 @@ export function applyOp(state: DocState, op: AppliedOp): void {
     }
     case "sculpt":
     case "brush":
+    case "setLakeLevel":
       state.sculpts.push(op);
       return;
     case "blocks":
@@ -406,6 +426,7 @@ export function invertOp(state: DocState, op: AppliedOp): void {
     }
     case "sculpt":
     case "brush":
+    case "setLakeLevel":
       removeFromList(state.sculpts, op.seq);
       return;
     case "blocks":
@@ -506,6 +527,9 @@ export interface OpContext {
   componentsOf?: (id: string) => Record<string, unknown> | undefined;
   /** Why the map cannot be cropped to a rectangle for what stands on it (a start the edge would cut), or null. */
   cropObjects?: (r: CropParams) => string | null;
+  /** Why a lake's sill no longer fits the map (doc/lakeLevel.ts `lakeLevelProblem`: measured on the map now, it must be
+   *  the one stored), or null. */
+  lakeLevel?: (p: SetLakeLevelParams) => string | null;
 }
 
 /** Why an object's components would not load or build: a source's strength must be a number, 0 or
@@ -737,6 +761,22 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
     }
     case "brush":
       return brushProblems(op.params, W, H);
+    case "setLakeLevel": {
+      const p = op.params;
+      if (!inMap(p.at[0], p.at[1])) return [`X ${p.at[0]} · Y ${p.at[1]} is off the map`];
+      const errors = runsProblems(p.cells, W, H, "the sill's cells");
+      if (errors.length) return errors;
+      if (p.sill === "raise" && p.width !== undefined) return ["a raised sill spans the outlet: only a cut has a width"];
+      if (p.sill === "cut" && p.width === undefined) return ["a cut sill needs its width"];
+      if (new Set(runsToTiles(p.cells, W)).size !== p.levels.length) return ["the sill needs one level for each of its cells"];
+      if (ctx.lockedColumns?.size) {
+        for (const [y, x0, x1] of p.cells) for (let x = x0; x <= x1; x++) {
+          if (ctx.lockedColumns.has(y * W + x)) return [`X ${x} · Y ${y} has a cave or overhang: shape its top with a brush`];
+        }
+      }
+      const why = ctx.lakeLevel?.(p);
+      return why ? [why] : [];
+    }
     case "blocks": {
       const bad = blockProblems(op.params, W, H);
       if (bad.length || !ctx.blocks) return bad;

@@ -97,6 +97,8 @@ export const GAME_BADWATER_TEXTURE = {
   base: {
     mean: 122.1,
     spread: 29.5,
+    /** Its stored mips' means, as the glow's (`glow.mips`). */
+    mips: [122.1, 122.9, 123.6, 124.1, 124.7, 125.1, 125.8, 126.3, 126.6],
     percentiles: [51, 72, 83, 103, 123, 130, 133, 137, 142, 147, 153, 160, 170, 176, 180, 186],
     feature: 0.045,
     broad: 0.33,
@@ -107,6 +109,10 @@ export const GAME_BADWATER_TEXTURE = {
     percentiles: [0, 0, 0, 0, 0, 0, 1, 3, 10, 23, 40, 72, 118, 167, 211, 253],
     /** The share of texels at 0. */
     zero: 0.627,
+    /** The game's stored mips' means, its top (2048²) down to 8² (`--textures`): Unity's, made in linear values
+     *  (`linearMips`), so the sparse bright lines lift the mean as they blur. A tile spans 123 of the top's texels and
+     *  30.7 of ours (512²), so our level L stands for the game's L + 2. */
+    mips: [19.6, 20.9, 23.2, 26.7, 31.6, 37.4, 44.4, 50.4, 52.7],
     feature: 0.057,
     broad: 0.25,
   },
@@ -682,6 +688,41 @@ export function makeBadwaterTexture(size: number): Uint8Array {
     data[i * 4 + 3] = shape[i];
   }
   return data;
+}
+
+/** An sRGB byte's linear value (the decode Unity and the GPU use). */
+const SRGB_LINEAR = Float64Array.from({ length: 256 }, (_, k) => (k <= 10 ? k / 255 / 12.92 : ((k / 255 + 0.055) / 1.055) ** 2.4));
+/** A linear value as its sRGB byte. */
+const srgbByte = (v: number) => Math.round(255 * (v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055));
+
+/** An RGBA texture's mips below its top (`size` square, a power of two: `size` / 2 down to 1), each texel the mean of the
+ *  2 × 2 above it, as Unity makes an sRGB texture's: its colour (RGB) averaged in linear values, each level from the
+ *  one above it unrounded, its alpha as it is. The game's badwater pattern is such a texture, sampled raw (the game draws
+ *  in gamma space): its stored mips' G means (`GAME_BADWATER_TEXTURE.glow.mips`) climb from 19.6 to 31.6 by its fourth
+ *  as its sparse bright lines blur into the black, where a mean in stored values (WebGL's `generateMipmap`) keeps 19.6
+ *  at every level, so the emission at play distance would fall to two thirds of the game's. */
+export function linearMips(top: Uint8Array, size: number): Uint8Array[] {
+  const out: Uint8Array[] = [];
+  let lin = new Float64Array(size * size * 4);
+  for (let i = 0; i < lin.length; i++) lin[i] = (i & 3) === 3 ? top[i] : SRGB_LINEAR[top[i]];
+  for (let n = size; n > 1; n >>= 1) {
+    const m = n >> 1;
+    const next = new Float64Array(m * m * 4);
+    const bytes = new Uint8Array(m * m * 4);
+    for (let y = 0; y < m; y++)
+      for (let x = 0; x < m; x++)
+        for (let c = 0; c < 4; c++) {
+          const a = ((2 * y * n + 2 * x) << 2) + c;
+          const b = a + (n << 2);
+          const v = (lin[a] + lin[a + 4] + lin[b] + lin[b + 4]) / 4;
+          const o = ((y * m + x) << 2) + c;
+          next[o] = v;
+          bytes[o] = c === 3 ? Math.round(v) : srgbByte(v);
+        }
+    out.push(bytes);
+    lin = next;
+  }
+  return out;
 }
 
 /** How the still detail albedo is drawn (tuned so its statistics land on the game's, `GAME_DETAIL_TEXTURE`): its first

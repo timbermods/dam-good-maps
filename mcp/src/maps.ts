@@ -15,6 +15,7 @@ import { MapSession } from "../../src/core/doc/session";
 import { newRampedStroke } from "../../src/core/doc/strokes";
 import { planStart } from "../../src/core/doc/tools";
 import { planFill, unfedWater } from "../../src/core/doc/waterEdits";
+import { applyLakeLevel } from "../../src/core/doc/lakeLevel";
 import { applyForce } from "../../src/core/collab/forceStep";
 import { isPickable } from "../../src/core/features/objects";
 import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
@@ -378,6 +379,14 @@ function applyOne(s: MapSession, raw: unknown): { label: string; held: number } 
         const plan = planFill(s, at![0], at![1], p.level as number, (p.floor as number | undefined) ?? null);
         if (!plan.op) refuse(plan.reason ?? "There is nothing to fill there");
         return done(s.apply(plan.op!, "user", label), lastLabel());
+      }
+      break;
+    case "setLakeLevel":
+      // lakes by number: the sill planned on the map as it stands and confirmed by the settle (core/doc/lakeLevel.ts)
+      if (p.cells === undefined) {
+        const at = p.at as Pair | undefined;
+        if (!Array.isArray(at) || typeof p.level !== "number") refuse("A lake's level needs at [x, y] on the lake and the level it holds at");
+        return done(applyLakeLevel(s, at![0], at![1], p.level as number, p.width as number | undefined), lastLabel());
       }
       break;
     case "removeUnfedWater":
