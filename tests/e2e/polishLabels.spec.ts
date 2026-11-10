@@ -67,7 +67,9 @@ test("the open Legend hangs centred under its toggle and keeps Ground height's L
 test("the minimap shows a held Drought day's water, and the map's own again after it", async ({ page }) => {
   test.setTimeout(240_000);
   await page.setViewportSize({ width: 1920, height: 1080 });
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  // (seed 2 since generator 0.10.13, D507, D148: the start frames the map, and seed 4242's river came out shallow, 50 of
+  // its minimap's pixels water-blue, the deep water's colour; seed 2's shows 148)
+  await openEditor(page, "s=2&z=96&d=n&t=riverValley");
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
   /** The minimap's picture as a string of its pixels, and how many are water-blue. */
   const picture = () =>

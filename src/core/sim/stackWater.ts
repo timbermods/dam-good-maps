@@ -269,6 +269,54 @@ export interface StackSettle {
   /** A canonical settle's only: each column's outflows at its end (`columnFlows`), four a column id. Only drawn
    *  (the 3D view's moving water and falls), never written to a file or read by the water. */
   flows?: Float32Array;
+  /** A settle's on stacked columns: its outflows toward each target column at its end (`StackOutflows`), what the
+   *  file stores (format/world.ts `stackedSimulationSingletons`, #532). Never read by the water. */
+  outflows?: StackOutflows;
+}
+
+/** A settle's outflows toward each column they reach (FORMAT.md §4.3 `ColumnOutflows`, which the game stores per water
+ *  column and per target column, not per tile): every edge of the column graph whose momentum is above 0
+ *  (rust/water/src/stack.rs `out`, the game's stored flow: what goes out less 0.5 of what comes back), in the
+ *  graph's order: by column id, then by way (−y, −x, +y, +x), then by the target's slot, the order the game fills
+ *  a column's token in. Sparse: only the water that flows. */
+export interface StackOutflows {
+  /** Each edge's column id (slot·N + tile), ascending. */
+  column: Uint32Array;
+  /** Its target column id (slot·N + tile), or −1 off the map's edge. */
+  target: Int32Array;
+  /** Its way: 0 −y, 1 −x, 2 +y, 3 +x. */
+  dir: Uint8Array;
+  /** Its momentum. */
+  flow: Float64Array;
+}
+
+/** The outflows (`StackOutflows`) of every edge in a column graph (`start` per column id, each edge's `target` and
+ *  `dir`) from each edge's momentum `out`; none for the columns `still` marks (a basin stored levelled at rest). */
+export function edgeOutflows(start: ArrayLike<number>, target: ArrayLike<number>, dir: ArrayLike<number>, out: ArrayLike<number>, still?: ArrayLike<number>): StackOutflows {
+  const column: number[] = [];
+  const to: number[] = [];
+  const way: number[] = [];
+  const flow: number[] = [];
+  for (let c = 0; c + 1 < start.length; c++) {
+    if (still && still[c]) continue;
+    for (let e = start[c]; e < start[c + 1]; e++) {
+      if (!(out[e] > 0)) continue;
+      column.push(c);
+      to.push(target[e]);
+      way.push(dir[e]);
+      flow.push(out[e]);
+    }
+  }
+  return { column: Uint32Array.from(column), target: Int32Array.from(to), dir: Uint8Array.from(way), flow: Float64Array.from(flow) };
+}
+
+/** Each column's outflows four a column id (`columnFlows`) from each edge's momentum, summed in doubles in the edge
+ *  order and rounded once: the same bytes `columnFlows` gives on the engine that holds that momentum. */
+export function flowsOfEdges(start: ArrayLike<number>, dir: ArrayLike<number>, out: ArrayLike<number>): Float32Array {
+  const size = start.length - 1;
+  const flows = new Float64Array(size * 4);
+  for (let c = 0; c < size; c++) for (let e = start[c]; e < start[c + 1]; e++) flows[c * 4 + dir[e]] += out[e];
+  return Float32Array.from(flows);
 }
 
 /** Each column's outflows, four a column id (slot·N + tile; the simulation's order −y, −x, +y, +x): the momentum of
@@ -278,14 +326,13 @@ export interface StackSettle {
  *  current only where it ran the ticks itself (not after ticks run elsewhere, stackParallel.ts gathers those). */
 export function columnFlows(m: StackWater, stacked: boolean): Float32Array {
   if (!stacked) return Float32Array.from(m.view(STACK_FIELD.momentum) as Float64Array);
-  const start = m.view(STACK_FIELD.graphStart) as Uint32Array;
-  const dir = m.view(STACK_FIELD.graphDirection) as Uint8Array;
-  const out = m.view(STACK_FIELD.momentum) as Float64Array;
-  const size = start.length - 1;
   // (summed in doubles and rounded once, as the threaded settle gathers them: the same bytes on any number of threads)
-  const flows = new Float64Array(size * 4);
-  for (let c = 0; c < size; c++) for (let e = start[c]; e < start[c + 1]; e++) flows[c * 4 + dir[e]] += out[e];
-  return Float32Array.from(flows);
+  return flowsOfEdges(m.view(STACK_FIELD.graphStart) as Uint32Array, m.view(STACK_FIELD.graphDirection) as Uint8Array, m.view(STACK_FIELD.momentum) as Float64Array);
+}
+
+/** Each column's outflows toward each target (`StackOutflows`) from `m` as it stands (current where `columnFlows`' are). */
+export function columnOutflows(m: StackWater, still?: ArrayLike<number>): StackOutflows {
+  return edgeOutflows(m.view(STACK_FIELD.graphStart) as Uint32Array, m.view(STACK_FIELD.graphTarget) as Int32Array, m.view(STACK_FIELD.graphDirection) as Uint8Array, m.view(STACK_FIELD.momentum) as Float64Array, still);
 }
 
 /** A pre-fill, sparse: the columns where depth, pressure or contamination is not 0. */
@@ -416,10 +463,20 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
         if (reach) threads?.reach(reach);
         // (each column's outflows: the strips' own rows' when they ran the last ticks, else this engine's)
         const flows = threads ? threads.flows() : columnFlows(m, stacked);
-        // (a basin the end stored levelled at rest has none of the run's momentum: still water shows no current)
+        // (a basin the end stored levelled at rest has none of the run's momentum: still water shows no current, and
+        // the file stores none)
+        let outflows: StackOutflows | undefined;
         if (stacked) {
           const levelled = m.view(STACK_FIELD.levelled) as Uint8Array;
           for (let c = 0; c < levelled.length; c++) if (levelled[c] || still?.[c]) flows.fill(0, c * 4, c * 4 + 4);
+          // (and toward each target, as the file stores them)
+          let quiet: ArrayLike<number> = levelled;
+          if (still) {
+            const both = levelled.slice();
+            for (let c = 0; c < both.length; c++) if (still[c]) both[c] = 1;
+            quiet = both;
+          }
+          outflows = threads ? threads.outflows(quiet) : columnOutflows(m, quiet);
         }
         if (drainNext) {
           drainNext = false;
@@ -481,6 +538,7 @@ export function canonicalStackRun(W: number, H: number, t: StackedTerrain, retai
           // `settledAgain` never stands for either)
           ...(reach && start && !drained.length && !took ? { reach, start } : {}),
           flows,
+          ...(outflows ? { outflows } : {}),
         };
         const steady = m.info(STACK_INFO.steadyTicks);
         if (steady >= 0) done.steadyTicks = steady;
@@ -678,6 +736,23 @@ export function settledAgain(prev: StackSettle, prevModel: WaterModel, next: Wat
         if (flows && pf) flows.set(pf.subarray(k * 4, k * 4 + 4), k * 4);
       }
     }
+    // (and toward each target, the same: the old run's on the tiles left as they were, toward the columns there and off
+    // the map's edge; none from or toward a changed tile, whose columns stay dry and may be others now)
+    const pe = prev.outflows;
+    let outflows: StackOutflows | undefined;
+    if (pe) {
+      const keep: number[] = [];
+      for (let e = 0; e < pe.column.length; e++) {
+        const t = pe.target[e];
+        if (!changed[pe.column[e] % N] && (t < 0 || !changed[t % N])) keep.push(e);
+      }
+      outflows = {
+        column: Uint32Array.from(keep, (e) => pe.column[e]),
+        target: Int32Array.from(keep, (e) => pe.target[e]),
+        dir: Uint8Array.from(keep, (e) => pe.dir[e]),
+        flow: Float64Array.from(keep, (e) => pe.flow[e]),
+      };
+    }
     m.op(STACK_OP.accept);
     m.op(STACK_OP.saturation);
     const done: StackSettle = {
@@ -698,6 +773,7 @@ export function settledAgain(prev: StackSettle, prevModel: WaterModel, next: Wat
       reach,
       start,
       ...(flows ? { flows } : {}),
+      ...(outflows ? { outflows } : {}),
     };
     return done;
   } finally {

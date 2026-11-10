@@ -2786,6 +2786,11 @@ more deep, the shortfall warm (about −5 to −10 R, in the shape of the glow's
   over the lake basin's badwater and its source (`m9b-lakeBasin-128-1`): 18 away, Standard 2.63, 2.96 → 2.61, 2.38 ms,
   High 2.27, 2.45 → 2.44, 2.42; 50 away, Standard 2.35, 2.29 → 2.15, 2.15, High 2.56, 2.46 → 2.47, 2.64. Within the
   runs' noise: the same samples, now without anisotropy. The worker's mips are made once a page, beside the pattern.
+- **The gap by day on the game's frames** (`--water all`, the twelve day-lit start shots, 1,749 clean and 73 badwater
+  tiles; `fix/badwater-day-gap`): the game 32.6 against 27.4, 5.2; before 6.8 (outside the 3.1–6.5 its frames allow),
+  after 5.6 in Standard and 5.5 in High (within). `look-high.spec.ts`'s scene (clean water over a moist bed, darker than
+  the frames', about 28) then read a gap under its old margin of 1 (0.94, 0.64); re-based under D148 to D496's terms:
+  the order (> 0) and its badwater within the game's frames' 27.0–27.9, each ± its standard error (26.3–28.7).
 - **Falls short:** (1) badwater's thinnest film at sunrise (109 tiles) reads 37.2 against the game's 34.5 (it read
   36.2 before), and the day's deep water 33.4 against 31.3, where the glow's phase dominates (two regions of 36–37
   tiles); (2) over the sources, registered, ours reads 1.8 L* over the game's (5 %), the glow round them; (3) the glow's
@@ -3196,6 +3201,29 @@ birch bark 1.13, the crowns' sides 3–21 % under their middles, Standard's berr
   near black, as the game's own deep water up close). Standard and High the same. `tests/e2e/look-high.spec.ts` holds
   it ("deep water seen from the top-down view").
 - **Falls short:** the top-down view's fog is even across it, where the angled view's grows toward its far side.
+
+## A fall over a cave's mouth (D154 as amended 2026-11-08, D496; `fix/cave-mouth-curtain`)
+
+The in-game capture kit (#933) on Four Lakes r9: at the Great Fall the game draws one curtain over a dry cave's mouth
+(air 7–10 under the lip, the lip's water at 14.2–14.5, the lake below at 6.4); ours drew bare rock there between two
+curtains, the cave open.
+
+- **Not the simulation:** the file's water, our stacked settle and the game's own record of that day agree on every
+  tile of the lip and the cave to the hundredth (the cave dry, the roof's water 0.2–0.5 deep).
+- **The cause:** the lake's tiles at the mouth stand under a roof's reach, so they are dealt into a layer of their own
+  (waterLayers.ts), seeing at each tile the gap at their level. At the mouth that was the dry cave (rock at the lake's
+  level, the cave's floor the lowest gap above it), so the lake took it as a shore and never rose. The roof's water, in
+  the open sky's layer, links to the lake below and stays flat to the lip, taking the lake's slope as drawn. Neither
+  layer drew the fall.
+- **Now:** where a column sees rock at its level at a tile and the gap above it is dry, it sees the lowest gap of that
+  tile above it, under its ceiling, holding water: the game's `ProcessColumns` links a neighbour's wet column whose span
+  overlaps its own. The lake's slope rises to the lip over the mouth as everywhere else along the fall
+  (`waterLayers.test.ts`, "a fall over a dry cave's mouth"). Ours from the game's `cave` and `falls` cameras now draws
+  the curtain whole over the mouth, as the game's does.
+- **Speed:** `waterLayers` in Node, both in one process, the least of 200 runs: Pillars 8.9 → 8.9–9.1 ms, Hollows
+  2.9 → 3.1–3.2, Four Lakes r9 0.67 → 0.71 (the check runs only at tiles holding water above the gap seen).
+- **Falls short:** where a tile holds water in two gaps above a column's level, which one the game links is not read;
+  ours takes the lower.
 
 ## The rest of the step (next parts)
 

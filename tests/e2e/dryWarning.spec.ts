@@ -5,9 +5,13 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openEditor, topDown } from "./open";
 
-/** A tile whose surroundings (radius 3) are all dry land with the given soil (moist or dry), nearest the middle. */
+/** A tile whose surroundings (radius 3) are all dry land with the given soil (moist or dry), clear of the start, nearest
+ *  the middle. (Clear of the start since generator 0.10.13, D507, D148: the start frames the map, so it now stands near the
+ *  middle, and River Valley 96 seed 1's moist tile nearest the middle was beside it, where a tree is refused: "the start
+ *  stands there".) */
 async function groundOf(page: Page, moist: boolean): Promise<[number, number] | null> {
-  return page.evaluate((want) => {
+  const start = ((await page.evaluate(() => window.dgmEditor!.info())).features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
+  return page.evaluate(([want, s0, s1]) => {
     const m = window.dgm3d!.renderer.mapState()!;
     const soil = m.soil!;
     let best: [number, number, number] | null = null;
@@ -19,12 +23,13 @@ async function groundOf(page: Page, moist: boolean): Promise<[number, number] | 
             const i = (y + dy) * m.W + x + dx;
             if (m.surface.depth[i] > 0 || (soil.moisture[i] > 0) !== want || soil.contamination[i] > 0) ok = false;
           }
-        if (!ok) continue;
+        // (the start's bench, 5×5, and the ring's 2 tiles round the pointer, with a tile to spare)
+        if (!ok || Math.max(Math.abs(x - s0), Math.abs(y - s1)) <= 5) continue;
         const d = Math.abs(x - m.W / 2) + Math.abs(y - m.H / 2);
         if (!best || d < best[2]) best = [x, y, d];
       }
     return best ? ([best[0], best[1]] as [number, number]) : null;
-  }, moist);
+  }, [moist, start[0], start[1]] as const);
 }
 
 test("a held tree's ring turns amber with a note over dry ground, and is plain over moist ground", async ({ page }) => {

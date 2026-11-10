@@ -766,7 +766,9 @@ test("High's visible seasons follow the game's timers: no plant dies of dryness 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley&bw=0");
+  // (seed 5 since generator 0.10.13, D507, D148: the start frames the map, and on seed 4242's the plants stand on ground
+  // that stays moist past the normal drought's 9 days, so none is surely dead even by day 24)
+  await openEditor(page, "s=5&z=96&d=n&t=riverValley&bw=0");
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
   await opensHigh(page);
   const withered = () => page.evaluate(() => window.dgm3d!.renderer.witheredPlants);
@@ -953,10 +955,22 @@ test("clean water and badwater a level and a half deep, by day, as drawn through
     }
     return out;
   });
-  // the order, in both looks. The size of the gap is judged against the game's own frames, where the game drew the
-  // same water (tools/water-pixel-judge.ts, "the gap by day"; waterPalette.ts WATER_LIGHT.gap): this scene the game
-  // never drew, and its clean water over its moist bed reads darker than the shots' (about 28 against 31 to 33.5)
+  // the order in both looks, and badwater as dark as the game's own frames draw it at this depth. D496 judges the
+  // gap's size on the game's frames, where the game drew the same water (tools/water-pixel-judge.ts, "the gap by
+  // day"; waterPalette.ts WATER_LIGHT.gap): there the game's gap is 5.2 L* (clean water 32.6 against badwater 27.4,
+  // twelve day-lit start shots), ours 5.6 in Standard and 5.5 in High, within the 3.1 to 6.5 its frames allow. This
+  // scene the game never drew, and its clean water over its moist bed reads darker than the frames' (about 28 against
+  // 31.3 to 33.5), so here the gap is narrow (about 1) and only its sign is the game's. Re-based under D148
+  // (fix/badwater-day-gap): the margin of 1 this held was set when badwater drew 1.5 L* darker than the game's at a
+  // distance (its mips, fix/badwater-low-light), and the frames' gap was 6.8, outside the game's range. Badwater's own
+  // darkness is held instead: the game's badwater a level or two deep reads 27.0 and 27.9 on its two frames (36 and 37
+  // tiles), each ± its mean's standard error (0.69, 0.77: its tiles' L* spread 4.2 and 4.7); the GPU moves this scene's
+  // badwater by 0.03 (CI's SwiftShader against a desktop GPU)
   console.log(`the gap by day, as drawn: ${JSON.stringify(gaps)}`);
-  for (const look of ["standard", "high"] as const) expect(gaps[look].clean - gaps[look].bad).toBeGreaterThan(1);
+  for (const look of ["standard", "high"] as const) {
+    expect(gaps[look].clean - gaps[look].bad).toBeGreaterThan(0);
+    expect(gaps[look].bad).toBeGreaterThan(26.3);
+    expect(gaps[look].bad).toBeLessThan(28.7);
+  }
   expect(errors).toEqual([]);
 });

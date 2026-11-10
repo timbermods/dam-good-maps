@@ -63,8 +63,9 @@ const threads = at >= 0 ? Number(process.argv[at + 1]) : 0;
 if (threads) {
     installNodeThreads(threads);
     await nodeThreadsReady(threads);
-    // (the reach too, where the water went, and each column's outflows: the strips gather both from their own rows, D453's settle at once and the 3D view's moving water)
-    const bytes = (s: StackSettle) => Buffer.concat([s.depth, s.overflow, s.contamination, s.sat, ...(s.reach ? [s.reach] : []), ...(s.flows ? [s.flows] : [])].map(a => Buffer.from(a.buffer, a.byteOffset, a.byteLength)));
+    // (the reach too, where the water went, and each column's outflows, four a column and toward each target: the strips
+    // gather them from their own rows, D453's settle at once, the 3D view's moving water and the file's outflows, #532)
+    const bytes = (s: StackSettle) => Buffer.concat([s.depth, s.overflow, s.contamination, s.sat, ...(s.reach ? [s.reach] : []), ...(s.flows ? [s.flows] : []), ...(s.outflows ? [s.outflows.column, s.outflows.target, s.outflows.dir, s.outflows.flow] : [])].map(a => Buffer.from(a.buffer, a.byteOffset, a.byteLength)));
     // and a map whose strips' edges cut every kind of emitter (3×3 bad sources, clean and bad seeps, aquifers,
     // drains): one every three rows from top to bottom, under a roof and in the open, so whatever rows the strips
     // take, some straddle an edge
@@ -160,7 +161,7 @@ if (threads) {
         const one = withoutParallelWater(c.settle);
         const before = stackParallelStats.ticks;
         const many = c.settle();
-        if (!bytes(one).equals(bytes(many)) || one.settled !== many.settled || one.ticks !== many.ticks || one.steadyTicks !== many.steadyTicks || !one.reach !== !many.reach || !one.flows !== !many.flows)
+        if (!bytes(one).equals(bytes(many)) || one.settled !== many.settled || one.ticks !== many.ticks || one.steadyTicks !== many.steadyTicks || !one.reach !== !many.reach || !one.flows !== !many.flows || !one.outflows !== !many.outflows)
             throw Error(c.name + ' differs on ' + threads + ' threads');
         if (stackParallelStats.ticks > before) ran++;
         console.log('PASS ' + c.name + ' canonical settle on one thread = on ' + threads + (stackParallelStats.ticks > before ? '' : ' (one thread: an open field, or the settle after a removal)') + '; ' + many.ticks + ' ticks');

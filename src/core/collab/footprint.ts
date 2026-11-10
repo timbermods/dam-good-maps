@@ -269,6 +269,8 @@ function addOp(acc: Footprint, op: EditOp, m: Reader & Partial<MapSession>): voi
   switch (op.op) {
     case "brush": t.union(brushTiles(op.params, W, H)); break;
     case "sculpt": t.addRuns(op.params.cells); break;
+    // (a lake's sill: the tiles it sets; the water that flows from it afterwards is not its own, as a Fill's)
+    case "setLakeLevel": t.addRuns(op.params.cells); break;
     case "blocks": for (const i of blockTileBits(op.params, W, H).keys()) t.add(i); break;
     case "forceResult": t.union(forceTiles(op.params, m, W, H)); break;
     case "placeEntity": {

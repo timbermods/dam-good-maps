@@ -358,8 +358,10 @@ describe("what a core will do is a plain question (D339)", () => {
   });
 
   it("water follows the new ground: a core beside a lake or river changes the water round its crater", () => {
-    // (seed 1 for 0.8.5's maps, D148: on seed 3 the first spot beside water is a crater the water never reaches)
-    const s = open(1);
+    // (seed 1 for 0.8.5's maps, D148: on seed 3 the first spot beside water is a crater the water never reaches; seed 4
+    // for seed 1 since generator 0.10.14, the opening camera's target on height 0 (D493): seed 1's start moved (48,59 to
+    // 54,58) and so did its land, and its first such spot is one too; seed 2's as well, D148)
+    const s = open(4);
     const g = paintGround(s);
     let found: [number, number] | null = null;
     for (let y = 8; y < W - 8 && !found; y++)

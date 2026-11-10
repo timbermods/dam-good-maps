@@ -138,10 +138,21 @@ test("Markers labels the seeps, aquifers, drains and reserves, with a warning on
   await page.setViewportSize({ width: 1600, height: 900 });
   await openEditor(page, "s=1&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
+  // (north up, as the compass turns it: Top-down keeps the opening's turn (D492), and that follows the start's camera)
+  await page.evaluate(() => window.dgm3d!.renderer.setView({ yaw: 0 }));
   await idle(page);
   const taken: number[][] = [];
   // (far apart, 40 tiles: at this zoom 13 tiles are some 45px, and labels that close speak as one crowd, as they should)
   for (const item of ["Badwater seep", "Aquifer", "Reserve pile"]) await place(page, item, taken, 5, 40);
+  // (and close enough that 40 tiles is wider than a label: the spots may share a row, and the whole map at once puts them
+  // some 130px apart, where labels merge as they should)
+  const placed = taken.slice(-3);
+  await page.evaluate(([x, y]) => {
+    const r = window.dgm3d!.renderer;
+    const v = r.getView();
+    r.setView({ target: [x + 3, v.target[1], -(y + 3)], distance: v.distance / 2.2 });
+  }, [placed.reduce((s, p) => s + p[0], 0) / 3, placed.reduce((s, p) => s + p[1], 0) / 3] as [number, number]);
+  await idle(page);
   // off: the objects are there, their labels are not
   const labels = page.locator(".source-marker");
   await expect(labels.filter({ hasText: /Aquifer|Badwater seep|Reserve pile/ })).toHaveCount(0);
