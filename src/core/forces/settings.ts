@@ -27,6 +27,9 @@ export const RIVER_DEPTH_MAX = 22;
 /** Carve's Banks, in tiles (item 18). */
 export const BANKS_MIN = 0;
 export const BANKS_MAX = 10;
+/** Carve's Fall, in levels from its lip to the water below (showcase craft gaps 1, 2 and 20; null: the land's own). */
+export const FALL_MIN = 2;
+export const FALL_MAX = 12;
 /** Craterize's Size, in tiles across (null: it follows Power). */
 export const CRATER_SIZE_MIN = 4;
 export const CRATER_SIZE_MAX = 180;
@@ -83,6 +86,7 @@ export const FORCE_SETTINGS: Readonly<Record<Verb, ForceSettingsTable>> = {
       { key: "depth", min: DEPTH_MIN, max: DEPTH_MAX, whole: true, empty: "nullish", why: `a carve's depth is ${DEPTH_MIN} to ${DEPTH_MAX} levels, or null (it follows Power)` },
       { key: "riverDepth", min: RIVER_DEPTH_MIN, max: RIVER_DEPTH_MAX, whole: true, empty: "nullish", why: `a carve's river depth is ${RIVER_DEPTH_MIN} to ${RIVER_DEPTH_MAX} levels, or null (Off)` },
       { key: "banks", min: BANKS_MIN, max: BANKS_MAX, empty: "nullish", why: `a carve's banks are ${BANKS_MIN} to ${BANKS_MAX} tiles` },
+      { key: "fall", min: FALL_MIN, max: FALL_MAX, whole: true, empty: "nullish", why: `a carve's fall is ${FALL_MIN} to ${FALL_MAX} levels, or null (the land's own)` },
     ],
   },
   craterize: {

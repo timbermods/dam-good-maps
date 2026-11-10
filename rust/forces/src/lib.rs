@@ -982,6 +982,9 @@ pub fn prepare(input: &[u8]) -> Job {
     if opcode == 6.0 { command[5] = ["auto", "sheer", "stepped"].iter().position(|&x| x == settings.walls).map_or(-1.0, |i| i as f64); }
     command[21] = (job["options"]["finish"].as_bool() == Some(false)) as u8 as f64;
     command[22] = (s(&job["settings"], "sources") == "ride") as u8 as f64;
+    if opcode == 4.0 {
+        command[23] = cs.fall.unwrap_or(f64::NAN);
+    }
     command[34] = boolean(&job["settings"], "meltwater") as u8 as f64;
     command[35] = index(
         job["settings"]["benches"].as_str().unwrap_or("some"),
@@ -1089,7 +1092,7 @@ fn refresh_id_bytes(task: &mut Job) {
         task.id_offsets.push(task.id_bytes.len() as u32);
     }
 }
-const FORCE_ERRORS: [&str; 41] = [
+const FORCE_ERRORS: [&str; 42] = [
     "",
     "Invalid impact settings",
     "Strike on the map",
@@ -1131,6 +1134,7 @@ const FORCE_ERRORS: [&str; 41] = [
     "Nothing here can wear away without leaving ground to fall",
     "There is no rock here that Erode may wear",
     "Erode leaves water and the ground that holds it as they are",
+    "A fall needs high ground to fall from: draw the stroke from it over an edge or down a slope",
 ];
 fn operation_problem(m: &Map, c: &[f64; 44], path: &[f64], keep: &[u8]) -> u32 {
     let opcode = c[0] as u32;
@@ -1207,6 +1211,7 @@ fn operation_problem(m: &Map, c: &[f64; 44], path: &[f64], keep: &[u8]) -> u32 {
                 || !(c[4].is_nan() || whole(c[4], 1.0, 22.0))
                 || !(c[28].is_nan() || whole(c[28], 1.0, 22.0))
                 || !bounded(c[27], 0.0, 10.0)
+                || !(c[23].is_nan() || whole(c[23], 2.0, 12.0))
             {
                 return 12;
             }
@@ -1423,6 +1428,7 @@ pub fn plan(task: &mut Job) {
                 floor: if c[4].is_nan() { 1.0 } else { c[4] },
                 river_depth: if c[28].is_nan() { None } else { Some(c[28]) },
                 banks: c[27],
+                fall: if c[23].is_nan() { None } else { Some(c[23]) },
                 ride: c[22] != 0.0,
             },
             &intent,
@@ -2799,6 +2805,9 @@ struct CarveSettings {
     floor: f64,
     river_depth: Option<f64>,
     banks: f64,
+    /// The fall's height (gaps 1, 2 and 20): at least this many levels from its lip to the water below, the reach
+    /// below cut down to it; None, the land's own falls only.
+    fall: Option<f64>,
     /// Sources set to Ride (D474): the water sources and seeps it reaches ride the cut ground instead of going.
     ride: bool,
 }
@@ -2818,6 +2827,7 @@ impl CarveSettings {
             floor: v["floor"].as_f64().unwrap_or(1.0),
             river_depth: v["riverDepth"].as_f64(),
             banks: v["banks"].as_f64().unwrap_or(0.0),
+            fall: v["fall"].as_f64(),
             ride: s(v, "sources") == "ride",
         }
     }
@@ -3603,6 +3613,89 @@ fn carve_mouths(cut: &CarveOxbow, m: &Map) -> Vec<u8> {
     }
     floor
 }
+/// A fall the course runs over (showcase craft gaps 1, 2 and 20): the stations on the high ground above it
+/// (`start..=end`, each with its tile's centre and the width it cuts) and the high ground's level where the course
+/// leaves it (`top`). Found from the course
+/// before the carve cuts (its path is the land's, never the cut's), so the stream above it is cut to suit it.
+#[derive(Clone)]
+struct CarveFall {
+    start: usize,
+    end: usize,
+    top: f64,
+    stations: Vec<(f64, f64, f64)>,
+    /// Its height when the player set it (`CarveSettings::fall`).
+    height: Option<f64>,
+}
+/// How far the ground falls ahead of a station, within the next two stations (about 2.7 tiles), for the course to
+/// fall there rather than run down a slope: three levels, so a lip one level down still falls two.
+const FALL_DROP: f64 = 3.0;
+/// How far from where it falls the high ground keeps its own height against what the water below cuts (tiles):
+/// past the cut and the banks of the reach below, so the cliff stands and the lip holds.
+/// The falls along a course, from the original ground under its stations: where the ground falls `FALL_DROP` levels
+/// or more within two stations. A reach above a fall holds only where the surface (the ground, or the water standing
+/// on it) under every station from where the reach starts (the origin, or below the last fall) is no more than two
+/// levels below the top: water that came up to the edge from below never had a stream on top to hold. With a height
+/// set (`height`), the first fall takes it; where the land has none that tall, the fall is where the ground the
+/// course starts on (the stations at most a level under the first) ends, over an edge or at the top of a slope;
+/// None: the ground never goes down, and the carve is refused.
+fn carve_falls(m: &Map, path: &[CarveStation], height: Option<f64>) -> Option<Vec<CarveFall>> {
+    let raw: Vec<f64> = path.iter().map(|p| m.heights[m.at(p.x, p.y)] as f64).collect();
+    let surface: Vec<f64> = path
+        .iter()
+        .map(|p| {
+            let i = m.at(p.x, p.y);
+            m.heights[i] as f64 + m.depth[i]
+        })
+        .collect();
+    let n = raw.len();
+    let drop = |k: usize| raw[k] - (k + 1..=(k + 2).min(n - 1)).map(|j| raw[j]).fold(f64::INFINITY, min);
+    // the stations on the high ground from k on (those at most a level under its top), and the fall there with its
+    // reach from `start`, where the reach holds
+    let edge = |k: usize| {
+        let mut end = k;
+        while end + 1 < n && raw[end + 1] >= raw[k] - 1.0 {
+            end += 1;
+        }
+        end
+    };
+    let fall = |start: usize, k: usize| -> Option<CarveFall> {
+        let top = raw[k];
+        let end = edge(k);
+        if end + 1 >= n || !surface[start..=end].iter().all(|&r| r >= top - 2.0) {
+            return None;
+        }
+        Some(CarveFall {
+            start,
+            end,
+            top,
+            stations: path[start..=end].iter().map(|p| (p.x, p.y, p.width)).collect(),
+            height: None,
+        })
+    };
+    let mut falls = vec![];
+    let mut start = 0;
+    let mut k = 0;
+    while k + 1 < n {
+        if drop(k) < FALL_DROP {
+            k += 1;
+            continue;
+        }
+        if let Some(f) = fall(start, k) {
+            falls.push(f);
+        }
+        start = edge(k) + 1;
+        k = start;
+    }
+    let Some(height) = height else {
+        return Some(falls);
+    };
+    if falls.is_empty() {
+        // (the end of the ground the course starts on)
+        falls.push(fall(0, 0)?);
+    }
+    falls[0].height = Some(height);
+    Some(falls)
+}
 #[derive(Default)]
 struct CarveMetrics {
     cut: f64,
@@ -3675,6 +3768,24 @@ struct CarveState {
     deposit_done: bool,
     delta: Vec<i8>,
     planning: bool,
+    /// The falls along its course (`carve_falls`), and how many of them it has reached.
+    falls: Vec<CarveFall>,
+    fall_at: usize,
+    /// The fall reached holds (its reach came to it with its bed at the floor or above).
+    fall_held: bool,
+    /// Below a fall of a set height: the deepest the bed below may stand, so the water falls that far.
+    foot_cap: Option<f64>,
+    /// A fall's height was set, and the course has nowhere to fall (`carve_falls`): the carve is refused.
+    fall_missing: bool,
+    /// The least level each tile is cut to (0: none): the high ground round a fall the carve holds, its lip one
+    /// level down and the stream's bed two (gap 20).
+    hold: Vec<u8>,
+    /// The stream above a fall the carve holds (1): cut to its bed or lip, and no bank raises it.
+    stream: Vec<u8>,
+    /// The stream's tiles above the fall held, by the station that cuts them (each as the head reaches it, so the
+    /// carve still cuts at its head), and how many of those stations are cut.
+    fall_cuts: Vec<Vec<usize>>,
+    fall_cut_at: usize,
 }
 impl CarveState {
     fn new(
@@ -3710,10 +3821,27 @@ impl CarveState {
         let y = (origin / map.w) as f64;
         let p = s.power / 100.0;
         let h = before.heights[origin] as f64;
-        let bed = max(
+        let mut bed = max(
             min(2.0, h),
             h - round(min(12.0, 1.0 + 6.0 * p * character.intensity)),
         );
+        // the falls its course runs over, from a look along it first (the course is the land's alone); a river's, so a
+        // gentle carve (the Power that only scratches the land, or Canyon depth 1) and a catastrophe (Power 90 and up,
+        // tearing through whatever stands) make none of their own, only a Fall set
+        let shallow = p * character.intensity < 0.45 || s.power >= 90.0 || depth.map_or(false, |d| d < 2.0);
+        let (falls, fall_missing) = if planning || (shallow && settings.fall.is_none()) {
+            (vec![], false)
+        } else {
+            let mut look = Self::new(before, before.clone(), settings, intent, keep, CarveOptions { source_id: options.source_id.clone(), ..Default::default() }, true);
+            while !look.ended {
+                look.metrics.steps += 2;
+                look.advance();
+            }
+            carve_falls(before, &look.path, settings.fall).map_or((vec![], true), |f| (f, false))
+        };
+        if let Some(f) = falls.first().filter(|f| f.start == 0) {
+            bed = max(bed, f.top - 2.0);
+        }
         let energy = map.w.max(map.h) as f64 * (1.2 + 4.0 * p) * (1.0 + 0.6 * character.wander);
         let heading = course.guide(x, y);
         let head = CarveHead {
@@ -3797,6 +3925,15 @@ impl CarveState {
             deposit_done: false,
             delta: vec![0; n],
             planning,
+            falls,
+            fall_at: 0,
+            fall_held: false,
+            foot_cap: None,
+            fall_missing,
+            hold: vec![0; n],
+            stream: vec![0; n],
+            fall_cuts: vec![],
+            fall_cut_at: 0,
         };
         r.stamp(x, y);
         if !planning && r.character.wander >= 0.85 && p * r.character.intensity >= 0.6 {
@@ -3955,6 +4092,15 @@ impl CarveState {
             min(self.bed, grade),
             max(0.0, max(min(2.0, raw), raw - incision) - drop),
         );
+        // above a fall the stream's bed stays two levels under the top, however deep the carve cuts elsewhere:
+        // the lip, one level down, holds the water about a level deep, and it falls over the edge (gap 20)
+        let held = self.fall_floor(old_bed);
+        if let Some(floor) = held {
+            self.bed = max(self.bed, floor);
+        }
+        if let Some(cap) = self.foot_cap {
+            self.bed = max(0.0, min(self.bed, cap));
+        }
         let reach = self.character.width(self.metrics.distance);
         let dx = cos(self.heading);
         let dy = sin(self.heading);
@@ -4054,7 +4200,10 @@ impl CarveState {
                         if let Some(depth) = self.depth {
                             t = max(t, self.original[i] as f64 - depth);
                         }
-                        t = max(t, self.settings.floor);
+                        if let Some(floor) = held {
+                            t = max(t, floor);
+                        }
+                        t = max(t, max(self.settings.floor, self.hold[i] as f64));
                         if t < self.target[i] as f64 {
                             self.target[i] = t as u8;
                             self.activate(i);
@@ -4080,6 +4229,152 @@ impl CarveState {
             lanes,
         };
     }
+    /// The bed's floor at the station about to be cut, when it is above a fall that holds: two levels under the
+    /// fall's top. A fall holds when its reach comes to it with its bed (`old_bed`, the station before's) at that
+    /// floor or above, so the bed never rises downstream; then the ground round it is held too (`hold_fall`).
+    fn fall_floor(&mut self, old_bed: f64) -> Option<f64> {
+        let k = self.path.len();
+        while self.fall_at < self.falls.len() && self.falls[self.fall_at].end < k {
+            let f = &self.falls[self.fall_at];
+            if self.fall_held {
+                if let Some(height) = f.height {
+                    // (its water a level deep, the height set below the lip)
+                    self.foot_cap = Some(f.top - 1.0 - height - 1.0);
+                }
+            }
+            self.fall_at += 1;
+            self.fall_held = false;
+        }
+        let f = self.falls.get(self.fall_at)?;
+        if k < f.start {
+            return None;
+        }
+        let (floor, start) = (f.top - 2.0, f.start);
+        if k == start {
+            self.fall_held = old_bed >= floor;
+            if self.fall_held {
+                self.hold_fall();
+            }
+        }
+        if self.fall_held {
+            self.cut_stream(k - start);
+            Some(floor)
+        } else {
+            None
+        }
+    }
+    /// The ground a fall that holds keeps (`hold`): in the stream (within its width of each station above the fall)
+    /// the high ground (at the lip's level or above) is cut to the stream's bed, and where it meets lower ground to
+    /// the lip, so the stream's water leaves only over the lip, as wide as the stream; beside it no lower than the
+    /// bed; the rest of the high ground joined to it is kept as it is.
+    fn hold_fall(&mut self) {
+        let f = &self.falls[self.fall_at];
+        let lip = f.top - 1.0;
+        let (w, h) = (self.map.w, self.map.h);
+        // the high ground: at the lip's level or above (the ground below the fall is lower than the lip)
+        let original = &self.original;
+        let high = |j: usize| original[j] as f64 >= lip;
+        // round the stream's stations its bed's floor, and where the high ground meets lower ground the lip, within the
+        // stream's own width (so its water leaves only over the lip, as wide as the stream) and the ground's own
+        // height beside it; the rest of the high ground joined to it as it is, so no bowl opens on it and the cliff
+        // stands
+        let mut near = vec![0u8; w * h];
+        let mut owner = vec![usize::MAX; w * h];
+        let mut tiles = vec![];
+        for (s, &(cx, cy, width)) in f.stations.iter().enumerate() {
+            let radius = width + 3.0;
+            for yy in max(0.0, (cy - radius).floor()) as usize..=min((h - 1) as f64, (cy + radius).ceil()) as usize {
+                for xx in max(0.0, (cx - radius).floor()) as usize..=min((w - 1) as f64, (cx + radius).ceil()) as usize {
+                    let i = yy * w + xx;
+                    let d = hypot(xx as f64 - cx, yy as f64 - cy);
+                    if !high(i) || d > radius {
+                        continue;
+                    }
+                    // (1: beside the stream, 2: in it, as wide as the river the carve leaves below)
+                    let was = near[i];
+                    near[i] = if d <= width * 0.72 + 0.5 { 2 } else { was.max(1) };
+                    if near[i] == 2 && owner[i] == usize::MAX {
+                        owner[i] = s;
+                    }
+                    if was == 0 {
+                        tiles.push(i);
+                    }
+                }
+            }
+        }
+        // (3: the high ground joined to it)
+        let mut k = 0;
+        while k < tiles.len() {
+            let i = tiles[k];
+            k += 1;
+            let (xx, yy) = (i % w, i / w);
+            for j in [(xx > 0).then(|| i - 1), (xx + 1 < w).then(|| i + 1), (yy > 0).then(|| i - w), (yy + 1 < h).then(|| i + w)].into_iter().flatten() {
+                if near[j] == 0 && high(j) {
+                    near[j] = 3;
+                    tiles.push(j);
+                }
+            }
+        }
+        // (each tile, the ground it keeps, and the station whose stream cuts it: in the stream, it is cut to the bed or
+        // the lip, so the stream and its lip are as wide as the river)
+        let mut cuts = vec![vec![]; f.stations.len()];
+        let plan: Vec<(usize, u8, bool)> = tiles
+            .into_iter()
+            .map(|i| {
+                let (xx, yy) = (i % w, i / w);
+                let lower = |j: usize| !high(j);
+                let rim = (xx > 0 && lower(i - 1)) || (xx + 1 < w && lower(i + 1)) || (yy > 0 && lower(i - w)) || (yy + 1 < h && lower(i + w));
+                let level = match (near[i], rim) {
+                    (2, true) => lip,
+                    (1 | 2, false) => lip - 1.0,
+                    _ => original[i] as f64,
+                } as u8;
+                (i, level, near[i] == 2)
+            })
+            .collect();
+        for (i, level, stream) in plan {
+            if level > self.hold[i] {
+                self.hold[i] = level;
+                self.target[i] = self.target[i].max(level.min(self.map.heights[i]));
+            }
+            if stream && self.keep[i] == 0 && self.character.rock[i] == 0 && self.sign[i] <= 0 {
+                self.stream[i] = 1;
+                cuts[owner[i]].push(i);
+            }
+        }
+        self.fall_cuts = cuts;
+        self.fall_cut_at = 0;
+    }
+    /// Cuts the held fall's stream at its stations up to `upto` (from the reach's first): its tiles to the bed, or
+    /// at the edge the lip, no deeper than the carve cuts anywhere.
+    fn cut_stream(&mut self, upto: usize) {
+        while self.fall_cut_at < self.fall_cuts.len() && self.fall_cut_at <= upto {
+            let tiles = std::mem::take(&mut self.fall_cuts[self.fall_cut_at]);
+            self.fall_cut_at += 1;
+            for i in tiles {
+                self.cut_held(i);
+            }
+        }
+    }
+    fn cut_held(&mut self, i: usize) {
+        {
+            // (no deeper than the carve cuts anywhere: Canyon depth, and a gentle Power's shallow cut)
+            let mut cut = max(self.hold[i] as f64, self.settings.floor);
+            let work = self.settings.power / 100.0 * self.character.intensity;
+            if work < 0.45 {
+                cut = max(cut, self.original[i] as f64 - max(1.0, round(1.0 + 6.0 * work)));
+            }
+            if let Some(depth) = self.depth {
+                cut = max(cut, self.original[i] as f64 - depth);
+            }
+            let cut = cut as u8;
+            if cut < self.target[i] && self.sign[i] <= 0 {
+                self.target[i] = cut;
+                self.channel[i] = 1;
+                self.activate(i);
+            }
+        }
+    }
     fn cut_at(&mut self, x: f64, y: f64, floor: f64, radius: f64) {
         let w = self.map.w;
         let h = self.map.h;
@@ -4095,7 +4390,7 @@ impl CarveState {
                 if let Some(depth) = self.depth {
                     t = max(t, self.original[i] as f64 - depth);
                 }
-                t = max(t, self.settings.floor);
+                t = max(t, max(self.settings.floor, self.hold[i] as f64));
                 if self.keep[i] != 0
                     || self.character.rock[i] != 0
                     || self.sign[i] > 0
@@ -4845,7 +5140,7 @@ impl CarveState {
         } else {
             min(h, level)
         };
-        v = max(v, min(h, self.settings.floor));
+        v = max(v, min(h, max(self.settings.floor, self.hold[i] as f64)));
         if let Some(d) = self.strength_depth {
             v = max(v, min(h, self.original[i] as f64 - d));
         }
@@ -4974,7 +5269,7 @@ impl CarveState {
             let carved = self.map.heights.clone();
             let depth = max(2.0, depth.unwrap_or(2.0));
             for i in 0..n {
-                if near[i] < 0 {
+                if near[i] < 0 || self.stream[i] != 0 {
                     continue;
                 }
                 let k = near[i] as usize;
@@ -5133,6 +5428,29 @@ fn carve(
     options: CarveOptions,
 ) -> Plan {
     let mut run = CarveState::new(before, map, s, i, keep, options, false);
+    if run.fall_missing {
+        // (a fall's height set, and nowhere along the course to fall from)
+        let mut map = run.map;
+        map.error = 41;
+        return Plan {
+            raw: None,
+            map,
+            records: Records::Footprint { offsets: vec![], tiles: vec![] },
+            literal: Literal::default(),
+            geometry: vec![],
+            objects: vec![],
+            fallen: vec![],
+            raw_objects: vec![],
+            raw_fallen: vec![],
+            step_objects: vec![],
+            closure_objects: vec![],
+            closure_fallen: vec![],
+            literal_objects: vec![],
+            before: None,
+            before_objects: vec![],
+            before_fallen: vec![],
+        };
+    }
     let objects = run.map.entities.clone();
     let mut raw_changes = vec![];
     let mut raw_offsets = vec![0, 0];
