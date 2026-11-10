@@ -607,8 +607,8 @@ sea island by island: wall off your lagoon before it reaches you, or turn the cr
   are the islands' own ground, two over the sea). The sea itself is never a reservoir to raise: its lip at the map's
   edge stands one level over it, the most the edge rule allows.
 - **Invariants.** The sea at its level, and `terrain.edge_wall` passing; every island the route needs within one
-  crossing of the last; the lagoon shut by two dams of 6 or fewer; the red's day of arrival at the lagoon 2 or more left alone, never with either
-  answer; the causeway dry by day 3 of a drought.
+  crossing of the last; the lagoon shut by two dams of 6 or fewer; the red's day of arrival at the lagoon 2 or more
+  left alone, never with either answer; the causeway dry by day 3 of a drought.
 - **New beyond the lake stair:** islands as bowls turned over, inside one body (the land's envelope taken from above;
   `land/islands.ts` `standIslandsClear` for the straits); a strait as a work site; the drought causeway (a bed half a
   level under the sea); a mixing estimate for a large body, since `premise.closed` here is a delay, which the graph
