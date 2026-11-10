@@ -698,7 +698,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   Fresh volcanic rock is hard for Carve; flows can dam rivers; objects ride the rising ground, trees near a vent
   die, what stands in it goes, each as the heat reaches it (item 30); it erupts wherever asked (the start's ground
   too, D257) and never adds water; "No room to rise here" only where it can't rise at all.
-- **Glaciate** (D246, D291, D292; key -): turns a valley that is already there into a glacial valley: a broad, level
+- **Glaciate** (D246, D291, D292; key Shift+7): turns a valley that is already there into a glacial valley: a broad, level
   floor between steep walls stepping down by bars, a tarn in its cirque, hanging side valleys with springs and falls
   (Meltwater), scree, a moraine and an outwash plain, the river leaving by the old outlet ("Carve gives you water;
   Glaciate gives you land"). A **click Flows** (down the valleys; on flat ground a seeded way to lower ground or an
@@ -706,7 +706,29 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (D368 (3)): Power 100 is round 4's glacier in full; below it the plan lifts each station's floor toward a level
   under the valley's bottom (`liftFloors`, `glacierCut`: 1 level at Power 0, 6 at 50; channels and pools two more), so
   at every Power the valley is a U and its water lies in a channel or a tarn, never a sheet
-  (`tests/contract/glaciateFloor.test.ts`, `glaciatePowerSize.test.ts`); default Power 60, Size Auto 30. Its row:
+  (`tests/contract/glaciateFloor.test.ts`, `glaciatePowerSize.test.ts`). Below Power 100 the floor is one level
+  across the trough (its ground's upper quarter less the cut, smoothed along the path) and steps down the route in a
+  few long treads, never rising down it and never above the valley's old bottom, not the old land cut tile by tile;
+  the river runs one level below its tread, in one channel two or three tiles wide that winds gently within the
+  floor. Inside its edge the floor meets the walls through a step or two (the U), never wider than Size; near the
+  edge, ground already low joins the floor and a high spur stays wall, so the sides keep some of the land's outline;
+  benches are cut to one level part way up the wall, and a bench too small to read (under 12 tiles) is left as it
+  was; a last pass takes away 1–2-tile posts and fills 1–2-tile pits (never above the old ground), a post that banks
+  water widening into a bank instead, and a knob of the old land (40 tiles or fewer) left standing in the trough's
+  floor or mouth is planed down to the ground beside it (showcase craft's gap 26, #914's look review). **A lake is
+  never drained** (#914): a lake the route runs through (broad standing water, an eighth of it three tiles from its
+  shore; a river, however still, is none) keeps its surface as a deeper ribbon lake across the trough's floor, with
+  a sill at its old level, a bar three tiles across, wherever its water would leave lower than it did; a lake the
+  route passes keeps a wall at its level; no lake's water runs into another's, so badwater and clean water never
+  mix, and the sources in a lake stay to feed it. The river leaving the snout ends in the first water it meets on
+  ground the glacier left as it was. Floor left level
+  with a lake standing on it, reaching no lower ground, comes down a level into the lake (no thin sheet over
+  it); where the plan would wet dry land outside the trough, a river's old bed it banked over is opened
+  again from the outside water in, if that drains it. Default Power 60;
+  **Size Auto is the valley's own width** (gap 14): measured across the route every other station, from its
+  bottom to where the ground stands two or three levels up (half the valley's rise, at most a fifth of the map
+  away), its median, between 8 and a sixth of the map; on flat ground, a tenth of the map.
+  The row shows the width Auto took once the glacier is planned. Its row:
   **Power**, **Size**, **Meltwater** (on), **Try another**, **More** (**Benches**, **Steps**, **Tarn**, **Scree**, each
   on Auto). Two acts, the ice advancing for three fifths of its showing and melting back for two. **The floor reads as
   one river** (D292): it winds across the level floor to the falls' pools and the rivers coming in; a fall it can't

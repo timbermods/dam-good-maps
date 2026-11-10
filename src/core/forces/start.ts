@@ -438,8 +438,13 @@ export function fallsBeforePlay(
 
 /** What a force's Auto picked where it is decided in the run itself rather than by nature.ts (D309: an Auto detail
  *  shows its pick): a rift's walls, sheer or stepped by which most of them are (Auto steps them where the rock is
- *  hard); a fan's channels, Few for two or three, Many for four or five. Empty for the others. */
-export function autoPicked(staged: StagedRun | null): Record<string, string> {
+ *  hard); a fan's channels, Few for two or three, Many for four or five; a glacier's Size, the width of the valley it
+ *  follows. Empty for the others. */
+export function autoPicked(staged: StagedRun | null): Record<string, string | number> {
+  if (staged instanceof GlaciateRun) {
+    const size = staged.autoSize;
+    return size === null ? {} : { size };
+  }
   if (staged instanceof RiftRun) {
     const { stepped, sheer } = staged.plan0.stats;
     return staged.settings.walls === "auto" ? { walls: stepped > sheer ? "stepped" : "sheer" } : {};

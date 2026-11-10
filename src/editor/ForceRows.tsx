@@ -90,7 +90,7 @@ export const quakeDetails = (u: QuakeUi): Record<string, unknown> => ({ scarp: u
 
 export interface GlaciateUi {
   power: number;
-  /** The trough's width in tiles, or null: it follows Power (D226). */
+  /** The trough's width in tiles, or null: the width of the valley it follows (showcase craft's gap 14). */
   size: number | null;
   meltwater: boolean;
   /** Its details (D309), each null while drawn from the land and the seed. */
@@ -215,8 +215,8 @@ export function RollsButton(p: { rolls: { shown: number; count: number }; onRoll
 }
 
 /** A force's Size: following Power (Auto) until the player sets it. */
-function size(label: string, title: string, value: number, words: string, min: number, max: number, step: number, auto: boolean, onSize: (v: number | null) => void) {
-  return <NumberSetting label={label} title={title} keys={SIZE_KEYS} value={value} words={words} min={min} max={max} step={step} onChange={(v) => onSize(v)} auto={{ on: auto, onAuto: (on) => onSize(on ? null : value), title: auto ? `${label} follows Power` : `Let the ${label.toLowerCase()} follow Power`, follows: "Power" }} />;
+function size(label: string, title: string, value: number, words: string, min: number, max: number, step: number, auto: boolean, onSize: (v: number | null) => void, follows = "Power") {
+  return <NumberSetting label={label} title={title} keys={SIZE_KEYS} value={value} words={words} min={min} max={max} step={step} onChange={(v) => onSize(v)} auto={{ on: auto, onAuto: (on) => onSize(on ? null : value), title: auto ? `${label} follows ${follows}` : `Let the ${label.toLowerCase()} follow ${follows}`, follows }} />;
 }
 
 export interface RowProps<U, S> {
@@ -231,6 +231,8 @@ export interface RowProps<U, S> {
   onRoll?(): void;
   /** The settings the last run actually ran with (D309): what an Auto detail shows until pinned. */
   drawn: S | null;
+  /** The map's size (Glaciate's Size on Auto guesses from it before a glacier has found its valley). */
+  side?: { W: number; H: number };
 }
 
 export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
@@ -474,7 +476,8 @@ export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings> & { slide?: { power
 export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
   const u = p.ui;
   const set = (patch: Partial<GlaciateUi>) => p.onUi({ ...u, ...patch });
-  const sz = u.size ?? glacierSize(u);
+  // (Auto shows the width the last glacier took from its valley, or its guess before one has run)
+  const sz = u.size ?? p.drawn?.size ?? glacierSize(u, p.side?.W ?? 128, p.side?.H ?? 128);
   const drawn = p.drawn;
   const benches = u.benches ?? drawn?.benches ?? "some";
   const steps = u.steps ?? drawn?.steps ?? "some";
@@ -485,7 +488,7 @@ export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
       label="Glaciate options"
       groups={[
         { key: "power", row: 1, at: 1, span: 3, node: power("glaciate", u.power, (v) => set({ power: v }), "How deep the ice carves") },
-        { key: "size", row: 1, at: 4, span: 3, node: size("Size", "How wide the valley is", Math.round(sz / 2) * 2, String(Math.round(sz / 2) * 2), GLACIATE_SIZE_MIN, GLACIATE_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
+        { key: "size", row: 1, at: 4, span: 3, node: size("Size", "How wide the valley is", Math.round(sz / 2) * 2, String(Math.round(sz / 2) * 2), GLACIATE_SIZE_MIN, GLACIATE_SIZE_MAX, 2, u.size === null, (v) => set({ size: v }), "the valley") },
         { key: "melt", row: 1, at: 7, span: 3, node: <OnOffSetting label="Meltwater" title="Springs, falls and lakes" off="No springs, falls or lakes" on={u.meltwater} onChange={(v) => set({ meltwater: v })} /> },
         {
           key: "benches",

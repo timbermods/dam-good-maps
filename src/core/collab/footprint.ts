@@ -35,7 +35,7 @@ import { inBench } from "../features/raster/terrain";
 import type { MapSession } from "../doc/session";
 import type { ForceResultParams, ForceWhere, Verb } from "../forces/op";
 import { quakeExtent } from "../forces/quake";
-import { GLACIATE_AUTO_SIZE } from "../forces/glaciate/model";
+import { glaciateAutoMost } from "../forces/glaciate/model";
 import { forceReach } from "../forces/reach";
 import type { Runs } from "../math/grid";
 import * as portable from "../math/portable";
@@ -409,7 +409,7 @@ const dist = (ax: number, ay: number, bx: number, by: number): number => portabl
  *    (collabClaims.heavy.test.ts) shows to hold;
  *  - Rift and Deposit: their size (their width) and the ground they move.
  *  Carve Unleash and Glaciate flow are clicks with no drawing phase, and run as far as the land lets them. */
-function corridor(g: ForceBandRequest): { pts: [number, number][]; r: number } | null {
+function corridor(g: ForceBandRequest, W: number, H: number): { pts: [number, number][]; r: number } | null {
   const pts = gesturePoints(g);
   const s = g.settings as unknown as Record<string, number | string | boolean | null | undefined> & { power: number };
   const JITTER = 1.65;
@@ -446,7 +446,8 @@ function corridor(g: ForceBandRequest): { pts: [number, number][]; r: number } |
     case "glaciate": {
       const drawn = pts.length > 2 || ((g.where?.path?.length ?? 0) > 2);
       if (s.mode !== "aim" || !drawn) return null;
-      const size = typeof s.size === "number" ? s.size : GLACIATE_AUTO_SIZE;
+      // (Auto takes the valley's width, at most glaciateAutoMost on this map)
+      const size = typeof s.size === "number" ? s.size : glaciateAutoMost(W, H);
       return { pts, r: 1.12 * size + 0.5 * size + 10 };
     }
     default:
@@ -462,7 +463,7 @@ function corridor(g: ForceBandRequest): { pts: [number, number][]; r: number } |
 export function forceBand(g: ForceBandRequest, map: MapView): Footprint {
   const { x: W, y: H } = map.size;
   const acc = emptyFootprint(W, H);
-  const c = corridor(g);
+  const c = corridor(g, W, H);
   if (!c) {
     everywhere(acc);
     return acc;

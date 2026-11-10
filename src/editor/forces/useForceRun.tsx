@@ -567,7 +567,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
         return forceReach({ verb: "erupt", settings: eruptSettingsOf(eruptUiRef.current) });
       case "glaciate":
         // (its width: where it goes depends on the land)
-        return glacierSize(glaciateUiRef.current) / 2;
+        return glacierSize(glaciateUiRef.current, infoRef.current.W, infoRef.current.H) / 2;
       case "rift":
         return (riftUiRef.current.size ?? Math.round(riftWidth(riftUiRef.current.power) / 2) * 2) / 2;
       case "deposit":

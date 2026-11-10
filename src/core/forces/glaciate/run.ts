@@ -121,6 +121,11 @@ export class GlaciateRun extends Staged implements StagedRun {
     return this.plan0;
   }
 
+  /** The width Size's Auto took from the valley (showcase craft's gap 14), or null when Size was set. */
+  get autoSize(): number | null {
+    return this.settings.size === null ? this.made.metrics.requestedWidth : null;
+  }
+
   /** The plan's last touches: the ground a force leaves as it is (the layer showing, caves, outside
    *  the working area), the build's own (its integrity pass), and the water on what is kept. */
   protected settle(): void {
@@ -198,7 +203,7 @@ export class GlaciateRun extends Staged implements StagedRun {
       x,
       y,
       z: this.before.heights[clamp(Math.round(y), 0, this.before.H - 1) * W + clamp(Math.round(x), 0, W - 1)],
-      size: sizeOf(this.settings),
+      size: p ? p.metrics.requestedWidth : sizeOf(this.settings, W, this.before.H),
       power: this.settings.power,
       glaciate: {
         seconds: p ? this.stage / 10 : 0,
