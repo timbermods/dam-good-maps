@@ -75,12 +75,18 @@ const CASES: Case[] = [
 
 /** Glacier Hollow's line (showcase craft, round 1: drawn down the high block's valley), its details as pinned there. */
 const HOLLOW: [number, number][] = [[26, 104], [26, 102], [27, 100], [27, 98], [27, 96], [28, 94], [28, 92], [29, 90], [29, 88], [29, 86], [30, 84], [30, 82], [30, 81], [31, 79], [31, 77], [32, 75], [32, 73], [33, 71], [34, 69], [35, 68], [36, 66], [38, 65], [39, 63], [41, 62], [42, 61], [44, 60], [46, 58]];
+/** Through Glacier Hollow's lake, and beside Lake Basin's (#914's look review's lines). */
+const THROUGH: [number, number][] = [[60, 22], [65, 27], [70, 32], [74, 38], [76, 44], [78, 50], [80, 56], [82, 62], [82, 68]];
+const BESIDE: [number, number][] = [[64, 116], [72, 113], [80, 110], [88, 107], [96, 104], [102, 98], [108, 92]];
 /** A canyon's floor, drawn down its river (below the overhang at 78,19, which a force leaves as it is). */
 const CANYON: [number, number][] = [[75, 25], [72, 29], [70, 31], [66, 37], [63, 44], [61, 51], [60, 58], [61, 65], [62, 72]];
 const TROUGH_CASES: Case[] = [
   { id: "glacier-hollow", fragment: "#s=1280967093&z=128&d=n&t=highlands", from: HOLLOW[0], to: HOLLOW.at(-1), via: HOLLOW.slice(1, -1), pins: { benches: "some", steps: "some", tarn: false, scree: true }, look: [38, 80], distance: 92, yaw: 0.5, top: 105 },
   { id: "canyon-floor", fragment: "#s=10&z=128&d=n&t=canyon", from: CANYON[0], to: CANYON.at(-1), via: CANYON.slice(1, -1), look: [66, 42], distance: 100, yaw: -0.5, top: 110 },
   { id: "highlands-256", fragment: "#s=7&z=256&d=n&t=highlands", from: [152, 64], look: [148, 52], distance: 120, yaw: 0.3, top: 140 },
+  // (#914's look review: a route through a lake keeps it, deeper, at its old surface; one beside a lake keeps its wall)
+  { id: "through-lake", fragment: "#s=1280967093&z=128&d=n&t=highlands", from: THROUGH[0], to: THROUGH.at(-1), via: THROUGH.slice(1, -1), look: [74, 46], distance: 95, yaw: 0.4, top: 105 },
+  { id: "beside-lake", fragment: "#s=3&z=128&d=n&t=lakeBasin", from: BESIDE[0], to: BESIDE.at(-1), via: BESIDE.slice(1, -1), look: [88, 104], distance: 95, yaw: -0.3, top: 105 },
 ];
 
 async function open(page: Page, base: string, fragment: string, pins: Record<string, unknown> = { benches: "some", steps: "some", tarn: true, scree: true }): Promise<void> {

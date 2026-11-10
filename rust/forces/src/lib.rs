@@ -6287,6 +6287,8 @@ struct GlacierPlan {
     river_cells: Vec<u8>,
     river_heights: Vec<u8>,
     next_slot: u32,
+    /// The old land's lakes (glacier_lakes), tile by tile: the sources in them stay to feed them.
+    lakes: Vec<i32>,
 }
 fn glacier_tile(m: &Map, q: Point) -> usize {
     clamp(q.y.floor(), 0.0, (m.h - 1) as f64) as usize * m.w
@@ -6441,12 +6443,13 @@ fn glacier_course(
             };
             let base = a.1 + (b.1 - a.1) * smooth(t);
             let gap = min((q.s - a.0) * length, (b.0 - q.s) * length);
-            let meander = sin(q.s * 8.0 + phase)
+            // (it winds gently within the floor, a bend every few widths of the trough: its line never runs
+            // ruled down a straight route, #914's look review)
+            let meander = sin(q.s * length / max(5.0, q.r * 0.9) + phase)
                 * q.r
-                * 0.35
+                * 0.45
                 * sin(std::f64::consts::PI * q.s)
-                * smooth(gap / 14.0)
-                * 0.6;
+                * smooth(gap / 14.0);
             let off = within(k, base + meander);
             let n = glacier_normal(path, k);
             Point {
@@ -6824,6 +6827,10 @@ fn glacier_enough(c: usize, p: &GlacierPlan, before: &Map) -> bool {
             && before.heights[yy as usize * w + xx as usize] >= before.heights[c]
     })
 }
+/// A source in one of the old land's lakes: it stays, feeding the lake the trough keeps (#914's look review).
+fn glacier_feeds_lake(p: &GlacierPlan, before: &Map, e: &Entity) -> bool {
+    ride_source(e.template.as_ref()) && before.footprint(e, 0).iter().any(|&i| p.lakes[i] >= 0)
+}
 fn glacier_absorb(
     p: &GlacierPlan,
     before: &Map,
@@ -6842,6 +6849,7 @@ fn glacier_absorb(
                 | "Aquifer"
                 | "BadtideDrain"
         ) || swept[e.id_key]
+            || glacier_feeds_lake(p, before, e)
             || !before.footprint(e, 0).iter().any(|&i| {
                 p.mask[i] == 1 || before.heights[i] != p.map.heights[i] || p.stream[i] != 0
             })
@@ -7060,34 +7068,28 @@ fn glacier_once(
     if gentle {
         glacier_lift_floors(before, &mut path, s.power);
     }
-    // (below Power 100 each station's floor stands no lower than its ground's upper quarter less the cut
-    // Power allows, one level across the trough and never rising down it, so the floor is level where the
-    // ice couldn't reach the bottom too: cut tile by tile, it copied the old land's terraces a few levels
-    // down, the pillars and bands of showcase craft's gap 26)
+    // (below Power 100 each station's tread, its floor, stands a level above the floor Power cut it to, under
+    // the valley's old bottom; the floor is one level across the trough and steps down the route in treads,
+    // never rising down it, and the river runs a level below its tread (gap 26 and #914's look review: held at
+    // its ground's upper quarter less Power's cut, a tread stood above the valley's bottom, so the old land's
+    // terraces below it stayed as pads at several heights, it dammed a river crossing the trough, and the
+    // river ran in a slot three levels below it)
     let spur = round(3.0 * clamp(s.power, 0.0, 100.0) / 100.0);
     let tops: Vec<f64> = if gentle {
-        let raw: Vec<f64> = path
-            .iter()
-            .map(|q| {
-                let mut ground = vec![];
-                for y in max(0.0, (q.y - q.r).floor()) as usize..min(h as f64, q.y + q.r).ceil() as usize {
-                    for x in max(0.0, (q.x - q.r).floor()) as usize..min(w as f64, q.x + q.r).ceil() as usize {
-                        if hypot(x as f64 + 0.5 - q.x, y as f64 + 0.5 - q.y) <= q.r {
-                            ground.push(before.heights[y * w + x] as f64);
-                        }
-                    }
-                }
-                let upper = if ground.is_empty() { q.floor + 1.0 } else { glacier_quantile(ground, 0.75) };
-                max(q.floor + 1.0, upper - cap)
-            })
-            .collect();
-        (0..raw.len())
-            .map(|k| {
-                let a = k.saturating_sub(3);
-                let b = min((raw.len() - 1) as f64, (k + 3) as f64) as usize;
-                max(path[k].floor + 1.0, glacier_quantile(raw[a..=b].to_vec(), 0.5).floor())
-            })
-            .collect()
+        let cut: Vec<f64> = path.iter().map(|q| q.floor + 1.0).collect();
+        let median = |v: &[f64], k: usize| {
+            let a = k.saturating_sub(3);
+            let b = min((v.len() - 1) as f64, (k + 3) as f64) as usize;
+            glacier_quantile(v[a..=b].to_vec(), 0.5).floor()
+        };
+        let mut level = f64::INFINITY;
+        let mut tops = vec![];
+        for k in 0..path.len() {
+            level = min(level, median(&cut, k));
+            path[k].floor = level - 1.0;
+            tops.push(level);
+        }
+        tops
     } else {
         vec![]
     };
@@ -7131,7 +7133,9 @@ fn glacier_once(
             .map(|e| e.slot)
             .max()
             .map_or(0, |s| s + 1),
+        lakes: vec![],
     };
+    out.lakes = glacier_lakes(before).0;
     let mut closest = vec![f64::INFINITY; n];
     let mut dist = vec![f64::INFINITY; n];
     let mut coarse = vec![f64::NAN; n];
@@ -7166,24 +7170,38 @@ fn glacier_once(
         }
         let k = out.nearest[i] as usize;
         let q = out.path[k];
-        let d = dist[i];
         let shift = round(2.2 * sin((i % w) as f64 * 0.22 + (i / w) as f64 * 0.16 + phase));
         let at = clamp(k as f64 + shift, 0.0, (out.path.len() - 1) as f64) as usize;
         let f = out.path[at].floor;
         out.floor[i] = f as u8;
+        let height = before.heights[i] as f64;
+        // (the walls keep some of the land's own outline: near the edge, ground already low joins the floor and
+        // a high spur stays wall, so the trough's sides never run as ruled parallel lines, #914's look review)
+        let level = if gentle { tops[at] } else { f + 1.0 };
+        let d = if dist[i] > 0.75 && dist[i] < 1.4 {
+            let d = dist[i] - 0.16 * clamp((level + 3.0 - height) / 4.0, -1.0, 1.0);
+            // (ground joins the floor only where the cut reaches the floor's level)
+            if d <= 1.0 && dist[i] > 1.0 && height - cap - spur > level {
+                dist[i]
+            } else {
+                d
+            }
+        } else {
+            dist[i]
+        };
         if d <= 1.0 {
-            // (below Power 100 the station's level, `tops`; a spur standing far above the rest is cut by
-            // at most `spur` levels more than Power allows, none at Power 0, so a light scour stays light)
+            // (below Power 100 the station's tread; a spur standing far above the rest is cut by at most
+            // `spur` levels more than Power allows, none at Power 0, so a light scour stays light)
             out.map.heights[i] = if gentle {
-                let height = before.heights[i] as f64;
                 max(height - cap - spur, min(height, tops[at])) as u8
             } else {
                 min(top, f + 1.0) as u8
             };
             out.mask[i] = 1;
             out.arrival[i] = q.s as f32;
-        } else if d < 1.0 + 3.0 / q.r {
-            let height = before.heights[i] as f64;
+        } else if d < 1.0 + 4.5 / q.r {
+            // (tiles beyond the floor's edge)
+            let beyond = (d - 1.0) * q.r;
             let hard = if glacier_hard(&out.map, i, height) {
                 1.0
             } else {
@@ -7205,11 +7223,27 @@ fn glacier_once(
                     }
                 }
             }
-            // (a bench is one level along its stretch of wall, the station's: cut tile by tile it followed
-            // the old ground's steps and read as noise, gap 26)
-            let bench = max(q.outlet - cap, f + round((q.outlet - f) * 0.58));
-            if height - f >= 5.0
+            // (the U: the wall meets the floor through a step or two at its foot, one tile wide, never a sheer
+            // cliff from the floor to the rim, #914's look review)
+            let foot = if beyond < 1.3 {
+                level + 1.0
+            } else if beyond < 2.6 {
+                level + 3.0
+            } else {
+                f64::INFINITY
+            };
+            // (a bench is one level along its stretch of wall, the station's, above the foot: cut tile by tile
+            // it followed the old ground's steps and read as noise, gap 26)
+            let bench = max(
+                f + 1.0,
+                max(q.outlet - cap, f + round((q.outlet - f) * 0.58)),
+            );
+            // (past the first step a bench, where the wall has one, takes the second step's place; a step only
+            // where the cut reaches it: below that the wall is the old land, less the cut)
+            if beyond >= 1.3
+                && height - f >= 5.0
                 && height > bench
+                && bench > level + 1.0
                 && hard < 0.5
                 && sin(q.s * 19.0 + phase) > if s.benches == 2 { -0.7 } else { 0.15 }
                 && s.benches != 0
@@ -7218,11 +7252,16 @@ fn glacier_once(
                 out.map.heights[i] = max(height - cap - spur, bench) as u8;
                 out.mask[i] = 2;
                 out.arrival[i] = q.s as f32;
+            } else if foot < f64::INFINITY && height >= foot + 2.0 && height - cap - spur <= foot && hard < 0.5 {
+                out.map.heights[i] = foot as u8;
+                out.mask[i] = 2;
+                out.arrival[i] = q.s as f32;
             }
         }
     }
     // (benches are few and long: a scrap of one, where the rock or the water broke it, is left as wall)
     glacier_bench_scraps(&mut out, before);
+    glacier_fins(&mut out);
     let mut incoming = vec![];
     for i in 0..n {
         if out.mask[i] == 1 || out.nearest[i] < 0 {
@@ -7332,7 +7371,8 @@ fn glacier_once(
     let river_radius = clamp(
         0.95 + s.size / 80.0 + max(0.0, clean - 2.0) * 0.16 + max(0.0, incoming_flow - 8.0) * 0.12,
         1.05,
-        2.75,
+        // (one channel two or three tiles wide, never a broad one, #914's look review)
+        1.5,
     );
     let mut bends: Vec<GlacierIncoming> = vec![];
     for &c in &mouths {
@@ -7421,11 +7461,21 @@ fn glacier_once(
     };
     out.visits = visits.len();
     out.reached = reached.len();
-    let mut river_bed = out.path[0].floor;
+    // (below Power 100 a river that needs two levels of bank, finish_morphology's freeboard, runs two below the
+    // tread, its banks the tread itself: raised to bank it, the whole floor stood a level higher and the river
+    // three below it, in a slot, #914's look review)
+    let sunk = if gentle
+        && incoming_flow + clean + 0.65 + if s.meltwater { river_radius * 0.7 } else { 0.0 } > 3.0
+    {
+        1.0
+    } else {
+        0.0
+    };
+    let mut river_bed = out.path[0].floor - sunk;
     let river_beds: Vec<_> = stream_path
         .iter()
         .map(|&q| {
-            river_bed = min(river_bed, out.floor[glacier_tile(before, q)] as f64);
+            river_bed = min(river_bed, out.floor[glacier_tile(before, q)] as f64 - sunk);
             river_bed
         })
         .collect();
@@ -7504,7 +7554,366 @@ fn glacier_once(
         cut_floor,
     );
     glacier_despeckle(&mut out, before);
+    glacier_keep_lakes(&mut out, before, cut_floor, if gentle { cap } else { 0.0 });
     out
+}
+/// The lakes on the old land (#914's look review): wet tiles of one surface, broad (an eighth of them three
+/// tiles or more from their shore) and half a level deep or more. A river, however still and however wide
+/// its pools, is none: the glacier makes the valley's river its own, never a trough brim-full. Badwater
+/// standing at one surface over 30 tiles or more is a lake however narrow: it never runs into clean water.
+/// Each tile's lake (-1 for none), and each lake's tiles and surface (no tiles: water that is no lake).
+fn glacier_lakes(before: &Map) -> (Vec<i32>, Vec<(Vec<usize>, f64)>) {
+    let w = before.w;
+    let h = before.h;
+    let n = w * h;
+    let mut group = vec![-1i32; n];
+    let mut lakes: Vec<(Vec<usize>, f64)> = vec![];
+    for s0 in 0..n {
+        if group[s0] >= 0 || before.depth[s0] <= 0.05 {
+            continue;
+        }
+        let surface = before.heights[s0] as f64 + before.depth[s0];
+        let id = lakes.len() as i32;
+        group[s0] = id;
+        let mut tiles = vec![s0];
+        let mut k = 0;
+        let mut deepest: f64 = 0.0;
+        while k < tiles.len() {
+            let i = tiles[k];
+            k += 1;
+            deepest = max(deepest, before.depth[i]);
+            let x = i % w;
+            let y = i / w;
+            for (dx, dy) in GLACIER_N4 {
+                let xx = x as i32 + dx;
+                let yy = y as i32 + dy;
+                if xx < 0 || yy < 0 || xx >= w as i32 || yy >= h as i32 {
+                    continue;
+                }
+                let j = yy as usize * w + xx as usize;
+                if group[j] < 0
+                    && before.depth[j] > 0.05
+                    && (before.heights[j] as f64 + before.depth[j] - surface).abs() < 0.25
+                {
+                    group[j] = id;
+                    tiles.push(j);
+                }
+            }
+        }
+        // (broad: an eighth of its tiles or more with all of their 7-by-7 square in it; a river, however
+        // wide its pools, has a few such tiles at the most)
+        let core = tiles
+            .iter()
+            .filter(|&&i| {
+                let x = (i % w) as i32;
+                let y = (i / w) as i32;
+                (-3..=3).all(|dy| {
+                    (-3..=3).all(|dx| {
+                        let xx = x + dx;
+                        let yy = y + dy;
+                        xx >= 0 && yy >= 0 && xx < w as i32 && yy < h as i32 && group[yy as usize * w + xx as usize] == id
+                    })
+                })
+            })
+            .count();
+        let bad = tiles.iter().filter(|&&i| before.contamination[i] > 0.5).count() * 2 > tiles.len();
+        let lake = deepest >= 0.5 && ((core * 8 >= tiles.len() && core > 0) || (bad && tiles.len() >= 30));
+        lakes.push((if lake { tiles } else { vec![] }, surface));
+    }
+    for g in group.iter_mut() {
+        if *g >= 0 && lakes[*g as usize].0.is_empty() {
+            *g = -1;
+        }
+    }
+    (group, lakes)
+}
+/// The lakes a trough meets keep their water (#914's look review): a lake, a pool or a badwater basin the route
+/// runs through becomes a deeper ribbon lake at its old surface, its bed carved below that level across the
+/// trough's floor and a sill at its old level wherever its water would leave lower than it did; a lake the
+/// route only passes keeps a wall at its level between them. No lake's water runs into another's, so badwater
+/// and clean water never mix. Small dry scraps of floor left standing in a ribbon lake go under it. Below
+/// Power 100 the trough's floor in a ribbon lake is carved `carve` levels below its old bed (Power's cut),
+/// never below `cut_floor`; at Power 100 the floor's own cut is enough.
+fn glacier_keep_lakes(out: &mut GlacierPlan, before: &Map, cut_floor: f64, carve: f64) {
+    let w = out.map.w;
+    let h = out.map.h;
+    let n = w * h;
+    let near4 = |i: usize| {
+        let x = i % w;
+        let y = i / w;
+        let mut v = [usize::MAX; 4];
+        if x > 0 {
+            v[0] = i - 1;
+        }
+        if x + 1 < w {
+            v[1] = i + 1;
+        }
+        if y > 0 {
+            v[2] = i - w;
+        }
+        if y + 1 < h {
+            v[3] = i + w;
+        }
+        v
+    };
+    let (group, lakes) = glacier_lakes(before);
+    let on_route: HashSet<usize> = out.reference.iter().map(|&q| glacier_tile(before, q)).collect();
+    let reach = out.path.iter().map(|q| q.r).fold(2.0, max);
+    let mut claimed = vec![false; n];
+    for (id, (tiles, surface)) in lakes.iter().enumerate() {
+        if tiles.is_empty() {
+            continue;
+        }
+        let o = (surface + 0.1).floor();
+        let changed = |i: usize| out.map.heights[i] != before.heights[i];
+        let touched = tiles
+            .iter()
+            .any(|&i| changed(i) || near4(i).iter().any(|&j| j != usize::MAX && changed(j)));
+        if !touched {
+            continue;
+        }
+        let mine = |j: usize| group[j] == id as i32;
+        let through = tiles.iter().any(|&i| {
+            on_route.contains(&i) || near4(i).iter().any(|&j| j != usize::MAX && on_route.contains(&j))
+        });
+        // never a raised bed, nor one lowered at its lip (where it ran out over lower ground) or at the map's
+        // edge (where it would run off the map); under the trough's floor, a ribbon lake's bed carved deeper
+        for &i in tiles {
+            let lip = i % w == 0
+                || i / w == 0
+                || i % w == w - 1
+                || i / w == h - 1
+                || near4(i).iter().any(|&j| j != usize::MAX && !mine(j) && (before.heights[j] as f64) < o);
+            let was = before.heights[i] as f64;
+            out.map.heights[i] = if lip {
+                before.heights[i]
+            } else if through && out.mask[i] == 1 && carve > 0.0 {
+                min(min(out.map.heights[i] as f64, was), max(was - carve, min(was, cut_floor))) as u8
+            } else {
+                out.map.heights[i].min(before.heights[i])
+            };
+        }
+        let mut zone = vec![false; n];
+        for &i in tiles {
+            zone[i] = true;
+        }
+        if through {
+            // the ribbon: the trough's floor near the lake, standing no more than a level above it, goes under
+            let mut dist = vec![f64::INFINITY; n];
+            let mut queue: Vec<usize> = tiles.clone();
+            for &i in tiles {
+                dist[i] = 0.0;
+            }
+            let mut k = 0;
+            while k < queue.len() {
+                let i = queue[k];
+                k += 1;
+                for j in near4(i) {
+                    if j == usize::MAX
+                        || dist[j] <= dist[i] + 1.0
+                        || out.mask[j] != 1
+                        || claimed[j]
+                        || (group[j] >= 0 && !mine(j))
+                        || out.map.heights[j] as f64 > o + 1.0
+                        || (before.heights[j] as f64) < o
+                        || dist[i] + 1.0 > reach
+                    {
+                        continue;
+                    }
+                    dist[j] = dist[i] + 1.0;
+                    zone[j] = true;
+                    queue.push(j);
+                }
+            }
+            for i in 0..n {
+                if zone[i] && !mine(i) {
+                    out.map.heights[i] = min(out.map.heights[i] as f64, max(o - 1.0, cut_floor)) as u8;
+                }
+            }
+        }
+        // sills: wherever the water would leave lower than it did
+        let mut kept = vec![false; n];
+        let mut sills = vec![];
+        let mut flood;
+        loop {
+            flood = vec![false; n];
+            let mut queue: Vec<usize> =
+                tiles.iter().copied().filter(|&i| (out.map.heights[i] as f64) < o).collect();
+            for &i in &queue {
+                flood[i] = true;
+            }
+            let mut k = 0;
+            let mut escapes = vec![];
+            while k < queue.len() {
+                let i = queue[k];
+                k += 1;
+                // (water reaching the map's edge leaves it)
+                if !mine(i) && zone[i] && (i % w == 0 || i / w == 0 || i % w == w - 1 || i / w == h - 1) {
+                    escapes.push((i, i));
+                }
+                for j in near4(i) {
+                    if j == usize::MAX || flood[j] || out.map.heights[j] as f64 >= o {
+                        continue;
+                    }
+                    if zone[j] {
+                        flood[j] = true;
+                        queue.push(j);
+                    } else if !kept[j] {
+                        escapes.push((i, j));
+                    }
+                }
+            }
+            if escapes.is_empty() {
+                break;
+            }
+            for (i, j) in escapes {
+                if i == j {
+                    out.map.heights[i] = max(out.map.heights[i] as f64, o) as u8;
+                    zone[i] = false;
+                    continue;
+                }
+                if out.map.heights[j] as f64 >= o || kept[j] {
+                    continue;
+                }
+                if before.heights[j] as f64 >= o {
+                    out.map.heights[j] = o as u8;
+                    sills.push(j);
+                } else if !mine(i) {
+                    out.map.heights[i] = max(out.map.heights[i] as f64, o) as u8;
+                    zone[i] = false;
+                    sills.push(i);
+                } else {
+                    // the lake's old way out, lower than its surface already: as it was, no lower
+                    out.map.heights[j] = out.map.heights[j].max(before.heights[j]);
+                    kept[j] = true;
+                }
+            }
+        }
+        // (a sill is a bar three tiles across, a riegel, never a line of posts one tile wide)
+        for &i in &sills {
+            let x = (i % w) as i32;
+            let y = (i / w) as i32;
+            for dy in -1..=1 {
+                for dx in -1..=1 {
+                    let xx = x + dx;
+                    let yy = y + dy;
+                    if xx < 0 || yy < 0 || xx >= w as i32 || yy >= h as i32 {
+                        continue;
+                    }
+                    let j = yy as usize * w + xx as usize;
+                    if !flood[j]
+                        && group[j] < 0
+                        && out.mask[j] != 0
+                        && (out.map.heights[j] as f64) < o
+                        && before.heights[j] as f64 >= o
+                    {
+                        out.map.heights[j] = o as u8;
+                    }
+                }
+            }
+        }
+        // scraps of floor standing dry in a ribbon lake, a level or two above it, go under it
+        if through {
+            let mut seen = vec![0u32; n];
+            let mut stamp = 0u32;
+            for s0 in 0..n {
+                if seen[s0] > 0 || flood[s0] || out.mask[s0] != 1 {
+                    continue;
+                }
+                stamp += 1;
+                let mut part = vec![s0];
+                seen[s0] = stamp;
+                let mut enclosed = true;
+                let mut k = 0;
+                while k < part.len() && part.len() <= 16 {
+                    let i = part[k];
+                    k += 1;
+                    if out.map.heights[i] as f64 > o + 2.0 {
+                        enclosed = false;
+                    }
+                    for j in near4(i) {
+                        if j == usize::MAX || (seen[j] > 0 && seen[j] != stamp) {
+                            enclosed = false;
+                        } else if !flood[j] && seen[j] == 0 {
+                            if out.mask[j] != 1 {
+                                enclosed = false;
+                            }
+                            seen[j] = stamp;
+                            part.push(j);
+                        }
+                    }
+                }
+                if enclosed && part.len() <= 16 {
+                    for &i in &part {
+                        out.map.heights[i] = min(out.map.heights[i] as f64, max(o - 1.0, cut_floor)) as u8;
+                    }
+                }
+            }
+        }
+        for i in 0..n {
+            if flood[i] {
+                claimed[i] = true;
+            }
+        }
+    }
+    // (the sources that feed them stay, on the lake's bed: level under them, at its lowest)
+    let feeding: Vec<(usize, Vec<usize>)> = out
+        .map
+        .entities
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| ride_source(e.template.as_ref()))
+        .map(|(k, e)| (k, out.map.footprint(e, 0)))
+        .filter(|(_, f)| {
+            f.iter().any(|&i| group[i] >= 0) && f.iter().any(|&i| out.map.heights[i] != before.heights[i])
+        })
+        .collect();
+    for (k, f) in feeding {
+        let low = f.iter().map(|&i| out.map.heights[i]).min().unwrap();
+        for &i in &f {
+            out.map.heights[i] = low;
+        }
+        out.map.entities[k].z = low as f64;
+    }
+}
+/// The fins (#914's look review): a strip of the old land one or two tiles wide left standing between two
+/// parts of the trough, a rock stack in its floor, comes down to the higher of the ground either side.
+fn glacier_fins(out: &mut GlacierPlan) {
+    let w = out.map.w as i32;
+    let h = out.map.h as i32;
+    for _ in 0..2 {
+        let mut cut = vec![];
+        for y in 0..h {
+            for x in 0..w {
+                let i = (y * w + x) as usize;
+                if out.mask[i] != 0 || out.nearest[i] < 0 {
+                    continue;
+                }
+                let inside = |xx: i32, yy: i32| {
+                    xx >= 0 && yy >= 0 && xx < w && yy < h && out.mask[(yy * w + xx) as usize] != 0
+                };
+                let at = |xx: i32, yy: i32| out.map.heights[(yy * w + xx) as usize] as f64;
+                let mut level = f64::NEG_INFINITY;
+                for (dx, dy) in [(1, 0), (0, 1)] {
+                    for (a, b) in [(1, 1), (1, 2), (2, 1)] {
+                        if inside(x - dx * a, y - dy * a) && inside(x + dx * b, y + dy * b) {
+                            level = max(level, max(at(x - dx * a, y - dy * a), at(x + dx * b, y + dy * b)));
+                        }
+                    }
+                }
+                if level > f64::NEG_INFINITY && level < out.map.heights[i] as f64 {
+                    cut.push((i, level));
+                }
+            }
+        }
+        if cut.is_empty() {
+            break;
+        }
+        for (i, level) in cut {
+            out.map.heights[i] = level as u8;
+            out.mask[i] = 2;
+        }
+    }
 }
 /// The benches' scraps (gap 26): a bench of fewer than a dozen tiles goes back to the wall it was.
 fn glacier_bench_scraps(out: &mut GlacierPlan, before: &Map) {
@@ -7545,11 +7954,6 @@ fn glacier_bench_scraps(out: &mut GlacierPlan, before: &Map) {
         }
     }
 }
-/// The finished glacier's last touch (showcase craft's gap 26): no pillar or pit of one or two tiles where
-/// it worked. A patch of one or two tiles standing above every tile round it comes down to the highest
-/// of them; one sunk below them all comes up to the lowest; on the tiles the glacier changed and the
-/// ones beside them. Its channels and pools, the ground under objects, and the banks that hold its water
-/// (beside a channel or a pool, or beside water off its floor) are left as they are.
 /// The water coming in from outside keeps its way in (where Size fits the valley, a river crossing into
 /// the trough met its floor and banks raised over the river's old bed, a dam that flooded the land outside
 /// into a lake): when the planned land would wet more than a little dry ground outside the trough, the old
@@ -7624,6 +8028,11 @@ fn glacier_open_inlets(out: &mut GlacierPlan, before: &Map, planned_depth: &[f64
     }
     Some(depth)
 }
+/// The finished glacier's last touch (showcase craft's gap 26): no pillar or pit of one or two tiles where
+/// it worked. A patch of one or two tiles standing above every tile round it comes down to the highest
+/// of them; one sunk below them all comes up to the lowest; on the tiles the glacier changed and the
+/// ones beside them. Its channels and pools, the ground under objects, and the banks that hold its water
+/// (beside a channel or a pool, or beside water off its floor) are left as they are.
 fn glacier_despeckle(out: &mut GlacierPlan, before: &Map) {
     let w = out.map.w;
     let h = out.map.h;
@@ -7959,6 +8368,12 @@ fn glaciate(before: &Map, mut map: Map, s: &GlacierSettings, intent: &Intent, ke
     let (depth, _) = force_prefill(&force_water_model(&p.map), Some(&p.retained));
     let depth = glacier_open_inlets(&mut p, before, &depth).unwrap_or(depth);
     glacier_shelves(&mut p, before, s.power, &depth);
+    glacier_keep_lakes(
+        &mut p,
+        before,
+        clamp(round(s.floor), 1.0, before.ceiling),
+        if s.power < 100.0 { 1.0 + round(10.0 * clamp(s.power, 0.0, 100.0) / 100.0) } else { 0.0 },
+    );
     let raw = p.map.clone();
     for i in 0..p.map.heights.len() {
         p.map.lava[i] &= mask(p.map.heights[i]);
@@ -8147,7 +8562,7 @@ fn glacier_finish_morphology(
             cells.extend(out.channel(&points, &beds, 0.76, out.path[c.k].s, 3, true));
         }
         out.map.heights[c.lip] =
-            (before.heights[c.lip] as i32 - if feed || old_wet { 1 } else { 0 }) as u8;
+            (out.map.heights[c.lip] as i32 - if feed || old_wet { 1 } else { 0 }) as u8;
         out.arrival[c.lip] = out.path[c.k].s as f32;
         let mut join_length = 0.0;
         if feed || old_wet {
@@ -8404,7 +8819,7 @@ fn glacier_finish_morphology(
     };
     let mut bed = outlet;
     let mut tail_arc = 14.0;
-    let beds: Vec<_> = tail
+    let mut beds: Vec<_> = tail
         .iter()
         .enumerate()
         .map(|(k, &q)| {
@@ -8421,6 +8836,20 @@ fn glacier_finish_morphology(
             bed
         })
         .collect();
+    // (the river leaving the snout ends in the first water it reaches at its own level, on ground the glacier
+    // left as it was, a lake or a river: cut on down the old valley it lowered their outlets and drained them,
+    // and crossed the old river in an X, #914's look review)
+    if let Some(wet) = tail.iter().enumerate().position(|(k, &q)| {
+        let i = glacier_tile(before, q);
+        before.depth[i] > 0.05
+            && out.mask[i] != 1
+            && out.fan[i] == 0
+            && out.map.heights[i] == before.heights[i]
+            && before.heights[i] as f64 + before.depth[i] <= beds[k] + 1.0
+    }) {
+        tail.truncate(wet + 1);
+        beds.truncate(wet + 1);
+    }
     let mut points = vec![*out.stream_path.last().unwrap()];
     points.extend(tail);
     let mut levels = vec![outlet];
@@ -8511,8 +8940,9 @@ fn glacier_finish_morphology(
             1.0
         };
     // (a river that needs two levels of bank has its whole floor two above its bed, so its banks are the
-    // floor itself, never a one-tile levee along the water: gap 26)
-    if freeboard > 1.0 {
+    // floor itself, never a one-tile levee along the water: gap 26; below Power 100 the river was sunk a level
+    // instead, under a tread that stands where it was)
+    if freeboard > 1.0 && !gentle {
         for i in 0..n {
             if out.mask[i] == 1 && out.stream[i] == 0 {
                 let plane = min(before.heights[i] as f64, min(top, out.floor[i] as f64 + freeboard));
@@ -8533,7 +8963,9 @@ fn glacier_finish_morphology(
             if out.mask[i] != 1 || out.stream[i] != 0 {
                 continue;
             }
-            let mut bank = out.floor[i] as f64 + 1.0;
+            // (below Power 100 the floor is never raised but to bank water: its tread is a level above the
+            // river, and ground lower than that stays as it was)
+            let mut bank = if gentle { 0.0 } else { out.floor[i] as f64 + 1.0 };
             let x = (i % w) as i32;
             let y = (i / w) as i32;
             for (dx, dy) in GLACIER_N4 {
@@ -8557,7 +8989,10 @@ fn glacier_finish_morphology(
     let mut objects = 0.0;
     let mut entities = std::mem::take(&mut out.map.entities);
     entities.retain(|e| {
-        if e.template.as_ref() == "StartingLocation" || (s.ride && ride_source(e.template.as_ref())) {
+        if e.template.as_ref() == "StartingLocation"
+            || (s.ride && ride_source(e.template.as_ref()))
+            || glacier_feeds_lake(out, before, e)
+        {
             return true;
         }
         if out.map.footprint(e, 0).iter().any(|&i| {
