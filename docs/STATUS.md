@@ -14,7 +14,17 @@ game launch until he lifts it. The page session is stopped (worktree `DamGoodMap
 
 ## Released
 
-Latest: `high-look-fix-2-done` (2026-10-29), a patch release for the High look's fix (#641): dev 82a2bd14 plus the deploy
+Latest: `naturalize-done` (2026-11-09, PR #896, dev d5d44fd2 into `main` at 8d31cefa): 36 PRs, #851 to #893. Naturalize runs
+in its own worker, so the land follows the brush within two frames (p50 702 to 13-15 ms), undo waits for a stroke still
+landing, and forces keep clock time on slow views. It also carries the game's look for grass, dry land, shadow edges, bloom
+and the water's films, fronts, falls and skirts. The deploy and the live check passed (run 42599735525).
+Before it: `game-look-done` (2026-11-08, dev 0e413609 through #850, `main` at 92b97bdb, generator 0.10.11): both looks draw
+the game's water, badwater, light and contamination; arches and overhangs come from generation (D503); the map's picture
+lands where it looks best (D506). The deploy and the live check passed (run 42460977222).
+Amendments that went with them (all in docs/decisions/, D496's rule): D154 now has falls as the game draws them (D201), as
+the water below's slope, the water's depth along the view, and thin water as water with no film. D446 now has the foam
+threads, wakes and seams in the Flow view alone (D497). D201's own text is not in docs/decisions/; D154 carries its amendment.
+Before those: `high-look-fix-2-done` (2026-10-29), a patch release for the High look's fix (#641): dev 82a2bd14 plus the deploy
 tool's fix #652 (tagged at 0deeec96), #653 merged to `main` as c9402a39, the deploy and the live check passed (run
 40843431988); the live site runs generator 0.10.5. Its gates: dev's CI at 82a2bd14 (run 40788748417) and the nightly there
 (run 40832798319). The release PRs merged before their CI ran (`tools/release.sh` passed on the first skipped checks, as
@@ -64,7 +74,7 @@ no full run by hand except for a release.
 
 ## Done, and next
 
-1. **Released:** `3d-foundations-done`, then the patch `high-look-fix-2-done` (above).
+1. **Released:** `3d-foundations-done`, the patch `high-look-fix-2-done`, then `game-look-done` and `naturalize-done` (above).
 2. **In dev since 2026-10-24 (milestone's):** Showcase mode's core and worker with three tuning rounds (#504, #516, #526, #588) and
    planning's page (#520, #535); the opening shot and landmarks into view (#515, D493, 0.10.2); ruins with meaning (#527, 0.10.1);
    3D in generation part 1 (#478, 0.10.0) and its follow-ups (#579, 0.10.3); objects in caves (#490, D491) with follow-ups (#531), forces around caves (#496),
