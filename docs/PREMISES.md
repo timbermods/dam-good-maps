@@ -129,7 +129,7 @@ interface Work {
 | Water: Drought reserve | The start's held water and the first reservoir's size. |
 | Hazards | The permanent badwater source's strength and distance (D200: every map has one unless Badwater is off; placed below the lowest sill so it leaves by the exit, D498); thorns on the dry-for-good region; unstable cores by the springs. |
 | Resources | Scale the budgets of section 2 stage 6 inside their ranges: wood stays a budget at every Forest density. |
-| Start: Easy start, the rules | The start rules are the checks' own and always hold. Easy start: see open question 4. |
+| Start: Easy start, the rules | The start rules are the checks' own and always hold. Easy start is not offered with the lake stair yet (section 9, ruling 4). |
 
 ### 1.4 Invariants
 
@@ -312,32 +312,39 @@ are also what section 6 runs offline before a premise ships.
 
 ## 3. Speed
 
-### 3.1 Where the script's nine minutes go
+### 3.1 Where the script's minutes go
 
-From the build logs of rounds 12 to 14 at 192² (`C:\dgm-showcase\four-lakes\r12-build.log` … `r14-build.log`):
+The script's own lap timers, from the build logs of rounds 10 to 14 at 192² (`C:\dgm-showcase\four-lakes\r10-build.log`
+… `r14-build.log`). A full build is **4.3 to 6.5 minutes** by them (255, 278, 281, 371 and 388 s). The log's "about
+nine minutes" is not borne out by the timers: they do not time the bundling or the separate capture script, and
+nothing recorded says what that figure included.
 
 | Step of the script | Seconds | Why |
 |---|---|---|
-| The design (`designLand`) | 1.4–2.2 | Every tile against every body's every arm and every channel, with four-octave noise each time |
-| Blank ground and the land as operations | 1.3–2.4 | One Flatten operation per level |
-| Blockages | 1.7–4.0 | An operation per row |
-| Sources and the settle | 2.3–4.6 | The canonical settle: 1,536 to 2,176 ticks |
-| Objects | 131–141 | Each object is its own operation; the document is rebuilt and its water settled after each (my reading of the timings, not profiled) |
-| The route | 10–11 | Walks, and a ramp built per gap |
-| Plants | 45–62 | Brush strokes as operations |
-| Pictures, checks, save | 12–13 | |
-| Drought 9 days, badtide 8 days | 9 and 14–19 | `HazardRun`: about a second a game day |
-| The first badtide, both ways | 47 | Four hazard runs |
-| The ladder (`--irrigate`) | 27–48 | Seven what-ifs, each a full settle |
-| The bypass opened, badtide | 12–20 | |
+| The design (`designLand`) | 1.0–2.2 | Every tile against every body's every arm and every channel, with four-octave noise each time |
+| Blank ground and the land as operations | 1.2–2.4 | One Flatten operation per level |
+| Blockages | 1.3–4.0 | An operation per row |
+| Sources and the settle | 2.2–4.6 | The canonical settle: 1,536 to 2,176 ticks |
+| Objects | 116–185 | Each object is its own operation; the document is rebuilt and its water settled after each (my reading of the timings, not profiled) |
+| The route | 8–17 | Walks, and a ramp built per gap |
+| Plants | 45–119 | Brush strokes as operations |
+| Pictures, checks, save | 3–13 | |
+| Drought 9 days, badtide 8 days | 8–10 and 14–21 | `HazardRun`: about a second a game day |
+| How it plays (`--play`) | 9–16 | Reservoir what-ifs by flood fill, drought runs |
+| The bypass opened, badtide | 15–23 | |
+| The first badtide, both ways (round 14 only) | 47 | Four hazard runs |
+| The ladder (`--irrigate`; rounds 11 and 14) | 13–48 | Up to seven what-ifs, each a full settle |
+| **A full build** | **255–388** | |
 
-Three quarters of the time is the document engine replaying one operation at a time. The settle itself is 2 to 5
-seconds. The rest is weather runs and what-if settles.
+The objects, the route and the plants are 188 to 320 s of that: half of round 14's build (which also ran every
+report) and two thirds to four fifths of the others. That is the document engine replaying one operation at a time.
+The settle itself is 2 to 5 seconds. The rest is weather runs and what-if settles.
 
 ### 3.2 What the generator does instead
 
 - **One build.** The generator makes a field and features and calls `buildMap` once: one settle, one soil pass, one
-  placement of everything. No operation is replayed. This alone removes about four of the nine minutes.
+  placement of everything. No operation is replayed. This alone removes three to five minutes (section 3.1's
+  objects, route and plants).
 - **Levels by number, not by settle.** Stages 0 to 4 never settle. Levels, flows and bad flow come from the plan's
   arithmetic and from `flowThrough`, which stands on `spillLevels` (a priority flood, in Rust).
 - **The settle starts at its answer.** Bodies are designed to their spill level, which is what `prefill` fills
@@ -402,7 +409,7 @@ round every lake."
 
 | Parameter | Range | Drawn from |
 |---|---|---|
-| Size | 128² to 256²; the short side 128 or more | Eligibility. Under 128 the stair has no room for three lakes with meadows |
+| Size | Square maps, 128² to 256² | Eligibility. Under 128 the stair has no room for three lakes with meadows; other shapes are the themes' for now (section 9) |
 | Lakes `n` | 3 at 128²; 4 at 192²; 4 or 5 at 256² | Size, Lakes |
 | Step `f` between sills | 3, 4 or 5 levels | Verticality; `2 + (n − 1) f + 2 ≤ top` |
 | Sills | 2, 2 + f, … (water in the third layer at the bottom) | By number |
@@ -441,6 +448,7 @@ map found by what-if (rounds 11 to 14).
 |---|---|---|---|---|
 | First | Still Pool | One levee on a neck one tile wide, before the first badtide | A pool of about 21 tiles on the bench beside the fall's foot, bed one under the bench, a neck two long | The pool stays clean; about a third of the bench stays green |
 | First | Breach | Mends one or two tiles of the ruined weir | The stair fall below the start has piers and a breach a level deep | The start's lake stops sinking: about 600 to 850 of water |
+| Small | Sill notch (kind `breach`) | Plugs the one-tile notch in an upper lake's sill | Every sill but the lowest has a notch a level deep (section 4.1); the crest beside it is rock two tiles thick, so one tile of dam closes it | No green: the lake keeps 700 to 1,200 of water through a drought |
 | Small | Notch | Clears a row of 3 or 4 Blockages | A spring tarn's **second** outlet, the row below the tarn's outline and spanning the bed; a dry bed two deep to a lake | 430 to 570 tiles each |
 | Small | Dam to pond | A dam of about 5 tiles, one level | A narrows in a dry bed two deep, with the bench beside it level at bed + 2 for 8 tiles or more | 270 to 470 |
 | Small | Levee | About 8 tiles at a basin's spill point | A basin with a beach at its sill + 1 and a rim over the beach | 260 to 340 |
@@ -449,8 +457,12 @@ map found by what-if (rounds 11 to 14).
 | Large | Bypass | Clears 3 rows (16, 6, 8 tiles), builds 3 or 4 gates | Section 4.1 | The premise's answer; about 1,100 to 1,500 tiles along it |
 | Large | Megadam | 5 or 6 long, to the next sill's level | The slot | Water of about 0.44 × the map's tile count (16,241 at 192²) |
 
-Counts scale with the map's area over 192²'s. The seed draws which kinds stand where; the least is six small works of
-four kinds, three of them within 40 tiles' walk of the start's bench.
+Counts scale with the map's area over 192²'s. The seed draws which kinds stand where. The **small irrigation works**
+are of three kinds (`notch`, `damToPond`, `levee`): six at the least at 192², at least one of each kind at every size,
+three of them within 40 tiles' walk of the start's bench (Four Lakes had five, of these three kinds). With the first
+works and the sill notches (`breach`, and the Still Pool's `levee`) the near ladder has four kinds, each a different
+thing to build: a gap mended, a neck or spill point shut, a row cleared, a bed dammed. `Work.kind` needs no kind
+beyond section 1.1's.
 
 ### 4.3 The landmark and the first frame, by arithmetic
 
@@ -498,8 +510,8 @@ outlines, wander, crags, stands, the pieces' places, the names.
 | `premise.open` | settled (graph), proof (weather) | With the bypass's rows cleared and its gates shut (at most four, each at most 5 wide), no bad flow reaches any lake; by the weather no lake is half bad and the start's water is clean through the difficulty's longest badtide; the springs' pool stands 0.15 or more under its rim |
 | `springs.side` | plan | A body with its own spring drains to a map edge without meeting a lake, unless it is a notch's, whose `tradeoff` says its water runs red |
 | `drought.start` | settled (storage), proof | The start's water lasts the difficulty's longest drought by the editor's rule; 60 % of the bench within 12 tiles stays moist every day of it; the falls stop from the top |
-| `spectrum` | settled | Water 15 to 25 % of tiles; moist ground 30 to 42 %; small works 6 to 8, each 250 to 1,100 tiles and at most 3 % of the map; all works together 10 to 20 %; dry for good 12 to 25 %, on one side |
-| `ladder.kinds` | land | Four kinds or more among the small works; three within 40 tiles' walk of the bench; one first work inside the first frame |
+| `spectrum` | settled | Water 15 to 25 % of tiles; moist ground 30 to 42 %; small irrigation works (`notch`, `damToPond`, `levee`) 6 to 8, each 250 to 1,100 tiles and at most 3 % of the map; all works together 10 to 20 %; dry for good 12 to 25 %, on one side |
+| `ladder.kinds` | land | Each of the three small irrigation kinds (`notch`, `damToPond`, `levee`) is on the map at least once; the first and small works together have all four kinds (`breach`, `levee`, `notch`, `damToPond`); three small irrigation works within 40 tiles' walk of the bench; one first work inside the first frame |
 | `ground` | land | Flat under 50 %; one-level steps 60 to 80 %; the three commonest levels under 35 % |
 | `wood` | settled | Living trees 450 to 700 per 10,000 tiles; at most 16 % of level moist ground under a tree; 250 logs or more grown within 20 tiles' walk of the start |
 | `bench` | land | 580 level tiles or more joined to the start (the Workshop's starts: 640 to 980) |
@@ -553,7 +565,9 @@ too deep to water it: raise it at the gate, or lead it out along the wall."
   player has led the river onto the basin: then every leat needs its gate.
 - **Skeleton.** Regions: the oasis under the gate (the start), the dry basin (the canvas, half the map), the canyon,
   the wall, the green valley behind it (the prize: wood, farmland, the reservoir). Landmark: the wall with the fall
-  in its gate. Edges: the wall's ends run off the map; the basin falls away.
+  in its gate. Edges: the wall's ends run off the map; the basin falls away. The wall is an escarpment: the valley's
+  own high ground ending in a cliff that wanders, many tiles thick, never a thin straight ridge across a valley,
+  which is what `terrain.dam_wall` blocks (D111; section 9's open question).
 - **Start and first frame.** In the basin on the plunge pool's apron, looking at the gate: the fall and the wall
   above it. The same frame arithmetic; the wall may stand above the frame's top, the lip may not.
 - **Ladder.** Small: check dams at the canyon's narrows (dam to pond, the bench built at bed + 2 for a reach), each
@@ -579,16 +593,21 @@ sea island by island: wall off your lagoon before it reaches you, or turn the cr
   sill's notch and uncovers a causeway between two islands.
 - **Skeleton.** Regions: the home island (start, small, generous), the lagoon and its two straits, the stepping
   islands (wood, metal), the high island (the springs, the fall, power), the outer shore (dry for good). Landmark:
-  the high island's fall across the strait. Edges: the sea runs to two or three edges behind a rim (the Islands
-  theme's rule, D151).
+  the high island's fall across the strait. Edges: the sea runs to the map's edge on two or three sides and is held
+  there as the Islands theme holds its sea (`land/islands.ts` `holdSeaLip`): the two edge rows stand **one** level
+  over a shelf under the water. That is under the two levels `terrain.edge_wall` blocks, so it is no edge wall
+  (D151 forbids a wall or rim raised along an edge to hold water). The sea leaves the map only over its exit's sill.
+  The layout is one of a range with real relief and fresh water on the islands (D410), its shore broken into
+  headlands and islands, and not a centred sea inside a ring of land (D423: at most about one map in four).
 - **Start and first frame.** On the home island's shore bench looking across the strait at the fall; the frame's
   water is the strait, kept shallow.
 - **Ladder.** Small: the home tarn's notches; a dam on each of the lagoon's straits (3 to 6 tiles; a dam is also the
   way across). Medium: the causeway raised a level; a leat from the tarn. Large: a notch in the crater's far rim
-  (the red leaves by the outer edge: the second answer); the exit's sill raised a level (a bigger sea that drowns the
-  low shores: a trade-off).
-- **Invariants.** The sea at its level; every island the route needs within one crossing of the last; the lagoon
-  shut by two dams of 6 or fewer; the red's day of arrival at the lagoon 2 or more left alone, never with either
+  (the red leaves by the outer edge: the second answer); the lagoon raised a level behind its two dams (its shores
+  are the islands' own ground, two over the sea). The sea itself is never a reservoir to raise: its lip at the map's
+  edge stands one level over it, the most the edge rule allows.
+- **Invariants.** The sea at its level, and `terrain.edge_wall` passing; every island the route needs within one
+  crossing of the last; the lagoon shut by two dams of 6 or fewer; the red's day of arrival at the lagoon 2 or more left alone, never with either
   answer; the causeway dry by day 3 of a drought.
 - **New beyond the lake stair:** islands as bowls turned over, inside one body (the land's envelope taken from above;
   `land/islands.ts` `standIslandsClear` for the straits); a strait as a work site; the drought causeway (a bed half a
@@ -673,28 +692,47 @@ number, the land as bowls, the frame, the ladder, wood by budget.
   finds dam sites already) and measures each the same way. This is MAPCRAFT's missing measure: "what each work would
   turn green".
 
-## 9. Open questions for the owner, each with the default the builders proceed on
+## 9. Rulings, and what is still open
 
-1. **A library of premises changes a recorded rule.** PLAN §8 says there is "no table of named premises" (D275,
-   D278), D208 that themes are leanings, not templates, and D108 that maps never come from a few archetypes with a
-   little noise. **Default:** a new decision: a premise is a *problem* with many structures (section 4.4's variety is
-   a shipping test), which is D138's "outcomes, never construction recipes" kept and D108's "must play differently"
-   measured inside each premise; the themes stay as they are. The same decision says a premise map's green is judged
-   by its ladder (the `spectrum` invariant), not by D504's bare-ground share: its dry land is meant.
-2. **What Generate does by default.** **Default:** until three premises have passed judging, a premise is chosen
-   (a control beside Theme, "Classic" first), so one press never gives the same idea twice running by accident; with
-   three, Surprise me draws a premise wherever one is eligible and the themes otherwise.
-3. **The landmark's height against a dry start.** A fall of 8 whole in the first frame puts water inside the
-   start's 5 × 5 (the hand-built map carries that warning on purpose). **Default:** generated maps keep `start.dry`
-   blocking and take a landmark of 6 or 7; 8 waits for the two-level bench variant.
-4. **The first badtide and Easy start.** The lake stair's truth is that the start's water is bad on day 1, answered
-   by one levee in the first frame; Easy start promises two clean days (`analysis/easyStart.ts`
-   `EASY_START.badtideDays`). **Default:** the lake stair is not eligible with Easy start on (the themes make that
-   map) until an Easy variant is designed and judged.
-5. **Blockages carry the ladder.** What the game asks of a player to clear a Blockage, and when in a colony's life,
-   was not checked (round 11's note). **Default:** proceed with Blockages; one probe run settles it before step 5
-   merges; if clearing comes too late, a notch becomes a one-level rock plug two tiles thick.
-6. **Whether a beaver wades shallow water** is not known from the repository; the checks say never.
-   **Default:** never; `reach` counts crossings as built.
-7. **Map shapes.** **Default:** squares and rectangles up to 3 : 2 with the valley along the long side; longer maps
-   are the themes' until a premise is designed for them.
+### Ruled
+
+Planning ruled on the seven questions this design raised (2026-11-10, on PR #944; the milestone session numbers the
+decisions and amends PLAN §8 with them). The builders work to these.
+
+1. **A library of premises: yes.** This replaces PLAN §8's "no table of named premises" (D275, D278) and the
+   readings of D208 and D108 that went with it, on Kyler's direction of 2026-11-10 (maps from first principles: a
+   problem you can say in one line; MAPCRAFT). A premise is a problem with many structures, never a fixed layout;
+   variety across seeds is a shipping test (section 6, tier 3); a premise map's green is judged by its ladder (dry
+   land irrigable by design, the `spectrum` invariant), not by a share (D504's bare-ground measure is the themes').
+2. **Generate's default.** The themes stay the default until three premises have passed judging in the game. Until
+   then a control chooses the premise mode. After that, Surprise me may draw a premise.
+3. **The landmark fall is 6 or 7 levels**, so its lip is whole in the game's first frame with a start that passes
+   `start.dry`; `start.dry` stays blocking (section 4.3).
+4. **Easy start is not offered with the lake stair** until a variant that keeps Easy start's promise (two clean days
+   in the first badtide, `analysis/easyStart.ts` `EASY_START.badtideDays`) has been judged: `eligible` returns the
+   reason and the themes make that map.
+5. **Blockages carry the ladder: proceed.** One Probe run settles what clearing a Blockage costs in the game, before
+   the ladder step (build step 5) merges; if it is not a small work, a notch is a one-level rock plug two tiles thick
+   instead.
+6. **Wading:** beavers never cross water without a bridge; `reach` counts crossings as built.
+7. **Shapes: squares only for now.**
+
+### Still open
+
+- **For planning: the megadam's slot and the stair's sills against D111.** D111 says the generator never builds a
+  dam-site ridge and never adds terrain to create a dam opportunity, with `terrain.dam_wall` catching a straight wall
+  across a valley with a gap for the river. A premise designs all of its terrain, and the lake stair's premise
+  includes a ridge that closes the valley below the lowest lake with a gorge through it (the megadam's site), and a
+  rock sill with shoulders at every fall. The hand-built map passes `terrain.dam_wall` with both (the check fired
+  only on a ring of rock round its springs' pool). **Default the builders proceed on:** D111 is read as its check
+  reads it: no thin, straight wall. The closing ridge is the valley's own high ground, ten tiles thick or more and
+  wandering, the gorge a canyon cut through it; a sill is a rock step with the land's own shoulders;
+  `terrain.dam_wall` stays blocking on every premise map. If planning reads D111 more strictly, the megadam's site
+  becomes a narrows between two spurs that do not meet.
+- **A fact, by one Probe run before build step 5:** what the game asks of a player to clear a Blockage, and when in
+  a colony's life (ruling 5).
+- **A design, later:** the lake stair's Easy start variant (ruling 4), and its landmark of 8 from a bench two levels
+  over its lake (section 4.3).
+- **For the builders to verify in code (section 2.1's two assumptions):** whether a contained `river` feature with
+  `entry: { lake }` places a source of its own (build step 4), and the new `MapObjectKind`s the set pieces need
+  (build step 7). The flow constants of stage 1 are Four Lakes' measurements, fitted by that stage's test.
