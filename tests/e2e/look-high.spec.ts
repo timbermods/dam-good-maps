@@ -692,7 +692,9 @@ test("High's visible seasons follow the game's timers: no plant dies of dryness 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley&bw=0");
+  // (seed 5 since generator 0.10.13, D507, D148: the start frames the map, and on seed 4242's the plants stand on ground
+  // that stays moist past the normal drought's 9 days, so none is surely dead even by day 24)
+  await openEditor(page, "s=5&z=96&d=n&t=riverValley&bw=0");
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
   await opensHigh(page);
   const withered = () => page.evaluate(() => window.dgm3d!.renderer.witheredPlants);
