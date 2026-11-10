@@ -17,18 +17,15 @@ const HEAD = 3;
 const OK: InvariantResult = { ok: true };
 const fail = (reason: string): InvariantResult => ({ ok: false, reason });
 
-/** The flows the checks read, once per stage 1 (`ctx.water` keeps them). */
-interface Flows {
-  /** With every notch and breach shut: the sills' levels. */
-  shut: ReturnType<typeof flowThrough>;
-  /** As built (notches open, rows shut): day 1's water. */
-  open: ReturnType<typeof flowThrough>;
-}
-const cache = new WeakMap<StageWater, Flows>();
-function flows(w: StageWater): Flows {
+/** The flow the checks read, once per stage 1: `flowThrough` with the rows shut and every notch and breach shut too.
+ *  Its spill levels are static, so an open notch would stand its lake at the notch's level, a level under the sill
+ *  the table's water stands over (the table carries the notch's share: levels.ts); shut, the levels are the sills'.
+ *  Where the water goes is the same either way: a notch pours into its own fall's pool. */
+const cache = new WeakMap<StageWater, ReturnType<typeof flowThrough>>();
+export function stageFlow(w: StageWater): ReturnType<typeof flowThrough> {
   let f = cache.get(w);
   if (!f) {
-    f = { shut: flowThrough(stageModel(w, { shutNotches: true })), open: flowThrough(stageModel(w)) };
+    f = flowThrough(stageModel(w, { shutNotches: true }));
     cache.set(w, f);
   }
   return f;
@@ -43,7 +40,7 @@ function need(ctx: StageContext): StageWater {
  *  where it should be: its sill, or a level over it for a body with no way out (a pond a work fills: its rim). */
 export function levelsOf(plan: PremisePlan, w: StageWater): { id: string; sill: number; want: number; low: number; high: number; tiles: number }[] {
   const r = w.raster;
-  const { spill } = flows(w).shut;
+  const { spill } = stageFlow(w);
   return plan.bodies.map((b, k) => {
     let low = Infinity;
     let high = -Infinity;
@@ -91,7 +88,7 @@ const waterExits: Invariant = {
     const w = need(ctx);
     const r = w.raster;
     const { W, H } = r;
-    const { path } = flows(w).open;
+    const { path } = stageFlow(w);
     const exits = exitTiles(ctx.plan, r);
     for (let i = 0; i < W * H; i++) {
       if (!path[i]) continue;
@@ -112,7 +109,7 @@ const waterWet: Invariant = {
     const w = need(ctx);
     const r = w.raster;
     const N = r.W * r.H;
-    const { path } = flows(w).open;
+    const { path } = stageFlow(w);
     const wetBody = new Uint8Array(ctx.plan.bodies.length);
     const wetLink = new Uint8Array(ctx.plan.links.length);
     // (a link is wet where water comes down it: at its head, or just past its first row when one shuts it; its mouth
@@ -147,7 +144,7 @@ export function fallOf(plan: PremisePlan, w: StageWater, id: string): { lip: num
   const li = plan.links.indexOf(l);
   const f = l.fall!;
   const lip = r.lips[id] ?? [];
-  const { spill } = flows(w).shut;
+  const { spill } = stageFlow(w);
   let plain = 0;
   let low = 0;
   let high = 0;

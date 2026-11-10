@@ -7,7 +7,7 @@
 
 import { fbm } from "../../math/noise";
 import { dist, pathLength, segDist } from "../geom";
-import { WATER, type WaterTable } from "../levels";
+import { designLevel, WATER, type WaterTable } from "../levels";
 import type { Link, Point, PremisePlan } from "../types";
 import { box, seedOf, type WaterRaster } from "./field";
 
@@ -18,6 +18,8 @@ const BROOK_WIDEN = 0.5;
  *  this level at its end (an edge, or the gorge's bed a level under it). Stage 2 cuts the land round it. */
 const BYPASS_HOLD = 7;
 const BYPASS_END = 1;
+/** How far a row's top stands over the water it holds back, at least. */
+const ROW_CLEAR = 0.3;
 /** A mouth's full width holds this far along, then narrows to the bed's over three tiles. */
 const MOUTH_RUN = 7;
 
@@ -106,6 +108,8 @@ export function rasterChannels(plan: PremisePlan, table: WaterTable, r: WaterRas
       for (let y = y0; y <= y1; y++)
         for (let x = x0; x <= x1; x++) {
           const i = y * W + x;
+          // (out of reach even wandering: skip the noise)
+          if (segDist(x + 0.5, y + 0.5, a[0], a[1], b[0], b[1]).d > reach + wander * 1.5) continue;
           const px = x + 0.5 + (wander ? wander * fbm(sW1, x, y, 14, 2) : 0);
           const py = y + 0.5 + (wander ? wander * fbm(sW2, x, y, 14, 2) : 0);
           const { d, t } = segDist(px, py, a[0], a[1], b[0], b[1]);
@@ -166,10 +170,15 @@ export function rasterChannels(plan: PremisePlan, table: WaterTable, r: WaterRas
         run2 += segLen;
       }
     }
-    const depth = Math.max(lf?.depth ?? 0, WATER.designDepth);
+    const depth = Math.max(lf?.bedDepth ?? 0, WATER.designDepth);
+    // a shut link's head holds its first row's top (a level over the bed) clear of its body's water: where that water
+    // stands more than a level over its sill (the springs' pool through its neck alone), the head is a level higher
+    const from = fromBody >= 0 ? plan.bodies[fromBody] : null;
+    const rowAt = l.rows.length ? Math.min(...l.rows) : -Infinity;
+    const holds = from ? Math.ceil(designLevel(table, from) + ROW_CLEAR) - 1 : -Infinity;
     for (const i of inBed) {
       const s = sBest[i];
-      const bed = bedAt(plan, l, s);
+      const bed = s <= rowAt + 1 ? Math.max(bedAt(plan, l, s), holds) : bedAt(plan, l, s);
       if (r.lake[i]) {
         const b = r.lake[i] - 1;
         // its own ends: the body's bed meets the channel's

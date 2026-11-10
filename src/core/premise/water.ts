@@ -9,7 +9,7 @@ import { rasterBodies } from "./raster/bodies";
 import { rasterChannels } from "./raster/channels";
 import { emptyRaster, near4, type WaterRaster } from "./raster/field";
 import { rasterFalls } from "./raster/falls";
-import { dropPockets, guardWater, partWaters } from "./raster/guard";
+import { dropPockets, guardWater, partWaters, surgeMouths } from "./raster/guard";
 import type { PremisePlan } from "./types";
 
 /** The start's footprint and the ground round it that stage 1 keeps level at its height: 5 × 5. */
@@ -58,6 +58,7 @@ export function waterByNumber(plan: PremisePlan): StageWater {
     r.lips[l.id] = r.lips[l.id].filter((i) => r.crest[i] === li + 1 || piers.has(i));
     r.notches[l.id] = r.notches[l.id].filter((i) => r.crest[i] === li + 1);
   });
+  surgeMouths(plan, r);
   guardWater(r);
   plan.links.forEach((l, li) => {
     if (l.rows.length) r.rows[l.id] = l.rows.map((s) => spanRow(plan, r, li, s));
@@ -93,25 +94,43 @@ function emittersOf(plan: PremisePlan, r: WaterRaster): Emitter[] {
   });
 }
 
+/** A link's channel tiles and its from-body's (the water a row of it holds back). */
+interface RowSide {
+  li: number;
+  mine: number[];
+  from: number;
+  body: number[];
+}
+
+function rowSide(plan: PremisePlan, r: WaterRaster, li: number): RowSide {
+  const from = plan.bodies.findIndex((b) => b.id === plan.links[li].from);
+  const mine: number[] = [];
+  const body: number[] = [];
+  for (let i = 0; i < r.W * r.H; i++) {
+    if (r.channel[i] === li + 1) mine.push(i);
+    else if (from >= 0 && r.lake[i] === from + 1) body.push(i);
+  }
+  return { li, mine, from, body };
+}
+
 /** The tiles of a row of Blockages near `s` along link `li`: a band of its channel across, moved along it until it
  *  shuts the water off (no way round it through the channel or the body it leaves). */
 function spanRow(plan: PremisePlan, r: WaterRaster, li: number, s: number): number[] {
-  const mine: number[] = [];
-  for (let i = 0; i < r.W * r.H; i++) if (r.channel[i] === li + 1) mine.push(i);
+  const side = rowSide(plan, r, li);
   let fallback: number[] = [];
   // (where another channel out of the same body took the link's head, its row stands at its first tiles of its own)
   let first = Infinity;
-  for (const i of mine) first = Math.min(first, r.along[i]);
+  for (const i of side.mine) first = Math.min(first, r.along[i]);
   s = Math.max(s, first + 0.5);
   for (let step = 0; step <= ROW_SHIFT * 4; step++) {
     // (0, then a quarter of a tile further each way by turns)
     const o = (step % 2 ? 1 : -1) * Math.ceil(step / 2) * 0.25;
     for (const band of [1, 1.45]) {
       const a = s + o - 0.5;
-      const row = mine.filter((i) => r.along[i] >= a && r.along[i] < a + band).sort((p, q) => p - q);
+      const row = side.mine.filter((i) => r.along[i] >= a && r.along[i] < a + band).sort((p, q) => p - q);
       if (!row.length) continue;
       if (!fallback.length) fallback = row;
-      if (rowSpans(plan, r, li, row)) return row;
+      if (spans(r, side, row)) return row;
     }
   }
   return fallback;
@@ -120,10 +139,13 @@ function spanRow(plan: PremisePlan, r: WaterRaster, li: number, s: number): numb
 /** Whether a row shuts its channel: from the body the link leaves and its channel up to the row, no way past it
  *  through the channel. */
 export function rowSpans(plan: PremisePlan, r: WaterRaster, li: number, row: number[]): boolean {
+  return spans(r, rowSide(plan, r, li), row);
+}
+
+function spans(r: WaterRaster, side: RowSide, row: number[]): boolean {
   if (!row.length) return false;
   const { W, H } = r;
-  const N = W * H;
-  const from = plan.bodies.findIndex((b) => b.id === plan.links[li].from);
+  const { li, from } = side;
   let a = Infinity;
   let b = -Infinity;
   for (const i of row) {
@@ -131,22 +153,21 @@ export function rowSpans(plan: PremisePlan, r: WaterRaster, li: number, row: num
     b = Math.max(b, r.along[i]);
   }
   const inRow = new Set(row);
-  const ours = (i: number) => r.channel[i] === li + 1 || (from >= 0 && r.lake[i] === from + 1);
-  const seen = new Uint8Array(N);
+  const seen = new Set<number>(row);
   const queue: number[] = [];
-  for (let i = 0; i < N; i++)
-    if (!inRow.has(i) && ((r.channel[i] === li + 1 && r.along[i] < a) || (from >= 0 && r.lake[i] === from + 1))) {
-      seen[i] = 1;
-      queue.push(i);
-    }
+  for (const i of side.mine) if (r.along[i] < a && !inRow.has(i)) queue.push(i);
+  for (const i of side.body) queue.push(i);
+  for (const i of queue) seen.add(i);
   const nb = new Int32Array(4);
   while (queue.length) {
     const c = queue.pop()!;
     near4(W, H, c, nb);
     for (const j of nb) {
-      if (j < 0 || seen[j] || inRow.has(j) || !ours(j)) continue;
-      if (r.channel[j] === li + 1 && r.along[j] > b) return false;
-      seen[j] = 1;
+      if (j < 0 || seen.has(j)) continue;
+      const ours = r.channel[j] === li + 1;
+      if (!ours && !(from >= 0 && r.lake[j] === from + 1)) continue;
+      if (ours && r.along[j] > b) return false;
+      seen.add(j);
       queue.push(j);
     }
   }

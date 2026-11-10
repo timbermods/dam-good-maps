@@ -16,9 +16,10 @@ export const WATER = {
   /** Flow a lip tile carries for each level of head over its crest (blocks a second). Four Lakes: about 3.3; sim/sill.ts
    *  measured the settle's head as 0.33 × flow ÷ width. Fitted by the settle (premiseWater.test.ts). */
   lipCarry: 3.3,
-  /** Flow a channel's bed carries a tile of its width for each level of depth. Four Lakes: a gorge 5 wide carries 20
-   *  a level deep. */
-  channelCarry: 4,
+  /** Flow a channel's bed carries a tile of its width for each level of depth. Fitted by the settle
+   *  (premiseWater.heavy.test.ts): brooks 2.5 to 4.4, the neck and the hanging valley 2.1 to 3.1, the gorge 2.6; the
+   *  lower end, so a channel is built for the deepest water it runs (the guard stands a level over it). */
+  channelCarry: 2.5,
   /** A lip's least width (PREMISES §2.2: 8 to `MAX_SILL_WIDTH`). */
   lipLeast: 8,
   /** The depth a dry body or channel is designed for (the guard holds it when a work lets the water in). */
@@ -53,6 +54,8 @@ export interface LinkFlow {
   width: number;
   /** A fall: the head over its crest; a channel: its water's depth on a level reach. */
   depth: number;
+  /** Its water's depth on its channel's bed (a channel, the landmark's hanging valley, the gorge below its lip). */
+  bedDepth: number;
   wet: boolean;
   /** A row of Blockages shuts it on day 1. */
   shut: boolean;
@@ -154,7 +157,7 @@ function route(plan: PremisePlan, bodies: Map<string, Body>, widths: Map<string,
   }
   for (const b of plan.bodies) if (!done.has(b.id)) order.push(b.id);
   const out: WaterTable = { bodies: {}, links: {} };
-  for (const l of plan.links) out.links[l.id] = { id: l.id, flow: 0, bad: 0, width: widths.get(l.id) ?? 1, depth: 0, wet: false, shut: !open(l) };
+  for (const l of plan.links) out.links[l.id] = { id: l.id, flow: 0, bad: 0, width: widths.get(l.id) ?? 1, depth: 0, bedDepth: 0, wet: false, shut: !open(l) };
   for (const id of order) {
     const b = bodies.get(id)!;
     const q = inflow.get(id) ?? 0;
@@ -189,6 +192,7 @@ function route(plan: PremisePlan, bodies: Map<string, Body>, widths: Map<string,
     if (sizedLip(l) && from) lf.depth = out.bodies[from.id].level - l.fall!.crest;
     else if (l.kind === "fall" && l.fall) lf.depth = lf.flow / (WATER.lipCarry * l.fall.width);
     else lf.depth = lf.flow / (WATER.channelCarry * lf.width);
+    if (l.path) lf.bedDepth = lf.flow / (WATER.channelCarry * channelWidth(l));
   }
   return out;
 }

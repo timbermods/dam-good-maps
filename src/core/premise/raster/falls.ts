@@ -16,10 +16,13 @@ import { HEADING_DIR } from "../geom";
 import { fbm } from "../../math/noise";
 import { hypot } from "../../math/portable";
 import { Rng } from "../../math/rng";
-import { designLevel, sizedLip, type WaterTable } from "../levels";
+import { designLevel, sizedLip, WATER, type WaterTable } from "../levels";
 import type { Link, Point, PremisePlan } from "../types";
 import { clearWater, near4, seedOf, type WaterRaster } from "./field";
 
+/** A lip rising less than a tile in three along the grid is one straight run with a step where its line asks for one:
+ *  runs of three or fewer cannot follow it within a tile. */
+const STRAIGHT = 1 / 3;
 /** The deepest a stair fall's plunge pool goes under its lake's sill. */
 const POOL_DEEP = 4;
 /** How far beside the gap the shoulders reach, and back from the lip. */
@@ -66,7 +69,7 @@ export function lipStair(P0: Point, P1: Point, n: Point, rng: Rng): LipStair {
   const m = c1 - c0 + 1;
   const t = new Int32Array(m);
   const slope = m > 1 ? (ideal(c1) - ideal(c0)) / (c1 - c0) : 0;
-  if (Math.abs(slope) < 0.25) {
+  if (Math.abs(slope) < STRAIGHT) {
     for (let k = 0; k < m; k++) t[k] = Math.round(ideal(c0 + k));
     return { a, sb, c0, c1, t };
   }
@@ -126,8 +129,32 @@ export function lipTiles(st: LipStair): number {
       const row = rowAt(c, k);
       const id = key(c, row);
       if (front.has(id)) continue;
-      if (front.has(key(c - 1, row)) || front.has(key(c + 1, row)) || front.has(key(c, row - 1)) || front.has(key(c, row + 1))) lip.add(id);
+      if (
+        front.has(key(c - 1, row)) ||
+        front.has(key(c + 1, row)) ||
+        front.has(key(c, row - 1)) ||
+        front.has(key(c, row + 1))
+      )
+        lip.add(id);
     }
+  // (less the starved corners: a lip tile with no crest tile behind it, fed only by the lip beside it)
+  const kOf = (c: number, row: number) => {
+    const T = t[Math.max(0, Math.min(m - 1, c - c0))];
+    return sb < 0 ? row - T : T - 1 - row;
+  };
+  const feeds = (c: number, row: number) =>
+    c >= c0 && c <= c1 && kOf(c, row) >= 0 && !lip.has(key(c, row)) && !front.has(key(c, row));
+  for (let again = true; again;) {
+    again = false;
+    for (const id of lip) {
+      const c = Math.floor((id + 2048) / 4096);
+      const row = id - c * 4096;
+      if (feeds(c - 1, row) || feeds(c + 1, row) || feeds(c, row - 1) || feeds(c, row + 1)) continue;
+      lip.delete(id);
+      front.add(id);
+      again = true;
+    }
+  }
   return lip.size;
 }
 
@@ -138,7 +165,14 @@ export function rasterFalls(plan: PremisePlan, table: WaterTable, r: WaterRaster
   });
 }
 
-function rasterFall(plan: PremisePlan, table: WaterTable, r: WaterRaster, l: Link, li: number, startPad: Set<number>): void {
+function rasterFall(
+  plan: PremisePlan,
+  table: WaterTable,
+  r: WaterRaster,
+  l: Link,
+  li: number,
+  startPad: Set<number>,
+): void {
   const { W, H } = r;
   const f = l.fall!;
   const landmark = l.kind === "fall" && !!l.path;
@@ -187,8 +221,16 @@ function rasterFall(plan: PremisePlan, table: WaterTable, r: WaterRaster, l: Lin
   };
   const isUp = (i: number) => (landmark ? r.channel[i] === li + 1 : r.lake[i] === up + 1);
   const isLow = (i: number) => (gorge ? r.channel[i] === li + 1 : r.lake[i] === low + 1);
-  const upLevel = landmark ? crest + Math.max(0.15, table.links[l.id].depth) : up >= 0 ? designLevel(table, plan.bodies[up]) : crest;
-  const lowLevel = gorge ? Math.max(0.3, table.links[l.id].flow / 20) : low >= 0 ? designLevel(table, plan.bodies[low]) : 0;
+  const upLevel = landmark
+    ? crest + Math.max(WATER.designDepth, table.links[l.id].bedDepth)
+    : up >= 0
+      ? designLevel(table, plan.bodies[up])
+      : crest;
+  const lowLevel = gorge
+    ? Math.max(WATER.designDepth, table.links[l.id].bedDepth)
+    : low >= 0
+      ? designLevel(table, plan.bodies[low])
+      : 0;
   // (a tile's place: u along the lip from its middle, v out along the way the water falls; its column and row)
   const uv = (x: number, y: number): [number, number] => {
     const dx = x + 0.5 - mid[0];
@@ -222,8 +264,13 @@ function rasterFall(plan: PremisePlan, table: WaterTable, r: WaterRaster, l: Lin
       }
     }
   // the plunge pool, out along the way the water falls until it meets its lake
-  const foot = gorge ? 0 : low >= 0 ? Math.max(0, plan.bodies[low].sill - Math.min(POOL_DEEP, plan.bodies[low].deep)) : 0;
-  const ownsLow = (k: number) => !gorge && (plan.links[k].from === l.to || plan.links[k].to === l.to) && !plan.links[k].fall;
+  const foot = gorge
+    ? 0
+    : low >= 0
+      ? Math.max(0, plan.bodies[low].sill - Math.min(POOL_DEEP, plan.bodies[low].deep))
+      : 0;
+  const ownsLow = (k: number) =>
+    !gorge && (plan.links[k].from === l.to || plan.links[k].to === l.to) && !plan.links[k].fall;
   const setPool = (i: number, h: number): boolean => {
     if (i < 0 || startPad.has(i)) return false;
     // (another link's bed gives way where that link runs into or out of the same lake: the pool is that lake's water)
@@ -309,6 +356,21 @@ function rasterFall(plan: PremisePlan, table: WaterTable, r: WaterRaster, l: Lin
     }
     ring = next;
   }
+  // (a starved corner, a lip tile with no crest behind it, fed only by the lip beside it, pours a film: it is the pool's)
+  for (let again = true; again;) {
+    again = false;
+    for (const [i, d] of dist) {
+      if (d !== 1) continue;
+      near4(W, H, i, nb);
+      if (Array.from(nb).some((j) => j >= 0 && (dist.get(j) ?? 0) >= 2)) continue;
+      let floor = Infinity;
+      for (const j of nb) if (j >= 0 && r.pool[j] === li + 1) floor = Math.min(floor, r.heights[j]);
+      if (floor === Infinity || !setPool(i, floor)) continue;
+      dist.delete(i);
+      front.add(i);
+      again = true;
+    }
+  }
   const lip = [...dist].filter(([, d]) => d === 1).map(([i]) => i);
   // (along the lip: by column, then down the stair's runs)
   const colOf = (i: number) => (a === 0 ? i % W : Math.floor(i / W));
@@ -318,10 +380,11 @@ function rasterFall(plan: PremisePlan, table: WaterTable, r: WaterRaster, l: Lin
   // the notch, the ruined weir's piers and breach, on the lip and through the crest behind it
   const behindOf = (i: number): number => {
     near4(W, H, i, nb);
-    for (const j of nb) if (j >= 0 && front.has(j)) {
-      const o = i + (i - j);
-      return dist.get(o) === 2 ? o : -1;
-    }
+    for (const j of nb)
+      if (j >= 0 && front.has(j)) {
+        const o = i + (i - j);
+        return dist.get(o) === 2 ? o : -1;
+      }
     return -1;
   };
   const notch: number[] = [];
@@ -331,7 +394,9 @@ function rasterFall(plan: PremisePlan, table: WaterTable, r: WaterRaster, l: Lin
     const pick = (u: number) => Math.max(0, Math.min(L - 1, Math.round(u * (L - 1))));
     if (f.piers > 0) {
       // (three tiles apart, about the lip's middle: PREMISES §2.3, the bridge's place)
-      const ps = Array.from({ length: f.piers }, (_, k) => Math.max(0, Math.min(L - 1, pick(0.5) + Math.round((k - (f.piers - 1) / 2) * (PIER_GAP + 1)))));
+      const ps = Array.from({ length: f.piers }, (_, k) =>
+        Math.max(0, Math.min(L - 1, pick(0.5) + Math.round((k - (f.piers - 1) / 2) * (PIER_GAP + 1)))),
+      );
       for (const p of ps) piers.push(lip[p]);
       if (f.breach > 0 && ps.length >= 2) {
         const gap0 = ps[Math.floor((ps.length - 1) / 2)];
@@ -343,7 +408,22 @@ function rasterFall(plan: PremisePlan, table: WaterTable, r: WaterRaster, l: Lin
       const first = pick(0.5) - Math.floor(f.breach / 2);
       for (let k = 0; k < f.breach; k++) notch.push(lip[Math.max(0, Math.min(L - 1, first + k))]);
     }
-    const p = pick(0.35 + 0.3 * rng.float());
+    // (in a run's middle, the tiles each side of it on its row: a notch beside a step of the stair starves the corner
+    // tile past it, which pours from one side only)
+    const want = pick(0.35 + 0.3 * rng.float());
+    const midRun = (k: number) =>
+      k >= 1 && k + f.notch < L && rowOf(lip[k - 1]) === rowOf(lip[k]) && rowOf(lip[k + f.notch]) === rowOf(lip[k]);
+    let p = want;
+    for (let d = 0; d <= L * 0.2; d++) {
+      if (midRun(want - d)) {
+        p = want - d;
+        break;
+      }
+      if (midRun(want + d)) {
+        p = want + d;
+        break;
+      }
+    }
     for (let k = 0; k < f.notch; k++) notch.push(lip[Math.min(L - 1, p + k)]);
   }
   const level = new Map<number, number>();
@@ -352,11 +432,8 @@ function rasterFall(plan: PremisePlan, table: WaterTable, r: WaterRaster, l: Lin
     const o = behindOf(i);
     if (o >= 0) level.set(o, crest - 1);
   }
-  for (const i of piers) {
-    level.set(i, crest + 1);
-    const o = behindOf(i);
-    if (o >= 0) level.set(o, crest + 1);
-  }
+  // (a pier on the lip only: the crest behind it runs on, so no lip tile past it is cut off from its water)
+  for (const i of piers) level.set(i, crest + 1);
   // the crest and the bed behind it
   const markUp = (i: number, h: number) => {
     if (landmark) {

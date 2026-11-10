@@ -1,5 +1,5 @@
-// A premise's water by number for a seed (docs/PREMISES.md §2.2, stage 1): the water table, which `land` invariants
-// hold, stage 1's time, and a picture of its heights and water.
+// A premise's water by number for a seed (docs/PREMISES.md §2.2, stage 1): the first plan whose water holds, the water
+// table, which `land` invariants hold, stage 1's time, and a picture of its heights and water.
 //
 //   npx tsx tools/premise-water.ts [--seed 1 | --seeds 1-12] [--size 192] [--plan file.json] [--out .scratch/premise]
 //                                  [--settle]
@@ -11,11 +11,12 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
-import { failing, firstPlan } from "../src/core/premise/draw";
+import { failing, firstWater } from "../src/core/premise/draw";
 import { PREMISES } from "../src/core/premise/premises";
 import type { PremiseId, PremisePlan } from "../src/core/premise/types";
 import { stageModel, waterByNumber, type StageWater } from "../src/core/premise/water";
-import { flowThrough, canonicalSettle } from "../src/core/sim/prefill";
+import { canonicalSettle } from "../src/core/sim/prefill";
+import { stageFlow } from "../src/core/premise/waterChecks";
 import { makeSpec, type MapSpec } from "../src/core/spec/mapspec";
 import { encodePng } from "./png";
 
@@ -40,12 +41,11 @@ function specFor(seed: number, plan?: PremisePlan): MapSpec {
   return spec;
 }
 
-/** Stage 1 and its `land` checks, timed as the pipeline runs them (the water, then `flowThrough` twice). */
+/** Stage 1 and its `land` checks' flow, timed as the pipeline runs them. */
 function stage(plan: PremisePlan): { w: StageWater; ms: number } {
   const t0 = performance.now();
   const w = waterByNumber(plan);
-  flowThrough(stageModel(w, { shutNotches: true }));
-  flowThrough(stageModel(w));
+  stageFlow(w);
   return { w, ms: performance.now() - t0 };
 }
 
@@ -130,10 +130,12 @@ if (file) {
 } else
   for (const seed of seeds) {
     const spec = specFor(seed);
-    const r = firstPlan(def, spec);
+    // (the first plan whose water holds: a plan that fails a land invariant is drawn again)
+    const r = firstWater(def, spec);
     if ("reason" in r) {
       console.log(`seed ${seed}: ${r.reason}`);
       continue;
     }
+    if (r.attempt) console.log(`seed ${seed}: drawn ${r.attempt + 1} times (${r.failed.map((f) => f.id).join(", ")})`);
     run(r.plan, spec, `${premise}-${side}-${seed}`, seeds.length === 1);
   }

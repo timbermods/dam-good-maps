@@ -4,7 +4,6 @@
 // both. The guard's levels are the least stage 2's land may stand there (`WaterRaster.heights` on tiles not `fixed`),
 // never a wall of their own: the land's envelope rises over them.
 
-import { pathLength } from "../geom";
 import type { PremisePlan } from "../types";
 import { clearWater, near4, type WaterRaster } from "./field";
 
@@ -14,6 +13,9 @@ const FREEBOARD = 0.15;
 const MEET = 1.5;
 /** Two waters closer in level than this are one where they meet. */
 const LEVEL = 0.5;
+/** How fast a channel's water falls to its lake's level past its mouth, a level a tile; and how far it reaches. */
+const SURGE_DROP = 0.25;
+const SURGE_REACH = 6;
 
 /** The water a tile belongs to: a body (its index) or a channel (-1 - its link's index); null on ground. */
 function systemOf(r: WaterRaster, i: number): number | null {
@@ -28,11 +30,24 @@ export function partWaters(plan: PremisePlan, r: WaterRaster): number {
   const { W, H } = r;
   const bodyIds = plan.bodies.map((b) => b.id);
   const links = plan.links;
-  const lengths = links.map((l) => (l.path ? pathLength(l.path) : 0));
-  const head = (t: number) => r.along[t] < MEET;
-  const end = (t: number, k: number) => r.along[t] > lengths[k] - MEET;
-  // (past a link's first row: the side the row keeps dry)
-  const behind = (t: number, k: number) => links[k].rows.length > 0 && r.along[t] >= Math.min(...links[k].rows) - 0.5;
+  // (a channel's head and end: its first and last tiles of its own, where another's bed took its path's ends)
+  const first = new Float64Array(links.length).fill(Infinity);
+  const last = new Float64Array(links.length).fill(-Infinity);
+  for (let i = 0; i < W * H; i++) {
+    const k = r.channel[i] - 1;
+    if (k < 0) continue;
+    if (r.along[i] < first[k]) first[k] = r.along[i];
+    if (r.along[i] > last[k]) last[k] = r.along[i];
+  }
+  // (a link's first row stands where the plan puts it, or at its first tiles of its own: water.ts `spanRow`; past it
+  // is the side the row keeps dry)
+  const rowAt = links.map((l, k) => (l.rows.length ? Math.max(Math.min(...l.rows), first[k] + 0.5) : Infinity));
+  const behind = (t: number, k: number) => r.along[t] >= rowAt[k] + 0.5;
+  const head = (t: number) => {
+    const k = r.channel[t] - 1;
+    return r.along[t] < Math.max(0, first[k]) + MEET && !behind(t, k);
+  };
+  const end = (t: number, k: number) => r.along[t] > last[k] - MEET;
   const level = (p: number, q: number) => Math.abs(r.surface[p] - r.surface[q]) < LEVEL;
   // (a fall's upper water meets its lower only over its crest: the landmark's upper water is its valley's channel,
   // the gorge's lower water is its own)
@@ -55,7 +70,8 @@ export function partWaters(plan: PremisePlan, r: WaterRaster): number {
       const la = links[ka];
       const lb = links[kb];
       if (la.from === lb.from && head(i) && head(j)) return true;
-      if (la.to === lb.to && end(i, ka) && end(j, kb)) return true;
+      // (a tributary's end joins the other anywhere: both run on to the same water or the same exit)
+      if (la.to === lb.to && (end(i, ka) || end(j, kb))) return true;
       if ((la.to === lb.from && end(i, ka) && head(j)) || (lb.to === la.from && end(j, kb) && head(i))) return true;
       const share = la.from === lb.from || la.to === lb.to || la.to === lb.from || lb.to === la.from;
       return share && !behind(i, ka) && !behind(j, kb) && level(i, j);
@@ -95,7 +111,10 @@ export function partWaters(plan: PremisePlan, r: WaterRaster): number {
           // (the tile with more of its own water round it gives it up, so no narrow channel is cut; else the higher)
           const ni = own(i, a);
           const nj = own(j, b);
-          const drop = ni !== nj ? (ni > nj ? i : j) : r.surface[i] >= r.surface[j] ? i : j;
+          // (a fall's crest never: its lip is the fall's width)
+          const ci = r.crest[i] !== 0;
+          const cj = r.crest[j] !== 0;
+          const drop = ci !== cj ? (ci ? j : i) : ni !== nj ? (ni > nj ? i : j) : r.surface[i] >= r.surface[j] ? i : j;
           clearWater(r, drop);
           r.fixed[drop] = 0;
           r.heights[drop] = 0;
@@ -163,6 +182,35 @@ export function dropPockets(plan: PremisePlan, r: WaterRaster): number {
   }
   r.parted += dropped;
   return dropped;
+}
+
+/** A channel's water runs into its lake higher than the lake stands (the neck carries the springs' pool into the top
+ *  lake more than a level over its bed): the lake's surface by its mouth rises to meet it, falling `SURGE_DROP` a tile,
+ *  so the guard there stands over it. */
+export function surgeMouths(plan: PremisePlan, r: WaterRaster): void {
+  const { W, H } = r;
+  const N = W * H;
+  const toBody = plan.links.map((l) => plan.bodies.findIndex((b) => b.id === l.to));
+  const nb = new Int32Array(4);
+  for (let pass = 0; pass < SURGE_REACH; pass++) {
+    let changed = 0;
+    for (let i = 0; i < N; i++) {
+      const k = r.lake[i] - 1;
+      if (k < 0 || r.pool[i] || r.crest[i]) continue;
+      near4(W, H, i, nb);
+      for (const j of nb) {
+        if (j < 0) continue;
+        const from = r.channel[j] ? toBody[r.channel[j] - 1] === k : r.lake[j] === k + 1 && !r.pool[j] && !r.crest[j];
+        if (!from) continue;
+        const v = r.surface[j] - SURGE_DROP;
+        if (v > r.surface[i]) {
+          r.surface[i] = v;
+          changed++;
+        }
+      }
+    }
+    if (!changed) break;
+  }
 }
 
 /** Every ground tile beside water raised to a level over the water's surface. Returns the tiles raised. */

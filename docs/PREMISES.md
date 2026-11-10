@@ -1,6 +1,6 @@
 # Premises: how the generator makes a map from an idea
 
-A design, not yet built. [MAPCRAFT.md](MAPCRAFT.md) says what makes a map good and lists the craft in thirteen steps;
+A design, built a step at a time (section 7 marks the steps built). [MAPCRAFT.md](MAPCRAFT.md) says what makes a map good and lists the craft in thirteen steps;
 its table says the generator starts from noise and has no idea, no ladder and no weather gate. The hand-built map Four
 Lakes (`tools/showcase/four-lakes.ts` and `four-lakes-design.ts` on branch `showcase/four-lakes`; its rounds in
 `C:\dgm-showcase\four-lakes\LOG.md`) walked those steps from a one-line premise and is in a different class from any
@@ -221,11 +221,47 @@ it runs once.
   water that would let it out stands a level over it, exits excepted]; a row that spans a channel [`spanRow`].
   Widths come from flows: a lip's width is `sillWidthFor(flow)` clamped to 8 to `MAX_SILL_WIDTH` (16), so the head on
   it is 0.15 to 0.35.
-- The arithmetic it uses, measured on Four Lakes (constants to be fitted by this stage's test, not laws): a lip
-  carries about 3.3 × depth × width; a flat channel needs about a level of head per 100 tiles; a gorge 5 wide carries
-  a flow of 20 a level deep; a notch one tile wide carries 2 to 3.
+- The arithmetic it uses, measured on Four Lakes and fitted by this stage's test (as built, below): a lip carries
+  about 3.3 × depth × width; a flat channel needs about a level of head per 100 tiles; a gorge 5 wide carries a flow
+  of 20 a level deep; a notch one tile wide carries 2 to 3.
 - Test (`land`): `flowThrough` on the rastered water alone gives each body's level within 0.5 of its sill and no
   flow leaving except by a planned exit; each fall's drop is its height; every row spans its channel.
+
+**As built (step 2).** Stage 1 is `water.ts` `waterByNumber`; its `land` invariants are `waterChecks.ts`
+(`water.levels`, `water.exits`, `water.wet`, `water.falls`, `water.rows`); `tools/premise-water.ts` prints a seed's
+table and draws its heights and water. Where it differs from the above, and why:
+
+- **The constants, fitted** by `premiseWater.heavy.test.ts` (seed 1 at the three sizes and Four Lakes, settled as the
+  game plays them): a lip carries 3.3 × head per tile (verified: every wet body settles within 0.2 of the table's
+  level, every lake 0.05 to 0.6 over its sill); a channel carries 2.5 × width × depth (fitted: brooks measured 2.5 to
+  4.4, the neck and the hanging valley 2.1 to 3.1, the gorge 2.6; at 3.3 the gorge overtopped its guard). In the
+  table a notch or breach is a lip tile a level deeper, a pier one a level higher, and a link a row spans carries
+  nothing. A notch a level deep through the crest carries 4 to 5 in the settle, not 2 to 3 (section 9).
+- **Lip widths come from the table's flow** (`lipWidth`, routed three times as the widths settle). At the lake
+  stair's flows every stair fall's lip is 8, the floor: the stair carries 6.5 of the springs' 14 (the landmark's
+  valley takes 7.5), so the head on it is 0.12, under the 0.15 to 0.35 above.
+- **The lip** is a stair of runs (`raster/falls.ts` `lipStair`), drawn longer a tile at a time until it holds its
+  width in tiles, since a diagonal's corners cost tiles. A lip rising less than a tile in three along the grid is
+  one straight run, stepped where its line asks. A corner tile with no crest behind it, fed only by the lip beside
+  it, is the pool's: it would pour a film. The notch sits in a run's middle, never beside a step, which would starve
+  the tile past it. Piers stand three tiles apart about the lip's middle, on the lip only (the crest behind runs on,
+  so no lip tile is cut off), as ground a level over the crest; the breach is between the middle two.
+- **The level test shuts the notches and breaches**: `flowThrough`'s spill levels are static, so an open notch
+  would stand its lake at the notch, a level under the sill the table's water stands over. Where the water goes is
+  the same either way. A body with no way out (a pond a work fills) stands at its rim, its sill + 1.
+- **Two waters touch only where the plan joins them** (`raster/guard.ts` `partWaters`): a fall's crest between its
+  two bodies, a channel's head and mouth, a brook's end where it joins another channel into the same body. Elsewhere
+  the guard parts them, and pieces cut off are dropped. A lake's tiles near a channel's mouth are raised towards the
+  channel's surface (`surgeMouths`), so the surge where a channel runs in does not overtop the guard. The guard stands
+  at floor(surface + 0.15) + 1.
+- **A shut link's head holds its body's water**: where the landmark leaves a lake, the pool's whole flow goes down
+  the neck (a gate 5 wide or less) and the pool stands up to 1.3 over its sill (1.5 settled), over the sill-level bed
+  of a bypass or leat. So a link a row spans has its first tiles, to one past its first row, raised to hold its
+  body's level plus 0.3.
+- **A plan whose water fails a `land` invariant is drawn again** (`draw.ts` `firstWater`), as one failing a `plan`
+  invariant is. On seeds 1 to 40, 29, 30 and 37 hold first time at 128², 192² and 256²; every seed holds within
+  `PLAN_TRIES`. The failures are stage 0's: another link running through or beside a fall's lip or pool, a brook into
+  the landmark's valley, two falls side by side. Stage 0 keeping other links clear of the falls would remove most.
 
 **Stage 2. Relief between** (`raster/relief.ts`).
 - In: stage 1's heights and masks, the plan's regions and ridges. Out: the whole map's `heights`.
@@ -378,6 +414,7 @@ with its operation overhead.
 | 0 Plan | 5 ms | 5 ms | 10 ms |
 | *0 Plan, measured at step 1* | *4.7 ms a layout, 32 ms a plan (worst 145)* | *6.2 ms, 12 ms (worst 39)* | *11.3 ms, 21 ms (worst 89)* |
 | 1 Water by number, with `flowThrough` | 40 ms | 90 ms | 160 ms |
+| *1, measured at step 2* | *18 to 39 ms (worst 76)* | *31 to 58 ms (worst 140)* | *52 to 98 ms (worst 245)* |
 | 2 Relief | 60 ms | 140 ms | 250 ms |
 | 3 Start and frame | 5 ms | 5 ms | 5 ms |
 | 4 Ladder (10 to 16 window estimates) | 30 ms | 60 ms | 100 ms |
@@ -389,6 +426,11 @@ with its operation overhead.
 | With one repair settle (the worst accepted) | 2.3 s | 5.9 s | 9.9 s |
 
 A plan that fails before the settle costs the land's row again. Anything over the last row is a bug (D453).
+
+Stage 1 as built (step 2, seeds 1 to 12 under `tsx`, `waterByNumber` and its one `flowThrough`; the ranges are the
+medians over several runs on a machine other sessions shared): within its row at the median, over it in the worst
+case at 192² and 256² when the machine was busy. The bodies' and channels' beds take two thirds of it (an `fbm` and
+a distance a tile), `flowThrough` about an eighth.
 
 Stage 0 as built (step 1, seeds 1 to 200 under `tsx`): one layout that passes takes about the budget, but a plan draws
 4 to 12 layouts on average before one passes (most at 128², where the pool's basins, the frame and the small works
@@ -706,7 +748,7 @@ Each step is one PR that leaves dev green and is useful by itself.
 | # | Step | Useful by itself as | Depends on |
 |---|---|---|---|
 | 1 | **Built.** **The model and the lake stair's plan.** `src/core/premise/types.ts`, `draw.ts`, `premises/lakeStair.ts` (stage 0 with the frame's arithmetic), the `plan` invariants, `tools/premise-plan.ts` (prints a seed's plan and draws its diagram), `premisePlan.test.ts`, the Four Lakes fixture. No generator change, no version bump. **A day.** | The water story as a diagram for any seed (MAPCRAFT step 2); the frame limit as a tested function | Nothing |
-| 2 | **Water by number.** `levels.ts`, `raster/bodies.ts`, `falls.ts`, `channels.ts`, `guard.ts`; the `flowThrough` test; a contract test that settles three plans and the fixture | Lakes, sills, falls and channels at stated levels from a plan: the editor's sketch can call it | Lakes by number (merged: `sillWidthFor`, `MAX_SILL_WIDTH`). The fall judge `fallCurtain.ts` from "a fall in one stroke" (#934, in review) when it merges; not blocked by it |
+| 2 | **Built.** **Water by number.** `levels.ts`, `raster/bodies.ts`, `falls.ts`, `channels.ts`, `guard.ts`; the `flowThrough` test; a contract test that settles three plans and the fixture | Lakes, sills, falls and channels at stated levels from a plan: the editor's sketch can call it | Lakes by number (merged: `sillWidthFor`, `MAX_SILL_WIDTH`). The fall judge `fallCurtain.ts` from "a fall in one stroke" (#934, in review) when it merges; not blocked by it |
 | 3 | **Relief between**, and `tools/premise-map.ts`, which writes a `.timber` for a seed outside the product | A whole land with water to open in the editor and run through the capture kit; tier 4 judging can begin | 2. Ground with grade (#929, next in the milestone session's queue) for the outlands, when it merges; not blocked |
 | 4 | **The generator's mode.** `generatePremise` behind `spec.premise` (link key `p=lakeStair`; no control on the page), stages 3, 5 and 8: the start by the frame, one build, the checks, re-roll and the fall-back to themes; `premiseMap.test.ts`; stage 0 within its row of §3.3 | A playable generated lake stair from a link, in seconds, without plants | 3 |
 | 5 | **The ladder.** Dry bodies and beds, rows of Blockages, the work templates, `estimateGain`, `info.premise` | The spectrum: a map that is not fully watered, with each work's gain known | 4 |
@@ -777,4 +819,13 @@ work to these.
   over its lake (section 4.3).
 - **For the builders to verify in code (section 2.1's two assumptions):** whether a contained `river` feature with
   `entry: { lake }` places a source of its own (build step 4), and the new `MapObjectKind`s the set pieces need
-  (build step 7). The flow constants of stage 1 are Four Lakes' measurements, fitted by that stage's test.
+  (build step 7). The flow constants of stage 1 are fitted (section 2.2, "As built (step 2)").
+- **A stair fall's curtain on day 1 (found at step 2):** a stair fall carries 6.5, and its open notch, a level deep
+  through the crest, takes 4 to 5 of it, so the rest of the lip pours a film: settled, 4 to 7 of a lip's 8 tiles
+  pour over 0.05 deep at 192² and 256² (all of them at 128²). With the notches shut every lip pours whole, and that
+  is what `premiseWater.heavy.test.ts` judges; the open-notch counts are in its log. For stage 0 to choose: more of
+  the springs down the stair (a neck wider than the landmark's valley, or the landmark fed from a lake), or a notch
+  that is a one-level plug two tiles thick (ruling 5's fallback), which carries nothing until a player opens it.
+- **The lowest beds (found at step 2):** the lowest sill is 2 and the gorge's bed 0, under `BED_FLOOR` (3, D325: the
+  deepest bed stands three levels over the map's floor, room to dig). Stage 1 builds the plan's levels as given; the
+  stair's base is stage 0's to raise.
