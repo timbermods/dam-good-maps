@@ -62,6 +62,7 @@ import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
 import { blockReach, hollowFootprint, HollowMarks, roofOf, type HollowReach } from "./hollow";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
+import { GeothermalSteam, steamFields } from "./geothermalSteam";
 import { WALL_CLOCK, type Clock } from "./clock";
 import { Pops, type PopItem } from "./pops";
 import type { Voxels } from "./wear";
@@ -681,6 +682,9 @@ export class MapRenderer {
     this.sky.frustumCulled = false;
     this.sky.renderOrder = -1000;
     if (!this.software) this.scene.add(this.sky);
+    // the geothermal fields' steam, on the objects' clock (never in software drawing: geothermalSteam.ts)
+    this.steam = this.software ? null : new GeothermalSteam(this.uniforms.time);
+    if (this.steam) this.scene.add(this.steam.mesh);
     this.lookNow = this.software ? "light" : "standard";
     // the Flow view from the address (?flow=on) until the page has its switch (D353)
     try {
@@ -1097,7 +1101,7 @@ export class MapRenderer {
   /** Whether the water moves on screen now (a recording's caller draws its own frames). */
   get animated(): boolean {
     const m = this.map;
-    return !!m && (m.water.count > 0 || !!this.high?.animates) && this.clock === null && !this.benching && !this.recording && !this.reducedMotion && !this.software && this.inView && !document.hidden;
+    return !!m && (m.water.count > 0 || !!this.high?.animates || (this.steam?.count ?? 0) > 0) && this.clock === null && !this.benching && !this.recording && !this.reducedMotion && !this.software && this.inView && !document.hidden;
   }
 
   // -------------------------------------------------------------------------------------- the look
@@ -2648,6 +2652,8 @@ export class MapRenderer {
   private applyWithered(): void {
     const m = this.map;
     if (!m) return;
+    // (the geothermal fields' steam: over the fields no water stands on the middle of, as the game's stops while flooded)
+    if (this.steam?.set(steamFields(m.entities, m.W, m.H, m.surface, m.surface?.lower.length ? lowerWater(m.water, m.W * m.H) : null))) this.requestRender();
     const w = this.witheredView(m.entities);
     const flags = w.view.flags;
     const count = w.count;
@@ -3147,6 +3153,8 @@ export class MapRenderer {
 
   private surge: Surge | null = null;
   private forceFx: ForceEffects | null = null;
+  /** The geothermal fields' steam (geothermalSteam.ts); none in software drawing. */
+  private steam: GeothermalSteam | null = null;
 
   /** A force's moment (D202, D203, D206, D281): an impact, a fault's crack, an eruption's plume, rock wearing away; the
    *  effects play on their own clocks. A new force's first moment, a carve's included, skips the last
@@ -4838,6 +4846,7 @@ export class MapRenderer {
     this.droughtLayer?.dispose();
     this.surge?.dispose();
     this.forceFx?.dispose();
+    this.steam?.dispose();
     this.pops?.clear();
     this.high?.dispose();
     this.high = null;

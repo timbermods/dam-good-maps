@@ -3558,6 +3558,58 @@ orientation and flip (drawn turned, never flipped).
   speckle darkens the ground a little. (3) It is judged against the game's model rendered offline, not the game's own
   light. (4) The rest of the placeholders in the large relic's falls short (2) remain.
 
+## The geothermal field as the game draws it (D135, D178 as amended 2026-11-10, D496, D497; `fix/geothermal`)
+
+Ours drew the geothermal field as a mound of dark rock 0.5 high of our own with four vents glowing orange, and High as
+rocks round four glowing vents. The game's (`GeothermalField.Model`, 523 triangles with its footing) is the one model
+for every field; the map stores its Coordinates and orientation (never flipped).
+
+- **Read from the game's model** (numbers only, `tools/game-model-albedo.py` and scratch tools): a round crust in the
+  blockage's material (208 triangles), reaching 1.05–1.23 from its footprint's middle, rising from the ground to a rim
+  0.14–0.22 high about 0.8 out, falling inward to a bowl near the ground and a vent 0.4 deep under the middle. Its
+  vertex colours make the rim sulphur yellow and the bowl, its outer slope and the vent dark (albedo 0.249/0.201/0.045
+  over its area, from 0.149/0.122/0.077 to 0.462/0.359/0.002). Thirteen rocks in the water source's rock material
+  stand round its edge, 0.12–0.24 high (0.203/0.186/0.155). A footing of ground in the terrain's own material
+  (`SlopeCliffEdge`) heaps round it to its footprint's edge. Neither material is metallic, so the colours are drawn
+  straight (`palette.ts` `GEOTHERMAL`: the crust in six shades, the vent black, the rocks in three).
+- **Its blueprint:** it cuts its middle tile out of the terrain (`BlockObjectTerrainCutoutSpec`), as the crust's bowl
+  and vent sink below the ground there; ours does too (entities3d.ts `mineCutout`), so it is the land's own shape,
+  never faded or hidden (objectFade.ts `LAND`), as the mine site and seeps are.
+- **Its states and steam:** the field has no state of its own. Its steam, `GeothermalFieldSmoke`, runs while it is not
+  blocked; it is blocked while flooded (`BlockableFloodableObject`: its water object at its middle with water above its
+  base, the water's height ceiled over its level, so any water at all) or built over (our maps have no buildings).
+  Read from its ParticleSystem and its `Dust` material: 100 puffs alive at most (80 a second), each living 2–3 s, born
+  on a circle 0.48 round the middle, drifting in at 0.15 a second, rising under a twentieth of gravity turned upward;
+  0.8–1.0 across, shrinking to a tenth by the end; its colour pale grey 0.83/0.82/0.79 through its colour over life
+  (brown-grey 0.30/0.26/0.21, grey 0.51 at 0.45, pale 0.89 at the end) and very faint (alpha 0 → 0.094 at 0.44 of its
+  life → 0.039 at 0.86 → 0, times its material's 0.6). Ours (`render3d/geothermalSteam.ts`, new) draws those puffs,
+  each placed and timed on the GPU from the view's clock, one batch for every field, and stops a field's while any
+  water stands on its middle tile (`steamFields`, read each time the water or the objects change). Left out: the game's
+  wind, which carries its puffs, and its puffs' texture, ours a soft round puff. None in the light look; still with
+  reduced motion.
+- **Built** (`render3d/geothermal.ts`, new): the crust a grid of 16 headings by 7 rings out to its reach, each corner
+  at the game's height there and in its colour there (averaged over 0.05 round it, the nearest of the six shades), its
+  edge sunk 0.04 into the ground; each rock the hull of its farthest points six ways round, three ways up and its top:
+  416 triangles. Standard and High draw the same model (High's own rocks and vents go), in the objects' game light.
+- **Measured:** the bounds within 0.03 of the game's (without its footing). The silhouette, against the game's crust
+  and rocks from 16 cameras (8 headings, 30° and 60° down) and from above: 0.98–1.00 times the game's area, IoU
+  0.95–0.97.
+- **Standard's shadow:** none, as before. Low and wide, the model casts 0.07–0.14 tiles² past the ground it covers
+  along the 45° sun: its rocks' slivers, no shape a disc could follow.
+- **Judged:** eight placed on river valley 2's banks, Standard and High: sulphur rims round dark bowls and black vents,
+  grey-brown rocks round them, a faint grey haze rising over each, as the game's model renders offline.
+- **Cost:** +1 draw call (the steam, one batch for all fields), the triangles about the same. `benchOrbit` on river
+  valley 2 at 128 with the eight fields (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame, one run
+  each, base → branch): Standard whole map 2.60 → 2.70 ms, the fields 14 away 2.88 → 2.94; High 2.34 → 2.69 and 3.78
+  → 3.72: within the runs' spread. Every frame 7.0 ms at 144 Hz. A map with fields and no water now draws at the
+  water's 30 frames a second for the steam.
+- **Falls short:** (1) The game's wind does not carry the steam, and its puffs are a soft round puff of our own, not
+  the game's texture; the particle system was read from its serialized numbers without its field names, so its
+  smaller modules (noise, rotation over life) are left out. (2) The game's footing of ground round it is left to the
+  terrain. (3) Its rocks are hulls of a few points each where the game's are rounder. (4) It is judged against the
+  game's model rendered offline, not the game's own light. (5) The rest of the placeholders in the large relic's falls
+  short (2) remain.
+
 ## A fall over a cave's mouth (D154 as amended 2026-11-08, D496; `fix/cave-mouth-curtain`)
 
 The in-game capture kit (#933) on Four Lakes r9: at the Great Fall the game draws one curtain over a dry cave's mouth
