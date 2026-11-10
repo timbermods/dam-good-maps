@@ -3222,6 +3222,29 @@ The game's (`LargeRelic.Model`, 3 × 3, 1,605 triangles) is a fallen dish antenn
   reserve tank (2.81, ours 2.66); the natural dam (179 triangles) has no model of ours. (3) The dish's look is judged
   only through the falls' curtain in the game's frames; a frame of the cave from inside would judge its colours.
 
+## A fall over a cave's mouth (D154 as amended 2026-11-08, D496; `fix/cave-mouth-curtain`)
+
+The in-game capture kit (#933) on Four Lakes r9: at the Great Fall the game draws one curtain over a dry cave's mouth
+(air 7–10 under the lip, the lip's water at 14.2–14.5, the lake below at 6.4); ours drew bare rock there between two
+curtains, the cave open.
+
+- **Not the simulation:** the file's water, our stacked settle and the game's own record of that day agree on every
+  tile of the lip and the cave to the hundredth (the cave dry, the roof's water 0.2–0.5 deep).
+- **The cause:** the lake's tiles at the mouth stand under a roof's reach, so they are dealt into a layer of their own
+  (waterLayers.ts), seeing at each tile the gap at their level. At the mouth that was the dry cave (rock at the lake's
+  level, the cave's floor the lowest gap above it), so the lake took it as a shore and never rose. The roof's water, in
+  the open sky's layer, links to the lake below and stays flat to the lip, taking the lake's slope as drawn. Neither
+  layer drew the fall.
+- **Now:** where a column sees rock at its level at a tile and the gap above it is dry, it sees the lowest gap of that
+  tile above it, under its ceiling, holding water: the game's `ProcessColumns` links a neighbour's wet column whose span
+  overlaps its own. The lake's slope rises to the lip over the mouth as everywhere else along the fall
+  (`waterLayers.test.ts`, "a fall over a dry cave's mouth"). Ours from the game's `cave` and `falls` cameras now draws
+  the curtain whole over the mouth, as the game's does.
+- **Speed:** `waterLayers` in Node, both in one process, the least of 200 runs: Pillars 8.9 → 8.9–9.1 ms, Hollows
+  2.9 → 3.1–3.2, Four Lakes r9 0.67 → 0.71 (the check runs only at tiles holding water above the gap seen).
+- **Falls short:** where a tile holds water in two gaps above a column's level, which one the game links is not read;
+  ours takes the lower.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:

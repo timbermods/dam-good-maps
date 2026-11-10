@@ -277,6 +277,31 @@ describe("water at several levels", () => {
     expect(lake.sw.surface[17 * W + 18]).toBeCloseTo(12.6, 5);
     expect(lake.ground[29 * W + 18]).toBe(13);
   });
+
+  it("a fall over a dry cave's mouth: the lake below rises to the water on the cave's roof, as the game draws its curtain", () => {
+    // Four Lakes r9's Great Fall (the in-game capture kit, #933): the lake (floor 2, surface 4) under a cliff whose lip
+    // (x 6–11, top 10) holds water at 10.5; a dry cave (air 5–7) under the lip at x 6–8, y 3–6, its mouth on the lake.
+    // The game's `ProcessColumns` links the lake to the roof's water (their columns overlap, it is wet, under the
+    // lake's ceiling), so the lake's slope rises to 10.5 over the mouth too; the lake used to see the dry cave there (a
+    // shore at its floor, 5) while the roof's water, in the open sky's layer, took the slope as drawn: bare rock
+    // between two curtains
+    const cliff = scene(
+      12,
+      10,
+      (x, y, z) => (x < 6 ? z < 2 : z < 10 && !(x <= 8 && y >= 3 && y <= 6 && z >= 5 && z < 7)),
+      Array.from({ length: 12 * 10 }, (_, i): [number, number, number, number, number] => {
+        const x = i % 12;
+        return x < 6 ? [x, (i - x) / 12, 2, 2, 0] : [x, (i - x) / 12, 10, 0.5, 0];
+      }),
+    );
+    const r = checkScene(cliff);
+    expect(r.layers, "the lake beside the cave in a layer of its own").toBeGreaterThanOrEqual(2);
+    for (let y = 0; y < 10; y++) {
+      const t = r.tops.get(`5,${y},${(2).toFixed(4)}`);
+      expect(t?.n, `the lake's tile (5, ${y}) a slope`).toBe(9);
+      expect(t?.hi, `the lake's tile (5, ${y}) rising to the lip's water`).toBeCloseTo(10.5, 4);
+    }
+  });
 });
 
 // ---- the official maps with caves (local only) ----
