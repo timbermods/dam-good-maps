@@ -2488,13 +2488,13 @@ impl Crater {
                         y + dy * d + dx * offset,
                         // (never narrower than two tiles)
                         max(
-                            2.0,
+                            2.3,
                             (0.8 + hash(ray.seed, j + 300.0) * 1.1)
                                 * if heavy { 1.55 } else { 1.0 }
                                 * (1.0 - f * 0.45),
                         ),
                     ));
-                    d += max(4.0, radius * if heavy { 0.12 } else { 0.15 })
+                    d += max(7.0, radius * if heavy { 0.12 } else { 0.15 })
                         * (1.0 + hash(ray.seed, j + 400.0));
                     j += 1.0;
                 }
@@ -2508,37 +2508,52 @@ impl Crater {
         let reach = max(a, b) * 1.4 + 1.0;
         let (x0, x1) = (max(0.0, (x - reach).floor()) as usize, min(m.w as f64 - 1.0, (x + reach).ceil()) as usize);
         let (y0, y1) = (max(0.0, (y - reach).floor()) as usize, min(m.h as f64 - 1.0, (y + reach).ceil()) as usize);
-        let mut sums = [0.0f64; 9];
-        for yy in y0..=y1 {
-            for xx in x0..=x1 {
-                let (dx, dy) = (xx as f64 - x, yy as f64 - y);
-                let (u, v) = ((dx * turn_c + dy * turn_s) / a, (-dx * turn_s + dy * turn_c) / b);
-                let d = u * u + v * v;
-                if d < 0.64 || d > 1.96 {
-                    continue;
-                }
-                let g = m.heights[yy * m.w + xx] as f64;
-                for (k, v) in [1.0, dx, dy, g, dx * dx, dx * dy, dy * dy, dx * g, dy * g].into_iter().enumerate() {
-                    sums[k] += v;
-                }
-            }
-        }
+        // (fitted three times, the second and third without the ground that stands far off the fit before:
+        // a cliff or a canyon beside the crater is not a slope, and a plateau's edge leaves it level)
         let mut lean = (0.0, 0.0);
         let mut slope = (0.0, 0.0);
-        if sums[0] >= 24.0 {
+        let mut fit: Option<(f64, f64, f64)> = None;
+        for off in [f64::INFINITY, 2.5, 1.5] {
+            let mut sums = [0.0f64; 9];
+            for yy in y0..=y1 {
+                for xx in x0..=x1 {
+                    let (dx, dy) = (xx as f64 - x, yy as f64 - y);
+                    let (u, v) = ((dx * turn_c + dy * turn_s) / a, (-dx * turn_s + dy * turn_c) / b);
+                    let d = u * u + v * v;
+                    if d < 0.64 || d > 1.96 {
+                        continue;
+                    }
+                    let g = m.heights[yy * m.w + xx] as f64;
+                    if let Some((at, sx, sy)) = fit {
+                        if (g - at - sx * dx - sy * dy).abs() > off {
+                            continue;
+                        }
+                    }
+                    for (k, v) in [1.0, dx, dy, g, dx * dx, dx * dy, dy * dy, dx * g, dy * g].into_iter().enumerate() {
+                        sums[k] += v;
+                    }
+                }
+            }
+            if sums[0] < 24.0 {
+                break;
+            }
             let c = sums[0];
             let (sxx, sxy, syy) = (sums[4] - sums[1] * sums[1] / c, sums[5] - sums[1] * sums[2] / c, sums[6] - sums[2] * sums[2] / c);
             let (sxg, syg) = (sums[7] - sums[1] * sums[3] / c, sums[8] - sums[2] * sums[3] / c);
             let det = sxx * syy - sxy * sxy;
-            if det > 1e-6 * sxx * syy && det > 0.0 {
-                slope = ((sxg * syy - syg * sxy) / det, (syg * sxx - sxg * sxy) / det);
-                lean = (slope.0 * 0.6, slope.1 * 0.6);
-                // (never so much that the floor's steps are narrow, or that it leans out of its bowl)
-                let steep = hypot(lean.0, lean.1);
-                let most = min(0.25, max(1.0, 0.6 * depth) / radius);
-                if steep > most {
-                    lean = (lean.0 * most / steep, lean.1 * most / steep);
-                }
+            if !(det > 1e-6 * sxx * syy && det > 0.0) {
+                break;
+            }
+            slope = ((sxg * syy - syg * sxy) / det, (syg * sxx - sxg * sxy) / det);
+            fit = Some(((sums[3] - slope.0 * sums[1] - slope.1 * sums[2]) / c, slope.0, slope.1));
+        }
+        if fit.is_some() {
+            lean = (slope.0 * 0.6, slope.1 * 0.6);
+            // (never so much that the floor's steps are narrow, or that it leans out of its bowl)
+            let steep = hypot(lean.0, lean.1);
+            let most = min(0.25, max(1.0, 0.6 * depth) / radius);
+            if steep > most {
+                lean = (lean.0 * most / steep, lean.1 * most / steep);
             }
         }
         // The shape, in crater tiles: the cavity's hollows, one near the centre and two or three off it.
@@ -2648,7 +2663,8 @@ impl Crater {
         // of the floor. A ring is three or four separate mountains round the centre, off it, open on
         // one side.
         if c.centre == "peak" && radius >= 8.0 {
-            let main = max(2.6, radius * (0.24 + 0.05 * rnd(2301.0)));
+            // (broad enough for its height: a mountain, never a tower)
+            let main = max(max(2.6, (deep + 3.0) / 1.45), radius * (0.26 + 0.05 * rnd(2301.0)));
             let (t0, off) = (rnd(2302.0) * PI * 2.0, radius * 0.08 * rnd(2303.0));
             let (mx, my) = (off * cos(t0), off * sin(t0));
             let axis = rnd(2304.0) * PI;
@@ -2868,8 +2884,11 @@ impl Crater {
         let e = self.edge(qx, qy);
         let r = 1.0 + e / self.radius;
         let theta = atan2(qy, qx);
-        let mut plane = 1.0 - smooth((r - 0.8) / 0.2);
         let tile = clamp(round(y), 0.0, self.h - 1.0) as usize * m.w + clamp(round(x), 0.0, self.w - 1.0) as usize;
+        // (the land gives way to the crater's own ground inside the bowl; land that lies lower gives
+        // way out past the rim too, so the rim stands whole, two tiles wide, beside a canyon or a lake and
+        // holds its bowl)
+        let mut plane = if (m.heights[tile] as f64) < self.ground(x, y) { 1.0 - smooth((r - 1.0 - 2.6 / self.radius) / 0.25) } else { 1.0 - smooth((r - 0.8) / 0.2) };
         let mut add = self.apron(e, theta, x, y);
         let mut lift = 0.0;
         if r < 1.35 {
@@ -2877,7 +2896,7 @@ impl Crater {
             // (downhill, where the crater's own surface would stand above the land's fall, the land
             // keeps its shape: the crater is open there, it never builds the hillside up)
             let fall = (self.lean.0 - self.slope.0) * (x - self.x) + (self.lean.1 - self.slope.1) * (y - self.y);
-            plane *= 1.0 - smooth((fall + cavity + 1.0) / 2.0);
+            plane *= 1.0 - smooth((fall + min(cavity, 0.0) - 0.5) / 2.0);
             // (the land above the crater's own ground, where the land still shows)
             let over = (m.heights[tile] as f64 - self.ground(x, y)) * (1.0 - plane);
             add = min(add, cavity - over);

@@ -81,18 +81,18 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
   // (pinned to the prototype's until showcase-craft gap 25 reshaped the crater so it reads as a natural one, not a
   // stadium: a scalloped, uneven rim low on one side, terraces that pinch out and merge, a peak of massifs; D148)
   const CRATERS: Record<string, string> = {
-    "bowl 0": "a3bc7bbee61e92e1858ee54e37554527cc6f66290536d6e9b3957fecddae14cb",
-    "peak 0": "b4ba29f24e824a5789b07d218f0bc99b27d286fb7d838ca76a9adfa90b460a76",
-    "ring 0": "94559c0d907c0f2f3d962f77ebd6284417b916c729d488926313bddb91dc91ad",
-    "flat 0": "0433438aa8dd5a11239c629154b70002a323659d7a6cc9aec3a97ca95a924ce2",
-    "bowl 1": "cf338409eb7661c3ec4744cd7806f7525c38aa0be937372aab884c3e192ff1ff",
-    "peak 1": "b8898941658eb8ffd95b9616dd5c6bc76ce7f0cc7a1bcfecbe15a17ed1ef65a4",
-    "ring 1": "97eaddf067fd30c4ec78e8bd2ee9815dd0ab5a752deb2274d3e1654a513f6de1",
-    "flat 1": "8b94d3862e610c3a831dda7993807c3acd25cb31783581867fe0f5410809c596",
-    "bowl 42": "c85728c151910eb5ba405648e65463de7ebd8eebb47761a88e9cdd5251471a26",
-    "peak 42": "e1f70420d3acefb1ca0e9ed30c3a7adec2f73d711374829359f4059e8ce82eac",
-    "ring 42": "215dd6bbf4c6d8c0025fb99dbc08bf717856bee97485b8d8777a5919a84db029",
-    "flat 42": "1499b1e18fdff128d194f2e704e76a8e6c38a870eb91551ee381defab500bcfd",
+    "bowl 0": "30d01a2c594f31be0b0cbc94881a2d75302036293b84db55eed1e85fc6b4f7c5",
+    "peak 0": "bde33b09af3d9937f5e3de4fbcaadf13b0d2b2a2a1f4ab0a3c2f7d8898c58c06",
+    "ring 0": "2fc9e9d90612098249eb41192633da1a75a8f51e5ff93dde61d82fbe99d96e09",
+    "flat 0": "35f031891948fd814e2abf3625ba8b0076ad420acc9717d95294869385ff1752",
+    "bowl 1": "9337a69bd95917dac200a65c0d5e5a40450d2741a43a21d1f434c75898c1762a",
+    "peak 1": "de209f5138b0edb42dd1fe13c638c06b0cb3d07dbf57f70f34b79bdbb95ccd1c",
+    "ring 1": "9e3fa1a3cea6950dc8120a1808359e8502fc85a3a49d3b4b56418f55f290c636",
+    "flat 1": "5d46673e0d57c6f08fee1613591e5a2fe768ced249f3470eccccc9bbc7f892d4",
+    "bowl 42": "84db6866e9a5bbdfb79d5d7d5a8b399f02af8d60be2144c3d079445e23eefb45",
+    "peak 42": "9f5c285c28daad2821a159d1fa28fe02e000f4c13179fa1695aa2a9a3d17b84a",
+    "ring 42": "ba3633d5336d9f96686022c6695ee5307996eaceb073a468cb297a3dea19aea8",
+    "flat 42": "57418e432f67d8edbd0e98976c90f60b048675493496ecd0d08d753972f6b7b7",
   };
   it("Craterize: every centre, with and without rays", () => {
     for (const seed of [0, 1, 42])
