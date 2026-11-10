@@ -3309,9 +3309,11 @@ game's are white. Planning's ruling: match the dry tone there and the dead trees
   pole 0.12 thick at its foot and 0.06 near its top, broken off askew at 2.37, with five stubs; the birch a trunk forking
   at 0.4 into two limbs rising near upright, 0.25 apart, to 1.39; the oak a trunk 0.27 at its flared foot and 0.15 at
   1.0, splitting into three limbs broken off 0.3 out at 1.33, a pale broken twig on each to 1.53. High's far models
-  take three sides, each a little thicker so it is as wide on average. Their outlines are now 0.83 to 0.95 of the
-  game's (Standard and High near), High's far 0.71 to 0.95; their wood 0.93 to 1.36 of the game's area
-  (`dying.test.ts` holds 0.85 to 1.4 in every look). Standard 50, 52 and 63 triangles (the budget 64).
+  take three sides, each a little thicker so it is as wide on average. Their outlines are now 0.81 to 0.94 of the
+  game's (Standard and High near), High's far 0.70 to 0.92; their wood 0.93 to 1.36 of the game's area
+  (`dying.test.ts` holds 0.85 to 1.4 in every look). Every end that shows is closed: the oak's trunk top a pale broken
+  disc, its limbs' broken ends their pale twigs, the birch's limbs to a point (`dying.test.ts` looks straight down over
+  each trunk's top in every look). Standard 50, 48 and 61 triangles (the budget 64).
 - **Measured** in the frame, the dead trees' specks on the dry ground east (lighter than the ground round them by 0.1,
   unsaturated): the game's 399 pixels, mean luma 0.668, the lightest tenth 0.792; Standard 183, 0.604, 0.670 → 216,
   0.617, 0.698; High 171, 0.616, 0.720 → 214, 0.619, 0.713.

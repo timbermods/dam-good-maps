@@ -6,7 +6,7 @@
 // vegetation material's uniforms), never baked, so tuning them rebuilds nothing.
 
 // (ported from investigation/vegetation/models.ts)
-import { DEAD_FORM, DEAD_LIMBS, deadLeaves, deadWood, DRYING, dryColour } from '../dying';
+import { DEAD_FORM, DEAD_LIMBS, type DeadPart, deadLeaves, deadWood, DRYING, dryColour } from '../dying';
 import { plantScale, RANDOMIZER } from '../plantSize';
 import { crownShade, ownAlbedo, TREE_COLOURS } from '../palette';
 import { BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, OctahedronGeometry, TetrahedronGeometry, Matrix4, Quaternion, Vector3 } from 'three';
@@ -131,12 +131,17 @@ function tier(m: Shape, radius: number, base: number, height: number, seed: numb
  *  three, each a little thicker so it is as wide on average as it is near (a polygon's mean width is its perimeter ÷ π). */
 function deadLimbs(m: Shape, spec: 'Pine' | 'Birch' | 'Oak', near: boolean, slot: keyof Palette) {
   const width = (n: number) => n * Math.sin(Math.PI / n);
-  for (const { line, sides, part } of DEAD_LIMBS[spec]) {
-    const n = near ? sides : 3, k = width(sides) / width(n), shade = part === 'dark' ? 0.85 : part === 'break' ? 1.35 : 1;
+  const shadeOf = (part: DeadPart) => part === 'dark' ? 0.85 : part === 'break' ? 1.35 : 1;
+  for (const { line, sides, part, tip, cap } of DEAD_LIMBS[spec]) {
+    const n = near ? sides : 3, k = width(sides) / width(n);
     for (let i = 0; i + 1 < line.length; i++) {
       const [a, b] = [line[i], line[i + 1]];
-      m.branch([a[0], a[1], a[2]], [b[0], b[1], b[2]], a[3] * k, slot, n, b[3] / a[3], shade);
+      m.branch([a[0], a[1], a[2]], [b[0], b[1], b[2]], a[3] * k, slot, n, b[3] / a[3], shadeOf(i + 2 === line.length ? tip ?? part : part));
     }
+    if (!cap) continue;
+    // (its top end, closed by the branch, in the cap's shade: a thin disc over it)
+    const [a, b] = line.slice(-2), d = new Vector3(b[0] - a[0], b[1] - a[1], b[2] - a[2]).normalize().multiplyScalar(0.004);
+    m.branch([b[0], b[1], b[2]], [b[0] + d.x, b[1] + d.y, b[2] + d.z], b[3] * k, slot, n, 1, shadeOf(cap));
   }
 }
 

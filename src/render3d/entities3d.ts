@@ -52,11 +52,11 @@
 // redraw looks the same.
 
 import { EntityGeometryCache } from "./entityGeometry";
-import { BoxGeometry, BufferGeometry, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, OctahedronGeometry, PlaneGeometry, Quaternion, Vector3, type ShaderMaterial } from "three";
+import { BoxGeometry, BufferGeometry, CircleGeometry, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, OctahedronGeometry, PlaneGeometry, Quaternion, Vector3, type ShaderMaterial } from "three";
 import { FOOTPRINTS, rotate, startEntranceTile, worldBlocks, type Orientation } from "../core/format/footprints";
 import { DEAD, DYING, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
 import { plantScale, RANDOMIZER } from "./plantSize";
-import { DEAD_FORM, DEAD_LIMBS, type DeadLimb, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
+import { DEAD_FORM, DEAD_LIMBS, type DeadPart, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
 import { crownShade, GEOTHERMAL, GEOTHERMAL_ROCK, LANDMARK, MINE, OWN_LIGHTNESS, ownAlbedo, RELIC_STONE, RUIN, SLOPE, START, THORNS, TREE_COLOURS, WATER } from "./palette";
 import { objectSoilAt } from "./runSoil";
 import { blockageParts } from "./blockage";
@@ -498,9 +498,18 @@ for (const species of Object.keys(DEAD_FORM)) {
 // both looks draw them. A seep's pit is a terrain cut-out (`mineCutout`), like a mine site's.
 
 /** A dead tree's wood (dying.ts `DEAD_LIMBS`) in its colours by part. */
-function deadTree(species: keyof typeof DEAD_LIMBS, colours: Partial<Record<DeadLimb["part"], Rgb>>): Model {
+function deadTree(species: keyof typeof DEAD_LIMBS, colours: Partial<Record<DeadPart, Rgb>>): Model {
   const m = new Model();
-  for (const { line, sides, part } of DEAD_LIMBS[species]) tube(m, line, sides, colours[part] ?? colours.wood!);
+  const colour = (part: DeadPart) => colours[part] ?? colours.wood!;
+  for (const { line, sides, part, tip, cap } of DEAD_LIMBS[species]) {
+    tube(m, line.slice(0, -1), sides, colour(part));
+    tube(m, line.slice(-2), sides, colour(tip ?? part));
+    if (!cap) continue;
+    // (the top end closed: a disc across it, facing along the last length)
+    const [a, b] = line.slice(-2);
+    const d = new Vector3(b[0] - a[0], b[1] - a[1], b[2] - a[2]).normalize();
+    m.add(new CircleGeometry(b[3], sides).applyQuaternion(new Quaternion().setFromUnitVectors(new Vector3(0, 0, 1), d)), colour(cap), { x: b[0], y: b[1], z: b[2] });
+  }
   return m;
 }
 

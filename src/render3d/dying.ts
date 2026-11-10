@@ -73,12 +73,16 @@ export const DEAD_FORM: Readonly<Record<string, { height: number; wood?: Rgb; le
 };
 
 /** A part of a dead tree's wood: a line of points (x, y, z, radius; radius 0 a point), its sides round and its shade
- *  ("wood" the tree's dead wood, "dark" a stub a shade darker, "break" pale where a limb broke). */
+ *  ("wood" the tree's dead wood, "dark" a stub a shade darker, "break" pale where a limb broke); `tip`, its last length's
+ *  shade where it differs; `cap`, its top end closed in that shade (a trunk's top, which the limbs only partly cover). */
 export interface DeadLimb {
   line: readonly (readonly [number, number, number, number])[];
   sides: number;
-  part: "wood" | "dark" | "break";
+  part: DeadPart;
+  tip?: DeadPart;
+  cap?: DeadPart;
 }
+export type DeadPart = "wood" | "dark" | "break";
 /** A stub of a branch from the trunk's axis at height y out to (x, z) and a little up, `length` long. */
 const stub = (x: number, y: number, z: number): DeadLimb => {
   const d = Math.hypot(x, z), k = (2 * d - 0.09) / d;
@@ -101,16 +105,19 @@ export const DEAD_LIMBS: Readonly<Record<"Pine" | "Birch" | "Oak", readonly Dead
     stub(-0.02, 1.21, 0.12),
   ],
   Birch: [
-    { line: [[0, 0, 0, 0.073], [-0.01, 0.42, 0, 0.05]], sides: 6, part: "wood" },
-    { line: [[-0.01, 0.42, 0, 0.048], [-0.1, 1.0, 0, 0.032], [-0.05, 1.387, 0.01, 0.008]], sides: 5, part: "wood" },
-    { line: [[0, 0.39, 0.02, 0.046], [0.12, 1.0, 0.1, 0.036], [0.13, 1.38, 0.08, 0.01]], sides: 5, part: "wood" },
+    { line: [[0, 0, 0, 0.073], [-0.01, 0.42, 0, 0.05]], sides: 6, part: "wood", cap: "wood" },
+    { line: [[-0.01, 0.42, 0, 0.048], [-0.1, 1.0, 0, 0.032], [-0.05, 1.387, 0.01, 0]], sides: 5, part: "wood" },
+    { line: [[0, 0.39, 0.02, 0.046], [0.12, 1.0, 0.1, 0.036], [0.13, 1.38, 0.08, 0]], sides: 5, part: "wood" },
   ],
   Oak: [
-    { line: [[0, 0, 0, 0.27], [0, 0.2, 0, 0.21], [0, 0.97, 0, 0.148]], sides: 6, part: "wood" },
-    ...([[-0.24, 0.14], [0.22, 0.18], [0.04, -0.3]] as const).flatMap(([x, z]): DeadLimb[] => [
-      { line: [[x * 0.25, 0.92, z * 0.25, 0.08], [x, 1.33, z, 0.045]], sides: 5, part: "wood" },
-      { line: [[x, 1.3, z, 0.03], [x * 1.25, 1.533, z * 1.25, 0]], sides: 3, part: "break" },
-    ]),
+    // (its trunk's top broken pale; each limb's broken end a pale twig, which closes it)
+    { line: [[0, 0, 0, 0.27], [0, 0.2, 0, 0.21], [0, 0.97, 0, 0.148]], sides: 5, part: "wood", cap: "break" },
+    ...([[-0.24, 0.14], [0.22, 0.18], [0.04, -0.3]] as const).map(([x, z]): DeadLimb => ({
+      line: [[x * 0.25, 0.92, z * 0.25, 0.08], [x, 1.33, z, 0.045], [x * 1.25, 1.533, z * 1.25, 0]],
+      sides: 4,
+      part: "wood",
+      tip: "break",
+    })),
   ],
 };
 

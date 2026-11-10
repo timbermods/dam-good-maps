@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { ShaderMaterial } from "three";
 import { buildEntities, modelKeyOf, modelOf } from "../../src/render3d/entities3d";
-import { DEAD_FORM, deadLeaves, deadWood, DRYING, dryColour, isFoliage } from "../../src/render3d/dying";
+import { DEAD_FORM, DEAD_LIMBS, deadLeaves, deadWood, DRYING, dryColour, isFoliage } from "../../src/render3d/dying";
 import { TREE_COLOURS } from "../../src/render3d/palette";
 import { DEAD, DYING, entityView } from "../../src/render3d/model";
 import { Forest } from "../../src/render3d/high/forest";
@@ -197,6 +197,45 @@ describe("a dead tree at the game's size", () => {
     }
     return a;
   };
+  it("closes its trunk's top in every look, so the ground never shows down through it", () => {
+    // (straight down over the trunk's top, out to half its radius (inside the far models' three sides), every line meets
+    // the wood at its top or above)
+    const highest = (p: ArrayLike<number>, x: number, z: number) => {
+      let top = -Infinity;
+      for (let v = 0; v + 8 < p.length; v += 9) {
+        const [ax, az, bx, bz, cx, cz] = [p[v], p[v + 2], p[v + 3], p[v + 5], p[v + 6], p[v + 8]];
+        const det = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz);
+        if (Math.abs(det) < 1e-12) continue;
+        const l1 = ((bz - cz) * (x - cx) + (cx - bx) * (z - cz)) / det;
+        const l2 = ((cz - az) * (x - cx) + (ax - cx) * (z - cz)) / det;
+        if (l1 < -1e-9 || l2 < -1e-9 || l1 + l2 > 1 + 1e-9) continue;
+        top = Math.max(top, l1 * p[v + 1] + l2 * p[v + 4] + (1 - l1 - l2) * p[v + 7]);
+      }
+      return top;
+    };
+    for (const species of ["Birch", "Oak"] as const) {
+      const [x, y, z, r] = DEAD_LIMBS[species][0].line.at(-1)!;
+      const g = (d: "near" | "far") => {
+        const m = model(species, 0, d, "dead");
+        const p = m.getAttribute("position").array as Float32Array;
+        return m.index ? Array.from(m.index.array as ArrayLike<number>, (i) => [p[3 * i], p[3 * i + 1], p[3 * i + 2]]).flat() : p;
+      };
+      // (each model's own scale upright: its trunk's top at y × its height ÷ the line's)
+      const models: [string, ArrayLike<number>][] = [["standard", modelOf(`${species}.dead`).pos], ["near", g("near")], ["far", g("far")]];
+      for (const [look, p] of models) {
+        let h = 0;
+        for (let v = 1; v < p.length; v += 3) h = Math.max(h, p[v]);
+        const lineTop = Math.max(...DEAD_LIMBS[species].flatMap((l) => l.line.map((q) => q[1])));
+        const k = h / lineTop;
+        for (let a = 0; a < 12; a++)
+          for (const f of [0, 0.25, 0.5]) {
+            const at = highest(p, x + Math.cos(a) * r * f, z + Math.sin(a) * r * f);
+            expect(at, `${species} ${look}`).toBeGreaterThanOrEqual((y - 0.01) * k);
+          }
+      }
+    }
+  });
+
   it("has the game's wood in every look, near and far", () => {
     for (const species of ["Pine", "Birch", "Oak"] as const) {
       const standard = area(modelOf(`${species}.dead`).pos);
