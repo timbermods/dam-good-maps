@@ -25,6 +25,8 @@ export interface Curtain {
   note: string;
   /** Each tile's curtain (-1: none). */
   id?: Int32Array;
+  /** The ground under the curtain's lip (the one judged). */
+  lip?: number;
 }
 
 const WET = 0.05;
@@ -76,8 +78,9 @@ export function curtains(f: Settled): Curtain {
     groups.push(g);
   }
   if (!groups.length) return { ok: false, note: "no fall", id };
+  let lipOf: number | undefined;
   const judged = judge();
-  return { ...judged, id };
+  return { ...judged, id, ...(lipOf !== undefined ? { lip: lipOf } : {}) };
   function judge(): Curtain {
   const weight = (g: number[]) => g.reduce((t, i) => t + now[i], 0);
   const high = (g: number[]) => Math.max(...g.map((i) => f.after[i]));
@@ -87,6 +90,7 @@ export function curtains(f: Settled): Curtain {
       : groups.reduce((a, b) => (weight(b) > weight(a) ? b : a));
   const xs = main.map((i) => i % W), ys = main.map((i) => Math.floor(i / W));
   const lip = Math.max(...main.map((i) => f.after[i]));
+  lipOf = lip;
   const drop = Math.max(...main.map((i) => now[i]));
   const what = `${main.length} tiles at ${lip} x ${Math.min(...xs)}-${Math.max(...xs)} y ${Math.min(...ys)}-${Math.max(...ys)} drop ${drop.toFixed(1)}`;
   if (drop < f.need) return { ok: false, note: `short: ${what}` };

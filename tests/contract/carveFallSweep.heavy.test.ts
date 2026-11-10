@@ -7,6 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import { applyForce } from "../../src/core/collab";
+import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
 import { generate } from "../../src/core/gen/generate";
 import { MAX_PATH_POINTS } from "../../src/core/forces/carve/run";
@@ -35,13 +36,41 @@ function cornerBlocks(W: number, before: ArrayLike<number>, H: ArrayLike<number>
   return out;
 }
 
+/** Below a set Fall's landing (`cap`, the bed under the lip), where the river the carve cut steps down three levels or
+ *  more from a tile to its neighbour, both under water and cut below the land's own, where the land had no such step: a
+ *  second fall. */
+function carvedSteps(W: number, before: ArrayLike<number>, H: ArrayLike<number>, depth: ArrayLike<number>, cap: number): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < W * W; i++) {
+    if (depth[i] <= 0.05 || H[i] >= before[i] || H[i] > cap) continue;
+    const x = i % W;
+    for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) {
+      if (j < 0 || j >= W * W || depth[j] <= 0.05 || H[j] >= before[j]) continue;
+      if (H[i] - H[j] >= 3 && before[i] - before[j] < 3) out.push(`${x},${Math.floor(i / W)}`);
+    }
+  }
+  return [...new Set(out)];
+}
+
 /** Each start within two tiles of `from`, drawn to `to` (null: an Unleash by click, its course its own), what it gave
  *  or why it was refused: its curtain judged, or with `corners` only that no corner of its lip stands on its own; drawn
  *  as the page draws a line (`page`: a station every two tiles, its stroke resampled and its tiles taken as the page's
- *  `steerTiles` does) or through eight points. */
-function sweep(from: [number, number], to: [number, number] | null, set: Record<string, unknown>, need: number, under?: number, unleash = false, reach = 2, page = false, corners = false): string[] {
+ *  `steerTiles` does) or through eight points; with `older`, on the map as the page has it when one kept from an older
+ *  generator was opened, edited and the edit undone (its build holding no water while it shows the file's own), else
+ *  as the generator makes it. */
+function sweep(from: [number, number], to: [number, number] | null, set: Record<string, unknown>, need: number, under?: number, unleash = false, reach = 2, page = false, corners = false, older = false): string[] {
   const g = generate(makeSpec({ seed: 1, theme: "canyon", size: { x: 96, y: 96 } }));
   const base = MapSession.fromGenerated(g, g.file);
+  const edited = MapSession.fromGenerated(g, g.file);
+  edited.apply({ op: "placeEntity", params: { id: "11111111-2222-4333-8444-555555555556", template: "WaterSource", x: 2, y: 2, orientation: "Cw0" } } as never);
+  const kept = edited.project();
+  const opened = (): MapSession => {
+    const o = MapSession.open({ ...decodeProject(kept), generatorVersion: "0.10.11" });
+    // (the replay comparison as the checks worker gives it: this generator made the map, so it matches)
+    o.confirmReplay(true);
+    o.undo();
+    return o;
+  };
   base.settleCanonical();
   const W = base.built.W;
   const before = base.built.heights.slice();
@@ -50,7 +79,8 @@ function sweep(from: [number, number], to: [number, number] | null, set: Record<
   for (let dy = -reach; dy <= reach; dy++)
     for (let dx = -reach; dx <= reach; dx++) {
       const [x, y] = [from[0] + dx, from[1] + dy];
-      const s = MapSession.fromGenerated(g, g.file);
+      const s = older ? opened() : MapSession.fromGenerated(g, g.file);
+      if (older) expect(s.mode === "frozen" && s.showsStoredWater && s.built.water.every((d) => d === 0)).toBe(true);
       const via: [number, number][] = [];
       if (to && page) {
         const n = Math.ceil(Math.hypot(to[0] - x, to[1] - y) * 4);
@@ -77,7 +107,10 @@ function sweep(from: [number, number], to: [number, number] | null, set: Record<
         continue;
       }
       const v = curtains({ W, H: W, before, beforeDepth, after: s.built.heights, depth: s.built.water, need, under });
-      out.push(`${x},${y} ${v.ok ? "ok" : "FAILS"}: ${v.note}`);
+      // (and below a set Fall no second fall the carve made: river ground three levels over its neighbour, both cut,
+      // where the land had no such step)
+      const steps = typeof set.fall === "number" && v.lip !== undefined ? carvedSteps(W, before, s.built.heights, s.built.water, v.lip - set.fall) : [];
+      out.push(`${x},${y} ${v.ok && !steps.length ? "ok" : "FAILS"}: ${v.note}${steps.length ? `; a second fall the carve made at ${steps.slice(0, 4).join(" ")}` : ""}`);
     }
   return out;
 }
@@ -116,10 +149,15 @@ describe("a fall from one stroke holds one tile away too (showcase craft gaps 1,
   it("a set Fall into the gorge from (60,44), drawn as the page draws it: Fall 9 falls 9; more is refused naming the most the river below lets it, however long the stroke, and less naming the least", () => {
     // (before: Fall 10 was made and its water landed in the river at 4.5, 8.7 down, the river below raised by the carve's
     // own sediment; Fall 11 and 12 asked for a longer stroke, which could never help)
-    const at = (fall: number) => sweep([60, 44], [40, 46], { fall }, ...fallOf(fall), false, 0, true)[0];
-    expect(at(9)).toMatch(/^60,44 ok/);
-    for (const fall of [10, 11, 12]) expect(at(fall)).toBe(`60,44 refused: No drop of ${fall} here: the water standing below lets it fall at most 9`);
-    expect(at(8)).toBe("60,44 refused: No drop of 8 here: the land falls at least 9 below the edge");
+    // (and on the map as the page opens one kept from an older generator: its build holds no water while it shows the
+    // file's own, and the force once planned on the build's, so Fall 10 was made and fell 8.7, and 11 and 12 got the
+    // drain line)
+    for (const older of [false, true]) {
+      const at = (fall: number) => sweep([60, 44], [40, 46], { fall }, ...fallOf(fall), false, 0, true, false, older)[0];
+      expect(at(9)).toMatch(/^60,44 ok/);
+      for (const fall of [10, 11, 12]) expect(at(fall), `older ${older}`).toBe(`60,44 refused: No drop of ${fall} here: the water standing below lets it fall at most 9`);
+      expect(at(8)).toBe("60,44 refused: No drop of 8 here: the land falls at least 9 below the edge");
+    }
   }, 600_000);
 
   it("an Unleash by click from every source within two tiles of (55,45), running east off the terrace: no corner of its lip stands on its own", () => {

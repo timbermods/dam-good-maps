@@ -3639,6 +3639,8 @@ struct CarveFall {
 /// How far past the lip a fall's face reaches (tiles): the ground in front of the lip cut down to where its water
 /// lands, and on Auto the river below run at that foot, so no ledge or second fall stands within it.
 const FOOT_REACH: f64 = 10.0;
+/// Past a set Fall's landing, the tiles along the course for each level its river's bed comes down (`foot_grade`).
+const FOOT_GRADE: f64 = 2.0;
 /// How far the ground falls ahead of a station, within the next two stations (about 2.7 tiles), for the course to
 /// fall there rather than run down a slope: three levels, so a lip one level down still falls two.
 const FALL_DROP: f64 = 3.0;
@@ -4003,6 +4005,10 @@ struct CarveState {
     /// Below a fall of a set height, where its water lands: the bed held at its cap from below too, to the last
     /// station within `FOOT_REACH` of the lip, so the water falls the height set and no more.
     foot_hold: Option<(f64, usize)>,
+    /// Past a set Fall's landing: its cap, where the landing ended and how far its lanes reached; the bed graded down
+    /// from the cap a level every `FOOT_GRADE` tiles from there, so the river leaves it in riffles, never in a second
+    /// fall the land didn't have.
+    foot_grade: Option<(f64, f64, f64, f64)>,
     /// Below a fall on Auto: its foot, to the station it runs to (`CarveFall::foot`).
     auto_foot: Option<(f64, usize)>,
     /// A fall's height was set, and the course has nowhere to fall (`carve_falls`): the carve is refused.
@@ -4186,6 +4192,7 @@ impl CarveState {
             fall_held: false,
             foot_cap: None,
             foot_hold: None,
+            foot_grade: None,
             auto_foot: None,
             fall_error,
             hold: vec![0; n],
@@ -4388,8 +4395,28 @@ impl CarveState {
         };
         if let Some(cap) = landing {
             self.bed = max(self.bed, cap);
-        } else {
-            self.foot_hold = None;
+        } else if let Some((cap, _)) = self.foot_hold.take() {
+            // (from past the tiles the landing's lanes reached ahead and held, a lane's width on)
+            self.foot_grade = Some((cap, x, y, self.character.width(self.metrics.distance)));
+        }
+        // (past the landing the bed comes down from it gently: a Power that cuts the canyon deeper than the cap would
+        // otherwise drop the river a second fall there, made by the carve)
+        // (each tile by how far it lies from where the landing ended, so the lanes reaching ahead, and a course that
+        // winds, step it a level at a time too)
+        let grade = |g: (f64, f64, f64, f64), tx: f64, ty: f64| g.0 - (max(0.0, hypot(tx - g.1, ty - g.2) - g.3) / FOOT_GRADE).floor();
+        let graded = match self.foot_grade {
+            Some(g) if landing.is_none() => {
+                if grade(g, x, y) > self.settings.floor {
+                    Some(g)
+                } else {
+                    self.foot_grade = None;
+                    None
+                }
+            }
+            _ => None,
+        };
+        if let Some(g) = graded {
+            self.bed = max(self.bed, grade(g, x, y));
         }
         if let Some((foot, until)) = self.auto_foot {
             if self.path.len() <= until {
@@ -4508,6 +4535,11 @@ impl CarveState {
                             // at the height set under the lip)
                             t = max(t, cap);
                             self.hold[i] = self.hold[i].max(cap as u8);
+                        }
+                        if let Some(g) = graded {
+                            let g = max(grade(g, xx as f64, yy as f64), self.settings.floor);
+                            t = max(t, g);
+                            self.hold[i] = self.hold[i].max(g as u8);
                         }
                         t = max(t, max(self.settings.floor, self.hold[i] as f64));
                         if t < self.target[i] as f64 {
@@ -5582,11 +5614,14 @@ impl CarveState {
         };
         if self.ended && (self.active.is_empty() || self.quiet >= 24 || self.tail >= 220) {
             self.metrics.stable = true;
-            let shaped = if self.planning {
+            let mut shaped = if self.planning {
                 vec![]
             } else {
                 self.shape_river()
             };
+            if !self.planning {
+                shaped.extend(self.grade_steps());
+            }
             if !shaped.is_empty() {
                 for &i in &shaped {
                     self.map.lava[i] &= mask(self.map.heights[i]);
@@ -5667,6 +5702,60 @@ impl CarveState {
             v = max(v, min(h, self.original[i] as f64 - d));
         }
         self.map.heights[i] = v as u8;
+    }
+    /// Below a set Fall's landing, the river's channel the carve cut never steps down `FALL_DROP` levels or more from one
+    /// tile to the next: where its wear left a tile that high over the channel beside it, it is cut on to a level short of
+    /// that, never under what it holds (the landing, and the grade below it). The water leaves the landing in riffles,
+    /// never in a second fall the land didn't have.
+    fn grade_steps(&mut self) -> Vec<usize> {
+        let Some(cap) = self.foot_cap else {
+            return vec![];
+        };
+        let (w, n) = (self.map.w, self.map.heights.len());
+        // (the river's own bed: within its width of the course, under the landing's level)
+        let mut core = vec![0u8; n];
+        for st in &self.path {
+            let r = st.width * 0.72 + 0.5;
+            for yy in max(0.0, (st.y - r).floor()) as usize..=min((self.map.h - 1) as f64, (st.y + r).ceil()) as usize {
+                for xx in max(0.0, (st.x - r).floor()) as usize..=min((w - 1) as f64, (st.x + r).ceil()) as usize {
+                    if hypot(xx as f64 - st.x, yy as f64 - st.y) <= r {
+                        core[yy * w + xx] = 1;
+                    }
+                }
+            }
+        }
+        let mut out = vec![];
+        for _ in 0..32 {
+            let mut moved = false;
+            for i in 0..n {
+                let hi = self.map.heights[i] as f64;
+                if core[i] == 0 || hi >= self.original[i] as f64 || hi > cap || self.keep[i] != 0 || self.character.rock[i] != 0 {
+                    continue;
+                }
+                let x = i % w;
+                let mut lo = f64::INFINITY;
+                for j in [if x > 0 { i - 1 } else { i }, if x + 1 < w { i + 1 } else { i }, if i >= w { i - w } else { i }, if i + w < n { i + w } else { i }] {
+                    if j != i && core[j] != 0 && self.map.heights[j] < self.original[j] {
+                        lo = min(lo, self.map.heights[j] as f64);
+                    }
+                }
+                if hi - lo < FALL_DROP {
+                    continue;
+                }
+                let v = max(lo + FALL_DROP - 1.0, max(self.settings.floor, self.hold[i] as f64));
+                if v < hi {
+                    self.map.heights[i] = v as u8;
+                    out.push(i);
+                    moved = true;
+                }
+            }
+            if !moved {
+                break;
+            }
+        }
+        out.sort_unstable();
+        out.dedup();
+        out
     }
     fn shape_river(&mut self) -> Vec<usize> {
         if self.settings.dry && self.options.unleashed.is_none() {

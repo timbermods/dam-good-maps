@@ -672,7 +672,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   first fall that tall in one drop: the ground where its water lands is exactly that far under the lip, and in the water
   as the game settles it the drop is within half a level of it (the water skims the lip and the landing alike). The
   course below is cut down to that bed (past Canyon depth if it must be, and through the land's own lower edges) and
-  held there for ten tiles, however hard the Power cuts, then runs on to the stroke's end at any Power; where the land has no such edge the fall is where the ground the stroke
+  held there for ten tiles, however hard the Power cuts, then comes down from it a level every two tiles to the bed the
+  Power cuts (riffles, never a second fall the land didn't have) and runs on to the stroke's end at any Power; a force
+  plans on the water the map shows (a stored map's own, while it keeps it); where the land has no such edge the fall is where the ground the stroke
   starts on ends (an edge or the top of a slope), and a stroke whose ground never goes down is refused ("A fall needs
   high ground to fall from…"). A Fall taller than the land can give from its lip down to the Floor (and at least a
   level over the map's foot) is refused, never cut short ("No drop of 12 here: the land falls at most 11", D342), and so is
