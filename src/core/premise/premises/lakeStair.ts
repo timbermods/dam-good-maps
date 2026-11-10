@@ -17,6 +17,7 @@ import { premiseStream } from "../draw";
 import { FRAME, frameLimit, frameWidthAt, lipInFrame } from "../frame";
 import { bodyDist, bodyGap, dist, dist2, segDist, edgeGap, headingOf, norm, outlinePoints, unitAt, pathBodyGap, pathDist, pathGap, pathLength, pointAt, subPath } from "../geom";
 import { BODY_GAP, fail, linksFrom, nameOf, OK, PLAN_CHECKS, reach } from "../planChecks";
+import { WATER_CHECKS } from "../waterChecks";
 import type { Body, Edge, Exit, Fall, Invariant, Link, Point, PremiseDef, PremisePlan, Region, Ridge, SetPiece, Source, Spine, StairPlan, Work } from "../types";
 
 // ------------------------------------------------------------------------------------------------- the ranges
@@ -1563,7 +1564,7 @@ export const lakeStair: PremiseDef = {
   id: "lakeStair",
   eligible: lakeStairEligible,
   draw,
-  invariants: [...PLAN_CHECKS, ...stairPlanInvariants],
+  invariants: [...PLAN_CHECKS, ...stairPlanInvariants, ...WATER_CHECKS],
 };
 
 /** For the tools: one layout try's plan (as far as it got) and the step or first invariant it fails (or none). */
