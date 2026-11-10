@@ -16,6 +16,8 @@ import { rotate, type Orientation } from "../core/format/footprints";
 import { DEAD_FORM } from "./dying";
 import { DEAD, ORIENTATION_NAMES, YOUNG, type EntityView, type SoilView, type SurfaceWater } from "./model";
 import { BLOCKAGE_SHADOW } from "./blockage";
+import { NATURAL_DAM_SHADOW } from "./naturalDam";
+import { BADTIDE_DRAIN_SHADOW } from "./badtideDrain";
 import { LARGE_RELIC_SHADOW } from "./largeRelic";
 import { DESERT, LIGHT } from "./palette";
 
@@ -135,6 +137,10 @@ const PLANT_SHAPES: readonly (readonly (readonly [number, number, number])[])[] 
   ...LARGE_RELIC_SHADOW.flat(),
   // the blockage's heap (`BLOCKAGE_KIND`)
   BLOCKAGE_SHADOW,
+  // the natural dam's heap (`NATURAL_DAM_KIND`)
+  NATURAL_DAM_SHADOW,
+  // the badtide drain's box, over each of its two tiles (`DRAIN_KIND`)
+  BADTIDE_DRAIN_SHADOW,
 ];
 /** Each kind's height (its highest disc's top): its caster's height over this scales the shape (a young plant). */
 const PLANT_TOPS = PLANT_SHAPES.map((d) => Math.max(0, ...d.map((q) => q[1])));
@@ -150,11 +156,15 @@ const RUIN_KIND = 7;
 const RELIC_KIND = 8;
 /** The blockage's kind: its heap casts `PLANT_SHAPES[BLOCKAGE_KIND]`. */
 const BLOCKAGE_KIND = RELIC_KIND + 9;
+/** The natural dam's kind: its heap casts `PLANT_SHAPES[NATURAL_DAM_KIND]`. */
+const NATURAL_DAM_KIND = BLOCKAGE_KIND + 1;
+/** The badtide drain's kind: each of the two tiles its box fills casts `PLANT_SHAPES[DRAIN_KIND]`. */
+const DRAIN_KIND = NATURAL_DAM_KIND + 1;
 const POST_RADIUS: Readonly<Record<number, number>> = { [DEAD_KIND]: 0.3, [RUIN_KIND]: 0.75 };
 /** The kinds whose discs shade nothing on their own tile: a heap whose discs stand round it would shade its own sunlit
  *  faces (an object reads the bake at its own place and height), which the game's heap, lit by its model's own shadow,
  *  does not; its tile's ground is under it. */
-const OWN_TILE_LIT: Readonly<Record<number, true>> = { [BLOCKAGE_KIND]: true };
+const OWN_TILE_LIT: Readonly<Record<number, true>> = { [BLOCKAGE_KIND]: true, [NATURAL_DAM_KIND]: true, [DRAIN_KIND]: true };
 /** The start's walled base and roof over its 3 × 3 footprint round the tower's tile (entities3d.ts `startTower`: the
  *  walls 2.86 across to 1.04, the cornice to 1.18, the hipped roof to 1.8), cast as a column over each of the 8. */
 const START_BASE = 1.4;
@@ -172,10 +182,13 @@ const SHADOW_DROP = 30;
 export const PLANT_WIDEST = Math.max(...PLANT_SHAPES.flat().map((d) => d[2] - PLANT_INSET), ...Object.values(POST_RADIUS).map((r) => r - PLANT_INSET));
 if (PLANT_WIDEST >= 0.5 + 0.5 / SHADOW_RES) throw new Error(`light.ts: a disc ${PLANT_WIDEST} wide reaches samples an edit of its tile does not redo`);
 
-/** Extra height that objects add to the shadow casters of their tile (trees, ruins, the start, the large relic, the blockage). A
+/** Extra height that objects add to the shadow casters of their tile (trees, ruins, the start, the large relic, the
+ *  blockage, the natural dam, the badtide drain). A
  *  plant's and a ruin's is its height, and its shape is cast (`plantTopsInto`); the start's are columns over its tiles
  *  (its tower on the middle one, its walls on the rest), the large relic's discs fitted to its dish's shadow
- *  (`LARGE_RELIC_SHADOW`) over the tiles of its footprint that cast, a blockage's its heap's (`BLOCKAGE_SHADOW`). The
+ *  (`LARGE_RELIC_SHADOW`) over the tiles of its footprint that cast, a blockage's and a natural dam's their heaps'
+ *  (`BLOCKAGE_SHADOW`, `NATURAL_DAM_SHADOW`), a badtide drain's its box's over each tile it fills
+ *  (`BADTIDE_DRAIN_SHADOW`). The
  *  levels the objects stand on are noted with them, and after those the
  *  shapes' kinds. */
 export function objectCasters(W: number, H: number, e: EntityView | null): Float32Array | null {
@@ -221,10 +234,27 @@ export function objectCasters(W: number, H: number, e: EntityView | null): Float
         }
       continue;
     }
+    // (the badtide drain's box: discs fitted to its model's shadow over each of the two tiles it fills, badtideDrain.ts
+    // `BADTIDE_DRAIN_SHADOW`, turned as it is)
+    if (t === "BadtideDrain") {
+      const o = ORIENTATION_NAMES[e.orientation[k]] as Orientation;
+      for (let j = 0; j < 2; j++) {
+        const [dx, dy] = rotate(o, 0, j);
+        const bx = x + dx;
+        const by = y + dy;
+        if (bx >= 0 && by >= 0 && bx < W && by < H) put(by * W + bx, PLANT_TOPS[DRAIN_KIND], e.z[k], DRAIN_KIND);
+      }
+      continue;
+    }
     if (x < 0 || y < 0 || x >= W || y >= H) continue;
     // (a blockage's heap: discs fitted to its model's shadow, blockage.ts `BLOCKAGE_SHADOW`)
     if (t === "Blockage") {
       put(y * W + x, PLANT_TOPS[BLOCKAGE_KIND], e.z[k], BLOCKAGE_KIND);
+      continue;
+    }
+    // (a natural dam's heap: the same, naturalDam.ts `NATURAL_DAM_SHADOW`)
+    if (t === "NaturalDam") {
+      put(y * W + x, PLANT_TOPS[NATURAL_DAM_KIND], e.z[k], NATURAL_DAM_KIND);
       continue;
     }
     let add = tall[t] ?? 0;
