@@ -165,6 +165,30 @@ describe("a fall from one stroke (showcase craft gaps 1, 2 and 20)", () => {
     expect(stroke(fallStudy("mesa"), [6, Y], [71, Y], { fall: 8, floor: 6 })).toBe("No drop of 8 here: above the Floor the land falls at most 6");
   });
 
+  it("a set Fall into water already standing lands on it: taller is refused naming the most the water lets it, and none fits where the land beside falls farther", () => {
+    // (a mesa at 16 over a lake whose water stands at 7 on ground at 4, the stroke ending in it: no longer stroke
+    // lowers it)
+    const lake = (beside: number, half = 8): ForceMap => {
+      const W = 72, H = 40;
+      const heights = new Uint8Array(W * H);
+      const depth = new Float64Array(W * H);
+      for (let y = 0; y < H; y++)
+        for (let x = 0; x < W; x++) {
+          const i = y * W + x;
+          const water = x >= 30 && Math.abs(y - Y) <= half;
+          heights[i] = x < 30 ? 16 : water ? 4 : beside;
+          if (water && x >= 30) depth[i] = 3;
+        }
+      return { ...fallStudy("mesa"), heights, water: { depth, contamination: new Float64Array(W * H) }, maxHeight: 18 };
+    };
+    // (the lip at 15: the water lands at 7, a fifth higher for its own, 7.8 down)
+    expect(stroke(lake(4), [6, Y], [40, Y], { fall: 10 })).toBe("No drop of 10 here: the water standing below lets it fall at most 8");
+    expect(typeof stroke(lake(4), [6, Y], [40, Y], { fall: 8 })).toBe("object");
+    // (a lake three tiles each side of the stream, the land beside it a level over the map's foot within the fall's
+    // spread: it falls on past the water there)
+    expect(stroke(lake(1, 3), [6, Y], [40, Y], { fall: 8 })).toBe("No drop of 8 here, nor any other: water stands below the edge and the land falls on past it; leave Fall on Edges");
+  });
+
   it("a set Fall is the drop, not a least: the same height at any Power, or refused where the land falls farther (D342)", () => {
     // (Fall 2 to 8 once all fell the land's own 10 at Power 65 and 10.9 at Power 85: the bed below was capped from
     // above only, and a strong carve cut it far deeper)

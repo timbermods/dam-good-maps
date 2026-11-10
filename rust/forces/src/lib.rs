@@ -3830,7 +3830,7 @@ fn carve_falls(m: &Map, path: &[CarveStation], height: Option<f64>, floor: f64, 
             return Err(FALL_NONE);
         }
         if height > most {
-            return Err(FALL_SHORT + max(0.0, most) as u32);
+            return Err(FALL_SHORT_WATER + max(0.0, most) as u32);
         }
         if drop < height - 0.5 {
             return Err(FALL_UNDRAINED);
@@ -3916,6 +3916,9 @@ const FALL_SHORT_FLOOR: u32 = 140;
 const FALL_UNDRAINED: u32 = 180;
 /// No set Fall fits: the water standing below holds it shorter than the land a few tiles on falls.
 const FALL_NONE: u32 = 181;
+/// A set Fall the water standing below holds short (a river or a lake, which no longer stroke lowers): this plus the
+/// most it can.
+const FALL_SHORT_WATER: u32 = 300;
 /// A set Fall shorter than the land falls where its water lands: this plus the least it can.
 const FALL_STEEP: u32 = 200;
 #[derive(Default)]

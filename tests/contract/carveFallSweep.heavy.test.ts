@@ -9,7 +9,8 @@ import { describe, expect, it } from "vitest";
 import { applyForce } from "../../src/core/collab";
 import { MapSession } from "../../src/core/doc/session";
 import { generate } from "../../src/core/gen/generate";
-import { pathTiles } from "../../src/core/forces/path";
+import { MAX_PATH_POINTS } from "../../src/core/forces/carve/run";
+import { pathTiles, resamplePath } from "../../src/core/forces/path";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { curtains } from "./fallCurtain";
 
@@ -36,7 +37,8 @@ function cornerBlocks(W: number, before: ArrayLike<number>, H: ArrayLike<number>
 
 /** Each start within two tiles of `from`, drawn to `to` (null: an Unleash by click, its course its own), what it gave
  *  or why it was refused: its curtain judged, or with `corners` only that no corner of its lip stands on its own; drawn
- *  as the page draws a line (`page`: every tile on it) or through eight points. */
+ *  as the page draws a line (`page`: a station every two tiles, its stroke resampled and its tiles taken as the page's
+ *  `steerTiles` does) or through eight points. */
 function sweep(from: [number, number], to: [number, number] | null, set: Record<string, unknown>, need: number, under?: number, unleash = false, reach = 2, page = false, corners = false): string[] {
   const g = generate(makeSpec({ seed: 1, theme: "canyon", size: { x: 96, y: 96 } }));
   const base = MapSession.fromGenerated(g, g.file);
@@ -51,8 +53,9 @@ function sweep(from: [number, number], to: [number, number] | null, set: Record<
       const s = MapSession.fromGenerated(g, g.file);
       const via: [number, number][] = [];
       if (to && page) {
-        const n = Math.ceil(Math.hypot(to[0] - x, to[1] - y) * 2);
-        via.push(...pathTiles(Array.from({ length: n + 1 }, (_, k) => ({ x: x + ((to[0] - x) * k) / n, y: y + ((to[1] - y) * k) / n })), W, W).slice(1, -1));
+        const n = Math.ceil(Math.hypot(to[0] - x, to[1] - y) * 4);
+        const drawn = Array.from({ length: n + 1 }, (_, k) => ({ x: x + ((to[0] - x) * k) / n, y: y + ((to[1] - y) * k) / n }));
+        via.push(...pathTiles(resamplePath(drawn, 2, MAX_PATH_POINTS + 2), W, W).slice(1, -1));
       } else if (to) for (let k = 1; k < 8; k++) via.push([Math.round(x + ((to[0] - x) * k) / 8), Math.round(y + ((to[1] - y) * k) / 8)]);
       const settings = { mode: to ? "aim" : "unleash", power: 65, wander: null, width: null, depth: null, riverDepth: 2, banks: null, seed: 0, walls: null, sources: "clear", defyGravity: !unleash, dry: false, layers: true, ...set };
       let request: Record<string, unknown> = { verb: "carve", settings, origin: [x, y], ...(to ? { end: to, via } : {}), cut: null, natural: true };
@@ -115,7 +118,7 @@ describe("a fall from one stroke holds one tile away too (showcase craft gaps 1,
     // own sediment; Fall 11 and 12 asked for a longer stroke, which could never help)
     const at = (fall: number) => sweep([60, 44], [40, 46], { fall }, ...fallOf(fall), false, 0, true)[0];
     expect(at(9)).toMatch(/^60,44 ok/);
-    for (const fall of [10, 11, 12]) expect(at(fall)).toBe(`60,44 refused: No drop of ${fall} here: the land falls at most 9`);
+    for (const fall of [10, 11, 12]) expect(at(fall)).toBe(`60,44 refused: No drop of ${fall} here: the water standing below lets it fall at most 9`);
     expect(at(8)).toBe("60,44 refused: No drop of 8 here: the land falls at least 9 below the edge");
   }, 600_000);
 

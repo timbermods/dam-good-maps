@@ -96,10 +96,11 @@ const FORCE_ERRORS = [
   "A fall needs high ground to fall from: draw the stroke from it over an edge or down a slope",
 ];
 
-/** A set Fall the land can't give (codes 100 and 140 plus the most it can, rust/forces `FALL_SHORT`; 180, `FALL_UNDRAINED`: its water below can't drain; 181, `FALL_NONE`: no Fall fits; 200 plus the least it can, `FALL_STEEP`), in one line. */
+/** A set Fall the land can't give (codes 100 and 140 plus the most it can, rust/forces `FALL_SHORT`; 180, `FALL_UNDRAINED`: its water below can't drain; 181, `FALL_NONE`: no Fall fits; 200 plus the least it can, `FALL_STEEP`; 300 plus the most the water standing below lets it, `FALL_SHORT_WATER`), in one line. */
 function fallShort(error: number, settings: object): string | null {
-  if (error < 100 || error > 260) return null;
   const asked = (settings as { fall?: number }).fall;
+  if (error >= 300 && error <= 360) return `No drop of ${asked} here: the water standing below lets it fall at most ${error - 300}`;
+  if (error < 100 || error > 260) return null;
   if (error >= 200) return `No drop of ${asked} here: the land falls at least ${error - 200} below the edge`;
   if (error === 181) return `No drop of ${asked} here, nor any other: water stands below the edge and the land falls on past it; leave Fall on Edges`;
   if (error > 180) return null;

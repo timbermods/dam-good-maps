@@ -677,7 +677,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   high ground to fall from…"). A Fall taller than the land can give from its lip down to the Floor (and at least a
   level over the map's foot) is refused, never cut short ("No drop of 12 here: the land falls at most 11", D342), and so is
   one taller than the water already standing where it lands (a river or a lake, which no longer stroke lowers) lets it
-  fall: that names the most too, and wins over the next line. Below a set Fall the carve's sediment stays out of
+  fall: "No drop of 10 here: the water standing below lets it fall at most 8", which wins over the next line. Below a set Fall the carve's sediment stays out of
   standing water, so it never raises the river it lands in. Refused too is one whose water below
   can't leave the map at the bed it is cut to, the stroke ending in a hollow of higher ground ("No drop of 4 here: the
   stroke ends before the water below can drain; draw it on to lower ground"), and one shorter than the land already
