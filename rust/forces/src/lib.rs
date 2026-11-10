@@ -8441,6 +8441,16 @@ fn glaciate(before: &Map, mut map: Map, s: &GlacierSettings, intent: &Intent, ke
         clamp(round(s.floor), 1.0, before.ceiling),
         if s.power < 100.0 { 1.0 + round(10.0 * clamp(s.power, 0.0, 100.0) / 100.0) } else { 0.0 },
     );
+    // (below Power 100 Power bounds every cut: the floor's, a spur's `spur` more and its river's channel two
+    // more, a level to spare; a river winding over a knob, or a knob planed in its mouth, cut five levels at
+    // Power 0)
+    if s.power < 100.0 {
+        let t = clamp(s.power, 0.0, 100.0) / 100.0;
+        let most = 1.0 + round(10.0 * t) + round(3.0 * t) + 3.0;
+        for i in 0..p.map.heights.len() {
+            p.map.heights[i] = max(p.map.heights[i] as f64, before.heights[i] as f64 - most) as u8;
+        }
+    }
     let raw = p.map.clone();
     for i in 0..p.map.heights.len() {
         p.map.lava[i] &= mask(p.map.heights[i]);
