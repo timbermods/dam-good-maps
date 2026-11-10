@@ -21,7 +21,8 @@
 // into a hollow that started empty. That water would come from nowhere (D385). So once the water has
 // settled, the water no running source and no kept stored lake reaches (sim/fed.ts `withoutUnfed`) is
 // taken away, with the unfed water the player removed (the model's `drained`, D387 (2)), and the
-// water settles on from there (`DRAIN_DAYS`); a map with none keeps its bytes.
+// water settles on from there (`DRAIN_DAYS`); a map with none keeps its bytes. Terrain above terrain
+// settles the same way in the stacked engine, on every water column (stackWater.ts `canonicalStackRun`).
 //
 // A sealed basin only evaporating is settled water (D222, D413): the settle stops once nothing else
 // changes, and the basin is stored with its lakes' water as it started, so a Fill is stored at
@@ -212,9 +213,9 @@ export interface SettledFrom {
  *  so whoever shows progress shows it the same way. When `from` is the canonical settle of the map
  *  before an edit that left the water provably as it was (stackWater.ts `settledAgain`), that settle is
  *  the answer at once, the same bytes. The stored lakes stand on their columns (a Fill in a cave included), a
- *  sealed basin only evaporating is stored as it started (D413), and the unfed water a removal drained is
- *  taken once the water has settled, on every column of its tiles (a settle with drained tiles never takes
- *  the shortcut). */
+ *  sealed basin only evaporating is stored as it started (D413), and once the water has settled, its unfed
+ *  water is taken on every column, the pre-fill's water from nowhere (D385) and what a removal drained, and the
+ *  water settles on from there (a settle that took any, or with drained tiles, never takes the shortcut). */
 function stackedRun(m: WaterModel, from?: SettledFrom | null): { advance(ticks: number): CanonicalWater | null; free?(): void; readonly ticks: number; readonly maxTicks: number } {
   const top = (s: StackSettle): CanonicalWater => {
     const N = m.W * m.H;

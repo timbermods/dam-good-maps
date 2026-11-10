@@ -204,7 +204,7 @@ export function stackedWorld(world: WorldModel, built: BuildResult, empty: boole
   }
   if (cols.L !== stack.L || cols.count.some((c, i) => c !== stack.count[i])) throw new Error("the settled water does not fit the map's caves: settle the water again");
   const soil = stackedSoil(terrain, cols, stack, objects);
-  const singletons = stackedSimulationSingletons(W, H, { cols, depth: stack.depth, overflow: stack.overflow, contamination: stack.contamination, sat: stack.sat, runs: runColumns(terrain), moisture: soil.moisture, soilContamination: soil.contamination });
+  const singletons = stackedSimulationSingletons(W, H, { cols, depth: stack.depth, overflow: stack.overflow, contamination: stack.contamination, sat: stack.sat, runs: runColumns(terrain), moisture: soil.moisture, soilContamination: soil.contamination, ...(stack.outflows ? { outflows: stack.outflows } : {}) });
   return { ...world, voxels, singletons };
 }
 

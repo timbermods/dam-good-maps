@@ -34,10 +34,10 @@ async function steadyNote(page: Page): Promise<string> {
 }
 const settle = (page: Page) => page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
 
-/** Flat, dry, empty ground away from the start: a tile with `r` tiles of it all round. */
-async function flatDry(page: Page, start: [number, number], r: number, not: [number, number][] = []) {
+/** Flat, dry, empty ground away from the start: a tile with `r` tiles of it all round, and no water within `dry` of it. */
+async function flatDry(page: Page, start: [number, number], r: number, not: [number, number][] = [], dry = r) {
   return page.evaluate(
-    ([s0, s1, rr, avoid]) => {
+    ([s0, s1, rr, avoid, dd]) => {
       const m = window.dgm3d!.renderer.mapState()!;
       const w = m.W;
       // (where the map shows, clear of the controls over it, with room above the bar for a tool's settings)
@@ -53,12 +53,13 @@ async function flatDry(page: Page, start: [number, number], r: number, not: [num
           if (h0 < 4) continue;
           let ok = true;
           for (let dy = -rr; dy <= rr && ok; dy++) for (let dx = -rr; dx <= rr && ok; dx++) if (m.heights[(y + dy) * w + x + dx] !== h0 || m.surface.depth[(y + dy) * w + x + dx] > 0) ok = false;
+          for (let dy = -dd; dy <= dd && ok; dy++) for (let dx = -dd; dx <= dd && ok; dx++) if ((m.surface.depth[(y + dy) * w + x + dx] ?? 0) > 0) ok = false;
           for (let k = 0; k < m.entities.count && ok; k++) if (Math.abs(m.entities.x[k] - x) <= rr + 2 && Math.abs(m.entities.y[k] - y) <= rr + 2) ok = false;
           if (ok && [[0, 0], [-rr - 2, -rr - 2], [rr + 2, -rr - 2], [-rr - 2, rr + 2], [rr + 2, rr + 2]].every(([dx, dy]) => shows(x + dx, y + dy))) return [x, y] as [number, number];
         }
       return null;
     },
-    [start[0], start[1], r, not] as const,
+    [start[0], start[1], r, not, dry] as const,
   );
 }
 
@@ -223,7 +224,10 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   // plateau the start fits on
   await choose(flatRow, "Steps", "Off");
   await expect(flatRow.getByRole("combobox", { name: "Edges" })).toHaveCount(0);
-  const f = (await flatDry(page, start, 4, [pit, a]))!;
+  // (with no water within 10: the stroke, size 8, flattens past the 4 tiles of flat ground round it, and on generator
+  // 0.10.13, D507, D148, the first such ground had a river 4 tiles off, which the stroke let over the plateau: on a slow
+  // machine it was there before the click, and the start was refused, "under water")
+  const f = (await flatDry(page, start, 4, [pit, a], 10))!;
   expect(f).not.toBeNull();
   const hf = await heightAt(page, ...f);
   await setLevel(flatRow, hf + 1);

@@ -356,7 +356,9 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [selecting, setSelecting] = useState<SelectMode | null>("rect");
   const selectingRef = useRef(selecting);
   selectingRef.current = selecting;
-  const selection = useRef(new Selection(info.W, info.H));
+  // (made once: `useRef(new Selection(…))` built a map-sized mask on every render and threw it away)
+  const selection = useRef<Selection>(null as unknown as Selection);
+  selection.current ??= new Selection(info.W, info.H);
   const [selectionTick, setSelectionTick] = useState(0);
   /** The tiles being drawn, before they join the selection. */
   const [selectDraw, setSelectDraw] = useState<number[] | null>(null);

@@ -55,7 +55,11 @@ test("the start's preview is red over any part of a geothermal field and says so
   await topDown(page);
   const W = (await info(page)).W;
   const shelf = page.getByRole("navigation", { name: "Place" });
-  const [x, y] = (await openGround(page, 4))[0];
+  // ground for the field (its 3×3 round x, y) with open ground beside it too, where the start goes clear of it (its
+  // middle at the field's far corner + 3, x + 4: its 3×3 and its door within 2 of it). (Since generator 0.10.13, D507,
+  // D148: the start frames the map, and the open ground nearest the middle now has a river where the start goes beside it)
+  const beside = new Set((await openGround(page, 2)).map(([a, b]) => `${a},${b}`));
+  const [x, y] = (await openGround(page, 4)).find(([a, b]) => beside.has(`${a + 4},${b + 4}`))!;
 
   // a geothermal field on level ground, and the tiles its footprint covers
   await shelf.getByRole("button", { name: "Geothermal field", exact: true }).click();

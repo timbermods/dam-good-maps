@@ -37,10 +37,17 @@ function dotTexture(): CanvasTexture | null {
   return new CanvasTexture(c);
 }
 
+/** The most puff materials kept for the next puffs (a stroke's puffs overlap two or three deep). */
+const PUFF_KEEP = 6;
+
 export class Effects {
   private live: Live[] = [];
   private frame = 0;
   private dot: CanvasTexture | null = null;
+  /** Puff materials whose puff has gone, kept for the next: a disposed material gives its GPU program back once no
+   *  other uses it, so a puff after a pause (the first dab of each Lower stroke) compiled and linked the program
+   *  again in the frame that drew it, a hitch of tens of milliseconds (#858). */
+  private puffMats: PointsMaterial[] = [];
 
   constructor(
     private readonly scene: Scene,
@@ -66,7 +73,10 @@ export class Effects {
     }
     const geo = new BufferGeometry();
     geo.setAttribute("position", new BufferAttribute(pos, 3));
-    const mat = new PointsMaterial({ color: `rgb(${color.map((v) => Math.round(v * 255)).join(",")})`, size: 0.5, sizeAttenuation: true, transparent: true, depthWrite: false, ...(this.dot ? { map: this.dot, alphaMap: this.dot } : {}) });
+    const mat = this.puffMats.pop() ?? new PointsMaterial({ size: 0.5, sizeAttenuation: true, transparent: true, depthWrite: false, ...(this.dot ? { map: this.dot, alphaMap: this.dot } : {}) });
+    mat.color.setStyle(css(color));
+    mat.size = 0.5;
+    mat.opacity = 1;
     const pts = new Points(geo, mat);
     pts.frustumCulled = false;
     pts.renderOrder = 5;
@@ -83,7 +93,8 @@ export class Effects {
       },
       dispose: () => {
         geo.dispose();
-        mat.dispose();
+        if (this.puffMats.length < PUFF_KEEP) this.puffMats.push(mat);
+        else mat.dispose();
       },
     });
   }
@@ -156,6 +167,8 @@ export class Effects {
       l.dispose();
     }
     this.live = [];
+    for (const m of this.puffMats) m.dispose();
+    this.puffMats = [];
     this.dot?.dispose();
   }
 }

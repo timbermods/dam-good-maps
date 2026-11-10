@@ -194,7 +194,9 @@ npm run gen -- --seeds 1-10 --sizes 96,128,256 --out out/batch
 - `npm run bench:3d` measures the 3D view's build time and frame rate at 256² in Chrome. It opens
   browser windows, so it runs locally only. It writes `out/m4/bench3d.json`.
 - `npm run bench:brush` measures painting with a brush at 256² in Chrome: the time from the pointer
-  to the frame, the frame times and undo. It runs locally only and writes `out/live/bench-brush.json`.
+  to the frame, the frame times and undo. It runs locally only and writes `out/live/bench-brush.json`. It stops if
+  the brush's key doesn't pick the brush, and warns when its pointer moves came far apart (a machine too busy for
+  the numbers to be a player's).
 - `npm run mcp` runs the MCP server from the source, over stdio. `npm run mcp:build` bundles it into `mcp/dist/`: the
   Claude Desktop extension (`dam-good-maps.mcpb`) and the package `npx` runs (`dam-good-maps-mcp.tgz`). Every release tag's GitHub Release carries
   both (`.github/workflows/release-assets.yml`).
