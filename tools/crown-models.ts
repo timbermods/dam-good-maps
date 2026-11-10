@@ -8,6 +8,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { modelOf } from "../src/render3d/entities3d";
 import { model, paletteDefaults, slots, species } from "../src/render3d/high/models";
+import { hypot } from "../src/core/math/portable";
 
 const out: Record<string, { pos: number[]; nrm: number[]; col: number[] }> = {};
 for (const sp of species) {
@@ -19,7 +20,7 @@ for (const sp of species) {
     const a = [p[k + 3] - p[k], p[k + 4] - p[k + 1], p[k + 5] - p[k + 2]];
     const b = [p[k + 6] - p[k], p[k + 7] - p[k + 1], p[k + 8] - p[k + 2]];
     const n = [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-    const l = Math.hypot(n[0], n[1], n[2]) || 1;
+    const l = hypot(n[0], n[1], n[2]) || 1;
     for (let j = 0; j < 3; j++) nrm.push(n[0] / l, n[1] / l, n[2] / l);
   }
   out[`standard:${sp}`] = { pos: [...p], nrm, col: [...m.col] };
