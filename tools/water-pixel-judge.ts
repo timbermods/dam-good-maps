@@ -13,7 +13,7 @@
 //     [--set WATER_GAME_LIGHT=1,...] [--shots <id>,<id>]
 //     [--light shot|day] [--reflection <strength>] [--samples] [--ours <dir>]
 //     [--prefix m9b-|none] [--bands thin] [--tag <name>] [--sources [--only-sources] | --no-sources]
-//     [--objects [--pose start|water]]
+//     [--objects [--pose start|water]] [--register]
 //
 // `--water pit` samples the mine sites' pits (D496 as amended 2026-11-07: by day the game's pit the lighter) beside pure badwater, on the same
 // shots: the pit's floor at the middle of each mine site's 5 × 5 (the 3 × 3 round its centre, at its depth,
@@ -39,7 +39,10 @@
 // cluster. `--define GROUND_MEANS` draws this branch's second case with every top at the game's texture means
 // (materials.ts `GROUND_MEANS`, palette.ts GAME_GROUND_MEAN): its land is our light alone, to set against the game's
 // pixels with its texture's own variation at each sample taken out (docs/progress/3d-view.md, "Grass in the game's
-// light"; the game's textures read locally, never kept).
+// light"; the game's textures read locally, never kept). Judge the land on the 16 day start shots (`--shots` as `--objects`
+// takes them: 594 grass samples) and with `--register`, which moves each cliff face's game pixel to where ours' picture
+// lines up with the game's: the fit scores the water's outline only, and a face 10–15 pixels tall leaves no slack
+// (docs/progress/3d-view.md, "Grass and cliffs, their samples registered").
 //
 // The camera: the probe's water pose (investigation/probe/runner/catalog.ts `standardPoses`) is where the game's camera
 // was asked to look, but its field of view and distance do not carry over exactly (Q8 found 31-37° and 1.0-1.35× the
@@ -319,6 +322,68 @@ function waterMask(px: Uint8Array): Float32Array {
       out[y * W_PX + x] = s / n;
     }
   return out;
+}
+
+/** `--register`: each land sample's game pixel taken where ours' picture round it lines up with the game's, not where
+ *  the fitted camera puts it (docs/progress/3d-view.md, "Grass and cliffs, their samples registered"). The fit scores
+ *  only the water's outline, so a few pixels off is within its reach, and a cliff face is 10–15 pixels tall at the
+ *  start shots' distance: a 5 × 5 patch moved 4 pixels lands on the top above it. The shift is the one within
+ *  ±`REGISTER_REACH` pixels whose ±`REGISTER_WINDOW` window of the game's luma correlates best with ours' (zero-mean,
+ *  normalised: the brightness and the contrast of either side don't move it, only where the edges lie); a sample whose
+ *  best correlation stays under `REGISTER_MIN` has nothing to line up by and is left out. Only the faces are moved
+ *  (`REGISTERED`). */
+const REGISTER = process.argv.includes("--register");
+const REGISTER_REACH = 5;
+const REGISTER_WINDOW = 10;
+const REGISTER_MIN = 0.6;
+/** The kinds registered: the faces. A top is level with its 3 × 3, so a few pixels move it nowhere else, and its
+ *  patterns (ours and the game's, which don't line up) leave nothing to correlate. */
+const REGISTERED: readonly LandKind[] = ["cliff", "shade-cliff"];
+
+const lumaOf = (px: Uint8Array): Float32Array => {
+  const out = new Float32Array(W_PX * H_PX);
+  for (let i = 0; i < W_PX * H_PX; i++) out[i] = 0.2126 * px[i * 4] + 0.7152 * px[i * 4 + 1] + 0.0722 * px[i * 4 + 2];
+  return out;
+};
+
+/** The shift (pixels) that lines ours' window at (x, y) up with the game's, and its correlation; null at the frame's
+ *  edge or where ours' window is flat. */
+function registerAt(game: Float32Array, ours: Float32Array, x: number, y: number): { dx: number; dy: number; r: number } | null {
+  const cx = Math.round(x);
+  const cy = Math.round(y);
+  const w = REGISTER_WINDOW;
+  const m = REGISTER_REACH + w;
+  if (cx < m || cy < m || cx >= W_PX - m || cy >= H_PX - m) return null;
+  const n = (2 * w + 1) ** 2;
+  let so = 0;
+  let soo = 0;
+  for (let dy = -w; dy <= w; dy++)
+    for (let dx = -w; dx <= w; dx++) {
+      const v = ours[(cy + dy) * W_PX + cx + dx];
+      so += v;
+      soo += v * v;
+    }
+  const vo = soo - (so * so) / n;
+  if (vo < n * 4) return null;
+  let best: { dx: number; dy: number; r: number } | null = null;
+  for (let sy = -REGISTER_REACH; sy <= REGISTER_REACH; sy++)
+    for (let sx = -REGISTER_REACH; sx <= REGISTER_REACH; sx++) {
+      let sg = 0;
+      let sgg = 0;
+      let sog = 0;
+      for (let dy = -w; dy <= w; dy++)
+        for (let dx = -w; dx <= w; dx++) {
+          const g = game[(cy + sy + dy) * W_PX + cx + sx + dx];
+          const o = ours[(cy + dy) * W_PX + cx + dx];
+          sg += g;
+          sgg += g * g;
+          sog += o * g;
+        }
+      const vg = sgg - (sg * sg) / n;
+      const r = vg > 0 ? (sog - (so * sg) / n) / Math.sqrt(vo * vg) : 0;
+      if (!best || r > best.r) best = { dx: sx, dy: sy, r };
+    }
+  return best;
 }
 
 /** The mean colour of a 5×5 patch at a pixel. */
@@ -972,8 +1037,8 @@ async function main() {
         const xy = pr([mine.cx + 0.5, mine.z - MINE_PIT.depth, -(mine.cy + 0.5)]);
         if (inFrame(xy)) console.log(`  the mine site at ${mine.cx},${mine.cy}: its pit's middle at pixel ${xy.map((v) => v.toFixed(0)).join(",")}`);
       }
-      const land = landPoints(s, cam).map((q) => ({ q, xy: pr(q.p) })).filter((a) => inFrame(a.xy)) as { q: { p: V3; kind: LandKind; distance: number }; xy: [number, number] }[];
-      const gameLand = land.map((a) => patch(game, a.xy[0], a.xy[1]));
+      let land = landPoints(s, cam).map((q) => ({ q, xy: pr(q.p) })).filter((a) => inFrame(a.xy)) as { q: { p: V3; kind: LandKind; distance: number }; xy: [number, number]; gxy?: [number, number] }[];
+      let gameLand = land.map((a) => patch(game, a.xy[0], a.xy[1]));
       const veinLand = land.filter((a) => a.q.kind === "contaminated");
       const objs = OBJECTS ? (objectPoints(s, cam).map((q) => ({ q, xy: pr(q.p) })).filter((a) => inFrame(a.xy)) as { q: ObjectPoint; xy: [number, number] }[]) : [];
       const gameObjs = objs.map((a) => patch(game, a.xy[0], a.xy[1], OBJECT_PATCH));
@@ -984,6 +1049,18 @@ async function main() {
           const png = await render(c.page as Page, s, cam, look);
           const px = await decode(tool, png, "image/png");
           if (OURS) mkdirSync(OURS, { recursive: true }), writeFileSync(join(OURS, `${id}-${look}-${c.key}.png`), png);
+          // (`--register`: once a shot, on its first look's first case, the land samples' game pixels moved to where
+          // ours' picture lines up with the game's; the samples nothing lines up are left out, for every look and case)
+          if (REGISTER && c === cases[0] && look === LOOKS[0]) {
+            const gl = lumaOf(game);
+            const ol = lumaOf(px);
+            const faces = land.filter((a) => REGISTERED.includes(a.q.kind)).length;
+            const kept = land.map((a) => ({ a, r: REGISTERED.includes(a.q.kind) ? registerAt(gl, ol, a.xy[0], a.xy[1]) : { dx: 0, dy: 0, r: 1 } })).filter((x) => x.r && x.r.r >= REGISTER_MIN);
+            const moved = kept.filter((x) => x.r && Math.max(Math.abs(x.r.dx), Math.abs(x.r.dy)) >= 2).length;
+            console.log(`  registered: ${faces - (land.length - kept.length)} of ${faces} cliff faces lined up (correlation ${REGISTER_MIN} or more), ${moved} of them moved 2 pixels or more`);
+            land = kept.map(({ a, r }) => ({ ...a, gxy: [a.xy[0] + (r?.dx ?? 0), a.xy[1] + (r?.dy ?? 0)] as [number, number] }));
+            gameLand = land.map((a) => patch(game, (a.gxy ?? a.xy)[0], (a.gxy ?? a.xy)[1]));
+          }
           ours[c.key] = at.map((a) => patch(px, a.xy[0], a.xy[1]));
           oursLand[c.key] = land.map((a) => patch(px, a.xy[0], a.xy[1]));
           if (OBJECTS) {
@@ -1081,7 +1158,7 @@ async function main() {
         const cp = Math.cos(cam.pitch);
         const eye: V3 = [cam.target[0] + Math.sin(cam.yaw) * cp * cam.distance, cam.target[1] + Math.sin(cam.pitch) * cam.distance, cam.target[2] + Math.cos(cam.yaw) * cp * cam.distance];
         const forward = norm(sub(cam.target, eye));
-        const landSamples = SAMPLES ? land.map((a, k) => ({ kind: a.q.kind, p: a.q.p, moisture: s.snap.moisture[Math.floor(-a.q.p[2]) * s.snap.width + Math.floor(a.q.p[0])], distance: a.q.distance, viewDepth: dot(sub(a.q.p, eye), forward), game: gameLand[k], ours: Object.fromEntries(cases.map((c) => [c.key, oursLand[c.key][k]])) })) : undefined;
+        const landSamples = SAMPLES ? land.map((a, k) => ({ kind: a.q.kind, p: a.q.p, moisture: s.snap.moisture[Math.floor(-a.q.p[2]) * s.snap.width + Math.floor(a.q.p[0])], distance: a.q.distance, viewDepth: dot(sub(a.q.p, eye), forward), shift: a.gxy ? [a.gxy[0] - a.xy[0], a.gxy[1] - a.xy[1]] : undefined, game: gameLand[k], ours: Object.fromEntries(cases.map((c) => [c.key, oursLand[c.key][k]])) })) : undefined;
         // (`--samples`: the water's samples one by one too, each its point, depth, kind, the game's pixel and each case's)
         const waterSamples = SAMPLES ? at.map((a, k) => ({ kind: a.q.kind, p: a.q.p, depth: a.q.depth, game: gameAt[k], ours: Object.fromEntries(cases.map((c) => [c.key, ours[c.key][k]])) })) : undefined;
         results[`${id}-${look}-${WATER}`] = { camera: cam, fit: score, light: s.light, bands, land: landBands, landSamples, waterSamples };
