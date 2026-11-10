@@ -15,7 +15,7 @@ import { join } from "node:path";
 import { DAYS_TO_DIE_DRY, easyStartMeasures, easyTargets, frameAt, hazardSoil, orientationForHigh, reachWalk, seenThroughRoofs, witheredByDay } from "./core";
 import { openingCamera, placeComponents, startMiddleTile, StartWaterDays, startWaterWithin, VISTA_ZOOM } from "./core";
 import { applyOps, checksOf, emptySimulationSingletons, exportFiles, fallsOf, GAME_VERSION, HazardRun, LAYERS, MapSession, rowOf, TICKS_PER_DAY, voxelsFromHeights, writeTimber, type TimberFile } from "./core";
-import { CHANNELS, designLand, FALLS, fbm, GREAT_LIP, H, LAKES, measureLand, N, START_AT, TARNS, W, type Land } from "./four-lakes-design";
+import { CHANNELS, designLand, FALLS, fbm, GREAT_ROWS, H, LAKES, measureLand, N, START_AT, TARNS, W, type Land } from "./four-lakes-design";
 import { writePicture } from "./four-lakes-view";
 
 const arg = (name: string, f: string) => {
@@ -98,19 +98,52 @@ function shapeLand(s: MapSession, land: Land): void {
 
 /** The springs: four in the pool at the head of the hanging valley, and each tarn's own. */
 const SOURCES: [number, number, number][] = [
-  [104, 127, 4],
-  [106, 129, 4],
-  [108, 131, 4],
-  [105, 125, 4],
+  // (3.4 each since r11: the West Leat is blocked at its head, so the falls carry what they carried before)
+  [104, 127, 3.4],
+  [106, 129, 3.4],
+  [108, 131, 3.4],
+  [105, 125, 3.4],
   ...TARNS.filter((t) => t.spring).map((t) => t.spring!),
 ];
 
 /** The old channel's plugs: Blockages across it, the first at its mouth on the springs' pool. */
+const OLD_PLUGS: string[] = [];
 function placePlugs(s: MapSession, land: Land): void {
   applyOps(
     s,
-    land.plugs.flatMap((row, k) => row.map((i) => ({ op: "placeEntity", params: { id: newId(), template: "Blockage", x: i % W, y: Math.floor(i / W), orientation: "Cw0" }, label: `The old channel's ${["first", "second", "third"][k]} blockage` }))),
+    land.plugs.flatMap((row, k) =>
+      row.map((i) => {
+        const id = newId();
+        OLD_PLUGS.push(id);
+        return { op: "placeEntity", params: { id, template: "Blockage", x: i % W, y: Math.floor(i / W), orientation: "Cw0" }, label: `The old channel's ${["first", "second", "third"][k]} blockage` };
+      }),
+    ),
   );
+}
+
+/** The dry heads (Kyler, r11: the land beyond the lakes is dry, and irrigable by design): a row of Blockages across
+ *  the head of each leat that fed the side valleys, and of two branches. Behind each the water stands; below it the
+ *  tarns are empty basins and the brooks dry beds, until the player clears it. Each is at a chain's source or at a
+ *  second way out of a tarn, so no water is left without an outlet. */
+const DRY_HEADS: { name: string; waters: string; ids: string[] }[] = [
+  // (r11 also tried a blockage on Crag Brook's head and on the South Leat's: clearing either changed nothing in
+  // the model once its leat ran, so they are not there: two works, each a whole side of the valley)
+  { name: "West Leat", waters: "the west side: High Tarn, High Brook, Birch Tarn, Hill Tarn, their brooks down to Low Lake and the kettle in the start's bench", ids: [] },
+  { name: "Steam Leat", waters: "the east side: Bench Tarn, South Tarn and their brooks down to Low Lake", ids: [] },
+];
+function placeDryHeads(s: MapSession, land: Land): void {
+  const brooks = CHANNELS.filter((c) => c.brook).map((c) => c.name);
+  for (const head of DRY_HEADS) {
+    const row = head.name === "West Leat" ? land.gates[2] : land.brookHeads[brooks.indexOf(head.name)];
+    if (!row.length) throw new Error(`the ${head.name} has no head row`);
+    const ops = row.map((i) => {
+      const id = newId();
+      head.ids.push(id);
+      return { op: "placeEntity", params: { id, template: "Blockage", x: i % W, y: Math.floor(i / W), orientation: "Cw0" }, label: `The ${head.name}'s blockage` };
+    });
+    applyOps(s, ops);
+    log(`  the ${head.name} is blocked at its head: ${row.length} blockages`);
+  }
 }
 
 /** The start: on the meadow under the Low Fall's west shoulder, turned so the game's first camera looks up the
@@ -374,7 +407,7 @@ function plant(s: MapSession, land: Land): void {
   const moist = (i: number) => b.moisture[i] > 0 && !(b.water[i] > 0);
   const nearStart = (i: number, r: number) => Math.hypot((i % W) - st.x, Math.floor(i / W) - st.y) < r;
   const n = (i: number, scale: number, seed: number) => fbm(i % W, Math.floor(i / W), scale, 9000 + seed, 2);
-  const oldBed = (i: number) => land.channel[i] > 0 && CHANNELS[land.channel[i] - 1].name === "Old channel";
+  const oldBed = (i: number) => land.channel[i] > 0 && (CHANNELS[land.channel[i] - 1].name === "Old channel" || (CHANNELS[land.channel[i] - 1].brook !== undefined && !(b.water[i] > 0.05) && n(i, 9, 44) > 0.1));
   // how near the old channel: dead woods stand along it
   const oldDist = new Int16Array(N).fill(99);
   {
@@ -408,20 +441,27 @@ function plant(s: MapSession, land: Land): void {
       return 0;
     }
   };
+  // Wood is the map's economy, not its paint (Kyler, r11): about the official maps' trees for this size and under
+  // the Workshop's, and green ground needs no tree. Massed pine on the high ground (a level or more over its water),
+  // in woods with glades; parkland oak on the meadows, a tree in five tiles inside small groves; birch in broken
+  // ribbons along the water; the meadows between them open, which is where a player builds.
   const meadow = (i: number) => moist(i) && over[i] <= 0 && dist[i] > 2 && dist[i] <= 8;
-  const pinewood = (i: number) => moist(i) && dist[i] > 2 && (over[i] >= 1 || dist[i] > 8);
-  const grove = (i: number) => n(i, 17, 1) > 0.02;
-  const berries = (i: number) => n(i, 9, 2) > 0.36 || (nearStart(i, 15) && !nearStart(i, 7) && n(i, 6, 3) > 0.1);
+  const highGround = (i: number) => moist(i) && dist[i] > 2 && over[i] >= 1;
+  const grove = (i: number) => n(i, 17, 1) > 0.2;
+  const berries = (i: number) => n(i, 9, 2) > 0.24 || (nearStart(i, 15) && !nearStart(i, 7) && n(i, 6, 3) > 0.1);
+  // (the start's views of the Great Fall and the ruined weir stay open: no oak or pine south and east of it)
+  const sight = (i: number) => nearStart(i, 26) && (i % W) >= st.x - 5 && Math.floor(i / W) <= st.y + 3;
   const count: Record<string, number> = {};
-  count.birch = paint("trees", "Birch", (i) => moist(i) && dist[i] <= 2 && !nearStart(i, 7), 0.5, 11, "Birch on the shores", "mixed");
+  count.birch = paint("trees", "Birch", (i) => moist(i) && dist[i] <= 2 && !nearStart(i, 7) && n(i, 11, 31) > -0.05, 0.45, 11, "Birch in ribbons along the water", "mixed");
   count.berries = paint("bushes", "BlueberryBush", (i) => meadow(i) && berries(i) && !nearStart(i, 6), 0.6, 12, "Blueberry patches on the meadows");
-  count.oak = paint("trees", "Oak", (i) => meadow(i) && grove(i) && !berries(i) && !nearStart(i, 9), 0.62, 13, "Oak groves on the meadows", "mixed");
-  count.birch2 = paint("trees", "Birch", (i) => meadow(i) && !grove(i) && !berries(i) && !nearStart(i, 9), 0.12, 14, "Birches in the open meadow");
-  count.pine = paint("trees", "Pine", (i) => pinewood(i) && !nearStart(i, 9) && n(i, 15, 9) > -0.22, 0.82, 15, "Pine woods on the high ground and the meadows' far side", "mixed");
-  // the start's own: berries and an oak wood on the meadow's own level, a short walk from the door
+  count.oak = paint("trees", "Oak", (i) => meadow(i) && grove(i) && !berries(i) && !nearStart(i, 21) && !sight(i), 0.2, 13, "Parkland oak on the meadows", "mixed");
+  count.pine = paint("trees", "Pine", (i) => highGround(i) && !nearStart(i, 21) && !sight(i) && n(i, 15, 9) > 0.05, 0.7, 15, "Pine woods on the high ground", "mixed");
+  // the start's own: berries, and one wood on the bench's west side, a short walk from the door: generous and finite
+  // (about 300 logs grown; a forester takes over)
   const level = (i: number) => b.heights[i] === st.z && moist(i);
   count.startBerries = paint("bushes", "BlueberryBush", (i) => level(i) && !nearStart(i, 6) && nearStart(i, 14) && Math.floor(i / W) < st.y - 4 && (i % W) > st.x - 9, 0.95, 21, "The start's berries");
-  count.startOaks = paint("trees", "Oak", (i) => level(i) && !nearStart(i, 9) && nearStart(i, 19) && (i % W) <= st.x - 9, 0.75, 22, "The start's oak wood");
+  count.startOaks = paint("trees", "Oak", (i) => level(i) && !nearStart(i, 9) && nearStart(i, 19) && (i % W) <= st.x - 9 && n(i, 8, 33) > 0.1, 0.7, 22, "The start's oaks");
+  count.startPines = paint("trees", "Pine", (i) => level(i) && !nearStart(i, 9) && nearStart(i, 20) && (i % W) <= st.x - 9 && n(i, 8, 33) <= 0.1, 0.7, 24, "The start's pine wood", "mixed");
   // the dry land, dressed on purpose
   const dry = (i: number) => !(b.moisture[i] > 0) && !(b.water[i] > 0) && !land.lake[i] && !land.pool[i];
   count.succulents = paint("succulents", "Succulent", (i) => dry(i) && oldDist[i] > 3 && n(i, 26, 4) > 0.03 && n(i, 7, 41) > -0.12, 0.5, 16, "Succulent drifts on the dry benches");
@@ -457,38 +497,105 @@ function plantCount(s: MapSession): { trees: number; dead: number; berries: numb
   return { trees, dead: deadN, berries: berriesN, succulents: succ, per10k: { trees: (trees * 10000) / N, berries: (berriesN * 10000) / N } };
 }
 
+/** The wood as an economy: the living trees by species and their logs when grown (oak 8, pine 2, birch 1), by
+ *  region (each lake's shore: within 12 tiles of its water; the tarns and brooks; the uplands), and the share of
+ *  the level moist ground that stands under a tree. */
+function woodReport(s: MapSession, land: Land): void {
+  const b = s.built;
+  const LOGS: Record<string, number> = { Oak: 8, Pine: 2, Birch: 1 };
+  const owner = new Int8Array(N).fill(-1);
+  let q: number[] = [];
+  for (let i = 0; i < N; i++)
+    if (land.lake[i]) {
+      owner[i] = Math.min(land.lake[i], 5) - 1;
+      q.push(i);
+    } else if (land.channel[i] && CHANNELS[land.channel[i] - 1].brook) {
+      owner[i] = 4;
+      q.push(i);
+    }
+  for (let d = 1; d <= 12 && q.length; d++) {
+    const next: number[] = [];
+    for (const i of q) {
+      const x = i % W;
+      for (const j of [i - 1, i + 1, i - W, i + W])
+        if (j >= 0 && j < N && Math.abs((j % W) - x) <= 1 && owner[j] < 0) {
+          owner[j] = owner[i];
+          next.push(j);
+        }
+    }
+    q = next;
+  }
+  const names = [...LAKES.map((L) => `${L.name}'s shore`), "the tarns and brooks", "the uplands"];
+  const trees = names.map(() => 0);
+  const logs = names.map(() => 0);
+  const kinds: Record<string, number> = { Oak: 0, Pine: 0, Birch: 0 };
+  const under = new Uint8Array(N);
+  let all = 0;
+  let deadN = 0;
+  for (const e of b.entities) {
+    if (LOGS[e.template] === undefined) continue;
+    all++;
+    if ((e.components as { LivingNaturalResource?: { IsDead?: boolean } }).LivingNaturalResource?.IsDead === true) {
+      deadN++;
+      continue;
+    }
+    const i = e.y * W + e.x;
+    under[i] = 1;
+    const r = owner[i] < 0 ? 5 : owner[i];
+    trees[r]++;
+    logs[r] += LOGS[e.template];
+    kinds[e.template]++;
+  }
+  let levelMoist = 0;
+  let wooded = 0;
+  for (let y = 1; y < H - 1; y++)
+    for (let x = 1; x < W - 1; x++) {
+      const i = y * W + x;
+      if (!(b.moisture[i] > 0) || b.water[i] > 0.05) continue;
+      let flat = true;
+      for (const j of [i - 1, i + 1, i - W, i + W, i - W - 1, i - W + 1, i + W - 1, i + W + 1]) if (b.heights[j] !== b.heights[i]) flat = false;
+      if (!flat) continue;
+      levelMoist++;
+      if (under[i]) wooded++;
+    }
+  const living = all - deadN;
+  const total = logs.reduce((a, v) => a + v, 0);
+  log(`  wood: ${living} living trees (${Math.round((living * 10000) / N)} per 10,000 tiles; with the ${deadN} dead ${Math.round((all * 10000) / N)}): ${kinds.Pine} pine, ${kinds.Oak} oak, ${kinds.Birch} birch; ${total} logs when grown (${Math.round((total * 10000) / N)} per 10,000 tiles)`);
+  log(`  wood by region: ${names.map((nm, k) => `${nm} ${trees[k]} trees, ${logs[k]} logs`).join("; ")}`);
+  log(`  level moist ground: ${levelMoist} tiles, ${wooded} under a tree (${Math.round((100 * wooded) / levelMoist)} %)`);
+  log(`  against this size (192 x 192): official medium maps 1,061 trees per 10,000 tiles, a third of them alive (3,911 trees, about 1,300 living; living trees on 16 % of the moist land); the Workshop 1,243 per 10,000 (4,582)`);
+}
+
 // ------------------------------------------------------------------------------------------------ objects
 
 /** TOOL: a cave behind a fall (change 7): the Block tool takes the rock out of the Great Fall's cliff from its
- *  face, as one arch: seven rows of the lip's middle, two levels high at the ends and five in the middle, one tile
- *  deep at the ends and six in the middle; its floor is the bench's level (7), dry over the lake; the large relic
- *  stands at its mouth under the arch's crown. */
-const CAVE: { k: number; high: number; deep: number }[] = [
-  { k: 2, high: 2, deep: 1 },
-  { k: 3, high: 3, deep: 3 },
-  { k: 4, high: 4, deep: 5 },
-  { k: 5, high: 5, deep: 5 },
-  { k: 6, high: 4, deep: 5 },
-  { k: 7, high: 3, deep: 3 },
-  { k: 8, high: 2, deep: 1 },
+ *  face, as one arch: five rows of the lip's middle, three levels high at the ends and five in the middle, three
+ *  tiles deep at the ends and five in the middle; its floor is the bench's level (7), dry over the lake; the large
+ *  relic stands at its mouth under the arch's crown. */
+const CAVE: { y: number; high: number; deep: number }[] = [
+  { y: 103, high: 5, deep: 5 },
+  { y: 104, high: 4, deep: 5 },
+  { y: 102, high: 4, deep: 5 },
+  { y: 105, high: 3, deep: 3 },
+  { y: 101, high: 3, deep: 3 },
 ];
 function greatCave(s: MapSession): void {
   try {
-    // each row is opened from its own face (south) and then inward (east), a tile at a time; the roof steps down
-    // toward the back, so the chamber is a vault and not a box
+    // each row is opened from its first tile's west face and then inward (east), a tile at a time; the roof steps
+    // down toward the back, so the chamber is a vault and not a box
     let cut = 0;
-    for (const { k, high, deep } of CAVE) {
-      const [x, y] = GREAT_LIP[k];
+    for (const { y, high, deep } of CAVE) {
+      const x = GREAT_ROWS.find((r) => r[0] === y)![1];
       for (let d = 0; d <= deep; d++) {
         const hgt = Math.max(2, high - Math.floor(d / 3));
         const cells: [number, number, number][] = Array.from({ length: hgt }, (_, q) => [x + d, y, 7 + q] as [number, number, number]);
-        applyOps(s, [{ op: "blocks", params: { mode: "remove", side: d === 0 ? "-y" : "-x", at: cells, size: 1 }, label: "The cave behind the Great Fall" }]);
+        applyOps(s, [{ op: "blocks", params: { mode: "remove", side: "-x", at: cells, size: 1 }, label: "The cave behind the Great Fall" }]);
         cut += hgt;
       }
     }
-    const [rx, ry] = [GREAT_LIP[6][0], GREAT_LIP[6][1]];
+    const [rx, ry] = [84, 102];
     applyOps(s, [{ op: "placeEntity", params: { id: newId(), template: "LargeRelic", x: rx, y: ry, z: 7, orientation: "Cw0" }, label: "The relic in the cave" }]);
-    log(`  the cave behind the Great Fall is cut (${cut} blocks, an arch two to five levels high over level 7), the large relic at its mouth at X ${rx} Y ${ry}`);
+    log(`  the cave behind the Great Fall is cut (${cut} blocks, an arch three to five levels high over level 7), the large relic at its mouth at X ${rx} Y ${ry}`);
   } catch (e) {
     log(`    (the cave behind the Great Fall: ${(e as Error).message})`);
   }
@@ -712,7 +819,7 @@ function placeObjects(s: MapSession, land: Land): void {
  *  neck and the hanging valley; with `brooks`, a dam at each brook's head too. A what-if on this session: run
  *  after the round is saved, never saved itself. */
 function openBypass(s: MapSession, land: Land, brooks: boolean): void {
-  const plugs = s.built.entities.filter((e) => e.template === "Blockage").map((e) => e.id);
+  const plugs = s.built.entities.filter((e) => e.template === "Blockage" && OLD_PLUGS.includes(e.id)).map((e) => e.id);
   applyOps(s, [{ op: "deleteEntities", params: { entities: plugs }, label: "Clear the blockages" }]);
   const rows = [...land.gates, ...(brooks ? land.brookHeads : [])];
   for (const row of rows) {
@@ -745,6 +852,13 @@ function firstFrame(s: MapSession, land: Land): void {
     ];
     const f = (p: { u: number; v: number } | null) => (p ? `(${p.u.toFixed(2)}, ${p.v.toFixed(2)})` : "behind");
     const inside = pts.every((p) => p && Math.abs(p.u) <= 1 && Math.abs(p.v) <= 1);
+    // (every lip tile's far corner: the lip is no longer one line)
+    let vmax = -Infinity;
+    for (const i of lip) {
+      const p = frameAt(cam, (i % W) + 1, Math.floor(i / W) + 1, top);
+      if (p && p.v > vmax) vmax = p.v;
+    }
+    log(`    the lip's highest corner in the ${name}: v ${vmax.toFixed(2)}`);
     log(`  the Great Fall in the ${name}: lip ${f(pts[0])} to ${f(pts[1])}, foot ${f(pts[2])} to ${f(pts[3])}${inside ? ": whole in the frame" : ": cut by the frame"}`);
   }
 }
@@ -778,10 +892,53 @@ function shots(s: MapSession, weatherDays: { drought: number; badtide: number })
 
 /** The map's own words, as the game shows them with the map (600 characters at most). */
 const DESCRIPTION =
-  "Four lakes step down a wooded valley, each over a rock sill and a fall. Your first home stands at the foot of the Great Fall, eight levels of water with a cave and a relic behind it. " +
-  "In a drought the falls stop from the top and each lake sinks through the gap in its sill: mend the breach in the old weir, then plug a notch, then raise a sill. " +
-  "In a badtide the red comes down the whole stair within a day. An old dry channel leaves the springs behind three blockages: clear it, shut three gates at the springs, and the red runs round every lake. " +
+  "Four lakes step down a wooded valley over rock sills and falls; your first home stands at the foot of the Great Fall, a cave and a relic behind it. " +
+  "Beyond the lakes the land is dry, and every dry valley has its answer: a blocked leat to clear, an empty tarn to fill, an old channel to open. " +
+  "In a drought each lake sinks through the gap in its sill: mend the old weir's breach, plug a notch, raise a sill. " +
+  "In a badtide the red comes down the whole stair in a day: clear the old channel, shut the gates at the springs, and it runs round every lake. " +
   "The ridge behind Crown Lake stands over level 16.";
+
+/** The start's bench through a Normal drought, day by day: how much of it is still moist, Weir Lake's level, and
+ *  the day the start's water goes by the editor's own rule. */
+function benchReport(s: MapSession, land: Land): void {
+  const b = s.built;
+  const st = startOf(s);
+  const h = b.heights;
+  const seen = new Uint8Array(N);
+  const q = [st.y * W + st.x];
+  seen[q[0]] = 1;
+  for (let k = 0; k < q.length; k++) {
+    const i = q[k];
+    const x = i % W;
+    for (const j of [i - 1, i + 1, i - W, i + W]) if (j >= 0 && j < N && Math.abs((j % W) - x) <= 1 && !seen[j] && h[j] === st.z && !(b.water[j] > 0.05)) (seen[j] = 1), q.push(j);
+  }
+  const near = q.filter((i) => Math.hypot((i % W) - st.x, Math.floor(i / W) - st.y) <= 12);
+  const share = (m: ArrayLike<number>, tiles: number[]) => Math.round((100 * tiles.filter((i) => m[i] > 0).length) / tiles.length);
+  log(`  the start's bench: ${q.length} level tiles at level ${st.z} (${near.length} within 12 tiles); moist now ${share(b.moisture, q)} % (${share(b.moisture, near)} % within 12)`);
+  const run = new HazardRun(b.waterModel, { depth: b.water, contamination: b.contamination, stack: (b.settle as unknown as { stack?: unknown }).stack ?? null } as never, "drought", 9);
+  const sw = new StartWaterDays("drought", { depth: b.water, contamination: b.contamination }, { W, H, heights: h, objects: b.entities as never, start: { x: st.x, y: st.y }, within: startWaterWithin(s) });
+  for (let day = 1; day <= 9; day++) {
+    run.step(TICKS_PER_DAY);
+    const w = run.water();
+    sw.see({ depth: w.depth, contamination: w.contamination });
+    const soil = hazardSoil(b.waterModel, h, w as never, b.entities as never);
+    const weir = readWater(s, land, w.depth).lakes[1];
+    if (day === 3) {
+      const on = new Set(q);
+      for (let y = 109; y >= 83; y--) {
+        let row = `    y ${String(y).padStart(3)} `;
+        for (let x = 54; x <= 84; x++) {
+          const i = y * W + x;
+          row += on.has(i) ? (soil.moisture[i] > 0 ? "m" : ".") : w.depth[i] > 0.05 ? "~" : " ";
+        }
+        log(row);
+      }
+    }
+    log(`  drought day ${day}: bench moist ${share(soil.moisture, q)} % (${share(soil.moisture, near)} % within 12 tiles of the start); Weir Lake ${weir.level.toFixed(2)} (${Math.round(weir.volume)})`);
+  }
+  run.dispose();
+  log(`  the start's water is gone: ${sw.has ? (sw.day ? "day " + sw.day : "not in 9 days") : "no water a pump reaches"}`);
+}
 
 // ------------------------------------------------------------------------------------------- how it plays
 
@@ -956,6 +1113,69 @@ function play(s: MapSession, land: Land): void {
   }
 }
 
+/** TOOL: what each work waters (Kyler, r11): the blockages at the dry heads cleared one after another on the saved
+ *  map, the water settled each time, and the tiles that turn green or wet counted; then the map's totals. A what-if
+ *  on this session after the round is saved, never saved itself. */
+function irrigation(s: MapSession, land: Land): void {
+  const greenNow = () => {
+    const b = s.built;
+    const g = new Uint8Array(N);
+    for (let i = 0; i < N; i++) if (b.water[i] > 0.05 || b.moisture[i] > 0) g[i] = 1;
+    return g;
+  };
+  const count = (g: Uint8Array) => g.reduce((a, v) => a + v, 0);
+  const day1 = greenNow();
+  let prev = day1;
+  log(`irrigation: green or wet on day 1: ${count(day1)} tiles (${((100 * count(day1)) / N).toFixed(1)} % of the map)`);
+  let small = 0;
+  for (const head of DRY_HEADS) {
+    if (!head.ids.length) continue;
+    applyOps(s, [{ op: "deleteEntities", params: { entities: head.ids }, label: `Clear the ${head.name}'s blockage` }]);
+    const g = greenNow();
+    let more = 0;
+    let water = 0;
+    for (let i = 0; i < N; i++)
+      if (g[i] && !prev[i]) {
+        more++;
+        if (s.built.water[i] > 0.05) water++;
+      }
+    small += more;
+    log(`  the ${head.name}'s blockage cleared (${head.ids.length} tiles): ${more} more tiles green or wet (${water} of them water): ${head.waters}`);
+    prev = g;
+  }
+  // the old channel: the dry ground within 12 tiles of its bed and at most a level over it (what its water reaches)
+  let old = 0;
+  {
+    const k = CHANNELS.findIndex((c) => c.name === "Old channel") + 1;
+    const dist = new Int16Array(N).fill(-1);
+    const bedOf = new Int8Array(N);
+    let q: number[] = [];
+    for (let i = 0; i < N; i++)
+      if (land.channel[i] === k) {
+        dist[i] = 0;
+        bedOf[i] = s.built.heights[i];
+        q.push(i);
+      }
+    for (let d = 1; d <= 12 && q.length; d++) {
+      const next: number[] = [];
+      for (const i of q) {
+        const x = i % W;
+        for (const j of [i - 1, i + 1, i - W, i + W])
+          if (j >= 0 && j < N && Math.abs((j % W) - x) <= 1 && dist[j] < 0 && s.built.heights[j] <= bedOf[i] + 1) {
+            dist[j] = d;
+            bedOf[j] = bedOf[i];
+            next.push(j);
+          }
+      }
+      q = next;
+    }
+    for (let i = 0; i < N; i++) if (dist[i] >= 0 && !prev[i]) old++;
+  }
+  const after = count(prev);
+  log(`  the old channel opened (3 blockages of ${land.plugs.map((r) => r.length).join(", ")} tiles and the gates): about ${old} more tiles within its water's reach (its bed and the ground a level over it, 12 tiles each side)`);
+  log(`  totals: green or wet on day 1 ${((100 * count(day1)) / N).toFixed(1)} %; irrigable by small works (the two leats' blockages) ${((100 * small) / N).toFixed(1)} %; by large works (the old channel) ${((100 * old) / N).toFixed(1)} %; the rest ${((100 * (N - after - old)) / N).toFixed(1)} % (dry benches, crags and ridges; a pump, a canal or a raised sill for some, dry for good where it stands two or more levels over any water)`);
+}
+
 // --------------------------------------------------------------------------------------------------- main
 
 function main(): void {
@@ -971,6 +1191,7 @@ function main(): void {
   shapeLand(s, land);
   lap("land");
   placePlugs(s, land);
+  if (!has("wet")) placeDryHeads(s, land);
   lap("plugs");
   placeSources(s, land);
   lap("sources and settle");
@@ -1042,6 +1263,7 @@ function main(): void {
     plant(s, land);
     const pc = plantCount(s);
     log(`  plants: ${pc.trees} living trees (${Math.round(pc.per10k.trees)} per 10,000 tiles), ${pc.dead} dead, ${pc.berries} berry bushes (${Math.round(pc.per10k.berries)} per 10,000), ${pc.succulents} succulents`);
+    woodReport(s, land);
     lap("plants");
   }
   const settle = s.built.settle as unknown as { ticks: number; settled: boolean };
@@ -1077,6 +1299,7 @@ function main(): void {
       log(row);
     }
   }
+  if (has("bench")) benchReport(s, land);
   const cv = cover(s);
   log(`  cover: water ${(cv.water * 100).toFixed(1)} %, moist ground ${(cv.moist * 100).toFixed(1)} %, bare ${(cv.bare * 100).toFixed(1)} %`);
   coverPicture(s, join(OUT, `${ROUND}-cover.png`));
@@ -1110,6 +1333,10 @@ function main(): void {
     writeFileSync(join(OUT, `${ROUND}-shots.json`), JSON.stringify(shots(s, { drought: 9, badtide: 8 }), null, 1));
     log(`  saved ${join(OUT, `${ROUND}.timber`)} (${f.timber.length} bytes), project ${f.project.length} bytes`);
     lap("save");
+  }
+  if (has("irrigate")) {
+    irrigation(s, land);
+    lap("irrigation");
   }
   if (has("bypass")) {
     // the lakes as they stand on the day the player opens the channel: full (with a cave, the water on every column)
