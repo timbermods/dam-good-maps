@@ -1,6 +1,6 @@
 // The opening shot (D493): the game's first camera as a core question.
 import { describe, expect, it } from "vitest";
-import { bestTurn, frameAt, landmarkInView, levelDoorTurns, openingCamera, openingFrame, openingShotScore, prepareOpening } from "../../src/core/analysis/opening";
+import { bestTurn, frameAt, landInFrame, landmarkInView, levelDoorTurns, openingCamera, openingFrame, openingShotScore, prepareOpening } from "../../src/core/analysis/opening";
 import { standingForms } from "../../src/core/analysis/vertical";
 
 const W = 128;
@@ -76,5 +76,18 @@ describe("the opening shot", () => {
     // Cw90's door is west of the 3×3 (x − 2): raise it
     h[64 * W + 58] = 5;
     expect(levelDoorTurns(h, W, H, 60, 64, 4).map((t) => t.o)).not.toContain("Cw90");
+  });
+
+  it("how much of the frame shows the map (D507): most from the middle, least from a corner facing out", () => {
+    const at = (x: number, y: number, o: "Cw0" | "Cw90" | "Cw180" | "Cw270") => landInFrame(128, 128, { x, y, z: 10, orientation: o });
+    const mid = at(64, 64, "Cw0");
+    expect(mid).toBeGreaterThan(0.65);
+    expect(mid).toBeLessThan(0.8);
+    // a corner start shows less, and least when its camera looks out past the corner
+    const corner = ["Cw0", "Cw90", "Cw180", "Cw270"].map((o) => at(20, 20, o as "Cw0"));
+    expect(Math.max(...corner)).toBeLessThan(mid - 0.15);
+    expect(Math.min(...corner)).toBeLessThan(Math.max(...corner) - 0.1);
+    // on a map large enough, every ray lands on it
+    expect(landInFrame(1024, 1024, { x: 512, y: 512, z: 10, orientation: "Cw90" })).toBe(1);
   });
 });
