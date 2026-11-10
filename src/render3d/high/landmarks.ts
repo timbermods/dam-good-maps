@@ -1,10 +1,11 @@
 // Refreshed objects and landmarks for the High look (#67 stage 3, investigation/maplook-finish
 // landmarks.ts; PLAN §20 D250): procedural models of our own, in place of today's, on the same
 // transforms, footprints and tints: geothermal vents, a
-// bramble of thorns, rubble and log debris for natural dams, and a few steel gussets and bolts on
+// bramble of thorns, and a few steel gussets and bolts on
 // the ruins' scaffolds and the mine's frame. The start (the game's lantern tower), the water and badwater
 // sources (its rock outcrop and crater), the relics (its fallen telescope, crashed satellite and fallen dish antenna,
-// smallRelics.ts, largeRelic.ts) and the blockage (its heap of rock, blockage.ts) are
+// smallRelics.ts, largeRelic.ts), the blockage (its heap of rock, blockage.ts) and the natural dam (its heap of brown rock
+// with logs through it, naturalDam.ts) are
 // Standard's models, the game's shapes (D496), in High's materials. Slopes keep their ramp in natural materials. Each replacement carries the original batch's
 // per-instance bookkeeping, so highlighting, removing and following the ground work as before; off, the
 // originals come back.
@@ -120,19 +121,6 @@ function geothermal(): BufferGeometry {
   return m.own().geometry();
 }
 
-function debris(dam: boolean): BufferGeometry {
-  const m = new Parts();
-  for (let k = 0; k < 6; k++) rock(m, (hash(k) - 0.5) * 0.56, 0.18 + (k > 3 ? 0.19 : 0), (hash(k + 12) - 0.5) * 0.56, 0.23 + hash(k + 3) * 0.09, dam ? [0.45, 0.4, 0.28] : [0.53, 0.49, 0.42], k);
-  if (dam)
-    for (let k = 0; k < 7; k++) {
-      const z = (k - 3) * 0.1;
-      const y = 0.26 + (k % 3) * 0.07;
-      m.beam([-0.44, y, z - 0.07], [0.43, y + 0.04, z + 0.07], 0.055, [0.39 + 0.025 * k, 0.27 + 0.017 * k, 0.14 + 0.012 * k]);
-    }
-  else for (let k = 0; k < 5; k++) rock(m, (hash(k + 92) - 0.5) * 0.67, 0.05, (hash(k + 55) - 0.5) * 0.67, 0.1, [0.65, 0.58, 0.46], k, 1);
-  return m.own().geometry();
-}
-
 /** Today's model with a little more: steel gussets and bolts on a ruin's scaffold, bolts and slats on the mine's
  *  frame. The approved shapes stay. (The gussets in the ruins' rust, the game's; the rest colours of our own,
  *  `ownAlbedo`, as the models they are added to: entities3d.ts `Model.own`.) */
@@ -179,12 +167,11 @@ function geometryFor(name: string, batch: string, base: BufferGeometry): BufferG
   const key = name === "StartingLocation" || name.endsWith("Relic") || ["Thorns", "GeothermalField", "WaterSource", "BadwaterSource", "Blockage", "NaturalDam"].includes(name) ? name : `|${batch}`;
   let g = models.get(key);
   if (!g) {
-    // (the start, the sources, the large relic and the blockage are the game's models, D496: Standard's own, in High's
-    // materials and light)
-    if (name === "StartingLocation" || name === "WaterSource" || name === "BadwaterSource" || name.endsWith("Relic") || name === "Blockage") g = new Parts().copy(base).geometry();
+    // (the start, the sources, the relics, the blockage and the natural dam are the game's models, D496: Standard's own,
+    // in High's materials and light)
+    if (name === "StartingLocation" || name === "WaterSource" || name === "BadwaterSource" || name.endsWith("Relic") || name === "Blockage" || name === "NaturalDam") g = new Parts().copy(base).geometry();
     else if (name === "Thorns") g = bramble();
     else if (name === "GeothermalField") g = geothermal();
-    else if (name === "NaturalDam") g = debris(true);
     else g = augment(batch, base);
     models.set(key, g);
   }
@@ -254,7 +241,7 @@ export function buildLandmarks(group: Group, e: EntityView, material: ShaderMate
       const colours = new Float32Array(slots.length * 3);
       const follows = old.userData.follows as Int32Array | undefined;
       const ty0 = old.userData.ty0 as Float32Array | undefined;
-      // (debris carries its own colours)
+      // (the game's heaps carry their own colours)
       const tinted = !!tint && name !== "NaturalDam" && name !== "Blockage";
       if (slots.length === objects.length && grow) {
         // (every instance of today's batch, in order: its arrays as they are)

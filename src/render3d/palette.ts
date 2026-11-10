@@ -404,6 +404,17 @@ export const BLOCKAGE = {
   shardBack: [[0.207, 0.178, 0.135], [0.294, 0.251, 0.19], [0.284, 0.245, 0.184], [0.209, 0.18, 0.137], [0.313, 0.265, 0.192], [0.288, 0.246, 0.182]] as readonly Rgb[],
 } as const;
 
+/** The natural dam as the game colours it (NaturalDam.Model, D178, D496): its albedo (texture × vertex colour,
+ *  area-weighted, `tools/game-model-albedo.py`), its material the blockage's, not metallic, so straight. Its heap's rock
+ *  in three shades, the thirds of its faces by lightness (the heap's mean 0.215/0.185/0.149), its logs brown, its flat
+ *  stones and shards paler, each its own. */
+export const NATURAL_DAM = {
+  rock: [[0.167, 0.14, 0.111], [0.21, 0.181, 0.146], [0.266, 0.232, 0.189]] as readonly Rgb[],
+  log: [0.202, 0.156, 0.11] as Rgb,
+  stone: [[0.243, 0.209, 0.159], [0.261, 0.225, 0.171], [0.253, 0.218, 0.165], [0.243, 0.21, 0.159], [0.213, 0.184, 0.139]] as readonly Rgb[],
+  shard: [[0.25, 0.215, 0.162], [0.242, 0.209, 0.157], [0.271, 0.233, 0.178]] as readonly Rgb[],
+} as const;
+
 /** The large relic as the game colours it (LargeRelic.Model, D178, D496): a fallen dish antenna of weathered pale metal,
  *  darker toward its hub, on dark steel fittings, among dark stones. Its material (EnvironmentURP on the
  *  `BeaverCarryingModels` atlas) is partly metallic (0.13–0.23 on the panels, 0.5 on the rim and fittings; smoothness
