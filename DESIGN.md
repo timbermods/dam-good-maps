@@ -447,7 +447,8 @@ refinements and what the mockups left open:
   Centre or Summit 10–13; Rift's Walls and Deposit's Channels 7–13; Quake (no Size) Mode 4–6, Scarp 7–9, Side 10–13;
   Glaciate Meltwater 7–9, Benches 10–11, Steps 12–13; Carve Wander 7–9, What it leaves 10–11, Walls 12–13 (its rows share 3, 9 and 11), then
   Canyon depth 1–3, River depth 4–5, Banks 6–7 and the Floor 8–9 on row 2 (on the bar's 15 cells since its Fall: Canyon
-  depth 1–3, River depth 4–5, Fall 6–7, Banks 8–9, the Floor 10, then Sources and Try another in their places). Rift, Deposit and Quake's Floor is the whole of row 2 up to
+  depth 1–3, River depth 4–5, Fall 6–7, Banks 8–9, the Floor 10–11, Sources 12–13 and Try another 14–15, out of the
+  other forces' places until planning rules where Fall goes). Rift, Deposit and Quake's Floor is the whole of row 2 up to
   cell 9, so Sources and Try another are in the same cells on every force. The brushes
   Size 1–4, Level or Strength 5–9, Mode 10–13, then Sources 1–4, Brush 5–9 and Flatten's Steps 10–13 (Brush 5–13
   without Steps); Select as on 2026-10-04 (below). At 1280 wide every setting fits its cells at its longest value.

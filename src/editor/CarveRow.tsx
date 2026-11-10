@@ -294,9 +294,9 @@ export function CarveRow(p: CarveRowProps) {
           span: 2,
           node: <NumberSetting label="Banks" title="Flat land beside the water" value={banks} words={String(banks)} min={0} max={BANKS_MAX} step={1} onChange={(v) => set({ banks: v })} auto={{ on: u.banks === null, onAuto: (on) => set({ banks: on ? null : banks }) }} />,
         },
-        { key: "floor", row: 2, at: 10, span: 1, node: <FloorSetting /> },
-        { key: "sources", row: 2, at: 11, span: 2, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
-        { key: "again", row: 2, at: 13, span: 3, node: again(p, "Carve it another way") },
+        { key: "floor", row: 2, at: 10, span: 2, node: <FloorSetting /> },
+        { key: "sources", row: 2, at: 12, span: 2, node: <SourcesSetting value={u.sources} onChange={(v) => set({ sources: v })} /> },
+        { key: "again", row: 2, at: 14, span: 2, node: again(p, "Carve it another way") },
       ]}
     />
   );
