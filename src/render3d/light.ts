@@ -15,6 +15,7 @@
 import { rotate, type Orientation } from "../core/format/footprints";
 import { DEAD_FORM } from "./dying";
 import { DEAD, ORIENTATION_NAMES, YOUNG, type EntityView, type SoilView, type SurfaceWater } from "./model";
+import { LARGE_RELIC_SHADOW } from "./largeRelic";
 import { DESERT, LIGHT } from "./palette";
 
 /** Shadow samples per tile, along each axis. */
@@ -126,9 +127,14 @@ const PLANT_SHAPES: readonly (readonly (readonly [number, number, number])[])[] 
   [[0, 0.22, 0.52], [0.22, 0.4, 0.36]],
   // Succulent (0.5)
   [[0, 0.5, 0.28]],
+  // (6 and 7: the dead wood's and the ruins' posts, `POST_RADIUS`)
+  [],
+  [],
+  // the large relic's dish, a kind for each tile of its footprint (`RELIC_KIND`)
+  ...LARGE_RELIC_SHADOW.flat(),
 ];
-/** Each kind's height (its top disc's top): its caster's height over this scales the shape (a young plant). */
-const PLANT_TOPS = PLANT_SHAPES.map((d) => (d.length ? d[d.length - 1][1] : 0));
+/** Each kind's height (its highest disc's top): its caster's height over this scales the shape (a young plant). */
+const PLANT_TOPS = PLANT_SHAPES.map((d) => Math.max(0, ...d.map((q) => q[1])));
 /** The plants' kinds (`PLANT_SHAPES`). */
 const PLANT_KIND: Readonly<Record<string, number>> = { Pine: 1, Oak: 2, Birch: 3, BlueberryBush: 4, Succulent: 5 };
 /** The casters cast as an upright post as tall as the caster, of these radii (tiles, before `PLANT_INSET`): a dead
@@ -137,6 +143,8 @@ const PLANT_KIND: Readonly<Record<string, number>> = { Pine: 1, Oak: 2, Birch: 3
  *  quarter too large). */
 const DEAD_KIND = 6;
 const RUIN_KIND = 7;
+/** The large relic's first kind: its tile [x][y] from its Coordinates casts `PLANT_SHAPES[RELIC_KIND + 3x + y]`. */
+const RELIC_KIND = 8;
 const POST_RADIUS: Readonly<Record<number, number>> = { [DEAD_KIND]: 0.3, [RUIN_KIND]: 0.75 };
 /** The start's walled base and roof over its 3 × 3 footprint round the tower's tile (entities3d.ts `startTower`: the
  *  walls 2.86 across to 1.04, the cornice to 1.18, the hipped roof to 1.8), cast as a column over each of the 8. */
@@ -155,9 +163,10 @@ const SHADOW_DROP = 30;
 export const PLANT_WIDEST = Math.max(...PLANT_SHAPES.flat().map((d) => d[2] - PLANT_INSET), ...Object.values(POST_RADIUS).map((r) => r - PLANT_INSET));
 if (PLANT_WIDEST >= 0.5 + 0.5 / SHADOW_RES) throw new Error(`light.ts: a disc ${PLANT_WIDEST} wide reaches samples an edit of its tile does not redo`);
 
-/** Extra height that objects add to the shadow casters of their tile (trees, ruins, the start). A plant's and a
- *  ruin's is its height, and its shape is cast (`plantTopsInto`); the start's are columns over its tiles (its tower on
- *  the middle one, its walls on the rest). The levels the objects stand on are noted with them, and after those the
+/** Extra height that objects add to the shadow casters of their tile (trees, ruins, the start, the large relic). A
+ *  plant's and a ruin's is its height, and its shape is cast (`plantTopsInto`); the start's are columns over its tiles
+ *  (its tower on the middle one, its walls on the rest), the large relic's discs fitted to its dish's shadow
+ *  (`LARGE_RELIC_SHADOW`) over the tiles of its footprint that cast. The levels the objects stand on are noted with them, and after those the
  *  shapes' kinds. */
 export function objectCasters(W: number, H: number, e: EntityView | null): Float32Array | null {
   if (!e || !e.count) return null;
@@ -186,6 +195,21 @@ export function objectCasters(W: number, H: number, e: EntityView | null): Float
       y += dy;
       for (let by = y - 1; by <= y + 1; by++)
         for (let bx = x - 1; bx <= x + 1; bx++) if ((bx !== x || by !== y) && bx >= 0 && by >= 0 && bx < W && by < H) put(by * W + bx, START_BASE, e.z[k], 0);
+    }
+    // (the large relic's dish: the discs fitted to its model's shadow over the tiles of its footprint that cast,
+    // largeRelic.ts `LARGE_RELIC_SHADOW`; round, so they turn with it by their tiles alone)
+    if (t === "LargeRelic") {
+      const o = ORIENTATION_NAMES[e.orientation[k]] as Orientation;
+      for (let j = 0; j < 3; j++)
+        for (let i = 0; i < 3; i++) {
+          const kind = RELIC_KIND + 3 * i + j;
+          if (!PLANT_TOPS[kind]) continue;
+          const [dx, dy] = rotate(o, i, j);
+          const bx = x + dx;
+          const by = y + dy;
+          if (bx >= 0 && by >= 0 && bx < W && by < H) put(by * W + bx, PLANT_TOPS[kind], e.z[k], kind);
+        }
+      continue;
     }
     if (x < 0 || y < 0 || x >= W || y >= H) continue;
     let add = tall[t] ?? 0;

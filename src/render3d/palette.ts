@@ -389,8 +389,33 @@ export const SLOPE = { ramp: [0.5, 0.46, 0.4] as Rgb, side: [0.3, 0.31, 0.28] as
 export const GEOTHERMAL: Rgb = [0.82, 0.48, 0.16];
 export const GEOTHERMAL_ROCK: Rgb = [0.27, 0.26, 0.25];
 
-/** Relics: weathered pale stone, broken columns on a plinth. */
+/** The small and medium relics: weathered pale stone, broken columns on a plinth (colours of our own; the game's are a
+ *  fallen telescope and a crashed satellite, not yet drawn). */
 export const RELIC_STONE: Rgb = [0.66, 0.62, 0.54];
+
+/** The large relic as the game colours it (LargeRelic.Model, D178, D496): a fallen dish antenna of weathered pale metal,
+ *  darker toward its hub, on dark steel fittings, among dark stones. Its material (EnvironmentURP on the
+ *  `BeaverCarryingModels` atlas) is partly metallic (0.13–0.23 on the panels, 0.5 on the rim and fittings; smoothness
+ *  0.3), which the objects' light (materials.ts `gameObjectLight`, metallic 0) has no term for, so each part's albedo
+ *  (texture × vertex colour, area-weighted, `tools/game-model-albedo.py`) is given as the albedo that light needs to show
+ *  the game's brightness: URP's diffuse at its metallic, its occlusion map and the environment's reflection by its
+ *  Fresnel term, over the part's own normals, with the sun round the compass at the game's 45° and a camera 45° down
+ *  round it. The panels, by ring from the hub out (θ 9.3–20, 20–34, 34–46.8°): the face (toward the dish's mouth) from
+ *  the game's 0.288/0.258/0.208, 0.460/0.413/0.335 and 0.488/0.440/0.360; the back 0.288/0.258/0.208,
+ *  0.460/0.413/0.335 and 0.538/0.481/0.390; the cracked piece, both sides, 0.168/0.150/0.121, 0.302/0.271/0.221 and
+ *  0.364/0.325/0.263; the rim 0.344/0.319/0.271, the rings and ribs 0.26/0.245/0.225, the hub 0.255/0.237/0.214 and its
+ *  boss 0.337/0.314/0.284, the feed and its struts 0.330/0.304/0.263; the stones (metallic 0) straight. */
+export const LARGE_RELIC = {
+  face: [[0.239, 0.218, 0.178], [0.406, 0.368, 0.301], [0.432, 0.392, 0.321]] as readonly Rgb[],
+  back: [[0.286, 0.266, 0.222], [0.441, 0.402, 0.331], [0.529, 0.479, 0.392]] as readonly Rgb[],
+  cracked: [[0.141, 0.129, 0.107], [0.273, 0.249, 0.206], [0.324, 0.294, 0.241]] as readonly Rgb[],
+  rim: [0.216, 0.211, 0.187] as Rgb,
+  steel: [0.161, 0.159, 0.15] as Rgb,
+  hub: [0.177, 0.172, 0.161] as Rgb,
+  boss: [0.21, 0.203, 0.189] as Rgb,
+  feed: [0.204, 0.197, 0.176] as Rgb,
+  stone: [0.221, 0.203, 0.172] as Rgb,
+} as const;
 
 /** Thorns: a low, dark red-brown bramble. */
 export const THORNS: Rgb = [0.34, 0.16, 0.14];

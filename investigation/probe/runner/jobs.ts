@@ -4,6 +4,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type CheckDef, D0, describeSchedule, type GameDef, lookPoses, standardPoses } from './catalog';
 import type { PlanSummary } from './consent';
+import { captureJobMoments } from './captures';
 import { readIngameLog } from './ingamelog';
 import type { Job, JobMap, Moment, Pose } from './job';
 import { readMapBytes, type MapInfo } from './mapfile';
@@ -49,6 +50,17 @@ export function prepare(games: GameDef[], runId: string): Prepared[] {
     const mapFile = join(dir, `${game.id}.timber`);
     writeFileSync(mapFile, bytes);
     const info = readMapBytes(bytes, mapFile);
+    if (game.captures) {
+      // a capture game (runner/captures.ts): its own poses and moments only
+      const poses = game.poses!(info);
+      const moments = captureJobMoments(game.captures.moments, poses, game.days);
+      const map: JobMap = {
+        id: game.id, title: game.title, mapFile, faction: game.faction, mode: game.mode, cycles: game.cycles, endDay: D0 + game.days,
+        timeoutSeconds: Math.round(300 + game.days * 150 * Math.max(1, (info.W * info.H) / (128 * 128)) + moments.reduce((n, m) => n + m.shots.length, 0) * 10),
+        tiles: [], sampleHours: game.sampleHours, moments, actions: [], poses,
+      };
+      return { game, map, info, checks: game.checks };
+    }
     const poses: Pose[] = [...standardPoses(info), ...(game.poses?.(info) ?? []), ...(game.lookMap ? lookPoses(game.lookMap) : [])];
     const shotsNow = ['overview', 'water', 'start'].filter((id) => poses.some((p) => p.id === id));
     const moments: Moment[] = [{ id: 'start', day: D0, snapshot: true, shots: poses.map((p) => p.id) }];

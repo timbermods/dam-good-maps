@@ -59,6 +59,7 @@ import { plantScale, RANDOMIZER } from "./plantSize";
 import { DEAD_FORM, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
 import { crownShade, GEOTHERMAL, GEOTHERMAL_ROCK, LANDMARK, MINE, OWN_LIGHTNESS, ownAlbedo, RELIC_STONE, RUIN, SLOPE, START, THORNS, TREE_COLOURS, WATER } from "./palette";
 import { objectSoilAt } from "./runSoil";
+import { largeRelicParts } from "./largeRelic";
 import { LAND, LAND_GROW } from "./objectFade";
 
 type Rgb = readonly [number, number, number];
@@ -458,9 +459,14 @@ const MODELS: Record<string, () => Model> = {
     }
     return m;
   },
-  SmallRelic: () => relic(2, 1, [[-0.5, 0, 0.9], [0.5, 0, 0.45]], [], false),
-  MediumRelic: () => relic(3, 2, [[-1, -0.5, 1.2], [0, -0.5, 0.5], [1, -0.5, 0.95], [-1, 0.5, 0.35], [1, 0.5, 1.4]], [[0.1, 0.45, 1.0]], false),
-  LargeRelic: () => relic(3, 3, [[-1, -1, 1.9], [1, -1, 1.5], [-1, 1, 1.2], [1, 1, 0.7], [0, -1, 0.4]], [[0.2, 0.6, 1.3]], true),
+  SmallRelic: () => relic(2, 1, [[-0.5, 0, 0.9], [0.5, 0, 0.45]], []),
+  MediumRelic: () => relic(3, 2, [[-1, -0.5, 1.2], [0, -0.5, 0.5], [1, -0.5, 0.95], [-1, 0.5, 0.35], [1, 0.5, 1.4]], [[0.1, 0.45, 1.0]]),
+  // (the game's fallen dish antenna, at its measures and in its colours: largeRelic.ts)
+  LargeRelic: () => {
+    const m = new Model();
+    for (const { points, colour } of largeRelicParts()) m.tris(points, colour);
+    return m;
+  },
   Thorns: () => {
     // a low, dark bramble with thorny canes sticking out
     const m = new Model().add(ico(0.34), THORNS, { y: 0.2, sy: 0.6 }).add(ico(0.24), [0.28, 0.14, 0.12], { x: 0.18, y: 0.3, z: -0.1, sy: 0.8 });
@@ -477,9 +483,10 @@ const MODELS: Record<string, () => Model> = {
   ReserveWarehouse: reserveWarehouse,
   ReserveTank: reserveTank,
 };
-/** The models in the game's own colours, its albedo straight (palette.ts `TREE_COLOURS`, `LANDMARK`; the ruins and the
- *  start are made apart). Every other model's colours are our own, drawn at `ownAlbedo` (palette.ts `OWN_LIGHTNESS`). */
-const GAME_COLOURED = new Set(["Pine", "Birch", "Oak", "BlueberryBush", "WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep"]);
+/** The models in the game's own colours, its albedo straight (palette.ts `TREE_COLOURS`, `LANDMARK`, `LARGE_RELIC`; the
+ *  ruins and the start are made apart). Every other model's colours are our own, drawn at `ownAlbedo` (palette.ts
+ *  `OWN_LIGHTNESS`). */
+const GAME_COLOURED = new Set(["Pine", "Birch", "Oak", "BlueberryBush", "WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep", "LargeRelic"]);
 for (const key of Object.keys(MODELS))
   if (!GAME_COLOURED.has(key.split(".")[0])) {
     const make = MODELS[key];
@@ -1008,16 +1015,12 @@ export function mineOutline(v: EntityView, W: number, H: number, into?: Uint8Arr
 /** A vent's glow: brighter than any lit colour, so it shines in shade too. */
 const GLOW: Rgb = [GEOTHERMAL[0] * 1.3, GEOTHERMAL[1] * 1.3, GEOTHERMAL[2] * 1.3];
 
-/** A relic over its sx × sy footprint (centred on it): a worn plinth, broken columns [x, z,
- *  height] and fallen drums [x, z, turn]; a large relic stands on a second step. */
-function relic(sx: number, sy: number, columns: [number, number, number][], fallen: [number, number, number][], step: boolean): Model {
+/** A small or medium relic over its sx × sy footprint (centred on it): a worn plinth, broken columns [x, z, height] and
+ *  fallen drums [x, z, turn] (ours; the large relic is the game's, largeRelic.ts). */
+function relic(sx: number, sy: number, columns: [number, number, number][], fallen: [number, number, number][]): Model {
   const m = new Model().add(box(sx - 0.1, 0.16, sy - 0.1), [RELIC_STONE[0] * 0.8, RELIC_STONE[1] * 0.8, RELIC_STONE[2] * 0.8], { y: 0.08 });
-  let base = 0.16;
-  if (step) {
-    m.add(box(sx - 0.6, 0.18, sy - 0.6), [RELIC_STONE[0] * 0.9, RELIC_STONE[1] * 0.9, RELIC_STONE[2] * 0.9], { y: base + 0.09 });
-    base += 0.18;
-  }
-  const inset = step ? 0.65 : 0.8;
+  const base = 0.16;
+  const inset = 0.8;
   for (const [x, z, h] of columns) {
     const px = x * inset;
     const pz = z * inset;
