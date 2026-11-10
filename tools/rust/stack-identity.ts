@@ -137,7 +137,24 @@ if (threads) {
         while (!s) s = run.advance(1e6);
         return s;
     };
-    const cases: { name: string; settle: () => StackSettle }[] = [...stackFixtures.map(f => ({ name: f.name, settle: () => settleFixture(f) })), { name: 'emitters cut by the strips', settle: () => cut() }, { name: 'stored lakes', settle: () => cut(true) }, { name: 'stored lakes and a removal', settle: () => cut(true, true) }, { name: 'a shelf at 5 under filling water', settle: shelf(5) }, { name: 'a shelf at 6 under filling water', settle: shelf(6) }, { name: 'a stored lake whose water moves', settle: () => cut(true, false, true) }];
+    // and a hollow in a plateau that the pre-fill's walk crossed level and started full, which no source's water reaches
+    // once it has settled (#814): the settle takes that water from nowhere (D385) and settles on, which on several
+    // threads settles on on one from the strips' end, their flows' momentum handed back; with a seep anywhere, whose state
+    // the strips keep, from the pre-fill
+    const hollow = (seep = false) => (): StackSettle => {
+        const W = 48, H = 48;
+        const mask = new Uint32Array(W * H);
+        const pit = (i: number) => i % W >= 30 && i % W <= 35 && Math.floor(i / W) >= 20 && Math.floor(i / W) <= 26;
+        for (let i = 0; i < W * H; i++) mask[i] = ((1 << (pit(i) ? 4 : 6)) - 1) | (i % W >= 10 && i % W < 16 ? 0b111 << 9 : 0);
+        const run = canonicalStackRun(W, H, { mask, objects: Float64Array.from([7, 1, 24, 6, 0, 0, 0, 1, ...(seep ? [9, 44, 2, 6, 0, 0, 0, 1] : [])]) });
+        let s = run.advance(1e6);
+        while (!s) s = run.advance(1e6);
+        let left = 0;
+        for (let i = 0; i < W * H; i++) if (pit(i)) for (let q = 0; q < s.count[i]; q++) left += s.depth[q * W * H + i];
+        if (s.reach || left > 0.05) throw Error('the hollow the pre-fill started full kept ' + left + ' of water nothing feeds');
+        return s;
+    };
+    const cases: { name: string; settle: () => StackSettle }[] = [...stackFixtures.map(f => ({ name: f.name, settle: () => settleFixture(f) })), { name: 'emitters cut by the strips', settle: () => cut() }, { name: 'stored lakes', settle: () => cut(true) }, { name: 'stored lakes and a removal', settle: () => cut(true, true) }, { name: 'a shelf at 5 under filling water', settle: shelf(5) }, { name: 'a shelf at 6 under filling water', settle: shelf(6) }, { name: 'a stored lake whose water moves', settle: () => cut(true, false, true) }, { name: 'a hollow the pre-fill started full, nothing feeding it', settle: hollow() }, { name: 'that hollow on a map with a seep', settle: hollow(true) }];
     let ran = 0;
     for (const c of cases) {
         const one = withoutParallelWater(c.settle);
