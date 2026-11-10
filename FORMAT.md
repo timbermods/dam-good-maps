@@ -124,16 +124,24 @@ crash, more are truncated to 22 layers with a warning. Limits:
   `WaterDepth:Contamination:Overflow:Floor:OldWaterDepth`. Depth is in blocks above the column
   floor; contamination is the badwater fraction 0–1; overflow is pressurised water in a full cave
   column (0 in the open); floor is informational and recomputed on load; write old depth = depth.
-- `ColumnOutflows` token: `"0"`, or `Bottom:Left:Top:Right[:extra]` where each part is `"0"` or
-  `targetIndex|flow`. The target is the neighbour's index in the game's grid padded by one tile on
-  every side (`MapIndexService`: `(y + 1) · (X + 2) + x + 1` for slot 0; Bottom is y − 1, Left
-  x − 1, Top y + 1, Right x + 1). The flow is the water's momentum toward that neighbour: the game
+- `ColumnOutflows` token, one per water column (the same `Levels` and slots as `WaterColumns`; the
+  game's `ColumnOutflowsPackedListSerializer`): `"0"`, or `Bottom:Left:Top:Right[:extra…]` where each
+  part is `"0"` or `targetIndex|flow`. The target is the water column the water flows to, by its
+  index in the game's grid padded by one tile on every side (`MapIndexService`:
+  `slot · (X + 2)(Y + 2) + (y + 1) · (X + 2) + x + 1`; Bottom is y − 1, Left x − 1, Top y + 1, Right
+  x + 1; off the map's edge, the margin tile's column, slot 0). A column that flows to more than one
+  column of a neighbour (a cave's mouth beside a cave and the ground over it) puts the first by slot
+  in that way's part and the others after the four, in the order of their way and slot
+  (`WaterParametersUpdateTask.ProcessWaterDepthChanges`); the official Pressure map has ten such.
+  The flow is the water's momentum toward that column (its outflow less half the flow back): the game
   keeps 0.999 of it every step, so it is not rebuilt from scratch. All-`"0"` outflows load, but the
   game then restarts every river from rest: most water returns to where it was within a day, yet a
   map whose flow can settle more than one way (a delta's channels) may not (M9a's probe batch
   20260927-0853-batch: Delta 128² seed 1 kept 78.5% of its wet tiles within 0.1). **Write the
   settled water's own outflows** with its depths, as generator 0.7.0 does (`settledSimulationSingletons`,
-  7 significant digits; a flow under 1e-6 and a dry tile's flows are `"0"`).
+  7 significant digits; a flow under 1e-6 and a dry tile's flows are `"0"`), and on a map with caves
+  or overhangs every water column's own toward each column it reaches (`stackedSimulationSingletons`,
+  from the stacked settle's edges, #532; until then such maps were written with all `"0"`).
 - All-`"0"` water is safe: the game fills rivers from the sources within about a game day.
   Official maps instead ship with settled water, which the prototype also writes
   (`TimberMap.set_simulation_state`), so rivers run and trees stand on moist soil from the first

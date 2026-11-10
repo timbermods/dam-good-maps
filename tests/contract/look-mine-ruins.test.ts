@@ -71,7 +71,7 @@ import * as ed from "../../src/worker/session";
  *  with 1.1.2.4-52e959e-sw the file is that one byte for byte); `30543f1d…` before generator 0.10.5's version
  *  string (the same map: its first land fails the course check, not the start or the trunk's search); `c1aa22cd…` before
  *  generator 0.10.12's version string (the same map: its stacked settle takes no unfed water, #814). */
-const LIVE_SHA = "ef677a86258e6de6eb6ba4aa5e6e76b782d8fb1cb75f0f413fa7713f1b4d1da9";
+const LIVE_SHA = "963db7ee59955e15756616e29c01d04b9c7b04ccf625ac6e8f6609d77fe44a2c";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
