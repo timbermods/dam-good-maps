@@ -314,7 +314,7 @@ function waterSurfaceMade(): Promise<void> {
   // (a failed bake is forgotten, so the next view tries again)
   return (waterSurface ??= textureBake({ kind: "waterTexture" }).then(
     (r) => {
-      if (r.kind === "waterTexture") fillWaterTexture(r.normal, r.normalSize, r.bad, r.soil);
+      if (r.kind === "waterTexture") fillWaterTexture(r.normal, r.normalSize, r.bad, r.badMips, r.soil);
     },
     (e: unknown) => {
       waterSurface = null;

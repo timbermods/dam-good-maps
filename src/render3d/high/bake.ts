@@ -5,7 +5,7 @@
 import { columnMap, type MapView, type SurfaceWater, type WaterView } from "../model";
 import { caveCurrent, type CaveCurrent } from "../caveCurrent";
 import { currentOf, gameFlowOf } from "../current";
-import { BADWATER_TEXTURE_SIZE, DETAIL_TEXTURE_SIZE, makeBadwaterTexture, makeDetailField, makeSourceShape, makeWaterNormal, makeWaterTexture, NORMAL_TEXTURE_SIZE, WATER_FLOW, WATER_TEXTURE_SIZE } from "../waterTextures";
+import { BADWATER_TEXTURE_SIZE, DETAIL_TEXTURE_SIZE, linearMips, makeBadwaterTexture, makeDetailField, makeSourceShape, makeWaterNormal, makeWaterTexture, NORMAL_TEXTURE_SIZE, WATER_FLOW, WATER_TEXTURE_SIZE } from "../waterTextures";
 import { makeSoilTexture, SOIL_TEXTURE_SIZE } from "../soilTexture";
 import { motionShapes, noShapes, type MotionShapes } from "../motionShapes";
 import { surfaceContamination } from "./flow";
@@ -84,7 +84,7 @@ export type BakeResult =
   | { id: number; kind: "flow"; flow: Uint8Array; shapes: MotionShapes; cave: CaveCurrent | null; ms: number }
   | { id: number; kind: "share"; share: Uint8Array; fall: Uint8Array; ms: number }
   | { id: number; kind: "shadows"; bytes: Uint8Array; hi: Float32Array; lo: Float32Array; ms: number }
-  | { id: number; kind: "waterTexture"; normal: Uint8Array; normalSize: number; bad: Uint8Array; soil: Uint8Array; ms: number }
+  | { id: number; kind: "waterTexture"; normal: Uint8Array; normalSize: number; bad: Uint8Array; badMips: Uint8Array[]; soil: Uint8Array; ms: number }
   | { id: number; kind: "albedoTexture"; data: Uint8Array; size: number; ms: number }
   | { id: number; kind: "detailTexture"; detail: Uint8Array; size: number; shape: Uint8Array | null; ms: number };
 /** What the worker sends back: the answer, or why the job failed. */
@@ -92,8 +92,12 @@ export type BakeReply = BakeResult | { id: number; kind: "error"; error: string 
 
 export function runBake(job: BakeJob): BakeResult {
   const t0 = performance.now();
-  // the textures the water's flow carries (waterTextures.ts), made once a page, here rather than on its thread
-  if (job.kind === "waterTexture") return { id: job.id, kind: "waterTexture", normal: makeWaterNormal(NORMAL_TEXTURE_SIZE), normalSize: NORMAL_TEXTURE_SIZE, bad: makeBadwaterTexture(BADWATER_TEXTURE_SIZE), soil: makeSoilTexture(SOIL_TEXTURE_SIZE), ms: performance.now() - t0 };
+  // the textures the water's flow carries (waterTextures.ts), made once a page, here rather than on its thread; badwater's
+  // with its mips made as the game's are (in linear values, `linearMips`)
+  if (job.kind === "waterTexture") {
+    const bad = makeBadwaterTexture(BADWATER_TEXTURE_SIZE);
+    return { id: job.id, kind: "waterTexture", normal: makeWaterNormal(NORMAL_TEXTURE_SIZE), normalSize: NORMAL_TEXTURE_SIZE, bad, badMips: linearMips(bad, BADWATER_TEXTURE_SIZE), soil: makeSoilTexture(SOIL_TEXTURE_SIZE), ms: performance.now() - t0 };
+  }
   // the flow's albedo at the game's 2048² (Q9 P5), its own job, the textures' worker's last: about 1.3 s, its mean drawn
   // until then
   if (job.kind === "albedoTexture") return { id: job.id, kind: "albedoTexture", data: makeWaterTexture(WATER_TEXTURE_SIZE), size: WATER_TEXTURE_SIZE, ms: performance.now() - t0 };

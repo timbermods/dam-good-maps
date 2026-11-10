@@ -2735,11 +2735,59 @@ more deep, the shortfall warm (about −5 to −10 R, in the shape of the glow's
   search runs only on badwater's pixels, and clean water now skips the glow altogether.
 - **Tests:** `water-flow-surface.test.ts` holds the drift (the shaders' hash, the max terms) and the mean by a seeded
   Monte Carlo over a cell and the nodes' phases.
-- **Falls short:** (1) Over a source the game's terms read 2.4 L* over the game's (52 samples); our stand-ins for the
-  source's shape texture and t9's B (its mean) are the likely place, not yet found. (2) The low light's deep water
-  stays 2.7 L* under the game's at 55 % toward sunset and 1.5 at sunrise, the shortfall still warm; nothing switched
-  here explains it. (3) The glow's phase can't match a frame's, so the RMS by day rises 1.7–2.1 while the means
-  close. (4) The judge's land under contamination reads 7.2 against a floor of 5.4, untouched here.
+- **Falls short (then):** (1) over a source the game's terms read 2.4 L* over the game's (52 samples); (2) the low
+  light's deep water 2.7 L* under the game's at 55 % toward sunset and 1.5 at sunrise, the shortfall warm; (3) the
+  glow's phase can't match a frame's, so the RMS by day rises 1.7–2.1 while the means close; (4) the judge's land under
+  contamination reads 7.2 against a floor of 5.4. (1) and (2) are taken up below.
+
+### Low light and the sources (`fix/badwater-low-light`)
+
+- **Low light, the cause: t9's mips.** The game's badwater pattern is an sRGB texture, and Unity made its mips by a box
+  filter in linear values (read from its stored mips, `tools/game-water-shader.py --textures`): its glow's G mean climbs
+  19.6, 20.9, 23.2, 26.7, 31.6, 37.4 from its top (2048², 123 texels a tile) down, as the sparse bright lines blur into
+  the black; its R 122.1 to 125.1. Ours took WebGL's `generateMipmap`, a mean in stored values, 19.6 at every level, so
+  at play distance the glow drew about two thirds of the game's. Measured on screen first: our emission over deep
+  badwater was (6, 5, 2) at sunrise and (6, 4, 2) at sunset, short of the game's by (3, 2, 2) and (8, 5, 3), the warm
+  shortfall; the light, fog and reflection are right (clean water in the same frames within 1–2 L*).
+- **Now** (`waterTextures.ts` `linearMips`, `GAME_BADWATER_TEXTURE.glow.mips`, `.base.mips`; `high/bake.ts`;
+  `materials.ts` `fillWaterTexture`): the textures' worker makes the pattern's mips as Unity does (RGB in linear values,
+  A as it is) and the page uploads them in place of the GPU's. Ours (512², 30.7 texels a tile) at level L stands for the
+  game's L + 2: G 25.5/32.4/40.5/48.5 at levels 1–4 against 26.7/31.6/37.4/44.4, within 10 % (a test holds it). The
+  texture is sampled with no anisotropy, as the game's inline sampler (s4: bilinear, repeating); trilinear kept so no
+  mip seam shows (the mean the same).
+- **Judged before → after** (the same 24 shots, `--water bad --sources --bands thin`, 4,811 tiles; Standard, High in
+  brackets where it differs; L* (RMS)):
+  - 55 % toward sunset: 0.1–1 level (55 tiles), the game 33.6: 32.5 (4.8) → 34.0 (4.6); a level or more (326), the
+    game 33.3: 30.9 (7.6) → 32.8 (6.0); its colour 88/68/67 → 95/72/69 against the game's 96/73/70.
+  - at sunrise: a level or more (3,717), the game 27.8: 26.7 (7.3) → 28.2 (7.6) [26.5 (7.2) → 28.0 (7.4)]; its colour
+    78/59/53 → 83/62/55 against 81/61/55; the two largest regions (islands, 1,502 and 1,531 tiles) 26.4 → 28.1 and
+    27.4 → 29.1 against 27.7 and 28.9. 0.1–1 (452), the game 31.0: 30.9 (8.0) → 32.2 (8.8) [30.7 (7.6) → 32.0 (8.1)];
+    under 0.1 (109), the game 34.5: 36.2 (15.4) → 37.2 (16.2) [35.4 → 36.4].
+  - by day: 0.1–1 (79), the game 36.1: 35.8 (17.0) → 36.7 (16.7); a level or more (88), the game 31.3: 32.4 (17.2) →
+    33.4 (17.6); its regions read 27.8 and 29.3 against 27.9 and 27.0 (the glow's phase).
+  - all badwater 8.1 → 8.3 in Standard, 7.9 → 8.0 in High: the means close, the RMS a little up, as (3) above.
+  - clean water, the falls and the land: unchanged (nothing they draw samples this texture's mips).
+- **The sources, the cause: the judge's registration, not the shader.** The game's terms over a source (ps 356-418,
+  682-776, re-read with hex literals) are ours term for term; its mask is point-sampled (s5) and placed as ours. Per
+  tile, the game's bright disc lands a tile off the judge's middle tile (lakeBasin's at (−0.5, −1.3) tiles, chaos's at
+  (−0.5, −0.2), delta's two tiles to the left), and the game's frame, registered on the land's edges round each source
+  (the cross-correlation of the gradients in a 140-pixel window), sits off ours by the same: (−0.5, −1.4), (−0.3, 0),
+  (−1.6, −0.1) tiles. The camera fit holds the whole frame to 94–98 % but not each corner of it to a tile (8–10 pixels
+  at 110 away). The two shots at the frame's edge (canyon at x 1256, highlands-128-1 at y 6) carry the rest. With each
+  game sample moved by its registration (10 shots, 89 samples): the game 34.1, ours 35.0 (no emission 28.6); unregistered
+  the judge reads the game 32.9.
+- **The sources judged before → after** (`--sources --only-sources`, 52 samples, Standard; L* (RMS)): by day, the game
+  34.1: 36.9 (21.3) → 37.6 (21.2); at sunrise, the game 34.4: 37.4 (22.6) → 38.2 (22.6). Registered: 35.0 → 35.9
+  against 34.1: the source's own term unchanged, the glow round it stronger by the mips.
+- **Cost:** `benchOrbit`, 1280 × 800, the GPU's time a frame (the median over 6 s), two runs each, before → after,
+  over the lake basin's badwater and its source (`m9b-lakeBasin-128-1`): 18 away, Standard 2.63, 2.96 → 2.61, 2.38 ms,
+  High 2.27, 2.45 → 2.44, 2.42; 50 away, Standard 2.35, 2.29 → 2.15, 2.15, High 2.56, 2.46 → 2.47, 2.64. Within the
+  runs' noise: the same samples, now without anisotropy. The worker's mips are made once a page, beside the pattern.
+- **Falls short:** (1) badwater's thinnest film at sunrise (109 tiles) reads 37.2 against the game's 34.5 (it read
+  36.2 before), and the day's deep water 33.4 against 31.3, where the glow's phase dominates (two regions of 36–37
+  tiles); (2) over the sources, registered, ours reads 1.8 L* over the game's (5 %), the glow round them; (3) the glow's
+  phase, as above; (4) the judge's camera fit can sit a tile off near the frame's corners, which a per-region
+  registration in the judge would remove; (5) the land under contamination, as above.
 
 ## Clear water shows where the water is again (D184 as amended 2026-11-09, D196, D212, D497; `fix/clear-water-reads`)
 
