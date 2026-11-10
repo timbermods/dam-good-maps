@@ -3194,8 +3194,8 @@ The game's (`LargeRelic.Model`, 3 × 3, 1,605 triangles) is a fallen dish antenn
   stones on the ground. Its ground footing (TerrainURP, 0.1 high) is left to the terrain.
 - **Built** (`render3d/largeRelic.ts`, new): our own model to those measures, 928 triangles (the placeholder 156).
   Standard and High draw the same model (`high/landmarks.ts` copies it, as the start and the sources); both take the
-  objects' game light (`gameObjectLight`), Standard's baked shadow casts the dish's height over each of its 9 tiles
-  (`light.ts`, `LARGE_RELIC_CASTS`, 1.00–1.84), High's depth map casts the model itself, and its fade and shadow drop
+  objects' game light (`gameObjectLight`), Standard's baked shadow casts discs fitted to the model's (below), High's
+  depth map casts the model itself, and its fade and shadow drop
   by its footprint's middle (`objectFade.ts` `casterPlaces`).
 - **Colours** (`palette.ts` `LARGE_RELIC`): the game's albedo by part (the atlas × vertex colour). Its material is
   partly metallic (0.13–0.23 on the panels, 0.5 on the fittings), which our objects' light has no term for, so each
@@ -3207,6 +3207,23 @@ The game's (`LargeRelic.Model`, 3 × 3, 1,605 triangles) is a fallen dish antenn
   against the game's projected from 16 cameras (8 headings, 30° and 60° down) and from above: ours covers 1.015–1.055
   times the game's area, IoU 0.85–0.93 (the ribs first built as deep fins covered up to 1.13 times; the game's are thin
   bars). From the game's own falls camera (DGM Probe, Four Lakes r9) the dish lies where the game's does.
+- **Standard's shadow** (the look review, #938): it first cast a column from the ground to the dish's height over each
+  of the 9 tiles, about 2½ times the dish's own shadow: a solid patch round a see-through dish, where High casts the
+  model, a small broken shadow. It now casts upright discs round tiles' middles, as the plants do (`largeRelic.ts`
+  `LARGE_RELIC_SHADOW`, light.ts kinds 8–16): three, by the hub and the high back (0.45–1.85 up, radius 0.5;
+  0.6–1.7, 0.6; 0–1.5, 0.5), none under the open mouth or the thin rim. They were fitted through the bake and the
+  shader's bilinear read to the model's triangles projected along the 45° sun at 8 headings (flat ground; tiles² of
+  shadow, the model's → ours):
+
+  | Heading | 0° | 45° | 90° | 135° | 180° | 225° | 270° | 315° |
+  |---|---|---|---|---|---|---|---|---|
+  | Model | 5.21 | 6.13 | 5.50 | 3.80 | 3.32 | 3.89 | 3.39 | 3.56 |
+  | Columns (before) | 11.03 | 11.11 | 11.31 | 10.57 | 9.79 | 9.57 | 9.56 | 10.35 |
+  | Discs (after) | 4.72 | 4.12 | 4.72 | 3.84 | 3.80 | 3.96 | 3.80 | 3.53 |
+
+  Outside the footprint the model's is 0.0–2.6, the columns' was 3.4–6.2, the discs' is 0.0–1.9. Round discs cannot
+  turn with the shell, so each heading is 0.67–1.14 of the model's (the columns 1.8–2.9), 0.93 in all;
+  `landmarksGame.test.ts` holds it within 0.6–1.25 a heading and a tenth in all.
 - **Cost:** +772 triangles a relic, the draw calls unchanged. `benchOrbit` on Four Lakes r9 (1600 × 900, headed
   Chrome, RTX 2070 Super; the GPU's time a frame, median; base → two runs of the branch): Standard whole map 4.25 →
   4.50, 4.24 ms, the relic 30 away 3.68 → 3.81, 3.65; High 3.25 → 3.46, 3.39 and 5.40 → 5.30, 5.44: within the runs'

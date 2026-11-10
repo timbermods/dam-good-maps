@@ -17,8 +17,8 @@
 // - 13 dark stones strewn round it, 0.09 to 0.32 across; and a footing of ground (`SlopeCliffEdge`, the terrain's own
 //   shader) 0.1 high over the footprint, which is the ground's look and is left to the terrain.
 // The game's colours (palette.ts `LARGE_RELIC`) in the game's light (materials.ts `gameObjectLight`); its shadow is its
-// model's in High (shadows.ts draws the objects from the sun) and, in Standard's baked shadows, a column over each tile
-// at the dish's height there (`LARGE_RELIC_CASTS`, light.ts `objectCasters`).
+// model's in High (shadows.ts draws the objects from the sun) and, in Standard's baked shadows, discs fitted to it
+// (`LARGE_RELIC_SHADOW`, light.ts `objectCasters`).
 
 import { LARGE_RELIC, type Rgb } from "./palette";
 
@@ -67,12 +67,17 @@ const STONES = [
   [1.135, 0.029, 1.891, 0.089, 0.047, 0.095],
 ];
 
-/** The dish's height over each tile of its footprint, [x][y] from its Coordinates (the game's model's highest point of
- *  the dish over the tile): Standard's baked shadow casts a column there (light.ts `objectCasters`). */
-export const LARGE_RELIC_CASTS: readonly (readonly number[])[] = [
-  [1.84, 1.78, 1.1],
-  [1.82, 1.17, 1.01],
-  [1.37, 1.01, 1.0],
+/** The dish's shadow in Standard's bake (light.ts `objectCasters`, `PLANT_SHAPES`), [x][y] over its footprint from its
+ *  Coordinates: upright discs round a tile's middle (bottom, top, radius; levels and tiles, before light.ts's inset), as
+ *  the plants' shapes. A thin tilted shell a third open casts a small broken shadow, not a column's: the discs are
+ *  fitted, as the shader draws them, to the model's own shadow (its triangles projected along the 45° sun) round the
+ *  compass, as High's depth map casts the model itself: three discs by the dish's hub and high back, none under its
+ *  open mouth or its thin rim. Round, they cannot follow the shell's turn: at headings 45° apart they cover 0.67 to
+ *  1.14 of the model's shadow, 0.93 of it in all (the columns this replaced cast 1.8 to 2.9 times it). */
+export const LARGE_RELIC_SHADOW: readonly (readonly (readonly (readonly [number, number, number])[])[])[] = [
+  [[], [[0.45, 1.85, 0.5]], []],
+  [[[0.6, 1.7, 0.6]], [[0, 1.5, 0.5]], []],
+  [[], [], []],
 ];
 
 const add = (a: V, b: V, k = 1): V => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k];

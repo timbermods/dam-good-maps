@@ -8,9 +8,9 @@
 
 import { describe, expect, it } from "vitest";
 import { modelKeyOf, modelOf, modelTriangles } from "../../src/render3d/entities3d";
-import { LARGE_RELIC_CASTS } from "../../src/render3d/largeRelic";
-import { objectCasters } from "../../src/render3d/light";
-import { LARGE_RELIC } from "../../src/render3d/palette";
+import { LARGE_RELIC_SHADOW } from "../../src/render3d/largeRelic";
+import { litFraction, objectCasters, SHADOW_RES, shadowTops } from "../../src/render3d/light";
+import { LARGE_RELIC, LIGHT } from "../../src/render3d/palette";
 import { entityView } from "../../src/render3d/model";
 
 function bounds(key: string): { x: number; z: number; lo: number; hi: number } {
@@ -107,16 +107,84 @@ describe("the start's tower casts its shadow", () => {
 });
 
 describe("the large relic's dish casts its shadow", () => {
-  it("from each tile of its footprint, the dish's height there, turned as the relic is", () => {
+  it("from the tiles of its footprint its fitted discs stand on, turned as the relic is", () => {
     const W = 32;
     const H = 32;
     for (const [orientation, sx, sy] of [["Cw0", 1, 1], ["Cw180", -1, -1]] as const) {
       const e = entityView([{ template: "LargeRelic", x: 10, y: 20, z: 3, orientation, owner: "s" }]);
       const casters = objectCasters(W, H, e)!;
-      for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) expect(casters[(20 + sy * j) * W + 10 + sx * i]).toBeCloseTo(LARGE_RELIC_CASTS[i][j], 5);
-      // (its highest, the dish's back edge, over the footprint's corner; its mouth low across the far corner)
-      expect(Math.max(...LARGE_RELIC_CASTS.flat())).toBeCloseTo(1.84, 2);
+      for (let i = 0; i < 3; i++)
+        for (let j = 0; j < 3; j++) {
+          const discs = LARGE_RELIC_SHADOW[i][j];
+          expect(casters[(20 + sy * j) * W + 10 + sx * i]).toBeCloseTo(discs.length ? Math.max(...discs.map((d) => d[1])) : 0, 5);
+        }
       expect(casters[(20 + sy * 3) * W + 10]).toBe(0);
     }
+  });
+
+  // (Standard's shadow as the shader draws it, bilinear between the bake's samples, on flat ground, against the model's
+  // own triangles projected along the sun onto it, which is what High's depth map casts: round the compass, the sun
+  // 45° up. Its columns had cast 1.8–2.9 times the model's)
+  it("as large as the model's own shadow round the compass, not a column's", () => {
+    const W = 24;
+    const H = 24;
+    const G = 3;
+    const [X0, Y0] = [10, 10];
+    const heights = new Uint8Array(W * H).fill(G);
+    const casters = objectCasters(W, H, entityView([{ template: "LargeRelic", x: X0, y: Y0, z: G, orientation: "Cw0", owner: "s" }]))!;
+    const p = modelOf("LargeRelic").pos;
+    const tanE = Math.tan(LIGHT.sunElevation);
+    const step = 0.05;
+    const n = Math.round(14 / step);
+    const R = SHADOW_RES;
+    const ratios: number[] = [];
+    let standardAll = 0;
+    let modelAll = 0;
+    for (let a = 0; a < 360; a += 45) {
+      const [ux, uy] = [Math.cos((a * Math.PI) / 180), Math.sin((a * Math.PI) / 180)];
+      // (the model's: Cw0, x east, the model's z south, its parts under the ground cast from the ground)
+      const shade = new Uint8Array(n * n);
+      const at = (v: number) => Math.round((v - (X0 - 5.5)) / step - 0.5);
+      for (let k = 0; k < p.length; k += 9) {
+        const t: number[] = [];
+        for (let v = 0; v < 3; v++) {
+          const h = Math.max(0, p[k + 3 * v + 1]) / tanE;
+          t.push(X0 + 1.5 + p[k + 3 * v] - ux * h, Y0 + 1.5 - p[k + 3 * v + 2] - uy * h);
+        }
+        const [ax, ay, bx, by, cx, cy] = t;
+        const d = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+        if (Math.abs(d) < 1e-12) continue;
+        for (let j = Math.max(0, at(Math.min(ay, by, cy))); j <= Math.min(n - 1, at(Math.max(ay, by, cy)) + 1); j++)
+          for (let i = Math.max(0, at(Math.min(ax, bx, cx))); i <= Math.min(n - 1, at(Math.max(ax, bx, cx)) + 1); i++) {
+            const [x, y] = [X0 - 5.5 + (i + 0.5) * step, Y0 - 5.5 + (j + 0.5) * step];
+            const w1 = ((bx - x) * (cy - y) - (by - y) * (cx - x)) / d;
+            const w2 = ((cx - x) * (ay - y) - (cy - y) * (ax - x)) / d;
+            if (w1 >= 0 && w2 >= 0 && w1 + w2 <= 1) shade[j * n + i] = 1;
+          }
+      }
+      // (Standard's)
+      const tops = shadowTops(W, H, heights, casters, LIGHT.sunElevation, { x: ux, y: uy });
+      const T = (i: number, j: number) => tops[j * W * R + i];
+      let standard = 0;
+      let model = 0;
+      for (let j = 0; j < n; j++)
+        for (let i = 0; i < n; i++) {
+          const [u, v] = [(X0 - 5.5 + (i + 0.5) * step) * R - 0.5, (Y0 - 5.5 + (j + 0.5) * step) * R - 0.5];
+          const [i0, j0] = [Math.floor(u), Math.floor(v)];
+          const [fu, fv] = [u - i0, v - j0];
+          const top = (T(i0, j0) * (1 - fu) + T(i0 + 1, j0) * fu) * (1 - fv) + (T(i0, j0 + 1) * (1 - fu) + T(i0 + 1, j0 + 1) * fu) * fv;
+          standard += (1 - litFraction(G, top, top)) * step * step;
+          model += shade[j * n + i] * step * step;
+        }
+      ratios.push(standard / model);
+      standardAll += standard;
+      modelAll += model;
+    }
+    // (round discs cannot turn with the shell: each heading within 0.6 to 1.25 of the model's, 0.67 to 1.14 as fitted;
+    // in all within a tenth, 0.93)
+    expect(Math.min(...ratios)).toBeGreaterThan(0.6);
+    expect(Math.max(...ratios)).toBeLessThan(1.25);
+    expect(standardAll / modelAll).toBeGreaterThan(0.9);
+    expect(standardAll / modelAll).toBeLessThan(1.1);
   });
 });
