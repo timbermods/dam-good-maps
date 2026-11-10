@@ -34,6 +34,13 @@ interface PremiseDef {
 The **plan** is the map before any terrain: MAPCRAFT's steps 1 to 5 as data. Every later stage reads it and nothing
 else decides where things go.
 
+**As built (step 1, `src/core/premise/types.ts`).** The names below stand; the plan needed a few more fields: a body's
+`islands` (capsule chains of land); a link's `mouth` (the bypass's 10 where it differs from twice its half width); a
+fall's `crest` (its level) and `lip` (the crest line, two points), with `notch`, `piers` and `breach` as tile counts;
+a work's `at` (where it stands) and `gives.reservoir` as a range like `green`; a region's `at` (where the diagram
+names it); a ridge's `id` and `role` (`skyline`, `spur`, `wall`); and `stair`, the lake stair's own numbers (n, f,
+the lakes in order, the start's lake, H, the landmark's source, the valley's line, shape and turn, flow, meadow).
+
 ```ts
 interface PremisePlan {
   premise: PremiseId; seed: number; W: number; H: number;
@@ -429,6 +436,27 @@ round every lake."
 | The skyline | One ridge behind the top lake, to `top` or to 21 on a tall map | Verticality |
 | Dry for good | The side the bypass runs on: limestone benches, succulents | Follows the bypass |
 
+**As built (step 1).** The plan settles a few things the table leaves open; each is an **(assumption)** a later
+stage's measure may move:
+
+- The landmark's source is the pool or a lake `H` to `H + 3` over the start's lake's sill: the hanging valley's bed
+  is the source's sill at its head and `sill + H` at the lip, falling a level at a time between (the Four Lakes
+  fixture's valley drops one riffle, 14 to 13). So a landmark of 6 or 7 finds a source on every stair.
+- The start's lake has a bay under the landmark, on the far side of the lip from the start: the fall's foot opens to
+  the lake there while the start's 5 × 5 stays dry. The lip is square to the camera's look, between the start's lake
+  and the source.
+- Bodies stand 3 tiles or more apart (outline to outline): a stair fall's rock sill is the ground between two lakes.
+  A lake's arms are 2 to 5, each 7 to 15 at its widest (a bay or cove narrows to its end).
+- The gates are 3 or 4: where the landmark does not leave the pool, the plan adds an empty basin fed by a leat from
+  the pool, each leat gated at its head.
+- Side bodies are spring tarns and empty basins, about the table's counts (3 to 5 at 128², 5 to 9 at 192², 7 to 13
+  at 256² on seeds 1 to 30): three near the start first, so its walk has three small works; a basin nothing can fill
+  is left out. A basin spills to a lake two or more below, else to a lower side body, else off the map. A dam to
+  pond needs a dry bed 12 tiles long or more. Kettles are not drawn yet.
+- The bypass leaves the pool for the ring inside the map's edge and ends at an edge of its own or in the gorge below
+  the megadam's slot, as the seed draws (about two in five reach the gorge).
+- The permanent badwater source stands in the gorge, 1, 1.5 or 2.75 strong for Badwater low, normal and high.
+
 **The regions** (five, each differing in what it gives):
 
 | Region | Role | Problem | Prize |
@@ -640,14 +668,21 @@ changes what players get, not on every release.
    the stair; the Still Pool in the frame); and that the twelve far views are told apart at a glance. **Passes:** no
    capture fails a question. What the game shows and our view did not is a failing case for the stage that made it.
 5. **Pinned in tests:**
-   - `tests/contract/premisePlan.test.ts`: the `plan` invariants on seeds 1 to 200 at three sizes (milliseconds).
+   - `tests/contract/premisePlan.test.ts` (quick suite): the frame's arithmetic, eligibility, the `plan` invariants
+     on seeds 1 to 6 at three sizes, variety, broken plans, the fixture; `premisePlan.heavy.test.ts`: seeds 1 to 200
+     at three sizes (a plan takes 40 to 80 ms on average, so the 600 run nightly, not on every push).
    - `tests/contract/premiseLand.test.ts`: the `land` invariants on seeds 1 to 24 a size.
    - `tests/contract/premiseMap.test.ts` (quick suite): one 128² map's `.timber` sha256, as
      `look-mine-ruins.test.ts` pins `LIVE_SHA`, with its `settled` invariants and its share link round trip.
    - Nightly: tier 1 and tier 2 at 12 seeds a size; `tools/map-hashes.ts` grows a `--premise` flag.
    - **The hand-built map as a fixture:** Four Lakes' design written as a `PremisePlan`
      (`tests/fixtures/four-lakes.plan.json`) must pass the lake stair's invariants through stages 1 to 5. The map
-     that set the bar keeps the generator honest.
+     that set the bar keeps the generator honest. As a plan it departs where the hand-built map broke a rule the
+     generated ones keep: its landmark is 7 (the hanging valley's bed 13 at the lip, one riffle below the pool), its
+     lip a straight line square to the look, the start moved back so the lip stands 6 tiles in front and the 5 × 5
+     is dry, the lakes' arms stop 3 short of each fall, Low Lake's sixth arm is its main arm's end, the channels end
+     at their shores, the old channel's first bend and last reach are straightened (319 tiles), the kettles are left
+     out, and `top` is 22 (Fell Tarn at 15, the Crown ridge at 21). Step 1 checks it at `plan` only.
    - A change that alters a premise map is a generator change: claimed on #236, `GENERATOR_VERSION` bumped, re-pinned
      once (D308, D148).
 
@@ -657,7 +692,7 @@ Each step is one PR that leaves dev green and is useful by itself.
 
 | # | Step | Useful by itself as | Depends on |
 |---|---|---|---|
-| 1 | **The model and the lake stair's plan.** `src/core/premise/types.ts`, `draw.ts`, `premises/lakeStair.ts` (stage 0 with the frame's arithmetic), the `plan` invariants, `tools/premise-plan.ts` (prints a seed's plan and draws its diagram), `premisePlan.test.ts`, the Four Lakes fixture. No generator change, no version bump. **A day.** | The water story as a diagram for any seed (MAPCRAFT step 2); the frame limit as a tested function | Nothing |
+| 1 | **Built.** **The model and the lake stair's plan.** `src/core/premise/types.ts`, `draw.ts`, `premises/lakeStair.ts` (stage 0 with the frame's arithmetic), the `plan` invariants, `tools/premise-plan.ts` (prints a seed's plan and draws its diagram), `premisePlan.test.ts`, the Four Lakes fixture. No generator change, no version bump. **A day.** | The water story as a diagram for any seed (MAPCRAFT step 2); the frame limit as a tested function | Nothing |
 | 2 | **Water by number.** `levels.ts`, `raster/bodies.ts`, `falls.ts`, `channels.ts`, `guard.ts`; the `flowThrough` test; a contract test that settles three plans and the fixture | Lakes, sills, falls and channels at stated levels from a plan: the editor's sketch can call it | Lakes by number (merged: `sillWidthFor`, `MAX_SILL_WIDTH`). The fall judge `fallCurtain.ts` from "a fall in one stroke" (#934, in review) when it merges; not blocked by it |
 | 3 | **Relief between**, and `tools/premise-map.ts`, which writes a `.timber` for a seed outside the product | A whole land with water to open in the editor and run through the capture kit; tier 4 judging can begin | 2. Ground with grade (#929, next in the milestone session's queue) for the outlands, when it merges; not blocked |
 | 4 | **The generator's mode.** `generatePremise` behind `spec.premise` (link key `p=lakeStair`; no control on the page), stages 3, 5 and 8: the start by the frame, one build, the checks, re-roll and the fall-back to themes; `premiseMap.test.ts` | A playable generated lake stair from a link, in seconds, without plants | 3 |
