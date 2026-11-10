@@ -467,16 +467,16 @@ async function main(): Promise<void> {
   const m9a = prepared.filter((p) => p.game.group === 'M9a' && p.game.model);
   const canyon = m9a.find((p) => p.game.id === 'm9a-canyon-128')!;
   // Since generator 0.10.4 (#611, 3D forms at the default Verticality) most M9a maps store two water levels
-  // (Levels 2, a map with caves or overhangs) with every outflow "0", which the game loads as water at rest
-  // (#532). The outflows are read on the first M9a map that still stores one level, and a two-level M9a map
-  // reads as at rest (D148: the canyon was the one-level map before #611).
+  // (Levels 2, a map with caves or overhangs). Since #923 (#532; FORMAT.md, "Write the settled water's own
+  // outflows") those maps store every water column's own outflows from the stacked settle, no longer all "0":
+  // a two-level M9a map's outflows are read like a one-level map's (D148: until #923 it read as at rest).
   const levelsOf = (p: typeof canyon) => Number((p.info.file.world.singletons.WaterMapNew as { Levels?: unknown }).Levels ?? 1);
   const oneLevel = m9a.find((p) => levelsOf(p) === 1 && (mapfile.storedOutflows(p.info.file)?.flowing ?? 0) > 100);
   const oflows = oneLevel && mapfile.storedOutflows(oneLevel.info.file);
   check("outflows: a one-level M9a map's stored outflows are read, every target the neighbour's", !!oflows && oflows.flowing > 100 && oflows.skipped === 0, oneLevel && oflows ? `${oneLevel.game.id}: ${oflows.flowing} flowing, ${oflows.skipped} skipped` : 'no M9a map stores one level with flowing outflows');
   const twoLevel = m9a.find((p) => levelsOf(p) > 1)!;
   const tflows = mapfile.storedOutflows(twoLevel.info.file);
-  check('outflows: a two-level M9a map storing every outflow as 0 reads as at rest', !!tflows && tflows.flowing === 0 && tflows.skipped === 0, `${twoLevel.game.id}: ${tflows ? `${tflows.flowing} flowing` : 'none'}`);
+  check("outflows: a two-level M9a map's stored outflows are read, every target a neighbour's column", !!tflows && tflows.flowing > 100 && tflows.skipped === 0, `${twoLevel.game.id}: ${tflows ? `${tflows.flowing} flowing, ${tflows.skipped} skipped` : 'none'}`);
   const m8flows = mapfile.storedOutflows(m8.info.file);
   check('outflows: a file storing every outflow as 0 reads as at rest', !!m8flows && m8flows.flowing === 0);
   // the one-level map's water moved up to a second slot, as a map with caves stores water under nothing: read
@@ -492,7 +492,7 @@ async function main(): Promise<void> {
   check('outflows: the same water and outflows on a second slot read alike', !!oflows && !!lifted && lifted.flowing === oflows.flowing && lifted.skipped === 0 && lifted.out.every((v, k) => v === oflows.out[k]), lifted ? `${lifted.flowing} flowing, ${lifted.skipped} skipped` : 'none');
   const momentum = (p: typeof canyon) => modelM.runModel(readFileSync(p.map.mapFile), `${p.game.id}.timber`, p.game.cycles, catalogM.D0 + 2 / 768, [], [], []).momentum;
   const om = oneLevel ? momentum(oneLevel) : 'no one-level M9a map', tm = momentum(twoLevel), m8m = momentum(m8);
-  check('model: starts from the stored outflows on a one-level M9a map, at rest on files without them (two levels, or every outflow 0)', /^the file's outflows \(\d+ flowing\)$/.test(om) && /^at rest \(the file stores every outflow as 0\)$/.test(tm) && /^at rest/.test(m8m), `${om} | ${tm} | ${m8m}`);
+  check('model: starts from the stored outflows on one-level and two-level M9a maps, at rest on a file storing every outflow as 0', /^the file's outflows \(\d+ flowing\)$/.test(om) && /^the file's outflows \(\d+ flowing\)$/.test(tm) && /^at rest/.test(m8m), `${om} | ${tm} | ${m8m}`);
 
   // 4c. the start's water is the water the product's start.water counts (the nearest the same walk and tile)
   const { MapSession } = require('../../../src/core/doc/session') as typeof import('../../../src/core/doc/session');
