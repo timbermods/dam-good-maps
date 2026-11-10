@@ -372,7 +372,22 @@ export function rasterizeBench(f: StartFeature, t: BuildTarget): void {
 export interface SculptEdit {
   /** Its place in the operation log (a session's; absent where order is not needed). */
   seq?: number;
-  params: { mode: string; cells: Runs; amount?: number; level?: number; step?: number; exact?: boolean; hold?: [number, number, number][] } | BrushParams | ForceResultParams | BlocksParams;
+  params: { mode: string; cells: Runs; amount?: number; level?: number; step?: number; exact?: boolean; hold?: [number, number, number][] } | BrushParams | ForceResultParams | BlocksParams | LakeSillParams;
+}
+
+/** A lake's sill set to its level (the `setLakeLevel` operation, doc/lakeLevel.ts): its tiles, each set to the level,
+ *  exactly. */
+export interface LakeSillParams {
+  at: [number, number];
+  level: number;
+  sill: "cut" | "raise";
+  width?: number;
+  cells: Runs;
+}
+
+/** A lake's sill (`setLakeLevel`). */
+export function isLakeSill(p: SculptEdit["params"]): p is LakeSillParams {
+  return "sill" in p;
 }
 
 function isBrush(p: SculptEdit["params"]): p is BrushParams {
@@ -408,7 +423,7 @@ export function sculptBounds(s: SculptEdit, W = 0): Rect | null {
 
 /** Brushes that read neighbouring cells: a rebuild that touches their cells rebuilds all of them. */
 export function sculptReadsNeighbours(s: SculptEdit): boolean {
-  if (isForce(s.params) || isBlocks(s.params)) return false;
+  if (isForce(s.params) || isBlocks(s.params) || isLakeSill(s.params)) return false;
   return isBrush(s.params) ? brushReadsNeighbours(s.params) : s.params.mode === "smooth";
 }
 
@@ -434,6 +449,8 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
   }
   // (the Block tool's operations are applied tile by tile with the tiles' masks: `applyBlocks`)
   if (isBlocks(s.params)) return;
+  // a lake's sill: its tiles set to the lake's level, exactly (as Select's Flatten sets them)
+  if (isLakeSill(s.params)) return applySculpt({ params: { mode: "flatten", cells: s.params.cells, level: s.params.level, exact: true } }, t, keep, shown, floor);
   if (isBrush(s.params)) {
     const b = brushBounds(s.params, W, t.H);
     if (!b || !t.touchesRegion(b)) return;

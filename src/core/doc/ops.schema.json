@@ -8,7 +8,7 @@
   "required": ["op", "params"],
   "properties": {
     "op": {
-      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow", "paintObjects", "crop", "blocks", "setDescription"]
+      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow", "paintObjects", "crop", "blocks", "setDescription", "setLakeLevel"]
     },
     "params": { "type": "object" },
     "label": { "type": "string" }
@@ -32,7 +32,8 @@
     { "if": { "properties": { "op": { "const": "paintObjects" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/paintObjects" } } } },
     { "if": { "properties": { "op": { "const": "crop" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/crop" } } } },
     { "if": { "properties": { "op": { "const": "blocks" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/blocks" } } } },
-    { "if": { "properties": { "op": { "const": "setDescription" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/setDescription" } } } }
+    { "if": { "properties": { "op": { "const": "setDescription" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/setDescription" } } } },
+    { "if": { "properties": { "op": { "const": "setLakeLevel" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/setLakeLevel" } } } }
   ],
   "$defs": {
     "id": { "type": "string", "pattern": "^(f-[a-z2-7]{13}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$" },
@@ -356,6 +357,19 @@
             "contamination": { "type": "array", "maxItems": 262144, "items": { "const": 0 } }
           }
         }
+      }
+    },
+    "setLakeLevel": {
+      "description": "Lakes by number: the lake at 'at' made to hold at 'level', its water standing from the level up to under a level above it (the head of its flow over the sill). Its sill is cut down to the level (a notch 'width' tiles wide along the way out that moves the least ground) or raised up to it (across the outlet, on the fewest tiles raising the least ground), and its tiles are stored literally as runs [y, x0, x1], every one set to the level and left by the integrity pass. The engine checks the sill, measured on the map now, is the one stored; the core's question confirms the water stands at the level with the canonical settle before it makes the operation (doc/lakeLevel.ts).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at", "level", "sill", "cells"],
+      "properties": {
+        "at": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
+        "level": { "type": "integer", "minimum": 1, "maximum": 22 },
+        "sill": { "enum": ["cut", "raise"] },
+        "width": { "type": "integer", "minimum": 1, "maximum": 32 },
+        "cells": { "$ref": "#/$defs/runs" }
       }
     },
     "tile": {

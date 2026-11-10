@@ -35,6 +35,7 @@ export type { EntityInfo };
 import { objectsIn } from "../core/doc/inArea";
 import { markerNotes, type MarkerNote } from "../core/doc/objectOps";
 import { fillLevel, planFill, unfedWater } from "../core/doc/waterEdits";
+import { applyLakeLevel, planLakeLevel, type LakeLevelPlan } from "../core/doc/lakeLevel";
 import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
 import { bakeLandforms } from "../core/doc/bake";
@@ -1872,6 +1873,8 @@ export const planned = {
   /** Remove unfed water and Fill: the one operation each would apply, or why none. */
   unfedWater: (tiles: number[] | null) => unfedWater(need(), tiles && tiles.length ? tiles : null).op,
   fill: (x: number, y: number, level: number) => planFill(need(), x, y, level),
+  /** Lakes by number: the sill that holds the lake at (x, y) at `level`, confirmed by the settle, or why not. */
+  lakeLevel: (x: number, y: number, level: number, width?: number) => planLakeLevel(need(), x, y, level, width),
   /** Every tile of the map (Clear everything removes the objects on all of them). */
   everything: (): number[] => Array.from({ length: need().size.x * need().size.y }, (_, i) => i),
 };
@@ -2413,6 +2416,24 @@ export function fillAt(x: number, y: number, level: number, floor?: number | nul
   const p = planFill(s, x, y, level, floor);
   if (!p.op) return changed(s, false, [p.reason ?? "nothing to fill"], t0);
   const r = s.apply(p.op, "user");
+  return changed(s, r.ok, r.errors, t0);
+}
+
+/** Lakes by number: what setting the lake at (x, y) to `level` would do (its sill cut down or raised, the sill's tiles,
+ *  where the water then stands and the lake's tiles, confirmed by the canonical settle), or the plain reason the land
+ *  can't hold it there (core/doc/lakeLevel.ts `planLakeLevel`). `width`: a cut notch's width; by default what its river
+ *  needs. Reads the map only; it settles the water once, so it takes about as long as the map's own settle. */
+export function lakeLevelPlanAt(x: number, y: number, level: number, width?: number): Omit<LakeLevelPlan, "op"> {
+  const { op: _op, ...plan } = planLakeLevel(need(), x, y, level, width);
+  return plan;
+}
+
+/** Set the lake at (x, y) to `level`: its sill cut down or raised, one undo step, the map's water the settle that
+ *  confirmed it (core/doc/lakeLevel.ts `applyLakeLevel`). */
+export function lakeLevelAt(x: number, y: number, level: number, width?: number): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const r = applyLakeLevel(s, x, y, level, width);
   return changed(s, r.ok, r.errors, t0);
 }
 

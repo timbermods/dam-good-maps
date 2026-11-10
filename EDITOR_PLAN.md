@@ -1094,6 +1094,16 @@ Make a valley, drop a source, and there's a river.
   roughly how long it will last; it is refused with a plain reason when the hollow doesn't hold water at that
   level. Each is one undo step. Their engine and questions are in the core; where they sit in the page is agreed
   with the page session (D388).
+- **Lakes by number** (showcase craft, gap 19): pick a lake, type its level, and its sill is cut down or raised so the
+  lake holds there: its water stands from the level up to under a level above it (the head of its river over the
+  sill), as the hover readout's "Water at level 7.4" reads level 7. A sill higher than the level gets a notch cut down
+  to it along the way out that moves the least ground, as wide as its river needs (or as asked); a lower one is raised
+  to it across the outlet, between shoulders at the level or higher. The canonical settle confirms the water stands
+  there before anything changes, and that settle is the map's water after it. Refused with one plain line when the
+  land can't hold the lake: the level at or below its floor, a second way out below the level (one sill can't hold
+  it), water that would spill off the map, no source filling it that high, a river standing a level or more over the
+  sill. One undo step; the start is carried if its ground broke. Engine and question in the core (`setLakeLevel`); its
+  control waits on the page session.
 - **Seeing underwater** (D196, D212): while a brush is over water already there, the water under and right round it
   turns clear, so the bed, ledges and sources show; working on dry land leaves the water as it is. T (the game's
   key) or **Clear water** makes all of it clear. The ground under water is drawn as it is dry, as the game draws it
@@ -1595,6 +1605,21 @@ checks dot counts; every other row is information under Good to know, worded as 
     the canonical settle stops, `water.settles` passes and the quiet dot settles once the rest of the water has;
     the lake is written with the water its carve kept, levelled into its hollow if it would not stand as kept
     (`PLAN.md` §10, §11.3).
+  - **Lakes by number** (`core/doc/lakeLevel.ts`, `core/sim/sill.ts`): `planLakeLevel(session, x, y, level, width?)`
+    finds the sill (`sillFor`, on the water model's floors and the priority flood's spill levels, `spillLevels`): a
+    spill level at L + 1 or more is cut, a Dijkstra walk from the lake at L (the land below L joined to the tile) to
+    the nearest ground whose water drains at L or lower, or to the map's edge, costing each level cut far above each
+    tile walked, its cut tiles widened to `width` (by default `sillWidthFor` the inflow, 1.5 blocks a second a tile:
+    the settle stands 0.33 × flow ÷ width over a sill); a spill level under L is raised, the minimum vertex cut (fill
+    volume, then tiles) between the lake with its upstream and the map's open edge, refused when it falls in more than
+    one 8-connected piece or touches no ground at L or higher. It leaves ground under sources, obstacles and natural
+    dams, and the ground Select leaves on a map with caves. The water model with the sill is settled canonically
+    (`canonicalSettle`): the lake's surface must stand in [L, L + 1), a cut the player didn't size widened up to three
+    times. The `setLakeLevel` operation stores the sill's tiles as runs, applied by the build as an exact Flatten to L;
+    the engine's check measures the sill again on the map now (`lakeLevelProblem`). `applyLakeLevel` applies it as a
+    Select action (`applySelection`) inside `MapSession.withSettled`, so the build takes the confirming settle as the
+    map's water instead of settling twice. The worker's `lakeLevelPlanAt` and `lakeLevelAt` and the MCP server's
+    `apply` (only `at` and `level` needed) call it.
   - **Remove unfed water and Fill** (D387, D394; `core/doc/waterEdits.ts`): water is fed where a running emitter's
     water reaches it by the simulation's flow rule (`sim/fed.ts` `fedTiles`: a wet neighbour whose floor stands
     under a fed tile's surface, a natural dam only once overtopped); every other wet tile is unfed. The question
