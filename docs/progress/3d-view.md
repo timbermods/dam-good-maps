@@ -2956,6 +2956,53 @@ half strength), and the game's albedo drawn at our lightness, 1.318 times it (ou
   High's own trunk model; not yet traced. (4) The water source's three samples read 23 % over, too few to act on.
   (5) The start can't be judged: the game's start shot shows its district centre there.
 
+## Grass and cliffs, their samples registered (D497; `fix/land-luma`)
+
+After #909, grass read 5–8 % under the game's and cliffs 3–6 %, in sun and in shade alike, while dry tops read 2 %
+over. The cause is the judge's samples, not the land: nothing in the renderer changes.
+
+- **Grass: too few samples, in one place.** #909's eight day shots held 137 grass samples, 108 of them on
+  riverValley-128-1, where the game's own `Grass` texture runs 4.1 % over its mean ("Grass in the game's light"). On the
+  probe's 16 day start shots (River Valley, Lake Basin, Highlands, Canyon, Any, Delta, Islands 128², Chaos 256², seeds 1
+  and 2; `--shots` as `--objects` takes them) grass has 594 samples and reads 0.987 of the game's in Standard and 0.976 in
+  High (riverValley-128-1 alone 0.943); dry tops 1.008 and 1.009 (12,513).
+- **Cliffs: samples off their faces.** The camera fit scores only the water's outline, so it can sit a few pixels off,
+  and a face is 10–15 pixels tall at the start shots' distance. The judge's new `--register` moves each face's game pixel
+  to where ours' picture round it (a 21 × 21 window) lines up with the game's, within 5 pixels (zero-mean normalised
+  correlation of luma, so neither side's brightness moves it), and leaves out a face that lines up under 0.6. Of 2,074
+  faces, 1,295 line up. The 779 that don't read 0.908 of the game's, almost all on the shots fitted worst: lakeBasin-128-1
+  (92 %), highlands-128-1 and -2, canyon-128-2 (83 %) and canyon-128-1 (its fit trades the field of view for the
+  distance: 29.9° from 117 away, the pose 84.8). There the game's pixels at those faces read 95–111 luma, between its
+  faces' 58–95 and its tops' 113–123: they show part of a top. On the shots fitted well the faces left out read as the
+  rest.
+- **Judged** (`tools/water-pixel-judge.ts --samples --shade --register`, the 16 day start shots, ours over the game's
+  mean Rec. 709 luma, Standard / High; #910's head, before → registered):
+  - cliffs 0.958 / 0.948 (2,074) → 1.010 / 1.000 (1,295; the same faces where the fit puts them 0.992 / 0.981); by face,
+    toward the sun's side 1.009 / 0.994, toward the camera 1.010 / 1.002, from the sun 1.018 / 1.014;
+  - walls turned from the sun 0.948 / 0.940 (231) → 1.018 / 1.014 (141);
+  - grass 0.987 / 0.976, dry tops 1.008 / 1.009, dry tops in shade 0.963 / 0.968 (100), unchanged (tops aren't moved);
+  - the land's RMS: Standard all 11.7 → 10.7, cliffs 14.4 (bias 9.8) → 4.7 (1.8); High 12.0 → 11.0, cliffs 14.8 → 5.3;
+    grass 10.8 / 12.0, dry 11.1 / 11.3 as before; clean water (the shipped formula) 9.5 / 9.5 in both runs.
+- **What the game's files say about walls** (Timberborn 1.1.2.8, read locally, numbers only): the `Cliff` material
+  leaves `_SplatFilterTex` unset, the shader's default black, and inverts it, so every wall is `CliffDetail` × the
+  gradient, with none of the top's albedo; the game's texture round the cliff samples is 1.001 of its mean. The terrain
+  is built of 120 block shapes (`Environment/Land`, Timbermesh): flat faces with their own normals (00uu-a, 16
+  vertices). Its triplanar `Cliff_N` (world × 0.125, Shader Graph's whiteout blend, aniso 16) has mean 0 and a spread
+  per component of 0.36 at 2048², 0.22 at 128² and 0.15 at 64²; through the game's light, at the start shots' 25–45
+  texels a pixel, it would leave a wall toward the sun 3–4 % darker than a flat one and a wall the sun grazes 1–2 %
+  lighter (0.93 and 1.015 at full resolution). The registered faces don't show it beyond 1–2 %, so it isn't drawn: that
+  would be fitting.
+- **Cost:** none (no file under `src/` changed). `benchOrbit` (Canyon 128² seed 1, 1280 × 800, the GPU's time a
+  frame, the median over 6 s, two rounds in opposite orders, before → after, ms): Standard 30 away 2.62, 2.20 → 1.21,
+  2.02, 90 away 1.70, 2.47 → 2.22, 2.15; High 30 away 1.68, 2.04 → 1.75, 1.85, 90 away 2.22, 2.30 → 2.44, 2.47. The same
+  shaders, so the runs' noise; every frame 7.00 ms at the display's 144 Hz.
+- **Falls short:** (1) 38 % of the faces still can't be judged; the fit itself (scored on the water's outline) is
+  unchanged, and canyon-128-1's needs the game's field of view held, not fitted. (2) High's grass reads 2.4 % under,
+  Standard's 1.3 %: High's own broad variation (#65) where the samples sit. (3) Dry tops in shade read 3–4 % under, on
+  100 samples. (4) The triplanar normal map's darkening of walls toward the sun, 3–4 % at the start shots' distance by
+  the game's own texture, isn't visible in the frames; up close (the editor's 30 away, the 256²–512² mips) it would be
+  6–7 %, which no frame here can check.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:
