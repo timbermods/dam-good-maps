@@ -18,7 +18,7 @@
 // `objectCasters`): 0.29 and 0.6 high, what they cast past themselves is under the bake's half-tile samples.
 
 import { MEDIUM_RELIC, SMALL_RELIC, type Rgb } from "./palette";
-import { add, cross, Parts, sub, unit, type V } from "./relicParts";
+import { across, add, Parts, sub, unit, type V } from "./relicParts";
 
 /** The small relic's tubes and collars: their ends' middles and their radii there. */
 const TUBES: readonly [V, V, number, number][] = [
@@ -53,7 +53,7 @@ export function smallRelicParts(): { points: number[]; colour: Rgb }[] {
   for (const [a, b, r0, r1] of TUBES) m.bar(a, b, [[0, 0], [0, r0], [1, r1], [1, 0]], 10, R.tube);
   COLLARS.forEach(([c, axis, h, r], k) => {
     const d = unit(axis);
-    const [u, v] = acrossOf(d);
+    const [u, v] = across(d);
     if (k === 0) {
       // (at the wide end the lens, set in the collar's face)
       m.revolve(c, d, u, v, [[-h, 0], [-h, r], [h, r], [h, 0.125]], 8, R.collar);
@@ -95,6 +95,8 @@ const PANELS: readonly [V, V, number, number, V, number, number, V][] = [
   [[0.668, 0.077, 1.268], [-0.982, -0.18, 0.052], 0.425, 3, [0.032, 0.113, 0.993], 0.375, 2, [-0.185, 0.977, -0.105]],
   [[0.665, 0.075, 0.721], [-0.985, -0.12, 0.12], 0.39, 3, [0.138, -0.154, 0.978], 0.18, 1, [-0.099, 0.981, 0.168]],
 ];
+/** How far above the ground a solar cell's dip stays, at the least. */
+const DIP_CLEAR = 0.004;
 /** The half-dish: its sphere's centre and radius, its axis toward the dish's back, and its two directions across
  *  (its up and side, φ measured from up toward side); its rim (φ, θ from the axis, degrees), torn: 33° round its top,
  *  out to 74° low on its sides, from φ −132 to 121 (the rest in the ground). */
@@ -120,11 +122,6 @@ const MEDIUM_STONES = [
   [1.071, 0.057, 0.574, 0.144, 0.092, 0.145],
 ];
 
-/** Two directions across a unit axis. */
-function acrossOf(d: V): [V, V] {
-  const u = unit(cross(d, Math.abs(d[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]));
-  return [u, cross(d, u)];
-}
 const scale = (a: V, k: number): V => [a[0] * k, a[1] * k, a[2] * k];
 
 /** The medium relic's triangles, by colour (our frame: centred on its footprint, x east, y up, z south). */
@@ -158,11 +155,11 @@ export function mediumRelicParts(): { points: number[]; colour: Rgb }[] {
   }
   const bar = unit([0.275, 0.288, 0.917]);
   m.beam([add([1.609, 0.379, 0.848], bar, -0.195), add([1.609, 0.379, 0.848], bar, 0.195)], 0.13, R.bar);
-  const [nu, nv] = acrossOf(n);
+  const [nu, nv] = across(n);
   for (const [c, r] of KNOBS) m.revolve(c, n, nu, nv, [[-0.03, 0], [-0.03, r], [0.03, r * 0.85], [0.06, 0]], 5, R.knob);
   // on its west face a round port
   const w = unit(scale(e3, -1));
-  const [wu, wv] = acrossOf(w);
+  const [wu, wv] = across(w);
   m.revolve([1.152, 0.212, 1.026], w, wu, wv, [[-0.007, 0.1], [0.068, 0.04], [0.068, 0]], 6, R.port);
   // on its south the half-dish, both sides, its feed fallen into it and the feed's flange
   const onDish = (theta: number, phi: number, r: number) => {
@@ -181,20 +178,22 @@ export function mediumRelicParts(): { points: number[]; colour: Rgb }[] {
   }
   m.bar([1.65, 0.22, 1.452], [1.557, 0.201, 1.254], [[0, 0], [0, 0.1], [1, 0]], 8, R.feed);
   const f = unit([-0.298, -0.515, -0.803]);
-  const [fu, fv] = acrossOf(f);
+  const [fu, fv] = across(f);
   m.revolve([1.56, 0.21, 1.3], f, fu, fv, [[0, 0], [0, 0.11]], 8, R.feed).revolve([1.56, 0.21, 1.3], scale(f, -1), fv, fu, [[0, 0], [0, 0.11]], 8, R.feed);
   // the wire arm bent out east, and a plate fallen on the ground
   m.beam([[1.8, 0.41, 0.88], [1.87, 0.49, 0.8], [1.94, 0.51, 0.765], [1.98, 0.47, 0.715], [2.02, 0.26, 0.635]], 0.03, R.arm);
   const pc: V = [1.419, 0.092, 0.489];
   const [pa, pb]: V[] = [[0.447, -0.044, -0.893], [0.885, 0.169, 0.435]];
   m.face([add(add(pc, pa, -0.114), pb, -0.043), add(add(pc, pa, 0.125), pb, -0.043), add(add(pc, pa, 0.125), pb, 0.052), add(add(pc, pa, -0.114), pb, 0.052)], R.strap, sub(pc, [0, 1, 0]));
-  // the solar panels: dark cells, each dipped to a shallow point, in pale frames
+  // the solar panels: dark cells, each dipped to a shallow point, in pale frames (never below the ground: where a panel
+  // lies low the dip is shallower, so the ground never shows through a cell)
   for (const [c, a1, h1, n1, a2, h2, n2, up] of PANELS) {
     const at = (i: number, j: number, lift = 0) => add(add(add(c, a1, -h1 + (2 * h1 * i) / n1), a2, -h2 + (2 * h2 * j) / n2), up, lift);
     const below = add(c, up, -1);
     for (let i = 0; i < n1; i++)
       for (let j = 0; j < n2; j++) {
-        const dip = add(at(i + 0.5, j + 0.5), up, -0.035);
+        const mid = at(i + 0.5, j + 0.5);
+        const dip = add(mid, up, -Math.max(0, Math.min(0.035, (mid[1] - DIP_CLEAR) / up[1])));
         const ring = [at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j + 1)];
         for (let k = 0; k < 4; k++) m.face([ring[k], ring[(k + 1) % 4], dip], R.cell, add(dip, up, -1));
       }

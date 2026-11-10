@@ -14,6 +14,7 @@ import { LARGE_RELIC_SHADOW } from "../../src/render3d/largeRelic";
 import { litFraction, objectCasters, SHADOW_RES, shadowTops } from "../../src/render3d/light";
 import { BLOCKAGE, LARGE_RELIC, LIGHT, MEDIUM_RELIC, SMALL_RELIC } from "../../src/render3d/palette";
 import { entityView } from "../../src/render3d/model";
+import { mediumRelicParts } from "../../src/render3d/smallRelics";
 
 function bounds(key: string): { x: number; z: number; lo: number; hi: number } {
   const p = modelOf(key).pos;
@@ -192,6 +193,18 @@ describe("the small and medium relics at the game's measures", () => {
     expect(b.z).toBeLessThan(1.75);
     for (const c of [MEDIUM_RELIC.body, MEDIUM_RELIC.cell, MEDIUM_RELIC.frame, MEDIUM_RELIC.dish, MEDIUM_RELIC.feed, ...MEDIUM_RELIC.stone]) expect(has("MediumRelic", c)).toBe(true);
     expect(modelTriangles("MediumRelic")).toBeLessThanOrEqual(600);
+  });
+
+  it("dips no solar cell below the ground, so the ground never shows through a panel", () => {
+    // (each cell is four triangles round its dip, the one corner they share; a panel's own edge may sink, as the game's)
+    const cells = mediumRelicParts().find((p) => p.colour === MEDIUM_RELIC.cell)!.points;
+    expect(cells.length % 36).toBe(0);
+    for (let k = 0; k < cells.length; k += 36) {
+      const pts = Array.from({ length: 12 }, (_, i) => cells.slice(k + 3 * i, k + 3 * i + 3).join());
+      const dip = pts.find((p) => [0, 1, 2, 3].every((t) => pts.slice(3 * t, 3 * t + 3).includes(p)))!;
+      expect(dip).toBeDefined();
+      expect(Number(dip.split(",")[1])).toBeGreaterThanOrEqual(0);
+    }
   });
 
   // (lying on the ground, 0.29 and 0.6 high, what they cast past themselves is 0.14–0.31 and 0.16–0.49 tiles² by the
