@@ -132,6 +132,8 @@ export interface Lake {
   meadow: number;
   /** A tarn's spring: where, and its strength. */
   spring?: [number, number, number];
+  /** Dry on day 1 (r12): an empty basin until the player's work fills it; its floor is flat with uneven hollows. */
+  dry?: boolean;
 }
 
 /** A fall over a sill: the water of `from` goes over crest tiles (level = the lake's sill) and drops to `to`.
@@ -175,11 +177,16 @@ export interface Channel {
   /** Its banks need stand only at this level, not at the top water's rim. */
   low?: number;
   /** A brook: its valley floor is level beside it (the land's envelope makes it), `meadow` tiles wide. */
-  brook?: { meadow: number };
+  brook?: { meadow: number; deep?: number };
+  /** Dry on day 1 (r12): a bed below a blocked head. `brook.deep`: its valley floor stands that many more levels
+   *  over its bed (a bed two deep with clear banks: its water, once it runs, greens a thread and a dam a pond). */
+  dry?: boolean;
+  /** It ends in this channel's bed and keeps that bed where they meet. */
+  joins?: string;
 }
 
 /** A plug in the old channel: a row of Blockages across it, `at` tiles along it. */
-export const PLUGS = [2.2, 190, 300];
+export const PLUGS = [2.2, 190, 272];
 
 /** The breach in the ruined weir: its tiles along the lip (r10: two; r11: one, so the lake sinks over days). */
 const BREACH: number[] = (process.env.FL_BREACH ?? "89").split(",").filter(Boolean).map(Number);
@@ -259,12 +266,12 @@ export const LAKES: Lake[] = [
 /** The tarns: small lakes on the benches, each with its own spring, each the head of a brook. */
 export const TARNS: Lake[] = [
   // the west chain, fed from the springs' pool through the West Leat's one-tile notch
-  { name: "High Tarn", sill: 13, arms: [[[61, 148, 4], [68, 151, 6], [77, 153, 4.5]]], wander: 2, deep: 2, seed: [68, 151], meadow: 15 },
-  { name: "Birch Tarn", sill: 9, arms: [[[38, 116, 7.5], [40, 108, 6.5]]], wander: 2.5, deep: 3, seed: [36, 112], meadow: 15, islands: [[40, 113, 1.9]] },
-  { name: "Hill Tarn", sill: 7, arms: [[[49, 101, 4.5], [53, 98, 3.5]]], wander: 1.2, deep: 2, seed: [50, 100], meadow: 12 },
+  { name: "High Tarn", sill: 13, arms: [[[61, 148, 4], [68, 151, 6], [77, 153, 4.5]]], wander: 3.2, deep: 2, seed: [68, 151], meadow: 15, dry: true },
+  { name: "Birch Tarn", sill: 9, arms: [[[38, 116, 7.5], [40, 108, 6.5]]], wander: 2.5, deep: 3, seed: [36, 112], meadow: 13, spring: [36, 112, 1.5] },
+  { name: "Hill Tarn", sill: 7, arms: [[[49, 101, 4.5], [53, 98, 3.5]]], wander: 2.2, deep: 2, seed: [50, 100], meadow: 12, dry: true },
   // the east chain, fed from Steam Lake through a notch in its south shore
-  { name: "Bench Tarn", sill: 8, arms: [[[143, 71, 5], [150, 68, 6.5], [156, 72, 4.5]]], wander: 2.2, deep: 2, seed: [150, 69], meadow: 15 },
-  { name: "South Tarn", sill: 6, arms: [[[124, 47, 3.5], [129, 49, 4.5]]], wander: 1.5, deep: 2, seed: [128, 49], meadow: 14 },
+  { name: "Bench Tarn", sill: 8, arms: [[[143, 71, 5], [150, 68, 6.5], [156, 72, 4.5]]], wander: 3.2, deep: 2, seed: [150, 69], meadow: 15, dry: true },
+  { name: "South Tarn", sill: 6, arms: [[[124, 47, 3.5], [129, 49, 4.5]]], wander: 1.5, deep: 2, seed: [128, 49], meadow: 12, spring: [128, 49, 1.2] },
   // the rim's own: a spring whose run leaves by the west edge and never meets the lakes
   { name: "Gate Tarn", sill: 10, arms: [[[58, 15, 3.5], [64, 14, 4.5]]], wander: 1.2, deep: 2, seed: [63, 14], meadow: 15, spring: [63, 14, 1.2] },
   { name: "Fell Tarn", sill: 15, arms: [[[90, 179, 3.5], [98, 180, 5], [106, 181, 3.5]]], wander: 1.5, deep: 2, seed: [98, 180], meadow: 14, spring: [98, 180, 1.5] },
@@ -324,6 +331,13 @@ const HILL_BROOK: Pt[] = [[51, 94], [50, 87], [51, 79], [53, 72], [55, 64]];
 /** South Brook: South Tarn to Low Lake's south bay. */
 const SOUTH_BROOK: Pt[] = [[118, 47], [106, 45], [94, 43], [84, 41], [77, 40]];
 
+/** The West Run (r12): Birch Tarn's own water, west off the map: the west side's living brook. It never meets a lake,
+ *  so the tarn's spring can run bad in a badtide and the bypass still keeps every lake clean. */
+const WEST_RUN: Pt[] = [[35, 112], [29, 110.5], [24, 109], [15, 110], [7, 106], [-1, 105]];
+/** The South Run (r12): South Tarn's own water, south into the old channel's last reach (below its third blockage)
+ *  and out by the south edge with it: the east side's living brook. */
+const SOUTH_RUN: Pt[] = [[127, 46.5], [127.5, 38], [126, 33.5], [125.5, 30.5]];
+
 /** A brook's bed: from `from` at its head down a level at a time to `to`, which it keeps for its last reach (it
  *  comes to its lake two or three levels over the water and falls in). */
 function brookBed(path: Pt[], from: number, to: number): (s: number) => number {
@@ -337,16 +351,18 @@ export const CHANNELS: Channel[] = [
   { name: "Neck", path: NECK_PATH, half: () => 2.1, bed: () => 14, bank: 1, bankWide: 3, wet: true, wander: 0, open: 1 },
   { name: "Old channel", path: OLD_PATH, half: (s) => (s < 7 ? 4.9 : s < 10 ? 3.6 : 2.6), follow: { start: 14, under: 2.7, end: 1, hold: 7 }, bank: 2, bankWide: 3, wet: false, wander: 2.2, open: 0.8 },
   { name: "Gorge", path: GORGE_PATH, half: (s) => (s < 3 ? 5.6 : s < 13 ? 2.6 : s < 16 ? 3.6 : 4.6), bed: () => 0, bank: 0, bankWide: 0, wet: true, wander: 0, open: 0 },
-  { name: "West Leat", path: WEST_LEAT, half: (s) => (s < 3 ? 0.55 : 1.1), bed: () => 14, bank: 0, bankWide: 0, wet: true, wander: 0.8, open: 0, brook: { meadow: 11 } },
-  { name: "High Brook", path: HIGH_BROOK, half: () => 1.1, bed: brookBed(HIGH_BROOK, 13, 11), bank: 0, bankWide: 0, wet: true, wander: 4.2, open: 0, brook: { meadow: 12 } },
-  { name: "Birch Brook", path: BIRCH_BROOK, half: () => 1.1, bed: brookBed(BIRCH_BROOK, 9, 4), bank: 0, bankWide: 0, wet: true, wander: 4.2, open: 0, brook: { meadow: 13 } },
-  { name: "Crag Brook", path: CRAG_BROOK, half: () => 1.1, bed: brookBed(CRAG_BROOK, 9, 9), bank: 0, bankWide: 0, wet: true, wander: 1.0, open: 0, brook: { meadow: 9 } },
-  { name: "Hill Brook", path: HILL_BROOK, half: () => 1.1, bed: brookBed(HILL_BROOK, 7, 4), bank: 0, bankWide: 0, wet: true, wander: 3.2, open: 0, brook: { meadow: 11 } },
-  { name: "Steam Leat", path: STEAM_LEAT, half: (s) => (s < 2.5 ? 1.7 : 1.1), bed: brookBed(STEAM_LEAT, 10, 10), bank: 0, bankWide: 0, wet: true, wander: 0.8, open: 0, brook: { meadow: 10 } },
-  { name: "Bench Brook", path: BENCH_BROOK, half: () => 1.1, bed: brookBed(BENCH_BROOK, 8, 4), bank: 0, bankWide: 0, wet: true, wander: 4.2, open: 0, brook: { meadow: 13 } },
-  { name: "South Leat", path: SOUTH_LEAT, half: () => 1.1, bed: brookBed(SOUTH_LEAT, 8, 8), bank: 0, bankWide: 0, wet: true, wander: 1.0, open: 0, brook: { meadow: 10 } },
-  { name: "South Brook", path: SOUTH_BROOK, half: () => 1.1, bed: brookBed(SOUTH_BROOK, 6, 4), bank: 0, bankWide: 0, wet: true, wander: 4.2, open: 0, brook: { meadow: 13 } },
+  { name: "West Leat", path: WEST_LEAT, half: (s) => (s < 3 ? 0.55 : 1.1), bed: () => 14, bank: 0, bankWide: 0, wet: true, wander: 0.8, open: 0, brook: { meadow: 11 }, dry: true },
+  { name: "High Brook", path: HIGH_BROOK, half: () => 1.6, bed: brookBed(HIGH_BROOK, 13, 11), bank: 0, bankWide: 0, wet: true, wander: 4.2, open: 0, brook: { meadow: 12, deep: 1 }, dry: true },
+  { name: "Birch Brook", path: BIRCH_BROOK, half: () => 1.6, bed: brookBed(BIRCH_BROOK, 9, 4), bank: 0, bankWide: 0, wet: true, wander: 4.2, open: 0, brook: { meadow: 13, deep: 1 }, dry: true },
+  { name: "Crag Brook", path: CRAG_BROOK, half: () => 1.1, bed: brookBed(CRAG_BROOK, 9, 9), bank: 0, bankWide: 0, wet: true, wander: 1.0, open: 0, brook: { meadow: 9 }, dry: true },
+  { name: "Hill Brook", path: HILL_BROOK, half: () => 1.1, bed: brookBed(HILL_BROOK, 7, 4), bank: 0, bankWide: 0, wet: true, wander: 3.2, open: 0, brook: { meadow: 11 }, dry: true },
+  { name: "Steam Leat", path: STEAM_LEAT, half: (s) => (s < 2.5 ? 1.7 : 1.1), bed: brookBed(STEAM_LEAT, 10, 10), bank: 0, bankWide: 0, wet: true, wander: 0.8, open: 0, brook: { meadow: 10 }, dry: true },
+  { name: "Bench Brook", path: BENCH_BROOK, half: () => 1.6, bed: brookBed(BENCH_BROOK, 8, 4), bank: 0, bankWide: 0, wet: true, wander: 4.2, open: 0, brook: { meadow: 13, deep: 1 }, dry: true },
+  { name: "South Leat", path: SOUTH_LEAT, half: () => 1.1, bed: brookBed(SOUTH_LEAT, 8, 8), bank: 0, bankWide: 0, wet: true, wander: 1.0, open: 0, brook: { meadow: 10 }, dry: true },
+  { name: "South Brook", path: SOUTH_BROOK, half: () => 1.6, bed: brookBed(SOUTH_BROOK, 6, 4), bank: 0, bankWide: 0, wet: true, wander: 4.2, open: 0, brook: { meadow: 13, deep: 1 }, dry: true },
   { name: "North Run", path: NORTH_RUN, half: () => 1.1, bed: brookBed(NORTH_RUN, 15, 9), bank: 0, bankWide: 0, wet: true, wander: 4.2, open: 0, brook: { meadow: 16 } },
+  { name: "West Run", path: WEST_RUN, half: () => 1.1, bed: brookBed(WEST_RUN, 9, 8), bank: 0, bankWide: 0, wet: true, wander: 3.2, open: 0, brook: { meadow: 9 } },
+  { name: "South Run", path: SOUTH_RUN, half: () => 1.1, bed: brookBed(SOUTH_RUN, 6, 5), bank: 0, bankWide: 0, wet: true, wander: 1.0, open: 0, brook: { meadow: 8 }, joins: "Old channel" },
   { name: "Gate Run", path: GATE_RUN, half: () => 1.1, bed: brookBed(GATE_RUN, 10, 6), bank: 0, bankWide: 0, wet: true, wander: 2.2, open: 0, brook: { meadow: 14 } },
 ];
 // The kettles: the two closed hollows by the springs that the game fills from the top water (r9's 16 and 4 stray
@@ -361,7 +377,7 @@ CHANNELS.push(
 // stands at the sill's level when the brook stops (a level of water, two under the bench: the game's soil carries
 // that about eight tiles). r11 tried a second pond up a ditch: the settle left it dry.
 if (process.env.FL_KETTLE !== "0")
-  CHANNELS.push({ name: "Bench Kettle", path: [[52.5, 86.5], [56.0, 86.8], [59.5, 88.8], [63.2, 91.2]], half: (s) => (s < 3.6 ? 0.6 : 2.2), bed: (s) => (s < 2.2 ? 6 : 5), bank: 0, bankWide: 0, wet: true, wander: 0, open: 0, low: 7 });
+  CHANNELS.push({ name: "Bench Kettle", path: [[52.5, 86.5], [56.0, 86.8], [59.5, 88.8], [63.2, 91.2]], half: (s) => (s < 3.6 ? 0.6 : 2.2), bed: (s) => (s < 2.2 ? 6 : 5), bank: 0, bankWide: 0, wet: true, wander: 0, open: 0, low: 7, dry: true });
 const chan = (name: string) => CHANNELS.findIndex((c) => c.name === name);
 
 /** The cliff behind Weir Lake that the Great Fall comes over: north of this line the land is the upper world. */
@@ -377,6 +393,9 @@ function greatWall(x: number): number {
 }
 
 const SEED = 4107;
+/** The seeps' strengths (r12): a basin's damp floor, a dry bed's thread. */
+const SEEP_BASIN = Number(process.env.FL_SEEP_BASIN ?? 0);
+const SEEP_BED = Number(process.env.FL_SEEP_BED ?? 0);
 const COVE_POOL = process.env.FL_COVE !== "0";
 const BENCH_SOUTH = Number(process.env.FL_BENCH ?? 79);
 /** The drowned river through the Great Fall's bay: from the fall's foot round the start to the breach in the weir. */
@@ -445,6 +464,11 @@ export interface Land {
   gates: number[][];
   /** Each brook's first row (a dam there shuts the brook). */
   brookHeads: number[][];
+  /** r12, the ladder's works: a row of bed tiles across a channel for each (a blockage row or a dam's place). */
+  works: Record<string, number[]>;
+  /** r12: seeps (x, y, strength): a weak spring at the head of a dry bed or in an empty basin's hollow. Its water
+   *  dries up within the bed or the basin (the game's evaporation: 1e-4 a second times 1.2 to 4.3 a tile). */
+  seeps: [number, number, number][];
 }
 
 /** A ridge: rock along a line, `top` high within `half` tiles of it, falling `fall` a tile beyond. */
@@ -509,6 +533,7 @@ export function designLand(): Land {
       // every water near this tile: its level, how far, how wide its meadow
       const el: { level: number; d: number; meadow: number; rim: number }[] = [];
       let near = Infinity;
+      let nearWet = Infinity;
       for (let k = 0; k < BODIES.length; k++) {
         const L = BODIES[k];
         let d = Infinity;
@@ -522,18 +547,21 @@ export function designLand(): Land {
         g[k][i] = own < 6 ? own : Math.max(6, dw + L.wander * wob);
         el.push({ level: L.sill, d: g[k][i], meadow: L.meadow, rim: 3.2 });
         if (own < near) near = own;
+        if (!L.dry && own < nearWet) nearWet = own;
       }
       for (const k of brooks) {
         const { d, s } = along[k][i];
         const c = CHANNELS[k];
         const dd = d - c.half(s);
-        el.push({ level: c.bed!(s), d: dd, meadow: c.brook!.meadow, rim: 2.6 });
+        el.push({ level: c.bed!(s) + (c.brook!.deep ?? 0), d: dd, meadow: c.brook!.meadow, rim: 2.6 });
         if (dd < near) near = dd;
+        if (!c.dry && dd < nearWet) nearWet = dd;
       }
       let hv = spineDist(x + 0.5, y + 0.5, POOL);
       for (const k of topWater) hv = Math.min(hv, along[k][i].d - CHANNELS[k].half(along[k][i].s));
       el.push({ level: 14, d: hv, meadow: 9, rim: 2.6 });
       if (hv < near) near = hv;
+      if (hv < nearWet) nearWet = hv;
 
       // the outlands: a little over the stair near the valley, falling away far from it
       let sw = 0;
@@ -580,13 +608,20 @@ export function designLand(): Land {
         if (v < land) land = v;
       }
       // the high ground rolls a little; the meadows keep a few knolls (the water still reaches a level up, 9 tiles)
-      land += 0.7 * fbm(x, y, 21, SEED + 7, 3) * Math.min(1, Math.max(0, (near - 18) / 6));
+      // (r12: ground no day-1 water reaches is broad flat benches divided by bold scarps, in threes: the game has one
+      // dry tone, so thin one-level bands on it read as contour lines, and a dry bed among them as a crack)
+      const dryLand = nearWet > 19 + 4 * fbm(x, y, 23, SEED + 27, 2) && Math.hypot(x - START_AT[0], y - START_AT[1]) > 30;
+      if (!dryLand) land += 0.7 * fbm(x, y, 21, SEED + 7, 3) * Math.min(1, Math.max(0, (near - 18) / 6));
       const scarp = Math.max(-1, Math.min(1, fbm(x, y, 44, SEED + 19, 2) * 60));
       land += 1.3 * scarp * Math.min(1, Math.max(0, (near - 22) / 5));
       const scarp2 = Math.max(-1, Math.min(1, fbm(x, y, 26, SEED + 23, 2) * 60));
-      land += 1.0 * scarp2 * Math.min(1, Math.max(0, (near - 19) / 4));
-      if (near > 21) land = fbm(x, y, 50, SEED + 24, 2) > -0.25 ? Math.round(land / 3) * 3 : Math.round(land / 2) * 2;
-      if (near > 4 && near < 9 && fbm(x, y, 9, SEED + 22, 2) > 0.42) land += 1;
+      if (!dryLand) land += 1.0 * scarp2 * Math.min(1, Math.max(0, (near - 19) / 4));
+      if (dryLand) {
+        if (near > 0.5) land = Math.round(land / 3) * 3;
+      } else {
+        if (near > 21) land = fbm(x, y, 50, SEED + 24, 2) > -0.25 ? Math.round(land / 3) * 3 : Math.round(land / 2) * 2;
+        if (near > 4 && near < 9 && fbm(x, y, 9, SEED + 22, 2) > 0.42) land += 1;
+      }
       for (const r of RIDGES) {
         const { d } = pathDist(x + 0.5, y + 0.5, r.path);
         const t = d - r.half + 0.9 * fbm(x, y, 6, SEED + 70, 2);
@@ -663,6 +698,7 @@ export function designLand(): Land {
       const b = bedOf[k](s);
       if (d <= half) {
         if (c.wet && channel[i] && CHANNELS[channel[i] - 1].wet && f[i] <= b) continue; // (a wet channel keeps the lower bed where two meet)
+        if (c.joins && channel[i] && CHANNELS[channel[i] - 1].name === c.joins) continue;
         f[i] = b;
         channel[i] = k + 1;
       } else if (c.open > 0) {
@@ -714,6 +750,8 @@ export function designLand(): Land {
       // (a shelf at the sill's level, a shallow margin, then the drop into the channel: drop-offs, not rings)
       let depth = Math.min(L.deep, shore === 0 ? 0 : shore === 1 ? (L.deep > 2 ? Math.min(2, channelDepth) : 1) : channelDepth);
       if (k >= LAKES.length) depth = Math.min(L.deep, Math.max(0, Math.floor((Math.min(-d, isle) - 0.6) / 2.4 + 1.5 * fbm(x + 3 * k, y - 5 * k, 5, SEED + 46, 2) + 0.2)));
+      // (r12: an empty basin's floor is flat with uneven hollows, its deepest by its seep: no rings)
+      if (L.dry) depth = Math.hypot(x + 0.5 - L.seed[0], y + 0.5 - L.seed[1]) < 2.1 ? 2 : -d > 1.2 && fbm(x, y, 6, SEED + 52, 2) > -0.15 ? 1 : 0;
       // (the cove's head has a cut bank: deep water right at the meadow, so a pump there works through a drought)
       if (k === 0 && Math.hypot(x + 0.5 - 69, y + 0.5 - 74) < 5.5) depth = 2;
       // (the Great Fall's bay, all of Weir Lake that the game's first frame holds: shallow. In the game water five
@@ -866,7 +904,7 @@ export function designLand(): Land {
     const exit = new Uint8Array(N);
     for (let i = 0; i < N; i++) {
       const c = channel[i];
-      if (c && (CHANNELS[c - 1].name === "Gorge" || (CHANNELS[c - 1].name === "Old channel" && along[c - 1][i].s < 8))) exit[i] = 1;
+      if (c && (CHANNELS[c - 1].name === "Gorge" || (CHANNELS[c - 1].name === "Old channel" && (along[c - 1][i].s < 8 || along[c - 1][i].s > PLUGS[2] + 2)))) exit[i] = 1;
     }
     for (let i = 0; i < N; i++) {
       if (need[i] < 0) continue;
@@ -894,7 +932,67 @@ export function designLand(): Land {
     }
     return [];
   });
-  return { heights: h, lake, channel, pool, crests, beds, plugs, guarded, gates, brookHeads };
+  // r12: a row of a channel's bed that spans it (the water cannot pass beside it within the bed), outside every
+  // tarn's outline, the first at or after `sMin` along it
+  const spanRow = (name: string, sMin: number, sMax = Infinity): number[] => {
+    let best: number[] = [];
+    const k = chan(name);
+    const T: number[] = [];
+    for (let i = 0; i < N; i++) if (channel[i] === k + 1) T.push(i);
+    const inT = new Set(T);
+    const len = pathLength(CHANNELS[k].path);
+    const nb = (i: number) => [i - 1, i + 1, i - W, i + W].filter((j) => j >= 0 && j < N && Math.abs((j % W) - (i % W)) <= 1);
+    for (let s0 = sMin; s0 < len - 1; s0 += 0.5) {
+      const row = T.filter((i) => along[k][i].s >= s0 && along[k][i].s < s0 + 1.45);
+      if (!row.length || row.some((i) => nb(i).some((j) => lake[j]))) continue;
+      const rowSet = new Set(row);
+      const down = T.filter((i) => along[k][i].s >= s0 + 1.45);
+      if (!down.length) continue;
+      const seen = new Set(down);
+      const q = [...down];
+      let leak = false;
+      while (q.length && !leak) {
+        const i = q.pop()!;
+        for (const j of nb(i)) {
+          if (!inT.has(j) || rowSet.has(j) || seen.has(j)) continue;
+          if (along[k][j].s < s0) leak = true;
+          seen.add(j);
+          q.push(j);
+        }
+      }
+      if (leak) continue;
+      if (sMax === Infinity) return row;
+      if (s0 > sMax) break;
+      if (!best.length || row.length < best.length) best = row;
+    }
+    return best;
+  };
+  const brookNames = CHANNELS.filter((c) => c.brook).map((c) => c.name);
+  const works: Record<string, number[]> = {
+    "West Leat": gates[2],
+    "Steam Leat": brookHeads[brookNames.indexOf("Steam Leat")],
+    "Crag Brook": spanRow("Crag Brook", 0.5),
+    "Birch Brook": spanRow("Birch Brook", 1),
+    "South Brook": spanRow("South Brook", 1),
+    "High dam": spanRow("High Brook", 17.0, 17.6),
+    "High Brook": spanRow("High Brook", 1),
+    "Bench Brook": spanRow("Bench Brook", 1),
+  };
+  // the seeps: one in each empty basin's hollow, one in each dry bed a little below its head
+  const below = (name: string, row: number[], by: number): number => {
+    const k = chan(name);
+    const s1 = Math.max(...row.map((i) => along[k][i].s)) + by;
+    let best = -1;
+    for (let i = 0; i < N; i++) if (channel[i] === k + 1 && along[k][i].s >= s1 && (best < 0 || along[k][i].s < along[k][best].s)) best = i;
+    return best;
+  };
+  const seeps: [number, number, number][] = [];
+  for (const L of TARNS) if (L.dry) seeps.push([Math.floor(L.seed[0]), Math.floor(L.seed[1]), SEEP_BASIN]);
+  for (const name of ["Birch Brook", "South Brook", "High Brook", "Bench Brook"]) {
+    const i = works[name].length ? below(name, works[name], 1.2) : -1;
+    if (i >= 0) seeps.push([i % W, Math.floor(i / W), SEEP_BED]);
+  }
+  return { heights: h, lake, channel, pool, crests, beds, plugs, guarded, gates, brookHeads, works, seeps };
 }
 
 /** The tiles of the Great Fall's own pool (the start's pad leaves them). */
