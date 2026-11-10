@@ -10,14 +10,15 @@
 // plate 1 high over two tiles, a hood over its mouth (BadtideDrain.Model). A thorn bush is the game's spikes and twigs
 // (Thorns.Model), 0.55 high and overhanging its tile, with no state to draw (the game's has no growth or dying). A
 // geothermal field is the game's crust of sulphur round a vent 0.4 deep, its rim 0.24 high, rocks round it
-// (GeothermalField.Model), its middle tile's top left out of the terrain.
+// (GeothermalField.Model), its middle tile's top left out of the terrain. An aquifer is the game's low dark crust over its
+// cross of tiles, 0.13 high, small rocks round it (Aquifer.Model), lying on the ground.
 // Standard's models are High's and the light look's too, and Standard's baked shadows are fitted to them.
 
 import { describe, expect, it } from "vitest";
 import { mineCutout, modelKeyOf, modelOf, modelTriangles } from "../../src/render3d/entities3d";
 import { LARGE_RELIC_SHADOW } from "../../src/render3d/largeRelic";
 import { litFraction, objectCasters, SHADOW_RES, shadowTops } from "../../src/render3d/light";
-import { BADTIDE_DRAIN, BLOCKAGE, LARGE_RELIC, LIGHT, MEDIUM_RELIC, GEOTHERMAL, NATURAL_DAM, SMALL_RELIC, THORNS, UNSTABLE_CORE } from "../../src/render3d/palette";
+import { AQUIFER, BADTIDE_DRAIN, BLOCKAGE, LARGE_RELIC, LIGHT, MEDIUM_RELIC, GEOTHERMAL, NATURAL_DAM, SMALL_RELIC, THORNS, UNSTABLE_CORE } from "../../src/render3d/palette";
 import { entityView } from "../../src/render3d/model";
 import { mediumRelicParts } from "../../src/render3d/smallRelics";
 
@@ -506,6 +507,42 @@ describe("the geothermal field at the game's measures", () => {
   // (low and wide, it casts 0.07–0.14 tiles² past the ground it covers by the sun's heading: its rocks' slivers)
   it("casts nothing in Standard's bake", () => {
     const e = entityView([{ template: "GeothermalField", x: 4, y: 4, z: 3, orientation: "Cw0", owner: "a" }]);
+    const casters = objectCasters(12, 12, e);
+    expect(casters === null || casters.every((v) => v === 0)).toBe(true);
+  });
+});
+
+describe("the aquifer at the game's measures", () => {
+  it("is the game's low crust over its cross, rocks round it: 0.13 high, in its colours, about its triangles", () => {
+    const b = bounds(modelKeyOf("Aquifer", 0));
+    // (the game's model, leaving out its footing of ground, reaches from the ground to 0.126 up, x −1.23…1.21 and
+    // z −1.10…1.12 about its footprint's middle; ours sinks its edge 0.04 into the ground)
+    expect(b.hi).toBeGreaterThan(0.11);
+    expect(b.hi).toBeLessThan(0.14);
+    expect(b.lo).toBeGreaterThan(-0.05);
+    expect(b.x).toBeGreaterThan(2.4);
+    expect(b.x).toBeLessThan(2.5);
+    expect(b.z).toBeGreaterThan(2.15);
+    expect(b.z).toBeLessThan(2.3);
+    const col = modelOf("Aquifer").col;
+    const has = (c: readonly number[]) => {
+      for (let k = 0; k < col.length; k += 3) if (Math.abs(col[k] - c[0]) < 1e-3 && Math.abs(col[k + 1] - c[1]) < 1e-3 && Math.abs(col[k + 2] - c[2]) < 1e-3) return true;
+      return false;
+    };
+    for (const c of [...AQUIFER.crust, ...AQUIFER.rock]) expect(has(c)).toBe(true);
+    expect(modelTriangles("Aquifer")).toBeLessThanOrEqual(540);
+  });
+
+  // (the game's cuts out its middle tile's top; its crust lies over it, never below the ground, so ours leaves the
+  // terrain whole)
+  it("leaves the terrain whole", () => {
+    const e = entityView([{ template: "Aquifer", x: 4, y: 4, z: 3, orientation: "Cw0", owner: "a" }]);
+    expect(mineCutout(e, 12, 12).size).toBe(0);
+  });
+
+  // (0.13 high, it casts 0.015–0.03 tiles² past the ground it covers by the sun's heading)
+  it("casts nothing in Standard's bake", () => {
+    const e = entityView([{ template: "Aquifer", x: 4, y: 4, z: 3, orientation: "Cw0", owner: "a" }]);
     const casters = objectCasters(12, 12, e);
     expect(casters === null || casters.every((v) => v === 0)).toBe(true);
   });

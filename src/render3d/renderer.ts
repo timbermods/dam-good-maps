@@ -683,7 +683,7 @@ export class MapRenderer {
     this.sky.renderOrder = -1000;
     if (!this.software) this.scene.add(this.sky);
     // the geothermal fields' steam, on the objects' clock (never in software drawing: geothermalSteam.ts)
-    this.steam = this.software ? null : new GeothermalSteam(this.uniforms.time);
+    this.steam = this.software ? null : new GeothermalSteam(this.uniforms);
     if (this.steam) this.scene.add(this.steam.mesh);
     this.lookNow = this.software ? "light" : "standard";
     // the Flow view from the address (?flow=on) until the page has its switch (D353)

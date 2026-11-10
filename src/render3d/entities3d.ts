@@ -39,7 +39,8 @@
 //   logs through it and flat stones over it (naturalDam.ts). Timberborn 1.x objects, each shaped after the game's own render and in its game
 //   footprint: seeps (a stone slab at the ground round a pit, the terrain's tops over its 2 × 2
 //   cut out like a mine site's, heaped with rounded rocks to 0.57, or 0.40 for badwater, the gaps dark teal or
-//   rust), the aquifer (a dry, dark rubble cross with a hole), its drill (a tall, narrow
+//   rust), the aquifer (the game's low crust of dark rock brown at its middle, small rocks over it and its cross,
+//   aquifer.ts), its drill (a tall, narrow
 //   yellow-and-black auger tower on a stone footing, a dark housing and a pipe), the badtide drain (the
 //   game's box of rusted plate, a black funnel in its mouth under a hood out over the drop, badtideDrain.ts), the
 //   unstable core (the game's ball of metal panels sunk into the ground, pale ribs and a strap over it, its port a
@@ -66,6 +67,7 @@ import { objectSoilAt } from "./runSoil";
 import { badtideDrainParts } from "./badtideDrain";
 import { blockageParts } from "./blockage";
 import { naturalDamParts } from "./naturalDam";
+import { aquiferParts } from "./aquifer";
 import { geothermalParts } from "./geothermal";
 import { thornsParts } from "./thorns";
 import { unstableCoreParts } from "./unstableCore";
@@ -466,7 +468,9 @@ const MODELS: Record<string, () => Model> = {
   Thorns: () => perCorner(thornsParts()),
   WaterSeep: () => seep(false),
   BadwaterSeep: () => seep(true),
-  Aquifer: aquifer,
+  // (the game's low crust of dark rock and the rocks over it, at its measures and in its colours, each corner its own:
+  // aquifer.ts)
+  Aquifer: () => perCorner(aquiferParts()),
   AncientAquiferDrill: aquiferDrill,
   // (the game's box of rusted plate with its mouth and hood, at its measures and in its colours: badtideDrain.ts)
   BadtideDrain: () => fromParts(badtideDrainParts()),
@@ -478,7 +482,7 @@ const MODELS: Record<string, () => Model> = {
 /** The models in the game's own colours, its albedo straight (palette.ts `TREE_COLOURS`, `LANDMARK`, `SMALL_RELIC`, `MEDIUM_RELIC`, `LARGE_RELIC`, `BLOCKAGE`; the
  *  ruins and the start are made apart). Every other model's colours are our own, drawn at `ownAlbedo` (palette.ts
  *  `OWN_LIGHTNESS`). */
-const GAME_COLOURED = new Set(["Pine", "Birch", "Oak", "BlueberryBush", "WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep", "SmallRelic", "MediumRelic", "LargeRelic", "Blockage", "NaturalDam", "BadtideDrain", "UnstableCore", "Thorns", "GeothermalField"]);
+const GAME_COLOURED = new Set(["Pine", "Birch", "Oak", "BlueberryBush", "WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep", "SmallRelic", "MediumRelic", "LargeRelic", "Blockage", "NaturalDam", "BadtideDrain", "UnstableCore", "Thorns", "GeothermalField", "Aquifer"]);
 for (const key of Object.keys(MODELS))
   if (!GAME_COLOURED.has(key.split(".")[0])) {
     const make = MODELS[key];
@@ -660,31 +664,6 @@ function seep(bad: boolean): Model {
     const y = (t * top) / 0.57 - 0.851 * r * flat;
     m.add(ico(r), shade(rock, 0.86 + 0.07 * (k % 3)), { x, y, z, sx: 1 + 0.08 * Math.sin(k * 2.3), sy: flat, sz: 1 + 0.08 * Math.cos(k * 1.9), ry: k * 0.9 });
   });
-  return m;
-}
-
-/** The aquifer (3 × 3, a plus of five tiles, its corners empty): dry, dark rubble over a cross, a dark
- *  hole in the middle and a few stones strewn past its arms. It gives no water until a drill runs. */
-function aquifer(): Model {
-  const dark: Rgb = [0.23, 0.22, 0.21];
-  const m = new Model();
-  // (a flat, ragged patch: a blob over each tile of the cross)
-  const blobs: [number, number, number, number][] = [[0, 0, 0.7, 0.7], [0, -0.85, 0.55, 0.5], [0, 0.85, 0.55, 0.5], [-0.85, 0, 0.5, 0.55], [0.85, 0, 0.5, 0.55]];
-  blobs.forEach(([x, z, sx, sz], k) => m.add(ico(1), shade(dark, 0.8 + 0.1 * (k % 3)), { x, y: 0.0, z, sx, sy: 0.07, sz, ry: k }));
-  // rubble heaped over the cross and its edges
-  const stones: [number, number, number][] = [
-    [0.38, 0.38, 0.2], [-0.4, 0.34, 0.19], [0.36, -0.4, 0.18], [-0.38, -0.4, 0.2], [0.05, 0.62, 0.16], [0.02, -0.64, 0.17], [0.62, 0.02, 0.16], [-0.64, 0.05, 0.17],
-    [0.3, 0.95, 0.2], [-0.25, 1.05, 0.19], [0.1, 1.3, 0.14], [0.35, -1.02, 0.19], [-0.2, -1.12, 0.2], [-0.05, -1.3, 0.14],
-    [1.0, 0.3, 0.2], [1.1, -0.25, 0.19], [1.3, 0.05, 0.14], [-1.02, 0.28, 0.2], [-1.12, -0.25, 0.19], [-1.3, -0.05, 0.14],
-    [0.6, 0.62, 0.1], [-0.6, -0.6, 0.1], [0.6, -0.62, 0.1], [-0.6, 0.6, 0.1],
-  ];
-  stones.forEach(([x, z, r], k) => m.add(oct(r * 1.3), shade([0.36, 0.34, 0.32], 0.8 + 0.12 * (k % 4)), { x, y: 0.04 + r * 0.3, z, sy: 0.5, ry: k }));
-  // the hole: a ring of rubble round a dark mouth
-  for (let k = 0; k < 7; k++) {
-    const a = (k * Math.PI * 2) / 7;
-    m.add(oct(0.1), shade([0.3, 0.28, 0.26], 0.8 + 0.15 * (k % 3)), { x: Math.cos(a) * 0.27, y: 0.09, z: Math.sin(a) * 0.27, sy: 0.6, ry: k });
-  }
-  m.add(post(0.2, 0.2, 0.02, 7), [0.08, 0.06, 0.05], { y: 0.07 });
   return m;
 }
 

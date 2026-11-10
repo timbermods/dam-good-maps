@@ -3586,7 +3586,8 @@ for every field; the map stores its Coordinates and orientation (never flipped).
   each placed and timed on the GPU from the view's clock, one batch for every field, and stops a field's while any
   water stands on its middle tile (`steamFields`, read each time the water or the objects change). Left out: the game's
   wind, which carries its puffs, and its puffs' texture, ours a soft round puff. None in the light look; still with
-  reduced motion.
+  reduced motion. Hidden with the objects and faded round the pointer with them (by the field's middle), and cut
+  away above the layer as the objects are, each puff where it is (`fix/aquifer`: it had ignored both).
 - **Built** (`render3d/geothermal.ts`, new): the crust a grid of 16 headings by 7 rings out to its reach, each corner
   at the game's height there and in its colour there (averaged over 0.05 round it, the nearest of the six shades), its
   edge sunk 0.04 into the ground; each rock the hull of its farthest points six ways round, three ways up and its top:
@@ -3609,6 +3610,46 @@ for every field; the map stores its Coordinates and orientation (never flipped).
   terrain. (3) Its rocks are hulls of a few points each where the game's are rounder. (4) It is judged against the
   game's model rendered offline, not the game's own light. (5) The rest of the placeholders in the large relic's falls
   short (2) remain.
+
+## The aquifer as the game draws it (D135, D178 as amended 2026-11-10, D496, D497; `fix/aquifer`)
+
+Ours drew the aquifer as a dark rubble cross of our own: flat blobs over its five tiles, grey stones heaped over them
+and a dark hole at its middle. The game's (`Aquifer.Model`, 740 triangles with its footing) is the one model for every
+aquifer; the map stores its Coordinates and orientation (never flipped).
+
+- **Read from the game's model** (numbers only, `tools/game-model-albedo.py` and scratch tools): a low crust in the
+  blockage's material (200 of its 537 triangles), reaching 0.44–0.76 from the footprint's middle (farthest along the
+  cross's arms), 0.13 high at most and dipping to the ground at its middle; its vertex colours dark blue-grey and grey,
+  brown at the middle (albedo 0.149/0.142/0.123 over the material). Thirty small rocks, 0.04–0.1 high, lie on it and
+  along its arms, in the blockage's and the water source's rock (0.18/0.164/0.141). A footing of ground in the
+  terrain's own material (`SlopeCliffEdge`, 152 triangles) covers its cross. Neither material is metallic, so the
+  colours are drawn straight (`palette.ts` `AQUIFER`: the crust in five shades, the rocks in three).
+- **Its blueprint:** it cuts its middle tile out of the terrain (`BlockObjectTerrainCutoutSpec`) for its footing; its
+  crust lies over the ground, never below it, so ours leaves the terrain whole and is an object like the others, faded
+  and hidden with them. It is a water source that runs only under a powered drill (`UndergroundWaterSourceSpec`); our
+  core keeps it off (`core/sim/model.ts`), and the model shows no water or other state either way, so it has one look.
+  It has no particles.
+- **Built** (`render3d/aquifer.ts`, new, on `render3d/crust.ts`, new, the geothermal field's crust and rocks made
+  shared): the crust a grid of 16 headings by 7 rings out to its reach, each corner at the game's height there (lifted
+  to 0.012 at least, where the game's lies 0.003 over the ground, so it never fights the terrain) and in its colour
+  there (the nearest of the five shades), its edge sunk 0.04 into the ground; each rock the hull of its farthest points
+  (six ways round, three ways up and its top for the larger; four ways round and its top for the small): 512
+  triangles against the game's 588 without its footing. The geothermal field's model is unchanged by the move to the
+  shared builder (the same triangles and colours). Standard and High draw the same model, in the objects' game light.
+- **Measured:** the bounds within 0.01 of the game's (x −1.23…1.21, z −1.10…1.12, up to 0.126). The silhouette, against
+  the game's crust and rocks from 16 cameras (8 headings, 30° and 60° down) and from above: 0.94–0.98 times the game's
+  area, IoU 0.92–0.94.
+- **Standard's shadow:** none, as before. 0.13 high, the model casts 0.015–0.03 tiles² past the ground it covers along
+  the 45° sun.
+- **Judged:** placed on river valley 2's banks, Standard and High: a dark low crust over its cross with a brown dip at
+  its middle, small grey rocks round it, as the game's model renders offline.
+- **Cost:** no draw call more; +102 triangles an aquifer. `benchOrbit` on river valley 2 at 128 with eight aquifers
+  (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame, one run each, base → branch): Standard whole
+  map 2.82 → 2.88 ms, the aquifers 14 away 3.03 → 2.93; High 2.48 → 2.81 and 3.71 → 3.72: within the runs' spread.
+  Every frame 7.0 ms at 144 Hz.
+- **Falls short:** (1) Its rocks are hulls of a few points each where the game's are rounder. (2) The game's footing
+  of ground over its cross is left to the terrain. (3) It is judged against the game's model rendered offline, not the
+  game's own light. (4) The aquifer's drill keeps its model of our own.
 
 ## A fall over a cave's mouth (D154 as amended 2026-11-08, D496; `fix/cave-mouth-curtain`)
 
