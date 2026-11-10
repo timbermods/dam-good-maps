@@ -710,17 +710,18 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   across the trough (its ground's upper quarter less the cut, smoothed along the path) and steps down the route in a
   few long treads, never rising down it and never above the valley's old bottom, not the old land cut tile by tile;
   the river runs one level below its tread, in one channel two or three tiles wide that winds gently within the
-  floor. The walls meet the floor through a step or two at their foot (the U); near the edge, ground already low
-  joins the floor and a high spur stays wall, so the sides keep some of the land's outline; benches are cut to one
-  level part way up the wall, and a bench too small to read (under 12 tiles) is left as it was; a last pass takes
-  away 1–2-tile posts and fills 1–2-tile pits (never above the old ground), a post that banks water widening into a
-  bank instead (showcase craft's gap 26, #914's look review). **A lake is never drained** (#914): a lake the route
-  runs through (broad standing water, an eighth of it three tiles from its shore; a river, however still, is none)
-  keeps its surface as a deeper ribbon lake across the trough's floor, with a sill at its old level, a bar three
-  tiles across, wherever its water would leave lower than it did; a lake the route passes keeps a wall at its level;
-  no lake's water runs into another's, so badwater and clean water never mix, and the sources in a lake stay to feed
-  it. The river leaving the snout ends in the first water it meets on ground the glacier left as it was. Floor left
-  level
+  floor. Inside its edge the floor meets the walls through a step or two (the U), never wider than Size; near the
+  edge, ground already low joins the floor and a high spur stays wall, so the sides keep some of the land's outline;
+  benches are cut to one level part way up the wall, and a bench too small to read (under 12 tiles) is left as it
+  was; a last pass takes away 1–2-tile posts and fills 1–2-tile pits (never above the old ground), a post that banks
+  water widening into a bank instead, and a knob of the old land (40 tiles or fewer) left standing in the trough's
+  floor or mouth is planed down to the ground beside it (showcase craft's gap 26, #914's look review). **A lake is
+  never drained** (#914): a lake the route runs through (broad standing water, an eighth of it three tiles from its
+  shore; a river, however still, is none) keeps its surface as a deeper ribbon lake across the trough's floor, with
+  a sill at its old level, a bar three tiles across, wherever its water would leave lower than it did; a lake the
+  route passes keeps a wall at its level; no lake's water runs into another's, so badwater and clean water never
+  mix, and the sources in a lake stay to feed it. The river leaving the snout ends in the first water it meets on
+  ground the glacier left as it was. Floor left level
   with a lake standing on it, reaching no lower ground, comes down a level into the lake (no thin sheet over
   it); where the plan would wet dry land outside the trough, a river's old bed it banked over is opened
   again from the outside water in, if that drains it. Default Power 60;

@@ -7192,11 +7192,25 @@ fn glacier_once(
         if d <= 1.0 {
             // (below Power 100 the station's tread; a spur standing far above the rest is cut by at most
             // `spur` levels more than Power allows, none at Power 0, so a light scour stays light)
-            out.map.heights[i] = if gentle {
-                max(height - cap - spur, min(height, tops[at])) as u8
+            let mut floor = if gentle {
+                max(height - cap - spur, min(height, tops[at]))
             } else {
-                min(top, f + 1.0) as u8
+                min(top, f + 1.0)
             };
+            // (the U: inside its edge the floor meets the wall through a step or two, one tile wide each, never
+            // a sheer cliff from the floor to the rim and never wider than Size, #914's look review)
+            let inner = (1.0 - d) * q.r;
+            let foot = if inner < 1.3 {
+                level + 3.0
+            } else if inner < 2.6 {
+                level + 1.0
+            } else {
+                f64::NEG_INFINITY
+            };
+            if q.r >= 4.0 && foot > floor && height >= foot + 2.0 {
+                floor = min(top, foot);
+            }
+            out.map.heights[i] = floor as u8;
             out.mask[i] = 1;
             out.arrival[i] = q.s as f32;
         } else if d < 1.0 + 4.5 / q.r {
@@ -7223,23 +7237,12 @@ fn glacier_once(
                     }
                 }
             }
-            // (the U: the wall meets the floor through a step or two at its foot, one tile wide, never a sheer
-            // cliff from the floor to the rim, #914's look review)
-            let foot = if beyond < 1.3 {
-                level + 1.0
-            } else if beyond < 2.6 {
-                level + 3.0
-            } else {
-                f64::INFINITY
-            };
             // (a bench is one level along its stretch of wall, the station's, above the foot: cut tile by tile
             // it followed the old ground's steps and read as noise, gap 26)
             let bench = max(
                 f + 1.0,
                 max(q.outlet - cap, f + round((q.outlet - f) * 0.58)),
             );
-            // (past the first step a bench, where the wall has one, takes the second step's place; a step only
-            // where the cut reaches it: below that the wall is the old land, less the cut)
             if beyond >= 1.3
                 && height - f >= 5.0
                 && height > bench
@@ -7252,16 +7255,13 @@ fn glacier_once(
                 out.map.heights[i] = max(height - cap - spur, bench) as u8;
                 out.mask[i] = 2;
                 out.arrival[i] = q.s as f32;
-            } else if foot < f64::INFINITY && height >= foot + 2.0 && height - cap - spur <= foot && hard < 0.5 {
-                out.map.heights[i] = foot as u8;
-                out.mask[i] = 2;
-                out.arrival[i] = q.s as f32;
             }
         }
     }
     // (benches are few and long: a scrap of one, where the rock or the water broke it, is left as wall)
     glacier_bench_scraps(&mut out, before);
     glacier_fins(&mut out);
+    glacier_islands(&mut out, before);
     let mut incoming = vec![];
     for i in 0..n {
         if out.mask[i] == 1 || out.nearest[i] < 0 {
@@ -7479,7 +7479,12 @@ fn glacier_once(
             river_bed
         })
         .collect();
-    out.channel(&stream_path, &river_beds, river_radius, -1.0, 1, true);
+    let cells = out.channel(&stream_path, &river_beds, river_radius, -1.0, 1, true);
+    // (below Power 100 the river cuts no deeper than the floor may, and two levels more: winding, it crossed
+    // knobs the floor left standing and slit them five levels deep at Power 0)
+    for i in cells {
+        out.map.heights[i] = max(out.map.heights[i] as f64, before.heights[i] as f64 - cap - spur - 2.0) as u8;
+    }
     out.river_cells = out
         .stream
         .iter()
@@ -7911,6 +7916,68 @@ fn glacier_fins(out: &mut GlacierPlan) {
         }
         for (i, level) in cut {
             out.map.heights[i] = level as u8;
+            out.mask[i] = 2;
+        }
+    }
+}
+/// The stacks (#914's look review): a knob of the old land, 40 tiles or fewer, standing three levels or more
+/// above everything round it with the trough or old water on half its sides or more (an island at the
+/// glacier's mouth, a spur left in its floor) is planed down to the highest ground beside it.
+fn glacier_islands(out: &mut GlacierPlan, before: &Map) {
+    let w = out.map.w;
+    let h = out.map.h;
+    let n = w * h;
+    let mut seen = vec![false; n];
+    for s0 in 0..n {
+        if seen[s0] || out.mask[s0] != 0 || out.nearest[s0] < 0 || before.depth[s0] > 0.05 {
+            continue;
+        }
+        let low = out.map.heights[s0] as f64 - 2.0;
+        let mut part = vec![s0];
+        seen[s0] = true;
+        let mut ring = f64::NEG_INFINITY;
+        let mut sides = 0;
+        let mut open = 0;
+        let mut whole = true;
+        let mut k = 0;
+        while k < part.len() && part.len() <= 40 {
+            let i = part[k];
+            k += 1;
+            let x = (i % w) as i32;
+            let y = (i / w) as i32;
+            for (dx, dy) in GLACIER_N4 {
+                let xx = x + dx;
+                let yy = y + dy;
+                if xx < 0 || yy < 0 || xx >= w as i32 || yy >= h as i32 {
+                    whole = false;
+                    continue;
+                }
+                let j = yy as usize * w + xx as usize;
+                if out.mask[j] == 0 && before.depth[j] <= 0.05 && out.map.heights[j] as f64 >= low {
+                    if !seen[j] {
+                        seen[j] = true;
+                        part.push(j);
+                    } else if !part.contains(&j) {
+                        whole = false;
+                    }
+                } else if !part.contains(&j) {
+                    sides += 1;
+                    if out.mask[j] != 0 || before.depth[j] > 0.05 {
+                        open += 1;
+                    }
+                    ring = max(ring, out.map.heights[j] as f64);
+                }
+            }
+        }
+        if !whole || part.len() > 40 || open * 2 < sides || open == 0 {
+            continue;
+        }
+        let top = part.iter().map(|&i| out.map.heights[i] as f64).fold(0.0, max);
+        if top < ring + 3.0 {
+            continue;
+        }
+        for &i in &part {
+            out.map.heights[i] = min(out.map.heights[i] as f64, ring) as u8;
             out.mask[i] = 2;
         }
     }
