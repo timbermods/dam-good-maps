@@ -670,8 +670,13 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   Claude's `carve` step takes a `source` to unleash one.
 - **Craterize** (D202; key 8): a giant impact. A click strikes; so does a press and drag, once, where the press
   began (D368 (7)). **Power** (a pebble to a cataclysm), **Size**, **Try another**; walls (steep or terraced),
-  centre (bowl, peak, ring or flat), debris (light or heavy) and rays from the land and the seed. A streak falls, a
-  flash, a shock ring, dust and thrown blocks (the camera never shakes, D265), the bowl opening at once and the
+  centre (bowl, peak, ring or flat), debris (light or heavy) and rays from the land and the seed. It reads as a
+  natural crater, never a stadium (showcase-craft gap 25): its rim scalloped and uneven, its crest higher on some
+  sides than others and low on one (where the ground round it is lowest; the seed's side on level ground); terraced
+  walls are two to five benches, fewer on a small crater, each wall its own height and each bench widening,
+  narrowing and pinching out round the bowl so walls merge into taller ones, every bench one level all round, the
+  floor's edge following; a central peak or ring is a cluster of massifs; no one-tile pillar or pit is left in the
+  bowl. A streak falls, a flash, a shock ring, dust and thrown blocks (the camera never shakes, D265), the bowl opening at once and the
   debris landing ring by ring; trees inside the bowl are gone, those round it are knocked down (dead, standing
   upright where their ground held, gone where the blow broke it: D321, item 7). Newer impacts overprint older ones;
   heavy debris can dam a river; it strikes wherever aimed (the start's ground too, D257) and never adds water.

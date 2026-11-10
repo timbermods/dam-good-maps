@@ -2,7 +2,9 @@
 // glancing drag, for an oval crater thrown forward); Power; Size (following Power, or set); Steep or
 // Terraced walls; a centre (Auto, Bowl, Peak, Ring or Flat); Debris (Light or Heavy) with or without
 // Rays; Try another (the next personality). A coherent crater field quantized once to whole game
-// levels: a morphology model, not a shock-physics solver. The newest bowl replaces the relief it
+// levels: a morphology model, not a shock-physics solver, shaped to read as a natural crater, never a
+// stadium (showcase-craft gap 25): a scalloped, uneven rim, low on one side; terraces that widen, narrow,
+// pinch out and merge round the bowl, each bench one level all round. The newest bowl replaces the relief it
 // lands on (overlapping impacts overprint older ones); only its outer lip rejoins the ground round
 // it. Trees inside the bowl are gone; round it they are knocked down, lying away from the blow (dead
 // trees, their pose the editor's); water and badwater sources and seeps ride the ground, and Sources

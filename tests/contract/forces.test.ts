@@ -78,12 +78,60 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
         }
   });
 
+  // (pinned to the prototype's until showcase-craft gap 25 reshaped the crater so it reads as a natural one, not a
+  // stadium: a scalloped, uneven rim low on one side, terraces that pinch out and merge, a peak of massifs; D148)
+  const CRATERS: Record<string, string> = {
+    "bowl 0": "0cb49dcd365b4d8f4d0234bdf1c4d00ac99d73742901adc088665c10d578afe7",
+    "peak 0": "39efcb32d5151d677433c404288c7836672bafdf8afd78e98842483ac1df555a",
+    "ring 0": "93a0ba095b2e8654eca19841cb553781c28e68db2231f00cefa6415333a1b71d",
+    "flat 0": "2089dc577bf5eb76323a5b3f440871166d07eb0aae831b89f5d003b2ed2d9081",
+    "bowl 1": "83e6cee164f68147ef555701b05dd65d36743ffea82f1be2c2adf9953f2c9d08",
+    "peak 1": "c12dec194a758a750327491d413f508caa42c1d8e32f97f732add4f302d3d7c1",
+    "ring 1": "d9416eb236288e733e85a99a2a2a2cd38851079bbbc77c87abe7824636c45624",
+    "flat 1": "1a12385dd2946e41103852d9ec2478d32da7b0a07424ec6cb8dd5f9b041d55c7",
+    "bowl 42": "973a2822a91a55c8b8b349102f859f8dbbeca50c9600c53575d968d097bca22c",
+    "peak 42": "4dcfade744c00ff96f95af4537f0a65d9dd934c0b0b3b7b55fdf7e53f579ede8",
+    "ring 42": "ba781e2c8a2dcc2d44812c1e518a0a6e2d7ee66f2ff8b89494b65b30a4cc19e8",
+    "flat 42": "f98342c2418650806f899e92d51bf046d06459b1676e0b3c478553dd3e34e4a3",
+  };
   it("Craterize: every centre, with and without rays", () => {
     for (const seed of [0, 1, 42])
       for (const centre of ["bowl", "peak", "ring", "flat"] as const) {
         const m = fixture("plain", 64);
         const p = impact(snapshotMap(m), { ...CRATER_DEFAULTS, seed, centre, power: 50, size: 28, rays: seed > 0 }, { origin: 38 * 64 + 40 });
-        expect(digest(p.map), `${centre} ${seed}`).toBe(pinned({ verb: "craterize", centre, seed }));
+        expect(digest(p.map), `${centre} ${seed}`).toBe(CRATERS[`${centre} ${seed}`]);
+      }
+  });
+
+  it("Craterize reads as a crater, not a stadium (showcase-craft gap 25): its rim's crest is uneven round it, and no one-tile pillar or pit is left in the bowl", () => {
+    for (const walls of ["terraced", "steep"] as const)
+      for (const seed of [0, 1, 2, 3]) {
+        const m = fixture("plain", 64);
+        const W = m.W;
+        const p = impact(snapshotMap(m), { ...CRATER_DEFAULTS, walls, seed, power: 60, size: 40, rays: false, debris: "light" }, { origin: 32 * W + 32 });
+        const a = p.anatomy;
+        const h = p.map.heights;
+        const what = `${walls} ${seed}`;
+        // the crest: the most the ground rose along each of 48 bearings, from inside the bowl out past the rim
+        const crest: number[] = [];
+        for (let k = 0; k < 48; k++) {
+          const t = (k / 48) * Math.PI * 2;
+          let top = 0;
+          for (let d = a.radius * 0.6; d < a.radius * 1.3; d += 0.5) {
+            const x = Math.round(a.x + Math.cos(t) * d);
+            const y = Math.round(a.y + Math.sin(t) * d);
+            if (x >= 0 && y >= 0 && x < W && y < m.H) top = Math.max(top, h[y * W + x] - m.heights[y * W + x]);
+          }
+          crest.push(top);
+        }
+        expect(Math.max(...crest) - Math.min(...crest), `${what}: the crest's height round the rim`).toBeGreaterThanOrEqual(2);
+        for (let y = 1; y < m.H - 1; y++)
+          for (let x = 1; x < W - 1; x++) {
+            if (Math.hypot(x - a.x, y - a.y) > a.radius * 0.85) continue;
+            const v = h[y * W + x];
+            const n = [h[y * W + x - 1], h[y * W + x + 1], h[(y - 1) * W + x], h[(y + 1) * W + x]];
+            expect(v > Math.max(...n) || v < Math.min(...n), `${what}: a one-tile pillar or pit at ${x},${y}`).toBe(false);
+          }
       }
   });
 
