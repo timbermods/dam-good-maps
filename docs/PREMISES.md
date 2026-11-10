@@ -567,7 +567,7 @@ too deep to water it: raise it at the gate, or lead it out along the wall."
   the wall, the green valley behind it (the prize: wood, farmland, the reservoir). Landmark: the wall with the fall
   in its gate. Edges: the wall's ends run off the map; the basin falls away. The wall is an escarpment: the valley's
   own high ground ending in a cliff that wanders, many tiles thick, never a thin straight ridge across a valley,
-  which is what `terrain.dam_wall` blocks (D111; section 9's open question).
+  which is what `terrain.dam_wall` blocks (D111, read as D512 reads it).
 - **Start and first frame.** In the basin on the plunge pool's apron, looking at the gate: the fall and the wall
   above it. The same frame arithmetic; the wall may stand above the frame's top, the lip may not.
 - **Ladder.** Small: check dams at the canyon's narrows (dam to pond, the bench built at bed + 2 for a reach), each
@@ -696,39 +696,33 @@ number, the land as bowls, the frame, the ladder, wood by budget.
 
 ### Ruled
 
-Planning ruled on the seven questions this design raised (2026-11-10, on PR #944; the milestone session numbers the
-decisions and amends PLAN §8 with them). The builders work to these.
+Planning ruled on the questions this design raised (2026-11-10, on PR #944), recorded as D508 to D513. The builders
+work to these.
 
-1. **A library of premises: yes.** This replaces PLAN §8's "no table of named premises" (D275, D278) and the
-   readings of D208 and D108 that went with it, on Kyler's direction of 2026-11-10 (maps from first principles: a
-   problem you can say in one line; MAPCRAFT). A premise is a problem with many structures, never a fixed layout;
-   variety across seeds is a shipping test (section 6, tier 3); a premise map's green is judged by its ladder (dry
-   land irrigable by design, the `spectrum` invariant), not by a share (D504's bare-ground measure is the themes').
-2. **Generate's default.** The themes stay the default until three premises have passed judging in the game. Until
-   then a control chooses the premise mode. After that, Surprise me may draw a premise.
-3. **The landmark fall is 6 or 7 levels**, so its lip is whole in the game's first frame with a start that passes
+1. **A library of premises: yes** (D508). This replaces the archived plan's "no table of named premises" (D275, D278)
+   and the readings of D208 and D108 that went with it, on Kyler's direction of 2026-11-10 (maps from first principles:
+   a problem you can say in one line; MAPCRAFT). A premise is a problem with many structures, never a fixed layout;
+   variety across seeds is a shipping test (section 6, tier 3); a premise map's green is judged by its ladder (dry land
+   irrigable by design, the `spectrum` invariant), not by a share (D504's bare-ground measure is the themes').
+2. **Generate's default** (D509). The themes stay the default until three premises have passed judging in the game.
+   Until then a control chooses the premise mode. After that, Surprise me may draw a premise.
+3. **The landmark fall is 6 or 7 levels** (D510), so its lip is whole in the game's first frame with a start that passes
    `start.dry`; `start.dry` stays blocking (section 4.3).
-4. **Easy start is not offered with the lake stair** until a variant that keeps Easy start's promise (two clean days
-   in the first badtide, `analysis/easyStart.ts` `EASY_START.badtideDays`) has been judged: `eligible` returns the
+4. **Easy start is not offered with the lake stair** (D511) until a variant that keeps Easy start's promise (two clean
+   days in the first badtide, `analysis/easyStart.ts` `EASY_START.badtideDays`) has been judged: `eligible` returns the
    reason and the themes make that map.
-5. **Blockages carry the ladder: proceed.** One Probe run settles what clearing a Blockage costs in the game, before
-   the ladder step (build step 5) merges; if it is not a small work, a notch is a one-level rock plug two tiles thick
-   instead.
-6. **Wading:** beavers never cross water without a bridge; `reach` counts crossings as built.
-7. **Shapes: squares only for now.**
+5. **Blockages carry the ladder: proceed** (D513 (3)). One Probe run settles what clearing a Blockage costs in the game,
+   before the ladder step (build step 5) merges; if it is not a small work, a notch is a one-level rock plug two tiles
+   thick instead.
+6. **Wading** (D513 (1)): beavers never cross water without a bridge; `reach` counts crossings as built.
+7. **Shapes: squares only for now** (D513 (2)).
+8. **D111 reads as its check reads** (D512). The closing ridge below the lowest lake is the valley's own high ground,
+   ten tiles thick or more and wandering, the gorge a canyon cut through it (the megadam's site); a sill is a rock step
+   with the land's own shoulders. Both are landforms, not built dam walls; `terrain.dam_wall` stays blocking on every
+   premise map.
 
 ### Still open
 
-- **For planning: the megadam's slot and the stair's sills against D111.** D111 says the generator never builds a
-  dam-site ridge and never adds terrain to create a dam opportunity, with `terrain.dam_wall` catching a straight wall
-  across a valley with a gap for the river. A premise designs all of its terrain, and the lake stair's premise
-  includes a ridge that closes the valley below the lowest lake with a gorge through it (the megadam's site), and a
-  rock sill with shoulders at every fall. The hand-built map passes `terrain.dam_wall` with both (the check fired
-  only on a ring of rock round its springs' pool). **Default the builders proceed on:** D111 is read as its check
-  reads it: no thin, straight wall. The closing ridge is the valley's own high ground, ten tiles thick or more and
-  wandering, the gorge a canyon cut through it; a sill is a rock step with the land's own shoulders;
-  `terrain.dam_wall` stays blocking on every premise map. If planning reads D111 more strictly, the megadam's site
-  becomes a narrows between two spurs that do not meet.
 - **A fact, by one Probe run before build step 5:** what the game asks of a player to clear a Blockage, and when in
   a colony's life (ruling 5).
 - **A design, later:** the lake stair's Easy start variant (ruling 4), and its landmark of 8 from a bench two levels
