@@ -63,8 +63,9 @@ const threads = at >= 0 ? Number(process.argv[at + 1]) : 0;
 if (threads) {
     installNodeThreads(threads);
     await nodeThreadsReady(threads);
-    // (the reach too, where the water went, and each column's outflows: the strips gather both from their own rows, D453's settle at once and the 3D view's moving water)
-    const bytes = (s: StackSettle) => Buffer.concat([s.depth, s.overflow, s.contamination, s.sat, ...(s.reach ? [s.reach] : []), ...(s.flows ? [s.flows] : [])].map(a => Buffer.from(a.buffer, a.byteOffset, a.byteLength)));
+    // (the reach too, where the water went, and each column's outflows, four a column and toward each target: the strips
+    // gather them from their own rows, D453's settle at once, the 3D view's moving water and the file's outflows, #532)
+    const bytes = (s: StackSettle) => Buffer.concat([s.depth, s.overflow, s.contamination, s.sat, ...(s.reach ? [s.reach] : []), ...(s.flows ? [s.flows] : []), ...(s.outflows ? [s.outflows.column, s.outflows.target, s.outflows.dir, s.outflows.flow] : [])].map(a => Buffer.from(a.buffer, a.byteOffset, a.byteLength)));
     // and a map whose strips' edges cut every kind of emitter (3×3 bad sources, clean and bad seeps, aquifers,
     // drains): one every three rows from top to bottom, under a roof and in the open, so whatever rows the strips
     // take, some straddle an edge
@@ -137,13 +138,30 @@ if (threads) {
         while (!s) s = run.advance(1e6);
         return s;
     };
-    const cases: { name: string; settle: () => StackSettle }[] = [...stackFixtures.map(f => ({ name: f.name, settle: () => settleFixture(f) })), { name: 'emitters cut by the strips', settle: () => cut() }, { name: 'stored lakes', settle: () => cut(true) }, { name: 'stored lakes and a removal', settle: () => cut(true, true) }, { name: 'a shelf at 5 under filling water', settle: shelf(5) }, { name: 'a shelf at 6 under filling water', settle: shelf(6) }, { name: 'a stored lake whose water moves', settle: () => cut(true, false, true) }];
+    // and a hollow in a plateau that the pre-fill's walk crossed level and started full, which no source's water reaches
+    // once it has settled (#814): the settle takes that water from nowhere (D385) and settles on, which on several
+    // threads settles on on one from the strips' end, their flows' momentum handed back; with a seep anywhere, whose state
+    // the strips keep, from the pre-fill
+    const hollow = (seep = false) => (): StackSettle => {
+        const W = 48, H = 48;
+        const mask = new Uint32Array(W * H);
+        const pit = (i: number) => i % W >= 30 && i % W <= 35 && Math.floor(i / W) >= 20 && Math.floor(i / W) <= 26;
+        for (let i = 0; i < W * H; i++) mask[i] = ((1 << (pit(i) ? 4 : 6)) - 1) | (i % W >= 10 && i % W < 16 ? 0b111 << 9 : 0);
+        const run = canonicalStackRun(W, H, { mask, objects: Float64Array.from([7, 1, 24, 6, 0, 0, 0, 1, ...(seep ? [9, 44, 2, 6, 0, 0, 0, 1] : [])]) });
+        let s = run.advance(1e6);
+        while (!s) s = run.advance(1e6);
+        let left = 0;
+        for (let i = 0; i < W * H; i++) if (pit(i)) for (let q = 0; q < s.count[i]; q++) left += s.depth[q * W * H + i];
+        if (s.reach || left > 0.05) throw Error('the hollow the pre-fill started full kept ' + left + ' of water nothing feeds');
+        return s;
+    };
+    const cases: { name: string; settle: () => StackSettle }[] = [...stackFixtures.map(f => ({ name: f.name, settle: () => settleFixture(f) })), { name: 'emitters cut by the strips', settle: () => cut() }, { name: 'stored lakes', settle: () => cut(true) }, { name: 'stored lakes and a removal', settle: () => cut(true, true) }, { name: 'a shelf at 5 under filling water', settle: shelf(5) }, { name: 'a shelf at 6 under filling water', settle: shelf(6) }, { name: 'a stored lake whose water moves', settle: () => cut(true, false, true) }, { name: 'a hollow the pre-fill started full, nothing feeding it', settle: hollow() }, { name: 'that hollow on a map with a seep', settle: hollow(true) }];
     let ran = 0;
     for (const c of cases) {
         const one = withoutParallelWater(c.settle);
         const before = stackParallelStats.ticks;
         const many = c.settle();
-        if (!bytes(one).equals(bytes(many)) || one.settled !== many.settled || one.ticks !== many.ticks || one.steadyTicks !== many.steadyTicks || !one.reach !== !many.reach || !one.flows !== !many.flows)
+        if (!bytes(one).equals(bytes(many)) || one.settled !== many.settled || one.ticks !== many.ticks || one.steadyTicks !== many.steadyTicks || !one.reach !== !many.reach || !one.flows !== !many.flows || !one.outflows !== !many.outflows)
             throw Error(c.name + ' differs on ' + threads + ' threads');
         if (stackParallelStats.ticks > before) ran++;
         console.log('PASS ' + c.name + ' canonical settle on one thread = on ' + threads + (stackParallelStats.ticks > before ? '' : ' (one thread: an open field, or the settle after a removal)') + '; ' + many.ticks + ' ticks');

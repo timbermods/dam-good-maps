@@ -2783,6 +2783,11 @@ more deep, the shortfall warm (about −5 to −10 R, in the shape of the glow's
   over the lake basin's badwater and its source (`m9b-lakeBasin-128-1`): 18 away, Standard 2.63, 2.96 → 2.61, 2.38 ms,
   High 2.27, 2.45 → 2.44, 2.42; 50 away, Standard 2.35, 2.29 → 2.15, 2.15, High 2.56, 2.46 → 2.47, 2.64. Within the
   runs' noise: the same samples, now without anisotropy. The worker's mips are made once a page, beside the pattern.
+- **The gap by day on the game's frames** (`--water all`, the twelve day-lit start shots, 1,749 clean and 73 badwater
+  tiles; `fix/badwater-day-gap`): the game 32.6 against 27.4, 5.2; before 6.8 (outside the 3.1–6.5 its frames allow),
+  after 5.6 in Standard and 5.5 in High (within). `look-high.spec.ts`'s scene (clean water over a moist bed, darker than
+  the frames', about 28) then read a gap under its old margin of 1 (0.94, 0.64); re-based under D148 to D496's terms:
+  the order (> 0) and its badwater within the game's frames' 27.0–27.9, each ± its standard error (26.3–28.7).
 - **Falls short:** (1) badwater's thinnest film at sunrise (109 tiles) reads 37.2 against the game's 34.5 (it read
   36.2 before), and the day's deep water 33.4 against 31.3, where the glow's phase dominates (two regions of 36–37
   tiles); (2) over the sources, registered, ours reads 1.8 L* over the game's (5 %), the glow round them; (3) the glow's

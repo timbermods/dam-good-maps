@@ -15,6 +15,7 @@ import type { PaintParams } from "../core/doc/paintParams";
 import type { ForceCue } from "../core/forces/runs";
 import type { Verb } from "../core/forces/op";
 import { EVERY_KIND } from "../core/doc/remove";
+import { lakeLevelLabel } from "../core/doc/lakeLevel";
 import { collabApi } from "./collab";
 import * as ed from "./session";
 
@@ -85,6 +86,14 @@ export const collabEditApi = {
     const p = ed.planned.fill(x, y, level);
     if (!p.op) return Promise.resolve(ed.collabAnswer(false, [p.reason ?? "nothing to fill"]));
     return order({ kind: "edit", ops: [p.op], label: p.op.op });
+  },
+
+  /** Set the lake at (x, y) to `level`, its sill cut down or raised: one step as a Select action (the start carried if
+   *  its ground broke), or the plain reason the land can't hold it there. */
+  lakeLevelAt(x: number, y: number, level: number, width?: number): Promise<Answer> {
+    const p = ed.planned.lakeLevel(x, y, level, width);
+    if (!p.op) return Promise.resolve(ed.collabAnswer(false, [p.reason ?? "the lake's level can't be set"]));
+    return order({ kind: "select", ops: [p.op], label: lakeLevelLabel(p.op.params) });
   },
 
   async removeAt(tiles: readonly number[], kinds: readonly ed.RemoveKind[], label?: string, cut?: number | null): Promise<Answer & { removed: number[] }> {
