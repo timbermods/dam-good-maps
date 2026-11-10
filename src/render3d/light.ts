@@ -18,6 +18,7 @@ import { DEAD, ORIENTATION_NAMES, YOUNG, type EntityView, type SoilView, type Su
 import { BLOCKAGE_SHADOW } from "./blockage";
 import { NATURAL_DAM_SHADOW } from "./naturalDam";
 import { BADTIDE_DRAIN_SHADOW } from "./badtideDrain";
+import { UNSTABLE_CORE_SHADOW } from "./unstableCore";
 import { LARGE_RELIC_SHADOW } from "./largeRelic";
 import { DESERT, LIGHT } from "./palette";
 
@@ -141,6 +142,8 @@ const PLANT_SHAPES: readonly (readonly (readonly [number, number, number])[])[] 
   NATURAL_DAM_SHADOW,
   // the badtide drain's box, over each of its two tiles (`DRAIN_KIND`)
   BADTIDE_DRAIN_SHADOW,
+  // the unstable core's ball, over each of its four tiles (`CORE_KIND`)
+  UNSTABLE_CORE_SHADOW,
 ];
 /** Each kind's height (its highest disc's top): its caster's height over this scales the shape (a young plant). */
 const PLANT_TOPS = PLANT_SHAPES.map((d) => Math.max(0, ...d.map((q) => q[1])));
@@ -160,11 +163,13 @@ const BLOCKAGE_KIND = RELIC_KIND + 9;
 const NATURAL_DAM_KIND = BLOCKAGE_KIND + 1;
 /** The badtide drain's kind: each of the two tiles its box fills casts `PLANT_SHAPES[DRAIN_KIND]`. */
 const DRAIN_KIND = NATURAL_DAM_KIND + 1;
+/** The unstable core's kind: each of the four tiles its ball stands over casts `PLANT_SHAPES[CORE_KIND]`. */
+const CORE_KIND = DRAIN_KIND + 1;
 const POST_RADIUS: Readonly<Record<number, number>> = { [DEAD_KIND]: 0.3, [RUIN_KIND]: 0.75 };
 /** The kinds whose discs shade nothing on their own tile: a heap whose discs stand round it would shade its own sunlit
  *  faces (an object reads the bake at its own place and height), which the game's heap, lit by its model's own shadow,
  *  does not; its tile's ground is under it. */
-const OWN_TILE_LIT: Readonly<Record<number, true>> = { [BLOCKAGE_KIND]: true, [NATURAL_DAM_KIND]: true, [DRAIN_KIND]: true };
+const OWN_TILE_LIT: Readonly<Record<number, true>> = { [BLOCKAGE_KIND]: true, [NATURAL_DAM_KIND]: true, [DRAIN_KIND]: true, [CORE_KIND]: true };
 /** The start's walled base and roof over its 3 × 3 footprint round the tower's tile (entities3d.ts `startTower`: the
  *  walls 2.86 across to 1.04, the cornice to 1.18, the hipped roof to 1.8), cast as a column over each of the 8. */
 const START_BASE = 1.4;
@@ -183,12 +188,12 @@ export const PLANT_WIDEST = Math.max(...PLANT_SHAPES.flat().map((d) => d[2] - PL
 if (PLANT_WIDEST >= 0.5 + 0.5 / SHADOW_RES) throw new Error(`light.ts: a disc ${PLANT_WIDEST} wide reaches samples an edit of its tile does not redo`);
 
 /** Extra height that objects add to the shadow casters of their tile (trees, ruins, the start, the large relic, the
- *  blockage, the natural dam, the badtide drain). A
+ *  blockage, the natural dam, the badtide drain, the unstable core). A
  *  plant's and a ruin's is its height, and its shape is cast (`plantTopsInto`); the start's are columns over its tiles
  *  (its tower on the middle one, its walls on the rest), the large relic's discs fitted to its dish's shadow
  *  (`LARGE_RELIC_SHADOW`) over the tiles of its footprint that cast, a blockage's and a natural dam's their heaps'
  *  (`BLOCKAGE_SHADOW`, `NATURAL_DAM_SHADOW`), a badtide drain's its box's over each tile it fills
- *  (`BADTIDE_DRAIN_SHADOW`). The
+ *  (`BADTIDE_DRAIN_SHADOW`), an unstable core's its ball's over each of its four (`UNSTABLE_CORE_SHADOW`). The
  *  levels the objects stand on are noted with them, and after those the
  *  shapes' kinds. */
 export function objectCasters(W: number, H: number, e: EntityView | null): Float32Array | null {
@@ -244,6 +249,19 @@ export function objectCasters(W: number, H: number, e: EntityView | null): Float
         const by = y + dy;
         if (bx >= 0 && by >= 0 && bx < W && by < H) put(by * W + bx, PLANT_TOPS[DRAIN_KIND], e.z[k], DRAIN_KIND);
       }
+      continue;
+    }
+    // (the unstable core's ball: discs fitted to its model's shadow over each of its four tiles, unstableCore.ts
+    // `UNSTABLE_CORE_SHADOW`; round, so they turn with it by their tiles alone)
+    if (t === "UnstableCore") {
+      const o = ORIENTATION_NAMES[e.orientation[k]] as Orientation;
+      for (let j = 0; j < 2; j++)
+        for (let i = 0; i < 2; i++) {
+          const [dx, dy] = rotate(o, i, j);
+          const bx = x + dx;
+          const by = y + dy;
+          if (bx >= 0 && by >= 0 && bx < W && by < H) put(by * W + bx, PLANT_TOPS[CORE_KIND], e.z[k], CORE_KIND);
+        }
       continue;
     }
     if (x < 0 || y < 0 || x >= W || y >= H) continue;

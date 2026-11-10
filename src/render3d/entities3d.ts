@@ -41,8 +41,8 @@
 //   rust), the aquifer (a dry, dark rubble cross with a hole), its drill (a tall, narrow
 //   yellow-and-black auger tower on a stone footing, a dark housing and a pipe), the badtide drain (the
 //   game's box of rusted plate, a black funnel in its mouth under a hood out over the drop, badtideDrain.ts), the
-//   unstable core (a small dark segmented dome
-//   with a red eye, half sunk on a soft orange scorch mark), and the reserves (a pile: a log pen with a
+//   unstable core (the game's ball of metal panels sunk into the ground, pale ribs and a strap over it, its port a
+//   grey lens in a pale ring, dark studs round paler gems, unstableCore.ts), and the reserves (a pile: a log pen with a
 //   sign; a warehouse: a low layer of small crates in a plank yard with rope posts; a tank: a wooden
 //   barrel on legs with a pump).
 // - Every other template: a box on each block its footprint occupies.
@@ -65,6 +65,7 @@ import { objectSoilAt } from "./runSoil";
 import { badtideDrainParts } from "./badtideDrain";
 import { blockageParts } from "./blockage";
 import { naturalDamParts } from "./naturalDam";
+import { unstableCoreParts } from "./unstableCore";
 import { largeRelicParts } from "./largeRelic";
 import { mediumRelicParts, smallRelicParts } from "./smallRelics";
 import { LAND, LAND_GROW } from "./objectFade";
@@ -479,7 +480,7 @@ const MODELS: Record<string, () => Model> = {
   AncientAquiferDrill: aquiferDrill,
   // (the game's box of rusted plate with its mouth and hood, at its measures and in its colours: badtideDrain.ts)
   BadtideDrain: () => fromParts(badtideDrainParts()),
-  UnstableCore: unstableCore,
+  UnstableCore: () => fromParts(unstableCoreParts()),
   ReservePile: reservePile,
   ReserveWarehouse: reserveWarehouse,
   ReserveTank: reserveTank,
@@ -487,7 +488,7 @@ const MODELS: Record<string, () => Model> = {
 /** The models in the game's own colours, its albedo straight (palette.ts `TREE_COLOURS`, `LANDMARK`, `SMALL_RELIC`, `MEDIUM_RELIC`, `LARGE_RELIC`, `BLOCKAGE`; the
  *  ruins and the start are made apart). Every other model's colours are our own, drawn at `ownAlbedo` (palette.ts
  *  `OWN_LIGHTNESS`). */
-const GAME_COLOURED = new Set(["Pine", "Birch", "Oak", "BlueberryBush", "WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep", "SmallRelic", "MediumRelic", "LargeRelic", "Blockage", "NaturalDam", "BadtideDrain"]);
+const GAME_COLOURED = new Set(["Pine", "Birch", "Oak", "BlueberryBush", "WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep", "SmallRelic", "MediumRelic", "LargeRelic", "Blockage", "NaturalDam", "BadtideDrain", "UnstableCore"]);
 for (const key of Object.keys(MODELS))
   if (!GAME_COLOURED.has(key.split(".")[0])) {
     const make = MODELS[key];
@@ -727,28 +728,6 @@ function aquiferDrill(): Model {
   // the pipe, off to the west, on two black trestles
   m.add(cyl(0.12, 0.12, 0.9, 6), [0.85, 0.82, 0.7], { x: -1.05, y: 0.95, z: 0.35, rz: Math.PI / 2 });
   for (const x of [-0.95, -1.3]) m.add(box(0.1, 0.5, 0.2), black, { x, y: 0.55, z: 0.35 });
-  return m;
-}
-
-/** The unstable core (2 × 2): a small dark metal dome in segmented panels with one red glowing eye, half
- *  sunk into the ground, on a soft scorch mark of orange, darker toward its edge. Its glow is above the lit
- *  range, so it shines. */
-function unstableCore(): Model {
-  const R = 0.56;
-  const m = new Model().add(post(0.92, 0.92, 0.01, 10), [0.3, 0.19, 0.1], { y: 0.01 });
-  m.add(post(0.76, 0.76, 0.012, 10), [0.45, 0.25, 0.1], { y: 0.016 });
-  m.add(post(0.62, 0.62, 0.014, 10), [0.68, 0.34, 0.1], { y: 0.022 });
-  m.add(post(0.58, 0.58, 0.05, 8), [0.1, 0.09, 0.08], { y: 0.03 });
-  m.add(new IcosahedronGeometry(0.5, 1), [0.34, 0.34, 0.38], { y: 0.03, sy: 0.8 });
-  // six ribs over the dome, from the eye to its foot (two bars each, hugging its curve)
-  for (let k = 0; k < 6; k++) {
-    const a = (k * Math.PI) / 3 + 0.3;
-    const at = (polar: number): number[] => [Math.sin(polar) * Math.cos(a) * R, 0.03 + Math.cos(polar) * R * 0.8, Math.sin(polar) * Math.sin(a) * R];
-    beam(m, at(0.35), at(0.85), 0.022, [0.52, 0.49, 0.46]);
-    beam(m, at(0.85), at(1.45), 0.022, [0.52, 0.49, 0.46]);
-  }
-  m.add(post(0.17, 0.17, 0.05, 8), [0.62, 0.57, 0.52], { y: 0.45 });
-  m.add(ico(0.11), [1.3, 0.4, 0.35], { y: 0.5, sy: 0.7 });
   return m;
 }
 

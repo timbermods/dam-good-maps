@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 import { modelKeyOf, modelOf, modelTriangles } from "../../src/render3d/entities3d";
 import { LARGE_RELIC_SHADOW } from "../../src/render3d/largeRelic";
 import { litFraction, objectCasters, SHADOW_RES, shadowTops } from "../../src/render3d/light";
-import { BADTIDE_DRAIN, BLOCKAGE, LARGE_RELIC, LIGHT, MEDIUM_RELIC, NATURAL_DAM, SMALL_RELIC } from "../../src/render3d/palette";
+import { BADTIDE_DRAIN, BLOCKAGE, LARGE_RELIC, LIGHT, MEDIUM_RELIC, NATURAL_DAM, SMALL_RELIC, UNSTABLE_CORE } from "../../src/render3d/palette";
 import { entityView } from "../../src/render3d/model";
 import { mediumRelicParts } from "../../src/render3d/smallRelics";
 
@@ -326,6 +326,49 @@ describe("the badtide drain at the game's measures", () => {
     expect(Math.max(...ratios)).toBeLessThan(1.25);
     expect(all).toBeGreaterThan(0.95);
     expect(all).toBeLessThan(1.05);
+  });
+});
+
+describe("the unstable core at the game's measures", () => {
+  it("is the game's ball of metal panels: 0.96 high, about 1.5 across, in its colours, about its triangles", () => {
+    const p = modelOf("UnstableCore").pos;
+    const lo = [Infinity, Infinity, Infinity];
+    const hi = [-Infinity, -Infinity, -Infinity];
+    for (let k = 0; k < p.length; k++) {
+      lo[k % 3] = Math.min(lo[k % 3], p[k]);
+      hi[k % 3] = Math.max(hi[k % 3], p[k]);
+    }
+    // (centred on its footprint's middle, the map's +y our −z: the game's ball and studs, without its footing of ground,
+    // x −0.75…0.75, −0.03…0.96 up, z −0.77…0.71)
+    for (const [v, want] of [[lo[0], -0.753], [hi[0], 0.747], [lo[1], -0.034], [hi[1], 0.962], [lo[2], -0.774], [hi[2], 0.71]]) expect(Math.abs(v - want)).toBeLessThan(0.02);
+    const col = modelOf("UnstableCore").col;
+    const has = (c: readonly number[]) => {
+      for (let k = 0; k < col.length; k += 3) if (Math.abs(col[k] - c[0]) < 1e-3 && Math.abs(col[k + 1] - c[1]) < 1e-3 && Math.abs(col[k + 2] - c[2]) < 1e-3) return true;
+      return false;
+    };
+    for (const c of Object.values(UNSTABLE_CORE)) expect(has(c)).toBe(true);
+    // (the game's has 1,740, its footing's among them)
+    expect(modelTriangles("UnstableCore")).toBeLessThanOrEqual(380);
+  });
+
+  // (it cast none before; a disc over each of its four tiles, nothing on its own: on the ground it does not stand over,
+  // 0.90–1.15 a heading as fitted, longest with the sun along a diagonal, 1.01 in all)
+  it("casts Standard's shadow about as large as its model's round the compass, from its four tiles as it turns", () => {
+    const areas = shadowAreas("UnstableCore", 1, true);
+    const ratios = areas.map(([s, m]) => s / m);
+    const all = areas.reduce((t, [s]) => t + s, 0) / areas.reduce((t, [, m]) => t + m, 0);
+    expect(Math.min(...ratios)).toBeGreaterThan(0.85);
+    expect(Math.max(...ratios)).toBeLessThan(1.2);
+    expect(all).toBeGreaterThan(0.95);
+    expect(all).toBeLessThan(1.05);
+    const W = 32;
+    const H = 32;
+    for (const [orientation, sx, sy] of [["Cw0", 1, 1], ["Cw90", 1, -1], ["Cw180", -1, -1]] as const) {
+      const casters = objectCasters(W, H, entityView([{ template: "UnstableCore", x: 10, y: 20, z: 3, orientation, owner: "s" }]))!;
+      const cast = [...casters.keys()].filter((i) => casters[i] > 0).sort((a, b) => a - b);
+      const want = [0, 1].flatMap((j) => [0, 1].map((i) => (20 + sy * j) * W + 10 + sx * i)).sort((a, b) => a - b);
+      expect(cast).toEqual(want);
+    }
   });
 });
 
