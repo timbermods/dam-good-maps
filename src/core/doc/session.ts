@@ -1863,6 +1863,27 @@ export class MapSession {
     return true;
   }
 
+  /** Undo or redo until the history stands at step `seq` (its first operation's number, `HistoryItem.seq`; null: before
+   *  the first step), wherever it stands now: the one move undo, redo and a History jump make once each names its step
+   *  (core/doc/editQueue.ts). Refused with STEP_GONE when that step is gone, and with the save point's line when undo
+   *  stops there (D455). */
+  moveTo(seq: number | null): { moved: boolean; errors: string[] } {
+    const index = seq === null ? -1 : this.stepIndex(seq);
+    if (index === null) return { moved: false, errors: [STEP_GONE] };
+    let applied = this.history().filter((h) => h.applied).length - 1;
+    let moved = false;
+    while (applied > index && this.undo()) {
+      applied--;
+      moved = true;
+    }
+    while (applied < index && this.redo()) {
+      applied++;
+      moved = true;
+    }
+    const stopped = applied > index ? this.undoStopped : null;
+    return { moved, errors: stopped ? [stopped] : [] };
+  }
+
   /** Forget the steps Redo would bring back (a step taken back that must not return). */
   forgetRedo(): void {
     this.redoStack = [];

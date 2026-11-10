@@ -1830,6 +1830,33 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     `tests/contract/forceEsc.test.ts` presses undo, and Esc, at every moment of every force's run, in both paces;
     `tools/bench-forces.ts` times the worker's cost and `tests/e2e/forceSpeed.spec.ts` checks the showing the driver
     plans (never a busy machine's wall clock, D341). Which builds show the forces: `src/editor/release.ts` (D219).
+- **The edit queue** (`core/doc/editQueue.ts`; the stroke pipeline's design, #922; tested headless against the
+  real worker session through a seeded channel, `tests/contract/editQueue.test.ts`). Every edit, stroke, undo, redo
+  and History jump is a ticket in one queue, numbered when the player acts and sent in that order, one with the map's
+  worker at a time; a stroke's ticket exists from pointer-down, so whatever the player does next waits behind it. It
+  holds the invariants the page's stroke bugs broke (#410, #873, #880, #884, #868, #829 and #922's U1–U10):
+  (I1) the page's copy of the map (`base`) is assigned only from the worker's answers and events, never painted into;
+  (I2) what the page shows (`shown`, and the terrain's `pre` and `protect` it paints on) is `base` with the overlays of
+  the unanswered tickets laid on in order, so once nothing is unanswered it is the worker's byte for byte, by
+  construction; (I3) the worker takes tickets in the order made, each once, and nothing of a ticket (its water drafts)
+  before the ticket ahead of it has gone; (I4) every call carries `{ epoch, ticket }` (the worker's `SessionOpen.epoch`,
+  bumped by every map it takes; its `ticket` entry and `ticketed` guard), every answer and event names its epoch, and
+  one for another map is dropped at one door; (I5) undo, redo and a jump name the step they mean when pressed (a seq,
+  or a ticket on its way), resolved when the move reaches the head into the worker's one call `moveTo(seq | null)`; a
+  move whose step never happened (refused, cancelled, timed out) does nothing; (I6) a stroke answered with nothing else
+  between its start and its answer was guessed right (`mispredictions`); (I7) one watchdog, on the head ticket, refuses
+  it with its one line once its bound passes (a landing Naturalize stroke: `answerBound`; with the map's worker:
+  `MAP_ANSWER_MS`), so nothing waits forever and `idle()` always resolves; (I8) a press always makes a ticket (behind a
+  landing stroke it composes once that stroke has its land), a stroke let go is answered or refused with a line, and a
+  map switch awaits `idle()`, so a let-go stroke lands on the map it was painted on; (I9) at most one call is out per
+  worker, the samples meanwhile joined (`StrokeFeed`); (I10) the project saved after any interleaving reopens byte for
+  byte. Answers carry `rev` and `step`; the Naturalize worker's calls name their stroke (`WeatherHost`). The queue
+  keeps the before and after of the last eight strokes answered, so their undo and redo show at once. A shared session
+  keeps its own rule (`resync`: `base` is the session's land, the overlays on their way laid on it again). Planning's
+  rulings: an undo waiting behind a stroke that is refused or times out does nothing; a press during a landing paints;
+  a map switch waits for a let-go stroke to land. The page moves onto it in steps (#922): its strokes, moves and
+  edits (2), Naturalize (3), one composer building a stroke's operation and answers the size of the edit (4); until
+  then the page works as §4 describes.
 - **"Move the start here"** (D204, one label since D323): after a Flatten stroke the page looks, once it is idle, for
   a spot on the stroke's level ground where the district center stands (its footprint and door level and dry,
   nothing standing there); the start's full check (the walks to water, wood and berries) runs in a small worker of
