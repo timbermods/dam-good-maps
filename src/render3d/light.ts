@@ -15,6 +15,8 @@
 import { rotate, type Orientation } from "../core/format/footprints";
 import { DEAD_FORM } from "./dying";
 import { DEAD, ORIENTATION_NAMES, YOUNG, type EntityView, type SoilView, type SurfaceWater } from "./model";
+import { BLOCKAGE_SHADOW } from "./blockage";
+import { LARGE_RELIC_SHADOW } from "./largeRelic";
 import { DESERT, LIGHT } from "./palette";
 
 /** Shadow samples per tile, along each axis. */
@@ -126,9 +128,16 @@ const PLANT_SHAPES: readonly (readonly (readonly [number, number, number])[])[] 
   [[0, 0.22, 0.52], [0.22, 0.4, 0.36]],
   // Succulent (0.5)
   [[0, 0.5, 0.28]],
+  // (6 and 7: the dead wood's and the ruins' posts, `POST_RADIUS`)
+  [],
+  [],
+  // the large relic's dish, a kind for each tile of its footprint (`RELIC_KIND`)
+  ...LARGE_RELIC_SHADOW.flat(),
+  // the blockage's heap (`BLOCKAGE_KIND`)
+  BLOCKAGE_SHADOW,
 ];
-/** Each kind's height (its top disc's top): its caster's height over this scales the shape (a young plant). */
-const PLANT_TOPS = PLANT_SHAPES.map((d) => (d.length ? d[d.length - 1][1] : 0));
+/** Each kind's height (its highest disc's top): its caster's height over this scales the shape (a young plant). */
+const PLANT_TOPS = PLANT_SHAPES.map((d) => Math.max(0, ...d.map((q) => q[1])));
 /** The plants' kinds (`PLANT_SHAPES`). */
 const PLANT_KIND: Readonly<Record<string, number>> = { Pine: 1, Oak: 2, Birch: 3, BlueberryBush: 4, Succulent: 5 };
 /** The casters cast as an upright post as tall as the caster, of these radii (tiles, before `PLANT_INSET`): a dead
@@ -137,7 +146,15 @@ const PLANT_KIND: Readonly<Record<string, number>> = { Pine: 1, Oak: 2, Birch: 3
  *  quarter too large). */
 const DEAD_KIND = 6;
 const RUIN_KIND = 7;
+/** The large relic's first kind: its tile [x][y] from its Coordinates casts `PLANT_SHAPES[RELIC_KIND + 3x + y]`. */
+const RELIC_KIND = 8;
+/** The blockage's kind: its heap casts `PLANT_SHAPES[BLOCKAGE_KIND]`. */
+const BLOCKAGE_KIND = RELIC_KIND + 9;
 const POST_RADIUS: Readonly<Record<number, number>> = { [DEAD_KIND]: 0.3, [RUIN_KIND]: 0.75 };
+/** The kinds whose discs shade nothing on their own tile: a heap whose discs stand round it would shade its own sunlit
+ *  faces (an object reads the bake at its own place and height), which the game's heap, lit by its model's own shadow,
+ *  does not; its tile's ground is under it. */
+const OWN_TILE_LIT: Readonly<Record<number, true>> = { [BLOCKAGE_KIND]: true };
 /** The start's walled base and roof over its 3 × 3 footprint round the tower's tile (entities3d.ts `startTower`: the
  *  walls 2.86 across to 1.04, the cornice to 1.18, the hipped roof to 1.8), cast as a column over each of the 8. */
 const START_BASE = 1.4;
@@ -155,9 +172,11 @@ const SHADOW_DROP = 30;
 export const PLANT_WIDEST = Math.max(...PLANT_SHAPES.flat().map((d) => d[2] - PLANT_INSET), ...Object.values(POST_RADIUS).map((r) => r - PLANT_INSET));
 if (PLANT_WIDEST >= 0.5 + 0.5 / SHADOW_RES) throw new Error(`light.ts: a disc ${PLANT_WIDEST} wide reaches samples an edit of its tile does not redo`);
 
-/** Extra height that objects add to the shadow casters of their tile (trees, ruins, the start). A plant's and a
- *  ruin's is its height, and its shape is cast (`plantTopsInto`); the start's are columns over its tiles (its tower on
- *  the middle one, its walls on the rest). The levels the objects stand on are noted with them, and after those the
+/** Extra height that objects add to the shadow casters of their tile (trees, ruins, the start, the large relic, the blockage). A
+ *  plant's and a ruin's is its height, and its shape is cast (`plantTopsInto`); the start's are columns over its tiles
+ *  (its tower on the middle one, its walls on the rest), the large relic's discs fitted to its dish's shadow
+ *  (`LARGE_RELIC_SHADOW`) over the tiles of its footprint that cast, a blockage's its heap's (`BLOCKAGE_SHADOW`). The
+ *  levels the objects stand on are noted with them, and after those the
  *  shapes' kinds. */
 export function objectCasters(W: number, H: number, e: EntityView | null): Float32Array | null {
   if (!e || !e.count) return null;
@@ -187,7 +206,27 @@ export function objectCasters(W: number, H: number, e: EntityView | null): Float
       for (let by = y - 1; by <= y + 1; by++)
         for (let bx = x - 1; bx <= x + 1; bx++) if ((bx !== x || by !== y) && bx >= 0 && by >= 0 && bx < W && by < H) put(by * W + bx, START_BASE, e.z[k], 0);
     }
+    // (the large relic's dish: the discs fitted to its model's shadow over the tiles of its footprint that cast,
+    // largeRelic.ts `LARGE_RELIC_SHADOW`; round, so they turn with it by their tiles alone)
+    if (t === "LargeRelic") {
+      const o = ORIENTATION_NAMES[e.orientation[k]] as Orientation;
+      for (let j = 0; j < 3; j++)
+        for (let i = 0; i < 3; i++) {
+          const kind = RELIC_KIND + 3 * i + j;
+          if (!PLANT_TOPS[kind]) continue;
+          const [dx, dy] = rotate(o, i, j);
+          const bx = x + dx;
+          const by = y + dy;
+          if (bx >= 0 && by >= 0 && bx < W && by < H) put(by * W + bx, PLANT_TOPS[kind], e.z[k], kind);
+        }
+      continue;
+    }
     if (x < 0 || y < 0 || x >= W || y >= H) continue;
+    // (a blockage's heap: discs fitted to its model's shadow, blockage.ts `BLOCKAGE_SHADOW`)
+    if (t === "Blockage") {
+      put(y * W + x, PLANT_TOPS[BLOCKAGE_KIND], e.z[k], BLOCKAGE_KIND);
+      continue;
+    }
     let add = tall[t] ?? 0;
     const ruin = /^RuinColumnH(\d)$/.exec(t);
     if (ruin) add = Number(ruin[1]) * 0.85;
@@ -454,6 +493,7 @@ function plantTopsInto(out: Float32Array, W: number, H: number, heights: Uint8Ar
       const tall = casters[i];
       if (!kind || !tall) continue;
       const post = POST_RADIUS[kind] ?? 0;
+      const ownLit = OWN_TILE_LIT[kind] === true;
       const shape = post ? null : PLANT_SHAPES[kind];
       const scale = shape ? tall / PLANT_TOPS[kind] : 1;
       const g = levels[i];
@@ -535,6 +575,7 @@ function plantTopsInto(out: Float32Array, W: number, H: number, heights: Uint8Ar
           const along = dx * ux + dy * uy;
           const across = Math.abs(dx * uy - dy * ux);
           if (across >= reach || along + reach <= 0) continue;
+          if (ownLit && Math.floor(sx / R) === tx && Math.floor(sy / R) === ty) continue;
           let ground = -Infinity;
           let n = 0;
           for (let q = 0; q < nd; q++) {

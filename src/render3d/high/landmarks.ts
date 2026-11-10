@@ -1,10 +1,11 @@
 // Refreshed objects and landmarks for the High look (#67 stage 3, investigation/maplook-finish
 // landmarks.ts; PLAN §20 D250): procedural models of our own, in place of today's, on the same
-// transforms, footprints and tints: relics as plain chipped stumps, geothermal vents, a bramble of
-// thorns, rubble and log debris for blockages and natural dams, and a few steel gussets and bolts on the
-// ruins' scaffolds and the mine's frame. The start (the game's lantern tower) and the water and badwater
-// sources (its rock outcrop and crater) are Standard's models, the game's shapes (D496), in High's
-// materials. Slopes keep their ramp in natural materials. Each replacement carries the original batch's
+// transforms, footprints and tints: geothermal vents, a
+// bramble of thorns, rubble and log debris for natural dams, and a few steel gussets and bolts on
+// the ruins' scaffolds and the mine's frame. The start (the game's lantern tower), the water and badwater
+// sources (its rock outcrop and crater), the relics (its fallen telescope, crashed satellite and fallen dish antenna,
+// smallRelics.ts, largeRelic.ts) and the blockage (its heap of rock, blockage.ts) are
+// Standard's models, the game's shapes (D496), in High's materials. Slopes keep their ramp in natural materials. Each replacement carries the original batch's
 // per-instance bookkeeping, so highlighting, removing and following the ground work as before; off, the
 // originals come back.
 
@@ -12,7 +13,7 @@ import { BoxGeometry, BufferGeometry, CylinderGeometry, Float32BufferAttribute, 
 import type { EntityView } from "../model";
 import { whenIdle } from "../idle";
 import { disposeSharedBatch } from "./sharedBatch";
-import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, OWN_LIGHTNESS, ownAlbedo, RELIC_STONE, RUIN, THORNS, type Rgb } from "../palette";
+import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, OWN_LIGHTNESS, ownAlbedo, RUIN, THORNS, type Rgb } from "../palette";
 
 const shade = (c: Rgb, k: number): Rgb => [c[0] * k, c[1] * k, c[2] * k];
 const hash = (i: number) => {
@@ -87,31 +88,6 @@ function rock(m: Parts, x: number, y: number, z: number, r: number, c: Rgb, seed
   const g = new IcosahedronGeometry(r, 0);
   g.scale(0.82 + hash(seed) * 0.35, 0.63 + hash(seed + 1) * 0.35, 0.82 + hash(seed + 2) * 0.35);
   m.add(g, c, x, y, z, 0, seed, seed * 0.31, lod);
-}
-
-function relic(type: string): BufferGeometry {
-  const m = new Parts();
-  const large = type === "LargeRelic";
-  const medium = type === "MediumRelic";
-  const w = type === "SmallRelic" ? 1.86 : 2.86;
-  const d = large ? 2.86 : medium ? 1.86 : 0.86;
-  // the same simple stumps and footprint as Standard, no classical trim
-  m.box(w, 0.13, d, shade(RELIC_STONE, 0.77), 0, 0.065);
-  const columns = large ? [[-1, -1, 1.9], [1, -1, 1.5], [-1, 1, 1.2], [1, 1, 0.7], [0, -1, 0.4]] : medium ? [[-1, -0.5, 1.2], [0, -0.5, 0.5], [1, -0.5, 0.95], [-1, 0.5, 0.35], [1, 0.5, 1.4]] : [[-0.5, 0, 0.9], [0.5, 0, 0.45]];
-  for (const [index, [x, z, h]] of columns.entries()) {
-    const g = new CylinderGeometry(0.17, 0.2, h, 7, 2);
-    const p = g.getAttribute("position");
-    for (let i = 0; i < p.count; i++) {
-      const angle = Math.atan2(p.getZ(i), p.getX(i));
-      const chip = 0.9 + 0.1 * hash(Math.round(angle * 100) + index * 31);
-      const y = p.getY(i);
-      p.setXYZ(i, p.getX(i) * chip, y + (y > h * 0.48 ? (hash(Math.round(angle * 100) + index * 19) - 0.5) * 0.16 : 0), p.getZ(i) * chip);
-    }
-    g.computeVertexNormals();
-    m.add(g, shade(RELIC_STONE, 0.94 + hash(index) * 0.1), x, 0.13 + h / 2, z);
-  }
-  for (let k = 0; k < (large ? 4 : 2); k++) rock(m, (hash(k + 37) - 0.5) * w, 0.15, (hash(k + 73) - 0.5) * d, 0.045 + hash(k + 4) * 0.065, shade(RELIC_STONE, 0.86), k, 1);
-  return m.own().geometry();
 }
 
 function bramble(): BufferGeometry {
@@ -203,12 +179,12 @@ function geometryFor(name: string, batch: string, base: BufferGeometry): BufferG
   const key = name === "StartingLocation" || name.endsWith("Relic") || ["Thorns", "GeothermalField", "WaterSource", "BadwaterSource", "Blockage", "NaturalDam"].includes(name) ? name : `|${batch}`;
   let g = models.get(key);
   if (!g) {
-    // (the start and the sources are the game's models, D496: Standard's own, in High's materials and light)
-    if (name === "StartingLocation" || name === "WaterSource" || name === "BadwaterSource") g = new Parts().copy(base).geometry();
-    else if (name.endsWith("Relic")) g = relic(name);
+    // (the start, the sources, the large relic and the blockage are the game's models, D496: Standard's own, in High's
+    // materials and light)
+    if (name === "StartingLocation" || name === "WaterSource" || name === "BadwaterSource" || name.endsWith("Relic") || name === "Blockage") g = new Parts().copy(base).geometry();
     else if (name === "Thorns") g = bramble();
     else if (name === "GeothermalField") g = geothermal();
-    else if (name === "Blockage" || name === "NaturalDam") g = debris(name === "NaturalDam");
+    else if (name === "NaturalDam") g = debris(true);
     else g = augment(batch, base);
     models.set(key, g);
   }

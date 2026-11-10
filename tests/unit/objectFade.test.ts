@@ -99,6 +99,14 @@ describe("the fade round the pointer", () => {
     expect(casterPlaces(null, 32).size).toBe(0);
   });
 
+  it("drops the large relic's by its model's place too, the middle of its 3 × 3, as light.ts casts its dish from each tile", () => {
+    const e = { count: 1, templates: ["LargeRelic"], template: Uint16Array.from([0]), x: Int16Array.from([10]), y: Int16Array.from([20]), orientation: Uint8Array.from([0]) } as unknown as EntityView;
+    const places = casterPlaces(e, 32);
+    const footprint = [20, 21, 22].flatMap((y) => [10, 11, 12].map((x) => y * 32 + x));
+    expect([...places.keys()].sort((a, b) => a - b)).toEqual(footprint);
+    for (const t of footprint) expect(places.get(t)).toEqual([11.5, 21.5]);
+  });
+
   it("is the shaders' own test: the same fade, edge and halfway mark", () => {
     expect(OBJECT_FADE_GLSL).toContain("mix(0.25, 1.0, smoothstep(objectFade.z, objectFade.z + 1.0, distance(at, objectFade.xy)))");
     expect(OBJECT_FADE_GLSL).toContain(`objectFadeAt(at) < ${(1 + OBJECT_FADE) / 2}`);

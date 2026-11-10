@@ -12,6 +12,34 @@ The maps: seed 4242 in every theme at 128² (Normal), seed 4242 River Valley at 
 Beavertopia (a workshop map, 256²). Beavertopia's captures are not ours to share: they stay in
 `.scratch/map-look/` on the machine that made them and are never committed.
 
+## In the game itself
+
+Every capture above is our own renderer. To see a map as players get it, the in-game capture kit plays it in Timberborn
+through the DGM Probe runner and saves the game's first camera, its widest zoom, the whole map and three chosen angles,
+on day 1 and on the worst day of the first drought and of the first badtide, each beside our renderer posed from the
+camera the game recorded, in Standard and High (`npm --prefix investigation/probe run batch -- <map> --captures`; the
+command, the moments, the poses and the files are in investigation/probe/README.md, "In-game captures"; the sheet is
+`tools/capture-ingame.ts`). Look verdicts on maps are given on those captures. They are game screenshots: local files
+only, never committed.
+
+The first baseline (run 20261110-0708-captures, the three hand-made showcase maps, in `C:\dgm-probe\captures\`) lines
+our view up with the game pixel for pixel: the same terrain, water, trees and ruins in the same places, and the same
+drought (grass gone, trees yellow, brown haze) and badtide (red rivers, contaminated ground). What the game shows that
+our view doesn't:
+
+- **The start.** The game draws the district centre; we draw a white placeholder house. The game's first camera is
+  tight on it, with no landmark in frame on any of the three maps.
+- **Stone and ground.** The game's cliffs are small rounded cobbles with soft vertical banding; ours are large flat
+  polygons. The game's dry ground is a fine cracked mud of one even tone; ours is large slabs with cloud-like light and
+  dark blotches, so our plateaus read busier than the game's flat brown.
+- **Trees.** The game's crowns are round and leafy; ours are faceted.
+- **Small objects.** Dead trees are pale bare branches in the game and faint grey sticks in ours. A dry water source
+  is a dark pit in the game and an orange disc in ours. Ruins read alike, as rust-orange scaffolds.
+- **Water.** The game's clean water is a lighter, more opaque teal; ours is darker. Badwater falls carry brighter
+  highlight streaks in the game.
+- **Far away.** Past a player's widest zoom the game's haze washes the whole map grey-blue; our fog is held at 154 tiles
+  (D497). No player sees that distance.
+
 ## Where to look
 
 For each capture, up to three example tiles of each meaning that are in view: the tile (x east,
