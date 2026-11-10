@@ -61,6 +61,7 @@ import { validateMap, type Validation } from "../validate/checks";
 import type { Profile } from "../validate/report";
 import { baseFromFile, baseTerrain, fileFromBase, type BaseMap, type BaseTerrain } from "./base";
 import { cropFalls, cropFile, cropObjects, START_CUT, type CropParams } from "./crop";
+import { lakeLevelLabel, lakeLevelProblem } from "./lakeLevel";
 import { entityProblem, objectCells, resourceOwners } from "./placing";
 import { applyPaintObjects } from "./paint";
 import { forceLabel } from "../forces/op";
@@ -974,7 +975,7 @@ export class MapSession {
    *  none, on a heightfield, or for an operation that reshapes no ground (the full build's check after
    *  it covers the rest, D280 (3)). */
   private fallsAhead(op: EditOp): number[] {
-    if (op.op !== "brush" && op.op !== "sculpt" && op.op !== "forceResult") return [];
+    if (op.op !== "brush" && op.op !== "sculpt" && op.op !== "setLakeLevel" && op.op !== "forceResult") return [];
     if (!this.layered(this.cur)) return [];
     const { x: W, y: H } = this.size;
     const { heights } = previewTerrain(this.cur, this.input());
@@ -1492,6 +1493,7 @@ export class MapSession {
         return objectCells(this.cur.entities, this.size.x, this.size.y, (e) => e.owner === owner || skip.has(e.owner));
       },
       startObjects,
+      lakeLevel: (p) => lakeLevelProblem(this, p),
       cropObjects: (r) => {
         const o = cropObjects(this.cur.entities, r);
         if (o.cutStart) return START_CUT;
@@ -2011,8 +2013,26 @@ export class MapSession {
 
   /** The incremental build of the document as it now stands, with the session's water mode. */
   private rebuilt(): BuildResult {
-    return rebuild(this.cur, this.input(), { water: this.waterMode });
+    return rebuild(this.cur, this.input(), { water: this.waterMode, ...(this.offered ? { settleCache: this.offered } : {}) });
   }
+
+  /** A canonical settle a caller already ran, offered to the builds `fn` makes: a build whose water model is `model`
+   *  takes `water` as its settle instead of settling again (the same function on the same model: the same bytes).
+   *  Lakes by number confirms its sill with the settle (doc/lakeLevel.ts), then applies it with this. */
+  withSettled<T>(model: WaterModel, water: CanonicalWater, fn: () => T): T {
+    const cache = new SettleCache();
+    cache.set(model, water);
+    const was = this.offered;
+    this.offered = cache;
+    try {
+      return fn();
+    } finally {
+      this.offered = was;
+    }
+  }
+
+  /** The settles `withSettled` offers while it runs. */
+  private offered: SettleCache | null = null;
 
   private input(): BuildInput {
     const mode = this.mode;
@@ -2271,7 +2291,7 @@ export class MapSession {
       // (D120), the way the game saves such a map (world.ts `stackedSimulationSingletons`)
       const cs = this.caveSoilOf(built);
       if (!cs) throw new Error("the settled water does not fit the map's caves: settle the water again");
-      const s = stackedSimulationSingletons(W, H, { cols: cs.cols, depth: stack.depth, overflow: stack.overflow, contamination: stack.contamination, sat: stack.sat, runs: runColumns(terrain), moisture: cs.soil.moisture, soilContamination: cs.soil.contamination });
+      const s = stackedSimulationSingletons(W, H, { cols: cs.cols, depth: stack.depth, overflow: stack.overflow, contamination: stack.contamination, sat: stack.sat, runs: runColumns(terrain), moisture: cs.soil.moisture, soilContamination: cs.soil.contamination, ...(stack.outflows ? { outflows: stack.outflows } : {}) });
       world = { ...world, singletons: withWaterSingletons(w.singletons, s) };
     }
     const redraw = this.drawsThumbnail(built);
@@ -2566,6 +2586,8 @@ export function labelOf(op: AppliedOp): string {
       return op.params.pools ? `Remove unfed water from ${op.params.pools === 1 ? "1 pool" : `${op.params.pools} pools`}` : "Remove unfed water";
     case "fillHollow":
       return "Fill a hollow";
+    case "setLakeLevel":
+      return lakeLevelLabel(op.params);
     case "setDescription":
       return op.params.text === "" ? "Clear the description" : "Write the description";
     case "crop":
