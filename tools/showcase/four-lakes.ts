@@ -594,21 +594,43 @@ function walkRoute(s: MapSession, land: Land, places: { name: string; tiles: num
   log(`  ways made for the route: ${made} natural slopes`);
 }
 
-/** With a cave on the map the settle leaves water on the aquifers (off until drilled): water no source feeds. It is
- *  taken away with the editor's own Remove unfed water, round each aquifer. */
-function dryAquifers(s: MapSession): void {
-  for (const e of s.built.entities.filter((g) => g.template === "Aquifer")) {
-    const area: [number, number, number][] = [];
-    for (let y = e.y - 4; y <= e.y + 6; y++) area.push([y, e.x - 4, e.x + 6]);
-    let wet = 0;
-    for (const [y, a, b] of area) for (let x = a; x <= b; x++) if (s.built.water[y * W + x] > 0.05) wet++;
+/** With a cave on the map the settle leaves water in closed hollows near the top water that no source feeds (the
+ *  same map without the cave has them dry). It is taken away with the editor's own Remove unfed water, over every
+ *  tile that holds water where the design has none (the old channel's mouth, which the pool feeds, is refused and
+ *  stays). */
+function dryStray(s: MapSession, land: Land): void {
+  const b = s.built;
+  const wet = (i: number) => {
+    const c = land.channel[i];
+    return b.water[i] > 0.05 && !land.lake[i] && !land.pool[i] && !c;
+  };
+  const area = runsWhere(wet);
+  if (!area.length) return;
+  let n = 0;
+  for (const [, x0, x1] of area) n += x1 - x0 + 1;
+  // one body at a time (a body a source feeds is refused; the others go)
+  const seen = new Uint8Array(N);
+  let taken = 0;
+  for (let i0 = 0; i0 < N; i0++) {
+    if (seen[i0] || !wet(i0)) continue;
+    const body: number[] = [i0];
+    seen[i0] = 1;
+    for (let q = 0; q < body.length; q++) {
+      const i = body[q];
+      const x = i % W;
+      for (const j of [i - 1, i + 1, i - W, i + W]) if (j >= 0 && j < N && Math.abs((j % W) - x) <= 1 && !seen[j] && wet(j)) (seen[j] = 1), body.push(j);
+    }
+    const set = new Set(body);
     try {
-      applyOps(s, [{ op: "removeUnfedWater", params: { area }, label: "Unfed water off the aquifer" }]);
-      log(`  the aquifer at X ${e.x} Y ${e.y}: ${wet} wet tiles round it, the unfed water taken away`);
+      applyOps(s, [{ op: "removeUnfedWater", params: { area: runsWhere((i) => set.has(i)) }, label: "Unfed water taken away" }]);
+      taken += body.length;
+      log(`  unfed water taken away: ${body.length} tiles round X ${body[0] % W} Y ${Math.floor(body[0] / W)}`);
     } catch (err) {
-      log(`  the aquifer at X ${e.x} Y ${e.y}: ${wet} wet tiles round it (${(err as Error).message})`);
+      log(`  water where the design has none, ${body.length} tiles round X ${body[0] % W} Y ${Math.floor(body[0] / W)}: kept (${(err as Error).message})`);
     }
   }
+  void n;
+  void taken;
 }
 
 /** The set pieces: each a place with a purpose on the route up the valley. */
@@ -815,7 +837,7 @@ function main(): void {
     }
     plant(s, land);
     const pc = plantCount(s);
-    dryAquifers(s);
+    dryStray(s, land);
     log(`  plants: ${pc.trees} living trees (${Math.round(pc.per10k.trees)} per 10,000 tiles), ${pc.dead} dead, ${pc.berries} berry bushes (${Math.round(pc.per10k.berries)} per 10,000), ${pc.succulents} succulents`);
     lap("plants");
   }
