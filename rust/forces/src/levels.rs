@@ -50,15 +50,32 @@ pub(super) fn lumps(seed: f64, salt: u32, x: f64, y: f64, scale: f64) -> f64 {
 
 /// The land a force's surface gives (see the top of this file).
 pub(super) fn whole(surface: &[f64], before: &[u8], w: usize, h: usize, ceiling: f64, seed: f64, grain: f64) -> Vec<u8> {
-    part(surface, before, w, h, (0, 0), ceiling, seed, grain)
-}
-
-/// The same for a part of the map, `w` by `h` tiles from `origin` (a force that changes its surface in one
-/// place works that place out again, with a few tiles round it, and keeps the rest: the drift is the
-/// map's, so the part's steps fall where the whole map's do).
-pub(super) fn part(surface: &[f64], before: &[u8], w: usize, h: usize, origin: (usize, usize), ceiling: f64, seed: f64, grain: f64) -> Vec<u8> {
     let mut land = before.to_vec();
     let mut changed = vec![false; w * h];
+    // The slopes' plates. A slope rounded tile by tile is a stair of even bands that run on round the
+    // feature. Here it is cut into patches a few tiles across (smaller where it is steeper), each the
+    // tiles nearest one of a scatter of points, so no two are alike and their sides run every way; each
+    // patch is drawn most of the way to its own mean height: a plate, of its own size and shape, that
+    // ends against its neighbours in a step of a level or two. A step runs a patch's length and no
+    // further.
+    let coarse = clamp(grain * 0.6, 5.0, 8.0);
+    let fine = clamp(coarse * 0.55, 3.2, 4.5);
+    let across = |patch: f64| ((w as f64 / patch) as usize + 3, (h as f64 / patch) as usize + 3);
+    let (cw, ch) = across(coarse);
+    let (fw, fh) = across(fine);
+    // (the points: one in each square of a grid a patch wide, anywhere in it)
+    let scatter = |patch: f64, wide: usize, high: usize, salt: f64| -> Vec<(f64, f64)> {
+        (0..wide * high)
+            .map(|k| {
+                let (cx, cy) = ((k % wide) as f64 - 1.0, (k / wide) as f64 - 1.0);
+                ((cx + hash(seed, salt + 2.0 * k as f64)) * patch, (cy + hash(seed, salt + 2.0 * k as f64 + 1.0)) * patch)
+            })
+            .collect()
+    };
+    let (coarse_points, fine_points) = (scatter(coarse, cw, ch, 5.0e6), scatter(fine, fw, fh, 9.0e6));
+    let mut sums = vec![(0.0f64, 0.0f64); cw * ch + fw * fh];
+    let mut patch_of = vec![u32::MAX; w * h];
+    let mut slopes = vec![0.0f32; w * h];
     for y in 0..h {
         for x in 0..w {
             let i = y * w + x;
@@ -80,9 +97,70 @@ pub(super) fn part(surface: &[f64], before: &[u8], w: usize, h: usize, origin: (
                 min((at(1, 0) - here).abs(), (here - at(-1, 0)).abs()),
                 min((at(0, 1) - here).abs(), (here - at(0, -1)).abs()),
             );
+            slopes[i] = slope as f32;
+        }
+    }
+    // (a slope's plates are for a slope three tiles wide or more: a narrow one, the wall of a small
+    // hollow or the side of a low mound, keeps its shape, so a tile counts as sloping as its least
+    // sloping neighbour does)
+    let broad = |x: usize, y: usize| {
+        let mut least = slopes[y * w + x];
+        for (dx, dy) in [(-1i64, 0i64), (1, 0), (0, -1), (0, 1)] {
+            let (nx, ny) = (x as i64 + dx, y as i64 + dy);
+            if nx >= 0 && ny >= 0 && nx < w as i64 && ny < h as i64 {
+                let beside = slopes[ny as usize * w + nx as usize];
+                if beside < least {
+                    least = beside;
+                }
+            }
+        }
+        smooth(least as f64 / 0.12)
+    };
+    for y in 0..h {
+        for x in 0..w {
+            let i = y * w + x;
+            if surface[i].is_nan() {
+                continue;
+            }
+            let (here, slope) = (surface[i], slopes[i] as f64);
+            let sloping = broad(x, y);
+            if sloping > 0.0 {
+                let (xf, yf) = (x as f64 + 0.5, y as f64 + 0.5);
+                let (patch, points, base, wide, high) = if slope > 0.38 { (fine, &fine_points, cw * ch, fw, fh) } else { (coarse, &coarse_points, 0, cw, ch) };
+                let (cx, cy) = ((xf / patch) as usize + 1, (yf / patch) as usize + 1);
+                let mut near = (f64::INFINITY, 0);
+                for ny in cy - 1..=(cy + 1).min(high - 1) {
+                    for nx in cx - 1..=(cx + 1).min(wide - 1) {
+                        let (qx, qy) = points[ny * wide + nx];
+                        let d = (qx - xf) * (qx - xf) + (qy - yf) * (qy - yf);
+                        if d < near.0 {
+                            near = (d, ny * wide + nx);
+                        }
+                    }
+                }
+                let k = base + near.1;
+                sums[k].0 += here * sloping;
+                sums[k].1 += sloping;
+                patch_of[i] = k as u32;
+            }
+        }
+    }
+    for y in 0..h {
+        for x in 0..w {
+            let i = y * w + x;
+            if surface[i].is_nan() {
+                continue;
+            }
+            let here = surface[i];
+            let slope = slopes[i] as f64;
+            let sloping = smooth(slope / 0.12);
             // (a surface on a whole level stays there: the drift moves steps, never floors)
-            let drift = (0.7 + 1.3 * smooth(slope / 0.12)) * (lumps(seed, 3320, (x + origin.0) as f64, (y + origin.1) as f64, grain) - 0.5);
-            let target = here + drift;
+            let mut target = here + (0.7 + 0.5 * sloping) * (lumps(seed, 3320, x as f64, y as f64, grain) - 0.5);
+            if patch_of[i] != u32::MAX {
+                // (a slope steeper than a level a tile keeps its shape: it is a cliff with ledges)
+                let (sum, weight) = sums[patch_of[i] as usize];
+                target += 0.85 * broad(x, y) * (1.0 - smooth((slope - 0.7) / 0.6)) * (sum / weight - here);
+            }
             land[i] = clamp(round(round(target * 4096.0) / 4096.0), 0.0, min(255.0, ceiling)) as u8;
             changed[i] = land[i] != before[i];
         }
@@ -354,6 +432,30 @@ mod tests {
             }
         }
         assert!(widths.len() >= 3, "the steps' widths: {widths:?}");
+    }
+    #[test]
+    fn no_step_of_a_slope_runs_on() {
+        // (a plane that falls along x: rounded alone, each of its steps runs straight across all 48 rows)
+        for seed in [0.0, 4.0, 11.0] {
+            for slope in [0.15, 0.3, 0.45] {
+                let (land, _) = land_of(|x, _| 20.0 - slope * x, seed);
+                let mut longest = 0;
+                for x in 2..W - 3 {
+                    let mut run = 0;
+                    for y in 0..W {
+                        // (a step between this column and the next, of the same two levels as the row above's)
+                        let step = |y: usize| (land[y * W + x], land[y * W + x + 1]);
+                        if step(y).0 != step(y).1 && (y == 0 || step(y) == step(y - 1) || run == 0) {
+                            run += 1;
+                            longest = longest.max(run);
+                        } else {
+                            run = (step(y).0 != step(y).1) as usize;
+                        }
+                    }
+                }
+                assert!(longest <= 16, "slope {slope}, seed {seed}: a step runs straight for {longest} tiles");
+            }
+        }
     }
     #[test]
     fn a_floor_on_a_whole_level_stays_on_it_and_a_cliff_stays_whole() {

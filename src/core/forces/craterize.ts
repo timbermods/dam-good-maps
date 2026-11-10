@@ -55,7 +55,7 @@ export const CRATER_DEFAULTS: CraterSettings = { mode: "strike", power: 55, size
 
 /** The diameter Power gives. */
 export const naturalSize = (power: number) => Math.round(6 + 112 * portable.pow(power / 100, 1.4));
-export const autoCentre = (diameter: number): CraterSettings["centre"] => (diameter < 28 ? "bowl" : diameter < 68 ? "peak" : "ring");
+export const autoCentre = (diameter: number): CraterSettings["centre"] => (diameter < 28 ? "bowl" : diameter < 42 ? "flat" : diameter < 68 ? "peak" : "ring");
 
 /** Throws why an impact can't start (its settings, settings.ts; its point and aim on the map). */
 export function validateCrater(s: CraterSettings, m: { W: number; H: number }, i: CraterIntent): void {

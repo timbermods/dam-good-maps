@@ -2325,6 +2325,15 @@ struct Crater {
     lobes: Vec<Hollow>,
     blocks: Vec<Oval>,
     lumps: Vec<Oval>,
+    /// A peak: a broad low hill of a few wide plates, the top one first, each wider than the one
+    /// above and pushed to one side (the ovals of each plate; `level` is the plate's place from the top).
+    plates: Vec<Oval>,
+    /// The middle of the hill's body (its lowest plate that stands two levels above the floor or more),
+    /// and how many plates the body is.
+    hill: (f64, f64, f64),
+    /// A small crater's lip: low lumps round its outline, in crater tiles (x, y, radius, levels).
+    lip: Vec<(f64, f64, f64, f64)>,
+    steep: bool,
     /// The floor's depth below the crater's ground, in whole levels.
     deep: f64,
     /// (what depends on the bearing alone, worked out once per bearing: the rim's height, how far it
@@ -2350,8 +2359,12 @@ struct Plate {
     plane: f64,
     /// What the crater adds to that ground, in levels (the uplift apart).
     add: f64,
-    /// The central uplift's share here, 0–1.
+    /// The central uplift's share here, 0–1 (a ring's mountains).
     lift: f64,
+    /// The plate of a peak's hill here: 1 its top, 2 the one under it, and so on; 0 none. And the
+    /// levels this part of the plate stands under it (a spur: 1).
+    tier: u8,
+    step: f64,
 }
 fn crater_size(p: f64) -> f64 {
     round(6.0 + 112.0 * pow(p / 100.0, 1.4))
@@ -2379,6 +2392,9 @@ impl Crater {
         let centre = if s(s0, "centre") == "auto" {
             if diameter < 28.0 {
                 "bowl"
+            } else if diameter < 42.0 {
+                // (too small for a hill that is broad for its height: a hummocky floor)
+                "flat"
             } else if diameter < 68.0 {
                 "peak"
             } else {
@@ -2392,7 +2408,9 @@ impl Crater {
         // The depth Power gives, and never more than the crater has room for: a simple bowl about a
         // sixth of its width, a crater with a floor about a tenth (a small crater is a shallow bowl,
         // never a shaft; the depth grows with the size, gently).
-        let room = if simple { 0.4 + 0.13 * diameter } else { 1.0 + 0.09 * diameter };
+        // (a crater with a peak is the shallowest for its width: its hill stands from its floor to
+        // above its rim's low side, and is broad for that height only in a bowl no deeper)
+        let room = if simple { 0.4 + 0.13 * diameter } else if centre == "peak" { 1.0 + 0.07 * diameter } else { 1.0 + 0.09 * diameter };
         let depth = clamp(
             min(
                 (1.0 + (12.0 * power) / 100.0) * portable_math::sqrt(crater_size(power) / diameter),
@@ -2570,15 +2588,18 @@ impl Crater {
         let rnd = |k: f64| hash(seed, k);
         let deep = max(1.0, round(depth));
         let mut lobes = vec![];
-        let count = 3 + (rnd(2101.0) * 2.0).floor() as usize - if simple { 1 } else { 0 };
+        // (the smallest craters have two: three in so little room make a square)
+        let count = if diameter < 16.0 { 2 } else { 3 + (rnd(2101.0) * 2.0).floor() as usize - if simple { 1 } else { 0 } };
         let first = rnd(2102.0) * PI * 2.0;
         for j in 0..count {
             let jf = j as f64;
             let t = first + (jf + 0.6 * (rnd(2110.0 + jf) - 0.5)) * PI * 2.0 / (count as f64 - 1.0);
             let off = radius * if j == 0 { 0.06 * rnd(2120.0) } else { 0.2 + 0.12 * rnd(2120.0 + jf) };
             let reach = radius * if j == 0 { 0.9 + 0.05 * rnd(2130.0) } else { 0.68 + 0.12 * rnd(2130.0 + jf) };
-            // (a level floor, then a wall a few tiles wide: a cliff with ledges, never a stair of rings)
-            let wall = clamp(0.3 * deep + 0.8, 1.5, 3.0) * (0.8 + 0.4 * rnd(2140.0 + jf));
+            // (a level floor, then a wall a few tiles wide: a cliff with ledges, never a stair of rings;
+            // a small crater's is wider for its depth and goes down in whole levels, so its bowl is
+            // rounded: a step two tiles wide or more for each level down, two or three in all)
+            let wall = if simple && !steep && deep >= 2.0 { clamp(2.2 * deep, 2.6, 0.75 * reach) * (0.95 + 0.1 * rnd(2140.0 + jf)) } else { clamp(0.3 * deep + 0.8, 1.5, 3.0) * (0.8 + 0.4 * rnd(2140.0 + jf)) };
             lobes.push(Hollow {
                 x: off * cos(t),
                 y: off * sin(t),
@@ -2616,6 +2637,10 @@ impl Crater {
             lobes,
             blocks: vec![],
             lumps: vec![],
+            plates: vec![],
+            hill: (0.0, 0.0, 0.0),
+            lip: vec![],
+            steep,
             deep,
             bearings: vec![],
         };
@@ -2669,54 +2694,103 @@ impl Crater {
                 }
             }
         }
+        // A small crater's lip: low lumps all round its outline, each two tiles across or more, one
+        // level high, two where the rim stands highest (those on a wider foot that falls away outward),
+        // and none in the rim's low side. (A rim two tiles wide all round would stand only where it
+        // runs along the grid: straight slabs.)
+        if simple && diameter < 28.0 {
+            let count = max(5.0, round(PI * 2.0 * (radius + 1.5) / 2.9));
+            let first = rnd(2701.0) * PI * 2.0;
+            let big = clamp(radius / 9.0, 1.0, 1.3);
+            for j in 0..count as usize {
+                let jf = j as f64;
+                let phi = first + (jf + 0.5 * (rnd(2710.0 + jf) - 0.5)) * PI * 2.0 / count;
+                if c.dip(phi) > 0.5 {
+                    continue;
+                }
+                // (low and narrow: three tiles of lip or so, its inner side on the top of the wall)
+                let r = (1.5 + 0.6 * rnd(2720.0 + jf)) * big;
+                let d = c.reach(phi) + r * (0.5 + 0.3 * rnd(2730.0 + jf));
+                // (two levels where the rim stands highest, never two such lumps side by side: no slab)
+                if c.rim_at(phi) >= 1.5 && j % 2 == 0 {
+                    c.lip.push(((d + 0.8) * cos(phi), (d + 0.8) * sin(phi), r + 1.0, 1.0));
+                    c.lip.push((d * cos(phi), d * sin(phi), max(1.6, r * 0.8), 2.0));
+                } else {
+                    c.lip.push((d * cos(phi), d * sin(phi), r, 1.0));
+                }
+            }
+        }
         let off_centre = |k: f64| {
             let (t, d) = (rnd(k) * PI * 2.0, 0.15 + 0.25 * rnd(k + 1.0));
             (d * cos(t), d * sin(t))
         };
-        // The central uplift, where the crater has room for one. A peak is a mountain: a main lump and
-        // three to five lower shoulders merged into it (round it, or in a line as a ridge). A ring is three or four separate mountains round the centre, off it, open on
-        // one side.
+        // The central uplift, where the crater has room for one. A peak is a broad, low hill: a few wide
+        // plates on whole levels, two levels apart. Each plate under the top is wider than the one
+        // above by a ledge of two tiles on one side (the hill's crag) and more on the other (its ramp),
+        // pushed that way, turned and stretched a little its own way, with a spur of its own on one
+        // side: no two outlines are alike, so the tiers never nest evenly. Its top stands off the
+        // hill's middle, toward the crag. A ring is three or four separate mountains round the
+        // centre, off it, open on one side.
         if c.centre == "peak" && radius >= 8.0 {
-            // (broad enough for its height: a mountain, never a tower)
-            let main = max(max(2.6, (deep + 3.5) / 1.35), radius * (0.26 + 0.05 * rnd(2301.0)));
-            let (t0, off) = (rnd(2302.0) * PI * 2.0, radius * 0.08 * rnd(2303.0));
-            let (mx, my) = (off * cos(t0), off * sin(t0));
-            let axis = rnd(2304.0) * PI;
-            let ridge = rnd(2305.0) < 0.4;
-            c.lumps.push(Oval {
-                x: mx,
-                y: my,
-                c: cos(axis),
-                sn: sin(axis),
-                along: main * (1.0 + 0.4 * rnd(2306.0)),
-                across: main,
-                level: 1.0,
-                high: off_centre(2380.0),
-            });
-            // (its shoulders: lower lumps against it, each its own height and size, none past a third
-            // of the way to the rim)
-            let more = 3 + (rnd(2308.0) * 3.0).floor() as usize;
-            for j in 0..more {
+            // (the plates a hill shows on level ground, from the floor to two levels above the ground;
+            // of them, the ones that stand two levels above the floor or more: its body. A lowest plate
+            // one level up is its foot, a rise of the floor)
+            let tiers = max(2.0, ((deep + 2.0) / 2.0).ceil());
+            let body = if (deep + 2.0) % 2.0 == 1.0 && tiers > 2.0 { tiers - 1.0 } else { tiers };
+            // (a ledge that lies across the grid's diagonal is two tiles wide only at three across)
+            let crag = 3.0;
+            let t0 = rnd(2302.0) * PI * 2.0;
+            let (mut px, mut py) = (0.0, 0.0);
+            let mut axis = rnd(2304.0) * PI;
+            let ramp = t0 + PI + rnd(2305.0) - 0.5;
+            let mut across = clamp(radius * 0.1, 2.4, 4.0);
+            let mut along = across * (1.1 + 0.3 * rnd(2306.0));
+            // (the ramp's ledges as wide as the bowl has room for: the hill's body about two fifths of
+            // the bowl, or as narrow as its ledges can be)
+            let ledge = clamp(2.0 * (radius * 0.4 - across) / max(1.0, body - 1.0) - crag, crag, max(crag, radius * 0.2));
+            // (the sides of the plate above that are not its main oval: the plate under it holds them
+            // too, a ledge wider)
+            let mut sides: Vec<Oval> = vec![];
+            // (two more plates under them, a ledge wider each, for a hill that must stand higher: a
+            // lake held up by a lake round the crater)
+            for j in 0..tiers as usize + 2 {
                 let jf = j as f64;
-                let t = if ridge {
-                    axis + PI * jf + 0.7 * (rnd(2310.0 + jf) - 0.5)
-                } else {
-                    axis + (jf + 0.7 * (rnd(2310.0 + jf) - 0.5)) * PI * 2.0 / more as f64
-                };
-                let size = max(2.4, main * (0.6 + 0.3 * rnd(2330.0 + jf)));
-                let d = min(main * (0.6 + 0.4 * rnd(2320.0 + jf)) * if ridge { 1.0 + 0.4 * (jf / 2.0).floor() } else { 1.0 }, max(main * 0.6, radius * 0.38 - size));
-                let turned = rnd(2340.0 + jf) * PI;
-                c.lumps.push(Oval {
-                    x: mx + d * cos(t),
-                    y: my + d * sin(t),
-                    c: cos(turned),
-                    sn: sin(turned),
-                    along: size * (1.0 + 0.5 * rnd(2350.0 + jf)),
-                    across: size,
-                    level: 0.3 + 0.5 * rnd(2360.0 + jf),
-                    high: off_centre(2390.0 + 2.0 * jf),
-                });
+                if j > 0 {
+                    let wide = if jf < body { max(crag, ledge * (0.7 + 0.6 * rnd(2310.0 + jf))) } else if jf < tiers { max(crag, radius * 0.14) } else { crag };
+                    let t = ramp + rnd(2320.0 + jf) - 0.5;
+                    px += (wide - crag) / 2.0 * cos(t);
+                    py += (wide - crag) / 2.0 * sin(t);
+                    across += (wide + crag) / 2.0;
+                    along += (wide + crag) / 2.0 * (1.0 + 0.3 * rnd(2330.0 + jf));
+                    axis += 0.5 * (rnd(2340.0 + jf) - 0.5);
+                    for side in &mut sides {
+                        side.along += crag;
+                        side.across += crag;
+                        side.level = jf;
+                        side.high = (0.0, 0.0);
+                    }
+                }
+                c.plates.push(Oval { x: px, y: py, c: cos(axis), sn: sin(axis), along, across, level: jf, high: (0.0, 0.0) });
+                c.plates.extend(sides.iter().copied());
+                // (its spur, on the plate's outline somewhere round the ramp's side, a level lower than
+                // the plate: a step down that way; `high.0` is that level)
+                let (ts, size, turned) = (ramp + 3.2 * (rnd(2360.0 + jf) - 0.5), clamp(across * (0.3 + 0.2 * rnd(2370.0 + jf)), 2.8, 4.5), rnd(2380.0 + jf) * PI);
+                let (sc, ss) = (cos(axis), sin(axis));
+                let (ux, uy) = (cos(ts) * sc + sin(ts) * ss, -cos(ts) * ss + sin(ts) * sc);
+                let out = 0.8 / portable_math::sqrt(ux * ux / (along * along) + uy * uy / (across * across));
+                let spur = Oval { x: px + out * cos(ts), y: py + out * sin(ts), c: cos(turned), sn: sin(turned), along: size * (1.1 + 0.5 * rnd(2390.0 + jf)), across: size, level: jf, high: (1.0, 0.0) };
+                c.plates.push(spur);
+                sides.push(spur);
+                if jf == body - 1.0 {
+                    c.hill = (px, py, body);
+                }
             }
+            for p in &mut c.plates {
+                p.x -= c.hill.0;
+                p.y -= c.hill.1;
+            }
+            let off = radius * 0.05 * rnd(2303.0);
+            c.hill = (off * cos(t0), off * sin(t0), body);
         } else if c.centre == "ring" && radius >= 14.0 {
             let count = 4 + (rnd(2401.0) * 2.0).floor() as usize;
             let (t0, off) = (rnd(2402.0) * PI * 2.0, radius * (0.04 + 0.06 * rnd(2403.0)));
@@ -2758,8 +2832,8 @@ impl Crater {
     fn frame(&self, x: f64, y: f64) -> (f64, f64) {
         let (u, v) = self.local(x, y);
         let broad = max(7.0, self.radius * 0.55);
-        // (in tiles: a small crater's outline wanders by a tile too)
-        let far = 2.0 * min(0.3 * self.radius, max(1.0, 0.08 * self.radius));
+        // (in tiles: a small crater's outline wanders too, by less than would square its bowl)
+        let far = 2.0 * min(0.12 * self.radius, max(1.0, 0.08 * self.radius));
         let wx = far * (lumps(self.seed, 3001, x, y, broad) - 0.5);
         let wy = far * (lumps(self.seed, 3002, x, y, broad) - 0.5);
         (u * self.radius + wx, v * self.radius + wy)
@@ -2825,14 +2899,19 @@ impl Crater {
     /// hollows, a floor with low hummocks, and the blocks slumped on it.
     fn cavity(&self, qx: f64, qy: f64, x: f64, y: f64) -> f64 {
         let mut z = f64::INFINITY;
+        // (a small crater's bowl goes down in whole levels, each step as wide as the next: its wall is
+        // most of the bowl, so the distance in from the outline is worked out true)
+        let stepped = !self.lip.is_empty() && !self.steep;
         for l in &self.lobes {
-            let past = l.past(qx, qy);
+            let past = if stepped { hypot(qx - l.x, qy - l.y) - l.s } else { l.past(qx, qy) };
             let t = 1.0 + past / l.wall;
-            z = min(z, if t <= 0.0 { l.level } else if t <= 1.0 { l.level * (1.0 - t) } else { past * 4.0 });
+            z = min(z, if t <= 0.0 { l.level } else if t <= 1.0 { if stepped { round(l.level * (1.0 - t)) } else { l.level * (1.0 - t) } } else { past * 4.0 });
         }
         let floor = 1.0 - smooth((z + self.deep) / max(1.0, 0.3 * self.deep));
-        if floor > 0.0 && self.centre != "bowl" && self.radius >= 20.0 {
-            z += floor * smooth((lumps(self.seed, 3100, x, y, max(5.0, self.radius * 0.12)) - 0.72) / 0.06);
+        if floor > 0.0 && self.centre != "bowl" && self.radius >= 14.0 {
+            // (a floor with no uplift is hummocky: more of it stands a level up)
+            let above = if self.centre == "flat" { 0.62 } else { 0.72 };
+            z += floor * smooth((lumps(self.seed, 3100, x, y, max(5.0, self.radius * 0.12)) - above) / 0.06);
         }
         if !self.blocks.is_empty() {
             // (their outlines ragged)
@@ -2866,16 +2945,62 @@ impl Crater {
         }
         shape
     }
+    /// The plate of the peak's hill a point lies on: 1 its top, 2 the one under it, and so on; 0 none.
+    /// Their outlines are ragged together, so a ledge between two keeps its width.
+    fn hill(&self, qx: f64, qy: f64, x: f64, y: f64) -> (u8, f64) {
+        if self.plates.is_empty() {
+            return (0, 0.0);
+        }
+        // (the hill keeps to the middle of the bowl, so the wall and the blocks against it stand
+        // clear: its body within about 0.41 of the way out from its middle, each plate above the
+        // lowest a ledge further in, never narrower than its ledges need in a bowl too small for it;
+        // its foot and the plates under that further out)
+        let (hx, hy, body) = self.hill;
+        // (most of the bowl is nowhere near the hill)
+        if (qx - hx) * (qx - hx) + (qy - hy) * (qy - hy) > 0.81 * self.radius * self.radius + 144.0 {
+            return (0, 0.0);
+        }
+        let ragged = 0.94 + 0.12 * lumps(self.seed, 2350, x, y, max(4.0, self.radius * 0.14));
+        // (not a circle: further out on two or three sides, the same for every plate)
+        let bearing = atan2(qy - hy, qx - hx);
+        let lobed = 1.0 + 0.1 * cos(2.0 * bearing + self.notch * 3.0) + 0.07 * cos(3.0 * bearing + self.notch * 5.0);
+        let off = portable_math::sqrt((qx - hx) * (qx - hx) + (qy - hy) * (qy - hy)) * ragged / lobed;
+        // (the plates are in order, the top one first)
+        for p in &self.plates {
+            let within = if p.level < body { max(0.41 * self.radius - 3.0 * (body - 1.0 - p.level), 3.4 + 3.0 * p.level) } else { max(0.6 * self.radius, 3.4 + 3.0 * body) + 3.0 * (p.level - body) };
+            if off > within {
+                continue;
+            }
+            if p.reach(qx, qy).0 * ragged * ragged < 1.0 {
+                return (p.level as u8 + 1, p.high.0);
+            }
+        }
+        (0, 0.0)
+    }
     /// What the rim and the debris raise at a point `e` tiles outside the outline (the crest's own
     /// height inside it): the rim two or three tiles wide, then falling away, further on some sides; the debris
     /// in broad tongues; both low on the rim's low side.
-    fn apron(&self, e: f64, theta: f64, x: f64, y: f64) -> f64 {
+    fn apron(&self, e: f64, (qx, qy): (f64, f64), x: f64, y: f64) -> f64 {
+        let theta = atan2(qy, qx);
         let r = 1.0 + max(0.0, e) / self.radius;
         let count = self.bearings.len();
         let (crest, fall, tongue, dip) = self.bearings[clamp(((theta / (PI * 2.0) + 0.5) * count as f64).floor(), 0.0, count as f64 - 1.0) as usize];
-        // (the rim, as far out as it can reach on this bearing)
-        let mut rim = 0.0;
-        if r - 1.0 - 4.1 / self.radius < fall * 1.2 {
+        // (the rim, as far out as it can reach on this bearing; a small crater's is its lip of lumps)
+        let mut rim: f64 = 0.0;
+        if !self.lip.is_empty() {
+            // (none in the rim's low side: its gap; all along the top of a stepped bowl's wall, so the
+            // hollow keeps its round outline and no sliver of ground lies between the two)
+            if dip <= 0.5 {
+                if e <= 0.0 && !self.steep && self.deep >= 2.0 {
+                    rim = 1.0;
+                }
+                for &(lx, ly, lr, level) in &self.lip {
+                    if (qx - lx) * (qx - lx) + (qy - ly) * (qy - ly) < lr * lr {
+                        rim = max(rim, level);
+                    }
+                }
+            }
+        } else if r - 1.0 - 4.1 / self.radius < fall * 1.2 {
             let fall = fall * (0.8 + 0.4 * lumps(self.seed, 1960, x, y, max(8.0, self.radius * 0.4)));
             let past = max(0.0, r - 1.0 - (2.3 + 1.8 * lumps(self.seed, 1970, x, y, max(8.0, self.radius * 0.4))) / self.radius);
             rim = crest * (0.8 + 0.4 * lumps(self.seed, 1950, x, y, max(8.0, self.radius * 0.5))) * max(0.0, 1.0 - past / fall);
@@ -2911,6 +3036,7 @@ impl Crater {
         let mut plane = if (m.heights[tile] as f64) < self.ground(x, y) { 1.0 - smooth((r - 1.0 - 2.6 / self.radius) / 0.25) } else { 1.0 - smooth((r - 0.8) / 0.2) };
         let add;
         let mut lift = 0.0;
+        let (mut tier, mut step) = (0, 0.0);
         if r < 1.35 {
             let cavity = self.cavity(qx, qy, x, y);
             // (downhill, where the crater's own surface would stand above the land's fall, the land
@@ -2920,14 +3046,23 @@ impl Crater {
             // (the land above the crater's own ground, where the land still shows)
             let over = (m.heights[tile] as f64 - self.ground(x, y)) * (1.0 - plane);
             // (inside the bowl, on the crater's own ground, the rim and the debris stand above its surface)
-            add = if over == 0.0 && cavity <= 0.0 { cavity } else { min(self.apron(e, atan2(qy, qx), x, y), cavity - over) };
+            // (a small crater's lip stands at the hollow's very edge: on the top of its wall too)
+            add = if over == 0.0 && cavity <= if self.lip.is_empty() { 0.0 } else { -0.5 } {
+                cavity
+            } else if cavity <= 0.0 {
+                let lip = self.apron(e, (qx, qy), x, y);
+                if over == 0.0 && lip > 0.0 && ((!self.steep && self.deep >= 2.0) || e > -min(0.5, 0.1 * self.radius)) { lip } else { min(lip, cavity - over) }
+            } else {
+                min(self.apron(e, (qx, qy), x, y), cavity - over)
+            };
             if r < 1.0 {
                 lift = self.uplift(qx, qy, x, y);
+                (tier, step) = self.hill(qx, qy, x, y);
             }
         } else {
-            add = self.apron(e, atan2(qy, qx), x, y);
+            add = self.apron(e, (qx, qy), x, y);
         }
-        Plate { r, plane, add, lift }
+        Plate { r, plane, add, lift, tier, step }
     }
     /// The rays' height and their secondary pits' depth at a tile `r` out.
     fn rays_at(&self, s0: &Settings, x: f64, y: f64, r: f64) -> (f64, f64) {
@@ -3098,66 +3233,86 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
                 target = h - secondary;
             }
             surface[i] = tempered(h, target, k);
-            if p.lift > 0.0 {
+            if p.lift > 0.0 || p.tier > 0 {
                 lifted.push((i, p));
             }
         }
     }
-    m.heights = levels::whole(&surface, &before.heights, m.w, m.h, ceiling, a.seed, grain);
-    if !lifted.is_empty() {
+    if lifted.is_empty() {
+        m.heights = levels::whole(&surface, &before.heights, m.w, m.h, ceiling, a.seed, grain);
+    } else {
         // The central uplift stands clear of the lake the bowl would hold, so a crater filled as a
         // lake keeps its island: its top two levels above the lake, at whatever strength the crater
-        // acts, and never less than a crater's own peak.
-        let lake = a.lake(&m.heights, before) as f64;
+        // acts, and never less than a crater's own peak. The lake's level is taken first from the
+        // surface rounded tile by tile (nearly always the land's own), so the land is worked out once;
+        // then from the land itself, and the uplift is set again if that differs.
+        let floor_of = |i: usize, p: &Plate| tempered(before.heights[i] as f64, shape(i, p), k);
+        let bare = |land: &[u8]| -> Vec<u8> {
+            let mut bare = land.to_vec();
+            for (i, p) in &lifted {
+                bare[*i] = clamp(round(floor_of(*i, p)), 0.0, 255.0) as u8;
+            }
+            bare
+        };
+        let rough: Vec<u8> = (0..m.w * m.h).map(|i| if surface[i].is_nan() { before.heights[i] } else { clamp(round(surface[i]), 0.0, min(255.0, ceiling)) as u8 }).collect();
+        let mut lake = a.lake(&bare(&rough), before) as f64;
+        let hill = lifted.iter().any(|t| t.1.tier > 0);
         let mut top = &lifted[0];
         for t in &lifted {
             if t.1.lift > top.1.lift {
                 top = t;
             }
         }
-        let h = before.heights[top.0] as f64;
-        let clear = lake + 2.4;
-        let aim = if k < 1.0 && clear > h { h + (clear - h) / k } else { clear };
-        // (the uplift rises from the floor under its top, wherever it stands: on a floor that leans, or
-        // on a bench, no lump of it stands higher than its share)
+        // (a ring's mountains rise from the floor under the highest, wherever it stands: on a floor
+        // that leans, or on a bench, no lump stands higher than its share)
         let from = shape(top.0, &top.1);
-        let mut height = max(a.depth * 0.6, aim - from) / top.1.lift;
-        // (only the uplift's own part of the map is worked out again, with a margin round it)
-        let (mut x0, mut x1, mut y0, mut y1) = (m.w, 0, m.h, 0);
-        for (i, _) in &lifted {
-            let (x, y) = (i % m.w, i / m.w);
-            (x0, x1, y0, y1) = (x0.min(x), x1.max(x), y0.min(y), y1.max(y));
-        }
-        let (x0, x1, y0, y1) = (x0.saturating_sub(8), (x1 + 8).min(m.w - 1), y0.saturating_sub(8), (y1 + 8).min(m.h - 1));
-        let (pw, ph) = (x1 - x0 + 1, y1 - y0 + 1);
-        let cut = |from: &[u8]| -> Vec<u8> { (0..pw * ph).map(|k| from[(y0 + k / pw) * m.w + x0 + k % pw]).collect() };
-        // (its outer tiles stay as the whole map made them: ground the part leaves alone, so what it
-        // makes inside them fits them)
-        let fixed = |k: usize| {
-            let (x, y) = (k % pw, k / pw);
-            (x < 3 && x0 > 0) || (y < 3 && y0 > 0) || (x + 3 >= pw && x1 < m.w - 1) || (y + 3 >= ph && y1 < m.h - 1)
-        };
-        let (mut old, was) = (cut(&before.heights), cut(&m.heights));
-        let mut own: Vec<f64> = (0..pw * ph).map(|k| surface[(y0 + k / pw) * m.w + x0 + k % pw]).collect();
-        for k in 0..pw * ph {
-            if fixed(k) {
-                old[k] = was[k];
-                own[k] = f64::NAN;
+        // (a peak's hill stands on the lowest floor under its top plate, on whole levels at
+        // whatever strength: its plates are land as they are)
+        let first = lifted.iter().map(|t| t.1.tier).filter(|&t| t > 0).min().unwrap_or(1);
+        let mut base = f64::INFINITY;
+        for (i, p) in &lifted {
+            if p.tier == first {
+                base = min(base, floor_of(*i, p));
             }
         }
+        let base = round(base);
+        // (the uplift's height for a lake: a hill's top level, a ring's rise)
+        let height_for = |lake: f64| {
+            if hill {
+                base + max(max(2.0, round(a.depth * 0.6 * min(1.0, k))), lake + 2.0 - base)
+            } else {
+                let h = before.heights[top.0] as f64;
+                let clear = lake + 2.4;
+                let aim = if k < 1.0 && clear > h { h + (clear - h) / k } else { clear };
+                max(a.depth * 0.6, aim - from) / top.1.lift
+            }
+        };
+        let step = if hill { 1.0 } else { 1.0 / (top.1.lift * min(1.0, k)) };
+        let mut height = height_for(lake);
         for _ in 0..4 {
             for (i, p) in &lifted {
-                own[(i / m.w - y0) * pw + i % m.w - x0] = tempered(before.heights[*i] as f64, max(shape(*i, p), from + height * p.lift), k);
+                let floor = floor_of(*i, p);
+                surface[*i] = if hill {
+                    // (the top plate at the hill's height, each one under it two levels lower, a spur a
+                    // level under its plate; one that would stand under a level above the hill's
+                    // floor is not there)
+                    let level = height - 2.0 * (p.tier as f64 - 1.0) - p.step;
+                    if p.tier > 0 && level > floor + 0.5 { level } else { floor }
+                } else {
+                    tempered(before.heights[*i] as f64, max(shape(*i, p), from + height * p.lift), k)
+                };
             }
-            let land = levels::part(&own, &old, pw, ph, (x0, y0), ceiling, a.seed, grain);
-            for k in 0..pw * ph {
-                m.heights[(y0 + k / pw) * m.w + x0 + k % pw] = land[k];
-            }
-            // (the steps' wander or the tidying can take a level off a small top: then it stands a level higher)
-            if lifted.iter().any(|(i, _)| m.heights[*i] as f64 >= min(lake + 2.0, ceiling)) {
+            m.heights = levels::whole(&surface, &before.heights, m.w, m.h, ceiling, a.seed, grain);
+            let now = a.lake(&bare(&m.heights), before) as f64;
+            let stands = lifted.iter().any(|(i, _)| m.heights[*i] as f64 >= min(now + 2.0, ceiling));
+            let wanted = height_for(now);
+            if stands && (now == lake || wanted >= height - 0.5 * step) {
                 break;
             }
-            height += 1.0 / (top.1.lift * min(1.0, k));
+            // (the steps' wander or the tidying can take a level off a small top: then it stands a level
+            // higher; a lake that stands lower than the rounded surface's, and the uplift comes down)
+            height = if stands { wanted } else { max(wanted, height + step) };
+            lake = now;
         }
     }
     for i in 0..m.w * m.h {
@@ -3229,9 +3384,12 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
             entities.push(e);
             continue;
         }
-        if m.footprint(&e, 0)
-            .iter()
-            .any(|&i| m.heights[i] != before.heights[i])
+        // (nothing is left standing inside the bowl: a ruin on a bench or a peak that happens to stand
+        // at the ground's old level goes with the ground round it)
+        if r < 1.0
+            || m.footprint(&e, 0)
+                .iter()
+                .any(|&i| m.heights[i] != before.heights[i])
         {
             continue;
         }

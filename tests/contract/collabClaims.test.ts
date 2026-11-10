@@ -592,7 +592,9 @@ describe("the host's check (#397's seam): claimsCheck", () => {
   }, 120_000);
 
   it("a generated tree a force takes away counts at the tile it stood on, even where the ground did not change", () => {
-    const gesture = crater(36, 36, 5, "light", 16, 60, true);
+    // (Size 24 since the crater's small bowls got a lip all round, #912: at Size 16 it now changes the ground under
+    // every tree it takes, D148)
+    const gesture = crater(36, 36, 5, "light", 24, 60, true);
     const gone = treesOffGround(gesture);
     expect(gone.length, "no tree taken off the ground the crater changed").toBeGreaterThan(0);
     refusedAt(gesture, gone[0]);

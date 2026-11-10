@@ -81,18 +81,18 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
   // (pinned to the prototype's until showcase-craft gap 25 rebuilt the crater so it reads as a real landform, not a
   // stadium: overlapping hollows, slumped blocks and merged crags, made land in the forces' shared last step; D148)
   const CRATERS: Record<string, string> = {
-    "bowl 0": "829c3acdb91c788facbdbc5f7e142dae2f3caad218d46253a4404d5edb30d110",
-    "peak 0": "470f2a4188e1e1ae16a3ae31ac128b0c20ecf625e19e9a31f7927ca672979480",
-    "ring 0": "b7d2e5451676df22a6edd633645b970bf226c59cf2fda0fb17ab2f4cce015978",
-    "flat 0": "6cf5ab2c68a26dcc2eddcafd5e95ad1993c927ee66690aa46066ddbd428a9e95",
-    "bowl 1": "59a70e2345914c1b2f9368a4aad1573872b4bf82f83469ec25d94874ee358875",
-    "peak 1": "050469c0c18f73bcdcbc3120018c10e27e6ccd6da09a4d693cac8f28958a467d",
-    "ring 1": "1a30ae31fdfd0920591926b863ce4a53332f16f1ca7752bd13e63161b2478306",
-    "flat 1": "9a3f3f6a52da2aba015444e3679bd69b17ea83e9dee5f6b07d25dd9937eb7252",
-    "bowl 42": "42b6591706371b7fe6bce9d37f90afce6a129e83ffe8b42ec8718a605888f6c8",
-    "peak 42": "2eb0d15bc696bd6e1ca77ae754bcbbe15e3fc31cff4eee23da087bcb95585ff0",
-    "ring 42": "05614dbecf9d66aee391ead92156b5e06b20d618c4ace2afcd95a2b397b9f984",
-    "flat 42": "657dbb11527ef2643ac6e325a1b035e655c88d7f289d79a13bb54ab54ef25278",
+    "bowl 0": "3d512741f201c6bc15c125a94a325738afb02fd765db6c162254d8996bff9dd9",
+    "peak 0": "e64461c3b8011a1cd90b700c40d44ee8e6ca1eeeabdf55e1be689b76ee78e1e9",
+    "ring 0": "dda9ca0f43f1d599c8d9df23dac898b7916e92a614da0239d89383c1885a90b2",
+    "flat 0": "6cc1fbb81f35cc1eb6a9d8f8d00a4973cd984cb58a575accad6cbefc06969b87",
+    "bowl 1": "7bb34a34886a358ec32c462ebbcc52e8095f41b3b242d4a7470c2be656cab11f",
+    "peak 1": "a2305894f388a4d292f02af766e49dacaf8045604358152444a2d5d4b210e602",
+    "ring 1": "faca8626da64eec012e5133e5b0c70d90c5699dbfe660547376ddd2119bee7f6",
+    "flat 1": "8c859a2cd6709da4f940ff7ab6a1264f4912eead35e20200f586b802b28b67bd",
+    "bowl 42": "a5ba1bdc66e9fac1deb6016f7f0cf393021f4740f1ca0d194f11a3a69afa9166",
+    "peak 42": "5a13133b031a2f8132160bfbf88879b63fd6c38ab156bceb0e7531257ba01343",
+    "ring 42": "46e3e0bd6dceeb3cdf81c599f16514753d0196a31d0335c2f291f251ce0bf662",
+    "flat 42": "6425e2379f045bd301dc48cc28337749e367143f5efa676c6e06af605edd62ad",
   };
   it("Craterize: every centre, with and without rays", () => {
     for (const seed of [0, 1, 42])
@@ -271,6 +271,82 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
             expect(Math.sqrt(foot / Math.PI), `${what}: the peak's foot, ${foot} tiles, under a top ${top - low} levels up`).toBeGreaterThanOrEqual((top - low) / 1.5);
           }
         }
+  });
+
+  it("Craterize: a peak is a broad, low hill of wide plates, never a tower, a plinth or a stack of blocks; under Size 42 Auto gives none", () => {
+    const W = 128;
+    for (const size of [28, 30, 36, 40]) expect(impact(snapshotMap(bare(W)), { ...CRATER_DEFAULTS, size, power: 55 }, { origin: 64 * W + 64 }).anatomy.centre, `Size ${size}`).toBe("flat");
+    for (const [size, power] of [[44, 55], [54, 55], [60, 55], [64, 75], [40, 15]] as const)
+      for (const walls of ["terraced", "steep"] as const)
+        for (const seed of [0, 1, 2, 3, 4]) {
+          const m = bare(W);
+          const p = impact(snapshotMap(m), { ...CRATER_DEFAULTS, walls, centre: "peak", seed, power, size, rays: false }, { origin: 64 * W + 64 });
+          const a = p.anatomy;
+          const h = p.map.heights;
+          const what = `${walls} ${size} ${seed}`;
+          // the hill: the ground within a third of the way out that stands above the floor's hummocks
+          const floor = a.datum - Math.round(a.depth);
+          const inHill = (i: number) => Math.hypot((i % W) - a.x, Math.floor(i / W) - a.y) < a.radius * 0.33;
+          let top = 0;
+          const area = new Map<number, number>();
+          for (let i = 0; i < h.length; i++)
+            if (inHill(i)) {
+              top = Math.max(top, h[i]);
+              for (const j of [i + 1, i + W]) if (inHill(j)) expect(Math.abs(h[i] - h[j]), `${what}: a face at ${i % W},${Math.floor(i / W)}`).toBeLessThanOrEqual(2);
+              area.set(h[i], (area.get(h[i]) ?? 0) + 1);
+            }
+          // its top plate four tiles across or more, and every plate under it broader than the one above
+          expect(area.get(top)!, `${what}: the top plate's tiles`).toBeGreaterThanOrEqual(12);
+          let above = 0;
+          for (let level = top; level > floor + 2; level--) {
+            const here = [...area].filter(([l]) => l >= level).reduce((n, [, c]) => n + c, 0);
+            if (above) expect(here, `${what}: the hill at level ${level} and up, against the level above`).toBeGreaterThanOrEqual(above);
+            above = here;
+          }
+          // broad for its height: two levels up from its floor it is at least twice as wide as it is high
+          const foot = [...area].filter(([l]) => l >= floor + 2).reduce((n, [, c]) => n + c, 0);
+          expect(2 * Math.sqrt(foot / Math.PI), `${what}: the hill's width, ${top - floor} levels high`).toBeGreaterThanOrEqual(Math.min(2 * (top - floor), a.radius * 0.6));
+        }
+  });
+
+  it("Craterize: a small crater has a low lip of lumps all round it but for one gap, and a rounded bowl", () => {
+    const W = 64;
+    for (const size of [10, 12, 14, 18])
+      for (const seed of [0, 1, 2, 3, 4, 5]) {
+        const m = bare(W);
+        const p = impact(snapshotMap(m), { ...CRATER_DEFAULTS, seed, power: 40, size, debris: "light", rays: false }, { origin: 32 * W + 32 });
+        const a = p.anatomy;
+        const h = p.map.heights;
+        const what = `Size ${size}, ${seed}`;
+        // the lip: on each of 24 bearings, the most the ground rose from the bowl out past the rim
+        let raised = 0;
+        let high = 0;
+        for (let k = 0; k < 24; k++) {
+          const t = (k / 24) * Math.PI * 2;
+          let up = 0;
+          for (let d = a.radius * 0.5; d < a.radius + 5; d += 0.5) {
+            const x = Math.round(a.x + Math.cos(t) * d);
+            const y = Math.round(a.y + Math.sin(t) * d);
+            up = Math.max(up, h[y * W + x] - m.heights[y * W + x]);
+          }
+          if (up > 0) raised++;
+          high = Math.max(high, up);
+        }
+        expect(raised, `${what}: the bearings (of 24) with a lip`).toBeGreaterThanOrEqual(17);
+        expect(raised, `${what}: the lip has a gap`).toBeLessThan(24);
+        expect(high, `${what}: the lip's height`).toBeLessThanOrEqual(2);
+        // the bowl: no straight side longer than half the crater (a square hollow has four)
+        let straight = 0;
+        for (let y = 1; y < W - 1; y++) {
+          let run = 0;
+          for (let x = 1; x < W - 1; x++) {
+            const side = h[y * W + x] < a.datum && h[(y - 1) * W + x] >= a.datum;
+            run = side ? run + 1 : 0;
+            straight = Math.max(straight, run);
+          }
+        }
+        expect(straight, `${what}: the hollow's longest straight side`).toBeLessThanOrEqual(Math.ceil(size * 0.55));
+      }
   });
 
   it("Erupt: Vent and Fissure, Steep and Broad (the prototype's height and reach, reshaped by D321 item 14; without the start: D257)", () => {
