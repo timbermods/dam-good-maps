@@ -82,18 +82,18 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
   // stadium: overlapping hollows, slumped blocks and a hill of wide plates, made land in the forces' shared last step;
   // D148)
   const CRATERS: Record<string, string> = {
-    "bowl 0": "b9f4c4dcf977e1d0306869dc9039a4c7ebc366625ef9f58a33bcdae342087a81",
-    "peak 0": "7eacfb571c00781657c30064cf1a79a3c3ad78c4333dbca2f602ad299fbd702a",
-    "ring 0": "4c6d43259b0fda771b3273241645e63ed6bf959ed0575ca2d686fdf9e6aa44dd",
-    "flat 0": "250f91b8e9f58315d9bc3333b92a9ecc884178bb8d9e42fbc992987e361e714e",
-    "bowl 1": "01daee72e6693d90d83aac535ec5442787dc061146fcb0ca7aa10705f9ff09e0",
-    "peak 1": "79c09ab2bf840d6f00e186ae02df73002fa175e3e666b878b5e1bca021ca4abd",
-    "ring 1": "1e6ad1ca83de292c4f33e89d96e2f0a2a09a5fd4935f74dc5c97c4405f456b2c",
-    "flat 1": "fc73fc9c93f536ad2eda55ca1e58c3a457179dd86438e4e0302a6a36268f59d7",
-    "bowl 42": "ba1ca04f8083dc9136cee96a820acfd6a767c6943cff6b2ae9ae39a3aa99537c",
-    "peak 42": "113f1a7478b3884596f50050101061b3a233911215e6b7cd1eb8b3d21e59fbc9",
-    "ring 42": "98119812a50f6d370d15590f2f705f65f09878471e7b9b2848353776a76ee9b7",
-    "flat 42": "7e5de31f1dba2747994c962cee2ed7a7fd59080aba13a6b6090f269b2d385c52",
+    "bowl 0": "d6153f050478b44bdb34d7b6d9dd64ddb6dd1e4bad2a4cbec7bfdde64bce7677",
+    "peak 0": "81902caac2e44bea4540910257ce7bd30d7792e67645818716468019f93d58f0",
+    "ring 0": "7b28d50bfbda4fa270a5cab44c1112e635f34cbb8f09b7429f1a1f362df5f0a4",
+    "flat 0": "256c91bb426036d7bfee71d7f5af5ba8b37cdb2141a0c5bb542919d851941a26",
+    "bowl 1": "7fb79da96a505a1ddde9428d78da63939a4d4ecc0d9cb29a8c9a91edefc972c8",
+    "peak 1": "4d39c70120d230668fbf5472c94c576f58055bfa9347bb8d5fb3d19e78778487",
+    "ring 1": "368de4830637a1740b8b193b39a30912e2bb774f50b9d3e60f4f53dec545c9a5",
+    "flat 1": "d72b3d22f64b1ece7f2c277a699da31c5826075186944acdc7d2afb8a5c80b9e",
+    "bowl 42": "2792ba927ac4baf499fb183f9f44be068b5fb2da7629bfbc5ae15642ece269a2",
+    "peak 42": "5b12cba2bb3a2cd2ec1a2a000bced42302c10fb381dacb9e43ce9c1928e8f95b",
+    "ring 42": "07f1caa886b455bacda6bdad9e57d11a5ff3bbb288000cff52824d27f86617c6",
+    "flat 42": "6fe252da230f48e2cd323816267508e875f842c5f813d5aa7972f20f97e06d4c",
   };
   it("Craterize: every centre, with and without rays", () => {
     for (const seed of [0, 1, 42])

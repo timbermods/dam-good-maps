@@ -3234,9 +3234,9 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
                 target = h - secondary;
             }
             surface[i] = tempered(h, target, k);
-            // (what the crater's own shape stands on: the land, giving way to the crater's level
-            // datum inside the bowl)
-            ground[i] = tempered(h, h + (a.datum - h) * p.plane, k);
+            // (what the crater's own shape stands on: its level datum inside the bowl, the land
+            // outside it; the fall from its rim to lower land is its own)
+            ground[i] = tempered(h, h + (a.datum - h) * (1.0 - smooth((p.r - 0.9) / 0.2)), k);
             if p.lift > 0.0 || p.tier > 0 {
                 lifted.push((i, p));
             }

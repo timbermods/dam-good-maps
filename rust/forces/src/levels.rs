@@ -151,8 +151,10 @@ pub(super) fn whole(surface: &[f64], ground: &[f64], before: &[u8], w: usize, h:
                     }
                 }
                 let k = base + near.1;
-                sums[k].0 += here * sloping;
-                sums[k].1 += sloping;
+                // (a cliff is no part of a plate: it counts for less the steeper it is)
+                let share = sloping * (1.0 - smooth((slope - 0.7) / 0.6)) + 1e-6;
+                sums[k].0 += here * share;
+                sums[k].1 += share;
                 patch_of[i] = k as u32;
             }
         }
