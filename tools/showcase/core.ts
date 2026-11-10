@@ -22,3 +22,4 @@ export { StartWaterDays } from "../../src/core/sim/startWaterDay";
 export { startWaterWithin } from "../../src/core/doc/droughtLine";
 export { placeComponents } from "../../src/core/doc/objectOps";
 export { orientationForHigh } from "../../src/core/features/setpieces";
+export { reachWalk } from "../../src/core/analysis/vertical";

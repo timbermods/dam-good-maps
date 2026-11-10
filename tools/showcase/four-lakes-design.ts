@@ -259,6 +259,7 @@ export const TARNS: Lake[] = [
   { name: "Bench Tarn", sill: 8, arms: [[[143, 71, 5], [150, 68, 6.5], [156, 72, 4.5]]], wander: 2.2, deep: 2, seed: [150, 69], meadow: 15 },
   { name: "South Tarn", sill: 6, arms: [[[124, 47, 3.5], [129, 49, 4.5]]], wander: 1.5, deep: 2, seed: [128, 49], meadow: 14 },
   // the rim's own: a spring whose run leaves by the west edge and never meets the lakes
+  { name: "Gate Tarn", sill: 10, arms: [[[58, 15, 3.5], [64, 14, 4.5]]], wander: 1.2, deep: 2, seed: [63, 14], meadow: 15, spring: [63, 14, 1.2] },
   { name: "Fell Tarn", sill: 15, arms: [[[90, 179, 3.5], [98, 180, 5], [106, 181, 3.5]]], wander: 1.5, deep: 2, seed: [98, 180], meadow: 14, spring: [98, 180, 1.5] },
 ];
 const BODIES: Lake[] = [...LAKES, ...TARNS];
@@ -306,6 +307,8 @@ const STEAM_LEAT: Pt[] = [[150, 86], [151, 80], [150, 75]];
 const BENCH_BROOK: Pt[] = [[141, 68], [129, 67], [117, 68], [106, 69], [97, 70]];
 const SOUTH_LEAT: Pt[] = [[149, 62], [142, 56], [134, 52]];
 /** The North Run: Fell Tarn's own water, west along the rim and off the map. */
+/** The Gate Run: Gate Tarn's own water, east along the south ridge and off the map by the south edge. */
+const GATE_RUN: Pt[] = [[68, 13], [78, 12], [87, 9], [92, 4], [92, -1]];
 const NORTH_RUN: Pt[] = [[87, 179], [72, 178], [56, 180], [40, 176], [24, 172], [8, 168], [-1, 167]];
 /** Hill Brook: Hill Tarn down the hill behind the start and across the meadow, an inlet of Low Lake at its end. */
 const HILL_BROOK: Pt[] = [[51, 94], [50, 87], [51, 79], [53, 72], [55, 64]];
@@ -334,7 +337,8 @@ export const CHANNELS: Channel[] = [
   { name: "Bench Brook", path: BENCH_BROOK, half: () => 1.1, bed: brookBed(BENCH_BROOK, 8, 4), bank: 0, bankWide: 0, wet: true, wander: 4.2, open: 0, brook: { meadow: 13 } },
   { name: "South Leat", path: SOUTH_LEAT, half: () => 1.1, bed: brookBed(SOUTH_LEAT, 8, 8), bank: 0, bankWide: 0, wet: true, wander: 1.0, open: 0, brook: { meadow: 10 } },
   { name: "South Brook", path: SOUTH_BROOK, half: () => 1.1, bed: brookBed(SOUTH_BROOK, 6, 4), bank: 0, bankWide: 0, wet: true, wander: 4.2, open: 0, brook: { meadow: 13 } },
-  { name: "North Run", path: NORTH_RUN, half: () => 1.1, bed: brookBed(NORTH_RUN, 15, 9), bank: 0, bankWide: 0, wet: true, wander: 4.2, open: 0, brook: { meadow: 14 } },
+  { name: "North Run", path: NORTH_RUN, half: () => 1.1, bed: brookBed(NORTH_RUN, 15, 9), bank: 0, bankWide: 0, wet: true, wander: 4.2, open: 0, brook: { meadow: 16 } },
+  { name: "Gate Run", path: GATE_RUN, half: () => 1.1, bed: brookBed(GATE_RUN, 10, 6), bank: 0, bankWide: 0, wet: true, wander: 2.2, open: 0, brook: { meadow: 14 } },
 ];
 const chan = (name: string) => CHANNELS.findIndex((c) => c.name === name);
 
@@ -604,7 +608,7 @@ export function designLand(): Land {
       const { d, s } = along[k][i];
       const x = i % W;
       const y = (i - x) / W;
-      const half = c.half(s) + (c.wander && !c.brook ? 0.9 * fbm(x, y, 9, SEED + 30 + k, 2) : 0) + (c.brook && c.wander > 1.5 ? 1.5 * Math.max(0, fbm(x, y, 11, SEED + 30 + k, 2) + 0.1) + (s > pathLength(c.path) - 5 ? 1.5 : 0) : 0);
+      const half = c.half(s) + (c.wander && !c.brook ? 0.9 * fbm(x, y, 9, SEED + 30 + k, 2) : 0) + (c.brook && c.wander > 1.5 ? 0.3 + 2.4 * Math.max(0, fbm(x, y, 13, SEED + 30 + k, 2) + 0.12) + (s > pathLength(c.path) - 5 ? 1.5 : 0) : 0);
       const b = bedOf[k](s);
       if (d <= half) {
         if (c.wet && channel[i] && CHANNELS[channel[i] - 1].wet && f[i] <= b) continue; // (a wet channel keeps the lower bed where two meet)
@@ -649,8 +653,13 @@ export function designLand(): Land {
         channel[i] = 0;
         continue;
       }
-      let depth = Math.max(0, Math.floor((Math.min(-d, isle) - 1.0) / 2.6 + 0.5 * fbm(x, y, 8, SEED + 40 + k, 2)));
-      depth = Math.min(L.deep, L.deep > 2 ? (depth === 0 ? 0 : depth === 1 ? 2 : depth === 2 ? 4 : 5) : depth);
+      // (how far from the old river's line: the lake's main arm and the arms to its falls)
+      let line = Infinity;
+      for (let a = 0; a < L.arms.length && a < 4; a++) line = Math.min(line, pathDist(x + 0.5 + 2.5 * fbm(x, y, 12, SEED + 47, 2), y + 0.5 + 2.5 * fbm(x, y, 12, SEED + 48, 2), L.arms[a].map((q) => [q[0], q[1]] as Pt)).d);
+      const shore = Math.max(0, Math.floor((Math.min(-d, isle) - 1.0) / 1.5));
+      const channelDepth = L.deep > 2 ? (line < 2.6 ? 5 : line < 4.8 ? 3 : 1) : line < 4.5 ? 2 : 1;
+      // (a shelf at the sill's level, a shallow margin, then the drop into the channel: drop-offs, not rings)
+      let depth = Math.min(L.deep, shore === 0 ? 0 : shore === 1 ? 1 : channelDepth);
       if (k >= LAKES.length) depth = Math.min(L.deep, Math.max(0, Math.floor((Math.min(-d, isle) - 0.6) / 2.4 + 1.5 * fbm(x + 3 * k, y - 5 * k, 5, SEED + 46, 2) + 0.2)));
       // (the cove's head has a cut bank: deep water right at the meadow, so a pump there works through a drought)
       if (k === 0 && Math.hypot(x + 0.5 - 69, y + 0.5 - 74) < 5.5) depth = 2;

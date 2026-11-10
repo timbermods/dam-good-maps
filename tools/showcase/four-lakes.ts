@@ -12,7 +12,7 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { frameAt, orientationForHigh } from "./core";
+import { frameAt, orientationForHigh, reachWalk } from "./core";
 import { openingCamera, placeComponents, startMiddleTile, StartWaterDays, startWaterWithin, VISTA_ZOOM } from "./core";
 import { applyOps, checksOf, emptySimulationSingletons, exportFiles, fallsOf, GAME_VERSION, HazardRun, LAYERS, MapSession, rowOf, TICKS_PER_DAY, voxelsFromHeights, writeTimber, type TimberFile } from "./core";
 import { CHANNELS, designLand, FALLS, fbm, H, LAKES, measureLand, N, START_AT, TARNS, W, type Land } from "./four-lakes-design";
@@ -424,13 +424,15 @@ function plant(s: MapSession, land: Land): void {
   count.startOaks = paint("trees", "Oak", (i) => level(i) && !nearStart(i, 6) && nearStart(i, 18) && (i % W) <= st.x - 9, 0.75, 22, "The start's oak wood");
   // the dry land, dressed on purpose
   const dry = (i: number) => !(b.moisture[i] > 0) && !(b.water[i] > 0) && !land.lake[i] && !land.pool[i];
-  count.succulents = paint("succulents", "Succulent", (i) => dry(i) && oldDist[i] > 3 && n(i, 21, 4) > 0.08, 0.2, 16, "Succulent fields on the dry benches");
+  count.succulents = paint("succulents", "Succulent", (i) => dry(i) && oldDist[i] > 3 && n(i, 26, 4) > 0.03 && n(i, 7, 41) > -0.12, 0.5, 16, "Succulent drifts on the dry benches");
   count.thorns = paint("thorns", undefined, (i) => dry(i) && (oldBed(i) ? n(i, 12, 5) > 0.15 : oldDist[i] > 6 && n(i, 14, 6) > 0.52), 0.3, 17, "Thorns in the old channel and the dry gullies");
   // dead woods along the old channel: the wood that stood by its water
   const before = new Set(s.built.entities.map((e) => e.id));
   count.dead = paint("trees", "Birch", (i) => dry(i) && oldDist[i] >= 1 && oldDist[i] <= 6 && n(i, 10, 7) > -0.1, 0.3, 18, "The old channel's dead birches");
   count.dead += paint("trees", "Oak", (i) => dry(i) && oldDist[i] >= 3 && oldDist[i] <= 9 && n(i, 13, 8) > 0.25, 0.25, 19, "The old channel's dead oaks");
-  const dead = s.built.entities.filter((e) => !before.has(e.id) && (e.template === "Birch" || e.template === "Oak"));
+  // the dead wood: one stand of it, by the old aqueduct on the dry benches
+  count.dead += paint("trees", "Pine", (i) => dry(i) && Math.hypot((i % W) - 157, Math.floor(i / W) - 44) < 10 && oldDist[i] > 1, 0.6, 23, "The dead wood by the old aqueduct");
+  const dead = s.built.entities.filter((e) => !before.has(e.id) && (e.template === "Birch" || e.template === "Oak" || e.template === "Pine"));
   if (dead.length) {
     const r = s.applyAll(dead.map((e) => ({ op: "setEntityProps", params: { id: e.id, components: { LivingNaturalResource: { IsDead: true } } } })) as never, "user", "The old channel's wood is dead");
     if (!r.ok) throw new Error(r.errors[0]);
@@ -522,6 +524,76 @@ function ramp(s: MapSession, land: Land, x0: number, y0: number, lo: number, hi:
   return false;
 }
 
+/** A ramp of rock out from a cliff's foot: from the top tile P, `n` tiles along (ux, uy), a level a tile, a Slope on each. */
+function buildRamp(s: MapSession, px: number, py: number, ux: number, uy: number, n: number, label: string): void {
+  const hi = s.built.heights[py * W + px];
+  const ops: unknown[] = [];
+  for (let k = 1; k < n; k++) ops.push({ op: "sculpt", params: { mode: "flatten", cells: [[py + uy * k, px + ux * k, px + ux * k]], level: hi - k, exact: true }, label });
+  if (ops.length) applyOps(s, ops);
+  for (let k = 1; k <= n; k++) applyOps(s, [{ op: "placeEntity", params: { id: newId(), template: "Slope", x: px + ux * k, y: py + uy * k, orientation: orientationForHigh(-ux, -uy) }, label }]);
+}
+
+/** TOOL: the route (change 6): the walk from the start to each place by the core's own walking graph (the ground and
+ *  the natural slopes). Where a place can't be walked to, ways are made toward it one at a time: a ramp of one or two
+ *  slopes wherever ground the walk reaches stands a step from ground it doesn't, nearest the place first; then the
+ *  walk is read again. Water is never crossed: what lies over the river stays for a bridge. */
+function walkRoute(s: MapSession, land: Land, places: { name: string; tiles: number[]; far?: boolean }[]): void {
+  const dirs = [[0, -1], [-1, 0], [1, 0], [0, 1]] as const;
+  const reachNow = () => {
+    const st = startOf(s);
+    return reachWalk(s.built.heights, W, H, s.built.entities as never, { x: st.x, y: st.y });
+  };
+  const around = (tiles: number[]) => [...new Set(tiles.flatMap((i) => [i, i - 1, i + 1, i - W, i + W, i - 2, i + 2, i - 2 * W, i + 2 * W]))].filter((i) => i >= 0 && i < N);
+  let made = 0;
+  for (const place of places) {
+    if (!place.tiles.length) continue;
+    const near = around(place.tiles);
+    const cx = place.tiles.reduce((a, i) => a + (i % W), 0) / place.tiles.length;
+    const cy = place.tiles.reduce((a, i) => a + Math.floor(i / W), 0) / place.tiles.length;
+    const far = (i: number) => Math.hypot((i % W) - cx, Math.floor(i / W) - cy);
+    let found = Infinity;
+    for (let round = 0; round < (place.far ? 1 : 40); round++) {
+      const b = s.built;
+      const reach = reachNow();
+      found = Infinity;
+      for (const i of near) if (reach[i] < found) found = reach[i];
+      if (Number.isFinite(found) || place.far) break;
+      const taken = new Set<number>();
+      for (const e of b.entities) taken.add(e.y * W + e.x);
+      const open = (i: number) => !land.lake[i] && !land.channel[i] && !land.pool[i] && !(b.water[i] > 0) && !taken.has(i);
+      // how near the walk already comes
+      let reached = Infinity;
+      for (let i = 0; i < N; i++) if (Number.isFinite(reach[i]) && far(i) < reached) reached = far(i);
+      let best: { px: number; py: number; ux: number; uy: number; n: number; score: number } | null = null;
+      for (let y = 9; y < H - 9; y++)
+        for (let x = 9; x < W - 9; x++) {
+          const P = y * W + x;
+          if (!open(P)) continue;
+          for (const [ux, uy] of dirs)
+            for (let n = 1; n <= 2; n++) {
+              const end = (y + uy * (n + 1)) * W + x + ux * (n + 1);
+              const pIn = Number.isFinite(reach[P]);
+              const eIn = Number.isFinite(reach[end]);
+              if (pIn === eIn) continue;
+              let ok = true;
+              for (let k = 1; k <= n + 1 && ok; k++) {
+                const j = (y + uy * k) * W + x + ux * k;
+                if (b.heights[j] !== b.heights[P] - n || !open(j)) ok = false;
+              }
+              if (!ok) continue;
+              const score = far(pIn ? end : P) + (n - 1) * 2;
+              if (score < reached + 4 && (!best || score < best.score)) best = { px: x, py: y, ux, uy, n, score };
+            }
+        }
+      if (!best) break;
+      buildRamp(s, best.px, best.py, best.ux, best.uy, best.n, `The way to ${place.name}`);
+      made += best.n;
+    }
+    log(Number.isFinite(found) ? `  walk to ${place.name}: ${Math.round(found)} tiles` : `  walk to ${place.name}: no walk from the start${place.far ? " (over the river: a bridge)" : ""}`);
+  }
+  log(`  ways made for the route: ${made} natural slopes`);
+}
+
 /** The set pieces: each a place with a purpose on the route up the valley. */
 function placeObjects(s: MapSession, land: Land): void {
   const put = (template: string, x0: number, y0: number, label: string, extra: Record<string, unknown> = {}, size: [number, number] | null = null) => {
@@ -568,6 +640,20 @@ function placeObjects(s: MapSession, land: Land): void {
   } catch (e) {
     log(`    (a way up: ${(e as Error).message})`);
   }
+  // the old aqueduct: piers across the old channel on the dry benches, tallest in the middle (why anyone was here)
+  {
+    const hs = [2, 3, 5, 7, 8, 7, 5, 3, 2];
+    hs.forEach((hgt, q) => {
+      const t = (q - 4) * 1.5;
+      ruin(hgt, Math.round(152 + 0.64 * t), Math.round(47.5 - 0.77 * t), "The old aqueduct's piers", "ABCDE"[q % 5]);
+    });
+    put("SmallRelic", 160, 40, "The relic by the old aqueduct", {}, [2, 2]);
+  }
+  // the Gate's towers: two piers each side of the gorge's slot
+  ruin(8, 36, 16, "The Gate's west tower", "A");
+  ruin(6, 36, 15, "The Gate's west tower", "B");
+  ruin(8, 44, 16, "The Gate's east tower", "C");
+  ruin(6, 44, 15, "The Gate's east tower", "D");
   // relics on the way
   put("MediumRelic", 49, 45, "The relic on Low Lake's island", {}, [3, 3]);
   put("SmallRelic", 46, 15, "The relic at the Gate", {}, [2, 2]);
@@ -680,6 +766,36 @@ function main(): void {
   if (!has("bare")) {
     placeObjects(s, land);
     lap("objects");
+    {
+      const tilesOf = (pick: (i: number) => boolean, every = 7) => {
+        const out: number[] = [];
+        for (let i = 0, c = 0; i < N; i++) if (pick(i) && c++ % every === 0) out.push(i);
+        return out;
+      };
+      const ent = (template: string) => s.built.entities.filter((e) => e.template === template).map((e) => e.y * W + e.x);
+      // up the west side first (the start's bank): the tarns' valleys climb to the springs without crossing water
+      walkRoute(s, land, [
+        { name: "Low Lake", tiles: tilesOf((i) => land.lake[i] === 1 && s.built.heights[i] === 2) },
+        { name: "Weir Lake", tiles: tilesOf((i) => land.lake[i] === 2 && s.built.heights[i] === 6) },
+        { name: "Hill Tarn", tiles: tilesOf((i) => land.lake[i] === 7, 3) },
+        { name: "Birch Tarn", tiles: tilesOf((i) => land.lake[i] === 6, 3) },
+        { name: "High Tarn", tiles: tilesOf((i) => land.lake[i] === 5, 3) },
+        { name: "the springs' pool", tiles: tilesOf((i) => land.pool[i] === 1, 5) },
+        { name: "the gate on the West Leat", tiles: land.gates[2] },
+        { name: "the gate on the hanging valley", tiles: land.gates[1] },
+        { name: "the gate on the neck", tiles: land.gates[0] },
+        { name: "the old channel's first blockage", tiles: land.plugs[0] },
+        { name: "the ancient drill", tiles: ent("AncientAquiferDrill") },
+        { name: "Crown Lake", tiles: tilesOf((i) => land.lake[i] === 4 && s.built.heights[i] === 14) },
+        { name: "Steam Lake", tiles: tilesOf((i) => land.lake[i] === 3 && s.built.heights[i] === 10) },
+        { name: "the underground ruins", tiles: ent("UndergroundRuins") },
+        { name: "the geothermal field", tiles: ent("GeothermalField"), far: true },
+        { name: "the old channel's second blockage", tiles: land.plugs[1], far: true },
+        { name: "the old channel's third blockage", tiles: land.plugs[2], far: true },
+        { name: "the old aqueduct", tiles: ent("SmallRelic"), far: true },
+      ]);
+      lap("the route");
+    }
     plant(s, land);
     const pc = plantCount(s);
     log(`  plants: ${pc.trees} living trees (${Math.round(pc.per10k.trees)} per 10,000 tiles), ${pc.dead} dead, ${pc.berries} berry bushes (${Math.round(pc.per10k.berries)} per 10,000), ${pc.succulents} succulents`);
