@@ -1,5 +1,5 @@
 // Islands' sea reads as sea (#446, D498): the share of the sea at 5% badwater or more, as it settled and as the game
-// plays it on. Shared by islandsCleanSea.test.ts (96², 128²) and islandsCleanSea.heavy.test.ts (256²).
+// plays it on. Shared by islandsCleanSea.test.ts (96²) and islandsCleanSea.heavy.test.ts (128², 256²).
 //
 // Before D498 the sea was the main water D476 steered the first badwater ditch into, and badwater reaching
 // standing water mixes through the whole of it with nothing to carry it off: Islands 128² seed 7's sea stood at

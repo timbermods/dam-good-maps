@@ -23,7 +23,7 @@ const HEAVY = [
   "tests/contract/collabUndoSoak.heavy.test.ts", // collaborative editing: a few hundred mixed edits with undo and redo asked at random
   "mcp/tests/long.heavy.test.ts", // a 256² map through the MCP server, past the client's time limit (D501)
   "tests/unit/waterSkirts.heavy.test.ts", // no window between two waters on generated maps at 256² (D154)
-  "tests/contract/islandsCleanSea.heavy.test.ts", // Islands' sea clean at 256², settled and played on (D498, #446)
+  "tests/contract/islandsCleanSea.heavy.test.ts", // Islands' sea clean at 128² and 256², settled and played on (D498, #446)
 ];
 
 export default defineConfig({
