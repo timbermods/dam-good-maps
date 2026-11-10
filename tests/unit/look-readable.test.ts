@@ -280,10 +280,9 @@ describe("objects from afar", () => {
 
   it("a dead tree is bare weathered wood, as the game's: no green, lighter all over than the living tree's crown (D135 as amended 2026-10-29)", () => {
     // (the game's colours straight since 2026-11-09, D135 as amended: lighter than every colour of the living crown,
-    // rather than than 0.28, which held the old colours at our lightness. Since the crowns are lighter higher up as the
-    // game's, D135 as amended 2026-11-09, its tip a fifth over its mean, the dead wood's colour is lighter than every
-    // colour of the crown and each of its shaded parts lighter than the crown's mean; D148: until then each part was
-    // lighter than every colour of the crown)
+    // rather than than 0.28, which held the old colours at our lightness. The crowns are lighter higher up as the
+    // game's, D135 as amended 2026-11-09, its tip a fifth over its mean, and the dead wood's colour and every one of its
+    // shaded parts stay lighter than every colour of the crown, its tip's too, D135's own words)
     const living = meshes.get("Pine")!.geometry.getAttribute("pcolor")!.array;
     let crown = 0;
     for (let k = 0; k < living.length; k += 3) if (living[k + 1] > living[k] && living[k + 1] > living[k + 2]) crown = Math.max(crown, lum([living[k], living[k + 1], living[k + 2]]));
@@ -291,7 +290,7 @@ describe("objects from afar", () => {
     expect(lum(DEAD_TREE)).toBeGreaterThan(crown);
     const col = meshes.get("Pine.dead")!.geometry.getAttribute("pcolor")!.array;
     for (let k = 0; k < col.length; k += 3) {
-      expect(lum([col[k], col[k + 1], col[k + 2]])).toBeGreaterThan(lum(LIVING_TREE) + 0.03);
+      expect(lum([col[k], col[k + 1], col[k + 2]])).toBeGreaterThan(crown);
       expect(col[k + 1]).toBeLessThanOrEqual(col[k]);
     }
     let dark = 0;

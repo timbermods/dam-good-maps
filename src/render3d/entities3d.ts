@@ -372,11 +372,13 @@ const MODELS: Record<string, () => Model> = {
   "Succulent.dead": () => succulent(true),
   // the game's grown blueberry bush: a low mound 0.4 tall, its berries on top; 0.94 across, as much as the game's leaves
   // cover (its cards cut by their texture's alpha: 0.93 across from above, its whole model 1.1; until 2026-11-09 ours was
-  // 1.1 across and covered 44 % more than the game's, `tools/game-crowns.py`)
+  // 1.1 across and covered 44 % more than the game's, `tools/game-crowns.py`). Its berries cover what the camera sees of
+  // the game's yield, a seventh of the bush, one of them on its top as the game's lie all over it (until 2026-11-09
+  // they were 0.07 across, round its sides, and the bush read a tenth less blue than the game's)
   BlueberryBush: () => {
     const m = new Model().add(ico(0.47), BUSH_LEAVES, { y: 0.13, sy: 0.57 });
-    const flowers: [number, number, number][] = [[0.24, 0.3, 0.17], [-0.13, 0.32, 0.22], [0.07, 0.32, -0.24], [0.34, 0.2, -0.17], [-0.3, 0.24, -0.1]];
-    for (const [x, y, z] of flowers) m.add(new OctahedronGeometry(0.07, 0), BERRY, { x, y, z });
+    const flowers: [number, number, number][] = [[0.24, 0.3, 0.17], [-0.13, 0.32, 0.22], [0, 0.33, -0.04], [0.34, 0.2, -0.17], [-0.3, 0.24, -0.1]];
+    for (const [x, y, z] of flowers) m.add(new OctahedronGeometry(0.095, 0), BERRY, { x, y, z });
     return m;
   },
   // the game's dead bush keeps its leaves, gone brown, and loses its berries (dying.ts `DEAD_FORM`)

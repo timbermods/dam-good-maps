@@ -169,9 +169,10 @@ async function capture(label: string): Promise<void> {
   process.env.DGM_BASE = "/";
   if (!process.argv.includes("--built")) {
     console.log(`building the ${label} site…`);
-    await build({ configFile: "vite.config.ts", base: "/", logLevel: "warn", build: { outDir: dist, emptyOutDir: true } });
+    await build({ configFile: "vite.config.ts", base: "/", cacheDir: `${dist}-vite`, logLevel: "warn", build: { outDir: dist, emptyOutDir: true } });
   }
-  const server = await preview({ configFile: "vite.config.ts", base: "/", build: { outDir: dist }, preview: { port: PORT, strictPort: true }, logLevel: "warn" });
+  // (its own cache: a worktree's node_modules may be another's, joined)
+  const server = await preview({ configFile: "vite.config.ts", base: "/", cacheDir: `${dist}-vite`, build: { outDir: dist }, preview: { port: PORT, strictPort: true }, logLevel: "warn" });
   const browser = await chromium.launch({ channel: "chrome", headless: true, args: ["--enable-gpu", "--use-angle=d3d11", "--ignore-gpu-blocklist"] });
   try {
     const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
@@ -246,7 +247,8 @@ async function game(label: string, shots: string[]): Promise<void> {
   const BATCH = "20261002-1610-batch";
   mkdirSync(OUT, { recursive: true });
   const dist = resolve(`.scratch/object-shadows-dist-${label}`);
-  const server = await preview({ configFile: "vite.config.ts", base: "/", build: { outDir: dist }, preview: { port: PORT, strictPort: true }, logLevel: "warn" });
+  // (its own cache: a worktree's node_modules may be another's, joined)
+  const server = await preview({ configFile: "vite.config.ts", base: "/", cacheDir: `${dist}-vite`, build: { outDir: dist }, preview: { port: PORT, strictPort: true }, logLevel: "warn" });
   const browser = await chromium.launch({ channel: "chrome", headless: true, args: ["--enable-gpu", "--use-angle=d3d11", "--ignore-gpu-blocklist"] });
   try {
     const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });

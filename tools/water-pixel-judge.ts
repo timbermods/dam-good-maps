@@ -341,6 +341,15 @@ const REGISTER_MIN = 0.6;
 /** The kinds registered: the faces. A top is level with its 3 × 3, so a few pixels move it nowhere else, and its
  *  patterns (ours and the game's, which don't line up) leave nothing to correlate. */
 const REGISTERED: readonly LandKind[] = ["cliff", "shade-cliff"];
+/** With `--objects`, every object's sample is registered too, farther: away from the water the fit scores, ours and
+ *  the game's frames lie up to 35 pixels apart (highlands-128-1's bushes 33 pixels, a tile and a half; delta-128-2's,
+ *  fitted 100 %, 13), where a crown is 15–25 pixels across, so an unregistered sample at a bush's middle reads the
+ *  game's grass or a cliff as often as its bush (docs/progress/3d-view.md, "The crowns as the game draws them"). The
+ *  window, ±48 pixels, takes in its neighbours and the land round it, so the shift is the place's, not one crown's
+ *  (with ±16 the crowns' likeness to each other moved samples by whole crowns); searched at half the frame's
+ *  resolution, then refined (`registerObject`). */
+const OBJECT_REGISTER_REACH = 44;
+const OBJECT_REGISTER_WINDOW = 48;
 
 const lumaOf = (px: Uint8Array): Float32Array => {
   const out = new Float32Array(W_PX * H_PX);
@@ -350,11 +359,10 @@ const lumaOf = (px: Uint8Array): Float32Array => {
 
 /** The shift (pixels) that lines ours' window at (x, y) up with the game's, and its correlation; null at the frame's
  *  edge or where ours' window is flat. */
-function registerAt(game: Float32Array, ours: Float32Array, x: number, y: number): { dx: number; dy: number; r: number } | null {
+function registerAt(game: Float32Array, ours: Float32Array, x: number, y: number, reach = REGISTER_REACH, w = REGISTER_WINDOW, ox = 0, oy = 0): { dx: number; dy: number; r: number } | null {
   const cx = Math.round(x);
   const cy = Math.round(y);
-  const w = REGISTER_WINDOW;
-  const m = REGISTER_REACH + w;
+  const m = reach + w + Math.max(Math.abs(ox), Math.abs(oy));
   if (cx < m || cy < m || cx >= W_PX - m || cy >= H_PX - m) return null;
   const n = (2 * w + 1) ** 2;
   let so = 0;
@@ -368,8 +376,8 @@ function registerAt(game: Float32Array, ours: Float32Array, x: number, y: number
   const vo = soo - (so * so) / n;
   if (vo < n * 4) return null;
   let best: { dx: number; dy: number; r: number } | null = null;
-  for (let sy = -REGISTER_REACH; sy <= REGISTER_REACH; sy++)
-    for (let sx = -REGISTER_REACH; sx <= REGISTER_REACH; sx++) {
+  for (let sy = oy - reach; sy <= oy + reach; sy++)
+    for (let sx = ox - reach; sx <= ox + reach; sx++) {
       let sg = 0;
       let sgg = 0;
       let sog = 0;
@@ -386,6 +394,64 @@ function registerAt(game: Float32Array, ours: Float32Array, x: number, y: number
       if (!best || r > best.r) best = { dx: sx, dy: sy, r };
     }
   return best;
+}
+
+/** A luma picture at half its resolution (2 × 2 means). */
+function halfOf(l: Float32Array): Float32Array {
+  const out = new Float32Array((W_PX >> 1) * (H_PX >> 1));
+  for (let y = 0; y < H_PX >> 1; y++)
+    for (let x = 0; x < W_PX >> 1; x++) {
+      const i = 2 * y * W_PX + 2 * x;
+      out[y * (W_PX >> 1) + x] = (l[i] + l[i + 1] + l[i + W_PX] + l[i + W_PX + 1]) / 4;
+    }
+  return out;
+}
+
+/** An object's sample registered (`OBJECT_REGISTER_REACH`, `OBJECT_REGISTER_WINDOW`): the shift found on the half
+ *  pictures, then refined by 2 pixels on the whole ones; its correlation the whole pictures'. */
+function registerObject(game: Float32Array, ours: Float32Array, gameHalf: Float32Array, oursHalf: Float32Array, x: number, y: number): { dx: number; dy: number; r: number } | null {
+  const reach = OBJECT_REGISTER_REACH >> 1;
+  const w = OBJECT_REGISTER_WINDOW >> 1;
+  const cx = Math.round(x / 2);
+  const cy = Math.round(y / 2);
+  const HW = W_PX >> 1;
+  const HH = H_PX >> 1;
+  if (cx < reach + w || cy < reach + w || cx >= HW - reach - w || cy >= HH - reach - w) return null;
+  const n = (2 * w + 1) ** 2;
+  let so = 0;
+  let soo = 0;
+  for (let dy = -w; dy <= w; dy++)
+    for (let dx = -w; dx <= w; dx++) {
+      const v = oursHalf[(cy + dy) * HW + cx + dx];
+      so += v;
+      soo += v * v;
+    }
+  const vo = soo - (so * so) / n;
+  if (vo < n * 4) return null;
+  let best: { dx: number; dy: number; r: number } | null = null;
+  for (let sy = -reach; sy <= reach; sy++)
+    for (let sx = -reach; sx <= reach; sx++) {
+      let sg = 0;
+      let sgg = 0;
+      let sog = 0;
+      for (let dy = -w; dy <= w; dy++) {
+        const gr = (cy + sy + dy) * HW + cx + sx;
+        const or = (cy + dy) * HW + cx;
+        for (let dx = -w; dx <= w; dx++) {
+          const g = gameHalf[gr + dx];
+          sg += g;
+          sgg += g * g;
+          sog += oursHalf[or + dx] * g;
+        }
+      }
+      const vg = sgg - (sg * sg) / n;
+      const r = vg > 0 ? (sog - (so * sg) / n) / Math.sqrt(vo * vg) : 0;
+      if (!best || r > best.r) best = { dx: sx, dy: sy, r };
+    }
+  if (!best) return null;
+  // (refined on the whole pictures, round the coarse shift)
+  const fine = registerAt(game, ours, x, y, 2, OBJECT_REGISTER_WINDOW, 2 * best.dx, 2 * best.dy);
+  return fine;
 }
 
 /** The mean colour of a 5×5 patch at a pixel. */
@@ -1042,8 +1108,8 @@ async function main() {
       let land = landPoints(s, cam).map((q) => ({ q, xy: pr(q.p) })).filter((a) => inFrame(a.xy)) as { q: { p: V3; kind: LandKind; distance: number }; xy: [number, number]; gxy?: [number, number] }[];
       let gameLand = land.map((a) => patch(game, a.xy[0], a.xy[1]));
       const veinLand = land.filter((a) => a.q.kind === "contaminated");
-      const objs = OBJECTS ? (objectPoints(s, cam).map((q) => ({ q, xy: pr(q.p) })).filter((a) => inFrame(a.xy)) as { q: ObjectPoint; xy: [number, number] }[]) : [];
-      const gameObjs = objs.map((a) => patch(game, a.xy[0], a.xy[1], OBJECT_PATCH));
+      let objs = OBJECTS ? (objectPoints(s, cam).map((q) => ({ q, xy: pr(q.p) })).filter((a) => inFrame(a.xy)) as { q: ObjectPoint; xy: [number, number]; gxy?: [number, number] }[]) : [];
+      let gameObjs = objs.map((a) => patch(game, a.xy[0], a.xy[1], OBJECT_PATCH));
       for (const look of LOOKS) {
         const ours: Record<string, V3[]> = {};
         const oursLand: Record<string, V3[]> = {};
@@ -1063,6 +1129,15 @@ async function main() {
             console.log(`  registered: ${faces - (land.length - kept.length)} of ${faces} cliff faces lined up (correlation ${REGISTER_MIN} or more), ${moved} of them moved 2 pixels or more`);
             land = kept.map(({ a, r }) => ({ ...a, gxy: [a.xy[0] + (r?.dx ?? 0), a.xy[1] + (r?.dy ?? 0)] as [number, number] }));
             gameLand = land.map((a) => patch(game, (a.gxy ?? a.xy)[0], (a.gxy ?? a.xy)[1]));
+            if (OBJECTS) {
+              const gh = halfOf(gl);
+              const oh = halfOf(ol);
+              const lined = objs.map((a) => ({ a, r: registerObject(gl, ol, gh, oh, a.xy[0], a.xy[1]) })).filter((x) => x.r && x.r.r >= REGISTER_MIN);
+              const shifts = lined.map((x) => Math.hypot(x.r?.dx ?? 0, x.r?.dy ?? 0)).sort((a, b) => a - b);
+              console.log(`  registered: ${lined.length} of ${objs.length} objects' samples lined up, moved ${shifts.length ? shifts[shifts.length >> 1].toFixed(1) : "-"} pixels (median), ${shifts.filter((d) => d >= 8).length} of them 8 or more`);
+              objs = lined.map(({ a, r }) => ({ ...a, gxy: [a.xy[0] + (r?.dx ?? 0), a.xy[1] + (r?.dy ?? 0)] as [number, number] }));
+              gameObjs = objs.map((a) => patch(game, (a.gxy ?? a.xy)[0], (a.gxy ?? a.xy)[1], OBJECT_PATCH));
+            }
           }
           ours[c.key] = at.map((a) => patch(px, a.xy[0], a.xy[1]));
           oursLand[c.key] = land.map((a) => patch(px, a.xy[0], a.xy[1]));
@@ -1165,7 +1240,7 @@ async function main() {
         const landSamples = SAMPLES ? land.map((a, k) => ({ kind: a.q.kind, p: a.q.p, moisture: s.snap.moisture[Math.floor(-a.q.p[2]) * s.snap.width + Math.floor(a.q.p[0])], distance: a.q.distance, viewDepth: dot(sub(a.q.p, eye), forward), shift: a.gxy ? [a.gxy[0] - a.xy[0], a.gxy[1] - a.xy[1]] : undefined, game: gameLand[k], ours: Object.fromEntries(cases.map((c) => [c.key, oursLand[c.key][k]])) })) : undefined;
         // (`--samples`: the water's samples one by one too, each its point, depth, kind, the game's pixel and each case's)
         const waterSamples = SAMPLES ? at.map((a, k) => ({ kind: a.q.kind, p: a.q.p, depth: a.q.depth, game: gameAt[k], ours: Object.fromEntries(cases.map((c) => [c.key, ours[c.key][k]])) })) : undefined;
-        const objectSamples = SAMPLES && OBJECTS ? objs.map((a, k) => ({ part: a.q.part, p: a.q.p, xy: a.xy, game: gameObjs[k], ours: Object.fromEntries(cases.map((c) => [c.key, oursObjects[c.key][k]])) })) : undefined;
+        const objectSamples = SAMPLES && OBJECTS ? objs.map((a, k) => ({ part: a.q.part, p: a.q.p, xy: a.xy, gxy: a.gxy, game: gameObjs[k], ours: Object.fromEntries(cases.map((c) => [c.key, oursObjects[c.key][k]])) })) : undefined;
         results[`${id}-${look}-${WATER}`] = { camera: cam, fit: score, light: s.light, bands, land: landBands, landSamples, waterSamples, objectSamples };
       }
     }

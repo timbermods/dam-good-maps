@@ -167,9 +167,10 @@ export const registry: Record<Species, SpeciesDefinition> = {
     if (near) for (let i = 0; i < 5; i++) {
       // Dark marks on the light bark, geometry rather than a texture: bands just proud of the trunk, a fifth of its height
       // to 0.94, as the game's bark texture's dark marks cover about a fifth of its trunk (until 2026-11-09 they lay
-      // inside the trunk, unseen, so High's bark read 13 % lighter than the game's; docs/progress/3d-view.md).
-      const y = 0.15 + i * 0.135;
-      m.branch([0, y, 0], [0.003, y + 0.035, 0], 0.07 * (1 - 0.5 * (y + 0.0175) / 0.94) + 0.004, 'marks', 5, 1);
+      // inside the trunk, unseen, so High's bark read 13 % lighter than the game's; docs/progress/3d-view.md). Each band
+      // stands on the trunk's own axis, which leans 0.015 over its 0.94.
+      const y = 0.15 + i * 0.135, lean = 0.015 / 0.94;
+      m.branch([lean * y, y, 0], [lean * (y + 0.035), y + 0.035, 0], 0.07 * (1 - 0.5 * (y + 0.0175) / 0.94) + 0.004, 'marks', 5, 1);
     }
     if (!dead) {
       const n = near ? 7 : 2;
@@ -215,8 +216,10 @@ export const registry: Record<Species, SpeciesDefinition> = {
     if (!near) {
       for (const side of [-1, 1]) m.add(new OctahedronGeometry(1), leaves, side === 1 ? 1 : 0.96, [side * 0.24 * k, 0.15, 0], [0.4 * k, 0.22, 0.46]);
       if (dead) return;
-      for (let i = 0; i < 3; i++) m.add(new OctahedronGeometry(0.085), 'berry', 1.04, [Math.cos(i * 2.4 + v) * 0.26 * k, 0.33, Math.sin(i * 2.4 + v) * 0.26 * k]);
-      m.add(new OctahedronGeometry(0.085), 'berry', 1, [0.46 * k, 0.18, 0.2 * k]);
+      // (one of its berries off its middle, on top: the game's lie all over it, so its middle reads them too)
+      for (let i = 0; i < 2; i++) m.add(new OctahedronGeometry(0.095), 'berry', 1.04, [Math.cos(i * 2.4 + v) * 0.26 * k, 0.33, Math.sin(i * 2.4 + v) * 0.26 * k]);
+      m.add(new OctahedronGeometry(0.095), 'berry', 1.04, [0.1, 0.29, -0.05]);
+      m.add(new OctahedronGeometry(0.095), 'berry', 1, [0.46 * k, 0.18, 0.2 * k]);
       return;
     }
     for (let i = 0; i < 5; i++) {
@@ -224,10 +227,12 @@ export const registry: Record<Species, SpeciesDefinition> = {
       m.crown([Math.cos(a) * 0.26 * k, 0.14 + (i % 2) * 0.04, Math.sin(a) * 0.26 * k], [0.36 * k, 0.2, 0.34 * k], leaves, 0.96 + (i % 3) * 0.06, a);
     }
     if (dead) return;
-    // Big blue fruit sits outside the leaves: a top cluster and a ring readable from any side.
-    for (let i = 0; i < 3; i++) { const a = i * 2.4 + v; m.add(new OctahedronGeometry(0.08), 'berry', 1.04, [Math.cos(a) * 0.26 * k, 0.3, Math.sin(a) * 0.26 * k]); }
+    // Big blue fruit sits outside the leaves: a top cluster and a ring readable from any side, as much of what the camera
+    // sees as the game's yield covers, a seventh of the bush (until 2026-11-09 a tenth smaller, its mean a tenth less
+    // blue than the game's; docs/progress/3d-view.md, "The crowns as the game draws them").
+    for (let i = 0; i < 3; i++) { const a = i * 2.4 + v; m.add(new OctahedronGeometry(0.088), 'berry', 1.04, [Math.cos(a) * 0.26 * k, 0.3, Math.sin(a) * 0.26 * k]); }
     m.add(new OctahedronGeometry(0.072), 'berry', 1.10, [0.02, 0.33, 0.02]);
-    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + v * 0.7; m.add(new OctahedronGeometry(0.078), 'berry', 1, [Math.cos(a) * 0.5 * k, 0.2, Math.sin(a) * 0.5 * k]); }
+    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + v * 0.7; m.add(new OctahedronGeometry(0.086), 'berry', 1, [Math.cos(a) * 0.5 * k, 0.2, Math.sin(a) * 0.5 * k]); }
   } },
 };
 

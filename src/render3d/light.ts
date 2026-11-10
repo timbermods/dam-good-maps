@@ -112,18 +112,21 @@ function casterLevel(casters: Float32Array, i: number): number | null {
  *  `objectCasters` gives each kind (plantSize.ts): a pine's whorls of needles over a bare trunk (a whorl, a cone, is
  *  two discs), an oak's and a birch's round crowns over theirs, a bush's low mound. The radii are fitted so each
  *  plant's shadow on open ground covers what its model's does in High's depth map (tools/object-shadows.ts;
- *  docs/progress/3d-view.md, "Objects' shadows"), which the game's frames bear out. Indexed by the kind
- *  `objectCasters` notes. */
+ *  docs/progress/3d-view.md, "Objects' shadows"), which the game's frames bear out, and fitted again when High's models
+ *  change (2026-11-09: the pine's and the bush's; docs/progress/3d-view.md, "The crowns as the game draws them").
+ *  Indexed by the kind `objectCasters` notes. */
 const PLANT_SHAPES: readonly (readonly (readonly [number, number, number])[])[] = [
   [],
-  // Pine (2.7): a trunk, three whorls
-  [[0, 1.66, 0.12], [1.1, 1.46, 0.67], [1.46, 1.82, 0.32], [1.66, 1.98, 0.62], [1.98, 2.3, 0.29], [2.16, 2.43, 0.44], [2.43, 2.7, 0.2]],
+  // Pine (2.7): a trunk, three whorls (their radii 0.975 of those before 2026-11-09, when High's whorls drew in to 0.9
+  // of theirs and its shadow on open ground to 1.35 tiles², from 1.52: these cast 1.25, the old 1.49)
+  [[0, 1.66, 0.12], [1.1, 1.46, 0.653], [1.46, 1.82, 0.312], [1.66, 1.98, 0.605], [1.98, 2.3, 0.283], [2.16, 2.43, 0.429], [2.43, 2.7, 0.195]],
   // Oak (2.26): a trunk, one broad crown from 1.16
   [[0, 1.3, 0.16], [1.16, 1.4, 0.72], [1.4, 1.85, 0.86], [1.85, 2.08, 0.66], [2.08, 2.26, 0.36]],
   // Birch (1.63): a slim trunk, a round crown from 0.79
   [[0, 0.8, 0.1], [0.79, 0.96, 0.4], [0.96, 1.46, 0.56], [1.46, 1.63, 0.34]],
-  // BlueberryBush (0.4): a low mound
-  [[0, 0.22, 0.52], [0.22, 0.4, 0.36]],
+  // BlueberryBush (0.4): a low mound (0.78 of its reach before 2026-11-09, as High's mound drew in; its shadow falls
+  // within its own footprint from above, in both looks)
+  [[0, 0.22, 0.41], [0.22, 0.4, 0.28]],
   // Succulent (0.5)
   [[0, 0.5, 0.28]],
 ];
