@@ -2815,10 +2815,11 @@ impl Crater {
     fn dip(&self, theta: f64) -> f64 {
         smooth((cos(theta - self.notch) - self.notch_cos) / (1.0 - self.notch_cos))
     }
-    /// The rim's height above the ground round it at a bearing: uneven all round, and low on one side.
+    /// The rim's height above the ground round it at a bearing: uneven all round, and gone on one
+    /// side (a gap, where a lake in the bowl spills at the level of the ground round the crater).
     fn rim_at(&self, theta: f64) -> f64 {
         let high = 0.45 + 0.9 * ring(self.seed, 1200.0, theta, 5);
-        self.rim * high * (1.0 - 0.85 * self.dip(theta))
+        self.rim * high * (1.0 - self.dip(theta))
     }
     /// The cavity's surface at a point, in levels above the crater's ground: the lowest of its
     /// hollows, a floor with low hummocks, and the blocks slumped on it.
@@ -2890,7 +2891,7 @@ impl Crater {
             * smooth((reach - r) / 0.4)
             * thrown
             * (0.7 + 0.6 * lumps(self.seed, 1980, x, y, max(10.0, self.radius * 0.6)))
-            * (1.0 - 0.8 * dip);
+            * (1.0 - dip);
         max(rim, skirt)
     }
     /// What the crater does at a tile.
@@ -3066,10 +3067,10 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
     // the forces (levels.rs): quantized once, its steps of uneven width, no band narrower than two
     // tiles, no one-tile pillar, pit or lone block.
     let grain = max(6.0, a.radius * 0.3);
-    let shape = |i: usize, p: &Plate, lift: f64| {
+    let shape = |i: usize, p: &Plate| {
         let (xf, yf) = ((i % before.w) as f64, (i / before.w) as f64);
         let h = before.heights[i] as f64;
-        h + (a.ground(xf, yf) - h) * p.plane + p.add + lift * p.lift
+        h + (a.ground(xf, yf) - h) * p.plane + p.add
     };
     let mut surface = vec![f64::NAN; m.w * m.h];
     // (the tiles of the central uplift, which goes on last)
@@ -3089,7 +3090,7 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
             if p.add == 0.0 && p.plane == 0.0 && ray == 0.0 && secondary == 0.0 {
                 continue;
             }
-            let mut target = shape(i, &p, 0.0);
+            let mut target = shape(i, &p);
             if ray > 0.0 {
                 target = max(h, target) + ray;
             }
@@ -3117,7 +3118,10 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
         let h = before.heights[top.0] as f64;
         let clear = lake + 2.4;
         let aim = if k < 1.0 && clear > h { h + (clear - h) / k } else { clear };
-        let mut height = max(a.depth * 0.6, aim - shape(top.0, &top.1, 0.0)) / top.1.lift;
+        // (the uplift rises from the floor under its top, wherever it stands: on a floor that leans, or
+        // on a bench, no lump of it stands higher than its share)
+        let from = shape(top.0, &top.1);
+        let mut height = max(a.depth * 0.6, aim - from) / top.1.lift;
         // (only the uplift's own part of the map is worked out again, with a margin round it)
         let (mut x0, mut x1, mut y0, mut y1) = (m.w, 0, m.h, 0);
         for (i, _) in &lifted {
@@ -3143,7 +3147,7 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
         }
         for _ in 0..4 {
             for (i, p) in &lifted {
-                own[(i / m.w - y0) * pw + i % m.w - x0] = tempered(before.heights[*i] as f64, shape(*i, p, height), k);
+                own[(i / m.w - y0) * pw + i % m.w - x0] = tempered(before.heights[*i] as f64, max(shape(*i, p), from + height * p.lift), k);
             }
             let land = levels::part(&own, &old, pw, ph, (x0, y0), ceiling, a.seed, grain);
             for k in 0..pw * ph {
