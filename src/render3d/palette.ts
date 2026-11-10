@@ -404,6 +404,20 @@ export const BLOCKAGE = {
   shardBack: [[0.207, 0.178, 0.135], [0.294, 0.251, 0.19], [0.284, 0.245, 0.184], [0.209, 0.18, 0.137], [0.313, 0.265, 0.192], [0.288, 0.246, 0.182]] as readonly Rgb[],
 } as const;
 
+/** The badtide drain as the game colours it (BadtideDrain.Model, D178, D496): a box of rusted plate, its frame and
+ *  pipes rust-orange with grey corners, its panels dark, a black funnel in its mouth under a rusted hood. Its material
+ *  (EnvironmentURP on the `BeaverCarryingModels` atlas) is metallic (0.53; smoothness 0.3), folded into the albedo our
+ *  objects' light needs to show the game's brightness as the large relic's is (`LARGE_RELIC`): from the game's frame
+ *  and pipes 0.427/0.254/0.158, corners 0.286/0.233/0.188, panels 0.173/0.145/0.117, funnel 0.099/0.083/0.071 and hood
+ *  0.329/0.243/0.189 (texture × vertex colour, area-weighted, `tools/game-model-albedo.py`). */
+export const BADTIDE_DRAIN = {
+  rust: [0.233, 0.143, 0.09] as Rgb,
+  corner: [0.167, 0.143, 0.119] as Rgb,
+  panel: [0.1, 0.089, 0.074] as Rgb,
+  mouth: [0.056, 0.046, 0.039] as Rgb,
+  hood: [0.166, 0.102, 0.065] as Rgb,
+} as const;
+
 /** The natural dam as the game colours it (NaturalDam.Model, D178, D496): its albedo (texture × vertex colour,
  *  area-weighted, `tools/game-model-albedo.py`), its material the blockage's, not metallic, so straight. Its heap's rock
  *  in three shades, the thirds of its faces by lightness (the heap's mean 0.215/0.185/0.149), its logs brown, its flat

@@ -227,49 +227,47 @@ export function buildLandmarks(group: Group, e: EntityView, material: ShaderMate
     if (old.name === "Slope.mark" || old.name === "start.entrance") continue;
     const first = e.templates[e.template[objects[0]]];
     if (!landmarkKind(first)) continue;
-    const names = old.name === "block.rubble" ? new Set(Array.from(objects, (k) => e.templates[e.template[k]])) : new Set([first]);
-    for (const name of names) {
-      const slots = Array.from(objects, (_, i) => i).filter((i) => old.name !== "block.rubble" || e.templates[e.template[objects[i]]] === name);
-      const shared = geometryFor(name, old.name, old.geometry);
-      const g = new BufferGeometry();
-      for (const [k, a] of Object.entries(shared.attributes)) g.setAttribute(k, a);
-      g.boundingSphere = shared.boundingSphere;
-      const fresh = new InstancedMesh(g, name === "Slope" ? slopes : material, slots.length);
-      const grow = old.geometry.getAttribute("grow");
-      const tint = old.instanceColor;
-      const grows = new Float32Array(slots.length * 3);
-      const colours = new Float32Array(slots.length * 3);
-      const follows = old.userData.follows as Int32Array | undefined;
-      const ty0 = old.userData.ty0 as Float32Array | undefined;
-      // (the game's heaps carry their own colours)
-      const tinted = !!tint && name !== "NaturalDam" && name !== "Blockage";
-      if (slots.length === objects.length && grow) {
-        // (every instance of today's batch, in order: its arrays as they are)
-        fresh.instanceMatrix.array.set(old.instanceMatrix.array.subarray(0, slots.length * 16));
-        grows.set(grow.array.subarray(0, slots.length * 3) as Float32Array);
-        if (tinted) colours.set(tint.array.subarray(0, slots.length * 3) as Float32Array);
-        else colours.fill(1);
-      } else
-        slots.forEach((i, j) => {
-          old.getMatrixAt(i, m);
-          fresh.setMatrixAt(j, m);
-          if (grow) grows.set([grow.getX(i), grow.getY(i), grow.getZ(i)], j * 3);
-          else grows.set([0, 0, 1], j * 3);
-          if (tinted) colours.set([tint.getX(i), tint.getY(i), tint.getZ(i)], j * 3);
-          else colours.set([1, 1, 1], j * 3);
-        });
-      g.setAttribute("grow", new InstancedBufferAttribute(grows, 3));
-      fresh.instanceColor = new InstancedBufferAttribute(colours, 3);
-      fresh.instanceMatrix.needsUpdate = true;
-      fresh.frustumCulled = false;
-      fresh.name = `high.${name}`;
-      fresh.userData.objects = Int32Array.from(slots, (i) => objects[i]);
-      if (follows && ty0) {
-        fresh.userData.follows = Int32Array.from(slots, (i) => follows[i]);
-        fresh.userData.ty0 = Float32Array.from(slots, (i) => ty0[i]);
-      }
-      out.push({ old, fresh, slots });
+    const name = first;
+    const slots = Array.from(objects, (_, i) => i);
+    const shared = geometryFor(name, old.name, old.geometry);
+    const g = new BufferGeometry();
+    for (const [k, a] of Object.entries(shared.attributes)) g.setAttribute(k, a);
+    g.boundingSphere = shared.boundingSphere;
+    const fresh = new InstancedMesh(g, name === "Slope" ? slopes : material, slots.length);
+    const grow = old.geometry.getAttribute("grow");
+    const tint = old.instanceColor;
+    const grows = new Float32Array(slots.length * 3);
+    const colours = new Float32Array(slots.length * 3);
+    const follows = old.userData.follows as Int32Array | undefined;
+    const ty0 = old.userData.ty0 as Float32Array | undefined;
+    // (the game's heaps carry their own colours)
+    const tinted = !!tint && name !== "NaturalDam" && name !== "Blockage";
+    if (slots.length === objects.length && grow) {
+      // (every instance of today's batch, in order: its arrays as they are)
+      fresh.instanceMatrix.array.set(old.instanceMatrix.array.subarray(0, slots.length * 16));
+      grows.set(grow.array.subarray(0, slots.length * 3) as Float32Array);
+      if (tinted) colours.set(tint.array.subarray(0, slots.length * 3) as Float32Array);
+      else colours.fill(1);
+    } else
+      slots.forEach((i, j) => {
+        old.getMatrixAt(i, m);
+        fresh.setMatrixAt(j, m);
+        if (grow) grows.set([grow.getX(i), grow.getY(i), grow.getZ(i)], j * 3);
+        else grows.set([0, 0, 1], j * 3);
+        if (tinted) colours.set([tint.getX(i), tint.getY(i), tint.getZ(i)], j * 3);
+        else colours.set([1, 1, 1], j * 3);
+      });
+    g.setAttribute("grow", new InstancedBufferAttribute(grows, 3));
+    fresh.instanceColor = new InstancedBufferAttribute(colours, 3);
+    fresh.instanceMatrix.needsUpdate = true;
+    fresh.frustumCulled = false;
+    fresh.name = `high.${name}`;
+    fresh.userData.objects = Int32Array.from(slots, (i) => objects[i]);
+    if (follows && ty0) {
+      fresh.userData.follows = Int32Array.from(slots, (i) => follows[i]);
+      fresh.userData.ty0 = Float32Array.from(slots, (i) => ty0[i]);
     }
+    out.push({ old, fresh, slots });
   }
   // (kept for a batch that is no longer drawn: put away)
   disposeLandmarks([...keep.values()].flat());

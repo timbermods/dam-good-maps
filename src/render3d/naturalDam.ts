@@ -1,7 +1,7 @@
 // The natural dam (D178, D496): our own model of the game's (`NaturalDam.Model`, 1 × 1, 179 triangles, the one model for
-// every natural dam; the map stores its Coordinates alone). It was read from the game's model for its measures and
-// colours only (numbers; no mesh or texture of the game's is used), in its local frame (x east, y up, z the map's y; its
-// tile 0…1):
+// every natural dam; the map stores its Coordinates and the generator a random orientation and flip, which we draw
+// turned and never flipped, as the blockage). It was read from the game's model for its measures and colours only
+// (numbers; no mesh or texture of the game's is used), in its local frame (x east, y up, z the map's y; its tile 0…1):
 // - a low heap of faceted brown rock, 0.62 high with a flat top, overhanging its tile by up to 0.18 (x −0.17…1.2,
 //   z −0.14…1.13). It is drawn as rings at four heights, each at the heap's outline along 12 headings, closed by a flat
 //   top, so the two cover the same outline from 17 cameras round it (8 headings at 30° and 60° down, and from above);
