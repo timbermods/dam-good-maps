@@ -166,6 +166,44 @@ Every map's result has `lights`: every game hour and at each moment, read only, 
 by direction), the shader globals URP sets from it and the sun (`mod/src/LightReader.cs`). The renderer's `GAME_LIGHT`
 takes its ambient probe from them (docs/progress/3d-view.md, "The game's ambient probe, captured").
 
+## In-game captures (DGM Probe 0.3.4)
+
+The capture kit shows a map as players get it in the game, beside our renderer from the same camera:
+
+```sh
+npm --prefix investigation/probe run batch -- <map.timber | project.damgoodmaps> --captures --keep-mods [--out <folder>] [--angles "id@x,y[,heading[,pitch[,distance]]];…"] [--no-sheet]
+# then, as printed: the same command with --run-id <id> --confirmed-launch <code> --reference <settings backup .reg>
+```
+
+- **The map.** A `.timber` is played as it is. A project (`.damgoodmaps`) is exported first as the app exports it
+  (`tools/export-project.ts`, the core's `MapSession.exportTimber`), into the captures folder. Several maps may be named:
+  each gets a folder of its own under `--out`.
+- **The weather.** 3 temperate days, then Normal's first drought as long as the game makes it (3 days), 3 temperate days
+  and Normal's first badtide as long as the game makes it (1 day; the game brings none before cycle 5, so it is
+  brought forward), then calm: about 9.5 game days, about 7 real minutes a 128² map.
+- **The moments.** Day 1 as the game opens the map (hour 4), and each hazard's last day at hour 13, the last hour of
+  full daylight (the day turns to sunset from 13), so every capture has the day's light.
+- **The captures**, 1600 × 900 (16:9), at each moment: `first`, the game's first camera exactly as it opens the map;
+  `widest`, the farthest a player's zoom goes (zoom 6, 154 tiles) centred on the map at the first camera's heading and
+  60° pitch; `whole`, the same turned and pitched camera pulled back until the whole map is in frame (often beyond a
+  player's reach); and three angles: the largest water, the tallest fall (else the tallest cliff) seen from its foot,
+  and the start lower than the first camera. `--angles` replaces the three: `id@x,y` with an optional heading (the
+  game's horizontal angle, 0 looks north, 90 east), pitch (degrees down) and distance (tiles).
+- **Each shot records its camera** (0.3.4, `ShotCamera` in `mod/src/Results.cs`): its place, look and up in the game's
+  world, its field of view, aspect and clip planes, and the game's own camera state (target, zoom and both angles).
+- **The output**, in `ingame/` beside the map by default (`--out` changes it): `day1-<pose>.jpg`,
+  `drought-<pose>.jpg`, `badtide-<pose>.jpg`, the `.timber` played and `captures.json` (each capture's moment, hour,
+  pose, camera and whole-map record), then the contact sheet: `ours/<moment>-<pose>-<look>.jpg`, `sheet.html` and
+  `sheet.jpg`. `tools/capture-ingame.ts` makes the sheet (`npx tsx tools/capture-ingame.ts <folder>` makes it again
+  without the game): it opens the played `.timber` in the editor through its file input, poses our view from each
+  recorded camera (the game's z turned, its field of view taken), and draws it in Standard and High. On day 1 ours is
+  the map as the editor opens it; on a hazard's day it is the game's water and soil at that moment (its whole-map
+  record) with the hazard held and the plants the game had dead drawn withered, so a difference is the drawing's.
+- **Local only.** The captures are game screenshots: they never go into git or onto GitHub. The default folder sits
+  beside the map, never inside the repository unless the map is; keep maps you capture outside it.
+- The run's own records stay in `C:\dgm-probe\results\<run>\` and its shots in `C:\dgm-probe\shots\<run>\`, as every
+  run's do; the generic checks (`load`, `objects`, `water`, `terrain`) are judged as for any map.
+
 ## What the game is compared with
 
 - The model (`runner/model.ts`: the cycle model of `investigation/cycles`) starts from what the game loads:
@@ -219,7 +257,8 @@ The runner removes it after every run. If a run was cut short:
 - `mod/`: the mod (C#, built against the local game install, never published).
 - `tools/probe-maps/`: the writers of the groups made outside the repository (`group.ts`, `assemble.ts`, `tall.ts`,
   `sizes.ts`).
-- `runner/`: the runner (TypeScript): `batch.ts` (the command), `catalog.ts` (the games and their checks), `writers.ts`,
+- `runner/`: the runner (TypeScript): `batch.ts` (the command), `catalog.ts` (the games and their checks), `captures.ts` (the
+  in-game capture kit), `writers.ts`,
   `jobs.ts`, `companion.ts` (the companion mode), `launch.ts` (Steam launch and watchdog), `compare.ts` (the verdicts), `model.ts` (the cycle
   model), `cycles.ts` (a long play's records and checks), `safety.ts` (snapshot and restore), `mods.ts`, `consent.ts`, `sheet.ts`,
   `summary.ts`, `test.ts` and `test-cycles.ts` (both run by `npm test`).
