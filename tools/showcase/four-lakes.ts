@@ -12,9 +12,10 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { orientationForHigh } from "./core";
 import { openingCamera, placeComponents, startMiddleTile, StartWaterDays, startWaterWithin, VISTA_ZOOM } from "./core";
 import { applyOps, checksOf, emptySimulationSingletons, exportFiles, fallsOf, GAME_VERSION, HazardRun, LAYERS, MapSession, rowOf, TICKS_PER_DAY, voxelsFromHeights, writeTimber, type TimberFile } from "./core";
-import { CHANNELS, designLand, FALLS, fbm, H, LAKES, measureLand, N, TARNS, W, type Land } from "./four-lakes-design";
+import { CHANNELS, designLand, FALLS, fbm, H, LAKES, measureLand, N, START_AT, TARNS, W, type Land } from "./four-lakes-design";
 import { writePicture } from "./four-lakes-view";
 
 const arg = (name: string, f: string) => {
@@ -97,11 +98,11 @@ function shapeLand(s: MapSession, land: Land): void {
 
 /** The springs: four in the pool at the head of the hanging valley, and each tarn's own. */
 const SOURCES: [number, number, number][] = [
-  [104, 127, 3.5],
-  [106, 129, 3.5],
-  [108, 131, 3.5],
-  [105, 125, 3.5],
-  ...TARNS.map((t) => t.spring!),
+  [104, 127, 4],
+  [106, 129, 4],
+  [108, 131, 4],
+  [105, 125, 4],
+  ...TARNS.filter((t) => t.spring).map((t) => t.spring!),
 ];
 
 /** The old channel's plugs: Blockages across it, the first at its mouth on the springs' pool. */
@@ -114,7 +115,7 @@ function placePlugs(s: MapSession, land: Land): void {
 
 /** The start: on the meadow under the Low Fall's west shoulder, turned so the game's first camera looks up the
  *  valley across Weir Lake at the Great Fall. */
-const START = { x: 68, y: 84, orientation: "Cw0" as const };
+const START = { x: START_AT[0], y: START_AT[1], orientation: "Cw0" as const };
 
 function placeStart(s: MapSession): void {
   applyOps(s, [{ op: "placeEntity", params: { id: newId(), template: "StartingLocation", x: START.x, y: START.y, orientation: START.orientation }, label: "The start" }]);
@@ -419,8 +420,8 @@ function plant(s: MapSession, land: Land): void {
   count.pine = paint("trees", "Pine", (i) => pinewood(i) && !nearStart(i, 7) && n(i, 15, 9) > -0.22, 0.82, 15, "Pine woods on the high ground and the meadows' far side", "mixed");
   // the start's own: berries and an oak wood on the meadow's own level, a short walk from the door
   const level = (i: number) => b.heights[i] === st.z && moist(i);
-  count.startBerries = paint("bushes", "BlueberryBush", (i) => level(i) && !nearStart(i, 6) && nearStart(i, 13) && (i % W) < st.x - 1, 0.75, 21, "The start's berries");
-  count.startOaks = paint("trees", "Oak", (i) => level(i) && !nearStart(i, 7) && nearStart(i, 17) && (i % W) >= st.x - 1 && Math.floor(i / W) < st.y + 2, 0.7, 22, "The start's oak wood");
+  count.startBerries = paint("bushes", "BlueberryBush", (i) => level(i) && !nearStart(i, 5) && nearStart(i, 13) && Math.floor(i / W) < st.y - 3 && (i % W) > st.x - 9, 0.95, 21, "The start's berries");
+  count.startOaks = paint("trees", "Oak", (i) => level(i) && !nearStart(i, 6) && nearStart(i, 18) && (i % W) <= st.x - 9, 0.75, 22, "The start's oak wood");
   // the dry land, dressed on purpose
   const dry = (i: number) => !(b.moisture[i] > 0) && !(b.water[i] > 0) && !land.lake[i] && !land.pool[i];
   count.succulents = paint("succulents", "Succulent", (i) => dry(i) && oldDist[i] > 3 && n(i, 21, 4) > 0.08, 0.2, 16, "Succulent fields on the dry benches");
@@ -484,6 +485,42 @@ function greatCave(s: MapSession): void {
   }
 }
 
+/** TOOL: a way up (natural slopes): near (x, y), where ground at `hi` stands straight over ground at `lo`, a ramp
+ *  of rock is raised out from the cliff's foot, a level a tile, with a Slope on each tile: a walk from `lo` to `hi`. */
+function ramp(s: MapSession, land: Land, x0: number, y0: number, lo: number, hi: number, label: string): boolean {
+  const b = s.built;
+  const n = hi - lo;
+  const taken = new Set<number>();
+  for (const e of b.entities) taken.add(e.y * W + e.x);
+  const open = (i: number) => !land.lake[i] && !land.channel[i] && !land.pool[i] && !(b.water[i] > 0) && !taken.has(i);
+  for (let r = 0; r <= 26; r++)
+    for (let dy = -r; dy <= r; dy++)
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const px = x0 + dx;
+        const py = y0 + dy;
+        if (px < n + 3 || py < n + 3 || px >= W - n - 3 || py >= H - n - 3) continue;
+        if (b.heights[py * W + px] !== hi || !open(py * W + px)) continue;
+        for (const [ux, uy] of [[0, -1], [-1, 0], [1, 0], [0, 1]] as const) {
+          let ok = true;
+          for (let k = 1; k <= n + 2 && ok; k++) {
+            const i = (py + uy * k) * W + px + ux * k;
+            // (the ramp's own tiles and two of landing: ground at `lo`, dry, free, and so are the tiles beside them)
+            if (b.heights[i] !== lo || !open(i) || !open(i + uy + ux * W) || !open(i - uy - ux * W)) ok = false;
+          }
+          if (!ok) continue;
+          const ops: unknown[] = [];
+          for (let k = 1; k < n; k++) ops.push({ op: "sculpt", params: { mode: "flatten", cells: [[py + uy * k, px + ux * k, px + ux * k]], level: hi - k, exact: true }, label });
+          if (ops.length) applyOps(s, ops);
+          for (let k = 1; k <= n; k++) applyOps(s, [{ op: "placeEntity", params: { id: newId(), template: "Slope", x: px + ux * k, y: py + uy * k, orientation: orientationForHigh(-ux, -uy) }, label }]);
+          log(`  ${label}: ${n} slopes from X ${px + ux * n} Y ${py + uy * n} (level ${lo}) up to X ${px} Y ${py} (level ${hi})`);
+          return true;
+        }
+      }
+  log(`    (${label}: no cliff from ${lo} to ${hi} with room for a ramp near ${x0},${y0})`);
+  return false;
+}
+
 /** The set pieces: each a place with a purpose on the route up the valley. */
 function placeObjects(s: MapSession, land: Land): void {
   const put = (template: string, x0: number, y0: number, label: string, extra: Record<string, unknown> = {}, size: [number, number] | null = null) => {
@@ -517,6 +554,14 @@ function placeObjects(s: MapSession, land: Land): void {
   if (aq) put("AncientAquiferDrill", aq.x, aq.y, "The ancient drill on the aquifer");
   put("UnstableCore", 113, 152, "An unstable core in the cirque", {}, [2, 2]);
   put("UnstableCore", 131, 140, "An unstable core in the cirque", {}, [2, 2]);
+  // the ways up: natural slopes from Low Lake's meadows to the start's bench, and on to Steam Lake and Crown Lake
+  try {
+    ramp(s, land, 66, 86, 3, 7, "The way up from Low Lake to the bench");
+    ramp(s, land, 126, 88, 7, 11, "The way up from Weir Lake to Steam Lake");
+    ramp(s, land, 138, 128, 11, 15, "The way up from Steam Lake to Crown Lake");
+  } catch (e) {
+    log(`    (a way up: ${(e as Error).message})`);
+  }
   // relics on the way
   put("MediumRelic", 49, 45, "The relic on Low Lake's island", {}, [3, 3]);
   put("SmallRelic", 46, 15, "The relic at the Gate", {}, [2, 2]);
@@ -555,7 +600,7 @@ function shots(s: MapSession, weatherDays: { drought: number; badtide: number })
     { name: "03-best-side", label: "Best side: up the valley", view: best },
     { name: "04-far", label: "The whole map", view: far },
     { name: "05-top", label: "Top-down", top: true, view: { yaw: 0, pitch: 89 * deg, distance: 300, target: [96, 5, 96] } },
-    { name: "06-great-fall", label: "The Great Fall", view: { yaw: -12 * deg, pitch: 24 * deg, distance: 62, target: [86, 9, 104] } },
+    { name: "06-great-fall", label: "The Great Fall", view: { yaw: -10 * deg, pitch: 22 * deg, distance: 58, target: [81.5, 9, 101] } },
     { name: "07-low-fall", label: "Low Fall (Weir Lake into Low Lake)", view: { yaw: 14 * deg, pitch: 26 * deg, distance: 50, target: [90.5, 4, 83] } },
     { name: "08-weir-fall", label: "Weir Fall (Steam Lake into Weir Lake)", view: { yaw: -70 * deg, pitch: 26 * deg, distance: 50, target: [124, 8, 99.5] } },
     { name: "09-crown-fall", label: "Crown Fall (Crown Lake into Steam Lake)", view: { yaw: -14 * deg, pitch: 26 * deg, distance: 50, target: [149.5, 12, 127] } },
@@ -567,10 +612,10 @@ function shots(s: MapSession, weatherDays: { drought: number; badtide: number })
 
 /** The map's own words, as the game shows them with the map (600 characters at most). */
 const DESCRIPTION =
-  "Four lakes step down a wooded valley, each over a rock sill and a fall. The Great Fall drops eight levels into Weir Lake, over the cliff behind your first home. " +
+  "Four lakes step down a wooded valley, each over a rock sill and a fall. Your first home faces the Great Fall, eight levels of water into Weir Lake. " +
   "In a drought the falls stop from the top and the upper lakes sink a level through the notches in their sills: plug a notch, then raise a sill. " +
-  "In a badtide every spring runs red and the lakes turn within the day. An old dry channel leaves the springs behind three blockages: clear it, gate the two streams beside it, and the red runs round the lakes. " +
-  "Six tarns feed brooks you can dam one by one.";
+  "In a badtide the red comes down the whole stair within a day. An old dry channel leaves the springs behind three blockages: clear it, shut three gates at the springs, and the red runs round every lake. " +
+  "The ridge behind Crown Lake stands over level 16.";
 
 // --------------------------------------------------------------------------------------------------- main
 
@@ -661,14 +706,18 @@ function main(): void {
     // the lakes as they stand on the day the player opens the channel: full
     const full = { depth: Float64Array.from(s.built.water), contamination: Float64Array.from(s.built.contamination) };
     s.setWaterMode("defer");
-    log("the old channel opened on a full valley (blockages cleared, gates on the neck and the hanging valley):");
+    log("the old channel opened on a full valley (blockages cleared, gates on the neck, the hanging valley and the West Leat):");
     openBypass(s, land, false);
     weather(s, land, "badtide", 8, 1, 0.25, full);
     lap("bypass badtide");
-    log("and a dam at every brook's head:");
-    openBypass2(s, land);
-    weather(s, land, "badtide", 8, 1, 0.25, full);
-    lap("bypass and brooks badtide");
+    // and where the water stands once it has all gone round (the settled map with the bypass open): no stray water
+    s.setWaterMode("canonical");
+    applyOps(s, [{ op: "setDescription", params: { text: DESCRIPTION + " " } }]);
+    {
+      let top = 0;
+      for (let i = 0; i < N; i++) if (land.pool[i]) top = Math.max(top, s.built.heights[i] + s.built.water[i]);
+      log(`  with the bypass open the springs' pool stands at ${top.toFixed(2)}`);
+    }
   }
   void CHANNELS;
 }

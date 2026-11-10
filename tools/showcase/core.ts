@@ -21,3 +21,4 @@ export { blockFalls } from "../../src/core/doc/blockTool";
 export { StartWaterDays } from "../../src/core/sim/startWaterDay";
 export { startWaterWithin } from "../../src/core/doc/droughtLine";
 export { placeComponents } from "../../src/core/doc/objectOps";
+export { orientationForHigh } from "../../src/core/features/setpieces";
