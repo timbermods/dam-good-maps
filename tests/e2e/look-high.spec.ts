@@ -423,6 +423,72 @@ test("High's water is darker deep than shallow, at one camera and light (D334: t
   expect(errors).toEqual([]);
 });
 
+test("deep water seen from the top-down view is not black and reads as the angled view draws it, in both looks (#236 11-10)", async ({ page }) => {
+  // (the game's ramp takes clean water to black at its max depth and its grade crushes the darkest values to 0, so deep
+  // water reads by the fog the camera's distance gives it: the top-down view, which the game doesn't have, takes the
+  // fog the angled view has at its zoom. Without it Islands 7's deep sea read pure black there, 6,611 of its 7,548
+  // tiles in view at 0, against (41, 78, 87) angled, RTX 2070 SUPER)
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openEditor(page, "s=7&z=128&d=n&t=islands");
+  const seen = await page.evaluate(async () => {
+    const r = window.dgm3d!.renderer;
+    await r.patternsMade();
+    const g = (r as unknown as { gl: { getContext(): WebGL2RenderingContext } }).gl.getContext();
+    /** The median colour of the clean water three or more levels deep, at the middle of each tile in view, and how many
+     *  of those tiles are drawn black, in a view framed whole. */
+    const deep = (mode: "orbit" | "top") => {
+      r.setMode(mode);
+      r.resetView();
+      r.renderNow();
+      const W = g.drawingBufferWidth;
+      const H = g.drawingBufferHeight;
+      const px = new Uint8Array(W * H * 4);
+      g.readPixels(0, 0, W, H, g.RGBA, g.UNSIGNED_BYTE, px);
+      const k = W / r.canvas.clientWidth;
+      const s = r.mapState()!;
+      const seen: number[][] = [];
+      let black = 0;
+      for (let y = 1; y < s.H - 1; y++)
+        for (let x = 1; x < s.W - 1; x++) {
+          const i = y * s.W + x;
+          if (!(s.surface.depth[i] >= 3) || s.surface.contamination[i] > 0.02 || !Number.isFinite(s.surface.surface[i])) continue;
+          const p = r.project(x + 0.5, s.surface.surface[i], -(y + 0.5));
+          if (!p.visible) continue;
+          const cx = Math.round(p.x * k);
+          const cy = H - 1 - Math.round(p.y * k);
+          if (cx < 2 || cy < 2 || cx >= W - 2 || cy >= H - 2) continue;
+          const o = (cy * W + cx) * 4;
+          seen.push([px[o], px[o + 1], px[o + 2]]);
+          if (px[o] + px[o + 1] + px[o + 2] < 6) black++;
+        }
+      const median = (c: number) => seen.map((v) => v[c]).sort((a, b) => a - b)[Math.floor(seen.length / 2)];
+      return { n: seen.length, black, rgb: [median(0), median(1), median(2)] };
+    };
+    const out: Record<string, { top: ReturnType<typeof deep>; angled: ReturnType<typeof deep> }> = {};
+    for (const look of ["standard", "high"] as const) {
+      r.setLookChoice(look, false);
+      if (look === "high") for (let k = 0; k < 600 && !r.highSettled; k++) await new Promise((res) => setTimeout(res, 100));
+      r.setClock(12.5);
+      out[look] = { top: deep("top"), angled: deep("orbit") };
+    }
+    return out;
+  });
+  console.log(`deep water, top-down against angled: ${JSON.stringify(seen)}`);
+  for (const look of ["standard", "high"] as const) {
+    const { top, angled } = seen[look];
+    expect(top.n, look).toBeGreaterThan(1000);
+    // not black: next to none of its tiles, and its median well clear of it
+    expect(top.black / top.n, look).toBeLessThan(0.01);
+    expect(top.rgb[0] + top.rgb[1] + top.rgb[2], look).toBeGreaterThan(90);
+    // near the angled view's colour (within 4, 9 and 10 at the whole map's framing, RTX 2070 SUPER)
+    for (let c = 0; c < 3; c++) expect(Math.abs(top.rgb[c] - angled.rgb[c]), `${look} channel ${c}`).toBeLessThanOrEqual(16);
+  }
+  expect(errors).toEqual([]);
+});
+
 test("an eruption in High (D378): its plume rises, its lava glows on High's ground, and High stays drawn", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));

@@ -542,10 +542,13 @@ Standard's shadow before a cave (item 8).
   curve, grade and haze: the game's scene settings (`level2`'s RenderSettings, read raw) and its `Rendering/Volume`
   profile (`palette.ts` `GAME_FINISH`, `materials.ts` `finish`, `GAME_POST_GLSL`).
   - The fog: `m_FogMode` 2, exponential, density 0.003, as URP's FOG_EXP programs in TerrainURP draw it
-    (`exp2(-density / √ln 2 × the view depth)`), toward the day's fog colour or a held hazard's (#716). None looking
-    straight down. From farther than the game's farthest default zoom (154 units) it is held at what that zoom shows
-    (`fogShift`), so whole-map views stay readable: an editing view the game doesn't have. High's Fog switch (on by
-    default) turns it off, an editing aid.
+    (`exp2(-density / √ln 2 × the view depth)`), toward the day's fog colour or a held hazard's (#716). From farther
+    than the game's farthest default zoom (154 units) it is held at what that zoom shows (`fogShift`), so whole-map
+    views stay readable: an editing view the game doesn't have. The top-down view, which the game doesn't have either,
+    takes the fog the angled view has at the same zoom (its depth at the spot looked at, held the same way), in place of
+    its orthographic camera's 200 units; until 2026-11-10 it had none, and deep water, which the game's ramp and grade
+    take to black, read pure black there (Islands 7's sea; see the water's "Deep water from the top" below). High's Fog
+    switch (on by default) turns it off, an editing aid.
   - The reflection: URP's environment term on the terrain (`gameSpecular`: the probe × the reflection intensity, 1 /
     (r² + 1) × the Fresnel blend toward the grazing term) and the sun's GGX highlight. The probe is the game's own
     Cubemap (`sharedassets1.assets` "TimberbornEnvironmentRelfectionProbe", 128², 8 mips, BC6H), which
@@ -3174,6 +3177,25 @@ birch bark 1.13, the crowns' sides 3–21 % under their middles, Standard's berr
   (3) The pine's yield (its resin, a detail map as the berries') is not drawn: it covers little of what the camera sees.
   (4) Standard's baked shadows on open ground (`light.ts` `PLANT_SHAPES`) keep the reaches of High's old models. (5) High's far birch
   covers 0.75 of the game's area within its drawn width. (6) The water source's three samples still read 23 % over.
+
+## Deep water from the top (D497's fog, D496; `fix/topdown-black-sea`)
+
+- **The report** (#236, 2026-11-10): Islands 7 at 128², its sea clean since #921's generator, drew pure black in the
+  Top-down view and blue-green angled, in Standard and High alike.
+- **The cause:** neither a mip, a NaN nor the composite (each read by switching it off in the shipped shader). The
+  game's formula takes clean water to black at its max depth (`GAME_WATER.ramp`'s R falls to 0 by 5 levels) and its
+  grade crushes display values under about 0.08 to 0; the angled view lifts the deep sea by its fog (at the whole map's
+  framing, the held 154 units: 31 % of the fog's colour), the top-down view had none (`renderer.ts` `applyFog`). The
+  water's own colour there, (0.016, 0.024, 0.043) before the grade, was the same in both views.
+- **The fix:** the top-down view takes the fog the angled view has at the same zoom (`distanceForMode`), by its
+  `fogShift`: a uniform, nothing added to the water's pass. The angled view is unchanged.
+- **Read back** (RTX 2070 SUPER, 1280 × 900, the median of the deep clean tiles' middles, framed whole): Islands 7,
+  three levels or more, top-down (0, 0, 0) with 6,611 of 7,548 tiles black → (37, 69, 77), angled (41, 78, 87); Lake
+  Basin 5, two levels or more, (38, 71, 82) against (40, 75, 86); badwater (70, 82, 83) against (80, 91, 89). At one spot
+  of open sea, the angled and top-down views at distances 30, 80, 150 and 300 read within 1 of each other (near, both
+  near black, as the game's own deep water up close). Standard and High the same. `tests/e2e/look-high.spec.ts` holds
+  it ("deep water seen from the top-down view").
+- **Falls short:** the top-down view's fog is even across it, where the angled view's grows toward its far side.
 
 ## The rest of the step (next parts)
 
