@@ -43,7 +43,9 @@ export const VALLEY_DROP_MOST = 3;
 /** The valley's line, over the side. */
 export const VALLEY_LENGTH = [1.25, 1.5] as const;
 /** The bypass's length at 192² (scaled by side), its mouth and its rows. */
-export const BYPASS_LENGTH = [250, 320] as const;
+/** The megadam's slot through the wall, in tiles (§4.1). */
+export const MEGADAM_SLOT = [5, 6] as const;
+export const BYPASS_LENGTH = [250, 330] as const;
 export const BYPASS_MOUTH = 10;
 const BYPASS_HALF = 2.6;
 /** Lake arms' radius (each arm's widest), and arms a lake. */
@@ -496,7 +498,8 @@ function placeStair(L: Layout, o: StairOption): string | null {
       breach: 0,
     },
     path: gorgePath,
-    half: stair.flow > 18 ? 3.5 : 3,
+    // 5 wide carries 20 a level deep (§2.2, stage 1), 6 wide the lush 22: the megadam's slot is 5 or 6 (§4.1)
+    half: stair.flow > 18 ? 3 : 2.5,
     bed: gorgePath.map(() => 0),
     wet: true,
     gates: [],
@@ -584,7 +587,7 @@ function placeFrame(L: Layout, o: StairOption): string | null {
       if (wLo > wHi) continue;
       const w = rng.int(wLo, wHi + 1);
       // the lip's middle: out from the lake toward the source, to one side or the other
-      const a = FRAME.lipNearest + 0.08 + rng.float() * (limit - FRAME.lipNearest - 0.16);
+      const a = FRAME.lipNearest + 0.08 + rng.float() * (Math.min(limit, FRAME.lipFarthest) - FRAME.lipNearest - 0.16);
       const along = rng.range(a + 5, Math.max(a + 5.5, Math.min(D - 10, a + 16)));
       const lat = rng.range(-6, 6);
       let C: Point = [pk[0] + toward[0] * along + right[0] * lat, pk[1] + toward[1] * along + right[1] * lat];
@@ -691,6 +694,7 @@ function frameReason(fr: ReturnType<typeof lipInFrame>): string | null {
   const b = Math.max(...fr.ahead);
   if (a < FRAME.lipNearest - 0.05) return `the lip stands ${a.toFixed(2)} tiles in front of the start (${FRAME.lipNearest} at least, for a dry 5 × 5)`;
   if (b > fr.limit + 0.05) return `the lip stands ${b.toFixed(2)} tiles in front of the start, past the frame's top edge (${fr.limit.toFixed(2)})`;
+  if (b > FRAME.lipFarthest + 0.05) return `the lip stands ${b.toFixed(2)} tiles in front of the start (${FRAME.lipFarthest} at most)`;
   for (const e of fr.ends) if (!(Math.abs(e.u) <= FRAME.uSide && e.v <= FRAME.vTop)) return `a lip end falls outside the first frame (u ${e.u.toFixed(2)}, v ${e.v.toFixed(2)})`;
   for (const e of fr.feet) if (!(Math.abs(e.u) <= FRAME.uSide && e.v <= FRAME.vTop && e.v >= -1)) return `the fall's foot falls outside the first frame (u ${e.u.toFixed(2)}, v ${e.v.toFixed(2)})`;
   if (fr.skew > FRAME.acrossSin) return `the lip runs ${((fr.skew * 180) / 3.14159).toFixed(0)}° off square to the look (15° at most)`;
@@ -861,9 +865,10 @@ function placeTarns(L: Layout): string | null {
       const b: Body = { id: "", kind: "tarn", sill: 0, arms: [[[r1(p[0]), r1(p[1]), r1(r)], [r1(q[0]), r1(q[1]), r1(r * 0.8)]]], meadow: 0, deep: 2, dry: false, region: "wet" };
       const eg = edgeGap(b, W, W);
       if (eg < 4 || (rim && eg > 14) || (!rim && eg < lakeEdge(W))) continue;
+      // (the cheap checks first)
+      if (dist2(p, s0) < (r + 16) * (r + 16)) continue;
       if (plan.bodies.some((o) => bodyGap(o, b) < (o.kind === "lake" ? 8 : 6))) continue;
       if (others().some((o) => pathGap(o, b.arms[0].map(([x, y]) => [x, y] as Point)) < r + 5)) continue;
-      if (dist(p, s0) < r + 16) continue;
       // the wet side: nearer the lakes than the bypass
       if (!rim && pathDist(p[0], p[1], bypass).d < lakeGap(b) + 4) continue;
       return b;
@@ -1135,7 +1140,7 @@ function placeWorks(L: Layout, o: StairOption): string | null {
   work({ rung: "large", kind: "bypass", on: by.id, at: by.path![0], tiles: rowTiles + gateTiles, needs: [], gives: { green: scale([1100, 1500]) }, tradeoff: "The water it carries is the badtide's: nothing below it can drink", region: "dry" });
   const gorge = plan.links.find((l) => l.id === "gorge")!;
   const slot = pointAt(gorge.path!, pathLength(gorge.path!) * 0.5).p;
-  work({ rung: "large", kind: "megadam", on: gorge.id, at: rp(slot), tiles: Math.round(2 * gorge.half!), needs: [], gives: { green: [0, 0], reservoir: [Math.round(0.4 * W * W), Math.round(0.5 * W * W)] }, tradeoff: o.k === 0 ? "It drowns the low meadows and the home bay's" : "It drowns the low meadows", region: "low" });
+  work({ rung: "large", kind: "megadam", on: gorge.id, at: rp(slot), tiles: Math.min(MEGADAM_SLOT[1], Math.round(2 * gorge.half!)), needs: [], gives: { green: [0, 0], reservoir: [Math.round(0.4 * W * W), Math.round(0.5 * W * W)] }, tradeoff: o.k === 0 ? "It drowns the low meadows and the home bay's" : "It drowns the low meadows", region: "low" });
   return null;
 }
 
@@ -1522,7 +1527,7 @@ const ladderPlan: Invariant = {
     if (!inFirst) return fail("No first work stands inside the first frame");
     for (const kind of ["bypass", "megadam"] as const) if (!plan.works.some((w) => w.kind === kind && w.rung === "large")) return fail(`No ${kind} on the large rung`);
     const mega = plan.works.find((w) => w.kind === "megadam")!;
-    if (mega.on !== plan.stair?.gorge || mega.tiles < 5 || mega.tiles > 7) return fail(`The megadam is ${mega.tiles} tiles on ${mega.on} (5 to 6 in the gorge's slot)`);
+    if (mega.on !== plan.stair?.gorge || mega.tiles < MEGADAM_SLOT[0] || mega.tiles > MEGADAM_SLOT[1]) return fail(`The megadam is ${mega.tiles} tiles on ${mega.on} (5 to 6 in the gorge's slot)`);
     return OK;
   },
 };

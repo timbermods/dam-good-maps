@@ -376,6 +376,7 @@ with its operation overhead.
 | Stage | 128² | 192² | 256² |
 |---|---|---|---|
 | 0 Plan | 5 ms | 5 ms | 10 ms |
+| *0 Plan, measured at step 1* | *4.7 ms a layout, 32 ms a plan (worst 145)* | *6.2 ms, 12 ms (worst 39)* | *11.3 ms, 21 ms (worst 89)* |
 | 1 Water by number, with `flowThrough` | 40 ms | 90 ms | 160 ms |
 | 2 Relief | 60 ms | 140 ms | 250 ms |
 | 3 Start and frame | 5 ms | 5 ms | 5 ms |
@@ -388,6 +389,12 @@ with its operation overhead.
 | With one repair settle (the worst accepted) | 2.3 s | 5.9 s | 9.9 s |
 
 A plan that fails before the settle costs the land's row again. Anything over the last row is a bug (D453).
+
+Stage 0 as built (step 1, seeds 1 to 200 under `tsx`): one layout that passes takes about the budget, but a plan draws
+4 to 12 layouts on average before one passes (most at 128², where the pool's basins, the frame and the small works
+fail most often), so a plan takes 2 to 6 times its row and the worst at 128² most of the land's 0.2 s. **Meeting stage
+0's row is a condition of step 4**: a layout that fails should fail in its first steps, cheaply, not after its works
+are placed. (Allocation-free segment arithmetic and cheap checks first already took the means from 80, 37 and 54 ms.)
 
 ### 3.4 Deferred to after the map opens
 
@@ -428,7 +435,7 @@ round every lake."
 | The landmark | A fall of `H` = 6, 7 or 8 levels from a **hanging valley** (20 to 40 tiles long, bed level = the foot lake's sill + H) into the start's lake; a lip of 10 to 14 tiles in unequal runs; fed from the springs' pool or from a lake `H` or more above | Seed; section 4.3 |
 | The start's lake | The lowest or the second lowest | Seed |
 | The start | On a bench one level over its lake's sill, 5.5 to 7 tiles in front of the lip; bench 580 to 980 level tiles | The frame |
-| The bypass | A dry channel from the springs' pool round one side to an edge or to the gorge below the lowest sill; 250 to 320 tiles long at 192²; mouth 10 wide; 3 rows of Blockages (the first at the mouth) | Seed: which side, which exit |
+| The bypass | A dry channel from the springs' pool round one side to an edge or to the gorge below the lowest sill; 250 to 330 tiles long at 192²; mouth 10 wide; 3 rows of Blockages (the first at the mouth) | Seed: which side, which exit |
 | Gates | 3 or 4 sites, each a channel 1 to 5 wide: the neck to the top lake, the hanging valley, each leat's head | By the graph |
 | Side bodies | Tarns: 3 at 128², 7 at 192², 12 at 256²; two of them rim tarns with their own springs (0.8 to 1.5) | Size, Variety |
 | Living brooks on day 1 | One each side, each from a spring tarn to a map edge | Rivers |
@@ -456,6 +463,10 @@ stage's measure may move:
 - The bypass leaves the pool for the ring inside the map's edge and ends at an edge of its own or in the gorge below
   the megadam's slot, as the seed draws (about two in five reach the gorge).
 - The permanent badwater source stands in the gorge, 1, 1.5 or 2.75 strong for Badwater low, normal and high.
+- The gorge is 5 tiles wide, 6 at River flow lush (5 wide carries 20 a level deep, §2.2), so the megadam's slot is 5
+  or 6. The lip stands 5.5 to 7 tiles in front of the start, under the frame's top edge where that is nearer.
+- The bypass's range is 250 to 330 at 192²: the 320 first written was taken from Four Lakes, whose own old channel
+  is 324.7 tiles.
 
 **The regions** (five, each differing in what it gives):
 
@@ -670,7 +681,9 @@ changes what players get, not on every release.
 5. **Pinned in tests:**
    - `tests/contract/premisePlan.test.ts` (quick suite): the frame's arithmetic, eligibility, the `plan` invariants
      on seeds 1 to 6 at three sizes, variety, broken plans, the fixture; `premisePlan.heavy.test.ts`: seeds 1 to 200
-     at three sizes (a plan takes 40 to 80 ms on average, so the 600 run nightly, not on every push).
+     at three sizes (a plan takes 12 to 32 ms on average, §3.3, so the 600 run nightly, not on every push). The quick
+     suite breaks one plan by hand for each `plan` invariant: drawn plans always pass, so only those catch an
+     invariant that has stopped testing anything.
    - `tests/contract/premiseLand.test.ts`: the `land` invariants on seeds 1 to 24 a size.
    - `tests/contract/premiseMap.test.ts` (quick suite): one 128² map's `.timber` sha256, as
      `look-mine-ruins.test.ts` pins `LIVE_SHA`, with its `settled` invariants and its share link round trip.
@@ -681,8 +694,8 @@ changes what players get, not on every release.
      generated ones keep: its landmark is 7 (the hanging valley's bed 13 at the lip, one riffle below the pool), its
      lip a straight line square to the look, the start moved back so the lip stands 6 tiles in front and the 5 × 5
      is dry, the lakes' arms stop 3 short of each fall, Low Lake's sixth arm is its main arm's end, the channels end
-     at their shores, the old channel's first bend and last reach are straightened (319 tiles), the kettles are left
-     out, and `top` is 22 (Fell Tarn at 15, the Crown ridge at 21). Step 1 checks it at `plan` only.
+     at their shores (the old channel keeps its hand-built 324.7 tiles, 323.7 from the pool's shore), the kettles are
+     left out, and `top` is 21, the map's own highest ground (Fell Tarn at 15, the Crown ridge at 21). Step 1 checks it at `plan` only.
    - A change that alters a premise map is a generator change: claimed on #236, `GENERATOR_VERSION` bumped, re-pinned
      once (D308, D148).
 
@@ -695,7 +708,7 @@ Each step is one PR that leaves dev green and is useful by itself.
 | 1 | **Built.** **The model and the lake stair's plan.** `src/core/premise/types.ts`, `draw.ts`, `premises/lakeStair.ts` (stage 0 with the frame's arithmetic), the `plan` invariants, `tools/premise-plan.ts` (prints a seed's plan and draws its diagram), `premisePlan.test.ts`, the Four Lakes fixture. No generator change, no version bump. **A day.** | The water story as a diagram for any seed (MAPCRAFT step 2); the frame limit as a tested function | Nothing |
 | 2 | **Water by number.** `levels.ts`, `raster/bodies.ts`, `falls.ts`, `channels.ts`, `guard.ts`; the `flowThrough` test; a contract test that settles three plans and the fixture | Lakes, sills, falls and channels at stated levels from a plan: the editor's sketch can call it | Lakes by number (merged: `sillWidthFor`, `MAX_SILL_WIDTH`). The fall judge `fallCurtain.ts` from "a fall in one stroke" (#934, in review) when it merges; not blocked by it |
 | 3 | **Relief between**, and `tools/premise-map.ts`, which writes a `.timber` for a seed outside the product | A whole land with water to open in the editor and run through the capture kit; tier 4 judging can begin | 2. Ground with grade (#929, next in the milestone session's queue) for the outlands, when it merges; not blocked |
-| 4 | **The generator's mode.** `generatePremise` behind `spec.premise` (link key `p=lakeStair`; no control on the page), stages 3, 5 and 8: the start by the frame, one build, the checks, re-roll and the fall-back to themes; `premiseMap.test.ts` | A playable generated lake stair from a link, in seconds, without plants | 3 |
+| 4 | **The generator's mode.** `generatePremise` behind `spec.premise` (link key `p=lakeStair`; no control on the page), stages 3, 5 and 8: the start by the frame, one build, the checks, re-roll and the fall-back to themes; `premiseMap.test.ts`; stage 0 within its row of §3.3 | A playable generated lake stair from a link, in seconds, without plants | 3 |
 | 5 | **The ladder.** Dry bodies and beds, rows of Blockages, the work templates, `estimateGain`, `info.premise` | The spectrum: a map that is not fully watered, with each work's gain known | 4 |
 | 6 | **Life and resources by budget**, the dry land's dress | The map looks as it plays: stands, open meadow, dead woods on old shores | 5 |
 | 7 | **Set pieces and secrets**: the ruined weir and its breach, piers at the works, the Still Pool, aquifers and drill, relics, then the cave | The first frame's story; the first two works | 6; new `MapObjectKind`s |

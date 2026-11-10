@@ -123,27 +123,33 @@ export function subPath(path: readonly Point[], s0: number, s1: number): Point[]
   return out;
 }
 
-/** Distance between two segments (zero when they cross). */
-function segSegDist(a: Point, b: Point, c: Point, d: Point): { d: number; t: number; u: number } {
-  if (segmentsCross(a, b, c, d)) {
-    return { d: 0, ...crossAt(a, b, c, d) };
+// The segment-to-segment arithmetic below works on plain numbers and leaves where along each segment the nearest
+// points lie in `segT` and `segU`: no arrays or closures in the plan's hottest loops (stage 0's budget, §3.3).
+let segT = 0;
+let segU = 0;
+
+/** Distance between segments a–b and c–d (zero when they cross); where along each in `segT` and `segU`. */
+function segSegDist(ax: number, ay: number, bx: number, by: number, cx: number, cy: number, dx: number, dy: number): number {
+  if (crosses(ax, ay, bx, by, cx, cy, dx, dy)) {
+    crossAt(ax, ay, bx, by, cx, cy, dx, dy);
+    return 0;
   }
-  let d2 = Infinity;
+  let d2 = segD2(ax, ay, cx, cy, dx, dy);
   let t = 0;
-  let u = 0;
-  const p = segDist2(a[0], a[1], c[0], c[1], d[0], d[1]);
-  if (p.d2 < d2) [d2, t, u] = [p.d2, 0, p.t];
-  const q = segDist2(b[0], b[1], c[0], c[1], d[0], d[1]);
-  if (q.d2 < d2) [d2, t, u] = [q.d2, 1, q.t];
-  const r = segDist2(c[0], c[1], a[0], a[1], b[0], b[1]);
-  if (r.d2 < d2) [d2, t, u] = [r.d2, r.t, 0];
-  const s = segDist2(d[0], d[1], a[0], a[1], b[0], b[1]);
-  if (s.d2 < d2) [d2, t, u] = [s.d2, s.t, 1];
-  return { d: sqrt(d2), t, u };
+  let u = segT;
+  let q = segD2(bx, by, cx, cy, dx, dy);
+  if (q < d2) [d2, t, u] = [q, 1, segT];
+  q = segD2(cx, cy, ax, ay, bx, by);
+  if (q < d2) [d2, t, u] = [q, segT, 0];
+  q = segD2(dx, dy, ax, ay, bx, by);
+  if (q < d2) [d2, t, u] = [q, segT, 1];
+  segT = t;
+  segU = u;
+  return sqrt(d2);
 }
 
-/** The squared distance from a point to a segment, and where along it. */
-function segDist2(px: number, py: number, ax: number, ay: number, bx: number, by: number): { d2: number; t: number } {
+/** The squared distance from a point to a segment; where along it in `segT`. */
+function segD2(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
   const vx = bx - ax;
   const vy = by - ay;
   const l2 = vx * vx + vy * vy;
@@ -151,65 +157,129 @@ function segDist2(px: number, py: number, ax: number, ay: number, bx: number, by
   t = t < 0 ? 0 : t > 1 ? 1 : t;
   const dx = px - (ax + vx * t);
   const dy = py - (ay + vy * t);
-  return { d2: dx * dx + dy * dy, t };
+  segT = t;
+  return dx * dx + dy * dy;
 }
 
 /** The squared gap between two segments' bounding boxes: no nearer than this. */
-function boxGap2(a: Point, b: Point, c: Point, d: Point): number {
-  const gx = Math.max(0, Math.min(c[0], d[0]) - Math.max(a[0], b[0]), Math.min(a[0], b[0]) - Math.max(c[0], d[0]));
-  const gy = Math.max(0, Math.min(c[1], d[1]) - Math.max(a[1], b[1]), Math.min(a[1], b[1]) - Math.max(c[1], d[1]));
+function boxGap2(ax: number, ay: number, bx: number, by: number, cx: number, cy: number, dx: number, dy: number): number {
+  const gx = Math.max(0, Math.min(cx, dx) - Math.max(ax, bx), Math.min(ax, bx) - Math.max(cx, dx));
+  const gy = Math.max(0, Math.min(cy, dy) - Math.max(ay, by), Math.min(ay, by) - Math.max(cy, dy));
   return gx * gx + gy * gy;
 }
 
-function crossAt(a: Point, b: Point, c: Point, d: Point): { t: number; u: number } {
-  const rx = b[0] - a[0];
-  const ry = b[1] - a[1];
-  const sx = d[0] - c[0];
-  const sy = d[1] - c[1];
+/** Where crossing segments meet, along each, in `segT` and `segU`. */
+function crossAt(ax: number, ay: number, bx: number, by: number, cx: number, cy: number, dx: number, dy: number): void {
+  const rx = bx - ax;
+  const ry = by - ay;
+  const sx = dx - cx;
+  const sy = dy - cy;
   const den = rx * sy - ry * sx;
-  if (den === 0) return { t: 0, u: 0 };
-  const t = ((c[0] - a[0]) * sy - (c[1] - a[1]) * sx) / den;
-  const u = ((c[0] - a[0]) * ry - (c[1] - a[1]) * rx) / den;
-  return { t, u };
+  if (den === 0) {
+    segT = 0;
+    segU = 0;
+    return;
+  }
+  segT = ((cx - ax) * sy - (cy - ay) * sx) / den;
+  segU = ((cx - ax) * ry - (cy - ay) * rx) / den;
 }
 
 /** Whether segments a–b and c–d cross (touching counts). */
 export function segmentsCross(a: Point, b: Point, c: Point, d: Point): boolean {
-  const o = (p: Point, q: Point, r: Point) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
-  const d1 = o(c, d, a);
-  const d2 = o(c, d, b);
-  const d3 = o(a, b, c);
-  const d4 = o(a, b, d);
-  return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0) || d1 === 0 || d2 === 0) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0) || d3 === 0 || d4 === 0) && !(d1 === 0 && d2 === 0 && d3 === 0 && d4 === 0 && !collinearOverlap(a, b, c, d));
+  return crosses(a[0], a[1], b[0], b[1], c[0], c[1], d[0], d[1]);
 }
 
-function collinearOverlap(a: Point, b: Point, c: Point, d: Point): boolean {
-  const lo = (u: number, v: number) => Math.min(u, v);
-  const hi = (u: number, v: number) => Math.max(u, v);
-  return hi(lo(a[0], b[0]), lo(c[0], d[0])) <= lo(hi(a[0], b[0]), hi(c[0], d[0])) && hi(lo(a[1], b[1]), lo(c[1], d[1])) <= lo(hi(a[1], b[1]), hi(c[1], d[1]));
+function crosses(ax: number, ay: number, bx: number, by: number, cx: number, cy: number, dx: number, dy: number): boolean {
+  const d1 = (dx - cx) * (ay - cy) - (dy - cy) * (ax - cx);
+  const d2 = (dx - cx) * (by - cy) - (dy - cy) * (bx - cx);
+  const d3 = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+  const d4 = (bx - ax) * (dy - ay) - (by - ay) * (dx - ax);
+  return (
+    ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0) || d1 === 0 || d2 === 0) &&
+    ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0) || d3 === 0 || d4 === 0) &&
+    !(d1 === 0 && d2 === 0 && d3 === 0 && d4 === 0 && !collinearOverlap(ax, ay, bx, by, cx, cy, dx, dy))
+  );
 }
 
-/** The gap between two capsule chains' outlines (negative where they overlap). */
-export function spineGap(p: Spine, q: Spine): number {
-  let best = Infinity;
-  const segs = (s: Spine): [Spine[number], Spine[number]][] => (s.length === 1 ? [[s[0], s[0]]] : s.slice(0, -1).map((a, k) => [a, s[k + 1]]));
-  for (const [a, b] of segs(p))
-    for (const [c, d] of segs(q)) {
-      const lim = best + Math.max(a[2], b[2]) + Math.max(c[2], d[2]);
-      if (lim > 0 && lim < Infinity && boxGap2([a[0], a[1]], [b[0], b[1]], [c[0], c[1]], [d[0], d[1]]) >= lim * lim) continue;
-      const r = segSegDist([a[0], a[1]], [b[0], b[1]], [c[0], c[1]], [d[0], d[1]]);
-      const ra = a[2] + (b[2] - a[2]) * Math.max(0, Math.min(1, r.t));
-      const rc = c[2] + (d[2] - c[2]) * Math.max(0, Math.min(1, r.u));
-      const v = r.d - ra - rc;
+function collinearOverlap(ax: number, ay: number, bx: number, by: number, cx: number, cy: number, dx: number, dy: number): boolean {
+  return Math.max(Math.min(ax, bx), Math.min(cx, dx)) <= Math.min(Math.max(ax, bx), Math.max(cx, dx)) && Math.max(Math.min(ay, by), Math.min(cy, dy)) <= Math.min(Math.max(ay, by), Math.max(cy, dy));
+}
+
+/** The gap between two capsule chains' outlines (negative where they overlap). Given `bound`, a gap that cannot come
+ *  under it may come back as `bound` itself. */
+export function spineGap(p: Spine, q: Spine, bound = Infinity): number {
+  let best = bound;
+  const np = p.length === 1 ? 1 : p.length - 1;
+  const nq = q.length === 1 ? 1 : q.length - 1;
+  for (let i = 0; i < np; i++) {
+    const a = p[i];
+    const b = p.length === 1 ? a : p[i + 1];
+    const ra = Math.max(a[2], b[2]);
+    for (let j = 0; j < nq; j++) {
+      const c = q[j];
+      const d = q.length === 1 ? c : q[j + 1];
+      const lim = best + ra + Math.max(c[2], d[2]);
+      if (lim > 0 && lim < Infinity && boxGap2(a[0], a[1], b[0], b[1], c[0], c[1], d[0], d[1]) >= lim * lim) continue;
+      const g = segSegDist(a[0], a[1], b[0], b[1], c[0], c[1], d[0], d[1]);
+      const rt = a[2] + (b[2] - a[2]) * Math.max(0, Math.min(1, segT));
+      const rc = c[2] + (d[2] - c[2]) * Math.max(0, Math.min(1, segU));
+      const v = g - rt - rc;
       if (v < best) best = v;
     }
+  }
   return best;
+}
+
+/** Arms' centres' bounding boxes and widest radii, five numbers an arm, written into `boxes` from `at`. */
+let boxes = new Float64Array(80);
+function armBoxes(arms: readonly Spine[], at: number): void {
+  if (boxes.length < (at + arms.length) * 5) {
+    const grown = new Float64Array((at + arms.length) * 10);
+    grown.set(boxes);
+    boxes = grown;
+  }
+  for (let i = 0; i < arms.length; i++) {
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    let r = 0;
+    for (const [x, y, rr] of arms[i]) {
+      if (x < x0) x0 = x;
+      if (y < y0) y0 = y;
+      if (x > x1) x1 = x;
+      if (y > y1) y1 = y;
+      if (rr > r) r = rr;
+    }
+    const k = (at + i) * 5;
+    boxes[k] = x0;
+    boxes[k + 1] = y0;
+    boxes[k + 2] = x1;
+    boxes[k + 3] = y1;
+    boxes[k + 4] = r;
+  }
 }
 
 /** The gap between two bodies' outlines (negative where they overlap). */
 export function bodyGap(a: Pick<Body, "arms">, b: Pick<Body, "arms">): number {
   let best = Infinity;
-  for (const p of a.arms) for (const q of b.arms) best = Math.min(best, spineGap(p, q));
+  const na = a.arms.length;
+  armBoxes(a.arms, 0);
+  armBoxes(b.arms, na);
+  for (let i = 0; i < na; i++) {
+    const p = i * 5;
+    for (let j = 0; j < b.arms.length; j++) {
+      const q = (na + j) * 5;
+      // (an arm pair whose boxes stand further apart than the best so far needs no closer look)
+      if (best < Infinity) {
+        const gx = Math.max(0, boxes[q] - boxes[p + 2], boxes[p] - boxes[q + 2]);
+        const gy = Math.max(0, boxes[q + 1] - boxes[p + 3], boxes[p + 1] - boxes[q + 3]);
+        const lim = best + boxes[p + 4] + boxes[q + 4];
+        if (lim > 0 && gx * gx + gy * gy >= lim * lim) continue;
+      }
+      best = Math.min(best, spineGap(a.arms[i], b.arms[j], best));
+    }
+  }
   return best;
 }
 
@@ -261,8 +331,12 @@ export function pathGap(p: readonly Point[], q: readonly Point[]): number {
   let best = Infinity;
   for (let i = 0; i + 1 < p.length; i++)
     for (let j = 0; j + 1 < q.length; j++) {
-      if (best < Infinity && boxGap2(p[i], p[i + 1], q[j], q[j + 1]) >= best * best) continue;
-      best = Math.min(best, segSegDist(p[i], p[i + 1], q[j], q[j + 1]).d);
+      const a = p[i];
+      const b = p[i + 1];
+      const c = q[j];
+      const d = q[j + 1];
+      if (best < Infinity && boxGap2(a[0], a[1], b[0], b[1], c[0], c[1], d[0], d[1]) >= best * best) continue;
+      best = Math.min(best, segSegDist(a[0], a[1], b[0], b[1], c[0], c[1], d[0], d[1]));
     }
   return best;
 }

@@ -29,5 +29,6 @@ generator does not call it (no `GENERATOR_VERSION` change).
 - `tools/premise-plan.ts` prints a seed's plan and writes its diagram; `--plan` checks and draws a plan file.
 
 **Tests**: `tests/contract/premisePlan.test.ts` (quick: the frame's arithmetic, eligibility, 18 plans, variety,
-broken plans, the Four Lakes fixture `tests/fixtures/four-lakes.plan.json`); `premisePlan.heavy.test.ts` (seeds 1 to
-200 at 128², 192² and 256²: every plan holds, 40 to 80 ms a plan on average).
+a broken plan for every `plan` invariant, the Four Lakes fixture `tests/fixtures/four-lakes.plan.json`);
+`premisePlan.heavy.test.ts` (seeds 1 to 200 at 128², 192² and 256²: every plan holds, 12 to 32 ms a plan on average;
+PREMISES §3.3 has the numbers against the budget).
