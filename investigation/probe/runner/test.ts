@@ -146,6 +146,33 @@ async function main(): Promise<void> {
   check('catalog: every game prepared', prepared.length === games.length, `${games.length} games in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
   check('catalog: every map has a start moment with shots and an end', job.maps.every((m) => m.moments[0].id === 'start' && m.moments[0].shots.length > 0 && m.moments.some((x) => x.id === 'end')));
   check('catalog: moments inside each game', job.maps.every((m) => m.moments.every((x) => x.day >= catalogM.D0 - 1e-9 && x.day < m.endDay)));
+  // 3b. the capture kit (--captures, captures.ts): its poses, moments and job, and the captures folder it writes
+  const capM = require('./captures') as typeof import('./captures');
+  const capGames = catalogM.catalog([join(paths.REPO, 'out', 'm8', 'River Valley (4242) M8 preview.timber')], { captures: {} }).filter((g) => g.captures);
+  const capPrep = jobs.prepare(capGames, 'test-captures');
+  const cm = capPrep[0]?.map;
+  const capIds = cm?.poses.map((p) => p.id) ?? [];
+  check('captures: one game; the first camera, the widest zoom, the whole map and three angles, at 16:9', capGames.length === 1 && capIds.slice(0, 3).join(',') === 'first,widest,whole' && capIds.length === 6 && cm.poses.every((p) => p.width === 1600 && p.height === 900) && cm.poses[0].kind === 'current' && cm.poses.slice(1).every((p) => p.kind === 'game'), capIds.join(','));
+  const at = (id: string) => cm?.moments.find((m) => m.id === id);
+  check("captures: day 1, the first drought's and badtide's last days at hour 13, every pose shot at each; the day-1 and end records without shots", JSON.stringify(cm?.cycles.slice(0, 2)) === JSON.stringify([{ temperateDays: 3, hazard: 'drought', hazardDays: 3 }, { temperateDays: 3, hazard: 'badtide', hazardDays: 1 }]) && at('start')?.day === catalogM.D0 && Math.abs(at('drought')!.day - (6 + 13 / 24)) < 1e-9 && Math.abs(at('badtide')!.day - (10 + 13 / 24)) < 1e-9 && ['start', 'drought', 'badtide'].every((id) => at(id)!.shots.length === 6 && at(id)!.snapshot) && at('day+1')?.shots.length === 0 && at('end')?.shots.length === 0 && cm.moments.every((m) => m.day < cm.endDay), cm?.moments.map((m) => `${m.id} ${m.day.toFixed(3)}`).join(', '));
+  const whole = cm?.poses.find((p) => p.id === 'whole');
+  check('captures: the whole map is framed farther than the widest zoom on a 128² map, within four map lengths', !!whole && whole.distance > capM.GAME_CAMERA.widest && whole.distance < 4 * 128, `${whole?.distance}`);
+  const parsed = capM.parseAngles('falls@64,40,180,30,40; bay@20,90');
+  let refused = 0;
+  for (const bad of ['falls64,40', 'x@1', 'whole@1,2', 'y@1,2,3,4,5,6']) try { capM.parseAngles(bad); } catch { refused++; }
+  check('captures: --angles reads name@x,y[,heading[,pitch[,distance]]] and refuses the rest', parsed.length === 2 && parsed[0].id === 'falls' && parsed[0].heading === 180 && parsed[0].distance === 40 && parsed[1].id === 'bay' && parsed[1].pitch === undefined && refused === 4);
+  const given = catalogM.catalog([join(paths.REPO, 'out', 'm8', 'River Valley (4242) M8 preview.timber')], { captures: { angles: parsed } }).filter((g) => g.captures);
+  check('captures: angles given replace the picked ones', jobs.prepare(given, 'test-captures-given')[0].map.poses.map((p) => p.id).join(',') === 'first,widest,whole,falls,bay');
+  const shotsDir = join(sandbox, 'cap-shots');
+  mkdirSync(join(shotsDir, 'test-captures'), { recursive: true });
+  const cam = { position: [1, 2, 3], forward: [0, -1, 0], up: [0, 0, 1], fieldOfView: 35, aspect: 16 / 9, near: 0.01, far: 600, stateTarget: [1, 0, 3], stateZoom: 0, stateHorizontal: 0, stateVertical: 90 };
+  const capShots = (cm?.moments ?? []).flatMap((m) => m.shots.map((pose) => ({ momentId: m.id, pose, file: join('test-captures', `${m.id}-${pose}.jpg`), day: m.day, camera: cam })));
+  for (const sh of capShots) writeFileSync(join(shotsDir, sh.file), 'jpg');
+  const capOut = join(sandbox, 'cap-out');
+  const capJson = capM.writeCaptures({ out: capOut, result: { status: 'done', gameVersion: 'g', modVersion: '0.3.4', notes: [], weather: [], shots: capShots, snapshots: ['x-drought.snapshot.json.gz'] } as unknown as import('./job').MapResult, resultsDir: join(sandbox, 'cap-results'), shotsDir, info: capPrep[0].info, poses: cm.poses, moments: capGames[0].captures!.moments, given: null, runId: 'test-captures' });
+  const capFile = JSON.parse(readFileSync(capJson, 'utf8')) as import('./captures').CapturesFile;
+  check('captures: the folder gets <moment>-<pose>.jpg for each shot, the played map and captures.json with each camera', capFile.captures.length === 18 && capFile.captures.every((c) => existsSync(join(capOut, c.file)) && c.camera?.fieldOfView === 35) && existsSync(join(capOut, 'day1-first.jpg')) && existsSync(capFile.mapFile) && capFile.captures.filter((c) => c.moment === 'drought').every((c) => c.snapshot?.endsWith('x-drought.snapshot.json.gz')), `${capFile.captures.length} captures`);
+
   const high = prepared.filter((p) => p.game.group === 'High terrain');
   check('high terrain: three maps up to level 21, top layer empty', high.length === 3 && high.every((p) => p.info.maxHeight >= 17 && p.info.maxHeight <= 21), high.map((p) => `${p.game.id} max ${p.info.maxHeight}`).join(', '));
   const mesa = high.find((p) => p.game.id === 'high-highlands-mesa21');

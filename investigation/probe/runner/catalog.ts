@@ -18,6 +18,7 @@ import { firstGenerated, generated, generatedFrom, mesa, raised, withoutStart } 
 import { readMapBytes, wetAreas, type MapInfo } from './mapfile';
 import { ceilingDir, REPO, sizesDir, tallDir } from './paths';
 import { terrain3dGames, type Terrain3dEntry } from './terrain3d';
+import { type Angle, captureCycles, captureDays, captureMoments, type CaptureMoment, capturePoses } from './captures';
 import type { GroupWriter } from '../../../tools/probe-maps/group';
 import { PUMP_CLEAN, PUMP_DEPTH, PUMP_REACH, walkDistance } from '../../../src/core/analysis/walk';
 import { footprintTiles, FOOTPRINTS, slopeHighSide, worldBlocks, type Orientation, type Placement } from '../../../src/core/format/footprints';
@@ -73,6 +74,8 @@ export interface GameDef {
   terrain3d?: Terrain3dEntry;
   /** A long play (`--cycles`): its checks read each cycle's records (cycles.ts), and only each hazard's end has screenshots. */
   longPlay?: { cycles: number };
+  /** A capture game (`--captures`, runner/captures.ts): only its own poses and moments; `angles` null picks them. */
+  captures?: { angles: Angle[] | null; moments: CaptureMoment[]; source: string };
 }
 
 /** One map of tall.json, the manifest tools/probe-tall.ts writes beside the tall maps. */
@@ -407,6 +410,9 @@ export interface GivenOptions {
   badtide?: boolean;
   /** A long play (`--cycles N`, D488 (2): Showcase mode's winner to cycle 10): N full cycles of `longPlaySchedule`. */
   cycles?: number;
+  /** The in-game capture kit (`--captures`, runner/captures.ts): each map played only to be seen, at its chosen angles
+   *  (`--angles`; none: picked from the map) on day 1 and on the first drought's and badtide's worst days. */
+  captures?: { angles?: Angle[] };
 }
 
 /** The game's weather per difficulty (GameModeSpec, NewGameModes/GameMode.*; the cycle model's MODES in
@@ -880,6 +886,21 @@ export function catalog(extraMaps: string[] = [], given: GivenOptions = {}): Gam
     const name = basename(path).replace(/\.timber$/i, '');
     const baseId = 'map-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const factions = given.factions?.length ? given.factions : (['Folktails'] as const);
+    if (given.captures) {
+      // the capture kit: Normal's first drought and first badtide as long as the game makes them (3 and 1 days)
+      const rules = longPlaySchedule(WEATHER_RULES.Normal.randomizeAfter + 1, 'Normal');
+      const cycles = captureCycles(rules.find((c) => c.hazard === 'drought')!.hazardDays, rules.find((c) => c.hazard === 'badtide')!.hazardDays, calm);
+      const moments = captureMoments(cycles);
+      const angles = given.captures.angles?.length ? given.captures.angles : null;
+      for (const faction of factions)
+        games.push({
+          id: 'cap-' + baseId.slice(4) + (faction === 'IronTeeth' ? '-it' : ''), title: `Captures · ${name}${factions.length > 1 ? ` (${faction})` : ''}`, group: 'Given maps',
+          bytes: memo(() => new Uint8Array(readFileSync(path))), faction, mode: 'Normal', cycles, days: captureDays(moments),
+          tiles: () => [], sampleHours: 6, poses: (m) => capturePoses(m, angles), captures: { angles, moments, source: path },
+          checks: [...GENERIC],
+        });
+      continue;
+    }
     for (const faction of factions) {
       const title = (factions.length > 1 ? `${name} (${faction})` : name) + (long ? `, ${long.length} cycles` : '');
       if (long) {
