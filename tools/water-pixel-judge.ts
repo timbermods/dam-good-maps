@@ -42,7 +42,8 @@
 // light"; the game's textures read locally, never kept). Judge the land on the 16 day start shots (`--shots` as `--objects`
 // takes them: 594 grass samples) and with `--register`, which moves each cliff face's game pixel to where ours' picture
 // lines up with the game's: the fit scores the water's outline only, and a face 10–15 pixels tall leaves no slack
-// (docs/progress/3d-view.md, "Grass and cliffs, their samples registered").
+// (docs/progress/3d-view.md, "Grass and cliffs, their samples registered"). With `--objects`, `--register` moves every
+// object's sample too, farther (`OBJECT_REGISTER_REACH`; docs/progress/3d-view.md, "The bush on the frames").
 //
 // The camera: the probe's water pose (investigation/probe/runner/catalog.ts `standardPoses`) is where the game's camera
 // was asked to look, but its field of view and distance do not carry over exactly (Q8 found 31-37° and 1.0-1.35× the
@@ -344,7 +345,7 @@ const REGISTERED: readonly LandKind[] = ["cliff", "shade-cliff"];
 /** With `--objects`, every object's sample is registered too, farther: away from the water the fit scores, ours and
  *  the game's frames lie up to 35 pixels apart (highlands-128-1's bushes 33 pixels, a tile and a half; delta-128-2's,
  *  fitted 100 %, 13), where a crown is 15–25 pixels across, so an unregistered sample at a bush's middle reads the
- *  game's grass or a cliff as often as its bush (docs/progress/3d-view.md, "The crowns as the game draws them"). The
+ *  game's grass or a cliff as often as its bush (docs/progress/3d-view.md, "The bush on the frames"). The
  *  window, ±48 pixels, takes in its neighbours and the land round it, so the shift is the place's, not one crown's
  *  (with ±16 the crowns' likeness to each other moved samples by whole crowns); searched at half the frame's
  *  resolution, then refined (`registerObject`). */

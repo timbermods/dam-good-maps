@@ -3126,6 +3126,59 @@ birch bark 1.13, the crowns' sides 3–21 % under their middles, Standard's berr
   (3) The pine's yield (its resin, a detail map as the berries') is not drawn: it covers little of what the camera sees.
   (4) Standard's baked shadows on open ground (`light.ts` `PLANT_SHAPES`) keep the reaches of High's old models. (5) High's far birch
   covers 0.75 of the game's area within its drawn width. (6) The water source's three samples still read 23 % over.
+  (2) and (4) are closed below ("The bush on the frames").
+
+### The bush on the frames (D135 as amended 2026-11-09, D496; `fix/bush-colour`)
+
+- **The cause, first: the samples missed the game's bushes.** The judge fits its camera on the water's outline; away
+  from the water, ours and the game's frame lie 10–35 pixels apart (highlands-128-1's bushes 33 pixels, a tile and a
+  half; delta-128-2's, fitted 100 %, 13), where a bush is 15–25 pixels across. Half the game's bush samples read its
+  grass or a cliff, both lighter than a bush. `--register` with `--objects` now registers every object's sample: the
+  shift within 44 pixels whose ±48-pixel window of the game's luma correlates best with ours' (zero-mean, normalised,
+  searched at half resolution, then refined; under 0.6 left out). A window of ±16 locked onto the wrong crown, the
+  crowns being alike; at ±48 a shot's shifts agree within 1–3 pixels where its land has edges. 143 of the bush's 679
+  samples line up. On those, dev's bush reads 0.94 / 0.95 of the game's (Standard / High) registered, against
+  0.88 / 0.89 unregistered, and the other crowns' middles come to the game's as well (registered, Standard / High:
+  pine 1.04 / 0.99, oak 1.00 / 1.07, birch 1.09 / 0.98, birch bark 1.01 / 1.06), so most of falls-short (1) above was
+  the samples too.
+- **The cause, then: the berries' share.** The blue-grey speckle is the yield's detail map, the berries, laid over the
+  leaves while the yield stands (#916): no texture of the game's is missing. The game's covers about a seventh of what
+  the camera sees: its bush's mean, offline, 69/77/57 (b/g 0.74), its leaves alone 64/72/40. Ours covered a tenth:
+  Standard's five berries 0.07 across, round the mound's sides, its mean 67/75/49 (b/g 0.65); High's 69/77/53 (0.69);
+  High's far model had none at its middle, so its middle read 0.81. The rest already matched offline, in the frames'
+  camera and light: the leaves (ours 68.4 in luma, the game's without its yield 67.6), the area the alpha cut leaves
+  (1.03) and the berries' colour as lit.
+- **The fix:** the berries cover what the game's yield does, in both looks, with the same triangles. Standard's five are
+  0.095 across, one on the mound's top (`entities3d.ts`); High's near ones a tenth larger (0.086–0.088, its top one
+  unchanged); High's far model's 0.095, one of them on its top off its middle (`high/models.ts`).
+- **Offline** (`tools/game-crowns.py`; the middle, side, whole crown and area, ours over the game's; before → after):
+  Standard 0.905, 0.986, 0.968, 1.03 → 0.995, 1.002, 0.996, 1.04; High 0.946, 1.005, 0.997, 1.07 → 0.950, 1.013,
+  1.009, 1.07; High far 0.814, 0.967, 0.968, 0.96 → 0.901, 0.968, 0.981, 0.96. The crown's blue over its green: the
+  game's 0.74; Standard 0.65 → 0.72, High 0.69 → 0.71, High far 0.68 → 0.71.
+- **On the frames** (`--objects --register`, the 16 day start shots, the 143 registered bush samples; the middle,
+  ours over the game's, dev → this branch; a run before the last small change read 0.979 and 0.982): Standard
+  0.936 → 0.968, High 0.947 → 0.974; the game's 77/96/71, ours 71/90/62 → 74/93/72 (Standard), 71/91/72 → 74/93/77
+  (High). The land's RMS (15.0, 15.3) and the clean water's are unchanged.
+- **Follow-ups from #916:**
+  - **Standard's baked shadows** (`light.ts` `PLANT_SHAPES`) are fitted to High's models' shadows on open ground
+    (`tools/object-shadows.ts --meadow`). #916 drew High's pine whorls in to 0.9 and its bush to 0.78; the pine's
+    shadow fell from 1.52 tiles² to 1.35, its oak and birch unchanged. The pine's discs are now 0.975 of their radii
+    (Standard 1.49 → 1.25 tiles², the nearest the shadow map's samples allow on either side of 1.35), the bush's 0.78
+    (its shadow lies within its own footprint from above, in both looks). Across the sun's way Standard's pine shadow
+    is 1.0 wide, as High's, and 2.45 long against High's 2.6; the oak's and birch's stay as fitted (1.65 and 0.54
+    tiles² against High's 1.71 and 0.69).
+  - **Dying and dead foliage** (`dying.ts` `DRYING`, `DEAD_FORM`): the game's MatureDry and MatureDead foliage as the
+    camera sees it, as the living foliage's (`tools/game-crowns.py`'s view), in place of the means over the whole area.
+    Dry over alive moves by at most 1 % in lightness, the hues a little (the dying birch a little greyer); the dead
+    bush's leaves, 1.18 times its living foliage's lightness where they were 1.29, are 8 % darker.
+  - **High's birch marks** stand on the trunk's leaning axis (the top one had sat 0.004 inside it on +x).
+  - **The dead-tree test** (`look-readable.test.ts`) holds D135's own words again: every part of a dead pine lighter
+    than every colour of the living crown, its tip's too (the darkest part 0.231, the crown's top 0.221).
+- **Cost:** none: the same triangles. BENCH.
+- **Falls short:** (1) The bush's side reads 0.85 on the frames (offline 1.00): a bush is 15–25 pixels across, so the
+  side's sample, 6 pixels out, falls off the game's ragged edge with a registration a pixel or two out. (2) High's far
+  bush's middle reads 0.90 offline (its crown 0.98). (3) Registration keeps a fifth of the objects' samples (the rest
+  under 0.6); the shots whose land has few edges (riverValley-128-2, canyon-128-1) keep almost none.
 
 ## The rest of the step (next parts)
 
