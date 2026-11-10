@@ -26,7 +26,7 @@
 // chose: docs/decisions-pending.md #110).
 
 import { HIGH_WATER_GLSL, WATER_LIGHT } from "../waterPalette";
-import { GAME_LIGHT, LIGHT } from "../palette";
+import { GAME_LIGHT, LIGHT, OWN_LIGHTNESS } from "../palette";
 import { RUN_LEVELS } from "../runSoil";
 
 /** A number as GLSL writes a float. */
@@ -436,12 +436,14 @@ export function slopeHooks(): ShaderHooks {
     }
     return color;
   }`,
-    objectFinal: "hlSlopeColour(n) * light",
+    // (colours of our own: their albedo at palette.ts `ownAlbedo`)
+    objectFinal: `hlSlopeColour(n) * ${(1 / OWN_LIGHTNESS).toFixed(6)} * light`,
   };
 }
 
-/** The vegetation (#66): palette regions (the colours are uniforms), wind in the vertex shader
- *  (roots fixed, the same bend for the normal), wrapped sun light and a matte sheen. */
+/** The vegetation (#66): palette regions (the colours are uniforms) and wind in the vertex shader (roots fixed, the same
+ *  bend for the normal), in the game's light as every object (D135 as amended 2026-11-09: no wrapped sun and no sheen of
+ *  our own, as the game's VegetationURP has neither). */
 export function vegetationHooks(slots: number): ShaderHooks {
   return {
     ...objectHooks(),
@@ -469,8 +471,6 @@ export function vegetationHooks(slots: number): ShaderHooks {
     objectNormal: "bendNormal(position, normal, wv)",
     objectColor: "pcolor * vegPalette[int(region + 0.5)]",
     objectPosition: "bend(position, wv)",
-    objectSun: "(dot(n, sunDir) + 0.25) / 1.25",
-    objectFinal: "vColor * light + sunColor * 0.045 * (1.0 - 0.92 * 0.85) * pow(max(dot(n, normalize(sunDir + normalize(cameraPosition - vWorld))), 0.0), mix(64.0, 4.0, 0.92)) * lit",
   };
 }
 

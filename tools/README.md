@@ -31,6 +31,10 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 **Contact sheets and captures**
 - `sheet.ts`, `contact-sheet.ts` with `contact-sheet.py`, `resources-sheet.ts`, `start-sheet.ts`, `waterfall-gallery.ts`: sheets of generated maps; `badwater-sheet.ts` with `badwater-sheet.py`: badwater before | after against another checkout, water shaded by how contaminated it is, and whether badwater reaches each map's main water (#265, D476).
 - `capture-*.ts`: before and after captures for Kyler's look rounds, taken in a real browser.
+- `game-crowns.py` with `crown-models.ts`: the plant crowns, ours and the game's, drawn offline as the game's
+  VegetationURP shades them (vertex colours, alpha cut, bump, the yield's detail, self-shadowing) on lit grass from the
+  game's camera; each crown's middle, side across the sun, birch bark, area and drawn width compared through sixteen
+  turns. `crown-models.ts` writes our Standard and High triangles for it. Needs the installed game's models; prints numbers.
 - `object-shadows.ts` with `object-shadow-check.py`: the shadows objects cast in both looks, measured on a flat meadow from above (each object's area, darkness, reach and width) and set beside the game's probe frames (each plant species' darkening of the ground round it, the game's against ours); `--sheet` makes `docs/sheets/object-shadows.jpg` (docs/progress/3d-view.md, "Objects' shadows").
 
 **Data the game supplies**

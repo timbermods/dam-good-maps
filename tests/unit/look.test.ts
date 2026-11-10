@@ -9,7 +9,7 @@ import { describeTile, entitiesByTile } from "../../src/editor/features";
 import { buildEntities, modelKeyOf, modelTriangles } from "../../src/render3d/entities3d";
 import { casterLevelsOf, decodeTop, DEFAULT_SUN, encodeTop, litFraction, objectCasters, PLANT_WIDEST, shadowMap, shadowTops, SHADOW_RES, soilNibbles, tileData, waterByte, withCasterLevels } from "../../src/render3d/light";
 import { DEAD, entityView, soilView, surfaceWater, waterFromDepth, YOUNG } from "../../src/render3d/model";
-import { ALBEDO_SCALE, cliffTint, contaminationByte, contaminationVein, cssColor, DEAD_TREE, GROUND, groundColor, groundKind, legendEntries, LIGHT, moistureByte, sunlitTop, WALL, wallColor, waterBody } from "../../src/render3d/palette";
+import { cliffTint, objectTop, contaminationByte, contaminationVein, cssColor, DEAD_TREE, GROUND, groundColor, groundKind, legendEntries, LIGHT, moistureByte, sunlitTop, WALL, wallColor, waterBody } from "../../src/render3d/palette";
 import { HIGH_WATER } from "../../src/render3d/waterPalette";
 import { cleanWaterShown } from "./waterShown";
 import { waterHooks } from "../../src/render3d/high/shaders";
@@ -136,7 +136,8 @@ describe("the ground's colours", () => {
     expect(height).not.toContain("Moist ground");
     // (the ground as a sunlit top shows it: its colour is an albedo the light multiplies, D497)
     expect(legendEntries("moisture")[1].swatch).toContain(cssColor(sunlitTop(GROUND.dry)));
-    expect(legendEntries("moisture").at(-1)!.swatch).toBe(cssColor(DEAD_TREE));
+    // (as its top shows in the game's light, as the ground's swatches: D135 as amended 2026-11-09)
+    expect(legendEntries("moisture").at(-1)!.swatch).toBe(cssColor(objectTop(DEAD_TREE)));
   });
 });
 
@@ -385,9 +386,10 @@ describe("the models", () => {
     const greenish = (name: string) => {
       const col = byName.get(name)!.geometry.getAttribute("pcolor").array;
       let n = 0;
-      // (the game's olive greens, D135 as amended 2026-10-29: green over red and blue by 0.043 of the game's albedo,
-      // drawn at our grass's lightness (ALBEDO_SCALE), so the margin scales with it and never loosens)
-      const margin = 0.043 * ALBEDO_SCALE;
+      // (the game's olive greens, D135 as amended 2026-10-29: green over red and blue by 0.043 of the game's albedo, drawn
+      // straight since 2026-11-09, when the models came into the game's light; until then at our grass's lightness, and
+      // the margin with it)
+      const margin = 0.043;
       for (let k = 0; k < col.length; k += 3) if (col[k + 1] > col[k] + margin && col[k + 1] > col[k + 2] + margin) n++;
       return n;
     };

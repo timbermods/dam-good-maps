@@ -33,16 +33,22 @@ only where an implementation looks wrong.
 evolve, and features beyond this plan may be built where they make the maps or the editor better. Game launches are
 allowed again (Kyler, 2026-11-07), through the DGM Probe runner only and only where a change needs one; the companion
 mod and one-click play are set aside (#709 stays on `hold`). The work, in this order:
-- **Forces play:** dev's red, then the see-behind aid (#759, #761) and the trees (#757). Then the #734 look set with #744
-  and #754, Wave 1's look items, and then water with character: falls pour, rivers wind, and badwater looks poisonous
-  (PERFECT, Water 3).
-- **Milestone:** Wave 1's maps items, then Wave 2's judging by looks. Then difficulty through terrain as its own design
-  step (PERFECT's Challenge, D276), which planning rules on.
-- **Planning's streams:**
-  - **showcase-craft** makes showcase maps by hand and fixes the gaps they find, logged in
+- **Forces play:** the game's light on objects, grass and cliffs is done (#909–#911), and the round green water is the
+  game's own shape (#913). Next: deep badwater in low light, and dry tops in the sun. Then water with character: falls
+  pour, rivers wind, and badwater looks poisonous (PERFECT, Water 3). The full `npm run smooth` gate runs between its PRs.
+- **Milestone:** `game-look-done` and `naturalize-done` recorded in `docs/STATUS.md`; then a fall from one stroke
+  (showcase-craft gaps 1 and 2: Carve from a mesa and Unleash's course make a bowl, not a fall); then #532. #845 and
+  #822 stay on `hold` for Kyler's word on the collab fixture. After those, Wave 1's maps items, Wave 2's judging by
+  looks, and difficulty through terrain as its own design step (PERFECT's Challenge, D276), which planning rules on.
+- **Planning's streams** (since 2026-11-09, the map's shapes before more polish of the look: a judge sees the map in
+  the game):
+  - **force shapes at the source:** Craterize as a natural crater, not a stadium (#912, gap 25), and Glaciate as one
+    trough at the valley's width (#914, gaps 14 and 26). Each merges on a code review and a look review.
+  - **showcase-craft** round 3 then remakes the three hand-made maps with the fixed forces, logged in
     `docs/progress/showcase-craft.md`. It sends the core and look gaps to their owners, at the top of Wave 1.
   - **time-lapse** builds the build time-lapse (D205), taken out of Later.
-- **Releases:** planning releases to `main` once dev is green and the #734 set has landed in one go.
+- **Releases:** `game-look-done` and `naturalize-done` are on `main`. Planning releases the next set once the force
+  shapes and the look items above are on a green dev.
 
 **Wave 1, now**
 - **Maps as the game shows them** (milestone):

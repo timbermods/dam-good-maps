@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { bloomLevels, bloomLift, GAME_BLOOM, GAME_BLOOM_LOOKS, inverseTable, LAVA_BLOOM_ENDS, lavaSourceMax } from "../../src/render3d/bloom";
 import { LAVA } from "../../src/render3d/materials";
 import { paletteDefaults } from "../../src/render3d/high/models";
-import { GAME_LIGHT, GAME_SKY, gameAmbient, gamePostRgb, LIGHT, MINE, RUIN, START, TREE_COLOURS } from "../../src/render3d/palette";
+import { GAME_LIGHT, GAME_SKY, gameAmbient, gamePostRgb, LIGHT, MINE, ownAlbedo, RUIN, START, TREE_COLOURS, type Rgb } from "../../src/render3d/palette";
 
 const display = (v: number) => (v <= 0.0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055);
 
@@ -42,7 +42,8 @@ describe("the game's bloom (D497 as amended 2026-11-08)", () => {
   // may pass the knee, or the skip would change a pixel. These hold the day's brightest under it, so a brighter colour
   // fails here rather than silently missing its bloom.
   const knee = GAME_BLOOM.threshold / 2;
-  /** The brightest a face of colour `c` shows in the game's light by day (display values, its brightest channel): the
+  /** The brightest a model's face of colour `c` shows in the game's light by day (display values, its brightest channel),
+   *  as the objects are lit (materials.ts `gameObjectLight`, D135 as amended 2026-11-09: the objects' diffuse share): the
    *  ambient by its normal and the sun at `LIGHT.sunElevation` by n·L, over every normal (`upright`: level normals only,
    *  for posts, beams and trunks). Specular left out: a few thousandths on these. */
   const lit = (c: readonly number[], upright = false) => {
@@ -52,7 +53,7 @@ describe("the game's bloom (D497 as amended 2026-11-08)", () => {
       const y = upright ? 0 : -1 + (2 * i) / 400;
       const nl = upright ? Math.cos(el) : Math.max(0, Math.cos(Math.acos(y) - (Math.PI / 2 - el)));
       const a = gameAmbient(y);
-      for (let k = 0; k < 3; k++) best = Math.max(best, c[k] * GAME_LIGHT.diffuse * (a[k] + GAME_LIGHT.sun[k] * nl));
+      for (let k = 0; k < 3; k++) best = Math.max(best, c[k] * GAME_LIGHT.objectDiffuse * (a[k] + GAME_LIGHT.sun[k] * nl));
     }
     return best;
   };
@@ -75,47 +76,29 @@ describe("the game's bloom (D497 as amended 2026-11-08)", () => {
   });
 
   it("finds every model colour a face can turn to the sun under the knee in the game's light by day", () => {
+    // (the mine's colours are our own, drawn at `ownAlbedo`: entities3d.ts `Model.own`)
+    const own = (c: Rgb) => ownAlbedo(c) as readonly number[];
     const faces: [string, readonly number[]][] = [
       ...Object.entries(START).map(([k, c]) => [`START.${k}`, c] as [string, readonly number[]]),
-      // the trees' colours, all but the birch's bark (below)
-      ...Object.entries(TREE_COLOURS)
-        .filter(([k]) => k !== "birchBark")
-        .map(([k, c]) => [`TREE_COLOURS.${k}`, c] as [string, readonly number[]]),
-      // (a panel's shade at most 1.02: entities3d.ts storey)
+      ...Object.entries(TREE_COLOURS).map(([k, c]) => [`TREE_COLOURS.${k}`, c] as [string, readonly number[]]),
+      // (a panel's shade at most 1.02 and the skeleton's 1.05: entities3d.ts storey)
       ["RUIN.panel", RUIN.panel.map((v) => v * 1.02)],
-      // (the pale rubble, MINE.rubble[2], is held below: it passes the knee square to the sun)
-      ...MINE.rubble.filter((_, k) => k !== 2).map((c, k) => [`MINE.rubble.${k < 2 ? k : k + 1}`, c] as [string, readonly number[]]),
-      ...(["wood", "earthTop", "seam", "ladder", "frame", "earth"] as const).map((k) => [`MINE.${k}`, MINE[k]] as [string, readonly number[]]),
-      // High's models, all but the birch's bark (below); its dead wood, a fifth darker, is under the knee with the rest
-      ...Object.entries(paletteDefaults)
-        .filter(([k]) => k !== "birchBark")
-        .map(([k, h]) => [`high.${k}`, hex(h)] as [string, readonly number[]]),
+      ["RUIN.rust", RUIN.rust.map((v) => v * 1.05)],
+      ...MINE.rubble.map((c, k) => [`MINE.rubble.${k}`, own(c)] as [string, readonly number[]]),
+      ...(["wood", "earthTop", "seam", "ladder", "frame", "earth", "rootPale"] as const).map((k) => [`MINE.${k}`, own(MINE[k])] as [string, readonly number[]]),
+      // High's models
+      ...Object.entries(paletteDefaults).map(([k, h]) => [`high.${k}`, hex(h)] as [string, readonly number[]]),
     ];
     for (const [name, c] of faces) expect(lit(c), name).toBeLessThan(knee);
-    // the brightest: the ruins' panels, then the mine's wood, High's dead birch and the start's roof
-    expect(Math.max(...faces.map(([, c]) => lit(c)))).toBeLessThan(1.234);
-  });
-
-  it("holds the colours whose bound passes the knee at what every frame measured shows of them", () => {
-    // These pass the knee only on a face square to the sun, which no frame of ~2,900 day views measured shows
-    // (`.scratch` probe, 2026-11-08: ruins 1.20, mines' roots in their pit): the ruins' rust skeleton (upright posts,
-    // beams and struts, a shade at most 1.05) and a mine's pale roots (hanging cones), lit level. Their bounds are held
-    // where they are, so none gets brighter unseen. The game's ambient probe, captured (2026-11-09, palette.ts
-    // GAME_AMBIENT_SH), is brighter than the projection these bounds were first set by (the rust 1.282 then, the pale
-    // rubble 1.262), and the pale rubble (MINE.rubble[2]) now passes the knee at its brightest normal too. Our objects
-    // are drawn in their own light (materials.ts objectMaterial), not this one, so the frames measured stand.
-    expect(lit(RUIN.rust.map((v) => v * 1.05), true)).toBeLessThan(1.346);
-    expect(lit(MINE.rubble[2])).toBeLessThan(1.304);
-    expect(lit(MINE.rootPale, true)).toBeLessThan(knee);
-    // The birch's bark, the game's light warm grey (its texels without the marks, palette.ts `TREE_COLOURS.birchBark`):
-    // an upright trunk square to the sun reads 1.290 in Standard and 1.211 in High in the game's light as captured
-    // (1.229 and 1.154 by the projection before), and its stems lean up to a quarter radian and High's twigs up close
-    // more. No frame shows it there: a grove up close, at the start camera and at play distance from 8 sides, both looks (`.scratch` probe,
-    // 2026-11-08), its brightest pixel code 219 in Standard and 230 in High, 0.86 and 1.05 before the grade (the knee is
-    // code 240), as it stands in its crown's shade. Held tight at its upright bound, so it gets no brighter unseen.
-    // (Before, near-white, it was held at 1.369 and 1.42.)
-    expect(lit(TREE_COLOURS.birchBark, true)).toBeLessThan(1.291);
-    expect(lit(hex(paletteDefaults.birchBark), true)).toBeLessThan(1.212);
+    // The brightest: the birch's bark, the game's light warm grey (its texels without the marks, palette.ts
+    // `TREE_COLOURS.birchBark`), 1.208 at its brightest normal, then the mine's pale rubble and roots and the ruins'
+    // panels. Held where it is, so none gets brighter unseen. (Until 2026-11-09 the objects were lit by a light of our
+    // own and the game's albedo drawn at our lightness: the ruins' old rust, the pale rubble and the birch's bark passed
+    // the knee in this light, on faces no frame measured showed, and were held at 1.346, 1.304 and 1.291. In the game's
+    // light, the game's albedo straight, the ruins' rust is the game's, the mine's colours a 1.318th darker, and
+    // nothing passes.)
+    expect(Math.max(...faces.map(([, c]) => lit(c)))).toBeLessThan(1.212);
+    expect(lit(TREE_COLOURS.birchBark, true)).toBeLessThan(1.032);
   });
 
   it("finds the sky's brightest, its clouds at their densest, at the knee's foot, where it changes no canvas code", () => {

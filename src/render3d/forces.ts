@@ -838,7 +838,7 @@ class Wear {
     fragmentShader: /* glsl */ `
       uniform vec3 sun; varying vec3 colorS; varying vec3 worldS;
       void main() {
-        // (faceted: each face its own light, the soft wrapped sun the objects take)
+        // (faceted: each face its own light, a soft wrapped sun of its own: a force's stones, not the map's objects)
         vec3 n = normalize(cross(dFdx(worldS), dFdy(worldS)));
         float ndl = clamp(dot(n, sun) * 0.75 + 0.25, 0.0, 1.0);
         gl_FragColor = vec4(colorS * (0.55 + 0.6 * ndl), 1.0);
