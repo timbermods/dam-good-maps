@@ -3255,7 +3255,7 @@ map stores its Coordinates alone, no orientation and no state, so it has one loo
   stretched along three axes, fitted so their outline covers the game's heap's from 17 cameras, cut at the ground and
   at 1.078), three-sided posts and beam, the splinter, the shards. In the game's colours (`palette.ts` `BLOCKAGE`),
   straight in the objects' game light (`gameObjectLight`); Standard and High draw the same model (`high/landmarks.ts`
-  copies it), with the objects' fade near the pointer. High's rubble block is gone; the natural dam keeps it.
+  copies it), with the objects' fade near the pointer. High's rubble block is gone; the natural dam kept it until it became the game's too (below).
 - **Measured:** the bounds within 1 % of the game's. The silhouette, our triangles against the game's projected from
   16 cameras (8 headings, 30° and 60° down) and from above: 0.97–1.02 times the game's area, IoU 0.92–0.97.
 - **Standard's shadow:** it cast none. One upright disc round the tile's middle (`BLOCKAGE_SHADOW`, light.ts kind 17:
@@ -3330,6 +3330,46 @@ are a fallen telescope (`SmallRelic.Model`, 2 × 1, 480 triangles) and a crashed
   not the game's own light. (2) The satellite's east panel is flat, where the game's is creased across its middle, and
   its cells are shallow pits, where the game's catch the light in facets. (3) The rest of the placeholders in the
   large relic's falls short (2) remain, the natural dam next.
+
+## The natural dam as the game draws it (D135, D178 as amended 2026-11-10, D496, D497; `fix/natural-dam`)
+
+The generator's weirs are lines of natural dams across a river's channel (half the maps; river valley 2 at 128 has six).
+Ours drew each as five grey stones on a generic block's batch in Standard and as rubble and planks of our own colours in
+High. The game's (`NaturalDam.Model`, 1 × 1, 179 triangles, one node) is the one model for every natural dam.
+
+- **Read from the game's model** (numbers only, `tools/game-model-albedo.py` and scratch fits): a low heap of faceted
+  brown rock (108 triangles, albedo 0.215/0.185/0.149) with a flat top 0.62 high, overhanging its tile by up to 0.18;
+  three five-sided logs through it, their ends sticking out of its sides (0.202/0.156/0.110); five flat pale stones
+  lying over its top, the highest to 0.72, and three loose shards. Its bounds about its tile's middle x −0.68…0.73,
+  z −0.63…0.69, 0…0.717 up. Its material is the blockage's (EnvironmentURP, smoothness 0.5, not metallic), so its
+  albedo goes straight into our light.
+- **Built** (`render3d/naturalDam.ts`, new): our own model to those measures, 174 triangles: the heap as rings at four
+  heights, each at its outline along 12 headings, closed by a flat top, faceted in the three shades of the game's
+  heap's faces by lightness; the logs as five-sided bars closed at their ends; the stones as low pyramids over their
+  rims; the shards. Built on the relics' `Parts` (`relicParts.ts`). In the game's colours (`palette.ts`
+  `NATURAL_DAM`), straight in the objects' game light; Standard and High draw the same model (`high/landmarks.ts`
+  copies it; High's rubble and planks are gone), with the objects' fade near the pointer.
+- **Measured:** the bounds within 0.03 of the game's (ours x −0.71…0.73, z −0.64…0.67, 0…0.732 up). The silhouette,
+  our triangles against the game's projected from 16 cameras (8 headings, 30° and 60° down) and from above:
+  0.96–1.02 times the game's area, IoU 0.91–0.94.
+- **Standard's shadow:** it cast none. At 0.62 high under the 45° sun the heap's shadow reaches about half a tile past
+  its own reach, so it casts: two upright discs round the tile's middle (`NATURAL_DAM_SHADOW`, light.ts kind 18: 0 to
+  0.4 up at radius 0.94, as wide as `PLANT_WIDEST` lets a disc be, and 0.4 to 0.75 at 0.8), fitted through the bake
+  and the shader's bilinear read to the model's triangles along the 45° sun at 8 headings, shading nothing on its own
+  tile as the blockage's (`OWN_TILE_LIT`). On the ground it does not stand over, 0.84–1.00 of the model's shadow a
+  heading, 0.92 in all (one disc fitted best at 0.92–1.19, too large on the diagonals); `landmarksGame.test.ts` holds
+  it within 0.8–1.05 a heading and 0.85–1.0 in all.
+- **Judged:** no game frame of ours holds a natural dam (Four Lakes has none). At 12 away over river valley 2's weir
+  (32…34, 92…93), Standard and High alike: low brown heaps of flat-topped rock with paler stones, awash in the pool the
+  weir holds, as the game's model renders offline.
+- **Cost:** +74 triangles a natural dam in Standard (+444 on river valley 2), −114 in High (its rubble and planks were
+  heavier); the draw calls unchanged. `benchOrbit` on river valley 2 at 128 (1600 × 900, headed Chrome, RTX 2070
+  Super; the GPU's median a frame, two runs of the base → two of the branch): Standard whole map 2.95, 2.61 → 1.35,
+  2.76 ms, the weir 12 away 2.96, 2.91 → 2.88, 2.84; High 1.80, 1.72 → 2.03, 1.97 and 3.90, 3.97 → 3.92, 3.91: within
+  the runs' spread. Every frame 7.0 ms at 144 Hz.
+- **Falls short:** (1) No game frame shows a natural dam; it is judged against the game's model rendered offline, not
+  the game's own light. (2) The heap's facets are its rings' 12 a ring, larger than the game's many small ones near.
+  (3) The rest of the placeholders in the large relic's falls short (2) remain.
 
 ## A fall over a cave's mouth (D154 as amended 2026-11-08, D496; `fix/cave-mouth-curtain`)
 
