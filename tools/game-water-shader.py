@@ -513,12 +513,20 @@ def texture_texels(b, data_dir):
     if kind not in ("BC7", "R8"):
         raise ValueError(f"{name}: format {fmt_}, not BC7 or R8")
     tag = b"resources.assets.resS"
-    at = b.index(tag)
-    offset = struct.unpack_from("<Q", b, at - 16)[0]
     top = max(1, (w + 3) // 4) * max(1, (h + 3) // 4) * 16 if kind == "BC7" else w * h
-    with open(os.path.join(data_dir, "resources.assets.resS"), "rb") as f:
-        f.seek(offset)
-        raw = f.read(top)
+    if tag in b:
+        at = b.index(tag)
+        offset = struct.unpack_from("<Q", b, at - 16)[0]
+        with open(os.path.join(data_dir, "resources.assets.resS"), "rb") as f:
+            f.seek(offset)
+            raw = f.read(top)
+    else:
+        # (kept in the asset itself: its image data, its length first, ends before an empty stream reference of 16
+        # bytes, offset 0, size 0 and no path; the atlas BeaverCarryingModels_D is one)
+        start = len(b) - 16 - size
+        if start < 4 or i32(b, start - 4) != size:
+            raise ValueError(f"{name}: neither streamed nor kept inline")
+        raw = b[start:start + top]
     if len(raw) != top or size < top:
         raise ValueError(f"{name}: {len(raw)} of {top} bytes read")
     if kind == "R8":
