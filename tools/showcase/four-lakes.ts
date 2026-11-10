@@ -835,9 +835,9 @@ function main(): void {
       ]);
       lap("the route");
     }
+    dryStray(s, land);
     plant(s, land);
     const pc = plantCount(s);
-    dryStray(s, land);
     log(`  plants: ${pc.trees} living trees (${Math.round(pc.per10k.trees)} per 10,000 tiles), ${pc.dead} dead, ${pc.berries} berry bushes (${Math.round(pc.per10k.berries)} per 10,000), ${pc.succulents} succulents`);
     lap("plants");
   }
@@ -883,7 +883,9 @@ function main(): void {
     lap("checks");
   }
   if (has("save")) {
-    const f = exportFiles(s);
+    const c = checksOf(s);
+    if (c.blocking.length) throw new Error(`not saved: ${rowOf(c.blocking[0]).message}`);
+    const f = { timber: s.exportTimber({ warnings: [] }).bytes, project: s.project(9) };
     writeFileSync(join(OUT, `${ROUND}.timber`), f.timber);
     writeFileSync(join(OUT, `${ROUND}.damgoodmaps.json`), f.project);
     writeFileSync(join(OUT, `${ROUND}-shots.json`), JSON.stringify(shots(s, { drought: 9, badtide: 8 }), null, 1));
