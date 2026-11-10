@@ -12,8 +12,8 @@
 //
 // - Terrain tops are coloured by soil (palette.ts): moist ground yellow-green grass whose edge
 //   bleeds onto the earth in patches; dry ground cracked earth, grey-brown; contamination a layer
-//   over either, red-orange veins that grow denser and brighter with it (dry earth's own cracks
-//   glow orange, dark red veins run through grass); a dark bed under water; or by height, with the
+//   over either, the game's pattern of thin dark-rust cracks (soilTexture.ts) by the game's weight,
+//   the same at any level over a fifth, no glow; a dark bed under water; or by height, with the
 //   toggle. Soil blends between tiles of one height, never over a cliff, and every tile's middle
 //   shows its own soil.
 // - Walls are cobbled stone tinted by height as the game's cliffs (D497), and with Markers a pale
@@ -27,7 +27,7 @@
 //   Badwater is the game's too (its formula: waterPalette.ts GAME_BADWATER): a red-brown between near black and
 //   crimson by a grimy pattern the flow carries, its glowing lines (an emissive detail) flowing with it, duller and
 //   with its ripples twice as strong. Water partly bad turns from clean water to badwater with its badwater
-//   share, blended over a few tiles by the water mesh, by the game's tint, its hue turning
+//   share, blended between tiles as the game's (about a tile wide), by the game's tint, its hue turning
 //   early from teal through a teal-grey and a warm brown to crimson, never purple, so where they meet the colour changes in a soft gradient, never in streaks or
 //   patches, and a mixed river reads as poisoned; its glowing lines come in with it, brightest at a front, as the
 //   game's. Every water colour and the water's opacity come from waterPalette.ts (`WATER_GLSL`, D177).
@@ -54,6 +54,7 @@ import {
   NearestFilter,
   OrthographicCamera,
   PlaneGeometry,
+  RedFormat,
   RepeatWrapping,
   RGBAFormat,
   RGFormat,
@@ -67,15 +68,20 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
-import { ALTITUDE_RAMP, BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, gameAmbient, GAME_FINISH, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LANDMARK, LIGHT, MINE, GAME_SKY, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
-import { GAME_BADWATER, WATER_GLSL, WATER_UI } from "./waterPalette";
-import { WATER_ALBEDO, WATER_FLOW_GLSL, WATER_TEXTURE_SIZE } from "./waterTextures";
-import { SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
+import { ALTITUDE_RAMP, BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, gameAmbient, GAME_FINISH, GAME_GROUND_MEAN, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LANDMARK, LIGHT, MINE, NOISE_NODES, GAME_SKY, ownAlbedo, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
+import { GAME_BADWATER, GAME_WATER_SOURCE, WATER_GLSL, WATER_LIGHT, WATER_SHARE_BLEND, WATER_UI } from "./waterPalette";
+import { BADWATER_TEXTURE_SIZE, DETAIL_FLAT, GAME_SOURCE_SHAPE, WATER_ALBEDO, WATER_FLOW_GLSL, WATER_TEXTURE_SIZE } from "./waterTextures";
+import { GAME_SOIL_TEXTURE, SOIL_TEXTURE_SIZE } from "./soilTexture";
+import { SHORE_FILM, SHORE_FILM_TERRAIN_GLSL, SHORE_FILM_VERTEX_GLSL } from "./shoreFilm";
+import { EDGE_BAND, SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
 import { LIGHT_LEVELS, SUN_MARCH_STEP, SUN_MARCH_STEPS, type CaveLight } from "./caveLight";
-import { CUT_SLACK } from "./cutWater";
+import { CUT_SLACK, VIEW_TAN } from "./cutWater";
 import { FALL } from "./waterMesh";
 import { RUN_LEVELS, type RunSoil } from "./runSoil";
 import { DITHER_GLSL, FADE_OFF, OBJECT_FADE_GLSL } from "./objectFade";
+import { FALL_MASK_GLSL } from "./fallMask";
+import { REFRACTION_GLSL, REFRACTION_INPUTS_GLSL, WATER_REFRACTION, refractionUniforms, type RefractionUniforms } from "./refraction";
+import { VIEW_DEPTH_GLSL } from "./viewDepth";
 
 const az = LIGHT.sunAzimuth;
 const ce = Math.cos(LIGHT.sunElevation);
@@ -84,8 +90,11 @@ export const SUN = new Vector3(az[0] * ce, Math.sin(LIGHT.sunElevation), -az[1] 
 
 const color = (c: Rgb) => new Color(c[0], c[1], c[2]);
 
-/** Uniforms every material shares: one object per value, so a change reaches them all. */
-export interface SceneUniforms {
+/** Uniforms every material shares: one object per value, so a change reaches them all. The refraction's (refraction.ts:
+ *  the copy of the screen behind the water and its state) are the water's alone. */
+export interface SceneUniforms extends RefractionUniforms {
+  /** 1 while the frame before the grade is drawn for the bloom (bloom.ts, `BLOOM_SOURCE`). */
+  bloomSource: { value: number };
   sunDir: { value: Vector3 };
   sunColor: { value: Color };
   skyColor: { value: Color };
@@ -138,14 +147,24 @@ export interface SceneUniforms {
   /** 1 while a source is highlighted: the water over it turns its clear red (under water too). */
   sourceLit: { value: number };
   /** The water's current and smoothed contamination, one texel a tile (motion.ts, D353): RG the
-   *  current as drawn (128 still), B the badwater share; the moving water reads it in both looks. */
+   *  current as drawn (128 still), B the badwater share, A the game's waterfall mask (fallMask.ts: 0 dry, 1 + 254 × the
+   *  mask wet); the moving water reads it in both looks. */
   flowTex: { value: DataTexture };
-  /** The surface the water's flow carries (waterTextures.ts: RG the albedo's fields, BA the slopes), shared by the page
+  /** The surface the water's flow carries (waterTextures.ts: RG the albedo's fields), shared by the page
    *  (`waterSurfaceTexture`). */
   waterTex: { value: DataTexture };
+  /** The normal the flow carries (waterTextures.ts `makeWaterNormal`: RG its slopes, 1024²), shared by the page
+   *  (`waterNormalTexture`). */
+  normalTex: { value: DataTexture };
   /** Badwater's pattern the flow carries (waterTextures.ts `makeBadwaterTexture`: R the base colour's, G the emissive
-   *  detail's), shared by the page (`badwaterPatternTexture`). */
+   *  detail's; A the water sources' pattern), shared by the page (`badwaterPatternTexture`). */
   badwaterTex: { value: DataTexture };
+  /** The still detail albedo (waterTextures.ts `makeDetailField`, Q9 P6: its first component, one byte a texel, 2048²
+   *  as the game's), shared by the page (`detailTexture`). */
+  detailTex: { value: DataTexture };
+  /** Contaminated ground's pattern (soilTexture.ts: RGB its colour, A its cover), shared by the page
+   *  (`soilPatternTexture`). */
+  soilTex: { value: DataTexture };
   /** The light under roofs (caveLight.ts): RG a cell, the sky and the sun, and its size in cells
    *  (0, 0, 0 on a map with no air under a roof: the baked light everywhere). */
   caveTex: { value: Data3DTexture };
@@ -206,7 +225,10 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     sourceLit: { value: 0 },
     flowTex: { value: stillFlow() },
     waterTex: { value: waterSurfaceTexture() },
+    normalTex: { value: waterNormalTexture() },
     badwaterTex: { value: badwaterPatternTexture() },
+    detailTex: { value: detailTexture() },
+    soilTex: { value: soilPatternTexture() },
     caveTex: { value: noCave },
     caveSize: { value: new Vector3(0, 0, 0) },
     caveTop: { value: 0 },
@@ -217,8 +239,28 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     overlayRest: { value: new Vector4(0, 0, 0, 0) },
     objectFade: { value: new Vector4(0, 0, 0, FADE_OFF) },
     objectHide: { value: 0 },
+    bloomSource: BLOOM_SOURCE,
+    ...refractionUniforms(),
   };
 }
+
+/** The bloom's source pass (bloom.ts): 1 while the frame before the grade is drawn for it. One uniform every look
+ *  material shares, as a view draws its frames one at a time. */
+export const BLOOM_SOURCE = { value: 0 };
+
+/** An eruption's lava as the terrain shader draws it (D206), by its cooling's age (s): its own light (an emission, `hot`
+ *  turning to `cooled` over `cooling`), at most `most` of a pixel's colour, the ground under it darkening to a crust
+ *  (× `crustTint`, over `crust`) that puts its light out, and the whole fading back into the ground (over `fade`). The
+ *  bloom reads it too (bloom.ts `lavaSourceMax`, `LAVA_BLOOM_ENDS`), so the shader and the bloom's gate can't drift. */
+export const LAVA = {
+  hot: [3.2, 0.5, 0.02] as Rgb,
+  cooled: [0.38, 0.028, 0.013] as Rgb,
+  cooling: 3.6,
+  crust: [2.0, 5.8] as readonly [number, number],
+  crustTint: [0.49, 0.46, 0.43] as Rgb,
+  fade: [3.3, 6.4] as readonly [number, number],
+  most: 0.9,
+} as const;
 
 let noCaveFlow: Data3DTexture | null = null;
 /** The cave current's placeholder (one still cell), shared: never read while `caveFlowLevels.y` is 0. */
@@ -265,36 +307,73 @@ export function caveTexture(v: CaveLight | null): Data3DTexture {
 }
 
 let surfaceTex: DataTexture | null = null;
-/** The surface the water's flow carries (waterTextures.ts), one for the page: flat at its mean (no ripples) until the
- *  bake worker has made it (`fillWaterTexture`). Repeating, mipmapped and filtered at a slant, as the game samples its
- *  own. */
+/** The surface the water's flow carries (waterTextures.ts `makeWaterTexture`: RG the albedo's fields), one for the
+ *  page, two bytes a texel: a single texel at its mean (no ripples) until the textures' worker has made it
+ *  (`fillWaterTexture`), then `WATER_TEXTURE_SIZE` square (2048², as the game's: 8 MB, about 11 MB on the GPU with its
+ *  mips). Repeating, mipmapped and filtered at a slant, as the game samples its own. */
 export function waterSurfaceTexture(): DataTexture {
   if (surfaceTex) return surfaceTex;
-  const n = WATER_TEXTURE_SIZE;
-  const data = new Uint8Array(n * n * 4);
-  const r = Math.round(WATER_ALBEDO.flat[0]);
-  const g = Math.round(WATER_ALBEDO.flat[1]);
-  for (let i = 0; i < n * n; i++) data.set([r, g, 128, 128], i * 4);
-  const t = new DataTexture(data, n, n, RGBAFormat, UnsignedByteType);
+  const t = new DataTexture(new Uint8Array([Math.round(WATER_ALBEDO.flat[0]), Math.round(WATER_ALBEDO.flat[1])]), 1, 1, RGFormat, UnsignedByteType);
   t.wrapS = t.wrapT = RepeatWrapping;
   t.magFilter = LinearFilter;
   t.minFilter = LinearMipmapLinearFilter;
   t.generateMipmaps = true;
   t.anisotropy = 8;
+  t.unpackAlignment = 2;
   t.needsUpdate = true;
   return (surfaceTex = t);
 }
 
+let normalTex: DataTexture | null = null;
+/** The normal the flow carries (waterTextures.ts `makeWaterNormal`, Q9 P5, P11), one for the page, two bytes a texel:
+ *  a single flat texel until the textures' worker has made it (`fillWaterTexture`), then `NORMAL_TEXTURE_SIZE` square,
+ *  61 texels a tile. Repeating, mipmapped and filtered at a slant, as the game samples its own. */
+export function waterNormalTexture(): DataTexture {
+  if (normalTex) return normalTex;
+  const t = new DataTexture(new Uint8Array([128, 128]), 1, 1, RGFormat, UnsignedByteType);
+  t.wrapS = t.wrapT = RepeatWrapping;
+  t.magFilter = LinearFilter;
+  t.minFilter = LinearMipmapLinearFilter;
+  t.generateMipmaps = true;
+  t.anisotropy = 8;
+  t.unpackAlignment = 2;
+  t.needsUpdate = true;
+  return (normalTex = t);
+}
+
 let badTex: DataTexture | null = null;
-/** Badwater's pattern the flow carries (waterTextures.ts `makeBadwaterTexture`), one for the page: flat at its mean
- *  until the bake worker has made it, sampled as the surface's. */
+/** Badwater's pattern the flow carries (waterTextures.ts `makeBadwaterTexture`), with the water sources' pattern in its
+ *  A (its B unused), one for the page: flat at their means until the textures' worker has made it with its mips, made
+ *  as the game's are (`linearMips`: in linear values, so the glow's mean climbs with distance as the game's does).
+ *  Sampled as the game samples its own (its inline sampler: bilinear, repeating, no anisotropy), but trilinear, so no
+ *  seam shows where one mip gives way to the next (the mean the same). */
 export function badwaterPatternTexture(): DataTexture {
   if (badTex) return badTex;
-  const n = WATER_TEXTURE_SIZE;
+  const n = BADWATER_TEXTURE_SIZE;
   const data = new Uint8Array(n * n * 4);
   const r = Math.round(GAME_BADWATER.pattern[0] * 255);
   const g = Math.round(GAME_BADWATER.pattern[1] * 255);
-  for (let i = 0; i < n * n; i++) data.set([r, g, 0, 255], i * 4);
+  const a = Math.round(GAME_SOURCE_SHAPE.mean);
+  for (let i = 0; i < n * n; i++) data.set([r, g, 0, a], i * 4);
+  const t = new DataTexture(data, n, n, RGBAFormat, UnsignedByteType);
+  t.wrapS = t.wrapT = RepeatWrapping;
+  t.magFilter = LinearFilter;
+  t.minFilter = LinearMipmapLinearFilter;
+  t.generateMipmaps = true;
+  t.needsUpdate = true;
+  return (badTex = t);
+}
+
+let soilTex: DataTexture | null = null;
+/** The pattern contaminated ground takes (soilTexture.ts `makeSoilTexture`), one for the page: flat at the game's
+ *  pattern's mean (its colour and alpha) until the bake worker has made it, sampled as the game samples its own
+ *  (repeating, mipmapped, filtered at a slant). */
+export function soilPatternTexture(): DataTexture {
+  if (soilTex) return soilTex;
+  const n = SOIL_TEXTURE_SIZE;
+  const data = new Uint8Array(n * n * 4);
+  const flat = [...GAME_SOIL_TEXTURE.mean.map(Math.round), Math.round(GAME_SOIL_TEXTURE.meanAlpha * 255)];
+  for (let i = 0; i < n * n; i++) data.set(flat, i * 4);
   const t = new DataTexture(data, n, n, RGBAFormat, UnsignedByteType);
   t.wrapS = t.wrapT = RepeatWrapping;
   t.magFilter = LinearFilter;
@@ -302,22 +381,78 @@ export function badwaterPatternTexture(): DataTexture {
   t.generateMipmaps = true;
   t.anisotropy = 8;
   t.needsUpdate = true;
-  return (badTex = t);
+  return (soilTex = t);
 }
 
-/** The bake worker's surface and badwater's pattern (high/bake.ts `waterTexture`) into the page's textures. */
-export function fillWaterTexture(data: Uint8Array, bad: Uint8Array): void {
-  const t = waterSurfaceTexture();
-  (t.image.data as Uint8Array).set(data);
+let detailTex: DataTexture | null = null;
+/** The still detail albedo (waterTextures.ts `makeDetailField`, Q9 P6), one for the page, one byte a texel: a single
+ *  texel at its mean until the textures' worker has made it (`fillDetailTexture`), then `DETAIL_TEXTURE_SIZE` square,
+ *  31 texels a tile as the game's. Repeating, mipmapped and filtered at a slant, as the game samples its own. */
+export function detailTexture(): DataTexture {
+  if (detailTex) return detailTex;
+  const t = new DataTexture(new Uint8Array([DETAIL_FLAT]), 1, 1, RedFormat, UnsignedByteType);
+  t.wrapS = t.wrapT = RepeatWrapping;
+  t.magFilter = LinearFilter;
+  t.minFilter = LinearMipmapLinearFilter;
+  t.generateMipmaps = true;
+  t.anisotropy = 8;
+  t.unpackAlignment = 1;
   t.needsUpdate = true;
+  return (detailTex = t);
+}
+
+/** The still detail albedo (bake.ts "detailTexture", `size` square) into the page's texture, which grows from its one
+ *  flat texel to it (its GPU copy made again); and the light look's water sources' pattern (`shape`, when it is made
+ *  with it) into badwater's texture's A (its R and G stay at their means: the light look never reads them). */
+export function fillDetailTexture(detail: Uint8Array, size: number, shape?: Uint8Array): void {
+  const t = detailTexture();
+  if (t.image.width !== size) {
+    t.image = { data: detail, width: size, height: size };
+    t.dispose();
+  } else (t.image.data as Uint8Array).set(detail);
+  t.needsUpdate = true;
+  if (!shape) return;
+  const b = badwaterPatternTexture();
+  const data = b.image.data as Uint8Array;
+  for (let i = 0; i < shape.length; i++) data[i * 4 + 3] = shape[i];
+  b.needsUpdate = true;
+}
+
+/** The flow's albedo (high/bake.ts `albedoTexture`, `size` square) into the page's texture, which grows from its one
+ *  flat texel to it (its GPU copy made again). */
+export function fillAlbedoTexture(data: Uint8Array, size: number): void {
+  const t = waterSurfaceTexture();
+  if (t.image.width !== size) {
+    t.image = { data, width: size, height: size };
+    t.dispose();
+  } else (t.image.data as Uint8Array).set(data);
+  t.needsUpdate = true;
+}
+
+/** The bake worker's normal (`normalSize` square), badwater's pattern with its mips and contaminated ground's
+ *  (high/bake.ts `waterTexture`) into the page's textures; the normal's grows from its one flat texel to it (its GPU
+ *  copy made again), and badwater's takes its own mips in place of the GPU's. */
+export function fillWaterTexture(normal: Uint8Array, normalSize: number, bad: Uint8Array, badMips: Uint8Array[], soil: Uint8Array): void {
+  const nt = waterNormalTexture();
+  if (nt.image.width !== normalSize) {
+    nt.image = { data: normal, width: normalSize, height: normalSize };
+    nt.dispose();
+  } else (nt.image.data as Uint8Array).set(normal);
+  nt.needsUpdate = true;
   const b = badwaterPatternTexture();
   (b.image.data as Uint8Array).set(bad);
+  const n = BADWATER_TEXTURE_SIZE;
+  b.mipmaps = [{ data: b.image.data as Uint8Array, width: n, height: n }, ...badMips.map((data, k) => ({ data, width: n >> (k + 1), height: n >> (k + 1) }))];
+  b.generateMipmaps = false;
   b.needsUpdate = true;
+  const s = soilPatternTexture();
+  (s.image.data as Uint8Array).set(soil);
+  s.needsUpdate = true;
 }
 
 /** A flow texture with no current (until a map's arrives). */
 function stillFlow(): DataTexture {
-  const t = new DataTexture(new Uint8Array([128, 128, 0, 255]), 1, 1, RGBAFormat, UnsignedByteType);
+  const t = new DataTexture(new Uint8Array([128, 128, 0, 0]), 1, 1, RGBAFormat, UnsignedByteType);
   t.needsUpdate = true;
   return t;
 }
@@ -328,22 +463,39 @@ const glColor = (c: Rgb) => `vec3(${c.map((v) => f(Math.round(v * 1000) / 1000))
 const glColor3 = (c: Rgb) => `vec3(${c.map((v) => f(Math.round(v * 1e6) / 1e6)).join(", ")})`;
 
 /** The game's light on its water (palette.ts GAME_LIGHT; Q9 P15) in display values, as the terrain's gameLight: the
- *  ambient probe by the normal, turned back to display values, and the sun by its shadow, times the diffuse share; and
- *  clean water's colour by the game's formula under it (waterPalette.ts GAME_WATER, `gameCleanColour`) × the albedo,
- *  over the light the caller multiplies by (`light`), so the product is the game's. Both looks' water. */
-const GAME_WATER_LIGHT = /* glsl */ `vec3 gameWaterLight(vec3 n, float sun) {
+ *  ambient probe by the normal, turned back to display values, and the sun by its shadow, times the diffuse share
+ *  (`gameWaterDiffuse`: the terrain's 0.912, or the water's own at its metallic 0, 0.96, where the look draws the terms
+ *  #839 held back, waterPalette.ts WATER_LIGHT.held; High's hook sets its own); and clean water's colour by the game's
+ *  formula under it (waterPalette.ts GAME_WATER, `gameCleanColour`) × the albedo, over the light the caller multiplies
+ *  by (`light`), so the product is the game's, overlaid with the game's still detail albedo where the look draws it
+ *  (`gameWaterDetail`, WATER_LIGHT.detail; `waterDetail`, its texture's colour here). `GAME_SUN_COLOUR` is the game's `_MainLightColor`, on its highlight and
+ *  glint where the look draws the game's light (WATER_LIGHT.game). Both looks' water. */
+const GAME_WATER_LIGHT = /* glsl */ `#define GAME_SUN_COLOUR ${glColor(GAME_LIGHT.sun)}
+      #if WATER_HELD
+        float gameWaterDiffuse = ${f(WATER_LIGHT.diffuse)};
+      #else
+        float gameWaterDiffuse = ${f(GAME_LIGHT.diffuse)};
+      #endif
+      vec3 gameWaterLight(vec3 n, float sun) {
         vec3 sh = max(${glColor3(GAME_AMBIENT_SH.c0)} + ${glColor3(GAME_AMBIENT_SH.c1)} * n.y + ${glColor3(GAME_AMBIENT_SH.c2)} * (3.0 * n.y * n.y - 1.0), vec3(0.0));
         vec3 ambient = mix(sh * 12.92, 1.055 * pow(sh, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), sh));
-        return ${f(GAME_LIGHT.diffuse)} * (ambient + ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * sun);
+        return gameWaterDiffuse * (ambient + ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * sun);
       }
+      /** Whether clean water's colour × albedo is overlaid with the game's still detail albedo (Q9 P6), \`waterDetail\`
+       *  (waterPalette.ts WATER_LIGHT.detail; High's hook sets its own). */
+      float gameWaterDetail = float(WATER_DETAIL);
       vec3 gameWaterFormula(float depth, vec3 albedo, vec3 n, float sun, vec3 light) {
-        return gameCleanColour(depth) * albedo * gameWaterLight(n, sun) / max(light, 0.001);
+        vec3 a = gameCleanColour(depth) * albedo;
+        a = mix(a, waterDetailOverlay(a), gameWaterDetail);
+        // (over a water source, the game's own pattern lifts it: Q9 P7, waterPalette.ts GAME_WATER_SOURCE)
+        a = waterSourceLift(a);
+        return a * gameWaterLight(n, sun) / max(light, 0.001);
       }`;
 
 /** A source the pointer's water comes from (D196): its model takes the glow its water does (the water's colour mixed
  *  0.45 toward `WATER_UI.sourceGlow`), as a tint of its rock's main colour, so a source's rock in the middle of its
- *  glowing water glows with it. */
-const shine = (rock: readonly number[]): Rgb => [0, 1, 2].map((j) => 0.55 + (0.45 * WATER_UI.sourceGlow[j]) / rock[j]) as unknown as Rgb;
+ *  glowing water glows with it. The glow is a colour of our own on the game's rock, so it is its albedo at `ownAlbedo`. */
+const shine = (rock: readonly number[]): Rgb => [0, 1, 2].map((j) => 0.55 + (0.45 * ownAlbedo(WATER_UI.sourceGlow)[j]) / rock[j]) as unknown as Rgb;
 
 /** The tints an editing aid puts on an object after the grade (objectMaterial), by index: 0 the highlight's
  *  (`aidTint`, Remove's red), 1 a source's (`sourceTint`), 2–4 the placement ghost's where it fits, warns or is refused
@@ -360,6 +512,61 @@ export const AID_TINT = {
   waterGlow: shine(LANDMARK.rock),
   badwaterGlow: shine(LANDMARK.crater),
 } as const;
+
+/** The grass's painted strokes' mean (groundColor's `painted × (0.08 + bladeHash × 0.16)`, one stroke a cell, its
+ *  width 0.08 across, fading over 0.18–0.42 along, from a point 0.2–0.8 into its cell, turned by its hash), over the
+ *  cell and its hash, with the stroke widened by `aa` (its edge's smoothstep, a pixel's footprint across it): what the
+ *  strokes give the grass on average. */
+export function paintedMean(aa: number, n = 48): number {
+  const smooth = (a: number, b: number, x: number) => {
+    const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+    return t * t * (3 - 2 * t);
+  };
+  const H = 64;
+  let sum = 0;
+  for (let i = 0; i < H; i++) {
+    const h = (i + 0.5) / H;
+    const turn = h * 6.28318;
+    const [cx, cy] = [0.2 + h * 0.6, 0.2 + ((h * 13.7) % 1) * 0.6];
+    const [co, si] = [Math.cos(turn), Math.sin(turn)];
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) {
+        const [dx, dy] = [(x + 0.5) / n - cx, (y + 0.5) / n - cy];
+        // (GLSL's mat2(a, b, c, d) × v is (a v.x + c v.y, b v.x + d v.y))
+        const [bx, by] = [co * dx + si * dy, -si * dx + co * dy];
+        const u = Math.abs(bx + by * 0.25);
+        const across = aa > 0 ? 1 - smooth(0.04, 0.04 + aa, u) : u < 0.04 ? 1 : 0;
+        sum += across * (1 - smooth(0.18, 0.42, Math.abs(by))) * (0.08 + h * 0.16);
+      }
+  }
+  return sum / (H * n * n);
+}
+
+/** The strokes' mean, drawn sharp: what they fade to from afar, so the grass's mean holds at every distance as a
+ *  texture's does through its mips (the game's, D497). */
+export const PAINTED_MEAN = Math.round(paintedMean(0) * 1e5) / 1e5;
+
+/** Widened by a pixel's footprint `aa` (so a stroke stays legible up close, at a grazing view too), a stroke covers
+ *  more of its cell: its mean grows by PAINTED_MEAN × 12.5 aa / (1 + k aa²) (0.08 + aa across instead of 0.08, less
+ *  where the widened stroke runs out of its cell), which groundColor takes off the grass, so its mean holds. k is
+ *  fitted at aa 0.8 (within 2 % of paintedMean from 0.025 to 1.2, look-clean.test.ts). */
+export const STROKE_WIDEN_K = (() => {
+  const a = 0.8;
+  const grow = paintedMean(a) / paintedMean(0) - 1;
+  return Math.round(((12.5 * a) / grow - 1) / (a * a) * 1e3) / 1e3;
+})();
+
+/** The blending noise's gain (`blendNoise`): the game's spread over our two octaves' own (0.7 and 0.3 of value noise at
+ *  3 and 6 cells a tile, whose spread is 0.163), so ours spreads as the game's `BlendingNoise` does (palette.ts BLEND). */
+const BLEND_NOISE_GAIN = Math.round((BLEND.noiseSpread / 0.163) * 1e3) / 1e3;
+/** Dry ground's own broad shade (`groundColor`): a value noise a few tiles across scaling its lightness by up to this
+ *  much either way, so its patches vary over 2 to 8 tiles as the game's `Desert` texture × its detail texture do (the
+ *  luma's spread over blocks of ¼, 1, 4 and 8 tiles: 9.4, 7.7, 5.3 and 3.4 % of its mean; tools/ground-variation.ts). */
+const DRY_BROAD = 0.29;
+/** Grass's broad shade: its lightness by this much either way over a dozen tiles, its mean held (the game's `Grass`
+ *  texture × its detail texture vary over 1, 4 and 8 tiles by 9.1, 5.7 and 3.6 % of their mean; ours by 10.3, 8.0 and
+ *  6.8 % until 2026-11-08, when this was 0.27, and dark patches of it read as the grass's own colour on the start shots). */
+const GRASS_BROAD = 0.15;
 
 /** The pattern texture: its size, and the cells of each pattern across it (each tiles). */
 const PATTERN_SIZE = 1024;
@@ -608,21 +815,19 @@ export interface ShaderHooks {
    *  `bakedSunLit`, for when the effect is off). */
   sunLit?: string;
   // the terrain
-  /** Where grass meets earth, and where contamination ends (expressions). */
+  /** Where grass meets earth (an expression). */
   moist?: string;
-  bad?: string;
   /** After the ground's colour, before contamination is layered over it (c, g). */
   groundVariation?: string;
-  /** Before groundColor returns (c: its colour with contamination; glow). */
+  /** Before groundColor returns (c: its colour with contamination). */
   groundEnd?: string;
-  /** After the ground's colour at a top (ground, soil, glow, d0, g). */
-  groundTop?: string;
-  /** The crimson the ground takes under a badwater film (a vec3; waterPalette.ts WATER_FILM). */
-  filmBad?: string;
   /** The badwater share of the water over ground point g (a float; the flow texture's blue). High reads its own flow
    *  texture, the same texture: a second sampler of it would take High's terrain past the 16 a fragment shader is sure
    *  to have (WebGL 2's least, ANGLE's on Direct3D 11) on a map with terrain above terrain, and it would not link. */
-  filmShare?: string;
+  behindShare?: string;
+  /** The flow texture's RG at a tile corner P (tiles; a vec2), for a still film's outline (shoreFilm.ts): High reads its
+   *  own flow texture, the same texture, for the same reason as `behindShare`. */
+  shoreFlow?: string;
   /** In a wall, before its level lines (wc, n, along, y, k, cliffTint). */
   wall?: string;
   /** How strong the wall's level lines are (an expression; Standard: `markers`). */
@@ -651,8 +856,6 @@ export interface ShaderHooks {
   objectColor?: string;
   /** Before `vec3 p = position;` */
   objectVertex?: string;
-  /** The wrapped sun light (an expression; Standard: `dot(n, sunDir) * 0.75 + 0.25`). */
-  objectSun?: string;
   /** Its final colour before the finish (an expression; Standard: `vColor * light`). */
   objectFinal?: string;
   /** The sun on an object or a fall under a roof (an expression of `cave`, the light volume's sky in x and sun in y,
@@ -661,6 +864,67 @@ export interface ShaderHooks {
 }
 
 const hook = (h: ShaderHooks | undefined, k: keyof ShaderHooks, standard = ""): string => h?.[k] ?? standard;
+
+/** The game's light (D497; D135 as amended 2026-11-09: the objects' too), shared by the terrain's program and the
+ *  objects': in display values, as the game works in Gamma colour space. Uses \`sunDir\`, \`cameraPosition\` and the
+ *  program's \`vWorld\`. */
+const GAME_LIT = /* glsl */ `      /** The game's light on a face (palette.ts GAME_LIGHT), in display values as the game works in Gamma colour
+       *  space: Unity's ambient probe by its normal (palette.ts GAME_AMBIENT_SH: the engine's, captured, turned to display values), and the sun
+       *  by its shadow (\`sun\`, 0–1), times the diffuse share. A factor on the face's display colour. */
+      vec3 toDisplay(vec3 c) { return mix(c * 12.92, 1.055 * pow(max(c, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c)); }
+      /** The sun the last face lit took (gameLight's \`sun\`), for its specular. */
+      float gameSunNow = 0.0;
+      vec3 gameLight(vec3 n, float sun) {
+        gameSunNow = sun;
+        // (the terrain's faces face up, down or sideways: there the SH's display values are constants; any other normal
+        // works them out)
+        vec3 ambient = n.y > 0.999 ? ${glColor3(gameAmbient(1))} : n.y < -0.999 ? ${glColor3(gameAmbient(-1))} : abs(n.y) < 0.001 ? ${glColor3(gameAmbient(0))}
+          : toDisplay(max(${glColor3(GAME_AMBIENT_SH.c0)} + ${glColor3(GAME_AMBIENT_SH.c1)} * n.y + ${glColor3(GAME_AMBIENT_SH.c2)} * (3.0 * n.y * n.y - 1.0), vec3(0.0)));
+        return ${f(GAME_LIGHT.diffuse)} * (ambient + ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * sun);
+      }
+      /** What URP's lit shader adds to the diffuse light (the terrain's materials: _Metallic 0.05, smoothness 0 on the
+       *  ground and 0.05 on its cliffs): the environment's reflection (the game's probe at its roughest mip,
+       *  palette.ts GAME_ENV, by the reflected direction, × m_ReflectionIntensity, × 1 / (roughness² + 1) × the
+       *  Fresnel blend toward the grazing term) and the sun's GGX highlight by its shadow. */
+      vec3 gameSpecular(vec3 n, vec3 albedo, float smoothness) {
+        vec3 v = normalize(cameraPosition - vWorld);
+        float pr = 1.0 - smoothness;
+        float r = max(pr * pr, 0.0078125);
+        float r2 = max(r * r, 6.103515625e-5);
+        vec3 f0 = mix(vec3(0.04), albedo, 0.05);
+        float grazing = clamp(smoothness + ${f(Math.round((1 - GAME_LIGHT.diffuse) * 1e6) / 1e6)}, 0.0, 1.0);
+        float fresnel = pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 4.0);
+        vec3 rd = reflect(-v, n);
+        vec3 env = rd.y >= 0.0 ? mix(${glColor(GAME_ENV.side)}, ${glColor(GAME_ENV.up)}, rd.y) : mix(${glColor(GAME_ENV.side)}, ${glColor(GAME_ENV.down)}, -rd.y);
+        vec3 c = env * ${f(GAME_FINISH.reflectionIntensity)} / (r2 + 1.0) * mix(f0, vec3(grazing), fresnel);
+        vec3 hv = normalize(sunDir + v);
+        float nh = clamp(dot(n, hv), 0.0, 1.0);
+        float lh = clamp(dot(sunDir, hv), 0.0, 1.0);
+        float d = nh * nh * (r2 - 1.0) + 1.00001;
+        float spec = r2 / (d * d * max(0.1, lh * lh) * (r * 4.0 + 2.0));
+        return c + f0 * spec * ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * gameSunNow;
+      }
+      /** The game's light on an object (D135 as amended 2026-11-09): the terrain's ambient by the normal and sun by its
+       *  shadow, at the objects' diffuse share (palette.ts GAME_LIGHT \`objectDiffuse\`: VegetationURP's and
+       *  EnvironmentURP's lit model at metallic 0, their maps unset or black; no occlusion term on the trees, bushes,
+       *  ruins, start or sources). */
+      vec3 gameObjectLight(vec3 n, float sun) {
+        return gameLight(n, sun) * ${f(Math.round((GAME_LIGHT.objectDiffuse / GAME_LIGHT.diffuse) * 1e6) / 1e6)};
+      }
+      /** URP's specular on an object: metallic 0 and smoothness 0 (palette.ts GAME_LIGHT \`objectDiffuse\`): the
+       *  environment's reflection at its roughest, f0 0.04 and the grazing term 0.04, and the sun's GGX highlight at
+       *  roughness 1, by the shadow \`gameObjectLight\` was last given. A few hundredths of the light. */
+      vec3 gameObjectSpecular(vec3 n) {
+        vec3 v = normalize(cameraPosition - vWorld);
+        vec3 rd = reflect(-v, n);
+        vec3 env = rd.y >= 0.0 ? mix(${glColor(GAME_ENV.side)}, ${glColor(GAME_ENV.up)}, rd.y) : mix(${glColor(GAME_ENV.side)}, ${glColor(GAME_ENV.down)}, -rd.y);
+        vec3 c = env * ${f(GAME_FINISH.reflectionIntensity)} * 0.5 * 0.04;
+        vec3 hv = normalize(sunDir + v);
+        float lh = clamp(dot(sunDir, hv), 0.0, 1.0);
+        float spec = 1.0 / (1.00001 * 1.00001 * max(0.1, lh * lh) * 6.0);
+        return c + 0.04 * spec * ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * gameSunNow;
+      }
+`;
 
 /** Shared GLSL: a tile's data, and the light volume's roofed air (caveLight.ts): the terrain's, and the objects'
  *  and the water's on a map with terrain above terrain (`CAVES`). */
@@ -756,6 +1020,10 @@ const CAVE_FLOW = /* glsl */ `
       }
       #endif`;
 
+/** The sun shadow's change across a pixel (`sunPx`), from the world position's: the height's own and, as a shadow's top
+ *  falls tan(elevation) a tile along the sun's way, the ground's. Run at the top of a main, outside any branch. */
+const SUN_PX_GLSL = /* glsl */ `sunPx = fwidth(vWorld.y) + ${f(Math.tan(LIGHT.sunElevation))} * max(fwidth(vWorld.x), fwidth(vWorld.z));`;
+
 /** Shared GLSL: the scene's uniforms, the patterns, the baked shadow, the light and the finish. */
 const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
   uniform vec3 sunDir;
@@ -773,6 +1041,7 @@ const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
   uniform float hatching;
   uniform float markers;
   uniform sampler2D contamEdges;
+  uniform sampler2D soilTex;
   uniform sampler2D siteEdges;
   uniform vec2 mapSize;
   uniform sampler2D patternTex;
@@ -807,7 +1076,11 @@ const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
   float cobble(vec2 p) {
     return texture2D(patternTex, p / vec2(${f(COBBLE_CELLS[0])}, ${f(COBBLE_CELLS[1])})).b;
   }
-  /** How lit a point at height z above tile position g is (the baked sun shadow, soft). */
+  /** How far a point's height above its shadow's top changes across this pixel (levels): set at the top of each main
+   *  that shades the sun (\`SUN_PX_GLSL\`), 0 where none does. */
+  float sunPx = 0.0;
+  /** How lit a point at height z above tile position g is (the baked sun shadow, soft over a constant width of
+   *  ground, light.ts \`litFraction\`; never narrower than a pixel, so a far view's edge does not step). */
   float ${h?.sunLit ? "bakedSunLit" : "sunLit"}(vec2 g, float z) {
     #if LITE
       return 1.0;
@@ -815,7 +1088,7 @@ const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
     vec4 s = texture2D(lightTex, g / mapSize);
     float hi = s.r * ${f(255 / SHADOW_SCALE)} - ${f(SHADOW_OFFSET)};
     float lo = s.g * ${f(255 / SHADOW_SCALE)} - ${f(SHADOW_OFFSET)};
-    return clamp((z - hi) / max(0.05, lo - hi), 0.0, 1.0);
+    return clamp((z - 0.5 * (hi + lo)) / max(${f(EDGE_BAND)}, sunPx) + 0.5, 0.0, 1.0);
   }${hook(h, "decl")}${hook(h, "sunLit")}
   /** A hatched overlay (dam sites) at tile position g: inside, light stripes in the tile's
    *  overlay colour and dark stripes (solid light where a stripe would be under two pixels); just
@@ -901,17 +1174,39 @@ const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
  *  ACEScc's mid grey in LogC (ALEXA LogC, URP's LinearToLogC/LogCToLinear) and saturation round the luminance, back to
  *  display values. */
 export const GAME_POST_GLSL = /* glsl */ `
+  /** 1 while the frame before the grade is drawn for the bloom (bloom.ts): a look material writes gpSource, the
+   *  colour gamePost was last given (the look, fogged, before the post chain and any editing aid), in place of its
+   *  graded colour. */
+  uniform float bloomSource;
+  vec3 gpSource;
   vec3 gpCurve(vec3 x) { return (x * (0.2 * x + 0.24 * 0.29) + 0.272 * 0.02) / (x * (0.2 * x + 0.29) + 0.272 * 0.3) - 0.02 / 0.3; }
   vec3 gpLogC(vec3 x) { return mix(5.301883 * x + 0.092819, 0.244161 * log2(max(5.555556 * x + 0.047996, 1e-6)) * 0.30103 + 0.386036, step(vec3(0.011361), x)); }
   vec3 gpFromLogC(vec3 x) { return mix((x - 0.092819) / 5.301883, (pow(vec3(10.0), (x - 0.386036) / 0.244161) - 0.047996) / 5.555556, step(vec3(5.301883 * 0.011361 + 0.092819), x)); }
   vec3 gamePost(vec3 display) {
     vec3 d = max(display, vec3(0.0));
+    gpSource = d;
     vec3 c = mix(d / 12.92, pow((d + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), d)) * ${f(Math.round(2 ** GAME_FINISH.postExposure * 1e6) / 1e6)};
     float white = 1.0 / gpCurve(vec3(5.3)).x;
     c = clamp(gpCurve(c * white) * white, 0.0, 1.0);
     c = clamp(gpFromLogC((gpLogC(c) - 0.4135884) * ${f(GAME_FINISH.contrast)} + 0.4135884), 0.0, 1.0);
     float l = dot(c, vec3(0.2126729, 0.7151522, 0.072175));
     c = clamp(vec3(l) + ${f(GAME_FINISH.saturation)} * (c - vec3(l)), 0.0, 1.0);
+    return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c));
+  }
+  /** The post chain undone (palette.ts gamePostInverseRgb): the display colour a graded one came from, each step solved
+   *  exactly (the Neutral curve by its positive root). */
+  vec3 gamePostInverse(vec3 graded) {
+    vec3 g = clamp(graded, 0.0, 1.0);
+    vec3 c = mix(g / 12.92, pow((g + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), g));
+    float l = dot(c, vec3(0.2126729, 0.7151522, 0.072175));
+    c = max(vec3(l) + (c - vec3(l)) / ${f(GAME_FINISH.saturation)}, 0.0);
+    c = max(gpFromLogC((gpLogC(c) - 0.4135884) / ${f(GAME_FINISH.contrast)} + 0.4135884), 0.0);
+    float white = 1.0 / gpCurve(vec3(5.3)).x;
+    vec3 t = min(c / white, 0.93) + 0.02 / 0.3;
+    vec3 a = 0.2 * t - 0.2;
+    vec3 b = 0.29 * t - 0.24 * 0.29;
+    vec3 k = 0.272 * 0.3 * t - 0.272 * 0.02;
+    c = max((b + sqrt(max(b * b - 4.0 * a * k, 0.0))) / (-2.0 * a), 0.0) / white / ${f(Math.round(2 ** GAME_FINISH.postExposure * 1e6) / 1e6)};
     return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c));
   }
 `;
@@ -974,49 +1269,15 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
       uniform sampler2D eruptionBase;
       uniform float eruptionAge;
       uniform float coolingAge;
+      /** y: 1 while the frame's water overlays what shows behind it itself, from its copy of the screen (refraction.ts). */
+      uniform vec4 refractView;
       centroid varying vec3 vWorld;
       varying vec3 vNormal;
       ${common(h)}
       #if CUTAWAY
       ${OVERLAY_RUN}
       #endif
-      ${CAVE_AIR}      /** The game's light on a face (palette.ts GAME_LIGHT), in display values as the game works in Gamma colour
-       *  space: Unity's ambient probe by its normal (palette.ts GAME_AMBIENT_SH: irradiance SH, turned back to display values), and the sun
-       *  by its shadow (\`sun\`, 0–1), times the diffuse share. A factor on the face's display colour. */
-      vec3 toDisplay(vec3 c) { return mix(c * 12.92, 1.055 * pow(max(c, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c)); }
-      /** The sun the last face lit took (gameLight's \`sun\`), for its specular. */
-      float gameSunNow = 0.0;
-      vec3 gameLight(vec3 n, float sun) {
-        gameSunNow = sun;
-        // (the terrain's faces face up, down or sideways: there the SH's display values are constants; any other normal
-        // works them out)
-        vec3 ambient = n.y > 0.999 ? ${glColor3(gameAmbient(1))} : n.y < -0.999 ? ${glColor3(gameAmbient(-1))} : abs(n.y) < 0.001 ? ${glColor3(gameAmbient(0))}
-          : toDisplay(max(${glColor3(GAME_AMBIENT_SH.c0)} + ${glColor3(GAME_AMBIENT_SH.c1)} * n.y + ${glColor3(GAME_AMBIENT_SH.c2)} * (3.0 * n.y * n.y - 1.0), vec3(0.0)));
-        return ${f(GAME_LIGHT.diffuse)} * (ambient + ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * sun);
-      }
-      /** What URP's lit shader adds to the diffuse light (the terrain's materials: _Metallic 0.05, smoothness 0 on the
-       *  ground and 0.05 on its cliffs): the environment's reflection (the game's probe at its roughest mip,
-       *  palette.ts GAME_ENV, by the reflected direction, × m_ReflectionIntensity, × 1 / (roughness² + 1) × the
-       *  Fresnel blend toward the grazing term) and the sun's GGX highlight by its shadow. */
-      vec3 gameSpecular(vec3 n, vec3 albedo, float smoothness) {
-        vec3 v = normalize(cameraPosition - vWorld);
-        float pr = 1.0 - smoothness;
-        float r = max(pr * pr, 0.0078125);
-        float r2 = max(r * r, 6.103515625e-5);
-        vec3 f0 = mix(vec3(0.04), albedo, 0.05);
-        float grazing = clamp(smoothness + ${f(Math.round((1 - GAME_LIGHT.diffuse) * 1e6) / 1e6)}, 0.0, 1.0);
-        float fresnel = pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 4.0);
-        vec3 rd = reflect(-v, n);
-        vec3 env = rd.y >= 0.0 ? mix(${glColor(GAME_ENV.side)}, ${glColor(GAME_ENV.up)}, rd.y) : mix(${glColor(GAME_ENV.side)}, ${glColor(GAME_ENV.down)}, -rd.y);
-        vec3 c = env * ${f(GAME_FINISH.reflectionIntensity)} / (r2 + 1.0) * mix(f0, vec3(grazing), fresnel);
-        vec3 hv = normalize(sunDir + v);
-        float nh = clamp(dot(n, hv), 0.0, 1.0);
-        float lh = clamp(dot(sunDir, hv), 0.0, 1.0);
-        float d = nh * nh * (r2 - 1.0) + 1.00001;
-        float spec = r2 / (d * d * max(0.1, lh * lh) * (r * 4.0 + 2.0));
-        return c + f0 * spec * ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * gameSunNow;
-      }
-      /** The game's altitude ramps (palette.ts ALTITUDE_RAMP, as multipliers: twice the texel), read as its texture is,
+      ${CAVE_AIR}${GAME_LIT}      /** The game's altitude ramps (palette.ts ALTITUDE_RAMP, as multipliers: twice the texel), read as its texture is,
        *  32 texels over the ground's height up to the ceiling, filtered between them. */
       const vec3 ALT_GRASS[32] = vec3[32](vec3(0.8784, 0.9804, 1.0431), vec3(0.8941, 0.9882, 1.051), vec3(0.8784, 1.0039, 1.0902), vec3(0.9255, 0.9882, 1.0431), vec3(0.9882, 0.9804, 0.9804), vec3(0.9882, 1.0118, 0.9961), vec3(0.9804, 1.0275, 1.0431), vec3(0.9804, 1.0353, 1.0667), vec3(0.949, 1.0588, 1.0667), vec3(0.9725, 1.0824, 1.051), vec3(0.9882, 1.0824, 1.0667), vec3(1.0118, 1.098, 1.1059), vec3(1.0745, 1.0824, 1.051), vec3(1.1294, 1.0902, 1.0118), vec3(1.1373, 1.1137, 1.0275), vec3(1.1216, 1.1137, 1.0588), vec3(1.1059, 1.1137, 1.098), vec3(1.1137, 1.1137, 1.0824), vec3(1.1765, 1.1216, 1.0039), vec3(1.2078, 1.1294, 0.9804), vec3(1.1686, 1.1373, 1.051), vec3(1.1451, 1.1216, 1.1373), vec3(1.1686, 1.1216, 1.1137), vec3(1.2157, 1.1451, 1.0588), vec3(1.0431, 0.9961, 1.0039), vec3(1.051, 1.0039, 1.0039), vec3(1.0431, 1.0118, 1.0118), vec3(0.9961, 0.9725, 0.9647), vec3(1.0431, 1.0118, 1.0196), vec3(0.9412, 0.9255, 0.949), vec3(0.9333, 0.949, 0.9725), vec3(0.9176, 0.9882, 1.0196));
       const vec3 ALT_DESERT[32] = vec3[32](vec3(0.9647, 1.098, 1.1765), vec3(0.9804, 1.1059, 1.1686), vec3(0.9882, 1.1059, 1.1765), vec3(0.9804, 1.0902, 1.2235), vec3(1.0902, 1.0431, 1.0902), vec3(1.1686, 1.051, 1.0039), vec3(1.1294, 1.0902, 1.0745), vec3(1.0902, 1.0902, 1.1686), vec3(1.051, 1.0745, 1.2235), vec3(1.0667, 1.0824, 1.1922), vec3(1.1765, 1.0824, 1.0275), vec3(1.1922, 1.0902, 0.9725), vec3(1.1137, 1.0902, 1.0824), vec3(1.0353, 1.0588, 1.2392), vec3(1.0588, 1.0745, 1.2), vec3(1.1294, 1.098, 1.0667), vec3(1.1608, 1.0824, 1.0667), vec3(1.1529, 1.0824, 1.0588), vec3(1.1451, 1.098, 1.0667), vec3(1.1451, 1.1059, 1.0667), vec3(1.1451, 1.098, 1.0667), vec3(1.1294, 1.0824, 1.0824), vec3(1.1059, 1.1059, 1.098), vec3(1.0667, 1.1529, 1.2), vec3(1.051, 1.1922, 1.2471), vec3(1.0824, 1.1843, 1.2157), vec3(1.0588, 1.1765, 1.2784), vec3(1.1373, 1.1373, 1.1922), vec3(1.2471, 1.1294, 1.0745), vec3(1.2314, 1.1686, 1.1294), vec3(1.1843, 1.1765, 1.2157), vec3(1.1608, 1.1686, 1.2706));
@@ -1131,7 +1392,8 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float wb = floor(d.a * 255.0 + 0.5);
         return heightOf(d) + (wb <= ${f(WATER_BYTE_FINE)} ? (wb - 1.0) / ${f(WATER_BYTE_STEPS)} : wb - ${f(WATER_BYTE_FINE - 3)});
       }
-      /** moisture level (0–15), contamination (0–15), under water (0/1), sky (0–1). Under water only where the water's
+      /** moisture level (0–15), contamination (0–15), under water (0/1), the game's desert intensity (0–1, light.ts
+       *  \`desertByte\`, from the moisture unrounded; grassAt). Under water only where the water's
        *  surface is drawn (cutWater.ts bedAtCut): a layer cut takes away the water standing above it, and a top whose water
        *  it took whole (the top at the cut or above it) is then a top like any other, not a bed seen through water; under
        *  a top below the cut the water is drawn up to the cut over it, a bed. */
@@ -1140,6 +1402,12 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float m = floor(g / 16.0);
         bool drawn = waterSurfaceOf(d) <= slice + ${f(CUT_SLACK)} || heightOf(d) < slice;
         return vec4(m, g - m * 16.0, d.a > 0.002 && drawn ? 1.0 : 0.0, d.b);
+      }
+      /** How much of a tile's top is grass, from its soilOf: one less the game's desert intensity, which the tile data
+       *  carries from the moisture unrounded (light.ts \`desertByte\`; \`grassOf\` takes the whole level, for the run
+       *  tops' soil, which has only that). */
+      float grassAt(vec4 s) {
+        return 1.0 - s.w;
       }
       ${WATER_GLSL}
       /** The depth of the water drawn over a tile's top (light.ts waterByte; three levels for any deeper): under a layer
@@ -1150,11 +1418,41 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float depth = min(3.0, (wb - 1.0) / ${f(WATER_BYTE_STEPS)});
         return waterSurfaceOf(d) > slice + ${f(CUT_SLACK)} ? min(depth, max(0.0, slice - heightOf(d))) : depth;
       }
-      /** How much of the bed's own colour the ground under water takes (groundColor): 1 under water past
-       *  a sliver's depth, less under a sliver at a shore's edge, whose ground keeps its own soil, seen through
-       *  the water's coloured filter (waterPalette.ts WATER_FILM, waterFilmGround). Set round a top's
-       *  groundColor; 1 everywhere else. */
-      float groundBed = 1.0;
+      ${SHORE_FILM_TERRAIN_GLSL}
+      /** A tile's water as a still film drawn back from the shore (shoreFilm.ts, Q9 V3): its depth as its water byte reads
+       *  it, or −1 where it has no water on its top or is too deep to draw back (0.1 or more). */
+      float shoreFilmDepth(vec4 d) {
+        float wb = floor(d.a * 255.0 + 0.5);
+        return wb > 0.5 && wb < ${f(1 + 0.1 * WATER_BYTE_STEPS - 0.5)} ? (wb - 1.0) / ${f(WATER_BYTE_STEPS)} : -1.0;
+      }
+      /** The flow's share of the shift at a tile corner P (tiles), as the water's vertex shader reads it there. */
+      float shoreFilmFlowAt(vec2 P) {
+        vec2 e = (${hook(h, "shoreFlow", "texture2D(flowTex, P / mapSize).rg")} * 255.0 - 128.0) / 127.0;
+        return max(0.0, 1.0 - 100.0 * length(e * abs(e)));
+      }
+      /** How much of a film's wet a dry tile beside it keeps (a neighbour's data d, the flow's share fc at the corner
+       *  they share): none where the film is drawn back there, all where its water flows or is deeper. */
+      float shoreFilmKeep(vec4 d, float fc) {
+        float depth = shoreFilmDepth(d);
+        return depth < 0.0 ? 1.0 : 1.0 - clamp(10.0 * clamp(${f(SHORE_FILM.depth[0])} - ${f(SHORE_FILM.depth[1])} * depth, 0.0, 1.0) * fc, 0.0, 1.0);
+      }
+      /** How much of the point fr of tile \`tile\` (its data d0) lies under its water's drawn top: 0 on the ground a still
+       *  film draws back from, the outline the water's mesh and vertex shader give it; \`px\` a pixel (tiles). */
+      float shoreFilmOwn(vec2 tile, vec4 d0, vec2 fr, float px) {
+        float depth = shoreFilmDepth(d0);
+        if (depth < 0.0) return 1.0;
+        // (a side is open where its tile has no water on its top; tileAt holds to the map, so the map's edge is not)
+        vec4 open = vec4(tileAt(tile + vec2(1.0, 0.0)).a, tileAt(tile + vec2(-1.0, 0.0)).a, tileAt(tile + vec2(0.0, 1.0)).a, tileAt(tile + vec2(0.0, -1.0)).a);
+        open = vec4(lessThan(open, vec4(0.002)));
+        if (dot(open, vec4(1.0)) < 0.5) return 1.0;
+        #if LITE
+          // (the light look's water stands still: its flow texture is the still one)
+          vec4 flow = vec4(1.0);
+        #else
+          vec4 flow = vec4(shoreFilmFlowAt(tile), shoreFilmFlowAt(tile + vec2(1.0, 0.0)), shoreFilmFlowAt(tile + vec2(1.0, 1.0)), shoreFilmFlowAt(tile + vec2(0.0, 1.0)));
+        #endif
+        return shoreFilmInside(depth, open, flow, fr, px);
+      }
       #ifdef RUN_SOIL
         // the soil of the run tops below each tile's top (runSoil.ts; only on a map with terrain above terrain)
         uniform highp sampler3D runTex;
@@ -1166,33 +1464,37 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
           vec2 r = floor(texelFetch(runTex, ivec3(vec3(t, z)), 0).rg * 255.0 + 0.5);
           return r.y > 1.5 && z >= slice ? vec2(r.x, 1.0) : r;
         }
-        /** The soil of the ground at level z of tile t as soilOf gives it (no sky), and in \`here\` whether there is
-         *  ground there to blend toward: a run top below the tile's top, or the tile's own top. */
+        /** The soil of the ground at level z of tile t as soilOf gives it (w its desert intensity: a run top's from its
+         *  whole level, all its soil carries), and in \`here\` whether there is ground there to blend toward: a run top
+         *  below the tile's top, or the tile's own top. */
         vec4 groundAt(vec2 t, float z, out float here) {
           vec2 r = runAt(t, z);
           here = 1.0;
           if (r.y > 0.5) {
             float m = floor(r.x / 16.0);
-            return vec4(m, r.x - m * 16.0, r.y > 1.5 ? 1.0 : 0.0, 0.0);
+            return vec4(m, r.x - m * 16.0, r.y > 1.5 ? 1.0 : 0.0, 1.0 - grassOf(m));
           }
           vec4 d = tileAt(t);
           if (t.x >= 0.0 && t.y >= 0.0 && t.x < mapSize.x && t.y < mapSize.y && heightOf(d) == z) return soilOf(d);
           here = 0.0;
           return vec4(0.0);
         }
+        /** The desert intensity at level z of tile t where a run top stands there (a cave's floor beside an open top at
+         *  its level: the game's desert map is 3D, so a top's tap across the edge reads that floor), else \`other\`. */
+        float runDesert(vec2 t, float z, float other) {
+          vec2 r = runAt(t, z);
+          return r.y > 0.5 ? 1.0 - grassOf(floor(r.x / 16.0)) : other;
+        }
       #endif
       vec3 heightColor(float z) {
         float t = clamp((z - heightRange.x) / max(1.0, heightRange.y - heightRange.x), 0.0, 1.0);
         return mix(${glColor(HEIGHT_RAMP.low)}, ${glColor(HEIGHT_RAMP.high)}, t);
       }
-      /** How much of the ground at tile point g is the game's desert (TerrainURP's ForwardLit program, read from its
-       *  DXBC): four taps \`BLEND_MARGIN\` round the point, each the desert of the tile it falls in (\`desert\`: this tile,
-       *  the neighbour toward the nearest corner across x, across y, and the diagonal; a tile whose top is at another
-       *  level counts as desert, as the game's map holds 1 there), weighted by how far the tap lies from the nearest
-       *  tile corner (|dx| × |dz|); then the game's noise (here our own, the game's being a texture at world × 0.2) and its
-       *  softness: saturate((f + 0.96 (n − 0.5) − 0.5) × 5.8 + 0.5). So a tile's share shows as patches of grass and
-       *  earth, and the change between tiles is a noisy blend a fifth of a tile wide. */
-      float desertBlend(vec2 g, vec4 desert) {
+      /** The game's blend of a value across the tiles round tile point g (TerrainURP's ForwardLit program, read from its
+       *  DXBC; the desert's share and contamination's map take it alike): four taps \`BLEND_MARGIN\` round the point, each
+       *  the value of the tile it falls in (\`v\`: this tile, the neighbour toward the nearest corner across x, across y,
+       *  and the diagonal), weighted by how far the tap lies from the nearest tile corner (|dx| × |dz|). */
+      float tapBlend(vec2 g, vec4 v) {
         vec2 corner = floor(g + 0.5);
         vec2 tile = floor(g);
         float sum = 0.0;
@@ -1200,67 +1502,84 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         for (int k = 0; k < 4; k++) {
           vec2 q = g + ${f(BLEND.margin)} * vec2(k == 0 || k == 2 ? -1.0 : 1.0, k < 2 ? -1.0 : 1.0);
           vec2 off = floor(q) - tile;
-          float dsr = off.x != 0.0 ? (off.y != 0.0 ? desert.w : desert.y) : (off.y != 0.0 ? desert.z : desert.x);
+          float vq = off.x != 0.0 ? (off.y != 0.0 ? v.w : v.y) : (off.y != 0.0 ? v.z : v.x);
           float wq = abs(q.x - corner.x) * abs(q.y - corner.y);
-          sum += wq * dsr;
+          sum += wq * vq;
           weight += wq;
         }
-        float n = 0.5 + 0.6 * (0.62 * vnoise(g * 0.8 + vec2(3.1, 11.7)) + 0.38 * vnoise(g * 2.1 + vec2(17.3, 5.9)) - 0.5);
-        return clamp((sum / max(weight, 1e-4) + ${f(BLEND.noise)} * (n - 0.5) - 0.5) * ${f(BLEND.softness)} + 0.5, 0.0, 1.0);
+        return sum / max(weight, 1e-4);
       }
-      /** Contamination's veins at field point q and contamination level lvl (0–1), as in the game
-       *  (D334): sparse, irregular orange-red fissures, the edges of a coarse jittered cell field
-       *  (about a tile and a half across), some edges dropped, the kept ones thick main cracks or
-       *  thinner branches. Returns the stroke (x) and its narrower glowing core (y), antialiased;
-       *  none at zero contamination. World-anchored, so the veins never reseed as the level changes.
-       *  (Kyler tunes the few junctions that widen abruptly on real maps: the two smoothsteps on
-       *  importance set which edges are kept and how wide.) The field's point q (veinPoint) and the
-       *  antialiasing width aa (veinAA) come from the caller, worked out before its branch on the soil:
-       *  derivatives (fwidth, a mipmapped pattern's level) need every pixel of a quad, and a pixel that
-       *  skips the branch would leave its neighbours an undefined value, a vein's edge that changes from
-       *  frame to frame. */
-      vec2 veinPoint(vec2 p) {
-        return p * 0.67 + vec2(vnoise(p * 2.7 + 5.0), vnoise(p * 3.1 + 23.0)) * 0.15;
+      /** The ground's blending noise (the game's \`_BlendingNoise\`, a texture at world × 0.2; here our own at its
+       *  statistics, palette.ts BLEND: its mean, its spread and features half a tile to two tiles across), 0–1: the
+       *  desert's share and contamination's weight read the same sample. */
+      float blendNoise(vec2 g) {
+        return ${f(BLEND.noiseMean)} + ${f(BLEND_NOISE_GAIN)} * (0.7 * vnoise(g * 3.0 + vec2(3.1, 11.7)) + 0.3 * vnoise(g * 6.0 + vec2(17.3, 5.9)) - 0.5);
       }
-      float veinAA(vec2 q) {
-        return max(0.001, max(fwidth(q.x), fwidth(q.y)) * 0.55);
+      /** How much of the ground at tile point g is the game's desert: the tiles' desert (\`desert\`, as tapBlend takes
+       *  them; a tile whose top is at another level counts as desert, as the game's map holds 1 there) blended by
+       *  tapBlend, then the game's noise and its softness: saturate((f + 0.96 (n − 0.5) − 0.5) × 5.8 + 0.5). So a tile's
+       *  share shows as patches of grass and earth, and the change between tiles is a noisy blend a fifth of a tile wide. */
+      float desertBlend(vec2 g, vec4 desert) {
+        return clamp((tapBlend(g, desert) + ${f(BLEND.noise)} * (blendNoise(g) - 0.5) - 0.5) * ${f(BLEND.softness)} + 0.5, 0.0, 1.0);
       }
-      vec2 veinsOf(vec2 q, float aa, float lvl) {
-        vec2 cell = floor(q), f = fract(q);
-        float first = 9.0, second = 9.0, id1 = 0.0, id2 = 0.0;
-        for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
-          vec2 off = vec2(float(x), float(y)), id = cell + off;
-          vec2 rnd = fract(sin(vec2(dot(id, vec2(127.1, 311.7)), dot(id, vec2(269.5, 183.3)))) * 43758.5453);
-          float tag = fract(sin(dot(id, vec2(91.7, 37.1))) * 17213.371);
-          float d = length(off + 0.10 + rnd * 0.80 - f);
-          if (d < first) { second = first; id2 = id1; first = d; id1 = tag; }
-          else if (d < second) { second = d; id2 = tag; }
-        }
-        // (the two cells either side of an edge agree on its importance: dropping edges opens the
-        // net, and the main cracks and thinner branches kept meet at the same junctions)
-        float importance = fract(sin((id1 + id2) * 173.71) * 31741.13);
-        float present = smoothstep(0.42, 0.47, importance);
-        float width = mix(${f(CT.width[0])}, ${f(CT.width[1])}, smoothstep(0.54, 0.84, importance)) * mix(${f(CT.widthByLevel[0])}, ${f(CT.widthByLevel[1])}, lvl);
-        float distance = (second - first) * 0.5;
-        float rim = 1.0 - smoothstep(width, width + aa, distance);
-        float core = 1.0 - smoothstep(width * 0.14, width * 0.48 + aa, distance);
-        return vec2(rim, core) * present * smoothstep(0.0, ${f(CT.onset)}, lvl);
+      /** A tile's contamination map value from its soil's contamination (0–1), as the game's
+       *  (palette.ts contaminationMap). */
+      float contaminationMapOf(float c) {
+        return c > 0.0 ? (c <= ${f(CT.mapFull)} ? 1.0 - ${f(CT.mapMax)} * (1.0 - c / ${f(CT.mapFull)}) : 1.0) : 0.0;
       }
-      /** The last groundColor's ground and glow as they are with no water on it (its soil's under-water flag clear). */
-      vec3 groundDry;
-      float groundDryGlow;
+      /** The weight contamination's pattern takes at map value m (blended across the tiles) and blending noise n, as the
+       *  game's (palette.ts CONTAMINATION, contaminationWeight). */
+      float contaminationWeight(float m, float n) {
+        float v = pow(max(m, 0.0), ${f(CT.nonlinearity)});
+        v = v >= 0.01 ? max(v, ${f(CT.least)}) : v;
+        return clamp((v + ${f(CT.noise)} * (n - ${f(CT.noiseMid)}) - 0.5) * ${f(CT.softness)} + 0.5, 0.0, 1.0);
+      }
+      /** The mean over the game's blending noise of its blend saturate((v + k (n − mid) − 0.5) × softness + 0.5)
+       *  (palette.ts noiseMean: five Gauss–Hermite nodes at its mean and spread), for the light look, which draws no
+       *  noise: the share of the ground the noisy blend gives v on average. */
+      float noiseMean(float v, float k, float mid, float softness) {
+        float a = (v + k * (${f(BLEND.noiseMean)} - mid) - 0.5) * softness + 0.5;
+        float b = k * ${f(BLEND.noiseSpread)} * softness;
+        return ${NOISE_NODES.map(([x, w]) => `${f(w)} * clamp(a + ${f(x)} * b, 0.0, 1.0)`).join(" + ")};
+      }
+      /** The desert's share of a tile's top at its intensity d, averaged over the noise (the light look). */
+      float desertMean(float d) {
+        return noiseMean(d, ${f(BLEND.noise)}, 0.5, ${f(BLEND.softness)});
+      }
+      /** Contamination's weight at map value m, averaged over the noise (the light look; palette.ts
+       *  contaminationWeightMean). */
+      float contaminationWeightMean(float m) {
+        float v = pow(max(m, 0.0), ${f(CT.nonlinearity)});
+        v = v >= 0.01 ? max(v, ${f(CT.least)}) : v;
+        return noiseMean(v, ${f(CT.noise)}, ${f(CT.noiseMid)}, ${f(CT.softness)});
+      }
+      /** Contamination's map value at the point a top's groundColor draws, blended across its tiles (tapBlend) by the
+       *  caller; below 0 where the caller has none (groundColor then takes its level's own). */
+      float contamMap = -1.0;
+      /** 1: every top drawn at the game's texture means (palette.ts GAME_GROUND_MEAN) in place of our patterns, for
+       *  the pixel judge alone (tools/water-pixel-judge.ts --define GROUND_MEANS): the light judged without the
+       *  patterns' sampling, ours or the game's, at a few clusters of tiles. */
+      #define GROUND_MEANS 0
+      /** 0: the ground under water drawn as the game's terrain draws it, with no input from the water (Q9 P14), so the
+       *  see-through shows the grass, earth and veins the tile has; 1: our underwater bed (palette.ts GROUND.underwater),
+       *  its veins held back, as before 2026-11-09, for the pixel judge alone (tools/water-pixel-judge.ts --define
+       *  WATER_BED: clean water's RMS 13.4 without it against 13.7, docs/progress/3d-view.md). */
+      #define WATER_BED 0
       /** The ground's colour from its soil (moist, moisture level, contaminated, under water) and
-       *  its contamination level (0–1), and in glow the light of the contamination's veins; groundDry, the same
-       *  without the water. */
-      vec3 groundColor(vec4 s, vec2 g, float detail, float clev, out float glow) {
+       *  its contamination level (0–1). */
+      vec3 groundColor(vec4 s, vec2 g, float detail, float clev) {
         #if LITE
-          // (no patterns: contamination tints the ground a little, rust on earth, dark red on grass)
-          glow = 0.0;
           // (the game's ground: the grass's colour and ramp blended into the desert's by the tile's grass share)
-          vec3 lc = mix(${glColor(GROUND.dry)} * altitudeOf(vWorld.y, 0.0), mix(${glColor(GROUND.moistLow)}, ${glColor(GROUND.moistHigh)}, clamp((s.y - 1.0) / 9.0, 0.0, 1.0)) * altitudeOf(vWorld.y, 1.0), s.x);
-          if (s.z > 0.5) lc = mix(lc, mix(${glColor(GROUND.contaminated)}, ${glColor(GROUND.contaminatedWet)}, s.x), 0.25 + 0.3 * clev);
-          return mix(lc, ${glColor(GROUND.underwater)}, step(0.5, s.w) * groundBed);
+          vec3 lc = mix(${glColor(GROUND.dry)} * altitudeOf(vWorld.y, 0.0), ${glColor(GROUND.grass)} * altitudeOf(vWorld.y, 1.0), s.x);
+          // (no patterns: contamination's pattern at its mean, as the game's mips show it from afar, at its weight's mean
+          // over the blending noise, palette.ts contaminationMean)
+          lc = mix(lc, ${glColor(CT.mean)}, ${f(Math.round(CT.meanAlpha * 1e4) / 1e4)} * contaminationWeightMean(contaminationMapOf(clev)));
+          return mix(lc, ${glColor(GROUND.underwater)}, step(0.5, s.w) * float(WATER_BED));
         #endif
+        // contamination's pattern, world-anchored as the game's (its repeat \`CT.repeat\` tiles; read before the warp below,
+        // and before any branch, as a mipmapped read needs every pixel of its quad)
+        vec4 soilPattern = texture2D(soilTex, g / ${f(CT.repeat)});
+        float soilNoise = blendNoise(g);
         // (the patterns are read through a broad warp, so their repeat never shows from afar)
         vec2 macroUV = mat2(0.8, -0.6, 0.6, 0.8) * g * 0.037;
         vec2 patternWarp = vec2(vnoise(macroUV + 23.7), vnoise(macroUV * 1.73 + 91.2)) - 0.5;
@@ -1273,25 +1592,24 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         float b2 = vnoise(g * 0.23 + 57.0);
         float b3 = vnoise(g * 0.55 + 83.0);
         vec2 dry = cracks(g * 3.1);
-        // grass meets the earth along the tile's edge
-        // (a slight wobble along the tile's edge only: the soil itself changes there, not in ragged patches)
-        float edge = ((n1 - 0.5) * 0.5 + (n2 - 0.5) * 0.45 + (b3 - 0.5) * 0.4) * 0.22;
         // (the grass's share of the point: s.x, the game's per tile, blended across the narrow band at the tile's edge)
         float moist = ${hook(h, "moist", "clamp(s.x, 0.0, 1.0)")};
-        float bad = ${hook(h, "bad", "smoothstep(0.4, 0.6, s.z + edge * 0.6)")};
         float wet = smoothstep(0.4, 0.6, s.w + (n1 - 0.5) * 0.2);
-        // (under a film the ground keeps its own soil, seen through the film's filter in main: WATER_FILM)
-        float bed = wet * groundBed;
+        // (no bed: the game's terrain draws its ground with no input from the water, WATER_BED)
+        float bed = wet * float(WATER_BED);
         // dry: cracked earth, warm brown, drifting in broad patches to a cooler mauve and a warmer
         // tan and in lightness (D334); each plate its own shade, the cracks a fine, dark network
         vec3 c = mix(${glColor(GROUND.dryCool)}, ${glColor(GROUND.dry)}, smoothstep(0.28, 0.68, b1));
         c = mix(c, ${glColor(GROUND.dryWarm)}, smoothstep(0.32, 0.72, b2) * 0.85);
-        c *= (0.97 + 0.16 * (b3 - 0.5) + 0.08 * (n1 - 0.5)) * (0.96 + 0.22 * (dry.y - 0.5) + detail * 0.20 * n3);
-        c = mix(c, ${glColor(GROUND.crack)}, dry.x * (0.58 + 0.20 * detail));
-        // moist: grass, a muted green, deeper by the water, in lighter and deeper patches and darker
-        // blotches; up close, clumps a few to a tile and painted strokes, jittered and turned, so the
-        // pattern never repeats in rows
-        vec3 grass = mix(${glColor(GROUND.moistLow)}, ${glColor(GROUND.moistHigh)}, clamp((s.y - 1.0) / 9.0, 0.0, 1.0));
+        // (and its broad shade, over a few tiles, as the game's desert texture varies: DRY_BROAD)
+        float b4 = vnoise(g * 0.23 + 131.0);
+        c *= (0.97 + 0.16 * (b3 - 0.5) + 0.08 * (n1 - 0.5) + ${f(DRY_BROAD)} * (b4 - 0.5)) * (0.96 + 0.22 * (dry.y - 0.5) + detail * 0.20 * n3);
+        // (the cracks as deep from afar as near: their texture's mips keep their mean, as the game's textures do)
+        c = mix(c, ${glColor(GROUND.crack)}, dry.x * 0.78);
+        // moist: grass, a muted green the same at every moisture (the game's), in lighter and deeper patches and
+        // darker blotches; up close, clumps a few to a tile and painted strokes, jittered and turned, so the pattern
+        // never repeats in rows
+        vec3 grass = ${glColor(GROUND.grass)};
         grass = mix(grass, grass * vec3(0.86, 0.94, 0.86), smoothstep(0.45, 0.75, b2));
         float blot = smoothstep(0.62, 0.82, vnoise(g * 0.7 + 5.3));
         float tuft = vnoise(g * 3.3 + 21.0) - 0.5;
@@ -1305,29 +1623,27 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
         vec2 bf = fract(bladeUV) - vec2(0.20 + bladeHash * 0.6, 0.20 + fract(bladeHash * 13.7) * 0.6);
         bf = mat2(cos(bladeTurn), -sin(bladeTurn), sin(bladeTurn), cos(bladeTurn)) * bf;
         float bladeAA = max(0.025, max(fwidth(bladeUV.x), fwidth(bladeUV.y)));
+        // (the stroke widened by a pixel's footprint, so it reads up close and at a grazing view; the area that adds
+        // taken off the whole, so the strokes' mean is PAINTED_MEAN at every footprint, and from afar, where the cells
+        // shrink under a pixel, they fade to it: the grass's mean the same at every distance, STROKE_WIDEN_K)
         float painted = (1.0 - smoothstep(0.04, 0.04 + bladeAA, abs(bf.x + bf.y * 0.25))) * (1.0 - smoothstep(0.18, 0.42, abs(bf.y)));
-        float tex = 0.91 + 0.31 * tuft + painted * (0.08 + bladeHash * 0.16) * detail + 0.09 * blade * detail;
-        c = mix(c, grass * (0.80 + 0.27 * b1 + 0.14 * (n1 - 0.5)) * tex * (1.0 - 0.19 * blot), moist);${hook(h, "groundVariation")}
+        float widened = ${f(Math.round(PAINTED_MEAN * 12.5 * 1e6) / 1e6)} * bladeAA / (1.0 + ${f(STROKE_WIDEN_K)} * bladeAA * bladeAA);
+        float tex = 0.91 + 0.31 * tuft + mix(${f(PAINTED_MEAN)}, painted * (0.08 + bladeHash * 0.16) - widened, detail) + 0.09 * blade * detail;
+        c = mix(c, grass * (${f(0.935 - GRASS_BROAD / 2)} + ${f(GRASS_BROAD)} * b1 + 0.14 * (n1 - 0.5)) * tex * (1.0 - 0.19 * blot), moist);${hook(h, "groundVariation")}
+        #if GROUND_MEANS
+          c = mix(${glColor(GAME_GROUND_MEAN.dry)}, ${glColor(GAME_GROUND_MEAN.grass)}, moist);
+        #endif
         // the game's altitude ramp, the grass's on grass and the desert's on dry ground, before contamination's veins
         c *= altitudeOf(vWorld.y, moist);
-        float lvl = clamp(clev, 0.0, 1.0);
-        // contamination: a layer over the ground, as in the game (palette.ts's CONTAMINATION says
-        // the same, for the tests): orange-red veins over either soil, its own colour between them
-        // (the veins' point and antialiasing width for every pixel, before the branch: veinsOf)
-        vec2 vein = vec2(0.0);
-        vec2 veinQ = veinPoint(g);
-        float veinWidth = veinAA(veinQ);
-        if (bad > 0.0${h?.groundTop ? "" : " && wet < 1.0"}) vein = veinsOf(veinQ, veinWidth, lvl) * bad;
-        // the ground as it is with no water on it (the High look's poisoned bed shows it through polluted water)
-        groundDry = mix(c, ${glColor(CT.vein)}, vein.x * ${f(CT.cover)});
-        groundDryGlow = vein.y * mix(${f(CT.glow[0])}, ${f(CT.glow[1])}, lvl);
-        vein *= 1.0 - wet;
-        c = mix(c, ${glColor(CT.vein)}, vein.x * ${f(CT.cover)});
-        // (the glow is added after the light: the veins' cores, narrower than their strokes)
-        glow = vein.y * mix(${f(CT.glow[0])}, ${f(CT.glow[1])}, lvl);
+        // contamination: a layer over the ground, as the game's terrain shader lays it (palette.ts CONTAMINATION says the
+        // same, for the tests): its pattern's rust over either soil by the pattern's alpha × the weight its map value (the
+        // caller's blend across the tiles, or this level's own) and the blending noise give, with no glow
+        float vein = contaminationWeight(contamMap >= 0.0 ? contamMap : contaminationMapOf(clamp(clev, 0.0, 1.0)), soilNoise) * soilPattern.a;
+        c = mix(c, soilPattern.rgb, vein * (1.0 - bed));
 ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.9 + 0.15 * n2), bed);
       }
       void main() {
+        ${SUN_PX_GLSL}
         vec3 n = normalize(vNormal);
         vec3 p = vWorld - n * 0.01;
         vec2 g = vec2(p.x, -p.z);
@@ -1344,7 +1660,6 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
         // (the cut's hatch: its lines' coordinate and how far it moves a pixel, taken outside any branch)
         float capU = (g.x + g.y) * 3.0;
         float capPx = max(fwidth(capU), 0.0001);
-        float glow = 0.0;
         vec3 c;
         vec3 light;
         float sunHere = 0.0;
@@ -1355,6 +1670,7 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
           // the tile and its three neighbours toward this point (the light look: the tile alone)
           vec2 fr = g - tile;
           vec2 sd = vec2(fr.x < 0.5 ? -1.0 : 1.0, fr.y < 0.5 ? -1.0 : 1.0);
+          float filmPx = max(max(fwidth(g.x), fwidth(g.y)), 0.002);
           #if LITE
             vec4 dx = d0;
             vec4 dy = d0;
@@ -1382,14 +1698,16 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
           // light and the contamination's level (shading) keep the smooth weights above
           float bandW = max(0.04, 1.5 * max(fwidth(g.x), fwidth(g.y)));
           #if LITE
-            // (the light look: the tile alone, so the blend below comes to the tile's own soil, level and film;
+            // (the light look: the tile alone, so the blend below comes to the tile's own soil and level;
             // worked out once, without the edge's wobble (D135: no soil blending), which software would pay for
             // on every pixel)
             vec2 ws = smoothstep(vec2(0.5 - bandW), vec2(0.5 + bandW), w);
             vec4 s0 = soilOf(d0);
-            vec4 soil = vec4(grassOf(s0.x), s0.x, step(0.5, s0.y), s0.z);
+            // (the grass's share the game's noisy blend gives the tile's desert intensity on average: desertMean)
+            vec4 soil = vec4(1.0 - desertMean(s0.w), s0.x, step(0.5, s0.y), s0.z);
+            // (a still film's water drawn back from the shore leaves dry ground: shoreFilm.ts)
+            if (soil.w > 0.0) soil.w *= shoreFilmOwn(tile, d0, fr, filmPx);
             float clev = s0.y / 15.0;
-            groundBed = s0.z > 0.0 ? waterFilm(waterDepthOf(d0)) : 1.0;
           #else
             vec2 edgeWave = vec2(vnoise(g * 6.7 + 17.0), vnoise(g * 5.3 + 47.0)) - 0.5;
             vec2 ws = smoothstep(vec2(0.5 - bandW), vec2(0.5 + bandW), w + edgeWave * sd * 0.105);
@@ -1401,51 +1719,55 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
             vec4 s1 = soilOf(dx);
             vec4 s2 = soilOf(dy);
             vec4 s3 = soilOf(dd);
-            vec4 flags0 = vec4(grassOf(s0.x), s0.x, step(0.5, s0.y), s0.z);
-            vec4 flags1 = vec4(grassOf(s1.x), s1.x, step(0.5, s1.y), s1.z);
-            vec4 flags2 = vec4(grassOf(s2.x), s2.x, step(0.5, s2.y), s2.z);
-            vec4 flags3 = vec4(grassOf(s3.x), s3.x, step(0.5, s3.y), s3.z);
+            vec4 flags0 = vec4(grassAt(s0), s0.x, step(0.5, s0.y), s0.z);
+            vec4 flags1 = vec4(grassAt(s1), s1.x, step(0.5, s1.y), s1.z);
+            vec4 flags2 = vec4(grassAt(s2), s2.x, step(0.5, s2.y), s2.z);
+            vec4 flags3 = vec4(grassAt(s3), s3.x, step(0.5, s3.y), s3.z);
             vec4 soil = flags0 * v00 + flags1 * v10 + flags2 * v01 + flags3 * v11;
+            // a still film's water drawn back from the shore leaves the ground there dry (shoreFilm.ts, Q9 V3): on its own
+            // tile, off the outline its mesh is drawn to; on a dry tile beside it, none of its wet blends over
+            if (flags0.w > 0.5) soil.w *= shoreFilmOwn(tile, d0, fr, filmPx);
+            else if (soil.w > 0.0) {
+              // (the flow's share at the corner the four tiles share, as the water's vertex shader reads it there)
+              float fc = shoreFilmFlowAt(tile + step(vec2(0.5), fr));
+              soil.w = flags1.w * v10 * shoreFilmKeep(dx, fc) + flags2.w * v01 * shoreFilmKeep(dy, fc) + flags3.w * v11 * shoreFilmKeep(dd, fc);
+            }
             // the grass's share as the game draws it: its desert map's noisy blend (desertBlend)
-            soil.x = 1.0 - desertBlend(g, vec4(1.0 - flags0.x, sx > 0.5 ? 1.0 - flags1.x : 1.0, sy > 0.5 ? 1.0 - flags2.x : 1.0, hd == h0 ? 1.0 - flags3.x : 1.0));
+            vec4 desertTaps = vec4(1.0 - flags0.x, sx > 0.5 ? 1.0 - flags1.x : 1.0, sy > 0.5 ? 1.0 - flags2.x : 1.0, hd == h0 ? 1.0 - flags3.x : 1.0);
+            #ifdef RUN_SOIL
+              // (a neighbour whose top is at another level counts as desert unless a cave's floor stands at this level in
+              // it, which the tap reads as the floor's own blend reads this top: no seam at a cave's mouth)
+              if (sx < 0.5) desertTaps.y = runDesert(tile + vec2(sd.x, 0.0), h0, 1.0);
+              if (sy < 0.5) desertTaps.z = runDesert(tile + vec2(0.0, sd.y), h0, 1.0);
+              if (hd != h0) desertTaps.w = runDesert(tile + sd, h0, 1.0);
+            #endif
+            soil.x = 1.0 - desertBlend(g, desertTaps);
             float clev = (s0.y * w00 + s1.y * w10 + s2.y * w01 + s3.y * w11) / 15.0;
-            // the bed under thin water (WATER_FILM): its depth's film curve, blended over the wet tiles round
-            // the point only (a pond's bed holds to its shore)
-            vec4 under = vec4(s0.z * w00, s1.z * w10, s2.z * w01, s3.z * w11);
-            float underSum = under.x + under.y + under.z + under.w;
-            groundBed = underSum > 0.0001 ? dot(under, vec4(waterFilm(waterDepthOf(d0)), waterFilm(waterDepthOf(dx)), waterFilm(waterDepthOf(dy)), waterFilm(waterDepthOf(dd)))) / underSum : 1.0;
+            // contamination's map value as the game blends it (a tile at another level holds none at this one)
+            contamMap = tapBlend(g, vec4(contaminationMapOf(s0.y / 15.0), sx > 0.5 ? contaminationMapOf(s1.y / 15.0) : 0.0,
+              sy > 0.5 ? contaminationMapOf(s2.y / 15.0) : 0.0, hd == h0 ? contaminationMapOf(s3.y / 15.0) : 0.0));
           #endif
-          vec3 ground = groundColor(soil, g, detail, clev, glow);${hook(h, "groundTop")}
-
-          // under a film the ground is seen through the water as through a coloured filter (WATER_FILM): its
-          // own detail in the water's hue, teal, crimson or between them by the water's badwater share
-          float filmOver = smoothstep(0.4, 0.6, soil.w) * (1.0 - groundBed);
-          // (and the light of the bed's veins, where a look draws them under polluted water, is half seen through it)
-          if (filmOver > 0.0) {
-            ground = mix(ground, waterFilmGround(ground, ${hook(h, "filmShare", "texture2D(flowTex, g / mapSize).b")}, ${hook(h, "filmBad", "WATER_FILM_BAD_TINT")}), filmOver);
-            glow *= 1.0 - 0.5 * filmOver;
-          }
+          vec3 ground = groundColor(soil, g, detail, clev);
           #if !LITE
-            // the ground behind the water past a sliver shows as the game's High quality shows it: overlaid with
+            // the ground behind the water shows as the game's High quality shows it: overlaid with
             // the water's own colour there and desaturated (WATER_SURFACE.behindTint); the water's opacity sets how
-            // much of it shows. Clear water (an editing aid) shows the bed as it is.
+            // much of it shows. Clear water (an editing aid) shows the bed as it is. Only where the frame's water
+            // doesn't do it itself, as the game's does, from its copy of the screen (refraction.ts: a browser drawing
+            // in software, a picture), so it is never put on twice
             float clrBehind = clearWater;
             if (clearAround.w > 0.5) clrBehind = max(clrBehind, 1.0 - smoothstep(clearAround.z, clearAround.z + CLEAR_FADE, length(g - clearAround.xy)));
-            float behind = smoothstep(0.4, 0.6, soil.w) * groundBed * (1.0 - clrBehind);
+            float behind = smoothstep(0.4, 0.6, soil.w) * (1.0 - clrBehind) * (1.0 - refractView.y);
             if (behind > 0.0) {
               float bd = waterDepthOf(d0);
-              vec3 wc = waterBlend(cleanWaterBody(bd, waterAbsorb(bd)), badwaterBody(bd), ${hook(h, "filmShare", "texture2D(flowTex, g / mapSize).b")});
+              vec3 wc = waterBlend(cleanWaterBody(bd, waterAbsorb(bd)), badwaterBody(bd), ${hook(h, "behindShare", "texture2D(flowTex, g / mapSize).b")});
               ground = mix(ground, waterGroundBehind(ground, wc), behind);
             }
           #endif
-          groundBed = 1.0;
           // an eruption's fresh rock reads as rock, never the grass or earth it rose from (#367)
           float fresh = freshRock(tile, h0);
           ground = mix(ground, ashOf(g), fresh);
-          glow *= 1.0 - fresh;
           if (groundMode > 0.5) {
             c = heightColor(h0) * (0.96 + 0.08 * (vnoise(g * 9.0) - 0.5) * detail);
-            glow = 0.0;
           } else {
             // (no rim where grass meets earth: the game blends its grass into its desert by the share alone)
             c = ground;
@@ -1460,8 +1782,8 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
           light = gameLight(n, sunHere);
           if (vWorld.y < h0 - 0.5) {
             // a floor under an overhang (a cave's or a ledge's): the top's soil, never its water,
-            // in the overhang's shade
-            float none;
+            // in the overhang's shade (its own contamination, not the top's blend)
+            contamMap = -1.0;
             #ifdef RUN_SOIL
               // its own run top's soil and water where the worker sent it (runSoil.ts), blending toward the
               // ground at the same level round it as a top blends toward neighbours of its height; where no run
@@ -1487,21 +1809,23 @@ ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.
                 float z01 = (1.0 - w.x) * w.y * ry1;
                 float z11 = w.x * w.y * rd;
                 float z00 = 1.0 - z10 - z01 - z11;
-                floorSoil = vec4(grassOf(q0.x), q0.x, step(0.5, q0.y), q0.z) * u00 + vec4(grassOf(q1.x), q1.x, step(0.5, q1.y), q1.z) * u10
-                  + vec4(grassOf(q2.x), q2.x, step(0.5, q2.y), q2.z) * u01 + vec4(grassOf(q3.x), q3.x, step(0.5, q3.y), q3.z) * u11;
-                #if !LITE
+                // (each its desert intensity, groundAt's w: an open top's from its moisture unrounded, as the top itself
+                // takes it, so the floor and the top meet without a seam)
+                floorSoil = vec4(1.0 - q0.w, q0.x, step(0.5, q0.y), q0.z) * u00 + vec4(1.0 - q1.w, q1.x, step(0.5, q1.y), q1.z) * u10
+                  + vec4(1.0 - q2.w, q2.x, step(0.5, q2.y), q2.z) * u01 + vec4(1.0 - q3.w, q3.x, step(0.5, q3.y), q3.z) * u11;
+                #if LITE
+                  floorSoil.x = 1.0 - desertMean(1.0 - floorSoil.x);
+                #else
                   // the game's desert map is 3D: a cave's floor blends as a top does, at its own level
-                  floorSoil.x = 1.0 - desertBlend(g, vec4(1.0 - grassOf(q0.x), rx1 > 0.5 ? 1.0 - grassOf(q1.x) : 1.0,
-                    ry1 > 0.5 ? 1.0 - grassOf(q2.x) : 1.0, rd1 > 0.5 ? 1.0 - grassOf(q3.x) : 1.0));
+                  floorSoil.x = 1.0 - desertBlend(g, vec4(q0.w, rx1 > 0.5 ? q1.w : 1.0, ry1 > 0.5 ? q2.w : 1.0, rd1 > 0.5 ? q3.w : 1.0));
                 #endif
                 floorLevel = (q0.y * z00 + q1.y * z10 + q2.y * z01 + q3.y * z11) / 15.0;
               }
-              c = groundMode > 0.5 ? heightColor(vWorld.y) : groundColor(floorSoil, g, detail, floorLevel, none);
+              c = groundMode > 0.5 ? heightColor(vWorld.y) : groundColor(floorSoil, g, detail, floorLevel);
 
             #else
-              c = groundMode > 0.5 ? heightColor(vWorld.y) : groundColor(vec4(soil.xyz, 0.0), g, detail, clev, none);
+              c = groundMode > 0.5 ? heightColor(vWorld.y) : groundColor(vec4(soil.xyz, 0.0), g, detail, clev);
             #endif
-            glow = 0.0;
             light = gameLight(n, 0.0);
           }
         } else {
@@ -1533,7 +1857,7 @@ ${hook(h, "wall")}          float py = fwidth(y);
           groove = (1.0 - smoothstep(gw - py * 0.5, gw + py * 0.5, fy)) * lines;
           float lip = ceiling ? 0.0 : 1.0 - smoothstep(0.07, 0.13, h0 - y);
           vec4 s0 = soilOf(d0);
-          vec3 top = groundMode > 0.5 ? heightColor(h0) : mix(${glColor(GROUND.dry)} * 0.85, ${glColor(GROUND.moistHigh)}, grassOf(s0.x));
+          vec3 top = groundMode > 0.5 ? heightColor(h0) : mix(${glColor(GROUND.dry)} * 0.85, ${glColor(GROUND.grass)}, grassAt(s0));
           // (an eruption's fresh rock: its cliffs dark basalt, its lip ash)
           float freshWall = freshRock(tile, vWorld.y);
           wc = mix(wc, ${glColor(JUICE.ashDark)} * (0.62 + 0.5 * k), freshWall * 0.7);
@@ -1555,6 +1879,26 @@ ${hook(h, "wall")}          float py = fwidth(y);
           #endif
           wc *= (1.0 - 0.18 * seam) * (1.0 - 0.10 * vertical);
           c = mix(wc, top * 0.58, lip * 0.55);
+          #if !LITE
+            // a wall under the water in front of it (a bank's foot, a step in the bed) shows through the water as the
+            // ground behind does, as the game's High quality shows whatever lies behind (P13): overlaid with the water's
+            // own colour at the depth the view sees there, its surface over this point (viewDepth.ts: at the foot of a
+            // bank facing the camera, the band's), and desaturated. Clear water (an editing aid) shows it as it is.
+            // Only where the frame's water doesn't do it itself (refraction.ts), as for the ground under it
+            if (!ceiling && refractView.y < 0.5) {
+              vec2 wt = tile + out2;
+              vec4 dw = tileAt(wt);
+              float wd = waterDepthOf(dw);
+              float bd = heightOf(dw) + wd - vWorld.y;
+              float clrWall = clearWater;
+              if (clearAround.w > 0.5) clrWall = max(clrWall, 1.0 - smoothstep(clearAround.z, clearAround.z + CLEAR_FADE, length(g - clearAround.xy)));
+              if (wd > 0.0 && bd > 0.0 && clrWall < 0.999) {
+                vec2 g = wt + 0.5;
+                vec3 ww = waterBlend(cleanWaterBody(bd, waterAbsorb(bd)), badwaterBody(bd), ${hook(h, "behindShare", "texture2D(flowTex, g / mapSize).b")});
+                c = mix(c, waterGroundBehind(c, ww), 1.0 - clrWall);
+              }
+            }
+          #endif
           if (ceiling) light = gameLight(n, 0.0);
           else {
             sunHere = sunLit(g + out2 * 0.26, y);
@@ -1571,8 +1915,7 @@ ${hook(h, "wall")}          float py = fwidth(y);
         #if LITE == 0
         c += gameSpecular(n, albedo, n.y > 0.5 ? 0.0 : 0.05);
         #endif
-        // the glowing cracks of contaminated ground shine in shadow too
-        c += ${glColor(GROUND.contaminatedGlow)} * glow * ${f(CT.glowAdd)};${hook(h, "lit")}
+${hook(h, "lit")}
         // the slice's cut (D207): the tops of columns taller than the layer (with terrain above terrain, only the cap
         // where solid rock crosses the cut, not a cave's floor below it) are a section through rock, not ground: a cool
         // slate, darker than the tops round it, with a diagonal hatch. Close up three lines a tile; farther out every
@@ -1605,15 +1948,15 @@ ${hook(h, "wall")}          float py = fwidth(y);
         if (eruptionAge >= 0.0 && !eWall) {
           vec4 e = texture2D(eruptionMask, eAt / mapSize);
           float arrival = smoothstep(e.a * 1.1, e.a * 1.1 + 0.55, eruptionAge);
-          float cooling = smoothstep(0.0, 3.6, coolingAge);
-          float crust = smoothstep(2.0, 5.8, coolingAge);
-          float fade = 1.0 - smoothstep(3.3, 6.4, coolingAge);
+          float cooling = smoothstep(0.0, ${f(LAVA.cooling)}, coolingAge);
+          float crust = smoothstep(${f(LAVA.crust[0])}, ${f(LAVA.crust[1])}, coolingAge);
+          float fade = 1.0 - smoothstep(${f(LAVA.fade[0])}, ${f(LAVA.fade[1])}, coolingAge);
           float cracks = pow(1.0 - abs(sin(vWorld.x * 2.8 + sin(vWorld.z * 1.2) * 2.6 + vWorld.z * 1.6)), 12.0);
           float hot = max(e.r * (0.56 + 0.44 * cracks), e.g * cracks);
-          float k = hot * arrival * fade * 0.9;
+          float k = hot * arrival * fade * ${f(LAVA.most)};
           // (the crust is the ground darkened; the rest of the lava is its own light)
-          c *= 1.0 - k + k * crust * vec3(0.49, 0.46, 0.43);
-          emission = mix(vec3(3.2, 0.5, 0.02), vec3(0.38, 0.028, 0.013), cooling) * k * (1.0 - crust);
+          c *= 1.0 - k + k * crust * ${glColor3(LAVA.crustTint)};
+          emission = mix(${glColor3(LAVA.hot)}, ${glColor3(LAVA.cooled)}, cooling) * k * (1.0 - crust);
           float ash = e.b * smoothstep(0.5, 2.4, eruptionAge) * (1.0 - smoothstep(0.5, 6.0, coolingAge)) * 0.24 * max(0.0, n.y);
           c = mix(c, vec3(0.52, 0.49, 0.45), ash);
           emission *= 1.0 - ash;
@@ -1695,7 +2038,7 @@ ${hook(h, "wall")}          float py = fwidth(y);
           float edge = min(min(fr.x, 1.0 - fr.x), min(fr.y, 1.0 - fr.y));
           c = mix(c * 1.18, vec3(1.0), (1.0 - smoothstep(0.04, 0.09, edge)) * (n.y > 0.5 ? 0.85 : 0.0));
         }
-        gl_FragColor = vec4(c, 1.0);
+        gl_FragColor = bloomSource > 0.5 ? vec4(gpSource, 1.0) : vec4(c, 1.0);
         #if CUTAWAY
           if (cutGone) discard;
         #endif
@@ -1704,36 +2047,91 @@ ${hook(h, "wall")}          float py = fwidth(y);
   });
 }
 
+/** Where the game's own pattern lies over a source (Q9 P7) in the sources' texture's R (renderer.ts `markSources`,
+ *  sourceMarks.ts), as the game's `_WaterSourceMask` gives each tile its place in its source's footprint: each tile of a
+ *  running badwater source's 3 × 3 `square` + its column + 3 × its row (from the footprint's least x and y, in the
+ *  map's axes), each of a seep's 2 × 2 `seep` + its column + 2 × its row. All under a half, the rings' threshold
+ *  (a water source's own tile is 255). */
+export const SOURCE_FOOTPRINT = { square: 1, seep: 10 } as const;
+
+/** The game's own pattern over the water sources (Q9 P7, waterPalette.ts GAME_WATER_SOURCE), GLSL for the water's
+ *  fragment shader: at point g (tiles), 0–1, from its tile's place in a footprint (`SOURCE_FOOTPRINT`, one read of
+ *  the sources' texture) and the pattern in badwater's texture's A, sampled at its top mip (the angle's seam would pick
+ *  the smallest). */
+const WATER_SOURCE_GLSL = /* glsl */ `
+      float waterSourcePattern(vec2 g) {
+        float code = floor(texture2D(sourceTex, (floor(g) + 0.5) / mapSize).r * 255.0 + 0.5) - ${f(SOURCE_FOOTPRINT.square)};
+        if (code < -0.5 || code > ${f(SOURCE_FOOTPRINT.seep + 3 - SOURCE_FOOTPRINT.square)} + 0.5) return 0.0;
+        // (its column and row in the footprint, and the footprint's size)
+        float n = code < ${f(SOURCE_FOOTPRINT.seep - SOURCE_FOOTPRINT.square)} - 0.5 ? 3.0 : 2.0;
+        code -= n > 2.5 ? 0.0 : ${f(SOURCE_FOOTPRINT.seep - SOURCE_FOOTPRINT.square)};
+        vec2 cell = vec2(mod(code, n), floor(code / n + 0.01));
+        vec2 v = (cell + fract(g)) / n - 0.5;
+        float r = length(v);
+        float k = max(1.0 - 2.0 * r, 0.0);
+        if (k <= 0.0) return 0.0;
+        float shape = textureLod(badwaterTex, vec2(2.0 * r - ${f(GAME_WATER_SOURCE.scroll)} * time, atan(v.y, v.x) * ${f(Math.round((1 / (2 * Math.PI)) * 1e6) / 1e6)}), 0.0).a;
+        float k2 = k * k;
+        return clamp(8.0 * shape * k2 + min(1.0, 2.5 * k2 * k2 * k2), 0.0, 1.0);
+      }
+`;
+
 export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHooks): ShaderMaterial {
   return new ShaderMaterial({
-    defines: { LITE: lite ? 1 : 0 },
+    // (the game's refraction where this look follows its high-quality water: refraction.ts WATER_REFRACTION.looks; the
+    // High look's material is the one with hooks)
+    defines: { LITE: lite ? 1 : 0, WATER_REFRACTS: !lite && WATER_REFRACTION.looks[h ? "high" : "standard"] ? 1 : 0 },
     uniforms: scene as unknown as Record<string, { value: unknown }>,
     vertexShader: /* glsl */ `
       attribute vec2 wdata;
       attribute float wflags;
       attribute vec2 wcut;
+      attribute vec2 wshore;
       uniform float slice;
+      uniform sampler2D flowTex;
+      uniform vec2 mapSize;
       varying vec2 vData;
       varying float vFlags;
       varying vec3 vNormal;
       varying vec3 vWorld;
+      varying float vFloor;
+      ${SHORE_FILM_VERTEX_GLSL}
       void main() {
         vData = wdata;
         vFlags = wflags;
+        vFloor = wcut.x;
         vNormal = normal;
         vec4 w = modelMatrix * vec4(position, 1.0);
+        // a still film drawn back from the shore, as the game's vertex shader moves it (shoreFilm.ts, Q9 V3): the mesh's
+        // shift × the depth's share, × the flow's share at its corner here
+        if (wshore.x != 0.0 || wshore.y != 0.0) {
+          vec2 shift = wshore * shoreFilmFlow(vec2(w.x, -w.z));
+          w.x += shift.x;
+          w.z -= shift.y;
+        }
         // the game's layers (D207, cutWater.ts): a column standing over the cut with its floor below it is sliced, its
         // top lying on the cut, shallower by what the cut took off, its sides stopping there; one whose floor is at
         // the cut or above it is gone (the fragment shader drops its top over the cut, and its sides fold flat here:
         // a side hanging below its floor, to lower water in front of a cliff, would leave a sliver under the cut),
-        // but for a fall's face, which keeps its part below the cut in front of the cliff, as the game's layers do
-        float surface = normal.y > 0.5 ? w.y : wcut.x + wdata.x;
-        if (surface > slice + ${f(CUT_SLACK)} && wcut.x >= slice && normal.y < 0.5) w.y = wflags < 254.5 && wflags > ${f(FALL * 30 - 0.5)} ? min(w.y, slice) : surface;
+        // but for a side as tall as a fall (toward lower dry ground), which keeps its part below the cut in front of the
+        // cliff, as the game's layers do. A fall itself is the slope of the water below it, a top (fallSlope.ts): each
+        // vertex sliced by its own height and floor
+        // (a side's vertex by its own height where that stands over its column's surface: a slope's edge, a skirt)
+        float colTop = wcut.x + wdata.x;
+        float surface = normal.y > 0.5 ? w.y : max(colTop, w.y);
+        if (surface > slice + ${f(CUT_SLACK)} && wcut.x >= slice && normal.y < 0.5) w.y = wflags < 254.5 && wflags > ${f(FALL * 30 - 0.5)} ? min(w.y, slice) : colTop;
         if (surface > slice + ${f(CUT_SLACK)} && wcut.x < slice) {
           float over = surface - slice;
+          float h0 = w.y;
           w.y = min(w.y, slice);
           if (normal.y > 0.5) {
-            vData.x = max(0.0, wdata.x - over * wcut.y);
+            // (a fall's slope vertex, its cut share under -0.5: the depth seen from the cut, against the cliff or into
+            // the upper water to its floor, cutWater.ts cutSlopeDepth)
+            if (wcut.y < -0.5) {
+              float v = -1.0 - wcut.y;
+              float back = h0 - (mod(v, 64.0) - 0.5);
+              vData.x = max(0.05, min(slice - wcut.x, max(v > 63.75 ? ${f(VIEW_TAN / 3)} : 0.0, slice - back)));
+            } else vData.x = max(0.0, wdata.x - over * wcut.y);
             // (its shores only)
             vFlags = mod(wflags, 16.0);
           } else {
@@ -1751,19 +2149,34 @@ export function waterMaterial(scene: SceneUniforms, lite = false, h?: ShaderHook
       varying float vFlags;
       varying vec3 vNormal;
       varying vec3 vWorld;
+      varying float vFloor;
       ${common(h)}
       ${WATER_GLSL}${WATER_FLOW_GLSL}${CAVE_FLOW}
       ${GAME_WATER_LIGHT}
-      // (a curtain whose flags, its drop in thirtieths, pass this is a fall: waterMesh.ts FALL; the vertex shader's
-      // test under a cut is the same)
-      #define WATER_FALL_FLAGS ${f(FALL * 30 - 0.5)}
+      ${FALL_MASK_GLSL}
+      ${REFRACTION_INPUTS_GLSL}
+      #if WATER_REFRACTS
+      ${REFRACTION_GLSL}
+      #endif
 ${hook(h, "waterDecl")}${CAVE_POINT}
       #ifdef CAVES
       ${OVERLAY_RUN}
       #endif
       /** The flow the water's textures ride here (the game's, high/bake.ts flowByte), 0 where still. */
       vec2 waterFlow(vec2 g) { return waterFlowOf(texture2D(flowTex, g / mapSize).rg); }
+      /** The badwater share at g as the game blends it between tiles (waterPalette.ts WATER_SHARE_BLEND, Q9 P9): each
+       *  tile's own in the flow texture's B, dry tiles left out by its A, about a tile wide across a front, its margin
+       *  wobbled by our own noise in place of the game's margin noise (the light look: the margin's widest). */
+      float waterShareAt(vec2 g) {
+        #if LITE
+          return waterShareFrom(flowTex, mapSize, g, 1.0);
+        #else
+          return waterShareFrom(flowTex, mapSize, g, vnoise((g + ${f(WATER_SHARE_BLEND.noiseSpeed)} * time) * ${f(WATER_SHARE_BLEND.noiseScale)}));
+        #endif
+      }
+${WATER_SOURCE_GLSL}${VIEW_DEPTH_GLSL}
       void main() {
+        ${SUN_PX_GLSL}
         vec3 n = normalize(vNormal);
         float depth = vData.x;
         float cont = clamp(vData.y, 0.0, 1.0);
@@ -1779,13 +2192,38 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
           // (water below its tile's surface water: its own column's current, not the water's seen from above)
           waterOwnFlow = ownFlowAt(inWater);
         #endif
+        // the badwater share on the water's top as the game blends it between tiles (WATER_SHARE_BLEND): a front about
+        // a tile wide, clean water a tile from badwater clean; a fall's face and the water's side keep the mesh's share
+        // (a side its own tile's, D154), and water under a roof its own column's
+        // (water below its tile's surface water by its own current too, so it never reads the top water's while the light
+        // volume is not there yet)
+        bool ownShare = waterRoofed > 0.5;
+        #ifdef CAVES
+          ownShare = ownShare || waterOwnFlow.a > 0.5;
+        #endif
+        if (n.y > 0.5 && !ownShare) cont = waterShareAt(g);
+        // the game's still detail albedo here (Q9 P6), which clean water's colour × its albedo and badwater's base colour
+        // are overlaid with: at xz × 0.015, not carried by the flow, in every look (the game's Low quality draws it too)
+        waterDetail = waterDetailAt(g);
+        // the game's own pattern over a seep or a badwater source (Q9 P7), on the water's top over it, in every look (the
+        // game's Low quality draws it too); under our rings and bubbles (D249, with Markers on), an editing aid drawn after it
+        waterSource = n.y > 0.5 ? waterSourcePattern(g) : 0.0;
+        // the game's waterfall mask here (fallMask.ts, Q9 P1: on the water a fall lands in), which takes off its camera
+        // highlight and its refraction and shows less of the ground behind; none in the light look (the game's Low
+        // quality makes none) nor on water below its tile's surface water (the mask is the surface water's)
+        #if !LITE
+          waterFall = waterFallMask(g);
+          #ifdef CAVES
+            if (waterOwnFlow.a > 0.5) waterFall = 0.0;
+          #endif
+        #endif
         float t = time;
-        // the badwater share, blended between tiles by the mesh: the water turns from clean water to
+        // the badwater share, blended between tiles as the game's (above): the water turns from clean water to
         // badwater with it, smoothly, never in streaks or patches, by the game's own tint (waterPalette.ts
         // WATER_BLEND): its colour (waterBlend), its opacity and its dull surface
         float bad = waterTint(cont);
-        // how far this point is from the tile's shores (1 in open water): the water shallows toward
-        // its banks
+        // how far this point is from the tile's shores (1 in open water): the refraction's reach and the clear water's
+        // line along its shore (an editing aid)
         vec2 fr = fract(g);
         float shore = 1.0;
         if (bitOf(vFlags, 1.0) > 0.5) shore = min(shore, 1.0 - fr.x);
@@ -1793,19 +2231,24 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
         if (bitOf(vFlags, 4.0) > 0.5) shore = min(shore, 1.0 - fr.y);
         if (bitOf(vFlags, 8.0) > 0.5) shore = min(shore, fr.y);
         if (n.y < 0.5) shore = 1.0;
-        // (waterPalette.ts's waterBody and waterOpacity say the same, for the tests)
-        float d = waterSeenDepth(depth, shore);
+        // the depth the water is coloured and seen through by, as the game reads it (viewDepth.ts, Q9 P3): on its top,
+        // what the view sees under the surface down to the ground, so it falls to none at the foot of a bank facing the
+        // camera, over about 0.7 tile a level at the game's 55°, and stays whole to a bank the view passes over. A side
+        // of the water (a skirt between two tops, a fall's slope's side) reads it the same way from just inside its
+        // column, as the game's skirt, drawn by the same program, reads the depth buffer behind it: a fall's side as dark
+        // as its face. The section at the map's edge keeps its own (waterPalette.ts's waterBody and waterOpacity take it
+        // as given, for the tests).
+        float d = n.y < 0.5 && vFlags > 254.5 ? depth : waterViewDepth(n.y > 0.5 ? g : g - vec2(n.x, -n.z) * 0.002, vWorld.y, vFloor);
         // clean water: clear in the shallows (the bed shows through a light teal tint), a deep teal
         // body a level or so deep, navy where deep; badwater murky, the game's
         // crimson, lighter on a film and darker deeper by the game's _DepthGradients ramp (D496)
         float absorb = waterAbsorb(d);
-        vec3 murky = badwaterGlow(badwaterBody(depth), BADWATER_BODY, d, cont);
+        vec3 murky = badwaterGlow(badwaterBody(d), BADWATER_BODY, d, cont);
         vec3 body = cleanWaterBody(d, absorb);
         float bodyDepth = d;
-        // a sliver at a shore's very edge is a faint tint over its own ground, building to the body by
-        // WATER_FILM.to deep (waterPalette.ts WATER_FILM; our anti-aliasing): its own depth, not the bank's
-        float film = waterFilm(depth);
-        float alpha = mix(WATER_FILM_CLEAN, cleanWaterAlpha(d), film);
+        // water of any depth is water, clean or bad, as the game's: its see-through by the depth seen (waterPalette.ts
+        // waterOpacity; no film, D154 as amended 2026-11-09)
+        float alpha = cleanWaterAlpha(d);
         float foam = 0.0;
         // the gloss's slow variation, as the game's two panned samples of its gloss map (WATER_SURFACE.smoothness)
         float gloss = 0.5;
@@ -1813,9 +2256,13 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
         // game's Low quality, flat at its mean)
         vec2 bpat = BADWATER_PATTERN_FLAT;
         vec3 N = n;
+        // (the normal the game's camera highlight takes: the surface's × its _NormalBoost, where N is the one its light
+        // takes, unboosted: waterTextures.ts waterFlowNormal)
+        vec3 Nh = n;
         // the surface the flow carries, as the game draws it (Q9 P5, P11; waterTextures.ts): two phases of its textures
-        // riding each column's outflow, the albedo multiplying the colour and the ripples the surface's normal; on a
-        // fall's face, the water's over its lip (half a tile back), so its detail runs on from the top's. Both looks draw
+        // riding each column's outflow, the albedo multiplying the colour and the ripples the surface's normal (on a
+        // fall's slope, a top, sampled at the world's xz, so they stretch down it, as the game's); on the water's
+        // side, the water's over its lip (half a tile back), so its detail runs on from the top's. Both looks draw
         // from this one sample. (The light look, as the game's Low quality, draws them flat: their mean.)
         vec4 surf = vec4(${f(Math.round((WATER_ALBEDO.flat[0] / 255) * 1e5) / 1e5)}, ${f(Math.round((WATER_ALBEDO.flat[1] / 255) * 1e5) / 1e5)}, 0.50196, 0.50196);
         vec2 pa = g;
@@ -1833,38 +2280,44 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
         vec3 albedo = waterAlbedo(surf);
         if (n.y > 0.5) {
           #if !LITE
-            N = waterFlowNormal(surf, cont);
+            N = waterFlowNormal(surf, cont, 1.0);
+            Nh = waterFlowNormal(surf, cont, WATER_NORMAL_BOOST);
             gloss = (vnoise(g * 0.5 + vec2(t * 0.010, t * 0.007)) + vnoise(g * 0.37 - vec2(t * 0.008, t * 0.012))) * 0.5;
           #endif
-          // badwater's opacity (the water's, as the game's: WATER_SURFACE.seeThrough), by how bad it is
-          alpha = mix(alpha, badwaterAlpha(depth, shore), bad);
           #if LITE
             // (the light look follows the game's Low quality: no ground behind the water)
-            alpha = max(alpha, film);
+            alpha = 1.0;
           #endif
           // no foam along the shore or over a brink, as the game draws none (its water shader has no foam)
         } else {
-          // the water's side, and a fall: where the water steps down, as the game draws its falls, the water mesh's
-          // own vertical face in the water's own colour, nearly opaque: the ground behind shows by
-          // WATER_SURFACE.fallSeeThrough (its _TransparencyWaterfallDepth); no whitewater, no foam. At the map's
-          // edge, the water's side
+          // the water's side: a skirt between two tops, or a fall's slope's side over lower dry ground (a fall is the
+          // slope of the water below it, drawn as a top, fallSlope.ts). The game's skirt is its top's mesh dropped,
+          // drawn by the same program with the same up normal, so it is the surface going on: coloured and seen
+          // through by the depth seen behind it (d, above), the waterfall mask's see-through where a fall lands; no
+          // light or dark line marks it, no whitewater, no foam. At the map's edge, the water's section
           bool edge = vFlags > 254.5;
           float drop = edge ? 0.0 : vFlags / 30.0;
-          if (!edge && vFlags < WATER_FALL_FLAGS) {
-            // a small step between two waters: the water's own surface going on, as the game's face shares its
-            // material, so no light or dark line marks it
+          if (!edge) {
             N *= 0.0;
             N.y = 1.0;
-            alpha = mix(alpha, badwaterAlpha(depth, 1.0), bad);
+            Nh = N;
+            #if !LITE
+              N = waterFlowNormal(surf, cont, 1.0);
+              Nh = waterFlowNormal(surf, cont, WATER_NORMAL_BOOST);
+              gloss = (vnoise(g * 0.5 + vec2(t * 0.010, t * 0.007)) + vnoise(g * 0.37 - vec2(t * 0.008, t * 0.012))) * 0.5;
+            #endif
+            #if LITE
+              // (the light look follows the game's Low quality: no ground behind the water)
+              alpha = 1.0;
+            #endif
           } else {
-            // the game's face sees the cliff right behind it: the colour of the water at its shallowest, its detail the
-            // albedo the flow carries over the lip
+            // the section: the colour of the water at its shallowest, its detail the albedo the flow carries over its lip
             body = cleanWaterBody(0.05, waterAbsorb(0.05));
             bodyDepth = 0.05;
             // (partly bad: the game's glow of its shallowest, as the surface's)
             murky = badwaterGlow(badwaterBody(0.05), BADWATER_BODY, 0.05, cont);
           }
-          alpha = edge ? mix(WATER_EDGE, BADWATER_SIDE, bad) : !(vFlags < WATER_FALL_FLAGS) ? (1.0 - WATER_FALL_SEE_THROUGH) : alpha * smoothstep(0.02, 0.06, drop);
+          alpha = edge ? mix(WATER_EDGE, BADWATER_SIDE, bad) : alpha * smoothstep(0.02, 0.06, drop);
           if (alpha < 0.01) discard;
         }
         foam = clamp(foam, 0.0, 1.0);
@@ -1881,32 +2334,55 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
         #endif
         // badwater the same way (Q9 P9): the game's contaminated colour (its base between near black and crimson by the
         // pattern's R, × its depth ramp's G, the shallow glow) lit as the game lights it, or our calibrated crimson × the
-        // pattern's variation over its mean, whichever the pixel judge found closer to the game's frames
-        // (waterPalette.ts GAME_BADWATER.use)
+        // pattern's variation over its mean, whichever the pixel judge found closer to the game's frames in this look
+        // (waterPalette.ts GAME_BADWATER.use.standard; High's surface takes its own, .high)
         #if BADWATER_FORMULA
           murky = gameBadwaterColour(bodyDepth, cont, bpat.x) * gameWaterLight(N, lit) / max(light, 0.001);
         #else
           murky *= badwaterPatternShade(bpat.x);
         #endif
         vec3 c = waterBlend(body, murky, cont);
+        // (the game's albedo here and its diffuse light, which P13 puts on what shows behind the water: refraction.ts)
+        behindLight = gameWaterLight(N, lit);
+        behindAlbedo = c * light / max(behindLight, 0.001);
         // the game's own highlight on the ripples, added to the colour before its light (and again after it); none on
-        // a fall's face (the game's waterfall mask takes it off there, p036 r7.z)
-        vec3 highlight = sunColor * waterCameraHighlight(N, V, bad) * step(0.5, N.y);
-        c += highlight;
-        c *= light;
+        // the map edge's section nor on a fall's slope and where it lands (the game's waterfall mask takes it off, Q9 P1 and P12, ps 814-862). Where
+        // the look draws the game's light (waterPalette.ts WATER_LIGHT.game), in the game's sun colour and lit by the
+        // game's light, as its albedo is
+        #if WATER_GAME_LIGHT
+          vec3 highlight = GAME_SUN_COLOUR * waterCameraHighlight(Nh, V, bad) * step(0.5, Nh.y) * (1.0 - waterFall);
+          c *= light;
+          c += highlight * gameWaterLight(N, lit);
+        #else
+          vec3 highlight = sunColor * waterCameraHighlight(Nh, V, bad) * step(0.5, Nh.y) * (1.0 - waterFall);
+          c += highlight;
+          c *= light;
+        #endif
+        // (the lit albedo with its highlight: what the game's see-through takes its share of, P13; the reflection, the
+        // glint and the emission below go on top of the whole, unscaled: refraction.ts)
+        behindBase = c;
         // the sky's reflection, stronger at low angles, and the sun's glint (no sparkle of our own: the game's water
-        // shader has none, its sheen is the sun's specular at its smoothness, D496's rule); a fall's face lit the same
-        // way, as the game lights every pixel of its water
+        // shader has none, its sheen is the sun's specular at its smoothness, D496's rule); the water's side lit the
+        // same way, as the game lights every pixel of its water
         // (the game's URP lighting at the water's smoothness, clean water's about 0.25 to badwater's 0.15: the sky
         // added on top, as URP's environment term)
         // (badwater's toward its own by the tint × the pattern's R, as the game's)
         float smoothness = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, bad * bpat.x);
-        float fres = waterSkyReflect(dot(N, V), smoothness);
-        c += WATER_SKY * fres;
+        // (the game's, WATER_LIGHT.game: its probe by the reflected direction, the head-on part where WATER_LIGHT.held,
+        // and the glint in its sun's colour)
+        #if WATER_GAME_LIGHT
+          c += waterEnvironment(N, V, smoothness, float(WATER_HELD));
+        #else
+          c += WATER_SKY * waterSkyReflect(dot(N, V), smoothness);
+        #endif
         // (the highlight's emission: unlit, unshadowed)
         c += highlight;
         float spec = waterSunGlint(N, V, sunDir, smoothness) * lit;
-        c += sunColor * spec;
+        #if WATER_GAME_LIGHT
+          c += GAME_SUN_COLOUR * spec;
+        #else
+          c += sunColor * spec;
+        #endif
         // badwater's emissive detail (Q9 P9): the pattern's G, its glowing lines, unlit, carried by the flow (none on the
         // light look's flat surface but its mean)
         vec3 emission = gameBadwaterEmission(cont, bpat.y, g);
@@ -1914,6 +2390,9 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
         c = mix(c, mix(WATER_FOAM, BADWATER_FOAM, bad) * (0.8 + 0.2 * lit), foam);
         // (foam only ever makes the water more opaque: deep water and the light look stay opaque)
         if (n.y > 0.5) alpha = max(alpha, mix(alpha, 0.95, foam));
+        // badwater as this look draws it, lit, with its glowing lines: what the clear water's veil keeps of it (below);
+        // a look that draws its own badwater (High's hook) sets its own here
+        vec3 clearBad = murky * light + emission;
 ${hook(h, "water")}        #ifdef CAVES
           // under a roof, the light of the air it stands in, as objects and falls there take it: the open air's sky
           // (D497), and the sun only where the volume's ray reaches
@@ -1922,40 +2401,61 @@ ${hook(h, "water")}        #ifdef CAVES
             vec3 open = skyColor * 1.2 + sunColor * 0.3 * ndlRoofed * lit;
             vec3 under = skyColor * 1.2 + sunColor * 0.3 * ndlRoofed * sunMarchAt(inWater);
             c *= under / max(open, 0.001);
+            behindLight *= under / max(open, 0.001);
+            behindBase *= under / max(open, 0.001);
           }
         #endif
         // clear water (D196, D212; waterPalette.ts CLEAR_WATER): all of it with T, else under and
         // right round the brush while it paints a submerged bed, fading back over a tile or two.
-        // Clean water keeps a faint blue tint over the bed, its ripples and a soft bright line along
-        // its shore; badwater keeps its colour, murky and half see-through, with its glowing lines
+        // Clean water takes a blue tint over the bed by its depth, never past half, with its ripples kept faintly and a
+        // crisp waterline along its shore; badwater keeps its colour, murky and half see-through, with its glowing lines
         // (never a hatching: it reads by lightness, colour and texture, D324)
         // the water as the game draws it, fogged and graded; the editing aids after it, in their own channel (D497):
         // the clear water's veil (D196, D212), the selection, the sources' wells and the pointer's source's glow (D196),
         // a highlighted source (D249)
-        c = finish(c, vWorld);
+        float lookAlpha = alpha;
+        // where the frame makes the copy of what is behind the water (refraction.ts, Q9 P13, P2), the game's composite,
+        // opaque: the lit albedo with P13's share of the ground behind in place of its own, the reflection, the glint and
+        // the emission on top, fogged and graded once; else the water alone, blended over the screen
+        #if WATER_REFRACTS
+          vec4 composite = waterComposite(c, g, vWorld, alpha, shore);
+          c = composite.rgb;
+          alpha = composite.a;
+        #else
+          c = finish(c, vWorld);
+        #endif
         float clr = clearWater;
         if (clearAround.w > 0.5) clr = max(clr, 1.0 - smoothstep(clearAround.z, clearAround.z + CLEAR_FADE, length(g - clearAround.xy)));
+        // (a pixel's footprint in tiles, for the waterline's width: taken here, outside the branch, as a derivative must be)
+        float clearPx = max(max(fwidth(g.x), fwidth(g.y)), 0.0001);
         if (clr > 0.001) {
           float badish = max(bad, smoothstep(0.05, 0.5, cont));
-          #if BADWATER_FORMULA
-            vec3 bc = murky * light + emission;
-          #else
-            vec3 bc = murky + emission;
-          #endif
+          vec3 bc = clearBad;
           vec3 cc = c;
-          float ca = alpha * mix(0.35, 0.7, badish);
+          // (by the water's own opacity, not the composite's)
+          float ca = lookAlpha * mix(0.35, 0.7, badish);
           if (n.y > 0.5) {
-            float line = 1.0 - smoothstep(0.0, CLEAR_SHORE_WIDTH, shore);
-            cc = WATER_CLEAR_TINT * light;
+            // the ground under the water is drawn as it is dry, as the game's (Q9 P14), so the water carries its own sign:
+            // clean water a light blue over the bed at its shallowest, deeper blue and a little denser to CLEAR_DEEP_AT
+            // levels down, so wet reads as wet and its depth reads at a glance while the bed still shows
+            float deep = clamp(max(depth, 0.0) / CLEAR_DEEP_AT, 0.0, 1.0);
+            cc = mix(WATER_CLEAR_TINT, WATER_CLEAR_DEEP, deep) * light;
             // (its ripples: the flow's light network catching the light, an editing aid's own channel)
             float ripple = smoothstep(0.35, 0.8, surf.r) * (1.0 - bad);
             cc = mix(cc, WATER_CLEAR_SHORE * light, ripple * CLEAR_RIPPLE_LIGHT);
             cc += WATER_SKY * waterSkyReflect(dot(N, V), WATER_SMOOTHNESS);
             cc += sunColor * waterSunGlint(N, V, sunDir, WATER_SMOOTHNESS) * lit;
             cc = mix(cc, WATER_FOAM * (0.8 + 0.2 * lit), foam * 0.6);
-            cc = mix(cc, WATER_CLEAR_SHORE * (0.85 + 0.15 * lit), line);
-            ca = min(0.9, CLEAR_OPACITY + CLEAR_RIPPLE * ripple + CLEAR_SHORE_OPACITY * line + 0.3 * foam);
+            ca = min(0.9, mix(CLEAR_OPACITY, CLEAR_OPACITY_DEEP, deep) + CLEAR_RIPPLE * ripple + 0.3 * foam);
             ca = mix(ca, CLEAR_BAD_OPACITY, badish);
+            // the waterline, on clean water and badwater alike: a crisp bright line along the shore, at least
+            // CLEAR_SHORE_PIXELS wide on screen so it holds at play distance, with a soft fade inward
+            float core = max(CLEAR_SHORE_CORE, CLEAR_SHORE_PIXELS * clearPx);
+            float line = max(1.0 - smoothstep(core, core + clearPx, shore), 0.35 * (1.0 - smoothstep(core, core + max(CLEAR_SHORE_WIDTH, 2.0 * clearPx), shore)));
+            vec3 waterline = WATER_CLEAR_SHORE * (0.85 + 0.15 * lit);
+            cc = mix(cc, waterline, line * CLEAR_SHORE_OPACITY);
+            bc = mix(bc, waterline, line * CLEAR_SHORE_OPACITY);
+            ca = mix(ca, 1.0, line * CLEAR_SHORE_OPACITY);
           }
           c = mix(c, mix(cc, bc, badish), clr);
           alpha = mix(alpha, ca, clr);
@@ -1977,8 +2477,10 @@ ${hook(h, "water")}        #ifdef CAVES
         }
         // the game's layers: water above the slice is cut away (a column sliced by it lies on it: the vertex shader)
         if (vWorld.y > slice + ${f(CUT_SLACK)}) discard;
-        // every source wells up (D196): rings spreading from it and a few bubbles, on the water over
-        // it, so it is found even deep under water; brighter while the pointer's water comes from it
+        // every source wells up with Markers on (D249, D497: an editing aid in the information layer, never the
+        // look; the game draws nothing over a plain source): rings spreading from it and a few bubbles, on the water
+        // over it, so it is found even deep under water; with Markers off the water over it is the plain surface;
+        // brighter while the pointer's water comes from it (the hover's own channel, with or without Markers)
         #if !LITE
         if (n.y > 0.5) {
           vec2 st = floor(g);
@@ -1991,18 +2493,22 @@ ${hook(h, "water")}        #ifdef CAVES
               vec4 sv = texture2D(sourceTex, (sq + 0.5) / mapSize);
               if (sv.r + sv.g < 0.5) continue;
               float d = length(g - sq - 0.5);
-              float ph = fract(time * 0.35 + (sq.x * 0.37 + sq.y * 0.61));
-              float ph2 = fract(ph + 0.5);
-              float ring = (1.0 - smoothstep(0.0, 0.07, abs(d - ph * 1.4))) * (1.0 - ph) + (1.0 - smoothstep(0.0, 0.07, abs(d - ph2 * 1.4))) * (1.0 - ph2);
-              float bub = step(0.9, vnoise((g - sq) * 9.0 + vec2(0.0, -time * 1.6))) * (1.0 - smoothstep(0.08, 0.4, d));
-              float here = max(ring * 0.8, bub) * (1.0 - smoothstep(1.1, 1.5, d));
-              up = max(up, here);
-              badSrc = max(badSrc, sv.g * here);
+              if (markers > 0.5) {
+                float ph = fract(time * 0.35 + (sq.x * 0.37 + sq.y * 0.61));
+                float ph2 = fract(ph + 0.5);
+                float ring = (1.0 - smoothstep(0.0, 0.07, abs(d - ph * 1.4))) * (1.0 - ph) + (1.0 - smoothstep(0.0, 0.07, abs(d - ph2 * 1.4))) * (1.0 - ph2);
+                float bub = step(0.9, vnoise((g - sq) * 9.0 + vec2(0.0, -time * 1.6))) * (1.0 - smoothstep(0.08, 0.4, d));
+                float here = max(ring * 0.8, bub) * (1.0 - smoothstep(1.1, 1.5, d));
+                up = max(up, here);
+                badSrc = max(badSrc, sv.g * here);
+              }
               hl = max(hl, sv.b * (1.0 - smoothstep(0.25, 1.2, d)) * (0.55 + 0.45 * sin(time * 3.0)));
             }
-          vec3 uc = mix(WATER_FOAM, BADWATER_FOAM, step(0.01, badSrc));
-          c = mix(c, uc, up * 0.55);
-          alpha = max(alpha, mix(alpha, 0.85, up * 0.5));
+          if (markers > 0.5) {
+            vec3 uc = mix(WATER_FOAM, BADWATER_FOAM, step(0.01, badSrc));
+            c = mix(c, uc, up * 0.55);
+            alpha = max(alpha, mix(alpha, 0.85, up * 0.5));
+          }
           c = mix(c, WATER_SOURCE_GLOW, hl * 0.45);
           alpha = max(alpha, mix(alpha, 0.9, hl * 0.4));
         }
@@ -2025,7 +2531,7 @@ ${hook(h, "water")}        #ifdef CAVES
           c = mix(c, WATER_SOURCE_LIT, lit * 0.9);
           alpha = max(alpha, mix(alpha, 0.97, lit * 0.9));
         }
-        gl_FragColor = vec4(c, alpha);
+        gl_FragColor = bloomSource > 0.5 ? vec4(gpSource, lookAlpha) : vec4(c, alpha);
       }
     `,
     transparent: true,
@@ -2083,9 +2589,10 @@ export function skyMaterial(h?: ShaderHooks): ShaderMaterial {
           c += cloud * ${glColor(GAME_LIGHT.sun)};
         }
         // (the game's post chain grades the whole frame, the sky too)
-        gl_FragColor = vec4(gamePost(c), 1.0);
+        gl_FragColor = vec4(bloomSource > 0.5 ? c : gamePost(c), 1.0);
       }
     `,
+    uniforms: { bloomSource: BLOOM_SOURCE },
     depthTest: false,
     depthWrite: false,
   });
@@ -2106,8 +2613,8 @@ export const RUIN_LATTICE_STRUT = 0.28;
 export const RUIN_INSIDE_SHADE = 0.68;
 export const RUIN_INSIDE_COVER = 0.75;
 
-/** Instanced objects: each vertex's own colour times the instance's tint, lit like the terrain,
- *  darker toward the model's foot, and in the terrain's shadow where it stands in one. An
+/** Instanced objects: each vertex's own colour (its albedo) times the instance's tint, lit as the game lights them
+ *  (the terrain's light, `GAME_LIT`'s `gameObjectLight`), in the terrain's shadow where it stands in one. An
  *  instance with a minimum size (`grow`: pixels a unit of the model must take at least, how far
  *  it rises for each time it grows, and the most it grows) is drawn larger when it would be
  *  smaller. A vertex's `lod` says which view its part belongs to: 0 any, 1 close up (a unit of the
@@ -2140,7 +2647,6 @@ export function objectMaterial(scene: SceneUniforms, lite = false, h?: ShaderHoo
       varying float vFade;
       varying vec3 vNormal;
       varying vec3 vWorld;
-      varying float vFoot;
       varying float vLod;
       void main() {
         mat4 m = modelMatrix * instanceMatrix;
@@ -2170,7 +2676,6 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
           }
           vColor *= ic;
         #endif
-        vFoot = position.y;
         vec3 p = ${hook(h, "objectPosition", "position")};
         #if !LITE
         if (lod > 0.5 || (grow.x > 0.0 && markers > 0.5)) {
@@ -2198,16 +2703,18 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
       varying vec3 vAid;
       varying vec3 vNormal;
       varying vec3 vWorld;
-      varying float vFoot;
       varying float vLod;
       varying float vFade;
       uniform vec4 objectFade;
-      ${common(h)}${CAVE_POINT}${DITHER_GLSL}
+      ${common(h)}${CAVE_POINT}${DITHER_GLSL}${GAME_LIT}
       void main() {
+        ${SUN_PX_GLSL}
         // the game's layers: what stands above the slice is cut away
         if (vWorld.y > slice + 0.02) discard;
         // hidden, or faded round the pointer where it is drawn by a dither (objectFade.ts)
         if (vFade <= 0.0 || (vFade < 1.0 && objectFade.w > 1.5 && vFade <= ditherAt(gl_FragCoord.xy))) discard;
+        // (the bloom's source has no coverage to fade by: a faded object there by the dither, as much of it as shows)
+        if (bloomSource > 0.5 && vFade < 1.0 && vFade <= ditherAt(gl_FragCoord.xy)) discard;
         // a ruin's far block's frame (D305): a lattice of open cells so it reads as a framework, not a
         // solid box, from any face (the two world axes across the face, whichever the normal isn't
         // closest to; no extra geometry or UVs), filtered to the pixel: the struts' share of the
@@ -2231,21 +2738,22 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
         }
         #endif
         vec3 n = normalize(vNormal);
-        float ao = mix(0.72, 1.0, smoothstep(0.0, 0.45, vFoot));
         float lit = sunLit(vec2(vWorld.x, -vWorld.z), vWorld.y);
-        // soft (wrapped) sun light, kinder to leaves
-        float ndl = clamp(${hook(h, "objectSun", "dot(n, sunDir) * 0.75 + 0.25")}, 0.0, 1.0);
-        vec3 light = skyColor * 1.15 * (0.8 + 0.2 * n.y) * ao + sunColor * 0.5 * ndl * lit;
+        // the game's light, as the terrain's (D135 as amended 2026-11-09): the ambient probe by the normal, unoccluded,
+        // and the sun by n·L and its shadow; the game's plants and landmarks have no wrapped light and no darkening
+        // toward their foot
+        vec3 light = gameObjectLight(n, lit);
         #ifdef CAVES
-          // under a roof (a tree, a ruin, a source, a slope in a cave or under an overhang): the open air's sky (D497),
+          // under a roof (a tree, a ruin, a source, a slope in a cave or under an overhang): the open air's ambient (D497),
           // and the sun only where it reaches
           vec3 cave = caveAirAt(vWorld + n * 0.05);
-          if (cave.z > 0.5) light = skyColor * 1.15 * (0.8 + 0.2 * n.y) * ao + sunColor * 0.5 * ndl * ${hook(h, "roofedSun", "sunMarchAt(vWorld)")};
+          if (cave.z > 0.5) light = gameObjectLight(n, ${hook(h, "roofedSun", "sunMarchAt(vWorld)")});
         #endif
         // (faded round the pointer, as coverage: that share of the pixel's samples)
         if (objectFade.w > 0.5 && objectFade.w < 1.5) coverage *= vFade;
         // (the object as the game draws it, fogged and graded; a highlight, an editing aid, tints it after: D497)
-        gl_FragColor = vec4(min(finish((${hook(h, "objectFinal", "vColor * light")}) * inside, vWorld) * vAid, 1.0), coverage);
+        vec3 graded = finish((${hook(h, "objectFinal", "vColor * light")} + gameObjectSpecular(n)) * inside, vWorld);
+        gl_FragColor = bloomSource > 0.5 ? vec4(gpSource, coverage) : vec4(min(graded * vAid, 1.0), coverage);
       }
     `,
   });

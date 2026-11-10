@@ -12,7 +12,7 @@ import { BoxGeometry, BufferGeometry, CylinderGeometry, Float32BufferAttribute, 
 import type { EntityView } from "../model";
 import { whenIdle } from "../idle";
 import { disposeSharedBatch } from "./sharedBatch";
-import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, RELIC_STONE, RUIN, THORNS, type Rgb } from "../palette";
+import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, OWN_LIGHTNESS, ownAlbedo, RELIC_STONE, RUIN, THORNS, type Rgb } from "../palette";
 
 const shade = (c: Rgb, k: number): Rgb => [c[0] * k, c[1] * k, c[2] * k];
 const hash = (i: number) => {
@@ -67,6 +67,11 @@ class Parts {
   box(w: number, h: number, d: number, c: Rgb, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, lod = 0): this {
     return this.add(new BoxGeometry(w, h, d), c, x, y, z, rx, ry, rz, lod);
   }
+  /** Its colours as albedos in the game's light, being colours of our own (palette.ts `ownAlbedo`). */
+  own(): this {
+    for (let k = 0; k < this.col.length; k++) this.col[k] /= OWN_LIGHTNESS;
+    return this;
+  }
   geometry(): BufferGeometry {
     const g = new BufferGeometry();
     g.setAttribute("position", new Float32BufferAttribute(this.pos, 3));
@@ -106,7 +111,7 @@ function relic(type: string): BufferGeometry {
     m.add(g, shade(RELIC_STONE, 0.94 + hash(index) * 0.1), x, 0.13 + h / 2, z);
   }
   for (let k = 0; k < (large ? 4 : 2); k++) rock(m, (hash(k + 37) - 0.5) * w, 0.15, (hash(k + 73) - 0.5) * d, 0.045 + hash(k + 4) * 0.065, shade(RELIC_STONE, 0.86), k, 1);
-  return m.geometry();
+  return m.own().geometry();
 }
 
 function bramble(): BufferGeometry {
@@ -125,7 +130,7 @@ function bramble(): BufferGeometry {
     }
   }
   rock(m, 0, 0.12, 0, 0.22, shade(THORNS, 0.67), 11);
-  return m.geometry();
+  return m.own().geometry();
 }
 
 function geothermal(): BufferGeometry {
@@ -136,7 +141,7 @@ function geothermal(): BufferGeometry {
     m.add(new CylinderGeometry(r * 0.81, r * 0.81, 0.025, 9), shade(GEOTHERMAL, 1.15), x, 0.45, z);
     m.add(new TorusGeometry(r * 1.02, 0.025, 3, 8), [0.59, 0.42, 0.24], x, 0.46, z, Math.PI / 2, 0, 0, 1);
   }
-  return m.geometry();
+  return m.own().geometry();
 }
 
 function debris(dam: boolean): BufferGeometry {
@@ -149,22 +154,23 @@ function debris(dam: boolean): BufferGeometry {
       m.beam([-0.44, y, z - 0.07], [0.43, y + 0.04, z + 0.07], 0.055, [0.39 + 0.025 * k, 0.27 + 0.017 * k, 0.14 + 0.012 * k]);
     }
   else for (let k = 0; k < 5; k++) rock(m, (hash(k + 92) - 0.5) * 0.67, 0.05, (hash(k + 55) - 0.5) * 0.67, 0.1, [0.65, 0.58, 0.46], k, 1);
-  return m.geometry();
+  return m.own().geometry();
 }
 
 /** Today's model with a little more: steel gussets and bolts on a ruin's scaffold, bolts and slats on the mine's
- *  frame. The approved shapes stay. */
+ *  frame. The approved shapes stay. (The gussets in the ruins' rust, the game's; the rest colours of our own,
+ *  `ownAlbedo`, as the models they are added to: entities3d.ts `Model.own`.) */
 function augment(key: string, base: BufferGeometry): BufferGeometry {
   const m = new Parts().copy(base);
   if (key.startsWith("scaffold.")) {
     for (const x of [-0.42, 0.42])
       for (const z of [-0.42, 0.42]) {
         m.box(0.14, 0.08, 0.14, shade(RUIN.rust, 0.77), x, 0.06, z, 0, 0, 0, 1);
-        m.add(new CylinderGeometry(0.025, 0.025, 0.012, 6), [0.61, 0.47, 0.31], x, 0.11, z, 0, 0, 0, 1);
+        m.add(new CylinderGeometry(0.025, 0.025, 0.012, 6), ownAlbedo([0.61, 0.47, 0.31]), x, 0.11, z, 0, 0, 0, 1);
       }
   } else if (key === "UndergroundRuins") {
-    for (const x of [-2.37, 2.37]) for (const z of [-2.37, 2.37]) m.add(new CylinderGeometry(0.065, 0.065, 0.025, 6), [0.62, 0.52, 0.35], x, 0.185, z, 0, 0, 0, 1);
-    for (const z of [-2.25, 2.25]) for (let k = 0; k < 11; k++) m.box(0.026, 0.014, 0.18, shade(MINE.wood, 0.7), -2 + k * 0.4, 0.2, z, 0, 0, 0, 1);
+    for (const x of [-2.37, 2.37]) for (const z of [-2.37, 2.37]) m.add(new CylinderGeometry(0.065, 0.065, 0.025, 6), ownAlbedo([0.62, 0.52, 0.35]), x, 0.185, z, 0, 0, 0, 1);
+    for (const z of [-2.25, 2.25]) for (let k = 0; k < 11; k++) m.box(0.026, 0.014, 0.18, ownAlbedo(shade(MINE.wood, 0.7)), -2 + k * 0.4, 0.2, z, 0, 0, 0, 1);
   }
   return m.geometry();
 }

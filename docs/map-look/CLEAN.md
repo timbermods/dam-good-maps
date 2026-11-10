@@ -64,6 +64,10 @@ water's body uses `WATER.teal` and `WATER.navy`.
 Kyler, 2026-09-25: contaminated ground works as in the game, a layer on top of the ground, not a
 replacement.
 
+*Since 2026-11-07 (fix/ground-veins, D154 as amended that day) the veins below are the game's own: its pattern of
+thin dark-rust cracks over about a fifth of the ground, the same at any level over a fifth, no glow; the light look
+takes its mean. What follows records the round as it was; docs/progress/3d-view.md has the change.*
+
 - **The ground keeps its own look.** Moist ground stays grass and dry ground stays cracked earth;
   close up, the soil between the veins is only a little stained (at most a fifth of the way to
   rust or to a sickly brown).
@@ -95,7 +99,7 @@ again with it. The walls' lip, the band of the top's ground along a wall's top e
 top's own ground under contamination too (it was the rust).
 
 The terrain shader reads the layer's settings (`CONTAMINATION` in `palette.ts`), and
-`contaminationVeins`, `contaminationVein` and `contaminatedGround` say what it draws, for the
+`contaminationMap`, `contaminationWeight` and `contaminationVein` say what it draws (since 2026-11-07), for the
 tests. Captures, before and after, with the after ones in greyscale and colour blindness:
 `docs/map-look/clean/contamination/` (`<scene>-before.jpg`, `<scene>-after.jpg`,
 `<scene>-after-<variant>.jpg`). The scenes: `wet` (contaminated grass), `dry` (contaminated dry

@@ -1,6 +1,6 @@
 // Showcase mode (D488 (2)): the search makes the asked map's siblings in order, measures each one's arc,
 // keeps the best three that pass, and each pick's share spec regenerates its file byte for byte. The beats
-// asserted here were read off these three maps by hand (Lake Basin 96², seed 2, variations 0–2) and re-read off the new maps for generator 0.10.12 (D507, D148).
+// asserted here were read off these three maps by hand (Lake Basin 96², seed 2, variations 0–2) and re-read off the new maps for generator 0.10.13 (D507, D148).
 
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
@@ -23,7 +23,7 @@ describe("Showcase mode (D488 (2))", () => {
     const [a, b, c] = seen.map((s) => s.arc!);
     // (generator 0.10.7, D502, D148: the first D502 pass gave these maps a landmark form each; narrowed to one form
     // for each whole 128² of the map (none at 96²), they are new lands again; generator 0.10.11, the D410 round, D148: the
-    // start leans toward ground whose soil the drought leaves moist, so the starts moved; generator 0.10.12, D148: its
+    // start leans toward ground whose soil the drought leaves moist, so the starts moved; generator 0.10.13, D148: its
     // starts frame the map (D507), so they moved again and the beats below were read off the new maps by hand, with
     // `arcOf` and `showcaseSearch` at tries: 3)
     // the asked map: an 8-level butte 50 tiles east in the opening view, but too little in the game's first frame round

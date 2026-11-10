@@ -14,6 +14,11 @@ shadow and fog keywords change only URP's shadow and fog code, not the water's o
 
     python tools/game-water-shader.py [--game "C:/Program Files (x86)/Steam/steamapps/common/Timberborn"]
         [--keywords _CALCULATE_OUTFLOWS,_HIGH_QUALITY_WATER_ENABLED,...] [--out investigation/water-shader/local]
+        [--shader "Shader Graphs/TerrainURP" --keywords _MAIN_LIGHT_SHADOWS_CASCADE,_SHADOWS_SOFT,FOG_EXP]
+
+`--shader` reads another Shader Graph the same way (the terrain's, D497), its ForwardLit pass for `--keywords` (its
+other keywords off), and prints every material that uses it with its saved values; on a variant that doesn't match it
+lists the keyword sets the pass has.
 
 How a Unity 6 player stores a shader (no type tree in a player build, so the layout is read by structure and every
 step checks itself): the Shader object holds its parsed form (properties, passes, keyword names) and then, per
@@ -367,10 +372,12 @@ def merge(common, variant):
 
 # --- disassembly ---------------------------------------------------------------------------------------------
 
-def d3d_disassemble(code):
+def d3d_disassemble(code, hex_literals=False):
+    """`hex_literals`: D3D_DISASM_PRINT_HEX_LITERALS (0x80), each literal as its bits as well: a small one such as
+    0x33800001 (2^-24) prints as 0.000000 among six decimals otherwise (Q9 P9, corrected 2026-11-09)."""
     dll = ctypes.WinDLL(os.path.join(os.environ.get("SystemRoot", "C:/Windows"), "System32", "d3dcompiler_47.dll"))
     out = ctypes.c_void_p()
-    hr = dll.D3DDisassemble(ctypes.c_char_p(code), ctypes.c_size_t(len(code)), ctypes.c_uint(0), None, ctypes.byref(out))
+    hr = dll.D3DDisassemble(ctypes.c_char_p(code), ctypes.c_size_t(len(code)), ctypes.c_uint(0x80 if hex_literals else 0), None, ctypes.byref(out))
     if hr != 0:
         raise OSError(f"D3DDisassemble failed: 0x{hr & 0xFFFFFFFF:08x}")
     vtable = ctypes.cast(out, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))).contents
@@ -520,6 +527,35 @@ def texture_texels(b, data_dir):
     return name, np.asarray(Image.frombytes("RGBA", (w, h), raw, "bcn", 7), dtype=np.float64)
 
 
+def texture_mips(b, data_dir, levels=9):
+    """A BC7 Texture2D's stored mips, top first, each an RGBA array (H, W, 4) read raw as `texture_texels` reads the
+    top: the chain follows the top in the stream file, each level a quarter of the one above. Unity makes an sRGB
+    texture's mips by a box filter in linear values (each level's mean rises where bright texels are sparse), not in
+    the stored values; `measure_badwater_textures` prints both beside the stored means. Numbers only."""
+    import numpy as np
+    from PIL import Image
+    r = Reader(b)
+    name = r.str()
+    w, h, size, _, fmt_ = (i32(b, r.p + k) for k in (4, 8, 12, 16, 20))
+    if TEXTURE_FORMATS.get(fmt_) != "BC7":
+        raise ValueError(f"{name}: format {fmt_}, not BC7")
+    at = b.index(b"resources.assets.resS")
+    offset = struct.unpack_from("<Q", b, at - 16)[0]
+    with open(os.path.join(data_dir, "resources.assets.resS"), "rb") as f:
+        f.seek(offset)
+        raw = f.read(size)
+    out, p = [], 0
+    for k in range(levels):
+        mw, mh = max(1, w >> k), max(1, h >> k)
+        n = max(1, (mw + 3) // 4) * max(1, (mh + 3) // 4) * 16
+        if p + n > len(raw):
+            break
+        t = Image.frombytes("RGBA", (max(4, mw), max(4, mh)), raw[p:p + n], "bcn", 7)
+        out.append(np.asarray(t, dtype=np.float64)[:mh, :mw])
+        p += n
+    return out
+
+
 def feature_scale(field, repeat=REPEAT_TILES):
     """The dominant feature scale of a tiling field (H, W), in tiles: the wavelength at the radially averaged power
     spectrum's centroid (power-weighted mean of the spatial frequency, the mean removed), and the autocorrelation's
@@ -589,6 +625,8 @@ def measure_flow_textures(read, objects, data_dir, preview=None):
             for label, v in (("x", nx), ("y", ny)):
                 c, a = feature_scale(v)
                 print(f"  slope {label} feature scale: spectrum centroid {c:.3f} tiles, autocorrelation half-width {a:.3f} tiles")
+                print(f"  slope {label}, what each size holds:")
+                resolution(v, REPEAT_TILES, (1024, 2048), 4)
             print(f"  channels r/b/a: mean {t[..., 0].mean():.1f}/{t[..., 2].mean():.1f}/{t[..., 3].mean():.1f}")
         else:
             for k, ch in enumerate("rgb"):
@@ -611,7 +649,76 @@ def measure_flow_textures(read, objects, data_dir, preview=None):
                 print(f"  component {3 - k}: spread {vals[k] ** 0.5:.2f} along ({', '.join(f'{x:+.3f}' for x in e)}), "
                       f"5/50/95% {'/'.join(f'{x:+.1f}' for x in np.percentile(score, (5, 50, 95)))}, "
                       f"spectrum centroid {c:.3f} tiles, autocorrelation half-width {a:.3f} tiles")
+                if k == 2:
+                    print(f"     percentiles {'/'.join(map(str, DETAIL_PERCENTILES))}: "
+                          f"{'/'.join(f'{x:+.1f}' for x in np.percentile(score, DETAIL_PERCENTILES))}; min {score.min():+.1f}, max {score.max():+.1f}")
+                if k > 0:
+                    scales(score.reshape(h, w), REPEAT_TILES)
+                    resolution(score.reshape(h, w), REPEAT_TILES, (512, 1024))
     measure_badwater_textures(textures, data_dir, preview)
+
+
+#: The bands of wavelength (tiles) `scales` measures a field's power in (`waterTextures.ts` `GAME_FLOW_TEXTURES.albedo.first.power`).
+SCALE_BANDS = (16, 8, 4, 2, 1, 0.5, 0.25, 0.125, 0)
+
+
+def scales(field, repeat):
+    """How a tiling field's spread is split across scales: its power by wavelength (`SCALE_BANDS`, tiles; one repeat
+    `repeat` tiles across), the share of its spread left after a Gaussian blur over 0.125 to 2 tiles (the broad
+    mottle a camera far off still sees) and how patchy its fine part is. Numbers only."""
+    import numpy as np
+    from scipy import ndimage
+    h, w = field.shape
+    f = field - field.mean()
+    p = np.abs(np.fft.fft2(f)) ** 2
+    ky = np.fft.fftfreq(h)[:, None] * h
+    kx = np.fft.fftfreq(w)[None, :] * w
+    wave = repeat / np.maximum(np.sqrt(kx * kx + ky * ky), 1e-9)
+    b = SCALE_BANDS
+    share = [p[(wave <= b[i]) & (wave > b[i + 1])].sum() / p.sum() for i in range(len(b) - 1)]
+    print(f"     power by wavelength (tiles) {'/'.join(f'{b[i]:g}-{b[i + 1]:g}' for i in range(len(b) - 1))}: "
+          f"{'/'.join(f'{s:.3f}' for s in share)}")
+    tex = w / repeat
+    broad = [ndimage.gaussian_filter(f, sigma=s * tex, mode="wrap").std() / f.std() for s in (0.125, 0.25, 0.5, 1, 2)]
+    print(f"     share of its spread left after a blur over 0.125/0.25/0.5/1/2 tiles: {'/'.join(f'{x:.3f}' for x in broad)}")
+    # how patchy its fine part is: the spread left in each 0.25-tile neighbourhood (what a blur over 0.25 tile takes
+    # off, its root mean square over the same blur) and how it follows the neighbourhood's mean
+    mean = ndimage.gaussian_filter(f, sigma=0.25 * tex, mode="wrap")
+    local = ndimage.gaussian_filter((f - mean) ** 2, sigma=0.25 * tex, mode="wrap") ** 0.5
+    print(f"     its spread within 0.25 tile, 10/50/90%: {'/'.join(f'{x:.1f}' for x in np.percentile(local, (10, 50, 90)))}; "
+          f"correlation with the mean there {np.corrcoef(mean.ravel(), local.ravel())[0, 1]:+.2f}")
+
+
+def resolution(field, repeat, sizes, places=2):
+    """What a texture's top holds that smaller ones can't (the game's at its own size against ours at `sizes`): its
+    power by octave from 0.125 tile through each size's texel pair (its Nyquist wavelength, 2 / its texels a tile) to its
+    own, and the spread of its part finer than each size's pair in its top and in each of its box mips (the mean of 2 ×
+    2 texels, as its stored mips), the mip a camera draws at about its texels a tile in pixels a tile. Numbers only."""
+    import numpy as np
+    h = field.shape[0]
+
+    def fine(f, wave_under):
+        n = f.shape[0]
+        F = np.fft.fft2(f - f.mean())
+        k = np.sqrt((np.fft.fftfreq(n)[:, None] * n) ** 2 + (np.fft.fftfreq(n)[None, :] * n) ** 2)
+        F[repeat / np.maximum(k, 1e-9) >= wave_under] = 0
+        return np.real(np.fft.ifft2(F)).std()
+
+    pairs = [2 * repeat / s for s in sizes]
+    edges = [0.125, *pairs, 0]
+    f = field - field.mean()
+    p = np.abs(np.fft.fft2(f)) ** 2
+    k = np.sqrt((np.fft.fftfreq(h)[:, None] * h) ** 2 + (np.fft.fftfreq(h)[None, :] * h) ** 2)
+    wave = repeat / np.maximum(k, 1e-9)
+    p[0, 0] = 0
+    share = [p[(wave <= edges[i]) & (wave > edges[i + 1])].sum() / p.sum() for i in range(len(edges) - 1)]
+    print(f"     power by wavelength (tiles) {'/'.join(f'{e:.4g}' for e in edges)}: {'/'.join(f'{x:.4f}' for x in share)}")
+    m, level = field, 0
+    while m.shape[0] >= min(sizes):
+        print(f"     mip {level} ({m.shape[0]}², {m.shape[0] / repeat:.0f} texels a tile): spread {m.std():.{places}f}, "
+              + ", ".join(f"finer than {s}²'s pair {fine(m, w):.{places}f}" for s, w in zip(sizes, pairs)))
+        m = 0.25 * (m[0::2, 0::2] + m[1::2, 0::2] + m[0::2, 1::2] + m[1::2, 1::2])
+        level += 1
 
 
 def measure_badwater_textures(textures, data_dir, preview=None):
@@ -639,6 +746,19 @@ def measure_badwater_textures(textures, data_dir, preview=None):
         if name == "WaterContaminationAlbedoEmissionSource":
             cc = np.corrcoef(t[..., :4].reshape(-1, 4).T)
             print(f"  correlations r-g {cc[0, 1]:.3f}, r-b {cc[0, 2]:.3f}, g-b {cc[1, 2]:.3f}, r-a {cc[0, 3]:.3f}")
+            # its stored mips (Q9 P9, fix/badwater-low-light): each level's mean beside the top box-filtered to that size
+            # in the stored values and in linear values; the game samples t9 by its mips (`sample_b`, an inline linear
+            # repeat sampler: no anisotropy), so the glowing lines' G a camera at play distance draws is its mips' mean
+            lin = lambda v: np.where(v <= 0.04045, v / 12.92, ((v + 0.055) / 1.055) ** 2.4)
+            srgb = lambda v: np.where(v <= 0.0031308, v * 12.92, 1.055 * np.power(np.maximum(v, 0), 1 / 2.4) - 0.055)
+            print("  stored mips, mean r/g/b (the top box-filtered to that size: in the stored values; in linear values):")
+            for k, m in enumerate(texture_mips(textures[name], data_dir)):
+                s_ = 2 ** k
+                blk = t[: m.shape[0] * s_, : m.shape[1] * s_, :3].reshape(m.shape[0], s_, m.shape[1], s_, 3)
+                linm = srgb(lin(blk / 255).mean(axis=(1, 3))).mean(axis=(0, 1)) * 255
+                print(f"    mip {k} ({m.shape[1]}x{m.shape[0]}, {m.shape[1] / repeat:.1f} texels a tile): "
+                      f"{'/'.join(f'{x:.1f}' for x in m[..., :3].mean(axis=(0, 1)))}; "
+                      f"{'/'.join(f'{x:.1f}' for x in blk.mean(axis=(0, 1, 2, 3)))}; {'/'.join(f'{x:.1f}' for x in linm)}")
             g = t[..., 1]
             pts = (1, 5, 10, 25, 50, 60, 65, 70, 75, 80, 85, 90, 95, 97, 98, 99)
             for k, ch in enumerate("rg"):
@@ -665,15 +785,155 @@ def measure_badwater_textures(textures, data_dir, preview=None):
                 os.makedirs(preview, exist_ok=True)
                 for k, ch in enumerate("rgb"):
                     Image.fromarray(t[:512, :512, k].astype(np.uint8)).save(os.path.join(preview, f"badwater-pattern-{ch}-crop.png"))
+        if name == "PhysicalWaterDetailAlbedo":
+            measure_detail_albedo(t, repeat, preview)
+
+
+#: The percentiles the detail albedo's measure prints (as `waterTextures.ts` `PATTERN_PERCENTILES`).
+DETAIL_PERCENTILES = (1, 5, 10, 25, 50, 60, 65, 70, 75, 80, 85, 90, 95, 97, 98, 99)
+
+
+def measure_detail_albedo(t, repeat, preview=None):
+    """What `src/render3d/waterTextures.ts` generates the still detail albedo to (Q9 P6, t5 at xz × 0.015, overlaid on
+    clean water's colour × its albedo, ps 462-477, and on badwater's base colour, ps 690-712): its colour's covariance
+    and principal components (each with its percentiles and feature scale), each channel's percentiles at
+    `DETAIL_PERCENTILES`, how much of its spread is broad (left after a blur over 0.25 to 4 tiles) and its power by
+    octaves of wavelength. Numbers only; `preview` also gets a crop for the eye (gitignored, never committed)."""
+    import numpy as np
+    from scipy import ndimage
+    h, w = t.shape[:2]
+    tex = w / repeat
+    rgb = t[..., :3].reshape(-1, 3)
+    mean = rgb.mean(0)
+    cov = np.cov(rgb.T)
+    vals, vecs = np.linalg.eigh(cov)
+    print(f"  detail albedo: mean {'/'.join(f'{m:.1f}' for m in mean)}; covariance {' '.join(f'{v:.1f}' for v in cov.ravel())}")
+    for k, ch in enumerate("rgb"):
+        v = t[..., k]
+        skew = ((v - v.mean()) ** 3).mean() / v.std() ** 3
+        print(f"  {ch} percentiles {'/'.join(map(str, DETAIL_PERCENTILES))}: "
+              f"{'/'.join(f'{x:.0f}' for x in np.percentile(v, DETAIL_PERCENTILES))}; skew {skew:+.2f}, min {v.min():.0f}, max {v.max():.0f}")
+    for k in (2, 1, 0):
+        e = vecs[:, k] * (1 if vecs[:, k].sum() >= 0 else -1)
+        score = ((rgb - mean) @ e).reshape(h, w)
+        c, a = feature_scale(score, repeat)
+        print(f"  component {3 - k}: spread {vals[k] ** 0.5:.2f} along ({', '.join(f'{x:+.3f}' for x in e)}), "
+              f"skew {((score - score.mean()) ** 3).mean() / score.std() ** 3:+.2f}, min {score.min():+.1f}, max {score.max():+.1f}, spectrum centroid {c:.3f} tiles, "
+              f"autocorrelation half-width {a:.3f} tiles")
+        print(f"     percentiles {'/'.join(map(str, DETAIL_PERCENTILES))}: "
+              f"{'/'.join(f'{x:+.1f}' for x in np.percentile(score, DETAIL_PERCENTILES))}")
+        broad = [ndimage.gaussian_filter(score, sigma=s * tex, mode="wrap").std() / score.std() for s in (0.25, 0.5, 1, 2, 4)]
+        print(f"     share of its spread left after a blur over 0.25/0.5/1/2/4 tiles: {'/'.join(f'{b:.2f}' for b in broad)}")
+        f = score - score.mean()
+        p = np.abs(np.fft.fft2(f)) ** 2
+        ky = np.fft.fftfreq(h)[:, None] * h
+        kx = np.fft.fftfreq(w)[None, :] * w
+        wave = repeat / np.maximum(np.sqrt(kx * kx + ky * ky), 1e-9)
+        bands = (64, 32, 16, 8, 4, 2, 1, 0.5, 0.25, 0.125, 0)
+        share = [p[(wave <= bands[i]) & (wave > bands[i + 1])].sum() / p.sum() for i in range(len(bands) - 1)]
+        print(f"     power by wavelength (tiles) {'/'.join(f'{bands[i]:g}-{bands[i + 1]:g}' for i in range(len(bands) - 1))}: "
+              f"{'/'.join(f'{s:.3f}' for s in share)}")
+        # where its fine swirl lies: the spread a blur over 0.125 and 0.25 tile takes off, its root mean square over the
+        # same blur (10/50/90 %), and how it follows the mean there (inside the bright patches, or even everywhere)
+        for s in (0.125, 0.25):
+            m = ndimage.gaussian_filter(f, sigma=s * tex, mode="wrap")
+            local = ndimage.gaussian_filter((f - m) ** 2, sigma=s * tex, mode="wrap") ** 0.5
+            print(f"     its spread within {s:g} tile, 10/50/90%: {'/'.join(f'{x:.2f}' for x in np.percentile(local, (10, 50, 90)))}; "
+                  f"correlation with the mean there {np.corrcoef(m.ravel(), local.ravel())[0, 1]:+.2f}")
+    # the second component as a function of the first: uncorrelated, but not independent (the dim texels lean blue, the
+    # middle red, the brightest blue again), so a quadratic in the first carries most of it
+    e1, e2 = (vecs[:, k] * (1 if vecs[:, k].sum() >= 0 else -1) for k in (2, 1))
+    c1, c2 = (rgb - mean) @ e1, (rgb - mean) @ e2
+    q = np.percentile(c1, np.arange(0, 101, 10))
+    print("  component 2's mean by component 1's tenths: " + "/".join(f"{c2[(c1 >= q[i]) & (c1 <= q[i + 1])].mean():+.2f}" for i in range(10)))
+    coef = np.linalg.lstsq(np.vstack([np.ones_like(c1), c1, c1 * c1]).T, c2, rcond=None)[0]
+    res = c2 - (coef[0] + coef[1] * c1 + coef[2] * c1 * c1)
+    print(f"  component 2 = {coef[0]:+.4f} {coef[1]:+.5f} c1 {coef[2]:+.6f} c1², the rest's spread {res.std():.2f} (of {c2.std():.2f})")
+    if preview:
+        from PIL import Image
+        os.makedirs(preview, exist_ok=True)
+        Image.fromarray(t[..., :3].astype(np.uint8)).resize((512, 512), Image.BILINEAR).save(os.path.join(preview, "detail-albedo-full.png"))
+        lo, hi = np.percentile(t[..., :3], (1, 99))
+        Image.fromarray(np.clip((t[:512, :512, :3] - lo) / (hi - lo) * 255, 0, 255).astype(np.uint8)).save(os.path.join(preview, "detail-albedo-crop-stretch.png"))
+
+
+#: The ground's contamination pattern (TerrainURP's `_ContaminationTexture`, the `Grass` material's "SoilContamination",
+#: D154, D334): sampled at world xz × `_ProjectionUVScale` (1 / `WorldTiling.HorizontalTileSize` 16) × the material's
+#: `_Contamination_Scale` 4, so one repeat is 4 tiles.
+SOIL_TEXTURE = ("SoilContamination", 4.0)
+
+
+def measure_soil_texture(read, objects, data_dir, preview=None):
+    """Prints what `src/render3d/soilTexture.ts` generates the ground's contamination pattern to: the game's
+    `SoilContamination` texture's alpha (the share of the pattern's colour laid over the ground, TerrainURP:
+    lerp(albedo, rgb × `_Contamination_Color`, weight × a)) by its mean, percentiles and histogram; its colour where the
+    alpha is high and the alpha-weighted mean (what the ground takes on average); the alpha's feature scale; and the
+    network's shape: the share of texels over a half, the width of its strokes (twice the distance to the edge, at the
+    strokes' middle) and the size of the cells they close. Numbers only; `preview` (a folder, gitignored) also gets a
+    crop for the eye, never committed."""
+    import numpy as np
+    from scipy import ndimage
+    name, repeat = SOIL_TEXTURE
+    t = None
+    for o in objects:
+        if o[3] != 28:
+            continue
+        b = read(o)
+        try:
+            if Reader(b).str() == name:
+                _, t = texture_texels(b, data_dir)
+                break
+        except (ValueError, UnicodeDecodeError, struct.error):
+            continue
+    if t is None:
+        raise ValueError(f"{name}: not found")
+    h, w = t.shape[:2]
+    tpt = w / repeat
+    q = lambda v, ps=(5, 25, 50, 75, 95): "/".join(f"{x:.1f}" for x in np.percentile(v, ps))
+    a = t[..., 3]
+    print(f"\n{name}: {w}x{h}, one repeat {repeat:.2f} tiles ({tpt:.0f} texels a tile)")
+    print(f"  a: mean {a.mean():.1f}, spread {a.std():.1f}, 5/25/50/75/95% {q(a)}")
+    pts = (50, 60, 70, 75, 80, 85, 90, 95, 97, 99)
+    print(f"  a percentiles {'/'.join(map(str, pts))}: {'/'.join(f'{x:.0f}' for x in np.percentile(a, pts))}")
+    print(f"     histogram by tenths {' '.join(f'{x:.3f}' for x in np.histogram(a, bins=10, range=(0, 256))[0] / a.size)}")
+    for th in (8, 32, 64, 128, 192, 240):
+        print(f"  a over {th}: {(a > th).mean():.3f} of the texels")
+    wa = a / 255
+    for k, ch in enumerate("rgb"):
+        v = t[..., k]
+        print(f"  {ch}: mean {v.mean():.1f}; alpha-weighted mean {(v * wa).sum() / wa.sum():.1f}; where a > 128 "
+              f"{v[a > 128].mean():.1f} (spread {v[a > 128].std():.1f}); where a < 8 {v[a < 8].mean():.1f}")
+    c, ah = feature_scale(a, repeat)
+    print(f"  a feature scale: spectrum centroid {c:.3f} tiles, autocorrelation half-width {ah:.3f} tiles")
+    m = np.tile(a > 128, (2, 2))
+    dist = ndimage.distance_transform_edt(m)
+    ridge = (dist == ndimage.maximum_filter(dist, size=3)) & m
+    widths = 2 * dist[ridge] / tpt
+    print(f"  strokes (a over 128): width at their middle 5/25/50/75/95% {q(widths)} tiles")
+    lab, n = ndimage.label(~m)
+    cells = np.bincount(lab.ravel())[1:] / tpt ** 2
+    cells = cells[cells >= 0.002]
+    print(f"  cells they close: {len(cells) / 4:.0f} a repeat, mean area {cells.mean():.3f} square tiles, "
+          f"median {np.median(cells):.3f}, 5/95% {np.percentile(cells, 5):.3f}/{np.percentile(cells, 95):.3f}")
+    lab2, n2 = ndimage.label(m)
+    print(f"  strokes' pieces: {n2 / 4:.0f} a repeat (one joined network if 1)")
+    if preview:
+        from PIL import Image
+        os.makedirs(preview, exist_ok=True)
+        Image.fromarray(a.astype(np.uint8)).save(os.path.join(preview, "soil-contamination-a.png"))
+        Image.fromarray(t[..., :3].astype(np.uint8)).save(os.path.join(preview, "soil-contamination-rgb.png"))
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--game", default="C:/Program Files (x86)/Steam/steamapps/common/Timberborn")
     ap.add_argument("--keywords", default=DEFAULT_KEYWORDS)
+    ap.add_argument("--shader", action="append", help="another Shader Graph to read (its full name), in place of the water's")
     ap.add_argument("--out", default=os.path.join(ROOT, "investigation", "water-shader", "local"))
-    ap.add_argument("--textures", action="store_true", help="measure the flow's and badwater's textures (Q9 P5, P9) and stop")
-    ap.add_argument("--preview", action="store_true", help="with --textures: also write crops of badwater's pattern to --out (gitignored)")
+    ap.add_argument("--textures", action="store_true", help="measure the flow's and badwater's textures and the still detail albedo (Q9 P5, P9, P6) and stop")
+    ap.add_argument("--soil", action="store_true", help="measure the ground's contamination pattern (TerrainURP, D154) and stop")
+    ap.add_argument("--hex", action="store_true", help="print every literal in hex as well (small ones read 0.000000 at six decimals)")
+    ap.add_argument("--preview", action="store_true", help="with --textures or --soil: also write crops of the pattern to --out (gitignored)")
     args = ap.parse_args()
     want = set(k for k in args.keywords.split(",") if k)
     data = os.path.join(args.game, "Timberborn_Data")
@@ -690,6 +950,9 @@ def main():
             return f.read(o[2])
 
         by_path = {o[0]: o for o in objects}
+        if args.soil:
+            measure_soil_texture(read, objects, data, args.out if args.preview else None)
+            return 0
         if args.textures:
             measure_flow_textures(read, objects, data, args.out if args.preview else None)
             return 0
@@ -700,14 +963,22 @@ def main():
                     materials.append(read_material(read(o)))
                 except (ValueError, UnicodeDecodeError, struct.error):
                     pass
-        for shader_name in SHADERS:
+        for shader_name in args.shader or SHADERS:
             tag = struct.pack("<I", len(shader_name)) + shader_name.encode()
             found = [(o, b) for o in objects if o[3] == 48 for b in [read(o)] if tag in b]
             if len(found) != 1:
                 raise ValueError(f"{shader_name}: {len(found)} shader objects")
             (path_id, _, _, _), b = found[0]
             form_end = b.index(tag)
-            keywords = string_vector_with(b, "_CALCULATE_OUTFLOWS", form_end)
+            keywords = None
+            for anchor in ["_CALCULATE_OUTFLOWS", "_MAIN_LIGHT_SHADOWS_CASCADE", "FOG_EXP", *sorted(want)]:
+                try:
+                    keywords = string_vector_with(b, anchor, form_end)
+                    break
+                except ValueError:
+                    continue
+            if keywords is None:
+                raise ValueError(f"{shader_name}: its keyword names not found")
             platforms, offsets, compressed, decompressed, blob = find_blob_tables(b, form_end)
             k = platforms.index(D3D11)
             segments = [lz4_block(blob[o:o + c], d) for o, c, d in zip(offsets[k], compressed[k], decompressed[k])]
@@ -720,7 +991,7 @@ def main():
                 raise ValueError(f"{shader_name}: {len(forward)} ForwardLit passes")
             start, after_map, names, _ = forward[0]
             stop = min([m[0] for m in maps if m[0] > start] + [form_end])
-            short = shader_name.split("_")[-1].lower()
+            short = shader_name.split("_")[-1].lower() if shader_name in SHADERS else re.sub(r"[^a-z0-9]+", "-", shader_name.split("/")[-1].lower())
             print(f"\n== {shader_name} (pathID {path_id}): {len(entries)} blob entries, "
                   f"{len(keywords)} keywords, ForwardLit's names at {start}")
             p = after_map
@@ -736,10 +1007,11 @@ def main():
                 stage = "vs" if variants[0][2] in (15, 16) else "ps"
                 chosen = [v for v in variants if {keywords[x] for x in v[1]} == want & {keywords[x] for v2 in variants for x in v2[1]}]
                 if len(chosen) != 1:
-                    raise ValueError(f"{shader_name} {stage}: {len(chosen)} variants match {sorted(want)}")
+                    sets = sorted({" ".join(sorted(keywords[x] for x in v[1])) for v in variants})
+                    raise ValueError(f"{shader_name} {stage}: {len(chosen)} variants match {sorted(want)}; its sets:\n  " + "\n  ".join(sets))
                 program, kw, gpu, param_entry = chosen[0]
                 params = merge(common_parameters(b, common_at, names), variant_parameters(entry(param_entry)))
-                text = annotate(d3d_disassemble(dxbc(entry(program))), params)
+                text = annotate(d3d_disassemble(dxbc(entry(program)), args.hex), params)
                 path = os.path.join(args.out, f"{short}-forward-{stage}.asm")
                 with open(path, "w", encoding="utf-8") as out:
                     out.write(f"// Timberborn {version}: {shader_name}, ForwardLit, {GPU_TYPES[gpu]}, "
@@ -755,7 +1027,11 @@ def main():
                 material = [m for m in materials if m[1] == path_id]
                 values = material[0][5] if material else {}
                 if material and stage == "vs":
-                    print(f"material {material[0][0]}: keywords {material[0][2]}")
+                    for m in material:
+                        print(f"material {m[0]}: keywords {m[2]}")
+                if len(material) > 1 and stage == "ps":
+                    for m in material[1:]:
+                        print(f"material {m[0]}'s values: " + ", ".join(f"{n} {fmt(v)}" for n, v in sorted(m[5].items())))
                 reg = [r for r, n in params["bindings"].items() if n == "UnityPerMaterial"]
                 if reg:
                     size, ps = params["cbs"]["UnityPerMaterial"]

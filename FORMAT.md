@@ -155,9 +155,40 @@ moisture 0–16, contamination 0–1. All-zero is safe; the game recomputes both
   Id also seeds a tree's visual offset, scale and rotation, so reproducible Ids give reproducible
   looks.
 - `Template` must be a template every game has. Use only the common set: trees `Pine`, `Birch`,
-  `Oak`, `Succulent`; `BlueberryBush`; and the map objects listed in §5. Faction-only plants (Maple,
-  ChestnutTree, Mangrove, Dandelion, CoffeeBush) fail to load in the editor and for the other
-  faction. An unknown template is skipped with a loading-issue panel.
+  `Oak`, `Succulent`; `BlueberryBush`; and the map objects listed in §5. The faction plants below
+  load as themselves only in a game of their own faction; a map has no faction (the player picks
+  one when starting a game), so a map holding one plays differently for the other. An unknown
+  template is skipped with a loading-issue panel.
+- **Every natural resource a 1.1 map may hold** (blueprints `NaturalResources/*`, pinned in
+  [investigation/notes/blueprints_summary.json](investigation/notes/blueprints_summary.json);
+  survival rules in [water_and_soil.md](investigation/notes/water_and_soil.md) Q4, modelled in
+  `src/core/sim/withering.ts`). "Official" counts the entities in the 19 official maps of 1.1.2.x.
+  Every species dies on contaminated soil (in 0.2–0.3 days) and under water outside its band.
+
+  | Template | Collection | Size | Cut / gathered | Lives on | Official | In the other faction's game and the game's map editor |
+  |---|---|---|---|---|---|---|
+  | `Pine` | Common | 1×1×3 | 2 logs / 2 resin per 7 d | moist, no water on it (dies dry in 13 d) | 21,750 | itself |
+  | `Birch` | Common | 1×1×2 | 1 log | moist, no water (11 d) | 12,264 | itself |
+  | `Oak` | Common | 1×1×3 | 8 logs | moist, no water (15 d) | 9,172 | itself |
+  | `Succulent` | Common | 1×1×2 | 2 water | **dry** soil only (dies moist) | 2,805 | itself |
+  | `BlueberryBush` | Common | 1×1×1 | — / 3 berries per 12 d | moist, no water (9 d) | 3,579 | itself |
+  | `Maple` | Folktails | 1×1×3 | 6 logs / 3 syrup per 12 d | moist, no water (12 d) | 0 | an **Oak** (Oak's `BackwardCompatibleTemplateNames`) |
+  | `ChestnutTree` | Folktails | 1×1×3 | 4 logs / 3 chestnuts per 8 d | moist, no water (8 d) | 0 | a **Pine** (Pine's `BackwardCompatibleTemplateNames`) |
+  | `Dandelion` | Folktails | 1×1×1 | — / 1 per 3 d | moist, no water (8 d) | 0 | dropped, with a loading-issue panel |
+  | `Mangrove` | Iron Teeth | 1×1×2 | 2 logs / 4 fruit per 10 d | **exactly 1 level of water** on its tile (`MinWaterHeight` = `MaxWaterHeight` = 1; out of that band it dies in 16 d, on dry soil in 6 d) | 0 | dropped, with a loading-issue panel |
+  | `CoffeeBush` | Iron Teeth | 1×1×1 | — / 1 bean per 3 d | moist, no water (8 d) | 0 | dropped, with a loading-issue panel |
+
+  Footprints and ground rules for all ten are in `src/core/data/footprints.json`. The game's map
+  editor loads only the Common collection, so no map maker can place a faction plant there, and none
+  of the official maps holds one. Dam Good Maps follows them (D338, D235): the shelf, Mixed woods and
+  the generator place only the Common five, and `placeEntity` refuses the others ("Maple cannot be
+  placed by hand"). An imported map holding faction plants keeps them verbatim (it reads and writes
+  byte for byte), withers them by the rules above, and is flagged with a one-click removal
+  (`entities.faction_plants`); Spadderdock and Cattail, Folktails crops, are flagged the same way. The
+  faction plants' stored fields follow the common species' shape (`CoordinatesOffsetter`,
+  `Yielder:Cuttable` and `Yielder:Gatherable` with the yields above, optional `Growable` and
+  `LivingNaturalResource`); no file the game wrote in the repository holds one, so that shape is
+  inferred, not observed.
 - Unknown components are ignored. Missing components use defaults, except the ones marked
   required in §5, which crash the load.
 

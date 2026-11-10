@@ -559,8 +559,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   moment its land is final**: what is left of its showing changes nothing on the ground, so its objects take their
   places at once and it is kept (its row back, the next edit at once), its effects' tails playing out (a glacier's
   melt-back, the lava cooling; a new force, or an undo, puts any of them away at once; every tail plays by its drawn frames, a
-  frame of the player's view counting a tenth of a second at most, so a frame held long on a slow machine never skips
-  an impact's dust, a fault's crack, the ice's melt-back, the lava's cooling or an erosion's dust and stones). A force's heat is its own: a later force
+  frame of the player's view counting whole unless it was held past a tenth of a second and twice the frames before
+  it, so a frame held long on a slow machine never skips an impact's dust, a fault's crack, the ice's melt-back, the
+  lava's cooling or an erosion's dust and stones, and a view that draws slowly throughout plays them by the clock). A force's heat is its own: a later force
   never shows an earlier eruption's. The result
   and what is saved never depend on the pace.
 - **Sources: Ride or Clear** (D474): every force takes a Sources choice. **Clear**, the default (also for an
@@ -835,7 +836,20 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   changes nothing says why beside the pointer for a moment: "Moist ground keeps its height: weather dry land" when
   most of it pressed on moist soil (an island in a lake is all moist), else "Nothing here to weather" (showcase-craft gap 23). It
   weathers dab by dab: each dab weathers the land the dabs before it left, only round where it presses harder
-  (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. A new
+  (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. It is
+  weathered off the page in a worker of its own (D422, #868: `worker/naturalize.worker.ts`, `raster/remoteStroke.ts`),
+  on the terrain and land the page shows, one call out at a time and the dabs meanwhile as one batch, the land a frame
+  or two behind the cursor; the page sends that land to the map's worker for its water, as for the other brushes. Let
+  go, a stroke goes on the history once its last land is in: an undo, a redo or a History jump pressed meanwhile waits
+  for it, then acts, so Z takes that stroke back as it takes any other brush's; the editor closing (a new or opened
+  map) forgets a stroke still on its way, as Esc does, so nothing of it reaches the next map (#880). A History row
+  clicked meanwhile goes to the step it shows wherever that step stands once the stroke lands, refused with "That
+  step is gone: a newer edit replaced it." when the stroke replaced it (an undone step). The page waits for each call
+  only as long as it can take (`answerBound`: 4 s, plus 0.4 ms + Size² × 80 µs a dab it carries, 1.3 s at Size 128,
+  #884; on canyon at Size 128, Strength 10, that is 13.7 times a dab of a 30-dab batch at 512², 96 ms, and 18 times one
+  at 256², 73 ms, and 4 times the slowest single dab, 308 ms at 512² and 327 ms at 256²): a worker that never answers in time has its stroke taken back as Esc takes one back (no
+  land, water or operation), the page says "Naturalize stopped answering, so the stroke was taken back. Paint it
+  again.", what waited for the stroke goes ahead, and the worker is started again for the next stroke. A new
   stroke records its rule (`weathering: 5`, added by the core); a stroke saved with rule 4 (the top cut back
   whatever its foot took, pulling back above water too), rule 3 (dab by dab, some
   cliffs' scree slopes lost, so a repeated stroke kept cutting those cliffs back), with D399's first rule
@@ -1050,7 +1064,7 @@ Make a valley, drop a source, and there's a river.
   a placed source selects it and shows its strength, its water (clean or bad) and Remove; Delete (or Remove) makes
   its water recede live. A source is drawn as the game draws one (D324): a stone basin with water welling up, a
   badwater source a darker stone basin with badwater boiling up, at its true 3×3 size. A source is always findable,
-  even underwater (a subtle upwelling shows through the water); with a source picked or hovering near one, a clear
+  even underwater (with Markers on, a subtle upwelling shows through the water; D497: off, the water is the plain surface); with a source picked or hovering near one, a clear
   marker with its strength; Markers shows every source (D196), and the seeps, aquifers, drains, cores and reserves with the
   core's `markerNotes` (D337: "Aquifer · 1 water/s · no water until a powered drill stands on it" drawn as a warning; the
   worker works them out, `MarkerNote`, and `labelLayout.ts` places them beside the sources' labels; notes too crowded for
@@ -1082,9 +1096,12 @@ Make a valley, drop a source, and there's a river.
   with the page session (D388).
 - **Seeing underwater** (D196, D212): while a brush is over water already there, the water under and right round it
   turns clear, so the bed, ledges and sources show; working on dry land leaves the water as it is. T (the game's
-  key) or **Clear water** makes all of it clear. Clear water still reads as water (a faint blue tint, ripples, a
-  soft bright shoreline); badwater stays clearly distinct when clear (its own darker crimson, dull troughs and slow
-  bubbles; never a hatching, D324), for colour-blind players too, by lightness. Sources can go anywhere in the
+  key) or **Clear water** makes all of it clear. The ground under water is drawn as it is dry, as the game draws it
+  (Q9 P14), so clear water carries its own sign of where the water is: a light blue tint over the bed that turns
+  deeper and a little denser with depth (never past half, so the bed shows), its ripples faintly, and a crisp bright
+  waterline along the shore, on badwater too; nothing of it is drawn with clear water off (D497's rule). Badwater
+  stays clearly distinct when clear (its own darker crimson, dull troughs and slow bubbles; never a hatching, D324),
+  for colour-blind players too, by lightness. Sources can go anywhere in the
   editor; the "only where water begins" rule (D171) is for generated maps.
 - **Lakes, waterfalls, joins and branches emerge from the land.**
 - **Water flows visibly,** and the land greens along new water. It reacts at once: water near an edit starts moving
@@ -1139,15 +1156,14 @@ Two looks (Map look 2, D147, D242, D250, D284):
   temperate fog), as the game does and nothing more: its ground dries by the day's soil like any dry tile (D250 as
   amended 2026-10-29). Day 0 shows the map as it is.
 
-In both looks (the light look too) water of any depth draws as water, as the game draws it: a film is the same water
-as its body, not a faint tint over its ground (`WATER_FILM` in `render3d/waterPalette.ts`; the game's water in play is its
-opaque material, the ground behind showing only as a small tinted share, `investigation/notes/water_and_soil.md` Q8).
-Only a sliver three hundredths of a level deep or less, a shore's very edge, fades in from a faint tint (its ground seen as
-through a coloured filter in the water's hue) to the body, on one smooth curve on the water's own depth: our own
-anti-aliasing, where the game clips hard at the floor. The ground behind the water shows as the game's High quality
-shows it (`WATER_SURFACE.seeThrough`, `waterGroundBehind`): overlaid with the water's colour and desaturated, 0.175 of it
-at the water's floor, thinning in step with depth to none at 5 levels,
-behind clean water and badwater alike; the light look follows the game's Low quality and shows none; a badwater sliver stays murkier than clean water, and keeps a faint edge, not a foam line.
+In both looks (the light look too) water of any depth draws as water, as the game draws it: a film a hundredth of a
+level deep is the same water as its body, never a tint over its ground (`waterOpacity` in `render3d/waterPalette.ts`;
+the game draws every column deeper than 0 with its opaque material, the ground behind showing only as a small tinted
+share, `investigation/notes/water_and_soil.md` Q8, and clips hard at the floor, P14; D154 as amended 2026-11-09). There
+is no film: the water's edge at a shore is its mesh's edge, multisampled as every edge is. The ground behind the water
+shows as the game's High quality shows it (`WATER_SURFACE.seeThrough`, `waterGroundBehind`): overlaid with the water's
+colour and desaturated, 0.175 of it at the water's floor, thinning in step with the depth seen to none at 5 levels,
+behind clean water and badwater alike; the light look follows the game's Low quality and shows none.
 
 In both looks the water moves with its real current (D353): the surface's textures run downstream, faint foam
 threads follow the current's lanes, wakes curve off a bank where it opens or narrows in fast water and a seam marks
@@ -1740,7 +1756,7 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     landing on the cut), stepped as the game's `LevelVisibilityService` does; under a cut the brushes and Select's
     actions leave the ground above it as it is. Clear water (D196, D212) is one uniform for all the water (T) and
     another for the water round the brush or the shelf's ghost (`clearNear`; the shared palette's `CLEAR_WATER`, D324);
-    each source's upwelling (D196) is a texture of the sources' middle tiles, read by the water shader.
+    each source's upwelling (D196, with Markers on: D249) is a texture of the sources' middle tiles, read by the water shader.
 
   - Juice (D205): a puff of dust and a source's rings are a few particles and two rings, alive for under a second;
     a placed object's pop and wiggle scales its own instance; a force's moment (`forces.ts`) plays on its own clock
@@ -1777,7 +1793,7 @@ delivery routes, the artifact edition and bring-your-own-key) is in
   - The High look (D284; `src/render3d/high/`): the Standard shaders take the High additions only at named points
     (`materials.ts` `ShaderHooks`), and only in High's own materials, which the meshes swap to while the look is
     High: the Standard materials are never changed. High's terrain shares Standard's own uniforms (height range,
-    hover, ground mode and an eruption's heat). A 2048² sun depth map (redrawn only when the terrain or objects
+    hover, ground mode and an eruption's heat). A 2048² sun depth map (fitted to the map as the sun sees it, read as four spread bilinear compares; redrawn only when the terrain or objects
     change, at most ten times a second while a brush paints), the water's fields made in a small worker
     (`bake.worker.ts`, one for the page, shared by every view), trees batched by species (at most 32 draws). Each effect is a uniform switch.
     The automatic choice (`fallback.ts`) reads each frame's GPU time (timer queries; without them every fourth

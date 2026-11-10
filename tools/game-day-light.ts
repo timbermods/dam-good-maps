@@ -78,7 +78,7 @@ const TRANSITION = 1;
 export type Hazard = "drought" | "badtide" | null;
 
 /** The game's light at a moment: the sun (colour × intensity, its height in degrees, its shadow's strength), the
- *  Trilight's irradiance SH and the fog's colour, with the stages it falls between. */
+ *  Trilight's ambient probe as the engine makes it (palette.ts trilightSH) and the fog's colour, with the stages it falls between. */
 export interface DayLight {
   label: string;
   sun: Rgb;

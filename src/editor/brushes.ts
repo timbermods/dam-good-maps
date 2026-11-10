@@ -41,7 +41,7 @@ import type { GhostTile, MapRenderer, PointerTool } from "../render3d";
 import type { TileHit } from "../render3d/pick";
 import { areaRect, BRUSH_MAX_LEVEL, brushHard, type BrushParams, type BrushTool } from "../core/features/raster/brush";
 import { StrokePreview, type TerrainState } from "../core/features/raster/strokePreview";
-import { RemotePreview, type WeatherChannel } from "../core/features/raster/remoteStroke";
+import { RemotePreview, WEATHER_SILENT, type WeatherChannel } from "../core/features/raster/remoteStroke";
 import { tilesToRuns } from "../core/math/grid";
 import { tileCount } from "../core/doc/labels";
 
@@ -200,6 +200,8 @@ export interface PainterHost {
   /** The worker's weathering (D422): a Naturalize stroke's land is worked out there, the page showing
    *  what comes back. */
   weather?: WeatherChannel;
+  /** An edit was refused: its one line, where the page shows refusals (#884: the worker never answered a stroke). */
+  refuse?(text: string): void;
   /** The working area (D254, D259: the Select tool's open selection) as runs [y, x0, x1], or null:
    *  a stroke changes only its tiles, feathered toward its edge. */
   area?(): [number, number, number][] | null;
@@ -642,7 +644,7 @@ export class BrushPainter {
 
   private begin(hit: TileHit, ev: PointerEvent): void {
     // (the last Naturalize stroke is still going to the worker, D422: a moment, then press again)
-    if (this.committing) return;
+    if (this.committing || this.dropped) return;
     const x = hit.x + 0.5;
     const y = hit.y + 0.5;
     const h = this.host;
@@ -752,10 +754,19 @@ export class BrushPainter {
     return new RemotePreview(settings, h.heights(), h.W, h.H, this.ground, h.weather!, (r) => this.landed(r), t.pre.slice(), t.protect);
   }
 
-  /** The worker's land for a stroke arrived (D422): drawn now (its water flows there already). */
+  /** The worker's land for a stroke arrived (D422): drawn now, and to the map's worker for its water (D197), as
+   *  the other brushes' land goes: with the next frame's draft while the stroke is painted, at once after it. */
   private landed(r: Rect): void {
-    this.host.renderer.updateTerrainRect(this.host.heights(), r);
-    if (this.stroke) this.feel();
+    const h = this.host;
+    h.renderer.updateTerrainRect(h.heights(), r);
+    const st = this.stroke;
+    if (!st || !(st.preview instanceof RemotePreview)) {
+      h.draft?.(r, cut(h.heights(), r, h.W));
+      return;
+    }
+    const d = st.drafted;
+    st.drafted = d ? { x0: Math.min(d.x0, r.x0), y0: Math.min(d.y0, r.y0), x1: Math.max(d.x1, r.x1), y1: Math.max(d.y1, r.y1) } : { ...r };
+    this.feel();
   }
 
   /** The pointer moved while painting: dabs along the way, a fifth of the brush apart (or the whole
@@ -976,7 +987,9 @@ export class BrushPainter {
       return false;
     });
     if (!rigid.length) return;
-    st.settings = { ...st.settings, rigid };
+    // (on the settings themselves: they are the record the preview writes where the water stood into, and a
+    // worker's stroke takes its whole record into them after this, #875's review)
+    st.settings.rigid = rigid;
     const r = st.preview.finish(rigid);
     if (r) h.renderer.updateTerrainRect(now, r);
   }
@@ -1006,16 +1019,23 @@ export class BrushPainter {
     if (st.queued.length) this.dab(st.queued.splice(0));
     // (the worker's stroke: once its land is all in)
     if (st.preview instanceof RemotePreview) {
+      // (the land drawn since the last frame's draft goes to the water now; what comes after goes as it comes)
+      this.sendDraft(true);
       this.stroke = null;
       const preview = st.preview;
-      this.committing = preview
-        .settled()
-        .then(() => {
-          this.rideWhole(st);
-          return preview.done();
+      // (a worker that never answers in time: the stroke is taken back as Esc takes one back, and what waited for it
+      // goes ahead, #884)
+      const landed = preview
+        .done(() => this.rideWhole(st))
+        .then((ok) => {
+          if (this.dropped) return;
+          if (ok) this.finishEnd(st);
+          else if (preview.silent) this.unanswered(preview);
         })
-        .then(() => this.finishEnd(st))
-        .finally(() => (this.committing = null));
+        .finally(() => {
+          if (this.committing?.preview === preview) this.committing = null;
+        });
+      this.committing = { preview, landed };
       return;
     }
     this.stroke = null;
@@ -1031,8 +1051,48 @@ export class BrushPainter {
     this.finishEnd(st);
   }
 
-  /** A Naturalize stroke still going to the worker (D422): a new stroke waits for it. */
-  private committing: Promise<void> | null = null;
+  /** A Naturalize stroke still going to the worker (D422): a new stroke waits for it, and so do an undo and a redo
+   *  (`afterLanding`, #880). `landed` resolves once it is on the history, or built nothing, or was taken back because
+   *  its worker never answered in time (#884). */
+  private committing: { preview: RemotePreview; landed: Promise<void> } | null = null;
+  /** The editor closed (a new or opened map, #880): nothing it painted goes on to the next. */
+  private dropped = false;
+
+  /** `fn` (an undo or a redo) once the Naturalize stroke on its way has landed on the history, so it acts after the
+   *  stroke, as it does after every other brush's (#880), or now when none is on its way; never once the editor has
+   *  closed. */
+  afterLanding(fn: () => void | Promise<void>): void | Promise<void> {
+    const c = this.committing;
+    if (!c) return fn();
+    const go = () => (this.dropped ? undefined : fn());
+    return c.landed.then(go, go);
+  }
+
+  /** The editor closed (a new or opened map, #880): the stroke being painted and the one still on its way are
+   *  forgotten, as Esc forgets a stroke, so no land, draft or operation of theirs reaches the next map. Nothing is
+   *  drawn back: the page they were painted on is gone. */
+  drop(): void {
+    this.dropped = true;
+    const st = this.stroke;
+    this.stroke = null;
+    if (st) {
+      cancelAnimationFrame(st.raf);
+      if (st.preview instanceof RemotePreview) st.preview.restore();
+    }
+    this.committing?.preview.restore();
+  }
+
+  /** The worker never answered a stroke let go in time (#884): taken back as Esc takes one back (no land, no water,
+   *  no operation), and the page says why. */
+  private unanswered(preview: RemotePreview): void {
+    const h = this.host;
+    if (preview.bounds) h.renderer.updateTerrainRect(h.heights(), preview.bounds);
+    h.renderer.refreshShadows();
+    h.cancelDraft?.();
+    h.painting(false);
+    h.refuse?.(WEATHER_SILENT);
+    this.showCursor();
+  }
 
   /** The stroke's dabs are all in: it becomes one operation. */
   private finishEnd(st: StrokeState): void {

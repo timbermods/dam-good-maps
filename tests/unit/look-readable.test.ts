@@ -13,7 +13,7 @@ import { entityView } from "../../src/render3d/model";
 import { CLEAR_WATER, GAME_WATER, badwaterBody } from "../../src/render3d/waterPalette";
 import { WATER_ALBEDO } from "../../src/render3d/waterTextures";
 import { cleanWaterShown } from "./waterShown";
-import { CONTAMINATION, contaminationVein, contaminationVeins, DEAD_TREE, GROUND, groundColor, LIVING_TREE, cssColor, legendEntries, objectLegend, sunlitTop, WATER, waterBody, type Rgb } from "../../src/render3d/palette";
+import { BLEND, CONTAMINATION, contaminationMap, contaminationMean, contaminationVein, contaminationWeight, DEAD_TREE, GROUND, groundColor, LIVING_TREE, cssColor, legendEntries, objectLegend, sunlitTop, WATER, waterBody, type Rgb } from "../../src/render3d/palette";
 
 const lum = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
 
@@ -33,7 +33,7 @@ describe("the meanings", () => {
     // grass is green, dry earth warm brown to mauve, clean water teal-blue, badwater crimson: each
     // meaning its own hue, as in the game, with no lightness order asked between them (D334 (2))
     // (grass the game's yellow-green: its Grass texture's mean, 67/73/25, is hue 68, D497)
-    for (const g of [GROUND.moistLow, GROUND.moistHigh]) expect(hue(g) > 60 && hue(g) < 110, cssColor(g)).toBe(true);
+    for (const g of [GROUND.grass]) expect(hue(g) > 60 && hue(g) < 110, cssColor(g)).toBe(true);
     for (const d of [GROUND.dry, GROUND.dryWarm]) expect(hue(d)).toBeLessThan(40);
     expect(hue(GROUND.dryCool) > 300 || hue(GROUND.dryCool) < 40).toBe(true);
     // clean water the game's colour formula (D496 amended 2026-11-07): from its `_Color` #446C71 toward its navy #000F48
@@ -44,9 +44,11 @@ describe("the meanings", () => {
     for (const d of [0.05, 0.5, 2, 4]) expect(hue(cleanWaterShown(d)) >= 198 && hue(cleanWaterShown(d)) <= 230, `${d} deep`).toBe(true);
     for (const d of [0.05, 0.5, 2, 5]) expect(hue(waterBody(d, true)) < 15 || hue(waterBody(d, true)) > 350).toBe(true);
     // dead trees are the game's dead wood, its bark weathered lighter and greyer (D135 as amended 2026-10-29): lighter
-    // than the living crowns, as the game's are (its dead pine's wood 1.8 times its living needles' lightness)
-    expect(lum(DEAD_TREE) - lum(LIVING_TREE)).toBeGreaterThan(0.1);
-    expect(lum(DEAD_TREE) / lum(LIVING_TREE)).toBeGreaterThan(1.5);
+    // than the living crowns, as the game's are (its dead pine's wood 1.49 times its living needles' lightness as the
+    // camera sees them, D135 as amended 2026-11-09; D148: this held 1.5 and 0.1 against the needles' mean over their
+    // whole area, which made the ratio 1.69)
+    expect(lum(DEAD_TREE) - lum(LIVING_TREE)).toBeGreaterThan(0.08);
+    expect(lum(DEAD_TREE) / lum(LIVING_TREE)).toBeGreaterThan(1.4);
   });
 });
 
@@ -72,14 +74,33 @@ describe("badwater seen through clear water (D324, feedback item 5: never a hatc
   const over = (bed: readonly number[], c: readonly number[], a: number) => bed.map((v, k) => v + (c[k] - v) * a);
 
   it("reads as badwater by its murk: darker than clean clear water over any bed (colour-blind lightness is information, D334 (2))", () => {
-    for (const bed of [GROUND.underwater, GROUND.dry, GROUND.moistLow]) {
-      const clean = over(bed, WATER.clearTint, CLEAR_WATER.opacity + CLEAR_WATER.ripple);
-      const bad = over(bed, badwaterBody(0.25), CLEAR_WATER.badOpacity);
-      // murkier than clean water in plain sight; in each simulation the difference is reported, not
-      // held to a margin (the game guarantees none; badwater's troughs and bubbles, checked below,
-      // carry it as the game's do)
-      expect(lstar(clean, sims.none)).toBeGreaterThan(lstar(bad, sims.none));
-      for (const m of Object.values(sims)) expect(Number.isFinite(lstar(clean, m) - lstar(bad, m))).toBe(true);
+    for (const bed of [GROUND.underwater, GROUND.dry, GROUND.grass]) {
+      // (clean water at its shallowest and at its deepest tint, CLEAR_WATER.deepAt levels down)
+      for (const clean of [over(bed, WATER.clearTint, CLEAR_WATER.opacity + CLEAR_WATER.ripple), over(bed, WATER.clearDeep, CLEAR_WATER.opacityDeep + CLEAR_WATER.ripple)]) {
+        const bad = over(bed, badwaterBody(0.25), CLEAR_WATER.badOpacity);
+        // murkier than clean water in plain sight; in each simulation the difference is reported, not
+        // held to a margin (the game guarantees none; badwater's troughs and bubbles, checked below,
+        // carry it as the game's do)
+        expect(lstar(clean, sims.none)).toBeGreaterThan(lstar(bad, sims.none));
+        for (const m of Object.values(sims)) expect(Number.isFinite(lstar(clean, m) - lstar(bad, m))).toBe(true);
+      }
+    }
+  });
+
+  it("clean water carries its own sign over the bed drawn as it is dry (Q9 P14): a tint by depth that still shows the bed, and a waterline", () => {
+    // denser deeper, so depth reads at a glance, and never past half, so the bed shows at any depth
+    expect(CLEAR_WATER.opacityDeep).toBeGreaterThan(CLEAR_WATER.opacity);
+    expect(CLEAR_WATER.opacityDeep + CLEAR_WATER.ripple).toBeLessThanOrEqual(0.5);
+    // the wet tint moves grass, the bed most water lies on, toward blue: wet reads apart from the meadow round it
+    for (const [tint, a] of [[WATER.clearTint, CLEAR_WATER.opacity], [WATER.clearDeep, CLEAR_WATER.opacityDeep]] as const) {
+      const wet = over(GROUND.grass, tint, a);
+      expect(wet[2] - GROUND.grass[2]).toBeGreaterThan(0.1);
+    }
+    const t = () => new DataTexture(new Uint8Array(4), 1, 1);
+    for (const lite of [false, true]) {
+      const s = waterMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), lite).fragmentShader;
+      expect(s).toContain("mix(WATER_CLEAR_TINT, WATER_CLEAR_DEEP, deep)");
+      expect(s).toContain("bc = mix(bc, waterline, line * CLEAR_SHORE_OPACITY);");
     }
   });
 
@@ -90,8 +111,10 @@ describe("badwater seen through clear water (D324, feedback item 5: never a hatc
       const u = sceneUniforms(1, 1, t(), t(), t(), t());
       for (const m of [waterMaterial(u, lite)]) expect(m.fragmentShader).not.toMatch(/CLEAR_STRIPE|fract\(\(g\.x - g\.y/);
       // badwater's murk, its pattern and its emissive detail are what carry it through clear water (Q9 P9; D148: these
-      // were our own troughs and bubbles)
-      expect(waterMaterial(u, lite).fragmentShader).toMatch(/vec3 bc = murky( \* light)? \+ emission;/);
+      // were our own troughs and bubbles), lit as the surface is, the look's own badwater (a look that draws its own,
+      // High, sets clearBad in its hook: highLook.test.ts)
+      expect(waterMaterial(u, lite).fragmentShader).toContain("vec3 clearBad = murky * light + emission;");
+      expect(waterMaterial(u, lite).fragmentShader).toContain("vec3 bc = clearBad;");
     }
   });
 });
@@ -116,14 +139,14 @@ describe("grass and dry earth, in greyscale and every colour-blindness simulatio
 
   it("measure every grass against every patch of dry earth in each simulation, as information, from Kyler's accepted colours", () => {
     // the accepted inputs (D324's grass, D334's earth as D346 greyed it), scaled to the game's Grass and Desert textures (D497)
-    expect(GROUND.moistLow).toEqual([0.36, 0.377, 0.135]);
-    expect(GROUND.moistHigh).toEqual([0.336, 0.361, 0.128]);
-    expect([GROUND.dry, GROUND.dryCool, GROUND.dryWarm]).toEqual([[0.283, 0.234, 0.187], [0.271, 0.24, 0.223], [0.318, 0.255, 0.191]]);
+    // (one grass at every moisture, as the game's, fix/land-tone)
+    expect(GROUND.grass).toEqual([0.371, 0.389, 0.133]);
+    expect([GROUND.dry, GROUND.dryCool, GROUND.dryWarm]).toEqual([[0.293, 0.242, 0.193], [0.281, 0.249, 0.23], [0.33, 0.264, 0.197]]);
     // the matrix (L* gap, Lab distance) for each grass, patch and simulation: finite and within
     // range. D334 (2) asks for the game's own readability, with no gap: these numbers are reported
     // (docs/progress/high-look.md), not held to one; the captures judge the look
     const matrix: { gap: number; distance: number }[] = [];
-    for (const grass of [GROUND.moistLow, GROUND.moistHigh])
+    for (const grass of [GROUND.grass])
       for (const dry of [GROUND.dry, GROUND.dryCool, GROUND.dryWarm])
         for (const m of Object.values(sims)) {
           const g = lab(grass, m);
@@ -133,61 +156,79 @@ describe("grass and dry earth, in greyscale and every colour-blindness simulatio
           expect(g[0]).toBeLessThanOrEqual(100);
           matrix.push({ gap: g[0] - d[0], distance: Math.hypot(g[0] - d[0], g[1] - d[1], g[2] - d[2]) });
         }
-    expect(matrix).toHaveLength(2 * 3 * 4);
+    expect(matrix).toHaveLength(1 * 3 * 4);
   });
 });
 
 describe("contamination", () => {
-  // Kyler (contamination round): a layer over the ground, as in the game, never a solid rust fill;
-  // D334: the game's own orange-red veins, through dry earth and grass alike
+  // Kyler (contamination round): a layer over the ground, as in the game, never a solid rust fill; D334: the game's own
+  // veins, through dry earth and grass alike; D154 as amended 2026-11-07: the game's pattern, its weight and its colour
+  // (TerrainURP, SoilContamination), no glow
   const levels = [1 / 15, 0.2, 0.4, 0.6, 0.8, 1];
   const soils = [0, 15, 150]; // dry, moist at the edge, moist by the water
 
-  it("is a layer: the ground's own look stays under and between its veins, which are orange-red over either soil and widen and glow more with contamination, and none at zero", () => {
+  it("is a layer: the ground's own look stays under and between its veins, the game's dark rust over either soil, the same at every level, with no glow, and none at zero", () => {
     // the ground's own look stays underneath: moist ground stays grass, dry ground cracked earth,
     // and between the veins it is its own colour (no stain)
     for (const m of soils) for (const c of [1, 120, 255]) expect(groundColor(m, c, false)).toEqual(groundColor(m, 0, false));
-    // none at zero: a vein over any soil is the soil itself; fully in from its onset
-    expect(contaminationVeins(0).onset).toBe(0);
-    for (const l of levels) expect(contaminationVeins(l).onset).toBe(1);
+    // none at zero: the map value 0 and no weight, so a vein over any soil is the soil itself
+    expect(contaminationMap(0)).toBe(0);
+    expect(contaminationWeight(contaminationMap(0))).toBe(0);
     for (const m of soils) expect(contaminationVein(0, groundColor(m, 0, false))).toEqual(groundColor(m, 0, false));
-    // wider and glowing more as contamination rises (the veins half as wide again at the most)
-    for (let k = 1; k < levels.length; k++) {
-      const a = contaminationVeins(levels[k - 1]);
-      const b = contaminationVeins(levels[k]);
-      expect(b.width).toBeGreaterThan(a.width);
-      expect(b.glow).toBeGreaterThan(a.glow);
-    }
-    expect(contaminationVeins(1).width / contaminationVeins(0).width).toBeGreaterThan(1.5);
-    // orange-red over either soil: red well over green, green over blue, a hue from red to orange
+    // the game's map value: a tenth at the least contamination, whole from a fifth (SoilContaminationMap.blueprint)
+    expect(contaminationMap(1e-6)).toBeCloseTo(0.1, 4);
+    expect(contaminationMap(0.2)).toBe(1);
+    // the whole pattern from the first level the tile data holds, the same at every level (no denser or brighter veins)
+    for (const l of levels) expect(contaminationWeight(contaminationMap(l))).toBe(1);
+    // the faintest contamination shows the pattern in patches only, where the blending noise is high
+    expect(contaminationWeight(contaminationMap(1e-6), 0.5)).toBe(0);
+    expect(contaminationWeight(contaminationMap(1e-6), 0.9)).toBeGreaterThan(0.5);
+    // the game's dark rust over either soil: red over green over blue, darker than the soil (no glow lifts it)
     for (const m of soils)
       for (const l of levels) {
-        const v = contaminationVein(l, groundColor(m, 0, false));
-        for (const x of v) expect(x >= 0 && x <= 1).toBe(true);
-        expect(v[0]).toBeGreaterThan(v[1] + 0.3);
+        const soil = groundColor(m, 0, false);
+        const v = contaminationVein(l, soil);
+        for (let k = 0; k < 3; k++) expect(v[k]).toBeCloseTo(CONTAMINATION.vein[k], 12);
+        expect(v[0]).toBeGreaterThan(v[1] + 0.15);
         expect(v[1]).toBeGreaterThan(v[2]);
+        expect(0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]).toBeLessThan(0.2126 * soil[0] + 0.7152 * soil[1] + 0.0722 * soil[2]);
       }
-    expect(cssColor(CONTAMINATION.vein)).toBe("#852109");
+    expect(cssColor(CONTAMINATION.vein)).toBe("#4e2105");
+    // the light look's mean: the soil its mean alpha of the way toward the pattern's mean colour, never a rust fill
+    for (const m of soils) {
+      const soil = groundColor(m, 0, false);
+      const mean = contaminationMean(1, soil);
+      for (let k = 0; k < 3; k++) expect(mean[k]).toBeCloseTo(soil[k] + (CONTAMINATION.mean[k] - soil[k]) * CONTAMINATION.meanAlpha, 9);
+    }
   });
 
-  it("is drawn by the terrain shader from the same numbers, over dry earth and grass alike, in both full looks (the light look tints)", () => {
+  it("is drawn by the terrain shader from the same numbers, over dry earth and grass alike, in every look", () => {
     const t = () => new DataTexture(new Uint8Array(4), 1, 1);
-    const gl = (c: Rgb) => `vec3(${c.map((v) => (Number.isInteger(v) ? `${v}.0` : String(Math.round(v * 1000) / 1000))).join(", ")})`;
+    const num = (v: number) => (Number.isInteger(v) ? `${v}.0` : String(v));
+    const gl = (c: Rgb) => `vec3(${c.map((v) => num(Math.round(v * 1000) / 1000)).join(", ")})`;
     const src = terrainMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), 0, 1).fragmentShader;
-    // one vein field for both soils (no grass-only or earth-only veins), gated by the soil's own
-    // contamination, never under water
-    expect(src).toContain("if (bad > 0.0 && wet < 1.0) vein = veinsOf(veinQ, veinWidth, lvl) * bad;");
-    expect(src).toContain("vein *= 1.0 - wet;");
-    // (the field's point and its antialiasing width are worked out before that branch, for every pixel: a derivative
-    // or a mipmapped read inside it would read the neighbours that skipped it, an undefined value, and the veins'
-    // edges would change from frame to frame)
-    expect(src.indexOf("float veinWidth = veinAA(veinQ);")).toBeGreaterThan(-1);
-    expect(src.indexOf("float veinWidth = veinAA(veinQ);")).toBeLessThan(src.indexOf("if (bad > 0.0 && wet < 1.0) vein ="));
-    const veins = src.slice(src.indexOf("vec2 veinsOf("), src.indexOf("vec3 groundDry;"));
-    expect(veins).not.toMatch(/fwidth|dFd|texture|vnoise/);
-    expect(src).toContain(`c = mix(c, ${gl(CONTAMINATION.vein)}, vein.x * ${CONTAMINATION.cover});`);
-    expect(src).toContain(`glow = vein.y * mix(${CONTAMINATION.glow[0]}, ${CONTAMINATION.glow[1]}, lvl);`);
-    expect(src).toContain(`smoothstep(0.0, ${CONTAMINATION.onset}, lvl)`);
+    // the pattern world-anchored at the game's repeat, read before any branch on the soil (a mipmapped read needs every
+    // pixel of its quad: a pixel that skipped it would leave its neighbours an undefined level and the veins would
+    // flicker), over either soil, after the altitude ramp, never under water
+    expect(src).toContain(`vec4 soilPattern = texture2D(soilTex, g / ${num(CONTAMINATION.repeat)});`);
+    expect(src.indexOf("vec4 soilPattern = texture2D(soilTex")).toBeLessThan(src.indexOf("float wet = smoothstep"));
+    // (the veins under water too, as the game's terrain draws them with no input from the water: no bed, WATER_BED 0)
+    expect(src.indexOf("c *= altitudeOf(vWorld.y, moist);")).toBeLessThan(src.indexOf("c = mix(c, soilPattern.rgb, vein * (1.0 - bed));"));
+    // (and no second ground without its water: High's poisoned bed went, D496 as amended 2026-11-07, so every look draws
+    // the one ground under badwater)
+    expect(src).not.toContain("groundDry");
+    // the game's weight: its nonlinearity, its least, its noise and its softness, and its map value, blended across the
+    // tiles the desert's way (the same four taps the same margin round the point)
+    expect(CONTAMINATION.margin).toBe(BLEND.margin);
+    expect(src).toContain(`float v = pow(max(m, 0.0), ${num(CONTAMINATION.nonlinearity)});`);
+    expect(src).toContain(`v = v >= 0.01 ? max(v, ${num(CONTAMINATION.least)}) : v;`);
+    expect(src).toContain(`return clamp((v + ${num(CONTAMINATION.noise)} * (n - ${num(CONTAMINATION.noiseMid)}) - 0.5) * ${num(CONTAMINATION.softness)} + 0.5, 0.0, 1.0);`);
+    expect(src).toContain("contamMap = tapBlend(g, vec4(contaminationMapOf(s0.y / 15.0)");
+    // no glow: nothing of the veins is added after the light
+    expect(src).not.toMatch(/contaminatedGlow|groundDryGlow|vein.y/);
+    // the light look: no patterns, the pattern's mean over the soil by its mean alpha
+    const lite = terrainMaterial(sceneUniforms(1, 1, t(), t(), t(), t()), 0, 1, true).fragmentShader;
+    expect(lite).toContain(`lc = mix(lc, ${gl(CONTAMINATION.mean)}, ${num(Math.round(CONTAMINATION.meanAlpha * 1e4) / 1e4)} * contaminationWeightMean(contaminationMapOf(clev)));`);
     // (the rendered sequence, clean to contaminated and back, in Standard and High: tests/e2e/look-high.spec.ts)
   });
 });
@@ -238,12 +279,21 @@ describe("objects from afar", () => {
   });
 
   it("a dead tree is bare weathered wood, as the game's: no green, lighter all over than the living tree's crown (D135 as amended 2026-10-29)", () => {
+    // (the game's colours straight since 2026-11-09, D135 as amended: lighter than every colour of the living crown,
+    // rather than than 0.28, which held the old colours at our lightness. Since the crowns are lighter higher up as the
+    // game's, D135 as amended 2026-11-09, its tip a fifth over its mean, the dead wood's colour is lighter than every
+    // colour of the crown and each of its shaded parts lighter than the crown's mean; D148: until then each part was
+    // lighter than every colour of the crown)
+    const living = meshes.get("Pine")!.geometry.getAttribute("pcolor")!.array;
+    let crown = 0;
+    for (let k = 0; k < living.length; k += 3) if (living[k + 1] > living[k] && living[k + 1] > living[k + 2]) crown = Math.max(crown, lum([living[k], living[k + 1], living[k + 2]]));
+    expect(crown).toBeGreaterThan(0);
+    expect(lum(DEAD_TREE)).toBeGreaterThan(crown);
     const col = meshes.get("Pine.dead")!.geometry.getAttribute("pcolor")!.array;
     for (let k = 0; k < col.length; k += 3) {
-      expect(lum([col[k], col[k + 1], col[k + 2]])).toBeGreaterThan(0.28);
+      expect(lum([col[k], col[k + 1], col[k + 2]])).toBeGreaterThan(lum(LIVING_TREE) + 0.03);
       expect(col[k + 1]).toBeLessThanOrEqual(col[k]);
     }
-    const living = meshes.get("Pine")!.geometry.getAttribute("pcolor")!.array;
     let dark = 0;
     for (let k = 0; k < living.length; k += 3) if (lum([living[k], living[k + 1], living[k + 2]]) < 0.35) dark++;
     expect(dark / (living.length / 3)).toBeGreaterThan(0.6);

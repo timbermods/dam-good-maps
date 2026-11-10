@@ -15,8 +15,8 @@ test.use({ storageState: { cookies: [], origins: [] } });
 
 // (its tests run one after another on one worker, never two at once: each draws High, which on CI's software drawing
 // costs 2 to 3 s a frame, and two of them side by side on the runner's four cores took the slow-frames test past its
-// budget, run 40601987187. With the clipping net in its own file the shards stay balanced: about 17 minutes of tests at
-// most, as with this file in parallel.)
+// budget, run 40601987187. Any other spec beside it does the same (run 42592717654), so CI runs its browser shards on
+// one worker each: playwright.config.ts, ci.yml.)
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -127,6 +127,9 @@ test("the Standard look is the same after High as before it", async ({ page }) =
       return { key: k, share: n / px.length, max, size: `${g.drawingBufferWidth}x${g.drawingBufferHeight}` };
     }, key);
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("standard"));
+  // (the patterns are made in a worker of their own after the view opens, flat at their means until then: made before the
+  // first frame, so none lands between the frames compared)
+  await page.evaluate(() => window.dgm3d!.renderer.patternsMade());
   // (the view settles its size first: the legend beside it lays out after the map. Watched in the page until neither
   // the canvas's box nor its pixels have changed for half a second: on a busy page (CI's software GL) a round trip to
   // the page can take a second or two, and a poll of two reads with a wait between them spent its 5 seconds on one try,
@@ -214,13 +217,89 @@ test("too slow frames fall back to High's lower-cost tier, then to Standard, rem
   await page.getByRole("button", { name: "Look: Standard" }).click();
   await page.getByRole("group", { name: "Look" }).getByRole("button", { name: /^Standard/ }).click();
   await page.getByRole("group", { name: "Look" }).getByRole("button", { name: /^Automatic/ }).click();
-  expect(await look(page)).toBe("high");
+  // (High comes once its programs have compiled in the background: 0.08 to 8.9 s here, so polled, D341)
+  await opensHigh(page);
   expect(errors).toEqual([]);
 });
 
-test("contamination draws the game's orange-red veins over dry earth and over grass, more with more, and clears exactly, in Standard and High (D334)", async ({ page }) => {
+test("the game's bloom is drawn only when something can pass its knee, and skipping it by day changes no pixel (D497 as amended 2026-11-08, D453)", async ({ page }) => {
   const errors: string[] = [];
   await open(page, errors);
+  await opensHigh(page);
+  for (const choice of ["high", "standard"] as const) {
+    await page.evaluate((c) => window.dgm3d!.renderer.setLookChoice(c), choice);
+    const day = await page.evaluate(() => {
+      type Bloom = { up: { texture: unknown; width: number; height: number }[]; down: { width: number; height: number }[]; apply(gl: unknown): void };
+      const r = window.dgm3d!.renderer as unknown as {
+        blooms(): boolean;
+        bloom: Bloom | null;
+        gl: { getContext(): WebGL2RenderingContext; setRenderTarget(t: unknown): void };
+        map: { entities: { count: number; templates: string[]; template: ArrayLike<number>; x: ArrayLike<number>; y: ArrayLike<number>; z: ArrayLike<number> } };
+        setView(v: unknown): void;
+        setClock(h: number): void;
+        renderNow(): void;
+      };
+      const g = r.gl.getContext();
+      const read = () => {
+        const px = new Uint8Array(g.drawingBufferWidth * g.drawingBufferHeight * 4);
+        g.readPixels(0, 0, g.drawingBufferWidth, g.drawingBufferHeight, g.RGBA, g.UNSIGNED_BYTE, px);
+        return px;
+      };
+      const canvas = () => {
+        r.renderNow();
+        return read();
+      };
+      const e = r.map.entities;
+      let at: number[] = [48, 2, -48];
+      for (let k = 0; k < e.count; k++) if (e.templates[e.template[k]] === "StartingLocation") at = [e.x[k] + 0.5, e.z[k], -(e.y[k] + 0.5)];
+      // the start up close by day, its marker the brightest model there is
+      r.setClock(12.5);
+      r.setView({ mode: "orbit", yaw: -Math.PI / 6, pitch: 0.6, distance: 11, target: at });
+      const skipped = r.blooms();
+      // drawn anyway: what the game's passes make of it, and the canvas just before them and just after, in one frame
+      // (two redraws of a still frame can differ by a level here and there, the bloom aside)
+      const own = Object.getOwnPropertyDescriptor(r, "blooms");
+      r.blooms = () => true;
+      canvas();
+      const b = r.bloom!;
+      const apply = b.apply.bind(b);
+      let without = new Uint8Array(0);
+      let withIt = new Uint8Array(0);
+      b.apply = (gl: unknown) => {
+        without = read();
+        apply(gl);
+        withIt = read();
+      };
+      canvas();
+      delete (b as { apply?: unknown }).apply;
+      const top = (b.up.length > 1 ? b.up[0] : b.down[0]) as unknown as { width: number; height: number };
+      r.gl.setRenderTarget(top);
+      const lift = new Float32Array(top.width * top.height * 4);
+      g.readPixels(0, 0, top.width, top.height, g.RGBA, g.FLOAT, lift);
+      r.gl.setRenderTarget(null);
+      if (own) Object.defineProperty(r, "blooms", own);
+      else delete (r as { blooms?: unknown }).blooms;
+      let differ = 0;
+      for (let i = 0; i < without.length; i++) if (without[i] !== withIt[i]) differ++;
+      let most = 0;
+      for (let i = 0; i < lift.length; i += 4) most = Math.max(most, lift[i], lift[i + 1], lift[i + 2]);
+      return { skipped, differ, most, read: without.length > 0 && withIt.length === without.length };
+    });
+    // by day nothing passes the knee: the passes are skipped, they would have made nothing, and the frame is the same
+    // to the byte with them or without
+    expect(day.skipped, choice).toBe(false);
+    expect(day.read, choice).toBe(true);
+    expect(day.most, choice).toBe(0);
+    expect(day.differ, JSON.stringify({ choice, ...day })).toBe(0);
+  }
+  expect(errors).toEqual([]);
+});
+
+test("contamination draws the game's rusty veins over dry earth and over grass, the same at any level, and clears exactly, in Standard and High (D334, D154 as amended 2026-11-07)", async ({ page }) => {
+  const errors: string[] = [];
+  await open(page, errors);
+  // (the pattern is made in a worker of its own after the view opens, flat at its mean until then)
+  await page.evaluate(() => window.dgm3d!.renderer.patternsMade());
   for (const choice of ["standard", "high"] as const) {
     const result = await page.evaluate((c) => {
       const r = window.dgm3d!.renderer;
@@ -228,11 +307,18 @@ test("contamination draws the game's orange-red veins over dry earth and over gr
       const s = r.mapState()!;
       const kept = s.soil!;
       const N = s.W * s.H;
+      // close over the map's highest ground (dry land, never under water), where a tile spans many pixels and the
+      // cracks show as cracks: from the opening view they are under a pixel wide and average to the pattern's mean,
+      // as the game's do from afar (D154 as amended 2026-11-07)
+      let top = 0;
+      for (let i = 1; i < N; i++) if (s.heights[i] > s.heights[top]) top = i;
+      const tx = top % s.W, ty = Math.floor(top / s.W);
+      const view = { mode: "orbit" as const, yaw: 0.6, pitch: (60 * Math.PI) / 180, distance: 9, target: [tx + 0.5, s.heights[top], -(ty + 0.5)] as [number, number, number] };
       /** The frame at a held moment with every tile's soil set, read back. */
       const frame = (moisture: number, level: number) => {
         r.updateSoil({ moisture: new Uint8Array(N).fill(moisture), contamination: new Uint8Array(N).fill(level) });
         r.setClock(12.5);
-        r.resetView();
+        r.setView(view);
         r.renderNow();
         const g = (r as unknown as { gl: { getContext(): WebGL2RenderingContext } }).gl.getContext();
         const px = new Uint8Array(g.drawingBufferWidth * g.drawingBufferHeight * 4);
@@ -267,11 +353,12 @@ test("contamination draws the game's orange-red veins over dry earth and over gr
     }, choice);
     for (const [soil, [some, most, cleared, again]] of Object.entries(result)) {
       const at = `${choice}, ${soil}`;
-      // sparse veins, never a tint over the whole soil, more of them the more contaminated
+      // veins, never a fill over the whole soil, and the game's same pattern at any level over a fifth (128 and 255
+      // alike: its weight is whole from the map value's fifth)
       expect(some.share, at).toBeGreaterThan(0.002);
-      expect(most.share, at).toBeGreaterThanOrEqual(some.share);
       expect(most.share, at).toBeLessThan(0.35);
-      // orange-red: where the ground changed, it turned redder
+      expect(Math.abs(most.share - some.share), at).toBeLessThan(0.02);
+      // rust: where the ground changed, it turned redder
       expect(some.redder, at).toBeGreaterThan(10);
       expect(most.redder, at).toBeGreaterThan(10);
       // cleared, the clean ground comes back: no more pixels changed than a redraw of it alone, and
@@ -371,7 +458,8 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
   // browser draws: software drawing on CI takes seconds to keep it, and the lava cools meanwhile)
   await page.evaluate(() => {
     const r = window.dgm3d!.renderer;
-    const w = window as unknown as { glow?: { cooling: number | null; hot: number; cold: number; look: string } };
+    const w = window as unknown as { glow?: { cooling: number | null; hot: number; cold: number; look: string; bloomed: boolean } };
+    let bloomed = false;
     /** How many pixels of the frame drawn now are lava's colour: a strong orange-red, which High's
      *  ground never is by itself. */
     const lava = () => {
@@ -402,11 +490,18 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
         return h && { age: 1.65, cooling: h.cooling };
       };
       fx.plume.group.visible = false;
+      // (its lava passes the bloom's knee, so the bloom is drawn while it glows; the lava's own colour is counted
+      // before it, as the bloom's glow over its hottest middle adds green there and turns some of it orange: a GPU
+      // counts 1,435 to 2,096 with the bloom, about 2,680 without it. The bloom's own drawing: the test above)
+      const gate = r as unknown as { blooms(): boolean };
+      bloomed = gate.blooms();
+      gate.blooms = () => false;
       const hot = lava();
+      delete (gate as { blooms?: unknown }).blooms;
       fx.heat = heat;
       // against the same land with its moment gone
       r.clearForce();
-      w.glow = { cooling: s?.cooling ?? null, hot, cold: lava(), look: r.look };
+      w.glow = { cooling: s?.cooling ?? null, hot, cold: lava(), look: r.look, bloomed };
     };
   });
   await page.mouse.click(at!.x, at!.y);
@@ -414,7 +509,9 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
   await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.forceShowing?.erupt ?? null), { timeout: 15_000 }).not.toBeNull();
   expect(await look(page)).toBe("high");
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.force()), { timeout: 30_000 }).toBeNull();
-  const glow = (await page.evaluate(() => (window as unknown as { glow?: { cooling: number | null; hot: number; cold: number; look: string } }).glow))!;
+  const glow = (await page.evaluate(() => (window as unknown as { glow?: { cooling: number | null; hot: number; cold: number; look: string; bloomed: boolean } }).glow))!;
+  // (its lava passes the bloom's knee: the bloom is drawn while it glows, D497 as amended 2026-11-08)
+  expect(glow.bloomed).toBe(true);
   expect(glow.cooling).not.toBeNull();
   expect(glow.cooling!).toBeLessThan(0.5);
   expect(glow.look).toBe("high");
@@ -698,5 +795,94 @@ test("a held drought or badtide turns the haze to the game's fog colour for it, 
   await expect(bar.getByRole("button", { name: "Badtide" })).toHaveAttribute("aria-pressed", "false");
   await expect.poll(haze, { timeout: 30_000 }).toEqual(TEMPERATE);
   // (every shader compiled and nothing threw)
+  expect(errors).toEqual([]);
+});
+
+test("clean water and badwater a level and a half deep, by day, as drawn through the shipped shaders: badwater the darker in both looks (D496)", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openEditor(page, "s=5&z=128&d=n&t=lakeBasin");
+  // two pools side by side on the same moist ground, 1.5 levels deep, one clean and one pure badwater (its floor
+  // contaminated, as the game's would be), seen as the probe's start shots see their water (the pixel judge's fitted
+  // cameras: about 53° down, about 100 away) in the day's light, through the shipped shaders, fog and finish
+  const gaps = await page.evaluate(async () => {
+    const r = window.dgm3d!.renderer;
+    const W = 64;
+    const H = 40;
+    const heights = new Uint8Array(W * H).fill(4);
+    const tile: number[] = [];
+    const cont: number[] = [];
+    const soilC = new Uint8Array(W * H);
+    const pool = (x: number, y: number) => (y >= 8 && y < 32 && x >= 6 && x < 30 ? 0 : y >= 8 && y < 32 && x >= 34 && x < 58 ? 1 : -1);
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const p = pool(x, y);
+        if (p < 0) continue;
+        const i = y * W + x;
+        heights[i] = 2;
+        tile.push(i);
+        cont.push(p);
+        if (p) soilC[i] = 255;
+      }
+    const e = { count: 0, templates: [], owners: [], template: new Uint16Array(0), x: new Int16Array(0), y: new Int16Array(0), z: new Int16Array(0), orientation: new Uint8Array(0), flags: new Uint8Array(0), owner: new Uint16Array(0), variant: new Uint8Array(0), strength: new Float32Array(0), ids: [] };
+    (r as unknown as { setMap(m: unknown, keep: boolean): void }).setMap(
+      {
+        W,
+        H,
+        heights,
+        columns: { tiles: new Int32Array(0), voxels: new Uint8Array(0) },
+        entities: e,
+        soil: { moisture: new Uint8Array(W * H).fill(200), contamination: soilC },
+        water: { count: tile.length, tile: Int32Array.from(tile), floor: new Float32Array(tile.length).fill(2), depth: new Float32Array(tile.length).fill(1.5), contamination: Float32Array.from(cont) },
+      },
+      true,
+    );
+    const out: Record<string, { clean: number; bad: number }> = {};
+    for (const look of ["standard", "high"] as const) {
+      r.setLookChoice(look, false);
+      if (look === "high") for (let k = 0; k < 600 && !r.highSettled; k++) await new Promise((res) => setTimeout(res, 100));
+      r.setClock(12.5);
+      r.setView({ mode: "orbit", yaw: 0, pitch: (53 * Math.PI) / 180, distance: 100, target: [W / 2, 3.5, -H / 2] });
+      for (let k = 0; k < 3; k++) {
+        r.renderNow();
+        await new Promise((res) => requestAnimationFrame(() => res(null)));
+      }
+      r.renderNow();
+      const g = (r as unknown as { gl: { getContext(): WebGL2RenderingContext } }).gl.getContext();
+      const GW = g.drawingBufferWidth;
+      const GH = g.drawingBufferHeight;
+      const px = new Uint8Array(GW * GH * 4);
+      g.readPixels(0, 0, GW, GH, g.RGBA, g.UNSIGNED_BYTE, px);
+      const s = GW / r.canvas.clientWidth;
+      const lstar = (o: number) => {
+        const lin = [px[o], px[o + 1], px[o + 2]].map((v) => (v / 255 <= 0.04045 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4));
+        const Y = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+        return Y > 216 / 24389 ? 116 * Math.cbrt(Y) - 16 : (24389 / 27) * Y;
+      };
+      const sums = [0, 0];
+      const ns = [0, 0];
+      // (each pool's tiles three or more from its banks, so no ground shows at a bank)
+      for (let y = 11; y < 29; y++)
+        for (let x = 0; x < W; x++) {
+          const p = pool(x, y);
+          if (p < 0 || pool(x - 3, y) !== p || pool(x + 3, y) !== p) continue;
+          const q = r.project(x + 0.5, 3.5, -(y + 0.5));
+          if (!q.visible) continue;
+          const cx = Math.round(q.x * s);
+          const cy = GH - 1 - Math.round(q.y * s);
+          if (cx < 2 || cy < 2 || cx >= GW - 2 || cy >= GH - 2) continue;
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) (sums[p] += lstar(((cy + dy) * GW + cx + dx) * 4)), ns[p]++;
+        }
+      out[look] = { clean: sums[0] / ns[0], bad: sums[1] / ns[1] };
+    }
+    return out;
+  });
+  // the order, in both looks. The size of the gap is judged against the game's own frames, where the game drew the
+  // same water (tools/water-pixel-judge.ts, "the gap by day"; waterPalette.ts WATER_LIGHT.gap): this scene the game
+  // never drew, and its clean water over its moist bed reads darker than the shots' (about 28 against 31 to 33.5)
+  console.log(`the gap by day, as drawn: ${JSON.stringify(gaps)}`);
+  for (const look of ["standard", "high"] as const) expect(gaps[look].clean - gaps[look].bad).toBeGreaterThan(1);
   expect(errors).toEqual([]);
 });

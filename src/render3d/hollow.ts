@@ -12,6 +12,7 @@
 import { BufferAttribute, BufferGeometry, Mesh, MeshBasicMaterial, type Scene } from "three";
 import { plainMask, surfaceOfMask, topRunFloor } from "../core/terrain/runs";
 import { WATER_UI } from "./palette";
+import { onAidLayer } from "./aidLayer";
 
 /** Where a cursor reaches: its middle and radius in tiles (a square brush reaches its square). `aim`, when given, is the
  *  level the cursor works at (Select's ring on the run it aims at, the Block tool's blocks): a roof counts only where
@@ -125,7 +126,7 @@ export class HollowMarks {
     // (over the brush's disc, so the violet reads the same under every brush's tint; under a target's plane)
     this.mesh.renderOrder = 5.5;
     this.mesh.visible = false;
-    scene.add(this.mesh);
+    scene.add(onAidLayer(this.mesh));
   }
 
   private bind(quads: number): void {

@@ -12,7 +12,7 @@ import { surfaceWater, waterFromDepth } from "../../src/render3d/model";
 // (seed 20: a map whose water is flat columns with the settle's outflows, as the file stores them; a map with terrain
 // above terrain has its columns' own, `stack.flows`. Seed 4241 before generator 0.10.10, whose land grows a cliff
 // overhang under D503, as most 128² maps now do, D148; seed 4242's since D502's landmark forms; seed 7 for seed 4 since generator 0.10.11, #726,
-// D148: of River Valley's seeds 1–8 only seed 7's water was flat columns then; seed 20 for seed 7 since generator 0.10.12,
+// D148: of River Valley's seeds 1–8 only seed 7's water was flat columns then; seed 20 for seed 7 since generator 0.10.13,
 // whose starts frame the map (D507): seed 7's map still has flat columns but no film left on its bank, which the third
 // test needs, and of River Valley's seeds 1–30 only seeds 7, 20, 24 and 29 have flat columns now, and of those only seed 20 has films, D148)
 const r = generate(decodeSpecFragment("s=20&t=riverValley&z=128&d=n")!.spec);

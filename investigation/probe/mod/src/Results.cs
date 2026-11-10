@@ -141,6 +141,8 @@ namespace DGMProbe
         public double LoadSeconds;
         public double WorkingSetAtLoadMb;
         public PerfResult Perf;
+        // The game's light every game hour and at each moment (0.3.3: LightReader).
+        public List<LightRecord> Lights = new List<LightRecord>();
     }
 
     public class PerfResult

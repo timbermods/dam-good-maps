@@ -16,7 +16,8 @@ import { objectMaterial, RUIN_INSIDE_COVER, RUIN_LATTICE_SCALE, RUIN_LATTICE_STR
 import { chunkCount, meshChunk, type TerrainSource } from "../../src/render3d/mesh";
 import { LAND_GROW } from "../../src/render3d/objectFade";
 import { entityView, variantIndex, type EntityInput, type EntityView } from "../../src/render3d/model";
-import { CONTAMINATION, cssColor, GROUND, LIGHT, MINE, objectLegend, RUIN, sunlitTop, WATER, type Rgb } from "../../src/render3d/palette";
+import { CONTAMINATED_GROUND, CONTAMINATION, cssColor, GROUND, LIGHT, MINE, objectLegend, objectTop, ownAlbedo, RUIN, sunlitTop, type Rgb } from "../../src/render3d/palette";
+import { badwaterLit } from "./waterShown";
 import { variantOf } from "../../src/worker/api";
 
 const lum = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
@@ -141,7 +142,7 @@ describe("mine sites", () => {
     expect(MINE.earthTop[0] - MINE.earthTop[2]).toBeGreaterThan(MINE.earth[0] - MINE.earth[2]);
   });
 
-  it("read in greyscale from above: a dark pit, darker than badwater, a rusty frame, pale wood, and apart from badwater sources", () => {
+  it("read in greyscale from above: a dark pit, lighter than badwater as the game draws it by day, a rusty frame, pale wood, and apart from badwater sources", () => {
     expect(lum(MINE.frame) - lum(MINE.pit)).toBeGreaterThan(0.1);
     expect(lum(MINE.wood) - lum(MINE.frame)).toBeGreaterThan(0.2);
     // (the pit is a colour on screen, dry ground an albedo since D497: against it as a sunlit top shows it in the game's
@@ -153,16 +154,19 @@ describe("mine sites", () => {
     let lightest = 0;
     for (let k = 0; k < badwater.length; k += 3) lightest = Math.max(lightest, lum([badwater[k], badwater[k + 1], badwater[k + 2]]));
     expect(lum(MINE.wood)).toBeGreaterThan(lightest + 0.2);
-    // the pit's earth is darker than badwater by about 5 L* or more, as in the game (Kyler's review
-    // of D177 and D178, 2026-09-26: it was lighter than the red-black badwater before). D324 (option
-    // (a) of D310) darkened both, the pit's earth (from #373A34) and badwater's crimson, a little,
-    // so clean water could come down toward the game; the margin is what it was, never loosened
+    // the pit is lighter than badwater, as the game draws it by day (D496 amended 2026-11-07: the pixel judge's
+    // `--water pit` on the probe's sixteen day-lit start shots reads the game's pits at L* 43.4, 114 samples, against
+    // its pure badwater's 32.3, 172 tiles; ours 40.8 against 29.5 in Standard, 48.9 against 30.7 in High). D148: this
+    // held the pit at least 5 L* under #38's crimson (Kyler's review of D177 and D178, 2026-09-26; D324's option (a)),
+    // which the game's own frames do not show; the order is held against each look's badwater as it ships
+    // (waterShown.ts), over the depths a pit's neighbouring badwater has
     const lightness = (c: readonly number[]) => {
       const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
       const y = 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
       return y > 0.008856 ? 116 * Math.cbrt(y) - 16 : 903.3 * y;
     };
-    expect(lightness(WATER.bad) - lightness(MINE.pit)).toBeGreaterThanOrEqual(5);
+    for (const look of ["standard", "high"] as const)
+      for (const d of [0.5, 1, 1.35, 2]) expect(lightness(MINE.pit), `${look}, ${d} deep`).toBeGreaterThan(lightness(badwaterLit(d, look)));
   });
 
   it("are outlined with Markers on: an orange line between dark edges round the footprint, a few pixels from any distance", () => {
@@ -234,11 +238,14 @@ describe("ruins", () => {
     expect(FOOTPRINTS.RuinColumnH3.size).toEqual([1, 1, 3]);
   });
 
-  it("are an orange skeleton with cream sacks close up, and from afar a lattice block in the skeleton's own orange (D334, amending D305's muted rust)", () => {
-    expect(cssColor(RUIN.rust)).toBe("#d4781f");
-    expect(cssColor(RUIN.panel)).toBe("#e3cf96");
-    expect(cssColor(RUIN.far)).toBe("#b86e30");
-    expect(cssColor(RUIN.ivy)).toBe("#405634");
+  it("are a rust skeleton with cream sacks close up, and from afar a lattice block in the game's ruins' mean (D334, D135 as amended 2026-11-09)", () => {
+    // the game's own colours, its albedo straight (RuinColumnA..E's clusters by `tools/game-model-albedo.py`, D496's
+    // rule, 2026-11-09): the rust, the pale cream, the mean over their area from afar, the game's ivy. Until then
+    // #d4781f, #aa905b (#e3cf96 before 2026-11-08), #b86e30 and #405634, at our lightness in a light of our own.
+    expect(cssColor(RUIN.rust)).toBe("#6c3519");
+    expect(cssColor(RUIN.panel)).toBe("#816e45");
+    expect(cssColor(RUIN.far)).toBe("#553921");
+    expect(cssColor(RUIN.ivy)).toBe("#282816");
     // the sacks and boards, shaded a little one from another (entities3d.ts storey)
     const panelShades = [0.95, 0.985, 1.02].map((k) => cssColor([RUIN.panel[0] * k, RUIN.panel[1] * k, RUIN.panel[2] * k]));
     for (const v of ["A", "B", "C", "D", "E"])
@@ -289,13 +296,20 @@ describe("ruins", () => {
     expect(modelTriangles("ruin")).toBeLessThanOrEqual(360);
   });
 
-  it("from afar stand apart from contaminated ground (its veins, and the light look's rusty tint), in greyscale too", () => {
-    for (const ground of [GROUND.contaminated, CONTAMINATION.vein]) {
-      for (const c of [RUIN.panel, RUIN.far, RUIN.rust]) expect(lum(c) - lum(ground), cssColor(c)).toBeGreaterThan(0.12);
-      // the scaffold is orange, contaminated ground red-brown or orange-red: more yellow in it
-      expect(RUIN.rust[1] / RUIN.rust[0]).toBeGreaterThan(ground[1] / ground[0] + 0.05);
-      expect(lum(RUIN.panel) - lum(ground)).toBeGreaterThan(0.35);
+  it("from afar stand apart from contaminated ground (its veins, and the pattern's mean the light look draws) as the game's do", () => {
+    // (D135 as amended 2026-11-09: the ruins and the ground are both the game's albedo in the same light, so they compare
+    // as they are, with the readability the game has. Until then the ruins' colours were ours at 1.318 times the
+    // game's lightness, and each stood 0.12 over every contaminated ground, the panels 0.2.)
+    for (const ground of [CONTAMINATED_GROUND.dry, CONTAMINATED_GROUND.grass, CONTAMINATION.vein]) {
+      // the panels the lightest of a ruin, lighter than any contaminated ground, as the game's are
+      expect(lum(RUIN.panel) - lum(ground)).toBeGreaterThan(0.1);
+      expect(lum(RUIN.panel)).toBeGreaterThan(Math.max(lum(RUIN.rust), lum(RUIN.far)));
     }
+    // the skeleton and the far block lighter than the veins; against the ground under them only by hue, as the game's
+    for (const c of [RUIN.far, RUIN.rust]) expect(lum(c) - lum(CONTAMINATION.vein), cssColor(c)).toBeGreaterThan(0.08);
+    // the scaffold is orange, the veins a dark rust: more yellow in it (D154 as amended 2026-11-07: from afar the
+    // contaminated ground is its soil a little toward the rust, no rust fill, so the hue rule is the veins')
+    expect(RUIN.rust[1] / RUIN.rust[0]).toBeGreaterThan(CONTAMINATION.vein[1] / CONTAMINATION.vein[0] + 0.05);
   });
 
   it("hang cream sacks: shallow pouches bulging out of the face with a tied upper edge, as many triangles as the slabs they replace; broken boards stay flat (D334)", () => {
@@ -465,12 +479,13 @@ describe("ruins", () => {
         for (let lv = 1; lv < h; lv++) expect(levels[lv], `${x} ${h} ${lv}`).toBeLessThanOrEqual(levels[lv - 1]);
         expect(Array.from({ length: h }, (_, lv) => ruinIvy(x, 7, h, lv))).toEqual(levels);
       }
-    // Kyler's green, the brighter green on the clusters' edges; flat leaves clinging to the faces
+    // the game's ivy (Ivy_Wet), the brighter green on the clusters' edges (D135 as amended 2026-11-09; Kyler's
+    // #405634 and #5c803d until then); flat leaves clinging to the faces
     // (no clumps inside the storey); the foot clearly clad, thinning upward; the middle of each
     // face clear above its lower part, so the panel shows; a band of ivy from afar low on the lower
     // storeys, the rust still most of each block
-    expect(cssColor(RUIN.ivy)).toBe("#405634");
-    expect(cssColor(RUIN.leaf)).toBe("#5c803d");
+    expect(cssColor(RUIN.ivy)).toBe("#282816");
+    expect(cssColor(RUIN.leaf)).toBe("#393c1a");
     for (const v of ["A", "B", "C", "D", "E"]) {
       const green = (ivy: number) => {
         const md = modelOf(`scaffold.${v}`, 0, ivy);
@@ -532,11 +547,13 @@ describe("ruins", () => {
 
   it("the legend shows both as small pictures that differ in greyscale", () => {
     const swatch = (re: RegExp) => decodeURIComponent(/url\("data:image\/svg\+xml,([^"]*)"\)/.exec(objectLegend().find((l) => re.test(l.label))!.swatch)![1]);
+    // (each as its top shows in the game's light, D135 as amended 2026-11-09: the ruins' colours the game's, the mine's
+    // our own at `ownAlbedo`)
     const ruins = swatch(/^Ruins/);
-    expect(ruins).toContain(cssColor(RUIN.rust));
-    expect(ruins).toContain(cssColor(RUIN.panel));
+    expect(ruins).toContain(cssColor(objectTop(RUIN.rust)));
+    expect(ruins).toContain(cssColor(objectTop(RUIN.panel)));
     const mine = swatch(/^Mine site$/);
-    for (const c of [MINE.pit, MINE.frame, MINE.wood]) expect(mine).toContain(cssColor(c));
+    for (const c of [MINE.pit, MINE.frame, MINE.wood]) expect(mine).toContain(cssColor(objectTop(ownAlbedo(c))));
   });
 });
 

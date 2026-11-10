@@ -20,6 +20,14 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
+/** Open the editor on a river valley with its own view held still (the river's and the trees' movement stopped at a
+ *  moment): no test here looks at that view, and under software drawing (CI) its frames of the moving river took the
+ *  GPU from the renderers the tests make, much of their time. */
+async function openHeld(page: import("@playwright/test").Page): Promise<void> {
+  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  await page.evaluate(() => window.dgm3d!.renderer.setClock(12.5));
+}
+
 interface Pass {
   /** objectFade.ts's FADE_*: 1 coverage, 2 dither. */
   mode: number;
@@ -87,17 +95,10 @@ async function measure(page: import("@playwright/test").Page, look: "standard" |
     const view = (n: number) => ({ W, H: W, heights, columns: { tiles: new Int32Array(0), voxels: new Uint8Array(0) }, water, entities: ents(n) }) as unknown as Parameters<R["setMap"]>[0];
     const g = (r as unknown as { gl: { getContext(): WebGL2RenderingContext } }).gl.getContext();
     const wait = (ms: number) => new Promise((done) => setTimeout(done, ms));
-    const settle = async () => {
-      const t0 = performance.now();
-      while ((!r.programsSettled || !r.highSettled) && performance.now() - t0 < 20_000) {
-        r.renderNow();
-        await wait(30);
-      }
-      // (High's sun shadows are drawn at most every tenth of a second)
-      await wait(150);
-      r.renderNow();
-      await wait(150);
-    };
+    /** Everything the next frame shows is in (`whenDrawn`: the programs, High's look and its sun's depth map, drawn at
+     *  most every tenth of a second, the baked shadows), on no fixed wait: under software drawing each frame is a third
+     *  of a second, and fixed waits with a frame between them made the test outlast its time on CI. */
+    const settle = () => Promise.race([r.whenDrawn(), wait(20_000)]);
     /** The frame drawn now (read in the same task as it is drawn). */
     const frame = () => {
       r.renderNow();
@@ -289,12 +290,12 @@ async function measure(page: import("@playwright/test").Page, look: "standard" |
     if (lk !== "light") {
       const thumbs = (r as unknown as { thumbs: Map<string, string> }).thumbs;
       thumbs.clear();
-      const icon = r.thumbnail("Pine");
+      const icon = await r.thumbnailAsync("Pine");
       thumbs.clear();
       r.setObjectFade({ x: 0, y: 0, radius: 60 });
       r.setObjectsHidden(true);
       const mode = internals.uniforms.objectFade.value.w;
-      const iconFaded = r.thumbnail("Pine");
+      const iconFaded = await r.thumbnailAsync("Pine");
       out.icon = { drawn: !!icon, same: icon === iconFaded, faded: mode > 0, kept: internals.uniforms.objectFade.value.w === mode };
     }
     r.dispose();
@@ -319,7 +320,7 @@ for (const look of ["standard", "high"] as const)
     page.on("pageerror", (e) => errors.push(String(e)));
     page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
     await page.setViewportSize({ width: 1280, height: 900 });
-    await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+    await openHeld(page);
     const out = await measure(page, look);
     expect(out.look).toBe(look);
     expect(out.seen, "the objects on screen").toBeGreaterThanOrEqual(20);
@@ -353,7 +354,7 @@ test("the light look fades and hides its objects too (where the browser draws in
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  await openHeld(page);
   const out = await measure(page, "light");
   test.skip(out.look !== "light", "this browser draws with a GPU: the light look is drawn only in software (CI)");
   for (const pass of ["fade", "dither"] as const) {
@@ -373,7 +374,7 @@ const heroChunk = () => readdirSync("dist/assets").find((f) => /^hero-.*\.js$/.t
 
 test("the map's picture is the same with the view's objects faded and hidden", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  await openHeld(page);
   const out = await page.evaluate(async (file) => {
     const hero = (await import(new URL(`assets/${file}`, document.baseURI).href)) as {
       heroPicture(v: unknown, o?: { width?: number; height?: number }): Promise<Uint8Array | null>;
@@ -416,7 +417,7 @@ test("a switch to High after the programs were warmed compiles nothing for the s
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  await openHeld(page);
   const out = await page.evaluate(async () => {
     type R = import("../../src/render3d").MapRenderer;
     const Make = window.dgm3d!.renderer.constructor as new (c: HTMLCanvasElement) => R;

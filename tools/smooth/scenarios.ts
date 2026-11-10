@@ -32,36 +32,34 @@ const tile = (page: Page, p: [number, number]) => page.evaluate(([x, y]) => wind
 /** Open the generated map in the editor and wait until it is idle. */
 export async function openMap(page: Page, url: string, size: number, topDown: boolean): Promise<void> {
   await page.goto(`${url}/#s=${SEED}&z=${size}&d=n&t=${THEME}`);
-  await page.getByText(/All \d+ checks passed/).waitFor({ timeout: 300_000 });
-  await page.getByRole("button", { name: "Refine this map" }).click();
-  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 180_000 });
+  // the page opens a generated map straight into the editor: the hooks the e2e specs wait on (tests/e2e/open.ts) are
+  // the signal, not any text on the page
+  await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 300_000 });
   await page.bringToFront();
   await page.getByRole("button", { name: "Top-down", exact: true }).waitFor();
   if (topDown) await page.getByRole("button", { name: "Top-down", exact: true }).click();
-  await settle(page, false);
+  await settle(page);
 }
 
 /** Wait for the editor, the water worker and the drawn water to be done (the harness's "idle"). Returns ms taken. */
-export async function settle(page: Page, afterHistory: boolean): Promise<number> {
+export async function settle(page: Page): Promise<number> {
   const t0 = Date.now();
   await page.waitForFunction(() => !!window.dgmEditor && !window.dgmEditor.force() && !window.dgmEditor.pendingTerrain(), null, { timeout: 180_000 });
   await page.evaluate(() => window.dgmEditor!.idle());
   await page.evaluate(() =>
     Promise.race([window.dgmEditor!.worker.whenWaterSettles(), new Promise((_, no) => setTimeout(() => no(new Error("water did not settle within 180 s")), 180_000))]),
   );
-  // the drawn water follows the worker's; its status text says "Water settled" except right after a history step
-  await page
-    .waitForFunction(
-      (history) => {
-        const r = window.dgm3d!.renderer as unknown as { waterQueue?: { size: number } };
-        const bar = [...document.querySelectorAll(".water-bar")].some((e) => (e.textContent ?? "").includes("Water settled"));
-        const checking = [...document.querySelectorAll(".checks-dot")].some((e) => /Checking|Settling/.test(e.getAttribute("title") ?? ""));
-        return !r.waterQueue?.size && !checking && (history || bar);
-      },
-      afterHistory,
-      { timeout: 15_000 },
-    )
-    .catch(() => undefined);
+  // the drawn water follows the worker's: every water chunk is drawn (renderer.waterDrawn: none queued, with the mesh workers or waiting for a frame) and the header's checks pill (its
+  // aria-label, "Checks: Ready to play", "Checks: Settling…", "Checks: Checking the map"; tests/e2e waits on the same
+  // label) is no longer at work. A wait that never ends fails the run: it must not pass for "settled".
+  await page.waitForFunction(
+    () => {
+      const checking = [...document.querySelectorAll(".checks-dot")].some((e) => /^Checks: (Checking|Settling)/.test(e.getAttribute("aria-label") ?? ""));
+      return window.dgm3d!.renderer.waterDrawn && !checking;
+    },
+    null,
+    { timeout: 180_000 },
+  );
   const ms = Date.now() - t0;
   await page.waitForTimeout(600); // late presentation work stays inside the timed part
   return ms;
@@ -139,7 +137,7 @@ const orbitFor = (page: Page, ms: number) =>
   );
 
 async function chooseBrush(page: Page): Promise<void> {
-  await page.keyboard.press("1");
+  await page.keyboard.press("2"); // Raise (1 is Select)
   const row = page.getByRole("group", { name: "Raise options", exact: true });
   await row.waitFor();
   // Size at its largest at this map size (128 where the map allows)
@@ -153,7 +151,7 @@ async function chooseBrush(page: Page): Promise<void> {
 async function chooseCraterize(page: Page): Promise<void> {
   const slow = page.getByRole("button", { name: /^Slow forces/ });
   if ((await slow.count()) && (await slow.first().getAttribute("aria-pressed")) === "true") await slow.first().click(); // Fast
-  const button = page.getByRole("group", { name: "Forces", exact: true }).getByRole("button", { name: "Craterize (8)", exact: true });
+  const button = page.getByRole("group", { name: "Forces", exact: true }).getByRole("button", { name: "Craterize (Shift+2)", exact: true });
   if ((await button.getAttribute("aria-pressed")) !== "true") await button.click();
   const row = page.getByRole("group", { name: "Craterize options", exact: true });
   await row.waitFor();
@@ -203,18 +201,18 @@ export const DRIVERS: Record<Scenario, ScenarioDriver> = {
     async prepare(page, spots) {
       await chooseBrush(page);
       await drag(page, spots!.from, spots!.to); // warm-up stroke, undone
-      await settle(page, false);
+      await settle(page);
       await page.keyboard.press("Control+z");
-      await settle(page, true);
+      await settle(page);
     },
     async timed(page, spots) {
       const settleMs: Record<string, number> = {};
       await drag(page, spots!.from, spots!.to);
-      settleMs.stroke = await settle(page, false);
+      settleMs.stroke = await settle(page);
       await page.keyboard.press("Control+z");
-      settleMs.undo = await settle(page, true);
+      settleMs.undo = await settle(page);
       await page.keyboard.press("Control+y");
-      settleMs.redo = await settle(page, true);
+      settleMs.redo = await settle(page);
       return { settleMs };
     },
   },
@@ -224,9 +222,9 @@ export const DRIVERS: Record<Scenario, ScenarioDriver> = {
       await chooseCraterize(page);
       await clickTile(page, spots!.river); // warm-up force, undone
       await forceDone(page);
-      await settle(page, false);
+      await settle(page);
       await page.keyboard.press("Control+z");
-      await settle(page, true);
+      await settle(page);
     },
     async timed(page, spots) {
       const settleMs: Record<string, number> = {};
@@ -234,9 +232,9 @@ export const DRIVERS: Record<Scenario, ScenarioDriver> = {
       await clickTile(page, spots!.river);
       await forceDone(page);
       const forceMs = Date.now() - t0;
-      settleMs.force = await settle(page, false);
+      settleMs.force = await settle(page);
       await page.keyboard.press("Control+z");
-      settleMs.undo = await settle(page, true);
+      settleMs.undo = await settle(page);
       return { settleMs, forceMs };
     },
   },

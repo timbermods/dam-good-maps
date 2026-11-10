@@ -159,11 +159,20 @@ nothing else is recorded meanwhile. Each phase records the median, 95th and 99th
 over 50 and 100 ms, the game speed reached and the game's memory; the result also has the time from starting the new
 game to its interface. The game runs several days during the probe-speed phase, so the map's end record comes later.
 
+## The game's light (DGM Probe 0.3.3)
+
+Every map's result has `lights`: every game hour and at each moment, read only, the ambient as the engine holds it
+(`RenderSettings.ambientMode`, its intensity and three colours, `ambientProbe`'s 27 coefficients and the probe evaluated
+by direction), the shader globals URP sets from it and the sun (`mod/src/LightReader.cs`). The renderer's `GAME_LIGHT`
+takes its ambient probe from them (docs/progress/3d-view.md, "The game's ambient probe, captured").
+
 ## What the game is compared with
 
 - The model (`runner/model.ts`: the cycle model of `investigation/cycles`) starts from what the game loads:
-  the file's water and the outflows the file stores, its momentum. A file that stores every outflow as `"0"`
-  starts every river at rest, in the game and in the model.
+  the file's water and the outflows the file stores, its momentum. On a map with caves or overhangs (several
+  water levels) each tile plays its top wet column's water and outflows. A file that stores every outflow as
+  `"0"` starts every river at rest, in the game and in the model: since generator 0.10.4 (#611) that is every
+  generated map with a 3D form (#532 asks whether such a map should store its stacked settle's outflows).
 - The start's water (`drought-start-water`, `m9a-badwater` and the sampled tiles) is the water the project's
   own `start.water` rule counts: clean water a pump reaches from a shore the start walks to within the
   difficulty's walk, and the whole bodies of water it belongs to.

@@ -159,6 +159,9 @@ export interface KeptStep {
   readonly built: BuildResult;
 }
 
+/** A History step asked for that is no longer there (`MapSession.stepIndex`, #884). */
+export const STEP_GONE = "That step is gone: a newer edit replaced it.";
+
 export interface HistoryItem {
   label: string;
   /** The (first) operation of the step. */
@@ -1418,6 +1421,14 @@ export class MapSession {
 
   /** The steps undo can take back and redo bring back (the steps below the save point, once the
    *  replay differed, are not listed: the map as saved is the earliest state, D455). */
+  /** Where History step `seq` (its first operation's number, `HistoryItem.seq`) stands in `history()` now, or null when
+   *  it is gone (an undone step a newer edit replaced). A History row clicked while a Naturalize stroke lands is found
+   *  by its step, not by where it stood before the stroke went on the history (#884). */
+  stepIndex(seq: number): number | null {
+    const k = this.history().findIndex((h) => h.seq === seq);
+    return k < 0 ? null : k;
+  }
+
   history(): HistoryItem[] {
     const item = (e: HistoryEntry, applied: boolean): HistoryItem => {
       const first = e.ops[0];

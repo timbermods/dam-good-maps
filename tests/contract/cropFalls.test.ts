@@ -4,7 +4,7 @@
 // X 40 · Y 80 leaves unheld, the start at X 83 · Y 86 staying in it;
 // generator 0.10.11 makes 3D forms only at 128² and over, D503, so a 64² map has none to cut; the fixture moved twice:
 // since generator 0.10.11's maps, #726, D148, it was the corner at X 60 · Y 71 of seed 2, which left three blocks there
-// unheld, and since generator 0.10.12's, whose starts frame the map (D507), seed 2's map has none that leaves a
+// unheld, and since generator 0.10.13's, whose starts frame the map (D507), seed 2's map has none that leaves a
 // block unheld and keeps the start (corners scanned in steps of four, the 48 × 48 crops; of seeds 1–3 only seed 1's has one), so
 // seed 1's, D148). A crop whose edge
 // leaves every block held goes ahead, and its file's ground is all supported.

@@ -15,6 +15,7 @@ import { BufferAttribute, BufferGeometry, DoubleSide, Mesh, ShaderMaterial, type
 import type { Cell } from "./blockGhost";
 import { LAYERS } from "./model";
 import { WALL_CLOCK, type Clock } from "./clock";
+import { onAidLayer } from "./aidLayer";
 
 /** A map's columns as an edit compares them: the heights, and the listed columns' masks over the whole map (0 on a
  *  plain tile, `model.ts` `columnMasks`; absent when no column is listed). */
@@ -237,7 +238,7 @@ export class EditGlow {
     this.mesh.renderOrder = 8;
     this.mesh.visible = false;
     this.mesh.name = "edit.glow";
-    scene.add(this.mesh);
+    scene.add(onAidLayer(this.mesh));
   }
 
   /** An edit's cells (`editedCells`) landed: they glow with any still glowing, against the columns as they are now

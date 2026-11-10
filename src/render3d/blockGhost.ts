@@ -9,6 +9,7 @@
 // for each kind, rebuilt only when a list or the layer cut changes.
 
 import { BoxGeometry, InstancedMesh, Matrix4, ShaderMaterial, type Scene } from "three";
+import { onAidLayer } from "./aidLayer";
 
 /** A tile's change: its index, and its level before and after. */
 export interface GhostTile {
@@ -107,7 +108,7 @@ export class BlockGhost {
     mesh.frustumCulled = false;
     mesh.renderOrder = 9;
     mesh.name = "brush.blocks";
-    this.scene.add(mesh);
+    this.scene.add(onAidLayer(mesh));
     this.mesh = mesh;
   }
 
@@ -262,7 +263,7 @@ export class BlockCells {
       mesh.frustumCulled = false;
       mesh.renderOrder = 9;
       mesh.name = `blocks.${kind}`;
-      this.scene.add(mesh);
+      this.scene.add(onAidLayer(mesh));
       st.mesh = mesh;
     }
     st.mesh.count = writeCellMatrices(st.cells, CELL_SCALE[kind], cut, st.mesh.instanceMatrix.array as Float32Array);

@@ -528,18 +528,35 @@ shadow and fog code). Programs: blob entry 32 (vs_4_0) and 176 (ps_4_0); "vs n" 
   moves sideways (vs 381-395, added at vs 486): by 0.15 tile × saturate(2 − 20 d) × max(0, 1 − 100 |f|) along its
   corner's direction, d the vertex's depth over its column's floor eased old to new by `_TickProgress`, |f| (capped at 1)
   the flow above. So it is full at 0.05 deep or less and gone at 0.1, full in still water and gone from |f| 0.01 (an
-  outflow of 0.14). Geometry: the film's outline at a shore shifts by up to 0.15 tile.
+  outflow of 0.14). Geometry: the film's outline at a shore shifts by up to 0.15 tile. Read exactly (fix/water-shore):
+  the vertex moves toward its own tile's middle, an edge's middle vertex straight across its open side by 0.15, a corner
+  across its one open side by 0.15 or, both its sides open, along its diagonal by −2n × 0.15 (0.21 a side), a corner
+  between two linked sides not at all; a neighbour is linked when it has water; the Low quality's program is the same.
+  Followed (`shoreFilm.ts`): our mesh's four corners a tile take the shift × the depth's share, the vertex shader the
+  flow's share, and the terrain draws the margin the film leaves as dry ground on the same outline; a corner with both
+  sides open is cut a little deeper than the game's sixteen vertices cut it, and the map's edge counts as linked.
 - **P1, falls.** High quality only: four taps of `_OldWaterfalls`/`_NewWaterfalls` (t15, t16, `FindWaterfalls`'
   output, which the game makes only with High-quality water) ±0.075 round the pixel, old to new by `_TickProgress`,
   sharpened (ps 148-276). This mask w takes off the refraction (P2) and the camera highlight (P12), × (1 − w), and
   moves the see-through from `_TransparencyDepth` 0.35 to `_TransparencyWaterfallDepth` 0.2 (ps 883-884). The other
   `_Waterfall*` values (speed, strength, noise, colour, jagged edge, thresholds) are not in cb4: #740 holds for those,
-  not for `FindWaterfalls`, whose textures are read. No whitewater, no foam. (Which pixels the mask covers, the face
-  or the whole tile, is the compute shader's, not read here.)
+  not for `FindWaterfalls`, whose textures are read. No whitewater, no foam. The compute shader
+  (`WaterColumnPostprocessor`, read for fix/water-refraction): `CalculateHeights` gives each tile's water mesh sixteen
+  heights (four by four: an edge vertex takes a linked neighbour's surface, an inner one max(its own, a linked
+  neighbour's − 0.3), none under its own); `FindWaterfalls` keeps smoothstep(0.35, 0.6, max(highest − lowest,
+  highest − its own surface)) per tile and column, so the highest linked neighbour's rise over its own surface. A
+  neighbour is linked when their columns overlap, no barrier stands between, it has water and its surface is under the
+  tile's ceiling (`ProcessColumns`); a corner link breaks where a tile between is unlinked or wet (`BreakCornerLinks`).
+  So the mask covers the whole tile a fall lands in, whole from a step of 0.6; the pixel's four taps weigh |dx| × |dz|
+  from the nearest tile corner and leave out a tile without that column. Not read: which column a tap takes on a tile
+  with several (ours: the surface water), the barriers (no building stands in our water).
 - **P2, refraction.** The screen position behind is offset by `PerlinNoise3` (t10) at (xz + T × `_DistortionSpeed`
   0.075) × `_DistortionScale` 1.1, × `_DistortionWeights` (0.003, 0.004) of the screen; full within 40 units of the
   camera, none past 60 (`_DistortionDistanceFalloff`), × (1 − w); kept only where it lands behind the water (ps
-  285-313).
+  285-313). The offset is one scalar, (2n − 1) of the noise's R, along (0.003, 0.004): not a normal. The test compares
+  the opaque scene's depth at the moved and the pixel's own position (the water is not in it). PerlinNoise3 (2048²,
+  R = G = B): 10 % of its texels 0 and 7 % 255, its autocorrelation's half-width 78 texels; (2n − 1) a mean of −0.064
+  and a spread of 0.607.
 - **P3, depth.** From the camera's depth texture: the gap between the water and what is behind it, × the view's sine,
   a vertical depth d; u = saturate(d / `_MaxDepth` 5) (ps 315-347). It goes to 0 at every shore and against a
   submerged wall.
@@ -551,13 +568,52 @@ shadow and fog code). Programs: blob entry 32 (vs_4_0) and 176 (ps_4_0); "vs n" 
   Three ride these coordinates: `PhysicalWaterAlbedo` (t4, `_MainTex`, 2048² BC7) multiplies the colour, `Water_N`
   (t6, `_BumpMap`, 4096² BC7) is the normal, `WaterContaminationAlbedoEmissionSource` (t9) is badwater's pattern.
   Still water's textures stay put, cross-fading between the jumped copies. Nothing else is drawn along the flow: no
-  streak term; any streak is the albedo texture stretched by the flow.
+  streak term; any streak is the albedo texture stretched by the flow. The albedo by scale (`--textures`, its first
+  principal component, a near-neutral brightness, spread 13.7, skew +3.0): its power by wavelength 0.2 % at 8–16
+  tiles, 2 % 4–8, 6 % 2–4, 13 % 1–2, 20 % 0.5–1, 25 % 0.25–0.5, 21 % 0.125–0.25, 13 % under; a blur over 0.125, 0.25,
+  0.5, 1 and 2 tiles leaves 0.47, 0.32, 0.19, 0.09, 0.04 of its spread. Its bright lines are dense and bright in
+  patches and sparse between them: the spread left in each 0.25-tile neighbourhood runs 6.4 / 10.9 / 17.2 (10th /
+  50th / 90th percentile) and follows the neighbourhood's mean (correlation 0.87). Ours since fix/water-albedo-mottle
+  (`waterTextures.ts` `makeWaterTexture`): the network × a broad Gaussian field's exponential, remapped by rank to
+  that distribution (0.49, 0.32, 0.18, 0.09, 0.03; 6.0 / 10.1 / 17.7, 0.92); before it, crisp lines evenly bright
+  (0.34, 0.22, 0.15, 0.10, 0.04; 9.4 / 12.8 / 16.1, 0.68), 5 % of its power at 1–4 tiles against the game's 19 %. Under 0.125 tile
+  (fix/water-texture-resolution, `--textures`' resolution lines): 8.9 % to 512²'s texel pair (0.065 tile), 2.75 % to
+  1024²'s (0.033), 1.2 % under: its crisp cell edges and a grain in its bright gaps. The spread of its part finer than
+  512²'s pair is 2.74 in its top and 2.08 in its first mip (61 texels a tile), the mip a camera at about 50 pixels a tile
+  draws. Ours since: 2048², two bytes a texel, the lines flat-topped with edges two or three texels wide and a grain a
+  texel, at 0.094 / 0.0275 / 0.013 and 2.77 / 2.08; its second component (red against blue, nearly no luma) still holds
+  far less than the game's under 0.25 tile (4.6 % to its 26 %).
 - **P6, detail albedo.** `PhysicalWaterDetailAlbedo` (t5) at xz × 0.015 (67 tiles a repeat), still
-  (`_DetailAlbedoSpeed` 0), overlaid on colour × albedo (ps 462-477).
+  (`_DetailAlbedoSpeed` 0), overlaid on colour × albedo (ps 462-477). Read exactly (fix/water-detail): a = P4's colour
+  × P5's albedo, per channel r, g, b against the detail's r, g, b: 2 a d where a ≤ 0.5, 1 − 2 (1 − a)(1 − d) above (a
+  standard overlay, no weight, no depth or contamination gate; clean water's a is far under a half, so it is × 2d);
+  then P7's source lift. Badwater's base colour takes the same sample the same way, mixed in by (1 − c / 2) × (1 − the
+  source mask) (ps 690-712). The overlay is straight in d, so the pattern leaves the mean where the texture's mean put
+  it. The game's Low quality (no `_HIGH_QUALITY_WATER_ENABLED`; its ps, blob entry 180) samples t5 and overlays it
+  identically (and samples `_MainTex` and `_BumpMap` by the flow's two phases too, so the light look's flat flow
+  textures are ours, not the game's Low quality). The texture (`--textures`; 2048², BC7): mean 69.7/88.7/95.3, spread
+  9.9/8.9/3.7; broad clouds (its first principal component, a greenish brightness along (0.73, 0.66, 0.19), 96 % of
+  the variance, spread 13.6, skew +2.0: mostly dim, sparse bright patches with a fine swirl inside; its power by
+  wavelength 2 % at 32–64 tiles, 17 % 16–32, 29 % 8–16, 23 % 4–8, 12 % 2–4, 7 % 1–2, 10 % under a tile; half-width
+  1.5 tiles), its second (blue against red, spread 2.7) a quadratic of the first but for 0.89, its third nothing.
+  Ours (`waterTextures.ts` `makeDetailField`): a Gaussian field from that spectrum, remapped by rank to its
+  percentiles, in badwater's texture's B (512², 7.7 texels a tile: the game's 31 a tile show only close up; at the
+  opening camera the game's own mips are as coarse), the second component by the quadratic; both looks and the light
+  look draw it.
 - **P7, water sources.** In play `WaterSourceRenderingService` marks each source's footprint in `_WaterSourceMask`
   (t18); the shader draws `WaterSourceShape` (t12) in polar coordinates round its centre, scrolling outward at 0.04 T,
   fading with distance (ps 356-418): it lifts the albedo (half way to max(colour, pattern × detail), ps 477) and tints
-  badwater's emission by `_Water_Source_Color` × `_Water_Source_Strength` 0.8.
+  badwater's emission by `_Water_Source_Color` × `_Water_Source_Strength` 0.8. Read exactly (fix/water-shore; the
+  decompiled `Timberborn.WaterSourceRendering`): only the seeps (2 × 2) and the badwater source (3 × 3) carry a
+  `WaterSourceRendererSpec`, the plain water source none; a seep shows it while it can run (not in a drought, past its
+  activation), a badwater source while its strength is over 0. Over the footprint, v the point from its middle in
+  footprints and r = |v|, k = max(0, 1 − 2r): s = saturate(8 × shape × k² + min(1, 2.5 k⁶)), the shape's R at (2r −
+  0.04 T, atan / 2π), its top mip. Badwater's emission pattern goes from t9's G to its B by s, × (1 + s × (colour ×
+  strength − 1)); its detail overlay × (1 − s), its distortion × max(1 − s, 0.1). The shape (1024², grey): mean 62.9,
+  spread 61.8, a quarter under 6, its power mostly at 4–16 cycles a repeat, half-width 27 texels; t9's B mean 188.9.
+  Followed (`GAME_WATER_SOURCE`, `makeSourceShape`, `waterSourcePattern`): in every look, under our rings; t9's B at
+  its mean (ours carries the detail albedo there); not yet its distortion held back over the source, nor a seep's
+  activation day.
 - **P8, smoothness and metallic.** `WaterMetalAndGloss` (t7) twice at xz × 0.01, panned by T × (−0.008, −0.002) and
   (0.01, 0.004): metallic R1 + R2, smoothness soft-light(A1, A2) (ps 480-499; `WATER_SURFACE.smoothness`).
 - **P9, contamination.** Q8 confirmed (ps 500-790), with one correction: saturate(1 − c / 0.6) gates the orange glow
@@ -567,8 +623,20 @@ shadow and fog code). Programs: blob entry 32 (vs_4_0) and 176 (ps_4_0); "vs n" 
   the intensity is overlaid with the detail albedo (t5, P6's; not the flow's albedo: ps 690-712), less as c rises
   (mixed in by (1 − c / 2)), then × `_DepthGradients` G and the glow; the emission is lerp(`_Detail_Contamination_Color_A`,
   `_B`, `_ContaminationVisualizationNoise`) × t9.y (t9.z on a source's mask) × t × a soft modulation on a 10-tile grid
-  (F1² + 0.1 c held to 0.25–0.55, its nodes unjittered) × 4.5 easing to 1.2 by c = 0.4
-  (`_Detail_Contamination_Intensity_*`); badwater's normals are × (1 + c) (`_Contamination_Normal_Strength` 2).
+  (F1² + 0.1 c held to 0.25–0.55) × 4.5 easing to 1.2 by c = 0.4 (`_Detail_Contamination_Intensity_*`); badwater's
+  normals are × (1 + c) (`_Contamination_Normal_Strength` 2). *Corrected 2026-11-09 (`fix/badwater-colour`): the grid's
+  nodes drift. The literal `0x33800001` (2⁻²⁴) prints as 0.000000 in the six-decimal disassembly, which read as nodes
+  held still; re-read with hex literals, each cell's node sits at 0.5 + 0.5 (sin(hx × 0.3 T), cos(hy × 0.3 T)), hx and
+  hy the cell's own 24-bit hash (y' = cell.y ^ 0x41c64e6d, h = y' (y' + cell.x), h ^= h >> 5, hy = h × 0x27d4eb2d,
+  hx = y' ^ (hy << 3), each >> 8) × 2⁻²⁴, T `_NonlinearTime`. The modulation's mean at pure badwater rises from 0.302
+  to 0.349. Over a source the grid and the share the intensity eases by are each max(the source's pattern s, itself)
+  (ps 762, 771). No other literal hides under the six decimals.*
+  *Read 2026-11-09 (`fix/badwater-low-light`, `--textures` printing t9's stored mips): Unity made t9's mips in linear
+  values (it is an sRGB texture; the game draws in gamma space and samples it raw), so its G's mean climbs with each mip
+  as the sparse bright lines blur into the black: 19.6, 20.9, 23.2, 26.7, 31.6, 37.4, 44.4, 50.4, 52.7 from its top
+  (2048²) to 8²; its R 122.1 to 126.6; its B 188.9 to 194.9. A box mean in stored values reproduces none of them; one in
+  linear values reproduces all. t9 is read through inline sampler s4 (state 0x1: bilinear, nearest mip, repeating, no
+  anisotropy); the source mask (t18) through s5 (0x54: point, clamped).*
   Followed since (`fix/water-badwater`): the pattern (our own texture at t9's measured statistics) and the emission in
   both looks; the colour formula is built behind `BADWATER_FORMULA`, but the pixel judge found it farther from the
   game's frames than our calibrated crimson (it draws pure badwater a dark crimson, L* 8 a level deep lit, where the
@@ -585,21 +653,59 @@ shadow and fog code). Programs: blob entry 32 (vs_4_0) and 176 (ps_4_0); "vs n" 
   floor, two game samples' distance at the game's own spread, before its water rulings count: on the badwater shots
   9.2 against a floor of 11.4 (34.8 in the day's light), on the clean start shots 12.2 against 13.6. Also found there:
   the game sets `RenderSettings.reflectionIntensity` to its stage's 1 every frame (`Sun.UpdateColors`), not the
-  scene's 0.65.
+  scene's 0.65; both looks take 1 since `fix/water-light`.
 - **P10, selection.** `_HighlightMask` (t17, screen space, `SelectionSystem`) mixes the selection's colour in, up to
   `_HighlightMaskLimit` 0.4 (ps 788-793): the game's own editing aid.
-- **P11, normal.** `Water_N` from P5, xy × (1 + c) × `_NormalBoost` 4, renormalized, into the world by the mesh's
-  tangent frame (ps 794-813).
+- **P11, normal.** `Water_N` from P5, xy × (1 + c), renormalized, into the world by the mesh's tangent frame: the
+  normal URP's light takes, the ambient, the sun, its GGX and the reflection (ps 782-785, 904-910). × `_NormalBoost` 4
+  more only for P12's camera highlight (ps 794-813). (*Corrected 2026-11-09, `fix/fall-streaks`: this read the boost
+  as the light's too, and both looks lit the boosted normal, the fall's sheet's streaks about twice the game's.*) The
+  frame (ps 118-130): the normal's x along the object's x, its y along ± cross(up, x) by the vertex's tangent sign (the
+  water mesh sets no tangents); the probe's frames read it as the map's +y. `Water_N` measured further
+  (fix/open-water-gap, `--textures` and its stored mips; numbers only): 4096², 246 texels a tile; its slopes' power by
+  wavelength 16–8, 8–4, 4–2, 2–1, 1–0.5, 0.5–0.25, 0.25–0.125, 0.125–0.0625, under: 0.002/0.017/0.065/0.294/0.273/
+  0.140/0.106/0.065/0.040 (x and y within 0.013); a tenth of it finer than 0.125 tiles; Gaussian (|s| 95 % 0.286, 99 %
+  0.345 at a spread of 0.118); its mean +0.0102/+0.0119 as the shader unpacks it (a tilt of 0.9°, × 4 in the
+  highlight); its stored mips are the box mean of the top (61 texels a tile: spread 0.114/0.117); trilinear, aniso 16,
+  no mip bias. Ours since (`makeWaterNormal`, 1024²): the gradient of a Gaussian height at those bands, spread and mean. What
+  its size holds over 1024² (fix/water-texture-resolution): the spread of its slopes finer than 1024²'s texel pair is
+  0.016 / 0.018 (x / y) in its top, 0.011 / 0.012 in its first mip (123 texels a tile) and 0.004 in its second (61, the
+  pair's corners), so a camera under about 61 pixels a tile draws nothing from it that 1024² lacks, and up to 123 a
+  tile 0.9 % of its slopes' variance; ours stays 1024².
 - **P12, camera highlight.** As `WATER_SURFACE.highlight` says (ps 814-862), × (1 − w), × the sun's colour, into the
   albedo and the emission. Our port matches it term for term.
 - **P13, see-through.** Q8 confirmed (ps 866-889): `_CameraOpaqueTexture` at P2's position, overlaid with the albedo
   (with its highlight) by 0.8, desaturated to 0.3, at lerp(0.35, 0.2, w) × (1 − u) × 0.5. It replaces part of the
   albedo, so the ground behind is lit a second time by the water's light.
 - **P14, floor clip.** A pixel below its column's floor is discarded (ps 891-904).
-- **P15, light.** URP Lit (ps 905-1251): ambient from the SH probe, turned to display values; the reflection probe
-  `unity_SpecCube0` at URP's mip for the roughness and URP's environment term (F0 0.04 at metallic 0, (1 − N·V)^4); the
-  sun with soft cascaded shadows (Lambert diffuse and URP's GGX); additional lights; exponential fog. The emission
-  (P12, P9) is added unlit.
+- **P15, light.** URP Lit (ps 905-1251), read term by term (fix/water-sky, 2026-11-07). The albedo it lights is P4's
+  colour × P5's albedo (overlaid with P6's detail), the highlight × `_MainLightColor` in it (P12, ps 862) and the ground
+  behind mixed in (P13, ps 866-889); metallic m (0 on the water: `WaterMetalAndGloss` red, `_Contamination_Metallic`), smoothness s
+  (P8), perceptual roughness pr = 1 − s, roughness r = max(pr², 0.0078125).
+  - Diffuse: albedo × 0.96 (1 − m) (ps 954), × (the SH probe by the normal, `unity_SHAr`..`SHC`, turned to display
+    values, ps 935-953) for the ambient, × (`_MainLightColor` × N·L × the soft cascaded shadow × `unity_LightData.z`,
+    ps 1132-1177) for the sun; additional lights the same in a loop (ps 1198-1241; none by day).
+  - Environment (ps 1146-1173): `unity_SpecCube0` sampled at reflect(−V, N), mip pr × (1.7 − 0.7 pr) × 6, decoded by
+    `unity_SpecCube0_HDR` (x the intensity), × (f0 + (grazing − f0) × (1 − N·V)^4) / (r² + 1), f0 = lerp(0.04,
+    albedo, m) = 0.04, grazing = saturate(s + 1 − 0.96 (1 − m)) = saturate(s + 0.04); added to the ambient's diffuse
+    (ps 1173). No occlusion. The probe is the scene's baked one (`sharedassets1.assets`
+    "TimberbornEnvironmentRelfectionProbe", the terrain's too), the same at every hour: the day only sets
+    `RenderSettings.reflectionIntensity` (1 at every stage). By the reflected direction's height at the water's mips
+    (4.4 to 5.6) it is lighter toward the horizon (its haze: 0.46/0.55/0.62 at mip 5, 0.15 up) than straight up
+    (0.37/0.46/0.61) and darker below (the ground); `waterPalette.ts` `WATER_PROBE`, `tools/reflection-probe.ts`.
+  - The sun's GGX (ps 1178-1193): f0 × r² / (d² × max(0.1, (L·H)²) × (4r + 2)), d = (N·H)² (r² − 1) + 1.00001, × the
+    sun's radiance above; the highlight and badwater's glowing lines are the emission (ps 863, 890), added unlit; then the
+    exponential fog (ps 1245-1249).
+  - So the two terms #839 found (the diffuse share 0.96, the environment's head-on part f0 / (1 + r²)) are this same
+    lighting, not separate terms.
+  Ours: both looks draw all of it (`WATER_LIGHT`: the probe by direction, its head-on part, the GGX and the game's
+  sun colour on the highlight and glint, the 0.96), with P6's detail overlay at its mean: the light alone lifted
+  clean water, already lighter than the game's in the shallows, further away, and P6's missing overlay was that
+  excess; together they read nearer the game than dev in both looks (docs/progress/3d-view.md, fix/water-sky). Not read from the game, assumed: the HDR decode values the game uploads
+  (intensity 1, no RGBM: the probe is BC6H); that the water's `unity_SpecCube0` in play is that probe (no reflection
+  probe component in the decompiled C#, no frame capture); the probe's turn against the editor's map axes (its side
+  faces differ by about a tenth: averaged round the turn); the SH the game uploads (D497's frame capture still to do);
+  the cube's seamless filtering across faces (sampled within a face).
 - **The edge where water meets land.** No foam, no shore line, no intersection or depth-fade term: only P3's depth
   (the colour lightens toward the shore) and P13's see-through (17.5 % at most, at the shore). `_Foam*`,
   `_ShorelineThreshold`, `_InvFade`, `_FadeLimit` are not in cb4: leftovers. #715 confirmed.
@@ -621,30 +727,34 @@ hook). (a) follows the game's term; (b) ours only; (c) the game's, missing or di
 | Crests' light teal (`WATER_CREST` × 0.3 by the ripples' slope) | S | (b) | none |
 | `chop` streaks in the streak colours (× 0.45) | H | (b) | none |
 | Light network (`cracks`), ribbons, broad swells, rolling packets, × (0.8 + 0.4 broad), darker with speed, `hlRough` | H | (b) | none: the only light terms are P12 and P15 |
-| Albedo texture carried by the flow | S, H | (c), missing | P5: `PhysicalWaterAlbedo` × colour (ps 419-437) |
-| Ripple normals: cosines carried by our drift (calm 0.07) | S | (c) | P5, P11: `Water_N` carried by the flow, × 4 (ps 438-446, 794-813) |
-| Ripple normals: three cosines rippling in place over time (`hlRippleNormal(g, time)`), not carried by the flow | H | (c) | P11 |
+| Albedo texture carried by the flow | S, H | (a): our own texture at the game's statistics, its brightness's distribution and its split across scales (`makeWaterTexture`, fix/water-albedo-mottle), at the game's 2048² and its power down to its texel (fix/water-texture-resolution) | P5: `PhysicalWaterAlbedo` × colour (ps 419-437) |
+| Ripple normals: the texture the flow carries, its own 1024² at the game's slopes' power by wavelength, spread and mean (`makeWaterNormal`, fix/open-water-gap; before it, octaves of value noise in the surface's B and A, 512², nothing finer than 0.125 tile and twice the game's power at 0.25–0.5) | S, H | (a) | P5, P11: `Water_N` carried by the flow, lit as it is, × 4 for the highlight alone (ps 438-446, 782-813, 904-910) |
 | Drift: the current × 0.65, two 12 s phases | S, H | (a) in form, (c) in rate | P5: 2.5 s phases, about 13 f tiles a second |
 | Still water's drift (0.018, −0.012) | H | (b) | P5: still textures stay put |
 | Badwater's ripples at half speed (`slow`; High's `hlT` slows only its fall strands and `bt` only its bubbles) | S | (b) | none; the game makes badwater's normals × 2 instead (P9, ps 780) |
-| Shore vertices of a still film drawn sideways | S, H | (c), missing: our mesh moves no vertex sideways | V3 (vs 381-395, 486) |
-| Detail albedo | S, H | (c), missing | P6 (ps 462-477) |
+| Shore vertices of a still film drawn sideways | S, H, light | (a): drawn back toward their tile's middle, the ground left dry (`shoreFilm.ts`, fix/water-shore); a corner open on both sides a little deeper than the game's | V3 (vs 381-395, 486) |
+| Detail albedo | S, H, light | (a): its 67-tile pattern, our own texture at the game's statistics and size, 2048², 31 texels a tile (`waterDetailAt`, `waterDetailOverlay`, fix/water-detail, fix/water-detail-resolution) | P6 (ps 462-477) |
 | Gloss: our noise round 0.25, ± 0.6 of its swing, panned | S | (a), approximate | P8 (ps 480-499) |
 | Light: sky × 1.2 + sun × 0.3 × N·L × shadow | S | (a), approximate | P15 |
-| Light: `rippleLight` over `referenceLight` | H | (c) | P15 |
-| Sky reflection (`waterSkyReflect`, `WATER.sky`, 0.65) and sun glint (`waterSunGlint`, GGX × F0) | S | (a) | P15 (ps 1149-1192) |
-| Sky reflection and sun glint | H | (c), missing | P15 |
+| Light: `rippleLight` over `referenceLight` | H | (a) under the formula (its clean and badwater colours are lit by `gameWaterLight`); (c) for our crimson | P15 |
+| Sky reflection and sun glint | S | (a): the game's (`waterEnvironment` by `WATER_PROBE`, `waterSunGlint`, the sun's colour; fix/water-sky); the probe read as heights round the turn, not by direction round the vertical | P15 (ps 1146-1193) |
+| Sky reflection and sun glint | H | (a): as Standard (fix/water-sky) | P15 |
 | Camera highlight (`waterCameraHighlight`), before and after the light | S, H | (a) | P12 (ps 814-862); ours drops it on faces by their normal, the game by the fall mask |
 | See-through share (`cleanWaterAlpha`, 0.175 × (1 − d/5)) | S, H | (a) | P13 (ps 879-889) |
-| Ground behind overlaid and desaturated (`waterGroundBehind`) | S, H | (a); small (c): ours tints with the body before light and lights the ground once | P13: the lit albedo, and the ground lit again |
-| Refraction of the ground behind | S, H | (c), missing | P2 (ps 285-313) |
-| Fall faces: see-through 0.1, no highlight, the shallowest colour | S, H | (a) | P1 (ps 883-884); the game's mask is `FindWaterfalls`', ours the face |
+| Ground behind overlaid and desaturated (`waterGroundBehind`) | S, H | (a) (fix/water-tints-behind): in the water's shader, on the half-size copy with its grade undone, overlaid with the water's albedo, × its diffuse light, fogged and graded with it, on whatever lies behind (a fall's dry cliff too); the terrain's own only where no copy is made (software, pictures) | P13: the lit albedo, and the ground lit again |
+| Refraction of the ground behind (`waterComposite`, refraction.ts) | S, H | (a): the game's weights, drift, scale and falloff; our noise at its statistics; a shore test in place of its depth test (fix/water-refraction) | P2 (ps 285-313) |
+| The composite: the see-through's share of the lit albedo replaced, the reflection, glint and emission on top, graded once, opaque (`waterComposite`) | S, H | (a) (fix/water-composite) where the frame makes the copy; a film's sliver blends by its curve (our anti-aliasing); the water alone blended where no copy is made (software, pictures, the bloom's source) | P13, P15: the water drawn opaque, its colour one composite |
+| The fall mask (`waterFallMask`, fallMask.ts): see-through 0.35 to 0.2, no highlight, no refraction on the tile a fall lands in | S, H | (a) (fix/water-refraction) | P1 (ps 148-276, 883-884), `FindWaterfalls` |
+| Fall faces: see-through 0.1, no highlight, the shallowest colour | S, H, light | (a), approximate: ours by the face | P1 (ps 883-884): the game's mesh slopes over the step, masked on the tile below |
 | Badwater's colour, ramp, glow, tint, blend | S, H | (a); `BADWATER.floor` 0.37 ours until measured (Q8); blue kept from purple ours (D154) | P9 |
 | Badwater's troughs and light patches (mottled noise) | S, H | (c); followed (`fix/water-badwater`) | P9: lerp(A, B, t9's pattern) carried by the flow |
 | Badwater's bubbles (orange dots, `BADWATER_VEIN` × 0.55) | S, H | (c); followed (`fix/water-badwater`) | P9: its emission is a flowing texture pattern, not dots |
-| A film's fade under 0.03 levels (`waterFilm`); High's sheen lifting a film's opacity | S, H | (b), our anti-aliasing (`WATER_FILM`) | P14: a hard clip |
+| A film's fade under 0.03 levels (`waterFilm`); High's sheen lifting a film's opacity | S, H | (b); gone (fix/thin-water-drawn, D154 as amended 2026-11-09): water of any depth draws as water, its edge the mesh's, multisampled | P14: a hard clip |
 | No foam, no shore line | S, H | (a) | none (#715) |
-| Sources welling: rings and bubbles in `WATER_FOAM` × 0.55 | S (both draw it) | (c): ours an editing aid (D196) | P7: the game draws its own in play (ps 356-418) |
+| Sources welling: rings and bubbles in `WATER_FOAM` × 0.55 | S (both draw it) | editing aid (D196), drawn over the game's own pattern | P7: the game draws its own in play (ps 356-418) |
+| The sources' own pattern over seeps and badwater sources | S, H, light | (a): our shape at the game's statistics, its lift, emission tint and overlay held back (`waterSourcePattern`, fix/water-shore); t9's B at its mean | P7 (ps 356-418, 477, 700-720) |
+| High's poisoned bed (the ground's own contamination under badwater, #38) | H | (b); gone (fix/water-shore, D496 as amended): the bed every look draws | none: the game's terrain shader has no underwater input |
+| The underwater bed (`GROUND.underwater`, its veins held back) | S, H, light | (b); gone (fix/open-water-gap, D154 as amended 2026-11-09): the ground under water is the terrain as it is dry (`WATER_BED` 0) | P14: the game's terrain shader has no input from the water |
 | Source glow, highlighted source, clear water, overlays, hatches | S, H | editing aids (D497) | P10 is the game's own |
 | The side and section at the map's edge | S, H | ours by need (no cut edge in the game) | none |
 
@@ -659,14 +769,65 @@ Ours only, most visible first:
 3. Small: Standard's slowed badwater ripples, High's still-water drift, a film's lifted opacity.
 
 The game's, missing or different:
-1. The flow: an albedo texture and a normal map (× 4) carried by the outflow in two 2.5 s phases (P5, P11), in place of
+1. The flow: an albedo texture and a normal map (× 4 for the highlight) carried by the outflow in two 2.5 s phases (P5, P11), in place of
    our noise; High's normals ripple in place and do not move with the flow.
 2. Clean water's colour by the game's formula on its depth (P3, P4), in both looks.
-3. High's sky reflection and GGX (P15); both looks' simplified light.
+3. High's sky reflection and GGX (P15); both looks' simplified light. Done (fix/water-sky), with P6's mean below: the
+   game's light alone lifted clean water further from the game's, P6's overlay was its excess.
 4. Badwater's flowing pattern and emissive detail (P9) in place of mottles and bubbles; its normals × 2.
-5. The still detail albedo, 67 tiles a repeat (P6).
-6. The sources' own pattern in play (P7) in place of our rings.
-7. Refraction of the ground behind (P2), and the fall mask by tile from `FindWaterfalls` (P1).
+5. The still detail albedo, 67 tiles a repeat (P6): done (fix/water-detail), its pattern in every look.
+6. The sources' own pattern in play (P7), under our rings: done (fix/water-shore), with V3's still films drawn back from
+   the shore.
+7. Refraction of the ground behind (P2), and the fall mask by tile from `FindWaterfalls` (P1): done
+   (fix/water-refraction), in Standard and High.
+
+## Q10. The terrain shader's albedo (Timberborn 1.1.2.8-ffc2de0-sw)
+
+Read the same way as Q9 (`python tools/game-water-shader.py --shader "Shader Graphs/TerrainURP" --keywords ...`,
+2026-11-08; the disassembly stays in a gitignored folder). The terrain's five materials pick their variants by keyword:
+`Grass` (every top) `_USELAYERTOOL`; `Cliff` `_SAMPLE_SPLATMAP _USELAYERTOOL _USE_TRIPLANAR_SPLATMAP`; `CliffEdge`
+`_SAMPLE_SPLATMAP _USELAYERTOOL`; `SlopeCliff` `_SAMPLE_SPLATMAP _USE_TRIPLANAR_SPLATMAP`; `SlopeCliffEdge`
+`_SAMPLE_SPLATMAP`; URP's `FOG_EXP _ADDITIONAL_LIGHTS _MAIN_LIGHT_SHADOWS_CASCADE` on all.
+
+- **A top's albedo** (the `Grass` variant's pixel program): grass = `_BaseAlbedoTex` ("Grass") at world xz ×
+  `_ProjectionUVScale` × the grass altitude ramp at y / `_AltitudeCeiling` × 2; desert = `_DesertTex` × its ramp × 2;
+  blended by the desert intensity (the 2D-array map's slice at the top's level, four taps `_BlendingMargin` round the
+  point, eased by `_TickProgress`, + `_BlendingNoiseMultiplier` × (noise − 0.5), then (v − 0.5) × `_BlendingSoftness` +
+  0.5, saturated); the field textures by the field map the same way; then × `_DetailAlbedoTex` ("GrassDetailsAlbedo",
+  at the same uv × `_DetailScale` 0.5) × 2; then contamination's pattern laid over (D154). **No moisture term**: soil
+  moisture reaches the shader only through the desert intensity, so grass with none of the desert in it is the same at
+  every moisture (ours ran deeper by the water until `fix/land-tone`).
+- **A wall's albedo** (the `Cliff` variant): the top's albedo as above, then lerped toward `_SplatAlbedoTex`
+  ("CliffDetail", triplanar at world × `_Albedo_Triplanar_Tile` 0.45, weights |n| / Σ|n|) × `_SplatAlbedoColor` (1) ×
+  lerp(`_SplatGradientMin`, `_SplatGradientMax`, y / `_AltitudeCeiling`) by `_SplatFilterTex` (the mesh's uv); the
+  normal from `Cliff_N`, triplanar at × 0.125. No detail texture on the cliff's own colour.
+- **The light** (both variants): URP's Lit under Gamma, as D497 has it: albedo × (0.96 − 0.96 × `_Metallic` 0.05) ×
+  (SampleSH(n), turned to sRGB + `_MainLightColor` × the shadow × saturate(n·L)) + the environment's and the sun's
+  specular (smoothness `_Glossiness` 0.05 × the splat filter), then `unity_FogParams.x` fog by exp2. Nothing in it
+  differs between grass and dry ground but the albedo.
+- **The textures' means by mip** (BC7, read raw, display 0–255; the start shots, 70–110 away, read about the 64²–128²
+  mips): `Grass` 67.0/72.5/24.4 at 4096², 67.4/72.9/24.8 at 64²; `Desert` 61.2/51.3/40.9 and 62.5/52.2/41.7;
+  `GrassDetailsAlbedo` 140.1/140.8/140.6 and 140.3/141.0/140.8; `CliffDetail` 67.3/61.8/51.7 (2048²) and 67.5/62.0/51.9.
+  Every mip within 2 % of the top's, so a texture's mean holds at every distance.
+- **On the probe's start shots** (`tools/water-pixel-judge.ts --samples`, the six clean-water start shots, Standard),
+  these terms with no specular, through the game's fog and post chain, against the game's pixels: dry tops 113/116/111
+  modelled, 120/122/115 in the game; grass 113/140/80 modelled, 119/146/84 in the game. The game sits the same 6–7 over
+  the model on both, its specular and what the model leaves out: so grass and dry ground take the same light, and our
+  grass's darkness was ours (dev drew grass 107/135/80 there, dry 120/122/117).
+- Used by `src/render3d/palette.ts` `GROUND.grass` and `materials.ts` `groundColor` (`fix/land-tone`).
+- **The `Grass` material's other values** (read 2026-11-08, `fix/grass-light`), for a term that might set grass apart
+  from dry ground: `_EmissionColor` 0 and `_Grayscale` 0 (the emission the program adds after the light is 0),
+  `_Normalmap_Strength` 0 and no normal texture in the variant (a top's normal is its mesh's), smoothness
+  `_Glossiness` × the splat filter (0 on a top), `_SplatGradientMin`/`Max` 1. Nothing but the albedo differs between
+  grass and dry ground. The variant with `_SHADOWS_SOFT` exists too (URP's 9-tap filter over a few shadow-map texels).
+- **The judge with the game's texture taken out** (`tools/land-texture-check.py`, 2026-11-08): the game's textures are
+  world-anchored (base at world xz / 16, detail at xz / 32; world x, z the tile's x, y, the orientation that correlates
+  with the game's pixels, 0.58 on grass and 0.56 on dry against 0.23 or less for any other), so its pixels at a cluster
+  of samples sit over or under its light by where the cluster falls on the texture. On the six start shots the game's
+  grass texture is 4.1 % over its mean at riverValley-128-1's 108 grass samples (+2.7 luma on screen), 3.3 % under at
+  riverValley-128-2's 36 (−2.1). Taken out, and with ours drawn on the texture means (`GROUND_MEANS`), the game's pixels
+  sit +1.3 luma over ours on grass and +1.0 on dry in Standard (+1.6 and +1.0 in High): grass and dry ground take the
+  game's light in ours to within a luma of each other.
 
 ## Simplified water simulation spec (browser implementation)
 

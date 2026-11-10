@@ -13,6 +13,7 @@
 import { BufferAttribute, BufferGeometry, DoubleSide, Mesh, ShaderMaterial, Vector2, Vector3, type Scene } from "three";
 import type { DroughtLine } from "../core/sim/droughtLine";
 import { droughtLineGeometry, LINE_MIN_PX, TINT_ALPHA, TINT_COLOR, type QuadBuffers } from "./droughtLineGeometry";
+import { onAidLayer } from "./aidLayer";
 
 const lineMaterial = (): ShaderMaterial =>
   new ShaderMaterial({
@@ -133,7 +134,7 @@ export class DroughtLineLayer {
     mesh.renderOrder = order;
     mesh.name = name;
     mesh.visible = !this.hidden;
-    this.scene.add(mesh);
+    this.scene.add(onAidLayer(mesh));
   }
 
   /** Whether a line is on the map. */

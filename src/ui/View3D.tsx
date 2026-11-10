@@ -480,7 +480,7 @@ export function View3D(props: View3DProps) {
       <ShowRow on={markers} onToggle={toggleMarkers} tip={tip("Show sources, slope arrows and wall levels", "M")}>
         Markers
       </ShowRow>
-      <ShowRow on={flow} onToggle={toggleFlow} tip={tip("Show the water's currents")}>
+      <ShowRow on={flow} onToggle={toggleFlow} tip={tip("Show the currents, foam and wakes")}>
         Flow
       </ShowRow>
     </>

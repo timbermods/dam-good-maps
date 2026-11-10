@@ -7,13 +7,15 @@
 // onto the cut, as the terrain's folds the ground, from each vertex's own column (its floor, `WaterMeshData.cut`): the
 // top lies on the cut, shallower by what the cut took away (`cutCornerDepth`), and its sides stop at the cut. A gone
 // column's sides fold flat, so one hanging below its floor (to lower water in front of a cliff) leaves nothing. Nothing
-// is remeshed when the level changes: the cut stays one uniform. A fall is the water's own side where it steps down
-// (D201 amended 2026-10-29), so it stops at the cut as any side does; the Flow view's streaks follow the same rule
-// (motion.ts). The terrain counts a top as under water exactly where this draws water over it
+// is remeshed when the level changes: the cut stays one uniform. A fall is the slope of the water below it (D154 as
+// amended 2026-11-08; fallSlope.ts), a top whose vertices stand over their own column's surface: each is sliced onto
+// the cut by its own height and floor, so a fall under the cut lies flat on it, its depth there what is seen behind it from the cut, as
+// from its own height (`cutSlopeDepth`: against the cliff, shallow); the Flow view's streaks follow the same rule (motion.ts). The terrain counts a top as under water exactly where this draws water over it
 // (`bedAtCut`; materials.ts `soilOf` and the run tops' `groundAt`), so a sliced lake's bed reads as a bed.
 //
 // These functions are the shaders' rules in plain code, for the tests (tests/unit/cutWater.test.ts).
 
+import { OPENING } from "../core/analysis/opening";
 import type { SurfaceWater } from "./model";
 
 /** How far over the cut a water surface may stand and still be drawn whole (the water's shader, `soilOf`): a film
@@ -34,6 +36,32 @@ export function surfaceAtCut(floor: number, surface: number, cut: number | null)
  *  corner is the same water, its mean depth below the cut, so neighbouring tops still meet at their corners. */
 export function cutCornerDepth(depth: number, share: number, surface: number, drawn: number): number {
   return Math.max(0, depth - (surface - drawn) * share);
+}
+
+/** The tangent of the game's camera's pitch (its opening's, 60° below the horizon: core/analysis/opening.ts), for a fall's
+ *  slope's seen depth (fallSlope.ts `slopeHeights`, and `cutSlopeDepth` under the cut). */
+export const VIEW_TAN = Math.tan((OPENING.pitch * Math.PI) / 180);
+
+/** The cut share a fall's slope vertex carries (one raised over its own surface, fallSlope.ts) in place of its wet
+ *  share: under −0.5 (`SLOPE_SHARE` or less), so the water's shader knows it, and holding what its seen depth is made
+ *  of, so the shader can see it again from the cut (`cutSlopeDepth`): whether it is inner (a third in from the side it
+ *  rose to) and how far its height stands over the floor of the water it rose to (`back`, from −0.5 up to 63). */
+export const SLOPE_SHARE = -1;
+export function slopeCutShare(inner: boolean, back: number): number {
+  return SLOPE_SHARE - (inner ? 64 : 0) - (Math.min(63, Math.max(-0.5, back)) + 0.5);
+}
+
+/** The depth a fall's slope vertex at `height`, its cut share `share` (`slopeCutShare`), over a floor at `floor` is
+ *  drawn with when sliced onto the cut at `drawn`: what is seen behind it from there, as `slopeHeights` sees it from
+ *  its height. The view from the cut toward the step drops a third × tan(pitch) by the side it rose to where it is
+ *  inner (none at the edge): it meets the cliff there where the upper water's floor stands over that (most often, the
+ *  cut being below the upper floor: shallow, as the uncut slope's lip), else it goes on into the upper water to its
+ *  floor; never deeper than the cut over its own floor. */
+export function cutSlopeDepth(floor: number, height: number, share: number, drawn: number): number {
+  const v = SLOPE_SHARE - share;
+  const u = v > 63.75 ? VIEW_TAN / 3 : 0;
+  const back = height - ((v % 64) - 0.5);
+  return Math.max(0.05, Math.min(drawn - floor, Math.max(u, drawn - back)));
 }
 
 /** Whether ground whose top is at `top`, with water standing on it to `surface` (NaN: dry), is drawn as a bed under

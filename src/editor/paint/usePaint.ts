@@ -34,7 +34,7 @@ export interface PaintSlice {
   painter: { current: BrushPainter | null };
   sendTerrain: (fn: () => Promise<SessionUpdate>) => Promise<void>;
   undo: () => void | Promise<void>;
-  redo: () => Promise<void> | undefined;
+  redo: () => void | Promise<void>;
   pickTop: (t: TopTool | null) => void;
   putDown: () => void;
   pickBrush: (t: BrushTool | null) => void;
@@ -74,6 +74,9 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
   const localUndo = useRef<Stroke[]>([]);
   const localRedo = useRef<Stroke[]>([]);
   const painter = useRef<BrushPainter | null>(null);
+  // (the editor closes for a new or opened map: a stroke being painted or still on its way is forgotten, as Esc
+  // forgets one, so none of its land or its operation reaches the next map's editor, #880; a force's is cancelled so)
+  useEffect(() => () => painter.current?.drop(), []);
 
   /** Put a stroke's terrain before or after it back on the map, at once. */
   function showStroke(s: Stroke, which: "before" | "after") {
@@ -148,9 +151,15 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
     return next;
   }
 
+  // (a Naturalize stroke let go is on its way to the history until its last land comes from its worker: an undo or a
+  // redo pressed meanwhile waits for it to land, then acts, so it takes that stroke back, as it would any other
+  // brush's, which is on the history the moment it is let go, #880)
   const undo = () => {
     if (ed.forcer.current?.running) return ed.forcer.current.cancel();
     if (painter.current?.painting) return painter.current.cancel();
+    return painter.current ? painter.current.afterLanding(undoNow) : undoNow();
+  };
+  const undoNow = () => {
     const s = localUndo.current.pop();
     if (!s) {
       // (a force just kept: its tails stop at the key, not when the worker answers: its sound and its effects, which
@@ -165,6 +174,10 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
     sendTerrain(() => api.undo());
   };
   const redo = () => {
+    if (painter.current?.painting || ed.forcer.current?.running) return;
+    return painter.current ? painter.current.afterLanding(redoNow) : redoNow();
+  };
+  const redoNow = () => {
     if (painter.current?.painting || ed.forcer.current?.running) return;
     const s = localRedo.current.pop();
     if (!s) return run(() => api.redo());

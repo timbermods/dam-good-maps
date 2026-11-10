@@ -44,7 +44,7 @@ export function editorView(ed: Ed, props: EditorProps) {
         {props.placesOpen ? <RealPlaces onOpen={props.drawer.onOpenPlace} /> : null}
         {props.mapsOpen ? <YourMaps model={props.drawer} /> : null}
         {/* History in the left panel's place, over the map, one panel at a time (Kyler, 2026-10-06) */}
-        {showHistory ? <HistoryPanel info={info} onJump={(k) => void run(() => api.jump(k))} onKeep={props.onKeepStep} onClose={() => setShowHistory(false)} /> : null}
+        {showHistory ? <HistoryPanel info={info} onJump={(k, step) => void (ed.painter.current ? ed.painter.current.afterLanding(() => run(() => api.jump(k, step))) : run(() => api.jump(k, step)))} onKeep={props.onKeepStep} onClose={() => setShowHistory(false)} /> : null}
         <section class="editor-map" aria-label="Map">
           <div class="editor-map-area">
             <View3D

@@ -14,6 +14,7 @@ import { BRUSH_NAMES, BrushPainter, hasTarget, sizeMax, targetWords } from "../b
 import { tilesToRuns } from "../../core/math/grid";
 import { isSource, sourcesPressed } from "../sourceSpots";
 import { WET_DEPTH, type BrushParams } from "../../core/features/raster/brush";
+import { naturalizer, restartNaturalizer } from "../../platform";
 import type { Ed } from "../ed";
 
 export interface ReadySlice {
@@ -110,6 +111,10 @@ export function useReady(ed: Ed): ReadySlice {
     renderer.current = r;
     setReady(r);
     juice.current ??= new Juice(() => renderer.current, sound);
+    // (Naturalize's worker, started now so it is ready by the first stroke)
+    // (each call asks for it again: a worker that never answered is started again, #884)
+    naturalizer();
+    const nature = () => naturalizer();
     painter.current = new BrushPainter({
       renderer: r,
       W: infoRef.current.W,
@@ -224,14 +229,23 @@ export function useReady(ed: Ed): ReadySlice {
       // the water flows on the stroke while it is painted (D197)
       draft: (rect, heights) => void api.draftStroke(rect, transfer(heights, [heights.buffer as ArrayBuffer])),
       cancelDraft: () => void api.cancelDraft(),
-      // a Naturalize stroke's land, worked out in the worker (D422)
+      // a Naturalize stroke's land, worked out in its own worker (D422, #868) on the terrain and the land the page
+      // shows, as the other brushes' are on the page (its water from the map's worker, as theirs is)
       weather: {
-        begin: (settings, ground) => api.weatherBegin(settings, ground.map((r) => [r[0], r[1], r[2]] as [number, number, number])),
-        add: (dabs, pressure) => api.weatherAdd(dabs, pressure),
-        finish: (rigid) => api.weatherFinish(rigid),
-        end: () => api.weatherEnd(),
-        cancel: () => void api.weatherCancel(),
+        begin: (settings, ground) => {
+          const shown = mirror.current.heights.slice();
+          const { W, H } = infoRef.current;
+          return nature().weatherBegin(settings, ground.map((r) => [r[0], r[1], r[2]] as [number, number, number]), terrain.current, transfer(shown, [shown.buffer]), W, H);
+        },
+        add: (dabs, pressure) => nature().weatherAdd(dabs, pressure),
+        finish: (rigid) => nature().weatherFinish(rigid),
+        end: () => nature().weatherEnd(),
+        cancel: () => void nature().weatherCancel(),
+        // (it never answered a stroke in time: a fresh one for the next, #884)
+        restart: () => restartNaturalizer(),
       },
+      // (a stroke its worker never answered in time, taken back: the one line says why, #884)
+      refuse: (text) => ed.setMessage({ kind: "error", text }),
     });
     r.onSlice = (level) => setSliceLevel(level);
     r.onMarkers = (on) => setMarkersOn(on);

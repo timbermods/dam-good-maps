@@ -125,7 +125,7 @@ export const collabEditApi = {
   async redo(): Promise<Answer> {
     return verdict(await collabApi.redo());
   },
-  jump(_index: number): Answer {
+  jump(_index: number, _step?: number): Answer {
     return ed.collabAnswer(false, [HISTORY]);
   },
 

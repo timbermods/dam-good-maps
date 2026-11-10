@@ -69,14 +69,17 @@ describe("the landmarks at the game's measures", () => {
 });
 
 describe("the start's tower casts its shadow", () => {
-  it("from its footprint's middle tile, the tower's height, turned as the start is", () => {
+  it("from its footprint's middle tile, the tower's height, its walls round it, turned as the start is", () => {
     const W = 32;
     const H = 32;
     for (const [orientation, mx, my] of [["Cw0", 11, 21], ["Cw180", 9, 19]] as const) {
       const e = entityView([{ template: "StartingLocation", x: 10, y: 20, z: 3, orientation, owner: "s" }]);
       const casters = objectCasters(W, H, e)!;
       expect(casters[my * W + mx]).toBeCloseTo(4.0, 5);
-      expect(casters[20 * W + 10]).toBe(0);
+      // (its Coordinates' corner casts the walls since the start's shadow became its model's, D497, D148: it cast
+      // nothing, the tower's tile alone)
+      for (let y = my - 1; y <= my + 1; y++) for (let x = mx - 1; x <= mx + 1; x++) if (x !== mx || y !== my) expect(casters[y * W + x]).toBeCloseTo(1.4, 5);
+      expect(casters[(my + 2) * W + mx]).toBe(0);
     }
   });
 });

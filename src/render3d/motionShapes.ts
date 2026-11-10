@@ -2,7 +2,8 @@
 // from the water's real current (current.ts), never on the page's thread: the current's lanes (traces
 // down the wet surface, kept apart, a few strong ones rather than a carpet), the bank wakes (where a
 // bank opens or narrows across fast water) and the seams (where two currents join), as the ready-made
-// arrays of two meshes: the always-on foam ribbons and the Flow view's streaks. Plain arrays, no
+// arrays of two meshes: the foam ribbons and the streaks, both the Flow view's alone (planning's ruling on #236,
+// 2026-11-08, under D497: the game's water has no foam term, so outside the Flow view none are made). Plain arrays, no
 // three.js: motion.ts makes the meshes. Only drawn: nothing here reaches the water, a map or an
 // operation, so native maths is fine.
 
@@ -300,6 +301,16 @@ export function motionShapes(W: number, H: number, sw: SurfaceWater, current: Fl
     cues: { position: Float32Array.from(pos), direction: Float32Array.from(dir), detail: Float32Array.from(detail), energy: Float32Array.from(energy), floor: Float32Array.from(floor) },
     streaks: { paths, floors, rows, track: Float32Array.from(track), position: Float32Array.from(first) },
     stats: { lanes: lanes.length, wakes: wakeCount, seams: seams.length, streaks: track.length / 3, triangles: pos.length / 9 },
+  };
+}
+
+/** No shapes: what a bake outside the Flow view sends, where none is drawn (D497), laid out as a still water's. */
+export function noShapes(): MotionShapes {
+  const none = () => new Float32Array(0);
+  return {
+    cues: { position: none(), direction: none(), detail: none(), energy: none(), floor: none() },
+    streaks: { paths: new Float32Array(STEPS * 4), floors: new Float32Array(STEPS), rows: 1, track: none(), position: none() },
+    stats: { lanes: 0, wakes: 0, seams: 0, streaks: 0, triangles: 0 },
   };
 }
 

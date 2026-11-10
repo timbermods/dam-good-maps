@@ -2,12 +2,13 @@
 // "The game's light"). Real Chrome, headed, Standard and High from this checkout's dev server (High with its warm
 // sunlight switched off). In the page the terrain shader is patched to draw its albedo alone: no light, no specular, no
 // altitude ramp, no cliff gradient, no fog or post chain, nothing but the terrain. Every 4th pixel is picked
-// (`pickSeen`), sorted into tops and walls, and the tops by their tile's soil into grass and dry ground (only a tile's
+// (`pickSeen`), sorted into tops and walls, and the tops by their tile's soil into grass (also split into all grass and
+// grass part desert, by the game's desert threshold) and dry ground (only a tile's
 // middle, where its soil is its own; contaminated and wet tiles left out). Means are display values, 0–255, as the
 // game's texture means.
 //
 //   npx tsx tools/albedo-means.ts                     (Canyon 128² seed 1 and River Valley 128² seed 4242, their opening views)
-//   options: --maps canyon:1,riverValley:4242  --looks standard,high  --port 4796
+//   options: --maps canyon:1,riverValley:4242  --looks standard,high  --port 4796  --distance 34
 //   --lit: the terrain as drawn (nothing patched): what the screen shows of each kind, the dry ground's also by its
 //   height (levels 0–7, 8–13, 14 and up), to set against the game's own screenshots
 
@@ -25,6 +26,9 @@ const PORT = Number(arg("port") ?? "4796");
 const MAPS = (arg("maps") ?? "canyon:1,riverValley:4242").split(",").map((m) => m.split(":"));
 const LOOKS = (arg("looks") ?? "standard,high").split(",");
 const LIT = process.argv.includes("--lit");
+/** The views' distance (34: close enough that the patterns resolve; `--distance 100` reads them as the game's start
+ *  shots do, 70–110 away, where a pattern's fine detail has faded: a texture's mean holds at every distance). */
+const DISTANCE = Number(arg("distance") ?? "34");
 
 /** Views over each map: high and close enough that the patterns resolve, looking down. */
 const VIEWS = [0.15, 0.35, 0.55, 0.75].flatMap((u) => [0.25, 0.5, 0.75].map((v) => ({ u, v })));
@@ -39,14 +43,21 @@ const PATCH = `(() => {
     if (seen.has(m)) continue;
     seen.add(m);
     let s = m.fragmentShader;
-    const before = s;
-    s = s.replace("c *= light;", "");
-    s = s.replace("c *= altitudeOf(vWorld.y, moist);", "");
-    s = s.replace(/float shade = [^;]+;/, "float shade = 1.0;");
-    s = s.replace(/vec3 cliffTint = [^;]+;/, "vec3 cliffTint = vec3(1.0);");
-    s = s.replace("c += gameSpecular(n, albedo, n.y > 0.5 ? 0.0 : 0.05);", "");
-    s = s.replace("return gamePost(c);", "return c;");
-    if (s === before) throw new Error("terrain shader not patched");
+    // (each patch must find its text: one that finds nothing would leave its term in the albedo, as the post chain's
+    // did after the finish moved into finish(), until 2026-11-07)
+    const patches = [
+      ["c *= light;", ""],
+      ["c *= altitudeOf(vWorld.y, moist);", ""],
+      [/vec3 cliffTint = [^;]+;/, "vec3 cliffTint = vec3(1.0);"],
+      ["c += gameSpecular(n, albedo, n.y > 0.5 ? 0.0 : 0.05);", ""],
+      // (the finish: no fog, which the renderer's own uniforms hold every frame, and no post chain)
+      [/return gamePost\\(mix\\(hazeColor, c \\+ emission, [^;]*\\);/, "return c + emission;"],
+    ];
+    for (const [from, to] of patches) {
+      const next = s.replace(from, to);
+      if (next === s) throw new Error("terrain shader not patched: " + from);
+      s = next;
+    }
     m.fragmentShader = s;
     m.needsUpdate = true;
   }
@@ -80,6 +91,8 @@ const MEASURE = `async ([png, step]) => {
         if (fx < 0.2 || fx > 0.8 || fy < 0.2 || fy > 0.8 || Math.abs(h.point[1] - m.heights[i]) > 0.01) continue;
         if (soil.contamination[i] > 0 || depth(i) > 0) continue;
         add(soil.moisture[i] > 0 ? "grass" : "dry", o);
+        // (and the grass by its share: all grass from moisture 5 up, the game's DesertMoistureThreshold; below, part desert)
+        if (soil.moisture[i] > 0) add(Math.round(soil.moisture[i] / 15) >= 5 ? "grass, moisture 5+ (all grass)" : "grass, moisture 1–4 (part desert)", o);
         if (soil.moisture[i] === 0) add(m.heights[i] < 8 ? "dry, levels 0–7" : m.heights[i] < 14 ? "dry, levels 8–13" : "dry, levels 14+", o);
       } else if (h.face !== "bottom") add("wall", o);
     }
@@ -133,12 +146,12 @@ try {
     }
     const acc: Record<string, [number, number, number, number]> = {};
     for (const { u, v } of VIEWS) {
-      await page.evaluate(([u, v]) => {
+      await page.evaluate(([u, v, d]) => {
         const r = window.dgm3d!.renderer as unknown as { map: { W: number; H: number; heights: Uint8Array }; setView(v: unknown): void };
         const { W, H, heights } = r.map;
         const x = Math.floor(u * W), y = Math.floor(v * H);
-        r.setView({ mode: "orbit", yaw: 0.6, pitch: 1.2, distance: 34, target: [x + 0.5, heights[y * W + x], -(y + 0.5)] });
-      }, [u, v] as const);
+        r.setView({ mode: "orbit", yaw: 0.6, pitch: 1.2, distance: d, target: [x + 0.5, heights[y * W + x], -(y + 0.5)] });
+      }, [u, v, DISTANCE] as const);
       await page.waitForTimeout(1200);
       await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null)))));
       const box = (await page.locator("[data-albedo-view]").boundingBox())!;

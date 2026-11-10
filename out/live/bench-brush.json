@@ -1,61 +1,55 @@
 {
-  "date": "2026-09-26",
+  "date": "2026-11-08",
   "runs": [
     {
       "config": "default GPU",
-      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2070 SUPER (0x00001E84) Direct3D11 vs_5_0 ps_5_0, D3D11)",
       "cpuSlowdown": 1,
       "map": "riverValley 256² seed 1",
-      "stroke": "Raise, 1011 tiles",
-      "refreshMs": 6.1,
+      "stroke": "Raise 874 tiles",
+      "brush": null,
+      "refreshMs": 7,
+      "landFrom": "page preview",
       "inputToFrameMs": {
-        "p50": 4.5,
-        "p95": 7.2,
-        "max": 8.3,
-        "samples": 59
+        "p50": 9.3,
+        "p95": 14.1,
+        "max": 32.6,
+        "samples": 286
+      },
+      "movesChangingNothing": 194,
+      "cursorToFrameMs": {
+        "p50": 8.5,
+        "p95": 13.2,
+        "samples": 480
+      },
+      "landShownMs": {
+        "p50": 9.3,
+        "p95": 14.1,
+        "samples": 286
+      },
+      "landTrailFrames": {
+        "p50": 1.4,
+        "p95": 2.1,
+        "frameMs": 6.6
       },
       "frameMs": {
-        "p50": 6.1,
-        "p95": 6.2,
-        "p99": 6.3,
-        "max": 9.5,
-        "overTwoRefreshes": 0,
-        "frames": 1590
+        "p50": 7,
+        "p95": 7,
+        "p99": 7.2,
+        "max": 35,
+        "overTwoRefreshes": 4,
+        "frames": 2277
+      },
+      "remeshMs": {
+        "p50": 1.2,
+        "p95": 1.9,
+        "max": 20.2,
+        "samples": 287
       },
       "longTasksWhilePainting": [],
       "longTasksAfterRelease": [],
-      "commitAfterReleaseMs": 162,
-      "undoToFrameMs": 8.4,
-      "strokeMismatches": 0
-    },
-    {
-      "config": "other GPU (AMD Radeon(TM) Graphics), CPU 4× slower, 1080p laptop screen at 150%",
-      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x000013C0) Direct3D11 vs_5_0 ps_5_0, D3D11)",
-      "cpuSlowdown": 4,
-      "map": "riverValley 256² seed 1",
-      "stroke": "Raise, 1297 tiles",
-      "refreshMs": 6.1,
-      "inputToFrameMs": {
-        "p50": 11.1,
-        "p95": 13.8,
-        "max": 18.1,
-        "samples": 41
-      },
-      "frameMs": {
-        "p50": 6.1,
-        "p95": 6.2,
-        "p99": 12,
-        "max": 42.5,
-        "overTwoRefreshes": 2,
-        "frames": 2546
-      },
-      "longTasksWhilePainting": [],
-      "longTasksAfterRelease": [
-        "125 ms at +131 ms",
-        "54 ms at +274 ms"
-      ],
-      "commitAfterReleaseMs": 260,
-      "undoToFrameMs": 63.3,
+      "commitAfterReleaseMs": 484,
+      "undoToFrameMs": 16.9,
       "strokeMismatches": 0
     }
   ]

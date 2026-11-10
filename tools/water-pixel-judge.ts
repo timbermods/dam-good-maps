@@ -9,22 +9,40 @@
 //   mkdir -p .scratch/judge-dev && tar -xf .scratch/judge-dev.tar -C .scratch/judge-dev
 //   (and the same for a second tree to compare, --base, as .scratch/judge-826 from the commit that merged before)
 //   npx tsx tools/water-pixel-judge.ts [--dev .scratch/judge-dev|none] [--base .scratch/judge-826] [--batch 20261002-1610-batch]
-//     [--look standard|high|both] [--water clean|bad|mixed|all] [--define WATER_FORMULA|BADWATER_FORMULA] [--shots <id>,<id>]
-//     [--light shot|day] [--reflection <strength>]
+//     [--look standard|high|both] [--water clean|bad|mixed|all|pit|falls] [--define WATER_FORMULA|BADWATER_FORMULA|WATER_GAME_LIGHT,...]
+//     [--set WATER_GAME_LIGHT=1,...] [--shots <id>,<id>]
+//     [--light shot|day] [--reflection <strength>] [--samples] [--ours <dir>]
+//     [--prefix m9b-|none] [--bands thin] [--tag <name>] [--sources [--only-sources] | --no-sources]
+//     [--objects [--pose start|water]] [--register]
+//
+// `--water pit` samples the mine sites' pits (D496 as amended 2026-11-07: by day the game's pit the lighter) beside pure badwater, on the same
+// shots: the pit's floor at the middle of each mine site's 5 × 5 (the 3 × 3 round its centre, at its depth,
+// `MINE_PIT`), ours drawn with the map's mine sites (and nothing else of its objects); its shots default to the day-lit
+// starts with badwater and mine sites in view.
 //
 // The light (`--light shot`, the default since 2026-11-07): the game's light changes through the day, and the probe's
 // shots fall at their moments' hours: a game's start at hour 4 (the day's light), a hazard's end at midnight (the
-// sunrise's), a game's end at hour 15.5 (the day's light halfway to the sunset's). So ours is drawn in the game's light at
-// the shot's hour and weather (tools/game-day-light.ts, from Sun.blueprint and the decompiled SkySystem): the sun's
-// colour, intensity and height, the ambient's SH and the fog's colour, swapped into the shaders' constants and
-// uniforms. `--light day` draws every shot in the day's light, as the editor does and the judge did before; the sunrise
-// and sunset shots then read grey-blue, land included.
+// sunrise's), a game's end a little after hour 15.5 (islands-128-2-end at 15.53: 55 % toward the sunset's light, 50 %
+// at 15.5). So ours is drawn in the game's light at the shot's hour and weather (tools/game-day-light.ts, from
+// Sun.blueprint and the decompiled SkySystem): the sun's colour, intensity and height, the ambient's SH and the fog's
+// colour, swapped into the shaders' constants and uniforms. `--light day` draws every shot in the day's light, as the
+// editor does and the judge did before; the sunrise and sunset shots then read grey-blue, land included.
 //
 // The judge validates itself on the land, whose light, fog and finish the water shares: dry tops of grass, dry ground
 // and contaminated ground, and cliff faces, away from water, from anything ours doesn't draw (plants, buildings,
 // ruins, slopes) and from what a higher tile could shade, by the camera's distance; ours' distance to the game's pixel,
 // its mean's (bias) and the floor, two game samples' distance at the game's own spread (√2 × it). On land within that
 // floor, the judge's colour rulings on the water stand.
+//
+// The land's samples cluster: on the six start shots grass is 160 tiles, 108 of them on riverValley-128-1, so the
+// patterns of both sides (ours, and the game's own textures, world-anchored) move a kind's mean by a few luma at a
+// cluster. `--define GROUND_MEANS` draws this branch's second case with every top at the game's texture means
+// (materials.ts `GROUND_MEANS`, palette.ts GAME_GROUND_MEAN): its land is our light alone, to set against the game's
+// pixels with its texture's own variation at each sample taken out (docs/progress/3d-view.md, "Grass in the game's
+// light"; the game's textures read locally, never kept). Judge the land on the 16 day start shots (`--shots` as `--objects`
+// takes them: 594 grass samples) and with `--register`, which moves each cliff face's game pixel to where ours' picture
+// lines up with the game's: the fit scores the water's outline only, and a face 10–15 pixels tall leaves no slack
+// (docs/progress/3d-view.md, "Grass and cliffs, their samples registered").
 //
 // The camera: the probe's water pose (investigation/probe/runner/catalog.ts `standardPoses`) is where the game's camera
 // was asked to look, but its field of view and distance do not carry over exactly (Q8 found 31-37° and 1.0-1.35× the
@@ -41,19 +59,24 @@
 // display RGB with its L*, and each of ours' mean distance to the game's pixel by pixel (the root of the mean squared
 // difference over the three channels, 0-255). Ours: dev, the tree given by --base (if any), and this branch with our
 // colour and with the game's formula (the same build, its shaders compiled with `--define` 0 or 1: WATER_FORMULA for
-// clean water, waterPalette.ts GAME_WATER.use; BADWATER_FORMULA for badwater, GAME_BADWATER.use). Writes
-// .scratch/water-judge/<shot>-<look>-<case>.jpg (the shot beside ours, for the eye) and
+// clean water, waterPalette.ts GAME_WATER.use; BADWATER_FORMULA and BADWATER_FORMULA_HIGH for badwater, GAME_BADWATER.use
+// by look; a define already at the case's value is left). Writes
+// .scratch/water-judge/<shot>-<look>-<case>.jpg (the shot beside ours, for the eye, labelled with the shot its camera was
+// fitted on; a run clears the pairs of the runs before it) and
 // .scratch/water-judge/judge-<water>-<light>.json.
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { chromium, type Browser, type Page } from "@playwright/test";
 import { build, preview, type PreviewServer } from "vite";
 import { readMapBytes, wetAreas } from "../investigation/probe/runner/mapfile";
 import { GAME_AMBIENT_SH, GAME_FINISH, GAME_LIGHT, gameAmbient } from "../src/render3d/palette";
-import { WATER_SURFACE } from "../src/render3d/waterPalette";
+import { WATER_LIGHT, WATER_SURFACE, type Rgb } from "../src/render3d/waterPalette";
 import { dayLight, type DayLight, type Hazard } from "./game-day-light";
+import { rotate, type Orientation } from "../src/core/format/footprints";
+import { MINE_PIT } from "../src/render3d/entities3d";
+import { sunOfYaw } from "../src/render3d/light";
 import { waitForEditor } from "./wait-editor";
 
 const arg = (name: string) => {
@@ -64,24 +87,64 @@ const arg = (name: string) => {
 const DEV = arg("dev") === "none" ? null : resolve(arg("dev") ?? ".scratch/judge-dev");
 const BASE = arg("base") ? resolve(arg("base") as string) : null;
 const BATCH = arg("batch") ?? "20261002-1610-batch";
+/** The batch's file names' prefix (`--prefix none` for a set without one, as `ceiling-20260927`). */
+const PREFIX = arg("prefix") === "none" ? "" : arg("prefix") ?? "m9b-";
 const LOOKS = (arg("look") ?? "both") === "both" ? (["standard", "high"] as const) : ([arg("look")] as ("standard" | "high")[]);
 const OUT = resolve(".scratch/water-judge");
-/** Which water it samples: clean (the colour's judge), bad (pure badwater), mixed (the front) or all three. */
-const WATER = (["bad", "mixed", "all"] as const).find((w) => w === arg("water")) ?? "clean";
-type Kind = "clean" | "mixed" | "bad";
-const KINDS: readonly Kind[] = WATER === "all" ? ["clean", "mixed", "bad"] : [WATER];
-/** The define the two builds of this branch differ by. */
-const DEFINE = arg("define") ?? (WATER === "clean" ? "WATER_FORMULA" : "BADWATER_FORMULA");
+/** Which water it samples: clean (the colour's judge), bad (pure badwater), mixed (the front) or all three; the mine
+ *  sites' pits beside pure badwater (`pit`); or clean water and the clean water at a fall's foot beside it (`falls`:
+ *  a tile a neighbour's surface stands 0.6 or more over, where the game's waterfall mask is whole, Q9 P1). */
+const WATER = (["bad", "mixed", "all", "pit", "falls"] as const).find((w) => w === arg("water")) ?? "clean";
+type Kind = "clean" | "mixed" | "bad" | "pit" | "falls";
+const KINDS: readonly Kind[] = WATER === "all" ? ["clean", "mixed", "bad"] : WATER === "pit" ? ["bad", "pit"] : WATER === "falls" ? ["clean", "falls"] : [WATER];
+/** The define the two builds of this branch differ by, with its High look's own where it has one (badwater's is split
+ *  by look: `BADWATER_FORMULA_HIGH`, waterPalette.ts `GAME_BADWATER.use.high`). */
+const DEFINE = arg("define") ?? (WATER === "clean" || WATER === "falls" ? "WATER_FORMULA" : "BADWATER_FORMULA");
+/** (`--define A,B`: several at once, each with its High look's own) */
+const DEFINES = DEFINE.split(",").flatMap((d) => [d, `${d}_HIGH`]);
+/** `--set A=1,B=0`: defines this branch's both cases are built with, whatever the branch ships (each with its High
+ *  look's own), so a choice is judged on top of another not shipped yet (the water's light, Q9 P15, waterPalette.ts
+ *  WATER_LIGHT, under badwater's colour choice). */
+const SETS: [string, string][] = (arg("set") ?? "")
+  .split(",")
+  .filter(Boolean)
+  .flatMap((kv) => {
+    const [d, v] = kv.split("=");
+    return [d, `${d}_HIGH`].flatMap((n): [string, string][] => [
+      [`#define ${n} 0`, `#define ${n} ${v}`],
+      [`#define ${n} 1`, `#define ${n} ${v}`],
+    ]);
+  })
+  .filter(([a, b]) => a !== b);
 const PORT = Number(arg("port") ?? 4971);
 /** The light ours is drawn in: the game's at the shot's own hour and weather (`shot`, tools/game-day-light.ts), or the
  *  day's alone, as the editor draws it (`day`: the judge before 2026-11-07, which drew every shot in the day's light). */
 const LIGHT_MODE = arg("light") === "day" ? "day" : "shot";
-/** The environment reflection's strength to draw with in place of the scene's `m_ReflectionIntensity` 0.65
- *  (`GAME_FINISH.reflectionIntensity`, `WATER_SURFACE.reflection`), on the terrain and the water: `--reflection 1` is
- *  what the game's `Sun.UpdateColors` sets every frame (every stage's `ReflectionsIntensity`), a question for the look. */
 /** `--fit own`: each shot fits its own camera (the judge before 2026-11-07), not its map's start shot's. */
-const FIT_OWN = arg("fit") === "own";
+/** `--objects`: the map's objects against the game's (D135 as amended 2026-11-09, the objects in the game's light): ours
+ *  drawn with every object the map has, sampled by part on the trees', bushes', ruins' and water sources' own places
+ *  (`objectPoints`), on the probe's start shots by default (`--pose start`, its camera 45 away: a crown 20 pixels or so
+ *  across). Each part's mean colour and luma, the game's and each case's, pooled over the shots. */
+const OBJECTS = process.argv.includes("--objects");
+/** `--pose <id>`: the probe's pose whose shots are judged (catalog.ts `standardPoses`): `water` (the default), or
+ *  `start` (the default with `--objects`), whose camera each shot fits on itself. */
+const POSE = arg("pose") ?? (OBJECTS ? "start" : "water");
+const FIT_OWN = arg("fit") === "own" || POSE !== "water";
+/** The environment reflection's strength to draw with in place of the shipped one (`GAME_FINISH.reflectionIntensity`,
+ *  `WATER_SURFACE.reflection`: 1, what the game's `Sun.UpdateColors` sets every frame), on the terrain and the water:
+ *  `--reflection 0.65` draws the scene's saved `m_ReflectionIntensity`, which the editor drew before 2026-11-07. */
 const REFLECTION = arg("reflection") ? Number(arg("reflection")) : null;
+/** `--ambient <k>`: the ambient probe's SH × k (linear values, before the shader turns them to display values), a
+ *  question for the look: the scene's `m_AmbientIntensity` 1.2, if the engine applies it to a Trilight. */
+const AMBIENT = arg("ambient") ? Number(arg("ambient")) : null;
+/** `--samples`: the land's samples one by one in the JSON (`landSamples`: each its kind, point, moisture, the camera's
+ *  distance and view depth, the game's pixel and each case's), to model the game's terms on them offline; with them a
+ *  fifth kind, `edge` (moisture 1 to 5: the game's desert over part of the grass), for how dryness shows. With
+ *  `--objects`, the objects' samples too (`objectSamples`: each its part, point, pixel, the game's colour and each
+ *  case's), to look at the pixels a part's mean is made of. */
+const SAMPLES = process.argv.includes("--samples");
+/** `--ours <dir>`: each of our renders kept there as it was drawn (`<shot>-<look>-<case>.png`), for a sheet of ours alone. */
+const OURS = arg("ours") ? resolve(arg("ours") as string) : null;
 const W_PX = 1280;
 const H_PX = 800;
 const CLOCK = 12.5;
@@ -89,17 +152,40 @@ const CLOCK = 12.5;
 // badwater, the Badtide's end on the five maps Q8 fitted, and Islands 2's end, where both waters show)
 const SHOTS = (
   arg("shots") ??
-  (WATER === "clean"
+  (OBJECTS
+    ? "riverValley-128-1-start,riverValley-128-2-start,lakeBasin-128-1-start,lakeBasin-128-2-start,highlands-128-1-start,highlands-128-2-start,canyon-128-1-start,canyon-128-2-start,any-128-1-start,any-128-2-start,delta-128-1-start,delta-128-2-start,islands-128-1-start,islands-128-2-start,chaos-256-1-start,chaos-256-2-start"
+    : WATER === "pit"
+    ? "any-128-1-start,any-128-2-start,canyon-128-1-start,canyon-128-2-start,chaos-256-1-start,chaos-256-2-start,delta-128-1-start,delta-128-2-start,highlands-128-1-start,highlands-128-2-start,islands-128-1-start,islands-128-2-start,lakeBasin-128-1-start,lakeBasin-128-2-start,riverValley-128-1-start,riverValley-128-2-start"
+    : WATER === "clean" || WATER === "falls"
     ? "riverValley-128-1-start,riverValley-128-2-start,lakeBasin-128-1-start,lakeBasin-128-2-start,highlands-128-1-start,highlands-128-2-start"
     : "islands-128-2-end,islands-128-1-badtide2-end,islands-128-2-badtide2-end,highlands-128-1-badtide2-end,lakeBasin-128-1-badtide2-end,chaos-256-2-badtide2-end")
 ).split(",");
-const BANDS: [number, number][] = [
-  [0.05, 0.5],
-  [0.5, 1],
-  [1, 2],
-  [2, 3],
-  [3, 9],
-];
+/** `--bands thin`: badwater's own colour by depth as #905 left it bare (thin under 0.1, where the bed mattered, medium
+ *  to a level, deep), sampled from water 0.001 deep (`MIN_DEPTH`, the editor's wet); else from 0.05 deep, by the
+ *  bands below. */
+const THIN = arg("bands") === "thin";
+const MIN_DEPTH = THIN ? 0.001 : 0.05;
+const BANDS: [number, number][] = THIN
+  ? [
+      [0.001, 0.1],
+      [0.1, 1],
+      [1, 9],
+    ]
+  : [
+      [0.05, 0.5],
+      [0.5, 1],
+      [1, 2],
+      [2, 3],
+      [3, 9],
+    ];
+/** `--no-sources`: leave out the water over a badwater source's 3 × 3, where the game draws its source's pattern
+ *  (Q9 P7) and ours, drawn here without the map's objects, does not. */
+const NO_SOURCES = process.argv.includes("--no-sources");
+/** `--sources`: draw the map's badwater sources (their crater and the water's source pattern over their 3 × 3), as the
+ *  game's shot shows them; without it the judge draws no objects but a pit's mines. */
+const SOURCES = process.argv.includes("--sources");
+/** `--only-sources`: judge only the water over the badwater sources' 3 × 3 (with `--sources`). */
+const ONLY_SOURCES = process.argv.includes("--only-sources");
 
 interface Snapshot {
   day: number;
@@ -240,12 +326,74 @@ function waterMask(px: Uint8Array): Float32Array {
   return out;
 }
 
+/** `--register`: each land sample's game pixel taken where ours' picture round it lines up with the game's, not where
+ *  the fitted camera puts it (docs/progress/3d-view.md, "Grass and cliffs, their samples registered"). The fit scores
+ *  only the water's outline, so a few pixels off is within its reach, and a cliff face is 10–15 pixels tall at the
+ *  start shots' distance: a 5 × 5 patch moved 4 pixels lands on the top above it. The shift is the one within
+ *  ±`REGISTER_REACH` pixels whose ±`REGISTER_WINDOW` window of the game's luma correlates best with ours' (zero-mean,
+ *  normalised: the brightness and the contrast of either side don't move it, only where the edges lie); a sample whose
+ *  best correlation stays under `REGISTER_MIN` has nothing to line up by and is left out. Only the faces are moved
+ *  (`REGISTERED`). */
+const REGISTER = process.argv.includes("--register");
+const REGISTER_REACH = 5;
+const REGISTER_WINDOW = 10;
+const REGISTER_MIN = 0.6;
+/** The kinds registered: the faces. A top is level with its 3 × 3, so a few pixels move it nowhere else, and its
+ *  patterns (ours and the game's, which don't line up) leave nothing to correlate. */
+const REGISTERED: readonly LandKind[] = ["cliff", "shade-cliff"];
+
+const lumaOf = (px: Uint8Array): Float32Array => {
+  const out = new Float32Array(W_PX * H_PX);
+  for (let i = 0; i < W_PX * H_PX; i++) out[i] = 0.2126 * px[i * 4] + 0.7152 * px[i * 4 + 1] + 0.0722 * px[i * 4 + 2];
+  return out;
+};
+
+/** The shift (pixels) that lines ours' window at (x, y) up with the game's, and its correlation; null at the frame's
+ *  edge or where ours' window is flat. */
+function registerAt(game: Float32Array, ours: Float32Array, x: number, y: number): { dx: number; dy: number; r: number } | null {
+  const cx = Math.round(x);
+  const cy = Math.round(y);
+  const w = REGISTER_WINDOW;
+  const m = REGISTER_REACH + w;
+  if (cx < m || cy < m || cx >= W_PX - m || cy >= H_PX - m) return null;
+  const n = (2 * w + 1) ** 2;
+  let so = 0;
+  let soo = 0;
+  for (let dy = -w; dy <= w; dy++)
+    for (let dx = -w; dx <= w; dx++) {
+      const v = ours[(cy + dy) * W_PX + cx + dx];
+      so += v;
+      soo += v * v;
+    }
+  const vo = soo - (so * so) / n;
+  if (vo < n * 4) return null;
+  let best: { dx: number; dy: number; r: number } | null = null;
+  for (let sy = -REGISTER_REACH; sy <= REGISTER_REACH; sy++)
+    for (let sx = -REGISTER_REACH; sx <= REGISTER_REACH; sx++) {
+      let sg = 0;
+      let sgg = 0;
+      let sog = 0;
+      for (let dy = -w; dy <= w; dy++)
+        for (let dx = -w; dx <= w; dx++) {
+          const g = game[(cy + sy + dy) * W_PX + cx + sx + dx];
+          const o = ours[(cy + dy) * W_PX + cx + dx];
+          sg += g;
+          sgg += g * g;
+          sog += o * g;
+        }
+      const vg = sgg - (sg * sg) / n;
+      const r = vg > 0 ? (sog - (so * sg) / n) / Math.sqrt(vo * vg) : 0;
+      if (!best || r > best.r) best = { dx: sx, dy: sy, r };
+    }
+  return best;
+}
+
 /** The mean colour of a 5×5 patch at a pixel. */
-function patch(px: Uint8Array, x: number, y: number): V3 {
+function patch(px: Uint8Array, x: number, y: number, r = 2): V3 {
   const c: V3 = [0, 0, 0];
   let n = 0;
-  for (let dy = -2; dy <= 2; dy++)
-    for (let dx = -2; dx <= 2; dx++) {
+  for (let dy = -r; dy <= r; dy++)
+    for (let dx = -r; dx <= r; dx++) {
       const xx = Math.round(x) + dx;
       const yy = Math.round(y) + dy;
       if (xx < 0 || yy < 0 || xx >= W_PX || yy >= H_PX) continue;
@@ -256,6 +404,35 @@ function patch(px: Uint8Array, x: number, y: number): V3 {
       n++;
     }
   return [c[0] / n, c[1] / n, c[2] / n];
+}
+
+/** Contaminated ground's veins round a pixel (D154 as amended 2026-11-07): of a `2 × VEIN_PATCH + 1` square's pixels,
+ *  how many read as the veins' rust (red well over green, blue under `VEIN_TEST.blue` of red: the dry earth and the
+ *  grass under them are neither), and the sum of their colours and of all the pixels'. */
+const VEIN_PATCH = 6;
+const VEIN_TEST = { redOverGreen: 18, blue: 0.5 };
+interface VeinCount {
+  px: number;
+  vein: number;
+  veinSum: V3;
+  allSum: V3;
+}
+const veinCount = (): VeinCount => ({ px: 0, vein: 0, veinSum: [0, 0, 0], allSum: [0, 0, 0] });
+function veinsAt(px: Uint8Array, x: number, y: number, into: VeinCount): void {
+  for (let dy = -VEIN_PATCH; dy <= VEIN_PATCH; dy++)
+    for (let dx = -VEIN_PATCH; dx <= VEIN_PATCH; dx++) {
+      const xx = Math.round(x) + dx;
+      const yy = Math.round(y) + dy;
+      if (xx < 0 || yy < 0 || xx >= W_PX || yy >= H_PX) continue;
+      const i = (yy * W_PX + xx) * 4;
+      const c: V3 = [px[i], px[i + 1], px[i + 2]];
+      into.px++;
+      for (let k = 0; k < 3; k++) into.allSum[k] += c[k];
+      if (c[0] - c[1] > VEIN_TEST.redOverGreen && c[2] < VEIN_TEST.blue * c[0]) {
+        into.vein++;
+        for (let k = 0; k < 3; k++) into.veinSum[k] += c[k];
+      }
+    }
 }
 
 // -------------------------------------------------------------------------------------------------------- the maps
@@ -270,6 +447,15 @@ interface Shot {
   light: DayLight;
   /** Tiles near anything ours doesn't draw (plants, buildings, ruins, slopes, mine sites): the land judge leaves them out. */
   covered: Uint8Array;
+  /** The tiles of the map's badwater sources' 3 × 3 footprints (`--no-sources`). */
+  sources: Uint8Array;
+  /** The map's mine sites (`--water pit`): their origin, level and turn, and the tile at their footprint's centre. */
+  mines: { x: number; y: number; z: number; orientation: Orientation; cx: number; cy: number }[];
+  /** Every object of the map (`--objects`), and its start's tile. */
+  objects: { template: string; x: number; y: number; z: number; orientation: string }[];
+  start: [number, number] | null;
+  /** The map's badwater sources (`--sources`). */
+  badSources: { x: number; y: number; z: number; orientation: Orientation; strength: number }[];
 }
 
 /** The probe's record of a map (its result's JSON): its shots' hours and its objects. */
@@ -280,9 +466,9 @@ interface ProbeResult {
 }
 
 function loadShot(id: string): Shot {
-  const snap = JSON.parse(gunzipSync(readFileSync(`C:/dgm-probe/results/${BATCH}/m9b-${id}.snapshot.json.gz`)).toString("utf8")) as Snapshot;
+  const snap = JSON.parse(gunzipSync(readFileSync(`C:/dgm-probe/results/${BATCH}/${PREFIX}${id}.snapshot.json.gz`)).toString("utf8")) as Snapshot;
   const mapId = id.replace(/(-badtide\d+|-drought\d+)?-(start|end|day1)$/, "");
-  const m = readMapBytes(new Uint8Array(readFileSync(`C:/dgm-probe/maps/${BATCH}/m9b-${mapId}.timber`)));
+  const m = readMapBytes(new Uint8Array(readFileSync(`C:/dgm-probe/maps/${BATCH}/${PREFIX}${mapId}.timber`)));
   // the probe's water pose (catalog.ts standardPoses, which this follows: that module is not loadable here): the wet
   // tile nearest the largest water's centre, 30° east of north, 55° down, at 2.2 × the root of its tiles (35 to 110)
   const water = wetAreas(m)[0];
@@ -297,10 +483,10 @@ function loadShot(id: string): Shot {
   const y = (best / m.W) | 0;
   const target: [number, number, number] = [x + 0.5, m.floor[best] >= 0 ? m.floor[best] + m.depth[best] : m.heights[best], -(y + 0.5)];
   // the shot's hour (its moment's water shot) and weather then, and what stands on the map then
-  const result = JSON.parse(readFileSync(`C:/dgm-probe/results/${BATCH}/m9b-${mapId}.json`, "utf8")) as ProbeResult;
+  const result = JSON.parse(readFileSync(`C:/dgm-probe/results/${BATCH}/${PREFIX}${mapId}.json`, "utf8")) as ProbeResult;
   const moment = id.slice(mapId.length + 1);
-  const taken = result.shots.find((t) => t.momentId === moment && t.pose === "water");
-  if (!taken) throw new Error(`${id}: no water shot in the probe's record`);
+  const taken = result.shots.find((t) => t.momentId === moment && t.pose === POSE);
+  if (!taken) throw new Error(`${id}: no ${POSE} shot in the probe's record`);
   const hazard: Hazard = snap.weather === "drought" || snap.weather === "badtide" ? snap.weather : null;
   const covered = new Uint8Array(snap.width * snap.height);
   const cover = (cx: number, cy: number, r: number) => {
@@ -308,15 +494,43 @@ function loadShot(id: string): Shot {
       for (let xx = Math.max(0, cx - r); xx <= Math.min(snap.width - 1, cx + r); xx++) covered[yy * snap.width + xx] = 1;
   };
   for (const p of snap.plants) cover(p.x, p.y, 2);
+  const sources = new Uint8Array(snap.width * snap.height);
+  for (const e of m.entities.filter((e) => e.template === "BadwaterSource")) {
+    const o = (["Cw0", "Cw90", "Cw180", "Cw270"].includes(e.orientation) ? e.orientation : "Cw0") as Orientation;
+    const [cx, cy] = rotate(o, 1, 1).map((v, k) => v + (k ? e.y : e.x));
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (cx + dx >= 0 && cy + dy >= 0 && cx + dx < snap.width && cy + dy < snap.height) sources[(cy + dy) * snap.width + cx + dx] = 1;
+  }
   for (const e of [...result.entitiesAtStart, ...result.entitiesAtEnd]) cover(e.x, e.y, 3);
   return {
     id,
     snap,
     heights: snap.terrain,
-    pose: { yaw: -Math.PI / 6, pitch: (55 * Math.PI) / 180, distance: Math.min(110, Math.max(35, Math.sqrt(water.tiles.length) * 2.2)), fov: 40, target },
-    png: readFileSync(`C:/dgm-probe/shots/${BATCH}/m9b-${id}-water.jpg`),
+    // (the start pose: the start's tile, 45 away)
+    pose:
+      POSE === "start" && m.start
+        ? { yaw: -Math.PI / 6, pitch: (55 * Math.PI) / 180, distance: 45, fov: 40, target: [m.start.x + 0.5, m.heights[m.start.y * m.W + m.start.x], -(m.start.y + 0.5)] }
+        : { yaw: -Math.PI / 6, pitch: (55 * Math.PI) / 180, distance: Math.min(110, Math.max(35, Math.sqrt(water.tiles.length) * 2.2)), fov: 40, target },
+    png: readFileSync(`C:/dgm-probe/shots/${BATCH}/${PREFIX}${id}-${POSE}.jpg`),
+    objects: m.entities.map((e) => ({ template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation })),
+    start: m.start ? [m.start.x, m.start.y] : null,
     light: LIGHT_MODE === "day" ? dayLight(0.5, null) : dayLight(taken.day, hazard),
     covered,
+    sources,
+    badSources: m.entities
+      .filter((e) => e.template === "BadwaterSource")
+      .map((e) => {
+        // (the save's numbers are { value, raw })
+        const ws = (e.components as Record<string, { CurrentStrength?: { value?: number } | number }>).WaterSource;
+        const v = ws?.CurrentStrength;
+        return { x: e.x, y: e.y, z: e.z, orientation: (["Cw0", "Cw90", "Cw180", "Cw270"].includes(e.orientation) ? e.orientation : "Cw0") as Orientation, strength: Number(typeof v === "object" ? v.value : (v ?? 1)) };
+      }),
+    mines: m.entities
+      .filter((e) => e.template === "UndergroundRuins")
+      .map((e) => {
+        const o = (["Cw0", "Cw90", "Cw180", "Cw270"].includes(e.orientation) ? e.orientation : "Cw0") as Orientation;
+        const [dx, dy] = rotate(o, 2, 2);
+        return { x: e.x, y: e.y, z: e.z, orientation: o, cx: e.x + dx, cy: e.y + dy };
+      }),
   };
 }
 
@@ -344,10 +558,16 @@ function fitPoints(s: Shot): { p: V3; wet: number }[] {
   return out;
 }
 
+/** The field of view a camera fit may take (degrees): round Q8's 31-37°. */
+const FIT_FOV = [28, 46] as const;
+
 function fitCamera(s: Shot, mask: Float32Array): { cam: Cam; score: number } {
   const pts = fitPoints(s);
   const camOf = (x: number[]): Cam => ({ yaw: x[0], pitch: x[1], distance: Math.exp(x[2]), fov: x[3], target: [s.pose.target[0] + x[4], s.pose.target[1], s.pose.target[2] + x[5]] });
   const score = (x: number[]) => {
+    // (the game's field of view is 31-37° (Q8): a fit outside FIT_FOV is the score trading the field of view against
+    // the distance, as islands-128-1-badtide2-start's own fit did, 12° from 120 away, framed on the island alone)
+    if (x[3] < FIT_FOV[0] || x[3] > FIT_FOV[1]) return 2;
     const pr = projector(camOf(x));
     let wetHit = 0;
     let wetN = 0;
@@ -388,16 +608,31 @@ function samplePoints(s: Shot): { p: V3; depth: number; kind: Kind }[] {
     for (let x = 1; x < W - 1; x++) {
       const i = y * W + x;
       const kind = kindOf(contamination[i]);
-      if (!(depth[i] > 0.05) || !kind || !KINDS.includes(kind)) continue;
+      if (!(depth[i] > MIN_DEPTH) || !kind || !KINDS.includes(kind) || (NO_SOURCES && s.sources[i]) || (ONLY_SOURCES && !s.sources[i])) continue;
       const level = s.heights[i] + depth[i];
       let ok = true;
       for (let dy = -1; dy <= 1 && ok; dy++)
         for (let dx = -1; dx <= 1 && ok; dx++) {
           const j = (y + dy) * W + x + dx;
-          if (!(depth[j] > 0.05) || (kind !== "mixed" && kindOf(contamination[j]) !== kind) || Math.abs(s.heights[j] + depth[j] - level) > 0.1) ok = false;
+          if (!(depth[j] > MIN_DEPTH) || (kind !== "mixed" && kindOf(contamination[j]) !== kind) || Math.abs(s.heights[j] + depth[j] - level) > 0.1) ok = false;
         }
       if (ok) out.push({ p: [x + 0.5, level, -(y + 0.5)], depth: depth[i], kind });
+      // (a fall's foot: clean, its four neighbours wet and clean, one of them 0.6 or more higher)
+      else if (KINDS.includes("falls") && kind === "clean") {
+        let rise = -Infinity;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const j = (y + dy) * W + x + dx;
+          rise = depth[j] > 0.05 && kindOf(contamination[j]) === "clean" ? Math.max(rise, s.heights[j] + depth[j] - level) : NaN;
+          if (Number.isNaN(rise)) break;
+        }
+        if (rise >= 0.6) out.push({ p: [x + 0.5, level, -(y + 0.5)], depth: depth[i], kind: "falls" });
+      }
     }
+  // the mine sites' pits: their floor at the 3 × 3 round the footprint's centre, at the pit's depth (counted as a level
+  // deep, so they fall in the bands' whole range)
+  if (KINDS.includes("pit"))
+    for (const mine of s.mines)
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) out.push({ p: [mine.cx + dx + 0.5, mine.z - MINE_PIT.depth + 0.02, -(mine.cy + dy + 0.5)], depth: 1, kind: "pit" });
   return out;
 }
 
@@ -405,9 +640,16 @@ function samplePoints(s: Shot): { p: V3; depth: number; kind: Kind }[] {
 
 /** The land's kinds the judge validates itself on (the water's light, fog and finish are the land's): level tops of grass
  *  (moisture 6 or more, the game's full green), dry ground (no moisture) and contaminated ground (a share over 0.2),
- *  each with its 3×3 all of its kind, and cliff faces two levels or more high. */
-type LandKind = "grass" | "dry" | "contaminated" | "cliff";
-const LAND_KINDS: readonly LandKind[] = ["grass", "dry", "contaminated", "cliff"];
+ *  each with its 3×3 all of its kind, and cliff faces two levels or more high. On contaminated ground the judge also
+ *  counts its veins (`veinsAt`): their share of the pixels and their colour, the game's and ours. */
+type LandKind = "grass" | "dry" | "contaminated" | "cliff" | "edge" | "shade-grass" | "shade-dry" | "shade-cliff";
+/** `--shade`: the land in shade too, lit by the ambient alone (the game's ambient probe; docs/progress/3d-view.md, "The
+ *  game's ambient probe, captured"): grass and dry tops level with their 3 × 3 whose middle (±0.4 of a tile) lies in a
+ *  higher tile's shadow, by the shot's sun and our baked shadows' 45° alike (`shade-grass`, `shade-dry`), and cliff faces
+ *  toward the camera turned from the sun (`shade-cliff`; the game's sun stands behind the camera's left shoulder, so these
+ *  are seen edge-on at the view's side, if at all). */
+const SHADE = process.argv.includes("--shade");
+const LAND_KINDS: readonly LandKind[] = [...(SAMPLES ? ["grass", "dry", "contaminated", "cliff", "edge"] : ["grass", "dry", "contaminated", "cliff"]), ...(SHADE ? ["shade-grass", "shade-dry", "shade-cliff"] : [])] as LandKind[];
 /** The camera's distance bands the land is judged by (the fog's share grows with the distance). */
 const LAND_BANDS: [number, number][] = [
   [0, 70],
@@ -415,7 +657,7 @@ const LAND_BANDS: [number, number][] = [
   [110, 999],
 ];
 
-/** The land to sample: dry tops level with their 3×3 and five tiles from any water, where no higher tile within four
+/** The land to sample: dry tops level with their 3×3 and five tiles from any water (contaminated ground two), where no higher tile within four
  *  could shade them (any sun over 31°: the game's sun is 30–45° up and turns with the camera), and cliff faces turned
  *  toward the camera (the sun shines from behind its left shoulder); none near anything ours doesn't draw (`covered`),
  *  none hidden from the camera by the land; at a top's centre or a face's middle. */
@@ -448,7 +690,24 @@ function landPoints(s: Shot, cam: Cam): { p: V3; kind: LandKind; distance: numbe
       }
     return false;
   };
-  const kindOfTop = (j: number): LandKind | null => (soil[j] > 0.2 ? "contaminated" : soil[j] > 0 ? null : moisture[j] >= 6 ? "grass" : moisture[j] <= 0 ? "dry" : null);
+  // (the sun turns with the camera, as the game's, renderer.ts sunOfYaw: its way over the map, x east and y north)
+  const sun = sunOfYaw(cam.yaw);
+  const inShadow = (px: number, py: number, top: number) =>
+    [s.light.angle, 45].every((deg) => {
+      const rise = Math.tan((deg * Math.PI) / 180);
+      for (let t = 0.25; t < 24; t += 0.25) {
+        const tx = Math.floor(px + sun.x * t);
+        const ty = Math.floor(py + sun.y * t);
+        if (tx < 0 || ty < 0 || tx >= W || ty >= H) return false;
+        if (hs[ty * W + tx] > top + rise * t + 0.1) return true;
+      }
+      return false;
+    });
+  const deepShade = (x: number, y: number, top: number) => {
+    for (const oy of [-0.4, 0, 0.4]) for (const ox of [-0.4, 0, 0.4]) if (!inShadow(x + 0.5 + ox, y + 0.5 + oy, top)) return false;
+    return true;
+  };
+  const kindOfTop = (j: number): LandKind | null => (soil[j] > 0.2 ? "contaminated" : soil[j] > 0 ? null : moisture[j] >= 6 ? "grass" : moisture[j] <= 0 ? "dry" : SAMPLES ? "edge" : null);
   const out: { p: V3; kind: LandKind; distance: number }[] = [];
   const push = (p: V3, kind: LandKind) => {
     if (seen(p)) out.push({ p, kind, distance: Math.hypot(...sub(eye, p)) });
@@ -456,9 +715,15 @@ function landPoints(s: Shot, cam: Cam): { p: V3; kind: LandKind; distance: numbe
   for (let y = 2; y < H - 2; y++)
     for (let x = 2; x < W - 2; x++) {
       const i = y * W + x;
-      if (s.covered[i] || near(x, y, 5, (j) => depth[j] > 0)) continue;
+      if (s.covered[i]) continue;
       const kind = kindOfTop(i);
+      // (contaminated ground lies mostly by the badwater that poisoned it: two tiles from any water is enough for it)
+      const dry = !near(x, y, 5, (j) => depth[j] > 0);
+      if (!dry && !(kind === "contaminated" && !near(x, y, 2, (j) => depth[j] > 0))) continue;
       if (kind && !near(x, y, 1, (j) => hs[j] !== hs[i] || kindOfTop(j) !== kind) && !shaded(x, y, hs[i])) push([x + 0.5, hs[i], -(y + 0.5)], kind);
+      if (SHADE && dry && (kind === "grass" || kind === "dry") && !near(x, y, 1, (j) => hs[j] !== hs[i] || kindOfTop(j) !== kind || s.covered[j] > 0) && deepShade(x, y, hs[i]))
+        push([x + 0.5, hs[i], -(y + 0.5)], kind === "grass" ? "shade-grass" : "shade-dry");
+      if (!dry) continue;
       // a cliff face: this top over a neighbour two or more lower, facing the camera
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
         const j = (y + dy) * W + x + dx;
@@ -466,19 +731,94 @@ function landPoints(s: Shot, cam: Cam): { p: V3; kind: LandKind; distance: numbe
         const p: V3 = [x + 0.5 + dx * 0.5, (hs[i] + hs[j]) / 2, -(y + 0.5 + dy * 0.5)];
         const n: V3 = [dx, 0, -dy];
         if (dot(n, sub(eye, p)) > 0) push([p[0] + n[0] * 0.01, p[1], p[2] + n[2] * 0.01], "cliff");
+        if (SHADE && dot(n, sub(eye, p)) > 0 && dx * sun.x + dy * sun.y < -0.2) push([p[0] + n[0] * 0.01, p[1], p[2] + n[2] * 0.01], "shade-cliff");
       }
     }
+  return out;
+}
+
+// -------------------------------------------------------------------------------------------------------- the objects
+
+/** A shot's camera must fit this well for its objects to be sampled (`--objects`). */
+const OBJECT_FIT = 0.8;
+/** An object's sample: the mean of the (2r + 1)² pixels round its point (a crown at the start camera is 15 to 25 pixels
+ *  across, the probe's frames JPEG). */
+const OBJECT_PATCH = 1;
+const luma709 = (c: V3) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+interface ObjectPoint {
+  p: V3;
+  part: string;
+}
+/** The grown trees' and bush's crowns: their middles at the randomizer's mean height (plantSize.ts) and how far they
+ *  reach (D135 as amended 2026-10-29: the game's grown models' sizes). */
+const CROWNS: Record<string, { y: number; r: number }> = {
+  Pine: { y: 1.95, r: 0.55 },
+  Birch: { y: 1.22, r: 0.48 },
+  Oak: { y: 1.62, r: 0.8 },
+  BlueberryBush: { y: 0.2, r: 0.5 },
+};
+
+/** Where the map's objects are sampled (`--objects`): each grown tree's and bush's crown, its middle as the camera sees
+ *  it (`<species>`, lit by the sun behind the camera's left shoulder) and its side turned across the sun (`<species>
+ *  side`: a point toward the camera's side away from the sun, where the crown's normal stands square to the sun's way,
+ *  0.6 of its reach out); a birch's trunk under its crown (`birch bark`); a ruin's column (`ruin`: its face toward the
+ *  camera at half its height); a water source's rock (`water source`). None within seven tiles of the start (the game
+ *  has put its district centre there by the start shot) nor hidden from the camera by the land. Objects stand at their
+ *  tiles' middles (the game's offset them up to 0.15, ours too: `plantPlacement`). */
+function objectPoints(s: Shot, cam: Cam): ObjectPoint[] {
+  const { width: W, height: H, depth } = s.snap;
+  const hs = s.heights;
+  const cp = Math.cos(cam.pitch);
+  const eye: V3 = [cam.target[0] + Math.sin(cam.yaw) * cp * cam.distance, cam.target[1] + Math.sin(cam.pitch) * cam.distance, cam.target[2] + Math.cos(cam.yaw) * cp * cam.distance];
+  const heightAt = (x: number, z: number) => {
+    const tx = Math.floor(x);
+    const ty = Math.floor(-z);
+    return tx < 0 || ty < 0 || tx >= W || ty >= H ? -1 : hs[ty * W + tx] + (depth[ty * W + tx] > 0 ? depth[ty * W + tx] : 0);
+  };
+  const seen = (p: V3) => {
+    const d = sub(eye, p);
+    const len = Math.hypot(...d);
+    for (let t = 0.6; t < Math.min(len, 60); t += 0.4) if (heightAt(p[0] + (d[0] * t) / len, p[2] + (d[2] * t) / len) > p[1] + (d[1] * t) / len + 0.02) return false;
+    return true;
+  };
+  // the sun's way over the map (x east, y north) and the camera's, in the world (x east, z south)
+  const sun = sunOfYaw(cam.yaw);
+  const toEye = norm([eye[0] - cam.target[0], 0, eye[2] - cam.target[2]]);
+  // square to the sun's way, on the camera's side
+  let across: V3 = [sun.y, 0, sun.x];
+  if (dot(across, toEye) < 0) across = [-across[0], 0, -across[2]];
+  const out: ObjectPoint[] = [];
+  const push = (p: V3, part: string) => {
+    if (seen(p)) out.push({ p, part });
+  };
+  for (const o of s.objects) {
+    if (s.start && Math.hypot(o.x - s.start[0], o.y - s.start[1]) < 7) continue;
+    const x = o.x + 0.5;
+    const z = -(o.y + 0.5);
+    const crown = CROWNS[o.template];
+    if (crown) {
+      const name = o.template === "BlueberryBush" ? "bush" : o.template.toLowerCase();
+      push([x, o.z + crown.y, z], name);
+      push([x + across[0] * crown.r * 0.6, o.z + crown.y, z + across[2] * crown.r * 0.6], `${name} side`);
+      if (o.template === "Birch") push([x + toEye[0] * 0.05, o.z + 0.4, z + toEye[2] * 0.05], "birch bark");
+    } else if (/^RuinColumnH\d$/.test(o.template)) {
+      const h = Number(o.template.slice(-1));
+      push([x + toEye[0] * 0.45, o.z + h / 2, z + toEye[2] * 0.45], "ruin");
+    } else if (o.template === "WaterSource") push([x, o.z + 0.75, z], "water source");
+  }
   return out;
 }
 
 // -------------------------------------------------------------------------------------------------------- our side
 
 async function site(root: string, label: string, port: number): Promise<PreviewServer> {
-  const outDir = resolve(`.scratch/water-judge-${label}`);
+  const outDir = resolve(`.scratch/water-judge-${label}-${port}`);
   console.log(`building the ${label} site…`);
   process.env.DGM_BASE = "/";
-  await build({ root, configFile: join(root, "vite.config.ts"), base: "/", logLevel: "warn", build: { outDir, emptyOutDir: true } });
-  return preview({ root, configFile: join(root, "vite.config.ts"), base: "/", build: { outDir }, preview: { port, strictPort: true }, logLevel: "warn" });
+  // (its own cache: a worktree's node_modules may be another's, joined)
+  const cacheDir = resolve(`.scratch/water-judge-${label}-${port}-vite`);
+  await build({ root, configFile: join(root, "vite.config.ts"), base: "/", cacheDir, logLevel: "warn", build: { outDir, emptyOutDir: true } });
+  return preview({ root, configFile: join(root, "vite.config.ts"), base: "/", cacheDir, build: { outDir }, preview: { port, strictPort: true }, logLevel: "warn" });
 }
 
 /** Page side: the snapshot as the renderer's map (no plants or buildings: the water and the land). */
@@ -488,7 +828,10 @@ const SET_MAP_JS = `(g) => {
   const tile = [], floor = [], depth = [], cont = [];
   for (let i = 0; i < N; i++) if (g.depth[i] > 0.001) { tile.push(i); floor.push(g.heights[i]); depth.push(g.depth[i]); cont.push(g.contamination[i]); }
   const mb = (v) => v <= 0 ? 0 : Math.max(1, Math.min(255, Math.round(v * 15)));
-  const e = { count: 0, templates: [], owners: [], template: new Uint16Array(0), x: new Int16Array(0), y: new Int16Array(0), z: new Int16Array(0), orientation: new Uint8Array(0), flags: new Uint8Array(0), owner: new Uint16Array(0), variant: new Uint8Array(0) };
+  const templates = g.objects ? [...new Set(g.objects.map((o) => o.template))] : ["UndergroundRuins", "BadwaterSource"];
+  const ms = g.objects ? g.objects.map((o) => ({ ...o, t: templates.indexOf(o.template), strength: 1 })) : [...(g.mines ?? []).map((m) => ({ ...m, t: 0, strength: 0 })), ...(g.sources ?? []).map((m) => ({ ...m, t: 1 }))];
+  const n = ms.length;
+  const e = { count: n, templates, owners: n ? ["import"] : [], template: Uint16Array.from(ms.map((m) => m.t)), x: Int16Array.from(ms.map((m) => m.x)), y: Int16Array.from(ms.map((m) => m.y)), z: Int16Array.from(ms.map((m) => m.z)), orientation: Uint8Array.from(ms.map((m) => ["Cw0", "Cw90", "Cw180", "Cw270"].indexOf(m.orientation))), flags: new Uint8Array(n), owner: new Uint16Array(n), variant: new Uint8Array(n).fill(255), strength: Float32Array.from(ms.map((m) => m.strength)), ids: ms.map(() => "") };
   r.setMap({ W: g.W, H: g.H, heights: Uint8Array.from(g.heights), columns: { tiles: new Int32Array(0), voxels: new Uint8Array(0) }, entities: e,
     soil: { moisture: Uint8Array.from(g.moisture.map(mb)), contamination: Uint8Array.from(g.soil.map((v) => v <= 0 ? 0 : Math.max(1, Math.min(255, Math.round(v * 255))))) },
     water: { count: tile.length, tile: Int32Array.from(tile), floor: Float32Array.from(floor), depth: Float32Array.from(depth), contamination: Float32Array.from(cont) } }, true);
@@ -513,20 +856,22 @@ function lightSwaps(light: DayLight): [string, string][] {
           [`env * ${glNum(GAME_FINISH.reflectionIntensity)} / (r2 + 1.0)`, `env * ${glNum(REFLECTION)} / (r2 + 1.0)`],
           [`return ${glNum(WATER_SURFACE.reflection)} * (clamp(smoothness + `, `return ${glNum(REFLECTION)} * (clamp(smoothness + `],
         ];
-  if (light.label === day.label && light.fog.every((v, k) => v === day.fog[k])) return reflection;
+  if (light.label === day.label && light.fog.every((v, k) => v === day.fog[k]) && AMBIENT === null) return reflection;
+  const times = (c: Rgb): Rgb => c.map((v) => v * (AMBIENT ?? 1)) as unknown as Rgb;
+  const sh = { c0: times(light.sh.c0), c1: times(light.sh.c1), c2: times(light.sh.c2) };
   return [
     ...reflection,
     [glColor(GAME_LIGHT.sun), glColor(light.sun)],
-    ...(["c0", "c1", "c2"] as const).map((k): [string, string] => [glColor3(GAME_AMBIENT_SH[k]), glColor3(light.sh[k])]),
-    ...[1, -1, 0].map((y): [string, string] => [glColor3(gameAmbient(y)), glColor3(gameAmbient(y, light.sh))]),
+    ...(["c0", "c1", "c2"] as const).map((k): [string, string] => [glColor3(GAME_AMBIENT_SH[k]), glColor3(sh[k])]),
+    ...[1, -1, 0].map((y): [string, string] => [glColor3(gameAmbient(y)), glColor3(gameAmbient(y, sh))]),
   ];
 }
 
-/** The shader patch: the branch's colour whichever one it ships (its shaders compiled with `DEFINE` 0, our colour, or 1,
+/** The shader patch: the branch's colour whichever one it ships (its shaders compiled with `DEFINES` 0, our colour, or 1,
  *  the game's formula, the same build; `formula` null leaves it), and the shot's light (`lightSwaps`), in one pass so a
  *  swap's result is never swapped again. Counts what it swapped in `window.__judgeSwaps`. */
 const shaderInit = (formula: boolean | null, swaps: [string, string][]) => `(() => {
-  const swaps = new Map(${JSON.stringify([...(formula === null ? [] : [[`#define ${DEFINE} ${formula ? 0 : 1}`, `#define ${DEFINE} ${formula ? 1 : 0}`]]), ...swaps])});
+  const swaps = new Map(${JSON.stringify([...(formula === null ? [] : DEFINES.map((d) => [`#define ${d} ${formula ? 0 : 1}`, `#define ${d} ${formula ? 1 : 0}`])), ...swaps])});
   const keys = [...swaps.keys()];
   window.__judgeSwaps = {};
   for (const C of [WebGLRenderingContext, WebGL2RenderingContext]) {
@@ -543,7 +888,7 @@ const shaderInit = (formula: boolean | null, swaps: [string, string][]) => `(() 
 async function openSite(browser: Browser, port: number, formula: boolean | null, light: DayLight): Promise<Page> {
   const context = await browser.newContext({ viewport: { width: W_PX, height: H_PX }, deviceScaleFactor: 1, colorScheme: "light" });
   const page = await context.newPage();
-  const swaps = lightSwaps(light);
+  const swaps = [...lightSwaps(light), ...(formula === null ? [] : SETS)];
   if (formula !== null || swaps.length) await page.addInitScript(shaderInit(formula, swaps));
   await page.goto(`http://localhost:${port}/#s=1&z=128&d=n&t=lakeBasin`);
   await waitForEditor(page, 600_000);
@@ -559,7 +904,7 @@ async function openSite(browser: Browser, port: number, formula: boolean | null,
 }
 
 async function render(page: Page, s: Shot, cam: Cam, look: "standard" | "high"): Promise<Buffer> {
-  await page.evaluate(`(${SET_MAP_JS})(${JSON.stringify({ W: s.snap.width, H: s.snap.height, heights: s.heights, depth: s.snap.depth, contamination: s.snap.contamination, moisture: s.snap.moisture, soil: s.snap.soilContamination })})`);
+  await page.evaluate(`(${SET_MAP_JS})(${JSON.stringify({ W: s.snap.width, H: s.snap.height, heights: s.heights, depth: s.snap.depth, contamination: s.snap.contamination, moisture: s.snap.moisture, soil: s.snap.soilContamination, mines: WATER === "pit" ? s.mines : [], sources: SOURCES ? s.badSources : [], objects: OBJECTS ? s.objects : undefined })})`);
   await page.evaluate(`(() => { const r = window.dgm3d.renderer; if (typeof r.setLookChoice === "function") { for (const k of Object.keys(r.highEffects ?? {})) r.setHighEffect(k, true); r.setLookChoice(${JSON.stringify(look)}, false); } })()`);
   if (look === "high") await page.waitForFunction("window.dgm3d.renderer.highSettled", null, { timeout: 180_000 });
   await page.waitForTimeout(1500);
@@ -621,19 +966,37 @@ async function main() {
     await browser.close();
     return;
   }
+  // (a run's pairs only: a pair left from an earlier run, of a case or a shot this one does not draw, would read as
+  // this run's)
+  for (const f of readdirSync(OUT)) if (f.endsWith(".jpg")) rmSync(join(OUT, f));
   const servers = [...(DEV ? [await site(DEV, "dev", PORT)] : []), await site(resolve("."), "branch", PORT + 1), ...(BASE ? [await site(BASE, "base", PORT + 2)] : [])];
   const browser = await chromium.launch({ channel: "chrome", headless: true, args: ["--enable-gpu", "--use-angle=d3d11", "--ignore-gpu-blocklist"] });
   const results: Record<string, unknown> = {};
   try {
     const tool = await (await browser.newContext()).newPage();
+    // (the objects: each tree as it ships)
     const cases: { key: string; port: number; formula: boolean | null; page?: Page; light?: string }[] = [
       ...(DEV ? [{ key: "dev", port: PORT, formula: null }] : []),
       ...(BASE ? [{ key: "826", port: PORT + 2, formula: null }] : []),
-      { key: "ours", port: PORT + 1, formula: false },
-      { key: "formula", port: PORT + 1, formula: true },
+      ...(OBJECTS
+        ? [{ key: "ours", port: PORT + 1, formula: null }]
+        : [
+            { key: "ours", port: PORT + 1, formula: false },
+            { key: "formula", port: PORT + 1, formula: true },
+          ]),
     ];
+    const objectTotal: Record<string, Record<string, { n: number; rgb: V3; luma: number }>> = {};
     const total: Record<string, Record<string, { sum: number; n: number }>> = {};
+    // (every shot's samples pooled by band, however few a shot has: the game's and each case's mean colour and L*, and
+    // each case's distance to the game's pixel)
+    const pooled: Record<string, Record<string, { sum: number; n: number; rgb: V3; l: number }>> = {};
+    // the gap by day (D496): per look, clean water and pure badwater a level or two deep (each tile's L*, summed), on
+    // the shots with badwater in view
+    const gapTotal: Record<string, Record<string, { clean: number; nc: number; bad: number; nb: number }>> = {};
     const landTotal: Record<string, Record<string, { sum: number; bias: number; floor: number; n: number }>> = {};
+    // (contaminated ground's veins: by look, the game's and each case's; beyond about 70 from the camera a vein is under
+    // a pixel, so the share there counts the pixels its rust tints past the test, not the veins themselves)
+    const veinTotal: Record<string, Record<string, VeinCount>> = {};
     // (the shots grouped by their light, so each page opens once a light: its shaders are built with it)
     const shots = SHOTS.map(loadShot);
     const fits = new Map<string, { cam: Cam; score: number }>();
@@ -647,7 +1010,7 @@ async function main() {
           c.page = await openSite(browser, c.port, c.formula, s.light);
           c.light = lightKey(s);
           const swapped = (await c.page.evaluate("window.__judgeSwaps ?? {}")) as Record<string, number>;
-          console.log(`${c.key} (${s.light.label}): ${await c.page.evaluate("window.dgm3d.renderer.gpu().renderer")}; swapped ${Object.keys(swapped).length} of ${lightSwaps(s.light).length + (c.formula === null ? 0 : 1)} constants`);
+          console.log(`${c.key} (${s.light.label}): ${await c.page.evaluate("window.dgm3d.renderer.gpu().renderer")}; swapped ${Object.keys(swapped).length} of ${lightSwaps(s.light).length + (c.formula === null ? 0 : DEFINES.length)} constants (a define the build already has is not swapped)`);
         }
       const game = await decode(tool, s.png, "image/jpeg");
       // the camera: the probe places it by the map alone (its largest water), the same at every moment, so it is fitted
@@ -660,42 +1023,85 @@ async function main() {
         fits.set(mapId, fitCamera(start, waterMask(start === s ? game : await decode(tool, start.png, "image/jpeg"))));
       }
       const { cam, score } = fits.get(mapId) as { cam: Cam; score: number };
+      // (an object's sample needs its place to the pixel: a shot whose camera fits poorly is left out)
+      if (OBJECTS && score < OBJECT_FIT) {
+        console.log(`\n${id}: left out, its camera fits ${(score * 100).toFixed(1)}% (under ${OBJECT_FIT * 100}%)`);
+        continue;
+      }
       console.log(`\n${id}: the game's light ${s.light.label} (sun ${s.light.angle.toFixed(1)}° up, fog ${s.light.fog.map((v) => v.toFixed(2)).join("/")}); camera fit on ${FIT_OWN ? id : `${mapId}-start`} ${(score * 100).toFixed(1)}% (yaw ${((cam.yaw * 180) / Math.PI).toFixed(1)}°, pitch ${((cam.pitch * 180) / Math.PI).toFixed(1)}°, distance ${cam.distance.toFixed(1)} (the pose's ${s.pose.distance.toFixed(1)}), fov ${cam.fov.toFixed(1)}°)`);
       const pts = samplePoints(s);
       const pr = projector(cam);
       const inFrame = (xy: [number, number] | null): xy is [number, number] => !!xy && xy[0] >= 3 && xy[1] >= 3 && xy[0] < W_PX - 3 && xy[1] < H_PX - 3;
       const at = pts.map((q) => ({ q, xy: pr(q.p) })).filter((a) => inFrame(a.xy)) as { q: { p: V3; depth: number; kind: Kind }; xy: [number, number] }[];
       const gameAt = at.map((a) => patch(game, a.xy[0], a.xy[1]));
-      const land = landPoints(s, cam).map((q) => ({ q, xy: pr(q.p) })).filter((a) => inFrame(a.xy)) as { q: { p: V3; kind: LandKind; distance: number }; xy: [number, number] }[];
-      const gameLand = land.map((a) => patch(game, a.xy[0], a.xy[1]));
+      // (where each mine site's pit falls in the frame, to look at: its centre's pixel)
+      for (const mine of WATER === "pit" ? s.mines : []) {
+        const xy = pr([mine.cx + 0.5, mine.z - MINE_PIT.depth, -(mine.cy + 0.5)]);
+        if (inFrame(xy)) console.log(`  the mine site at ${mine.cx},${mine.cy}: its pit's middle at pixel ${xy.map((v) => v.toFixed(0)).join(",")}`);
+      }
+      let land = landPoints(s, cam).map((q) => ({ q, xy: pr(q.p) })).filter((a) => inFrame(a.xy)) as { q: { p: V3; kind: LandKind; distance: number }; xy: [number, number]; gxy?: [number, number] }[];
+      let gameLand = land.map((a) => patch(game, a.xy[0], a.xy[1]));
+      const veinLand = land.filter((a) => a.q.kind === "contaminated");
+      const objs = OBJECTS ? (objectPoints(s, cam).map((q) => ({ q, xy: pr(q.p) })).filter((a) => inFrame(a.xy)) as { q: ObjectPoint; xy: [number, number] }[]) : [];
+      const gameObjs = objs.map((a) => patch(game, a.xy[0], a.xy[1], OBJECT_PATCH));
       for (const look of LOOKS) {
         const ours: Record<string, V3[]> = {};
         const oursLand: Record<string, V3[]> = {};
+        const oursObjects: Record<string, V3[]> = {};
         for (const c of cases) {
           const png = await render(c.page as Page, s, cam, look);
           const px = await decode(tool, png, "image/png");
+          if (OURS) mkdirSync(OURS, { recursive: true }), writeFileSync(join(OURS, `${id}-${look}-${c.key}.png`), png);
+          // (`--register`: once a shot, on its first look's first case, the land samples' game pixels moved to where
+          // ours' picture lines up with the game's; the samples nothing lines up are left out, for every look and case)
+          if (REGISTER && c === cases[0] && look === LOOKS[0]) {
+            const gl = lumaOf(game);
+            const ol = lumaOf(px);
+            const faces = land.filter((a) => REGISTERED.includes(a.q.kind)).length;
+            const kept = land.map((a) => ({ a, r: REGISTERED.includes(a.q.kind) ? registerAt(gl, ol, a.xy[0], a.xy[1]) : { dx: 0, dy: 0, r: 1 } })).filter((x) => x.r && x.r.r >= REGISTER_MIN);
+            const moved = kept.filter((x) => x.r && Math.max(Math.abs(x.r.dx), Math.abs(x.r.dy)) >= 2).length;
+            console.log(`  registered: ${faces - (land.length - kept.length)} of ${faces} cliff faces lined up (correlation ${REGISTER_MIN} or more), ${moved} of them moved 2 pixels or more`);
+            land = kept.map(({ a, r }) => ({ ...a, gxy: [a.xy[0] + (r?.dx ?? 0), a.xy[1] + (r?.dy ?? 0)] as [number, number] }));
+            gameLand = land.map((a) => patch(game, (a.gxy ?? a.xy)[0], (a.gxy ?? a.xy)[1]));
+          }
           ours[c.key] = at.map((a) => patch(px, a.xy[0], a.xy[1]));
           oursLand[c.key] = land.map((a) => patch(px, a.xy[0], a.xy[1]));
+          if (OBJECTS) {
+            const oursObjs = objs.map((a) => patch(px, a.xy[0], a.xy[1], OBJECT_PATCH));
+            oursObjects[c.key] = oursObjs;
+            for (const [key, cs] of [["game", gameObjs], [c.key, oursObjs]] as [string, V3[]][]) {
+              if (key === "game" && c !== cases[0]) continue;
+              objs.forEach((a, k) => {
+                const t = ((objectTotal[`${look} ${a.q.part}`] ??= {})[key] ??= { n: 0, rgb: [0, 0, 0], luma: 0 });
+                t.n++;
+                t.luma += luma709(cs[k]);
+                for (let j = 0; j < 3; j++) t.rgb[j] += cs[k][j];
+              });
+            }
+          }
+          const vt = (veinTotal[look] ??= {});
+          for (const a of veinLand) veinsAt(px, a.xy[0], a.xy[1], (vt[c.key] ??= veinCount()));
+          if (c === cases[0]) for (const a of veinLand) veinsAt(game, a.xy[0], a.xy[1], (vt.game ??= veinCount()));
           if (c.key !== "dev") {
-            const pair = (await tool.evaluate(`(${PAIR_JS})(${JSON.stringify({ a: { t: "jpeg", b: s.png.toString("base64") }, b: { t: "png", b: png.toString("base64") }, la: `the game: ${id}`, lb: `ours (${c.key}, ${look})` })})`)) as string;
+            const pair = (await tool.evaluate(`(${PAIR_JS})(${JSON.stringify({ a: { t: "jpeg", b: s.png.toString("base64") }, b: { t: "png", b: png.toString("base64") }, la: `the game: ${id}`, lb: `ours (${c.key}, ${look}; the camera fitted on ${FIT_OWN ? id : `${mapId}-start`}, ${(score * 100).toFixed(0)}%)` })})`)) as string;
             writeFileSync(join(OUT, `${id}-${look}-${c.key}.jpg`), Buffer.from(pair, "base64"));
           }
         }
         const bands: Record<string, BandStats> = {};
         console.log(`  ${look}: band      n   game mean/spread          ` + cases.map((c) => `${c.key} mean/spread (distance)`.padEnd(34)).join(""));
         for (const kind of KINDS)
-        for (const [lo, hi] of [...BANDS, [0.05, 9] as [number, number]]) {
+        for (const [lo, hi] of [...BANDS, [MIN_DEPTH, 9.5] as [number, number]]) {
           const idx = at.map((a, k) => (a.q.kind === kind && a.q.depth >= lo && a.q.depth < hi ? k : -1)).filter((k) => k >= 0);
-          if (idx.length < 20) continue;
+          if (idx.length < (kind === "pit" || kind === "falls" ? 5 : 20)) continue;
           const g = meanSpread(idx.map((k) => gameAt[k]));
           const b: BandStats = { n: idx.length, game: g, ours: {} };
-          let line = `  ${look}: ${`${kind} ${lo}-${hi === 9 ? "" : hi}`.padEnd(15)} ${String(idx.length).padStart(5)}   ${fmt(g.mean)} / ${fmt(g.spread)} L* ${meanL(idx.map((k) => gameAt[k])).toFixed(1)}   `;
+          let line = `  ${look}: ${`${kind} ${lo}-${hi >= 9 ? "" : hi}`.padEnd(15)} ${String(idx.length).padStart(5)}   ${fmt(g.mean)} / ${fmt(g.spread)} L* ${meanL(idx.map((k) => gameAt[k])).toFixed(1)}   `;
           for (const c of cases) {
             const o = meanSpread(idx.map((k) => ours[c.key][k]));
             const distance = Math.sqrt(idx.reduce((a, k) => a + [0, 1, 2].reduce((s2, j) => s2 + (ours[c.key][k][j] - gameAt[k][j]) ** 2, 0) / 3, 0) / idx.length);
             b.ours[c.key] = { ...o, distance };
             line += `${fmt(o.mean)} / ${fmt(o.spread)} L* ${meanL(idx.map((k) => ours[c.key][k])).toFixed(1)} (${distance.toFixed(1)})`.padEnd(42);
-            if (hi === 9) {
+            if (hi === 9.5) {
               const t = ((total[`${look} ${kind}`] ??= {})[c.key] ??= { sum: 0, n: 0 });
               t.sum += distance * distance * idx.length;
               t.n += idx.length;
@@ -703,9 +1109,29 @@ async function main() {
           }
           console.log(line);
           bands[`${kind} ${lo}-${hi}`] = b;
+          if (lo === 1 && hi === 2 && (kind === "clean" || kind === "bad") && at.filter((a) => a.q.kind === "bad" && a.q.depth >= 0.05).length >= 20)
+            for (const [key, cs] of [["game", gameAt], ...cases.map((c) => [c.key, ours[c.key]])] as [string, V3[]][]) {
+              const t = ((gapTotal[look] ??= {})[key] ??= { clean: 0, nc: 0, bad: 0, nb: 0 });
+              const sum = idx.reduce((a, k) => a + lstar(cs[k]), 0);
+              if (kind === "clean") (t.clean += sum), (t.nc += idx.length);
+              else (t.bad += sum), (t.nb += idx.length);
+            }
         }
         // the land: by kind and the camera's distance, each side's mean and spread, ours' distance to the game's pixel
         // (RMS) and its mean's (bias); the floor is two game samples' distance at the same spread, √2 × its spread
+        for (const kind of KINDS)
+          for (const [lo, hi] of [...BANDS, [MIN_DEPTH, 9.5] as [number, number]]) {
+            const idx = at.map((a, k) => (a.q.kind === kind && a.q.depth >= lo && a.q.depth < hi ? k : -1)).filter((k) => k >= 0);
+            const into = (pooled[`${look} ${kind} ${s.light.label} ${lo}-${hi >= 9 ? "" : hi}`] ??= {});
+            for (const [key, cs] of [["game", gameAt], ...cases.map((c) => [c.key, ours[c.key]])] as [string, V3[]][]) {
+              const t = (into[key] ??= { sum: 0, n: 0, rgb: [0, 0, 0], l: 0 });
+              for (const k of idx) {
+                t.n++;
+                t.l += lstar(cs[k]);
+                for (let j = 0; j < 3; j++) (t.rgb[j] += cs[k][j]), (t.sum += (cs[k][j] - gameAt[k][j]) ** 2 / 3);
+              }
+            }
+          }
         const landBands: Record<string, unknown> = {};
         console.log(`  ${look}: land            n   game mean/spread (floor)          ` + cases.map((c) => `${c.key} mean (distance, bias)`.padEnd(30)).join(""));
         for (const kind of LAND_KINDS)
@@ -733,11 +1159,45 @@ async function main() {
             console.log(line);
             landBands[`${kind} ${lo}-${hi}`] = { n: idx.length, game: g, floor, ours: per };
           }
-        results[`${id}-${look}-${WATER}`] = { camera: cam, fit: score, light: s.light, bands, land: landBands };
+        const cp = Math.cos(cam.pitch);
+        const eye: V3 = [cam.target[0] + Math.sin(cam.yaw) * cp * cam.distance, cam.target[1] + Math.sin(cam.pitch) * cam.distance, cam.target[2] + Math.cos(cam.yaw) * cp * cam.distance];
+        const forward = norm(sub(cam.target, eye));
+        const landSamples = SAMPLES ? land.map((a, k) => ({ kind: a.q.kind, p: a.q.p, moisture: s.snap.moisture[Math.floor(-a.q.p[2]) * s.snap.width + Math.floor(a.q.p[0])], distance: a.q.distance, viewDepth: dot(sub(a.q.p, eye), forward), shift: a.gxy ? [a.gxy[0] - a.xy[0], a.gxy[1] - a.xy[1]] : undefined, game: gameLand[k], ours: Object.fromEntries(cases.map((c) => [c.key, oursLand[c.key][k]])) })) : undefined;
+        // (`--samples`: the water's samples one by one too, each its point, depth, kind, the game's pixel and each case's)
+        const waterSamples = SAMPLES ? at.map((a, k) => ({ kind: a.q.kind, p: a.q.p, depth: a.q.depth, game: gameAt[k], ours: Object.fromEntries(cases.map((c) => [c.key, ours[c.key][k]])) })) : undefined;
+        const objectSamples = SAMPLES && OBJECTS ? objs.map((a, k) => ({ part: a.q.part, p: a.q.p, xy: a.xy, game: gameObjs[k], ours: Object.fromEntries(cases.map((c) => [c.key, oursObjects[c.key][k]])) })) : undefined;
+        results[`${id}-${look}-${WATER}`] = { camera: cam, fit: score, light: s.light, bands, land: landBands, landSamples, waterSamples, objectSamples };
       }
+    }
+    console.log(`\nall shots pooled, by band: mean colour, L* and (ours) the distance to the game's pixel (RMS, 0-255)`);
+    for (const [band, per] of Object.entries(pooled)) {
+      if (!per.game?.n) continue;
+      const n = per.game.n;
+      console.log(`  ${band.padEnd(26)} ${String(n).padStart(5)}  ` + Object.entries(per).map(([key, t]) => `${key} ${fmt(t.rgb.map((v) => v / n) as V3)} L* ${(t.l / n).toFixed(1)}${key === "game" ? "" : ` (${Math.sqrt(t.sum / n).toFixed(1)})`}`).join("   "));
+    }
+    results.pooled = pooled;
+    if (OBJECTS) {
+      console.log(`\nall shots, the objects by part: n, the mean colour (display, 0-255) and its Rec. 709 luma, the game's and each case's (its luma over the game's)`);
+      for (const [part, per] of Object.entries(objectTotal)) {
+        const g = per.game;
+        if (!g?.n) continue;
+        console.log(`  ${part.padEnd(26)} ${String(g.n).padStart(5)}  ` + Object.entries(per).map(([key, t]) => `${key} ${fmt(t.rgb.map((v) => v / t.n) as V3)} luma ${(t.luma / t.n).toFixed(1)}${key === "game" ? "" : ` (${(t.luma / t.n / (g.luma / g.n)).toFixed(3)})`}`).join("   "));
+      }
+      results.objects = objectTotal;
     }
     console.log(`\nall shots, by kind: the distance to the game's pixel (RMS, 0-255)`);
     for (const look of LOOKS) for (const kind of KINDS) console.log(`  ${look} ${kind}: ` + Object.entries(total[`${look} ${kind}`] ?? {}).map(([k, t]) => `${k} ${Math.sqrt(t.sum / t.n).toFixed(1)} (${t.n})`).join(", "));
+    const G = WATER_LIGHT.gap.game;
+    const [low, high] = [G.cleanShots[0] - G.badShots[1], G.cleanShots[1] - G.badShots[0]];
+    console.log(`
+all shots with badwater in view, the gap by day (D496): clean water against pure badwater a level or two deep, L*; the game's frames allow ${low.toFixed(1)} to ${high.toFixed(1)}`);
+    for (const look of LOOKS)
+      for (const [key, t] of Object.entries(gapTotal[look] ?? {})) {
+        if (!t.nc || !t.nb) continue;
+        const gap = t.clean / t.nc - t.bad / t.nb;
+        console.log(`  ${look} ${key}: ${(t.clean / t.nc).toFixed(1)} against ${(t.bad / t.nb).toFixed(1)}, ${gap.toFixed(1)}${key === "game" ? "" : gap < low || gap > high ? " (outside)" : " (within)"} (${t.nc}, ${t.nb} tiles)`);
+      }
+    results.gap = gapTotal;
     console.log(`\nall shots, the land: the distance to the game's pixel (RMS, 0-255), its mean's (bias), and the floor (two game samples)`);
     for (const look of LOOKS)
       for (const kind of [...LAND_KINDS, "all"]) {
@@ -746,9 +1206,16 @@ async function main() {
         const first = Object.values(t)[0];
         console.log(`  ${look} ${kind}: ` + Object.entries(t).map(([k, v]) => `${k} ${Math.sqrt(v.sum / v.n).toFixed(1)} (bias ${Math.sqrt(v.bias / v.n).toFixed(1)})`).join(", ") + `; floor ${Math.sqrt(first.floor / first.n).toFixed(1)} (${first.n})`);
       }
+    console.log(`\nall shots, contaminated ground: the share of its pixels its veins' rust tints past the test, their mean colour, and the ground's mean`);
+    const veinLine = (v: VeinCount) => `${((100 * v.vein) / Math.max(1, v.px)).toFixed(1)}% ${fmt(v.veinSum.map((x) => x / Math.max(1, v.vein)) as V3)}, ground ${fmt(v.allSum.map((x) => x / Math.max(1, v.px)) as V3)}`;
+    for (const look of LOOKS) {
+      const vt = veinTotal[look];
+      if (vt?.game) console.log(`  ${look}: game ${veinLine(vt.game)} (${vt.game.px} px); ` + cases.map((c) => `${c.key} ${veinLine(vt[c.key])}`).join("; "));
+    }
+    results.veins = veinTotal;
     results.total = Object.fromEntries(Object.entries(total).map(([look, t]) => [look, Object.fromEntries(Object.entries(t).map(([k, v]) => [k, { distance: Math.sqrt(v.sum / v.n), n: v.n }]))]));
     results.landTotal = Object.fromEntries(Object.entries(landTotal).map(([key, t]) => [key, Object.fromEntries(Object.entries(t).map(([k, v]) => [k, { distance: Math.sqrt(v.sum / v.n), bias: Math.sqrt(v.bias / v.n), floor: Math.sqrt(v.floor / v.n), n: v.n }]))]));
-    writeFileSync(join(OUT, `judge-${WATER}-${LIGHT_MODE}${FIT_OWN ? "-fitown" : ""}${REFLECTION === null ? "" : `-reflection${REFLECTION}`}.json`), JSON.stringify(results, null, 1));
+    writeFileSync(join(OUT, `judge-${WATER}-${LIGHT_MODE}${arg("tag") ? `-${arg("tag")}` : ""}${FIT_OWN ? "-fitown" : ""}${REFLECTION === null ? "" : `-reflection${REFLECTION}`}${AMBIENT === null ? "" : `-ambient${AMBIENT}`}.json`), JSON.stringify(results, null, 1));
   } finally {
     await browser.close();
     for (const s of servers) await new Promise<void>((r) => s.httpServer.close(() => r()));

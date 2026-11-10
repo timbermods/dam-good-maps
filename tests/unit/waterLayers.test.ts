@@ -113,9 +113,9 @@ function pieces(m: WaterMeshData): string[] {
   return out.sort();
 }
 
-/** Every chunk of the scene's water, with what was checked: each column's top drawn once at its own surface, under
- *  its ceiling; no quad through rock, a fall's face among them (points across each face just off it on both sides, a
- *  top's below it). */
+/** Every chunk of the scene's water, with what was checked: each column's top drawn once at its own surface (one quad,
+ *  or a fall's slope's nine rising from it: fallSlope.ts), under its ceiling; no quad through rock (points across each
+ *  face just off it on both sides, a top's below it). */
 function checkScene(s: Scene) {
   const { W, H } = s;
   const sw = surfaceWater(W, H, s.view);
@@ -125,9 +125,11 @@ function checkScene(s: Scene) {
   const wide = waterLayers(W, H, s.heights, s.columns, s.view, sw, 12);
   const { nx, ny } = chunkCount(W, H);
   for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) expect(pieces(meshWaterChunk(W, H, wide, cx, cy)), `chunk ${cx},${cy} with a wider reach`).toEqual(pieces(meshWaterChunk(W, H, layers, cx, cy)));
-  const tops = new Map<string, number>();
+  /** Each column's top by its tile and floor: its quads, and their lowest and highest heights. */
+  const tops = new Map<string, { n: number; lo: number; hi: number }>();
   let quads = 0;
-  /** Each curtain's top and bottom (a fall is one down to lower water: D201 amended 2026-10-29). */
+  /** Each curtain's top and bottom (toward lower dry ground and at the map's edge; a fall is the water below's slope,
+   *  D154 as amended 2026-11-08). */
   const sides: [number, number][] = [];
   for (let cy = 0; cy < ny; cy++)
     for (let cx = 0; cx < nx; cx++) {
@@ -139,8 +141,9 @@ function checkScene(s: Scene) {
         const top = n[1] > 0;
         if (!top) sides.push([Math.max(p[1], p[4], p[7], p[10]), Math.min(p[1], p[4], p[7], p[10])]);
         if (top) {
-          const key = `${Math.floor(p[0])},${Math.floor(-p[2])},${p[1].toFixed(4)}`;
-          tops.set(key, (tops.get(key) ?? 0) + 1);
+          const key = `${Math.floor(Math.min(p[0], p[3], p[6], p[9]))},${Math.floor(-Math.max(p[2], p[5], p[8], p[11]))},${m.cut[q * 8].toFixed(4)}`;
+          const t = tops.get(key) ?? { n: 0, lo: Infinity, hi: -Infinity };
+          tops.set(key, { n: t.n + 1, lo: Math.min(t.lo, p[1], p[4], p[7], p[10]), hi: Math.max(t.hi, p[1], p[4], p[7], p[10]) });
         }
         // points across the face (its corners blended), just off it
         for (const u of [0.1, 0.5, 0.9])
@@ -161,10 +164,13 @@ function checkScene(s: Scene) {
     const y = (i - x) / W;
     const surface = Math.fround(view.floor[k] + view.depth[k]);
     expect(surface, `column ${k} under its ceiling`).toBeLessThanOrEqual(ceilingOf(s, x, y, view.floor[k]) + 1e-6);
-    expect(tops.get(`${x},${y},${surface.toFixed(4)}`), `column ${k} (${x},${y}) drawn once at ${surface}`).toBe(1);
+    const t = tops.get(`${x},${y},${view.floor[k].toFixed(4)}`);
+    expect([1, 9], `column ${k} (${x},${y}) drawn once`).toContain(t?.n);
+    expect(t?.lo, `column ${k} (${x},${y}) at ${surface}`).toBeCloseTo(surface, 4);
+    expect(t?.n === 1 ? t.hi : surface, `column ${k} (${x},${y}): one quad, flat`).toBeCloseTo(surface, 4);
   }
-  expect([...tops.values()].reduce((a, b) => a + b, 0), "no other tops").toBe(view.count);
-  return { layers: layers.length, quads, sides };
+  expect(tops.size, "no other tops").toBe(view.count);
+  return { layers: layers.length, quads, sides, tops };
 }
 
 describe("water at several levels", () => {
@@ -206,8 +212,12 @@ describe("water at several levels", () => {
   it("each column on its own floor and surface, under its ceiling, and nothing drawn through rock", () => {
     const r = checkScene(s);
     expect(r.layers, "the cave's water in a layer of its own").toBeGreaterThanOrEqual(2);
-    // the ledge's water falls into the pool below it, inside the cave: its face from 6.4 down to 5.5
-    expect(r.sides.some(([t, b]) => Math.abs(t - 6.4) < 1e-4 && Math.abs(b - 5.5) < 1e-4)).toBe(true);
+    // the ledge's water falls into the pool below it, inside the cave: the pool's slope from 5.5 up to 6.4 (D148: it was
+    // a face from 6.4 down to 5.5, before D154's amendment of 2026-11-08), and no face of its own
+    const foot = r.tops.get(`23,15,${(4).toFixed(4)}`);
+    expect(foot?.n, "the pool's slope at the ledge").toBe(9);
+    expect(foot?.hi).toBeCloseTo(6.4, 4);
+    expect(r.sides.some(([t, b]) => Math.abs(t - 6.4) < 1e-4 && Math.abs(b - 5.5) < 1e-4)).toBe(false);
   });
 
   it("a change of water remeshes only the chunks within reach of the columns that changed: every other chunk is the same", () => {

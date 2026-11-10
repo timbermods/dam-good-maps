@@ -32,8 +32,9 @@ import { LAYERS, type SurfaceWater, type WaterView } from "./model";
 export const WALL = 255;
 
 /** How far round a column (tiles, either way) its mesh reads the water and ground: a top's corners and curtains
- *  one, the badwater's blend three more (kept at four, as when a fall read its lips' pools and outflows). */
-export const LAYER_REACH = 4;
+ *  one, the badwater's blend three more, and the hand-over of a fall's badwater to the water below it one more
+ *  (fallSlope.ts `handOver`). */
+export const LAYER_REACH = 5;
 
 export interface WaterLayer {
   /** The water seen from this layer at each tile (NaN where none), `top` its column in the view. */
@@ -44,6 +45,10 @@ export interface WaterLayer {
   own: Uint8Array | null;
   /** Chunks this layer draws water in (`cy · ⌈W / CHUNK⌉ + cx`, 1); null: every chunk. */
   chunks: Uint8Array | null;
+  /** The open sky's layer of a map in layers: the renderer's surface water, whose water on each tile's top the
+   *  terrain's water byte has (where `sw` drops a tile whose highest water is under a roof). A still film links to a
+   *  neighbour by it, as the terrain does (shoreFilm.ts); `sw` where absent. */
+  wet?: SurfaceWater;
 }
 
 /** A map without terrain above terrain: one layer, its surface water on its heights. */
@@ -321,7 +326,7 @@ export function waterLayers(W: number, H: number, heights: Uint8Array, columns: 
     first.depth[i] = 0;
     first.contamination[i] = 0;
   }
-  layers.push({ sw: first, ground: heights, own: moved ? own0 : null, chunks: null });
+  layers.push({ sw: first, ground: heights, own: moved ? own0 : null, chunks: null, wet: sw });
   for (let L = 0; L < keys.length; L++) {
     const key = keys[L];
     const box = boxes[L];
@@ -335,7 +340,7 @@ export function waterLayers(W: number, H: number, heights: Uint8Array, columns: 
 
 /** A layer's surface water: each tile's column `colAt(j)` (−1: none) of the view, over the tiles of `box`
  *  ([x0, y0, x1, y1]; none elsewhere): where it is the renderer's surface water's column there, as that has it
- *  (ridden onto new land), and never above its ceiling (`ceiling`, by column). */
+ *  (ridden onto new land), and never above its ceiling (`ceiling`, by column), which it keeps by tile. */
 function surfaceOn(W: number, H: number, view: WaterView, sw: SurfaceWater, colAt: (j: number) => number, ceiling: Float64Array, box: readonly number[]): SurfaceWater {
   const N = W * H;
   const surface = new Float32Array(N).fill(NaN);
@@ -343,11 +348,13 @@ function surfaceOn(W: number, H: number, view: WaterView, sw: SurfaceWater, colA
   const depth = new Float32Array(N);
   const contamination = new Float32Array(N);
   const top = new Int32Array(N).fill(-1);
+  const roof = new Float32Array(N).fill(Infinity);
   for (let y = box[1]; y <= box[3]; y++)
     for (let j = y * W + box[0], end = y * W + box[2]; j <= end; j++) {
       const k = colAt(j);
       if (k < 0) continue;
       top[j] = k;
+      roof[j] = ceiling[k];
       contamination[j] = view.contamination[k];
       if (sw.top[j] === k && ceiling[k] === Infinity) {
         floor[j] = sw.floor[j];
@@ -361,7 +368,7 @@ function surfaceOn(W: number, H: number, view: WaterView, sw: SurfaceWater, colA
       depth[j] = d;
       surface[j] = f + d;
     }
-  return { surface, floor, depth, contamination, top, outflow: view.outflow ?? null, lower: [] };
+  return { surface, floor, depth, contamination, top, outflow: view.outflow ?? null, lower: [], ceiling: roof };
 }
 
 /** The land under water changed and `sw` rode it (waterMesh.ts `rideLand`), or a held day's water was kept on it

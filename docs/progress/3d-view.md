@@ -141,8 +141,8 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   the heightfield mesher saw. The mesher reads per-tile arrays, so the columns are dealt into layers (`waterLayers`):
   the open sky's first (each tile's top and the water on it, the renderer's surface water itself on a map with no
   water under a roof), then each other column into the first layer whose gaps agree with what it sees within
-  `LAYER_REACH` (4 tiles: a top's corners and curtains and the badwater blend round them; checked against a reach of
-  12, the same quads on every map). `meshWaterChunk(W, H, layers, cx, cy)` draws each layer's own tiles;
+  `LAYER_REACH` (5 tiles: a top's corners and curtains, the badwater blend round them and a fall's hand-over; checked
+  against a reach of 12, the same quads on every map). `meshWaterChunk(W, H, layers, cx, cy)` draws each layer's own tiles;
   `plainLayers(heights, sw)` is the one layer of a map without caves. A fall is a column's own curtain down to the
   water below (D201 amended 2026-10-29).
 - **Where it runs:** only where a column needs a layer of its own (`needsLayers`: water under a roof, or open water
@@ -510,10 +510,10 @@ Standard's shadow before a cave (item 8).
   diffuse share, `_Metallic` 0.05) × (the ambient + 1.1 × the sun's colour × max(n·L, 0) × its shadow), with a little
   specular. The ambient is Unity's Trilight light probe (decompiled `Timberborn.SkySystem` `Sun`: `AmbientMode.Trilight`;
   the day's colours in `Configurations/Sun.blueprint.json`: sky (0.62, 0.63, 0.97) from above, equator (1, 1, 1) from
-  the side, ground (0.28, 0.23, 0.37) from below) as Unity's ambient probe: irradiance SH, the gradient projected to L2
-  with the clamped cosine's convolution (`GAME_AMBIENT_SH`; up 0.78/0.79/0.98, side 0.84/0.83/0.91, down
-  0.65/0.64/0.68), turned back to display values (URP `SampleSH` under Gamma); a frame capture of the game's SH is still
-  to check the engine's projection. No ambient-occlusion setting in `GraphicsQualitySystem`. Its height terms: the
+  the side, ground (0.28, 0.23, 0.37) from below) as Unity's ambient probe, captured from the running game (below, "The
+  game's ambient probe, captured": `GAME_AMBIENT_SH`; up 0.825/0.827/0.986, side 0.915/0.915/0.951, down
+  0.731/0.723/0.748), turned to display values (URP `SampleSH` under Gamma). No ambient-occlusion setting in
+  `GraphicsQualitySystem`. Its height terms: the
   ground's altitude ramps, twice the texel at height / 22 (`_AltitudeCeiling`), on grass and dry ground before
   contamination; and the cliffs' tint from (0.416, 0.431, 0.475) at level 0 to (0.941, 0.925, 0.894) at level 22.
 - **What:** the terrain shader (`materials.ts`, both looks and the light look) lights each face in display values by
@@ -546,14 +546,15 @@ Standard's shadow before a cave (item 8).
     straight down. From farther than the game's farthest default zoom (154 units) it is held at what that zoom shows
     (`fogShift`), so whole-map views stay readable: an editing view the game doesn't have. High's Fog switch (on by
     default) turns it off, an editing aid.
-  - The reflection: URP's environment term on the terrain (`gameSpecular`: the probe × `m_ReflectionIntensity` 0.65 /
+  - The reflection: URP's environment term on the terrain (`gameSpecular`: the probe × the reflection intensity, 1 /
     (r² + 1) × the Fresnel blend toward the grazing term) and the sun's GGX highlight. The probe is the game's own
     Cubemap (`sharedassets1.assets` "TimberbornEnvironmentRelfectionProbe", 128², 8 mips, BC6H), which
     `tools/reflection-probe.ts` decodes on the GPU; `GAME_ENV` keeps its roughest mip, up, side and down, and `--json`
     writes every face and mip. The water reflects it too (`WATER.sky`: the probe at the water's mip 5.29, toward a
-    reflection 60° up; `WATER_SURFACE.reflection` 0.65). The light look leaves out the terrain's specular (D453: in
-    software it cost a third of the finish's frame time; the set draws the light look in 30 ms against dev's 25 at
-    1280×800, SwiftShader).
+    reflection 60° up; `WATER_SURFACE.reflection` 1). The reflection intensity was the scene's `m_ReflectionIntensity`
+    0.65 until 2026-11-07, then the 1 the game's `Sun.UpdateColors` sets every frame (`fix/water-light`). The light
+    look leaves out the terrain's specular (D453: in software it cost a third of the finish's frame time; the set draws
+    the light look in 30 ms against dev's 25 at 1280×800, SwiftShader).
   - The post chain: URP's LDR grading under Gamma: to linear, +0.15 EV, Neutral tonemapping, contrast +14 round
     ACEScc's mid grey in LogC, saturation +3, back to display values; the sky takes it too.
   - Editing aids are drawn after the fog and the post chain, in their own channel, so they keep their full contrast:
@@ -565,9 +566,89 @@ Standard's shadow before a cave (item 8).
   - An eruption's lava (D206, D378) is its own light, as a URP emission: bright enough (3.2, 0.5, 0.02 at its
     hottest) to come through the Neutral tonemap the strong orange it was, and fogged with distance as URP fogs
     emission.
-  - Not drawn: `m_AmbientIntensity` 1.2, unsettled (Unity's Lighting window offers it for Skybox ambient only, but the
-    game's shade against its sun points to an ambient about 1.2× ours: the frame capture decides), and bloom
-    (threshold 1.5: highlights only).
+  - Not drawn: `m_AmbientIntensity` 1.2, settled (D497 amended 2026-11-07: the decompiled `Sun` sets
+    `RenderSettings.ambientMode` to Trilight when it loads and its three colours every frame, and nothing in the
+    decompiled game sets `RenderSettings.ambientIntensity`; that a Trilight ignores the multiplier is Unity's behaviour,
+    not something the decompile shows).
+  - **Bloom** (D497 amended 2026-11-08, `fix/game-bloom`; `render3d/bloom.ts`, `tools/game-bloom.py`): the game's,
+    in Standard and High, not in the light look. The game's runs in play: its profile has threshold 1.5, intensity 50,
+    scatter 0.55, clamp 2, high-quality filtering, Gaussian, half resolution, 6 levels, no dirt; on at Medium, High and
+    Ultra (`BloomSetting`); the URP asset's `m_SupportsHDR` 1 (B10G11R11) and the camera's `m_HDR` 1 with
+    post-processing on. Its compiled programs (`globalgamemanagers.assets`, URP's Bloom and UberPost, `D3DDisassemble`)
+    say where it sits: the prefilter works on the frame's display values (Gamma colour space) with the threshold as
+    URP converts it, `Mathf.GammaToLinearSpace(1.5)` = 2.537, so only a pixel brighter than 1.269 (its soft knee) feeds
+    it, clamped at 2; the pyramid stores square roots; the uber pass squares the result, × 50, and adds it to the
+    linear colour before the exposure, tonemap and grade. Ours draws the same: the frame before the grade a second time
+    at half resolution into a half-float target (`bloomSource`: every look material writes the colour `gamePost` was
+    given, before any editing aid; the placement ghost and the slopes' arrows on `AID_LAYER` left out), the game's
+    pyramid pass for pass, and the canvas given what it changes, post(before + bloom) − post(before), `before` read back
+    from the canvas's code through the grey's curve (`inverseTable`), so a pixel it leaves alone keeps its every bit,
+    editing aids too (the forces' moments are on `AID_LAYER` too, and an object faded round the pointer goes into the
+    source by the dither, as it has no coverage there). The canvas alone could not carry it: the chain reaches 255 from a
+    display value of 1.28, under the knee's middle. An eruption's lava blooms as everything does.
+  - **Drawn only when something can pass the knee** (D453): by day nothing does, so the passes would change no pixel and
+    are skipped; `renderer.ts` `blooms` draws them only while an eruption's lava can pass the knee: its age set and its
+    cooling short of 2.25 s (`bloom.ts` `LAVA_BLOOM_ENDS`), past which its light at its most share of a pixel, on ground
+    at the knee, stays under it (`lavaSourceMax`, from `LAVA` in materials.ts, the constants the terrain shader draws
+    the lava by, so the two can't drift; its crust ends at 5.8 s). Measured with the passes forced on, about 2,900 day
+    views (the start, ruins, mines, every tree, clean water and its sources, a Badtide's water, both looks): the
+    brightest source 1.28 (a water glint), the start up close 1.270, and the bloom's result 0 or under a code (the start
+    up close: 4 × 10⁻⁶), the canvas the same to the byte. `tests/unit/bloom.test.ts` holds it: every model colour a face
+    can turn to the sun, lit as the game lights it, under the knee (the brightest, a mine's pale rubble, 1.262); the
+    ruins' rust skeleton (upright, 1.282 square to the sun) and a mine's pale roots held at their bounds; the sky's
+    densest clouds 1.271, which move no code. The birch's bark is held there too, at its upright bound (near-white, 1.37
+    on a trunk square to the sun in Standard and 1.42 in High; in the game's warm grey 1.23 and 1.155, below).
+    `tests/e2e/look-high.spec.ts` checks the frame by day is skipped and the same to the byte with the passes and
+    without, and that an eruption's lava draws them.
+  - **The colours bloom found** (D178, D496's rule: the game's albedo at our lightness; `tools/game-model-albedo.py`
+    reads a model's Timbermesh and its material, EnvironmentURP's 2 × detail × vertex colour × `_MainTex` × `_Color`,
+    VegetationURP's vertex colour × `_MainTex`, area-weighted over each triangle): the start's marker
+    (StartingLocationMaterial's `_Color` 0.5 halves its texture's greys: walls 0.395, trim 0.42, roof 0.48, the
+    openings 0.18; ours had taken the texture's 0.79 to 0.96 and stood near-white), High's berries (the blue of the
+    game's blueberry texture, 0.294/0.302/0.414; ours were #7f9bff; the grown model maps almost none of it, 0.1 % of
+    its area) and the ruins' panels (RuinColumnA–E's lightest tenth, 0.507/0.430/0.272; ours were #E3CF96). Before,
+    the bloom at the game's values would have lifted up to 1.39 % of our frames by 2 luma (+90 luma at most on High's
+    berries, +62 round the start in High); with them, no day frame of ours reaches the knee but by its foot (above; the start from 11 to 42,
+    crowns and bushes close up, two maps, both looks: the brightest 1.26 of a knee at 1.269), as the game's own lift
+    at most 0.21 % of a frame by day, median none (the probe's 680 day-lit start shots, an upper bound).
+  - **The birch's bark** (`fix/birch-bark`, after #863; D496's rule): the game's grown birch's bark, its white-vertex
+    part (11.9 % of BirchMature's area), is a light warm grey with dark marks: its texture parts in two, the marks
+    under 0.2 and the bark over 0.4, with 3 % of it between (`tools/game-model-albedo.py BirchMature --above
+    0.1,0.2,0.3,0.4,0.5`: 94, 81, 76, 73 and 67 % of it over each). Our models draw the marks as geometry of their own
+    (Standard a dark ring on the trunk, High five bands up close), so the bark is the texels over 0.3,
+    0.634/0.579/0.490, not the whole texture's 0.525/0.474/0.392, which would count the marks twice (a first take on
+    this branch did, and its trunks read 15–20 % darker than the game's). At our lightness, as the pine's and oak's barks
+    (`TREE_COLOURS.birchBark`, 0.835/0.763/0.646), where ours was a near-white, neutral 0.93/0.91/0.86 (High #f2efdd).
+    The dead birch's wood is the same part of BirchMatureDead, 0.517/0.466/0.388, so 0.815/0.805/0.792 of the living
+    bark (`DEAD_FORM`; it was 0.93/0.93/0.92). High: `underSun` keeps the pine's and oak's browns' hue (lit, High's r/b
+    and g/b within 3 % of Standard's), but the birch's near-grey came out neutral (r/b 1.04 against Standard's 1.19), so
+    it takes half the correction (`BIRCH_SUN`, #c8c3b4), measured by recolouring the bark alone in a real frame (River
+    Valley 128² seed 1's grove, the brightest quarter of its bark's pixels): Standard r/b 1.19, 1.17 and 1.14 and g/b
+    1.11, 1.10 and 1.10 up close, at the start camera and at play distance; High at half 1.17, 1.16 and 1.13 and 1.09
+    throughout (the whole correction 1.04, 1.04, 1.02; none 1.31, 1.31, 1.27). Its pixels at the start camera (18 away,
+    55°): p90 192/181/165 in Standard and 197/185/170 in High, against the game's frames' 203/205/169 scaled to our
+    grass (their green held up by the leaves round a thin trunk in a JPEG). The bloom: an upright trunk square to the
+    sun shows 1.229 in Standard and 1.154 in High, under the knee, but the stems lean up to a quarter radian (1.36 and
+    1.28) and High's twigs up close more (1.38); no frame shows it there, its brightest pixel over a grove up close, at
+    the start camera and at play distance from 8 sides being code 219 in Standard and 230 in High (0.86 and 1.05 before
+    the grade; the knee is code 240), so `bloom.test.ts` holds it at its upright bound. The game's birch foliage by the
+    same tool, 0.188/0.249/0.108 over its green vertices, is 2.4 L* lighter than ours (0.174/0.231/0.099; the pine's 2.8
+    lighter, the oak's 2.8 darker, the same reading's spread): left as it is.
+  - **Its cost** (`npx tsx` of a probe, RTX 2070 SUPER, 1280 × 800, River Valley 256² with dense forest and ruins,
+    orbiting, the same build with it off and on, two rounds each): by day, skipped, dev's: p50 7.00 ms, p95 7.02, the
+    page's time 0.96 ms in Standard and 1.26 in High against 0.96 and 1.38 without it, the GPU's 3.5 and 3.0 against 3.7
+    and 3.1. While lava glows (its passes forced on, as they cost the same whatever they find): the frame holds dev's in
+    both looks, p50 7.00 ms and p95 7.03 at the display's 144 Hz either way; the page's time a frame +0.6 ms in Standard
+    (0.95 → 1.54) and +0.7 in High (1.13 → 1.85); the GPU's timer +1.4 ms in High (3.1 → 4.5) and no higher in Standard
+    (4.1 → 3.2, inside its spread). Standard keeps it (D453).
+  - **Its cost in software drawing** (`fix/bloom-eruption-cost`, after dev's run 42533061501 timed out the eruption pair
+    of forces.spec.ts's "clicked quickly" at 180 s on CI's software drawing): under SwiftShader (1280 × 653, Standard)
+    a frame takes 165 ms without the passes and 300 with them: the source 53, the composite 55 (33 of it its full-size
+    bicubic read), the pyramid about 25, its deepest levels under 1 ms each, so fewer levels would save nothing
+    measurable. So the cut is in how many frames draw it: an eruption's lava passed the gate to its crust's end
+    (5.8 s), and now to 2.25 s. The eruption pair locally, two rounds each: 37 and 29 frames with the bloom before,
+    17 and 15 after; its two eruptions played in 16.7 and 18.2 s before, 7.0 and 6.0 s after. The spec's phase log
+    (`[phases] forces clicked quickly ...`) prints each force's time and its frames with the bloom.
 - **The game's sky** (`fix/game-sky`, after #734): its camera's skybox, read from its pixel program (shader path
   1816, `D3DDisassemble`). Its colour by the view's height is the strip "DayCycleSkybox_8k_Manual" (16 × 8192,
   RGBAHalf) at `_DayProgress` 0.2, the day (`tools/game-sky.ts` prints the 145 heights `GAME_SKY.day` keeps); its
@@ -585,8 +666,7 @@ Standard's shadow before a cave (item 8).
 - **Objects, water and falls** keep their own light (their sky colour and sun), less High's ambient occlusion; they
   take the fog and the post chain.
 - **Captures and numbers:** in the PRs (#703, #722, and the finish's, which carries the set).
-- **Falls short:** the ambient SH's projection and `m_AmbientIntensity` wait for a frame capture: shade reads about 0.8
-  of the game's (floors truly in shade 57–62 in the game's shots, our overhang floor 49–50). The game's sky behind
+- **Falls short:** the shade's gap is measured against the captured probe below ("The game's ambient probe, captured"). The game's sky behind
   the map is still ours. The water is graded before it blends over the ground, where the game grades the finished
   frame; grading after would take a full-frame pass (D110's rejected 25–27 MiB target).
 - **The sun turns with the camera** (`fix/game-sun`, after #734): the game's (`Sun.UpdateRotation`: the camera's
@@ -943,14 +1023,25 @@ side. The page wires it: the terrain tools' hover and stroke set the fade, and a
   second, as for a brush. Standard's baked shadows are cast again round the region and where it was, once a frame
   (`castersNow`, `light.ts` `withoutCasters`, into two arrays used in turn). Only the tiles round the region are
   compared, and the shadows are redone only where the dropped tiles changed, so a move within a tile costs no rebake. A
-  caster is dropped by its model's place, as its fade is: the start's caster stands on its corner tile, its model round
-  its footprint's middle (`casterPlaces`).
+  caster is dropped by its model's place, as its fade is: the start's casters stand on the nine tiles of its footprint,
+  its model round the footprint's middle (`casterPlaces`).
 - **`setObjectsHidden(on)`:** the objects' program discards every object but the land's own shape (`objectHide`). The
   baked shadows are cast again without the objects and High's depth map is drawn again (no canopy shade: High's
   ambient occlusion went with D497). False brings it all back.
 - **Pictures:** the map's picture, sized pictures and Showcase cards are drawn on a renderer of their own (`hero.ts`),
   so they never see either setting. The shelf's icons are drawn on the view's renderer with the fade put off for the
-  picture (`thumbnail`), with the hiding put off too.
+  picture (`thumbnailAsync`), with the hiding put off too.
+- **The shelf's icons never make the page wait for the GPU (`thumbnailAsync`):** each of a picture's three passes is
+  copied on the GPU into a buffer of its own, and the view's state is put back right after each draw, as the view's own
+  frames run while the copy waits. The buffer is read once a fence has passed and no frame of the view has been queued
+  since (`readBack`): Chrome's read, `getBufferSubData` as much as `readPixels`, waits for everything queued before it,
+  so a read just after the fence still waited for the frames drawn meanwhile. A frame queued meanwhile is waited for
+  in turn with a fence after it, for up to 2 s (`READ_PATIENCE_MS`: a view that never stops drawing), then the read
+  waits for that one frame. A read that waited (`readRenderTargetPixels`, before) held the page until the GPU had
+  finished the frame queued before it: seconds on CI's software drawing, between a stroke's moves (dev's
+  `strokesBackToBack` timeout). The pictures are the same bytes; a picture begun before a change of look is drawn
+  again in the new one. The shelf draws one at a time when the page is idle (`useShelf.ts`), and starts none while a
+  press is held on the map: the next waits for the stroke's end.
 - **Cost (measured once, real Chrome, GPU, a 256² River Valley, a 76-tree forest; information):** the call itself is
   a few µs (a uniform write). A frame after a move of a whole tile costs about 0.6 ms more on the page's thread (0.5 ms
   in Standard): the baked shadows round the region and their upload. A frame with the fade on and still costs the
@@ -982,9 +1073,10 @@ the game's models in resources.assets (positions, materials and texture means on
 - **The start** (`startTower`): the game's map-editor marker, a lantern tower of pale grey stone, 4.37 high on its
   3 × 3. It has a walled base 2.86 across to 1.04 with a door toward the entrance and windows, a white cornice, a hipped
   roof to 1.8, a tapering shaft to 2.8, a gallery 1.82 across, a lantern of four posts round a dark light to 3.8, and a
-  cap. It replaces the timber lodge with its red roof and banner. The entrance marker stays. Its shadow caster stands
-  4.0 high on its footprint's middle tile, where the tower is (`light.ts`, was 2.2 on its Coordinates' corner; the
-  fade drops it there, objectFade.ts `casterPlaces`), and a press takes it as drawn: the walls two levels over the 3 × 3, the tower four
+  cap. It replaces the timber lodge with its red roof and banner. The entrance marker stays. Its shadow casters stand
+  4.0 high on its footprint's middle tile, where the tower is, and 1.4 on the eight round it, its walls and roof
+  (`light.ts`, was 2.2 on its Coordinates' corner, then the tower alone; the fade drops them by the model's middle,
+  objectFade.ts `casterPlaces`), and a press takes it as drawn: the walls two levels over the 3 × 3, the tower four
   over the middle tile (`editor/start/startPick.ts`).
 - **A water source:** an outcrop of dark rock 1.0 high, about 1.1 across (the game's is 1.14 × 1.18). Highlighted (Remove's
   red, D249), a source's rock takes the whole red, three times its colour rather than twice (`highlightObjects`), so the
@@ -1053,7 +1145,8 @@ the game's models in resources.assets (positions, materials and texture means on
 - **Kept:** badwater's own light patches, troughs and bubbles (Q9 class (c): its flowing pattern, P9, followed since: below),
   now carried by the same two phases, by the tile's badwater share or the flow texture's smoothed one where that is more
   (so a front's patterns are there in High, which reads that one); the camera highlight, gloss, sky reflection and sun glint; High's `rippleLight`.
-- **Badwater against clean water** (the judge's `--water bad|clean`, on the two Islands end shots, where the game shows
+- **Badwater against clean water** (*withdrawn 2026-11-07, `fix/water-light` below: these frames are near sunset; by day
+  the game draws badwater darker*) (the judge's `--water bad|clean`, on the two Islands end shots, where the game shows
   both): the game draws badwater lighter than clean water of the same depth, as ours does: on islands-128-2-end its own
   pixels read L* 34.6 for badwater a level or two deep (898 tiles) and 28.7 for clean water (573), 35.7 and 31.1 under
   half a level (168, 64). D496's 6 L* rule (badwater darker) is amended to the game's order, and the clean water hue
@@ -1101,20 +1194,21 @@ the game's models in resources.assets (positions, materials and texture means on
   lighter than clean water; ours 2.9 L* lighter in Standard, 2.4 darker in High): the game overlays clean water with its detail albedo too (P6, ps 455–475),
   which darkens its films, and following it changes all clean water, which #826's judge settled, so it waits for P6;
   `_Contamination_Flow_Distortion` (0.00125 a tile) is not followed; High's falls and side faces keep `HW_BAD` × the
-  ramp. The sheet: `docs/sheets/water-badwater.jpg` (`tools/capture-water-badwater.ts`; `--motion` for six moments).
+  ramp (followed since: "Badwater's front and High's falls" below). The sheet: `docs/sheets/water-badwater.jpg` (`tools/capture-water-badwater.ts`; `--motion` for six moments).
 
 ## The pixel judge validated on the land (D496, D497; `fix/water-judge`)
 
 - **Why its far renders read grey-blue:** the time of day. The game's light changes through the day (decompiled
-  `SkySystem` `DayStageCycle` and `Sun.UpdateColors`; `Sun.blueprint`'s Sunrise, Day, Sunset and Night colours: the sun's
-  colour, intensity and height, the Trilight and the fog's colour, each stage turning to the next over its last hour),
-  and the probe's shots fall at their moments' hours: a game's start at hour 4 (the day's light), a hazard's end at
-  midnight (the sunrise's: a 32° sun of 1.2 × warm white, an orange ground ambient, grey fog), a game's end at hour
-  15.5 (55 % of the way to the sunset's: pinkish fog, an orange sun 37° up). The judge drew every shot in the day's
-  light, so its five sunrise frames and its sunset frame read grey-blue against the game's warm ones, land included.
-  Also: the camera fit's dark-teal water test finds no water at a sunrise or where the water is all badwater, so four
-  of the six badwater shots fell back to the probe's pose and one fitted a wrong camera (islands-128-2-end's own fit
-  was 17° too low); and the judge's soil moisture took 16 a level where the editor takes 15.
+  `SkySystem` `DayStageCycle` and `Sun.UpdateColors`; `Sun.blueprint`'s Sunrise, Day, Sunset and Night colours: the
+  sun's colour, intensity and height, the Trilight and the fog's colour, each stage turning to the next over its last
+  hour), and the probe's shots fall at their moments' hours: a game's start at hour 4 (the day's light), a hazard's end
+  at midnight (the sunrise's: a 32° sun of 1.2 × warm white, an orange ground ambient, grey fog), a game's end at hour
+  15.53 (55 % of the way to the sunset's light, which is 50 % at 15.5: pinkish fog, an orange sun 36.8° up). The judge
+  drew every shot in the day's light, so its five sunrise frames and its sunset frame read grey-blue against the game's
+  warm ones, land included. Also: the camera fit's dark-teal water test finds no water at a sunrise or where the water
+  is all badwater, so four of the six badwater shots fell back to the probe's pose and one fitted a wrong camera
+  (islands-128-2-end's own fit was 17° too low); and the judge's soil moisture took 16 a level where the editor takes
+  15.
 - **The fix** (`tools/water-pixel-judge.ts`, `tools/game-day-light.ts`): ours is drawn in the game's light at the
   shot's hour and weather, the shaders' light constants swapped (the sun, the ambient's SH, palette.ts `trilightSH`)
   and the sun's height and the fog's colour set; every shot of a map takes the camera fitted on its start shot (the
@@ -1160,6 +1254,1926 @@ the game's models in resources.assets (positions, materials and texture means on
 - **Falls short:** the formula reads 3–4 L* too dark on screen, and darker in High than in Standard (82/62/61 against
   85/66/66 on islands-128-2-end), which clean water doesn't show; the grass, cliff and vein findings above; P6 (the
   detail albedo) comes next.
+
+## The light as the game sets it (D496, D497; `fix/water-light`)
+
+- **The reflection intensity is 1, in both looks:** the game's `Sun.UpdateColors` (decompiled `Timberborn.SkySystem`)
+  sets `RenderSettings.reflectionIntensity` every frame from its day stage's `ReflectionsIntensity`, 1.0 at all four
+  stages in `Sun.blueprint`, so the scene's saved `m_ReflectionIntensity` 0.65, which D497 took, never shows in play
+  (`GAME_FINISH.reflectionIntensity`, `WATER_SURFACE.reflection`; D497 amended).
+- **The land's albedo recalibrated:** `tools/albedo-means.ts` had left the post chain in after the finish moved into
+  `finish()`, so it read our albedo 3–5 % high and the colours were calibrated 3–5 % low; its patches now throw when one
+  finds nothing. Measured again (Standard, Canyon 1 and River Valley 4242, display 0–255): dry ground 66.7/55.1/44.7,
+  all-grass tops 70.1/77.9/27.5, walls 65.4/60.1/50.4 against the game's 69.2/57.1/46.1, 73.6/80.2/27.5 and 68/62/52.
+  Each kind's colours scaled by one factor per channel (`GROUND`, `WALL`, High's strata), they now read 69.1/57.0/46.2,
+  73.7/80.2/27.5 and 67.9/62.0/51.9; High 68.5/56.7/45.9, 68.2/77.9/30.7 and 68.1/62.0/52.0.
+- **The ambient term:** the game's ambient is Unity's Trilight (`RenderSettings.ambientMode = Trilight` when `Sun` loads,
+  its three colours set every frame), and nothing in the decompiled game sets `RenderSettings.ambientIntensity`; that
+  the scene's `m_AmbientIntensity` 1.2 does not scale a Trilight is Unity's behaviour, not something the decompile
+  shows (D497 amended 2026-11-07, which says the same); so ours stays as it is. (The judge's `--ambient 1.2` would take grass to 15.3 and cliffs to 17.6 on the start
+  shots, but it is not the game's term.)
+- **The land on the judge** (RMS to the game's pixels, display RGB 0–255, with the mean's distance (bias); dev → this
+  branch):
+
+  | shots | material | Standard | High | floor |
+  |---|---|---|---|---|
+  | the six clean-water start shots (day; 4,394 samples) | grass (137) | 17.9 (14.8) → 15.5 (11.6) | 19.0 (15.2) → 16.7 (12.0) | 16.7 |
+  | | dry (3,531) | 9.8 (3.7) → 9.5 (2.5) | 10.1 (4.1) → 9.9 (3.3) | 11.9 |
+  | | cliff (726) | 19.3 (15.3) → 18.1 (13.6) | 19.7 (15.6) → 18.8 (14.4) | 19.6 |
+  | | all | 12.2 (7.5) → 11.6 (6.3) | 12.6 (7.8) → 12.1 (6.9) | 13.6 |
+  | the six badwater frames (sunrise, sunset; 4,001) | dry (3,592) | 8.4 (3.0) → 8.4 (2.9) | 8.6 (4.0) → 8.4 (3.5) | 10.7 |
+  | | cliff (409) | 14.3 (10.7) → 13.6 (9.6) | 15.3 (11.7) → 14.6 (10.6) | 16.0 |
+  | | all | 9.2 (4.4) → 9.1 (4.1) | 9.5 (5.4) → 9.2 (4.8) | 11.4 |
+  | six start shots with badwater in view (day; 3,684) | grass (104) | 14.7 (9.7) → 13.0 (6.3) | 17.6 (13.1) → 15.5 (9.8) | 8.3 |
+  | | dry (2,992) | 9.4 (3.9) → 8.9 (2.1) | 10.0 (4.8) → 9.4 (3.1) | 10.8 |
+  | | cliff (588) | 17.6 (13.7) → 16.4 (12.1) | 18.2 (14.3) → 17.3 (13.1) | 18.7 |
+  | | all | 11.3 (6.7) → 10.6 (5.3) | 12.0 (7.5) → 11.3 (6.2) | 12.4 |
+
+  The reflection alone moved the land by 0.1–0.6 (grass 17.9 → 17.3 in Standard on the start shots); the albedo the
+  rest. Water: clean water on the start shots 15.2 → 15.6 (the ground seen through it, a shade lighter).
+
+- **Badwater against clean water, by day:** the game draws badwater darker. On the six start shots with badwater in
+  view, in the day's light, the game's own pixels read L* 27.5 for pure badwater a level or two deep (73 tiles) against
+  31.7 for clean water (10,063); only toward sunset does the order turn (islands-128-2-end, 55 % of the way to the
+  sunset's light: 33.3 against 28.2), the frame `fix/water-badwater`'s amendment rested on. That amendment is withdrawn
+  (D496 amended again): badwater the darker, which `look-water-slopes` holds from half a level to two levels deep and
+  `waterShown`'s order checks hold on the shipped colours. The game's gap is 4.2 L*; ours is wider (`fix/water-veins`
+  below).
+- **Badwater's colour by look** (`GAME_BADWATER.use`, split: `BADWATER_FORMULA` for Standard and the light look,
+  `BADWATER_FORMULA_HIGH` for High's water): pure badwater, ours / the formula, at the frames' hours (4,592 tiles)
+  Standard 18.0 / 8.3, High 9.8 / 10.9; by day (104 tiles) Standard 19.3 / 12.9, High 12.5 / 15.8; the mixed front (19,318) Standard 14.7 / 9.7, High 9.4 / 11.2. Standard takes the
+  formula, High keeps our crimson; both keep the day order on screen (Standard 24.7 against 33.2 for clean water, High
+  26.3 against 32.2; dev's Standard drew them alike, 32.9 against 33.0).
+- **The sheet:** `docs/sheets/water-light.jpg` (`tools/capture-water-light.ts`): dev against this branch, Standard and
+  High, a grassy valley, a cliff, a lake, pure badwater and badwater meeting clean water.
+- **Falls short:** grass and cliffs still read darker than the game's (bias 6–14); some near cliff bands read 40
+  darker where the game shows a top's colour (lakeBasin-1, highlands-1), likely the game's bevelled `CliffEdge`
+  geometry rather than the light; High's grass albedo 68/78/31 against the game's 74/80/28 (its soil edges and colour
+  variation); the formula reads 3–4 L* too dark; the veins; the day's badwater evidence is 104 tiles.
+
+## The clear water view, the mine pit and the badwater gap (D496, D497; `fix/water-veins`)
+
+- **The clear water view keeps the look's badwater:** with T on, clean water turns to a veil over the badwater it
+  carries; that badwater came from Standard's formula in both looks, so High's T view showed brown water over its
+  crimson. The water shader now names it `clearBad` (materials.ts) and High's hook sets its own (`hlBadLit`, the
+  crimson lit, with its glowing lines, and on faces the face's badwater), so each look's T view shows its own badwater.
+  `look-readable` and `highLook` hold the wiring.
+- **The mine pit by day is lighter than badwater, in the game and in ours:** the judge's new `--water pit` (the 3 × 3
+  centre of each `UndergroundRuins` pit floor, 0.02 above it) on sixteen day-lit start shots: the game's pits read L*
+  43.4 (114 samples, seven shots) against 32.3 for pure badwater (172 tiles, six shots); on the three shots with both,
+  pit 49.6, 41.6, 38.9 against badwater 27.9, 27.0, 34.2. Ours: Standard 40.8 against 29.5, High 48.9 against 30.7.
+  D496's "a mine pit darker than badwater" and D154's 5 L* margin (#682, D324 (a)) are gone (D496 amended, D154
+  marked); `look-mine-ruins` now holds the pit lighter than each look's badwater by day, from half a level to two
+  levels deep. Standard's pit sits 2.6 L* under the game's.
+- **The badwater gap:** D496 now states the game's measured gap by day, 4.2 L* (27.5 against 31.7), and ours: 8.4 in
+  Standard (24.8 against 33.2), 6.0 in High (26.3 against 32.3). `look-water-slopes` adds that High's badwater body is
+  darker than clean water from half a level to a level.
+- **The ambient term's wording:** D497 and this file say the same: the decompile shows `Sun` setting Trilight and its
+  three colours every frame and never `RenderSettings.ambientIntensity`; Trilight ignoring 1.2 is Unity's behaviour.
+- **The sheet:** `docs/sheets/water-pit-clear.jpg` (`tools/capture-water-pit.ts`): dev against this branch, Standard
+  and High, badwater meeting clean water, pure badwater with T on, the front with T on, a mine pit.
+- **Falls short (the next PR):** the clean water by band is not too dark on the judge (Standard 40.3/35.9/32.2/28.3
+  against the game's 35.6/33.0/30.7/28.0 at 0.05–0.5/0.5–1/1–2/2–3 levels; High 39.4/35.0/31.4/27.4); the 3–4 L* is
+  the badwater formula's (Standard 32.0/24.7/24.9 against the game's 33.5/27.0/27.9 at 0.5–1/1–2/2–3; High's
+  formula 29.8/22.5/22.4). The game's badwater by day is 68/63/59 against the formula's 60/58/57, a warm addition of
+  about 8/5/2, the shape of the glow's colour, so likely the emission; High lacks the sky's reflection and highlight
+  (Q9 (c)); water takes the land's diffuse 0.912 where water's metallic 0 gives 0.96. Not settled here, so the gap's size has no
+  test yet. The veins: the game's are a dense rusty network (texture alpha 20 %, colour 78/33/5, L* 19, cells about
+  half a tile over a 4-tile repeat, no glow; weight `saturate((c^0.65 + 0.975 (noise − 0.45) − 0.5) × 18 + 0.5)`
+  from four taps 0.2 apart); ours are sparse (about 4 %), redder and glowing; both wait on the next PR.
+
+## The game's contamination veins and the water's own light (D154, D496, D497; `fix/ground-veins`)
+
+- **The veins are the game's (D154 amended):** TerrainURP lays its `SoilContamination` texture (1024², four tiles a
+  repeat) over the ground after the altitude ramp and before the light, by lerp(albedo, its colour, weight × its
+  alpha), with no emission. The weight: the tile's map value (`SoilContaminationMap`: 0.1 at the least, whole from
+  0.2), blended across the tiles by the desert's four taps 0.2 round the point, to the power 0.65, at least 0.2,
+  + 0.975 × (blending noise − 0.45), softness 18 (`palette.ts` `CONTAMINATION`, `contaminationMap`,
+  `contaminationWeight`; materials.ts `tapBlend`, `blendNoise`, `contaminationWeight`). So the same pattern shows at
+  any level over a fifth, and patches of it below. Dev drew sparse red fissures that widened and glowed with the level;
+  they, their glow and High's Soil edges switch are gone.
+- **The pattern is ours, to the game's numbers:** `python tools/game-water-shader.py --soil` measures the game's
+  texture (read raw, numbers only): 19.8 % of texels over half alpha, mean alpha 0.20, 11 % soft edge, crack colour
+  78/33/5 (spread 20/10/4), 48/33/24 between, cracks 0.023/0.039/0.067 tile wide (5th/50th/95th percentile), 4.8
+  tiles of crack a square tile, about 5.4 cells a square tile, one joined network. `render3d/soilTexture.ts` makes
+  ours in the bake worker (512², about 130 ms): a warped Voronoi network with a sparser fine network for branches,
+  widened until its cover is the game's: 19.8 %, mean alpha 0.197, soft 11.3 %, cracks 80/35/8, widths
+  0.016/0.035/0.078, 4.9 tiles a square tile, 7.6 cells. `soil-texture.test.ts` holds it there. The light look,
+  with no patterns, takes the pattern's mean (the soil a fifth of the way to 54/32/19).
+- **Judged on the game's frames:** of the sixteen day-lit start shots, only any-128-1-start shows contaminated
+  ground away from water (19 samples, all over 110 from the camera, where a vein is under a pixel): the game's reads
+  118/120/113; dev's 132/122/112 (bias 8.2, distance 13.4), this branch's 119/118/111 (bias 1.5, distance 8.0;
+  the floor, two game samples, 7.3). High: dev bias 8.7, this branch 1.2. The judge now also counts the pixels a
+  vein's rust tints past a test (red 18 over green, blue under half of red; `veinsAt`, 13 × 13 pixels round each
+  sample) and takes contaminated ground two tiles from water, not five: of those 3,211 pixels the game's show none, dev
+  13.0 % (a glowing orange, 192/112/79), this branch none.
+- **The water's own light (D496, D497), found and held back:** two of the game's terms are missing where the game's
+  formula draws the water's colour. The water's diffuse share is URP's 0.96 (its metallic 0: `WaterMetalAndGloss`
+  red, `_Contamination_Metallic`), not the terrain's 0.912; and URP's environment term has a head-on part, sky × f0 /
+  (1 + roughness²), which our calibrated colours held but the formula does not. Built and judged (`--water all`, the
+  sixteen day-lit starts, each drawn in its shot's light), L* by band, game / dev / with both terms:
+  - Standard badwater: 0.5–1 35.8 / 33.0 / 34.1; 1–2 27.5 / 24.8 / 26.2 (distance 15.3 to 14.3, 172 tiles).
+  - Standard clean water: 0.05–0.5 39.2 / 44.4 / 46.1; 0.5–1 31.9 / 35.3 / 37.0; 1–2 31.4 / 33.1 / 34.7; 2–3
+    27.0 / 27.9 / 29.3 (distance 13.1 to 15.6, 37,853 tiles).
+  - High clean water (the diffuse share only): 43.6 to 44.4, 34.4 to 35.0, 32.2 to 32.6, 27.0 to 27.3 (distance
+    12.2 to 13.1); High's badwater is its crimson, unchanged.
+
+  Both terms are shared, so they lift clean water with badwater: badwater closes about half its gap while clean water,
+  already lighter than the game's, moves 1.4–1.7 L* further away, and the gap between them at 1–2 levels stays 8.5 L*
+  (8.3 on dev) against the game's 3.9. On the look review's finding (the game wins on screen) they are held back, noted
+  where they belong (palette.ts `GAME_LIGHT`, waterPalette.ts `WATER_SURFACE`), for the water PR that finds the
+  rest: badwater's remaining darkness is warm (the game's 69/64/61 against the terms' 62/62/62 at 1–2 levels: red +7,
+  blue −1), the shape of its emission or glow, not the light; clean water's excess is its own (largest in the
+  shallows). The water draws as on dev.
+- **High's step faces:** the clear water's veil over a small step now keeps the step's own badwater at its depth,
+  not the fall's 0.05-deep film (`clearBad`).
+- **The sheet:** `docs/sheets/ground-veins.jpg` (`tools/capture-ground-veins.ts`): dev against this branch, Standard
+  and High: contaminated dry earth and contaminated ground meeting grass close up, a held Badtide wide, and badwater by
+  day.
+- **Falls short:** badwater by day is as dark as on dev (the terms above held back), so the gap's size has no test yet.
+  High's sky reflection and GGX (Q9 P15) wait for their own PR. No day-lit shot has contaminated ground near the camera,
+  so the veins' coverage and colour on screen are judged from afar only; the texture's statistics are the close-up
+  measure.
+
+## The game's light on its water (Q9 P15, P6; D496, D497; `fix/water-sky`)
+
+- **P15 read term by term** (`investigation/notes/water_and_soil.md` Q9): URP Lit at the water's metallic 0, on display
+  values. Diffuse = albedo × 0.96 × (the SH ambient + the sun × N·L × shadow); the environment = the scene's baked
+  reflection probe (`TimberbornEnvironmentRelfectionProbe`, the terrain's too, the same every hour, reflection
+  intensity 1 at every stage) by reflect(−V, N) at mip pr × (1.7 − 0.7 pr) × 6, × (0.04 + (saturate(s + 0.04) − 0.04)
+  × (1 − N·V)^4) / (1 + r²); the sun's GGX, f0 × r² / (d² × max(0.1, (L·H)²) × (4r + 2)) × N·L × shadow; the camera
+  highlight × the sun's colour and badwater's glowing lines unlit; then the fog. #839's two held-back terms (0.96, the
+  head-on f0 part) are this same lighting. The probe is read by the reflected direction's height at mips 4–6
+  (`WATER_PROBE`, `tools/reflection-probe.ts`; numbers only): its horizon haze lighter than its zenith, the ground
+  below darker; its mip 6 is the terrain's `GAME_ENV`. Not read, assumed: the HDR decode the game uploads (1, no RGBM),
+  that `unity_SpecCube0` in play is that probe, its turn against our axes (averaged round the turn) and the SH it
+  uploads.
+- **P6 was clean water's excess:** the game overlays clean water's colour × albedo with its still detail albedo
+  (ps 462-477), which we drew for badwater only. At the texture's mean (69.7/88.7/95.3) it darkens and cools clean
+  water to about 0.55/0.70/0.75 of itself (`waterDetailOverlay`). P15 alone moved clean water further from the game
+  (Standard 13.1 to 15.7, High 12.2 to 15.6); P6 alone brought it nearer (10.0, 10.7); both are nearest.
+- **Built in both looks (D496: the game's quality tiers)** behind `WATER_LIGHT.game`, `.held`, `.detail` by look, all
+  on: `waterEnvironment`, `waterProbeAt`, the GGX glint and highlight in the game's sun colour (`GAME_SUN_COLOUR`), the
+  0.96 share; High's surface and faces draw the same. Badwater's colour in High is now the game's formula
+  (`GAME_BADWATER.use.high`), which the judge finds nearer under this light.
+- **Judged** (`tools/water-pixel-judge.ts`, each frame in its hour's light, RMS distance 0–255, dev → this PR). The
+  sixteen day-lit start shots: clean water Standard 13.1 → 10.0, High 12.2 → 9.9 (37,853 tiles); pure badwater
+  Standard 15.4 → 14.2, High 14.6 → 15.0 (172). The six end shots at their hours (sunrise, near sunset): pure badwater
+  Standard 8.3 → 7.1, High 9.5 → 7.5 (4,592); partly bad Standard 9.7 → 9.0, High 9.3 → 9.0 (19,318); clean 5.1 → 3.5,
+  3.4 → 3.4 (862). L* by band on the start shots, game / dev / PR: Standard clean 0.05–0.5 39.2 / 44.3 / 41.0, 0.5–1
+  31.9 / 35.3 / 33.1, 1–2 31.4 / 33.1 / 31.8, 2–3 26.9 / 27.9 / 27.8, 3– 22.2 / 20.0 / 21.1; High clean on this PR
+  within 0.1 of Standard's, on dev 43.6, 34.4, 32.1, 27.0, 18.8; badwater 1–2 Standard 27.5 / 24.8 / 26.0, High 27.5 / 26.1
+  (crimson) / 25.1 (formula). At their hours High's formula badwater a level or two deep reads 27.0 against the
+  game's 28.6 (the ~5 L* under on screen #826 found is closed to under 2); our crimson read 31.2.
+- **The gap by day (D496), now tested** (`tests/unit/water-sky.test.ts`, `WATER_LIGHT.gap`): on the six start shots
+  with badwater, a level or two deep, the game's clean water 32.2 against badwater 27.5 (4.7; D496's 4.2), its shots'
+  spread allowing 3.1 to 6.5. Standard 32.5 against 26.0, 6.5 (9.1 on dev); High 32.4 against 25.1, 7.3 (6.8 on dev).
+  The order holds in both mirrors half a level to two levels down (`look-water-slopes.test.ts`, both looks from half a
+  level).
+- **The sheet:** `docs/sheets/water-sky.jpg` (`tools/capture-water-sky.ts`): dev against this PR, Standard and High: a
+  lake from a low grazing camera, a river, the game's opening camera, pure badwater.
+- **Falls short:** High's formula badwater reads 2.4 L* under the game's by day (about 1 under Standard's), so High's
+  gap is wider than the game's frames allow; by day alone its crimson reads a little nearer (14.5 against 15.0). The
+  probe is read by height round the turn, not by direction; P6's detail pattern (67 tiles a repeat) was drawn at its
+  mean only (drawn since `fix/water-detail`, below).
+
+## The game's still detail on its water (Q9 P6; D496, D497; `fix/water-detail`)
+
+- **P6's role, exactly** (`investigation/notes/water_and_soil.md` Q9): per channel, overlay(a, d) of clean water's
+  colour × its flow albedo with `_DetailAlbedoTex` (`PhysicalWaterDetailAlbedo`) sampled still at xz × 0.015 (ps
+  462-477), with no weight, depth or contamination in it; badwater's base colour takes the same sample, mixed in by
+  (1 − c / 2) × (1 − the source mask). The game's Low quality draws it too (its variant without
+  `_HIGH_QUALITY_WATER_ENABLED`), so the light look draws it as Standard and High do.
+- **The texture, measured** (`tools/game-water-shader.py --textures`; numbers only): 2048² over a 66.7-tile repeat,
+  mean 69.7/88.7/95.3, spread 9.9/8.9/3.7. Nearly all of it lies along one axis (0.73, 0.656, 0.192): spread 13.6,
+  skewed bright (+1.98; −19.9 to +99.5), features about 1.5 tiles across, its power mostly between 4 and 32 tiles. The
+  second axis (spread 2.7) is a quadratic in the first (0.9 left over); the third is nothing.
+- **Ours** (`waterTextures.ts` `GAME_DETAIL_TEXTURE`, `makeDetailField`): a spectral field at the game's band powers,
+  remapped to its percentiles, in badwater's texture's B byte (512² over the same 66.7 tiles); the colour is the
+  quadratic in that byte (`DETAIL_COLOUR`, `waterDetailAt`). Its statistics are the game's within 0.3 in the mean, 2%
+  to 5% in the spread, 3% in the feature size (`tests/unit/water-detail.test.ts`, on the bytes as stored, each held
+  to 0–255). All three looks set `waterDetail` from it before any shading; mirrors take its mean. It is made in the bake
+  worker: Standard and High with the water's other patterns (the whole bake about 0.9 s off the page's thread, as dev's:
+  the FFT's twiddles made once and the rank remap a typed sort), the light look on its own (`detailTexture`, about
+  0.1 s), since it reads no other pattern.
+- **#842's notes:** the probe now has mip 3 (`WATER_PROBE`, the glossiest clean water reads mip 3.7); the glint's
+  roughness floor is URP's 0.0078125; the light look's slopes doc reads "from half a level". The gap is printed by the
+  judge for the shipped build against the game's frames ("the gap by day"); `WATER_LIGHT.gap` records it.
+- **Judged** (`tools/water-pixel-judge.ts`, dev with #842 → this PR). Sixteen day-lit start shots, clean water
+  (37,853 tiles): RMS Standard 10.0 → 10.2, High 9.9 → 10.1 (a pattern not in phase with the game's adds a little per
+  pixel). L* and the tiles' RGB spread by band, game / dev / PR, Standard: 0.05–0.5 39.2 (15.3/13.9/13.4) / 41.1
+  (16.1/13.9/14.2) / 41.1 (16.2/14.2/14.2); 0.5–1 31.9 (11.5/9.8/7.8) / 33.1 (12.8/10.2/6.7) / 33.0 (12.9/10.6/6.8);
+  1–2 31.4 (11.4/10.5/9.2) / 31.8 (12.5/10.1/8.2) / 31.8 (12.5/10.2/8.3); 2–3 27.0 / 27.9 / 27.9; 3– 22.3 / 21.2 /
+  21.2; High within 0.1 L* of Standard's. Badwater by day (172 tiles) 14.2 → 14.2, 15.0 → 14.9; at the six end shots'
+  hours (4,592) 7.1 → 7.1, 7.5 → 7.5, a level or two deep L* 27.8 / 27.0 against the game's 28.6, unchanged. The mean
+  doesn't move (the overlay is linear in the detail) and the tiles' spread grows by under 0.5: at the shots' distance
+  the pattern is as faint as the game's.
+- **The gap by day (D496):** Standard 6.5 (on the frames' top bound, dev) → 6.3, within 3.1 to 6.5; High 7.3 → 7.1,
+  still wider. `look-high.spec.ts` now renders two pools through the shipped shaders and holds the order in both
+  looks; the band itself is judged on the game's frames, since the game never drew that scene.
+- **The sheet:** `docs/sheets/water-detail.jpg` (`tools/capture-water-detail.ts`): dev against this PR, Standard and
+  High: a lake close up, the opening camera, a river, a shallow shore and the farthest zoom, where the 67-tile repeat
+  doesn't show.
+- **Falls short:** High's badwater is still 2.2 L* under the game's by day, so its gap is wider than the frames
+  allow; our pattern is the game's in its statistics, not its texels, so it adds about 0.2 to the per-pixel distance.
+
+## The game's refraction and waterfall mask (Q9 P2, P1; D496, D497; `fix/water-refraction`)
+
+- **Read, exactly** (`investigation/notes/water_and_soil.md` Q9; the game's compute shader `WaterColumnPostprocessor`
+  and its water's pixel shader, disassembled, numbers only). The game makes both only with high-quality water
+  (`WaterQualitySetting.HighQualityWaterEnabled`: the Medium preset and up; it also turns on URP's opaque texture), so
+  Standard and High draw them and the light look, as Low, draws neither. **P1:** `FindWaterfalls`, per tile and stacked
+  column, keeps smoothstep(0.35, 0.6, how far its highest linked neighbour's surface stands over its own) (its sixteen
+  mesh heights from `CalculateHeights`; a neighbour linked when wet, a corner one only where both tiles between are wet too (read again 2026-11-08: it said dry),
+  `BreakCornerLinks`), so the mask lies on the tile a fall lands in, whole from a step of 0.6. The pixel shader reads it
+  in four taps ±0.075 round the pixel, weighted by their distance to the nearest tile corner, dry tiles left out, and
+  sharpens it, w = saturate(m + smoothstep(0, 0.5, m)); w takes off the refraction and the camera highlight and moves
+  the see-through from 0.35 to 0.2 (× 0.5). **P2:** the screen position behind moved by `PerlinNoise3` at (xz + T ×
+  0.075) × 1.1, (2n − 1) × (0.003, 0.004) of the screen (one scalar along a fixed direction, not a normal), full within
+  40 units of the camera and none past 60, × (1 − w), and kept only where the opaque scene there lies behind the pixel;
+  the see-through and the depth are read at the moved position.
+- **Ours:** the mask is worked out from our water as the game's (`fallMask.ts`, in the bake worker and the still flow)
+  and rides the flow texture's A (0 dry, 1 + 254 × the mask), read by `waterFallMask` as the game's pixel shader; the
+  fall faces keep their own see-through by the face, in every look. The refraction (`refraction.ts`): the screen as
+  drawn before the water is copied once a frame, just before the first water (a `FramebufferTexture`, the water meshes'
+  `onBeforeRender`), and the shader adds (copy(moved) − copy(here)) × (1 − α) / α, so the blend gives the game's
+  composite. Its noise is the pattern texture's value noise at PerlinNoise3's measured statistics (half-width 0.0345
+  tiles, mean −0.064, spread 0.607 against our 0.600; `tests/unit/water-refraction.test.ts`). No copy while no water can
+  be within 60 of the camera (the opening camera and farther) (*until `fix/opaque-downsample`: the ground behind now
+  shows from a half-size copy, made every frame; "The ground behind the water at the game's downsampling", below*).
+- **Cost** (`tools/capture-water-refraction.ts --cost`; a 256² Highlands map, 1280 × 800 on the GPU, a frame drawn and
+  finished, median of 120, dev → this PR): Standard close 3.12 → 3.17 ms, High close 4.12 → 4.31 ms; from the opening
+  camera, where no copy is made, 4.15 → 4.18 and 6.03 → 5.95. Within High's budget (22 ms) by far.
+- **Judged** (`tools/water-pixel-judge.ts --water falls`, the six day-lit start shots, dev → this PR): clean water
+  unchanged, RMS Standard 14.3 → 14.3, High 14.1 → 14.1 (8,573 tiles); a fall's foot (103 tiles) 25.5 → 25.4 and
+  24.6 → 24.4, its L* 40.3 → 39.7 and 39.9 → 39.2 against the game's 40.0. The probe's frames are 85 or more from their
+  water, past the game's falloff, so neither side refracts there: the refraction is judged by its terms and by eye. On
+  its own it moves 0.2 % to 0.4 % of a close view's pixels by more than 3 levels (at most 10 to 19): the ground behind
+  shimmers, as the game's, by up to about five pixels under 17.5 % of the water.
+- **The judge's framing:** a camera fit may take only a field of view of 28° to 46° (round Q8's 31-37°), so `--fit own`
+  no longer frames islands-128-1-badtide2-start at 12° from 120 away, on the island alone; each run clears the pairs of
+  the runs before it (the 13:15 pairs of the own-fit era had stayed beside new ones), and each pair names the shot its
+  camera was fitted on. The shipped default fits each map's start shot, which frames that shot as the game's.
+- **The sheet:** `docs/sheets/water-refraction.jpg`: dev against this PR, Standard and High: a shallow stream close, a
+  lake's edge, a waterfall close and the falls from the opening camera.
+- **Falls short:** in place of the game's depth test (we keep no depth of the opaque scene), the shift is taken off
+  where a tile's shore is within its reach, so an object standing in front of the water close by can lend its edge a
+  few pixels; the noise is ours at the game's statistics, not its texels; the mask follows our surface water only (a
+  cave's water under a surface takes none), and the game eases it from the last tick's to this one's.
+
+## Still films at the shore, High's bed, the sources' own pattern (Q9 V3, P7; D496, D497; `fix/water-shore`)
+
+- **V3, read exactly** (the game's water vertex shader, vs 381-395, 486; its Low quality's program is the same): a shore
+  vertex of a still film moves toward its own tile's middle, 0.15 tile across its open side, or along its diagonal by
+  0.21 a side where both its sides are open, none between two linked sides (a neighbour is linked when wet), × saturate(2
+  − 20 d) × max(0, 1 − 100 |f|). **Ours** (`shoreFilm.ts`): the mesh gives each corner of a film's top, and of the
+  curtains hanging from it, its shift × the depth's share (`wshore`; the depth as the terrain's water byte reads it); the
+  vertex shader takes the flow's share at the corner from the flow texture, so a flow changing needs no new mesh. A
+  neighbour links as the terrain's water byte has it, so a tile whose water the open sky's layer leaves to a layer
+  under a roof still links (`WaterLayer.wet`). The terrain draws the margin as dry ground on the same outline
+  (`shoreFilmOwn`, `filmInside` its twin for the tests): only an open side's edge bounds it, and only where the film
+  draws back there, so a side shared with other water never dries; the fade from dry to wet is centred on the outline,
+  a pixel wide. A dry tile beside a film keeps the film's wet blend as far as the film still reaches it
+  (`shoreFilmKeep`: none where it is drawn back, all where it flows). So neither our underwater bed nor the
+  behind-tint shows in the margin. Only the open sky's layer on its tile's top moves. Our four corners a tile against the game's sixteen vertices: a straight shore is the game's; a corner open on
+  both sides is cut a little deeper. Picking, the editing aids, the cutaway and the clear veil read the map's water, not
+  the drawn outline (`cutaway.spec.ts` and `look-high.spec.ts` pass).
+- **High's bed** (D496 as amended): its poisoned bed (#38) made the ground under badwater its dry contaminated ground,
+  darker, and the 17.5 % see-through showed it. Gone: both looks draw the one bed. Judged on the sixteen day-lit start
+  shots: High's pure badwater a level or two deep L* 25.3 → 26.2 (Standard's 26.2, the game's 27.4), its RMS by day
+  14.9 → 14.3, its gap by day 7.1 → 6.2, inside 3.1 to 6.5; the gap test (`water-sky.test.ts`) covers both looks. The
+  bed drawn as the dry ground in both looks (the game's terrain has no underwater input) read darker, 25.4 in both, and
+  Standard's RMS 14.2 → 14.7, so the underwater bed stays.
+- **P7, read exactly** (ps 356-418, 477, 700-720; the decompiled `Timberborn.WaterSourceRendering`): only the seeps and
+  the badwater source carry the pattern, a seep while it can run, a badwater source while its strength is over 0; the
+  shape in polar coordinates round the footprint's middle, streaming out at 0.04 a second, s = saturate(8 × shape × k² +
+  min(1, 2.5 k⁶)), k = max(0, 1 − 2r); clean water's colour × albedo half way to max(itself, s × the detail albedo);
+  badwater's emission pattern toward t9's B and × (1 + s × (`_Water_Source_Color` × 0.8 − 1)), its detail overlay ×
+  (1 − s). **Ours** (`GAME_WATER_SOURCE`, `makeSourceShape`, `waterSourcePattern`, `sourceMarks.ts`): the shape our own,
+  a spectral field remapped to the game's percentiles (mean 63.5 against 62.9, spread 61.5 against 61.8, its power by
+  band within 0.004, half-width 7 % under the game's), in badwater's texture's A, made in the bake worker (the light
+  look's job too); every look draws it, under our rings and bubbles (D249, with Markers on). As the game's mask does, the sources'
+  texture gives each tile of a footprint its place in it (`SOURCE_FOOTPRINT`), so a pixel reads one texel. A seep in a
+  held drought shows none.
+- **Cost** (`capture-water-shore.ts --cost`, 120 frames, median): close over the seep Standard 3.23 → 2.98 ms, High
+  3.56 → 3.47; from the opening camera 2.67 → 2.53, 3.01 → 2.93: within the runs' noise (a first version reading the
+  nine tiles round each pixel cost 0.3 to 0.55 ms close up).
+- **Judged** (`tools/water-pixel-judge.ts`, dev → this PR, sixteen day-lit start shots): clean water (37,853 tiles)
+  RMS Standard 10.2 → 10.2, High 10.1 → 10.1 (the shift is a few pixels at the shots' distance); badwater (172) 14.2 →
+  14.2, 14.9 → 14.3; the gap by day Standard 6.3 → 6.3, High 7.1 → 6.2; the land unchanged. At the six end shots'
+  hours: badwater (4,592) Standard 7.1 → 7.1, High 7.5 → 7.0; partly bad (19,318) 9.1 → 9.1, 9.1 → 8.8; clean 3.6, 3.5
+  unchanged.
+- **The sheet:** `docs/sheets/water-shore.jpg` (`tools/capture-water-shore.ts`): dev against this PR, Standard and High:
+  a still lake's shore close, badwater a level or two deep by day, a badwater source and a water seep placed in a lake.
+  After the reviews (seams dark along sides shared with other water, now gone), the reviewers' views checked against dev
+  close up: those seams, a corner open on two sides, a partly bad river (unchanged in Standard; High's bed at most
+  6 of 255 apart), a close waterfall (unchanged) and the highlight and brush over shallow water (drawn as before).
+- **Falls short:** a corner open on both sides is cut deeper than the game's, and where two films beside each other
+  draw back by different amounts, the margin has a small notch at their shared corner; t9's B is drawn at its mean (our B carries
+  the detail albedo); the game's distortion held back over a source and a seep's activation day are not followed; High's
+  badwater is still 1.2 L* under the game's by day, as Standard's.
+
+## The land's tone (D497; `fix/land-tone`)
+
+- **The finding** (`fix/water-light` above): grass read about 12 % darker than the game's on the start shots (bias
+  11.6 in Standard), cliff faces darker on some shots (bias 13.6), dry ground within 2.5.
+- **The cause, by the game's shader** (TerrainURP read again, investigation/notes/water_and_soil.md Q10): grass and dry
+  ground take the same light and differ only in albedo, and the game's grass has no moisture term. The game's texture
+  means × its ramps × its light, through its fog and post chain, put the start shots' dry tops at 113/116/111 and grass
+  at 113/140/80; the game's pixels sit 6–7 over that on both (120/122/115, 119/146/84), so its light is the same for both,
+  and ours alone was off on grass: dev drew dry ground 7 over the model and grass 6 under it. Two terms of ours, neither
+  the game's: grass ran from a lighter green at the moist area's edge to a deeper one by the water (`moistLow` →
+  `moistHigh`, 7 % darker), and the patterns faded with distance: the grass's painted strokes, widened by their
+  anti-aliasing at 34 away (where the colours were calibrated) and faded out from afar, left the grass 3.5 % darker from
+  100 away than at 34, while the earth's cracks faded the other way (1.3 % lighter).
+- **The fix:** grass is one colour at every moisture (`GROUND.grass`; only the desert's share moves with moisture, as
+  the game's); the strokes keep their shape (widened by a pixel's footprint, so they read up close and at a grazing view)
+  and what the widening adds is taken off the grass (`STROKE_WIDEN_K`: their mean grows by `PAINTED_MEAN` × 12.5 aa /
+  (1 + 0.406 aa²), within 1.2 % of `paintedMean` from aa 0.025 to 1.2), and from afar they fade to their own mean
+  (`PAINTED_MEAN`, 0.0076); the cracks keep their depth (their texture's mips keep the mean). Grass recalibrated to the
+  `Grass` texture's 64² mip × the detail texture doubled, 74.2/80.6/27.4: measured after (`tools/albedo-means.ts`, now
+  with `--distance`) 74.4/80.8/27.5 from 34 away and 74.0/80.4/27.5 from 100 in Standard (dev: 73.7/80.2/27.5 at 34, its
+  strokes' share lower from 100). The models keep their colours (`ALBEDO_SCALE` held at the grass they took them from).
+- **On the judge** (`tools/water-pixel-judge.ts`, now with `--samples`; RMS to the game's pixels and bias, dev → this
+  branch):
+
+  | shots | material | Standard | High | floor |
+  |---|---|---|---|---|
+  | the six clean-water start shots (day) | grass (137) | 15.5 (11.6) → 14.3 (9.9) | 16.7 (12.0) → 15.6 (10.4) | 16.7 |
+  | | dry (3,531) | 9.5 (2.5) → 9.4 (2.5) | 9.9 (3.3) → 9.8 (3.2) | 11.9 |
+  | | cliff (726) | 18.1 (13.6) → 18.1 (13.6) | 18.8 (14.4) → 18.8 (14.4) | 19.6 |
+  | the six badwater frames (sunrise, sunset) | dry (3,592) | 8.4 (2.9) → 8.3 (2.7) | 8.4 (3.5) → 8.4 (3.5) | 10.7 |
+  | | contaminated (100) | 5.7 (3.2) → 5.9 (3.7) | 6.6 (4.4) → 6.9 (5.0) | 5.4 |
+  | | cliff (409) | 13.6 (9.6) → 13.6 (9.6) | 14.6 (10.6) → 14.6 (10.7) | 16.0 |
+
+  Water unchanged: clean water on the start shots 14.3 → 14.2 (Standard), 14.1 → 14.0 (High); pure badwater on the
+  frames 7.1 → 7.1, 7.5 → 7.5.
+- **Up close** (the look review of the first version): it box-filtered the strokes by the larger of a pixel's two
+  footprints, several times their width at a grazing view, so they read as smudges. At the reviewer's views (orbit 22,
+  pitch 0.38, four yaws over River Valley 4242's field at 64.5, −98.5) the near grass's fine-detail contrast (the high-pass
+  std of luma over the frame's lower third): Standard dev 5.24/6.07/5.22/4.81, that version 4.77/5.49/4.79/3.59, now
+  5.30/6.09/5.27/4.87; High dev 5.57/6.10/5.25/5.02, that version 4.94/5.43/4.81/3.76, now 5.68/6.13/5.32/5.09. The
+  field's centre mean from 20 to 180 away is that version's to 0.3 at every step.
+- **Dryness shows as the game shows it** (planning's check): every look draws it through the game's desert share, never
+  through the darkening this drops. Standard and High blend the share across tiles (`desertBlend`: `tapBlend` and the
+  game's noise; High's ground is Standard's `groundColor`, its `moist` hook the same share); the light look takes each
+  tile's own share (`grassOf`, no blend, D135). The judge's `--samples` now also takes tops at moisture 1 to 5 (`edge`,
+  where the desert covers part of the grass). On the six start shots, how much of grass's green over dry ground the edge
+  shows, at moisture 1/2/3/4: the game 0.65/0.81/1.00/0.93, dev 0.84/0.98/1.04/1.03, this branch 0.83/0.98/1.04/1.03 (the
+  same: the darkening never carried dryness). Grass over dry ground in luma: the game +10.2, dev −0.2, this branch +2.7.
+  Our faintest edge (moisture 1 to 2) reads greener than the game's; the share is the game's formula
+  (`UpdateDesertIntensity`), so the gap is elsewhere (its intensity's easing over time, or the noise's), still to find.
+  `docs/sheets/land-tone-dryness.jpg` (`tools/land-dryness-sheet.ts`, from the judge's `--ours`): riverValley-128-1-start,
+  irrigated and dry side by side, dev against this branch, Standard and High, from the judge's fitted camera; the
+  game's frame of it stays out of git (`C:\dgm-probe\shots\20261002-1610-batch\m9b-riverValley-128-1-start-water.jpg`).
+- **What's left of grass is where our broad patches fall:** the 137 grass samples sit in a few patches of two River
+  Valley shots, and our grass's broad light and dark patches (10–20 tiles across) decide their mean. Moving those
+  patches (three other offsets, judged the same way) gives grass bias 4.5, 6.9 and 5.2 against 9.9 as shipped. The
+  offsets are not changed to suit the judge.
+- **Cliffs are the samples, not the light:** where the game's pixel and ours both show a face, ours reads 2–4 darker
+  (the start shots: 65/83/82 against 63/80/80, 81/99/96 against 77/97/95, and so on). The bias comes from 17 % of the
+  samples (124 of 726; 65 on highlands-128-1, fitted at 85 %), where the game's pixel shows a top's colour
+  (114–122/116–120/96–112) while ours shows the face: the fitted camera puts the 5 × 5 patch a few pixels off a face
+  12 pixels tall. The game's cliff albedo is `CliffDetail` × the gradient (ours matches it, 67.9/62.0/51.9), with no
+  detail texture; nothing in its light differs from a top's but the normal.
+- **The sheet:** `docs/sheets/land-tone.jpg` (`tools/capture-land-tone.ts`): dev against this branch, Standard and High,
+  grass by the water, a grassy valley from 100 away, a cliff, dry ground, and the light look (software) from the valley.
+- **Falls short:** the residual 2–4 on cliff faces (perhaps the game's normal map on the triplanar cliff, or the SH's
+  side term, which a frame capture would settle); contaminated ground on the badwater frames 0.5 darker (the cracks now
+  as deep from afar as near); High's grass close up reads 69/78/31 from 34 away (its broad variation over the few views),
+  73.2/79.8/27.3 from 100.
+
+## Dry land that reads dry (D135, D497; `fix/dry-land`)
+
+- **The finding:** on the game's riverValley-128-1 start shot grass reads +14.0 luma over dry ground, ours +2.7 (+10.2
+  and +2.7 over the six start shots). Dry ground itself was within 1 of the game's (judge bias 0.9 in luma); the gap
+  was grass on that shot, and how the two vary.
+- **The game's numbers, read from its files** (2026-11-08, Timberborn 1.1.2.8; numbers only, nothing of the game's in
+  git): `SoilMoistureMap.blueprint` (`MaxDesertIntensity` 0.7, `DesertMoistureThreshold` 5) and
+  `TerrainMaterialMap.blueprint` (margin 0.2, noise multiplier 0.96, softness 5.8, `BlendingNoiseScale` 0.2) are ours
+  already. Three things were not:
+  - **The blending noise.** The game's `BlendingNoise` texture (read at world × 0.2, so it repeats every five tiles) has
+    mean 0.473 and spread 0.081, and most of its variance lies in features half a tile to two tiles across. Ours had mean
+    0.50, spread 0.095, and features four times as broad (spread over one-tile blocks 0.072 against the game's 0.025).
+    Ours is now two octaves of value noise at 3 and 6 cells a tile, held to the game's mean and spread (`BLEND`,
+    `blendNoise`). Contamination's weight reads the same noise, now at the game's statistics too.
+  - **Moisture unrounded.** The game takes a tile's moisture as it is (1.3, 2.6, …; only 31 of 248 edge samples on the
+    start shots sit on a whole level); ours rounded it to the whole level. The tile data's B, unused since D497, now holds
+    the game's desert intensity from the moisture byte (light.ts `desertByte`, a byte as the game's own RG16 map), and
+    a top's share reads it (`grassAt`). Run tops (caves' floors) keep the whole level, which is all their soil carries.
+  - **How the ground varies.** The game's `Desert` × `GrassDetailsAlbedo` × 2 varies in luma over blocks of ¼, 1, 4 and 8
+    tiles by 9.4, 7.7, 5.3 and 3.4 % of its mean; our dry ground by 6.5, 4.8, 2.9 and 1.9. Its grass by 10.8, 9.1, 5.7 and
+    3.6; ours by 12.5, 10.3, 8.0 and 6.8, and the dark patches of it fell on the shot's grass. Dry ground gets a broad
+    shade of its own (`DRY_BROAD`), grass's broad shade is cut from 0.27 to 0.15 (`GRASS_BROAD`), both means held.
+- **Measured in the page** (`tools/ground-variation.ts`: a flat map of one soil, the shader patched to its albedo, from
+  100 away; Standard, base → this branch): the grass's share at moisture 1/1.5/2/2.5/3 is 0.29/0.78/0.78/0.99/0.99 →
+  0.36/0.67/0.88/0.98/1.00, the game's formula with its own noise 0.36/0.66/0.88/0.97/0.99. Dry ground's spread over
+  ¼/1/4/8 tiles 9.0/7.8/5.6/3.6 %, grass's 11.0/8.4/5.3/4.1 %. Means held: dry 69.3/57.2/46.5 → 69.2/57.2/46.4, grass
+  73.3/79.5/26.1 → 73.8/80.0/26.2. High adds its own broad variation (#65) on top: dry 9.8/8.6/6.6/5.0, grass
+  11.6/9.2/6.5/5.4.
+- **On the judge** (`tools/water-pixel-judge.ts --samples`, the six start shots; base → this branch): grass over dry in
+  luma +2.7 → +4.4 (Standard), +2.2 → +3.8 (High), the game +10.2; on riverValley-128-1, +2.7 → +5.0 and +1.9 → +4.2,
+  the game +14.0. Grass RMS 14.2 → 13.2 (bias 9.9 → 8.7) in Standard, 15.6 → 14.6 (10.4 → 9.3) in High. Dry ground's
+  RMS rises 9.4 → 10.6 (bias 2.5 → 2.7) and 9.8 → 10.8, under its floor of 11.9: its spread is now the game's, and two
+  patterns of the same spread that don't line up sit further apart pixel by pixel than a flat one does. On the
+  badwater frames, contaminated ground 5.9 → 7.2 and 6.9 → 8.1 (100 samples, floor 5.4), dry 8.3 → 9.0 and 8.4 → 9.0
+  (floor 10.7). Water unchanged.
+- **The sheet:** `docs/sheets/dry-land.jpg` (`tools/land-dryness-sheet.ts`, from the judge's `--ours`): riverValley-128-1,
+  base against this branch, Standard and High, from the judge's fitted camera.
+- **Falls short:** grass on riverValley-128-1 still reads 7–9 under the game's. The rest of the gap is grass's light,
+  not dryness: against Q10's model of the game's terms our dry tops sit about 5 over it and our grass about 2 under,
+  while the game's pixels sit 6–7 over it on both. The edge tiles (moisture 1 to 2) still read greener than the game's
+  (0.86 of grass's green against 0.65), though our share by moisture is now the game's formula to 0.01; the snapshot's
+  moisture may be ahead of the frame's at the start, while the band still spreads. Contaminated ground's RMS rose with
+  the dry ground's spread under it.
+
+## Grass in the game's light (D497; `fix/grass-light`)
+
+- **The finding:** after `fix/dry-land`, grass tops on the six start shots still read 7–9 luma under the game's frames
+  (judge bias 8.7 in Standard, 9.3 in High; dry ground 2.7 and 3.3). The light is not why: grass and dry ground take the
+  game's light to about a luma each. The gap is where the samples fall on two textures, the game's and ours, plus one
+  shadow edge.
+- **The game's numbers, read from its files** (2026-11-08, Timberborn 1.1.2.8; numbers only): TerrainURP lights grass
+  and dry ground alike (albedo × 0.912 × (Trilight SH + sun × n·L × shadow), small specular, fog, post chain). The Grass
+  material's other values change nothing between them: emission 0, grayscale 0, normal-map strength 0, smoothness the
+  glossiness × the splat filter (0 on tops), splat gradient 1. Only the albedo differs.
+- **The game's texture at the samples:** the judge's grass samples cluster (160, 108 of them on riverValley-128-1). The
+  game's `Grass` (world xz / 16) × `GrassDetailsAlbedo` (xz / 32) is world-anchored (orientation correlation 0.58 grass,
+  0.56 dry, ≤ 0.23 any other way), and round those 108 samples it is 4.1 % over its mean: +2.7 luma of the gap is the
+  game's own texture there (`tools/land-texture-check.py`, numbers only, nothing of the textures written). Our light on
+  the game's texture means (the judge's `--define GROUND_MEANS`) against the game's pixels with that texture taken out:
+  grass +1.3, dry +1.0 in Standard; +1.6 and +1.0 in High.
+- **Our pattern at the samples:** at the shipped placement our grass pattern reads 3.7 luma under its own mean at those
+  samples (Standard; 4.6 High), dry ground 0.6. Moved by three arbitrary offsets it reads −0.6, +0.6 and −0.3: luck of
+  placement, not the pattern's mean, which `tools/albedo-means.ts` holds at the game's. Grass over dry at the three
+  offsets, Standard pooled: 7.9, 9.5, 8.5 (the game's 10.2; riverValley-128-1: 9.0, 11.9, 7.7 against 14.0).
+- **Standard's shadow edge, as the game's.** A column of grass at riverValley-128-1 (x 14.5, y 104–111) beside a
+  cliff's shadow is lit in the game's frame and in High but read 5–7 luma dark in Standard. Its edge was an angle: two
+  sweeps at the sun's elevation ± 6° spread it the more the higher the cliff. The game's is a shadow map's few texels,
+  the same width under any cliff. Measured (`tools/shadow-edge-check.py`: the hard shadow's edge found on flat, dry,
+  plant-free open ground, the lines across it averaged by shot and cliff height, a blurred step fitted; the 10–90 %
+  width at right angles to the edge, in tiles of ground, through the frame's pixels; 129 + 70 lines under cliffs of
+  six levels or more, 69 of four or five, 59 of two, on five start shots):
+
+  | cliff | game | ours, 6° | ours, 2° | ours now (0.35) | High |
+  |---|---|---|---|---|---|
+  | 2 levels | 0.38 | 0.74 | 0.49 | 0.41 | 0.51 |
+  | 4–5 | 0.50 | 1.84 | 0.71 | 0.55 | 0.59 |
+  | 6 or more | 0.36 | ≥ 2 | 0.92 | 0.34 | 0.54 |
+
+  The game's settings (Timberborn 1.1.2.8, numbers only): one URP asset (`globalgamemanagers.assets`), one cascade,
+  soft shadows at High quality (URP's 7 × 7 tent); the main light's map by `ShadowQuality` (Low 1024, Medium 2048,
+  High 4096, Ultra 8192; the default preset High); the shadow distance `ShadowDistanceUpdater` sets every frame (the
+  farthest screen corner on y = 0, at most 150), though the probe's shots set it to 2.5 × the pose's distance
+  (ShotTaker.cs), and its game ran the Medium preset. Fitted in a sphere round the view to that distance, a texel is
+  0.16–0.20 of a tile in those frames, so a 7 × 7 tent (about 3.95 texels, 10–90 %) would read 0.84–1.08 on the ground:
+  the frames read about 1.4 texels. Either the filter is lower or the texel smaller than that reading; either way the
+  width is texels, the same under any cliff. So the baked edge is now a constant width (`LIGHT.edge`; `LIGHT.penumbra`
+  0), the game's in play, worked out from those frames and the game's settings (no probe batch: the probe's shadow
+  distance is not what players get, D483):
+  1. *The multiple.* Through the same measure our edge reads as the game's at 0.35 of a tile along the sun's way (0.3
+     read 0.33 and 0.4 read 0.46 over all the lines, the game 0.39), 0.35 × sin 45° = 0.247 of a tile across the
+     light. The six shots' texels (2048, the probe's 2.5 × distance, a 16:10 frame) are 0.156–0.199, mean 0.183, so
+     the game's edge is 0.247 / 0.183 = 1.35 texels (1.24–1.59 by shot): about 1.4. The frames' own blur cancels, as
+     ours went through the same pixels.
+  2. *The texel in play.* The default preset High: 4096, one cascade, a shadow distance of at most 150 (the farthest
+     screen corner on y = 0, which a usual play view passes). At the camera's fov 40.3° on a 16:9 screen the sphere
+     round the frustum to 150 has a radius of 116.9, so a texel is 2 × 116.9 / 4096 = 0.057 of a tile (0.054 at
+     16:10). Closer in, the distance and the texel shrink.
+  3. *The edge.* 1.4 × 0.057 = 0.080 of a tile across the light; along the sun's way, / sin 45°, 0.113. `LIGHT.edge` is
+     0.11.
+  4. *What the bake resolves.* North-south cliffs of 1 to 14 levels on flat ground (their shadows' ends at every phase
+     between the samples), read as the shader reads the bytes (bilinear, the 0.11-level step), give a ramp 0.71–1.22 of
+     the width asked and a middle −0.03 to +0.06 of a tile off the true line, alike at every width from 0.05 to 0.35:
+     the samples and the bytes set those, not the width, so the half-tile bake resolves 0.11 as cleanly as 0.35. The
+     screen is the limit: from far out a pixel spans more than 0.11 of a tile, so the shader keeps the ramp at least a
+     pixel wide (`sunPx`, the change across the pixel of the height over the shadow's top), and the edge never steps.
+- **The bake's speed (D453).** The walk is exact per sample (every tile entered toward the sun, none it only touches at
+  a corner), and fast: it walks once (no penumbra), over a window of the map round the samples asked, skipping blocks
+  of 4 and 16 tiles whose highest tile cannot rise over the top so far, and a strip of 16-blocks toward the sun at once;
+  the first 16 tiles' crossings from each of a sample's four positions in its tile are a table. Medians of 15 bakes
+  each, dev and this branch interleaved (Node, the probe's maps; 512² is each map tiled 2 × 2):
+
+  | map | 256² dev | 256² branch | 512² dev | 512² branch |
+  |---|---|---|---|---|
+  | chaos-256-1 | 17.6 | 18.8 | 78.2 | 71.5 |
+  | chaos-256-2 | 20.9 | 21.9 | 81.7 | 81.0 |
+  | slow-lb-16-256 | 19.4 | 15.9 | 87.2 | 69.4 |
+  | gentle-lb-24-256 | 18.4 | 15.0 | 76.2 | 62.4 |
+
+  A brush dab's terrain update (`flushTerrain` after a 5 × 5 raise, 300 dabs at random on a 256² map, in Chrome; ms,
+  median and 90th centile): riverValley Standard dev 1.33–1.44 / 2.5–2.6, branch 0.84–1.19 / 2.0–2.5; mountains dev
+  1.21–1.36 / 2.3, branch 0.86–0.98 / 2.1; riverValley High dev 1.42 / 2.55, branch 1.10 / 2.38. (`npm run
+  bench:brush` waits on a stroke the page no longer paints that way and times out on dev too.)
+- **#853's review notes:** the light look's soil and contamination took the blend noise at 0.5; they now take the mean of
+  the blend over the game's noise (its mean 0.473 and spread 0.081, a five-point Gauss–Hermite sum, `noiseMean`), so
+  its grass share by moisture is the game's formula's (0.36/0.66/0.88/0.97/0.99 at 1/1.5/2/2.5/3). A cave's mouth had a
+  seam: an open top counted the cave column beside it as desert and a cave floor took its open neighbour's rounded
+  moisture, so a brown fringe showed on the open side only; both sides now read each other's desert intensity
+  (`runDesert`, the run tops' `grassOf`). The `DESERT` and `soilOf` comments say what the tile data carries.
+- **On the judge** (six start shots; `fix/dry-land` → this branch): Standard grass RMS 13.2 → 12.8 (bias 8.7 → 8.4),
+  dry 10.6 (2.7), cliff 18.1 → 18.4 (bias 13.6 → 13.8), edge unchanged; High unchanged (grass 14.6, bias 9.3).
+  Grass over dry, Standard 4.4 → 4.7 (riverValley-128-1 5.0 → 5.4), High 3.8; the game 10.2 (14.0). The 2° edge read
+  grass bias 7.8 and grass over dry 5.2: it lit that column by spreading the edge into the shade, not as the game does.
+  Clean water's RMS 14.4 in Standard, 14.1 in High, as dev. The badwater frames were not run: nothing on water or
+  contamination changed outside the light look and the shadow's edge. At 0.11 the edge reads 0.18–0.26 under cliffs of
+  four levels or more through the probe's measure (the game's probe frames 0.33–0.64 there, at their coarser texel):
+  the edge players get is about a third of the probe's, and the frames' pixels set the rest.
+- **The sheet:** `docs/sheets/grass-light.jpg`: riverValley-128-1, dev (`fix/dry-land`) against this branch, Standard
+  and High. Standard's shadows end crisp and stepped as the cliffs are; High is unchanged.
+- **Falls short:** grass on the judge still reads several luma under the game's: about 2.7 of it the game's texture
+  where the samples sit, about 1–4 our pattern's placement there, a luma the light. A judge that samples more grass
+  across more shots would read it truer; changing either pattern to suit these samples would not be drawing as the game
+  draws. High's edge read 0.5–0.6 in the probe's measure; it is the game's now as near as its depth map allows ("High's
+  shadow edge", below). The bake still keeps two tops a sample (the same now, copied). The 1.4 texels rest
+  on the probe's Medium frames and the cascade's sphere fit; a frame at the default preset would check them. The edge
+  tiles' greenness (#853's falls-short) is untouched.
+
+## High's shadow edge (D497; `fix/high-shadow-edge`)
+
+- **What it was.** High's sun shadows come from a 2048² depth map of the real meshes (`high/shadows.ts`), framed as a
+  square of ±(0.76 × the map's side + 24) round the map whatever the sun's turn, read with 25 nearest taps 0.8 of a
+  texel apart (a box about four texels across). Over a 128² map a texel was 0.118 of a tile, so the edge was about
+  3.2 texels, 0.38 across the light and 0.54 along the sun's way: the probe's measure read 0.49–0.79. The game's in play
+  is 0.11 along the sun's way ("Grass in the game's light", above), as Standard's is since #855.
+- **What it is now.**
+  - The map is framed to the map's box (its tiles, from under the floor to the tallest caster, 32 levels) as the sun
+    sees it at each turn: a rectangle in the light's plane. The map stays 2048²: a texel is now 0.06–0.09 of a tile
+    over a 128² map and 0.10–0.18 over a 256² one, by the turn (the game's in play: 0.057). The game's own High
+    preset's 4096 (0.03–0.045 and 0.05–0.09) waits on the gate below.
+  - It is read as four bilinear compares (each one the share of its four texels the point is in front of, fetched, so
+    no gradient is taken in a branch), spread so that the edge is the game's (`LIGHT.edge` along the sun's way), never
+    under half a texel apart (closer, one compare's own texels show as steps) nor under half a pixel (a far view's edge
+    would step). A 2 × 2 of bilinear compares turns over about 0.8 × (a texel + the spread). At 2048 the half-texel
+    floor binds: 1.6 texels, 0.13–0.17 of a tile along the sun's way over a 128² map and 0.23–0.31 over a 256² one. At
+    4096 it reaches the game's 0.11 over a 128² map (0.11–0.15 over a 256² one).
+  - The pass writes depth alone (no colour; the colour target a byte a texel).
+- **Measured** (`tools/shadow-edge-check.py` on the judge's six start shots, through the probe's frames' pixels; the
+  10–90 % width at right angles, tiles; the game's column is the probe's coarser shadow map, not play's):
+
+  | shot | cliff | game (probe) | Standard dev | Standard now | High dev | High now |
+  |---|---|---|---|---|---|---|
+  | highlands-128-1 | 2 | 0.38 | 0.74 | 0.23 | 0.51 | 0.21 |
+  | highlands-128-1 | 6+ | 0.64 | ≥ 2 | 0.26 | 0.49 | 0.26 |
+  | highlands-128-2 | 2 | 1.15 | 0.69 | 0.18 | 0.49 | 0.18 |
+  | highlands-128-2 | 4–5 | 0.36 | 1.77 | 0.18 | 0.49 | 0.18 |
+  | lakeBasin-128-2 | 4–5 | 0.62 | 1.90 | 0.46 | 0.67 | 0.28 |
+  | lakeBasin-128-2 | 6+ | 0.33 | ≥ 2 | 0.23 | 0.54 | 0.26 |
+  | riverValley-128-1 | 6+ | 0.33 | ≥ 2 | 0.18 | 0.54 | 0.21 |
+  | riverValley-128-2 | 2 | 2.02 | 1.44 | 0.36 | 0.79 | 0.28 |
+  | riverValley-128-2 | 6+ | 0.33 | ≥ 2 | 0.23 | 0.56 | 0.23 |
+
+  ("Standard dev" is the judge's base, before #854; "High now" at 2048.) Both looks now read alike, 0.18–0.28 where
+  the frames' pixels allow. The judge's land is unchanged in High (grass 14.6, bias 9.3 → 9.4; cliff bias 14.3 → 14.2). (At 2048, the
+  4096 take, High read 0.13–0.28: 0.18, 0.23, 0.15, 0.13, 0.28, 0.26, 0.18, 0.21, 0.21.)
+- **No acne, peter-panning or new shimmer.** The close frames of caves and overhangs (`capture-forms-read`) show none.
+  As the sun turns a quarter of a degree a step (13 steps, the water held still, Canyon's 128² view at 20 and 45
+  tiles), the pixels whose luma goes both up and down by 4 or more were 7.3 % and 3.3 % of the frame on dev, where
+  the 25 nearest taps crawl in broad bands, and are 3.0 % and 1.6 % now (1.9 % and 0.9 % at 4096), along the edges'
+  own pixels.
+- **Speed (D453; Chrome, GPU-synced by a one-pixel read, medians of 100 passes and 200 frames, ms; three runs each,
+  dev and this branch interleaved, riverValley seed 1; this machine's RTX 2070 SUPER):**
+
+  | | 128² dev | 128² 4096 | 128² 2048 | 256² dev | 256² 4096 | 256² 2048 |
+  |---|---|---|---|---|---|---|
+  | shadow pass | 1.43–1.54 | 1.87–2.08 | 1.41–1.98 | 1.04–1.90 | 1.93–2.45 | 1.71–1.78 |
+  | frame | 1.72–2.11 | 1.94–2.19 | 1.66–2.11 | 2.63–3.51 | 2.47–3.07 | 2.63–2.91 |
+  | a turning frame (pass and frame) | 1.92–2.47 | 2.36–3.34 | 2.06–2.20 | 3.38–3.81 | 3.53–3.75 | 3.56–3.63 |
+
+  The pass at 4096 costs about 0.4 ms more, most of it the trees' fill (writing depth alone, dropping faded objects in
+  the vertex shader and front faces alone saved none of it). Planning would take 4096 (the game's High's, D496) on one
+  condition in place of dev's speed: the smoothness gate's slower profile, the integrated GPU with the CPU 4× slower,
+  orbiting at 256², stays inside its budget with no new frames over two refreshes. That profile cannot run on this
+  machine (one GPU), and `npm run smooth` is broken on dev: it waits on an "All N checks passed" line the page no
+  longer shows, and times out. In its place, the orbit (High, 256², seed 4242, ten seconds, the sun turning with the camera, a depth pass
+  every half degree) timed by animation frames in headed Chrome on the discrete GPU, natively and with the CPU 4×
+  slower, with other sessions busy on the machine:
+
+  | | dev | 4096 |
+  |---|---|---|
+  | native: median / p99 / worst, ms | 7.0 / 7.0–21 / 14–84 | 7.0 / 7.1–230 / 14–517 |
+  | native: frames over 33 ms | 0, 0, 0, 6 | 0, 0, 1, 1, 26, 90 |
+  | CPU 4×: median / p99 / worst, ms | 14 / 28–56 / 42–181 | 7–20.5 / 28–77 / 42–119 |
+  | CPU 4×: frames over 33 ms | 15, 19, 13, 5 | 11, 10, 19, 6, 17, 72 |
+
+  Natively both hold the display's 144 Hz, but two of six 4096 runs stalled for a quarter to half a second (26 and 90
+  frames over 33 ms), against one of four dev runs (6). That leans against 4096, so planning's fallback applies: the
+  map stays 2048 (`SHADOW_SIZE`), which keeps the pass at dev's.
+- **Falls short:** High's edge at 2048 is 1.2–1.5 × the game's in play over a 128² map and 2–3 × over a 256² one.
+  4096 reaches the game's 0.11 and waits on the igpu-4x gate (integrated GPU, CPU 4× slower, 256², the sun turning),
+  run on a machine with an integrated GPU, with `npm run smooth` mended first.
+
+## Trees cast the model they are drawn with (D497; `fix/lod-shadows`)
+
+- **What it was.** High's depth map was kept through the camera's moves on the grounds that a tree's close-up and far
+  models cast nearly the same shadow. They don't: a birch's far crown is two octahedra, so after a zoom in from afar
+  the close-up birches cast diamonds (the look review of #876, River Valley 128² seed 1 on Day 0). Zoomed in on its
+  birches, 1920 × 1080, time held still, the frame differed from one with the map drawn again in 177,685 pixels at 18
+  tiles and 357,259 at 10 (luma by more than 4).
+- **What it is now.** Once the camera's changes between the models have settled (none for 250 ms, `LOD_SETTLE` in
+  `highLook.ts`), the map is drawn again, once, if the trees' layout changed since it was last drawn. Those differences
+  are 0. Drawing it at every change (at most one every 100 ms, `SHADOW_EVERY`) was measured first and dropped frames
+  in a zoom, so it waits for the zoom to end. `tests/unit/lodShadows.test.ts` holds it.
+- **Measured.** River Valley 256² seed 1 (1,472 plants), 1920 × 1080, RTX 2070 SUPER, a 4-second zoom from 260 tiles
+  to 14 and an orbit at 30, three runs each:
+
+  | | depth passes in the zoom / after it | zoom frame p95 (ms) | zoom GPU p95 (ms) | orbit p95 (ms) |
+  |---|---|---|---|---|
+  | dev | 0 / 0 | 7.03–7.06 | 6.62–7.68 | 14.01 |
+  | drawn at every change | 22 / 1 | 14.00–14.01 | 6.88–7.38 | 14.01–14.03 |
+  | drawn once settled (now) | 0 / 1 | 7.02–7.04 | 6.93–7.00 | 14.01–14.03 |
+
+  An orbit already draws the map every frame on dev, as the sun turns with the camera, so the trees' models are current
+  through it.
+
+## Falls as the water below's slope (D154 amended 2026-11-08; `fix/falls-as-slopes`)
+
+- **What the game does** (decompiled `Timberborn.WaterSystemRendering` `WaterMesh`, and its compute shader
+  `WaterColumnPostprocessor` disassembled from `resources.assets`; numbers only): every water tile is a grid of four
+  by four vertices (0, ⅓, ⅔, 1), split along the anti-diagonal, and `CalculateHeights` raises each vertex to its linked
+  neighbour's surface across a side it lies on, to that surface less 0.3 a third of a tile in, and to the linked corner
+  neighbour's (less 0.3 unless on both sides), never below its own. So a fall is the lower tile's own surface rising to
+  meet the water above: its edge at the upper surface, 0.3 lower a third in, its own surface from two thirds in; no
+  face of its own. It is lit with the up normal and its flow textures, sampled at the world's xz, stretch and pour
+  down it. `FindBestProperties` hands the slope its highest linked neighbour's outflow (edges) and contamination
+  (edges and corners) by saturate(the rise). A neighbour is linked only where its surface stands under the tile's
+  ceiling (`ProcessColumns`). A corner is linked only where it and both tiles between are wet
+  (`BreakCornerLinks`); `fallMask.ts` had that turned round (both between dry), so its mask read water across a dry
+  corner and missed the corner of a fall: corrected, and the mask is now smoothstep(0.35, 0.6, `tileRise`).
+- **Ours** (`render3d/fallSlope.ts`): `slopeHeights` makes the sixteen heights for any wet tile with a vertex 0.02 or
+  more over its own surface (`SLOPE_MIN`; under it, the one flat quad as before, so still water meshes byte for byte as
+  dev's), `slopeTop` draws them as nine quads with the up normal in both looks and the Light look (one mesh). A raised
+  vertex's depth is what the game's camera sees through there (its pitch, 60°: the gap to the cliff or the upper
+  water's floor along the view, never more than its height over its own floor), the rest bilinear from the tile's
+  corners. Badwater and the current are handed over before the blend and the flow (`handOver`, `handedWater`;
+  `current.ts` `gameFlowOf`), so a badwater fall keeps its colour and the slope runs with the fall's current. No curtain
+  between two waters any more; the water's side hangs toward lower dry ground and at the map's edge, in three segments
+  along a slope's edge. The water's data never changes (D342, D497).
+- **Skirts** (#867's review): where two wet tiles' tops part along their edge (a corner neighbour linked to one and
+  not the other, or a neighbour not linked), the higher hangs a skirt down to the lower one's height at each vertex
+  (its grid's, where it is a slope), as the game's water vertex shader drops each tile's side skirt; drawn as the
+  surface going on (`SKIRT_FLAGS`). Every side (a skirt, a fall's slope's side and, since 2026-11-09, a plain top's curtain over lower dry ground) takes the tile's own badwater share (the
+  fall's, handed over), as the game's skirt takes its own tile's properties: before, the corners' blend with the water
+  beside it drew a clean fall's skirts red-brown over a badwater pool (#867's look review). Open edges (`tests/fixtures/openWaterEdges.ts`: a gap of 0.025 or more between the
+  two tops with no water side or ground across it), before → after: Canyon 3 at 256² 27 → 0, Highlands 2 25 → 0,
+  Canyon 2 28 → 0, Canyon 1 at 128² 8 → 0, Canyon 2 at 128² 12 → 0 (among them the look review's pale sliver along
+  its narrow badwater fall, tile 31,119: the canyon's ground through the window at x = 31) (`waterSkirts.test.ts`,
+  its 256² maps in `waterSkirts.heavy.test.ts`).
+- **The ceiling rule:** each layer's water keeps its tiles' ceilings (`SurfaceWater.ceiling`, waterLayers.ts), and a
+  tile links a neighbour only where the neighbour's surface is not over its ceiling, so a tunnel's slope never rises
+  into its roof toward higher open water outside. `LAYER_REACH` 4 → 5: the hand-over reads a tile further. A corner
+  links as `BreakCornerLinks` reads it: the corner tile's own links toward the tiles between (a cave's mouth, where
+  their ceilings differ: `waterSkirts.test.ts`).
+- **The share at once:** since #865 the tops read their badwater share from the flow texture's B, which `writeShare`
+  (high/flow.ts) fills on every water change; it hands the share over itself, as the bake does (the same bytes on the
+  three 256² maps), so a fall's slope carries the fall's share from the frame the water comes, no bake behind it
+  (`stillFlow.test.ts`). Rows with no badwater within a row of them skip the search: at 256² in Node, the least of 300
+  runs, 0.18–0.25 ms → 0.28–0.36.
+- **The cut:** a slope's vertex carries a cut share under −0.5 in place of its wet share (`slopeCutShare`: whether it
+  is a third in, and how far it stands over the floor of the water it rose to); sliced, it lies on the cut with the
+  depth seen behind it from there as from its own height (`cutWater.ts` `cutSlopeDepth`): against the cliff where the
+  cut is under the upper water's floor (0.05 at the lip, 0.58 a third in), else into the upper water to its floor.
+  The first reading took the water's depth from its floor up to the cut, several levels: a dark navy patch at a
+  sliced fall where dev drew teal. A side's vertex standing over its column's surface (a slope's edge, a skirt) is
+  sliced by its own height, so it stops at the cut too (it stood over it). A fall whose upper water the cut took keeps
+  its slope up to the cut (`tests/unit/cutWater.test.ts`).
+- **Re-based (D148):** the curtain tests in `look-waterfalls`, `look`, `render3d`, `look-badwater`, `cutWater`,
+  `waterLayers` and `caveCurrent` (the tunnel's fall is its water's slope under the roof); the corner rule in
+  `water-refraction`; the fixture mesher mirrors the slope.
+- **Judged** (`tools/water-pixel-judge.ts --water falls --look both`, the six day-lit start shots, dev → this branch,
+  RMS to the game's pixel): a fall's foot (103 tiles) Standard 24.8 → 24.0, High 24.1 → 23.4; clean water (8,573) and
+  the land unchanged (14.4, 14.2; 12.3, 12.6). The sheets: `docs/sheets/falls-slopes-canyon.jpg`,
+  `falls-slopes-riverValley.jpg` (each map's tallest and strongest fall at 60° and 35°, Standard and High) and their
+  `-light` pair (`tools/capture-falls-slopes.ts`).
+- **Speed** (D453): the water meshed whole in Node at 256², min of 20, Highlands 2 26.2 → 25.2 ms, Canyon 3 31.2 →
+  27.3, River Valley 2 25.7 → 25.5, with 25–28 % more water quads (a slope's nine). High at 256² on the GPU
+  (`--bench`, three rounds): frame time p50 7.0 ms on both, the render call the same (1.2–1.5 ms), the GPU's 2.2–3.3 ms
+  on both; the build's median Highlands 561 → 549 ms, Canyon 520 → 586 (rounds of one tree vary by ±90).
+- **Falls short:** our links take a neighbour as linked where it is wet and under the ceiling, with no barriers (none on
+  our ground) and the ceilings as each layer of waterLayers.ts sees them; a slope's seen depth is worked out along the game's pitch, not
+  read from a depth buffer.
+
+## The foam in the Flow view alone (D497; `fix/foam-to-flow`)
+
+- **Why.** The game's water has no foam term (`docs/progress/water-character-audit.md` on
+  `docs/water-character-audit`, gap 2), but ours drew foam threads, wakes and seams on every fast river in both looks,
+  always on (D353, D446, D154). Planning's ruling on #236 (2026-11-08, under D497): they move to the Flow view, the
+  editing aid's own channel, and the river itself is drawn as the game draws it.
+- **What changed.** `motion.ts`: the cues mesh is hidden outside the Flow view, as its streaks were; the Flow view shows
+  both exactly as before. Outside it the bake makes none of their shapes (`high/bake.ts`: a flow job with `shapes`
+  false skips the current and `motionShapes`, and sends `noShapes()`); the flow texture the surface moves by is the
+  same byte for byte (`tests/unit/flowViewFoam.test.ts`). A switch to the Flow view bakes the last water again at
+  once with the shapes: a bake waiting to start starts then, and one already sent is dropped (#866's look review found
+  the first switch waiting about half a second for a queued bake). Both programs are compiled ahead with the others
+  (`scheduleWarm`), so the first switch compiles nothing. The light look drew neither the foam nor the streaks before (no moving water in software), and still
+  draws neither. The Flow toggle's tooltip is "Show the currents, foam and wakes".
+- **Measured** (`tools/capture-foam-flow.ts`, River Valley 128² seed 2, its fastest narrow river, the game's 55°
+  pitch, the clock held, real Chrome on the RTX 2070 SUPER, dev against this branch). Flow off: Standard 4,021 pixels
+  (0.39% of the frame) close up and 7,380 (0.72%) at 35 units, darker by 8.2 and 8.4 L* on average, 32 and 44 at
+  most; High 4,019 and 7,340, 8.3 and 8.5, 33 and 45. Flow on: 0 pixels in both looks. The light look: 0 either way.
+  Sheet: `docs/sheets/foam-flow.jpg`.
+- **The probe frames** (`tools/water-pixel-judge.ts --water all`): unchanged, as the snapshots carry no outflows, so
+  neither build draws any foam there. RMS to the game, dev and this branch: Standard clean 3.5, mixed 9.1, bad 7.1;
+  High 3.5, 8.8, 7.0; the land the same.
+- **Speed.** One bake on that map in the worker: dev 52 ms, this branch 21 ms with the Flow view off (the current and
+  shapes skipped, and no cue arrays sent or uploaded) and 77 ms on (single samples). A first switch to the Flow view
+  compiles 0 programs, against dev's 1 (the streaks').
+- **Falls short:** the light look has no Flow view drawing at all (as before); its toggle changes nothing there.
+
+## The sources' rings with Markers alone (D497; D249 as amended; `fix/source-rings-markers`)
+
+- **Why.** The game draws its own pattern over a seep (2 × 2) and a running badwater source (3 × 3) only (Q9 P7) and
+  nothing over a plain water source; ours drew rings of `WATER_FOAM` (up to 0.44 mixed in, 0.07 tiles wide, 1.4 tiles
+  out every 2.9 s) and bubbles over every source in Standard and High, always (the water-character audit's gap 6, on
+  `docs/water-character-audit`). D196 made them an editing aid, but without a channel of their own.
+- **What changed.** `materials.ts`: the rings and bubbles, and their mix into the water, sit under a branch on the
+  `markers` uniform, the renderer's one Markers switch (`setMarkers`, as the contamination outline and the wall levels);
+  High's water shares that block (`high/shaders.ts` hooks only the surface before it). With Markers off the water over
+  a source is the plain surface. Unchanged: the game's own pattern over seeps and badwater sources, the glow on the
+  sources feeding the pointer's water while it hovers (its own channel), the light look (it drew none). The Markers
+  tooltip already says "Show sources, slope arrows and wall levels". Pinned by `tests/unit/water-source-pattern.test.ts`.
+- **Measured** (`tools/capture-source-rings.ts`, River Valley 128² seed 2, the clock held, real Chrome on the GPU,
+  dev `e725f16` against this branch, both built from the same file list). Markers on: 0 pixels differ in Standard and
+  High over a plain source and over a badwater source close up; from the game's 55° pitch at 90 units 39 and 38, at most
+  1.3 L*, all outside the rings (two loads of the same build differ there by 47 and 46, at most 2.2). Markers off: over
+  a plain source 9,251 (Standard) and 9,228 (High) pixels, over a badwater source 10,888 and 10,868, all within 1.5 tiles
+  of a source's middle, darker on average by 8.9 and 3.9 L* (24 and 15 at most): the rings and bubbles gone.
+- **Speed (D453).** No new texture read, uniform or program; the branch is on a uniform, so every pixel takes the same
+  way. Markers off skips the rings' noise and smoothsteps for each source tile near a pixel; Markers on draws as before.
+- **Falls short:** nothing shows a source's rings while a source tool is held with Markers off; that needs the page.
+
+## Objects' shadows (D497; `fix/high-object-shadows`)
+
+- **What it was.** A look review found High's shadows of trees, bushes and landmarks lighter and smaller than
+  Standard's. Measured (`tools/object-shadows.ts`: each object alone on a flat meadow, drawn from straight above in both
+  looks with its objects and without, at the game's 45° sun), High's are its models' own (the depth map of the real
+  meshes), and both looks shade the core of a shadow fully (its darkest points 1.1–1.2 of the full shadow under a
+  pillar), as the game does (the day's shadow strength 1, `Sun.blueprint`). Standard's were too large: its baked map
+  cast each plant as a whole tile's column from the ground to its top, and read between its samples (two a tile,
+  bilinear), which widens a shadow by 0.2–0.45 of a tile a side. A pine's shadow covered 2.7 times its model's, a
+  birch's 3.2 times, and a blueberry bush cast none.
+- **The game's.** Against the probe's frames (`tools/object-shadow-check.py`, the eight 128² start shots of batch
+  20261002-1610: ours drawn from each shot's pose with the snapshot's land, water and plants, aligned to the game's
+  frame; every flat, dry point in view given to the grown plant up-sun whose shadow's box holds it; the darkening of
+  the visible ground round each species, 1 a full shadow), High's matched the game's and Standard's did not.
+- **What it is now.** Standard casts each plant as its model: a stack of upright discs round its tile's middle (a
+  pine's trunk and whorls, an oak's and a birch's crowns over their trunks, a bush's mound; `light.ts` `PLANT_SHAPES`),
+  each disc cast 0.2 narrower than its radius for the filter's widening (`PLANT_INSET`), its radii fitted so each
+  plant's shadow covers what its model's does in High. Ground the rays reach under a crown is lit, as under the
+  game's trees. A young plant's shape is scaled with its height. A dead plant stands at its dead form's height
+  (`dying.ts` `DEAD_FORM`, 0.68–0.79 of the living one, where it was cast at 0.35): a tree's bare wood a thin post, a
+  bush and a succulent their own shapes, smaller. A ruin column is a post as wide as its square's diagonal
+  (`POST_RADIUS`). The start casts its walls and roof, 1.4 high over its 3 × 3, round the tower's 4.0 (`START_BASE`).
+- **Where the ground drops away.** A shape's shadow falls on past its own level where the ground below it is lower (a
+  bank over a river, a terrace's edge, a cliff's top): each plant's strip is walked out along the sun's way, half a tile
+  a step, until the highest its shadow can be there is under all the ground across the strip (the 3 × 3 round the
+  step), past which a ray to anything passes through the ground and the ground shades it. A piece of shadow wholly
+  under a sample's ground is left out, so how far a strip looked never shows in the bytes; plants are looked for as far
+  up-sun as any shadow falls (`SHADOW_DROP`, 30 levels, as `shadowReach`). The first cut of this PR stopped every
+  shadow where it would end on the plant's own level: a pine at a two-level bank cast 3.5 tiles where its column had
+  cast 5.5, and from three levels down nothing (#864's look review).
+- **Edits.** The shapes are cast after the sweep (`plantTopsInto`), with the same arithmetic in any window, so an edit's
+  bytes are still the whole map's; their kinds are kept after the casters' levels and go to the bake's worker with
+  them. That rests on every disc after the inset staying under the 0.75 of a tile from its tile's middle to the
+  nearest sample outside it (the samples an edit of the tile redoes reach no further round it): `PLANT_WIDEST` (0.66,
+  the oak's crown) is checked as `light.ts` loads, and by `look.test.ts`. `caveLight.test.ts` redoes 60–70 shapes of
+  every kind on roofs, floors and banks, under nine turned suns, with and without the rock, against baking again.
+  High is unchanged.
+- **Measured.** The meadow (area darkened at least half, tiles², outside the object's own footprint; dev → now):
+
+  | | pine | oak | birch | bush | ruin H2 | ruin H4 | start | dead pine |
+  |---|---|---|---|---|---|---|---|---|
+  | Standard | 4.14 → 1.60 | 2.67 → 1.64 | 2.21 → 0.54 | 0 → 0 | 2.13 → 1.46 | 5.08 → 4.00 | 2.54 → 3.91 | 0 → 0.34 |
+  | High | 1.52 | 1.71 | 0.69 | 0.02 | 1.94 | 4.14 | 4.04 | 0.19 |
+
+  (A bush's shadow, 0.4 high, falls within its own footprint seen from above; dead oaks, birches and bushes cast 0.05
+  or less in both looks, `--dead`.) The probe's frames (`object-shadow-check.py`: the mean darkening of the visible
+  ground in each species' shadow boxes on its own level, 1,832 / 2,087 / 3,000 points; and of the water below a step
+  from a plant up-sun, within its shadow's box lengthened by the drop, 3,351 points, mostly river banks):
+
+  | | game | Standard dev | Standard now | High |
+  |---|---|---|---|---|
+  | pine | 0.18 | 0.63 | 0.31 | 0.20 |
+  | oak | 0.16 | 0.19 | 0.08 | 0.13 |
+  | birch | 0.15 | 0.49 | 0.17 | 0.13 |
+  | water below a step | 0.15 | 0.38 | 0.15 | 0.21 |
+
+  A plant at a step's edge (`.scratch` probe, d from its middle down-sun in quarters of a tile, shaded at the ground):
+  a pine two levels up shades to 4.75 tiles off (its column 5.5, the first cut 3.5, the step alone 2.75), three
+  levels up to 5.75; an oak two levels up to 4.25, a four-storey ruin to 5.5. The sheet:
+  `docs/sheets/object-shadows.jpg` (River Valley 4242, 128², round the start near and mid, dev and now, in both looks).
+- **Speed (D453).** Standard's bake (Node, the best of eight interleaved medians, ms, dev → now): River Valley 4242
+  128² (773 plants) the whole map 9.3 → 7.9, a plant taken away 0.39 → 0.40, a 3 × 3 raised 0.32 → 0.52; River Valley
+  256² 74.1 → 62.6, 0.60 → 0.84, 0.20 → 0.29; Delta 256² 40.4 → 43.7, 0.58 → 0.75, 0.25 → 0.30 (the machine was
+  shared: the whole maps vary by a tenth from run to run). The columns no longer enter the sweep, which pays for the
+  shapes on a whole map; each plant's discs are cast only over the strip its shadow can reach, and a plant whose shadow
+  cannot come down to an edit's lowest ground before it gets there is passed over. An edit costs up to a quarter of a
+  millisecond more: the plants round it walk their strips. High's pass and frame are untouched.
+- **Falls short.** Standard's pine still darkens the visible ground round it more than the game's (0.31 against
+  0.18): seen from the game's pose, the part of a shadow beside its tree's own screen box is its side, where the
+  filter's widening stays (the meadow's width 1.3 against High's 1.1). Standard's oak and both looks' oaks read a
+  little light against the game's (0.08 and 0.13 against 0.16), and High's shadows on the water below a bank a little
+  dark (0.21 against 0.15). The sun's turn moves Standard's areas by up to a fifth as a shadow's edge crosses the
+  samples.
+
+## A dead plant casts its dead form (D497, D135; `fix/dead-shadows`)
+
+- **What it was.** A look review of River Valley 128² seed 1 found dead birches casting diamond-shaped shadows of a
+  crown they don't have, in High. Its cause: a plant that dies or starts dying in place (a held drought or badtide's
+  withering, the ground starting it dying, `HighLook.setPlantStates`) moved to its new form's batch, but High's depth
+  map was kept, so the plant went on casting the form the map was drawn with: for a birch seen from afar, its living
+  far model's two octahedra, the diamonds. It held until something else redrew the map (an edit, the sun's turn, the
+  objects hidden). Every species and both changes did the same: a dead pine cast its whorls, a dying oak its full
+  crown. Standard was right: its baked shadows are cast again from the objects as drawn (`bakeShadows`, a dead tree's
+  bare wood a post, `light.ts` `DEAD_KIND`).
+- **What it is now.** A change of state marks the depth map to be drawn again, as an edit does: one depth pass for
+  each change (at most one every 100 ms, `SHADOW_EVERY`), nothing a frame. So a dead tree casts its bare wood, as the
+  game's dead tree casts its own dead model. `tests/unit/sunShadows.test.ts` holds it.
+- **Measured.** A grove of 36 plants on a flat meadow, drawn still at 1280 × 800 on the GPU (Chrome with ANGLE on
+  D3D11, the RTX 2070 SUPER), from 16 and 45 tiles at the game's 55°, then each plant dead or dying in place; the
+  pixels whose luma differs by more than 4 from the frame with the depth map drawn again (dev → now):
+
+  | High | dead, 16 | dead, 45 | dying, 16 | dying, 45 |
+  |---|---|---|---|---|
+  | birch | 105,519 → 0 | 13,886 → 0 | 87,781 → 0 | 11,448 → 0 |
+  | pine | 251,032 → 0 | 32,994 → 0 | 120,067 → 0 | 14,618 → 0 |
+  | oak | 392,831 → 0 | 50,569 → 0 | 102,061 → 0 | 12,750 → 0 |
+  | blueberry bush | 49,577 → 0 | 6,623 → 0 | 43,594 → 0 | 5,854 → 0 |
+
+  Standard: 0 before and after, dead. The frame drawn twice without a change differs by 0.
+
+## Caves and overhangs, captured again after #852–#855
+
+`tools/capture-forms-read.ts` (as #820 ran it) on Canyon 128² seed 1, dev (`ba8fc1ef`, before #855) and this branch
+(#855 merged in), 1920 × 1080, mean Rec. 709 luma:
+
+| | #820 | dev | this branch |
+|---|---|---|---|
+| inside the spring cave, High | 39 | 40.5 | 40.7 |
+| inside the spring cave, Standard | 50 | 44.4 | 42.6 |
+| its roofed floor / walls / ceiling, High | 56 / 31 / 26 | 42.4 / 32.3 / 29.0 | 42.8 / 32.4 / 29.0 |
+| its roofed floor / walls / ceiling, Standard | | 46.0 / 33.1 / 29.1 | 45.3 / 33.1 / 29.1 |
+| under the cliff's overhang: ceiling, High / Standard | 15–27 | 31.9 / 30.1 | 31.9 / 30.1 |
+| its back (roofed) wall, High / Standard | 23–31 | 31.9 / 29.0 | 31.9 / 29.0 |
+| its open walls, High / Standard | 35–64 | 34.4 / 33.0 | 34.9 / 32.9 |
+| the gorge arch, all, High / Standard | | 50.4 / 51.4 | 50.4 / 51.1 |
+
+The roofed faces, which make a cave and an overhang read, hold or brighten against #820 and are the same on dev and
+this branch. Standard's cave view lost 5.6 on dev since #820 (the ground's tone, #852–#854, the game's) and 1.8 more
+here: its open walls (45.4 → 42.7) and floor at the mouth, where #855's narrow edge leaves the overhang's shadow on
+the outside wall fully dark instead of half lit, as the game's is. No regression to fix; the frames read as #820's
+did. (#820's open walls 35–64 also took River Valley seed 1's overhangs, not captured here.)
+
+## Badwater's front and High's falls (Q9 P9; D154 as amended, D496; `fix/badwater-fronts`)
+
+The water-character audit's gaps 3 and 4 (`docs/progress/water-character-audit.md`).
+
+- **The front, as the game blends it:** the game's water shader (`PhysicalWaterURP` ps 502–650, read again with
+  `tools/game-water-shader.py`) samples a column's contamination at the pixel ± a margin of 0.45–0.5 tiles (its margin
+  noise at (xz + 0.2 T) × 0.175), weights each sample by |dx| × |dy| from the nearest tile corner, leaves out a column
+  not linked to this one, and eases the mean b to b × saturate(2b + 0.5): a straight blend about a tile wide, centred on
+  the tiles' edge. Ours, in both looks (`waterPalette.ts` `WATER_SHARE_BLEND`, `waterShareFrom`; `materials.ts`
+  `waterShareAt`): the same four taps, each its tile's own share in the flow texture's B, a dry tile left out by its A,
+  our own noise for the margin's, then eased. B and A follow the water on the page's thread the moment it changes
+  (`high/flow.ts` `writeShare`, from `WaterMotion.waterChanged` and `StillFlow.update`, the rows that changed going up
+  with the next frame; `now` reaches the moving water's bake too), so badwater is drawn with the water it came with;
+  the bake brings the current, the waterfall mask and, for the ground under a film, a dry tile's carry (the mean of the
+  water round it). High's two smoothing passes are gone. A water top in the open reads it; a fall's face, the water's
+  side and water under a roof or below its tile's surface water keep the mesh's corner share, now each tile's own
+  (`BLEND_KERNEL` [1], was [20, 15, 6, 1]). Clean water's tint 1, 2 and 3 tiles from a straight front: 0, 0, 0 in both
+  looks (Standard was 0.72/0.41/0.10, High 0.70/0.30/0), the game's; badwater a tile in is pure (was 0.92).
+- **High's falls and small steps:** a badwater face takes the formula High's surface takes (`GAME_BADWATER.use.high`:
+  `gameBadwaterColour` at its shallowest by the pattern carried over the lip, lit by `gameWaterLight`, with its glowing
+  lines), as Standard's falls; a small step is High's surface itself facing up (`measuredSurfaceWater` at its depth,
+  its patterns at their means). The gallery's badwater fall (`docs/sheets/badwater-fall-high.jpg`; the front: `docs/sheets/badwater-front.jpg`, River Valley 256² seed 4242): High's face 60/11/10, L*
+  10.8, flat (pixel gradient 0.19) on dev; 45/13/5, L* 7.6, gradient 1.87 here; Standard's 44/12/4, L* 7.1, 1.85.
+- **The judge** (`tools/water-pixel-judge.ts --water all`, the six Badtide and Islands ends, at their hours), RMS to the
+  game's pixels, dev → this branch: Standard clean 3.54 → 3.38, mixed 9.08 → 9.10, bad 7.08 → 7.09; High clean 3.50 →
+  3.34, mixed 8.80 → 8.82, bad 6.99 → 6.99. The mixed band samples tile centres from about 110 units, where both
+  blends give nearly the tile's own share, so the front's width barely moves it (0.02 further); clean water by
+  badwater gains in both looks. The land is unchanged (the judge's own check).
+- **Falls short:** the game leaves out a neighbour on another surface (its column not linked); our texture's filter
+  doesn't know the levels, so across a fall between waters of different shares the half tile at the lip and at the
+  foot blends with the other water (as High's did before, then over more tiles); Standard's tops kept to their own
+  level until now. A link-aware share (the surface levels beside the share) would close it.
+
+## The water's depth along the view (Q9 P3; D154 as amended 2026-11-09, D496; `fix/shore-band-view`)
+
+The water-character audit's gap 7 (`docs/progress/water-character-audit.md`): our light rim on every bank.
+
+- **The game:** its water's pixel shader reads the depth from the camera's depth buffer: the gap along the view to what
+  lies behind the water, × the view's sine, saturating at `_MaxDepth` 5 (`PhysicalWaterURP` ps 315-347; its Low
+  quality's program, read again with `tools/game-water-shader.py` without `_HIGH_QUALITY_WATER_ENABLED`, reads
+  `_CameraDepthTexture` the same way). P4's colour ramp and P13's see-through both take it. So the depth falls to none
+  at the foot of a bank facing the camera (the far bank), over about depth ÷ tan(pitch), 0.7 tile a level at 55°; the
+  near bank's water is at full depth to its edge; the band swaps sides as the camera turns.
+- **Ours, before:** every shore side shallowed the depth (Standard 0.3 at the bank, whole by 0.45 tile:
+  `WATER_SURFACE.bank`, `bankWidth`, `waterSeenDepth`; High 0.1 by 0.55), so both banks of every river had a rim.
+- **Ours, now** (`render3d/viewDepth.ts`): the water's top walks the view's ray down from its surface through the
+  tiles' tops (the tile texture's heights; its own tile's floor from the mesh, `wcut.x`) to the ground it meets: a
+  wall where it enters a tile below that tile's top, else the top; with terrain above terrain, roofed air is no ground.
+  At most `VIEW_DEPTH.steps` 16 tiles, stopping at 5 levels; the depth is the drop. (The game's eye-space gap × sine is
+  the drop × the ray's share along the camera's forward axis; ours leaves the share out, as our 40° field is wider
+  than the game's 31-37° and the judge read clean water lighter with it: RMS 3.4 → 4.3 with it, 3.6 without.) Standard, High and the light look read it (the light look as the
+  game's Low: coloured by it, no ground through it); the see-through, badwater's depth ramp and its glow take it. A
+  wall under the water (a bank's foot, a step in the bed) now shows through tinted by the water at the depth the view
+  sees there, as the bed under it does. The bank shallowing is gone; `waterBody`, `waterOpacity` and
+  `badwaterOpacity` take the seen depth as given. `tests/unit/viewDepth.test.ts` holds the walk: the far bank 0 at its
+  foot and u × tan 55° across the band, 0.70 tile a level; the near bank whole to its edge; the band swapping sides.
+- **Size** (the game's P4 colour at a bank's edge against open water, display luma; ours now take the same depth, so
+  the same): a level deep, far bank 2.20, near bank 1.00; Standard before 1.61 on both, High 1.83-2.11 on both.
+  On screen (`.scratch` measure, not kept: River Valley 128² seed 2, its 0.7-deep river 5 wide and a 0.48-deep
+  lake's straight shore, objects hidden, the clock held, the game's 55° from 12 units, four headings; each bank's
+  display luma against open water in the same frame, a row's mean), dev → this branch. The far bank, 0.05 tile in:
+  river Standard 1.10 → 1.15, High 1.32 → 1.31; lake Standard 0.96 → 1.16, High 1.15 → 1.14. The near bank, just
+  past where the bank hides the water (0.35 tile on the river, 0.5 on the lake): river Standard 1.02 → 0.87, High 1.14
+  → 0.89; lake Standard 1.11 → 1.06, High 1.09 → 0.90. So the rim stays on the far bank and leaves the near one; on
+  screen the sky's reflection, added on top, flattens P4's ratios, and the near bank's own shadow darkens its edge a
+  little in both builds.
+- **The probe frames** (`tools/water-pixel-judge.ts --water all`, the six Badtide and Islands ends, at their
+  hours), RMS to the game's pixels, dev → this branch, as drawn (the game's formulas): Standard clean 3.4 → 3.6, mixed
+  9.1 → 9.0, bad 7.1 → 7.0; High 3.3 → 3.6, 8.8 → 8.7, 7.0 → 6.9; the land unchanged. The samples are tile middles
+  with every neighbour wet, about 110 units off, so they see few banks; clean water's 0.2-0.3 is the walk's true beds
+  in place of the mesh's corner-averaged depth.
+- **Speed** (River Valley 256² seed 2, the camera orbiting at 55°, real Chrome on the RTX 2070 SUPER, a frame with the
+  GPU waited for, median of 150; over a lake, from 60 and 25 units), dev → this branch: Standard 5.70 → 5.63 and
+  4.92 → 5.06 ms, High 8.41 → 7.94 and 7.27 → 7.07 ms: within the runs' noise. The light look in software (SwiftShader,
+  close over the river): 375 → 390 ms a frame, single samples.
+- **Falls short:** objects standing in the water (a source's rock) are in the game's depth buffer and not in our walk,
+  so the water round them keeps its depth; the walk reads the drawn terrain's tile tops, so a stroke's land shows the
+  band once its rows reach the tile texture, as everything else does. A fall's slope keeps its baked seen depth for
+  its film only; its colour now comes from the walk.
+
+## Falls against the game's own close frames; a fall's sides as its skirts (PERFECT Water 3; D154 as amended 2026-11-09, D496; `fix/falls-pour`)
+
+- **Judged on:** the probe's only close frames of a fall in the game, `ceiling-waterfall` (C:\dgm-probe\shots\ceiling-20260927:
+  a Highlands 128² tall map, a spring in a notch at 21 pouring 14 levels onto a step and on into the river), its
+  `ceiling-close` (30°, 22 units) and `ceiling` (45°, 50) poses at the game's start (day light), drawn by ours from the
+  same poses with the map opened from its file (the probe's pose lands on the game's framing to a pixel or two), real
+  Chrome on the RTX 2070 SUPER, Standard and High. `.scratch` measures, not kept; numbers only leave the machine.
+- **What matches:** the sheet's shape (flat to a third of a tile out, steep to two thirds, its foot on the water
+  below), its colour (the pool over the lip, game 45/80/90 L* 31.7, ours 44/80/97 L* 31.9; the face's upper half
+  39/73/83 L* 28.8 against 41/78/83 L* 30.6, its lower half 29/54/64 L* 21.1 against 29/58/64 L* 22.3), its streaks'
+  width (an autocorrelation half-width of 2 to 3 px on both), and no whitewater or foam at the foot (the game's draws
+  none); the motion is the game's formula (below).
+- **Gap fixed: a fall's sides.** Where a slope's edge stands over the water or ground beside it, the side hanging from
+  it (a skirt, `SKIRT_FLAGS`, or a side over lower dry ground) was drawn in the water's shallowest colour (its own
+  depth, or 0.05) and 0.9 opaque: a light cyan strip down each side of a fall seen at an angle, L* 34.1 (Standard; High
+  33.7) against the game's 20.6 at the `ceiling` pose. The game's skirt is its top's mesh dropped and drawn by the same
+  program, with the up normal (the vertex shader never reads the mesh's normal) and the depth read from the depth
+  buffer behind it. Now every side but the section at the map's edge is the surface going on in both looks: the depth
+  the view sees behind it (`waterViewDepth` from just inside its column, `viewDepth.ts`), the surface's normal and
+  gloss, its see-through by that depth (the waterfall mask's tenth where a fall lands, `cleanWaterAlpha`), and in
+  High its surface (`measuredSurfaceWater`) with the Standard side's normal, albedo and patterns. The strip: L* 24.5
+  (High 24.4); the whole sheet there 27.3 → 23.3 L* (game 22.7), its spread 6.9 → 5.1 (4.6). A badwater fall's sides
+  (the same map in its Badtide) lose their bright orange strip the same way. `WATER_FALL_SEE_THROUGH` and the
+  fragment's `WATER_FALL_FLAGS` are gone (the vertex shader's cut rule keeps the threshold).
+- **The motion:** the same formula as the game's (P5): the texture rides the column's outflow ÷ 14, 0.8 UV (13.3
+  tiles) a second at a flow of 1, stretched down the face by its steepness, the fall's outflow handed to the slope.
+  River Valley 2 128²'s tallest fall (3 levels, 0.06 deep) carries a flow of 0.009: its face moves about a pixel in a
+  quarter second at 35°, 12 units off. The ceiling map opened from its file shows its stored outflows, which are all
+  zero, so its water stands still until an edit settles it again.
+- **Speed:** the walk now also runs on the sides' pixels, a sliver of a frame beside the tops' (every top pixel walks
+  already); not measured on its own.
+- **Falls short:** (1) the cliff shows through the sheet more than in the game: on the face the pixel gradient down the
+  sheet is 0.84 / 0.71 (upper / lower half) against the game's 0.44 / 0.22, and 0.32 / 0.12 with no see-through. The
+  game's see-through reads URP's opaque texture, which its pipeline asset downsamples 2× bilinear
+  (`m_OpaqueDownsampling` 1, `globalgamemanagers.assets`), ours the full frame (built: the next section; part of the
+  gap is P13's overlay, built after it: "What shows behind the water, tinted in the water's own pass"). (2) The streaks down the face are more contrasted than the game's: the
+  high-passed spread of the face's columns 5.1-5.8 against 2.0-2.4, where the game's face is as contrasted as its pool
+  and ours 1.9 times; the cause is not found (the normal, the tangent frame, the phases and the sampling match the
+  game's programs). (*Found: the light took the boosted normal, the game's only its highlight. See "The water lit by
+  its texture's own normal".*) (3) The game's frames show no fall moving; its speed is the formula's.
+
+## The ground behind the water at the game's downsampling (Q9 P13, P2; D154, D496; `fix/opaque-downsample`)
+
+- **Read:** the game's water is drawn opaque and takes everything it shows through from `_CameraOpaqueTexture` (Q8,
+  Q9 P13). Its URP asset (`globalgamemanagers.assets`, version 13, read as `tools/game-bloom.py` reads it; numbers only)
+  sets `m_OpaqueDownsampling` 1, URP's `_2xBilinear`: the opaque scene copied to half the screen's width and height
+  (URP's integer halves), each texel the screen sampled bilinearly at its centre, a 2 × 2 box, and read bilinearly.
+  So the ground behind the water shows at half the screen's resolution in Medium and up, at any distance.
+- **Ours** (`refraction.ts`): the copy of the screen made just before the first water (as before; the canvas is
+  multisampled, so it is the resolve) is blitted with a linear filter to a half-size target (`WATER_REFRACTION.downsampling`
+  2), and the water's shader reads the ground behind from it at the moved position, (half(moved) − copy(here)) ×
+  (1 − α) / α added to its colour, so the blend over the screen gives α × the water + (1 − α) × half(moved), the
+  game's composite. Standard and High, every frame with water on the map (the copy was made only within the
+  refraction's 60 of the camera); the light look, as the game's Low, shows no ground and makes no copy.
+- **Judged** on the probe's `ceiling-waterfall` `ceiling-close` frame (the pixel gradient |dy| down the sheet, upper /
+  lower half; the previous section's measure): game 0.44 / 0.22; Standard dev 0.84 / 0.71 → 0.67 / 0.48; High dev
+  0.69 / 0.61 → 0.60 / 0.44; with no see-through 0.32 / 0.12. `tools/water-pixel-judge.ts --water falls`, the six
+  day-lit start shots: clean water RMS Standard 13.5 → 13.5, High 13.3 → 13.3 (8,573 tiles); a fall's foot 24.0 → 24.0
+  and 23.3 → 23.3 (103): those frames are 85 or more from their water, and the judge's 5 × 5 patch means do not see a
+  2 × 2 softening.
+- **The rest of the falls' gap, found:** the game overlays whatever shows behind its water with the water's colour
+  (`_TransparencyBlending` 0.8), desaturates it (0.3) and lights it again (P13, ps 866-889); ours does that in the
+  terrain's shader, to ground under water only (`waterGroundBehind`), so the dry cliff behind a fall's sheet shows
+  plain. The game's overlay put on the half-size copy in the water's shader (a trial, not shipped: the terrain's would
+  be applied twice under water) reads 0.53 / 0.31 in Standard and 0.50 / 0.31 in High; what is left is near our
+  sheet's own streaks (0.32 / 0.12 alone, more contrasted than the game's: the previous section's (2)). Moving P13 into
+  the water's shader, read from the copy, with the terrain's version kept only where no copy is made (software), is
+  the next step for it (*built: the next section*).
+- **Cost** (a 256² Highlands map, 1280 × 800, real Chrome on the RTX 2070 SUPER, the GPU's time a frame by timer
+  queries while orbiting, `benchOrbit`, the median of about 360 frames, two runs each, dev → this branch): Standard
+  close over water 2.80, 2.81 → 2.77, 2.83 ms; High close 3.05, 3.06 → 3.08, 2.94; from the opening camera, where
+  dev made no copy, Standard 2.80, 3.26 → 2.39, 3.74 and High 2.79, 2.75 → 2.82, 2.72. The same within the runs'
+  noise, not less: the multisampled canvas must be resolved at full size for the copy either way, and the blend needs
+  it; the half-size blit is a quarter of a screen.
+
+## What shows behind the water, tinted in the water's own pass (Q9 P13; D154, D496; `fix/water-tints-behind`)
+
+- **The game** (`PhysicalWaterURP_Opaque` ps 866-889, `tools/game-water-shader.py`): its water reads
+  `_CameraOpaqueTexture` (the previous section) and overlays it with the water's albedo (P4 × P5 with P6's detail,
+  before the highlight) by `_TransparencyBlending` 0.8, desaturates it to `_TransparencySaturation` 0.3 (Rec. 709
+  luma), and puts it in place of lerp(0.35, 0.2, w) × (1 − u) × 0.5 of the albedo (with its highlight), which URP's Lit
+  then lights: the ground behind is lit a second time, by the water's diffuse (0.96 × (the ambient SH by the normal +
+  the sun × N·L × its shadow)); `MixFog` and the post chain take the whole. Whatever the opaque texture holds behind the
+  water takes it: the ground under the water, objects in it, and the dry cliff behind a fall's sheet.
+- **Ours before:** the terrain's shader overlaid and desaturated the ground under water only (`waterGroundBehind`,
+  before the ground's own light, so lit once), so the cliff behind a fall's sheet showed plain.
+- **Ours now** (`refraction.ts`): the water's shader does it to what it reads from the half-size copy: the copy is
+  graded, so the post chain is undone first (`gamePostInverse`, materials.ts; `gamePostInverseRgb`, palette.ts: each
+  step solved exactly, the Neutral curve by its positive root, exact wherever the grade didn't clip), then
+  `waterGroundBehind` with the water's albedo there (`behindAlbedo`: the colour before its light, High's surface its
+  own), × the water's diffuse light (`behindLight`, `gameWaterLight` by its normal and the sun's shadow, under a roof the
+  cave's), fogged and graded with the water (`finish`). Standard and High. The terrain's version runs only where the
+  frame makes no copy (`refractView.y`: a browser drawing in software in Standard, a picture, the bloom's source), so
+  ground under water is tinted once; the light look, as the game's Low, shows no ground behind. On a sliver at a
+  shore the split is the terrain's as before: the game has no film (its water clips hard at its floor, P14, and its
+  terrain shader has no input from the water), so our film (`WATER_FILM`, our anti-aliasing of that edge) keeps the
+  terrain's film tint by 1 − the film curve and P13 takes the film curve's share (`mix(behind, P13, film)` in
+  `waterRefraction`). Without that a film got both, and the composite's (1 − α) / α, about 6 at a film's opacity,
+  clipped the water's colour per channel: purple and olive blotches in shallows (the first review).
+- **Judged** on the probe's `ceiling-waterfall` `ceiling-close` frame (the pixel gradient |dy| down the sheet, upper /
+  lower half): game 0.44 / 0.22; Standard `fix/opaque-downsample` 0.67 / 0.48 → 0.57 / 0.34; High 0.60 / 0.44 →
+  0.53 / 0.33. The sheet's mean, upper half: game 39/72/83, before 41/78/83, now 38/77/83; lower half 29/55/65,
+  29/58/64, 26/56/63. `tools/water-pixel-judge.ts --water falls`, the six day-lit start shots, `fix/opaque-downsample` → this
+  branch: clean water RMS Standard 13.5 → 13.7, High 13.3 → 13.5 (8,573 tiles); a fall's foot 24.0 → 24.0 and 23.3 →
+  23.3 (103); the land unchanged. The shallows (0.05-0.5 deep, where most shows through) move under a level, toward the
+  game on some maps and from it on others (L* 37.9 → 38.2 against the game's 36.7 on one, 44.4 → 44.3 against 39.2 on
+  another); their spread rises a little with the relight. The game's terms, not fitted.
+- **Cost** (a 256² Highlands map, 1280 × 800, real Chrome on the RTX 2070 SUPER, the GPU's time a frame by timer
+  queries while orbiting, `benchOrbit`, the median of about 360 frames, two runs each, `fix/opaque-downsample` → this
+  branch): Standard close over water 2.85, 2.93 → 2.10, 2.98 ms; High close 2.99, 3.11 → 2.83, 3.02; from the opening
+  camera Standard 3.84, 3.49 → 3.75, 3.51 and High 2.96, 2.88 → 3.01, 2.86. Within the runs' noise: the undone grade
+  and the second finish are a few instructions on the water's pixels.
+- **Close shallows** (River Valley 5 128², 55° from 28 units, the clock held, Standard; High the same within 0.1):
+  water 0.01-0.09 deep, display mean and L* of 395 tile points, `fix/opaque-downsample` 67/97/105 L* 39.4; with both
+  tints on a film (the first push) 59/85/92 L* 34.6, blotched; now 61/90/96 L* 36.4, no blotches. Past the film
+  (0.03-0.3 deep) the change is P13's own, the same in both pushes: 3-5 levels darker in G and B. The game overlays with its
+  water's albedo before light (`gameCleanColour` × the flow's albedo with P6's detail, about half our calibrated body
+  colour, which the terrain's overlay used) and relights by the water's diffuse. The map's picture: its light shallow
+  water 78/121/128 → 74/116/120 (the first push 80/114/115 → 74/103/107 by the review's mask).
+- **Falls short:** what is left of the sheet's gradient is near its own streaks (the falls section's (2)); the relight
+  (about 1.5 in full sun) lifts the cliff's pattern behind with the water, so the sheet's contrast across it rises a
+  little (|dx| 2.61 → 2.77, the game's 1.50). Our water is still blended over the graded screen, where the game grades
+  the composite: the grade of a blend against the blend of two graded colours, and the sky's reflection and the glint
+  in our water's colour are taken by its opacity, where the game's add on top (both from before this change; *built: the
+  next section*).
+
+## The water as the game's one composite (Q9 P13, P15; D154, D496; `fix/water-composite`)
+
+- **The game:** its water is drawn opaque. URP's Lit lights an albedo that already holds P13's share of the ground
+  behind (lerp(0.35, 0.2, w) × (1 − u) × 0.5 of the albedo with its highlight, replaced by the opaque texture overlaid
+  and desaturated), adds the environment's reflection, the sun's GGX and the emission (the highlight, badwater's lines)
+  on top, unscaled, and `MixFog` and the post chain take the whole once (Q9 P15).
+- **Ours before:** the water was blended over the graded screen at its opacity α (1 − the see-through share), with
+  `waterRefraction` adding (half(moved) − copy(here)) × (1 − α) / α so the blend gave α × water + (1 − α) × P13. Two
+  errors: the reflection, the glint and the emission were taken by α (up to 17.5 % weaker in the shallows), and the water
+  and the ground behind were each graded and then blended, where the game grades the blend.
+- **Ours now** (`refraction.ts` `waterComposite`): where the frame makes the copy (`refractView.x`), the water's shader
+  builds the composite itself and writes it at an opacity of 1: its colour before the fog and the grade, with (1 − α)
+  of the lit albedo with its highlight (`behindBase`, set where the light is applied: the Standard surface, High's
+  `measuredSurfaceWater`, High's section) replaced by P13's lit ground behind, then `finish` once. The (1 − α) / α
+  division and the full-size copy's read are gone (the full copy stays as the half-size one's source). A film's sliver
+  at a shore stays a blend: the composite by the film curve, the water alone at α over the screen (the terrain's film
+  tint under it) the rest, written at mix(α, 1, film), so each pixel is tinted once as the terrain splits it. Frames
+  that make no copy (software, pictures, the bloom's source) and the light look keep the water alone blended. The clear
+  water's veil keeps the water's own opacity. As the game's opaque texture holds no water, water drawn after the copy
+  no longer shows through water in front of it.
+- **Judged** on the probe's `ceiling-waterfall` frames (C:\dgm-probe\shots\ceiling-20260927, day light, ours from the
+  same poses with the map opened from its file, real Chrome on the RTX 2070 SUPER; `.scratch` measures, not kept),
+  dev → this branch:
+  - `ceiling-close` (30°, 22): the pixel gradient |dy| down the sheet, upper / lower half, game 0.44 / 0.22; Standard
+    0.57 / 0.34 → 0.52 / 0.26, High 0.53 / 0.33 → 0.46 / 0.23. |dx| across it, upper half, game 1.50: Standard 2.77 →
+    2.78, High 2.75 → 2.76. The sheet's mean, upper half, game 39/72/83 L* 28.7: 38/77/83 L* 30.1 → 39/77/83 L* 30.4;
+    lower half game 29/55/65 L* 21.4: 26/56/63 L* 21.6 → 27/56/64 L* 21.9 (High within 0.1 L* of Standard).
+  - `ceiling` (45°, 50): |dy| upper / lower half, game 0.15 / 0.28; Standard 0.42 / 0.53 → 0.24 / 0.37, High 0.44 /
+    0.56 → 0.22 / 0.38. |dx|, game 1.55 / 1.54: Standard 3.86 / 5.17 → 3.93 / 5.23 (High the same within 0.1).
+  - Open water's highlights: the pool over the lip in `ceiling-close`, the luma of its brightest 1 % over its median,
+    game 52.9: Standard 45.5 → 49.6, High 44.5 → 48.9; its 99th percentile game 119.4, 107.4 → 112.4 (High 107.2 →
+    112.2); its mean game L* 32.1, 30.3 → 31.1. The pond at the `ceiling` pose, the same measure, game 43.5: 19.5 →
+    21.6 in both looks.
+  - `tools/water-pixel-judge.ts --water falls`, the six day-lit start shots: clean water RMS Standard 13.7 → 13.8, High
+    13.5 → 13.6 (8,573 tiles; the shallows 0.05-0.5 deep 0.3-0.6 L* lighter, where they were lighter than the game's
+    already); a fall's foot 24.0 → 24.0 and 23.3 → 23.3 (103); the land unchanged (Standard 12.3, High 12.6).
+- **Cost** (a 256² Highlands map, 1280 × 800, real Chrome on the RTX 2070 SUPER, the GPU's time a frame by timer
+  queries while orbiting, `benchOrbit`, the median of about 360 frames, four runs each in two sittings, dev → this
+  branch): Standard close over water 2.16, 2.07, 2.82, 2.79 → 2.68, 2.75, 2.68, 2.62 ms (dev's two modes are the
+  runs' noise, as in the sections before); High close 3.08, 2.94, 2.89, 2.82 → 2.93, 2.88, 2.92, 2.89; from the opening
+  camera Standard 3.49, 3.69, 3.51, 3.75 → 3.58, 3.66, 3.61, 2.30 and High 2.66, 2.72, 2.59, 2.67 → 2.82, 3.01, 2.90,
+  2.76. Within the noise close up; from the opening camera High reads about 0.2 ms more on all four runs, inside the
+  spread earlier sittings measured for it (2.86-3.01, the sections above). The shader does less than before: one
+  finish where it did two (a second only on a film's sliver), and no read of the full copy.
+- **Falls short:** (1) the sheet's |dx| is its own streaks, not the composite: with no see-through at all it reads
+  2.82 / 2.89 at `ceiling-close`, so the falls section's (2) stands. (2) Open water's highlights are still weaker
+  than the game's, most at a distance: the pond's brightest pixels over its median are half the game's at the
+  `ceiling` pose, and the pond itself is lighter and greener than the game's (L* 45 against 37.5) before and after, its cause not found here (the
+  depth our editor settles it to, or the shallows' colour). (3) The film's sliver remains our anti-aliasing, a blend over the screen.
+
+## The water lit by its texture's own normal (Q9 P11, P12, P15; D154, D496; `fix/fall-streaks`)
+
+The streaks down a fall's sheet were about twice as contrasted as the game's (the falls section's (2)).
+
+- **The cause:** the game's water lights the normal map as it is. `PhysicalWaterURP_Opaque` scales `Water_N`'s xy by
+  (1 + c) and renormalizes it (ps 782-785); URP's light, the ambient probe, the sun's N·L, its GGX and the reflection,
+  takes that normal through the tangent frame (ps 904-910). `_NormalBoost` 4 multiplies a copy of it, and only P12's
+  camera highlight reads the copy (ps 794-862). Q9 P11 had read the boost as the light's too, so both looks lit a
+  normal four times as steep as the game's. On open water the camera highlight hid this. On a fall's sheet the mask
+  takes the highlight off (P1), and the texture stretches down the face (P5), so the sun's N·L across the boosted
+  normal drew broad light and dark bands.
+- **Ours now** (`waterTextures.ts` `waterFlowNormal(s, share, boost)`): the Standard surface and High's
+  `measuredSurfaceWater` light N, the surface's normal × (1 + c), and pass Nh, × `WATER_NORMAL_BOOST` more, to
+  `waterCameraHighlight` alone. The highlight is unchanged.
+- **Judged** on the probe's `ceiling-waterfall` frames (C:\dgm-probe\shots\ceiling-20260927, day light, ours from the
+  same poses with the map opened from its file, real Chrome on the RTX 2070 SUPER; `.scratch` measures, not kept).
+  Each term was switched alone first. With the boost off, the sheet fell from 5.00 to 3.79. Flattening the albedo gave
+  4.33, the normal 3.23, the detail 3.83 (mostly a darker mean), the sun's N·L 3.35. The environment (5.08) and the
+  ambient (4.91) did little, and the clock's phase moved it 4.1-5.3. Before → after:
+  - `ceiling-close` (30°, 22), the sheet's upper / lower half: |dx| across it, game 1.50 / 1.26, Standard 2.78 / 2.81
+    → 1.92 / 1.76, High 2.76 / 2.82 → 1.91 / 1.76. Its columns' high-passed spread, game 1.94 / 1.52, Standard 5.00 /
+    4.36 → 3.79 / 2.97, High 4.99 / 4.37 → 3.78 / 2.98. Its mean luma, game 65.9 / 49.9, Standard 69.5 / 50.7 →
+    66.5 / 50.1. The pool over the lip: the brightest 1 % over its median, game 52.9, Standard 49.6 → 50.2 and High
+    48.9 → 49.5. Its high-passed spread, game 9.73, Standard 10.18 → 8.85 and High 10.05 → 8.67.
+  - `ceiling` (45°, 50), whose regions take in the sheet's side, upper / lower: |dx|, game 1.55 / 1.54, Standard 3.93
+    / 5.23 → 3.71 / 3.92 (High the same within 0.05). Its columns' spread, game 1.61 / 1.43, 3.84 / 7.00 → 3.97 /
+    6.84. The pond's high-passed spread, game 6.10, 5.99 → 4.85.
+  - `tools/water-pixel-judge.ts --water falls`, the six day-lit start shots, pooled by tile: clean water RMS Standard
+    13.9 → 13.8, High 13.7 → 13.6 (7,120 tiles); a fall's foot 24.0 → 23.9 and 23.3 → 23.2 (103); the land unchanged
+    (Standard 12.3, High 12.6).
+- **Cost:** measured on the `ceiling-waterfall` map, 1280 × 800, real Chrome on the RTX 2070 SUPER. The figure is
+  the GPU's time per frame by timer queries while orbiting (`benchOrbit`, the median over 6 s). There were four runs
+  each, in two sittings in opposite orders, before → after:
+  - Standard close over the fall: 2.84, 2.84, 2.24, 2.75 → 2.79, 2.05, 2.94, 2.97 ms.
+  - Standard from 50 away: 2.30, 2.33, 2.42, 2.39 → 1.99, 1.85, 2.39, 1.96.
+  - High close: 2.75, 2.36, 2.76, 2.74 → 2.41, 2.80, 2.84, 2.65.
+  - High from 50 away: 1.86, 2.37, 2.60, 2.63 → 2.63, 2.63, 2.65, 2.62.
+
+  All of this is within the runs' noise, which shows the same two modes as in the sections before. The shader does
+  one more normalize a pixel.
+- **Falls short:** (1) The sheet's columns are still about twice the game's at `ceiling-close`. With the albedo also
+  flat they read 2.07, the game's, so the rest is the albedo carried down the face and our still detail. Both are made
+  to the game's statistics, not its texels, and the detail is lighter than its mean at this spot. In the 16-32 px band
+  across the lower sheet, ours now reads 100 to the game's 117. In the upper sheet it reads 191 to the game's 66. The
+  game's streaks also run less straight down: its column mean keeps 0.67-0.78 of its two-dimensional spread, ours
+  0.89. (2) Open water's ripples lose some spread under the game's term: the pool 9 % under the game's, the pond 20 %.
+  The highlight, which holds the boost, is unchanged, so the rest of open water's contrast is missing somewhere this
+  step did not look. (*Found: the pond is a film in ours, and our albedo was split across scales unlike the game's. See
+  "The flow's albedo split across scales as the game's".*) (3) The falls section's (3) stands.
+
+## The flow's albedo split across scales as the game's (Q9 P5, P6; D154, D496; `fix/water-albedo-mottle`)
+
+The previous section left open water with less contrast than the game's and a fall's sheet with columns about twice
+the game's. Each term was measured against the game's own textures (`tools/game-water-shader.py --textures`, which
+now prints a field's power by wavelength and the share of its spread a blur leaves; numbers only) and switched alone
+in our frames (the probe's `ceiling-waterfall` set, C:\dgm-probe\shots\ceiling-20260927, day light, ours from the same
+poses with the map opened from its file, real Chrome on the RTX 2070 SUPER; `.scratch` measures, not kept).
+
+- **The pond is a film in ours.** Its stored water is 0.01 to 0.03 deep. Ours draws water under `WATER_FILM.to` (0.03)
+  as a faint tint over its own ground, our anti-aliasing of a shore's sliver. The game has no film: it draws every wet
+  column with the full shader, at its depth seen along the view (Q9 P3, P14). With the film forced whole, the pond
+  reads L* 37.3 and 49/93/111 against the game's 37.5 and 49/94/109, and its high-passed spread 6.67 against 6.10.
+  Flattening the albedo, the detail, the see-through, the reflection or the glint moved its L* by at most 1, and 0.25
+  more depth by 2.5. So the pond's lightness, its green and its weak spread all come from the film, not the albedo's
+  mean or P4's colour. Not changed here: the film is D154's shore treatment, and keying it on a sliver rather than on
+  the column's depth is its own step.
+- **The albedo's split across scales.** The game's `PhysicalWaterAlbedo` (its first principal component, a
+  near-neutral brightness, spread 13.7, skew +3.0) has bright lines dense and bright in patches and sparse between
+  them. The spread left in each 0.25-tile neighbourhood runs 6.4 / 10.9 / 17.2 (10th / 50th / 90th percentile) and
+  follows the neighbourhood's mean (correlation 0.87). Ours had crisp lines evenly bright: 9.4 / 12.8 / 16.1, 0.68,
+  skew +1.8. By wavelength, the game's has 19 % of its power at 1-4 tiles, ours had 5 %; under 0.25 tiles the game's
+  has 34 %, ours had 48 %. A blur over 0.125, 0.25, 0.5, 1 and 2 tiles leaves the game's 0.47, 0.32, 0.19, 0.09, 0.04,
+  ours 0.34, 0.22, 0.15, 0.10, 0.04.
+- **Ours now** (`waterTextures.ts` `makeWaterTexture`): the network × e^(0.7 × a Gaussian field of unit spread, its
+  power at 0.25-4 tiles), remapped by rank to the game's distribution, stored over the game's range
+  (`GAME_FLOW_TEXTURES.albedo.first`). It reads 0.49, 0.32, 0.18, 0.09, 0.03; 6.0 / 10.1 / 17.7, 0.92; 23 % of its
+  power at 1-4 tiles and 34 % under 0.25. `WATER_ALBEDO` is refitted, so the albedo's mean and covariance stay the
+  game's. A test holds its distribution and its blur shares to the game's.
+- **How the game samples them** (Q9 P5, P6): the albedo at xz × 0.06 (16.7 tiles a repeat), carried by the flow; the
+  detail at xz × 0.015 (67 tiles), still (`_DetailAlbedoSpeed` 0). Both by the world's xz, so on a fall's face they
+  stretch down it, as ours do. Ours samples the same way; only the texels differ.
+- **What the face carries:** drawn down a face at the `ceiling-close` scale (50 px a tile; each column the texture
+  along a line 0.078 tile long, high-passed), the game's albedo makes 3.95 % column spread, ours 4.62 % before and
+  3.68 % now. The game's detail makes 1.04 %, ours 0.67 % (our 512² texture, 7.7 texels a tile). So the textures'
+  statistics now account for the albedo's share. The rest is flow: the map's stored outflows are all zero, so our fall
+  stands still, where the game's frame shows it pouring, its texture carried along a longer path down the face. With
+  the water settled by an edit (before this change), the face's columns fell from 3.79 / 2.97 to 2.89 / 2.34.
+- **Judged**, before → after (Standard; High within 0.1 of it unless given):
+  - `ceiling-close` (30°, 22), the sheet's upper / lower half: |dx| across it, game 1.50 / 1.26, 1.92 / 1.76 → 1.39 /
+    1.24 (High 1.91 / 1.76 → 1.37 / 1.23). Its columns' high-passed spread, game 1.94 / 1.52, 3.79 / 2.97 → 2.58 /
+    2.21 (High 3.78 / 2.98 → 2.56 / 2.21). The pool over the lip, its high-passed spread, game 9.73, 8.85 → 8.56
+    (High 8.67 → 8.36); its L* game 32.1, 31.7 → 31.6.
+  - `ceiling` (45°, 50), the regions taking in the sheet's side, upper / lower: |dx|, game 1.55 / 1.54, 3.71 / 3.92 →
+    3.29 / 3.43. Its columns, game 1.61 / 1.43, 3.97 / 6.84 → 4.14 / 6.89. The pond, game 6.10 and L* 37.5: 4.85 and
+    45.8 → 4.90 and 45.8 (High 4.87 and 46.3 → 4.89 and 46.2); with the film forced whole, 6.67 and 37.3 → 6.62 and 37.2.
+  - `tools/water-pixel-judge.ts --water falls`, the six day-lit start shots, pooled by tile: clean water RMS Standard
+    13.8 → 13.8, High 13.7 → 13.7; a fall's foot 23.9 → 24.0 and 23.2 → 23.3 (103 tiles); the land unchanged (12.3).
+- **Cost:** the shaders are unchanged; only the texture's bytes and `WATER_ALBEDO`'s numbers differ. Making the
+  texture takes about 400 ms where it took 210 (the patches' field and the rank remap), once a page in the bake worker,
+  the water drawn at its flat mean until then. `benchOrbit` on the `ceiling-waterfall` map, 1280 × 800, the GPU's time a
+  frame (the median over 6 s), four runs each in two sittings in opposite orders, before → after: Standard close over
+  the fall 2.83, 2.91, 2.72, 2.80 → 2.83, 2.79, 2.79, 1.30 ms; Standard from 50 away 1.75, 2.09, 2.49, 2.36 → 2.54,
+  2.10, 2.45, 1.99; High close 2.78, 1.61, 2.76, 2.79 → 1.55, 2.76, 2.84, 2.57; High from 50 away 2.70, 2.40, 2.69,
+  2.71 → 2.76, 2.64, 2.81, 2.77. All within the runs' noise and their two modes.
+- **Falls short:** (1) The pond stays a film, L* 45.8 against the game's 37.5, until the film keys on a shore's sliver
+  rather than a column's depth. (2) The sheet's columns are still 1.3-1.5 times the game's at `ceiling-close`: our
+  fall stands still, and the comparison needs the game's flow on the face; the `ceiling` pose's side regions are
+  unchanged. (3) The close pool's spread is 12 % under the game's. (4) Our detail texture holds 7.7 texels a tile to
+  the game's 31, so its fine swirl is missing close up.
+
+## Thin water drawn as water (Q9 P14; D154 as amended 2026-11-09, D496; `fix/thin-water-drawn`)
+
+On the probe's `ceiling` pose the pond is lighter and greener than the game's, L* 45.8 against 37.5 (the composite
+section's falls short (2), the albedo section's (1)). Its stored water is 0.01-0.03 deep.
+
+- **The game:** it marks every column deeper than 0 as water (`UpdateWaterTexturesTask.Run`: `waterDepth > 0f`) and
+  draws it with its one opaque material, coloured and seen through by the depth behind it (Q8, P3, P13). A film a
+  hundredth of a level deep is the same water as shallows. Its terrain shader has no input from the water, and the
+  water clips hard at its floor (P14). It has no film and skips no column under a threshold. Its only rule for thin
+  water is V3: a still film's shore vertices are drawn back toward the tile's middle by up to 0.15 tile (`shoreFilm.ts`,
+  kept). Ours draws above `WET`, 0.001 (model.ts); no settled column lies between 0 and that.
+- **The cause:** our film (`WATER_FILM`, #571's "thin water reads thin", called our anti-aliasing of a shore's hard
+  edge from 2026-10-29) was driven by depth alone, never by the shore. The water's opacity was smoothstep(0, 0.03, the
+  vertex's own depth) of the way from a faint tint (0.14 clean, 0.62 bad) to the body's. The terrain under it took the
+  ground's own soil in the water's hue (`waterFilmGround`) in place of the bed, by the tiles' film curve. A top's corner
+  depth is the mean of the tiles round it, a bank counting as none, so it never falls under a quarter of the tile's
+  own. Water a tenth of a level deep or more therefore had no sliver at any shore. A whole pool or sheet under about a
+  tenth was film, a tint over wet ground.
+- **Ours now:** the film is gone in every look. The water's opacity is its see-through's by the depth seen
+  (`waterOpacity`, `cleanWaterAlpha(d)`), clean or bad, and the light look is opaque. The composite is whole wherever
+  the frame makes the copy (`waterComposite` lost its film share). The ground under water is the bed at any depth.
+  The terrain's tint of what shows behind the water, where no copy is made, keeps its share hook (`behindShare`, was
+  `filmShare`); `filmBad`, the two crimson film tints and `WATER_FILM_GLSL` are gone. The water's edge at a shore is
+  its mesh's edge, multisampled as every edge is (the canvas is antialiased; the light look, in software, has none, as
+  the game's Low). V3's drawn-back margin keeps its pixel-wide fade on the terrain.
+- **Judged** on the probe's `ceiling-waterfall` frames (C:\dgm-probe\shots\ceiling-20260927, day light, ours from the
+  same poses with the map opened from its file, real Chrome on the RTX 2070 SUPER; `.scratch` measures, not kept),
+  dev → this branch:
+  - The pond at `ceiling` (45°, 50): its mean, game 49/94/109 L* 37.5; Standard 73/116/120 L* 45.8 → 53/97/116 L*
+    38.8, High 74/117/120 L* 46.3 → 53/97/116 L* 38.9. Its high-passed spread, game 6.10, Standard 4.85 → 6.69, High
+    4.87 → 6.71. Merged with #901's albedo (its own figures 45.8, 4.90): Standard L* 38.8, spread 6.65; High
+    38.9, 6.64. (With the water's film alone forced whole, the terrain's tint still under it, Standard read L* 37.3:
+    the 1.5 left is our bed, which the judge kept over the bare ground on 2026-11-07.)
+  - `ceiling-close` (30°, 22), whose pool is deeper: unchanged (L* 31.7, spread 8.85).
+  - `tools/water-pixel-judge.ts --water falls`, the six day-lit start shots: clean water RMS Standard 13.8 → 13.8,
+    High 13.6 → 13.6 (8,573 tiles); a fall's foot 23.9 → 23.9 and 23.2 → 23.2 (103); the land unchanged (Standard
+    12.3, High 12.6). Its bands start at 0.05 deep, so no film is sampled.
+  - Close looks (`.scratch` captures, dev → this branch, both looks): the pond's shores at 9 and 12 away read as water
+    to their edge, the same as the deeper water beside them, where dev drew the thin water a paler, greyer teal with a line where it
+    met the deeper water. The edge is
+    as clean as a deep pool's, with no new stair-steps and no seam. From 120 and 300 away, over water 0.002-0.03 deep
+    on a level-2 floor, the water shows no fighting with the ground under it. River Valley 4242 256²'s badwater source
+    pool and its fall: the pool's thin rim takes the body's own colour, the rest unchanged.
+- **Cost:** measured on the `ceiling-waterfall` map, 1280 × 800, real Chrome on the RTX 2070 SUPER, the GPU's time a
+  frame by timer queries while orbiting (`benchOrbit`, the median over 6 s), four runs each in two sittings in
+  opposite orders, dev → this branch: Standard close over the fall 2.89, 2.83, 2.86, 2.31 → 2.40, 2.86, 2.79, 2.83 ms;
+  Standard from 50 away 1.74, 1.97, 2.52, 2.33 → 1.93, 2.49, 2.47, 1.90; High close 2.78, 2.84, 2.78, 2.58 → 2.63,
+  2.73, 2.77, 2.79; High from 50 away 2.67, 2.77, 2.78, 2.77 → 2.18, 2.68, 2.55, 2.66. Within the runs' noise. The
+  shaders do less: the terrain no longer works out four tiles' film curve nor the film's tint, and a film's pixel no
+  longer finishes twice.
+- **The bed comes with its water (review of #902):** the terrain's tile data, whose water byte makes a tile's ground
+  the bed under water, was written from the newest water while each chunk's mesh was the batch the mesh workers last
+  drew. Ahead of spreading water the bed came a batch before the water over it: a bare grey band. Dev hid it under its
+  tinted film. The tile data now reads the water as drawn (waterMesh.ts `DrawnWater`, which keeps each tile's floor
+  too). `drawWater` writes a chunk's tile data with its mesh. `bakeTiles` and the land's rows and rectangles read the same
+  drawn water. A source of strength 3 on flat ground on River Valley 1, every frame for 8 s (GPU) and 14 s (the light
+  look, SwiftShader), counting tiles wet in the tile data with no water drawn over them, before → after: GPU 14 frames
+  (99 ms), at most 96 tiles → none; the light look 9 frames (1.6-1.7 s, two sittings), at most 932 tiles → none. The
+  water's own lag is unchanged: on the GPU, the frames to draw 100, 1,000 and 2,500 more wet tiles were 121, 326 and
+  2,867 ms before and 111, 320 and 2,848 ms after. The frames per second were the same (1,158 → 1,154 frames in 8 s).
+  The meshing and the bytes written per chunk are the same work as before; `benchOrbit` draws still water, so it
+  cannot see the change. `water-tiles-drawn.test.ts` holds this headless.
+- **Tests (D148):** the film's tests become the decision: water of any depth at its see-through's opacity, clean or
+  bad, and no film in the water's or the terrain's shaders (`look-water-slopes`, `look-badwater`, `look-waterfalls`,
+  `water-palette`, `water-refraction`); the film-hue test goes with the tint. The carve's strobe test
+  (`carveBornAsItCuts`) counted a film's swing; the one change a frame can show at a tile now is its water coming and
+  going, so it counts that, under the same bound.
+- **Falls short:** the pond is still 1.3 L* lighter than the game's (our underwater bed against the game's bare ground
+  behind its water). The water's mesh is four corners a tile, so a corner open on both sides is still cut deeper than
+  the game's (V3).
+
+## The water's textures off the moving water's path (D453; `perf/water-texture-bake`)
+
+#901 made the once-a-page texture job (the water's surface, badwater's pattern, contaminated ground's) slower, and it
+ran in the page's bake worker, so on a first visit the opening map's first moving-water jobs queued behind it.
+
+- **Its own worker** (`high/fields.ts` `textureBake`, closed once the textures are made): the first map's flow jobs no
+  longer wait. Chrome on the dev server, the opening map (`s=4242`, 128², riverValley), from the map opening to its
+  first moving water: 2.5–4.2 s before (five runs, 2.1–3.8 s of it queued behind the textures); 0.76–1.4 s after (ten
+  runs, most near 0.8; the machine was busy). The rest is the bake worker and the page's thread while the map opens,
+  not the textures.
+- **Cheaper to make, the same bytes:** the rank remap sorts the indices by a radix sort (it had a typed sort and a
+  bisection a texel); the noises at the texels' middles are worked out a row at a time (`noiseRows`); a band with no
+  power skips its random numbers; the FFT swaps without arrays; the ground's cover takes one order statistic
+  (`nthSmallest`) instead of a sort. Chrome, each alone, before → after: the water's 380–460 → 310–335 ms, badwater's
+  790–850 → 545–605 ms, the ground's 150–165 → 115–145 ms; the whole job while the first map opens 2.7–4.6 → 1.3–2.1 s.
+  SHA-256 checksums of the water's, badwater's and the ground's bytes hold them as they were.
+- **Falls short:** the water's own texture is still about 300 ms in Chrome (its Voronoi network and the patches'
+  field), above the 210 ms it took before #901.
+
+## The still detail at the game's resolution (Q9 P6; D154, D496; `fix/water-detail-resolution`)
+
+#901's falls short (4): our still detail held 7.7 texels a tile, against the game's 31, so its fine swirl was missing
+close up.
+
+- **Ours before:** the detail's first component rode in badwater's texture's B, 512² over the 66.7-tile repeat. Its
+  statistics were the game's down to half a tile. Under that it could hold nothing finer than 0.26 tiles: it put
+  4.4 % of its power at 0.5–0.25 tiles and 1.1 % at 0.25–0.125, where the game's 2048² has 2.5 %, 1.8 % and 1.3 % down
+  to 0.065 tiles. Magnified 6.5 px a texel at the `ceiling-close` pose, its bilinear facets stood in for the swirl.
+- **The game's, measured further** (`tools/game-water-shader.py --textures`, which now also prints where the fine
+  part lies; numbers only): its power by octave from 64 to 0.125 tiles and under,
+  0.023/0.172/0.289/0.225/0.117/0.071/0.041/0.025/0.018/0.013. The swirl lies in the bright patches: the spread left
+  within 0.125 tile runs 0.95 / 2.16 / 5.62 (10th / 50th / 90th percentile) and follows the mean there (0.92).
+- **Ours now** (`waterTextures.ts` `makeDetailField`, `DETAIL_TEXTURE_SIZE`): a texture of its own, 2048², one byte a
+  texel (`materials.ts` `detailTexture`, RedFormat, mipmapped and filtered at a slant), made to the game's ten bands
+  (`DETAIL_FINE_BANDS`) and remapped to its distribution as before. It reads 0.023/0.173/0.290/0.226/0.118/0.072/0.041/
+  0.025/0.018/0.013, within 0.125 tile 0.95 / 2.07 / 5.98 (0.88), its broad shares 0.89/0.80/0.66/0.46/0.25 (game
+  0.89/0.82/0.68/0.48/0.26) and its half-width 1.38 tiles (1.50). Badwater's B is now unused, its R, G and A the same
+  bytes (its checksum re-pinned for the B alone). A test holds the bands, the distribution and the bytes.
+- **Made quicker:** the field is made from half its spectrum (the other half its mirror, so it is real), each
+  frequency at its band's amplitude with a phase from a table, the rows two to a transform; the rank remap finds the
+  ranks where each byte begins by a histogram and sorts only the values in those bins, with no sort of the whole.
+  Chrome, each alone: the 2048² detail 380–440 ms (the old recipe at 2048² took 2.2 s in Node); badwater's 445–510
+  → 360–395 ms without the 512² detail it carried (80–110 ms). It is its own job in the textures' worker, after the
+  surface's, so the water's patterns land about 90 ms sooner than before and the detail about 0.3 s after them, flat
+  at its mean until then; the first map's moving water never waits on that worker (#903). The light look makes it
+  with the sources' pattern. Memory: 4 MB on the page and about 5.6 MB on the GPU with its mips; about 75 MB in the
+  worker while it is made, freed when the worker closes.
+- **Judged** on the probe's `ceiling-waterfall` frames (C:\dgm-probe\shots\ceiling-20260927, day light, ours from the
+  same poses with the map opened from its file, real Chrome on the RTX 2070 SUPER; `.scratch` measures, not kept),
+  before → after, both on dev before #902 (Standard; High within 0.25 of it):
+  - `ceiling-close` (30°, 22): the sheet's upper / lower half, its columns' high-passed spread, game 1.94 / 1.52,
+    2.58 / 2.21 → 1.89 / 2.13; |dx| across it, game 1.50 / 1.26, 1.39 / 1.24 → 1.16 / 1.26. The pool over the lip: its
+    high-passed spread, game 9.73, 8.56 → 8.87 (High 8.36 → 8.63); its L*, game 32.1, 31.6 → 34.4.
+  - `ceiling` (45°, 50), the regions taking in the sheet's side: columns, game 1.61 / 1.43, 4.14 / 6.89 → 3.19 / 5.80;
+    |dx|, game 1.55 / 1.54, 3.29 / 3.43 → 2.62 / 2.93. The pond's spread, game 6.10, 4.90 → 4.94.
+  - These small regions see a few tiles of a 67-tile pattern, so they move with its phase as much as with its
+    statistics: the same texture made from another seed (302, not kept) reads columns 1.57 / 1.76, |dx| 0.89 / 1.04,
+    the pool's spread 8.56 and L* 31.5. The mid-band excess the 512² carried (0.5–0.25 tiles, 1.8 times the game's) was
+    part of the sheet's |dx| and columns; the pool's spread is not the detail's.
+  - `tools/water-pixel-judge.ts --water falls`, the six day-lit start shots, pooled by tile: clean water RMS Standard
+    13.8 → 13.8, High 13.6 → 13.6 (7,120 tiles); a fall's foot 24.0 → 23.8 and 23.3 → 23.1 (103); the land unchanged
+    (Standard 12.3, High 12.6).
+- **Cost:** `benchOrbit` on the `ceiling-waterfall` map, 1280 × 800, the GPU's time a frame (the median over 6 s),
+  four runs each in two sittings in opposite orders, before → after: Standard close over the fall 2.77, 2.82, 2.86,
+  2.82 → 2.84, 3.05, 2.81, 2.85 ms; Standard from 50 away 1.96, 2.42, 1.50, 2.42 → 1.68, 2.41, 2.06, 2.30; High close
+  2.82, 2.55, 2.74, 2.66 → 2.79, 1.84, 2.75, 1.60; High from 50 away 2.73, 2.87, 2.69, 2.84 → 2.59, 2.57, 2.66, 2.64.
+  Within the runs' noise; the shader samples a one-byte texture where it sampled one of four bytes.
+- **Falls short:** (1) The close pool's spread stays 9–12 % under the game's on both seeds, so it lies in the flow's
+  albedo, its normal or its depth, not the detail. (2) The sheet's columns at `ceiling-close`'s lower half and both of
+  `ceiling`'s side regions stay over the game's: our fall stands still (#901's (2)). (3) Ours is the game's in its
+  statistics, not its texels, so a spot can read lighter or darker than the game's (the pool here 2.3 L* lighter).
+
+## Open water's normal and the ground under it, the game's (Q9 P11, P12, P14; D154 as amended 2026-11-09, D496; `fix/open-water-gap`)
+
+#904's falls short (1) and (3): the close pool's spread 9 % under the game's and 2.3 L* lighter; the ceiling pond
+1.5 L* lighter.
+
+- **The causes, from the pixels:** (1) our underwater bed (`GROUND.underwater`, its veins held back) lifted the
+  see-through: drawn without it, the pool reads L* 31.9 and the pond 36.9, the pond's colour 49/92/108 against the
+  game's 49/94/109. The game has no bed: its terrain draws the ground under water as it draws it dry (Q9 P14). (2) The
+  glints are the P12 camera highlight on `Water_N` boosted × 4 (dropping the highlight leaves 1.2 % of them; the sun's
+  GGX, the gloss and the bloom move none: the game's bloom, threshold 2.54 and knee 1.27, sits far over them, and
+  forced on it changes 0 pixels), so their spread and coverage are the normal's. Ours was value-noise octaves in the
+  surface texture's B and A at 512² over the 16.7-tile repeat: nothing finer than 0.125 tile, about twice the game's
+  power at 0.25–0.5, and no mean tilt.
+- **The game's `Water_N`, measured** (read by `tools/game-water-shader.py`'s loader, measured in `.scratch`, not
+  kept; numbers only): 4096², 246 texels a tile;
+  its slopes' power by wavelength from 16 tiles to 0.0625 and under, 0.0015/0.0165/0.065/0.294/0.273/0.1395/0.1055/
+  0.0645/0.04; Gaussian, spread 0.114 / 0.117 (x / y) at the 61-texels-a-tile mip, which holds all but 2 % of it; its
+  mean +0.0102 / +0.0119 as unpacked. Its stored mips are box averages, sampled trilinear at a slant of 16, no bias.
+  The water mesh sets no tangents, so the tangent frame is the object's x and ±cross(up, x); the pixels at both poses
+  read +y (map y): with −y the ceiling's glints read 35.9 against the game's 43.5.
+- **Ours now** (`waterTextures.ts` `makeWaterNormal`, `NORMAL_TEXTURE_SIZE`, `NORMAL_BANDS`;
+  `materials.ts` `normalTex`, `WATER_BED`): the slopes in a texture of their own, 1024² (61 texels a tile), two bytes
+  a texel, RG, mipmapped and filtered at a slant; each axis is the derivative of one real field in the game's ten
+  bands (`realSpectralField` with an axis: i·k/|k| a frequency), scaled to the game's spread and shifted by its mean.
+  It reads the game's bands within 0.01 and its spread within 2 %. The surface texture keeps its R and G as the same
+  bytes; its B and A are unused. The ground under water is drawn as the tile's own, with its veins (`WATER_BED` 0;
+  1 brings our bed back, for the pixel judge alone).
+- **Judged** on the probe's `ceiling-waterfall` frames (as in the section above; `.scratch` measures, not kept),
+  before (dev with #904) → after, Standard (High):
+  - `ceiling-close` (30°, 22), the pool over the lip: its high-passed spread, game 9.73, 8.87 → 9.28 (9.05); its L*,
+    game 32.1, 34.4 → 32.0 (32.4), its colour 44/80/90 against the game's 45/81/90; the glints (the top 1 %'s L* over
+    the median), game 52.9, 50.5 → 50.6 (50.8), their cover 7.3 → 8.5 % against 9.3 %. The sheet's columns, game
+    1.94 / 1.52, 1.89 / 2.13 → 1.34 / 1.82.
+  - `ceiling` (45°, 50), the pond: the glints, game 43.5, 43.5 → 42.0 (41.8); its L*, game 37.5, 39.0 → 36.7 (37.1);
+    its spread, game 6.10, 6.73 → 6.42 (6.38). The side regions' lower columns 5.80 → 6.45 (game 1.43): our fall stands
+    still.
+  - `tools/water-pixel-judge.ts --water falls`, the six day-lit start shots pooled by tile: clean water RMS Standard
+    13.7 → 13.4, High 13.5 → 13.2 (8,573 tiles); a fall's foot 23.8 → 23.8 and 23.1 → 23.0 (103); the land unchanged
+    (12.3, 12.6). With `--define WATER_BED` alone, clean 13.4 against 13.7 with the bed. `--water bad`: badwater
+    7.4 → 7.8 in both looks (4,592 tiles); the bed had been lifting badwater, whose own colour reads 2–3 L* under the
+    game's.
+- **Cost:** `benchOrbit` on the `ceiling-waterfall` map, 1280 × 800, the GPU's time a frame (the median over 6 s),
+  three runs each in two sittings in opposite orders, before → after: Standard close over the fall 2.70, 2.85, 2.81 →
+  2.44, 2.81, 2.72 ms; Standard from 50 away 2.46, 1.72, 2.56 → 2.07, 2.44, 1.43; High close 2.72, 2.82, 2.51 → 2.63,
+  2.80, 2.60; High from 50 away 2.61, 2.67, 2.63 → 2.65, 2.64, 2.82. Within the runs' noise: the shader samples a
+  second two-byte texture and drops the B and A it read. The texture job, Chrome, four runs: the surface 217–297 →
+  191–234 ms without its slopes, and the normal 144–205 ms, so about 130 ms more in the textures' worker, off the
+  moving water's path (#903). Memory: 2 MB on the page and about 2.7 MB on the GPU with its mips.
+- **Tests (D148):** the surface's and the normal's checksums re-pinned; the normal's test now holds the game's mean,
+  spread, percentiles and feature size, and a new one its power by band; the bed's assertions (`look-water-slopes`,
+  `look-readable`) follow `WATER_BED`.
+- **Falls short:** (1) The close pool's spread stays 5 % under the game's and the glints' cover 8.5 % against 9.3 %;
+  the body's finest band reads 2.9 against 3.8 there, where the game's albedo is 2048² and ours 512² (the game's frame
+  is also a JPEG). (2) Our normal is 1024², the game's 4096²; the difference shows only closer than about 50 px a tile.
+  (3) Badwater's RMS is 0.4 worse without the bed, until its own colour is the game's. (4) The tilt's y sign is read
+  from the pixels, not from the game's mesh.
+
+## Badwater's own colour against the game's (Q9 P9; D154, D496; `fix/badwater-colour`)
+
+With the underwater bed gone (`fix/open-water-gap`), badwater's own colour shows: 2–3 L* under the game's a level or
+more deep, the shortfall warm (about −5 to −10 R, in the shape of the glow's colour), largest in low light.
+
+- **The causes, from the disassembly re-read with hex literals:** (1) the glow's 10-tile grid drifts. Its nodes were
+  read as held still, because the literal `0x33800001` (2⁻²⁴, which scales each cell's 24-bit hash to 0–1) prints as
+  0.000000 among six decimals; each node wanders round its cell at 0.3 radians a second × its own hash (Q9 P9, as
+  corrected). The modulation's mean at pure badwater is 0.349, not 0.302: the glow 16 % stronger on average. The
+  game's pixels agree: against our still grid's phases they show no correlation. (2) Over a source the game takes
+  max(the source's pattern s, the grid) and eases the glow's intensity by max(s, c) (ps 762, 771); ours took neither,
+  so a running badwater source's middle glowed at a third of the game's. No other literal hides under the six
+  decimals.
+- **Ours now** (`waterPalette.ts` `gameBadwaterGrid`, `gameBadwaterEmission`, `GAME_BADWATER.gridDrift`,
+  `gridMean`): the nearest of the 3 × 3 cells' drifting nodes, by the game's hash, in both looks (the light look at the
+  new mean); the two max terms; no glow work on clean water (it was × 0 there).
+- **Each candidate switched alone** (`tools/water-pixel-judge.ts --water bad`, the probe's 24 badwater shots, each in
+  its own light, the sources' 3 × 3 left out, 4,668 tiles; Standard, High within 0.1): the see-through off, RMS 7.7 →
+  8.4, so it stays; the detail overlay off (P6's, (1 − c / 2)(1 − s)), the sunset's deep water 87 → 95 R (the game's
+  96) but by day 63 → 72 (66) and the sunrise's films 107 → 116 (107), so the overlay is right and the low light's
+  shortfall is not in it; the old bed back, 7.7 → 7.3, but the game draws none (Q9 P14); the albedo and P4's colour
+  are the game's palette term by term. Over the sources' 3 × 3 (52 samples, `--sources --only-sources`): the game
+  L* 34.1, ours without the max terms 34.1, with them 36.5; not drawn at all 32.1.
+- **Judged before → after** (the same 24 shots with their sources drawn, `--sources`, 4,811 tiles; Standard, High in
+  brackets where it differs; L* (RMS)):
+  - by day (sun 45° up): 0.1–1 level (79 tiles), the game 36.1: 34.6 (15.1) → 35.4 (17.1) [35.5 (17.0)]; a level
+    or more (88), the game 31.3: 30.9 (15.2) → 32.0 (16.9) [(16.7)]; all, the game 33.6: 32.7 → 33.6. No day-lit
+    film in these shots; the 10-15 batch's edited maps have them but their snapshots don't match their frames (the
+    camera fits 77 %), so they count for nothing.
+  - 55 % toward sunset: 0.1–1 (55), the game 33.6: 32.2 (5.4) → 32.1 (5.1); a level or more (326), the game 33.3:
+    30.2 (8.6) → 30.6 (8.0).
+  - at sunrise: under 0.1 (109), the game 34.5: 34.6 (12.9) → 35.3 (15.0) [33.8 (12.1) → 34.6 (14.3)]; 0.1–1 (452),
+    the game 31.0: 30.1 (8.0) → 30.3 (7.9); a level or more (3,717), the game 27.8: 25.9 (7.6) → 26.3 (7.6).
+  - all badwater 8.1 → 8.3 in Standard, 8.1 → 8.2 in High: the means move to the game's, the RMS a little up, as the
+    stronger glow's pattern runs at a phase the frame's time doesn't share.
+  - unchanged (`--water falls`, same shots): clean water 8.8 in both looks (48,633 tiles), a fall's foot 25.8 and
+    24.3 (100), the land (grass 10.1, dry 11.3, contaminated 7.2, cliff 15.3).
+- **Cost:** `benchOrbit`, 1280 × 800, the GPU's time a frame (the median over 6 s), two runs each, before → after.
+  Over the lake basin's badwater channel and its source (`m9b-lakeBasin-128-1`, 18 away): Standard 2.38, 2.27 →
+  2.33, 2.23 ms; High 2.07, 2.23 → 2.13, 2.26; from 50 away, Standard 2.09, 1.21 → 2.04, 1.31, High 2.10, 2.18 →
+  2.17, 2.38. On `ceiling-waterfall` (as above): Standard close 2.77, 2.51 → 2.71, 2.58 and far 2.32, 2.39 → 2.11,
+  1.98; High close 2.74, 2.80 → 2.74, 2.56 and far 2.68, 2.70 → 2.64, 2.66. Within the runs' noise: the nine-cell
+  search runs only on badwater's pixels, and clean water now skips the glow altogether.
+- **Tests:** `water-flow-surface.test.ts` holds the drift (the shaders' hash, the max terms) and the mean by a seeded
+  Monte Carlo over a cell and the nodes' phases.
+- **Falls short (then):** (1) over a source the game's terms read 2.4 L* over the game's (52 samples); (2) the low
+  light's deep water 2.7 L* under the game's at 55 % toward sunset and 1.5 at sunrise, the shortfall warm; (3) the
+  glow's phase can't match a frame's, so the RMS by day rises 1.7–2.1 while the means close; (4) the judge's land under
+  contamination reads 7.2 against a floor of 5.4. (1) and (2) are taken up below.
+
+### Low light and the sources (`fix/badwater-low-light`)
+
+- **Low light, the cause: t9's mips.** The game's badwater pattern is an sRGB texture, and Unity made its mips by a box
+  filter in linear values (read from its stored mips, `tools/game-water-shader.py --textures`): its glow's G mean climbs
+  19.6, 20.9, 23.2, 26.7, 31.6, 37.4 from its top (2048², 123 texels a tile) down, as the sparse bright lines blur into
+  the black; its R 122.1 to 125.1. Ours took WebGL's `generateMipmap`, a mean in stored values, 19.6 at every level, so
+  at play distance the glow drew about two thirds of the game's. Measured on screen first: our emission over deep
+  badwater was (6, 5, 2) at sunrise and (6, 4, 2) at sunset, short of the game's by (3, 2, 2) and (8, 5, 3), the warm
+  shortfall; the light, fog and reflection are right (clean water in the same frames within 1–2 L*).
+- **Now** (`waterTextures.ts` `linearMips`, `GAME_BADWATER_TEXTURE.glow.mips`, `.base.mips`; `high/bake.ts`;
+  `materials.ts` `fillWaterTexture`): the textures' worker makes the pattern's mips as Unity does (RGB in linear values,
+  A as it is) and the page uploads them in place of the GPU's. Ours (512², 30.7 texels a tile) at level L stands for the
+  game's L + 2: G 25.5/32.4/40.5/48.5 at levels 1–4 against 26.7/31.6/37.4/44.4, within 10 % (a test holds it). The
+  texture is sampled with no anisotropy, as the game's inline sampler (s4: bilinear, repeating); trilinear kept so no
+  mip seam shows (the mean the same).
+- **Judged before → after** (the same 24 shots, `--water bad --sources --bands thin`, 4,811 tiles; Standard, High in
+  brackets where it differs; L* (RMS)):
+  - 55 % toward sunset: 0.1–1 level (55 tiles), the game 33.6: 32.5 (4.8) → 34.0 (4.6); a level or more (326), the
+    game 33.3: 30.9 (7.6) → 32.8 (6.0); its colour 88/68/67 → 95/72/69 against the game's 96/73/70.
+  - at sunrise: a level or more (3,717), the game 27.8: 26.7 (7.3) → 28.2 (7.6) [26.5 (7.2) → 28.0 (7.4)]; its colour
+    78/59/53 → 83/62/55 against 81/61/55; the two largest regions (islands, 1,502 and 1,531 tiles) 26.4 → 28.1 and
+    27.4 → 29.1 against 27.7 and 28.9. 0.1–1 (452), the game 31.0: 30.9 (8.0) → 32.2 (8.8) [30.7 (7.6) → 32.0 (8.1)];
+    under 0.1 (109), the game 34.5: 36.2 (15.4) → 37.2 (16.2) [35.4 → 36.4].
+  - by day: 0.1–1 (79), the game 36.1: 35.8 (17.0) → 36.7 (16.7); a level or more (88), the game 31.3: 32.4 (17.2) →
+    33.4 (17.6); its regions read 27.8 and 29.3 against 27.9 and 27.0 (the glow's phase).
+  - all badwater 8.1 → 8.3 in Standard, 7.9 → 8.0 in High: the means close, the RMS a little up, as (3) above.
+  - clean water, the falls and the land: unchanged (nothing they draw samples this texture's mips).
+- **The sources, the cause: the judge's registration, not the shader.** The game's terms over a source (ps 356-418,
+  682-776, re-read with hex literals) are ours term for term; its mask is point-sampled (s5) and placed as ours. Per
+  tile, the game's bright disc lands a tile off the judge's middle tile (lakeBasin's at (−0.5, −1.3) tiles, chaos's at
+  (−0.5, −0.2), delta's two tiles to the left), and the game's frame, registered on the land's edges round each source
+  (the cross-correlation of the gradients in a 140-pixel window), sits off ours by the same: (−0.5, −1.4), (−0.3, 0),
+  (−1.6, −0.1) tiles. The camera fit holds the whole frame to 94–98 % but not each corner of it to a tile (8–10 pixels
+  at 110 away). The two shots at the frame's edge (canyon at x 1256, highlands-128-1 at y 6) carry the rest. With each
+  game sample moved by its registration (10 shots, 89 samples): the game 34.1, ours 35.0 (no emission 28.6); unregistered
+  the judge reads the game 32.9.
+- **The sources judged before → after** (`--sources --only-sources`, 52 samples, Standard; L* (RMS)): by day, the game
+  34.1: 36.9 (21.3) → 37.6 (21.2); at sunrise, the game 34.4: 37.4 (22.6) → 38.2 (22.6). Registered: 35.0 → 35.9
+  against 34.1: the source's own term unchanged, the glow round it stronger by the mips.
+- **Cost:** `benchOrbit`, 1280 × 800, the GPU's time a frame (the median over 6 s), two runs each, before → after,
+  over the lake basin's badwater and its source (`m9b-lakeBasin-128-1`): 18 away, Standard 2.63, 2.96 → 2.61, 2.38 ms,
+  High 2.27, 2.45 → 2.44, 2.42; 50 away, Standard 2.35, 2.29 → 2.15, 2.15, High 2.56, 2.46 → 2.47, 2.64. Within the
+  runs' noise: the same samples, now without anisotropy. The worker's mips are made once a page, beside the pattern.
+- **Falls short:** (1) badwater's thinnest film at sunrise (109 tiles) reads 37.2 against the game's 34.5 (it read
+  36.2 before), and the day's deep water 33.4 against 31.3, where the glow's phase dominates (two regions of 36–37
+  tiles); (2) over the sources, registered, ours reads 1.8 L* over the game's (5 %), the glow round them; (3) the glow's
+  phase, as above; (4) the judge's camera fit can sit a tile off near the frame's corners, which a per-region
+  registration in the judge would remove; (5) the land under contamination, as above.
+
+## Clear water shows where the water is again (D184 as amended 2026-11-09, D196, D212, D497; `fix/clear-water-reads`)
+
+#905 took away our underwater bed: the ground under water is drawn as it is dry, as the game's (Q9 P14). Under Clear
+water (T, or round a brush over water) the riverbed then read as the meadow it is, with a 13 % blue film and a soft
+shore line, so the aid no longer showed clearly what was wet.
+
+- **Now** (`materials.ts`, the clear water's block; `waterPalette.ts` `CLEAR_WATER`, `WATER.clearDeep`): clean water a
+  light blue tint over the bed by its depth, 20 % at the shallowest to 42 % (and a deeper blue) `deepAt` 3 levels down
+  and deeper, so wet reads as wet and depth reads at a glance while the bed always shows through at least half; its
+  ripples kept faintly (8 %); and a crisp bright waterline along every shore, 0.05 tile and at least 1.25 pixels wide
+  so it holds at play distance, with a soft fade a fifth of a tile inward, on clean water and badwater alike (badwater
+  keeps its own murk, D324). All of it lives inside the clear water's branch: with Clear water off nothing changes.
+- **Weighed and left:** depth contours (the bed stands in whole levels, so a contour lies on each step of the bed,
+  which the walls and Level lines already show); the surface's glints kept stronger (they flicker with the flow and
+  read as the look, not the aid).
+- **Judged** in Chrome on the GPU (the browser pane, 1280 × 800, the clock held), seed 8's river (`s=8&z=96&d=n&
+  t=riverValley`) at play distance (40 away, 55°) and close up (15 away, 43°), its badwater pit at both, Standard and
+  High; T3's caves (`tools/terrain3d-maps.ts` `t3CaveWater`) under a layer cut at 5, at both distances; the light look
+  in Chrome drawing in software. Close up in High, the wet bed's mean colour moves from ΔE 22.6 to 32.8 away from the
+  grass beside it (b* 20 → 10); at play distance the river reads as one blue-green body with a bright edge, and each
+  cave pool under the cut as its own outlined pool.
+- **Off unchanged:** frames with Clear water off on dev and on this branch, same poses, same moment of the water, read
+  back from the GPU and compared byte for byte: Standard's four and High's badwater close-up identical, High's others
+  1 to 25 pixels off by one. Those differences repeat on every capture, so they are rounding in the recompiled
+  shader, not frame-to-frame noise (review of #907). The light look's hashes match. `look-readable.test.ts` now also holds clean water's deep tint lighter
+  than badwater's murk, the tint never past half, and the shader's tint by depth and waterline.
+- **Cost:** none with Clear water off (the branch is skipped; one derivative is taken before it, as GLSL needs); with it
+  on, a few more operations a water pixel. Not timed (D453: nothing here runs on the path players see by default).
+- **Falls short:** the waterline follows tile edges, so a diagonal shore shows small steps, as the water's own edge
+  does; under a roof the tint takes the open air's light, as the clear water did before.
+
+## The flow's albedo at the game's resolution (Q9 P5, P11; D154, D496, D453; `fix/water-texture-resolution`)
+
+#905's falls short (1) and (2): the close pool's spread 5 % under the game's and its glints' cover 8.5 % against 9.3 %,
+with our albedo 512² against the game's 2048²; our normal 1024² against the game's 4096².
+
+- **What the game's extra texels hold** (`tools/game-water-shader.py --textures`, which now prints each size's share:
+  the power by octave from 0.125 tile through each smaller size's texel pair, and the spread finer than each pair in the
+  top and in each box mip; numbers only). The albedo's brightness: 8.9 % of its power from 0.125 tile to 512²'s pair
+  (0.065), 2.75 % to 1024²'s (0.033), 1.2 % under, in its crisp cell edges and a grain in its bright gaps. Its part
+  finer than 512²'s pair has a spread of 2.74 in its top (123 texels a tile) and 2.08 in its first mip (61), the mip a
+  camera at about 50 pixels a tile draws (`ceiling-close`), against 13.7 in all. Its red-against-blue component likewise
+  1.30 / 0.95. `Water_N`'s slopes finer than 1024²'s pair: 0.016 / 0.018 (x / y) in its top (246 a tile), 0.011 / 0.012
+  in its first mip (123) and nothing past the corners in its second (61), against 0.116 / 0.120 in all.
+- **The albedo now** (`waterTextures.ts` `makeWaterTexture`, `WATER_TEXTURE_SIZE`): 2048², the game's, two bytes a texel
+  (RG; its B and A had been unused). Made to the game's spectrum as #901's: the lines flat-topped, their edge two or
+  three texels wide (`NET.edge`, a profile e^(−t⁸) where it was a Gaussian, which holds nothing finer than a sixteenth
+  of a tile), a grain a texel in the bright gaps (`NET.grain`), cells of 0.56 tile where they were 0.66, then remapped
+  by rank to the game's distribution. By octave from 16 tiles, the game's 0.0025/0.021/0.059/0.129/0.196/0.252/
+  0.211/0.089/0.0275/0.0122; ours 0.0013/0.025/0.061/0.120/0.215/0.210/0.231/0.094/0.0275/0.0131 (the 512²'s
+  0.0008/0.025/0.067/0.133/0.232/0.196/0.222/0.117/0.007 (its corners)/0). Its part finer than 512²'s pair 2.77 in the
+  top and 2.08 in the first mip (game 2.74, 2.08). Its broad shares 0.47/0.31/0.19/0.094/0.035 (game 0.47/0.32/0.19/
+  0.090/0.035). `WATER_ALBEDO` refitted, so its mean and covariance stay the game's. Badwater's pattern stays 512²
+  (`BADWATER_TEXTURE_SIZE`). A test holds the bands, the fine part in the top and first mip, and the bytes.
+- **The normal stays 1024²**, on the numbers: a camera under about 61 pixels a tile (the opening camera, play distance,
+  `ceiling-close`) samples the game's mips no finer than ours, so 4096² adds nothing there. Nearer, up to 123 pixels a
+  tile, the game's first mip holds 0.9 % more of the slopes' variance; 2048² would carry it for 8 MB more on the GPU,
+  4096² its top's 1.9 % for 40 MB more (43 MB with its mips). The glints' cover closes without it (below).
+- **Judged** on the probe's `ceiling-waterfall` frames (C:\dgm-probe\shots\ceiling-20260927, day light, ours from the
+  same poses with the map opened from its file, real Chrome on the RTX 2070 SUPER; `.scratch` measures, not kept), dev →
+  this branch, Standard (High):
+  - `ceiling-close` (30°, 22), the pool over the lip: its high-passed spread, game 9.73, 9.28 → 9.49 (9.10 → 9.35); the
+    glints' cover, game 9.3 %, 8.5 → 9.0 % (8.6 → 9.1); the top 1 % over the median, game 52.9, 50.6 → 52.9 (50.8 →
+    52.8); its L*, game 32.1, 32.0 → 32.2 (32.4 → 32.7). With the water settled by an edit, so the fall pours as in the
+    game's frame: the pool 9.29 → 9.49, the cover 8.8 → 9.3 % (8.7 → 9.3); the sheet's |dx| upper / lower, game 1.50 /
+    1.26, 1.14 / 1.03 → 1.51 / 1.40; its columns, game 1.94 / 1.52, 1.22 / 1.00 → 2.15 / 1.67. As opened, the map's
+    stored outflows all zero, our fall stands still and its texture is stretched down the face: the crisp edges then
+    draw as streaks, |dx| 1.09 / 1.15 → 2.30 / 1.60 and columns 1.34 / 1.82 → 5.47 / 3.24.
+  - `ceiling` (45°, 50), the pond: its spread, game 6.10, 6.42 → 6.37; the top 1 % over the median, game 43.5, 42.0 →
+    45.0 (41.8 → 44.7); its L* unchanged (36.7). The regions taking in the sheet's side stay over the game's, as before
+    (settled: |dx| 3.20 / 2.88 → 3.52 / 3.88, game 1.55 / 1.54).
+  - `tools/water-pixel-judge.ts --water falls`, the six day-lit start shots pooled by tile: clean water RMS Standard
+    13.3 → 13.3, High 13.1 → 13.1 (7,120 tiles); a fall's foot 23.8 → 23.8 and 23.0 → 23.1 (103); the land unchanged
+    (12.3, 12.6). Those cameras sit about 100 away, where the albedo's mips are the same as before.
+  - A slow orbit, 24 frames 0.25° apart with the water held, at play distance (60 away, 50°) and nearer (30, 35°): the
+    change from frame to frame over the water, high-passed under 2 pixels, Standard 1.19 → 1.19 and 1.28 → 1.27, High
+    1.23 → 1.22 and 1.31 → 1.30; its spread within a frame 2.98 → 2.99 and 3.16 → 3.17. No new shimmer: the box mips
+    take the edges and the grain off before a texel is smaller than a pixel.
+- **Cost:** the albedo is its own job, the textures' worker's last (`albedoTexture`; renderer.ts `albedoTextureMade`),
+  drawn at its mean until it lands. Its maker reads the bright patches' field at 512² between its texels, finds the
+  Voronoi's points with no wrapping and takes no exponential where it can't count; its bytes by #904's histogram rank.
+  About 1.2 s in Node and 1.3–1.6 s in Chrome's worker (the 512²'s 150 ms). Chrome, the built site, the opening map
+  (`s=4242`, 128², riverValley), from navigation, five runs each after a cold one, dev → this branch: the first moving
+  water 640–750 → 630–730 ms; the normal's, badwater's and the ground's textures 1,720–1,960 → 1,470–1,680 ms; the
+  detail 2,150–2,440 → 1,940–2,240 ms; the albedo with the first (dev) → 3,300–3,800 ms. Memory: the albedo 8 MB on the
+  page (1 MB before; one texel until it lands) and about 11 MB on the GPU with its mips (1.3 MB before), about 60 MB in
+  the worker while it is made, freed when the worker closes. `benchOrbit` on `ceiling-waterfall`, 1280 × 800, the GPU's
+  time a frame (the median over 6 s), four runs each in two sittings in opposite orders, dev → this branch: Standard
+  close over the fall 2.77, 2.75, 2.88, 2.75 → 2.99, 2.88, 2.81, 2.81 ms; Standard from 50 away 2.44, 1.94, 1.65, 2.18 →
+  2.52, 1.55, 2.46, 1.60; High close 2.64, 2.65, 2.32, 2.68 → 2.75, 2.80, 2.76, 2.83; High from 50 away 2.71, 2.57,
+  2.74, 2.69 → 2.58, 2.16, 2.76, 2.78. Close up, about 0.1 ms more (the medians 2.76 → 2.85 and 2.65 → 2.79: the pool
+  samples the albedo's top mips where it magnified the 512²); from 50 away within the runs' noise. On an integrated GPU
+  the 9 MB more is the albedo alone; the normal's 4096² (40 MB more) was not taken.
+- **The judge's totals before #906:** #906's reviewer found that `water-pixel-judge.ts`'s "all shots" total counted the
+  deep samples twice (an old `hi === 9` test also matched the 3–9 band). The totals in the sections before #906 carry
+  that double count; their bands' own lines do not.
+- **Falls short:** (1) A fall opened from a file stands still (its stored outflows are zero) until an edit settles it,
+  and on it the crisp edges draw as streaks about three times the game's columns; poured, they read the game's. (2) The
+  albedo's red-against-blue component holds 4.6 % of its power under 0.25 tile against the game's 26 % (nearly no luma:
+  the judge's spreads don't see it). (3) The pool's spread stays 2–3 % under the game's. (4) The albedo lands 1.3–1.6 s
+  after the rest of the water's textures on a first visit.
+
+## The game's ambient probe, captured (D497 as amended 2026-11-09; `fix/game-ambient-sh`)
+
+Our light took the ambient as a projection we had worked out (the Trilight's gradient projected to L2 with the clamped
+cosine's convolution); its "falls short" waited on a capture of the probe the game itself holds.
+
+- **The capture** (DGM Probe 0.3.3, `investigation/probe/mod/src/LightReader.cs`, read only; run `20261109-2110-smoke`,
+  the M8 preview for one game day): every game hour and at each moment, `RenderSettings.ambientProbe`'s 27
+  coefficients, the probe evaluated by direction, the ambient's mode, intensity and colours, URP's globals and the sun.
+  The numbers are in investigation/notes/game-ambient-probe.md. Colour space Gamma, mode Trilight, three colour sets
+  through the day (day, sunset, night), one probe each.
+- **The engine's rule**, exact to 1e-7 on all three: the colours decoded to linear values, the probe by the normal's
+  height is E(y) = c0 + c1 y + c2 (3y² − 1) with c0 = (4 equator + sky + ground) / 6, c1 = √6/9 (sky − ground),
+  c2 = 5/96 (sky + ground − 2 equator); the stored probe is that polynomial (basis constants and convolution in it),
+  URP shows sRGB(E). `ambientIntensity` 1.2 is not in it (D497's "not applied" holds). The sun is as we had it
+  (colour × intensity, 1.1, 1.05875, 0.935 by day).
+- **What changed:** `palette.ts` `trilightSH` is the engine's rule, so `GAME_AMBIENT_SH` (the terrain's `gameLight` and
+  the water's `gameWaterLight`, every look: Standard, High and the light look) and the judge's other hours
+  (`tools/game-day-light.ts`) take it. By day, in display values, a top takes 0.825/0.827/0.986 (0.78/0.79/0.98
+  before), a wall 0.915/0.915/0.951 (0.84/0.83/0.91), an underside 0.731/0.723/0.748 (0.65/0.64/0.68). Objects keep
+  their own light, so `bloom.test.ts`'s bounds, which model them in the game's light, follow it: the pale rubble
+  (`MINE.rubble[2]`) passes the knee at its brightest normal in the game's light (1.303) and is held there with the
+  ruins' rust and the birch's bark, each at its value now; our frames, drawn in the objects' own light, are unchanged.
+- **Judged** (`tools/water-pixel-judge.ts --shade`, new: tops in a higher tile's shadow by the shot's sun and our
+  baked 45° alike, and walls toward the camera turned from the sun; batch `20261002-1610-batch`, the probe's water
+  pose; mean Rec. 709 luma of the samples, pooled, ours over the game's; bands whose registration fails, more than 25
+  luma off before, left out):
+  - by day (eight start shots: Canyon, Highlands, River Valley, Lake Basin, seeds 1 and 2), Standard / High:
+    cliffs (817 samples, mostly lit from the side) 0.925 → 0.953 / 0.911 → 0.938; walls turned from the sun (74)
+    0.966 → 0.996 / 0.958 → 0.987; dry tops in sun (4,912) 1.002 → 1.018 / 1.004 → 1.019; grass (137) 0.936 → 0.952 /
+    0.932 → 0.947. The game's camera looks with its sun, so these frames show almost no floor in shade (13 samples, all
+    registration failures).
+  - at sunrise (the hazards' ends, four shots), Standard / High: floors in shade (54) 0.976 → 1.019 / 0.967 → 1.009;
+    cliffs (661 / 608) 0.947 → 0.968 / 0.945 → 0.966; walls from the sun (54) 0.911 → 0.941 / 0.892 → 0.921; dry
+    tops in sun (4,611) 1.016 → 1.046 / 1.009 → 1.039.
+  - toward sunset (the games' ends, four shots, 45–55 % sunset), Standard / High: floors in shade (13) 0.959 → 0.986
+    / 0.941 → 0.966; cliffs (412) 0.965 → 0.984 / 0.948 → 0.967; walls from the sun (38) 0.994 → 1.021 / 0.972 →
+    0.997; grass 0.921 → 0.939 / 0.905 → 0.923; dry tops 1.026 → 1.044 / 1.022 → 1.040.
+  - the judge's land RMS by day: Standard grass 12.8 → 11.9, dry 12.6 → 12.8, cliff 20.9 → 19.7; High 14.6 → 13.7,
+    12.8 → 13.0, 21.4 → 20.2 (floors 16.7, 14.8, 21.8).
+  - caves and overhangs (`tools/capture-forms-read.ts`, Canyon 128² seed 1, 1920 × 1080, mean luma, before → after,
+    Standard / High): the floor under the cliff's overhang 52.5 → 55.5 / 51.3 → 54.3, and from under it 58.4 → 61.7
+    / 56.9 → 60.2, where the game's floors truly in shade read 57–62; the overhang's roofed walls 30.0 → 33.6 / 33.2 → 37.3, its ceiling 30.1 → 34.2 / 31.9 → 36.1; inside the
+    spring cave, all 41.5 → 44.6 / 39.9 → 43.1, its roofed floor 36.9 → 39.0 / 34.1 → 36.2.
+- **Cost:** none by construction (the shaders' constants change, not their work). `benchOrbit` on Canyon 128² seed 1,
+  1280 × 800, the GPU's time a frame (the median over 6 s), two rounds in opposite orders, dev (06a06b17) → this branch:
+  Standard 30 away 2.24, 2.10 → 2.37, 2.33 ms, 90 away 2.44, 2.52 → 2.20, 2.52; High 30 away 1.90, 1.92 → 1.83, 1.78,
+  90 away 2.36, 2.23 → 2.13, 2.22. Within the runs' noise; every frame 7.00 ms at the display's 144 Hz.
+- **Falls short:** (1) Dry tops in sun now read 2 % over the game's by day and 4 % at sunrise and toward sunset (1–3 %
+  before): the probe is the game's, so the rest lies in the sun's term or the ground's albedo, not the ambient. (2)
+  Cliffs still read 3–6 % under the game's and grass 5–8 %, the same shortfall in sun and in shade, so it is not the
+  ambient either. (3) The game's camera looks with its sun, so the day frames show almost no floor in shade; floors in
+  shade are judged on the sunrise frames (54 samples) and the overhang. (4) The capture's hourly records, taken at speed 99,
+  show some hours a stage late against the decompiled day stages (night still at 0.03 and 1.03, sunset still
+  at 19.00), as the colours are set once a frame and a frame there spans hours; the colours and the probe of each
+  record agree, which is what the rule needs, and the shots are taken paused.
+
+## Objects in the game's light (D135 as amended 2026-11-09, D178, D496, D497; `fix/objects-game-light`)
+
+The terrain took the game's light (D497) and its captured ambient probe (above); the trees, bushes, ruins, sources and
+the start kept a light of our own (the sky's colour × 1.15 × (0.8 + 0.2 n.y), darker toward the foot, a wrapped sun at
+half strength), and the game's albedo drawn at our lightness, 1.318 times it (our grass over the game's).
+
+- **The game's lit model, read** (the compiled VegetationURP and EnvironmentURP programs, disassembled locally;
+  `tools/game-model-albedo.py` now reports each model's occlusion, metallic and smoothness): both are URP's lit
+  model as the terrain's is, in display values: albedo × 0.96 × (1 − metallic) × (the ambient probe by the normal + the
+  sun × max(n·L, 0) × its shadow), with the environment's reflection and the sun's GGX highlight. No wrapped light.
+  VegetationURP has no occlusion term and its metallic map defaults to black (metallic 0, smoothness 0); EnvironmentURP
+  multiplies the ambient by `_AmbientOcclusion`, but RuinColumnA–E, StartingLocation and WaterSource have no map and
+  metallic 0 (Thorns: occlusion 0.88, metallic 0.16).
+- **What changed:** `materials.ts` `GAME_LIT` holds the terrain's light functions (its text unchanged) and adds
+  `gameObjectLight` (the terrain's `gameLight` at the objects' diffuse share, `GAME_LIGHT.objectDiffuse` 0.96) and
+  `gameObjectSpecular`; the object shader takes them in every look, with the foot's darkening, the wrapped sun and
+  High's vegetation sheen gone. The game's colours are drawn straight (`palette.ts` `TREE_COLOURS`, `LANDMARK`, `START`),
+  and the ruins take the game's own: RuinColumnA–E's albedo falls in five clusters (pale cream 10 %, tan 11 %, rust
+  20 %, mid brown 37 %, dark brown 23 %), so the posts and beams are its rust 0.424/0.209/0.099, the panels its cream
+  0.507/0.430/0.272, the far block its mean 0.332/0.225/0.129 and the ivy the game's Ivy_Wet 0.157/0.158/0.087 (ours
+  were #D4781F, #B86E30 and #405634). Standard's berries take the game's blue. High's trees lose `underSun`, which took
+  its own warm sun's tint out of their albedo: they see the game's sun now, so they take Standard's colours. Colours of
+  our own (the mines, thorns, relics, geothermal fields, slopes, the 1.x objects, the succulent, the generic blocks,
+  the birch's marks, the start's entrance) were chosen by eye at the old lightness, so they are drawn at `ownAlbedo`
+  (÷ 1.318, `palette.ts` `OWN_LIGHTNESS`; entities3d.ts `Model.own`, high/landmarks.ts `Parts.own`, High's slope
+  hook) and keep their place among the game's. The legend shows each object as its top shows in the game's light
+  (`objectTop`).
+- **Judged** (`tools/water-pixel-judge.ts --objects`, new: the probe's 16 day start shots, River Valley, Lake Basin,
+  Highlands, Canyon, Any, Delta, Islands 128² and Chaos 256², seeds 1 and 2, each camera fit on its own frame, 0.8 at
+  least; a 3 × 3 patch at each object's part as the camera sees it, nothing within seven tiles of the start, where the
+  game has put its district centre; mean Rec. 709 luma, ours over the game's, before → after):
+  - Standard: pine crown 0.822 → 0.986 (462 samples), oak 0.760 → 0.843 (842), birch 0.802 → 0.925 (585), bush
+    0.714 → 0.794 (679), birch bark 0.911 → 1.005 (587), ruin 1.036 → 0.964 (61), water source 1.137 → 1.236 (3).
+  - High: pine 0.913 → 1.012, oak 0.885 → 0.938, birch 0.804 → 0.870, bush 0.739 → 0.804, birch bark 1.046 → 1.128,
+    ruin 1.094 → 1.009, water source 1.217 → 1.228.
+  - The crowns' sides across the sun's way, over their middles: the game's 1.00–1.01 for every species; ours, Standard
+    0.88–0.98 → 0.81–0.97, High 0.85–1.00 → 0.79–0.99.
+  - Unchanged: the land's RMS on these shots (Standard all 15.7, grass 14.4, dry 15.1, cliff 23.9; High all 15.9,
+    dry 15.3 → 15.2), the water's (clean 13.2 Standard, 13.3 High).
+- **The bloom:** nothing an object draws passes the knee in the game's light now: the brightest, the birch's bark at its
+  brightest normal, reads 1.21 of 1.269 (1.03 upright), the mine's pale rubble 1.04 (`bloom.test.ts` holds them
+  there; the old rust, the pale rubble and the birch's bark had passed it, held at 1.346, 1.304 and 1.291). So by day
+  the bloom stays skipped and lifts nothing, as the game's frames lift at most 0.21 % of a frame by 2 luma (median
+  none); no flare.
+- **Cost:** none by construction (the same work a fragment, a few terms fewer). `benchOrbit`, River Valley 256²
+  seed 4242 (`tools/capture-objects.ts --bench`), 1280 × 800, the GPU's time a frame (the median over 6 s), two
+  rounds, #909's head → this branch: Standard whole map 5.85, 6.18 → 6.00, 5.93 ms, ruin field 6.36, 6.18 → 6.47,
+  6.31; High whole map 4.37, 4.33 → 4.28, 4.34, ruin field 4.34, 4.11 → 4.30, 4.09. Every frame 7.0 ms at the
+  display's 144 Hz.
+- **Falls short:** (1) The crowns still read under the game's, most the bush (0.79–0.80) and the oak (0.84 in
+  Standard): the light is the game's now, so the rest is our crowns' shape and colour mix (the game's leaves' texture
+  lighter at their tips, its crowns more open), not the light. (2) Our crowns' sides across the sun read 3–19 % under (High 1–21 %)
+  their middles, where the game's read the same: the game's foliage normals are rounded out from the crown, ours are a
+  few faceted cones and blobs. (3) High's birch bark reads 13 % over the game's (Standard's 0.5 % over), the same albedo on
+  High's own trunk model; not yet traced. (4) The water source's three samples read 23 % over, too few to act on.
+  (5) The start can't be judged: the game's start shot shows its district centre there.
+
+## The green round water against the game's (showcase gap 9; D135, D496; `fix/moisture-green-shape`)
+
+Showcase round 1 logged the green round sources and ponds as "near-perfect discs" that look stamped beside the game's
+irregular wet ground. Measured against the game's frames, the shape is the game's; nothing changed.
+
+- **The moisture is the game's.** On the probe's start snapshots (the moment the frames are taken, tick 0) the core's
+  steady state (`sim/moisture.ts` on the snapshot's water) gives the game's saved moisture on all but a few dry tiles:
+  River Valley 1 13,617 of 13,657 exact, Lake Basin 1 all 13,582, Highlands 1 13,740 of 13,783. It is an octile
+  distance from the water (1 a tile straight, √2 diagonally, 6 a level climbed), so on flat ground a lone source wets
+  an octagon in the game too: the sources on Highlands 1's and River Valley 1's plateaus are discs in the game's
+  frames, with the same soft fringe as ours. What breaks a disc up is the land (climbs, cliffs, the water's own
+  outline), which ours draws from the same moisture.
+- **The edge, frame against frame** (`tools/green-edge-check.py`, new: the judge's renders of the snapshot from its
+  fitted camera, `--ours`; the game's frame moved by the whole pixels that line the two up best; then a 0.1-tile grid
+  over visible level tops with no plant within two tiles, a point's grass share from its greenness G − (R + B)/2
+  between the frame's own dry ground and grass). Four frames line up well enough to read an edge (River Valley 1 and
+  2, Lake Basin 2, the ceiling set's plateau); Highlands 1 and 2 and Lake Basin 1 fit too loosely (their frames
+  correlate 0.65–0.77 with ours). Standard and High read the same to 0.01.
+  - *Where the edge falls*, the share by the tile's moisture, pooled (game / ours): moisture 0 beside moist tiles
+    0.02 / 0.00 (784 tiles); 0.01–1, 0.20 / 0.16 (173); 1–1.5, 0.53 / 0.48 (83); 1.5–2, 0.78 / 0.78 (100); 2–2.5,
+    0.94 / 0.95 (97); 3 and up 1.01 / 1.01. The edge tiles no longer read greener than the game's ("Dry land that
+    reads dry", above).
+  - *How far the boundary wanders* from the moisture contour (m 1.24, where the game's formula gives half grass on
+    average): the green/dry boundary's signed distance from it, its spread in tiles with the share smoothed over 0.1,
+    0.3, 0.7 and 1.1 tiles. The plateau (367 edge tiles, the frames correlating 0.94): game 0.49 / 0.47 / 0.33 / 0.32,
+    ours 0.51 / 0.46 / 0.38 / 0.33; its mean −0.02 against +0.10. River Valley 1: 0.67 / 0.67 / 0.71 / 0.67 against
+    0.50 / 0.46 / 0.35 / 0.27; River Valley 2: 0.97 / 0.90 / 0.58 / 0.37 against 0.87 / 0.82 / 0.64 / 0.56; Lake
+    Basin 2: 0.58 / 0.56 / 0.56 / 0.57 against 0.41 / 0.38 / 0.36 / 0.35. Pooled, the game's 0.70 to 0.46, ours 0.59
+    to 0.36.
+  - *The edge's width*, the share's 10–90 % across the contour: 1.0–1.5 tiles in the game, 1.25 in ours, on every frame.
+  - *The textures' own floor*, the share's spread over one-tile blocks on pure grass and pure dry ground: the plateau's
+    game 0.096 and 0.053, ours 0.080 and 0.046; River Valley's game 0.11–0.13 and 0.04–0.07, ours 0.074–0.082 and
+    0.035–0.037; Lake Basin 2's game grass 0.27 (its woods' crowns and shadows). The game's boundary wanders more than
+    ours where its own floor is higher: its trees, their shadows and what's left of the camera fit (the shift corrects
+    a translation only) move its boundary and none of them moves ours. Where its floor is near ours (the plateau) the
+    wander is the game's to 0.01–0.05 of a tile.
+- **Why it matches:** a tile's desert intensity is the game's formula from its unrounded moisture (`desertByte`), blended
+  by the game's four taps a fifth of a tile round the point with its noise multiplier and softness (`desertBlend`), and
+  the noise is held to the game's `BlendingNoise` texture's mean, spread and scale (#853, "Dry land that reads dry").
+  In both, the edge is a tile step softened by that blend and broken into patches by the noise.
+- **Falls short:** (1) The plateau's edge sits a tenth of a tile inside the game's (ours +0.10, the game's −0.02), a
+  pixel or two at the editor's usual zoom. (2) The game's grass varies a little more in green from tile to tile than
+  ours (the floors above): the grass texture's own variation, not the edge. (3) One clean frame (the plateau) isolates
+  the edge from trees and the fit; a probe frame of a lone source on bare flat ground would read it alone, not worth a
+  batch while the frames agree this well.
+
+## Grass and cliffs, their samples registered (D497; `fix/land-luma`)
+
+After #909, grass read 5–8 % under the game's and cliffs 3–6 %, in sun and in shade alike, while dry tops read 2 %
+over. The cause is the judge's samples, not the land: nothing in the renderer changes.
+
+- **Grass: too few samples, in one place.** #909's eight day shots held 137 grass samples, 108 of them on
+  riverValley-128-1, where the game's own `Grass` texture runs 4.1 % over its mean ("Grass in the game's light"). On the
+  probe's 16 day start shots (River Valley, Lake Basin, Highlands, Canyon, Any, Delta, Islands 128², Chaos 256², seeds 1
+  and 2; `--shots` as `--objects` takes them) grass has 594 samples and reads 0.987 of the game's in Standard and 0.976 in
+  High (riverValley-128-1 alone 0.943); dry tops 1.008 and 1.009 (12,513).
+- **Cliffs: samples off their faces.** The camera fit scores only the water's outline, so it can sit a few pixels off,
+  and a face is 10–15 pixels tall at the start shots' distance. The judge's new `--register` moves each face's game pixel
+  to where ours' picture round it (a 21 × 21 window) lines up with the game's, within 5 pixels (zero-mean normalised
+  correlation of luma, so neither side's brightness moves it), and leaves out a face that lines up under 0.6. Of 2,074
+  faces, 1,295 line up. The 779 that don't read 0.908 of the game's, almost all on the shots fitted worst: lakeBasin-128-1
+  (92 %), highlands-128-1 and -2, canyon-128-2 (83 %) and canyon-128-1 (its fit trades the field of view for the
+  distance: 29.9° from 117 away, the pose 84.8). There the game's pixels at those faces read 95–111 luma, between its
+  faces' 58–95 and its tops' 113–123: they show part of a top. On the shots fitted well the faces left out read as the
+  rest.
+- **Judged** (`tools/water-pixel-judge.ts --samples --shade --register`, the 16 day start shots, ours over the game's
+  mean Rec. 709 luma, Standard / High; #910's head, before → registered):
+  - cliffs 0.958 / 0.948 (2,074) → 1.010 / 1.000 (1,295; the same faces where the fit puts them 0.992 / 0.981); by face,
+    toward the sun's side 1.009 / 0.994, toward the camera 1.010 / 1.002, from the sun 1.018 / 1.014;
+  - walls turned from the sun 0.948 / 0.940 (231) → 1.018 / 1.014 (141);
+  - grass 0.987 / 0.976, dry tops 1.008 / 1.009, dry tops in shade 0.963 / 0.968 (100), unchanged (tops aren't moved);
+  - the land's RMS: Standard all 11.7 → 10.7, cliffs 14.4 (bias 9.8) → 4.7 (1.8); High 12.0 → 11.0, cliffs 14.8 → 5.3;
+    grass 10.8 / 12.0, dry 11.1 / 11.3 as before; clean water (the shipped formula) 9.5 / 9.5 in both runs.
+- **What the game's files say about walls** (Timberborn 1.1.2.8, read locally, numbers only): the `Cliff` material
+  leaves `_SplatFilterTex` unset, the shader's default black, and inverts it, so every wall is `CliffDetail` × the
+  gradient, with none of the top's albedo; the game's texture round the cliff samples is 1.001 of its mean. The terrain
+  is built of 120 block shapes (`Environment/Land`, Timbermesh): flat faces with their own normals (00uu-a, 16
+  vertices). Its triplanar `Cliff_N` (world × 0.125, Shader Graph's whiteout blend, aniso 16) has mean 0 and a spread
+  per component of 0.36 at 2048², 0.22 at 128² and 0.15 at 64²; through the game's light, at the start shots' 25–45
+  texels a pixel, it would leave a wall toward the sun 3–4 % darker than a flat one and a wall the sun grazes 1–2 %
+  lighter (0.93 and 1.015 at full resolution). The registered faces don't show it beyond 1–2 %, so it isn't drawn: that
+  would be fitting.
+- **Cost:** none (no file under `src/` changed). `benchOrbit` (Canyon 128² seed 1, 1280 × 800, the GPU's time a
+  frame, the median over 6 s, two rounds in opposite orders, before → after, ms): Standard 30 away 2.62, 2.20 → 1.21,
+  2.02, 90 away 1.70, 2.47 → 2.22, 2.15; High 30 away 1.68, 2.04 → 1.75, 1.85, 90 away 2.22, 2.30 → 2.44, 2.47. The same
+  shaders, so the runs' noise; every frame 7.00 ms at the display's 144 Hz.
+- **Falls short:** (1) 38 % of the faces still can't be judged; the fit itself (scored on the water's outline) is
+  unchanged, and canyon-128-1's needs the game's field of view held, not fitted. (2) High's grass reads 2.4 % under,
+  Standard's 1.3 %: High's own broad variation (#65) where the samples sit. (3) Dry tops in shade read 3–4 % under, on
+  100 samples. (4) The triplanar normal map's darkening of walls toward the sun, 3–4 % at the start shots' distance by
+  the game's own texture, isn't visible in the frames; up close (the editor's 30 away, the 256²–512² mips) it would be
+  6–7 %, which no frame here can check.
+
+## The crowns as the game draws them (D135 as amended 2026-11-09, D178, D496; `fix/plant-crowns`)
+
+With the objects in the game's light (above), the crowns still read under the game's: on the start shots, ours over the
+game's, Standard / High, the bush 0.79 / 0.80, the oak 0.84 / 0.94, the birch 0.93 / 0.87, the pine 0.99 / 1.01, High's
+birch bark 1.13, the crowns' sides 3–21 % under their middles, Standard's berries dull.
+
+- **The judge for one plant** (`tools/game-crowns.py`, new, with `tools/crown-models.ts`): the frames' samples fall on
+  grass between the game's smaller crowns, so each plant is drawn offline as the game's VegetationURP shades it (read
+  from the disassembled program: its vertex colour × texture, the alpha cut at 0.5, its bump map, URP's lit model at
+  metallic 0, its yield's detail map) and ours as we draw it, on lit grass in the game's light from the start shots'
+  camera, sixteen turns, with each mesh's own shadow; it reads the crown's middle and its side across the sun's way, the
+  birch's bark, the whole crown's mean and the area it covers. No game mesh, texture or shader leaves the machine.
+- **The causes, one at a time:**
+  1. **The share of each colour:** our foliage took the game's albedo over the whole area its alpha keeps, but its
+     vertex colours darken the inner and lower cards, which the camera barely sees. What it sees is 13–25 % lighter (the
+     bush 5 %): pine 0.130/0.206/0.114, birch 0.202/0.266/0.116, oak 0.158/0.213/0.105, bush 0.160/0.183/0.092
+     (`palette.ts` `TREE_COLOURS`).
+  2. **Lighter higher up:** the game's crowns are, by their vertex colours: the pine from 0.86 of its mean low in its
+     whorls to 1.17 at its top, the oak 0.79 to 1.10, the birch 0.90 to 1.04. Both looks shade their foliage by each
+     vertex's height (`CROWN_GRADIENT`, `crownShade`), so the sides, lower, read under the middles as the game's do. The
+     bush's runs the other way by a few percent over its 0.4, which no pixel shows.
+  3. **Coverage:** the game's crowns are cards cut by their texture's alpha; their drawn width is the pine's 1.05, the
+     birch's 0.88, the oak's 1.51 and the bush's 0.93, where their whole models (the cards' corners) are 1.22, 1.02, 1.83
+     and 1.16. Ours had been built to the whole models' width and covered up to 70 % more (Standard's bush 1.44 times,
+     High's 1.70, High's pine 1.19). Standard's pine is 1.0 across and its bush 0.81; High's pine whorls 0.56 at their
+     base, its bush 0.78 of its old reach; High's far birch and bush fill their width (`plantSize.test.ts` now holds
+     the drawn widths).
+  4. **The berries:** while a yield stands (as on a new map), the game lays the bush's detail map over its leaves
+     (decompiled `GatherableModel`, `_EnableDetail` 1): its colour 0.225/0.25/0.384 drawn with half of it again as
+     emission. Ours are that colour as lit, 0.245/0.272/0.418, in both looks (were 0.294/0.302/0.414, the leaves'
+     texture's few bluer texels, which the game draws under the green).
+  5. **High's birch bark:** its dark marks lay inside the trunk, unseen, and the far birch had none; the marks now stand
+     just proud of the trunk (a fifth of it, as the game's texture's marks), and the far trunk takes their share as a
+     shade (0.88).
+  - **Not the cause:** the normals (the game's foliage normals point mostly up, y 0.77–0.94; drawing ours with face
+    normals or the game's with its own moves the middle at most 2 %), the bump (at most 4 %) and the self-shadowing
+    (0–17 % on the sides, in both alike). VegetationURP has no translucency or wind tint in its pixel program.
+- **Measured offline** (the crown's middle, side, whole crown and area, ours over the game's, before → after):
+  | Plant | Standard | High near | High far |
+  |---|---|---|---|
+  | Pine | 1.00, 1.06, 0.89, 1.46 → 1.10, 1.12, 0.98, 1.12 | 1.06, 1.04, 0.98, 1.19 → 1.10, 0.96, 0.96, 1.04 | 1.05, 1.10, 0.97, 1.11 → 1.08, 1.00, 0.95, 0.96 |
+  | Birch | 0.91, 0.85, 0.91, 1.04 → 1.06, 0.95, 1.02, 1.04 | 0.88, 0.96, 0.92, 1.01 → 0.96, 1.01, 0.98, 1.01 | 0.81, 1.09, 0.93, 0.62 → 0.92, 1.12, 1.00, 0.75 |
+  | Birch bark | 1.05 → 1.05 | 1.11 → 0.98 | 1.08 → 0.98 |
+  | Oak | 0.76, 0.93, 0.86, 0.97 → 0.94, 1.06, 0.97, 0.97 | 0.75, 0.96, 0.87, 1.06 → 0.95, 1.13, 1.02, 1.06 | 0.71, 0.95, 0.87, 1.13 → 0.89, 1.13, 1.01, 1.13 |
+  | Bush | 0.86, 1.00, 0.93, 1.44 → 0.91, 0.99, 0.97, 1.03 | 0.94, 1.00, 0.96, 1.70 → 0.95, 1.01, 1.00, 1.07 | 0.78, 0.99, 0.94, 1.19 → 0.81, 0.97, 0.97, 0.96 |
+
+  Every crown's mean now lies within 5 % of the game's (0.95–1.02; before 0.86–0.98), and its area within 13 %
+  (before up to 1.70 times), the far birch's 0.75 aside.
+- **Measured on the frames** (`tools/water-pixel-judge.ts --objects`, the 16 day start shots, before → after;
+  middle / side):
+  | Part | Standard | High |
+  |---|---|---|
+  | Bush | 0.794 / 0.771 → 0.831 / 0.797 | 0.804 / 0.798 → 0.841 / 0.813 |
+  | Oak | 0.843 / 0.812 → 0.990 / 0.923 | 0.938 / 0.864 → 1.131 / 1.012 |
+  | Pine | 0.986 / 0.791 → 1.082 / 0.822 | 1.012 / 0.794 → 1.051 / 0.789 |
+  | Birch | 0.925 / 0.806 → 1.058 / 0.890 | 0.870 / 0.839 → 0.964 / 0.888 |
+  | Birch bark | 1.005 → 1.048 | 1.128 → 1.093 |
+
+  The mean of middle and side, as a forest reads, moves toward the game's for every plant in both looks (Standard bush
+  0.78 → 0.81, oak 0.83 → 0.96, pine 0.89 → 0.95, birch 0.87 → 0.97; High 0.80 → 0.83, 0.90 → 1.07, 0.90 → 0.92,
+  0.85 → 0.93). The frames' crown samples fall on whatever the game shows there, its grass and its neighbours between
+  its smaller crowns (the game's own side reads its middle, where one plant's side reads 0.70–0.86 of it), so they
+  judge a forest, not a crown.
+- **Unchanged:** the land's RMS (Standard all 15.7, High 15.9) and the clean water's mean (L* 23.1); its RMS 13.2 /
+  13.3 → 13.4 / 13.4 where smaller crowns at the shore show the water behind. The bloom: the berries are darker than
+  before and the crowns' tops under the knee (`bloom.test.ts` passes unchanged).
+- **Cost:** none: the same triangles, only colours and places changed. `benchOrbit`, River Valley 256² seed 4242
+  (`tools/capture-objects.ts --bench`, now `--look high` too), 1280 × 800, the GPU's time a frame (median), #911's
+  head → this branch: Standard whole map 6.55 → 6.26 ms, ruin field 6.69 → 6.65 (323,966 and 268,138 triangles,
+  unchanged); High 4.35 → 4.29, 4.44 → 4.35 (503,376 and 447,548, unchanged). Every frame 7.0 ms at 144 Hz.
+- **Falls short:** (1) On the frames, High's oak reads 13 % over the game's in its middle where one plant drawn offline
+  reads 5 % under, and the pines' middles 5–8 % over (offline 8–10 %, their sides darker): our pine's top takes more
+  of the light than the game's needles, a matter of their normals, not their colour. (2) The bush still reads 0.83–0.84
+  on the frames (offline 0.91–0.97 near, 0.81 High far: its two octahedra slope where the game's leaves face up).
+  (3) The pine's yield (its resin, a detail map as the berries') is not drawn: it covers little of what the camera sees.
+  (4) Standard's baked shadows on open ground (`light.ts` `PLANT_SHAPES`) keep the reaches of High's old models. (5) High's far birch
+  covers 0.75 of the game's area within its drawn width. (6) The water source's three samples still read 23 % over.
 
 ## The rest of the step (next parts)
 
