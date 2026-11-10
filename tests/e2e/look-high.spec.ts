@@ -562,12 +562,20 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
       const gate = r as unknown as { blooms(): boolean };
       bloomed = gate.blooms();
       gate.blooms = () => false;
+      // (and before the fog: since the top-down view takes the angled view's haze at its zoom (#926), the haze lifts
+      // the lava's green and blue past the colour gate below (its hottest (255,98,45) → (248,135,103)) though the lava
+      // reads as plainly as before; the count is of the lava's own colour, as the bloom's is set aside above (D148),
+      // and the fog switched back as it was)
+      const fogWas = r.highEffectsNow?.fog ?? true;
+      r.setHighEffect("fog", false);
       const hot = lava();
       delete (gate as { blooms?: unknown }).blooms;
       fx.heat = heat;
       // against the same land with its moment gone
       r.clearForce();
-      w.glow = { cooling: s?.cooling ?? null, hot, cold: lava(), look: r.look, bloomed };
+      const cold = lava();
+      r.setHighEffect("fog", fogWas);
+      w.glow = { cooling: s?.cooling ?? null, hot, cold, look: r.look, bloomed };
     };
   });
   await page.mouse.click(at!.x, at!.y);
