@@ -66,6 +66,7 @@ export function picture(h: Uint8Array, water: ArrayLike<number> | null, scale: n
       let light = 1 - 0.16 * ((xp - xm) / 2 - (yp - ym) / 2);
       light = Math.max(0.5, Math.min(1.3, light));
       let [r, g, b] = RAMP[Math.min(16, v)];
+      if (v > 16) { r = 250 - (v - 16) * 6; g = 246 - (v - 16) * 6; b = 240 - (v - 16) * 4; }
       r *= light;
       g *= light;
       b *= light;
@@ -135,5 +136,5 @@ if (process.argv[1] && /four-lakes-view\.(ts|mjs)$/.test(process.argv[1])) {
   console.log(`design ${Math.round(performance.now() - t)} ms -> ${out}`);
   console.log(`flat(8) ${(m.flat8 * 100).toFixed(1)}%  flat(4) ${(m.flat4 * 100).toFixed(1)}%  one-level steps ${(m.step1 * 100).toFixed(1)}%  top-3 levels ${(m.top3 * 100).toFixed(1)}%  sketch water ${((wet / N) * 100).toFixed(1)}%  max step ${m.maxStep}`);
   for (const [name, bed] of Object.entries(land.beds)) console.log(`${name} bed: ${bed.join(" ")}`);
-  console.log("levels " + m.histogram.slice(0, 17).map((n, k) => `${k}:${((n / N) * 100).toFixed(1)}`).join(" "));
+  console.log("levels " + m.histogram.slice(0, 22).map((n, k) => `${k}:${((n / N) * 100).toFixed(1)}`).join(" "));
 }

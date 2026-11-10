@@ -14,7 +14,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { openingCamera, placeComponents, startMiddleTile, StartWaterDays, startWaterWithin, VISTA_ZOOM } from "./core";
 import { applyOps, checksOf, emptySimulationSingletons, exportFiles, fallsOf, GAME_VERSION, HazardRun, LAYERS, MapSession, rowOf, TICKS_PER_DAY, voxelsFromHeights, writeTimber, type TimberFile } from "./core";
-import { CHANNELS, designLand, FALLS, fbm, H, LAKES, measureLand, N, W, type Land } from "./four-lakes-design";
+import { CHANNELS, designLand, FALLS, fbm, H, LAKES, measureLand, N, TARNS, W, type Land } from "./four-lakes-design";
 import { writePicture } from "./four-lakes-view";
 
 const arg = (name: string, f: string) => {
@@ -95,11 +95,13 @@ function shapeLand(s: MapSession, land: Land): void {
 
 // ------------------------------------------------------------------------------------------------- water
 
+/** The springs: four in the pool at the head of the hanging valley, and each tarn's own. */
 const SOURCES: [number, number, number][] = [
-  [119, 141, 5],
-  [121, 143, 5],
-  [123, 145, 5],
-  [120, 139, 5],
+  [104, 127, 3.5],
+  [106, 129, 3.5],
+  [108, 131, 3.5],
+  [105, 125, 3.5],
+  ...TARNS.map((t) => t.spring!),
 ];
 
 /** The old channel's plugs: Blockages across it, the first at its mouth on the springs' pool. */
@@ -112,7 +114,7 @@ function placePlugs(s: MapSession, land: Land): void {
 
 /** The start: on the meadow under the Low Fall's west shoulder, turned so the game's first camera looks up the
  *  valley across Weir Lake at the Great Fall. */
-const START = { x: 70, y: 88, orientation: "Cw0" as const };
+const START = { x: 68, y: 84, orientation: "Cw0" as const };
 
 function placeStart(s: MapSession): void {
   applyOps(s, [{ op: "placeEntity", params: { id: newId(), template: "StartingLocation", x: START.x, y: START.y, orientation: START.orientation }, label: "The start" }]);
@@ -404,15 +406,16 @@ function plant(s: MapSession, land: Land): void {
       return 0;
     }
   };
-  const meadow = (i: number) => moist(i) && over[i] <= 0 && dist[i] > 2;
+  const meadow = (i: number) => moist(i) && over[i] <= 0 && dist[i] > 2 && dist[i] <= 8;
+  const pinewood = (i: number) => moist(i) && dist[i] > 2 && (over[i] >= 1 || dist[i] > 8);
   const grove = (i: number) => n(i, 17, 1) > 0.02;
-  const berries = (i: number) => n(i, 9, 2) > 0.2 || (nearStart(i, 15) && !nearStart(i, 7) && n(i, 6, 3) > 0.1);
+  const berries = (i: number) => n(i, 9, 2) > 0.36 || (nearStart(i, 15) && !nearStart(i, 7) && n(i, 6, 3) > 0.1);
   const count: Record<string, number> = {};
   count.birch = paint("trees", "Birch", (i) => moist(i) && dist[i] <= 2 && !nearStart(i, 6), 0.5, 11, "Birch on the shores", "mixed");
   count.berries = paint("bushes", "BlueberryBush", (i) => meadow(i) && berries(i) && !nearStart(i, 5), 0.6, 12, "Blueberry patches on the meadows");
   count.oak = paint("trees", "Oak", (i) => meadow(i) && grove(i) && !berries(i) && !nearStart(i, 7), 0.62, 13, "Oak groves on the meadows", "mixed");
   count.birch2 = paint("trees", "Birch", (i) => meadow(i) && !grove(i) && !berries(i) && !nearStart(i, 7), 0.12, 14, "Birches in the open meadow");
-  count.pine = paint("trees", "Pine", (i) => moist(i) && over[i] >= 1 && dist[i] > 2 && !nearStart(i, 7), 0.8, 15, "Pine on the high ground", "mixed");
+  count.pine = paint("trees", "Pine", (i) => pinewood(i) && !nearStart(i, 7) && n(i, 15, 9) > -0.22, 0.82, 15, "Pine woods on the high ground and the meadows' far side", "mixed");
   // the dry land, dressed on purpose
   const dry = (i: number) => !(b.moisture[i] > 0) && !(b.water[i] > 0) && !land.lake[i] && !land.pool[i];
   count.succulents = paint("succulents", "Succulent", (i) => dry(i) && oldDist[i] > 3 && n(i, 21, 4) > 0.08, 0.2, 16, "Succulent fields on the dry benches");
@@ -484,6 +487,21 @@ function placeObjects(s: MapSession, land: Land): void {
   put("SmallRelic", 46, 15, "The relic at the Gate", {}, [2, 2]);
 }
 
+/** The old channel opened, as a player would: the blockages cleared and gates (ground two levels up) across the
+ *  neck and the hanging valley; with `brooks`, a dam at each brook's head too. A what-if on this session: run
+ *  after the round is saved, never saved itself. */
+function openBypass(s: MapSession, land: Land, brooks: boolean): void {
+  const plugs = s.built.entities.filter((e) => e.template === "Blockage").map((e) => e.id);
+  applyOps(s, [{ op: "deleteEntities", params: { entities: plugs }, label: "Clear the blockages" }]);
+  const rows = [...land.gates, ...(brooks ? land.brookHeads : [])];
+  for (const row of rows) {
+    if (!row.length) continue;
+    const set = new Set(row);
+    const level = Math.max(...row.map((i) => s.built.heights[i])) + 2;
+    applyOps(s, [{ op: "sculpt", params: { mode: "flatten", cells: runsWhere((i) => set.has(i)), level, exact: true }, label: "A gate" }]);
+  }
+}
+
 // ------------------------------------------------------------------------------------------------ the shots
 
 /** The cameras a round is judged from (tools/showcase/capture.ts): the game's first camera on the start, pulled
@@ -502,10 +520,10 @@ function shots(s: MapSession, weatherDays: { drought: number; badtide: number })
     { name: "03-best-side", label: "Best side: up the valley", view: best },
     { name: "04-far", label: "The whole map", view: far },
     { name: "05-top", label: "Top-down", top: true, view: { yaw: 0, pitch: 89 * deg, distance: 300, target: [96, 5, 96] } },
-    { name: "06-great-fall", label: "The Great Fall", view: { yaw: -16 * deg, pitch: 24 * deg, distance: 62, target: [100, 9, 114] } },
-    { name: "07-low-fall", label: "Low Fall (Weir Lake into Low Lake)", view: { yaw: 14 * deg, pitch: 26 * deg, distance: 44, target: [88.5, 4, 84] } },
-    { name: "08-weir-fall", label: "Weir Fall (Steam Lake into Weir Lake)", view: { yaw: -70 * deg, pitch: 26 * deg, distance: 44, target: [124, 8, 100] } },
-    { name: "09-crown-fall", label: "Crown Fall (Crown Lake into Steam Lake)", view: { yaw: -14 * deg, pitch: 26 * deg, distance: 44, target: [150, 12, 127] } },
+    { name: "06-great-fall", label: "The Great Fall", view: { yaw: -12 * deg, pitch: 24 * deg, distance: 62, target: [86, 9, 104] } },
+    { name: "07-low-fall", label: "Low Fall (Weir Lake into Low Lake)", view: { yaw: 14 * deg, pitch: 26 * deg, distance: 50, target: [90.5, 4, 83] } },
+    { name: "08-weir-fall", label: "Weir Fall (Steam Lake into Weir Lake)", view: { yaw: -70 * deg, pitch: 26 * deg, distance: 50, target: [124, 8, 99.5] } },
+    { name: "09-crown-fall", label: "Crown Fall (Crown Lake into Steam Lake)", view: { yaw: -14 * deg, pitch: 26 * deg, distance: 50, target: [149.5, 12, 127] } },
     { name: "10-start", label: "The start's meadow", view: { yaw: -35 * deg, pitch: 38 * deg, distance: 70, target: [st.x, st.z, st.y] } },
     { name: "11-drought", label: `Drought, day ${weatherDays.drought}: best side`, hazard: "drought", day: weatherDays.drought, view: best },
     { name: "12-badtide", label: `Badtide, day ${weatherDays.badtide}: best side`, hazard: "badtide", day: weatherDays.badtide, view: best },
@@ -530,6 +548,14 @@ function main(): void {
   lap("plugs");
   placeSources(s, land);
   lap("sources and settle");
+  {
+    const early = readWater(s, land);
+    const stray0 = strayWater(s, land);
+    if (stray0.length) {
+      printWater(early);
+      writePicture(join(OUT, `${ROUND}-stray.png`), s.built.heights, s.built.water, 4, stray0);
+    }
+  }
   placeStart(s);
   lap("start");
   if (!has("bare")) {
@@ -588,7 +614,29 @@ function main(): void {
     log(`  saved ${join(OUT, `${ROUND}.timber`)} (${f.timber.length} bytes), project ${f.project.length} bytes`);
     lap("save");
   }
+  if (has("bypass")) {
+    log("the old channel opened (blockages cleared, gates on the neck and the hanging valley):");
+    openBypass(s, land, false);
+    lap("bypass settle");
+    printWater(readWater(s, land));
+    strayWater(s, land);
+    weather(s, land, "badtide", 8, 1, 0.25);
+    lap("bypass badtide");
+    log("and a dam at every brook's head:");
+    openBypass2(s, land);
+    weather(s, land, "badtide", 8, 1, 0.25);
+    lap("bypass and brooks badtide");
+  }
   void CHANNELS;
+}
+
+function openBypass2(s: MapSession, land: Land): void {
+  for (const row of land.brookHeads) {
+    if (!row.length) continue;
+    const set = new Set(row);
+    const level = Math.max(...row.map((i) => s.built.heights[i])) + 2;
+    applyOps(s, [{ op: "sculpt", params: { mode: "flatten", cells: runsWhere((i) => set.has(i)), level, exact: true }, label: "A dam on a brook" }]);
+  }
 }
 
 main();
