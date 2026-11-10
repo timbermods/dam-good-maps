@@ -142,22 +142,53 @@ const luma = (c: Rgb) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
 export const OWN_LIGHTNESS = luma([0.353, 0.372, 0.128]) / luma([0.263, 0.285, 0.096]);
 /** A colour of our own (chosen at our old lightness) as an albedo in the game's light. */
 export const ownAlbedo = (c: Rgb): Rgb => [c[0] / OWN_LIGHTNESS, c[1] / OWN_LIGHTNESS, c[2] / OWN_LIGHTNESS];
-/** Trees and bushes as the game colours them: the grown models' foliage and bark (texture x vertex colour, means over
- *  their area, read from resources.assets), straight. Olive and yellow-green, darker than the grass. The birch's bark is
+/** Trees and bushes as the game colours them: the grown models' foliage and bark (texture x vertex colour, read from
+ *  resources.assets), straight. Olive and yellow-green, darker than the grass. The foliage is its mean as the camera sees
+ *  it (`tools/game-crowns.py`: the grown model cut by its texture's alpha, from the start shots' 55°, through a full
+ *  turn), not over its whole area: the game's crowns are cards whose vertex colours darken those inside and under the
+ *  crown, which the camera barely sees, and ours are hulls, all outside. Until 2026-11-09 ours took the mean over the
+ *  area its texture's alpha keeps (pine 0.114/0.181/0.099, birch 0.174/0.231/0.099, oak 0.126/0.176/0.083, bush
+ *  0.153/0.175/0.088), 13 to 25 % darker than what shows (the bush 5 %). Higher up a crown is lighter, as the game's is
+ *  (`CROWN_GRADIENT`). The birch's bark is
  *  its white-vertex part (11.9 % of its area) without its dark marks, which our models draw as geometry of their own:
  *  its texels lighter than 0.3 (`tools/game-model-albedo.py BirchMature --above 0.3`: 76 % of the bark, where its
  *  texture parts, the marks below 0.2 and the light bark above 0.4 with only 3 % between), a light warm grey; the whole
  *  texture's mean, 0.525/0.474/0.392, would count the marks twice. Until 2026-11-08 ours was a near-white
- *  0.93/0.91/0.86 of our own, neutral where the game's is warm. */
+ *  0.93/0.91/0.86 of our own, neutral where the game's is warm. The bush's berries are its yield as the game shows it
+ *  (decompiled `Timberborn.Gathering` `GatherableModel`: `_EnableDetail` 1 while the yield stands, as it does on a new
+ *  map): VegetationURP lays its `_DetailMap` over the leaves by its alpha, 12 % of what the camera sees of the bush, its
+ *  colour there 0.225/0.25/0.384, its albedo pulled a quarter of the way toward a quarter of its emission and the colour added again
+ *  as emission at half its strength; lit as a berry the sun lights (the ambient from above and the sun at 45°), that is
+ *  its colour × 1.09 in the game's light, as ours draw it (`tools/game-crowns.py`). Until 2026-11-09 ours were the
+ *  leaves' texture's few bluer texels, 0.294/0.302/0.414, which the game draws under the leaves' green. */
 export const TREE_COLOURS = {
-  pine: [0.114, 0.181, 0.099] as Rgb,
-  birch: [0.174, 0.231, 0.099] as Rgb,
-  oak: [0.126, 0.176, 0.083] as Rgb,
-  bush: [0.153, 0.175, 0.088] as Rgb,
+  pine: [0.13, 0.206, 0.114] as Rgb,
+  birch: [0.202, 0.266, 0.116] as Rgb,
+  oak: [0.158, 0.213, 0.105] as Rgb,
+  bush: [0.16, 0.183, 0.092] as Rgb,
+  berry: [0.245, 0.272, 0.418] as Rgb,
   pineBark: [0.269, 0.183, 0.117] as Rgb,
   oakBark: [0.21, 0.17, 0.103] as Rgb,
   birchBark: [0.634, 0.579, 0.49] as Rgb,
 } as const;
+
+/** The game's foliage is lighter higher up its crown (its vertex colours): what the camera sees of it, by height in the
+ *  grown model, fitted as 1 + `slope` × (height − `mid`), `mid` the height its seen foliage averages
+ *  (`tools/game-crowns.py`, from the start shots' 55°): the pine 0.86 of its mean low in its whorls to 1.17 at its top,
+ *  the oak 0.79 to 1.10, the birch 0.90 to 1.04. The bush's runs the other way by a few percent over its 0.4, which no
+ *  pixel shows, so it has none. Both looks' living foliage takes it by each vertex's height (`crownShade`), their
+ *  parts' own shades about it. */
+export const CROWN_GRADIENT: Readonly<Record<string, { slope: number; mid: number }>> = {
+  Pine: { slope: 0.206, mid: 1.99 },
+  Birch: { slope: 0.201, mid: 1.61 },
+  Oak: { slope: 0.457, mid: 1.98 },
+};
+
+/** A species' foliage shade at a height in its model (`CROWN_GRADIENT`; 1 where it has none). */
+export function crownShade(species: string, y: number): number {
+  const g = CROWN_GRADIENT[species];
+  return g ? 1 + g.slope * (y - g.mid) : 1;
+}
 
 /** Juice (D205): the dust a lowered stroke puffs up (a light, dry earth), and a source's splash
  *  (the editor's water-blue). A carve at work (D199): the foam surging round its head, the blocks

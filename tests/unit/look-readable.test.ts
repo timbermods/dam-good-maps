@@ -44,9 +44,11 @@ describe("the meanings", () => {
     for (const d of [0.05, 0.5, 2, 4]) expect(hue(cleanWaterShown(d)) >= 198 && hue(cleanWaterShown(d)) <= 230, `${d} deep`).toBe(true);
     for (const d of [0.05, 0.5, 2, 5]) expect(hue(waterBody(d, true)) < 15 || hue(waterBody(d, true)) > 350).toBe(true);
     // dead trees are the game's dead wood, its bark weathered lighter and greyer (D135 as amended 2026-10-29): lighter
-    // than the living crowns, as the game's are (its dead pine's wood 1.8 times its living needles' lightness)
-    expect(lum(DEAD_TREE) - lum(LIVING_TREE)).toBeGreaterThan(0.1);
-    expect(lum(DEAD_TREE) / lum(LIVING_TREE)).toBeGreaterThan(1.5);
+    // than the living crowns, as the game's are (its dead pine's wood 1.49 times its living needles' lightness as the
+    // camera sees them, D135 as amended 2026-11-09; D148: this held 1.5 and 0.1 against the needles' mean over their
+    // whole area, which made the ratio 1.69)
+    expect(lum(DEAD_TREE) - lum(LIVING_TREE)).toBeGreaterThan(0.08);
+    expect(lum(DEAD_TREE) / lum(LIVING_TREE)).toBeGreaterThan(1.4);
   });
 });
 
@@ -278,14 +280,18 @@ describe("objects from afar", () => {
 
   it("a dead tree is bare weathered wood, as the game's: no green, lighter all over than the living tree's crown (D135 as amended 2026-10-29)", () => {
     // (the game's colours straight since 2026-11-09, D135 as amended: lighter than every colour of the living crown,
-    // rather than than 0.28, which held the old colours at our lightness)
+    // rather than than 0.28, which held the old colours at our lightness. Since the crowns are lighter higher up as the
+    // game's, D135 as amended 2026-11-09, its tip a fifth over its mean, the dead wood's colour is lighter than every
+    // colour of the crown and each of its shaded parts lighter than the crown's mean; D148: until then each part was
+    // lighter than every colour of the crown)
     const living = meshes.get("Pine")!.geometry.getAttribute("pcolor")!.array;
     let crown = 0;
     for (let k = 0; k < living.length; k += 3) if (living[k + 1] > living[k] && living[k + 1] > living[k + 2]) crown = Math.max(crown, lum([living[k], living[k + 1], living[k + 2]]));
     expect(crown).toBeGreaterThan(0);
+    expect(lum(DEAD_TREE)).toBeGreaterThan(crown);
     const col = meshes.get("Pine.dead")!.geometry.getAttribute("pcolor")!.array;
     for (let k = 0; k < col.length; k += 3) {
-      expect(lum([col[k], col[k + 1], col[k + 2]])).toBeGreaterThan(crown + 0.03);
+      expect(lum([col[k], col[k + 1], col[k + 2]])).toBeGreaterThan(lum(LIVING_TREE) + 0.03);
       expect(col[k + 1]).toBeLessThanOrEqual(col[k]);
     }
     let dark = 0;

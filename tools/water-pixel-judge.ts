@@ -139,7 +139,9 @@ const REFLECTION = arg("reflection") ? Number(arg("reflection")) : null;
 const AMBIENT = arg("ambient") ? Number(arg("ambient")) : null;
 /** `--samples`: the land's samples one by one in the JSON (`landSamples`: each its kind, point, moisture, the camera's
  *  distance and view depth, the game's pixel and each case's), to model the game's terms on them offline; with them a
- *  fifth kind, `edge` (moisture 1 to 5: the game's desert over part of the grass), for how dryness shows. */
+ *  fifth kind, `edge` (moisture 1 to 5: the game's desert over part of the grass), for how dryness shows. With
+ *  `--objects`, the objects' samples too (`objectSamples`: each its part, point, pixel, the game's colour and each
+ *  case's), to look at the pixels a part's mean is made of. */
 const SAMPLES = process.argv.includes("--samples");
 /** `--ours <dir>`: each of our renders kept there as it was drawn (`<shot>-<look>-<case>.png`), for a sheet of ours alone. */
 const OURS = arg("ours") ? resolve(arg("ours") as string) : null;
@@ -1045,6 +1047,7 @@ async function main() {
       for (const look of LOOKS) {
         const ours: Record<string, V3[]> = {};
         const oursLand: Record<string, V3[]> = {};
+        const oursObjects: Record<string, V3[]> = {};
         for (const c of cases) {
           const png = await render(c.page as Page, s, cam, look);
           const px = await decode(tool, png, "image/png");
@@ -1065,6 +1068,7 @@ async function main() {
           oursLand[c.key] = land.map((a) => patch(px, a.xy[0], a.xy[1]));
           if (OBJECTS) {
             const oursObjs = objs.map((a) => patch(px, a.xy[0], a.xy[1], OBJECT_PATCH));
+            oursObjects[c.key] = oursObjs;
             for (const [key, cs] of [["game", gameObjs], [c.key, oursObjs]] as [string, V3[]][]) {
               if (key === "game" && c !== cases[0]) continue;
               objs.forEach((a, k) => {
@@ -1161,7 +1165,8 @@ async function main() {
         const landSamples = SAMPLES ? land.map((a, k) => ({ kind: a.q.kind, p: a.q.p, moisture: s.snap.moisture[Math.floor(-a.q.p[2]) * s.snap.width + Math.floor(a.q.p[0])], distance: a.q.distance, viewDepth: dot(sub(a.q.p, eye), forward), shift: a.gxy ? [a.gxy[0] - a.xy[0], a.gxy[1] - a.xy[1]] : undefined, game: gameLand[k], ours: Object.fromEntries(cases.map((c) => [c.key, oursLand[c.key][k]])) })) : undefined;
         // (`--samples`: the water's samples one by one too, each its point, depth, kind, the game's pixel and each case's)
         const waterSamples = SAMPLES ? at.map((a, k) => ({ kind: a.q.kind, p: a.q.p, depth: a.q.depth, game: gameAt[k], ours: Object.fromEntries(cases.map((c) => [c.key, ours[c.key][k]])) })) : undefined;
-        results[`${id}-${look}-${WATER}`] = { camera: cam, fit: score, light: s.light, bands, land: landBands, landSamples, waterSamples };
+        const objectSamples = SAMPLES && OBJECTS ? objs.map((a, k) => ({ part: a.q.part, p: a.q.p, xy: a.xy, game: gameObjs[k], ours: Object.fromEntries(cases.map((c) => [c.key, oursObjects[c.key][k]])) })) : undefined;
+        results[`${id}-${look}-${WATER}`] = { camera: cam, fit: score, light: s.light, bands, land: landBands, landSamples, waterSamples, objectSamples };
       }
     }
     console.log(`\nall shots pooled, by band: mean colour, L* and (ours) the distance to the game's pixel (RMS, 0-255)`);
