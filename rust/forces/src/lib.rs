@@ -2235,16 +2235,24 @@ impl Ray {
     }
 }
 /// A hollow of the crater's cavity, in crater tiles (the crater's own frame: its ellipse made a circle
-/// of its radius): a floor at `level` out to `floor`, then a wall rising to the ground's level at `s`
-/// and on up past it.
+/// of its radius): a floor at `level`, then a wall `wall` tiles wide rising to the ground's level at
+/// `s` from its centre, and on up past it.
 #[derive(Clone, Copy)]
 struct Hollow {
     x: f64,
     y: f64,
     s: f64,
-    floor: f64,
+    wall: f64,
     level: f64,
-    p: f64,
+}
+impl Hollow {
+    /// How far past the hollow's outline a point is, in tiles (negative inside it): exact on the
+    /// outline and close near it, where the wall and the rim are, with no square root (this runs for
+    /// every hollow on every tile of the largest craters).
+    fn past(&self, qx: f64, qy: f64) -> f64 {
+        let (dx, dy) = (qx - self.x, qy - self.y);
+        (dx * dx + dy * dy - self.s * self.s) / (2.0 * self.s)
+    }
 }
 /// An oval of ground in crater tiles, turned its own way: a slumped block against the wall (a bench
 /// at `level`) or a lump of the central uplift (`level` its share of the uplift's height, `high` its
@@ -2317,8 +2325,6 @@ struct Crater {
     lobes: Vec<Hollow>,
     blocks: Vec<Oval>,
     lumps: Vec<Oval>,
-    /// A low swell under a central peak: its reach in crater tiles and its height in levels.
-    swell: (f64, f64),
     /// The floor's depth below the crater's ground, in whole levels.
     deep: f64,
     /// (what depends on the bearing alone, worked out once per bearing: the rim's height, how far it
@@ -2577,10 +2583,9 @@ impl Crater {
                 x: off * cos(t),
                 y: off * sin(t),
                 s: reach,
-                floor: max(0.0, reach - wall),
+                wall,
                 // (a simple crater's lesser hollows are shallower: its floor steps up on a side or two)
                 level: if simple && !steep && j > 0 { -max(1.0, round(deep * (0.55 + 0.35 * rnd(2150.0 + jf)))) } else { -deep },
-                p: 1.0,
             });
         }
         let mut c = Self {
@@ -2611,7 +2616,6 @@ impl Crater {
             lobes,
             blocks: vec![],
             lumps: vec![],
-            swell: (0.0, 0.0),
             deep,
             bearings: vec![],
         };
@@ -2670,8 +2674,7 @@ impl Crater {
             (d * cos(t), d * sin(t))
         };
         // The central uplift, where the crater has room for one. A peak is a mountain: a main lump and
-        // two to four lesser ones merged into it (round it, or in a line as a ridge), on a low swell
-        // of the floor. A ring is three or four separate mountains round the centre, off it, open on
+        // three to five lower shoulders merged into it (round it, or in a line as a ridge). A ring is three or four separate mountains round the centre, off it, open on
         // one side.
         if c.centre == "peak" && radius >= 8.0 {
             // (broad enough for its height: a mountain, never a tower)
@@ -2765,9 +2768,25 @@ impl Crater {
     fn edge(&self, qx: f64, qy: f64) -> f64 {
         let mut e = f64::INFINITY;
         for l in &self.lobes {
-            e = min(e, hypot(qx - l.x, qy - l.y) - l.s);
+            e = min(e, l.past(qx, qy));
         }
         e
+    }
+    /// The same past the outline, where it must be true far out too (the debris's reach): the
+    /// nearest hollow's own distance.
+    fn beyond(&self, qx: f64, qy: f64) -> f64 {
+        let mut near = (f64::INFINITY, 0);
+        for (k, l) in self.lobes.iter().enumerate() {
+            let e = l.past(qx, qy);
+            if e < near.0 {
+                near = (e, k);
+            }
+        }
+        if near.0 <= 0.0 {
+            return near.0;
+        }
+        let l = &self.lobes[near.1];
+        hypot(qx - l.x, qy - l.y) - l.s
     }
     /// The outline's distance from the centre at a bearing, in tiles.
     fn reach(&self, phi: f64) -> f64 {
@@ -2786,7 +2805,7 @@ impl Crater {
     /// A tile's distance out: 1 on the cavity's outline.
     fn out(&self, x: f64, y: f64) -> f64 {
         let (qx, qy) = self.frame(x, y);
-        1.0 + self.edge(qx, qy) / self.radius
+        1.0 + self.beyond(qx, qy) / self.radius
     }
     /// The crater's own ground at a tile: the plane it is cut into.
     fn ground(&self, x: f64, y: f64) -> f64 {
@@ -2802,30 +2821,17 @@ impl Crater {
         self.rim * high * (1.0 - 0.85 * self.dip(theta))
     }
     /// The cavity's surface at a point, in levels above the crater's ground: the lowest of its
-    /// hollows, a floor with low hummocks (and a swell under a peak), and the blocks slumped on it.
+    /// hollows, a floor with low hummocks, and the blocks slumped on it.
     fn cavity(&self, qx: f64, qy: f64, x: f64, y: f64) -> f64 {
         let mut z = f64::INFINITY;
         for l in &self.lobes {
-            let d = hypot(qx - l.x, qy - l.y);
-            let t = (d - l.floor) / (l.s - l.floor);
-            z = min(
-                z,
-                if t <= 0.0 {
-                    l.level
-                } else if t <= 1.0 {
-                    l.level * (1.0 - pow(t, l.p))
-                } else {
-                    (d - l.s) * 4.0
-                },
-            );
+            let past = l.past(qx, qy);
+            let t = 1.0 + past / l.wall;
+            z = min(z, if t <= 0.0 { l.level } else if t <= 1.0 { l.level * (1.0 - t) } else { past * 4.0 });
         }
         let floor = 1.0 - smooth((z + self.deep) / max(1.0, 0.3 * self.deep));
         if floor > 0.0 && self.centre != "bowl" && self.radius >= 20.0 {
             z += floor * smooth((lumps(self.seed, 3100, x, y, max(5.0, self.radius * 0.12)) - 0.72) / 0.06);
-            if self.swell.1 > 0.0 {
-                let d = hypot(qx, qy) / self.swell.0 * (0.8 + 0.4 * lumps(self.seed, 3110, x, y, max(4.0, self.radius * 0.2)));
-                z += floor * self.swell.1 * smooth((1.0 - d) / 0.35);
-            }
         }
         if !self.blocks.is_empty() {
             // (their outlines ragged)
@@ -2833,7 +2839,8 @@ impl Crater {
             for b in &self.blocks {
                 let d2 = b.reach(qx, qy).0 * ragged * ragged;
                 if d2 < 4.0 {
-                    z = max(z, if d2 <= 1.0 { b.level } else { b.level - (portable_math::sqrt(d2) - 1.0) * b.across * 3.0 });
+                    // (its front falls away steeply: no square root, the fall is the same near its edge)
+                    z = max(z, if d2 <= 1.0 { b.level } else { b.level - (d2 - 1.0) * 0.5 * b.across * 3.0 });
                 }
             }
         }
@@ -2894,7 +2901,7 @@ impl Crater {
             return Plate { r: reach, ..Plate::default() };
         }
         let (qx, qy) = self.frame(x, y);
-        let e = self.edge(qx, qy);
+        let e = self.beyond(qx, qy);
         let r = 1.0 + e / self.radius;
         let tile = clamp(round(y), 0.0, self.h - 1.0) as usize * m.w + clamp(round(x), 0.0, self.w - 1.0) as usize;
         // (the land gives way to the crater's own ground inside the bowl; land that lies lower gives
