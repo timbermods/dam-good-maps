@@ -406,7 +406,7 @@ function plant(s: MapSession, land: Land): void {
   };
   const meadow = (i: number) => moist(i) && over[i] <= 0 && dist[i] > 2;
   const grove = (i: number) => n(i, 17, 1) > 0.02;
-  const berries = (i: number) => n(i, 9, 2) > 0.34 || (nearStart(i, 15) && !nearStart(i, 7) && n(i, 6, 3) > 0.1);
+  const berries = (i: number) => n(i, 9, 2) > 0.2 || (nearStart(i, 15) && !nearStart(i, 7) && n(i, 6, 3) > 0.1);
   const count: Record<string, number> = {};
   count.birch = paint("trees", "Birch", (i) => moist(i) && dist[i] <= 2 && !nearStart(i, 6), 0.5, 11, "Birch on the shores", "mixed");
   count.berries = paint("bushes", "BlueberryBush", (i) => meadow(i) && berries(i) && !nearStart(i, 5), 0.6, 12, "Blueberry patches on the meadows");
