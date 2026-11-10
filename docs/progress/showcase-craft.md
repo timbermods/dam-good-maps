@@ -14,8 +14,6 @@ logs every gap, closes the page's gaps and sends the rest to their owners on #23
 | 2 | Glacier Hollow | Highlands, 128² | The trough rebuilt: four lakes stepping down it (8.2, 7.2, 5.5, 4.3) with a short fall between each, shores made irregular with freehand bays, woods on the moist rim | [view](../sheets/showcase-r2-glacier-hollow.jpg) |
 | 2 | Twin Falls Gorge | Canyon, 128² | Each fall now fed by a winding stream 4–5 tiles wide and a level deep (bed two down, a lip at the fall); the upper sources moved back across the plateau | [view](../sheets/showcase-r2-twin-falls-gorge.jpg) |
 | 2 | Caldera Lake | Highlands, 128² | The island raised to a peak 4.8 levels above the lake, its outline broken up; the straight breach replaced by one that winds through the rim at 11, falls 3 levels, then runs at 8 to the drop | [view](../sheets/showcase-r2-caldera-lake.jpg) |
-| 3a | Smoke Isle | Islands, 256² | Erupt (Steep, Crater, Heavy flows, Ridges) raises a cone to 22 in the lake-sea; a sourced crater lake spills through a notch to a ledge and plunge pool, then east to the sea; the start on the big southern island across a narrow strait, with a spring pond for the drought and a two-flight stair to its plateau | [view](../sheets/showcase-r3-smoke-isle.jpg) |
-| 3a | Rift Lake | Highlands, 128² | Rift drawn across the high plateau drops a long lake (surface 5.35) between 10-level walls; three falls pour off the north plateau (two generated sources and a hand-cut stream), the lake drains west to the river; the start on the wooded shelf above the falls | [view](../sheets/showcase-r3-rift-lake.jpg) |
 
 ## The gap log
 
@@ -65,8 +63,7 @@ Round 2's look review (a fresh reviewer, against PERFECT): Twin Falls Gorge reac
 north cliff and 1-tile notches on the east rims). Caldera Lake doesn't: its island reads as a stepped pyramid. Glacier
 Hollow is close: its trough needs to read as one U-shape. Round 3 takes these on.
 
-Round 3a's look review (a fresh reviewer each, against PERFECT): neither map reaches the bar, and in both the reason is the
-force's shape. Smoke Isle's volcano reads as a bullseye (gap 32), and its notch reads as a straight slot. Rift Lake's falls
-read well and the start above them is one a player would want, but the rift reads as a box (gap 35). The hand fixes left
-(beaches and a ramp down, the pillar, the two mine sites cut off by the rift, Smoke Isle's notch and pond) wait for those
-forces, since they wouldn't lift either map to the bar alone.
+Round 3a's look review (a fresh reviewer each, against PERFECT): neither new map (Smoke Isle, Islands 256²; Rift Lake,
+Highlands 128²) reached the bar, both for the force's shape (gaps 32 and 35). Planning then retired the hand-made maps:
+a seed with one force in a corner falls short of the bar however it's finished, so the next map is built from its idea at
+the scale of the whole map.
