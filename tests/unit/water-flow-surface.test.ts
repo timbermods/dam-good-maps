@@ -10,7 +10,7 @@ import { sceneUniforms, waterMaterial } from "../../src/render3d/materials";
 import { waterHooks } from "../../src/render3d/high/shaders";
 import { flowByte } from "../../src/render3d/high/bake";
 import { gameFlowOf } from "../../src/render3d/current";
-import { ALBEDO_BANDS, albedoOf, BADWATER_TEXTURE_SIZE, broadShare, featureTiles, fitAlbedo, GAME_BADWATER_TEXTURE as BAD_TEX, GAME_FLOW_TEXTURES as GAME, makeBadwaterTexture, makeWaterNormal, makeWaterTexture, NORMAL_BANDS, NORMAL_TEXTURE_SIZE, PATTERN_PERCENTILES, powerByBand, rankOrder, slopesOf, WATER_ALBEDO, WATER_FLOW, WATER_TEXTURE_SIZE } from "../../src/render3d/waterTextures";
+import { ALBEDO_BANDS, albedoOf, BADWATER_TEXTURE_SIZE, broadShare, featureTiles, fitAlbedo, GAME_BADWATER_TEXTURE as BAD_TEX, GAME_FLOW_TEXTURES as GAME, linearMips, makeBadwaterTexture, makeWaterNormal, makeWaterTexture, NORMAL_BANDS, NORMAL_TEXTURE_SIZE, PATTERN_PERCENTILES, powerByBand, rankOrder, slopesOf, WATER_ALBEDO, WATER_FLOW, WATER_TEXTURE_SIZE } from "../../src/render3d/waterTextures";
 import { badwaterBody, badwaterGlow, GAME_BADWATER, GAME_WATER, gameBadwaterColour, WATER, gameBadwaterEmission, gameCleanColour, gameDepthG, gameDepthR, WATER_LIGHT } from "../../src/render3d/waterPalette";
 import { GAME_LIGHT, gameAmbient, LIGHT, sunlitTop, waterShown } from "../../src/render3d/palette";
 import { dayLight } from "../../tools/game-day-light";
@@ -290,6 +290,20 @@ describe("badwater as the game draws it (Q9 P9)", () => {
     }
     // most of the glow is black, as the game's
     expect(Math.abs(glow.filter((v) => v === 0).length / n - BAD_TEX.glow.zero)).toBeLessThan(0.05);
+  });
+
+  it("makes its mips as Unity makes the game's: in linear values, so the glow's mean climbs with distance as the game's does", () => {
+    // a 2 × 2 of black and white averages to half the light (188), its alpha to its plain mean
+    const [one] = linearMips(new Uint8Array([0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0, 255, 255, 255, 255]), 2);
+    expect([...one]).toEqual([188, 188, 188, 128]);
+    // our level L spans a tile as the game's L + 2 does (30.7 texels a tile against 123): their means agree
+    const mips = linearMips(bad, N);
+    expect(mips.length).toBe(Math.log2(N));
+    const mean = (m: Uint8Array, c: number) => m.reduce((a, v, i) => (i % 4 === c ? a + v : a), 0) / (m.length / 4);
+    for (let L = 1; L <= 6; L++) {
+      expect(Math.abs(mean(mips[L - 1], 1) / BAD_TEX.glow.mips[L + 2] - 1), `G ${L}`).toBeLessThan(0.1);
+      expect(Math.abs(mean(mips[L - 1], 0) - BAD_TEX.base.mips[L + 2]), `R ${L}`).toBeLessThan(2);
+    }
   });
 
   it("carries the pattern by the flow in both looks, its colour by each look's judged choice (GAME_BADWATER.use)", () => {

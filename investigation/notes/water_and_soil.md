@@ -631,6 +631,12 @@ shadow and fog code). Programs: blob entry 32 (vs_4_0) and 176 (ps_4_0); "vs n" 
   hx = y' ^ (hy << 3), each >> 8) × 2⁻²⁴, T `_NonlinearTime`. The modulation's mean at pure badwater rises from 0.302
   to 0.349. Over a source the grid and the share the intensity eases by are each max(the source's pattern s, itself)
   (ps 762, 771). No other literal hides under the six decimals.*
+  *Read 2026-11-09 (`fix/badwater-low-light`, `--textures` printing t9's stored mips): Unity made t9's mips in linear
+  values (it is an sRGB texture; the game draws in gamma space and samples it raw), so its G's mean climbs with each mip
+  as the sparse bright lines blur into the black: 19.6, 20.9, 23.2, 26.7, 31.6, 37.4, 44.4, 50.4, 52.7 from its top
+  (2048²) to 8²; its R 122.1 to 126.6; its B 188.9 to 194.9. A box mean in stored values reproduces none of them; one in
+  linear values reproduces all. t9 is read through inline sampler s4 (state 0x1: bilinear, nearest mip, repeating, no
+  anisotropy); the source mask (t18) through s5 (0x54: point, clamped).*
   Followed since (`fix/water-badwater`): the pattern (our own texture at t9's measured statistics) and the emission in
   both looks; the colour formula is built behind `BADWATER_FORMULA`, but the pixel judge found it farther from the
   game's frames than our calibrated crimson (it draws pure badwater a dark crimson, L* 8 a level deep lit, where the
