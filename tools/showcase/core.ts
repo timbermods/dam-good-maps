@@ -18,3 +18,6 @@ export { mapObjects } from "../../src/core/sim/model";
 export { toMapObject } from "../../src/core/features/build";
 export { decodeProject } from "../../src/core/doc/document";
 export { blockFalls } from "../../src/core/doc/blockTool";
+export { StartWaterDays } from "../../src/core/sim/startWaterDay";
+export { startWaterWithin } from "../../src/core/doc/droughtLine";
+export { placeComponents } from "../../src/core/doc/objectOps";

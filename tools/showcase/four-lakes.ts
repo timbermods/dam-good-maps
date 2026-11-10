@@ -12,9 +12,9 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { openingCamera, startMiddleTile, VISTA_ZOOM } from "./core";
+import { openingCamera, placeComponents, startMiddleTile, StartWaterDays, startWaterWithin, VISTA_ZOOM } from "./core";
 import { applyOps, checksOf, emptySimulationSingletons, exportFiles, fallsOf, GAME_VERSION, HazardRun, LAYERS, MapSession, rowOf, TICKS_PER_DAY, voxelsFromHeights, writeTimber, type TimberFile } from "./core";
-import { CHANNELS, designLand, FALLS, H, LAKES, measureLand, N, W, type Land } from "./four-lakes-design";
+import { CHANNELS, designLand, FALLS, fbm, H, LAKES, measureLand, N, W, type Land } from "./four-lakes-design";
 import { writePicture } from "./four-lakes-view";
 
 const arg = (name: string, f: string) => {
@@ -118,12 +118,51 @@ function placeStart(s: MapSession): void {
   applyOps(s, [{ op: "placeEntity", params: { id: newId(), template: "StartingLocation", x: START.x, y: START.y, orientation: START.orientation }, label: "The start" }]);
 }
 
-function placeSources(s: MapSession): void {
-  applyOps(
-    s,
-    SOURCES.map(([x, y, strength]) => ({ op: "placeEntity", params: { id: newId(), template: "WaterSource", x, y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: strength, CurrentStrength: strength } } }, label: "The springs" })),
-  );
+/** The nearest place to (x, y) where a w x h footprint (its corner the returned tile) stands on level, dry, free
+ *  ground of the design (no lake, channel or pool), a tile clear of anything already there. */
+function levelSpot(s: MapSession, land: Land, x: number, y: number, w: number, hgt: number): [number, number] {
+  const b = s.built;
+  const taken = new Set<number>();
+  for (const e of b.entities) for (let dy = -1; dy <= 5; dy++) for (let dx = -1; dx <= 5; dx++) taken.add((e.y + dy) * W + e.x + dx);
+  const fits = (cx: number, cy: number): boolean => {
+    if (cx < 2 || cy < 2 || cx + w > W - 2 || cy + hgt > H - 2) return false;
+    const z = b.heights[cy * W + cx];
+    for (let dy = -1; dy <= hgt; dy++)
+      for (let dx = -1; dx <= w; dx++) {
+        const i = (cy + dy) * W + cx + dx;
+        const inside = dx >= 0 && dy >= 0 && dx < w && dy < hgt;
+        if (land.lake[i] || land.channel[i] || land.pool[i] || b.water[i] > 0) return false;
+        if (inside && (b.heights[i] !== z || taken.has(i))) return false;
+      }
+    return true;
+  };
+  for (let r = 0; r <= 14; r++)
+    for (let dy = -r; dy <= r; dy++)
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        if (fits(x + dx, y + dy)) return [x + dx, y + dy];
+      }
+  throw new Error(`no level ground for a ${w}x${hgt} near ${x},${y}`);
 }
+
+/** The springs, and the other water objects with them (a seep, the aquifers), as one step: the water settles once. */
+function placeSources(s: MapSession, land: Land): void {
+  const ops = [
+    ...SOURCES.map(([x, y, strength]) => ({ op: "placeEntity", params: { id: newId(), template: "WaterSource", x, y, orientation: "Cw0", components: placeComponents("WaterSource", { strength }) } })),
+    ...WATER_OBJECTS.map(([template, x, y, size]) => {
+      const [px, py] = levelSpot(s, land, x, y, size, size);
+      return { op: "placeEntity", params: { id: newId(), template, x: px, y: py, orientation: "Cw0", components: placeComponents(template) } };
+    }),
+  ];
+  const r = s.applyBatch(ops as never, "user", "The springs");
+  if (!r.ok) throw new Error(`the springs: ${r.errors[0]}`);
+}
+
+/** A seep over Steam Lake and the two aquifers by the springs (the drill stands on the first). */
+const WATER_OBJECTS: [string, number, number, number][] = [
+  ["Aquifer", 112, 146, 3],
+  ["Aquifer", 127, 153, 3],
+];
 
 interface WaterReport {
   wetShare: number;
@@ -234,15 +273,27 @@ function strayWater(s: MapSession, land: Land): { x: number; y: number; rgb: [nu
 
 // ------------------------------------------------------------------------------------------------ weather
 
-/** A drought or a badtide of `days` on the settled water: each lake's level and badwater day by day. */
-function weather(s: MapSession, land: Land, hazard: "drought" | "badtide", days: number): void {
+/** A drought or a badtide of `days` on the settled water: each lake's level and badwater, every `step` of a day
+ *  for the first `fine` days and daily after, and the day the start's water goes or turns bad (the editor's own
+ *  rule, sim/startWaterDay.ts). Returns the run's last water. */
+function weather(s: MapSession, land: Land, hazard: "drought" | "badtide", days: number, fine = 0, step = 0.125): { depth: Float64Array; contamination: Float64Array; startDay: number; firstBad: number[]; fallsStop: number[] } {
   const b = s.built;
-  const run = new HazardRun(b.waterModel, { depth: b.water, contamination: b.contamination, out: (b.settle as unknown as { out?: Float64Array }).out } as never, hazard, days);
+  const run = new HazardRun(b.waterModel, { depth: b.water, contamination: b.contamination } as never, hazard, days);
   log(`${hazard}, ${days} days:`);
-  const h = b.heights;
-  for (let day = 1; day <= days; day++) {
-    run.step(TICKS_PER_DAY);
+  const st = startOf(s);
+  const sw = new StartWaterDays(hazard, { depth: b.water, contamination: b.contamination }, { W, H, heights: b.heights, objects: b.entities as never, start: { x: st.x, y: st.y }, within: startWaterWithin(s) });
+  const firstBad = LAKES.map(() => 0);
+  const fallsStop = FALLS.map(() => 0);
+  let t = 0;
+  let last = run.water();
+  while (t < days - 1e-9) {
+    const dt = t < fine - 1e-9 ? step : 1;
+    run.step(Math.round(TICKS_PER_DAY * dt));
+    t += dt;
     const w = run.water();
+    last = w;
+    const whole = Math.abs(t - Math.round(t)) < 1e-9;
+    if (whole) sw.see({ depth: w.depth, contamination: w.contamination });
     const r = readWater(s, land, w.depth);
     const bad = LAKES.map((_, k) => {
       let n = 0;
@@ -254,10 +305,19 @@ function weather(s: MapSession, land: Land, hazard: "drought" | "badtide", days:
         }
       return n ? c / n : 0;
     });
-    void h;
-    log(`  day ${day}: ` + r.lakes.map((l, k) => `${l.name.split(" ")[0]} ${isNaN(l.level) ? "dry" : l.level.toFixed(2)}${hazard === "badtide" ? ` bad ${(bad[k] * 100).toFixed(0)}%` : ""}`).join("  ") + `  | falls ${r.falls.map((f) => (f.width ? `${f.width}w ${f.depth.toFixed(2)}` : "dry")).join(", ")}`);
+    bad.forEach((v, k) => {
+      if (v > 0.5 && !firstBad[k]) firstBad[k] = t;
+    });
+    r.falls.forEach((f, k) => {
+      if (!(f.width >= 3) && !fallsStop[k]) fallsStop[k] = t;
+    });
+    log(`  day ${t.toFixed(t < fine ? 3 : 0)}: ` + r.lakes.map((l, k) => `${l.name.split(" ")[0]} ${isNaN(l.level) ? "dry" : l.level.toFixed(2)}${hazard === "badtide" ? ` bad ${(bad[k] * 100).toFixed(0)}%` : ""}`).join("  ") + `  | falls ${r.falls.map((f) => (f.width ? `${f.width}w ${f.depth.toFixed(2)}` : "dry")).join(", ")}`);
   }
   run.dispose();
+  if (hazard === "drought") log(`  falls stop (fewer than 3 tiles wet on the lip): ${FALLS.map((F, k) => `${F.name} day ${fallsStop[k] || ">" + days}`).join(", ")}`);
+  else log(`  half of each lake bad: ${LAKES.map((L, k) => `${L.name} day ${firstBad[k] ? firstBad[k].toFixed(2) : ">" + days}`).join(", ")}`);
+  log(`  the start's water ${hazard === "drought" ? "is gone" : "turns bad"}: ${sw.has ? (sw.day ? "day " + sw.day : "not in " + days + " days") : "the start has no water a pump reaches"}`);
+  return { depth: last.depth, contamination: last.contamination, startDay: sw.day, firstBad, fallsStop };
 }
 
 /** The start as the opening camera reads it: its middle tile, its level, its turn. */
@@ -266,6 +326,162 @@ function startOf(s: MapSession): { x: number; y: number; z: number; orientation:
   if (!e) throw new Error("the map has no start");
   const [x, y] = startMiddleTile(e as never);
   return { x, y, z: e.z, orientation: e.orientation as "Cw0" };
+}
+
+// ------------------------------------------------------------------------------------------------- plants
+
+/** Tiles' distance to water (4-neighbour steps), and how far each stands over that water's surface. */
+function waterReach(s: MapSession): { dist: Int16Array; over: Int8Array } {
+  const b = s.built;
+  const dist = new Int16Array(N).fill(-1);
+  const over = new Int8Array(N);
+  const top = new Int8Array(N);
+  let q: number[] = [];
+  for (let i = 0; i < N; i++)
+    if (b.water[i] > 0.05) {
+      dist[i] = 0;
+      top[i] = Math.ceil(b.heights[i] + b.water[i]);
+      q.push(i);
+    }
+  while (q.length) {
+    const next: number[] = [];
+    for (const i of q) {
+      const x = i % W;
+      for (const j of [i - 1, i + 1, i - W, i + W]) {
+        if (j < 0 || j >= N || Math.abs((j % W) - x) > 1 || dist[j] >= 0) continue;
+        dist[j] = dist[i] + 1;
+        top[j] = top[i];
+        over[j] = b.heights[j] - top[i];
+        next.push(j);
+      }
+    }
+    q = next;
+  }
+  return { dist, over };
+}
+
+/** TOOL: planting by zone (change 4): birch on the shores, oak groves and berry patches on the meadows, dark pine on
+ *  the high moist ground; on the dry land succulent fields, thorns and dead woods along the old channel. Each is a
+ *  stroke of the shelf's brush (`paintObjects`) over the tiles of its zone. */
+function plant(s: MapSession, land: Land): void {
+  const b = s.built;
+  const st = startOf(s);
+  const { dist, over } = waterReach(s);
+  const moist = (i: number) => b.moisture[i] > 0 && !(b.water[i] > 0);
+  const nearStart = (i: number, r: number) => Math.hypot((i % W) - st.x, Math.floor(i / W) - st.y) < r;
+  const n = (i: number, scale: number, seed: number) => fbm(i % W, Math.floor(i / W), scale, 9000 + seed, 2);
+  const oldBed = (i: number) => land.channel[i] > 0 && CHANNELS[land.channel[i] - 1].name === "Old channel";
+  // how near the old channel: dead woods stand along it
+  const oldDist = new Int16Array(N).fill(99);
+  {
+    let q: number[] = [];
+    for (let i = 0; i < N; i++)
+      if (oldBed(i)) {
+        oldDist[i] = 0;
+        q.push(i);
+      }
+    for (let d = 1; d <= 9 && q.length; d++) {
+      const next: number[] = [];
+      for (const i of q) {
+        const x = i % W;
+        for (const j of [i - 1, i + 1, i - W, i + W])
+          if (j >= 0 && j < N && Math.abs((j % W) - x) <= 1 && oldDist[j] > d) {
+            oldDist[j] = d;
+            next.push(j);
+          }
+      }
+      q = next;
+    }
+  }
+  const paint = (kind: string, template: string | undefined, pick: (i: number) => boolean, density: number, seed: number, label: string, age?: string) => {
+    const area = runsWhere(pick);
+    if (!area.length) return 0;
+    try {
+      const r = applyOps(s, [{ op: "paintObjects", params: { kind, ...(template ? { template } : {}), area, density, seed, ...(age ? { age } : {}) }, label }]);
+      return Object.values(r.objects.added).reduce((a, v) => a + v, 0);
+    } catch (e) {
+      log(`    (${label}: ${(e as Error).message})`);
+      return 0;
+    }
+  };
+  const meadow = (i: number) => moist(i) && over[i] <= 0 && dist[i] > 2;
+  const grove = (i: number) => n(i, 17, 1) > 0.02;
+  const berries = (i: number) => n(i, 9, 2) > 0.34 || (nearStart(i, 15) && !nearStart(i, 7) && n(i, 6, 3) > 0.1);
+  const count: Record<string, number> = {};
+  count.birch = paint("trees", "Birch", (i) => moist(i) && dist[i] <= 2 && !nearStart(i, 6), 0.5, 11, "Birch on the shores", "mixed");
+  count.berries = paint("bushes", "BlueberryBush", (i) => meadow(i) && berries(i) && !nearStart(i, 5), 0.6, 12, "Blueberry patches on the meadows");
+  count.oak = paint("trees", "Oak", (i) => meadow(i) && grove(i) && !berries(i) && !nearStart(i, 7), 0.62, 13, "Oak groves on the meadows", "mixed");
+  count.birch2 = paint("trees", "Birch", (i) => meadow(i) && !grove(i) && !berries(i) && !nearStart(i, 7), 0.12, 14, "Birches in the open meadow");
+  count.pine = paint("trees", "Pine", (i) => moist(i) && over[i] >= 1 && dist[i] > 2 && !nearStart(i, 7), 0.8, 15, "Pine on the high ground", "mixed");
+  // the dry land, dressed on purpose
+  const dry = (i: number) => !(b.moisture[i] > 0) && !(b.water[i] > 0) && !land.lake[i] && !land.pool[i];
+  count.succulents = paint("succulents", "Succulent", (i) => dry(i) && oldDist[i] > 3 && n(i, 21, 4) > 0.08, 0.2, 16, "Succulent fields on the dry benches");
+  count.thorns = paint("thorns", undefined, (i) => dry(i) && (oldBed(i) ? n(i, 12, 5) > 0.15 : oldDist[i] > 6 && n(i, 14, 6) > 0.52), 0.3, 17, "Thorns in the old channel and the dry gullies");
+  // dead woods along the old channel: the wood that stood by its water
+  const before = new Set(s.built.entities.map((e) => e.id));
+  count.dead = paint("trees", "Birch", (i) => dry(i) && oldDist[i] >= 1 && oldDist[i] <= 6 && n(i, 10, 7) > -0.1, 0.3, 18, "The old channel's dead birches");
+  count.dead += paint("trees", "Oak", (i) => dry(i) && oldDist[i] >= 3 && oldDist[i] <= 9 && n(i, 13, 8) > 0.25, 0.25, 19, "The old channel's dead oaks");
+  const dead = s.built.entities.filter((e) => !before.has(e.id) && (e.template === "Birch" || e.template === "Oak"));
+  if (dead.length) {
+    const r = s.applyAll(dead.map((e) => ({ op: "setEntityProps", params: { id: e.id, components: { LivingNaturalResource: { IsDead: true } } } })) as never, "user", "The old channel's wood is dead");
+    if (!r.ok) throw new Error(r.errors[0]);
+  }
+  log(`  planted: ${Object.entries(count).map(([k, v]) => `${k} ${v}`).join(", ")}`);
+}
+
+/** Trees and berry bushes on the map, alive and dead, per 10,000 tiles. */
+function plantCount(s: MapSession): { trees: number; dead: number; berries: number; succulents: number; per10k: { trees: number; berries: number } } {
+  let trees = 0;
+  let deadN = 0;
+  let berriesN = 0;
+  let succ = 0;
+  for (const e of s.built.entities) {
+    const isDead = (e.components as { LivingNaturalResource?: { IsDead?: boolean } }).LivingNaturalResource?.IsDead === true;
+    if (e.template === "Pine" || e.template === "Birch" || e.template === "Oak") {
+      if (isDead) deadN++;
+      else trees++;
+    } else if (e.template === "BlueberryBush") berriesN++;
+    else if (e.template === "Succulent") succ++;
+  }
+  return { trees, dead: deadN, berries: berriesN, succulents: succ, per10k: { trees: (trees * 10000) / N, berries: (berriesN * 10000) / N } };
+}
+
+// ------------------------------------------------------------------------------------------------ objects
+
+/** The set pieces: each a place with a purpose on the route up the valley. */
+function placeObjects(s: MapSession, land: Land): void {
+  const put = (template: string, x0: number, y0: number, label: string, extra: Record<string, unknown> = {}, size: [number, number] | null = null) => {
+    let x = x0;
+    let y = y0;
+    try {
+      if (size) [x, y] = levelSpot(s, land, x0, y0, size[0], size[1]);
+      applyOps(s, [{ op: "placeEntity", params: { id: newId(), template, x, y, orientation: "Cw0", ...extra }, label }]);
+      return true;
+    } catch (e) {
+      log(`    (${label} at ${x},${y}: ${(e as Error).message})`);
+      return false;
+    }
+  };
+  const ruin = (hgt: number, x: number, y: number, label: string, variant = "A") =>
+    put(`RuinColumnH${hgt}`, x, y, label, { components: { "Yielder:Ruin": { Yield: { Good: "ScrapMetal", Amount: 15 * hgt } }, RuinModels: { VariantId: variant } } });
+  // the ruined weir on the Low Fall: piers in the gap and on both shoulders, tallest at the banks (the first metal)
+  const F = FALLS[0];
+  const [a, b] = F.span;
+  let k = 0;
+  for (const x of F.piers) for (const v of [0, 1]) ruin(v ? 3 : 4, x, F.at + v, "The ruined weir's piers", "ABCDE"[k++ % 5]);
+  for (const [dx, hgt] of [[-1, 6], [-2, 5], [-3, 3]] as const) for (const v of [0, 1]) ruin(hgt - v, a + dx, F.at + v, "The ruined weir's west abutment", "ABCDE"[k++ % 5]);
+  for (const [dx, hgt] of [[1, 6], [2, 4], [3, 2]] as const) for (const v of [0, 1]) ruin(hgt - v, b + dx, F.at + v, "The ruined weir's east abutment", "ABCDE"[k++ % 5]);
+  // Steam Lake: the geothermal field, the underground ruins, a seep
+  put("GeothermalField", 172, 98, "Steam Lake's geothermal field", {}, [3, 3]);
+  put("UndergroundRuins", 131, 112, "The ruins under Steam Lake's shore", {}, [5, 5]);
+  // the springs: aquifers, the old drill, unstable cores
+  const aq = s.built.entities.find((e) => e.template === "Aquifer");
+  if (aq) put("AncientAquiferDrill", aq.x, aq.y, "The ancient drill on the aquifer");
+  put("UnstableCore", 113, 152, "An unstable core in the cirque", {}, [2, 2]);
+  put("UnstableCore", 131, 140, "An unstable core in the cirque", {}, [2, 2]);
+  // relics on the way
+  put("MediumRelic", 49, 45, "The relic on Low Lake's island", {}, [3, 3]);
+  put("SmallRelic", 46, 15, "The relic at the Gate", {}, [2, 2]);
 }
 
 // ------------------------------------------------------------------------------------------------ the shots
@@ -312,14 +528,27 @@ function main(): void {
   lap("land");
   placePlugs(s, land);
   lap("plugs");
-  placeSources(s);
+  placeSources(s, land);
   lap("sources and settle");
   placeStart(s);
   lap("start");
+  if (!has("bare")) {
+    placeObjects(s, land);
+    lap("objects");
+    plant(s, land);
+    const pc = plantCount(s);
+    log(`  plants: ${pc.trees} living trees (${Math.round(pc.per10k.trees)} per 10,000 tiles), ${pc.dead} dead, ${pc.berries} berry bushes (${Math.round(pc.per10k.berries)} per 10,000), ${pc.succulents} succulents`);
+    lap("plants");
+  }
   const settle = s.built.settle as unknown as { ticks: number; settled: boolean };
   log(`  settle: ${settle.ticks} ticks, settled ${settle.settled}`);
   const wr = readWater(s, land);
   printWater(wr);
+  {
+    let top = 0;
+    for (let i = 0; i < N; i++) if (land.pool[i]) top = Math.max(top, s.built.heights[i] + s.built.water[i]);
+    log(`  the springs' pool stands at ${top.toFixed(2)}`);
+  }
   const falls = fallsOf(s.built.heights, s.built.water, W, H, 1.5);
   log(`  falls the core sees: ${falls.length} tiles, tallest ${falls.reduce((a, f) => Math.max(a, f.drop), 0).toFixed(1)}`);
   if (has("gorge")) {
@@ -340,15 +569,15 @@ function main(): void {
   if (stray.length) writePicture(join(OUT, `${ROUND}-stray.png`), s.built.heights, s.built.water, 4, stray.map((m) => ({ ...m })));
   lap("picture");
   if (has("weather")) {
-    weather(s, land, "drought", 9);
+    weather(s, land, "drought", 9, 2, 0.25);
     lap("drought");
-    weather(s, land, "badtide", 8);
+    weather(s, land, "badtide", 8, 2, 0.125);
     lap("badtide");
   }
   if (has("checks") || has("save")) {
     const c = checksOf(s);
     log(`  checks: ${c.blocking.length} blocking, ${c.warnings.length} warnings`);
-    for (const row of [...c.blocking, ...c.warnings].slice(0, 30)) log(`    ${c.blocking.includes(row) ? "BLOCK" : "warn "} ${rowOf(row).id}: ${rowOf(row).message}`);
+    for (const row of [...c.blocking, ...c.warnings].slice(0, 30)) log(`    ${c.blocking.includes(row) ? "BLOCK" : "warn "} ${rowOf(row).id}: ${rowOf(row).message} ${JSON.stringify(rowOf(row).where ?? "").slice(0, 300)}`);
     lap("checks");
   }
   if (has("save")) {
