@@ -5,14 +5,16 @@
 // its frame with nothing standing over it (no scaffolding); a seep a slab at the ground round a heap of rocks to 0.57
 // (water) or 0.40 (badwater). The relics are the game's: the small its fallen telescope (SmallRelic.Model), 0.29 high in
 // its 2 × 1; the medium its crashed satellite (MediumRelic.Model), 0.6 high in its 3 × 2; the large its fallen dish
-// antenna (LargeRelic.Model), 1.84 high in its 3 × 3. A blockage is its heap of rock (Blockage.Model), 1.08 high.
+// antenna (LargeRelic.Model), 1.84 high in its 3 × 3. A blockage is its heap of rock (Blockage.Model), 1.08 high; a natural
+// dam its low heap of brown rock with logs through it (NaturalDam.Model), 0.72 high; a badtide drain its box of rusted
+// plate 1 high over two tiles, a hood over its mouth (BadtideDrain.Model).
 // Standard's models are High's and the light look's too, and Standard's baked shadows are fitted to them.
 
 import { describe, expect, it } from "vitest";
 import { modelKeyOf, modelOf, modelTriangles } from "../../src/render3d/entities3d";
 import { LARGE_RELIC_SHADOW } from "../../src/render3d/largeRelic";
 import { litFraction, objectCasters, SHADOW_RES, shadowTops } from "../../src/render3d/light";
-import { BLOCKAGE, LARGE_RELIC, LIGHT, MEDIUM_RELIC, SMALL_RELIC } from "../../src/render3d/palette";
+import { BADTIDE_DRAIN, BLOCKAGE, LARGE_RELIC, LIGHT, MEDIUM_RELIC, NATURAL_DAM, SMALL_RELIC } from "../../src/render3d/palette";
 import { entityView } from "../../src/render3d/model";
 import { mediumRelicParts } from "../../src/render3d/smallRelics";
 
@@ -31,10 +33,12 @@ function bounds(key: string): { x: number; z: number; lo: number; hi: number } {
   return { x: 2 * x, z: 2 * z, lo, hi };
 }
 
-/** Standard's shadow of one object (its model centred `half` from its Coordinates' corner, turned Cw0) on flat ground
- *  as the shader draws it, bilinear between the bake's samples, against its model's own triangles projected along the
- *  sun onto the ground, which is what High's depth map casts: tiles² of each at 8 headings of the sun, 45° up. */
-function shadowAreas(template: string, half: number, seen = false): [number, number][] {
+/** Standard's shadow of one object (its model centred `half` from its Coordinates' corner, or (x, y) apart, turned
+ *  Cw0) on flat ground as the shader draws it, bilinear between the bake's samples, against its model's own triangles
+ *  projected along the sun onto the ground, which is what High's depth map casts: tiles² of each at 8 headings of the
+ *  sun, 45° up. */
+function shadowAreas(template: string, half: number | [number, number], seen = false): [number, number][] {
+  const [hx, hy] = typeof half === "number" ? [half, half] : half;
   const W = 24;
   const H = 24;
   const G = 3;
@@ -55,7 +59,7 @@ function shadowAreas(template: string, half: number, seen = false): [number, num
       const t: number[] = [];
       for (let v = 0; v < 3; v++) {
         const h = (Math.max(0, p[k + 3 * v + 1]) / tanE) * drop;
-        t.push(X0 + half + p[k + 3 * v] - ux * h, Y0 + half - p[k + 3 * v + 2] - uy * h);
+        t.push(X0 + hx + p[k + 3 * v] - ux * h, Y0 + hy - p[k + 3 * v + 2] - uy * h);
       }
       const [ax, ay, bx, by, cx, cy] = t;
       const d = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
@@ -249,6 +253,78 @@ describe("the blockage at the game's measures", () => {
     expect(Math.min(...ratios)).toBeGreaterThan(0.8);
     expect(Math.max(...ratios)).toBeLessThan(1.05);
     expect(all).toBeGreaterThan(0.85);
+    expect(all).toBeLessThan(1.05);
+  });
+});
+
+describe("the natural dam at the game's measures", () => {
+  it("is the game's low heap with logs through it: 0.72 high, overhanging its tile, in its colours, about its triangles", () => {
+    // (a model of its own, D178 as amended 2026-11-10, D148: it was a block's heap of grey stones)
+    expect(modelKeyOf("NaturalDam", 0)).toBe("NaturalDam");
+    const b = bounds("NaturalDam");
+    // (the game's model reaches 0.72 up, and its logs x −0.68…0.73 and z −0.63…0.69 about its tile's middle: 1.45 and
+    // 1.37 across, as `bounds` measures)
+    expect(b.hi).toBeGreaterThan(0.69);
+    expect(b.hi).toBeLessThan(0.75);
+    expect(b.lo).toBeGreaterThanOrEqual(0);
+    expect(b.x).toBeGreaterThan(1.38);
+    expect(b.x).toBeLessThan(1.52);
+    expect(b.z).toBeGreaterThan(1.3);
+    expect(b.z).toBeLessThan(1.45);
+    const col = modelOf("NaturalDam").col;
+    const has = (c: readonly number[]) => {
+      for (let k = 0; k < col.length; k += 3) if (Math.abs(col[k] - c[0]) < 1e-3 && Math.abs(col[k + 1] - c[1]) < 1e-3 && Math.abs(col[k + 2] - c[2]) < 1e-3) return true;
+      return false;
+    };
+    for (const c of [...NATURAL_DAM.rock, NATURAL_DAM.log, ...NATURAL_DAM.stone, ...NATURAL_DAM.shard]) expect(has(c)).toBe(true);
+    // (the game's has 179)
+    expect(modelTriangles("NaturalDam")).toBeLessThanOrEqual(200);
+  });
+
+  // (it cast none before; two discs, its foot as wide as a disc may be, nothing on its own tile: on the ground it does
+  // not stand over, 0.84–1.00 a heading as fitted, 0.92 in all)
+  it("casts Standard's shadow about as large as its model's round the compass", () => {
+    const areas = shadowAreas("NaturalDam", 0.5, true);
+    const ratios = areas.map(([s, m]) => s / m);
+    const all = areas.reduce((t, [s]) => t + s, 0) / areas.reduce((t, [, m]) => t + m, 0);
+    expect(Math.min(...ratios)).toBeGreaterThan(0.8);
+    expect(Math.max(...ratios)).toBeLessThan(1.05);
+    expect(all).toBeGreaterThan(0.85);
+    expect(all).toBeLessThan(1.0);
+  });
+});
+
+describe("the badtide drain at the game's measures", () => {
+  it("is the game's box of rusted plate: 1 high over its two tiles, its hood 0.37 out, in its colours, about its triangles", () => {
+    const p = modelOf("BadtideDrain").pos;
+    const lo = [Infinity, Infinity, Infinity];
+    const hi = [-Infinity, -Infinity, -Infinity];
+    for (let k = 0; k < p.length; k++) {
+      lo[k % 3] = Math.min(lo[k % 3], p[k]);
+      hi[k % 3] = Math.max(hi[k % 3], p[k]);
+    }
+    // (centred on its footprint's middle tile, the map's +y our −z: the game's box x −0.5…0.5, 0…1 up, from the back of
+    // its first tile to the front of its second, z 1.5…−0.5, and its hood to −0.87, over the third)
+    for (const [v, want] of [[lo[0], -0.5], [hi[0], 0.5], [lo[1], 0], [hi[1], 1], [hi[2], 1.5], [lo[2], -0.87]]) expect(Math.abs(v - want)).toBeLessThan(0.01);
+    const col = modelOf("BadtideDrain").col;
+    const has = (c: readonly number[]) => {
+      for (let k = 0; k < col.length; k += 3) if (Math.abs(col[k] - c[0]) < 1e-3 && Math.abs(col[k + 1] - c[1]) < 1e-3 && Math.abs(col[k + 2] - c[2]) < 1e-3) return true;
+      return false;
+    };
+    for (const c of Object.values(BADTIDE_DRAIN)) expect(has(c)).toBe(true);
+    // (the game's has 391)
+    expect(modelTriangles("BadtideDrain")).toBeLessThanOrEqual(300);
+  });
+
+  // (it cast none before; a disc over each of its two tiles, nothing on its own: on the ground it does not stand over,
+  // 0.97–1.19 a heading as fitted, longest with the sun along it, 1.00 in all)
+  it("casts Standard's shadow about as large as its model's round the compass", () => {
+    const areas = shadowAreas("BadtideDrain", [0.5, 1.5], true);
+    const ratios = areas.map(([s, m]) => s / m);
+    const all = areas.reduce((t, [s]) => t + s, 0) / areas.reduce((t, [, m]) => t + m, 0);
+    expect(Math.min(...ratios)).toBeGreaterThan(0.9);
+    expect(Math.max(...ratios)).toBeLessThan(1.25);
+    expect(all).toBeGreaterThan(0.95);
     expect(all).toBeLessThan(1.05);
   });
 });

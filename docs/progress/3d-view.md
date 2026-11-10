@@ -3255,7 +3255,7 @@ map stores its Coordinates alone, no orientation and no state, so it has one loo
   stretched along three axes, fitted so their outline covers the game's heap's from 17 cameras, cut at the ground and
   at 1.078), three-sided posts and beam, the splinter, the shards. In the game's colours (`palette.ts` `BLOCKAGE`),
   straight in the objects' game light (`gameObjectLight`); Standard and High draw the same model (`high/landmarks.ts`
-  copies it), with the objects' fade near the pointer. High's rubble block is gone; the natural dam keeps it.
+  copies it), with the objects' fade near the pointer. High's rubble block is gone; the natural dam kept it until it became the game's too (below).
 - **Measured:** the bounds within 1 % of the game's. The silhouette, our triangles against the game's projected from
   16 cameras (8 headings, 30° and 60° down) and from above: 0.97–1.02 times the game's area, IoU 0.92–0.97.
 - **Standard's shadow:** it cast none. One upright disc round the tile's middle (`BLOCKAGE_SHADOW`, light.ts kind 17:
@@ -3330,6 +3330,132 @@ are a fallen telescope (`SmallRelic.Model`, 2 × 1, 480 triangles) and a crashed
   not the game's own light. (2) The satellite's east panel is flat, where the game's is creased across its middle, and
   its cells are shallow pits, where the game's catch the light in facets. (3) The rest of the placeholders in the
   large relic's falls short (2) remain, the natural dam next.
+
+## Dry ground and dead trees from the widest view (D135, D334 as amended 2026-11-10, D496, D497; `fix/dry-widest`)
+
+Four Lakes r12's widest frame (the game's `day1-widest`, posed in ours by `tools/capture-ingame.ts`) showed our dry
+ground mottled lilac and tan where the game's is one even grey-blue, and its dead birches as faint grey specks where the
+game's are white. Planning's ruling: match the dry tone there and the dead trees' white; nothing else of light or colour.
+
+- **The cause, dry ground.** Not the mean: under the game's mask of dry ground (209,127 pixels: grey, unsaturated, not
+  green) ours was already the game's to 0.005 a channel. The mottle was our own broad hue drift (D334: dry ground
+  drifting between `GROUND.dryCool` and `GROUND.dryWarm` over 4 to 11 tiles). The game draws one `Desert` texture × its
+  detail texture × 2: its red − blue varies over blocks of ¼, 1, 4 and 8 tiles by 7.0, 5.1, 3.0 and 1.9 % of its luma's
+  mean, mostly from its grains; ours drifted all the way, 9.6, 9.3, 7.7 and 5.8 (`tools/ground-variation.ts`, which now
+  prints this beside the luma's spread). The luma's spread was already the game's (`DRY_BROAD`), and neither the
+  altitude ramp, the moisture and contamination channels nor the mips added to it.
+- **The fix, dry ground.** The drift goes a quarter of the way from its own mean colour (`materials.ts` `DRY_DRIFT`,
+  `DRY_DRIFT_MEAN`), so the pattern's mean is unchanged (the flat dry map's albedo 69.1/57.1/46.3 against 69.2/57.2/46.4
+  before, the game's texture 69/57/46), and its fine grains are a little warmer and cooler over a quarter of a tile
+  (`DRY_GRAIN`), as the texture's: the hue's spread now 6.8, 4.2, 2.7 and 1.8 (Standard). The palette is unchanged.
+- **Measured** in the frame (mean, the 12-pixel blocks' spread, red − blue's spread), game / ours before → after:
+  Standard 0.474/0.516/0.497, 0.023/0.018/0.019, 0.020 / 0.471/0.511/0.498, 0.030/0.019/0.022, 0.034 →
+  0.472/0.511/0.496, 0.026/0.018/0.019, 0.023; High 0.463/0.506/0.495, 0.034/0.021/0.022, 0.036 → 0.465/0.507/0.494,
+  0.030/0.020/0.019, 0.025.
+- **The cause, dead trees.** Their colour is the game's (the dead birch's wood its light part, 0.517/0.466/0.388), but
+  ours were half as thick: their wood covered 0.70 to 0.82 of the area of the game's MatureDead models (where their
+  textures' alpha keeps it) and 0.4 to 0.7 of their outline from the widest views' 35 to 75° (High's far models 0.5 to
+  0.7). Most of r12's dead trees are birches (686 of 1,055).
+- **The fix, dead trees.** Each is built to the game's slices (`dying.ts` `DEAD_LIMBS`, used by both looks): the pine a
+  pole 0.12 thick at its foot and 0.06 near its top, broken off askew at 2.37, with five stubs; the birch a trunk forking
+  at 0.4 into two limbs rising near upright, 0.25 apart, to 1.39; the oak a trunk 0.27 at its flared foot and 0.15 at
+  1.0, splitting into three limbs broken off 0.3 out at 1.33, a pale broken twig on each to 1.53. High's far models
+  take three sides, each a little thicker so it is as wide on average. Their outlines are now 0.81 to 0.94 of the
+  game's (Standard and High near), High's far 0.70 to 0.92; their wood 0.90 to 1.39 of the game's area
+  (`dying.test.ts` holds 0.85 to 1.4 in every look). Every end that shows is closed: the oak's trunk top a pale broken
+  disc, its limbs' broken ends their pale twigs, the birch's limbs to a point (`dying.test.ts` looks straight down over
+  each trunk's top in every look). Standard 50, 48 and 61 triangles (the budget 64).
+- **Measured** in the frame, the dead trees' specks on the dry ground east (lighter than the ground round them by 0.1,
+  unsaturated): the game's 399 pixels, mean luma 0.668, the lightest tenth 0.792; Standard 183, 0.604, 0.670 → 216,
+  0.617, 0.698; High 171, 0.616, 0.720 → 214, 0.619, 0.713.
+- **Cost:** Standard +14,300 triangles on r12 (+2.7 %), High +25,700 (+3.5 %), draw calls unchanged. `benchOrbit` on r12
+  (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame, base → branch): Standard whole map 3.74 → 4.06
+  ms, dry ground 40 away 2.88 → 2.97; High 3.39 → 3.40 and 3.30 → 3.09. Every frame 7.0 ms at 144 Hz.
+- **Falls short:** (1) The game's dead birches still read whiter: its trunks, under a pixel wide from the widest view,
+  light whole pixels (its anti-aliasing is a post filter, `AntiAliasingType` 1 in the game's settings), where our
+  multisampling blends them with the ground at half their contrast. That is how every thin thing is drawn, not the dead
+  trees' look, and stays for its own decision. (2) The game's twig cards (a sixth of their area kept by their alpha) are
+  drawn only as the oak's three twigs. (3) Dry ground's blocks still spread 0.026 in red against the game's 0.023: the
+  rest of the frame's spread is its light on the land's slopes, which this did not touch.
+
+## The natural dam as the game draws it (D135, D178 as amended 2026-11-10, D496, D497; `fix/natural-dam`)
+
+The generator's weirs are lines of natural dams across a river's channel (half the maps; river valley 2 at 128 has six).
+Ours drew each as five grey stones on a generic block's batch in Standard and as rubble and planks of our own colours in
+High. The game's (`NaturalDam.Model`, 1 × 1, 179 triangles, one node) is the one model for every natural dam.
+
+- **Read from the game's model** (numbers only, `tools/game-model-albedo.py` and scratch fits): a low heap of faceted
+  brown rock (108 triangles, albedo 0.215/0.185/0.149) with a flat top 0.62 high, overhanging its tile by up to 0.18;
+  three five-sided logs through it, their ends sticking out of its sides (0.202/0.156/0.110); five flat pale stones
+  lying over its top, the highest to 0.72, and three loose shards. Its bounds about its tile's middle x −0.68…0.73,
+  z −0.63…0.69, 0…0.717 up. Its material is the blockage's (EnvironmentURP, smoothness 0.5, not metallic), so its
+  albedo goes straight into our light.
+- **Built** (`render3d/naturalDam.ts`, new): our own model to those measures, 174 triangles: the heap as rings at four
+  heights, each at its outline along 12 headings, closed by a flat top, faceted in the three shades of the game's
+  heap's faces by lightness; the logs as five-sided bars closed at their ends; the stones as low pyramids over their
+  rims; the shards. Built on the relics' `Parts` (`relicParts.ts`). In the game's colours (`palette.ts`
+  `NATURAL_DAM`), straight in the objects' game light; Standard and High draw the same model (`high/landmarks.ts`
+  copies it; High's rubble and planks are gone), with the objects' fade near the pointer.
+- **Measured:** the bounds within 0.03 of the game's (ours x −0.71…0.73, z −0.64…0.67, 0…0.732 up). The silhouette,
+  our triangles against the game's projected from 16 cameras (8 headings, 30° and 60° down) and from above:
+  0.96–1.02 times the game's area, IoU 0.91–0.94.
+- **Standard's shadow:** it cast none. At 0.62 high under the 45° sun the heap's shadow reaches about half a tile past
+  its own reach, so it casts: two upright discs round the tile's middle (`NATURAL_DAM_SHADOW`, light.ts kind 18: 0 to
+  0.4 up at radius 0.94, as wide as `PLANT_WIDEST` lets a disc be, and 0.4 to 0.75 at 0.8), fitted through the bake
+  and the shader's bilinear read to the model's triangles along the 45° sun at 8 headings, shading nothing on its own
+  tile as the blockage's (`OWN_TILE_LIT`). On the ground it does not stand over, 0.84–1.00 of the model's shadow a
+  heading, 0.92 in all (one disc fitted best at 0.92–1.19, too large on the diagonals); `landmarksGame.test.ts` holds
+  it within 0.8–1.05 a heading and 0.85–1.0 in all.
+- **Judged:** no game frame of ours holds a natural dam (Four Lakes has none). At 12 away over river valley 2's weir
+  (32…34, 92…93), Standard and High alike: low brown heaps of flat-topped rock with paler stones, awash in the pool the
+  weir holds, as the game's model renders offline.
+- **Cost:** +74 triangles a natural dam in Standard (+444 on river valley 2), −114 in High (its rubble and planks were
+  heavier); the draw calls unchanged. `benchOrbit` on river valley 2 at 128 (1600 × 900, headed Chrome, RTX 2070
+  Super; the GPU's median a frame, two runs of the base → two of the branch): Standard whole map 2.95, 2.61 → 1.35,
+  2.76 ms, the weir 12 away 2.96, 2.91 → 2.88, 2.84; High 1.80, 1.72 → 2.03, 1.97 and 3.90, 3.97 → 3.92, 3.91: within
+  the runs' spread. Every frame 7.0 ms at 144 Hz.
+- **Falls short:** (1) No game frame shows a natural dam; it is judged against the game's model rendered offline, not
+  the game's own light. (2) The heap's facets are its rings' 12 a ring, larger than the game's many small ones near.
+  (3) The rest of the placeholders in the large relic's falls short (2) remain.
+
+## The badtide drain as the game draws it (D135, D178 as amended 2026-11-10, D496, D497; `fix/badtide-drain`)
+
+Ours drew the badtide drain as a grated box of our own colours, 0.81 high (the large relic's falls short (2)). The
+game's (`BadtideDrain.Model`, 391 triangles, one node) is the one model for every drain; the map stores its Coordinates
+and its orientation, the way it flows. Its footprint is 1 × 3: the box on the two ground tiles, the third the air its
+water falls through.
+
+- **Read from the game's model** (numbers only, `tools/game-model-albedo.py` and scratch fits): a box 1 × 1 × 2
+  filling its two tiles, 1.0 high, its faces flat and coloured by vertex colour: a rust-orange frame 0.1 wide round
+  every face (grey squares at its corners) and dark panels; two rails along its top and down its back; on each side two
+  pipes 0.1 wide rising from its foot in quarter bends (radii 0.5–0.6 and 0.2–0.3 round one point) and running on to its
+  front. At its front a recess 0.1 deep round a plate sloping back from 1.62 to 1.9, a round hole 0.8 across in it,
+  and behind the hole a black funnel narrowing to 0.28 and closing at 0.7; over the hole's upper half a rusted hood
+  0.12 thick reaching 0.37 out at its top and sloping back to the box at its sides. Its material is metallic (0.53,
+  smoothness 0.3), folded into albedo for our light as the relics' are (`palette.ts` `BADTIDE_DRAIN`): the frame and
+  pipes 0.233/0.143/0.09 from the game's 0.427/0.254/0.158, the corners 0.167/0.143/0.119, the panels 0.1/0.089/0.074,
+  the funnel 0.056/0.046/0.039 and the hood 0.166/0.102/0.065.
+- **Built** (`render3d/badtideDrain.ts`, new): our own model to those measures, 236 triangles (ours before, 244): the
+  faces as their frames, panels and rails tiled flat, the pipes as strips standing 0.006 off the sides, the plate, the
+  funnel as one cone, the hood in 8 steps round. On the relics' `Parts`. Standard and High draw the same model, in the
+  objects' game light, with the objects' fade near the pointer.
+- **Measured:** the bounds within 0.006 of the game's. The silhouette, against the game's from 16 cameras (8
+  headings, 30° and 60° down) and from above: 1.00–1.01 times the game's area, IoU 0.99–1.00.
+- **Standard's shadow:** it cast none. One upright disc round the middle of each of its two tiles
+  (`BADTIDE_DRAIN_SHADOW`, light.ts kind 19: 0 to 1.2 up, radius 0.8), fitted to the model's shadow along the 45° sun at
+  8 headings, shading nothing on its own tile (`OWN_TILE_LIT`), turned with the drain. On the ground it does not stand
+  over, 0.97–1.19 of the model's shadow a heading (longest with the sun along it), 1.00 in all; a column over each tile
+  cast 0.69–0.99, its diagonals short. `landmarksGame.test.ts` holds 0.9–1.25 a heading and 0.95–1.05 in all.
+- **Judged:** no game frame of ours holds a drain (the generator places none). Six placed on river valley 2's banks,
+  14 away, Standard and High alike: dark rusted boxes with orange frames, rails and bent pipes, the funnel black under
+  its hood, as the game's model renders offline, their sunlit faces no darker in Standard than in High.
+- **Cost:** −8 triangles a drain, the draw calls unchanged. `benchOrbit` on river valley 2 at 128 with the six drains
+  (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame, one run each, base → branch): Standard whole map
+  2.59 → 2.57 ms, the drains 14 away 2.89 → 2.78; High 2.36 → 1.67 and 3.80 → 3.80: within the runs' spread. Every
+  frame 7.0 ms at 144 Hz.
+- **Falls short:** (1) No game frame shows a drain; it is judged against the game's model rendered offline, not the
+  game's own light. (2) The game's pipes are drawn flat on the sides; ours stand 0.006 off them. (3) The rest of the
+  placeholders in the large relic's falls short (2) remain.
 
 ## A fall over a cave's mouth (D154 as amended 2026-11-08, D496; `fix/cave-mouth-curtain`)
 

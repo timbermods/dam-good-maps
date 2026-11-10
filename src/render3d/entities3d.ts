@@ -34,12 +34,14 @@
 //   round its footprint (the terrain shader). Geothermal fields: dark rock with glowing
 //   vents. Relics: the game's fallen telescope (small), crashed satellite (medium) and fallen dish antenna (large), at
 //   their measures and in their colours (smallRelics.ts, largeRelic.ts). Thorns: dark brambles. Blockages: the game's heap
-//   of grey rock with broken posts and pale plank shards (blockage.ts). Natural dams: heaps of stones. Timberborn 1.x objects, each shaped after the game's own render and in its game
+//   of grey rock with broken posts and pale plank shards (blockage.ts). Natural dams: the game's low heap of brown rock with
+//   logs through it and flat stones over it (naturalDam.ts). Timberborn 1.x objects, each shaped after the game's own render and in its game
 //   footprint: seeps (a stone slab at the ground round a pit, the terrain's tops over its 2 × 2
 //   cut out like a mine site's, heaped with rounded rocks to 0.57, or 0.40 for badwater, the gaps dark teal or
 //   rust), the aquifer (a dry, dark rubble cross with a hole), its drill (a tall, narrow
-//   yellow-and-black auger tower on a stone footing, a dark housing and a pipe), the badtide drain (a
-//   rusty grated box, its open end out over the drop), the unstable core (a small dark segmented dome
+//   yellow-and-black auger tower on a stone footing, a dark housing and a pipe), the badtide drain (the
+//   game's box of rusted plate, a black funnel in its mouth under a hood out over the drop, badtideDrain.ts), the
+//   unstable core (a small dark segmented dome
 //   with a red eye, half sunk on a soft orange scorch mark), and the reserves (a pile: a log pen with a
 //   sign; a warehouse: a low layer of small crates in a plank yard with rope posts; a tank: a wooden
 //   barrel on legs with a pump).
@@ -53,14 +55,16 @@
 // redraw looks the same.
 
 import { EntityGeometryCache } from "./entityGeometry";
-import { BoxGeometry, BufferGeometry, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, OctahedronGeometry, PlaneGeometry, Quaternion, Vector3, type ShaderMaterial } from "three";
+import { BoxGeometry, BufferGeometry, CircleGeometry, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, OctahedronGeometry, PlaneGeometry, Quaternion, Vector3, type ShaderMaterial } from "three";
 import { FOOTPRINTS, rotate, startEntranceTile, worldBlocks, type Orientation } from "../core/format/footprints";
 import { DEAD, DYING, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
 import { plantScale, RANDOMIZER } from "./plantSize";
-import { DEAD_FORM, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
+import { DEAD_FORM, DEAD_LIMBS, type DeadPart, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
 import { crownShade, GEOTHERMAL, GEOTHERMAL_ROCK, LANDMARK, MINE, OWN_LIGHTNESS, ownAlbedo, RUIN, SLOPE, START, THORNS, TREE_COLOURS, WATER } from "./palette";
 import { objectSoilAt } from "./runSoil";
+import { badtideDrainParts } from "./badtideDrain";
 import { blockageParts } from "./blockage";
+import { naturalDamParts } from "./naturalDam";
 import { largeRelicParts } from "./largeRelic";
 import { mediumRelicParts, smallRelicParts } from "./smallRelics";
 import { LAND, LAND_GROW } from "./objectFade";
@@ -331,13 +335,8 @@ const MODELS: Record<string, () => Model> = {
       .add(cone(0.475, 0.72, 7), TREE_COLOURS.pine, { y: 1.84 + 0.36, ry: 0.45 })
       .add(cone(0.33, 0.6, 7), TREE_COLOURS.pine, { y: 2.4 + 0.3, ry: 0.9 })
       .graded("Pine"),
-  "Pine.dead": () => {
-    // a tall bare pole, its top broken off askew, a few stubs of branches
-    const m = new Model().add(post(0.075, 0.05, 1.25, 6), DEAD_WOOD, { y: 0.625 }).add(post(0.05, 0.03, 0.22, 5), DEAD_DARK, { x: 0.03, y: 1.33, rz: -0.35 });
-    branch(m, 0.78, 1.0, 0.5, 0.13, 0.03, DEAD_DARK);
-    branch(m, 1.02, 3.7, 0.55, 0.1, 0.025, DEAD_DARK);
-    return m;
-  },
+  // (each dead tree the game's at its size: dying.ts DEAD_LIMBS)
+  "Pine.dead": () => deadTree("Pine", { wood: DEAD_WOOD, dark: DEAD_DARK }),
   // the game's grown birch: a warm grey trunk forking low into two stems, under a round crown from 0.95 to 1.92, 1.0 across
   Birch: () =>
     new Model()
@@ -348,14 +347,7 @@ const MODELS: Record<string, () => Model> = {
       .add(ico(0.5), TREE_COLOURS.birch, { y: 1.42, sy: 0.98 })
       .add(oct(0.3), shade(TREE_COLOURS.birch, 1.08), { x: 0.2, y: 1.58, z: -0.14 })
       .graded("Birch"),
-  "Birch.dead": () => {
-    // a warm grey trunk forking into two bare arms, and a twig
-    const m = new Model().add(post(0.06, 0.045, 0.5, 5), DEAD_BIRCH, { y: 0.25 });
-    branch(m, 0.46, 0.3, 1.2, 0.55, 0.045, DEAD_BIRCH);
-    branch(m, 0.46, 3.4, 1.15, 0.5, 0.04, DEAD_BIRCH);
-    branch(m, 0.62, 1.9, 0.8, 0.2, 0.025, shade(DEAD_BIRCH, 0.8));
-    return m;
-  },
+  "Birch.dead": () => deadTree("Birch", { wood: DEAD_BIRCH }),
   // the game's grown oak: a thick trunk to 1.2, flared at the root, under one broad, flat-layered crown from 1.13 to 2.26,
   // 1.7 across
   Oak: () =>
@@ -366,12 +358,7 @@ const MODELS: Record<string, () => Model> = {
       .add(oct(0.4), shade(TREE_COLOURS.oak, 0.92), { x: -0.45, y: 1.48, z: -0.28, sy: 0.6, ry: 1.1 })
       .add(oct(0.44), shade(TREE_COLOURS.oak, 1.05), { y: 2.02, sy: 0.55, ry: 0.7 })
       .graded("Oak"),
-  "Oak.dead": () => {
-    // a thick bare trunk, its limbs broken off short, pale where they broke
-    const m = new Model().add(post(0.15, 0.11, 0.62, 6), DEAD_BARK, { y: 0.31 }).add(new CylinderGeometry(0.1, 0.1, 0.02, 6), DEAD_BREAK, { y: 0.62 });
-    for (let k = 0; k < 3; k++) branch(m, 0.56, 0.5 + (k * Math.PI * 2) / 3, 1.05, 0.26, 0.06, DEAD_BARK);
-    return m;
-  },
+  "Oak.dead": () => deadTree("Oak", { wood: DEAD_BARK, break: DEAD_BREAK }),
   Succulent: () => succulent(false),
   "Succulent.dead": () => succulent(true),
   // the game's grown blueberry bush: a low mound 0.4 tall, its berries on top; 0.94 across, as much as the game's leaves
@@ -477,6 +464,9 @@ const MODELS: Record<string, () => Model> = {
     for (const { points, colour } of blockageParts()) m.tris(points, colour);
     return m;
   },
+  // (the game's low heap of brown rock, logs through it and flat stones over it, at its measures and in its colours:
+  // naturalDam.ts)
+  NaturalDam: () => fromParts(naturalDamParts()),
   Thorns: () => {
     // a low, dark bramble with thorny canes sticking out
     const m = new Model().add(ico(0.34), THORNS, { y: 0.2, sy: 0.6 }).add(ico(0.24), [0.28, 0.14, 0.12], { x: 0.18, y: 0.3, z: -0.1, sy: 0.8 });
@@ -487,7 +477,8 @@ const MODELS: Record<string, () => Model> = {
   BadwaterSeep: () => seep(true),
   Aquifer: aquifer,
   AncientAquiferDrill: aquiferDrill,
-  BadtideDrain: badtideDrain,
+  // (the game's box of rusted plate with its mouth and hood, at its measures and in its colours: badtideDrain.ts)
+  BadtideDrain: () => fromParts(badtideDrainParts()),
   UnstableCore: unstableCore,
   ReservePile: reservePile,
   ReserveWarehouse: reserveWarehouse,
@@ -496,7 +487,7 @@ const MODELS: Record<string, () => Model> = {
 /** The models in the game's own colours, its albedo straight (palette.ts `TREE_COLOURS`, `LANDMARK`, `SMALL_RELIC`, `MEDIUM_RELIC`, `LARGE_RELIC`, `BLOCKAGE`; the
  *  ruins and the start are made apart). Every other model's colours are our own, drawn at `ownAlbedo` (palette.ts
  *  `OWN_LIGHTNESS`). */
-const GAME_COLOURED = new Set(["Pine", "Birch", "Oak", "BlueberryBush", "WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep", "SmallRelic", "MediumRelic", "LargeRelic", "Blockage"]);
+const GAME_COLOURED = new Set(["Pine", "Birch", "Oak", "BlueberryBush", "WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep", "SmallRelic", "MediumRelic", "LargeRelic", "Blockage", "NaturalDam", "BadtideDrain"]);
 for (const key of Object.keys(MODELS))
   if (!GAME_COLOURED.has(key.split(".")[0])) {
     const make = MODELS[key];
@@ -516,6 +507,33 @@ for (const species of Object.keys(DEAD_FORM)) {
 // object, within its footprint (a model's x is east and z south; a footprint's local y runs north, so
 // −z) and centred on it (`CENTRED`). Flat vertex colours and low triangle counts, like the others;
 // both looks draw them. A seep's pit is a terrain cut-out (`mineCutout`), like a mine site's.
+
+/** A dead tree's wood (dying.ts `DEAD_LIMBS`) in its colours by part. */
+function deadTree(species: keyof typeof DEAD_LIMBS, colours: Partial<Record<DeadPart, Rgb>>): Model {
+  const m = new Model();
+  const colour = (part: DeadPart) => colours[part] ?? colours.wood!;
+  for (const { line, sides, part, tip, cap } of DEAD_LIMBS[species]) {
+    tube(m, line.slice(0, -1), sides, colour(part));
+    tube(m, line.slice(-2), sides, colour(tip ?? part));
+    if (!cap) continue;
+    // (the top end closed: a disc across it, facing along the last length)
+    const [a, b] = line.slice(-2);
+    const d = new Vector3(b[0] - a[0], b[1] - a[1], b[2] - a[2]).normalize();
+    m.add(new CircleGeometry(b[3], sides, -Math.PI / 2).applyQuaternion(new Quaternion().setFromUnitVectors(new Vector3(0, 0, 1), d)), colour(cap), { x: b[0], y: b[1], z: b[2] });
+  }
+  return m;
+}
+
+/** A tapering tube along a line of points (x, y, z, radius): an open cylinder of `sides` from each point to the next
+ *  (2 × sides triangles each), or a cone to a point of radius 0 (sides triangles). */
+function tube(m: Model, line: readonly (readonly number[])[], sides: number, color: Rgb): void {
+  for (let i = 0; i + 1 < line.length; i++) {
+    const [a, b] = [line[i], line[i + 1]];
+    const d = new Vector3(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+    const g = (b[3] > 0 ? new CylinderGeometry(b[3], a[3], d.length(), sides, 1, true) : new ConeGeometry(a[3], d.length(), sides, 1, true)).applyQuaternion(new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), d.clone().normalize()));
+    m.add(g, color, { x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2, z: (a[2] + b[2]) / 2 });
+  }
+}
 
 /** A square-sectioned bar of half-width r from a to b in space (8 triangles). */
 function beam(m: Model, a: readonly number[], b: readonly number[], r: number, color: Rgb): void {
@@ -709,29 +727,6 @@ function aquiferDrill(): Model {
   // the pipe, off to the west, on two black trestles
   m.add(cyl(0.12, 0.12, 0.9, 6), [0.85, 0.82, 0.7], { x: -1.05, y: 0.95, z: 0.35, rz: Math.PI / 2 });
   for (const x of [-0.95, -1.3]) m.add(box(0.1, 0.5, 0.2), black, { x, y: 0.55, z: 0.35 });
-  return m;
-}
-
-/** The badtide drain (1 × 3, its back against a wall on the −y side): a rusty, grated metal box, its
- *  open end out over the drop. The model's north (−z) is the footprint's local +y. */
-function badtideDrain(): Model {
-  const rust: Rgb = [0.5, 0.29, 0.14];
-  const metal: Rgb = [0.2, 0.22, 0.22];
-  const m = new Model().add(box(0.9, 0.7, 2.7), metal, { y: 0.4, z: 0.1 });
-  // the grate: slats across the top
-  for (let k = 0; k < 7; k++) m.add(box(0.8, 0.05, 0.1), rust, { y: 0.77, z: 1.25 - 0.34 * k });
-  // the frame: rails along the top and posts at the corners
-  for (const s of [-1, 1]) {
-    m.add(box(0.07, 0.07, 2.7), shade(rust, 0.85), { x: s * 0.43, y: 0.78, z: 0.1 });
-    for (const z of [1.4, -1.2]) m.add(box(0.09, 0.7, 0.09), shade(rust, 0.9), { x: s * 0.43, y: 0.4, z });
-  }
-  m.add(box(0.9, 0.07, 0.07), shade(rust, 0.85), { y: 0.78, z: 1.4 });
-  // the open end: a dark mouth, its frame, and a lip of slats over the drop
-  m.add(box(0.7, 0.45, 0.04), [0.04, 0.04, 0.05], { y: 0.4, z: -1.255 });
-  for (const y of [0.18, 0.62]) m.add(box(0.9, 0.07, 0.07), rust, { y, z: -1.25 });
-  m.add(box(0.7, 0.05, 0.4), shade(rust, 1.1), { y: 0.14, z: -1.3 });
-  // two pipes bent along the side
-  for (const s of [-1, 1]) beam(m, [s * 0.47, 0.3, 0.9], [s * 0.47, 0.5, 0.3], 0.04, [0.38, 0.22, 0.12]);
   return m;
 }
 
@@ -1032,14 +1027,6 @@ function fromParts(parts: readonly { points: number[]; colour: Rgb }[]): Model {
   return m;
 }
 
-/** A heap of stones on a block (natural dams), tinted by its template. */
-function rubble(): Model {
-  const m = new Model();
-  const stones: [number, number, number, number, number][] = [[-0.18, 0.2, -0.15, 0.32, 1], [0.22, 0.17, 0.12, 0.28, 0.86], [-0.05, 0.14, 0.26, 0.24, 0.78], [0.16, 0.44, -0.1, 0.22, 0.94], [-0.2, 0.42, 0.14, 0.2, 0.9]];
-  for (const [x, y, z, r, shade] of stones) m.add(ico(r), [shade, shade, shade], { x, y, z, sy: 0.8 });
-  return m.own();
-}
-const RUBBLE = new Set(["NaturalDam"]);
 
 /** The light look's models, for browsers that render in software (a few triangles each; D110). */
 const LITE_MODELS: Record<string, () => Model> = {
@@ -1571,7 +1558,7 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
     if (key === "block") {
       const fp = FOOTPRINTS[template];
       const color = genericColor(template);
-      const b = RUBBLE.has(template) ? batch("block.rubble", rubble) : batch("block", () => new Model().add(box(0.92, 0.92, 0.92), [1, 1, 1], { y: 0.46 }).own());
+      const b = batch("block", () => new Model().add(box(0.92, 0.92, 0.92), [1, 1, 1], { y: 0.46 }).own());
       const o = ORIENTATION_NAMES[v.orientation[k]] as Orientation;
       if (fp) for (const bl of worldBlocks(fp, { template, x, y, z, orientation: o, flipped: !!(flags & FLIPPED) })) put(b, bl.x + 0.5, bl.z, -(bl.y + 0.5), 0, 1, color);
       else put(b, x + 0.5, z, -(y + 0.5), 0, 1, color);
