@@ -57,7 +57,7 @@ import { FOOTPRINTS, rotate, startEntranceTile, worldBlocks, type Orientation } 
 import { DEAD, DYING, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
 import { plantScale, RANDOMIZER } from "./plantSize";
 import { DEAD_FORM, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
-import { GEOTHERMAL, GEOTHERMAL_ROCK, LANDMARK, MINE, OWN_LIGHTNESS, ownAlbedo, RELIC_STONE, RUIN, SLOPE, START, THORNS, TREE_COLOURS, WATER } from "./palette";
+import { crownShade, GEOTHERMAL, GEOTHERMAL_ROCK, LANDMARK, MINE, OWN_LIGHTNESS, ownAlbedo, RELIC_STONE, RUIN, SLOPE, START, THORNS, TREE_COLOURS, WATER } from "./palette";
 import { objectSoilAt } from "./runSoil";
 import { LAND, LAND_GROW } from "./objectFade";
 
@@ -122,6 +122,16 @@ class Model {
     const g = new BufferGeometry();
     g.setAttribute("position", new Float32BufferAttribute(points, 3));
     return this.add(g, color);
+  }
+
+  /** Its foliage lighter higher up, as the game's `species` is (palette.ts `crownShade`, by each vertex's height). */
+  graded(species: string): this {
+    for (let k = 0; k < this.col.length; k += 3) {
+      if (!isFoliage([this.col[k], this.col[k + 1], this.col[k + 2]])) continue;
+      const s = crownShade(species, this.pos[k + 1]);
+      for (let c = 0; c < 3; c++) this.col[k + c] *= s;
+    }
+    return this;
   }
 
   /** Its colours as albedos in the game's light, being colours of our own (palette.ts `ownAlbedo`). */
@@ -268,6 +278,8 @@ const BARK: Rgb = TREE_COLOURS.pineBark;
 export const BIRCH_BARK: Rgb = TREE_COLOURS.birchBark;
 const OAK_BARK: Rgb = TREE_COLOURS.oakBark;
 const BUSH_LEAVES: Rgb = TREE_COLOURS.bush;
+/** The berries (palette.ts `BERRY`). */
+const BERRY: Rgb = TREE_COLOURS.berry;
 /** Bare dead wood as the game's (dying.ts `DEAD_FORM`): each tree's own bark weathered, the pine's and oak's lighter and
  *  greyer brown, still lighter than the living crowns; a dead birch keeps its warm grey, a fifth darker. Where a limb broke the
  *  wood is paler. */
@@ -305,13 +317,16 @@ function rotateTail(m: Model, vertices: number, angle: number, y: number): void 
 
 const MODELS: Record<string, () => Model> = {
   // the game's grown pine (plantSize.ts): a bare trunk to 1.25, then three broad whorls of needles to 3.0, each about as
-  // wide as the last, the top one narrower; 1.2 across
+  // wide as the last, the top one narrower; 1.0 across, as much as the game's needles cover (its cards cut by their
+  // texture's alpha: 1.05 across from above, its whole model 1.2; until 2026-11-09 ours were 1.24 across and covered 45 %
+  // more than the game's, `tools/game-crowns.py`); lighter higher up, as the game's (`graded`)
   Pine: () =>
     new Model()
       .add(cyl(0.11, 0.06, 1.75, 5), BARK, { y: 0.875 })
-      .add(cone(0.62, 0.8, 7), shade(TREE_COLOURS.pine, 0.9), { y: 1.22 + 0.4 })
-      .add(cone(0.58, 0.72, 7), TREE_COLOURS.pine, { y: 1.84 + 0.36, ry: 0.45 })
-      .add(cone(0.4, 0.6, 7), shade(TREE_COLOURS.pine, 1.1), { y: 2.4 + 0.3, ry: 0.9 }),
+      .add(cone(0.51, 0.8, 7), TREE_COLOURS.pine, { y: 1.22 + 0.4 })
+      .add(cone(0.475, 0.72, 7), TREE_COLOURS.pine, { y: 1.84 + 0.36, ry: 0.45 })
+      .add(cone(0.33, 0.6, 7), TREE_COLOURS.pine, { y: 2.4 + 0.3, ry: 0.9 })
+      .graded("Pine"),
   "Pine.dead": () => {
     // a tall bare pole, its top broken off askew, a few stubs of branches
     const m = new Model().add(post(0.075, 0.05, 1.25, 6), DEAD_WOOD, { y: 0.625 }).add(post(0.05, 0.03, 0.22, 5), DEAD_DARK, { x: 0.03, y: 1.33, rz: -0.35 });
@@ -327,7 +342,8 @@ const MODELS: Record<string, () => Model> = {
       .add(cyl(0.055, 0.035, 0.75, 4), BIRCH_BARK, { x: -0.07, y: 0.78, rz: 0.2 })
       .add(cyl(0.05, 0.035, 0.7, 4), BIRCH_BARK, { x: 0.07, y: 0.76, rz: -0.22, ry: 0.4 })
       .add(ico(0.5), TREE_COLOURS.birch, { y: 1.42, sy: 0.98 })
-      .add(oct(0.3), shade(TREE_COLOURS.birch, 1.08), { x: 0.2, y: 1.58, z: -0.14 }),
+      .add(oct(0.3), shade(TREE_COLOURS.birch, 1.08), { x: 0.2, y: 1.58, z: -0.14 })
+      .graded("Birch"),
   "Birch.dead": () => {
     // a warm grey trunk forking into two bare arms, and a twig
     const m = new Model().add(post(0.06, 0.045, 0.5, 5), DEAD_BIRCH, { y: 0.25 });
@@ -344,7 +360,8 @@ const MODELS: Record<string, () => Model> = {
       .add(ico(0.86), TREE_COLOURS.oak, { y: 1.62, sy: 0.54 })
       .add(oct(0.42), shade(TREE_COLOURS.oak, 1.08), { x: 0.48, y: 1.42, z: 0.3, sy: 0.6, ry: 0.4 })
       .add(oct(0.4), shade(TREE_COLOURS.oak, 0.92), { x: -0.45, y: 1.48, z: -0.28, sy: 0.6, ry: 1.1 })
-      .add(oct(0.44), shade(TREE_COLOURS.oak, 1.05), { y: 2.02, sy: 0.55, ry: 0.7 }),
+      .add(oct(0.44), shade(TREE_COLOURS.oak, 1.05), { y: 2.02, sy: 0.55, ry: 0.7 })
+      .graded("Oak"),
   "Oak.dead": () => {
     // a thick bare trunk, its limbs broken off short, pale where they broke
     const m = new Model().add(post(0.15, 0.11, 0.62, 6), DEAD_BARK, { y: 0.31 }).add(new CylinderGeometry(0.1, 0.1, 0.02, 6), DEAD_BREAK, { y: 0.62 });
@@ -353,17 +370,17 @@ const MODELS: Record<string, () => Model> = {
   },
   Succulent: () => succulent(false),
   "Succulent.dead": () => succulent(true),
-  // the game's grown blueberry bush: a low, wide mound, 1.1 across and 0.4 tall, its berries on top
+  // the game's grown blueberry bush: a low mound 0.4 tall, its berries on top; 0.94 across, as much as the game's leaves
+  // cover (its cards cut by their texture's alpha: 0.93 across from above, its whole model 1.1; until 2026-11-09 ours was
+  // 1.1 across and covered 44 % more than the game's, `tools/game-crowns.py`)
   BlueberryBush: () => {
-    const m = new Model().add(ico(0.56), BUSH_LEAVES, { y: 0.13, sy: 0.48 });
-    const flowers: [number, number, number][] = [[0.28, 0.3, 0.2], [-0.16, 0.32, 0.26], [0.08, 0.32, -0.28], [0.4, 0.2, -0.2], [-0.36, 0.24, -0.12]];
-    // the berries: the blue of the game's blueberry texture (its texels bluer than both green and red by 0.08, 9 % of it,
-    // `tools/game-model-albedo.py`); until 2026-11-09 a blue of our own
-    for (const [x, y, z] of flowers) m.add(new OctahedronGeometry(0.07, 0), [0.294, 0.302, 0.414], { x, y, z });
+    const m = new Model().add(ico(0.47), BUSH_LEAVES, { y: 0.13, sy: 0.57 });
+    const flowers: [number, number, number][] = [[0.24, 0.3, 0.17], [-0.13, 0.32, 0.22], [0.07, 0.32, -0.24], [0.34, 0.2, -0.17], [-0.3, 0.24, -0.1]];
+    for (const [x, y, z] of flowers) m.add(new OctahedronGeometry(0.07, 0), BERRY, { x, y, z });
     return m;
   },
   // the game's dead bush keeps its leaves, gone brown, and loses its berries (dying.ts `DEAD_FORM`)
-  "BlueberryBush.dead": () => new Model().add(ico(0.56), deadLeaves("BlueberryBush", BUSH_LEAVES), { y: 0.13, sy: 0.48 }),
+  "BlueberryBush.dead": () => new Model().add(ico(0.47), deadLeaves("BlueberryBush", BUSH_LEAVES), { y: 0.13, sy: 0.57 }),
   Slope: () => {
     // a ramp over the tile, low on the north (−Z) edge and high on the south (+Z), as a Cw0
     // slope's high side is south (its arrows are "Slope.mark")
@@ -1023,16 +1040,16 @@ const RUBBLE = new Set(["Blockage", "NaturalDam"]);
 
 /** The light look's models, for browsers that render in software (a few triangles each; D110). */
 const LITE_MODELS: Record<string, () => Model> = {
-  Pine: () => new Model().add(cone(0.1, 1.4, 3), BARK, { y: 0.7 }).add(cone(0.6, 1.8, 4), TREE_COLOURS.pine, { y: 1.2 + 0.9 }),
+  Pine: () => new Model().add(cone(0.1, 1.4, 3), BARK, { y: 0.7 }).add(cone(0.5, 1.8, 4), TREE_COLOURS.pine, { y: 1.2 + 0.9 }),
   Birch: () => new Model().add(cone(0.07, 1.1, 3), BIRCH_BARK, { y: 0.55 }).add(new OctahedronGeometry(0.5, 0), TREE_COLOURS.birch, { y: 1.42, sy: 1.0 }),
   Oak: () => new Model().add(cone(0.18, 1.3, 3), OAK_BARK, { y: 0.65 }).add(new OctahedronGeometry(0.86, 0), TREE_COLOURS.oak, { y: 1.66, sy: 0.6 }),
   // dead trees: a pale trunk and two bare branches (a few triangles each)
   "Pine.dead": () => liteDead(0.08, 1.35, 0.12, DEAD_WOOD),
   "Birch.dead": () => liteDead(0.07, 0.95, 0.4, DEAD_BIRCH),
   "Oak.dead": () => liteDead(0.14, 0.7, 0.26, DEAD_BARK),
-  "BlueberryBush.dead": () => new Model().add(new OctahedronGeometry(0.56, 0), deadLeaves("BlueberryBush", BUSH_LEAVES), { y: 0.13, sy: 0.48 }),
+  "BlueberryBush.dead": () => new Model().add(new OctahedronGeometry(0.47, 0), deadLeaves("BlueberryBush", BUSH_LEAVES), { y: 0.13, sy: 0.57 }),
   Succulent: () => liteSucculent().own(),
-  BlueberryBush: () => new Model().add(new OctahedronGeometry(0.56, 0), BUSH_LEAVES, { y: 0.13, sy: 0.48 }),
+  BlueberryBush: () => new Model().add(new OctahedronGeometry(0.47, 0), BUSH_LEAVES, { y: 0.13, sy: 0.57 }),
 };
 for (const species of Object.keys(DRYING)) if (LITE_MODELS[species]) LITE_MODELS[`${species}.dying`] = () => dyingOf(species, LITE_MODELS[species]());
 for (const species of Object.keys(DEAD_FORM)) {

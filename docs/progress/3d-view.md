@@ -3049,6 +3049,84 @@ over. The cause is the judge's samples, not the land: nothing in the renderer ch
   the game's own texture, isn't visible in the frames; up close (the editor's 30 away, the 256²–512² mips) it would be
   6–7 %, which no frame here can check.
 
+## The crowns as the game draws them (D135 as amended 2026-11-09, D178, D496; `fix/plant-crowns`)
+
+With the objects in the game's light (above), the crowns still read under the game's: on the start shots, ours over the
+game's, Standard / High, the bush 0.79 / 0.80, the oak 0.84 / 0.94, the birch 0.93 / 0.87, the pine 0.99 / 1.01, High's
+birch bark 1.13, the crowns' sides 3–21 % under their middles, Standard's berries dull.
+
+- **The judge for one plant** (`tools/game-crowns.py`, new, with `tools/crown-models.ts`): the frames' samples fall on
+  grass between the game's smaller crowns, so each plant is drawn offline as the game's VegetationURP shades it (read
+  from the disassembled program: its vertex colour × texture, the alpha cut at 0.5, its bump map, URP's lit model at
+  metallic 0, its yield's detail map) and ours as we draw it, on lit grass in the game's light from the start shots'
+  camera, sixteen turns, with each mesh's own shadow; it reads the crown's middle and its side across the sun's way, the
+  birch's bark, the whole crown's mean and the area it covers. No game mesh, texture or shader leaves the machine.
+- **The causes, one at a time:**
+  1. **The share of each colour:** our foliage took the game's albedo over the whole area its alpha keeps, but its
+     vertex colours darken the inner and lower cards, which the camera barely sees. What it sees is 13–25 % lighter (the
+     bush 5 %): pine 0.130/0.206/0.114, birch 0.202/0.266/0.116, oak 0.158/0.213/0.105, bush 0.160/0.183/0.092
+     (`palette.ts` `TREE_COLOURS`).
+  2. **Lighter higher up:** the game's crowns are, by their vertex colours: the pine from 0.86 of its mean low in its
+     whorls to 1.17 at its top, the oak 0.79 to 1.10, the birch 0.90 to 1.04. Both looks shade their foliage by each
+     vertex's height (`CROWN_GRADIENT`, `crownShade`), so the sides, lower, read under the middles as the game's do. The
+     bush's runs the other way by a few percent over its 0.4, which no pixel shows.
+  3. **Coverage:** the game's crowns are cards cut by their texture's alpha; their drawn width is the pine's 1.05, the
+     birch's 0.88, the oak's 1.51 and the bush's 0.93, where their whole models (the cards' corners) are 1.22, 1.02, 1.83
+     and 1.16. Ours had been built to the whole models' width and covered up to 70 % more (Standard's bush 1.44 times,
+     High's 1.70, High's pine 1.19). Standard's pine is 1.0 across and its bush 0.81; High's pine whorls 0.56 at their
+     base, its bush 0.78 of its old reach; High's far birch and bush fill their width (`plantSize.test.ts` now holds
+     the drawn widths).
+  4. **The berries:** while a yield stands (as on a new map), the game lays the bush's detail map over its leaves
+     (decompiled `GatherableModel`, `_EnableDetail` 1): its colour 0.225/0.25/0.384 drawn with half of it again as
+     emission. Ours are that colour as lit, 0.245/0.272/0.418, in both looks (were 0.294/0.302/0.414, the leaves'
+     texture's few bluer texels, which the game draws under the green).
+  5. **High's birch bark:** its dark marks lay inside the trunk, unseen, and the far birch had none; the marks now stand
+     just proud of the trunk (a fifth of it, as the game's texture's marks), and the far trunk takes their share as a
+     shade (0.88).
+  - **Not the cause:** the normals (the game's foliage normals point mostly up, y 0.77–0.94; drawing ours with face
+    normals or the game's with its own moves the middle at most 2 %), the bump (at most 4 %) and the self-shadowing
+    (0–17 % on the sides, in both alike). VegetationURP has no translucency or wind tint in its pixel program.
+- **Measured offline** (the crown's middle, side, whole crown and area, ours over the game's, before → after):
+  | Plant | Standard | High near | High far |
+  |---|---|---|---|
+  | Pine | 1.00, 1.06, 0.89, 1.46 → 1.10, 1.12, 0.98, 1.12 | 1.06, 1.04, 0.98, 1.19 → 1.10, 0.96, 0.96, 1.04 | 1.05, 1.10, 0.97, 1.11 → 1.08, 1.00, 0.95, 0.96 |
+  | Birch | 0.91, 0.85, 0.91, 1.04 → 1.06, 0.95, 1.02, 1.04 | 0.88, 0.96, 0.92, 1.01 → 0.96, 1.01, 0.98, 1.01 | 0.81, 1.09, 0.93, 0.62 → 0.92, 1.12, 1.00, 0.75 |
+  | Birch bark | 1.05 → 1.05 | 1.11 → 0.98 | 1.08 → 0.98 |
+  | Oak | 0.76, 0.93, 0.86, 0.97 → 0.94, 1.06, 0.97, 0.97 | 0.75, 0.96, 0.87, 1.06 → 0.95, 1.13, 1.02, 1.06 | 0.71, 0.95, 0.87, 1.13 → 0.89, 1.13, 1.01, 1.13 |
+  | Bush | 0.86, 1.00, 0.93, 1.44 → 0.91, 0.99, 0.97, 1.03 | 0.94, 1.00, 0.96, 1.70 → 0.95, 1.01, 1.00, 1.07 | 0.78, 0.99, 0.94, 1.19 → 0.81, 0.97, 0.97, 0.96 |
+
+  Every crown's mean now lies within 5 % of the game's (0.95–1.02; before 0.86–0.98), and its area within 13 %
+  (before up to 1.70 times), the far birch's 0.75 aside.
+- **Measured on the frames** (`tools/water-pixel-judge.ts --objects`, the 16 day start shots, before → after;
+  middle / side):
+  | Part | Standard | High |
+  |---|---|---|
+  | Bush | 0.794 / 0.771 → 0.831 / 0.797 | 0.804 / 0.798 → 0.841 / 0.813 |
+  | Oak | 0.843 / 0.812 → 0.990 / 0.923 | 0.938 / 0.864 → 1.131 / 1.012 |
+  | Pine | 0.986 / 0.791 → 1.082 / 0.822 | 1.012 / 0.794 → 1.051 / 0.789 |
+  | Birch | 0.925 / 0.806 → 1.058 / 0.890 | 0.870 / 0.839 → 0.964 / 0.888 |
+  | Birch bark | 1.005 → 1.048 | 1.128 → 1.093 |
+
+  The mean of middle and side, as a forest reads, moves toward the game's for every plant in both looks (Standard bush
+  0.78 → 0.81, oak 0.83 → 0.96, pine 0.89 → 0.95, birch 0.87 → 0.97; High 0.80 → 0.83, 0.90 → 1.07, 0.90 → 0.92,
+  0.85 → 0.93). The frames' crown samples fall on whatever the game shows there, its grass and its neighbours between
+  its smaller crowns (the game's own side reads its middle, where one plant's side reads 0.70–0.86 of it), so they
+  judge a forest, not a crown.
+- **Unchanged:** the land's RMS (Standard all 15.7, High 15.9) and the clean water's mean (L* 23.1); its RMS 13.2 /
+  13.3 → 13.4 / 13.4 where smaller crowns at the shore show the water behind. The bloom: the berries are darker than
+  before and the crowns' tops under the knee (`bloom.test.ts` passes unchanged).
+- **Cost:** none: the same triangles, only colours and places changed. `benchOrbit`, River Valley 256² seed 4242
+  (`tools/capture-objects.ts --bench`, now `--look high` too), 1280 × 800, the GPU's time a frame (median), #911's
+  head → this branch: Standard whole map 6.55 → 6.26 ms, ruin field 6.69 → 6.65 (323,966 and 268,138 triangles,
+  unchanged); High 4.35 → 4.29, 4.44 → 4.35 (503,376 and 447,548, unchanged). Every frame 7.0 ms at 144 Hz.
+- **Falls short:** (1) On the frames, High's oak reads 13 % over the game's in its middle where one plant drawn offline
+  reads 5 % under, and the pines' middles 5–8 % over (offline 8–10 %, their sides darker): our pine's top takes more
+  of the light than the game's needles, a matter of their normals, not their colour. (2) The bush still reads 0.83–0.84
+  on the frames (offline 0.91–0.97 near, 0.81 High far: its two octahedra slope where the game's leaves face up).
+  (3) The pine's yield (its resin, a detail map as the berries') is not drawn: it covers little of what the camera sees.
+  (4) Standard's baked shadows on open ground (`light.ts` `PLANT_SHAPES`) keep the reaches of High's old models. (5) High's far birch
+  covers 0.75 of the game's area within its drawn width. (6) The water source's three samples still read 23 % over.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:

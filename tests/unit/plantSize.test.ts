@@ -7,12 +7,14 @@ import { model } from "../../src/render3d/high/models";
 import { plantScale, RANDOMIZER } from "../../src/render3d/plantSize";
 import { PLANT_CLEARANCE } from "../../src/core/terrain/clearance";
 
-/** The game's grown models (resources.assets): height and width (the larger footprint side), tiles. */
+/** The game's grown models (resources.assets): height, and width as the game draws them, tiles: the larger side of
+ *  what its cards cover from above, cut by their texture's alpha (tools/game-crowns.py; D135 as amended 2026-11-09).
+ *  Their whole models are wider (pine 1.22, birch 1.02, oak 1.83, bush 1.16), the cards' corners clear. */
 const GAME: Record<string, { height: number; width: number }> = {
-  Pine: { height: 3.01, width: 1.22 },
-  Birch: { height: 1.92, width: 1.02 },
-  Oak: { height: 2.26, width: 1.83 },
-  BlueberryBush: { height: 0.4, width: 1.16 },
+  Pine: { height: 3.01, width: 1.05 },
+  Birch: { height: 1.92, width: 0.88 },
+  Oak: { height: 2.26, width: 1.51 },
+  BlueberryBush: { height: 0.4, width: 0.93 },
 };
 
 function extent(pos: ArrayLike<number>): { height: number; width: number } {
@@ -32,7 +34,7 @@ function extent(pos: ArrayLike<number>): { height: number; width: number } {
 }
 
 describe("trees and bushes at the game's size", () => {
-  it("are built to the game's grown model's height and width, in Standard, the light look's and High's models", () => {
+  it("are built to the game's grown model's height and drawn width, in Standard, the light look's and High's models", () => {
     for (const [species, game] of Object.entries(GAME)) {
       const shapes: [string, { height: number; width: number }][] = [
         ["standard", extent(modelOf(species).pos)],
