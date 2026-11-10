@@ -103,8 +103,8 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
       }
   });
 
-  /** Whether a tile stands in ground two tiles wide: in a two-by-two square of its own level, or the one tile where
-   *  a band two tiles wide jogs, between two tiles of its level that are (rust/forces/src/levels.rs). */
+  /** Whether a tile stands in ground two tiles wide: in a two-by-two square of its own level, or a single tile on the
+   *  side of one (rust/forces/src/levels.rs). */
   const twoWide = (h: Uint8Array, W: number, H: number, x: number, y: number): boolean => {
     const square = (x: number, y: number) => {
       const l = h[y * W + x];
@@ -113,7 +113,7 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
     };
     const l = h[y * W + x];
     const same = (dx: number, dy: number) => x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H && h[(y + dy) * W + x + dx] === l && square(x + dx, y + dy);
-    return square(x, y) || (same(-1, 0) && same(1, 0)) || (same(0, -1) && same(0, 1));
+    return square(x, y) || same(-1, 0) || same(1, 0) || same(0, -1) || same(0, 1);
   };
   /** A crater on level ground with nothing on it (the land alone is judged). */
   const bare = (W: number) => {

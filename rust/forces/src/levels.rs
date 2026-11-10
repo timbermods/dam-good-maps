@@ -20,9 +20,9 @@
 //    level stays on it everywhere; up to a whole level where the surface slopes, so where each level
 //    ends wanders by a step's own width: the steps are of uneven width, they pinch out and merge
 //    instead of running round as even bands.
-// 2. No band narrower than two tiles. Every tile lies in a two-by-two square of its own level (or is
-//    the one tile where a band two tiles wide jogs sideways, between two such squares; a band the
-//    map's edge cuts can be one tile wide along the edge). Where
+// 2. No band narrower than two tiles. Every tile lies in a two-by-two square of its own level, or is
+//    a single tile on the side of one (a tooth on a plate's edge, where several levels meet; a band
+//    the map's edge cuts can be one tile wide along the edge). Where
 //    a slope is too steep for that (more than a level in two tiles), its one-tile steps join into
 //    wider steps between higher walls: a steep slope is a cliff with ledges, never a stair. A cliff
 //    the force made by intent (a jump in its surface) stays where it is, whole.
@@ -292,15 +292,15 @@ mod tests {
         };
         (at(-1, 0) && at(0, -1) && at(-1, -1)) || (at(1, 0) && at(0, -1) && at(1, -1)) || (at(-1, 0) && at(0, 1) && at(-1, 1)) || (at(1, 0) && at(0, 1) && at(1, 1))
     }
-    /// Whether a tile stands in ground two tiles wide: in a square of its level, or the one tile where
-    /// a band jogs, between two tiles of its level that are.
+    /// Whether a tile stands in ground two tiles wide: in a square of its level, or a single tile on the
+    /// side of one.
     fn wide(land: &[u8], x: usize, y: usize) -> bool {
         let l = land[y * W + x];
         let same = |dx: i64, dy: i64| {
             let (nx, ny) = (x as i64 + dx, y as i64 + dy);
             nx >= 0 && ny >= 0 && nx < W as i64 && ny < W as i64 && land[ny as usize * W + nx as usize] == l && in_square(land, nx as usize, ny as usize)
         };
-        in_square(land, x, y) || (same(-1, 0) && same(1, 0)) || (same(0, -1) && same(0, 1))
+        in_square(land, x, y) || same(-1, 0) || same(1, 0) || same(0, -1) || same(0, 1)
     }
     fn cone(x: f64, y: f64, slope: f64) -> f64 {
         8.0 + max(0.0, 12.0 - slope * portable_math::hypot(&[x - 23.5, y - 23.5]))

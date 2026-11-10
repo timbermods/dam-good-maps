@@ -2,11 +2,14 @@
 // glancing drag, for an oval crater thrown forward); Power; Size (following Power, or set); Steep or
 // Terraced walls; a centre (Auto, Bowl, Peak, Ring or Flat); Debris (Light or Heavy) with or without
 // Rays; Try another (the next personality). A coherent crater field quantized once to whole game
-// levels: a morphology model, not a shock-physics solver, shaped to read as a natural crater, never a
-// stadium (showcase-craft gap 25): a scalloped, uneven rim, low on one side; terraces that widen, narrow,
-// pinch out and merge round the bowl, each bench one level all round; a peak of two or three massifs that
-// clears the bowl's spill level (a crater filled as a lake keeps its island); a ring broken, off centre and
-// open on one side; an outer slope of a few uneven steps. The newest bowl replaces the relief it
+// levels: a morphology model, not a shock-physics solver, shaped to read as a real landform at every size,
+// never a stadium, a shaft or a tower (showcase-craft gap 25). The cavity is a few overlapping hollows (a lobed
+// outline) on a plane that leans with the land; a small crater is a shallow bowl with no centre; the rim is
+// uneven and low on one side; terraced walls carry slumped blocks, so a bench is a short arc that pinches out;
+// a peak is a mountain of merged crags that clears the bowl's spill level (a crater filled as a lake keeps its
+// island); a ring is separate mountains, open on one side; the debris falls away in tongues. Its surface
+// becomes land in the forces' shared last step (rust/forces/src/levels.rs): no band narrower than two tiles,
+// no one-tile pillar, pit or lone block. The newest bowl replaces the relief it
 // lands on (overlapping impacts overprint older ones); only its outer lip rejoins the ground round
 // it. Trees inside the bowl are gone; round it they are knocked down, lying away from the blow (dead
 // trees, their pose the editor's); water and badwater sources and seeps ride the ground, and Sources

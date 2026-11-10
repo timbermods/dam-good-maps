@@ -2554,7 +2554,7 @@ impl Crater {
             let off = radius * if j == 0 { 0.06 * rnd(2120.0) } else { 0.2 + 0.12 * rnd(2120.0 + jf) };
             let reach = radius * if j == 0 { 0.9 + 0.05 * rnd(2130.0) } else { 0.68 + 0.12 * rnd(2130.0 + jf) };
             // (a level floor, then a wall a few tiles wide: a cliff with ledges, never a stair of rings)
-            let wall = if steep { clamp(0.3 * deep + 0.8, 1.5, 3.0) } else { clamp(0.45 * deep + 1.0, 2.0, 4.5) } * (0.8 + 0.4 * rnd(2140.0 + jf));
+            let wall = clamp(0.3 * deep + 0.8, 1.5, 3.0) * (0.8 + 0.4 * rnd(2140.0 + jf));
             lobes.push(Hollow {
                 x: off * cos(t),
                 y: off * sin(t),
@@ -2631,7 +2631,7 @@ impl Crater {
                         y: d * sin(phi),
                         c: cos(turned),
                         sn: sin(turned),
-                        along: across * (1.3 + 0.9 * rnd(salt + 30.0 + jf)),
+                        along: across * (1.2 + 0.7 * rnd(salt + 30.0 + jf)),
                         across,
                         level: -(top + if two && j % 2 == odd { 1.0 } else { 0.0 }),
                         high: (0.0, 0.0),
@@ -2648,7 +2648,7 @@ impl Crater {
         // of the floor. A ring is three or four separate mountains round the centre, off it, open on
         // one side.
         if c.centre == "peak" && radius >= 8.0 {
-            let main = max(2.6, radius * (0.19 + 0.06 * rnd(2301.0)));
+            let main = max(2.6, radius * (0.24 + 0.05 * rnd(2301.0)));
             let (t0, off) = (rnd(2302.0) * PI * 2.0, radius * 0.08 * rnd(2303.0));
             let (mx, my) = (off * cos(t0), off * sin(t0));
             let axis = rnd(2304.0) * PI;
@@ -2673,8 +2673,8 @@ impl Crater {
                 } else {
                     axis + (jf + 0.7 * (rnd(2310.0 + jf) - 0.5)) * PI * 2.0 / more as f64
                 };
-                let size = max(2.4, main * (0.6 + 0.4 * rnd(2330.0 + jf)));
-                let d = min(main * (0.7 + 0.5 * rnd(2320.0 + jf)) * if ridge { 1.0 + 0.4 * (jf / 2.0).floor() } else { 1.0 }, max(main, radius * 0.36 - size));
+                let size = max(2.4, main * (0.6 + 0.3 * rnd(2330.0 + jf)));
+                let d = min(main * (0.6 + 0.4 * rnd(2320.0 + jf)) * if ridge { 1.0 + 0.4 * (jf / 2.0).floor() } else { 1.0 }, max(main * 0.6, radius * 0.38 - size));
                 let turned = rnd(2340.0 + jf) * PI;
                 c.lumps.push(Oval {
                     x: mx + d * cos(t),
@@ -2683,7 +2683,7 @@ impl Crater {
                     sn: sin(turned),
                     along: size * (1.0 + 0.5 * rnd(2350.0 + jf)),
                     across: size,
-                    level: 0.25 + 0.55 * rnd(2360.0 + jf),
+                    level: 0.3 + 0.5 * rnd(2360.0 + jf),
                     high: off_centre(2390.0 + 2.0 * jf),
                 });
             }
@@ -2700,7 +2700,8 @@ impl Crater {
                 let jf = j as f64;
                 let phi = first + (jf + 0.5 * (rnd(2410.0 + jf) - 0.5)) * PI * 2.0 / count as f64;
                 let d = radius * (0.36 + 0.08 * rnd(2420.0 + jf));
-                let across = max(2.6, radius * (0.15 + 0.07 * rnd(2430.0 + jf)));
+                // (the tallest broad enough to be a mountain; the others no higher than their width carries)
+                let across = max(if j == tallest { (deep + 2.0) / 1.3 } else { 2.6 }, radius * (0.15 + 0.07 * rnd(2430.0 + jf)));
                 let turned = phi + PI / 2.0 + 0.9 * (rnd(2440.0 + jf) - 0.5);
                 c.lumps.push(Oval {
                     x: off * cos(t0) + d * cos(phi),
@@ -2709,7 +2710,7 @@ impl Crater {
                     sn: sin(turned),
                     along: across * (1.15 + 0.5 * rnd(2450.0 + jf)),
                     across,
-                    level: if j == tallest { 1.0 } else { 0.4 + 0.5 * rnd(2460.0 + jf) },
+                    level: if j == tallest { 1.0 } else { min(0.4 + 0.5 * rnd(2460.0 + jf), across * 1.2 / (deep + 2.0)) },
                     high: off_centre(2470.0 + 2.0 * jf),
                 });
             }
@@ -2817,7 +2818,7 @@ impl Crater {
         if self.lumps.is_empty() {
             return 0.0;
         }
-        let ragged = 0.74 + 0.52 * lumps(self.seed, 2350, x, y, max(4.0, self.radius * 0.14));
+        let ragged = 0.8 + 0.4 * lumps(self.seed, 2350, x, y, max(4.0, self.radius * 0.14));
         let mut shape: f64 = 0.0;
         for l in &self.lumps {
             if l.reach(qx, qy).0 < 2.2 {
