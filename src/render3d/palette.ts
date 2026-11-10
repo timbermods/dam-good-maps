@@ -418,6 +418,26 @@ export const BADTIDE_DRAIN = {
   hood: [0.166, 0.102, 0.065] as Rgb,
 } as const;
 
+/** The unstable core as the game colours it (UnstableCore.Model, D178, D496): a ball of worn grey-brown metal panels,
+ *  pale, mid and dark, pale ribs and a pale strap over it, a pale ring round a grey lens, and dark studs with paler
+ *  gems. Its material (EnvironmentURP, `UnstableCore`) is metallic (0.5; smoothness 0.37, its lens 0.6), folded into
+ *  the albedo our objects' light needs to show the game's brightness as the large relic's is (`LARGE_RELIC`): from the
+ *  game's panels 0.318/0.272/0.203, 0.307/0.257/0.191 and 0.283/0.229/0.169, ribs 0.456/0.411/0.327, strap
+ *  0.423/0.354/0.274, ring 0.475/0.429/0.339, lens 0.265/0.255/0.232, studs 0.225/0.2/0.157 and gems
+ *  0.315/0.288/0.238 (texture × vertex colour, area-weighted, `tools/game-model-albedo.py`). Its lens is lit only while
+ *  its countdown runs (unstableCore.ts). */
+export const UNSTABLE_CORE = {
+  pale: [0.204, 0.184, 0.144] as Rgb,
+  mid: [0.197, 0.174, 0.136] as Rgb,
+  dark: [0.182, 0.155, 0.12] as Rgb,
+  rib: [0.294, 0.279, 0.231] as Rgb,
+  strap: [0.277, 0.246, 0.201] as Rgb,
+  ring: [0.307, 0.291, 0.241] as Rgb,
+  lens: [0.148, 0.15, 0.14] as Rgb,
+  stud: [0.149, 0.141, 0.117] as Rgb,
+  gem: [0.233, 0.224, 0.193] as Rgb,
+} as const;
+
 /** The natural dam as the game colours it (NaturalDam.Model, D178, D496): its albedo (texture × vertex colour,
  *  area-weighted, `tools/game-model-albedo.py`), its material the blockage's, not metallic, so straight. Its heap's rock
  *  in three shades, the thirds of its faces by lightness (the heap's mean 0.215/0.185/0.149), its logs brown, its flat

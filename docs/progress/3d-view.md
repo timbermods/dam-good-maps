@@ -3457,6 +3457,64 @@ water falls through.
   game's own light. (2) The game's pipes are drawn flat on the sides; ours stand 0.006 off them. (3) The rest of the
   placeholders in the large relic's falls short (2) remain.
 
+## The unstable core as the game draws it (D135, D178 as amended 2026-11-10, D496, D497; `fix/unstable-core`)
+
+Ours drew the unstable core as a small dark dome 0.57 high with one red glowing eye, on an orange scorch mark (the large
+relic's falls short (2)). The game's (`UnstableCore.Model`, 1,740 triangles with its footing) is the one model for every
+core; the map stores its Coordinates, its orientation and flip (drawn turned, never flipped) and its countdown.
+
+- **Read from the game's model** (numbers only, `tools/game-model-albedo.py` and scratch fits): a ball of metal panels
+  about 0.67 in radius round a centre 0.26 up, sunk into the ground to 0.96 high, its pole a port tipped up toward the
+  north-west (its axis −0.43, 0.75, 0.5): a pale ring 0.6 across round a grey lens, a shallow cone set 0.09 in. Six pale
+  ribs about 0.06 wide run from the port down its sides 55–65° apart, and a pale strap 0.094 wide runs round its middle,
+  square to the axis, 0.68–0.75 from the centre. Eight dark studs stand on it, each a bezel 0.26 across round a paler
+  gem, one half sunk at its foot. Its panels are three shades of grey-brown. A footing of ground in the terrain's own
+  material (`SlopeCliffEdge`) heaps round it to 0.45 with rocks. Its material is metallic (0.5, smoothness 0.37), folded
+  into albedo for our light as the relics' are (`palette.ts` `UNSTABLE_CORE`): the panels 0.204/0.184/0.144,
+  0.197/0.174/0.136 and 0.182/0.155/0.12 from the game's 0.318/0.272/0.203 to 0.283/0.229/0.169, the ribs
+  0.294/0.279/0.231, the strap 0.277/0.246/0.201, the ring 0.307/0.291/0.241, the lens 0.148/0.15/0.14, the studs
+  0.149/0.141/0.117 and the gems 0.233/0.224/0.193.
+- **Its states:** the game lights the lens (its `_LightingMap`, the lens alone) only while the countdown runs, in play,
+  blinking every 1.5 s down to 0.5 s as it nears its blast, with a spot light by the port (`UnstableCoreLighting`), and
+  never in its map editor. Ours is drawn as the map editor and the game before the countdown show it, unlit; the blink,
+  the light and the blast's effect are left out (the blast's removal is the simulation's, `core/sim/explosion.ts`).
+- **Built** (`render3d/unstableCore.ts`, new): our own model to those measures, 356 triangles (ours before, 377): the
+  ball as rings round the port's axis at its measured reach along 12 headings, each panel shaded as the game's there,
+  points under the ground raised to 0.03 below it; the ribs and strap as bands standing 0.012 and more off the panels;
+  the studs as five-sided bezels with their gems as their tops. On the relics' `Parts`. Standard and High draw the same
+  model, in the objects' game light, with the objects' fade near the pointer. The footing is left to the terrain, as
+  the relics' is.
+- **Measured:** the bounds within 0.02 of the game's (without its footing). The silhouette, against the game's ball,
+  ribs, strap and studs from 16 cameras (8 headings, 30° and 60° down) and from above: 0.92–1.01 times the game's area,
+  IoU 0.90–0.94.
+- **Standard's shadow:** it cast none. One upright disc over each of its four tiles (`UNSTABLE_CORE_SHADOW`, light.ts
+  kinds 20–23, one for each corner of a tile the footprint's middle can be at: 0 to 0.9 up, radius 0.5), moved 0.3
+  along each way toward the footprint's middle (`UNSTABLE_CORE_CAST`), turned with the core. The samples under the ball
+  (within 0.6 of its middle) are shaded only to 0.4 over its level, under its faces there: its faces read the bake
+  where they are, and its sunlit ones stay lit (0.997 of them, against 0.84 with those samples shaded to the discs'
+  tops), while the ground at its foot, reading the same samples, darkens. Fitted to the model's shadow along the 45° sun
+  at 8 headings, where it falls as well as how large: on the ground it does not stand over, 0.87–1.03 of the model's
+  shadow a heading, 0.96 in all, with 0.73–0.78 of the model's shadow under it (IoU 0.57–0.71). Lit on its own tiles,
+  as the blockage's discs are, it shaded a band round its footprint of the model's shadow's size but only 0.10–0.19 of
+  it (IoU 0.06–0.10): the ball's shadow falls mostly on its own tiles.
+- **Where every fitted shadow falls:** `landmarksGame.test.ts` now holds each fitted-disc kind to where its shadow falls
+  as well as how large it is (`expectWhereItFalls`: the share of the model's shadow under Standard's, and their IoU, at
+  every heading). As measured: the blockage 0.64–0.78 (IoU 0.54–0.64), the natural dam 0.68–0.86 (0.55–0.75), the
+  badtide drain 0.79–0.95 (0.66–0.83), the core 0.73–0.78 (0.57–0.71), the large relic 0.53–0.71 (0.43–0.54, its dish's
+  rim a thin shadow). Two samples a tile, bilinear, blur a shadow narrower than a tile, so none reaches 1.
+- **Judged:** eight placed on river valley 2's banks, 4 to 14 away, Standard and High alike: grey-brown metal balls
+  banded by pale ribs and a strap, dark studs over them, the port a grey lens in a pale ring, as the game's model renders
+  offline.
+- **Cost:** −21 triangles a core, the draw calls unchanged. `benchOrbit` on river valley 2 at 128 with the eight cores
+  (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame, one run each, base → branch): Standard whole map
+  2.75 → 2.56 ms, the cores 14 away 2.90 → 2.79; High 2.52 → 2.46 and 3.80 → 3.73: within the runs' spread. Every frame
+  7.0 ms at 144 Hz.
+- **Falls short:** (1) The countdown's blinking lens and light and the blast are not drawn. (2) The game's footing of
+  ground round it is left to the terrain: ours stands on the flat ground of its tiles. (3) Its studs' gems are flat
+  tops of five-sided bezels where the game's are round, and its panels three flat shades where the game's texture
+  weathers them. (4) It is judged against the game's model rendered offline, not the game's own light. (5) The rest of
+  the placeholders in the large relic's falls short (2) remain.
+
 ## A fall over a cave's mouth (D154 as amended 2026-11-08, D496; `fix/cave-mouth-curtain`)
 
 The in-game capture kit (#933) on Four Lakes r9: at the Great Fall the game draws one curtain over a dry cave's mouth
