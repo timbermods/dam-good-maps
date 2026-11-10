@@ -137,7 +137,7 @@ const luma = (c: Rgb) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
  *  bushes, the water sources and seeps, the ruins, the start) take its albedo straight. Until then they took it at our
  *  lightness, 1.318 times the game's (our grass by the water, 0.353/0.372/0.128, before `fix/land-tone`, over the
  *  game's grass texture's mean, 0.263/0.285/0.096), under a light of our own; the colours we chose by eye (the mines,
- *  thorns, relics, geothermal fields, slopes, the 1.x objects, the succulent, the generic blocks, the birch's marks)
+ *  thorns, geothermal fields, slopes, the 1.x objects, the succulent, the generic blocks, the birch's marks)
  *  were chosen at that lightness. They are drawn at `ownAlbedo` of it, so they keep their place among the game's. */
 export const OWN_LIGHTNESS = luma([0.353, 0.372, 0.128]) / luma([0.263, 0.285, 0.096]);
 /** A colour of our own (chosen at our old lightness) as an albedo in the game's light. */
@@ -388,10 +388,6 @@ export const SLOPE = { ramp: [0.5, 0.46, 0.4] as Rgb, side: [0.3, 0.31, 0.28] as
 /** Geothermal fields: a mound of dark rock with vents glowing orange. */
 export const GEOTHERMAL: Rgb = [0.82, 0.48, 0.16];
 export const GEOTHERMAL_ROCK: Rgb = [0.27, 0.26, 0.25];
-
-/** The small and medium relics: weathered pale stone, broken columns on a plinth (colours of our own; the game's are a
- *  fallen telescope and a crashed satellite, not yet drawn). */
-export const RELIC_STONE: Rgb = [0.66, 0.62, 0.54];
 
 /** The blockage as the game colours it (Blockage.Model, D178, D496): its albedo (texture × vertex colour, area-weighted,
  *  `tools/game-model-albedo.py`), its material not metallic, so straight. Its heap's rocks in the three greys of its
@@ -973,7 +969,12 @@ export function objectLegend(): LegendEntry[] {
       label: "Geothermal field",
     },
     {
-      swatch: icon(`<rect x="3" y="11" width="18" height="3" fill="${own(RELIC_STONE)}"/><rect x="6" y="3" width="3" height="8" fill="${own(RELIC_STONE)}"/><rect x="14" y="6" width="3" height="5" fill="${own(RELIC_STONE)}"/>`, dry),
+      // the small relic, the game's fallen telescope: its narrow and wide tubes pale, its collars and lens dark steel
+      swatch: icon(
+        `<g transform="rotate(-18 12 9)"><rect x="3" y="7.6" width="8" height="2.8" fill="${o(SMALL_RELIC.tube)}"/><rect x="11" y="6.6" width="8" height="4.8" fill="${o(SMALL_RELIC.tube)}"/>` +
+          `<rect x="2.2" y="7.2" width="1.4" height="3.6" fill="${o(SMALL_RELIC.collar)}"/><rect x="10.2" y="6.4" width="1.6" height="5.2" fill="${o(SMALL_RELIC.collar)}"/><rect x="18.6" y="5.6" width="2" height="6.8" fill="${o(SMALL_RELIC.collar)}"/></g>`,
+        dry,
+      ),
       label: "Relic",
     },
     { swatch: icon(`<path d="M4 13 L7 5 L9 12 L12 3 L14 12 L17 6 L20 13Z" fill="${own(THORNS)}"/>`, dry), label: "Thorns" },
