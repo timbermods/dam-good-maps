@@ -127,7 +127,7 @@ namespace DGMProbe
                     }
                     _camera.fieldOfView = fov;
                     Render(pose.Width, pose.Height, pose.Kind == "current" ? 150f : Mathf.Min(1000f, pose.Distance * 2.5f), Path.Combine(Probe.ShotsDir, file));
-                    result.Shots.Add(new ShotRecord { MomentId = momentId, Pose = id, File = Path.Combine(Probe.Job.RunId, file), Day = Probe.Day });
+                    result.Shots.Add(new ShotRecord { MomentId = momentId, Pose = id, File = Path.Combine(Probe.Job.RunId, file), Day = Probe.Day, Camera = CameraOf(pose.Width, pose.Height) });
                     Probe.ShotsTaken++;
                 }
                 catch (Exception e)
@@ -141,6 +141,28 @@ namespace DGMProbe
             GraphicsDimmer.Dim();
             _speedManager.ChangeSpeed(resumeSpeed);
             Busy = false;
+        }
+
+        // The camera the shot was just rendered with, and the game's own camera state (0.3.4).
+        private ShotCamera CameraOf(int width, int height)
+        {
+            Transform t = _camera.transform;
+            CameraState state = _cameraService.GetCurrentState();
+            float[] V(Vector3 v) => new[] { v.x, v.y, v.z };
+            return new ShotCamera
+            {
+                Position = V(t.position),
+                Forward = V(t.forward),
+                Up = V(t.up),
+                FieldOfView = _camera.fieldOfView,
+                Aspect = (float)width / height,
+                Near = _camera.nearClipPlane,
+                Far = _camera.farClipPlane,
+                StateTarget = V(state.Target),
+                StateZoom = state.ZoomLevel,
+                StateHorizontal = state.HorizontalAngle,
+                StateVertical = state.VerticalAngle,
+            };
         }
 
         private void Render(int width, int height, float shadowDistance, string path)

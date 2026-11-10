@@ -204,6 +204,23 @@ export interface Shot {
   pose: string;
   file: string;
   day: GameDay;
+  /** The camera the shot was rendered with (from mod 0.3.4; mod/src/Results.cs `ShotCamera`): in the game's world (x east,
+   *  y up, z north), its vertical field of view in degrees, and the game's own camera state then. */
+  camera?: ShotCamera;
+}
+
+export interface ShotCamera {
+  position: number[];
+  forward: number[];
+  up: number[];
+  fieldOfView: number;
+  aspect: number;
+  near: number;
+  far: number;
+  stateTarget: number[];
+  stateZoom: number;
+  stateHorizontal: number;
+  stateVertical: number;
 }
 
 export interface LogLine {
