@@ -280,9 +280,9 @@ function strayWater(s: MapSession, land: Land): { x: number; y: number; rgb: [nu
 /** A drought or a badtide of `days` on the settled water: each lake's level and badwater, every `step` of a day
  *  for the first `fine` days and daily after, and the day the start's water goes or turns bad (the editor's own
  *  rule, sim/startWaterDay.ts). Returns the run's last water. */
-function weather(s: MapSession, land: Land, hazard: "drought" | "badtide", days: number, fine = 0, step = 0.125, from: { depth: Float64Array; contamination: Float64Array } | null = null): { depth: Float64Array; contamination: Float64Array; startDay: number; firstBad: number[]; fallsStop: number[] } {
+function weather(s: MapSession, land: Land, hazard: "drought" | "badtide", days: number, fine = 0, step = 0.125, from: { depth: Float64Array; contamination: Float64Array; stack?: unknown } | null = null): { depth: Float64Array; contamination: Float64Array; startDay: number; firstBad: number[]; fallsStop: number[] } {
   const b = from ? { ...s.built, water: from.depth, contamination: from.contamination } : s.built;
-  const run = new HazardRun(b.waterModel, { depth: b.water, contamination: b.contamination, stack: from ? null : (b.settle as unknown as { stack?: unknown }).stack ?? null } as never, hazard, days);
+  const run = new HazardRun(b.waterModel, { depth: b.water, contamination: b.contamination, stack: from ? from.stack ?? null : (b.settle as unknown as { stack?: unknown }).stack ?? null } as never, hazard, days);
   log(`${hazard}, ${days} days:`);
   const st = startOf(s);
   const sw = new StartWaterDays(hazard, { depth: b.water, contamination: b.contamination }, { W, H, heights: b.heights, objects: b.entities as never, start: { x: st.x, y: st.y }, within: startWaterWithin(s) });
@@ -594,6 +594,23 @@ function walkRoute(s: MapSession, land: Land, places: { name: string; tiles: num
   log(`  ways made for the route: ${made} natural slopes`);
 }
 
+/** With a cave on the map the settle leaves water on the aquifers (off until drilled): water no source feeds. It is
+ *  taken away with the editor's own Remove unfed water, round each aquifer. */
+function dryAquifers(s: MapSession): void {
+  for (const e of s.built.entities.filter((g) => g.template === "Aquifer")) {
+    const area: [number, number, number][] = [];
+    for (let y = e.y - 4; y <= e.y + 6; y++) area.push([y, e.x - 4, e.x + 6]);
+    let wet = 0;
+    for (const [y, a, b] of area) for (let x = a; x <= b; x++) if (s.built.water[y * W + x] > 0.05) wet++;
+    try {
+      applyOps(s, [{ op: "removeUnfedWater", params: { area }, label: "Unfed water off the aquifer" }]);
+      log(`  the aquifer at X ${e.x} Y ${e.y}: ${wet} wet tiles round it, the unfed water taken away`);
+    } catch (err) {
+      log(`  the aquifer at X ${e.x} Y ${e.y}: ${wet} wet tiles round it (${(err as Error).message})`);
+    }
+  }
+}
+
 /** The set pieces: each a place with a purpose on the route up the valley. */
 function placeObjects(s: MapSession, land: Land): void {
   const put = (template: string, x0: number, y0: number, label: string, extra: Record<string, unknown> = {}, size: [number, number] | null = null) => {
@@ -621,7 +638,7 @@ function placeObjects(s: MapSession, land: Land): void {
   put("GeothermalField", 174, 100, "Steam Lake's geothermal field", {}, [3, 3]);
   put("UndergroundRuins", 134, 116, "The ruins under Steam Lake's shore", {}, [5, 5]);
   // (a seep is left out: wherever it stood on open ground its water ran off into the old channel; it needs a basin)
-  if (has("cave")) greatCave(s);
+  if (!has("no-cave")) greatCave(s);
   // the springs: aquifers, the old drill, unstable cores
   const aq = s.built.entities.find((e) => e.template === "Aquifer");
   if (aq) put("AncientAquiferDrill", aq.x, aq.y, "The ancient drill on the aquifer");
@@ -678,7 +695,7 @@ function openBypass(s: MapSession, land: Land, brooks: boolean): void {
  *  first frame and pulled back to the widest (u across, v up, each -1 to 1 inside the frame). */
 function firstFrame(s: MapSession, land: Land): void {
   const st = startOf(s);
-  const lip = land.crests[3];
+  const lip = [...land.crests[3], ...land.crests[5]];
   const xs = lip.map((i) => i % W);
   const ys = lip.map((i) => Math.floor(i / W));
   const x0 = Math.min(...xs);
@@ -717,7 +734,7 @@ function shots(s: MapSession, weatherDays: { drought: number; badtide: number })
     { name: "03-best-side", label: "Best side: up the valley", view: best },
     { name: "04-far", label: "The whole map", view: far },
     { name: "05-top", label: "Top-down", top: true, view: { yaw: 0, pitch: 89 * deg, distance: 300, target: [96, 5, 96] } },
-    { name: "06-great-fall", label: "The Great Fall", view: { yaw: -10 * deg, pitch: 22 * deg, distance: 58, target: [80.5, 9, 101] } },
+    { name: "06-great-fall", label: "The Great Fall", view: { yaw: -36 * deg, pitch: 24 * deg, distance: 52, target: [82.5, 9, 102] } },
     { name: "07-low-fall", label: "Low Fall (Weir Lake into Low Lake)", view: { yaw: 14 * deg, pitch: 26 * deg, distance: 50, target: [90.5, 4, 83] } },
     { name: "08-weir-fall", label: "Weir Fall (Steam Lake into Weir Lake)", view: { yaw: -70 * deg, pitch: 26 * deg, distance: 50, target: [124, 8, 99.5] } },
     { name: "09-crown-fall", label: "Crown Fall (Crown Lake into Steam Lake)", view: { yaw: -14 * deg, pitch: 26 * deg, distance: 50, target: [149.5, 12, 127] } },
@@ -798,6 +815,7 @@ function main(): void {
     }
     plant(s, land);
     const pc = plantCount(s);
+    dryAquifers(s);
     log(`  plants: ${pc.trees} living trees (${Math.round(pc.per10k.trees)} per 10,000 tiles), ${pc.dead} dead, ${pc.berries} berry bushes (${Math.round(pc.per10k.berries)} per 10,000), ${pc.succulents} succulents`);
     lap("plants");
   }
@@ -850,13 +868,17 @@ function main(): void {
     log(`  saved ${join(OUT, `${ROUND}.timber`)} (${f.timber.length} bytes), project ${f.project.length} bytes`);
     lap("save");
   }
-  if (has("bypass") && !has("cave")) {
-    // the lakes as they stand on the day the player opens the channel: full
-    const full = { depth: Float64Array.from(s.built.water), contamination: Float64Array.from(s.built.contamination) };
+  if (has("bypass")) {
+    // the lakes as they stand on the day the player opens the channel: full (with a cave, the water on every column)
+    const full = { depth: Float64Array.from(s.built.water), contamination: Float64Array.from(s.built.contamination), stack: (s.built.settle as unknown as { stack?: unknown }).stack };
     s.setWaterMode("defer");
     log("the old channel opened on a full valley (blockages cleared, gates on the neck, the hanging valley and the West Leat):");
     openBypass(s, land, false);
-    weather(s, land, "badtide", 8, 1, 0.25, full);
+    try {
+      weather(s, land, "badtide", 8, 1, 0.25, full);
+    } catch (e) {
+      log(`  (the bypass run from full lakes: ${(e as Error).message})`);
+    }
     lap("bypass badtide");
     // and where the water stands once it has all gone round (the settled map with the bypass open): no stray water
     s.setWaterMode("canonical");
