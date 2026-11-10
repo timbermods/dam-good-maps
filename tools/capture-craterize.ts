@@ -9,6 +9,11 @@
 //   mkdir -p .scratch/crater-src && tar -xf .scratch/crater-dev.tar -C .scratch/crater-src
 //   npx tsx tools/capture-craterize.ts [--dev .scratch/crater-src] [--out docs/sheets/craterize-rim.jpg] [--port 6781]
 //
+// (docs/sheets/craterize-rim.jpg as committed with the crater's rebuild, PR #912, is a wider set made the same way by
+// the look review's driver: this checkout's crater alone, from both sides and above, at Sizes 14 to 180, on level
+// ground, a plateau, a hillside, the map's edge and a corner, dry and filled; this tool's own sheet is the
+// before-and-after one.)
+//
 // The installed Chrome draws on the GPU, in Standard.
 
 import { chromium, type Page } from "@playwright/test";
