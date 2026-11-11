@@ -65,12 +65,10 @@ describe("a host and a replica on a generated map", () => {
     bytes = mapProject(3, "highlands", SIZE);
   });
 
-  // A known fault since generator 0.10.16, listed in the themes PR: on Highlands 48² seed 5 (terrain above terrain) after
-  // the same 12 entries, one `pumpWater()` on the guest leaves its water unsettled, so its settled hash differs from the
-  // host's (e998871c, not 711695c9); a second pump settles it. The same shows on seeds 1 and 7. The suspect, not
-  // confirmed: `WaterBarrier.pump` in src/core/collab/water.ts, where `adoptWater` refuses the run's water once as if the
-  // map had changed under the settle. For the milestone session; when it passes, `fails` comes off.
-  test.fails("Highlands seed 5: one pump settles the replica's water to the host's", () => {
+  // (a fault on generator 0.10.16's land until D486: on Highlands 48² seed 5, with terrain above terrain, one
+  // `pumpWater()` on the guest after these 12 entries left its water unsettled and a second pump settled it; one pump
+  // settles it now)
+  test("Highlands seed 5: one pump settles the replica's water to the host's", () => {
     const t = sit(mapProject(5, "highlands", SIZE), {}, [GUEST]);
     const stream = new Stream(5, SIZE);
     const tally: Tally = { committed: new Map(), patches: 0 };
@@ -228,5 +226,35 @@ describe("a host and a replica on a generated map", () => {
     expect(removed.kind === "reject" ? removed.reason : "ordered").toBe("ordered");
     expect(t.host.records.get(t.host.seq)!.keys).toContain("lakes");
     expectIdentical(t, "after Fill and Remove unfed water");
+  });
+});
+
+describe("one pump settles a peer's water (D486)", () => {
+  // (Highlands 48², seed 11 since generator 0.10.16's ground with grade, D148: seed 6's map has no terrain above terrain
+  // now, and of seeds 1–24 only 11's stream makes the case; a map with caves: an edit among the first eight leaves water
+  // no source feeds, so the canonical settle takes it and settles on from there, a second phase it hands back between; a
+  // background settle run to its end goes on through it, so the host's announcement and the replica's own settle each
+  // take one pump, never two)
+  test("Highlands 48², seed 11: after the stream's first eight edits the host announces and the replica settles in one pump each, on the same map", () => {
+    const t = sit(mapProject(11, "highlands", SIZE), {}, [GUEST]);
+    const s = t.host.session;
+    expect(s.built.waterModel.stacked).toBeTruthy();
+    const stream = new Stream(11, SIZE);
+    for (let k = 0; k < 8; k++) {
+      const c = stream.command(stream.pick(CHEAP_KINDS), s);
+      if (c) act(t, stream.pick([HOST, GUEST]), c);
+    }
+    // (the case: the settle's first slice to its end stops between its phases)
+    const run = s.canonicalRun();
+    const first = run.advance(Infinity);
+    run.free();
+    expect(first, "the settle hands back between its phases").toBeNull();
+    const announced = t.host.pumpWater();
+    expect(announced, "the host settles in one pump").not.toBeNull();
+    const r = t.guests.get(GUEST)!.receive(announced!);
+    expect(r.ok).toBe(true);
+    expect(t.guests.get(GUEST)!.pumpWater(), "the replica settles in one pump").toBe(true);
+    expect(t.outOfSync).toEqual([]);
+    expect(t.settles).toBe(1);
   });
 });
