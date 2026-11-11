@@ -1547,6 +1547,9 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
     g.top = Math.max(g.base + 5, Math.min(g.top + 11 * dr, g.base + 7 + 0.08 * s.terrain.relief + 1.5));
     g.hyps.eq = clamp(g.hyps.eq + 0.5 * dr, 0, 0.9);
     g.noise.amp *= 1 + 0.6 * dr;
+    // (and the rolling ground's swells, part of the land's spread, flatten with it, gone by a relief 25 under the
+    // theme's: at relief 20 they spread a River Valley's p5–p95 to 10 levels, where Relief asks 8.6 and 0.10.15 gave 9.5)
+    g.grade.roll *= clamp(1 + 4 * dr, 0, 1);
   } else if (dr > 0) {
     g.hyps.eq = clamp(g.hyps.eq + 0.6 * dr, 0, 0.9);
     g.base = Math.max(0.2, g.base - 2.5 * dr);
@@ -1554,11 +1557,17 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
   }
   // buildable land (flat share 0.40 / 0.52 / 0.60 and walkable land from the start, PLAN §5.2):
   // Generous asks for quieter, a little lower land with more benches and ramps; Tight for rougher
-  // land whose benches end in cliffs, with fewer ramps
+  // land whose benches end in cliffs, with fewer ramps. With ground with grade (generator 0.10.16), Generous
+  // keeps its benches level, ending in cliffs its ramps climb, at the levels the benches stand on (no drift), and
+  // the rolling all but stops; Tight is more tableland. (Before, Generous's rolling ground cut its flats and walks
+  // into one-level steps and Tight's graded flanks joined its benches: River Valley 96², seeds 1–16, flat share
+  // moved 0.034 and walkable land fell 348 tiles from Tight to Generous; now 0.08 and up about 580)
   const bl = LEVEL3[s.terrain.buildableLand] - LEVEL3[p.buildableLand];
   if (bl > 0) {
     g.noise.amp *= 1 - 0.2 * bl;
-    g.grade.roll *= 1 - 0.35 * bl;
+    g.grade.roll *= Math.max(0, 1 - 0.9 * bl);
+    g.grade.riser *= Math.max(0, 1 - bl);
+    g.grade.drift *= Math.max(0, 1 - bl);
     g.regional.amp *= 1 - 0.15 * bl;
     g.ramps = clamp(g.ramps + 0.3 * bl, 0.1, 1);
     g.terrace.share = clamp(g.terrace.share + 0.2 * bl, 0, 1);
@@ -1566,6 +1575,7 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
   } else if (bl < 0) {
     g.terrace.step = Math.max(g.terrace.step, 2);
     g.grade.roll *= 1 - 0.15 * bl;
+    g.grade.mesa = clamp(g.grade.mesa - 0.4 * bl, 0, 1);
     g.noise.amp *= 1 - 0.15 * bl;
     g.regional.amp *= 1 - 0.1 * bl;
     g.ramps = clamp(g.ramps + 0.2 * bl, 0.1, 1);
