@@ -23,6 +23,7 @@ import { hazardDays, type Hazard } from "../../core/sim/weather";
 import { heldWords, type HeldFirstDays } from "../../core/sim/firstDays";
 import type { HeldStartWater } from "../../core/sim/startWaterDay";
 import { describeTile as describeTileFacts, tileWords } from "../../core/doc/describeTile";
+import { dryWords, IRRIGATION_MOIST } from "../../core/analysis/irrigation";
 import type { TerrainState } from "../../core/features/raster/strokePreview";
 import { DEFAULT_OPTIONS, type Rgba, type ToolOptions } from "../tools";
 import { type Mirror, mirrorOf } from "./mirror";
@@ -293,7 +294,14 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const hoverWordsAt = (x: number, y: number, level?: number): string => {
     // (objects hidden, H or Hide objects: the readout names only the land, as the pointer finds it)
     const facts = ed.pageTileFacts();
-    const words = tileWords(describeTileFacts(renderer.current?.objectsHidden ? { ...facts, objects: () => [] } : facts, x, y, level));
+    let words = tileWords(describeTileFacts(renderer.current?.objectsHidden ? { ...facts, objects: () => [] } : facts, x, y, level));
+    // (the Irrigation view: why a dry tile's top is dry, on the ground seen from above)
+    const irr = shownLayers.current;
+    if (irr && x >= 0 && y >= 0 && x < irr.W && y < irr.H && irr.irrigation && (level === undefined || level >= mirror.current.heights[y * irr.W + x])) {
+      const i = y * irr.W + x;
+      const why = irr.irrigation.tone[i] > IRRIGATION_MOIST ? dryWords(irr.irrigation, i) : null;
+      if (why) words = `${words} · ${why}`;
+    }
     const n = firstNews.current;
     if (!n || x < 0 || y < 0 || x >= infoRef.current.W || y >= infoRef.current.H) return words;
     const i = y * infoRef.current.W + x;
@@ -334,6 +342,11 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [progress, setProgress] = useState<CheckProgress | null>(null);
   const [layer, setLayer] = useState<LayerKind>(props.carry?.layer ?? "none");
   const [waterLayers, setLayers] = useState<WaterLayers | null>(null);
+  /** The water layers on show, for the readout (the Irrigation view's why): kept as they come, read by the pointer. */
+  const shownLayers = useRef<WaterLayers | null>(null);
+  shownLayers.current = layer === "irrigation" ? waterLayers : null;
+  // (the readout says the why as soon as the view's layers come, without the pointer moving)
+  useEffect(() => rehover(), [shownLayers.current]);
   const [waterTick, setWaterTick] = useState(0);
   const [heldTick, setHeldTick] = useState(0);
   /** The water is flowing into an edit's new shape (the dot says "Settling…"): set as a journey starts and ends, never
