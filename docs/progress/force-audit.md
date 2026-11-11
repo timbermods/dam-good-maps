@@ -108,6 +108,16 @@ Never a volcano to the eye: a ziggurat, a bullseye or an arena. At large setting
 The Canyon flat case shows the scale is right when it stays small.
 1. The cone: benching, lobes, a breach, a real crater, height tied to radius (2).
 2. Caps on reach, a caldera that is a caldera, a steady footprint across rolls, sources that survive an apron (3, S2).
+   **1 and 2 done** (`feature/force-erupt`, 2026-11-11): height at most 0.6 of the radius (0.4 broad); Auto's radius at
+   most 18 % of the map's short side, broad 1.12 times steep; the outline lobed by up to 28 % at seeded bearings; one
+   breach toward the lowest ground; a crater 6 or more across inside a 2-wide rim; a caldera 0.29 of the cone, its rim
+   scalloped by a fifth, a small cone off its floor's centre, Auto's 1 in 3 above Power 70; the flanks benches on a
+   seeded ladder of 2 to 4-level faces with warped edges, then `levels::whole` (a fissure's rampart through
+   `levels::whole` as it is). The default click changes 1,040 to 1,600 tiles across 12 rolls at Power 62 on 128²
+   (about ±20 %), at most about 1,650 at Power 100 (was 3,200 to 14,500 broad or caldera); sheet
+   `docs/sheets/force-erupt.jpg`. Still open: the benches still read roughly concentric on a broad shield; near the
+   ceiling it still grows broader (19); Power 100 with a peak on 256² reaches 3,900 tiles; the cursor ring and the
+   row's Auto Size still show Power's breadth, not the map's cap (the page's `forceReach`).
 3. Lava flows routed down the land; an island when it erupts in water; cones along a fissure (13, 10, 20).
 
 ### Rift: no
