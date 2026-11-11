@@ -83,15 +83,15 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
   // D148)
   const CRATERS: Record<string, string> = {
     "bowl 0": "d6153f050478b44bdb34d7b6d9dd64ddb6dd1e4bad2a4cbec7bfdde64bce7677",
-    "peak 0": "81902caac2e44bea4540910257ce7bd30d7792e67645818716468019f93d58f0",
+    "peak 0": "6c5523b8795667fe25e01defe3906f0593911897a85c37c94caf6869089177c0",
     "ring 0": "7b28d50bfbda4fa270a5cab44c1112e635f34cbb8f09b7429f1a1f362df5f0a4",
     "flat 0": "256c91bb426036d7bfee71d7f5af5ba8b37cdb2141a0c5bb542919d851941a26",
     "bowl 1": "7fb79da96a505a1ddde9428d78da63939a4d4ecc0d9cb29a8c9a91edefc972c8",
-    "peak 1": "4d39c70120d230668fbf5472c94c576f58055bfa9347bb8d5fb3d19e78778487",
+    "peak 1": "a7e1e6654c60be953507b1edb6f548b2e8b77d060556c8dc1035615a47c20a74",
     "ring 1": "368de4830637a1740b8b193b39a30912e2bb774f50b9d3e60f4f53dec545c9a5",
     "flat 1": "d72b3d22f64b1ece7f2c277a699da31c5826075186944acdc7d2afb8a5c80b9e",
     "bowl 42": "2792ba927ac4baf499fb183f9f44be068b5fb2da7629bfbc5ae15642ece269a2",
-    "peak 42": "5b12cba2bb3a2cd2ec1a2a000bced42302c10fb381dacb9e43ce9c1928e8f95b",
+    "peak 42": "793a5a86d7ce46e14f9d35347a8da5755b90c4ccefba1f0c723fd07b75e88a91",
     "ring 42": "07f1caa886b455bacda6bdad9e57d11a5ff3bbb288000cff52824d27f86617c6",
     "flat 42": "6fe252da230f48e2cd323816267508e875f842c5f813d5aa7972f20f97e06d4c",
   };
@@ -307,6 +307,40 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
           // broad for its height: two levels up from its floor it is at least twice as wide as it is high
           const foot = [...area].filter(([l]) => l >= floor + 2).reduce((n, [, c]) => n + c, 0);
           expect(2 * Math.sqrt(foot / Math.PI), `${what}: the hill's width, ${top - floor} levels high`).toBeGreaterThanOrEqual(Math.min(2 * (top - floor), a.radius * 0.6));
+        }
+  });
+
+  it("Craterize: from above a peak's plates are not nested rings: three at most under its top, the top off the middle of the hill's foot, and no plate's ledge the same width all round it", () => {
+    const W = 128;
+    for (const [size, power] of [[44, 55], [54, 55], [60, 55], [64, 75]] as const)
+      for (const walls of ["terraced", "steep"] as const)
+        for (const seed of [0, 1, 2, 3, 4]) {
+          const p = impact(snapshotMap(bare(W)), { ...CRATER_DEFAULTS, walls, centre: "peak", seed, power, size, rays: false }, { origin: 64 * W + 64 });
+          const a = p.anatomy;
+          const h = p.map.heights;
+          const what = `${walls} ${size} ${seed}`;
+          const floor = a.datum - Math.round(a.depth);
+          const near = (i: number) => Math.hypot((i % W) - a.x, Math.floor(i / W) - a.y) < a.radius * 0.5;
+          let top = 0;
+          for (let i = 0; i < h.length; i++) if (near(i)) top = Math.max(top, h[i]);
+          // the plates, two levels apart from the top down to two levels above the floor; each the ground at its level and up
+          const plates: Set<number>[] = [];
+          for (let level = top; level > floor + 1; level -= 2) plates.push(new Set([...h.keys()].filter((i) => near(i) && h[i] >= level)));
+          expect(plates.length - 1, `${what}: the plates under the top`).toBeLessThanOrEqual(3);
+          const middle = (s: Set<number>) => [[...s].reduce((n, i) => n + (i % W), 0) / s.size, [...s].reduce((n, i) => n + Math.floor(i / W), 0) / s.size];
+          const [tx, ty] = middle(plates[0]);
+          const [fx, fy] = middle(plates[plates.length - 1]);
+          expect(Math.hypot(tx - fx, ty - fy), `${what}: the top's middle from the foot's`).toBeGreaterThanOrEqual(0.75);
+          // each plate's ledge, along 32 bearings from the top's middle: wide on one side and narrow on another
+          const edge = (s: Set<number>, t: number) => {
+            let d = 0;
+            while (s.has(Math.round(ty + Math.sin(t) * d) * W + Math.round(tx + Math.cos(t) * d))) d += 0.5;
+            return d;
+          };
+          for (let k = 1; k < plates.length; k++) {
+            const ledges = Array.from({ length: 32 }, (_, q) => edge(plates[k], (q * Math.PI) / 16) - edge(plates[k - 1], (q * Math.PI) / 16));
+            expect(Math.max(...ledges) - Math.min(...ledges), `${what}: how unevenly the ledge of plate ${k} runs round it`).toBeGreaterThanOrEqual(3);
+          }
         }
   });
 

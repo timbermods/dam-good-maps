@@ -695,10 +695,13 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   against the cliff: ovals lying along it, each turned its own way, at its own level, never its neighbour's, with gaps
   where the wall stands whole, so a bench is a short arc that pinches out within a quarter turn and none runs on round
   the bowl. The floor is level, with low hummocks on a large crater. A peak is a broad, low hill, never a tower, a plinth or a
-  stack of blocks: a few wide plates on whole levels two levels apart (no face higher), each wider than the one above
-  by a ledge of three tiles on one side (its crag) and more on the other (its ramp), with a spur of its own a level
-  lower on one side, so no two outlines are alike; its body keeps to the middle of the bowl, clear of the wall, and
-  its top stands off the hill's middle, four tiles across or more, two levels above the bowl's spill level (where a lake filling the crater stands, worked out on the crater as made;
+  stack of blocks: a few wide plates on whole levels two levels apart (no face higher), at most three under its top,
+  each wider than the one above by a ledge of three to five and a half tiles on one side (its crag) and more on the
+  other (its ramp), each pushed its own way, wider at one end than the other and dented its own way, so from above
+  they are never nested rings; a lower summit stands beside the main one as a knob on its flank, and a large
+  crater's hill is a massif of three or four summits that run together below; its body keeps within three fifths of
+  the way out, clear of the wall's benches, and its top stands off the
+  hill's middle, four tiles across or more, two levels above the bowl's spill level (where a lake filling the crater stands, worked out on the crater as made;
   the level a Fill gives, where the land round the crater holds water only a little higher), so a crater filled as a
   lake keeps its island at any strength; a ring is three or four separate mountains round the centre, off it and
   open on one side, the tallest clear of the lake. A centre needs room: a peak a crater 16 tiles across, a ring 28.
