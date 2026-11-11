@@ -382,7 +382,9 @@ describe("a place in words", () => {
     );
 
   test("a lake, the start and a river are named; a compass word only when there are several of the kind", () => {
-    const one = open(51, "highlands");
+    // (Highlands 13 for 51 since generator 0.10.17's start floors, D515, D148: seed 51's map has a spring river beside its
+    // main one now; of Highlands seeds 1–100 at 48² only seed 13 has one lake and one river besides a spring cave's stream)
+    const one = open(13, "highlands");
     const lakes = one.features.filter((f) => f.kind === "lake");
     expect(lakes.length, "the map has a single lake").toBe(1);
     const [lx, ly] = centre((lakes[0].params as { outline: number[][] }).outline);
