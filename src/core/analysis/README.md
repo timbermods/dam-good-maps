@@ -9,6 +9,7 @@ Measures a finished map: reachability, walking distance, wood, relief, and the r
 
 **Start from**
 - `walk.ts` `walkWorld` (the colony's walk graph: the footprints of `WALK_BLOCKERS`, and the Slopes' links; every check and generator stage builds it here) and `walkDistance`: how far a beaver walks from the start (D85).
+- `ground.ts` `measureGround` (MAPCRAFT section 5's ground): the one-level share of height steps, dead flat, the three commonest levels, and thin ledges (`ledgeAt`: a level band fewer than `THIN` tiles across a row or a column, a stair tread or a ridgelet; banks and borders are not); the bench-width floor (`land/benches.ts` `widenBenches`) uses the same test.
 - `regions.ts` `components`: the one flood of a mask's 4- or 8-connected parts (bodies of water, wet systems); `walkRegions`, `landRegions`.
 - `wood.ts` `treeLogs`: logs per tree, for the starting-wood count (D164).
 - `metrics.ts` `startBench` (the map card's bench); `measure`, a map against the targets its settings map to, is `tools/lib/metrics.ts`.
