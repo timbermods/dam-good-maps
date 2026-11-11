@@ -2039,8 +2039,9 @@ export async function settingsResponse(): Promise<GenerateResponse> {
 /** A validation grouped as the export dialog shows it (PLAN §19.5, D43; core/doc/checkItems.ts
  *  `groupChecks`), kept as the session's last check. */
 function grouped(s: MapSession, v: Validation, t0: number): ExportCheck {
-  // (a cropped map has no "as opened" map: the problems it has are the player's own, D340)
-  const out: ExportCheck = { ...groupChecks(s, v, s.mode === "import" && !s.cropped ? originalFull : null), version, ms: 0 };
+  // (a cropped map has no "as opened" map: the problems it has are the player's own, D340; nor has a new blank map,
+  // which comes from no file of the player's, `meta.source`: empty ground with no water is not ready to play)
+  const out: ExportCheck = { ...groupChecks(s, v, s.mode === "import" && !s.cropped && s.meta.source ? originalFull : null), version, ms: 0 };
   out.ms = Math.round(performance.now() - t0);
   lastCheck = out;
   return out;

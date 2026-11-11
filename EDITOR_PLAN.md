@@ -1348,7 +1348,8 @@ level outside those is refused with one line. **The checks on an empty map:** ev
 passes as made; six playability checks fail until the player gives the map what they ask for, and none blocks the
 export: `start.water`, `start.farmland`, `start.food`, `start.wood` and `start.wood_floor` (no water, moist ground,
 berries or trees yet: they are what the player is about to make) and `resources.badwater_source` (no badwater source
-yet, D200). They do not apply to empty ground and say so on the quiet dot, as on any map that lacks them.
+yet, D200). The quiet dot counts them as it does on any map that lacks those things ("7 things to look at", never "Ready to
+play": a start with no water is not ready), not as problems that were in a file the player opened.
 
 ### The File menu's help entries (M13)
 
