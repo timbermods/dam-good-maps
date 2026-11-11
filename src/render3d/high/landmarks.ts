@@ -1,25 +1,21 @@
 // Refreshed objects and landmarks for the High look (#67 stage 3, investigation/maplook-finish
 // landmarks.ts; PLAN §20 D250): procedural models of our own, in place of today's, on the same
-// transforms, footprints and tints: geothermal vents, and a few steel gussets and bolts on
-// the ruins' scaffolds and the mine's frame. The start (the game's lantern tower), the water and badwater
+// transforms, footprints and tints: a few steel gussets and bolts on the ruins' scaffolds and the mine's frame. The start (the game's lantern tower), the water and badwater
 // sources (its rock outcrop and crater), the relics (its fallen telescope, crashed satellite and fallen dish antenna,
 // smallRelics.ts, largeRelic.ts), the blockage (its heap of rock, blockage.ts), the natural dam (its heap of brown rock
-// with logs through it, naturalDam.ts) and the thorns (its spikes and twigs, thorns.ts) are
+// with logs through it, naturalDam.ts), the thorns (its spikes and twigs, thorns.ts) and the geothermal field (its crust
+// round its vent, geothermal.ts) are
 // Standard's models, the game's shapes (D496), in High's materials. Slopes keep their ramp in natural materials. Each replacement carries the original batch's
 // per-instance bookkeeping, so highlighting, removing and following the ground work as before; off, the
 // originals come back.
 
-import { BoxGeometry, BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, Matrix4, Quaternion, TorusGeometry, Vector3, type Group, type ShaderMaterial } from "three";
+import { BoxGeometry, BufferGeometry, CylinderGeometry, Float32BufferAttribute, InstancedBufferAttribute, InstancedMesh, Matrix4, Quaternion, Vector3, type Group, type ShaderMaterial } from "three";
 import type { EntityView } from "../model";
 import { whenIdle } from "../idle";
 import { disposeSharedBatch } from "./sharedBatch";
-import { GEOTHERMAL, GEOTHERMAL_ROCK, MINE, OWN_LIGHTNESS, ownAlbedo, RUIN, type Rgb } from "../palette";
+import { MINE, OWN_LIGHTNESS, ownAlbedo, RUIN, type Rgb } from "../palette";
 
 const shade = (c: Rgb, k: number): Rgb => [c[0] * k, c[1] * k, c[2] * k];
-const hash = (i: number) => {
-  const x = Math.sin(i * 73.17 + 9.31) * 4173.91;
-  return x - Math.floor(x);
-};
 
 class Parts {
   pos: number[] = [];
@@ -84,23 +80,6 @@ class Parts {
   }
 }
 
-function rock(m: Parts, x: number, y: number, z: number, r: number, c: Rgb, seed: number, lod = 0): void {
-  const g = new IcosahedronGeometry(r, 0);
-  g.scale(0.82 + hash(seed) * 0.35, 0.63 + hash(seed + 1) * 0.35, 0.82 + hash(seed + 2) * 0.35);
-  m.add(g, c, x, y, z, 0, seed, seed * 0.31, lod);
-}
-
-function geothermal(): BufferGeometry {
-  const m = new Parts();
-  for (let k = 0; k < 15; k++) rock(m, (hash(k) - 0.5) * 2.45, 0.16, (hash(k + 16) - 0.5) * 2.45, 0.35 + hash(k + 8) * 0.3, shade(GEOTHERMAL_ROCK, 0.9 + hash(k) * 0.4), k);
-  for (const [x, z, r] of [[-0.72, -0.58, 0.23], [0.61, 0.45, 0.18], [0.12, -0.41, 0.16], [-0.38, 0.68, 0.2]]) {
-    m.add(new CylinderGeometry(r, r * 1.35, 0.16, 8), shade(GEOTHERMAL_ROCK, 0.75), x, 0.36, z);
-    m.add(new CylinderGeometry(r * 0.81, r * 0.81, 0.025, 9), shade(GEOTHERMAL, 1.15), x, 0.45, z);
-    m.add(new TorusGeometry(r * 1.02, 0.025, 3, 8), [0.59, 0.42, 0.24], x, 0.46, z, Math.PI / 2, 0, 0, 1);
-  }
-  return m.own().geometry();
-}
-
 /** Today's model with a little more: steel gussets and bolts on a ruin's scaffold, bolts and slats on the mine's
  *  frame. The approved shapes stay. (The gussets in the ruins' rust, the game's; the rest colours of our own,
  *  `ownAlbedo`, as the models they are added to: entities3d.ts `Model.own`.) */
@@ -147,10 +126,9 @@ function geometryFor(name: string, batch: string, base: BufferGeometry): BufferG
   const key = name === "StartingLocation" || name.endsWith("Relic") || ["Thorns", "GeothermalField", "WaterSource", "BadwaterSource", "Blockage", "NaturalDam"].includes(name) ? name : `|${batch}`;
   let g = models.get(key);
   if (!g) {
-    // (the start, the sources, the relics, the blockage, the natural dam and the thorns are the game's models, D496:
-    // Standard's own, in High's materials and light)
-    if (name === "StartingLocation" || name === "WaterSource" || name === "BadwaterSource" || name.endsWith("Relic") || name === "Blockage" || name === "NaturalDam" || name === "Thorns") g = new Parts().copy(base).geometry();
-    else if (name === "GeothermalField") g = geothermal();
+    // (the start, the sources, the relics, the blockage, the natural dam, the thorns and the geothermal field are the
+    // game's models, D496: Standard's own, in High's materials and light)
+    if (name === "StartingLocation" || name === "WaterSource" || name === "BadwaterSource" || name.endsWith("Relic") || ["Blockage", "NaturalDam", "Thorns", "GeothermalField"].includes(name)) g = new Parts().copy(base).geometry();
     else g = augment(batch, base);
     models.set(key, g);
   }
