@@ -91,10 +91,15 @@ export const MEGADAM_RISE = 2;
 /** The start's bench aim (the shared gate holds the floor; this is only where stage 0 aims). */
 const BENCH_AIM = 700;
 
-/** What each rung buys, as shares of the map's tiles (round 8 at 192²: 3.6 %, 4.2 %, 5.0 % and 4.5 %), floor and
- *  most: a floor three quarters of the round's, the most twice the floor. **(assumption)** until the ladder stage
- *  measures them. The megadam's is water (tile-levels). */
-const GIVES = { gateOpen: 0.027, gateWhole: 0.031, leatOpen: 0.037, leatWhole: 0.034, megadam: 0.1 } as const;
+/** What each rung buys (§4.2: a floor, the most twice it), per tile of the map's side: round 8's gains at 192² (the Gate
+ *  opened 1,318, the leat 1,839, the whole shares 1,534 and 1,663: 3.6 %, 5.0 %, 4.2 % and 4.5 %) at two thirds, over
+ *  192. A rung greens along its bed, whose length grows with the side, not the map's area: measured on the ladder (19
+ *  seeds over three sizes), the Gate opened 3.1 % of the map at 192² and 2.4 % at 256². The megadam's is water
+ *  (tile-levels): it raises the lake and its meadow, which grow with the side too (1,828 to 3,741 measured). */
+const GIVES = { gateOpen: (2 / 3) * 1318 / 192, gateWhole: (2 / 3) * 1534 / 192, leatOpen: (2 / 3) * 1839 / 192, leatWhole: (2 / 3) * 1663 / 192, megadam: 12 } as const;
+/** The rungs whose gain is their share of the river down a bed already wet: by number none (`gateWorks.ts`
+ *  `SHARE_RUNGS`), so their floor is 0, the round's share their most. */
+const SHARE = new Set(["gateWhole", "leatWhole"]);
 
 /** Layouts an attempt draws before it gives up. */
 const LAYOUT_TRIES = 24;
@@ -659,15 +664,14 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   plan.frame = { start: { x: start.x, y: start.y, z, orientation }, landmark: "veil", lipAhead, bench: BENCH_AIM };
 
   // ---- the ladder (round 8's rungs)
-  const A = N * N;
   const at = (p: Point) => rp(onMap(T, p));
-  const gives = (f: number): [number, number] => [Math.round(f * A), Math.round(2 * f * A)];
+  const gives = (f: number, id = ""): [number, number] => [SHARE.has(id) ? 0 : Math.round(f * N), Math.round(2 * f * N)];
   const works: Work[] = [
     { id: "neck", rung: "first", kind: "levee", on: "inlet", at: at([(inletPath[0][0] + inletPath[1][0]) / 2, (inletPath[0][1] + inletPath[1][1]) / 2]), tiles: NECK.levee, needs: [], gives: { green: [0, 0] }, tradeoff: "Before the first badtide: it keeps the pool clean while the trench runs red", region: "home" },
     { id: "gateOpen", rung: "medium", kind: "canal", on: "gate", at: at([gu, shoreV + 1]), tiles: slotW * (BAR_LENGTH + 2), needs: [], gives: { green: gives(GIVES.gateOpen) }, tradeoff: "The river splits: the lake keeps less", region: "wet" },
-    { id: "gateWhole", rung: "medium", kind: "levee", on: "low", at: at(low[1]), tiles: gorge * 2 + slotW, needs: ["gateOpen"], gives: { green: gives(GIVES.gateWhole) }, tradeoff: "The lake sinks half a level and the Low River runs dry", region: "wet" },
+    { id: "gateWhole", rung: "medium", kind: "levee", on: "low", at: at(low[1]), tiles: gorge * 2 + slotW, needs: ["gateOpen"], gives: { green: gives(GIVES.gateWhole, "gateWhole") }, tradeoff: "The lake sinks half a level and the Low River runs dry", region: "wet" },
     { id: "leatOpen", rung: "medium", kind: "leat", on: "leat", at: at(leat[0]), tiles: 3, needs: [], gives: { green: gives(GIVES.leatOpen) }, region: "top" },
-    { id: "leatWhole", rung: "large", kind: "leat", on: "leat", at: at(leat[0]), tiles: 2, needs: ["leatOpen"], gives: { green: gives(GIVES.leatWhole) }, tradeoff: `${veilName[0].toUpperCase()}${veilName.slice(1)} dwindles`, region: "top" },
+    { id: "leatWhole", rung: "large", kind: "leat", on: "leat", at: at(leat[0]), tiles: 2, needs: ["leatOpen"], gives: { green: gives(GIVES.leatWhole, "leatWhole") }, tradeoff: `${veilName[0].toUpperCase()}${veilName.slice(1)} dwindles`, region: "top" },
     { id: "megadam", rung: "large", kind: "megadam", on: "low", at: at([spurU, lowV]), tiles: gorge + slotW, needs: [], gives: { green: [0, 0], reservoir: gives(GIVES.megadam) }, tradeoff: "It floods the bench and the low meadows, and the Gate is dammed with it", region: "low" },
   ];
   plan.works.push(...works);
