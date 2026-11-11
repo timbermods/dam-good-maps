@@ -9,7 +9,7 @@
 
 import { describe, expect, test } from "vitest";
 import { fluidObject, waterSource, type EntitySpec } from "../../src/core/format/entities";
-import { plainEntities, type FullForceMap } from "../../src/core/forces/force";
+import { plainEntities, snapshotMap, type FullForceMap } from "../../src/core/forces/force";
 import { footprint } from "../../src/core/forces/objects";
 import { BURIED, CLEARABLE, CUT, destroyedGround, motionOf } from "../../src/core/forces/clear";
 import { CarvePlay } from "../../src/core/forces/carve/play";
@@ -17,7 +17,7 @@ import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
 import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
 import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
 import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
-import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
+import { QUAKE_DEFAULTS, quake } from "../../src/core/forces/quake";
 import { RIFT_DEFAULTS } from "../../src/core/forces/rift";
 import { DEPOSIT_DEFAULTS } from "../../src/core/forces/deposit";
 import { planForce, type ForceRequest } from "../../src/core/forces/start";
@@ -128,8 +128,9 @@ describe("forces clear sources (D474)", () => {
       // (the ground Clear destroyed: its result's land, by how the force moved it)
       const land = m.heights.slice();
       clear.params.tiles.forEach((i, k) => (land[i] = clear.params.heights[k]));
-      const path = "path" in c.request ? c.request.path : undefined;
-      const destroyed = destroyedGround(W, W, m.heights, land, null, motionOf(c.request.verb, c.request.settings as { mode?: string }, path));
+      // (a Quake's crush zone lies along its crack as it ran)
+      const crack = c.request.verb === "quake" ? quake(snapshotMap(m), { ...c.request.settings, sources: "clear" }, { path: c.request.path, side: c.request.side }).fault.points : undefined;
+      const destroyed = destroyedGround(W, W, m.heights, land, null, motionOf(c.request.verb, crack));
       const changedAll = reachedBy(clear);
       const reached = changedAll.filter((id) => footprint(m, m.entities.find((e) => e.id === id)!).some(destroyed));
       // with Clear, no source or seep stays on ground the force destroyed, and it is gone from the last frame

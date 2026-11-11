@@ -154,7 +154,7 @@ function withSources(p: ForceResultParams, before: ForceMap, given: ForceSetting
     after[i] = p.heights[k];
   });
   const request = input.request;
-  const destroyed = destroyedGround(before.W, before.H, before.heights, after, null, motionOf(request.verb, request.settings as { mode?: string }, (input.staged as { intent?: { path?: readonly { x: number; y: number }[] } } | null)?.intent?.path ?? ("path" in request ? request.path : undefined)));
+  const destroyed = destroyedGround(before.W, before.H, before.heights, after, null, motionOf(request.verb, input.staged?.crack));
   const own = new Set([...p.removed, ...(p.felled ?? []).map((f) => f.id), ...(p.source ? [p.source.id] : []), ...(p.sources ?? []).map((q) => q.id), ...(p.where.source ? [p.where.source] : [])]);
   const here = p.replaces === undefined ? input.standing : undefined;
   const ids = clearable(before, destroyed, (id) => own.has(id) || (here !== undefined && !here.has(id))).map((e) => e.id);

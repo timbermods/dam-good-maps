@@ -68,6 +68,8 @@ export interface ForceCue {
 /** A staged force as the worker drives it. */
 export interface StagedRun {
   readonly verb: "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit" | "erode" | "roll";
+  /** A Quake's crack as it ran (Sources set to Clear take what lies in its crush zone). */
+  readonly crack?: readonly Point[];
   /** The map as it shows now (ground, objects, fresh rock, fallen trees, its water). */
   readonly map: FullForceMap;
   readonly done: boolean;
@@ -241,8 +243,8 @@ export abstract class Staged {
       if (after && clears(this.settings.sources)) {
         const ground = this.before.heights;
         const standing = new Set(after.entities.map((e) => e.id));
-        const self = this as unknown as { verb: string; settings: { mode?: string }; intent?: { path?: readonly Point[] } };
-        const motion = motionOf(self.verb, self.settings, self.intent?.path);
+        const self = this as unknown as StagedRun;
+        const motion = motionOf(self.verb, self.crack);
         this.clearing = new SourceClearing(ground, this.before, clearable(this.before, destroyedGround(this.before.W, this.before.H, ground, after.heights, this.ease, motion), (id) => !standing.has(id)));
       }
     }
@@ -466,6 +468,11 @@ export class QuakeRun extends Staged implements StagedRun {
 
   get painting(): boolean {
     return this.painted && !this.ended;
+  }
+
+  /** The crack as it ran: Sources set to Clear take what lies in its crush zone (clear.ts `destroyedGround`). */
+  get crack(): readonly Point[] {
+    return this.plan0.fault.points;
   }
 
   protected show(stage: number): void {
