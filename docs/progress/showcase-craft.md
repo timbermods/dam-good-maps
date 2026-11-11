@@ -94,6 +94,13 @@ frame (its lip at v 0.98), the cave behind it 91 blocks. 2,199 living trees (597
 The start: 262 logs grown within 20 tiles' walk (Easy asks 250), 86 berry bushes. Natural storage 1,215 against a need
 of 380.
 
+**Round 15 (planning's order on #236: the start only; not run in the game).** The bench runs south to Low Lake's
+shore (its south edge west of the bay at row 66, from 79) and the start's cove ends four tiles further south: 704
+level tiles joined to the start, from 538 (the Workshop's starts have 640 to 980); the way up from Low Lake now lands
+at X 76 Y 85. Fast wood at the door: the start's wood on the bench's west side is pine, grown, with oak in two small
+clumps: 250 logs within 20 tiles' walk, mostly pine (r14: 262, mostly oak), 288 within 40; `start.reach` 2,026.
+Nothing in the first frame moves but the wood's species at its bottom left.
+
 **The irrigation ladder** (`--irrigate`, cumulative; every count is by the model: the game's own what-if is not run).
 "Green or wet" counts tiles; the first row is the map as it opens.
 
@@ -131,7 +138,7 @@ days and the start's water stays clean; with the three notches and the bypass op
 - The dry uplands read plain from the far view: stepped benches and dead woods, little colour.
 - Nobody has played ten cycles: the start's generosity, the scarcity after it and the walk between the lakes are judged
   by the model and by captures, not by a played colony. The Workshop's starts have a bench of 640 to 980 level tiles;
-  this one has 538.
+  this one has 704 (r15; 538 to r14).
 - r14 itself was not judged in the game: its pool, piers, dead woods and old waterlines are seen only in our own sheet.
 - Our view draws a pond and a green ring in High Tarn's hollow that the core's settled water does not have, and cuts the
   cliff away over a cave, so the fall over the cave cannot be judged in it.
@@ -349,6 +356,18 @@ The ladder: the Gate opened +1,318 (3.6 %, 305 water); the second blast and the 
   door's east and the berries south of it, the side pool with its birch; from the widest view the wall, the Gate's
   slot, the Veil's bastion, the leat's line west along the crest to the Pass and the Pass Bed winding across the
   basin's west, the Gate Bed with its dead woods, the far rim: valley, wall, gate, basin. The map stops here.
+
+**Round 9 (planning's order on #236: the start, no change of shape; not run in the game).** A way out of the start's
+bench by land: the Arch, a rib of rock a level over the meadow (five rows, X 64 to 76, Y 94 to 98) across the drain
+bay, the bay's water running under its roof to the lake (one block thick, spanning six at most: the game's support
+reaches three; dug with the Block tool as a player digs) and a slope up onto it at each end. The lake, the trench and
+the bay stand as in r8 (7.47, the same water to a tenth). The walk to the west meadow is 29 tiles and to the Low
+River's head 64; `start.reach` 1,965 dry tiles (r8 1,186; aim 1,300), the bench 1,135 level tiles. Fast wood at the
+door: the oak stand east of the door is pine, grown, every free tile, with the oak a clump at its far end and the wood
+beyond it; pine also on the Arch and the bench's west end by it (out of the first frame): 249 logs within 20 tiles'
+walk, pine and oak (pine the main), 1,225 within 40. The checks add one warning, `terrain.single_floor` (the Arch's
+30 tiles of roof). Our own first frame is r8's: the Veil whole, the start in its lap, the berries; pine for oak beside
+the door (`C:\dgm-showcase\the-gate\ours\r9-first.jpg`, `r9-widest.jpg`).
 
 ## The swallow hole: the third premise map, its water proved first
 

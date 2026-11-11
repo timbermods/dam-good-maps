@@ -213,6 +213,12 @@ const LIP_Y = 104;
 const LIP_X: [number, number] = [85, 93];
 /** The start's middle: in the Veil's lap. */
 const START_AT: Pt = [89, 100];
+/** The Arch (r9): a rib of rock a level over the meadow across the drain bay, [y, x0, x1] by row, the bay's water
+ *  running under it (its roof one block, layer 8, spanning six at most: the game's support reaches three). The
+ *  bench's way to the west meadow by land, a slope up at each end, and ground for the start's pines; out of the first
+ *  frame. */
+const ARCH_ROWS: [number, number, number][] = [[94, 65, 74], [95, 65, 75], [96, 64, 76], [97, 65, 75], [98, 66, 75]];
+const ARCH_SLOPES: { top: Pt; out: Pt }[] = [{ top: [64, 96], out: [-1, 0] }, { top: [76, 96], out: [1, 0] }];
 
 /** The Gate: a slot six wide straight north from the lake's east arm through the bench and the wall. */
 const GATE_PATH: Pt[] = [[130.5, 97], [130.5, 113]];
@@ -336,6 +342,8 @@ export interface Land {
   checkDams: number[][];
   /** Each seep's spill tiles. */
   seepLips: number[][];
+  /** The Arch's tiles over the drain bay and the bay's bed under each (dug out under the rib's roof). */
+  arch: { i: number; floor: number }[];
   guarded: number;
 }
 
@@ -666,6 +674,19 @@ export function designLand(): Land {
 
   tidy(h, lake, channel, pool);
 
+  // the Arch: the rib at a level over the meadow; over the bay its tiles keep the bay's bed under the roof (dug in
+  // `digArch`), and leave the lake's mask (their top is the rib's)
+  const arch: { i: number; floor: number }[] = [];
+  for (const [y, x0, x1] of ARCH_ROWS)
+    for (let x = x0; x <= x1; x++) {
+      const i = y * W + x;
+      if (lake[i]) arch.push({ i, floor: h[i] });
+      else if (h[i] !== BENCH) throw new Error(`the Arch's bank at ${x},${y} is at ${h[i]}, not the meadow`);
+      h[i] = BENCH + 1;
+      lake[i] = 0;
+      channel[i] = 0;
+    }
+
   // the plugs and the works' rows
   const rowAt = (name: string, s0: number, s1: number): number[] => {
     const k = chan(name);
@@ -756,7 +777,7 @@ export function designLand(): Land {
       }
     }
   }
-  return { heights: h, lake, channel, pool, lip, gatePlugs, leatPlugs, pass, lowHead, megadam, checkDams, seepLips, guarded };
+  return { heights: h, lake, channel, pool, lip, gatePlugs, leatPlugs, pass, lowHead, megadam, checkDams, seepLips, arch, guarded };
 }
 
 /** The tiles of the Veil's own trench (the start's pad leaves them). */
@@ -878,6 +899,45 @@ function shapeLand(s: MapSession, land: Land): void {
   let off = 0;
   for (let i = 0; i < N; i++) if (b[i] !== h[i]) off++;
   if (off) throw new Error(`${off} tiles are not at the design's level`);
+}
+
+type Side = "+x" | "-x" | "+y" | "-y" | "+z" | "-z";
+const NORMAL: Record<Side, [number, number, number]> = { "+x": [1, 0, 0], "-x": [-1, 0, 0], "+y": [0, 1, 0], "-y": [0, -1, 0], "+z": [0, 0, 1], "-z": [0, 0, -1] };
+
+/** The Arch: the blocks under the rib's roof over the drain bay taken out with the Block tool, as a player digs
+ *  (swallow-hole.ts): each from a face that looks at air, the bay's open side first, so the bay's water runs under
+ *  the rib to the lake. */
+function digArch(s: MapSession, land: Land): void {
+  let left: [number, number, number][] = [];
+  for (const { i, floor } of land.arch) for (let z = floor; z < BENCH; z++) left.push([i % W, Math.floor(i / W), z]);
+  const cells = left.length;
+  while (left.length) {
+    let moved = false;
+    for (const side of ["-y", "+y", "-x", "+x", "+z", "-z"] as Side[]) {
+      const n = NORMAL[side];
+      const open = left.filter(([x, y, z]) => !s.terrain.solid((y + n[1]) * W + x + n[0], z + n[2]));
+      if (!open.length) continue;
+      // (one sweep a face's plane: the same y for a north or south face, x for east or west, layer for top or bottom)
+      const axis = side[1] === "x" ? 0 : side[1] === "y" ? 1 : 2;
+      const plane = open.filter((c) => c[axis] === open[0][axis]);
+      applyOps(s, [{ op: "blocks", params: { mode: "remove", side, at: plane, size: 1 }, label: "The Arch over the drain bay" }]);
+      left = left.filter(([x, y, z]) => s.terrain.solid(y * W + x, z));
+      moved = true;
+      break;
+    }
+    if (!moved) throw new Error(`${left.length} blocks under the Arch have no open face`);
+  }
+  log(`  the Arch: a rib at ${BENCH + 1} over the drain bay, ${land.arch.length} tiles of roof over ${cells} blocks dug`);
+}
+
+/** The start's rows of the export checks, passing or not, with what each measured (reach, wood and its species). */
+function startRows(s: MapSession): void {
+  for (const c of s.validate("export").report.checks) if (c.id.startsWith("start.") && c.value !== undefined) log(`    ${c.ok ? "ok   " : "short"} ${c.id}: ${c.message}`);
+}
+
+/** The Arch's slopes: one up onto the rib from the meadow at each end. */
+function archSlopes(s: MapSession): void {
+  for (const { top, out } of ARCH_SLOPES) buildRamp(s, top[0], top[1], out[0], out[1], 1, "A slope onto the Arch");
 }
 
 // ------------------------------------------------------------------------------------------------- water
@@ -1332,9 +1392,24 @@ function plant(s: MapSession, land: Land): void {
   const yI = (i: number) => Math.floor(i / W);
   const poolNear = (i: number) => spineDist(xI(i) + 0.5, yI(i) + 0.5, LAKE_ARMS[LAKE_ARMS.length - 1]) < 2.6;
   count.startBerries = paint("bushes", "BlueberryBush", (i) => level(i) && !nearStart(i, 4) && nearStart(i, 13) && yI(i) <= st.y && xI(i) < st.x + 3 && !poolNear(i), 0.8, 21, "The start's berries");
-  // (a stand of oak on the bench east of the door, finite: about thirty trees, 240 logs grown; pine beyond it)
-  count.startOaks = paint("trees", "Oak", (i) => level(i) && !nearStart(i, 4) && xI(i) >= st.x + 3 && xI(i) <= st.x + 22 && yI(i) >= 96 && yI(i) <= 103 && !poolNear(i), 0.9, 22, "The start's oak stand");
-  count.startPines = paint("trees", "Pine", (i) => level(i) && xI(i) > st.x + 22 && xI(i) <= st.x + 34 && yI(i) >= 96 && yI(i) <= 103 && n(i, 8, 33) > -0.2, 0.7, 24, "The start's pine wood", "mixed");
+  // (r9, planning: fast wood at the door. A pine stand, grown, on the bench east of the door and at the bench's west
+  // end by the Arch (out of the first frame), every free tile, so pine is the main wood within 20 tiles' walk; the oak
+  // kept as a clump at the stand's far end and as the wood beyond it, for the Forester's 40)
+  const cam = openingCamera(st);
+  const inFirst = (i: number) => {
+    const p = frameAt(cam, xI(i) + 0.5, yI(i) + 0.5, st.z);
+    return !!p && Math.abs(p.u) <= 1.05 && Math.abs(p.v) <= 1.05;
+  };
+  // (the stand comes to within a tile of the side pool's rim: `poolNear` keeps the berries off, not the trees)
+  const poolEdge = (i: number) => spineDist(xI(i) + 0.5, yI(i) + 0.5, LAKE_ARMS[LAKE_ARMS.length - 1]) < 1.2;
+  count.startPines = paint("trees", "Pine", (i) => level(i) && !nearStart(i, 4) && xI(i) >= st.x + 3 && xI(i) <= st.x + 11 && yI(i) >= 96 && yI(i) <= 103 && !poolEdge(i), 1.0, 22, "The start's pine stand");
+  const walk = (() => {
+    const h = Uint8Array.from(b.heights);
+    for (let i = 0; i < N; i++) if (b.water[i] > 0.1) h[i] = 40;
+    return reachWalk(h, W, H, b.entities as never, { x: st.x, y: st.y });
+  })();
+  count.westPines = paint("trees", "Pine", (i) => moist(i) && (b.heights[i] === st.z || b.heights[i] === st.z + 1) && xI(i) < st.x - 8 && walk[i] <= 20 && !inFirst(i), 1.0, 23, "Pine at the bench's west end and on the Arch");
+  count.startOaks = paint("trees", "Oak", (i) => level(i) && xI(i) > st.x + 11 && xI(i) <= st.x + 34 && yI(i) >= 96 && yI(i) <= 103 && !poolEdge(i), 1.0, 24, "The start's oak clump, and the oak wood beyond it");
   // the basin, dressed on purpose: dead woods in clumps on the dry beds and round the seeps' hollows, succulents
   // on the far benches, thorns in the gullies
   const dry = (i: number) => !(b.moisture[i] > 0) && !(b.water[i] > 0) && !land.lake[i] && !land.pool[i];
@@ -1814,6 +1889,7 @@ function main(): void {
   const s = blank();
   lap("blank");
   shapeLand(s, land);
+  digArch(s, land);
   lap("land");
   placePlugs(s, land);
   placeSources(s);
@@ -1835,6 +1911,7 @@ function main(): void {
       return out;
     };
     const ent = (template: string) => s.built.entities.filter((e) => e.template === template).map((e) => e.y * W + e.x);
+    archSlopes(s);
     walkRoute(s, land, [
       { name: "the lake's west meadow", tiles: tilesOf((i) => land.lake[i] === 0 && s.built.heights[i] === BENCH && (i % W) < 60 && Math.floor(i / W) < 100), far: true },
       { name: "the lake's south meadow", tiles: tilesOf((i) => land.lake[i] === 0 && s.built.heights[i] === BENCH && Math.floor(i / W) < 76 && (i % W) > 60 && (i % W) < 130) },
@@ -1885,6 +1962,7 @@ function main(): void {
     const c = checksOf(s);
     log(`  checks: ${c.blocking.length} blocking, ${c.warnings.length} warnings`);
     for (const row of [...c.blocking, ...c.warnings].slice(0, 30)) log(`    ${c.blocking.includes(row) ? "BLOCK" : "warn "} ${rowOf(row).id}: ${rowOf(row).message} ${JSON.stringify(rowOf(row).where ?? "").slice(0, 300)}`);
+    startRows(s);
     lap("checks");
   }
   if (has("save")) {
