@@ -20,7 +20,7 @@ import { sqrt } from "../../math/portable";
 import { BED_FLOOR } from "../../land/genome";
 import { widenBenches } from "../../land/benches";
 import { HEADING_DIR } from "../geom";
-import type { Edge, PremisePlan } from "../types";
+import type { Edge, Link, PremisePlan } from "../types";
 import type { StageWater } from "../water";
 import { near4, type WaterRaster } from "./field";
 
@@ -40,12 +40,14 @@ const MEADOW = { valley: 6, neck: 6, wetBrook: 4, dryBrook: 12, leat: 10, gorge:
 /** The side bodies (§4.2's templates): a spring tarn sits in a bowl, a narrow meadow under a crag of two, so its green
  *  is a spot and its notch's bed leaves it for dry benches; an empty basin's beach at its sill + 1 under a bank two
  *  levels high at the old waterline (§4.5), so a levee's water rises over the beach and no further. */
-const TARN = { meadow: 4, crag: 2, rim: 6 };
-const BASIN = { beach: 3, crag: 2, rim: 6 };
+const TARN = { meadow: 4, crag: 2, rim: 12 };
+const BASIN = { beach: 3, crag: 2, rim: 12 };
 /** The bypass follows the land (its plan's `bed: { under }`): its bed this many levels under the land beside it, the
  *  land read this far out from its bed; the old channel's floor beside its bed (a wadi) a level over it, this wide. */
 const BYPASS_UNDER = 2;
 const BYPASS_LOOK = 3;
+/** A dry brook's last tiles, where it falls the last level into the water it reaches. */
+const MOUTH = 3;
 const WADI = 1.7;
 /** Beyond this many tiles from any water the outlands fall away a little more (§2.2). */
 const OUTLANDS = 30;
@@ -177,7 +179,7 @@ function bowlsOf(plan: PremisePlan, w: StageWater): Bowl[] {
       const [p0, p1] = l.fall.lip;
       const n = HEADING_DIR[l.fall.face];
       add(i, `l${li}:${v}`, () => ({ level: v, meadow: MEADOW.valley, rim: VALLEY_RIM, wet, basin: false, steep: false, cut: { x: (p0[0] + p1[0]) / 2, y: (p0[1] + p1[1]) / 2, nx: n[0], ny: n[1] } }));
-    } else if (l.kind === "bypass") {
+    } else if (followsLand(l, wet)) {
       // (cut into the land afterwards: `followLand`)
       continue;
     } else if (l.kind === "channel") {
@@ -466,7 +468,7 @@ export function reliefBetween(plan: PremisePlan, w: StageWater): Uint8Array {
       f[i] = Math.min(top, v);
     }
 
-  // the bypass's bed follows the land, and the ground stage 1 fixed or guards with it
+  // the dry beds follow the land, and the ground stage 1 fixed or guards with it
   const base = followLand(plan, w, f, sBeach);
   const h = new Uint8Array(N);
   const keep = r.fixed;
@@ -481,71 +483,115 @@ export function reliefBetween(plan: PremisePlan, w: StageWater): Uint8Array {
   return h;
 }
 
-/** Stage 1's ground with the bypass's bed following the land (its plan's `bed: { under }`; stage 1 laid it falling
- *  evenly from the pool's sill to its end): past its head and first row, never rising, `BYPASS_UNDER` under the
- *  lowest land within `BYPASS_LOOK` of it, never under its end's level; a wadi a level over its bed beside it, and the
- *  guard beside it read again from its new bed. Fixed tiles hold their ground; every other tile its least. */
+/** The dry beds that follow the land at stage 2 (their plan's bed is where stage 1 laid them, falling evenly): the
+ *  bypass (its `bed: { under }`), and every dry brook, a notch's bed or a basin's spill, so the bed runs two deep in
+ *  the land it crosses, its bench at its bed + 2 (§4.2: a dam to pond's, and the bench a notch's thread greens), never
+ *  on a dyke over lower ground. */
+export function followsLand(l: Link, wet: boolean): boolean {
+  return l.kind === "bypass" || (l.kind === "brook" && !wet);
+}
+
+/** Stage 1's ground with each dry bed that follows the land (`followsLand`) cut into it: past its head and first row,
+ *  never rising, `BYPASS_UNDER` under the lowest land within `BYPASS_LOOK` of it, never under its end's level; a wadi
+ *  a level over its bed beside it (stage 1's strip lowered with its bed), and the guard beside it read again from its
+ *  new bed. Fixed tiles hold their ground; every other tile its least. */
 function followLand(plan: PremisePlan, w: StageWater, f: Float64Array, sWadi: number): Float64Array {
   const r = w.raster;
   const { W, H } = r;
   const N = W * H;
   const base = Float64Array.from(r.heights);
-  const li = plan.links.findIndex((l) => l.kind === "bypass");
-  if (li < 0) return base;
-  const id = plan.links[li].id;
-  const mine: number[] = [];
-  for (let i = 0; i < N; i++) if (r.channel[i] === li + 1) mine.push(i);
-  if (!mine.length) return base;
-  // its head (the pool's sill, held to past its first row) stands as stage 1 laid it
-  let head = 0;
-  for (const i of r.rows[id]?.[0] ?? []) head = Math.max(head, r.along[i]);
-  head += 2;
-  let len = 0;
-  let end = Infinity;
-  for (const i of mine) {
-    len = Math.max(len, r.along[i]);
-    end = Math.min(end, r.heights[i]);
-  }
-  const bins = Math.floor(len) + 2;
-  const want = new Float64Array(bins).fill(Infinity);
-  for (const i of mine) {
-    const x = i % W;
-    const y = (i - x) / W;
-    let low = Infinity;
-    for (let dy = -BYPASS_LOOK; dy <= BYPASS_LOOK; dy++)
-      for (let dx = -BYPASS_LOOK; dx <= BYPASS_LOOK; dx++) {
+  const surface = new Float64Array(N).fill(NaN);
+  const moved = new Uint8Array(N);
+  plan.links.forEach((l, li) => {
+    if (!followsLand(l, l.wet && !(w.table.links[l.id]?.shut ?? false))) return;
+    const id = l.id;
+    const mine: number[] = [];
+    for (let i = 0; i < N; i++) if (r.channel[i] === li + 1) mine.push(i);
+    if (!mine.length) return;
+    // its head (its body's sill, held to past its first row) stands as stage 1 laid it
+    let head = 0;
+    for (const i of r.rows[id]?.[0] ?? []) head = Math.max(head, r.along[i]);
+    head += 2;
+    let len = 0;
+    let end = Infinity;
+    for (const i of mine) {
+      len = Math.max(len, r.along[i]);
+      end = Math.min(end, r.heights[i]);
+    }
+    const bins = Math.floor(len) + 2;
+    const want = new Float64Array(bins).fill(Infinity);
+    for (const i of mine) {
+      const x = i % W;
+      const y = (i - x) / W;
+      let low = Infinity;
+      for (let dy = -BYPASS_LOOK; dy <= BYPASS_LOOK; dy++)
+        for (let dx = -BYPASS_LOOK; dx <= BYPASS_LOOK; dx++) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+          const j = yy * W + xx;
+          if (r.lake[j] || r.channel[j]) continue;
+          if (f[j] < low) low = f[j];
+        }
+      const b = Math.max(0, Math.floor(r.along[i]));
+      const v = Math.min(r.heights[i], Math.floor(low) - BYPASS_UNDER);
+      if (v < want[b]) want[b] = v;
+    }
+    // (never rising along it, never under its end; a brook a level over the lake it falls into but for its last
+    // tiles, so the lake's water stays out of it)
+    const into = plan.bodies.some((b) => b.id === l.to && !b.dry);
+    let run = Infinity;
+    for (let b = 0; b < bins; b++) {
+      if (b > head && want[b] < run) run = want[b];
+      want[b] = Math.max(l.kind === "brook" && into && b < len - MOUTH ? end + 1 : end, run);
+    }
+    for (const i of mine) {
+      if (r.along[i] <= head) continue;
+      const v = Math.min(r.heights[i], want[Math.max(0, Math.floor(r.along[i]))]);
+      if (v >= r.heights[i]) continue;
+      base[i] = v;
+      surface[i] = r.surface[i] - (r.heights[i] - v);
+      moved[i] = 1;
+    }
+  });
+  // the wadi and the guard beside the moved beds
+  const near = distanceFrom(moved, W, H);
+  const nb = new Int32Array(4);
+  /** The nearest moved bed tile's level within 3 tiles, or Infinity. */
+  const bedNear = (x: number, y: number): number => {
+    let b = Infinity;
+    let bd = Infinity;
+    for (let dy = -3; dy <= 3; dy++)
+      for (let dx = -3; dx <= 3; dx++) {
         const xx = x + dx;
         const yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
         const j = yy * W + xx;
-        if (r.lake[j] || r.channel[j]) continue;
-        if (f[j] < low) low = f[j];
+        if (moved[j] && dx * dx + dy * dy < bd) [bd, b] = [dx * dx + dy * dy, base[j]];
       }
-    const b = Math.max(0, Math.floor(r.along[i]));
-    const v = Math.min(r.heights[i], Math.floor(low) - BYPASS_UNDER);
-    if (v < want[b]) want[b] = v;
-  }
-  // (never rising along it, never under its end)
-  let run = Infinity;
-  for (let b = 0; b < bins; b++) {
-    if (b > head && want[b] < run) run = want[b];
-    want[b] = Math.max(end, run);
-  }
-  const surface = new Float64Array(N).fill(NaN);
-  const moved = new Uint8Array(N);
-  for (const i of mine) {
-    if (r.along[i] <= head) continue;
-    const v = Math.min(r.heights[i], want[Math.max(0, Math.floor(r.along[i]))]);
-    if (v >= r.heights[i]) continue;
-    base[i] = v;
-    surface[i] = r.surface[i] - (r.heights[i] - v);
-    moved[i] = 1;
-  }
-  // the wadi and the guard beside the moved bed
-  const near = distanceFrom(moved, W, H);
-  const nb = new Int32Array(4);
+    return b;
+  };
   for (let i = 0; i < N; i++) {
-    if (r.fixed[i] || r.lake[i] || r.channel[i] || near[i] > WADI + 1.5) continue;
+    if (r.lake[i] || r.channel[i] || near[i] > WADI + 1.5) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    if (r.fixed[i]) {
+      // (stage 1's strip beside a moved bed goes down with it, a level over it; any other fixed tile stands)
+      if (r.crest[i] || r.pool[i] || near[i] > WADI + 1.3) continue;
+      let wet = false;
+      for (let dy = -1; dy <= 1 && !wet; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+          const j = yy * W + xx;
+          if (r.lake[j] || (r.channel[j] && !moved[j])) wet = true;
+        }
+      if (wet) continue;
+      const b = bedNear(x, y);
+      if (b !== Infinity && base[i] > b + 1) base[i] = b + 1;
+      continue;
+    }
     near4(W, H, i, nb);
     let need = 0;
     let bed = Infinity;
@@ -557,22 +603,8 @@ function followLand(plan: PremisePlan, w: StageWater, f: Float64Array, sWadi: nu
     }
     base[i] = need;
     // (a ragged strip a level over the bed, then the walls as the land stands)
-    const x = i % W;
-    const y = (i - x) / W;
     if (near[i] < WADI + 1.3 * fbm(sWadi, x, y, 7, 2)) {
-      let b = bed;
-      if (b === Infinity) {
-        // (the nearest moved bed tile's level)
-        let bd = Infinity;
-        for (let dy = -3; dy <= 3; dy++)
-          for (let dx = -3; dx <= 3; dx++) {
-            const xx = x + dx;
-            const yy = y + dy;
-            if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-            const j = yy * W + xx;
-            if (moved[j] && dx * dx + dy * dy < bd) [bd, b] = [dx * dx + dy * dy, base[j]];
-          }
-      }
+      const b = bed !== Infinity ? bed : bedNear(x, y);
       if (b !== Infinity && f[i] > b + 1) f[i] = Math.max(need, b + 1);
     }
   }

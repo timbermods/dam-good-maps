@@ -570,6 +570,40 @@ above, and why:
   178); 33 to 48 living bushes within 20 (30 asked); two mine sites reached on every map. Stage 6 takes 81 to 273 ms
   (section 3.3).
 
+**As built (step 7): the works pay what they can** (stacked on step 6). The brief: each small work's gain within
+its plan range, every seed a premise map, the megadam and the leats right. Where it differs from the above, and why:
+
+- **Pool leats deliver.** A cleared row's head reads as its body's sill (`headOpen`), so a leat from the pool, whose
+  water stands 1.12 over its sill since the neck carries the whole flow, runs; before, its head stood at 15 under a
+  pool at 15.12 and every pool leat bought nothing.
+- **Leats run along the contour** (`LEAT_RUN`, stage 0): a leat falls a level for each 20 tiles of it at the most.
+  A pool's basin stands at the pool's sill - 1 less a level per 20 tiles of its leat (it stood 5 levels lower, a
+  level every 4 to 7 tiles); a leat from a lake is drawn only where its fall keeps that slope.
+- **Dry beds follow the land** (`raster/relief.ts` `followsLand`): a dry brook's bed, like the bypass's, runs two
+  under the lowest land beside it and never rises, and its wadi strip goes down with it; the last 3 tiles meet its
+  lake (`MOUTH`), so a lake no longer backs up a dry bed at its own level. Before, a dry bed stood on stage 1's
+  straight-line levels, often on a dyke over the land beside it.
+- **A notch's bed** goes to the point of a lower lake's or basin's shore whose run through ground dry on day 1 (by
+  the plan: past each lake's meadow + 6, a wet tarn's 10, a wet channel's 8) comes nearest the notch's `gives` at
+  `GREEN_A_TILE` a tile; a dam to pond stands in the middle of its bed's longest dry run.
+- **A levee holds** (`bankBasin`, `leveeBand`): the beach's banks are raised where the basin's water would leave
+  other than over the levee (by the beds that feed it, beside the spill bed, past the beach), and the levee spans the
+  spill bed's first 1.5 tiles under the basin's sill + 1. Before, a levee flooded 1,300 to 3,000 tiles on some seeds.
+- **The megadam's wall** runs square across the gorge from its slot, two tiles thick, out to the first ground at the
+  next lake's sill on each side (`wallAcross`, within 48 tiles; a site with no shoulders there gets a note and no
+  wall). Before, its band covered the gorge's bed alone and its water left round the band's ends. The plan's range
+  is water, tile-levels as every reservoir work's (`held`), not a tile count: 0.44 times the map's tiles is the
+  lowest lake raised a stair's step over its basin and the low meadows.
+- **Measured** (seeds 1 to 12 at 128², each seed's first plan through stage 4): all twelve make a premise map
+  through `tools/premise-map.ts` (none falls to the themes; seeds 2 and 8 take 10 and 7 plans), every blocking check
+  passes, day 1 water 20.5 to 23.0 % and moist 32.7 to 40.5 %. In range of their plan's `gives`: notch 0 of 18
+  (median 24), dam to pond 1 of 12 (median 42), levee 3 of 15 (median 57), leat 2 of 18 (median 381), sill notch
+  holds 10 of 24, megadam 4 of 12 (median 5,743 against 6,554 to 8,192; it was 132 to 220). At 192² (seeds 1 to 3)
+  water 16.6 to 18.7 % and moist 30.8 to 35.5 %; notch 1 of 10 (0 to 535), levee 1 of 6. At 256² no seed of 1 to 3
+  makes a map, as before this step: day 1's water is 12 to 15 % and moist 20 to 33 %, under both floors (section
+  9). A map takes 1.1 to 5.3 s at 128² (typical 1.3 to 1.7) and 4.2 to 5.4 s at 192², over the typical row (1.5 and
+  3.7 s) where a plan fails after its settle; inside the worst row at 128², over it at 192².
+
 **After the map opens: the proofs** (background, section 3). The premise true both ways by `HazardRun`; each work's
 gain by a what-if settle; the first cycles. Their results are rows in the checks panel and the ladder's readout; they
 are also what section 6 runs offline before a premise ships.
@@ -1108,20 +1142,30 @@ work to these.
   ten maps seeds 1 to 12 make at 128² settle at 19.6 to 23.5 % water and 37.1 to 40.7 % moist, every one inside
   `spectrum` (with #986's lakes alone, seven of eleven stood over 42 %). Seeds 6 and 8 go to the themes on stage 1's
   `water.levels` and `water.falls` after sixteen plans.
-- **The small works pay little (found at step 5; step 6 moved it, not answered), for stage 0 and the relief:** at
-  step 6 (the ten maps seeds 1 to 12 make at 128²) the notch's median gain is 42 tiles (191 to 253 asked; 0 of 10 in
-  range, 2 under 20), the dam to pond's 12 (120 to 209; 0 of 16, 9 under 20) and the levee's 169 (116 to 151; 0 of
-  13 in range, 4 under 20); several pay five to ten times their range, by flooding a basin and the ground below it.
-  The levees and dams to pond on empty basins pay nothing where their basin's leat brings too little water to fill it
-  past its spill: a leat from the pool buys about nothing on most maps (so before step 6 too). Before step 6: most notches, dams to pond and
-  levees buy under 20 tiles, since their beds and basins lie in ground the lakes' and tarns' own green already
-  covers (a tarn's dry bed runs 10 to 30 tiles to a lake whose meadow reaches it), and the map is too green on day 1
-  (moist over 42 % on seven seeds of twelve). Side bodies placed farther from the lakes, on ground a level or more
-  over the lakes' meadows, would answer both; so would beds that run along dry benches. The plan's `gives` for them
-  is not met, and nothing is repaired or dropped yet.
-- **The megadam holds 128 to 669 tiles of water** against the plan's 0.4 to 0.5 W²: its band across the gorge to the
-  next lake's sill leaks round its ends. Its wall should run to the gorge's shoulders at that level; and the plan's
-  range is likely a volume where a tile count is meant.
+- **The small works pay little (found at step 5; steps 6 and 7 moved it, not answered), for stage 0 and the
+  relief:** at step 7 (seeds 1 to 12 at 128²) the notch's median gain is 24 tiles (191 to 253 asked; 0 of 18 in
+  range), the dam to pond's 42 (120 to 209; 1 of 12) and the levee's 57 (116 to 151; 3 of 15); a few pay five times
+  their range, where a bed meets lower open ground. Day 1's green already covers 95 to 99 % of the ground a small
+  work's water reaches: the lakes' green runs 10 to 12 tiles past their meadows on the level (three in four at a
+  meadow's edge, half 3 past, a quarter 6 past, an eighth 10 past), a spring tarn's 15, a wet brook's 16, and a
+  tarn's dry bed of 20 to 41 tiles to a lake runs through both ends of it. Stage 0's plan cannot see it: placing
+  beds by a plan-level estimate of day 1's green (step 7 tried the odds above, summed over the thread's reach)
+  predicted 90 to 220 tiles where the land gave 0 to 90. A bed two deep turns about 11 tiles green a tile (its
+  thread reaches 16 less 12 for the two levels up), not `GREEN_A_TILE`'s 20, so a notch's 191 to 253 asks 17 to 23
+  tiles of bed through dry ground: about all a 41-tile bed has at 128² once both ends' green is passed, and none
+  when it is not. What would answer it: side bodies whose beds and basins stand a level or more over the lakes'
+  meadows and 12 or more past them (stage 0 placing them by the relief's real levels, which it does not have), or
+  a ladder that drops a small work its land cannot pay and draws again where a kind is missing. The ranges are
+  left as they are: the arithmetic reaches them where the ground is dry.
+- **256² makes no premise map on seeds 1 to 3 (found at step 7, before it too):** every plan's day 1 is under
+  `spectrum`'s floors, water 12 to 15 % (15 to 25) and moist 20 to 33 % (30 to 42): the lakes' arms and radii are
+  capped (`ARM_RADIUS`, arms 8 to 20 long), so the stair's water is a smaller share of a larger map, and a side
+  body's fixed green is too. Arms a third longer at 256² added 0.7 points of water; it needs lakes sized by the map
+  (more or wider arms, a fifth lake) and side bodies by its area.
+- **The megadam holds 4 of 12 in range at 128²** (median 5,743, against 6,554 to 8,192): one seed's wall finds no
+  shoulders within 48 tiles at the next lake's sill; on the rest the sea leaves by a lower outlet of the basin (a
+  spring tarn's run to the map's edge, which the raised lake floods). Its level should be the lower of the next
+  lake's sill and the basin's lowest other outlet, with that outlet's own dam a part of the work.
 - **The Still Pool** waits for its set piece (build step 7): the first levee has no site.
 - **Stage 0 over its row at 128² (found at step 4)**: 16 ms a plan on average (worst 68) against 5; section 3.3 has
   the measures and what is left to cut.
