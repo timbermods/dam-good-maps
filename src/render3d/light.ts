@@ -154,12 +154,18 @@ const PLANT_TOPS = PLANT_SHAPES.map((d) => Math.max(0, ...d.map((q) => q[1])));
 /** The plants' kinds (`PLANT_SHAPES`). */
 const PLANT_KIND: Readonly<Record<string, number>> = { Pine: 1, Oak: 2, Birch: 3, BlueberryBush: 4, Succulent: 5 };
 /** The casters cast as an upright post as tall as the caster, of these radii (tiles, before `PLANT_INSET`): a dead
- *  tree's bare wood (its shadow in High's depth map a thin line, 0.2 of a tile² for a pine, none for the others), and a ruin column's square of storeys (entities3d.ts `storey`: the game's corner posts 0.92 apart,
- *  slabs across its faces), as wide as its diagonal, the way the sun mostly sees it, fitted as the plants are (a whole
- *  tile's column cast them a quarter too large; 0.75 when the posts stood 0.8 apart, until 2026-11-10, widened with
- *  them). */
+ *  tree's bare wood (its shadow in High's depth map a thin line, 0.2 of a tile² for a pine, none for the others), and a
+ *  ruin column (entities3d.ts `storey`: the game's corner posts 0.92 apart, slab bands over each storey's upper part),
+ *  `RUIN_SHORT` short of its top, fitted to its model's own shadow over the five variants 1 to 8 high (as the plants
+ *  are, landmarksGame.test.ts): its model's shadow is a lattice, the bands' shadows with the sun through the open
+ *  storeys between them, which no solid post at two samples a tile follows closely; the post that falls best covers
+ *  0.64–0.99 of it, IoU 0.39–0.74, and is about half again its area. (Until 2026-11-10 0.86 and 0.85 of its height,
+ *  scaled from the old scaffold's 0.75: much the same, IoU 0.38–0.74; a whole tile's column cast them a quarter too
+ *  large.) */
 const DEAD_KIND = 6;
 const RUIN_KIND = 7;
+/** How much short of its top a ruin column's post is cast (its top storey's posts broken off, its bands lower). */
+const RUIN_SHORT = 0.15;
 /** The large relic's first kind: its tile [x][y] from its Coordinates casts `PLANT_SHAPES[RELIC_KIND + 3x + y]`. */
 const RELIC_KIND = 8;
 /** The blockage's kind: its heap casts `PLANT_SHAPES[BLOCKAGE_KIND]`. */
@@ -182,7 +188,7 @@ const CORNER: Readonly<Record<number, readonly [number, number]>> = {
   [CORE_KIND + 2]: [-1, 1],
   [CORE_KIND + 3]: [1, 1],
 };
-const POST_RADIUS: Readonly<Record<number, number>> = { [DEAD_KIND]: 0.3, [RUIN_KIND]: 0.86 };
+const POST_RADIUS: Readonly<Record<number, number>> = { [DEAD_KIND]: 0.3, [RUIN_KIND]: 0.56 };
 /** The kinds whose discs shade nothing on their own tile: a heap whose discs stand round it would shade its own sunlit
  *  faces (an object reads the bake at its own place and height), which the game's heap, lit by its model's own shadow,
  *  does not; its tile's ground is under it. */
@@ -301,7 +307,7 @@ export function objectCasters(W: number, H: number, e: EntityView | null): Float
     }
     let add = tall[t] ?? 0;
     const ruin = /^RuinColumnH(\d)$/.exec(t);
-    if (ruin) add = Number(ruin[1]) * 0.85;
+    if (ruin) add = Number(ruin[1]) - RUIN_SHORT;
     if (!add) continue;
     const f = e.flags[k];
     // (a dead plant at its dead form's height, dying.ts `DEAD_FORM`: a tree's bare wood a post, a bush's or a

@@ -5,7 +5,7 @@
 // scaffolding: D178 amended, D496's rule); with Markers on, an outline round the footprint. Ruins are the game's ruined
 // concrete frames (D178 as amended 2026-11-10, D496's rule), a storey per level in the file's five variants: rebar posts
 // at the corners, bands of slab or rails on the faces storey by storey from the top, floors in three variants, the
-// game's ivy on wet and dry ground, unturned and one model at every distance, in the game's colours.
+// game's ivy on wet and dry ground, turned as the file turns them and one model at every distance, in the game's colours.
 
 import { describe, expect, it } from "vitest";
 import { ShaderMaterial } from "three";
@@ -369,7 +369,7 @@ describe("ruins", () => {
     for (const h of [1, 4, 8]) expect(ruinStoreys(3, 3, h, 0).map((s) => s.kind)).toEqual(Array.from({ length: h }, (_, lv) => h - 1 - lv));
   });
 
-  it("stand as the file turns them: the game turns no ruin", () => {
+  it("stand as the file turns them, as the game places them, untinted", () => {
     const list: EntityInput[] = [];
     for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) list.push(column(x, y, 2, "A"));
     list.push(column(6, 6, 2, "A", "Cw90"));
@@ -433,6 +433,44 @@ describe("ruins", () => {
       expect(dense.bright).toBeGreaterThan(dense.all * 0.15);
       expect(dense.bright).toBeLessThan(dense.all * 0.6);
     }
+  });
+
+  it("cover as much of each storey seen from a side as the game's ivy does", () => {
+    // (the share of each storey's side view, its whole tile across and its level high, that the ivy's leaves cover, the
+    // face behind seen through the frame: averaged over looking along x and along z, as the game's ivy models, numbers
+    // only: wet 4 high 0.74, 0.63, 0.38, 0.28 from the foot up; dry 0.66 at the foot, none above)
+    const cover = (v: string, h: number, wet: boolean): number[] => {
+      const tris: number[][][] = [];
+      for (let lv = 0; lv < h; lv++) {
+        const m = modelOf(`scaffold.${v}`, h - 1 - lv, ruinIvy(h, lv, wet));
+        for (let t = 0; t < m.pos.length / 9; t++) if (greens.includes(colourAt(m, t))) tris.push(corners(m, t).map(([x, y, z]) => [x, y + lv, z]));
+      }
+      const N = 40;
+      return Array.from({ length: h }, (_, lv) => {
+        let hit = 0;
+        for (const axis of [0, 2])
+          for (let j = 0; j < N; j++)
+            for (let i = 0; i < N; i++) {
+              const [s, y] = [-0.5 + (i + 0.5) / N, lv + (j + 0.5) / N];
+              const inside = tris.some((q) => {
+                const [a, b, c] = q.map((p) => [p[axis], p[1]]);
+                const d = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+                if (Math.abs(d) < 1e-12) return false;
+                const w1 = ((b[0] - s) * (c[1] - y) - (b[1] - y) * (c[0] - s)) / d;
+                const w2 = ((c[0] - s) * (a[1] - y) - (c[1] - y) * (a[0] - s)) / d;
+                return w1 >= 0 && w2 >= 0 && w1 + w2 <= 1;
+              });
+              if (inside) hit++;
+            }
+        return hit / (2 * N * N);
+      });
+    };
+    const game = { wet: [0.74, 0.63, 0.38, 0.28], dry: [0.66, 0, 0, 0] };
+    for (const v of ["A", "B", "C", "D", "E"])
+      for (const wet of [true, false]) {
+        const ours = cover(v, 4, wet);
+        ours.forEach((c, lv) => expect(Math.abs(c - game[wet ? "wet" : "dry"][lv]), `${v} ${wet ? "wet" : "dry"} storey ${lv}: ${c.toFixed(2)}`).toBeLessThan(0.07));
+      }
   });
 
   it("the legend shows both as small pictures that differ in greyscale", () => {

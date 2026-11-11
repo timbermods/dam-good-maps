@@ -15,7 +15,8 @@
 //   floor slabs in three of the variants, the top storey its posts broken off at the variant's heights. The five
 //   variants (A to E, the file's own) differ storey by storey counted from the top, as the game's do. Ivy, as the
 //   game's: on moist uncontaminated ground the foot clad, the storey above clearly green, every higher one a little;
-//   elsewhere the foot clearly green. Unturned (the game turns no ruin), one model at every distance.
+//   elsewhere the foot clearly green. Turned as the file turns the column, as the game places it; one model at every
+//   distance.
 // - The start: the game's district center at its measures (D496, D178 as amended 2026-11-10), what the game builds
 //   where the start stands in play: dark plank walls between pale posts under a thatched roof, a dark round tower with
 //   a platform and a lantern, 4.33 high on its 3 × 3, its door facing the entrance. With Markers, a lit post on the
@@ -1327,7 +1328,7 @@ function frame(variant: number, k: number): Model {
 /** Leaves of ivy on each face of a storey, by how much ivy it carries: what covers as much of a column seen from a side
  *  as the game's ivy does (with the face behind showing through, about 0.74 of its foot, 0.63 of the storey above and a
  *  third of each higher one on a wet column).  */
-const IVY_LEAVES = [0, 4, 9, 13];
+const IVY_LEAVES = [0, 4, 11, 16];
 
 /** Ivy over a storey's north face (−Z; `onFace` turns it), as the game's clings: flat leaves lying against the face
  *  over its whole height, the most low down, larger there, spread across it from post to post. Most the game's ivy,
@@ -1530,8 +1531,8 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
       continue;
     }
     if (key === "ruin") {
-      // a storey per level, turned as the file turns the column (the game turns none: a ruin's file gives no
-      // orientation); its wet model's ivy where it stands on moist, uncontaminated ground (`ruinOvergrown`), its dry
+      // a storey per level, turned as the file turns the column, as the game places it (its model adds no turn of its
+      // own); its wet model's ivy where it stands on moist, uncontaminated ground (`ruinOvergrown`), its dry
       // model's elsewhere (`ruinIvy`)
       const n = Number(template.slice(-1));
       const moist = ruinOvergrown(soil, W, x, y, z);

@@ -3643,8 +3643,8 @@ frames, and the start was still the white map-editor marker.
   distance, so ours does too: the far block, its lattice and the shader's near/far switch for ruins are gone
   (`materials.ts` keeps the size on screen as `LOD_NEAR_PX` for the aquifer drill's parts).
 - **Read from the game's models** (numbers only): `RuinModelFactory` builds a column from the variant's storey nodes
-  (`#RuinColumn{V}{h}`) and the ivy's (`#IvyWet{h}A` with `#IvyWet0A`, or the dry ivy's), turning none of it (the save
-  gives a ruin no orientation). Each storey is a frame of four rebar posts 0.08 square at the tile's corners; its faces
+  (`#RuinColumn{V}{h}`) and the ivy's (`#IvyWet{h}A` with `#IvyWet0A`, or the dry ivy's), adding no turn of its own;
+  the column stands as its file turns it (its orientation, which our generator writes at random), and ours does too. Each storey is a frame of four rebar posts 0.08 square at the tile's corners; its faces
   are quads cut out of an atlas whose rows are anchored at the column's top, so a variant's storeys differ counted from
   the top: on each face a band of cracked slab over the storey's upper 0.47 (whole, broken, or none) or two rebar
   rails, floors in B and D from the second storey from the top downward (B's first half there) and in C from the
@@ -3652,8 +3652,8 @@ frames, and the start was still the white map-editor marker.
 - **Built** (`entities3d.ts` `RUIN_FACES`, `storey`, `band`, `rails`, `drape`): each storey from that table, the slab
   bands boxes 0.03 thick with a broken edge, the rails thin rods; the ivy flat leaves on the faces' outsides placed as
   the game's cover: seen from a side, wet (h = 4) the game's 0.74 / 0.63 / 0.38 / 0.28 of each storey from the foot up
-  and ours 0.70 / 0.64 / 0.39 / 0.36; dry the foot 0.66 and ours 0.64. The game shows the dry model on dry or
-  contaminated ground (`RuinModelUpdater`), as before. A storey is at most 316 triangles (was 288 near, 24 far), in the
+  and ours 0.71 / 0.63 / 0.33 / 0.31–0.32; dry the foot 0.66 and ours 0.63 (held within 0.07, look-mine-ruins.test.ts). The game shows the dry model on dry or
+  contaminated ground (`RuinModelUpdater`), as before. A storey is at most 284 triangles with its densest ivy (was 288 near, 24 far), in the
   game's colours, untinted (`palette.ts` `RUIN`: the means of the texels its cut-out keeps, rust #5d2f17, slab #6c5a39,
   ivy #2a2f1a, its brighter leaves #3c461f). Each storey's frame is a batch by its variant and place, its ivy a batch
   of its own by its amount (by variant too on the top storey, up to its broken posts), as the game's ivy is its own
@@ -3667,8 +3667,13 @@ frames, and the start was still the white map-editor marker.
   times the game's area, IoU 0.97–0.99, the bounds within 0.01. Colours the game's (`palette.ts` `START`). The game
   draws nothing on the entrance tile in play, so the entrance post is an editing aid shown with Markers only (D497);
   High copies Standard's models for both.
-- **Standard's shadow:** the ruins' disc radius scaled with the posts (0.75 → 0.86), not refit; the start's unchanged
-  (its base 1.4 and the tower's 4.33).
+- **Standard's shadow:** the ruins' post refit to the new frames' own shadow over the five variants 1 to 8 high, at 8
+  headings of the sun 45° up: 0.56 across before the inset (was 0.86) and 0.15 short of the column's top (was 0.85 of
+  its height). It covers 0.64–0.99 of the model's shadow, IoU 0.39–0.74 (mean 0.56), and is 1.50 times its area (the
+  old post: 0.38–0.74, 1.47). The model's shadow is a lattice, the slab bands' with the sun through the open storeys
+  between them; no solid post at two samples a tile follows it closer (a disc over each storey's band did worse, IoU
+  0.25–0.73), and one the model's area drops to IoU 0.11. Held with `expectWhereItFalls` (landmarksGame.test.ts). The
+  start's unchanged (its base 1.4 and the tower's 4.33).
 - **Judged:** river valley 2's ruin fields and forty more columns, and its start, close up and from 40 away in
   Standard and High: rusted frames with tan slabs and dark ivy, the district center's thatch and dark tower, as the
   Four Lakes captures show the game's. (A missing parenthesis in the object shader left every object undrawn on the
@@ -3680,7 +3685,8 @@ frames, and the start was still the white map-editor marker.
 - **Falls short:** (1) The game lights a fire in the bowl (its particles); left out. (2) The Iron Teeth's district
   center differs; ours is the Folktails' for both factions. (3) The ruins' slab bands are clean boxes with a broken
   edge where the game's are cracked cut-outs, and our leaves are larger and fewer than the game's. (4) The ivy's brown
-  roots at the foot (`IvyWet0A`) are left out. (5) The ruins' shadow discs were scaled, not refit to the new frames.
+  roots at the foot (`IvyWet0A`) are left out. (5) The ruins' shadow in Standard is a solid post, half again the
+  area of the model's latticed one.
 
 ## The rest of the step (next parts)
 
