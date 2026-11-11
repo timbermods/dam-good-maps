@@ -212,3 +212,31 @@ describe("a host and a replica on a generated map", () => {
     expectIdentical(t, "after Fill and Remove unfed water");
   });
 });
+
+describe("one pump settles a peer's water (D486)", () => {
+  // (Highlands 48², seed 6, a map with caves: the eighth edit, a Raise, leaves water no source feeds, so the canonical
+  // settle takes it and settles on from there, a second phase it hands back between; a background settle run to its end
+  // goes on through it, so the host's announcement and the replica's own settle each take one pump, never two)
+  test("Highlands 48², seed 6: after the stream's first eight edits the host announces and the replica settles in one pump each, on the same map", () => {
+    const t = sit(mapProject(6, "highlands", SIZE), {}, [GUEST]);
+    const s = t.host.session;
+    expect(s.built.waterModel.stacked).toBeTruthy();
+    const stream = new Stream(6, SIZE);
+    for (let k = 0; k < 8; k++) {
+      const c = stream.command(stream.pick(CHEAP_KINDS), s);
+      if (c) act(t, stream.pick([HOST, GUEST]), c);
+    }
+    // (the case: the settle's first slice to its end stops between its phases)
+    const run = s.canonicalRun();
+    const first = run.advance(Infinity);
+    run.free();
+    expect(first, "the settle hands back between its phases").toBeNull();
+    const announced = t.host.pumpWater();
+    expect(announced, "the host settles in one pump").not.toBeNull();
+    const r = t.guests.get(GUEST)!.receive(announced!);
+    expect(r.ok).toBe(true);
+    expect(t.guests.get(GUEST)!.pumpWater(), "the replica settles in one pump").toBe(true);
+    expect(t.outOfSync).toEqual([]);
+    expect(t.settles).toBe(1);
+  });
+});
