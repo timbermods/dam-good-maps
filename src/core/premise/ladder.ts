@@ -65,6 +65,23 @@ export interface Ladder {
   together: number;
 }
 
+/** Day 1's shares by `spectrum` (§4.4): water 15 to 25 % of the map's tiles, moist ground 30 to 42 %. The moist
+ *  ceiling by number stands `SPECTRUM_MARGIN` under 42, since the settle's share differs from the number's by up to a
+ *  point (§2.2, "As built (step 5)"). */
+export const SPECTRUM = { water: [0.15, 0.25], moist: [0.3, 0.42] } as const;
+export const SPECTRUM_MARGIN = 0.01;
+
+/** Why day 1 by number stands outside `spectrum`, in one line, or null: a plan whose map would be handed over too
+ *  watered (or too dry) is drawn again before its settle (§2.2 stage 4). */
+export function spectrumMiss(day1: Ladder["day1"]): string | null {
+  const pc = (v: number) => `${(100 * v).toFixed(1)} %`;
+  const { water, moist } = SPECTRUM;
+  if (day1.water < water[0] || day1.water > water[1]) return `Day 1's water is ${pc(day1.water)} of the map (15 to 25 %)`;
+  if (day1.moist > moist[1] - SPECTRUM_MARGIN) return `Day 1's moist ground is ${pc(day1.moist)} of the map (41 % at most by number, 42 % settled)`;
+  if (day1.moist < moist[0]) return `Day 1's moist ground is ${pc(day1.moist)} of the map (30 % at least)`;
+  return null;
+}
+
 /** What the works put on the land on day 1, beside stages 1 and 2: the rock plugs (`NOTCH_SHUT`), by link. */
 export interface LaidWorks {
   plugs: Record<string, number[]>;

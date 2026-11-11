@@ -28,8 +28,14 @@ import type { Body, Edge, Exit, Fall, Invariant, Link, Point, PremiseDef, Premis
 export const STAIR_SIDE = [128, 256] as const;
 /** The springs' total strength by River flow. */
 export const STAIR_FLOW = { trickle: 10, normal: 14, strong: 18, lush: 22 } as const;
-/** The meadow's base width by Buildable land. */
+/** The meadow's base width by Buildable land, at 192² and over. */
 export const STAIR_MEADOW = { tight: 12, normal: 15, generous: 18 } as const;
+/** The meadow's base width for a spec: `STAIR_MEADOW`, four fifths of it at 128² and between by side. Three lakes'
+ *  meadows hold most of a 128² map, whose moist ground stood over `spectrum`'s 42 % on seven seeds of twelve at step 5. */
+export function stairMeadow(spec: MapSpec): number {
+  const k = Math.min(1, 0.8 + (0.2 * Math.max(0, spec.size.x - 128)) / 64);
+  return Math.round(STAIR_MEADOW[spec.settings.terrain.buildableLand] * k);
+}
 /** The start's bench, level tiles, by Buildable land (580 to 980 in all). */
 const BENCH = { tight: [580, 720], normal: [640, 860], generous: [760, 980] } as const;
 /** Levels between sills. */
@@ -85,10 +91,13 @@ export const NEAR_WALK = 40;
 const NEAR_SIDE = 3;
 /** The shortest dry bed with room for a dam to pond: a narrows and 8 tiles of bench beside it. */
 const DAM_BED = 12;
-/** A notch's dry bed at its shortest, tiles at 128² (scaled by side). Its tarn's green and its target lake's meadow
- *  cover about 16 tiles along it, so a shorter bed buys little (§4.2: the ground a work pays on is dry on day 1); but
- *  asking 18 failed ten seeds of twelve at 128², so none is asked and the longest of the nearest four is taken. */
-const NOTCH_BED = 0;
+/** A notch's dry bed at its shortest, tiles at 128² (scaled by side). Its tarn's green runs about 16 tiles down it and
+ *  its target lake's meadow covers its end, so a shorter bed buys little (§4.2: the ground a work pays on is dry on
+ *  day 1); the longest of the nearest four that is this long is taken. (At step 5, with spring tarns 8 tiles from the
+ *  lakes, asking 18 failed ten seeds of twelve; with the basins past the lakes' meadows, 20 fails none.) */
+const NOTCH_BED = 20;
+/** How far a rim tarn stands from its edge at most, tiles: its run to the edge stays short, a thread of green. */
+const RIM_EDGE = 11;
 
 /** The tile area over 192²'s: counts and gains scale by it (§4.2, §4.4). */
 const areaRatio = (W: number, H: number) => (W * H) / (192 * 192);
@@ -984,7 +993,12 @@ function placeTarns(L: Layout): string | null {
   const lakeGap = (b: Body) => Math.min(...L.lakes.map((k) => bodyGap(k, b)));
   const tarnWords = rng.shuffle([...TARN_WORDS]);
   const others = () => plan.links.filter((l) => l.path).map((l) => l.path!);
-  const site = (near: Point | null, rim: boolean): Body | null => {
+  const pc: Point = [L.pool.arms[0][0][0], L.pool.arms[0][0][1]];
+  // (a basin stands past a lake's meadow, so its works' ground is dry on day 1: the soil reaches a meadow's width over
+  // level ground and stops at the first step up; a rim tarn hugs its edge, and the pool's basins stand near the pool)
+  const sideGap = (o: Body, role: "rim" | "pool" | "wet") => (o.kind === "lake" ? (role === "wet" ? o.meadow : 8) : 6);
+  const site = (near: Point | null, role: "rim" | "pool" | "wet"): Body | null => {
+    const rim = role === "rim";
     for (let t = 0; t < 60; t++) {
       const r = rng.range(3.5, 6);
       const p: Point = near ? [near[0] + rng.range(-42, 42), near[1] + rng.range(-42, 42)] : [rng.range(8, W - 8), rng.range(8, W - 8)];
@@ -993,10 +1007,10 @@ function placeTarns(L: Layout): string | null {
       const q: Point = [p[0] + u[0] * len, p[1] + u[1] * len];
       const b: Body = { id: "", kind: "tarn", sill: 0, arms: [[[r1(p[0]), r1(p[1]), r1(r)], [r1(q[0]), r1(q[1]), r1(r * 0.8)]]], meadow: 0, deep: 2, dry: false, region: "wet" };
       const eg = edgeGap(b, W, W);
-      if (eg < 4 || (rim && eg > 14) || (!rim && eg < lakeEdge(W))) continue;
+      if (eg < 4 || (rim && eg > RIM_EDGE) || (!rim && eg < lakeEdge(W))) continue;
       // (the cheap checks first)
       if (dist2(p, s0) < (r + 16) * (r + 16)) continue;
-      if (plan.bodies.some((o) => bodyGap(o, b, o.kind === "lake" ? 8 : 6) < (o.kind === "lake" ? 8 : 6))) continue;
+      if (plan.bodies.some((o) => bodyGap(o, b, sideGap(o, role)) < sideGap(o, role))) continue;
       if (others().some((o) => pathGap(o, b.arms[0].map(([x, y]) => [x, y] as Point), r + 5) < r + 5)) continue;
       // the wet side: nearer the lakes than the bypass
       if (!rim && pathDist(p[0], p[1], bypass).d < lakeGap(b) + 4) continue;
@@ -1047,7 +1061,7 @@ function placeTarns(L: Layout): string | null {
   for (let k = 0; k < 2; k++) {
     let placed = false;
     for (let t = 0; t < 8 && !placed; t++) {
-      const b = site(null, true);
+      const b = site(null, "rim");
       if (!b) break;
       const sill = groundSill(b);
       const keep = plan.bodies.length;
@@ -1064,13 +1078,12 @@ function placeTarns(L: Layout): string | null {
   }
   // the basins the pool's leats fill: enough that the gates are three (the neck, the hanging valley if it leaves the
   // pool, each pool leat's head); each leat is laid with its basin, so later channels go round it
-  const pc: Point = [L.pool.arms[0][0][0], L.pool.arms[0][0][1]];
   const gatedNow = plan.links.filter((l) => l.gates.length).length;
   for (let k = 0; k < GATES[0] - gatedNow; k++) {
     let leat: Point[] | null = null;
     let b: Body | null = null;
     for (let t = 0; t < 12 && !leat; t++) {
-      b = site(pc, false);
+      b = site(pc, "pool");
       if (!b) break;
       leat = straightLink(plan, L.pool, nearestOn(b, pc), 0.55, [L.pool.id, ""]);
       if (leat && (pathLength(leat) > 0.32 * W || pathLength(leat) < 6)) leat = null;
@@ -1081,31 +1094,23 @@ function placeTarns(L: Layout): string | null {
     plan.links.push({ id: `leat${b.id}`, from: L.pool.id, to: b.id, kind: "leat", path: leat, half: 0.55, bed: [L.pool.sill, b.sill + 1], wet: false, gates: [2], rows: [1] });
     addName(plan, `leat${b.id}`, `${plan.names[b.id].split(" ")[0]} Leat`);
   }
-  // the rest: near the start first (NEAR_SIDE of them, the first a spring tarn where its run finds an edge), so three
-  // small works stand within its walk; then anywhere on the wet side, until the count and the ladder's floor are met
+  // the rest, empty basins (only the two rim tarns carry springs, §4.1: a spring tarn's green and its run's were three
+  // to five points of the map's moist ground each, seven seeds of twelve over `spectrum`'s 42 % at step 5): near the
+  // start first (NEAR_SIDE of them), so three small works stand within its walk; then anywhere on the wet side, until
+  // the count and the ladder's floor are met
   const floor = Math.ceil(0.75 * Math.max(3, Math.round(SMALL_WORKS[0] * areaRatio(W, W))));
   let nearCount = 0;
   let misses = 0;
   const extra = Math.round(2 * areaRatio(W, W));
   while ((tarns.length < Math.max(want, floor) + extra || nearCount < NEAR_SIDE) && misses < 4) {
     const isNear = nearCount < NEAR_SIDE;
-    const b = site(isNear ? s0 : null, false);
+    const b = site(isNear ? s0 : null, "wet");
+    if (isNear) nearCount++;
     if (!b) {
       misses++;
-      if (isNear) nearCount++;
       continue;
     }
-    if (isNear) nearCount++;
-    const isSpring = isNear ? nearCount === 1 : rng.float() < 0.4;
-    addTarn(b, isSpring ? "spring" : "basin", groundSill(b));
-    if (isSpring && !runToEdge(b)) {
-      // no way to an edge: it stays an empty basin
-      plan.sources.pop();
-      spring--;
-      b.kind = "basin";
-      b.dry = true;
-      plan.names[b.id] = plan.names[b.id].replace("Tarn", "Basin");
-    }
+    addTarn(b, "basin", groundSill(b));
   }
   return tarns.length >= 3 ? null : "placeTarns#6";
 }
@@ -1455,7 +1460,7 @@ function layout(spec: MapSpec, attempt: number, t: number, n: number, holds: (pl
     bypass: "bypass",
     gorge: "gorge",
     flow: STAIR_FLOW[spec.settings.water.riverFlow],
-    meadow: STAIR_MEADOW[spec.settings.terrain.buildableLand],
+    meadow: stairMeadow(spec),
   };
   plan.stair = stair;
   const L: Layout = { W, rng, spec, plan, stair, lakes: [], pool: null as unknown as Body, spans: [], poolBasins: new Set() };
@@ -1546,7 +1551,7 @@ const stairShape: Invariant = {
     if (!nWant.includes(st.n)) return fail(`${st.n} lakes at ${plan.W}² under highest ground ${spec.settings.terrain.highestTerrain} (${nWant.join(" or ")})`);
     const vl = pathLength(st.valley);
     if (vl < VALLEY_LENGTH[0] * plan.W - 1 || vl > VALLEY_LENGTH[1] * plan.W + 1) return fail(`The valley is ${vl.toFixed(0)} tiles long (${VALLEY_LENGTH[0]} to ${VALLEY_LENGTH[1]} × the side)`);
-    const meadow = STAIR_MEADOW[spec.settings.terrain.buildableLand];
+    const meadow = stairMeadow(spec);
     for (const lake of lakesOf(plan)) {
       if (lake.arms.length < ARMS[0] || lake.arms.length > ARMS[1]) return fail(`${nameOf(plan, lake.id)} has ${lake.arms.length} arms (2 to 5)`);
       for (const arm of lake.arms) {
