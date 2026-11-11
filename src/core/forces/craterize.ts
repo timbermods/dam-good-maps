@@ -6,8 +6,9 @@
 // never a stadium, a shaft or a tower (showcase-craft gap 25). The cavity is a few overlapping hollows (a lobed
 // outline) on a plane that leans with the land; a small crater is a shallow rounded bowl with no centre and a lip of
 // low lumps; the rim is uneven and low on one side; terraced walls carry slumped blocks, so a bench is a short arc
-// that pinches out; from 42 across (Auto) a peak: a broad, low hill of a few wide plates, never a tower, that
-// clears the bowl's spill level (a crater filled as a lake keeps its island); a ring is separate mountains, open on one side; the debris falls away in tongues. Its surface
+// that pinches out; from 28 across (Auto) a floor with low hummocks, from 68 a low massif of two or three broad
+// hummocks off the centre; a chosen peak is a broad, low hill of a few wide plates, never a tower, that clears the
+// bowl's spill level (a crater filled as a lake keeps its island); a ring is separate mountains, open on one side; the debris falls away in tongues. Its surface
 // becomes land in the forces' shared last step (rust/forces/src/levels.rs): its slopes cut into plates (no stair
 // of even steps running round), no band narrower than two tiles, no one-tile pillar, pit or lone block. The newest bowl replaces the relief it
 // lands on (overlapping impacts overprint older ones); only its outer lip rejoins the ground round
@@ -55,7 +56,9 @@ export const CRATER_DEFAULTS: CraterSettings = { mode: "strike", power: 55, size
 
 /** The diameter Power gives. */
 export const naturalSize = (power: number) => Math.round(6 + 112 * portable.pow(power / 100, 1.4));
-export const autoCentre = (diameter: number): CraterSettings["centre"] => (diameter < 28 ? "bowl" : diameter < 42 ? "flat" : diameter < 68 ? "peak" : "ring");
+/** What Auto gives: a bowl under 28 across, else a floor with low hummocks (from 68 a low massif on it); a peak or
+ *  a ring is chosen, never Auto's. */
+export const autoCentre = (diameter: number): CraterSettings["centre"] => (diameter < 28 ? "bowl" : "flat");
 
 /** Throws why an impact can't start (its settings, settings.ts; its point and aim on the map). */
 export function validateCrater(s: CraterSettings, m: { W: number; H: number }, i: CraterIntent): void {

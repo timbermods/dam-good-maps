@@ -2393,6 +2393,10 @@ struct Crater {
     hill: (f64, f64, f64, f64),
     /// A small crater's lip: low lumps round its outline, in crater tiles (x, y, radius, levels).
     lip: Vec<(f64, f64, f64, f64)>,
+    /// A large crater's low massif, when the crater chooses its own centre: two or three broad hummocks
+    /// off the middle, each an oval a level over the floor (its foot) and a smaller one two levels over it
+    /// (its top), in pairs.
+    mounds: Vec<Oval>,
     steep: bool,
     /// The floor's depth below the crater's ground, in whole levels.
     deep: f64,
@@ -2452,13 +2456,10 @@ impl Crater {
         let centre = if s(s0, "centre") == "auto" {
             if diameter < 28.0 {
                 "bowl"
-            } else if diameter < 42.0 {
-                // (too small for a hill that is broad for its height: a hummocky floor)
-                "flat"
-            } else if diameter < 68.0 {
-                "peak"
             } else {
-                "ring"
+                // (a hummocky floor, as most craters' are; from Size 68 a low massif on it, below: a
+                // central mountain is the Peak's, chosen)
+                "flat"
             }
         } else {
             s(s0, "centre")
@@ -2700,6 +2701,7 @@ impl Crater {
             plates: vec![],
             hill: (0.0, 0.0, 0.0, 0.0),
             lip: vec![],
+            mounds: vec![],
             steep,
             deep,
             bearings: vec![],
@@ -2784,6 +2786,40 @@ impl Crater {
             let (t, d) = (rnd(k) * PI * 2.0, 0.15 + 0.25 * rnd(k + 1.0));
             (d * cos(t), d * sin(t))
         };
+        // A large crater left to choose its own centre: a low massif on its hummocky floor, two or three
+        // broad hummocks off the middle and apart, each two levels over the floor, with a ledge of a
+        // few tiles round its top (a central mountain is the Peak's, chosen).
+        if s(s0, "centre") == "auto" && c.centre == "flat" && diameter >= 68.0 {
+            let count = 2 + (rnd(2501.0) * 2.0).floor() as usize;
+            let t0 = rnd(2502.0) * PI * 2.0;
+            for j in 0..count {
+                let jf = j as f64;
+                let b = t0 + (jf + 0.5 * (rnd(2510.0 + jf) - 0.5)) * PI * 2.0 / count as f64;
+                let d = radius * (0.3 + 0.08 * rnd(2520.0 + jf));
+                let across = radius * (0.17 + 0.05 * rnd(2530.0 + jf));
+                let turned = b + PI / 2.0 + 0.5 * (rnd(2550.0 + jf) - 0.5);
+                let along = across * (1.2 + 0.5 * rnd(2540.0 + jf));
+                let (x, y) = (d * cos(b), d * sin(b));
+                // (its foot, a level over the floor)
+                c.mounds.push(Oval { x, y, c: cos(turned), sn: sin(turned), along, across, level: 1.0, high: (0.0, 0.0) });
+                // (its top, a level higher: pushed its own way and turned a little, so the ledge round it is
+                // wide on one side and narrow on the other, never a ring)
+                let core = max(0.0, 1.0 - CRAG * (1.0 + 0.3 * rnd(2560.0 + jf)) / across);
+                let (inner, narrow) = (across * core, along * core);
+                let (u, v) = ((rnd(2570.0 + jf) - 0.5) * 1.2 * (along - narrow), (rnd(2580.0 + jf) - 0.5) * 0.8 * (across - inner));
+                let top = turned + 0.6 * (rnd(2590.0 + jf) - 0.5);
+                c.mounds.push(Oval {
+                    x: x + u * cos(turned) - v * sin(turned),
+                    y: y + u * sin(turned) + v * cos(turned),
+                    c: cos(top),
+                    sn: sin(top),
+                    along: narrow,
+                    across: inner,
+                    level: 2.0,
+                    high: (0.0, 0.0),
+                });
+            }
+        }
         // The central uplift, where the crater has room for one. A peak is a broad, low hill, as a real
         // central uplift is: a steep side (its crag) and a long gentle one (its ramp), with a lower summit
         // as a knob on its flank, or in a large crater a massif of three or four summits that run together
@@ -3088,7 +3124,19 @@ impl Crater {
         if floor > 0.0 && self.centre != "bowl" && self.radius >= 14.0 {
             // (a floor with no uplift is hummocky: more of it stands a level up)
             let above = if self.centre == "flat" { 0.62 } else { 0.72 };
-            z += floor * smooth((lumps(self.seed, 3100, x, y, max(5.0, self.radius * 0.12)) - above) / 0.06);
+            let rise = smooth((lumps(self.seed, 3100, x, y, max(5.0, self.radius * 0.12)) - above) / 0.06);
+            z += floor * rise;
+        }
+        if !self.mounds.is_empty() {
+            // (the massif's hummocks, their outlines ragged, standing on the floor: where they meet the wall
+            // it is already higher, so they never raise it)
+            let ragged = 0.85 + 0.3 * lumps(self.seed, 3140, x, y, max(5.0, self.radius * 0.15));
+            for o in &self.mounds {
+                let d2 = o.reach(qx, qy).0 * ragged * ragged;
+                if d2 < 1.0 {
+                    z = max(z, -self.deep + o.level);
+                }
+            }
         }
         if !self.blocks.is_empty() {
             // (their outlines ragged)

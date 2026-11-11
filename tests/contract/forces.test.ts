@@ -274,9 +274,11 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
         }
   });
 
-  it("Craterize: a peak is a broad, low hill of wide plates, never a tower, a plinth or a stack of blocks; under Size 42 Auto gives none", () => {
+  it("Craterize: a chosen peak is a broad, low hill of wide plates, never a tower, a plinth or a stack of blocks; Auto gives none", () => {
     const W = 128;
-    for (const size of [28, 30, 36, 40]) expect(impact(snapshotMap(bare(W)), { ...CRATER_DEFAULTS, size, power: 55 }, { origin: 64 * W + 64 }).anatomy.centre, `Size ${size}`).toBe("flat");
+    // (D148: Auto gave a peak from Size 42 until planning's decision on #912, 2026-11-10: the default is what
+    // already passes, a floor with low hummocks, from 68 a low massif; a central hill is the Peak's, chosen)
+    for (const size of [28, 30, 36, 40, 44, 54, 60, 66, 68, 80, 96]) expect(impact(snapshotMap(bare(W)), { ...CRATER_DEFAULTS, size, power: 55 }, { origin: 64 * W + 64 }).anatomy.centre, `Size ${size}`).toBe("flat");
     for (const [size, power] of [[44, 55], [54, 55], [60, 55], [64, 75], [40, 15]] as const)
       for (const walls of ["terraced", "steep"] as const)
         for (const seed of [0, 1, 2, 3, 4]) {
@@ -307,6 +309,36 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
           // broad for its height: two levels up from its floor it is at least twice as wide as it is high
           const foot = [...area].filter(([l]) => l >= floor + 2).reduce((n, [, c]) => n + c, 0);
           expect(2 * Math.sqrt(foot / Math.PI), `${what}: the hill's width, ${top - floor} levels high`).toBeGreaterThanOrEqual(Math.min(2 * (top - floor), a.radius * 0.6));
+        }
+  });
+
+  it("Craterize: from Size 68 Auto's floor carries a low massif, broad hummocks at most two levels above it, their summits off the bowl's centre", () => {
+    const W = 128;
+    for (const size of [68, 80, 96])
+      for (const walls of ["terraced", "steep"] as const)
+        for (const seed of [0, 1, 2, 3, 4]) {
+          const settings = { ...CRATER_DEFAULTS, walls, seed, power: 75, size, rays: false };
+          const p = impact(snapshotMap(bare(W)), settings, { origin: 64 * W + 64 });
+          // (the same crater with a Flat centre chosen: its floor without the massif)
+          const flat = impact(snapshotMap(bare(W)), { ...settings, centre: "flat" }, { origin: 64 * W + 64 }).map.heights;
+          const a = p.anatomy;
+          const h = p.map.heights;
+          const what = `${walls} ${size} ${seed}`;
+          expect(a.centre, what).toBe("flat");
+          const floor = a.datum - Math.round(a.depth);
+          let summit = 0;
+          for (let i = 0; i < h.length; i++)
+            if (h[i] > flat[i]) {
+              const where = `${what}: the massif at ${i % W},${Math.floor(i / W)}`;
+              // (a wall's bench a tile wider where a hummock meets it, no gap a tile wide left between: the
+              // forces' last step)
+              if ([i - 1, i + 1, i - W, i + W].some((j) => flat[j] === h[i])) continue;
+              expect(h[i] - floor, where).toBeLessThanOrEqual(2);
+              if (h[i] - floor < 2) continue;
+              summit++;
+              expect(Math.hypot((i % W) - a.x, Math.floor(i / W) - a.y), `${where}, by the bowl's centre`).toBeGreaterThan(a.radius * 0.1);
+            }
+          expect(summit, `${what}: the massif's summits, two levels up`).toBeGreaterThanOrEqual(12);
         }
   });
 

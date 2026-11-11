@@ -686,9 +686,11 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   gently with its size (about a level for every eight tiles across; a crater with a floor about a level for every
   eleven, one with a peak every fourteen), never more than Power gives. With terraced walls it goes down in whole
   levels, a step two tiles wide or more for each, and its lip is low lumps all round its outline but for the gap
-  (one level, two here and there where the rim stands highest), never a straight slab. From 28 to 41 across Auto
-  gives a floor with low hummocks and no peak (a bowl that small has no room for a hill that is broad for its
-  height); from 42 a peak, from 68 a ring. The rim's crest is uneven all round and gone on one side, a gap (where the
+  (one level, two here and there where the rim stands highest), never a straight slab. From 28 across Auto
+  gives a floor with low, uneven hummocks, none over a level above the floor and nothing ringed, and no peak (a
+  central hill or ring is chosen, never Auto's); from 68 the floor carries a low massif: two or three broad hummocks
+  at most two levels above the floor, their summits apart and off the bowl's centre (nature's own pick for a centre
+  left on Auto is this, a bowl or a flat floor, never a peak or a ring). The rim's crest is uneven all round and gone on one side, a gap (where the
   ground round it is lowest; the seed's side on level ground), so a lake in the bowl spills at the level of the
   ground round the crater. Beside lower land that is no slope (a canyon, a lake, a plateau's edge) the rim stands
   whole on the crater's own ground and holds the bowl. Steep walls are a cliff. Terraced walls carry blocks slumped
@@ -703,7 +705,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   the way out, clear of the wall's benches, and its top stands off the
   hill's middle, four tiles across or more, two levels above the bowl's spill level (where a lake filling the crater stands, worked out on the crater as made;
   the level a Fill gives, where the land round the crater holds water only a little higher), so a crater filled as a
-  lake keeps its island at any strength; a ring is three or four separate mountains round the centre, off it and
+  lake keeps its chosen peak as an island at any strength; a ring is three or four separate mountains round the centre, off it and
   open on one side, the tallest clear of the lake. A centre needs room: a peak a crater 16 tiles across, a ring 28.
   Nothing is left standing inside the bowl: a ruin on ground that happens to keep its old level goes with the rest.
   The debris falls away in tongues, far on some bearings and short on others, and dies into the land's own shape;
