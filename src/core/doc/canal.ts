@@ -10,16 +10,12 @@
 import { CEILING } from "../format/world";
 import { runsToTiles, tilesToRuns } from "../math/grid";
 import { WATER } from "../sim/fed";
+import { CANAL_CUTTING, CANAL_MAX_DEPTH, CANAL_MAX_LENGTH, CANAL_MAX_WIDTH } from "./canalLimits";
 import type { CanalParams, OpOf } from "./ops";
 import type { ApplyResult, MapSession } from "./session";
 import { applySelection, selectionHeld } from "./start";
 
-export const CANAL_MAX_WIDTH = 6;
-export const CANAL_MAX_DEPTH = 3;
-/** How much deeper than its depth the bed may be cut to keep falling through a rise in the land. */
-export const CANAL_CUTTING = 3;
-/** The longest line of tiles a canal follows. */
-export const CANAL_MAX_LENGTH = 1024;
+export * from "./canalLimits";
 
 export interface CanalPlan {
   /** The plain one-line reason it is refused, or null. */
