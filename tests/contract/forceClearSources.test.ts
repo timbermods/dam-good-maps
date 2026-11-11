@@ -341,8 +341,12 @@ describe("forces clear sources (D474)", () => {
     // (seed 5 for seed 21 since generator 0.10.16's ground with grade, D148: seed 21's dry spot is now at (62, 30), at a
     // cliff's foot where the carve cuts all round the source but leaves its own tile as it was, so both plays keep the
     // same water there; seed 5's is at (65, 30), and the kept source holds 45.6 of water near it to Clear's 31.8; like
-    // seed 21's map before, seed 5's has no terrain above terrain, as seeds 1–4 now have)
-    await runGenerate(makeSpec({ seed: 5, theme: "highlands", size: { x: 96, y: 96 } }));
+    // seed 21's map before, seed 5's has no terrain above terrain, as seeds 1–4 now have; seed 6 since generator 0.10.17's
+    // start floors (D515), D148: seed 5's dry spot, (65, 30), is a cliff's foot again, where the carve leaves the source's
+    // tile as it was and both plays keep 49.0 near it; seed 6's is at (30, 30), the carve cuts under it, and the kept source
+    // holds 48.3 of water near it to Clear's 27.8; of seeds 1–8 only 6 and 8 cut under the spot on a map without terrain
+    // above terrain)
+    await runGenerate(makeSpec({ seed: 6, theme: "highlands", size: { x: 96, y: 96 } }));
     ed.refine();
     const open = () => MapSession.open(decodeProject(ed.project().bytes));
     const b = open().built;

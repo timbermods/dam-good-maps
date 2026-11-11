@@ -94,9 +94,9 @@ pub fn blocks(profile: Profile, r: &Entries) -> bool {
 
 /// The checks that need the map's water, which a map made with Sources: None has none of (playability.ts
 /// `WATER_CHECKS`).
-const WATER_CHECKS: [&str; 14] = [
+const WATER_CHECKS: [&str; 15] = [
     "water.settles", "water.clean_exists", "water.clean_reach", "water.outflow", "water.badwater_contained", "water.source_in_flow", "water.storage_possible",
-    "resources.badwater_source", "start.water", "start.badwater", "start.food", "start.farmland", "plants.survive", "plants.drought",
+    "resources.badwater_source", "start.water", "start.badwater", "start.food", "start.farmland", "start.forester", "plants.survive", "plants.drought",
 ];
 pub const NO_WATER_SOURCE: &str = "No water source: the map was made with Sources: None";
 

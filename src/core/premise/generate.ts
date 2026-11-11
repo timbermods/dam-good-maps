@@ -15,12 +15,13 @@
 // (`LATER`), never silently; none is now.
 
 import type { GenerateOptions, GenerateResult, GenerationInfo } from "../gen/generate";
+import { FLOOR_MARGIN } from "../gen/generate";
 import { writeTimber } from "../format/timber";
 import type { MapSpec } from "../spec/mapspec";
 import { rulesFor } from "../validate/playability";
 import { blocks, type CheckResult, type ValidationReport } from "../validate/report";
 import { drawPlan, failing, PLAN_TRIES, type Failure } from "./draw";
-import { checkFrame } from "./frame";
+import { checkFrame, type FrameNeeds } from "./frame";
 import { ladderOf, spectrumMiss, type Ladder } from "./ladder";
 import type { LifeReport } from "./life";
 import { premiseLand, premiseMap } from "./map";
@@ -59,7 +60,7 @@ export interface PremiseInfo {
   /** What stage 6 planted, against its budget. */
   life?: LifeReport;
   /** Where stage 3 put the start, and what it measured there. */
-  start?: { moved: number; level: number; farmland: number; shallow: number };
+  start?: { moved: number; bench: number; moist: number; reach: number; shallow: number };
   /** The checks reported as warnings until a later build step answers them (`LATER`). */
   later?: string[];
   /** What could not stand as the plan has it, one line each (never silent, D342). */
@@ -88,8 +89,11 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
   const def = PREMISES[pair.premise];
   const why = def.eligible(specIn);
   if (why) return { reason: why };
+  // the start held to the shared gate's floors (D515: a premise carries none of its own), its bench built with the
+  // generator's margin over its floor (`FLOOR_MARGIN`)
   const rules = rulesFor(specIn);
-  const needs = { level: rules.levelLand, farmland: rules.farmland };
+  const needs: FrameNeeds = { bench: rules.levelLand, moist: rules.farmland + rules.forester, reach: rules.reachMin };
+  const bench = Math.ceil(FLOOR_MARGIN * rules.levelLand);
   const failures: GenerateResult["failures"] = [];
   const failedAt: number[] = [];
   let settles = 0;
@@ -116,11 +120,13 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
     // (the theme's style for this attempt: the skeleton's land is read as the map's will be)
     const style = premiseStyle(pair.theme, specIn, attempt);
     // (the start's frame judged on the skeleton's land first: the side network only takes ground from it, so a start
-    // short of level land there is short on the map, and is drawn again before its works are sited)
+    // short of its bench there is short on the map, and is drawn again before its works are sited. Only the reasons
+    // the side network cannot undo are read there, `FrameNeeds.early`: the 5 × 5, its door, the landmark's lip and
+    // foot in the frame, and the bench; the frame's water depth and the moist land wait for the full land)
     const sited = sitePlan(def, specIn, drawn.plan, attempt, style.relief, (sk, w, heights) => {
-      const f = checkFrame(sk, w, heights, needs);
+      const f = checkFrame(sk, w, heights, { ...needs, early: true });
       return f.reason ? { id: "frame.start", reason: f.reason } : null;
-    });
+    }, bench);
     if ("reason" in sited) {
       fail(attempt, [{ id: sited.id ?? "site", reason: sited.reason }]);
       continue;
@@ -135,7 +141,7 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
       continue;
     }
     // stage 2: the relief between, in the theme's style; stage 3: the start for the first frame
-    const ground = premiseLand(plan, water, style);
+    const ground = premiseLand(plan, water, style, bench);
     const frame = checkFrame(plan, water, ground.heights, needs);
     if (frame.reason) {
       fail(attempt, [{ id: "frame.start", reason: frame.reason }]);
@@ -175,7 +181,7 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
       storage: null,
       startDrought: null,
       stage: "built",
-      premise: { id: def.id, theme: pair.theme, card: premiseCard({ id: def.id, theme: pair.theme, plan, ladder }) ?? undefined, plan, attempt, ladder, life: m.life, start: { moved: frame.moved, level: frame.level, farmland: frame.farmland, shallow: Math.round(frame.shallow * 100) / 100 }, later, ...(m.notes.length || plan.notes?.length ? { notes: [...(plan.notes ?? []), ...m.notes] } : {}) },
+      premise: { id: def.id, theme: pair.theme, card: premiseCard({ id: def.id, theme: pair.theme, plan, ladder }) ?? undefined, plan, attempt, ladder, life: m.life, start: { moved: frame.moved, bench: frame.bench, moist: frame.moist, reach: frame.reach, shallow: Math.round(frame.shallow * 100) / 100 }, later, ...(m.notes.length || plan.notes?.length ? { notes: [...(plan.notes ?? []), ...m.notes] } : {}) },
     };
     // the first look is the map's own land (D348: a land shown is never replaced, so it is shown once it passed)
     if (opts.onLand) {

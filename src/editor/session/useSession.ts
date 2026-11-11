@@ -601,9 +601,10 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
 
   // the start requirements and targets of this map: its settings, or its difficulty's defaults
   const needs = useMemo(() => {
-    const r = rulesFor(info.spec, info.designedFor);
+    // (a map without its spec: its floors at its own size, as the gate scales them)
+    const r = rulesFor(info.spec, info.designedFor, "", { x: info.W, y: info.H });
     return { rules: r, reachMin: r.reachMin };
-  }, [info.spec, info.designedFor]);
+  }, [info.spec, info.designedFor, info.W, info.H]);
   // ------------------------------------------------------------------------------ worker calls
 
   /** Queue a worker call after the ones before it (edits and plans stay in order). */

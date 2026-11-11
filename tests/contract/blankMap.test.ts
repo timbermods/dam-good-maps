@@ -16,7 +16,7 @@ describe("a new blank map", () => {
     expect(s.built.entities.map((e) => [e.template, e.x, e.y, e.z])).toEqual([["StartingLocation", 47, 47, 4]]);
     const failed = s.validate().report.checks.filter(failing);
     expect(failed.every((c) => c.class === "playability")).toBe(true);
-    expect(failed.map((c) => c.id).sort()).toEqual(["resources.badwater_source", "start.farmland", "start.food", "start.water", "start.wood", "start.wood_floor"]);
+    expect(failed.map((c) => c.id).sort()).toEqual(["resources.badwater_source", "start.farmland", "start.food", "start.forester", "start.water", "start.wood", "start.wood_fast", "start.wood_floor"]);
     // (the exported file reads back as a map of that size)
     expect(readTimber(s.exportTimber().bytes).world.sizeX).toBe(96);
   });

@@ -93,7 +93,10 @@ afterEach(() => {
 });
 
 describe("a held day is the day the saved and reopened map holds", () => {
-  for (const [seed, theme] of [[3, "riverValley"], [4, "lakeBasin"]] as [number, ThemeId][]) {
+  // (Lake Basin seed 5 since generator 0.10.17's start floors, D515, D148: seed 4 grew a spring cave by its lake, so its water
+  // settles on the stacked engine and the lower by its first deep tile is refused; seeds 1–3 and 5–8 have no cave and their
+  // edit's water settles, and seed 5 is the first after 4)
+  for (const [seed, theme] of [[3, "riverValley"], [5, "lakeBasin"]] as [number, ThemeId][]) {
     it(`${theme} ${seed}: an edit, the day held while the water settles, then again once it has: the reopened map's day, byte for byte`, async () => {
       await runGenerate(makeSpec({ seed, theme, size: { x: W, y: W } }));
       ed.refine();

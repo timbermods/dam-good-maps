@@ -169,6 +169,11 @@ interface Invariant {
 
 The lake stair's invariants, with numbers, are in section 4.4.
 
+A premise's invariants hold only its own story: its water and its works. Playability is the map's (D515): the start's
+floors are the shared gate's (`validate/playability.ts` `START_FLOORS`), which every map passes, and no path, a premise
+or any other, may carry its own, lower playability floor. Stage 3 reads them from that table (`frame.ts` `FrameNeeds`),
+never from a `PremiseDef`.
+
 ### 1.5 A theme and a premise are two choices
 
 Planning's direction, endorsed by Kyler (2026-11-10): a theme and a premise are independent. The **theme is the land's
@@ -557,10 +562,20 @@ stage 4 and the repairs are not built. Where it differs from the above, and why:
 - **Stage 3 checks rather than trims** (`frame.ts` `checkFrame`). The plan's start is kept if it holds, else the
   nearest tile within 4 that does: a dry, level 5 × 5 with a level door at the plan's turn; every landmark lip tile
   and the pool's foot inside the first frame (`frameAt` at the start's own zoom, |u| ≤ 0.95, v ≤ 0.98), a lip tile
-  measured at its corner toward the camera, where the rendered lip's edge stands; and the walk's level land (flat dry
-  2 × 2s) and farmland within 20 tiles at the rules' counts (`rulesFor`: 113 and 100 on Normal). A plan whose start
-  holds nowhere is the next plan, before its settle (`frame.start`). No lip is trimmed; a lip tile outside is a
-  re-roll.
+  measured at its corner toward the camera, where the rendered lip's edge stands; and the start's floors (D515) as the
+  gate's table gives them: its bench (`startBench`, the measure `start.level_land` reads, 640 on Normal), its walkable
+  land once the slopes the build derives for it stand (`slopeReach`, at least 0.75 of `start.reach`'s 1,300 before
+  the build's own slopes, `START.reachRead`), and its moist land within 20 tiles (the farms' 100 and the forester's
+  plot of 100). A plan whose start holds nowhere is the next plan, before its settle (`frame.start`). No lip is
+  trimmed; a lip tile outside is a re-roll.
+- **The start's bench built** (`frame.ts` `buildBench`, D515), on the skeleton's land for the siting and on the map's
+  land in stage 2: where the relief leaves the start under its bench floor with the generator's margin (1.1), the
+  ground round its 5 × 5 comes to its level, nearest first and leaning away from the landmark, a tile cut down two
+  levels at most or filled one, never on ground stage 1 fixed, within 2 tiles of the water, a lip or a crest, nor
+  where it would leave a step of two beside it (the slopes still join the bench). The early refusal on the skeleton
+  reads only what the side network cannot undo (the 5 × 5, its door, the landmark in the frame, the bench); the
+  frame's water depth, the moist land and the walkable land wait for the full land. The meadow room a layout's
+  start asks (`meadowRoom`) is 1.5 times the gate's moist land (300 tiles, as before).
 - **The frame's water made shallow by its beds**: lake beds inside the first frame stand at most 1.2 under the
   surface (85 % of the frame's water so; the crest's pour is left). Before this, 31 to 54 % of it was shallow. The
   pump's ribbon is cut since the hold, to 2.5 (stage 2's "As built (the hold)").
@@ -919,6 +934,13 @@ water held all nine days). What is left at 128²: a plan whose 48 layouts all fa
 `resources.mine_site` where the start's reach has no level ground for a second site at 30 tiles, which the themes' mine
 pads (D363) do not answer here, or `start.wood`), and the map stage (life, the checks and the file, about 0.4 s beside
 the settle).
+
+As measured with the start's floors (D515; River Valley × lake stair, seeds 1 to 6 at 128²): seeds 1, 2 and 6 hold
+(benches 770, 1,074 and 650; walkable land 1,388, 1,608 and 2,046); seeds 3, 4 and 5 fall to the themes, each made
+there to the same floors. On them the stair's geometry leaves the start no room: its meadow sits between its lake and
+cliffs three to eight levels high (the bench built stops at 335 to 618 tiles), or its ways out climb those cliffs
+(805 to 810 walkable tiles read before the build). Open: the lowest lake giving up area to the bench, and a natural
+ramp cut up the cliff behind the start as its way out.
 
 ### 3.4 Deferred to after the map opens
 

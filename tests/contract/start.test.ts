@@ -171,7 +171,9 @@ describe("the three start requirements (PLAN §5.6, D85, D164)", () => {
     expect(c["start.wood_floor"].ok).toBe(true);
     expect(c["start.food"].ok).toBe(true);
     expect(c["start.food"].value).toBe(35);
-    for (const id of ["start.reach", "start.ruins_clear", "water.storage_possible"]) expect(c[id].advisory, id).toBe(true);
+    for (const id of ["start.ruins_clear", "water.storage_possible"]) expect(c[id].advisory, id).toBe(true);
+    // (the start's walkable land is a floor since D515, no longer a target)
+    expect(c["start.reach"].advisory ?? false).toBe(false);
     // (Kyler, 2026-10-05, #265: a generated map's start keeps the badwater distance; an edited or
     // imported map only warns)
     expect(c["start.badwater"].advisory).toBe(false);

@@ -103,7 +103,7 @@ export function gateMap(spec: MapSpec, theme: StyleTheme = "riverValley"): (Gate
       failed.push(`${landFails[0].id}: ${landFails[0].reason}`);
       continue;
     }
-    const frame = checkFrame(plan, water, land.heights, { level: rules.levelLand, farmland: rules.farmland });
+    const frame = checkFrame(plan, water, land.heights, { bench: rules.levelLand, moist: rules.farmland + rules.forester, reach: rules.reachMin });
     if (frame.reason) {
       failed.push(`frame.start: ${frame.reason}`);
       continue;
