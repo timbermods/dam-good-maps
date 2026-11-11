@@ -243,3 +243,24 @@ After every work 39.6 % of the map; the rest is the wall, the ridges and the far
 - The home side of the valley is the start's bench, the north-east shore and the south meadow; the west meadows, the
   Low River's head and the megadam's slot are across the drain bay (five wide at its narrows) or a brook: bridges.
 - Nobody has played it; wood is 240 living trees per 10,000 tiles (the valley's half of the map at about 440).
+
+**Round 5 (planning's ruling on round 4, #236 07:44Z; the last).** The wall is a wall: a crest four to six tiles
+thick (eight only at the Veil's bastion round the cleft), the basin face sheer from the crest to the floor, the valley
+face with the leat's ledge only; the height kept (16 to 19). The basin's floor has grade: one-level rolls falling from
+the wall's foot toward the Gate Bed and the exit, no plates; the Gate Bed is one channel six wide with eight dead woods
+along it and two on the Pass Bed. The trench at the door is no deeper than two: three rows a level under the sill
+carry the fall to the drain, the drain and the Still Pool a level under the sill too. The badtide: planning's two
+options were tried by the model and neither holds. A clean Veil is impossible by the game's rule (every clean source
+runs bad in a badtide, `sim/weather.ts`). A terrace a level over the meadow at the start was built and taken out: its
+soil's moisture is the red water's and went bad within eight days anyway (72 % green on day 1 to 0 % on day 8), and in
+a drought the lake stood two levels under the door (the start's water gone on day 1). What stands is the Still Pool
+beside the start, a dead end off the trench with a neck one tile wide; with a levee of 6 on its neck, built while the
+water is clean, the model still has it 38 % bad on day 1 and 53 % by day 8 (the bench 59 % green on day 1, 21 % on day
+8, the same as without it): the red reaches it by a way the model's record did not show in the time there was. So the
+red over the door on day 1 stands as a shortfall. Measures (r5): flat 61.5 %, one-level steps 62.6 %; water 8.0 %,
+moist 23.4 %, the basin 12.7 % moist or wet (three oases); the Veil 6.44 levels; 1,096 living trees (297 per 10,000),
+469 dead, 367 berry bushes; 0 blocking, 2 warnings (`water.outflow`, `start.dry`); the walk to the Gate's natural dam
+16 tiles, to the south meadow 58; no ramp to the ledge found (the ledge stands straight over the bench without the
+seven level tiles a ramp needs), so the leat's head is a bridge or a stair away. The ladder: the Gate opened +1,329
+(3.6 %); the second blast and the Low River levee +1,144 (3.1 %); the leat's bar once +5/−124, twice 0/−267 (the
+Veil dwindles); the leat spanned +3,449 (9.4 %, the Pass Bed); the megadam to 9 holds 6,285 over 7,343 tiles.
