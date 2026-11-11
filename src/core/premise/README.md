@@ -1,9 +1,9 @@
 # premise
 
 Maps from a premise (docs/PREMISES.md): a problem the player solves, with the water that makes it true. Build steps 1
-to 4 are here: the model, the lake stair's plan (stage 0) and its `plan` invariants; the water by number (stage 1)
-and its `land` invariants; the relief between (stage 2); the start for the first frame (stage 3); and the
-generator's premise mode, which `gen/generate.ts` `generate` calls when `spec.premise` is set (share link key `p`; no
+to 5 are here: the model, the lake stair's plan (stage 0) and its `plan` invariants; the water by number (stage 1)
+and its `land` invariants; the relief between (stage 2); the start for the first frame (stage 3); the ladder
+(stage 4); and the generator's premise mode, which `gen/generate.ts` `generate` calls when `spec.premise` is set (share link key `p`; no
 control on the page yet).
 
 **Rules**
@@ -45,7 +45,17 @@ control on the page yet).
   every water's bowl, rims kept from lower waters, the landmark's upper world, the bypass following the land, dry
   benches in threes, ridges as crags, `tidy` and the bench-width floor `land/benches.ts`); `badwaterNiches` cuts the
   permanent badwater source's niche beside the gorge.
-- `map.ts`: `premiseLand` (stage 2 and the badwater's niche) and `premiseMap` (the start where stage 3 put it, the
+- `ladder.ts`: stage 4 (§4.2). `layWorks` lays the works' own ground on stage 2's (each small levee's basin banked,
+  a beach at its sill + 1 under a rim; a notch's rock plug when `NOTCH_SHUT` is `"plug"`, D513(3): one switch from
+  rows of Blockages). `ladderOf` places each work as its template on the land (rows cleared or a plug dug, a dam to
+  pond across its bed where its pond stays in it, a levee across a basin's spill bed, a breach, a raised sill, the
+  megadam's band) and estimates what it buys by number: day 1 is every row and notch shut (lakes on their sills);
+  each work's water is `flowThrough` and `prefillFrom` on the floor with it and the works it needs done, and its
+  gain (`estimateGain`) the tiles the soil rule (`soilReach`, a bucketed copy of `sim/moisture.ts` without
+  contamination, equal to it tile for tile) newly reaches, no settle. A breach's, raised sill's or megadam's gain is
+  the water it holds. The readout is `info.premise.ladder`: works with sites, gains, reach and notes; day 1's water
+  and moist shares against `spectrum`.
+- `map.ts`: `premiseLand` (stage 2, the badwater's niche and `layWorks`) and `premiseMap` (the start where stage 3 put it, the
   sources and rows as features, one `buildMap` and the checks). `tools/premise-map.ts` writes the mode's maps (or a
   plan file's) as a `.timber`, a project, a picture and a share link.
 - `waterChecks.ts`: the `land` invariants, `flowThrough` on stage 1's heights alone (`stageFlow`, once per stage 1),
@@ -62,4 +72,5 @@ stair, the `land` invariants on seeds 1 to 4 at each size and Four Lakes, a brok
 ground's, the start's and the sources' checks); `premiseWater.heavy.test.ts` (seed 1 at each size and Four Lakes settled as the game plays them: levels against the
 table, each link out of a split within 20 % of the table's flow, no stray water, each fall's curtain by the fall
 judge with the notches open); `premiseMap.test.ts` (quick: seed 1 at 128² from a `p=lakeStair` link through
-`generate`, every blocking check passed, its `.timber` pinned; an ineligible spec gets a reason).
+`generate`, every blocking check passed, its ladder read out, its `.timber` pinned; `soilReach` equal to
+`sim/moisture.ts`; an ineligible spec gets a reason).

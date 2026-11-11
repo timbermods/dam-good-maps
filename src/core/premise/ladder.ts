@@ -14,6 +14,7 @@
 import { tilesToRuns, type Runs } from "../math/grid";
 import { clusterSaturation } from "../sim/moisture";
 import { flowThrough, prefillFrom } from "../sim/prefill";
+import { designLevel } from "./levels";
 import { near4, type WaterRaster } from "./raster/field";
 import type { PremisePlan, Work, WorkKind, WorkRung } from "./types";
 import { stageModel, type StageWater } from "./water";
@@ -426,6 +427,24 @@ function damSite(r: WaterRaster, heights: ArrayLike<number>, li: number, at: [nu
   return best;
 }
 
+/** A cleared link's head, as the water reads it: stage 1 holds a shut link's bed up to its first row at the level its
+ *  body's water stands (`headHolds`), over the body's sill where it stands well over it (the springs' pool with one way
+ *  out stands 1.3 over). `flowThrough`'s levels are static, its bodies on their sills, so the head the body's water
+ *  pours over once the row is cleared reads as the sill. */
+function headOpen(plan: PremisePlan, w: StageWater, heights: ArrayLike<number>, li: number): Change {
+  const r = w.raster;
+  const l = plan.links[li];
+  const from = plan.bodies.find((b) => b.id === l.from);
+  const row = r.rows[l.id]?.[0];
+  if (!from || !row?.length) return [];
+  const level = designLevel(w.table, from);
+  let end = -Infinity;
+  for (const i of row) if (r.channel[i] === li + 1) end = Math.max(end, r.along[i]);
+  const out: Change = [];
+  for (let i = 0; i < r.W * r.H; i++) if (r.channel[i] === li + 1 && r.along[i] < end - 0.5 && heights[i] > from.sill && heights[i] < level) out.push([i, from.sill]);
+  return out;
+}
+
 /** The plan's works as templates on the land: each one's site, what it does and what it buys by number, in the
  *  order the plan lists them; and day 1's water and moist shares (`spectrum`). `heights` is the land as built
  *  (stages 2 and 3, the works' own ground laid). */
@@ -468,7 +487,9 @@ export function ladderOf(plan: PremisePlan, w: StageWater, heights: Uint8Array, 
     } else if (work.kind === "bypass") {
       site.tiles = (r.rows[work.on] ?? []).flat();
       for (const i of site.tiles) change.push([i, heights[i]]);
-    } else if (work.kind === "damToPond" && li >= 0) {
+    }
+    if ((work.kind === "notch" || work.kind === "leat" || work.kind === "bypass") && li >= 0) change.push(...headOpen(plan, w, heights, li));
+    if (work.kind === "damToPond" && li >= 0) {
       const d = damSite(r, heights, li, work.at);
       if (d) {
         site.does = "build";
@@ -569,7 +590,6 @@ export function ladderOf(plan: PremisePlan, w: StageWater, heights: Uint8Array, 
     } else {
       after = waterWith(new Set([...needs, work.id]));
       const gain = estimateGain(heights, W, H, before, after);
-      (globalThis as { __ladderDebug?: (id: string, a: Water, b: Water) => void }).__ladderDebug?.(work.id, before, after);
       site.green = gain.green;
       site.wet = gain.wet;
       site.reach = tilesToRuns(gain.tiles, W);
