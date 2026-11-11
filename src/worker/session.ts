@@ -35,7 +35,7 @@ export type { EntityInfo };
 import { objectsIn } from "../core/doc/inArea";
 import { markerNotes, type MarkerNote } from "../core/doc/objectOps";
 import { fillLevel, planFill, unfedWater } from "../core/doc/waterEdits";
-import { applyLakeLevel, planLakeLevel, type LakeLevelPlan } from "../core/doc/lakeLevel";
+import { applyLakeLevel, lakeHeldLevel, planLakeLevel, type LakeLevelPlan } from "../core/doc/lakeLevel";
 import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
 import { bakeLandforms } from "../core/doc/bake";
@@ -2437,6 +2437,12 @@ export function fillAt(x: number, y: number, level: number, floor?: number | nul
 export function lakeLevelPlanAt(x: number, y: number, level: number, width?: number): Omit<LakeLevelPlan, "op"> {
   const { op: _op, ...plan } = planLakeLevel(need(), x, y, level, width);
   return plan;
+}
+
+/** The level the lake at (x, y) is held at now (its sill's), or null where no water stands (core/doc/lakeLevel.ts
+ *  `lakeHeldLevel`): what the page's Lake level shows. Reads the map only; no settle. */
+export function lakeHeldAt(x: number, y: number): number | null {
+  return lakeHeldLevel(need(), x, y);
 }
 
 /** Set the lake at (x, y) to `level`: its sill cut down or raised, one undo step, the map's water the settle that

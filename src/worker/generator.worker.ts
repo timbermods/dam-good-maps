@@ -261,6 +261,7 @@ const api = {
   fillAt: routed((x: number, y: number, level: number) => sendUpdate(ed.fillAt(x, y, level)), (...a) => collabEditApi.fillAt(...a).then(sendUpdate)),
   /** Lakes by number: what setting a lake's level would do (or why not), then doing it, one undo step. */
   lakeLevelPlanAt: (x: number, y: number, level: number, width?: number) => ed.lakeLevelPlanAt(x, y, level, width),
+  lakeHeldAt: (x: number, y: number) => ed.lakeHeldAt(x, y),
   lakeLevelAt: routed((x: number, y: number, level: number, width?: number) => sendUpdate(ed.lakeLevelAt(x, y, level, width)), (...a) => collabEditApi.lakeLevelAt(...a).then(sendUpdate)),
   moveObjectBy: routed((id: string, dx: number, dy: number, z?: number) => sendUpdate(ed.moveObjectBy(id, dx, dy, z)), (...a) => collabEditApi.moveObjectBy(...a).then(sendUpdate)),
   clearEverything: routed(() => sendUpdate(ed.clearEverything()), () => collabEditApi.clearEverything().then(sendUpdate)),
