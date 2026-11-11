@@ -20,6 +20,7 @@ import { ForceRolls } from "../core/forces/rolls";
 import { EVERY_KIND, planRemove, type RemoveKind } from "../core/doc/remove";
 export type { RemoveKind };
 import { paintDying, paintLevels, planPaintObjects } from "../core/doc/paint";
+import { planRuinLine, type RuinLineParams, type RuinPier } from "../core/doc/ruinLine";
 import type { PaintParams } from "../core/doc/paintParams";
 import { footprintCheck as checkFootprint, planEntity, planMoveEntity, planPlant, withSpringPools, type EntityRequest, type PlannedOps } from "../core/doc/placing";
 import { planStair, type StairStep } from "../core/doc/stair";
@@ -1877,6 +1878,8 @@ export const planned = {
   plant: (template: string, tiles: readonly number[]) => planPlant(need(), template, tiles, () => crypto.randomUUID()),
   remove: (tiles: readonly number[], kinds: readonly RemoveKind[], label?: string, cut?: number | null) => planRemove(need(), tiles, kinds, label, cut),
   paint: (params: PaintParams, z?: number) => planPaintObjects(need(), withLevels(params, z)),
+  /** A ruin line: its piers and the operations that place them, or why not. */
+  ruinLine: (params: RuinLineParams) => planRuinLine(need(), params),
   strokeClearing: (op: EditOp, label: string, tiles: readonly number[]) => planStrokeClearing(need(), op, label, tiles),
   move: (id: string, dx: number, dy: number, z?: number) => planMoveEntity(need(), id, dx, dy, z),
   start: (x: number, y: number, orientation?: Orientation, z?: number) => planStart(need(), x, y, orientation, () => crypto.randomUUID(), z),
@@ -2343,6 +2346,26 @@ export function paintAt(params: PaintParams, z?: number): SessionUpdate & { plan
   if (!plan.ok) return { ...changed(s, false, plan.errors, t0), planted: [] };
   const r = s.applyBatch(plan.ops, "user", plan.label);
   return { ...changed(s, r.ok, r.errors, t0), planted: r.ok ? plan.plan.map((o) => o.tile) : [] };
+}
+
+/** A ruin line's piers and the level their tops share (core/doc/ruinLine.ts `planRuinLine`), for the page's ghost, or
+ *  the one line why it can't be laid. Reads the map only. */
+export function ruinLinePlanAt(params: RuinLineParams): { piers: RuinPier[]; top: number; reason: string | null } {
+  const p = planRuinLine(need(), params);
+  return p.ok ? { piers: p.piers, top: p.top, reason: null } : { piers: [], top: 0, reason: p.errors[0] };
+}
+
+/** Lay a ruin line from the shelf (core/doc/ruinLine.ts): its columns placed as one step. The tiles they stand on, for
+ *  the page's pop. */
+export function ruinLineAt(params: RuinLineParams): SessionUpdate & { planted: number[] } {
+  const t0 = performance.now();
+  const s = need();
+  const blocked = gated();
+  if (blocked) return { ...changed(s, false, [blocked], t0), planted: [] };
+  const plan = planRuinLine(s, params);
+  if (!plan.ok) return { ...changed(s, false, plan.errors, t0), planted: [] };
+  const r = s.applyBatch(plan.ops, "user", plan.label);
+  return { ...changed(s, r.ok, r.errors, t0), planted: r.ok ? plan.piers.map((q) => q.tile) : [] };
 }
 
 /** Remove (D184): the objects standing on `tiles` that `kinds` names, as one step; it never changes
