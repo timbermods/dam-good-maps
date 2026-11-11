@@ -5,9 +5,11 @@
 // top-down picture and the share link. `--plan` builds a plan file (the Four Lakes fixture) through the same stages
 // without the mode's loop.
 //
-//   npx tsx tools/premise-map.ts [--seed 1 | --seeds 1-3] [--size 128] [--plan file.json] [--out .scratch/premise-map]
-//     [--drought]
+//   npx tsx tools/premise-map.ts [--seed 1 | --seeds 1-3] [--size 128] [--premise lakeStair|any] [--theme any|canyon …]
+//     [--plan file.json] [--out .scratch/premise-map] [--drought] [--plain]
 //
+// `--theme` is the land's style (PREMISES §1.5; Any, the default, resolved from the seed); `--plain` leaves the works
+// off the picture, so the land reads.
 // Prints each map's time, its checks that fail or wait for a later step, its ground measures and its files. With
 // `--drought`, the difficulty's longest drought is run on the settled water (`HazardRun`, as the editor's Drought
 // view runs it): each lake's volume kept at its worst day, and the day the start's water goes (D133's rule).
@@ -21,8 +23,8 @@ import { writeTimber } from "../src/core/format/timber";
 import { generatePremise } from "../src/core/premise/generate";
 import type { LifeReport } from "../src/core/premise/life";
 import { premiseMap } from "../src/core/premise/map";
-import type { PremiseId, PremisePlan } from "../src/core/premise/types";
-import { makeSpec, shareLink, type MapSpec } from "../src/core/spec/mapspec";
+import type { PremisePlan } from "../src/core/premise/types";
+import { makeSpec, shareLink, type MapSpec, type PremiseChoice, type ThemeId } from "../src/core/spec/mapspec";
 import type { GenerateResult } from "../src/core/gen/generate";
 import { encodePng } from "./png";
 import { runsToTiles } from "../src/core/math/grid";
@@ -36,7 +38,9 @@ const opt = (name: string) => {
   return k >= 0 ? args[k + 1] : undefined;
 };
 
-const premise = (opt("premise") ?? "lakeStair") as PremiseId;
+const premise = (opt("premise") ?? "lakeStair") as PremiseChoice;
+const theme = (opt("theme") ?? "any") as ThemeId;
+const plain = args.includes("--plain");
 const side = Number(opt("size") ?? 128);
 const out = opt("out") ?? ".scratch/premise-map";
 const range = opt("seeds");
@@ -55,8 +59,7 @@ function droughtReadout(spec: MapSpec, plan: PremisePlan, b: BuildResult, water:
 }
 
 function specFor(seed: number, plan?: PremisePlan): MapSpec {
-  const spec = makeSpec({ seed, size: { x: plan?.W ?? side, y: plan?.H ?? side }, theme: "any" });
-  spec.premise = premise;
+  const spec = makeSpec({ seed, size: { x: plan?.W ?? side, y: plan?.H ?? side }, theme, premise });
   if (plan) spec.settings.terrain.highestTerrain = plan.top;
   return spec;
 }
@@ -160,7 +163,7 @@ function write(r: Pick<GenerateResult, "spec" | "features" | "built" | "file" | 
     for (const w of ladder.works)
       console.log(`  ${w.id} ${w.rung} ${w.kind} on ${w.on}: ${w.does} ${w.tiles.length} tiles${w.level !== undefined ? ` to ${w.level}` : ""}; green ${w.green}${w.reservoir ? `, holds ${w.reservoir}` : ""}${w.inRange ? "" : ` (${w.note ?? "out of range"})`}`);
   }
-  const p = picture(r.built, top, ladder);
+  const p = picture(r.built, top, plain ? undefined : ladder);
   const png = join(out, `${name}.png`);
   writeFileSync(png, encodePng(p.rgb, p.width, p.height));
   console.log(`  ${shareLink(PAGE, r.spec)}\n  ${timber}\n  ${project}\n  ${png}`);
@@ -185,7 +188,8 @@ if (file) {
       continue;
     }
     const pi = r.result.info.premise!;
+    if (pi.card) console.log(`seed ${seed}: ${pi.card.name} in ${pi.card.style}. ${pi.card.landmark}. First: ${pi.card.first ?? "none"}`);
     console.log(`seed ${seed}: plan ${pi.attempt}, ${r.result.info.settles} settle(s), start moved ${pi.start?.moved} (level land ${pi.start?.level}, farmland ${pi.start?.farmland}, frame water shallow ${pi.start?.shallow}); failed before: ${r.result.failures.map((f) => f.failed[0]).join(", ") || "none"}`);
-    write(r.result, spec.settings.terrain.highestTerrain, `${premise}-${side}-${seed}`, ms, pi.notes ?? [], pi.ladder, pi.life);
+    write(r.result, spec.settings.terrain.highestTerrain, `${pi.id}-${pi.theme}-${side}-${seed}`, ms, pi.notes ?? [], pi.ladder, pi.life);
     if (drought && pi.plan) droughtReadout(r.result.spec, pi.plan, r.result.built, waterByNumber(pi.plan));
   }
