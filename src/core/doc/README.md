@@ -8,6 +8,7 @@ The map document and its edit engine: a generation plus an ordered log of edit o
 - Operations are small and serialisable, and are checked against their schema and the current map. An invalid one is rejected, never clamped silently.
 - Old saved strokes and operations replay exactly (D158). Changing an operation's meaning breaks saved projects.
 - Headless: it runs in the page's worker and in Node.
+- A generated map's own words go into `meta` once, from the generation (`keepGeneratedWords`: its name, description, what it shows, Easy start's shortfall and an idea map's card, `meta.card`, D508); never part of a build. The card describes the map as generated, so edits leave it as it is. An optional field opens absent on older projects (no upgrade, D475).
 
 **Start from**
 - `session.ts` `MapSession`: `apply`, undo and redo (each step's map kept near where the history stands, put back as it was), export; `followLog` and `spliceStep` (a step out of the log or back in, for collaborative editing) rebuild from where the map stood, as an edit does. Edits never replay onto new land (D336): no regeneration under a document's edits.

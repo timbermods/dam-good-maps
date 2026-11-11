@@ -66,6 +66,8 @@ describe("every theme's project file reopens and rebuilds the same .timber (PLAN
     expect(ajvFeatures(r.features), JSON.stringify(ajvFeatures.errors?.slice(0, 3))).toBe(true);
     const bytes = encodeProject(generatedDocument(r));
     const doc = decodeProject(bytes);
+    // (a theme's map has no idea, so no card: D508)
+    expect(doc.meta.card).toBeUndefined();
     const s = MapSession.open(doc);
     expect(s.mode).toBe("live");
     expect(sha(s.exportTimber().bytes)).toBe(sha(r.bytes));
