@@ -802,7 +802,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 - **Roll** (ground with grade, 2026-11-10): soil creep and slumping, sped up. The land under a click or a drawn line
   rolls in one-level steps: smooth swells (a level at Power 0, up to four at 100), then the nearest land that never
   steps more than one level, so a cliff slumps into a walkable flank and a tabletop breaks into hills; water and the
-  ground beside it, kept ground and caves hold. **Power**, **Size** (8–64 tiles across, or Auto), the Floor,
+  ground beside it, kept ground and caves hold; inside a working area a tile moves at most its depth into it, up or
+  down (D254), and like Erode it waits for settled water (D281). **Power**, **Size** (8–64 tiles across, or Auto), the Floor,
   Sources, **Try another** (the swells). The core half is adopted (`rust/forces/src/roll.rs`, `core/forces/roll.ts`;
   20 fixed steps, each tile moving as the sweep reaches it). **The page:** its button, settings, ring, sounds and
   key are the page session's, to come; it has no moment of its own.

@@ -126,7 +126,7 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
             let d = portable_math::sqrt(distance2(&path, x as f64, y as f64));
             if d >= reach { continue; }
             weight[i] = smooth((reach - d) / max(1.0, reach / 3.0));
-            if keep.get(i).copied().unwrap_or(0) != 0 || caved(i) || x == 0 || y == 0 || x == w - 1 || y == h - 1 { continue; }
+            if keep.get(i).copied().unwrap_or(0) != 0 || area_depth.get(i).copied() == Some(0) || caved(i) || x == 0 || y == 0 || x == w - 1 || y == h - 1 { continue; }
             // water, and the ground beside it, hold
             let mut near = wet(i);
             for (dx, dy) in [(-1i32, 0i32), (1, 0), (0, -1), (0, 1)] {
@@ -155,7 +155,10 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
         let graded = (under[i] + over[i]) * 0.5;
         let mut v = round(b + weight[i] * (graded - b));
         v = clamp(v, min(b, floor), max(b, ceiling));
-        if v < b { v = max(v, b - area_depth.get(i).copied().unwrap_or(255) as f64); }
+        // inside a working area the land eases to the locked land round it a level a tile (D254, the area's
+        // feather): a tile moves at most its depth into the area, up or down
+        let room = area_depth.get(i).copied().unwrap_or(255) as f64;
+        v = clamp(v, b - room, b + room);
         let v = v as u8;
         let hb = before.heights[i];
         if v == hb { continue; }

@@ -2850,8 +2850,10 @@ export function forceStart(req: ForceRequest): ForceStarted {
   const blocked = gated();
   if (blocked) return refuse(blocked);
   if (force) return refuse("A force is already at work: let it finish, or press Esc");
-  // (Erode reads the water to leave the rock that holds it: it plans only on settled water, D281)
+  // (Erode reads the water to leave the rock that holds it, and Roll to hold the water and its banks: each plans only
+  // on settled water, D281)
   if (req.verb === "erode" && (s.waterStale || s.waterPending)) return refuse("Erode waits for the water to settle: try again in a moment");
+  if (req.verb === "roll" && (s.waterStale || s.waterPending)) return refuse("Roll waits for the water to settle: try again in a moment");
   return startForce(s, sessionForceMap(s), { ...req, settings: { ...req.settings, seed: req.settings.seed ?? 0 } } as ForceRequest);
 }
 

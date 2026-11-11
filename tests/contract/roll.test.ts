@@ -13,11 +13,12 @@ import { forceParamsOf } from "../../src/core/forces/result";
 import { ROLL_DEFAULTS, RollRun, type RollSettings } from "../../src/core/forces/roll";
 import { executeInRust, jobBytes, planInRust } from "../../src/core/forces/rust/bridge";
 import { decode } from "../../src/core/forces/rust/protocol";
-import { planForce } from "../../src/core/forces/start";
+import { type ForceRequest, planForce } from "../../src/core/forces/start";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 import { fixture } from "./forceFixtures";
+import { areaDepth } from "../../src/core/features/raster/brush";
 
 type P = { x: number; y: number };
 
@@ -162,6 +163,24 @@ describe("Roll as an operation (D342)", () => {
     expect(keptForceParams({ before: p.before, request: p.request, carve: null, staged: p.staged }).ok).toBe(true);
   });
 
+  test("inside a working area the land eases to the locked land round it a level a tile, up and down (D254)", () => {
+    // (a box from (12, 12) to (51, 51): its edge tiles may move one level, the next two, and so on; nothing outside moves)
+    const area = areaDepth(Array.from({ length: 40 }, (_, k) => [12 + k, 12, 51] as [number, number, number]), 64, 64);
+    for (const [name, h] of [["flat 8", () => 8], ["a 4 | 13 cliff", (x: number) => (x < 32 ? 4 : 13)]] as const)
+      for (const power of [0, 50, 100])
+        for (const seed of [1, 2, 3, 4]) {
+          const m = ground(64, h);
+          const r = new RollRun(m, { ...ROLL_DEFAULTS, power, seed, size: 48 }, { path: [{ x: 31.5, y: 14 }, { x: 31.5, y: 50 }] }, null, area).finishAll();
+          let moved = 0;
+          for (let i = 0; i < 64 * 64; i++) {
+            const d = Math.abs(r.map.heights[i] - m.heights[i]);
+            if (d) moved++;
+            expect(d, `${name}, power ${power}, seed ${seed}, tile (${i % 64}, ${Math.floor(i / 64)})`).toBeLessThanOrEqual(area[i]);
+          }
+          expect(moved, `${name}, power ${power}, seed ${seed}`).toBeGreaterThan(0);
+        }
+  });
+
   test("refusals are one-line reasons and leave the map as it was", () => {
     const m = stepped();
     const before = m.heights.slice();
@@ -190,5 +209,13 @@ describe("Roll as an operation (D342)", () => {
     expect(MapSession.open(decodeProject(ed.project().bytes)).built.heights).toEqual(after);
     ed.undo();
     expect(ed.terrainNow().heights).toEqual(before);
+    // (Roll holds the water and its banks, so like Erode it plans only on settled water, D281)
+    const again: ForceRequest = { verb: "roll", settings: ROLL_DEFAULTS, path: [{ x: 40, y: 40 }], cut: null };
+    expect(ed.apply({ op: "brush", params: { tool: "raise", size: 3, strength: 5, dabs: [40, 40] } }, "user", "Raise").errors).toEqual([]);
+    expect(ed.waterSettling()).toBe(true);
+    expect(ed.forceStart(again).errors).toEqual(["Roll waits for the water to settle: try again in a moment"]);
+    ed.settleWater();
+    expect(ed.forceStart(again).errors).toEqual([]);
+    ed.forceStop();
   }, 120000);
 });
