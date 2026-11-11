@@ -126,6 +126,17 @@ amphitheatre. The 100-tile drag on 256² (a ribbon lake) is the nearest to the r
 1. Drain it: a tilted floor, an outlet, a fall at the head, a shallow lake at most; half the default throw (6).
 2. Build it from two en-echelon faults with pointed tips and an asymmetric cross-section (7).
 3. Objects ride down; no pillars; no badwater let in (23, S3).
+   **1, 2 and the first two of 3 done** (`feature/force-rift`, 2026-11-11): two border faults of 12 to 20-tile segments
+   offset 2 to 4 tiles with relay ramps, pointed tips, the throw greatest mid-length (about 5 at the default, 8 at
+   Power 100); Walls on Auto one sheer and one stepped in benches of about 2 levels, 3 to 5 wide; the floor in two or
+   three pieces tilted to the sheer wall and down the axis to its low end, notched out to lower ground that drains;
+   on a wet map the floor stands at or above its drain level in long treads, a lake at most 2 deep at the low end
+   (deeper only where water already stood); then `levels::whole`. A click is 3.2 times as long as wide (Auto's width
+   8 + 0.12 × Power, at most 0.16 of the map), running on past an edge (29). A multi-tile object rides down whole.
+   The default click changes about 600 tiles on 128²; sheet `docs/sheets/force-rift.jpg`. Still open: on low wet
+   ground (a river's own plain) it is only 1 to 2 levels deep, by the drainage rule; badwater it lets in (S3); the
+   floor's pieces read as plates of a level more than as blocks; Try another re-rolls the walls' side and offsets
+   but the click's bearing only by the seed (28); the cursor ring shows Power's width, not the map's cap.
 
 ### Quake: no
 The wall of a sheer Lift is the most convincing single feature any of these forces makes. The trouble is everything

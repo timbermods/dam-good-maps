@@ -574,7 +574,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   it changed nothing round a tile by more than a level the tidying never moves that tile more than two: the land's
   own one-tile ledge goes back to where it stood, and the corner of its own two-tile ridge, with the ground of its
   level round it, to where the force put it, or where the force's rounding would leave that one tile wide to where it
-  stood, never down its cliff and never leaving ground one tile wide. Craterize and Erupt end with it; Rift, Deposit, Quake and Glaciate adopt it next.
+  stood, never down its cliff and never leaving ground one tile wide. Craterize, Erupt and Rift end with it; Deposit, Quake and Glaciate adopt it next.
 - **Esc skips, undo takes it back** (D344, A4): while a gesture is still being drawn, Esc cancels it and nothing of
   it lands; once a force plays, Esc skips it to its end, its final land kept as one step; Ctrl+Z (or Z, or Revert)
   takes all of it back at any moment, and nothing lands afterwards (D341). The row's tooltip carries the keys (**Esc** skips,
@@ -834,10 +834,19 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   have them (D314). One `forceResult`; its ice, sounds and land keep one pace (D344, A7: `ForceCue.pace`). No ice-sheet
   mode for now.
 
-- **Rift** (D352, D438): land cracks open and drops between two rough faults, the opposite of Erupt's ridge: a
-  dropped block with its old floor tilted, hard-bed ledges on the walls, objects riding down upright, sources
-  riding too, or cleared (D474). A click makes a short rupture there (at least a set length, even at the edge);
-  a drag draws the fault.
+- **Rift** (D352, D438; the force audit's findings 6, 7, 23 and 29, `docs/progress/force-audit.md`): land cracks open
+  and drops between two border faults, the opposite of Erupt's ridge: a rift valley. Each fault is segments 12 to 20
+  tiles long set 2 to 4 tiles off one another, a relay ramp between two; the rift narrows to pointed tips and drops
+  most mid-length (about 5 levels at the default, 8 at Power 100). Walls on Auto: one sheer, the other stepping down
+  in benches about 2 levels apart and 3 to 5 tiles wide (Sheer or Stepped make both alike). Its floor keeps the old
+  relief, in two or three pieces each tilted toward the sheer wall, the whole tilted down the axis toward the end
+  with the lower ground beyond; a notch runs from that low end out to lower ground that drains (or the map's edge),
+  never deeper than the drop; then the shared whole-levels step. On a map with water the floor stands at or above
+  the level its water drains at, in long treads toward its head, so a stream runs down it: a lake at most 2 deep at
+  the low end, and the floor always a level down. Objects ride down upright (one of several tiles whole, by the drop
+  most of it takes), sources too, or cleared where a wall tears their ground (D474). A click makes a rift 3.2 times
+  as long as it is wide (Auto's width 8 + 0.12 × Power tiles, at most 0.16 of the map's short side), its middle kept
+  a quarter of its length in from the edge and running on past the edge, open to it; a drag draws the axis.
   **Power** (0–100, default 70; Power 0 still drops a level), **Size** (width, Auto or 4–64), **Try another**; behind
   More, **Walls** (Auto, Sheer, Stepped). The core half is adopted (`core/forces/rift.ts`, planned in Rust
   `rust/forces/src/rift.rs`; 21 fixed steps). The page: its settings (Power, Size, Walls with Auto; Floor, Try another),
