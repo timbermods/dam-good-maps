@@ -1588,6 +1588,9 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
     g.noise.amp *= 0.85;
     g.grade.roll *= 0.85;
   } else if (s.start.area === "small") g.noise.amp *= 1.1;
+  // water within a few tiles of the start (a rule under 8): the land rolls less, half as much at 4, so the
+  // grade's swells do not move the start's shore from one attempt's land to the next (D471's starved start)
+  g.grade.roll *= clamp(s.start.rules.waterWithin / 8, 0.5, 1);
   // the highest terrain (item 36): a ceiling on every map that no Variety goes past (Kyler,
   // 2026-10-03; the release-gate generator hunt's finding 3: a land drawn tall by Variety kept the
   // default cap's 22 under a Highest terrain of 16); a tall land under a cap of 16 or lower is not tall

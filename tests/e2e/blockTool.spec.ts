@@ -50,6 +50,10 @@ async function look(page: Page, x: number, y: number, h: number, distance = 20) 
   await page.evaluate(([x, y, h, distance]) => window.dgm3d!.renderer.setView({ target: [x + 0.5, h, -(y + 0.5)], distance, yaw: 0.5, pitch: 0.7 }), [x, y, h, distance] as const);
 }
 
+/** The map the tests that need `flatSpot` open (Lake Basin 96² seed 78 since generator 0.10.16's ground with grade,
+ *  D148: seed 77's land now rolls and has no level 12 × 9 stretch clear of objects). */
+const FLAT = "s=78&z=96&d=n&t=lakeBasin";
+
 /** A flat dry stretch of the map with nothing standing near it: its corner and its level. */
 async function flatSpot(page: Page) {
   const spot = await page.evaluate(() => {
@@ -134,7 +138,7 @@ test("the Block tool: key 7 picks it, its settings and keys, Esc and the other t
 });
 
 test("a click adds a block onto the face, Shift removes it, a drag paints a plane in one step, and the preview is what is applied", async ({ page }) => {
-  await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
+  await openEditor(page, FLAT);
   const { x, y, h } = await flatSpot(page);
   await page.keyboard.press("7");
   await toolInHand(page);
@@ -207,7 +211,7 @@ test("a click adds a block onto the face, Shift removes it, a drag paints a plan
 });
 
 test("a drag out over air chains: each block goes where it touches the last, the preview shows the whole span, and one click-drag is one step", async ({ page }) => {
-  await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
+  await openEditor(page, FLAT);
   const { x, y, h } = await flatSpot(page);
   await page.keyboard.press("7");
   await toolInHand(page);
@@ -265,7 +269,7 @@ test("a block over a plant says so beside the blocks: the plant is removed, in w
 });
 
 test("ground that would fall is shown before the press is let go, and the click is refused with the page's note", async ({ page }) => {
-  await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
+  await openEditor(page, FLAT);
   const { x, y, h } = await flatSpot(page);
   await page.keyboard.press("7");
   await toolInHand(page);
@@ -358,7 +362,7 @@ test("on an imported cave map a Shift-click removes blocks from a cave wall: the
 });
 
 test("inside a selected area a quick click outside it changes nothing, its note is not wiped by a size flash, and a click inside works", async ({ page }) => {
-  await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
+  await openEditor(page, FLAT);
   const { x, y, h } = await flatSpot(page);
   const px = x + 2;
   const py = y + 3;

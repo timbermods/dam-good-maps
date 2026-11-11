@@ -469,8 +469,10 @@ test("Quake: a painted Lift follows the stroke and is kept when let go; V flips 
   // a Slide: its block carried along the fault, one step
   await row.getByRole("button", { name: "Slide" }).click();
   await paint(page, [far[0] - 10, y - 6], [far[0] + 10, y - 6]);
+  // (the step is waited for, not only the status: on CI's software drawing the slide's plan could start after the status
+  // was first read as idle, 42945919009)
+  await expect.poll(async () => (await labels(page)).at(-1), { timeout: 30_000 }).toBe("Quake: slide");
   await settled(page);
-  expect((await labels(page)).at(-1)).toBe("Quake: slide");
   expect(await worker(page)).toEqual(await heights(page));
   await page.keyboard.press("Control+z");
   await idle(page);
