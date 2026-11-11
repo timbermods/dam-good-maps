@@ -4,7 +4,7 @@
 // below lake 3's (6)").
 
 import { BED_FLOOR } from "../land/genome";
-import { bodyGap, edgeGap, pathBodyGap, pathDist, pathGap, pathLength, subPath } from "./geom";
+import { bodyDist, bodyGap, edgeGap, pathBodyGap, pathDist, pathGap, pathLength, subPath } from "./geom";
 import type { Body, Invariant, InvariantResult, Link, PremisePlan } from "./types";
 
 export const OK: InvariantResult = { ok: true };
@@ -115,7 +115,7 @@ const overlap: Invariant = {
       if (edgeGap(a, W, H) < 1) return fail(`${nameOf(plan, a.id)} runs off the map`);
       for (let j = i + 1; j < plan.bodies.length; j++) {
         const b = plan.bodies[j];
-        const g = bodyGap(a, b);
+        const g = bodyGap(a, b, BODY_GAP);
         if (g < BODY_GAP) return fail(`${nameOf(plan, a.id)} and ${nameOf(plan, b.id)} stand ${g.toFixed(1)} tiles apart (at least ${BODY_GAP})`);
       }
     }
@@ -124,7 +124,7 @@ const overlap: Invariant = {
     for (const l of channels) {
       const len = pathLength(l.path!);
       for (const b of plan.bodies) {
-        const g = pathBodyGap(l.path!, b, 2, len - 2);
+        const g = pathBodyGap(l.path!, b, 2, len - 2, 1);
         if (g < 0) return fail(`${nameOf(plan, l.id)} runs through ${nameOf(plan, b.id)}`);
       }
     }
@@ -138,7 +138,7 @@ const overlap: Invariant = {
         const p = mids[i];
         const q = mids[j];
         if (!p || !q) continue;
-        if (pathGap(p, q) < 1.5) return fail(`${nameOf(plan, channels[i].id)} and ${nameOf(plan, channels[j].id)} cross`);
+        if (pathGap(p, q, 1.5) < 1.5) return fail(`${nameOf(plan, channels[i].id)} and ${nameOf(plan, channels[j].id)} cross`);
       }
     // the start's 5 × 5 is dry: no body or channel on it
     const s = plan.frame.start;
@@ -154,7 +154,7 @@ const overlap: Invariant = {
 };
 
 function bodyGapToTile(b: Body, x: number, y: number): number {
-  return bodyGap(b, { arms: [[[x, y, 0]]] });
+  return bodyDist(x, y, b);
 }
 
 /** The graph closes: every link joins bodies or exits that exist, every source stands in one, water from every

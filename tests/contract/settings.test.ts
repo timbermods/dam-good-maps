@@ -40,7 +40,10 @@ describe("each setting moves its measured target (ROADMAP M6)", () => {
   // 2,692 of stored water, carried the mean, +232; on 0.8.0 it moved +170, on 0.8.2 +139. The setting
   // itself is the weakness: the settler counts only natural stored water near a start, not dam sites,
   // so Plenty can't tell starts apart)
-  const HELD = new Set(["Verticality", "Drought reserve", "Lakes and basins", "Waterfalls"]);
+  // (Verticality, Drought reserve and Waterfalls pass since generator 0.10.16's ground with grade, so they are plain
+  // tests again: on these seeds Verticality moves 0.041 (at least 0.03), Waterfalls 3.0 (2.5) and Drought reserve 209
+  // (200), its Plenty mean still lifted most by one map, 1,095)
+  const HELD = new Set(["Lakes and basins"]);
   it.each(EXPERIMENTS.filter((e) => !HELD.has(e.setting)).map((e) => [name(e), e] as const))("%s", check);
   it.fails.each(EXPERIMENTS.filter((e) => HELD.has(e.setting)).map((e) => [name(e), e] as const))("%s (expected failure, settings round 2)", check);
 });

@@ -29,7 +29,9 @@ describe("water on maps without terrain above terrain", () => {
   const maps: [ThemeId, number, number][] = [
     ["any", 96, 1],
     ["riverValley", 128, 2],
-    ["canyon", 128, 7],
+    // (seed 1 for seed 7 since generator 0.10.16's ground with grade, D148: seed 7's water has no fall now; seed 1's has,
+    // as 9 of seeds 1–16 do, 10 of them before)
+    ["canyon", 128, 1],
     ["highlands", 96, 4],
     ["lakeBasin", 128, 5],
     ["islands", 96, 2],

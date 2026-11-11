@@ -44,7 +44,9 @@ test("a stroke that clears sources takes their discs and their water at once (it
   test.setTimeout(240_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await openEditor(page, "s=35&z=96&d=n&t=riverValley");
+  // (seed 36 since generator 0.10.16's ground with grade, D148: on seed 35 the flattened spot it finds is no ground for a
+  // start, so the "Move the start here" tag the test waits for never comes)
+  await openEditor(page, "s=36&z=96&d=n&t=riverValley");
   await topDown(page);
   // (the water at its normal pace: the stroke's own water flows while it is painted, D197)
 

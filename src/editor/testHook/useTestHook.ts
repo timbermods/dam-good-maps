@@ -10,8 +10,8 @@ export interface TestHookSlice {
 
 export function useTestHook(ed: Ed): TestHookSlice {
   const {
-    api, renderer, gestureRef, startDrag, selection, juice, instant, fit, queue, infoRef, run, pendingTerrain,
-    strokeMismatches, localUndo, startHintRef, hintMs, quakeUiRef, forcer, strokeRadius, glowCorners
+    api, renderer, gestureRef, startDrag, selection, juice, instant, fit, infoRef, run, edits, lastStroke,
+    startHintRef, hintMs, quakeUiRef, forcer, strokeRadius, glowCorners
   } = ed;
 
   // ------------------------------------------------------------------------------ test hook
@@ -21,15 +21,16 @@ export function useTestHook(ed: Ed): TestHookSlice {
       info: () => infoRef.current,
       tileToClient: (x, y) => renderer.current!.tileToClient(x, y),
       pointerNote: (text, x = 0, y = 0) => ed.setShapeNote(text === null ? null : { text, ok: false, warn: false, x, y }),
-      idle: () => queue.current.then(() => undefined),
+      idle: () => ed.whenEdited(),
       instant: () => instantRef.current,
       fit: () => fitRef.current,
-      edit: (op, label) => run(() => api.apply(op, "user", label)),
+      edit: (op, label) => run((w) => w.apply(op, "user", label)),
       startCheck: () => startDragRef.current?.check ?? null,
       worker: api,
-      strokeMismatches: () => strokeMismatches.current,
-      lastStroke: () => localUndo.current.at(-1)?.params ?? null,
-      pendingTerrain: () => pendingTerrain.current,
+      strokeMismatches: () => edits.current.landMispredictions,
+      lastStroke: () => lastStroke.current,
+      pendingTerrain: () => edits.current.pending(),
+      edits: () => edits.current,
       carve: () => (forcer.current?.status?.verb === "carve" ? { ...forcer.current.status } : null),
       force: () => (forcer.current?.status ? { ...forcer.current.status } : null),
       forceTiming: () => (forcer.current?.timing ? { ...forcer.current.timing } : null),

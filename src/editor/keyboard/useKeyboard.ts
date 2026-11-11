@@ -279,7 +279,7 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
         ev.preventDefault();
         const o = pickedObjectRef.current;
         setPickedObject(null);
-        void run(() => api.applyAll([{ op: "deleteEntities", params: { entities: [o.id] } }], "Remove an object"));
+        void run((w) => w.applyAll([{ op: "deleteEntities", params: { entities: [o.id] } }], "Remove an object"));
       } else if ((ev.key === "Delete" || ev.key === "Backspace") && pickedSources().length) {
         // a picked source: its water recedes live (D196)
         ev.preventDefault();
@@ -303,6 +303,9 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
       } else if (!mod && !ev.altKey && ev.key.toLowerCase() === "t") {
         // T: clear water, as the game (D196)
         setClearWater((on) => !on);
+      } else if (!mod && !ev.altKey && !ev.shiftKey && ev.code === "KeyO") {
+        // O: the game's first view, as First view's click does it
+        ed.firstViewCall.current?.();
       } else if (!mod && !ev.altKey && !ev.shiftKey && ev.code === "KeyI") {
         // I: the Irrigation view on or off, as the Show row's toggle does it
         ed.setLayer((l) => (l === "irrigation" ? "none" : "irrigation"));

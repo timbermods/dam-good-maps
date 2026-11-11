@@ -16,6 +16,9 @@ import { newRampedStroke } from "../../src/core/doc/strokes";
 import { planStart } from "../../src/core/doc/tools";
 import { planFill, unfedWater } from "../../src/core/doc/waterEdits";
 import { applyLakeLevel } from "../../src/core/doc/lakeLevel";
+import { applyCanal } from "../../src/core/doc/canal";
+import { applyDrawnLake } from "../../src/core/doc/lake";
+import { applyRidge, type RidgeSteep } from "../../src/core/doc/ridge";
 import { applyForce } from "../../src/core/collab/forceStep";
 import { isPickable } from "../../src/core/features/objects";
 import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
@@ -381,6 +384,31 @@ function applyOne(s: MapSession, raw: unknown): { label: string; held: number } 
         return done(s.apply(plan.op!, "user", label), lastLabel());
       }
       break;
+    case "canal":
+      // a channel that leads water: planned on the map as it stands (core/doc/canal.ts)
+      if (p.cells === undefined) {
+        const path = p.path as Pair[] | undefined;
+        if (!Array.isArray(path) || path.length < 2) refuse("A canal needs path [[x, y], ...], from where the water is to where it should go");
+        return done(applyCanal(s, path!, (p.width as number | undefined) ?? 2, (p.depth as number | undefined) ?? 1, (p.open as boolean | undefined) ?? true), lastLabel());
+      }
+      break;
+    case "lake":
+      // a lake where there is none: planned on the map as it stands (core/doc/lake.ts)
+      if (p.cells === undefined) {
+        const outline = p.outline as Pair[] | undefined;
+        if (!Array.isArray(outline) || outline.length < 3) refuse("A lake needs outline [[x, y], ...] around the ground it should take, and level");
+        if (typeof p.level !== "number") refuse("A lake needs the level its water stands at");
+        return done(applyDrawnLake(s, outline!, p.level as number, (p.depth as number | undefined) ?? 2, (p.spill as Pair | undefined) ?? null), lastLabel());
+      }
+      break;
+    case "ridge":
+      // high ground along a path: planned on the map as it stands (core/doc/ridge.ts)
+      if (p.cells === undefined) {
+        const path = p.path as Pair[] | undefined;
+        if (!Array.isArray(path) || path.length < 2) refuse("A ridge needs path [[x, y], ...], the line its crest follows");
+        return done(applyRidge(s, path!, (p.height as number | undefined) ?? 5, (p.width as number | undefined) ?? 10, (p.steep as RidgeSteep | undefined) ?? "auto", (p.seed as number | undefined) ?? 1), lastLabel());
+      }
+      break;
     case "setLakeLevel":
       // lakes by number: the sill planned on the map as it stands and confirmed by the settle (core/doc/lakeLevel.ts)
       if (p.cells === undefined) {
@@ -560,18 +588,18 @@ export interface Saved {
   folder: string;
   timber: { path: string; bytes: number };
   project: { path: string; bytes: number };
-  /** The warnings the save noted in the map's description, as the page's Save does. */
+  /** The warnings the save went ahead with, as the page's Save does (they are not written into the map's description). */
   noted: string[];
 }
 
-/** The two files the page saves for this map: the .timber as Save to Timberborn writes it (the warnings confirmed and
- *  noted, src/worker/session.ts `exportTimber`) and the project file as File > Save project writes it (`project`,
+/** The two files the page saves for this map: the .timber as Save to Timberborn writes it (the warnings confirmed,
+ *  src/worker/session.ts `exportTimber`) and the project file as File > Save project writes it (`project`,
  *  gzip level 9). Refused while a check would stop the map loading. */
 export function exportFiles(s: MapSession): { timber: Uint8Array; timberName: string; project: Uint8Array; projectName: string; noted: string[] } {
   const c = checksOf(s);
   if (c.blocking.length) refuse(`Not saved: ${rowOf(c.blocking[0]).message}`);
   const noted = c.warnings.filter((w) => !w.own).map((w) => w.message);
-  const t = s.exportTimber({ warnings: noted });
+  const t = s.exportTimber();
   return { timber: t.bytes, timberName: t.fileName, project: s.project(9), projectName: documentFileName(s.document), noted };
 }
 
