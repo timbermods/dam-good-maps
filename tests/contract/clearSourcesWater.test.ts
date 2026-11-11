@@ -103,7 +103,9 @@ describe("Clear sources and the water (item 15)", () => {
   it("and on a map with terrain above terrain: the pit drains there too (#814)", async () => {
     // (seed 10's map has stacked columns, so its settle runs on the stacked engine: its spot is at (31, 19), level 8,
     // and its pit kept 68.55 of the pre-fill's water, 1.85 deep, with no source near, until that settle took the
-    // water nothing feeds as the heightfield's does, D385)
-    expect(await clearedPit(10)).toBe(true);
+    // water nothing feeds as the heightfield's does, D385; seed 1 for seed 10 since generator 0.10.16's ground with grade,
+    // D148: seed 10's map now settles on the heightfield's engine; seed 1's has stacked columns and its spot is at
+    // (43, 16), level 8)
+    expect(await clearedPit(1)).toBe(true);
   }, 120_000);
 });

@@ -59,7 +59,23 @@ function step(t: Table, stream: Stream, author: string, kind: Kind, tally: Tally
 describe("a host and a replica on a generated map", () => {
   let bytes: Uint8Array;
   beforeAll(() => {
-    bytes = mapProject(5, "highlands", SIZE);
+    // (seed 3 for seed 5 since generator 0.10.16's ground with grade, D148: seed 5's map now has terrain above terrain, and
+    // its highest ground holds a lake, so the Fill's pit there is refused; seed 3's map has no terrain above terrain, as
+    // seed 5's had, and serves every test here, as seeds 4 and 8 do)
+    bytes = mapProject(3, "highlands", SIZE);
+  });
+
+  // (a fault on generator 0.10.16's land until D486: on Highlands 48² seed 5, with terrain above terrain, one
+  // `pumpWater()` on the guest after these 12 entries left its water unsettled and a second pump settled it; one pump
+  // settles it now)
+  test("Highlands seed 5: one pump settles the replica's water to the host's", () => {
+    const t = sit(mapProject(5, "highlands", SIZE), {}, [GUEST]);
+    const stream = new Stream(5, SIZE);
+    const tally: Tally = { committed: new Map(), patches: 0 };
+    for (let n = 0; n < 4; n++) step(t, stream, n % 2 ? GUEST : HOST, "place", tally);
+    const pool: Kind[] = [...CHEAP_KINDS, ...CHEAP_KINDS, "carve", "craterize", "erupt", "lift", "glaciate", "rift", "deposit"];
+    for (let n = 0; n < 8; n++) step(t, stream, stream.pick([HOST, GUEST]), stream.pick(pool), tally);
+    expectIdentical(t, `after ${t.ordered} entries`);
   });
 
   test("mixed edits from two players leave identical maps once the water has settled", () => {
@@ -214,14 +230,16 @@ describe("a host and a replica on a generated map", () => {
 });
 
 describe("one pump settles a peer's water (D486)", () => {
-  // (Highlands 48², seed 6, a map with caves: the eighth edit, a Raise, leaves water no source feeds, so the canonical
-  // settle takes it and settles on from there, a second phase it hands back between; a background settle run to its end
-  // goes on through it, so the host's announcement and the replica's own settle each take one pump, never two)
-  test("Highlands 48², seed 6: after the stream's first eight edits the host announces and the replica settles in one pump each, on the same map", () => {
-    const t = sit(mapProject(6, "highlands", SIZE), {}, [GUEST]);
+  // (Highlands 48², seed 11 since generator 0.10.16's ground with grade, D148: seed 6's map has no terrain above terrain
+  // now, and of seeds 1–24 only 11's stream makes the case; a map with caves: an edit among the first eight leaves water
+  // no source feeds, so the canonical settle takes it and settles on from there, a second phase it hands back between; a
+  // background settle run to its end goes on through it, so the host's announcement and the replica's own settle each
+  // take one pump, never two)
+  test("Highlands 48², seed 11: after the stream's first eight edits the host announces and the replica settles in one pump each, on the same map", () => {
+    const t = sit(mapProject(11, "highlands", SIZE), {}, [GUEST]);
     const s = t.host.session;
     expect(s.built.waterModel.stacked).toBeTruthy();
-    const stream = new Stream(6, SIZE);
+    const stream = new Stream(11, SIZE);
     for (let k = 0; k < 8; k++) {
       const c = stream.command(stream.pick(CHEAP_KINDS), s);
       if (c) act(t, stream.pick([HOST, GUEST]), c);

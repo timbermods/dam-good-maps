@@ -172,9 +172,11 @@ describe("nothing pops in after a force's animation (D368 (9))", () => {
 
 // (Highlands 96², seeds 22 and 24: a drawn glacier's lobe past its last station, its snout's trough, terminal moraine
 // and outwash fan, all took their levels in the last frame, more than any frame before; it forms as the ice enters
-// it now, glaciate/run.ts `shownArrival`)
+// it now, glaciate/run.ts `shownArrival`; seeds 22 and 23 since generator 0.10.16's ground with grade, D148: before that
+// fix, on the new land, seeds 21, 22, 23, 25 and 27 showed it (seed 21's last frame changed 455 tiles to the busiest
+// earlier frame's 396), while seed 24's changed 536 to 601 and no longer tests it)
 describe("a drawn glacier's snout forms as the ice reaches it (D344)", () => {
-  for (const seed of [22, 24])
+  for (const seed of [22, 23])
     it(`Highlands 96², seed ${seed}: Glaciate drawn, its last frame changes no more than its busiest frame before`, async () => {
       const { at, end, mid } = await ground(seed);
       await expectNoPop({ name: "Glaciate, drawn", req: { verb: "glaciate", settings: { ...GLACIATE_DEFAULTS, mode: "aim", power: 80 }, origin: at, end, via: [mid], cut: null, natural: true } }, "fast");

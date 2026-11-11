@@ -140,7 +140,11 @@ test("on an imported map the start's preview is red over another object", async 
     for (let k = 0; k < e.count; k++) {
       const t = e.templates[e.template[k]];
       if (!/^(Pine|Birch|Oak|BlueberryBush)$/.test(t) || e.x[k] < 6 || e.y[k] < 6 || e.x[k] > m.W - 7 || e.y[k] > m.H - 7) continue;
-      if (m.surface.depth[e.y[k] * m.W + e.x[k]] > 0) continue;
+      // (the start's 3×3 and its door dry, so the only problem is the object, since generator 0.10.16's ground with grade,
+      // D148: the first tree on seed 7 stands beside water)
+      let wet = false;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (m.surface.depth[(e.y[k] + dy) * m.W + e.x[k] + dx] > 0) wet = true;
+      if (wet) continue;
       return [e.x[k], e.y[k]] as [number, number];
     }
     return null;

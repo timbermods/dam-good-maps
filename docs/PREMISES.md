@@ -329,8 +329,9 @@ table and draws its heights and water. Where it differs from the above, and why:
   game has one dry tone: thin bands on it read as contour lines). Ridges and spurs are crags (a crest, one ledge),
   never a slope of a level a tile, which the game shows as stair treads. Empty basins are old lake beds: a lobed
   outline, a beach at the sill + 1, a flat floor, one hollow. Then `tidy` (no one-tile pits, spikes or tongues).
-- With "ground with grade" (#929): its graded slopes (`land/levels.ts` `snapLevels`'s `Grade`) replace `rise` on the
-  outlands when it merges. Stage 2 does not wait for it.
+- With "ground with grade" (merged): its graded slopes replace `rise` on the outlands. Stage 2 calls
+  `land/levels.ts` `gradeLevels` on its own heights there (a `Grade`, `land/genome.ts` `GRADE` or `drawGrade`, with
+  the benches' step and a mask of the outlands); `snapLevels` grades a theme's field through the same `grader`.
 - Test (`land`): MAPCRAFT section 5's ground measures [`measureLand`]: dead flat under 50 %, one-level steps 60 to
   80 %, the three commonest levels under 35 % of the map; `terrain.dam_wall`, `terrain.edge_wall` and the straight
   -channel rule do not fire (the guard's raises must lie inside a bowl's own rise, never stand as a ring: the script
@@ -1015,7 +1016,7 @@ Each step is one PR that leaves dev green and is useful by itself.
 |---|---|---|---|
 | 1 | **Built.** **The model and the lake stair's plan.** `src/core/premise/types.ts`, `draw.ts`, `premises/lakeStair.ts` (stage 0 with the frame's arithmetic), the `plan` invariants, `tools/premise-plan.ts` (prints a seed's plan and draws its diagram), `premisePlan.test.ts`, the Four Lakes fixture. No generator change, no version bump. **A day.** | The water story as a diagram for any seed (MAPCRAFT step 2); the frame limit as a tested function | Nothing |
 | 2 | **Built.** **Water by number.** `levels.ts`, `raster/bodies.ts`, `falls.ts`, `channels.ts`, `weirs.ts`, `guard.ts`; the `flowThrough` test; a contract test that settles three plans and the fixture (levels, the split per link, curtains with the notches open) | Lakes, sills, falls and channels at stated levels from a plan: the editor's sketch can call it | Lakes by number (merged: `sillWidthFor`, `MAX_SILL_WIDTH`). The fall judge `fallCurtain.ts` from "a fall in one stroke" (#934, in review) when it merges; not blocked by it |
-| 3 | **Built.** **Relief between**, and `tools/premise-map.ts`, which writes a `.timber` for a seed outside the product | A whole land with water to open in the editor and run through the capture kit; tier 4 judging can begin | 2. Ground with grade (#929, next in the milestone session's queue) for the outlands, when it merges; not blocked |
+| 3 | **Built.** **Relief between**, and `tools/premise-map.ts`, which writes a `.timber` for a seed outside the product | A whole land with water to open in the editor and run through the capture kit; tier 4 judging can begin | 2. Ground with grade for the outlands (`gradeLevels`, generator 0.10.16); not blocked |
 | 4 | **Built.** **The generator's mode.** `generatePremise` behind `spec.premise` (link key `p=lakeStair`; no control on the page), stages 3, 5 and 8: the start by the frame, one build, the checks, re-roll and the fall-back to themes; `premiseMap.test.ts`; stage 0 within its row of §3.3 | A playable generated lake stair from a link, in seconds, without plants | 3 |
 | 5 | **Built.** **The ladder.** Dry bodies and beds, rows of Blockages, the work templates, `estimateGain`, `info.premise` | The spectrum: a map that is not fully watered, with each work's gain known | 4 |
 | 6 | **Built.** **Life and resources by budget**, the dry land's dress | The map looks as it plays: stands, open meadow, dead woods on old shores | 5 |
