@@ -16,7 +16,8 @@ import { clusterSaturation } from "../sim/moisture";
 import { flowThrough, prefillFrom } from "../sim/prefill";
 import { designLevel } from "./levels";
 import { near4, type WaterRaster } from "./raster/field";
-import type { PremisePlan, Work, WorkKind, WorkRung } from "./types";
+import { pathLength, pointAt } from "./geom";
+import type { PremisePlan, Point, Work, WorkKind, WorkRung } from "./types";
 import { stageModel, type StageWater } from "./water";
 
 /** How a notch is shut on day 1 (D513 (3), PREMISES §9 ruling 5): a row of Blockages the player clears, or, should
@@ -85,6 +86,8 @@ export function spectrumMiss(day1: Ladder["day1"]): string | null {
 /** What the works put on the land on day 1, beside stages 1 and 2: the rock plugs (`NOTCH_SHUT`), by link. */
 export interface LaidWorks {
   plugs: Record<string, number[]>;
+  /** Each levee's basin's banks (`bankBasin`): the tiles raised a level over its beach, by the levee's work id. */
+  banks: Record<string, number[]>;
 }
 
 /** A channel's tiles across, `s` to `s + 1` along it. */
@@ -92,6 +95,45 @@ function band(r: WaterRaster, li: number, s: number, width = 1): number[] {
   const out: number[] = [];
   for (let i = 0; i < r.W * r.H; i++) if (r.channel[i] === li + 1 && r.along[i] >= s && r.along[i] < s + width) out.push(i);
   return out;
+}
+
+/** How far a megadam's wall may run each way from its slot to the gorge's shoulders, in tiles. */
+const WALL_REACH = 48;
+
+/** A wall across a channel at the point nearest `at`, square to its path: the tiles under `level` out to the first
+ *  ground at `level` or over on each side (the shoulders), two tiles thick so no corner leaks; none where a side runs
+ *  `WALL_REACH` tiles without a shoulder. */
+function wallAcross(path: readonly Point[], at: [number, number], heights: Uint8Array, W: number, H: number, level: number): number[] {
+  if (path.length < 2) return [];
+  const len = pathLength(path);
+  let best = Infinity;
+  let s0 = 0;
+  for (let s = 0; s <= len; s += 0.25) {
+    const p = pointAt(path, s).p;
+    const d = (p[0] - at[0]) * (p[0] - at[0]) + (p[1] - at[1]) * (p[1] - at[1]);
+    if (d < best) [best, s0] = [d, s];
+  }
+  const out = new Set<number>();
+  for (const ds of [0, 0.7]) {
+    const { p, dir } = pointAt(path, s0 + ds);
+    const n: Point = [-dir[1], dir[0]];
+    for (const side of [1, -1]) {
+      let met = false;
+      for (let k = 0; k <= WALL_REACH; k += 0.5) {
+        const x = Math.floor(p[0] + n[0] * k * side);
+        const y = Math.floor(p[1] + n[1] * k * side);
+        if (x < 0 || y < 0 || x >= W || y >= H) break;
+        const i = y * W + x;
+        if (heights[i] >= level) {
+          met = true;
+          break;
+        }
+        out.add(i);
+      }
+      if (!met) return [];
+    }
+  }
+  return [...out];
 }
 
 /** How far along a channel its own first tiles stand (past the body it leaves). */
@@ -108,14 +150,15 @@ const BEACH = 3;
  *  two tiles thick a level over its bed (its row and the band below it) where `NOTCH_SHUT` says so. */
 export function layWorks(plan: PremisePlan, w: StageWater, heights: Uint8Array): LaidWorks {
   const plugs: Record<string, number[]> = {};
+  const banks: Record<string, number[]> = {};
   const r = w.raster;
   for (const work of plan.works) {
     if (work.kind !== "levee" || work.rung === "first") continue;
     const bi = plan.bodies.findIndex((b) => b.id === work.on);
     const si = plan.links.findIndex((l) => l.from === work.on && l.id.startsWith("spill"));
-    if (bi >= 0 && si >= 0) bankBasin(plan, r, heights, bi, si);
+    if (bi >= 0 && si >= 0) banks[work.id] = bankBasin(plan, r, heights, bi, si);
   }
-  if (NOTCH_SHUT !== "plug") return { plugs };
+  if (NOTCH_SHUT !== "plug") return { plugs, banks };
   for (const work of plan.works) {
     if (work.kind !== "notch") continue;
     const li = plan.links.findIndex((l) => l.id === work.on);
@@ -127,61 +170,82 @@ export function layWorks(plan: PremisePlan, w: StageWater, heights: Uint8Array):
     for (const i of tiles) heights[i] += 1;
     plugs[work.on] = tiles;
   }
-  return { plugs };
+  return { plugs, banks };
 }
+
+/** A levee's site (§4.2): its basin's spill bed across its first tiles, where it stands under the basin's sill + 1. */
+function leveeBand(r: WaterRaster, heights: ArrayLike<number>, si: number, sill: number): number[] {
+  return band(r, si, firstAlong(r, si), LEVEE_BAND).filter((i) => heights[i] < sill + 1);
+}
+/** How far along its spill bed a levee spans. */
+const LEVEE_BAND = 1.5;
 
 /** A levee's basin (§4.2: "a beach at its sill + 1 and a rim over the beach"): the beach is the ground at its sill + 1
  *  or under it within `BEACH` tiles of its water, and the ground just past the beach stands a level over it, but for
- *  its spill bed, where the levee goes; so the water a levee holds rises over the beach and leaves only down the bed.
- *  Stage 2's envelope lets a lower valley's floor (the spill bed's, past its first drop) meet the beach: that ground
- *  is raised. Stage 1's ground and every water stand. */
-function bankBasin(plan: PremisePlan, r: WaterRaster, heights: Uint8Array, bi: number, si: number): void {
+ *  its spill bed, where the levee goes; so the water a levee holds rises over the beach and leaves only over the levee,
+ *  down the bed. The water a levee holds backs up the beds that feed the basin (a notch's bed, a leat) as far as they
+ *  stand at its sill + 1 or under: their banks there stand a level over the beach too (a dry bed's wadi, a level over
+ *  its bed, let the levee's water out over it). The ground beside the levee and beside the spill bed below it, where
+ *  the beach meets them, stands a level over the beach too: the levee's ends meet the bank, and the held water finds no
+ *  way round it. Stage 2's envelope lets a lower valley's floor meet the beach: that ground is raised. Every water and
+ *  every bed stand. */
+function bankBasin(plan: PremisePlan, r: WaterRaster, heights: Uint8Array, bi: number, si: number): number[] {
   const { W, H } = r;
+  const N = W * H;
   const sill = plan.bodies[bi].sill;
-  const d = new Int16Array(W * H).fill(-1);
+  const d = new Int16Array(N).fill(-1);
   let q: number[] = [];
-  for (let i = 0; i < W * H; i++)
+  for (let i = 0; i < N; i++)
     if (r.lake[i] === bi + 1) {
       d[i] = 0;
       q.push(i);
     }
+  const levee = firstAlong(r, si) + LEVEE_BAND;
+  const site = leveeBand(r, heights, si, sill);
+  const id = plan.bodies[bi].id;
+  const feeds = (li: number) => plan.links[li].to === id;
   const nb = new Int32Array(4);
-  const beach: number[] = [];
-  for (let k = 1; k <= BEACH && q.length; k++) {
+  const nb2 = new Int32Array(4);
+  // (a tile beside the spill bed below the levee, or beside the levee, is where held water would go round it)
+  const bySpill = (j: number) => {
+    near4(W, H, j, nb2);
+    for (const k of nb2) if (k >= 0 && r.channel[k] === si + 1) return true;
+    return false;
+  };
+  const held: number[] = [];
+  const raise: number[] = [];
+  for (let k = 1; q.length; k++) {
     const next: number[] = [];
     for (const c of q) {
       near4(W, H, c, nb);
       for (const j of nb) {
-        if (j < 0 || d[j] >= 0 || r.lake[j] || r.channel[j] || heights[j] > sill + 1) continue;
+        if (j < 0 || d[j] >= 0 || r.lake[j] || r.crest[j] || heights[j] > sill + 1) continue;
+        if (r.channel[j]) {
+          // (a bed that feeds the basin is followed as far as it stands low enough; the spill bed only to the levee)
+          if (!(r.channel[j] === si + 1 ? r.along[j] < levee : feeds(r.channel[j] - 1))) continue;
+        } else if (k > BEACH || r.channel[c] || bySpill(j)) {
+          // (the ground beside the water only `BEACH` tiles out; a bed's banks and the levee's ends are the bank)
+          d[j] = k;
+          raise.push(j);
+          continue;
+        }
         d[j] = k;
         next.push(j);
-        beach.push(j);
+        held.push(j);
       }
     }
     q = next;
   }
-  for (const c of beach) {
+  for (const c of [...held, ...site]) {
     near4(W, H, c, nb);
     for (const j of nb) {
-      if (j < 0 || d[j] >= 0 || r.lake[j] || r.channel[j] || r.fixed[j] || heights[j] > sill + 1) continue;
-      // (the spill bed's own wadi and banks beside its first tiles stand: the levee spans them)
-      if (nearChannel(r, j, si, 1)) continue;
-      heights[j] = sill + 2;
+      if (j < 0 || d[j] >= 0 || r.lake[j] || r.channel[j] || r.crest[j] || heights[j] > sill + 1) continue;
+      d[j] = BEACH + 1;
+      raise.push(j);
     }
   }
-}
-
-/** Whether a tile stands within `k` tiles (a square) of link `li`'s channel. */
-function nearChannel(r: WaterRaster, i: number, li: number, k: number): boolean {
-  const x = i % r.W;
-  const y = (i - x) / r.W;
-  for (let dy = -k; dy <= k; dy++)
-    for (let dx = -k; dx <= k; dx++) {
-      const xx = x + dx;
-      const yy = y + dy;
-      if (xx >= 0 && yy >= 0 && xx < r.W && yy < r.H && r.channel[yy * r.W + xx] === li + 1) return true;
-    }
-  return false;
+  for (const j of raise) heights[j] = sill + 2;
+  return raise;
 }
 
 // ------------------------------------------------------------------------------------------------- water by number
@@ -460,14 +524,14 @@ function headOpen(plan: PremisePlan, w: StageWater, heights: ArrayLike<number>, 
   let end = -Infinity;
   for (const i of row) if (r.channel[i] === li + 1) end = Math.max(end, r.along[i]);
   const out: Change = [];
-  for (let i = 0; i < r.W * r.H; i++) if (r.channel[i] === li + 1 && r.along[i] < end - 0.5 && heights[i] > from.sill && heights[i] < level) out.push([i, from.sill]);
+  for (let i = 0; i < r.W * r.H; i++) if (r.channel[i] === li + 1 && r.along[i] <= end + 1 && heights[i] > from.sill && heights[i] < level) out.push([i, from.sill]);
   return out;
 }
 
 /** The plan's works as templates on the land: each one's site, what it does and what it buys by number, in the
  *  order the plan lists them; and day 1's water and moist shares (`spectrum`). `heights` is the land as built
  *  (stages 2 and 3, the works' own ground laid). */
-export function ladderOf(plan: PremisePlan, w: StageWater, heights: Uint8Array, laid: LaidWorks = { plugs: {} }): Ladder {
+export function ladderOf(plan: PremisePlan, w: StageWater, heights: Uint8Array, laid: LaidWorks = { plugs: {}, banks: {} }): Ladder {
   const r = w.raster;
   const { W, H } = plan;
   const N = W * H;
@@ -525,7 +589,7 @@ export function ladderOf(plan: PremisePlan, w: StageWater, heights: Uint8Array, 
       if (body && si >= 0) {
         site.does = "build";
         site.level = body.sill + 1;
-        site.tiles = band(r, si, firstAlong(r, si) + 0.5 - 0.5, 1.5).filter((i) => heights[i] < body.sill + 1);
+        site.tiles = leveeBand(r, heights, si, body.sill);
         for (const i of site.tiles) change.push([i, body.sill + 1]);
       }
     } else if (work.kind === "breach") {
@@ -552,8 +616,11 @@ export function ladderOf(plan: PremisePlan, w: StageWater, heights: Uint8Array, 
       const lakes = plan.stair?.lakes ?? [];
       const next = plan.bodies.find((b) => b.id === lakes[lakes.indexOf(from?.id ?? "") + 1]);
       site.level = next ? next.sill : (from?.sill ?? 0) + 3;
-      site.tiles = band(r, li, nearestAlong(r, li, work.at) - 0.5);
-      for (const i of site.tiles) change.push([i, site.level]);
+      const wall = wallAcross(plan.links[li].path ?? [], work.at, heights, W, H, site.level);
+      if (wall.length) {
+        site.tiles = wall;
+        for (const i of site.tiles) change.push([i, site.level]);
+      } else site.note = `no shoulders at ${site.level} within ${WALL_REACH} tiles of the slot`;
     }
     sites.set(work.id, { site, change, reservoir });
   }

@@ -109,6 +109,20 @@ const NOTCH_BED = 20;
 /** How far a rim tarn stands from its edge at most, tiles: its run to the edge stays short, a thread of green. (14 lost
  *  seed 12 at 128² to its layouts, and in proportion to the side lost seed 3 at 256²; 9 left too few places.) */
 const RIM_EDGE = 11;
+/** How far past a lake's or the pool's meadow its green reaches on day 1, and a little room, tiles: an empty basin
+ *  stands past it, so the ground its works turn green is dry on day 1 (the soil reaches 16 tiles from water over level
+ *  ground and stops at the first step up; a meadow is its width ± 3). */
+const GREEN_PAST = 6;
+/** How far a spring tarn's own green reaches past its outline, tiles (its narrow meadow under a crag of two). */
+const SPRING_GREEN = 10;
+/** How far a wet channel's green reaches past its banks, tiles (half or more of the ground within it is green). */
+const CHANNEL_GREEN = 8;
+/** Tiles a dry bed's thread turns green for each tile of it that runs through ground dry on day 1: the bed two deep
+ *  in the land (`raster/relief.ts` `followsLand`), its thread three wide reaching 16 tiles, a level up to the bench
+ *  and about seven tiles over it on each side. */
+const GREEN_A_TILE = 20;
+/** Tiles of a leat for each level it falls, at the least: it runs along the contour, as a leat is dug. */
+const LEAT_RUN = 20;
 
 /** The tile area over 192²'s: counts and gains scale by it (§4.2, §4.4). */
 const areaRatio = (W: number, H: number) => (W * H) / (192 * 192);
@@ -1012,7 +1026,7 @@ function placeTarns(L: Layout): string | null {
   // (a basin stands past a lake's meadow, so its works' ground is dry on day 1: the soil reaches a meadow's width over
   // level ground and stops at the first step up; a rim tarn hugs its edge, and the pool's basins stand near the pool)
   // (the pool's basins keep 6 from a lake, as from any body: 8 left a pool by the top lake no room for its basins)
-  const sideGap = (o: Body, role: "rim" | "pool" | "wet") => (o.kind === "lake" ? (role === "wet" ? o.meadow : role === "pool" ? 6 : 8) : 6);
+  const sideGap = (o: Body, role: "rim" | "pool" | "wet") => (role === "rim" ? (o.kind === "lake" ? 8 : 6) : role === "pool" ? 6 : o.kind === "lake" || o.kind === "pool" ? o.meadow + GREEN_PAST : o.dry ? 6 : SPRING_GREEN);
   const site = (near: Point | null, role: "rim" | "pool" | "wet"): Body | null => {
     const rim = role === "rim";
     for (let t = 0; t < 60; t++) {
@@ -1107,7 +1121,8 @@ function placeTarns(L: Layout): string | null {
       if (leat && (pathLength(leat) > 0.32 * W || pathLength(leat) < 6)) leat = null;
     }
     if (!b || !leat) return "placeTarns#5";
-    addTarn(b, "basin", Math.min(groundSill(b), L.pool.sill - 1));
+    // (its leat runs along the contour, a level down for each `LEAT_RUN` tiles of it: the basin stands that high)
+    addTarn(b, "basin", Math.min(L.pool.sill - 1, Math.max(groundSill(b), L.pool.sill - 1 - Math.floor(pathLength(leat) / LEAT_RUN))));
     L.poolBasins.add(b.id);
     plan.links.push({ id: `leat${b.id}`, from: L.pool.id, to: b.id, kind: "leat", path: leat, half: 0.55, bed: [L.pool.sill, b.sill + 1], wet: false, gates: [2], rows: [1] });
     addName(plan, `leat${b.id}`, `${plan.names[b.id].split(" ")[0]} Leat`);
@@ -1142,6 +1157,39 @@ function placeTarns(L: Layout): string | null {
     }
   }
   return tarns.length >= 3 ? null : "placeTarns#6";
+}
+
+/** Whether a point is green on day 1 by the plan's arithmetic: within a lake's or the pool's meadow and the few tiles
+ *  its green reaches past it, a spring tarn's spot, or beside a wet channel. */
+function greenAt(plan: PremisePlan, p: Point, skip: string): boolean {
+  for (const b of plan.bodies) {
+    if (b.id === skip || b.dry) continue;
+    if (bodyDist(p[0], p[1], b) < (b.kind === "lake" || b.kind === "pool" ? b.meadow + GREEN_PAST : SPRING_GREEN)) return true;
+  }
+  for (const l of plan.links) if (l.wet && l.path && l.kind !== "fall" && pathDist(p[0], p[1], l.path).d < (l.half ?? 1) + CHANNEL_GREEN) return true;
+  return false;
+}
+
+/** How much of a dry bed runs through ground dry on day 1 (`greenAt`), past its own body's green: its tiles, and how far
+ *  along the middle of its longest dry run stands. */
+function dryRun(plan: PremisePlan, path: Point[], from: Body): { dry: number; mid: number } {
+  const len = pathLength(path);
+  let dry = 0;
+  let run = 0;
+  let best = 0;
+  let mid = len / 2;
+  for (let s = 0.5; s < len; s += 1) {
+    const p = pointAt(path, s).p;
+    if (bodyDist(p[0], p[1], from) >= (from.dry ? 3 : 6) && !greenAt(plan, p, from.id)) {
+      dry++;
+      run++;
+      if (run > best) {
+        best = run;
+        mid = s - run / 2;
+      }
+    } else run = 0;
+  }
+  return { dry, mid };
 }
 
 /** The ladder (§4.2): the first works, the sill notches, the small irrigation works on the tarns and basins, the leats,
@@ -1192,17 +1240,31 @@ function placeWorks(L: Layout, o: StairOption): string | null {
     return link;
   };
   const fed = new Set<string>();
-  // spring tarns first: a dry bed to a lower lake or basin, opened by clearing its row: the notch
+  // spring tarns first: a dry bed to a lower lake or basin, opened by clearing its row: the notch. Its green is its thread's
+  // through ground dry on day 1 (`dryRun`), so the bed is drawn to the point of a lower body's shore whose bed runs that far
+  // through dry ground as the notch's `gives` asks, about `GREEN_A_TILE` a tile
+  const notchGives = scale([430, 570]);
+  const notchDry = (notchGives[0] + notchGives[1]) / 2 / GREEN_A_TILE;
   for (const t of tarns.filter((b) => b.kind === "tarn")) {
-    const targets = [...plan.bodies.filter((b) => (b.kind === "lake" && b.sill <= t.sill - 2) || (b.kind === "basin" && !fed.has(b.id) && !L.poolBasins.has(b.id) && b.sill <= t.sill - 1))].sort((a, b) => bodyGap(a, t) - bodyGap(b, t));
-    // (the longest bed of the nearest four: a short one carries its thread through green ground)
+    const c: Point = [t.arms[0][0][0], t.arms[0][0][1]];
     let link: Link | null = null;
     let target: Body | undefined;
-    for (const x of targets.slice(0, 4)) {
-      const l = bedLink(`bed${t.id}`, t, x, "brook", false);
-      if (l && pathLength(l.path!) >= NOTCH_BED && (!link || pathLength(l.path!) > pathLength(link.path!))) {
-        link = l;
-        target = x;
+    let fit = Infinity;
+    let at = 0;
+    for (const x of plan.bodies.filter((b) => (b.kind === "lake" && b.sill <= t.sill - 2) || (b.kind === "basin" && !fed.has(b.id) && !L.poolBasins.has(b.id) && b.sill <= t.sill - 1))) {
+      for (const q of outlinePoints(x, 3)) {
+        const d = dist(c, q);
+        if (d < NOTCH_BED || d > 0.32 * W) continue;
+        const path = straightLink(plan, t, q, 1.6, [t.id, x.id]);
+        if (!path || pathLength(path) < NOTCH_BED || pathLength(path) > 0.32 * W) continue;
+        const run = dryRun(plan, path, t);
+        const miss = Math.abs(run.dry - notchDry);
+        if (miss < fit) {
+          fit = miss;
+          link = { id: `bed${t.id}`, from: t.id, to: x.id, kind: "brook", path, half: 1.6, bed: [t.sill, x.sill], wet: false, gates: [], rows: [] };
+          target = x;
+          at = run.mid;
+        }
       }
     }
     if (link && target) {
@@ -1214,7 +1276,8 @@ function placeWorks(L: Layout, o: StairOption): string | null {
       smallWorks.push(notch);
       if (target.kind === "basin") fed.add(target.id);
       if (pathLength(link.path!) >= DAM_BED) {
-        const mid = pointAt(link.path!, pathLength(link.path!) / 2).p;
+        // (in the middle of its dry run, where the bench beside its pond is dry ground)
+        const mid = pointAt(link.path!, at).p;
         smallWorks.push(work({ rung: "small", kind: "damToPond", on: link.id, at: rp(mid), tiles: rng.int(4, 7), needs: [notch.id], gives: { green: scale([270, 470]) }, region: t.region }));
       }
     }
@@ -1231,6 +1294,8 @@ function placeWorks(L: Layout, o: StairOption): string | null {
         if (s.sill < b.sill + 1) continue;
         const link = bedLink(`leat${b.id}`, s, b, "leat", false);
         if (!link) continue;
+        // (along the contour: a level down for each `LEAT_RUN` tiles at most)
+        if ((link.bed as number[])[0] - (link.bed as number[])[1] > Math.floor(pathLength(link.path!) / LEAT_RUN)) continue;
         link.rows = [1];
         if (s.id === L.pool.id) link.gates = [2];
         plan.links.push(link);
@@ -1268,8 +1333,9 @@ function placeWorks(L: Layout, o: StairOption): string | null {
       plan.links.push(link);
       addName(plan, link.id, `${plan.names[b.id].split(" ")[0]} Beck`);
       smallWorks.push(work({ rung: "small", kind: "levee", on: b.id, at: link.path![0], tiles: rng.int(6, 10), needs: [feed.id], gives: { green: scale([260, 340]) }, region: b.region }));
+      const run = dryRun(plan, link.path!, b);
       if (pathLength(link.path!) >= DAM_BED) {
-        const mid = pointAt(link.path!, pathLength(link.path!) / 2).p;
+        const mid = pointAt(link.path!, run.mid).p;
         smallWorks.push(work({ rung: "small", kind: "damToPond", on: link.id, at: rp(mid), tiles: rng.int(4, 7), needs: [feed.id], gives: { green: scale([270, 470]) }, region: b.region }));
       }
     }

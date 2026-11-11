@@ -20,7 +20,7 @@ import { waterByNumber } from "../../src/core/premise/water";
 import { moisture } from "../../src/core/sim/moisture";
 import { decodeSpecFragment, encodeSpecFragment, makeSpec } from "../../src/core/spec/mapspec";
 
-const SHA = "0082ebe7a2f2c57a64e41b7add7d2f291c93b9c749b1f2690d1fe643c489b846";
+const SHA = "9f91f1de89467e8b44469e59bdd6d7a1e66045fb4616e9b87acf524d00648fec";
 
 describe("The premise mode (§2.2, build step 4)", () => {
   const made = makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "any" });

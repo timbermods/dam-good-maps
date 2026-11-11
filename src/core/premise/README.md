@@ -48,14 +48,15 @@ control on the page yet).
   `stageModel` is its water model for a settle.
 - `raster/relief.ts` `reliefBetween`: stage 2, the whole map's ground round stage 1's water (the lower envelope of
   every water's bowl, each bowl's distance bounded to its box, rims kept from lower waters, the landmark's upper
-  world, the bypass following the land, the uplands as warped plates each at one level, ridges as crags, `tidy` and
+  world, the bypass and every dry brook following the land (`followsLand`), the uplands as warped plates each at one level, ridges as crags, `tidy` and
   the bench-width floor `land/benches.ts`); `badwaterNiches` cuts the
   permanent badwater source's niche beside the gorge.
 - `ladder.ts`: stage 4 (§4.2). `layWorks` lays the works' own ground on stage 2's (each small levee's basin banked,
-  a beach at its sill + 1 under a rim; a notch's rock plug when `NOTCH_SHUT` is `"plug"`, D513(3): one switch from
+  a beach at its sill + 1 under a rim, the banks it raised kept in `LaidWorks.banks`; a notch's rock plug when `NOTCH_SHUT` is `"plug"`, D513(3): one switch from
   rows of Blockages). `ladderOf` places each work as its template on the land (rows cleared or a plug dug, a dam to
   pond across its bed where its pond stays in it, a levee across a basin's spill bed, a breach, a raised sill, the
-  megadam's band) and estimates what it buys by number: day 1 is every row and notch shut (lakes on their sills);
+  megadam's wall across the gorge to its shoulders at the next lake's sill, refused with a note where a side finds
+  none within `WALL_REACH`) and estimates what it buys by number: day 1 is every row and notch shut (lakes on their sills);
   each work's water is `flowThrough` and `prefillFrom` on the floor with it and the works it needs done, and its
   gain (`estimateGain`) the tiles the soil rule (`soilReach`, a bucketed copy of `sim/moisture.ts` without
   contamination, equal to it tile for tile) newly reaches, no settle. A breach's, raised sill's or megadam's gain is
