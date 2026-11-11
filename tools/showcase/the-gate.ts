@@ -142,9 +142,11 @@ const xyOf = (u: number, v: number): Pt => [98 + (u + v) * C, 98 + (u - v) * C];
 function wallSwing(v: number): number {
   return 8 * (fbm(v + 300, 0, 72, SEED + 11, 2) - fbm(300, 0, 72, SEED + 11, 2)) + 2.6 * (fbm(v + 300, 0, 23, SEED + 12, 2) - fbm(300, 0, 23, SEED + 12, 2));
 }
-/** The crest's half width at `v`: 8 at the Veil (the lip stands at its edge), 5 to 11 elsewhere. */
+/** The crest's half width at `v`: 8 at the Veil (the lip stands at its edge: the wall's bastion round the cleft),
+ *  two to three elsewhere (r5: a wall, not a ramp). */
 function wallHalfAt(v: number): number {
-  return 8 + 3.4 * (fbm(v + 300, 0, 48, SEED + 13, 2) - fbm(300, 0, 48, SEED + 13, 2));
+  const bastion = Math.min(1, Math.max(0, 1 - (Math.abs(v) - 9) / 11));
+  return 2.6 + 5.4 * bastion * bastion * (3 - 2 * bastion) + 0.4 * (fbm(v + 300, 0, 48, SEED + 13, 2) - fbm(300, 0, 48, SEED + 13, 2));
 }
 /** A point given in the wall's own frame, placed where the wall is at that `v`. */
 const xyW = (u: number, v: number): Pt => xyOf(u - wallSwing(v), v);
@@ -154,6 +156,9 @@ const xyW = (u: number, v: number): Pt => xyOf(u - wallSwing(v), v);
 /** The lake's sill, the valley meadows' level (sill + 1) and the start's bench. */
 const LAKE_SILL = 7;
 const BENCH = 8;
+/** The start's own ground: the meadow's level (r5 tried a terrace a level up against the badtide: its soil went
+ *  bad within eight days anyway, and in a drought the lake stood two levels under the door). */
+const HOME = BENCH;
 /** The cleft's pool: its bed, and the lip's level (the Veil's crest). */
 const POOL_BED = 13;
 const LIP = 14;
@@ -161,19 +166,18 @@ const LIP = 14;
 const CREST = 17;
 /** The ledge along the wall's valley face (the old leat runs on it) and the lower bench under it. */
 const LEDGE = 13;
-const LOWER = 10;
 /** The Pass: where the crest dips along the wall (v), and the level it dips to. */
 const PASS_V = 56;
 const PASS = 11;
 
 /** Wall Lake: along the wall's foot, centred about u −25; a bay each side of the start's peninsula. */
 const LAKE_ARMS: Sp[][] = [
-  [xyS(-33, -36, 8), xyS(-34, -24, 9), xyS(-35, -12, 9), xyS(-34, 2, 10), xyS(-33, 16, 10), xyS(-31, 30, 9)],
+  [xyS(-33, -36, 8), xyS(-34, -24, 9), xyS(-35, -12, 9), xyS(-36, 2, 9), xyS(-36, 16, 9), xyS(-32, 30, 9)],
   // the bay north-west of the start: the trench's way out to the lake
-  [[...xyOf(-11, -7.5), 3.0], [...xyOf(-15, -10.5), 2.6], [...xyOf(-18.5, -13), 2.0], xyS(-22, -15, 3.0), xyS(-27, -17, 4.5)],
+  [[...xyOf(-11, -7.5), 3.2], [...xyOf(-15, -10.5), 3.0], [...xyOf(-18.5, -13), 2.4], xyS(-22, -15, 3.2), xyS(-27, -17, 4.5)],
   // the Still Pool south-east of the start: a dead end from the trench along the wall's foot, held through a
   // drought at the lake's level; a levee on its neck keeps it clean in a badtide
-  [[...xyOf(-11, 6.5), 2.2], [...xyOf(-12.5, 9.5), 2.4]],
+  [[...xyOf(-10.8, 7.4), 0.7], [...xyOf(-12.4, 9.6), 0.7]],
   // the south-west bay the valley brook comes to
   [xyS(-37, -12, 8), xyS(-44, -14, 5)],
   // creeks at the lake's level into the meadows, the water's veins
@@ -182,6 +186,8 @@ const LAKE_ARMS: Sp[][] = [
   [xyS(-40, -28, 1.4), xyS(-47, -34, 1.2), xyS(-52, -42, 1.0), xyS(-58, -48, 0.9)],
   [xyS(-44, -4, 1.3), xyS(-52, -10, 1.1), xyS(-62, -14, 0.9)],
   [xyS(-38, 32, 1.2), xyS(-44, 40, 1.0), xyS(-48, 50, 0.9)],
+  // the Still Pool itself (last)
+  [[...xyOf(-14.2, 11.6), 2.2]],
 ];
 function xyS(u: number, v: number, r: number): Sp {
   const [x, y] = xyW(u, v);
@@ -207,7 +213,7 @@ const THROAT: Pt[] = [[92, 90], [93, 90], [93, 89], [94, 89], [94, 88]];
 
 /** The Gate: a slot through the wall at v 17, from the lake's shore to the basin. */
 const GATE_V = 16;
-const GATE_PATH: Pt[] = [xyW(-23, GATE_V + 2.5), xyW(-16, GATE_V + 1.5), xyW(-10, GATE_V + 0.5), xyW(-3, GATE_V + 0.5), xyW(6, GATE_V - 0.5), xyW(16, GATE_V + 1)];
+const GATE_PATH: Pt[] = [xyW(-23, GATE_V + 3.5), xyW(-16, GATE_V + 2.5), xyW(-10, GATE_V + 1.5), xyW(-3, GATE_V + 0.5), xyW(6, GATE_V - 0.5), xyW(16, GATE_V + 1)];
 /** The Low River: the lake's way out, west through the ridge to the edge. */
 const LOW_PATH: Pt[] = [[50, 100], [40, 106], [32, 112], [20, 115], [8, 118], [-1, 119]];
 /** The west ridge the Low River cuts through: the megadam's slot. */
@@ -276,7 +282,7 @@ const CHANNELS: Channel[] = [
   { name: "South Brook", path: SOUTH_PATH, half: () => 1.3, bed: brookBed(SOUTH_PATH, SOUTH_POOL_BED, 8), wet: true, wander: 3.0, open: 0, brook: { meadow: 13 } },
   // the old leat: a bed cut a level into the ledge, falling to the Pass
   { name: "Leat", path: LEAT_PATH, half: (s) => (s < 2 ? 0.8 : 1.1), bed: (s) => (s < 6 ? LEDGE : s < LEAT_LEN - 14 ? LEDGE - 1 - Math.floor(((s - 6) / (LEAT_LEN - 20)) * 1.999) : s < LEAT_LEN - 10 ? PASS : Math.max(6, PASS - 1 - Math.floor((s - (LEAT_LEN - 10)) / 1.4))), wet: false, wander: 0, open: 0, dry: true },
-  { name: "Gate Bed", path: GATE_BED, half: () => 2.2, follow: { start: 4, under: 3, end: 0, grade: 16 }, wet: false, wander: 3.2, open: 0.8, dry: true },
+  { name: "Gate Bed", path: GATE_BED, half: () => 2.8, follow: { start: 4, under: 3, end: 0, grade: 16 }, wet: false, wander: 3.2, open: 0.8, dry: true },
   { name: "Pass Bed", path: PASS_BED, half: () => 1.8, follow: { start: 6, under: 3, end: 0, grade: 16 }, wet: false, wander: 3.2, open: 0.8, dry: true },
 ];
 const chan = (name: string) => CHANNELS.findIndex((c) => c.name === name);
@@ -360,7 +366,7 @@ export function designLand(): Land {
       // have re-entrants and buttresses; its width and height vary the same way)
       const u = uOf(x + 0.5, y + 0.5) + wallSwing(v) + 1.0 * fbm(x, y, 9, SEED + 15, 2);
       wallU[i] = u;
-      wallHalf[i] = wallHalfAt(v) + 1.0 * fbm(x, y, 11, SEED + 16, 2);
+      wallHalf[i] = wallHalfAt(v) + 0.5 * fbm(x, y, 11, SEED + 16, 2);
       const halfHere = wallHalfAt(v);
       const ridge = 1.6 * Math.max(0, 1 - Math.abs(u) / Math.max(1, halfHere));
       const peak = fbm(v + 300, 0, 60, SEED + 17, 2);
@@ -447,13 +453,9 @@ export function designLand(): Land {
 
       // ---- the basin: benches in threes, falling away to the exit; the wall's basin foot a little higher
       const dExit = hypot(x - EXIT[0], y - EXIT[1]);
-      let basin = 3.6 + 3.4 * Math.min(1, Math.max(0, (dExit - 14) / 120)) + 2.6 * fbm(x, y, 58, SEED + 31, 3) + 1.1 * fbm(x, y, 21, SEED + 32, 3);
-      const step3 = fbm(x, y, 60, SEED + 33, 2) > -0.3;
-      basin = step3 ? Math.round(basin / 3) * 3 : Math.round(basin / 2) * 2;
-      // (a few low knolls on the plates: the game has one dry tone, and a dead-flat plate reads as a table)
-      if (fbm(x, y, 9, SEED + 34, 2) > 0.5) basin += 1;
-      if (fbm(x, y, 9, SEED + 38, 2) < -0.55) basin -= 1;
-      if (fbm(x, y, 30, SEED + 35, 2) > 0.38) basin += 1;
+      const dBed = pathDist(x + 0.5, y + 0.5, GATE_BED).d;
+      let basin = 3.4 + 4.2 * Math.min(1, Math.max(0, (dExit - 14) / 130)) - 1.3 * Math.max(0, 1 - dBed / 24) + 1.3 * fbm(x, y, 44, SEED + 31, 3) + 0.6 * fbm(x, y, 15, SEED + 32, 3);
+      basin = Math.round(basin);
       if (basin < 3) basin = 3;
 
       // ---- the wall: the crest, a ledge and a lower bench on each face; elsewhere the land's own
@@ -466,15 +468,10 @@ export function designLand(): Land {
         // (at the Veil the face is sheer from the lip to the pool: no ledge, no bench)
         const spur = 2.4 * Math.max(0, fbm(v + 300, 0, 31, SEED + 41, 2));
         if (faceV > 7.5 + 1.2 * fbm(x, y, 6, SEED + 40, 2)) {
-          if (t < 3.6 + spur) wall = Math.min(crest - 4, LEDGE);
-          else if (faceV > 36 && t < 6.4 + 2.5 * spur) wall = Math.min(crest - 7, LOWER);
+          if (t < 3.6 + spur + (faceV > 24 && faceV < 36 ? 3 : 0)) wall = Math.min(crest - 4, LEDGE);
         }
-      } else {
-        const t = u - half;
-        const spur = 3 * Math.max(0, fbm(v + 300, 0, 37, SEED + 42, 2));
-        if (t < 2.4 + spur) wall = Math.min(crest - 4, LEDGE);
-        else if (t < 5.6 + 2.5 * spur) wall = Math.min(crest - 8, 9);
       }
+      // (r5: the basin face is sheer, crest to floor)
       // (near the Pass the ledge and bench on the basin side fall to the Pass's own level)
       const side = u < 0 ? valley : basin;
       land = Math.max(side, wall);
@@ -489,7 +486,7 @@ export function designLand(): Land {
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
       const d = spineDist(x + 0.5, y + 0.5, [xyS(-14, -24, 4), xyS(-16, -12, 7), xyS(-17, 0, 9), xyS(-16, 12, 7), xyS(-14, 24, 4)]) + 2.2 * fbm(x, y, 13, SEED + 20, 2);
-      if (d < 0 && gLake[i] > 0 && !wallOn[i]) f[i] = BENCH;
+      if (d < 0 && gLake[i] > 0 && !wallOn[i]) f[i] = hypot(x + 0.5 - START_AT[0], y + 0.5 - START_AT[1]) < 15 + 2 * fbm(x, y, 9, SEED + 21, 2) ? HOME : BENCH;
     }
   // the channels' beds: a follow bed reads the land beside it
   const bedOf: ((s: number) => number)[] = CHANNELS.map((c, k) => {
@@ -611,7 +608,7 @@ export function designLand(): Land {
       const x = i % W;
       const y = (i - x) / W;
       const dd = hypot(x + 0.5 - S.at[0], y + 0.5 - S.at[1]);
-      h[i] = Math.max(0, dd < 1.6 ? bench - 4 : bench - 3);
+      h[i] = Math.max(0, dd < 1.6 ? bench - 5 : bench - 4);
     }
     // the ring round it stands at the bench, but for its spill: the lowest ring tile toward the nearest bed
     const ring: number[] = [];
@@ -620,7 +617,7 @@ export function designLand(): Land {
       const x = i % W;
       for (const j of [i - 1, i + 1, i - W, i + W]) if (j >= 0 && j < N && Math.abs((j % W) - x) <= 1 && pool[j] === 3 + k) { ring.push(i); break; }
     }
-    for (const i of ring) if (!channel[i] && h[i] < bench - 2) h[i] = Math.max(1, bench - 2);
+    for (const i of ring) if (!channel[i] && h[i] < bench - 3) h[i] = Math.max(1, bench - 3);
     // the spill: the ring tile nearest a bed, cut to the hollow's floor + 1 (the water stands at bench − 1 + head)
     let best = -1;
     let bestD = Infinity;
@@ -632,7 +629,7 @@ export function designLand(): Land {
       void y;
     }
     if (best >= 0) {
-      h[best] = Math.max(1, bench - 2);
+      h[best] = Math.max(1, bench - 3);
       seepLips.push([best]);
       // the gully: from the spill toward the bed, a tile at a time, falling a level every two tiles, until it
       // meets the bed's floodplain
@@ -686,8 +683,7 @@ export function designLand(): Land {
     let depth = shore === 0 ? 0 : shore === 1 ? Math.min(1, channelDepth) : channelDepth;
     // (the two bays' necks carry the Veil's whole flow from the trench: two deep their whole length; a creek a level)
     const arm = LAKE_ARMS.findIndex((a) => spineDist(x + 0.5, y + 0.5, a) < 0);
-    if (arm === 1) depth = 3;
-    else if (arm === 2) depth = 2;
+    if (arm === 1 || arm === 2) depth = 1;
     else if (arm >= 4) depth = 1;
     // (the water the first frame holds, round the start, stays shallow: deep water is near black in the game)
     if (Math.abs(vOf(x + 0.5, y + 0.5)) < 16 && wallU[i] > -24) depth = Math.min(depth, 1);
@@ -705,7 +701,7 @@ export function designLand(): Land {
       const i = y * W + x;
       const own = Math.abs(x - START_AT[0]) <= 1 && Math.abs(y - START_AT[1]) <= 1;
       if (!own && VEIL_POOL.has(i)) continue;
-      h[i] = BENCH;
+      h[i] = HOME;
       lake[i] = 0;
       channel[i] = 0;
     }
@@ -881,16 +877,16 @@ function veil(h: Uint8Array, lake: Uint8Array, channel: Uint8Array, pool: Uint8A
   }
   // (the trench: the foot row at the sill, shallow; the row beside it two deeper, which carries the fall's water
   // along to the drain; a third row a level under the sill, the lake's own shelf)
-  for (const pass of [3, 2, 1])
+  for (const pass of [4, 3, 2, 1])
     for (const t of tiles) {
       const x = t % W;
       const y = (t - x) / W;
-      for (let a = 0; a <= 3; a++)
-        for (let b = 0; a + b <= 3; b++) {
+      for (let a = 0; a <= 4; a++)
+        for (let b = 0; a + b <= 4; b++) {
           if (a + b !== pass) continue;
           const i = (y - b) * W + x - a;
           if (bed.has(i)) continue;
-          h[i] = pass === 1 ? LAKE_SILL : pass === 2 ? LAKE_SILL - 2 : LAKE_SILL - 1;
+          h[i] = pass === 1 ? LAKE_SILL : LAKE_SILL - 1;
           lake[i] = 1;
           channel[i] = 0;
           pool[i] = 0;
@@ -1233,6 +1229,54 @@ function weather(s: MapSession, land: Land, hazard: "drought" | "badtide", days:
   log(`  the start's water ${hazard === "drought" ? "is gone" : "turns bad"}: ${sw.has ? (sw.day ? "day " + sw.day : "not in " + days + " days") : "the start has no water a pump reaches"}`);
 }
 
+/** The badtide again with a levee on the Still Pool's neck, built while the water is clean (the start's one small
+ *  defence, as Four Lakes' r14 measured): the pool's clean water stays, and the bench's green beside it. */
+function stillPoolBadtide(s: MapSession, land: Land): void {
+  const neck = STILL_NECK.filter((i) => land.lake[i]);
+  if (!neck.length) return;
+  const b = s.built;
+  const full = { depth: Float64Array.from(b.water), contamination: Float64Array.from(b.contamination), stack: (b.settle as unknown as { stack?: unknown }).stack ?? null };
+  const was = neck.map((i) => b.heights[i]);
+  // (the map settles again with the levee, so the run's water model has it; the hazard runs from the water as it
+  // stood before, the neck's taken out)
+  const set = new Set(neck);
+  applyOps(s, [{ op: "sculpt", params: { mode: "flatten", cells: runsWhere((i) => set.has(i)), level: BENCH, exact: true }, label: "A levee on the Still Pool's neck" }]);
+  for (const i of neck) full.depth[i] = 0;
+  const bb = s.built;
+  const run = new HazardRun(bb.waterModel, { depth: full.depth, contamination: full.contamination, stack: full.stack } as never, "badtide", 8);
+  const bench = benchTiles(s);
+  const st = startOf(s);
+  const near = bench.filter((i) => hypot((i % W) - st.x, Math.floor(i / W) - st.y) <= 12);
+  log(`badtide, 8 days, a levee of ${neck.length} tiles on the Still Pool's neck:`);
+  for (let day = 1; day <= 8; day++) {
+    run.step(TICKS_PER_DAY);
+    const w = run.water();
+    const soil = hazardSoil(bb.waterModel, bb.heights, w as never, bb.entities as never);
+    const green = (t: number[]) => t.filter((i) => soil.moisture[i] > 0 && !(soil.contamination[i] > 0)).length;
+    let vol = 0;
+    let bad = 0;
+    let wet = 0;
+    for (let i = 0; i < N; i++) if (STILL_POOL_TILES(land)(i) && w.depth[i] > 0.02) { wet++; vol += w.depth[i]; bad = Math.max(bad, w.contamination[i]); }
+    log(`  day ${day}: the pool ${wet ? `${(vol / wet).toFixed(2)} deep on ${wet} tiles, ${bad > 0.05 ? `bad ${(bad * 100).toFixed(0)} %` : "clean"}` : "dry"}; the bench green ${Math.round((100 * green(bench)) / bench.length)} % (within 12 tiles ${Math.round((100 * green(near)) / near.length)} %)`);
+    if (day === 1 && has("diag")) {
+      const badTiles: string[] = [];
+      for (let i = 0; i < N; i++) if (STILL_POOL_TILES(land)(i) && w.contamination[i] > 0.05) badTiles.push(`${i % W},${Math.floor(i / W)}:${w.contamination[i].toFixed(2)}`);
+      log(`    bad pool tiles: ${badTiles.join(" ")}; neck at ${neck.map((i) => `${i % W},${Math.floor(i / W)}`).join(" ")}`);
+    }
+  }
+  run.dispose();
+  neck.forEach((i, k) => applyOps(s, [{ op: "sculpt", params: { mode: "flatten", cells: [[Math.floor(i / W), i % W, i % W]], level: was[k], exact: true }, label: "The neck as it was" }]));
+}
+
+/** The Still Pool's neck: the tiles of its one-wide link to the trench, where a levee shuts it. */
+const STILL_NECK: number[] = (() => {
+  const out: number[] = [];
+  for (let i = 0; i < N; i++) if (spineDist((i % W) + 0.5, Math.floor(i / W) + 0.5, LAKE_ARMS[2]) < 0) out.push(i);
+  return out;
+})();
+/** The Still Pool's own tiles. */
+const STILL_POOL_TILES = (land: Land) => (i: number) => land.lake[i] === 1 && spineDist((i % W) + 0.5, Math.floor(i / W) + 0.5, LAKE_ARMS[LAKE_ARMS.length - 1]) < 0;
+
 /** The start's bench: level, dry tiles joined to the start. */
 function benchTiles(s: MapSession): number[] {
   const b = s.built;
@@ -1369,12 +1413,11 @@ function plant(s: MapSession, land: Land): void {
     return c;
   };
   const keepClear = [...land.checkDams.flat(), ...land.gatePlugs.flat(), ...land.seepLips.flat()];
-  const bedCentres = centres(
-    Array.from({ length: N }, (_, i) => i).filter((i) => dryBed(i) && inBasin(i) && keepClear.every((j) => far(i, j) > 7)),
-    40,
-    7,
-    71,
-  );
+  const gateBedTile = (i: number) => land.channel[i] === chan("Gate Bed") + 1;
+  const bedCentres = [
+    ...centres(Array.from({ length: N }, (_, i) => i).filter((i) => dryBed(i) && gateBedTile(i) && inBasin(i) && keepClear.every((j) => far(i, j) > 7)), 22, 8, 71),
+    ...centres(Array.from({ length: N }, (_, i) => i).filter((i) => dryBed(i) && !gateBedTile(i) && inBasin(i) && keepClear.every((j) => far(i, j) > 7)), 40, 2, 73),
+  ];
   const inWood = (c: number[], r: number, seed: number) => (i: number) => c.some((j) => far(i, j) < r + 1.5 * n(i, 5, seed));
   const birchHere = (i: number) => n(i, 4, 61) > -0.12;
   const bedWood = (i: number) => (dry(i) || dryBed(i)) && dBed[i] <= 4 && inWood(bedCentres, 6.5, 62)(i);
@@ -1660,8 +1703,12 @@ function placeObjects(s: MapSession, land: Land): void {
   put("UnstableCore", 40, 20, "An unstable core by the brook's springs", { components: placeComponents("UnstableCore") }, [2, 2]);
   // the way up to the ledge: a ramp from the bench south-east of the Gate up the wall's face
   {
-    const [rx, ry] = xyOf(-14, 27).map(Math.round);
-    if (!ramp(s, land, rx, ry, BENCH, LEDGE, "The way up to the ledge")) ramp(s, land, rx, ry, BENCH, LEDGE - 1, "The way up to the ledge");
+    let up = false;
+    for (const v of [30, 40, 48]) {
+      const [rx, ry] = xyOf(-12, v).map(Math.round);
+      up = ramp(s, land, rx, ry, BENCH, LEDGE, "The way up to the ledge") || ramp(s, land, rx, ry, BENCH, LEDGE - 1, "The way up to the ledge");
+      if (up) break;
+    }
   }
   // a ruin pier pair at each check dam's site and each seep's spill, so the answers read from far
   land.checkDams.forEach((row, k) => {
@@ -1906,6 +1953,8 @@ function main(): void {
     lap("drought");
     weather(s, land, "badtide", 8);
     lap("badtide");
+    stillPoolBadtide(s, land);
+    lap("the Still Pool's badtide");
   }
   applyOps(s, [{ op: "setDescription", params: { text: DESCRIPTION } }]);
   if (has("checks") || has("save")) {
