@@ -15,10 +15,9 @@
 // (`LATER`), never silently; none is now.
 
 import type { GenerateOptions, GenerateResult, GenerationInfo } from "../gen/generate";
-import { FLOOR_MARGIN } from "../gen/generate";
 import { writeTimber } from "../format/timber";
 import type { MapSpec } from "../spec/mapspec";
-import { rulesFor } from "../validate/playability";
+import { FLOOR_MARGIN, rulesFor } from "../validate/playability";
 import { blocks, type CheckResult, type ValidationReport } from "../validate/report";
 import { drawPlan, failing, PLAN_TRIES, type Failure } from "./draw";
 import { checkFrame, type FrameNeeds } from "./frame";
@@ -37,6 +36,11 @@ import { withSmallMapThreads } from "../sim/parallel";
 /** Settles one premise map may cost before the themes make it (PREMISES §2.2 stage 5: at most two a plan; the themes
  *  allow five a genome). A plan that fails before the settle costs none. */
 export const PREMISE_SETTLES = 3;
+
+/** The `land` invariants read on the skeleton's water before the siting (the stair's falls and weirs, which the side
+ *  network never touches): every plan that failed them there failed them in stage 1 too (seeds 6, 12 and 14 at 128²,
+ *  six of six), each after half a second to a second of siting. */
+const SKELETON_LAND: ReadonlySet<string> = new Set(["water.falls", "water.weirs"]);
 
 /** The checks a premise map answers only at a later build step (PREMISES §7), each with the step that answers it:
  *  until then a warning on it. Empty since step 6: its plants answer `start.food`, `start.wood` and
@@ -94,6 +98,7 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
   const rules = rulesFor(specIn);
   const needs: FrameNeeds = { bench: rules.levelLand, moist: rules.farmland + rules.forester, reach: rules.reachMin };
   const bench = Math.ceil(FLOOR_MARGIN * rules.levelLand);
+  const skeletonLand = def.invariants.filter((inv) => SKELETON_LAND.has(inv.id));
   const failures: GenerateResult["failures"] = [];
   const failedAt: number[] = [];
   let settles = 0;
@@ -123,7 +128,11 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
     // short of its bench there is short on the map, and is drawn again before its works are sited. Only the reasons
     // the side network cannot undo are read there, `FrameNeeds.early`: the 5 × 5, its door, the landmark's lip and
     // foot in the frame, and the bench; the frame's water depth and the moist land wait for the full land)
+    // (and the stair's falls and weirs, `SKELETON_LAND`, on the skeleton's water: the side network never touches them,
+    // so a plan they fail there fails them in stage 1, after the siting's cost)
     const sited = sitePlan(def, specIn, drawn.plan, attempt, style.relief, (sk, w, heights) => {
+      const early = failing(skeletonLand, "land", { spec: specIn, plan: sk, water: w });
+      if (early.length) return early[0];
       const f = checkFrame(sk, w, heights, { ...needs, early: true });
       return f.reason ? { id: "frame.start", reason: f.reason } : null;
     }, bench);

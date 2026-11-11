@@ -45,6 +45,12 @@ export const FRAME = {
    *  tile at its edge toward the camera, half a tile to most of a tile nearer than its middle. Without it a third of
    *  the plans at 128² had lip tiles over the top edge (v to 1.1). */
   lipStair: 0.5,
+  /** How much further up (`v`) and out (`u`) the lip's tiles stand in the frame than its line's ends, as the water by
+   *  number lays them (`raster/falls.ts` `lipStair`, read at their edge toward the camera as stage 3 reads them): at
+   *  most 0.042 and 0.128 over the 62 plans of seeds 1 to 24 at 128², whatever the look. Stage 0 holds the ends this
+   *  far inside the frame: without it a fifth of the plans that reached stage 3 had lip tiles outside it, and every
+   *  start looking one way (Cw180) a tenth of the frame's height nearer the top than its ends read. */
+  lipTiles: { v: 0.045, u: 0.13 },
 } as const;
 
 const TAN_PITCH = SIN_P / COS_P;
@@ -102,14 +108,15 @@ export interface LipInFrame {
 }
 
 /** A lip (two crest ends in tiles, the crest at `crest`) and its foot (`foot`, the water's level under it) as the
- *  start's first camera sees them. The foot is read 1.5 tiles toward the camera from each end. */
+ *  start's first camera sees them. The ends are read where they stand (the line the raster lays its tiles along); the
+ *  foot 1.5 tiles toward the camera from each end. */
 export function lipInFrame(start: OpeningStart, lip: [Point, Point], crest: number, foot: number): LipInFrame {
   const cam = openingCamera(start);
   const h = crest + FRAME.overLip;
   const a0 = aheadOf(start, lip[0]).ahead;
   const a1 = aheadOf(start, lip[1]).ahead;
   const at = (p: Point, z: number) => frameAt(cam, p[0] + 0.5, p[1] + 0.5, z) ?? { u: Infinity, v: Infinity };
-  const ends = lip.map((p) => at(p, h));
+  const ends = lip.map((p) => frameAt(cam, p[0], p[1], h) ?? { u: Infinity, v: Infinity });
   const feet = lip.map((p) => at([p[0] - 1.5 * cam.look[0], p[1] - 1.5 * cam.look[1]], foot));
   const lx = lip[1][0] - lip[0][0];
   const ly = lip[1][1] - lip[0][1];
@@ -141,9 +148,10 @@ export const START = {
    *  head over that (2.1 to 2.4 deep): the pump's water when a breach sinks the lake a level in a drought. */
   ribbon: 2.5,
   /** `start.reach` read before the build (`slopeReach`, the start's own slopes on the land) is this share of its
-   *  floor at least: the build's other slopes (its works', the water rule's) and its settled water gave the built map
-   *  1.1 to 1.3 times the reading (seeds 1 to 6 at 128²), so a start under it is drawn again before its settle. */
-  reachRead: 0.75,
+   *  floor at least, so a start under it is drawn again before its settle. Since the bench and the ways out (D515) the
+   *  built map's reach is 0.7 to 1.6 times the reading (seeds 1 to 24 at 128²; 1.1 to 1.3 before): six of the nine
+   *  settles that failed it read under the floor itself, at 0.75 of it. */
+  reachRead: 1,
 } as const;
 
 /** The start stage 3 settled on, what it measured there, and why it does not hold, in one line. */
@@ -411,8 +419,8 @@ export function buildBench(plan: PremisePlan, w: StageWater, heights: Uint8Array
  *  cut up the cliff that walls it in, as the themes cut theirs (`land/levels.ts` `rampPath`, `cutRamp`: the gentlest
  *  line to the ground beyond, a step a level, four levels at most, never a pier), to the largest grounds the walk
  *  does not reach first (`tries` of them, `least` tiles or more), `most` ramps at most. Never through the water or the
- *  ground stage 1 decided. `share` is the frame's read (`START.reachRead`) with the generator's margin. */
-export const WAYS_OUT = { share: 0.85, most: 2, tries: 4, least: 200 } as const;
+ *  ground stage 1 decided. `share` is the frame's read (`START.reachRead`) with the generator's margin (1.1). */
+export const WAYS_OUT = { share: 1.1, most: 2, tries: 4, least: 200 } as const;
 
 /** Cuts the start's ways out (`WAYS_OUT`) into the heights in place; returns their steps as (low tile, high tile)
  *  pairs, the build's slope targets (`GeneratedField.ramps`). */

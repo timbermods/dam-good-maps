@@ -16,8 +16,7 @@ import { hash32 } from "../../math/hash";
 import { sillWidthFor, MAX_SILL_WIDTH } from "../../sim/sill";
 import { hazardDays } from "../../sim/weather";
 import { EDITOR_LEVEL, type MapSpec } from "../../spec/mapspec";
-import { rulesFor } from "../../validate/playability";
-import { FLOOR_MARGIN } from "../../gen/generate";
+import { FLOOR_MARGIN, rulesFor } from "../../validate/playability";
 import { premiseStream } from "../draw";
 import { holdDeep } from "../levels";
 import { FRAME, frameLimit, frameWidthAt, lipInFrame, START } from "../frame";
@@ -391,6 +390,9 @@ function clearPath(plan: PremisePlan, path: Point[], half: number, ends: string[
   for (const o of others) if (pathGap(mid, o, half + room) < half + room) return false;
   const s = plan.frame.start;
   if (s.z >= 0 && pathDist(s.x, s.y, path).d < half + startRoom) return false;
+  // (a channel laid after the frame keeps off the start's bench, the bypass but for, `BENCH_KEEP`)
+  const bench = half === BYPASS_HALF ? null : benchBody(plan);
+  if (bench && !benchClear(plan, bench, path, half + BENCH_KEEP.link)) return false;
   for (let k = 0; k < path.length; k++) {
     const [x, y] = path[k];
     if (x < -0.01 || y < -0.01 || x > plan.W + 0.01 || y > plan.H + 0.01) return false;
@@ -767,62 +769,154 @@ function benchHalf(area: number, len: number): number {
   return (-2 * len + sqrt(4 * len * len + 4 * Math.PI * area)) / (2 * Math.PI);
 }
 
+/** How far a channel laid after the frame (a brook, a leat, a run; not the bypass) keeps from the start's bench
+ *  (D515): `link` tiles past its half width, as the frame read its room (`BENCH_ROOM.link`). Without it the rim
+ *  tarns' brooks took the bench of most plans that fell short at 256², and seeds 1 to 3 there fell to the themes;
+ *  the tarns and basins themselves are not kept off (that halved the layouts that hold at 128²), their rims give way
+ *  instead (`raster/relief.ts` `BENCH.sideRim`). */
+const BENCH_KEEP = { link: BENCH_ROOM.link } as const;
+
+/** The start's bench as a body: the capsule round its spine the frame found room in (`benchHalf` of `BENCH.room`
+ *  times the bench the frame read, and its 1.5 more), null before the frame. */
+const benchBodies = new WeakMap<object, Pick<Body, "arms"> | null>();
+function benchBody(plan: PremisePlan): Pick<Body, "arms"> | null {
+  const f = plan.frame;
+  if (!f || !f.benchTo || !(f.bench > 0)) return null;
+  let b = benchBodies.get(f);
+  if (b === undefined) {
+    const s: Point = [f.start.x + 0.5, f.start.y + 0.5];
+    const t: Point = [f.benchTo[0] + 0.5, f.benchTo[1] + 0.5];
+    const m = benchHalf(BENCH_DISC.room * f.bench, dist(s, t)) + 1.5;
+    b = { arms: [[[s[0], s[1], m], [t[0], t[1], m]]] };
+    benchBodies.set(f, b);
+  }
+  return b;
+}
+
+/** Whether a path keeps `gap` from the bench (`benchBody`), or stands wholly past the landmark's lip (the bench stops
+ *  at it, `raster/relief.ts` `startBowl`). */
+function benchClear(plan: PremisePlan, bench: Pick<Body, "arms">, path: readonly Point[], gap: number): boolean {
+  if (pathBodyGap(path, bench, 0, Infinity, gap) >= gap) return true;
+  const s = plan.frame.start;
+  const look = openingCamera(s).look;
+  const lip = (s.x + 0.5) * look[0] + (s.y + 0.5) * look[1] + plan.frame.lipAhead + 0.5;
+  return path.every((p) => p[0] * look[0] + p[1] * look[1] - gap > lip);
+}
+
 /** The tiles round the bench's spine (start to `to`, within `m`), behind the lip `a` ahead along `look`, joined to the
- *  start's 3 × 3 through ground the bench may hold (`BENCH_ROOM`), counted up to `want`. */
-function benchRoom(sx: number, sy: number, to: Point, m: number, look: Point, a: number, bodies: Body[], low: number, channels: Link[], W: number, H: number, want: number): number {
+ *  start's 3 × 3 through ground the bench may hold (`free`, `benchGround`), counted up to `want`. */
+function benchRoom(sx: number, sy: number, to: Point, m: number, look: Point, a: number, free: (x: number, y: number) => boolean, W: number, H: number, want: number): number {
   const cx = sx + 0.5;
   const cy = sy + 0.5;
   const ex = to[0] + 0.5;
   const ey = to[1] + 0.5;
-  const x0 = Math.floor(Math.min(cx, ex) - m - 1);
-  const y0 = Math.floor(Math.min(cy, ey) - m - 1);
-  const x1 = Math.ceil(Math.max(cx, ex) + m + 1);
-  const y1 = Math.ceil(Math.max(cy, ey) + m + 1);
+  const x0 = Math.max(0, Math.floor(Math.min(cx, ex) - m - 1));
+  const y0 = Math.max(0, Math.floor(Math.min(cy, ey) - m - 1));
+  const x1 = Math.min(W - 1, Math.ceil(Math.max(cx, ex) + m + 1));
+  const y1 = Math.min(H - 1, Math.ceil(Math.max(cy, ey) + m + 1));
   const bw = x1 - x0 + 1;
   const seen = new Uint8Array(bw * (y1 - y0 + 1));
-  // (a body or channel whose box stands further off than the bench's box and its gap needs no closer look)
-  const near = (o: ArrayLike<number>, gap: number) => {
-    const gx = Math.max(0, o[0] - x1, x0 - o[2]);
-    const gy = Math.max(0, o[1] - y1, y0 - o[3]);
-    return gx * gx + gy * gy <= gap * gap;
-  };
-  const bs = bodies.map((b) => ({ b, gap: b.sill <= low ? BENCH_ROOM.shore : BENCH_ROOM.shore + BENCH_ROOM.rim })).filter(({ b, gap }) => near(outlineBox(b), gap + 0.01));
-  const ls = channels
-    .map((l) => ({ path: l.path!, gap: (l.half ?? 1) + BENCH_ROOM.link }))
-    .filter(({ path, gap }) => near([Math.min(...path.map((q) => q[0])), Math.min(...path.map((q) => q[1])), Math.max(...path.map((q) => q[0])), Math.max(...path.map((q) => q[1]))], gap + 0.01));
   const ok = (x: number, y: number) => {
-    if (x < 0 || y < 0 || x >= W || y >= H || x < x0 || y < y0 || x > x1 || y > y1) return false;
     const px = x + 0.5;
     const py = y + 0.5;
-    if (segDist(px, py, cx, cy, ex, ey).d > m) return false;
     if ((px - cx) * look[0] + (py - cy) * look[1] > a - 1) return false;
-    for (const { b, gap } of bs) if (!(bodyDist(px, py, b) > gap)) return false;
-    for (const { path, gap } of ls) if (!(pathDist(px, py, path).d > gap)) return false;
-    return true;
+    if (segDist(px, py, cx, cy, ex, ey).d > m) return false;
+    return free(x, y);
   };
-  // (from the start's 3 × 3: it is the start's own ground)
-  let q: [number, number][] = [];
+  // (from the start's 3 × 3, which is the start's whatever stands round it)
+  let q: number[] = [];
   for (let y = sy - 1; y <= sy + 1; y++)
     for (let x = sx - 1; x <= sx + 1; x++) {
       seen[(y - y0) * bw + x - x0] = 1;
-      q.push([x, y]);
+      q.push(x, y);
     }
   let n = 0;
   while (q.length && n < want) {
-    const next: [number, number][] = [];
-    for (const [x, y] of q) {
+    const next: number[] = [];
+    for (let k = 0; k < q.length; k += 2) {
+      const x = q[k];
+      const y = q[k + 1];
       n++;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      for (const [dx, dy] of STEPS4) {
         const xx = x + dx;
         const yy = y + dy;
-        if (xx < x0 || yy < y0 || xx > x1 || yy > y1 || seen[(yy - y0) * bw + xx - x0]) continue;
-        seen[(yy - y0) * bw + xx - x0] = 1;
-        if (ok(xx, yy)) next.push([xx, yy]);
+        if (xx < x0 || yy < y0 || xx > x1 || yy > y1) continue;
+        const j = (yy - y0) * bw + xx - x0;
+        if (seen[j]) continue;
+        seen[j] = 1;
+        if (ok(xx, yy)) next.push(xx, yy);
       }
     }
     q = next;
   }
   return n;
+}
+const STEPS4 = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
+
+/** The ground the bench may hold, tile by tile (`BENCH_ROOM`): dry of the waters at the start's lake's sill `low` and
+ *  under it (`shore` past their outlines), out of a higher water's rim (`rim` more) and off the channels (`link` past
+ *  their half width). The bodies but the start's lake `K`, and the channels, are read once a tile for the whole frame
+ *  search (none moves in it); the start's lake as it stands (`arms`: its own, or as it gives the bench room) and the
+ *  candidate's bay are read each time. */
+function benchGround(plan: PremisePlan, K: Body, low: number, channels: Link[]): (arms: Spine[], bay: Body) => (x: number, y: number) => boolean {
+  const { W } = plan;
+  const gapOf = (b: Body) => (b.sill <= low ? BENCH_ROOM.shore : BENCH_ROOM.shore + BENCH_ROOM.rim);
+  const others = plan.bodies.filter((b) => b.id !== K.id).map((b) => ({ b, gap: gapOf(b) }));
+  const links = channels.map((l) => ({ path: l.path!, gap: (l.half ?? 1) + BENCH_ROOM.link, box: pathBox(l.path!, (l.half ?? 1) + BENCH_ROOM.link) }));
+  // (-1 unread, 0 taken, 1 free)
+  const still = new Int8Array(W * plan.H).fill(-1);
+  const own = new Int8Array(W * plan.H).fill(-1);
+  const gapK = gapOf(K);
+  const stillFree = (x: number, y: number) => {
+    const i = y * W + x;
+    if (still[i] < 0) {
+      const px = x + 0.5;
+      const py = y + 0.5;
+      let f = 1;
+      for (const { b, gap } of others)
+        if (bodyWithin(px, py, b, gap)) {
+          f = 0;
+          break;
+        }
+      if (f)
+        for (const { path, gap, box } of links)
+          if (px >= box[0] && py >= box[1] && px <= box[2] && py <= box[3] && !(pathDist(px, py, path).d > gap)) {
+            f = 0;
+            break;
+          }
+      still[i] = f;
+    }
+    return still[i] === 1;
+  };
+  return (arms, bay) => {
+    const lake = { arms };
+    const mine = arms === K.arms;
+    return (x, y) => {
+      if (!stillFree(x, y)) return false;
+      const px = x + 0.5;
+      const py = y + 0.5;
+      if (bodyWithin(px, py, bay, gapK)) return false;
+      if (!mine) return !bodyWithin(px, py, lake, gapK);
+      const i = y * W + x;
+      if (own[i] < 0) own[i] = bodyWithin(px, py, lake, gapK) ? 0 : 1;
+      return own[i] === 1;
+    };
+  };
+}
+
+/** A path's box, `pad` past its points. */
+function pathBox(path: readonly Point[], pad: number): [number, number, number, number] {
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const [x, y] of path) {
+    x0 = Math.min(x0, x - pad);
+    y0 = Math.min(y0, y - pad);
+    x1 = Math.max(x1, x + pad);
+    y1 = Math.max(y1, y + pad);
+  }
+  return [x0, y0, x1, y1];
 }
 
 /** The start's lake's arms narrowed to stand `D` from the bench's spine (start to `to`) behind the lip (`BENCH_ROOM`),
@@ -919,6 +1013,13 @@ function placeFrame(L: Layout, o: StairOption): string | null {
   });
   const others = plan.links.filter((l) => l.path).map((l) => l.path!);
   const channels = plan.links.filter((l) => l.path);
+  // the start's bench (D515): the gate's floor with the generator's margin, on `BENCH.room` times that drawn round its
+  // spine (`BENCH_ROOM`), and the ground it may hold read once a tile for the whole search
+  const rules = rulesFor(L.spec);
+  const wantBench = Math.ceil(FLOOR_MARGIN * rules.levelLand);
+  const area = BENCH_DISC.room * wantBench;
+  const R0 = sqrt(area / Math.PI);
+  const ground = benchGround(plan, K, F, channels);
   for (const src of sources) {
     const srcPts = outlinePoints(src, 2);
     const nearest = (q: Point): Point => {
@@ -1000,14 +1101,36 @@ function placeFrame(L: Layout, o: StairOption): string | null {
       if ([...lip, C].some((q) => bodyDist(q[0], q[1], bayBody) < 1)) continue;
       if (plan.bodies.some((b) => b.id !== K.id && bodyGap(b, bayBody, BODY_GAP + 2) < BODY_GAP + 2)) continue;
       if (channels.some((l) => pathBodyGap(l.path!, bayBody, 3, pathLength(l.path!) - 3, (l.half ?? 1) + 2) < (l.half ?? 1) + 2)) continue;
-      // the start's bench: the room the relief builds it on (`BENCH_ROOM`), leaning from the start away from the lip
-      // and the bay; the start's lake giving up what it takes of it, by the least that frees it
-      const rules = rulesFor(L.spec);
-      const wantBench = Math.ceil(FLOOR_MARGIN * rules.levelLand);
-      const area = BENCH_DISC.room * wantBench;
-      const R0 = sqrt(area / Math.PI);
+      const bodies = plan.bodies.map((b) => (b.id === K.id ? { ...K, arms: [...K.arms, bay] } : b));
+      // the 5 × 5 dry, a tile from any water; the lip and its middle on land
+      if (!squareClear(sx, sy, 2, 1.2, bodies)) continue;
+      if ([...lip, C].some((q) => bodies.some((b) => bodyDist(q[0], q[1], b) < 1))) continue;
+      // the start's meadow: dry ground it walks to without crossing water (a start between its lake and the bay has
+      // none to build on)
+      if (meadowRoom(sx, sy, bodies, plan.W, plan.H) < MEADOW_ROOM * (rules.farmland + rules.forester)) continue;
+      // the hanging valley: straight back from the lip, then to the source
+      const trial: PremisePlan = { ...plan, bodies, frame: { ...plan.frame, start } };
+      let hv: Point[] | null = null;
+      for (const back of [4, 6, 9, 12, 16, 20]) {
+        const knee: Point = [C[0] + back * look[0], C[1] + back * look[1]];
+        const path: Point[] = [nearest(knee), knee, C];
+        const len = pathLength(path);
+        if (len < HANGING_VALLEY[0] || len > HANGING_VALLEY[1]) continue;
+        if (!clearPath(trial, path, 2.4, [src.id, K.id], others, 3, 3)) continue;
+        // (past the weir at its head it keeps clear of its source: a valley that hooks back beside it drowns its weir)
+        if (pathBodyGap(path, src, VALLEY_HEAD, Infinity, 2.4 + 3) < 2.4 + 3) continue;
+        // (and its head, the weir, clear of a stair fall's lip and shoulders: a fall drawn over it leaves no weir)
+        const head = subPath(path, 0, VALLEY_HEAD + 3);
+        if (plan.links.some((l) => l.fall && !l.path && pathGap(head, l.fall.lip, 2.4 + LIP_CLEAR) < 2.4 + LIP_CLEAR)) continue;
+        hv = path;
+        break;
+      }
+      if (!hv) continue;
+      // the start's bench, last (its room is the costliest read): the room the relief builds it on (`BENCH_ROOM`),
+      // leaning from the start away from the lip and the bay; the start's lake giving up what it takes of it, by the
+      // least that frees it (the checks above only gain from a lake that narrows)
       const keep: Point[] = [[toward2[0], toward2[1]], ...anchorsOf(plan, K)];
-      const roomWith = (as: Spine[], to: Point, m: number) => benchRoom(sx, sy, to, m, look, a, plan.bodies.map((b) => (b.id === K.id ? { ...K, arms: [...as, bay] } : b)), F, channels, plan.W, plan.H, wantBench);
+      const roomWith = (as: Spine[], to: Point, m: number) => benchRoom(sx, sy, to, m, look, a, ground(as, bayBody), plan.W, plan.H, wantBench);
       let best: { to: Point; m: number; n: number } | null = null;
       for (const len of BENCH_ROOM.lengths) {
         for (const turn of len ? BENCH_ROOM.turns : [0]) {
@@ -1035,32 +1158,6 @@ function placeFrame(L: Layout, o: StairOption): string | null {
         }
         if (!arms) continue;
       }
-      const withBay: Body = { ...K, arms: [...arms, bay] };
-      const bodies = plan.bodies.map((b) => (b.id === K.id ? withBay : b));
-      // the 5 × 5 dry, a tile from any water; the lip and its middle on land
-      if (!squareClear(sx, sy, 2, 1.2, bodies)) continue;
-      if ([...lip, C].some((q) => bodies.some((b) => bodyDist(q[0], q[1], b) < 1))) continue;
-      // the start's meadow: dry ground it walks to without crossing water (a start between its lake and the bay has
-      // none to build on)
-      if (meadowRoom(sx, sy, bodies, plan.W, plan.H) < MEADOW_ROOM * (rules.farmland + rules.forester)) continue;
-      // the hanging valley: straight back from the lip, then to the source
-      const trial: PremisePlan = { ...plan, bodies, frame: { ...plan.frame, start } };
-      let hv: Point[] | null = null;
-      for (const back of [4, 6, 9, 12, 16, 20]) {
-        const knee: Point = [C[0] + back * look[0], C[1] + back * look[1]];
-        const path: Point[] = [nearest(knee), knee, C];
-        const len = pathLength(path);
-        if (len < HANGING_VALLEY[0] || len > HANGING_VALLEY[1]) continue;
-        if (!clearPath(trial, path, 2.4, [src.id, K.id], others, 3, 3)) continue;
-        // (past the weir at its head it keeps clear of its source: a valley that hooks back beside it drowns its weir)
-        if (pathBodyGap(path, src, VALLEY_HEAD, Infinity, 2.4 + 3) < 2.4 + 3) continue;
-        // (and its head, the weir, clear of a stair fall's lip and shoulders: a fall drawn over it leaves no weir)
-        const head = subPath(path, 0, VALLEY_HEAD + 3);
-        if (plan.links.some((l) => l.fall && !l.path && pathGap(head, l.fall.lip, 2.4 + LIP_CLEAR) < 2.4 + LIP_CLEAR)) continue;
-        hv = path;
-        break;
-      }
-      if (!hv) continue;
       found.push({ start, C, w, a, look, right, hv, bay, arms, benchTo });
     }
     if (!found.length) continue;
@@ -1097,7 +1194,7 @@ function placeFrame(L: Layout, o: StairOption): string | null {
     addName(plan, "landmark", rng.pick(LANDMARK_NAMES));
     // (the bench never under the gate's floor with the generator's margin, D515: the relief builds it, `startBowl`)
     const benchDrawn = rng.int(BENCH[L.spec.settings.terrain.buildableLand][0], BENCH[L.spec.settings.terrain.buildableLand][1] + 1);
-    plan.frame = { start, landmark: "landmark", lipAhead: r1(a), bench: Math.max(benchDrawn, Math.ceil(FLOOR_MARGIN * rulesFor(L.spec).levelLand)), benchTo };
+    plan.frame = { start, landmark: "landmark", lipAhead: r1(a), bench: Math.max(benchDrawn, wantBench), benchTo };
     stair.landmarkSource = src.id;
     return null;
   }
@@ -1117,7 +1214,8 @@ function frameReason(fr: ReturnType<typeof lipInFrame>): string | null {
   if (a < FRAME.lipNearest - 0.05) return `the lip stands ${a.toFixed(2)} tiles in front of the start (${FRAME.lipNearest} at least, for a dry 5 × 5)`;
   if (b > fr.limit + 0.05) return `the lip stands ${b.toFixed(2)} tiles in front of the start, past the frame's top edge (${fr.limit.toFixed(2)})`;
   if (b > FRAME.lipFarthest + 0.05) return `the lip stands ${b.toFixed(2)} tiles in front of the start (${FRAME.lipFarthest} at most)`;
-  for (const e of fr.ends) if (!(Math.abs(e.u) <= FRAME.uSide && e.v <= FRAME.vTop)) return `a lip end falls outside the first frame (u ${e.u.toFixed(2)}, v ${e.v.toFixed(2)})`;
+  // (its ends held inside by as much as its tiles stand past them, `FRAME.lipTiles`)
+  for (const e of fr.ends) if (!(Math.abs(e.u) <= FRAME.uSide - FRAME.lipTiles.u && e.v <= FRAME.vTop - FRAME.lipTiles.v)) return `a lip end falls outside the first frame (u ${e.u.toFixed(2)}, v ${e.v.toFixed(2)}; its tiles reach ${FRAME.lipTiles.u} and ${FRAME.lipTiles.v} further)`;
   for (const e of fr.feet) if (!(Math.abs(e.u) <= FRAME.uSide && e.v <= FRAME.vTop && e.v >= -1)) return `the fall's foot falls outside the first frame (u ${e.u.toFixed(2)}, v ${e.v.toFixed(2)})`;
   if (fr.skew > FRAME.acrossSin) return `the lip runs ${((fr.skew * 180) / 3.14159).toFixed(0)}° off square to the look (15° at most)`;
   if (fr.share < FRAME.lipShare[0] - 0.005 || fr.share > FRAME.lipShare[1] + 0.005) return `the lip spans ${(fr.share * 100).toFixed(0)} % of the frame's width (35 to 56 %)`;
@@ -2107,8 +2205,10 @@ function placeIslands(L: Layout): void {
 
 /** Re-draws of a layout's tail (the bypass, the tarns, the works, the ridges) on the same stair and frame before the
  *  layout is drawn again: the stair and the frame are most of a layout's cost, and the tail fails most often at 128²
- *  (its tarns and works find no room), so a tail drawn again from its own stream is a cheap re-draw (§3.3). */
-const TAIL_TRIES = 2;
+ *  (its tarns and works find no room), so a tail drawn again from its own stream is a cheap re-draw (§3.3). Eight
+ *  since the start's bench (D515): its frames hold half as often, and with two tails six of 24 seeds at 128² found no
+ *  layout in any of their 16 plans; with eight none does, at the same time a plan that holds. */
+const TAIL_TRIES = 8;
 
 /** A layout's state once its stair and frame stand, copied so its tail can be drawn again from it. */
 function restore(snap: string, L: Layout, rng: Rng): Layout {

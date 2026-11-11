@@ -162,6 +162,8 @@ interface Bowl {
   crag?: number;
   /** Only behind this line (a point on it and the way out of it, the landmark's lip and its face). */
   cut: { x: number; y: number; nx: number; ny: number } | null;
+  /** The side network's (a tarn, a basin, a leat or a brook): its rim gives way to the start's bench (`BENCH.sideRim`). */
+  side?: boolean;
   tiles: number[];
   /** Its box (first and last column and row) and the distance from its water inside it, row by row. */
   x0: number;
@@ -243,7 +245,7 @@ function bowlsOf(plan: PremisePlan, w: StageWater): Bowl[] {
       const k = r.lake[i] - 1;
       const b = plan.bodies[k];
       const side = b.kind === "tarn" ? TARN : b.kind === "basin" ? { meadow: BASIN.beach, crag: BASIN.crag, rim: BASIN.rim } : null;
-      add(i, `b${k}`, () => ({ level: b.sill, meadow: side ? side.meadow : b.meadow, rim: side ? side.rim : b.kind === "pool" ? 4 : RIM, wet: !b.dry, basin: b.dry, steep: false, cut: null, ...(side ? { crag: side.crag } : {}) }));
+      add(i, `b${k}`, () => ({ level: b.sill, meadow: side ? side.meadow : b.meadow, rim: side ? side.rim : b.kind === "pool" ? 4 : RIM, wet: !b.dry, basin: b.dry, steep: false, cut: null, ...(side ? { crag: side.crag, side: true } : {}) }));
       continue;
     }
     if (!r.channel[i]) continue;
@@ -270,7 +272,7 @@ function bowlsOf(plan: PremisePlan, w: StageWater): Bowl[] {
       // brooks and leats: a dry bed is two deep (its valley floor a level over its bed + 1, §4.2's dam to pond)
       const v = wet ? level(i) : r.heights[i] + (l.kind === "brook" ? 1 : 0);
       const meadow = l.kind === "leat" ? MEADOW.leat : wet ? MEADOW.wetBrook : MEADOW.dryBrook;
-      add(i, `l${li}:${v}`, () => ({ level: v, meadow, rim: l.kind === "leat" ? LEAT_RIM : CHANNEL_RIM, wet, basin: false, steep: false, cut: null }));
+      add(i, `l${li}:${v}`, () => ({ level: v, meadow, rim: l.kind === "leat" ? LEAT_RIM : CHANNEL_RIM, wet, basin: false, steep: false, cut: null, side: true }));
     }
   }
   const out = [...byKey.values()];
@@ -315,8 +317,10 @@ function bowlsOf(plan: PremisePlan, w: StageWater): Bowl[] {
  *  bay), wide enough to hold `BENCH.room` times the plan's bench (`FrameGroup.bench`; the water and the higher waters'
  *  rims inside it take some), never past the landmark's lip (the bench extends behind the first frame; the landmark
  *  stays in it), rising past its edge as a meadow's hillside does by `BENCH.reach` tiles at most (past that the land
- *  is the waters' and the uplands'). */
-export const BENCH = { room: 1.6, reach: 6 } as const;
+ *  is the waters' and the uplands'). The side network's rims (a tarn's or a basin's 12, a leat's 6) give way to it
+ *  past `sideRim` tiles (planning, 2026-11-11: the bench outranks them as it does the start's lake): laid after the
+ *  frame found the bench its room, they left 23 of 62 plans' benches short on the relief at 128², 18 so held. */
+export const BENCH = { room: 1.6, reach: 6, sideRim: 3 } as const;
 
 /** The start's bench as a bowl (`BENCH`), or null where the plan asks none. It is read with the waters' bowls in the
  *  lower envelope only: it is no water (no rim, no lift, no green, no stair level). */
@@ -507,6 +511,17 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
         if (b.d[k] < b.rim && b.level > lift[i]) lift[i] = b.level;
       }
   }
+  // (the start's bench reads the rims with the side network's held to `BENCH.sideRim`)
+  const benchLift = new Float64Array(N).fill(-Infinity);
+  for (const b of bowls) {
+    const bw = b.x1 - b.x0 + 1;
+    const rim = b.side ? Math.min(b.rim, BENCH.sideRim) : b.rim;
+    for (let y = b.y0; y <= b.y1; y++)
+      for (let x = b.x0, k = (y - b.y0) * bw; x <= b.x1; x++, k++) {
+        const i = y * W + x;
+        if (b.d[k] < rim && b.level > benchLift[i]) benchLift[i] = b.level;
+      }
+  }
 
   // the plates: every tile belongs to one, the tiles nearest one point of a scatter read through the land's wander,
   // so whatever is set a plate at a time meets its neighbours along ragged lines that run every way
@@ -634,7 +649,7 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
       for (let x = b.x0; x <= b.x1; x++) {
         const i = y * W + x;
         const di = b.d[(y - b.y0) * bw + x - b.x0];
-        if (di === Infinity || b.level < lift[i]) continue;
+        if (di === Infinity || b.level < (b === bench ? benchLift[i] : lift[i])) continue;
         const wob = wobF[i];
         let d: number;
         if (di < 6) d = di + 0.8 * wob * Math.min(1, di / 3);

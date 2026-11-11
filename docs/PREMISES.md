@@ -564,8 +564,8 @@ stage 4 and the repairs are not built. Where it differs from the above, and why:
   and the pool's foot inside the first frame (`frameAt` at the start's own zoom, |u| ≤ 0.95, v ≤ 0.98), a lip tile
   measured at its corner toward the camera, where the rendered lip's edge stands; and the start's floors (D515) as the
   gate's table gives them: its bench (`startBench`, the measure `start.level_land` reads, 640 on Normal), its walkable
-  land once the slopes the build derives for it stand (`slopeReach`, at least 0.75 of `start.reach`'s 1,300 before
-  the build's own slopes, `START.reachRead`), and its moist land within 20 tiles (the farms' 100 and the forester's
+  land once the slopes the build derives for it stand (`slopeReach`, at least `start.reach`'s 1,300 before the
+  build's own slopes, `START.reachRead`: 0.75 of it let six starts in nine that failed it reach their settle), and its moist land within 20 tiles (the farms' 100 and the forester's
   plot of 100). A plan whose start holds nowhere is the next plan, before its settle (`frame.start`). No lip is
   trimmed; a lip tile outside is a re-roll.
 - **The start's bench built** (`frame.ts` `buildBench`, D515), on the skeleton's land for the siting and on the map's
@@ -574,7 +574,9 @@ stage 4 and the repairs are not built. Where it differs from the above, and why:
   levels at most or filled one, never on ground stage 1 fixed, within 2 tiles of the water, a lip or a crest, nor
   where it would leave a step of two beside it (the slopes still join the bench). The early refusal on the skeleton
   reads only what the side network cannot undo (the 5 × 5, its door, the landmark in the frame, the bench); the
-  frame's water depth, the moist land and the walkable land wait for the full land. The meadow room a layout's
+  frame's water depth, the moist land and the walkable land wait for the full land. The stair's falls and weirs
+  (`water.falls`, `water.weirs`) are judged there too, on the skeleton's water (`SKELETON_LAND`): the side network
+  never touches them, and a plan that failed them there always failed them in stage 1, after its siting's cost. The meadow room a layout's
   start asks (`meadowRoom`) is 1.5 times the gate's moist land (300 tiles, as before).
 - **The start's bench kept room for in the plan** (`lakeStair.ts` `BENCH_ROOM`, `relief.ts` `startBowl`, D515). The
   relief lays the bench as a bowl of its own at the start's level: level ground round a spine from the start to
@@ -586,8 +588,15 @@ stage 4 and the repairs are not built. Where it differs from the above, and why:
   size). Its arms, but not the bay, narrow to stand clear of the spine, by the least that frees the room. The lake
   keeps its width at its sills, its links' ends and the bay's root, and a side arm narrowed under radius 7 goes. A
   candidate whose room still falls short is turned down. Each source tries 240 candidates (120 before), since the
-  room turns down half of those that reach it.
-- **The start's ways out** (`frame.ts` `cutWaysOut`, D515). The start may walk to less than 0.85 of the gate's
+  room turns down half of those that reach it. The side network laid after the frame gives way to the bench too: a
+  tarn's, a basin's or a leat's rim stops 3 tiles out where it meets the bench (`BENCH.sideRim`), and its channels
+  but the bypass keep 3 tiles past their half width off the bench's capsule (`BENCH_KEEP`; at 256² the rim tarns'
+  brooks had taken the bench of most plans that fell short). Keeping the tarns and basins off it as well halved the
+  layouts that hold at 128², so they are not. A tail drawn again
+  on the same stair and frame is tried 8 times (`TAIL_TRIES`, 2 before), since a frame that holds the bench is rarer.
+  The lip's ends are held inside the frame by as much as its tiles stand past them (`FRAME.lipTiles`, 0.045 up and
+  0.13 out); a fifth of the plans that reached stage 3 had lip tiles outside it before.
+- **The start's ways out** (`frame.ts` `cutWaysOut`, D515). The start may walk to less than 1.1 times the gate's
   walkable land once its slopes stand. Then a natural ramp is cut, the themes' (`rampPath`, `cutRamp`: four levels
   at most, never a pier), to the largest ground the walk does not reach, two ramps at most. Its steps go to the build
   as slope targets (`GeneratedField.ramps`), and to the frame's walk (`slopeReach`).
