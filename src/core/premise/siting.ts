@@ -12,7 +12,7 @@ import { dayOneSoil, soilReach } from "./ladder";
 import { reliefBetween } from "./raster/relief";
 import type { ReliefStyle } from "./style";
 import type { PremiseDef, PremisePlan, SiteLand } from "./types";
-import { waterByNumber } from "./water";
+import { waterByNumber, type StageWater } from "./water";
 import type { MapSpec } from "../spec/mapspec";
 
 export type { SiteLand };
@@ -21,17 +21,25 @@ export type { SiteLand };
 const REACH = 17;
 
 /** The skeleton's land (stages 1 and 2, in the theme's style where it has one) and day 1's soil on it. */
-export function siteLand(skeleton: PremisePlan, style?: ReliefStyle): SiteLand {
+export function siteLand(skeleton: PremisePlan, style?: ReliefStyle, refuse?: Refuse): SiteLand | { reason: string; id: string } {
   const w = waterByNumber(skeleton);
   const heights = reliefBetween(skeleton, w, style);
+  // (a copy: the frame's reading raises the beds under its water in place)
+  const no = refuse?.(skeleton, w, heights.slice());
+  if (no) return no;
   return { W: skeleton.W, H: skeleton.H, heights, soil: dayOneSoil(w, heights) };
 }
 
+/** A check the skeleton's land can already fail (the side network the siting adds only takes ground from it): why
+ *  the attempt is drawn again before its works are sited, or null. */
+export type Refuse = (skeleton: PremisePlan, water: StageWater, heights: Uint8Array) => { reason: string; id: string } | null;
+
 /** A premise's plan with its works sited by moisture (`PremiseDef.site`), or the plan as drawn where the premise
- *  sites none; or why it could not be sited (the attempt is drawn again). */
-export function sitePlan(def: PremiseDef, spec: MapSpec, plan: PremisePlan, attempt: number, style?: ReliefStyle): { plan: PremisePlan; land?: SiteLand } | { reason: string } {
+ *  sites none; or why it could not be sited, or `refuse`d on the skeleton's land (the attempt is drawn again). */
+export function sitePlan(def: PremiseDef, spec: MapSpec, plan: PremisePlan, attempt: number, style?: ReliefStyle, refuse?: Refuse): { plan: PremisePlan; land?: SiteLand } | { reason: string; id?: string } {
   if (!def.site || !def.skeleton) return { plan };
-  const land = siteLand(def.skeleton(plan), style);
+  const land = siteLand(def.skeleton(plan), style, refuse);
+  if ("reason" in land) return land;
   const sited = def.site(spec, plan, attempt, land);
   return "reason" in sited ? sited : { plan: sited, land };
 }
