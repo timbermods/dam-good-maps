@@ -4394,3 +4394,36 @@ body:has(.checks-list) .show-key {
     inset: min(0px, calc((100% - 32px) / 2)) 0;
   }
 }
+
+/* File → Description…: the map's name and its words, one under the other */
+.dialog.describe {
+  width: min(520px, calc(100vw - 32px));
+}
+
+.describe-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 10px;
+  font-size: 0.85rem;
+}
+
+.describe-field input,
+.describe-field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  resize: vertical;
+}
+
+.describe-note,
+.describe-kept,
+.describe-problem {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+}

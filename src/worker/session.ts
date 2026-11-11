@@ -102,6 +102,8 @@ export interface SessionInfo {
   description: string;
   descriptionWritten: boolean;
   descriptionKept: string | null;
+  /** A generated map's own words after hand edits, until its player keeps or rewrites them (`MapDescription.stale`). */
+  descriptionStale: boolean;
   /** Bumped on every change (the page's autosave and checks key on it). */
   version: number;
   /** Changes only when the features do (the page keeps its copy, and its index, meanwhile). */
@@ -223,7 +225,7 @@ function featuresKeyOf(features: readonly Feature[]): string {
 
 function descriptionInfo(s: MapSession) {
   const d = s.description();
-  return { description: d.text, descriptionWritten: d.written, descriptionKept: d.kept };
+  return { description: d.text, descriptionWritten: d.written, descriptionKept: d.kept, descriptionStale: d.stale };
 }
 
 export function sessionInfo(s: MapSession = need()): SessionInfo {
@@ -2194,7 +2196,7 @@ async function remoteCheck(c: ChecksWorker, onProgress?: (p: CheckProgress) => v
 }
 
 /** Export the open map. Refused while load problems block it, or while warnings are not
- *  confirmed; confirmed warnings are noted in the map's description. The water settles
+ *  confirmed; they are never written into the map's description. The water settles
  *  canonically first, in slices with progress (PLAN §19.7: a file never gets the preview's water).
  *  `picture`: the map exactly as the file holds it (its canonical water), when the file carries the
  *  core's top-down thumbnail, for the page's 3D picture of it (D488). A map whose water is settled
@@ -2219,8 +2221,7 @@ export async function exportTimber(
   const c = bg.check;
   if (c.blocking.length) return { ok: false, errors: c.blocking.map((b) => (b.id === "start.count" && b.message === NO_START ? NO_START_REFUSAL : b.message)), bytes: new Uint8Array(), fileName: "" };
   if (c.warnings.length && !confirmWarnings) return { ok: false, errors: ["confirm the warnings first"], bytes: new Uint8Array(), fileName: "" };
-  // (a real place's own warnings are listed, never noted: an unedited place exports as the same file, D3)
-  const { bytes, fileName, thumbnailDrawn } = s.exportTimber({ warnings: c.warnings.filter((w) => !w.own).map((w) => w.message) });
+  const { bytes, fileName, thumbnailDrawn } = s.exportTimber();
   if (!opts.picture || !thumbnailDrawn) return { ok: true, errors: [], bytes, fileName };
   return { ok: true, errors: [], bytes, fileName, ...(early && s.built === early ? { pictureEarly: true } : { picture: wholeView(s) }) };
 }

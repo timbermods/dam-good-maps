@@ -560,18 +560,18 @@ export interface Saved {
   folder: string;
   timber: { path: string; bytes: number };
   project: { path: string; bytes: number };
-  /** The warnings the save noted in the map's description, as the page's Save does. */
+  /** The warnings the save went ahead with, as the page's Save does (they are not written into the map's description). */
   noted: string[];
 }
 
-/** The two files the page saves for this map: the .timber as Save to Timberborn writes it (the warnings confirmed and
- *  noted, src/worker/session.ts `exportTimber`) and the project file as File > Save project writes it (`project`,
+/** The two files the page saves for this map: the .timber as Save to Timberborn writes it (the warnings confirmed,
+ *  src/worker/session.ts `exportTimber`) and the project file as File > Save project writes it (`project`,
  *  gzip level 9). Refused while a check would stop the map loading. */
 export function exportFiles(s: MapSession): { timber: Uint8Array; timberName: string; project: Uint8Array; projectName: string; noted: string[] } {
   const c = checksOf(s);
   if (c.blocking.length) refuse(`Not saved: ${rowOf(c.blocking[0]).message}`);
   const noted = c.warnings.filter((w) => !w.own).map((w) => w.message);
-  const t = s.exportTimber({ warnings: noted });
+  const t = s.exportTimber();
   return { timber: t.bytes, timberName: t.fileName, project: s.project(9), projectName: documentFileName(s.document), noted };
 }
 
