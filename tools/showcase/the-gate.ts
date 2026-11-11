@@ -285,7 +285,7 @@ const CHANNELS: Channel[] = [
   { name: "Valley Brook", path: BROOK_PATH, half: () => 1.6, bed: brookBed(BROOK_PATH, BROOK_POOL_BED, 9), wet: true, wander: 3.6, open: 0, brook: { meadow: 15 } },
   { name: "West Brook", path: WEST_PATH, half: () => 1.4, bed: brookBed(WEST_PATH, WEST_POOL_BED, 7), wet: true, wander: 3.2, open: 0, brook: { meadow: 14 } },
   { name: "South Brook", path: SOUTH_PATH, half: () => 1.3, bed: brookBed(SOUTH_PATH, SOUTH_POOL_BED, 7), wet: true, wander: 3.0, open: 0, brook: { meadow: 13 } },
-  // the leat on the crest: one wide, from the pool's east side (bed 13) falling to the Pass (11)
+  // the leat on the crest: one wide, from the cleft's west lobe (bed 13) west along the crest falling to the Pass (11)
   { name: "Leat", path: LEAT_PATH, half: () => 0.6, bed: (s) => (s < 6 ? POOL_BED : s < LEAT_LEN - 12 ? POOL_BED - Math.floor(((s - 6) / (LEAT_LEN - 18)) * 1.999) : PASS - 1), wet: false, wander: 0, open: 0, dry: true },
   { name: "Gate Bed", path: GATE_BED, half: () => 2.4, bed: gateBedAt, wet: false, wander: 3.0, open: 0, dry: true },
   { name: "Pass Bed", path: PASS_BED, half: () => 1.8, follow: { start: 6, under: 2, end: 1, grade: 24 }, wet: false, wander: 2.4, open: 0, dry: true },

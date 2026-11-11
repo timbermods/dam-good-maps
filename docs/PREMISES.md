@@ -774,7 +774,7 @@ the map green or wet, the basin 7.8 %):
 - `gate.slot` (land): one slot through the crest band, 5 to 7 wide, its floor at or under the valley's lake sill the
   whole way, both its walls the crest's level; its bar at the shore a level over the sill and spanning the slot
   (`spanRow`).
-- `basin.bowl` (land): every basin tile stands under the valley's lake sill plus 1; a rim of 12 or more along the
+- `basin.bowl` (land): every basin floor tile (the rim excluded) stands at or under the valley's lake sill plus 1; a rim of 12 or more along the
   basin's far edges but for one notch, which the Gate Bed leaves by.
 - `basin.terraces` (land): a floor tile within 4 of the Gate Bed is the bed + 2, within 10 the bed + 3; MAPCRAFT §5's
   one-level-step share holds on the floor.
