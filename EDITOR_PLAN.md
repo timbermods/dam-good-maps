@@ -111,7 +111,7 @@ place of its bottom rule.
   leaves the room above the bar. It has four shapes, the first that fits the room winning (`panelFit.ts`, chosen by the
   band's layout, `view/useBandLayout.ts`, from the room above the bar and beside the corner, with the open legend's
   room kept): two columns 640px wide (692 tall; 1920×1080 and up); three columns 880 wide (509 tall); the same with every
-  row tighter (449 tall; 1600×900, 1536×864, 1440×900); two columns tighter (594 tall; windows too narrow for three).
+  row tighter (449 tall; 1600×900, 1536×864, 1440×900); two columns tighter (620 tall; windows too narrow for three).
   The first-run hints stand aside while it is open. In a window with less room than the shortest shape that fits its
   width (1280×720, 1366×768) the panel keeps that shape and scrolls inside, a soft fade at its foot saying more lies
   below; `tests/e2e/generatorFit.spec.ts` holds the sizes. **Enter** anywhere in the panel is Generate (a field, a
@@ -119,7 +119,17 @@ place of its bottom rule.
   (the Showcase sheet's Esc closes the sheet first). A title block: the **Name** for the next map (the field starts
   empty, the open map's name in grey in it; what is typed names the map **Generate** makes next, then the field is
   empty again, and the open map is never renamed from here, only from the title), **Generate** and **Surprise me**; **Theme** (with **Reset
-  settings**); **Seed** (a typed seed is kept, with **Keep** to keep or let it go) and **Size** (96, 128, 192, 256 or
+  settings**); **Idea** directly under Theme (D508, PREMISES §1.5): **None** (the themes' map, the default, D509), then
+  the premise library's choices (`PREMISE_CHOICES`, named by `PREMISE_NAMES`: **Any**, **Lake stair**), its tooltip "The
+  problem the map is built around"; two columns wide it is a line of its own (the rows a pixel shorter, so the panel is no
+  taller), three columns wide it shares Size's line, before it. An idea resets the settings as a theme does
+  (`defaultSettings(theme, difficulty, size, premise)`), greys out the settings it does not use (`premiseSettings`, each
+  saying so in its tooltip) and marks in the warning colour the themes it does not take; a pair or a setting it refuses says
+  why in one line as a note over the map before Generate (`premiseRefusal`), and a map the themes made instead says so after
+  it (`info.premise.fellBack`). Generate, Surprise me, Another like this, Keep, the share link (`p=`) and a reopened map
+  carry it. A map made from an idea shows its card with the notes (`IdeaCard.tsx`, the core's `info.premise.card`: the idea
+  and its land, the landmark, the problem, what to do first) until its × or the next map; with a panel open it stands at the
+  dock's right, clear of the panel; **Seed** (a typed seed is kept, with **Keep** to keep or let it go) and **Size** (96, 128, 192, 256 or
   Custom, then the **Easy start** toggle at the line's end, D495: "A flat, roomy start with water and food close by";
   on, the next map's start is calm and generous, PLAN §5.6; a theme, Surprise me and Reset settings keep it, the page
   remembers it in this browser and the share link carries it, `es=1`; Custom's width and height typed, each 4 to 512, opening at the open map's own size; beyond 256 on a side that box turns the warning colour and its tooltip says Timberborn's
