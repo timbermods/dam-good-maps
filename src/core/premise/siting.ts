@@ -27,7 +27,8 @@ export function siteLand(skeleton: PremisePlan, style?: ReliefStyle, refuse?: Re
   const w = waterByNumber(skeleton);
   const heights = reliefBetween(skeleton, w, style);
   buildBench(skeleton, w, heights, bench);
-  const no = refuse?.(skeleton, w, heights);
+  // (a copy: the frame's reading raises the beds under its water in place)
+  const no = refuse?.(skeleton, w, heights.slice());
   if (no) return no;
   return { W: skeleton.W, H: skeleton.H, heights, soil: dayOneSoil(w, heights) };
 }
