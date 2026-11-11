@@ -344,4 +344,4 @@ per 10,000), 485 dead, 441 berry bushes; the start's bench 1,146 level tiles, th
 The ladder: the Gate opened +1,318 (3.6 %, 305 water); the second blast and the Low River levee +1,534/−63 (the lake
 7.99); the leat's bar once +1,839/−228, twice +1,663; the megadam in the ridge's slot: the water gets out elsewhere at
 9 now the lake lies south of the bench (the valley's floor is not enclosed at 9). Our own widest view
-`C:\dgm-showcase	he-gate\ours8-widest.jpg`; the game's `C:\dgm-probe\captures	he-gate-r8\day1-widest.jpg`.
+`C:\dgm-showcase\the-gate\ours\r8-widest.jpg`; the game's `C:\dgm-probe\captures\the-gate-r8\day1-widest.jpg`.

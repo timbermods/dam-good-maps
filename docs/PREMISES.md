@@ -723,33 +723,79 @@ outlines, wander, crags, stands, the pieces' places, the names.
 They prove the model is general: each is a different graph, a different landmark and a different answer, on the same
 stages.
 
-### 5.1 The wall and the gate
+### 5.1 The wall with one gate
 
-**The line:** "The river leaves its green valley through one gate in the wall and crosses the dry basin in a canyon
-too deep to water it: raise it at the gate, or lead it out along the wall."
+Built by hand as The Gate (`tools/showcase/the-gate.ts`, eight rounds judged in the game, 2026-11-11;
+[progress/showcase-craft.md](progress/showcase-craft.md)); planning passed its shape at round 7. This is the premise
+in the lake stair's form, with round 8's numbers, for the milestone session to build as the second `PremiseDef` after
+the lake stair's page step.
 
-- **Water story.** One river (edge sources, strength by River flow) down a green upper valley; the gate, a gap 6 to
-  10 wide in a ridge 8 or more levels high; a fall of 6 or more into a plunge pool; then a canyon three or more
-  levels under the basin's benches (ground three over water is always dry) to the far edge. A drought dries the
-  canyon first and leaves the valley's oxbow ponds. A badtide runs down the canyon and harms nothing, until the
-  player has led the river onto the basin: then every leat needs its gate.
-- **Skeleton.** Regions: the oasis under the gate (the start), the dry basin (the canvas, half the map), the canyon,
-  the wall, the green valley behind it (the prize: wood, farmland, the reservoir). Landmark: the wall with the fall
-  in its gate. Edges: the wall's ends run off the map; the basin falls away. The wall is an escarpment: the valley's
-  own high ground ending in a cliff that wanders, many tiles thick, never a thin straight ridge across a valley,
-  which is what `terrain.dam_wall` blocks (D111, read as D512 reads it).
-- **Start and first frame.** In the basin on the plunge pool's apron, looking at the gate: the fall and the wall
-  above it. The same frame arithmetic; the wall may stand above the frame's top, the lip may not.
-- **Ladder.** Small: check dams at the canyon's narrows (dam to pond, the bench built at bed + 2 for a reach), each
-  a field. Medium: a contour leat from the plunge pool along the wall's foot (a dry ledge that falls a level per 100
-  tiles, old aqueduct piers along it); a stair up the wall. Large: a dam in the gate (the valley becomes the
-  reservoir, the fall stops: a trade-off); a megadam at the basin's exit.
-- **Invariants.** The basin is dry on day 1 but for the oasis (moist under 12 % of it); the canyon's water is three
-  or more under every bench it passes; each check dam's site gains 300 to 900 tiles; the gate dam holds a stated
-  volume; the valley is reachable only by the wall (a stair of 8) or the gate.
-- **New beyond the lake stair:** a ridge with one gap as a body's rim (`raster/wall.ts`); a canyon as a channel
-  with walls (the script's gorge, `open: 0`, lengthened); the contour ledge (a new raster: a bench that follows a
-  falling level); edge sources (`placeSourceGroup` rows, as the themes place them).
+**The line:** "A mountain wall runs across the map, a green valley on your side and a dry basin beyond; the river
+rises in a cleft of the wall and pours over the Veil into the lake at your door. Carry the water through the one gate
+or round by the pass, and before the first badtide shut the pool by your door."
+
+**The plan.**
+
+| Part | What the plan draws | As built (192²) |
+|---|---|---|
+| The wall | A ridge along the grid across the map's middle, east to west, in straight runs of 14 to 22 tiles joined by jogs of 4 to 6 (bastions), its south face toward the opening camera. The crest 4 to 6 thick, 7 at the Veil's bastion; both faces sheer: the valley's from the crest to the meadow, the basin's from the crest to the floor. No ledge on either face. | Crest 17 (16 to 19), the valley's meadow 8, the basin's floor 3 to 8; the face at Y 104 to 112 by run |
+| The cleft and the Veil | A pool cut into the bastion behind a straight lip at its face, the springs in it (three, 9 to 10 in all); the lip 9 to 12 wide facing the camera, a fall of 6 to 7 into the lake's trench at the start's door | Pool bed 13, lip 14, nine tiles at X 85–93, Y 104; the Veil 6.5 levels |
+| Wall Lake | The valley's lake along the wall's foot south of a bench seven rows deep, sill a level under the bench; a drain bay from the Veil's trench; the lake's bed a level under its sill everywhere (a level and a half of water: the game draws two deep near black) | Sill 7, the bench 8, the lake 7.47; the drain bay 5 wide at bed 6 |
+| The start | In the Veil's lap on the bench, the lip 4 to 5 tiles ahead on the camera's line, so the lip is whole in the first frame and the crest stands above it | (89, 100), Cw0; the lip (−0.39, 0.49) to (0.06, 0.91) |
+| The neck | A side pool beside the start joined to the trench by an inlet no wider than 3, a rim a level over the bench all round it: a few levees shut it before the first badtide and it holds clean water through it | Bed 6, 21 tiles, an inlet one wide and two long; 12 % bad at most with a levee of 3 |
+| The Gate | A slot 5 to 7 wide straight through the bench and the wall from the lake's shore, both cut faces the crest's own, its floor two under the lake's sill; plugged at the shore by a bar of rock a level over the sill (the bench's own crossing until it is blasted) and two rows of Blockages behind | Six wide at X 128–133; the bar 21 tiles at 8, the blockages 7 and 7 |
+| The basin | A bowl lower than the valley's lake: a rim of 12 or more along its far edges with its cliff facing the camera, the floor in river terraces along the Gate Bed (the bed two under a low terrace that follows its bends, one more terrace above, broad unequal flats out to the rim; steps follow the bed, never the wall); the Gate Bed from the Gate's foot winding to one notch in the rim; three seeps in hollows, each with a gully to the bed so its pond stands four under the flat | Rim 14 from Y 184 and at X < 7 and X > 185; the floor 3 to 8; the notch at X 148–152; the basin 7.8 % moist or wet on day 1 |
+| The leat and the Pass | A channel one wide cut into the crest from the cleft's lobe on the Veil's side away from the Gate to the Pass, a dip of the crest to 12 on that side; its bed a level under the pool's falling to a level under the Pass; plugged at its head by a bar two high and a row of Blockages. Its cascade, the Pass Bed, crosses the basin on that side to the Gate Bed at the notch. It never crosses the Gate's slot | Head at X 84, Y 106; the Pass at X 20–28; the leat bed 13 to 11 |
+| The valley | Three brooks from springs in the far corners to the lake, creeks at the lake's level into the meadows, meadows 18 wide, plates in threes beyond; the Low River out through a ridge (the megadam's slot) | Springs of 3, 2.8 and 2.5; the gorge 5 wide through the west ridge |
+
+**The regions** (five): the start's bench and the Veil (the generous start); the valley's meadows and brooks (wood,
+farmland, the reservoir); the wall and its crest (the leat, the Pass, the crossing); the Gate and the Gate Bed (the
+canvas: the basin's middle); the basin's far side (the Pass Bed's reach, the rim, dry for good beyond the terraces).
+
+**The ladder** (round 8, cumulative, by the Irrigation view's reach on a settle after each work; day 1 is 35.1 % of
+the map green or wet, the basin 7.8 %):
+
+| Rung | The work | Gain |
+|---|---|---|
+| First cycles | the neck: a levee of 3 on the side pool's inlet before the first badtide | the pool clean through it (12 to 16 % bad at most); the meadow beside the red trench goes bad, and that is the game |
+| Medium | the Gate opened: its bar blasted a level (21 tiles) and 14 blockages cleared; the river splits | 1,318 tiles (3.6 %), 305 of them water: the Gate Bed to the notch and its terraces |
+| Medium | the bar blasted again (to a level under the sill) and a levee on the Low River's head (20 tiles): the whole river through the Gate | 1,534 more, 63 fewer: the lake sinks half a level, the Low River runs dry |
+| Medium | the leat's bar blasted once (2 tiles) and its 2 blockages cleared | 1,839 (5.0 %): a trickle west along the crest, over the Pass and down the Pass Bed |
+| Large | the leat's bar blasted twice: the springs' share | 1,663 more (4.5 %), 92 of them water; the Veil dwindles |
+| Badtide | the Gate open and the Low River levee'd: the valley's red water sent through the Gate | red water on 710 basin tiles on day 1 (31 left alone); the lake runs red whatever is built, since the Veil and the brooks feed it and every source is red |
+| Large | the megadam in the west ridge's slot (7 tiles) with the Gate's bar dammed | holds the valley to 9 only where the valley's floor is enclosed at 9; in round 8 it is not |
+
+**The invariants** (with the stage that judges each, as section 1.4):
+- `wall.grid` (plan): the wall's face line is runs along the grid of 14 or more joined by jogs of 4 to 6; no diagonal.
+- `wall.faces` (land): on the valley face the tile under the crest's edge is the meadow (one step of 8 or more); on
+  the basin face the tile beyond the crest's edge is the floor (one step of 9 or more); no ledge on either face.
+- `wall.camera` (land): the wall's face is toward the opening camera (its face's normal within 45° of the camera's
+  look), and from `openingCamera(start, VISTA_ZOOM)` the crest crosses the frame from edge to edge.
+- `gate.slot` (land): one slot through the crest band, 5 to 7 wide, its floor at or under the valley's lake sill the
+  whole way, both its walls the crest's level; its bar at the shore a level over the sill and spanning the slot
+  (`spanRow`).
+- `basin.bowl` (land): every basin tile stands under the valley's lake sill plus 1; a rim of 12 or more along the
+  basin's far edges but for one notch, which the Gate Bed leaves by.
+- `basin.terraces` (land): a floor tile within 4 of the Gate Bed is the bed + 2, within 10 the bed + 3; MAPCRAFT §5's
+  one-level-step share holds on the floor.
+- `basin.dry` (settled): the basin under 12 % moist or wet on day 1, its water the seeps' hollows alone.
+- `start.neck` (settled): a pool of 12 tiles or more beside the start, its only join to the river an inlet of 3 tiles or
+  fewer; with the inlet raised a level, a badtide of the difficulty's longest leaves it under 20 % bad.
+- `leat.own` (settled): the leat's bed never meets the Gate's slot; opened, it waters 1,000 tiles or more by the
+  Irrigation reach.
+- `frame.lip` (land): the lake stair's, with the lip's foot allowed under v −0.1.
+
+**New beyond the lake stair:** a ridge along the grid with runs and jogs as a body's rim (`raster/wall.ts`); a slot
+through it as a channel whose walls are the crest; the rim and the notch (`raster/rim.ts`); terraces along a bed
+(`raster/terraces.ts`); the side pool with an inlet (a lake arm one wide, as the Still Pool); the leat as a channel
+cut into a crest. The badtide invariant is the neck's, not the lake's: this premise's lake runs red by design.
+
+**What the rounds taught, for the stages** (MAPCRAFT §5 carries them too): the opening camera shows one face of a
+ridge, so a diagonal barrier reads as a staircase with a plateau's edge and a ledge doubles it; a floor that runs off
+the map reads as plates until a rim gives it a far side; a closed hollow fills to its flat whatever its depth; a sill
+drowned by the gorge below it passes a third of what a free one does (the Low River's gorge is a funnel from the sill);
+water deeper than two reads near black in the game, so the water in the first frame stays under two but for the row
+that carries the fall to the drain.
 
 ### 5.2 The island sea
 
