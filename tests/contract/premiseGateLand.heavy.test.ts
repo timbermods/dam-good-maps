@@ -1,5 +1,6 @@
-// The wall with one gate's maps (docs/PREMISES.md §5.1): plan, water, land, stage 3's start, one build and its checks
-// (`gateMap.ts`), on seeds 2 and 4 at 128² and seed 1 at 192² and 256². Every land invariant holds, every blocking check
+// The wall with one gate's maps (docs/PREMISES.md §5.1): plan, water, land, stage 3's start, the ladder, one build and
+// its checks (`gateMap.ts`), on seeds 2 and 4 at 128² and seed 1 at 192² and 256². Every land invariant and every works
+// invariant but the floors (a short rung is said) holds, every blocking check
 // passes (the start's five numbers are the shared gate's: printed, as planning asks every map report to open), and the
 // water settled on the land stands as the plan says: the lake 0.05 to 0.6 over its sill, the Still Pool at the lake's
 // level, the Veil's curtain, the Gate and the leat dry past their bars, no stray water, nothing on the map's edge but
@@ -17,6 +18,9 @@ describe("The wall with one gate's maps", () => {
       const r = gateMap(spec);
       if ("reason" in r) throw new Error(r.reason);
       expect(r.landFails).toEqual([]);
+      // (the works stand on the land and do what they say; a rung short of its floor is said, as the lake stair's are)
+      expect(r.worksFails.filter((f) => f.id !== "works.paid")).toEqual([]);
+      console.log(`  works: ${r.ladder.works.map((w) => `${w.id} ${w.reservoir || w.green}${w.paid ? "" : " (short)"}`).join(", ")}; first: ${r.card.first}`);
       expect(r.frame.reason).toBeNull();
       const m = r.map!;
       const five = startNumbers(m);
