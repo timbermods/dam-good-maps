@@ -372,7 +372,7 @@ export function rasterizeBench(f: StartFeature, t: BuildTarget): void {
 export interface SculptEdit {
   /** Its place in the operation log (a session's; absent where order is not needed). */
   seq?: number;
-  params: { mode: string; cells: Runs; amount?: number; level?: number; step?: number; exact?: boolean; hold?: [number, number, number][] } | BrushParams | ForceResultParams | BlocksParams | LakeSillParams | CanalCutParams | RidgeRaiseParams;
+  params: { mode: string; cells: Runs; amount?: number; level?: number; step?: number; exact?: boolean; hold?: [number, number, number][] } | BrushParams | ForceResultParams | BlocksParams | LakeSillParams | CanalCutParams | DrawnLakeCutParams | RidgeRaiseParams;
 }
 
 /** A lake's sill set to its level (the `setLakeLevel` operation, doc/lakeLevel.ts): its tiles, each set to its own
@@ -396,6 +396,16 @@ export interface CanalCutParams {
   levels: number[];
 }
 
+/** A drawn lake's tiles set to their levels (the `lake` operation, doc/lake.ts), exactly, as a lake's sill's are. */
+export interface DrawnLakeCutParams {
+  outline: [number, number][];
+  level: number;
+  depth: number;
+  spill?: [number, number];
+  cells: Runs;
+  levels: number[];
+}
+
 /** A ridge's tiles set to their levels (the `ridge` operation, doc/ridge.ts), exactly, as a lake's sill's are. */
 export interface RidgeRaiseParams {
   path: [number, number][];
@@ -407,8 +417,8 @@ export interface RidgeRaiseParams {
   levels: number[];
 }
 
-/** A lake's sill (`setLakeLevel`), a canal (`canal`) or a ridge (`ridge`): tiles stored with the level each is set to. */
-export function isLakeSill(p: SculptEdit["params"]): p is LakeSillParams | CanalCutParams | RidgeRaiseParams {
+/** A lake's sill (`setLakeLevel`), a canal (`canal`), a drawn lake (`lake`) or a ridge (`ridge`): tiles stored with the level each is set to. */
+export function isLakeSill(p: SculptEdit["params"]): p is LakeSillParams | CanalCutParams | DrawnLakeCutParams | RidgeRaiseParams {
   return "levels" in p && "cells" in p;
 }
 
