@@ -3,13 +3,12 @@
 // lake's `deep`, which stage 0 sets by number so the lake keeps most of its water through a drought (`levels.ts`
 // `holdDeep`), and the drowned river's line down the main arm a level deeper (drop-offs, never depth rings); islands a
 // level over the water. A spring
-// tarn deepens from its shore; an empty basin is a flat floor a level under its sill with one hollow; the springs'
+// tarn deepens from its shore; an empty basin is a flat floor a level under its sill crossed by its old river's line; the springs'
 // pool is a level deep inside a ring at its sill. In the start's bay under the landmark (the first frame's water)
 // the bed is a level under the sill but for the drowned river's ribbon, two (§4.3: deep water reads black).
 
 import { BED_FLOOR } from "../../land/genome";
 import { fbm } from "../../math/noise";
-import { hypot } from "../../math/portable";
 import { bodyDist, pathDist, spineDist } from "../geom";
 import { designLevel, type WaterTable } from "../levels";
 import type { Body, Point, PremisePlan, Spine } from "../types";
@@ -57,7 +56,6 @@ export function rasterBodies(plan: PremisePlan, table: WaterTable, r: WaterRaste
     const level = designLevel(table, b);
     const bayArm = bay && bay.body === b.id ? b.arms[bay.arm] : null;
     const bayLine = bayArm ? centre(bayArm) : null;
-    const hollow = b.arms[0][0];
     // (how deep a lake's bed may go: the floor, `BED_FLOOR`, D325)
     const room = Math.max(b.deep, b.sill - BED_FLOOR);
     for (let y = y0; y <= y1; y++)
@@ -100,8 +98,12 @@ export function rasterBodies(plan: PremisePlan, table: WaterTable, r: WaterRaste
         } else if (b.kind === "pool") {
           depth = -own > 1.5 ? b.deep : 0;
         } else if (b.dry) {
-          // (an old lake bed: a flat floor a level under the sill, its one hollow two)
-          depth = hypot(cx - hollow[0] - 1.5, cy - hollow[1] + 1) + 1.2 * fbm(sTarn, x, y, 4, 2) < 2.3 ? 2 : 1;
+          // (an old lake bed: a flat floor a level under the sill, the old river's line down its main arm a level
+          // deeper where it runs clear of the shore, wandering and pinching out as a lake's does: a floor crossed by a
+          // dry channel, never a ring round a hollow)
+          const w = 2.5 * fbm(sLine, x, y, 12, 2);
+          const line = pathDist(cx + w, cy - w, main).d;
+          depth = -own > 1.5 && line < 0.6 + 0.6 * fbm(sTarn, x, y, 6, 2) ? 2 : 1;
         } else {
           depth = Math.max(0, Math.floor((-own - 0.6) / 2.4 + 1.5 * fbm(sTarn, x, y, 5, 2) + 0.2));
         }

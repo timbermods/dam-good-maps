@@ -15,7 +15,7 @@ import { BED_FLOOR } from "../../land/genome";
 import { hash32 } from "../../math/hash";
 import { sillWidthFor, MAX_SILL_WIDTH } from "../../sim/sill";
 import { hazardDays } from "../../sim/weather";
-import type { MapSpec } from "../../spec/mapspec";
+import { EDITOR_LEVEL, type MapSpec } from "../../spec/mapspec";
 import { rulesFor } from "../../validate/playability";
 import { premiseStream } from "../draw";
 import { holdDeep } from "../levels";
@@ -198,11 +198,16 @@ const sourceFits = (F: number, H: number, sill: number, pool: boolean) => {
   return sill >= F + H + lo && sill <= F + H + hi;
 };
 
-/** Every (n, f, start's lake, H) the spec's size and highest ground allow, with a landmark source on the stair. Where
- *  the floor leaves the size's stair one step `f` at most (4 lakes under highest ground 17: `STAIR_BASE`), a stair of
- *  one lake fewer is offered beside it, so the seed still varies the step (§4.1). */
+/** The highest ground the stair is drawn under: Highest terrain, at most the in-game editor's 16 (PREMISES §1.3). A
+ *  tall map's land rises past it away from the water (the plan's `sky`); its stair, water and works are a standard
+ *  map's, since a stair drawn under 22 takes more lakes or taller steps, which moves the water's numbers. */
+export const stairTop = (spec: MapSpec): number => Math.min(spec.settings.terrain.highestTerrain, EDITOR_LEVEL);
+
+/** Every (n, f, start's lake, H) the spec's size and the stair's highest ground (`stairTop`) allow, with a landmark
+ *  source on the stair. Where the floor leaves the size's stair one step `f` at most (4 lakes under highest ground 17:
+ *  `STAIR_BASE`), a stair of one lake fewer is offered beside it, so the seed still varies the step (§4.1). */
 export function stairOptions(spec: MapSpec): StairOption[] {
-  const top = spec.settings.terrain.highestTerrain;
+  const top = stairTop(spec);
   const counts = lakeCounts(spec);
   const out: StairOption[] = [];
   const add = (n: number) => {
@@ -385,7 +390,8 @@ function emptyPlan(spec: MapSpec): PremisePlan {
     seed: spec.seed,
     W,
     H: spec.size.y,
-    top: spec.settings.terrain.highestTerrain,
+    top: stairTop(spec),
+    sky: spec.settings.terrain.highestTerrain,
     line: "",
     sources: [],
     bodies: [],
@@ -1517,7 +1523,8 @@ function placeRidges(L: Layout, o: StairOption): string | null {
     }
   }
   if (pts.length < 2) return "placeRidges#1";
-  const skyTop = plan.top <= 16 ? plan.top : Math.min(plan.top, 21);
+  // (on a tall map the skyline rises to 21 over the stair, which stays under 16: `sky`)
+  const skyTop = Math.min(plan.sky ?? plan.top, 21);
   plan.ridges.push({ id: "skyline", role: "skyline", path: pts, top: skyTop, half: 2.2, drop: 3, ledge: 2.6, rough: 1.8 });
   // the wall: across the gorge at its middle, the valley's own high ground, ten tiles thick, as far as it is clear
   const gorge = plan.links.find((l) => l.id === "gorge")!;

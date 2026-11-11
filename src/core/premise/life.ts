@@ -28,6 +28,7 @@ import { growGroveAt, type BaselineGround } from "../resources/baseline";
 import { between, resourceBudget } from "../resources/budget";
 import type { MapSpec } from "../spec/mapspec";
 import type { Ladder } from "./ladder";
+import { hollowDist, hollowsOf } from "./raster/relief";
 import type { PremisePlan } from "./types";
 import type { StageWater } from "./water";
 
@@ -151,7 +152,7 @@ export function premiseLife(spec: MapSpec, plan: PremisePlan, w: StageWater, lad
     },
   };
   const protect = keepOff(plan, w, ladder, true);
-  const planted = planResources(lifeSpec, built, 0, attempt, { protect, moistCover: LIFE.moistCover });
+  const planted = planResources(lifeSpec, built, 0, attempt, { protect, moistCover: LIFE.moistCover, woodLean: true });
   const rng = stream(spec.seed, "premise.life", attempt);
   groupGroves(planted, built, protect, rng, W, H);
   const out: Feature[] = [...planted];
@@ -232,7 +233,25 @@ export function premiseLife(spec: MapSpec, plan: PremisePlan, w: StageWater, lad
   let succulents = 0;
   const wantSucc = Math.round(wantLiving * succulentShare);
   const benches = benchesOver(plan, w, built, taken, protect).sort((a, b) => a.d - b.d);
-  const benchCount = Math.min(benches.length, Math.max(1, Math.round(N / LIFE.bench.per)));
+  // (the hollows behind the ridges first, places of their own, a stand on each the same way)
+  const hollows = hollowsOf(plan).map((hl) => {
+    const tiles: number[] = [];
+    let at = -1;
+    let best = Infinity;
+    for (let y = Math.max(0, Math.floor(hl.y - hl.r - 2)); y < Math.min(H, hl.y + hl.r + 2); y++)
+      for (let x = Math.max(0, Math.floor(hl.x - hl.r - 2)); x < Math.min(W, hl.x + hl.r + 2); x++) {
+        const i = y * W + x;
+        if (taken[i] || protect[i] || built.moisture[i] > 0 || hollowDist(plan, hl, x, y) >= 0) continue;
+        tiles.push(i);
+        const dx = x + 0.5 - hl.x;
+        const dy = y + 0.5 - hl.y;
+        const d = dx * dx + dy * dy;
+        if (d < best) [best, at] = [d, i];
+      }
+    return { tiles, at, d: 0 };
+  });
+  benches.unshift(...hollows.filter((hl) => hl.tiles.length >= LIFE.bench.least));
+  const benchCount = Math.min(benches.length, Math.max(1, Math.round(N / LIFE.bench.per)) + hollows.length);
   for (let k = 0; k < benchCount; k++) {
     const allowed = new Uint8Array(N);
     for (const i of benches[k].tiles) if (!taken[i]) allowed[i] = 1;

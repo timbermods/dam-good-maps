@@ -210,8 +210,12 @@ export interface PremisePlan {
   seed: number;
   W: number;
   H: number;
-  /** The highest ground allowed (settings.terrain.highestTerrain). */
+  /** The highest ground the stair, its water and its works are drawn under: Highest terrain, at most 16 (PREMISES
+   *  §1.3, the lake stair's `stairTop`). */
   top: number;
+  /** The highest the land away from the water may rise (settings.terrain.highestTerrain: 22 from Verticality 70, D132);
+   *  absent, `top`. Only stage 2's uplands read it (PREMISES §1.5). */
+  sky?: number;
   /** The one-line problem, in this map's own names. */
   line: string;
   // the water story
