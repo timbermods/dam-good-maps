@@ -33,8 +33,8 @@ declare global {
       edit(op: EditOp, label: string): Promise<void>;
       /** The worker, for timing its answers (tests/e2e/preview.spec.ts). */
       worker: Remote<GeneratorApi>;
-      /** Answers that showed land other than the page had shown: a stroke guessed wrong (the edit queue's
-       *  `mispredictions`, I6; 0 when all is well). */
+      /** Answers whose heights differed from the land the page had shown: a stroke guessed wrong (the edit queue's
+       *  `landMispredictions`; 0 when all is well). */
       strokeMismatches(): number;
       /** Tickets in the edit queue not yet ended: strokes, edits, undos, redos and jumps on their way to the worker. */
       pendingTerrain(): number;

@@ -11,7 +11,7 @@ import { carveChannel, channelBounds, type ChannelPlan } from "../route";
 import type { Edge, Feature, LakeFeature, LandformFeature, RiverFeature, StartFeature } from "../schema";
 import { boundsOf, clipRect, type BuildTarget, type Rect } from "../target";
 import { forceBounds, isForce, type ForceResultParams } from "../../forces/op";
-import { applyBrush, brushBounds, brushHard, brushReadsNeighbours, type BrushParams } from "./brush";
+import { applyBrush, brushBounds, brushHard, brushReadsNeighbours, type BrushParams, type Pressed } from "./brush";
 import { blockBounds, blockTileBits, blockTileMask, type BlocksParams } from "../../terrain/blocks";
 import { isPlainMask, plainMask, reshapeTop, surfaceOfMask, topRunFloor, type ColumnTerrain } from "../../terrain/runs";
 import { wantedCount } from "../../water/sourceGroups";
@@ -454,8 +454,9 @@ export function sculptReadsNeighbours(s: SculptEdit): boolean {
  *  `keep(i)` names the tiles that are not plain (an imported map's caves and overhangs): a force's
  *  result and an old sculpt edit leave them as they are; a brush shapes their top run like any other
  *  ground, never below `floor` (one above the roof's underside, D280 (3); terrain/runs.ts
- *  `topFloors`), so what is under a roof stays as it is. */
-export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) => boolean, shown?: { candidate: (i: number) => boolean; cap: number; outside: Uint8Array | null }, floor: Uint8Array | null = null): void {
+ *  `topFloors`), so what is under a roof stays as it is. Returns how hard a natural weathering pressed on
+ *  every tile (brush.ts `BrushStroke.pressed`, which the build remembers for the strokes after it), or null. */
+export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) => boolean, shown?: { candidate: (i: number) => boolean; cap: number; outside: Uint8Array | null }, floor: Uint8Array | null = null): Pressed | null {
   const { W, heights } = t;
   if (isForce(s.params)) {
     // a force's result, literally (D194, D220): its tiles take their levels, and the integrity pass leaves
@@ -467,10 +468,10 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
       heights[i] = p.heights[k];
       t.protectedMask[i] = 1;
     }
-    return;
+    return null;
   }
   // (the Block tool's operations are applied tile by tile with the tiles' masks: `applyBlocks`)
-  if (isBlocks(s.params)) return;
+  if (isBlocks(s.params)) return null;
   // a lake's sill: its tiles set to the lake's level, exactly (as Select's Flatten sets them)
   if (isLakeSill(s.params)) {
     // (as Select's Flatten sets them, a level at a time)
@@ -484,11 +485,11 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
         else by.set(levels[k], [i]);
       });
     for (const [level, at] of [...by].sort((a, b) => a[0] - b[0])) applySculpt({ params: { mode: "flatten", cells: tilesToRuns(at, W), level, exact: true } }, t, keep, shown, floor);
-    return;
+    return null;
   }
   if (isBrush(s.params)) {
     const b = brushBounds(s.params, W, t.H);
-    if (!b || !t.touchesRegion(b)) return;
+    if (!b || !t.touchesRegion(b)) return null;
     const was = brushHard(s.params) ? heights.slice() : null;
     // kept sources' ground (D322, item 31): as the map shows it, and the integrity pass leaves it
     if (s.params.sources === "keep") keepShownGround(s.params.keep ?? [], heights, W, t.H, t.protectedMask, t.channel, shown?.candidate ?? (() => true), shown?.cap, (i) => t.inRegion(i), shown?.outside ?? null);
@@ -500,7 +501,7 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
     // bench, an exact stroke's, a force's, D253)
     const pads = s.params.tool === "naturalize" && s.params.weathers ? t.starts() : [];
     const open = s.params.tool !== "naturalize" ? () => true : s.params.weathers ? (i: number) => !padTile(pads, i % W, Math.floor(i / W)) : (i: number) => !t.protectedMask[i];
-    applyBrush(s.params, heights, W, t.H, keep && !floor ? (i) => t.inRegion(i) && !keep(i) && open(i) : (i) => t.inRegion(i) && open(i), floor);
+    const stroke = applyBrush(s.params, heights, W, t.H, keep && !floor ? (i) => t.inRegion(i) && !keep(i) && open(i) : (i) => t.inRegion(i) && open(i), floor);
     // (the ground holding objects under a roof, D491: within its floor and ceiling, which the map as shown
     // holds, though the integrity pass had moved it there, and the integrity pass leaves it)
     for (const [i, lo, hi] of s.params.hold ?? [])
@@ -514,7 +515,7 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
       const i = y * W + x;
       if (heights[i] !== was[i] && t.inRegion(i)) t.protectedMask[i] = 1;
     }
-    return;
+    return stroke.pressed();
   }
   const p = s.params;
   // (the ground holding objects under a roof, D491: each held tile ends within its floor and ceiling,
@@ -533,7 +534,7 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
       heights[i] = Math.min(Math.max(heights[i], lo), hi);
       t.protectedMask[i] = 1;
     }
-    return;
+    return null;
   }
   if (p.mode === "smooth") {
     // the median of each cell's 3×3 neighbours inside the brush, read before the brush applies
@@ -555,7 +556,7 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
       }
     }
     for (const [i, v] of out) heights[i] = v;
-    return;
+    return null;
   }
   for (const [y, a, b] of p.cells) {
     for (let x = a; x <= b; x++) {
@@ -584,6 +585,7 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
       }
     }
   }
+  return null;
 }
 
 // -------------------------------------------------------------------------------------- blocks

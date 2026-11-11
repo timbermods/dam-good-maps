@@ -416,14 +416,16 @@ place of its bottom rule.
   height; its key under Legend while on: "Ground height", the ramp, the map's lowest and highest level), **Lines** (D248: a thin line wherever the ground steps down a level), **Markers** (the sources,
   each water object, core and reserve with a label of its own words, and the slopes), **Flow** (D353: the water's currents), **See-through** (the water, T), the overlays **Badwater**,
   **Irrigation** (I; where the soil's water stops and why: moist ground as it is, dry ground amber where the nearest
-  water one level higher or six tiles nearer would wet it, the rest dark as dry for good; the readout says why a dry tile
-  is dry, "3 levels above the nearest water", "9 tiles from water; soil carries it 7"; the soil rule's own reach,
+  water one level higher or six tiles nearer would wet it, the rest dark as dry for good; its key under Legend says why the dry tile
+  under the pointer is dry, "Here: 3 levels above the nearest water", "Here: 9 tiles from water; soil carries it 7" (in
+  the key, not the readout, so turning the view on moves nothing); the soil rule's own reach,
   `analysis/irrigation.ts` on `sim/soil3d.ts` `moistureReach3d`, worked out with the water's settle while the view is on)
   and **Caves and overhangs** (where the map has them, right after Irrigation; each with its caption under Legend while on);
   **Legend** stands at the top right, just left of Top-down, with **Hide objects** just left of it (every object and its
   shadow, while H is held or until clicked again; §4, "Seeing the land behind objects"; beside Legend so the Show row
   keeps its room and the water row its place in the band, and where the water row takes a second line the two join the
-  Show row as its last toggles). **Land**, between Hide objects and Legend, shows the land's shares in the key under Legend
+  Show row as its last toggles, or, where they would reach Top-down, as on a map with caves at 1280 wide, take the
+  second line too, one gap left of the water row). **Land**, between Hide objects and Legend, shows the land's shares in the key under Legend
   while it is ticked: **Water**, **Moist ground**, **Dry ground** and **Spoiled ground** (contaminated) as whole per cents of the map's tiles
   that add up to 100 ("under 1%" for a share that is there but rounds to none), then **Living trees**
   and **Logs** (each grown tree's, as the checks count them). Plain numbers, no warning colour: dry land is not a fault,
@@ -443,7 +445,7 @@ place of its bottom rule.
   **Reset view**, **First view** (O: the camera exactly as the game opens the map, from its start, with the game's own
   angle, zoom and lens, `gameFirstView` in `src/render3d/framing.ts` from `openingCamera`; any move away from it, Top-down
   included, puts our lens back unseen, the ground's size kept; greyed while the map has no start) and the compass (a button, **Face north**: the view glides round to north), then under them the
-  **level control** (▾ value ▴, at one fixed width; its arrows "Show one layer less" and "Show one layer more"), **Slow
+  **level control** (▾ value ▴, at one fixed width, under Top-down and as wide; its arrows "Show one layer less" and "Show one layer more"), **Slow
   forces** (under Reset view and First view) and **Sound** (a speaker icon, crossed out when muted; its volume opens beneath it, its tooltip to its left so the
   volume stays in view): a grid
   310px wide, one height and one gap throughout (`tests/e2e/viewAndHeader.spec.ts`). **A new map and Reset view frame the
@@ -468,7 +470,9 @@ place of its bottom rule.
   `waterSettled`; the page begins a water journey only when it is false, and ends it at once when it is true, so an
   undo, a redo or an edit that leaves the water as it is never leaves the dot at "Settling…"
   (`WaterPlayer.settled`, `tests/contract/waterStatus.test.ts`). The water row is at the top middle, centred in the
-  map area, each piece floating on its own: Drought and Badtide (§5), then the weather's day (◀ Day 7 ▶: a drought or a badtide held on any day, from Day 0, the map's own water, to past its
+  map area, each piece floating on its own (in a window too narrow for the band's one line, it takes a second line at
+  the right, one gap left of the corner's second row, and a panel at the left clear of it starts under the band, so a
+  laptop's 1536×864 keeps the generator's room; `view/useBandLayout.ts`): Drought and Badtide (§5), then the weather's day (◀ Day 7 ▶: a drought or a badtide held on any day, from Day 0, the map's own water, to past its
   default length). The water plays into place after every edit with no controls, always at one pace; undo and redo
   show a change again, and the header's dot reads "Settling…" while it does: one status (Kyler, 2026-10-04). Double-clicking the day box while a hazard is shown turns it into a field
   in place, same size: a day from 0 to 99, Enter or clicking away shows it, Esc cancels.
@@ -563,8 +567,11 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   uneven width and pinch out instead of running round as even bands. Then every tile stands in a two-by-two square
   of its own level, or is a single tile on the side of one: no band narrower than two tiles (a steep slope is a
   cliff with ledges, never a stair of one-tile steps; a cliff the force made stays whole), no one-tile pillar, pit,
-  ridge, trench or lone block. Ground a force did not change is touched only right beside ground it did. Craterize
-  ends with it; Erupt, Rift, Deposit, Quake and Glaciate adopt it next.
+  ridge, trench or lone block. Ground a force did not change is touched only right beside ground it did, and where
+  it changed nothing round a tile by more than a level the tidying never moves that tile more than two: the land's
+  own one-tile ledge goes back to where it stood, and the corner of its own two-tile ridge, with the ground of its
+  level round it, to where the force put it, or where the force's rounding would leave that one tile wide to where it
+  stood, never down its cliff and never leaving ground one tile wide. Craterize ends with it; Erupt, Rift, Deposit, Quake and Glaciate adopt it next.
 - **Esc skips, undo takes it back** (D344, A4): while a gesture is still being drawn, Esc cancels it and nothing of
   it lands; once a force plays, Esc skips it to its end, its final land kept as one step; Ctrl+Z (or Z, or Revert)
   takes all of it back at any moment, and nothing lands afterwards (D341). The row's tooltip carries the keys (**Esc** skips,
@@ -616,7 +623,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   every theme at 128² nightly; `tools/force-everywhere.ts` sweeps 128² and 256²; a force adopted later gets the
   same check). **Carve clicked at the map's edge carves inward** (D360 (1a), `core/forces/carve/edge.ts`). **A Quake
   click makes a short natural fault** (D360 (1b), `clickFault` in `core/forces/quake.ts`): 10 to 22 tiles with
-  Power, along the slope's contour (a seeded way on flat ground), turned and bent by the seed.
+  Power, along the slope's contour (a seeded way on flat ground), turned and bent by the seed, its points to a
+  hundredth of a tile as the operation keeps them, so the fault it ran on is the one kept.
 - **Bound only by nature** (D257): a force obeys only what it physically is and the map's physical limits (its
   floor, the height ceiling, the file format); it never refuses, stops short or reshapes its result for
   playability. Where it carves, buries or moves the start's ground, the start is carried to the nearest level ground
@@ -647,9 +655,12 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   that** (`rust/forces`, `strength`): a force set larger than its Power's own size keeps its reach and acts in
   proportion (`strength`: 1 at Power 100 and at Power's own size, the square root of the natural share at Power
   0). A tempered force still moves every tile it reaches by at least a level: Power scales how deep, never whether
-  (D356). At the largest Size, Power 0 is the gentlest effect that still shows; `tests/contract/forcePower.test.ts`
-  holds each force to at least 9 tiles changed, at most a quarter of Power 100's change (a Slide 30%), at most 4
-  levels deep, and a change growing across Power 0, 50 and 100.
+  (D356). A force that replaces the land's relief with its own ground (Craterize's bowl) does so only as far as
+  Power's share of the strength (`relief`): at Power 0 the land under a crater larger than its Power keeps its
+  relief and the crater is a dish cut into it, never the hillside levelled toward one height. At the largest Size,
+  Power 0 is the gentlest effect that still shows; `tests/contract/forcePower.test.ts` holds each force to at least 9
+  tiles changed, at most a quarter of Power 100's change (a Slide 30%), at most 4 levels deep, and a change growing
+  across Power 0, 50 and 100 (Craterize on River Valley 128 seeds 1 to 10).
 - **Stored literally:** a force's run is one `forceResult` operation, stored literally, one undo step (§ The map
   document).
 - **Try another keeps every roll** (force variants, D488): each Try another is a new roll of the same force from the
@@ -802,7 +813,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   at every Power the valley is a U and its water lies in a channel or a tarn, never a sheet
   (`tests/contract/glaciateFloor.test.ts`, `glaciatePowerSize.test.ts`); default Power 60, Size Auto 30. Its row:
   **Power**, **Size**, **Meltwater** (on), **Try another**, **More** (**Benches**, **Steps**, **Tarn**, **Scree**, each
-  on Auto). Two acts, the ice advancing for three fifths of its showing and melting back for two. **The floor reads as
+  on Auto). Two acts, the ice advancing for three fifths of its showing and melting back for two; each tile takes its
+  level as the front passes, and the snout's lobe past the last station (its trough, moraine and outwash fan) forms
+  out from its centre as the ice enters it, never all in the last frame (`shownArrival`). **The floor reads as
   one river** (D292): it winds across the level floor to the falls' pools and the rivers coming in; a fall it can't
   reach, nor pass within six tiles of, stays a dry hanging valley; the game's water is run on the finished floor as it
   is planned, and if it would wet the dry floor the river bends toward the falls or keeps round 4's meander. Bound
@@ -965,7 +978,12 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   changes nothing says why beside the pointer for a moment: "Moist ground keeps its height: weather dry land" when
   most of it pressed on moist soil (an island in a lake is all moist), else "Nothing here to weather" (showcase-craft gap 23). It
   weathers dab by dab: each dab weathers the land the dabs before it left, only round where it presses harder
-  (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. It is
+  (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. Its edges
+  also wander only where it presses harder than the weathering strokes before it did on the land as they left it (rule
+  6: the build keeps how hard they pressed, the session's terrain hands it to the page, and the stroke records what it
+  read, `worn`), so the same stroke painted again only sheds and settles what the last one left and comes to rest;
+  before, each repeat drew its edges again along the noise and the shed wore them back, and the land kept changing,
+  most at Terracing 100 (River Valley 2: 164, 147, 77, 126, … tiles a stroke; now 164, 3, then nothing). It is
   weathered off the page in a worker of its own (D422, #868: `worker/naturalize.worker.ts`, `raster/remoteStroke.ts`),
   on the terrain and land the page shows, one call out at a time and the dabs meanwhile as one batch, the land a frame
   or two behind the cursor; the page sends that land to the map's worker for its water, as for the other brushes. Every
@@ -982,7 +1000,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   at 256², 73 ms, and 4 times the slowest single dab, 308 ms at 512² and 327 ms at 256²): a worker that never answers in time has its stroke taken back as Esc takes one back (no
   land, water or operation), the page says "Naturalize stopped answering, so the stroke was taken back. Paint it
   again.", what waited for the stroke goes ahead, and the worker is started again for the next stroke. A new
-  stroke records its rule (`weathering: 5`, added by the core); a stroke saved with rule 4 (the top cut back
+  stroke records its rule (`weathering: 6`, added by the core); a stroke saved with rule 5 (its edges wandering
+  again on every stroke), rule 4 (the top cut back
   whatever its foot took, pulling back above water too), rule 3 (dab by dab, some
   cliffs' scree slopes lost, so a repeated stroke kept cutting those cliffs back), with D399's first rule
   (`weathering: 2`, the whole stroke at once) or before D399 replays with its own rule. Pen pressure on drawing tablets sets a soft stroke's strength. Every brush's options row starts with its **Size**, a
@@ -2058,7 +2077,8 @@ delivery routes, the artifact edition and bring-your-own-key) is in
   one for another map is dropped at one door; (I5) undo, redo and a jump name the step they mean when pressed (a seq,
   or a ticket on its way), resolved when the move reaches the head into the worker's one call `moveTo(seq | null)`; a
   move whose step never happened (refused, cancelled, timed out) does nothing; (I6) a stroke answered with nothing else
-  between its start and its answer was guessed right (`mispredictions`); (I7) one watchdog, on the head ticket, refuses
+  between its start and its answer was guessed right (`mispredictions`, every channel; `landMispredictions`, the
+  answers whose heights differed, is what the browser specs read as `strokeMismatches`); (I7) one watchdog, on the head ticket, refuses
   it with its one line once its bound passes (a landing Naturalize stroke: `answerBound`; with the map's worker:
   `MAP_ANSWER_MS`), so nothing waits forever and `idle()` always resolves; (I8) a press always makes a ticket (behind a
   landing stroke it composes once that stroke has its land), a stroke let go is answered or refused with a line, and a

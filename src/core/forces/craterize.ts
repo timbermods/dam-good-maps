@@ -4,7 +4,8 @@
 // Rays; Try another (the next personality). A coherent crater field quantized once to whole game
 // levels: a morphology model, not a shock-physics solver, shaped to read as a real landform at every size,
 // never a stadium, a shaft or a tower (showcase-craft gap 25). The cavity is a few overlapping hollows (a lobed
-// outline) on a plane that leans with the land; a small crater is a shallow rounded bowl with no centre and a lip of
+// outline) on a plane that leans with the land (a crater larger than its Power replaces the land's relief only as far
+// as Power's share of its strength: at Power 0 it is a dish cut into the land as it lies, D361 (3)); a small crater is a shallow rounded bowl with no centre and a lip of
 // low lumps; the rim is uneven and low on one side; terraced walls carry slumped blocks, so a bench is a short arc
 // that pinches out; from 28 across (Auto) a floor with low hummocks, from 68 a low massif of two or three broad
 // hummocks off the centre; a chosen peak is a broad, low hill of a few wide plates, never a tower, that clears the

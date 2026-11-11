@@ -94,6 +94,15 @@ fn strength(power: f64, size: Option<f64>, natural: f64) -> f64 {
     let floor = portable_math::sqrt(natural / size);
     floor + (1.0 - floor) * pow(clamp(power, 0.0, 100.0) / 100.0, 1.2)
 }
+/// How far a force that replaces the land's relief with its own ground does so (D361 (3)): wholly at Power 100
+/// and at Power's own size; where Size outgrows Power, by Power's share of the strength (`strength`'s rise from
+/// its floor), so at Power 0 the land keeps its relief and the force only adds its own shape to it.
+fn relief(power: f64, size: Option<f64>, natural: f64) -> f64 {
+    if strength(power, size, natural) >= 1.0 {
+        return 1.0;
+    }
+    pow(clamp(power, 0.0, 100.0) / 100.0, 1.2)
+}
 fn tempered(before: f64, after: f64, k: f64) -> f64 {
     if k >= 1.0 {
         return after;
@@ -2463,6 +2472,9 @@ struct Plate {
     plane: f64,
     /// What the crater adds to that ground, in levels (the uplift apart).
     add: f64,
+    /// What it adds to the land itself, where the land keeps its relief (a crater weaker than its Size,
+    /// `relief`): its cavity inside, its rim and debris round it.
+    own: f64,
     /// The central uplift's share here, 0–1 (a ring's mountains).
     lift: f64,
     /// The plate of a peak's hill here: 1 its top, 2 the one under it, and so on; 0 none.
@@ -3308,6 +3320,7 @@ impl Crater {
         // holds its bowl)
         let mut plane = if (m.heights[tile] as f64) < self.ground(x, y) { 1.0 - smooth((r - 1.0 - 2.6 / self.radius) / 0.25) } else { 1.0 - smooth((r - 0.8) / 0.2) };
         let add;
+        let own;
         let mut lift = 0.0;
         let mut tier = 0;
         if r < 1.35 {
@@ -3320,22 +3333,27 @@ impl Crater {
             let over = (m.heights[tile] as f64 - self.ground(x, y)) * (1.0 - plane);
             // (inside the bowl, on the crater's own ground, the rim and the debris stand above its surface)
             // (a small crater's lip stands at the hollow's very edge: on the top of its wall too)
-            add = if over == 0.0 && cavity <= if self.lip.is_empty() { 0.0 } else { -0.5 } {
-                cavity
-            } else if cavity <= 0.0 {
-                let lip = self.apron(e, (qx, qy), x, y);
-                if over == 0.0 && lip > 0.0 && ((!self.steep && self.deep >= 2.0) || e > -min(0.5, 0.1 * self.radius)) { lip } else { min(lip, cavity - over) }
-            } else {
-                min(self.apron(e, (qx, qy), x, y), cavity - over)
+            let on = |over: f64| {
+                if over == 0.0 && cavity <= if self.lip.is_empty() { 0.0 } else { -0.5 } {
+                    cavity
+                } else if cavity <= 0.0 {
+                    let lip = self.apron(e, (qx, qy), x, y);
+                    if over == 0.0 && lip > 0.0 && ((!self.steep && self.deep >= 2.0) || e > -min(0.5, 0.1 * self.radius)) { lip } else { min(lip, cavity - over) }
+                } else {
+                    min(self.apron(e, (qx, qy), x, y), cavity - over)
+                }
             };
+            add = on(over);
+            own = on(0.0);
             if r < 1.0 {
                 lift = self.uplift(qx, qy, x, y);
                 tier = self.hill(qx, qy, x, y);
             }
         } else {
             add = self.apron(e, (qx, qy), x, y);
+            own = add;
         }
-        Plate { r, plane, add, lift, tier }
+        Plate { r, plane, add, own, lift, tier }
     }
     /// The rays' height and their secondary pits' depth at a tile `r` out.
     fn rays_at(&self, s0: &Settings, x: f64, y: f64, r: f64) -> (f64, f64) {
@@ -3446,6 +3464,9 @@ impl Crater {
 fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]) -> Plan {
     let a = Crater::new(before, s0, intent);
     let k = strength(n(s0, "power"), s0.size, crater_size(n(s0, "power")));
+    // (a crater weaker than its Size replaces the land's relief only as far as its Power: on a hillside a
+    // gentle wide crater is a dish in the hill, never the hill levelled to its centre's height)
+    let give = relief(n(s0, "power"), s0.size, crater_size(n(s0, "power")));
     let mut keep = vec![0u8; m.w * m.h];
     for (i, &v) in extra.iter().enumerate() {
         if v != 0 {
@@ -3478,7 +3499,11 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
     let shape = |i: usize, p: &Plate| {
         let (xf, yf) = ((i % before.w) as f64, (i / before.w) as f64);
         let h = before.heights[i] as f64;
-        h + (a.ground(xf, yf) - h) * p.plane + p.add
+        if give >= 1.0 {
+            h + (a.ground(xf, yf) - h) * p.plane + p.add
+        } else {
+            h + give * ((a.ground(xf, yf) - h) * p.plane + p.add) + (1.0 - give) * p.own
+        }
     };
     let mut surface = vec![f64::NAN; m.w * m.h];
     let mut ground: Vec<f64> = before.heights.iter().map(|&l| l as f64).collect();
@@ -3509,7 +3534,7 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
             surface[i] = tempered(h, target, k);
             // (what the crater's own shape stands on: its level datum inside the bowl, the land
             // outside it; the fall from its rim to lower land is its own)
-            ground[i] = tempered(h, h + (a.datum - h) * (1.0 - smooth((p.r - 0.9) / 0.2)), k);
+            ground[i] = tempered(h, h + (a.datum - h) * (1.0 - smooth((p.r - 0.9) / 0.2)) * give, k);
             if p.lift > 0.0 || p.tier > 0 {
                 lifted.push((i, p));
             }

@@ -275,7 +275,7 @@ export function restoreBuilt(s: StoredState, W: number, H: number, seed: number)
   if (!b.waterModel || typeof b.waterModel !== "object" || !Array.isArray(b.entities) || !Array.isArray(b.slopes) || !Array.isArray(b.sources) || !Array.isArray(b.notes) || !Array.isArray(b.orphans)) return null;
   const c = b.cache;
   if (!c || typeof c !== "object" || !(c.keys instanceof Map) || !(c.fields instanceof Map) || !(c.resources instanceof Map) || !Array.isArray(c.terrainFeatures) || !Array.isArray(c.sculpts) || !Array.isArray(c.sculptEdits) || !c.terrain || typeof c.terrain !== "object") return null;
-  if (![c.terrain.pre2, c.terrain.pre7, c.terrain.heights, c.terrain.protect, c.terrain.channel, c.reserved].every(tile)) return null;
+  if (![c.terrain.pre2, c.terrain.pre7, c.terrain.heights, c.terrain.protect, c.terrain.channel, c.terrain.worn, c.terrain.left, c.reserved].every(tile)) return null;
   return b;
 }
 

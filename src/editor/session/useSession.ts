@@ -185,6 +185,12 @@ export interface SessionSlice {
   /** The hover readout's words for a tile: what is on it, and while the Drought or Badtide view is on, when its water
    *  dries or turns bad. */
   hoverWordsAt: (x: number, y: number, level?: number) => string;
+  /** While the Irrigation view is on, why the dry ground under the pointer is dry (the view's key says it, under
+   *  Legend, so the readout and the coordinates keep their boxes), else null. */
+  dryWhy: string | null;
+  setDryWhy: Dispatch<StateUpdater<string | null>>;
+  /** Why a tile's top is dry, while the Irrigation view is on (`dryWords`), else null. */
+  dryWhyAt: (x: number, y: number, level?: number) => string | null;
   /** A held hazard day's first dry or first bad days per tile (core/sim/firstDays.ts, from the worker), or null. */
   firstNews: { current: HeldFirstDays | null };
   /** Work out both weather hazards' days once Kyler has been idle a moment with the water settled (the worker stops
@@ -328,14 +334,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const hoverWordsAt = (x: number, y: number, level?: number): string => {
     // (objects hidden, H or Hide objects: the readout names only the land, as the pointer finds it)
     const facts = ed.pageTileFacts();
-    let words = tileWords(describeTileFacts(renderer.current?.objectsHidden ? { ...facts, objects: () => [] } : facts, x, y, level));
-    // (the Irrigation view: why a dry tile's top is dry, on the ground seen from above)
-    const irr = shownLayers.current;
-    if (irr && x >= 0 && y >= 0 && x < irr.W && y < irr.H && irr.irrigation && (level === undefined || level >= mirror.current.heights[y * irr.W + x])) {
-      const i = y * irr.W + x;
-      const why = irr.irrigation.tone[i] > IRRIGATION_MOIST ? dryWords(irr.irrigation, i) : null;
-      if (why) words = `${words} · ${why}`;
-    }
+    const words = tileWords(describeTileFacts(renderer.current?.objectsHidden ? { ...facts, objects: () => [] } : facts, x, y, level));
     const n = firstNews.current;
     if (!n || x < 0 || y < 0 || x >= infoRef.current.W || y >= infoRef.current.H) return words;
     const i = y * infoRef.current.W + x;
@@ -345,9 +344,19 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     const when = heldWords(n, weatherRef.current, infoRef.current.version, i);
     return when ? `${words} · ${when}` : words;
   };
+  const [dryWhy, setDryWhy] = useState<string | null>(null);
+  // (the Irrigation view: why a dry tile's top is dry, on the ground seen from above)
+  const dryWhyAt = (x: number, y: number, level?: number): string | null => {
+    const irr = shownLayers.current;
+    if (!irr || !irr.irrigation || x < 0 || y < 0 || x >= irr.W || y >= irr.H) return null;
+    const i = y * irr.W + x;
+    if (level !== undefined && level < mirror.current.heights[i]) return null;
+    return irr.irrigation.tone[i] > IRRIGATION_MOIST ? dryWords(irr.irrigation, i) : null;
+  };
   const rehover = () => {
     const h = lastHover.current;
     if (h) setHover(hoverWordsAt(h.x, h.y, h.level));
+    setDryWhy(h ? dryWhyAt(h.x, h.y, h.level) : null);
   };
   // A refusal's note goes with the next thing the player does (a press, a key, a tool picked, the layer or the view
   // changed); only a save that failed stays until it is dismissed or the map is saved. An edit's own note
@@ -937,7 +946,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     selectDraw, setSelectDraw, selectPreview, setSelectPreview, rockHeld, setRockHeld, deleteMenu, setDeleteMenu, setDeleteCounts,
     deleteCounts, sourceDrag, setSourceDrag, hoverObject, setHoverObject, player, mounted, sound, juice, setSound,
     feel, weather, weatherRef, comparing, endFlip, flipEnd, setWeather, weatherDay, weatherDays, weatherCounting, weatherTarget, setWeatherDay, setWeatherDays, startWater, setStartWater,
-    setWeatherCounting, heldDay, stepWeather, holdWeatherDay, requestHeldDay, lastHover, rehover, hoverWordsAt, firstNews, idlePrep, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
+    setWeatherCounting, heldDay, stepWeather, holdWeatherDay, requestHeldDay, lastHover, rehover, hoverWordsAt, dryWhy, setDryWhy, dryWhyAt, firstNews, idlePrep, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
     firstDoneRef, minimap, setMinimap, minimapRef, resizing, setDotOpen, dotOpen, saving, setSaving,
     viewTick, setViewTick, setFit, fit, setPicked, picked, setPickedObject, pickedObject,
     pickedObjectRef, pickedRef, setShapeNote, shapeNote, queue, indexed, infoRef, shelfRef, shelfOptionsRef, turnRef,

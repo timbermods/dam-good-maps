@@ -778,8 +778,10 @@ describe("the Block tool on a generated map", () => {
   // must run from 3 tiles west of it to 5 east, at level 7 or more, away from every object; seed 3's River Valley holds
   // none any more, nor does any other of seeds 1–40 but seed 6, whose spot is at (46, 15), level 14; seed 43 since generator 0.10.7, D502, D148: seed 6 has none now, nor has any of seeds 1–42; seed 43 is the first with one;
   // seed 91 since generator 0.10.11, the D410 round, D148: seed 43's spot has a grove on it now, and of seeds 40–100 only seed 91 holds one,
-  // at (48, 38); the map without its 3D forms, as the test asks for a map with no cave of its own, and seed 91 grows one)
-  const spec = makeSpec({ seed: 91, theme: "riverValley", size: { x: 64, y: 64 } });
+  // at (48, 38); the map without its 3D forms, as the test asks for a map with no cave of its own, and seed 91 grows one;
+  // seed 11 since generator 0.10.16's ground with grade, D148: seed 91's graded land has no such spot, and of seeds 1–120
+  // seeds 11, 23, 63, 76 and 92 hold one; seed 11's is at (55, 8), level 9)
+  const spec = makeSpec({ seed: 11, theme: "riverValley", size: { x: 64, y: 64 } });
   const r = generate(spec, { forms: false });
 
   /** A dry tile with dry neighbours, no object near, on high enough ground, level out to the build-up 5 tiles east. */

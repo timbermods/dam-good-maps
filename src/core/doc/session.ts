@@ -20,13 +20,13 @@
 import { generatedTallSentence, isTall, surfaceOf, TALL_NOTE, withTallNote } from "../format/world";
 import { mapObjects } from "../sim/model";
 import { mineSitesCutAt } from "../validate/playability";
-import { buildMap, groundDropped, masksOf, previewBuild, previewTerrain, rebuild, SettleCache, modelOf, toMapObject, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer } from "../features/build";
+import { buildMap, groundDropped, masksOf, previewBuild, previewTerrain, rebuild, SettleCache, modelOf, toMapObject, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer, wornOf } from "../features/build";
 import { heldOf, type TerrainState } from "../features/raster/strokePreview";
 import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
 import { placedEntity, entityTiles, ridingPieces } from "../features/edits";
 import { objectHolds, rasterizeObjects, standProblem, type StandGround } from "../features/objects";
-import { applyBrush, brushBounds, byDabRule, limitRuns, markBrushTiles, MAX_DABS, strokeParts, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim, type BrushParams } from "../features/raster/brush";
+import { applyBrush, brushBounds, byDabRule, limitRuns, markBrushTiles, MAX_DABS, strokeParts, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim, wornRuns, type BrushParams } from "../features/raster/brush";
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN, padTile } from "../features/raster/terrain";
 import { bottomRunTop, ColumnTerrain, isPlainMask, surfaceOfMask, terrainColumns } from "../terrain/runs";
@@ -1248,6 +1248,8 @@ export class MapSession {
       starts: this.st.features.filter((f): f is StartFeature => f.kind === "start"),
       water: this.cur.water.slice(),
       moisture: this.cur.moisture.slice(),
+      // (how hard the weathering strokes pressed, where the land stands as they left it: rule 6)
+      worn: wornOf(t),
     };
   }
 
@@ -1812,8 +1814,9 @@ export class MapSession {
   /** What the session records in a stroke as it applies (`applyChecked`), worked out on the map as it stands. */
   private strokeRecord(params: BrushParams): BrushParams {
     const { x: W, y: H } = this.size;
-    // a new weathering Naturalize stroke weathers like nature, dab by dab (D399, rule 5): its rule is
-    // recorded in it, so it replays the same, and strokes saved before keep their rule (rule 4, the
+    // a new weathering Naturalize stroke weathers like nature, dab by dab (D399, rule 6): its rule is
+    // recorded in it, so it replays the same, and strokes saved before keep their rule (rule 5, its
+    // edges wandering again on every stroke; rule 4, the
     // top cut back whatever its foot took; rule 3, dab by dab with some scree slopes lost; rule 2,
     // the whole stroke at once, saved with where water would stand round it, `rim`)
     // (a rule painted on the page comes with its rule but never its ring: added here)
@@ -1833,6 +1836,11 @@ export class MapSession {
           p = { ...p, shore, pools };
         } else p = { ...p, ...limitRuns(waterLimits(this.cur.heights, this.cur.water, this.cur.moisture, W, H), box, W) };
       }
+    }
+    // and how hard the weathering strokes before it pressed there (rule 6), unless the page recorded what it read
+    if (p.weathering === 6 && p.worn === undefined) {
+      const box = weatherBox(p, W, H);
+      p = { ...p, worn: box ? wornRuns(wornOf(this.cur.cache.terrain), box, W) : [] };
     }
     // a weathering Naturalize stroke leaves the ground under the sources and objects standing now: the
     // runs are recorded in it, so it replays the same whatever moves later (D368 (8), D342)
