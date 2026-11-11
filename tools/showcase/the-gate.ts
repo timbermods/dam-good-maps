@@ -27,7 +27,7 @@ import { gameMoistureReach } from "../../src/core/sim/soil";
 import { MOIST_MIN } from "../../src/core/sim/soil3d";
 import { fbm, measureLand } from "./four-lakes-design";
 import { writePicture } from "./four-lakes-view";
-import { hypot } from "../../src/core/math/portable";
+import { hypot, sqrt } from "../../src/core/math/portable";
 
 const arg = (name: string, f: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -73,7 +73,7 @@ function segDist(px: number, py: number, ax: number, ay: number, bx: number, by:
   t = t < 0 ? 0 : t > 1 ? 1 : t;
   const dx = px - (ax + vx * t);
   const dy = py - (ay + vy * t);
-  return { d: Math.sqrt(dx * dx + dy * dy), t };
+  return { d: sqrt(dx * dx + dy * dy), t };
 }
 
 /** Signed distance to a chain of capsules whose radius runs along it: below 0 inside. */
