@@ -430,7 +430,11 @@ test("Erupt near the ceiling (D226): it completes under it; again on its summit 
 });
 
 test("Quake: a painted Lift follows the stroke and is kept when let go; V flips the side (X was its key before D323 item 16); a Slide carries the land; a fault through the start quakes, the start carried", async ({ page }) => {
-  await openTopDown(page);
+  // (seed 4244 since generator 0.10.16's ground with grade, D148: 4242's Highlands now misses its theme's promise, so
+  // the page looks for a version in the background and its note, "A version that keeps its theme's promise is ready",
+  // came up over the map's lower edge on CI in the middle of this long test, under the Slide's stroke, 42974094825;
+  // 4244 keeps its promise, so no note comes)
+  await openTopDown(page, "s=4244&z=96&d=n&t=highlands");
   await page.keyboard.press("Shift+Digit5");
   const row = page.getByRole("group", { name: "Quake options" });
   // its settings: its one choice, Lift or Slide, Power (its line sets its length), the Side that moves (V flips it),
@@ -469,10 +473,8 @@ test("Quake: a painted Lift follows the stroke and is kept when let go; V flips 
   // a Slide: its block carried along the fault, one step
   await row.getByRole("button", { name: "Slide" }).click();
   await paint(page, [far[0] - 10, y - 6], [far[0] + 10, y - 6]);
-  // (the step is waited for, not only the status: on CI's software drawing the slide's plan could start after the status
-  // was first read as idle, 42945919009)
-  await expect.poll(async () => (await labels(page)).at(-1), { timeout: 30_000 }).toBe("Quake: slide");
   await settled(page);
+  expect((await labels(page)).at(-1)).toBe("Quake: slide");
   expect(await worker(page)).toEqual(await heights(page));
   await page.keyboard.press("Control+z");
   await idle(page);
