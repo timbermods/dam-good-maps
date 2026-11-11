@@ -4,11 +4,12 @@
 // The `land` invariants (waterChecks.ts) run `flowThrough` on these heights alone.
 
 import type { WaterModel } from "../sim/water";
-import { waterTable, type WaterTable } from "./levels";
+import { WATER, waterTable, type WaterTable } from "./levels";
 import { rasterBodies } from "./raster/bodies";
-import { rasterChannels } from "./raster/channels";
+import { headHolds, rasterChannels } from "./raster/channels";
 import { emptyRaster, near4, type WaterRaster } from "./raster/field";
 import { rasterFalls } from "./raster/falls";
+import { rasterWeirs } from "./raster/weirs";
 import { dropPockets, guardWater, partWaters, surgeMouths } from "./raster/guard";
 import type { PremisePlan } from "./types";
 
@@ -42,6 +43,7 @@ export function waterByNumber(plan: PremisePlan): StageWater {
   for (let y = sy - PAD; y <= sy + PAD; y++) for (let x = sx - PAD; x <= sx + PAD; x++) if (x >= 0 && y >= 0 && x < W && y < H) pad.add(y * W + x);
   rasterBodies(plan, table, r);
   rasterChannels(plan, table, r);
+  rasterWeirs(plan, table, r);
   rasterFalls(plan, table, r, pad);
   for (const i of pad) {
     r.lake[i] = r.channel[i] = r.pool[i] = r.crest[i] = 0;
@@ -63,6 +65,24 @@ export function waterByNumber(plan: PremisePlan): StageWater {
   plan.links.forEach((l, li) => {
     if (l.rows.length) r.rows[l.id] = l.rows.map((s) => spanRow(plan, r, li, s));
   });
+  // a shut link's head holds its body's water up to its first row, wherever the row came to stand (another channel
+  // that took the link's head moves it on, past the head `rasterChannels` raised), and the guard rises with it
+  let raised = false;
+  plan.links.forEach((l, li) => {
+    const row = r.rows[l.id]?.[0];
+    const from = plan.bodies.find((b) => b.id === l.from);
+    if (!row?.length || !from) return;
+    const holds = headHolds(table, from);
+    let end = -Infinity;
+    for (const i of row) end = Math.max(end, r.along[i]);
+    for (let i = 0; i < W * H; i++) {
+      if (r.channel[i] !== li + 1 || r.along[i] > end || r.heights[i] >= holds) continue;
+      r.heights[i] = holds;
+      r.surface[i] = Math.max(r.surface[i], holds + WATER.designDepth);
+      raised = true;
+    }
+  });
+  if (raised) guardWater(r);
   return { table, raster: r, emitters: emittersOf(plan, r) };
 }
 
@@ -84,7 +104,9 @@ function emittersOf(plan: PremisePlan, r: WaterRaster): Emitter[] {
           if (x < 0 || y < 0 || x >= W || y >= H || Math.max(Math.abs(x - cx), Math.abs(y - cy)) !== rad) continue;
           const i = y * W + x;
           if (!mine(i)) continue;
-          const d = (x + 0.5 - s.at[0]) ** 2 + (y + 0.5 - s.at[1]) ** 2;
+          const ex = x + 0.5 - s.at[0];
+          const ey = y + 0.5 - s.at[1];
+          const d = ex * ex + ey * ey;
           if (d < bd) {
             bd = d;
             best = i;

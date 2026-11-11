@@ -35,6 +35,9 @@ export interface WaterRaster {
   piers: Record<string, number[]>;
   /** Each link's rows of Blockages, the tiles of each (`Link.rows` in order). */
   rows: Record<string, number[][]>;
+  /** Each weir at a channel's head (raster/weirs.ts): how far along its channel its crest ends, its tiles that pour,
+   *  and each column across it: the bed in front, the crest's two tiles, the water behind. */
+  weirs: Record<string, { at: number; lip: number[]; cols: [front: number, crest: number, back: number, behind: number][] }>;
   /** Tiles taken off one water where it touched another it does not run into (they hold the guard instead). */
   parted: number;
 }
@@ -56,6 +59,7 @@ export function emptyRaster(W: number, H: number): WaterRaster {
     notches: {},
     piers: {},
     rows: {},
+    weirs: {},
     parted: 0,
   };
 }

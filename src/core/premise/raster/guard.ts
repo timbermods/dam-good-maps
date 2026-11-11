@@ -42,7 +42,9 @@ export function partWaters(plan: PremisePlan, r: WaterRaster): number {
   // (a link's first row stands where the plan puts it, or at its first tiles of its own: water.ts `spanRow`; past it
   // is the side the row keeps dry)
   const rowAt = links.map((l, k) => (l.rows.length ? Math.max(Math.min(...l.rows), first[k] + 0.5) : Infinity));
-  const behind = (t: number, k: number) => r.along[t] >= rowAt[k] + 0.5;
+  // (and past a weir: its water meets no other but where it runs into its own)
+  const weirAt = links.map((l) => r.weirs[l.id]?.at ?? Infinity);
+  const behind = (t: number, k: number) => r.along[t] >= rowAt[k] + 0.5 || r.along[t] >= weirAt[k];
   const head = (t: number) => {
     const k = r.channel[t] - 1;
     return r.along[t] < Math.max(0, first[k]) + MEET && !behind(t, k);
@@ -83,7 +85,10 @@ export function partWaters(plan: PremisePlan, r: WaterRaster): number {
     if (l.from !== body && l.to !== body) return false;
     if (l.fall) {
       if (l.kind === "gorge") return l.from !== body || r.crest[bodyTile] === k + 1;
-      return l.to !== body || r.crest[chanTile] === k + 1;
+      // (a hanging valley meets its source short of its weir only: a valley that bends back past its source would
+      // take that water round its weir)
+      if (l.from === body) return r.along[chanTile] < weirAt[k];
+      return r.crest[chanTile] === k + 1;
     }
     // (a channel meets the body it leaves at its head, or where it holds that water, short of a row; the body it
     // reaches anywhere: its water runs on into it)

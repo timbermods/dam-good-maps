@@ -61,12 +61,13 @@ describe("The water table (§2.2, stage 1)", () => {
     expect(out).toBeCloseTo(total, 6);
   });
 
-  it("sizes each stair fall's lip by its flow, 8 to 16 tiles", () => {
+  it("sizes each stair fall's lip by its flow, 8 to 16 tiles and 8 that pour", () => {
     for (const l of fixture.links) {
       if (!l.fall || l.path) continue;
       const w = t.links[l.id].width;
-      expect(w, l.id).toBe(lipWidth(t.links[l.id].flow));
-      expect(w).toBeGreaterThanOrEqual(WATER.lipLeast);
+      expect(w, l.id).toBe(lipWidth(t.links[l.id].flow, l.fall));
+      expect(w).toBeGreaterThanOrEqual(8);
+      expect(w - l.fall.piers - l.fall.notch - l.fall.breach, l.id).toBeGreaterThanOrEqual(8);
       expect(w).toBeLessThanOrEqual(16);
     }
   });

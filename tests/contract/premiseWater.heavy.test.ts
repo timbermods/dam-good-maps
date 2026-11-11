@@ -1,10 +1,10 @@
 // Stage 1's water settled as the game plays it (docs/PREMISES.md §7 step 2): three plans (seed 1 at each size) and
 // the hand-built Four Lakes, each settled on its rastered water alone. Each lake stands 0.05 to 0.6 over its sill
-// (`stair.settled`), every wet body where the water table puts it, the dry ones dry, no water strays off the planned
-// water, and each fall pours one curtain of its height over a lip as wide as the invariant asks (the fall judge,
-// fallCurtain.ts), its sill's curtain: judged with the notches shut, since a stair fall's open notch, a level deep
-// through the crest, takes most of the stair's flow and leaves the rest of the lip a film (PREMISES §9; the film is
-// logged). This is the test the table's constants (levels.ts `WATER`) are fitted by.
+// (`stair.settled`), every wet body where the water table puts it, the dry ones dry, each link carries the table's
+// flow within a fifth (where the springs' pool or a lake splits its water, the weirs at the channels' heads share it
+// as the table does), no water strays off the planned water, and each fall pours one curtain of its height over a lip
+// as wide as the invariant asks (the fall judge, fallCurtain.ts), its notch open as on day 1 (§4.4 `stair.settled`).
+// This is the test the table's constants (levels.ts `WATER`) are fitted by.
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -21,6 +21,9 @@ const TABLE_SLACK = 0.25;
 /** Settled water off the planned water, at most (`stair.settled`: under 0.3 %). */
 const STRAY = 0.003;
 const WET = 0.05;
+/** How far a link's settled flow may stand from the table's, as a share of it, and the least flow judged so. */
+const FLOW_SLACK = 0.2;
+const FLOW_LEAST = 2;
 
 function plans(): [string, PremisePlan, StageWater][] {
   const out: [string, PremisePlan, StageWater][] = [];
@@ -45,10 +48,6 @@ describe("Stage 1's water, settled", () => {
       const t0 = performance.now();
       const s = canonicalSettle(m);
       const ms = performance.now() - t0;
-      // (the stair falls' notches shut, a ruined weir's breach left open: it is its lake's sill)
-      const shut = stageModel(w, { shutNotches: true }).floor;
-      for (let i = 0; i < N; i++) if (r.crest[i] && !plan.links[r.crest[i] - 1].fall!.notch) shut[i] = m.floor[i];
-      const sill = shut.some((h, i) => h !== m.floor[i]) ? canonicalSettle({ ...m, floor: shut }) : s;
       const lines: string[] = [];
       for (const [k, b] of plan.bodies.entries()) {
         const lv: number[] = [];
@@ -65,6 +64,44 @@ describe("Stage 1's water, settled", () => {
         if (b.kind === "lake") {
           expect(level - b.sill, `${b.id} over its sill`).toBeGreaterThanOrEqual(0.05);
           expect(level - b.sill, `${b.id} over its sill`).toBeLessThanOrEqual(0.6);
+        }
+      }
+      // what each link carries: over its weir where it has one, else the net flow out of its body into its channel (a
+      // fall: into the body below)
+      const W = r.W;
+      const out = s.out!;
+      const step = [-W, -1, W, 1];
+      const overWeir = (id: string) => {
+        const li = plan.links.findIndex((l) => l.id === id) + 1;
+        let q = 0;
+        for (const i of r.weirs[id].lip) {
+          const x = i % W;
+          for (let d = 0; d < 4; d++) {
+            const j = i + step[d];
+            if ((d === 1 && x === 0) || (d === 3 && x === W - 1) || j < 0 || j >= N) continue;
+            if (r.channel[j] === li && r.along[j] >= r.weirs[id].at && r.heights[j] < r.heights[i]) q += out[4 * i + d] - out[4 * j + ((d + 2) % 4)];
+          }
+        }
+        return q;
+      };
+      for (const [k, b] of plan.bodies.entries()) {
+        const gone = new Map<string, number>();
+        for (let i = 0; i < N; i++) {
+          if (r.lake[i] !== k + 1) continue;
+          const x = i % W;
+          for (let d = 0; d < 4; d++) {
+            const j = i + step[d];
+            if ((d === 1 && x === 0) || (d === 3 && x === W - 1) || j < 0 || j >= N || r.lake[j] === k + 1) continue;
+            const key = r.channel[j] ? plan.links[r.channel[j] - 1].id : r.lake[j] ? plan.bodies[r.lake[j] - 1].id : "";
+            gone.set(key, (gone.get(key) ?? 0) + out[4 * i + d] - out[4 * j + ((d + 2) % 4)]);
+          }
+        }
+        for (const l of plan.links) {
+          const want = w.table.links[l.id].flow;
+          if (l.from !== b.id || want < FLOW_LEAST) continue;
+          const got = r.weirs[l.id] ? overWeir(l.id) : (gone.get(r.channel.includes(plan.links.indexOf(l) + 1) ? l.id : l.to) ?? 0);
+          lines.push(`${l.id} carries ${got.toFixed(2)} (table ${want.toFixed(2)})`);
+          expect(Math.abs(got / want - 1), `${l.id}: settled ${got.toFixed(2)}, table ${want.toFixed(2)}`).toBeLessThanOrEqual(FLOW_SLACK);
         }
       }
       let stray = 0;
@@ -98,13 +135,12 @@ describe("Stage 1's water, settled", () => {
           for (let i = 0; i < N; i++) if (c.id && c.id[i] >= 0) pouring++;
           return { c, pouring };
         };
-        const { c, pouring } = judge(sill, shut);
+        const { c, pouring } = judge(s, m.floor);
         // (a ruined weir's piers split its curtain by design: each piece pours the drop)
         const ok = c.ok || (f.piers > 0 && c.note.startsWith("split"));
         expect(ok, `${l.id}: ${c.note}`).toBe(true);
         expect(pouring, `${l.id}'s wet lip`).toBeGreaterThanOrEqual(landmark ? 10 : 8);
-        const open = f.notch + f.breach > 0 ? `; notch open, ${judge(s, m.floor).pouring} pouring` : "";
-        lines.push(`${l.id}: ${c.note}, ${pouring} pouring${open}`);
+        lines.push(`${l.id}: ${c.note}, ${pouring} pouring`);
       }
       console.log(`${name}: settled in ${ms.toFixed(0)} ms, ${stray} stray; ${lines.join("; ")}`);
     });

@@ -5,6 +5,7 @@
 // contract is tests/contract/premiseWater.test.ts's.
 
 import { flowThrough } from "../sim/prefill";
+import { weirWidth } from "./levels";
 import { near4, type WaterRaster } from "./raster/field";
 import type { Invariant, InvariantResult, PremisePlan, StageContext } from "./types";
 import { rowSpans, stageModel, type StageWater } from "./water";
@@ -200,5 +201,31 @@ const waterRows: Invariant = {
   },
 };
 
+/** Each weir whole (raster/weirs.ts): as many columns as its width with the bed in front under the crest, the crest
+ *  two tiles thick, and its body's water behind it under the crest. A neighbour that crowds a weir (another channel's
+ *  head beside it, the guard between two waters) starves the columns it touches, and the split is no longer the
+ *  table's. */
+const waterWeirs: Invariant = {
+  id: "water.weirs",
+  at: "land",
+  test(ctx) {
+    const w = need(ctx);
+    const r = w.raster;
+    for (const [li, l] of ctx.plan.links.entries()) {
+      const wr = r.weirs[l.id];
+      if (!wr) continue;
+      const crest = (l.bed as number[])[0];
+      const from = ctx.plan.bodies.findIndex((b) => b.id === l.from) + 1;
+      const ours = (i: number) => i >= 0 && r.channel[i] === li + 1;
+      let whole = 0;
+      for (const [front, a, b, behind] of wr.cols)
+        if (ours(front) && r.heights[front] < crest && ours(a) && ours(b) && r.heights[a] === crest && r.heights[b] === crest && behind >= 0 && (ours(behind) || r.lake[behind] === from) && r.heights[behind] < crest) whole++;
+      const width = weirWidth(l);
+      if (whole < width) return fail(`${l.id}'s weir has ${whole} whole columns, built for ${width}`);
+    }
+    return OK;
+  },
+};
+
 /** Stage 1's `land` invariants (every premise's). */
-export const WATER_CHECKS: Invariant[] = [waterLevels, waterExits, waterWet, waterFalls, waterRows];
+export const WATER_CHECKS: Invariant[] = [waterLevels, waterExits, waterWet, waterFalls, waterRows, waterWeirs];

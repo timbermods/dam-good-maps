@@ -5,23 +5,36 @@
 // leaves and ends two inside the one it reaches (§4.5: a run that started a tile outside its outline left none), and
 // a bed a tile wide is joined edge to edge so water can run along it.
 
+import { BED_FLOOR } from "../../land/genome";
 import { fbm } from "../../math/noise";
 import { dist, pathLength, segDist } from "../geom";
 import { designLevel, WATER, type WaterTable } from "../levels";
-import type { Link, Point, PremisePlan } from "../types";
+import type { Body, Link, Point, PremisePlan } from "../types";
 import { box, seedOf, type WaterRaster } from "./field";
 
-/** How far a brook's course wanders from its path, and how much wider its bed runs here and there. */
-const BROOK_WANDER = 1.2;
+/** How far a channel's course wanders from its path (D208: never ruler-straight; Four Lakes' `Channel.wander`): the
+ *  bypass 2.2, a leat 0.8, a brook drawn from 1 to 4.2; the neck, the hanging valley and the gorge run true (their
+ *  heads are weirs and lips). Tiles, the noise's amplitude across the path; it fades to nothing over `WANDER_EASE`
+ *  at each end, so a channel leaves and meets its waters where the plan says. */
+const WANDER = { bypass: 2.2, leat: 0.8, brook: [1, 4.2] } as const;
+const WANDER_EASE = 6;
+/** The wander's wavelength along the course, tiles. */
+const WANDER_CELL = 14;
+/** How much wider a brook's bed runs here and there. */
 const BROOK_WIDEN = 0.5;
 /** The bypass's bed (`bed: { under }`): it holds the pool's sill this far past its mouth, then steps down evenly to
- *  this level at its end (an edge, or the gorge's bed a level under it). Stage 2 cuts the land round it. */
+ *  this level at its end (an edge, or the gorge's bed on the floor a level under it). Stage 2 cuts the land round it. */
 const BYPASS_HOLD = 7;
-const BYPASS_END = 1;
+const BYPASS_END = BED_FLOOR + 1;
 /** How far a row's top stands over the water it holds back, at least. */
 const ROW_CLEAR = 0.3;
 /** A mouth's full width holds this far along, then narrows to the bed's over three tiles. */
 const MOUTH_RUN = 7;
+
+/** The bed a shut link's head holds up to its first row: the row's top (a level over it) clear of its body's water. */
+export function headHolds(table: WaterTable, from: Body): number {
+  return Math.ceil(designLevel(table, from) + ROW_CLEAR) - 1;
+}
 
 /** A link's bed level `s` tiles along its path (negative: inside the body it leaves). */
 export function bedAt(plan: PremisePlan, l: Link, s: number): number {
@@ -60,6 +73,41 @@ export function halfAt(l: Link, s: number): number {
   return m + ((half - m) * (s - MOUTH_RUN)) / 3;
 }
 
+/** How far a link's course wanders (`WANDER`). */
+export function wanderOf(plan: PremisePlan, l: Link): number {
+  if (l.kind === "bypass") return WANDER.bypass;
+  if (l.kind === "leat") return WANDER.leat;
+  if (l.kind !== "brook") return 0;
+  const u = (seedOf(plan, l.id, "wander") >>> 0) / 4294967296;
+  return WANDER.brook[0] + (WANDER.brook[1] - WANDER.brook[0]) * u;
+}
+
+/** A link's course: its path (with its ends' leads) a tile at a time, each point moved across the path by the
+ *  wander's noise, and the arc length along the path each point stands for. */
+function courseOf(ext: Point[], wander: number, seed: number): { pts: Point[]; s: number[] } {
+  let total = 0;
+  for (let k = 0; k + 1 < ext.length; k++) total += dist(ext[k], ext[k + 1]);
+  const pts: Point[] = [];
+  const s: number[] = [];
+  let run = 0;
+  for (let k = 0; k + 1 < ext.length; k++) {
+    const a = ext[k];
+    const b = ext[k + 1];
+    const segLen = dist(a, b);
+    const u = unit(a, b);
+    const steps = wander ? Math.max(1, Math.ceil(segLen)) : 1;
+    for (let q = k === 0 ? 0 : 1; q <= steps; q++) {
+      const at = run + (segLen * q) / steps;
+      const ease = Math.max(0, Math.min(1, at / WANDER_EASE, (total - at) / WANDER_EASE));
+      const o = wander ? wander * ease * fbm(seed, at, 0.5, WANDER_CELL, 2) : 0;
+      pts.push([a[0] + ((b[0] - a[0]) * q) / steps - u[1] * o, a[1] + ((b[1] - a[1]) * q) / steps + u[0] * o]);
+      s.push(at);
+    }
+    run += segLen;
+  }
+  return { pts, s };
+}
+
 /** Each link's channel: its bed tiles, levels and wadi strip. Bodies keep their tiles (a channel lowers its own ends'
  *  beds to meet them); where two channels cross, the lower bed keeps the tile. */
 export function rasterChannels(plan: PremisePlan, table: WaterTable, r: WaterRaster): void {
@@ -90,36 +138,31 @@ export function rasterChannels(plan: PremisePlan, table: WaterTable, r: WaterRas
     const lf = table.links[l.id];
     const wet = !!lf?.wet;
     const brook = l.kind === "brook" && (l.half ?? 0) >= 1;
-    const wander = brook ? BROOK_WANDER : 0;
-    const sW1 = seedOf(plan, l.id, "wx");
-    const sW2 = seedOf(plan, l.id, "wy");
+    const course = courseOf(ext, wanderOf(plan, l), seedOf(plan, l.id, "course"));
     const sWide = seedOf(plan, l.id, "wide");
     const sStrip = seedOf(plan, l.id, "strip");
     let hMost = 0;
     for (let s = 0; s <= len + 1; s += 1) hMost = Math.max(hMost, halfAt(l, s));
-    const reach = hMost + BROOK_WIDEN + wander + (wet ? 1 : 3.2);
+    const reach = hMost + BROOK_WIDEN + (wet ? 1 : 3.2);
     const touched: number[] = [];
-    let run = 0;
-    for (let k = 0; k + 1 < ext.length; k++) {
-      const a = ext[k];
-      const b = ext[k + 1];
-      const segLen = dist(a, b);
+    const { pts } = course;
+    for (let k = 0; k + 1 < pts.length; k++) {
+      const a = pts[k];
+      const b = pts[k + 1];
+      const s0 = course.s[k];
+      const s1 = course.s[k + 1];
       const [x0, y0, x1, y1] = box(W, H, Math.min(a[0], b[0]) - reach, Math.min(a[1], b[1]) - reach, Math.max(a[0], b[0]) + reach, Math.max(a[1], b[1]) + reach);
       for (let y = y0; y <= y1; y++)
         for (let x = x0; x <= x1; x++) {
           const i = y * W + x;
-          // (out of reach even wandering: skip the noise)
-          if (segDist(x + 0.5, y + 0.5, a[0], a[1], b[0], b[1]).d > reach + wander * 1.5) continue;
-          const px = x + 0.5 + (wander ? wander * fbm(sW1, x, y, 14, 2) : 0);
-          const py = y + 0.5 + (wander ? wander * fbm(sW2, x, y, 14, 2) : 0);
-          const { d, t } = segDist(px, py, a[0], a[1], b[0], b[1]);
+          const { d, t } = segDist(x + 0.5, y + 0.5, a[0], a[1], b[0], b[1]);
+          if (d > reach) continue;
           if (dBest[i] === Infinity) touched.push(i);
           if (d < dBest[i]) {
             dBest[i] = d;
-            sBest[i] = run + t * segLen - lead;
+            sBest[i] = s0 + t * (s1 - s0) - lead;
           }
         }
-      run += segLen;
     }
     const inBed = new Set<number>();
     for (const i of touched) {
@@ -131,10 +174,11 @@ export function rasterChannels(plan: PremisePlan, table: WaterTable, r: WaterRas
     // a bed a tile wide, joined edge to edge: where its tiles meet only at a corner, the side tile nearer the path
     if ((l.half ?? 0.55) < 1) {
       let last = -1;
-      let run2 = 0;
-      for (let k = 0; k + 1 < ext.length; k++) {
-        const a = ext[k];
-        const b = ext[k + 1];
+      for (let k = 0; k + 1 < pts.length; k++) {
+        const a = pts[k];
+        const b = pts[k + 1];
+        const s0 = course.s[k];
+        const s1 = course.s[k + 1];
         const segLen = dist(a, b);
         const steps = Math.max(1, Math.ceil(segLen * 4));
         for (let q = 0; q <= steps; q++) {
@@ -156,18 +200,17 @@ export function rasterChannels(plan: PremisePlan, table: WaterTable, r: WaterRas
               inBed.add(side);
               if (dBest[side] === Infinity) touched.push(side);
               dBest[side] = Math.min(dBest[side], 0.5);
-              sBest[side] = run2 + (q / steps) * segLen - lead;
+              sBest[side] = s0 + (q / steps) * (s1 - s0) - lead;
             }
           }
           if (!inBed.has(i)) {
             inBed.add(i);
             if (dBest[i] === Infinity) touched.push(i);
             dBest[i] = Math.min(dBest[i], 0.5);
-            sBest[i] = run2 + (q / steps) * segLen - lead;
+            sBest[i] = s0 + (q / steps) * (s1 - s0) - lead;
           }
           last = i;
         }
-        run2 += segLen;
       }
     }
     const depth = Math.max(lf?.bedDepth ?? 0, WATER.designDepth);
@@ -175,7 +218,7 @@ export function rasterChannels(plan: PremisePlan, table: WaterTable, r: WaterRas
     // stands more than a level over its sill (the springs' pool through its neck alone), the head is a level higher
     const from = fromBody >= 0 ? plan.bodies[fromBody] : null;
     const rowAt = l.rows.length ? Math.min(...l.rows) : -Infinity;
-    const holds = from ? Math.ceil(designLevel(table, from) + ROW_CLEAR) - 1 : -Infinity;
+    const holds = from ? headHolds(table, from) : -Infinity;
     for (const i of inBed) {
       const s = sBest[i];
       const bed = s <= rowAt + 1 ? Math.max(bedAt(plan, l, s), holds) : bedAt(plan, l, s);

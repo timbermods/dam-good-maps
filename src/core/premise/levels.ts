@@ -10,7 +10,7 @@
 // A link shut by a row of Blockages carries nothing on day 1; a body nothing reaches is dry.
 
 import { MAX_SILL_WIDTH, sillWidthFor } from "../sim/sill";
-import type { Body, Link, PremisePlan } from "./types";
+import type { Body, Fall, Link, PremisePlan } from "./types";
 
 export const WATER = {
   /** Flow a lip tile carries for each level of head over its crest (blocks a second). Four Lakes: about 3.3; sim/sill.ts
@@ -26,9 +26,12 @@ export const WATER = {
   designDepth: 0.3,
 } as const;
 
-/** A lip's width for the flow over it: `sillWidthFor`, never under 8 or over `MAX_SILL_WIDTH` (16). */
-export function lipWidth(flow: number): number {
-  return Math.max(WATER.lipLeast, Math.min(MAX_SILL_WIDTH, sillWidthFor(flow)));
+/** A lip's width for the flow over it: `sillWidthFor`, never over `MAX_SILL_WIDTH` (16), and never under 8 plus its
+ *  piers, notch and breach (`stair.settled` asks 8 tiles that pour; a pier pours nothing, and at a step of 3 a notch
+ *  or breach a level deeper drops 2 and some, a rapid, not the curtain). */
+export function lipWidth(flow: number, fall?: Pick<Fall, "piers" | "notch" | "breach">): number {
+  const least = WATER.lipLeast + (fall ? fall.piers + fall.notch + fall.breach : 0);
+  return Math.max(least, Math.min(MAX_SILL_WIDTH, sillWidthFor(flow)));
 }
 
 export interface BodyLevel {
@@ -78,9 +81,30 @@ function headBed(l: Link, from: Body): number {
   return from.sill;
 }
 
+/** The channels whose heads are weirs: where a lake's or the springs' pool's water splits between two ways out or
+ *  more (the pool between its neck and the hanging valley, a lake between its fall and the valley), each channel starts
+ *  with a weir its width across at its head bed and drops past it, so each carries as a lip does, whatever its length,
+ *  course or turn, and the split is the table's. A channel's own course would set it instead: a long level reach
+ *  carries half what a short one into a drop does. A side body's brooks carry a level's trickle and keep their beds. */
+export function weirs(plan: PremisePlan): Set<string> {
+  const out = new Set<string>();
+  for (const b of plan.bodies) {
+    if (b.kind !== "lake" && b.kind !== "pool") continue;
+    const open = plan.links.filter((l) => l.from === b.id && l.rows.length === 0);
+    if (open.length < 2) continue;
+    for (const l of open) if (l.path && Array.isArray(l.bed) && !sizedLip(l)) out.add(l.id);
+  }
+  return out;
+}
+
+/** A weir's width in tiles across: its channel's, whole. */
+export function weirWidth(l: Link): number {
+  return Math.max(1, Math.round(channelWidth(l)));
+}
+
 /** What one outlet carries with its body's water at `level`: its lip tiles (a notch or breach a level deeper, a pier
- *  a level over) or its channel's width, each `carry` × the head over it. */
-function carried(l: Link, from: Body, width: number, level: number): number {
+ *  a level over), its weir's tiles, or its channel's width, each `carry` × the head over it. */
+function carried(l: Link, from: Body, width: number, level: number, weir: boolean): number {
   if (sizedLip(l)) {
     const f = l.fall!;
     const low = f.notch + f.breach;
@@ -89,18 +113,19 @@ function carried(l: Link, from: Body, width: number, level: number): number {
     const h = level - f.crest;
     return WATER.lipCarry * (plain * Math.max(0, h) + low * Math.max(0, h + 1) + high * Math.max(0, h - 1));
   }
+  if (weir) return WATER.lipCarry * weirWidth(l) * Math.max(0, level - headBed(l, from));
   // a channel, the landmark's hanging valley among them: its head is its bed where it leaves the body
   return WATER.channelCarry * width * Math.max(0, level - headBed(l, from));
 }
 
 /** The level at which a body's open outlets carry `q` (by halving: the carry rises with the level). */
-function levelFor(q: number, outs: { l: Link; w: number }[], from: Body): number {
+function levelFor(q: number, outs: { l: Link; w: number; weir: boolean }[], from: Body): number {
   let lo = from.sill - 2;
   let hi = from.sill + 4;
   for (let k = 0; k < 48; k++) {
     const mid = (lo + hi) / 2;
     let c = 0;
-    for (const o of outs) c += carried(o.l, from, o.w, mid);
+    for (const o of outs) c += carried(o.l, from, o.w, mid, o.weir);
     if (c < q) lo = mid;
     else hi = mid;
   }
@@ -116,7 +141,7 @@ export function waterTable(plan: PremisePlan): WaterTable {
   for (const l of plan.links) widths.set(l.id, sizedLip(l) ? l.fall!.width : channelWidth(l));
   let table = route(plan, bodies, widths);
   for (let pass = 0; pass < 2; pass++) {
-    for (const l of plan.links) if (sizedLip(l)) widths.set(l.id, lipWidth(table.links[l.id].flow));
+    for (const l of plan.links) if (sizedLip(l)) widths.set(l.id, lipWidth(table.links[l.id].flow, l.fall));
     table = route(plan, bodies, widths);
   }
   return table;
@@ -137,6 +162,7 @@ function route(plan: PremisePlan, bodies: Map<string, Body>, widths: Map<string,
   };
   for (const s of plan.sources) add(s.into, s.strength, s.bad ? s.strength : 0);
   const open = (l: Link) => l.rows.length === 0;
+  const weir = weirs(plan);
   // the bodies in the order water reaches them (open links between bodies), the rest in the plan's order
   const indeg = new Map<string, number>(plan.bodies.map((b) => [b.id, 0]));
   for (const l of plan.links) if (open(l) && bodies.has(l.from) && bodies.has(l.to) && l.from !== l.to) indeg.set(l.to, (indeg.get(l.to) ?? 0) + 1);
@@ -162,14 +188,14 @@ function route(plan: PremisePlan, bodies: Map<string, Body>, widths: Map<string,
     const b = bodies.get(id)!;
     const q = inflow.get(id) ?? 0;
     const bad = badIn.get(id) ?? 0;
-    const outs = plan.links.filter((l) => l.from === id && open(l)).map((l) => ({ l, w: widths.get(l.id) ?? 1 }));
+    const outs = plan.links.filter((l) => l.from === id && open(l)).map((l) => ({ l, w: widths.get(l.id) ?? 1, weir: weir.has(l.id) }));
     const level = q > 0 && outs.length ? levelFor(q, outs, b) : b.sill;
     out.bodies[id] = { id, sill: b.sill, level, inflow: q, bad, dry: !(q > 0), outlets: outs.map((o) => o.l.id) };
     if (!(q > 0)) continue;
     let total = 0;
-    for (const o of outs) total += carried(o.l, b, o.w, level);
+    for (const o of outs) total += carried(o.l, b, o.w, level, o.weir);
     for (const o of outs) {
-      const share = total > 0 ? carried(o.l, b, o.w, level) / total : 1 / outs.length;
+      const share = total > 0 ? carried(o.l, b, o.w, level, o.weir) / total : 1 / outs.length;
       const lf = out.links[o.l.id];
       lf.flow += q * share;
       lf.bad += bad * share;
