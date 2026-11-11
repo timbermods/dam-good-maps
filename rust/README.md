@@ -32,7 +32,8 @@ compute the same bytes as the TypeScript they replace, natively (batch jobs) and
   water's speed work. It runs on one thread inside the plan; the multi-core strips stay the editor water's.
   `forces/src/levels.rs` is the forces' shared last step for land they shape (`levels::whole`: a real-valued
   surface and the old ground in, whole levels out; steps of uneven width, no band narrower than two tiles, no
-  one-tile pillar, pit or lone block; its contract and tests are in the file). Craterize ends with it; the other
+  one-tile pillar, pit or lone block; tiles a force leaves NaN, out of its reach or kept, are never tidied, so a force
+  gives the ground right round what it shapes its own level; its contract and tests are in the file). Craterize ends with it; the other
   forces that round a surface adopt it next.
 - `analysis/`: the six analysis kernels generation and the checks repeat most (#157, D391): `distanceFrom`,
   `walkDistance`, `landRegions`, `spillLevels`, `damSites` and `roomMap` (their TypeScript is tag

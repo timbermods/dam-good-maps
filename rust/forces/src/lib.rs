@@ -2425,10 +2425,8 @@ struct Plate {
     add: f64,
     /// The central uplift's share here, 0–1 (a ring's mountains).
     lift: f64,
-    /// The plate of a peak's hill here: 1 its top, 2 the one under it, and so on; 0 none. And the
-    /// levels this part of the plate stands under it (a spur: 1).
+    /// The plate of a peak's hill here: 1 its top, 2 the one under it, and so on; 0 none.
     tier: u8,
-    step: f64,
 }
 fn crater_size(p: f64) -> f64 {
     round(6.0 + 112.0 * pow(p / 100.0, 1.4))
@@ -3175,14 +3173,14 @@ impl Crater {
     /// tiles, and up to four fifths again, unevenly round the hill) for each level down of a plate above it:
     /// every plate holds the ones over it with a ledge of a few tiles at the least, so no face is more
     /// than one plate high, and a summit's ground runs on down to the hill's lowest plate.
-    fn hill(&self, qx: f64, qy: f64, x: f64, y: f64) -> (u8, f64) {
+    fn hill(&self, qx: f64, qy: f64, x: f64, y: f64) -> u8 {
         if self.plates.is_empty() {
-            return (0, 0.0);
+            return 0;
         }
         // (most of the bowl is nowhere near the hill)
         let (hx, hy, reach, last) = self.hill;
         if (qx - hx) * (qx - hx) + (qy - hy) * (qy - hy) > reach * reach {
-            return (0, 0.0);
+            return 0;
         }
         let scale = max(4.0, self.radius * 0.14);
         // (the ragged fields and the ledges' width worked out only where a plate is near)
@@ -3210,7 +3208,7 @@ impl Crater {
                 level = min(level, here);
             }
         }
-        if level.is_finite() { (level as u8 + 1, 0.0) } else { (0, 0.0) }
+        if level.is_finite() { level as u8 + 1 } else { 0 }
     }
     /// What the rim and the debris raise at a point `e` tiles outside the outline (the crest's own
     /// height inside it): the rim two or three tiles wide, then falling away, further on some sides; the debris
@@ -3271,7 +3269,7 @@ impl Crater {
         let mut plane = if (m.heights[tile] as f64) < self.ground(x, y) { 1.0 - smooth((r - 1.0 - 2.6 / self.radius) / 0.25) } else { 1.0 - smooth((r - 0.8) / 0.2) };
         let add;
         let mut lift = 0.0;
-        let (mut tier, mut step) = (0, 0.0);
+        let mut tier = 0;
         if r < 1.35 {
             let cavity = self.cavity(qx, qy, x, y);
             // (downhill, where the crater's own surface would stand above the land's fall, the land
@@ -3292,12 +3290,12 @@ impl Crater {
             };
             if r < 1.0 {
                 lift = self.uplift(qx, qy, x, y);
-                (tier, step) = self.hill(qx, qy, x, y);
+                tier = self.hill(qx, qy, x, y);
             }
         } else {
             add = self.apron(e, (qx, qy), x, y);
         }
-        Plate { r, plane, add, lift, tier, step }
+        Plate { r, plane, add, lift, tier }
     }
     /// The rays' height and their secondary pits' depth at a tile `r` out.
     fn rays_at(&self, s0: &Settings, x: f64, y: f64, r: f64) -> (f64, f64) {
@@ -3477,6 +3475,17 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
             }
         }
     }
+    // (the ground right round what the crater shapes, where it may: its own level, so the last step
+    // may tidy it with the crater's and leaves no sliver one tile wide between the two)
+    let reach: Vec<usize> = (0..m.w * m.h)
+        .filter(|&i| {
+            let (x, y) = (i % m.w, i / m.w);
+            surface[i].is_nan() && keep[i] == 0 && [(x > 0, i.wrapping_sub(1)), (x + 1 < m.w, i + 1), (y > 0, i.wrapping_sub(m.w)), (y + 1 < m.h, i + m.w)].iter().any(|&(on, j)| on && !surface[j].is_nan())
+        })
+        .collect();
+    for i in reach {
+        surface[i] = before.heights[i] as f64;
+    }
     if lifted.is_empty() {
         m.heights = levels::whole(&surface, &ground, &before.heights, m.w, m.h, ceiling, a.seed, grain);
     } else {
@@ -3536,7 +3545,7 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
                     // would stand under the hill's floor is not there, and one at the floor's level is
                     // that level, so the plate over it never stands a level further above the floor where
                     // the floor dips)
-                    let level = height - 2.0 * (p.tier as f64 - 1.0) - p.step;
+                    let level = height - 2.0 * (p.tier as f64 - 1.0);
                     if p.tier > 0 && level > floor - 0.5 { level } else { floor }
                 } else {
                     tempered(before.heights[*i] as f64, max(shape(*i, p), from + height * p.lift), k)

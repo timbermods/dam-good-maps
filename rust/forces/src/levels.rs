@@ -8,7 +8,9 @@
 //   let land = levels::whole(&surface, &ground, &before, w, h, ceiling, seed, grain);
 //
 // - `surface`: the force's surface at each tile, in levels; NaN where the force leaves the ground alone
-//   (out of its reach, or ground it keeps: those tiles come back as `before`).
+//   (out of its reach, or ground it keeps: those tiles come back as `before`, never tidied, since the
+//   stage cannot tell the two apart). A force gives the ground right round what it shapes, where it may
+//   change it, its own level as its surface, so no sliver one tile wide is left between the two.
 // - `ground`: what the surface stands on at each tile: the land, where the force adds to it or cuts
 //   into it; the force's own level datum, where it replaces the land. The stage shapes what the
 //   surface adds to this (the force's own slopes) and leaves the ground's own relief as it is: a
@@ -203,14 +205,15 @@ pub(super) fn whole(surface: &[f64], ground: &[f64], before: &[u8], w: usize, h:
     }
     nubs(&mut land, w, h, &free);
     // The land's own narrow ledges stay, where the force changes the ground by a level or less: a
-    // tile the tidying moved more than two levels from where it stood, with nothing round it changed
-    // by more than a level, goes back to where it stood (a brink one tile wide on a cliff the force
-    // only brushed would else fall the cliff's whole height).
+    // tile of a ledge one tile wide that the tidying moved more than two levels from where it stood,
+    // with nothing round it changed by more than a level, goes back to where it stood (a brink one
+    // tile wide on a cliff the force only brushed would else fall the cliff's whole height). Ground
+    // that stood two tiles wide keeps what the tidying gave it, so nothing goes back to stand alone.
     let brushed = |i: usize| (rounded[i] as i32 - before[i] as i32).abs() <= 1;
     for y in 0..h {
         for x in 0..w {
             let i = y * w + x;
-            if !free[i] || (land[i] as i32 - before[i] as i32).abs() <= 2 {
+            if !free[i] || (land[i] as i32 - before[i] as i32).abs() <= 2 || in_square(before, w, h, x, y) {
                 continue;
             }
             let mut all = true;
@@ -227,19 +230,23 @@ pub(super) fn whole(surface: &[f64], ground: &[f64], before: &[u8], w: usize, h:
     land
 }
 
+/// Whether a tile lies in a two-by-two square of its own level.
+fn in_square(land: &[u8], w: usize, h: usize, x: usize, y: usize) -> bool {
+    let l = land[y * w + x];
+    let at = |dx: i64, dy: i64| {
+        let (nx, ny) = (x as i64 + dx, y as i64 + dy);
+        nx >= 0 && ny >= 0 && nx < w as i64 && ny < h as i64 && land[ny as usize * w + nx as usize] == l
+    };
+    (at(-1, 0) && at(0, -1) && at(-1, -1)) || (at(1, 0) && at(0, -1) && at(1, -1)) || (at(-1, 0) && at(0, 1) && at(-1, 1)) || (at(1, 0) && at(0, 1) && at(1, 1))
+}
+
 /// The last odd tiles: a free tile that stands in no square of its own level, and is not the jog of
 /// a band, takes the level of three tiles of one of its squares that share one (the nearest to its
 /// own), so it stands in a square; or, failing that, of the two tiles on opposite sides of it that
-/// share one.
+/// share one; or, failing both, of a square beside it (the nearest to its own: the end of a ledge or
+/// a spur one tile wide).
 fn nubs(land: &mut [u8], w: usize, h: usize, free: &[bool]) {
-    let in_square = |land: &[u8], x: usize, y: usize| {
-        let l = land[y * w + x];
-        let at = |dx: i64, dy: i64| {
-            let (nx, ny) = (x as i64 + dx, y as i64 + dy);
-            nx >= 0 && ny >= 0 && nx < w as i64 && ny < h as i64 && land[ny as usize * w + nx as usize] == l
-        };
-        (at(-1, 0) && at(0, -1) && at(-1, -1)) || (at(1, 0) && at(0, -1) && at(1, -1)) || (at(-1, 0) && at(0, 1) && at(-1, 1)) || (at(1, 0) && at(0, 1) && at(1, 1))
-    };
+    let in_square = |land: &[u8], x: usize, y: usize| in_square(land, w, h, x, y);
     let mut odd: Vec<u32> = (0..w * h).filter(|&i| free[i] && !in_square(land, i % w, i / w)).map(|i| i as u32).collect();
     for _ in 0..6 {
         let mut moved = false;
@@ -286,6 +293,20 @@ fn nubs(land: &mut [u8], w: usize, h: usize, free: &[bool]) {
                         }
                     }
                 }
+                // (or, the end of a ledge or a spur one tile wide, the level of a square beside it, the
+                // nearest to its own: such a ledge breaks there, never runs on one tile wide)
+                if best.is_none() {
+                    let nearer = |v: u8| (v as i32 - own as i32).abs();
+                    for (dx, dy) in [(-1i64, 0i64), (1, 0), (0, -1), (0, 1)] {
+                        let (nx, ny) = (x as i64 + dx, y as i64 + dy);
+                        if nx >= 0 && ny >= 0 && nx < w as i64 && ny < h as i64 && in_square(land, nx as usize, ny as usize) {
+                            let g = land[ny as usize * w + nx as usize];
+                            if best.map_or(true, |v| nearer(g) < nearer(v) || (nearer(g) == nearer(v) && g < v)) {
+                                best = Some(g);
+                            }
+                        }
+                    }
+                }
                 if let Some(to) = best {
                     land[i] = to;
                     moved = true;
@@ -311,7 +332,8 @@ fn squares(heights: &mut [u8], w: usize, h: usize, free: &[bool]) -> bool {
     if w < 2 || h < 2 {
         return false;
     }
-    const UNSET: u8 = u8::MAX;
+    // (a tile not settled yet: past every level, so level 255 is a level like any other)
+    const UNSET: u16 = u16::MAX;
     // (each square with a free tile in it, under its lowest level)
     let mut levels: Vec<Vec<u32>> = vec![vec![]; 256];
     for y in 0..h - 1 {
@@ -323,13 +345,13 @@ fn squares(heights: &mut [u8], w: usize, h: usize, free: &[bool]) -> bool {
             }
         }
     }
-    let mut land: Vec<u8> = (0..w * h).map(|i| if free[i] { UNSET } else { heights[i] }).collect();
-    for level in (0..255usize).rev() {
-        let l = level as u8;
+    let mut land: Vec<u16> = (0..w * h).map(|i| if free[i] { UNSET } else { heights[i] as u16 }).collect();
+    for level in (0..256usize).rev() {
+        let l = level as u16;
         for &i in &levels[level] {
             let i = i as usize;
             let tiles = [i, i + 1, i + w, i + w + 1];
-            if tiles.iter().all(|&t| if free[t] { land[t] == UNSET || land[t] == l } else { heights[t] == l }) {
+            if tiles.iter().all(|&t| if free[t] { land[t] == UNSET || land[t] == l } else { heights[t] as u16 == l }) {
                 // (a tile more than two levels above the square that touches settled ground within
                 // two levels of its own stays up there, a tooth on that ground's side: the brink of
                 // a cliff never falls the cliff's height)
@@ -357,8 +379,8 @@ fn squares(heights: &mut [u8], w: usize, h: usize, free: &[bool]) -> bool {
     // them at a time joins the ground beside it (a trench fills from its sides, then stands in squares).
     let mut left: Vec<u32> = (0..w * h).filter(|&i| land[i] == UNSET).map(|i| i as u32).collect();
     let any = !left.is_empty();
-    let mut joined: Vec<(u32, u8)> = vec![];
-    let nearer = |to: u8, best: Option<u8>, own: u8| match best {
+    let mut joined: Vec<(u32, u16)> = vec![];
+    let nearer = |to: u16, best: Option<u16>, own: u16| match best {
         Some(b) if (b as i32 - own as i32).abs() < (to as i32 - own as i32).abs() || ((b as i32 - own as i32).abs() == (to as i32 - own as i32).abs() && b <= to) => Some(b),
         _ => Some(to),
     };
@@ -368,7 +390,7 @@ fn squares(heights: &mut [u8], w: usize, h: usize, free: &[bool]) -> bool {
         for &i in &left {
             let i = i as usize;
             let (x, y) = (i % w, i / w);
-            let own = heights[i];
+            let own = heights[i] as u16;
             let at = |dx: i64, dy: i64| {
                 let (nx, ny) = (x as i64 + dx, y as i64 + dy);
                 if nx < 0 || ny < 0 || nx >= w as i64 || ny >= h as i64 { UNSET } else { land[ny as usize * w + nx as usize] }
@@ -388,7 +410,7 @@ fn squares(heights: &mut [u8], w: usize, h: usize, free: &[bool]) -> bool {
             } else {
                 // (a tile that touches settled ground within two levels of its own never joins ground
                 // further off: the brink of a cliff stays on the cliff's top)
-                let far = |g: u8| (g as i32 - own as i32).abs() > 2;
+                let far = |g: u16| (g as i32 - own as i32).abs() > 2;
                 let held = [(-1i64, 0i64), (1, 0), (0, -1), (0, 1)].iter().any(|&(dx, dy)| at(dx, dy) != UNSET && !far(at(dx, dy)));
                 for (dx, dy) in [(-1i64, -1i64), (1, -1), (-1, 1), (1, 1)] {
                     let (a, b, c) = (at(dx, 0), at(0, dy), at(dx, dy));
@@ -405,7 +427,7 @@ fn squares(heights: &mut [u8], w: usize, h: usize, free: &[bool]) -> bool {
             if ring {
                 // (nothing settled beside them: they keep their levels)
                 for &i in &left {
-                    land[i as usize] = heights[i as usize];
+                    land[i as usize] = heights[i as usize] as u16;
                 }
                 break;
             }
@@ -418,7 +440,9 @@ fn squares(heights: &mut [u8], w: usize, h: usize, free: &[bool]) -> bool {
         }
         left.retain(|&i| land[i as usize] == UNSET);
     }
-    heights.copy_from_slice(&land);
+    for (t, &l) in heights.iter_mut().zip(&land) {
+        *t = l as u8;
+    }
     any
 }
 

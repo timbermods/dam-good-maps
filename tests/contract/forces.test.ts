@@ -137,6 +137,29 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
         }
   });
 
+  it("Craterize leaves nothing one tile wide where it changes the ground or beside it, on rough ground too: no ledge strip on a steep wall, no spot put back alone, no sliver at its edge (#912's review)", () => {
+    const W = 96;
+    const cases = [
+      { kind: "plain", at: [48, 48], size: 54, centre: "bowl", seed: 288, debris: "heavy" }, // (a ledge strip on a 13, 7, 2 wall)
+      { kind: "slide", at: [40, 48], size: 54, centre: "bowl", seed: 288, debris: "heavy" }, // (the end of a ledge strip)
+      { kind: "lake", at: [40, 48], size: 40, centre: "auto", seed: 0, debris: "heavy" }, // (a tile put back where it stood)
+      { kind: "slide", at: [40, 48], size: 40, centre: "peak", seed: 1, debris: "light" }, // (the same, by a peak)
+      { kind: "lake", at: [40, 48], size: 54, centre: "bowl", seed: 1, debris: "light" }, // (a sliver at the crater's edge)
+    ] as const;
+    for (const c of cases) {
+      const m = fixture(c.kind, W);
+      const h = impact(snapshotMap(m), { ...CRATER_DEFAULTS, power: 55, size: c.size, centre: c.centre, walls: "steep", debris: c.debris, rays: false, seed: c.seed }, { origin: c.at[1] * W + c.at[0] }).map.heights;
+      const narrow: string[] = [];
+      for (let y = 1; y < W - 1; y++)
+        for (let x = 1; x < W - 1; x++) {
+          let near = false;
+          for (let v = -1; v <= 1; v++) for (let u = -1; u <= 1; u++) near ||= h[(y + v) * W + x + u] !== m.heights[(y + v) * W + x + u];
+          if (near && !twoWide(h, W, W, x, y)) narrow.push(`${x},${y}`);
+        }
+      expect(narrow, `${c.kind} Size ${c.size} ${c.centre} seed ${c.seed}: ground one tile wide`).toEqual([]);
+    }
+  });
+
   it("Craterize: a small crater is a shallow bowl with no centre, never a shaft, and a crater's depth grows with its size", () => {
     const W = 96;
     let last = 0;
