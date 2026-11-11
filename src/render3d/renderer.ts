@@ -3853,9 +3853,27 @@ export class MapRenderer {
     step();
   }
 
+  /** Pose the camera at once on `v` with a vertical field of view of `fov` degrees (the game's first view, its lens
+   *  35°): the lens stays until Reset view puts ours back. */
+  poseCamera(v: ViewState, fov: number): void {
+    cancelAnimationFrame(this.glideFrameTo);
+    this.setFov(fov);
+    this.setView(v);
+    this.sunNow();
+  }
+
+  /** The perspective camera's vertical field of view, degrees. */
+  private setFov(fov: number): void {
+    if (this.persp.fov === fov) return;
+    this.persp.fov = fov;
+    this.persp.updateProjectionMatrix();
+    this.requestRender();
+  }
+
   resetView(): void {
     const m = this.map;
     if (!m) return;
+    this.setFov(PERSP_FOV_DEG);
     let sum = 0;
     for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
     const mean = sum / m.heights.length;
