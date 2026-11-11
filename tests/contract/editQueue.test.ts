@@ -107,6 +107,8 @@ describe("the edit queue against the worker: pinned scenarios", () => {
     // not know; step 4 changes this to 0)
     expect(h.queue.mispredictions).toBe(1);
     expect(h.queue.ticket(id)!.mispredicted).toBe(true);
+    // (in `protect` alone: the land the player saw stays as it was shown, the page's `strokeMismatches`)
+    expect(h.queue.landMispredictions).toBe(0);
   });
 
   it("#880 (1) (step 3): Ctrl+Z while a Naturalize stroke lands takes back that stroke, the step before stands, and redo brings it back", async () => {

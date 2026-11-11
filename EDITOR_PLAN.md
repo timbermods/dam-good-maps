@@ -423,7 +423,8 @@ place of its bottom rule.
   **Legend** stands at the top right, just left of Top-down, with **Hide objects** just left of it (every object and its
   shadow, while H is held or until clicked again; §4, "Seeing the land behind objects"; beside Legend so the Show row
   keeps its room and the water row its place in the band, and where the water row takes a second line the two join the
-  Show row as its last toggles). **Land**, between Hide objects and Legend, shows the land's shares in the key under Legend
+  Show row as its last toggles, or, where they would reach Top-down, as on a map with caves at 1280 wide, take the
+  second line too, one gap left of the water row). **Land**, between Hide objects and Legend, shows the land's shares in the key under Legend
   while it is ticked: **Water**, **Moist ground**, **Dry ground** and **Spoiled ground** (contaminated) as whole per cents of the map's tiles
   that add up to 100 ("under 1%" for a share that is there but rounds to none), then **Living trees**
   and **Logs** (each grown tree's, as the checks count them). Plain numbers, no warning colour: dry land is not a fault,
@@ -443,7 +444,7 @@ place of its bottom rule.
   **Reset view**, **First view** (O: the camera exactly as the game opens the map, from its start, with the game's own
   angle, zoom and lens, `gameFirstView` in `src/render3d/framing.ts` from `openingCamera`; any move away from it, Top-down
   included, puts our lens back unseen, the ground's size kept; greyed while the map has no start) and the compass (a button, **Face north**: the view glides round to north), then under them the
-  **level control** (▾ value ▴, at one fixed width; its arrows "Show one layer less" and "Show one layer more"), **Slow
+  **level control** (▾ value ▴, at one fixed width, under Top-down and as wide; its arrows "Show one layer less" and "Show one layer more"), **Slow
   forces** (under Reset view and First view) and **Sound** (a speaker icon, crossed out when muted; its volume opens beneath it, its tooltip to its left so the
   volume stays in view): a grid
   310px wide, one height and one gap throughout (`tests/e2e/viewAndHeader.spec.ts`). **A new map and Reset view frame the
@@ -2046,7 +2047,8 @@ delivery routes, the artifact edition and bring-your-own-key) is in
   one for another map is dropped at one door; (I5) undo, redo and a jump name the step they mean when pressed (a seq,
   or a ticket on its way), resolved when the move reaches the head into the worker's one call `moveTo(seq | null)`; a
   move whose step never happened (refused, cancelled, timed out) does nothing; (I6) a stroke answered with nothing else
-  between its start and its answer was guessed right (`mispredictions`); (I7) one watchdog, on the head ticket, refuses
+  between its start and its answer was guessed right (`mispredictions`, every channel; `landMispredictions`, the
+  answers whose heights differed, is what the browser specs read as `strokeMismatches`); (I7) one watchdog, on the head ticket, refuses
   it with its one line once its bound passes (a landing Naturalize stroke: `answerBound`; with the map's worker:
   `MAP_ANSWER_MS`), so nothing waits forever and `idle()` always resolves; (I8) a press always makes a ticket (behind a
   landing stroke it composes once that stroke has its land), a stroke let go is answered or refused with a line, and a
