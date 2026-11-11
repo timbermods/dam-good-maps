@@ -6,8 +6,11 @@
 // without the mode's loop.
 //
 //   npx tsx tools/premise-map.ts [--seed 1 | --seeds 1-3] [--size 128] [--plan file.json] [--out .scratch/premise-map]
+//     [--drought]
 //
-// Prints each map's time, its checks that fail or wait for a later step, its ground measures and its files.
+// Prints each map's time, its checks that fail or wait for a later step, its ground measures and its files. With
+// `--drought`, the difficulty's longest drought is run on the settled water (`HazardRun`, as the editor's Drought
+// view runs it): each lake's volume kept at its worst day, and the day the start's water goes (D133's rule).
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
@@ -23,6 +26,8 @@ import type { GenerateResult } from "../src/core/gen/generate";
 import { encodePng } from "./png";
 import { runsToTiles } from "../src/core/math/grid";
 import type { Ladder } from "../src/core/premise/ladder";
+import { droughtHold } from "../src/core/premise/hold";
+import { waterByNumber, type StageWater } from "../src/core/premise/water";
 
 const args = process.argv.slice(2);
 const opt = (name: string) => {
@@ -37,6 +42,16 @@ const range = opt("seeds");
 const seeds = range ? (([a, b]) => Array.from({ length: b - a + 1 }, (_, k) => a + k))(range.split("-").map(Number)) : [Number(opt("seed") ?? 1)];
 /** The page the share links open (the local dev server's port). */
 const PAGE = opt("page") ?? "http://localhost:5191/";
+const drought = args.includes("--drought");
+
+/** The difficulty's longest drought on the settled water: each lake's volume (its stage 1 tiles) kept at its worst
+ *  day, and the day the start's water goes. */
+function droughtReadout(spec: MapSpec, plan: PremisePlan, b: BuildResult, water: StageWater): void {
+  const h = droughtHold(spec, plan, b, water);
+  const kept = h.lakes.map((l) => `${plan.names[l.id] ?? l.id} ${Math.round(l.day0)} → ${Math.round(l.worst)} (${l.day0 > 0 ? Math.round((100 * l.worst) / l.day0) : 0} %)`);
+  console.log(`  drought of ${h.days} days, each lake's volume kept at its worst day: ${kept.join("; ")}`);
+  console.log(`  the start's water: ${h.has ? (h.gone ? `gone on day ${h.gone}` : `held all ${h.days} days`) : "none a pump reaches on day 0"}`);
+}
 
 function specFor(seed: number, plan?: PremisePlan): MapSpec {
   const spec = makeSpec({ seed, size: { x: plan?.W ?? side, y: plan?.H ?? side }, theme: "any" });
@@ -140,6 +155,7 @@ if (file) {
   const t0 = performance.now();
   const m = premiseMap(spec, plan);
   write({ spec, features: m.features, built: m.built, file: m.file, field: m.field, report: m.report, name: m.name, description: plan.line }, plan.top, basename(file).replace(/\.(plan\.)?json$/, ""), performance.now() - t0, m.notes);
+  if (drought) droughtReadout(spec, plan, m.built, m.water);
 } else
   for (const seed of seeds) {
     const spec = specFor(seed);
@@ -153,4 +169,5 @@ if (file) {
     const pi = r.result.info.premise!;
     console.log(`seed ${seed}: plan ${pi.attempt}, ${r.result.info.settles} settle(s), start moved ${pi.start?.moved} (level land ${pi.start?.level}, farmland ${pi.start?.farmland}, frame water shallow ${pi.start?.shallow}); failed before: ${r.result.failures.map((f) => f.failed[0]).join(", ") || "none"}`);
     write(r.result, spec.settings.terrain.highestTerrain, `${premise}-${side}-${seed}`, ms, pi.notes ?? [], pi.ladder);
+    if (drought && pi.plan) droughtReadout(r.result.spec, pi.plan, r.result.built, waterByNumber(pi.plan));
   }

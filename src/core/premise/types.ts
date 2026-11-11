@@ -44,7 +44,8 @@ export interface Body {
   islands?: Spine[];
   /** The width of its level meadow, in tiles. */
   meadow: number;
-  /** Its bed's deepest, below the sill. */
+  /** A lake's floor below its sill (its drowned river's line a level deeper where the floor leaves room); a pool's,
+   *  a tarn's or a basin's deepest. */
   deep: number;
   /** An empty basin on day 1: a work fills it. */
   dry: boolean;
