@@ -17,9 +17,11 @@ import { sillWidthFor, MAX_SILL_WIDTH } from "../../sim/sill";
 import { hazardDays } from "../../sim/weather";
 import { EDITOR_LEVEL, type MapSpec } from "../../spec/mapspec";
 import { rulesFor } from "../../validate/playability";
+import { FLOOR_MARGIN } from "../../gen/generate";
 import { premiseStream } from "../draw";
 import { holdDeep } from "../levels";
 import { FRAME, frameLimit, frameWidthAt, lipInFrame, START } from "../frame";
+import { BENCH as BENCH_DISC } from "../raster/relief";
 import { bodyDist, bodyGap, bodyWithin, dist, dist2, outlineBox, segDist, edgeGap, headingOf, norm, outlinePoints, unitAt, pathBodyGap, pathDist, pathGap, pathLength, pathWithin, pointAt, squareClear, subPath } from "../geom";
 import { BODY_GAP, fail, linksFrom, nameOf, OK, PLAN_CHECKS, reach } from "../planChecks";
 import { WATER_CHECKS } from "../waterChecks";
@@ -686,8 +688,10 @@ function nearestOnSpine(spine: Spine, q: Point): [number, number, number] {
 }
 
 /** Candidate starts tried for each landmark source, and kept (the first that holds: a candidate holds one time in 30
- *  to 40, so keeping four to pick from cost most of stage 0's time, §3.3). */
-const FRAME_TRIES = 120;
+ *  to 40, so keeping four to pick from cost most of stage 0's time, §3.3). 240 since the bench's room is read here
+ *  (`BENCH_ROOM`): half the candidates that reach it are turned down, and at 120 seed 9 at 128² found no frame in
+ *  any of its plans. */
+const FRAME_TRIES = 240;
 const FRAME_KEEP = 1;
 /** The bay under the landmark: its end's radius, and the radius where it leaves its lake. */
 const BAY_END = [3.2, 4.8] as const;
@@ -745,6 +749,155 @@ function meadowRoom(sx: number, sy: number, bodies: Body[], W: number, H: number
   return n;
 }
 
+/** The start's bench as the plan keeps room for it (D515). The relief builds it (`raster/relief.ts` `BENCH`) as level
+ *  ground round a spine from the start's tile to `frame.benchTo`, holding `BENCH.room` times the bench, behind the
+ *  landmark's lip: the spine leans from the start away from the lip and the bay (`BENCH_ROOM.turns` of a right angle
+ *  toward the start's open side, `BENCH_ROOM.lengths` of the bench's radius long), the first lean whose room holds the
+ *  bench. Its room is the ground dry of the start's lake and the waters under it (`shore` past their outlines), out of
+ *  a higher water's rim (`rim` more) and off the channels (`link` past their half width), joined to the start's 3 × 3.
+ *  Where the start's lake takes that room it gives it up (planning, 2026-11-11: the bench outranks the lake's size):
+ *  its arms but the bay narrow to stand `D` from the bench's spine, `D` the least of `reach`'s shares of its half
+ *  width that frees the room; it keeps its width within `keep` of its sills, its links' ends and the bay's root, and
+ *  a side arm narrowed under `ARM_RADIUS[0]` goes (from where it narrows out). Arms that narrow are read every `step`
+ *  tiles. */
+const BENCH_ROOM = { shore: 2, rim: 6, link: 3, keep: 6, step: 2, reach: [0.5, 0.75, 1, 1.25], turns: [0, 0.33, 0.67, 1], lengths: [0, 0.6, 1.2] } as const;
+
+/** The bench's half width round a spine `len` long holding `area`: the capsule's π m² + 2 len m. */
+function benchHalf(area: number, len: number): number {
+  return (-2 * len + sqrt(4 * len * len + 4 * Math.PI * area)) / (2 * Math.PI);
+}
+
+/** The tiles round the bench's spine (start to `to`, within `m`), behind the lip `a` ahead along `look`, joined to the
+ *  start's 3 × 3 through ground the bench may hold (`BENCH_ROOM`), counted up to `want`. */
+function benchRoom(sx: number, sy: number, to: Point, m: number, look: Point, a: number, bodies: Body[], low: number, channels: Link[], W: number, H: number, want: number): number {
+  const cx = sx + 0.5;
+  const cy = sy + 0.5;
+  const ex = to[0] + 0.5;
+  const ey = to[1] + 0.5;
+  const x0 = Math.floor(Math.min(cx, ex) - m - 1);
+  const y0 = Math.floor(Math.min(cy, ey) - m - 1);
+  const x1 = Math.ceil(Math.max(cx, ex) + m + 1);
+  const y1 = Math.ceil(Math.max(cy, ey) + m + 1);
+  const bw = x1 - x0 + 1;
+  const seen = new Uint8Array(bw * (y1 - y0 + 1));
+  // (a body or channel whose box stands further off than the bench's box and its gap needs no closer look)
+  const near = (o: ArrayLike<number>, gap: number) => {
+    const gx = Math.max(0, o[0] - x1, x0 - o[2]);
+    const gy = Math.max(0, o[1] - y1, y0 - o[3]);
+    return gx * gx + gy * gy <= gap * gap;
+  };
+  const bs = bodies.map((b) => ({ b, gap: b.sill <= low ? BENCH_ROOM.shore : BENCH_ROOM.shore + BENCH_ROOM.rim })).filter(({ b, gap }) => near(outlineBox(b), gap + 0.01));
+  const ls = channels
+    .map((l) => ({ path: l.path!, gap: (l.half ?? 1) + BENCH_ROOM.link }))
+    .filter(({ path, gap }) => near([Math.min(...path.map((q) => q[0])), Math.min(...path.map((q) => q[1])), Math.max(...path.map((q) => q[0])), Math.max(...path.map((q) => q[1]))], gap + 0.01));
+  const ok = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= W || y >= H || x < x0 || y < y0 || x > x1 || y > y1) return false;
+    const px = x + 0.5;
+    const py = y + 0.5;
+    if (segDist(px, py, cx, cy, ex, ey).d > m) return false;
+    if ((px - cx) * look[0] + (py - cy) * look[1] > a - 1) return false;
+    for (const { b, gap } of bs) if (!(bodyDist(px, py, b) > gap)) return false;
+    for (const { path, gap } of ls) if (!(pathDist(px, py, path).d > gap)) return false;
+    return true;
+  };
+  // (from the start's 3 × 3: it is the start's own ground)
+  let q: [number, number][] = [];
+  for (let y = sy - 1; y <= sy + 1; y++)
+    for (let x = sx - 1; x <= sx + 1; x++) {
+      seen[(y - y0) * bw + x - x0] = 1;
+      q.push([x, y]);
+    }
+  let n = 0;
+  while (q.length && n < want) {
+    const next: [number, number][] = [];
+    for (const [x, y] of q) {
+      n++;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < x0 || yy < y0 || xx > x1 || yy > y1 || seen[(yy - y0) * bw + xx - x0]) continue;
+        seen[(yy - y0) * bw + xx - x0] = 1;
+        if (ok(xx, yy)) next.push([xx, yy]);
+      }
+    }
+    q = next;
+  }
+  return n;
+}
+
+/** The start's lake's arms narrowed to stand `D` from the bench's spine (start to `to`) behind the lip (`BENCH_ROOM`),
+ *  or null where its main arm would narrow out (the lake would part) or under `ARM_RADIUS[0]`. The arms that need no
+ *  narrowing are kept as they are. */
+function yieldToBench(K: Body, sx: number, sy: number, to: Point, look: Point, a: number, D: number, keep: readonly Point[]): Spine[] | null {
+  const cx = sx + 0.5;
+  const cy = sy + 0.5;
+  const out: Spine[] = [];
+  for (let k = 0; k < K.arms.length; k++) {
+    const arm = K.arms[k];
+    const narrowed = (x: number, y: number, r: number): number => {
+      if ((x - cx) * look[0] + (y - cy) * look[1] - r > a) return r;
+      if (keep.some((q) => dist(q, [x, y]) < r + BENCH_ROOM.keep)) return r;
+      return Math.min(r, segDist(x, y, cx, cy, to[0] + 0.5, to[1] + 0.5).d - D);
+    };
+    // (read every `step` tiles, so the capsules between keep off the bench as their ends do)
+    const fine: [number, number, number][] = [arm[0]];
+    for (let j = 1; j < arm.length; j++) {
+      const [x0, y0, r0] = arm[j - 1];
+      const [x1, y1, r1_] = arm[j];
+      const m = Math.max(1, Math.ceil(dist([x0, y0], [x1, y1]) / BENCH_ROOM.step));
+      for (let t = 1; t <= m; t++) fine.push([x0 + ((x1 - x0) * t) / m, y0 + ((y1 - y0) * t) / m, r0 + ((r1_ - r0) * t) / m]);
+    }
+    const kept: Spine = [];
+    let changed = false;
+    for (const [x, y, r] of fine) {
+      const rr = narrowed(x, y, r);
+      if (rr < r) changed = true;
+      if (rr < 1) break;
+      kept.push([r1(x), r1(y), r1(rr)]);
+    }
+    if (!changed) {
+      out.push(arm);
+      continue;
+    }
+    if (k === 0 && kept.length < fine.length) return null;
+    // (a side arm narrowed to nothing goes; the main arm never does)
+    if (!kept.length || Math.max(...kept.map((p) => p[2])) < ARM_RADIUS[0]) {
+      if (k === 0) return null;
+      continue;
+    }
+    out.push(thin(kept));
+  }
+  return out;
+}
+
+/** A spine read every `BENCH_ROOM.step` tiles with its unchanged runs thinned back out: a point between two whose
+ *  radius it shares, on their line, says nothing the capsule between them does not. */
+function thin(arm: Spine): Spine {
+  if (arm.length < 3) return arm;
+  const out: Spine = [arm[0]];
+  for (let j = 1; j < arm.length - 1; j++) {
+    const p = out[out.length - 1];
+    const c = arm[j];
+    const n = arm[j + 1];
+    const same = p[2] === c[2] && c[2] === n[2] && Math.abs((c[0] - p[0]) * (n[1] - p[1]) - (c[1] - p[1]) * (n[0] - p[0])) < 0.05;
+    if (!same) out.push(c);
+  }
+  out.push(arm[arm.length - 1]);
+  return out;
+}
+
+/** Where a lake meets its links (their paths' ends near it, its falls' lips): it keeps its width there as it gives
+ *  the start's bench its room (`BENCH_ROOM.keep`). */
+function anchorsOf(plan: PremisePlan, K: Body): Point[] {
+  const out: Point[] = [];
+  for (const l of plan.links) {
+    if (l.from !== K.id && l.to !== K.id) continue;
+    if (l.fall) out.push(l.fall.lip[0], l.fall.lip[1]);
+    if (l.path?.length) out.push(l.path[0], l.path[l.path.length - 1]);
+  }
+  return out;
+}
+
 /** The start, its first frame and the landmark (§4.3), placed together: the lip across the look, 5.5 tiles or more in
  *  front of the start and under the frame's top edge, between the start's lake and the landmark's source; a bay of the
  *  lake under the lip, on the far side from the start, so the fall's foot opens to its lake; the hanging valley
@@ -792,7 +945,7 @@ function placeFrame(L: Layout, o: StairOption): string | null {
       if (fits.length) anchors.push({ pk, D, toward, fits });
     }
     if (!anchors.length) continue;
-    const found: { start: PremisePlan["frame"]["start"]; C: Point; w: number; a: number; look: Point; right: Point; hv: Point[]; bay: Spine }[] = [];
+    const found: { start: PremisePlan["frame"]["start"]; C: Point; w: number; a: number; look: Point; right: Point; hv: Point[]; bay: Spine; arms: Spine[]; benchTo: Point }[] = [];
     for (let t = 0; t < FRAME_TRIES && found.length < FRAME_KEEP; t++) {
       const { pk, D, toward, fits } = rng.pick(anchors);
       const { look, right, or, fw } = rng.pick(fits);
@@ -842,16 +995,53 @@ function placeFrame(L: Layout, o: StairOption): string | null {
       if (edgeGap(bayBody, W, W) < 8) continue;
       // (the checks from here on draw nothing, so they run cheapest and likeliest to fail first: the 5 × 5 turns down
       // most candidates)
-      const withBay: Body = { ...K, arms: [...K.arms, bay] };
+      // (the bay's own checks first: the lake gives the bench room, the bay never does)
+      if (!squareClear(sx, sy, 2, 1.2, [bayBody])) continue;
+      if ([...lip, C].some((q) => bodyDist(q[0], q[1], bayBody) < 1)) continue;
+      if (plan.bodies.some((b) => b.id !== K.id && bodyGap(b, bayBody, BODY_GAP + 2) < BODY_GAP + 2)) continue;
+      if (channels.some((l) => pathBodyGap(l.path!, bayBody, 3, pathLength(l.path!) - 3, (l.half ?? 1) + 2) < (l.half ?? 1) + 2)) continue;
+      // the start's bench: the room the relief builds it on (`BENCH_ROOM`), leaning from the start away from the lip
+      // and the bay; the start's lake giving up what it takes of it, by the least that frees it
+      const rules = rulesFor(L.spec);
+      const wantBench = Math.ceil(FLOOR_MARGIN * rules.levelLand);
+      const area = BENCH_DISC.room * wantBench;
+      const R0 = sqrt(area / Math.PI);
+      const keep: Point[] = [[toward2[0], toward2[1]], ...anchorsOf(plan, K)];
+      const roomWith = (as: Spine[], to: Point, m: number) => benchRoom(sx, sy, to, m, look, a, plan.bodies.map((b) => (b.id === K.id ? { ...K, arms: [...as, bay] } : b)), F, channels, plan.W, plan.H, wantBench);
+      let best: { to: Point; m: number; n: number } | null = null;
+      for (const len of BENCH_ROOM.lengths) {
+        for (const turn of len ? BENCH_ROOM.turns : [0]) {
+          const th = (turn * Math.PI) / 2;
+          const d = norm([-look[0] * cos(th) - sigma * right[0] * sin(th), -look[1] * cos(th) - sigma * right[1] * sin(th)]);
+          const to: Point = [Math.round(sx + len * R0 * d[0]), Math.round(sy + len * R0 * d[1])];
+          const m = benchHalf(area, dist(to, [sx, sy])) + 1.5;
+          const n = roomWith(K.arms, to, m);
+          if (!best || n > best.n) best = { to, m, n };
+          if (n >= wantBench) break;
+        }
+        if (best && best.n >= wantBench) break;
+      }
+      const { to: benchTo, m: benchM } = best!;
+      let arms: Spine[] | null = K.arms;
+      if (best!.n < wantBench) {
+        arms = null;
+        for (const f of BENCH_ROOM.reach) {
+          const as = yieldToBench(K, sx, sy, benchTo, look, a, f * benchM, keep);
+          if (!as || as.length + 1 < ARMS[0]) break;
+          if (roomWith(as, benchTo, benchM) >= wantBench) {
+            arms = as;
+            break;
+          }
+        }
+        if (!arms) continue;
+      }
+      const withBay: Body = { ...K, arms: [...arms, bay] };
       const bodies = plan.bodies.map((b) => (b.id === K.id ? withBay : b));
       // the 5 × 5 dry, a tile from any water; the lip and its middle on land
       if (!squareClear(sx, sy, 2, 1.2, bodies)) continue;
       if ([...lip, C].some((q) => bodies.some((b) => bodyDist(q[0], q[1], b) < 1))) continue;
-      if (plan.bodies.some((b) => b.id !== K.id && bodyGap(b, bayBody, BODY_GAP + 2) < BODY_GAP + 2)) continue;
-      if (channels.some((l) => pathBodyGap(l.path!, bayBody, 3, pathLength(l.path!) - 3, (l.half ?? 1) + 2) < (l.half ?? 1) + 2)) continue;
       // the start's meadow: dry ground it walks to without crossing water (a start between its lake and the bay has
       // none to build on)
-      const rules = rulesFor(L.spec);
       if (meadowRoom(sx, sy, bodies, plan.W, plan.H) < MEADOW_ROOM * (rules.farmland + rules.forester)) continue;
       // the hanging valley: straight back from the lip, then to the source
       const trial: PremisePlan = { ...plan, bodies, frame: { ...plan.frame, start } };
@@ -871,10 +1061,15 @@ function placeFrame(L: Layout, o: StairOption): string | null {
         break;
       }
       if (!hv) continue;
-      found.push({ start, C, w, a, look, right, hv, bay });
+      found.push({ start, C, w, a, look, right, hv, bay, arms, benchTo });
     }
     if (!found.length) continue;
-    const { start, C, w, a, look, right, hv, bay } = rng.pick(found);
+    const { start, C, w, a, look, right, hv, bay, arms, benchTo } = rng.pick(found);
+    // the lake as it gives the bench its room (an island it no longer holds well inside goes with it)
+    if (arms !== K.arms) {
+      K.arms = [...arms];
+      if (K.islands?.some((s) => s.some(([x, y, r]) => !(bodyDist(x, y, K) < -(r + 4))))) delete K.islands;
+    }
     // the bay is one of the lake's arms (five at most): it takes the last side arm's place
     if (K.arms.length >= armsMost(L.W)) K.arms.length = armsMost(L.W) - 1;
     K.arms.push(bay);
@@ -900,7 +1095,9 @@ function placeFrame(L: Layout, o: StairOption): string | null {
       rows: [],
     });
     addName(plan, "landmark", rng.pick(LANDMARK_NAMES));
-    plan.frame = { start, landmark: "landmark", lipAhead: r1(a), bench: rng.int(BENCH[L.spec.settings.terrain.buildableLand][0], BENCH[L.spec.settings.terrain.buildableLand][1] + 1) };
+    // (the bench never under the gate's floor with the generator's margin, D515: the relief builds it, `startBowl`)
+    const benchDrawn = rng.int(BENCH[L.spec.settings.terrain.buildableLand][0], BENCH[L.spec.settings.terrain.buildableLand][1] + 1);
+    plan.frame = { start, landmark: "landmark", lipAhead: r1(a), bench: Math.max(benchDrawn, Math.ceil(FLOOR_MARGIN * rulesFor(L.spec).levelLand)), benchTo };
     stair.landmarkSource = src.id;
     return null;
   }

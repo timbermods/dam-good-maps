@@ -27,8 +27,9 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec } from "../../src/core
 // to Highest terrain 22, which drew seed 1 a six-level landmark; and for the works round's floors, the bypass's own
 // course (seed 1's plan a seven-level landmark again) and the start's ground kept from the style, D148; and for generator
 // 0.10.17's start floors, D515: the same plan and start, whose bench of 770 needs no building, and the version in its
-// description)
-const SHA = "d9579aae2fef171c9debd99ff1a43985b2d2be39dfee03f378ce1ba19a7b05f8";
+// description; and for the start's bench room, D515: the lake stair's frame keeps room for the bench, leaning it away
+// from the lip and the bay, the start's lake giving up what it takes, so seed 1 draws another frame)
+const SHA = "4d97d1316b39c27b695b4306ebb346d62cfdbff55d4f8781948d32316f3d473c";
 
 describe("The premise mode (§2.2, build step 4)", () => {
   const made = makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "any", premise: "lakeStair" });

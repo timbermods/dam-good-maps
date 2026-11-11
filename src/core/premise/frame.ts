@@ -15,6 +15,8 @@
 import { COS_P, frameAt, levelDoorTurns, OPENING, openingCamera, SIN_P, TAN_H, TAN_V, type OpeningStart } from "../analysis/opening";
 import { reachAt, slopeLinks, walkDistance } from "../analysis/walk";
 import { placeSlopes, SLOPE_RULES } from "../features/slopes";
+import { cutRamp, footComponents, rampPath } from "../land/levels";
+import { stream } from "../math/rng";
 import type { Orientation } from "../format/footprints";
 import { pow, sqrt } from "../math/portable";
 import { distanceFrom } from "../math/grid";
@@ -200,7 +202,7 @@ export interface FrameNeeds {
  *  the water by number as the checks count them, meet `needs` (`FrameNeeds`). The plan's start is kept when it holds;
  *  else the nearest tile within `START.shift` that does (the start onto the meadow, §9); else the one whose land comes
  *  nearest, with the reason it fails (stage 8 then draws the next plan). */
-export function checkFrame(plan: PremisePlan, w: StageWater, heights: Uint8Array, needs: FrameNeeds): FrameCheck {
+export function checkFrame(plan: PremisePlan, w: StageWater, heights: Uint8Array, needs: FrameNeeds, ramps: readonly (readonly [number, number])[] = []): FrameCheck {
   const { W, H } = plan;
   const N = W * H;
   const s0 = plan.frame.start;
@@ -244,7 +246,7 @@ export function checkFrame(plan: PremisePlan, w: StageWater, heights: Uint8Array
     if (out.bench < needs.bench) return { ...out, reason: `${out.bench} tiles of level ground on the start's bench (at least ${needs.bench})` };
     if (needs.early) return out;
     // the walkable land, read before the build on the slopes it derives for the start alone (`START.reach`)
-    out.reach = slopeReach(heights, wet, W, H, x, y);
+    out.reach = slopeReach(heights, wet, W, H, x, y, ramps);
     if (out.reach < START.reachRead * needs.reach) return { ...out, reason: `${out.reach} dry tiles walkable from the start once its slopes stand (at least ${Math.ceil(START.reachRead * needs.reach)} before the build's own)` };
     // the frame's water shallow: water three levels deep is near black in the game (§4.3). A body's bed inside the
     // frame rises to hold its water at most 1.2 deep (a lip's crest and the channels keep theirs), the drowned river's
@@ -404,12 +406,69 @@ export function buildBench(plan: PremisePlan, w: StageWater, heights: Uint8Array
   return moved;
 }
 
+/** The start's ways out (D515, `start.reach`): where the land the start walks to once its slopes stand (`slopeReach`,
+ *  with the ramps cut so far) holds less than `WAYS_OUT.share` of the walkable land the gate asks, a natural ramp is
+ *  cut up the cliff that walls it in, as the themes cut theirs (`land/levels.ts` `rampPath`, `cutRamp`: the gentlest
+ *  line to the ground beyond, a step a level, four levels at most, never a pier), to the largest grounds the walk
+ *  does not reach first (`tries` of them, `least` tiles or more), `most` ramps at most. Never through the water or the
+ *  ground stage 1 decided. `share` is the frame's read (`START.reachRead`) with the generator's margin. */
+export const WAYS_OUT = { share: 0.85, most: 2, tries: 4, least: 200 } as const;
+
+/** Cuts the start's ways out (`WAYS_OUT`) into the heights in place; returns their steps as (low tile, high tile)
+ *  pairs, the build's slope targets (`GeneratedField.ramps`). */
+export function cutWaysOut(plan: PremisePlan, w: StageWater, heights: Uint8Array, reach: number): [number, number][] {
+  const { W, H } = plan;
+  const N = W * H;
+  const { x: sx, y: sy } = plan.frame.start;
+  const steps: [number, number][] = [];
+  if (!(reach > 0)) return steps;
+  const water = new Uint8Array(N);
+  for (let i = 0; i < N; i++) water[i] = w.raster.lake[i] || w.raster.channel[i] ? 1 : 0;
+  const keep = w.raster.fixed;
+  const tiles = new Uint8Array(N);
+  const lay = stream(plan.seed, "premise.waysOut");
+  const occ = new Uint8Array(N);
+  for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) occ[(sy + dy) * W + sx + dx] = 1;
+  for (let cut = 0; cut < WAYS_OUT.most; cut++) {
+    // the land the start walks to now: 0; the rest by the ground it stands on (joined by steps of one level)
+    const slopes = placeSlopes(heights, W, H, { x: sx, y: sy }, occ, steps.length ? { ...SLOPE_RULES, ramps: steps } : SLOPE_RULES);
+    const d = walkDistance(heights, W, H, water, slopeLinks(slopes, W, H), { x: sx, y: sy }, N);
+    let walked = 0;
+    for (let i = 0; i < N; i++) if (d[i] < Infinity && !water[i]) walked++;
+    if (walked >= WAYS_OUT.share * reach) break;
+    const fc = footComponents(heights, W, H, water);
+    const lab = new Int32Array(N).fill(-1);
+    const size = new Array<number>(fc.size.length + 1).fill(0);
+    for (let i = 0; i < N; i++) {
+      if (water[i]) continue;
+      lab[i] = d[i] < Infinity ? 0 : fc.lab[i] + 1;
+      if (lab[i] > 0) size[lab[i]]++;
+    }
+    const order = size
+      .map((n, k) => [n, k])
+      .filter(([n, k]) => k > 0 && n >= WAYS_OUT.least)
+      .sort((a, b) => b[0] - a[0] || a[1] - b[1])
+      .slice(0, WAYS_OUT.tries);
+    let done = false;
+    for (const [, to] of order) {
+      const path = rampPath(heights, W, H, water, keep, lab, 0, to);
+      if (path && cutRamp(heights, W, H, water, keep, path, tiles, steps, lay)) {
+        done = true;
+        break;
+      }
+    }
+    if (!done) break;
+  }
+  return steps;
+}
+
 /** The dry tiles a start walks to once the generator's slopes stand (`start.reach`, read before the build): the
- *  slopes the build derives for a start there (`placeSlopes`, `SLOPE_RULES`), walked off the water. */
-export function slopeReach(heights: Uint8Array, wet: Uint8Array, W: number, H: number, sx: number, sy: number): number {
+ *  slopes the build derives for a start there (`placeSlopes`, `SLOPE_RULES`, a slope on every step of the land's
+ *  natural ramps, `ramps`), walked off the water. */
+export function slopeReach(heights: Uint8Array, wet: Uint8Array, W: number, H: number, sx: number, sy: number, ramps: readonly (readonly [number, number])[] = []): number {
   const occ = new Uint8Array(W * H);
   for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) occ[(sy + dy) * W + sx + dx] = 1;
-  const slopes = placeSlopes(heights, W, H, { x: sx, y: sy }, occ, SLOPE_RULES);
+  const slopes = placeSlopes(heights, W, H, { x: sx, y: sy }, occ, ramps.length ? { ...SLOPE_RULES, ramps } : SLOPE_RULES);
   const d = walkDistance(heights, W, H, wet, slopeLinks(slopes, W, H), { x: sx, y: sy }, W * H);
   let n = 0;
   for (let i = 0; i < W * H; i++) if (d[i] < Infinity && !wet[i]) n++;

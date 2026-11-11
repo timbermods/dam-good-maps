@@ -141,8 +141,8 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
       continue;
     }
     // stage 2: the relief between, in the theme's style; stage 3: the start for the first frame
-    const ground = premiseLand(plan, water, style, bench);
-    const frame = checkFrame(plan, water, ground.heights, needs);
+    const ground = premiseLand(plan, water, style, bench, needs.reach);
+    const frame = checkFrame(plan, water, ground.heights, needs, ground.ramps);
     if (frame.reason) {
       fail(attempt, [{ id: "frame.start", reason: frame.reason }]);
       continue;
