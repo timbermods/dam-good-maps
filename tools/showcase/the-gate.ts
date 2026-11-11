@@ -244,9 +244,9 @@ const RIM = 14;
 const NOTCH_X: [number, number] = [148, 152];
 /** The seeps' hollows on the basin's flats: each a small basin with a seep in it. */
 const SEEPS: { at: Pt; r: number; strength: number; name: string }[] = [
-  { at: [62, 150], r: 3.2, strength: 0.02, name: "the West Seep" },
-  { at: [108, 140], r: 2.8, strength: 0.02, name: "the Middle Seep" },
-  { at: [172, 148], r: 3.0, strength: 0.02, name: "the East Seep" },
+  { at: [62, 150], r: 2.2, strength: 0.02, name: "the West Seep" },
+  { at: [108, 140], r: 2.0, strength: 0.02, name: "the Middle Seep" },
+  { at: [172, 148], r: 2.2, strength: 0.02, name: "the East Seep" },
 ];
 
 interface Channel {
@@ -570,7 +570,7 @@ export function designLand(): Land {
       const x = i % W;
       const y = (i - x) / W;
       const dd = hypot(x + 0.5 - S.at[0], y + 0.5 - S.at[1]);
-      h[i] = Math.max(0, dd < 1.6 ? bench - 5 : bench - 4);
+      h[i] = Math.max(0, dd < 1.2 ? bench - 6 : bench - 5);
     }
     const ring: number[] = [];
     for (let i = 0; i < N; i++) {
@@ -578,10 +578,10 @@ export function designLand(): Land {
       const x = i % W;
       for (const j of [i - 1, i + 1, i - W, i + W]) if (j >= 0 && j < N && Math.abs((j % W) - x) <= 1 && pool[j] === 3 + k) { ring.push(i); break; }
     }
-    for (const i of ring) if (!channel[i] && h[i] < bench - 3) h[i] = Math.max(1, bench - 3);
+    for (const i of ring) if (!channel[i] && h[i] < bench - 4) h[i] = Math.max(1, bench - 4);
     const spill = ring.length ? ring[0] : -1;
     if (spill >= 0) {
-      h[spill] = Math.max(1, bench - 3);
+      h[spill] = Math.max(1, bench - 4);
       seepLips.push([spill]);
     } else seepLips.push([]);
   });
