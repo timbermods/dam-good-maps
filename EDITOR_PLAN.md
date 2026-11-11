@@ -620,7 +620,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   every theme at 128² nightly; `tools/force-everywhere.ts` sweeps 128² and 256²; a force adopted later gets the
   same check). **Carve clicked at the map's edge carves inward** (D360 (1a), `core/forces/carve/edge.ts`). **A Quake
   click makes a short natural fault** (D360 (1b), `clickFault` in `core/forces/quake.ts`): 10 to 22 tiles with
-  Power, along the slope's contour (a seeded way on flat ground), turned and bent by the seed.
+  Power, along the slope's contour (a seeded way on flat ground), turned and bent by the seed, its points to a
+  hundredth of a tile as the operation keeps them, so the fault it ran on is the one kept.
 - **Bound only by nature** (D257): a force obeys only what it physically is and the map's physical limits (its
   floor, the height ceiling, the file format); it never refuses, stops short or reshapes its result for
   playability. Where it carves, buries or moves the start's ground, the start is carried to the nearest level ground
@@ -809,7 +810,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   at every Power the valley is a U and its water lies in a channel or a tarn, never a sheet
   (`tests/contract/glaciateFloor.test.ts`, `glaciatePowerSize.test.ts`); default Power 60, Size Auto 30. Its row:
   **Power**, **Size**, **Meltwater** (on), **Try another**, **More** (**Benches**, **Steps**, **Tarn**, **Scree**, each
-  on Auto). Two acts, the ice advancing for three fifths of its showing and melting back for two. **The floor reads as
+  on Auto). Two acts, the ice advancing for three fifths of its showing and melting back for two; each tile takes its
+  level as the front passes, and the snout's lobe past the last station (its trough, moraine and outwash fan) forms
+  out from its centre as the ice enters it, never all in the last frame (`shownArrival`). **The floor reads as
   one river** (D292): it winds across the level floor to the falls' pools and the rivers coming in; a fall it can't
   reach, nor pass within six tiles of, stays a dry hanging valley; the game's water is run on the finished floor as it
   is planned, and if it would wet the dry floor the river bends toward the falls or keeps round 4's meander. Bound

@@ -22,7 +22,7 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec } from "../../src/core
 
 // (re-pinned since generator 0.10.16's ground with grade, D148: the map's own land is the same; its description names the
 // generator's version, "Made with Dam Good Maps 0.10.16", gen/pack.ts)
-const SHA = "d9cd21f082c1a436b49da2a113c64f31f5a8aca066a1dfeaf76db5b0e352f786";
+const SHA = "29ef4e653ecb8ec70c968acd157cb06552f27970ef2bba9153698a610a663eca";
 
 describe("The premise mode (§2.2, build step 4)", () => {
   const made = makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "any" });
@@ -42,8 +42,14 @@ describe("The premise mode (§2.2, build step 4)", () => {
     expect(p.fellBack).toBeUndefined();
     expect(p.plan?.premise).toBe("lakeStair");
     expect(r.report.passed).toBe(true);
-    // (the checks only plants and mine sites answer wait for steps 6 and 7, as warnings)
-    for (const id of p.later ?? []) expect(r.report.checks.find((c) => c.id === id)?.severity).toBe("warning");
+    // (step 6's plants and mine sites answer the start's wood and food and the mine pair: none waits for a later step)
+    expect(p.later).toEqual([]);
+    for (const id of ["start.food", "start.wood", "start.wood_floor", "resources.mine_site"]) expect(r.report.checks.find((c) => c.id === id)?.ok, id).toBe(true);
+    // (the life by budget, §2.2 stage 6: living trees 450 to 700 per 10,000 tiles, berries about 185 to 230)
+    expect(p.life!.livingPer10k).toBeGreaterThanOrEqual(450);
+    expect(p.life!.livingPer10k).toBeLessThanOrEqual(700);
+    expect(p.life!.bushesPer10k).toBeGreaterThanOrEqual(185);
+    expect(p.life!.bushesPer10k).toBeLessThanOrEqual(230);
     expect(p.start!.shallow).toBeGreaterThanOrEqual(0.85);
     // (the ladder: every work has a site on the land or says why not; day 1 is not fully watered)
     const ladder = p.ladder!;

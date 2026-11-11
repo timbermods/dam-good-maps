@@ -194,7 +194,9 @@ export const TAP = 1;
 /** A click's fault (PLAN §20 D360 (1b)): a short, natural fault at the click point, as if drawn there.
  *  The land chooses its way: along the slope's contour where the ground slopes, a seeded way on flat
  *  ground, turned a little by the seed (Try another varies it); a slight bend; longer with Power (10 to
- *  22 tiles); on the map. */
+ *  22 tiles); on the map. Its points are to a hundredth of a tile, as the operation keeps the fault
+ *  (result.ts `pathRecord`): the fault it runs on is the one it keeps, so the same fault drawn again from
+ *  the operation makes the same land. */
 export function clickFault(heights: ArrayLike<number>, W: number, H: number, at: Point, power: number, seed: number): Point[] {
   const cx = Math.max(0, Math.min(W - 1, Math.round(at.x)));
   const cy = Math.max(0, Math.min(H - 1, Math.round(at.y)));
@@ -217,10 +219,12 @@ export function clickFault(heights: ArrayLike<number>, W: number, H: number, at:
   for (let k = -2; k <= 2; k++) {
     const t = (k / 2) * half;
     const off = bend * (1 - portable.pow(k / 2, 2));
-    out.push({ x: Math.max(0, Math.min(W - 1, cx + dx * t - dy * off)), y: Math.max(0, Math.min(H - 1, cy + dy * t + dx * off)) });
+    out.push({ x: hundredth(Math.max(0, Math.min(W - 1, cx + dx * t - dy * off))), y: hundredth(Math.max(0, Math.min(H - 1, cy + dy * t + dx * off))) });
   }
   return out;
 }
+
+const hundredth = (v: number) => Math.round(v * 100) / 100;
 
 /** A stroke's length along its points (tiles). */
 export function strokeLength(path: readonly Point[]): number {
