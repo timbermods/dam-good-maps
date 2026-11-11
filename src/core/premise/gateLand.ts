@@ -341,7 +341,8 @@ const basinBowl: GateLandInvariant = {
       if (v >= W - 1 && heights[i] < RIM_LEAST) open.push(u);
       if (rim[i]) {
         if (heights[i] < RIM_LEAST && !r.fixed[i]) return fail(`The rim stands at ${heights[i]} at ${x}, ${y} (${RIM_LEAST} or more)`);
-      } else if (!r.fixed[i] && heights[i] > g.sill + 1) return fail(`The basin's floor stands at ${heights[i]} at ${x}, ${y}, over the lake's sill + 1 (${g.sill + 1})`);
+      } else if (!r.fixed[i] && r.heights[i] <= g.sill + 1 && heights[i] > g.sill + 1) return fail(`The basin's floor stands at ${heights[i]} at ${x}, ${y}, over the lake's sill + 1 (${g.sill + 1})`);
+      // (a tile stage 1's guard holds over the sill + 1 is a bed's bank, the leat's cascade down the basin's face)
     }
     // (the far edge's open tiles one run, as wide as the notch and two more at most)
     open.sort((p, q) => p - q);

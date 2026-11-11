@@ -93,6 +93,9 @@ export const MEGADAM_RISE = 2;
  *  The gate holds no floor of its own: this is where it aims, the shared checks judge. */
 const BENCH_FLOOR = { small: 480, normal: 640, large: 980 } as const;
 const BENCH_OVER = 1.1;
+/** The start's walk before any slope stands is its level pocket, and the shared stage 3 (#1015) reads it against three
+ *  quarters of the walkable floor (1,300): the pocket holds that too. */
+const WALK_READ = 0.75 * 1300;
 /** The rows the lake stands off the wall's foot at the least (the trench, the start's 5 × 5 and the rows round it). */
 const BENCH_ROWS = 9;
 /** The valley's room under the lake (the brooks' springs and their runs), a share of the side. */
@@ -397,7 +400,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   // (the start's bench outranks the lake, D515: the lake stands off the wall's foot by the rows its pocket needs to hold
   // the bench, between the drain bay and the Gate's arm, or, mirrored, the lake's open end; and narrows where the
   // valley has no more room under it. The pocket is the lake's meadow at the sill + 1, so it is level)
-  const benchAim = BENCH_OVER * BENCH_FLOOR[spec.settings.start.area];
+  const benchAim = BENCH_OVER * Math.max(BENCH_FLOOR[spec.settings.start.area], WALK_READ);
   const bayIn = bEnd - 9 * ks + 2.6 * ks;
   const pocket = Math.max(8, ks > 0 ? gu - 4.5 - bayIn : bayIn - uW);
   const rows = Math.max(BENCH_ROWS, Math.ceil(benchAim / pocket) + 4);
