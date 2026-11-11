@@ -249,8 +249,13 @@ export function ventRadius(s: EruptSettings, short = Infinity): number {
   return Math.min(r, ERUPT_AUTO_SHARE * short);
 }
 
-/** The Size that follows Power (tiles across: what the options row shows until Size is set). */
-export const naturalBreadth = (s: EruptSettings) => 2 * ventRadius({ ...s, size: null });
+/** The Size that follows Power (tiles across), at most `ERUPT_AUTO_SHARE` of the short side (`short`) as the run caps it. */
+export const naturalBreadth = (s: EruptSettings, short = Infinity) => 2 * ventRadius({ ...s, size: null }, short);
+
+/** The Size the options row shows on a W × H map: the set Size, or Auto's capped breadth in Size's steps. */
+export function shownBreadth(s: EruptSettings, m: { W: number; H: number }): number {
+  return s.size ?? Math.max(ERUPT_SIZE_MIN, Math.min(ERUPT_SIZE_MAX, Math.round(naturalBreadth(s, Math.min(m.W, m.H)) / 2) * 2));
+}
 
 /** A drawn shape's span: the farthest apart two of its points are (tiles). */
 export function shapeSpan(path: readonly Point[]): number {
