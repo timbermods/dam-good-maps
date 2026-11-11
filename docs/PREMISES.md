@@ -1228,6 +1228,35 @@ drowned by the gorge below it passes a third of what a free one does (the Low Ri
 water deeper than two reads near black in the game, so the water in the first frame stays under two but for the row
 that carries the fall to the drain.
 
+**As built (the plan, stage 0; build step 11's first PR).** `premises/wallGate.ts` draws the plan (`wallGate`,
+`wallGateEligible`, the plan's own numbers in `GatePlan.gate`) and holds the `plan` halves of the invariants above with
+§1.4's checks: `gate.levels`, `wall.grid`, `wall.camera`, `frame.lip`, `gate.slot`, `basin.bowl`, `start.neck`, `leat.own`,
+`valley.enclosed`, `gate.ladder`, `gate.skeleton`. **Not offered yet**: it is not in `PREMISE_IDS`, so not in the choices,
+Any or a link; `premises/dev.ts` lists it for `tools/premise-plan.ts --premise wallGate` and the tests until it makes a
+whole map. It holds no playability floor of its own (planning, 2026-11-11): the start's numbers are the shared gate's.
+Where it differs from the table, and why:
+
+- **Laid out in a frame turned to the camera**: the wall along u, the valley toward the opening camera, then turned by
+  the start's own turn (four) and mirrored, so the face's normal is always 35° off the look (`wall.camera`).
+- **Levels by number**: the lake's sill 7 (`BED_FLOOR` + 4), so the slot's floor (5) falls to the notch on the floor (3,
+  D325; round 8's bed reached 1); the Veil 6 or 7; the crest 17 to 19 (9 over a floor at most the sill + 1, so Highest
+  terrain under 17 is refused); the Pass two under the springs; the megadam's water the sill + 2; the rim 12 to 14.
+- **The bastion is 8 thick**, not 7: the cleft's pool stands `BODY_GAP` (3) behind the trench under the lip, with a row
+  of rock behind it. It is the wall's most southern run.
+- **The Veil's lip runs along the wall**, so the lake stair's "square to the look" and "35 to 56 % of the frame" do not
+  apply (the round's lip spans about a quarter); its ends and foot are in the first frame (the foot to v −1.1), its far
+  end under the top edge's limit. The start stands 5 rows in front of the face.
+- **The Still Pool is a `kettle`** beside the start, its inlet a wet `channel` one wide, 3.0 to 3.5 between outlines.
+- **The Gate is one link** from the lake to the notch, the slot then the Gate Bed (`slot.to`); **the leat** one link
+  from the cleft along the crest to the Pass and down the Pass Bed to the same notch (`passAt`). The seeps are left to
+  the relief stage.
+- **The ladder** is round 8's rungs: the Still Pool's levee (first, in the first frame), the Gate opened (`canal`) and
+  the leat opened (medium), the Low River levee'd after the Gate and the leat's whole share (`leat`, large), the megadam
+  on the Low River with the Gate dammed (large). Their `gives` are three quarters of round 8's shares of the map, most
+  twice that: **(assumption)** until the ladder stage measures them.
+- **Measured** (`tests/contract/premiseGatePlan.test.ts`; seeds 1 to 200 at 128², 192² and 256²): every plan holds every
+  `plan` invariant on its first attempt, 1 to 5 ms a plan.
+
 ### 5.2 The island sea
 
 **The line:** "The big spring is on the far island and its fall feeds the sea; the red spreads from it across the
@@ -1353,7 +1382,7 @@ Each step is one PR that leaves dev green and is useful by itself.
 | 8 | **The proofs and the judging tools**: background proof rows, `tools/premise-batch.ts`, tiers 1 to 4 run and recorded | The premise proved true on every map a player opens | 7. The first ten cycles (#927, in work) for the cycles' proof; not blocked |
 | 9 | **Core built** (theme × premise as two choices, the style seam, the pair refusals, the settings' mapping of section 1.3 complete, the card's words; section 1.5). **On the page**: the two pickers beside Generate, each with Any; the settings greyed by `premiseSettings`; the map card from `info.premise.card` | Players get it | 8 passed; the page session |
 | 10 | **The ladder's readout in the editor** (section 8) | The editor's missing step 5 | 5; the page session |
-| 11 | **The wall with one gate** (§5.1, built by hand as The Gate) | A second idea; Generate can surprise | 9 |
+| 11 | **Plan built** (stage 0, not offered: §5.1 "As built"). **The wall with one gate** (§5.1, built by hand as The Gate); its water, relief and works next | A second idea; Generate can surprise | 9 |
 | 12 | **The sketch start** (section 8) | The editor's missing steps 1 and 2 | 2, 3 |
 | 13 | **The island sea** | A third idea; the first with a real delay | 11, 8 |
 
