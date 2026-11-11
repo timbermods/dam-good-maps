@@ -254,7 +254,7 @@ place of its bottom rule.
   keys only in tooltips.
   - Select: How to select's six shapes on the tools' cells, icon above name; "Drag on the map" beside them, or with a
     selection its size (and Max water depth with Apply over water), then its Level and its actions on the second
-    row, one per cell (Up 1, Down 1, Flatten, Cut down, Fill up, Delete). After them on the second row: Max water depth (two cells), Apply, and **Lake level**
+    row, one per cell (Up 1, Down 1, Flatten, Cut down, Fill up, Delete). After them on the second row: Max water depth (three cells: its name is wider than two on a system font), Apply, and **Lake level**
     (two cells; §5, "Lakes by number"), live once the Wand has taken water. No close button: Esc or X closes it. The first row
     ends with **Crop** (the map becomes the selection's bounding rectangle, D340; one cell, the size's words take two),
     **Fill water** (the hollow under the selection's lowest ground filled with standing water to the brim, the highest
@@ -279,7 +279,7 @@ place of its bottom rule.
     new size. Ctrl+Z, History or redo across the crop do the same; past 300 ms the message line says "Cropping…". Tooltip "Crop the map to the selection", no key.
   - The brushes: Size · Level (Raise, Lower, Flatten: Auto follows the ground; Free at its far end on Raise and
     Lower) or Strength (Smooth, Naturalize) · Mode; Sources · Brush (Round, Square or Lines, one at a time; the area
-    joins them on Raise and Lower; Raise adds Ridge) · Flatten's Steps (Off, 2, 3, 4). With Ridge chosen Raise's row is
+    joins them on Raise and Lower; Raise adds Ridge and Lower Canal) · Flatten's Steps (Off, 2, 3, 4). With Ridge chosen Raise's row is
     Height · Width · Steep (Auto, Left, Right), the Brush choice across the second row (§4, "The ridge").
   - The forces: Power (cells 1–3) · Size (cells 4–6; Auto: it follows Power; Quake has none) in the same place on every force, then their choices (Carve's What it leaves, Wander, Walls, Canyon
     depth, River depth with Off at its far end, Banks; Craterize's Walls, Centre, Debris, Rays; Erupt's Shape, Summit,
@@ -968,8 +968,11 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. It is
   weathered off the page in a worker of its own (D422, #868: `worker/naturalize.worker.ts`, `raster/remoteStroke.ts`),
   on the terrain and land the page shows, one call out at a time and the dabs meanwhile as one batch, the land a frame
-  or two behind the cursor; the page sends that land to the map's worker for its water, as for the other brushes. Let
-  go, a stroke goes on the history once its last land is in: an undo, a redo or a History jump pressed meanwhile waits
+  or two behind the cursor; the page sends that land to the map's worker for its water, as for the other brushes. Every
+  brush's stroke is a ticket in the edit queue from pointer-down ("Architecture", "The edit queue", #922 step 2): the
+  page paints it on the queue's land, and once it lets go its land before and after is laid over the worker's until the
+  worker answers, so the land shown is the worker's with the strokes on their way, and a recent stroke's undo and redo
+  show at once from the queue's copy of it. Let go, a Naturalize stroke goes on the history once its last land is in: an undo, a redo or a History jump pressed meanwhile waits
   for it, then acts, so Z takes that stroke back as it takes any other brush's; the editor closing (a new or opened
   map) forgets a stroke still on its way, as Esc does, so nothing of it reaches the next map (#880). A History row
   clicked meanwhile goes to the step it shows wherever that step stands once the stroke lands, refused with "That
@@ -1156,7 +1159,18 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   standout intentions that emerged on it (at most two, the generator's `say` lines), then its badwater line, then
   "Made with Dam Good Maps <version>, seed <n>.". The session answers `description()`: `{text, written, kept}`
   (`SessionInfo.description`, `descriptionWritten`, `descriptionKept`: the page shows `kept` under the field, not editable). This is not the name (D443): a rename stays
-  off the history.
+  off the history. **Its own words, and when they go out of date:** `description()` also answers `stale`
+  (`SessionInfo.descriptionStale`). A generated map's words say what the seed made ("A spring rises in a cave…", the
+  generator's `says`); once its player changes the map by hand (an operation that changes the map stands in the log;
+  writing the description or locking a feature does not) those lines are dropped from the words and from the file,
+  which then say only what stays true (its size and theme,
+  its badwater, its credit), and the words are stale until the player keeps them or writes their own, either one a
+  `setDescription`. An opened or blank map's words are never stale. **File → Description…** is the same two things in
+  one dialog: the **Name** and the **Description** (its count of 600, what is always added after it, the core's
+  refusal in its own line); it starts from the map's own words, says so, and while they are stale says "The map has
+  changed since the generator wrote these words. Keep them as yours, or write your own." with **Keep these words** as
+  its button. **An export never carries the checks' notes:** `exportTimber` writes the map's words alone (it once
+  appended "Exported with N warnings: …"; planning, 2026-11-11).
 - **The working area is Select's open selection** (D254, D259); there is no second way of marking an area. While a
   selection is open, the brushes, the forces and a brush's Clear work only inside it; everything outside is locked,
   exactly as it is, and dimmed. **A feathered edge**: a tile changes at most as many levels as it is steps inside
@@ -1223,6 +1237,23 @@ Make a valley, drop a source, and there's a river.
   roughly how long it will last; it is refused with a plain reason when the hollow doesn't hold water at that
   level. Each is one undo step. Their engine and questions are in the core; where they sit in the page is agreed
   with the page session (D388).
+- **The canal** (a channel that leads water; MAPCRAFT's "lead water"): a path from where the water is to where it should
+  go becomes a bed of a set **width** (1 to 6) and **depth** (1 to 3). The bed lies that deep under the land and falls
+  with it from its start to its end, never rising again: a rise in the land is cut through, up to three levels deeper
+  than the depth; a higher one is refused with one line that says where ("the land rises 4 levels above the canal's fall
+  at X 39 · Y 30: it can't keep falling there"). Beside the bed, land lower than the water would stand in it (the bed's
+  level and the depth) is raised as a bank, so the channel holds what runs in it; its two ends stay open. **Open** starts
+  it in the water at its start (there the bed leaves from the water's level); **Dry** leaves the first tile of its line
+  standing, for the player or a blockage to open later. It leaves a source's ground and a cave's or an overhang's as they
+  are (refused, saying where). One undo step; the objects on it ride its ground. The core's `canal` operation
+  (`core/doc/canal.ts` `planCanal`, `applyCanal`; its tiles stored with their levels and checked again by the engine, as a
+  lake's sill's are), the worker's `canalPlanAt` and `canalAt`, and the MCP server's `apply` (only `path` needed). **On the page** it is Lower's fourth **Brush**
+  choice, **Canal** (Round, Square, Lines, Canal; `canal/useCanal.ts`, `TopBar.tsx`): with it chosen the row shows
+  **Width**, **Depth** and **Starts** (Open or Dry) over the Brush choice, and a drag draws the line (a point kept every
+  three tiles; the core walks the tiles between). While it is dragged the tiles it would change are tinted and the
+  words beside the pointer say "bed from level 15 to 12, 6 bank tiles", or the core's one line with the line in red;
+  the release makes the canal that was shown, one step in History ("Cut a canal 2 wide and 1 deep"); a refused line
+  says its reason again and changes nothing. Esc lets a drag go.
 - **Lakes by number** (showcase craft, gap 19): pick a lake, type its level, and its sill is cut down or raised so the
   lake holds there: its water stands from the level up to under a level above it (the head of its river over the
   sill), as the hover readout's "Water at level 7.4" reads level 7. A sill higher than the level gets a notch cut down
@@ -1493,7 +1524,9 @@ the stamp library, symmetry, regenerate-an-area and locks, the Dam sites, Moistu
 the aim arrow, "Generate, keeping my edits" and a rebuild that keeps edits, Carve's Maturity (Young, Mature, Auto;
 D473), and Claude as a panel. The superseded
 table, each with the decision that replaced it, is in the archive; `tools/retired-terms.json` names them and CI
-flags them if they reappear anywhere else (D188).
+flags them if they reappear anywhere else (D188). The **Canal** (§5; Lower's Brush choice) is not the Channel tool
+coming back: that one drew a river as a feature with handles; the Canal is one exact operation that cuts a bed and
+raises its banks along a dragged line (planning, 2026-11-11).
 <!-- /retired-terms:allow -->
 
 # Part 2: the technical reference
@@ -1665,7 +1698,8 @@ checks dot counts; every other row is information under Good to know, worded as 
   highlighted on the map; clicking one flies the camera to it. **Error** (load class): the file would crash the
   game, lose objects on load, or start without beavers; export is blocked until fixed. **Warning** (playability or
   design): a flooded start, no water nearby, a map above height 16; it shows on the quiet dot and never blocks
-  export; the warning is noted in the map description.
+  export; it is never written into the map's description, which holds only the map's own words (below, "The map's
+  description"): the warnings are in the editor's checks list.
 - **Words.** The History's labels (`core/doc/labels.ts`) read "Verb the thing" with a correct article and plural and the
   Items list's names: "Raise 806 tiles", "Plant 34 birches", "Plant a berry bush", "Place a water source", "Craterize",
   "Quake: lift". A check that names several things is listed as one row for each, with its own Show (`checkRows`); the
@@ -2010,6 +2044,41 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     `tests/contract/forceEsc.test.ts` presses undo, and Esc, at every moment of every force's run, in both paces;
     `tools/bench-forces.ts` times the worker's cost and `tests/e2e/forceSpeed.spec.ts` checks the showing the driver
     plans (never a busy machine's wall clock, D341). Which builds show the forces: `src/editor/release.ts` (D219).
+- **The edit queue** (`core/doc/editQueue.ts`; the stroke pipeline's design, #922; tested headless against the
+  real worker session through a seeded channel, `tests/contract/editQueue.test.ts`). Every edit, stroke, undo, redo
+  and History jump is a ticket in one queue, numbered when the player acts and sent in that order, one with the map's
+  worker at a time; a stroke's ticket exists from pointer-down, so whatever the player does next waits behind it. It
+  holds the invariants the page's stroke bugs broke (#410, #873, #880, #884, #868, #829 and #922's U1–U10):
+  (I1) the page's copy of the map (`base`) is assigned only from the worker's answers and events, never painted into;
+  (I2) what the page shows (`shown`, and the terrain's `pre` and `protect` it paints on) is `base` with the overlays of
+  the unanswered tickets laid on in order, so once nothing is unanswered it is the worker's byte for byte, by
+  construction; (I3) the worker takes tickets in the order made, each once, and nothing of a ticket (its water drafts)
+  before the ticket ahead of it has gone; (I4) every call carries `{ epoch, ticket }` (the worker's `SessionOpen.epoch`,
+  bumped by every map it takes; its `ticket` entry and `ticketed` guard), every answer and event names its epoch, and
+  one for another map is dropped at one door; (I5) undo, redo and a jump name the step they mean when pressed (a seq,
+  or a ticket on its way), resolved when the move reaches the head into the worker's one call `moveTo(seq | null)`; a
+  move whose step never happened (refused, cancelled, timed out) does nothing; (I6) a stroke answered with nothing else
+  between its start and its answer was guessed right (`mispredictions`); (I7) one watchdog, on the head ticket, refuses
+  it with its one line once its bound passes (a landing Naturalize stroke: `answerBound`; with the map's worker:
+  `MAP_ANSWER_MS`), so nothing waits forever and `idle()` always resolves; (I8) a press always makes a ticket (behind a
+  landing stroke it composes once that stroke has its land), a stroke let go is answered or refused with a line, and a
+  map switch awaits `idle()`, so a let-go stroke lands on the map it was painted on; (I9) at most one call is out per
+  worker, the samples meanwhile joined (`StrokeFeed`); (I10) the project saved after any interleaving reopens byte for
+  byte. Answers carry `rev` and `step`; the Naturalize worker's calls name their stroke (`WeatherHost`). The queue
+  keeps the before and after of the last eight strokes answered, so their undo and redo show at once. A shared session
+  keeps its own rule (`resync`: `base` is the session's land, the overlays on their way laid on it again). Planning's
+  rulings: an undo waiting behind a stroke that is refused or times out does nothing; a press during a landing paints;
+  a map switch waits for a let-go stroke to land. The page moves onto it in steps (#922): its strokes, moves and
+  edits (2, done), Naturalize (3), one composer building a stroke's operation and answers the size of the edit (4).
+  Since step 2 the page holds one queue (`useSession.ts` `edits`): `mirror.heights` and the renderer's land are its
+  `shown`, and the brushes paint on its `terrain()`; every edit is `run`'s ticket (its call made when its turn comes,
+  with the ticket's envelope on it), a stroke's ticket is made at pointer-down and holds the whole map until it lets go
+  (the worker's answers meanwhile are laid then, #410), and is `ready` with its operation and its before and after when
+  it does; Ctrl+Z, Ctrl+Y and a History row are moves (in a shared session, the session's own undo, redo and jump, as
+  edits); a refusal or a silent worker (`MAP_ANSWER_MS`) says its one line; a save or a map switch waits for every
+  ticket made (`whenEdited`). Naturalize's landing is not yet a ticket of its own: its stroke's ticket stays open while
+  its land comes (`BrushPainter.afterLanding` still holds an undo, a redo or a jump pressed meanwhile, its timers
+  still take a silent stroke back), as §4 describes, until step 3.
 - **"Move the start here"** (D204, one label since D323): after a Flatten stroke the page looks, once it is idle, for
   a spot on the stroke's level ground where the district center stands (its footprint and door level and dry,
   nothing standing there); the start's full check (the walks to water, wood and berries) runs in a small worker of

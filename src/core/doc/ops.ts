@@ -93,6 +93,9 @@ export interface OpParams {
   /** Lakes by number (D342; doc/lakeLevel.ts `planLakeLevel`): the lake at `at` made to hold at `level`, its sill
    *  cut down or raised to it, the sill's tiles stored literally (every one set to the level, exact). */
   setLakeLevel: SetLakeLevelParams;
+  /** A canal (doc/canal.ts `planCanal`): a channel that leads water along a path, its bed falling steadily and its banks
+   *  raised where the land beside it is lower than its water; its tiles stored literally, each with its level. */
+  canal: CanalParams;
   /** A ridge (doc/ridge.ts `planRidge`): high ground raised along a path, steep on one side and benched on the other;
    *  its tiles stored literally, each with its level. */
   ridge: RidgeParams;
@@ -127,6 +130,20 @@ export interface RidgeParams {
   /** The wander of its crest, its benches and its crags. */
   seed: number;
   /** The tiles it changes as runs [y, x0, x1]; the integrity pass leaves them. */
+  cells: Runs;
+  /** The level each tile of `cells` is set to, in the order of y·W + x. */
+  levels: number[];
+}
+
+export interface CanalParams {
+  /** The points it was drawn through, [x, y], the start first. */
+  path: [number, number][];
+  /** The bed's width in tiles (1 to 6) and its depth under the land (1 to 3). */
+  width: number;
+  depth: number;
+  /** Open: it starts in the water at its start. Dry (false): the line's first tile is left standing. */
+  open: boolean;
+  /** The tiles it changes as runs [y, x0, x1] (the bed and the raised banks); the integrity pass leaves them. */
   cells: Runs;
   /** The level each tile of `cells` is set to, in the order of y·W + x. */
   levels: number[];
@@ -195,7 +212,7 @@ interface Applied {
 export type AppliedOp = EditOp & Applied;
 export type AppliedOpOf<K extends OpName> = OpOf<K> & Applied;
 
-export type SculptOp = AppliedOpOf<"sculpt"> | AppliedOpOf<"brush"> | AppliedOpOf<"forceResult"> | AppliedOpOf<"blocks"> | AppliedOpOf<"setLakeLevel"> | AppliedOpOf<"ridge">;
+export type SculptOp = AppliedOpOf<"sculpt"> | AppliedOpOf<"brush"> | AppliedOpOf<"forceResult"> | AppliedOpOf<"blocks"> | AppliedOpOf<"setLakeLevel"> | AppliedOpOf<"canal"> | AppliedOpOf<"ridge">;
 /** A force's operation. */
 export type ForceOp = AppliedOpOf<"forceResult">;
 export const isForceOp = (op: { op: string }): op is ForceOp => op.op === "forceResult";
@@ -348,6 +365,7 @@ export function applyOp(state: DocState, op: AppliedOp): void {
     case "sculpt":
     case "brush":
     case "setLakeLevel":
+    case "canal":
     case "ridge":
       state.sculpts.push(op);
       return;
@@ -448,6 +466,7 @@ export function invertOp(state: DocState, op: AppliedOp): void {
     case "sculpt":
     case "brush":
     case "setLakeLevel":
+    case "canal":
     case "ridge":
       removeFromList(state.sculpts, op.seq);
       return;
@@ -552,6 +571,9 @@ export interface OpContext {
   /** Why a lake's sill no longer fits the map (doc/lakeLevel.ts `lakeLevelProblem`: measured on the map now, it must be
    *  the one stored), or null. */
   lakeLevel?: (p: SetLakeLevelParams) => string | null;
+  /** Why a canal no longer fits the map (doc/canal.ts `canalProblem`: planned on the map now, it must be the one stored),
+   *  or null. */
+  canal?: (p: CanalParams) => string | null;
   /** Why a ridge no longer fits the map (doc/ridge.ts `ridgeProblem`: planned on the map now, it must be the one stored),
    *  or null. */
   ridge?: (p: RidgeParams) => string | null;
@@ -793,6 +815,15 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       if (errors.length) return errors;
       if (new Set(runsToTiles(p.cells, W)).size !== p.levels.length) return ["the ridge needs one level for each of its cells"];
       const why = ctx.ridge?.(p);
+      return why ? [why] : [];
+    }
+    case "canal": {
+      const p = op.params;
+      for (const [x, y] of p.path) if (!inMap(x, y)) return [`X ${x} · Y ${y} is off the map`];
+      const errors = runsProblems(p.cells, W, H, "the canal's cells");
+      if (errors.length) return errors;
+      if (new Set(runsToTiles(p.cells, W)).size !== p.levels.length) return ["the canal needs one level for each of its cells"];
+      const why = ctx.canal?.(p);
       return why ? [why] : [];
     }
     case "setLakeLevel": {

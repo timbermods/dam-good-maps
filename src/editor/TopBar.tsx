@@ -7,6 +7,7 @@
 // Flatten's Steps. A walkable edge is the shelf's Slope (D247, D322). Level lines are a view switch (D248). While a
 // force is at work the other tools wait.
 
+import { CANAL_MAX_DEPTH, CANAL_MAX_WIDTH } from "../core/doc/canalLimits";
 import { RIDGE_MAX_HEIGHT, RIDGE_MAX_WIDTH, RIDGE_MIN_HEIGHT, RIDGE_MIN_WIDTH, type RidgeSteep } from "../core/doc/ridgeLimits";
 import { createContext, type ComponentChildren } from "preact";
 import { useContext, useLayoutEffect, useRef } from "preact/hooks";
@@ -342,29 +343,57 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
       />
     ),
   };
-  // Raise's fourth Brush choice, Ridge (planning, 2026-11-11): a drag draws a line and the core raises high ground along
-  // it; its row is Height, Width and the steep side, with the Brush choice across the second row
+  // Lower's fourth Brush choice, Canal (planning, 2026-11-11): a drag draws a line and the core cuts a bed that leads
+  // water along it; its row is Width, Depth and how it starts, with the Brush choice across the second row
+  // Raise's fourth, Ridge (planning, 2026-11-11): a drag draws a line and the core raises high ground along it; its row
+  // is Height, Width and the steep side, the same way
+  const canal = t === "lower" && s.canal;
   const ridge = t === "raise" && s.ridge;
-  const shape = ridge ? "ridge" : s.square ? "square" : s.straight ? "straight" : "round";
+  const line = canal || ridge;
+  const shape = canal ? "canal" : ridge ? "ridge" : s.square ? "square" : s.straight ? "straight" : "round";
   const brush: Group = {
     key: "brush",
     row: 2,
-    at: ridge ? 1 : 5,
-    span: ridge ? 13 : flatten ? 5 : 9,
+    at: line ? 1 : 5,
+    span: line ? 13 : flatten ? 5 : 9,
     node: (
-      <ChoiceSetting<"round" | "square" | "straight" | "ridge">
+      <ChoiceSetting<"round" | "square" | "straight" | "canal" | "ridge">
         label="Brush"
         value={shape}
         options={[
           ["round", "Round", "A round brush"],
           ["square", "Square", "A square brush"],
           ["straight", "Lines", "Draw straight lines"],
+          ...(t === "lower" ? [["canal", "Canal", "Draw a channel that leads water"] as const] : []),
           ...(t === "raise" ? [["ridge", "Ridge", "Draw a ridge of high ground"] as const] : []),
         ]}
-        onChange={(v) => set({ square: v === "square", straight: v === "straight", ridge: v === "ridge" })}
+        onChange={(v) => set({ square: v === "square", straight: v === "straight", ...(t === "lower" ? { canal: v === "canal" } : {}), ...(t === "raise" ? { ridge: v === "ridge" } : {}) })}
       />
     ),
   };
+  if (canal)
+    return [
+      { key: "width", row: 1, at: 1, span: 4, node: <NumberSetting label="Width" title="How wide the canal's bed is" value={s.canalWidth} min={1} max={CANAL_MAX_WIDTH} step={1} onChange={(canalWidth) => set({ canalWidth })} /> },
+      { key: "depth", row: 1, at: 5, span: 5, node: <NumberSetting label="Depth" title="How deep the bed lies under the land" value={s.canalDepth} min={1} max={CANAL_MAX_DEPTH} step={1} onChange={(canalDepth) => set({ canalDepth })} /> },
+      {
+        key: "starts",
+        row: 1,
+        at: 10,
+        span: 4,
+        node: (
+          <ChoiceSetting<"open" | "dry">
+            label="Starts"
+            value={s.canalOpen ? "open" : "dry"}
+            options={[
+              ["open", "Open", "It joins the water it starts in"],
+              ["dry", "Dry", "Its first tile stays, to open later"],
+            ]}
+            onChange={(v) => set({ canalOpen: v === "open" })}
+          />
+        ),
+      },
+      brush,
+    ];
   if (ridge)
     return [
       { key: "height", row: 1, at: 1, span: 4, node: <NumberSetting label="Height" title="How high the crest stands over the land" value={s.ridgeHeight} min={RIDGE_MIN_HEIGHT} max={RIDGE_MAX_HEIGHT} step={1} onChange={(ridgeHeight) => set({ ridgeHeight })} /> },

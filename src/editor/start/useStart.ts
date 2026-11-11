@@ -201,7 +201,7 @@ export function useStart(ed: Ed): StartSlice {
         const move = () =>
           void run(
             // (the level aimed at under a roof; else the tile's top, which also brings a start out from under one: D491)
-            () => api.moveStartTo(x, y, undefined, level ?? mirror.current.heights[y * info.W + x]),
+            (w) => w.moveStartTo(x, y, undefined, level ?? mirror.current.heights[y * info.W + x]),
             (u) => {
               if (!u.ok) return;
               const [cx, cy] = cornerFor(x, y, s.orientation);

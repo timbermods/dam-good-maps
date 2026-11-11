@@ -20,6 +20,7 @@ import { emptyWaterFile, runFindVersion, runGenerate, type GenerateResponse, typ
 import * as ed from "./session";
 import { collabActive, collabApi } from "./collab";
 import { collabEditApi } from "./collabEdit";
+import type { Envelope } from "../core/doc/editQueue";
 import { installParallelWater, parallelWaterStats, parallelWaterThreads, portHelper, shareWaterBudget } from "../core/sim/parallel";
 import { stackParallelStats } from "../core/sim/stackParallel";
 
@@ -162,13 +163,13 @@ const api = {
     return transfer(t, viewBuffers({ heights: t.heights, terrain: t.terrain }) as Transferable[]);
   },
   /** Where the worker sends the live water and the settled water after each edit. */
-  listen(fn: ((e: ed.EditorEvent) => void) | null) {
+  listen(fn: ((e: ed.EditorEventOut) => void) | null) {
     ed.listen(fn ? (e) => void fn(transfer(e, eventBuffers(e))) : null);
   },
   /** Hold the background water while the player paints (the option for very large maps). */
   /** A stroke being painted: its ground so far (the rect's heights, row by row); its water flows at
    *  once (D197). */
-  draftStroke: (rect: { x0: number; y0: number; x1: number; y1: number }, heights: Uint8Array) => ed.draftStroke(rect, heights),
+  draftStroke: (rect: { x0: number; y0: number; x1: number; y1: number }, heights: Uint8Array, env?: Envelope) => ed.draftStroke(rect, heights, env),
   /** The stroke was taken back: its water goes. */
   cancelDraft: () => ed.cancelDraft(),
   /** Resolves when the water has settled after the latest edit (tests and benchmarks). */
@@ -214,6 +215,9 @@ const api = {
   undo: routed(() => sendUpdate(ed.undo()), () => collabEditApi.undo().then(sendUpdate)),
   redo: routed(() => sendUpdate(ed.redo()), () => collabEditApi.redo().then(sendUpdate)),
   jump: routed((index: number, step?: number) => sendUpdate(ed.jump(index, step)), (...a) => sendUpdate(collabEditApi.jump(...a))),
+  /** Stand at History step `seq` (null: before the first): undo, redo and a jump as the edit queue sends them. A shared
+   *  session's history is each player's own: refused there, as a jump is. */
+  moveTo: routed((seq: number | null) => sendUpdate(ed.moveTo(seq)), () => sendUpdate(collabEditApi.jump(-1))),
   /** A version of the open map at History step `k`, for Your maps (Keep this version, Branch from here). */
   keepVersion(k: number, parentId?: string) {
     const v = ed.keepVersion(k, parentId);
@@ -269,6 +273,8 @@ const api = {
   ridgePlanAt: (path: [number, number][], height: number, width: number, steep: RidgeSteep, seed: number) => ed.ridgePlanAt(path, height, width, steep, seed),
   ridgeAt: routed((path: [number, number][], height: number, width: number, steep: RidgeSteep, seed: number) => sendUpdate(ed.ridgeAt(path, height, width, steep, seed)), (...a) => collabEditApi.ridgeAt(...a).then(sendUpdate)),
   lakeLevelAt: routed((x: number, y: number, level: number, width?: number) => sendUpdate(ed.lakeLevelAt(x, y, level, width)), (...a) => collabEditApi.lakeLevelAt(...a).then(sendUpdate)),
+  canalPlanAt: (path: [number, number][], width: number, depth: number, open: boolean) => ed.canalPlanAt(path, width, depth, open),
+  canalAt: routed((path: [number, number][], width: number, depth: number, open: boolean) => sendUpdate(ed.canalAt(path, width, depth, open)), (...a) => collabEditApi.canalAt(...a).then(sendUpdate)),
   moveObjectBy: routed((id: string, dx: number, dy: number, z?: number) => sendUpdate(ed.moveObjectBy(id, dx, dy, z)), (...a) => collabEditApi.moveObjectBy(...a).then(sendUpdate)),
   clearEverything: routed(() => sendUpdate(ed.clearEverything()), () => collabEditApi.clearEverything().then(sendUpdate)),
   /** A Select action (D259, D264): exact, one step, the start carried if its ground broke. */
@@ -340,7 +346,19 @@ const api = {
   },
 };
 
-export type GeneratorApi = typeof api;
+/** The calls that change the map or its history, which the edit queue sends by name (core/doc/editQueue.ts). */
+type EditName = "apply" | "applyStep" | "applyAll" | "undo" | "redo" | "jump" | "moveTo" | "applyTool" | "moveStartTo" | "plantAt" | "layStair" | "paintAt" | "removeAt" | "removeUnfedWater" | "cropTo" | "fillAt" | "lakeLevelAt" | "moveObjectBy" | "clearEverything" | "applySelection" | "strokeClearing";
+const edits: Pick<typeof api, EditName> = api;
+const queued = {
+  /** One edit through the edit queue: `env` names the map it was made on and its ticket; one meant for another map
+   *  changes nothing and answers `stale` (the one door, I4), any other answers as the call does, with `env` echoed. */
+  ticket<K extends EditName>(env: Envelope, name: K, ...args: Parameters<(typeof edits)[K]>) {
+    const call = edits[name] as (...a: Parameters<(typeof edits)[K]>) => ReturnType<(typeof edits)[K]>;
+    return ed.ticketed(env, () => call(...args));
+  },
+};
+
+export type GeneratorApi = typeof api & typeof queued;
 // a test hook (tests/e2e/isolation.spec.ts): the water's threads ready, and the ticks they ran (the stacked water's apart)
 Object.assign(self, { dgmWater: () => ({ threads: parallelWaterThreads(), ticks: parallelWaterStats.ticks, stackTicks: stackParallelStats.ticks }) });
-expose(api);
+expose(Object.assign(api, queued));

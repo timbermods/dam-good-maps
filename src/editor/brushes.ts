@@ -37,9 +37,9 @@
 // (a click sets it too, D205, from Blender); 2–6 pick a brush (1 Select); Esc cancels a stroke in progress or a
 // resize, then lets a set target follow the ground again.
 
-import type { RidgeSteep } from "../core/doc/ridgeLimits";
 import type { GhostTile, MapRenderer, PointerTool } from "../render3d";
 import type { TileHit } from "../render3d/pick";
+import type { RidgeSteep } from "../core/doc/ridgeLimits";
 import { areaRect, BRUSH_MAX_LEVEL, brushHard, type BrushParams, type BrushTool } from "../core/features/raster/brush";
 import { StrokePreview, type TerrainState } from "../core/features/raster/strokePreview";
 import { RemotePreview, WEATHER_SILENT, type WeatherChannel } from "../core/features/raster/remoteStroke";
@@ -68,6 +68,12 @@ export interface BrushSettings {
   straight: boolean;
   area: boolean;
   levelLines: boolean;
+  /** Lower's Brush choice Canal (canal/useCanal.ts): a drag draws a canal's line (the core's `canal` operation), its
+   *  bed this wide (1 to 6) and deep (1 to 3), Open (it starts in the water) or Dry (its first tile left standing). */
+  canal: boolean;
+  canalWidth: number;
+  canalDepth: number;
+  canalOpen: boolean;
   /** Raise's Brush choice Ridge (ridge/useRidge.ts): a drag draws a ridge's line (the core's `ridge` operation), its
    *  crest this high (2 to 10) over the land, this wide (4 to 20), steep on the side `ridgeSteep` names. */
   ridge: boolean;
@@ -83,7 +89,7 @@ export interface BrushSettings {
 
 const EACH = <T,>(v: T): Record<BrushTool, T> => ({ raise: v, lower: v, flatten: v, smooth: v, naturalize: v });
 
-export const DEFAULT_BRUSH: BrushSettings = { tool: "raise", size: 5, strength: 5, target: null, square: false, straight: false, area: false, levelLines: false, ridge: false, ridgeHeight: 6, ridgeWidth: 10, ridgeSteep: "auto", steps: null, modes: EACH<BrushMode>("both"), sources: EACH<SourcesChoice>("ride") };
+export const DEFAULT_BRUSH: BrushSettings = { tool: "raise", size: 5, strength: 5, target: null, square: false, straight: false, area: false, levelLines: false, canal: false, canalWidth: 2, canalDepth: 1, canalOpen: true, ridge: false, ridgeHeight: 6, ridgeWidth: 10, ridgeSteep: "auto", steps: null, modes: EACH<BrushMode>("both"), sources: EACH<SourcesChoice>("ride") };
 
 /** The brush kit's shapes, one at a time: turning Square, Straight lines or Area on turns the other
  *  two off; turning one off leaves the others as they are. */
