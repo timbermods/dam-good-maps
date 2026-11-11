@@ -22,7 +22,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { join } from "node:path";
-import { applyOps, checksOf, emptySimulationSingletons, encodePng, frameAt, GAME_VERSION, LAYERS, MapSession, openingCamera, placeComponents, rowOf, startMiddleTile, VISTA_ZOOM, voxelsFromHeights, writeTimber, type TimberFile } from "./core";
+import { applyOps, checksOf, emptySimulationSingletons, encodePng, frameAt, GAME_VERSION, HazardRun, LAYERS, MapSession, openingCamera, orientationForHigh, placeComponents, reachWalk, rowOf, startMiddleTile, TICKS_PER_DAY, VISTA_ZOOM, voxelsFromHeights, writeTimber, type TimberFile } from "./core";
+import { fbm } from "./four-lakes-design";
 import { hypot } from "../../src/core/math/portable";
 
 const arg = (name: string, f: string) => {
@@ -33,8 +34,8 @@ const has = (name: string) => process.argv.includes(`--${name}`);
 const ROUND = arg("round", "dev");
 const OUT = arg("out", ".scratch/showcase/swallow-hole");
 
-export const W = 128;
-export const H = 128;
+export const W = 192;
+export const H = 192;
 export const N = W * H;
 
 const log = (...a: unknown[]) => console.log(...a);
@@ -67,63 +68,80 @@ function pathDist(px: number, py: number, path: readonly Pt[]): number {
 
 // ------------------------------------------------------------------------------------------------ the design
 //
-// (r2.) The lowland lies along the south edge, nearest the opening camera, under an escarpment eleven levels high
-// that faces the camera; the upper plain fills the rest, with a rim along its edges. The river rises in a pool in the
-// plain's north-west, comes south and east across it and turns north into the sink: a mouth five wide and four high
-// in the south face of a hill, under an overhang three tiles deep between two buttresses. The tunnel runs north into
-// the hill, east under it, then south under the plain, its floor falling six levels, and comes out at the foot of the
-// escarpment as a spring facing the camera; its stream crosses the lowland to the east edge. A notch in the
-// escarpment's rim a level over the plain is the old spillway: dry while the river goes under, it is where a dammed
-// plain spills, a fall into the lowland: what the lowland lives on when the spring runs dry.
+// (r3, the first full round; r2's layout grown into a map.) The lowland lies along the south edge at 4, nearest the
+// opening camera, under an escarpment that runs along the grid in straight runs joined by bold jogs, its face toward
+// the camera. The upland rises in steps that follow the river: the valley floor at 12 within about sixteen tiles of
+// the river, terraces at 14, the upland at 16, a rim at 18 along the far edges. The river rises in a pool in the
+// north-west, runs south down the valley, swings east and turns north into the sink: a mouth five wide and four high
+// in the south face of a hill at 20, under an overhang three deep between two buttresses. The tunnel runs north into
+// the hill, east under it and south under the terraces to the escarpment, its floor falling from 10 to 4, and comes
+// out at the escarpment's foot as the spring, facing the camera; its stream crosses the lowland to the east edge. A
+// dry channel from the valley to a notch at 13 in the escarpment's edge is the old spillway, its bed in the lowland
+// dry. The start stands on a rise at 14 in front of the mouth, a ramp down to the valley floor; its water is a side
+// pool off the river, joined by an inlet one tile wide.
 
+const LOW = 4;
+const LOW_BED = 3;
 const PLAIN = 12;
 const BED = 10;
 const RISE = 14;
-const RIM = 15;
+const TERRACE = 14;
+const UPLAND = 16;
+const RIM = 18;
 const SPILL = 13;
-const HILL = 18;
-const LOW = 4;
-const LOW_BED = 3;
+const HILL = 20;
 const TOP = HILL;
-/** The escarpment's rim (the plain's south edge), and the spillway's notch in it. */
-const ESC_Y: [number, number] = [30, 32];
-const NOTCH_X: [number, number] = [28, 31];
-/** The hill, its south face at HILL_Y0; the buttresses either side of the mouth, and the overhang between them. */
-const HILL_BOX: [number, number, number, number] = [50, 66, 92, 92];
+/** The escarpment: the upland's south edge, along the grid: [x from, the first upland row]. */
+const FACE: Pt[] = [[0, 50], [26, 47], [52, 51], [84, 48], [118, 52], [146, 49], [170, 51]];
+const escY = (x: number): number => {
+  let y = FACE[0][1];
+  for (const [x0, y0] of FACE) if (x >= x0) y = y0;
+  return y;
+};
+/** The old spillway: its channel from the valley to the notch in the escarpment's edge. */
+const NOTCH_X: [number, number] = [40, 43];
+const SPILL_CHANNEL: Pt[] = [[44, 92], [41.5, 62], [41.5, escY(41) + 0.5]];
+const SPILL_HALF = 2.2;
+/** The hill: its south face along the grid at HILL_Y0; the buttresses either side of the mouth, the overhang between. */
+const HILL_BOX: [number, number, number, number] = [82, 108, 140, 150];
 const HILL_Y0 = HILL_BOX[1];
-const MOUTH_X: [number, number] = [62, 66];
-const BUTTRESS_Y0 = 61;
+const MOUTH_X: [number, number] = [94, 98];
+const BUTTRESS_Y0 = 103;
 const CANOPY = 3;
 const MOUTH_Y = HILL_Y0 - CANOPY;
 const MOUTH_AIR = 4;
-/** The tunnel's line from the mouth: north into the hill, east under it, south under the plain to the escarpment. */
-const TUNNEL: Pt[] = [[64.5, MOUTH_Y + 0.5], [64.5, 72.5], [84.5, 72.5], [84.5, ESC_Y[0]]];
+/** The tunnel's line from the mouth: north into the hill, east under it, south under the terraces. */
+const EXIT_X = 120.5;
+const TUNNEL: Pt[] = [[96.5, MOUTH_Y + 0.5], [96.5, 116.5], [EXIT_X, 116.5], [EXIT_X, escY(EXIT_X)]];
 const TUNNEL_HALF = 1.6;
 const AIR = 3;
-/** The river: from the springs' pool in the north-west, south and east across the plain, north into the mouth. */
-const POOL: Pt = [14.5, 104.5];
+/** The river: from the springs' pool in the north-west, down the valley, east and north into the mouth. */
+const POOL: Pt = [32.5, 140.5];
 const POOL_R = 3.6;
-const RIVER: Pt[] = [POOL, [16, 82], [24, 62], [36, 46], [52, 40], [64.5, 46], [64.5, BUTTRESS_Y0 + 1.5]];
+const RIVER: Pt[] = [POOL, [30, 118], [42, 98], [62, 86], [84, 84], [96.5, 90], [96.5, BUTTRESS_Y0 + 1.5]];
 const BED_HALF = 1.6;
-/** The last reach, as wide as the mouth, from here to the mouth. */
-const REACH_Y0 = 55;
-/** The spring's stream (from the tunnel's exit to the east edge) and the spillway's (from the notch's fall). */
-const STREAM: Pt[] = [[84.5, ESC_Y[0] - 0.5], [84.5, 14.5], [128.5, 14.5]];
-const SPILL_BED: Pt[] = [[29.5, ESC_Y[0] - 0.5], [26, 18], [10, 12], [-0.5, 10]];
-/** The plain's valley: the ground within VALLEY of the river (and of the old spillway's dry channel to the notch)
- *  lies at PLAIN, the rest at the terraces' level, so a dam floods the valley and not the whole upland. */
+/** The last reach, as wide as the mouth. */
+const REACH_Y0 = 95;
+/** The valley's half-width round the river (with a wander), and the terraces'. */
 const VALLEY = 16;
-const TERRACE = 14;
-const SPILL_CHANNEL: Pt[] = [[34, 48], [29.5, ESC_Y[1] + 0.5]];
-/** The start's rise, south-west of the mouth, over the flood a dam makes. */
-const RISE_BOX: [number, number, number, number] = [46, 48, 59, 60];
-const START_AT: Pt = [58, 54];
-/** The dam: the recess's open rows between the buttresses, in front of the overhang. */
+const TERRACES = 30;
+/** The spring's stream (from the tunnel's exit to the east edge) and the spillway's dry bed (to the west edge). */
+const STREAM: Pt[] = [[EXIT_X, escY(EXIT_X) - 0.5], [134, 36], [150, 24], [172, 20], [192.5, 16]];
+const SPILL_BED: Pt[] = [[41.5, escY(41) - 0.5], [38, 32], [24, 22], [8, 18], [-0.5, 16]];
+const LOW_HALF = 2.6;
+/** The start's rise in front of the mouth, its ramp to the valley floor, and its side pool with a neck. */
+const RISE_BOX: [number, number, number, number] = [82, 91, 92, 102];
+const START_AT: Pt = [90, 96];
+const RAMP: { x: number; y: number; ux: number; uy: number } = { x: 82, y: 97, ux: -1, uy: 0 };
+const NECK_POOL: Pt = [78.5, 90.6];
+const NECK_POOL_R = 2.6;
+const NECK: number[] = [86 * W + 78, 87 * W + 78];
+/** The dam's site: the recess's open rows between the buttresses, in front of the overhang. */
 const DAM_Y: [number, number] = [BUTTRESS_Y0, MOUTH_Y - 1];
 const SPRINGS: [number, number, number][] = [
-  [13, 104, 2.0],
-  [15, 105, 2.0],
-  [14, 103, 2.0],
+  [31, 140, 2.0],
+  [33, 141, 2.0],
+  [32, 139, 2.0],
 ];
 
 /** How far along a path the nearest point to (px, py) lies. */
@@ -149,20 +167,28 @@ const TUNNEL_LEN = TUNNEL.slice(1).reduce((a, p, k) => a + hypot(p[0] - TUNNEL[k
 
 interface Land {
   heights: Uint8Array;
+  /** The river's bed (the springs' pool and the last reach with it). */
   bed: Uint8Array;
+  /** The start's side pool. */
+  pool: Uint8Array;
+  /** The spring's stream in the lowland, the spillway's dry bed in the lowland, the spillway's channel on the upland. */
   stream: Uint8Array;
   spill: Uint8Array;
+  channel: Uint8Array;
   /** Each tunnel tile's floor (-1 elsewhere), its air's height, and how far along the tunnel it lies. */
   floor: Int16Array;
   air: Uint8Array;
   along: Float32Array;
 }
+const lowland = (i: number) => Math.floor(i / W) < escY(i % W);
 
 function designLand(): Land {
   const h = new Uint8Array(N);
   const bed = new Uint8Array(N);
+  const pool = new Uint8Array(N);
   const stream = new Uint8Array(N);
   const spill = new Uint8Array(N);
+  const channel = new Uint8Array(N);
   const floor = new Int16Array(N).fill(-1);
   const air = new Uint8Array(N);
   const along = new Float32Array(N);
@@ -172,25 +198,34 @@ function designLand(): Land {
       const i = y * W + x;
       const px = x + 0.5;
       const py = y + 0.5;
-      if (y < ESC_Y[0]) {
+      const ey = escY(x);
+      if (y < ey) {
         h[i] = LOW;
-        if (pathDist(px, py, STREAM) < BED_HALF) (h[i] = LOW_BED), (stream[i] = 1);
-        else if (pathDist(px, py, SPILL_BED) < BED_HALF) (h[i] = LOW_BED), (spill[i] = 1);
-      } else if (y <= ESC_Y[1]) h[i] = x >= NOTCH_X[0] && x <= NOTCH_X[1] ? SPILL : RIM;
-      else if (x < 3 || x > W - 4 || y > H - 4) h[i] = RIM;
+        // (the lowland's beds five wide, a level under the lowland, a second level down past their first third, so
+        // the spring's water runs off the map and does not spread as a sheet over the flat)
+        const sa = pathAlong(px, py, STREAM);
+        const sb = pathAlong(px, py, SPILL_BED);
+        if (sa.d < LOW_HALF) (h[i] = sa.s > 30 ? LOW_BED - 1 : LOW_BED), (stream[i] = 1);
+        else if (sb.d < LOW_HALF) (h[i] = sb.s > 30 ? LOW_BED - 1 : LOW_BED), (spill[i] = 1);
+      } else if (y < ey + 3 && x >= NOTCH_X[0] && x <= NOTCH_X[1]) h[i] = SPILL;
+      else if (x < 4 || x > W - 5 || y > H - 5) h[i] = RIM;
       else if (inBox(x, y, HILL_BOX) || (y >= BUTTRESS_Y0 && y < HILL_Y0 && x >= MOUTH_X[0] - 3 && x <= MOUTH_X[1] + 3 && (x < MOUTH_X[0] || x > MOUTH_X[1] || y >= MOUTH_Y))) h[i] = HILL;
       else {
         const r = pathDist(px, py, RIVER);
-        h[i] = r < VALLEY || pathDist(px, py, SPILL_CHANNEL) < 4 ? PLAIN : TERRACE;
+        const c = pathDist(px, py, SPILL_CHANNEL);
+        const wander = 3 * fbm(x, y, 14, 4401, 2);
+        h[i] = r < VALLEY + wander || c < SPILL_HALF ? PLAIN : r < TERRACES + wander ? TERRACE : UPLAND;
+        if (c < SPILL_HALF) channel[i] = 1;
         if (inBox(x, y, RISE_BOX) && r >= BED_HALF + 2) h[i] = RISE;
         if (r < BED_HALF || hypot(px - POOL[0], py - POOL[1]) < POOL_R || (x >= MOUTH_X[0] && x <= MOUTH_X[1] && y >= REACH_Y0 && y < MOUTH_Y)) (h[i] = BED), (bed[i] = 1);
+        if (hypot(px - NECK_POOL[0], py - NECK_POOL[1]) < NECK_POOL_R || NECK.includes(i)) (h[i] = BED), (pool[i] = 1);
       }
       // the mouth under the overhang, and the tunnel
       if (y >= MOUTH_Y && y < HILL_Y0 && x >= MOUTH_X[0] && x <= MOUTH_X[1]) {
         floor[i] = BED;
         air[i] = MOUTH_AIR;
         along[i] = y - MOUTH_Y;
-      } else if (y >= ESC_Y[0]) {
+      } else if (y >= ey) {
         const t = pathAlong(px, py, TUNNEL);
         if (t.d < TUNNEL_HALF && t.s >= CANOPY - 0.5) {
           floor[i] = BED - Math.round(((BED - LOW) * t.s) / TUNNEL_LEN);
@@ -200,7 +235,7 @@ function designLand(): Land {
       }
     }
   for (let i = 0; i < N; i++) if (floor[i] >= 0 && floor[i] + air[i] >= h[i]) throw new Error(`the tunnel at X ${i % W} Y ${Math.floor(i / W)} has no roof (floor ${floor[i]}, ground ${h[i]})`);
-  return { heights: h, bed, stream, spill, floor, air, along };
+  return { heights: h, bed, pool, stream, spill, channel, floor, air, along };
 }
 
 // ------------------------------------------------------------------------------------------------ the build
@@ -372,8 +407,8 @@ function readWater(s: MapSession, land: Land, v: WaterView = oursView(s)): Recor
   let bedWet = 0;
   let bedN = 0;
   for (let i = 0; i < N; i++) if (land.bed[i] && Math.floor(i / W) < DAM_Y[0]) (bedN++), wet(v.depth[i]) && bedWet++;
-  const mouth = (MOUTH_Y - 1) * W + 64;
-  out.river = `${bedWet}/${bedN} bed tiles wet before the dam's site; at the mouth (64, ${MOUTH_Y - 1}) ${v.depth[mouth].toFixed(2)} deep`;
+  const mouth = (MOUTH_Y - 1) * W + 96;
+  out.river = `${bedWet}/${bedN} bed tiles wet before the dam's site; at the mouth (96, ${MOUTH_Y - 1}) ${v.depth[mouth].toFixed(2)} deep`;
   let tw = 0;
   let tn = 0;
   let pressured = 0;
@@ -399,13 +434,14 @@ function readWater(s: MapSession, land: Land, v: WaterView = oursView(s)): Recor
     for (let i = 0; i < N; i++) if (mask[i]) (n++), wet(v.depth[i]) && (w++, (vol += v.depth[i]));
     return `${w}/${n} tiles wet, ${vol.toFixed(1)} of water`;
   };
-  const exit = (ESC_Y[0] - 1) * W + 84;
-  out.spring = `${streamOf(land.stream)}; at the exit (84, ${ESC_Y[0] - 1}) ${v.depth[exit].toFixed(2)} deep`;
+  const ex = Math.floor(EXIT_X);
+  const exit = (escY(ex) - 1) * W + ex;
+  out.spring = `${streamOf(land.stream)}; at the exit (${ex}, ${escY(ex) - 1}) ${v.depth[exit].toFixed(2)} deep`;
   out.spillway = streamOf(land.spill);
   let flooded = 0;
   let level = 0;
   for (let i = 0; i < N; i++) {
-    if (Math.floor(i / W) <= ESC_Y[1] || land.bed[i] || b.heights[i] >= HILL || !wet(v.depth[i])) continue;
+    if (lowland(i) || land.bed[i] || land.pool[i] || b.heights[i] >= HILL || !wet(v.depth[i])) continue;
     flooded++;
     level = Math.max(level, b.heights[i] + v.depth[i]);
   }
@@ -451,9 +487,9 @@ function firstFrame(s: MapSession): void {
     const f = (p: { u: number; v: number } | null) => (p ? `(${p.u.toFixed(2)}, ${p.v.toFixed(2)})` : "behind");
     const mouthL = frameAt(cam, MOUTH_X[0], MOUTH_Y, BED);
     const mouthR = frameAt(cam, MOUTH_X[1] + 1, MOUTH_Y, BED + MOUTH_AIR);
-    const roof = frameAt(cam, 64.5, HILL_Y0, HILL);
-    const spring = frameAt(cam, 84.5, ESC_Y[0], LOW);
-    const fall = frameAt(cam, 29.5, ESC_Y[0], LOW);
+    const roof = frameAt(cam, 96.5, HILL_Y0, HILL);
+    const spring = frameAt(cam, EXIT_X, escY(EXIT_X), LOW);
+    const fall = frameAt(cam, 41.5, escY(41), LOW);
     log(`  the sink's mouth in the ${name}: ${f(mouthL)} to ${f(mouthR)}; the hill's top over it ${f(roof)}; the spring ${f(spring)}; the spillway's fall ${f(fall)}`);
   }
 }
@@ -499,9 +535,214 @@ function compareGame(file: string, s: MapSession, land: Land): void {
   log(`    against ours: tunnel columns wet or dry alike ${agree}/${n}, largest depth difference ${worst.toFixed(3)}${worstAt}; top water within 0.1 on ${within}/${tiles} wet tiles`);
 }
 
+// ------------------------------------------------------------------------------------------------ the start
+
+/** The start's ramp: from the rise's edge down to the valley floor, a level a tile, a Slope on each. */
+function buildRamp(s: MapSession): void {
+  const { x: px, y: py, ux, uy } = RAMP;
+  const hi = s.built.heights[py * W + px];
+  const n = hi - PLAIN;
+  for (let k = 1; k < n; k++) applyOps(s, [{ op: "sculpt", params: { mode: "flatten", cells: [[py + uy * k, px + ux * k, px + ux * k]], level: hi - k, exact: true }, label: "The way down from the rise" }]);
+  for (let k = 1; k <= n; k++) applyOps(s, [{ op: "placeEntity", params: { id: newId(), template: "Slope", x: px + ux * k, y: py + uy * k, orientation: orientationForHigh(-ux, -uy) }, label: "The way down from the rise" }]);
+}
+
+/** The walk from the start, by the core's own walking graph (water is no way). */
+function walkFromStart(s: MapSession): Float64Array | Int32Array | number[] {
+  const st = startOf(s);
+  const b = s.built;
+  const h = Uint8Array.from(b.heights);
+  for (let i = 0; i < N; i++) if (b.water[i] > 0.1) h[i] = 40;
+  return reachWalk(h, W, H, b.entities as never, { x: st.x, y: st.y }) as never;
+}
+
+// ------------------------------------------------------------------------------------------------ life
+
+/** Planting with a purpose: the start's oak stand and berries on the moist valley floor by its pool; birch along
+ *  the river and the spring's stream; pine on the moist terraces' edges; dead woods along the spillway's dry bed in
+ *  the lowland and in clumps on the dry terraces; succulents on the upland. Wood is a budget, never a carpet. */
+function plant(s: MapSession, land: Land): void {
+  const b = s.built;
+  const st = startOf(s);
+  const moist = (i: number) => b.moisture[i] > 0 && !(b.water[i] > 0) && !land.bed[i] && !land.pool[i];
+  const dry = (i: number) => !(b.moisture[i] > 0) && !(b.water[i] > 0);
+  const x = (i: number) => i % W;
+  const y = (i: number) => Math.floor(i / W);
+  const near = (i: number, r: number) => hypot(x(i) - st.x, y(i) - st.y) < r;
+  const n = (i: number, scale: number, seed: number) => fbm(x(i), y(i), scale, 9100 + seed, 2);
+  const ramp = (i: number) => y(i) >= RAMP.y - 2 && y(i) <= RAMP.y + 2 && x(i) >= RAMP.x - 4 && x(i) <= RAMP.x;
+  const mouthView = (i: number) => x(i) >= MOUTH_X[0] - 6 && x(i) <= MOUTH_X[1] + 6 && y(i) >= st.y - 2 && y(i) < HILL_Y0;
+  const count: Record<string, number> = {};
+  const paint = (kind: string, template: string | undefined, pick: (i: number) => boolean, density: number, seed: number, label: string, age?: string) => {
+    const area = runsWhere((i) => pick(i) && !ramp(i) && !mouthView(i));
+    if (!area.length) return 0;
+    try {
+      const r = applyOps(s, [{ op: "paintObjects", params: { kind, ...(template ? { template } : {}), area, density, seed, ...(age ? { age } : {}) }, label }]);
+      return Object.values(r.objects.added).reduce((a, v) => a + v, 0);
+    } catch (e) {
+      log(`    (${label}: ${(e as Error).message})`);
+      return 0;
+    }
+  };
+  const valley = (i: number) => b.heights[i] === PLAIN && !lowland(i);
+  const reach = walkFromStart(s);
+  count.startBerries = paint("bushes", "BlueberryBush", (i) => valley(i) && moist(i) && reach[i] <= 18 && n(i, 6, 2) > -0.45, 0.9, 22, "The start's berries");
+  count.startOak = paint("trees", "Oak", (i) => valley(i) && moist(i) && reach[i] <= 22 && !near(i, 6) && x(i) < st.x - 4 && n(i, 7, 1) > -0.25, 0.75, 21, "The start's oak stand");
+  count.birch = paint("trees", "Birch", (i) => moist(i) && !near(i, 22) && n(i, 11, 3) > -0.1, 0.5, 23, "Birch along the water", "mixed");
+  count.lowBirch = paint("trees", "Birch", (i) => lowland(i) && moist(i) && n(i, 9, 5) > -0.1, 0.4, 25, "Birch along the spring's stream", "mixed");
+  count.lowBerries = paint("bushes", "BlueberryBush", (i) => lowland(i) && moist(i) && n(i, 8, 6) > 0.35, 0.6, 26, "Berries in the lowland");
+  const before = new Set(s.built.entities.map((e) => e.id));
+  const dSpill = spreadFrom((i) => land.spill[i] === 1, 4);
+  count.dead = paint("trees", "Birch", (i) => lowland(i) && dry(i) && dSpill[i] <= 3 && n(i, 6, 7) > -0.15, 0.6, 27, "Dead birch along the old spillway's bed");
+  count.dead += paint("trees", "Oak", (i) => !lowland(i) && dry(i) && b.heights[i] === TERRACE && n(i, 13, 8) > 0.42, 0.5, 28, "Dead oak in clumps on the dry terraces");
+  const dead = s.built.entities.filter((e) => !before.has(e.id) && (e.template === "Birch" || e.template === "Oak" || e.template === "Pine"));
+  if (dead.length) {
+    const r = s.applyAll(dead.map((e) => ({ op: "setEntityProps", params: { id: e.id, components: { LivingNaturalResource: { IsDead: true } } } })) as never, "user", "The dry ground's wood is dead");
+    if (!r.ok) throw new Error(r.errors[0]);
+  }
+  count.succulents = paint("succulents", "Succulent", (i) => dry(i) && b.heights[i] === UPLAND && n(i, 22, 9) > 0.15, 0.25, 29, "Succulents on the dry upland");
+  log(`  planted: ${Object.entries(count).map(([k, v]) => `${k} ${v}`).join(", ")}`);
+}
+
+function spreadFrom(pick: (i: number) => boolean, max: number): Int16Array {
+  const d = new Int16Array(N).fill(99);
+  let q: number[] = [];
+  for (let i = 0; i < N; i++) if (pick(i)) (d[i] = 0), q.push(i);
+  for (let step = 1; step <= max && q.length; step++) {
+    const next: number[] = [];
+    for (const i of q) {
+      const x = i % W;
+      for (const j of [i - 1, i + 1, i - W, i + W]) if (j >= 0 && j < N && Math.abs((j % W) - x) <= 1 && d[j] > step) (d[j] = step), next.push(j);
+    }
+    q = next;
+  }
+  return d;
+}
+
+function woodReport(s: MapSession): void {
+  const LOGS: Record<string, number> = { Oak: 8, Pine: 2, Birch: 1 };
+  let living = 0;
+  let dead = 0;
+  let logs = 0;
+  let berries = 0;
+  for (const e of s.built.entities) {
+    if (e.template === "BlueberryBush") berries++;
+    if (LOGS[e.template] === undefined) continue;
+    if ((e.components as { LivingNaturalResource?: { IsDead?: boolean } }).LivingNaturalResource?.IsDead === true) dead++;
+    else (living++), (logs += LOGS[e.template]);
+  }
+  log(`  wood: ${living} living trees (${Math.round((living * 10000) / N)} per 10,000 tiles), ${dead} dead, ${logs} logs when grown; ${berries} berry bushes`);
+}
+
+// ------------------------------------------------------------------------------------------------ how it plays
+
+const greenNow = (s: MapSession): Uint8Array => {
+  const b = s.built;
+  const g = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (b.water[i] > 0.05 || b.moisture[i] > 0) g[i] = 1;
+  return g;
+};
+
+/** The ladder: each work done in turn on this session after the round is saved, the water settled, and the tiles
+ *  that turn green or wet counted (and those that dry), the upland and the lowland apart. */
+function ladder(s: MapSession, land: Land): void {
+  const count = (g: Uint8Array, pick: (i: number) => boolean) => {
+    let c = 0;
+    for (let i = 0; i < N; i++) if (g[i] && pick(i)) c++;
+    return c;
+  };
+  let prev = greenNow(s);
+  const up = (i: number) => !lowland(i);
+  log(`ladder: day 1 green or wet ${count(prev, () => true)} tiles (${((100 * count(prev, () => true)) / N).toFixed(1)} %): the upland ${count(prev, up)}, the lowland ${count(prev, lowland)}`);
+  const dam = (level: number, label: string) => {
+    const cells: number[] = [];
+    for (let y = DAM_Y[0]; y <= DAM_Y[1]; y++) for (let x = MOUTH_X[0]; x <= MOUTH_X[1]; x++) cells.push(y * W + x);
+    const set = new Set(cells);
+    applyOps(s, [{ op: "sculpt", params: { mode: "flatten", cells: runsWhere((i) => set.has(i)), level, exact: true }, label }]);
+  };
+  const step = (rung: string, name: string, act: () => void) => {
+    act();
+    const g = greenNow(s);
+    let moreUp = 0;
+    let moreLow = 0;
+    let lessUp = 0;
+    let lessLow = 0;
+    for (let i = 0; i < N; i++) {
+      if (g[i] && !prev[i]) lowland(i) ? moreLow++ : moreUp++;
+      if (!g[i] && prev[i]) lowland(i) ? lessLow++ : lessUp++;
+    }
+    const w = readWater(s, land);
+    log(`  ${rung}: ${name}: the upland +${moreUp}${lessUp ? `/-${lessUp}` : ""}, the lowland +${moreLow}${lessLow ? `/-${lessLow}` : ""} [spring ${w.spring}; spillway ${w.spillway}; plain ${w.plain}]`);
+    prev = g;
+  };
+  step("medium", "a weir before the sink (10 tiles, a level over the bed, to 11)", () => dam(BED + 1, "A weir before the sink"));
+  step("medium", "the weir raised to the valley floor (12)", () => dam(PLAIN, "The weir raised"));
+  step("large", "the catch: the dam to 14 (the rise's level)", () => dam(RISE, "The catch"));
+  log(`  after every work: ${((100 * count(prev, () => true)) / N).toFixed(1)} % green or wet`);
+}
+
+/** The start's water through a badtide (the editor's own hazard model on the settled water), with the pool's inlet
+ *  shut by a levee to the valley floor while the water is clean, and left open. */
+function neckBadtide(s: MapSession, land: Land, days: number): void {
+  const b0 = s.built;
+  const full = { depth: Float64Array.from(b0.water), contamination: Float64Array.from(b0.contamination), stack: (b0.settle as unknown as { stack?: unknown }).stack ?? null };
+  const poolBad = (levee: boolean) => {
+    // (the map settles again with the levee, so the run's water model has it; the hazard runs from the water as it
+    // stood before, the inlet's taken out: the pool cut off keeps the water it had)
+    const depth = Float64Array.from(full.depth);
+    if (levee) {
+      applyOps(s, [{ op: "sculpt", params: { mode: "flatten", cells: runsWhere((i) => NECK.includes(i)), level: PLAIN, exact: true }, label: "A levee on the pool's inlet" }]);
+      for (const i of NECK) depth[i] = 0;
+    }
+    const b = s.built;
+    const run = new HazardRun(b.waterModel, { depth, contamination: full.contamination, stack: full.stack } as never, "badtide", days);
+    const out: string[] = [];
+    const tiles = [...land.pool.keys()].filter((i) => land.pool[i] && !NECK.includes(i));
+    for (let d = 1; d <= days; d++) {
+      run.step(TICKS_PER_DAY);
+      const w = run.water();
+      let wv = 0;
+      let bad = 0;
+      for (const i of tiles) (wv += w.depth[i]), (bad += w.depth[i] * w.contamination[i]);
+      if (d === 1 || d === days) out.push(`day ${d}: ${wv.toFixed(1)} of water, ${wv > 0 ? ((100 * bad) / wv).toFixed(0) : "-"} % bad`);
+    }
+    run.dispose();
+    if (levee) s.undo();
+    return out.join("; ");
+  };
+  log(`  the start's pool in a badtide of ${days} days: open ${poolBad(false)}; its inlet shut by a levee ${poolBad(true)}`);
+}
+
+/** Where the settled water still moves: a badtide (the water flowing on as it is, only its colour changing) run two
+ *  days from the settle, and the tiles whose surface water moved by more than 0.02, by region. */
+function drift(s: MapSession): void {
+  const b = s.built;
+  const run = new HazardRun(b.waterModel, { depth: b.water, contamination: b.contamination, stack: (b.settle as unknown as { stack?: unknown }).stack ?? null } as never, "badtide", 2);
+  run.step(2 * TICKS_PER_DAY);
+  const w = run.water();
+  const moved: number[] = [];
+  for (let i = 0; i < N; i++) if (Math.abs(w.depth[i] - b.water[i]) > 0.02) moved.push(i);
+  run.dispose();
+  const box = (t: number[]) => (t.length ? `X ${Math.min(...t.map((i) => i % W))}-${Math.max(...t.map((i) => i % W))} Y ${Math.min(...t.map((i) => Math.floor(i / W)))}-${Math.max(...t.map((i) => Math.floor(i / W)))}` : "");
+  const top = moved.slice().sort((a, c) => Math.abs(w.depth[c] - b.water[c]) - Math.abs(w.depth[a] - b.water[a])).slice(0, 8);
+  log(`  drift over two more days: ${moved.length} tiles moved more than 0.02 (${box(moved)}); most: ${top.map((i) => `(${i % W}, ${Math.floor(i / W)}) ${b.water[i].toFixed(2)} to ${w.depth[i].toFixed(2)}`).join(", ")}`);
+}
+
+/** The map's own words (600 characters at most). */
 const DESCRIPTION =
-  "A river runs across the upland and vanishes into a cave under the hill, runs underground, and comes out as a spring in the lowland far below. " +
-  "Dam it before the sink and the dry plain becomes your reservoir; the spring below runs dry.";
+  "The river crosses the dry upland and vanishes into the swallow hole under the hill at your door. It runs underground and comes out as a spring at the foot of the escarpment, the lowland's one water. " +
+  "Catch it: a weir before the sink waters the valley, a dam turns the valley into a lake, and the spring below runs dry until the lake spills over the old fall. " +
+  "Before the first badtide, shut the inlet of the pool by your rise: it keeps clean water.";
+
+/** The cameras of our own view (tools/showcase/capture.ts): the game's first frame and its widest. */
+function writeShots(s: MapSession): void {
+  const st = startOf(s);
+  const deg = Math.PI / 180;
+  const opening = (c: ReturnType<typeof openingCamera>) => ({ yaw: -35 * deg, pitch: 60 * deg, distance: c.distance, target: [c.target[0], c.target[2], c.target[1]] });
+  writeFileSync(join(OUT, `${ROUND}-shots.json`), JSON.stringify([
+    { name: "first", label: "The game's first frame (its own camera)", view: opening(openingCamera(st)) },
+    { name: "widest", label: "The game's first camera pulled back to its widest", view: opening(openingCamera(st, VISTA_ZOOM)) },
+  ], null, 1));
+}
 
 // --------------------------------------------------------------------------------------------------- main
 
@@ -515,26 +756,54 @@ function main(): void {
   cutSink(s, land);
   lap("the sink");
   placeStart(s);
+  buildRamp(s);
   firstFrame(s);
   placeSources(s);
   lap("sources and settle");
-  applyOps(s, [{ op: "setDescription", params: { text: DESCRIPTION } }]);
   printWater("as built", readWater(s, land));
   log(`    settle: ${(s.built.settle as unknown as { ticks: number }).ticks} ticks, settled ${(s.built.settle as unknown as { settled: boolean }).settled}`);
+  if (has("drift")) drift(s);
+  if (!has("bare")) {
+    plant(s, land);
+    woodReport(s);
+    lap("plants");
+  }
+  {
+    const reach = walkFromStart(s);
+    const st = startOf(s);
+    const walk = (pick: (i: number) => boolean) => {
+      let best = Infinity;
+      for (let i = 0; i < N; i++) if (pick(i)) for (const j of [i - 1, i + 1, i - W, i + W]) if (j >= 0 && j < N && reach[j] < best) best = reach[j];
+      return Number.isFinite(best) ? `${Math.round(best)} tiles` : "no walk";
+    };
+    log(`  walk from the start (${st.x}, ${st.y}, level ${st.z}): to its pool ${walk((i) => land.pool[i] === 1)}, to the last reach's bank ${walk((i) => (i % W) === MOUTH_X[0] - 1 && Math.floor(i / W) >= REACH_Y0 && Math.floor(i / W) < BUTTRESS_Y0)}, to the notch ${walk((i) => land.channel[i] === 1 && Math.floor(i / W) < escY(i % W) + 6)}`);
+  }
+  applyOps(s, [{ op: "setDescription", params: { text: DESCRIPTION } }]);
   writePicture(join(OUT, `${ROUND}-map.png`), s, land);
   saveMap(s, ROUND);
+  if (has("save")) writeShots(s);
   lap("saved");
   if (has("game")) compareGame(arg("game", ""), s, land);
+  if (has("weather")) {
+    neckBadtide(s, land, 8);
+    lap("the neck's badtide");
+  }
   if (has("dam")) {
     const dam = new Set<number>();
     for (let y = DAM_Y[0]; y <= DAM_Y[1]; y++) for (let x = MOUTH_X[0]; x <= MOUTH_X[1]; x++) dam.add(y * W + x);
-    applyOps(s, [{ op: "sculpt", params: { mode: "flatten", cells: runsWhere((i) => dam.has(i)), level: RISE, exact: true }, label: "A dam before the sink" }]);
+    applyOps(s, [{ op: "sculpt", params: { mode: "flatten", cells: runsWhere((i) => dam.has(i)), level: RISE, exact: true }, label: "The catch: a dam before the sink" }]);
     lap("the dam and settle");
+    if (has("drift")) drift(s);
     printWater(`with the dam (${dam.size} tiles to ${RISE})`, readWater(s, land));
     log(`    settle: ${(s.built.settle as unknown as { ticks: number }).ticks} ticks, settled ${(s.built.settle as unknown as { settled: boolean }).settled}`);
     writePicture(join(OUT, `${ROUND}-dam-map.png`), s, land);
     saveMap(s, `${ROUND}-dam`);
     if (has("game-dam")) compareGame(arg("game-dam", ""), s, land);
+    s.undo();
+  }
+  if (has("ladder")) {
+    ladder(s, land);
+    lap("the ladder");
   }
 }
 
