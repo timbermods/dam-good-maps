@@ -25,7 +25,7 @@ import { clamp } from "./random";
 import { smoothstep } from "../math/clamp";
 import { forceFloor, holdAtFloor } from "./floor";
 import { settleKnocked } from "./objects";
-import { clearable, clears, CLEARABLE, destroyedGround, motionOf, SourceClearing, type ClearedSource, type SourcesRule } from "./clear";
+import { clearable, clears, CLEARABLE, destroyedGround, motionOf, riddenLevel, SourceClearing, type ClearedSource, type SourcesRule } from "./clear";
 import { transportRock, trimRock } from "./rock";
 
 /** What a force is doing now, for the effects, the camera and the sounds. */
@@ -236,9 +236,21 @@ export abstract class Staged {
       const after = this.final();
       // (a source or seep that rides stands on the ground its last touches left, D474: every one under Ride, and
       // under Clear the ones whose ground it did not destroy)
+      // (from where it stood before, clear.ts `riddenLevel`: with its block, where a Quake or Rift moves the ground
+      // whole, measured from the tile it left; else one under a roof, a cave's, stays in its cave; with Erode's voxels,
+      // on the floor of its opening)
       if (after) {
         const W = after.W;
-        for (const e of after.entities) if (CLEARABLE.has(e.template) && e.x >= 0 && e.y >= 0 && e.x < W && e.y < after.H) e.z = after.heights[e.y * W + e.x];
+        const B = this.before;
+        const masks = after.masks;
+        const whole = motionOf((this as unknown as StagedRun).verb).kind !== "reshape";
+        const was = new Map(B.entities.filter((e) => e.x >= 0 && e.y >= 0 && e.x < B.W && e.y < B.H).map((e) => [e.id, e]));
+        for (const e of after.entities)
+          if (CLEARABLE.has(e.template) && e.x >= 0 && e.y >= 0 && e.x < W && e.y < after.H) {
+            const b = was.get(e.id);
+            const i = e.y * W + e.x;
+            e.z = b ? riddenLevel(b.z, B.heights[b.y * B.W + b.x], after.heights[i], masks?.[i], whole) : after.heights[i];
+          }
       }
       if (after && clears(this.settings.sources)) {
         const ground = this.before.heights;
