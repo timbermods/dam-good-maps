@@ -77,7 +77,7 @@ export function logSteps(log: readonly AppliedOp[]): AppliedOp[][] {
 function kindOf(ops: readonly AppliedOp[]): { kind: LapseKind; verb?: string } {
   const force = ops.find((o) => o.op === "forceResult");
   if (force && force.op === "forceResult") return { kind: "force", verb: force.params.verb };
-  if (ops.some((o) => o.op === "brush" || o.op === "sculpt" || o.op === "setLakeLevel" || o.op === "blocks" || o.op === "crop" || o.op === "addFeature" || o.op === "updateFeature" || o.op === "deleteFeature" || o.op === "reorderFeature"))
+  if (ops.some((o) => o.op === "brush" || o.op === "sculpt" || o.op === "setLakeLevel" || o.op === "ridge" || o.op === "blocks" || o.op === "crop" || o.op === "addFeature" || o.op === "updateFeature" || o.op === "deleteFeature" || o.op === "reorderFeature"))
     return { kind: "land" };
   if (ops.some((o) => o.op === "removeUnfedWater" || o.op === "fillHollow")) return { kind: "water" };
   if (ops.some((o) => o.op === "placeEntity" || o.op === "moveEntity" || o.op === "deleteEntities" || o.op === "setEntityProps" || o.op === "paintObjects" || o.op === "pinSlope" || o.op === "removeSlope"))
@@ -239,6 +239,7 @@ export function stepPlaces(groups: readonly (readonly AppliedOp[])[], W: number,
         }
         case "sculpt":
         case "setLakeLevel":
+        case "ridge":
           runs(op.params.cells);
           break;
         case "paintObjects":

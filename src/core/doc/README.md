@@ -54,6 +54,11 @@ The map document and its edit engine: a generation plus an ordered log of edit o
 - `waterEdits.ts`: Remove unfed water and Fill (D387, D394), the questions (`unfedWater`, `planFill`) and the operations they build.
 - `ruinLine.ts`: the ruin line (the Ruin dragged): `planRuinLine` (piers evenly along a line, their tops at one level,
   gaps by the seed; a `placeEntity` each) and `applyRuinLine` (one step); `ruinLineLimits.ts` holds its limits.
+- `ridge.ts`: the ridge, high ground along a line: `planRidge` (a surface with a wandering crest, a steep side and
+  broad benches, a few crags, made land by the forces' `levels::whole` through their Wasm, `levelsInRust`; a source's
+  ground, a cave's or a top over the ceiling refused saying where), `applyRidge` (one Select step) and the `ridge`
+  operation's check (`ridgeProblem`). Its tiles are stored with their levels and applied as a lake's sill's are;
+  `ridgeLimits.ts` holds its limits.
 - `lakeLevel.ts`: lakes by number: `planLakeLevel` (the sill cut down or raised that holds a lake at a level, `sim/sill.ts`,
   confirmed by the canonical settle), `applyLakeLevel` (one Select step, the confirming settle kept as the map's water,
   `MapSession.withSettled`) and the `setLakeLevel` operation's check (`lakeLevelProblem`).

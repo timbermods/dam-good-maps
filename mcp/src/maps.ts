@@ -16,6 +16,7 @@ import { newRampedStroke } from "../../src/core/doc/strokes";
 import { planStart } from "../../src/core/doc/tools";
 import { planFill, unfedWater } from "../../src/core/doc/waterEdits";
 import { applyLakeLevel } from "../../src/core/doc/lakeLevel";
+import { applyRidge, type RidgeSteep } from "../../src/core/doc/ridge";
 import { applyForce } from "../../src/core/collab/forceStep";
 import { isPickable } from "../../src/core/features/objects";
 import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
@@ -379,6 +380,14 @@ function applyOne(s: MapSession, raw: unknown): { label: string; held: number } 
         const plan = planFill(s, at![0], at![1], p.level as number, (p.floor as number | undefined) ?? null);
         if (!plan.op) refuse(plan.reason ?? "There is nothing to fill there");
         return done(s.apply(plan.op!, "user", label), lastLabel());
+      }
+      break;
+    case "ridge":
+      // high ground along a path: planned on the map as it stands (core/doc/ridge.ts)
+      if (p.cells === undefined) {
+        const path = p.path as Pair[] | undefined;
+        if (!Array.isArray(path) || path.length < 2) refuse("A ridge needs path [[x, y], ...], the line its crest follows");
+        return done(applyRidge(s, path!, (p.height as number | undefined) ?? 5, (p.width as number | undefined) ?? 10, (p.steep as RidgeSteep | undefined) ?? "auto", (p.seed as number | undefined) ?? 1), lastLabel());
       }
       break;
     case "setLakeLevel":
