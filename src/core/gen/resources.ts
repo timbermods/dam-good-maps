@@ -696,7 +696,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     }
   }
 
-  // ---- a fast species among the start's wood (D515, `start.wood_fast`): of the grown logs within the start's
+  // ---- a fast species among the start's wood (D515, `start.wood_fast`): of the living trees' grown logs within the start's
   //      wood's walk (20 tiles, the floor's 40 at Hard), the pines' and birches' at least the floor's share, with a
   //      margin. Fast groves of the species the mix leans to (pine where it has neither) grow first on the moist ground
   //      there outside the start's yard, adding logs; where that ground runs out short of the share, the living oak
@@ -708,15 +708,19 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     const fastSp = mixW.birch > mixW.pine ? "Birch" : "Pine";
     const share = floor.fastWood + FAST_MARGIN;
     const logsIn = (p: PlantedGrove) => grownLogs(seed, W, p.id, p.tiles, p.species, p.living, moist, within);
+    // (the share is of the living trees' logs, as `start.wood_fast` reads it: a standing dead tree grows none back)
     const tally = () => {
       let fast = 0;
       let all = 0;
+      let live = 0;
       for (const p of planted) {
         const n = logsIn(p);
         all += n;
+        if (!p.living) continue;
+        live += n;
         if (p.species === "Pine" || p.species === "Birch") fast += n;
       }
-      return { fast, all };
+      return { fast, all, live };
     };
     const woodWant = Math.ceil(1.15 * (within === nearWalk ? spec.settings.start.rules.woodWithin20 : LOG_FLOOR));
     const yard = new Uint8Array(N);
@@ -727,12 +731,12 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     }
     for (let k = 0; k < 12; k++) {
       const t = tally();
-      if (t.all >= woodWant && t.fast >= share * t.all) break;
+      if (t.all >= woodWant && t.fast >= share * t.live) break;
       const w = new Float64Array(N);
       for (let i = 0; i < N; i++) if (within[i] && free[i] && moist[i] && !yard[i]) w[i] = 1;
       const seeds = pickSeeds(vegRng, w, W, 3, 4);
       if (!seeds.length) break;
-      const need = Math.max(woodWant - t.all, (share * t.all - t.fast) / (1 - share), 1);
+      const need = Math.max(woodWant - t.all, (share * t.live - t.fast) / (1 - share), 1);
       const n = Math.max(6, Math.min(Math.ceil(need / (TREE_LOGS[fastSp] * 0.8)), Math.round(grove.median * 2.5)));
       let grew = false;
       for (const s of seeds)
@@ -744,7 +748,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     }
     for (let k = 0; k < 40; k++) {
       const t = tally();
-      if (t.all > 0 && t.fast >= share * t.all) break;
+      if (t.live > 0 && t.fast >= share * t.live) break;
       let best: PlantedGrove | null = null;
       let most = 0;
       for (const p of planted) {

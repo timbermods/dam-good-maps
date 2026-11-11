@@ -175,8 +175,10 @@ const LAND_SETTLES = 10;
 /** The first Normal drought's days for the drought-aware start (investigation/cycles: 2 in the
  *  game's schedule, after a day of ramp-down). */
 export const FIRST_DROUGHT_DAYS = 3;
-/** Moist land within 20 tiles' walk the settler asks for (food and wood grow there, D85). */
-const MOIST_WALK = 240;
+/** Moist land within 20 tiles' walk the settler asks for (food and wood grow there, D85): `MOIST_WALK.share` of the
+ *  start's moist floors (the first farms and the forester's plot, D515), never under `MOIST_WALK.least` (D85's 160,
+ *  which a map under 128² keeps: its forester's plot scales down with its area). */
+const MOIST_WALK = { share: 1.2, least: 160 } as const;
 /** How far above the start's floors (D515) the settler holds a start's bench, walkable land and moist land on the
  *  water it settles: the objects placed after (mine sites, relics) and the last settle take a little of each. */
 export const FLOOR_MARGIN = 1.1;
@@ -1709,7 +1711,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // the moist land the start's walk asks for: in a rescue round, room for the wood and berries the
   // start rules ask (a tree or bush a tile, the wood by oak's yield, with room between)
   const startRules = spec.settings.start.rules;
-  const moistWant = ease >= 1 ? Math.max(MOIST_WALK, Math.round(1.3 * (startRules.bushesWithin20 + startRules.woodWithin20 / OAK_LOGS))) : MOIST_WALK;
+  const floors = rulesFor(spec);
+  const moistWalk = Math.max(MOIST_WALK.least, Math.round(MOIST_WALK.share * (floors.farmland + floors.forester)));
+  const moistWant = ease >= 1 ? Math.max(moistWalk, Math.round(1.3 * (startRules.bushesWithin20 + startRules.woodWithin20 / OAK_LOGS))) : moistWalk;
   // the rule's drought, which a start's unfed water must last (D302; `start.water`)
   const droughtDays = DROUGHT[spec.designedFor].days;
   // the drought-aware start (#59): Easy requires water that lasts the first drought, Normal and Hard prefer it
@@ -1871,7 +1875,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   let minFoot = Math.round(Math.max(Math.min(1200, reachMin), 0.12 * N) * (ease >= 2 ? 0.5 : 1));
   const footWant = 2 * reachMin;
   // the start's floors (D515): every start the settler gives has its bench, its walkable land and its moist land
-  const floors = rulesFor(spec);
   const benchMin = Math.ceil(FLOOR_MARGIN * floors.levelLand);
   const room = { small: 400, normal: 900, large: 1600 }[spec.settings.start.area];
   const bench = { small: 79, normal: 113, large: 180 }[spec.settings.start.area];
@@ -3019,7 +3022,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // (D471: in a rescue round, a start whose 20 tiles' walk holds less dry land than the wood and
     // berries the start rules ask need gives way to another, as one whose water moved does: a 48²
     // start asked for 800 logs and 200 bushes in a pocket of land got neither)
-    if (!why && !lastAttempt && ease >= 1 && moistWant > MOIST_WALK && b.start && walkLand(b) < moistWant) why = "start walk too small";
+    if (!why && !lastAttempt && ease >= 1 && moistWant > moistWalk && b.start && walkLand(b) < moistWant) why = "start walk too small";
     // (D515: the start's floors on its settled water, as the checks read them; a start short of one gives way to
     // another on the same settled water)
     if (!why && !lastAttempt && b.start) {

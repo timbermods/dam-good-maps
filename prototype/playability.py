@@ -70,10 +70,10 @@ def js_round(v):
 
 def start_bench(h, wet, blocked, sx, sy):
     """validate/playability.ts startBench: the dry, unblocked tiles at the start's level joined to its
-    3x3 without a slope (4-connected), at any distance."""
+    3x3 without a slope (4-connected, the walk crossing water on that level), at any distance."""
     Y, X = h.shape
     level = h[sy, sx]
-    ok = (h == level) & ~wet & ~blocked
+    ok = (h == level) & ~blocked
     seen = np.zeros((Y, X), bool)
     queue = []
     for y in range(sy - 1, sy + 2):
@@ -89,7 +89,7 @@ def start_bench(h, wet, blocked, sx, sy):
             if 0 <= xx < X and 0 <= yy < Y and not seen[yy, xx] and ok[yy, xx]:
                 seen[yy, xx] = True
                 queue.append((yy, xx))
-    return len(queue)
+    return sum(1 for y, x in queue if not wet[y, x])
 LIVING_SHARE = (0.267, 0.434)
 
 
@@ -572,6 +572,7 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     scale = min(1.0, (X * Y) / START_FLOORS_AREA)
     reach_floor = js_round(rules["reach_min"] * scale)
     bench_floor = js_round(rules["level_land"] * scale)
+    forester_floor = js_round(rules["forester"] * scale)
     rep.add("start.reach", dry_reach >= reach_floor, f"{dry_reach} dry tiles walkable from the start without building",
             dry_reach, reach_floor)
 
@@ -580,7 +581,9 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     # of every grown tree within that walk, alive or dead, by its species' yield (tree_logs); a
     # sapling's logs are still growing and do not count. The starting-logs floor (D224, D227) counts
     # the same grown logs within a longer walk, 40 tiles, at every difficulty
-    bushes = wood = floor_wood = floor_fast = fast = 0
+    bushes = wood = floor_wood = 0
+    # (D515's fast wood: of the living trees' logs only, a dead tree grows none back)
+    live = {"near": [0, 0], "far": [0, 0]}
     for e in m.entities:
         if "BlockObject" not in e.get("Components", {}):
             continue
@@ -597,12 +600,14 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
             logs = tree_logs(q.template, e["Components"])
             if d <= cal.LOG_FLOOR_WALK:
                 floor_wood += logs
-                if q.template in ("Pine", "Birch"):
-                    floor_fast += logs
             if d <= NEAR:
                 wood += logs
-                if q.template in ("Pine", "Birch"):
-                    fast += logs
+            if not is_dead(e):
+                for key, walked in (("far", cal.LOG_FLOOR_WALK), ("near", NEAR)):
+                    if d <= walked:
+                        live[key][1] += logs
+                        if q.template in ("Pine", "Birch"):
+                            live[key][0] += logs
         if tree or d > NEAR:
             continue
         if is_dead(e) or not (M[q.y, q.x] > 0 and not D[q.y, q.x] > 0 and not SC[q.y, q.x] > 0):
@@ -612,11 +617,11 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
             bushes, rules["bushes_within"])
     rep.add("start.wood", wood >= rules["wood_within"], f"{wood} logs within 20 tiles' walk", wood,
             rules["wood_within"])
-    # D515: a fast species (pine, birch) a real share of the start's logs within its wood's walk
-    fast_all = (floor_fast, floor_wood) if rules["fast_wood_walk"] > NEAR else (fast, wood)
+    # D515: a fast species (pine, birch) a real share of the start's living trees' logs within its wood's walk
+    fast_all = live["far"] if rules["fast_wood_walk"] > NEAR else live["near"]
     share = fast_all[0] / fast_all[1] if fast_all[1] > 0 else 0.0
     rep.add("start.wood_fast", fast_all[1] > 0 and share >= rules["fast_wood"],
-            f"{js_round(share * 100)}% of the logs within {rules['fast_wood_walk']} tiles' walk grow on pines and birches",
+            f"{js_round(share * 100)}% of the living trees' logs within {rules['fast_wood_walk']} tiles' walk grow on pines and birches",
             js_round(share * 100) / 100, rules["fast_wood"])
     # the starting-logs floor (D224, D227): enough logs within about 40 tiles' walk to build a
     # Forester; exact, never approximate
@@ -639,7 +644,7 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     rep.add("start.farmland", farmland >= rules["farmland"], f"{farmland} tiles of moist farmland within {NEAR} tiles' walk",
             farmland, rules["farmland"])
     plot = max(0, farmland - rules["farmland"])
-    rep.add("start.forester", plot >= rules["forester"], f"{plot} tiles of moist land for a forester", plot, rules["forester"])
+    rep.add("start.forester", plot >= forester_floor, f"{plot} tiles of moist land for a forester", plot, forester_floor)
     bench = start_bench(h, wet, blocked.astype(bool), sx, sy)
     rep.add("start.level_land", bench >= bench_floor, f"{bench} tiles of level ground on the start's bench",
             bench, bench_floor)

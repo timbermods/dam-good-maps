@@ -702,7 +702,8 @@ fn is_sapling(o: &Entity) -> bool {
 }
 
 /// `startBench`: the start's bench (D515), the dry tiles at the start's level joined to its 3×3 without a slope
-/// (4-connected, off the tiles the objects that block walking cover), at any distance.
+/// (4-connected, off the tiles the objects that block walking cover), at any distance; the walk joining them crosses
+/// water standing on that level, and only the dry tiles count.
 pub fn start_bench(hgt: &[u8], wet: &[u8], blocked: &[u8], w: usize, h: usize, start: (i64, i64)) -> f64 {
     let (wi, hi) = (w as i64, h as i64);
     let (sx, sy) = start;
@@ -710,7 +711,7 @@ pub fn start_bench(hgt: &[u8], wet: &[u8], blocked: &[u8], w: usize, h: usize, s
         return 0.0;
     }
     let level = hgt[(sy * wi + sx) as usize];
-    let ok = |i: usize| hgt[i] == level && wet[i] == 0 && blocked[i] == 0;
+    let ok = |i: usize| hgt[i] == level && blocked[i] == 0;
     let mut seen = vec![0u8; w * h];
     let mut queue: Vec<usize> = vec![];
     for y in sy - 1..=sy + 1 {
@@ -743,7 +744,7 @@ pub fn start_bench(hgt: &[u8], wet: &[u8], blocked: &[u8], w: usize, h: usize, s
             }
         }
     }
-    queue.len() as f64
+    queue.iter().filter(|&&i| wet[i] == 0).count() as f64
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -853,6 +854,7 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
     let scale = start_floor_scale(w, h);
     let reach_floor = round(rules.reach_min * scale);
     let bench_floor = round(rules.level_land * scale);
+    let forester_floor = round(rules.forester * scale);
 
     // reach: same-level land joined by slopes (a floor, D515: walkable land without building)
     let labels = kernels::k_walk_regions(&hf, &bf, links, w, h);
@@ -886,8 +888,11 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
     let mut wood = 0.0;
     let mut growing = 0.0;
     let mut floor_wood = 0.0;
-    let mut floor_fast = 0.0;
     let mut by_species = [0.0f64; 3];
+    // (the fast wood's share is of the living trees' logs, near and within the floor's walk: a standing dead tree keeps
+    // its logs but grows none back, so its species says nothing of how fast the start's wood returns)
+    let mut live_near = [0.0f64; 2];
+    let mut live_far = [0.0f64; 2];
     let farthest = portable::max(NEAR, LOG_FLOOR_WALK);
     for o in objects {
         let tree = is_tree(&o.template);
@@ -907,8 +912,16 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
         let grown = woody && !is_sapling(o);
         if grown && dd <= LOG_FLOOR_WALK {
             floor_wood += logs;
-            if matches!(o.template.as_str(), "Pine" | "Birch") {
-                floor_fast += logs;
+        }
+        if grown && !o.dead {
+            let fast = matches!(o.template.as_str(), "Pine" | "Birch");
+            for (walked, t) in [(LOG_FLOOR_WALK, &mut live_far), (NEAR, &mut live_near)] {
+                if dd <= walked {
+                    t[1] += logs;
+                    if fast {
+                        t[0] += logs;
+                    }
+                }
             }
         }
         if dd > NEAR {
@@ -964,10 +977,10 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
     c.add(vec![
         ("id", s("start.forester")),
         ("class", s("playability")),
-        ("ok", b(plot >= rules.forester)),
+        ("ok", b(plot >= forester_floor)),
         ("value", n(plot)),
-        ("limit", n(rules.forester)),
-        ("message", s(format!("{} of moist land within {} tiles' walk beyond the first farms' {}, for a forester (at least {})", counted(plot, "tile"), num(NEAR), num(rules.farmland), num(rules.forester)))),
+        ("limit", n(forester_floor)),
+        ("message", s(format!("{} of moist land within {} tiles' walk beyond the first farms' {}, for a forester (at least {})", counted(plot, "tile"), num(NEAR), num(rules.farmland), num(forester_floor)))),
     ]);
     // the start's bench (D515): dry level ground at the start's level joined to its 3×3 without a slope, at any distance
     let bench = start_bench(hgt, wet, blocked, w, h, (sx, sy));
@@ -1004,8 +1017,9 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
         r.push(("fix", arr(plant.1)));
     }
     c.add(r);
-    // a fast species among the start's wood (D515): of its logs within the start's wood's walk, pines' and birches' a real share
-    let (fast, all) = if rules.fast_wood_walk > NEAR { (floor_fast, floor_wood) } else { (by_species[1] + by_species[2], wood) };
+    // a fast species among the start's wood (D515): of its living trees' logs within the start's wood's walk, pines' and
+    // birches' a real share
+    let [fast, all] = if rules.fast_wood_walk > NEAR { live_far } else { live_near };
     let share = if all > 0.0 { fast / all } else { 0.0 };
     c.add(vec![
         ("id", s("start.wood_fast")),
@@ -1016,7 +1030,7 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
         (
             "message",
             s(if all > 0.0 {
-                format!("{}% of the logs within {} tiles' walk of the start grow on pines and birches (at least {}%)", num(round(share * 100.0)), num(rules.fast_wood_walk), num(round(rules.fast_wood * 100.0)))
+                format!("{}% of the living trees' logs within {} tiles' walk of the start grow on pines and birches (at least {}%)", num(round(share * 100.0)), num(rules.fast_wood_walk), num(round(rules.fast_wood * 100.0)))
             } else {
                 format!("No logs within {} tiles' walk of the start", num(rules.fast_wood_walk))
             }),

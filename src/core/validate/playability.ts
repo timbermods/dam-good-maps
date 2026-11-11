@@ -69,14 +69,17 @@ export interface Rules {
  *  They are the same at every difficulty: the game's difficulty slows expansion, it never starves the start
  *  (PERFECT). From the loved maps (MAPCRAFT §4; investigation/WORKSHOP.md "The start"; the official maps in
  *  investigation/calibration.json), for maps of 128² and more; a smaller map keeps the same share of its area
- *  (`startFloorScale`; the farms' and the forester's plots are a building's, the same at every size).
+ *  (`startFloorScale`: the bench, the walkable land and the forester's plot; the first farms' 100, item 47's floor
+ *  from before D515, and the fast wood's share stay at every size).
  *  - `bench`: dry level ground at the start's level, joined to its 3×3 without a slope (4-connected, off the
- *    objects that block walking, at any distance), by Start area: Small 480 (the official maps' p10, 484), Normal
+ *    objects that block walking, at any distance, the walk crossing water on that level as the loved maps' bench was
+ *    counted), by Start area: Small 480 (the official maps' p10, 484), Normal
  *    640 (the workshop's median, 643), Large 980 (the official median).
  *  - `reach`: dry tiles walkable from the start over the map's own ground and slopes: 1,300 (the official median,
  *    1,296; it does not grow with the map, their 256² maps' median is 1,340). Buildable land's target leans the
  *    generator above it (`REACH_MIN`).
- *  - `fastWood`: the share of the start's logs that grow on pines and birches, within `fastWoodWalk` tiles' walk
+ *  - `fastWood`: the share of the start's living trees' logs that grow on pines and birches (a standing dead tree
+ *    grows none back), within `fastWoodWalk` tiles' walk
  *    (the start's wood: 20 tiles at Easy and Normal, the starting-logs floor's 40 at Hard, whose wood stands
  *    further, D85): 0.4, the start's wood not mostly oak (the official maps' median share of their logs, 0.43).
  *  - `forester`: moist land within 20 tiles' walk beyond what the first farms take (`FARMLAND_NEAR`): a forester's
@@ -123,7 +126,7 @@ export function rulesFor(spec: MapSpec | null, designedFor: Difficulty = "normal
     levelLand: Math.round(floors.bench[s?.start.area ?? "normal"] * scale),
     fastWood: floors.fastWood,
     fastWoodWalk: floors.fastWoodWalk,
-    forester: floors.forester,
+    forester: Math.round(floors.forester * scale),
     farmland: FARMLAND_NEAR,
     sourcesNone: s?.water.sources === "none",
     droughtDays: DROUGHT[difficulty].days,
@@ -210,12 +213,14 @@ export function colonyReach(W: number, H: number, h: Uint8Array, wet: Uint8Array
 
 /** The start's bench (D515; `start.level_land` reads it the same way, rust/checks `playability.rs` `start_bench`):
  *  the dry tiles at the start's level joined to its 3×3 without a slope (4-connected, off the tiles `blocked`
- *  marks), at any distance. `wet` is the map's water tiles (deeper than `WET`). */
+ *  marks), at any distance. The walk joining them crosses water standing on that level, as a beaver's walk without
+ *  slopes does (`walkDistance`) and as the loved maps' bench was counted (the workshop's `startStats`, the floors'
+ *  source); only the dry tiles count. `wet` is the map's water tiles (deeper than `WET`). */
 export function startBench(h: ArrayLike<number>, wet: ArrayLike<number>, blocked: ArrayLike<number> | null, W: number, H: number, start: { x: number; y: number }): number {
   const { x: sx, y: sy } = start;
   if (sx < 0 || sy < 0 || sx >= W || sy >= H) return 0;
   const level = h[sy * W + sx];
-  const ok = (i: number) => h[i] === level && !wet[i] && !blocked?.[i];
+  const ok = (i: number) => h[i] === level && !blocked?.[i];
   const seen = new Uint8Array(W * H);
   const queue: number[] = [];
   for (let y = sy - 1; y <= sy + 1; y++)
@@ -240,7 +245,9 @@ export function startBench(h: ArrayLike<number>, wet: ArrayLike<number>, blocked
       }
     }
   }
-  return queue.length;
+  let n = 0;
+  for (const i of queue) if (!wet[i]) n++;
+  return n;
 }
 
 /** The mine sites the colony does not reach, as each one's first tile: a site is reached when a
