@@ -41,6 +41,9 @@ export const LANDMARK_LIP = [10, 14] as const;
 export const HANGING_VALLEY = [20, 40] as const;
 /** How far along the hanging valley its weir and the bed in front of it run, past which it keeps clear of its source. */
 const VALLEY_HEAD = 7;
+/** How far the hanging valley's head keeps from a stair fall's lip, past its own half-width: the fall's shoulders and
+ *  the bed behind its crest, which its raster lays after the weir's. */
+const LIP_CLEAR = 9;
 /** How far the hanging valley's bed falls from its source's sill to the lip (assumption: riffles of a level each, so
  *  a landmark of 6 or 7 has a source on most steps; PREMISES §4.1 asks a source `H` or more above): at least a
  *  level, since a level valley takes a third more or less than the table's share from a lake, 16 % less from the
@@ -700,6 +703,9 @@ function placeFrame(L: Layout, o: StairOption): string | null {
         if (!clearPath(trial, path, 2.4, [src.id, K.id], others, 3, 3)) continue;
         // (past the weir at its head it keeps clear of its source: a valley that hooks back beside it drowns its weir)
         if (pathBodyGap(path, src, VALLEY_HEAD) < 2.4 + 3) continue;
+        // (and its head, the weir, clear of a stair fall's lip and shoulders: a fall drawn over it leaves no weir)
+        const head = subPath(path, 0, VALLEY_HEAD + 3);
+        if (plan.links.some((l) => l.fall && !l.path && pathGap(head, l.fall.lip) < 2.4 + LIP_CLEAR)) continue;
         hv = path;
         break;
       }

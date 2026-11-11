@@ -247,9 +247,10 @@ table and draws its heights and water. Where it differs from the above, and why:
   just past the body's shore, a tile or two aside where another water crowds it; the body's water a level deep
   behind it, rock beside its ends, and the bed past it two levels lower (a level for the hanging valley, whose lip
   is the next step), the body's shelf where it runs into another body lowered with it, and its banks the body's.
-  Where its course past the weir bends back beside its head or its body, that course is rock there, and the guard
-  parts a hanging valley from its source past its weir (a valley that hooked back beside the pool took half its
-  flow round its weir, seed 11 at 128²); stage 0 keeps the valley 5.4 tiles clear of its source past its first 7.
+  Where its course past the weir bends back beside its head or its body, that course is rock there (a valley that
+  hooked back beside the pool took half its flow round its weir, seed 11 at 128²); stage 0 keeps the valley 5.4
+  tiles clear of its source past its first 7, and its head 11.4 clear of a stair fall's lip, whose shoulders and
+  bed, laid after the weir, crowded it.
   The table carries 3.3 × its tiles × the head over it, and the split is the table's: on seeds 1 to 12 at the three
   sizes the pool's neck and valley carry the table's 7 and 7 within 2 %, a lake's stair fall and valley within 9 %
   and 16 % (the valley's share is the smaller, 3.8 of 14), and Four Lakes within 1 %. A valley level with its
@@ -265,7 +266,7 @@ table and draws its heights and water. Where it differs from the above, and why:
   the notch, open on day 1, about 3.5 of it, so the head on the rest of the lip is about 0.13, under the 0.15 to
   0.35 above. Settled with the notches open, as the game plays day 1, on seed 1 at the three sizes and Four Lakes
   every stair fall pours one curtain over its whole lip (9 or 10 tiles; the ruined weir's pieces 10 between its
-  piers), and the landmark 12 to 15 tiles 6.7 to 6.9 down. On seeds 1 to 12 at the three sizes, 108 of 118 falls
+  piers), and the landmark 12 to 15 tiles 6.7 to 6.9 down. On seeds 1 to 12 at the three sizes, 109 of 119 falls
   pass `stair.settled`'s curtain; section 9 has the other 10.
 - **A stair fall's plunge pool runs on through its lake's shore shelf** (`raster/falls.ts`), to two tiles past where
   the lake's bed lies under its sill: the shelf between them was a weir of its own, and the fall's foot stood 0.4
@@ -303,7 +304,7 @@ table and draws its heights and water. Where it differs from the above, and why:
   came to stand (another channel that took the link's head moves it on), raised to hold its body's level plus 0.3,
   and the guard rises with them; a leat whose row stood past its raised head let the pool over it.
 - **A plan whose water fails a `land` invariant is drawn again** (`draw.ts` `firstWater`), as one failing a `plan`
-  invariant is. On seeds 1 to 40, 27, 34 and 31 hold first time at 128², 192² and 256²; every seed holds within
+  invariant is. On seeds 1 to 40, 29, 39 and 32 hold first time at 128², 192² and 256²; every seed holds within
   `PLAN_TRIES`. The failures are stage 0's: another link running through or beside a fall's lip or pool, a brook into
   the landmark's valley, two falls side by side. Stage 0 keeping other links clear of the falls would remove most.
 
@@ -480,8 +481,8 @@ Stage 0 as built (step 1, seeds 1 to 200 under `tsx`): one layout that passes ta
 fail most often), so a plan takes 2 to 6 times its row and the worst at 128² most of the land's 0.2 s. **Meeting stage
 0's row is a condition of step 4**: a layout that fails should fail in its first steps, cheaply, not after its works
 are placed. (Allocation-free segment arithmetic and cheap checks first already took the means from 80, 37 and 54 ms.)
-At step 2 (the stair on the floor, the `n − 1` offer, the hanging valley kept clear of its source) a plan takes 82,
-34 and 60 ms on average (seeds 1 to 200), 198, 200 and 200 of them first time.
+At step 2 (the stair on the floor, the `n − 1` offer, the hanging valley kept clear of its source) a plan takes 107,
+43 and 58 ms on average (seeds 1 to 200, the machine shared), 195, 200 and 200 of them first time.
 
 ### 3.4 Deferred to after the map opens
 
@@ -537,7 +538,7 @@ stage's measure may move:
   its source took a third more or less than its share from a lake, 16 % less from the pool, §2.2 "As built (step
   2)"): the hanging valley's bed is the source's sill at its head and `sill + H` at the lip, falling a level at a
   time between (the Four Lakes fixture's valley drops one riffle, 14 to 13). Past its first 7 tiles, its weir and
-  the bed in front, it keeps 5.4 tiles clear of its source. So a landmark of 6 or 7 finds a source on every stair
+  the bed in front, it keeps 5.4 tiles clear of its source, and its first 10 keep 11.4 clear of a stair fall's lip. So a landmark of 6 or 7 finds a source on every stair
   but three lakes a step of 3 apart, which is not drawn.
 - The stair stands on the floor: the lowest sill is `BED_FLOOR` + 2 (5), the gorge's bed and the lowest lake's on
   `BED_FLOOR` (3; the lowest lake two deep, `LOW_DEEP`), so `5 + (n − 1) f + 2 ≤ top`. Where only one `f` fits `n`
@@ -873,10 +874,9 @@ work to these.
   `entry: { lake }` places a source of its own (build step 4), and the new `MapObjectKind`s the set pieces need
   (build step 7). The flow constants of stage 1 are fitted (section 2.2, "As built (step 2)").
 - **Curtains on drawn plans (found at step 2), for stage 1 before step 4:** settled with the notches open, 10 of
-  the 118 falls on seeds 1 to 12 at the three sizes fail `stair.settled`'s curtain, so step 4 would settle such a
-  map twice or more. Four landmarks of 6 drop 5.6 to 5.7, under `H − 0.3`: they land in a lake standing 0.35 to
-  0.45 over its sill, the lowest carrying the whole of the springs (a landing a level under the sill, or a landmark
-  of 7 over the lowest lake, would answer it). Two landmarks are split by a dry tile of their lip, under a head of
-  0.1. Three stair falls pour 7 tiles of their 8 or 9 at a diagonal lip's end, and one at a step of 4 is split
-  beside its notch. Each pours a film or less where it fails: the head over a stair fall's lip is about 0.13, and
-  a wider share for the stair (a neck wider than the landmark's valley) would thicken every lip.
+  the 119 falls on seeds 1 to 12 at the three sizes fail `stair.settled`'s curtain, so step 4 would settle such a
+  map twice or more; nine are landmarks. Five drop 0.1 or less short of `H − 0.3`: they land in a lake standing
+  0.35 to 0.45 over its sill, the lowest carrying the whole of the springs (a landing a level under the sill, or a
+  landmark of 7 over the lowest lake, would answer it). Four are split by a dry tile of their lip, under a head of
+  0.1 on 13 to 16 tiles. One stair fall pours 7 tiles of its 8 at a diagonal lip's end. Each fails where its lip
+  pours a film: the head over a stair fall's lip is about 0.13, the landmark's about 0.15.

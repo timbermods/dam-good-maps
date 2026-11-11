@@ -85,10 +85,7 @@ export function partWaters(plan: PremisePlan, r: WaterRaster): number {
     if (l.from !== body && l.to !== body) return false;
     if (l.fall) {
       if (l.kind === "gorge") return l.from !== body || r.crest[bodyTile] === k + 1;
-      // (a hanging valley meets its source short of its weir only: a valley that bends back past its source would
-      // take that water round its weir)
-      if (l.from === body) return r.along[chanTile] < weirAt[k];
-      return r.crest[chanTile] === k + 1;
+      return l.to !== body || r.crest[chanTile] === k + 1;
     }
     // (a channel meets the body it leaves at its head, or where it holds that water, short of a row; the body it
     // reaches anywhere: its water runs on into it)
