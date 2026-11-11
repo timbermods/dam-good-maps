@@ -5,6 +5,7 @@ import { fixture } from "./forceFixtures";
 import { jobBytes, executeInRust, planInRust } from "../../src/core/forces/rust/bridge";
 import { decode } from "../../src/core/forces/rust/protocol";
 import { forceParamsOf } from "../../src/core/forces/result";
+import { riddenLevel } from "../../src/core/forces/clear";
 import { forceProblems } from "../../src/core/forces/op";
 import { planForce } from "../../src/core/forces/start";
 import { keptForceParams } from "../../src/core/forces/keep";
@@ -78,6 +79,16 @@ describe("Rust Rift",()=>{
   expect(r.map.heights.every((h,i)=>h>=Math.min(m.heights[i],6))).toBe(true);
   expect(r.map.heights[32*64+32]).toBe(m.heights[32*64+32]);
   for(const e of r.map.entities){const b=m.entities.find(b=>b.id===e.id)!;expect(b).toBeDefined();expect(e.x).toBe(b.x);expect(e.y).toBe(b.y);expect(e.z-b.z).toBe(r.map.heights[e.y*64+e.x]-m.heights[b.y*64+b.x]);if(e.template==='WaterSource')expect(e.before).toEqual(b.before);}
+ });
+ test("a source rides its block by its ridden level (clear.ts riddenLevel, whole), never snapped to the surface",()=>{
+  const m=fixture("river",64);const src=m.entities.find(e=>e.template==="WaterSource")!;
+  // (a source standing two levels over its ground, on the rift's floor)
+  const i=31*64+32;Object.assign(src,{x:32,y:31,z:m.heights[i]+2});
+  const r=new RiftRun(m,{...RIFT_DEFAULTS,power:100,size:22,sources:"ride"},{path}).finishAll();
+  const e=r.map.entities.find(q=>q.id===src.id)!;
+  expect(r.map.heights[i]).toBeLessThan(m.heights[i]);
+  expect(e.z).toBe(riddenLevel(src.z,m.heights[i],r.map.heights[i],undefined,true));
+  expect(e.z).toBe(r.map.heights[i]+2);
  });
  test("no end pop; repeat, typed boundary and packed diagnostics agree; literal record validates",()=>{
   const m=plain();const r=new RiftRun(m,RIFT_DEFAULTS,{path});r.planAll();while(!r.done)r.step();
