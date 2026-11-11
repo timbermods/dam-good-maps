@@ -26,6 +26,7 @@ import type { LifeReport } from "./life";
 import { premiseLand, premiseMap } from "./map";
 import { premiseCard, type PremiseCard } from "./card";
 import { resolvePremise, type StyleTheme } from "./choice";
+import { sitePlan } from "./siting";
 import { PREMISES } from "./premises";
 import { premiseStyle } from "./style";
 import type { PremisePlan } from "./types";
@@ -110,7 +111,15 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
       fail(attempt, drawn.failures);
       continue;
     }
-    const plan = drawn.plan;
+    // stage 0's second pass: the works sited by the skeleton's day-1 moisture (`siting.ts`)
+    // (the theme's style for this attempt: the skeleton's land is read as the map's will be)
+    const style = premiseStyle(pair.theme, specIn, attempt);
+    const sited = sitePlan(def, specIn, drawn.plan, attempt, style.relief);
+    if ("reason" in sited) {
+      fail(attempt, [{ id: "site", reason: sited.reason }]);
+      continue;
+    }
+    const plan = sited.plan;
     // stage 1: its water by number, and the `land` invariants it alone can judge
     opts.onProgress?.({ attempt, stage: "land" });
     const water = waterByNumber(plan);
@@ -120,7 +129,6 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
       continue;
     }
     // stage 2: the relief between, in the theme's style; stage 3: the start for the first frame
-    const style = premiseStyle(pair.theme, specIn, attempt);
     const ground = premiseLand(plan, water, style);
     const frame = checkFrame(plan, water, ground.heights, needs);
     if (frame.reason) {
@@ -160,7 +168,7 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
       storage: null,
       startDrought: null,
       stage: "built",
-      premise: { id: def.id, theme: pair.theme, card: premiseCard({ id: def.id, theme: pair.theme, plan, ladder }) ?? undefined, plan, attempt, ladder, life: m.life, start: { moved: frame.moved, level: frame.level, farmland: frame.farmland, shallow: Math.round(frame.shallow * 100) / 100 }, later, ...(m.notes.length ? { notes: m.notes } : {}) },
+      premise: { id: def.id, theme: pair.theme, card: premiseCard({ id: def.id, theme: pair.theme, plan, ladder }) ?? undefined, plan, attempt, ladder, life: m.life, start: { moved: frame.moved, level: frame.level, farmland: frame.farmland, shallow: Math.round(frame.shallow * 100) / 100 }, later, ...(m.notes.length || plan.notes?.length ? { notes: [...(plan.notes ?? []), ...m.notes] } : {}) },
     };
     // the first look is the map's own land (D348: a land shown is never replaced, so it is shown once it passed)
     if (opts.onLand) {

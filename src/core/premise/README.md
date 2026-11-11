@@ -1,9 +1,9 @@
 # premise
 
 Maps from a premise (docs/PREMISES.md): a problem the player solves, with the water that makes it true. Build steps 1
-to 6 are here: the model, the lake stair's plan (stage 0) and its `plan` invariants; the water by number (stage 1)
+to 8 are here: the model, the lake stair's plan (stage 0) and its `plan` invariants; the water by number (stage 1)
 and its `land` invariants; the relief between (stage 2); the start for the first frame (stage 3); the ladder
-(stage 4); life and resources by budget (stage 6); the generator's premise mode, which `gen/generate.ts` `generate` calls when `spec.premise` is set (share link key `p`; no
+(stage 4) and the works sited by its soil (stage 0's second pass); life and resources by budget (stage 6); the generator's premise mode, which `gen/generate.ts` `generate` calls when `spec.premise` is set (share link key `p`; no
 control on the page yet); and step 9's core: the theme and the premise as two choices, the theme the land's style
 (PREMISES §1.5).
 
@@ -23,6 +23,13 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   there (§1.1, "As built").
 - `draw.ts`: `drawPlan` (one attempt, checked), `firstPlan` (the first that holds), `firstWater` (the first whose
   stage 1 water holds too), `failing`.
+- `siting.ts`: stage 0's second pass (§2.2, "As built (step 8)"). `sitePlan` lays a premise's skeleton (its plan
+  without the side network, `PremiseDef.skeleton`) through stages 1 and 2 in the theme's style (`siteLand`), reads day 1's soil on it
+  (`ladder.ts` `dayOneSoil`) and lets the premise draw its side network again on that land (`PremiseDef.site`);
+  `SiteModel.gain` is a work's estimate, the soil rule on the skeleton's land with the work's water and the ground
+  its template lays. The lake stair's `siteSide` places each empty basin with its feed, spill, levee and dam as one
+  chain, leaves out with a note (`plan.notes`, shown as `info.premise.notes`) a small work no site brings inside its
+  range, and keeps the first pass's side network, said in the notes, where no second-pass draw passes.
 - `choice.ts`: the two choices (§1.3, §1.5). `resolvePremise` (Any from the seed, the premise first, then the theme among
   `PREMISE_THEMES`), `pairRefusal` and `PAIR_REFUSALS` (one line a pair the premise cannot honour), `premiseRefusal`
   (the line for a spec that makes no premise map: the pair, then `eligible`), `PREMISE_SETTINGS` and `premiseSettings`
@@ -44,7 +51,8 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   walk finds the rules' level land and farmland.
 - `premises/lakeStair.ts`: the lake stair (§4): `lakeStairEligible`, the layout (the valley, the lakes on it, the
   start, its frame and the landmark placed together, the bypass, the tarns and basins, the works, the ridges, the
-  regions) and the stair's `plan` invariants. `layoutTry` gives one layout try as far as it got, for tuning.
+  regions; past 192² the lakes and rim tarns sized by the map, `mapScale` and `rimTarns`), its second pass
+  (`skeletonOf`, `siteStair`, `siteSide`; the works' green ranges `givesOf`) and the stair's `plan` invariants. `layoutTry` gives one layout try as far as it got, for tuning.
 - `planChecks.ts`: §1.4's checks every premise shares (levels fit, no bed under `BED_FLOOR`, bodies apart, the graph
   closes, the works add up, the skeleton is whole).
 - `geom.ts`: capsule chains, paths and gaps. `diagram.ts`: the water-story diagram (`planSvg`, `planRaster`).
