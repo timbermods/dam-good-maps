@@ -200,8 +200,12 @@ file. Rounds are judged on the game's own captures (the capture kit, `C:\dgm-pro
   of rock in the curtain (a tile fed only by the lip tiles north and east of it pours a film), the trench and the lake
   near black (two and three deep: the game's depth ramp), the wall's crest a flat grey band, and the basin's plates
   flat tabletops; the wall, the Gate's slot cutting through it, the ledge and the two dry beds all read from the
-  widest view. Round 3 (as saved): the dry corner tiles are the foot's, the lake two deep at most, the crest a ridge a
-  level higher along its line with peaks to 20, pits and knolls on the plates, the start's berries in patches.
+  widest view. Round 3: the dry corner tiles are the foot's, the lake two deep at most, the crest a ridge a level
+  higher along its line with peaks to 20, pits and knolls on the plates, the start's berries in patches. Its frames in
+  the game: the Veil one curtain again with its one buttress, the crest a ridge that catches the light, the Gate's
+  towers on the ledge beside the start; the trench (two and a half deep, the row that carries the fall to the drain)
+  and the lake's middle still dark, the basin's plates still tabletops. Round 4 (as saved): the lake a level and a
+  half deep but along its old river's line.
 - **Latest measures (r3; the core's own checks and water, not played).** Settled in 2,432 ticks; 0 blocking, 3
   warnings (`water.outflow` on the three seeps, `start.dry`, `start.wood` 160 of 200 logs). Flat 55.1 %, one-level
   steps 59.8 %. Water 8.0 %, moist 22.8 %, bare 69.3 %; the basin 9.9 % moist or wet. The Veil 6.36 levels, 12 tiles.
@@ -228,8 +232,8 @@ file. Rounds are judged on the game's own captures (the capture kit, `C:\dgm-pro
 After every work 39.6 % of the map; the rest is the wall, the ridges and the far benches.
 
 **What still falls short.**
-- The crest, the ridge and the basin's plates are not yet judged in the game at round 3; round 2's frames showed
-  them flat.
+- The basin's plates read as tabletops in the game at every round: the relief between the beds is the generator's
+  "ground with grade" problem, not a map's; and round 4's shallower lake is judged only by the model.
 - The badtide at the start is Four Lakes' problem again: the Veil runs red over the door on day 1. The Still Pool
   south-east of the start is built for a levee on its neck; nothing measures it.
 - The lake stands 0.57 over its sill, 0.43 under the bench, so the whole-river answer costs a second blast: at one

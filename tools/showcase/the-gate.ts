@@ -681,7 +681,8 @@ export function designLand(): Land {
     }
     const line = pathDist(x + 0.5 + 2.5 * fbm(x, y, 12, SEED + 47, 2), y + 0.5 + 2.5 * fbm(x, y, 12, SEED + 48, 2), LAKE_ARMS[0].map((q) => [q[0], q[1]] as Pt)).d;
     const shore = Math.max(0, Math.floor((Math.min(-d, isle) - 1.0) / 1.5));
-    const channelDepth = line < 3.2 ? 2 : 1;
+    // (r4: the lake a level and a half deep over its old river's line only, lighter in the game than two)
+    const channelDepth = line < 2.2 ? 2 : 1;
     let depth = shore === 0 ? 0 : shore === 1 ? Math.min(1, channelDepth) : channelDepth;
     // (the two bays' necks carry the Veil's whole flow from the trench: two deep their whole length; a creek a level)
     const arm = LAKE_ARMS.findIndex((a) => spineDist(x + 0.5, y + 0.5, a) < 0);
