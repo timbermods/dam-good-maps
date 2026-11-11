@@ -28,6 +28,8 @@ import { dayOneWater, START } from "./frame";
 import { stageFlow, levelsOf, LEVEL_SLACK, WATER_CHECKS } from "./waterChecks";
 import { stageModel, waterByNumber, type StageWater } from "./water";
 import { guardWater } from "./raster/guard";
+import { dist, pointAt, spineDist } from "./geom";
+import { SHORE_STRAIGHT, straightShores } from "./gateShore";
 import type { Invariant, InvariantResult, PremiseDef, PremisePlan } from "./types";
 import type { GateNumbers } from "./premises/wallGate";
 
@@ -209,8 +211,64 @@ export function frameShallow(plan: PremisePlan, w: StageWater): { shallow: numbe
   return { shallow, all };
 }
 
-/** The gate's `land` invariants: the shared ones, `water.levels` read for a backwater, `gate.dry` and `frame.water`. */
-export const GATE_WATER_CHECKS: Invariant[] = [...WATER_CHECKS.map((inv) => (inv.id === "water.levels" ? gateLevels : inv)), gateDry, frameWater];
+/** `lake.shore` (planning 2026-11-11: "the water is canals"): Wall Lake has two bays or more, each reaching 4 or more
+ *  past its main arm; its main arm's width swings two-fold or more along it; and no stretch of its shore runs straight
+ *  for more than `SHORE_STRAIGHT` tiles, the Veil's trench, the Gate's arm and the Low River's lip (the works' sites)
+ *  aside. Read on stage 1's water. */
+const lakeShore: Invariant = {
+  id: "lake.shore",
+  at: "land",
+  test(ctx) {
+    const g = gateOf(ctx.plan);
+    if (!g || !ctx.water) return fail("The plan has no wall with one gate");
+    const r = ctx.water.raster;
+    const { W, H } = r;
+    const k = ctx.plan.bodies.findIndex((b) => b.id === g.lake);
+    const lake = ctx.plan.bodies[k];
+    const [main, trench, gateArm, ...rest] = lake.arms;
+    // (the bays: the arms after the Gate's that run off the main arm; the one-point arms are the shore's points)
+    const bays = rest.filter((b) => b.length > 1);
+    const deep = bays.filter((b) => spineDist(b[b.length - 1][0], b[b.length - 1][1], main) >= BAY_REACH);
+    if (deep.length < 2) return fail(`${ctx.plan.names[g.lake] ?? g.lake} has ${deep.length} bays (two or more)`);
+    // (the main arm's width across it, every 3 tiles along it, its ends aside)
+    const widths: number[] = [];
+    let len = 0;
+    for (let q = 0; q + 1 < main.length; q++) len += dist([main[q][0], main[q][1]], [main[q + 1][0], main[q + 1][1]]);
+    const path = main.map((p) => [p[0], p[1]] as [number, number]);
+    for (let t = 6; t < len - 6; t += 3) {
+      const { p, dir } = pointAt(path, t);
+      let w = 0;
+      for (const side of [1, -1])
+        for (let o = side > 0 ? 0 : 1; o < 40; o++) {
+          const x = Math.floor(p[0] - dir[1] * o * side);
+          const y = Math.floor(p[1] + dir[0] * o * side);
+          if (x < 0 || y < 0 || x >= W || y >= H || r.lake[y * W + x] !== k + 1) break;
+          w++;
+        }
+      if (w) widths.push(w);
+    }
+    if (widths.length >= 3 && Math.max(...widths) < 2 * Math.min(...widths)) return fail(`${ctx.plan.names[g.lake] ?? g.lake}'s main arm is ${Math.min(...widths)} to ${Math.max(...widths)} wide (its width swings two-fold or more)`);
+    // (no straight shore: a run of shore tiles facing one way along one row or column; the Veil's trench under the lip
+    // and the Gate's foot are works' sites, the drain bay's leg and the Gate's arm down to the lake are not)
+    const gateEnd = gateArm[gateArm.length - 1];
+    const aside = (i: number) => {
+      const x = (i % W) + 0.5;
+      const y = Math.floor(i / W) + 0.5;
+      return spineDist(x, y, trench.slice(0, 4)) < 3 || dist([x, y], [gateEnd[0], gateEnd[1]]) < GATE_SITE || (r.lips[g.low] ?? []).some((j) => Math.abs((j % W) - (i % W)) + Math.abs(Math.floor(j / W) - Math.floor(i / W)) <= 4);
+    };
+    const runs = straightShores(W, H, [0, 0, W - 1, H - 1], (i) => r.lake[i] === k + 1, (i) => !!r.lake[i] || !!r.channel[i], aside);
+    if (runs.length) return fail(`${ctx.plan.names[g.lake] ?? g.lake}'s shore runs straight for ${runs[0].len} tiles at ${runs[0].x}, ${runs[0].y} (${SHORE_STRAIGHT} at most)`);
+    return OK;
+  },
+};
+/** How far a bay reaches past the main arm's outline, at the least; the longest straight shore. */
+const BAY_REACH = 4;
+/** How far from the Gate's arm's end its shore is the Gate's site. */
+const GATE_SITE = 7;
+
+/** The gate's `land` invariants: the shared ones, `water.levels` read for a backwater, `gate.dry`, `frame.water` and
+ *  `lake.shore`. */
+export const GATE_WATER_CHECKS: Invariant[] = [...WATER_CHECKS.map((inv) => (inv.id === "water.levels" ? gateLevels : inv)), gateDry, frameWater, lakeShore];
 
 /** `draw.ts` `firstWater` with the gate's stage 1: the first plan of a spec whose `plan` and `land` invariants hold,
  *  with the attempt it took, its water, and the attempts' failures before it. */
