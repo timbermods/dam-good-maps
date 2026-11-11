@@ -46,8 +46,10 @@ const OPS: Record<number, number> = { 96: 40, 128: 32, 192: 20, 256: 16 };
  *  the draws on M9a's maps, and 303 then applied none; the small preset on 306 since the draws took
  *  in Fill and Remove unfed water (#167's operations), and 301 then applied none; the max preset on 309
  *  since Remove unfed water joined the log operations (#176), and
- *  304 then never found unfed water to take; the max preset on 310 since M9b's maps changed the draws, and 309 then never found unfed water to take. */
-const SEED_FOR: Record<number, number> = { 96: 306, 192: 305, 256: 310 };
+ *  304 then never found unfed water to take; the max preset on 310 since M9b's maps changed the draws, and 309 then never found unfed water to take;
+ *  the max preset on 312 since generator 0.10.16's ground with grade: 310's Any map then held three times the water (22,157 wet
+ *  tiles for 7,831), each full rebuild took 20 s for 8 and the test ran past its time limit; 312's holds 4,525 and rebuilds in 6 s. */
+const SEED_FOR: Record<number, number> = { 96: 306, 192: 305, 256: 312 };
 
 // (River Valley and Any in turn: every map since M9a is a generated field, whose read-back features
 // the random operations reshape too)

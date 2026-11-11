@@ -397,6 +397,16 @@ export const GEOTHERMAL = {
   rock: [[0.18, 0.164, 0.138], [0.214, 0.197, 0.163], [0.197, 0.18, 0.152]] as readonly Rgb[],
 } as const;
 
+/** The aquifer as the game colours it (Aquifer.Model, D178, D496): its albedo (texture × vertex colour,
+ *  `tools/game-model-albedo.py`), its materials not metallic, so straight. The crust (the blockage's material, its vertex
+ *  colours dark blue-grey and grey, brown at its middle; 0.149/0.142/0.123 over its area) in five shades, each of our
+ *  crust's corners the game's colour there (averaged over 0.05 round it) as the nearest of them; its rocks (the
+ *  blockage's and the water source's rock; 0.18/0.164/0.141 the water source's) in three, each rock its own. */
+export const AQUIFER = {
+  crust: [[0.194, 0.165, 0.129], [0.168, 0.14, 0.102], [0.134, 0.098, 0.033], [0.106, 0.109, 0.105], [0.125, 0.127, 0.121]] as readonly Rgb[],
+  rock: [[0.175, 0.166, 0.143], [0.203, 0.193, 0.159], [0.212, 0.202, 0.166]] as readonly Rgb[],
+} as const;
+
 /** The blockage as the game colours it (Blockage.Model, D178, D496): its albedo (texture × vertex colour, area-weighted,
  *  `tools/game-model-albedo.py`), its material not metallic, so straight. Its heap's rocks in the three greys of its
  *  vertex colours (the heap's mean 0.173/0.160/0.133), its broken posts, the beam through it and the splinter brown, its plank shards pale,

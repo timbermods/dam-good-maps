@@ -1,7 +1,7 @@
-// The land's shares, live (Show's "Land", beside Legend): water, moist ground and dry ground as shares of the map, and
+// The land's shares, live (Show's "Land", beside Legend): water, moist ground, dry ground and spoiled ground as shares of the map, and
 // its living trees and logs (core/analysis/landShares.ts). Read from the page's copy of the map when the map changes
 // and its water has settled, never per frame; while the water is still flowing the last numbers stay. Dry land is not
-// a fault, so the three are shown plainly, with no warning colour. The toggle is remembered in this browser.
+// a fault, so they are shown plainly, with no warning colour. The toggle is remembered in this browser.
 
 import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
@@ -38,10 +38,11 @@ export function useLandShares(ed: Ed): LandSharesSlice {
     const m = mirror.current;
     const surface = surfaceWater(W, H, m.mapWater).surface;
     const moisture = m.soil?.moisture;
+    const contamination = m.soil?.contamination;
     const e = m.entities;
     const plants: LandPlant[] = [];
     for (let k = 0; k < e.count; k++) plants.push({ template: e.templates[e.template[k]], dead: (e.flags[k] & DEAD) !== 0, young: (e.flags[k] & YOUNG) !== 0 });
-    setShares(landShares(W * H, (i) => surface[i] === surface[i], (i) => !!moisture && moisture[i] > 0, plants));
+    setShares(landShares(W * H, (i) => surface[i] === surface[i], (i) => !!moisture && moisture[i] > 0, (i) => !!contamination && contamination[i] > 0, plants));
   }, [on, ready, flowing, busy, info.version, ed.waterTick]);
   const toggleLand = () => {
     const next = !on;
@@ -55,7 +56,7 @@ export function useLandShares(ed: Ed): LandSharesSlice {
   const landReadout = () => {
     if (!on || !shares) return null;
     const n = (v: number) => v.toLocaleString("en-GB");
-    const [water, moist, dry] = shareWords(shares);
+    const [water, moist, dry, spoiled] = shareWords(shares);
     const line = (name: string, value: string) => (
       <div class="land-line">
         <dt>{name}</dt>
@@ -67,6 +68,7 @@ export function useLandShares(ed: Ed): LandSharesSlice {
         {line("Water", water)}
         {line("Moist ground", moist)}
         {line("Dry ground", dry)}
+        {line("Spoiled ground", spoiled)}
         {line("Living trees", n(shares.trees))}
         {line("Logs", n(shares.logs))}
       </dl>

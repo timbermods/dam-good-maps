@@ -66,7 +66,7 @@ export function useSave(ed: Ed): SaveSlice {
 
   /** Save the map for Timberborn (D184): the canonical settle and every check, with progress on the
    *  button; problems that would stop the map loading open the quiet dot's list instead; warnings
-   *  go into the map's description (never a confirmation). Into the game's Maps folder where the
+   *  are confirmed without a question (never written into the map's description). Into the game's Maps folder where the
    *  browser can, else a download. The folder is found first, straight from the click: the picker needs the
    *  click's fresh user activation, which lapses within seconds, long before a big map is built. */
   async function saveMap(kind: "timberborn" | "download") {

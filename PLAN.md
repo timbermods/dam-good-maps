@@ -914,7 +914,7 @@ The same modules serve the editor. Each check has a class, and a profile decides
   checks). It blocks the download in `generate` and the export in `export`; on import it is reported, and the
   importer fixes what the game itself would fix.
 - **playability**: §11.3–11.4. In `generate` it must pass (the generator retries); in the editor's `export` profile
-  it is a warning on the quiet dot, never a pop-up, and never blocks export (D184); the warning is noted in the map
+  it is a warning on the quiet dot, never a pop-up, and never blocks export (D184); the warning stays in the editor's checks list, never in the map's
   description.
 - **design**: `terrain.max_height` (22 since D172 (1); the generator keeps to 16 until Verticality, §5.9),
   `terrain.single_floor` (an imported map's row only: a generated map has none), `terrain.dropped` and

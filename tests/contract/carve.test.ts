@@ -557,13 +557,14 @@ describe("a carve in the document (breakage rule)", () => {
     // seed 2 once the high ground beside a fall's stream is kept (D148): Highlands 26 with seed 3's course falls, and the
     // ground its fall keeps beside the stream (cut to the bed before) no longer lets its bend seal, by decision, not a
     // change in how Carve meanders; Highlands 26, 23 and 8 and Canyon 4 and 12 with seeds 1–6 seal none now, Highlands 18
-    // with seed 2 seals 104)
+    // with seed 2 seals 104; Highlands 18 with the carve's seed 6 since generator 0.10.16's ground with grade, D148: with
+    // seed 2 its bend seals no lake on the graded land, with seed 6 it seals 76 tiles that keep evaporating)
     // (without its 3D forms, D488: since they grow at the default Verticality this map has a cave on the
     // carve's way, which a force leaves as it is; the oxbow is the carve's, not the caves')
     const r = generate(makeSpec({ seed: 18, theme: "highlands", size: { x: 96, y: 96 } }), { forms: false });
     const s = MapSession.fromGenerated(r, r.file);
     const before = Array.from(s.built.water);
-    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 2, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
+    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 6, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
     const lake = op.params.lake!;
     expect(lake.tiles.length).toBeGreaterThan(70);
     expect(checkSchema(opsSchema as Record<string, unknown>, op)).toEqual([]);
@@ -664,8 +665,10 @@ describe("a carve at work in the editor's worker", () => {
   it("worked out first, then shown a frame at a time (D321, item 29); Esc drops all of it; kept part way it keeps its whole result, as one step; Try another path replaces it", async () => {
     const W = 96;
     // (seed 22 on 0.8.1's maps, D148: on seed 21 the carve is finished within the four seconds that
-    // stand for "part way", so keeping it there keeps the whole of it; seeds 23 and 26 do the same)
-    await runGenerate(makeSpec({ seed: 22, theme: "highlands", size: { x: W, y: W } }));
+    // stand for "part way", so keeping it there keeps the whole of it; seeds 23 and 26 do the same; seed 25 since
+    // generator 0.10.16's ground with grade, D148: seeds 21, 22, 23 and 26 now finish within those four seconds, seed 25's
+    // carve runs 102 steps and its whole result differs from part way on 258 tiles)
+    await runGenerate(makeSpec({ seed: 25, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
     const open = ed.sessionView();
     const ground = open.view.heights.slice();
