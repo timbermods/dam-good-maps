@@ -300,3 +300,9 @@ bastion at the start, the basin's terraces and rim beyond, the valley green belo
   the Low River levee +821/−16 (the lake 7.99); the leat's bar once and twice 0 (its water falls into the Gate's slot,
   already wet); the leat spanned +2,110/−2,080 (the model blocks the slot to span it); the megadam to 9 with the Gate's
   bar dammed holds 5,420 over 7,655 tiles.
+- **Round 6 in the game** (`C:\dgm-probe\captures\the-gate-r6\day1-first.jpg`, `day1-widest.jpg`): from the widest
+  view the wall is one straight dark band across the picture, the Gate's slot cut through it with the lake's water
+  in its head, the Veil's bastion at the start, the basin's terraces and far rim beyond, the valley green below: a
+  wall with one gate, plainly. What falls short in it: the two near oases are discs of green thirty tiles across (a
+  closed hollow fills to its flat whatever its depth, so each seep wet a disc of the flat: round 7 gives each hollow a
+  gully to the bed), and the lake in front of the start is dark where it is two deep.
