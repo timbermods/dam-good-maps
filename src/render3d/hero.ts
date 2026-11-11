@@ -1,7 +1,6 @@
 // The map's picture (D488): the .timber's map_thumbnail.jpg drawn in 3D, shown in the game's map picker. It is
-// what the game shows from its own camera and light (`heroView.ts`): the new game's opening camera (60° down,
-// turned to the start's orientation + 35°, the game camera's 35° field of view, at the default zoom's widest, the
-// frame the start is turned for, D493), lit as the game lights its thumbnails (the sun turning with the camera), the
+// what the game shows from its camera and light (`heroView.ts`): framed on the map's sight (the landmark the start's
+// opening frame holds, D493), else the whole map from the game's thumbnail camera, lit as the game lights its thumbnails (the sun turning with the camera), the
 // start hidden as the game's thumbnails hide it. One frame, drawn by a renderer of its own, off screen, so the
 // player's view (its camera, look and size) is never touched; in the High look with every effect (Standard where
 // High can't be drawn), at twice the picture's size and scaled down. Only what the game shows: the land, the water,

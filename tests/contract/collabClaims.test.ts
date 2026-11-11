@@ -468,7 +468,8 @@ describe("forces: the plan's footprint and the gesture's band, held against what
 
   it("a force reaching into a claim is refused from its plan; Try another counts the force it replaces", () => {
     const mirror = open();
-    const request = { verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 15 }, origin: [30, 30], cut: null } as unknown as ed.ForceRequest;
+    // (a crater whose next roll leaves standing an object this one removed: the record's check below needs one)
+    const request = { verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 20 }, origin: [30, 30], cut: null } as unknown as ed.ForceRequest;
     const first = planOf(request)!;
     expect(first).not.toBeNull();
     const c = new ClaimsState(W, W);
@@ -591,7 +592,9 @@ describe("the host's check (#397's seam): claimsCheck", () => {
   }, 120_000);
 
   it("a generated tree a force takes away counts at the tile it stood on, even where the ground did not change", () => {
-    const gesture = crater(36, 36, 5, "light", 16, 60, true);
+    // (Size 24 since the crater's small bowls got a lip all round, #912: at Size 16 it now changes the ground under
+    // every tree it takes, D148)
+    const gesture = crater(36, 36, 5, "light", 24, 60, true);
     const gone = treesOffGround(gesture);
     expect(gone.length, "no tree taken off the ground the crater changed").toBeGreaterThan(0);
     refusedAt(gesture, gone[0]);
