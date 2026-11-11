@@ -50,6 +50,70 @@ export function riddenLevel(z: number, before: number, after: number, mask?: num
   return after;
 }
 
+/** A water object's seat (D290): the level its footprint's ground is cut down to, the lowest of its tiles, so no
+ *  water is dammed (doc/placing.ts `levelFootprint` cuts a placed source's spring pool to it). */
+export function seatLevel(heights: ArrayLike<number>, tiles: readonly number[]): number {
+  let low = Infinity;
+  for (const i of tiles) low = Math.min(low, heights[i]);
+  return low;
+}
+
+/** Under Ride (planning's ruling of 2026-11-11), a multi-tile source or seep (a badwater source's 3 × 3, a seep's
+ *  2 × 2) on ground a force moved unevenly keeps riding, its seat levelled to the lowest of its tiles as D290 levels a
+ *  placed one: `after`'s heights are cut there and the source stands on the seat. Measured on the land the operation
+ *  keeps, a working area's feather applied (`ease`, keep.ts `featherForce`), and cut only where that land lets the cut
+ *  stand: a seat across the area's edge (a kept tile, `keep`, or one the feather holds above it) is held as it was
+ *  before the force, the source on it. One under a roof (a cave's), one on Erode's voxels (a tile not one plain run),
+ *  one cut off by the map's edge, or one whose tiles all moved alike rides as it is. `before` holds the objects where
+ *  they stood; `whole`: the force moves the ground whole (a Quake, a Rift). Rust's Carve does the same as its cut
+ *  reaches one (lib.rs `level_seat`). The tiles changed. */
+export function levelSeats(before: { W: number; H: number; heights: ArrayLike<number>; entities: readonly EntitySpec[] }, after: { W: number; H: number; heights: Uint8Array; entities: EntitySpec[]; masks?: Uint32Array }, whole: boolean, keep: ArrayLike<number> | null = null, ease: ArrayLike<number> | null = null): number[] {
+  const was = new Map(before.entities.map((e) => [e.id, e]));
+  const kept = (i: number) => (ease ? Math.max(before.heights[i] - ease[i], Math.min(before.heights[i] + ease[i], after.heights[i])) : after.heights[i]);
+  const masks = after.masks;
+  const cut: number[] = [];
+  for (const e of after.entities) {
+    if (!CLEARABLE.has(e.template)) continue;
+    const b = was.get(e.id);
+    if (!b) continue;
+    const tiles = footprint(after, e);
+    const from = footprint(before, b);
+    if (tiles.length < 2 || tiles.length !== from.length) continue;
+    const anchor = b.y * before.W + b.x;
+    if (b.z < before.heights[anchor]) continue;
+    // (the other forces leave the voxels as they were: a tile is plain if they are one run to its height before or after)
+    if (masks && tiles.some((i, k) => masks[i] !== plainRun(after.heights[i]) && masks[i] !== plainRun(before.heights[from[k]]))) continue;
+    const dz = (k: number) => kept(tiles[k]) - before.heights[from[k]];
+    if (tiles.every((_, k) => dz(k) === dz(0))) continue;
+    let low = Infinity;
+    for (const i of tiles) low = Math.min(low, kept(i));
+    // (the cut stands only where the operation keeps it: never on a kept tile, never past the feather; a seat across
+    // the working area's edge is held as it was instead, as the area holds the rest of it)
+    if (tiles.some((i) => low !== kept(i) && ((keep !== null && keep[i] !== 0) || (ease !== null && low < before.heights[i] - ease[i])))) {
+      if (!tiles.every((i, k) => i === from[k])) continue;
+      for (const i of tiles)
+        if (after.heights[i] !== before.heights[i]) {
+          if (masks && masks[i] === plainRun(after.heights[i])) masks[i] = plainRun(before.heights[i]);
+          after.heights[i] = before.heights[i];
+          cut.push(i);
+        }
+      e.z = b.z;
+      continue;
+    }
+    for (const i of tiles)
+      if (after.heights[i] !== low) {
+        if (masks && masks[i] === plainRun(after.heights[i])) masks[i] = plainRun(low);
+        after.heights[i] = low;
+        cut.push(i);
+      }
+    e.z = riddenLevel(b.z, before.heights[anchor], low, undefined, whole);
+  }
+  return cut;
+}
+
+/** A tile's voxels as one plain run from level 0 to its height (terrain/runs.ts' mask). */
+const plainRun = (h: number): number => (h >= 32 ? 0xffffffff : (1 << h) - 1) >>> 0;
+
 /** The tiles whose ground a force's result changes, its working area's feather applied (`ease`: how
  *  many levels each tile may move, D254; null for none), as its operation keeps them (keep.ts
  *  `featherForce`): the showing and the operation clear from the same tiles. */

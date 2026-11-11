@@ -177,11 +177,29 @@ describe("forces clear sources (D474)", () => {
         const e = ride.entities.find((q) => q.id === id);
         expect(e, `${id} rides`).toBeDefined();
         expect(e!.z).toBe(ride.heights[e!.y * W + e!.x]);
+        // (a multi-tile one on a seat levelled where the ground moved unevenly, planning's ruling of 2026-11-11: shown
+        // and kept alike)
+        const kept = new Map(ride.params.tiles.map((i, k) => [i, ride.params.heights[k]]));
+        for (const i of footprint(m, e!)) {
+          expect(ride.heights[i], `${id} stands level`).toBe(e!.z);
+          expect(kept.get(i) ?? m.heights[i], `${id}'s seat as kept`).toBe(ride.heights[i]);
+        }
       }
       if (!c.plans) {
-        // (Clear changes objects only: the land, the objects the force took and the trees it felled are Ride's)
-        expect(clear.params.tiles).toEqual(ride.params.tiles);
-        expect(clear.params.heights).toEqual(ride.params.heights);
+        // (Clear changes objects only: the land, the objects the force took and the trees it felled are Ride's, but for
+        // the seats Ride cut level under the multi-tile sources it kept riding, planning's ruling of 2026-11-11)
+        const landOf = (u: Used) => {
+          const h = m.heights.slice();
+          u.params.tiles.forEach((i, k) => (h[i] = u.params.heights[k]));
+          return h;
+        };
+        const seats = new Set(ride.entities.filter((e) => CLEARABLE.has(e.template)).flatMap((e) => (footprint(m, e).length > 1 ? footprint(m, e) : [])));
+        const [lc, lr] = [landOf(clear), landOf(ride)];
+        const differ: number[] = [];
+        for (let i = 0; i < lc.length; i++) if (lc[i] !== lr[i]) differ.push(i);
+        expect(differ.filter((i) => !seats.has(i)), "Clear's land is Ride's but for Ride's seats").toEqual([]);
+        // (a seat is cut to its lowest tile, or, across a working area's edge, held as it was)
+        for (const i of differ) expect(lr[i] < lc[i] || lr[i] === m.heights[i], `seat tile ${i}: ${lc[i]} to ${lr[i]}, was ${m.heights[i]}`).toBe(true);
         expect(clear.params.removed).toEqual(ride.params.removed);
         expect(clear.params.felled).toEqual(ride.params.felled);
         expect(clear.params.cleared?.length).toBeGreaterThan(0);
