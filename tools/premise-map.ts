@@ -19,6 +19,7 @@ import { encodeProject, generatedDocument } from "../src/core/doc/document";
 import type { BuildResult } from "../src/core/features/build";
 import { writeTimber } from "../src/core/format/timber";
 import { generatePremise } from "../src/core/premise/generate";
+import type { LifeReport } from "../src/core/premise/life";
 import { premiseMap } from "../src/core/premise/map";
 import type { PremiseId, PremisePlan } from "../src/core/premise/types";
 import { makeSpec, shareLink, type MapSpec } from "../src/core/spec/mapspec";
@@ -73,7 +74,8 @@ const KIND_RGB: Record<string, [number, number, number]> = {
 };
 
 /** Top-down: the ground shaded by height and lit from the north-west, the settled water blue, its moist ground
- *  green; each work's site in its kind's colour and the ground it would turn green hatched in it (`ladder`). */
+ *  green; each work's site in its kind's colour and the ground it would turn green hatched in it (`ladder`); each
+ *  tree a dot (living dark green, dead brown, succulent olive), each berry bush a red dot, each mine site black. */
 function picture(b: BuildResult, top: number, ladder?: Ladder): { rgb: Uint8Array; width: number; height: number } {
   const { W, H } = b;
   const h = b.heights;
@@ -87,6 +89,15 @@ function picture(b: BuildResult, top: number, ladder?: Ladder): { rgb: Uint8Arra
     const c = KIND_RGB[w.kind] ?? [255, 255, 255];
     for (const i of runsToTiles(w.reach, W)) if (!reach.has(i)) reach.set(i, c);
     for (const i of w.tiles) site.set(i, c);
+  }
+  const plant = new Map<number, [number, number, number]>();
+  for (const e of b.entities) {
+    const dead = !!(e.components.LivingNaturalResource as { IsDead?: boolean } | undefined)?.IsDead;
+    const c: [number, number, number] | null = e.template === "UndergroundRuins" ? [0, 0, 0] : e.template === "BlueberryBush" ? [200, 30, 60] : e.template === "Succulent" ? [130, 130, 40] : ["Pine", "Birch", "Oak"].includes(e.template) ? (dead ? [120, 80, 40] : [10, 70, 20]) : null;
+    if (!c) continue;
+    if (e.template === "UndergroundRuins") {
+      for (let dy = 0; dy < 5; dy++) for (let dx = 0; dx < 5; dx++) plant.set((e.y + dy) * W + e.x + dx, c);
+    } else plant.set(e.y * W + e.x, c);
   }
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
@@ -104,7 +115,9 @@ function picture(b: BuildResult, top: number, ladder?: Ladder): { rgb: Uint8Arra
       for (let a = 0; a < S; a++)
         for (let bb = 0; bb < S; bb++) {
           let px = c;
+          const pc = plant.get(i);
           if (sc) px = a === 0 || bb === 0 ? [0, 0, 0] : sc;
+          else if (pc && a > 0 && a < S - 1 && bb > 0 && bb < S - 1) px = pc;
           else if (rc && (a + bb) % 2 === 0) px = rc;
           const o = ((H - 1 - y) * S + a) * W * S * 3 + (x * S + bb) * 3;
           rgb[o] = Math.max(0, Math.min(255, px[0]));
@@ -115,7 +128,7 @@ function picture(b: BuildResult, top: number, ladder?: Ladder): { rgb: Uint8Arra
   return { rgb, width: W * S, height: H * S };
 }
 
-function write(r: Pick<GenerateResult, "spec" | "features" | "built" | "file" | "field" | "report" | "name" | "description">, top: number, name: string, ms: number, notes: string[], ladder?: Ladder): void {
+function write(r: Pick<GenerateResult, "spec" | "features" | "built" | "file" | "field" | "report" | "name" | "description">, top: number, name: string, ms: number, notes: string[], ladder?: Ladder, life?: LifeReport): void {
   const { W, H } = r.built;
   const g = measureGround(r.built.heights, W, H, (i) => r.built.settle.depth[i] > 0.05);
   console.log(`${name}: ${ms.toFixed(0)} ms; ground: flat ${(100 * g.flat).toFixed(0)} %, one-level steps ${(100 * g.s1).toFixed(0)} %, three commonest levels ${(100 * g.top3).toFixed(0)} %, thin ${(100 * g.thin).toFixed(0)} %`);
@@ -124,6 +137,11 @@ function write(r: Pick<GenerateResult, "spec" | "features" | "built" | "file" | 
   console.log(failed.length ? `  FAILS ${failed.map((c) => `${c.id}: ${c.message}`).join("; ")}` : "  every blocking check passes");
   if (later.length) console.log(`  later steps: ${later.map((c) => c.id).join(", ")}`);
   for (const note of notes) console.log(`  note: ${note}`);
+  if (life) {
+    const msg = (id: string) => r.report.checks.find((c) => c.id === id)?.message ?? "";
+    console.log(`  life (${life.ms} ms): living ${life.living} (${life.livingPer10k} per 10k, ${life.want.living} asked), cover ${(100 * life.cover).toFixed(1)} %, dead ${life.dead} (shores ${life.shores.clumps} clumps, ${life.shores.trees} trees), succulents ${life.succulents}; bushes ${life.bushes} (${life.bushesPer10k} per 10k, ${life.want.bushes} asked); mine sites ${life.mineSites}`);
+    for (const id of ["start.wood", "start.wood_floor", "start.food", "resources.mine_site"]) console.log(`    ${id}: ${msg(id)}`);
+  }
   mkdirSync(out, { recursive: true });
   const doc = generatedDocument({ spec: r.spec, features: r.features, built: r.built, file: r.file, field: r.field, ...(r.name ? { name: r.name } : {}), ...(r.description ? { description: r.description } : {}) });
   const project = join(out, `${name}.damgoodmaps`);
@@ -154,7 +172,7 @@ if (file) {
   const spec = specFor(plan.seed, plan);
   const t0 = performance.now();
   const m = premiseMap(spec, plan);
-  write({ spec, features: m.features, built: m.built, file: m.file, field: m.field, report: m.report, name: m.name, description: plan.line }, plan.top, basename(file).replace(/\.(plan\.)?json$/, ""), performance.now() - t0, m.notes);
+  write({ spec, features: m.features, built: m.built, file: m.file, field: m.field, report: m.report, name: m.name, description: plan.line }, plan.top, basename(file).replace(/\.(plan\.)?json$/, ""), performance.now() - t0, m.notes, undefined, m.life);
   if (drought) droughtReadout(spec, plan, m.built, m.water);
 } else
   for (const seed of seeds) {
@@ -168,6 +186,6 @@ if (file) {
     }
     const pi = r.result.info.premise!;
     console.log(`seed ${seed}: plan ${pi.attempt}, ${r.result.info.settles} settle(s), start moved ${pi.start?.moved} (level land ${pi.start?.level}, farmland ${pi.start?.farmland}, frame water shallow ${pi.start?.shallow}); failed before: ${r.result.failures.map((f) => f.failed[0]).join(", ") || "none"}`);
-    write(r.result, spec.settings.terrain.highestTerrain, `${premise}-${side}-${seed}`, ms, pi.notes ?? [], pi.ladder);
+    write(r.result, spec.settings.terrain.highestTerrain, `${premise}-${side}-${seed}`, ms, pi.notes ?? [], pi.ladder, pi.life);
     if (drought && pi.plan) droughtReadout(r.result.spec, pi.plan, r.result.built, waterByNumber(pi.plan));
   }

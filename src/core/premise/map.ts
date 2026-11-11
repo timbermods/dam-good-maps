@@ -4,7 +4,7 @@
 // its checks in profile "generate". The generator's mode (`generate.ts` `generatePremise`) runs it.
 
 import type { BuildResult, GeneratedField } from "../features/build";
-import { buildMap } from "../features/build";
+import { buildMap, SettleCache } from "../features/build";
 import { featureId } from "../features/ids";
 import type { Feature, LakeFeature, MapObjectFeature, SetPieceFeature, StartFeature } from "../features/schema";
 import type { TimberFile } from "../format/timber";
@@ -15,7 +15,8 @@ import { tilesToRuns } from "../math/grid";
 import type { MapSpec } from "../spec/mapspec";
 import type { PlayabilityAnalysis } from "../validate/playability";
 import type { ValidationReport } from "../validate/report";
-import { layWorks, type LaidWorks } from "./ladder";
+import { ladderOf, layWorks, type LaidWorks, type Ladder } from "./ladder";
+import { premiseLife, type LifeReport } from "./life";
 import { badwaterNiches, reliefBetween } from "./raster/relief";
 import type { PremisePlan } from "./types";
 import { waterByNumber, type StageWater } from "./water";
@@ -32,6 +33,8 @@ export interface PremiseMap {
   report: ValidationReport;
   analysis: PlayabilityAnalysis | null;
   name: string;
+  /** What stage 6 planted, against its budget. */
+  life: LifeReport;
   /** What could not stand as the plan has it, one line each (never silent, D342). */
   notes: string[];
 }
@@ -154,9 +157,11 @@ export function premiseLand(plan: PremisePlan, water: StageWater = waterByNumber
   return { water, heights, niches, laid, notes };
 }
 
-/** The map of a plan through stage 2, built and checked as the generator builds its maps; the start where stage 3
- *  put it (`start`), else where the plan's frame does. */
-export function premiseMap(spec: MapSpec, plan: PremisePlan, land: PremiseLand = premiseLand(plan), at: PremisePlan["frame"]["start"] = plan.frame.start): PremiseMap {
+/** The map of a plan, built and checked as the generator builds its maps; the start where stage 3 put it (`start`),
+ *  else where the plan's frame does. One settle (stage 5) on the land and its sources, then stage 6's life planted on
+ *  the settled ground (`life.ts`, its ground kept off the works' by `ladder`, laid again if not given) and the map
+ *  built once more with that settle reused: plants and mine sites move no water. */
+export function premiseMap(spec: MapSpec, plan: PremisePlan, land: PremiseLand = premiseLand(plan), at: PremisePlan["frame"]["start"] = plan.frame.start, ladder: Ladder = ladderOf(plan, land.water, land.heights, land.laid)): PremiseMap {
   const { water, heights, niches } = land;
   const notes = [...land.notes];
   const { x, y, z, orientation } = at;
@@ -172,8 +177,15 @@ export function premiseMap(spec: MapSpec, plan: PremisePlan, land: PremiseLand =
   const bad = badwaterOf(plan, heights, niches);
   const features: Feature[] = [start, ...springs, ...bad, ...rowsOf(plan, water, land.laid)];
   const field: GeneratedField = { heights, contains: new Set([...springs, ...bad].map((f) => f.id)), top: plan.top };
-  const built = buildMap({ W: plan.W, H: plan.H, seed: spec.seed, features, field });
+  const settleCache = new SettleCache();
+  const base = buildMap({ W: plan.W, H: plan.H, seed: spec.seed, features, field }, { settleCache, stopBeforeResources: true });
+  const t6 = performance.now();
+  const life = premiseLife(spec, plan, water, ladder, base, features, spec.accepted?.attempt ?? 0);
+  notes.push(...life.notes);
+  features.push(...life.features);
+  const built = buildMap({ W: plan.W, H: plan.H, seed: spec.seed, features, field }, { settleCache });
+  life.report.ms = Math.round(performance.now() - t6);
   const file = toTimberFile(spec, built);
   const v = validateBuilt(spec, features, built, file);
-  return { plan, water, heights, features, field: fieldData(field, plan.W), built, file, report: v.report, analysis: v.analysis, name: nameOf(plan), notes };
+  return { plan, water, heights, features, field: fieldData(field, plan.W), built, file, report: v.report, analysis: v.analysis, name: nameOf(plan), life: life.report, notes };
 }
