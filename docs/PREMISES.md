@@ -834,6 +834,36 @@ sea island by island: wall off your lagoon before it reaches you, or turn the cr
   cannot give and the foreground must estimate from volume and flow. It is the first premise whose gate leans on the
   proofs, and should be built third for that reason.
 
+### 5.3 The swallow hole (a candidate)
+
+A candidate, not yet passed: built by hand as `tools/showcase/swallow-hole.ts` in three rounds (2026-11-11;
+[progress/showcase-craft.md](progress/showcase-craft.md)), its water proved and its looks still owed. The verb is
+*catch*.
+
+**The line:** "A river crosses the upland and vanishes into a cave under the hill; far below it comes out as a spring.
+Dam it before the sink and the dry plain floods, but the spring runs dry."
+
+**The layout that worked** (round 2, grown to 192² in round 3): the mouth five wide and four high in the hill's south
+face, toward the opening camera, under an overhang three deep between two buttresses (the support rule allows no
+deeper roof); the tunnel dug with the Block tool slice by slice from the mouth, three high, 72 long at 128² and 100 at
+192², north into the hill, east under it and south under the plain, its floor falling from 10 to 4; the spring at the
+escarpment's foot, facing the camera, its stream across the lowland to an edge (beds five wide, falling a second
+level, or the water sheets over the flat and never settles); a notch at 13 in the escarpment's edge as the old
+spillway, dry until the plain fills; the dam the recess's two open rows before the overhang, ten tiles to 14 (a dam
+across the bed alone is walked round). The start on a rise at 14 beside the last reach, its water a side pool with
+an inlet one wide (in eight days' badtide 41 % bad open, clean behind a levee).
+
+**The game agrees** (probe runs `20261111-0920`, `-0932`, `-0950-captures`; every check passed): every tunnel column
+wet or dry as ours in all three rounds, the largest depth difference 0.013, 0.014 and 0.019; the spring 73.9, 119.9
+and 238.6 of water against ours 73.9, 119.7 and 238.8; with the dam the tunnel and the spring dry in both, the same
+6,626, 2,976 and 3,740 tiles flooded (13.26, 13.47, 13.22), the spillway 115.1 and 153.9 against 114.5 and 151.4.
+
+**What the full rounds still owe:** the first frame too close, the mouth a dark slot at its top (the overhang hides
+the opening from the camera's height); the hill a flat box; the terraces even bands round the valley; the upland flat
+and grey; the start's budget fragile (the oak stand fell to 168 logs when the terraces moved; with the dam the
+start is an island and its berries drown); the ladder thin (17 % green on day 1 to 28.8 % after every work, and the
+catch's +1,356 upland costs the lowland's 2,398).
+
 ## 6. Judging
 
 A premise ships only after its maps pass, in this order. Each tier is run when the premise or a stage it uses
