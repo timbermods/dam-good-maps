@@ -1,6 +1,7 @@
-// The generator's premise mode (docs/PREMISES.md §2.1, §2.2 stages 3, 5 and 8; build step 4): a share link with
-// `p=lakeStair` opens a lake stair the generator made through its plan, water, relief and start, one settle and the
-// checks, and a spec the premise rules out goes to the themes with the reason in one line (D471).
+// The generator's premise mode (docs/PREMISES.md §2.1, §2.2 stages 3, 4, 5 and 8; build steps 4 and 5): a share link
+// with `p=lakeStair` opens a lake stair the generator made through its plan, water, relief, start and ladder, one
+// settle and the checks, and a spec the premise rules out goes to the themes with the reason in one line (D471). The
+// ladder's gains are the soil rule's reach, `soilReach`, which must equal `sim/moisture.ts` tile for tile.
 //
 // The pinned sha256 is the `.timber` of seed 1 at 128² as this step makes it: a step that changes premise maps on
 // purpose updates it (D148).
@@ -8,10 +9,16 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
+import { firstWater } from "../../src/core/premise/draw";
+import { dayOneWater } from "../../src/core/premise/frame";
 import { generatePremise } from "../../src/core/premise/generate";
+import { soilReach } from "../../src/core/premise/ladder";
+import { premiseLand } from "../../src/core/premise/map";
+import { PREMISES } from "../../src/core/premise/premises";
+import { moisture } from "../../src/core/sim/moisture";
 import { decodeSpecFragment, encodeSpecFragment, makeSpec } from "../../src/core/spec/mapspec";
 
-const SHA = "7c59f9a1bb092dc78a3a1de50cce8a9fdaef78f8baf89bd5a5f501ba137620c9";
+const SHA = "38018a67367d8589ab13fd3dc6bbc068ca1ff382f746e47d8b49c326ec44fb97";
 
 describe("The premise mode (§2.2, build step 4)", () => {
   const made = makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "any" });
@@ -34,7 +41,33 @@ describe("The premise mode (§2.2, build step 4)", () => {
     // (the checks only plants and mine sites answer wait for steps 6 and 7, as warnings)
     for (const id of p.later ?? []) expect(r.report.checks.find((c) => c.id === id)?.severity).toBe("warning");
     expect(p.start!.shallow).toBeGreaterThanOrEqual(0.85);
+    // (the ladder: every work has a site on the land or says why not; day 1 is not fully watered)
+    const ladder = p.ladder!;
+    expect(ladder.works.length).toBe(p.plan!.works.length);
+    for (const w of ladder.works) expect(w.tiles.length > 0 || !!w.note).toBe(true);
+    expect(ladder.works.filter((w) => w.green > 0 || w.reservoir > 0).length).toBeGreaterThan(ladder.works.length / 2);
+    expect(ladder.day1.water + ladder.day1.moist).toBeLessThan(0.7);
     expect(createHash("sha256").update(r.bytes).digest("hex")).toBe(SHA);
+  });
+
+  it("reads the soil's reach as the game's soil rule does (stage 4's estimateGain)", () => {
+    const fw = firstWater(PREMISES.lakeStair, made);
+    if ("reason" in fw) throw new Error(fw.reason);
+    const { W, H } = fw.plan;
+    const { heights } = premiseLand(fw.plan, fw.water);
+    const depth = dayOneWater(fw.plan, fw.water, heights);
+    const none = new Float64Array(W * H);
+    const reach = soilReach(heights, { depth, contamination: none }, W, H);
+    const m = moisture(heights, depth, none, W, H);
+    let differ = 0;
+    let moist = 0;
+    for (let i = 0; i < W * H; i++) {
+      if (depth[i] > 0) continue;
+      if (m[i] > 0) moist++;
+      if (reach[i] > 0 !== m[i] > 0) differ++;
+    }
+    expect(moist).toBeGreaterThan(1000);
+    expect(differ).toBe(0);
   });
 
   it("hands a spec the premise rules out to the themes, saying why", () => {

@@ -14,8 +14,9 @@ import type { Rng } from "../../math/rng";
 import { BED_FLOOR } from "../../land/genome";
 import { sillWidthFor, MAX_SILL_WIDTH } from "../../sim/sill";
 import type { MapSpec } from "../../spec/mapspec";
+import { rulesFor } from "../../validate/playability";
 import { premiseStream } from "../draw";
-import { FRAME, frameLimit, frameWidthAt, lipInFrame } from "../frame";
+import { FRAME, frameLimit, frameWidthAt, lipInFrame, START } from "../frame";
 import { bodyDist, bodyGap, dist, dist2, segDist, edgeGap, headingOf, norm, outlinePoints, unitAt, pathBodyGap, pathDist, pathGap, pathLength, pointAt, squareClear, subPath } from "../geom";
 import { BODY_GAP, fail, linksFrom, nameOf, OK, PLAN_CHECKS, reach } from "../planChecks";
 import { WATER_CHECKS } from "../waterChecks";
@@ -84,6 +85,10 @@ export const NEAR_WALK = 40;
 const NEAR_SIDE = 3;
 /** The shortest dry bed with room for a dam to pond: a narrows and 8 tiles of bench beside it. */
 const DAM_BED = 12;
+/** A notch's dry bed at its shortest, tiles at 128² (scaled by side). Its tarn's green and its target lake's meadow
+ *  cover about 16 tiles along it, so a shorter bed buys little (§4.2: the ground a work pays on is dry on day 1); but
+ *  asking 18 failed ten seeds of twelve at 128², so none is asked and the longest of the nearest four is taken. */
+const NOTCH_BED = 0;
 
 /** The tile area over 192²'s: counts and gains scale by it (§4.2, §4.4). */
 const areaRatio = (W: number, H: number) => (W * H) / (192 * 192);
@@ -592,6 +597,41 @@ const FRAME_KEEP = 1;
 const BAY_END = [3.2, 4.8] as const;
 const BAY_ROOT = 7;
 
+/** The dry ground a start needs within its walk (`START.near`), as a multiple of the level land its checks ask for: a
+ *  share of it climbs off its meadow. */
+const MEADOW_ROOM = 2.2;
+
+/** How far a lake's water reaches past its spine's outline once stage 1 lays it on its ground, about. */
+const MEADOW_SHORE = 3;
+
+/** The tiles a start walks to within `START.near` steps without crossing water (`MEADOW_SHORE` from any body). */
+function meadowRoom(sx: number, sy: number, bodies: Body[], W: number, H: number): number {
+  const R = START.near;
+  const side = 2 * R + 1;
+  const seen = new Uint8Array(side * side);
+  const dry = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && bodies.every((b) => bodyDist(x + 0.5, y + 0.5, b) > MEADOW_SHORE);
+  let q: [number, number][] = [[sx, sy]];
+  seen[R * side + R] = 1;
+  let n = 0;
+  for (let k = 0; k <= R && q.length; k++) {
+    const next: [number, number][] = [];
+    for (const [x, y] of q) {
+      n++;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const xx = x + dx;
+        const yy = y + dy;
+        const u = xx - sx + R;
+        const v = yy - sy + R;
+        if (u < 0 || v < 0 || u >= side || v >= side || seen[v * side + u]) continue;
+        seen[v * side + u] = 1;
+        if (dry(xx, yy)) next.push([xx, yy]);
+      }
+    }
+    q = next;
+  }
+  return n;
+}
+
 /** The start, its first frame and the landmark (§4.3), placed together: the lip across the look, 5.5 tiles or more in
  *  front of the start and under the frame's top edge, between the start's lake and the landmark's source; a bay of the
  *  lake under the lip, on the far side from the start, so the fall's foot opens to its lake; the hanging valley
@@ -696,6 +736,9 @@ function placeFrame(L: Layout, o: StairOption): string | null {
       if ([...lip, C].some((q) => bodies.some((b) => bodyDist(q[0], q[1], b) < 1))) continue;
       if (plan.bodies.some((b) => b.id !== K.id && bodyGap(b, bayBody, BODY_GAP + 2) < BODY_GAP + 2)) continue;
       if (channels.some((l) => pathBodyGap(l.path!, bayBody, 3, pathLength(l.path!) - 3, (l.half ?? 1) + 2) < (l.half ?? 1) + 2)) continue;
+      // the start's meadow: dry ground it walks to without crossing water (a start between its lake and the bay has
+      // none to build on)
+      if (meadowRoom(sx, sy, bodies, plan.W, plan.H) < MEADOW_ROOM * rulesFor(L.spec).levelLand) continue;
       // the hanging valley: straight back from the lip, then to the source
       const trial: PremisePlan = { ...plan, bodies, frame: { ...plan.frame, start } };
       let hv: Point[] | null = null;
@@ -902,6 +945,13 @@ function straightLink(plan: PremisePlan, from: Body, to: Point, half: number, en
     }
   }
   if (!start) return null;
+  // (its head clear of every other channel's head out of the same body: a leat whose head the bypass's mouth took ran
+  // dry behind the bypass's first row)
+  for (const l of plan.links) {
+    if (l.from !== from.id || !l.path) continue;
+    const room = (l.mouth ?? 2 * (l.half ?? 1)) / 2 + half + 1;
+    if (dist(start, l.path[0]) < room) return null;
+  }
   const path: Point[] = [rp(start), rp(to)];
   const others = plan.links.filter((l) => l.path).map((l) => l.path!);
   return clearPath(plan, path, half, ends, others, 3) ? path : null;
@@ -1111,9 +1161,17 @@ function placeWorks(L: Layout, o: StairOption): string | null {
   // spring tarns first: a dry bed to a lower lake or basin, opened by clearing its row: the notch
   for (const t of tarns.filter((b) => b.kind === "tarn")) {
     const targets = [...plan.bodies.filter((b) => (b.kind === "lake" && b.sill <= t.sill - 2) || (b.kind === "basin" && !fed.has(b.id) && !L.poolBasins.has(b.id) && b.sill <= t.sill - 1))].sort((a, b) => bodyGap(a, t) - bodyGap(b, t));
-    for (const target of targets.slice(0, 3)) {
-      const link = bedLink(`bed${t.id}`, t, target, "brook", false);
-      if (!link) continue;
+    // (the longest bed of the nearest four: a short one carries its thread through green ground)
+    let link: Link | null = null;
+    let target: Body | undefined;
+    for (const x of targets.slice(0, 4)) {
+      const l = bedLink(`bed${t.id}`, t, x, "brook", false);
+      if (l && pathLength(l.path!) >= (NOTCH_BED * W) / 128 && (!link || pathLength(l.path!) > pathLength(link.path!))) {
+        link = l;
+        target = x;
+      }
+    }
+    if (link && target) {
       link.rows = [1];
       plan.links.push(link);
       addName(plan, link.id, `${plan.names[t.id].split(" ")[0]} Brook`);
@@ -1125,7 +1183,6 @@ function placeWorks(L: Layout, o: StairOption): string | null {
         const mid = pointAt(link.path!, pathLength(link.path!) / 2).p;
         smallWorks.push(work({ rung: "small", kind: "damToPond", on: link.id, at: rp(mid), tiles: rng.int(4, 7), needs: [notch.id], gives: { green: scale([270, 470]) }, region: t.region }));
       }
-      break;
     }
   }
   // basins: fed by a leat from gated water (the pool, gated at its head; or a lake below the neck), spilling down a bed
@@ -1205,7 +1262,10 @@ function placeWorks(L: Layout, o: StairOption): string | null {
     }
   }
   // the medium rung's raised sill: on a stair fall that is not the weir, rock shoulders two over its crest
-  const stairFalls = plan.links.filter((l) => l.kind === "fall" && l.id !== "landmark" && l.id !== weir.id);
+  // (on a lake with no other way out: a lake the landmark's valley also leaves pours its raised water down the valley)
+  const allFalls = plan.links.filter((l) => l.kind === "fall" && l.id !== "landmark" && l.id !== weir.id);
+  const alone = allFalls.filter((l) => !plan.links.some((x) => x !== l && x.from === l.from && !x.rows.length));
+  const stairFalls = alone.length ? alone : allFalls;
   if (stairFalls.length) {
     const l = rng.pick(stairFalls);
     const mid: Point = rp([(l.fall!.lip[0][0] + l.fall!.lip[1][0]) / 2, (l.fall!.lip[0][1] + l.fall!.lip[1][1]) / 2]);

@@ -1,12 +1,13 @@
 // The generator's premise mode (docs/PREMISES.md §2.1, §2.2 stages 3, 5 and 8; build step 4): `generate` calls
 // `generatePremise` when `spec.premise` names a premise (share link key `p`; no control on the page yet). Each attempt
 // draws a plan (stage 0), lays its water by number (stage 1) and the relief between (stage 2), places the start for the
-// first frame (stage 3), builds the map once with the generator's own `buildMap` (one canonical settle, stage 5) and
+// first frame (stage 3), lays the ladder (stage 4, `ladder.ts`: each work's site and its gain by number, read out in
+// `info.premise.ladder`), builds the map once with the generator's own `buildMap` (one canonical settle, stage 5) and
 // runs the checks in profile "generate" (stage 8). A plan that fails anywhere before the settle is drawn again for the
 // cost of its land; one that fails its checks costs a settle. A premise the spec rules out (`eligible`), or one whose
 // plans are spent, hands the spec back with the reason in one line, and the themes make the map (D471).
 //
-// Not yet (later build steps): the ladder (stage 4), life and resources (stage 6), set pieces (stage 7). So the checks
+// Not yet (later build steps): life and resources (stage 6), set pieces (stage 7). So the checks
 // those steps answer (`LATER`) are reported as warnings on a premise map, never silently: it has no plants or mine
 // sites yet.
 
@@ -17,6 +18,7 @@ import { rulesFor } from "../validate/playability";
 import { blocks, type CheckResult, type ValidationReport } from "../validate/report";
 import { drawPlan, failing, PLAN_TRIES, type Failure } from "./draw";
 import { checkFrame } from "./frame";
+import { ladderOf, type Ladder } from "./ladder";
 import { premiseLand, premiseMap } from "./map";
 import { PREMISES } from "./premises";
 import type { PremiseId, PremisePlan } from "./types";
@@ -42,6 +44,8 @@ export interface PremiseInfo {
   plan?: PremisePlan;
   /** The attempt whose plan made the map. */
   attempt?: number;
+  /** The ladder (stage 4): each work's site and its gain by number, and day 1's water and moist shares. */
+  ladder?: Ladder;
   /** Where stage 3 put the start, and what it measured there. */
   start?: { moved: number; level: number; farmland: number; shallow: number };
   /** The checks reported as warnings until a later build step answers them (`LATER`). */
@@ -111,6 +115,8 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
       fail(attempt, [{ id: "frame.start", reason: frame.reason }]);
       continue;
     }
+    // stage 4: the ladder, each work's site and its gain by number
+    const ladder = ladderOf(plan, water, ground.heights, ground.laid);
     // stage 5: one build, one canonical settle; stage 8: the checks
     opts.onProgress?.({ attempt, stage: "water" });
     const spec: MapSpec = { ...JSON.parse(JSON.stringify(specIn)), accepted: { attempt, candidate: 0 } };
@@ -136,7 +142,7 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
       storage: null,
       startDrought: null,
       stage: "built",
-      premise: { id: def.id, plan, attempt, start: { moved: frame.moved, level: frame.level, farmland: frame.farmland, shallow: Math.round(frame.shallow * 100) / 100 }, later, ...(m.notes.length ? { notes: m.notes } : {}) },
+      premise: { id: def.id, plan, attempt, ladder, start: { moved: frame.moved, level: frame.level, farmland: frame.farmland, shallow: Math.round(frame.shallow * 100) / 100 }, later, ...(m.notes.length ? { notes: m.notes } : {}) },
     };
     // the first look is the map's own land (D348: a land shown is never replaced, so it is shown once it passed)
     if (opts.onLand) {
