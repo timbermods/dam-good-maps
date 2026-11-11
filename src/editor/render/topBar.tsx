@@ -59,6 +59,7 @@ export function topBar(ed: Ed, props: EditorProps) {
         />
       }
       settings={brush}
+      lakeFed={ed.lakeFed}
       block={block}
       blockSettings={blockSettings}
       blockFlip={blockFlip}

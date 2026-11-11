@@ -24,7 +24,8 @@ import type { CompareSlice } from "./compare/useCompare";
 import type { BlockSlice } from "./block/useBlockTool";
 import type { HideObjectsSlice } from "./view/useHideObjects";
 import type { CanalSlice } from "./canal/useCanal";
+import type { LakeSlice } from "./lake/useLake";
 import type { RidgeSlice } from "./ridge/useRidge";
 import type { LandSharesSlice } from "./view/useLandShares";
 
-export type Ed = CanalSlice & LandSharesSlice & SessionSlice & PaintSlice & ViewSlice & SourcePointerSlice & MarkersSlice & StartHintSlice & RemoveSourcesSlice & ShelfSlice & DeleteSlice & ForcePrefsSlice & ForceRunSlice & ForcePointerSlice & RowsSlice & ReadySlice & SelectSlice & ViewSyncSlice & StartSlice & BlockSlice & TestHookSlice & SaveSlice & CompareSlice & CollabSlice & HideObjectsSlice & RidgeSlice;
+export type Ed = LakeSlice & CanalSlice & LandSharesSlice & SessionSlice & PaintSlice & ViewSlice & SourcePointerSlice & MarkersSlice & StartHintSlice & RemoveSourcesSlice & ShelfSlice & DeleteSlice & ForcePrefsSlice & ForceRunSlice & ForcePointerSlice & RowsSlice & ReadySlice & SelectSlice & ViewSyncSlice & StartSlice & BlockSlice & TestHookSlice & SaveSlice & CompareSlice & CollabSlice & HideObjectsSlice & RidgeSlice;

@@ -5,7 +5,7 @@
 import { Worker } from "node:worker_threads";
 import { afterEach, describe, expect, it } from "vitest";
 import { WaterSim, type WaterModel, type WaterState } from "../../src/core/sim/water";
-import { installParallelWater, parallelWaterStats, parallelWaterThreads, uninstallParallelWater, withoutParallelWater } from "../../src/core/sim/parallel";
+import { installParallelWater, parallelWaterStats, parallelWaterThreads, uninstallParallelWater, withoutParallelWater, withSmallMapThreads } from "../../src/core/sim/parallel";
 
 const bytes = (a: ArrayBufferView) => Buffer.from(a.buffer, a.byteOffset, a.byteLength);
 
@@ -151,6 +151,37 @@ describe("the multi-core water", () => {
       both(a, b, 2);
       expectSame(a, b, "after the failed commit");
       expect(parallelWaterThreads()).toBe(1);
+    } finally {
+      a.dispose();
+      b.dispose();
+    }
+  });
+
+  it("takes threads for a 128² map only inside withSmallMapThreads (the premise settle), with the same bytes", async () => {
+    // (the page's own policy, not a forced count: a pool on a cross-origin isolated page)
+    const g = globalThis as { crossOriginIsolated?: boolean };
+    const was = g.crossOriginIsolated;
+    g.crossOriginIsolated = true;
+    try {
+      const url = new URL("./threads/strip-helper.mjs", import.meta.url);
+      // (two threads: a 4-thread runner's budget is 3, `waterThreadBudget`, so waiting for 4 never ended there)
+      expect(installParallelWater({ eager: 1, spawn: () => { const w = new Worker(url); return { postMessage: (m) => w.postMessage(m), terminate: () => void w.terminate() }; } })).toBe(true);
+      while (parallelWaterThreads() < 2) await new Promise((r) => setTimeout(r, 10));
+    } finally {
+      g.crossOriginIsolated = was;
+    }
+    const W = 128, H = 128, N = W * H;
+    const model: WaterModel = { W, H, floor: Float64Array.from({ length: N }, (_, i) => ((i % W) + Math.floor(i / W)) / 64), dam: null, emitters: [{ cells: [5 * W + 5], strength: 2, contamination: 0 }] };
+    const initial: WaterState = { depth: new Float64Array(N).fill(0.3), contamination: new Float64Array(N) };
+    const [a, b] = pair(model, initial);
+    try {
+      const before = parallelWaterStats.ticks;
+      a.run(2);
+      expect(parallelWaterStats.ticks, "a plain 128² map stays on one thread").toBe(before);
+      withSmallMapThreads(() => a.run(4));
+      expect(parallelWaterStats.ticks, "inside, it takes threads").toBeGreaterThan(before);
+      withoutParallelWater(() => b.run(6));
+      expectSame(a, b, "the threads' water");
     } finally {
       a.dispose();
       b.dispose();

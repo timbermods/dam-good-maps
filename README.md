@@ -21,6 +21,9 @@ The generator:
 - A map opens ready to edit. **Map Generator**, top left, opens every setting at once.
 - Pick **Any**, or a theme to lean toward: **River Valley**, **Canyon**, **Highlands**, **Lake
   Basin**, **Delta** or **Islands**. Then pick the size.
+- **Idea** builds the map around one problem; **None** leaves it to the theme. **Lake stair**
+  makes a chain of lakes that step down the map. The map's card names its landmark and what to
+  do first.
 - The land and its rivers grow from uplift, erosion and flowing water. **Terrain → Verticality**
   makes it taller and sheerer. From 70 it can rise above level 16, which the game's map editor
   can't edit.
@@ -84,6 +87,8 @@ The editor:
   it. Esc or X puts anything down and goes back to Select.
 - To lead water, pick **Lower**, set its **Brush** to **Canal**, and drag from the water to where it must go. The
   canal's bed falls all the way and its banks hold the water. **Width**, **Depth** and **Starts** are in its row.
+- To make a new lake, pick **Lower**, set its **Brush** to **Lake**, and drag an outline on the land. Set **Level** and
+  **Depth** in its row. The lake gets a rim and one spill point. Add a source or lead water in to fill it.
 - To set a lake's level, take the lake with Select's **Wand**, then type the level in **Lake level** (or scroll over
   it). The lake's outlet is cut down or raised so the water holds there.
 - Drag the start to move it. Point at it to see its water, wood and berries.
@@ -102,7 +107,7 @@ The editor:
 - The dot at the top is green when the map is ready to play. Amber means something to look at:
   click it for the list and the fixes.
 - **Save to Timberborn** saves the map into the game (**Download .timber** in other browsers). **File**
-  has **Open…**, **Description…**, **Download project**, **Download .timber**, **Choose Maps folder…** (Chrome and Edge), **Clear everything**, **About**, **Keyboard shortcuts**,
+  has **Open…**, **New blank map…**, **Description…**, **Download project**, **Download .timber**, **Choose Maps folder…** (Chrome and Edge), **Clear everything**, **About**, **Keyboard shortcuts**,
   **Help** and **Report a problem**.
   **History** beside Undo lists every step: click one to go back to it.
 - Click the map's name at the top to rename it. The saved file takes the name.
@@ -110,6 +115,8 @@ The editor:
 - **Real places** in the header opens maps made from real land: click one to edit it.
 - The map you were on stays in **Your maps**, in the header: click it to go back.
 - Right-click a map in **Your maps** to download its `.timber`, rename it or delete it.
+- **File → New blank map…** starts a map on flat, dry ground: pick its size and its ground level. The start is at its
+  middle. Shape it, then add water sources.
 - **File → Description…** holds the map's name and the words the game shows with it. A generated map starts with
   the generator's words. After you change the map, keep them or write your own.
 - **File → Open…**, or a file dropped on the page, opens any `.timber` from Timberborn 0.6 to 1.1.

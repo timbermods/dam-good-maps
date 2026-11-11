@@ -31,6 +31,7 @@ import { PREMISES } from "./premises";
 import { premiseStyle } from "./style";
 import type { PremisePlan } from "./types";
 import { waterByNumber } from "./water";
+import { withSmallMapThreads } from "../sim/parallel";
 
 /** Settles one premise map may cost before the themes make it (PREMISES §2.2 stage 5: at most two a plan; the themes
  *  allow five a genome). A plan that fails before the settle costs none. */
@@ -114,9 +115,14 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
     // stage 0's second pass: the works sited by the skeleton's day-1 moisture (`siting.ts`)
     // (the theme's style for this attempt: the skeleton's land is read as the map's will be)
     const style = premiseStyle(pair.theme, specIn, attempt);
-    const sited = sitePlan(def, specIn, drawn.plan, attempt, style.relief);
+    // (the start's frame judged on the skeleton's land first: the side network only takes ground from it, so a start
+    // short of level land there is short on the map, and is drawn again before its works are sited)
+    const sited = sitePlan(def, specIn, drawn.plan, attempt, style.relief, (sk, w, heights) => {
+      const f = checkFrame(sk, w, heights, needs);
+      return f.reason ? { id: "frame.start", reason: f.reason } : null;
+    });
     if ("reason" in sited) {
-      fail(attempt, [{ id: "site", reason: sited.reason }]);
+      fail(attempt, [{ id: sited.id ?? "site", reason: sited.reason }]);
       continue;
     }
     const plan = sited.plan;
@@ -147,7 +153,8 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
     opts.onProgress?.({ attempt, stage: "water" });
     const spec: MapSpec = { ...JSON.parse(JSON.stringify(specIn)), accepted: { attempt, candidate: 0 } };
     settles++;
-    const m = premiseMap(spec, plan, ground, frame.start, ladder, style);
+    // (on threads from 128² where this thread has them, the page's generator worker: the settle is most of the wait)
+    const m = withSmallMapThreads(() => premiseMap(spec, plan, ground, frame.start, ladder, style));
     opts.onProgress?.({ attempt, stage: "check" });
     const { report, later } = deferLater(m.report);
     if (!report.passed) {

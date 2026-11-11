@@ -61,14 +61,16 @@ import { validateMap, type Validation } from "../validate/checks";
 import type { Profile } from "../validate/report";
 import { baseFromFile, baseTerrain, fileFromBase, type BaseMap, type BaseTerrain } from "./base";
 import { cropFalls, cropFile, cropObjects, START_CUT, type CropParams } from "./crop";
+import { blankDocument } from "./blank";
 import { lakeLevelLabel, lakeLevelProblem } from "./lakeLevel";
 import { canalLabel, canalProblem } from "./canal";
+import { drawnLakeLabel, drawnLakeProblem } from "./lake";
 import { ridgeLabel, ridgeProblem } from "./ridge";
 import { entityProblem, objectCells, resourceOwners } from "./placing";
 import { applyPaintObjects } from "./paint";
 import { forceLabel } from "../forces/op";
 import { versionName } from "../library/keptVersions";
-import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView, type VersionParent } from "./document";
+import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, keepGeneratedWords, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView, type VersionParent } from "./document";
 import { itemName, placeLabel, withArticle } from "./labels";
 import { restoreBuilt, sameMap, storeBuilt, storedFits, type StoredState } from "./stored";
 import { standingFeatures, standingOf } from "./startFit";
@@ -658,11 +660,8 @@ export class MapSession {
   /** The session of a map the generator just made: its own build is the starting map. */
   static fromGenerated(r: GenerateResult, file?: TimberFile, seedWord?: string): MapSession {
     const doc = toDocument(r.spec, r.features, r.built, file, r.field, seedWord);
-    // (M9b, D278 (1b): the map's own name and how it plays)
-    if (r.name) doc.meta.name = doc.meta.generatedName = r.name;
-    if (r.description) doc.meta.premise = r.description;
-    if (r.says?.length) doc.meta.says = [...r.says];
-    if (r.easyShort) doc.meta.easyShort = r.easyShort;
+    // (M9b, D278 (1b): the map's own name and how it plays; an idea map's card, D508)
+    keepGeneratedWords(doc, r);
     return new MapSession(doc, r.built);
   }
 
@@ -670,6 +669,12 @@ export class MapSession {
    *  ImportError for saves. */
   static importMap(bytes: Uint8Array, fileName: string, place?: string): MapSession {
     return new MapSession(importDocument(bytes, fileName, place));
+  }
+
+  /** A new blank map (doc/blank.ts): flat, dry ground at `level`, `size` tiles a side, the start at its middle. Throws
+   *  the one-line reason a size or a level is refused. */
+  static blank(size: number, level: number): MapSession {
+    return new MapSession(blankDocument(size, level));
   }
 
   // --------------------------------------------------------------------------------- reading
@@ -981,7 +986,7 @@ export class MapSession {
    *  none, on a heightfield, or for an operation that reshapes no ground (the full build's check after
    *  it covers the rest, D280 (3)). */
   private fallsAhead(op: EditOp): number[] {
-    if (op.op !== "brush" && op.op !== "sculpt" && op.op !== "setLakeLevel" && op.op !== "canal" && op.op !== "ridge" && op.op !== "forceResult") return [];
+    if (op.op !== "brush" && op.op !== "sculpt" && op.op !== "setLakeLevel" && op.op !== "canal" && op.op !== "lake" && op.op !== "ridge" && op.op !== "forceResult") return [];
     if (!this.layered(this.cur)) return [];
     const { x: W, y: H } = this.size;
     const { heights } = previewTerrain(this.cur, this.input());
@@ -1522,6 +1527,7 @@ export class MapSession {
       startObjects,
       lakeLevel: (p) => lakeLevelProblem(this, p),
       canal: (p) => canalProblem(this, p),
+      lake: (p) => drawnLakeProblem(this, p),
       ridge: (p) => ridgeProblem(this, p),
       cropObjects: (r) => {
         const o = cropObjects(this.cur.entities, r);
@@ -2658,6 +2664,8 @@ export function labelOf(op: AppliedOp): string {
       return lakeLevelLabel(op.params);
     case "canal":
       return canalLabel(op.params);
+    case "lake":
+      return drawnLakeLabel(op.params);
     case "ridge":
       return ridgeLabel(op.params);
     case "setDescription":

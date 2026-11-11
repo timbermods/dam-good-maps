@@ -161,7 +161,7 @@ function write(r: Pick<GenerateResult, "spec" | "features" | "built" | "file" | 
     const pc = (v: number) => `${(100 * v).toFixed(1)} %`;
     console.log(`  day 1: water ${pc(wet / (W * H))}, moist ${pc(moist / (W * H))} settled (by number ${pc(ladder.day1.water)}, ${pc(ladder.day1.moist)}); small works green ${pc(ladder.small)}, all works ${pc(ladder.together)}`);
     for (const w of ladder.works)
-      console.log(`  ${w.id} ${w.rung} ${w.kind} on ${w.on}: ${w.does} ${w.tiles.length} tiles${w.level !== undefined ? ` to ${w.level}` : ""}; green ${w.green}${w.reservoir ? `, holds ${w.reservoir}` : ""}${w.inRange ? "" : ` (${w.note ?? "out of range"})`}`);
+      console.log(`  ${w.id} ${w.rung} ${w.kind} on ${w.on}: ${w.does} ${w.tiles.length} tiles${w.level !== undefined ? ` to ${w.level}` : ""}; green ${w.green}${w.reservoir ? `, holds ${w.reservoir}` : ""}${w.estimate !== undefined ? ` (estimated ${w.estimate})` : ""}${w.paid ? "" : ` (${w.note ?? "under its floor"})`}`);
   }
   const p = picture(r.built, top, plain ? undefined : ladder);
   const png = join(out, `${name}.png`);

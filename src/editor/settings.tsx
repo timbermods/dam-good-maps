@@ -230,9 +230,14 @@ export function ChoiceSetting<T extends string | number>(p: {
   fit?: boolean;
   /** On one line: the name, the options, then the extra (the map generator). */
   line?: boolean;
+  /** Greyed as a whole: nothing to pick, each option's tooltip the setting's own (the generator, a setting an idea does
+   *  not use). */
+  off?: boolean;
+  /** Options that can be picked but warn (the warning colour): a theme the chosen idea does not take. */
+  warn?: readonly T[];
 }) {
   return (
-    <div class={`set plate${p.line ? ` line choice${p.extra ? " has-extra" : ""}` : ""}${p.auto?.on ? " auto" : ""}`} {...(p.title ? tip(p.title, ...(p.keys ?? [])) : {})}>
+    <div class={`set plate${p.line ? ` line choice${p.extra ? " has-extra" : ""}` : ""}${p.auto?.on ? " auto" : ""}${p.off ? " off" : ""}`} {...(p.title ? tip(p.title, ...(p.keys ?? [])) : {})}>
       {p.line ? (
         <span class="set-label">{p.label}</span>
       ) : (
@@ -246,7 +251,15 @@ export function ChoiceSetting<T extends string | number>(p: {
       )}
       <div class={`set-seg${p.fit ? " fit" : ""}`} role="group" aria-label={p.label}>
         {p.options.map(([v, word, title, off]) => (
-          <button type="button" key={String(v)} aria-pressed={p.value === v} disabled={!!off} {...tip(off ? `${title}: ${off}` : title, ...(p.keys ?? []))} onClick={() => p.onChange(v)}>
+          <button
+            type="button"
+            key={String(v)}
+            class={p.warn?.includes(v) ? "warn" : undefined}
+            aria-pressed={p.value === v}
+            disabled={!!off || p.off}
+            {...tip(p.off && p.title ? p.title : off ? `${title}: ${off}` : title, ...(p.keys ?? []))}
+            onClick={() => p.onChange(v)}
+          >
             {word}
           </button>
         ))}

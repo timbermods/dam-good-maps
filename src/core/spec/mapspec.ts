@@ -299,7 +299,9 @@ export function mineSitesForSize(x: number, y: number): number {
 
 /** What a premise's plan reads, preset (PREMISES §1.5): the settings that move its water, levels and ladder take the
  *  premise's values, never the theme's, so a theme changes only the land's style. Any's values, the lake stair's
- *  since step 1. */
+ *  since step 1, but for Verticality: 70 (`VT_TALL`, so Highest terrain 22, D132), since the height round (PREMISES
+ *  §1.5): the stair stays under 16 (`premises/lakeStair.ts` `stairTop`) and the land away from its water rises past
+ *  it, room for each theme's uplands to read as its own. */
 interface PremisePreset {
   verticality: number;
   buildableLand: Settings["terrain"]["buildableLand"];
@@ -307,7 +309,7 @@ interface PremisePreset {
   badwater: Settings["hazards"]["badwater"];
 }
 const ANY_PREMISE: PremisePreset = {
-  verticality: VT_DEFAULT.any,
+  verticality: VT_TALL,
   buildableLand: THEME_PRESETS.any.buildableLand,
   water: { rivers: THEME_PRESETS.any.rivers, riverStyle: THEME_PRESETS.any.riverStyle, riverFlow: THEME_PRESETS.any.riverFlow, droughtReserve: THEME_PRESETS.any.droughtReserve, lakes: THEME_PRESETS.any.lakes, waterfalls: THEME_PRESETS.any.waterfalls },
   badwater: THEME_PRESETS.any.badwater,
@@ -327,6 +329,28 @@ export function defaultSettings(theme: ThemeId, designedFor: Difficulty, size: {
   s.terrain.buildableLand = q.buildableLand;
   s.water = { ...q.water, sources: "placed" };
   s.hazards.badwater = q.badwater;
+  return s;
+}
+
+/** The settings the themes make a premise's map with when the premise refuses it (PREMISES §2.1): each setting the
+ *  premise's preset gave (`defaultSettings`) and still holds goes back to the theme's own at the spec's difficulty and
+ *  size, so a refused theme × premise pair is the theme's map, not the theme with the premise's water; a setting
+ *  changed from the premise's stays as set. */
+export function themeOwnSettings(spec: Pick<MapSpec, "theme" | "designedFor" | "size" | "premise" | "settings">): Settings {
+  const s: Settings = structuredClone(spec.settings);
+  if (spec.premise === undefined) return s;
+  const q = defaultSettings(spec.theme, spec.designedFor, spec.size, spec.premise);
+  const t = themeSettings(spec.theme, spec.designedFor, spec.size);
+  if (s.terrain.verticality === q.terrain.verticality && s.terrain.highestTerrain === q.terrain.highestTerrain) {
+    s.terrain.verticality = t.terrain.verticality;
+    s.terrain.highestTerrain = t.terrain.highestTerrain;
+  }
+  if (s.terrain.buildableLand === q.terrain.buildableLand) s.terrain.buildableLand = t.terrain.buildableLand;
+  const w = s.water as unknown as Record<string, unknown>;
+  const qw = q.water as unknown as Record<string, unknown>;
+  const tw = t.water as unknown as Record<string, unknown>;
+  for (const k of Object.keys(qw)) if (w[k] === qw[k]) w[k] = tw[k];
+  if (s.hazards.badwater === q.hazards.badwater) s.hazards.badwater = t.hazards.badwater;
   return s;
 }
 

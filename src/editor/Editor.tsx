@@ -50,6 +50,7 @@ import type { Together } from "../collab/together";
 import { useCompare } from "./compare/useCompare";
 import { useHideObjects } from "./view/useHideObjects";
 import { useCanal } from "./canal/useCanal";
+import { useLake } from "./lake/useLake";
 import { useLandShares } from "./view/useLandShares";
 import { useRidge } from "./ridge/useRidge";
 import { editorView } from "./render/editorView";
@@ -88,6 +89,7 @@ export interface EditorProps {
   replacing?: boolean;
   /** Open another file (the page confirms before replacing unsaved work). */
   onOpenFile(file: File): void;
+  onNewBlank(size: number, level: number): void;
   /** Said in the header's second line when this browser can't keep the map (Your maps). */
   saveState: string;
   /** The page's own line (a save that failed, a version found), shown with the editor's notes above the bar. */
@@ -148,6 +150,7 @@ export default function Editor(props: EditorProps) {
   Object.assign(ed, useCompare(ed, props));
   Object.assign(ed, useHideObjects(ed));
   Object.assign(ed, useCanal(ed));
+  Object.assign(ed, useLake(ed));
   Object.assign(ed, useLandShares(ed));
   Object.assign(ed, useRidge(ed));
   // the camera frames the map clear of the controls (setting it never moves the camera, D265)

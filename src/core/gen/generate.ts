@@ -71,7 +71,7 @@ import { stream } from "../math/rng";
 import { droughtStorage } from "../sim/drought";
 import { waterModel } from "../sim/model";
 import { moisture } from "../sim/moisture";
-import { AVAILABLE_THEMES, EDITOR_LEVEL, generatorSizeRefusal, THEME_PRESETS, VARIETY_DEFAULT, VT_DEFAULT, VT_TALL, type MapSpec, type Settings, type ThemeId } from "../spec/mapspec";
+import { AVAILABLE_THEMES, EDITOR_LEVEL, generatorSizeRefusal, THEME_PRESETS, themeOwnSettings, VARIETY_DEFAULT, VT_DEFAULT, VT_TALL, type MapSpec, type Settings, type ThemeId } from "../spec/mapspec";
 import { assertSpec } from "../spec/schema";
 import { ColumnTerrain, plainMask, terrainColumns, terrainData } from "../terrain/runs";
 import { validateMap, type Validation } from "../validate/checks";
@@ -497,7 +497,8 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
   if (specIn.premise !== undefined) {
     const p = generatePremise(specIn, opts);
     if ("result" in p) return p.result;
-    const r = generateThemes(specIn, opts);
+    // (with the theme's own settings where the premise's preset set them, `themeOwnSettings`)
+    const r = generateThemes({ ...specIn, settings: themeOwnSettings(specIn) }, opts);
     r.info.premise = { id: specIn.premise, fellBack: `${p.reason}: the themes made this map` };
     return r;
   }

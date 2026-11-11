@@ -159,7 +159,9 @@ export interface Work {
   tiles: number;
   /** Works that must come first. */
   needs: string[];
-  /** Tiles turned green or wet, as a range the later stages must hit; water held. */
+  /** What it buys: tiles turned green or wet, and water held (tile-levels), each as its floor and the most the plan
+   *  expects of it. The floor is what the later stages must reach (§4.2: a work must buy at least its floor; paying
+   *  more is fine); the most is what the siting aims under. */
   gives: { green: [number, number]; reservoir?: [number, number] };
   /** One line, when the work has a cost (a notch from a spring tarn runs red). */
   tradeoff?: string;
@@ -210,8 +212,12 @@ export interface PremisePlan {
   seed: number;
   W: number;
   H: number;
-  /** The highest ground allowed (settings.terrain.highestTerrain). */
+  /** The highest ground the stair, its water and its works are drawn under: Highest terrain, at most 16 (PREMISES
+   *  §1.3, the lake stair's `stairTop`). */
   top: number;
+  /** The highest the land away from the water may rise (settings.terrain.highestTerrain: 22 from Verticality 70, D132);
+   *  absent, `top`. Only stage 2's uplands read it (PREMISES §1.5). */
+  sky?: number;
   /** The one-line problem, in this map's own names. */
   line: string;
   // the water story

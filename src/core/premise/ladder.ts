@@ -9,7 +9,8 @@
 // The ground each kind needs is stage 2's (`raster/relief.ts`): a dry bed two deep with its bench at bed + 2 (a dam
 // to pond, a notch's thread), an empty basin's beach at its sill + 1 under a bank (a levee), rows of Blockages that
 // span their beds (`water.ts` `spanRow`). `layWorks` lays what the works themselves put on the land on day 1: a
-// notch shut by a rock plug instead of Blockages, where `NOTCH_SHUT` says so.
+// levee's basin banked, a dam's narrows and the pan behind it, a notch shut by a rock plug instead of Blockages where
+// `NOTCH_SHUT` says so.
 
 import { tilesToRuns, type Runs } from "../math/grid";
 import { clusterSaturation } from "../sim/moisture";
@@ -51,8 +52,11 @@ export interface WorkSite {
   reservoir: number;
   /** The tiles it turns green or wet, as runs (the ladder's readout shows them, §8). */
   reach: Runs;
-  /** Its estimate inside the plan's `gives` (green, or water held for a reservoir work). */
-  inRange: boolean;
+  /** What stage 0's second pass estimated it buys where it sited it (`Work.estimate`), beside the measure (`green`). */
+  estimate?: number;
+  /** Its measure at or over the plan's floor (`gives`: green, or water held for a reservoir work). A floor, not a band
+   *  (§4.2): what the ladder promises a player is that the work is worth building, so paying more is fine. */
+  paid: boolean;
   /** Why it stands short, in one line, when it does. */
   note?: string;
 }
@@ -146,8 +150,9 @@ function firstAlong(r: WaterRaster, li: number): number {
 /** An empty basin's beach for its levee (§4.2), tiles past its outline. */
 const BEACH = 3;
 
-/** Lays the works' own ground on stage 2's: each levee's basin banked (`bankBasin`), and a notch shut by a rock plug
- *  two tiles thick a level over its bed (its row and the band below it) where `NOTCH_SHUT` says so. */
+/** Lays the works' own ground on stage 2's: each levee's basin banked (`bankBasin`), each dam to pond's narrows and
+ *  pan (`narrowsGround`), and a notch shut by a rock plug two tiles thick a level over its bed (its row and the band
+ *  below it) where `NOTCH_SHUT` says so. */
 export function layWorks(plan: PremisePlan, w: StageWater, heights: Uint8Array): LaidWorks {
   const plugs: Record<string, number[]> = {};
   const banks: Record<string, number[]> = {};
@@ -157,6 +162,30 @@ export function layWorks(plan: PremisePlan, w: StageWater, heights: Uint8Array):
     const bi = plan.bodies.findIndex((b) => b.id === work.on);
     const si = plan.links.findIndex((l) => l.from === work.on && l.id.startsWith("spill"));
     if (bi >= 0 && si >= 0) banks[work.id] = bankBasin(plan, r, heights, bi, si);
+  }
+  // each dam to pond's narrows and pan (`narrowsGround`), where its bed has room for one, never on ground stage 1
+  // fixed (its guard and shores stand as laid, §2.2 stage 2)
+  const { x: sx, y: sy } = plan.frame.start;
+  const free = (i: number) => {
+    const x = i % r.W;
+    const y = (i - x) / r.W;
+    return !r.lake[i] && !r.channel[i] && !r.crest[i] && !r.pool[i] && !r.ribbon[i] && !r.fixed[i] && (Math.abs(x - sx) > 3 || Math.abs(y - sy) > 3);
+  };
+  for (const work of plan.works) {
+    if (work.kind !== "damToPond") continue;
+    const li = plan.links.findIndex((l) => l.id === work.on);
+    if (li < 0) continue;
+    const at = nearestAlong(r, li, work.at);
+    const first = firstAlong(r, li);
+    const back = Math.min(NARROWS.back, Math.floor(at - first) - NARROWS.off);
+    if (back < NARROWS.least) continue;
+    const dam = band(r, li, at - 0.5);
+    if (!dam.length) continue;
+    const b = Math.min(...dam.map((i) => heights[i]));
+    const bed: [number, number][] = [];
+    for (let i = 0; i < r.W * r.H; i++) if (r.channel[i] === li + 1) bed.push([i, r.along[i]]);
+    const lay = narrowsFit(bed, at, b, r.W, r.H, (i) => heights[i], free, back);
+    if (lay) for (const [i, v] of lay.ground) heights[i] = v;
   }
   if (NOTCH_SHUT !== "plug") return { plugs, banks };
   for (const work of plan.works) {
@@ -277,6 +306,44 @@ function waterOn(w: StageWater, floor: Float64Array): Water {
 
 // ------------------------------------------------------------------------------------------------- the soil's reach
 
+/** `clusterSaturation` (sim/moisture.ts) inside `box`, for water that lies inside it alone: a tile's saturation reads
+ *  the water two tiles round it, all of it in the box or none, so it is the whole map's, worked out on the box only. */
+function boxSaturation(wet: Uint8Array, W: number, H: number, box: readonly [number, number, number, number]): Uint8Array {
+  const [x0, y0, x1, y1] = box;
+  if (x0 === 0 && y0 === 0 && x1 === W - 1 && y1 === H - 1) return clusterSaturation(wet, W, H);
+  const wn = new Uint8Array(W * H);
+  for (let y = y0; y <= y1; y++)
+    for (let x = x0; x <= x1; x++) {
+      const i = y * W + x;
+      if (!wet[i]) continue;
+      let c = 1;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx >= 0 && xx < W && yy >= 0 && yy < H && wet[yy * W + xx]) c++;
+        }
+      wn[i] = c;
+    }
+  const sat = new Uint8Array(W * H);
+  for (let y = y0; y <= y1; y++)
+    for (let x = x0; x <= x1; x++) {
+      const i = y * W + x;
+      if (!wet[i]) continue;
+      let best = wn[i];
+      if (x > 0 && wn[i - 1] - 1 > best) best = wn[i - 1] - 1;
+      if (x + 1 < W && wn[i + 1] - 1 > best) best = wn[i + 1] - 1;
+      if (y > 0 && wn[i - W] - 1 > best) best = wn[i - W] - 1;
+      if (y + 1 < H && wn[i + W] - 1 > best) best = wn[i + W] - 1;
+      sat[i] = Math.min(8, best);
+    }
+  return sat;
+}
+
+/** `soilReach`'s buckets by moisture strength (0 to 1600), shared by every call. */
+const BUCKETS: number[][] = Array.from({ length: 1601 }, () => []);
+
 /** The tiles the soil makes moist from `water` (the game's rule, `sim/moisture.ts` `moisture`: a wet tile's reach is
  *  twice its cluster's saturation, a tile beside water loses 6 for each level over the water's ceiled surface, and the
  *  reach spreads a tile at a time, 1 along and √2 across, 6 for each level climbed), read inside `box` [x0, y0, x1,
@@ -288,7 +355,7 @@ export function soilReach(heights: ArrayLike<number>, water: { depth: ArrayLike<
   const [x0, y0, x1, y1] = box;
   const wet = new Uint8Array(N);
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (depth[y * W + x] > 0) wet[y * W + x] = 1;
-  const s = sat ?? clusterSaturation(wet, W, H);
+  const s = sat ?? boxSaturation(wet, W, H, box);
   const M = new Int32Array(N);
   const fixed = new Uint8Array(N);
   const range = (j: number) => {
@@ -297,7 +364,8 @@ export function soilReach(heights: ArrayLike<number>, water: { depth: ArrayLike<
     return c >= 0.01 ? Math.floor(r * Math.min(1, Math.max(0, 1 - c / 0.53))) : r;
   };
   const ceilOf = (j: number) => Math.ceil(heights[j] + depth[j] - 1e-9);
-  const buckets: number[][] = Array.from({ length: 1601 }, () => []);
+  // (the buckets are the module's, each emptied as it is walked: every reach leaves them empty)
+  const buckets = BUCKETS;
   for (let y = y0; y <= y1; y++)
     for (let x = x0; x <= x1; x++) {
       const i = y * W + x;
@@ -306,7 +374,12 @@ export function soilReach(heights: ArrayLike<number>, water: { depth: ArrayLike<
         fixed[i] = 1;
       }
     }
-  const nb = new Int32Array(4);
+  // (a dry tile beside water: the best of its four neighbours', in the order left, right, up, down)
+  const beside = (i: number, j: number, best: number): number => {
+    if (!wet[j]) return best;
+    const v = 100 * range(j) - 600 * Math.max(0, heights[i] - ceilOf(j));
+    return v > best ? v : best;
+  };
   for (let y = y0; y <= y1; y++)
     for (let x = x0; x <= x1; x++) {
       const i = y * W + x;
@@ -315,40 +388,51 @@ export function soilReach(heights: ArrayLike<number>, water: { depth: ArrayLike<
         continue;
       }
       let best = 0;
-      near4(W, H, i, nb);
-      for (const j of nb) {
-        if (j < 0 || !wet[j]) continue;
-        const v = 100 * range(j) - 600 * Math.max(0, heights[i] - ceilOf(j));
-        if (v > best) best = v;
-      }
+      if (x > 0) best = beside(i, i - 1, best);
+      if (x + 1 < W) best = beside(i, i + 1, best);
+      if (y > 0) best = beside(i, i - W, best);
+      if (y + 1 < H) best = beside(i, i + W, best);
       if (best > 0) {
         M[i] = best;
         buckets[best].push(i);
       }
     }
+  // (one neighbour of a tile at `m`: reached at `m` less the step and 6 a level climbed, kept where it is more)
+  const spread = (j: number, m: number, step: number, base: number): void => {
+    if (fixed[j]) return;
+    const v = m - step - 600 * Math.max(0, heights[j] - base);
+    if (v > M[j]) {
+      M[j] = v;
+      buckets[v].push(j);
+    }
+  };
   for (let m = 1600; m > 0; m--) {
     const list = buckets[m];
-    for (let k = 0; k < list.length; k++) {
-      const i = list[k];
-      if (M[i] !== m) continue;
-      const x = i % W;
-      const y = (i - x) / W;
-      const base = heights[i] + Math.ceil(depth[i] - 1e-9);
-      for (let dy = -1; dy <= 1; dy++)
-        for (let dx = -1; dx <= 1; dx++) {
-          if (!dx && !dy) continue;
-          const xx = x + dx;
-          const yy = y + dy;
-          if (xx < x0 || xx > x1 || yy < y0 || yy > y1) continue;
-          const j = yy * W + xx;
-          if (fixed[j]) continue;
-          const v = m - (dx && dy ? 141 : 100) - 600 * Math.max(0, heights[j] - base);
-          if (v > M[j]) {
-            M[j] = v;
-            buckets[v].push(j);
-          }
+    // (a step costs 100 at least, so a tile at 100 or less reaches no further)
+    if (m > 100)
+      for (let k = 0; k < list.length; k++) {
+        const i = list[k];
+        if (M[i] !== m) continue;
+        const x = i % W;
+        const y = (i - x) / W;
+        const base = heights[i] + Math.ceil(depth[i] - 1e-9);
+        const up = y > y0;
+        const down = y < y1;
+        const left = x > x0;
+        const right = x < x1;
+        if (up) {
+          if (left) spread(i - W - 1, m, 141, base);
+          spread(i - W, m, 100, base);
+          if (right) spread(i - W + 1, m, 141, base);
         }
-    }
+        if (left) spread(i - 1, m, 100, base);
+        if (right) spread(i + 1, m, 100, base);
+        if (down) {
+          if (left) spread(i + W - 1, m, 141, base);
+          spread(i + W, m, 100, base);
+          if (right) spread(i + W + 1, m, 141, base);
+        }
+      }
     list.length = 0;
   }
   const out = new Uint8Array(N);
@@ -437,10 +521,129 @@ function nearestAlong(r: WaterRaster, li: number, at: [number, number]): number 
   return s;
 }
 
+/** A dam to pond's narrows (§4.2): the dam across the bed where its banks close in, two tiles of rock shoulder at the
+ *  bench's level (bed + 2) each side, and behind it a pan, a flat a level over the bed (the dam's crest) that widens
+ *  to `wide` tiles each side of the bed and closes again `back` tiles up it, under a rim at the bench's level. The bed
+ *  through the pan stands at the dam's bed, a level under the pan, so the brook's own thread stays in its bed; the dam
+ *  holds the water a level higher, over the pan, and the soil reads it at the bench's level. Without the pan a dam's
+ *  pond is its bed's thread raised a level (0 to 250 tiles, step 8's measure); with it, the pan's water reaches the
+ *  bench all round, and the bench round the pan is cut to the bench's level `bench` tiles out where it stands higher,
+ *  so the pond's green is not stopped at the first step up. `least` is the shortest pan a bed has room for. */
+export const NARROWS = { back: 15, least: 5, wide: 8, rim: 1.5, bench: 6, shoulder: 2.5, off: 6 } as const;
+
+/** The farthest from its bed a narrows lays ground, tiles: its widest pan, its rim and its bench. */
+const NEAR_MOST = Math.ceil(4 * NARROWS.wide * 0.25 + 0.5 + NARROWS.rim + NARROWS.bench);
+/** Whether a distance squared `e` is within `r`. */
+const within = (e: number, r: number): boolean => e <= r * r;
+
+/** The longest narrows (`narrowsGround`) at `at` that stands whole on free ground, its pan `most` tiles back at most,
+ *  shortened two at a time to `NARROWS.least`; none where every length meets other water or the start. The siting and
+ *  the ladder both lay it this way, so the pan the plan weighed is the pan the land gets where the ground agrees. */
+export function narrowsFit(bed: readonly (readonly [number, number])[], at: number, b: number, W: number, H: number, h: (i: number) => number, free: (i: number) => boolean, most: number): ReturnType<typeof narrowsGround> | undefined {
+  for (let back = most; back >= NARROWS.least; back -= 2) {
+    const lay = narrowsGround(bed, at, b, W, H, h, free, back);
+    if (!lay.blocked && lay.pan.length) return lay;
+  }
+  return undefined;
+}
+
+/** The ground a dam to pond's narrows lays (`NARROWS`) on a dry bed: `bed` its tiles (three wide) with their distance
+ *  along it, the dam at `at` along it on bed level `b`, `h` the land and `free` whether a tile may be laid (no other
+ *  water, not the start's). The pan's tiles; the tiles laid; how many tiles it wanted that were not free; `back`. */
+export function narrowsGround(bed: readonly (readonly [number, number])[], at: number, b: number, W: number, H: number, h: (i: number) => number, free: (i: number) => boolean, back: number = NARROWS.back): { ground: Map<number, number>; pan: number[]; blocked: number; back: number } {
+  const ground = new Map<number, number>();
+  const pan: number[] = [];
+  let blocked = 0;
+  const own = new Set<number>();
+  for (const [i] of bed) own.add(i);
+  // (the bed through the pan and a little past it stands at the dam's bed)
+  const near: (readonly [number, number])[] = [];
+  for (const t of bed) {
+    const [i, s] = t;
+    if (s < at - back - 4 || s > at + 3) continue;
+    near.push(t);
+    if (s >= at - back - 2 && s < at + 0.5 && h(i) > b) ground.set(i, b);
+  }
+  if (!near.length) return { ground, pan, blocked: 1, back };
+  const reach = Math.ceil(NARROWS.wide + NARROWS.rim + NARROWS.bench + 2);
+  let x0 = W;
+  let y0 = H;
+  let x1 = -1;
+  let y1 = -1;
+  for (const [i] of near) {
+    const x = i % W;
+    const y = (i - x) / W;
+    if (x < x0) x0 = x;
+    if (x > x1) x1 = x;
+    if (y < y0) y0 = y;
+    if (y > y1) y1 = y;
+  }
+  const span = back + 0.5;
+  // (the nearest bed tile to each tile of the box: how far from the bed, squared, and how far up it from the dam; the
+  // first in the bed's order where two stand as near. Only a tile within `NEAR_MOST` of the bed takes any ground, so
+  // each bed tile marks the disc round it, in order, keeping the nearer)
+  const bx0 = Math.max(0, x0 - reach);
+  const by0 = Math.max(0, y0 - reach);
+  const bx1 = Math.min(W - 1, x1 + reach);
+  const by1 = Math.min(H - 1, y1 + reach);
+  const bw = bx1 - bx0 + 1;
+  const E = new Float64Array(bw * (by1 - by0 + 1)).fill(Infinity);
+  const U = new Float64Array(E.length);
+  for (const [i, s] of near) {
+    const ix = i % W;
+    const iy = Math.floor(i / W);
+    for (let dy = -NEAR_MOST; dy <= NEAR_MOST; dy++) {
+      const y = iy + dy;
+      if (y < by0 || y > by1) continue;
+      for (let dx = -NEAR_MOST; dx <= NEAR_MOST; dx++) {
+        const x = ix + dx;
+        const d = dx * dx + dy * dy;
+        if (x < bx0 || x > bx1 || d > NEAR_MOST * NEAR_MOST) continue;
+        const k = (y - by0) * bw + x - bx0;
+        if (d < E[k]) {
+          E[k] = d;
+          U[k] = at - s;
+        }
+      }
+    }
+  }
+  for (let y = by0; y <= by1; y++)
+    for (let x = bx0; x <= bx1; x++) {
+      const j = y * W + x;
+      if (own.has(j)) continue;
+      const k = (y - by0) * bw + x - bx0;
+      const e = E[k];
+      if (e === Infinity) continue;
+      const u = U[k];
+      // (distances compared squared: no root, D366)
+      let v = -1;
+      if (u >= 1.5 && u <= span) {
+        // (the pan widens and closes again as a parabola along the bed)
+        const t = (u - 1) / (span - 1);
+        const wide = 4 * NARROWS.wide * t * (1 - t);
+        if (within(e, wide + 0.5)) v = b + 1;
+        else if (within(e, wide + 0.5 + NARROWS.rim)) v = Math.max(h(j), b + 3);
+        else if (within(e, wide + 0.5 + NARROWS.rim + NARROWS.bench) && h(j) > b + 2) v = b + 2;
+      } else if (u > -2 && u < 1.5 && within(e, NARROWS.shoulder)) v = Math.max(h(j), b + 3);
+      else if (u > span && u <= span + 2 && within(e, NARROWS.rim + 1)) v = Math.max(h(j), b + 3);
+      if (v < 0 || (v === h(j) && v !== b + 1)) continue;
+      if (!free(j)) {
+        // (the bench is cut where it can be; a pan, rim or shoulder must stand whole)
+        if (v === b + 2 && h(j) > b + 2) continue;
+        blocked++;
+        continue;
+      }
+      if (v !== h(j)) ground.set(j, v);
+      if (v === b + 1) pan.push(j);
+    }
+  return { ground, pan, blocked, back };
+}
+
 /** How far along its bed from the plan's point a dam may move to hold a pond that stays in its bed. */
 const DAM_REACH = 2;
-/** How far a dam's pond may reach from it before it counts as water let out of its bed. */
-const POND_REACH = 14;
+/** How far a dam's pond may reach from it before it counts as water let out of its bed: its narrows' pan, as far up
+ *  the bed as it runs and as wide. */
+const POND_REACH = NARROWS.back + NARROWS.wide;
 
 /** A dam to pond's site (§4.2): a band across its dry bed near the plan's point, the dam a level over the bed there,
  *  where the pond it holds is the largest that stays in its bed (its water at the dam's crest reaches no ground down
@@ -482,7 +685,10 @@ function damSite(r: WaterRaster, heights: ArrayLike<number>, li: number, at: [nu
         if (j < 0 || seen.has(j) || inBand.has(j) || heights[j] > crest) continue;
         const jx = j % W;
         const jy = (j - jx) / W;
-        if ((r.channel[j] === li + 1 && r.along[j] > b) || r.lake[j] || (r.channel[j] && r.channel[j] !== li + 1) || Math.abs(jx - tx) > POND_REACH || Math.abs(jy - ty) > POND_REACH) {
+        const far = Math.abs(jx - tx) > POND_REACH || Math.abs(jy - ty) > POND_REACH;
+        // (backing up its own bed past `POND_REACH` is the pond's length, not a leak: it is not counted on)
+        if (far && r.channel[j] === li + 1 && r.along[j] < a) continue;
+        if ((r.channel[j] === li + 1 && r.along[j] > b) || r.lake[j] || (r.channel[j] && r.channel[j] !== li + 1) || far) {
           leaks = true;
           break;
         }
@@ -570,7 +776,7 @@ export function ladderOf(plan: PremisePlan, w: StageWater, heights: Uint8Array, 
   // each work's site and its change to the land
   const sites = new Map<string, { site: WorkSite; change: Change; reservoir: boolean }>();
   for (const work of plan.works) {
-    const site: WorkSite = { id: work.id, kind: work.kind, rung: work.rung, on: work.on, region: work.region, tiles: [], does: "clear", needs: work.needs, green: 0, wet: 0, reservoir: 0, reach: [], inRange: false };
+    const site: WorkSite = { id: work.id, kind: work.kind, rung: work.rung, on: work.on, region: work.region, tiles: [], does: "clear", needs: work.needs, green: 0, wet: 0, reservoir: 0, reach: [], paid: false, ...(work.estimate !== undefined ? { estimate: work.estimate } : {}) };
     const change: Change = [];
     let reservoir = false;
     const li = linkIndex(work.on);
@@ -700,8 +906,8 @@ export function ladderOf(plan: PremisePlan, w: StageWater, heights: Uint8Array, 
     }
     const range = s.reservoir ? work.gives.reservoir : work.gives.green;
     const v = s.reservoir ? site.reservoir : site.green;
-    site.inRange = !!range && v >= range[0] && v <= range[1];
-    if (!site.inRange && range && !site.note) site.note = `${s.reservoir ? "holds" : "greens"} ${v}, the plan asks ${range[0]} to ${range[1]}`;
+    site.paid = !!range && v >= range[0];
+    if (!site.paid && range && !site.note) site.note = `${s.reservoir ? "holds" : "greens"} ${v}, under its floor of ${range[0]}`;
   }
 
   // day 1's shares, and the works' green as shares

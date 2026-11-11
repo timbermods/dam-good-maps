@@ -47,6 +47,7 @@ export function header(ed: Ed, props: EditorProps) {
       onSave={(kind) => void saveMap(kind)}
       onChooseFolder={() => void ed.chooseFolder()}
       onOpenFile={props.onOpenFile}
+      onNewBlank={props.onNewBlank}
       onSaveProject={() => void exportProject()}
       onSavePicture={canDrawPicture() ? () => void exportPicture() : undefined}
       onClearEverything={() => void run((w) => w.clearEverything(), (u) => u.ok && flashNote("Cleared: undo brings it all back"))}

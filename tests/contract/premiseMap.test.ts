@@ -8,7 +8,10 @@
 
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { generate } from "../../src/core/gen/generate";
+import { decodeProject, encodeProject, generatedDocument } from "../../src/core/doc/document";
+import { MapSession } from "../../src/core/doc/session";
+import * as ed from "../../src/worker/session";
+import { generate, type GenerateResult } from "../../src/core/gen/generate";
 import { firstWater } from "../../src/core/premise/draw";
 import { dayOneWater } from "../../src/core/premise/frame";
 import { generatePremise } from "../../src/core/premise/generate";
@@ -22,13 +25,18 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec } from "../../src/core
 
 // (re-pinned since generator 0.10.16's ground with grade, D148: the map's own land is the same; its description names the
 // generator's version, "Made with Dam Good Maps 0.10.16", gen/pack.ts; again for step 7's works; for step 9's style,
-// theme Any taking Canyon's on seed 1; and for step 8's works sited by moisture with step 9 merged, D148)
-const SHA = "a6a2391b88e7969c40ad7f95eb2cc22893da237f1138d5bdc01934d2df49942e";
+// theme Any taking Canyon's on seed 1; for step 8's works sited by moisture with step 9 merged; and for the look round's
+// theme forms, rim runs and stands; and for the height round, the premise's preset at Verticality 70 with the uplands
+// to Highest terrain 22, which drew seed 1 a six-level landmark; and for the works round's floors, the bypass's own
+// course (seed 1's plan a seven-level landmark again) and the start's ground kept from the style, D148)
+const SHA = "18754da0912fff93fe74265cfe4d9eeb64365fba7b520e9eca7cb7213d862ac8";
 
 describe("The premise mode (§2.2, build step 4)", () => {
   const made = makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "any", premise: "lakeStair" });
   const link = encodeSpecFragment(made);
   const opened = decodeSpecFragment(link)!;
+  let made1: GenerateResult | undefined;
+  const lakeStair = () => (made1 ??= generate(opened.spec));
 
   it("opens from a share link with p=lakeStair", () => {
     expect(link).toContain("p=lakeStair");
@@ -37,7 +45,7 @@ describe("The premise mode (§2.2, build step 4)", () => {
   });
 
   it("makes the lake stair, every blocking check passed, the start placed for the first frame", () => {
-    const r = generate(opened.spec);
+    const r = lakeStair();
     const p = r.info.premise!;
     expect(p.fellBack).toBeUndefined();
     expect(p.plan?.premise).toBe("lakeStair");
@@ -47,7 +55,7 @@ describe("The premise mode (§2.2, build step 4)", () => {
     expect(p.card).toEqual({
       name: "Lake stair",
       style: "Canyon",
-      landmark: "The Great Fall, a six-level fall into Low Lake, the start's lake",
+      landmark: "The Hanging Fall, a seven-level fall into Low Lake, the start's lake",
       first: "Mend the breach in the old weir at the Gate Gorge (one tile), so Low Lake keeps its water in a drought.",
       line: p.plan!.line,
     });
@@ -68,6 +76,33 @@ describe("The premise mode (§2.2, build step 4)", () => {
     expect(ladder.works.filter((w) => w.green > 0 || w.reservoir > 0).length).toBeGreaterThan(ladder.works.length / 2);
     expect(ladder.day1.water + ladder.day1.moist).toBeLessThan(0.7);
     expect(createHash("sha256").update(r.bytes).digest("hex")).toBe(SHA);
+  });
+
+  it("keeps its card with its project: a reopened map, edited or not, shows the card it was made with (D508)", () => {
+    const r = lakeStair();
+    const card = r.info.premise!.card!;
+    // (the generated map's project, as the page's Generate writes it: the card's five strings, nothing else of the plan)
+    const bytes = encodeProject(generatedDocument(r));
+    const doc = decodeProject(bytes);
+    expect(doc.meta.card).toEqual(card);
+    expect(Object.keys(doc.meta.card!).sort()).toEqual(["first", "landmark", "line", "name", "style"]);
+    expect(encodeProject(doc)).toEqual(bytes);
+    expect(MapSession.open(doc).meta.card).toEqual(card);
+    // (the editor's session of the same map, edited by hand and saved: it reopens byte for byte, its card unchanged)
+    const s = MapSession.fromGenerated(r, r.file);
+    expect(s.meta.card).toEqual(card);
+    expect(s.apply({ op: "setDescription", params: { text: "Our lake stair." } }).ok).toBe(true);
+    const saved = s.project();
+    const back = decodeProject(saved);
+    expect(MapSession.replayMatchesStored(back)).toBe(true);
+    expect(encodeProject(back)).toEqual(saved);
+    const reopened = MapSession.open(back);
+    expect(reopened.meta.card).toEqual(card);
+    expect(reopened.project()).toEqual(saved);
+    // (the page's view: the worker's info for the reopened project carries the card; a .timber opened as a file, a map
+    // with no idea, carries none)
+    expect(ed.openProject(saved).info.card).toEqual(card);
+    expect(ed.openTimber(r.bytes, "lake-stair.timber").info.card).toBeNull();
   });
 
   it("reads the soil's reach as the game's soil rule does (stage 4's estimateGain)", () => {

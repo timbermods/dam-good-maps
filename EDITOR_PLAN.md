@@ -75,7 +75,7 @@ place of its bottom rule.
   words ("Ready to play", "2 things to look at"; below about 1,000px wide the dot alone; its tooltip "What to fix before
   playing"; its list closes an open Legend while it is shown, and the Legend returns when it closes), **Save to Timberborn**
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, **Together** (a quiet
-  button with a small people icon: "Edit this map with someone else"; see "Together" below) and **File** (Open…,
+  button with a small people icon: "Edit this map with someone else"; see "Together" below) and **File** (Open…, New blank map… (below),
   Download project (says "Saved <file>" in a quiet note, as Download .timber does), Download .timber, Choose Maps folder… (Chrome and Edge), Record a time-lapse… (where the browser can make a video: §6b), Save a picture (§6b), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
   problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
   same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
@@ -111,7 +111,7 @@ place of its bottom rule.
   leaves the room above the bar. It has four shapes, the first that fits the room winning (`panelFit.ts`, chosen by the
   band's layout, `view/useBandLayout.ts`, from the room above the bar and beside the corner, with the open legend's
   room kept): two columns 640px wide (692 tall; 1920×1080 and up); three columns 880 wide (509 tall); the same with every
-  row tighter (449 tall; 1600×900, 1536×864, 1440×900); two columns tighter (594 tall; windows too narrow for three).
+  row tighter (449 tall; 1600×900, 1536×864, 1440×900); two columns tighter (620 tall; windows too narrow for three).
   The first-run hints stand aside while it is open. In a window with less room than the shortest shape that fits its
   width (1280×720, 1366×768) the panel keeps that shape and scrolls inside, a soft fade at its foot saying more lies
   below; `tests/e2e/generatorFit.spec.ts` holds the sizes. **Enter** anywhere in the panel is Generate (a field, a
@@ -119,7 +119,20 @@ place of its bottom rule.
   (the Showcase sheet's Esc closes the sheet first). A title block: the **Name** for the next map (the field starts
   empty, the open map's name in grey in it; what is typed names the map **Generate** makes next, then the field is
   empty again, and the open map is never renamed from here, only from the title), **Generate** and **Surprise me**; **Theme** (with **Reset
-  settings**); **Seed** (a typed seed is kept, with **Keep** to keep or let it go) and **Size** (96, 128, 192, 256 or
+  settings**); **Idea** directly under Theme (D508, PREMISES §1.5): **None** (the themes' map, the default, D509), then
+  the premise library's choices (`PREMISE_CHOICES`, named by `PREMISE_NAMES`: **Any**, **Lake stair**), its tooltip "The
+  problem the map is built around"; two columns wide it is a line of its own (the rows a pixel shorter, so the panel is no
+  taller), three columns wide it shares Size's line, before it. An idea resets the settings as a theme does
+  (`defaultSettings(theme, difficulty, size, premise)`), greys out the settings it does not use (`premiseSettings`, each
+  saying so in its tooltip) and marks in the warning colour the themes it does not take; a pair or a setting it refuses says
+  why in one line as a note over the map before Generate (`premiseRefusal`), and a map the themes made instead says so after
+  it (`info.premise.fellBack`). Generate, Surprise me, Another like this, Keep, the share link (`p=`) and a reopened map
+  carry it. A map made from an idea shows its card with the notes (`IdeaCard.tsx`, the core's `info.premise.card`: the idea
+  and its land, the landmark, the problem, what to do first) until its × or the next map. The card's five strings are kept
+  with the project (`DocMeta.card`, the page reads `SessionInfo.card`), so a reload, a file or Your maps reopens the map with
+  the same card, through hand edits too (it tells the map as it was made); its × hides it until the map is next opened; a
+  map with no idea, a .timber among them, has none; with a panel open it stands at the
+  dock's right, clear of the panel; **Seed** (a typed seed is kept, with **Keep** to keep or let it go) and **Size** (96, 128, 192, 256 or
   Custom, then the **Easy start** toggle at the line's end, D495: "A flat, roomy start with water and food close by";
   on, the next map's start is calm and generous, PLAN §5.6; a theme, Surprise me and Reset settings keep it, the page
   remembers it in this browser and the share link carries it, `es=1`; Custom's width and height typed, each 4 to 512, opening at the open map's own size; beyond 256 on a side that box turns the warning colour and its tooltip says Timberborn's
@@ -1302,6 +1315,24 @@ Make a valley, drop a source, and there's a river.
   words beside the pointer say "bed from level 15 to 12, 6 bank tiles", or the core's one line with the line in red;
   the release makes the canal that was shown, one step in History ("Cut a canal 2 wide and 1 deep"); a refused line
   says its reason again and changes nothing. Esc lets a drag go.
+- **The lake** (a lake where there is none): an outline dragged on the land becomes a basin. Its bed shelves: one level
+  under the lake's **level** at the shore, a level deeper each tile inward, down to a channel **depth** (1 to 5) under it
+  along the outline's long axis and half that beside the channel; ground already lower is left. Its rim, the ring of
+  tiles just outside the outline, is made whole a level over the lake (a gap raised up to three levels; a deeper one is
+  refused, naming the lowest: "the land can't hold a lake at level 8 there: its rim's lowest gap is at X 70 · Y 30, level
+  3"), with one spill point: a notch one tile wide at the level, where the ground beyond the rim is lowest, or nearest
+  where the drag went on out of the outline it closed; always where ground beyond lies at the level or lower, so the
+  water runs out there, and never on or toward the map's edge (with none, it is refused). It places no water of its own: water already in the outline or on its rim fills it at
+  the next settle; otherwise a source or a canal must bring some. An outline on the map's edge, a source's ground and a
+  cave's or an overhang's are refused, saying where. One undo step; the objects on it ride its ground. The core's `lake`
+  operation (`core/doc/lake.ts` `planDrawnLake`, `applyDrawnLake`; named apart from Lakes by number's `lakeLevel.ts`; its
+  tiles stored with their levels and checked again by the engine, as a canal's are), the worker's `lakePlanAt` and
+  `lakeAt`, and the MCP server's `apply` (`outline` and `level` needed). **On the page** it is Lower's fifth **Brush**
+  choice, **Lake** (`lake/useLake.ts`, `TopBar.tsx`): the row shows **Level**, **Depth** and what fills it ("Add a source
+  or lead water in", or "The water here fills it" when the outline drawn last touches water) over the Brush choice; a
+  drag draws the outline freehand, as Select's Freehand does. While it is dragged the tiles it would change are tinted and
+  the words beside the pointer say "a lake at level 8, 240 tiles", or the core's one line with the outline in red; the
+  release digs the lake that was shown, one step in History ("Dig a lake at level 8, 2 deep"). Esc lets a drag go.
 - **Lakes by number** (showcase craft, gap 19): pick a lake, type its level, and its sill is cut down or raised so the
   lake holds there: its water stands from the level up to under a level above it (the head of its river over the
   sill), as the hover readout's "Water at level 7.4" reads level 7. A sill higher than the level gets a notch cut down
@@ -1505,6 +1536,23 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   number pick a force); bookmarks
   are saved with the project. Every tool is reachable by keyboard, with labels for screen readers. (D180, D184,
   D196, D205, D212, D219.)
+
+### New blank map (File → New blank map…)
+
+A map built from an idea starts on empty ground, not on a generated seed (MAPCRAFT step 2). The dialog asks for a
+**Size** (the generator's own: 96, 128, 192 or 256 a side) and a **Ground level** (1 to 16, 8 unless changed: room to dig
+lakes below and raise hills above); **Make the map** opens flat, dry ground at that level with the start at its middle,
+named "Blank map", ready for the brushes, the forces, lakes by number and sources. It closes the open map as Open… does
+(the same question first when this browser isn't keeping its edits). The core makes it (`core/doc/blank.ts`
+`blankTimber`, `MapSession.blank`; the worker's `newBlank`): the file a map with that ground and one start stores, built
+the way a real place's is (`buildFileFromHeights`: the canonical settle of a map with no source is dry) and read as any
+.timber is, so it has no spec, saves as a project that reopens byte for byte (D455) and exports a .timber. A size or a
+level outside those is refused with one line. **The checks on an empty map:** every load, design and principle check
+passes as made; six playability checks fail until the player gives the map what they ask for, and none blocks the
+export: `start.water`, `start.farmland`, `start.food`, `start.wood` and `start.wood_floor` (no water, moist ground,
+berries or trees yet: they are what the player is about to make) and `resources.badwater_source` (no badwater source
+yet, D200). The quiet dot counts them as it does on any map that lacks those things ("7 things to look at", never "Ready to
+play": a start with no water is not ready), not as problems that were in a file the player opened.
 
 ### The File menu's help entries (M13)
 

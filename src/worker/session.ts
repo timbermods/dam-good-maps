@@ -39,8 +39,10 @@ import { markerNotes, type MarkerNote } from "../core/doc/objectOps";
 import { fillLevel, planFill, unfedWater } from "../core/doc/waterEdits";
 import { applyLakeLevel, lakeHeldLevel, planLakeLevel, type LakeLevelPlan } from "../core/doc/lakeLevel";
 import { applyCanal, planCanal, type CanalPlan } from "../core/doc/canal";
+import { applyDrawnLake, planDrawnLake, type DrawnLakePlan } from "../core/doc/lake";
 import { applyRidge, planRidge, type RidgePlan, type RidgeSteep } from "../core/doc/ridge";
 import type { ImportReport } from "../core/format/normalize";
+import type { PremiseCard } from "../core/premise/card";
 import type { Feature } from "../core/features/schema";
 import { bakeLandforms } from "../core/doc/bake";
 import { HazardRun, hazardDays, hazardSoil, type Hazard, type HazardWater } from "../core/sim/weather";
@@ -123,6 +125,9 @@ export interface SessionInfo {
   /** Easy start (D495): what a map made in a late rescue round left short of the full targets, one line; null when
    *  it met them all, or isn't an Easy start map. */
   easyShort: string | null;
+  /** A map made from an idea (D508): its card as it was when the map was made (`DocMeta.card`), kept with the project so
+   *  a reopened map shows it again; null on any other map, an import among them. */
+  card: PremiseCard | null;
   /** True until the canonical water can be carried in a saved project (D367). */
   waterPending?: boolean;
   /** The map has tiles with caves or overhangs (an import's): the "Caves and overhangs" layer's toggle shows. */
@@ -278,6 +283,7 @@ export function sessionInfo(s: MapSession = need()): SessionInfo {
     forceRolls: againVerb(s) ? { shown: series!.rolls.shown + 1, count: series!.rolls.count } : null,
     badwaterRemoved: s.badwaterRemoved(),
     easyShort: s.meta.easyShort ?? null,
+    card: s.meta.card ?? null,
     waterPending: s.waterPending,
     caves: s.roofedTiles.size > 0,
     keepOnlyHere: s.keepOnlyHere,
@@ -1844,6 +1850,14 @@ export function openTimber(bytes: Uint8Array, fileName: string, place?: string):
   return opened(MapSession.importMap(bytes, fileName, place));
 }
 
+/** A new blank map (core/doc/blank.ts): flat, dry ground `size` tiles a side at `level`, the start at its middle. A
+ *  size or a level it can't be made at throws its one-line reason. */
+export function newBlank(size: number, level: number): SessionOpen {
+  const blocked = gated(true);
+  if (blocked) throw new Error(blocked);
+  return opened(MapSession.blank(size, level));
+}
+
 /** Open a project file (.damgoodmaps.json). */
 export function openProject(bytes: Uint8Array): SessionOpen {
   const blocked = gated(true);
@@ -1931,6 +1945,8 @@ export const planned = {
   lakeLevel: (x: number, y: number, level: number, width?: number) => planLakeLevel(need(), x, y, level, width),
   /** A canal along a path: its bed and banks, or why not. */
   canal: (path: [number, number][], width: number, depth: number, open: boolean) => planCanal(need(), path, width, depth, open),
+  /** A drawn lake inside an outline: its bed, rim and notch, or why not. */
+  lake: (outline: [number, number][], level: number, depth: number, spill: [number, number] | null) => planDrawnLake(need(), outline, level, depth, spill),
   /** A ridge along a path: its tiles and their levels, or why not. */
   ridge: (path: [number, number][], height: number, width: number, steep: RidgeSteep, seed: number) => planRidge(need(), path, height, width, steep, seed),
   /** Every tile of the map (Clear everything removes the objects on all of them). */
@@ -2107,8 +2123,9 @@ export async function settingsResponse(): Promise<GenerateResponse> {
 /** A validation grouped as the export dialog shows it (PLAN §19.5, D43; core/doc/checkItems.ts
  *  `groupChecks`), kept as the session's last check. */
 function grouped(s: MapSession, v: Validation, t0: number): ExportCheck {
-  // (a cropped map has no "as opened" map: the problems it has are the player's own, D340)
-  const out: ExportCheck = { ...groupChecks(s, v, s.mode === "import" && !s.cropped ? originalFull : null), version, ms: 0 };
+  // (a cropped map has no "as opened" map: the problems it has are the player's own, D340; nor has a new blank map,
+  // which comes from no file of the player's, `meta.source`: empty ground with no water is not ready to play)
+  const out: ExportCheck = { ...groupChecks(s, v, s.mode === "import" && !s.cropped && s.meta.source ? originalFull : null), version, ms: 0 };
   out.ms = Math.round(performance.now() - t0);
   lastCheck = out;
   return out;
@@ -2553,6 +2570,22 @@ export function canalAt(path: [number, number][], width: number, depth: number, 
   const t0 = performance.now();
   const s = need();
   const r = applyCanal(s, path, width, depth, open);
+  return changed(s, r.ok, r.errors, t0);
+}
+
+/** A drawn lake: what a lake inside `outline` at `level` would change (the bed dug, the rim raised and its notch, each tile
+ *  with its level; whether water there fills it), or the plain reason it can't be made (core/doc/lake.ts
+ *  `planDrawnLake`). Reads the map only; no settle. */
+export function lakePlanAt(outline: [number, number][], level: number, depth: number, spill: [number, number] | null): Omit<DrawnLakePlan, "op"> {
+  const { op: _op, ...plan } = planDrawnLake(need(), outline, level, depth, spill);
+  return plan;
+}
+
+/** Make the lake inside `outline`: one undo step (core/doc/lake.ts `applyDrawnLake`). */
+export function lakeAt(outline: [number, number][], level: number, depth: number, spill: [number, number] | null): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const r = applyDrawnLake(s, outline, level, depth, spill);
   return changed(s, r.ok, r.errors, t0);
 }
 

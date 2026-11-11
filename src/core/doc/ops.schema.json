@@ -8,7 +8,7 @@
   "required": ["op", "params"],
   "properties": {
     "op": {
-      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow", "paintObjects", "crop", "blocks", "setDescription", "setLakeLevel", "canal", "ridge"]
+      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow", "paintObjects", "crop", "blocks", "setDescription", "setLakeLevel", "canal", "lake", "ridge"]
     },
     "params": { "type": "object" },
     "label": { "type": "string" }
@@ -35,6 +35,7 @@
     { "if": { "properties": { "op": { "const": "setDescription" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/setDescription" } } } },
     { "if": { "properties": { "op": { "const": "setLakeLevel" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/setLakeLevel" } } } },
     { "if": { "properties": { "op": { "const": "canal" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/canal" } } } },
+    { "if": { "properties": { "op": { "const": "lake" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/lake" } } } },
     { "if": { "properties": { "op": { "const": "ridge" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/ridge" } } } }
   ],
   "$defs": {
@@ -387,6 +388,20 @@
         "width": { "type": "integer", "minimum": 1, "maximum": 6 },
         "depth": { "type": "integer", "minimum": 1, "maximum": 3 },
         "open": { "type": "boolean" },
+        "cells": { "$ref": "#/$defs/runs" },
+        "levels": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 22 } }
+      }
+    },
+    "lake": {
+      "description": "A drawn lake: a basin dug inside 'outline' (points [x, y], the tiles' middles; at least 4 tiles inside, none on the map's edge). Its bed shelves from one level under 'level' at the shore, a level a tile inward, to 'depth' under it along the outline's long axis; ground already lower is left. The ring of tiles just outside the outline is its rim, raised to a level over the lake (a gap up to 3 levels; a deeper one is refused, the lowest named), with one notch at 'level', always where the ground beyond the rim lies at that level or lower: the rim's tile nearest 'spill' if given, else where that ground is lowest (none: refused). It places no water: water in the outline or on its rim fills it. Its tiles are stored literally: 'cells' as runs [y, x0, x1], and 'levels' the level of each, in the order of y·W + x; the integrity pass leaves them. The engine checks the lake, planned on the map now, is the one stored (doc/lake.ts).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outline", "level", "depth", "cells", "levels"],
+      "properties": {
+        "outline": { "type": "array", "minItems": 1, "maxItems": 512, "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } } },
+        "level": { "type": "integer", "minimum": 1, "maximum": 21 },
+        "depth": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "spill": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
         "cells": { "$ref": "#/$defs/runs" },
         "levels": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 22 } }
       }

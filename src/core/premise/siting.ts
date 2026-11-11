@@ -12,7 +12,7 @@ import { dayOneSoil, soilReach } from "./ladder";
 import { reliefBetween } from "./raster/relief";
 import type { ReliefStyle } from "./style";
 import type { PremiseDef, PremisePlan, SiteLand } from "./types";
-import { waterByNumber } from "./water";
+import { waterByNumber, type StageWater } from "./water";
 import type { MapSpec } from "../spec/mapspec";
 
 export type { SiteLand };
@@ -21,17 +21,25 @@ export type { SiteLand };
 const REACH = 17;
 
 /** The skeleton's land (stages 1 and 2, in the theme's style where it has one) and day 1's soil on it. */
-export function siteLand(skeleton: PremisePlan, style?: ReliefStyle): SiteLand {
+export function siteLand(skeleton: PremisePlan, style?: ReliefStyle, refuse?: Refuse): SiteLand | { reason: string; id: string } {
   const w = waterByNumber(skeleton);
   const heights = reliefBetween(skeleton, w, style);
+  // (a copy: the frame's reading raises the beds under its water in place)
+  const no = refuse?.(skeleton, w, heights.slice());
+  if (no) return no;
   return { W: skeleton.W, H: skeleton.H, heights, soil: dayOneSoil(w, heights) };
 }
 
+/** A check the skeleton's land can already fail (the side network the siting adds only takes ground from it): why
+ *  the attempt is drawn again before its works are sited, or null. */
+export type Refuse = (skeleton: PremisePlan, water: StageWater, heights: Uint8Array) => { reason: string; id: string } | null;
+
 /** A premise's plan with its works sited by moisture (`PremiseDef.site`), or the plan as drawn where the premise
- *  sites none; or why it could not be sited (the attempt is drawn again). */
-export function sitePlan(def: PremiseDef, spec: MapSpec, plan: PremisePlan, attempt: number, style?: ReliefStyle): { plan: PremisePlan; land?: SiteLand } | { reason: string } {
+ *  sites none; or why it could not be sited, or `refuse`d on the skeleton's land (the attempt is drawn again). */
+export function sitePlan(def: PremiseDef, spec: MapSpec, plan: PremisePlan, attempt: number, style?: ReliefStyle, refuse?: Refuse): { plan: PremisePlan; land?: SiteLand } | { reason: string; id?: string } {
   if (!def.site || !def.skeleton) return { plan };
-  const land = siteLand(def.skeleton(plan), style);
+  const land = siteLand(def.skeleton(plan), style, refuse);
+  if ("reason" in land) return land;
   const sited = def.site(spec, plan, attempt, land);
   return "reason" in sited ? sited : { plan: sited, land };
 }
@@ -50,6 +58,8 @@ export class SiteModel {
   readonly land: Float64Array;
   /** Day 1's soil on the skeleton (2 water, 1 moist, 0 dry). */
   readonly soil: Uint8Array;
+  /** 1 where the side network laid so far puts water (a basin, a bed's thread): no later body or pan stands on it. */
+  readonly taken: Uint8Array;
   /** Gain estimates made (for the stage's timing). */
   calls = 0;
   constructor(l: SiteLand) {
@@ -57,6 +67,12 @@ export class SiteModel {
     this.H = l.H;
     this.land = Float64Array.from(l.heights);
     this.soil = l.soil;
+    this.taken = new Uint8Array(l.W * l.H);
+  }
+
+  /** The water a laid work puts on the land, kept so nothing later stands on it. */
+  mark(wet: Wet): void {
+    for (const i of wet.keys()) this.taken[i] = 1;
   }
 
   /** The ground a placed template lays, kept for every later estimate. */
@@ -103,13 +119,20 @@ export class SiteModel {
     const depth = new Float64Array(bw * bh);
     const con = new Float64Array(bw * bh);
     const reachOf = (wet: Wet): Uint8Array => {
-      for (let y = oy0; y <= oy1; y++)
+      // (the land in the box, then the template's ground over it where it lays some: `at`)
+      for (let y = oy0; y <= oy1; y++) {
+        const row = (y - oy0) * bw - ox0;
         for (let x = ox0; x <= ox1; x++) {
-          const i = y * W + x;
-          const k = (y - oy0) * bw + x - ox0;
-          h[k] = this.at(i, ground);
-          depth[k] = 0;
+          h[row + x] = this.land[y * W + x];
+          depth[row + x] = 0;
         }
+      }
+      for (const [i, v] of ground) {
+        const x = i % W;
+        const y = (i - x) / W;
+        if (x < ox0 || x > ox1 || y < oy0 || y > oy1) continue;
+        h[(y - oy0) * bw + x - ox0] = v;
+      }
       for (const [i, s] of wet) {
         const x = i % W;
         const y = (i - x) / W;

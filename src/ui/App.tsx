@@ -30,9 +30,12 @@ import {
   seedFromText,
   shareLink,
   type MapSpec,
+  type PremiseChoice,
   type Settings,
   type ThemeId,
 } from "../core/spec/mapspec";
+import { premiseRefusal } from "../core/premise/choice";
+import type { PremiseCard } from "../core/premise/card";
 import type { GenerateResponse, GenProgress } from "../worker/api";
 import type { SessionInfo, SessionOpen } from "../worker/session";
 import type { EditorProps, MapPicture, ResizeCarry } from "../editor/Editor";
@@ -43,6 +46,7 @@ import type { GeneratorModel, YourMapRow } from "../editor/generator/model";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
 import { FirstLook, MakingCount, MakingWater, progressText, sayStage, stageText, type Progress } from "./FirstLook";
 import { tip } from "./Tooltip";
+import { IdeaCard } from "../editor/generator/IdeaCard";
 import { Together, type Keep } from "../collab/together";
 import { useShowcase } from "./useShowcase";
 
@@ -114,7 +118,7 @@ function initialSpec(): { spec: MapSpec; fromLink: boolean; note?: string } {
   if (d) {
     const note = d.version !== GENERATOR_VERSION ? `This link was made with generator ${d.version}; this is ${GENERATOR_VERSION}, so the map may differ.` : undefined;
     // every map is made for Normal until the core drops difficulty after M9b's release (Kyler, 2026-10-03)
-    return { spec: d.spec.designedFor === "normal" ? d.spec : { ...makeSpec({ seed: d.spec.seed, size: d.spec.size, theme: d.spec.theme }), settings: defaultSettings(d.spec.theme, "normal", d.spec.size) }, fromLink: true, note: d.problems.length ? d.problems.join("; ") : note };
+    return { spec: d.spec.designedFor === "normal" ? d.spec : { ...makeSpec({ seed: d.spec.seed, size: d.spec.size, theme: d.spec.theme, premise: d.spec.premise }), settings: defaultSettings(d.spec.theme, "normal", d.spec.size, d.spec.premise) }, fromLink: true, note: d.problems.length ? d.problems.join("; ") : note };
   }
   // Any (Surprise me) is the default (D209), with Easy start as this browser last set it (D495)
   const spec = makeSpec({ seed: randomSeed(), theme: "any" });
@@ -216,6 +220,11 @@ export function App() {
   /** Every map is made for Normal (Kyler, 2026-10-03: Difficulty's start rules replace "Designed for"). */
   const difficulty = "normal" as const;
   const [theme, setTheme] = useState<ThemeId>(init.spec.theme);
+  /** The idea the next map is built around (D508, PREMISES §1.5), or none: the themes' map, the default (D509). */
+  const [premise, setPremise] = useState<PremiseChoice | undefined>(init.spec.premise);
+  /** The open map's card when it was made from an idea (`SessionInfo.card`, kept with its project): what it is, its
+   *  landmark, what to do first. */
+  const [card, setCard] = useState<PremiseCard | null>(null);
   const [settings, setSettings] = useState<Settings>(init.spec.settings);
   /** Another like this (D278 (1c)): the sibling shown, which joins the spec until a setting changes. */
   const [sibling, setSibling] = useState<{ variation: number; intentions: string[] } | null>(init.spec.variation ? { variation: init.spec.variation, intentions: init.spec.intentions ?? [] } : null);
@@ -384,12 +393,25 @@ export function App() {
 
   const spec = useMemo(
     (): MapSpec => ({
-      ...makeSpec({ seed: seedFromText(seedText || "0"), size, designedFor: difficulty, theme }),
+      ...makeSpec({ seed: seedFromText(seedText || "0"), size, designedFor: difficulty, theme, premise }),
       settings,
       ...(sibling ? { variation: sibling.variation, ...(sibling.intentions.length ? { intentions: sibling.intentions } : {}) } : {}),
     }),
-    [seedText, size, difficulty, theme, settings, sibling],
+    [seedText, size, difficulty, theme, premise, settings, sibling],
   );
+  // an idea that can't make its map says why in one line before Generate, where the page shows every refusal (the pair
+  // first, then the settings: the core's `premiseRefusal`); Generate then has the themes make the map, and says so
+  const refusal = useMemo(() => (premise !== undefined && !blank ? premiseRefusal(spec) : null), [premise, blank, spec]);
+  const saidRefusal = useRef<string | null>(null);
+  useEffect(() => {
+    const was = saidRefusal.current;
+    saidRefusal.current = refusal;
+    // (none before a map is open: the first map's own Generate says it, as `fellBack`, and a note there would stop the
+    // loading frame)
+    if (refusal === was || !opened) return;
+    if (refusal) setError(refusal);
+    else if (was) setError((e) => (e === was ? null : e));
+  }, [refusal, opened]);
   // the settings differ from the open map's (a fresh seed alone is not a change: Generate rolls one anyway)
   const changed = useMemo(() => {
     const of = session?.kind === "generated" ? session.spec : null;
@@ -415,6 +437,7 @@ export function App() {
     setSeedPinned(false);
     setSibling(null);
     setTheme("any");
+    setPremise(undefined);
     setSize(z);
     setSettings(withEasy(defaultSettings("any", difficulty, z), easyRemembered()));
   }
@@ -424,6 +447,7 @@ export function App() {
     setSeedText(String(s.seed));
     setSize(s.size);
     setTheme(s.theme);
+    setPremise(s.premise);
     setSettings(s.settings);
     setSibling(s.variation ? { variation: s.variation, intentions: s.intentions ?? [] } : null);
   }
@@ -433,7 +457,14 @@ export function App() {
     unblank();
     setSibling(null);
     setTheme(t);
-    setSettings((s) => withEasy(defaultSettings(t, difficulty, size), s.start.easyStart === true));
+    setSettings((s) => withEasy(defaultSettings(t, difficulty, size, premise), s.start.easyStart === true));
+  }
+  // an idea resets the settings as a theme does: the theme's give the land's style, the idea's what its plan reads
+  function choosePremise(p: PremiseChoice | undefined) {
+    unblank();
+    setSibling(null);
+    setPremise(p);
+    setSettings((s) => withEasy(defaultSettings(theme, difficulty, size, p), s.start.easyStart === true));
   }
   function chooseSize(z: { x: number; y: number }) {
     unblank();
@@ -514,8 +545,12 @@ export function App() {
     nameRef.current = e.name;
     // (a name typed for the next map belongs to a generated one; a cancelled Generate keeps it for the next try)
     if (!keepView) setNextName(null);
-    // (a version found for the map that was open is no version of this one)
-    if (!keepView) stopBackground();
+    // (a version found for the map that was open is no version of this one; the card is the opened map's own, kept with
+    // its project, so a reload or a reopen shows it again; its × hides it until the map is next opened)
+    if (!keepView) {
+      stopBackground();
+      setCard(data.info.card);
+    }
     infoRef.current = data.info;
     lastKey.current = `${data.info.version}|${JSON.stringify(data.info.views ?? [])}|${!!data.info.waterPending}`;
     setName(e.name);
@@ -912,11 +947,18 @@ export function App() {
     made++;
     try {
       enterEditor(await replacing(() => generator.openProject(r.project)), { kind: "generated" });
+      showIdea(r);
     } catch (e) {
       // (it stays on screen, and stays kept: the save is done)
       return void setError(words(e));
     }
     if (keepsOld) setNote("The map before it is in Your maps.");
+  }
+
+  /** A map made from an idea that the themes made instead: the line saying so (never silent, D471). Its card, when it
+   *  has one, comes with the opened map (`SessionInfo.card`). */
+  function showIdea(r: GenerateResponse) {
+    if (r.idea?.fellBack) setError(r.idea.fellBack);
   }
 
   /** The latest run: a result from an older one is never shown over it. */
@@ -1025,6 +1067,7 @@ export function App() {
         return { ...opened, info };
       }, shared);
       enterEditor(fresh, { kind: "generated" });
+      showIdea(r);
       // (a name given keeps the map in Your maps, as a rename does)
       if (named) {
         keepNow();
@@ -1133,12 +1176,12 @@ export function App() {
     setSeedText(String(seed));
     setSeedPinned(false);
     const t = over?.theme ?? theme;
-    const s = over ? withEasy(defaultSettings(t, difficulty, size), settings.start.easyStart === true) : settings;
+    const s = over ? withEasy(defaultSettings(t, difficulty, size, premise), settings.start.easyStart === true) : settings;
     if (over) {
       setTheme(t);
       setSettings(s);
     }
-    void run({ ...makeSpec({ seed, size, designedFor: difficulty, theme: t }), settings: s });
+    void run({ ...makeSpec({ seed, size, designedFor: difficulty, theme: t, premise }), settings: s });
   }
 
   useEffect(() => {
@@ -1271,6 +1314,18 @@ export function App() {
     }
   }
 
+  /** File → New blank map…: flat, dry ground of that size at that level, opened as a file is (core/doc/blank.ts). */
+  function newBlank(size: number, level: number) {
+    guard(() => {
+      setError(null);
+      setBusy(true);
+      void replacing(() => generator.newBlank(size, level))
+        .then((data) => enterEditor(data, { kind: "import" }))
+        .catch((e) => setError(`The blank map could not be made: ${words(e)}`))
+        .finally(() => setBusy(false));
+    }, "A new blank map");
+  }
+
   function openFile(file: File) {
     guard(() => void readFile(file).then((b) => openBytes(b, file.name)), `Opening ${file.name}`);
   }
@@ -1322,6 +1377,7 @@ export function App() {
     },
     onSize: chooseSize,
     onTheme: chooseTheme,
+    onPremise: choosePremise,
     onSettings: (s) => {
       unblank();
       setSettings(s);
@@ -1329,7 +1385,7 @@ export function App() {
     },
     onReset: () => {
       unblank();
-      setSettings((s) => withEasy(defaultSettings(theme, difficulty, size), s.start.easyStart === true));
+      setSettings((s) => withEasy(defaultSettings(theme, difficulty, size, premise), s.start.easyStart === true));
     },
     busy,
     changed,
@@ -1537,6 +1593,7 @@ export function App() {
         replacing={replacingMap}
         onPendingEdits={(wait) => (pendingEdits.current = wait)}
         onOpenFile={openFile}
+        onNewBlank={newBlank}
         saveState={saveState}
         name={name}
         onRename={rename}
@@ -1553,7 +1610,12 @@ export function App() {
         compare={compare}
         onStopCompare={() => setCompare(null)}
         onKeepStep={(k, branch) => void keepStep(k, branch)}
-        notice={message}
+        notice={message || card ? (
+          <>
+            {message}
+            {card ? <IdeaCard card={card} onClose={() => setCard(null)} /> : null}
+          </>
+        ) : null}
         together={together}
       />
       {confirmDialog}

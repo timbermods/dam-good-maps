@@ -131,7 +131,7 @@ greys out.
 |---|---|---|
 | Size | plan | The count of bodies and works (by area), the valley's length. Meadow widths and fall widths do not scale: the soil's reach and the first frame are fixed sizes. Square, 128 to 256 a side, or refused. |
 | Difficulty (`designedFor`) | plan | The start's held water (the breach's width, the cove pool's size), the sources' strength, how many small works stand within the start's walk. Hazard lengths are `sim/weather.ts` `HAZARD_DAYS`. |
-| Terrain: Highest terrain, Verticality | plan | The stair's height: the fall heights and how many levels the plan may use (`top`). A tall map gets a higher skyline, not deeper water. Too low for the stair and its landmark: refused. |
+| Terrain: Highest terrain, Verticality | plan | The stair's height: the fall heights and how many levels the stair may use (`top`, Highest terrain but never over the in-game editor's 16: `stairTop`). Above 16 (Highest terrain 22 from Verticality 70, D132, the premise's preset) only the land away from the water rises (the plan's `sky`: the uplands and the skyline), never the stair or its water. Too low for the stair and its landmark: refused. |
 | Terrain: Buildable land | plan | Meadow width (tight 12, normal 15, generous 18) and the start's bench. |
 | Terrain: Variety | plan | Wander, and how many side bodies (tarns, kettles) the plan draws. |
 | Terrain: Relief, Terracing | style | The outlands' rise and fall (Relief over the premise's 55) and the uplands' share on the theme's benches (Terracing). |
@@ -186,24 +186,54 @@ As built (step 9, core; the pickers are the page session's):
 - **A pair the premise can't honour is refused in one line** (`pairRefusal`): the lake stair takes River Valley,
   Canyon, Highlands and Lake Basin; Delta ("The lake stair needs high ground for its falls, and a Delta is low and
   flat") and Islands ("The lake stair climbs one valley, and Islands breaks the land into isles") are refused, and
-  Generate has the themes make the map with the line in `info.premise.fellBack` (D471). Never silent.
-- **The style seam** (`premise/style.ts` `premiseStyle`). Stage 2 (`raster/relief.ts` `reliefBetween`): the outlands
-  stand at the theme's height over the stair and rise and fall by Relief; the hillside past each meadow takes the
-  theme's crags and benches; the uplands are graded by the theme's grade (#956's `GRADE` through `land/levels.ts`
-  `grader`): Canyon high on tableland, walls a level taller, benches three apart; Highlands tall broad terraces four
-  apart; River Valley the premise's own land; Lake Basin a little gentler. The style fades in past the start's own
-  16 tiles, so the start, its frame and its walk are the premise's in every theme. Stage 6 (`life.ts`): a species mix
+  Generate has the themes make the map with the line in `info.premise.fellBack` (D471). Never silent. The themes make
+  it with the theme's own settings where the premise's preset set them and they still stand as set
+  (`themeOwnSettings`): a refused Delta is a Delta, not a Delta with the premise's water.
+- **The style seam** (`premise/style.ts` `premiseStyle`). Stage 2 (`raster/relief.ts` `reliefBetween`,
+  `styledUplands`): the uplands take the theme's form (`THEME_UPLANDS`) in the room between the stair's ground and
+  the highest ground, and rise and fall by Relief. Canyon: tables in three heights read from broad noise (neighbours
+  often share one, so they run wide), high in the room, cut along three in five of the edges between tables of one
+  height by dry canyons 5 levels deep and about 5 tiles wide, cut after the grade and left out of the bench-width
+  floor; walls 3 to 6 tall by the meadows. Highlands: the cones of the plates' points, summits at the highest ground,
+  valleys between them coming down toward the floor past the green. River Valley: terraces climbing with the
+  distance from day 1's water, so their steps run along the valley, two levels apart over Terracing's share, broad
+  benches by the meadows. Lake Basin: low rolling ground a little over the stair's, its benches by the meadows widest.
+  Past the green of day 1's water (16 tiles) the uplands' ground comes down by the form's `deep` (Canyon's canyons
+  to the floor, Highlands' valleys most of the way, River Valley's a little, Lake Basin's not at all); by the water a
+  plate stands no higher than the premise's own and the hillsides' cap only comes down, since a style's height there
+  took the green off the first benches and left 256² under `spectrum`'s 30 % moist floor. The uplands are graded by
+  the theme's grade (#956's `GRADE` through `land/levels.ts` `grader`). The style fades in past the start's own 16
+  tiles and `THIN` more (the bench-width floor reads that far across), the plates standing at the premise's own
+  outlands and graded with the style as it comes in, and the bench-width floor kept off the start's 16 tiles (it
+  reads a run of treads across, and carried a style's steps in on seed 1's works-round plan), so the start, its frame
+  and its walk are the premise's in every theme. Stage 6 (`life.ts`): a species mix
   left as the panel's own takes the theme's woods (`drawWoods`); the stand rules stay the premise's. Terrain has one
   material in the game, so the ground's look is its shape (D496).
+- **The height round (2026-11-11):** the premise's preset is Verticality 70 and Highest terrain 22 (D132; Any's and
+  every theme's on a premise map, since the premise sets the terrain's height); the stair is drawn under 16 as before
+  (`stairTop`) and the uplands rise in the room up to 22 (`sky`). The forms use it: Canyon's tables stand high in the
+  room (0.6 to 0.9 of it; the works round raised them from half to 0.85, where on seed 1's new plan River Valley's
+  terraces stood at 17 or more on more tiles than Canyon's tables) and three in four of the edges between them are cut 8 levels under the lower table, about
+  7 tiles wide; Highlands' peaks are two in five of the plates' points, summits from 0.6 to the whole room and level
+  for 3.5 tiles round their point (the bench-width floor wore narrower summits flat), rolling heights at a third of
+  the room between them; River Valley's terraces climb with the distance from the lakes and their links (not day 1's
+  brooks), 2 levels apart over twice Terracing's share, from 14 tiles out over 40; Lake Basin's floor stays at a tenth
+  of the room, rolling, and within 15 % of the map's side of each edge it stands at 55 % of the room: one bold scarp
+  round a broad low floor, never River Valley's steps.
 - **The premise's in every theme:** the plan, its water, levels, works and ladder. The dry beds follow the land, as
   stage 2 lays them in any land, and a theme can change which of the seed's plans holds first where a check's verdict
   on the styled land differs (seed 2: plan 3 in Canyon and Highlands, plan 9 in River Valley and Lake Basin).
-- **Measured** (128², seeds 1 to 8): the mean height of dry ground is 11.4 in River Valley, 11.4 in Lake Basin, 12.3 in
-  Canyon and 12.0 in Highlands; ground at level 13 or higher 44 %, 43 %, 56 % and 53 %. Every map a lake stair with
-  every blocking check passed, but Lake Basin seed 8, which falls back to the themes (no mine site reachable).
-- **Short:** the style has little height to work in (the stair stands on levels 6 to 14 of the 16 a map below
-  Verticality 70 has), so the themes read apart by walls and tableland more than by height, and Lake Basin barely
-  apart from River Valley. The set pieces (step 7) do not take the style yet.
+- **Measured** (128², seeds 1 to 3, the height round): dry ground's mean height and its spread (standard deviation)
+  are 12.5 and 3.4 in River Valley, 12.8 and 3.9 in Lake Basin, 12.0 and 4.5 in Canyon, 13.2 and 4.2 in Highlands
+  (the look round's, seeds 1 to 8: 11.6 and 2.9, 11.0 and 3.0, 11.8 and 3.3, 10.6 and 3.7); ground at level 17 or
+  higher 11 %, 17 %, 20 % and 18 %, the highest 21 or 22. Day 1's moist ground is at most 40.8 % in any theme (the
+  ceiling 42 %). Maps made: theme Any 11 of 12 over seeds 1 to 12 (seed 5; seed 8 now makes one); River Valley's
+  seed 6 makes one (320 logs in the start's walk: stage 6 leans the start's groves to oak where the walk is short,
+  `planResources`' `woodLean`, as the generator's rescue round does).
+- **Short:** the themes read apart on the uplands (Canyon's high tables and deep canyons, Highlands' white summits,
+  River Valley's stepped terraces, Lake Basin's low floor in a rim), but by day 1's water the land stays the
+  premise's, so on seeds whose land is mostly within the green the four maps still share most of what a player
+  sees. The set pieces (step 7) do not take the style yet.
 - **The map card's words** (`premise/card.ts` `premiseCard`, in `info.premise.card`): the premise's name, the style, the
   landmark ("The Great Fall, a six-level fall into Low Lake, the start's lake") and the ladder's first rung in a
   sentence ("Mend the breach in the old weir at the Gate Gorge (one tile), so Low Lake keeps its water in a drought.").
@@ -325,7 +355,11 @@ table and draws its heights and water. Where it differs from the above, and why:
   leaves and meets its waters where the plan says (`raster/channels.ts` `wanderOf`): the bypass 2.2 tiles, a leat
   0.8, a brook drawn from 1 to 4.2, as Four Lakes' `Channel.wander`. The neck, the hanging valley and the gorge run
   true: their heads are weirs and lips. Stage 0 cuts the bypass's sharp corners (`softCorners`), so the old channel
-  never turns a right angle.
+  never turns a right angle. A spring tarn's run to the edge (`premises/lakeStair.ts` `edgeRun`, `RUN_WANDER`) is
+  bent in the plan before it is laid: its mouth slides along the edge by up to 0.7 of its distance and its course
+  bends up to 0.16 of its length across (7 tiles at most) at points 9 apart, drawn from the run's own hash; a course
+  that is not clear runs straight, and a slid mouth that is not clear runs square. At 256² the ten runs ran square to
+  the edge like rulers, five of them in a row along one edge.
 - **The lip** is a stair of runs (`raster/falls.ts` `lipStair`), drawn longer a tile at a time until it holds its
   width in tiles, since a diagonal's corners cost tiles. A lip rising less than a tile in three along the grid is
   one straight run, stepped where its line asks. A corner tile with no crest behind it, fed only by the lip beside
@@ -363,7 +397,12 @@ table and draws its heights and water. Where it differs from the above, and why:
   away to the edges. Ground no day-1 water reaches is broad benches divided by bold scarps, quantised in threes (the
   game has one dry tone: thin bands on it read as contour lines). Ridges and spurs are crags (a crest, one ledge),
   never a slope of a level a tile, which the game shows as stair treads. Empty basins are old lake beds: a lobed
-  outline, a beach at the sill + 1, a flat floor, one hollow. Then `tidy` (no one-tile pits, spikes or tongues).
+  outline, a beach at the sill + 1 wandering from one tile to three, a flat floor a level under the sill crossed by
+  the old river's line down its main arm a level deeper (one or two tiles wide, pinching out: never a ring round a
+  hollow). The hollow behind the skyline (`hollowsOf`, where it fits: on the skyline's far side from the water, its
+  middle inside the map and its own radius from every water and bed): a level floor two under the skyline's ledge,
+  4 to 7 tiles in radius (to 10 past 192²), in a rim a level over it, two levels or more over the highest water,
+  left as it was within 5 tiles of any water or bed. Then `tidy` (no one-tile pits, spikes or tongues).
 - With "ground with grade" (merged): its graded slopes replace `rise` on the outlands. Stage 2 calls
   `land/levels.ts` `gradeLevels` on its own heights there (a `Grade`, `land/genome.ts` `GRADE` or `drawGrade`, with
   the benches' step and a mask of the outlands); `snapLevels` grades a theme's field through the same `grader`.
@@ -585,12 +624,23 @@ above, and why:
   for the start's planting, which plants less, so the living trees the budget still lacks are planted as more stands
   on the moist ground left, 9 tiles apart at least: birch within 3 tiles of water, pine 9 or more back, oak between,
   as the mix allows.
+- **Stands, never trees spread evenly** (`groupGroves`): the generator's groves fill 52 % of their ground, which on a
+  premise map's broad meadows read as single trees spread evenly over the green (seed 3); each living grove of 8
+  trees or more is regrown from its tile nearest its middle as a close stand of its own count, 85 % of its ground
+  under trees, on its own ground and the open ground of its kind round it. A grove the ground cuts short keeps its
+  tiles. The themes' planting is untouched.
 - **Nothing grows** on a work's site and a tile round it, on the ground only a work's water would turn green (its
   reach), in a dry bed or basin, or within a tile of the start's sight line to each lip tile of its landmark.
 - **Dead woods**: a clump of 6 to 14 dead trees on each empty basin's old shore (1 to 4 tiles out, on dry ground),
   and beside each dry bed 15 tiles long or more (1 to 3 tiles out; the bypass one for each 60 tiles of it).
-- **Succulents** only on the dry-for-good side: nearer the bypass than any lake, 3 tiles or more from it, no
-  moisture, their share of the living budget by the species mix, in stands of 8 to 20.
+- **The benches over the lakes are dressed** (`benchesOver`, `LIFE.bench`): dry level ground 3 or more levels over a
+  lake's sill within 10 tiles of it, 12 tiles or more together, is a place (§9's dry places); one stand on each, a
+  bench for each 5,000 tiles of map at most, the one nearest the start first, so one is in the start's sight:
+  succulents (6 to 12, from their share of the budget) where the palette has them, else a clump of dead wood. Never a
+  carpet. The hollow behind the skyline is a place of its own, dressed first the same way (one stand, from the same
+  budgets).
+- **Succulents** otherwise only on the dry-for-good side: nearer the bypass than any lake, 3 tiles or more from it, no
+  moisture, what is left of their share of the living budget by the species mix, in stands of 8 to 20.
 - **Mine sites** are `planExtras`'s, kept off the works' sites, the beds and basins and the sight line; a site the
   colony cannot reach (`colonyReach`, the check's own reading) moves to level, dry ground beside the start's reach,
   30 tiles out or more, the farthest first. A lake stair's start often stands on a meadow walled by the stair's own
@@ -687,6 +737,37 @@ measure; size the lakes and tarns by the map so 256² makes a premise map. Where
   stages 1 and 2 about half, the estimates the rest) and 0.4 to 1.6 s at 256², against stage 0's 5 and 10 ms
   (section 3.3).
 
+**As built (the works round, after step 8 and the look round):** the brief: a work's range becomes a floor, most works
+at or over it; every seed sited by moisture; a narrows for the dam to pond; the second pass faster; a refused theme ×
+premise pair made with the theme's own settings; and (planning, mid-round) the bypass off its ring.
+
+- **Floors** (§4.2's ruling): `givesOf` gives a floor and a most; the siting lays a work that reaches its floor and
+  keeps the best short of it only where the ladder's kinds, count or three near the start need it, said short in the
+  notes; the ladder's `WorkSite.paid` says which reached it. A repair pass swaps a short candidate in for the least
+  worth of the removable levees and dams where that brings the ladder whole.
+- **The narrows** (`ladder.ts` `NARROWS`, `narrowsFit`): a dam to pond lays a pan at bed + 2 behind the dam, up to 8
+  tiles each side and 15 back (shortened two at a time to 5 where other water, the start or ground stage 1 fixed
+  stands in the way), under
+  rims and shoulders at bed + 3 and the bench cut to bed + 2 six tiles round; the dam stands 6 tiles or more below its
+  bed's head, so its pond never reaches the body the bed leaves (`POND_REACH` is the pan's reach). The siting weighs
+  the same narrows the ladder lays.
+- **The siting's ground**: a side body is weighed only where half its ring 3 to 12 tiles out is dry on day 1
+  (`DRY_RING`, `DRY_LEAST`); a pool basin may go without a spill and the first pass's chains are candidates; each rim
+  tarn's beds are weighed to the four best and the two nearest the start; the last resorts stand as near as any two
+  bodies may.
+- **The bypass** has a course of its own (§4.1), not a ring.
+- **The fall-back** to the themes takes the theme's own settings (§1.5, `themeOwnSettings`).
+- **The bypass's edge band grows with the side past 128²** (graded in from 14 tiles at 128², 28 at 256²): at 256²
+  it ran along the rim tarns' band, and seed 3's plans fell under `spectrum`'s 30 % moist floor (27.4 to 29.6 %).
+- **Measured** (seeds 1 to 12 at 128², seeds 1 to 3 at 192² and 256², with the height round merged): all twelve make
+  a premise map at 128², seven sited by moisture and five keeping the first pass's network (four short of three small
+  works near the start, one with no pool basin whose leat clears); day 1 water 19.4 to 23.5 % and moist 30.6 to
+  40.9 %. At or over their floor on the seven sited maps: notch 1 of 7, dam to pond 3 of 8, levee 1 of 9, leat 1 of
+  16; on the five others notch 0 of 5, dam 1 of 6, levee 2 of 9, leat 3 of 9. The mean measured green over the twelve:
+  notch 164, dam to pond 233, levee 144, leat 440 (against floors of 430, 270, 260 and 1,000). At 192² seeds 1 to 3
+  are sited (notch 5 of 8, levee 3 of 9, dam 2 of 7, leat 0 of 7 at their floor), moist 31.2 to 32.0 %; at 256² seeds
+  1 to 3 make maps, sited, moist 30.5 to 31.8 % (seed 3 on its third plan). Section 9 has what stays short.
+
 **After the map opens: the proofs** (background, section 3). The premise true both ways by `HazardRun`; each work's
 gain by a what-if settle; the first cycles. Their results are rows in the checks panel and the ladder's readout; they
 are also what section 6 runs offline before a premise ships.
@@ -776,7 +857,8 @@ times its row: each work's water is a whole-map `flowThrough` and pre-fill (abou
 Bounding each to the work's catchment would answer it.
 
 Stage 0's second pass as built (step 8, seeds 1 to 12 at 128², seeds 1 to 3 at 192² and 256²): 100 to 625 ms at
-128², 0.3 to 0.8 s at 192², 0.4 to 1.6 s at 256², against stage 0's 5, 5 and 10 ms: the skeleton's stages 1 and 2
+128², 0.3 to 0.8 s at 192², 0.4 to 1.6 s at 256², against stage 0's 5, 5 and 10 ms (the works round, weighing a
+narrows and more beds: 170 to 1,160 ms at 128², 0.6 to 1.3 s at 192², 1.0 to 2.9 s at 256², not yet cut): the skeleton's stages 1 and 2
 (about 100 to 350 ms at 128², 0.7 s at 256²) and some 80 to 600 soil estimates on boxes round each candidate.
 Reusing the skeleton's land for the plan's own stage 2 where the side network leaves it, and estimating on a coarser
 box first, would answer most of it.
@@ -807,6 +889,36 @@ The map, through the mode (step 4, `tools/premise-map.ts`): 1.4 to 2.6 s at 128�
 192² (seeds 1 to 4) and 7.3 to 9.0 s at 256² (seeds 1, 2 and 4); 14.5 s at 256² on seed 3, where three plans failed
 stage 3 before the settle, since a re-roll there costs the relief (1.3 to 2.1 s at 256² against its 250 ms), so `reliefBetween`
 is what to make fast next (section 9).
+
+As measured after the speed step (the floor's plans, `generatePremise` as the tool times it, single-threaded under
+`tsx`; seeds 1 to 12 at 128², the least of two runs; seeds 1 to 3 at 256²; every map's bytes unchanged): **2.4 s at
+the median and 4.4 s at the worst at 128²** (from 3.2 and 7.5), **10.0 and 16.9 s at 256²** (from 14.5 and 24.3).
+By stage, median and worst at 128²: the plans 328 and 988 ms (from 543 and 1,699), the siting 368 and 1,114 (from 767
+and 2,506), the relief 60 and 142 (from 259 and 1,045); at 256² the siting 1.9 and 3.4 s (from 5.3 and 8.3), the
+relief 0.33 and 0.96 s (from 1.4 and 2.9). What took it there: the relief's noise fields shared by seed and size and
+its ridges, cones and bowls bounded by box; the soil rule and the narrows read within the network's box; the bypass's
+course grid kept for a layout's tail drawn again; the siting's gain read from the skeleton's land row by row. What is
+left is the map itself, unchanged: the settle (about 0.63 s at 128², 4.9 s at 256² on one thread; the page settles
+on its workers), the checks, life and the file make about 0.95 s at 128² and 6.2 s at 256², and a second settle on
+three maps of twelve (a `resources.mine_site` or `start.wood` failure after it). So the rows' 1.5 s and 6.2 s are out
+of reach by speed alone at 128² while plans that fail cost what they do (draws of 48 layouts that all fail, on seven
+maps of twelve), and at 256² while the tool settles on one thread.
+
+As measured after the second speed step (the same seeds; "the page" is the generator worker's pool, measured in Node
+with the page's own thread policy): **1.8 s at the median and 3.7 s at the worst at 128² as the page makes it** (from
+2.4 and 4.4), 2.1 and 4.5 s on one thread; at 256², 7.5 s at the median as the page makes it and 11.4 s on one thread,
+unchanged (its settle was on threads already). What took it there: the premise mode's settle on the multi-core water
+from 128² (about 4 threads, `withSmallMapThreads` in `sim/parallel.ts`; the themes keep theirs from 256²), about 0.3 s
+off each settle at 128²; a start's frame judged on the skeleton's land before its side network is sited (a frame short
+of level land there is short on the map: five of six such failures were caught there, none wrongly); and a layout's
+start asking for 2.65 times its level land in meadow room (from 2.2), so most of the rest are drawn again at a
+layout's cost. Ten of the twelve maps keep their bytes; seeds 2 and 6 draw another plan, and all twelve hold the
+water's numbers (moist 33 to 41 % settled, every lake's worst drought day at 27 % or more of its volume, the start's
+water held all nine days). What is left at 128²: a plan whose 48 layouts all fail (on seven maps of twelve, about
+0.2 s each: the pool's basins, its frame and its bypass find no room), a second settle on three maps of twelve (a
+`resources.mine_site` where the start's reach has no level ground for a second site at 30 tiles, which the themes' mine
+pads (D363) do not answer here, or `start.wood`), and the map stage (life, the checks and the file, about 0.4 s beside
+the settle).
 
 ### 3.4 Deferred to after the map opens
 
@@ -847,12 +959,12 @@ round every lake."
 | The landmark | A fall of `H` = 6, 7 or 8 levels from a **hanging valley** (20 to 40 tiles long, bed level = the foot lake's sill + H) into the start's lake; a lip of 10 to 14 tiles in unequal runs; fed from the springs' pool or from a lake `H` or more above | Seed; section 4.3 |
 | The start's lake | The lowest or the second lowest | Seed |
 | The start | On a bench one level over its lake's sill, 5.5 to 7 tiles in front of the lip; bench 580 to 980 level tiles | The frame |
-| The bypass | A dry channel from the springs' pool round one side to an edge or to the gorge below the lowest sill; 250 to 330 tiles long at 192²; mouth 10 wide; 3 rows of Blockages (the first at the mouth) | Seed: which side, which exit |
+| The bypass | A dry channel from the springs' pool on a course of its own over the land, out on the far side from the start, to an edge or to the gorge below the lowest sill; 250 to 330 tiles long at 192²; mouth 10 wide; 3 rows of Blockages (the first at the mouth) | Seed: its course, which exit |
 | Gates | 3 or 4 sites, each a channel 1 to 5 wide: the neck to the top lake, the hanging valley, each leat's head | By the graph |
 | Side bodies | Tarns: 3 at 128², 7 at 192², 12 at 256²; rim tarns with their own springs (0.8 to 1.5): two at 128², up to six at 192² and ten at 256² where the rim has room (step 8) | Size, Variety |
 | Living brooks on day 1 | One each side, each from a spring tarn to a map edge | Rivers |
 | The megadam's site | A slot 5 to 6 tiles long through the ridge below the lowest lake, walls 6 or more over its bed | Fixed kind, drawn place |
-| The skyline | One ridge behind the top lake, to `top` or to 21 on a tall map | Verticality |
+| The skyline | One ridge behind the top lake, to `top` or to 21 on a tall map (`sky`), a hollow behind it where it fits | Verticality |
 | Dry for good | The side the bypass runs on: limestone benches, succulents | Follows the bypass |
 
 **As built (step 1).** The plan settles a few things the table leaves open; each is an **(assumption)** a later
@@ -890,8 +1002,15 @@ stage's measure may move:
   at 256² on seeds 1 to 30): three near the start first, so its walk has three small works; a basin nothing can fill
   is left out. A basin spills to a lake two or more below, else to a lower side body, else off the map. A dam to
   pond needs a dry bed 12 tiles long or more. Kettles are not drawn yet.
-- The bypass leaves the pool for the ring inside the map's edge and ends at an edge of its own or in the gorge below
-  the megadam's slot, as the seed draws (about two in five reach the gorge).
+- The bypass has a course of its own (`bypassCourses`, the works round): from a straight lead 8 tiles out of the pool,
+  the cheapest way over a 2-tile grid to a turning point, then on to an edge or the gorge below the megadam's slot,
+  each cell costing more over the seed's 24 soft rises (less in its hollows), near the map's edge (graded in from
+  14 tiles at 128², by the side past it; none nearer than 4 but where it leaves) and over the start's ground (none within 26 tiles of the start; its
+  turning point among the farthest from the start, so it runs on the dry side and leaves the start's walk to the
+  small works), then wound in bends of 28 to 46 tiles where its room lets it. Before, it ran round a ring 5 to 7
+  tiles in from the edge, which read as a band parallel to the border on every map (planning, 2026-11-11). A course
+  turning anywhere left three layouts in four short of three works near the start; turning far, a layout makes a
+  plan about as often as the ring did (108 plans of 192 draws at 128², against 105).
 - The permanent badwater source stands in the gorge, 1, 1.5 or 2.75 strong for Badwater low, normal and high.
 - The gorge is 5 tiles wide, 6 at River flow lush (5 wide carries about 13 a level deep, §2.2: the stair's 15.5 runs
   1.2 deep in it), so the megadam's slot is 5 or 6. The lip stands 5.5 to 7 tiles in front of the start, under the frame's top edge where that is nearer.
@@ -918,16 +1037,22 @@ map found by what-if (rounds 11 to 14).
 | First | Still Pool | One levee on a neck one tile wide, before the first badtide | A pool of about 21 tiles on the bench beside the fall's foot, bed one under the bench, a neck two long | The pool stays clean; about a third of the bench stays green |
 | First | Breach | Mends one or two tiles of the ruined weir | The stair fall below the start has piers and a breach a level deep | The start's lake stops sinking: about 600 to 850 of water |
 | Small | Sill notch (kind `breach`) | Plugs the one-tile notch in an upper lake's sill | Every sill but the lowest has a notch a level deep (section 4.1); the crest beside it is rock two tiles thick, so one tile of dam closes it | No green: the lake keeps 700 to 1,200 of water through a drought |
-| Small | Notch | Clears a row of 3 or 4 Blockages | A spring tarn's **second** outlet, the row below the tarn's outline and spanning the bed; a dry bed two deep to a lake | 430 to 570 tiles each |
-| Small | Dam to pond | A dam of about 5 tiles, one level | A narrows in a dry bed two deep, with the bench beside it level at bed + 2 for 8 tiles or more | 270 to 470 |
-| Small | Levee | About 8 tiles at a basin's spill point | A basin with a beach at its sill + 1 and a rim over the beach | 260 to 340 |
-| Medium | Leat | Clears 3 Blockages at a leat's head (and gates it for the badtide) | A leat one tile wide from gated water to a chain: a basin, its brook | 1,000 to 1,500 |
+| Small | Notch | Clears a row of 3 or 4 Blockages | A spring tarn's **second** outlet, the row below the tarn's outline and spanning the bed; a dry bed two deep to a lake | 430 or more (most 570) |
+| Small | Dam to pond | A dam of about 5 tiles, one level | A narrows in a dry bed two deep (`NARROWS`): a pan at bed + 2 up to 8 tiles each side and 15 back up the bed (5 at the least), under rims and shoulders at bed + 3, the bench round it cut to bed + 2 six tiles out; the dam 6 or more below the bed's head | 270 or more (most 470) |
+| Small | Levee | About 8 tiles at a basin's spill point | A basin with a beach at its sill + 1 and a rim over the beach | 260 or more (most 340) |
+| Medium | Leat | Clears 3 Blockages at a leat's head (and gates it for the badtide) | A leat one tile wide from gated water to a chain: a basin, its brook | 1,000 or more (most 1,500) |
 | Medium | Raised sill | 11 to 17 tiles on a stair fall's lip | Rock shoulders two over the crest | 600 to 1,400 of water a lake |
 | Large | Bypass | Clears 3 rows (16, 6, 8 tiles), builds 3 or 4 gates | Section 4.1 | The premise's answer; about 1,100 to 1,500 tiles along it |
 | Large | Megadam | 5 or 6 long, to the next sill's level | The slot | Water of about 0.44 × the map's tile count (16,241 at 192²) |
 
-Counts scale with the map's area over 192²'s; the gains are the same at every size, a small work's capped at 3 % of
-the map (step 8: the soil's reach does not grow with the map). Stage 0's second pass sites each one by day 1's soil
+**A work's gain is a floor, not a band** (the milestone's ruling within D508, 2026-11-11): the low end of the old
+range, never under `spectrum`'s 250 for a small work; paying more is fine. What the ladder promises a player is "this
+work is worth building", not a tile count, and a band narrower than the siting can tell sites apart by (± 7 to 13 %)
+left most works outside it whichever side they missed. The most is the old top, what the siting aims under so the
+works together stay inside `spectrum`. A work's `WorkSite.paid` says it reached its floor; one that did not says so
+in its note, with stage 0's estimate beside the measure. Counts scale with the map's area over 192²'s; the gains are
+the same at every size, a small work's most capped at 3 % of the map (step 8: the soil's reach does not grow with the
+map). Stage 0's second pass sites each one by day 1's soil
 (section 2.2, "As built (step 8)"). The seed draws which kinds stand where. The **small irrigation works**
 are of three kinds (`notch`, `damToPond`, `levee`): six at the least at 192², at least one of each kind at every size,
 three of them within 40 tiles' walk of the start's bench (Four Lakes had five, of these three kinds). With the first
@@ -1026,33 +1151,153 @@ outlines, wander, crags, stands, the pieces' places, the names.
 They prove the model is general: each is a different graph, a different landmark and a different answer, on the same
 stages.
 
-### 5.1 The wall and the gate
+### 5.1 The wall with one gate
 
-**The line:** "The river leaves its green valley through one gate in the wall and crosses the dry basin in a canyon
-too deep to water it: raise it at the gate, or lead it out along the wall."
+Built by hand as The Gate (`tools/showcase/the-gate.ts`, eight rounds judged in the game, 2026-11-11;
+[progress/showcase-craft.md](progress/showcase-craft.md)); planning passed its shape at round 7. This is the premise
+in the lake stair's form, with round 8's numbers, for the milestone session to build as the second `PremiseDef` after
+the lake stair's page step.
 
-- **Water story.** One river (edge sources, strength by River flow) down a green upper valley; the gate, a gap 6 to
-  10 wide in a ridge 8 or more levels high; a fall of 6 or more into a plunge pool; then a canyon three or more
-  levels under the basin's benches (ground three over water is always dry) to the far edge. A drought dries the
-  canyon first and leaves the valley's oxbow ponds. A badtide runs down the canyon and harms nothing, until the
-  player has led the river onto the basin: then every leat needs its gate.
-- **Skeleton.** Regions: the oasis under the gate (the start), the dry basin (the canvas, half the map), the canyon,
-  the wall, the green valley behind it (the prize: wood, farmland, the reservoir). Landmark: the wall with the fall
-  in its gate. Edges: the wall's ends run off the map; the basin falls away. The wall is an escarpment: the valley's
-  own high ground ending in a cliff that wanders, many tiles thick, never a thin straight ridge across a valley,
-  which is what `terrain.dam_wall` blocks (D111, read as D512 reads it).
-- **Start and first frame.** In the basin on the plunge pool's apron, looking at the gate: the fall and the wall
-  above it. The same frame arithmetic; the wall may stand above the frame's top, the lip may not.
-- **Ladder.** Small: check dams at the canyon's narrows (dam to pond, the bench built at bed + 2 for a reach), each
-  a field. Medium: a contour leat from the plunge pool along the wall's foot (a dry ledge that falls a level per 100
-  tiles, old aqueduct piers along it); a stair up the wall. Large: a dam in the gate (the valley becomes the
-  reservoir, the fall stops: a trade-off); a megadam at the basin's exit.
-- **Invariants.** The basin is dry on day 1 but for the oasis (moist under 12 % of it); the canyon's water is three
-  or more under every bench it passes; each check dam's site gains 300 to 900 tiles; the gate dam holds a stated
-  volume; the valley is reachable only by the wall (a stair of 8) or the gate.
-- **New beyond the lake stair:** a ridge with one gap as a body's rim (`raster/wall.ts`); a canyon as a channel
-  with walls (the script's gorge, `open: 0`, lengthened); the contour ledge (a new raster: a bench that follows a
-  falling level); edge sources (`placeSourceGroup` rows, as the themes place them).
+**The line:** "A mountain wall runs across the map, a green valley on your side and a dry basin beyond; the river
+rises in a cleft of the wall and pours over the Veil into the lake at your door. Carry the water through the one gate
+or round by the pass, and before the first badtide shut the pool by your door."
+
+**The plan.**
+
+| Part | What the plan draws | As built (192²) |
+|---|---|---|
+| The wall | A ridge along the grid across the map's middle, east to west, in straight runs of 14 to 22 tiles joined by jogs of 4 to 6 (bastions), its south face toward the opening camera. The crest 4 to 6 thick, 7 at the Veil's bastion; both faces sheer: the valley's from the crest to the meadow, the basin's from the crest to the floor. No ledge on either face. | Crest 17 (16 to 19), the valley's meadow 8, the basin's floor 3 to 8; the face at Y 104 to 112 by run |
+| The cleft and the Veil | A pool cut into the bastion behind a straight lip at its face, the springs in it (three, 9 to 10 in all); the lip 9 to 12 wide facing the camera, a fall of 6 to 7 into the lake's trench at the start's door | Pool bed 13, lip 14, nine tiles at X 85–93, Y 104; the Veil 6.5 levels |
+| Wall Lake | The valley's lake along the wall's foot south of a bench seven rows deep, sill a level under the bench; a drain bay from the Veil's trench; the lake's bed a level under its sill everywhere (a level and a half of water: the game draws two deep near black) | Sill 7, the bench 8, the lake 7.47; the drain bay 5 wide at bed 6 |
+| The start | In the Veil's lap on the bench, the lip 4 to 5 tiles ahead on the camera's line, so the lip is whole in the first frame and the crest stands above it | (89, 100), Cw0; the lip (−0.39, 0.49) to (0.06, 0.91) |
+| The neck | A side pool beside the start joined to the trench by an inlet no wider than 3, a rim a level over the bench all round it: a few levees shut it before the first badtide and it holds clean water through it | Bed 6, 21 tiles, an inlet one wide and two long; 12 % bad at most with a levee of 3 |
+| The Gate | A slot 5 to 7 wide straight through the bench and the wall from the lake's shore, both cut faces the crest's own, its floor two under the lake's sill; plugged at the shore by a bar of rock a level over the sill (the bench's own crossing until it is blasted) and two rows of Blockages behind | Six wide at X 128–133; the bar 21 tiles at 8, the blockages 7 and 7 |
+| The basin | A bowl lower than the valley's lake: a rim of 12 or more along its far edges with its cliff facing the camera, the floor in river terraces along the Gate Bed (the bed two under a low terrace that follows its bends, one more terrace above, broad unequal flats out to the rim; steps follow the bed, never the wall); the Gate Bed from the Gate's foot winding to one notch in the rim; three seeps in hollows, each with a gully to the bed so its pond stands four under the flat | Rim 14 from Y 184 and at X < 7 and X > 185; the floor 3 to 8; the notch at X 148–152; the basin 7.8 % moist or wet on day 1 |
+| The leat and the Pass | A channel one wide cut into the crest from the cleft's lobe on the Veil's side away from the Gate to the Pass, a dip of the crest to 12 on that side; its bed a level under the pool's falling to a level under the Pass; plugged at its head by a bar two high and a row of Blockages. Its cascade, the Pass Bed, crosses the basin on that side to the Gate Bed at the notch. It never crosses the Gate's slot | Head at X 84, Y 106; the Pass at X 20–28; the leat bed 13 to 11 |
+| The valley | Three brooks from springs in the far corners to the lake, creeks at the lake's level into the meadows, meadows 18 wide, plates in threes beyond; the Low River out through a ridge (the megadam's slot) | Springs of 3, 2.8 and 2.5; the gorge 5 wide through the west ridge |
+
+**The regions** (five): the start's bench and the Veil (the generous start); the valley's meadows and brooks (wood,
+farmland, the reservoir); the wall and its crest (the leat, the Pass, the crossing); the Gate and the Gate Bed (the
+canvas: the basin's middle); the basin's far side (the Pass Bed's reach, the rim, dry for good beyond the terraces).
+
+**The ladder** (round 8, cumulative, by the Irrigation view's reach on a settle after each work; day 1 is 35.1 % of
+the map green or wet, the basin 7.8 %):
+
+| Rung | The work | Gain |
+|---|---|---|
+| First cycles | the neck: a levee of 3 on the side pool's inlet before the first badtide | the pool clean through it (12 to 16 % bad at most); the meadow beside the red trench goes bad, and that is the game |
+| Medium | the Gate opened: its bar blasted a level (21 tiles) and 14 blockages cleared; the river splits | 1,318 tiles (3.6 %), 305 of them water: the Gate Bed to the notch and its terraces |
+| Medium | the bar blasted again (to a level under the sill) and a levee on the Low River's head (20 tiles): the whole river through the Gate | 1,534 more, 63 fewer: the lake sinks half a level, the Low River runs dry |
+| Medium | the leat's bar blasted once (2 tiles) and its 2 blockages cleared | 1,839 (5.0 %): a trickle west along the crest, over the Pass and down the Pass Bed |
+| Large | the leat's bar blasted twice: the springs' share | 1,663 more (4.5 %), 92 of them water; the Veil dwindles |
+| Badtide | the Gate open and the Low River levee'd: the valley's red water sent through the Gate | red water on 710 basin tiles on day 1 (31 left alone); the lake runs red whatever is built, since the Veil and the brooks feed it and every source is red |
+| Large | the megadam in the west ridge's slot (7 tiles) with the Gate's bar dammed | holds the valley to 9 only where the valley's floor is enclosed at 9; in round 8 it is not |
+
+**The invariants** (with the stage that judges each, as section 1.4):
+- `wall.grid` (plan): the wall's face line is runs along the grid of 14 or more joined by jogs of 4 to 6; no diagonal.
+- `wall.faces` (land): on the valley face the tile under the crest's edge is the meadow (one step of 8 or more); on
+  the basin face the tile beyond the crest's edge is the floor (one step of 9 or more); no ledge on either face.
+- `wall.camera` (land): the wall's face is toward the opening camera (its face's normal within 45° of the camera's
+  look), and from `openingCamera(start, VISTA_ZOOM)` the crest crosses the frame from edge to edge.
+- `gate.slot` (land): one slot through the crest band, 5 to 7 wide, its floor at or under the valley's lake sill the
+  whole way, both its walls the crest's level; its bar at the shore a level over the sill and spanning the slot
+  (`spanRow`).
+- `basin.bowl` (land): every basin floor tile (the rim excluded) stands at or under the valley's lake sill plus 1; a rim of 12 or more along the
+  basin's far edges but for one notch, which the Gate Bed leaves by.
+- `basin.terraces` (land): a floor tile within 4 of the Gate Bed is the bed + 2, within 10 the bed + 3; MAPCRAFT §5's
+  one-level-step share holds on the floor.
+- `basin.dry` (settled): the basin under 12 % moist or wet on day 1, its water the seeps' hollows alone.
+- `start.neck` (settled): a pool of 12 tiles or more beside the start, its only join to the river an inlet of 3 tiles or
+  fewer; with the inlet raised a level, a badtide of the difficulty's longest leaves it under 20 % bad.
+- `leat.own` (settled): the leat's bed never meets the Gate's slot; opened, it waters 1,000 tiles or more by the
+  Irrigation reach.
+- `frame.lip` (land): the lake stair's, with the lip's foot allowed under v −0.1.
+- `valley.enclosed` (land): the valley's floor is closed at the megadam's level (the slot's walls' height) all round
+  but for the slot, so the megadam's rung exists; the hand-built round 8 failed this (its lake lies south of the
+  bench and the water gets out elsewhere at 9), so the generator's version must enclose it.
+
+**New beyond the lake stair:** a ridge along the grid with runs and jogs as a body's rim (`raster/wall.ts`); a slot
+through it as a channel whose walls are the crest; the rim and the notch (`raster/rim.ts`); terraces along a bed
+(`raster/terraces.ts`); the side pool with an inlet (a lake arm one wide, as the Still Pool); the leat as a channel
+cut into a crest. The badtide invariant is the neck's, not the lake's: this premise's lake runs red by design.
+
+**What the rounds taught, for the stages** (MAPCRAFT §5 carries them too): the opening camera shows one face of a
+ridge, so a diagonal barrier reads as a staircase with a plateau's edge and a ledge doubles it; a floor that runs off
+the map reads as plates until a rim gives it a far side; a closed hollow fills to its flat whatever its depth; a sill
+drowned by the gorge below it passes a third of what a free one does (the Low River's gorge is a funnel from the sill);
+water deeper than two reads near black in the game, so the water in the first frame stays under two but for the row
+that carries the fall to the drain.
+
+**As built (the plan, stage 0; build step 11's first PR).** `premises/wallGate.ts` draws the plan (`wallGate`,
+`wallGateEligible`, the plan's own numbers in `GatePlan.gate`) and holds the `plan` halves of the invariants above with
+§1.4's checks: `gate.levels`, `wall.grid`, `wall.camera`, `frame.lip`, `gate.slot`, `basin.bowl`, `start.neck`, `leat.own`,
+`valley.enclosed`, `gate.ladder`, `gate.skeleton`. **Not offered yet**: it is not in `PREMISE_IDS`, so not in the choices,
+Any or a link; `premises/dev.ts` lists it for `tools/premise-plan.ts --premise wallGate` and the tests until it makes a
+whole map. It holds no playability floor of its own (planning, 2026-11-11): the start's numbers are the shared gate's.
+Where it differs from the table, and why:
+
+- **Laid out in a frame turned to the camera**: the wall along u, the valley toward the opening camera, then turned by
+  the start's own turn (four) and mirrored, so the face's normal is always 35° off the look (`wall.camera`).
+- **Levels by number**: the lake's sill 7 (`BED_FLOOR` + 4), so the slot's floor (5) falls to the notch on the floor (3,
+  D325; round 8's bed reached 1); the Veil 6 or 7; the crest 17 to 19 (9 over a floor at most the sill + 1, so Highest
+  terrain under 17 is refused); the Pass two under the springs; the megadam's water the sill + 2; the rim 12 to 14.
+- **The bastion is 10 thick**, not 7: the cleft's pool stands behind the Veil's mouth, which stage 1 widens to the lip
+  over 5 rows (`raster/falls.ts` `VALLEY_BACK`), with a row of rock behind it. It is the wall's most southern run.
+- **The Veil's lip runs along the wall**, so the lake stair's "square to the look" and "35 to 56 % of the frame" do not
+  apply (the round's lip spans about a quarter); its ends and foot are in the first frame (the foot to v −1.1), its far
+  end under the top edge's limit. The start stands 5 rows in front of the face.
+- **The Still Pool is a `kettle`** beside the start, its inlet a wet `channel` one wide, 3.0 to 3.5 between outlines, at
+  the lip's end the camera leans to (where the frame puts the start); the drain bay leaves by the other end.
+- **The Veil is the landmark with the shortest hanging valley**: a mouth from the cleft's front to the lip (`path`), so
+  stage 1 lays it as the first frame's landmark (its lip the plan's width, its foot a shelf). **The Low River** is a
+  `gorge` link over the lake's own wide sill (10 to 16 by the valley's flow, round 8's 14), as the lake stair's lowest
+  sill over its gorge, its bed on the floor through the spur. The brooks' springs are 2.0 to 2.6 (the round's 2.5 to 3):
+  the whole valley leaves over that lip.
+- **The Gate is one link** from the lake to the notch, the slot then the Gate Bed (`slot.to`); **the leat** one link
+  from the cleft along the crest to the Pass and down the Pass Bed to the same notch (`passAt`). The seeps are left to
+  the relief stage.
+- **The ladder** is round 8's rungs: the Still Pool's levee (first, in the first frame), the Gate opened (`canal`) and
+  the leat opened (medium), the Low River levee'd after the Gate and the leat's whole share (`leat`, large), the megadam
+  on the Low River with the Gate dammed (large). Their `gives` are three quarters of round 8's shares of the map, most
+  twice that: **(assumption)** until the ladder stage measures them.
+- **Measured** (`tests/contract/premiseGatePlan.test.ts`; seeds 1 to 200 at 128², 192² and 256²): every plan holds every
+  `plan` invariant on its first attempt, 1 to 5 ms a plan.
+
+**As built (water, stage 1; the second PR).** The shared stage (`water.ts` `waterByNumber`) lays the gate's plan
+unchanged: no shared stage reads the lake stair's `stair` before stage 2. `gateWater.ts` adds what is the gate's own and
+its `land` invariants (`GATE_WATER_CHECKS`, in `wallGate.invariants`):
+
+- **The bars**: the Gate's head to its first row a level over the lake's sill (the shared head-hold already stands it
+  there), the leat's two over its bed (the springs' sill + 1, its row 3.5 along so the bar has its two tiles).
+- **The lake's floor by the drought hold** (`holdDeep`, as the lake stair's: 2 on normal, 4 on hard), the cleft and the
+  Still Pool a level deep; **the first frame's beds** raised to hold their water under two (§5.1's rule, `FRAME_DEEP`
+  1.9; the lake stair's stage 3 asks 1.2), since the plan fixes the start; **the Veil's foot** a level under the sill and
+  its outer row two (the drowned river's ribbon, "the row that carries the fall to the drain"). The foot is two rows
+  between the lip and the start's 5 × 5, so it carries the whole Veil sideways: on the lake stair's shelf at the sill it
+  stood 0.7 over the lake and wet the start's bench. **The trench and the drain bay are one arm**, the bay wide at the
+  lip's end (the shared stage's bay, `bayOf`, gives it the ribbon).
+- **Invariants**: the shared `land` ones, `water.levels` read for a backwater (a body with no way out fed by one wet link
+  from a body at its sill stands at that sill, not at a rim), `gate.dry` (on day 1 no water past the Gate's or the
+  leat's bar, none on the basin's side of the wall but in the cleft, none leaving the map but by the Low River) and
+  `frame.water` (85 % of the first frame's water under two, on stage 1's own beds).
+- **The settle** (`gateSettleModel`; `tests/contract/premiseGateWater.heavy.test.ts`, `tools/premise-gate-water.ts
+  --settle`): judged alone, stage 1's undrawn ground is 0, and the gate's waters close a loop (the cleft, the leat, the
+  Pass Bed, the notch, the Gate Bed, the slot, the lake) whose guard fences the basin into a pit the pre-fill fills; so
+  the settle stands the undrawn ground over every water, as stage 2 will.
+- **Measured**: every plan of seeds 1 to 60 at 128², 192² and 256² holds every `plan` and `land` invariant on its first
+  attempt (18 to 120 ms with its water). Settled (seeds 1 to 12 at 128², 1 to 6 at 192², 1 to 4 at 256²): the lake 0.48
+  to 0.58 over its sill, the cleft 0.36 to 0.48 over its lip, the Still Pool 0.09 to 0.16 over the lake (0.35 on seed 11
+  at 128², where the foot backs up), the Gate and the leat dry past their bars, no stray water, nothing on the map's
+  edge but the Low River, and what leaves 1.4 to 3.1 % under what the springs give (the settle's own loss). The Veil pours one curtain on 21 of 22, judged at its height less 0.5 (round 8
+  measured 6.5 for 7; the lake stair's landmark asks 0.3): seed 11 at 128² drops 6.5 for 7, at the line.
+- **Short, for milestone** (shared files, not edited): (1) `PremiseDef` has no seam for a premise's own stage 1, so
+  `gateFirstWater` copies `draw.ts` `firstWater`; with `water?(plan): StageWater` on `PremiseDef` (`types.ts`) and
+  `def.water?.(plan) ?? waterByNumber(plan)` at `draw.ts` `firstWater`, `generate.ts` (the stage 1 call) and `siting.ts`
+  `sitePlan`, the gate's stage 1 runs in the mode. (2) `waterChecks.ts` `levelsOf` reads a body with no way out as a
+  pond at its rim; a backwater (the Still Pool) stands at its feeder's sill. (3) `levels.ts` `route` gives a link into a
+  body with no way out a share of its body's flow (the Still Pool's inlet takes 1 to 2.3 of the lake's 17, which the
+  table then takes off the Low River), and reads the Veil's mouth by its channel's width, so the table stands the cleft
+  half a level over where it settles. None changes where the water goes.
 
 ### 5.2 The island sea
 
@@ -1087,6 +1332,36 @@ sea island by island: wall off your lagoon before it reaches you, or turn the cr
   level under the sea); a mixing estimate for a large body, since `premise.closed` here is a delay, which the graph
   cannot give and the foreground must estimate from volume and flow. It is the first premise whose gate leans on the
   proofs, and should be built third for that reason.
+
+### 5.3 The swallow hole (a candidate)
+
+A candidate, not yet passed: built by hand as `tools/showcase/swallow-hole.ts` in three rounds (2026-11-11;
+[progress/showcase-craft.md](progress/showcase-craft.md)), its water proved and its looks still owed. The verb is
+*catch*.
+
+**The line:** "A river crosses the upland and vanishes into a cave under the hill; far below it comes out as a spring.
+Dam it before the sink and the dry plain floods, but the spring runs dry."
+
+**The layout that worked** (round 2, grown to 192² in round 3): the mouth five wide and four high in the hill's south
+face, toward the opening camera, under an overhang three deep between two buttresses (the support rule allows no
+deeper roof); the tunnel dug with the Block tool slice by slice from the mouth, three high, 72 long at 128² and 100 at
+192², north into the hill, east under it and south under the plain, its floor falling from 10 to 4; the spring at the
+escarpment's foot, facing the camera, its stream across the lowland to an edge (beds five wide, falling a second
+level, or the water sheets over the flat and never settles); a notch at 13 in the escarpment's edge as the old
+spillway, dry until the plain fills; the dam the recess's two open rows before the overhang, ten tiles to 14 (a dam
+across the bed alone is walked round). The start on a rise at 14 beside the last reach, its water a side pool with
+an inlet one wide (in eight days' badtide 41 % bad open, clean behind a levee).
+
+**The game agrees** (probe runs `20261111-0920`, `-0932`, `-0950-captures`; every check passed): every tunnel column
+wet or dry as ours in all three rounds, the largest depth difference 0.013, 0.014 and 0.019; the spring 73.9, 119.9
+and 238.6 of water against ours 73.9, 119.7 and 238.8; with the dam the tunnel and the spring dry in both, the same
+6,626, 2,976 and 3,740 tiles flooded (13.26, 13.47, 13.22), the spillway 115.1 and 153.9 against 114.5 and 151.4.
+
+**What the full rounds still owe:** the first frame too close, the mouth a dark slot at its top (the overhang hides
+the opening from the camera's height); the hill a flat box; the terraces even bands round the valley; the upland flat
+and grey; the start's budget fragile (the oak stand fell to 168 logs when the terraces moved; with the dam the
+start is an island and its berries drown); the ladder thin (17 % green on day 1 to 28.8 % after every work, and the
+catch's +1,356 upland costs the lowland's 2,398).
 
 ## 6. Judging
 
@@ -1149,7 +1424,7 @@ Each step is one PR that leaves dev green and is useful by itself.
 | 8 | **The proofs and the judging tools**: background proof rows, `tools/premise-batch.ts`, tiers 1 to 4 run and recorded | The premise proved true on every map a player opens | 7. The first ten cycles (#927, in work) for the cycles' proof; not blocked |
 | 9 | **Core built** (theme × premise as two choices, the style seam, the pair refusals, the settings' mapping of section 1.3 complete, the card's words; section 1.5). **On the page**: the two pickers beside Generate, each with Any; the settings greyed by `premiseSettings`; the map card from `info.premise.card` | Players get it | 8 passed; the page session |
 | 10 | **The ladder's readout in the editor** (section 8) | The editor's missing step 5 | 5; the page session |
-| 11 | **The wall and the gate** | A second idea; Generate can surprise | 9 |
+| 11 | **Plan and water built** (stages 0 and 1, not offered: §5.1 "As built"). **The wall with one gate** (§5.1, built by hand as The Gate); its water, relief and works next | A second idea; Generate can surprise | 9 |
 | 12 | **The sketch start** (section 8) | The editor's missing steps 1 and 2 | 2, 3 |
 | 13 | **The island sea** | A third idea; the first with a real delay | 11, 8 |
 
@@ -1233,27 +1508,36 @@ work to these.
   ten maps seeds 1 to 12 make at 128² settle at 19.6 to 23.5 % water and 37.1 to 40.7 % moist, every one inside
   `spectrum` (with #986's lakes alone, seven of eleven stood over 42 %). Seeds 6 and 8 go to the themes on stage 1's
   `water.levels` and `water.falls` after sixteen plans.
-- **The small works pay little (found at step 5; step 8 sites them by day 1's soil, not answered), for the ranges
-  and the estimate:** on the twelve maps seeds 1 to 12 make at 128², 8 of 65 small works and leats measure inside
-  their plan's range (step 7: 6 of 63); on the six whose side network is sited by moisture, 4 of 33. What stands in
-  the way: (1) the ranges are narrow against what a site can be told apart by: the levee's 260 to 340 is ± 13 %, the
-  notch's 430 to 491 at 128² (capped at 3 % of the map) ± 7 %, where the estimate comes within a quarter of the
-  measure on 12 of 33 works (the skeleton is not the land the side network's own relief makes); (2) a dam to pond's
-  pond adds 0 to 250 tiles over its bed's thread, its valley's meadow 12 wide and its pond 14 back (`POND_REACH`),
-  so 270 to 470 asks a narrows template with a wider flat behind the dam; (3) a rim tarn's notch bed to a lake runs
-  0 to 170 tiles of green at 128² (its bed at most 0.32 × the side, its ends green), so the notch pays where it
-  feeds a basin's chain; (4) six of the twelve keep the first pass's side network (the pool's basins, the count of 3
-  to 4 with three near the start). Ranges stated as a floor a work must reach, with the plan's estimate beside it,
-  or ranges a third wider, would let the siting meet them; that is a ruling for planning, not taken here.
+- **The small works pay little (found at step 5; step 8 sites them by day 1's soil; the works round rules ranges
+  floors, not answered):** a work's range is a floor now (§4.2, the milestone's ruling within D508), but on the seven
+  maps of twelve sited by moisture at 128² 5 of 24 small works reach theirs, and one leat (section 2.2, "As built (the
+  works round)"). What stands in the way: (1) a brook or bed already reaches 12 to 18 tiles of soil each side, so a
+  work's water adds only what lies past that: a dam's pond adds 150 to 250 over its bed's thread even on a narrows,
+  a levee's raised basin less; (2) the start stands by a lake whose meadow and green take most of its walk, so the
+  three works near it are laid short of their floors where they stand at all (four of the five maps that keep the
+  first pass's network find two near the start); (3) the estimate comes within a quarter of the measure on about a
+  third of the works (the skeleton is not the land the side network's own relief makes). A leat's floor of 1,000 is
+  §4.2's from Four Lakes at 192²: at 128² a leat's chain measures 440 at the mean. Whether the leat's floor scales
+  with the map, and whether a work short of its floor is better left out than laid, are planning's.
 - **256² makes a premise map (found at step 7; answered at step 8)**: seeds 1 to 3 at 256² make maps, day 1 water
   19.8 to 21.7 % and moist 30.4 to 34.3 %, by the lakes' middles and arms grown to √2 times and ten rim tarns
   (section 2.2, "As built (step 8)"). It is close to the floor: seed 1 takes fifteen plans, most failing `spectrum`'s
   moist floor or the layout, and the second pass costs up to 1.6 s.
-- **Next, from the look (planning, 2026-11-11), not taken at step 8:** the rim's plates run parallel to the map's
-  edge (seed 1 north-west, seed 2 west, contours curling on seed 2's west): the rim's plates should be cut by the
-  same warped field as the interior, never by distance from the edge. And the dry land should read as places, each
-  with its problem (a bench over a lake three or more levels up, a hollow behind a ridge, a bed that plainly once
-  carried water), at least one in sight of the start, spending the land the side bodies give back on them.
+- **From the look (planning, 2026-11-11), taken in the look round:** the rim's plates fall toward an edge a plate at
+  a time (the band along the edge was a tile's distance), an empty basin's bank stands whole over a broad bench (the
+  half-step rings curled round seed 2's west basin), the themes' uplands take their forms (§1.5), the rim tarns'
+  runs bend and slide along the edge and the further rim tarns spread round the edges (§2.2's wander), the
+  generator's groves are drawn together into stands, and the benches over the lakes are dressed, the one nearest the
+  start first. The bypass's ring is answered in the works round (§4.1, a course of its own). **Taken in the height
+  round (2026-11-11):** an empty basin's bed is a dry floor
+  crossed by its old river's line and its beach wanders (no stepped rings); the hollow behind the skyline is shaped
+  by stage 2 and dressed as a place of its own (on 3 of the first 8 seeds at 128²: the skyline often stands by the
+  map's edge or the rim tarns, and then no hollow fits); the themes take the height to 22 (§1.5). **Still open after
+  it:** theme Any makes 11 of 12 at 128² (seed 5: two settles leave the start's walk short of two mine sites 30
+  tiles out, and the uplands' height moves attempt 11's siting); at 256² seed 1 River Valley, Highlands and Lake Basin
+  make maps, Canyon falls back (its plans fall under `spectrum`'s 30 % moist floor, 27.8 to 29.9 %, and one settle
+  has 22 berry bushes in the start's walk against 30); the skyline on most seeds is a short lump by the edge; the
+  benches over the lakes are dressed, not shaped.
 - **The megadam holds 4 of 12 in range at 128²** (median 5,743, against 6,554 to 8,192): one seed's wall finds no
   shoulders within 48 tiles at the next lake's sill; on the rest the sea leaves by a lower outlet of the basin (a
   spring tarn's run to the map's edge, which the raised lake floods). Its level should be the lower of the next

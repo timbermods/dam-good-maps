@@ -147,6 +147,7 @@ const api = {
   refine: () => sendOpen(ed.refine()),
   openTimber: (bytes: Uint8Array, fileName: string) => sendOpen(ed.openTimber(bytes, fileName)),
   openProject: (bytes: Uint8Array) => sendOpen(ed.openProject(bytes)),
+  newBlank: (size: number, level: number) => sendOpen(ed.newBlank(size, level)),
   /** A real place (its data file): built into its .timber, then opened as any .timber is. */
   openPlace(data: Uint8Array) {
     const place = decodePlaceFile(data);
@@ -274,6 +275,8 @@ const api = {
   ridgeAt: routed((path: [number, number][], height: number, width: number, steep: RidgeSteep, seed: number) => sendUpdate(ed.ridgeAt(path, height, width, steep, seed)), (...a) => collabEditApi.ridgeAt(...a).then(sendUpdate)),
   lakeLevelAt: routed((x: number, y: number, level: number, width?: number) => sendUpdate(ed.lakeLevelAt(x, y, level, width)), (...a) => collabEditApi.lakeLevelAt(...a).then(sendUpdate)),
   canalPlanAt: (path: [number, number][], width: number, depth: number, open: boolean) => ed.canalPlanAt(path, width, depth, open),
+  lakePlanAt: (outline: [number, number][], level: number, depth: number, spill: [number, number] | null) => ed.lakePlanAt(outline, level, depth, spill),
+  lakeAt: routed((outline: [number, number][], level: number, depth: number, spill: [number, number] | null) => sendUpdate(ed.lakeAt(outline, level, depth, spill)), (...a) => collabEditApi.lakeAt(...a).then(sendUpdate)),
   canalAt: routed((path: [number, number][], width: number, depth: number, open: boolean) => sendUpdate(ed.canalAt(path, width, depth, open)), (...a) => collabEditApi.canalAt(...a).then(sendUpdate)),
   moveObjectBy: routed((id: string, dx: number, dy: number, z?: number) => sendUpdate(ed.moveObjectBy(id, dx, dy, z)), (...a) => collabEditApi.moveObjectBy(...a).then(sendUpdate)),
   clearEverything: routed(() => sendUpdate(ed.clearEverything()), () => collabEditApi.clearEverything().then(sendUpdate)),

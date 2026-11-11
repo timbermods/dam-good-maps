@@ -12,7 +12,7 @@ import { reliefBetween } from "../../src/core/premise/raster/relief";
 import { premiseStyle } from "../../src/core/premise/style";
 import { waterByNumber } from "../../src/core/premise/water";
 import { SETTING_KEYS } from "../../src/core/spec/codec";
-import { decodeSpecFragment, encodeSpecFragment, makeSpec, THEME_PRESETS, type MapSpec, type ThemeId } from "../../src/core/spec/mapspec";
+import { decodeSpecFragment, encodeSpecFragment, makeSpec, THEME_PRESETS, themeOwnSettings, type MapSpec, type ThemeId } from "../../src/core/spec/mapspec";
 
 const spec128 = (seed: number, theme: ThemeId, premise: MapSpec["premise"]) => makeSpec({ seed, size: { x: 128, y: 128 }, theme, premise });
 
@@ -59,7 +59,13 @@ describe("Theme × premise (§1.5, build step 9)", () => {
       expect(premiseRefusal(spec)).toBe(PAIR_REFUSALS.lakeStair[theme]);
       expect(generatePremise(spec)).toEqual({ reason: PAIR_REFUSALS.lakeStair[theme] });
       expect(premiseRefusal(spec128(1, theme, "any"))).toMatch(/^No premise takes the .+ style yet$/);
+      // (the themes then make the theme's own map: its own settings where the premise's preset set them)
+      expect(themeOwnSettings(spec)).toEqual(makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme }).settings);
     }
+    // (a setting changed from the premise's preset stays as set)
+    const set = spec128(1, "delta", "lakeStair");
+    set.settings.water.riverFlow = set.settings.water.riverFlow === "strong" ? "lush" : "strong";
+    expect(themeOwnSettings(set).water.riverFlow).toBe(set.settings.water.riverFlow);
     // (the settings a premise rules out are refused the same way)
     const off = spec128(1, "canyon", "lakeStair");
     off.settings.water.waterfalls = "off";
@@ -80,7 +86,7 @@ describe("Theme × premise (§1.5, build step 9)", () => {
     const { W, H } = a.plan;
     const { x: sx, y: sy } = a.plan.frame.start;
     let differ = 0;
-    let higher = 0;
+    let high = 0;
     const r = water.raster;
     // (day 1's water: a wet body's or a wet link's tiles; the dry beds follow the land, as stage 2 lays them in any land)
     const wet = (i: number) => (r.lake[i] > 0 && !a.plan.bodies[r.lake[i] - 1].dry) || (r.channel[i] > 0 && a.plan.links[r.channel[i] - 1].wet);
@@ -89,11 +95,14 @@ describe("Theme × premise (§1.5, build step 9)", () => {
       const y = (i - x) / W;
       if (wet(i) || Math.max(Math.abs(x - sx), Math.abs(y - sy)) < 16) expect(styled[i], `tile ${x},${y}`).toBe(own[i]);
       if (styled[i] !== own[i]) differ++;
-      higher += styled[i] - own[i];
+      // (the height round: a premise map rises to Highest terrain 22; Canyon's tables stand high in that room, cut by
+      // canyons deep under them, River Valley's terraces climb it step by step: Canyon's ground stands at 17 or more
+      // on more tiles, D148)
+      high += (styled[i] >= 17 ? 1 : 0) - (own[i] >= 17 ? 1 : 0);
     }
-    // (Canyon stands higher over the stair than River Valley, over a good part of the map)
+    // (Canyon stands apart from River Valley over a good part of the map, and over 16 on more of it)
     expect(differ).toBeGreaterThan(0.2 * W * H);
-    expect(higher).toBeGreaterThan(0);
+    expect(high).toBeGreaterThan(0);
   });
 
   it("says what every setting of the panel does to a premise map, and which the page greys out", () => {

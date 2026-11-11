@@ -18,7 +18,7 @@ function fan(before:Uint8Array,h:Uint8Array,W:number,at?:{x:number;y:number}){
  if(at){const apex=before[Math.round(at.y)*W+Math.round(at.x)]+6;for(const i of raised)expect(h[i]).toBeLessThanOrEqual(apex);}
 }
 describe("Deposit fan shaping",()=>{
- test("a split cone retains separate bodies, original volume and extent without bridging the barrier",()=>{
+ test("a split cone keeps separate bodies either side of the barrier, and its extent, without bridging it",()=>{
   const m=fixture("plain",64);m.entities=[];
   for(let y=0;y<64;y++)for(let x=0;x<64;x++)m.heights[y*64+x]=x<28?12:y>=31&&y<=33?14:7;
   const r=new DepositRun(m,{...DEPOSIT_DEFAULTS,power:100,seed:2},{path:[{x:30,y:30},{x:53,y:30}]}).finishAll();
@@ -26,7 +26,12 @@ describe("Deposit fan shaping",()=>{
   // (D148: 2461 when it was conserved; the force audit's finding 4 made it a cone from its apex, fed from a gully)
   fan(m.heights,r.map.heights,64,{x:30,y:30});expect(r.plan0.stats.deposited).toBe(1028);expect(r.plan0.reach).toBe(23);expect(r.plan0.width).toBe(48);
   const raised=Array.from(r.map.heights).flatMap((h,i)=>h>m.heights[i]?[i]:[]),xs=raised.map(i=>i%64),ys=raised.map(i=>(i/64)|0);
-  expect(Math.max(...xs)-Math.min(...xs)+1).toBeGreaterThanOrEqual(24);
+  // (D148: 24 tiles along the drag, the reach and one, while it was conserved; since the force audit's finding 5 the
+  // cone's toe falls 0.8 to 1 times its reach and set-back from its apex, set back from where it is placed (deposit.rs),
+  // the thinning edge left as it was: it runs from the scarp's foot to at least that toe)
+  const setBack=Math.min(5,Math.max(1.5,r.plan0.reach*0.15));
+  expect(Math.min(...xs)).toBeLessThanOrEqual(30);
+  expect(Math.max(...xs)).toBeGreaterThanOrEqual(30+Math.floor(0.8*(r.plan0.reach+setBack)-setBack));
   expect(Math.max(...ys)-Math.min(...ys)+1).toBeGreaterThanOrEqual(29);
   expect(ys.some(y=>y<31)).toBe(true);expect(ys.some(y=>y>33)).toBe(true);
   expect(raised.some(i=>i%64>=36&&(i/64|0)>=31&&(i/64|0)<=33)).toBe(false);

@@ -20,7 +20,7 @@ import { entityJson } from "../format/entities";
 import { ORIENTATIONS, type Orientation } from "../format/footprints";
 import { footprintAt, fitProblems } from "../features/objects";
 import { mapObjects } from "../sim/model";
-import { bandScale, colonyReach, FLOOD_MARGIN, MINE_REACH_LO, minesWanted, WET } from "../validate/playability";
+import { bandScale, colonyReach, FLOOD_MARGIN, MINE_REACH_LO, minesWanted, nearWater, WET } from "../validate/playability";
 import { planResources } from "../gen/resources";
 import { distanceFrom, runsToTiles, tilesToRuns } from "../math/grid";
 import { stream } from "../math/rng";
@@ -28,6 +28,7 @@ import { growGroveAt, type BaselineGround } from "../resources/baseline";
 import { between, resourceBudget } from "../resources/budget";
 import type { MapSpec } from "../spec/mapspec";
 import type { Ladder } from "./ladder";
+import { hollowDist, hollowsOf } from "./raster/relief";
 import type { PremisePlan } from "./types";
 import type { StageWater } from "./water";
 
@@ -47,6 +48,14 @@ export const LIFE = {
   standGap: 9,
   /** How far either side of the start's sight line to its landmark nothing grows, tiles. */
   sight: 1,
+  /** The generator's groves of `groupFrom` trees or more are drawn together into a close stand of their own count
+   *  (`groupFill` of its ground under trees: the generator's 0.52 read as single trees spread evenly over the green). */
+  groupFrom: 8,
+  groupFill: 0.85,
+  /** A bench over a lake (PREMISES §4.4's dry places): dry level ground `over` levels or more over a lake's sill
+   *  within `within` tiles of it, `least` tiles together; one stand on each, a bench for each `per` tiles of map at
+   *  most, the one nearest the start first (in sight of it); never a carpet. */
+  bench: { over: 3, within: 10, least: 12, per: 5000 },
 } as const;
 
 /** What stage 6 planted, against its budget. */
@@ -143,7 +152,9 @@ export function premiseLife(spec: MapSpec, plan: PremisePlan, w: StageWater, lad
     },
   };
   const protect = keepOff(plan, w, ladder, true);
-  const planted = planResources(lifeSpec, built, 0, attempt, { protect, moistCover: LIFE.moistCover });
+  const planted = planResources(lifeSpec, built, 0, attempt, { protect, moistCover: LIFE.moistCover, woodLean: true });
+  const rng = stream(spec.seed, "premise.life", attempt);
+  groupGroves(planted, built, protect, rng, W, H);
   const out: Feature[] = [...planted];
 
   // what the planting took, so the premise's own dress keeps off it
@@ -151,7 +162,6 @@ export function premiseLife(spec: MapSpec, plan: PremisePlan, w: StageWater, lad
   for (let i = 0; i < N; i++) if (built.occupied[i] || built.water[i] > 0) taken[i] = 1;
   for (const f of planted) if (f.kind === "forest" || f.kind === "berryPatch" || f.kind === "ruinField") for (const i of runsToTiles(f.params.area, W)) taken[i] = 1;
   const ground: BaselineGround = { W, H, heights: built.heights, water: built.water, moisture: built.moisture, soilContamination: built.soilContamination, taken };
-  const rng = stream(spec.seed, "premise.life", attempt);
   const species = ["Pine", "Birch", "Oak"] as const;
   const weights = [mix.pine, mix.birch, mix.oak];
   const clump = (allowed: Uint8Array, role: string, n: number, sp: string, life: "dead" | "auto", at?: number): number => {
@@ -218,10 +228,41 @@ export function premiseLife(spec: MapSpec, plan: PremisePlan, w: StageWater, lad
       }
     }
   }
-  // succulents: the dry-for-good side alone (nearer the old channel than any lake, no moisture), in a few stands
+  // the benches over the lakes (dry places, PREMISES §4.4): one stand on each, the one nearest the start first,
+  // succulents where the palette has them (living on dry ground), dead wood where it has none
   let succulents = 0;
   const wantSucc = Math.round(wantLiving * succulentShare);
-  if (wantSucc > 0) {
+  const benches = benchesOver(plan, w, built, taken, protect).sort((a, b) => a.d - b.d);
+  // (the hollows behind the ridges first, places of their own, a stand on each the same way)
+  const hollows = hollowsOf(plan).map((hl) => {
+    const tiles: number[] = [];
+    let at = -1;
+    let best = Infinity;
+    for (let y = Math.max(0, Math.floor(hl.y - hl.r - 2)); y < Math.min(H, hl.y + hl.r + 2); y++)
+      for (let x = Math.max(0, Math.floor(hl.x - hl.r - 2)); x < Math.min(W, hl.x + hl.r + 2); x++) {
+        const i = y * W + x;
+        if (taken[i] || protect[i] || built.moisture[i] > 0 || hollowDist(plan, hl, x, y) >= 0) continue;
+        tiles.push(i);
+        const dx = x + 0.5 - hl.x;
+        const dy = y + 0.5 - hl.y;
+        const d = dx * dx + dy * dy;
+        if (d < best) [best, at] = [d, i];
+      }
+    return { tiles, at, d: 0 };
+  });
+  benches.unshift(...hollows.filter((hl) => hl.tiles.length >= LIFE.bench.least));
+  const benchCount = Math.min(benches.length, Math.max(1, Math.round(N / LIFE.bench.per)) + hollows.length);
+  for (let k = 0; k < benchCount; k++) {
+    const allowed = new Uint8Array(N);
+    for (const i of benches[k].tiles) if (!taken[i]) allowed[i] = 1;
+    if (wantSucc - succulents >= 6) succulents += clump(allowed, `premise/bench/${k}`, Math.min(wantSucc - succulents, rng.int(6, 13)), "Succulent", "auto", benches[k].at);
+    else if (weights.some((v) => v > 0)) {
+      const n = clump(allowed, `premise/bench/${k}`, rng.int(LIFE.deadClump[0], LIFE.deadClump[1] + 1), species[rng.weighted(weights)], "dead", benches[k].at);
+      if (n) [shores.clumps, shores.trees] = [shores.clumps + 1, shores.trees + n];
+    }
+  }
+  // succulents: the dry-for-good side alone (nearer the old channel than any lake, no moisture), in a few stands
+  if (wantSucc - succulents > 0) {
     const by = plan.links.findIndex((l) => l.kind === "bypass");
     const byMask = new Uint8Array(N);
     const lakeMask = new Uint8Array(N);
@@ -336,7 +377,9 @@ function reachedMines(spec: MapSpec, b: BuildResult, mines: MapObjectFeature[], 
   const lo = MINE_REACH_LO * bandScale(W, H) + 1;
   const blocked = avoid.slice();
   for (let i = 0; i < N; i++) if (wet[i]) blocked[i] = 1;
-  const nearWet = distanceFrom(wet, W, H);
+  // (the check's own square margin round the water: a distance read round a corner let a site stand a diagonal tile
+  // too near it)
+  const flood = nearWater(b.water, W, H, FLOOD_MARGIN);
   const take = (tiles: readonly (readonly [number, number])[]) => {
     for (const [x, y] of tiles)
       for (let dy = -3; dy <= 3; dy++)
@@ -360,7 +403,7 @@ function reachedMines(spec: MapSpec, b: BuildResult, mines: MapObjectFeature[], 
         let d = Infinity;
         let ok = true;
         for (const [tx, ty] of tiles) {
-          if (tx < 0 || ty < 0 || tx >= W || ty >= H || blocked[ty * W + tx] || nearWet[ty * W + tx] <= FLOOD_MARGIN) {
+          if (tx < 0 || ty < 0 || tx >= W || ty >= H || blocked[ty * W + tx] || flood[ty * W + tx]) {
             ok = false;
             break;
           }
@@ -381,5 +424,102 @@ function reachedMines(spec: MapSpec, b: BuildResult, mines: MapObjectFeature[], 
   // (a site the colony cannot reach stays where the generator put it when the reach has no room for it: the check
   // `resources.mine_site` then fails the plan in one line, never silently)
   for (const f of mines) if (out.length < mines.length && !out.includes(f)) out.push(f);
+  return out;
+}
+
+/** The generator's groves drawn together (`LIFE.groupFrom`, `groupFill`): each living grove of enough trees regrown
+ *  from its tile nearest its middle as a close stand of its own count, on its own ground and the open ground of its
+ *  kind (moist or dry) round it that nothing else holds; the start's own groves stay as the start rules laid them. A
+ *  grove the ground cuts short keeps its own tiles. */
+function groupGroves(planted: Feature[], built: BuildResult, protect: Uint8Array, rng: ReturnType<typeof stream>, W: number, H: number): void {
+  const N = W * H;
+  const held = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (built.occupied[i] || built.water[i] > 0 || protect[i]) held[i] = 1;
+  for (const f of planted) if (f.kind === "forest" || f.kind === "berryPatch" || f.kind === "ruinField") for (const i of runsToTiles(f.params.area, W)) held[i] = 1;
+  const ground: BaselineGround = { W, H, heights: built.heights, water: built.water, moisture: built.moisture, soilContamination: built.soilContamination, taken: held };
+  for (const f of planted) {
+    // (the start's own wood stays as the start rules laid it over its walk)
+    if (f.kind !== "forest" || f.params.life === "dead" || (f.role ?? "").startsWith("forest/start/")) continue;
+    const own = runsToTiles(f.params.area, W);
+    if (own.length < LIFE.groupFrom) continue;
+    const at = middleOf(own, W);
+    const moist = built.moisture[at] > 0;
+    for (const i of own) held[i] = 0;
+    const allowed = new Uint8Array(N);
+    for (let i = 0; i < N; i++) if (!held[i] && built.moisture[i] > 0 === moist && !(built.soilContamination[i] > 0)) allowed[i] = 1;
+    const grown = growGroveAt(ground, rng, allowed, at, own.length, LIFE.groupFill);
+    const tiles = grown && grown.tiles.length === own.length ? grown.tiles : own;
+    for (const i of tiles) held[i] = 1;
+    f.params.area = tilesToRuns([...tiles].sort((a, b) => a - b), W);
+  }
+}
+
+/** The tile of a set nearest its middle. */
+function middleOf(tiles: readonly number[], W: number): number {
+  let mx = 0;
+  let my = 0;
+  for (const i of tiles) {
+    mx += i % W;
+    my += Math.floor(i / W);
+  }
+  mx /= tiles.length;
+  my /= tiles.length;
+  let at = tiles[0];
+  let best = Infinity;
+  for (const i of tiles) {
+    const dx = (i % W) - mx;
+    const dy = Math.floor(i / W) - my;
+    if (dx * dx + dy * dy < best) {
+      best = dx * dx + dy * dy;
+      at = i;
+    }
+  }
+  return at;
+}
+
+/** The benches over the lakes (`LIFE.bench`): dry ground standing `over` levels or more over a lake's sill within
+ *  `within` tiles of it, in level pieces of `least` tiles or more that nothing holds; each with its tile nearest its
+ *  middle and how far that stands from the start (the larger axis). */
+function benchesOver(plan: PremisePlan, w: StageWater, built: BuildResult, taken: Uint8Array, protect: Uint8Array): { tiles: number[]; at: number; d: number }[] {
+  const { W, H } = plan;
+  const N = W * H;
+  const r = w.raster;
+  const over = new Uint8Array(N);
+  plan.bodies.forEach((b, k) => {
+    if (b.kind !== "lake" || b.dry) return;
+    const mask = new Uint8Array(N);
+    for (let i = 0; i < N; i++) if (r.lake[i] === k + 1) mask[i] = 1;
+    const d = distanceFrom(mask, W, H);
+    for (let i = 0; i < N; i++) if (d[i] <= LIFE.bench.within && built.heights[i] >= b.sill + LIFE.bench.over) over[i] = 1;
+  });
+  for (let i = 0; i < N; i++) if (taken[i] || protect[i] || built.moisture[i] > 0 || built.water[i] > 0 || r.lake[i] || r.channel[i]) over[i] = 0;
+  const seen = new Uint8Array(N);
+  const out: { tiles: number[]; at: number; d: number }[] = [];
+  const { x: sx, y: sy } = plan.frame.start;
+  for (let s = 0; s < N; s++) {
+    if (!over[s] || seen[s]) continue;
+    const tiles: number[] = [];
+    const queue = [s];
+    seen[s] = 1;
+    while (queue.length) {
+      const i = queue.pop()!;
+      tiles.push(i);
+      const x = i % W;
+      const y = (i - x) / W;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        if (over[j] && !seen[j] && built.heights[j] === built.heights[i]) {
+          seen[j] = 1;
+          queue.push(j);
+        }
+      }
+    }
+    if (tiles.length < LIFE.bench.least) continue;
+    const at = middleOf(tiles, W);
+    out.push({ tiles, at, d: Math.max(Math.abs((at % W) - sx), Math.abs(Math.floor(at / W) - sy)) });
+  }
   return out;
 }
