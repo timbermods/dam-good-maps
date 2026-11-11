@@ -1165,8 +1165,8 @@ Make a valley, drop a source, and there's a river.
   also drain another lake, a width for a sill that must be raised, no source filling it that high, a river standing a
   level or more over the sill. One undo step; the start is carried if its ground broke. Engine and question in the core (`setLakeLevel`).
   **On the page:** Select's **Lake level** (`useSelect.tsx`; `settings.tsx` `HeldNumberSetting`). The Wand on water takes a
-  lake (or a river), and the field then shows the level it stands at (its surface's whole level, read from the map's
-  water); it is greyed with nothing taken, and goes back to that when the selection changes. A new level is typed (Enter
+  lake (or a river), and the field then shows the level it is held at (its sill's: the core's `lakeHeldLevel`, the
+  worker's `lakeHeldAt`, so a river standing a level over its sill does not read one high); it is greyed with nothing taken, and goes back to that when the selection changes. A new level is typed (Enter
   or leaving the field sets it), dragged on its slider or turned on the wheel over it, a step a notch; once the hand has
   rested about half a second the worker's `lakeLevelAt` sets it. While the plan runs (a settle: seconds on a big map)
   the field is greyed and the row's words say "Setting the lake's level…". A refusal is the core's one line on the
