@@ -313,12 +313,28 @@ export function useSelect(ed: Ed): SelectSlice {
   const [lakeBusy, setLakeBusy] = useState(false);
   /** The map's water as the worker last put it in place (a journey's frames pass over it). */
   const mapSurface = () => surfaceWater(infoRef.current.W, infoRef.current.H, mirror.current.mapWater).surface;
-  /** The level the picked lake stands at now (its surface is from that level up to under the next), or null when no
-   *  water stands on its tile any more. */
+  /** The level the core says the picked lake is held at (its sill's: `lakeHeldAt`), for the map as it stands. */
+  const [lakeHeld, setLakeHeld] = useState<{ x: number; y: number; version: number; level: number | null } | null>(null);
+  useEffect(() => {
+    if (!lake) return setLakeHeld(null);
+    let live = true;
+    const { x, y } = lake;
+    const version = info.version;
+    void api.lakeHeldAt(x, y).then((level) => live && setLakeHeld({ x, y, version, level }));
+    return () => {
+      live = false;
+    };
+  }, [lake, info.version]);
+  /** The level the picked lake is held at now (its sill's, so a river standing a level over its sill does not read one
+   *  high), or null when no water stands on its tile any more. Until the core has answered for this map, the whole level
+   *  of its surface. */
   function lakeLevelNow(): number | null {
     if (!lake) return null;
     const s = mapSurface()[lake.y * infoRef.current.W + lake.x];
-    return s === s ? Math.floor(s + 0.02) : null;
+    if (s !== s) return null;
+    const h = lakeHeld;
+    if (h && h.x === lake.x && h.y === lake.y && h.version === info.version && h.level !== null) return h.level;
+    return Math.floor(s + 0.02);
   }
   /** Set the picked lake's level: its sill cut down or raised by the core, one undo step; refused with the core's one
    *  line. The plan settles the map's water once (seconds on a big map), so the row says it is at work meanwhile. */

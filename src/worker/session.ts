@@ -35,7 +35,7 @@ export type { EntityInfo };
 import { objectsIn } from "../core/doc/inArea";
 import { markerNotes, type MarkerNote } from "../core/doc/objectOps";
 import { fillLevel, planFill, unfedWater } from "../core/doc/waterEdits";
-import { applyLakeLevel, planLakeLevel, type LakeLevelPlan } from "../core/doc/lakeLevel";
+import { applyLakeLevel, lakeHeldLevel, planLakeLevel, type LakeLevelPlan } from "../core/doc/lakeLevel";
 import { applyCanal, planCanal, type CanalPlan } from "../core/doc/canal";
 import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
@@ -2460,6 +2460,12 @@ export function lakeLevelPlanAt(x: number, y: number, level: number, width?: num
   return plan;
 }
 
+/** The level the lake at (x, y) is held at now (its sill's), or null where no water stands (core/doc/lakeLevel.ts
+ *  `lakeHeldLevel`): what the page's Lake level shows. Reads the map only; no settle. */
+export function lakeHeldAt(x: number, y: number): number | null {
+  return lakeHeldLevel(need(), x, y);
+}
+
 /** Set the lake at (x, y) to `level`: its sill cut down or raised, one undo step, the map's water the settle that
  *  confirmed it (core/doc/lakeLevel.ts `applyLakeLevel`). */
 export function lakeLevelAt(x: number, y: number, level: number, width?: number): SessionUpdate {
@@ -2616,7 +2622,8 @@ export function waterLayers(kind?: string): WaterLayers {
   let irrigation: Irrigation | null = null;
   if (kind === "irrigation") {
     // (the same water and soil the other layers show: an unedited import's from the background check)
-    const reach = s.moistureReach(b, fromCheck ? { depth, contamination } : undefined);
+    // (the background check's water itself is the key: the reach is worked out once for it)
+    const reach = s.moistureReach(b, fromCheck ?? undefined);
     irrigation = { ...reach, tone: irrigationTones(reach, fromCheck ? fromCheck.moist : b.moisture, depth) };
   }
   return {
