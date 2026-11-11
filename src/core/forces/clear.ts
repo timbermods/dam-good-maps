@@ -52,7 +52,8 @@ export function motionOf(verb: string, path?: readonly { x: number; y: number }[
 export const BURIED = 3;
 /** The least a cut lowers a source's ground to take it away (levels). */
 export const CUT = 2;
-/** A Rift's crush zone: where the ground it drops whole tears at a wall, the levels its 3 × 3 tiles' moves differ by. */
+/** A Rift's crush zone: where the ground it drops whole tears, the levels its 3 × 3 tiles' moves differ by: its sheer wall,
+ *  the faces of its stepped side's benches, and the sides of the notch it cuts out to lower ground. */
 export const TORN = 2;
 /** A Quake's crush zone: the tiles this near its crack (the force audit's 2 to 3 tiles along the trace). */
 export const FAULT_CRUSH = 2.5;
