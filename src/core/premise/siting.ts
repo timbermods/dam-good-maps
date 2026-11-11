@@ -49,6 +49,8 @@ export class SiteModel {
   readonly land: Float64Array;
   /** Day 1's soil on the skeleton (2 water, 1 moist, 0 dry). */
   readonly soil: Uint8Array;
+  /** 1 where the side network laid so far puts water (a basin, a bed's thread): no later body or pan stands on it. */
+  readonly taken: Uint8Array;
   /** Gain estimates made (for the stage's timing). */
   calls = 0;
   constructor(l: SiteLand) {
@@ -56,6 +58,12 @@ export class SiteModel {
     this.H = l.H;
     this.land = Float64Array.from(l.heights);
     this.soil = l.soil;
+    this.taken = new Uint8Array(l.W * l.H);
+  }
+
+  /** The water a laid work puts on the land, kept so nothing later stands on it. */
+  mark(wet: Wet): void {
+    for (const i of wet.keys()) this.taken[i] = 1;
   }
 
   /** The ground a placed template lays, kept for every later estimate. */
