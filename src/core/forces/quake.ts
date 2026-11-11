@@ -1,11 +1,12 @@
 // Quake, a force of nature (PLAN §20 D203, D219): it splits the land along a fault drawn freehand
-// (D327). Lift raises the chosen side along it (the other drops a little, with a natural tilt and small
-// secondary faults); Slide carries the chosen side 3–20 tiles along the fault's own direction where
+// (D327). Lift raises the chosen side along it, most at the fault and fading within 20 tiles, to nothing at
+// the fault's tips (the other side keeps its ground but for a shallow trough at the scarp's foot; small secondary
+// faults notch the crest); Slide carries the chosen side 3–20 tiles along the fault's own direction where
 // each part of it lies (a straight fault's one heading; a curved one's, bending with it) while the
 // other bank stays (where level ground slides along level ground and nothing would show, the ground
 // splits along the fault instead, a level up and down, D356), and
 // a river that crossed the fault is joined again along it. Power sets the throw and how far past the drawn line
-// it reaches (quakeMargin); Sheer or Stepped scarp; Try another (another personality: the tilt, the crack's roughness).
+// it reaches (`liftReach`, quakeMargin); Sheer or Stepped scarp; Try another (another personality: the tilt, the crack's roughness).
 // Objects ride with the land (a rigid one on flat ground of its own), trees on the fault fall, it
 // never minds the start (the editor carries it to level ground when its own breaks, D257), and it
 // never adds water: the water there moves with the land.
@@ -49,20 +50,31 @@ export const QUAKE_DEFAULTS: QuakeSettings = { mode: "lift", power: 60, scarp: "
 
 /** Whole-tile travel of the selected block; short strokes retain full Power. */
 export const slideTiles = (power: number) => 2 + Math.round(power * 0.18);
-/** How far a quake reaches past its drawn line (tiles) at a Power: the ground a Lift changes lies within twice this of the
- *  line, its ends included (D344 A6: the quake's line is its length), or within 1.3 times a longer line's length: 2 tiles
- *  at Power 0, 8 at 100. A short line never reaches the 40 tiles the old shaking did. The same number is in rust/forces
- *  (`Fault::margin`). */
+/** How far a Slide's block reaches past its drawn line (tiles) at a Power: the block is the line and this margin past
+ *  its ends and sides (D344 A6: the quake's line is its length), or 1.3 times a longer line's length: 2 tiles at Power 0,
+ *  8 at 100. The same number is in rust/forces (`Fault::margin`). */
 export const quakeMargin = (power: number) => 2 + Math.round(power * 0.06);
+/** The farthest a Lift moves ground from its fault (tiles), whatever its Power or length (the force audit's finding 1).
+ *  The same number is in rust/forces (`LIFT_REACH`). */
+export const LIFT_REACH = 20;
+/** How far a Lift at a Power changes ground from its fault (tiles): the raised side's throw, 1 + Power × 0.075 levels
+ *  and up to 1.2 more along the strike, decays as exp(−distance / λ), λ 8 to 14 tiles by Power, until it rounds to
+ *  nothing; the other side's trough is 3 to 6 tiles wide; never past `LIFT_REACH`, and nothing past the fault's tips
+ *  (`Fault::movement` in rust/forces). */
+export const liftReach = (power: number) => {
+  const lift = 1 + Math.round(power * 0.075);
+  return Math.min(LIFT_REACH, Math.max(3 + power * 0.03, (8 + power * 0.06) * portable.log(2 * (lift + 1.2))));
+};
 /** How far a Slide carries its ground (whole tiles): `slideTiles`, but a short line carries it no further than its own
  *  length, rounded down (at least 2 tiles), so the quake stays near its line. The same in rust/forces (`Fault::new`). */
 export const slideTravel = (power: number, lineLength: number) => Math.min(slideTiles(power), Math.max(Math.floor(lineLength), 2));
 /** The most a quake of a line this long (tiles) reaches from it at a Power: the changed ground's distance from the drawn
  *  line, a Slide's land landing its travel further along it. A Slide's block is the line's 1.3 times its length or the
- *  margin around it, and its edge fades over half a margin. */
+ *  margin around it, and its edge fades over half a margin; a Lift's ground lies within `liftReach`, whatever the line's
+ *  length. */
 export const quakeExtent = (power: number, lineLength: number, mode: "lift" | "slide") => {
   const margin = quakeMargin(power);
-  return mode === "slide" ? Math.max(margin, lineLength * 1.3) + margin * 0.5 + slideTravel(power, lineLength) : Math.max(margin * 2, lineLength * 1.3);
+  return mode === "slide" ? Math.max(margin, lineLength * 1.3) + margin * 0.5 + slideTravel(power, lineLength) : liftReach(power);
 };
 
 /** Throws why a quake can't start (its settings, settings.ts; its fault on the land). */

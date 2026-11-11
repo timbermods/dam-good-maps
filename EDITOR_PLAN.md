@@ -782,7 +782,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   heavy debris can dam a river; it strikes wherever aimed (the start's ground too, D257) and never adds water.
 - **Quake** (D203, D219; key 9): splits the land along a fault drawn freehand (D327): **Lift** or **Slide**;
   **Power**; **Try another** (another tilt and crack). **V** flips the side that moves, even while painting; its
-  scarp (sheer or stepped) comes from the land and the seed. Lift raises along the curve and shows its whole
+  scarp (sheer or stepped) comes from the land and the seed. Lift raises along the curve, most at the fault and
+  fading within 20 tiles, to nothing at the fault's tips, the other side keeping its ground but for a trough at the
+  scarp's foot 1 to 2 levels deep (the force audit's finding 1, `docs/progress/force-audit.md`), and shows its whole
   result as it is painted, kept when let go; Slide shows the fault while it is painted, then its block slides
   along it, 2 to 20 tiles (D361 (3)), the way the drawn line runs there (where level ground slides along level
   ground and nothing would show, the ground splits along the fault a level up and down, D356), and a river that crossed the fault is
