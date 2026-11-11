@@ -81,7 +81,7 @@ describe("the drawn lake", () => {
     }
     // ground at 12 everywhere but a low strip along the west edge: only the edge could take its water, so it's refused
     const s = flat(12, 6);
-    expect(planDrawnLake(s, [[1, 10], [10, 10], [10, 18], [1, 18]], 8, 2).reason).toBe("no ground beyond the lake's rim lies at level 8 or lower: its water would have nowhere to spill");
+    expect(planDrawnLake(s, [[1, 10], [10, 10], [10, 18], [1, 18]], 8, 2).reason).toBe("its water would have nowhere to spill, with no ground beyond its rim at level 8 or lower: lower its Level, or draw it beside lower ground");
   });
   it("refuses, in one line naming the lowest gap, land that can't hold the level", () => {
     const s = flat();

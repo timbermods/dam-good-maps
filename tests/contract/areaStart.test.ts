@@ -37,22 +37,25 @@ describe("a force leaves the locked land, and the ground above the layer showing
   // west and 3 south of the start, which carries it to (28, 8); seed 7 since generator 0.10.16's ground with grade, D148:
   // seed 1's start stands at (28, 24) now, and no Erupt 5 to 9 tiles west of it carries it, nor on seeds 2, 4, 5 and 9; seed
   // 7's start stands at (52, 37), across the area's east edge: the area from (24, 31), 29 wide, and the Erupt at (47, 40), 5
-  // tiles west and 3 south of the start, which carries it to (30, 40))
-  it("Highlands 64², seed 7: an Erupt (Power 69) at (47, 40) inside a 29 × 12 area from (24, 31) breaks the start's ground; the objects outside the area all stay where they stood", async () => {
+  // tiles west and 3 south of the start, which carries it to (30, 40); seed 9 since generator 0.10.17's start floors (D515),
+  // D148: seed 7's start stands at (9, 18) now, and no Erupt 5 to 9 tiles east of it carries it, nor on seeds 1–3, 5, 6, 8
+  // and 12; seed 9's start stands at (9, 33), across the area's west edge: the area from (9, 27), 29 wide, and the Erupt at
+  // (14, 36), 5 tiles east and 3 south of the start, which carries it to (20, 33))
+  it("Highlands 64², seed 9: an Erupt (Power 69) at (14, 36) inside a 29 × 12 area from (9, 27) breaks the start's ground; the objects outside the area all stay where they stood", async () => {
     const W = 64;
-    await runGenerate(makeSpec({ seed: 7, theme: "highlands", size: { x: W, y: W } }));
+    await runGenerate(makeSpec({ seed: 9, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
     const area: [number, number, number][] = [];
-    for (let y = 31; y < 43; y++) area.push([y, 24, 52]);
+    for (let y = 27; y < 39; y++) area.push([y, 9, 37]);
     const inside = areaDepth(area, W, W);
     const before = open().built;
     const start = before.entities.find((e) => e.template === "StartingLocation")!;
-    // (the start stands across the area's east edge, partly inside it)
-    expect([start.x, start.y]).toEqual([52, 37]);
+    // (the start stands across the area's west edge, partly inside it)
+    expect([start.x, start.y]).toEqual([9, 33]);
     const locked = before.entities.filter((e) => e.template !== "StartingLocation" && !inside[e.y * W + e.x]);
     expect(locked.length).toBeGreaterThan(100);
 
-    expect(ed.forceStart({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 69 }, origin: [47, 40], cut: null, natural: true, area }).errors).toEqual([]);
+    expect(ed.forceStart({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 69 }, origin: [14, 36], cut: null, natural: true, area }).errors).toEqual([]);
     for (let k = 0; k < 4000 && !(ed.forceAdvance(16)?.done ?? true); k++);
     expect(ed.forceStop().kept).toBe(true);
     const after = open().built;

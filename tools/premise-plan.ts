@@ -1,7 +1,7 @@
 // A premise's plan for a seed (docs/PREMISES.md §2.2, stage 0): prints the plan and which `plan` invariants hold, and
 // draws its water-story diagram (sources, bodies, links, exits, regions, ridges, works, the start and its look).
 //
-//   npx tsx tools/premise-plan.ts [--premise lakeStair] [--seed 1 | --seeds 1-12] [--size 192] [--out .scratch/premise]
+//   npx tsx tools/premise-plan.ts [--premise lakeStair | wallGate] [--seed 1 | --seeds 1-12] [--size 192] [--out .scratch/premise]
 //                                 [--png] [--json] [--try t] [--plan file.json]
 //
 // `--seeds` draws several and prints one line each (structure, attempt, time). `--try t` draws one layout try of
@@ -16,6 +16,8 @@ import { planRaster, planSvg } from "../src/core/premise/diagram";
 import { pathLength } from "../src/core/premise/geom";
 import { layoutTry } from "../src/core/premise/premises/lakeStair";
 import { PREMISES } from "../src/core/premise/premises";
+import { DEV_PREMISES } from "../src/core/premise/premises/dev";
+import { GATE_ID, gateLayoutTry } from "../src/core/premise/premises/wallGate";
 import type { PremiseId, PremisePlan } from "../src/core/premise/types";
 import { makeSpec, type MapSpec } from "../src/core/spec/mapspec";
 import { encodePng } from "./png";
@@ -28,7 +30,7 @@ const opt = (name: string) => {
 const has = (name: string) => args.includes(`--${name}`);
 
 const premise = (opt("premise") ?? "lakeStair") as PremiseId;
-const def = PREMISES[premise];
+const def = PREMISES[premise] ?? DEV_PREMISES[premise];
 if (!def) throw new Error(`No premise ${premise}`);
 const side = Number(opt("size") ?? 192);
 const out = opt("out") ?? ".scratch/premise";
@@ -36,7 +38,8 @@ const range = opt("seeds");
 const seeds = range ? (([a, b]) => Array.from({ length: b - a + 1 }, (_, k) => a + k))(range.split("-").map(Number)) : [Number(opt("seed") ?? 1)];
 
 function specFor(seed: number): MapSpec {
-  const spec = makeSpec({ seed, size: { x: side, y: side }, theme: "any" });
+  // a premise not yet offered takes the premises' preset (Highest terrain 22), as a premise map's spec does
+  const spec = makeSpec({ seed, size: { x: side, y: side }, theme: "any", ...(PREMISES[premise] ? {} : { premise: "any" as const }) });
   spec.premise = premise;
   return spec;
 }
@@ -82,9 +85,9 @@ if (file) {
   console.log(write(plan, basename(file).replace(/\.json$/, "")));
 } else if (t !== undefined) {
   const spec = specFor(seeds[0]);
-  const r = layoutTry(spec, 0, Number(t));
+  const r = (premise as string) === GATE_ID ? gateLayoutTry(spec, 0, Number(t)) : layoutTry(spec, 0, Number(t));
   console.log(`${premise} seed ${seeds[0]} at ${side}², try ${t}: ${r.failed ?? "holds"}`);
-  console.log(write(r.plan, `${premise}-${side}-${seeds[0]}-try${t}`));
+  if (r.plan) console.log(write(r.plan, `${premise}-${side}-${seeds[0]}-try${t}`));
 } else {
   for (const seed of seeds) {
     const spec = specFor(seed);

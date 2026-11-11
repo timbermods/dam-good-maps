@@ -517,11 +517,12 @@ function plant(s: MapSession, land: Land): void {
   count.rimPine = paint("trees", "Pine", (i) => moist(i) && dRim[i] >= 3 && dRim[i] <= 12 && n(i, 17, 55) > 0.2, 0.4 * K, 35, "Pine on the two rim ridges with springs", "mixed");
   count.brookBirch = paint("trees", "Birch", (i) => moist(i) && dLive[i] >= 1 && dLive[i] <= 5 && n(i, 9, 56) > -0.1, 0.4 * K, 36, "Birch along the two living brooks", "mixed");
   // the start's own: berries, and one wood on the bench's west side, a short walk from the door: generous and finite
-  // (about 300 logs grown; a forester takes over)
+  // (about 300 logs grown; a forester takes over). r15 (planning): fast wood at the door: the wood is pine, grown,
+  // with oak only in a clump or two, so pine is the main wood within 20 tiles' walk
   const level = (i: number) => b.heights[i] === st.z && moist(i);
   count.startBerries = paint("bushes", "BlueberryBush", (i) => level(i) && !nearStart(i, 6) && nearStart(i, 14) && Math.floor(i / W) < st.y - 4 && (i % W) > st.x - 9, 0.95, 21, "The start's berries");
-  count.startOaks = paint("trees", "Oak", (i) => level(i) && !nearStart(i, 9) && nearStart(i, 19) && (i % W) <= st.x - 9 && n(i, 8, 33) > 0.1, 0.7, 22, "The start's oaks");
-  count.startPines = paint("trees", "Pine", (i) => level(i) && !nearStart(i, 9) && nearStart(i, 20) && (i % W) <= st.x - 9 && n(i, 8, 33) <= 0.1, 0.7, 24, "The start's pine wood", "mixed");
+  count.startOaks = paint("trees", "Oak", (i) => level(i) && !nearStart(i, 9) && nearStart(i, 19) && (i % W) <= st.x - 9 && n(i, 8, 33) > 0.25, 0.7, 22, "The start's oak clumps");
+  count.startPines = paint("trees", "Pine", (i) => level(i) && !nearStart(i, 9) && nearStart(i, 20) && (i % W) <= st.x - 9 && n(i, 8, 33) <= 0.25, 0.8, 24, "The start's pine wood");
   // the dry land, dressed on purpose
   const dry = (i: number) => !(b.moisture[i] > 0) && !(b.water[i] > 0) && !land.lake[i] && !land.pool[i];
   count.succulents = paint("succulents", "Succulent", (i) => dry(i) && oldDist[i] > 3 && (i % W) > 100 && Math.floor(i / W) < 100 && n(i, 26, 4) > -0.05 && n(i, 7, 41) > -0.12, 0.5, 16, "Succulent drifts on the limestone benches of the south-east: dry for good");
@@ -1583,6 +1584,8 @@ function main(): void {
     const c = checksOf(s);
     log(`  checks: ${c.blocking.length} blocking, ${c.warnings.length} warnings`);
     for (const row of [...c.blocking, ...c.warnings].slice(0, 30)) log(`    ${c.blocking.includes(row) ? "BLOCK" : "warn "} ${rowOf(row).id}: ${rowOf(row).message} ${JSON.stringify(rowOf(row).where ?? "").slice(0, 300)}`);
+    // the start's rows, passing or not, with what each measured (reach, wood and its species)
+    for (const r of s.validate("export").report.checks) if (r.id.startsWith("start.") && r.value !== undefined) log(`    ${r.ok ? "ok   " : "short"} ${r.id}: ${r.message}`);
     lap("checks");
   }
   if (has("save")) {

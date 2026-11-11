@@ -1,7 +1,8 @@
 // The map generator's panel fits the room it has (D330: every setting at once, nothing scrolling), Enter in it is Generate,
 // Esc closes it, and its Name box names the next map. The panel takes one of four shapes (src/editor/generator/panelFit.ts):
 // two columns 640px wide where the window is tall (1920×1080 and up), three columns where it is not (1600×900), the same
-// tighter, and two tighter where the window is too narrow for three. In a window shorter than the shortest shape that fits
+// tighter, and two tighter where the window is too narrow for three. Idea (D508) has a line of its own two columns wide and
+// shares Size's three columns wide. In a window shorter than the shortest shape that fits
 // its width (1280×720) it scrolls inside, with its fade at the foot.
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
@@ -11,9 +12,9 @@ import { generateButton, openDrawer, openEditor } from "./open";
 
 const SPEC = "s=4243&z=96&d=n&t=riverValley";
 
-/** Every settings group's name and how many settings it holds (the generator's own list, so one dropped from the panel is
- *  noticed). */
-const SETTINGS = 31;
+/** How many settings the groups hold, and Idea in the title block (D508): the generator's own list, so one dropped from
+ *  the panel is noticed. */
+const SETTINGS = 32;
 
 interface Seen {
   cls: string;

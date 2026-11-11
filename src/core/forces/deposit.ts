@@ -1,4 +1,4 @@
-// Presentation only; the conserved cut/fill, branches and arrival tape are produced in Rust.
+// Presentation only; the fan, its gully, branches and arrival tape are produced in Rust (rust/forces/src/deposit.rs).
 import type { SourcesRule } from "./clear";
 import { snapshotMap, type FullForceMap } from "./force";
 import { footprint } from "./objects";
@@ -33,7 +33,7 @@ export class DepositRun extends Staged implements StagedRun {
     super(before, keep);
     this.plan0 = planInRust({ verb: "deposit", map: before, settings, intent, keep, areaDepth });
   }
-  // An independent weathering/clamping pass would create or destroy the balanced material.
+  // An independent weathering/clamping pass would reshape the planned fan and its gully.
   protected settle(): void {}
   final(): FullForceMap | null { return this.planned ? this.plan0.raw : null; }
   protected show(stage: number): void {

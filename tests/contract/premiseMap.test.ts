@@ -8,7 +8,10 @@
 
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { generate } from "../../src/core/gen/generate";
+import { decodeProject, encodeProject, generatedDocument } from "../../src/core/doc/document";
+import { MapSession } from "../../src/core/doc/session";
+import * as ed from "../../src/worker/session";
+import { generate, type GenerateResult } from "../../src/core/gen/generate";
 import { firstWater } from "../../src/core/premise/draw";
 import { dayOneWater } from "../../src/core/premise/frame";
 import { generatePremise } from "../../src/core/premise/generate";
@@ -27,14 +30,19 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec } from "../../src/core
 // to Highest terrain 22, which drew seed 1 a six-level landmark; and for the works round's floors, the bypass's own
 // course (seed 1's plan a seven-level landmark again) and the start's ground kept from the style, D148; and for generator
 // 0.10.17's start floors, D515: the same plan and start, whose bench of 770 needs no building, and the version in its
-// description; and for the start's bench room, D515: the lake stair's frame keeps room for the bench, leaning it away
-// from the lip and the bay, the start's lake giving up what it takes, so seed 1 draws another frame)
+// description; and for the start's fast wood turning only the part of an oak grove the share needs (D515, D148: the bytes
+// moved with that change alone (its resources), and dev's changes merged in leave them as they were); and for the
+// start's bench room, D515: the lake stair's frame keeps room for the bench, leaning it away from the lip and the bay,
+// the start's lake giving up what it takes, its tails redrawn eight times and its channels kept off the bench (D453),
+// so seed 1 draws another frame; the fast-wood change leaves that frame's bytes as they were)
 const SHA = "4d97d1316b39c27b695b4306ebb346d62cfdbff55d4f8781948d32316f3d473c";
 
 describe("The premise mode (§2.2, build step 4)", () => {
   const made = makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "any", premise: "lakeStair" });
   const link = encodeSpecFragment(made);
   const opened = decodeSpecFragment(link)!;
+  let made1: GenerateResult | undefined;
+  const lakeStair = () => (made1 ??= generate(opened.spec));
 
   it("opens from a share link with p=lakeStair", () => {
     expect(link).toContain("p=lakeStair");
@@ -43,7 +51,7 @@ describe("The premise mode (§2.2, build step 4)", () => {
   });
 
   it("makes the lake stair, every blocking check passed, the start placed for the first frame", () => {
-    const r = generate(opened.spec);
+    const r = lakeStair();
     const p = r.info.premise!;
     expect(p.fellBack).toBeUndefined();
     expect(p.plan?.premise).toBe("lakeStair");
@@ -74,6 +82,33 @@ describe("The premise mode (§2.2, build step 4)", () => {
     expect(ladder.works.filter((w) => w.green > 0 || w.reservoir > 0).length).toBeGreaterThan(ladder.works.length / 2);
     expect(ladder.day1.water + ladder.day1.moist).toBeLessThan(0.7);
     expect(createHash("sha256").update(r.bytes).digest("hex")).toBe(SHA);
+  });
+
+  it("keeps its card with its project: a reopened map, edited or not, shows the card it was made with (D508)", () => {
+    const r = lakeStair();
+    const card = r.info.premise!.card!;
+    // (the generated map's project, as the page's Generate writes it: the card's five strings, nothing else of the plan)
+    const bytes = encodeProject(generatedDocument(r));
+    const doc = decodeProject(bytes);
+    expect(doc.meta.card).toEqual(card);
+    expect(Object.keys(doc.meta.card!).sort()).toEqual(["first", "landmark", "line", "name", "style"]);
+    expect(encodeProject(doc)).toEqual(bytes);
+    expect(MapSession.open(doc).meta.card).toEqual(card);
+    // (the editor's session of the same map, edited by hand and saved: it reopens byte for byte, its card unchanged)
+    const s = MapSession.fromGenerated(r, r.file);
+    expect(s.meta.card).toEqual(card);
+    expect(s.apply({ op: "setDescription", params: { text: "Our lake stair." } }).ok).toBe(true);
+    const saved = s.project();
+    const back = decodeProject(saved);
+    expect(MapSession.replayMatchesStored(back)).toBe(true);
+    expect(encodeProject(back)).toEqual(saved);
+    const reopened = MapSession.open(back);
+    expect(reopened.meta.card).toEqual(card);
+    expect(reopened.project()).toEqual(saved);
+    // (the page's view: the worker's info for the reopened project carries the card; a .timber opened as a file, a map
+    // with no idea, carries none)
+    expect(ed.openProject(saved).info.card).toEqual(card);
+    expect(ed.openTimber(r.bytes, "lake-stair.timber").info.card).toBeNull();
   });
 
   it("reads the soil's reach as the game's soil rule does (stage 4's estimateGain)", () => {

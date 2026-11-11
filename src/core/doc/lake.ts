@@ -102,7 +102,7 @@ export function planDrawnLake(s: MapSession, outline: readonly (readonly [number
   const beyond = (r: number) => Math.min(...around(r).filter((j) => !inside[j] && !onRim[j] && !onEdge(j)).map((j) => heights[j]));
   // (never a rim tile on the map's edge, nor one whose water runs on only to the edge: it would leave the map)
   const spills = rimAll.filter((r) => !onEdge(r) && beyond(r) <= level);
-  if (!spills.length) return none(`no ground beyond the lake's rim lies at level ${level} or lower: its water would have nowhere to spill`);
+  if (!spills.length) return none(`its water would have nowhere to spill, with no ground beyond its rim at level ${level} or lower: lower its Level, or draw it beside lower ground`);
   let notch = spills[0];
   if (spill) {
     let best = Infinity;

@@ -58,7 +58,9 @@ const GRID: Partial<Settings>[] = [];
 for (const power of [20, 62, 96]) for (const shape of ["steep", "broad"] as const) for (const summit of ["auto", "peak", "crater", "caldera"] as const) GRID.push({ power, shape, summit, seed: 890 });
 
 describe("Erupt against the prototype Kyler approved (D226)", () => {
-  it("where the prototype's volcano has the room, the editor's rises as high at the same vent, its cone the dominant shape (D321, item 14): low and high power, Steep and Broad, each summit, vents and fissures", () => {
+  // (a vent rose as high as the prototype's, within 3 levels, until the force audit's finding 2 tied its height to its
+  // radius: at most 0.6 of it, 0.4 a broad shield; D148. A fissure still rises as the prototype's did)
+  it("where the prototype's volcano has the room, the editor's rises to its own height at the same vent, at most 0.6 of its radius (0.4 broad), its cone the dominant shape (D321, item 14): low and high power, Steep and Broad, each summit, vents and fissures", () => {
     let compared = 0;
     for (const [level, ceiling] of [
       [3, 22],
@@ -72,11 +74,12 @@ describe("Erupt against the prototype Kyler approved (D226)", () => {
         if (Math.max(...a.heights) >= ceiling) continue;
         const b = editor(m, s);
         const what = JSON.stringify({ level, ceiling, ...g });
-        const pa = Math.max(...a.heights);
         const pb = Math.max(...b.heights);
-        expect(Math.abs(pb - pa), what).toBeLessThanOrEqual(3);
+        const anatomy = eruptAnatomy(asForce(m), { ...ERUPT_DEFAULTS, ...s } as EruptSettings, { origin: CENTRE });
+        expect(anatomy.height, what).toBeLessThanOrEqual((g.shape === "broad" ? 0.4 : 0.6) * anatomy.radius + 1e-9);
+        expect(Math.abs(pb - level - Math.round(anatomy.height)), what).toBeLessThanOrEqual(1);
         // (its highest ground is its cone's, within its radius: never the skirt of lava beyond)
-        const cone = eruptAnatomy(asForce(m), { ...ERUPT_DEFAULTS, ...s } as EruptSettings, { origin: CENTRE }).radius;
+        const cone = anatomy.radius;
         expect(top(b.heights, 64, 64, cone).peak, what).toBe(pb);
         // fresh rock exactly where it raised the ground, no more
         for (let i = 0; i < b.heights.length; i++) if (b.heights[i] === m.heights[i]) expect(b.lava[i], `${what} ${i}`).toBe(0);
@@ -128,7 +131,9 @@ describe("Erupt against the prototype Kyler approved (D226)", () => {
             if (level === 12 && power >= 62) expect(pt.at, what).toBeGreaterThanOrEqual(400);
           }
       // a steep peak with little room grows broader: its cone reaches further out than a lower
-      // prototype-shaped cone would, and it is still a peak
+      // prototype-shaped cone would, and it is still a peak (with 13 levels of room, as on level 3 under 16, it
+      // has the room for all 12 a cone 0.6 of its radius high rises since the force audit: D148)
+      if (level !== 12) continue;
       const s = { power: 62, shape: "steep" as const, summit: "peak" as const, seed: 890 };
       const a = eruptAnatomy(asForce(m), { ...ERUPT_DEFAULTS, ...s }, { origin: CENTRE });
       const natural = eruptAnatomy(asForce(study(3, 22)), { ...ERUPT_DEFAULTS, ...s }, { origin: CENTRE });
@@ -181,7 +186,10 @@ describe("Erupt against the prototype Kyler approved (D226)", () => {
     const natural = editor(m, { power: 40, summit: "peak" });
     expect(raisedOf(wide.heights, m.heights)).toBeGreaterThan(raisedOf(natural.heights, m.heights));
     expect(raisedOf(narrow.heights, m.heights)).toBeLessThan(raisedOf(natural.heights, m.heights));
-    expect(top(narrow.heights, 64, 64).peak).toBe(top(natural.heights, 64, 64).peak);
+    // (narrower than Power's own, it is as high as Power throws it until 0.6 of its radius caps it: the force
+    // audit's finding 2; it was as high as Power's own at any narrower Size before, D148)
+    expect(top(narrow.heights, 64, 64).peak).toBe(3 + Math.round(0.6 * 12));
+    expect(top(narrow.heights, 64, 64).peak).toBeLessThan(top(natural.heights, 64, 64).peak);
     // (broader than Power's own volcano, it rises in proportion: D361 (3))
     expect(top(wide.heights, 64, 64).peak).toBeLessThan(top(natural.heights, 64, 64).peak);
     // Size absent (an operation from before D226) is Size following Power
@@ -215,9 +223,16 @@ describe("Erupt against the prototype Kyler approved (D226)", () => {
         }
       expect(lone, flows).toBe(0);
     }
-    // High Power rises toward the ceiling, never stopping at 16 (D244)
-    const high = editor(m, { power: 100, shape: "steep", summit: "peak", flows: "heavy", seed: 890 });
+    // High Power rises toward the ceiling, never stopping at 16 (D244), where the map is large enough for it: since
+    // the force audit's findings 2 and 3 a cone is at most 0.6 of its radius high and Auto's radius at most 18 % of
+    // the map's side, so on 128² it stops at 3 + 14 (D148)
+    const big = fixture("plain", 256);
+    big.entities = big.entities.filter((e) => e.template !== "StartingLocation");
+    big.maxHeight = 22;
+    const high = new EruptPlan(asForce(copy(big)), { ...ERUPT_DEFAULTS, power: 100, shape: "steep", summit: "peak", flows: "heavy", seed: 890 }, { origin: 128 * 256 + 128 }).map;
     expect(Math.max(...high.heights)).toBeGreaterThanOrEqual(20);
     expect(Math.max(...high.heights)).toBeLessThanOrEqual(22);
+    const capped = editor(m, { power: 100, shape: "steep", summit: "peak", flows: "heavy", seed: 890 });
+    expect(Math.max(...capped.heights)).toBe(3 + Math.round(0.6 * 0.18 * W));
   });
 });

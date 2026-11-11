@@ -82,8 +82,8 @@ describe("generated maps: every new object passes the placement emulation (ROADM
   // and Highlands height round, 0.8.8, D148: on its seed 3 the two belts planned would cut the start's
   // walkable land from 2,274 tiles to 1,134, so the walk rule leaves both out; seed 3 itself stays below;
   // Islands seed 6 since the opening shot, 0.10.2, D493, D148: its seeds 1–5 leave the thorn belt out; Islands seed 2
-  // since generator 0.10.6 (D498, badwater left the sea alone), D148: its seeds 1 and 6 leave the belt out, seeds 2–5 and 7–11 place it; Islands seed 5 since generator 0.10.11 (#726's shores, ramps and berries), D148: its seeds 2–4 leave the belt out, 5 and 7 place it)
-  const everyObject = (theme: ThemeId, seed = theme === "islands" ? 5 : theme === "canyon" ? 1 : 3, thorns = true) => {
+  // since generator 0.10.6 (D498, badwater left the sea alone), D148: its seeds 1 and 6 leave the belt out, seeds 2–5 and 7–11 place it; Islands seed 5 since generator 0.10.11 (#726's shores, ramps and berries), D148: its seeds 2–4 leave the belt out, 5 and 7 place it; Islands seed 7 since generator 0.10.17's start floors, D515, D148: its seeds 5, 6, 8 and 9 leave the belt out, 7 and 10–12 place it)
+  const everyObject = (theme: ThemeId, seed = theme === "islands" ? 7 : theme === "canyon" ? 1 : 3, thorns = true) => {
     const spec = makeSpec({ seed, size: { x: 96, y: 96 }, theme });
     spec.settings.hazards.thornBelts = "some";
     spec.settings.hazards.unstableCores = "on";
@@ -141,8 +141,11 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // D507, D148: canyon 13 has no site now, and of Canyon seeds 1–20 only 1, 11 and 17 have one, of which 11 and 17 keep every rule;
     // canyon 5 and 9 for canyon 11 and 17 since generator 0.10.16's ground with grade, D148: neither has a site now, and of Canyon
     // seeds 1–20 only 5 and 9 have one, both keeping every rule; no fewer sites over all: of Islands, River Valley and Canyon
-    // seeds 1–20, 21 keep every rule against 23 on 0.10.15)
-    for (const [theme, seed] of [["islands", 17], ["riverValley", 3], ["canyon", 5], ["canyon", 9]] as [ThemeId, number][]) {
+    // seeds 1–20, 21 keep every rule against 23 on 0.10.15; Islands 8 for Islands 17 since generator 0.10.17 (D515's start
+    // floors move the starts), D148: Islands 17 has no site now, and of Islands, River Valley and Canyon seeds 1–20, 23 keep
+    // every rule (Islands 8, 12, 14, 16, 19; Canyon 4, 5, 9, 14; River Valley 14 of 20); Islands 11 and 15 and River Valley 10
+    // place item 47's close site behind its debris, 40–70 tiles out by design, so they are not this rule's sites)
+    for (const [theme, seed] of [["islands", 8], ["riverValley", 3], ["canyon", 5], ["canyon", 9]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       expect(r.report.passed).toBe(true);
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "secondDistrict");
@@ -188,9 +191,12 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // only 1, 3 and 19 hold a rise, and of River Valley's seeds 1–16 only 4, 5, 8, 10, 11 and 13; river valley 13 for river valley 11 since generator 0.10.11 (#726's shores, ramps and berries), D148: river valley 11, 4 and 9 hold none now; canyon 2, canyon 14 and river valley 7 for river valley 13, river valley 8
     // and canyon 3 since generator 0.10.16's ground with grade, D148: the rolling ground's graded flanks join more tops
     // to the start by slopes, so over seeds 1–20 of Islands, River Valley and Canyon the rises that keep every rule
-    // fell from 13 to 8 (Canyon 3 to 5, River Valley 7 to 2, Islands 3 to 1); of those, these four are the first)
+    // fell from 13 to 8 (Canyon 3 to 5, River Valley 7 to 2, Islands 3 to 1); of those, these four are the first;
+    // canyon 4, canyon 10 and river valley 5 for canyon 19, canyon 2 and river valley 7 since generator 0.10.17 (D515's start
+    // floors move the starts), D148: those three hold no rise that keeps every rule now, and over seeds 1–20 of Islands, River
+    // Valley and Canyon 13 do (Canyon 4, 10, 11, 12, 14, 15; Islands 12, 14, 18; River Valley 5, 12, 17, 20))
     let seen = 0;
-    for (const [theme, seed] of [["canyon", 19], ["canyon", 2], ["canyon", 14], ["riverValley", 7]] as [ThemeId, number][]) {
+    for (const [theme, seed] of [["canyon", 4], ["canyon", 10], ["canyon", 14], ["riverValley", 5]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;
