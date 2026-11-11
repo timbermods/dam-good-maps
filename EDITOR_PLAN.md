@@ -551,6 +551,14 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   gesture's key jumps it to its final land. The pace never follows the water's speed. What is only a show (water
   filling a new channel, falls starting, dust, lava's glow) plays on after the land is final, never blocking; a
   new force started while it plays skips it to its end and plays in full itself, however quickly it came (D378).
+- **Whole levels, once** (`rust/forces/src/levels.rs`, showcase-craft gap 25): a force works out a real-valued
+  surface, and it becomes land in one shared step. Each tile is rounded once, after a slow drift that moves where
+  each step ends (up to a step's own width on a slope, never a floor that stands on a whole level), so steps are of
+  uneven width and pinch out instead of running round as even bands. Then every tile stands in a two-by-two square
+  of its own level, or is a single tile on the side of one: no band narrower than two tiles (a steep slope is a
+  cliff with ledges, never a stair of one-tile steps; a cliff the force made stays whole), no one-tile pillar, pit,
+  ridge, trench or lone block. Ground a force did not change is touched only right beside ground it did. Craterize
+  ends with it; Erupt, Rift, Deposit, Quake and Glaciate adopt it next.
 - **Esc skips, undo takes it back** (D344, A4): while a gesture is still being drawn, Esc cancels it and nothing of
   it lands; once a force plays, Esc skips it to its end, its final land kept as one step; Ctrl+Z (or Z, or Revert)
   takes all of it back at any moment, and nothing lands afterwards (D341). The row's tooltip carries the keys (**Esc** skips,
@@ -718,8 +726,40 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   Claude's `carve` step takes a `source` to unleash one.
 - **Craterize** (D202; key 8): a giant impact. A click strikes; so does a press and drag, once, where the press
   began (D368 (7)). **Power** (a pebble to a cataclysm), **Size**, **Try another**; walls (steep or terraced),
-  centre (bowl, peak, ring or flat), debris (light or heavy) and rays from the land and the seed. A streak falls, a
-  flash, a shock ring, dust and thrown blocks (the camera never shakes, D265), the bowl opening at once and the
+  centre (bowl, peak, ring or flat), debris (light or heavy) and rays from the land and the seed. It reads as a
+  real landform at every size, never a stadium, a shaft or a tower (showcase-craft gap 25). Its cavity is a few
+  hollows that overlap, so its outline is lobed with spurs between, cut into a plane that leans with the land round
+  it: on a hillside the rim stands high uphill and the bowl is open downhill, where the land keeps its shape. A crater
+  under 28 tiles across (Auto) is a simple crater: a shallow, rounded bowl with no centre, its depth growing
+  gently with its size (about a level for every eight tiles across; a crater with a floor about a level for every
+  eleven, one with a peak every fourteen), never more than Power gives. With terraced walls it goes down in whole
+  levels, a step two tiles wide or more for each, and its lip is low lumps all round its outline but for the gap
+  (one level, two here and there where the rim stands highest), never a straight slab. From 28 across Auto
+  gives a floor with low, uneven hummocks, none over a level above the floor and nothing ringed, and no peak (a
+  central hill or ring is chosen, never Auto's); from 68 the floor carries a low massif: two or three broad hummocks
+  at most two levels above the floor, their summits apart and off the bowl's centre (nature's own pick for a centre
+  left on Auto is this, a bowl or a flat floor, never a peak or a ring). The rim's crest is uneven all round and gone on one side, a gap (where the
+  ground round it is lowest; the seed's side on level ground), so a lake in the bowl spills at the level of the
+  ground round the crater. Beside lower land that is no slope (a canyon, a lake, a plateau's edge) the rim stands
+  whole on the crater's own ground and holds the bowl. Steep walls are a cliff. Terraced walls carry blocks slumped
+  against the cliff: ovals lying along it, each turned its own way, at its own level, never its neighbour's, with gaps
+  where the wall stands whole, so a bench is a short arc that pinches out within a quarter turn and none runs on round
+  the bowl. The floor is level, with low hummocks on a large crater. A peak is a broad, low hill, never a tower, a plinth or a
+  stack of blocks: a few wide plates on whole levels two levels apart (no face higher), at most three under its top,
+  each wider than the one above by a ledge of three to five and a half tiles on one side (its crag) and more on the
+  other (its ramp), each pushed its own way, wider at one end than the other and dented its own way, so from above
+  they are never nested rings; a lower summit stands beside the main one as a knob on its flank, and a large
+  crater's hill is a massif of three or four summits that run together below; its body keeps within three fifths of
+  the way out, clear of the wall's benches, and its top stands off the
+  hill's middle, four tiles across or more, two levels above the bowl's spill level (where a lake filling the crater stands, worked out on the crater as made;
+  the level a Fill gives, where the land round the crater holds water only a little higher), so a crater filled as a
+  lake keeps its chosen peak as an island at any strength; a ring is three or four separate mountains round the centre, off it and
+  open on one side, the tallest clear of the lake. A centre needs room: a peak a crater 16 tiles across, a ring 28.
+  Nothing is left standing inside the bowl: a ruin on ground that happens to keep its old level goes with the rest.
+  The debris falls away in tongues, far on some bearings and short on others, and dies into the land's own shape;
+  rays are streaks in clumps, their secondary pits two tiles across or more. The crater is made land in the forces'
+  shared last step (Whole levels, above): no band narrower than two tiles, no one-tile pillar, pit or lone block.
+  A streak falls, a flash, a shock ring, dust and thrown blocks (the camera never shakes, D265), the bowl opening at once and the
   debris landing ring by ring; trees inside the bowl are gone, those round it are knocked down (dead, standing
   upright where their ground held, gone where the blow broke it: D321, item 7). Newer impacts overprint older ones;
   heavy debris can dam a river; it strikes wherever aimed (the start's ground too, D257) and never adds water.
