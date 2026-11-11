@@ -49,6 +49,8 @@ import { useCollab } from "./collab/useCollab";
 import type { Together } from "../collab/together";
 import { useCompare } from "./compare/useCompare";
 import { useHideObjects } from "./view/useHideObjects";
+import { useCanal } from "./canal/useCanal";
+import { useLandShares } from "./view/useLandShares";
 import { editorView } from "./render/editorView";
 
 /** The map's land and water as the editor shows them, for Your maps' picture. */
@@ -144,10 +146,13 @@ export default function Editor(props: EditorProps) {
   Object.assign(ed, useCollab(ed, props));
   Object.assign(ed, useCompare(ed, props));
   Object.assign(ed, useHideObjects(ed));
+  Object.assign(ed, useCanal(ed));
+  Object.assign(ed, useLandShares(ed));
   // the camera frames the map clear of the controls (setting it never moves the camera, D265)
   useFrameInsets(ed.renderer, !!ed.ready);
   useBandLayout(!!ed.ready);
-  useEffect(() => props.onPendingEdits?.(() => ed.queue.current.then(() => undefined)), []);
+  // (a save or a map switch: whatever was let go is answered on this map first, #922)
+  useEffect(() => props.onPendingEdits?.(() => ed.whenEdited()), []);
   // one left panel at a time: Map Generator, Real places or Your maps opening closes History (Kyler, 2026-10-06)
   useEffect(() => {
     if (props.drawerOpen || props.mapsOpen || props.placesOpen) ed.setShowHistory(false);

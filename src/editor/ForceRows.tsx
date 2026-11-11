@@ -284,7 +284,7 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
                 ["flat", "Flat", "A flat floor"],
               ]}
               onChange={(v) => set({ centre: v as CraterUi["centre"] })}
-              auto={{ on: u.centre === null, onAuto: (on) => set({ centre: on ? null : centre }) }}
+              auto={{ on: u.centre === null, onAuto: (on) => set({ centre: on ? null : centre }), title: u.centre === null ? "Centre: a bowl, or a floor with low mounds" : "Let the size choose a bowl or a floor with low mounds" }}
             />
           ),
         },

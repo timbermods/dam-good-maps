@@ -10,14 +10,15 @@
 // plate 1 high over two tiles, a hood over its mouth (BadtideDrain.Model). A thorn bush is the game's spikes and twigs
 // (Thorns.Model), 0.55 high and overhanging its tile, with no state to draw (the game's has no growth or dying). A
 // geothermal field is the game's crust of sulphur round a vent 0.4 deep, its rim 0.24 high, rocks round it
-// (GeothermalField.Model), its middle tile's top left out of the terrain.
+// (GeothermalField.Model), its middle tile's top left out of the terrain. An aquifer is the game's low dark crust over its
+// cross of tiles, 0.13 high, small rocks round it (Aquifer.Model), lying on the ground.
 // Standard's models are High's and the light look's too, and Standard's baked shadows are fitted to them.
 
 import { describe, expect, it } from "vitest";
 import { mineCutout, modelKeyOf, modelOf, modelTriangles } from "../../src/render3d/entities3d";
 import { LARGE_RELIC_SHADOW } from "../../src/render3d/largeRelic";
 import { litFraction, objectCasters, SHADOW_RES, shadowTops } from "../../src/render3d/light";
-import { BADTIDE_DRAIN, BLOCKAGE, LARGE_RELIC, LIGHT, MEDIUM_RELIC, GEOTHERMAL, NATURAL_DAM, SMALL_RELIC, THORNS, UNSTABLE_CORE } from "../../src/render3d/palette";
+import { AQUIFER, BADTIDE_DRAIN, BLOCKAGE, LARGE_RELIC, LIGHT, MEDIUM_RELIC, GEOTHERMAL, NATURAL_DAM, SMALL_RELIC, THORNS, UNSTABLE_CORE } from "../../src/render3d/palette";
 import { entityView } from "../../src/render3d/model";
 import { mediumRelicParts } from "../../src/render3d/smallRelics";
 
@@ -511,6 +512,42 @@ describe("the geothermal field at the game's measures", () => {
   });
 });
 
+describe("the aquifer at the game's measures", () => {
+  it("is the game's low crust over its cross, rocks round it: 0.13 high, in its colours, about its triangles", () => {
+    const b = bounds(modelKeyOf("Aquifer", 0));
+    // (the game's model, leaving out its footing of ground, reaches from the ground to 0.126 up, x −1.23…1.21 and
+    // z −1.10…1.12 about its footprint's middle; ours sinks its edge 0.04 into the ground)
+    expect(b.hi).toBeGreaterThan(0.11);
+    expect(b.hi).toBeLessThan(0.14);
+    expect(b.lo).toBeGreaterThan(-0.05);
+    expect(b.x).toBeGreaterThan(2.4);
+    expect(b.x).toBeLessThan(2.5);
+    expect(b.z).toBeGreaterThan(2.15);
+    expect(b.z).toBeLessThan(2.3);
+    const col = modelOf("Aquifer").col;
+    const has = (c: readonly number[]) => {
+      for (let k = 0; k < col.length; k += 3) if (Math.abs(col[k] - c[0]) < 1e-3 && Math.abs(col[k + 1] - c[1]) < 1e-3 && Math.abs(col[k + 2] - c[2]) < 1e-3) return true;
+      return false;
+    };
+    for (const c of [...AQUIFER.crust, ...AQUIFER.rock]) expect(has(c)).toBe(true);
+    expect(modelTriangles("Aquifer")).toBeLessThanOrEqual(540);
+  });
+
+  // (the game's cuts out its middle tile's top; its crust lies over it, never below the ground, so ours leaves the
+  // terrain whole)
+  it("leaves the terrain whole", () => {
+    const e = entityView([{ template: "Aquifer", x: 4, y: 4, z: 3, orientation: "Cw0", owner: "a" }]);
+    expect(mineCutout(e, 12, 12).size).toBe(0);
+  });
+
+  // (0.13 high, it casts 0.015–0.03 tiles² past the ground it covers by the sun's heading)
+  it("casts nothing in Standard's bake", () => {
+    const e = entityView([{ template: "Aquifer", x: 4, y: 4, z: 3, orientation: "Cw0", owner: "a" }]);
+    const casters = objectCasters(12, 12, e);
+    expect(casters === null || casters.every((v) => v === 0)).toBe(true);
+  });
+});
+
 describe("the start's tower casts its shadow", () => {
   it("from its footprint's middle tile, the tower's height, its walls round it, turned as the start is", () => {
     const W = 32;
@@ -557,5 +594,35 @@ describe("the large relic's dish casts its shadow", () => {
     expect(all).toBeLessThan(1.1);
     // (where it falls: 0.53–0.71 of the model's shadow under it, IoU 0.43–0.54, the dish's rim a thin shadow)
     expectWhereItFalls(areas, 0.48, 0.38);
+  });
+});
+
+describe("the reserves' shadows in Standard's bake", () => {
+  // (it cast none before; a disc over each of its four tiles from its barrel's base to its top, moved toward the
+  // footprint's middle: on the ground it does not stand over, 0.79–1.12 a heading as fitted, 0.94 in all; 0.76–0.92
+  // of the model's shadow under it, IoU 0.74–0.78; moved as far as the core's, 0.3, as wide as it may then be, 0.68 in
+  // all, IoU 0.62)
+  it("the tank casts its barrel's shadow about as large as its model's, where it falls, round the compass", () => {
+    const areas = shadowAreas("ReserveTank", 1, true);
+    const ratios = areas.map(([s, m]) => s / m);
+    const all = areas.reduce((t, [s]) => t + s, 0) / areas.reduce((t, [, m]) => t + m, 0);
+    expect(Math.min(...ratios)).toBeGreaterThan(0.75);
+    expect(Math.max(...ratios)).toBeLessThan(1.15);
+    expect(all).toBeGreaterThan(0.9);
+    expect(all).toBeLessThan(1.0);
+    expectWhereItFalls(areas, 0.72, 0.7);
+    const W = 32;
+    for (const [orientation, sx, sy] of [["Cw0", 1, 1], ["Cw90", 1, -1], ["Cw180", -1, -1]] as const) {
+      const casters = objectCasters(W, W, entityView([{ template: "ReserveTank", x: 10, y: 20, z: 3, orientation, owner: "s" }]))!;
+      const cast = [...casters.keys()].filter((i) => casters[i] > 0).sort((a, b) => a - b);
+      expect(cast).toEqual([0, 1].flatMap((j) => [0, 1].map((i) => (20 + sy * j) * W + 10 + sx * i)).sort((a, b) => a - b));
+    }
+  });
+
+  // (the pile's and the warehouse's walls stand 0.5 and 0.69 high round their floor, their stock no higher than 1.7:
+  // their model's shadow outside the footprint 0.5–1.6 tiles² a heading, a band round a pen whose discs would shade
+  // its own floor and sunlit walls; they cast none, as the small and medium relics)
+  it("the pile and the warehouse cast none", () => {
+    for (const t of ["ReservePile", "ReserveWarehouse"]) expect(objectCasters(24, 24, entityView([{ template: t, x: 10, y: 10, z: 3, orientation: "Cw0", owner: "s" }]))!.every((v) => v === 0)).toBe(true);
   });
 });

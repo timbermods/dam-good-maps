@@ -1,7 +1,9 @@
 // A geothermal field's steam is the game's (geothermalSteam.ts, D178, D496): its puffs rise over the field's middle while
-// no water stands on that tile, and stop while any does, as the game's `FloodableObject` blocks its particles.
+// no water stands on that tile, and stop while any does, as the game's `FloodableObject` blocks its particles. It is an
+// object's, not the land's shape: hidden and faded with the objects and cut away above the game's layer.
 
 import { describe, expect, it } from "vitest";
+import { ShaderMaterial, Vector4 } from "three";
 import { GeothermalSteam, STEAM_PUFFS, steamFields } from "../../src/render3d/geothermalSteam";
 import { entityView } from "../../src/render3d/model";
 
@@ -13,6 +15,7 @@ const fields = entityView([
   { template: "GeothermalField", x: 10, y: 2, z: 6, orientation: "Cw0", owner: "b" },
 ]);
 const dry = () => ({ floor: new Float32Array(W * H), depth: new Float32Array(W * H) });
+const uniforms = () => ({ time: { value: 0 }, slice: { value: 99 }, objectFade: { value: new Vector4() }, objectHide: { value: 0 } });
 
 describe("a geothermal field's steam", () => {
   it("rises over each field's middle, at its level", () => {
@@ -36,13 +39,25 @@ describe("a geothermal field's steam", () => {
   });
 
   it("is a batch of the game's 100 puffs a field, made again only when the fields change", () => {
-    const steam = new GeothermalSteam({ value: 0 });
+    const steam = new GeothermalSteam(uniforms());
     expect(steam.set(steamFields(fields, W, H, dry(), null))).toBe(true);
     expect(steam.mesh.count).toBe(2 * STEAM_PUFFS);
     expect(steam.count).toBe(2);
     expect(steam.set(steamFields(fields, W, H, dry(), null))).toBe(false);
     expect(steam.set([])).toBe(true);
     expect(steam.mesh.visible).toBe(false);
+    steam.dispose();
+  });
+
+  it("hides and fades with the objects and is cut away above the layer, by the scene's own uniforms", () => {
+    const u = uniforms();
+    const steam = new GeothermalSteam(u);
+    const m = steam.mesh.material as ShaderMaterial;
+    // (the scene's uniforms themselves, so Hide objects, the fade and the layer reach it with nothing to do)
+    for (const k of ["time", "slice", "objectFade", "objectHide"] as const) expect(m.uniforms[k]).toBe(u[k]);
+    // (the objects' own test of what shows, by the field's middle; each puff cut where it stands, as the objects are)
+    expect(m.vertexShader).toContain("objectShowsAt(vec2(puffAt.x, -puffAt.z)");
+    expect(m.fragmentShader).toContain("if (worldY > slice + 0.02) discard;");
     steam.dispose();
   });
 });

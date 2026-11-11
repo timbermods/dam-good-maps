@@ -108,6 +108,16 @@ describe("mine sites and ruins, models of our own", () => {
     // (and a geothermal field's middle tile, left out since its model became the game's, D496: its vent sinks there)
     const fields = page.entities.filter((e) => e.template === "GeothermalField");
     expect(cut.size).toBe(25 * mines.length + fields.length);
+    // (each field exactly its middle tile, the middle of its 3 × 3 as it is turned, at its level)
+    expect(fields.length).toBeGreaterThan(0);
+    for (const f of fields) {
+      const tiles = footprintTiles("GeothermalField", { template: "GeothermalField", x: f.x, y: f.y, z: f.z, orientation: f.orientation as Orientation, flipped: false });
+      expect(tiles).toHaveLength(9);
+      const mx = tiles.reduce((t, [x]) => t + x, 0) / 9;
+      const my = tiles.reduce((t, [, y]) => t + y, 0) / 9;
+      expect(cut.get(my * W + mx), `${f.x}, ${f.y}`).toBe(f.z);
+      for (const [x, y] of tiles) if (x !== mx || y !== my) expect(cut.has(y * W + x), `${x}, ${y}`).toBe(false);
+    }
     for (let k = 0; k < v.count; k++) {
       const t = v.templates[v.template[k]];
       if (t !== "UndergroundRuins") continue;

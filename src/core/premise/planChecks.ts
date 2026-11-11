@@ -1,8 +1,10 @@
-// The checks every premise's plan passes (docs/PREMISES.md §1.4, `plan`): the levels fit, the bodies don't overlap,
-// the graph closes, the works and the skeleton refer to what is there. Arithmetic on the plan, microseconds to
-// milliseconds; each fails with one line naming what is wrong ("Lake 2's sill (6) is not below lake 3's (6)").
+// The checks every premise's plan passes (docs/PREMISES.md §1.4, `plan`): the levels fit, every bed stands on the
+// floor, the bodies don't overlap, the graph closes, the works and the skeleton refer to what is there. Arithmetic on
+// the plan, microseconds to milliseconds; each fails with one line naming what is wrong ("Lake 2's sill (6) is not
+// below lake 3's (6)").
 
-import { bodyGap, edgeGap, pathBodyGap, pathDist, pathGap, pathLength, subPath } from "./geom";
+import { BED_FLOOR } from "../land/genome";
+import { bodyDist, bodyGap, edgeGap, pathBodyGap, pathDist, pathGap, pathLength, subPath } from "./geom";
 import type { Body, Invariant, InvariantResult, Link, PremisePlan } from "./types";
 
 export const OK: InvariantResult = { ok: true };
@@ -85,6 +87,22 @@ const levels: Invariant = {
   },
 };
 
+/** Every bed stands on the floor (`BED_FLOOR`, D325, PERFECT item 47): the deepest bed three levels over the map's
+ *  floor, room for a player to dig. A body's bed, a channel's, a fall's foot. */
+const floor: Invariant = {
+  id: "plan.floor",
+  at: "plan",
+  test({ plan }) {
+    for (const b of plan.bodies) if (b.sill - b.deep < BED_FLOOR) return fail(`${nameOf(plan, b.id)}'s bed (${b.sill - b.deep}) is under the floor (${BED_FLOOR})`);
+    for (const l of plan.links) {
+      const bed = bedOf(l);
+      if (bed && Math.min(...bed) < BED_FLOOR) return fail(`${nameOf(plan, l.id)}'s bed falls to ${Math.min(...bed)}, under the floor (${BED_FLOOR})`);
+      if (l.fall && l.fall.crest - l.fall.height < BED_FLOOR) return fail(`${nameOf(plan, l.id)} drops to ${l.fall.crest - l.fall.height}, under the floor (${BED_FLOOR})`);
+    }
+    return OK;
+  },
+};
+
 /** The bodies don't overlap: outlines `BODY_GAP` apart and on the map; channels pass between bodies, not through
  *  them, and don't cross each other; the start's 5 × 5 is dry. */
 const overlap: Invariant = {
@@ -97,7 +115,7 @@ const overlap: Invariant = {
       if (edgeGap(a, W, H) < 1) return fail(`${nameOf(plan, a.id)} runs off the map`);
       for (let j = i + 1; j < plan.bodies.length; j++) {
         const b = plan.bodies[j];
-        const g = bodyGap(a, b);
+        const g = bodyGap(a, b, BODY_GAP);
         if (g < BODY_GAP) return fail(`${nameOf(plan, a.id)} and ${nameOf(plan, b.id)} stand ${g.toFixed(1)} tiles apart (at least ${BODY_GAP})`);
       }
     }
@@ -106,7 +124,7 @@ const overlap: Invariant = {
     for (const l of channels) {
       const len = pathLength(l.path!);
       for (const b of plan.bodies) {
-        const g = pathBodyGap(l.path!, b, 2, len - 2);
+        const g = pathBodyGap(l.path!, b, 2, len - 2, 1);
         if (g < 0) return fail(`${nameOf(plan, l.id)} runs through ${nameOf(plan, b.id)}`);
       }
     }
@@ -120,7 +138,7 @@ const overlap: Invariant = {
         const p = mids[i];
         const q = mids[j];
         if (!p || !q) continue;
-        if (pathGap(p, q) < 1.5) return fail(`${nameOf(plan, channels[i].id)} and ${nameOf(plan, channels[j].id)} cross`);
+        if (pathGap(p, q, 1.5) < 1.5) return fail(`${nameOf(plan, channels[i].id)} and ${nameOf(plan, channels[j].id)} cross`);
       }
     // the start's 5 × 5 is dry: no body or channel on it
     const s = plan.frame.start;
@@ -136,7 +154,7 @@ const overlap: Invariant = {
 };
 
 function bodyGapToTile(b: Body, x: number, y: number): number {
-  return bodyGap(b, { arms: [[[x, y, 0]]] });
+  return bodyDist(x, y, b);
 }
 
 /** The graph closes: every link joins bodies or exits that exist, every source stands in one, water from every
@@ -238,4 +256,4 @@ const skeleton: Invariant = {
 };
 
 /** The checks every premise's plan passes. */
-export const PLAN_CHECKS: Invariant[] = [levels, overlap, graph, works, skeleton];
+export const PLAN_CHECKS: Invariant[] = [levels, floor, overlap, graph, works, skeleton];

@@ -67,6 +67,12 @@ export interface BrushSettings {
   straight: boolean;
   area: boolean;
   levelLines: boolean;
+  /** Lower's Brush choice Canal (canal/useCanal.ts): a drag draws a canal's line (the core's `canal` operation), its
+   *  bed this wide (1 to 6) and deep (1 to 3), Open (it starts in the water) or Dry (its first tile left standing). */
+  canal: boolean;
+  canalWidth: number;
+  canalDepth: number;
+  canalOpen: boolean;
   /** Flatten in steps: benches every `steps` levels, or null. */
   steps: number | null;
   /** Each brush's mode and its sources choice, remembered per brush (D322). */
@@ -76,7 +82,7 @@ export interface BrushSettings {
 
 const EACH = <T,>(v: T): Record<BrushTool, T> => ({ raise: v, lower: v, flatten: v, smooth: v, naturalize: v });
 
-export const DEFAULT_BRUSH: BrushSettings = { tool: "raise", size: 5, strength: 5, target: null, square: false, straight: false, area: false, levelLines: false, steps: null, modes: EACH<BrushMode>("both"), sources: EACH<SourcesChoice>("ride") };
+export const DEFAULT_BRUSH: BrushSettings = { tool: "raise", size: 5, strength: 5, target: null, square: false, straight: false, area: false, levelLines: false, canal: false, canalWidth: 2, canalDepth: 1, canalOpen: true, steps: null, modes: EACH<BrushMode>("both"), sources: EACH<SourcesChoice>("ride") };
 
 /** The brush kit's shapes, one at a time: turning Square, Straight lines or Area on turns the other
  *  two off; turning one off leaves the others as they are. */

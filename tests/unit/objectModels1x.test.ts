@@ -13,13 +13,15 @@ const BUDGET: Record<string, number> = {
   "Succulent.dead": 110,
   WaterSeep: 400,
   BadwaterSeep: 400,
-  Aquifer: 400,
+  // (the game's own model since D496: 512 triangles against its 588, landmarksGame.test.ts)
+  Aquifer: 540,
   AncientAquiferDrill: 450,
   BadtideDrain: 260,
   UnstableCore: 380,
   ReservePile: 340,
   ReserveWarehouse: 400,
-  ReserveTank: 340,
+  // (the game's barrel on legs over a pump house, 16 round as the game's: D178 amended, reserves.ts)
+  ReserveTank: 520,
 };
 
 describe("the 1.x objects' models", () => {

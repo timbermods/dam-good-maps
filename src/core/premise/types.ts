@@ -8,6 +8,7 @@
 
 import type { Orientation } from "../format/footprints";
 import type { MapSpec } from "../spec/mapspec";
+import type { StageWater } from "./water";
 
 export type PremiseId = "lakeStair";
 
@@ -228,10 +229,12 @@ export interface PremisePlan {
   stair?: StairPlan;
 }
 
-/** What a stage hands an invariant. Later stages add the heights, the settle and the proofs. */
+/** What a stage hands an invariant: stage 1 its water; later stages add the heights, the settle and the proofs. */
 export interface StageContext {
   spec: MapSpec;
   plan: PremisePlan;
+  /** Stage 1's water by number (water.ts), for the `land` invariants. */
+  water?: StageWater;
 }
 
 /** The repair to try before a re-roll (stages 3 to 5 define them). */

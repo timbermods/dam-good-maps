@@ -35,6 +35,7 @@
 
 import { terrainColumns, type TerrainColumns, type VoxelMasks, type WaterColumns } from "./columns";
 import { objectTile, type MapObject } from "./model";
+import { MinHeap } from "../math/grid";
 
 /** Cluster saturation per water column id (0 where dry): the game's rule on stacked columns, as
  *  StackSim computes it (`WateredNeighborsCountingTask`, `ClusterSaturationCalculationTask`): a
@@ -287,10 +288,14 @@ function settleTicks(g: SpreadGraph, NN: number, cell: (n: number, last: Float32
   return last;
 }
 
-/** Moisture per run by the game's own rules at their steady state ("game" mode). What a run gets
- *  from water (its own, the cave below, the 4 neighbours) does not change from tick to tick, so it
- *  is found once; each tick only spreads. */
-export function moisture3dGame(runs: TerrainColumns, wc: WaterColumns, depth: ArrayLike<number>, contamination: ArrayLike<number>, barrier: ReadonlySet<number> | null = null, sat: Uint8Array = columnSaturation(wc, depth), maxTicks = 3000): Float64Array {
+/** What each run gets from water by the game's moisture rule (`MoistureCalculationTask`), found once
+ *  per settle: a fixed value (a barrier's 0, or clean water of its own at its range), else the best
+ *  water term (its own range less 6 per level from the cave below or a 4-neighbour's water; −Infinity
+ *  when no water is beside or below it) with the levels that term climbs and whether it came from
+ *  beside (1 tile) or below (0), its own water's 1 − c, and the height a neighbour's spread climbs
+ *  from (its top plus its water). The game clamps the water term at 0 (`moisture3dGame`); the reach
+ *  (`moistureReach3d`) keeps it below 0, by how much a run is short. */
+function moistureTerms(runs: TerrainColumns, wc: WaterColumns, depth: ArrayLike<number>, contamination: ArrayLike<number>, barrier: ReadonlySet<number> | null, sat: Uint8Array) {
   const { W, H, N, T } = runs;
   const NN = T * N;
   const g = spreadGraph(runs);
@@ -309,7 +314,10 @@ export function moisture3dGame(runs: TerrainColumns, wc: WaterColumns, depth: Ar
   // per run: a fixed value (a barrier, or clean water of its own), else its water term and its
   // water's (1 - c); and the height a neighbour's spread climbs from (its top plus its water)
   const fixed = new Float32Array(NN).fill(NaN);
-  const num = new Float64Array(NN);
+  const barred = new Uint8Array(NN);
+  const num = new Float64Array(NN).fill(-Infinity);
+  const numClimb = new Uint16Array(NN);
+  const numBeside = new Uint8Array(NN);
   const keep = new Float32Array(NN);
   const climbBase = new Int32Array(NN);
   for (let a = 0; a < g.nodes.length; a++) {
@@ -321,6 +329,7 @@ export function moisture3dGame(runs: TerrainColumns, wc: WaterColumns, depth: Ar
     climbBase[n] = top + Math.ceil(w >= 0 ? D[w] : 0);
     if (barrier && barrier.has(top * N + i)) {
       fixed[n] = 0;
+      barred[n] = 1;
       continue;
     }
     if (w >= 0 && D[w] > 0 && C[w] <= M_MIN_WATER) {
@@ -328,9 +337,14 @@ export function moisture3dGame(runs: TerrainColumns, wc: WaterColumns, depth: Ar
       continue;
     }
     keep[n] = f32(1 - (w >= 0 ? C[w] : 0));
-    let v = 0;
+    let v = -Infinity;
+    let climb = 0;
+    let beside = 0;
     const b = below[n];
-    if (b >= 0 && f32(D[b] + wc.floor[b]) >= wc.ceil[b]) v = range(b) - (top - bottom - 1) * 6;
+    if (b >= 0 && f32(D[b] + wc.floor[b]) >= wc.ceil[b]) {
+      v = range(b) - (top - bottom - 1) * 6;
+      climb = top - bottom - 1;
+    }
     const x = i % W;
     const y = (i - x) / W;
     for (const [dx, dy] of DIRS4) {
@@ -351,11 +365,29 @@ export function moisture3dGame(runs: TerrainColumns, wc: WaterColumns, depth: Ar
       if (c < 0) continue;
       const surface = Math.ceil(f32(wc.floor[c] + D[c]));
       if (surface <= bottom) continue;
-      const m = range(c) - Math.max(0, top - surface) * 6;
-      if (m > v) v = m;
+      const up = Math.max(0, top - surface);
+      const m = range(c) - up * 6;
+      if (m > v) {
+        v = m;
+        climb = up;
+        beside = 1;
+      }
     }
     num[n] = v;
+    numClimb[n] = climb;
+    numBeside[n] = beside;
   }
+  return { g, NN, fixed, barred, num, numClimb, numBeside, keep, climbBase };
+}
+
+/** Moisture per run by the game's own rules at their steady state ("game" mode). What a run gets
+ *  from water (its own, the cave below, the 4 neighbours) does not change from tick to tick, so it
+ *  is found once (`moistureTerms`); each tick only spreads. */
+export function moisture3dGame(runs: TerrainColumns, wc: WaterColumns, depth: ArrayLike<number>, contamination: ArrayLike<number>, barrier: ReadonlySet<number> | null = null, sat: Uint8Array = columnSaturation(wc, depth), maxTicks = 3000): Float64Array {
+  const { g, NN, fixed, num: terms, keep, climbBase } = moistureTerms(runs, wc, depth, contamination, barrier, sat);
+  // (the game's water term starts at 0: a run short of its water gets none from it)
+  const num = new Float64Array(NN);
+  for (let n = 0; n < NN; n++) num[n] = terms[n] > 0 ? terms[n] : 0;
   const cell = (n: number, last: Float32Array): number => {
     const f = fixed[n];
     if (f === f) return f;
@@ -385,6 +417,103 @@ export function moisture3dGame(runs: TerrainColumns, wc: WaterColumns, depth: Ar
     return out < M_MIN ? 0 : out;
   };
   return Float64Array.from(settleTicks(g, NN, cell, maxTicks));
+}
+
+/** The least moisture a run is moist with (the game's `MinimumMoisture`): below it the soil stores 0. */
+export const MOIST_MIN = M_MIN;
+/** What one level of climb costs the soil's reach, in tiles of spreading (the rule's 6 per level). */
+export const LEVEL_COST = 6;
+
+/** How far the soil's water reaches each run (Irrigation view, analysis/irrigation.ts), by the same
+ *  rule as `moisture3dGame` at its steady state: the best a run gets from any water by the cheapest
+ *  path, without the game's clamp at 0, so a dry run says by how much it falls short. Per run:
+ *  `value` (moist where it is `MOIST_MIN` or more; −Infinity where no water reaches it), and along
+ *  that best path the `levels` it climbs (6 each) and the `tiles` it spreads (1 beside water, 1 per
+ *  step and 1.414 per diagonal one); `barred` marks a barrier's run (Thorns), which stays dry and
+ *  passes nothing on. The steady state of the game's ticks is this longest path (each tick spreads
+ *  the best neighbour's value less its costs, and a run's water term never changes), found here in
+ *  one pass, best first. */
+export interface MoistureReach {
+  value: Float32Array;
+  levels: Uint16Array;
+  tiles: Float32Array;
+  barred: Uint8Array;
+}
+
+/** The steady moisture of a run whose water term `w` (> 0) is at least its spread, by the game's cell: each tick it
+ *  rises toward `w` by at most `M_SPREAD`, then its own water's 1 − c (`keep`) scales it, so with contaminated water
+ *  of its own it settles where the rise and the scaling meet (keep · M_SPREAD / (1 − keep)), under keep · w. Worked
+ *  tick by tick in float32, as `moisture3dGame` does. */
+function cappedWater(w: number, keep: number): number {
+  let x = 0;
+  for (let k = 0; k < 1000; k++) {
+    let decayed = f32(x - M_DECAY);
+    if (decayed < 0) decayed = 0;
+    let v = decayed;
+    if (w > decayed) {
+      const cap = f32(x + M_SPREAD);
+      v = w > cap ? cap : w;
+    }
+    let out = f32(v * keep);
+    if (out < M_MIN) out = 0;
+    if (out === x) break;
+    x = out;
+  }
+  return x;
+}
+
+export function moistureReach3d(runs: TerrainColumns, wc: WaterColumns, depth: ArrayLike<number>, contamination: ArrayLike<number>, barrier: ReadonlySet<number> | null = null, sat: Uint8Array = columnSaturation(wc, depth)): MoistureReach {
+  const { g, NN, fixed, barred, num, numClimb, numBeside, keep, climbBase } = moistureTerms(runs, wc, depth, contamination, barrier, sat);
+  const value = new Float32Array(NN).fill(-Infinity);
+  const levels = new Uint16Array(NN);
+  const tiles = new Float32Array(NN);
+  // the best spread each run is offered so far (the game's cell takes its water term while that is at least the spread)
+  const spread = new Float32Array(NN).fill(-Infinity);
+  const heap = new MinHeap();
+  for (let a = 0; a < g.nodes.length; a++) {
+    const n = g.nodes[a];
+    const f = fixed[n];
+    if (f === f) {
+      // (a barrier's run is dry and spreads nothing; clean water is its own range)
+      if (!barred[n]) {
+        value[n] = f;
+        heap.push(-f, n);
+      }
+      continue;
+    }
+    const w = num[n];
+    if (w === -Infinity) continue;
+    value[n] = w > 0 ? cappedWater(w, keep[n]) : w;
+    levels[n] = numClimb[n];
+    tiles[n] = numBeside[n];
+    heap.push(-value[n], n);
+  }
+  while (heap.size > 0) {
+    const r = heap.pop();
+    const m = -heap.lastKey;
+    if (m < value[r]) continue;
+    for (let e = g.start[r]; e < g.start[r + 1]; e++) {
+      const n = g.to[e];
+      const f = fixed[n];
+      if (f === f) continue;
+      const cost = g.diag[e] ? M_DIAG : 1;
+      // (overlap is symmetric: r's edge to n is n's to r, with the same step)
+      const climb = runs.ceil[n] - climbBase[r];
+      const v = climb < 0 ? f32(m - cost) : f32(f32(m - climb * 6) - cost);
+      if (!(v > spread[n])) continue;
+      spread[n] = v;
+      // (a run whose water term is at least the spread keeps its water's value: the spread changes nothing there)
+      if (num[n] > 0 && num[n] >= v) continue;
+      const out = v > 0 ? f32(v * keep[n]) : v;
+      if (out > value[n]) {
+        value[n] = out;
+        levels[n] = levels[r] + (climb > 0 ? climb : 0);
+        tiles[n] = tiles[r] + cost;
+        heap.push(-out, n);
+      }
+    }
+  }
+  return { value, levels, tiles, barred };
 }
 
 /** Soil contamination per run by the game's own rules at their steady state ("game" mode): the

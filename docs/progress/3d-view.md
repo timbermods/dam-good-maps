@@ -361,6 +361,12 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   `tests/e2e/cutaway.spec.ts`: a pond's shelf cut at its level, and ground at 2 under a reservoir six levels deep cut
   at 7, draw as the same ground dry (each failed before its fix by 38 levels). Captures: `docs/sheets/cut-level-ground.jpg` (dev against the branch, Canyon's shelf and Hollows at cut 7,
   Standard and High, 1920×1080 dark and 1280×800 light).
+- **High's sun shadows under the cut (`fix/high-shadow-cut`):** the depth pass drew every caster whole, so a cut at an
+  object's level left the shadows of the objects it took away (a mine site's frame, a geothermal field's crust, trees,
+  ruins) and of the terrain above it on the ground in High. The depth pass now drops each caster's part above the slice
+  as the colour pass does (`shadows.ts` `fadingDepth`: the fragment's height over `slice` + 0.02), and the map is drawn
+  again when the cut moves (`HighLook.sliceChanged`). Standard's baked shadows are as before: they are baked without the
+  cut.
 - **Falls short:** objects and the drought line are cut as before: what stands above the cut is not drawn. Water whose
   surface stands above the cut and whose floor lies below it is drawn sliced at the cut, its bed a bed under it (built,
   "Water sliced by the cut" below). `tests/e2e/cutaway.spec.ts` compiles and draws the branch on a hand-made cave in CI.
@@ -3586,7 +3592,8 @@ for every field; the map stores its Coordinates and orientation (never flipped).
   each placed and timed on the GPU from the view's clock, one batch for every field, and stops a field's while any
   water stands on its middle tile (`steamFields`, read each time the water or the objects change). Left out: the game's
   wind, which carries its puffs, and its puffs' texture, ours a soft round puff. None in the light look; still with
-  reduced motion.
+  reduced motion. Hidden with the objects and faded round the pointer with them (by the field's middle), and cut
+  away above the layer as the objects are, each puff where it is (`fix/aquifer`: it had ignored both).
 - **Built** (`render3d/geothermal.ts`, new): the crust a grid of 16 headings by 7 rings out to its reach, each corner
   at the game's height there and in its colour there (averaged over 0.05 round it, the nearest of the six shades), its
   edge sunk 0.04 into the ground; each rock the hull of its farthest points six ways round, three ways up and its top:
@@ -3610,6 +3617,106 @@ for every field; the map stores its Coordinates and orientation (never flipped).
   game's model rendered offline, not the game's own light. (5) The rest of the placeholders in the large relic's falls
   short (2) remain.
 
+## The aquifer as the game draws it (D135, D178 as amended 2026-11-10, D496, D497; `fix/aquifer`)
+
+Ours drew the aquifer as a dark rubble cross of our own: flat blobs over its five tiles, grey stones heaped over them
+and a dark hole at its middle. The game's (`Aquifer.Model`, 740 triangles with its footing) is the one model for every
+aquifer; the map stores its Coordinates and orientation (never flipped).
+
+- **Read from the game's model** (numbers only, `tools/game-model-albedo.py` and scratch tools): a low crust in the
+  blockage's material (200 of its 537 triangles), reaching 0.44–0.76 from the footprint's middle (farthest along the
+  cross's arms), 0.13 high at most and dipping to the ground at its middle; its vertex colours dark blue-grey and grey,
+  brown at the middle (albedo 0.149/0.142/0.123 over the material). Thirty small rocks, 0.04–0.1 high, lie on it and
+  along its arms, in the blockage's and the water source's rock (0.18/0.164/0.141). A footing of ground in the
+  terrain's own material (`SlopeCliffEdge`, 152 triangles) covers its cross. Neither material is metallic, so the
+  colours are drawn straight (`palette.ts` `AQUIFER`: the crust in five shades, the rocks in three).
+- **Its blueprint:** it cuts its middle tile out of the terrain (`BlockObjectTerrainCutoutSpec`) for its footing; its
+  crust lies over the ground, never below it, so ours leaves the terrain whole and is an object like the others, faded
+  and hidden with them. It is a water source that runs only under a powered drill (`UndergroundWaterSourceSpec`); our
+  core keeps it off (`core/sim/model.ts`), and the model shows no water or other state either way, so it has one look.
+  It has no particles.
+- **Built** (`render3d/aquifer.ts`, new, on `render3d/crust.ts`, new, the geothermal field's crust and rocks made
+  shared): the crust a grid of 16 headings by 7 rings out to its reach, each corner at the game's height there (lifted
+  to 0.012 at least, where the game's lies 0.003 over the ground, so it never fights the terrain) and in its colour
+  there (the nearest of the five shades), its edge sunk 0.04 into the ground; each rock the hull of its farthest points
+  (six ways round, three ways up and its top for the larger; four ways round and its top for the small): 512
+  triangles against the game's 588 without its footing. The geothermal field's model is unchanged by the move to the
+  shared builder (the same triangles and colours). Standard and High draw the same model, in the objects' game light.
+- **Measured:** the bounds within 0.01 of the game's (x −1.23…1.21, z −1.10…1.12, up to 0.126). The silhouette, against
+  the game's crust and rocks from 16 cameras (8 headings, 30° and 60° down) and from above: 0.94–0.98 times the game's
+  area, IoU 0.92–0.94.
+- **The layers over a pit** (found on #951's field, and the mine sites had it since their cutout): cut at an object's
+  level or below, its model went with everything over the cut while the terrain still left its tiles' tops out, so the
+  sky showed through round what was left (the field's middle tile round its vent; a mine site's frame, and its whole
+  footprint below its level). The terrain now leaves the tops out only while the cut leaves the object whole
+  (entities3d.ts `cutoutUnder`, the chunks meshed again when the layer changes); cut at its level or below, its tiles
+  show their tops (at the cut, the cap) as every tile there does. A picture is drawn with the tops left out, as with no
+  cut.
+- **Standard's shadow:** none, as before. 0.13 high, the model casts 0.015–0.03 tiles² past the ground it covers along
+  the 45° sun.
+- **Judged:** placed on river valley 2's banks, Standard and High: a dark low crust over its cross with a brown dip at
+  its middle, small grey rocks round it, as the game's model renders offline.
+- **Cost:** no draw call more; +102 triangles an aquifer. `benchOrbit` on river valley 2 at 128 with eight aquifers
+  (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame, one run each, base → branch): Standard whole
+  map 2.82 → 2.88 ms, the aquifers 14 away 3.03 → 2.93; High 2.48 → 2.81 and 3.71 → 3.72: within the runs' spread.
+  Every frame 7.0 ms at 144 Hz.
+- **Falls short:** (1) Its rocks are hulls of a few points each where the game's are rounder. (2) The game's footing
+  of ground over its cross is left to the terrain. (3) It is judged against the game's model rendered offline, not the
+  game's own light. (4) The aquifer's drill keeps its model of our own.
+
+## The reserves as the game draws them (D135, D178 as amended 2026-11-10, D496, D497; `fix/reserves`)
+
+Ours drew the reserve pile and warehouse as pens of our own colours 0.75 and 0.80 high, and the tank as a barrel of our
+own 2.66 high, none of them showing what they held. The game's (`ReservePile.Model`, `ReserveWarehouse.Model`,
+`ReserveTank.Model`, 236, 330 and 630 triangles) are one model each, flipped by mirroring (all three are Flippable);
+each fills its 2 × 2, its entrance on the right half of its front.
+
+- **Read from the game's models** (numbers only, `tools/game-model-albedo.py` and scratch tools): the pile a pen of
+  grey-green boards (`BaseWoodCommon`) 0.48 high on an amber-brown frame (`BaseWoodCommon_Amber`) 0.1 high round a floor
+  of dirt (`DirtCommon`), posts at three corners; the warehouse a floor of boards in the same frame, posts 0.69 high at
+  three corners joined by four sagging ropes tied round them; both open at the entrance under an arch 1.01 high. The
+  tank a barrel of staves 1.54 across from 1.29 to 2.43 under a low cone to 2.81, banded, on a base ring 1.68 across
+  on four splayed legs with braces, a pipe down its middle, and a pump house 0.88 × 0.92 under an arched roof at the
+  entrance, its door a grey-green arched frame round a dark door. Each has a pale shield of a sign under a pale holder
+  at its entrance (the tank's holder gabled) and a pale threshold. The wood is a little metallic (0.07–0.15), folded
+  into albedo for our light as the relics' (`palette.ts` `RESERVE`).
+- **Their stock** (`Timberborn.StockpileVisualization`, read from the decompiled assembly and the blueprints' visualizer
+  specs): the game's pile draws dirt with `StockpilePlaneVisualizer` (`Dirt2x2`: the heap `MediumDirtPile` moved from
+  0.82 under its place, 0.01 to 0.78 up by the stock's share to the 0.8th power) and logs, planks, treated planks,
+  scrap metal and metal blocks with `StockpileGoodPileVisualizer` (over each tile layers of four goods 0.17 apart,
+  crossing layer by layer, ten layers a tile, the last layer's goods laid one by one on piles it picks at random); the
+  warehouse its boxes with `StockpileGoodColumnVisualizer` (`Box4H`: 36 columns 0.26 apart, boxes 0.232 a side, 144 at
+  most for its 200, columns picked at random to rise first); the tank has no visualizer, so it shows none. Ours
+  (`render3d/reserves.ts`, `stockOf`) draws them the same, picking in a fixed order where the game picks at random;
+  the dirt heap is one model moved, a stack of goods or boxes one model a good and amount. The view carries each
+  reserve's good and amount (`EntityView.stockGood`, `stockAmount`, from `FixedStockpile` and `Inventory:Stockpile`).
+  A reserve the shelf places holds its default good at full capacity, so a pile shows a full heap of dirt and a
+  warehouse its boxes four high.
+- **Built** (`render3d/reserves.ts`, new): the pens and the tank from boxes, faces and revolved profiles at the game's
+  measures, the tank 16 round as the game's: 262, 330 and 505 triangles. A flipped reserve has its own model, mirrored
+  across its footprint. Standard and High draw the same models, in the objects' game light.
+- **Measured:** the bounds within 0.03 of the game's. The silhouette, against the game's models from 16 cameras (8
+  headings, 30° and 60° down) and from above: the pile 1.00–1.01 times the game's area, IoU 0.99–1.00; the warehouse
+  1.00–1.03, IoU 0.97–1.00; the tank 0.99–1.02, IoU 0.97–0.99.
+- **Standard's shadow:** the tank casts a disc over each of its four tiles, 0.6 across before the inset, from its
+  barrel's base (0.95) to its top, each moved 0.15 toward the footprint's middle (light.ts `CORNER`, now a cast a kind,
+  the core's unchanged): on the ground it does not stand over, 0.79–1.12 of its model's shadow a heading, 0.94 in all,
+  0.76–0.92 of the model's under it, IoU 0.74–0.78 (`landmarksGame.test.ts`). The ground under its barrel stays lit,
+  as the game's. The pile and the warehouse cast none: their walls stand 0.48 and 0.69 high round their own floor, a
+  band of shadow 0.5–1.6 tiles² a heading outside the footprint, which discs would cast over their own floor and sunlit
+  walls; High casts their models' own.
+- **Cost:** +6 draw calls with ten reserves placed (the flipped models and a batch a stock), +4,500 triangles.
+  `benchOrbit` on river valley 2 at 128 with ten reserves by its weir, mixed goods, amounts and flips (1600 × 900,
+  headed Chrome, RTX 2070 Super; the GPU's median a frame, base → two runs of the branch): Standard whole map 2.76 →
+  3.15, 2.83 ms, the reserves 14 away 3.04 → 3.38, 3.15; High 2.55 → 2.62, 2.91 and 3.92 → 3.95, 4.05: within the
+  runs' spread. Every frame 7.0 ms at 144 Hz (one run's High p95 14 ms, not in the other).
+- **Falls short:** (1) The stock casts nothing in Standard's bake (High casts it): a full stack of logs stands 1.7
+  high. (2) The game's banner shows the good's icon on the sign, and its boxes carry the good's icon; ours draws the
+  sign plain and the boxes as columns without seams or icons. (3) Scrap metal is stacked as boxes of its measures, the
+  game's a heap of bent pieces. (4) Where the game picks at random which piles take the last layer's goods and which
+  columns rise first, each time it loads, ours picks in a fixed order. (5) Judged against the game's models rendered offline, not
+  the game's own light.
+
 ## A fall over a cave's mouth (D154 as amended 2026-11-08, D496; `fix/cave-mouth-curtain`)
 
 The in-game capture kit (#933) on Four Lakes r9: at the Great Fall the game draws one curtain over a dry cave's mouth
@@ -3632,6 +3739,45 @@ curtains, the cave open.
   2.9 → 3.1–3.2, Four Lakes r9 0.67 → 0.71 (the check runs only at tiles holding water above the gap seen).
 - **Falls short:** where a tile holds water in two gaps above a column's level, which one the game links is not read;
   ours takes the lower.
+
+## Falls that pour, against the game's Four Lakes frames (PERFECT Water 3; D154, D496; `fix/falls-pour-2`)
+
+Judged on the in-game capture kit's Four Lakes r14 `falls` and `cave` start frames (day light; local only), ours posed
+from their cameras with the map opened from its file, real Chrome on the RTX 2070 SUPER, Standard and High (the same
+within 1 L* unless said). Four curtains: the Great Fall's middle and right curtains in `falls`, the left curtain and the
+one over the cave's mouth in `cave`. L* by the curtain's upper, middle and lower third; streaks as the spread of each
+row's luma less its 3-pixel mean. `.scratch` measures, not kept.
+
+- **Ranked, what keeps a fall from reading as the game's:**
+  1. **The curtain nearest the camera, seen almost level with its lip (`cave`, left), is darker and duller:** game
+     39.6 / 32.6 / 24.8, ours 27.5 / 22.8 / 19.1; its brightest 1 % over its median 20.8 against 18.5 (High 13.3).
+  2. **The right curtain, faced head-on from above (`falls`), is lighter:** game 29.6 / 25.4 / 22.8, ours 36.5 / 31.7 /
+     27.8.
+  3. **Fine streaks:** ours about 0.6 of the game's on three curtains (`falls` middle 1.23 against 2.03, `cave` left 0.81
+     (High 0.59) against 1.08, `cave` mouth 0.33 against 0.64), 1.4 times on the right curtain (0.68 against 0.48).
+  4. **Motion:** none visible in either, by construction. The face is the lower water's slope, 7.1 levels over a third
+     of a tile, so the flow textures, sampled at the world's xz, stretch 21 times down it into straight streaks, and the
+     flow carries them along their own length. The file's outflows at these falls are 0.1 to 0.9 (flows 0.008 to 0.06
+     ÷ 14). Frames a tenth of a second apart show the streaks still and the cross-fade alone. The game's formula and
+     mesh are ours, so nothing here to follow.
+  5. **The lip, the foot, the thickness:** the same as the game's (the slope's grid, no foam: the falls sections above).
+  The other two curtains match: `falls` middle 32.7 / 25.8 / 31.6 against 31.4 / 26.6 / 35.5, `cave` mouth 36.1 / 28.5 /
+  22.3 against 36.3 / 27.3 / 21.0.
+- **What the gaps are not** (each term switched alone in Standard's water shader, 1 and 2 above):
+  - the sun's shadow on the face: forced lit, +0.4 to +2.6 on the left curtain; forced dark, the right curtain 24.0 /
+    20.3 / 17.1, past the game's on the other side;
+  - the depth seen through the face (0.1 to 0.3 on all four): at none, +1.4 to +5;
+  - its see-through: opaque, +0.4 to +1.9;
+  - the roof's light: the faces stand in open air;
+  - the camera highlight the waterfall mask takes off (the mask is whole on every face): the highlight under it is a
+    mean of 0.005 on the left curtain, 0.03 on the middle one, which matches the game masked;
+  - the environment's reflection: off, the right curtain reads the game's (29.1 / 25.2 / 23.5), but the cave's mouth
+    falls 7.5 under it; tripled, the left curtain's mean nears the game's but stays without its streaks.
+  Every term is the game's (P4, P5, P11 to P15 above), so no change is made: the gaps change sign from curtain to
+  curtain, and none follows one term. What is left to read is how the game lights the face's pixels at these two
+  views (its sun's direction there against ours among them).
+- **Falls short:** (1) to (3) stand, unexplained. A frame of the game's falls in motion would settle (4) beyond its
+  formula.
 
 ## The rest of the step (next parts)
 

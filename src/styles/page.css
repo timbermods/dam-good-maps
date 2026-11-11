@@ -699,6 +699,36 @@
   font-size: 0.8rem;
 }
 
+/* Irrigation's key, under its colours: why the dry ground under the pointer is dry (here, not in the readout, so the
+   view moves nothing) */
+.layer-legend .layer-why {
+  margin-top: 6px;
+}
+
+/* the land's shares (Show's Land): a name and its number a line, plain: dry land is no fault */
+.land-shares {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.land-shares .land-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.land-shares dt {
+  color: color-mix(in srgb, var(--ink) 84%, transparent);
+}
+
+.land-shares dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .legend-panel .key-caption {
   margin: 0 0 6px;
   padding-bottom: 6px;
@@ -877,6 +907,33 @@
 .view3d-corner > .corner-level {
   grid-column: 1;
   display: flex;
+}
+
+/* with First view beside Reset view: three buttons and the compass in the same 310px; the row under them keeps its own
+   widths, the level control and Slow forces 129px each, one gap apart, over the first three columns (each placed at
+   its end of a two-column span), the sound under the compass */
+.editor-view .view3d-corner:has(.camera-group.with-first-view) {
+  grid-template-columns: 83px 84px 83px var(--corner-h);
+}
+
+.camera-group.with-first-view > button:not(.compass) {
+  padding: 0 6px;
+}
+
+.view3d-corner:has(.camera-group.with-first-view) > .corner-level {
+  grid-column: 1 / 3;
+  justify-self: start;
+  width: 129px;
+}
+
+.view3d-corner:has(.camera-group.with-first-view) > .slow-cell {
+  grid-column: 2 / 4;
+  justify-self: end;
+  width: 129px;
+}
+
+.view3d-corner:has(.camera-group.with-first-view) > .sound-cell {
+  grid-column: 4;
 }
 
 /* the level control is one width for every value, ∞ to 22: it fills its track and its value takes what the arrows
@@ -1376,6 +1433,25 @@
   font-weight: 600;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
+}
+
+/* a value the player can type (a lake's level): the same number, in a field as wide as two digits */
+input.set-typed {
+  width: 3ch;
+  height: 16px;
+  padding: 0 2px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: transparent;
+  box-shadow: none;
+  font-family: inherit;
+  line-height: 14px;
+  text-align: right;
+}
+
+input.set-typed:disabled {
+  border-color: transparent;
+  opacity: 0.5;
 }
 
 /* Auto: one small word in the same place on every control that has it, lit while the land decides */
@@ -4350,4 +4426,37 @@ body:has(.checks-list) .show-key {
     position: absolute;
     inset: min(0px, calc((100% - 32px) / 2)) 0;
   }
+}
+
+/* File → Description…: the map's name and its words, one under the other */
+.dialog.describe {
+  width: min(520px, calc(100vw - 32px));
+}
+
+.describe-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 10px;
+  font-size: 0.85rem;
+}
+
+.describe-field input,
+.describe-field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  resize: vertical;
+}
+
+.describe-note,
+.describe-kept,
+.describe-problem {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
 }

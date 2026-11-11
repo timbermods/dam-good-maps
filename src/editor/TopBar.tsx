@@ -7,6 +7,7 @@
 // Flatten's Steps. A walkable edge is the shelf's Slope (D247, D322). Level lines are a view switch (D248). While a
 // force is at work the other tools wait.
 
+import { CANAL_MAX_DEPTH, CANAL_MAX_WIDTH } from "../core/doc/canalLimits";
 import { createContext, type ComponentChildren } from "preact";
 import { useContext, useLayoutEffect, useRef } from "preact/hooks";
 import { FirstRunSizer } from "./FirstRun";
@@ -341,25 +342,52 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
       />
     ),
   };
-  const shape = s.square ? "square" : s.straight ? "straight" : "round";
+  // Lower's fourth Brush choice, Canal (planning, 2026-11-11): a drag draws a line and the core cuts a bed that leads
+  // water along it; its row is Width, Depth and how it starts, with the Brush choice across the second row
+  const canal = t === "lower" && s.canal;
+  const shape = canal ? "canal" : s.square ? "square" : s.straight ? "straight" : "round";
   const brush: Group = {
     key: "brush",
     row: 2,
-    at: 5,
-    span: flatten ? 5 : 9,
+    at: canal ? 1 : 5,
+    span: canal ? 13 : flatten ? 5 : 9,
     node: (
-      <ChoiceSetting<"round" | "square" | "straight">
+      <ChoiceSetting<"round" | "square" | "straight" | "canal">
         label="Brush"
         value={shape}
         options={[
           ["round", "Round", "A round brush"],
           ["square", "Square", "A square brush"],
           ["straight", "Lines", "Draw straight lines"],
+          ...(t === "lower" ? [["canal", "Canal", "Draw a channel that leads water"] as const] : []),
         ]}
-        onChange={(v) => set({ square: v === "square", straight: v === "straight" })}
+        onChange={(v) => set({ square: v === "square", straight: v === "straight", canal: v === "canal" })}
       />
     ),
   };
+  if (canal)
+    return [
+      { key: "width", row: 1, at: 1, span: 4, node: <NumberSetting label="Width" title="How wide the canal's bed is" value={s.canalWidth} min={1} max={CANAL_MAX_WIDTH} step={1} onChange={(canalWidth) => set({ canalWidth })} /> },
+      { key: "depth", row: 1, at: 5, span: 5, node: <NumberSetting label="Depth" title="How deep the bed lies under the land" value={s.canalDepth} min={1} max={CANAL_MAX_DEPTH} step={1} onChange={(canalDepth) => set({ canalDepth })} /> },
+      {
+        key: "starts",
+        row: 1,
+        at: 10,
+        span: 4,
+        node: (
+          <ChoiceSetting<"open" | "dry">
+            label="Starts"
+            value={s.canalOpen ? "open" : "dry"}
+            options={[
+              ["open", "Open", "It joins the water it starts in"],
+              ["dry", "Dry", "Its first tile stays, to open later"],
+            ]}
+            onChange={(v) => set({ canalOpen: v === "open" })}
+          />
+        ),
+      },
+      brush,
+    ];
   const groups = [size, second, mode, sources, brush];
   if (flatten)
     groups.push({

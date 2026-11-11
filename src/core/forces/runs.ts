@@ -67,7 +67,7 @@ export interface ForceCue {
 
 /** A staged force as the worker drives it. */
 export interface StagedRun {
-  readonly verb: "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit" | "erode";
+  readonly verb: "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit" | "erode" | "roll";
   /** The map as it shows now (ground, objects, fresh rock, fallen trees, its water). */
   readonly map: FullForceMap;
   readonly done: boolean;

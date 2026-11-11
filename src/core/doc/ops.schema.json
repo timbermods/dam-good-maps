@@ -8,7 +8,7 @@
   "required": ["op", "params"],
   "properties": {
     "op": {
-      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow", "paintObjects", "crop", "blocks", "setDescription", "setLakeLevel"]
+      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow", "paintObjects", "crop", "blocks", "setDescription", "setLakeLevel", "canal"]
     },
     "params": { "type": "object" },
     "label": { "type": "string" }
@@ -33,7 +33,8 @@
     { "if": { "properties": { "op": { "const": "crop" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/crop" } } } },
     { "if": { "properties": { "op": { "const": "blocks" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/blocks" } } } },
     { "if": { "properties": { "op": { "const": "setDescription" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/setDescription" } } } },
-    { "if": { "properties": { "op": { "const": "setLakeLevel" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/setLakeLevel" } } } }
+    { "if": { "properties": { "op": { "const": "setLakeLevel" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/setLakeLevel" } } } },
+    { "if": { "properties": { "op": { "const": "canal" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/canal" } } } }
   ],
   "$defs": {
     "id": { "type": "string", "pattern": "^(f-[a-z2-7]{13}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$" },
@@ -138,18 +139,18 @@
       }
     },
     "forceResult": {
-      "description": "A force of nature (Carve, Craterize, Erupt, Quake, Glaciate, Rift, Deposit or Erode: D194, D202, D203, D206, D220, D246, D281): what the player asked for (the force, its settings, where), and its result stored literally (the changed tiles as indices y·W + x, ascending, and their new levels; the fresh volcanic rock on the tiles where it changed, a bit per level 0–21; the voxels Erode hollowed under the surface, each tile's whole mask; the objects that lost their ground, the ones it carried, the trees it knocked down; a carve's source and sealed oxbow lake; a glacier's springs and its tarn; the sources it cleared, D474). Replay assigns the result and never runs the force; the engine checks it fits the map. A project's `carve` operations, from before the forces shared this one, become `forceResult` when it opens.",
+      "description": "A force of nature (Carve, Craterize, Erupt, Quake, Glaciate, Rift, Deposit, Erode or Roll: D194, D202, D203, D206, D220, D246, D281): what the player asked for (the force, its settings, where), and its result stored literally (the changed tiles as indices y·W + x, ascending, and their new levels; the fresh volcanic rock on the tiles where it changed, a bit per level 0–21; the voxels Erode hollowed under the surface, each tile's whole mask; the objects that lost their ground, the ones it carried, the trees it knocked down; a carve's source and sealed oxbow lake; a glacier's springs and its tarn; the sources it cleared, D474). Replay assigns the result and never runs the force; the engine checks it fits the map. A project's `carve` operations, from before the forces shared this one, become `forceResult` when it opens.",
       "type": "object",
       "additionalProperties": false,
       "required": ["version", "verb", "settings", "where", "steps", "reason", "tiles", "heights", "removed"],
       "properties": {
         "version": { "const": 1 },
-        "verb": { "enum": ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit", "erode"] },
+        "verb": { "enum": ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit", "erode", "roll"] },
         "settings": {
           "type": "object",
           "required": ["mode", "power", "seed"],
           "properties": {
-            "mode": { "enum": ["unleash", "aim", "strike", "vent", "fissure", "lift", "slide", "flow", "drop", "fan", "wear"] },
+            "mode": { "enum": ["unleash", "aim", "strike", "vent", "fissure", "lift", "slide", "flow", "drop", "fan", "wear", "roll"] },
             "power": { "type": "number", "minimum": 0, "maximum": 100 },
             "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
             "wander": { "type": "number", "minimum": 0, "maximum": 100 },
@@ -370,6 +371,20 @@
         "level": { "type": "integer", "minimum": 1, "maximum": 22 },
         "sill": { "enum": ["cut", "raise"] },
         "width": { "type": "integer", "minimum": 1, "maximum": 32 },
+        "cells": { "$ref": "#/$defs/runs" },
+        "levels": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 22 } }
+      }
+    },
+    "canal": {
+      "description": "A canal: a channel that leads water along 'path' (points [x, y], the start first; the engine walks the tiles between them edge to edge). Its bed is 'width' tiles wide and lies 'depth' levels under the land, falling with it from the start to the end and never rising again (a rise is cut through, up to 3 levels deeper; more is refused, saying where); beside the bed, land lower than the water would stand in it is raised as a bank. 'open' true starts it in the water at its start; false leaves the line's first tile standing. Its tiles are stored literally: 'cells' as runs [y, x0, x1], and 'levels' the level of each, in the order of y·W + x; the integrity pass leaves them. The engine checks the canal, planned on the map now, is the one stored (doc/canal.ts).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "width", "depth", "open", "cells", "levels"],
+      "properties": {
+        "path": { "type": "array", "minItems": 2, "maxItems": 512, "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } } },
+        "width": { "type": "integer", "minimum": 1, "maximum": 6 },
+        "depth": { "type": "integer", "minimum": 1, "maximum": 3 },
+        "open": { "type": "boolean" },
         "cells": { "$ref": "#/$defs/runs" },
         "levels": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 22 } }
       }

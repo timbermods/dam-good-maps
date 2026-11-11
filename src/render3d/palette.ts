@@ -397,6 +397,16 @@ export const GEOTHERMAL = {
   rock: [[0.18, 0.164, 0.138], [0.214, 0.197, 0.163], [0.197, 0.18, 0.152]] as readonly Rgb[],
 } as const;
 
+/** The aquifer as the game colours it (Aquifer.Model, D178, D496): its albedo (texture × vertex colour,
+ *  `tools/game-model-albedo.py`), its materials not metallic, so straight. The crust (the blockage's material, its vertex
+ *  colours dark blue-grey and grey, brown at its middle; 0.149/0.142/0.123 over its area) in five shades, each of our
+ *  crust's corners the game's colour there (averaged over 0.05 round it) as the nearest of them; its rocks (the
+ *  blockage's and the water source's rock; 0.18/0.164/0.141 the water source's) in three, each rock its own. */
+export const AQUIFER = {
+  crust: [[0.194, 0.165, 0.129], [0.168, 0.14, 0.102], [0.134, 0.098, 0.033], [0.106, 0.109, 0.105], [0.125, 0.127, 0.121]] as readonly Rgb[],
+  rock: [[0.175, 0.166, 0.143], [0.203, 0.193, 0.159], [0.212, 0.202, 0.166]] as readonly Rgb[],
+} as const;
+
 /** The blockage as the game colours it (Blockage.Model, D178, D496): its albedo (texture × vertex colour, area-weighted,
  *  `tools/game-model-albedo.py`), its material not metallic, so straight. Its heap's rocks in the three greys of its
  *  vertex colours (the heap's mean 0.173/0.160/0.133), its broken posts, the beam through it and the splinter brown, its plank shards pale,
@@ -533,6 +543,48 @@ export const THORNS = {
   foot: [0.12, 0.103, 0.085] as Rgb,
   point: [0.228, 0.2, 0.172] as Rgb,
   twig: [0.199, 0.175, 0.149] as Rgb,
+} as const;
+
+/** The reserves as the game colours them (ReservePile.Model, ReserveWarehouse.Model, ReserveTank.Model, D178, D496):
+ *  grey-green boards (`BaseWoodCommon`) in amber-brown frames (`BaseWoodCommon_Amber`), a pale shield of a sign under a
+ *  pale holder at the entrance. Their wood is a little metallic (0.07–0.15; smoothness about 0.37), folded into the
+ *  albedo our objects' light needs to show the game's brightness as the large relic's is (`LARGE_RELIC`); the game's
+ *  own, each part's texture × vertex colour area-weighted (`tools/game-model-albedo.py`): the pile's walls
+ *  0.291/0.307/0.254 and the tank's staves 0.288/0.304/0.247 (`board`), the warehouse's floor 0.235/0.251/0.184
+ *  (`floor`), the frames 0.266/0.204/0.161 (`frame`), the posts, legs and braces 0.27/0.207/0.162 (`post`), the
+ *  tank's pump house 0.248/0.187/0.15 (`house`) round its door's grey-green frame 0.298/0.316/0.265 and its dark door
+ *  0.127/0.102/0.078, its pipe 0.236/0.251/0.185; the sign 0.397/0.339/0.239 out and 0.31/0.265/0.187 in, its holder
+ *  0.41/0.355/0.262, the threshold 0.49–0.6 by reserve, the warehouse's ropes 0.404/0.351/0.309 and their ties
+ *  0.378/0.327/0.289; the pile's floor of dirt (`DirtCommon`, not metallic) 0.291/0.238/0.166, straight.
+ *  Their stock as the game's visualizers draw it (`StockpileVisualization`; reserves.ts), its goods' models folded
+ *  alike, the game's: dirt (`DirtPile`, not metallic) 0.354/0.274/0.2, straight; logs 0.232/0.188/0.138, planks
+ *  0.176/0.138/0.091, treated planks 0.505/0.395/0.247, scrap metal 0.408/0.252/0.168 and metal blocks
+ *  0.348/0.313/0.281 (metallic 0.53), and the boxes (`Box`) 0.472/0.411/0.32. */
+export const RESERVE = {
+  board: [0.26, 0.278, 0.23] as Rgb,
+  floor: [0.222, 0.24, 0.178] as Rgb,
+  frame: [0.246, 0.19, 0.153] as Rgb,
+  post: [0.258, 0.204, 0.16] as Rgb,
+  house: [0.23, 0.175, 0.145] as Rgb,
+  doorFrame: [0.277, 0.297, 0.251] as Rgb,
+  door: [0.131, 0.109, 0.086] as Rgb,
+  pipe: [0.233, 0.249, 0.188] as Rgb,
+  signOut: [0.386, 0.334, 0.239] as Rgb,
+  signIn: [0.303, 0.263, 0.189] as Rgb,
+  holder: [0.366, 0.318, 0.239] as Rgb,
+  threshold: { ReservePile: [0.525, 0.471, 0.38], ReserveWarehouse: [0.502, 0.449, 0.36], ReserveTank: [0.427, 0.385, 0.31] } as Readonly<Record<string, Rgb>>,
+  rope: [0.394, 0.347, 0.308] as Rgb,
+  tie: [0.33, 0.288, 0.255] as Rgb,
+  dirtFloor: [0.291, 0.238, 0.166] as Rgb,
+  dirt: [0.354, 0.274, 0.2] as Rgb,
+  goods: {
+    Log: [0.2, 0.158, 0.115],
+    Plank: [0.164, 0.129, 0.088],
+    TreatedPlank: [0.459, 0.363, 0.23],
+    ScrapMetal: [0.242, 0.147, 0.095],
+    MetalBlock: [0.212, 0.2, 0.186],
+  } as Readonly<Record<string, Rgb>>,
+  box: [0.403, 0.354, 0.279] as Rgb,
 } as const;
 
 /** The game's sky (D497): its camera's Skybox material (`resources.assets` "Skybox", shader path 1816, its pixel program
