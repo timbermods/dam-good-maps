@@ -94,6 +94,10 @@ const FORCE_ERRORS = [
   "There is no rock here that Erode may wear",
   "Erode leaves water and the ground that holds it as they are",
   "A fall needs high ground to fall from: draw the stroke from it over an edge or down a slope",
+  "Invalid Roll settings",
+  "Draw Roll on the map",
+  "the Floor and the working area leave nothing here to roll",
+  "Roll leaves water and the ground beside it as they are",
 ];
 
 /** A set Fall the land can't give (codes 100 and 140 plus the most it can, rust/forces `FALL_SHORT`; 180, `FALL_UNDRAINED`: its water below can't drain; 181, `FALL_NONE`: no Fall fits; 200 plus the least it can, `FALL_STEEP`; 300 plus the most the water standing below lets it, `FALL_SHORT_WATER`), in one line. */
@@ -110,7 +114,7 @@ function fallShort(error: number, settings: object): string | null {
   return `No drop of ${asked} here: ${why}`;
 }
 
-export type RustVerb = "craterize" | "erupt" | "quake" | "carve" | "glaciate" | "rift" | "deposit" | "erode";
+export type RustVerb = "craterize" | "erupt" | "quake" | "carve" | "glaciate" | "rift" | "deposit" | "erode" | "roll";
 
 /** A force to plan: which, the map it starts from, its settings and where (each verb's intent), the
  *  ground it leaves alone (`keep`, null for none), and a carve's own options (its source's id, the
@@ -247,12 +251,16 @@ export interface ErodeRecords {
   stats: { worn: number; held: number; scoured: number; x: number; y: number; z: number; size: number; depth: number };
 }
 
+/** A roll as planned (rust/forces/src/roll.rs): its map, when each tile moves (0–1 of the showing, 2 never), and what it did. */
+export interface RollRecords { raw: RustMap; arrival: Float32Array; stats: { changed: number; raised: number; lowered: number; rise: number; drop: number; width: number; graded: number } }
+
 export interface DepositRecords { raw: RustMap; arrival: Float32Array; channel: Uint8Array; channelStages: Uint8Array[]; mouth: Point; direction: Point; reach: number; width: number; placement: "fan" | "slope" | "sheet" | "delta" | "hollow"; branches: Point[][]; stats: { changed: number; eroded: number; deposited: number; balance: number; maximumCut: number; maximumDeposit: number; channels: number; wet: number; buried: number; carried: number; donorRadius: number }; }
 
 export type RustPlan =
   | ({ verb: "erode" } & ErodeRecords)
   | ({ verb: "deposit" } & DepositRecords)
   | ({ verb: "rift" } & RiftRecords)
+  | ({ verb: "roll" } & RollRecords)
   | ({ verb: "craterize" } & CraterRecords)
   | ({ verb: "erupt" } & EruptRecords)
   | ({ verb: "quake" } & QuakeRecords)
@@ -483,6 +491,10 @@ function readPlan(job: RustJob, plain: EntitySpec[], view: View): RustPlan {
         return { length, strength, points: counted(points, () => ({ ...point(), width: n() })) };
       });
       plan = { verb: "erupt", raw, anatomy, strength, stats: named(view(12, Float64Array), ["raised", "changed", "flattened", "erased", "hard"]) as EruptRecords["stats"], keep: view(11, Uint8Array).slice(), flows: view(10, Float32Array).slice(), heat: view(13, Uint8Array).slice() };
+      break;
+    }
+    case "roll": {
+      plan = { verb: "roll", raw, arrival: view(10, Float32Array).slice(), stats: named(view(12, Float64Array), ["changed", "raised", "lowered", "rise", "drop", "width", "graded"]) as RollRecords["stats"] };
       break;
     }
     case "rift":

@@ -16,6 +16,7 @@ import { edgeAim } from "./carve/edge";
 import { breakout, sourceTile, unleashWidth } from "./carve/unleash";
 import { DepositRun, type DepositSettings } from "./deposit";
 import { ErodeRun, withMasks, type ErodeSettings } from "./erode";
+import { RollRun, type RollSettings } from "./roll";
 import { RiftRun, type RiftSettings } from "./rift";
 import type { CraterSettings } from "./craterize";
 import { fissureBreadth, type EruptSettings, type Point } from "./erupt";
@@ -38,6 +39,7 @@ import { CraterRun, EruptRun, QuakeRun, type Finalize, type StagedRun } from "./
  *  (`forcePaint`), and is kept when the pointer lets go. */
 export type ForceRequest = (
   | { verb: "erode"; settings: ErodeSettings; path: Point[]; cut: number | null }
+  | { verb: "roll"; settings: RollSettings; path: Point[]; cut: number | null }
   | { verb: "deposit"; settings: DepositSettings; path: Point[]; cut: number | null }
   | { verb: "rift"; settings: RiftSettings; path: Point[]; cut: number | null }
   | { verb: "carve"; settings: CarveSettings; origin: [number, number]; end?: [number, number]; via?: [number, number][]; cut: number | null; source?: string; shownFrom?: "end" }
@@ -58,7 +60,7 @@ export type ForceRequest = (
   gesture?: number;
 };
 
-export type AnyForceSettings = ErodeSettings | DepositSettings | RiftSettings | CarveSettings | CraterSettings | EruptSettings | QuakeSettings | GlaciateSettings;
+export type AnyForceSettings = RollSettings | ErodeSettings | DepositSettings | RiftSettings | CarveSettings | CraterSettings | EruptSettings | QuakeSettings | GlaciateSettings;
 export type ForcePoint = Point;
 
 /** The open map as a force starts from it: its ground, its objects, the water as it stands
@@ -238,6 +240,13 @@ export function planForce(input: ForcePlanInput): ForcePlan {
       if (cut !== null && tiles.length && tiles.every((p) => base.heights[at(p)] > cut)) return hidden;
       return why;
     }
+    if (req.verb === "roll" && why.startsWith("the Floor and the working area")) {
+      // (the gesture's tiles all outside the working area, or all above the layer showing, is why)
+      const tiles = req.path.map((p) => [Math.round(p.x), Math.round(p.y)] as [number, number]).filter(inMap);
+      if (inside && tiles.length && tiles.every((p) => !inside[at(p)])) return "Outside the working area: clear it to work there";
+      if (cut !== null && tiles.length && tiles.every((p) => base.heights[at(p)] > cut)) return hidden;
+      return why;
+    }
     if ((req.verb !== "rift" && req.verb !== "erode") || !why.startsWith("the Floor")) return why;
     // (ground above the Floor along its line, and ground it may not touch: that ground is why)
     const floor = req.settings.floor ?? 1;
@@ -246,8 +255,8 @@ export function planForce(input: ForcePlanInput): ForcePlan {
     return inside && (cut === null || above.every((p) => !inside[at(p)])) ? "Outside the working area: clear it to work there" : hidden;
   };
   // a drawn line's points are the map's too (a fault, a rift, a fan's reach, a fissure)
-  const line = req.verb === "quake" || req.verb === "rift" || req.verb === "deposit" || req.verb === "erode" || req.verb === "erupt" ? req.path : undefined;
-  const points = req.verb === "quake" || req.verb === "rift" || req.verb === "deposit" || req.verb === "erode" ? [] : [req.origin, ...(req.verb !== "erupt" && req.end ? [req.end] : []), ...((req.verb === "carve" || req.verb === "glaciate") && req.end ? (req.via ?? []) : [])];
+  const line = req.verb === "quake" || req.verb === "rift" || req.verb === "deposit" || req.verb === "erode" || req.verb === "roll" || req.verb === "erupt" ? req.path : undefined;
+  const points = req.verb === "quake" || req.verb === "rift" || req.verb === "deposit" || req.verb === "erode" || req.verb === "roll" ? [] : [req.origin, ...(req.verb !== "erupt" && req.end ? [req.end] : []), ...((req.verb === "carve" || req.verb === "glaciate") && req.end ? (req.via ?? []) : [])];
   if (points.some((p) => !inMap(p))) return refuse("Pick a spot on the map");
   if (line?.some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.y))) return refuse("Pick a spot on the map");
   if (inside && points.some((p) => inMap(p) && !inside[at(p)])) return refuse("Outside the working area: clear it to work there");
@@ -346,6 +355,14 @@ export function planForce(input: ForcePlanInput): ForcePlan {
         map = withMasks(stagedForceMap(base));
         if (!req.path.length) throw new Error("Draw Erode on the map");
         const run = new ErodeRun(map, req.settings, { path: req.path }, keep, inside);
+        run.finalize = buildTouches(state, base.heights);
+        staged = run;
+        break;
+      }
+      case "roll": {
+        map = stagedForceMap(base);
+        if (!req.path.length) throw new Error("Draw Roll on the map");
+        const run = new RollRun(map, req.settings, { path: req.path }, keep, inside);
         run.finalize = buildTouches(state, base.heights);
         staged = run;
         break;

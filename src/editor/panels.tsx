@@ -19,21 +19,27 @@ import { ObjectSlider } from "./ObjectWindow";
 // ------------------------------------------------------------------------------ the water layers
 
 /** The water layers the view bar shows (D287: the land shows moisture itself, and the day-by-day
- *  Drought button shows a drought; no Moisture or Drought view). */
-export type LayerKind = "none" | "badwater" | "roofed";
+ *  Drought button shows a drought; no Moisture or Drought view). Irrigation shows where the soil's
+ *  water stops and why (analysis/irrigation.ts): the dry ground a little more water would reach. */
+export type LayerKind = "none" | "badwater" | "roofed" | "irrigation";
 
 export const LAYER_NAMES: Record<LayerKind, string> = {
   none: "None",
   badwater: "Badwater",
   roofed: "Caves and overhangs",
+  irrigation: "Irrigation",
 };
 
 /** The colours the water layers lay over the map (red, green, blue, alpha out of 255): the overlay and its caption's
  *  swatches read the same ones, so the caption shows the colours rather than naming them. */
-export const LAYER_COLORS: Record<"badwater" | "soil" | "roofed", [number, number, number, number]> = {
+export const LAYER_COLORS: Record<"badwater" | "soil" | "roofed" | "near" | "dry", [number, number, number, number]> = {
   badwater: [120, 70, 30, 200],
   soil: [190, 140, 70, 120],
   roofed: [170, 90, 220, 150],
+  // Irrigation: the dry ground one level or six tiles of water would wet, and the ground dry for good (moist ground
+  // keeps its own look, D287)
+  near: [255, 200, 40, 190],
+  dry: [96, 78, 70, 170],
 };
 
 /** The overlay's colour without its transparency: a swatch looks the same on any panel, light or dark. */
@@ -57,6 +63,11 @@ export function LayerLegend({ kind, layers }: { kind: LayerKind; layers: WaterLa
         <>
           <CaptionRow color={LAYER_COLORS.badwater}>Badwater</CaptionRow>
           <CaptionRow color={LAYER_COLORS.soil}>Contaminated soil</CaptionRow>
+        </>
+      ) : kind === "irrigation" ? (
+        <>
+          <CaptionRow color={LAYER_COLORS.near}>Dry: one level or six tiles short of water</CaptionRow>
+          <CaptionRow color={LAYER_COLORS.dry}>Dry for good</CaptionRow>
         </>
       ) : kind === "roofed" ? (
         layers.roofed.length ? (

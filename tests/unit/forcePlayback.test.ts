@@ -27,7 +27,7 @@ function wait(ms: number, stall = false, frame = 16): void {
   }
 }
 
-type Verb = Exclude<ForceMoment["verb"], "rift" | "deposit">; // New Rift and Deposit effects belong to the page session.
+type Verb = Exclude<ForceMoment["verb"], "rift" | "deposit" | "roll">; // New Rift and Deposit effects belong to the page session; Roll has none of its own.
 
 /** The ground every moment acts on: level 5 everywhere, 64 tiles across (an erosion's stones land on it). */
 const SIDE = 64;
