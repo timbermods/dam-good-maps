@@ -1332,8 +1332,9 @@ plates), and lays the gate's own over it in the plan's frame (`gateZones`: valle
   laid. `tools/premise-gate-map.ts` writes a seed's map, `tools/capture-gate.ts` renders its opening camera
   (`docs/sheets/wall-gate-relief.jpg`, seed 1 at 192²).
 - **Measured** (seeds 1 to 12 at 128², 1 to 4 at 192², 1 to 3 at 256²; River Valley's style). **The start's numbers**
-  (the shared checks): level land 267 to 337 within 20 tiles' walk (113 asked), farmland 265 to 339 (100), wood 199 to
-  687 logs (200), wood floor 205 to 857 (178), reach 2,356 to 7,360 (1,300 aimed at); all five pass on 18 of 19. Every
+  (the shared checks, before D515): level land 267 to 337 within 20 tiles' walk, farmland 265 to 339, wood 199 to 687
+  logs, wood floor 205 to 857, reach 2,356 to 7,360; against D515's floors (the bench 640, walkable land 1,300, below)
+  the bench failed, which "As built (bench)" answers. Every
   land invariant holds on all 19; every blocking check passes on 16 (128² seed 1 `water.settles`, seed 3 `start.wood`
   199, 192² seed 4 `start.food` 22 bushes of 30: the mode would draw the next plan). Settled on the land: the lake 0.05 to
   0.6 over its sill, the Still Pool within 0.25 of it, the Gate and the leat dry, no stray water, nothing on the map's edge
@@ -1369,8 +1370,8 @@ name, style, landmark, first rung and line, in the map's own names).
   ground beside the wall), and the basin's far side is warped plates from two to six over its nearest bed, under the
   sill + 1. Terrain has one material in the game (D496), so its look is its shape; the plates read broad, not varied.
   `docs/sheets/wall-gate-works.jpg` is seed 1 at 192² from the opening camera.
-- **Measured** (the same 19 seeds): the start's numbers, level land 267 to 337, farmland 265 to 339, wood 56 to 848, wood
-  floor 240 to 1,408, reach 2,356 to 7,360; all five pass on 18. Every blocking check passes on 15 (128² seed 1
+- **Measured** (the same 19 seeds, before D515's floors; "As built (bench)" has them against the new): level land 267 to
+  337, farmland 265 to 339, wood 56 to 848, wood floor 240 to 1,408, reach 2,356 to 7,360. Every blocking check passes on 15 (128² seed 1
   `water.settles`, seeds 3 and 10 `start.food`, 256² seed 2 `start.wood`: stage 6's planting, which moves with the works'
   sites). Gains: the Gate opened greens 685 to 861 at 128², 1,148 to 1,189 at 192², 1,604 to 2,008 at 256²; the leat
   opened 522 to 3,495, 1,347 to 2,091 and 1,967 to 2,509; the megadam holds 1,828 to 2,161, 2,405 to 2,726 and 3,099 to
@@ -1381,6 +1382,46 @@ name, style, landmark, first rung and line, in the map's own names).
   route a wet link into a dry link's bed (`levels.ts` `route`, `raster/channels.ts`), or a seep source capped as the
   game caps seeps (a `Source.seep` the table and `stageModel` read). The Still Pool's badtide (under 20 % bad with its
   levee) and the whole shares are proofs, not built.
+
+**As built (the bench; planning's rulings of 2026-11-11 on D515).** The start's floors are the shared gate's
+(`validate/playability.ts` `START_FLOORS`, milestone's #1015, not yet on dev): the bench (dry ground at the start's level
+joined to it without a slope) 640 on a Normal start area (480 Small, 980 Large), walkable land 1,300, blocking; fast
+species at least 0.4 of the logs in reach; a forester's plot of 100 moist tiles beyond the farms' 100. The Gate holds no
+floor of its own; it builds for them:
+
+- **The bench outranks the lake**: the lake stands off the wall's foot by the rows its pocket (between the drain bay and
+  the Gate's arm, or, mirrored, the lake's open end) needs to hold 1.1 × the larger of the bench's floor and the walk
+  stage 3 reads before any slope stands (#1015: three quarters of 1,300); the pocket is the lake's meadow at the sill + 1,
+  so it is level; the lake narrows where the valley has no more room (`BENCH_FLOOR`, `WALK_READ`; read from
+  `START_FLOORS` once it is on dev). The spur runs 14 rows past the Low River (a lake stood off the wall left the gorge by
+  the spur's end, and the valley at the megadam's water walked round it).
+- **The basin a bowl in the first frame** (planning's ruling 4): its floor on levels two apart from the bed's own (3, 5,
+  7, under the sill + 1), so every terrace and plate edge is a step of two and casts an edge; its beds cut three wide at
+  the least (the Pass Bed, the leat's one-wide channel, is cut at its bed beside it), the Pass Bed starting at the sill −
+  2 as the Gate Bed does; `basin.terraces` asks 60 % of the floor's steps two levels or more (MAPCRAFT's one-level
+  share is the valley's, not this floor's).
+- **The Veil's bar stands** (planning's ruling 2): `gateMap.ts` is the mode's loop, a plan at a time to `PLAN_TRIES`
+  and three settles: a plan whose water, land or start fails, whose map fails a blocking check, or whose Veil drops
+  under its height less 0.5 on the settled water (`veil.settled`, `veilDrop`) is refused and the next drawn.
+- **The camera** (planning's ruling 3): `tools/capture-gate.ts` uses the game's opening camera exactly as the showcase
+  kit's `ours` first view does (yaw −(90 × the start's turn + 35)°, pitch 60°, the opening camera's distance and target;
+  The Gate's own `tools/showcase/the-gate.ts` and Four Lakes' at Cw0 give yaw −35°). The game turns its first camera 35°
+  clockwise from the start's orientation, so a wall on the grid stands 35° off the look in the hand map too: no
+  orientation makes it square. In the first frame the Veil's middle stands at u −0.14 to −0.29 on the 19 seeds (the
+  round's lip −0.39 to 0.06, its middle −0.17): near the middle, as in the hand map. `wall.camera`'s 60 % stands.
+- **`water.settles` on dev's 128² seed 1** (planning's ruling 5): nothing oscillates. Run on, the water settles at 4,736
+  ticks, 128 (a sixth of a day) past the limit of 4,608: what still moves is the Veil's water running down the drowned
+  river's ribbon from its foot along the drain bay to the lake, 2.5 deep, on a gradient that creeps (47 tiles, under
+  0.0005 a half-day). That plan is no longer drawn; with the bench seed 1 settles in time.
+- **Measured** against #1015's checks (its compiled checks merged onto this branch locally; the same 19 seeds: 12 at
+  128², 4 at 192², 3 at 256²): every map passes every blocking check and every land invariant, and settles as planned.
+  The bench 1,230 to 2,711 (640 asked), walkable land 3,071 to 8,596 (1,300), wood 268 to 630 (200), fast wood 0.45 to
+  1 of the logs (0.4), the forester's plot 416 to 531 (100), farmland 516 to 631 (100). 128² seeds 3 and 12 draw their
+  second plan (`veil.settled`: 5.39 for 5.5, 6.36 for 6.5).
+- **Short**: the basin still reads in the still as a broad grey plain beyond the crest: the camera looks over the wall,
+  whose back face, the basin's, faces away, so nothing parts the floor from the crest but grey on grey; the far rim's
+  cliff stands at the frame's top edge. The ground's dressing is the shared "places" round's. Three leats at 128² green
+  688 to 759 of their 817 (the lake's move shortened their reach). `docs/sheets/wall-gate-bench.jpg` is seed 1 at 192².
 
 ### 5.2 The island sea
 
@@ -1507,7 +1548,7 @@ Each step is one PR that leaves dev green and is useful by itself.
 | 8 | **The proofs and the judging tools**: background proof rows, `tools/premise-batch.ts`, tiers 1 to 4 run and recorded | The premise proved true on every map a player opens | 7. The first ten cycles (#927, in work) for the cycles' proof; not blocked |
 | 9 | **Core built** (theme × premise as two choices, the style seam, the pair refusals, the settings' mapping of section 1.3 complete, the card's words; section 1.5). **On the page**: the two pickers beside Generate, each with Any; the settings greyed by `premiseSettings`; the map card from `info.premise.card` | Players get it | 8 passed; the page session |
 | 10 | **The ladder's readout in the editor** (section 8) | The editor's missing step 5 | 5; the page session |
-| 11 | **Plan, water, land and works built** (stages 0 to 4 and the map, not offered: §5.1 "As built"). **The wall with one gate** (§5.1, built by hand as The Gate); its water, relief and works next | A second idea; Generate can surprise | 9 |
+| 11 | **Plan, water, land, works and bench built** (stages 0 to 4 and the map, not offered: §5.1 "As built"). **The wall with one gate** (§5.1, built by hand as The Gate); its water, relief and works next | A second idea; Generate can surprise | 9 |
 | 12 | **The sketch start** (section 8) | The editor's missing steps 1 and 2 | 2, 3 |
 | 13 | **The island sea** | A third idea; the first with a real delay | 11, 8 |
 

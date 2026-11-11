@@ -5,9 +5,9 @@
 //
 // - the wall: every tile of the crest band at the crest's level, the Pass's span at the Pass, both faces one sheer step
 //   (no ledge): the valley's foot capped a step of 8 or more under the crest, the basin's floor 9 or more under it;
-// - the basin: a bowl under the lake's sill + 1, its floor in river terraces along the Gate Bed and the Pass Bed (a low
-//   terrace two over the bed within 4 tiles, one more within 10, then broad unequal flats out to the rim): the steps
-//   follow the beds, never the wall;
+// - the basin: a bowl under the lake's sill + 1, its beds cut three wide at the least, its floor in river terraces along
+//   the Gate Bed and the Pass Bed (a low terrace two over the bed within 4 tiles, two more within 10, then broad plates
+//   at either level out to the rim): the steps follow the beds, never the wall, two levels each;
 // - the rim along the basin's far edges and down its sides to the wall's back, sheer, but for the one notch;
 // - the valley closed at the megadam's level all round but for the Low River's gorge: a band along its map edges
 //   stands a level over the megadam's water where the shared outlands fall away to the edge.
@@ -33,7 +33,7 @@ import { bandAt, gateOf, localRuns, onLocal, RIM_DEPTH, NOTCH, turnOf, type Gate
 
 /** The basin's terraces along its beds (§5.1): a low terrace `low` over the bed within `lowReach` tiles, one more
  *  within `highReach`, then broad warped plates from `low` to `low + flats` over the bed, under the sill + 1. */
-export const TERRACES = { low: 2, lowReach: 4, high: 3, highReach: 10, flats: 4, plate: 26 } as const;
+export const TERRACES = { bedReach: 1, low: 2, lowReach: 4, high: 4, highReach: 10, plate: 26 } as const;
 /** How far into the valley the wall's foot is held a step of `VALLEY_FACE` under the crest, rising a level every
  *  `FOOT_RISE` tiles past it. */
 const FOOT = { reach: 6, rise: 3 } as const;
@@ -128,14 +128,19 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
       else {
         const d = dist[i];
         const b = bed[i] === bed[i] && d < Infinity ? bed[i] : BED_FLOOR;
-        // (past the terraces broad warped plates from the low terrace's level to the sill + 1: unequal flats, not one
-        // level at the cap)
+        // (the beds cut three wide at the least: the Pass Bed is the leat's channel, one wide, and reads as a dry river
+        // only at three; then the terraces in steps of two so each casts an edge, planning's ruling; past them broad
+        // warped plates at the low or the high terrace's level, under the sill + 1)
         const wx = x + 9 * fbm(sWarp, x, y, 30, 2);
         const wy = y + 9 * fbm(sWarp + 1, x, y, 30, 2);
-        const plate = Math.floor(((fbm(sPlate, wx, wy, TERRACES.plate, 2) + 1) / 2) * (TERRACES.flats + 1) * 0.999);
-        const far = TERRACES.low + Math.max(0, Math.min(TERRACES.flats, plate));
-        const lift = d <= TERRACES.lowReach ? TERRACES.low : d <= TERRACES.highReach ? TERRACES.high : Math.max(TERRACES.low, Math.min(far, TERRACES.high + TERRACES.flats));
-        h[i] = Math.max(BED_FLOOR, Math.min(top, b + lift));
+        const high = fbm(sPlate, wx, wy, TERRACES.plate, 2) > 0;
+        // (on levels two apart from the floor's own, `BED_FLOOR`: a bed falls a level at a time, and terraces read off it
+        // stepped by one where it did)
+        const step = (v: number) => BED_FLOOR + 2 * Math.ceil((v - BED_FLOOR) / 2);
+        const low = step(b + TERRACES.low);
+        const cap = top - ((top - BED_FLOOR) % 2);
+        const upper = low + 2 <= cap ? low + 2 : low;
+        h[i] = d <= TERRACES.bedReach ? Math.max(BED_FLOOR, b) : d <= TERRACES.lowReach ? Math.min(cap, low) : d <= TERRACES.highReach || high ? Math.min(cap, upper) : Math.min(cap, low);
       }
     } else {
       // the valley: the wall's foot a sheer step under the crest, rising slowly away from it (read from the nearest
@@ -336,7 +341,8 @@ const basinBowl: GateLandInvariant = {
       if (v >= W - 1 && heights[i] < RIM_LEAST) open.push(u);
       if (rim[i]) {
         if (heights[i] < RIM_LEAST && !r.fixed[i]) return fail(`The rim stands at ${heights[i]} at ${x}, ${y} (${RIM_LEAST} or more)`);
-      } else if (!r.fixed[i] && heights[i] > g.sill + 1) return fail(`The basin's floor stands at ${heights[i]} at ${x}, ${y}, over the lake's sill + 1 (${g.sill + 1})`);
+      } else if (!r.fixed[i] && r.heights[i] <= g.sill + 1 && heights[i] > g.sill + 1) return fail(`The basin's floor stands at ${heights[i]} at ${x}, ${y}, over the lake's sill + 1 (${g.sill + 1})`);
+      // (a tile stage 1's guard holds over the sill + 1 is a bed's bank, the leat's cascade down the basin's face)
     }
     // (the far edge's open tiles one run, as wide as the notch and two more at most)
     open.sort((p, q) => p - q);
@@ -347,9 +353,9 @@ const basinBowl: GateLandInvariant = {
 };
 const RIM_LEAST = 12;
 
-/** `basin.terraces` (§5.1): a floor tile within 4 of a dry bed stands at most two over it, within 10 at most three (the
- *  steps follow the bed, never the wall), and MAPCRAFT §5's one-level steps are most of the floor's steps (60 % or
- *  more). */
+/** `basin.terraces` (§5.1, planning's ruling: steps of two so each casts an edge from the opening camera): a floor tile
+ *  within 4 of a dry bed stands at most three over it, within 10 at most five (the steps follow the bed, never the wall),
+ *  and most of the floor's steps (60 % or more) are two levels or more. */
 const basinTerraces: GateLandInvariant = {
   id: "basin.terraces",
   test({ plan, water, heights }) {
@@ -363,19 +369,19 @@ const basinTerraces: GateLandInvariant = {
     for (let i = 0; i < W * H; i++) {
       if (zone[i] !== 2 || rim[i] || r.fixed[i]) continue;
       const over = heights[i] - bed[i];
-      if (dist[i] <= TERRACES.lowReach && over > TERRACES.low) return fail(`A floor tile ${dist[i].toFixed(1)} from its bed stands ${over} over it (${TERRACES.low} within ${TERRACES.lowReach})`);
-      if (dist[i] <= TERRACES.highReach && over > TERRACES.high) return fail(`A floor tile ${dist[i].toFixed(1)} from its bed stands ${over} over it (${TERRACES.high} within ${TERRACES.highReach})`);
+      if (dist[i] <= TERRACES.lowReach && over > TERRACES.low + 1) return fail(`A floor tile ${dist[i].toFixed(1)} from its bed stands ${over} over it (${TERRACES.low + 1} within ${TERRACES.lowReach})`);
+      if (dist[i] <= TERRACES.highReach && over > TERRACES.high + 1) return fail(`A floor tile ${dist[i].toFixed(1)} from its bed stands ${over} over it (${TERRACES.high + 1} within ${TERRACES.highReach})`);
       for (const j of [i + 1, i + W]) {
         if (j >= W * H || (j === i + 1 && (i + 1) % W === 0) || zone[j] !== 2 || rim[j] || r.fixed[j] || heights[j] === heights[i]) continue;
         steps++;
-        if (Math.abs(heights[j] - heights[i]) === 1) ones++;
+        if (Math.abs(heights[j] - heights[i]) >= 2) ones++;
       }
     }
-    if (steps && ones / steps < ONE_STEPS) return fail(`${Math.round((100 * ones) / steps)} % of the basin floor's steps are one level (${100 * ONE_STEPS} % or more)`);
+    if (steps && ones / steps < TWO_STEPS) return fail(`${Math.round((100 * ones) / steps)} % of the basin floor's steps are two levels or more (${100 * TWO_STEPS} % or more)`);
     return OK;
   },
 };
-const ONE_STEPS = 0.6;
+const TWO_STEPS = 0.6;
 
 /** `valley.enclosed`, its land half (§5.1): the valley's floor closed at the megadam's level all round but for the Low
  *  River's gorge: from the lake, over ground at or under the megadam's water, neither the map's edge nor the basin is
