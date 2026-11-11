@@ -24,5 +24,6 @@ import type { CompareSlice } from "./compare/useCompare";
 import type { BlockSlice } from "./block/useBlockTool";
 import type { HideObjectsSlice } from "./view/useHideObjects";
 import type { LandSharesSlice } from "./view/useLandShares";
+import type { RidgeSlice } from "./ridge/useRidge";
 
-export type Ed = LandSharesSlice & SessionSlice & PaintSlice & ViewSlice & SourcePointerSlice & MarkersSlice & StartHintSlice & RemoveSourcesSlice & ShelfSlice & DeleteSlice & ForcePrefsSlice & ForceRunSlice & ForcePointerSlice & RowsSlice & ReadySlice & SelectSlice & ViewSyncSlice & StartSlice & BlockSlice & TestHookSlice & SaveSlice & CompareSlice & CollabSlice & HideObjectsSlice;
+export type Ed = LandSharesSlice & SessionSlice & PaintSlice & ViewSlice & SourcePointerSlice & MarkersSlice & StartHintSlice & RemoveSourcesSlice & ShelfSlice & DeleteSlice & ForcePrefsSlice & ForceRunSlice & ForcePointerSlice & RowsSlice & ReadySlice & SelectSlice & ViewSyncSlice & StartSlice & BlockSlice & TestHookSlice & SaveSlice & CompareSlice & CollabSlice & HideObjectsSlice & RidgeSlice;
