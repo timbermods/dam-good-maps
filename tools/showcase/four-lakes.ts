@@ -17,6 +17,7 @@ import { openingCamera, placeComponents, startMiddleTile, StartWaterDays, startW
 import { applyOps, checksOf, emptySimulationSingletons, exportFiles, fallsOf, GAME_VERSION, HazardRun, LAYERS, MapSession, rowOf, TICKS_PER_DAY, voxelsFromHeights, writeTimber, type TimberFile } from "./core";
 import { CHANNELS, designLand, FALLS, fbm, GREAT_ROWS, H, LAKES, measureLand, N, START_AT, TARNS, W, type Land } from "./four-lakes-design";
 import { writePicture } from "./four-lakes-view";
+import { hypot, sqrt } from "../../src/core/math/portable";
 
 const arg = (name: string, f: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -426,7 +427,7 @@ function plant(s: MapSession, land: Land): void {
   const moist0 = still.size ? hazardSoil(b.waterModel, b.heights, { depth: water0, contamination: b.contamination, stack: null } as never, b.entities as never).moisture : b.moisture;
   const { dist, over } = waterReach(s, still);
   const moist = (i: number) => b.moisture[i] > 0 && moist0[i] > 0 && !(b.water[i] > 0);
-  const nearStart = (i: number, r: number) => Math.hypot((i % W) - st.x, Math.floor(i / W) - st.y) < r;
+  const nearStart = (i: number, r: number) => hypot((i % W) - st.x, Math.floor(i / W) - st.y) < r;
   const n = (i: number, scale: number, seed: number) => fbm(i % W, Math.floor(i / W), scale, 9000 + seed, 2);
   const oldBed = (i: number) => land.channel[i] > 0 && (CHANNELS[land.channel[i] - 1].name === "Old channel" || (CHANNELS[land.channel[i] - 1].brook !== undefined && !(b.water[i] > 0.05) && n(i, 9, 44) > 0.1));
   // how near the old channel: dead woods stand along it
@@ -531,7 +532,7 @@ function plant(s: MapSession, land: Land): void {
   const before = new Set(s.built.entities.map((e) => e.id));
   void oldDist;
   void dBasin;
-  const far = (i: number, j: number) => Math.hypot((i % W) - (j % W), Math.floor(i / W) - Math.floor(j / W));
+  const far = (i: number, j: number) => hypot((i % W) - (j % W), Math.floor(i / W) - Math.floor(j / W));
   const hash = (i: number, seed: number) => Math.imul(i ^ Math.imul(seed, 0x9e3779b1), 0x85ebca6b) >>> 0;
   /** Up to `max` centres among `cand`, in a seeded order, each at least `apart` from the others and from `taken`. */
   const centres = (cand: number[], apart: number, max: number, seed: number, taken: number[] = []): number[] => {
@@ -576,7 +577,7 @@ function plant(s: MapSession, land: Land): void {
   }
   log(`  dead woods at: ${woodsAt.join("; ")}; and the one by the old aqueduct`);
   // the dead wood: one stand of it, by the old aqueduct on the dry benches
-  count.dead += paint("trees", "Pine", (i) => dry(i) && Math.hypot((i % W) - 157, Math.floor(i / W) - 44) < 10 && oldDist[i] > 1, 0.6, 23, "The dead wood by the old aqueduct");
+  count.dead += paint("trees", "Pine", (i) => dry(i) && hypot((i % W) - 157, Math.floor(i / W) - 44) < 10 && oldDist[i] > 1, 0.6, 23, "The dead wood by the old aqueduct");
   const dead = s.built.entities.filter((e) => !before.has(e.id) && (e.template === "Birch" || e.template === "Oak" || e.template === "Pine"));
   if (dead.length) {
     const r = s.applyAll(dead.map((e) => ({ op: "setEntityProps", params: { id: e.id, components: { LivingNaturalResource: { IsDead: true } } } })) as never, "user", "The old channel's wood is dead");
@@ -769,7 +770,7 @@ function walkRoute(s: MapSession, land: Land, places: { name: string; tiles: num
     const near = around(place.tiles);
     const cx = place.tiles.reduce((a, i) => a + (i % W), 0) / place.tiles.length;
     const cy = place.tiles.reduce((a, i) => a + Math.floor(i / W), 0) / place.tiles.length;
-    const far = (i: number) => Math.hypot((i % W) - cx, Math.floor(i / W) - cy);
+    const far = (i: number) => hypot((i % W) - cx, Math.floor(i / W) - cy);
     let found = Infinity;
     for (let round = 0; round < (place.far ? 1 : 40); round++) {
       const b = s.built;
@@ -930,7 +931,7 @@ function placeObjects(s: MapSession, land: Land): void {
       let far = -1;
       for (const p of flank)
         for (const q of flank) {
-          const d = Math.hypot((p % W) - (q % W), Math.floor(p / W) - Math.floor(q / W));
+          const d = hypot((p % W) - (q % W), Math.floor(p / W) - Math.floor(q / W));
           if (d > far) (far = d), (pair = [p, q]);
         }
       if (!pair) continue;
@@ -942,7 +943,7 @@ function placeObjects(s: MapSession, land: Land): void {
       const beyond = (p: number): number => {
         const px = p % W;
         const py = Math.floor(p / W);
-        const len = Math.hypot(px - cx, py - cy) || 1;
+        const len = hypot(px - cx, py - cy) || 1;
         const qx = px + Math.round((px - cx) / len);
         const qy = py + Math.round((py - cy) / len);
         const q = qy * W + qx;
@@ -1066,7 +1067,7 @@ function benchReport(s: MapSession, land: Land): void {
     const x = i % W;
     for (const j of [i - 1, i + 1, i - W, i + W]) if (j >= 0 && j < N && Math.abs((j % W) - x) <= 1 && !seen[j] && h[j] === st.z && !(b.water[j] > 0.05)) (seen[j] = 1), q.push(j);
   }
-  const near = q.filter((i) => Math.hypot((i % W) - st.x, Math.floor(i / W) - st.y) <= 12);
+  const near = q.filter((i) => hypot((i % W) - st.x, Math.floor(i / W) - st.y) <= 12);
   const share = (m: ArrayLike<number>, tiles: number[]) => Math.round((100 * tiles.filter((i) => m[i] > 0).length) / tiles.length);
   log(`  the start's bench: ${q.length} level tiles at level ${st.z} (${near.length} within 12 tiles); moist now ${share(b.moisture, q)} % (${share(b.moisture, near)} % within 12)`);
   const run = new HazardRun(b.waterModel, { depth: b.water, contamination: b.contamination, stack: (b.settle as unknown as { stack?: unknown }).stack ?? null } as never, "drought", 9);
@@ -1109,7 +1110,7 @@ function firstBadtide(s: MapSession, land: Land): void {
     const x = i % W;
     for (const j of [i - 1, i + 1, i - W, i + W]) if (j >= 0 && j < N && Math.abs((j % W) - x) <= 1 && !seen[j] && s.built.heights[j] === st.z && !(s.built.water[j] > 0.05)) (seen[j] = 1), q.push(j);
   }
-  const near = q.filter((i) => Math.hypot((i % W) - st.x, Math.floor(i / W) - st.y) <= 12);
+  const near = q.filter((i) => hypot((i % W) - st.x, Math.floor(i / W) - st.y) <= 12);
   const full = { depth: Float64Array.from(s.built.water), contamination: Float64Array.from(s.built.contamination), stack: (s.built.settle as unknown as { stack?: unknown }).stack ?? null };
   if (land.still.pool.length) {
     const cam = openingCamera(st);
@@ -1214,17 +1215,17 @@ function play(s: MapSession, land: Land): void {
       const x = i % W;
       for (const j of [i - 1, i + 1, i - W, i + W]) if (j >= 0 && j < N && Math.abs((j % W) - x) <= 1 && !seen[j] && h[j] === st.z && !(b.water[j] > 0.05)) (seen[j] = 1), q.push(j);
     }
-    const near = (r: number) => q.filter((i) => Math.hypot((i % W) - st.x, Math.floor(i / W) - st.y) <= r).length;
-    const on = (t: string, r: number) => b.entities.filter((e) => e.template === t && seen[e.y * W + e.x] && Math.hypot(e.x - st.x, e.y - st.y) <= r).length;
+    const near = (r: number) => q.filter((i) => hypot((i % W) - st.x, Math.floor(i / W) - st.y) <= r).length;
+    const on = (t: string, r: number) => b.entities.filter((e) => e.template === t && seen[e.y * W + e.x] && hypot(e.x - st.x, e.y - st.y) <= r).length;
     const taken = new Set(b.entities.map((e) => e.y * W + e.x));
-    const free = (r: number) => q.filter((i) => Math.hypot((i % W) - st.x, Math.floor(i / W) - st.y) <= r && !taken.has(i)).length;
+    const free = (r: number) => q.filter((i) => hypot((i % W) - st.x, Math.floor(i / W) - st.y) <= r && !taken.has(i)).length;
     log(`  the start's bench: ${q.length} level tiles joined to it at level ${st.z}; within 14 tiles ${near(14)} (${free(14)} free of plants), within 8 tiles ${near(8)} (${free(8)} free); on it within 20: ${on("BlueberryBush", 20)} berry bushes, ${on("Oak", 20)} oaks, ${on("Pine", 20)} pines, ${on("Birch", 20)} birches`);
   }
   // a Normal drought at its longest (9 days), day by day: the water a pump at the start still draws, what withers
   {
     const run = new HazardRun(b.waterModel, { depth: b.water, contamination: b.contamination, stack: (b.settle as unknown as { stack?: unknown }).stack ?? null } as never, "drought", 9);
     const plants = b.entities.filter((e) => DAYS_TO_DIE_DRY[e.template] !== undefined && !(e.components as { LivingNaturalResource?: { IsDead?: boolean } }).LivingNaturalResource?.IsDead).map((e) => ({ tile: e.y * W + e.x, template: e.template }));
-    const nearStart = plants.map((p) => Math.hypot((p.tile % W) - st.x, Math.floor(p.tile / W) - st.y) <= 20);
+    const nearStart = plants.map((p) => hypot((p.tile % W) - st.x, Math.floor(p.tile / W) - st.y) <= 20);
     const soils: { moisture: ArrayLike<number>; contamination: ArrayLike<number> }[] = [{ moisture: b.moisture, contamination: a.soilContamination }];
     const pump = (depth: ArrayLike<number>, r: number) => {
       let n = 0;
@@ -1232,7 +1233,7 @@ function play(s: MapSession, land: Land): void {
       let nearest = Infinity;
       for (let i = 0; i < N; i++) {
         if (!(depth[i] >= 0.3)) continue;
-        const d = Math.hypot((i % W) - st.x, Math.floor(i / W) - st.y);
+        const d = hypot((i % W) - st.x, Math.floor(i / W) - st.y);
         if (d > r) continue;
         n++;
         vol += depth[i];
@@ -1390,7 +1391,7 @@ function irrigation(s: MapSession, land: Land): void {
       const k = land.channel[row[0]];
       const set = new Set(row);
       const bed: number[] = [];
-      for (let i = 0; i < N; i++) if (land.channel[i] === k && !set.has(i) && row.some((r) => Math.hypot((r % W) - (i % W), Math.floor(r / W) - Math.floor(i / W)) <= 5)) bed.push(i);
+      for (let i = 0; i < N; i++) if (land.channel[i] === k && !set.has(i) && row.some((r) => hypot((r % W) - (i % W), Math.floor(r / W) - Math.floor(i / W)) <= 5)) bed.push(i);
       const banks = new Map<number, number>();
       for (const i of bed) for (const j of [i - 1, i + 1, i - W, i + W]) if (!land.channel[j] && !land.lake[j]) banks.set(s.built.heights[j], (banks.get(s.built.heights[j]) ?? 0) + 1);
       log(`    diag ${w.key}: row ${row.map((i) => `${i % W},${Math.floor(i / W)}:${s.built.heights[i]}+${s.built.water[i].toFixed(2)}`).join(" ")}`);

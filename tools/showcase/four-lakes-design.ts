@@ -11,6 +11,8 @@
 // outlines and levels (`bowl`), ground that rolls in one-level steps (`rise` on warped distance), a lake set
 // to a level with its sill (`Fall`), a channel along a path with a bed profile (`Channel`).
 
+import { hypot, sqrt } from "../../src/core/math/portable";
+
 export const W = 192;
 export const H = 192;
 export const N = W * H;
@@ -70,13 +72,13 @@ function segDist(px: number, py: number, ax: number, ay: number, bx: number, by:
   t = t < 0 ? 0 : t > 1 ? 1 : t;
   const dx = px - (ax + vx * t);
   const dy = py - (ay + vy * t);
-  return { d: Math.sqrt(dx * dx + dy * dy), t };
+  return { d: sqrt(dx * dx + dy * dy), t };
 }
 
 /** Signed distance to a chain of capsules whose radius runs along it: below 0 inside. */
 function spineDist(px: number, py: number, spine: readonly Sp[]): number {
   let best = Infinity;
-  if (spine.length === 1) return Math.hypot(px - spine[0][0], py - spine[0][1]) - spine[0][2];
+  if (spine.length === 1) return hypot(px - spine[0][0], py - spine[0][1]) - spine[0][2];
   for (let k = 0; k + 1 < spine.length; k++) {
     const a = spine[k];
     const b = spine[k + 1];
@@ -95,7 +97,7 @@ function pathDist(px: number, py: number, path: readonly Pt[]): { d: number; s: 
   for (let k = 0; k + 1 < path.length; k++) {
     const a = path[k];
     const b = path[k + 1];
-    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const len = hypot(b[0] - a[0], b[1] - a[1]);
     const { d, t } = segDist(px, py, a[0], a[1], b[0], b[1]);
     if (d < best) {
       best = d;
@@ -108,7 +110,7 @@ function pathDist(px: number, py: number, path: readonly Pt[]): { d: number; s: 
 
 export function pathLength(path: readonly Pt[]): number {
   let run = 0;
-  for (let k = 0; k + 1 < path.length; k++) run += Math.hypot(path[k + 1][0] - path[k][0], path[k + 1][1] - path[k][1]);
+  for (let k = 0; k + 1 < path.length; k++) run += hypot(path[k + 1][0] - path[k][0], path[k + 1][1] - path[k][1]);
   return run;
 }
 
@@ -635,7 +637,7 @@ export function designLand(): Land {
       // the high ground rolls a little; the meadows keep a few knolls (the water still reaches a level up, 9 tiles)
       // (r12: ground no day-1 water reaches is broad flat benches divided by bold scarps, in threes: the game has one
       // dry tone, so thin one-level bands on it read as contour lines, and a dry bed among them as a crack)
-      const dryLand = nearWet > 19 + 4 * fbm(x, y, 23, SEED + 27, 2) && Math.hypot(x - START_AT[0], y - START_AT[1]) > 30;
+      const dryLand = nearWet > 19 + 4 * fbm(x, y, 23, SEED + 27, 2) && hypot(x - START_AT[0], y - START_AT[1]) > 30;
       if (!dryLand) land += 0.7 * fbm(x, y, 21, SEED + 7, 3) * Math.min(1, Math.max(0, (near - 18) / 6));
       const scarp = Math.max(-1, Math.min(1, fbm(x, y, 44, SEED + 19, 2) * 60));
       land += 1.3 * scarp * Math.min(1, Math.max(0, (near - 22) / 5));
@@ -763,7 +765,7 @@ export function designLand(): Land {
       const y = (i - x) / W;
       if (k === 1 && y >= greatWall(x) - 0.5) continue; // Weir Lake stops at the Great Fall's cliff
       let isle = Infinity;
-      for (const s of L.islands ?? []) isle = Math.min(isle, Math.hypot((x + 0.5 - s[0]) * 0.7 + (y + 0.5 - s[1]) * 0.35, (y + 0.5 - s[1]) * 0.95 - (x + 0.5 - s[0]) * 0.3) - s[2] + 2.6 * fbm(x, y, 7, SEED + 45, 2));
+      for (const s of L.islands ?? []) isle = Math.min(isle, hypot((x + 0.5 - s[0]) * 0.7 + (y + 0.5 - s[1]) * 0.35, (y + 0.5 - s[1]) * 0.95 - (x + 0.5 - s[0]) * 0.3) - s[2] + 2.6 * fbm(x, y, 7, SEED + 45, 2));
       if (isle < 0) {
         h[i] = L.sill + 1;
         channel[i] = 0;
@@ -780,12 +782,12 @@ export function designLand(): Land {
       // (r12: an empty basin's floor is flat with uneven hollows, its deepest by its seep: no rings)
       if (L.dry) {
         const land0 = LANDINGS[L.name];
-        const landing = BEACH > 0 && land0 !== undefined && Math.hypot(x + 0.5 - land0[0], y + 0.5 - land0[1]) < land0[2];
+        const landing = BEACH > 0 && land0 !== undefined && hypot(x + 0.5 - land0[0], y + 0.5 - land0[1]) < land0[2];
         const shelf = BEACH > 0 ? landing : !(-d > 2.4 + 1.2 * fbm(x, y, 5, SEED + 52, 2));
-        depth = Math.hypot(x + 0.5 - L.seed[0] - 1.5, y + 0.5 - L.seed[1] + 1) + 1.2 * fbm(x, y, 4, SEED + 55, 2) < 2.3 ? 2 : shelf ? 0 : 1;
+        depth = hypot(x + 0.5 - L.seed[0] - 1.5, y + 0.5 - L.seed[1] + 1) + 1.2 * fbm(x, y, 4, SEED + 55, 2) < 2.3 ? 2 : shelf ? 0 : 1;
       }
       // (the cove's head has a cut bank: deep water right at the meadow, so a pump there works through a drought)
-      if (k === 0 && Math.hypot(x + 0.5 - 69, y + 0.5 - 74) < 5.5) depth = 2;
+      if (k === 0 && hypot(x + 0.5 - 69, y + 0.5 - 74) < 5.5) depth = 2;
       // (the Great Fall's bay, all of Weir Lake that the game's first frame holds: shallow. In the game water five
       // deep is near black (luminance 18 of 255 in the r9 capture), water under half a level deep is the lightest
       // there is (65); the drowned river's line keeps a level and a half of water through the bay, which a pump at
@@ -837,7 +839,7 @@ export function designLand(): Land {
         const x = i % W;
         const y = (i - x) / W;
         const side = u < a ? a - 3.2 : b + 3.2;
-        const dist = Math.hypot(u - side, (v - 1.2) * 1.25);
+        const dist = hypot(u - side, (v - 1.2) * 1.25);
         const tier = dist + 0.9 * fbm(x, y, 5, SEED + 50, 2);
         // (the Low Fall's west shoulder is the start's bench itself beyond the two tiles of rock by the gap)
         const want = tier < 5.8 ? (F.name === "Low Fall" && u < a ? crest + 1 : crest + 2) : -99;
@@ -884,7 +886,7 @@ export function designLand(): Land {
       for (let v = -1; v >= -7; v--) {
         const i = at(u, v);
         if (i < 0) continue;
-        const e = Math.hypot((u - mid) / ((b - a) / 2 + 1.8), (v + 1) / 6.2);
+        const e = hypot((u - mid) / ((b - a) / 2 + 1.8), (v + 1) / 6.2);
         if (e > 1) continue;
         const inGap = u >= a && u <= b;
         if (!inGap && v === -1) continue;
