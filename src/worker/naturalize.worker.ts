@@ -8,29 +8,29 @@
 import { expose, transfer } from "comlink";
 import type { BrushParams } from "../core/features/raster/brush";
 import { hypot, sin } from "../core/math/portable";
-import { WeatherStroke, type WeatheredLand } from "../core/features/raster/remoteStroke";
+import { WeatherHost, WeatherStroke, type WeatheredLand } from "../core/features/raster/remoteStroke";
 import type { TerrainState } from "../core/features/raster/strokePreview";
 
-let stroke: WeatherStroke | null = null;
+// (each call may name its stroke, the edit queue's ticket: a call for a stroke no longer held changes nothing)
+const host = new WeatherHost();
 
 const sendLand = (r: WeatheredLand | null) => (r ? transfer(r, [r.heights.buffer as ArrayBuffer]) : null);
 
 const api = {
   /** A stroke begins: its settings, the ground under sources and objects it leaves, and the page's terrain and
-   *  shown heights (`heights` taken over). */
-  weatherBegin(settings: Omit<BrushParams, "dabs">, ground: [number, number, number][], state: TerrainState, heights: Uint8Array, W: number, H: number): void {
-    stroke = new WeatherStroke(settings, state, heights, W, H, ground);
+   *  shown heights (`heights` taken over); `id` names it. */
+  weatherBegin(settings: Omit<BrushParams, "dabs">, ground: [number, number, number][], state: TerrainState, heights: Uint8Array, W: number, H: number, id?: number): void {
+    host.begin(settings, ground, state, heights, W, H, id);
   },
-  weatherAdd: (dabs: number[], pressure?: number[]) => sendLand(stroke?.add(dabs, pressure) ?? null),
-  weatherFinish: (rigid: [number, number, number, number][]) => sendLand(stroke?.finish(rigid) ?? null),
+  weatherAdd: (dabs: number[], pressure?: number[], id?: number) => sendLand(host.add(dabs, pressure, id)),
+  weatherFinish: (rigid: [number, number, number, number][], id?: number) => sendLand(host.finish(rigid, id)),
   /** The stroke's end: the heights before the integrity pass, the protected tiles and the whole record. */
-  weatherEnd() {
-    const r = stroke?.end() ?? null;
-    stroke = null;
+  weatherEnd(id?: number) {
+    const r = host.end(id);
     return r ? transfer(r, [r.pre.buffer as ArrayBuffer, r.protect.buffer as ArrayBuffer]) : null;
   },
-  weatherCancel(): void {
-    stroke = null;
+  weatherCancel(id?: number): void {
+    host.cancel(id);
   },
 };
 

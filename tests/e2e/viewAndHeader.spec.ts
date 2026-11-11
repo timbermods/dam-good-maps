@@ -191,7 +191,7 @@ test("the start's reach shows while the pointer is on it; the brushes work only 
   expect(errors).toEqual([]);
 });
 
-test("D368 (5), Layout 2: the top right is one tidy grid: Top-down, Reset view and the compass, then the level control, Slow forces and Sound under them, on three columns 310px wide, one height and one gap throughout", async ({ page }, testInfo) => {
+test("D368 (5), Layout 2: the top right is one tidy grid: Top-down, Reset view, First view and the compass, then the level control, Slow forces and Sound under them, 310px wide, one height and one gap throughout", async ({ page }, testInfo) => {
   await open(page);
   await page.waitForTimeout(500);
   const box = async (loc: ReturnType<Page["locator"]>) => (await loc.boundingBox())!;
@@ -206,10 +206,11 @@ test("D368 (5), Layout 2: the top right is one tidy grid: Top-down, Reset view a
     const compass = await box(page.locator(".view3d-corner .compass"));
     const top = await box(page.getByRole("button", { name: "Top-down", exact: true }));
     const reset = await box(page.getByRole("button", { name: "Reset view", exact: true }));
+    const first = await box(page.getByRole("button", { name: "First view", exact: true }));
     const level = await box(page.locator(".view3d-corner .corner-level"));
     const slow = await box(page.getByRole("button", { name: "Slow forces", exact: true }));
     const sound = await box(page.getByRole("button", { name: "Sound", exact: true }));
-    return { view, compass, top, reset, level, slow, sound };
+    return { view, compass, top, reset, first, level, slow, sound };
   };
   const near = (a: number, b: number, what: string) => expect(Math.abs(a - b), `${what}: ${a} against ${b}`).toBeLessThanOrEqual(1);
   // at rest (the whole world showing) and with a layer cut (the level control keeps its width)
@@ -218,26 +219,28 @@ test("D368 (5), Layout 2: the top right is one tidy grid: Top-down, Reset view a
       await page.getByRole("button", { name: "Lower the visible layer" }).click();
       await expect(page.getByRole("group", { name: "Visible layers" }).locator("output")).not.toHaveText("∞");
     }
-    const { view, compass, top, reset, level, slow, sound } = await measure();
+    const { view, compass, top, reset, first, level, slow, sound } = await measure();
     const right = (b: { x: number; width: number }) => b.x + b.width;
     const bottom = (b: { y: number; height: number }) => b.y + b.height;
     // the compass in the corner of the view, the grid 310px wide
     near(view.x + view.width - right(compass), EDGE, `${state}: the compass's right margin`);
     near(compass.y - view.y, EDGE, `${state}: the compass's top margin`);
     near(right(compass) - top.x, WIDTH, `${state}: the grid's width`);
-    // row 1: Top-down, Reset view and the compass on one line, one height, one gap
-    for (const [name, b] of [["Top-down", top], ["Reset view", reset], ["the compass", compass], ["the level control", level], ["Slow forces", slow], ["Sound", sound]] as const) near(b.height, HEIGHT, `${state}: ${name}'s height`);
+    // row 1: Top-down, Reset view, First view and the compass on one line, one height, one gap
+    for (const [name, b] of [["Top-down", top], ["Reset view", reset], ["First view", first], ["the compass", compass], ["the level control", level], ["Slow forces", slow], ["Sound", sound]] as const) near(b.height, HEIGHT, `${state}: ${name}'s height`);
     near(top.y, compass.y, `${state}: Top-down on the compass's line`);
     near(reset.y, compass.y, `${state}: Reset view on the compass's line`);
     near(reset.x - right(top), GAP, `${state}: the gap between Top-down and Reset view`);
-    near(compass.x - right(reset), GAP, `${state}: the gap between Reset view and the compass`);
-    // row 2, one gap beneath, on row 1's columns: the level control under Top-down, Slow forces under Reset view,
-    // Sound under the compass
+    near(first.y, compass.y, `${state}: First view on the compass's line`);
+    near(first.x - right(reset), GAP, `${state}: the gap between Reset view and First view`);
+    near(compass.x - right(first), GAP, `${state}: the gap between First view and the compass`);
+    // row 2, one gap beneath, on row 1's columns: the level control under Top-down, Slow forces under Reset view and
+    // First view, Sound under the compass
     for (const b of [level, slow, sound]) near(b.y - bottom(compass), GAP, `${state}: the gap beneath`);
     near(level.x, top.x, `${state}: the level control under Top-down`);
     near(level.width, top.width, `${state}: the level control as wide as Top-down`);
     near(slow.x, reset.x, `${state}: Slow forces under Reset view`);
-    near(slow.width, reset.width, `${state}: Slow forces as wide as Reset view`);
+    near(right(slow), right(first), `${state}: Slow forces reaching to First view's right`);
     near(sound.x, compass.x, `${state}: Sound under the compass`);
     near(sound.width, compass.width, `${state}: Sound as wide as the compass`);
   }

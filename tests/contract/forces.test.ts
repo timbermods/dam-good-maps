@@ -64,7 +64,19 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
     expect(PINNED.results.length).toBe(45);
   });
 
-  it("Quake: Lift and Slide, Sheer and Stepped, three personalities (the prototype's, without the start: D257; Slide at Power 100, where D361's 2-to-20-tile travel meets the prototype's)", () => {
+  // (Lift pinned to the prototype's until the force audit's finding 1 made it a landform: the ground moves most at the
+  // fault, fades within 20 tiles and dies at the fault's tips, the other side only a trough at the scarp's foot, not a
+  // rigid block 1.3 times the line's length; D148)
+  const LIFTS: Record<string, string> = {
+    "sheer 0": "a5b4265be6748437ab5bfb479ea51f36a646f8b40a2592c8a2a610eb4bb011a0",
+    "sheer 1": "9c74f00c220d08a9140e71b2e67aa91a9aff449463496948a60981f5af412c83",
+    "sheer 42": "e2fa4853ccd746e083df724968828fea4e110c774397c2c629713cc4d075a332",
+    "stepped 0": "84c4187e917ffbcfbf9bdd7b44c6aa837cb6945bcd70b75f46c9e9a05c911046",
+    "stepped 1": "75882469d73ec70bbdf11c299fecdd96e37c001579f995e4c7b95f96208c8e96",
+    "stepped 42": "ca2636a37e158f5e1eb52527f095f1e7498cea5bf67a4bcc9a8551b2502d451d",
+  };
+  it("Quake: Lift and Slide, Sheer and Stepped, three personalities (Slide the prototype's, without the start: D257; at Power 100, where D361's 2-to-20-tile travel meets the prototype's)", () => {
+    const got: Record<string, string> = {};
     for (const seed of [0, 1, 42])
       for (const mode of ["lift", "slide"] as const)
         for (const scarp of ["sheer", "stepped"] as const) {
@@ -73,9 +85,14 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
           // (D361 (3): Slide travels 2 tiles at Power 0 to 20 at 100, the prototype 3 to 20: the same at 100)
           const power = mode === "slide" ? 100 : QUAKE_DEFAULTS.power;
           const p = quake(snapshotMap(m), { ...QUAKE_DEFAULTS, seed, mode, scarp, power }, intent);
+          if (mode === "lift") {
+            got[`${scarp} ${seed}`] = digest(p.map);
+            continue;
+          }
           const q = protoQuake.quake(protoSnapshot(proto), { ...protoQuake.DEFAULTS, seed, mode, scarp, power }, intent);
           expect(digest(p.map), `${mode} ${scarp} ${seed}`).toBe(digest(q.map as unknown as ForceMap));
         }
+    expect(got).toEqual(LIFTS);
   });
 
   // (pinned to the prototype's until showcase-craft gap 25 rebuilt the crater so it reads as a real landform, not a

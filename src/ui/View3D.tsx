@@ -9,7 +9,7 @@
 
 import type { ComponentChildren } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { MapRenderer, type BuildStats, type FrameInsets, type MapView, type TileHit, type ViewMode } from "../render3d";
+import { MapRenderer, type BuildStats, type FrameInsets, type MapView, type TileHit, type ViewMode, type ViewState } from "../render3d";
 import { takePreparedRenderer } from "../render3d/prepared";
 import { LookMenu } from "./LookMenu";
 import { legendEntries, objectLegend, type GroundMode, type LegendEntry } from "../render3d/palette";
@@ -74,6 +74,13 @@ export interface View3DProps {
   keepView?: boolean;
   /** The view mode the first map starts in (the editor after a crop keeps top-down, framed to the new map). */
   startMode?: ViewMode;
+  /** **First view** beside Reset view (the editor's): the camera as the game opens the map, from its start (null while
+   *  the map has none: the button is greyed). */
+  firstView?: (() => { view: ViewState; fov: number } | null) | null;
+  /** Filled with First view's press, as its click does it (the editor's key). */
+  firstViewCall?: { current: (() => void) | null };
+  /** First view's key, for its tooltip's key cap. */
+  firstViewKey?: string;
 }
 
 /** The renderer the last view left when it closed (a new map re-mounts the editor): the next view takes it, its
@@ -532,6 +539,21 @@ export function View3D(props: View3DProps) {
       <span class="label">Reset view</span>
     </button>
   );
+  // the game's first view (the angled view, its camera and lens, from the map's start)
+  const showFirstView = () => {
+    const pose = props.firstView?.();
+    const r = renderer.current;
+    if (!pose || !r) return;
+    setMode("orbit");
+    r.poseCamera(pose.view, pose.fov);
+  };
+  if (props.firstViewCall) props.firstViewCall.current = showFirstView;
+  const firstView =
+    props.firstView === undefined ? null : (
+      <button type="button" class="first-view" disabled={!props.firstView} {...tip(props.firstView ? "See the map as the game first shows it" : "Place a start to see the game's first view", props.firstViewKey)} onClick={showFirstView}>
+        <span class="label">First view</span>
+      </button>
+    );
   if (column)
     // Layout 2 (Kyler, 2026-10-03): the Show toggles as one column of checkbox rows at the map's top left, Legend
     // last, its legend under them while ticked; the camera group at the top right, the slice, Slow forces and the
@@ -578,9 +600,10 @@ export function View3D(props: View3DProps) {
             ) : null}
           </div>
           <div class="view3d-corner" role="group" aria-label="Camera and switches">
-            <div class="camera-group" role="group" aria-label="Camera">
+            <div class={`camera-group${firstView ? " with-first-view" : ""}`} role="group" aria-label="Camera">
               {topDown}
               {reset}
+              {firstView}
               {compassDial}
             </div>
             <div class="corner-level">{props.cornerLevel}</div>

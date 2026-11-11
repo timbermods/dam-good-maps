@@ -270,9 +270,10 @@ export class RemotePreview {
     this.onLand(rect);
   }
 
-  /** The worker's record: the rule and where the water stood, as the operation keeps them. */
+  /** The worker's record: the rule, where the water stood and how hard the strokes before it pressed, as the
+   *  operation keeps them. */
   private take(s: Omit<BrushParams, "dabs">): void {
-    Object.assign(this.record, { weathering: s.weathering, ...(s.shore ? { shore: s.shore } : {}), ...(s.pools ? { pools: s.pools } : {}), ...(s.moist ? { moist: s.moist } : {}) });
+    Object.assign(this.record, { weathering: s.weathering, ...(s.shore ? { shore: s.shore } : {}), ...(s.pools ? { pools: s.pools } : {}), ...(s.moist ? { moist: s.moist } : {}), ...(s.worn ? { worn: s.worn } : {}) });
   }
 }
 
@@ -318,6 +319,43 @@ export class WeatherStroke {
     const heights = new Uint8Array(bw * (r.y1 - r.y0 + 1));
     for (let y = r.y0; y <= r.y1; y++) heights.set(this.shown.subarray(y * W + r.x0, y * W + r.x1 + 1), (y - r.y0) * bw);
     return { rect: r, heights, settings: { ...this.settings } };
+  }
+}
+
+/** The Naturalize worker's side (worker/naturalize.worker.ts): the one stroke it holds, named by the page's id (its
+ *  ticket in the edit queue, core/doc/editQueue.ts). A call that names another stroke changes nothing and answers
+ *  nothing, so a call left over from a stroke taken back never reaches the next; a call with no id is the stroke held
+ *  (the page as it calls it before the queue). */
+export class WeatherHost {
+  private stroke: WeatherStroke | null = null;
+  private id: number | undefined = undefined;
+
+  begin(settings: Omit<BrushParams, "dabs">, ground: Runs, state: TerrainState, heights: Uint8Array, W: number, H: number, id?: number): void {
+    this.stroke = new WeatherStroke(settings, state, heights, W, H, ground);
+    this.id = id;
+  }
+
+  add(dabs: ArrayLike<number>, pressure?: ArrayLike<number>, id?: number): WeatheredLand | null {
+    return this.held(id)?.add(dabs, pressure) ?? null;
+  }
+
+  finish(rigid: readonly (readonly [number, number, number, number])[], id?: number): WeatheredLand | null {
+    return this.held(id)?.finish(rigid) ?? null;
+  }
+
+  end(id?: number): { pre: Uint8Array; protect: Uint8Array; settings: Omit<BrushParams, "dabs"> } | null {
+    const s = this.held(id);
+    if (!s) return null;
+    this.stroke = null;
+    return s.end();
+  }
+
+  cancel(id?: number): void {
+    if (this.held(id)) this.stroke = null;
+  }
+
+  private held(id: number | undefined): WeatherStroke | null {
+    return id === undefined || id === this.id ? this.stroke : null;
   }
 }
 

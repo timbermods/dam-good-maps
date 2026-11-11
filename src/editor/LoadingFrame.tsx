@@ -52,6 +52,7 @@ export function LoadingFrame(p: LoadingFrameProps) {
         onSave={nothing}
         onChooseFolder={nothing}
         onOpenFile={nothing}
+        onNewBlank={nothing}
         onSaveProject={nothing}
         onClearEverything={nothing}
         historyOpen={false}
