@@ -1231,7 +1231,8 @@ function placeTarns(L: Layout): string | null {
     addName(plan, `leat${b.id}`, `${plan.names[b.id].split(" ")[0]} Leat`);
   }
   // a larger map's further rim tarns (`rimTarns`), after the pool's basins, as many as the rim has room for
-  for (let k = 2; k < rimTarns(W); k++) if (!rimTarn(true)) break;
+  // (on the edges with the fewest first, then any edge: a rim with fewer tarns is drier than the spectrum allows)
+  for (let k = 2; k < rimTarns(W); k++) if (!rimTarn(true) && !rimTarn()) break;
   // the rest: near the start first (NEAR_SIDE of them), so three small works stand within its walk; then anywhere on
   // the wet side, until the count and the ladder's floor are met. At 128² they are empty basins (only the two rim tarns
   // carry springs, §4.1: a spring tarn's green and its run's were three to five points of the map's moist ground each,

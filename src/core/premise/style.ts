@@ -1,14 +1,15 @@
 // The style seam (docs/PREMISES.md §1.5): a premise map takes its theme's style where the theme defines one. The
 // premise keeps its water, levels, works and frame (stages 0, 1, 3 and 4 never read the style); the style reaches
 // two stages only:
-//   - stage 2, the relief between (`raster/relief.ts` `reliefBetween`): the outlands stand at the theme's height over
-//     the stair (`lift`, `room`) and rise and fall by Relief (`amp`); the hillside past each meadow takes the theme's
-//     crags and benches (Canyon's walls, Highlands' tall terraces, Lake Basin's gentle shores); the uplands' plates
-//     are graded by the theme's grade (#956, `land/genome.ts` `GRADE`): Canyon's and Highlands' tableland on benches
-//     of three and four levels with cliffs between (over Terracing's share), River Valley's and Lake Basin's rolling
-//     ground. The meadows, the water and the ground stage 1 fixes are the premise's in every theme. The
-//     game's terrain has one material, so the ground and rock look the same in every theme: what reads as canyon
-//     country or highlands is the land's shape, and the ground's tone is the game's own by its moisture (D496).
+//   - stage 2, the relief between (`raster/relief.ts` `reliefBetween`): the uplands take the theme's form (`form`,
+//     `span`, `deep`: Canyon's high tables cut by dry canyons, Highlands' peaks with valleys between, River Valley's
+//     terraces climbing from the water, Lake Basin's low rolling ground) and rise and fall by Relief (`amp`); the
+//     hillside past each meadow takes the theme's crags and benches (Canyon's walls, Lake Basin's broad shores); the
+//     uplands are graded by the theme's grade (#956, `land/genome.ts` `GRADE`), benched `step` apart over Terracing's
+//     share. The meadows, the water, the ground stage 1 fixes and the green of day 1's water are the premise's in
+//     every theme. The game's terrain has one material, so the ground and rock look the same in every theme: what
+//     reads as canyon country or highlands is the land's shape, and the ground's tone is the game's own by its
+//     moisture (D496).
 //   - stage 6, life (`life.ts` `premiseLife`): the theme's woods (`land/genome.ts` `drawWoods`: oak-rich,
 //     birch-rich or mixed by the theme's lean) when the species mix is the panel's own, as the themes do
 //     (`gen/generate.ts` `specFor`); Forests, Grove size and Berries are the settings, whose preset is the theme's.

@@ -13,10 +13,19 @@
 // own seeds (named stream `premise.relief`), each field once, the broad ones read on a coarse grid. Integer or portable
 // maths only (D366).
 //
-// The style seam (PREMISES §1.5, `style.ts`): given a theme's style, the outlands stand at the theme's height over the
-// stair and rise and fall by Relief, the hillsides past each meadow take the theme's crags and benches, and the
-// uplands (where the plates stand without one) are the outlands graded by the theme's grade (`land/levels.ts`
-// `grader`, #956). Day 1's water, the meadows and the start's ground are the premise's whatever the style.
+// The rim is cut by the same plates as the interior: the outlands' fall toward a falling edge and far from the water
+// is a plate's mean, never a tile's distance (a tile at a time, it ran in bands along the edge). An empty basin's bank
+// stands whole over a broad bench (never a half-step ring round its beach).
+//
+// The style seam (PREMISES §1.5, `style.ts`): given a theme's style, the uplands take the theme's form in the room
+// between the stair's ground and the highest ground (`styledUplands`): Canyon's mesas, tables in three heights cut by
+// dry canyons; Highlands' peaks, the cones of the plates' points; River Valley's terraces, climbing with the distance
+// from day 1's water so their steps run along the valley; Lake Basin's low rolling ground. Past the green of day 1's
+// water the ground comes down by the form's `deep` (Canyon's canyons and Highlands' valleys toward the floor); by it,
+// a plate stands no higher than the premise's own and the hillsides' cap only comes down (the style's height there
+// took the green off the first benches). The hillsides past each meadow take the theme's crags and benches; the
+// uplands are graded by the theme's grade (`land/levels.ts` `grader`, #956), Canyon's canyons cut after it. Day 1's
+// water, the meadows and the start's ground are the premise's whatever the style.
 
 import { hash32 } from "../../math/hash";
 import { distanceFrom } from "../../math/grid";
@@ -478,7 +487,8 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
       for (let x = 0; x < W; x++) {
         const i = y * W + x;
         const k = sk(x, y) * gk(i);
-        if (k > 0) outland[i] += (styled.hill[i] - outland[i]) * k;
+        // (the hillsides' cap only comes down with a style: raised, it took the green off the first benches)
+        if (k > 0 && styled.hill[i] < outland[i]) outland[i] += (styled.hill[i] - outland[i]) * k;
       }
 
   // the lower envelope of every water's bowl, each rising from its meadow to the outlands and no further, never under
@@ -569,7 +579,11 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
         v = plevel[plate[i]];
         if (grade && styled) {
           const k = sk(x, y) * gk(i);
+          const own = v;
           v = grade(v + (styled.up[i] - v) * k, x, y, terraceF && (terraceF[i] + 1) / 2 > 1 - style!.benched ? style!.step : 1, phase);
+          // (by day 1's water a plate stands no higher than the premise's own, the style's height coming in over the
+          // green: a higher plate took the green off the benches under it)
+          if (v > own && nearWet[i] < FLOOR.green) v = Math.round(own + (v - own) * smoothstep((nearWet[i] - FLOOR.green / 2) / (FLOOR.green / 2)));
           // (Canyon's canyons cut after the grade, and kept narrow: the bench-width floor leaves them)
           if (k > 0.5 && styled.cut[i] < v) {
             v = styled.cut[i];
@@ -633,9 +647,10 @@ function styledUplands(
   const [lo, hi] = style.span;
   const mid = (lo + hi) / 2;
   const share = (u: number) => Math.max(0, mid + (u - mid) * style.amp);
-  // (past the green the floor comes down to the stair's ground, and by the form's `deep` toward the map's floor)
-  const floorOf = (st: number, wet: number) => {
-    const far = st + FLOOR.far - style.deep * Math.max(0, st + FLOOR.far - BED_FLOOR - FLOOR.least);
+  // (past the green the floor comes down to the stair's ground, and by the form's `deep` toward the map's floor: a
+  // mesa's table keeps the stair's, its canyons go down)
+  const floorOf = (st: number, wet: number, deep = style.deep) => {
+    const far = st + FLOOR.far - deep * Math.max(0, st + FLOOR.far - BED_FLOOR - FLOOR.least);
     return Math.max(BED_FLOOR + FLOOR.least, Math.min(top, st + FLOOR.near + (far - st - FLOOR.near) * smoothstep((wet - FLOOR.green) / FLOOR.fade)));
   };
   const level = new Float64Array(M);
@@ -648,8 +663,8 @@ function styledUplands(
     // and the tables run wide)
     const t = (fbm(g.seed + 3, g.px[k], g.py[k], MESA.scale, 2) + 1) / 2;
     const u = style.form === "mesas" ? lo + (hi - lo) * Math.min(1, Math.floor(t * MESA.tiers) / (MESA.tiers - 1)) : mid;
-    const fl = floorOf(st, near);
-    base[k] = fl;
+    const fl = floorOf(st, near, style.form === "mesas" ? 0 : style.deep);
+    base[k] = floorOf(st, near);
     level[k] = fl + share(u) * (top - fl) - 0.5 * g.pfall[k];
   }
   const hill = new Float64Array(N);
