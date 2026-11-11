@@ -1,9 +1,10 @@
 # premise
 
 Maps from a premise (docs/PREMISES.md): a problem the player solves, with the water that makes it true. Build steps 1
-and 2 are here: the model, the lake stair's plan (stage 0) and its `plan` invariants; the water by number (stage 1)
-and its `land` invariants. Nothing here makes the land between the waters yet, and the generator does not call it (no
-`GENERATOR_VERSION` change).
+to 4 are here: the model, the lake stair's plan (stage 0) and its `plan` invariants; the water by number (stage 1)
+and its `land` invariants; the relief between (stage 2); the start for the first frame (stage 3); and the
+generator's premise mode, which `gen/generate.ts` `generate` calls when `spec.premise` is set (share link key `p`; no
+control on the page yet).
 
 **Rules**
 - A plan is plain JSON (`types.ts`), drawn from the spec and an attempt alone, from the named stream `premise.plan`
@@ -19,9 +20,14 @@ and its `land` invariants. Nothing here makes the land between the waters yet, a
   there (§1.1, "As built").
 - `draw.ts`: `drawPlan` (one attempt, checked), `firstPlan` (the first that holds), `firstWater` (the first whose
   stage 1 water holds too), `failing`.
+- `generate.ts` `generatePremise`: the mode (§2.2 stages 3, 5 and 8): plan, water, relief, start, one `buildMap`, the
+  checks with those later steps answer as warnings (`LATER`), re-rolls up to `PLAN_TRIES` plans and
+  `PREMISE_SETTLES` settles, else the reason in one line and the themes make the map (`info.premise.fellBack`).
 - `frame.ts`: the first frame's arithmetic from `analysis/opening.ts`'s camera (§4.3): `frameLimit(z, h)`, how far in
   front of a start a point at height `h` stays under the frame's top edge; `lipInFrame` reads a lip through the
-  opening camera.
+  opening camera. `checkFrame` is stage 3: the start kept or moved within 4 tiles to where its 5 × 5 is dry and
+  level, the landmark's lip and foot are in the first frame, the frame's water is shallow (lake beds raised) and the
+  walk finds the rules' level land and farmland.
 - `premises/lakeStair.ts`: the lake stair (§4): `lakeStairEligible`, the layout (the valley, the lakes on it, the
   start, its frame and the landmark placed together, the bypass, the tarns and basins, the works, the ridges, the
   regions) and the stair's `plan` invariants. `layoutTry` gives one layout try as far as it got, for tuning.
@@ -35,6 +41,13 @@ and its `land` invariants. Nothing here makes the land between the waters yet, a
   and pools (`raster/falls.ts`), the weirs at the heads of channels a body's water splits between
   (`raster/weirs.ts`), the guard and where two waters may touch (`raster/guard.ts`), the rows of Blockages.
   `stageModel` is its water model for a settle.
+- `raster/relief.ts` `reliefBetween`: stage 2, the whole map's ground round stage 1's water (the lower envelope of
+  every water's bowl, rims kept from lower waters, the landmark's upper world, the bypass following the land, dry
+  benches in threes, ridges as crags, `tidy` and the bench-width floor `land/benches.ts`); `badwaterNiches` cuts the
+  permanent badwater source's niche beside the gorge.
+- `map.ts`: `premiseLand` (stage 2 and the badwater's niche) and `premiseMap` (the start where stage 3 put it, the
+  sources and rows as features, one `buildMap` and the checks). `tools/premise-map.ts` writes the mode's maps (or a
+  plan file's) as a `.timber`, a project, a picture and a share link.
 - `waterChecks.ts`: the `land` invariants, `flowThrough` on stage 1's heights alone (`stageFlow`, once per stage 1),
   and each weir whole (`water.weirs`).
 - `tools/premise-plan.ts` prints a seed's plan and writes its diagram; `--plan` checks and draws a plan file.
@@ -45,6 +58,8 @@ a broken plan for every `plan` invariant, the Four Lakes fixture `tests/fixtures
 `premisePlan.heavy.test.ts` (seeds 1 to 200 at 128², 192² and 256²: every plan holds, 43 to 107 ms a plan on average;
 PREMISES §3.3 has the numbers against the budget); `premiseWater.test.ts` (quick: the table's arithmetic, the lip's
 stair, the `land` invariants on seeds 1 to 4 at each size and Four Lakes, a broken raster for each); and
-`premiseWater.heavy.test.ts` (seed 1 at each size and Four Lakes settled as the game plays them: levels against the
+`premiseRelief.test.ts` (quick: stage 2 keeps stage 1's ground and guard; seed 1 at 128² built passes the
+ground's, the start's and the sources' checks); `premiseWater.heavy.test.ts` (seed 1 at each size and Four Lakes settled as the game plays them: levels against the
 table, each link out of a split within 20 % of the table's flow, no stray water, each fall's curtain by the fall
-judge with the notches open).
+judge with the notches open); `premiseMap.test.ts` (quick: seed 1 at 128² from a `p=lakeStair` link through
+`generate`, every blocking check passed, its `.timber` pinned; an ineligible spec gets a reason).

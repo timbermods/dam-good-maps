@@ -83,7 +83,8 @@ export const AUTO_CRATER_DETAILS = { walls: null, centre: null, debris: null, ra
 export function craterNature(s: CraterDraft, g: ForceGround): CraterSettings {
   const { rough, rng } = draws("craterize", s.seed, g);
   const walls = s.walls ?? (chance(rng, 0.4) ? "steep" : "terraced");
-  const centre: CraterSettings["centre"] = s.centre ?? (chance(rng, 0.75) ? "auto" : rng.pick(["bowl", "peak", "ring", "flat"] as const));
+  // (left on Auto, never a peak or a ring: a central mountain is chosen, planning on #912, 2026-11-10)
+  const centre: CraterSettings["centre"] = s.centre ?? (chance(rng, 0.75) ? "auto" : rng.pick(["bowl", "flat"] as const));
   const debris = s.debris ?? (chance(rng, 0.3 + 0.5 * (s.power / 100)) ? "heavy" : "light");
   const rays = s.rays ?? chance(rng, 0.15 + 0.3 * (1 - rough));
   return { ...s, walls, centre, debris, rays } as CraterSettings;

@@ -8,10 +8,16 @@ import type { TileHit } from "../../render3d";
 import type { WaterLayers } from "../../worker/session";
 import { entitiesByTile, startDragStatus, type TileContext } from "../features";
 import { LAYER_COLORS, type LayerKind } from "../panels";
+import { IRRIGATION_DRY, IRRIGATION_NEAR } from "../../core/analysis/irrigation";
+import { OPENING, openingFrame } from "../../core/analysis/opening";
+
 import { isSource, SOURCE_SCREEN_REACH, sourceSpots, targetSource, type SourceSpot } from "../sourceSpots";
 import { BAD, PENDING, STATUS_COLOR, WARN, DRAWING, DRAWING_BAND, GOOD, HELD, HOVERED, LOCKED, MOVING, paintOverlay, PROBLEM, SELECTED, type OverlayLayer } from "../tools";
 import { type StartHere } from "../start/startHere";
 import type { Ed } from "../ed";
+
+/** The game's first frame's outline while the start moves: quiet, a pale line. */
+const FIRST_FRAME: [number, number, number, number] = [255, 255, 255, 120];
 
 /** The middle tile of a StartingLocation at Coordinates (x, y) facing o. */
 function cornerToCentre(x: number, y: number, o: Orientation): [number, number] {
@@ -27,9 +33,9 @@ function cornerToCentre(x: number, y: number, o: Orientation): [number, number] 
   }
 }
 
-/** The overlay of a water layer: moisture in three greens, badwater brown and the soil it spoils
- *  lighter, the drought's kept water blue and the water that dries up orange, the tiles under
- *  roofs violet. */
+/** The overlay of a water layer: badwater brown and the soil it spoils lighter, the tiles under roofs
+ *  violet, and Irrigation's dry ground amber where a little more water would wet it and dark where it
+ *  is dry for good (moist ground left as it is). */
 function layerOverlay(l: WaterLayers, kind: LayerKind): OverlayLayer[] {
   const pick = (codes: Uint8Array, code: number) => {
     const out: number[] = [];
@@ -44,6 +50,13 @@ function layerOverlay(l: WaterLayers, kind: LayerKind): OverlayLayer[] {
       ];
     case "roofed":
       return [{ tiles: Array.from(l.roofed), color: LAYER_COLORS.roofed }];
+    case "irrigation":
+      return l.irrigation
+        ? [
+            { tiles: pick(l.irrigation.tone, IRRIGATION_NEAR), color: LAYER_COLORS.near },
+            { tiles: pick(l.irrigation.tone, IRRIGATION_DRY), color: LAYER_COLORS.dry },
+          ]
+        : [];
     default:
       return [];
   }
@@ -192,7 +205,18 @@ export function useView(ed: Ed): ViewSlice {
     }
     if (picked) layers.push({ tiles: [picked.y * info.W + picked.x], color: SELECTED });
     if (pickedObject) layers.push({ tiles: footprintTiles(pickedObject.template, { template: pickedObject.template, x: pickedObject.x, y: pickedObject.y, z: 0, orientation: pickedObject.orientation, flipped: pickedObject.flipped }).filter(([x, y]) => x >= 0 && y >= 0 && x < info.W && y < info.H).map(([x, y]) => y * info.W + x), color: SELECTED, outline: true });
-    if (startDrag) layers.push({ tiles: [...startDrag.check.tiles, startDrag.check.door], color: STATUS_COLOR[startDragStatus(startDrag)], edge: true });
+    if (startDrag) {
+      // the game's first frame from where the start would go, a quiet outline on the ground (an editing aid, D497: the
+      // overlay, never the look); worked out from the drag's tile, its level and the start's turn
+      const s = startHereRef.current;
+      if (s) {
+        const { W, H } = infoRef.current;
+        const z = mirror.current.heights[startDrag.y * W + startDrag.x];
+        const start = { x: startDrag.x, y: startDrag.y, z, orientation: s.orientation };
+        layers.push({ tiles: openingFrame(start, W, H, { heights: mirror.current.heights, zoom: z * OPENING.zoomPerLevel }).tiles, color: FIRST_FRAME, outline: true });
+      }
+      layers.push({ tiles: [...startDrag.check.tiles, startDrag.check.door], color: STATUS_COLOR[startDragStatus(startDrag)], edge: true });
+    }
     if (hoverObject && !sourceDrag) layers.push({ tiles: hoverObject, color: HOVERED, outline: true });
     // the source being changed is clearly marked: the one the pointer is on, the one picked (D361, item 6)
     if (targeted !== null && targetSpot.current && !sourceDrag) layers.push({ tiles: targetSpot.current.tiles, color: HOVERED, outline: true });

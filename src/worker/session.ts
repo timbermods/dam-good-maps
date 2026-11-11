@@ -20,6 +20,7 @@ import { ForceRolls } from "../core/forces/rolls";
 import { EVERY_KIND, planRemove, type RemoveKind } from "../core/doc/remove";
 export type { RemoveKind };
 import { paintDying, paintLevels, planPaintObjects } from "../core/doc/paint";
+import { planRuinLine, type RuinLineParams, type RuinPier } from "../core/doc/ruinLine";
 import type { PaintParams } from "../core/doc/paintParams";
 import { footprintCheck as checkFootprint, planEntity, planMoveEntity, planPlant, withSpringPools, type EntityRequest, type PlannedOps } from "../core/doc/placing";
 import { planStair, type StairStep } from "../core/doc/stair";
@@ -35,7 +36,7 @@ export type { EntityInfo };
 import { objectsIn } from "../core/doc/inArea";
 import { markerNotes, type MarkerNote } from "../core/doc/objectOps";
 import { fillLevel, planFill, unfedWater } from "../core/doc/waterEdits";
-import { applyLakeLevel, planLakeLevel, type LakeLevelPlan } from "../core/doc/lakeLevel";
+import { applyLakeLevel, lakeHeldLevel, planLakeLevel, type LakeLevelPlan } from "../core/doc/lakeLevel";
 import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
 import { bakeLandforms } from "../core/doc/bake";
@@ -58,6 +59,8 @@ import { carryStack, sameKeptWater, StackLive, type LiveStack, type StackFrame }
 import { reshapeTop, TERRAIN_LAYERS } from "../core/terrain/runs";
 import { toMapObject } from "../core/features/build";
 import { soilObjects } from "../core/sim/columns";
+import type { MoistureReach } from "../core/sim/soil3d";
+import { irrigationTones } from "../core/analysis/irrigation";
 import { computeDaySoil, type SoilBase, type SoilJob, type SoilRunner } from "./daySoil";
 import { WaterSim, type WaterModel } from "../core/sim/water";
 import { changedRect } from "../render3d/mesh";
@@ -1883,6 +1886,8 @@ export const planned = {
   plant: (template: string, tiles: readonly number[]) => planPlant(need(), template, tiles, () => crypto.randomUUID()),
   remove: (tiles: readonly number[], kinds: readonly RemoveKind[], label?: string, cut?: number | null) => planRemove(need(), tiles, kinds, label, cut),
   paint: (params: PaintParams, z?: number) => planPaintObjects(need(), withLevels(params, z)),
+  /** A ruin line: its piers and the operations that place them, or why not. */
+  ruinLine: (params: RuinLineParams) => planRuinLine(need(), params),
   strokeClearing: (op: EditOp, label: string, tiles: readonly number[]) => planStrokeClearing(need(), op, label, tiles),
   move: (id: string, dx: number, dy: number, z?: number) => planMoveEntity(need(), id, dx, dy, z),
   start: (x: number, y: number, orientation?: Orientation, z?: number) => planStart(need(), x, y, orientation, () => crypto.randomUUID(), z),
@@ -2352,6 +2357,26 @@ export function paintAt(params: PaintParams, z?: number): SessionUpdate & { plan
   return { ...changed(s, r.ok, r.errors, t0), planted: r.ok ? plan.plan.map((o) => o.tile) : [] };
 }
 
+/** A ruin line's piers and the level their tops share (core/doc/ruinLine.ts `planRuinLine`), for the page's ghost, or
+ *  the one line why it can't be laid. Reads the map only. */
+export function ruinLinePlanAt(params: RuinLineParams): { piers: RuinPier[]; top: number; reason: string | null } {
+  const p = planRuinLine(need(), params);
+  return p.ok ? { piers: p.piers, top: p.top, reason: null } : { piers: [], top: 0, reason: p.errors[0] };
+}
+
+/** Lay a ruin line from the shelf (core/doc/ruinLine.ts): its columns placed as one step. The tiles they stand on, for
+ *  the page's pop. */
+export function ruinLineAt(params: RuinLineParams): SessionUpdate & { planted: number[] } {
+  const t0 = performance.now();
+  const s = need();
+  const blocked = gated();
+  if (blocked) return { ...changed(s, false, [blocked], t0), planted: [] };
+  const plan = planRuinLine(s, params);
+  if (!plan.ok) return { ...changed(s, false, plan.errors, t0), planted: [] };
+  const r = s.applyBatch(plan.ops, "user", plan.label);
+  return { ...changed(s, r.ok, r.errors, t0), planted: r.ok ? plan.piers.map((q) => q.tile) : [] };
+}
+
 /** Remove (D184): the objects standing on `tiles` that `kinds` names, as one step; it never changes
  *  the ground (core/doc/remove.ts `planRemove`); under the view's layer cut (`cut`), only what it shows. The tiles the
  *  removed objects stood on. */
@@ -2446,6 +2471,12 @@ export function fillAt(x: number, y: number, level: number, floor?: number | nul
 export function lakeLevelPlanAt(x: number, y: number, level: number, width?: number): Omit<LakeLevelPlan, "op"> {
   const { op: _op, ...plan } = planLakeLevel(need(), x, y, level, width);
   return plan;
+}
+
+/** The level the lake at (x, y) is held at now (its sill's), or null where no water stands (core/doc/lakeLevel.ts
+ *  `lakeHeldLevel`): what the page's Lake level shows. Reads the map only; no settle. */
+export function lakeHeldAt(x: number, y: number): number | null {
+  return lakeHeldLevel(need(), x, y);
 }
 
 /** Set the lake at (x, y) to `level`: its sill cut down or raised, one undo step, the map's water the settle that
@@ -2561,6 +2592,9 @@ export interface WaterLayers {
   badwater: Uint8Array;
   /** An imported map's tiles with a cave or an overhang: the brushes shape only their tops. */
   roofed: Int32Array;
+  /** The Irrigation view's tones and the soil's reach behind them (analysis/irrigation.ts), worked out only when that
+   *  view asks: null otherwise. */
+  irrigation: Irrigation | null;
   /** Why the water checks are approximate on this map (null: they are not). */
   approximate: string | null;
   /** The water these layers show is the preview's (the canonical settle is still running). */
@@ -2576,7 +2610,13 @@ export function markerNotesNow(): MarkerNote[] {
 /** The water layers of the map as it now stands. An unedited import keeps the file's water and
  *  has no settle: its badwater soil comes from the background check's canonical settle, once it
  *  has run. */
-export function waterLayers(): WaterLayers {
+/** The Irrigation view: each tile's tone (analysis/irrigation.ts `irrigationTones`) and the soil's reach, for the hover's
+ *  why (`dryWords`). */
+export interface Irrigation extends MoistureReach {
+  tone: Uint8Array;
+}
+
+export function waterLayers(kind?: string): WaterLayers {
   const s = need();
   const b = s.built;
   const { W, H } = b;
@@ -2592,11 +2632,19 @@ export function waterLayers(): WaterLayers {
     else if (soil[i] > 0) badwater[i] = 2;
   }
   const roofed = Int32Array.from([...s.roofedTiles].sort((a, c) => a - c));
+  let irrigation: Irrigation | null = null;
+  if (kind === "irrigation") {
+    // (the same water and soil the other layers show: an unedited import's from the background check)
+    // (the background check's water itself is the key: the reach is worked out once for it)
+    const reach = s.moistureReach(b, fromCheck ?? undefined);
+    irrigation = { ...reach, tone: irrigationTones(reach, fromCheck ? fromCheck.moist : b.moisture, depth) };
+  }
   return {
     W,
     H,
     badwater,
     roofed,
+    irrigation,
     approximate: lastCheck && lastCheck.version === version ? lastCheck.approximate : null,
     preview: s.waterPending,
     version,

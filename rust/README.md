@@ -30,6 +30,11 @@ compute the same bytes as the TypeScript they replace, natively (batch jobs) and
   runs. The water a force plans with (a carve's oxbow lake, a glacier's floor) is `water/`'s simulation and settle
   (`Sim`, `SettleRun`), linked without `water/`'s Wasm exports (its default `exports` feature), so the forces get the
   water's speed work. It runs on one thread inside the plan; the multi-core strips stay the editor water's.
+  `forces/src/levels.rs` is the forces' shared last step for land they shape (`levels::whole`: a real-valued
+  surface and the old ground in, whole levels out; steps of uneven width, no band narrower than two tiles, no
+  one-tile pillar, pit or lone block; tiles a force leaves NaN, out of its reach or kept, are never tidied, so a force
+  gives the ground right round what it shapes its own level; its contract and tests are in the file). Craterize ends with it; the other
+  forces that round a surface adopt it next.
 - `analysis/`: the six analysis kernels generation and the checks repeat most (#157, D391): `distanceFrom`,
   `walkDistance`, `landRegions`, `spillLevels`, `damSites` and `roomMap` (their TypeScript is tag
   `ts-analysis-final`). Its Wasm is committed in `src/core/analysis/rust/analysisWasm.ts` and bound by

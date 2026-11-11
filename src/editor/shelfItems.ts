@@ -5,6 +5,7 @@
 // and patches are. The two sources come first, then the start (D212, D226's order: Water source,
 // Badwater source, Start, Pine, then the rest): a click places a source, and its water spreads at once.
 
+import { RUIN_LINE_BREAK, RUIN_LINE_SPACING } from "../core/doc/ruinLineLimits";
 import { hash32 } from "../core/math/hash";
 import { defaultOptions, type ObjectOptions } from "../core/doc/objectOps";
 import { tip } from "../ui/Tooltip";
@@ -46,7 +47,7 @@ export const SHELF: readonly ShelfItem[] = [
   { id: "Succulent", name: "Succulent", template: "Succulent", paint: "succulents", turns: false, hint: "plant succulents" },
   { id: "Woods", name: "Mixed woods", template: "Pine", picture: ["Pine", "Birch", "Oak"], paint: "woods", turns: false, hint: "plant pines, birches and oaks together" },
   { id: "BlueberryBush", name: "Berry bush", template: "BlueberryBush", paint: "bushes", turns: false, hint: "plant berry bushes" },
-  { id: "ruin", name: "Ruin", template: "RuinColumnH3", turns: true, hint: "a ruined tower" },
+  { id: "ruin", name: "Ruin", template: "RuinColumnH3", turns: true, hint: "a ruined tower, or a broken line of them when dragged" },
   { id: "UndergroundRuins", name: "Mine site", template: "UndergroundRuins", turns: true, hint: "where a scrap mine goes" },
   { id: "relic", name: "Relic", template: "SmallRelic", turns: true, hint: "a relic to demolish for science" },
   { id: "Slope", name: "Slope", template: "Slope", turns: true, hint: "a slope up one level, or a stair when dragged down" },
@@ -94,6 +95,9 @@ export const PAINT_DENSITY_MIN = 0.05;
 export interface ShelfOptions {
   /** A ruin's height, 1–8 levels. */
   ruinHeight: number;
+  /** A ruin line's (a drag with the Ruin, core/doc/ruinLine.ts): tiles from pier to pier, and the share knocked out. */
+  ruinSpacing: number;
+  ruinBreak: number;
   relicSize: "small" | "medium" | "large";
   /** Each kind's brush: its size and density, starting at the core's defaults (core/gen/paint.ts DEFAULT_DENSITY); a thorn patch is about seven tiles, so its brush starts wider. */
   paint: Record<PaintedKind, PaintSettings>;
@@ -113,6 +117,8 @@ export const hasAge = (kind: PaintedKind): boolean => kind === "trees" || kind =
 
 export const DEFAULT_SHELF_OPTIONS: ShelfOptions = {
   ruinHeight: 3,
+  ruinSpacing: RUIN_LINE_SPACING.default,
+  ruinBreak: RUIN_LINE_BREAK.default,
   relicSize: "small",
   paint: {
     trees: { size: 4, density: 0.8 },

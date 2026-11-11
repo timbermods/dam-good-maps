@@ -55,6 +55,8 @@ The map document and its edit engine: a generation plus an ordered log of edit o
 - `blank.ts`: a new blank map (`blankTimber`, `blankDocument`, `MapSession.blank`): flat, dry ground at one level, the
   start at its middle, built as a file and read as any .timber is; `blankLimits.ts` holds its sizes, levels and refusal
   (the page's dialog reads them without loading the builder).
+- `ruinLine.ts`: the ruin line (the Ruin dragged): `planRuinLine` (piers evenly along a line, their tops at one level,
+  gaps by the seed; a `placeEntity` each) and `applyRuinLine` (one step); `ruinLineLimits.ts` holds its limits.
 - `lakeLevel.ts`: lakes by number: `planLakeLevel` (the sill cut down or raised that holds a lake at a level, `sim/sill.ts`,
   confirmed by the canonical settle), `applyLakeLevel` (one Select step, the confirming settle kept as the map's water,
   `MapSession.withSettled`) and the `setLakeLevel` operation's check (`lakeLevelProblem`).

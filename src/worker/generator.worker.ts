@@ -6,6 +6,7 @@ import { expose, proxy, releaseProxy, transfer, wrap } from "comlink";
 import type { ChecksApi } from "./checks.worker";
 import type { EditOp, OpOrigin } from "../core/doc/ops";
 import type { PaintParams } from "../core/doc/paintParams";
+import type { RuinLineParams } from "../core/doc/ruinLine";
 import type { BlocksParams } from "../core/doc/blockTool";
 import { decodePlaceFile, placeTimber } from "../core/places/place";
 import { replaceThumbnail } from "../core/format/timber";
@@ -244,6 +245,8 @@ const api = {
   layStair: routed((from: [number, number], to: [number, number]) => sendUpdate(ed.layStair(from, to)), (...a) => collabEditApi.layStair(...a).then(sendUpdate)),
   paintAt: routed((params: PaintParams, z?: number) => sendUpdate(ed.paintAt(params, z)), (...a) => collabEditApi.paintAt(...a).then(sendUpdate)),
   paintDryAt: (params: PaintParams, z?: number) => ed.paintDryAt(params, z),
+  ruinLinePlanAt: (params: RuinLineParams) => ed.ruinLinePlanAt(params),
+  ruinLineAt: routed((params: RuinLineParams) => sendUpdate(ed.ruinLineAt(params)), (...a) => collabEditApi.ruinLineAt(...a).then(sendUpdate)),
   setViews: (views: SavedView[]) => ed.setViews(views),
   setName: (name: string) => ed.setName(name),
   removeAt: routed((tiles: number[], kinds: ed.RemoveKind[], cut?: number | null) => sendUpdate(ed.removeAt(tiles, kinds, undefined, cut)), (tiles, kinds, cut) => collabEditApi.removeAt(tiles, kinds, undefined, cut).then(sendUpdate)),
@@ -262,6 +265,7 @@ const api = {
   fillAt: routed((x: number, y: number, level: number) => sendUpdate(ed.fillAt(x, y, level)), (...a) => collabEditApi.fillAt(...a).then(sendUpdate)),
   /** Lakes by number: what setting a lake's level would do (or why not), then doing it, one undo step. */
   lakeLevelPlanAt: (x: number, y: number, level: number, width?: number) => ed.lakeLevelPlanAt(x, y, level, width),
+  lakeHeldAt: (x: number, y: number) => ed.lakeHeldAt(x, y),
   lakeLevelAt: routed((x: number, y: number, level: number, width?: number) => sendUpdate(ed.lakeLevelAt(x, y, level, width)), (...a) => collabEditApi.lakeLevelAt(...a).then(sendUpdate)),
   moveObjectBy: routed((id: string, dx: number, dy: number, z?: number) => sendUpdate(ed.moveObjectBy(id, dx, dy, z)), (...a) => collabEditApi.moveObjectBy(...a).then(sendUpdate)),
   clearEverything: routed(() => sendUpdate(ed.clearEverything()), () => collabEditApi.clearEverything().then(sendUpdate)),
@@ -300,9 +304,14 @@ const api = {
   markerNotes() {
     return ed.markerNotesNow();
   },
-  waterLayers() {
-    const r = ed.waterLayers();
-    return transfer(r, [r.badwater.buffer, r.roofed.buffer] as Transferable[]);
+  /** The water layers; `kind` "irrigation" adds the Irrigation view's tones and reach (worked out only then). */
+  waterLayers(kind?: string) {
+    const r = ed.waterLayers(kind);
+    const i = r.irrigation;
+    // (the reach is the session's cached one: copied, so the transfer leaves the cache whole)
+    if (i) r.irrigation = { tone: i.tone, value: i.value.slice(), levels: i.levels.slice(), tiles: i.tiles.slice(), barred: i.barred.slice() };
+    const extra = r.irrigation ? [r.irrigation.tone.buffer, r.irrigation.value.buffer, r.irrigation.levels.buffer, r.irrigation.tiles.buffer, r.irrigation.barred.buffer] : [];
+    return transfer(r, [r.badwater.buffer, r.roofed.buffer, ...extra] as Transferable[]);
   },
   async backgroundCheck(onProgress?: (p: ed.CheckProgress) => void) {
     return ed.backgroundCheck(onProgress);

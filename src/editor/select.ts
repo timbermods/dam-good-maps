@@ -257,6 +257,8 @@ export interface SelectHost {
   sample?(level: number): void;
   /** Shift+scroll: the Level number a step up (1) or down (-1) (D345, B8). */
   dial?(step: 1 | -1, ev: WheelEvent): void;
+  /** The Wand took the water at this tile (after `changed`): the lake the row's Lake level is for. */
+  lake?(at: [number, number]): void;
 }
 
 /** The Select tool's pointer handling (D184, D259): one drag (or click) at a time. Rectangle and
@@ -339,6 +341,7 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
         if (onWater) sel.apply(waterTiles(host.wet!, W, host.H, hit.x, hit.y), how);
         else sel.apply(land, how, onRun ? level : undefined);
         host.changed();
+        if (onWater && how !== "subtract") host.lake?.([hit.x, hit.y]);
         start = null;
         return true;
       }

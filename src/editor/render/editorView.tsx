@@ -25,7 +25,7 @@ import type { EditorProps } from "../Editor";
 import { DropTarget } from "./DropTarget";
 import { header } from "./header";
 import { topBar } from "./topBar";
-import { cornerButtons, hideObjectsButton, hoverHandler, layerCaption, levelLinesButton, viewButtons } from "./viewControls";
+import { cornerButtons, FIRST_VIEW_KEY, firstViewOf, hideObjectsButton, hoverHandler, layerCaption, levelLinesButton, viewButtons } from "./viewControls";
 
 export function editorView(ed: Ed, props: EditorProps) {
   const {
@@ -54,6 +54,9 @@ export function editorView(ed: Ed, props: EditorProps) {
               onReady={onReady}
               markersWanted={shelf?.id === "Slope"}
               markersToggle={ed.markersToggle}
+              firstView={firstViewOf(ed)}
+              firstViewCall={ed.firstViewCall}
+              firstViewKey={FIRST_VIEW_KEY}
               togglesInButtons
               lookMenu={false}
               besideHeight={levelLinesButton(ed)}

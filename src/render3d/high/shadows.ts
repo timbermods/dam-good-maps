@@ -6,7 +6,9 @@
 // octahedra, which cast diamonds), never for the camera's moves themselves, the water's movement or the wind (the trees'
 // shadows stay still: their sway is a few hundredths of a tile).
 // Water, falls and the effects cast none. Objects faded round the pointer (objectFade.ts) cast none while faded: the
-// depth pass drops them by the objects' own test, and is drawn again when the region moves.
+// depth pass drops them by the objects' own test, and is drawn again when the region moves. What the game's layer cut
+// takes away (D196: every caster's part above the slice, as the colour pass discards it) casts none either, and the map
+// is drawn again when the cut moves.
 
 import { DepthTexture, DoubleSide, Matrix4, MeshDepthMaterial, NearestFilter, OrthographicCamera, RedFormat, UnsignedByteType, UnsignedIntType, Vector3, WebGLRenderTarget, type Scene, type Vector4, type WebGLRenderer } from "three";
 import { SUN } from "../materials";
@@ -129,6 +131,8 @@ export class SunShadows {
 export interface ObjectFadeUniforms {
   objectFade: { value: Vector4 };
   objectHide: { value: number };
+  /** The layer cut (materials.ts `slice`: 99 for none). */
+  slice: { value: number };
 }
 
 /** The depth pass's material: three.js's own, with the objects (the instanced casters: the terrain is not instanced) a
@@ -141,6 +145,7 @@ export function fadingDepth(u: ObjectFadeUniforms): MeshDepthMaterial {
   m.onBeforeCompile = (shader) => {
     shader.uniforms.objectFade = u.objectFade;
     shader.uniforms.objectHide = u.objectHide;
+    shader.uniforms.slice = u.slice;
     shader.vertexShader = shader.vertexShader.replace(
       "void main() {",
       /* glsl */ `${OBJECT_FADE_GLSL}
@@ -148,18 +153,25 @@ export function fadingDepth(u: ObjectFadeUniforms): MeshDepthMaterial {
         attribute vec3 grow;
       #endif
       varying float vDropped;
+      varying float vHeight;
       void main() {
         vDropped = 0.0;
+        vec4 placed = vec4(position, 1.0);
         #ifdef USE_INSTANCING
           vec3 at = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
           if (shadowDropped(vec2(at.x, -at.z), grow)) vDropped = 1.0;
-        #endif`,
+          placed = instanceMatrix * placed;
+        #endif
+        // (the height the layer cut reads: what stands above the slice is cut away, as the colour pass cuts it)
+        vHeight = (modelMatrix * placed).y;`,
     );
     shader.fragmentShader = shader.fragmentShader.replace(
       "void main() {",
       /* glsl */ `varying float vDropped;
+      varying float vHeight;
+      uniform float slice;
       void main() {
-        if (vDropped > 0.5) discard;`,
+        if (vDropped > 0.5 || vHeight > slice + 0.02) discard;`,
     );
   };
   // (one program per kind of mesh, as three.js's own depth material has)

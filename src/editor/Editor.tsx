@@ -49,6 +49,7 @@ import { useCollab } from "./collab/useCollab";
 import type { Together } from "../collab/together";
 import { useCompare } from "./compare/useCompare";
 import { useHideObjects } from "./view/useHideObjects";
+import { useLandShares } from "./view/useLandShares";
 import { editorView } from "./render/editorView";
 
 /** The map's land and water as the editor shows them, for Your maps' picture. */
@@ -145,6 +146,7 @@ export default function Editor(props: EditorProps) {
   Object.assign(ed, useCollab(ed, props));
   Object.assign(ed, useCompare(ed, props));
   Object.assign(ed, useHideObjects(ed));
+  Object.assign(ed, useLandShares(ed));
   // the camera frames the map clear of the controls (setting it never moves the camera, D265)
   useFrameInsets(ed.renderer, !!ed.ready);
   useBandLayout(!!ed.ready);

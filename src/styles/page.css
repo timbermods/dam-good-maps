@@ -699,6 +699,30 @@
   font-size: 0.8rem;
 }
 
+/* the land's shares (Show's Land): a name and its number a line, plain: dry land is no fault */
+.land-shares {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.land-shares .land-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.land-shares dt {
+  color: color-mix(in srgb, var(--ink) 84%, transparent);
+}
+
+.land-shares dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .legend-panel .key-caption {
   margin: 0 0 6px;
   padding-bottom: 6px;
@@ -877,6 +901,24 @@
 .view3d-corner > .corner-level {
   grid-column: 1;
   display: flex;
+}
+
+/* with First view beside Reset view: three buttons and the compass in the same 310px; Slow forces then spans the
+   second and third columns, the sound under the compass */
+.editor-view .view3d-corner:has(.camera-group.with-first-view) {
+  grid-template-columns: 83px 84px 83px var(--corner-h);
+}
+
+.camera-group.with-first-view > button:not(.compass) {
+  padding: 0 6px;
+}
+
+.view3d-corner:has(.camera-group.with-first-view) > .slow-cell {
+  grid-column: 2 / 4;
+}
+
+.view3d-corner:has(.camera-group.with-first-view) > .sound-cell {
+  grid-column: 4;
 }
 
 /* the level control is one width for every value, ∞ to 22: it fills its track and its value takes what the arrows
@@ -1376,6 +1418,25 @@
   font-weight: 600;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
+}
+
+/* a value the player can type (a lake's level): the same number, in a field as wide as two digits */
+input.set-typed {
+  width: 3ch;
+  height: 16px;
+  padding: 0 2px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: transparent;
+  box-shadow: none;
+  font-family: inherit;
+  line-height: 14px;
+  text-align: right;
+}
+
+input.set-typed:disabled {
+  border-color: transparent;
+  opacity: 0.5;
 }
 
 /* Auto: one small word in the same place on every control that has it, lit while the land decides */
