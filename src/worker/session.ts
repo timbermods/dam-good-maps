@@ -38,6 +38,7 @@ import { markerNotes, type MarkerNote } from "../core/doc/objectOps";
 import { fillLevel, planFill, unfedWater } from "../core/doc/waterEdits";
 import { applyLakeLevel, lakeHeldLevel, planLakeLevel, type LakeLevelPlan } from "../core/doc/lakeLevel";
 import { applyCanal, planCanal, type CanalPlan } from "../core/doc/canal";
+import { applyDrawnLake, planDrawnLake, type DrawnLakePlan } from "../core/doc/lake";
 import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
 import { bakeLandforms } from "../core/doc/bake";
@@ -1894,6 +1895,8 @@ export const planned = {
   lakeLevel: (x: number, y: number, level: number, width?: number) => planLakeLevel(need(), x, y, level, width),
   /** A canal along a path: its bed and banks, or why not. */
   canal: (path: [number, number][], width: number, depth: number, open: boolean) => planCanal(need(), path, width, depth, open),
+  /** A drawn lake inside an outline: its bed, rim and notch, or why not. */
+  lake: (outline: [number, number][], level: number, depth: number, spill: [number, number] | null) => planDrawnLake(need(), outline, level, depth, spill),
   /** Every tile of the map (Clear everything removes the objects on all of them). */
   everything: (): number[] => Array.from({ length: need().size.x * need().size.y }, (_, i) => i),
 };
@@ -2471,6 +2474,22 @@ export function canalAt(path: [number, number][], width: number, depth: number, 
   const t0 = performance.now();
   const s = need();
   const r = applyCanal(s, path, width, depth, open);
+  return changed(s, r.ok, r.errors, t0);
+}
+
+/** A drawn lake: what a lake inside `outline` at `level` would change (the bed dug, the rim raised and its notch, each tile
+ *  with its level; whether water there fills it), or the plain reason it can't be made (core/doc/lake.ts
+ *  `planDrawnLake`). Reads the map only; no settle. */
+export function lakePlanAt(outline: [number, number][], level: number, depth: number, spill: [number, number] | null): Omit<DrawnLakePlan, "op"> {
+  const { op: _op, ...plan } = planDrawnLake(need(), outline, level, depth, spill);
+  return plan;
+}
+
+/** Make the lake inside `outline`: one undo step (core/doc/lake.ts `applyDrawnLake`). */
+export function lakeAt(outline: [number, number][], level: number, depth: number, spill: [number, number] | null): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const r = applyDrawnLake(s, outline, level, depth, spill);
   return changed(s, r.ok, r.errors, t0);
 }
 
