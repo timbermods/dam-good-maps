@@ -10,6 +10,9 @@ import { rulesFor } from "../validate/playability";
 import { checkFrame, type FrameCheck } from "./frame";
 import { gateLand, gateLandFailures } from "./gateLand";
 import { gateFirstWater } from "./gateWater";
+import { gateCard, gateLadder, gateWorksFailures } from "./gateWorks";
+import type { PremiseCard } from "./card";
+import type { Ladder } from "./ladder";
 import { premiseMap, type PremiseLand, type PremiseMap } from "./map";
 import { wallGate } from "./premises/wallGate";
 import type { StyleTheme } from "./choice";
@@ -24,6 +27,11 @@ export interface GateMap {
   /** The land invariants the ground fails (`gateLand.ts` `GATE_LAND_CHECKS`), each with its line. */
   landFails: { id: string; reason: string }[];
   frame: FrameCheck;
+  /** Stage 4: the ladder on this land (`gateWorks.ts` `gateLadder`), and the map card's words. */
+  ladder: Ladder;
+  card: PremiseCard;
+  /** The works invariants the ladder fails (`gateWorks.ts` `GATE_WORKS_CHECKS`). */
+  worksFails: { id: string; reason: string }[];
   /** The built map and its checks; absent when stage 3 found no start. */
   map?: PremiseMap;
   attempt: number;
@@ -51,9 +59,10 @@ export function gateMap(spec: MapSpec, theme: StyleTheme = "riverValley"): GateM
   const landFails = gateLandFailures({ spec, plan: r.plan, water: r.water, heights: land.heights });
   const rules = rulesFor(spec);
   const frame = checkFrame(r.plan, r.water, land.heights, { level: rules.levelLand, farmland: rules.farmland });
-  const out: GateMap = { plan: r.plan, water: r.water, land, landFails, frame, attempt: r.attempt };
+  const ladder = gateLadder(r.plan, r.water, land.heights);
+  const out: GateMap = { plan: r.plan, water: r.water, land, landFails, frame, ladder, card: gateCard(r.plan, theme, ladder), worksFails: gateWorksFailures({ plan: r.plan, water: r.water, heights: land.heights, ladder }), attempt: r.attempt };
   if (frame.reason) return out;
   const s: MapSpec = { ...JSON.parse(JSON.stringify(spec)), accepted: { attempt: r.attempt, candidate: 0 } };
-  out.map = premiseMap(s, r.plan, land, frame.start, undefined, style);
+  out.map = premiseMap(s, r.plan, land, frame.start, ladder, style);
   return out;
 }
