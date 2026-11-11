@@ -236,9 +236,12 @@ export abstract class Staged {
       const after = this.final();
       // (a source or seep that rides stands on the ground its last touches left, D474: every one under Ride, and
       // under Clear the ones whose ground it did not destroy)
+      // (moved as much as its ground moved: one under a roof, a cave's, stays in its cave while the land above is untouched)
       if (after) {
         const W = after.W;
-        for (const e of after.entities) if (CLEARABLE.has(e.template) && e.x >= 0 && e.y >= 0 && e.x < W && e.y < after.H) e.z = after.heights[e.y * W + e.x];
+        const B = this.before;
+        const lift = new Map(B.entities.filter((e) => e.x >= 0 && e.y >= 0 && e.x < B.W && e.y < B.H).map((e) => [e.id, e.z - B.heights[e.y * B.W + e.x]]));
+        for (const e of after.entities) if (CLEARABLE.has(e.template) && e.x >= 0 && e.y >= 0 && e.x < W && e.y < after.H) e.z = after.heights[e.y * W + e.x] + (lift.get(e.id) ?? 0);
       }
       if (after && clears(this.settings.sources)) {
         const ground = this.before.heights;

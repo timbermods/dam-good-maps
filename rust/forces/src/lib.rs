@@ -5021,6 +5021,9 @@ struct CarveState {
     occupants: Option<Vec<Vec<usize>>>,
     removed_keys: Vec<bool>,
     rider_tiles: Vec<usize>,
+    /// How far each rider stands above its tile's ground when the carve starts (a cave's source, under a roof, below
+    /// it): it rides the ground by as much as the ground moves (play.ts does the same).
+    rider_lift: Vec<f64>,
     unleashed_key: Option<usize>,
     cells: HashMap<i32, Vec<usize>>,
     cells_up_to: usize,
@@ -5213,6 +5216,7 @@ impl CarveState {
             occupants: None,
             removed_keys: vec![],
             rider_tiles: vec![],
+            rider_lift: vec![],
             unleashed_key: None,
             cells: HashMap::new(),
             cells_up_to: 0,
@@ -5365,6 +5369,7 @@ impl CarveState {
         }
         r.removed_keys = vec![false; r.map.next_id.get()];
         r.rider_tiles = vec![usize::MAX; r.map.next_id.get()];
+        r.rider_lift = vec![0.0; r.map.next_id.get()];
         for g in &r.group {
             r.rider_tiles[g.id_key] = g.tile;
         }
@@ -5379,7 +5384,9 @@ impl CarveState {
             let (w, h) = (r.map.w, r.map.h);
             for e in &r.map.entities {
                 if ride_source(e.template.as_ref()) && r.rider_tiles[e.id_key] == usize::MAX && r.unleashed_key != Some(e.id_key) && e.x >= 0.0 && e.y >= 0.0 && (e.x as usize) < w && (e.y as usize) < h {
-                    r.rider_tiles[e.id_key] = e.y as usize * w + e.x as usize;
+                    let tile = e.y as usize * w + e.x as usize;
+                    r.rider_tiles[e.id_key] = tile;
+                    r.rider_lift[e.id_key] = e.z - r.original[tile] as f64;
                 }
             }
         }
@@ -6542,7 +6549,7 @@ impl CarveState {
         for e in &mut entities {
             let tile = self.rider_tiles[e.id_key];
             if tile != usize::MAX {
-                e.z = self.map.heights[tile] as f64;
+                e.z = self.map.heights[tile] as f64 + self.rider_lift[e.id_key];
             } else if self.unleashed_key == Some(e.id_key) {
                 e.z = self.map.heights[e.y as usize * self.map.w + e.x as usize] as f64;
             }
