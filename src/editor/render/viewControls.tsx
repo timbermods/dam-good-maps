@@ -52,16 +52,30 @@ export function viewButtons(ed: Ed) {
  *  it did; where the water row takes a second line, the two join the Show row as its last toggles (useBandLayout.ts). */
 export function hideObjectsButton(ed: Ed) {
   return (
-    <ShowRow on={ed.objectsHidden} onToggle={ed.toggleObjectsHidden} tip={tip("See the land behind objects", HIDE_OBJECTS_KEY)}>
-      Hide objects
-    </ShowRow>
+    <>
+      <ShowRow on={ed.objectsHidden} onToggle={ed.toggleObjectsHidden} tip={tip("See the land behind objects", HIDE_OBJECTS_KEY)}>
+        Hide objects
+      </ShowRow>
+      {/* the land's shares (view/useLandShares.tsx): its numbers sit in the key under Legend while it is on */}
+      <ShowRow on={ed.landOn} onToggle={ed.toggleLand} tip={tip("How much is water, moist and dry, and its wood")}>
+        Land
+      </ShowRow>
+    </>
   );
 }
 
 /** The water overlay's caption while one is on (Badwater, Caves and overhangs), for the key under the Show column. */
 export function layerCaption(ed: Ed) {
   const { waterLayers, layer } = ed;
-  return layer !== "none" && waterLayers ? <LayerLegend kind={layer} layers={waterLayers} /> : null;
+  const overlay = layer !== "none" && waterLayers ? <LayerLegend kind={layer} layers={waterLayers} /> : null;
+  const land = ed.landReadout();
+  if (!overlay && !land) return null;
+  return (
+    <>
+      {land}
+      {overlay}
+    </>
+  );
 }
 
 export function cornerButtons(ed: Ed) {
