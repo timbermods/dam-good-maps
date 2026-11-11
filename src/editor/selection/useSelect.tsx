@@ -4,15 +4,15 @@ import type { ComponentChildren, JSX } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { EditOp } from "../../core/doc/ops";
 import { footprintTiles, type Orientation } from "../../core/format/footprints";
-import { FLIPPED, ORIENTATION_NAMES } from "../../render3d/model";
-import { deleteGroupOf, DELETE_GROUPS, DELETE_KINDS, depthLevels, SELECT_MODES, selectTool, sizeWords, type DeleteGroup, type SelectMode } from "../select";
+import { FLIPPED, ORIENTATION_NAMES, surfaceWater } from "../../render3d/model";
+import { deleteGroupOf, DELETE_GROUPS, DELETE_KINDS, depthLevels, SELECT_MODES, selectTool, sizeWords, waterTiles, type DeleteGroup, type SelectMode } from "../select";
 import { ModeIcon, WholeMapIcon } from "../SelectIcons";
 import { tilesToRuns } from "../../core/math/grid";
 import { isSource } from "../sourceSpots";
 import { BRUSH_MAX_LEVEL } from "../../core/features/raster/brush";
 import { BAD, LOWERS, MOVING, RAISES } from "../tools";
 import { tip } from "../../ui/Tooltip";
-import { ButtonSetting, NumberSetting, SettingsGrid, Words, type Group } from "../settings";
+import { ButtonSetting, HeldNumberSetting, NumberSetting, SettingsGrid, Words, type Group } from "../settings";
 import { ALL_KINDS } from "../remove/kinds";
 import type { Ed } from "../ed";
 import { heldWhy } from "../../core/doc/start";
@@ -21,7 +21,7 @@ import { caveLeftWords } from "../caveWords";
 import { seenUnderCut } from "../shelf/aim";
 
 export interface SelectSlice {
-  selectHost: () => { W: number; H: number; heights: () => Uint8Array<ArrayBufferLike>; mode: () => SelectMode; changed: () => void; drawing: (tiles: number[] | null, words: string | null, ev: PointerEvent | null) => void; wet: (i: number) => boolean; hasTop: (i: number, level: number) => boolean; brushSize: () => number; ring: (at: [number, number] | null, radius: number) => void; sample: (level: number) => void; dial: (step: 1 | -1, ev: WheelEvent) => void };
+  selectHost: () => { W: number; H: number; heights: () => Uint8Array<ArrayBufferLike>; mode: () => SelectMode; changed: () => void; drawing: (tiles: number[] | null, words: string | null, ev: PointerEvent | null) => void; lake: (at: [number, number]) => void; wet: (i: number) => boolean; hasTop: (i: number, level: number) => boolean; brushSize: () => number; ring: (at: [number, number] | null, radius: number) => void; sample: (level: number) => void; dial: (step: 1 | -1, ev: WheelEvent) => void };
   openSelect: () => void;
   closeSelect: () => void;
   selectAll: () => void;
@@ -60,8 +60,11 @@ export function useSelect(ed: Ed): SelectSlice {
       mode: () => selectingRef.current ?? "rect",
       changed: () => {
         setFlattenTo(null);
+        setLake(null);
         setSelectionTick((n) => n + 1);
       },
+      // the Wand took a lake or a river: the row's Lake level is for it
+      lake: (at: [number, number]) => setLake({ x: at[0], y: at[1] }),
       drawing: (tiles: number[] | null, words: string | null, ev: PointerEvent | null) => {
         setSelectDraw(tiles);
         if (!words) return setShapeNote(null);
@@ -174,6 +177,7 @@ export function useSelect(ed: Ed): SelectSlice {
     setDeleteMenu(false);
     setSelectPreview(null);
     setFlattenTo(null);
+    setLake(null);
     selection.current.clear();
     setSelecting((m) => m ?? "rect");
     setSelectDraw(null);
@@ -184,6 +188,7 @@ export function useSelect(ed: Ed): SelectSlice {
     const N = infoRef.current.W * infoRef.current.H;
     selection.current.apply(Array.from({ length: N }, (_, i) => i), "set");
     setFlattenTo(null);
+    setLake(null);
     if (!brushToolRef.current && !ed.toolRef.current && !ed.blockRef.current) setSelecting((m) => m ?? "rect");
     setSelectionTick((n) => n + 1);
   }
@@ -299,6 +304,47 @@ export function useSelect(ed: Ed): SelectSlice {
   const flattenRef = useRef<number | null>(null);
   flattenRef.current = flattenTo;
   const [maxDepth, setMaxDepth] = useState(2);
+  // ------------------------------------------------------------------------------ Lakes by number (the core's `setLakeLevel`)
+
+  /** The tile the Wand took water at: the lake (or river) the Lake level is for, until the selection changes. */
+  const [lake, setLake] = useState<{ x: number; y: number } | null>(null);
+  /** The level under the hand (the slider, the wheel, a typed number) until the map has answered it. */
+  const [lakeTo, setLakeTo] = useState<number | null>(null);
+  const [lakeBusy, setLakeBusy] = useState(false);
+  /** The map's water as the worker last put it in place (a journey's frames pass over it). */
+  const mapSurface = () => surfaceWater(infoRef.current.W, infoRef.current.H, mirror.current.mapWater).surface;
+  /** The level the picked lake stands at now (its surface is from that level up to under the next), or null when no
+   *  water stands on its tile any more. */
+  function lakeLevelNow(): number | null {
+    if (!lake) return null;
+    const s = mapSurface()[lake.y * infoRef.current.W + lake.x];
+    return s === s ? Math.floor(s + 0.02) : null;
+  }
+  /** Set the picked lake's level: its sill cut down or raised by the core, one undo step; refused with the core's one
+   *  line. The plan settles the map's water once (seconds on a big map), so the row says it is at work meanwhile. */
+  function setLakeLevel(level: number) {
+    const l = lake;
+    const now = lakeLevelNow();
+    if (!l || now === null || level === now || lakeBusy) return setLakeTo(null);
+    endWaterHint();
+    setLakeBusy(true);
+    void run(
+      () => api.lakeLevelAt(l.x, l.y, level),
+      (u) => {
+        if (!u.ok) return;
+        feel(level > now ? "raise" : "lower", l.x, l.y, 3);
+        // the lake as it stands now is the selection (the Wand's snapshot was the old shore)
+        const { W, H } = infoRef.current;
+        const surface = mapSurface();
+        const tiles = waterTiles((i) => surface[i] === surface[i], W, H, l.x, l.y);
+        if (tiles.length) selection.current.apply(tiles, "set");
+        setSelectionTick((n) => n + 1);
+      },
+    ).finally(() => {
+      setLakeBusy(false);
+      setLakeTo(null);
+    });
+  }
   /** The deepest water in the selection (Max water depth's top). */
   function deepestIn(): number {
     const w = mirror.current.water;
@@ -622,6 +668,7 @@ export function useSelect(ed: Ed): SelectSlice {
     const level = Math.max(0, Math.min(BRUSH_MAX_LEVEL, flattenTo ?? selectLowest()));
     const deepest = z ? deepestIn() : 0;
     const depth = Math.max(1, Math.min(maxDepth, Math.max(1, deepest)));
+    const lakeNow = lakeLevelNow();
     const way = (what: "raise" | "lower" | "flatten" | "cut" | "fill") => ({
       onMouseEnter: () => selectPreviewOf(what, level),
       onFocus: () => selectPreviewOf(what, level),
@@ -664,7 +711,7 @@ export function useSelect(ed: Ed): SelectSlice {
     });
     const groups: Group[] = [
       { key: "shapes", row: 1, at: 1, span: 7, node: shapes },
-      { key: "size", row: 1, at: 8, span: 3, centre: true, node: <Words status>{waterHint ?? (z ? sizeWords(z) : "Drag on the map to select")}</Words> },
+      { key: "size", row: 1, at: 8, span: 3, centre: true, node: <Words status>{lakeBusy ? "Setting the lake\u2019s level\u2026" : waterHint ?? (z ? sizeWords(z) : "Drag on the map to select")}</Words> },
       // Crop (D340) ends the second row: the map becomes the selection's rectangle; greyed with its reason when it cannot
       {
         key: "crop",
@@ -737,10 +784,31 @@ export function useSelect(ed: Ed): SelectSlice {
         key: "depth",
         row: 2,
         at: 9,
-        span: 4,
+        span: 2,
         node: <NumberSetting label="Max water depth" title="The deepest the water may be" value={depth} min={1} max={Math.max(1, deepest)} step={1} disabled={!deep} onChange={(v) => setMaxDepth(v)} />,
       },
-      { key: "apply", row: 2, at: 13, span: 1, node: <ButtonSetting label="Apply" title="Make the water no deeper than this" disabled={!deep} onClick={() => selectAction("depth", depth)} /> },
+      { key: "apply", row: 2, at: 11, span: 1, node: <ButtonSetting label="Apply" title="Make the water no deeper than this" disabled={!deep} onClick={() => selectAction("depth", depth)} /> },
+      // Lakes by number: the Wand on water takes a lake, and this is its level; a new one cuts or raises its sill
+      {
+        key: "lake",
+        row: 2,
+        at: 12,
+        span: 2,
+        node: (
+          <HeldNumberSetting
+            label="Lake level"
+            title={lake && lakeNow === null ? "No water stands there now" : lake ? "Hold the lake at this level" : "Hold a lake at a level: take it with the Wand"}
+            keys={["Scroll"]}
+            value={lakeTo ?? lakeNow ?? 0}
+            min={1}
+            max={BRUSH_MAX_LEVEL}
+            step={1}
+            disabled={lakeNow === null || lakeBusy}
+            onChange={setLakeTo}
+            onCommit={setLakeLevel}
+          />
+        ),
+      },
       {
         key: "delete",
         row: 2,

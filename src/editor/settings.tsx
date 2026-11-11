@@ -6,6 +6,7 @@
 // where the player's is filled; labels said once; keys only in tooltips.
 
 import type { ComponentChildren } from "preact";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { tip } from "../ui/Tooltip";
 
 /** The bar's cells: seven tools (Select, the five brushes, Block), the hairline, eight forces (Erode last). */
@@ -128,6 +129,89 @@ export function NumberSetting(p: {
     </div>
   );
 }
+
+/** A number the map answers once the hand rests (a lake's level): the slider as for any number, its value a field to
+ *  type in, and the wheel a step at a time. `onChange` follows the hand; `onCommit` is called with the value once it has
+ *  rested for a moment (the slider let go, the wheel still), or at once on Enter. */
+export function HeldNumberSetting(p: { label: string; title: string; keys?: readonly string[]; value: number; min: number; max: number; step: number; disabled?: boolean; onChange(v: number): void; onCommit(v: number): void }) {
+  const [typed, setTyped] = useState<string | null>(null);
+  const rest = useRef(0);
+  const latest = useRef(p);
+  latest.current = p;
+  useEffect(() => () => clearTimeout(rest.current), []);
+  const fit = (v: number) => Math.max(p.min, Math.min(p.max, Math.round(v / p.step) * p.step));
+  const commit = (v: number, wait: number) => {
+    clearTimeout(rest.current);
+    if (wait) rest.current = window.setTimeout(() => latest.current.onCommit(v), wait);
+    else p.onCommit(v);
+  };
+  const hand = (v: number) => {
+    p.onChange(v);
+    commit(v, REST_MS);
+  };
+  const typedDone = () => {
+    const v = typed === null || typed.trim() === "" ? NaN : Number(typed);
+    setTyped(null);
+    // (a number outside the range is given as typed: the map's own one-line reason answers it, never a silent clamp)
+    if (!Number.isInteger(v) || v === p.value) return;
+    p.onChange(v);
+    commit(v, 0);
+  };
+  const fill = p.max > p.min ? ((p.value - p.min) / (p.max - p.min)) * 100 : 0;
+  return (
+    <div
+      class={`set plate${p.disabled ? " off" : ""}`}
+      {...tip(p.title, ...(p.keys ?? []))}
+      onWheel={(e) => {
+        if (p.disabled || !e.deltaY) return;
+        e.preventDefault();
+        setTyped(null);
+        hand(fit(p.value + (e.deltaY < 0 ? p.step : -p.step)));
+      }}
+    >
+      <div class="set-head">
+        <span class="set-label">{p.label}</span>
+        <span class="set-right">
+          <input
+            type="text"
+            inputMode="numeric"
+            class="set-value set-typed"
+            aria-label={`${p.label}, typed`}
+            value={typed ?? String(p.value)}
+            disabled={p.disabled}
+            onFocus={(e) => (e.target as HTMLInputElement).select()}
+            onInput={(e) => setTyped((e.target as HTMLInputElement).value)}
+            onBlur={typedDone}
+            onKeyDown={(e) => {
+              // (the field's own keys never reach the editor's single-key shortcuts)
+              e.stopPropagation();
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              if (e.key === "Escape") {
+                setTyped(null);
+                queueMicrotask(() => (e.target as HTMLInputElement).blur());
+              }
+            }}
+          />
+        </span>
+      </div>
+      <input
+        type="range"
+        class="set-range"
+        min={p.min}
+        max={p.max}
+        step={p.step}
+        value={Math.max(p.min, Math.min(p.max, p.value))}
+        disabled={p.disabled}
+        aria-label={p.label}
+        aria-valuetext={String(p.value)}
+        style={{ "--fill": `${Math.max(0, Math.min(100, fill))}%` }}
+        onInput={(e) => hand(Number((e.target as HTMLInputElement).value))}
+      />
+    </div>
+  );
+}
+/** How long a held number rests before the map answers it. */
+const REST_MS = 450;
 
 /** A choice: its name and Auto on one line, its options side by side under them. On Auto, the option the land took
  *  is outlined; the player's pick is filled. */
