@@ -1275,6 +1275,24 @@ Make a valley, drop a source, and there's a river.
   words beside the pointer say "bed from level 15 to 12, 6 bank tiles", or the core's one line with the line in red;
   the release makes the canal that was shown, one step in History ("Cut a canal 2 wide and 1 deep"); a refused line
   says its reason again and changes nothing. Esc lets a drag go.
+- **The lake** (a lake where there is none): an outline dragged on the land becomes a basin. Its bed shelves: one level
+  under the lake's **level** at the shore, a level deeper each tile inward, down to a channel **depth** (1 to 5) under it
+  along the outline's long axis and half that beside the channel; ground already lower is left. Its rim, the ring of
+  tiles just outside the outline, is made whole a level over the lake (a gap raised up to three levels; a deeper one is
+  refused, naming the lowest: "the land can't hold a lake at level 8 there: its rim's lowest gap is at X 70 · Y 30, level
+  3"), with one spill point: a notch one tile wide at the level, where the ground beyond the rim is lowest, or nearest
+  where the drag went on out of the outline it closed; always where ground beyond lies at the level or lower, so the
+  water runs out there, and never on or toward the map's edge (with none, it is refused). It places no water of its own: water already in the outline or on its rim fills it at
+  the next settle; otherwise a source or a canal must bring some. An outline on the map's edge, a source's ground and a
+  cave's or an overhang's are refused, saying where. One undo step; the objects on it ride its ground. The core's `lake`
+  operation (`core/doc/lake.ts` `planDrawnLake`, `applyDrawnLake`; named apart from Lakes by number's `lakeLevel.ts`; its
+  tiles stored with their levels and checked again by the engine, as a canal's are), the worker's `lakePlanAt` and
+  `lakeAt`, and the MCP server's `apply` (`outline` and `level` needed). **On the page** it is Lower's fifth **Brush**
+  choice, **Lake** (`lake/useLake.ts`, `TopBar.tsx`): the row shows **Level**, **Depth** and what fills it ("Add a source
+  or lead water in", or "The water here fills it" when the outline drawn last touches water) over the Brush choice; a
+  drag draws the outline freehand, as Select's Freehand does. While it is dragged the tiles it would change are tinted and
+  the words beside the pointer say "a lake at level 8, 240 tiles", or the core's one line with the outline in red; the
+  release digs the lake that was shown, one step in History ("Dig a lake at level 8, 2 deep"). Esc lets a drag go.
 - **Lakes by number** (showcase craft, gap 19): pick a lake, type its level, and its sill is cut down or raised so the
   lake holds there: its water stands from the level up to under a level above it (the head of its river over the
   sill), as the hover readout's "Water at level 7.4" reads level 7. A sill higher than the level gets a notch cut down

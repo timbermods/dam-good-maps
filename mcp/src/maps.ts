@@ -17,6 +17,7 @@ import { planStart } from "../../src/core/doc/tools";
 import { planFill, unfedWater } from "../../src/core/doc/waterEdits";
 import { applyLakeLevel } from "../../src/core/doc/lakeLevel";
 import { applyCanal } from "../../src/core/doc/canal";
+import { applyDrawnLake } from "../../src/core/doc/lake";
 import { applyRidge, type RidgeSteep } from "../../src/core/doc/ridge";
 import { applyForce } from "../../src/core/collab/forceStep";
 import { isPickable } from "../../src/core/features/objects";
@@ -389,6 +390,15 @@ function applyOne(s: MapSession, raw: unknown): { label: string; held: number } 
         const path = p.path as Pair[] | undefined;
         if (!Array.isArray(path) || path.length < 2) refuse("A canal needs path [[x, y], ...], from where the water is to where it should go");
         return done(applyCanal(s, path!, (p.width as number | undefined) ?? 2, (p.depth as number | undefined) ?? 1, (p.open as boolean | undefined) ?? true), lastLabel());
+      }
+      break;
+    case "lake":
+      // a lake where there is none: planned on the map as it stands (core/doc/lake.ts)
+      if (p.cells === undefined) {
+        const outline = p.outline as Pair[] | undefined;
+        if (!Array.isArray(outline) || outline.length < 3) refuse("A lake needs outline [[x, y], ...] around the ground it should take, and level");
+        if (typeof p.level !== "number") refuse("A lake needs the level its water stands at");
+        return done(applyDrawnLake(s, outline!, p.level as number, (p.depth as number | undefined) ?? 2, (p.spill as Pair | undefined) ?? null), lastLabel());
       }
       break;
     case "ridge":

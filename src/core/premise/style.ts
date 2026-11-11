@@ -56,16 +56,17 @@ export interface PremiseStyle {
   woods: Settings["resources"]["speciesMix"] | null;
 }
 
-/** Each theme's land past the meadows. Canyon's walls rise tall from the meadows to mesas high in the room, benched three
- *  apart and cut by dry canyons; Highlands' heights roll from mid-height to summits at the highest ground; River
- *  Valley's terraces step up two at a time away from the water, broad; Lake Basin's ground stays low and gentle, its
- *  benches wide; Delta lower still; Islands' ground rises to rounded heights. The stair and its meadows are the
- *  premise's in every theme. */
+/** Each theme's land past the meadows, in the room up to Highest terrain (22 on a premise map: the plan's `sky`).
+ *  Canyon's walls rise tall from the meadows to mesas high in the room, benched three apart and cut by deep dry
+ *  canyons; Highlands' heights roll low between peaks whose summits reach the highest ground; River Valley's terraces
+ *  step up two at a time away from the lakes, broad; Lake Basin's floor stays low and gentle inside one bold rim along
+ *  the edges, its benches wide; Delta lower still; Islands' ground rises to rounded heights. The stair and its meadows
+ *  are the premise's in every theme. */
 export const THEME_UPLANDS: Record<StyleTheme, Omit<ReliefStyle, "grade" | "benched" | "amp">> = {
   riverValley: { form: "terraces", span: [0.1, 0.85], step: 2, crag: [1, 3], crag2: [1, 2], bench: [12, 22], later: 1, deep: 0.3 },
-  canyon: { form: "mesas", span: [0.55, 1], step: 3, crag: [3, 6], crag2: [3, 4], bench: [5, 9], later: 3, deep: 1 },
+  canyon: { form: "mesas", span: [0.5, 0.85], step: 3, crag: [3, 6], crag2: [3, 4], bench: [5, 9], later: 3, deep: 1 },
   highlands: { form: "peaks", span: [0.2, 1.15], step: 1, crag: [1, 3], crag2: [1, 2], bench: [3, 7], later: 1, deep: 0.8 },
-  lakeBasin: { form: "basin", span: [0, 0.4], step: 1, crag: [1, 2], crag2: [1, 1], bench: [16, 28], later: 1, deep: 0 },
+  lakeBasin: { form: "basin", span: [0, 0.55], step: 1, crag: [1, 2], crag2: [1, 1], bench: [16, 28], later: 1, deep: 0 },
   delta: { form: "basin", span: [0, 0.3], step: 1, crag: [1, 2], crag2: [1, 1], bench: [16, 28], later: 1, deep: 0 },
   islands: { form: "peaks", span: [0.1, 0.8], step: 1, crag: [2, 3], crag2: [1, 2], bench: [6, 12], later: 2, deep: 0.6 },
 };

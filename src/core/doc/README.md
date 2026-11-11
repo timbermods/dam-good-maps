@@ -59,6 +59,10 @@ The map document and its edit engine: a generation plus an ordered log of edit o
   rise cut through up to 3 levels deeper or refused saying where; banks raised where the land beside the bed is lower
   than its water would stand; Open or Dry), `applyCanal` (one Select step) and the `canal` operation's check
   (`canalProblem`). Its tiles are stored with their levels and applied as a lake's sill's are.
+- `lake.ts`: the drawn lake, a lake where there is none: `planDrawnLake` (a basin inside an outline: a shelving bed, the
+  rim made whole a level over the lake with one notch at its level, or refused naming the rim's lowest gap),
+  `applyDrawnLake` (one Select step) and the `lake` operation's check (`drawnLakeProblem`); `lakeLimits.ts` holds its
+  limits. Not `lakeLevel.ts`, which sets an existing lake's level.
 - `ruinLine.ts`: the ruin line (the Ruin dragged): `planRuinLine` (piers evenly along a line, their tops at one level,
   gaps by the seed; a `placeEntity` each) and `applyRuinLine` (one step); `ruinLineLimits.ts` holds its limits.
 - `ridge.ts`: the ridge, high ground along a line: `planRidge` (a surface with a wandering crest, a steep side and

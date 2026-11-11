@@ -18,9 +18,12 @@
 // stands whole over a broad bench (never a half-step ring round its beach).
 //
 // The style seam (PREMISES §1.5, `style.ts`): given a theme's style, the uplands take the theme's form in the room
-// between the stair's ground and the highest ground (`styledUplands`): Canyon's mesas, tables in three heights cut by
-// dry canyons; Highlands' peaks, the cones of the plates' points; River Valley's terraces, climbing with the distance
-// from day 1's water so their steps run along the valley; Lake Basin's low rolling ground. Past the green of day 1's
+// between the stair's ground and the highest ground, the plan's `sky` (Highest terrain, 22 from Verticality 70, while
+// the stair stays under 16) (`styledUplands`): Canyon's mesas, tables in three heights cut by deep dry canyons;
+// Highlands' peaks, cones on two in five of the plates' points with level summits, rolling heights between; River
+// Valley's terraces, climbing with the distance from the lakes so their steps run along the valley; Lake Basin's low
+// rolling floor inside one bold rim along the edges. The hollow behind the skyline (`hollowsOf`) is a level floor in
+// a rim of its own, a dry place stage 6 dresses. Past the green of day 1's
 // water the ground comes down by the form's `deep` (Canyon's canyons and Highlands' valleys toward the floor); by it,
 // a plate stands no higher than the premise's own and the hillsides' cap only comes down (the style's height there
 // took the green off the first benches). The hillsides past each meadow take the theme's crags and benches; the
@@ -31,12 +34,12 @@ import { hash32 } from "../../math/hash";
 import { distanceFrom } from "../../math/grid";
 import { fbm } from "../../math/noise";
 import { smoothstep } from "../../math/clamp";
-import { sqrt } from "../../math/portable";
+import { hypot, sqrt } from "../../math/portable";
 import { BED_FLOOR } from "../../land/genome";
 import { widenBenches } from "../../land/benches";
 import { grader } from "../../land/levels";
 import type { ReliefStyle } from "../style";
-import { HEADING_DIR } from "../geom";
+import { bodyDist, HEADING_DIR, pathDist, pathLength, pointAt } from "../geom";
 import type { Edge, Link, PremisePlan } from "../types";
 import type { StageWater } from "../water";
 import { near4, type WaterRaster } from "./field";
@@ -66,6 +69,11 @@ const BYPASS_LOOK = 3;
 /** A dry brook's last tiles, where it falls the last level into the water it reaches. */
 const MOUTH = 3;
 const WADI = 1.7;
+/** A hollow behind a ridge (§4.4's dry places): a level floor `under` levels under the ridge's ledge, of radius `r`
+ *  tiles (`rBig` past 192², down to `least` where room is short), its outline wandering `wob`, held in a rim a level
+ *  over it `rim` tiles wide; none of it within `gap` tiles of a water or bed, its middle `edge` past its radius from
+ *  the map's edge. */
+const HOLLOW = { r: 7, rBig: 10, least: 4, under: 2, wob: 1.6, rim: 2.5, gap: 5, edge: 2 };
 /** Beyond this many tiles from any water the outlands fall away a little more (§2.2). */
 const OUTLANDS = 30;
 /** How far the land falls toward an edge that falls away, levels a tile over the last `EDGE_RUN` tiles. */
@@ -79,21 +87,28 @@ const STAIR_CELL = 8;
  *  outlands' mean over it, rounded after a lift of its own, up to `lift` levels either way, so neighbours meet in a
  *  step of none to three. */
 const PLATE = { from: 5, wander: 3, start: 16, lift: 1.2 };
-/** Highlands' peaks: each plate's point a cone, its summit `low` to 1 of the form's span, falling a span's height over
- *  `reach` plates' widths; the land the highest of the cones near it. */
-const PEAK = { low: 0.45, reach: 1.1 };
+/** Highlands' peaks: `share` of the plates' points a cone, its summit `low` to 1 of the form's span and level for
+ *  `flat` tiles round its point (a summit narrower than the bench-width floor's 5 tiles is worn down by it), falling a
+ *  span's height over `reach` plates' widths; between them rolling heights at `base` of the span, `roll` either way
+ *  by broad noise; the land the highest of the cones near it and the heights. */
+const PEAK = { share: 0.4, low: 0.6, reach: 1.1, flat: 3.5, base: 0.35, roll: 0.2 };
 /** A style's uplands stand at least `near` levels over the stair's ground within `green` tiles of day 1's water (a
  *  hillside under it stood as a meadow a level higher, and the green spread past the meadow's width: the soil reaches 16
  *  tiles over level ground), and `far` past it, coming down over `fade` tiles: past the green the land may lie low. */
 const FLOOR = { near: 3.5, far: 0.5, green: 16, fade: 12, least: 2 };
-/** Canyon's dry canyons: about this share of the plates' edges is cut, this deep under the lower mesa beside it and
- *  about this wide across (± by noise), tiles. */
-const CANYON = { share: 0.6, depth: 5, wide: 2.6 };
+/** Canyon's dry canyons: about this share of the plates' edges is cut, this deep under the lower mesa beside it (no
+ *  deeper than the ground under the tables) and about this wide across (± by noise), tiles. */
+const CANYON = { share: 0.75, depth: 8, wide: 3.4 };
+/** Lake Basin's rim: the basin's floor stands at `floor` of the form's span, rolling, and the rim at the top of the
+ *  span within `width` of the map's side of each edge: one bold scarp between two broad levels, its line wandering
+ *  `wander` tiles, never the steps of River Valley's terraces. */
+const BASIN_RIM = { floor: 0.1, width: 0.15, wander: 6 };
 /** Canyon's tables: their heights in `tiers`, read from noise `scale` tiles across at each plate's point. */
 const MESA = { tiers: 3, scale: 40 };
-/** River Valley's terraces: the form's span climbed over `run` tiles from `from` tiles off the water, wandering by
- *  `wander` of it. */
-const TERRACE = { from: 6, run: 34, wander: 0.18 };
+/** River Valley's terraces: the form's span climbed over `run` tiles from `from` tiles off the stair's water,
+ *  wandering by `wander` of it; benched over `benched` times Terracing's share (the terraces are the form: at the
+ *  preset's 45 nine tenths of the uplands step). */
+const TERRACE = { from: 14, run: 40, wander: 0.1, benched: 2 };
 /** How far over the stair the outlands may stand, as a share of the room left under the highest ground. */
 const OUTLAND_ROOM = 0.75;
 /** A style comes in over this many tiles past the start's own ground (`PLATE.start`), so the start's ground, its frame
@@ -342,6 +357,8 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   const { W, H } = r;
   const N = W * H;
   const top = plan.top;
+  // (the land away from the water may rise past the stair's highest ground, to Highest terrain: the plan's `sky`)
+  const sky = Math.max(top, plan.sky ?? top);
   const bowls = bowlsOf(plan, w);
   const stair = stairField(r, bowls);
   const S = (name: string) => seedOf(plan, name);
@@ -364,6 +381,7 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   const sCrest = S("crest");
   const sPlate = S("plate");
   const { x: stx, y: sty } = plan.frame.start;
+  const hollows = hollowsOf(plan);
 
   // how near each tile is to any water and to an empty basin (one transform each), and the highest water whose rim
   // it is in (its bowl no lower water's digs)
@@ -380,6 +398,18 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   const maskWet = new Uint8Array(N);
   if (style) for (const b of bowls) if (b.wet) for (const i of b.tiles) maskWet[i] = 1;
   const nearWet = style ? distanceFrom(maskWet, W, H) : nearAll;
+  // (and from the stair's own water, its lakes, pool and the falls, neck and gorge between them: River Valley's
+  // terraces climb from it, so their steps run along the valley and never ring a side body)
+  let nearValley = nearWet;
+  if (style?.form === "terraces") {
+    const maskValley = new Uint8Array(N);
+    for (let i = 0; i < N; i++) {
+      const b = r.lake[i] ? plan.bodies[r.lake[i] - 1] : null;
+      const l = r.channel[i] ? plan.links[r.channel[i] - 1] : null;
+      if ((b && (b.kind === "lake" || b.kind === "pool")) || (l && (l.kind === "gorge" || l.kind === "fall" || l.id === "neck"))) maskValley[i] = 1;
+    }
+    nearValley = distanceFrom(maskValley, W, H);
+  }
   const lift = new Float64Array(N).fill(-Infinity);
   for (const b of bowls) {
     const bw = b.x1 - b.x0 + 1;
@@ -436,8 +466,9 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
             nd = dd;
             next = k;
           }
-          if (cone) {
-            const ck = PEAK.low + (1 - PEAK.low) * ((hash32(sPlate, k, 3) % 1000) / 999) - sqrt(dd) / (PEAK.reach * P);
+          const hv = cone ? (hash32(sPlate, k, 3) % 1000) / 1000 : 1;
+          if (hv < PEAK.share) {
+            const ck = PEAK.low + ((1 - PEAK.low) * hv) / PEAK.share - Math.max(0, sqrt(dd) - PEAK.flat) / (PEAK.reach * P);
             if (ck > c) c = ck;
           }
         }
@@ -481,7 +512,7 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   // (and within `STYLE_GREEN` of day 1's water the land stays the premise's: the style's uplands took the green off
   // its first benches, and a map past 128² fell under the spectrum's 30 % of moist ground)
   const gk = (i: number) => smoothstep((nearWet[i] - STYLE_GREEN.from) / STYLE_GREEN.over);
-  const styled = style ? styledUplands(style, { W, H, top, pw, ph, px, py, plateOf, plate2, edge, cone, stair, nearWet, pfall, seed: S("form") }) : null;
+  const styled = style ? styledUplands(style, { W, H, top, sky, pw, ph, px, py, plateOf, plate2, edge, cone, stair, nearWet, nearValley, pfall, seed: S("form") }) : null;
   if (styled)
     for (let y = 0; y < H; y++)
       for (let x = 0; x < W; x++) {
@@ -516,7 +547,8 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
         }
         // (the meadow is measured true from the shore: water reaches 16 tiles over level ground and stops at the
         // first step up; the hillside beyond it wanders)
-        const meadow = b.meadow + (b.meadow > 4 ? 3 * meadowF[i] : 0);
+        // (an empty basin's beach wanders from one tile to `BASIN.beach`, so its old shore never runs as a ring)
+        const meadow = b.basin ? Math.max(1, Math.min(BASIN.beach, BASIN.beach - 1 + 2.5 * meadowF[i])) : b.meadow + (b.meadow > 4 ? 3 * meadowF[i] : 0);
         const hill = Math.max(0, d - meadow);
         if (hill < inner[i]) inner[i] = hill;
         const dw = hill * (1 + 0.3 * warpAF[i]) + 5 * warpBF[i] * Math.min(1, hill / 6);
@@ -566,6 +598,7 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   // Terracing's share, rolling elsewhere
   const grade = style ? grader(style.grade, plan.seed, 0, W, H) : null;
   const terraceF = style && style.step > 1 ? field(S("terrace"), W, H, 24, 2, 2) : null;
+  const benched = style ? Math.min(1, style.benched * (style.form === "terraces" ? TERRACE.benched : 1)) : 0;
   const phase = style ? hash32(S("terrace"), 1) % style.step : 0;
 
   const f = new Float64Array(N);
@@ -580,7 +613,7 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
         if (grade && styled) {
           const k = sk(x, y) * gk(i);
           const own = v;
-          v = grade(v + (styled.up[i] - v) * k, x, y, terraceF && (terraceF[i] + 1) / 2 > 1 - style!.benched ? style!.step : 1, phase);
+          v = grade(v + (styled.up[i] - v) * k, x, y, terraceF && (terraceF[i] + 1) / 2 > 1 - benched ? style!.step : 1, phase);
           // (by day 1's water a plate stands no higher than the premise's own, the style's height coming in over the
           // green: a higher plate took the green off the benches under it)
           if (v > own && nearWet[i] < FLOOR.green) v = Math.round(own + (v - own) * smoothstep((nearWet[i] - FLOOR.green / 2) / (FLOOR.green / 2)));
@@ -602,15 +635,21 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
           const cv = t <= 0 ? crest : t <= rg.ledge ? crest - rg.drop : -Infinity;
           if (cv > v) v = cv;
         }
-      f[i] = Math.min(top, v);
+      // the hollows behind the ridges: a level floor in a rim of its own (§4.4's dry places)
+      if (near >= HOLLOW.gap)
+        for (const hl of hollows) {
+          const dd = hollowDist(plan, hl, x, y);
+          if (dd < 0) v = hl.floor;
+          else if (dd < HOLLOW.rim && v < hl.floor + 1) v = hl.floor + 1;
+        }
+      f[i] = Math.min(sky, v);
     }
 
-  (globalThis as any).__dbg = { plate, styled, f, land, outland, inner };
   // the dry beds follow the land, and the ground stage 1 fixed or guards with it
   const base = followLand(plan, w, f, sBeach);
   const h = new Uint8Array(N);
   const keep = r.fixed;
-  for (let i = 0; i < N; i++) h[i] = keep[i] ? base[i] : Math.max(base[i], Math.max(BED_FLOOR + 1, Math.min(top, Math.round(f[i]))));
+  for (let i = 0; i < N; i++) h[i] = keep[i] ? base[i] : Math.max(base[i], Math.max(BED_FLOOR + 1, Math.min(sky, Math.round(f[i]))));
   // the bench-width floor on the land away from the water, then the guard again, then no pits, spikes or tongues
   const where = new Uint8Array(N);
   for (let i = 0; i < N; i++) where[i] = !keep[i] && nearAll[i] > 3 && !narrow[i] ? 1 : 0;
@@ -625,13 +664,13 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
  *  `up`, the uplands themselves (Canyon's canyons cut into its mesas). Each plate stands at its form's share of the
  *  room between its ground (the stair's mean over it, plus `FLOOR`) and the highest ground: Canyon's mesas a share
  *  drawn high for each; Highlands' peaks the cones of the plates' points, a tile at a time; River Valley's terraces
- *  higher the farther the plate lies from the water; Lake Basin's low ground a little over its floor. Relief widens the
+ *  higher the farther the plate lies from the lakes; Lake Basin's low floor inside a rim along the edges. Relief widens the
  *  span about its middle. */
 function styledUplands(
   style: ReliefStyle,
-  g: { W: number; H: number; top: number; pw: number; ph: number; px: Float64Array; py: Float64Array; plateOf: Int32Array; plate2: Int32Array; edge: Float64Array; cone: Float64Array | null; stair: Float64Array; nearWet: Float64Array; pfall: Float64Array; seed: number },
+  g: { W: number; H: number; top: number; sky: number; pw: number; ph: number; px: Float64Array; py: Float64Array; plateOf: Int32Array; plate2: Int32Array; edge: Float64Array; cone: Float64Array | null; stair: Float64Array; nearWet: Float64Array; nearValley: Float64Array; pfall: Float64Array; seed: number },
 ): { hill: Float64Array; up: Float64Array; cut: Float64Array } {
-  const { W, H, top, pw, ph, plateOf } = g;
+  const { W, H, top, sky, pw, ph, plateOf } = g;
   const N = W * H;
   const M = pw * ph;
   // each plate's ground and its distance from day 1's water, as means over its tiles
@@ -665,7 +704,7 @@ function styledUplands(
     const u = style.form === "mesas" ? lo + (hi - lo) * Math.min(1, Math.floor(t * MESA.tiers) / (MESA.tiers - 1)) : mid;
     const fl = floorOf(st, near, style.form === "mesas" ? 0 : style.deep);
     base[k] = floorOf(st, near);
-    level[k] = fl + share(u) * (top - fl) - 0.5 * g.pfall[k];
+    level[k] = fl + share(u) * (sky - fl) - 0.5 * g.pfall[k];
   }
   const hill = new Float64Array(N);
   const up = new Float64Array(N);
@@ -676,20 +715,28 @@ function styledUplands(
       const k = plateOf[i];
       let v = level[k];
       if (style.form !== "mesas") {
-        // (a tile at a time: the peaks the cones; the terraces climbing with the distance from the water, so their
-        // steps run along the valley; the basin's low ground rolling over broad noise)
+        // (a tile at a time: the peaks the cones; the terraces climbing with the distance from the stair's water, so
+        // their steps run along the valley; the basin's floor low and rolling, its rim rising toward the map's edges)
         const wet = g.nearWet[i];
         const fl = floorOf(g.stair[i], wet);
         const n = fbm(g.seed + 5, x, y, 22, 3);
-        const u = g.cone ? g.cone[i] : style.form === "terraces" ? (wet - TERRACE.from) / TERRACE.run + TERRACE.wander * n : 0.5 + 0.5 * n;
-        v = fl + share(lo + (hi - lo) * Math.max(0, Math.min(1, u))) * (top - fl) - 0.5 * g.pfall[k];
+        let u: number;
+        if (g.cone) u = Math.max(g.cone[i], PEAK.base + PEAK.roll * n);
+        else if (style.form === "terraces") u = (g.nearValley[i] - TERRACE.from) / TERRACE.run + TERRACE.wander * n;
+        else {
+          const e = Math.min(x, y, W - 1 - x, H - 1 - y) + BASIN_RIM.wander * fbm(g.seed + 9, x, y, 17, 2);
+          u = BASIN_RIM.floor * (0.5 + 0.5 * n) + (e < BASIN_RIM.width * W ? 1 - BASIN_RIM.floor : 0);
+        }
+        // (the basin's rim stands round the map: its edges never fall away)
+        v = fl + share(lo + (hi - lo) * Math.max(0, Math.min(1, u))) * (sky - fl) - (style.form === "basin" ? 0 : 0.5 * g.pfall[k]);
+        // (a terrace's tread is level and its riser a crisp step of the form's own, up from the stair's ground)
+        if (style.form === "terraces") v = fl + style.step * Math.floor((v - fl) / style.step + 0.5);
       }
       hill[i] = v;
       up[i] = v;
-      // (a canyon: along about half the edges between tables of one height, down toward their ground)
+      // (a canyon: along most of the edges between tables, cut deep toward their ground, its walls the tables' own)
       if (style.form === "mesas") {
         const k2 = g.plate2[i];
-        if (Math.abs(level[k] - level[k2]) > 1) continue;
         const wide = CANYON.wide * (1 + 0.45 * fbm(g.seed + 7, x, y, 9, 2));
         if (g.edge[i] < wide && (hash32(g.seed, Math.min(k, k2), Math.max(k, k2), 1) % 1000) / 1000 < CANYON.share) cut[i] = Math.max(Math.min(base[k], base[k2]), Math.min(level[k], level[k2]) - CANYON.depth);
       }
@@ -823,6 +870,52 @@ function followLand(plan: PremisePlan, w: StageWater, f: Float64Array, sWadi: nu
     }
   }
   return base;
+}
+
+/** A hollow behind a ridge (`hollowsOf`): its middle, its radius and its floor's level. */
+export interface Hollow {
+  x: number;
+  y: number;
+  r: number;
+  floor: number;
+}
+
+/** The hollow behind the skyline (`HOLLOW`; PREMISES §4.4's dry places), where it fits: on the skyline's side away
+ *  from the map's middle (as `placeRidges` set it), along it from its middle out, the largest whose middle lies inside
+ *  the map and its own radius or more from every water and bed, clear of the other ridges and the start; its floor
+ *  two levels over the highest water, so no water ever reaches it. Where a water or bed comes nearer than `gap`, the
+ *  land stands as it was (stage 2 reads `nearAll`, stage 6 the moisture), so the hollow is the dry ground's part of
+ *  it. Stage 2 shapes it and stage 6 dresses it, from this one reading. */
+export function hollowsOf(plan: PremisePlan): Hollow[] {
+  const { W, H } = plan;
+  const g = plan.ridges.find((o) => o.role === "skyline");
+  if (!g || g.path.length < 2) return [];
+  const floor = g.top - g.drop - HOLLOW.under;
+  if (floor < Math.max(...plan.bodies.map((b) => b.sill)) + 2 || floor <= BED_FLOOR) return [];
+  const len = pathLength(g.path);
+  for (let r = W > 192 ? HOLLOW.rBig : HOLLOW.r; r >= HOLLOW.least; r--)
+    for (const at of [0.5, 0.35, 0.65, 0.2, 0.8]) {
+      const { p, dir } = pointAt(g.path, len * at);
+      let nx = -dir[1];
+      let ny = dir[0];
+      if ((p[0] - W / 2) * nx + (p[1] - H / 2) * ny < 0) [nx, ny] = [-nx, -ny];
+      const off = g.half + g.ledge + 2 + r;
+      const x = p[0] + nx * off;
+      const y = p[1] + ny * off;
+      if (Math.min(x, y, W - x, H - y) < r + HOLLOW.edge) continue;
+      if (Math.max(Math.abs(x - plan.frame.start.x), Math.abs(y - plan.frame.start.y)) < r + HOLLOW.rim + PLATE.start) continue;
+      if (plan.bodies.some((b) => bodyDist(x, y, b) < r)) continue;
+      if (plan.links.some((l) => l.path && pathDist(x, y, l.path).d < r)) continue;
+      if (plan.ridges.some((o) => o !== g && ridgeDist(o.path, x, y) < r + HOLLOW.rim + o.half + o.ledge)) continue;
+      return [{ x, y, r, floor }];
+    }
+  return [];
+}
+
+/** How far a tile lies outside a hollow's wandering outline, in tiles (under 0 inside it). */
+export function hollowDist(plan: PremisePlan, hl: Hollow, x: number, y: number): number {
+  const d = hypot(x + 0.5 - hl.x, y + 0.5 - hl.y) - hl.r;
+  return d > HOLLOW.wob + HOLLOW.rim ? d : d + HOLLOW.wob * fbm(seedOf(plan, "hollow"), x, y, 7, 2);
 }
 
 /** A point's distance to a ridge's line. */

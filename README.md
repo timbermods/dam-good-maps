@@ -84,6 +84,8 @@ The editor:
   it. Esc or X puts anything down and goes back to Select.
 - To lead water, pick **Lower**, set its **Brush** to **Canal**, and drag from the water to where it must go. The
   canal's bed falls all the way and its banks hold the water. **Width**, **Depth** and **Starts** are in its row.
+- To make a new lake, pick **Lower**, set its **Brush** to **Lake**, and drag an outline on the land. Set **Level** and
+  **Depth** in its row. The lake gets a rim and one spill point. Add a source or lead water in to fill it.
 - To set a lake's level, take the lake with Select's **Wand**, then type the level in **Lake level** (or scroll over
   it). The lake's outlet is cut down or raised so the water holds there.
 - Drag the start to move it. Point at it to see its water, wood and berries.

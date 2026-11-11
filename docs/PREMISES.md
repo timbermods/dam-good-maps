@@ -131,7 +131,7 @@ greys out.
 |---|---|---|
 | Size | plan | The count of bodies and works (by area), the valley's length. Meadow widths and fall widths do not scale: the soil's reach and the first frame are fixed sizes. Square, 128 to 256 a side, or refused. |
 | Difficulty (`designedFor`) | plan | The start's held water (the breach's width, the cove pool's size), the sources' strength, how many small works stand within the start's walk. Hazard lengths are `sim/weather.ts` `HAZARD_DAYS`. |
-| Terrain: Highest terrain, Verticality | plan | The stair's height: the fall heights and how many levels the plan may use (`top`). A tall map gets a higher skyline, not deeper water. Too low for the stair and its landmark: refused. |
+| Terrain: Highest terrain, Verticality | plan | The stair's height: the fall heights and how many levels the stair may use (`top`, Highest terrain but never over the in-game editor's 16: `stairTop`). Above 16 (Highest terrain 22 from Verticality 70, D132, the premise's preset) only the land away from the water rises (the plan's `sky`: the uplands and the skyline), never the stair or its water. Too low for the stair and its landmark: refused. |
 | Terrain: Buildable land | plan | Meadow width (tight 12, normal 15, generous 18) and the start's bench. |
 | Terrain: Variety | plan | Wander, and how many side bodies (tarns, kettles) the plan draws. |
 | Terrain: Relief, Terracing | style | The outlands' rise and fall (Relief over the premise's 55) and the uplands' share on the theme's benches (Terracing). |
@@ -206,21 +206,30 @@ As built (step 9, core; the pickers are the page session's):
   tiles, so the start, its frame and its walk are the premise's in every theme. Stage 6 (`life.ts`): a species mix
   left as the panel's own takes the theme's woods (`drawWoods`); the stand rules stay the premise's. Terrain has one
   material in the game, so the ground's look is its shape (D496).
+- **The height round (2026-11-11):** the premise's preset is Verticality 70 and Highest terrain 22 (D132; Any's and
+  every theme's on a premise map, since the premise sets the terrain's height); the stair is drawn under 16 as before
+  (`stairTop`) and the uplands rise in the room up to 22 (`sky`). The forms use it: Canyon's tables stand high in the
+  room (half to 0.85 of it) and three in four of the edges between them are cut 8 levels under the lower table, about
+  7 tiles wide; Highlands' peaks are two in five of the plates' points, summits from 0.6 to the whole room and level
+  for 3.5 tiles round their point (the bench-width floor wore narrower summits flat), rolling heights at a third of
+  the room between them; River Valley's terraces climb with the distance from the lakes and their links (not day 1's
+  brooks), 2 levels apart over twice Terracing's share, from 14 tiles out over 40; Lake Basin's floor stays at a tenth
+  of the room, rolling, and within 15 % of the map's side of each edge it stands at 55 % of the room: one bold scarp
+  round a broad low floor, never River Valley's steps.
 - **The premise's in every theme:** the plan, its water, levels, works and ladder. The dry beds follow the land, as
   stage 2 lays them in any land, and a theme can change which of the seed's plans holds first where a check's verdict
   on the styled land differs (seed 2: plan 3 in Canyon and Highlands, plan 9 in River Valley and Lake Basin).
-- **Measured** (128², seeds 1 to 8, the look round): dry ground's mean height and its spread (standard deviation)
-  are 11.6 and 2.9 in River Valley, 11.0 and 3.0 in Lake Basin, 11.8 and 3.3 in Canyon, 10.6 and 3.7 in Highlands;
-  ground at level 13 or higher 45 %, 36 %, 51 % and 36 %. Day 1's moist ground is at most 40.7 % in any theme over
-  seeds 1 to 12 (the ceiling 42 %). Maps made: theme Any 11 of 12 (seed 8, start.water, as before the round); per
-  theme the seeds that fail are the marginal ones step 8 left (5 and 8; River Valley's 6 by start.wood).
-- **Short:** the style has little height to work in (the stair stands on levels 6 to 14 of the 16 a map below
-  Verticality 70 has, and by day 1's water the land stays the premise's so its green stays), so the themes read apart
-  by plan shape (tables and canyons, cones, terraces) and walls more than by height, River Valley and Highlands least
-  on seeds whose land is mostly within the green. The height that keeps the water's numbers is a stair drawn under 16
-  with the land free above it to Highest terrain 22 at Verticality 70 (D123, D172: at 22 the stair's own draw takes
-  more lakes or taller steps, which moves the water); that is planning's call, not taken. The set pieces (step 7) do
-  not take the style yet.
+- **Measured** (128², seeds 1 to 3, the height round): dry ground's mean height and its spread (standard deviation)
+  are 12.5 and 3.4 in River Valley, 12.8 and 3.9 in Lake Basin, 12.0 and 4.5 in Canyon, 13.2 and 4.2 in Highlands
+  (the look round's, seeds 1 to 8: 11.6 and 2.9, 11.0 and 3.0, 11.8 and 3.3, 10.6 and 3.7); ground at level 17 or
+  higher 11 %, 17 %, 20 % and 18 %, the highest 21 or 22. Day 1's moist ground is at most 40.8 % in any theme (the
+  ceiling 42 %). Maps made: theme Any 11 of 12 over seeds 1 to 12 (seed 5; seed 8 now makes one); River Valley's
+  seed 6 makes one (320 logs in the start's walk: stage 6 leans the start's groves to oak where the walk is short,
+  `planResources`' `woodLean`, as the generator's rescue round does).
+- **Short:** the themes read apart on the uplands (Canyon's high tables and deep canyons, Highlands' white summits,
+  River Valley's stepped terraces, Lake Basin's low floor in a rim), but by day 1's water the land stays the
+  premise's, so on seeds whose land is mostly within the green the four maps still share most of what a player
+  sees. The set pieces (step 7) do not take the style yet.
 - **The map card's words** (`premise/card.ts` `premiseCard`, in `info.premise.card`): the premise's name, the style, the
   landmark ("The Great Fall, a six-level fall into Low Lake, the start's lake") and the ladder's first rung in a
   sentence ("Mend the breach in the old weir at the Gate Gorge (one tile), so Low Lake keeps its water in a drought.").
@@ -384,7 +393,12 @@ table and draws its heights and water. Where it differs from the above, and why:
   away to the edges. Ground no day-1 water reaches is broad benches divided by bold scarps, quantised in threes (the
   game has one dry tone: thin bands on it read as contour lines). Ridges and spurs are crags (a crest, one ledge),
   never a slope of a level a tile, which the game shows as stair treads. Empty basins are old lake beds: a lobed
-  outline, a beach at the sill + 1, a flat floor, one hollow. Then `tidy` (no one-tile pits, spikes or tongues).
+  outline, a beach at the sill + 1 wandering from one tile to three, a flat floor a level under the sill crossed by
+  the old river's line down its main arm a level deeper (one or two tiles wide, pinching out: never a ring round a
+  hollow). The hollow behind the skyline (`hollowsOf`, where it fits: on the skyline's far side from the water, its
+  middle inside the map and its own radius from every water and bed): a level floor two under the skyline's ledge,
+  4 to 7 tiles in radius (to 10 past 192²), in a rim a level over it, two levels or more over the highest water,
+  left as it was within 5 tiles of any water or bed. Then `tidy` (no one-tile pits, spikes or tongues).
 - With "ground with grade" (merged): its graded slopes replace `rise` on the outlands. Stage 2 calls
   `land/levels.ts` `gradeLevels` on its own heights there (a `Grade`, `land/genome.ts` `GRADE` or `drawGrade`, with
   the benches' step and a mask of the outlands); `snapLevels` grades a theme's field through the same `grader`.
@@ -619,7 +633,8 @@ above, and why:
   lake's sill within 10 tiles of it, 12 tiles or more together, is a place (§9's dry places); one stand on each, a
   bench for each 5,000 tiles of map at most, the one nearest the start first, so one is in the start's sight:
   succulents (6 to 12, from their share of the budget) where the palette has them, else a clump of dead wood. Never a
-  carpet.
+  carpet. The hollow behind the skyline is a place of its own, dressed first the same way (one stand, from the same
+  budgets).
 - **Succulents** otherwise only on the dry-for-good side: nearer the bypass than any lake, 3 tiles or more from it, no
   moisture, what is left of their share of the living budget by the species mix, in stands of 8 to 20.
 - **Mine sites** are `planExtras`'s, kept off the works' sites, the beds and basins and the sight line; a site the
@@ -915,7 +930,7 @@ round every lake."
 | Side bodies | Tarns: 3 at 128², 7 at 192², 12 at 256²; rim tarns with their own springs (0.8 to 1.5): two at 128², up to six at 192² and ten at 256² where the rim has room (step 8) | Size, Variety |
 | Living brooks on day 1 | One each side, each from a spring tarn to a map edge | Rivers |
 | The megadam's site | A slot 5 to 6 tiles long through the ridge below the lowest lake, walls 6 or more over its bed | Fixed kind, drawn place |
-| The skyline | One ridge behind the top lake, to `top` or to 21 on a tall map | Verticality |
+| The skyline | One ridge behind the top lake, to `top` or to 21 on a tall map (`sky`), a hollow behind it where it fits | Verticality |
 | Dry for good | The side the bypass runs on: limestone benches, succulents | Follows the bypass |
 
 **As built (step 1).** The plan settles a few things the table leaves open; each is an **(assumption)** a later
@@ -1329,10 +1344,16 @@ work to these.
   half-step rings curled round seed 2's west basin), the themes' uplands take their forms (§1.5), the rim tarns'
   runs bend and slide along the edge and the further rim tarns spread round the edges (§2.2's wander), the
   generator's groves are drawn together into stands, and the benches over the lakes are dressed, the one nearest the
-  start first. The bypass's ring is answered in the works round (§4.1, a course of its own). **Still open:** an empty
-  basin's bed keeps stage 1's stepped rings; the hollows behind the ridges
-  are not yet places of their own; the dry places are dressed, not yet shaped (no relief makes a bench where none
-  stands).
+  start first. The bypass's ring is answered in the works round (§4.1, a course of its own). **Taken in the height
+  round (2026-11-11):** an empty basin's bed is a dry floor
+  crossed by its old river's line and its beach wanders (no stepped rings); the hollow behind the skyline is shaped
+  by stage 2 and dressed as a place of its own (on 3 of the first 8 seeds at 128²: the skyline often stands by the
+  map's edge or the rim tarns, and then no hollow fits); the themes take the height to 22 (§1.5). **Still open after
+  it:** theme Any makes 11 of 12 at 128² (seed 5: two settles leave the start's walk short of two mine sites 30
+  tiles out, and the uplands' height moves attempt 11's siting); at 256² seed 1 River Valley, Highlands and Lake Basin
+  make maps, Canyon falls back (its plans fall under `spectrum`'s 30 % moist floor, 27.8 to 29.9 %, and one settle
+  has 22 berry bushes in the start's walk against 30); the skyline on most seeds is a short lump by the edge; the
+  benches over the lakes are dressed, not shaped.
 - **The megadam holds 4 of 12 in range at 128²** (median 5,743, against 6,554 to 8,192): one seed's wall finds no
   shoulders within 48 tiles at the next lake's sill; on the rest the sea leaves by a lower outlet of the basin (a
   spring tarn's run to the map's edge, which the raised lake floods). Its level should be the lower of the next
