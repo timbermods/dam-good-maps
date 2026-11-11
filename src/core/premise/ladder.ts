@@ -437,6 +437,8 @@ function nearestAlong(r: WaterRaster, li: number, at: [number, number]): number 
   return s;
 }
 
+/** How far along its bed from the plan's point a dam may move to hold a pond that stays in its bed. */
+const DAM_REACH = 2;
 /** How far a dam's pond may reach from it before it counts as water let out of its bed. */
 const POND_REACH = 14;
 
@@ -450,7 +452,8 @@ function damSite(r: WaterRaster, heights: ArrayLike<number>, li: number, at: [nu
   let best: Cand | null = null;
   const score = (c: Cand) => (c.leaks ? -1e6 : 0) + c.pond * 4 + c.bench;
   const nb = new Int32Array(4);
-  for (let o = -6; o <= 6; o++) {
+  // (near the plan's point: stage 0's second pass sites the dam where its pond pays, `siting.ts`)
+  for (let o = -DAM_REACH; o <= DAM_REACH; o++) {
     const tiles = band(r, li, s0 + o - 0.5);
     if (!tiles.length) continue;
     const bed = Math.min(...tiles.map((i) => heights[i]));

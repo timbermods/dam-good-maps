@@ -604,6 +604,54 @@ its plan range, every seed a premise map, the megadam and the leats right. Where
   9). A map takes 1.1 to 5.3 s at 128² (typical 1.3 to 1.7) and 4.2 to 5.4 s at 192², over the typical row (1.5 and
   3.7 s) where a plan fails after its settle; inside the worst row at 128², over it at 192².
 
+**As built (step 8): the works sited by the land's day-1 moisture** (stacked on step 7, #997). The brief: site each
+small work where its water reaches ground day 1 leaves dry, by the soil's own reading, and say estimate against
+measure; size the lakes and tarns by the map so 256² makes a premise map. Where it differs from the above, and why:
+
+- **Stage 0 draws twice** (`siting.ts`). The plan is drawn as before; then its skeleton (`skeletonOf`: the plan
+  without its side network, every basin and non-rim tarn, their links, the rim tarns' dry beds and the works on
+  them) goes through stages 1 and 2, `ladder.ts` `dayOneSoil` reads day 1's soil on that land (the ladder's own
+  reading, every row and notch shut), and `siteSide` draws the side network again on it. Each empty basin is placed
+  with its feed (a leat from the pool or a lake, or a rim tarn's notch), its spill, and the levee and dam on the
+  spill as one chain; each rim tarn's notch bed goes to a lake two or more below, or feeds a chain, whichever comes
+  nearer its range. A candidate is weighed by `SiteModel.gain`: `soilReach` on the skeleton's land with the work's
+  water and the ground its template lays (a dry bed's valley at bed + 2, `followsLand`'s bed two under the lowest
+  land within 3 tiles, a leat's meadow at bed + 1, a basin's beach at sill + 1 and crag), counting the tiles day 1
+  leaves dry and the work's needs do not already reach. The estimate is kept on the work (`Work.estimate`).
+- **No silent clamp** (D342): a small work whose best site misses its range is left out, the worst first, while the
+  ladder keeps each kind, its count and its three near the start (a notch with the works that need it, its bed and
+  the basin it alone fills); one that stays is said short. Each is a line in `plan.notes`, shown as
+  `info.premise.notes`. A plan whose second pass finds no draw that passes every `plan` invariant (three draws)
+  keeps the first pass's side network, and its notes say so and why.
+- **The ranges are §4.2's at every size** (`givesOf`), not scaled by area: the soil's reach does not scale with the
+  map, and scaled, a levee at 128² asked 116 to 151, under `spectrum`'s 250 a small work. A small work's top is
+  capped at 3 % of the map (`ladder.plan`): the notch's 430 to 570 is 430 to 491 at 128². Counts still scale by
+  area. This is a judgment, not a ruling; section 9 has what it leaves.
+- **What the second pass needed**: a leat's or brook's head keeps `LIP_ROOM` (3) further from a fall's head out of
+  the same body (a fall's lip and piers take every tile within 2 of it: the landmark's pier cut seed 11's pool leat
+  off its pool); a pool basin is drawn every other try out from a clear stretch of the pool's outline, and the first
+  pass's pool chains are candidates too; a basin keeps 5 from a lake (8 left no room by the top lake: day 1's soil
+  now says what is green); a dam is tried at eight places along its bed at most, a basin at one sill; the ladder
+  places a dam within 2 tiles of where the plan sited it (`DAM_REACH`, 6 before).
+- **Past 192² the lakes and tarns are sized by the map** (`mapScale`, `rimTarns`): from 192² to 256² a lake's middle
+  radii, its side arms' length and tips and their most (5 to 7), and every tarn's radius grow to √2 times, the lakes'
+  ends and spans as at 192² (so the layout fits as it did); the rim tarns are two at 128², six at 192², ten at 256²,
+  the ones past two placed after the pool's basins where the rim has room. A lake's shore grows with the side and
+  the map with its square: past the lakes' radii, the rim tarns' springs and runs are what bring day 1's moist
+  ground up to `spectrum`'s floor (at 256², lakes 13.5 % moist against 20 % at 128²; rims and runs 4 to 6 points
+  more). Before, 256² made no map on seeds 1 to 3; 192² and 128² keep their radii.
+- **Measured** (seeds 1 to 12 at 128², each through stages 0 to 4 and its spectrum; `tools/premise-map.ts` for the
+  pictures): all twelve make a premise map, six with their side network sited by moisture and six keeping the first
+  pass's (no pool basin with a clear leat; the count of 3 to 4 with three near the start; a kind missing). Day 1
+  water 20.3 to 24.7 % and moist 31.8 to 39.8 %. In range of their plan's `gives` on the twelve maps: 8 of 65 small
+  works and leats (step 7 on the same seeds: 6 of 63); on the six sited maps 4 of 33 (leat 3 of 11, levee 1 of 7,
+  notch 0 of 8, dam to pond 0 of 7). The estimate comes within a quarter of the measure (or 25 tiles under 100) on
+  12 of the 33. The mean measured green rose: notch 91 to 125, leat 480 to 583, levee 151 to 229, dam to pond 67 to
+  83. At 192² seeds 1 to 3 make maps (water 16.5 to 18.0 %, moist 30.9 to 34.4 %), at 256² seeds 1 to 3 too (19.8 to
+  21.7 %, 30.4 to 34.3 %; seed 1 on its fifteenth plan). The second pass costs 100 to 625 ms at 128² (the skeleton's
+  stages 1 and 2 about half, the estimates the rest) and 0.4 to 1.6 s at 256², against stage 0's 5 and 10 ms
+  (section 3.3).
+
 **After the map opens: the proofs** (background, section 3). The premise true both ways by `HazardRun`; each work's
 gain by a what-if settle; the first cycles. Their results are rows in the checks panel and the ladder's readout; they
 are also what section 6 runs offline before a premise ships.
@@ -692,6 +740,12 @@ Stage 4 as built (step 5, seeds 1 to 4): 62 to 135 ms at 128², 166 to 194 at 19
 times its row: each work's water is a whole-map `flowThrough` and pre-fill (about 13 ms at 256²), 10 to 16 of them.
 Bounding each to the work's catchment would answer it.
 
+Stage 0's second pass as built (step 8, seeds 1 to 12 at 128², seeds 1 to 3 at 192² and 256²): 100 to 625 ms at
+128², 0.3 to 0.8 s at 192², 0.4 to 1.6 s at 256², against stage 0's 5, 5 and 10 ms: the skeleton's stages 1 and 2
+(about 100 to 350 ms at 128², 0.7 s at 256²) and some 80 to 600 soil estimates on boxes round each candidate.
+Reusing the skeleton's land for the plan's own stage 2 where the side network leaves it, and estimating on a coarser
+box first, would answer most of it.
+
 Stage 1 as built (step 2, seeds 1 to 12 under `tsx`, `waterByNumber` and its one `flowThrough`, weirs and wander
 included, on a quiet machine): 22, 37 and 75 ms at the median, 28, 85 and 147 ms at the worst, within its row. The
 bodies' and channels' beds take most of it (an `fbm` and a distance a tile), `flowThrough` about an eighth.
@@ -751,7 +805,7 @@ round every lake."
 | Step `f` between sills | 3, 4 or 5 levels | Verticality; `5 + (n − 1) f + 2 ≤ top` |
 | Sills | 5, 5 + f, … (the gorge's bed and the lowest lake's on `BED_FLOOR`, 3 over the map's floor: room to dig, D325) | By number |
 | The valley's line | Exit on one edge to the springs across the map; length 1.25 to 1.5 × the side; a diagonal, an S or a hook; 8 turns and mirrors | Seed |
-| Lake size | Arms of radius 7 to 15; 2 to 5 arms; a cove, a bay behind a peninsula; an island or two | Seed, Variety |
+| Lake size | Arms of radius 7 to 15; 2 to 5 arms; a cove, a bay behind a peninsula; an island or two. Past 192² the middles' radii, the side arms and their most grow to √2 times by 256² (radius to 21, 7 arms; step 8) | Seed, Variety, Size |
 | Meadow | 12, 15 or 18 wide, ± 3 by noise | Buildable land |
 | Stair falls | Height `f`; lip 8 to 16 wide by flow; a horseshoe lip; a notch of one tile on every sill but the lowest | Flow |
 | The springs | One pool at the top water's level, 3 to 5 sources; total strength 10 (trickle), 14 (normal), 18 (strong), 22 (lush) | River flow |
@@ -760,7 +814,7 @@ round every lake."
 | The start | On a bench one level over its lake's sill, 5.5 to 7 tiles in front of the lip; bench 580 to 980 level tiles | The frame |
 | The bypass | A dry channel from the springs' pool round one side to an edge or to the gorge below the lowest sill; 250 to 330 tiles long at 192²; mouth 10 wide; 3 rows of Blockages (the first at the mouth) | Seed: which side, which exit |
 | Gates | 3 or 4 sites, each a channel 1 to 5 wide: the neck to the top lake, the hanging valley, each leat's head | By the graph |
-| Side bodies | Tarns: 3 at 128², 7 at 192², 12 at 256²; two of them rim tarns with their own springs (0.8 to 1.5) | Size, Variety |
+| Side bodies | Tarns: 3 at 128², 7 at 192², 12 at 256²; rim tarns with their own springs (0.8 to 1.5): two at 128², up to six at 192² and ten at 256² where the rim has room (step 8) | Size, Variety |
 | Living brooks on day 1 | One each side, each from a spring tarn to a map edge | Rivers |
 | The megadam's site | A slot 5 to 6 tiles long through the ridge below the lowest lake, walls 6 or more over its bed | Fixed kind, drawn place |
 | The skyline | One ridge behind the top lake, to `top` or to 21 on a tall map | Verticality |
@@ -837,7 +891,9 @@ map found by what-if (rounds 11 to 14).
 | Large | Bypass | Clears 3 rows (16, 6, 8 tiles), builds 3 or 4 gates | Section 4.1 | The premise's answer; about 1,100 to 1,500 tiles along it |
 | Large | Megadam | 5 or 6 long, to the next sill's level | The slot | Water of about 0.44 × the map's tile count (16,241 at 192²) |
 
-Counts scale with the map's area over 192²'s. The seed draws which kinds stand where. The **small irrigation works**
+Counts scale with the map's area over 192²'s; the gains are the same at every size, a small work's capped at 3 % of
+the map (step 8: the soil's reach does not grow with the map). Stage 0's second pass sites each one by day 1's soil
+(section 2.2, "As built (step 8)"). The seed draws which kinds stand where. The **small irrigation works**
 are of three kinds (`notch`, `damToPond`, `levee`): six at the least at 192², at least one of each kind at every size,
 three of them within 40 tiles' walk of the start's bench (Four Lakes had five, of these three kinds). With the first
 works and the sill notches (`breach`, and the Still Pool's `levee`) the near ladder has four kinds, each a different
@@ -1142,26 +1198,27 @@ work to these.
   ten maps seeds 1 to 12 make at 128² settle at 19.6 to 23.5 % water and 37.1 to 40.7 % moist, every one inside
   `spectrum` (with #986's lakes alone, seven of eleven stood over 42 %). Seeds 6 and 8 go to the themes on stage 1's
   `water.levels` and `water.falls` after sixteen plans.
-- **The small works pay little (found at step 5; steps 6 and 7 moved it, not answered), for stage 0 and the
-  relief:** at step 7 (seeds 1 to 12 at 128²) the notch's median gain is 24 tiles (191 to 253 asked; 0 of 18 in
-  range), the dam to pond's 42 (120 to 209; 1 of 12) and the levee's 57 (116 to 151; 3 of 15); a few pay five times
-  their range, where a bed meets lower open ground. Day 1's green already covers 95 to 99 % of the ground a small
-  work's water reaches: the lakes' green runs 10 to 12 tiles past their meadows on the level (three in four at a
-  meadow's edge, half 3 past, a quarter 6 past, an eighth 10 past), a spring tarn's 15, a wet brook's 16, and a
-  tarn's dry bed of 20 to 41 tiles to a lake runs through both ends of it. Stage 0's plan cannot see it: placing
-  beds by a plan-level estimate of day 1's green (step 7 tried the odds above, summed over the thread's reach)
-  predicted 90 to 220 tiles where the land gave 0 to 90. A bed two deep turns about 11 tiles green a tile (its
-  thread reaches 16 less 12 for the two levels up), not `GREEN_A_TILE`'s 20, so a notch's 191 to 253 asks 17 to 23
-  tiles of bed through dry ground: about all a 41-tile bed has at 128² once both ends' green is passed, and none
-  when it is not. What would answer it: side bodies whose beds and basins stand a level or more over the lakes'
-  meadows and 12 or more past them (stage 0 placing them by the relief's real levels, which it does not have), or
-  a ladder that drops a small work its land cannot pay and draws again where a kind is missing. The ranges are
-  left as they are: the arithmetic reaches them where the ground is dry.
-- **256² makes no premise map on seeds 1 to 3 (found at step 7, before it too):** every plan's day 1 is under
-  `spectrum`'s floors, water 12 to 15 % (15 to 25) and moist 20 to 33 % (30 to 42): the lakes' arms and radii are
-  capped (`ARM_RADIUS`, arms 8 to 20 long), so the stair's water is a smaller share of a larger map, and a side
-  body's fixed green is too. Arms a third longer at 256² added 0.7 points of water; it needs lakes sized by the map
-  (more or wider arms, a fifth lake) and side bodies by its area.
+- **The small works pay little (found at step 5; step 8 sites them by day 1's soil, not answered), for the ranges
+  and the estimate:** on the twelve maps seeds 1 to 12 make at 128², 8 of 65 small works and leats measure inside
+  their plan's range (step 7: 6 of 63); on the six whose side network is sited by moisture, 4 of 33. What stands in
+  the way: (1) the ranges are narrow against what a site can be told apart by: the levee's 260 to 340 is ± 13 %, the
+  notch's 430 to 491 at 128² (capped at 3 % of the map) ± 7 %, where the estimate comes within a quarter of the
+  measure on 12 of 33 works (the skeleton is not the land the side network's own relief makes); (2) a dam to pond's
+  pond adds 0 to 250 tiles over its bed's thread, its valley's meadow 12 wide and its pond 14 back (`POND_REACH`),
+  so 270 to 470 asks a narrows template with a wider flat behind the dam; (3) a rim tarn's notch bed to a lake runs
+  0 to 170 tiles of green at 128² (its bed at most 0.32 × the side, its ends green), so the notch pays where it
+  feeds a basin's chain; (4) six of the twelve keep the first pass's side network (the pool's basins, the count of 3
+  to 4 with three near the start). Ranges stated as a floor a work must reach, with the plan's estimate beside it,
+  or ranges a third wider, would let the siting meet them; that is a ruling for planning, not taken here.
+- **256² makes a premise map (found at step 7; answered at step 8)**: seeds 1 to 3 at 256² make maps, day 1 water
+  19.8 to 21.7 % and moist 30.4 to 34.3 %, by the lakes' middles and arms grown to √2 times and ten rim tarns
+  (section 2.2, "As built (step 8)"). It is close to the floor: seed 1 takes fifteen plans, most failing `spectrum`'s
+  moist floor or the layout, and the second pass costs up to 1.6 s.
+- **Next, from the look (planning, 2026-11-11), not taken at step 8:** the rim's plates run parallel to the map's
+  edge (seed 1 north-west, seed 2 west, contours curling on seed 2's west): the rim's plates should be cut by the
+  same warped field as the interior, never by distance from the edge. And the dry land should read as places, each
+  with its problem (a bench over a lake three or more levels up, a hollow behind a ridge, a bed that plainly once
+  carried water), at least one in sight of the start, spending the land the side bodies give back on them.
 - **The megadam holds 4 of 12 in range at 128²** (median 5,743, against 6,554 to 8,192): one seed's wall finds no
   shoulders within 48 tiles at the next lake's sill; on the rest the sea leaves by a lower outlet of the basin (a
   spring tarn's run to the map's edge, which the raised lake floods). Its level should be the lower of the next
