@@ -5,16 +5,16 @@
 //   node tools/showcase/run.mjs the-gate [--round r1] [--checks] [--weather] [--irrigate] [--save] [--out <dir>]
 //   npx tsx tools/showcase/the-gate.ts …
 //
-// The map (x east, y north). A mountain wall runs corner to corner, from the north-west to the south-east, its crest
-// at 17, ten levels over the green valley south-west of it and twelve over the dry basin north-east of it. The
-// valley's river rises in a cleft high in the wall (the springs' pool, bed 13) and pours over the Veil, a fall of
-// seven, into Wall Lake (sill 7) at the wall's foot; a brook from the valley's far corner joins the lake; the lake
+// The map (x east, y north). A mountain wall runs along the grid across the map's middle, its crest at 17 (r6:
+// planning's design, #236 08:05Z), nine levels over the green valley south of it and eleven over the dry basin north
+// of it, both faces sheer. The valley's river rises in a cleft of the wall's bastion (the springs' pool, bed 13) and
+// pours over the Veil, a fall of seven, into Wall Lake (sill 7) at the wall's foot; three brooks join the lake, which
 // leaves the map by the Low River's gorge through the west ridge. The Gate is the one notch through the wall, a slot
-// from the lake's shore to the basin, plugged by a natural dam at its mouth and two rows of blockages. The basin has
-// three seeps in hollows and two dry beds that run where the water once ran: from the Gate's foot and from the
-// Pass's foot to the basin's exit on the east edge. The old leat, a ledge cut along the wall's valley face from the
-// cleft to the Pass, is plugged at its head. The start stands in the valley at the Veil's foot, so the game's first
-// camera holds the fall and the wall with the Gate's mouth beside it.
+// six wide from the lake's east arm to the basin, plugged by a bar of rock at its head and two rows of blockages.
+// The basin is a bowl with a rim along its far edges; three seeps in hollows; the Gate Bed runs dry from the Gate's
+// foot, in river terraces, to the one notch in the rim. The leat rides the crest from the cleft to the Pass, plugged
+// at its head. The start stands in the valley at the Veil's foot with a side pool joined to the river by an inlet a
+// tile wide: shut before the first badtide, it keeps clean water.
 //
 // The player's question: how to carry the water through or round the wall: open the Gate (the natural dam and its
 // blockages), pump over it, or go round by the Pass (clear the old leat's head).
@@ -131,122 +131,123 @@ function pathLength(path: readonly Pt[]): number {
   return run;
 }
 
-/** The wall's own frame: u across it (positive toward the basin, north-east), v along it (positive toward the
- *  south-east); its centre line is x + y = WALL_SUM, through (98, 98). */
-const WALL_SUM = 196;
-const uOf = (x: number, y: number) => (x + y - WALL_SUM) * C;
-const vOf = (x: number, y: number) => (x - y) * C;
-const xyOf = (u: number, v: number): Pt => [98 + (u + v) * C, 98 + (u - v) * C];
-/** How far the wall's line has swung across (toward the basin) at `v` along it: a long swing and a short one, none
- *  at the Veil (v 0), so the cleft, the lip and the start stand where their numbers say. */
-function wallSwing(v: number): number {
-  return 8 * (fbm(v + 300, 0, 72, SEED + 11, 2) - fbm(300, 0, 72, SEED + 11, 2)) + 2.6 * (fbm(v + 300, 0, 23, SEED + 12, 2) - fbm(300, 0, 23, SEED + 12, 2));
-}
-/** The crest's half width at `v`: 8 at the Veil (the lip stands at its edge: the wall's bastion round the cleft),
- *  two to three elsewhere (r5: a wall, not a ramp). */
-function wallHalfAt(v: number): number {
-  const bastion = Math.min(1, Math.max(0, 1 - (Math.abs(v) - 9) / 11));
-  return 2.6 + 5.4 * bastion * bastion * (3 - 2 * bastion) + 0.4 * (fbm(v + 300, 0, 48, SEED + 13, 2) - fbm(300, 0, 48, SEED + 13, 2));
-}
-/** A point given in the wall's own frame, placed where the wall is at that `v`. */
-const xyW = (u: number, v: number): Pt => xyOf(u - wallSwing(v), v);
-
 // ------------------------------------------------------------------------------------------------ the design
+//
+// (r6: planning's design on #236, 08:05Z.) The wall runs along the grid, east to west across the map's middle, in
+// straight runs of 14 to 22 tiles joined by bold jogs of 4 to 6 (bastions), its south face toward the opening
+// camera: one sheer drop from the crest to the valley's meadow, no ledge. The valley lies south of it, the basin
+// north; a rim along the basin's far edges makes it a bowl, and the Gate Bed leaves by one notch in the rim. The
+// leat rides the crest: a channel one wide cut into the wall's top from the Veil's bastion to the Pass.
 
-/** The lake's sill, the valley meadows' level (sill + 1) and the start's bench. */
 const LAKE_SILL = 7;
 const BENCH = 8;
-/** The start's own ground: the meadow's level (r5 tried a terrace a level up against the badtide: its soil went
- *  bad within eight days anyway, and in a drought the lake stood two levels under the door). */
+/** The start's own ground: the meadow's level. */
 const HOME = BENCH;
 /** The cleft's pool: its bed, and the lip's level (the Veil's crest). */
 const POOL_BED = 13;
 const LIP = 14;
 /** The wall's crest. */
 const CREST = 17;
-/** The ledge along the wall's valley face (the old leat runs on it) and the lower bench under it. */
-const LEDGE = 13;
-/** The Pass: where the crest dips along the wall (v), and the level it dips to. */
-const PASS_V = 56;
-const PASS = 11;
-
-/** Wall Lake: along the wall's foot, centred about u −25; a bay each side of the start's peninsula. */
-const LAKE_ARMS: Sp[][] = [
-  [xyS(-33, -36, 8), xyS(-34, -24, 9), xyS(-35, -12, 9), xyS(-36, 2, 9), xyS(-36, 16, 9), xyS(-32, 30, 9)],
-  // the bay north-west of the start: the trench's way out to the lake
-  [[...xyOf(-11, -7.5), 3.2], [...xyOf(-15, -10.5), 3.0], [...xyOf(-18.5, -13), 2.4], xyS(-22, -15, 3.2), xyS(-27, -17, 4.5)],
-  // the Still Pool south-east of the start: a dead end from the trench along the wall's foot, held through a
-  // drought at the lake's level; a levee on its neck keeps it clean in a badtide
-  [[...xyOf(-10.8, 7.4), 0.7], [...xyOf(-12.4, 9.6), 0.7]],
-  // the south-west bay the valley brook comes to
-  [xyS(-37, -12, 8), xyS(-44, -14, 5)],
-  // creeks at the lake's level into the meadows, the water's veins
-  [xyS(-43, 4, 1.4), xyS(-52, 8, 1.2), xyS(-60, 4, 1.0), xyS(-66, 8, 0.9)],
-  [xyS(-42, 22, 1.4), xyS(-50, 28, 1.2), xyS(-57, 36, 1.0), xyS(-60, 44, 0.9)],
-  [xyS(-40, -28, 1.4), xyS(-47, -34, 1.2), xyS(-52, -42, 1.0), xyS(-58, -48, 0.9)],
-  [xyS(-44, -4, 1.3), xyS(-52, -10, 1.1), xyS(-62, -14, 0.9)],
-  [xyS(-38, 32, 1.2), xyS(-44, 40, 1.0), xyS(-48, 50, 0.9)],
-  // the Still Pool itself (last)
-  [[...xyOf(-14.2, 11.6), 2.2]],
-];
-function xyS(u: number, v: number, r: number): Sp {
-  const [x, y] = xyW(u, v);
-  return [x, y, r];
+/** The Pass: the crest dips to PASS between PASS_X. */
+const PASS = 12;
+const PASS_X: [number, number] = [164, 172];
+/** The wall's south face: [from x, the face's y], straight runs joined by jogs. */
+const FACE: [number, number][] = [[0, 112], [14, 107], [30, 111], [52, 106], [66, 110], [80, 104], [100, 109], [118, 105], [134, 110], [156, 106], [170, 111]];
+function faceY(x: number): number {
+  let y = FACE[0][1];
+  for (const [x0, y0] of FACE) if (x >= x0) y = y0;
+  return y;
 }
+/** The crest's thickness: five, seven at the Veil's bastion. */
+const wallThick = (x: number) => (x >= 80 && x < 100 ? 7 : 5);
+const topY = (x: number) => faceY(x) + wallThick(x);
+/** The wall's band at `x`: its runs, and at a jog the corner that joins the two runs (two columns wide). */
+function wallBand(x: number): [number, number] {
+  const xs = [x, Math.max(0, x - 1), Math.min(W - 1, x + 1)];
+  return [Math.min(...xs.map(faceY)), Math.max(...xs.map(topY))];
+}
+const inWall = (x: number, y: number) => y >= wallBand(x)[0] && y < wallBand(x)[1];
+const inValleyAt = (x: number, y: number) => y < wallBand(x)[0];
+const inBasinAt = (x: number, y: number) => y >= wallBand(x)[1];
+/** The leat's line along the crest: each run's middle row, joined at the jogs inside the corner. */
+const LEAT_PATH: Pt[] = (() => {
+  const pts: Pt[] = [[96.5, 107.5], [99.5, 107.5]];
+  for (let k = 5; k < FACE.length; k++) {
+    const [x0, y0] = FACE[k];
+    const x1 = k + 1 < FACE.length ? FACE[k + 1][0] : 178;
+    const mid = y0 + 2;
+    if (k > 5) {
+      const prevMid = FACE[k - 1][1] + 2;
+      pts.push([x0 - 0.5, prevMid], [x0 - 0.5, mid]);
+    }
+    pts.push([Math.min(x1, PASS_X[1] + 1) - 0.5, mid]);
+    if (x1 > PASS_X[1]) break;
+  }
+  return pts;
+})();
+
+/** Wall Lake: along the wall's foot south of it; the drain bay from the Veil's trench; the start's side pool. */
+const LAKE_ARMS: Sp[][] = [
+  [[34, 84, 7], [50, 85, 9], [66, 85, 9], [82, 86, 9], [100, 86, 9], [116, 88, 8], [129, 92, 6]],
+  // the drain bay: from the trench's west end west, then south into the body
+  [[82, 102, 2.4], [74, 102, 2.4], [70, 95, 2.6]],
+  // the inlet to the start's side pool: one tile wide, two long (a levee of two shuts it)
+  [[97.5, 102.5, 0.6], [99, 102.5, 0.6]],
+  // the south-west bay the valley brook comes to
+  [[40, 80, 6], [36, 72, 4]],
+  // creeks at the lake's level into the meadows, the water's veins
+  [[60, 80, 1.3], [58, 70, 1.1], [54, 60, 0.9]],
+  [[90, 80, 1.3], [92, 68, 1.1], [96, 58, 0.9]],
+  [[112, 83, 1.2], [118, 72, 1.0], [124, 64, 0.9]],
+  // the start's side pool itself (last): clean water through a badtide once its inlet is shut
+  [[102.5, 101.5, 2.8]],
+];
 const LAKE_WANDER = 3;
 const LAKE_MEADOW = 18;
-const LAKE_ISLANDS: Sp[] = [xyS(-34, 22, 2.6), xyS(-32, -26, 2.2)];
+const LAKE_ISLANDS: Sp[] = [[58, 83, 2.4], [108, 85, 2.2]];
 
-/** The cleft in the wall: the springs' pool, open to the south-west over the Veil's lip. */
-const POOL: Sp[] = [xyS(-6.5, 0, 3.2), xyS(-2.5, 0.5, 3.6), xyS(-2.2, 4.8, 2.4)];
-/** The Veil's lip, as Four Lakes' Great Fall: [row, the first tile of the pool's bed in it], north to south; runs
- *  of one to three tiles facing south and west by turns about the diagonal x + y = 184. */
-const LIP_ROWS: [number, number][] = [[97, 87], [96, 88], [95, 88], [94, 91], [93, 91], [92, 92], [91, 93], [90, 93], [89, 96], [88, 96]];
-function lipXmin(y: number): number {
-  for (const [ry, x] of LIP_ROWS) if (ry === y) return x;
-  return y > 97 ? 87 : Infinity;
-}
-/** The start's middle: in the Veil's lap, so its lip fills the top of the game's first frame. */
-const START_AT: Pt = [89, 89];
-/** The throat: the trench's one way out round the start's south-east corner, deep. */
-const THROAT: Pt[] = [[92, 90], [93, 90], [93, 89], [94, 89], [94, 88]];
+/** The cleft in the Veil's bastion: the springs' pool behind the lip. */
+const POOL: Sp[] = [[87, 107.5, 2.6], [92, 107.5, 2.6]];
+/** The Veil's lip: a straight run facing south at the bastion's face. */
+const LIP_Y = 104;
+const LIP_X: [number, number] = [85, 93];
+/** The start's middle: in the Veil's lap. */
+const START_AT: Pt = [89, 100];
 
-/** The Gate: a slot through the wall at v 17, from the lake's shore to the basin. */
-const GATE_V = 16;
-const GATE_PATH: Pt[] = [xyW(-23, GATE_V + 3.5), xyW(-16, GATE_V + 2.5), xyW(-10, GATE_V + 1.5), xyW(-3, GATE_V + 0.5), xyW(6, GATE_V - 0.5), xyW(16, GATE_V + 1)];
+/** The Gate: a slot six wide straight north from the lake's east arm through the bench and the wall. */
+const GATE_PATH: Pt[] = [[130.5, 97], [130.5, 113]];
 /** The Low River: the lake's way out, west through the ridge to the edge. */
-const LOW_PATH: Pt[] = [[50, 100], [40, 106], [32, 112], [20, 115], [8, 118], [-1, 119]];
+const LOW_PATH: Pt[] = [[27, 84], [16, 86], [6, 88], [-1, 89]];
 /** The west ridge the Low River cuts through: the megadam's slot. */
 const RIDGES: { path: Pt[]; top: number; half: number; drop: number; ledge: number; rough: number }[] = [
-  { path: [[12, 84], [20, 98], [22, 112], [18, 128], [10, 144]], top: 12.6, half: 4.5, drop: 3, ledge: 3, rough: 1.1 },
-  // a spur that closes the valley's south-east end
-  { path: [[134, 30], [140, 44], [150, 52]], top: 12.2, half: 3, drop: 3, ledge: 2.4, rough: 0.9 },
+  { path: [[12, 60], [16, 74], [15, 86], [16, 98], [12, 106]], top: 12.6, half: 4.5, drop: 3, ledge: 3, rough: 1.1 },
 ];
-/** The valley brook: from the springs in the far corner down to the lake's south-west bay. */
-const BROOK_PATH: Pt[] = [[28, 30], [36, 42], [46, 54], [55, 66], [61, 75], [65, 81]];
-const BROOK_POOL: Sp[] = [[27, 28, 3.4]];
+/** The brooks: from springs in the valley's far corners to the lake. */
+const BROOK_PATH: Pt[] = [[26, 24], [30, 40], [34, 56], [38, 70], [40, 78]];
+const BROOK_POOL: Sp[] = [[25, 22, 3.2]];
 const BROOK_POOL_BED = 10;
-/** The west brook: from springs under the north-west hills to the lake's north-west end. */
-const WEST_PATH: Pt[] = [[32, 158], [36, 146], [41, 134], [47, 122], [54, 110], [61, 99]];
-const WEST_POOL: Sp[] = [[31, 160, 3]];
+const WEST_PATH: Pt[] = [[100, 16], [98, 32], [96, 48], [94, 62], [92, 74], [91, 83]];
+const WEST_POOL: Sp[] = [[100, 14, 3]];
 const WEST_POOL_BED = 10;
-/** The south brook: from springs on the valley's south side to the lake's south-east end. */
-const SOUTH_PATH: Pt[] = [[101, 24], [98, 34], [94, 44], [92, 54], [94, 62]];
-const SOUTH_POOL: Sp[] = [[101, 22, 2.8]];
+const SOUTH_PATH: Pt[] = [[174, 32], [164, 48], [150, 64], [140, 78], [134, 88], [130, 94]];
+const SOUTH_POOL: Sp[] = [[176, 30, 2.8]];
 const SOUTH_POOL_BED = 9;
-/** The old leat: along the ledge from the cleft's pool to the Pass. */
-const LEAT_PATH: Pt[] = [[...xyW(-2.2, 4.8)], [100.5, 90], [100.5, 86], xyW(-9.0, 12), xyW(-9.3, 16), xyW(-9.4, 22), xyW(-9.4, 29), xyW(-9.4, 36), xyW(-9.3, 42), xyW(-9.2, 48), xyW(-8.5, PASS_V - 3), xyW(-6, PASS_V), xyW(0, PASS_V + 0.5), xyW(8, PASS_V - 1)];
-/** The two dry beds in the basin, and where they leave the map. */
-const GATE_BED: Pt[] = [xyW(16, GATE_V + 1), [126, 104], [133, 118], [143, 131], [156, 142], [170, 150], [182, 156], [193, 160]];
-const PASS_BED: Pt[] = [xyW(8, PASS_V - 1), [153, 72], [163, 86], [171, 104], [177, 124], [181, 142], [184, 154]];
-/** The seeps' hollows in the basin: each a small basin a level deep with a seep in it and a spill to a bed. */
-const SEEPS: { at: Pt; r: number; strength: number; name: string; to: Pt }[] = [
-  { at: [124, 126], r: 3.2, strength: 0.02, name: "the Near Seep", to: [134, 119] },
-  { at: [150, 150], r: 2.8, strength: 0.02, name: "the Middle Seep", to: [157, 143] },
-  { at: [176, 165], r: 3.0, strength: 0.02, name: "the Far Seep", to: [178, 157] },
+/** The Gate Bed: from the Gate's foot, winding north across the basin to the one notch in the far rim. */
+const GATE_BED: Pt[] = [[130.5, 113], [134, 124], [128, 138], [136, 152], [146, 166], [150, 178], [150, 193]];
+/** The Pass Bed: the leat's cascade down the basin face, across to the Gate Bed. */
+const PASS_BED: Pt[] = [[168, 110], [168, 118], [160, 132], [152, 148], [147, 160]];
+/** The far rim: from this row north, and these columns east and west of the basin. */
+const RIM_Y = 184;
+const RIM_X: [number, number] = [7, 185];
+const RIM = 14;
+/** The notch in the rim the Gate Bed leaves by. */
+const NOTCH_X: [number, number] = [148, 152];
+/** The seeps' hollows on the basin's flats: each a small basin with a seep in it. */
+const SEEPS: { at: Pt; r: number; strength: number; name: string }[] = [
+  { at: [62, 150], r: 3.2, strength: 0.02, name: "the West Seep" },
+  { at: [108, 140], r: 2.8, strength: 0.02, name: "the Middle Seep" },
+  { at: [172, 148], r: 3.0, strength: 0.02, name: "the East Seep" },
 ];
-/** The basin's exit: where its beds leave the map. */
-const EXIT: Pt = [192, 158];
 
 interface Channel {
   name: string;
@@ -272,18 +273,21 @@ function brookBed(path: Pt[], from: number, to: number): (s: number) => number {
 
 const GATE_LEN = pathLength(GATE_PATH);
 const LEAT_LEN = pathLength(LEAT_PATH);
+const GATE_BED_LEN = pathLength(GATE_BED);
+/** The Gate Bed's level along it: four at the Gate's foot, one at the notch. */
+const gateBedAt = (s: number) => Math.max(1, 4 - Math.floor((3.999 * s) / GATE_BED_LEN));
 const CHANNELS: Channel[] = [
-  // the Gate's slot: its floor at the lake's sill through the wall's first half, then a stair down to the basin
-  { name: "Gate", path: GATE_PATH, half: () => 3.4, bed: (s) => (s < 3.5 ? LAKE_SILL : Math.max(4, LAKE_SILL - 2 - Math.floor((s - 3.5) / 8))), wet: false, wander: 0, open: 0, dry: true },
-  // the Low River: the lake's sill (two tiles thick, ten wide), then a gorge bed falling to the edge
-  { name: "Low River", path: LOW_PATH, half: (s) => (s < 2.5 ? 7.0 : s < 16 ? 2.6 : 3.4), bed: (s) => (s < 2.5 ? LAKE_SILL : Math.max(3, 5 - Math.floor((s - 2.5) / 20))), wet: true, wander: 0.6, open: 0 },
+  // the Gate's slot: the bar's sill at the lake's level, then its floor two under, both faces sheer
+  { name: "Gate", path: GATE_PATH, half: () => 3.0, bed: (s) => (s < 3.5 ? LAKE_SILL : Math.max(4, LAKE_SILL - 2 - Math.floor((s - 3.5) / 8))), wet: false, wander: 0, open: 0, dry: true },
+  // the Low River: the lake's sill (two tiles thick, fourteen wide), then a gorge bed falling to the edge
+  { name: "Low River", path: LOW_PATH, half: (s) => (s < 2.5 ? 7.0 : s < 8 ? 7.0 - (s - 2.5) * 0.8 : 2.6), bed: (s) => (s < 2.5 ? LAKE_SILL : Math.max(1, 5 - Math.floor((s - 2.5) / 6))), wet: true, wander: 0.6, open: 0 },
   { name: "Valley Brook", path: BROOK_PATH, half: () => 1.6, bed: brookBed(BROOK_PATH, BROOK_POOL_BED, 9), wet: true, wander: 3.6, open: 0, brook: { meadow: 15 } },
-  { name: "West Brook", path: WEST_PATH, half: () => 1.4, bed: brookBed(WEST_PATH, WEST_POOL_BED, 8), wet: true, wander: 3.2, open: 0, brook: { meadow: 14 } },
-  { name: "South Brook", path: SOUTH_PATH, half: () => 1.3, bed: brookBed(SOUTH_PATH, SOUTH_POOL_BED, 8), wet: true, wander: 3.0, open: 0, brook: { meadow: 13 } },
-  // the old leat: a bed cut a level into the ledge, falling to the Pass
-  { name: "Leat", path: LEAT_PATH, half: (s) => (s < 2 ? 0.8 : 1.1), bed: (s) => (s < 6 ? LEDGE : s < LEAT_LEN - 14 ? LEDGE - 1 - Math.floor(((s - 6) / (LEAT_LEN - 20)) * 1.999) : s < LEAT_LEN - 10 ? PASS : Math.max(6, PASS - 1 - Math.floor((s - (LEAT_LEN - 10)) / 1.4))), wet: false, wander: 0, open: 0, dry: true },
-  { name: "Gate Bed", path: GATE_BED, half: () => 2.8, follow: { start: 4, under: 3, end: 0, grade: 16 }, wet: false, wander: 3.2, open: 0.8, dry: true },
-  { name: "Pass Bed", path: PASS_BED, half: () => 1.8, follow: { start: 6, under: 3, end: 0, grade: 16 }, wet: false, wander: 3.2, open: 0.8, dry: true },
+  { name: "West Brook", path: WEST_PATH, half: () => 1.4, bed: brookBed(WEST_PATH, WEST_POOL_BED, 7), wet: true, wander: 3.2, open: 0, brook: { meadow: 14 } },
+  { name: "South Brook", path: SOUTH_PATH, half: () => 1.3, bed: brookBed(SOUTH_PATH, SOUTH_POOL_BED, 7), wet: true, wander: 3.0, open: 0, brook: { meadow: 13 } },
+  // the leat on the crest: one wide, from the pool's east side (bed 13) falling to the Pass (11)
+  { name: "Leat", path: LEAT_PATH, half: () => 0.6, bed: (s) => (s < 6 ? POOL_BED : s < LEAT_LEN - 12 ? POOL_BED - Math.floor(((s - 6) / (LEAT_LEN - 18)) * 1.999) : PASS - 1), wet: false, wander: 0, open: 0, dry: true },
+  { name: "Gate Bed", path: GATE_BED, half: () => 2.4, bed: gateBedAt, wet: false, wander: 3.0, open: 0, dry: true },
+  { name: "Pass Bed", path: PASS_BED, half: () => 1.6, follow: { start: 6, under: 2, end: 2, grade: 14 }, wet: false, wander: 2.4, open: 0, dry: true },
 ];
 const chan = (name: string) => CHANNELS.findIndex((c) => c.name === name);
 
@@ -313,15 +317,15 @@ export interface Land {
   lake: Uint8Array;
   /** 1 + the channel's index on a channel's bed. */
   channel: Uint8Array;
-  /** 1 on the cleft's pool, 2 on the brook's springs' pool, 3 + k on seep k's hollow. */
+  /** 1 on the cleft's pool, 2 on a brook's springs' pool, 3 + k on seep k's hollow. */
   pool: Uint8Array;
   /** The Veil's lip tiles. */
   lip: number[];
-  /** The Gate's plug: the natural dam's row at its mouth, then its blockage rows. */
+  /** The Gate's plug: the natural dam's bar at its head, then its blockage rows. */
   gatePlugs: number[][];
-  /** The leat's blockage rows at its head. */
+  /** The leat's bar at its head, then its blockage row. */
   leatPlugs: number[][];
-  /** The Pass: the crest's lowest tiles, where the leat's water goes over. */
+  /** The Pass: the leat's tiles at the crest's dip. */
   pass: number[];
   /** A row across the Low River's head (the lake's sill): a dam here raises the lake. */
   lowHead: number[];
@@ -329,7 +333,7 @@ export interface Land {
   megadam: number[];
   /** Rows across the Gate Bed at its narrows in the basin: check dams. */
   checkDams: number[][];
-  /** Each seep's spill tiles: a levee here holds its pond a level higher. */
+  /** Each seep's spill tiles. */
   seepLips: number[][];
   guarded: number;
 }
@@ -340,6 +344,8 @@ export function designLand(): Land {
   const channel = new Uint8Array(N);
   const pool = new Uint8Array(N);
   const gLake = new Float64Array(N);
+  /** 1 where the wall's own profile (its crest) sets the land. */
+  const wallOn = new Uint8Array(N);
 
   const along: { d: number; s: number }[][] = CHANNELS.map((c) => {
     const out: { d: number; s: number }[] = new Array(N);
@@ -351,45 +357,18 @@ export function designLand(): Land {
   const kWest = chan("West Brook");
   const kSouth = chan("South Brook");
   const kLow = chan("Low River");
-
-  // the wall as a field: its warped frame, its crest's half width and level, the Pass's dip
-  const wallU = new Float64Array(N);
-  const wallHalf = new Float64Array(N);
-  /** 1 where the wall's own profile (crest, ledge, bench) sets the land. */
-  const wallOn = new Uint8Array(N);
-  const crestOf = new Float64Array(N);
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
-      const i = y * W + x;
-      const v = vOf(x + 0.5, y + 0.5);
-      // (the wall's line wanders by a long swing and a short one, read along it, so the crest bows and the faces
-      // have re-entrants and buttresses; its width and height vary the same way)
-      const u = uOf(x + 0.5, y + 0.5) + wallSwing(v) + 1.0 * fbm(x, y, 9, SEED + 15, 2);
-      wallU[i] = u;
-      wallHalf[i] = wallHalfAt(v) + 0.5 * fbm(x, y, 11, SEED + 16, 2);
-      const halfHere = wallHalfAt(v);
-      const ridge = 1.6 * Math.max(0, 1 - Math.abs(u) / Math.max(1, halfHere));
-      const peak = fbm(v + 300, 0, 60, SEED + 17, 2);
-      let crest = CREST - 0.8 + ridge + 0.9 * fbm(x, y, 26, SEED + 14, 2) + (peak > 0.22 ? 1 : 0) + (peak > 0.42 ? 1 : 0);
-      // the Pass: the crest dips to PASS over about eight tiles, its sides easing up
-      const pv = Math.abs(v - PASS_V) - 3.5;
-      if (pv < 6) crest = Math.min(crest, PASS + Math.max(0, pv) * 1.2);
-      crestOf[i] = crest;
-    }
+  const kGateBed = chan("Gate Bed");
+  const kPassBed = chan("Pass Bed");
 
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
-      const u = wallU[i];
-      const half = wallHalf[i];
-      const v = vOf(x + 0.5, y + 0.5);
       // a wandering of the whole picture, so no contour follows a ruler
       const wx = x + 0.5 + 6 * fbm(x, y, 36, SEED + 1, 3);
       const wy = y + 0.5 + 6 * fbm(x, y, 36, SEED + 2, 3);
       const wob = fbm(x, y, 16, SEED + 3, 3);
 
-      // ---- the valley: the lower envelope of the lake's bowl and the brook's, outlands rising to the far corner
-      // (the lake's body and its south-west bay wander; the bays' necks and the creeks are thin and keep their line)
+      // ---- the valley: the lower envelope of the lake's bowl and the brooks', outlands rising to the south
       let dLake = Infinity;
       let dLakeW = Infinity;
       let thin = Infinity;
@@ -419,9 +398,8 @@ export function designLand(): Land {
       const c2 = Math.max(1, Math.min(3, Math.round(1.9 + 2.4 * fbm(x, y, 24, SEED + 18, 2))));
       const w1 = 10 + 6 * fbm(x, y, 27, SEED + 17, 2);
       const meadowN = fbm(x, y, 27, SEED + 6, 2);
-      // the valley's outlands: a little over the lake near it, rising toward the far corner, in threes where dry
-      const farCorner = hypot(x - 10, y - 10);
-      let out = BENCH + 1.4 + 0.022 * Math.max(0, 150 - farCorner) + 3.2 * fbm(x, y, 64, SEED + 7, 3) + 1.4 * fbm(x, y, 27, SEED + 8, 3);
+      // the valley's outlands: plates rising toward the south edge
+      let out = BENCH + 1.4 + 0.03 * Math.max(0, 90 - y) + 3.2 * fbm(x, y, 64, SEED + 7, 3) + 1.4 * fbm(x, y, 27, SEED + 8, 3);
       if (out > 15) out = 15;
       let land = out;
       for (const e of el) {
@@ -451,43 +429,45 @@ export function designLand(): Land {
       }
       const valley = land;
 
-      // ---- the basin: benches in threes, falling away to the exit; the wall's basin foot a little higher
-      const dExit = hypot(x - EXIT[0], y - EXIT[1]);
-      const dBed = pathDist(x + 0.5, y + 0.5, GATE_BED).d;
-      let basin = 3.4 + 4.2 * Math.min(1, Math.max(0, (dExit - 14) / 130)) - 1.3 * Math.max(0, 1 - dBed / 24) + 1.3 * fbm(x, y, 44, SEED + 31, 3) + 0.6 * fbm(x, y, 15, SEED + 32, 3);
-      basin = Math.round(basin);
-      if (basin < 3) basin = 3;
-
-      // ---- the wall: the crest, a ledge and a lower bench on each face; elsewhere the land's own
-      const crest = crestOf[i];
-      const faceV = Math.abs(v);
-      let wall = -Infinity;
-      if (Math.abs(u) <= half) wall = crest;
-      else if (u < 0) {
-        const t = -u - half;
-        // (at the Veil the face is sheer from the lip to the pool: no ledge, no bench)
-        const spur = 2.4 * Math.max(0, fbm(v + 300, 0, 31, SEED + 41, 2));
-        if (faceV > 7.5 + 1.2 * fbm(x, y, 6, SEED + 40, 2)) {
-          if (t < 3.6 + spur + (faceV > 24 && faceV < 36 ? 3 : 0)) wall = Math.min(crest - 4, LEDGE);
-        }
+      // ---- the basin: river terraces along the Gate Bed and the Pass Bed, broad unequal flats beyond, a rim along
+      // the far edges
+      const gb = along[kGateBed][i];
+      const pb = along[kPassBed][i];
+      const bedHere = gb.d <= pb.d ? gateBedAt(gb.s) : Math.max(2, 6 - Math.floor(pb.s / 14));
+      const dBed = Math.min(gb.d, pb.d) - 2.4;
+      const t0 = 3.5 + 1.5 * fbm(x, y, 11, SEED + 81, 2);
+      const t1 = 9 + 3 * fbm(x, y, 17, SEED + 82, 2);
+      let basin: number;
+      if (dBed < t0) basin = bedHere + 2;
+      else if (dBed < t1) basin = bedHere + 3;
+      else {
+        // the flats: broad and unequal, higher toward the wall's foot, in ones and twos by a wide noise
+        const flat = 5.2 + 1.6 * fbm(x, y, 70, SEED + 83, 2) + 1.0 * fbm(x, y, 28, SEED + 84, 2) + 0.8 * Math.max(0, 1 - (y - topY(Math.min(W - 1, x))) / 30);
+        basin = Math.max(bedHere + 3, Math.round(flat));
       }
-      // (r5: the basin face is sheer, crest to floor)
-      // (near the Pass the ledge and bench on the basin side fall to the Pass's own level)
-      const side = u < 0 ? valley : basin;
-      land = Math.max(side, wall);
-      if (wall > side) wallOn[i] = 1;
-      // (the wall's own faces blend into the land a tile or two beyond their last bench)
+      if (y >= RIM_Y || (x < RIM_X[0] && y > topY(x) + 2) || x > RIM_X[1]) basin = RIM + Math.round(1.2 * fbm(x, y, 20, SEED + 85, 2));
+
+      // ---- the wall: the crest's band, sheer on both faces; the Pass's dip
+      const [lo, hi] = wallBand(x);
+      let crest = CREST + 0.9 * fbm(x, y, 26, SEED + 14, 2) + (x >= 80 && x < 100 ? 1 : 0) + (fbm(x + 500, 0, 60, SEED + 17, 2) > 0.3 ? 1 : 0);
+      const px = Math.abs(x - (PASS_X[0] + PASS_X[1]) / 2) - (PASS_X[1] - PASS_X[0]) / 2;
+      if (px < 5) crest = Math.min(crest, PASS + Math.max(0, px) * 1.2);
+      if (y >= lo && y < hi) {
+        land = crest;
+        wallOn[i] = 1;
+      } else land = y < lo ? valley : basin;
       if (land > TOP) land = TOP;
       f[i] = land;
     }
 
-  // the start's bench: level BENCH on the lake's shore round the Veil's foot
+  // the start's bench: level ground between the lake and the wall's foot round the Veil
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
-      const d = spineDist(x + 0.5, y + 0.5, [xyS(-14, -24, 4), xyS(-16, -12, 7), xyS(-17, 0, 9), xyS(-16, 12, 7), xyS(-14, 24, 4)]) + 2.2 * fbm(x, y, 13, SEED + 20, 2);
-      if (d < 0 && gLake[i] > 0 && !wallOn[i]) f[i] = hypot(x + 0.5 - START_AT[0], y + 0.5 - START_AT[1]) < 15 + 2 * fbm(x, y, 9, SEED + 21, 2) ? HOME : BENCH;
+      const d = spineDist(x + 0.5, y + 0.5, [[62, 100, 3.5], [78, 100, 4.5], [92, 100, 5], [110, 100, 5], [126, 100, 4]]) + 2.0 * fbm(x, y, 13, SEED + 20, 2);
+      if (d < 0 && gLake[i] > 0 && !wallOn[i]) f[i] = HOME;
     }
+
   // the channels' beds: a follow bed reads the land beside it
   const bedOf: ((s: number) => number)[] = CHANNELS.map((c, k) => {
     if (c.bed) return c.bed;
@@ -510,79 +490,61 @@ export function designLand(): Land {
       last = v;
       const want = Math.round(v - fo.under);
       if (want < run) run = Math.max(want, run - 4);
-      // (a graded bed falls at least a level every `grade` tiles, so a trickle in it runs to the exit)
       if (fo.grade) run = Math.min(run, fo.start - Math.floor((b * 2) / fo.grade));
       table.push(Math.max(fo.end, run));
     }
     return (s: number) => table[Math.min(table.length - 1, Math.max(0, Math.floor(s / 2)))];
   });
-  // the brook's springs' rim
+  // the brooks' springs' rims
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
-      const d = spineDist(x + 0.5, y + 0.5, BROOK_POOL);
-      if (d < 4 && f[i] < BROOK_POOL_BED + 2) f[i] = BROOK_POOL_BED + 2;
-      const dw = spineDist(x + 0.5, y + 0.5, WEST_POOL);
-      if (dw < 4 && f[i] < WEST_POOL_BED + 2) f[i] = WEST_POOL_BED + 2;
-      const ds = spineDist(x + 0.5, y + 0.5, SOUTH_POOL);
-      if (ds < 4 && f[i] < SOUTH_POOL_BED + 2) f[i] = SOUTH_POOL_BED + 2;
+      for (const [sp, bed] of [[BROOK_POOL, BROOK_POOL_BED], [WEST_POOL, WEST_POOL_BED], [SOUTH_POOL, SOUTH_POOL_BED]] as const) {
+        const d = spineDist(x + 0.5, y + 0.5, sp);
+        if (d < 4 && f[i] < bed + 2) f[i] = bed + 2;
+      }
     }
   CHANNELS.forEach((c, k) => {
     for (let i = 0; i < N; i++) {
       const { d, s } = along[k][i];
       const x = i % W;
       const y = (i - x) / W;
-      const half = c.half(s) + (c.brook ? 0.3 + 2.0 * Math.max(0, fbm(x, y, 13, SEED + 30 + k, 2) + 0.12) : c.open > 0 ? 0.8 * fbm(x, y, 9, SEED + 30 + k, 2) : 0);
+      const half = c.half(s) + (c.brook ? 0.3 + 2.0 * Math.max(0, fbm(x, y, 13, SEED + 30 + k, 2) + 0.12) : 0);
       const b = bedOf[k](s);
       if (d <= half) {
         if (c.wet && channel[i] && CHANNELS[channel[i] - 1].wet && f[i] <= b) continue;
-        // (the Gate's slot cuts the old leat's ledge: the leat is broken there, and its water, let loose, falls
-        // into the slot unless the player spans it)
+        // (the Gate's slot cuts the leat: its water, let loose, falls into the slot unless the player spans it)
         if (c.name === "Leat" && channel[i] === chan("Gate") + 1) continue;
         f[i] = b;
         channel[i] = k + 1;
-      } else if (c.open > 0) {
-        const t = d - half;
-        // (a dry bed's floodplain: a strip a level over the bed, four tiles wide and ragged, the old river's)
-        const v = t < 3.6 + 2.2 * fbm(x, y, 9, SEED + 71, 2) ? b + 1 : Infinity;
-        if (v < f[i]) f[i] = v;
       } else if (c.brook && d <= half + 1.2 && !channel[i]) {
         if (f[i] < b + 1) f[i] = b + 1;
-      } else if (c.name === "Gate" && s >= 3.5 && s < 15 && d <= half + 1.6 && !channel[i]) {
+      } else if (c.name === "Gate" && s >= 3.5 && s < 8 && d <= half + 1.6 && !channel[i]) {
+        // (the slot's banks across the bench stand a level over it: the old river's levees of rock)
         if (f[i] < BENCH + 1) f[i] = BENCH + 1;
       }
     }
   });
-  // the two pools' beds
+  // the pools' beds
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
       const d = spineDist(x + 0.5, y + 0.5, POOL);
       if (d < 0 && channel[i] !== chan("Leat") + 1) {
-        f[i] = d < -1.4 ? POOL_BED : LIP;
+        f[i] = d < -1.2 ? POOL_BED : LIP;
         pool[i] = 1;
         channel[i] = 0;
-      } else if (d >= 0 && d < 1.6 && f[i] < LIP + 1 && channel[i] !== chan("Leat") + 1) f[i] = LIP + 1;
-      const db = spineDist(x + 0.5, y + 0.5, BROOK_POOL);
-      if (db < 0) {
-        f[i] = db < -1.4 ? BROOK_POOL_BED - 1 : BROOK_POOL_BED;
-        pool[i] = 2;
-        channel[i] = 0;
       }
-      const dwp = spineDist(x + 0.5, y + 0.5, WEST_POOL);
-      if (dwp < 0) {
-        f[i] = dwp < -1.4 ? WEST_POOL_BED - 1 : WEST_POOL_BED;
-        pool[i] = 2;
-        channel[i] = 0;
-      }
-      const dsp = spineDist(x + 0.5, y + 0.5, SOUTH_POOL);
-      if (dsp < 0) {
-        f[i] = dsp < -1.4 ? SOUTH_POOL_BED - 1 : SOUTH_POOL_BED;
-        pool[i] = 2;
-        channel[i] = 0;
+      for (const [sp, bed] of [[BROOK_POOL, BROOK_POOL_BED], [WEST_POOL, WEST_POOL_BED], [SOUTH_POOL, SOUTH_POOL_BED]] as const) {
+        const dp = spineDist(x + 0.5, y + 0.5, sp);
+        if (dp < 0) {
+          f[i] = dp < -1.4 ? bed - 1 : bed;
+          pool[i] = 2;
+          channel[i] = 0;
+        }
       }
     }
-  // the seeps' hollows: a basin a level under its bench, its floor two under at the middle
+  // the seeps' hollows
   SEEPS.forEach((S, k) => {
     for (let y = 0; y < H; y++)
       for (let x = 0; x < W; x++) {
@@ -596,13 +558,13 @@ export function designLand(): Land {
   // quantise the land
   const h = new Uint8Array(N);
   for (let i = 0; i < N; i++) h[i] = Math.max(0, Math.min(TOP, Math.round(f[i])));
-  // (each seep's hollow sits in its bench: the bench's level is read after rounding)
+  // (each seep's hollow sits in its flat: a pond three and four under it, its rim a level over the water)
   const seepLips: number[][] = [];
   SEEPS.forEach((S, k) => {
     let rim = 0;
     let n = 0;
     for (let i = 0; i < N; i++) if (pool[i] === 3 + k) (rim += h[i]), n++;
-    const bench = Math.round(rim / n);
+    const bench = Math.round(rim / Math.max(1, n));
     for (let i = 0; i < N; i++) {
       if (pool[i] !== 3 + k) continue;
       const x = i % W;
@@ -610,7 +572,6 @@ export function designLand(): Land {
       const dd = hypot(x + 0.5 - S.at[0], y + 0.5 - S.at[1]);
       h[i] = Math.max(0, dd < 1.6 ? bench - 5 : bench - 4);
     }
-    // the ring round it stands at the bench, but for its spill: the lowest ring tile toward the nearest bed
     const ring: number[] = [];
     for (let i = 0; i < N; i++) {
       if (pool[i]) continue;
@@ -618,56 +579,20 @@ export function designLand(): Land {
       for (const j of [i - 1, i + 1, i - W, i + W]) if (j >= 0 && j < N && Math.abs((j % W) - x) <= 1 && pool[j] === 3 + k) { ring.push(i); break; }
     }
     for (const i of ring) if (!channel[i] && h[i] < bench - 3) h[i] = Math.max(1, bench - 3);
-    // the spill: the ring tile nearest a bed, cut to the hollow's floor + 1 (the water stands at bench − 1 + head)
-    let best = -1;
-    let bestD = Infinity;
-    for (const i of ring) {
-      const x = i % W;
-      const y = (i - x) / W;
-      const d = Math.min(along[chan("Gate Bed")][i].d, along[chan("Pass Bed")][i].d);
-      if (d < bestD) (bestD = d), (best = i);
-      void y;
-    }
-    if (best >= 0) {
-      h[best] = Math.max(1, bench - 3);
-      seepLips.push([best]);
-      // the gully: from the spill toward the bed, a tile at a time, falling a level every two tiles, until it
-      // meets the bed's floodplain
-      let gx = best % W;
-      let gy = Math.floor(best / W);
-      let lv = bench - 1;
-      const bedTiles: number[] = [];
-      // (the gully is not cut: the hollows are closed, and a seep this weak evaporates in its own)
-      (gx = -99), (gy = -99);
-      for (let i = 0; i < N; i++) if (channel[i] === chan("Gate Bed") + 1 || channel[i] === chan("Pass Bed") + 1) bedTiles.push(i);
-      for (let step = 0; gx >= 0 && step < 40; step++) {
-        let tx = S.to[0];
-        let ty = S.to[1];
-        let bd = Infinity;
-        for (const t of bedTiles) {
-          const d = hypot((t % W) - gx, Math.floor(t / W) - gy);
-          if (d < bd) (bd = d), (tx = t % W), (ty = Math.floor(t / W));
-        }
-        const dx = tx - gx;
-        const dy = ty - gy;
-        if (Math.abs(dx) >= Math.abs(dy)) gx += Math.sign(dx);
-        else gy += Math.sign(dy);
-        const j = gy * W + gx;
-        if (channel[j]) break;
-        if (step % 2 === 1) lv--;
-        if (h[j] > lv) h[j] = lv;
-        pool[j] = 3 + k;
-      }
+    const spill = ring.length ? ring[0] : -1;
+    if (spill >= 0) {
+      h[spill] = Math.max(1, bench - 3);
+      seepLips.push([spill]);
     } else seepLips.push([]);
   });
 
-  // the lake's bed: a shelf at the sill, a shallow margin, then the deep water along the old river's line
+  // the lake's bed: a shelf at the sill, a shallow margin, then the deeper water along the old river's line
   for (let i = 0; i < N; i++) {
     const d = gLake[i];
     if (d >= 0) continue;
     const x = i % W;
     const y = (i - x) / W;
-    if (f[i] >= LEDGE && wallU[i] > -wallHalf[i] - 3.5) continue; // the lake stops at the wall's ledge and crest
+    if (wallOn[i]) continue;
     if (channel[i] === kLow + 1) continue; // the Low River's sill is the lake's way out
     let isle = Infinity;
     for (const s of LAKE_ISLANDS) isle = Math.min(isle, hypot((x + 0.5 - s[0]) * 0.7 + (y + 0.5 - s[1]) * 0.35, (y + 0.5 - s[1]) * 0.95 - (x + 0.5 - s[0]) * 0.3) - s[2] + 2.4 * fbm(x, y, 7, SEED + 45, 2));
@@ -678,22 +603,28 @@ export function designLand(): Land {
     }
     const line = pathDist(x + 0.5 + 2.5 * fbm(x, y, 12, SEED + 47, 2), y + 0.5 + 2.5 * fbm(x, y, 12, SEED + 48, 2), LAKE_ARMS[0].map((q) => [q[0], q[1]] as Pt)).d;
     const shore = Math.max(0, Math.floor((Math.min(-d, isle) - 1.0) / 1.5));
-    // (r4: the lake a level and a half deep over its old river's line only, lighter in the game than two)
     const channelDepth = line < 2.2 ? 2 : 1;
     let depth = shore === 0 ? 0 : shore === 1 ? Math.min(1, channelDepth) : channelDepth;
-    // (the two bays' necks carry the Veil's whole flow from the trench: two deep their whole length; a creek a level)
     const arm = LAKE_ARMS.findIndex((a) => spineDist(x + 0.5, y + 0.5, a) < 0);
-    if (arm === 1 || arm === 2) depth = 1;
-    else if (arm >= 4) depth = 1;
-    // (the water the first frame holds, round the start, stays shallow: deep water is near black in the game)
-    if (Math.abs(vOf(x + 0.5, y + 0.5)) < 16 && wallU[i] > -24) depth = Math.min(depth, 1);
+    if (arm >= 1 && arm !== 3) depth = 1;
     h[i] = LAKE_SILL - depth;
     lake[i] = 1;
     channel[i] = 0;
   }
 
-  // the Veil: the pool's bed behind the lip, the lip itself, the trench at its foot, the throat
+  // the Veil: the pool's bed behind the lip, the lip itself, the trench at its foot
   const lip = veil(h, lake, channel, pool);
+  // the side pool's rim: a level over the bench all round it but at its inlet
+  {
+    const poolArm = LAKE_ARMS[LAKE_ARMS.length - 1];
+    for (let i = 0; i < N; i++) {
+      if (lake[i] || channel[i] || pool[i]) continue;
+      const x = i % W;
+      const y = (i - x) / W;
+      const d = spineDist(x + 0.5, y + 0.5, poolArm);
+      if (d >= 0 && d < 2.2 && h[i] === BENCH) h[i] = BENCH + 1;
+    }
+  }
 
   // the start's pad: level ground, the trench kept beside it
   for (let y = START_AT[1] - 2; y <= START_AT[1] + 2; y++)
@@ -747,60 +678,30 @@ export function designLand(): Land {
     return [];
   };
   const bar1 = spanRow("Gate", 2);
-  const bar2 = spanRow("Gate", 2 + 1.5);
-  const gatePlugs = [[...bar1, ...bar2.filter((i) => !bar1.includes(i))], spanRow("Gate", 16), spanRow("Gate", 22)];
-  // (the natural dam: the slot's first two rows past the lake's shore stand a level over its floor, at the bench's
-  // level: rock the player blasts, and the bench's own way across the slot until then)
+  const bar2 = spanRow("Gate", 3.5);
+  const gatePlugs = [[...bar1, ...bar2.filter((i) => !bar1.includes(i))], spanRow("Gate", 10), spanRow("Gate", 13)];
+  // (the natural dam: the slot's first rows past the lake's shore stand a level over the sill, at the bench's level:
+  // rock the player blasts, and the bench's own way across the slot until then)
   for (const i of gatePlugs[0]) h[i] = LAKE_SILL + 1;
-  const leatPlugs = [spanRow("Leat", 4.0), spanRow("Leat", 9)];
+  const leatPlugs = [spanRow("Leat", 1.0), spanRow("Leat", 8)];
   // (the leat's natural dam: its head row stands two over its bed, a level over the pool's water)
   for (const i of leatPlugs[0]) h[i] = LIP + 1;
   const lowHead = spanRow("Low River", 0.6);
-  // the Pass: the crest's tiles the leat's last reach crosses at PASS
   const pass: number[] = [];
-  for (let i = 0; i < N; i++) if (channel[i] === chan("Leat") + 1 && h[i] === PASS && Math.abs(wallU[i]) <= wallHalf[i]) pass.push(i);
-  // the megadam: the gorge's narrowest row through the ridge
+  for (let i = 0; i < N; i++) if (channel[i] === chan("Leat") + 1 && (i % W) >= PASS_X[0] && (i % W) <= PASS_X[1]) pass.push(i);
   let megadam: number[] = [];
   {
-    const kG = chan("Low River");
-    for (let s0 = 6; s0 < 40; s0 += 0.5) {
+    for (let s0 = 6; s0 < 30; s0 += 0.5) {
       const row = rowAt("Low River", s0, s0 + 1.45);
       if (!row.length) continue;
-      const walls = row.every((i) => [i - 1, i + 1, i - W, i + W].every((j) => j < 0 || j >= N || channel[j] === kG + 1 || h[j] >= 11));
+      const walls = row.every((i) => [i - 1, i + 1, i - W, i + W].every((j) => j < 0 || j >= N || channel[j] === kLow + 1 || h[j] >= 11));
       if (walls && (!megadam.length || row.length < megadam.length)) megadam = row;
     }
   }
-  // check dams: rows across the Gate Bed where its banks stand two over the bed on both sides
   const checkDams: number[][] = [];
-  {
-    const kB = chan("Gate Bed");
-    const len = pathLength(GATE_BED);
-    let last = -99;
-    for (let s0 = 14; s0 < len - 10; s0 += 0.5) {
-      if (s0 - last < 28) continue;
-      const row = rowAt("Gate Bed", s0, s0 + 1.45);
-      if (!row.length || row.length > 5) continue;
-      const bed = Math.max(...row.map((i) => h[i]));
-      // (the banks: ground two over the bed within four tiles of the row on both sides of it)
-      const cx = row.reduce((a, i) => a + (i % W), 0) / row.length;
-      const cy = row.reduce((a, i) => a + Math.floor(i / W), 0) / row.length;
-      const dir = GATE_BED.length ? (() => { const { s: at } = pathDist(cx, cy, GATE_BED); const p = pointAlong(GATE_BED, at + 2); const q = pointAlong(GATE_BED, at - 2); const l = hypot(p[0] - q[0], p[1] - q[1]) || 1; return [(p[1] - q[1]) / l, -(p[0] - q[0]) / l]; })() : [1, 0];
-      let left = false;
-      let right = false;
-      for (let t = 1; t <= 5; t++) {
-        const L = Math.round(cy + dir[1] * t) * W + Math.round(cx + dir[0] * t);
-        const R = Math.round(cy - dir[1] * t) * W + Math.round(cx - dir[0] * t);
-        if (L >= 0 && L < N && channel[L] !== kB + 1 && h[L] >= bed + 2) left = true;
-        if (R >= 0 && R < N && channel[R] !== kB + 1 && h[R] >= bed + 2) right = true;
-      }
-      if (!left || !right) continue;
-      checkDams.push(row);
-      last = s0;
-    }
-  }
 
   // the guard: every tile beside the water that would let it out stands a level over it. The ways out: the Low
-  // River, the Veil's lip (the pool's own), the Gate's mouth (its natural dam) and the leat's head (its blockages).
+  // River, the Veil's lip (the pool's own), the Gate's head (its bar) and the leat's head (its bar).
   let guarded = 0;
   {
     const need = new Int8Array(N).fill(-1);
@@ -815,7 +716,7 @@ export function designLand(): Land {
     for (const i of lip) exit[i] = 1;
     for (let i = 0; i < N; i++) {
       const c = channel[i];
-      if (c && (CHANNELS[c - 1].name === "Low River" || (CHANNELS[c - 1].name === "Gate" && along[c - 1][i].s < 2.2) || (CHANNELS[c - 1].name === "Leat" && along[c - 1][i].s < 6))) exit[i] = 1;
+      if (c && (CHANNELS[c - 1].name === "Low River" || (CHANNELS[c - 1].name === "Gate" && along[c - 1][i].s < 2.2) || (CHANNELS[c - 1].name === "Leat" && along[c - 1][i].s < 3))) exit[i] = 1;
     }
     for (let i = 0; i < N; i++) {
       if (need[i] < 0) continue;
@@ -834,75 +735,36 @@ export function designLand(): Land {
 /** The tiles of the Veil's own trench (the start's pad leaves them). */
 const VEIL_POOL = new Set<number>();
 
-/** The Veil: the pool's bed (LIP) from each row's first tile north-eastward to the cleft; its lip is every tile of
- *  that bed with open air to its south or its west. In front, a trench two tiles wide: the foot row at the sill
- *  (shallow), the row beside it a level deeper; the throat round the start's corner; one buttress. */
+/** The Veil: the bastion's cleft opens south over a straight lip at the face (LIP_Y, LIP_X); behind the lip a row
+ *  of bed a tile deeper than the pool's shelf feeds it; in front, a trench three rows deep: the foot row at the sill
+ *  (shallow), two rows a level under it, which carry the fall's water west to the drain. */
 function veil(h: Uint8Array, lake: Uint8Array, channel: Uint8Array, pool: Uint8Array): number[] {
-  const bed = new Set<number>();
-  for (let k = 0; k < 10; k++)
-    for (let d = 0; d <= 4; d++)
-      for (let e = 0; e <= d; e++) {
-        const x = 87 + k + (d - e);
-        const y = 97 - k + e;
-        if (x >= lipXmin(y)) bed.add(y * W + x);
-      }
-  for (const [y, x0] of LIP_ROWS) for (let x = x0; x <= x0 + 4; x++) bed.add(y * W + x);
-  for (const i of bed) {
-    if (pool[i] === 1 && h[i] === POOL_BED) continue;
-    if (channel[i] === chan("Leat") + 1) continue;
-    h[i] = LIP;
-    lake[i] = 0;
-    channel[i] = 0;
-    pool[i] = 1;
-  }
-  let tiles: number[] = [];
-  LIP_ROWS.forEach(([y, x0], r) => {
-    const below = r + 1 < LIP_ROWS.length ? LIP_ROWS[r + 1][1] : x0 + 1;
-    for (let x = x0; x <= Math.max(x0, below - 1); x++) tiles.push(y * W + x);
-  });
-  // (r3: a lip tile fed only by the lip tiles north and east of it pours a film and stood dry in the game, a
-  // pillar of rock in the curtain: it is the foot's instead)
-  {
-    const lipSet = new Set(tiles);
-    const corners = tiles.filter((t) => lipSet.has(t + W) && lipSet.has(t + 1));
-    for (const t of corners) {
-      h[t] = LAKE_SILL;
-      lake[t] = 1;
-      channel[t] = 0;
-      pool[t] = 0;
-      bed.delete(t);
-      VEIL_POOL.add(t);
+  const tiles: number[] = [];
+  for (let x = LIP_X[0]; x <= LIP_X[1]; x++) {
+    const t = LIP_Y * W + x;
+    h[t] = LIP;
+    lake[t] = 0;
+    channel[t] = 0;
+    pool[t] = 1;
+    tiles.push(t);
+    // the shelf behind the lip, and the pool's bed behind that
+    const b = (LIP_Y + 1) * W + x;
+    if (channel[b] !== chan("Leat") + 1) {
+      h[b] = LIP;
+      lake[b] = 0;
+      channel[b] = 0;
+      pool[b] = 1;
     }
-    tiles = tiles.filter((t) => !corners.includes(t));
   }
-  // (the trench: the foot row at the sill, shallow; the row beside it two deeper, which carries the fall's water
-  // along to the drain; a third row a level under the sill, the lake's own shelf)
-  for (const pass of [4, 3, 2, 1])
-    for (const t of tiles) {
-      const x = t % W;
-      const y = (t - x) / W;
-      for (let a = 0; a <= 4; a++)
-        for (let b = 0; a + b <= 4; b++) {
-          if (a + b !== pass) continue;
-          const i = (y - b) * W + x - a;
-          if (bed.has(i)) continue;
-          h[i] = pass === 1 ? LAKE_SILL : LAKE_SILL - 1;
-          lake[i] = 1;
-          channel[i] = 0;
-          pool[i] = 0;
-          VEIL_POOL.add(i);
-        }
+  for (let x = LIP_X[0] - 2; x <= LIP_X[1] + 3; x++)
+    for (let p = 1; p <= 3; p++) {
+      const i = (LIP_Y - p) * W + x;
+      h[i] = p === 1 ? LAKE_SILL : x <= LIP_X[0] + 2 ? LAKE_SILL - 2 : LAKE_SILL - 1;
+      lake[i] = 1;
+      channel[i] = 0;
+      pool[i] = 0;
+      VEIL_POOL.add(i);
     }
-  for (const [x, y] of THROAT) if (VEIL_POOL.has(y * W + x)) h[y * W + x] = LAKE_SILL - 3;
-  // the buttress: a fin of rock out from the face's east end, a level over the lip
-  {
-    const i = 89 * W + 95;
-    h[i] = LIP + 1;
-    lake[i] = 0;
-    channel[i] = 0;
-    pool[i] = 0;
-    VEIL_POOL.delete(i);
-  }
   return tiles;
 }
 
@@ -995,15 +857,15 @@ function shapeLand(s: MapSession, land: Land): void {
 
 /** The springs: three in the cleft's pool, two in the brook's pool in the far corner. */
 const SPRINGS: [number, number, number][] = [
-  [...xyW(-3, 0).map(Math.floor), 3.4] as [number, number, number],
-  [...xyW(-5, -1.2).map(Math.floor), 3.4] as [number, number, number],
-  [...xyW(-4.5, 1.6).map(Math.floor), 3.2] as [number, number, number],
-  [26, 28, 1.6],
-  [28, 27, 1.4],
-  [30, 160, 1.5],
-  [31, 159, 1.3],
-  [100, 22, 1.2],
-  [101, 21, 1.1],
+  [87, 107, 3.0],
+  [89, 108, 3.0],
+  [92, 107, 3.0],
+  [24, 22, 1.6],
+  [26, 21, 1.4],
+  [99, 14, 1.5],
+  [101, 13, 1.3],
+  [175, 30, 1.3],
+  [177, 29, 1.2],
 ];
 
 const PLUG_IDS: Record<string, string[]> = { gate: [], leat: [] };
@@ -1129,7 +991,7 @@ function basinCover(s: MapSession): { tiles: number; moist: number } {
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
-      if (uOf(x + 0.5, y + 0.5) < 10) continue;
+      if (!inBasinAt(x, y)) continue;
       n++;
       if (b.water[i] > 0.05 || b.moisture[i] > 0) m++;
     }
@@ -1183,13 +1045,13 @@ function strayWater(s: MapSession, land: Land): { x: number; y: number; rgb: [nu
 }
 
 /** The water's surface in a window (north up): the ground's level where it is dry. */
-function printWindow(s: MapSession): void {
+function printWindow(s: MapSession, land?: Land): void {
   const [x0, y0, x1, y1] = arg("window", "80,80,100,100").split(",").map(Number);
   for (let y = y1; y >= y0; y--) {
     let row = `y ${String(y).padStart(3)}: `;
     for (let x = x0; x <= x1; x++) {
       const i = y * W + x;
-      row += has("beds") ? `${String(s.built.heights[i]).padStart(3)}${s.built.water[i] > 0.02 ? "~" : " "}` : s.built.water[i] > 0.02 ? (s.built.heights[i] + s.built.water[i]).toFixed(1).padStart(5) : `  ${String(s.built.heights[i]).padStart(2)} `;
+      row += has("masks") && land ? `${String(s.built.heights[i]).padStart(3)}${land.lake[i] ? "L" : land.channel[i] ? "c" : land.pool[i] ? "p" : s.built.water[i] > 0.02 ? "~" : " "}` : has("beds") ? `${String(s.built.heights[i]).padStart(3)}${s.built.water[i] > 0.02 ? "~" : " "}` : s.built.water[i] > 0.02 ? (s.built.heights[i] + s.built.water[i]).toFixed(1).padStart(5) : `  ${String(s.built.heights[i]).padStart(2)} `;
     }
     log(row);
   }
@@ -1369,7 +1231,7 @@ function plant(s: MapSession, land: Land): void {
       return 0;
     }
   };
-  const inValley = (i: number) => uOf((i % W) + 0.5, Math.floor(i / W) + 0.5) < -6;
+  const inValley = (i: number) => inValleyAt(i % W, Math.floor(i / W));
   const meadow = (i: number) => moist(i) && over[i] <= 0 && dist[i] > 2 && dist[i] <= 8;
   const highGround = (i: number) => moist(i) && dist[i] > 2 && over[i] >= 1;
   const grove = (i: number) => n(i, 17, 1) > 0.22;
@@ -1386,19 +1248,18 @@ function plant(s: MapSession, land: Land): void {
   count.brookPine = paint("trees", "Pine", (i) => inValley(i) && moist(i) && dBrook[i] >= 2 && dBrook[i] <= 10 && n(i, 17, 55) > 0.1 && !nearStart(i, 21), 0.5, 35, "Pine along the valley brook", "mixed");
   const dWest = spread((i) => land.channel[i] === chan("West Brook") + 1, 12);
   count.westOak = paint("trees", "Oak", (i) => inValley(i) && moist(i) && dWest[i] >= 2 && dWest[i] <= 10 && n(i, 15, 57) > 0.1 && !nearStart(i, 21), 0.35, 36, "Oak along the west brook", "mixed");
-  count.shoreOak = paint("trees", "Oak", (i) => inValley(i) && moist(i) && land.lake[i] === 0 && dist[i] >= 3 && dist[i] <= 12 && vOf((i % W) + 0.5, Math.floor(i / W) + 0.5) < -14 && n(i, 19, 51) > 0.2 && !nearStart(i, 21) && !sight(i), 0.25, 31, "Oak stands on the lake's west shore", "mixed");
+  count.shoreOak = paint("trees", "Oak", (i) => inValley(i) && moist(i) && land.lake[i] === 0 && dist[i] >= 3 && dist[i] <= 12 && (i % W) < 60 && n(i, 19, 51) > 0.2 && !nearStart(i, 21) && !sight(i), 0.25, 31, "Oak stands on the lake's west shore", "mixed");
   // the start's own: berries, and one wood on the bench's west side, a short walk from the door
   const level = (i: number) => b.heights[i] === st.z && moist(i);
-  const uS = uOf(st.x + 0.5, st.y + 0.5);
-  const uI = (i: number) => uOf((i % W) + 0.5, Math.floor(i / W) + 0.5);
-  const vI = (i: number) => vOf((i % W) + 0.5, Math.floor(i / W) + 0.5);
-  count.startBerries = paint("bushes", "BlueberryBush", (i) => level(i) && !nearStart(i, 5) && nearStart(i, 14) && uI(i) < uS - 1 && vI(i) < 2 && n(i, 5, 27) > -0.15, 0.55, 21, "The start's berries");
-  count.startOaks = paint("trees", "Oak", (i) => level(i) && !nearStart(i, 9) && nearStart(i, 22) && vI(i) > 4 && n(i, 8, 33) > 0.1, 0.7, 22, "The start's oaks");
-  count.startPines = paint("trees", "Pine", (i) => level(i) && !nearStart(i, 9) && nearStart(i, 24) && vI(i) > 4 && n(i, 8, 33) <= 0.1, 0.7, 24, "The start's pine wood", "mixed");
+  const xI = (i: number) => i % W;
+  const yI = (i: number) => Math.floor(i / W);
+  count.startBerries = paint("bushes", "BlueberryBush", (i) => level(i) && !nearStart(i, 5) && nearStart(i, 14) && yI(i) <= st.y && xI(i) < st.x + 3 && n(i, 5, 27) > -0.15, 0.55, 21, "The start's berries");
+  count.startOaks = paint("trees", "Oak", (i) => level(i) && !nearStart(i, 9) && nearStart(i, 22) && xI(i) > st.x + 5 && yI(i) <= st.y && n(i, 8, 33) > 0.1, 0.7, 22, "The start's oaks");
+  count.startPines = paint("trees", "Pine", (i) => level(i) && !nearStart(i, 9) && nearStart(i, 24) && xI(i) > st.x + 5 && yI(i) <= st.y && n(i, 8, 33) <= 0.1, 0.7, 24, "The start's pine wood", "mixed");
   // the basin, dressed on purpose: dead woods in clumps on the dry beds and round the seeps' hollows, succulents
   // on the far benches, thorns in the gullies
   const dry = (i: number) => !(b.moisture[i] > 0) && !(b.water[i] > 0) && !land.lake[i] && !land.pool[i];
-  const inBasin = (i: number) => uOf((i % W) + 0.5, Math.floor(i / W) + 0.5) > 10;
+  const inBasin = (i: number) => inBasinAt(i % W, Math.floor(i / W));
   const dryBed = (i: number) => land.channel[i] > 0 && (CHANNELS[land.channel[i] - 1].name === "Gate Bed" || CHANNELS[land.channel[i] - 1].name === "Pass Bed") && !(b.water[i] > 0.05);
   const dBed = spread(dryBed, 5);
   const far = (i: number, j: number) => hypot((i % W) - (j % W), Math.floor(i / W) - Math.floor(j / W));
@@ -1688,28 +1549,19 @@ function placeObjects(s: MapSession, land: Land): void {
     }
   }
   // relics: at the Pass, at the Gate's foot in the basin, on the lake's island
-  put("SmallRelic", ...(xyW(10, PASS_V + 4).map(Math.round) as [number, number]), "The relic at the Pass", {}, [2, 2]);
-  put("MediumRelic", ...(xyW(19, GATE_V + 5).map(Math.round) as [number, number]), "The relic at the Gate's foot", {}, [3, 3]);
+  put("SmallRelic", 172, 116, "The relic at the Pass's foot", {}, [2, 2]);
+  put("MediumRelic", 136, 116, "The relic at the Gate's foot", {}, [3, 3]);
   put("SmallRelic", Math.round(LAKE_ISLANDS[0][0]) - 1, Math.round(LAKE_ISLANDS[0][1]) - 1, "The relic on the island", {}, [2, 2]);
   // the basin's finds: an aquifer and the old drill by the Gate Bed, ruins under a bench, the geothermal field far
   // out, an unstable core in the valley's far corner
-  const aq = put("Aquifer", 136, 118, "An aquifer under the basin's bench", {}, [3, 3]);
+  const aq = put("Aquifer", 118, 140, "An aquifer under the basin's flats", {}, [3, 3]);
   if (aq) {
     const a = s.built.entities.find((e) => e.template === "Aquifer");
     if (a) put("AncientAquiferDrill", a.x, a.y, "The ancient drill on the aquifer");
   }
-  put("UndergroundRuins", 150, 124, "The ruins under the basin's bench", {}, [5, 5]);
-  put("GeothermalField", 172, 172, "The geothermal field in the basin's far corner", {}, [3, 3]);
-  put("UnstableCore", 40, 20, "An unstable core by the brook's springs", { components: placeComponents("UnstableCore") }, [2, 2]);
-  // the way up to the ledge: a ramp from the bench south-east of the Gate up the wall's face
-  {
-    let up = false;
-    for (const v of [30, 40, 48]) {
-      const [rx, ry] = xyOf(-12, v).map(Math.round);
-      up = ramp(s, land, rx, ry, BENCH, LEDGE, "The way up to the ledge") || ramp(s, land, rx, ry, BENCH, LEDGE - 1, "The way up to the ledge");
-      if (up) break;
-    }
-  }
+  put("UndergroundRuins", 150, 130, "The ruins under the basin's flats", {}, [5, 5]);
+  put("GeothermalField", 170, 170, "The geothermal field in the basin's far corner", {}, [3, 3]);
+  put("UnstableCore", 36, 30, "An unstable core by the brook's springs", { components: placeComponents("UnstableCore") }, [2, 2]);
   // a ruin pier pair at each check dam's site and each seep's spill, so the answers read from far
   land.checkDams.forEach((row, k) => {
     for (const side of [1, -1] as const) {
@@ -1730,7 +1582,7 @@ function firstFrame(s: MapSession, land: Land): void {
     const kG = chan("Gate") + 1;
     let best = -1;
     let bd = Infinity;
-    for (let i = 0; i < N; i++) if (land.channel[i] === kG) { const d = Math.abs(uOf((i % W) + 0.5, Math.floor(i / W) + 0.5) + 6); if (d < bd) (bd = d), (best = i); }
+    for (let i = 0; i < N; i++) if (land.channel[i] === kG) { const d = Math.abs(Math.floor(i / W) - (faceY(130) + 2)) + Math.abs((i % W) - 130) * 0.1; if (d < bd) (bd = d), (best = i); }
     return best;
   })();
   for (const [name, cam] of [["first frame", openingCamera(st)], ["widest", openingCamera(st, VISTA_ZOOM)]] as const) {
@@ -1748,7 +1600,7 @@ function firstFrame(s: MapSession, land: Land): void {
       if (p && p.v > vmax) vmax = p.v;
     }
     const g = frameAt(cam, (gate % W) + 0.5, Math.floor(gate / W) + 0.5, LAKE_SILL + 1);
-    const crest = frameAt(cam, ...xyOf(0, 0), CREST);
+    const crest = frameAt(cam, 90, 108, CREST);
     log(`  the Veil in the ${name}: lip ${f(pts[0])} to ${f(pts[1])}, foot ${f(pts[2])} to ${f(pts[3])}${inside ? ": whole in the frame" : ": cut by the frame"}; the lip's highest corner at v ${vmax.toFixed(2)}; the Gate's notch at ${f(g)}; the crest over the cleft at ${f(crest)}`);
   }
 }
@@ -1811,18 +1663,18 @@ function irrigation(s: MapSession, land: Land): void {
   if (has("window")) printWindow(s);
   // large: the old leat opened: its blockages cleared; the pool's water runs along the ledge, over the Pass and
   // down the Pass Bed
-  step(`the old leat's bar blasted once (${land.leatPlugs[0].length} tiles) and its ${land.leatPlugs[1].length} blockages cleared`, "medium", "a trickle along the ledge, into the Gate's slot where it cuts the ledge", () => {
+  step(`the old leat's bar blasted once (${land.leatPlugs[0].length} tiles) and its ${land.leatPlugs[1].length} blockages cleared`, "medium", "a trickle along the crest, into the Gate's slot where it cuts the leat", () => {
     flatten(land.leatPlugs[0], LIP, "Blast the leat's bar");
     applyOps(s, [{ op: "deleteEntities", params: { entities: PLUG_IDS.leat }, label: "Clear the leat's blockages" }]);
   });
-  step(`the old leat's bar blasted twice`, "large", "the springs' share along the ledge; the Veil dwindles", () => flatten(land.leatPlugs[0], LEDGE, "Blast the leat's bar again"));
+  step(`the old leat's bar blasted twice`, "large", "the springs' share along the crest; the Veil dwindles", () => flatten(land.leatPlugs[0], POOL_BED, "Blast the leat's bar again"));
   {
     // (the span: the slot's tiles under the leat's line raised to the leat's bed; an aqueduct in the game, which the
     // model can only stand in for by blocking the slot there)
     const kG = chan("Gate") + 1;
     const span: number[] = [];
     for (let i = 0; i < N; i++) if (land.channel[i] === kG && pathDist((i % W) + 0.5, Math.floor(i / W) + 0.5, LEAT_PATH).d < 1.6) span.push(i);
-    step(`the leat spanned over the Gate (${span.length} tiles to the ledge's level; an aqueduct in the game, which blocks nothing)`, "large", "the Pass Bed runs: the far basin", () => flatten(span, LEDGE - 1, "Span the Gate"));
+    step(`the leat spanned over the Gate (${span.length} tiles to the leat's level; an aqueduct in the game, which blocks nothing)`, "large", "the Pass Bed runs: the far basin", () => flatten(span, POOL_BED - 1, "Span the Gate"));
   }
   {
     const kL = chan("Leat") + 1;
@@ -1868,10 +1720,10 @@ function irrigation(s: MapSession, land: Land): void {
 
 /** The map's own words (600 characters at most). */
 const DESCRIPTION =
-  "A mountain wall runs corner to corner: a green valley on your side, a dry basin beyond. The river rises in a cleft of the wall and pours over the Veil into Wall Lake at your door. " +
-  "The Gate is the one notch through the wall, plugged by a natural dam and old rubble; the basin's riverbeds run dry from its foot. " +
-  "Carry the water through: open the Gate, pump it over the wall, or clear the old leat along the ledge and send the river round by the Pass. " +
-  "In a drought the Veil stops and the lake holds. In a badtide every spring runs red: the basin is where to send it.";
+  "A mountain wall runs across the map: a green valley on your side, a dry basin beyond. The river rises in a cleft of the wall and pours over the Veil into Wall Lake at your door. " +
+  "The Gate is the one notch through the wall, plugged by a bar of rock and old rubble; the Gate Bed runs dry from its foot to the one notch in the far rim. " +
+  "Carry the water through: blast the Gate, pump it over the wall, or open the leat on the crest and send the river round by the Pass. " +
+  "Before the first badtide, shut the inlet of the pool by your door: it keeps clean water. In a drought the Veil stops and the lake holds.";
 
 // --------------------------------------------------------------------------------------------------- main
 
@@ -1880,7 +1732,7 @@ function main(): void {
   const land = designLand();
   const m = measureLand(land.heights);
   log(`The Gate, round ${ROUND}`);
-  log(`  guard raised ${land.guarded} tiles; the Pass ${land.pass.length} tiles at ${PASS}; the megadam's row ${land.megadam.length} tiles; check dams ${land.checkDams.map((r) => r.length).join(", ")}; the Low River's head ${land.lowHead.length}`);
+  log(`  guard raised ${land.guarded} tiles; the Pass ${land.pass.length} leat tiles at the crest's dip to ${PASS}; the megadam's row ${land.megadam.length} tiles; the Low River's head ${land.lowHead.length}`);
   log(`  land: flat ${(m.flat8 * 100).toFixed(1)} % (8-neighbour), one-level steps ${(m.step1 * 100).toFixed(1)} %, top-3 levels ${(m.top3 * 100).toFixed(1)} %, highest ${m.histogram.reduce((a, v, k) => (v ? k : a), 0)}`);
   lap("design");
   if (has("design")) {
@@ -1897,7 +1749,7 @@ function main(): void {
   {
     const stray0 = strayWater(s, land);
     if (stray0.length) writePicture(join(OUT, `${ROUND}-stray.png`), s.built.heights, s.built.water, 4, stray0);
-    if (stray0.length && has("window")) printWindow(s);
+    if ((stray0.length || has("masks")) && has("window")) printWindow(s, land);
   }
   placeStart(s);
   firstFrame(s, land);
@@ -1912,13 +1764,13 @@ function main(): void {
     };
     const ent = (template: string) => s.built.entities.filter((e) => e.template === template).map((e) => e.y * W + e.x);
     walkRoute(s, land, [
-      { name: "the lake's north-west shore", tiles: tilesOf((i) => land.lake[i] === 0 && s.built.heights[i] === BENCH && vOf((i % W) + 0.5, Math.floor(i / W) + 0.5) < -20 && uOf((i % W) + 0.5, Math.floor(i / W) + 0.5) < -12), far: true },
-      { name: "the lake's south meadow", tiles: tilesOf((i) => land.lake[i] === 0 && s.built.heights[i] === BENCH && vOf((i % W) + 0.5, Math.floor(i / W) + 0.5) > 20 && uOf((i % W) + 0.5, Math.floor(i / W) + 0.5) < -40) },
+      { name: "the lake's west meadow", tiles: tilesOf((i) => land.lake[i] === 0 && s.built.heights[i] === BENCH && (i % W) < 60 && Math.floor(i / W) < 100), far: true },
+      { name: "the lake's south meadow", tiles: tilesOf((i) => land.lake[i] === 0 && s.built.heights[i] === BENCH && Math.floor(i / W) < 76 && (i % W) > 60 && (i % W) < 130) },
       { name: "the Gate's natural dam", tiles: land.gatePlugs[0] },
       { name: "the brooks' springs", tiles: tilesOf((i) => land.pool[i] === 2, 3), far: true },
       { name: "the Low River's head", tiles: land.lowHead, far: true },
       { name: "the megadam's slot", tiles: land.megadam, far: true },
-      { name: "the ledge and the leat's head", tiles: land.leatPlugs[0] },
+      { name: "the leat's head on the crest", tiles: land.leatPlugs[0], far: true },
       { name: "the Gate's foot in the basin", tiles: land.gatePlugs[2], far: true },
       { name: "the ancient drill", tiles: ent("AncientAquiferDrill"), far: true },
     ]);
@@ -1969,7 +1821,14 @@ function main(): void {
     const f = { timber: s.exportTimber({ warnings: [] }).bytes, project: s.project(9) };
     writeFileSync(join(OUT, `${ROUND}.timber`), f.timber);
     writeFileSync(join(OUT, `${ROUND}.damgoodmaps.json`), f.project);
-    log(`  saved ${join(OUT, `${ROUND}.timber`)} (${f.timber.length} bytes), project ${f.project.length} bytes`);
+    const st = startOf(s);
+    const deg = Math.PI / 180;
+    const opening = (c: ReturnType<typeof openingCamera>) => ({ yaw: -35 * deg, pitch: 60 * deg, distance: c.distance, target: [c.target[0], c.target[2], c.target[1]] });
+    writeFileSync(join(OUT, `${ROUND}-shots.json`), JSON.stringify([
+      { name: "first", label: "The game's first frame (its own camera)", view: opening(openingCamera(st)) },
+      { name: "widest", label: "The game's first camera pulled back to its widest", view: opening(openingCamera(st, VISTA_ZOOM)) },
+    ], null, 1));
+    log(`  saved ${join(OUT, `${ROUND}.timber`)} (${f.timber.length} bytes), project ${f.project.length} bytes, the shots file for our own view`);
     lap("save");
   }
   if (has("irrigate")) {
