@@ -73,7 +73,7 @@ import { fogOf } from "./high/seasons";
 import type { DroughtLine } from "../core/sim/droughtLine";
 import { dyingCause, waterAboveBase, WITHERING_SPECIES } from "../core/sim/withering";
 import { markSourceTiles, sourceMiddle } from "./sourceMarks";
-import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead, ruinsOvergrown } from "./entities3d";
+import { buildEntities, cutoutUnder, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead, ruinsOvergrown } from "./entities3d";
 import { whenIdle } from "./idle";
 import { casterLevelsOf, castersChangedRects, DEFAULT_SUN, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, sunOfYaw, sunVector, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type Sun, type TileSpan } from "./light";
 import { CaveLight } from "./caveLight";
@@ -683,7 +683,7 @@ export class MapRenderer {
     this.sky.renderOrder = -1000;
     if (!this.software) this.scene.add(this.sky);
     // the geothermal fields' steam, on the objects' clock (never in software drawing: geothermalSteam.ts)
-    this.steam = this.software ? null : new GeothermalSteam(this.uniforms.time);
+    this.steam = this.software ? null : new GeothermalSteam(this.uniforms);
     if (this.steam) this.scene.add(this.steam.mesh);
     this.lookNow = this.software ? "light" : "standard";
     // the Flow view from the address (?flow=on) until the page has its switch (D353)
@@ -779,6 +779,10 @@ export class MapRenderer {
     this.uniforms.slice.value = v;
     this.droughtLayer?.setHidden(level !== null);
     this.blockCells?.setCut(level === null ? null : v);
+    // (High's sun shadows: what the cut takes away casts none)
+    this.high?.sliceChanged();
+    // (the pits' tops the terrain leaves out, only over objects the cut leaves whole)
+    if (this.map) this.cutTerrain(this.map.entities, level === null ? null : v);
     // (what an edit just changed was drawn under the cut it had)
     this.editGlow?.clear();
     this.hollowStale = true;
@@ -1518,7 +1522,7 @@ export class MapRenderer {
     const { W, H, heights } = v;
     this.waterShown = drawnWater(W * H);
     // (a mine site's pit: the terrain leaves its tops out, and the site's model draws the pit)
-    const source: TerrainSource = { W, H, heights, columns: columnMap(v.columns), masks: columnMasks(W * H, v.columns), cutout: mineCutout(v.entities, W, H) };
+    const source: TerrainSource = { W, H, heights, columns: columnMap(v.columns), masks: columnMasks(W * H, v.columns), cutout: cutoutUnder(mineCutout(v.entities, W, H), this.slice) };
     this.columnsSent = { tiles: v.columns.tiles, voxels: v.columns.voxels, key: ++this.columnsKey };
     const surface = surfaceWater(W, H, v.water);
     const soil = v.soil ?? null;
@@ -2055,23 +2059,31 @@ export class MapRenderer {
     // (a source's glow stays with its source, on the objects as they are now)
     this.tintObjects();
     this.applyWithered();
-    // mine sites: the pits' cutouts (remesh the chunks where they changed) and their outline
-    const cut = mineCutout(e, m.W, m.H);
-    const old = m.source.cutout ?? new Map<number, number>();
-    const changed = new Set<string>();
-    for (const [i, z] of cut) if (old.get(i) !== z) changed.add(`${Math.floor((i % m.W) / CHUNK)},${Math.floor(Math.floor(i / m.W) / CHUNK)}`);
-    for (const [i, z] of old) if (cut.get(i) !== z) changed.add(`${Math.floor((i % m.W) / CHUNK)},${Math.floor(Math.floor(i / m.W) / CHUNK)}`);
-    m.source = { ...m.source, cutout: cut };
-    for (const key of changed) {
-      const [cx, cy] = key.split(",").map(Number);
-      this.meshTerrain(cx, cy);
-    }
+    // mine sites: the pits' cutouts and their outline
+    this.cutTerrain(e, this.slice);
     if (this.sites) {
       mineOutline(e, m.W, m.H, this.sites.image.data as Uint8Array);
       this.sites.needsUpdate = true;
     }
     this.markSources();
     return instances;
+  }
+
+  /** The tops the terrain leaves out for the objects `e`'s pits and vents under the layer cut `slice` (entities3d.ts
+   *  `mineCutout`, `cutoutUnder`), the chunks where they changed meshed again. */
+  private cutTerrain(e: EntityView, slice: number | null): void {
+    const m = this.map!;
+    const cut = cutoutUnder(mineCutout(e, m.W, m.H), slice);
+    const old = m.source.cutout ?? new Map<number, number>();
+    const changed = new Set<string>();
+    for (const [i, z] of cut) if (old.get(i) !== z) changed.add(`${Math.floor((i % m.W) / CHUNK)},${Math.floor(Math.floor(i / m.W) / CHUNK)}`);
+    for (const [i, z] of old) if (cut.get(i) !== z) changed.add(`${Math.floor((i % m.W) / CHUNK)},${Math.floor(Math.floor(i / m.W) / CHUNK)}`);
+    if (!changed.size) return;
+    m.source = { ...m.source, cutout: cut };
+    for (const key of changed) {
+      const [cx, cy] = key.split(",").map(Number);
+      this.meshTerrain(cx, cy);
+    }
   }
 
   /** The objects `e` drawn (the plants a held day has withered dead), the batches that would be built as they are drawn
@@ -3013,6 +3025,8 @@ export class MapRenderer {
     // (the view's own draw counts stay as its last frame left them: a picture is not a frame of the view)
     const was = { target: this.gl.getRenderTarget(), slice: this.uniforms.slice.value, fade: this.uniforms.objectFade.value.w, hide: this.uniforms.objectHide.value, alpha: this.gl.getClearAlpha(), color: this.gl.getClearColor(new Color()), counts: { ...this.gl.info.render } };
     this.uniforms.slice.value = 99;
+    // (nor the layer: the pits' tops left out as with no cut)
+    if (was.slice < 99 && this.map) this.cutTerrain(this.map.entities, null);
     // (a picture never shows the fade round the pointer or the objects hidden: objectFade.ts)
     this.uniforms.objectFade.value.w = FADE_OFF;
     this.uniforms.objectHide.value = 0;
@@ -3036,6 +3050,7 @@ export class MapRenderer {
       this.gl.setClearColor(was.color, was.alpha);
       Object.assign(this.gl.info.render, was.counts);
       this.uniforms.slice.value = was.slice;
+      if (was.slice < 99 && this.map) this.cutTerrain(this.map.entities, was.slice);
       this.uniforms.objectFade.value.w = was.fade;
       this.uniforms.objectHide.value = was.hide;
     }
@@ -3788,6 +3803,7 @@ export class MapRenderer {
   }
 
   setView(v: Partial<ViewState>): void {
+    this.leaveFirstView();
     this.view = { ...this.view, ...v };
     this.view.pitch = Math.min(PITCH_MAX, Math.max(PITCH_MIN, this.view.pitch));
     this.requestRender();
@@ -3809,6 +3825,7 @@ export class MapRenderer {
   switchMode(mode: ViewMode): void {
     if (mode === this.view.mode) return;
     cancelAnimationFrame(this.glideFrameTo);
+    this.leaveFirstView();
     let v = this.view;
     const box = this.canvas.getBoundingClientRect();
     const seen = this.map ? this.zoomPoint(box.left + box.width / 2, box.top + box.height / 2) : null;
@@ -3828,6 +3845,7 @@ export class MapRenderer {
    *  about half a second (at once with reduced motion); a top-down or orbit view switches at once. */
   glideTo(to: ViewState, ms = 600): void {
     cancelAnimationFrame(this.glideFrameTo);
+    this.leaveFirstView();
     const from = this.getView();
     if (this.reducedMotion || ms <= 0) {
       this.setView({ ...to, target: [...to.target] as [number, number, number] });
@@ -3853,9 +3871,43 @@ export class MapRenderer {
     step();
   }
 
+  /** Pose the camera at once on `v` with a vertical field of view of `fov` degrees (the game's first view, its lens
+   *  35°): the lens stays while the view does; any move away from it (a drag, a pan, a zoom, Top-down, a glide)
+   *  puts ours back first (`leaveFirstView`), and Reset view and a new map do too. */
+  poseCamera(v: ViewState, fov: number): void {
+    cancelAnimationFrame(this.glideFrameTo);
+    this.setView(v);
+    this.setFov(fov);
+    this.posed = fov !== PERSP_FOV_DEG;
+    this.sunNow();
+  }
+
+  /** Whether the view is posed with another lens than ours (`poseCamera`: the game's first view). */
+  private posed = false;
+
+  /** Leave a posed view for ours, unseen: our lens back, the distance shortened so the ground at the target keeps its
+   *  size on the screen, before the move that leaves it is worked out from the view. */
+  private leaveFirstView(): void {
+    if (!this.posed) return;
+    this.posed = false;
+    const k = Math.tan((this.persp.fov * Math.PI) / 360) / Math.tan((PERSP_FOV_DEG * Math.PI) / 360);
+    this.view = { ...this.view, distance: this.view.distance * k };
+    this.setFov(PERSP_FOV_DEG);
+  }
+
+  /** The perspective camera's vertical field of view, degrees. */
+  private setFov(fov: number): void {
+    if (this.persp.fov === fov) return;
+    this.persp.fov = fov;
+    this.persp.updateProjectionMatrix();
+    this.requestRender();
+  }
+
   resetView(): void {
     const m = this.map;
     if (!m) return;
+    this.posed = false;
+    this.setFov(PERSP_FOV_DEG);
     let sum = 0;
     for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
     const mean = sum / m.heights.length;
@@ -4660,6 +4712,7 @@ export class MapRenderer {
    *  In, the camera stops short of the ground under the pointer (`zoomStopShort`), so a zoom into a cave's mouth ends in
    *  its air; a camera the rock holds nearer than its distance (cameraClamp.ts) zooms from where it is drawn. */
   zoom(factor: number, clientX?: number, clientY?: number): void {
+    this.leaveFirstView();
     const m = this.map;
     const step = zoomStep(
       this.view,

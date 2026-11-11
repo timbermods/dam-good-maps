@@ -423,8 +423,8 @@ place of its bottom rule.
   shadow, while H is held or until clicked again; §4, "Seeing the land behind objects"; beside Legend so the Show row
   keeps its room and the water row its place in the band, and where the water row takes a second line the two join the
   Show row as its last toggles). **Land**, between Hide objects and Legend, shows the land's shares in the key under Legend
-  while it is ticked: **Water**, **Moist ground** and **Dry ground** as whole per cents of the map's tiles that add up to
-  100 ("under 1%" for a share that is there but rounds to none; contaminated ground counts as dry), then **Living trees**
+  while it is ticked: **Water**, **Moist ground**, **Dry ground** and **Spoiled ground** (contaminated) as whole per cents of the map's tiles
+  that add up to 100 ("under 1%" for a share that is there but rounds to none), then **Living trees**
   and **Logs** (each grown tree's, as the checks count them). Plain numbers, no warning colour: dry land is not a fault,
   irrigating it is the game (MAPCRAFT section 4). They are read when the map changes and its water has settled, never per
   frame (the last numbers stay while the water flows), from the map's own water and soil, not a held weather day's
@@ -439,10 +439,12 @@ place of its bottom rule.
   on every map (17px); the fullest legend fits at 1920×1080 under Legend, clear of the camera controls, the water
   row, the objects list and the bar; it never scrolls and never changes shape (`layout.spec.ts`).
 - **The top right** (D345 B3, D368 (5)): the camera group, **Top-down** (lit while the view looks straight down),
-  **Reset view** and the compass (a button, **Face north**: the view glides round to north), then under them the
+  **Reset view**, **First view** (O: the camera exactly as the game opens the map, from its start, with the game's own
+  angle, zoom and lens, `gameFirstView` in `src/render3d/framing.ts` from `openingCamera`; any move away from it, Top-down
+  included, puts our lens back unseen, the ground's size kept; greyed while the map has no start) and the compass (a button, **Face north**: the view glides round to north), then under them the
   **level control** (▾ value ▴, at one fixed width; its arrows "Show one layer less" and "Show one layer more"), **Slow
-  forces** and **Sound** (a speaker icon, crossed out when muted; its volume opens beneath it, its tooltip to its left so the
-  volume stays in view): a three-column grid
+  forces** (under Reset view and First view) and **Sound** (a speaker icon, crossed out when muted; its volume opens beneath it, its tooltip to its left so the
+  volume stays in view): a grid
   310px wide, one height and one gap throughout (`tests/e2e/viewAndHeader.spec.ts`). **A new map and Reset view frame the
   whole map, centred in the map area** (D345, B1; the Top-down toggle keeps the spot at the centre, the zoom and the turn, D492), clear of the page's controls: the page tells the renderer how
   far the top row (the Show row, the water row, the camera group), the minimap, the bar with its settings and the objects list with a
@@ -514,6 +516,9 @@ place of its bottom rule.
   pressed as drawn: a press on the roof, walls or lantern takes the start, though the ground the pointer sees behind
   them may be tiles away (`start/startPick.ts`: the walls about two levels high over the 3 × 3, the tower four over
   the middle tile).
+  While it is dragged, the game's first frame from where it would land is outlined on the ground in quiet white (an
+  editing aid on the overlay, D497; `openingFrame` from the drag's tile, never a render of the frame), so the maker
+  sees what the game's opening will hold before letting go; **First view** (O) then shows that frame itself.
 
 (D184, D212, D219.)
 
@@ -903,7 +908,17 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   shaped as the generator's natural ramps are: a tread of two to four tiles a level, uneven, filling the drag's
   length, a slope on the first tile of each, the ground three wide and a spur beside a fill; its slopes green as it
   is dragged or the line red with the one reason it can't be laid, the release one step: `core/doc/stair.ts`, sharing
-  `land/levels.ts`'s `dealTreads` and `shapeRamp`); Smooth has no walkable option (D247) and Flatten no Ramped edges
+  `land/levels.ts`'s `dealTreads` and `shapeRamp`). The shelf's **Ruin**, dragged, lays a **ruin line**: ruins as
+  architecture, not scatter. Piers stand evenly from one end of the drag to the other, **Spacing** tiles apart (1 to 8,
+  3 unless changed), their tops at one level, a storey over the highest ground under the line, so they are tall in the
+  low ground and short at the ends (an aqueduct's or a dam's remains across a valley); **Break** (0 to 80%, 30% unless
+  changed) knocks piers between the two ends out by the drag's seed, and a pier that can't stand where it falls (water,
+  another object) is one more gap. The piers show green as it is dragged, with how many and the level of their tops
+  beside the pointer, or the line red with the one reason (no room for two piers; ground that drops more than a ruin's
+  8 levels under the line); the release lays the line it showed, one step in History ("Lay a ruin line of 10 piers"),
+  each column a `placeEntity` the log keeps, as a stroke of painted objects (`core/doc/ruinLine.ts` `planRuinLine`,
+  `applyRuinLine`; the worker's `ruinLinePlanAt` and `ruinLineAt`). A click with the Ruin still places one, at its
+  Height. Smooth has no walkable option (D247) and Flatten no Ramped edges
   (D322). **Naturalize** weathers what the player paints (forces' results, strokes, rivers, set pieces); it leaves
   only what must not change for the map to stay correct: the start's pad and the ground under water sources,
   badwater sources and objects (not trees, bushes, ruin columns or slopes), worked out by the core when the stroke

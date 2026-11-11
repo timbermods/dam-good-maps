@@ -1,8 +1,7 @@
-// A premise map from a plan, through stage 2 (docs/PREMISES.md §7 step 3): the plan's water by number (stage 1), the
-// relief between (stage 2), the start where the plan's frame puts it (stage 3's full frame check is a later step),
-// the plan's sources and rows of Blockages as features, then one build by the generator's own `buildMap` (one
-// canonical settle) and its checks in profile "generate". What the generator's mode (step 4) will call; for now
-// `tools/premise-map.ts` writes its `.timber` and project. Generate's maps do not change.
+// A premise map from a plan (docs/PREMISES.md §2.2): the plan's water by number (stage 1), the relief between
+// (stage 2), the start where stage 3 put it (`frame.ts` `checkFrame`) or the plan's frame does, the plan's sources and
+// rows of Blockages as features, then one build by the generator's own `buildMap` (one canonical settle, stage 5) and
+// its checks in profile "generate". The generator's mode (`generate.ts` `generatePremise`) runs it.
 
 import type { BuildResult, GeneratedField } from "../features/build";
 import { buildMap } from "../features/build";
@@ -14,6 +13,7 @@ import { toTimberFile } from "../gen/pack";
 import type { FieldData } from "../doc/document";
 import { tilesToRuns } from "../math/grid";
 import type { MapSpec } from "../spec/mapspec";
+import type { PlayabilityAnalysis } from "../validate/playability";
 import type { ValidationReport } from "../validate/report";
 import { badwaterNiches, reliefBetween } from "./raster/relief";
 import type { PremisePlan } from "./types";
@@ -29,6 +29,7 @@ export interface PremiseMap {
   built: BuildResult;
   file: TimberFile;
   report: ValidationReport;
+  analysis: PlayabilityAnalysis | null;
   name: string;
   /** What could not stand as the plan has it, one line each (never silent, D342). */
   notes: string[];
@@ -134,13 +135,28 @@ function rowsOf(plan: PremisePlan, w: StageWater): MapObjectFeature[] {
   return out;
 }
 
-/** The map of a plan through stage 2, built and checked as the generator builds its maps. */
-export function premiseMap(spec: MapSpec, plan: PremisePlan): PremiseMap {
+/** A plan's land: its water by number (stage 1, or the one given), the relief between (stage 2) and the permanent
+ *  badwater's niche cut into it. */
+export interface PremiseLand {
+  water: StageWater;
+  heights: Uint8Array;
+  niches: Record<string, [number, number]>;
+  notes: string[];
+}
+
+export function premiseLand(plan: PremisePlan, water: StageWater = waterByNumber(plan)): PremiseLand {
   const notes: string[] = [];
-  const water = waterByNumber(plan);
   const heights = reliefBetween(plan, water);
   const niches = badwaterNiches(plan, water, heights, notes);
-  const { x, y, z, orientation } = plan.frame.start;
+  return { water, heights, niches, notes };
+}
+
+/** The map of a plan through stage 2, built and checked as the generator builds its maps; the start where stage 3
+ *  put it (`start`), else where the plan's frame does. */
+export function premiseMap(spec: MapSpec, plan: PremisePlan, land: PremiseLand = premiseLand(plan), at: PremisePlan["frame"]["start"] = plan.frame.start): PremiseMap {
+  const { water, heights, niches } = land;
+  const notes = [...land.notes];
+  const { x, y, z, orientation } = at;
   const start: StartFeature = {
     id: featureId(plan.seed, "start", "start/main"),
     kind: "start",
@@ -155,6 +171,6 @@ export function premiseMap(spec: MapSpec, plan: PremisePlan): PremiseMap {
   const field: GeneratedField = { heights, contains: new Set([...springs, ...bad].map((f) => f.id)), top: plan.top };
   const built = buildMap({ W: plan.W, H: plan.H, seed: spec.seed, features, field });
   const file = toTimberFile(spec, built);
-  const report = validateBuilt(spec, features, built, file).report;
-  return { plan, water, heights, features, field: fieldData(field, plan.W), built, file, report, name: nameOf(plan), notes };
+  const v = validateBuilt(spec, features, built, file);
+  return { plan, water, heights, features, field: fieldData(field, plan.W), built, file, report: v.report, analysis: v.analysis, name: nameOf(plan), notes };
 }

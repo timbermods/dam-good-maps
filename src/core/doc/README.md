@@ -56,6 +56,8 @@ The map document and its edit engine: a generation plus an ordered log of edit o
   rise cut through up to 3 levels deeper or refused saying where; banks raised where the land beside the bed is lower
   than its water would stand; Open or Dry), `applyCanal` (one Select step) and the `canal` operation's check
   (`canalProblem`). Its tiles are stored with their levels and applied as a lake's sill's are.
+- `ruinLine.ts`: the ruin line (the Ruin dragged): `planRuinLine` (piers evenly along a line, their tops at one level,
+  gaps by the seed; a `placeEntity` each) and `applyRuinLine` (one step); `ruinLineLimits.ts` holds its limits.
 - `lakeLevel.ts`: lakes by number: `planLakeLevel` (the sill cut down or raised that holds a lake at a level, `sim/sill.ts`,
   confirmed by the canonical settle), `applyLakeLevel` (one Select step, the confirming settle kept as the map's water,
   `MapSession.withSettled`) and the `setLakeLevel` operation's check (`lakeLevelProblem`).

@@ -903,6 +903,24 @@
   display: flex;
 }
 
+/* with First view beside Reset view: three buttons and the compass in the same 310px; Slow forces then spans the
+   second and third columns, the sound under the compass */
+.editor-view .view3d-corner:has(.camera-group.with-first-view) {
+  grid-template-columns: 83px 84px 83px var(--corner-h);
+}
+
+.camera-group.with-first-view > button:not(.compass) {
+  padding: 0 6px;
+}
+
+.view3d-corner:has(.camera-group.with-first-view) > .slow-cell {
+  grid-column: 2 / 4;
+}
+
+.view3d-corner:has(.camera-group.with-first-view) > .sound-cell {
+  grid-column: 4;
+}
+
 /* the level control is one width for every value, ∞ to 22: it fills its track and its value takes what the arrows
    leave */
 .view3d-corner .corner-level .layer-widget {
