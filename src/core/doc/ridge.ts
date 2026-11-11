@@ -13,6 +13,7 @@
 import { CEILING } from "../format/world";
 import { levelsInRust } from "../forces/rust/bridge";
 import { runsToTiles, tilesToRuns } from "../math/grid";
+import { sqrt } from "../math/portable";
 import { RIDGE_MAX_HEIGHT, RIDGE_MAX_LENGTH, RIDGE_MAX_WIDTH, RIDGE_MIN_HEIGHT, RIDGE_MIN_LENGTH, RIDGE_MIN_WIDTH, type RidgeSteep } from "./ridgeLimits";
 import type { OpOf, RidgeParams } from "./ops";
 import type { ApplyResult, MapSession } from "./session";
@@ -82,7 +83,7 @@ export function planRidge(s: MapSession, path: readonly (readonly [number, numbe
   for (let k = 0; k < segs; k++) {
     const dx = px[k + 1] - px[k];
     const dy = py[k + 1] - py[k];
-    cum.push(cum[k] + Math.sqrt(dx * dx + dy * dy));
+    cum.push(cum[k] + sqrt(dx * dx + dy * dy));
   }
   const L = cum[segs];
   if (segs < 1 || L < RIDGE_MIN_LENGTH) return none(`a ridge needs a line: drag one at least ${RIDGE_MIN_LENGTH} tiles long`);
@@ -134,7 +135,7 @@ export function planRidge(s: MapSession, path: readonly (readonly [number, numbe
         t = t < 0 ? 0 : t > 1 ? 1 : t;
         const ex = qx - t * dx;
         const ey = qy - t * dy;
-        const d = Math.sqrt(ex * ex + ey * ey);
+        const d = sqrt(ex * ex + ey * ey);
         const j = (y - y0) * w + (x - x0);
         if (d < dist[j]) {
           dist[j] = d;
