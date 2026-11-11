@@ -161,6 +161,18 @@ interface Invariant {
 
 The lake stair's invariants, with numbers, are in section 4.4.
 
+### 1.5 A theme and a premise are two choices
+
+Planning's direction, endorsed by Kyler (2026-11-10): a theme and a premise are independent. The **theme is the land's
+style**: its relief's grade, its ground and its plants. The **premise is the problem**: its water, its works and its
+frame. As the premise's stages firm up, the relief, life and dressing stages take the theme as their style (#956's
+per-theme grade is the start), and Generate ends up offering both pickers, each with Any. The themes stay Generate's
+default until three premises pass in the game (D509, ruling 2 of section 9).
+
+The life stage reads its palette from the spec already: the species mix, grove size, Forests and Berries
+(`resources`), which a theme sets. A premise map drawn with a theme's spec takes that theme's plants without a change
+to `life.ts`; the stand rules (where each species grows) stay the premise's.
+
 ## 2. The pipeline
 
 ### 2.1 Where it sits
@@ -412,10 +424,10 @@ differs from the above, and why:
   the bridge's place; its breach the first reservoir) by `planRuinStories`' dam; a row of four ruin piers on the banks
   at each work (no pier in a bed); the cave behind the landmark fall with a large relic at its mouth, grown as the 3D
   forms are (`growOn`: kept only where every check still holds and it reads as a cave); aquifers and the drill, cores
-  and a geothermal field in the regions that own them; relics on an island and at the exit; mine sites by
-  `planExtras`. A cave makes the map's water the stacked engine's, so it is cut **before** stage 5's settle when the
-  plan has one; a cave that then fails its read is taken out and the map settled again (one of the plan's two
-  settles). Everything else here stands outside the water and is placed after the settle without another.
+  and a geothermal field in the regions that own them; relics on an island and at the exit (the mine sites, first
+  written here, are stage 6's as built). A cave makes the map's water the stacked engine's, so it is cut **before**
+  stage 5's settle when the plan has one; a cave that then fails its read is taken out and the map settled again (one
+  of the plan's two settles). Everything else here stands outside the water and is placed after the settle without another.
 - Test: every piece stands on ground the game allows (`entities.placement`); at least three secrets, each tied to
   the premise or a region.
 
@@ -492,6 +504,38 @@ said, not re-rolled. Where it differs from the above, and why:
   holds 642 (2 of 36), megadam holds 162 (plan asks 0.4 to 0.5 W²), notch 15 (12 of 22), dam to pond 0 (8 of 12),
   levee 0 (19 of 26). Stage 4 takes 62 to 135 ms at 128², 166 to 194 at 192², about 400 at 256² (section 3.3).
   Section 9 has what falls short.
+
+**As built (step 6): life and resources** (`life.ts`, `info.premise.life`). Stage 5's build stops before the
+resources (`stopBeforeResources`), stage 6 plants on its settled ground, and the map is built once more with the same
+`SettleCache`: plants and mine sites move no water, so the second build costs no settle. Where it differs from the
+above, and why:
+
+- **The planting is the generator's own** (`gen/resources.ts` `planResources`: groves with clearings, berry patches,
+  ruin fields by the scrap budget, the start's own wood and berries over its walk, D224's starting-logs floor), run
+  with the premise's budget: Forests scaled so the living trees come to 450 to 700 per 10,000 tiles (the official
+  baseline's place for the seed, read into that range), Berries to 185 to 230, and the share of moist ground under a
+  tree held to 16 % (`ResourceConstraints.moistCover`; the themes keep `OFFICIAL_LAYOUT`'s). Its groves leave room
+  for the start's planting, which plants less, so the living trees the budget still lacks are planted as more stands
+  on the moist ground left, 9 tiles apart at least: birch within 3 tiles of water, pine 9 or more back, oak between,
+  as the mix allows.
+- **Nothing grows** on a work's site and a tile round it, on the ground only a work's water would turn green (its
+  reach), in a dry bed or basin, or within a tile of the start's sight line to each lip tile of its landmark.
+- **Dead woods**: a clump of 6 to 14 dead trees on each empty basin's old shore (1 to 4 tiles out, on dry ground),
+  and beside each dry bed 15 tiles long or more (1 to 3 tiles out; the bypass one for each 60 tiles of it).
+- **Succulents** only on the dry-for-good side: nearer the bypass than any lake, 3 tiles or more from it, no
+  moisture, their share of the living budget by the species mix, in stands of 8 to 20.
+- **Mine sites** are `planExtras`'s, kept off the works' sites, the beds and basins and the sight line; a site the
+  colony cannot reach (`colonyReach`, the check's own reading) moves to level, dry ground beside the start's reach,
+  30 tiles out or more, the farthest first. A lake stair's start often stands on a meadow walled by the stair's own
+  steps, where the generator's picker, which wants a margin round each site, found no room (seeds 7 and 12).
+- **The `LATER` warnings are lifted**: `start.food`, `start.wood`, `start.wood_floor` and `resources.mine_site` block
+  on a premise map as on the themes'.
+- **Measured** (seeds 1 to 12 at 128², `tools/premise-map.ts`; every one a premise map, every blocking check passed):
+  living trees 460 to 690 per 10,000 tiles, 11.0 to 16.1 % of the moist ground under a tree (over 16 only by the
+  start's own wood); dead trees 17 to 71 in 2 to 6 clumps; succulents 45 to 66; berry bushes 186 to 227 per 10,000;
+  235 to 314 logs within 20 tiles' walk of the start (200 asked by `start.wood`; 250 by section 4.4's `wood`, one seed
+  under), 275 to 421 within 40 (D224's 178); 33 to 48 living bushes within 20 (30 asked); two mine sites reached on
+  every seed. Stage 6 takes 87 to 257 ms (section 3.3).
 
 **After the map opens: the proofs** (background, section 3). The premise true both ways by `HazardRun`; each work's
 gain by a what-if settle; the first cycles. Their results are rows in the checks panel and the ladder's readout; they
@@ -570,6 +614,11 @@ with its operation overhead.
 | With one repair settle (the worst accepted) | 2.3 s | 5.9 s | 9.9 s |
 
 A plan that fails before the settle costs the land's row again. Anything over the last row is a bug (D453).
+
+Stages 6–7 as built (step 6, seeds 1 to 12 at 128², life only: the planting and the second build, its settle
+reused): 87 to 257 ms, a median of about 120, against the row's 0.2 s; the first map a process makes pays about 0.2 s
+more for loading. A whole map takes 1.3 to 5.0 s at 128² through the mode, most of it plans that fail before or after
+their settle (a second settle on five seeds of twelve).
 
 Stage 4 as built (step 5, seeds 1 to 4): 62 to 135 ms at 128², 166 to 194 at 192², 396 to 438 at 256², three to four
 times its row: each work's water is a whole-map `flowThrough` and pre-fill (about 13 ms at 256²), 10 to 16 of them.
@@ -669,6 +718,13 @@ stage's measure may move:
   A lake's arms are 2 to 5, each 7 to 15 at its widest (a bay or cove narrows to its end).
 - The gates are 3 or 4: where the landmark does not leave the pool, the plan adds an empty basin fed by a leat from
   the pool, each leat gated at its head.
+- Side bodies (step 6): only the two **rim tarns** carry springs, each drawn in the band 11 tiles or less from an
+  edge, so its run to the edge is short; the rest are **empty basins**, standing past the nearest lake's meadow (its
+  width from the lake) or 8 tiles from it for the pool's basins. At step 5 every side body but the pool's basins had
+  a spring: a spring tarn's green and its run's were 3 to 5 points of the map's moist ground each, seven seeds of
+  twelve over `spectrum`'s 42 %. The lakes' meadows are four fifths of the table's at 128² (`stairMeadow`), the
+  whole at 192² and over. A plan whose day 1 by number is outside `spectrum` (moist over 41 %, a point under the
+  settled ceiling) is drawn again before its settle (`ladder.spectrum`).
 - Side bodies are spring tarns and empty basins, about the table's counts (3 to 5 at 128², 5 to 9 at 192², 7 to 13
   at 256² on seeds 1 to 30): three near the start first, so its walk has three small works; a basin nothing can fill
   is left out. A basin spills to a lake two or more below, else to a lower side body, else off the map. A dam to
@@ -923,7 +979,7 @@ Each step is one PR that leaves dev green and is useful by itself.
 | 3 | **Built.** **Relief between**, and `tools/premise-map.ts`, which writes a `.timber` for a seed outside the product | A whole land with water to open in the editor and run through the capture kit; tier 4 judging can begin | 2. Ground with grade (#929, next in the milestone session's queue) for the outlands, when it merges; not blocked |
 | 4 | **Built.** **The generator's mode.** `generatePremise` behind `spec.premise` (link key `p=lakeStair`; no control on the page), stages 3, 5 and 8: the start by the frame, one build, the checks, re-roll and the fall-back to themes; `premiseMap.test.ts`; stage 0 within its row of §3.3 | A playable generated lake stair from a link, in seconds, without plants | 3 |
 | 5 | **Built.** **The ladder.** Dry bodies and beds, rows of Blockages, the work templates, `estimateGain`, `info.premise` | The spectrum: a map that is not fully watered, with each work's gain known | 4 |
-| 6 | **Life and resources by budget**, the dry land's dress | The map looks as it plays: stands, open meadow, dead woods on old shores | 5 |
+| 6 | **Built.** **Life and resources by budget**, the dry land's dress | The map looks as it plays: stands, open meadow, dead woods on old shores | 5 |
 | 7 | **Set pieces and secrets**: the ruined weir and its breach, piers at the works, the Still Pool, aquifers and drill, relics, then the cave | The first frame's story; the first two works | 6; new `MapObjectKind`s |
 | 8 | **The proofs and the judging tools**: background proof rows, `tools/premise-batch.ts`, tiers 1 to 4 run and recorded | The premise proved true on every map a player opens | 7. The first ten cycles (#927, in work) for the cycles' proof; not blocked |
 | 9 | **On the page**: the premise's control beside Generate, the map card naming the premise and its landmark, the settings' mapping (section 1.3) complete | Players get it | 8 passed; the page session |
@@ -982,10 +1038,13 @@ work to these.
    with the land's own shoulders. Both are landforms, not built dam walls; `terrain.dam_wall` stays blocking on every
    premise map.
 
+9. **Blockages are the cheapest rung** (D513 (3), answered from the game's data, 2026-11-10). A player clears a
+   Blockage with the ordinary Demolish tool, with no science and no unlock: one beaver for 4.0 working hours, so a
+   day-1 colony can do it once a district path comes within reach (under 10 tiles Chebyshev, under 20 steps). The
+   ladder keeps `NOTCH_SHUT = "blockages"`; the rock plug stays a switch, unused.
+
 ### Still open
 
-- **A fact, by one Probe run:** what the game asks of a player to clear a Blockage, and when in a colony's life
-  (ruling 5). The ladder shuts a notch with Blockages; `NOTCH_SHUT = "plug"` switches it to the rock plug.
 - **A design, later:** the lake stair's Easy start variant (ruling 4), and its landmark of 8 from a bench two levels
   over its lake (section 4.3).
 - **For the builders to verify in code (section 2.1's two assumptions):** whether a contained `river` feature with
@@ -1004,7 +1063,15 @@ work to these.
   answer the first; crags of one and two more often the second. Judged in the game first.
 - **Level land near the start (found at step 4): answered at step 5** by the start's meadow (section 2.2, "As built
   (step 5)"); seeds 1 to 12 at 128² all make a premise map.
-- **The small works pay little (found at step 5), for stage 0 and the relief:** most notches, dams to pond and
+- **Day 1 inside the moist ceiling: answered at step 6** (section 4.1, "As built (step 1)", its side bodies): seeds
+  1 to 12 at 128² settle at 20.2 to 22.7 % water and 35.0 to 40.7 % moist, every one inside `spectrum`, and none
+  falls to the themes.
+- **The small works pay little (found at step 5; step 6 moved it, not answered), for stage 0 and the relief:** at
+  step 6 (seeds 1 to 12 at 128², the maps made) the notch's median gain is 112 tiles (191 to 253 asked; 1 of 13 in
+  range, 1 under 20), the dam to pond's 0 (120 to 209; 0 of 18, 10 under 20) and the levee's 4 (116 to 151; 0 of
+  17, 9 under 20); several pay ten times their range, by flooding a basin and the ground below it. The levees and
+  dams to pond on empty basins pay nothing where their basin's leat brings too little water to fill it past its
+  spill. Before step 6: most notches, dams to pond and
   levees buy under 20 tiles, since their beds and basins lie in ground the lakes' and tarns' own green already
   covers (a tarn's dry bed runs 10 to 30 tiles to a lake whose meadow reaches it), and the map is too green on day 1
   (moist over 42 % on seven seeds of twelve). Side bodies placed farther from the lakes, on ground a level or more

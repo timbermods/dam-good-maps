@@ -1,9 +1,9 @@
 # premise
 
 Maps from a premise (docs/PREMISES.md): a problem the player solves, with the water that makes it true. Build steps 1
-to 5 are here: the model, the lake stair's plan (stage 0) and its `plan` invariants; the water by number (stage 1)
+to 6 are here: the model, the lake stair's plan (stage 0) and its `plan` invariants; the water by number (stage 1)
 and its `land` invariants; the relief between (stage 2); the start for the first frame (stage 3); the ladder
-(stage 4); and the generator's premise mode, which `gen/generate.ts` `generate` calls when `spec.premise` is set (share link key `p`; no
+(stage 4); life and resources by budget (stage 6); and the generator's premise mode, which `gen/generate.ts` `generate` calls when `spec.premise` is set (share link key `p`; no
 control on the page yet).
 
 **Rules**
@@ -20,8 +20,10 @@ control on the page yet).
   there (§1.1, "As built").
 - `draw.ts`: `drawPlan` (one attempt, checked), `firstPlan` (the first that holds), `firstWater` (the first whose
   stage 1 water holds too), `failing`.
-- `generate.ts` `generatePremise`: the mode (§2.2 stages 3, 5 and 8): plan, water, relief, start, one `buildMap`, the
-  checks with those later steps answer as warnings (`LATER`), re-rolls up to `PLAN_TRIES` plans and
+- `generate.ts` `generatePremise`: the mode (§2.2 stages 3 to 6 and 8): plan, water, relief, start, the ladder (a
+  plan whose day 1 by number is outside `spectrum` is drawn again before its settle, `ladder.ts` `spectrumMiss`),
+  `premiseMap`, the checks (a check only a later step answers would be a warning, `LATER`; none is since step 6),
+  re-rolls up to `PLAN_TRIES` plans and
   `PREMISE_SETTLES` settles, else the reason in one line and the themes make the map (`info.premise.fellBack`).
 - `frame.ts`: the first frame's arithmetic from `analysis/opening.ts`'s camera (§4.3): `frameLimit(z, h)`, how far in
   front of a start a point at height `h` stays under the frame's top edge; `lipInFrame` reads a lip through the
@@ -55,8 +57,16 @@ control on the page yet).
   contamination, equal to it tile for tile) newly reaches, no settle. A breach's, raised sill's or megadam's gain is
   the water it holds. The readout is `info.premise.ladder`: works with sites, gains, reach and notes; day 1's water
   and moist shares against `spectrum`.
+- `life.ts` `premiseLife`: stage 6 on the settled ground (§2.2, "As built (step 6)"): the generator's own planting
+  (`gen/resources.ts` `planResources`) by the premise's budget (`LIFE`: living trees 450 to 700 per 10,000 tiles, at
+  most 16 % of the moist ground under a tree, berries 185 to 230), living stands where it falls short, dead woods in
+  clumps on the empty basins' shores and beside dry beds, succulents on the dry-for-good side, and the mine sites
+  (`planExtras`'s, moved beside the start's reach where it cannot reach them); nothing on the works' sites and reach,
+  the beds and basins or the start's sight line to the landmark. Its palette is the spec's resources: a theme's,
+  when a theme sets them (PREMISES §1.5). The report is `info.premise.life`.
 - `map.ts`: `premiseLand` (stage 2, the badwater's niche and `layWorks`) and `premiseMap` (the start where stage 3 put it, the
-  sources and rows as features, one `buildMap` and the checks). `tools/premise-map.ts` writes the mode's maps (or a
+  sources and rows as features, a build stopped before the resources and settled, stage 6's life on it, the build
+  again with the settle reused (`SettleCache`) and the checks). `tools/premise-map.ts` writes the mode's maps (or a
   plan file's) as a `.timber`, a project, a picture and a share link.
 - `waterChecks.ts`: the `land` invariants, `flowThrough` on stage 1's heights alone (`stageFlow`, once per stage 1),
   and each weir whole (`water.weirs`).
@@ -72,5 +82,6 @@ stair, the `land` invariants on seeds 1 to 4 at each size and Four Lakes, a brok
 ground's, the start's and the sources' checks); `premiseWater.heavy.test.ts` (seed 1 at each size and Four Lakes settled as the game plays them: levels against the
 table, each link out of a split within 20 % of the table's flow, no stray water, each fall's curtain by the fall
 judge with the notches open); `premiseMap.test.ts` (quick: seed 1 at 128² from a `p=lakeStair` link through
-`generate`, every blocking check passed, its ladder read out, its `.timber` pinned; `soilReach` equal to
+`generate`, every blocking check passed and none deferred, its ladder read out, its life inside the budget, its
+`.timber` pinned; `soilReach` equal to
 `sim/moisture.ts`; an ineligible spec gets a reason).

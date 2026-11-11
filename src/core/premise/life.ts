@@ -329,7 +329,7 @@ function reachedMines(spec: MapSpec, b: BuildResult, mines: MapObjectFeature[], 
   };
   const kept = mines.filter((f) => beside(tilesOf(f)));
   if (kept.length >= Math.min(want, mines.length) && mines.length >= want) return mines;
-  // the start's distance (its 3×3 middle, as the check measures), and the tiles a site may not take
+  // the start's distance (its 3Ã—3 middle, as the check measures), and the tiles a site may not take
   const startMask = new Uint8Array(N);
   for (let y = b.start.y - 1; y <= b.start.y + 1; y++) for (let x = b.start.x - 1; x <= b.start.x + 1; x++) if (x >= 0 && y >= 0 && x < W && y < H) startMask[y * W + x] = 1;
   const sd = distanceFrom(startMask, W, H);

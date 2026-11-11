@@ -30,7 +30,7 @@ import { waterByNumber } from "./water";
  *  allow five a genome). A plan that fails before the settle costs none. */
 export const PREMISE_SETTLES = 3;
 
-/** The checks a premise map answers only at a later build step (PREMISES ง7), each with the step that answers it:
+/** The checks a premise map answers only at a later build step (PREMISES ยง7), each with the step that answers it:
  *  until then a warning on it. Empty since step 6: its plants answer `start.food`, `start.wood` and
  *  `start.wood_floor`, and its mine sites `resources.mine_site`. */
 export const LATER: Readonly<Record<string, string>> = {};

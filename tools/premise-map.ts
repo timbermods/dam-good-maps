@@ -59,7 +59,8 @@ const KIND_RGB: Record<string, [number, number, number]> = {
 };
 
 /** Top-down: the ground shaded by height and lit from the north-west, the settled water blue, its moist ground
- *  green; each work's site in its kind's colour and the ground it would turn green hatched in it (`ladder`). */
+ *  green; each work's site in its kind's colour and the ground it would turn green hatched in it (`ladder`); each
+ *  tree a dot (living dark green, dead brown, succulent olive), each berry bush a red dot, each mine site black. */
 function picture(b: BuildResult, top: number, ladder?: Ladder): { rgb: Uint8Array; width: number; height: number } {
   const { W, H } = b;
   const h = b.heights;
@@ -73,6 +74,15 @@ function picture(b: BuildResult, top: number, ladder?: Ladder): { rgb: Uint8Arra
     const c = KIND_RGB[w.kind] ?? [255, 255, 255];
     for (const i of runsToTiles(w.reach, W)) if (!reach.has(i)) reach.set(i, c);
     for (const i of w.tiles) site.set(i, c);
+  }
+  const plant = new Map<number, [number, number, number]>();
+  for (const e of b.entities) {
+    const dead = !!(e.components.LivingNaturalResource as { IsDead?: boolean } | undefined)?.IsDead;
+    const c: [number, number, number] | null = e.template === "UndergroundRuins" ? [0, 0, 0] : e.template === "BlueberryBush" ? [200, 30, 60] : e.template === "Succulent" ? [130, 130, 40] : ["Pine", "Birch", "Oak"].includes(e.template) ? (dead ? [120, 80, 40] : [10, 70, 20]) : null;
+    if (!c) continue;
+    if (e.template === "UndergroundRuins") {
+      for (let dy = 0; dy < 5; dy++) for (let dx = 0; dx < 5; dx++) plant.set((e.y + dy) * W + e.x + dx, c);
+    } else plant.set(e.y * W + e.x, c);
   }
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
@@ -90,7 +100,9 @@ function picture(b: BuildResult, top: number, ladder?: Ladder): { rgb: Uint8Arra
       for (let a = 0; a < S; a++)
         for (let bb = 0; bb < S; bb++) {
           let px = c;
+          const pc = plant.get(i);
           if (sc) px = a === 0 || bb === 0 ? [0, 0, 0] : sc;
+          else if (pc && a > 0 && a < S - 1 && bb > 0 && bb < S - 1) px = pc;
           else if (rc && (a + bb) % 2 === 0) px = rc;
           const o = ((H - 1 - y) * S + a) * W * S * 3 + (x * S + bb) * 3;
           rgb[o] = Math.max(0, Math.min(255, px[0]));

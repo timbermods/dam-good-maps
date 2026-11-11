@@ -96,7 +96,8 @@ const DAM_BED = 12;
  *  day 1); the longest of the nearest four that is this long is taken. (At step 5, with spring tarns 8 tiles from the
  *  lakes, asking 18 failed ten seeds of twelve; with the basins past the lakes' meadows, 20 fails none.) */
 const NOTCH_BED = 20;
-/** How far a rim tarn stands from its edge at most, tiles: its run to the edge stays short, a thread of green. */
+/** How far a rim tarn stands from its edge at most, tiles: its run to the edge stays short, a thread of green. (14 lost
+ *  seed 12 at 128² to its layouts, and in proportion to the side lost seed 3 at 256²; 9 left too few places.) */
 const RIM_EDGE = 11;
 
 /** The tile area over 192²'s: counts and gains scale by it (§4.2, §4.4). */
@@ -1001,7 +1002,9 @@ function placeTarns(L: Layout): string | null {
     const rim = role === "rim";
     for (let t = 0; t < 60; t++) {
       const r = rng.range(3.5, 6);
-      const p: Point = near ? [near[0] + rng.range(-42, 42), near[1] + rng.range(-42, 42)] : [rng.range(8, W - 8), rng.range(8, W - 8)];
+      // (a rim tarn's middle is drawn in the band along an edge it may stand in, the rest anywhere or near `near`)
+      const rimAt = (e: number, a: number, d: number): Point => (e === 0 ? [a, d] : e === 1 ? [W - d, a] : e === 2 ? [a, W - d] : [d, a]);
+      const p: Point = near ? [near[0] + rng.range(-42, 42), near[1] + rng.range(-42, 42)] : rim ? rimAt(rng.int(0, 4), rng.range(8, W - 8), rng.range(4 + r, RIM_EDGE + r)) : [rng.range(8, W - 8), rng.range(8, W - 8)];
       const u = unitAt(rng.int(0, 64));
       const len = rng.range(4, 8);
       const q: Point = [p[0] + u[0] * len, p[1] + u[1] * len];
@@ -1082,7 +1085,7 @@ function placeTarns(L: Layout): string | null {
   for (let k = 0; k < GATES[0] - gatedNow; k++) {
     let leat: Point[] | null = null;
     let b: Body | null = null;
-    for (let t = 0; t < 12 && !leat; t++) {
+    for (let t = 0; t < 24 && !leat; t++) {
       b = site(pc, "pool");
       if (!b) break;
       leat = straightLink(plan, L.pool, nearestOn(b, pc), 0.55, [L.pool.id, ""]);
