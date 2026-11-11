@@ -105,7 +105,9 @@ describe("mine sites and ruins, models of our own", () => {
     const { group } = buildEntities(v, new ShaderMaterial());
     const W = page.W;
     const cut = mineCutout(v, W, page.H);
-    expect(cut.size).toBe(25 * mines.length);
+    // (and a geothermal field's middle tile, left out since its model became the game's, D496: its vent sinks there)
+    const fields = page.entities.filter((e) => e.template === "GeothermalField");
+    expect(cut.size).toBe(25 * mines.length + fields.length);
     for (let k = 0; k < v.count; k++) {
       const t = v.templates[v.template[k]];
       if (t !== "UndergroundRuins") continue;

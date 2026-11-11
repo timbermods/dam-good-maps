@@ -8,14 +8,16 @@
 // antenna (LargeRelic.Model), 1.84 high in its 3 × 3. A blockage is its heap of rock (Blockage.Model), 1.08 high; a natural
 // dam its low heap of brown rock with logs through it (NaturalDam.Model), 0.72 high; a badtide drain its box of rusted
 // plate 1 high over two tiles, a hood over its mouth (BadtideDrain.Model). A thorn bush is the game's spikes and twigs
-// (Thorns.Model), 0.55 high and overhanging its tile, with no state to draw (the game's has no growth or dying).
+// (Thorns.Model), 0.55 high and overhanging its tile, with no state to draw (the game's has no growth or dying). A
+// geothermal field is the game's crust of sulphur round a vent 0.4 deep, its rim 0.24 high, rocks round it
+// (GeothermalField.Model), its middle tile's top left out of the terrain.
 // Standard's models are High's and the light look's too, and Standard's baked shadows are fitted to them.
 
 import { describe, expect, it } from "vitest";
-import { modelKeyOf, modelOf, modelTriangles } from "../../src/render3d/entities3d";
+import { mineCutout, modelKeyOf, modelOf, modelTriangles } from "../../src/render3d/entities3d";
 import { LARGE_RELIC_SHADOW } from "../../src/render3d/largeRelic";
 import { litFraction, objectCasters, SHADOW_RES, shadowTops } from "../../src/render3d/light";
-import { BADTIDE_DRAIN, BLOCKAGE, LARGE_RELIC, LIGHT, MEDIUM_RELIC, NATURAL_DAM, SMALL_RELIC, THORNS, UNSTABLE_CORE } from "../../src/render3d/palette";
+import { BADTIDE_DRAIN, BLOCKAGE, LARGE_RELIC, LIGHT, MEDIUM_RELIC, GEOTHERMAL, NATURAL_DAM, SMALL_RELIC, THORNS, UNSTABLE_CORE } from "../../src/render3d/palette";
 import { entityView } from "../../src/render3d/model";
 import { mediumRelicParts } from "../../src/render3d/smallRelics";
 
@@ -462,6 +464,48 @@ describe("the thorns at the game's measures", () => {
   // upright discs share no more than 0.28 of their union with the model's shadow round the compass)
   it("cast nothing in Standard's bake", () => {
     const e = entityView([{ template: "Thorns", x: 4, y: 4, z: 3, orientation: "Cw90", owner: "t" }]);
+    const casters = objectCasters(12, 12, e);
+    expect(casters === null || casters.every((v) => v === 0)).toBe(true);
+  });
+});
+
+describe("the geothermal field at the game's measures", () => {
+  it("is the game's crust round its vent, rocks round it: 0.24 high, its vent 0.39 deep, in its colours, about its triangles", () => {
+    const b = bounds(modelKeyOf("GeothermalField", 0));
+    // (the game's model, leaving out its footing of ground, reaches from −0.40 (its vent) to 0.24 up, x −1.22…1.23 and
+    // z −1.28…1.23 about its footprint's middle)
+    expect(b.hi).toBeGreaterThan(0.22);
+    expect(b.hi).toBeLessThan(0.26);
+    expect(b.lo).toBeLessThan(-0.35);
+    expect(b.lo).toBeGreaterThan(-0.42);
+    expect(b.x).toBeGreaterThan(2.4);
+    expect(b.x).toBeLessThan(2.5);
+    expect(b.z).toBeGreaterThan(2.45);
+    expect(b.z).toBeLessThan(2.62);
+    const col = modelOf("GeothermalField").col;
+    const has = (c: readonly number[]) => {
+      for (let k = 0; k < col.length; k += 3) if (Math.abs(col[k] - c[0]) < 1e-3 && Math.abs(col[k + 1] - c[1]) < 1e-3 && Math.abs(col[k + 2] - c[2]) < 1e-3) return true;
+      return false;
+    };
+    for (const c of [...GEOTHERMAL.crust, GEOTHERMAL.vent, ...GEOTHERMAL.rock]) expect(has(c)).toBe(true);
+    expect(modelTriangles("GeothermalField")).toBeLessThanOrEqual(440);
+  });
+
+  it("leaves its middle tile's top out of the terrain, as the game's cutout does, turned as it is", () => {
+    const e = entityView([
+      { template: "GeothermalField", x: 4, y: 4, z: 3, orientation: "Cw0", owner: "a" },
+      { template: "GeothermalField", x: 12, y: 4, z: 5, orientation: "Cw90", owner: "b" },
+    ]);
+    const cut = mineCutout(e, 20, 20);
+    expect([...cut.entries()].sort((p, q) => p[0] - q[0])).toEqual([
+      [5 * 20 + 5, 3],
+      [3 * 20 + 13, 5],
+    ].sort((p, q) => p[0] - q[0]));
+  });
+
+  // (low and wide, it casts 0.07–0.14 tiles² past the ground it covers by the sun's heading: its rocks' slivers)
+  it("casts nothing in Standard's bake", () => {
+    const e = entityView([{ template: "GeothermalField", x: 4, y: 4, z: 3, orientation: "Cw0", owner: "a" }]);
     const casters = objectCasters(12, 12, e);
     expect(casters === null || casters.every((v) => v === 0)).toBe(true);
   });
