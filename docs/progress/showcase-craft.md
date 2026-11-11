@@ -345,3 +345,7 @@ The ladder: the Gate opened +1,318 (3.6 %, 305 water); the second blast and the 
 7.99); the leat's bar once +1,839/−228, twice +1,663; the megadam in the ridge's slot: the water gets out elsewhere at
 9 now the lake lies south of the bench (the valley's floor is not enclosed at 9). Our own widest view
 `C:\dgm-showcase\the-gate\ours\r8-widest.jpg`; the game's `C:\dgm-probe\captures\the-gate-r8\day1-widest.jpg`.
+- **Round 8 in the game** (`C:\dgm-probe\captures\the-gate-r8\day1-first.jpg`, `day1-widest.jpg`): the oak stand at the
+  door's east and the berries south of it, the side pool with its birch; from the widest view the wall, the Gate's
+  slot, the Veil's bastion, the leat's line west along the crest to the Pass and the Pass Bed winding across the
+  basin's west, the Gate Bed with its dead woods, the far rim: valley, wall, gate, basin. The map stops here.
