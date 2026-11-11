@@ -7,24 +7,22 @@
 import { naturalWidth } from "./carve/character";
 import type { CarveSettings } from "./carve/run";
 import { naturalSize as craterSize, type CraterSettings } from "./craterize";
-import { ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, naturalBreadth, type EruptSettings } from "./erupt";
+import { ventRadius, type EruptSettings } from "./erupt";
 
 export type ReachOf =
   | { verb: "carve"; settings: Pick<CarveSettings, "power" | "width"> }
   | { verb: "craterize"; settings: Pick<CraterSettings, "power" | "size"> }
   | { verb: "erupt"; settings: EruptSettings };
 
-/** The radius (tiles) of a force's size at its Power and Size. */
-export function forceReach(f: ReachOf): number {
+/** The radius (tiles) of a force's size at its Power and Size on a W × H map: Erupt's is the radius its run
+ *  makes, Auto capped by the map's short side (`ventRadius`). */
+export function forceReach(f: ReachOf, m: { W: number; H: number }): number {
   switch (f.verb) {
     case "carve":
       return (f.settings.width ?? naturalWidth(f.settings.power)) / 2;
     case "craterize":
       return (f.settings.size ?? craterSize(f.settings.power)) / 2;
-    case "erupt": {
-      const s = f.settings;
-      const breadth = s.size ?? Math.max(ERUPT_SIZE_MIN, Math.min(ERUPT_SIZE_MAX, Math.round(naturalBreadth(s) / 2) * 2));
-      return breadth / 2;
-    }
+    case "erupt":
+      return ventRadius(f.settings, Math.min(m.W, m.H));
   }
 }

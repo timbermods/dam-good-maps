@@ -561,7 +561,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   colour with a chevron, D309, D361; closed by default, remembering how it was left) opens those details; every
   detail starts on **Auto**, nature's own pick; setting one pins it, with a small way back to Auto beside it. Once
   a force runs, a detail on Auto shows the value it just took, one click from being pinned; before one runs, the
-  value Auto gives where the row can tell (Craterize's centre by its size, Erupt's summit by Power) or the usual one;
+  value Auto gives where the row can tell (Craterize's centre by its size, Erupt's summit by Power and the seed) or the usual one;
   a rift's walls and a fan's channels are picked in the run (`autoPicked`), every detail outlined the same way. Try another re-rolls
   only the details still on Auto; pins are remembered with the editor preferences. While a force works its row is
   its status (Carve's with Pause) and Revert; it keeps itself when it ends (no Stop); the other tools wait.
@@ -584,7 +584,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   it changed nothing round a tile by more than a level the tidying never moves that tile more than two: the land's
   own one-tile ledge goes back to where it stood, and the corner of its own two-tile ridge, with the ground of its
   level round it, to where the force put it, or where the force's rounding would leave that one tile wide to where it
-  stood, never down its cliff and never leaving ground one tile wide. Craterize ends with it; Erupt, Rift, Deposit, Quake and Glaciate adopt it next.
+  stood, never down its cliff and never leaving ground one tile wide. Craterize, Erupt and Rift end with it; Deposit, Quake and Glaciate adopt it next.
 - **Esc skips, undo takes it back** (D344, A4): while a gesture is still being drawn, Esc cancels it and nothing of
   it lands; once a force plays, Esc skips it to its end, its final land kept as one step; Ctrl+Z (or Z, or Revert)
   takes all of it back at any moment, and nothing lands afterwards (D341). The row's tooltip carries the keys (**Esc** skips,
@@ -810,11 +810,16 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (along its flows, with ridges or without, D356), the smoke and the plume (bigger and darker with Power) play on,
   never blocking; the ground it raised reads as ash and basalt until the heat fades into the soil's own colours (#367).
   **A volcano always looks like a
-  volcano** (D321, item 14): the cone is the dominant shape at every setting, rising to a clear summit (Summit:
-  Crater, a bowl a fifth of its height deep under the rim), flows running down its sides, heavy flows a wider
-  thicker skirt, never a round plateau; its surface reads as rock (no lone raised tile, the summit aside); high
-  Power grows it toward the height ceiling (22, D244), and near the ceiling it spreads wider rather than taller,
-  never flat-topped. Overlapping eruptions build new cones on the flanks; an eruption always completes (D226).
+  volcano** (D321, item 14; the force audit's findings 2 and 3, `docs/progress/force-audit.md`): a cone at most 0.6 of
+  its radius high (a broad shield 0.4, 1.12 times as wide), Auto's radius at most 18 % of the map's short side; its
+  outline lobed by up to a quarter at seeded bearings; one breach where the crater opens out through the flank toward
+  the lowest ground; Summit: Crater a bowl 6 or more tiles across inside a rim 2 or more wide, Caldera a basin 0.29 of
+  the cone across with a scalloped rim and a small cone off its floor's centre (Auto: a peak below Power 32, a caldera
+  1 in 3 above 70, else a crater); its flanks benches of uneven width parted by faces of 2 to 4 levels (1 to 2 on a
+  low cone), their edges warped so they are neither concentric nor even, through the shared whole-levels step; flows
+  running down its sides, heavy flows a little further, never a round plateau; its surface reads as rock (no lone
+  raised tile); high Power grows it toward the height ceiling (22, D244) where the map is large enough, and near the
+  ceiling it spreads wider rather than taller, never flat-topped. Overlapping eruptions build new cones on the flanks; an eruption always completes (D226).
   Fresh volcanic rock is hard for Carve; flows can dam rivers; objects ride the rising ground, trees near a vent
   die, what stands in it goes, each as the heat reaches it (item 30); it erupts wherever asked (the start's ground
   too, D257) and never adds water; "No room to rise here" only where it can't rise at all.
@@ -839,10 +844,19 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   have them (D314). One `forceResult`; its ice, sounds and land keep one pace (D344, A7: `ForceCue.pace`). No ice-sheet
   mode for now.
 
-- **Rift** (D352, D438): land cracks open and drops between two rough faults, the opposite of Erupt's ridge: a
-  dropped block with its old floor tilted, hard-bed ledges on the walls, objects riding down upright, sources
-  riding too, or cleared (D474). A click makes a short rupture there (at least a set length, even at the edge);
-  a drag draws the fault.
+- **Rift** (D352, D438; the force audit's findings 6, 7, 23 and 29, `docs/progress/force-audit.md`): land cracks open
+  and drops between two border faults, the opposite of Erupt's ridge: a rift valley. Each fault is segments 12 to 20
+  tiles long set 2 to 4 tiles off one another, a relay ramp between two; the rift narrows to pointed tips and drops
+  most mid-length (about 5 levels at the default, 8 at Power 100). Walls on Auto: one sheer, the other stepping down
+  in benches about 2 levels apart and 3 to 5 tiles wide (Sheer or Stepped make both alike). Its floor keeps the old
+  relief, in two or three pieces each tilted toward the sheer wall, the whole tilted down the axis toward the end
+  with the lower ground beyond; a notch runs from that low end out to lower ground that drains (or the map's edge),
+  never deeper than the drop; then the shared whole-levels step. On a map with water the floor stands at or above
+  the level its water drains at, in long treads toward its head, so a stream runs down it: a lake at most 2 deep at
+  the low end, and the floor always a level down. Objects ride down upright (one of several tiles whole, by the drop
+  most of it takes), sources too, or cleared where a wall tears their ground (D474). A click makes a rift 3.2 times
+  as long as it is wide (Auto's width 8 + 0.12 × Power tiles, at most 0.16 of the map's short side), its middle kept
+  a quarter of its length in from the edge and running on past the edge, open to it; a drag draws the axis.
   **Power** (0–100, default 70; Power 0 still drops a level), **Size** (width, Auto or 4–64), **Try another**; behind
   More, **Walls** (Auto, Sheer, Stepped). The core half is adopted (`core/forces/rift.ts`, planned in Rust
   `rust/forces/src/rift.rs`; 21 fixed steps). The page: its settings (Power, Size, Walls with Auto; Floor, Try another),

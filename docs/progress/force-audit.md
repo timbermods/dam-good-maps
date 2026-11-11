@@ -108,6 +108,16 @@ Never a volcano to the eye: a ziggurat, a bullseye or an arena. At large setting
 The Canyon flat case shows the scale is right when it stays small.
 1. The cone: benching, lobes, a breach, a real crater, height tied to radius (2).
 2. Caps on reach, a caldera that is a caldera, a steady footprint across rolls, sources that survive an apron (3, S2).
+   **1 and 2 done** (`feature/force-erupt`, 2026-11-11): height at most 0.6 of the radius (0.4 broad); Auto's radius at
+   most 18 % of the map's short side, broad 1.12 times steep; the outline lobed by up to 28 % at seeded bearings; one
+   breach toward the lowest ground; a crater 6 or more across inside a 2-wide rim; a caldera 0.29 of the cone, its rim
+   scalloped by a fifth, a small cone off its floor's centre, Auto's 1 in 3 above Power 70; the flanks benches on a
+   seeded ladder of 2 to 4-level faces with warped edges, then `levels::whole` (a fissure's rampart through
+   `levels::whole` as it is). The default click changes 1,040 to 1,600 tiles across 12 rolls at Power 62 on 128²
+   (about ±20 %), at most about 1,650 at Power 100 (was 3,200 to 14,500 broad or caldera); sheet
+   `docs/sheets/force-erupt.jpg`. Still open: the benches still read roughly concentric on a broad shield; near the
+   ceiling it still grows broader (19); Power 100 with a peak on 256² reaches 3,900 tiles; the cursor ring and the
+   row's Auto Size still show Power's breadth, not the map's cap (the page's `forceReach`).
 3. Lava flows routed down the land; an island when it erupts in water; cones along a fissure (13, 10, 20).
 
 ### Rift: no
@@ -116,6 +126,17 @@ amphitheatre. The 100-tile drag on 256² (a ribbon lake) is the nearest to the r
 1. Drain it: a tilted floor, an outlet, a fall at the head, a shallow lake at most; half the default throw (6).
 2. Build it from two en-echelon faults with pointed tips and an asymmetric cross-section (7).
 3. Objects ride down; no pillars; no badwater let in (23, S3).
+   **1, 2 and the first two of 3 done** (`feature/force-rift`, 2026-11-11): two border faults of 12 to 20-tile segments
+   offset 2 to 4 tiles with relay ramps, pointed tips, the throw greatest mid-length (about 5 at the default, 8 at
+   Power 100); Walls on Auto one sheer and one stepped in benches of about 2 levels, 3 to 5 wide; the floor in two or
+   three pieces tilted to the sheer wall and down the axis to its low end, notched out to lower ground that drains;
+   on a wet map the floor stands at or above its drain level in long treads, a lake at most 2 deep at the low end
+   (deeper only where water already stood); then `levels::whole`. A click is 3.2 times as long as wide (Auto's width
+   8 + 0.12 × Power, at most 0.16 of the map), running on past an edge (29). A multi-tile object rides down whole.
+   The default click changes about 600 tiles on 128²; sheet `docs/sheets/force-rift.jpg`. Still open: on low wet
+   ground (a river's own plain) it is only 1 to 2 levels deep, by the drainage rule; badwater it lets in (S3); the
+   floor's pieces read as plates of a level more than as blocks; Try another re-rolls the walls' side and offsets
+   but the click's bearing only by the seed (28); the cursor ring shows Power's width, not the map's cap.
 
 ### Quake: no
 The wall of a sheer Lift is the most convincing single feature any of these forces makes. The trouble is everything

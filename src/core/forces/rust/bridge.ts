@@ -497,7 +497,7 @@ function readPlan(job: RustJob, plain: EntitySpec[], view: View): RustPlan {
       break;
     }
     case "erupt": {
-      const anatomy = { x: n(), y: n(), datum: n(), radius: n(), height: n(), summit: (["auto", "peak", "crater", "caldera"] as const)[n()], phase: n(), length: n(), scale: n(), ceiling: n() } as EruptRecords["anatomy"];
+      const anatomy = { x: n(), y: n(), datum: n(), radius: n(), height: n(), summit: (["auto", "peak", "crater", "caldera"] as const)[n()], phase: n(), length: n(), scale: n(), ceiling: n(), breach: n() } as EruptRecords["anatomy"];
       const vents = n();
       const segments = n();
       const lobes = n();
