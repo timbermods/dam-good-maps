@@ -115,7 +115,11 @@ amphitheatre. The 100-tile drag on 256² (a ribbon lake) is the nearest to the r
 ### Quake: no
 The wall of a sheer Lift is the most convincing single feature any of these forces makes. The trouble is everything
 else: the rigid block re-levels half the map, and Slide tears it.
-1. Lift decays from the fault and dies at its tips; nothing moves 20 tiles away (1, 12).
+1. Lift decays from the fault and dies at its tips; nothing moves 20 tiles away (1, 12). **Done** (`feature/force-quake-lift`,
+   2026-11-11): lift × an elliptical taper × exp(−distance/λ), λ 8 to 14 by Power, windowed to nothing at 20 tiles; the
+   down side a trough at the foot, at most 2 levels and 6 tiles. A 44-tile fault at Power 60 changes 784 tiles (was 6,600
+   to 7,700), the default click about 275 on 128²; sheet `docs/sheets/force-quake-lift.jpg`. Still open: its fade is
+   whole-level stripes until S1, a lift across a river dams it (S3), and the tips read rounded rather than pointed.
 2. Slide moves rigid blocks and rebuilds a narrow crush zone (9).
 3. Stepped scarps and straight drags get splays, stepovers and uneven benches (21).
 
