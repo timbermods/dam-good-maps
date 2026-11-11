@@ -2242,6 +2242,23 @@ pub unsafe extern "C" fn forces_execute(p: *const u8, len: usize, out_len: *mut 
     Box::into_raw(b) as *mut u8
 }
 
+/// Whole levels from a surface the core worked out itself (levels.rs `whole`; the Ridge, core/doc/ridge.ts). `input`
+/// holds `w·h` surface levels, then `w·h` ground levels (f64, little-endian; NaN where the ground is left alone), then
+/// `w·h` bytes of the land before; `out` takes `w·h` bytes of land.
+///
+/// # Safety
+/// `input` must hold `17·w·h` bytes and `out` `w·h`.
+#[no_mangle]
+pub unsafe extern "C" fn forces_levels(input: *const u8, w: usize, h: usize, ceiling: f64, seed: f64, grain: f64, out: *mut u8) {
+    let n = w * h;
+    let bytes = std::slice::from_raw_parts(input, 17 * n);
+    let read = |k: usize| f64::from_le_bytes(bytes[8 * k..8 * k + 8].try_into().unwrap());
+    let surface: Vec<f64> = (0..n).map(read).collect();
+    let ground: Vec<f64> = (n..2 * n).map(read).collect();
+    let land = levels::whole(&surface, &ground, &bytes[16 * n..], w, h, ceiling, seed, grain);
+    std::ptr::copy_nonoverlapping(land.as_ptr(), out, n);
+}
+
 #[derive(Clone)]
 struct Ray {
     dx: f64,
