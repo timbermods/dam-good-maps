@@ -179,7 +179,7 @@ export const FIRST_DROUGHT_DAYS = 3;
 const MOIST_WALK = 240;
 /** How far above the start's floors (D515) the settler holds a start's bench, walkable land and moist land on the
  *  water it settles: the objects placed after (mine sites, relics) and the last settle take a little of each. */
-const FLOOR_MARGIN = 1.1;
+export const FLOOR_MARGIN = 1.1;
 /** Grown logs an oak gives, its saplings counted out (resources: an oak 8 logs, a third young). */
 const OAK_LOGS = 5;
 

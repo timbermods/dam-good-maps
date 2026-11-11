@@ -189,7 +189,7 @@ if (file) {
     }
     const pi = r.result.info.premise!;
     if (pi.card) console.log(`seed ${seed}: ${pi.card.name} in ${pi.card.style}. ${pi.card.landmark}. First: ${pi.card.first ?? "none"}`);
-    console.log(`seed ${seed}: plan ${pi.attempt}, ${r.result.info.settles} settle(s), start moved ${pi.start?.moved} (level land ${pi.start?.level}, farmland ${pi.start?.farmland}, frame water shallow ${pi.start?.shallow}); failed before: ${r.result.failures.map((f) => f.failed[0]).join(", ") || "none"}`);
+    console.log(`seed ${seed}: plan ${pi.attempt}, ${r.result.info.settles} settle(s), start moved ${pi.start?.moved} (bench ${pi.start?.bench}, moist land ${pi.start?.moist}, frame water shallow ${pi.start?.shallow}); failed before: ${r.result.failures.map((f) => f.failed[0]).join(", ") || "none"}`);
     write(r.result, spec.settings.terrain.highestTerrain, `${pi.id}-${pi.theme}-${side}-${seed}`, ms, pi.notes ?? [], pi.ladder, pi.life);
     if (drought && pi.plan) droughtReadout(r.result.spec, pi.plan, r.result.built, waterByNumber(pi.plan));
   }

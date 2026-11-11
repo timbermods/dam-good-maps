@@ -17,6 +17,7 @@ import type { PlayabilityAnalysis } from "../validate/playability";
 import type { ValidationReport } from "../validate/report";
 import { ladderOf, layWorks, type LaidWorks, type Ladder } from "./ladder";
 import { premiseLife, type LifeReport } from "./life";
+import { buildBench } from "./frame";
 import { badwaterNiches, reliefBetween } from "./raster/relief";
 import type { PremiseStyle } from "./style";
 import type { PremisePlan } from "./types";
@@ -150,9 +151,11 @@ export interface PremiseLand {
   notes: string[];
 }
 
-export function premiseLand(plan: PremisePlan, water: StageWater = waterByNumber(plan), style?: PremiseStyle): PremiseLand {
+export function premiseLand(plan: PremisePlan, water: StageWater = waterByNumber(plan), style?: PremiseStyle, bench = 0): PremiseLand {
   const notes: string[] = [];
   const heights = reliefBetween(plan, water, style?.relief);
+  // the start's bench, made where the relief left it short of `bench` (D515, `buildBench`)
+  buildBench(plan, water, heights, bench);
   const niches = badwaterNiches(plan, water, heights, notes);
   const laid = layWorks(plan, water, heights);
   return { water, heights, niches, laid, notes };

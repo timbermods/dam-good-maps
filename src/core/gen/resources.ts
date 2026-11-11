@@ -698,9 +698,10 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
 
   // ---- a fast species among the start's wood (D515, `start.wood_fast`): of the grown logs within the start's
   //      wood's walk (20 tiles, the floor's 40 at Hard), the pines' and birches' at least the floor's share, with a
-  //      margin. The living oak groves there that give the most logs turn to the fast species the mix leans to (pine
-  //      where it has neither), and where that leaves the start's wood short, fast groves grow on its moist ground
-  //      outside the start's yard: the floor holds, the mix leans the rest of the map (as D471's rescue does with oak)
+  //      margin. Fast groves of the species the mix leans to (pine where it has neither) grow first on the moist ground
+  //      there outside the start's yard, adding logs; where that ground runs out short of the share, the living oak
+  //      groves that give the most logs turn to it. The floor holds, the mix leans the rest of the map (as D471's
+  //      rescue does with oak)
   if (g.start && nearWalk && floorWalk) {
     const floor = START_FLOORS[spec.designedFor];
     const within = floor.fastWoodWalk > NEAR_WALK ? floorWalk : nearWalk;
@@ -718,23 +719,6 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       return { fast, all };
     };
     const woodWant = Math.ceil(1.15 * (within === nearWalk ? spec.settings.start.rules.woodWithin20 : LOG_FLOOR));
-    for (let k = 0; k < 40; k++) {
-      const t = tally();
-      if (t.all > 0 && t.fast >= share * t.all) break;
-      let best: PlantedGrove | null = null;
-      let most = 0;
-      for (const p of planted) {
-        if (p.species !== "Oak" || !p.living) continue;
-        const n = logsIn(p);
-        if (n > most) {
-          most = n;
-          best = p;
-        }
-      }
-      if (!best) break;
-      best.species = fastSp;
-      for (const f of out) if (f.kind === "forest" && f.id === best.id) f.params.speciesMix = { [fastSp]: 1 };
-    }
     const yard = new Uint8Array(N);
     for (let i = 0; i < N; i++) {
       const x = i % W;
@@ -757,6 +741,23 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
           break;
         }
       if (!grew) break;
+    }
+    for (let k = 0; k < 40; k++) {
+      const t = tally();
+      if (t.all > 0 && t.fast >= share * t.all) break;
+      let best: PlantedGrove | null = null;
+      let most = 0;
+      for (const p of planted) {
+        if (p.species !== "Oak" || !p.living) continue;
+        const n = logsIn(p);
+        if (n > most) {
+          most = n;
+          best = p;
+        }
+      }
+      if (!best) break;
+      best.species = fastSp;
+      for (const f of out) if (f.kind === "forest" && f.id === best.id) f.params.speciesMix = { [fastSp]: 1 };
     }
   }
   return out;

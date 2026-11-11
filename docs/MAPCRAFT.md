@@ -97,6 +97,10 @@ What "generous, then earned" means in numbers. They are starting points to tune 
 | **Power** | One fall or run of flow in reach | Greater falls further on; the landmark fall tamed late |
 | **Badwater** | Kept away from the start on day 1, or plainly manageable | The map's question: where to send it |
 
+The start's column is a floor every map meets in the shared playability gate (D515: the bench, the walkable land, a
+fast species among the wood, a forester's plot; `validate/playability.ts` `START_FLOORS`). No generator path, a theme,
+a premise or one still to come, may carry its own, lower playability floor.
+
 ## 5. The measures we hold a map to
 
 - **The first frame**: the landmark whole in the game's first camera, and the start in front of it.
