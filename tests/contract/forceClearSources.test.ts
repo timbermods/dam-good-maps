@@ -61,7 +61,9 @@ const CASES: { name: string; kind: FixtureKind; request: ForceRequest; plans?: t
   { name: "quake lift", kind: "plain", request: { verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "lift", power: 90 }, path: [at(8, 30), at(32, 33), at(56, 30)], side: 1, cut: null } as ForceRequest, rides: true },
   { name: "quake slide", kind: "slide", request: { verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power: 90 }, path: [at(8, 30), at(32, 33), at(56, 30)], side: 1, cut: null } as ForceRequest, rides: true },
   { name: "glaciate", kind: "river", request: { verb: "glaciate", settings: { ...GLACIATE_DEFAULTS, mode: "flow", power: 80, size: 24 }, origin: [35, 4], cut: null } as ForceRequest, plans: true },
-  { name: "rift", kind: "plain", request: { verb: "rift", settings: { ...RIFT_DEFAULTS, power: 100, size: 22 }, path: [at(12, 30), at(32, 33), at(52, 29)], cut: null } as ForceRequest, rides: true },
+  // (a rift on ground water reaches drains, its lake at most 2 deep (the force audit's finding 6): on the plain's own sources
+  // it would be a shallow pond with no torn wall; across the river study's river it drains into it and tears its walls; D148)
+  { name: "rift", kind: "river", request: { verb: "rift", settings: { ...RIFT_DEFAULTS, power: 100, size: 22 }, path: [at(12, 30), at(32, 33), at(52, 29)], cut: null } as ForceRequest, rides: true },
   { name: "deposit", kind: "river", request: { verb: "deposit", settings: { ...DEPOSIT_DEFAULTS, power: 100, size: 40 }, path: [at(20, 32), at(40, 32)], cut: null } as ForceRequest },
 ];
 
@@ -242,7 +244,7 @@ describe("forces clear sources (D474)", () => {
   }, 60000);
 
   test("the operation's Sources and cleared list are checked, each refusal one line", () => {
-    const m = sourced("plain");
+    const m = sourced("river");
     const p = use(m, CASES.find((c) => c.name === "rift")!.request).params;
     const problem = (q: object) => forceProblems({ ...p, ...q } as ForceResultParams, W, W, 22);
     expect(problem({ settings: { ...p.settings, sources: "sweep" } })).toEqual(["a rift's sources are ride or clear"]);
