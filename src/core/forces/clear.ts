@@ -29,6 +29,26 @@ export const clears = (rule: SourcesRule | undefined): boolean => rule !== "ride
 /** What Clear takes and Ride keeps: water and badwater sources and seeps (aquifers stay as they are). */
 export const CLEARABLE: ReadonlySet<string> = new Set(["WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep"]);
 
+/** The level a source or seep that rides stands at once its tile's ground went from `before` to `after` (D474), from
+ *  level `z`. Where a force moves the column whole (`whole`: a Quake's block, a Rift's floor) it moves with it, as
+ *  much as the ground moved, a cave in the column too. Where a force builds or cuts the ground, one on the surface (or
+ *  above it) moves with its ground; one under a roof (a cave's, below its tile's ground) stays in its cave while the
+ *  ground above is only raised or thinned, and stands on the new ground once a cut reaches its level. No force but
+ *  Erode changes a cave's tile (start.ts keeps caves and the ground holding their roofs); with Erode's voxels (`mask`,
+ *  bit z set where voxel z is solid) it stands on the floor of the opening it is in. Never below level 0, never in
+ *  rock. Rust's carve and glacier (lib.rs `ridden_level`) do the same. */
+export function riddenLevel(z: number, before: number, after: number, mask?: number, whole = false): number {
+  if (whole) return Math.max(0, z + after - before);
+  if (z >= before) return after + (z - before);
+  if (mask === undefined) return Math.max(0, Math.min(z, after));
+  const solid = (k: number) => k >= 0 && k < 32 && ((mask >>> k) & 1) === 1;
+  const stands = (k: number) => (k === 0 || solid(k - 1)) && !solid(k);
+  const at = Math.max(0, Math.min(31, Math.round(z)));
+  for (let k = at; k >= 0; k--) if (stands(k)) return k === at ? z : k;
+  for (let k = at + 1; k <= 31; k++) if (stands(k)) return k;
+  return after;
+}
+
 /** The tiles whose ground a force's result changes, its working area's feather applied (`ease`: how
  *  many levels each tile may move, D254; null for none), as its operation keeps them (keep.ts
  *  `featherForce`): the showing and the operation clear from the same tiles. */

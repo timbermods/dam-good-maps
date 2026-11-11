@@ -5021,9 +5021,9 @@ struct CarveState {
     occupants: Option<Vec<Vec<usize>>>,
     removed_keys: Vec<bool>,
     rider_tiles: Vec<usize>,
-    /// How far each rider stands above its tile's ground when the carve starts (a cave's source, under a roof, below
-    /// it): it rides the ground by as much as the ground moves (play.ts does the same).
-    rider_lift: Vec<f64>,
+    /// Each of the map's riders' level when the carve starts: it rides its ground by `ridden_level` (a cave's source,
+    /// under a roof, stays in its cave; play.ts does the same).
+    rider_z: Vec<f64>,
     unleashed_key: Option<usize>,
     cells: HashMap<i32, Vec<usize>>,
     cells_up_to: usize,
@@ -5216,7 +5216,7 @@ impl CarveState {
             occupants: None,
             removed_keys: vec![],
             rider_tiles: vec![],
-            rider_lift: vec![],
+            rider_z: vec![],
             unleashed_key: None,
             cells: HashMap::new(),
             cells_up_to: 0,
@@ -5369,7 +5369,7 @@ impl CarveState {
         }
         r.removed_keys = vec![false; r.map.next_id.get()];
         r.rider_tiles = vec![usize::MAX; r.map.next_id.get()];
-        r.rider_lift = vec![0.0; r.map.next_id.get()];
+        r.rider_z = vec![f64::NAN; r.map.next_id.get()];
         for g in &r.group {
             r.rider_tiles[g.id_key] = g.tile;
         }
@@ -5386,7 +5386,7 @@ impl CarveState {
                 if ride_source(e.template.as_ref()) && r.rider_tiles[e.id_key] == usize::MAX && r.unleashed_key != Some(e.id_key) && e.x >= 0.0 && e.y >= 0.0 && (e.x as usize) < w && (e.y as usize) < h {
                     let tile = e.y as usize * w + e.x as usize;
                     r.rider_tiles[e.id_key] = tile;
-                    r.rider_lift[e.id_key] = e.z - r.original[tile] as f64;
+                    r.rider_z[e.id_key] = e.z;
                 }
             }
         }
@@ -6549,7 +6549,12 @@ impl CarveState {
         for e in &mut entities {
             let tile = self.rider_tiles[e.id_key];
             if tile != usize::MAX {
-                e.z = self.map.heights[tile] as f64 + self.rider_lift[e.id_key];
+                let z0 = self.rider_z[e.id_key];
+                e.z = if z0.is_nan() {
+                    self.map.heights[tile] as f64
+                } else {
+                    ridden_level(z0, self.original[tile] as f64, self.map.heights[tile] as f64)
+                };
             } else if self.unleashed_key == Some(e.id_key) {
                 e.z = self.map.heights[e.y as usize * self.map.w + e.x as usize] as f64;
             }
@@ -8778,6 +8783,16 @@ fn clear_destroys(before: &[u8], now: &[u8], tiles: &[usize]) -> bool {
         d >= CLEAR_BURIED || d <= -CLEAR_CUT
     })
 }
+/// The level a source or seep that rides stands at once its tile's ground went from `before` to `after`, from level
+/// `z` (clear.ts `riddenLevel`, without voxels): one on the surface moves with its ground; one under a roof, a cave's,
+/// stays in its cave until a cut reaches its level, then stands on the new ground. Never below 0, never in rock.
+fn ridden_level(z: f64, before: f64, after: f64) -> f64 {
+    if z >= before {
+        after + (z - before)
+    } else {
+        max(0.0, min(z, after))
+    }
+}
 fn ride_source(template: &str) -> bool {
     matches!(template, "WaterSource" | "BadwaterSource" | "WaterSeep" | "BadwaterSeep")
 }
@@ -10108,7 +10123,8 @@ fn glacier_finish_morphology(
     if s.ride {
         for e in &mut entities {
             if ride_source(e.template.as_ref()) && e.x >= 0.0 && e.y >= 0.0 && (e.x as usize) < w && (e.y as usize) < h {
-                e.z = out.map.heights[e.y as usize * w + e.x as usize] as f64;
+                let i = e.y as usize * w + e.x as usize;
+                e.z = ridden_level(e.z, before.heights[i] as f64, out.map.heights[i] as f64);
             }
         }
     }
