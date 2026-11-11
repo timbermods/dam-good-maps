@@ -24,7 +24,7 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
 - `draw.ts`: `drawPlan` (one attempt, checked), `firstPlan` (the first that holds), `firstWater` (the first whose
   stage 1 water holds too), `failing`.
 - `siting.ts`: stage 0's second pass (§2.2, "As built (step 8)"). `sitePlan` lays a premise's skeleton (its plan
-  without the side network, `PremiseDef.skeleton`) through stages 1 and 2 (`siteLand`), reads day 1's soil on it
+  without the side network, `PremiseDef.skeleton`) through stages 1 and 2 in the theme's style (`siteLand`), reads day 1's soil on it
   (`ladder.ts` `dayOneSoil`) and lets the premise draw its side network again on that land (`PremiseDef.site`);
   `SiteModel.gain` is a work's estimate, the soil rule on the skeleton's land with the work's water and the ground
   its template lays. The lake stair's `siteSide` places each empty basin with its feed, spill, levee and dam as one

@@ -21,9 +21,9 @@ import { moisture } from "../../src/core/sim/moisture";
 import { decodeSpecFragment, encodeSpecFragment, makeSpec } from "../../src/core/spec/mapspec";
 
 // (re-pinned since generator 0.10.16's ground with grade, D148: the map's own land is the same; its description names the
-// generator's version, "Made with Dam Good Maps 0.10.16", gen/pack.ts; again for step 7's works; and for step 9's
-// style, theme Any taking Canyon's on seed 1, D148)
-const SHA = "ea25398d54f68a3936822c2168da08dae294ac227b3b2e2bd99a7fb3700fef3a";
+// generator's version, "Made with Dam Good Maps 0.10.16", gen/pack.ts; again for step 7's works; for step 9's style,
+// theme Any taking Canyon's on seed 1; and for step 8's works sited by moisture with step 9 merged, D148)
+const SHA = "a6a2391b88e7969c40ad7f95eb2cc22893da237f1138d5bdc01934d2df49942e";
 
 describe("The premise mode (§2.2, build step 4)", () => {
   const made = makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "any", premise: "lakeStair" });

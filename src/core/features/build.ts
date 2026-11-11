@@ -61,7 +61,8 @@ import {
 } from "./raster/terrain";
 import { isResource, rasterizeResource, resourceOrder, type KeptTiles, type Placed } from "./raster/resources";
 import { objectTiles, rasterizeObjects, standProblem } from "./objects";
-import { joinStrokes, markBrushTiles, type BrushParams } from "./raster/brush";
+import { joinStrokes, markBrushTiles, type BrushParams, type Pressed } from "./raster/brush";
+import { pressedOf } from "./raster/weather";
 import type { DistrictPlan } from "./setpieces/secondDistrict";
 import { BuildTarget, clipRect, fullRegion, sharedFields, type FieldCache, type Rect, type TileRegion } from "./target";
 import type { Feature, MapObjectFeature, SetPieceFeature, StartFeature } from "./schema";
@@ -357,6 +358,35 @@ interface TerrainCache {
    *  plain run on a heightfield (D335; terrain/blocks.ts `terrainUnder`). Absent in a stored map made
    *  before the tool: none. */
   masks?: ReadonlyMap<number, number>;
+  /** How hard the weathering Naturalize strokes pressed on each tile, in sixteenths (the most of
+   *  any of them since the land there last changed otherwise), and the height the last of them left
+   *  it at (`wornOf`, rule 6). */
+  worn: Uint8Array;
+  left: Uint8Array;
+}
+
+/** How hard the weathering strokes pressed on every tile, in sixteenths, where the land stands as the
+ *  last of them left it (0 elsewhere): what a new rule 6 stroke records (brush.ts `worn`). */
+export function wornOf(t: Pick<TerrainCache, "worn" | "left" | "pre7">): Uint8Array {
+  const out = new Uint8Array(t.pre7.length);
+  for (let i = 0; i < out.length; i++) if (t.worn[i] && t.left[i] === t.pre7[i]) out[i] = t.worn[i];
+  return out;
+}
+
+/** A weathering stroke remembered (`TerrainCache.worn`): on the tiles it pressed on in the region, the
+ *  harder of it and the strokes before it (where the land stood as they left it), and the land it left. */
+function remember(p: Pressed, t: BuildTarget, worn: Uint8Array, left: Uint8Array): void {
+  const { intensity, box, before } = p;
+  const { W, heights } = t;
+  for (let y = box.y0; y <= box.y1; y++)
+    for (let x = box.x0; x <= box.x1; x++) {
+      const i = y * W + x;
+      const q = pressedOf(intensity[i]);
+      if (!q || !t.inRegion(i)) continue;
+      const was = left[i] === before[i] ? worn[i] : 0;
+      worn[i] = Math.max(was, q);
+      left[i] = heights[i];
+    }
 }
 
 /** The Block tool's tiles of a terrain step (none for a stored map from before the tool). */
@@ -630,6 +660,9 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
   const heights = prev ? prev.terrain.pre2.slice() : new Uint8Array(N);
   const protect = prev ? prev.terrain.protect.slice() : new Uint8Array(N);
   const channel = prev ? prev.terrain.channel.slice() : new Uint8Array(N);
+  // (how hard the weathering strokes pressed: the region's worked out again with its strokes)
+  const worn = prev?.terrain.worn ? prev.terrain.worn.slice() : new Uint8Array(N);
+  const left = prev?.terrain.left ? prev.terrain.left.slice() : new Uint8Array(N);
   const locked = input.locked ?? null;
   const t = new BuildTarget({ W, H, seed, features: input.features, heights, protectedMask: protect, channel, region: reg, locked: locked?.mask, fields });
 
@@ -640,6 +673,7 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
     heights[i] = locked && locked.mask[i] ? locked.heights[i] : base ? base.heights[i] : field ? field.heights[i] : 2;
     protect[i] = 0;
     channel[i] = 0;
+    worn[i] = 0;
   });
   // 2. landforms, in document order
   for (const f of input.features) if (f.kind === "landform" && live(f) && !carved(f)) rasterizeLandform(f, t);
@@ -727,7 +761,8 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
     if (layer && isBlocks(s.params)) applyBlocks(s.params, t, layer);
     else {
       if (layer && isForce(s.params) && s.params.runs) applyHollows(s.params.runs, t, layer);
-      applySculpt(s, t, caves, shown, floors);
+      const pressed = applySculpt(s, t, caves, shown, floors);
+      if (pressed) remember(pressed, t, worn, left);
     }
     if (watch.length) checkSlopes();
   }
@@ -752,7 +787,7 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
         : () => true;
   const r = { x0: Math.max(0, reg.x0 - 1), y0: Math.max(0, reg.y0 - 1), x1: Math.min(W - 1, reg.x1 + 1), y1: Math.min(H - 1, reg.y1 + 1) };
   integrityAt(pre7, final, W, H, protect, channel, candidate, r.x0, r.y0, r.x1, r.y1, Math.max(MAX_TERRAIN, field?.top ?? MAX_TERRAIN));
-  return { terrain: { pre2, pre7, heights: final, protect, channel, notes: t.notes, slopeList: gs, slopeGone, masks: layer ? finalMasks(layer, final) : NO_MASKS }, region: reg };
+  return { terrain: { pre2, pre7, heights: final, protect, channel, notes: t.notes, slopeList: gs, slopeGone, masks: layer ? finalMasks(layer, final) : NO_MASKS, worn, left }, region: reg };
 }
 
 // --------------------------------------------------------------------------------------- pipeline

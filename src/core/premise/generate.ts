@@ -24,9 +24,9 @@ import { checkFrame } from "./frame";
 import { ladderOf, spectrumMiss, type Ladder } from "./ladder";
 import type { LifeReport } from "./life";
 import { premiseLand, premiseMap } from "./map";
-import { sitePlan } from "./siting";
 import { premiseCard, type PremiseCard } from "./card";
 import { resolvePremise, type StyleTheme } from "./choice";
+import { sitePlan } from "./siting";
 import { PREMISES } from "./premises";
 import { premiseStyle } from "./style";
 import type { PremisePlan } from "./types";
@@ -112,7 +112,9 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
       continue;
     }
     // stage 0's second pass: the works sited by the skeleton's day-1 moisture (`siting.ts`)
-    const sited = sitePlan(def, specIn, drawn.plan, attempt);
+    // (the theme's style for this attempt: the skeleton's land is read as the map's will be)
+    const style = premiseStyle(pair.theme, specIn, attempt);
+    const sited = sitePlan(def, specIn, drawn.plan, attempt, style.relief);
     if ("reason" in sited) {
       fail(attempt, [{ id: "site", reason: sited.reason }]);
       continue;
@@ -127,7 +129,6 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
       continue;
     }
     // stage 2: the relief between, in the theme's style; stage 3: the start for the first frame
-    const style = premiseStyle(pair.theme, specIn, attempt);
     const ground = premiseLand(plan, water, style);
     const frame = checkFrame(plan, water, ground.heights, needs);
     if (frame.reason) {
