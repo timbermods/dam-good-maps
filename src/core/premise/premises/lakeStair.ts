@@ -21,7 +21,7 @@ import { premiseStream } from "../draw";
 import { holdDeep } from "../levels";
 import { FRAME, frameLimit, frameWidthAt, lipInFrame, START } from "../frame";
 import { BENCH as BENCH_DISC } from "../raster/relief";
-import { bodyDist, bodyGap, bodyWithin, dist, dist2, outlineBox, segDist, edgeGap, headingOf, norm, outlinePoints, unitAt, pathBodyGap, pathDist, pathGap, pathLength, pathWithin, pointAt, squareClear, subPath } from "../geom";
+import { spineDist, bodyDist, bodyGap, bodyWithin, dist, dist2, outlineBox, segDist, edgeGap, headingOf, norm, outlinePoints, unitAt, pathBodyGap, pathDist, pathGap, pathLength, pathWithin, pointAt, squareClear, subPath } from "../geom";
 import { BODY_GAP, fail, linksFrom, nameOf, OK, PLAN_CHECKS, reach } from "../planChecks";
 import { WATER_CHECKS } from "../waterChecks";
 import type { Body, Edge, Exit, Fall, Invariant, Link, Point, PremiseDef, PremisePlan, Region, Ridge, SetPiece, SiteLand, Source, Spine, StairPlan, Work, WorkKind } from "../types";
@@ -761,8 +761,12 @@ function meadowRoom(sx: number, sy: number, bodies: Body[], W: number, H: number
  *  its arms but the bay narrow to stand `D` from the bench's spine, `D` the least of `reach`'s shares of its half
  *  width that frees the room; it keeps its width within `keep` of its sills, its links' ends and the bay's root, and
  *  a side arm narrowed under `ARM_RADIUS[0]` goes (from where it narrows out). Arms that narrow are read every `step`
- *  tiles. */
-const BENCH_ROOM = { shore: 2, rim: 6, link: 3, keep: 6, step: 2, reach: [0.5, 0.75, 1, 1.25], turns: [0, 0.33, 0.67, 1], lengths: [0, 0.6, 1.2] } as const;
+ *  tiles. It never gives up the start's water days (MAPCRAFT §4): an arm but the bay stands within the start water
+ *  rule's walk (`waterWithin`) less `water` of the start, narrowing stopping before it would not, and a candidate
+ *  without one is turned down. The bay's water by the start is the frame's shallows, gone on a drought's first day:
+ *  at 256² the bench's frames put seeds 2 and 3 21 and 26 tiles from their nearest arm, and their start's water went
+ *  on day 1 (every map that kept it had one within 19). */
+const BENCH_ROOM = { shore: 2, rim: 6, link: 3, keep: 6, step: 2, reach: [0.5, 0.75, 1, 1.25], turns: [0, 0.33, 0.67, 1], lengths: [0, 0.6, 1.2], water: 1 } as const;
 
 /** The bench's half width round a spine `len` long holding `area`: the capsule's π m² + 2 len m. */
 function benchHalf(area: number, len: number): number {
@@ -1145,12 +1149,15 @@ function placeFrame(L: Layout, o: StairOption): string | null {
         if (best && best.n >= wantBench) break;
       }
       const { to: benchTo, m: benchM } = best!;
+      // (never past the start's water days, `BENCH_ROOM.water`: an arm but the bay within the start water rule's walk)
+      const nearWater = (as: Spine[]) => as.some((arm) => spineDist(sx + 0.5, sy + 0.5, arm) <= rules.waterWithin - BENCH_ROOM.water);
       let arms: Spine[] | null = K.arms;
       if (best!.n < wantBench) {
         arms = null;
         for (const f of BENCH_ROOM.reach) {
           const as = yieldToBench(K, sx, sy, benchTo, look, a, f * benchM, keep);
           if (!as || as.length + 1 < ARMS[0]) break;
+          if (!nearWater(as)) break;
           if (roomWith(as, benchTo, benchM) >= wantBench) {
             arms = as;
             break;
@@ -1158,6 +1165,7 @@ function placeFrame(L: Layout, o: StairOption): string | null {
         }
         if (!arms) continue;
       }
+      if (!nearWater(arms)) continue;
       found.push({ start, C, w, a, look, right, hv, bay, arms, benchTo });
     }
     if (!found.length) continue;

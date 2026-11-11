@@ -585,7 +585,11 @@ stage 4 and the repairs are not built. Where it differs from the above, and why:
   lean whose room holds the bench with the generator's margin (704 on Normal). The room is the ground 2 tiles or
   more from the start's lake and the waters under it, out of a higher water's rim, off the channels, and joined to
   the start. Where the start's lake takes that room, it gives it up (planning's ruling: the bench outranks the lake's
-  size). Its arms, but not the bay, narrow to stand clear of the spine, by the least that frees the room. The lake
+  size, never its start's water days). Its arms, but not the bay, narrow to stand clear of the spine, by the least
+  that frees the room, and never so far that no arm but the bay stands within the start water rule's walk less a tile
+  (19 tiles on Normal); a candidate without such an arm is turned down (`BENCH_ROOM.water`). The bay's water by the
+  start is the frame's shallows, gone on a drought's first day: at 256² seeds 2 and 3 lost the start's water on day
+  1 with their nearest arm 21 and 26 tiles out. The lake
   keeps its width at its sills, its links' ends and the bay's root, and a side arm narrowed under radius 7 goes. A
   candidate whose room still falls short is turned down. Each source tries 240 candidates (120 before), since the
   room turns down half of those that reach it. The side network laid after the frame gives way to the bench too: a
@@ -961,8 +965,8 @@ the settle).
 
 As measured with the start's floors and the bench's room (D515; lake stair at 128²): all twelve of River Valley's
 seeds 1 to 12 hold, and all 24 of theme Any's (seeds 5 and 10 fell to the themes before the tails were redrawn), with
-benches 762 to 1,452 and walkable land 1,347 to 2,649 (River Valley). At 256², seeds 1 to 3 hold (benches 1,095 to
-1,185). Times on the dedicated machine, one at a time: River Valley median 3.2 s, at most 7.6 s; Any median 3.3 to
+benches 762 to 1,452 and walkable land 1,347 to 2,649 (River Valley). At 256², seeds 1 and 3 hold, with the start's water all 9 drought days (seed 3 in 25.6 s, on its ninth plan); seed 2
+finds no frame whose start keeps its water and falls to the themes (open). Times on the dedicated machine, one at a time: River Valley median 3.2 s, at most 7.6 s; Any median 3.3 to
 4.0 s, at most 9.5 to 12.9 s (seeds 6, 10 and 12, 13 or 14 plans each); 256² 10.9 to 12.9 s. #1011's code on the same
 machine: median 2.5 s, at most 6.4 s; 256² 10.1 to 20.7 s. What is left at 128²: plans whose 48 layouts all fail
 (the bench halves the frames that hold), and starts that read their walkable land but lose it in the settle.
