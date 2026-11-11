@@ -16,8 +16,8 @@ const W = 128;
 const SEED = 22;
 /** Size's map and head (its own map since generator 0.10.11, see below). */
 const SIZE_SEED = 27;
-const SIZE_HEAD: [number, number] = [42, 50];
-const POWER_HEAD: [number, number] = [74, 18];
+const SIZE_HEAD: [number, number] = [42, 42];
+const POWER_HEAD: [number, number] = [74, 26];
 let at: [number, number] = [W >> 1, W >> 1];
 
 beforeAll(async () => {
@@ -45,7 +45,11 @@ beforeAll(async () => {
   // (98, 18), (66, 18), level 11, is the first where every check of Size holds at Power 20, 60 and 100. Size's has its own map since generator 0.10.11,
   // #726's ramps and berries, D148: on seed 22 none of its 400 heads of level 10 or more on a grid of 4 keeps every check of
   // Size (at (66, 18) Power 60's floor is cut 0 at Size 10 and 2 at Size 40), nor any of the 50 nearest the middle on seeds 21
-  // and 23–26; on seed 27, (42, 50), level 15, is the first that does)
+  // and 23–26; on seed 27, (42, 50), level 15, is the first that does. Both heads moved with generator 0.10.16's ground
+  // with grade, D148: from (74, 18), now level 14, Power 100's deepest cut is 11 to Power 50's 8 (it needs 12), and none of
+  // the ten heads nearest it on the grid of 4 (level 10 or more) keeps every check of Power; (74, 26), level 14, the eleventh,
+  // does. At (42, 50) on seed 27 Power 60's floor is cut 2 at Size 10 and 6 at Size 40, and none of the nine heads nearest it
+  // keeps every check of Size; (42, 42), level 16, the tenth, keeps them all at Power 20, 60 and 100)
   at = SIZE_HEAD;
 });
 

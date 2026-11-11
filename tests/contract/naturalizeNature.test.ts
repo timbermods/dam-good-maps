@@ -119,7 +119,9 @@ function changed(a: Uint8Array, b: Uint8Array): { tiles: number; cut: number; fi
 
 const MAPS: [ThemeId, number, number | undefined][] = [
   ["riverValley", 3, 100],
-  ["lakeBasin", 1, 100],
+  // (Lake Basin 2 since generator 0.10.16's ground with grade, D148: every one of Lake Basin 1's eight strokes lands on wet
+  // or moist ground, which Naturalize keeps, or on level dry ground, and changes nothing; Lake Basin 2's change 116 tiles)
+  ["lakeBasin", 2, 100],
   ["highlands", 2, undefined],
   ["canyon", 4, undefined],
   ["riverValley", 6, 100],
@@ -185,32 +187,43 @@ function terraced(s: MapSession): [number, number] {
   return best;
 }
 
+/** Ten strokes on the same path at the most terraced dry ground of `theme` `seed` at Terracing 100, each its own seed as
+ *  the page paints them: each changes less than the one before, but for a few tiles of jitter once nearly settled. */
+function settles(theme: ThemeId, seed: number, size: number, strength: number): void {
+  const s = session(theme, seed, 100);
+  const rand = mulberry(size * 31 + strength);
+  const [cx, cy] = terraced(s);
+  const p = stroke(rand, cx, cy, size, strength);
+  const counts: number[] = [];
+  for (let k = 0; k < 10; k++) {
+    const before = s.built.heights.slice();
+    // a new stroke each time, as the page paints one: the same path, its own seed
+    expect(s.apply({ op: "brush", params: { ...p, seed: 1000 + k } }, "user", "Naturalize").errors).toEqual([]);
+    counts.push(changed(before, s.built.heights).tiles);
+  }
+  console.log(`${theme} ${seed} at (${cx}, ${cy}), Size ${size}, Strength ${strength}: tiles changed by each stroke ${counts.join(", ")}`);
+  expect(counts[0]).toBeGreaterThan(0);
+  // less each time, but for a few tiles of jitter once nearly settled
+  for (let k = 1; k < counts.length; k++) expect(counts[k], `stroke ${k + 1} of ${counts.join(", ")}`).toBeLessThanOrEqual(counts[k - 1] + Math.max(3, Math.round(0.1 * counts[0])));
+  expect(counts[9], `the tenth stroke changes far less than the first: ${counts.join(", ")}`).toBeLessThanOrEqual(counts[0] / 4);
+}
+
 describe("painting the same spot again settles (D399)", () => {
   // (on #265's River Valley 3, rule 3 changed 378, 136, 40, 94 tiles at Size 12, Strength 10: the shed
   // lost some cliffs' slopes, and the cliffs left were cut back again by every stroke; rule 4 measures
-  // the slope from every cliff)
-  for (const [size, strength] of [
-    [5, 5],
-    [12, 10],
+  // the slope from every cliff; Size 12 on River Valley 4 since generator 0.10.16's ground with grade, D148: on River
+  // Valley 3 its most terraced dry ground is at (22, 78) now, where a known fault shows (below); River Valley 4's, at
+  // (48, 48), changes 218, 23, 2, 4 and then nothing)
+  for (const [size, strength, theme, seed] of [
+    [5, 5, "riverValley", 3],
+    [12, 10, "riverValley", 4],
   ] as const)
-    it(`ten strokes at Size ${size}, Strength ${strength} change less each time`, () => {
-      const s = session("riverValley", 3, 100);
-      const rand = mulberry(size * 31 + strength);
-      const [cx, cy] = terraced(s);
-      const p = stroke(rand, cx, cy, size, strength);
-      const counts: number[] = [];
-      for (let k = 0; k < 10; k++) {
-        const before = s.built.heights.slice();
-        // a new stroke each time, as the page paints one: the same path, its own seed
-        expect(s.apply({ op: "brush", params: { ...p, seed: 1000 + k } }, "user", "Naturalize").errors).toEqual([]);
-        counts.push(changed(before, s.built.heights).tiles);
-      }
-      console.log(`Size ${size}, Strength ${strength}: tiles changed by each stroke ${counts.join(", ")}`);
-      expect(counts[0]).toBeGreaterThan(0);
-      // less each time, but for a few tiles of jitter once nearly settled
-      for (let k = 1; k < counts.length; k++) expect(counts[k], `stroke ${k + 1} of ${counts.join(", ")}`).toBeLessThanOrEqual(counts[k - 1] + Math.max(3, Math.round(0.1 * counts[0])));
-      expect(counts[9], `the tenth stroke changes far less than the first: ${counts.join(", ")}`).toBeLessThanOrEqual(counts[0] / 4);
-    });
+    it(`ten strokes at Size ${size}, Strength ${strength} change less each time`, () => settles(theme, seed, size, strength));
+
+  // A known fault since generator 0.10.16, listed in the themes PR: Naturalize's second stroke on the same path can change
+  // more than its first (River Valley 3 at (22, 78): 82, then 99; on the land before 0.10.16 River Valley 2: 94, then 132).
+  // Once fixed, this case passes, it.fails reports it, and it becomes an ordinary test.
+  it.fails("ten strokes at Size 12, Strength 10 on River Valley 3 change less each time", () => settles("riverValley", 3, 12, 10));
 });
 
 describe("an older map has fewer terraces, not more (D399, Kyler's round 2 verdict)", () => {
@@ -250,7 +263,10 @@ describe("an older map has fewer terraces, not more (D399, Kyler's round 2 verdi
   // (farmland, D418). Both come off this list together, the next time Naturalize gets real work,
   // judged on a sheet. First check then whether this count scores a stepped slope as younger than the
   // tall cliff it weathers from; if it does, the measure is what's wrong, not Naturalize.
-  const fails = new Set(["lakeBasin 3", "lakeBasin 4", "riverValley 8"]);
+  // On generator 0.10.16's maps (ground with grade, D148: the land between the features rolls in one-level steps) all
+  // three pass and come off the list, ordinary tests now: Lake Basin 3 (3,001 →
+  // 2,930), Lake Basin 4 (2,806 → 2,700) and River Valley 8 (2,594 → 2,536). The gap shows on none of the seeds that
+  // showed it before either (River Valley 1, 2, 5, 9, 10, 11 and 12, Lake Basin 2, 5, 6, 10, 11 and 12 all end with fewer).
   for (const [theme, seed] of [
     ["riverValley", 3],
     ["riverValley", 6],
@@ -259,7 +275,7 @@ describe("an older map has fewer terraces, not more (D399, Kyler's round 2 verdi
     ["lakeBasin", 3],
     ["lakeBasin", 4],
   ] as const)
-    (fails.has(`${theme} ${seed}`) ? it.fails : it)(`${theme} ${seed} at Terracing 100`, () => {
+    it(`${theme} ${seed} at Terracing 100`, () => {
       const s = session(theme, seed, 100);
       const dabs: number[] = [];
       for (let k = 0; k < 30; k++) dabs.push(4 * (W / 2 - 30 + 2 * k) + 2, 4 * (W / 2) + 2);

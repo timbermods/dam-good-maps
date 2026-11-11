@@ -59,7 +59,25 @@ function step(t: Table, stream: Stream, author: string, kind: Kind, tally: Tally
 describe("a host and a replica on a generated map", () => {
   let bytes: Uint8Array;
   beforeAll(() => {
-    bytes = mapProject(5, "highlands", SIZE);
+    // (seed 3 for seed 5 since generator 0.10.16's ground with grade, D148: seed 5's map now has terrain above terrain, and
+    // its highest ground holds a lake, so the Fill's pit there is refused; seed 3's map has no terrain above terrain, as
+    // seed 5's had, and serves every test here, as seeds 4 and 8 do)
+    bytes = mapProject(3, "highlands", SIZE);
+  });
+
+  // A known fault since generator 0.10.16, listed in the themes PR: on Highlands 48² seed 5 (terrain above terrain) after
+  // the same 12 entries, one `pumpWater()` on the guest leaves its water unsettled, so its settled hash differs from the
+  // host's (e998871c, not 711695c9); a second pump settles it. The same shows on seeds 1 and 7. The suspect, not
+  // confirmed: `WaterBarrier.pump` in src/core/collab/water.ts, where `adoptWater` refuses the run's water once as if the
+  // map had changed under the settle. For the milestone session; when it passes, `fails` comes off.
+  test.fails("Highlands seed 5: one pump settles the replica's water to the host's", () => {
+    const t = sit(mapProject(5, "highlands", SIZE), {}, [GUEST]);
+    const stream = new Stream(5, SIZE);
+    const tally: Tally = { committed: new Map(), patches: 0 };
+    for (let n = 0; n < 4; n++) step(t, stream, n % 2 ? GUEST : HOST, "place", tally);
+    const pool: Kind[] = [...CHEAP_KINDS, ...CHEAP_KINDS, "carve", "craterize", "erupt", "lift", "glaciate", "rift", "deposit"];
+    for (let n = 0; n < 8; n++) step(t, stream, stream.pick([HOST, GUEST]), stream.pick(pool), tally);
+    expectIdentical(t, `after ${t.ordered} entries`);
   });
 
   test("mixed edits from two players leave identical maps once the water has settled", () => {

@@ -151,8 +151,10 @@ const HOLLOWS = OFFICIAL + "builtin_18_MapMetadataHollowsName.timber";
 
 // seed 7 on 0.10.6's maps (D148): a level patch for the pit, a hillside to hollow, and no caves of its own (seed 3's River Valley
 // has no level patch since badwater joined the lower reach, D498); seed 6 on 0.10.7's maps (D502, D148): of seeds 1 to 16 the
-// only one with a level patch for the pit, and it has a hillside to hollow
-const SEED = 6;
+// only one with a level patch for the pit, and it has a hillside to hollow; seed 10 since generator 0.10.16's ground with
+// grade (D148): its land rolls in one-level steps, and of seeds 1 to 60 only 10, 11, 13, 23, 34 and 49 keep a level patch;
+// seed 10's is the first, with 15 hillsides to hollow and no caves of its own
+const SEED = 10;
 
 describe("random edits on a map with caves: the settle at once is the settle from cold (D453)", () => {
   it("a generated 64² map, hollowed", () => {
