@@ -41,7 +41,7 @@ import { THIN } from "../../analysis/ground";
 import { grader } from "../../land/levels";
 import type { ReliefStyle } from "../style";
 import { bodyDist, HEADING_DIR, pathDist, pathLength, pointAt } from "../geom";
-import type { Edge, Link, PremisePlan } from "../types";
+import type { Link, PremisePlan } from "../types";
 import type { StageWater } from "../water";
 import { near4, type WaterRaster } from "./field";
 
@@ -178,6 +178,32 @@ function seedOf(plan: PremisePlan, name: string): number {
 /** A field of `fbm` over the map, read every `step` tiles and between them (a broad field changes little in a few
  *  tiles). */
 function field(seed: number, W: number, H: number, cell: number, octaves: number, step: number): Float64Array {
+  return shared(`f${seed}:${W}:${H}:${cell}:${octaves}:${step}`, () => fieldOf(seed, W, H, cell, octaves, step));
+}
+
+/** The noise fields worked out so far, by their seed, size and shape: a field depends on the plan's seed and size
+ *  alone, so a skeleton's land, its plan's and every re-roll's read the same fields. Never written to. */
+const fields = new Map<string, Float64Array>();
+function shared(key: string, make: () => Float64Array): Float64Array {
+  let f = fields.get(key);
+  if (!f) {
+    if (fields.size >= 64) fields.clear();
+    f = make();
+    fields.set(key, f);
+  }
+  return f;
+}
+
+/** `fbm` at every tile of the map (each tile's own value, as `fbm(seed, x, y, cell, octaves)` reads it). */
+function fbmField(seed: number, W: number, H: number, cell: number, octaves: number): Float64Array {
+  return shared(`t${seed}:${W}:${H}:${cell}:${octaves}`, () => {
+    const out = new Float64Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) out[y * W + x] = fbm(seed, x, y, cell, octaves);
+    return out;
+  });
+}
+
+function fieldOf(seed: number, W: number, H: number, cell: number, octaves: number, step: number): Float64Array {
   const out = new Float64Array(W * H);
   const gw = Math.floor((W - 1) / step) + 2;
   const gh = Math.floor((H - 1) / step) + 2;
@@ -303,8 +329,18 @@ function stairField(r: WaterRaster, bowls: Bowl[]): Float64Array {
       sx[c] += x + 0.5;
       sy[c] += y + 0.5;
     }
-  const anchors: [number, number, number][] = [];
-  for (let c = 0; c < cw * ch; c++) if (cnt[c]) anchors.push([sx[c] / cnt[c], sy[c] / cnt[c], sum[c] / cnt[c]]);
+  // (each anchor's point and level, in the cells' order)
+  let na = 0;
+  for (let c = 0; c < cw * ch; c++) if (cnt[c]) na++;
+  const ax = new Float64Array(na);
+  const ay = new Float64Array(na);
+  const al = new Float64Array(na);
+  for (let c = 0, a = 0; c < cw * ch; c++)
+    if (cnt[c]) {
+      ax[a] = sx[c] / cnt[c];
+      ay[a] = sy[c] / cnt[c];
+      al[a++] = sum[c] / cnt[c];
+    }
   // (read on a coarse grid, then between its points)
   const G = 4;
   const gw = Math.ceil(W / G) + 1;
@@ -314,11 +350,13 @@ function stairField(r: WaterRaster, bowls: Bowl[]): Float64Array {
     for (let gx = 0; gx < gw; gx++) {
       let sw = 0;
       let sv = 0;
-      for (const [ax, ay, lv] of anchors) {
-        const d2 = (gx * G - ax) * (gx * G - ax) + (gy * G - ay) * (gy * G - ay) + 60;
+      const px = gx * G;
+      const py = gy * G;
+      for (let a = 0; a < na; a++) {
+        const d2 = (px - ax[a]) * (px - ax[a]) + (py - ay[a]) * (py - ay[a]) + 60;
         const wt = 1 / (d2 * d2);
         sw += wt;
-        sv += wt * lv;
+        sv += wt * al[a];
       }
       grid[gy * gw + gx] = sw ? sv / sw : BED_FLOOR + 2;
     }
@@ -341,15 +379,17 @@ function stairField(r: WaterRaster, bowls: Bowl[]): Float64Array {
 
 /** How far a tile is from each edge that falls away (the others count as far). */
 function edgeNear(plan: PremisePlan, x: number, y: number): number {
-  const { W, H } = plan;
-  const falls = (e: Edge) => plan.edges[e] !== "ridge";
+  const { W, H, edges } = plan;
   let d = Infinity;
-  if (falls("S")) d = Math.min(d, y);
-  if (falls("N")) d = Math.min(d, H - 1 - y);
-  if (falls("W")) d = Math.min(d, x);
-  if (falls("E")) d = Math.min(d, W - 1 - x);
+  if (edges.S !== "ridge") d = Math.min(d, y);
+  if (edges.N !== "ridge") d = Math.min(d, H - 1 - y);
+  if (edges.W !== "ridge") d = Math.min(d, x);
+  if (edges.E !== "ridge") d = Math.min(d, W - 1 - x);
   return d;
 }
+
+/** A style's value in its range `r` at a noise `n` (−0.5 to 0.5 spans it). */
+const inRange = (r: readonly [number, number], n: number): number => r[0] + (r[1] - r[0]) * Math.max(0, Math.min(1, n + 0.5));
 
 /** Stage 2: the whole map's ground round stage 1's water. Deterministic from the plan, its water and the style (none:
  *  the premise's own uplands). */
@@ -436,6 +476,9 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
       py[k] = (cy - 1 + (hash32(sPlate, cx, cy, 1) % 1000) / 1000) * P;
       plift[k] = PLATE.lift * ((2 * (hash32(sPlate, cx, cy, 2) % 1000)) / 999 - 1);
     }
+  // (each plate's draw for a peak, once a plate rather than once a tile and neighbour)
+  const coneHash = new Float64Array(style?.form === "peaks" ? pw * ph : 0);
+  for (let k = 0; k < coneHash.length; k++) coneHash[k] = (hash32(sPlate, k, 3) % 1000) / 1000;
   const plateOf = new Int32Array(N);
   // (the next nearest plate, and how much nearer the nearest's point is, tiles: a tile beside its plate's edge has a
   // small `edge`; and the peaks' height, the highest of the nearby points' cones)
@@ -467,7 +510,7 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
             nd = dd;
             next = k;
           }
-          const hv = cone ? (hash32(sPlate, k, 3) % 1000) / 1000 : 1;
+          const hv = cone ? coneHash[k] : 1;
           if (hv < PEAK.share) {
             const ck = PEAK.low + ((1 - PEAK.low) * hv) / PEAK.share - Math.max(0, sqrt(dd) - PEAK.flat) / (PEAK.reach * P);
             if (ck > c) c = ck;
@@ -532,7 +575,10 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   // lies (the uplands begin past it). Where no bowl reaches, the outlands.
   const land = new Float64Array(N).fill(Infinity);
   const inner = new Float64Array(N).fill(Infinity);
-  for (const b of bowls) {
+  // (both are least values over the bowls, so the order they are read in changes nothing: the lowest first, since a
+  // bowl's ground never stands under its level + 1, and a tile a lower bowl already brought that low needs no more of
+  // a higher one than its distance)
+  for (const b of [...bowls].sort((p, q) => p.level - q.level)) {
     const bw = b.x1 - b.x0 + 1;
     const bh = b.y1 - b.y0 + 1;
     for (let y = b.y0; y <= b.y1; y++)
@@ -556,6 +602,7 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
         const meadow = b.basin ? Math.max(1, Math.min(BASIN.beach, BASIN.beach - 1 + 2.5 * meadowF[i])) : b.meadow + (b.meadow > 4 ? 3 * meadowF[i] : 0);
         const hill = Math.max(0, d - meadow);
         if (hill < inner[i]) inner[i] = hill;
+        if (b.level + 1 >= land[i]) continue;
         const dw = hill * (1 + 0.3 * warpAF[i]) + 5 * warpBF[i] * Math.min(1, hill / 6);
         // (a style's crags stand `crag` levels taller, its benches `bench` times as wide, its later crags `later`)
         // (a style's hillside: its crags and benches drawn in the theme's ranges, coming in with the style)
@@ -565,10 +612,9 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
         let w1 = 10 + 6 * benchF[i];
         let cn = 2;
         if (style && k > 0) {
-          const at = (r: readonly [number, number], n: number) => r[0] + (r[1] - r[0]) * Math.max(0, Math.min(1, n + 0.5));
-          c1 = Math.round(c1 + (at(style.crag, cragF[i]) - c1) * k);
-          c2 = Math.round(c2 + (at(style.crag2, crag2F[i]) - c2) * k);
-          w1 += (at(style.bench, benchF[i]) - w1) * k;
+          c1 = Math.round(c1 + (inRange(style.crag, cragF[i]) - c1) * k);
+          c2 = Math.round(c2 + (inRange(style.crag2, crag2F[i]) - c2) * k);
+          w1 += (inRange(style.bench, benchF[i]) - w1) * k;
           cn += (style.later - cn) * k;
         }
         // (an empty basin's bank: one wall and a broad bench over it, so its bed reads as a lake's that went dry and
@@ -606,6 +652,24 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   const benched = style ? Math.min(1, style.benched * (style.form === "terraces" ? TERRACE.benched : 1)) : 0;
   const phase = style ? hash32(S("terrace"), 1) % style.step : 0;
 
+  // (each ridge's box, and the square of its reach past it: its half, its ledge and two tiles)
+  const ridgeBox = plan.ridges.map((rg) => {
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const [px, py] of rg.path) {
+      x0 = Math.min(x0, px);
+      y0 = Math.min(y0, py);
+      x1 = Math.max(x1, px);
+      y1 = Math.max(y1, py);
+    }
+    const reach = rg.half + rg.ledge + 2;
+    return [x0, y0, x1, y1, reach * reach];
+  });
+  const knobF = fbmField(sKnob, W, H, 9, 2);
+  const ridgeF = plan.ridges.length ? fbmField(sRidge, W, H, 6, 2) : knobF;
+  const crestF = plan.ridges.length ? fbmField(sCrest, W, H, 9, 2) : knobF;
   const f = new Float64Array(N);
   const narrow = new Uint8Array(N);
   for (let y = 0; y < H; y++)
@@ -632,14 +696,20 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
           }
         }
       }
-      else if (near > 4 && near < 9 && !(nearBasin[i] < 6) && Math.max(Math.abs(x - stx), Math.abs(y - sty)) > 12 && fbm(sKnob, x, y, 9, 2) > 0.42) v += 1;
+      else if (near > 4 && near < 9 && !(nearBasin[i] < 6) && Math.max(Math.abs(x - stx), Math.abs(y - sty)) > 12 && knobF[i] > 0.42) v += 1;
       // ridges and spurs: crags, a crest and one ledge, never a slope of a level a tile
       if (near > 2.5)
-        for (const rg of plan.ridges) {
+        for (let q = 0; q < plan.ridges.length; q++) {
+          const rg = plan.ridges[q];
+          // (a tile whose distance to the ridge's box is a tile past its ledge is past it: no root to read)
+          const bx = ridgeBox[q];
+          const ex = Math.max(0, bx[0] - x - 0.5, x + 0.5 - bx[2]);
+          const ey = Math.max(0, bx[1] - y - 0.5, y + 0.5 - bx[3]);
+          if (ex * ex + ey * ey > bx[4]) continue;
           const t0 = ridgeDist(rg.path, x + 0.5, y + 0.5) - rg.half;
           if (t0 > rg.ledge + 1) continue;
-          const t = t0 + 0.9 * fbm(sRidge, x, y, 6, 2);
-          const crest = rg.top + rg.rough * fbm(sCrest, x, y, 9, 2);
+          const t = t0 + 0.9 * ridgeF[i];
+          const crest = rg.top + rg.rough * crestF[i];
           const cv = t <= 0 ? crest : t <= rg.ledge ? crest - rg.drop : -Infinity;
           if (cv > v) v = cv;
         }
@@ -719,6 +789,20 @@ function styledUplands(
   const hill = new Float64Array(N);
   const up = new Float64Array(N);
   const cut = new Float64Array(N).fill(Infinity);
+  const roll = style.form !== "mesas" ? fbmField(g.seed + 5, W, H, 22, 3) : null;
+  const rimF = style.form === "basin" ? fbmField(g.seed + 9, W, H, 17, 2) : null;
+  const wideF = style.form === "mesas" ? fbmField(g.seed + 7, W, H, 9, 2) : null;
+  // (each edge between two plates draws whether it is a canyon once, not once a tile along it)
+  const canyons = new Map<number, number>();
+  const canyonDraw = (a: number, b: number): number => {
+    const key = a * M + b;
+    let v = canyons.get(key);
+    if (v === undefined) {
+      v = (hash32(g.seed, a, b, 1) % 1000) / 1000;
+      canyons.set(key, v);
+    }
+    return v;
+  };
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
@@ -729,12 +813,12 @@ function styledUplands(
         // their steps run along the valley; the basin's floor low and rolling, its rim rising toward the map's edges)
         const wet = g.nearWet[i];
         const fl = floorOf(g.stair[i], wet);
-        const n = fbm(g.seed + 5, x, y, 22, 3);
+        const n = roll![i];
         let u: number;
         if (g.cone) u = Math.max(g.cone[i], PEAK.base + PEAK.roll * n);
         else if (style.form === "terraces") u = (g.nearValley[i] - TERRACE.from) / TERRACE.run + TERRACE.wander * n;
         else {
-          const e = Math.min(x, y, W - 1 - x, H - 1 - y) + BASIN_RIM.wander * fbm(g.seed + 9, x, y, 17, 2);
+          const e = Math.min(x, y, W - 1 - x, H - 1 - y) + BASIN_RIM.wander * rimF![i];
           u = BASIN_RIM.floor * (0.5 + 0.5 * n) + (e < BASIN_RIM.width * W ? 1 - BASIN_RIM.floor : 0);
         }
         // (the basin's rim stands round the map: its edges never fall away)
@@ -747,8 +831,8 @@ function styledUplands(
       // (a canyon: along most of the edges between tables, cut deep toward their ground, its walls the tables' own)
       if (style.form === "mesas") {
         const k2 = g.plate2[i];
-        const wide = CANYON.wide * (1 + 0.45 * fbm(g.seed + 7, x, y, 9, 2));
-        if (g.edge[i] < wide && (hash32(g.seed, Math.min(k, k2), Math.max(k, k2), 1) % 1000) / 1000 < CANYON.share) cut[i] = Math.max(Math.min(base[k], base[k2]), Math.min(level[k], level[k2]) - CANYON.depth);
+        const wide = CANYON.wide * (1 + 0.45 * wideF![i]);
+        if (g.edge[i] < wide && canyonDraw(Math.min(k, k2), Math.max(k, k2)) < CANYON.share) cut[i] = Math.max(Math.min(base[k], base[k2]), Math.min(level[k], level[k2]) - CANYON.depth);
       }
     }
   return { hill, up, cut };
@@ -925,7 +1009,20 @@ export function hollowsOf(plan: PremisePlan): Hollow[] {
 /** How far a tile lies outside a hollow's wandering outline, in tiles (under 0 inside it). */
 export function hollowDist(plan: PremisePlan, hl: Hollow, x: number, y: number): number {
   const d = hypot(x + 0.5 - hl.x, y + 0.5 - hl.y) - hl.r;
-  return d > HOLLOW.wob + HOLLOW.rim ? d : d + HOLLOW.wob * fbm(seedOf(plan, "hollow"), x, y, 7, 2);
+  return d > HOLLOW.wob + HOLLOW.rim ? d : d + HOLLOW.wob * fbm(hollowSeed(plan), x, y, 7, 2);
+}
+
+/** The hollows' noise seed (`seedOf(plan, "hollow")`), worked out once a plan's seed and size. */
+const hollowMemo = { seed: NaN, W: 0, H: 0, value: 0 };
+function hollowSeed(plan: PremisePlan): number {
+  const m = hollowMemo;
+  if (m.seed !== plan.seed || m.W !== plan.W || m.H !== plan.H) {
+    m.value = seedOf(plan, "hollow");
+    m.seed = plan.seed;
+    m.W = plan.W;
+    m.H = plan.H;
+  }
+  return m.value;
 }
 
 /** A point's distance to a ridge's line. */

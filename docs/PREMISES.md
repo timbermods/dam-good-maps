@@ -890,6 +890,20 @@ The map, through the mode (step 4, `tools/premise-map.ts`): 1.4 to 2.6 s at 128�
 stage 3 before the settle, since a re-roll there costs the relief (1.3 to 2.1 s at 256² against its 250 ms), so `reliefBetween`
 is what to make fast next (section 9).
 
+As measured after the speed step (the floor's plans, `generatePremise` as the tool times it, single-threaded under
+`tsx`; seeds 1 to 12 at 128², the least of two runs; seeds 1 to 3 at 256²; every map's bytes unchanged): **2.4 s at
+the median and 4.4 s at the worst at 128²** (from 3.2 and 7.5), **10.0 and 16.9 s at 256²** (from 14.5 and 24.3).
+By stage, median and worst at 128²: the plans 328 and 988 ms (from 543 and 1,699), the siting 368 and 1,114 (from 767
+and 2,506), the relief 60 and 142 (from 259 and 1,045); at 256² the siting 1.9 and 3.4 s (from 5.3 and 8.3), the
+relief 0.33 and 0.96 s (from 1.4 and 2.9). What took it there: the relief's noise fields shared by seed and size and
+its ridges, cones and bowls bounded by box; the soil rule and the narrows read within the network's box; the bypass's
+course grid kept for a layout's tail drawn again; the siting's gain read from the skeleton's land row by row. What is
+left is the map itself, unchanged: the settle (about 0.63 s at 128², 4.9 s at 256² on one thread; the page settles
+on its workers), the checks, life and the file make about 0.95 s at 128² and 6.2 s at 256², and a second settle on
+three maps of twelve (a `resources.mine_site` or `start.wood` failure after it). So the rows' 1.5 s and 6.2 s are out
+of reach by speed alone at 128² while plans that fail cost what they do (draws of 48 layouts that all fail, on seven
+maps of twelve), and at 256² while the tool settles on one thread.
+
 ### 3.4 Deferred to after the map opens
 
 Run by the background worker that already settles and checks an opened map (`backgroundCheck`), a slice at a time,
