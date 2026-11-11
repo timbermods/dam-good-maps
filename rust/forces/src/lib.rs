@@ -1728,6 +1728,7 @@ fn output_views(task: &mut Job) {
                 a.length,
                 a.scale,
                 a.ceiling,
+                a.breach,
                 a.vents.len() as f64,
                 a.segments.len() as f64,
                 a.lobes.len() as f64,
@@ -10448,6 +10449,9 @@ struct Volcano {
     lobes: Vec<Lobe>,
     scale: f64,
     ceiling: f64,
+    /// A vent's breach: the bearing (radians) its crater opens out through its flank, toward the lowest
+    /// ground round it (the force audit's finding 2); 0 for a fissure.
+    breach: f64,
     asked: Option<Point>,
     /// No ground within reach has the room to rise (eruptAnatomy's NO_ROOM_REASON).
     no_room: bool,
@@ -10455,70 +10459,103 @@ struct Volcano {
 fn erupt_size(p: f64) -> f64 {
     2.0 * (7.0 + 36.0 * pow(p / 100.0, 1.15))
 }
+// The cone (the force audit's findings 2 and 3): a vent's height is at most 0.6 of its radius (0.4 for a broad
+// shield); Auto's radius at most 18 % of the map's short side, a broad one 1.12 times a steep one; its outline
+// lobed by a quarter or more at seeded bearings; a crater 6 or more tiles across inside a rim 2 or more wide, a
+// caldera at most 0.35 of the cone across with a scalloped rim, an uneven floor and a small cone off its centre;
+// and one breach, where the crater opens out through the flank toward the lowest ground. Its land is
+// `levels::whole`'s: benches of uneven width, never contour rings. The same numbers are in erupt.ts.
+/// How high a vent rises at most, in radii: a steep cone, a broad shield.
+fn height_cap(s0: &Settings) -> f64 {
+    if s(s0, "shape") == "broad" {
+        0.4
+    } else {
+        0.6
+    }
+}
+/// Auto's radius at most, as a share of the map's short side.
+const ERUPT_AUTO_SHARE: f64 = 0.18;
+/// How far a vent's outline swells or pinches at its lobes, at most (a share of its radius).
+const ERUPT_LOBING: f64 = 0.28;
 fn summit(s0: &Settings) -> &str {
     if s(s0, "summit") == "auto" {
-        if n(s0, "power") < 32.0 {
+        // (a caldera 1 in 3 above Power 70, never always)
+        let p = n(s0, "power");
+        if p < 32.0 {
             "peak"
-        } else if n(s0, "power") < 80.0 {
-            "crater"
-        } else {
+        } else if p > 70.0 && hash(n(s0, "seed"), 77.0) < 1.0 / 3.0 {
             "caldera"
+        } else {
+            "crater"
         }
     } else {
         s(s0, "summit")
     }
 }
-fn vent_radius(s0: &Settings) -> f64 {
+/// Its radius, in tiles: half its Size when set; else Power's, at most `ERUPT_AUTO_SHARE` of the map's short
+/// side (`short`; infinite for Power's own breadth).
+fn vent_radius(s0: &Settings, short: f64) -> f64 {
     s0.size.map(|v| v / 2.0).unwrap_or_else(|| {
-        erupt_size(n(s0, "power"))
+        let r = erupt_size(n(s0, "power"))
             * 0.5
-            * (if s(s0, "shape") == "broad" {
-                1.6
-            } else if s(s0, "mode") == "vent" && summit(s0) != "caldera" {
+            * if s(s0, "mode") == "fissure" {
+                (if s(s0, "shape") == "broad" { 1.6 } else { 1.0 }) * 0.47
+            } else if s(s0, "shape") == "broad" {
+                0.83
+            } else {
                 0.74
-            } else {
-                1.0
-            })
-            * (if s(s0, "mode") == "fissure" {
-                0.47
-            } else {
-                1.0
-            })
+            };
+        min(r, ERUPT_AUTO_SHARE * short)
     })
 }
 fn natural_breadth(s0: &Settings) -> f64 {
     let mut v = s0.clone();
     v.size = None;
-    2.0 * vent_radius(&v)
+    2.0 * vent_radius(&v, f64::INFINITY)
 }
-fn profile(s0: &Settings, summit: &str, r: f64, fissure: bool) -> f64 {
-    let e = if s(s0, "shape") == "steep" {
-        if fissure {
-            0.83
-        } else {
-            1.7
+/// A crater's radius and its rim's width (radii) and how deep it sinks under its rim (a share of the height):
+/// 6 or more tiles across, a rim 2 or more wide, 2.5 levels deep or more.
+fn crater_of(radius: f64, height: f64) -> (f64, f64, f64) {
+    (max(0.2, 3.2 / max(1.0, radius)), min(0.15, 2.2 / max(1.0, radius)), min(0.6, max(0.3, 2.5 / max(1.0, height))))
+}
+/// A caldera's radius at a bearing (radii): 0.29, its rim scalloped by a fifth.
+fn caldera_at(seed: f64, theta: f64) -> f64 {
+    0.29 * (1.0 + 0.2 * (0.6 * sin(theta * 4.0 + hash(seed, 975.0) * PI * 2.0) + 0.4 * sin(theta * 7.0 + hash(seed, 976.0) * PI * 2.0)))
+}
+/// A vent's cone along its radius (1 at its rim or peak, 0 at its foot): `c` the crater's or caldera's radius.
+fn vent_radial(s0: &Settings, summit: &str, r: f64, radius: f64, height: f64, c: f64) -> f64 {
+    let e = if s(s0, "shape") == "steep" { 1.7 } else { 1.2 };
+    let (inner, rim, depth) = match summit {
+        "crater" => crater_of(radius, height),
+        "caldera" => (c, min(0.12, max(0.06, 2.2 / max(1.0, radius))), 0.4),
+        // (a peak's top a little plate, 3 or more tiles across: a summit, never a lone tile)
+        _ => {
+            let t = min(0.2, 1.6 / max(1.0, radius));
+            return pow(max(0.0, 1.0 - max(0.0, r - t) / (1.0 - t)), e);
         }
-    } else {
-        1.65
     };
-    if !fissure && summit == "caldera" {
-        return if r < 0.43 {
-            0.34
-        } else if r < 0.6 {
-            0.34 + 0.48 * smooth((r - 0.43) / 0.17)
+    let inner = if summit == "crater" { inner } else { c };
+    if r < inner {
+        if summit == "caldera" {
+            1.0 - depth * (1.0 - smooth((r - 0.7 * inner) / (0.3 * inner)))
         } else {
-            0.82 * max(0.0, 1.0 - (r - 0.6) / 0.65)
-        };
+            1.0 - depth * (1.0 - smooth(r / inner))
+        }
+    } else if r < inner + rim {
+        1.0
+    } else {
+        pow(max(0.0, (1.0 - r) / (1.0 - inner - rim)), e)
     }
-    if !fissure && summit == "crater" && r < 0.19 {
-        let rim = pow(1.0 - 0.19, e);
-        return rim - 0.22 * (1.0 - smooth(r / 0.19));
-    }
-    pow(max(0.0, 1.0 - r), e)
 }
+/// The prototype's fissure profile at r (0 at its line, 1 at its foot).
+fn profile(s0: &Settings, r: f64) -> f64 {
+    pow(max(0.0, 1.0 - r), if s(s0, "shape") == "steep" { 0.83 } else { 1.65 })
+}
+/// How far a vent's apron of lava reaches (radii) and how thick it is at most (levels): heavy flows a little
+/// further and thicker than light, so Try another keeps its footprint within a fifth.
 fn apron(s0: &Settings) -> (f64, f64) {
     if s(s0, "flows") == "heavy" {
-        (1.75, 2.0 + n(s0, "power") * 0.014)
+        (1.45, 1.6 + n(s0, "power") * 0.01)
     } else {
         (1.25, 0.8)
     }
@@ -10542,10 +10579,12 @@ fn lava_lobes(m: &Map, a: &Volcano, seed: f64, heavy: bool) -> Vec<Lobe> {
             attempt += 1.0;
         }
         angles.push(angle);
+        // (from the rim: a crater's or a caldera's, a peak's upper flank)
         let start = if a.summit == "caldera" {
-            0.64
+            0.4
         } else if a.summit == "crater" {
-            0.19
+            let (c, rim, _) = crater_of(a.radius, a.height);
+            min(0.5, c + rim)
         } else {
             0.12
         };
@@ -10638,46 +10677,52 @@ fn lobe_field(w: usize, h: usize, lobes: &[Lobe]) -> Vec<f32> {
     }
     field
 }
+/// Where a vent's flow ridges start (radii): on its lower flanks, so they never heap its summit into a plateau.
+fn ridge_start(a: &Volcano) -> f64 {
+    match a.summit.as_str() {
+        "crater" => {
+            let (c, rim, _) = crater_of(a.radius, a.height);
+            max(0.45, c + rim)
+        }
+        _ => 0.45,
+    }
+}
 fn rise_bound(s0: &Settings, a: &Volcano) -> f64 {
     let fissure = s(s0, "mode") == "fissure";
     let strength = a.lobes.iter().fold(0.0, |v, l| max(v, l.strength));
     let mut top = 0.0;
     for k in 0..=260 {
         let r = k as f64 / 100.0;
-        let p = profile(s0, &a.summit, r, fissure);
+        // (a vent's cone is at most 1 at any bearing: its rim; its basin read at its narrowest, so the bound
+        // holds wherever the rim's scallops put it)
+        let p = if fissure { profile(s0, r) } else { vent_radial(s0, &a.summit, r, a.radius, a.height, 0.29 * 0.8) };
         let (reach, thick) = apron(s0);
         let apron = thick * pow(max(0.0, 1.0 - r / reach), 1.4);
         let ridge = if boolean(s0, "ridges") {
             if fissure {
-                (1.0 - smooth((r - 1.05) / 0.85))
-                    * smooth((r - 0.34) / 0.32)
-                    * (0.8 + n(s0, "power") * 0.022)
+                (1.0 - smooth((r - 1.05) / 0.85)) * smooth((r - 0.34) / 0.32) * (0.8 + n(s0, "power") * 0.022)
             } else {
-                strength
-                    * (0.7 + n(s0, "power") * 0.013)
-                    * smooth((r - if a.summit == "caldera" { 0.6 } else { 0.19 }) / 0.2)
+                strength * (0.7 + n(s0, "power") * 0.013) * smooth((r - ridge_start(a)) / 0.2)
             }
         } else {
             0.0
         };
-        let basin = !fissure
-            && r < if a.summit == "caldera" {
-                0.6
-            } else if a.summit == "crater" {
-                0.19
-            } else {
-                0.0
-            };
-        let rise = if basin {
-            a.height * p
-        } else {
-            max(a.height * p, apron) + ridge
-        };
+        let basin = !fissure && r < basin_of(a, 0.29 * 0.8);
+        let rise = if basin { a.height * p } else { max(a.height * p, apron) + ridge };
         if rise > top {
             top = rise;
         }
     }
     top
+}
+/// Inside this (radii) a vent's summit is a basin, its crater or caldera (`c` the caldera's radius there): no
+/// apron or ridge piles into it.
+fn basin_of(a: &Volcano, c: f64) -> f64 {
+    match a.summit.as_str() {
+        "caldera" => c,
+        "crater" => crater_of(a.radius, a.height).0,
+        _ => 0.0,
+    }
 }
 #[allow(dead_code)]
 #[derive(Clone, Copy)]
@@ -10690,6 +10735,8 @@ struct EField {
     along: f64,
     vent: Point,
     vent_distance: f64,
+    /// Its distance from the line or the vent (tiles).
+    d: f64,
 }
 impl Volcano {
     fn proto(m: &Map, s0: &Settings, intent: &Intent) -> Self {
@@ -10698,18 +10745,29 @@ impl Volcano {
         let y = (origin / m.w) as f64;
         let p = n(s0, "power") / 100.0;
         let summit = summit(s0).to_string();
-        let radius = vent_radius(s0);
+        let radius = vent_radius(s0, m.w.min(m.h) as f64);
         let fissure = s(s0, "mode") == "fissure";
-        let legacy = fissure || summit == "caldera";
-        let height = (2.0 + 18.0 * p)
-            * (if legacy {
-                (if s(s0, "shape") == "broad" { 0.7 } else { 1.0 })
-                    * (if fissure { 0.75 } else { 1.0 })
-            } else if s(s0, "shape") == "broad" {
-                0.55
-            } else {
-                1.42
-            });
+        let broad = s(s0, "shape") == "broad";
+        let height = if fissure {
+            (2.0 + 18.0 * p) * (if broad { 0.7 } else { 1.0 }) * 0.75
+        } else {
+            min((2.0 + 18.0 * p) * (if broad { 0.9 } else { 1.42 }), height_cap(s0) * radius)
+        };
+        // (the breach faces the lowest ground round the cone, the seed choosing among the nearly lowest)
+        let mut breach = 0.0;
+        if !fissure {
+            let mut best = f64::INFINITY;
+            for k in 0..16 {
+                let t = k as f64 / 16.0 * PI * 2.0;
+                let gx = clamp(round(x + cos(t) * radius * 1.3), 0.0, m.w as f64 - 1.0) as usize;
+                let gy = clamp(round(y + sin(t) * radius * 1.3), 0.0, m.h as f64 - 1.0) as usize;
+                let score = m.heights[gy * m.w + gx] as f64 + 2.5 * hash(n(s0, "seed"), 960.0 + k as f64);
+                if score < best {
+                    best = score;
+                    breach = t + (hash(n(s0, "seed"), 980.0) - 0.5) * 0.3;
+                }
+            }
+        }
         let mut segments = vec![];
         let mut vents = vec![];
         let mut length = 0.0;
@@ -10761,6 +10819,7 @@ impl Volcano {
             lobes: vec![],
             scale: 1.0,
             ceiling: 22.0,
+            breach,
             asked: None,
             no_room: false,
         };
@@ -10793,9 +10852,19 @@ impl Volcano {
             }
         }
         let theta = atan2(y - cy, x - cx);
-        let edge =
-            1.0 + 0.07 * sin(theta * 3.0 + self.phase) + 0.045 * sin(theta * 5.0 - self.phase);
-        let r = hypot(x - cx, y - cy) / (self.radius * edge);
+        let d = hypot(x - cx, y - cy);
+        let edge = if s(s0, "mode") == "vent" {
+            // (a vent's outline swells and pinches at seeded bearings by up to `ERUPT_LOBING`, its summit round)
+            let seed = n(s0, "seed");
+            let lobe = (0.6 * sin(theta * 2.0 + hash(seed, 970.0) * PI * 2.0)
+                + 0.55 * sin(theta * 3.0 + hash(seed, 971.0) * PI * 2.0)
+                + 0.3 * sin(theta * 5.0 + hash(seed, 972.0) * PI * 2.0))
+                / 1.45;
+            1.0 + ERUPT_LOBING * smooth(d / (self.radius * 0.55)) * lobe
+        } else {
+            1.0 + 0.07 * sin(theta * 3.0 + self.phase) + 0.045 * sin(theta * 5.0 - self.phase)
+        };
+        let r = d / (self.radius * edge);
         let wave = if s(s0, "mode") == "vent" {
             theta * (6.0 + (hash(n(s0, "seed"), 20.0) * 4.0).floor()) + self.phase + r * 0.9
         } else {
@@ -10820,7 +10889,43 @@ impl Volcano {
             along,
             vent,
             vent_distance: nearest,
+            d,
         }
+    }
+    /// A vent's cone at a point (its share of the height, 1 at its rim or peak): its crater or caldera (with
+    /// its scalloped rim and the small cone off its floor's centre) and its breach.
+    fn vent_shape(&self, s0: &Settings, f: &EField) -> f64 {
+        let seed = n(s0, "seed");
+        let c = caldera_at(seed, f.theta);
+        let mut p = vent_radial(s0, &self.summit, f.r, self.radius, self.height, c);
+        let (dx, dy) = (f.d * cos(f.theta), f.d * sin(f.theta));
+        if self.summit == "caldera" {
+            // (a small cone on the caldera's floor, off its centre, below its rim)
+            let t = hash(seed, 990.0) * PI * 2.0;
+            let (ox, oy) = (cos(t) * self.radius * 0.1, sin(t) * self.radius * 0.1);
+            let rc = max(2.5, self.radius * 0.12);
+            let dd = hypot(dx - ox, dy - oy);
+            if dd < rc {
+                p = max(p, 0.6 + 0.3 * pow(1.0 - dd / rc, 1.4));
+            }
+        }
+        // (the breach: a valley from the summit out through the flank, widening outward; its floor falls from
+        // the crater's to the foot)
+        let rel = f.theta - self.breach;
+        let along = f.d * cos(rel);
+        if along > 0.0 {
+            let lateral = (f.d * sin(rel)).abs();
+            let half = max(1.6, self.radius * (0.08 + 0.14 * min(1.0, along / self.radius)));
+            let wb = 1.0 - smooth((lateral - half * 0.5) / (half * 0.5));
+            let (floor, share) = match self.summit.as_str() {
+                "caldera" => (0.6, 1.0),
+                "crater" => (1.0 - crater_of(self.radius, self.height).2, 1.0),
+                _ => (0.72, 0.7),
+            };
+            let pf = floor * pow(max(0.0, 1.0 - along / (self.radius * 1.05)), 1.15);
+            p -= share * wb * max(0.0, p - pf);
+        }
+        p
     }
     fn raise(
         &self,
@@ -10836,7 +10941,7 @@ impl Volcano {
         let local = m.heights[round(f.cy) as usize * m.w + round(f.cx) as usize] as f64;
         let vent = s(s0, "mode") == "vent";
         let datum = if vent { self.datum } else { local };
-        let mut p = profile(s0, &self.summit, r, !vent);
+        let mut p = if vent { self.vent_shape(s0, &f) } else { profile(s0, r) };
         if !vent {
             let bowl = 1.0 - smooth(f.vent_distance / max(2.4, self.radius * 0.19));
             p = max(
@@ -10867,8 +10972,9 @@ impl Volcano {
             1.0
         };
         let (reach, thick) = apron(s0);
+        // (a vent's apron is its flows, a thin skirt between them: never a round plateau)
         let lobed = if vent && !self.lobes.is_empty() {
-            0.7 + 0.3 * min(1.0, flows[i] as f64 / 1.1)
+            0.2 + 0.8 * min(1.0, flows[i] as f64 / 1.1)
         } else {
             1.0
         };
@@ -10887,23 +10993,15 @@ impl Volcano {
             } else {
                 flows[i] as f64
                     * (0.7 + n(s0, "power") * 0.013)
-                    * smooth((r - if self.summit == "caldera" { 0.6 } else { 0.19 }) / 0.2)
-                    * (1.0 - smooth((r - reach * 0.7) / (reach * 0.3)))
+                    * smooth((r - ridge_start(self)) / 0.2)
+                    * (1.0 - smooth((r - 0.75) / 0.35))
             }) * k
                 * flows_here
         } else {
             0.0
         };
         let mut target = max(max(h, cone), h + apron) + ridge;
-        if vent
-            && r < if self.summit == "caldera" {
-                0.6
-            } else if self.summit == "crater" {
-                0.19
-            } else {
-                0.0
-            }
-        {
+        if vent && r < basin_of(self, caldera_at(n(s0, "seed"), f.theta)) {
             target = max(h, cone);
         }
         target
@@ -10932,13 +11030,7 @@ impl Volcano {
         let vent = s(s0, "mode") == "vent";
         if vent {
             let basin = self.summit == "caldera" || self.summit == "crater";
-            let peak = if self.summit == "caldera" {
-                0.34
-            } else if self.summit == "crater" {
-                profile(s0, "crater", 0.0, false)
-            } else {
-                1.0
-            };
+            let peak = self.vent_shape(s0, &self.field(s0, self.x, self.y));
             let apron = if basin { 0.0 } else { apron(s0).1 };
             if keep
                 .get(self.y as usize * m.w + self.x as usize)
@@ -11061,14 +11153,14 @@ impl Volcano {
         if s0.size.is_none() {
             let mut top = 0.0;
             for k in 0..=650 {
-                top = max(top, profile(s0, &a.summit, k as f64 / 500.0, false));
+                top = max(top, vent_radial(s0, &a.summit, k as f64 / 500.0, a.radius, a.height, 0.29));
             }
             let edge = top - 0.5 / max(0.5, a.height);
             let mut widest = 0.0;
             let mut from = -1.0;
             for k in 0..=650 {
                 let r = k as f64 / 500.0;
-                let at = profile(s0, &a.summit, r, false) >= edge;
+                let at = vent_radial(s0, &a.summit, r, a.radius, a.height, 0.29) >= edge;
                 if at && from < 0.0 {
                     from = r;
                 }
@@ -11082,7 +11174,7 @@ impl Volcano {
                 min(
                     min(1.25, 1.0 / portable_math::sqrt(k)),
                     if widest > 0.0 {
-                        3.0 / (a.radius * widest)
+                        (3.0 + if a.summit == "peak" { 1.6 } else { 0.0 }) / (a.radius * widest)
                     } else {
                         1.25
                     },
@@ -11091,10 +11183,12 @@ impl Volcano {
             a.radius *= broad;
             a.lobes = lava_lobes(m, &a, n(s0, "seed"), s(s0, "flows") == "heavy");
         }
+        // (never taller than its cap allows, however it was fitted)
+        a.height = min(a.height, height_cap(s0) * a.radius);
         a
     }
     fn value(&self) -> V {
-        let mut v = json!({"x":self.x,"y":self.y,"datum":self.datum,"radius":self.radius,"height":self.height,"summit":self.summit,"phase":self.phase,"segments":self.segments.iter().map(Segment::value).collect::<Vec<_>>(),"vents":self.vents.iter().map(Point::value).collect::<Vec<_>>(),"length":self.length,"lobes":self.lobes.iter().map(Lobe::value).collect::<Vec<_>>(),"scale":self.scale,"ceiling":self.ceiling});
+        let mut v = json!({"x":self.x,"y":self.y,"datum":self.datum,"radius":self.radius,"height":self.height,"summit":self.summit,"phase":self.phase,"segments":self.segments.iter().map(Segment::value).collect::<Vec<_>>(),"vents":self.vents.iter().map(Point::value).collect::<Vec<_>>(),"length":self.length,"lobes":self.lobes.iter().map(Lobe::value).collect::<Vec<_>>(),"scale":self.scale,"ceiling":self.ceiling,"breach":self.breach});
         if let Some(p) = self.asked {
             v["asked"] = p.value();
         }
@@ -11124,6 +11218,38 @@ fn eruption(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u
     let mut flattened = 0;
     let mut erased = 0;
     let mut hard = 0;
+    // The volcano's own surface at each tile, real-valued (NaN where it leaves the ground alone): it becomes
+    // land in one step shared by the forces (levels.rs), its slopes benches of uneven width rather than rings
+    // of one-level steps, no one-tile pillar or pit. It stands on the land as it was.
+    let ceiling = min(22.0, m.ceiling);
+    let mut surface = vec![f64::NAN; m.w * m.h];
+    let ground: Vec<f64> = before.heights.iter().map(|&l| l as f64).collect();
+    let vent = s(s0, "mode") == "vent";
+    let seed = n(s0, "seed");
+    let grain = max(6.0, a.radius * 0.33);
+    // The ladder of its benches (levels above its base): from its summit down in faces of 2 to 4 levels, the
+    // seed choosing each, to a last bench a level or two up (its apron and flows); below its base (a vent's
+    // flank on lower ground) on down the same way.
+    let top = round(a.height);
+    // (a low cone's faces are a level or two, so its top stays a summit)
+    let face = |k: f64| if top <= 6.0 { 1.0 + (hash(seed, 1000.0 + k) * 1.6).floor() } else { 2.0 + (hash(seed, 1000.0 + k) * 2.2).floor() };
+    let mut ladder = vec![];
+    let mut rung = top;
+    let mut k = 0.0;
+    while rung > 0.0 {
+        ladder.push(rung);
+        rung -= face(k);
+        k += 1.0;
+    }
+    if ladder.last().map_or(true, |&r| r >= 3.0) {
+        ladder.push(1.0);
+    }
+    let mut rung = 0.0;
+    while rung > -24.0 {
+        ladder.push(rung);
+        rung -= face(k);
+        k += 1.0;
+    }
     for y in 0..m.h {
         for x in 0..m.w {
             let i = y * m.w + x;
@@ -11136,73 +11262,67 @@ fn eruption(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u
                 continue;
             }
             let k = if bound != 0.0 {
-                min(
-                    1.0,
-                    max(
-                        0.0,
-                        a.ceiling
-                            - before.heights[round(f.cy) as usize * m.w + round(f.cx) as usize]
-                                as f64,
-                    ) / bound,
-                )
+                min(1.0, max(0.0, a.ceiling - before.heights[round(f.cy) as usize * m.w + round(f.cx) as usize] as f64) / bound)
             } else {
                 a.scale
             };
-            let mut target = a.raise(before, s0, &flows, f, i, h, k);
-            target = tempered(h, target, strength);
-            target = clamp(
-                round(round(target * 4096.0) / 4096.0),
-                0.0,
-                min(22.0, m.ceiling),
-            );
-            m.heights[i] = target as u8;
-            if target != h {
-                changed += 1;
-                raised += target - h;
-                for z in h as u32..target as u32 {
-                    m.lava[i] |= 1u32.wrapping_shl(z);
-                }
-                hard += 1;
+            let target = tempered(h, a.raise(before, s0, &flows, f, i, h, k), strength);
+            let rise = target - h;
+            // (a fissure's rampart goes to the shared stage as it is: its plates)
+            if vent && rise > 1.5 {
+                // (benches: the rise above its base cut at the ladder's rungs, the bench edges warped so they
+                // are neither concentric nor even; a thin edge, its apron and flows, as it is)
+                let base = a.datum;
+                let z = target - base;
+                let warp = ((levels::lumps(seed, 4410, x as f64, y as f64, max(8.0, a.radius * 0.5)) - 0.5) * 3.0
+                    + (levels::lumps(seed, 4420, x as f64, y as f64, 3.5) - 0.5) * 0.8)
+                    * smooth((top - z) / 4.0)
+                    * min(1.0, (rise - 1.5) / 2.5);
+                let bench = ladder.iter().copied().filter(|&r| r <= z + warp + 0.35).fold(-24.0, max);
+                surface[i] = max(h + 1.0, base + bench);
+            } else if rise > 0.05 {
+                surface[i] = target;
             }
         }
     }
-    for _pass in 0..2 {
-        for y in 1..m.h - 1 {
-            for x in 1..m.w - 1 {
-                let i = y * m.w + x;
-                if m.heights[i] == before.heights[i] || keep[i] != 0 {
-                    continue;
-                }
-                if a.vents
-                    .iter()
-                    .any(|v| hypot(x as f64 - v.x, y as f64 - v.y) < max(2.5, a.radius * 0.15))
-                {
-                    continue;
-                }
-                let ns = [
-                    m.heights[i - 1],
-                    m.heights[i + 1],
-                    m.heights[i - m.w],
-                    m.heights[i + m.w],
-                ];
-                let lo = *ns.iter().min().unwrap();
-                let hi = *ns.iter().max().unwrap();
-                let mut v = m.heights[i];
-                if v > hi {
-                    v = hi;
-                } else if v < lo && hypot(x as f64 - a.x, y as f64 - a.y) > a.radius * 0.19 * 1.2 {
-                    v = lo;
-                }
-                if v == m.heights[i] {
-                    continue;
-                }
-                v = v.max(before.heights[i]);
-                m.heights[i] = v;
-                m.lava[i] &= if v >= 31 { u32::MAX } else { mask(v) };
-                for z in before.heights[i]..v {
-                    m.lava[i] |= 1u32.wrapping_shl(z as u32);
-                }
+    // (the ground right round what it shapes: its own level, so the last step may tidy it with the volcano's)
+    let rim: Vec<usize> = (0..m.w * m.h)
+        .filter(|&i| {
+            let (x, y) = (i % m.w, i / m.w);
+            surface[i].is_nan() && keep[i] == 0 && [(x > 0, i.wrapping_sub(1)), (x + 1 < m.w, i + 1), (y > 0, i.wrapping_sub(m.w)), (y + 1 < m.h, i + m.w)].iter().any(|&(on, j)| on && !surface[j].is_nan())
+        })
+        .collect();
+    for i in rim {
+        surface[i] = before.heights[i] as f64;
+    }
+    let land = levels::whole(&surface, &ground, &before.heights, m.w, m.h, ceiling, seed, grain);
+    for i in 0..m.w * m.h {
+        // (an eruption only adds: what the benching would take from the land stays; and the tidying never fills
+        // a notch of the land's own more than a level over what the volcano raises there)
+        let cap = if surface[i].is_nan() { before.heights[i] } else { clamp(surface[i].ceil() + 1.0, 0.0, 255.0) as u8 };
+        m.heights[i] = land[i].min(cap.max(before.heights[i])).max(before.heights[i]);
+    }
+    // (a tile the cap left a one-tile pit in what the volcano raised rises to the lowest beside it)
+    let capped = m.heights.clone();
+    for i in 0..m.w * m.h {
+        let (x, y) = (i % m.w, i / m.w);
+        if surface[i].is_nan() || x == 0 || y == 0 || x + 1 == m.w || y + 1 == m.h || capped[i] == land[i] {
+            continue;
+        }
+        let low = capped[i - 1].min(capped[i + 1]).min(capped[i - m.w]).min(capped[i + m.w]);
+        if capped[i] < low {
+            m.heights[i] = low.min(land[i]);
+        }
+    }
+    for i in 0..m.w * m.h {
+        let (h, v) = (before.heights[i], m.heights[i]);
+        if v != h {
+            changed += 1;
+            raised += (v - h) as f64;
+            for z in h as u32..v as u32 {
+                m.lava[i] |= 1u32.wrapping_shl(z);
             }
+            hard += 1;
         }
     }
     for f in &mut m.fallen {
