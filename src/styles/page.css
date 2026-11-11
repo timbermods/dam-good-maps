@@ -699,6 +699,30 @@
   font-size: 0.8rem;
 }
 
+/* the land's shares (Show's Land): a name and its number a line, plain: dry land is no fault */
+.land-shares {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.land-shares .land-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.land-shares dt {
+  color: color-mix(in srgb, var(--ink) 84%, transparent);
+}
+
+.land-shares dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .legend-panel .key-caption {
   margin: 0 0 6px;
   padding-bottom: 6px;
