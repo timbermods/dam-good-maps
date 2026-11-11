@@ -264,7 +264,7 @@ export function useShelf(ed: Ed): ShelfSlice {
       const move = () =>
         void run(
           // (the level aimed at under a roof; else the tile's top, which also brings a start out from under one: D491)
-          () => api.moveStartTo(x, y, o, level ?? mirror.current.heights[y * info.W + x]),
+          (w) => w.moveStartTo(x, y, o, level ?? mirror.current.heights[y * info.W + x]),
           (u) => {
             if (!u.ok) return;
             feel("place", cx, cy, 1, false, "StartingLocation");
@@ -288,7 +288,7 @@ export function useShelf(ed: Ed): ShelfSlice {
     // (a water object, an unstable core or a reserve carries the options set in its window: the core writes them as the game does)
     const components = hasOptions(template) ? placeComponents(template, objectOptionsOf(shelfOptionsRef.current, template)) : undefined;
     void run(
-      () => api.applyTool({ tool: "entity", template, x: cx, y: cy, orientation: o, ...(level !== undefined ? { z: level } : {}), ...(components ? { components } : {}) }, newId()),
+      (w) => w.applyTool({ tool: "entity", template, x: cx, y: cy, orientation: o, ...(level !== undefined ? { z: level } : {}), ...(components ? { components } : {}) }, newId()),
       (u) => {
         if (!u.ok) return;
         feel("place", cx, cy, 1, false, template);
@@ -333,7 +333,7 @@ export function useShelf(ed: Ed): ShelfSlice {
     };
     void run(
       // (a stroke begun on a cave's floor or under an overhang plants at that floor; the core refuses it where nothing fits: D491)
-      () => api.paintAt(params, aimed),
+      (w) => w.paintAt(params, aimed),
       (u) => {
         const planted = (u as SessionUpdate & { planted?: number[] }).planted ?? [];
         if (!u.ok || !planted.length) return;
@@ -390,7 +390,7 @@ export function useShelf(ed: Ed): ShelfSlice {
     if (!to) return;
     if (shown?.key === `${from}|${to}` && shown.problem) return flashNote(stairWord(shown.problem));
     void run(
-      () => api.layStair(from, to),
+      (w) => w.layStair(from, to),
       (u) => {
         if (!u.ok) return;
         feel("place", to[0], to[1], 1, false, "Slope");

@@ -65,7 +65,7 @@ export function useRows(ed: Ed): RowsSlice {
     for (const [k, v] of Object.entries(patch)) components[k] = { ...((o.components[k] as object | undefined) ?? {}), ...(v as object) };
     setPickedObject({ ...o, components });
     const op = setOptionsOp(o.id, o.template, o.components, c);
-    void run(() => api.applyStep(op, describeChange(o.template, before, { ...before, ...c }), `options:${o.id}`));
+    void run((w) => w.applyStep(op, describeChange(o.template, before, { ...before, ...c }), `options:${o.id}`));
   }
   /** A picked source's water (clean or bad) or strength changed. */
   function changeSource(e: EntityInfo, c: { kind?: "clean" | "bad"; strength?: number }) {
@@ -80,7 +80,7 @@ export function useRows(ed: Ed): RowsSlice {
       const req = sourceRequest({ ...optionsRef.current, sourceBad: bad, sourceStrength: Math.min(8, s0), badwaterStrength: s0 }, cx, cy);
       const place: EditOp = { op: "placeEntity", params: { id: newId(), template: req.template, x: req.x, y: req.y, orientation: req.orientation, ...(req.components ? { components: req.components } : {}) } };
       void run(
-        () => api.applyAll([{ op: "deleteEntities", params: { entities: [e.id] } }, place], bad ? "Make a source badwater" : "Make a source clean"),
+        (w) => w.applyAll([{ op: "deleteEntities", params: { entities: [e.id] } }, place], bad ? "Make a source badwater" : "Make a source clean"),
         (u) => {
           if (!u.ok) return;
           pickTile(cx, cy);
@@ -96,7 +96,7 @@ export function useRows(ed: Ed): RowsSlice {
     const name = e.template === "BadwaterSource" ? "Badwater source" : "Water source";
     liveStrength(e, v);
     void run(
-      () => api.applyStep(op, `${name}: ${v} water/s`, `strength:${e.id}`),
+      (w) => w.applyStep(op, `${name}: ${v} water/s`, `strength:${e.id}`),
       (u) => {
         if (u.ok) pickTile(at[0], at[1]);
       },
@@ -134,7 +134,7 @@ export function useRows(ed: Ed): RowsSlice {
                 {...tip("Delete it", "Delete")}
                 onClick={() => {
                   setPickedObject(null);
-                  void run(() => api.applyAll([{ op: "deleteEntities", params: { entities: [o.id] } }], `Remove ${withArticle(itemName(o.template))}`));
+                  void run((w) => w.applyAll([{ op: "deleteEntities", params: { entities: [o.id] } }], `Remove ${withArticle(itemName(o.template))}`));
                 }}
               >
                 Delete

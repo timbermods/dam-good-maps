@@ -20,7 +20,7 @@ export function useRemoveSources(ed: Ed): RemoveSourcesSlice {
   function removeSources(list: EntityInfo[]) {
     const bad = list.every((e) => e.template === "BadwaterSource");
     void run(
-      () => api.apply({ op: "deleteEntities", params: { entities: list.map((e) => e.id) } }, "user", list.length > 1 ? `Remove ${list.length} sources` : bad ? "Remove a badwater source" : "Remove a water source"),
+      (w) => w.apply({ op: "deleteEntities", params: { entities: list.map((e) => e.id) } }, "user", list.length > 1 ? `Remove ${list.length} sources` : bad ? "Remove a badwater source" : "Remove a water source"),
       (u) => {
         if (!u.ok) return;
         setPicked(null);
