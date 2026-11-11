@@ -55,8 +55,9 @@ function CaptionRow({ color, children }: { color: readonly number[]; children: s
   );
 }
 
-/** What the water layer on the map shows: each colour as a swatch with its name. */
-export function LayerLegend({ kind, layers }: { kind: LayerKind; layers: WaterLayers }) {
+/** What the water layer on the map shows: each colour as a swatch with its name; under Irrigation's, why the dry ground
+ *  under the pointer is dry (`why`: said here, not in the readout, so turning the view on moves nothing). */
+export function LayerLegend({ kind, layers, why }: { kind: LayerKind; layers: WaterLayers; why?: string | null }) {
   return (
     <div class="layer-legend" role="status">
       {kind === "badwater" ? (
@@ -68,6 +69,7 @@ export function LayerLegend({ kind, layers }: { kind: LayerKind; layers: WaterLa
         <>
           <CaptionRow color={LAYER_COLORS.near}>Dry: one level or six tiles short of water</CaptionRow>
           <CaptionRow color={LAYER_COLORS.dry}>Dry for good</CaptionRow>
+          {why ? <p class="layer-why">Here: {why}</p> : null}
         </>
       ) : kind === "roofed" ? (
         layers.roofed.length ? (

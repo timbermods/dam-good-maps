@@ -87,7 +87,7 @@ export function hideObjectsButton(ed: Ed) {
 /** The water overlay's caption while one is on (Badwater, Irrigation, Caves and overhangs), for the key under the Show column. */
 export function layerCaption(ed: Ed) {
   const { waterLayers, layer } = ed;
-  const overlay = layer !== "none" && waterLayers ? <LayerLegend kind={layer} layers={waterLayers} /> : null;
+  const overlay = layer !== "none" && waterLayers ? <LayerLegend kind={layer} layers={waterLayers} why={ed.dryWhy} /> : null;
   const land = ed.landReadout();
   if (!overlay && !land) return null;
   return (
@@ -135,6 +135,7 @@ export function hoverHandler(ed: Ed) {
     const read = seen ?? hit;
     ed.lastHover.current = read ? { x: read.x, y: read.y, level: seen?.level } : null;
     setHover(read ? ed.hoverWordsAt(read.x, read.y, seen?.level) : null);
+    ed.setDryWhy(read ? ed.dryWhyAt(read.x, read.y, seen?.level) : null);
     // (the sources by the ground seen too: a cave's water under the cut lights its sources, a roof over it none)
     hoverSources(read);
     // the source the pointer targets, whatever tool is picked (D249)
