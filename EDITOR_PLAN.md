@@ -254,7 +254,7 @@ place of its bottom rule.
   keys only in tooltips.
   - Select: How to select's six shapes on the tools' cells, icon above name; "Drag on the map" beside them, or with a
     selection its size (and Max water depth with Apply over water), then its Level and its actions on the second
-    row, one per cell (Up 1, Down 1, Flatten, Cut down, Fill up, Delete). After them on the second row: Max water depth (two cells), Apply, and **Lake level**
+    row, one per cell (Up 1, Down 1, Flatten, Cut down, Fill up, Delete). After them on the second row: Max water depth (three cells: its name is wider than two on a system font), Apply, and **Lake level**
     (two cells; §5, "Lakes by number"), live once the Wand has taken water. No close button: Esc or X closes it. The first row
     ends with **Crop** (the map becomes the selection's bounding rectangle, D340; one cell, the size's words take two),
     **Fill water** (the hollow under the selection's lowest ground filled with standing water to the brim, the highest

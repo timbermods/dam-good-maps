@@ -732,8 +732,8 @@ export function useSelect(ed: Ed): SelectSlice {
       {
         key: "crop",
         row: 2,
-        at: 14,
-        span: 2,
+        at: 15,
+        span: 1,
         node: (
           <div class="set">
             <button type="button" class="set-button" ref={cropGone.current} aria-disabled={cropWhy() ? "true" : undefined} {...tip("Crop the map to the selection")} onMouseEnter={previewCrop} onFocus={previewCrop} onMouseLeave={endCropHint} onBlur={endCropHint} onClick={cropMap}>
@@ -800,15 +800,15 @@ export function useSelect(ed: Ed): SelectSlice {
         key: "depth",
         row: 2,
         at: 9,
-        span: 2,
+        span: 3,
         node: <NumberSetting label="Max water depth" title="The deepest the water may be" value={depth} min={1} max={Math.max(1, deepest)} step={1} disabled={!deep} onChange={(v) => setMaxDepth(v)} />,
       },
-      { key: "apply", row: 2, at: 11, span: 1, node: <ButtonSetting label="Apply" title="Make the water no deeper than this" disabled={!deep} onClick={() => selectAction("depth", depth)} /> },
+      { key: "apply", row: 2, at: 12, span: 1, node: <ButtonSetting label="Apply" title="Make the water no deeper than this" disabled={!deep} onClick={() => selectAction("depth", depth)} /> },
       // Lakes by number: the Wand on water takes a lake, and this is its level; a new one cuts or raises its sill
       {
         key: "lake",
         row: 2,
-        at: 12,
+        at: 13,
         span: 2,
         node: (
           <HeldNumberSetting
