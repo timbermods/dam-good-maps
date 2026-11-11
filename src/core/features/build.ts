@@ -673,7 +673,10 @@ function terrainStage(input: BuildInput, prev: BuildCache | null, fields: FieldC
     heights[i] = locked && locked.mask[i] ? locked.heights[i] : base ? base.heights[i] : field ? field.heights[i] : 2;
     protect[i] = 0;
     channel[i] = 0;
+    // (and the land the strokes left, worked out again with them: a tile no stroke presses keeps none, so peers and a
+    // fresh build hold the same cache whatever builds came before)
     worn[i] = 0;
+    left[i] = 0;
   });
   // 2. landforms, in document order
   for (const f of input.features) if (f.kind === "landform" && live(f) && !carved(f)) rasterizeLandform(f, t);
