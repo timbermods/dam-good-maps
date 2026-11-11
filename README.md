@@ -71,6 +71,8 @@ The editor:
 - The objects at the bottom right place things: **Start**, **Water source**, **Badwater source**, trees,
   bushes, ruins and more. Pick one, then click the map. Green means it fits; red says why not.
 - R turns the object, and Esc puts it back. Drag with a tree or bush to plant a grove.
+- Drag with **Ruin** to lay a line of ruined piers. Their tops are level, so they stand tall across low ground.
+  **Spacing** and **Break** set how far apart they are and how many are missing.
 - A new source's water flows at once. The window above the objects sets its strength.
 - Over a placed source, Ctrl+scroll sets its strength. Drag it to move it. Click it to change or
   remove it.
@@ -87,7 +89,7 @@ The editor:
 - A brush over water clears the water around it, so you see the bed. **See-through** (T) clears all
   of it.
 - Tick what to show at the top left: **Heights**, **Lines**, **Markers**, **Flow**, **See-through**,
-  **Badwater**, **Land** and **Legend**. **Land** shows how much of the map is water, moist ground and dry ground,
+  **Badwater**, **Land** and **Legend**. **Land** shows how much of the map is water, moist ground, dry ground and spoiled ground,
   and its living trees and logs. **Top-down**, **Reset view** and **Sound** are at the top right.
 - Alt+scroll hides the levels above a layer, as in the game. Alt+click jumps to a tile's layer.
 - Ctrl+Shift+1 to 9 keeps the view; Alt+1 to 9 goes back to it.

@@ -1,5 +1,6 @@
 // The top bar's rows: the source picked, the shelf item's options and the force's rows.
 
+import { RUIN_LINE_BREAK, RUIN_LINE_SPACING } from "../../core/doc/ruinLineLimits";
 import type { ComponentChildren } from "preact";
 import type { EditOp } from "../../core/doc/ops";
 import type { EntityInfo } from "../../worker/session";
@@ -282,6 +283,41 @@ export function useRows(ed: Ed): RowsSlice {
                 words={`${shelfOptions.ruinHeight} ${shelfOptions.ruinHeight === 1 ? "level" : "levels"}`}
                 tipText="How tall the ruin is"
                 onInput={(v) => setShelfOptions({ ...shelfOptions, ruinHeight: v })}
+              />
+            ),
+          },
+          // a drag lays a ruin line (core/doc/ruinLine.ts): its piers' spacing and how much of it is missing
+          {
+            key: "spacing",
+            label: "Spacing",
+            value: `${shelfOptions.ruinSpacing} ${shelfOptions.ruinSpacing === 1 ? "tile" : "tiles"}`,
+            node: (
+              <ObjectSlider
+                label="Spacing"
+                min={RUIN_LINE_SPACING.min}
+                max={RUIN_LINE_SPACING.max}
+                step={1}
+                value={shelfOptions.ruinSpacing}
+                words={`${shelfOptions.ruinSpacing} ${shelfOptions.ruinSpacing === 1 ? "tile" : "tiles"}`}
+                tipText="How far apart a dragged line's piers stand"
+                onInput={(v) => setShelfOptions({ ...shelfOptions, ruinSpacing: v })}
+              />
+            ),
+          },
+          {
+            key: "break",
+            label: "Break",
+            value: `${Math.round(shelfOptions.ruinBreak * 100)}%`,
+            node: (
+              <ObjectSlider
+                label="Break"
+                min={0}
+                max={RUIN_LINE_BREAK.max * 100}
+                step={10}
+                value={Math.round(shelfOptions.ruinBreak * 100)}
+                words={`${Math.round(shelfOptions.ruinBreak * 100)}%`}
+                tipText="How much of a dragged line is missing"
+                onInput={(v) => setShelfOptions({ ...shelfOptions, ruinBreak: v / 100 })}
               />
             ),
           },
