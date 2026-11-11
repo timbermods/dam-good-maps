@@ -36,6 +36,7 @@ import { objectsIn } from "../core/doc/inArea";
 import { markerNotes, type MarkerNote } from "../core/doc/objectOps";
 import { fillLevel, planFill, unfedWater } from "../core/doc/waterEdits";
 import { applyLakeLevel, planLakeLevel, type LakeLevelPlan } from "../core/doc/lakeLevel";
+import { applyLeat, planLeat, type LeatPlan } from "../core/doc/leat";
 import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
 import { bakeLandforms } from "../core/doc/bake";
@@ -1888,6 +1889,8 @@ export const planned = {
   fill: (x: number, y: number, level: number) => planFill(need(), x, y, level),
   /** Lakes by number: the sill that holds the lake at (x, y) at `level`, confirmed by the settle, or why not. */
   lakeLevel: (x: number, y: number, level: number, width?: number) => planLakeLevel(need(), x, y, level, width),
+  /** A leat along a path: its bed and banks, or why not. */
+  leat: (path: [number, number][], width: number, depth: number, open: boolean) => planLeat(need(), path, width, depth, open),
   /** Every tile of the map (Clear everything removes the objects on all of them). */
   everything: (): number[] => Array.from({ length: need().size.x * need().size.y }, (_, i) => i),
 };
@@ -2429,6 +2432,22 @@ export function fillAt(x: number, y: number, level: number, floor?: number | nul
   const p = planFill(s, x, y, level, floor);
   if (!p.op) return changed(s, false, [p.reason ?? "nothing to fill"], t0);
   const r = s.apply(p.op, "user");
+  return changed(s, r.ok, r.errors, t0);
+}
+
+/** A leat: what a channel along `path` would change (its bed's tiles and its raised banks', each with its level, and the
+ *  bed's level at its two ends), or the plain reason it can't be made (core/doc/leat.ts `planLeat`). Reads the map only;
+ *  no settle. */
+export function leatPlanAt(path: [number, number][], width: number, depth: number, open: boolean): Omit<LeatPlan, "op"> {
+  const { op: _op, ...plan } = planLeat(need(), path, width, depth, open);
+  return plan;
+}
+
+/** Make the leat along `path`: one undo step (core/doc/leat.ts `applyLeat`). */
+export function leatAt(path: [number, number][], width: number, depth: number, open: boolean): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const r = applyLeat(s, path, width, depth, open);
   return changed(s, r.ok, r.errors, t0);
 }
 

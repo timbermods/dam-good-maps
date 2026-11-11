@@ -16,6 +16,7 @@ import type { ForceCue } from "../core/forces/runs";
 import type { Verb } from "../core/forces/op";
 import { EVERY_KIND } from "../core/doc/remove";
 import { lakeLevelLabel } from "../core/doc/lakeLevel";
+import { leatLabel } from "../core/doc/leat";
 import { collabApi } from "./collab";
 import * as ed from "./session";
 
@@ -94,6 +95,13 @@ export const collabEditApi = {
     const p = ed.planned.lakeLevel(x, y, level, width);
     if (!p.op) return Promise.resolve(ed.collabAnswer(false, [p.reason ?? "the lake's level can't be set"]));
     return order({ kind: "select", ops: [p.op], label: lakeLevelLabel(p.op.params) });
+  },
+
+  /** Make a leat along `path`: one step as a Select action, or the plain reason it can't be made. */
+  leatAt(path: [number, number][], width: number, depth: number, open: boolean): Promise<Answer> {
+    const p = ed.planned.leat(path, width, depth, open);
+    if (!p.op) return Promise.resolve(ed.collabAnswer(false, [p.reason ?? "the leat can't be made"]));
+    return order({ kind: "select", ops: [p.op], label: leatLabel(p.op.params) });
   },
 
   async removeAt(tiles: readonly number[], kinds: readonly ed.RemoveKind[], label?: string, cut?: number | null): Promise<Answer & { removed: number[] }> {

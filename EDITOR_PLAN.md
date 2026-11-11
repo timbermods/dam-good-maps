@@ -1150,6 +1150,18 @@ Make a valley, drop a source, and there's a river.
   roughly how long it will last; it is refused with a plain reason when the hollow doesn't hold water at that
   level. Each is one undo step. Their engine and questions are in the core; where they sit in the page is agreed
   with the page session (D388).
+- **The leat** (a channel that leads water; MAPCRAFT's "lead water"): a path from where the water is to where it should
+  go becomes a bed of a set **width** (1 to 6) and **depth** (1 to 3). The bed lies that deep under the land and falls
+  with it from its start to its end, never rising again: a rise in the land is cut through, up to three levels deeper
+  than the depth; a higher one is refused with one line that says where ("the land rises 4 levels above the leat's fall
+  at X 39 · Y 30: it can't keep falling there"). Beside the bed, land lower than the water would stand in it (the bed's
+  level and the depth) is raised as a bank, so the channel holds what runs in it; its two ends stay open. **Open** starts
+  it in the water at its start (there the bed leaves from the water's level); **Dry** leaves the first tile of its line
+  standing, for the player or a blockage to open later. It leaves a source's ground and a cave's or an overhang's as they
+  are (refused, saying where). One undo step; the objects on it ride its ground. The core's `leat` operation
+  (`core/doc/leat.ts` `planLeat`, `applyLeat`; its tiles stored with their levels and checked again by the engine, as a
+  lake's sill's are), the worker's `leatPlanAt` and `leatAt`, and the MCP server's `apply` (only `path` needed). Its
+  control on the page waits on where it lives: the bar's cells are full.
 - **Lakes by number** (showcase craft, gap 19): pick a lake, type its level, and its sill is cut down or raised so the
   lake holds there: its water stands from the level up to under a level above it (the head of its river over the
   sill), as the hover readout's "Water at level 7.4" reads level 7. A sill higher than the level gets a notch cut down
