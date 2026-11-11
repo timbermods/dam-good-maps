@@ -694,8 +694,10 @@ const BAY_END = [3.2, 4.8] as const;
 const BAY_ROOT = 7;
 
 /** The dry ground a start needs within its walk (`START.near`), as a multiple of the level land its checks ask for: a
- *  share of it climbs off its meadow. */
-const MEADOW_ROOM = 2.2;
+ *  share of it climbs off its meadow. At 2.2, half the frames under 300 tiles of room fell short of their level land
+ *  on the relief (seeds 1 to 12 at 128²), each costing its attempt's siting; at 2.65 one frame in forty that held is
+ *  drawn again instead, at a layout's cost (the speed step). */
+const MEADOW_ROOM = 2.65;
 
 /** How far a lake's water reaches past its spine's outline once stage 1 lays it on its ground, about. */
 const MEADOW_SHORE = 3;
