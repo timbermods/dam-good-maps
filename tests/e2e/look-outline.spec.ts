@@ -30,7 +30,9 @@ test("the contamination outline shows only with Markers, and follows the soil", 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  // (seed 1 since generator 0.10.16's ground with grade, D148: seed 4242's contaminated ground has no dry tile beside clean
+  // ground of its height)
+  await openEditor(page, "s=1&z=96&d=n&t=riverValley");
 
   // a dry, contaminated tile beside clean ground of the same height, seen from above, close
   const at = await page.evaluate(() => {

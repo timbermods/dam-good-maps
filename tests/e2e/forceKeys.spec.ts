@@ -42,9 +42,14 @@ async function spot(page: Page): Promise<[number, number]> {
         return document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
       };
       const out: string[] = [];
-      for (let y = 20; y < m.H - 20; y += 2)
-        for (let x = 20; x < m.W - 20; x += 2) {
+      // (26 tiles in from the edge, so the drawn gesture's ends stay 14 in, since generator 0.10.16's ground with grade, D148:
+      // the best spot became (20, 20), where a painted Lift drawn from 8 tiles in shows no marker)
+      for (let y = 26; y < m.H - 26; y += 2)
+        for (let x = 26; x < m.W - 26; x += 2) {
           if (m.surface.depth[y * m.W + x] > 0) continue;
+          // (the drawn gesture's three points dry too, since generator 0.10.16's ground with grade, D148: on the new land the
+          // first spot's stroke began over water, where a force shows no ring)
+          if ([[-12, -4], [0, 6], [12, -2]].some(([dx, dy]) => m.surface.depth[(y + dy) * m.W + x + dx] > 0)) continue;
           if (![[0, 0], [-14, 0], [14, 0], [0, -14], [0, 14], [14, 14], [-14, -14]].every(([dx, dy]) => onMap(x + dx, y + dy))) continue;
           out.push(`${x},${y}`);
         }

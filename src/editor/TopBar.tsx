@@ -7,6 +7,9 @@
 // Flatten's Steps. A walkable edge is the shelf's Slope (D247, D322). Level lines are a view switch (D248). While a
 // force is at work the other tools wait.
 
+import { CANAL_MAX_DEPTH, CANAL_MAX_WIDTH } from "../core/doc/canalLimits";
+import { LAKE_MAX_DEPTH } from "../core/doc/lakeLimits";
+import { RIDGE_MAX_HEIGHT, RIDGE_MAX_WIDTH, RIDGE_MIN_HEIGHT, RIDGE_MIN_WIDTH, type RidgeSteep } from "../core/doc/ridgeLimits";
 import { createContext, type ComponentChildren } from "preact";
 import { useContext, useLayoutEffect, useRef } from "preact/hooks";
 import { FirstRunSizer } from "./FirstRun";
@@ -16,7 +19,7 @@ import { BRUSHES, hasTarget, type BrushMode, type BrushSettings, type BrushTool,
 import { BRUSH_MAX_LEVEL, BRUSH_SIZE_MIN } from "../core/features/raster/brush";
 import { forcesShownIn } from "./release";
 import { tip } from "../ui/Tooltip";
-import { ChoiceSetting, NumberSetting, SettingsGrid, type Group } from "./settings";
+import { ChoiceSetting, HeldNumberSetting, NumberSetting, SettingsGrid, Words, type Group } from "./settings";
 import type { Verb } from "../core/forces/op";
 import { BLOCK_SIZE_MAX, BLOCK_SIZE_MIN } from "../core/doc/blockTool";
 import type { BlockSettings } from "./block/blockTool";
@@ -236,6 +239,8 @@ export interface TopBarProps {
   hints?: ComponentChildren;
   /** The messages (the editor's and the page's), centred above the hints and the settings: never over the bar. */
   notes?: ComponentChildren;
+  /** The Lake's outline drawn last touches water, which fills it (its row says so). */
+  lakeFed?: boolean;
 }
 
 /** The forces' Floor (D321, item 40): one level every force that digs keeps to, set in any force's settings and
@@ -265,7 +270,7 @@ const FOLLOWS: Record<"raise" | "lower" | "flatten", string> = { raise: "+1", lo
 
 /** The brushes' settings on the bar's cells: Size, Level (Raise, Lower, Flatten) or Strength (Smooth, Naturalize),
  *  Mode; Sources, Brush, and Flatten's Steps. */
-function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushSettings>) => void, sizeMax: number, lastLevel: { current: number }): Group[] {
+function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushSettings>) => void, sizeMax: number, lastLevel: { current: number }, lakeFed: boolean): Group[] {
   const size: Group = {
     key: "size",
     row: 1,
@@ -341,25 +346,96 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
       />
     ),
   };
-  const shape = s.square ? "square" : s.straight ? "straight" : "round";
+  // Lower's fourth Brush choice, Canal (planning, 2026-11-11): a drag draws a line and the core cuts a bed that leads
+  // water along it; its row is Width, Depth and how it starts, with the Brush choice across the second row
+  // Lower's fifth, Lake: a drag draws an outline and the core digs a basin inside it; its row is Level, Depth and what
+  // fills it
+  // Raise's fourth, Ridge (planning, 2026-11-11): a drag draws a line and the core raises high ground along it; its row
+  // is Height, Width and the steep side, the same way
+  const canal = t === "lower" && s.canal;
+  const lake = t === "lower" && s.lake && !canal;
+  const ridge = t === "raise" && s.ridge;
+  const wide = canal || lake || ridge;
+  const shape = canal ? "canal" : lake ? "lake" : ridge ? "ridge" : s.square ? "square" : s.straight ? "straight" : "round";
   const brush: Group = {
     key: "brush",
     row: 2,
-    at: 5,
-    span: flatten ? 5 : 9,
+    at: wide ? 1 : 5,
+    span: wide ? 13 : flatten ? 5 : 9,
     node: (
-      <ChoiceSetting<"round" | "square" | "straight">
+      <ChoiceSetting<"round" | "square" | "straight" | "canal" | "lake" | "ridge">
         label="Brush"
         value={shape}
         options={[
           ["round", "Round", "A round brush"],
           ["square", "Square", "A square brush"],
           ["straight", "Lines", "Draw straight lines"],
+          ...(t === "lower"
+            ? ([
+                ["canal", "Canal", "Draw a channel that leads water"],
+                ["lake", "Lake", "Draw a lake's outline to dig its basin"],
+              ] as const)
+            : []),
+          ...(t === "raise" ? [["ridge", "Ridge", "Draw a ridge of high ground"] as const] : []),
         ]}
-        onChange={(v) => set({ square: v === "square", straight: v === "straight" })}
+        onChange={(v) => set({ square: v === "square", straight: v === "straight", ...(t === "lower" ? { canal: v === "canal", lake: v === "lake" } : {}), ...(t === "raise" ? { ridge: v === "ridge" } : {}) })}
       />
     ),
   };
+  if (canal)
+    return [
+      { key: "width", row: 1, at: 1, span: 4, node: <NumberSetting label="Width" title="How wide the canal's bed is" value={s.canalWidth} min={1} max={CANAL_MAX_WIDTH} step={1} onChange={(canalWidth) => set({ canalWidth })} /> },
+      { key: "depth", row: 1, at: 5, span: 5, node: <NumberSetting label="Depth" title="How deep the bed lies under the land" value={s.canalDepth} min={1} max={CANAL_MAX_DEPTH} step={1} onChange={(canalDepth) => set({ canalDepth })} /> },
+      {
+        key: "starts",
+        row: 1,
+        at: 10,
+        span: 4,
+        node: (
+          <ChoiceSetting<"open" | "dry">
+            label="Starts"
+            value={s.canalOpen ? "open" : "dry"}
+            options={[
+              ["open", "Open", "It joins the water it starts in"],
+              ["dry", "Dry", "Its first tile stays, to open later"],
+            ]}
+            onChange={(v) => set({ canalOpen: v === "open" })}
+          />
+        ),
+      },
+      brush,
+    ];
+  if (lake)
+    return [
+      { key: "level", row: 1, at: 1, span: 4, node: <HeldNumberSetting label="Level" title="The level the lake's water stands at" keys={["Scroll"]} value={s.lakeLevel} min={2} max={CEILING - 1} step={1} onChange={(lakeLevel) => set({ lakeLevel })} onCommit={(lakeLevel) => set({ lakeLevel })} /> },
+      { key: "depth", row: 1, at: 5, span: 4, node: <NumberSetting label="Depth" title="How deep its channel lies under the water" value={s.lakeDepth} min={1} max={LAKE_MAX_DEPTH} step={1} onChange={(lakeDepth) => set({ lakeDepth })} /> },
+      { key: "fills", row: 1, at: 9, span: 5, centre: true, node: <Words status>{lakeFed ? "The water here fills it" : "Add a source or lead water in"}</Words> },
+      brush,
+    ];
+  if (ridge)
+    return [
+      { key: "height", row: 1, at: 1, span: 4, node: <NumberSetting label="Height" title="How high the crest stands over the land" value={s.ridgeHeight} min={RIDGE_MIN_HEIGHT} max={RIDGE_MAX_HEIGHT} step={1} onChange={(ridgeHeight) => set({ ridgeHeight })} /> },
+      { key: "width", row: 1, at: 5, span: 5, node: <NumberSetting label="Width" title="How wide the ridge is" value={s.ridgeWidth} min={RIDGE_MIN_WIDTH} max={RIDGE_MAX_WIDTH} step={1} onChange={(ridgeWidth) => set({ ridgeWidth })} /> },
+      {
+        key: "steep",
+        row: 1,
+        at: 10,
+        span: 4,
+        node: (
+          <ChoiceSetting<RidgeSteep>
+            label="Steep"
+            value={s.ridgeSteep}
+            options={[
+              ["auto", "Auto", "Steep on the side the drag curves away from"],
+              ["left", "Left", "Steep on the left of the drag"],
+              ["right", "Right", "Steep on the right of the drag"],
+            ]}
+            onChange={(ridgeSteep) => set({ ridgeSteep })}
+          />
+        ),
+      },
+      brush,
+    ];
   const groups = [size, second, mode, sources, brush];
   if (flatten)
     groups.push({
@@ -449,7 +525,7 @@ export function TopBar(p: TopBarProps) {
   const grid = p.block && p.blockSettings ? (
     <SettingsGrid label="Block options" groups={blockGroups(p.blockSettings, setBlock, !!p.blockFlip)} fresh />
   ) : t ? (
-    <SettingsGrid label={`${BRUSHES.find((b) => b.tool === t)!.name} options`} groups={brushGroups(t, s, set, p.sizeMax ?? 24, lastLevel)} />
+    <SettingsGrid label={`${BRUSHES.find((b) => b.tool === t)!.name} options`} groups={brushGroups(t, s, set, p.sizeMax ?? 24, lastLevel, !!p.lakeFed)} />
   ) : p.force && p.forceRow ? (
     p.forceRow
   ) : p.row ? (

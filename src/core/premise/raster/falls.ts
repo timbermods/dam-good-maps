@@ -9,8 +9,8 @@
 // the look). Near square to the grid a lip is one straight run with a step where its line asks for one.
 //
 // The landmark's foot is the first frame's (§4.3): a shelf at its lake's sill, under a third of a level of water, then
-// a row a level deeper, across the lip's whole width and on to its bay, so the fall's water opens to the lake as wide
-// as it falls.
+// on to its bay a level deeper where that stays under 1.2 of water (else at the sill), across the lip's whole width,
+// so the fall's water opens to the lake as wide as it falls and lands on a shelf, never in deep water.
 
 import { HEADING_DIR } from "../geom";
 import { fbm } from "../../math/noise";
@@ -38,6 +38,10 @@ const LIP_GROW = 8;
 const FRONT = 4;
 /** The farthest the landmark's foot runs out from its lip to meet its lake. */
 const FOOT_REACH = 24;
+/** The deepest water the landmark's curtain lands in (§4.3: a shelf, the bay inside the first frame at most 1.2 deep). */
+export const FOOT_SHALLOW = 1.2;
+/** How far out from its lip the curtain lands: the shelf there is whole, the bay's ribbon stopping short of it. */
+const FOOT_LAND = 2.5;
 /** The least drop that pours as a curtain, not a rapid (the fall judge's, fallCurtain.ts `POUR`, 2.5, with the water
  *  over the lip): a notch dropping less goes at the lip's end. */
 const CURTAIN_DROP = 3;
@@ -297,11 +301,14 @@ function rasterFall(
       r.channel[i] = li + 1;
     } else r.lake[i] = low + 1;
     r.pool[i] = li + 1;
+    r.ribbon[i] = 0;
     r.heights[i] = Math.max(0, h);
     r.fixed[i] = 1;
     r.surface[i] = lowLevel;
     return true;
   };
+  // (the landmark's foot: the shelf its curtain lands on, under `FOOT_SHALLOW` of water at its lake's level)
+  const footShelf = low >= 0 ? Math.min(plan.bodies[low].sill, Math.max(plan.bodies[low].sill - 1, Math.ceil(lowLevel - FOOT_SHALLOW - 1e-9))) : 0;
   const halfLip = drawn / 2;
   const deep = Math.max(6.2, D + 1, landmark ? 0 : Math.min(FOOT_REACH, Dbed + 2));
   const halfW = halfLip + 1.8;
@@ -330,11 +337,15 @@ function rasterFall(
       const i = y * W + x;
       if (landmark && low >= 0) {
         if (Math.abs(u) > side || v > reach) continue;
-        // (a shelf at its lake's sill under a third of a level of water, then a level deeper on to the bay)
+        // (a shelf at its lake's sill under a third of a level of water, then on to the bay a level deeper where its
+        // water stays under `FOOT_SHALLOW` (its lake's head over the sill decides), else the sill's: the lake's deeper
+        // floor raised to it, since water three levels deep is near black in the game, §4.3)
         const sill = plan.bodies[low].sill;
-        if (inCol && k === -1) setPool(i, sill);
-        else if (!isLow(i) || r.heights[i] > sill - 1) setPool(i, sill - 1);
-        else if (isLow(i)) r.pool[i] = li + 1;
+        // (but the drowned river's ribbon runs on through the shelf to where the curtain lands, two levels under the
+        // sill: the start's pump water through a drought, bodies.ts)
+        const ribbon = r.ribbon[i] === 1 && v > FOOT_LAND && !(inCol && k === -1);
+        setPool(i, inCol && k === -1 ? sill : ribbon ? Math.min(footShelf, r.heights[i]) : footShelf);
+        if (ribbon) r.ribbon[i] = 1;
       } else {
         const e = hypot(u / halfW, Math.max(0, v) / deep);
         if (e > 1) continue;

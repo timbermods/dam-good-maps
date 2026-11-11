@@ -68,6 +68,24 @@ export function bodyDist(px: number, py: number, body: Pick<Body, "arms">): numb
   return best;
 }
 
+/** Whether every tile of the square of half side `half` round (x, y) stands `gap` or more from every body's outline
+ *  (`bodyDist`). The middle is read first, against every body, since it is the likeliest to fail; a body whose arms'
+ *  centres and widest radius stand further off than the square's corners needs no tile-by-tile look (a capsule
+ *  chain's outline is never nearer than its centres' box less its widest radius). The same answer as reading every
+ *  tile against every body, faster (stage 0's budget, PREMISES §3.3). */
+export function squareClear(x: number, y: number, half: number, gap: number, bodies: readonly Pick<Body, "arms">[]): boolean {
+  for (const b of bodies) if (bodyDist(x, y, b) < gap) return false;
+  for (const b of bodies) {
+    const [x0, y0, x1, y1, r] = boxesOf(b.arms).all;
+    const gx = Math.max(0, x0 - (x + half), x - half - x1);
+    const gy = Math.max(0, y0 - (y + half), y - half - y1);
+    const lim = gap + r;
+    if (gx * gx + gy * gy >= lim * lim) continue;
+    for (let dy = -half; dy <= half; dy++) for (let dx = -half; dx <= half; dx++) if ((dx || dy) && bodyDist(x + dx, y + dy, b) < gap) return false;
+  }
+  return true;
+}
+
 /** Distance from a point to a path, how far along it (tiles from its first point) the nearest point lies. */
 export function pathDist(px: number, py: number, path: readonly Point[]): { d: number; s: number } {
   if (path.length === 1) return { d: dist([px, py], path[0]), s: 0 };
@@ -230,14 +248,31 @@ export function spineGap(p: Spine, q: Spine, bound = Infinity): number {
   return best;
 }
 
-/** Arms' centres' bounding boxes and widest radii, five numbers an arm, written into `boxes` from `at`. */
-let boxes = new Float64Array(80);
-function armBoxes(arms: readonly Spine[], at: number): void {
-  if (boxes.length < (at + arms.length) * 5) {
-    const grown = new Float64Array((at + arms.length) * 10);
-    grown.set(boxes);
-    boxes = grown;
-  }
+/** A body's boxes: each arm's centres' bounding box and widest radius (five numbers an arm), the same for all its
+ *  arms, and the box of its outline (its entries' circles), with the arms they were read from. */
+interface Boxes {
+  arms: readonly Spine[];
+  arm: Float64Array;
+  all: Float64Array;
+  outline: Float64Array;
+}
+const boxCache = new WeakMap<readonly Spine[], Boxes>();
+
+/** Whether two arms lists hold the same spines. */
+function sameArms(a: readonly Spine[], b: readonly Spine[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let k = 0; k < a.length; k++) if (a[k] !== b[k]) return false;
+  return true;
+}
+
+/** A body's boxes, read once for its arms and remembered while they stand (stage 0 measures the same bodies many
+ *  times, §3.3; a lake's arms change while it is laid out, a spine never changes once made). */
+function boxesOf(arms: readonly Spine[]): Boxes {
+  const known = boxCache.get(arms);
+  if (known && sameArms(known.arms, arms)) return known;
+  const arm = new Float64Array(arms.length * 5);
+  const all = new Float64Array([Infinity, Infinity, -Infinity, -Infinity, 0]);
+  const outline = new Float64Array([Infinity, Infinity, -Infinity, -Infinity]);
   for (let i = 0; i < arms.length; i++) {
     let x0 = Infinity;
     let y0 = Infinity;
@@ -250,31 +285,52 @@ function armBoxes(arms: readonly Spine[], at: number): void {
       if (x > x1) x1 = x;
       if (y > y1) y1 = y;
       if (rr > r) r = rr;
+      outline[0] = Math.min(outline[0], x - rr);
+      outline[1] = Math.min(outline[1], y - rr);
+      outline[2] = Math.max(outline[2], x + rr);
+      outline[3] = Math.max(outline[3], y + rr);
     }
-    const k = (at + i) * 5;
-    boxes[k] = x0;
-    boxes[k + 1] = y0;
-    boxes[k + 2] = x1;
-    boxes[k + 3] = y1;
-    boxes[k + 4] = r;
+    const k = i * 5;
+    arm[k] = x0;
+    arm[k + 1] = y0;
+    arm[k + 2] = x1;
+    arm[k + 3] = y1;
+    arm[k + 4] = r;
+    all[0] = Math.min(all[0], x0);
+    all[1] = Math.min(all[1], y0);
+    all[2] = Math.max(all[2], x1);
+    all[3] = Math.max(all[3], y1);
+    all[4] = Math.max(all[4], r);
   }
+  const out = { arms: [...arms], arm, all, outline };
+  boxCache.set(arms, out);
+  return out;
 }
 
-/** The gap between two bodies' outlines (negative where they overlap). */
-export function bodyGap(a: Pick<Body, "arms">, b: Pick<Body, "arms">): number {
-  let best = Infinity;
-  const na = a.arms.length;
-  armBoxes(a.arms, 0);
-  armBoxes(b.arms, na);
-  for (let i = 0; i < na; i++) {
+/** The gap between two bodies' outlines (negative where they overlap). Given `bound`, a gap that cannot come under it
+ *  may come back as `bound` itself: `bodyGap(a, b, x) < x` says the same as `bodyGap(a, b) < x`, faster. */
+export function bodyGap(a: Pick<Body, "arms">, b: Pick<Body, "arms">, bound = Infinity): number {
+  let best = bound;
+  const A = boxesOf(a.arms);
+  const B = boxesOf(b.arms);
+  if (best < Infinity) {
+    // (two bodies whose boxes stand further apart than the bound need no closer look)
+    const gx = Math.max(0, B.all[0] - A.all[2], A.all[0] - B.all[2]);
+    const gy = Math.max(0, B.all[1] - A.all[3], A.all[1] - B.all[3]);
+    const lim = best + A.all[4] + B.all[4];
+    if (lim > 0 && gx * gx + gy * gy >= lim * lim) return best;
+  }
+  const pa = A.arm;
+  const pb = B.arm;
+  for (let i = 0; i < a.arms.length; i++) {
     const p = i * 5;
     for (let j = 0; j < b.arms.length; j++) {
-      const q = (na + j) * 5;
+      const q = j * 5;
       // (an arm pair whose boxes stand further apart than the best so far needs no closer look)
       if (best < Infinity) {
-        const gx = Math.max(0, boxes[q] - boxes[p + 2], boxes[p] - boxes[q + 2]);
-        const gy = Math.max(0, boxes[q + 1] - boxes[p + 3], boxes[p + 1] - boxes[q + 3]);
-        const lim = best + boxes[p + 4] + boxes[q + 4];
+        const gx = Math.max(0, pb[q] - pa[p + 2], pa[p] - pb[q + 2]);
+        const gy = Math.max(0, pb[q + 1] - pa[p + 3], pa[p + 1] - pb[q + 3]);
+        const lim = best + pa[p + 4] + pb[q + 4];
         if (lim > 0 && gx * gx + gy * gy >= lim * lim) continue;
       }
       best = Math.min(best, spineGap(a.arms[i], b.arms[j], best));
@@ -291,25 +347,29 @@ export function edgeGap(body: Pick<Body, "arms">, W: number, H: number): number 
   return best;
 }
 
-/** The nearest a path comes to a body's outline (negative inside it), and how far along the path. */
-export function pathBodyGap(path: readonly Point[], body: Pick<Body, "arms">, from = 0, to = Infinity): number {
-  let best = Infinity;
+/** The nearest a path comes to a body's outline (negative inside it), read a tile at a time along it from `from` to
+ *  `to` tiles. Given `bound`, a gap that cannot come under it may come back as `bound` itself (as `bodyGap`). */
+export function pathBodyGap(path: readonly Point[], body: Pick<Body, "arms">, from = 0, to = Infinity, bound = Infinity): number {
+  let best = bound;
   let run = 0;
-  let x0 = Infinity;
-  let y0 = Infinity;
-  let x1 = -Infinity;
-  let y1 = -Infinity;
-  for (const arm of body.arms)
-    for (const [x, y, r] of arm) {
-      x0 = Math.min(x0, x - r);
-      y0 = Math.min(y0, y - r);
-      x1 = Math.max(x1, x + r);
-      y1 = Math.max(y1, y + r);
-    }
+  const ob = boxesOf(body.arms).outline;
+  const x0 = ob[0];
+  const y0 = ob[1];
+  const x1 = ob[2];
+  const y1 = ob[3];
   for (let k = 0; k + 1 < path.length; k++) {
     const a = path[k];
     const b = path[k + 1];
     const len = dist(a, b);
+    // (a segment whose box stands further from the body's than the best so far needs no tile-by-tile look)
+    if (best > 0 && best < Infinity) {
+      const gx = Math.max(0, x0 - Math.max(a[0], b[0]), Math.min(a[0], b[0]) - x1);
+      const gy = Math.max(0, y0 - Math.max(a[1], b[1]), Math.min(a[1], b[1]) - y1);
+      if (gx * gx + gy * gy >= best * best) {
+        run += len;
+        continue;
+      }
+    }
     const n = Math.max(1, Math.ceil(len));
     for (let i = 0; i <= n; i++) {
       const s = run + (len * i) / n;
@@ -326,9 +386,10 @@ export function pathBodyGap(path: readonly Point[], body: Pick<Body, "arms">, fr
   return best;
 }
 
-/** The nearest two paths come to each other (zero where they cross). */
-export function pathGap(p: readonly Point[], q: readonly Point[]): number {
-  let best = Infinity;
+/** The nearest two paths come to each other (zero where they cross). Given `bound`, a gap that cannot come under it
+ *  may come back as `bound` itself (as `bodyGap`). */
+export function pathGap(p: readonly Point[], q: readonly Point[], bound = Infinity): number {
+  let best = bound;
   for (let i = 0; i + 1 < p.length; i++)
     for (let j = 0; j + 1 < q.length; j++) {
       const a = p[i];
@@ -341,8 +402,23 @@ export function pathGap(p: readonly Point[], q: readonly Point[]): number {
   return best;
 }
 
-/** Points on a body's outline, every `step` tiles round each capsule end, kept where no other arm covers them. */
-export function outlinePoints(body: Pick<Body, "arms">, step = 2): Point[] {
+/** Each arms list's outline points by step, with the arms they were read from (a lake's arms change while stage 0
+ *  lays it out; a spine is never changed once made). */
+const outlines = new WeakMap<readonly Spine[], Map<number, { arms: readonly Spine[]; pts: readonly Point[] }>>();
+
+/** Points on a body's outline, every `step` tiles round each capsule end, kept where no other arm covers them. Read
+ *  once for a body's arms and step, then remembered (stage 0 asks for the same outlines many times, §3.3). */
+export function outlinePoints(body: Pick<Body, "arms">, step = 2): readonly Point[] {
+  let bySteps = outlines.get(body.arms);
+  if (!bySteps) outlines.set(body.arms, (bySteps = new Map()));
+  const known = bySteps.get(step);
+  if (known && sameArms(known.arms, body.arms)) return known.pts;
+  const pts = outlineOf(body, step);
+  bySteps.set(step, { arms: [...body.arms], pts });
+  return pts;
+}
+
+function outlineOf(body: Pick<Body, "arms">, step: number): Point[] {
   const out: Point[] = [];
   for (const arm of body.arms)
     for (const [x, y, r] of arm) {

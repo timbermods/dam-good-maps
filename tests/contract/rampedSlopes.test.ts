@@ -70,7 +70,10 @@ describe("a ramped Flatten lays its own slopes (D270)", () => {
   });
 
   it("kept in the stroke: the build places them, the project replays them exactly; the editor refuses a new ramped stroke (D368 (10)); a stroke from before D270 still asks the planner", async () => {
-    await runGenerate(makeSpec({ seed: 5, theme: "riverValley", size: { x: 96, y: 96 } }));
+    // (seed 4 since generator 0.10.16's ground with grade, D148: seed 5's dry spot, (76, 60), has underground ruins under
+    // the stroke, which ride it level when the page lets go of it (`finish`), a step this test leaves out; seed 4's spot,
+    // (16, 16), has no object under it)
+    await runGenerate(makeSpec({ seed: 4, theme: "riverValley", size: { x: 96, y: 96 } }));
     ed.refine();
     const s0 = MapSession.open(decodeProject(ed.project().bytes));
     const b = s0.built;

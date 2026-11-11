@@ -7,13 +7,49 @@ import { expect, type Locator, type Page } from "@playwright/test";
 /** Open `fragment` (a spec fragment such as "s=4242&z=96&d=n&t=riverValley", with or without its #) and
  *  wait until the editor and the 3D view are ready, hooks `window.dgmEditor` and `window.dgm3d` set.
  *  A page already showing another fragment is left first: a link that only changes the fragment does not
- *  reload the page. */
-export async function openEditor(page: Page, fragment: string, opts: { timeout?: number } = {}): Promise<void> {
+ *  reload the page. The page's background search for a better version of the map is held (`holdVersionSearch`)
+ *  unless `versionSearch` asks for it. */
+export async function openEditor(page: Page, fragment: string, opts: { timeout?: number; versionSearch?: boolean } = {}): Promise<void> {
+  if (!opts.versionSearch) await holdVersionSearch(page);
   const hash = fragment.replace(/^#/, "");
   const here = page.url();
   if (here && here !== "about:blank" && here !== ":") await page.goto("about:blank");
   await page.goto(`./#${hash}`);
   await waitForEditor(page, opts);
+}
+
+const held = new WeakSet<Page>();
+
+/** Hold the page's background search for a version of the map that keeps all it missed (D329), for a spec that is
+ *  not about it: on a map that misses its theme's promise (Highlands 4242 at 96² since generator 0.10.16) its note, "A
+ *  version that keeps its theme's promise is ready", comes up over the map's lower edge whenever the search ends, a
+ *  moment that depends on the machine, and takes the stroke or click a spec makes there (CI run 42974094825); the
+ *  search also takes a core from the spec meanwhile. The search's own worker (named "background") is started as ever
+ *  and answers everything else (a shared session's host makes its maps there); only its `findVersion` call is never
+ *  sent, so the search never ends and no note comes. openVersion.spec.ts opens with `versionSearch: true`. Call it
+ *  before the page loads; it holds on every page `page` loads from then on. */
+export async function holdVersionSearch(page: Page): Promise<void> {
+  if (held.has(page)) return;
+  held.add(page);
+  await page.addInitScript(() => {
+    const w = window as unknown as { __dgmVersionSearchHeld?: boolean };
+    if (w.__dgmVersionSearchHeld) return;
+    w.__dgmVersionSearchHeld = true;
+    const Real = window.Worker;
+    // (comlink's call message: { id, type: "APPLY", path: [method], argumentList })
+    const search = (m: unknown) => !!m && typeof m === "object" && (m as { type?: unknown }).type === "APPLY" && (m as { path?: unknown[] }).path?.[0] === "findVersion";
+    window.Worker = class extends Real {
+      private readonly background: boolean;
+      constructor(url: string | URL, options?: WorkerOptions) {
+        super(url, options);
+        this.background = options?.name === "background";
+      }
+      override postMessage(message: unknown, transfer?: Transferable[] | StructuredSerializeOptions): void {
+        if (this.background && search(message)) return;
+        super.postMessage(message, transfer as Transferable[]);
+      }
+    };
+  });
 }
 
 /** Hold the page's random seed (`randomSeed` in App.tsx: one number from `crypto.getRandomValues`) at `n`, for a spec

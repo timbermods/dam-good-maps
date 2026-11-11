@@ -699,6 +699,12 @@
   font-size: 0.8rem;
 }
 
+/* Irrigation's key, under its colours: why the dry ground under the pointer is dry (here, not in the readout, so the
+   view moves nothing) */
+.layer-legend .layer-why {
+  margin-top: 6px;
+}
+
 /* the land's shares (Show's Land): a name and its number a line, plain: dry land is no fault */
 .land-shares {
   margin: 0;
@@ -901,6 +907,30 @@
 .view3d-corner > .corner-level {
   grid-column: 1;
   display: flex;
+}
+
+/* with First view beside Reset view: three buttons and the compass in the same 310px; the row under them on their
+   columns (D368 (5)): the level control under Top-down, Slow forces under Reset view and First view, the sound under
+   the compass. In Top-down's 83px the level control's arrows are 28px each, so its value keeps 27px for "22" */
+.editor-view .view3d-corner:has(.camera-group.with-first-view) {
+  grid-template-columns: 83px 84px 83px var(--corner-h);
+}
+
+.camera-group.with-first-view > button:not(.compass) {
+  padding: 0 6px;
+}
+
+.view3d-corner:has(.camera-group.with-first-view) .layer-widget button {
+  min-width: 28px;
+  padding: 0;
+}
+
+.view3d-corner:has(.camera-group.with-first-view) > .slow-cell {
+  grid-column: 2 / 4;
+}
+
+.view3d-corner:has(.camera-group.with-first-view) > .sound-cell {
+  grid-column: 4;
 }
 
 /* the level control is one width for every value, ∞ to 22: it fills its track and its value takes what the arrows
@@ -3213,6 +3243,7 @@ input.set-typed:disabled {
 
 .legend-stack > .legend-row {
   margin-left: var(--legend-left, calc(100% - 10px - 310px - 8px - 82px));
+  margin-top: var(--legend-row-top, 0px);
 }
 
 .legend-stack > .legend-panel,
@@ -4393,4 +4424,37 @@ body:has(.checks-list) .show-key {
     position: absolute;
     inset: min(0px, calc((100% - 32px) / 2)) 0;
   }
+}
+
+/* File → Description…: the map's name and its words, one under the other */
+.dialog.describe {
+  width: min(520px, calc(100vw - 32px));
+}
+
+.describe-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 10px;
+  font-size: 0.85rem;
+}
+
+.describe-field input,
+.describe-field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  resize: vertical;
+}
+
+.describe-note,
+.describe-kept,
+.describe-problem {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
 }

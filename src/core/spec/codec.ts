@@ -5,7 +5,7 @@
 // Only the settings that differ from the theme preset at that difficulty and size are written, in
 // a fixed order, so a spec has exactly one fragment. Species weights are four bytes in base64url.
 // The rest of the spec is carried too, when it differs from a fresh spec: the archetype (`a`), the
-// premise (`p`) and the colonies (`c`, reserved for Timber Together, D5). A link written before the
+// premise (`p`: a premise's id or `any`; the settings a premise map leaves out are its preset's) and the colonies (`c`, reserved for Timber Together, D5). A link written before the
 // coherence cleanup may carry requested set pieces (`sp`) and regeneration constraints (`k`): no map
 // ever read them, so they are ignored and the link opens the same map. A share link carries the spec
 // only (D7): it reproduces the generated map, not the player's edits.
@@ -24,10 +24,12 @@ import {
   makeSpec,
   MAX_SIDE,
   MIN_SIDE,
+  PREMISE_CHOICES,
   THEMES,
   woodForTrees,
   type Difficulty,
   type MapSpec,
+  type PremiseChoice,
   type Settings,
   type ThemeId,
 } from "./mapspec";
@@ -156,7 +158,7 @@ export function encodeSpecFragment(spec: MapSpec): string {
   put("t", spec.theme);
   put("z", sizeText(spec.size));
   put("d", DIFF_CODES[spec.designedFor]);
-  const base = defaultSettings(spec.theme, spec.designedFor, spec.size);
+  const base = defaultSettings(spec.theme, spec.designedFor, spec.size, spec.premise);
   // (Highest terrain's default follows Verticality, item 36)
   base.terrain.highestTerrain = highestTerrainDefault(spec.settings.terrain.verticality);
   for (const sk of SETTING_KEYS) {
@@ -238,7 +240,14 @@ export function decodeSpecFragment(fragment: string): DecodedFragment | null {
     if (x >= MIN_SIDE && x <= MAX_SIDE && y >= MIN_SIDE && y <= MAX_SIDE) size = { x, y };
     else problems.push(`size ${z} is outside ${MIN_SIDE}–${MAX_SIDE}`);
   } else problems.push(`bad size "${z}"`);
-  const spec = makeSpec({ seed, size, theme, designedFor });
+  // the premise first: the settings not written are its preset's (`defaultSettings`)
+  const p = params.get("p");
+  let premise: PremiseChoice | undefined;
+  if (p !== undefined) {
+    if ((PREMISE_CHOICES as readonly string[]).includes(p)) premise = p as PremiseChoice;
+    else problems.push(`unknown premise "${p}", so the themes make the map`);
+  }
+  const spec = makeSpec({ seed, size, theme, designedFor, premise });
 
   // settings: each value is checked against the schema on its own, so one bad value never costs
   // the others
@@ -285,8 +294,6 @@ export function decodeSpecFragment(fragment: string): DecodedFragment | null {
     if ((THEMES as readonly string[]).includes(a)) spec.archetype = a as ThemeId;
     else problems.push(`unknown archetype "${a}"`);
   }
-  const p = params.get("p");
-  if (p !== undefined) spec.premise = p;
   const vr = params.get("vr");
   if (vr !== undefined) {
     if (/^\d{1,3}$/.test(vr) && Number(vr) > 0) spec.variation = Number(vr);
