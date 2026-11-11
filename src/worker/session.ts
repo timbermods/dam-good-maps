@@ -283,6 +283,17 @@ function strengthOf(comps: Record<string, unknown>): { strength?: number } {
   return typeof v === "number" ? { strength: v } : {};
 }
 
+/** A reserve's stock, for the view to show as the game does (render3d/reserves.ts): its good (`FixedStockpile`) and
+ *  how much of it it holds (`Inventory:Stockpile`). */
+function stockOf(comps: Record<string, unknown>): { stock?: { good: string; amount: number } } {
+  const fixed = plainJson((comps.FixedStockpile as { FixedGoodId?: unknown } | undefined)?.FixedGoodId);
+  if (typeof fixed !== "string") return {};
+  const goods = plainJson((comps["Inventory:Stockpile"] as { Storage?: { Goods?: unknown } } | undefined)?.Storage?.Goods);
+  let amount = 0;
+  if (Array.isArray(goods)) for (const g of goods as { Good?: unknown; Amount?: unknown }[]) if (g?.Good === fixed && typeof g.Amount === "number") amount += g.Amount;
+  return { stock: { good: fixed, amount } };
+}
+
 /** The objects as the view draws them: every tree upright on its tile, a knocked-down one dead
  *  (D321, item 7: no force leaves a tree leaning). */
 function entityInputs(list: readonly EntitySpec[]) {
@@ -290,7 +301,7 @@ function entityInputs(list: readonly EntitySpec[]) {
   for (const e of list) {
     if (e.raw && !placementOf(e.raw)) continue;
     const comps = componentsOf(e) as Record<string, unknown>;
-    out.push({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, owner: e.owner, flipped: e.flipped, ...lifeOf(comps), ...variantOf(comps), ...strengthOf(comps) });
+    out.push({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, owner: e.owner, flipped: e.flipped, ...lifeOf(comps), ...variantOf(comps), ...strengthOf(comps), ...stockOf(comps) });
   }
   return out;
 }
@@ -439,7 +450,7 @@ let sentEntities: EntityView | null = null;
 
 /** A copy that stays here (the view itself is handed over to the page, its arrays with it). */
 function copyEntityView(v: EntityView): EntityView {
-  return { ...v, templates: [...v.templates], owners: [...v.owners], template: v.template.slice(), x: v.x.slice(), y: v.y.slice(), z: v.z.slice(), orientation: v.orientation.slice(), flags: v.flags.slice(), owner: v.owner.slice(), variant: v.variant.slice(), strength: v.strength.slice(), ids: [...v.ids] };
+  return { ...v, templates: [...v.templates], owners: [...v.owners], template: v.template.slice(), x: v.x.slice(), y: v.y.slice(), z: v.z.slice(), orientation: v.orientation.slice(), flags: v.flags.slice(), owner: v.owner.slice(), variant: v.variant.slice(), strength: v.strength.slice(), ids: [...v.ids], stockGood: v.stockGood?.slice(), stockAmount: v.stockAmount?.slice() };
 }
 
 /** The page has these objects already: every field it reads the same, a source's strength and a ruin's
@@ -451,7 +462,7 @@ function sameEntityView(a: EntityView, b: EntityView | null): boolean {
     for (let i = 0; i < p.length; i++) if (p[i] !== q[i]) return false;
     return true;
   };
-  return eq(a.template, b.template) && eq(a.x, b.x) && eq(a.y, b.y) && eq(a.z, b.z) && eq(a.orientation, b.orientation) && eq(a.flags, b.flags) && eq(a.owner, b.owner) && eq(a.variant, b.variant) && eq(a.strength, b.strength);
+  return eq(a.template, b.template) && eq(a.x, b.x) && eq(a.y, b.y) && eq(a.z, b.z) && eq(a.orientation, b.orientation) && eq(a.flags, b.flags) && eq(a.owner, b.owner) && eq(a.variant, b.variant) && eq(a.strength, b.strength) && eq(a.stockGood ?? [], b.stockGood ?? []) && eq(a.stockAmount ?? [], b.stockAmount ?? []);
 }
 
 function markSent(s: MapSession): void {

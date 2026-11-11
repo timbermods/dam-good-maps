@@ -559,3 +559,33 @@ describe("the large relic's dish casts its shadow", () => {
     expectWhereItFalls(areas, 0.48, 0.38);
   });
 });
+
+describe("the reserves' shadows in Standard's bake", () => {
+  // (it cast none before; a disc over each of its four tiles from its barrel's base to its top, moved toward the
+  // footprint's middle: on the ground it does not stand over, 0.79–1.12 a heading as fitted, 0.94 in all; 0.76–0.92
+  // of the model's shadow under it, IoU 0.74–0.78; moved as far as the core's, 0.3, as wide as it may then be, 0.68 in
+  // all, IoU 0.62)
+  it("the tank casts its barrel's shadow about as large as its model's, where it falls, round the compass", () => {
+    const areas = shadowAreas("ReserveTank", 1, true);
+    const ratios = areas.map(([s, m]) => s / m);
+    const all = areas.reduce((t, [s]) => t + s, 0) / areas.reduce((t, [, m]) => t + m, 0);
+    expect(Math.min(...ratios)).toBeGreaterThan(0.75);
+    expect(Math.max(...ratios)).toBeLessThan(1.15);
+    expect(all).toBeGreaterThan(0.9);
+    expect(all).toBeLessThan(1.0);
+    expectWhereItFalls(areas, 0.72, 0.7);
+    const W = 32;
+    for (const [orientation, sx, sy] of [["Cw0", 1, 1], ["Cw90", 1, -1], ["Cw180", -1, -1]] as const) {
+      const casters = objectCasters(W, W, entityView([{ template: "ReserveTank", x: 10, y: 20, z: 3, orientation, owner: "s" }]))!;
+      const cast = [...casters.keys()].filter((i) => casters[i] > 0).sort((a, b) => a - b);
+      expect(cast).toEqual([0, 1].flatMap((j) => [0, 1].map((i) => (20 + sy * j) * W + 10 + sx * i)).sort((a, b) => a - b));
+    }
+  });
+
+  // (the pile's and the warehouse's walls stand 0.5 and 0.69 high round their floor, their stock no higher than 1.7:
+  // their model's shadow outside the footprint 0.5–1.6 tiles² a heading, a band round a pen whose discs would shade
+  // its own floor and sunlit walls; they cast none, as the small and medium relics)
+  it("the pile and the warehouse cast none", () => {
+    for (const t of ["ReservePile", "ReserveWarehouse"]) expect(objectCasters(24, 24, entityView([{ template: t, x: 10, y: 10, z: 3, orientation: "Cw0", owner: "s" }]))!.every((v) => v === 0)).toBe(true);
+  });
+});
