@@ -12,13 +12,15 @@ import { generate } from "../../src/core/gen/generate";
 import { firstWater } from "../../src/core/premise/draw";
 import { dayOneWater } from "../../src/core/premise/frame";
 import { generatePremise } from "../../src/core/premise/generate";
+import { droughtHold } from "../../src/core/premise/hold";
 import { soilReach } from "../../src/core/premise/ladder";
 import { premiseLand } from "../../src/core/premise/map";
 import { PREMISES } from "../../src/core/premise/premises";
+import { waterByNumber } from "../../src/core/premise/water";
 import { moisture } from "../../src/core/sim/moisture";
 import { decodeSpecFragment, encodeSpecFragment, makeSpec } from "../../src/core/spec/mapspec";
 
-const SHA = "65d23f716989e987f0615444ec5a7ef36bde3e9ce4c2ec38411773536578f41a";
+const SHA = "0082ebe7a2f2c57a64e41b7add7d2f291c93b9c749b1f2690d1fe643c489b846";
 
 describe("The premise mode (§2.2, build step 4)", () => {
   const made = makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "any" });
@@ -74,6 +76,22 @@ describe("The premise mode (§2.2, build step 4)", () => {
     }
     expect(moist).toBeGreaterThan(1000);
     expect(differ).toBe(0);
+  });
+
+  it("keeps its lakes through the difficulty's longest drought: each drops a level, none empties (§4.4 drought.lakes)", () => {
+    const r = generatePremise(made);
+    if ("reason" in r) throw new Error(r.reason);
+    const plan = r.result.info.premise!.plan!;
+    const hold = droughtHold(made, plan, r.result.built, waterByNumber(plan));
+    const lowStart = plan.stair!.startLake === plan.stair!.lakes[0] ? plan.stair!.lakes[0] : null;
+    for (const l of hold.lakes) {
+      if (l.id === plan.stair!.pool) continue;
+      // (most of each lake's water at the worst day; the lowest lake when it is the start's, its ruined weir's breach
+      // a level deep on a bed three deep, about a third: §9)
+      expect(l.worst / l.day0, l.id).toBeGreaterThanOrEqual(l.id === lowStart ? 0.28 : 0.5);
+    }
+    expect(hold.has).toBe(true);
+    expect(hold.gone).toBe(0);
   });
 
   it("hands a spec the premise rules out to the themes, saying why", () => {

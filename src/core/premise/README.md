@@ -37,15 +37,19 @@ control on the page yet).
   closes, the works add up, the skeleton is whole).
 - `geom.ts`: capsule chains, paths and gaps. `diagram.ts`: the water-story diagram (`planSvg`, `planRaster`).
 - `levels.ts`: the water table (§2.2, stage 1): each body's level and each link's flow, width and depth, from the
-  sources down the graph, and the fitted constants `WATER`.
+  sources down the graph, and the fitted constants `WATER`; `HOLD` and `holdDeep`, how deep a lake's floor lies so it
+  keeps most of its water through the difficulty's longest drought (§4.4 `drought.lakes`).
+- `hold.ts` `droughtHold`: that drought run on a built map (`HazardRun`, as the editor's Drought view): each lake's
+  volume at its worst day and the day the start's water goes.
 - `water.ts` `waterByNumber`: stage 1, the plan's water as heights and masks (`raster/field.ts` `WaterRaster`): the
   bodies' beds (`raster/bodies.ts`), the channels and their wander (`raster/channels.ts`), the falls' crests, lips
   and pools (`raster/falls.ts`), the weirs at the heads of channels a body's water splits between
   (`raster/weirs.ts`), the guard and where two waters may touch (`raster/guard.ts`), the rows of Blockages.
   `stageModel` is its water model for a settle.
 - `raster/relief.ts` `reliefBetween`: stage 2, the whole map's ground round stage 1's water (the lower envelope of
-  every water's bowl, rims kept from lower waters, the landmark's upper world, the bypass following the land, dry
-  benches in threes, ridges as crags, `tidy` and the bench-width floor `land/benches.ts`); `badwaterNiches` cuts the
+  every water's bowl, each bowl's distance bounded to its box, rims kept from lower waters, the landmark's upper
+  world, the bypass following the land, the uplands as warped plates each at one level, ridges as crags, `tidy` and
+  the bench-width floor `land/benches.ts`); `badwaterNiches` cuts the
   permanent badwater source's niche beside the gorge.
 - `ladder.ts`: stage 4 (§4.2). `layWorks` lays the works' own ground on stage 2's (each small levee's basin banked,
   a beach at its sill + 1 under a rim; a notch's rock plug when `NOTCH_SHUT` is `"plug"`, D513(3): one switch from
@@ -83,5 +87,6 @@ ground's, the start's and the sources' checks); `premiseWater.heavy.test.ts` (se
 table, each link out of a split within 20 % of the table's flow, no stray water, each fall's curtain by the fall
 judge with the notches open); `premiseMap.test.ts` (quick: seed 1 at 128² from a `p=lakeStair` link through
 `generate`, every blocking check passed and none deferred, its ladder read out, its life inside the budget, its
-`.timber` pinned; `soilReach` equal to
+`.timber` pinned; its lakes through a normal drought, each keeping half or more, the start's lowest lake 28 % or
+more, the start's water every day; `soilReach` equal to
 `sim/moisture.ts`; an ineligible spec gets a reason).

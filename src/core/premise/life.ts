@@ -273,7 +273,7 @@ export function premiseLife(spec: MapSpec, plan: PremisePlan, w: StageWater, lad
   // (a mine site may stand on ground a work would green: it is farmland lost, never a work lost)
   const avoid = keepOff(plan, w, ladder, false);
   for (let i = 0; i < N; i++) if (r.lake[i] || r.channel[i]) avoid[i] = 1;
-  const mines = reachedMines(spec, built, planExtras({ spec, base: built, features, avoid, candidate: 0, attempt }).filter((f) => f.params.kind === "mineSite"), avoid, notes);
+  const mines = reachedMines(spec, built, planExtras({ spec, base: built, features, avoid, candidate: 0, attempt }).filter((f) => f.params.kind === "mineSite"), avoid);
   out.push(...mines);
 
   // the counts, against the budget
@@ -304,7 +304,7 @@ export function premiseLife(spec: MapSpec, plan: PremisePlan, w: StageWater, lad
  *  own reading) moved to level ground beside the start's reach, the farthest first, apart from the others. A lake
  *  stair's start often stands on a meadow walled by the stair's own steps, where the generator's picker, which wants
  *  a margin round each site, finds no room; a site needs only its own footprint level and dry. */
-function reachedMines(spec: MapSpec, b: BuildResult, mines: MapObjectFeature[], avoid: Uint8Array, notes: string[]): MapObjectFeature[] {
+function reachedMines(spec: MapSpec, b: BuildResult, mines: MapObjectFeature[], avoid: Uint8Array): MapObjectFeature[] {
   const { W, H } = b;
   const N = W * H;
   const want = minesWanted(W, H);
@@ -379,8 +379,7 @@ function reachedMines(spec: MapSpec, b: BuildResult, mines: MapObjectFeature[], 
     take(tiles);
   }
   // (a site the colony cannot reach stays where the generator put it when the reach has no room for it: the check
-  // then fails the plan, never silently)
+  // `resources.mine_site` then fails the plan in one line, never silently)
   for (const f of mines) if (out.length < mines.length && !out.includes(f)) out.push(f);
-  if (out.filter((f) => beside(tilesOf(f))).length < want) notes.push(`the start's reach holds level room for ${out.filter((f) => beside(tilesOf(f))).length} of the ${want} mine sites it needs`);
   return out;
 }

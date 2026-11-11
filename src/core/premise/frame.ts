@@ -132,6 +132,9 @@ export const START = {
   /** `frame.water`: the share of the first frame's water at most `shallow` deep. */
   shallowShare: 0.85,
   shallow: 1.2,
+  /** The drowned river's ribbon through the bay (`WaterRaster.ribbon`) stays two levels under its lake's sill, its
+   *  head over that (2.1 to 2.4 deep): the pump's water when a breach sinks the lake a level in a drought. */
+  ribbon: 2.5,
 } as const;
 
 /** The start stage 3 settled on, what it measured there, and why it does not hold, in one line. */
@@ -222,7 +225,8 @@ export function checkFrame(plan: PremisePlan, w: StageWater, heights: Uint8Array
     const outFoot = foot.filter((i) => !inside(i, heights[i] + depth[i], true)).length;
     if (outFoot) return { ...out, reason: `${outFoot} of the landmark's ${foot.length} foot tiles fall outside the first frame` };
     // the frame's water shallow: water three levels deep is near black in the game (§4.3). A body's bed inside the
-    // frame rises to hold its water at most 1.2 deep (a lip's crest and the channels keep theirs)
+    // frame rises to hold its water at most 1.2 deep (a lip's crest and the channels keep theirs), the drowned river's
+    // ribbon through the bay 2.5, the pump's in a drought
     let all = 0;
     let shallow = 0;
     const raise: number[] = [];
@@ -233,11 +237,12 @@ export function checkFrame(plan: PremisePlan, w: StageWater, heights: Uint8Array
       if (!p || Math.abs(p.u) > 1 || Math.abs(p.v) > 1) continue;
       all++;
       let d = depth[i];
-      if (d > START.shallow && w.raster.lake[i] && !w.raster.crest[i]) {
-        raise.push(i, Math.ceil(surface - START.shallow));
-        d = surface - Math.ceil(surface - START.shallow);
+      const most = w.raster.ribbon[i] ? START.ribbon : START.shallow;
+      if (d > most && w.raster.lake[i] && !w.raster.crest[i]) {
+        raise.push(i, Math.ceil(surface - most));
+        d = surface - Math.ceil(surface - most);
       }
-      if (d <= START.shallow + 1e-9) shallow++;
+      if (d <= most + 1e-9) shallow++;
     }
     out.shallow = all ? shallow / all : 1;
     out.raise = raise;

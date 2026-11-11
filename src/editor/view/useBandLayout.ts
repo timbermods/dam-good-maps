@@ -1,7 +1,8 @@
 // The top band lays itself out at any window size (Kyler, 2026-10-04: nothing overlaps at any size, not only at the
 // two designed). The water row sits centred on the window when it fits between the Show row and Legend (each one
 // clear gap away), else as close to the centre as it can; when it can't fit at all it moves to a second line under
-// the band, and Legend's open legend and the panels start under it. Legend centres in the gap between the water row
+// the band, at its right beside the corner's second row, and Legend's open legend starts under it, the panels too where
+// it would meet them (a panel clear of it starts under the band: a laptop's window keeps their room). Legend centres in the gap between the water row
 // and Top-down; with the water row below, it joins the Show row as its last toggle, one toggle gap after its last (Badwater, or Caves and overhangs on a map
 // that has them; Kyler, 2026-10-04), and its open legend hangs under the second line, clear of a panel open at the left. The panels and the open legend are as tall as the room left
 // above the controls under them, and scroll inside only when a window is too short for them (never at 1920×1080 or
@@ -102,18 +103,23 @@ export function useBandLayout(ready: boolean): void {
         // button clear of Top-down)
         left = Math.min(Math.max(v.width / 2 - w / 2, S + GAP), most - L / 2 - GAP - w);
       } else {
-        // a second line under the band, centred, clear of the corner's second row; Legend the Show row's last toggle,
-        // its open legend under the second line, from its left edge, clear of a panel open at the left
+        // a second line under the band at its right, one gap left of the corner's second row, so the two read as one
+        // line and the map's left keeps its room for the panels; Legend the Show row's last toggle, its open legend
+        // under the second line, from its left edge, clear of a panel open at the left
         top = TOP + BAND + UNDER;
-        left = Math.max(TOP, Math.min(v.width / 2 - w / 2, C - GAP - w));
+        left = Math.max(TOP, C - GAP - w);
       }
       const below = top + BAND;
-      const panelTop = below + 10;
+      // (the panels start under the band, or under the second line where the water row there would meet them: a panel
+      // `width` wide is clear of it with one gap between)
+      const panelTopFor = (width: number) => (top === TOP || left >= TOP + width + GAP ? TOP + BAND : below) + 10;
       // the generator's panel takes the shape that fits the room it has (panelFit.ts, the hints stepping aside while it is
       // open); the open legend, beside it at its right, stays clear of the corner and so of the panel, whatever its shape
       const widest = (inBand ? most - LEGEND_W / 2 : C - 8 - LEGEND_W) - GAP - TOP;
-      const shape = chooseShape((width) => roomAbove(TOP, TOP + width, panelTop, pieces), widest);
+      const shape = chooseShape((width) => roomAbove(TOP, TOP + width, panelTopFor(width), pieces), widest);
       setPanelShape(shape);
+      // (every panel at the generator's top: the others are no wider than its shape, so clear wherever it is)
+      const panelTop = panelTopFor(shape.width);
       const panelW = shape.width;
       if (inBand) {
         const centre = Math.min(Math.max((left + w + C) / 2, TOP + panelW + GAP + LEGEND_W / 2), most);
