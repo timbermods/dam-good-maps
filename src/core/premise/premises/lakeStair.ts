@@ -22,7 +22,8 @@ import { FRAME, frameLimit, frameWidthAt, lipInFrame, START } from "../frame";
 import { bodyDist, bodyGap, dist, dist2, segDist, edgeGap, headingOf, norm, outlinePoints, unitAt, pathBodyGap, pathDist, pathGap, pathLength, pointAt, squareClear, subPath } from "../geom";
 import { BODY_GAP, fail, linksFrom, nameOf, OK, PLAN_CHECKS, reach } from "../planChecks";
 import { WATER_CHECKS } from "../waterChecks";
-import type { Body, Edge, Exit, Fall, Invariant, Link, Point, PremiseDef, PremisePlan, Region, Ridge, SetPiece, Source, Spine, StairPlan, Work } from "../types";
+import type { Body, Edge, Exit, Fall, Invariant, Link, Point, PremiseDef, PremisePlan, Region, Ridge, SetPiece, SiteLand, Source, Spine, StairPlan, Work, WorkKind } from "../types";
+import { SiteModel, type Ground, type Wet } from "../siting";
 
 // ------------------------------------------------------------------------------------------------- the ranges
 
@@ -321,6 +322,8 @@ interface Layout {
   spans: [number, number][];
   /** The basins a leat from the springs' pool fills. */
   poolBasins: Set<string>;
+  /** Stage 0's second pass: the skeleton's land and day 1's soil the side network is sited on (`siteSide`). */
+  site?: SiteModel;
 }
 
 /** A channel's path stays clear of every body but its own ends, of other channels and of the start. */
@@ -1098,7 +1101,10 @@ function placeTarns(L: Layout): string | null {
       const sill = groundSill(b);
       const keep = plan.bodies.length;
       addTarn(b, "spring", sill);
-      if (runToEdge(b)) placed = true;
+      if (runToEdge(b)) {
+        placed = true;
+        (L.stair.rims ??= []).push(b.id);
+      }
       else {
         plan.bodies.length = keep;
         tarns.pop();
@@ -1585,6 +1591,521 @@ function layout(spec: MapSpec, attempt: number, t: number, n: number, holds: (pl
   return last;
 }
 
+// ------------------------------------------------------------------------------------------------- the works sited
+
+/** Draws of stage 0's second pass, each from its own stream: a side network that falls short is drawn again. */
+const SITE_TRIES = 3;
+const DBG = !!(globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env.SITE_DEBUG;
+/** Side-body candidates weighed for each body placed (the first that pass the arithmetic checks), and how many of the
+ *  best by their feed's estimate are weighed whole (levee and dam too). */
+const SITE_CANDIDATES = 10;
+const SITE_WHOLE = 3;
+/** The small and medium works' ranges at 192² (§4.2), scaled by area. */
+const GIVES = { notch: [430, 570], damToPond: [270, 470], levee: [260, 340], leat: [1000, 1500] } as const;
+/** How far a dam's pond backs up its bed, tiles (`ladder.ts` `POND_REACH`). */
+const POND_BACK = 14;
+/** Empty basins' beach and its crag (`raster/relief.ts` `BASIN`), and a brook's and a leat's meadow (`MEADOW`). */
+const BEACH = 3;
+const BROOK_MEADOW = 12;
+const LEAT_MEADOW = 10;
+
+/** The kinds of works that stand on the side network, drawn again by the second pass. */
+const SIDE_KINDS: ReadonlySet<WorkKind> = new Set(["notch", "damToPond", "leat"]);
+const isSide = (w: Work) => SIDE_KINDS.has(w.kind) || (w.kind === "levee" && w.rung !== "first");
+
+/** The skeleton (`PremiseDef.skeleton`): the plan without its side network, the water day 1 has whatever the works
+ *  do: every side body but the rim tarns, the links to and from them and the rim tarns' dry beds, their exits,
+ *  sources and names, and the works on them. */
+function skeletonOf(plan: PremisePlan): PremisePlan {
+  const p = JSON.parse(JSON.stringify(plan)) as PremisePlan;
+  const rims = new Set(p.stair?.rims ?? []);
+  const side = new Set(p.bodies.filter((b) => (b.kind === "tarn" || b.kind === "basin") && !rims.has(b.id)).map((b) => b.id));
+  const gone = new Set(p.links.filter((l) => side.has(l.from) || side.has(l.to) || (rims.has(l.from) && !l.wet)).map((l) => l.id));
+  for (const id of [...side, ...gone]) delete p.names[id];
+  p.bodies = p.bodies.filter((b) => !side.has(b.id));
+  p.links = p.links.filter((l) => !gone.has(l.id));
+  p.exits = p.exits.filter((e) => p.links.some((l) => l.to === e.id));
+  p.sources = p.sources.filter((s) => !side.has(s.into));
+  p.works = p.works.filter((w) => !isSide(w));
+  delete p.notes;
+  return p;
+}
+
+/** A body's tiles out to `out` past its outline: [tile, signed distance]. */
+function bodyTiles(b: Body, W: number, out: number): [number, number][] {
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const arm of b.arms)
+    for (const [x, y, r] of arm) {
+      x0 = Math.min(x0, x - r - out);
+      y0 = Math.min(y0, y - r - out);
+      x1 = Math.max(x1, x + r + out);
+      y1 = Math.max(y1, y + r + out);
+    }
+  const res: [number, number][] = [];
+  for (let y = Math.max(0, Math.floor(y0)); y <= Math.min(W - 1, Math.ceil(y1)); y++)
+    for (let x = Math.max(0, Math.floor(x0)); x <= Math.min(W - 1, Math.ceil(x1)); x++) {
+      const d = bodyDist(x + 0.5, y + 0.5, b);
+      if (d <= out) res.push([y * W + x, d]);
+    }
+  return res;
+}
+
+/** A path's tiles within `half` of its line: [tile, distance along, distance across]. */
+function pathTiles(path: readonly Point[], W: number, half: number): [number, number, number][] {
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const [x, y] of path) {
+    x0 = Math.min(x0, x - half - 1);
+    y0 = Math.min(y0, y - half - 1);
+    x1 = Math.max(x1, x + half + 1);
+    y1 = Math.max(y1, y + half + 1);
+  }
+  const res: [number, number, number][] = [];
+  for (let y = Math.max(0, Math.floor(y0)); y <= Math.min(W - 1, Math.ceil(y1)); y++)
+    for (let x = Math.max(0, Math.floor(x0)); x <= Math.min(W - 1, Math.ceil(x1)); x++) {
+      const { d, s } = pathDist(x + 0.5, y + 0.5, path);
+      if (d <= half) res.push([y * W + x, s, d]);
+    }
+  return res;
+}
+
+/** A bed's stage 1 level `s` along a straight path of length `len` from `hi` to `lo`, a whole level at a time
+ *  (`raster/channels.ts` `bedAt`). */
+function stepBed(hi: number, lo: number, s: number, len: number): number {
+  const t = len > 0 ? Math.max(0, Math.min(1, s / len)) : 1;
+  return hi >= lo ? Math.max(lo, hi - Math.floor(t * (hi - lo + 0.999))) : Math.min(lo, hi + Math.floor(t * (lo - hi + 0.999)));
+}
+
+/** An empty basin at sill `s` as stages 2 and 4 lay it (§4.2): its floor, a beach at its sill + 1 within `BEACH` tiles
+ *  (lower land kept lower, but for the ring beside its water), a crag of two past it; its water filled (ceiled at
+ *  `s + 1`), and as its levee holds it (`s + 2`, over the beach, its bank a level over the beach). */
+function basinPiece(M: SiteModel, b: Body, s: number, ground: Ground, fill: Wet, held?: Wet): void {
+  for (const [i, d] of bodyTiles(b, M.W, 7)) {
+    if (d < 0) {
+      ground.set(i, s - 1);
+      fill.set(i, s + 1);
+      held?.set(i, s + 2);
+      continue;
+    }
+    const h = M.at(i, ground);
+    if (d < BEACH) {
+      const v = d < 1.5 ? s + 1 : Math.min(h, s + 1);
+      ground.set(i, v);
+      if (v <= s + 1) held?.set(i, s + 2);
+    } else ground.set(i, d < BEACH + 1 && h <= s + 1 ? s + 2 : Math.min(h, s + 3));
+  }
+}
+
+/** A leat as stages 1 and 2 lay it: its bed a tile wide falling a level at a time from `hi` to `lo`, its meadow
+ *  (`LEAT_MEADOW` tiles at bed + 1) beside it, its water ceiled a level over its bed. */
+function leatPiece(M: SiteModel, path: readonly Point[], hi: number, lo: number, ends: Body[], ground: Ground, wet: Wet): void {
+  const len = pathLength(path);
+  for (const [i, s, d] of pathTiles(path, M.W, LEAT_MEADOW)) {
+    const x = i % M.W;
+    const y = (i - x) / M.W;
+    if (ends.some((b) => bodyDist(x + 0.5, y + 0.5, b) < 0.5)) continue;
+    const bed = stepBed(hi, lo, s, len);
+    if (d <= 0.75) {
+      ground.set(i, bed);
+      wet.set(i, bed + 1);
+    } else ground.set(i, Math.min(M.at(i, ground), bed + 1));
+  }
+}
+
+/** A dry brook (a notch's bed, a basin's spill) as stages 1 and 2 lay it: its valley floor at its stage 1 bed + 2,
+ *  `BROOK_MEADOW` tiles out; its bed two under the lowest land within 3 tiles, never rising, never under its end, a
+ *  level over the lake it falls into but for its last 3 tiles (`raster/relief.ts` `followLand`); its thread of water
+ *  ceiled a level over its bed, a tile either side of its line. Its bed a tile at a time along it, and its thread's
+ *  tiles with their distance along. */
+function brookPiece(M: SiteModel, path: readonly Point[], hi: number, lo: number, into: boolean, ends: Body[], ground: Ground, wet: Wet): { bed: number[]; thread: [number, number][] } {
+  const W = M.W;
+  const len = pathLength(path);
+  const tiles = pathTiles(path, W, BROOK_MEADOW).filter(([i]) => {
+    const x = i % W;
+    const y = (i - x) / W;
+    return !ends.some((b) => bodyDist(x + 0.5, y + 0.5, b) < 0.5);
+  });
+  const inBed = new Set<number>();
+  for (const [i, s, d] of tiles) {
+    if (d <= 1.6) inBed.add(i);
+    else ground.set(i, Math.min(M.at(i, ground), stepBed(hi, lo, s, len) + 2));
+  }
+  const bins = Math.floor(len) + 2;
+  const want = new Array<number>(bins).fill(Infinity);
+  for (const [i, s, d] of tiles) {
+    if (d > 1.6) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    let low = Infinity;
+    for (let dy = -3; dy <= 3; dy++)
+      for (let dx = -3; dx <= 3; dx++) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= W) continue;
+        const j = yy * W + xx;
+        if (inBed.has(j) || M.soil[j] === 2) continue;
+        low = Math.min(low, M.at(j, ground));
+      }
+    const b = Math.max(0, Math.floor(s));
+    want[b] = Math.min(want[b], stepBed(hi, lo, s, len), Math.floor(low) - 2);
+  }
+  let run = Infinity;
+  for (let b = 0; b < bins; b++) {
+    if (b > 2 && want[b] < run) run = want[b];
+    want[b] = Math.max(into && b < len - 3 ? lo + 1 : lo, Math.min(stepBed(hi, lo, b, len), run));
+  }
+  const thread: [number, number][] = [];
+  for (const [i, s, d] of tiles) {
+    if (d > 1.6) continue;
+    const bed = want[Math.max(0, Math.floor(s))];
+    ground.set(i, bed);
+    if (d <= 1) {
+      wet.set(i, bed + 1);
+      thread.push([i, s]);
+    }
+  }
+  return { bed: want, thread };
+}
+
+/** The water a dam at `at` tiles along a dry bed holds: its bed upstream at the dam's level, `POND_BACK` tiles at most,
+ *  ceiled a level over the dam's crest (the bed + 1). */
+function pondAt(bed: readonly number[], thread: readonly [number, number][], at: number): Wet {
+  const b = bed[Math.max(0, Math.floor(at))];
+  const pond: Wet = new Map();
+  for (const [i, s] of thread) if (s < at && s >= at - POND_BACK && bed[Math.max(0, Math.floor(s))] <= b) pond.set(i, b + 2);
+  return pond;
+}
+
+const union = (...ws: Wet[]): Wet => {
+  const out: Wet = new Map();
+  for (const w of ws) for (const [i, v] of w) out.set(i, Math.max(out.get(i) ?? -Infinity, v));
+  return out;
+};
+
+/** How far an estimate stands from a range's middle (0 in its middle, rising either way), and whether it is in it. */
+const missOf = (v: number, r: readonly [number, number]) => Math.abs(Math.log((v + 1) / ((r[0] + r[1]) / 2 + 1)));
+const inside = (v: number, r: readonly [number, number]) => v >= r[0] && v <= r[1];
+
+/** Stage 0's second pass (`siting.ts`): the side network drawn on the skeleton's land, each work where its water
+ *  reaches ground day 1 leaves dry. Each empty basin is placed with its feed (a leat), its spill and the levee and
+ *  dam on it as one chain, weighed by the soil's reach of each work's water on the land as its templates lay it
+ *  (`SiteModel.gain`); each spring tarn's notch bed goes where its thread's gain comes nearest its range, its dam
+ *  likewise. A small work no site brings inside its range is dropped, its reason in `plan.notes`; a ladder that then
+ *  lacks a kind or its count is drawn again. */
+function siteSide(L: Layout): string | null {
+  const { rng, plan, W } = L;
+  const M = L.site!;
+  const A = areaRatio(W, W);
+  const range = (k: keyof typeof GIVES): [number, number] => [Math.round(GIVES[k][0] * A), Math.round(GIVES[k][1] * A)];
+  const R = { notch: range("notch"), damToPond: range("damToPond"), levee: range("levee"), leat: range("leat") };
+  const notes: string[] = [];
+  const st = plan.stair!;
+  const s0: Point = [plan.frame.start.x, plan.frame.start.y];
+  const bypassAll = plan.links.find((l) => l.id === "bypass")!.path!;
+  const bypass = subPath(bypassAll, 25, pathLength(bypassAll));
+  const lakeGap = (b: Body) => Math.min(...L.lakes.map((k) => bodyGap(k, b)));
+  const used = Object.values(plan.names);
+  const tarnWords = rng.shuffle(TARN_WORDS.filter((w) => !used.some((n) => n.startsWith(`${w} `))));
+  const others = () => plan.links.filter((l) => l.path).map((l) => l.path!);
+  const pc: Point = [L.pool.arms[0][0][0], L.pool.arms[0][0][1]];
+  const rims = (st.rims ?? []).map((id) => plan.bodies.find((b) => b.id === id)!).filter(Boolean);
+  const tarns: Body[] = [...rims];
+  let tarnN = 1 + Math.max(-1, ...plan.bodies.filter((b) => /^tarn\d+$/.test(b.id)).map((b) => Number(b.id.slice(4))));
+  let wn = 1 + Math.max(-1, ...plan.works.map((w) => Number(w.id.slice(1))));
+  const side: Work[] = [];
+  const work = (w: Omit<Work, "id">): Work => {
+    const full = { id: `w${wn++}`, ...w };
+    side.push(full);
+    return full;
+  };
+  const gated = () => plan.links.filter((l) => l.gates.length).length;
+  const sideGap = (o: Body, pool: boolean) => (pool ? 6 : o.kind === "lake" || o.kind === "pool" ? o.meadow + GREEN_PAST : o.dry ? 6 : SPRING_GREEN);
+  /** A side body's place: near a point (the pool, the start) or anywhere on the wet side, clear of every body, path,
+   *  ridge and the start, standing on no water day 1 has. */
+  const candidate = (near: Point | null, pool: boolean): Body | null => {
+    for (let t = 0; t < 60; t++) {
+      const r = rng.range(3.5, 6);
+      const p: Point = near ? [near[0] + rng.range(-42, 42), near[1] + rng.range(-42, 42)] : [rng.range(8, W - 8), rng.range(8, W - 8)];
+      const u = unitAt(rng.int(0, 64));
+      const len = rng.range(4, 8);
+      const q: Point = [p[0] + u[0] * len, p[1] + u[1] * len];
+      const b: Body = { id: "", kind: "basin", sill: 0, arms: [[[r1(p[0]), r1(p[1]), r1(r)], [r1(q[0]), r1(q[1]), r1(r * 0.8)]]], meadow: 0, deep: 2, dry: true, region: "wet" };
+      if (edgeGap(b, W, W) < lakeEdge(W)) continue;
+      if (dist2(p, s0) < (r + 16) * (r + 16)) continue;
+      if (plan.bodies.some((o) => bodyGap(o, b, sideGap(o, pool)) < sideGap(o, pool))) continue;
+      if (others().some((o) => pathGap(o, b.arms[0].map(([x, y]) => [x, y] as Point), r + 5) < r + 5)) continue;
+      if (plan.ridges.some((rd) => pathGap(rd.path, b.arms[0].map(([x, y]) => [x, y] as Point), rd.half + r + 3) < rd.half + r + 3)) continue;
+      if (!pool && pathDist(p[0], p[1], bypass).d < lakeGap(b) + 4) continue;
+      if (bodyTiles(b, W, 2).some(([i]) => M.soil[i] === 2)) continue;
+      return b;
+    }
+    return null;
+  };
+  /** The land round a body: the commonest level 1 to 4 tiles past its outline. */
+  const levelAround = (b: Body): number => {
+    const count = new Map<number, number>();
+    for (const [i, d] of bodyTiles(b, W, 4)) if (d >= 1) count.set(M.land[i], (count.get(M.land[i]) ?? 0) + 1);
+    let best = 0;
+    let n = -1;
+    for (const [h, c] of count) if (c > n || (c === n && h < best)) [best, n] = [h, c];
+    return best;
+  };
+
+  // ---- an empty basin's chain: its leat, the basin, its spill, and the levee and dam on the spill
+  interface Chain {
+    b: Body;
+    s: number;
+    src: Body;
+    leat: Point[];
+    spill: { path: Point[]; to: string; lo: number; into: boolean; exit?: Exit };
+    ground: Ground;
+    fill: Wet;
+    held: Wet;
+    feed: Wet;
+    spillBed: { bed: number[]; thread: [number, number][] };
+    leatGain: number;
+    levee?: number;
+    dam?: { at: number; gain: number };
+  }
+  const spillOf = (b: Body, s: number): Chain["spill"] | null => {
+    const lower = [
+      ...L.lakes.filter((k) => k.sill <= s - 2).sort((p, q) => bodyGap(p, b) - bodyGap(q, b)).slice(0, 2),
+      ...tarns.filter((t) => t.id !== b.id && t.sill <= s - 1).sort((p, q) => bodyGap(p, b) - bodyGap(q, b)).slice(0, 2),
+    ];
+    for (const k of lower) {
+      const path = straightLink(plan, b, nearestOn(k, [b.arms[0][0][0], b.arms[0][0][1]]), 1.6, [b.id, k.id]);
+      if (!path || pathLength(path) > 0.32 * W || pathLength(path) < 6) continue;
+      return { path, to: k.id, lo: k.sill, into: !k.dry };
+    }
+    const c: Point = [b.arms[0][0][0], b.arms[0][0][1]];
+    const at = toEdge(c, W, W);
+    if (plan.exits.some((x) => dist(x.at, at) < 10)) return null;
+    const path = straightLink(plan, b, at, 1.6, [b.id]);
+    if (!path || pathLength(path) > 0.32 * W) return null;
+    path[path.length - 1] = rp(at);
+    return { path, to: "", lo: Math.max(BED_FLOOR, s - 3), into: false, exit: { id: `exit${plan.exits.length}`, edge: edgeOf(at, W, W), at: rp(at) } };
+  };
+  /** The sills a basin may stand at: a level or two under the land round it, where its feed's fall allows. */
+  const sillsFor = (b: Body, lo: number, hi: number): number[] => {
+    const P = levelAround(b);
+    const want = [P - 1, P - 2].filter((s) => s >= lo && s <= hi && s >= BED_FLOOR + 2 && s <= plan.top - 2);
+    if (want.length) return want;
+    const near = Math.max(lo, Math.min(hi, P - 1));
+    return near >= BED_FLOOR + 2 && near <= plan.top - 2 ? [near] : [];
+  };
+  /** A chain weighed: its leat's gain (the leat, the basin filled and its spill's thread), then, `whole`, its levee's
+   *  and its best dam's. */
+  const weigh = (b: Body, s: number, src: Body, leat: Point[], spill: Chain["spill"], whole: boolean): Chain => {
+    const ground: Ground = new Map();
+    const fill: Wet = new Map();
+    const held: Wet = new Map();
+    basinPiece(M, b, s, ground, fill, held);
+    const leatWet: Wet = new Map();
+    leatPiece(M, leat, src.sill, s + 1, [src, b], ground, leatWet);
+    const spillWet: Wet = new Map();
+    const target = plan.bodies.find((x) => x.id === spill.to);
+    const spillBed = brookPiece(M, spill.path, s, spill.lo, spill.into, target ? [b, target] : [b], ground, spillWet);
+    const feed = union(fill, leatWet, spillWet);
+    const c: Chain = { b, s, src, leat, spill, ground, fill, held, feed, spillBed, leatGain: M.gain(feed, new Map(), ground) };
+    if (!whole) return c;
+    c.levee = M.gain(union(feed, held), feed, ground);
+    const len = pathLength(spill.path);
+    if (len >= DAM_BED) {
+      let best: { at: number; gain: number } | undefined;
+      for (let at = 4; at <= len - 3; at += 2) {
+        const pond = pondAt(spillBed.bed, spillBed.thread, at);
+        if (pond.size < 3) continue;
+        const g = M.gain(union(feed, pond), feed, ground);
+        if (!best || missOf(g, R.damToPond) < missOf(best.gain, R.damToPond)) best = { at, gain: g };
+      }
+      c.dam = best;
+    }
+    return c;
+  };
+  const chainMiss = (c: Chain) => missOf(c.leatGain, R.leat) + (c.levee !== undefined ? 0.5 * missOf(c.levee, R.levee) : 0) + (c.dam ? 0.5 * missOf(c.dam.gain, R.damToPond) : 0.5);
+  /** Places the best chain of up to `SITE_CANDIDATES` drawn near `near` (the pool's own, `pool`). */
+  const placeChain = (near: Point | null, pool: boolean): Chain | null => {
+    const weighed: Chain[] = [];
+    for (let t = 0; t < SITE_CANDIDATES; t++) {
+      const b = candidate(near, pool);
+      if (!b) break;
+      const sources = pool ? [L.pool] : [L.pool, ...L.lakes].filter((x) => !(x.id === L.pool.id && gated() >= GATES[1])).sort((p, q) => bodyGap(p, b) - bodyGap(q, b)).slice(0, 3);
+      for (const src of sources) {
+        const leat = straightLink(plan, src, nearestOn(b, [src.arms[0][0][0], src.arms[0][0][1]]), 0.55, [src.id, ""]);
+        if (!leat || pathLength(leat) > 0.32 * W || pathLength(leat) < 6) continue;
+        // (along the contour: a level down for each `LEAT_RUN` tiles at most)
+        const lo = src.sill - 1 - Math.floor(pathLength(leat) / LEAT_RUN);
+        for (const s of sillsFor(b, lo, src.sill - 1)) {
+          const spill = spillOf(b, s);
+          // (the spill clear of the basin's own leat)
+          if (spill && pathGap(subPath(spill.path, 2.5, pathLength(spill.path)), leat, 4.2) >= 4.2) weighed.push(weigh(b, s, src, leat, spill, false));
+        }
+        break;
+      }
+    }
+    if (DBG) console.log(`chain near ${near} pool ${pool}: weighed ${weighed.map((c) => `${c.b.arms[0][0].slice(0, 2)} s${c.s} leat ${c.leatGain}`).join("; ")}`);
+    if (!weighed.length) return null;
+    weighed.sort((p, q) => missOf(p.leatGain, R.leat) - missOf(q.leatGain, R.leat));
+    const whole = weighed.slice(0, SITE_WHOLE).map((c) => weigh(c.b, c.s, c.src, c.leat, c.spill, true));
+    whole.sort((p, q) => chainMiss(p) - chainMiss(q));
+    const c = whole[0];
+    if (DBG) console.log(`  whole: ${whole.map((c) => `leat ${c.leatGain} levee ${c.levee} dam ${c.dam?.gain}`).join("; ")}`);
+    // (a chain whose levee and dam both miss their ranges buys no small work: left out, but for the pool's own)
+    const pays = (c.levee !== undefined && inside(c.levee, R.levee)) || (!!c.dam && inside(c.dam.gain, R.damToPond));
+    if (!pays && !pool) return null;
+    // laid: the body, its leat (gated from the pool), its spill, and the works the chain's estimates allow
+    const id = `tarn${tarnN++}`;
+    c.b.id = id;
+    c.b.sill = c.s;
+    c.b.meadow = Math.max(7, L.stair.meadow - rng.int(0, 6));
+    plan.bodies.push(c.b);
+    tarns.push(c.b);
+    addName(plan, id, `${tarnWords[(tarns.length - 1) % tarnWords.length]} Basin`);
+    if (pool) L.poolBasins.add(id);
+    const leatId = `leat${id}`;
+    plan.links.push({ id: leatId, from: c.src.id, to: id, kind: "leat", path: c.leat, half: 0.55, bed: [c.src.sill, c.s + 1], wet: false, gates: c.src.id === L.pool.id ? [2] : [], rows: [1] });
+    addName(plan, leatId, `${plan.names[id].split(" ")[0]} Leat`);
+    if (c.spill.exit) {
+      plan.exits.push(c.spill.exit);
+      c.spill.to = c.spill.exit.id;
+    }
+    const spillId = `spill${id}`;
+    plan.links.push({ id: spillId, from: id, to: c.spill.to, kind: "brook", path: c.spill.path, half: 1.6, bed: [c.s, c.spill.exit ? c.spill.lo : Math.max(c.spill.lo, Math.min(c.s, c.spill.lo))], wet: false, gates: [], rows: [] });
+    addName(plan, spillId, `${plan.names[id].split(" ")[0]} Beck`);
+    M.lay(c.ground);
+    const feed = work({ rung: "medium", kind: "leat", on: leatId, at: c.leat[0], tiles: 3, needs: [], gives: { green: R.leat }, estimate: c.leatGain, region: "wet" });
+    if (!inside(c.leatGain, R.leat)) notes.push(`${plan.names[leatId]} greens about ${c.leatGain} by the land (${R.leat[0]} to ${R.leat[1]} asked): no basin site near ${pool ? plan.names[L.pool.id] : "its water"} came nearer`);
+    if (c.levee !== undefined && inside(c.levee, R.levee)) work({ rung: "small", kind: "levee", on: id, at: c.spill.path[0], tiles: rng.int(6, 10), needs: [feed.id], gives: { green: R.levee }, estimate: c.levee, region: "wet" });
+    else notes.push(`${plan.names[id]}'s levee dropped: it would green about ${c.levee ?? 0} (${R.levee[0]} to ${R.levee[1]} asked)`);
+    if (c.dam && inside(c.dam.gain, R.damToPond)) work({ rung: "small", kind: "damToPond", on: spillId, at: rp(pointAt(c.spill.path, c.dam.at).p), tiles: rng.int(4, 7), needs: [feed.id], gives: { green: R.damToPond }, estimate: c.dam.gain, region: "wet" });
+    else if (pathLength(c.spill.path) >= DAM_BED) notes.push(`${plan.names[spillId]}'s dam to pond dropped: its best place greens about ${c.dam?.gain ?? 0} (${R.damToPond[0]} to ${R.damToPond[1]} asked)`);
+    return c;
+  };
+
+  // the pool's basins: enough that the gates are three (the neck, the hanging valley if it leaves the pool, each pool
+  // leat's head)
+  const poolWant = GATES[0] - gated();
+  for (let k = 0; k < poolWant; k++) if (!placeChain(pc, true)) return "siteSide#1";
+  // the rest: near the start first, so three small works stand within its walk; then anywhere on the wet side, until
+  // the ladder's count is met (empty basins all, each with its chain; the spring tarns are the rims)
+  const lo = Math.max(3, Math.round(SMALL_WORKS[0] * A));
+  const hi = Math.max(lo + 1, Math.round(SMALL_WORKS[1] * A));
+  const smallNow = () => side.filter((w) => w.rung === "small").length;
+  const nearSmall = () => side.filter((w) => w.rung === "small" && dist(w.at, s0) <= NEAR_WALK + sqrt(plan.frame.bench / 3.141592653589793)).length;
+  let misses = 0;
+  for (let k = 0; k < NEAR_SIDE && nearSmall() < NEAR_WORKS; k++) if (!placeChain(s0, false)) misses++;
+  const want = Math.max(tarnCount(L.spec) - rims.length, 0);
+  while ((tarns.length - rims.length < want || smallNow() < hi) && misses < 4) if (!placeChain(null, false)) misses++;
+
+  // the spring tarns' notches: each one's dry bed to a lake two or more below, where its thread's gain comes nearest the
+  // notch's range; its dam where the pond's gain does
+  for (const t of rims) {
+    type Bed = { path: Point[]; x: Body; ground: Ground; wet: Wet; bed: { bed: number[]; thread: [number, number][] }; gain: number; dry: number };
+    const beds: Bed[] = [];
+    const c: Point = [t.arms[0][0][0], t.arms[0][0][1]];
+    for (const x of L.lakes.filter((k) => k.sill <= t.sill - 2))
+      for (const q of outlinePoints(x, 3)) {
+        const d = dist(c, q);
+        if (d < NOTCH_BED || d > 0.32 * W) continue;
+        const path = straightLink(plan, t, q, 1.6, [t.id, x.id]);
+        if (!path || pathLength(path) < NOTCH_BED || pathLength(path) > 0.32 * W) continue;
+        // (cheap first: the tiles of its line day 1 leaves dry)
+        let dry = 0;
+        const len = pathLength(path);
+        for (let s = 0.5; s < len; s += 1) {
+          const p = pointAt(path, s).p;
+          if (!M.soil[Math.min(W - 1, Math.floor(p[1])) * W + Math.min(W - 1, Math.floor(p[0]))]) dry++;
+        }
+        beds.push({ path, x, ground: new Map(), wet: new Map(), bed: { bed: [], thread: [] }, gain: 0, dry });
+      }
+    // (the dry runs nearest what the range asks, at about 20 tiles of green for a tile of dry bed, weighed whole)
+    const aim = (R.notch[0] + R.notch[1]) / 2 / 20;
+    beds.sort((p, q) => Math.abs(p.dry - aim) - Math.abs(q.dry - aim));
+    for (const b of beds.slice(0, 6)) {
+      b.bed = brookPiece(M, b.path, t.sill, b.x.sill, true, [t, b.x], b.ground, b.wet);
+      b.gain = M.gain(b.wet, new Map(), b.ground);
+    }
+    if (DBG) console.log(`notch ${t.id} s${t.sill}: ${beds.length} beds; ${beds.slice(0, 6).map((b) => `dry ${b.dry} gain ${b.gain}`).join("; ")}`);
+    const best = beds.slice(0, 6).sort((p, q) => missOf(p.gain, R.notch) - missOf(q.gain, R.notch))[0];
+    if (!best || !inside(best.gain, R.notch)) {
+      notes.push(`${plan.names[t.id]}'s notch dropped: its best bed greens about ${best?.gain ?? 0} (${R.notch[0]} to ${R.notch[1]} asked)`);
+      continue;
+    }
+    const linkId = `bed${t.id}`;
+    plan.links.push({ id: linkId, from: t.id, to: best.x.id, kind: "brook", path: best.path, half: 1.6, bed: [t.sill, best.x.sill], wet: false, gates: [], rows: [1] });
+    addName(plan, linkId, `${plan.names[t.id].split(" ")[0]} Brook`);
+    M.lay(best.ground);
+    const notch = work({ rung: "small", kind: "notch", on: linkId, at: best.path[0], tiles: rng.int(3, 5), needs: [], gives: { green: R.notch }, estimate: best.gain, tradeoff: `${plan.names[t.id]}'s water runs red down it in a badtide`, region: t.region });
+    const len = pathLength(best.path);
+    if (len < DAM_BED) continue;
+    let dam: { at: number; gain: number } | undefined;
+    for (let at = 4; at <= len - 3; at += 2) {
+      const pond = pondAt(best.bed.bed, best.bed.thread, at);
+      if (pond.size < 3) continue;
+      const g = M.gain(union(best.wet, pond), best.wet, best.ground);
+      if (!dam || missOf(g, R.damToPond) < missOf(dam.gain, R.damToPond)) dam = { at, gain: g };
+    }
+    if (dam && inside(dam.gain, R.damToPond)) work({ rung: "small", kind: "damToPond", on: linkId, at: rp(pointAt(best.path, dam.at).p), tiles: rng.int(4, 7), needs: [notch.id], gives: { green: R.damToPond }, estimate: dam.gain, region: t.region });
+    else notes.push(`${plan.names[linkId]}'s dam to pond dropped: its best place greens about ${dam?.gain ?? 0} (${R.damToPond[0]} to ${R.damToPond[1]} asked)`);
+  }
+
+  // the small works: each kind at least once, their count by area, three near the start; too many, the ones farthest
+  // from the start go first (never the last of a kind, nor one of the three near the start)
+  const small = side.filter((w) => w.rung === "small");
+  for (const kind of SMALL_KINDS) if (!small.some((w) => w.kind === kind)) return `siteSide#2 (no ${kind} the land pays for)`;
+  const far = (w: Work) => -dist(w.at, s0);
+  for (const kind of ["damToPond", "levee", "notch"] as const) {
+    const list = small.filter((w) => w.kind === kind).sort((a, b) => far(a) - far(b));
+    while (small.length > hi && list.length > 1) {
+      const w = list.shift()!;
+      small.splice(small.indexOf(w), 1);
+      side.splice(side.indexOf(w), 1);
+    }
+  }
+  if (small.length < lo) return `siteSide#3 (${small.length} small works the land pays for, ${lo} asked)`;
+  // the works in the plan's order: the first works and sill notches, the side network's, then the medium and large rungs;
+  // the bypass's tiles counted again for the gates the leats from the pool add
+  const head = plan.works.filter((w) => w.rung === "first" || w.kind === "breach");
+  const tail = plan.works.filter((w) => !head.includes(w));
+  plan.works = [...head, ...side, ...tail];
+  const by = plan.works.find((w) => w.kind === "bypass");
+  if (by) {
+    const rowTiles = BYPASS_MOUTH + 6 + Math.round(2 * BYPASS_HALF) + Math.round(2 * BYPASS_HALF) + 2;
+    by.tiles = rowTiles + plan.links.filter((l) => l.gates.length).reduce((s, l) => s + Math.round(2 * (l.half ?? 1)) + 2, 0);
+  }
+  plan.notes = notes;
+  return null;
+}
+
+/** Stage 0's second pass (`PremiseDef.site`): the plan's side network drawn again on its skeleton's land, up to
+ *  `SITE_TRIES` draws, the first whose plan passes every `plan` invariant. */
+function siteStair(spec: MapSpec, plan: PremisePlan, attempt: number, land: SiteLand): PremisePlan | { reason: string } {
+  const base = JSON.stringify(skeletonOf(plan));
+  let last = "";
+  for (let k = 0; k < SITE_TRIES; k++) {
+    const p = JSON.parse(base) as PremisePlan;
+    const st = p.stair!;
+    const byId = new Map(p.bodies.map((b) => [b.id, b]));
+    const lakes = st.lakes.map((id) => byId.get(id)!);
+    const L: Layout = { W: p.W, rng: premiseStream(spec, "premise.plan", attempt, "site", k), spec, plan: p, stair: st, lakes, pool: byId.get(st.pool)!, spans: [], poolBasins: new Set(), site: new SiteModel(land) };
+    const why = siteSide(L);
+    if (why) {
+      last = why;
+      continue;
+    }
+    placeRegions(L, { n: st.n, f: st.f, k: st.lakes.indexOf(st.startLake), H: st.H });
+    const bad = planFailure(spec, p);
+    if (!bad) return p;
+    last = bad;
+  }
+  return { reason: last };
+}
+
 // ------------------------------------------------------------------------------------------------- invariants
 
 const lakesOf = (plan: PremisePlan): Body[] => (plan.stair ? plan.stair.lakes.map((id) => plan.bodies.find((b) => b.id === id)!).filter(Boolean) : []);
@@ -1830,6 +2351,8 @@ export const lakeStair: PremiseDef = {
   eligible: lakeStairEligible,
   draw,
   invariants: [...PLAN_CHECKS, ...stairPlanInvariants, ...WATER_CHECKS],
+  skeleton: skeletonOf,
+  site: siteStair,
 };
 
 /** The first `plan` invariant a plan fails, as "id: reason", or null. */

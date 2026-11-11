@@ -531,12 +531,10 @@ function headOpen(plan: PremisePlan, w: StageWater, heights: ArrayLike<number>, 
 /** The plan's works as templates on the land: each one's site, what it does and what it buys by number, in the
  *  order the plan lists them; and day 1's water and moist shares (`spectrum`). `heights` is the land as built
  *  (stages 2 and 3, the works' own ground laid). */
-export function ladderOf(plan: PremisePlan, w: StageWater, heights: Uint8Array, laid: LaidWorks = { plugs: {}, banks: {} }): Ladder {
+/** Day 1's floor: the land, every row shut (a Blockage is a level of floor), every notch and breach shut too, so the
+ *  lakes stand on their sills (an open notch's share is the table's: `flowThrough`'s levels are static). */
+function dayOneFloor(w: StageWater, heights: Uint8Array, laid: LaidWorks): { base: Float64Array; shut: Record<string, { tiles: number[]; crest: number }> } {
   const r = w.raster;
-  const { W, H } = plan;
-  const N = W * H;
-  // day 1: the land, every row shut (a Blockage is a level of floor), every notch and breach shut too, so the lakes
-  // stand on their sills (an open notch's share is the table's: `flowThrough`'s levels are static)
   const base = Float64Array.from(heights);
   for (const [id, rows] of Object.entries(r.rows)) {
     if (laid.plugs[id]) continue;
@@ -547,6 +545,22 @@ export function ladderOf(plan: PremisePlan, w: StageWater, heights: Uint8Array, 
     shut[id] = notchTiles(r, heights, id);
     for (const i of shut[id].tiles) base[i] = Math.max(base[i], shut[id].crest);
   }
+  return { base, shut };
+}
+
+/** Day 1's soil by number on a land (`soilReach` of day 1's water: 2 water, 1 moist, 0 dry), as the ladder reads it:
+ *  what stage 0's second pass sites the works against (`siting.ts`). */
+export function dayOneSoil(w: StageWater, heights: Uint8Array, laid: LaidWorks = { plugs: {}, banks: {} }): Uint8Array {
+  const water = waterOn(w, dayOneFloor(w, heights, laid).base);
+  return soilReach(heights, water, w.raster.W, w.raster.H);
+}
+
+export function ladderOf(plan: PremisePlan, w: StageWater, heights: Uint8Array, laid: LaidWorks = { plugs: {}, banks: {} }): Ladder {
+  const r = w.raster;
+  const { W, H } = plan;
+  const N = W * H;
+  // day 1 (`dayOneFloor`)
+  const { base, shut } = dayOneFloor(w, heights, laid);
   const byId = new Map(plan.works.map((x) => [x.id, x]));
   const linkIndex = (id: string) => plan.links.findIndex((l) => l.id === id);
 
