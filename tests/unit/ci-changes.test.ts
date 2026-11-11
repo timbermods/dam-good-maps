@@ -123,6 +123,6 @@ describe("the page job", () => {
     expect(needsPage(["src/core/a.ts", "docs/STATUS.md"], "light")).toBe(false);
     expect(needsPage(["investigation/x/run.ts"], "light")).toBe(false);
     expect(needsPage([], "light")).toBe(true);
-    for (const mode of ["auto", "full"]) expect(needsPage(["src/ui/a.tsx"], mode), mode).toBe(false);
+    for (const mode of ["auto", "full"] as const) expect(needsPage(["src/ui/a.tsx"], mode), mode).toBe(false);
   });
 });
