@@ -500,7 +500,7 @@ function saveMap(s: MapSession, name: string): void {
   for (const row of [...c.blocking, ...c.warnings].slice(0, 20)) log(`    ${c.blocking.includes(row) ? "BLOCK" : "warn "} ${rowOf(row).id}: ${rowOf(row).message}`);
   if (!has("save")) return;
   if (c.blocking.length) throw new Error(`not saved: ${rowOf(c.blocking[0]).message}`);
-  const timber = s.exportTimber({ warnings: [] }).bytes;
+  const timber = s.exportTimber().bytes;
   writeFileSync(join(OUT, `${name}.timber`), timber);
   writeFileSync(join(OUT, `${name}.damgoodmaps.json`), s.project(9));
   log(`  saved ${join(OUT, `${name}.timber`)} (${timber.length} bytes)`);
