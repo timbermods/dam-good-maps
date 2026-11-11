@@ -24,11 +24,13 @@ import * as ed from "../../src/worker/session";
 const W = 96;
 const N = W * W;
 
-/** The map (River Valley seed 4242; `caves`: seed 2 at verticality 70, with water under the rock), and its river's tile nearest
- *  the middle. */
+/** The map (River Valley seed 3; `caves`: seed 2 at verticality 70, with water under the rock), and its river's tile nearest
+ *  the middle. (Seed 3 for 4242 since generator 0.10.17's start floors (D515), D148: seed 4242's map has caves now, and the
+ *  first dry spot beside its river, (32, 54), is a roof, where the game keeps no source; of seeds 1–12, seeds 3, 5–10 and 12
+ *  have no caves and a spot that takes one, seed 3's at (66, 54).) */
 async function open(caves = false): Promise<{ river: [number, number]; ground: Uint8Array }> {
   ed.forceCancel();
-  const spec = makeSpec({ seed: caves ? 2 : 4242, theme: "riverValley", size: { x: W, y: W } });
+  const spec = makeSpec({ seed: caves ? 2 : 3, theme: "riverValley", size: { x: W, y: W } });
   if (caves) spec.settings.terrain.verticality = 70;
   await runGenerate(spec);
   ed.refine();

@@ -231,15 +231,16 @@ describe("a host and a replica on a generated map", () => {
 
 describe("one pump settles a peer's water (D486)", () => {
   // (Highlands 48², seed 11 since generator 0.10.16's ground with grade, D148: seed 6's map has no terrain above terrain
-  // now, and of seeds 1–24 only 11's stream makes the case; a map with caves: an edit among the first eight leaves water
+  // now, and of seeds 1–24 only 11's stream makes the case; seed 28 since generator 0.10.17's start floors (D515), D148: seed
+  // 11's map has no terrain above terrain now, and of seeds 1–40 only 28's stream makes the case; a map with caves: an edit among the first eight leaves water
   // no source feeds, so the canonical settle takes it and settles on from there, a second phase it hands back between; a
   // background settle run to its end goes on through it, so the host's announcement and the replica's own settle each
   // take one pump, never two)
-  test("Highlands 48², seed 11: after the stream's first eight edits the host announces and the replica settles in one pump each, on the same map", () => {
-    const t = sit(mapProject(11, "highlands", SIZE), {}, [GUEST]);
+  test("Highlands 48², seed 28: after the stream's first eight edits the host announces and the replica settles in one pump each, on the same map", () => {
+    const t = sit(mapProject(28, "highlands", SIZE), {}, [GUEST]);
     const s = t.host.session;
     expect(s.built.waterModel.stacked).toBeTruthy();
-    const stream = new Stream(11, SIZE);
+    const stream = new Stream(28, SIZE);
     for (let k = 0; k < 8; k++) {
       const c = stream.command(stream.pick(CHEAP_KINDS), s);
       if (c) act(t, stream.pick([HOST, GUEST]), c);
