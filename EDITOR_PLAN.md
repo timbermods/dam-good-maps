@@ -1125,8 +1125,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (`SessionInfo.description`, `descriptionWritten`, `descriptionKept`: the page shows `kept` under the field, not editable). This is not the name (D443): a rename stays
   off the history. **Its own words, and when they go out of date:** `description()` also answers `stale`
   (`SessionInfo.descriptionStale`). A generated map's words say what the seed made ("A spring rises in a cave…", the
-  generator's `says`); once its player changes the map by hand (any operation but the description's stands in the log)
-  those lines are dropped from the words and from the file, which then say only what stays true (its size and theme,
+  generator's `says`); once its player changes the map by hand (an operation that changes the map stands in the log;
+  writing the description or locking a feature does not) those lines are dropped from the words and from the file,
+  which then say only what stays true (its size and theme,
   its badwater, its credit), and the words are stale until the player keeps them or writes their own, either one a
   `setDescription`. An opened or blank map's words are never stale. **File → Description…** is the same two things in
   one dialog: the **Name** and the **Description** (its count of 600, what is always added after it, the core's

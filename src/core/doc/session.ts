@@ -2283,9 +2283,14 @@ export class MapSession {
     return { text: text.replace(/ {2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim(), written: false, kept, stale };
   }
 
-  /** The map has been changed by hand: an operation other than the description's stands in its log. */
+  /** The map has been changed by hand: an operation that changes the map's content stands in its log. Writing the
+   *  description and locking or unlocking a feature (a patch of `locked` alone) change nothing on the map. */
   private handEdited(): boolean {
-    return this.log.some((o) => o.op !== "setDescription");
+    return this.log.some((o) => {
+      if (o.op === "setDescription") return false;
+      if (o.op === "updateFeature") return Object.keys(o.params.patch).some((k) => k !== "locked");
+      return true;
+    });
   }
 
   /** What the generator says the map shows (its standout intentions' lines), while that is still the generator's map:

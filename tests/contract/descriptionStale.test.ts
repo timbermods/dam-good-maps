@@ -19,6 +19,13 @@ describe("the map's own words", () => {
     const made = s.description();
     expect(made.stale).toBe(false);
     expect(fileText(s)).toContain(made.text.split(" Made with")[0]);
+    // (locking a feature changes nothing on the map: the words stay the generator's and the file its bytes)
+    const bytes = s.exportTimber().bytes;
+    const feature = s.features[0]!;
+    expect(s.apply({ op: "updateFeature", params: { id: feature.id, patch: { locked: true } } }).ok).toBe(true);
+    expect(s.description()).toEqual(made);
+    expect(s.exportTimber().bytes).toEqual(bytes);
+    s.undo();
     expect(s.apply({ op: "sculpt", params: { mode: "raise", cells: [[5, 5, 8]], amount: 1 } }).ok).toBe(true);
     const edited = s.description();
     expect(edited.stale).toBe(true);
