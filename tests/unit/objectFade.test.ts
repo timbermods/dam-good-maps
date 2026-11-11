@@ -60,13 +60,13 @@ describe("the fade round the pointer", () => {
     expect(validRegion({ x: 0, y: Infinity, radius: 1 })).toBe(false);
   });
 
-  it("hides every object while hidden, but never the land's own shape (a mine site's pit, a seep's)", () => {
+  it("hides every object while hidden, but never the land's own shape (a mine site's pit, a seep's, a geothermal field's vent)", () => {
     expect(objectShows(null, true, 10.5, 20.5, false)).toBe(0);
     expect(objectShows(region, true, 40, 40, false)).toBe(0);
     expect(objectShows(region, false, 10.5, 20.5, false)).toBeCloseTo(0.25, 9);
     expect(objectShows(region, true, 10.5, 20.5, true)).toBe(1);
     expect(objectShows(region, false, 10.5, 20.5, true)).toBe(1);
-    expect([...LAND].sort()).toEqual(["BadwaterSeep", "UndergroundRuins", "WaterSeep"]);
+    expect([...LAND].sort()).toEqual(["BadwaterSeep", "GeothermalField", "UndergroundRuins", "WaterSeep"]);
     expect(LAND_GROW[0]).toBeLessThan(0);
     expect(OBJECT_FADE_GLSL).toContain("if (grow.x < 0.0 || grow.z < 0.0) return 1.0;");
     expect(OBJECT_FADE_GLSL).toContain("return grow.x >= 0.0 && grow.z >= 0.0 && (objectHide > 0.5 ||");

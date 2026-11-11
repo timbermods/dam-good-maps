@@ -137,7 +137,7 @@ const luma = (c: Rgb) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
  *  bushes, the water sources and seeps, the ruins, the start) take its albedo straight. Until then they took it at our
  *  lightness, 1.318 times the game's (our grass by the water, 0.353/0.372/0.128, before `fix/land-tone`, over the
  *  game's grass texture's mean, 0.263/0.285/0.096), under a light of our own; the colours we chose by eye (the mines,
- *  geothermal fields, slopes, the 1.x objects, the succulent, the generic blocks, the birch's marks)
+ *  slopes, the 1.x objects, the succulent, the generic blocks, the birch's marks)
  *  were chosen at that lightness. They are drawn at `ownAlbedo` of it, so they keep their place among the game's. */
 export const OWN_LIGHTNESS = luma([0.353, 0.372, 0.128]) / luma([0.263, 0.285, 0.096]);
 /** A colour of our own (chosen at our old lightness) as an albedo in the game's light. */
@@ -385,9 +385,17 @@ export const RUIN = {
 /** Slopes: a stone ramp; with **Markers** on, a pale arrow rimmed dark points uphill. */
 export const SLOPE = { ramp: [0.5, 0.46, 0.4] as Rgb, side: [0.3, 0.31, 0.28] as Rgb, arrow: [0.97, 0.93, 0.78] as Rgb, rim: [0.14, 0.1, 0.07] as Rgb } as const;
 
-/** Geothermal fields: a mound of dark rock with vents glowing orange. */
-export const GEOTHERMAL: Rgb = [0.82, 0.48, 0.16];
-export const GEOTHERMAL_ROCK: Rgb = [0.27, 0.26, 0.25];
+/** The geothermal field as the game colours it (GeothermalField.Model, D178, D496): its albedo (texture × vertex colour,
+ *  `tools/game-model-albedo.py`), its materials not metallic, so straight. The crust (the blockage's material, its
+ *  vertex colours sulphur yellow over its rim, grey-brown in its bowl and on its outer slope; 0.249/0.201/0.045 over
+ *  its area) in six shades, each of our crust's corners the game's colour there (averaged over 0.05 round it) as the
+ *  nearest of them; its vent's foot the game's black; its rocks (the water source's rock material; 0.203/0.186/0.155)
+ *  in three shades, each rock its own. */
+export const GEOTHERMAL = {
+  crust: [[0.149, 0.122, 0.077], [0.224, 0.179, 0.039], [0.371, 0.287, 0.001], [0.462, 0.359, 0.002], [0.193, 0.173, 0.114], [0.274, 0.215, 0.014]] as readonly Rgb[],
+  vent: [0.003, 0.003, 0.002] as Rgb,
+  rock: [[0.18, 0.164, 0.138], [0.214, 0.197, 0.163], [0.197, 0.18, 0.152]] as readonly Rgb[],
+} as const;
 
 /** The blockage as the game colours it (Blockage.Model, D178, D496): its albedo (texture × vertex colour, area-weighted,
  *  `tools/game-model-albedo.py`), its material not metallic, so straight. Its heap's rocks in the three greys of its
@@ -1020,7 +1028,13 @@ export function objectLegend(): LegendEntry[] {
       label: "Badwater source",
     },
     {
-      swatch: icon(`<ellipse cx="12" cy="9" rx="10" ry="5" fill="${own(GEOTHERMAL_ROCK)}"/><circle cx="8" cy="8" r="1.6" fill="${own(GEOTHERMAL)}"/><circle cx="15" cy="10" r="1.6" fill="${own(GEOTHERMAL)}"/>`, dry),
+      // the game's crust: a sulphur rim round a dark bowl and its black vent, grey-brown rocks round it
+      swatch: icon(
+        `<ellipse cx="12" cy="9" rx="9" ry="5" fill="${o(GEOTHERMAL.crust[0])}"/><ellipse cx="12" cy="8.6" rx="7" ry="3.8" fill="${o(GEOTHERMAL.crust[3])}"/>` +
+          `<ellipse cx="12" cy="8.4" rx="4.4" ry="2.3" fill="${o(GEOTHERMAL.crust[4])}"/><ellipse cx="12" cy="8.4" rx="1.4" ry="0.8" fill="${o(GEOTHERMAL.vent)}"/>` +
+          `<circle cx="3.6" cy="9.5" r="1.3" fill="${o(GEOTHERMAL.rock[1])}"/><circle cx="20.4" cy="9" r="1.3" fill="${o(GEOTHERMAL.rock[0])}"/><circle cx="8" cy="13.6" r="1.2" fill="${o(GEOTHERMAL.rock[2])}"/><circle cx="16.5" cy="13.4" r="1.2" fill="${o(GEOTHERMAL.rock[1])}"/>`,
+        dry,
+      ),
       label: "Geothermal field",
     },
     {

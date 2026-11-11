@@ -31,8 +31,8 @@
 //   the footprint's tops out, as the game hides the terrain under the site), with dark earthen walls and floor,
 //   roots, rubble, cracks; rusty posts down into the pit round its lip, joined by beams, and ground in the
 //   pit's corners falling into it as an earthen bank; no scaffolding, as the game has none. With Markers, an outline
-//   round its footprint (the terrain shader). Geothermal fields: dark rock with glowing
-//   vents. Relics: the game's fallen telescope (small), crashed satellite (medium) and fallen dish antenna (large), at
+//   round its footprint (the terrain shader). Geothermal fields: the game's crust of sulphur round its vent,
+//   rocks round it, and its steam (geothermal.ts, geothermalSteam.ts). Relics: the game's fallen telescope (small), crashed satellite (medium) and fallen dish antenna (large), at
 //   their measures and in their colours (smallRelics.ts, largeRelic.ts). Thorns: the game's dark spikes paling to
 //   their points among thin forked twigs (thorns.ts). Blockages: the game's heap
 //   of grey rock with broken posts and pale plank shards (blockage.ts). Natural dams: the game's low heap of brown rock with
@@ -61,11 +61,12 @@ import { FOOTPRINTS, rotate, startEntranceTile, worldBlocks, type Orientation } 
 import { DEAD, DYING, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
 import { plantScale, RANDOMIZER } from "./plantSize";
 import { DEAD_FORM, DEAD_LIMBS, type DeadPart, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
-import { crownShade, GEOTHERMAL, GEOTHERMAL_ROCK, LANDMARK, MINE, OWN_LIGHTNESS, ownAlbedo, RUIN, SLOPE, START, TREE_COLOURS, WATER } from "./palette";
+import { crownShade, LANDMARK, MINE, OWN_LIGHTNESS, ownAlbedo, RUIN, SLOPE, START, TREE_COLOURS, WATER } from "./palette";
 import { objectSoilAt } from "./runSoil";
 import { badtideDrainParts } from "./badtideDrain";
 import { blockageParts } from "./blockage";
 import { naturalDamParts } from "./naturalDam";
+import { geothermalParts } from "./geothermal";
 import { thornsParts } from "./thorns";
 import { unstableCoreParts } from "./unstableCore";
 import { largeRelicParts } from "./largeRelic";
@@ -440,18 +441,9 @@ const MODELS: Record<string, () => Model> = {
     return m;
   },
   UndergroundRuins: () => mineSite(),
-  GeothermalField: () => {
-    // a low mound of dark rock over its 3 × 3 footprint, cracked by vents glowing orange
-    const m = new Model().add(cyl(1.45, 1.2, 0.22, 7), GEOTHERMAL_ROCK, { y: 0.11 }).add(new CylinderGeometry(1.2, 1.2, 0.02, 7), [0.22, 0.21, 0.2], { y: 0.22 });
-    const rocks: [number, number, number, number][] = [[0.9, 0.5, 0.34, 0.2], [-0.8, 0.7, 0.3, 0.25], [-0.4, -0.95, 0.36, 0.2], [0.75, -0.8, 0.26, 0.2], [0.1, 0.2, 0.3, 0.35]];
-    for (const [x, z, r, sy] of rocks) m.add(ico(r), [0.3, 0.29, 0.28], { x, y: 0.2, z, sy: sy / r });
-    const vents: [number, number, number][] = [[-0.35, 0.2, 0.2], [0.45, -0.25, 0.16], [-0.1, -0.6, 0.13], [0.35, 0.65, 0.12]];
-    for (const [x, z, r] of vents) {
-      m.add(cyl(r * 1.5, r, 0.12, 6), [0.2, 0.19, 0.18], { x, y: 0.28, z });
-      m.add(new CylinderGeometry(r, r, 0.02, 6), GLOW, { x, y: 0.33, z });
-    }
-    return m;
-  },
+  // (the game's crust of sulphur round its vent, and its rocks, at its measures and in its colours, each corner its own:
+  // geothermal.ts)
+  GeothermalField: () => perCorner(geothermalParts()),
   // (the game's fallen telescope and crashed satellite, at their measures and in their colours: smallRelics.ts)
   SmallRelic: () => fromParts(smallRelicParts()),
   MediumRelic: () => fromParts(mediumRelicParts()),
@@ -471,17 +463,7 @@ const MODELS: Record<string, () => Model> = {
   // naturalDam.ts)
   NaturalDam: () => fromParts(naturalDamParts()),
   // (the game's spikes and twigs, at their measures and in their colours, each corner its own: thorns.ts)
-  Thorns: () => {
-    const { points, colours } = thornsParts();
-    const g = new BufferGeometry();
-    g.setAttribute("position", new Float32BufferAttribute(points, 3));
-    let k = 0;
-    return new Model().add(g, () => {
-      const c: Rgb = [colours[k], colours[k + 1], colours[k + 2]];
-      k += 3;
-      return c;
-    });
-  },
+  Thorns: () => perCorner(thornsParts()),
   WaterSeep: () => seep(false),
   BadwaterSeep: () => seep(true),
   Aquifer: aquifer,
@@ -496,7 +478,7 @@ const MODELS: Record<string, () => Model> = {
 /** The models in the game's own colours, its albedo straight (palette.ts `TREE_COLOURS`, `LANDMARK`, `SMALL_RELIC`, `MEDIUM_RELIC`, `LARGE_RELIC`, `BLOCKAGE`; the
  *  ruins and the start are made apart). Every other model's colours are our own, drawn at `ownAlbedo` (palette.ts
  *  `OWN_LIGHTNESS`). */
-const GAME_COLOURED = new Set(["Pine", "Birch", "Oak", "BlueberryBush", "WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep", "SmallRelic", "MediumRelic", "LargeRelic", "Blockage", "NaturalDam", "BadtideDrain", "UnstableCore", "Thorns"]);
+const GAME_COLOURED = new Set(["Pine", "Birch", "Oak", "BlueberryBush", "WaterSource", "BadwaterSource", "WaterSeep", "BadwaterSeep", "SmallRelic", "MediumRelic", "LargeRelic", "Blockage", "NaturalDam", "BadtideDrain", "UnstableCore", "Thorns", "GeothermalField"]);
 for (const key of Object.keys(MODELS))
   if (!GAME_COLOURED.has(key.split(".")[0])) {
     const make = MODELS[key];
@@ -949,16 +931,25 @@ function mineSite(): Model {
   return m;
 }
 
-/** Where the terrain leaves its tops out for mine sites' and seeps' pits (mesh.ts `cutout`): tile
- *  index → the object's level, for every tile of each mine site's 5 × 5 footprint (the model covers
- *  them all: its frame the edge, its pit the rest) and of each seep's 2 × 2 (its pit, whole). */
+/** Where the terrain leaves its tops out for mine sites' and seeps' pits and geothermal fields' vents (mesh.ts
+ *  `cutout`): tile index → the object's level, for every tile of each mine site's 5 × 5 footprint (the model covers
+ *  them all: its frame the edge, its pit the rest), of each seep's 2 × 2 (its pit, whole) and a geothermal field's
+ *  middle tile, as the game's `BlockObjectTerrainCutoutSpec` cuts it (its crust covers the tile, its bowl and vent below
+ *  the ground there). */
 export function mineCutout(v: EntityView, W: number, H: number): Map<number, number> {
   const out = new Map<number, number>();
   for (let k = 0; k < v.count; k++) {
     const template = v.templates[v.template[k]];
+    const o = ORIENTATION_NAMES[v.orientation[k]] as Orientation;
+    if (template === "GeothermalField") {
+      const [dx, dy] = rotate(o, 1, 1);
+      const x = v.x[k] + dx;
+      const y = v.y[k] + dy;
+      if (x >= 0 && y >= 0 && x < W && y < H) out.set(y * W + x, v.z[k]);
+      continue;
+    }
     const size = template === "UndergroundRuins" ? 5 : template === "WaterSeep" || template === "BadwaterSeep" ? 2 : 0;
     if (!size) continue;
-    const o = ORIENTATION_NAMES[v.orientation[k]] as Orientation;
     for (let ly = 0; ly < size; ly++)
       for (let lx = 0; lx < size; lx++) {
         const [dx, dy] = rotate(o, lx, ly);
@@ -1004,8 +995,17 @@ export function mineOutline(v: EntityView, W: number, H: number, into?: Uint8Arr
   return out;
 }
 
-/** A vent's glow: brighter than any lit colour, so it shines in shade too. */
-const GLOW: Rgb = [GEOTHERMAL[0] * 1.3, GEOTHERMAL[1] * 1.3, GEOTHERMAL[2] * 1.3];
+/** A model of triangles each corner of which has its own colour (thorns.ts, geothermal.ts). */
+function perCorner({ points, colours }: { points: number[]; colours: number[] }): Model {
+  const g = new BufferGeometry();
+  g.setAttribute("position", new Float32BufferAttribute(points, 3));
+  let k = 0;
+  return new Model().add(g, () => {
+    const c: Rgb = [colours[k], colours[k + 1], colours[k + 2]];
+    k += 3;
+    return c;
+  });
+}
 
 /** A model of triangles by colour (our own models of the game's, built as parts). */
 function fromParts(parts: readonly { points: number[]; colour: Rgb }[]): Model {
@@ -1419,7 +1419,7 @@ const GENERIC_COLORS: [RegExp, Rgb][] = [
   [/Blockage/, [0.52, 0.51, 0.49]],
   [/NaturalDam/, [0.54, 0.42, 0.27]],
   [/Thorns/, [0.48, 0.18, 0.18]],
-  [/Geothermal/, [...GEOTHERMAL]],
+  [/Geothermal/, [0.82, 0.48, 0.16]],
   [/Overhang/, [0.62, 0.53, 0.42]],
   [/UnstableCore/, [0.58, 0.44, 0.4]],
   [/Badtide|Badwater/, [0.42, 0.29, 0.16]],
@@ -1556,7 +1556,7 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
     if (centre) {
       const o = ORIENTATION_NAMES[v.orientation[k]] as Orientation;
       const [dx, dy] = rotate(o, centre[0], centre[1]);
-      // (a mine site and a seep are the land's own shape: never faded or hidden, objectFade.ts)
+      // (a mine site, a seep and a geothermal field are the land's own shape: never faded or hidden, objectFade.ts)
       put(b, x + dx + 0.5, z, -(y + dy + 0.5), turn, 1, 1, 1, LAND.has(template) ? LAND_GROW : NO_GROW);
       continue;
     }

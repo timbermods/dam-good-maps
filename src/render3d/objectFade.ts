@@ -12,9 +12,9 @@
 //   region without them (`shadowDropped` per tile), once a frame, only where the dropped tiles changed.
 // - **Hide all:** while held, no object is drawn (the same program discards it, `objectHide`), casts a shadow or shades
 //   the ground.
-// Neither ever takes the land's own shape: a mine site and a seep stand in tiles whose tops the terrain leaves out
-// (`mineCutout`), their models drawing the pit and its rim, so they are never faded or hidden (`LAND`), or the sky would
-// show through the hole.
+// Neither ever takes the land's own shape: a mine site, a seep and a geothermal field stand in tiles whose tops the
+// terrain leaves out (`mineCutout`), their models drawing the pit and its rim (the field's crust and vent), so they are
+// never faded or hidden (`LAND`), or the sky would show through the hole.
 // Pictures (the map's picture, a sized one, the shelf's icons) never show either: they are drawn on a renderer of their
 // own (hero.ts) or with the fade put off for the picture (`MapRenderer.thumbnail`).
 
@@ -35,7 +35,7 @@ export const OBJECT_FADE_EDGE = 1;
 
 /** The objects that are the land's own shape (their tiles' tops are left out of the terrain, entities3d.ts `mineCutout`,
  *  and their models draw the pit): never faded or hidden. */
-export const LAND = new Set(["UndergroundRuins", "WaterSeep", "BadwaterSeep"]);
+export const LAND = new Set(["UndergroundRuins", "WaterSeep", "BadwaterSeep", "GeothermalField"]);
 /** Their instances' `grow` (entities3d.ts: a minimum size on screen, pixels a unit at least; none here): a negative
  *  first value marks the land's own shape to the objects' program and the sun's depth pass. */
 export const LAND_GROW: readonly [number, number, number] = [-1, 0, 1];
