@@ -396,3 +396,25 @@ script reads the game's own whole-map record (`--game`, every tunnel column by i
   the tunnel and the spring dry, the same 2,976 tiles flooded to 13.47, the spillway 115.1 of water. At day 10.6 the
   same within 0.025. The water holds in both: the premise goes on to full rounds. (The record's per-tile depth is the
   top wet column's, which over the dry plain is the tunnel's; the script reads the surface's water apart.)
+- **Round 3 (the first full round, 192²).** Round 2's layout grown into a map: the lowland at 4 along the south edge
+  under an escarpment that runs along the grid in straight runs joined by bold jogs; the valley at 12 within about
+  sixteen tiles of the river, terraces at 14, the upland at 16, a rim at 18; the springs' pool in the north-west; the
+  hill at 20; the tunnel 306 tiles and 100 long; the spillway's notch at 13 in the escarpment's edge with a dry channel
+  to it from the valley. The lowland's beds five wide and falling a second level past their first third: the spring's
+  stream first spread as a sheet over the flat lowland and the settle never ended (a drift test, `--drift`, found it).
+  The start on a rise at 14 in front of the mouth, a ramp down to the valley, its water a side pool joined by an inlet
+  one tile wide (the neck). Ours: settled in 2,944 ticks; the tunnel's 306 columns wet (0.58 to 0.67); the spring 435
+  tiles, 238.8 of water; checks 0 blocking (the one warning, caves on 306 tiles, is the premise); wood 1,299 living
+  trees (352 per 10,000 tiles) and 1,761 logs grown, 515 dead along the spillway's bed and on the dry terraces; 175
+  berry bushes; the pool 13 tiles' walk from the start. The neck: in eight days' badtide the open pool is 41 % bad, a
+  levee on its two neck tiles keeps it clean. The ladder of works (`--ladder`): green land a day in 6,259 tiles (17 %);
+  a weir to 11 at the dam's site +205; a weir to 12 +3,312 on the upland and +1,865 in the lowland (the spring still
+  runs, 182.3); the catch to 14 +1,356 more on the upland and the lowland's green gone (the spring dry, the spillway
+  151.4): 28.8 % green in all. **In the game** (run `20261111-0950-captures`; every check passed): the tunnel's 306
+  columns wet as ours, the largest difference 0.019; the spring 435 tiles and 238.6; top water within 0.1 on 888 of 888
+  wet tiles; with the dam the tunnel and the spring dry, the same 3,740 tiles flooded to 13.22, the spillway 153.9
+  against 151.4; within 0.1 on 4,486 of 4,486. The two agree. What fell short (the game's frames in
+  `C:\dgm-probe\captures\swallow-hole-r3\`): the mouth reads as a dark slot at the top of the first frame, its
+  overhang hiding the opening from the camera's height; the hill a flat featureless box; the terraces even bands round
+  the valley (contour bands); the far upland flat grey with succulents; the dam's flood leaves the start an island,
+  which is the price, but its berries drown with it.
