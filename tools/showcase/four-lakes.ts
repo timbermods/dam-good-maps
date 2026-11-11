@@ -1588,7 +1588,7 @@ function main(): void {
   if (has("save")) {
     const c = checksOf(s);
     if (c.blocking.length) throw new Error(`not saved: ${rowOf(c.blocking[0]).message}`);
-    const f = { timber: s.exportTimber({ warnings: [] }).bytes, project: s.project(9) };
+    const f = { timber: s.exportTimber().bytes, project: s.project(9) };
     writeFileSync(join(OUT, `${ROUND}.timber`), f.timber);
     writeFileSync(join(OUT, `${ROUND}.damgoodmaps.json`), f.project);
     writeFileSync(join(OUT, `${ROUND}-shots.json`), JSON.stringify(shots(s, { drought: 9, badtide: 8 }), null, 1));

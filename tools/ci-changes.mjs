@@ -13,7 +13,8 @@
 //
 //   node tools/ci-changes.mjs <base sha> <head sha> [--full | --light]
 //
-// prints heavy, suites, rust and test (and writes them to $GITHUB_OUTPUT). --full (pushes to main, pull requests into main,
+// prints heavy, suites, rust, test and page (and writes them to $GITHUB_OUTPUT). page (pull requests into dev only): the
+// change touches src/editor/, src/ui/, src/render3d/ or src/styles/, so the `page` job's browser specs run before the merge. --full (pushes to main, pull requests into main,
 // manual runs) turns everything on; --light (pull requests into dev) turns suites and rust off, because the merge queue
 // runs them on the merged state. Plain Node, no dependencies: the CI job that runs it does not install anything.
 // Tested by tests/unit/ci-changes.test.ts.
@@ -135,6 +136,16 @@ export function needsTest(files, mode = "auto") {
   return mode !== "light" || !files.length || !files.every(isInvestigation);
 }
 
+/** The page: the editor, the interface, the 3D view and the styles. A pull request into dev touching any of them runs the `page` job (ci.yml). */
+export function isPage(path) {
+  return path.startsWith("src/editor/") || path.startsWith("src/ui/") || path.startsWith("src/render3d/") || path.startsWith("src/styles/");
+}
+
+/** True when the `page` job runs: a pull request into dev (light) that touches the page. An unreadable change counts as touching it. */
+export function needsPage(files, mode = "auto") {
+  return mode === "light" && (!files.length || files.some(isPage));
+}
+
 /** True when the browser shards and the quick suite must run (anything but documents). */
 export function needsHeavy(files, read) {
   return classify(files, read).heavy;
@@ -148,7 +159,7 @@ function main() {
   const args = process.argv.slice(2);
   const mode = args.includes("--full") ? "full" : args.includes("--light") ? "light" : "auto";
   const [base, head] = args.filter((a) => !a.startsWith("--"));
-  let result = { heavy: true, suites: true, rust: true, test: true };
+  let result = { heavy: true, suites: true, rust: true, test: true, page: false };
   const zero = /^0+$/;
   try {
     if (mode === "full") {
@@ -165,11 +176,11 @@ function main() {
           return null;
         }
       };
-      result = { ...classify(files, read, mode), test: needsTest(files, mode) };
+      result = { ...classify(files, read, mode), test: needsTest(files, mode), page: needsPage(files, mode) };
       console.log(`${files.length} changed file(s), ${mode} run`);
     }
   } catch (e) {
-    if (mode === "light") result = { heavy: true, suites: false, rust: false, test: true };
+    if (mode === "light") result = { heavy: true, suites: false, rust: false, test: true, page: true };
     console.log(`${e.message}: ${mode === "light" ? "the tests and the browser shards run" : "everything runs"}`);
   }
   const lines = Object.entries(result).map(([k, v]) => `${k}=${v}`);

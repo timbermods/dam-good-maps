@@ -37,7 +37,7 @@ describe("writing the description", () => {
     const done = s.apply(set("A quiet valley.\nBuild upstream first."));
     expect(done.ok).toBe(true);
     expect(done.errors).toEqual([]);
-    expect(s.description()).toEqual({ text: "A quiet valley.\nBuild upstream first.", written: true, kept: null });
+    expect(s.description()).toEqual({ text: "A quiet valley.\nBuild upstream first.", written: true, kept: null, stale: false });
     expect(described(s.exportTimber().bytes)).toBe("A quiet valley.\nBuild upstream first.");
     expect(s.history().map((h) => h.label)).toEqual(["Write the description"]);
   });
@@ -122,7 +122,7 @@ describe("the notes a written description keeps", () => {
     expect(before.text).not.toContain(NO_BADWATER_NOTE);
     expect(described(s.exportTimber().bytes)).toContain(NO_BADWATER_NOTE);
     s.apply(set("My dry valley."));
-    expect(s.description()).toEqual({ text: "My dry valley.", written: true, kept: NO_BADWATER_NOTE });
+    expect(s.description()).toEqual({ text: "My dry valley.", written: true, kept: NO_BADWATER_NOTE, stale: false });
     expect(described(s.exportTimber().bytes)).toBe(`My dry valley.
 
 ${NO_BADWATER_NOTE}`);
@@ -206,13 +206,13 @@ describe("an opened .timber", () => {
     const credits = "Made with Dam Good Maps from public elevation data: Somewhere. The data providers do not endorse this map.";
     file.metadata = { ...file.metadata!, MapDescription: `Inspired by the land near Somewhere; not a replica.\n\n${credits}` };
     const s = MapSession.importMap(writeTimber(file), "somewhere.timber", "near-somewhere");
-    expect(s.description()).toEqual({ text: "Inspired by the land near Somewhere; not a replica.", written: false, kept: credits });
+    expect(s.description()).toEqual({ text: "Inspired by the land near Somewhere; not a replica.", written: false, kept: credits, stale: false });
     s.apply(set("My own words."));
     expect(described(s.exportTimber().bytes)).toBe(`My own words.\n\n${credits}`);
     const plain = readTimber(MapSession.fromGenerated(r).exportTimber().bytes);
     plain.metadata = { ...plain.metadata!, MapDescription: "From the game's editor." };
     const t = MapSession.importMap(writeTimber(plain), "plain.timber");
-    expect(t.description()).toEqual({ text: "From the game's editor.", written: false, kept: null });
+    expect(t.description()).toEqual({ text: "From the game's editor.", written: false, kept: null, stale: false });
     t.apply(set("Replaced."));
     expect(described(t.exportTimber().bytes)).toBe("Replaced.");
     t.undo();
@@ -233,7 +233,7 @@ describe("the generated description", () => {
     expect(d.length).toBeLessThan(MAX_DESCRIPTION);
     // the editor's session writes the same
     expect(described(MapSession.fromGenerated(r).exportTimber().bytes)).toBe(d);
-    expect(MapSession.fromGenerated(r).description()).toEqual({ text: d, written: false, kept: null });
+    expect(MapSession.fromGenerated(r).description()).toEqual({ text: d, written: false, kept: null, stale: false });
   });
 
   it("says what the map shows: the standout's line first, two lines at most", () => {

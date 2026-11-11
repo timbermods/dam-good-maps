@@ -2749,6 +2749,9 @@ export class MapRenderer {
     m.source = { ...m.source, heights };
     // (the hollow under the cursor follows the roof's new top)
     this.hollowStale = true;
+    // (the Block tool's land, come with its answer through the page's edit queue: it glows when it is drawn, on plain
+    // ground too; taken now, as its answer ends the edit before the next frame draws it)
+    if (this.blockEdit()) this.blockLand = true;
     // (drawn at the next frame, with every other change before it: flushTerrain)
     const p = this.pendingLand;
     this.pendingLand = p ? { x0: Math.min(p.x0, rect.x0), y0: Math.min(p.y0, rect.y0), x1: Math.max(p.x1, rect.x1), y1: Math.max(p.y1, rect.y1) } : { ...rect };
@@ -2777,8 +2780,11 @@ export class MapRenderer {
     const drawn = this.drawnLand;
     for (let y = c.rect.y0; y <= c.rect.y1; y++)
       for (let i = y * m.W + c.rect.x0, end = y * m.W + c.rect.x1; i <= end; i++) if (heights[i] !== drawn[i]) landBefore[i] = drawn[i];
-    // (Erode's frames paint its plain ground here, its hollows under roofs in updateTerrain: both glow)
-    if (this.eroding) this.glowEdits(editedCells(m.W, m.H, { heights: drawn, masks: m.source.masks }, { heights, masks: m.source.masks }, true, c.rect));
+    // (Erode's frames paint its plain ground here, its hollows under roofs in updateTerrain: both glow; and the Block
+    // tool's land, `updateTerrainRect`)
+    const block = this.blockLand;
+    this.blockLand = false;
+    if (this.eroding || block) this.glowEdits(editedCells(m.W, m.H, { heights: drawn, masks: m.source.masks }, { heights, masks: m.source.masks }, true, c.rect));
     if (m.water.count && this.landUnder(drawn, heights, c.rect)) {
       this.rodeLand(c.rect);
       this.flowChanged(heights, m.surface);
@@ -3472,6 +3478,9 @@ export class MapRenderer {
   blockEditSent(sent = true): void {
     this.blockSent = sent;
   }
+
+  /** The Block tool's land is waiting for the next frame (`updateTerrainRect`): it glows when `flushTerrain` draws it. */
+  private blockLand = false;
 
   /** The land coming now is the Block tool's edit (sent, its land not come yet): taken once. */
   private blockEdit(): boolean {

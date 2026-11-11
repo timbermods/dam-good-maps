@@ -1,10 +1,13 @@
 // A body's bed by number (docs/PREMISES.md §2.2, stage 1; four-lakes-design's lake-bed block): its outline from its
-// arms, wandering a little so no shore follows a compass; inside, a shelf at the sill, a shallow margin, then the
-// drowned river's line down the main arm (drop-offs, never depth rings); islands a level over the water. A spring
+// arms, wandering a little so no shore follows a compass; inside, a shelf at the sill, a margin, then the floor at the
+// lake's `deep`, which stage 0 sets by number so the lake keeps most of its water through a drought (`levels.ts`
+// `holdDeep`), and the drowned river's line down the main arm a level deeper (drop-offs, never depth rings); islands a
+// level over the water. A spring
 // tarn deepens from its shore; an empty basin is a flat floor a level under its sill with one hollow; the springs'
 // pool is a level deep inside a ring at its sill. In the start's bay under the landmark (the first frame's water)
 // the bed is a level under the sill but for the drowned river's ribbon, two (§4.3: deep water reads black).
 
+import { BED_FLOOR } from "../../land/genome";
 import { fbm } from "../../math/noise";
 import { hypot } from "../../math/portable";
 import { bodyDist, pathDist, spineDist } from "../geom";
@@ -55,6 +58,8 @@ export function rasterBodies(plan: PremisePlan, table: WaterTable, r: WaterRaste
     const bayArm = bay && bay.body === b.id ? b.arms[bay.arm] : null;
     const bayLine = bayArm ? centre(bayArm) : null;
     const hollow = b.arms[0][0];
+    // (how deep a lake's bed may go: the floor, `BED_FLOOR`, D325)
+    const room = Math.max(b.deep, b.sill - BED_FLOOR);
     for (let y = y0; y <= y1; y++)
       for (let x = x0; x <= x1; x++) {
         const i = y * W + x;
@@ -78,25 +83,29 @@ export function rasterBodies(plan: PremisePlan, table: WaterTable, r: WaterRaste
         }
         let depth: number;
         if (b.kind === "lake") {
-          // (a shelf at the sill, a shallow margin, then the drop into the drowned river's line: no rings)
+          // (a shelf at the sill, a margin a level over the floor, then the floor its depth by number, `holdDeep`, so
+          // the lake keeps most of its water through a drought; the drowned river's line a level under it where the
+          // floor leaves room: drop-offs, never depth rings)
           const shore = Math.max(0, Math.floor((Math.min(-own, isle) - 1.0) / 1.5));
           const w = 2.5 * fbm(sLine, x, y, 12, 2);
           const line = pathDist(cx + w, cy - w, main).d;
-          const channel = b.deep > 2 ? (line < 2.6 ? 5 : line < 4.8 ? 3 : 1) : line < 4.5 ? 2 : 1;
-          depth = shore === 0 ? 0 : shore === 1 ? (b.deep > 2 ? Math.min(2, channel) : 1) : channel;
+          depth = shore === 0 ? 0 : shore === 1 ? b.deep - 1 : line < 2.6 ? Math.min(b.deep + 1, room) : b.deep;
           if (bayArm && bayLine && spineDist(cx, cy, bayArm) < 0) {
-            // (the first frame's bay: a level deep, the drowned river's ribbon two)
-            depth = pathDist(cx + 0.3 * w, cy - 0.3 * w, bayLine).d < 1.15 ? 2 : Math.min(depth, 1);
+            // (the first frame's bay: a level deep, the drowned river's ribbon two, which a pump at the start still
+            // draws when a breach has sunk the lake a level)
+            const ribbon = pathDist(cx + 0.3 * w, cy - 0.3 * w, bayLine).d < 1.15;
+            depth = ribbon ? 2 : Math.min(depth, 1);
+            if (ribbon) r.ribbon[i] = 1;
           }
         } else if (b.kind === "pool") {
-          depth = -own > 1.5 ? 1 : 0;
+          depth = -own > 1.5 ? b.deep : 0;
         } else if (b.dry) {
           // (an old lake bed: a flat floor a level under the sill, its one hollow two)
           depth = hypot(cx - hollow[0] - 1.5, cy - hollow[1] + 1) + 1.2 * fbm(sTarn, x, y, 4, 2) < 2.3 ? 2 : 1;
         } else {
           depth = Math.max(0, Math.floor((-own - 0.6) / 2.4 + 1.5 * fbm(sTarn, x, y, 5, 2) + 0.2));
         }
-        depth = Math.min(b.deep, depth);
+        depth = Math.min(b.kind === "lake" ? room : b.deep, depth);
         r.heights[i] = Math.max(0, b.sill - depth);
         r.fixed[i] = 1;
         r.lake[i] = k + 1;
