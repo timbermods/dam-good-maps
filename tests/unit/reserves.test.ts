@@ -115,6 +115,27 @@ describe("the reserves' stock as the game shows it", () => {
     expect(stockOf("ReservePile", 0, 100)).toBeNull();
   });
 
+  it("a tile's last goods lie as the full layer under them, and turn to cross it once its four are there, as the game's", () => {
+    // (the game's `GoodPileVariantsService`: one by one by `ShouldRotate(MaxLevels)`, its ten levels even, the way of
+    // the top full layer, index 0; four, a full layer at index −1, crossing it)
+    const plank = PILE_GOODS.indexOf("Plank") + 1;
+    // (the way the j-th good laid lies, by its long side: the first tile's top full layer first, its last goods next;
+    // a plank a box, 30 corners)
+    const way = (n: number, j: number) => {
+      const pos = stockOf("ReservePile", plank, n)!.parts().flatMap((p) => p.points).slice(90 * j, 90 * (j + 1));
+      const xs = pos.filter((_, k) => k % 3 === 0);
+      const zs = pos.filter((_, k) => k % 3 === 2);
+      expect(Math.max(...pos.filter((_, k) => k % 3 === 1))).toBeCloseTo(j < 4 ? 0.17 : 0.34, 3);
+      return Math.max(...xs) - Math.min(...xs) > Math.max(...zs) - Math.min(...zs) ? "x" : "z";
+    };
+    const under = way(28, 0);
+    // (16 a layer over the four tiles, each tile's goods given in turn: 16 + 4k is k goods on each)
+    for (const k of [1, 2, 3]) for (let j = 0; j < k; j++) expect(way(16 + 4 * k, 4 + j)).toBe(under);
+    // (the fourth: the tile's four a full layer, crossing the one under it)
+    const full = 16 + 4 * 3 + 1;
+    for (let j = 0; j < 4; j++) expect(way(full, 4 + j)).not.toBe(under);
+  });
+
   it("the warehouse's boxes rise in 36 columns, 144 boxes at most for its 200, the tank's stock unseen", () => {
     const full = stockOf("ReserveWarehouse", 0, 200)!;
     const { lo, hi } = built(full.parts());

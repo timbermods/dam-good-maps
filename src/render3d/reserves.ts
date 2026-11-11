@@ -276,6 +276,10 @@ function stack(m: Reserve, name: string, amount: number): void {
     };
     // (the game's levels down from the pile's place, those above the floor seen)
     for (let i = 0; i < PILE_LAYERS; i++) if (top - LAYER * i > 0.05) layer(top - LAYER * i, odd !== (i % 2 !== 0));
+    // (the game's own rule, `GoodPileVariantsService`: a tile's last goods lie one by one the way of the full layer
+    // under them, `ShouldRotate(MaxLevels)`, its ten levels even as the top full layer's index 0; once its four are
+    // there they are a full layer, `AddFullLevel` at index −1, crossing the one under it, so they turn as the fourth
+    // comes)
     const mine = Math.floor(items / 4) + (p < items % 4 ? 1 : 0);
     if (mine >= PER_LAYER) layer(top + LAYER, !odd);
     else for (let k = 0; k < mine; k++) good(m, shape, colour, odd ? cx + row(k) : cx, odd ? cz : cz + row(k), top + LAYER, odd);
