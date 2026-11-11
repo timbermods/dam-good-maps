@@ -75,7 +75,17 @@ export function planDrawnLake(s: MapSession, outline: readonly (readonly [number
     const y = (i - x) / W;
     if (x === 0 || y === 0 || x === W - 1 || y === H - 1) return none(`the lake reaches the map's edge at ${where(i)}: its water would run off the map`);
   }
-  const around = (i: number) => [i - W, i - 1, i + 1, i + W];
+  // (the tiles edge to edge with i that are on the map: never across a row's end)
+  const around = (i: number) => {
+    const x = i % W;
+    const out: number[] = [];
+    if (i >= W) out.push(i - W);
+    if (x > 0) out.push(i - 1);
+    if (x < W - 1) out.push(i + 1);
+    if (i < W * (H - 1)) out.push(i + W);
+    return out;
+  };
+  const onEdge = (i: number) => i % W === 0 || i % W === W - 1 || i < W || i >= W * (H - 1);
   // the rim: the ring just outside the outline, edge to edge (water runs between edges, never across a corner)
   const rimAll: number[] = [];
   const onRim = new Uint8Array(W * H);
@@ -88,8 +98,9 @@ export function planDrawnLake(s: MapSession, outline: readonly (readonly [number
   rimAll.sort((a, b) => a - b);
   // the spill point: a rim tile with ground beyond it at the lake's level or lower, so the water runs out there; the one
   // nearest where the player dragged out, or else where the ground beyond is lowest (then the rim's own, then the first)
-  const beyond = (r: number) => Math.min(...around(r).filter((j) => j >= 0 && j < W * H && !inside[j] && !onRim[j]).map((j) => heights[j]));
-  const spills = rimAll.filter((r) => beyond(r) <= level);
+  const beyond = (r: number) => Math.min(...around(r).filter((j) => !inside[j] && !onRim[j] && !onEdge(j)).map((j) => heights[j]));
+  // (never a rim tile on the map's edge, nor one whose water runs on only to the edge: it would leave the map)
+  const spills = rimAll.filter((r) => !onEdge(r) && beyond(r) <= level);
   if (!spills.length) return none(`no ground beyond the lake's rim lies at level ${level} or lower: its water would have nowhere to spill`);
   let notch = spills[0];
   if (spill) {

@@ -13,9 +13,10 @@ import { buildFileFromHeights } from "../../src/core/places/place";
 import { validateMap } from "../../src/core/validate/checks";
 
 const W = 96;
-/** Level ground at 8, with a hollow down to 3 at X 70 · Y 30 and ground at 7 from X 20 to 24 along Y 49. */
-function flat(): MapSession {
-  const h = new Uint8Array(W * W).fill(8);
+/** Level ground at 8 (or `ground`, its west edge at `west`), with a hollow down to 3 at X 70 · Y 30 and ground at 7 from X 20 to 24 along Y 49. */
+function flat(ground = 8, west = ground): MapSession {
+  const h = new Uint8Array(W * W).fill(ground);
+  for (let y = 0; y < W; y++) h[y * W] = west;
   h[30 * W + 70] = 3;
   for (let x = 20; x <= 24; x++) h[49 * W + x] = 7;
   const start = startingLocation({ id: "00000000-0000-4000-8000-0000000000aa", owner: "t", x: 5, y: 80, z: 8, orientation: "Cw0" });
@@ -67,6 +68,20 @@ describe("the drawn lake", () => {
     const p = planDrawnLake(flat(), OUTLINE, 8, 2, [10, 44]);
     expect(p.reason).toBeNull();
     expect([p.notch % W, Math.floor(p.notch / W)]).toEqual([14, 44]);
+  });
+  it("never spills off the map: an outline beside its edge puts its notch inside the map, or is refused", () => {
+    // (beside the west and the east edge, dragged out toward it: the rim's tiles on the edge are never the notch, and a
+    // rim tile's neighbours never wrap to the next row)
+    for (const [x0, x1, out] of [[1, 10, 0], [W - 11, W - 2, W - 1]] as const) {
+      const p = planDrawnLake(flat(), [[x0, 10], [x1, 10], [x1, 18], [x0, 18]], 8, 2, [out, 14]);
+      expect(p.reason).toBeNull();
+      const nx = p.notch % W;
+      expect(nx).toBeGreaterThan(0);
+      expect(nx).toBeLessThan(W - 1);
+    }
+    // ground at 12 everywhere but a low strip along the west edge: only the edge could take its water, so it's refused
+    const s = flat(12, 6);
+    expect(planDrawnLake(s, [[1, 10], [10, 10], [10, 18], [1, 18]], 8, 2).reason).toBe("no ground beyond the lake's rim lies at level 8 or lower: its water would have nowhere to spill");
   });
   it("refuses, in one line naming the lowest gap, land that can't hold the level", () => {
     const s = flat();

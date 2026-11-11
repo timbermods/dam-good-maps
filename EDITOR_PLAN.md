@@ -1229,7 +1229,7 @@ Make a valley, drop a source, and there's a river.
   refused, naming the lowest: "the land can't hold a lake at level 8 there: its rim's lowest gap is at X 70 · Y 30, level
   3"), with one spill point: a notch one tile wide at the level, where the ground beyond the rim is lowest, or nearest
   where the drag went on out of the outline it closed; always where ground beyond lies at the level or lower, so the
-  water runs out there (with none, it is refused). It places no water of its own: water already in the outline or on its rim fills it at
+  water runs out there, and never on or toward the map's edge (with none, it is refused). It places no water of its own: water already in the outline or on its rim fills it at
   the next settle; otherwise a source or a canal must bring some. An outline on the map's edge, a source's ground and a
   cave's or an overhang's are refused, saying where. One undo step; the objects on it ride its ground. The core's `lake`
   operation (`core/doc/lake.ts` `planDrawnLake`, `applyDrawnLake`; named apart from Lakes by number's `lakeLevel.ts`; its
