@@ -6500,7 +6500,9 @@ impl CarveState {
             }
         }
     }
-    fn drop_objects(&mut self, changed: &[usize]) {
+    /// The objects its cut reaches (`changed`): those whose ground it takes go, the riders ride. Returns the tiles of
+    /// the seats it levelled under Ride (`level_seat`), which change with this step.
+    fn drop_objects(&mut self, changed: &[usize]) -> Vec<usize> {
         if self.occupants.is_none() {
             let mut o = vec![vec![]; self.original.len()];
             for e in &self.map.entities {
@@ -6522,7 +6524,7 @@ impl CarveState {
             .enumerate()
             .any(|(key, &hit)| hit && !self.removed_keys[key])
         {
-            return;
+            return vec![];
         }
         let mut entities = std::mem::take(&mut self.map.entities);
         let ride = self.settings.ride;
@@ -6547,6 +6549,16 @@ impl CarveState {
                 false
             }
         });
+        // (under Ride, a multi-tile one on ground the cut moved unevenly rides on a seat cut level, planning's ruling of
+        // 2026-11-11: clear.ts `levelSeats`)
+        let mut seats = vec![];
+        if ride {
+            for e in &entities {
+                if hit[e.id_key] {
+                    seats.extend(self.level_seat(e));
+                }
+            }
+        }
         for e in &mut entities {
             let tile = self.rider_tiles[e.id_key];
             if tile != usize::MAX {
@@ -6561,6 +6573,35 @@ impl CarveState {
             }
         }
         self.map.entities = entities;
+        seats
+    }
+    /// A multi-tile source or seep of the map's that rides (a badwater source's 3 × 3, a seep's 2 × 2) on ground the cut
+    /// moved unevenly: its seat cut down to the lowest of its tiles, as D290 levels a placed one (clear.ts
+    /// `levelSeats`, `seatLevel`). Not one under a roof, nor on a kept tile. The tiles cut.
+    fn level_seat(&mut self, e: &Entity) -> Vec<usize> {
+        let tile = self.rider_tiles[e.id_key];
+        let z0 = if tile == usize::MAX { f64::NAN } else { self.rider_z[e.id_key] };
+        if !ride_source(e.template.as_ref()) || z0.is_nan() || z0 < self.original[tile] as f64 {
+            return vec![];
+        }
+        let fp = self.map.footprint(e, 0);
+        if fp.len() < 2 || fp.iter().any(|&i| self.keep[i] != 0) {
+            return vec![];
+        }
+        let dz = |i: usize| self.map.heights[i] as i32 - self.original[i] as i32;
+        if fp.iter().all(|&i| dz(i) == dz(fp[0])) {
+            return vec![];
+        }
+        let low = fp.iter().map(|&i| self.map.heights[i]).min().unwrap();
+        let mut cut = vec![];
+        for &i in &fp {
+            if self.map.heights[i] != low {
+                self.map.heights[i] = low;
+                self.map.lava[i] &= mask(low);
+                cut.push(i);
+            }
+        }
+        cut
     }
     fn step(&mut self) -> Vec<usize> {
         if self.metrics.stable {
@@ -6675,7 +6716,8 @@ impl CarveState {
             self.delta[i] = 0;
         }
         if !changed.is_empty() {
-            self.drop_objects(&changed);
+            let seats = self.drop_objects(&changed);
+            changed.extend(seats);
         }
         self.quiet = if !changed.is_empty() || !infill.is_empty() {
             0
@@ -6696,8 +6738,9 @@ impl CarveState {
                 for &i in &shaped {
                     self.map.lava[i] &= mask(self.map.heights[i]);
                 }
-                self.drop_objects(&shaped);
+                let seats = self.drop_objects(&shaped);
                 changed.extend(shaped);
+                changed.extend(seats);
             }
             if self.metrics.reason == "map edge" {
                 self.metrics.exported = self.metrics.suspended;

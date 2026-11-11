@@ -553,7 +553,10 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   Rift's walls), and a multi-tile one (a badwater source's 3 × 3, a seep's 2 × 2) whose tiles it moves by different
   amounts, since it rides only as one level piece (D249); one that rides an intact block or a thin apron stays, as under Ride; the force audit's S2, `src/core/forces/clear.ts` `destroyedGround`; Glaciate's
   ice still takes what it reaches), in the brushes' Sources look, remembered per force with the other pins and sent as `settings.sources`; Try another sends the row's
-  choice as it is. A force's own sources (Keep river, Meltwater, an unleashed source) always stay.
+  choice as it is. A force's own sources (Keep river, Meltwater, an unleashed source) always stay. Under Ride a
+  multi-tile source on ground the force moved unevenly keeps riding on a seat cut level to the lowest of its tiles, as
+  D290 levels a placed one; the cut is part of the force's result, shown with it and undone in its one step, and a seat
+  across a working area's edge is held as it was (planning's ruling of 2026-11-11; `clear.ts` `levelSeats`).
 - **One row** (D289): **Power**, **Size** (Quake has none), at most one signature choice (Carve's **Keep river** or
   **Dry canyon**; Quake's **Lift** or **Slide**; Glaciate's **Meltwater**), and **Try another**. The gesture is the
   mode: a click unleashes a carve, strikes, vents or flows; a drag draws a line freehand (below). Everything else

@@ -40,7 +40,10 @@ cut away, or in a fault's crush zone); a source that only rides an intact block,
 wall, where a tile's 3 × 3 moves differ by 2 or more (`clear.ts` `destroyedGround`; Carve's cut in Rust the same). A multi-tile source (a badwater source's 3 × 3, a seep's 2 × 2) whose tiles moved by different amounts goes too: it
 rides only as one level piece (D249), and on torn ground it stood inside the ground, a map export refused (dev's
 force-save spec, 2026-11-11; `clear.ts` `clearable`; Carve's cut in Rust the same, `clear_destroys`, as its head reaches it, so its operation is the
-same whichever way it is shown).
+same whichever way it is shown). Under Ride (planning's ruling of 2026-11-11) such a source keeps riding and its seat is
+levelled to the lowest of its tiles as D290 levels a placed one, the cut part of the force's result (`clear.ts`
+`levelSeats` for every staged force, Rust's Carve `level_seat` as its cut reaches it); a seat across a working area's
+edge is held as it was. Highlands 4242's crater under Ride now exports (`tests/contract/rideSeat.test.ts`).
 A Lift by River Valley 1's hillside spring now carries it up 4 levels, still flowing (sheet
 `docs/sheets/force-sources-clear.jpg`). Glaciate's ice still takes what it reaches (item 10). (a), Auto reach capped
 by the map, comes with each force.
