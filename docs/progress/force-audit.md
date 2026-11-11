@@ -37,7 +37,10 @@ every plant dead, at instant and at normal water speed. The player sees a small 
 map (below, per force); (b) under Clear, a source goes only where its own ground is destroyed (buried 3 levels or more,
 cut away, or in a fault's crush zone); a source that only rides an intact block, or sits under a thin apron, rides.
 **(b) done** (`feature/force-sources-clear`, 2026-11-11): Clear takes a source only where its ground is buried 3 or more, cut 2 or more away, or in a crush zone: within 2.5 tiles of a Quake's crack, or a Rift's
-wall, where a tile's 3 × 3 moves differ by 2 or more (`clear.ts` `destroyedGround`; Carve's cut in Rust the same).
+wall, where a tile's 3 × 3 moves differ by 2 or more (`clear.ts` `destroyedGround`; Carve's cut in Rust the same). A multi-tile source (a badwater source's 3 × 3, a seep's 2 × 2) whose tiles moved by different amounts goes too: it
+rides only as one level piece (D249), and on torn ground it stood inside the ground, a map export refused (dev's
+force-save spec, 2026-11-11; `clear.ts` `clearable`; Carve's cut in Rust the same, `clear_destroys`, as its head reaches it, so its operation is the
+same whichever way it is shown).
 A Lift by River Valley 1's hillside spring now carries it up 4 levels, still flowing (sheet
 `docs/sheets/force-sources-clear.jpg`). Glaciate's ice still takes what it reaches (item 10). (a), Auto reach capped
 by the map, comes with each force.

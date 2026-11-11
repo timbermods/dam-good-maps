@@ -4,7 +4,8 @@
 // badwater source or seep only where the force destroys its ground (the force audit's S2,
 // docs/progress/force-audit.md): buried 3 levels or more, cut 2 or more away, or, where the force moves
 // the ground whole, in the crush zone where the ground tears (a Quake's fault, a Rift's walls); a multi-tile one if any of
-// its tiles is. One that only rides an intact block, or sits under a thin apron, rides as under Ride.
+// its tiles is, or if the force moved its tiles by different amounts (it rides only as one level piece, D249).
+// One that only rides an intact block, or sits under a thin apron, rides as under Ride.
 // The sources a force places itself always stay (Carve's river, Glaciate's meltwater, an unleashed
 // source); every other object keeps riding the ground. Carve takes what it cuts away itself under Clear
 // (in Rust: `removed`, as its head arrives; the rest ride its cut), Glaciate everything its ice reaches
@@ -83,17 +84,17 @@ export const FAULT_CRUSH = 2.5;
  *  for a force that moves ground whole, only its crush zone: a Quake's, `FAULT_CRUSH` tiles of its crack
  *  (its stepped scarp's benches ride), or where the moves of a Rift's 3 × 3 tiles differ by `TORN` levels or more
  *  (its walls). */
-export function destroyedGround(W: number, H: number, before: ArrayLike<number>, after: ArrayLike<number>, ease: ArrayLike<number> | null, motion: GroundMotion): (i: number) => boolean {
+export function destroyedGround(W: number, H: number, before: ArrayLike<number>, after: ArrayLike<number>, ease: ArrayLike<number> | null, motion: GroundMotion): Destroyed {
   const changed = changedGround(before, after, ease);
-  const dz = (i: number) => (ease ? Math.max(before[i] - ease[i], Math.min(before[i] + ease[i], after[i])) : after[i]) - before[i];
+  const dz = groundMoved(before, after, ease);
   if (motion.kind === "reshape")
-    return (i) => {
+    return withMoved((i) => {
       const d = dz(i);
       return d >= BURIED || d <= -CUT;
-    };
+    }, dz);
   if (motion.kind === "fault") {
     const pts = motion.path;
-    return (i) => {
+    return withMoved((i) => {
       if (!changed(i)) return false;
       const x = i % W;
       const y = (i - x) / W;
@@ -109,9 +110,9 @@ export function destroyedGround(W: number, H: number, before: ArrayLike<number>,
         if (ex * ex + ey * ey <= FAULT_CRUSH * FAULT_CRUSH) return true;
       }
       return false;
-    };
+    }, dz);
   }
-  return (i) => {
+  return withMoved((i) => {
     if (!changed(i)) return false;
     const x = i % W;
     const y = (i - x) / W;
@@ -124,7 +125,20 @@ export function destroyedGround(W: number, H: number, before: ArrayLike<number>,
         if (d > hi) hi = d;
       }
     return hi - lo >= TORN;
-  };
+  }, dz);
+}
+
+/** How many levels each tile's ground a force moved, its working area's feather applied (`ease`). */
+export function groundMoved(before: ArrayLike<number>, after: ArrayLike<number>, ease: ArrayLike<number> | null): (i: number) => number {
+  return (i) => (ease ? Math.max(before[i] - ease[i], Math.min(before[i] + ease[i], after[i])) : after[i]) - before[i];
+}
+
+/** The tiles whose ground a force destroyed (`destroyedGround`), with how far it moved each (`moved`): a
+ *  multi-tile source rides only as one level piece (D249), so `clearable` takes one whose tiles moved apart. */
+export type Destroyed = ((i: number) => boolean) & { moved?: (i: number) => number };
+
+function withMoved(f: (i: number) => boolean, moved: (i: number) => number): Destroyed {
+  return Object.assign(f, { moved });
 }
 
 /** A source a force cleared, and the step of its showing that took it: the frame whose `shown` is
@@ -135,10 +149,18 @@ export interface ClearedSource {
 }
 
 /** The sources Clear takes from the map `before` (its objects at their places then): those with a
- *  tile in their footprint whose ground the force destroyed (`changed`: `destroyedGround`), save the ones `stays` names (the force's
- *  own, and those it took itself). */
-export function clearable(before: { W: number; H: number; entities: readonly EntitySpec[] }, changed: (i: number) => boolean, stays: (id: string) => boolean): EntitySpec[] {
-  return before.entities.filter((e) => CLEARABLE.has(e.template) && !stays(e.id) && footprint(before, e).some(changed));
+ *  tile in their footprint whose ground the force destroyed (`changed`: `destroyedGround`), and a multi-tile one (a
+ *  badwater source's 3 × 3, a seep's 2 × 2) whose tiles the force moved by different amounts: it rides only as one
+ *  level piece (D249), and on torn ground it would stand inside the ground or over air, a map the game refuses. Save
+ *  the ones `stays` names (the force's own, and those it took itself). */
+export function clearable(before: { W: number; H: number; entities: readonly EntitySpec[] }, changed: Destroyed, stays: (id: string) => boolean): EntitySpec[] {
+  const moved = changed.moved;
+  return before.entities.filter((e) => {
+    if (!CLEARABLE.has(e.template) || stays(e.id)) return false;
+    const tiles = footprint(before, e);
+    if (tiles.some(changed)) return true;
+    return !!moved && tiles.length > 1 && tiles.some((i) => moved(i) !== moved(tiles[0]));
+  });
 }
 
 /** A force's showing, clearing its sources step by step: each goes at the first step whose land
