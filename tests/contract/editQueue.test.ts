@@ -25,6 +25,9 @@ const W = 48;
 let P1: Uint8Array;
 let P2: Uint8Array;
 
+// (the Naturalize strokes at (20, 26) and (30, 10) since generator 0.10.16's ground with grade, D148: on River Valley
+// 48² seed 11's graded slopes a stroke at (20, 30) or (10, 35) weathers nothing, so the stroke is let go as one that
+// changed nothing and never lands)
 beforeAll(() => {
   P1 = mapProject(11, "riverValley", W);
   P2 = mapProject(12, "riverValley", W);
@@ -73,7 +76,7 @@ describe("the edit queue against the worker: pinned scenarios", () => {
   it("#873 (step 3): a Naturalize stroke's operation is built once, from its worker's whole record", async () => {
     const h = new Harness(P1);
     const id = h.press("naturalize", 5, { seed: 3 });
-    await h.drag(line(20, 30, 12));
+    await h.drag(line(20, 26, 12));
     await h.letGo();
     await h.settle();
     const t = h.queue.ticket(id)!;
@@ -93,7 +96,7 @@ describe("the edit queue against the worker: pinned scenarios", () => {
     // every stroke)
     const h = new Harness(P1);
     const id = h.press("naturalize", 5, { seed: 3 });
-    await h.drag(line(20, 30, 12));
+    await h.drag(line(20, 26, 12));
     await h.letGo();
     await h.settle();
     const sent = ((h.queue.ticket(id)!.call as { args: unknown[] }).args[0] as Extract<EditOp, { op: "brush" }>).params;
@@ -111,7 +114,7 @@ describe("the edit queue against the worker: pinned scenarios", () => {
     await stroke(h, "raise", 30, 30);
     await h.settle();
     const before = head();
-    const id = await stroke(h, "naturalize", 20, 30, { n: 10 });
+    const id = await stroke(h, "naturalize", 20, 26, { n: 10 });
     expect(h.queue.ticket(id)!.state).toBe("closing");
     h.undo();
     await h.settle();
@@ -129,7 +132,7 @@ describe("the edit queue against the worker: pinned scenarios", () => {
   it("#880 (2), U5 (step 3; planning's ruling 3): a map opened while a Naturalize stroke lands waits for it; nothing of the first map reaches the second", async () => {
     const h = new Harness(P1);
     const first = h.queue.epoch;
-    await stroke(h, "naturalize", 20, 30, { n: 10 });
+    await stroke(h, "naturalize", 20, 26, { n: 10 });
     const leaving = await h.switchMap(P2);
     const edits = decodeProject(leaving).edits;
     const last = edits.at(-1) as Extract<EditOp, { op: "brush" }>;
@@ -194,14 +197,14 @@ describe("the edit queue against the worker: pinned scenarios", () => {
     h.undo();
     await h.settle();
     // (b is the redo row; a stroke lands while the player clicks it, and replaces it)
-    const landing = await stroke(h, "naturalize", 20, 30, { n: 10 });
+    const landing = await stroke(h, "naturalize", 20, 26, { n: 10 });
     const gone = h.jump({ seq: b })!;
     await h.settle();
     expect(h.queue.ticket(gone)!.state).toBe("refused");
     expect(h.queue.ticket(gone)!.line).toBe(STEP_GONE);
     expect(head()).toBe(h.queue.ticket(landing)!.step);
     // (a row still there: the history stands at it)
-    const landing2 = await stroke(h, "naturalize", 10, 35, { n: 10 });
+    const landing2 = await stroke(h, "naturalize", 30, 10, { n: 10 });
     const there = h.jump({ seq: a })!;
     await h.settle();
     expect(h.queue.ticket(there)!.state).toBe("done");
@@ -317,7 +320,7 @@ describe("the edit queue against the worker: pinned scenarios", () => {
 
   it("U6 (step 3; planning's ruling 2): a press while a Naturalize stroke lands paints: its stroke goes on the history after the landing one", async () => {
     const h = new Harness(P1);
-    const landing = await stroke(h, "naturalize", 20, 30, { n: 10 });
+    const landing = await stroke(h, "naturalize", 20, 26, { n: 10 });
     const pressed = await stroke(h, "raise", 30, 20);
     expect(h.queue.composable(pressed)).toBe(false);
     await h.settle();
@@ -341,7 +344,7 @@ describe("the edit queue against the worker: pinned scenarios", () => {
 
   it("U9 (step 3): an edit made while a Naturalize stroke lands goes on the history after it", async () => {
     const h = new Harness(P1);
-    const landing = await stroke(h, "naturalize", 20, 30, { n: 10 });
+    const landing = await stroke(h, "naturalize", 20, 26, { n: 10 });
     const stream = new Stream(6, W);
     const c = stream.command("place", ed.collabSession()!) as Extract<Command, { kind: "edit" }>;
     const placed = h.edit("applyAll", [c.ops, c.label], c.label);
