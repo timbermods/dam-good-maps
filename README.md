@@ -71,6 +71,8 @@ The editor:
 - The objects at the bottom right place things: **Start**, **Water source**, **Badwater source**, trees,
   bushes, ruins and more. Pick one, then click the map. Green means it fits; red says why not.
 - R turns the object, and Esc puts it back. Drag with a tree or bush to plant a grove.
+- Drag with **Ruin** to lay a line of ruined piers. Their tops are level, so they stand tall across low ground.
+  **Spacing** and **Break** set how far apart they are and how many are missing.
 - A new source's water flows at once. The window above the objects sets its strength.
 - Over a placed source, Ctrl+scroll sets its strength. Drag it to move it. Click it to change or
   remove it.

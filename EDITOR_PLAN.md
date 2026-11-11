@@ -908,7 +908,17 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   shaped as the generator's natural ramps are: a tread of two to four tiles a level, uneven, filling the drag's
   length, a slope on the first tile of each, the ground three wide and a spur beside a fill; its slopes green as it
   is dragged or the line red with the one reason it can't be laid, the release one step: `core/doc/stair.ts`, sharing
-  `land/levels.ts`'s `dealTreads` and `shapeRamp`); Smooth has no walkable option (D247) and Flatten no Ramped edges
+  `land/levels.ts`'s `dealTreads` and `shapeRamp`). The shelf's **Ruin**, dragged, lays a **ruin line**: ruins as
+  architecture, not scatter. Piers stand evenly from one end of the drag to the other, **Spacing** tiles apart (1 to 8,
+  3 unless changed), their tops at one level, a storey over the highest ground under the line, so they are tall in the
+  low ground and short at the ends (an aqueduct's or a dam's remains across a valley); **Break** (0 to 80%, 30% unless
+  changed) knocks piers between the two ends out by the drag's seed, and a pier that can't stand where it falls (water,
+  another object) is one more gap. The piers show green as it is dragged, with how many and the level of their tops
+  beside the pointer, or the line red with the one reason (no room for two piers; ground that drops more than a ruin's
+  8 levels under the line); the release lays the line it showed, one step in History ("Lay a ruin line of 10 piers"),
+  each column a `placeEntity` the log keeps, as a stroke of painted objects (`core/doc/ruinLine.ts` `planRuinLine`,
+  `applyRuinLine`; the worker's `ruinLinePlanAt` and `ruinLineAt`). A click with the Ruin still places one, at its
+  Height. Smooth has no walkable option (D247) and Flatten no Ramped edges
   (D322). **Naturalize** weathers what the player paints (forces' results, strokes, rivers, set pieces); it leaves
   only what must not change for the map to stay correct: the start's pad and the ground under water sources,
   badwater sources and objects (not trees, bushes, ruin columns or slopes), worked out by the core when the stroke
