@@ -2,17 +2,16 @@
 // footprints. A mine site is a rusty frame round the edge of its 5 × 5 footprint and a pit with
 // real depth filling the rest (the terrain leaves the footprint's tops out and the model closes the
 // hole), rusty posts down into it round its lip and pale ground in its corners, as the game's (no
-// scaffolding: D178 amended, D496's rule); with Markers on, an outline round the footprint. Ruins are ruined scaffold towers, a storey per level, in the file's five
-// variants, with ivy draped over the lower half of their storeys on moist ground; neighbouring columns
-// never look alike, and from afar each storey is a block in the scaffolding's colour. Kyler's
-// colours hold: the mine sites' measured in the game, the ruins' bright orange with cream sacks from
-// Timberborn's references (D334).
+// scaffolding: D178 amended, D496's rule); with Markers on, an outline round the footprint. Ruins are the game's ruined
+// concrete frames (D178 as amended 2026-11-10, D496's rule), a storey per level in the file's five variants: rebar posts
+// at the corners, bands of slab or rails on the faces storey by storey from the top, floors in three variants, the
+// game's ivy on wet and dry ground, unturned and one model at every distance, in the game's colours.
 
 import { describe, expect, it } from "vitest";
 import { ShaderMaterial } from "three";
 import { FOOTPRINTS, footprintTiles, ORIENTATIONS, type Orientation } from "../../src/core/format/footprints";
-import { buildEntities, IVY_DENSE, IVY_LIGHT, IVY_MEDIUM, IVY_NONE, LOD_ALL, LOD_FAR, LOD_FAR_FRAME, LOD_NEAR, MINE_PIT, mineCutout, mineOutline, modelOf, modelTriangles, RUIN_LAYOUTS, ruinIvy, ruinOvergrown, ruinsOvergrown, ruinStoreys, ruinTriangles, ruinTurn } from "../../src/render3d/entities3d";
-import { objectMaterial, RUIN_INSIDE_COVER, RUIN_LATTICE_SCALE, RUIN_LATTICE_STRUT, RUIN_NEAR_PX, sceneUniforms, terrainMaterial, overlayTexture } from "../../src/render3d/materials";
+import { buildEntities, IVY_DENSE, IVY_LIGHT, IVY_MEDIUM, IVY_NONE, LOD_ALL, MINE_PIT, mineCutout, mineOutline, modelOf, modelTriangles, RUIN_BAND_LO, RUIN_FACES, RUIN_POST, RUIN_POST_TOPS, ruinIvy, ruinOvergrown, ruinsOvergrown, ruinStoreys, ruinTriangles } from "../../src/render3d/entities3d";
+import { LOD_NEAR_PX, objectMaterial, sceneUniforms, terrainMaterial, overlayTexture } from "../../src/render3d/materials";
 import { chunkCount, meshChunk, type TerrainSource } from "../../src/render3d/mesh";
 import { LAND_GROW } from "../../src/render3d/objectFade";
 import { entityView, variantIndex, type EntityInput, type EntityView } from "../../src/render3d/model";
@@ -221,327 +220,218 @@ describe("mine sites", () => {
 });
 
 describe("ruins", () => {
-  const column = (x: number, y: number, h: number, variant?: string): EntityInput => ({ template: `RuinColumnH${h}`, x, y, z: 2, orientation: "Cw0", owner: "f", variant });
+  const column = (x: number, y: number, h: number, variant?: string, orientation: Orientation = "Cw0"): EntityInput => ({ template: `RuinColumnH${h}`, x, y, z: 2, orientation, owner: "f", variant });
+  const colourAt = (m: { col: readonly number[] }, t: number) => cssColor([m.col[t * 9], m.col[t * 9 + 1], m.col[t * 9 + 2]]);
+  const corners = (m: { pos: readonly number[] }, t: number) => [0, 1, 2].map((j) => [m.pos[t * 9 + j * 3], m.pos[t * 9 + j * 3 + 1], m.pos[t * 9 + j * 3 + 2]]);
+  /** A triangle's area and its normal. */
+  const facet = (p: number[][]) => {
+    const u = p[1].map((q, i) => q - p[0][i]);
+    const w = p[2].map((q, i) => q - p[0][i]);
+    const n = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]];
+    const a = Math.hypot(n[0], n[1], n[2]);
+    return { area: a / 2, n: n.map((q) => q / (a || 1)) };
+  };
+  const slabs = [0.97, 1, 1.02].map((k) => cssColor([RUIN.slab[0] * k, RUIN.slab[1] * k, RUIN.slab[2] * k]));
+  const rusts = [cssColor(RUIN.rust), cssColor([RUIN.rust[0] * 0.95, RUIN.rust[1] * 0.95, RUIN.rust[2] * 0.95])];
+  const greens = [cssColor(RUIN.ivy), cssColor(RUIN.leaf)];
 
-  it("stay within their tile and their storey, in every variant and kind, with and without ivy", () => {
+  it("stay within their tile and their storey, in every variant and place, with and without ivy", () => {
     for (const v of ["A", "B", "C", "D", "E"])
-      for (let kind = 0; kind < 4; kind++)
+      for (let k = 0; k < RUIN_FACES[0].length; k++)
         for (const ivy of [IVY_NONE, IVY_LIGHT, IVY_MEDIUM, IVY_DENSE]) {
-          const m = modelOf(`scaffold.${v}`, kind, ivy);
-          for (let k = 0; k < m.pos.length; k += 3) {
-            expect(Math.abs(m.pos[k]), `${v}${kind}`).toBeLessThanOrEqual(0.5);
-            expect(Math.abs(m.pos[k + 2]), `${v}${kind}`).toBeLessThanOrEqual(0.5);
-            expect(m.pos[k + 1]).toBeGreaterThanOrEqual(-1e-6);
-            expect(m.pos[k + 1]).toBeLessThanOrEqual(1.0 + 1e-6);
+          const m = modelOf(`scaffold.${v}`, k, ivy);
+          for (let i = 0; i < m.pos.length; i += 3) {
+            expect(Math.abs(m.pos[i]), `${v}${k}`).toBeLessThanOrEqual(0.5 + 1e-6);
+            expect(Math.abs(m.pos[i + 2]), `${v}${k}`).toBeLessThanOrEqual(0.5 + 1e-6);
+            expect(m.pos[i + 1]).toBeGreaterThanOrEqual(-1e-6);
+            expect(m.pos[i + 1]).toBeLessThanOrEqual(1.0 + 1e-6);
           }
         }
     expect(FOOTPRINTS.RuinColumnH3.size).toEqual([1, 1, 3]);
   });
 
-  it("are a rust skeleton with cream sacks close up, and from afar a lattice block in the game's ruins' mean (D334, D135 as amended 2026-11-09)", () => {
-    // the game's own colours, its albedo straight (RuinColumnA..E's clusters by `tools/game-model-albedo.py`, D496's
-    // rule, 2026-11-09): the rust, the pale cream, the mean over their area from afar, the game's ivy. Until then
-    // #d4781f, #aa905b (#e3cf96 before 2026-11-08), #b86e30 and #405634, at our lightness in a light of our own.
-    expect(cssColor(RUIN.rust)).toBe("#6c3519");
-    expect(cssColor(RUIN.panel)).toBe("#816e45");
-    expect(cssColor(RUIN.far)).toBe("#553921");
-    expect(cssColor(RUIN.ivy)).toBe("#282816");
-    // the sacks and boards, shaded a little one from another (entities3d.ts storey)
-    const panelShades = [0.95, 0.985, 1.02].map((k) => cssColor([RUIN.panel[0] * k, RUIN.panel[1] * k, RUIN.panel[2] * k]));
-    for (const v of ["A", "B", "C", "D", "E"])
-      for (let kind = 0; kind < 4; kind++) {
-        const m = modelOf(`scaffold.${v}`, kind);
-        const near: string[] = [];
-        let farTris = 0;
-        let farTop = 0;
-        let rustArea = 0;
-        let farArea = 0;
-        for (let t = 0; t < m.lod.length / 3; t++) {
-          const lod = m.lod[t * 3];
-          expect([LOD_NEAR, LOD_FAR, LOD_FAR_FRAME]).toContain(lod);
-          // (from afar, the block's orange is its frame, drawn as a lattice; its panels and ivy solid)
-          if (lod !== LOD_NEAR) expect(lod === LOD_FAR_FRAME, `${v}${kind}`).toBe(cssColor([m.col[t * 9], m.col[t * 9 + 1], m.col[t * 9 + 2]]) === cssColor(RUIN.far));
-          const c = cssColor([m.col[t * 9], m.col[t * 9 + 1], m.col[t * 9 + 2]]);
-          if (lod === LOD_NEAR) near.push(c);
-          else {
-            farTris++;
-            let y = 0;
-            for (let j = 0; j < 3; j++) y = Math.max(y, m.pos[t * 9 + j * 3 + 1]);
-            farTop = Math.max(farTop, y);
-            const v = [0, 1, 2].map((j) => [m.pos[t * 9 + j * 3], m.pos[t * 9 + j * 3 + 1], m.pos[t * 9 + j * 3 + 2]]);
-            const u = v[1].map((q, i) => q - v[0][i]);
-            const w = v[2].map((q, i) => q - v[0][i]);
-            const area = Math.hypot(u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]) / 2;
-            farArea += area;
-            if (c === cssColor(RUIN.far)) rustArea += area;
+  it("are the game's (D178 as amended 2026-11-10): rebar posts at the corners, on each face a band of slab or rails storey by storey from the top, floors in B, C and D", () => {
+    // the game's colours, the means of the texels its cut-out keeps in each part of its atlas (D496's rule): the rebar's
+    // rust, the slabs' tan, its ivy. (Until 2026-11-10 the means of five clusters over the whole texture: #6c3519,
+    // #816e45, a far block #553921, the ivy #282816.)
+    expect(cssColor(RUIN.rust)).toBe("#5d2f17");
+    expect(cssColor(RUIN.slab)).toBe("#6c5a39");
+    expect(cssColor(RUIN.ivy)).toBe("#2a2f1a");
+    const floorFrom = [Infinity, 1, 2, 1, Infinity];
+    for (let v = 0; v < 5; v++)
+      for (let k = 0; k < RUIN_FACES[v].length; k++) {
+        const id = "ABCDE"[v];
+        const m = modelOf(`scaffold.${id}`, k);
+        const tops = k === 0 ? RUIN_POST_TOPS[v] : [1, 1, 1, 1];
+        // one model at every distance, as the game's: no part only close up or only from afar
+        expect(new Set(m.lod), `${id}${k}`).toEqual(new Set([LOD_ALL]));
+        // every triangle the rebar's rust or the slabs' tan
+        for (let t = 0; t < m.pos.length / 9; t++) expect([...rusts, ...slabs], `${id}${k}`).toContain(colourAt(m, t));
+        // the posts at the tile's corners, 0.08 square, to the storey's top (the top storey's broken off at the
+        // variant's heights)
+        const sw = [[RUIN_POST, -RUIN_POST], [RUIN_POST, RUIN_POST], [-RUIN_POST, RUIN_POST], [-RUIN_POST, -RUIN_POST]];
+        sw.forEach(([cx, cz], c) => {
+          let hi = 0;
+          for (let t = 0; t < m.pos.length / 9; t++)
+            if (rusts.includes(colourAt(m, t))) for (const [x, y, z] of corners(m, t)) if (Math.abs(x - cx) <= 0.04 + 1e-6 && Math.abs(z - cz) <= 0.04 + 1e-6) hi = Math.max(hi, y);
+          expect(hi, `${id}${k} post ${c}`).toBeLessThanOrEqual(tops[c] + 1e-6);
+          expect(hi, `${id}${k} post ${c}`).toBeGreaterThan(tops[c] - 0.4);
+        });
+        // each face's band of slab where the game's has one, over the storey's upper part, whole or broken; rails where
+        // it has rails
+        // (a corner, where two faces' bands end, belongs to neither)
+        const faceOf = (x: number, z: number) => (Math.abs(x) > 0.44 && Math.abs(z) > 0.44 ? -1 : z < -0.44 ? 0 : x > 0.44 ? 1 : z > 0.44 ? 2 : x < -0.44 ? 3 : -1);
+        for (let f = 0; f < 4; f++) {
+          const want = RUIN_FACES[v][k][f];
+          let band = 0;
+          let rail = 0;
+          let lo = Infinity;
+          for (let t = 0; t < m.pos.length / 9; t++) {
+            const p = corners(m, t);
+            const mid = [0, 1, 2].map((i) => (p[0][i] + p[1][i] + p[2][i]) / 3);
+            if (faceOf(mid[0], mid[2]) !== f) continue;
+            const { area, n } = facet(p);
+            const out = [[0, 0, -1], [1, 0, 0], [0, 0, 1], [-1, 0, 0]][f];
+            if (slabs.includes(colourAt(m, t)) && n[0] * out[0] + n[2] * out[2] > 0.9 && mid[1] >= RUIN_BAND_LO) {
+              band += area;
+              lo = Math.min(lo, ...p.map((q) => q[1]));
+            }
+            if (colourAt(m, t) === rusts[1] && Math.abs(mid[0]) < 0.4 !== Math.abs(mid[2]) < 0.4) rail++;
           }
+          const whole = 1 - RUIN_BAND_LO;
+          if (want === "S" && k > 0) expect(band, `${id}${k} face ${f}`).toBeGreaterThan(0.99 * whole);
+          else if (want === "S" || want === "s") {
+            if (band > 0) expect(band, `${id}${k} face ${f}`).toBeLessThan(0.7 * whole);
+          } else expect(band, `${id}${k} face ${f}`).toBe(0);
+          if (band > 0) expect(lo, `${id}${k} face ${f}`).toBeCloseTo(RUIN_BAND_LO, 5);
+          if (want === "R" && k > 0) expect(rail, `${id}${k} face ${f}`).toBeGreaterThan(0);
+          if (want !== "R") expect(rail, `${id}${k} face ${f}`).toBe(0);
         }
-        expect(near).toContain(cssColor(RUIN.rust));
-        // sacks or boards on every layout (shaded a little one from another)
-        expect(near.some((c) => panelShades.includes(c))).toBe(true);
-        // from afar: four sides and a top, the storey's height (a partial top storey lower), with
-        // a cream panel set into each face that has a sack or boards; mostly RUIN.far (the near
-        // skeleton's own orange from afar), the panels under two fifths of it. The lattice that
-        // tells it apart from a solid box is the object shader's own (materials.ts), not this CPU
-        // geometry, which the object shader's own test below checks for.
-        expect(farTris).toBeGreaterThanOrEqual(10);
-        expect(farTris).toBeLessThanOrEqual(20);
-        expect(farTop).toBeCloseTo(kind < 2 ? 1 : 0.72, 5);
-        expect(rustArea / farArea, `${v}${kind}`).toBeGreaterThan(0.6);
+        // a floor slab at the storey's foot in B, C and D, from the game's storey down
+        let floor = 0;
+        for (let t = 0; t < m.pos.length / 9; t++) {
+          const p = corners(m, t);
+          if (slabs.includes(colourAt(m, t)) && p.every((q) => q[1] < 0.06) && facet(p).n[1] > 0.9) floor += facet(p).area;
+        }
+        if (k >= floorFrom[v]) expect(floor, `${id}${k}`).toBeGreaterThan(v === 1 && k === 1 ? 0.35 : 0.55);
+        else expect(floor, `${id}${k}`).toBe(0);
       }
-    // modest: tens of thousands of storeys on a big map
-    const t = ruinTriangles();
-    expect(t.near).toBeLessThanOrEqual(310);
-    expect(t.far).toBeLessThanOrEqual(24);
-    expect(modelTriangles("ruin")).toBeLessThanOrEqual(360);
+    // modest: a storey with the most ivy a few hundred triangles
+    expect(ruinTriangles()).toBeLessThanOrEqual(330);
+    expect(modelTriangles("ruin")).toBeLessThanOrEqual(330);
   });
 
-  it("from afar stand apart from contaminated ground (its veins, and the pattern's mean the light look draws) as the game's do", () => {
+  it("stand apart from contaminated ground as the game's do: the slabs lighter, the rebar by its hue", () => {
     // (D135 as amended 2026-11-09: the ruins and the ground are both the game's albedo in the same light, so they compare
-    // as they are, with the readability the game has. Until then the ruins' colours were ours at 1.318 times the
-    // game's lightness, and each stood 0.12 over every contaminated ground, the panels 0.2.)
+    // as they are, with the readability the game has; the margins its own colours give since 2026-11-10, D148: the
+    // slabs 0.1 over every contaminated ground and the rust 0.08 over the veins when the ruins' colours were the means of
+    // the whole texture)
     for (const ground of [CONTAMINATED_GROUND.dry, CONTAMINATED_GROUND.grass, CONTAMINATION.vein]) {
-      // the panels the lightest of a ruin, lighter than any contaminated ground, as the game's are
-      expect(lum(RUIN.panel) - lum(ground)).toBeGreaterThan(0.1);
-      expect(lum(RUIN.panel)).toBeGreaterThan(Math.max(lum(RUIN.rust), lum(RUIN.far)));
+      expect(lum(RUIN.slab) - lum(ground)).toBeGreaterThan(0.03);
+      expect(lum(RUIN.slab)).toBeGreaterThan(lum(RUIN.rust));
     }
-    // the skeleton and the far block lighter than the veins; against the ground under them only by hue, as the game's
-    for (const c of [RUIN.far, RUIN.rust]) expect(lum(c) - lum(CONTAMINATION.vein), cssColor(c)).toBeGreaterThan(0.08);
-    // the scaffold is orange, the veins a dark rust: more yellow in it (D154 as amended 2026-11-07: from afar the
+    expect(lum(RUIN.rust) - lum(CONTAMINATION.vein)).toBeGreaterThan(0.05);
+    // the rebar is orange, the veins a dark rust: more yellow in it (D154 as amended 2026-11-07: from afar the
     // contaminated ground is its soil a little toward the rust, no rust fill, so the hue rule is the veins')
-    expect(RUIN.rust[1] / RUIN.rust[0]).toBeGreaterThan(CONTAMINATION.vein[1] / CONTAMINATION.vein[0] + 0.05);
-  });
-
-  it("hang cream sacks: shallow pouches bulging out of the face with a tied upper edge, as many triangles as the slabs they replace; broken boards stay flat (D334)", () => {
-    const shades = [0.95, 0.985, 1.02].map((k) => cssColor([RUIN.panel[0] * k, RUIN.panel[1] * k, RUIN.panel[2] * k]));
-    // variant B's first layout: a sack filling its north face (face 0, not turned)
-    const m = modelOf("scaffold.B", 0);
-    const pts: number[][] = [];
-    let tris = 0;
-    for (let t = 0; t < m.lod.length / 3; t++) {
-      if (m.lod[t * 3] !== LOD_NEAR || !shades.includes(cssColor([m.col[t * 9], m.col[t * 9 + 1], m.col[t * 9 + 2]]))) continue;
-      tris++;
-      for (let j = 0; j < 3; j++) pts.push([m.pos[t * 9 + j * 3], m.pos[t * 9 + j * 3 + 1], m.pos[t * 9 + j * 3 + 2]]);
-    }
-    expect(tris).toBe(12);
-    const zs = pts.map((p) => p[2]);
-    const ys = pts.map((p) => p[1]);
-    // a pouch, not a slab (0.03 thick): it bulges outward (−Z), past the posts but within the tile
-    expect(Math.max(...zs) - Math.min(...zs)).toBeGreaterThan(0.06);
-    expect(Math.min(...zs)).toBeLessThan(-0.4);
-    expect(Math.min(...zs)).toBeGreaterThanOrEqual(-0.5);
-    // resting on the storey's floor, wider than tall, its upper edge dipping where it is tied
-    expect(Math.min(...ys)).toBeGreaterThan(0.03);
-    expect(Math.max(...ys)).toBeLessThan(0.62);
-    const width = Math.max(...pts.map((p) => p[0])) - Math.min(...pts.map((p) => p[0]));
-    expect(width).toBeGreaterThan(Math.max(...ys) - Math.min(...ys));
-    const top = Math.max(...ys);
-    const middleTop = Math.max(...pts.filter((p) => Math.abs(p[0]) < 0.1).map((p) => p[1]));
-    expect(middleTop).toBeLessThan(top - 0.04);
-    // broken panels stay two flat boards (0.03 thick each)
-    const broken = modelOf("scaffold.E", 1);
-    let boardTris = 0;
-    for (let t = 0; t < broken.lod.length / 3; t++) if (broken.lod[t * 3] === LOD_NEAR && shades.some((c) => c === cssColor([broken.col[t * 9], broken.col[t * 9 + 1], broken.col[t * 9 + 2]]) || c === cssColor([broken.col[t * 9] / 0.93, broken.col[t * 9 + 1] / 0.93, broken.col[t * 9 + 2] / 0.93]))) boardTris++;
-    expect(boardTris).toBe(24);
+    expect(RUIN.rust[1] / RUIN.rust[0]).toBeGreaterThan(CONTAMINATION.vein[1] / CONTAMINATION.vein[0] + 0.03);
   });
 
   it("the object shader draws a model's parts for close up or from afar by its size on screen", () => {
     const u = sceneUniforms(1, 1, overlayTexture(1, 1), overlayTexture(1, 1), overlayTexture(1, 1), overlayTexture(1, 1));
     const mat = objectMaterial(u);
-    const shader = mat.vertexShader;
-    expect(shader).toContain("attribute float lod");
-    expect(shader).toContain(`perUnit >= ${RUIN_NEAR_PX}`);
-    expect(RUIN_NEAR_PX).toBeGreaterThanOrEqual(6);
-    // the far ruin block's lattice (D305): a pattern in the fragment shader, gated on the far frame's
-    // lod alone (so it never touches any other object or the block's panels and ivy), the same in
-    // Standard and High since it lives in the shared shader, not behind a hook; filtered to the pixel and
-    // drawn as coverage (alpha to coverage on the multisampled view), so it never breaks into noise
-    expect(mat.vertexShader).toContain("vLod = lod;");
-    expect(mat.fragmentShader).toContain("if (vLod > 2.5)");
-    expect(mat.fragmentShader).toContain("fwidth(cells)");
-    expect(mat.fragmentShader).toContain(`${RUIN_LATTICE_SCALE}`);
-    expect(RUIN_LATTICE_SCALE).toBeGreaterThan(1);
+    expect(mat.vertexShader).toContain("attribute float lod");
+    expect(mat.vertexShader).toContain(`perUnit >= ${LOD_NEAR_PX}`);
+    // (the far ruin block's lattice is gone with the block, 2026-11-10: the game draws its ruins as one model)
+    expect(mat.fragmentShader).not.toContain("vLod");
     expect(mat.alphaToCoverage).toBe(true);
     expect(objectMaterial(u, true).alphaToCoverage).toBe(false);
-    // from afar it lets little through: its struts and the column's inside behind its cells
-    const mean = 1 - (1 - RUIN_LATTICE_STRUT) ** 2;
-    expect(mean + (1 - mean) * RUIN_INSIDE_COVER).toBeGreaterThan(0.75);
-    // every model carries the attribute; the light look (software rendering) draws a block per ruin
+    // every model carries the attribute; the light look (software rendering) draws a column per ruin
     for (const m of meshesOf([column(1, 1, 3, "B"), { template: "Pine", x: 3, y: 3, z: 2, orientation: "Cw0", owner: "f" }])) expect(m.geometry.getAttribute("lod")).toBeDefined();
     const lite = meshesOf([column(1, 1, 3, "B")], null, 0, true);
     expect(lite.map((m) => m.name)).toEqual(["ruin.lite"]);
     expect(Array.from(lite[0].geometry.getAttribute("lod")!.array).every((v) => v === 0)).toBe(true);
   });
 
-  it("draw the file's variant (A to E), or one from the tile where the file has none", () => {
+  it("draw the file's variant (A to E), or one from the tile where the file has none, each storey by its place from the top", () => {
     expect(variantOf({ RuinModels: { VariantId: "C" } })).toEqual({ variant: "C" });
     expect(variantOf({})).toEqual({});
     expect(variantIndex("E")).toBe(4);
     expect(variantIndex("Q")).toBe(255);
     const names = (list: EntityInput[]) => [...new Set(meshesOf(list).map((m) => m.name))].sort();
-    expect(names([column(1, 1, 2, "D")]).every((n) => n.startsWith("scaffold.D"))).toBe(true);
-    expect(names([column(1, 1, 2, "A"), column(5, 1, 1, "E")]).every((n) => /^scaffold\.[AE]/.test(n))).toBe(true);
+    // (each storey's frame by its variant and place, its ivy in a batch of its own, as the game's ivy is its own model)
+    expect(names([column(1, 1, 2, "D")])).toEqual(["scaffold.D0", "scaffold.D1", "scaffold.ivy.medium"]);
+    expect(names([column(1, 1, 2, "A"), column(5, 1, 1, "E")]).every((n) => /^scaffold\.([AE]\d|ivy\.([AE]0\.)?[a-z]+)$/.test(n))).toBe(true);
     // none given: the same tile always gets the same variant
     const none = names([column(7, 9, 3)]);
     expect(none.length).toBeGreaterThan(0);
     expect(names([column(7, 9, 3)])).toEqual(none);
-    // a storey per level, the top one often only partly there
-    let partial = 0;
-    for (let x = 0; x < 50; x++) {
-      const s = ruinStoreys(x, 3, 4, 0);
-      expect(s).toHaveLength(4);
-      expect(s.slice(0, 3).every((q) => q.kind < 2)).toBe(true);
-      if (s[3].kind >= 2) partial++;
-    }
-    expect(partial).toBeGreaterThan(15);
-    expect(partial).toBeLessThan(45);
+    // a storey per level, counted from the top as the game's atlas is: its top storey always the broken one
+    for (const h of [1, 4, 8]) expect(ruinStoreys(3, 3, h, 0).map((s) => s.kind)).toEqual(Array.from({ length: h }, (_, lv) => h - 1 - lv));
   });
 
-  it("never look alike beside each other: neighbours are turned differently, and no layout looks the same turned", () => {
-    // turns: every column differs from all eight round it
-    for (let y = 0; y < 20; y++)
-      for (let x = 0; x < 20; x++)
-        for (let dy = -1; dy <= 1; dy++)
-          for (let dx = -1; dx <= 1; dx++) if (dx || dy) expect(ruinTurn(x + dx, y + dy), `${x},${y} ${dx},${dy}`).not.toBe(ruinTurn(x, y));
-    // no storey of a variant, turned a quarter, a half or three quarters, is any storey of the
-    // same variant (the shapes: braces, panels, broken posts)
-    const shape = (pos: readonly number[], lod: readonly number[], q: number): string => {
-      const c = Math.round(Math.cos((q * Math.PI) / 2));
-      const s = Math.round(Math.sin((q * Math.PI) / 2));
-      const tris: string[] = [];
-      for (let t = 0; t < pos.length / 9; t++) {
-        if (lod[t * 3] !== LOD_NEAR) continue;
-        const v: string[] = [];
-        for (let j = 0; j < 3; j++) {
-          const [x, y, z] = [pos[t * 9 + j * 3], pos[t * 9 + j * 3 + 1], pos[t * 9 + j * 3 + 2]];
-          v.push([c * x + s * z, y, -s * x + c * z].map((n) => (Math.round(n * 1000) / 1000 + 0).toFixed(3)).join(","));
-        }
-        tris.push(v.sort().join(" "));
-      }
-      return tris.sort().join("|");
-    };
-    for (let variant = 0; variant < RUIN_LAYOUTS.length; variant++) {
-      const id = "ABCDE"[variant];
-      const kinds = [0, 1, 2, 3].map((k) => modelOf(`scaffold.${id}`, k));
-      for (let a = 0; a < 4; a++)
-        for (let b = 0; b < 4; b++)
-          for (let q = 1; q < 4; q++) expect(shape(kinds[a].pos, kinds[a].lod, q) === shape(kinds[b].pos, kinds[b].lod, 0), `${id}${a} turned ${q} = ${id}${b}`).toBe(false);
-    }
-    // as drawn: in a field of one variant and height, each column's storeys are turned its own way
+  it("stand as the file turns them: the game turns no ruin", () => {
     const list: EntityInput[] = [];
     for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) list.push(column(x, y, 2, "A"));
-    const turnAt = new Map<string, number>();
+    list.push(column(6, 6, 2, "A", "Cw90"));
     for (const m of meshesOf(list))
       for (let i = 0; i < m.count; i++) {
         const e = Array.from(m.instanceMatrix.array).slice(i * 16, i * 16 + 16);
-        const key = `${Math.floor(e[12])},${Math.floor(-e[14])}`;
         const q = ((Math.round(Math.atan2(-e[2], e[0]) / (Math.PI / 2)) % 4) + 4) % 4;
-        if (turnAt.has(key)) expect(turnAt.get(key)).toBe(q);
-        turnAt.set(key, q);
+        expect(q, `${e[12]},${e[14]}`).toBe(Math.floor(e[12]) === 6 ? 3 : 0);
+        // and in the game's colours, untinted
+        expect(Array.from((m as unknown as { instanceColor: { array: Float32Array } }).instanceColor.array).slice(i * 3, i * 3 + 3)).toEqual([1, 1, 1]);
       }
-    for (const [key, q] of turnAt) {
-      const [x, y] = key.split(",").map(Number);
-      expect(q).toBe(ruinTurn(x, y));
-    }
   });
 
-  it("drape ivy over the lower half of a column's storeys on moist ground, the most at its foot, thinning upward, as flat leaves that leave the panels' middles showing", () => {
+  it("carry the game's ivy: wet, the foot clad, the second storey clearly green, every higher one a little; dry, the foot clearly green", () => {
     const W = 8;
     const moisture = new Uint8Array(W * 4);
     moisture[1 * W + 1] = 120;
     const soil = { moisture, contamination: new Uint8Array(W * 4) };
     const m = meshesOf([column(1, 1, 4, "C"), column(4, 1, 3, "C")], soil, W);
     const count = (re: RegExp) => m.filter((c) => re.test(c.name)).reduce((s, c) => s + c.count, 0);
-    // on moist ground only: a column 4 high has its foot clad, the second storey clearly green, the
-    // third a little, the fourth bare
-    expect(count(/\.ivy$/)).toBe(1);
-    expect(count(/\.ivy\.medium$/)).toBe(1);
-    expect(count(/\.ivy\.light$/)).toBe(1);
-    expect(count(/^scaffold\./)).toBe(7);
-    expect([0, 1, 2, 3].map((lv) => ruinIvy(1, 1, 4, lv))).toEqual([IVY_DENSE, IVY_MEDIUM, IVY_LIGHT, IVY_NONE]);
+    // the wet column 4 high: its foot clad, the second storey clearly green, the two above a little; the dry one 3 high
+    // its foot clearly green, nothing above
+    expect(count(/^scaffold\.ivy\..*dense$/)).toBe(1);
+    expect(count(/^scaffold\.ivy\..*medium$/)).toBe(2);
+    expect(count(/^scaffold\.ivy\..*light$/)).toBe(2);
+    expect(count(/^scaffold\.[A-E]\d$/)).toBe(7);
+    expect([0, 1, 2, 3].map((lv) => ruinIvy(4, lv, true))).toEqual([IVY_DENSE, IVY_MEDIUM, IVY_LIGHT, IVY_LIGHT]);
+    expect([0, 1, 2].map((lv) => ruinIvy(3, lv, false))).toEqual([IVY_MEDIUM, IVY_NONE, IVY_NONE]);
+    expect([0, 1, 2].map((lv) => ruinIvy(6, lv, false))).toEqual([IVY_MEDIUM, IVY_LIGHT, IVY_NONE]);
+    expect(ruinIvy(1, 0, true)).toBe(IVY_DENSE);
     // the game's dry model on contaminated ground too, moist or not (RuinModelUpdater: IsDry || IsContaminated)
     const poisoned = { moisture, contamination: new Uint8Array(W * 4) };
     poisoned.contamination[1 * W + 1] = 1;
-    expect(meshesOf([column(1, 1, 4, "C")], poisoned, W).filter((c) => /\.ivy/.test(c.name)).length).toBe(0);
+    expect(meshesOf([column(1, 1, 4, "C")], poisoned, W).filter((c) => /\.ivy/.test(c.name)).map((c) => c.name)).toEqual(["scaffold.ivy.medium"]);
     expect(ruinOvergrown(soil, W, 1, 1, 0)).toBe(true);
     expect(ruinOvergrown(poisoned, W, 1, 1, 0)).toBe(false);
     expect(ruinOvergrown(soil, W, 4, 1, 0)).toBe(false);
     expect(Array.from(ruinsOvergrown({ count: 2, templates: ["RuinColumnH4", "Pine"], template: Uint16Array.of(0, 1), x: Int16Array.of(1, 1), y: Int16Array.of(1, 1), z: Int16Array.of(0, 0) } as unknown as EntityView, soil, W))).toEqual([1, 0]);
-    expect([0, 1].map((lv) => ruinIvy(1, 1, 2, lv))).toEqual([IVY_DENSE, IVY_LIGHT]);
-    expect(ruinIvy(1, 1, 1, 0)).toBe(IVY_DENSE);
-    // about the lower half, from the foot up, thinning upward, the same every time
-    for (let x = 0; x < 30; x++)
-      for (const h of [1, 2, 3, 4, 5, 6, 7, 8]) {
-        const levels = Array.from({ length: h }, (_, lv) => ruinIvy(x, 7, h, lv));
-        expect(levels[0]).toBe(IVY_DENSE);
-        const reach = levels.filter((l) => l !== IVY_NONE).length;
-        expect(Math.abs(reach - h / 2), `${x} ${h}`).toBeLessThanOrEqual(1);
-        for (let lv = 1; lv < h; lv++) expect(levels[lv], `${x} ${h} ${lv}`).toBeLessThanOrEqual(levels[lv - 1]);
-        expect(Array.from({ length: h }, (_, lv) => ruinIvy(x, 7, h, lv))).toEqual(levels);
-      }
-    // the game's ivy (Ivy_Wet), the brighter green on the clusters' edges (D135 as amended 2026-11-09; Kyler's
-    // #405634 and #5c803d until then); flat leaves clinging to the faces
-    // (no clumps inside the storey); the foot clearly clad, thinning upward; the middle of each
-    // face clear above its lower part, so the panel shows; a band of ivy from afar low on the lower
-    // storeys, the rust still most of each block
-    expect(cssColor(RUIN.ivy)).toBe("#282816");
-    expect(cssColor(RUIN.leaf)).toBe("#393c1a");
+    // the game's ivy (its leaves' texels), a third the brighter green; flat leaves on the outside of the faces, more of
+    // them the more ivy, as much of a column seen from a side as the game's covers
+    expect(cssColor(RUIN.leaf)).toBe("#3c461f");
     for (const v of ["A", "B", "C", "D", "E"]) {
       const green = (ivy: number) => {
-        const md = modelOf(`scaffold.${v}`, 0, ivy);
+        const md = modelOf(`scaffold.${v}`, 3, ivy);
         let dark = 0;
         let bright = 0;
-        let area = 0;
-        let farIvy = 0;
-        let farRust = 0;
-        let farArea = 0;
-        for (let t = 0; t < md.lod.length / 3; t++) {
-          const c = cssColor([md.col[t * 9], md.col[t * 9 + 1], md.col[t * 9 + 2]]);
-          const pts = [0, 1, 2].map((j) => [md.pos[t * 9 + j * 3], md.pos[t * 9 + j * 3 + 1], md.pos[t * 9 + j * 3 + 2]]);
-          const u = pts[1].map((q, i) => q - pts[0][i]);
-          const w = pts[2].map((q, i) => q - pts[0][i]);
-          const a = Math.hypot(u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]) / 2;
-          const isIvy = c === cssColor(RUIN.ivy) || c === cssColor(RUIN.leaf);
-          if (md.lod[t * 3] >= LOD_FAR) {
-            farArea += a;
-            if (isIvy) farIvy += a;
-            if (c === cssColor(RUIN.far)) farRust += a;
-            continue;
-          }
-          if (!isIvy) continue;
+        for (let t = 0; t < md.pos.length / 9; t++) {
+          const c = colourAt(md, t);
+          if (!greens.includes(c)) continue;
           if (c === cssColor(RUIN.ivy)) dark++;
           else bright++;
-          area += a;
-          for (const [x, y, z] of pts) {
-            // on the outside of a face
-            expect(Math.max(Math.abs(x), Math.abs(z)), `${v} ${ivy}`).toBeGreaterThan(0.38);
-            // never over the middle of a face above its lower part, where its panel shows
-            const along = Math.abs(x) > Math.abs(z) ? z : x;
-            expect(Math.abs(along) < 0.12 && y > 0.45 && y < 0.8, `${v} ${ivy} ${x} ${y} ${z}`).toBe(false);
-          }
+          for (const [x, , z] of corners(md, t)) expect(Math.max(Math.abs(x), Math.abs(z)), `${v} ${ivy}`).toBeGreaterThan(0.45);
         }
-        return { dark, bright, area, farIvy, farRust, farArea };
+        return { dark, bright, leaves: (dark + bright) / 2, all: dark + bright };
       };
-      const [dense, medium, light] = [green(IVY_DENSE), green(IVY_MEDIUM), green(IVY_LIGHT)];
-      const sides = 4 * 0.86;
-      // the foot clearly clad (its leaves adding up to over a sixth of its sides and under three
-      // fifths: overlapping, they cover less),
-      // thinning upward
-      expect(dense.area, v).toBeGreaterThan(sides / 6);
-      expect(dense.area, v).toBeLessThan(sides * 0.6);
-      expect(medium.area, v).toBeGreaterThan(sides / 12);
-      expect(medium.area, v).toBeLessThan(dense.area);
-      expect(light.area, v).toBeGreaterThan(0);
-      expect(light.area, v).toBeLessThan(medium.area);
-      // the dark green most of it, the brighter a good share on the edges
-      expect(dense.bright, v).toBeGreaterThan(dense.dark * 0.15);
-      expect(dense.bright, v).toBeLessThan(dense.dark * 0.7);
-      // from afar: a band of ivy on the foot and the storey above, the rust still most of the block
-      expect(dense.farIvy / dense.farArea, v).toBeGreaterThan(0.12);
-      expect(dense.farRust / dense.farArea, v).toBeGreaterThan(0.5);
-      expect(medium.farIvy, v).toBeGreaterThan(0);
-      expect(medium.farIvy, v).toBeLessThan(dense.farIvy);
-      expect(light.farIvy, v).toBe(0);
+      const [dense, medium, light, none] = [green(IVY_DENSE), green(IVY_MEDIUM), green(IVY_LIGHT), green(IVY_NONE)];
+      expect(none.leaves).toBe(0);
+      expect(light.leaves).toBeGreaterThan(0);
+      expect(medium.leaves).toBeGreaterThan(2 * light.leaves);
+      expect(dense.leaves).toBeGreaterThan(medium.leaves);
+      expect(dense.bright).toBeGreaterThan(dense.all * 0.15);
+      expect(dense.bright).toBeLessThan(dense.all * 0.6);
     }
   });
 
@@ -551,7 +441,7 @@ describe("ruins", () => {
     // our own at `ownAlbedo`)
     const ruins = swatch(/^Ruins/);
     expect(ruins).toContain(cssColor(objectTop(RUIN.rust)));
-    expect(ruins).toContain(cssColor(objectTop(RUIN.panel)));
+    expect(ruins).toContain(cssColor(objectTop(RUIN.slab)));
     const mine = swatch(/^Mine site$/);
     for (const c of [MINE.pit, MINE.frame, MINE.wood]) expect(mine).toContain(cssColor(objectTop(ownAlbedo(c))));
   });

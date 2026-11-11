@@ -1223,8 +1223,8 @@ streaks travelling down those lanes, fast water's longer and brighter, badwater'
 its switch, `?flow=on` in the address turns it on.
 
 Both follow Timberborn's references (D334): dry earth a warm brown drifting to mauve, grass a muted green meeting it
-along the tile's edge with a slight painted wobble and a thin darker rim, olive-grey stone, bright orange ruins with
-cream sacks, contamination as the game's sparse orange-red veins, falls in the water's own colour. Readability is the
+along the tile's edge with a slight painted wobble and a thin darker rim, olive-grey stone, ruins of rusted rebar
+and cracked slab, contamination as the game's sparse orange-red veins, falls in the water's own colour. Readability is the
 game's own: its look and its cues, with no lightness gap or pattern beyond them (D334 (2)).
 
 High is the default where the computer draws it smoothly: it starts in High (or where it settled last time on that

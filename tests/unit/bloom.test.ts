@@ -81,9 +81,13 @@ describe("the game's bloom (D497 as amended 2026-11-08)", () => {
     const faces: [string, readonly number[]][] = [
       ...Object.entries(START).map(([k, c]) => [`START.${k}`, c] as [string, readonly number[]]),
       ...Object.entries(TREE_COLOURS).map(([k, c]) => [`TREE_COLOURS.${k}`, c] as [string, readonly number[]]),
-      // (a panel's shade at most 1.02 and the skeleton's 1.05: entities3d.ts storey)
-      ["RUIN.panel", RUIN.panel.map((v) => v * 1.02)],
-      ["RUIN.rust", RUIN.rust.map((v) => v * 1.05)],
+      // (a slab band's shade at most 1.02 and the rebar unshaded: entities3d.ts band, rails)
+      ["RUIN.slab", RUIN.slab.map((v) => v * 1.02)],
+      ["RUIN.rust", RUIN.rust],
+      ["RUIN.ivy", RUIN.ivy],
+      ["RUIN.leaf", RUIN.leaf],
+      // (the lantern's hood, its thatch at 1.03: entities3d.ts districtCenter)
+      ["START.thatch.hood", START.thatch.map((v) => v * 1.03)],
       ...MINE.rubble.map((c, k) => [`MINE.rubble.${k}`, own(c)] as [string, readonly number[]]),
       ...(["wood", "earthTop", "seam", "ladder", "frame", "earth", "rootPale"] as const).map((k) => [`MINE.${k}`, own(MINE[k])] as [string, readonly number[]]),
       // High's models

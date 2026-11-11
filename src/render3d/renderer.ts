@@ -1077,7 +1077,8 @@ export class MapRenderer {
   }
 
   private showMarkerObjects(): void {
-    for (const c of this.objects?.children ?? []) if (c.name === "Slope.mark" || c.name === "Slope.mark.lite") c.visible = this.markersOn;
+    // (the slopes' arrows and the start's entrance, Markers' editing aids: the game draws neither, D497)
+    for (const c of this.objects?.children ?? []) if (c.name === "Slope.mark" || c.name === "Slope.mark.lite" || c.name === "start.entrance") c.visible = this.markersOn;
   }
 
   /** Hold the water's movement at a moment (seconds), or let it move again (null). */
@@ -2103,8 +2104,8 @@ export class MapRenderer {
     this.litTiles = null;
     this.sourcesLit.clear();
     group.renderOrder = 1;
-    // (the slopes' arrows, Markers' editing aid, left out of the bloom's source: bloom.ts)
-    for (const c of group.children) if (c.name.startsWith("Slope.mark")) onAidLayer(c);
+    // (the slopes' arrows and the start's entrance, Markers' editing aids, left out of the bloom's source: bloom.ts)
+    for (const c of group.children) if (c.name.startsWith("Slope.mark") || c.name === "start.entrance") onAidLayer(c);
     this.objects = group;
     this.scene.add(group);
     this.showMarkerObjects();

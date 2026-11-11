@@ -154,9 +154,10 @@ const PLANT_TOPS = PLANT_SHAPES.map((d) => Math.max(0, ...d.map((q) => q[1])));
 /** The plants' kinds (`PLANT_SHAPES`). */
 const PLANT_KIND: Readonly<Record<string, number>> = { Pine: 1, Oak: 2, Birch: 3, BlueberryBush: 4, Succulent: 5 };
 /** The casters cast as an upright post as tall as the caster, of these radii (tiles, before `PLANT_INSET`): a dead
- *  tree's bare wood (its shadow in High's depth map a thin line, 0.2 of a tile² for a pine, none for the others), and a ruin column's square of storeys (entities3d.ts `storey`: corner posts 0.8 apart), as wide
- *  as its diagonal, the way the sun mostly sees it, fitted as the plants are (a whole tile's column cast them a
- *  quarter too large). */
+ *  tree's bare wood (its shadow in High's depth map a thin line, 0.2 of a tile² for a pine, none for the others), and a ruin column's square of storeys (entities3d.ts `storey`: the game's corner posts 0.92 apart,
+ *  slabs across its faces), as wide as its diagonal, the way the sun mostly sees it, fitted as the plants are (a whole
+ *  tile's column cast them a quarter too large; 0.75 when the posts stood 0.8 apart, until 2026-11-10, widened with
+ *  them). */
 const DEAD_KIND = 6;
 const RUIN_KIND = 7;
 /** The large relic's first kind: its tile [x][y] from its Coordinates casts `PLANT_SHAPES[RELIC_KIND + 3x + y]`. */
@@ -181,13 +182,14 @@ const CORNER: Readonly<Record<number, readonly [number, number]>> = {
   [CORE_KIND + 2]: [-1, 1],
   [CORE_KIND + 3]: [1, 1],
 };
-const POST_RADIUS: Readonly<Record<number, number>> = { [DEAD_KIND]: 0.3, [RUIN_KIND]: 0.75 };
+const POST_RADIUS: Readonly<Record<number, number>> = { [DEAD_KIND]: 0.3, [RUIN_KIND]: 0.86 };
 /** The kinds whose discs shade nothing on their own tile: a heap whose discs stand round it would shade its own sunlit
  *  faces (an object reads the bake at its own place and height), which the game's heap, lit by its model's own shadow,
  *  does not; its tile's ground is under it. */
 const OWN_TILE_LIT: Readonly<Record<number, true>> = { [BLOCKAGE_KIND]: true, [NATURAL_DAM_KIND]: true, [DRAIN_KIND]: true };
-/** The start's walled base and roof over its 3 × 3 footprint round the tower's tile (entities3d.ts `startTower`: the
- *  walls 2.86 across to 1.04, the cornice to 1.18, the hipped roof to 1.8), cast as a column over each of the 8. */
+/** The start's walled base and roof over its 3 × 3 footprint round the tower's tile (entities3d.ts `districtCenter`:
+ *  the walls 2.86 across to 1.0 between posts to 1.21, the thatched roof from 0.9 to 1.48), cast as a column over each
+ *  of the 8. */
 const START_BASE = 1.4;
 /** How much narrower each disc is cast than its radius (tiles): the shader reads the shadow map between its samples
  *  (two a tile, bilinear), which widens a shadow narrower than a tile by about this much on each side. */
@@ -221,7 +223,7 @@ export function objectCasters(W: number, H: number, e: EntityView | null): Float
   const levels = new Uint8Array(2 * W * H);
   casterLevels.set(out, levels);
   // (the plants at the game's sizes, plantSize.ts: a little under their full height, the randomizer's middle; the start's
-  // tower is 4.37 tall, on its middle tile)
+  // tower and lantern 4.33 tall, on its middle tile)
   const tall: Record<string, number> = { Pine: 2.7, Oak: 2.26, Birch: 1.63, BlueberryBush: 0.4, Succulent: 0.5, StartingLocation: 4.0 };
   const put = (i: number, add: number, z: number, kind: number) => {
     if (add > out[i]) {

@@ -1,6 +1,7 @@
 // The landmarks every map has are drawn as the game's (D496, D178 amended): our own models at the game's measures, read
-// from its models (StartingLocation.Model, WaterSource.Model, BadwaterSource.Model, UndergroundRuins.Model,
-// WaterSeep.Model, BadwaterSeep.Model). The start is a lantern tower 4.37 high on its 3 × 3; a water source an outcrop
+// from its models (DistrictCenter.Folktails.Model, WaterSource.Model, BadwaterSource.Model, UndergroundRuins.Model,
+// WaterSeep.Model, BadwaterSeep.Model). The start is the district center the game builds there in play, 4.33 high on
+// its 3 × 3 (until 2026-11-10 the game's map-editor marker, a lantern tower 4.37 high, D148); a water source an outcrop
 // of rock 1.0 high and about 1.15 across; a badwater source a flat crater 2.5 across; a mine site a pit 1.35 deep inside
 // its frame with nothing standing over it (no scaffolding); a seep a slab at the ground round a heap of rocks to 0.57
 // (water) or 0.40 (badwater). The relics are the game's: the small its fallen telescope (SmallRelic.Model), 0.29 high in
@@ -118,11 +119,11 @@ function expectWhereItFalls(areas: [number, number, number][], cover: number, io
 }
 
 describe("the landmarks at the game's measures", () => {
-  it("the start is the game's lantern tower: 4.37 high, within its 3 × 3", () => {
+  it("the start is the game's district center: 4.33 high, its corner posts 0.05 out over its 3 × 3 as the game's", () => {
     const b = bounds(modelKeyOf("StartingLocation", 0));
-    expect(b.hi).toBeCloseTo(4.37, 2);
+    expect(b.hi).toBeCloseTo(4.33, 2);
     expect(b.lo).toBeCloseTo(0, 3);
-    expect(Math.max(b.x, b.z)).toBeLessThanOrEqual(3 + 1e-6);
+    expect(Math.max(b.x, b.z)).toBeCloseTo(3.1, 2);
   });
 
   it("a water source is an outcrop of rock 1.0 high, about the game's 1.14 × 1.18 across", () => {
