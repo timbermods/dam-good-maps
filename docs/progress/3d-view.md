@@ -3633,6 +3633,45 @@ curtains, the cave open.
 - **Falls short:** where a tile holds water in two gaps above a column's level, which one the game links is not read;
   ours takes the lower.
 
+## Falls that pour, against the game's Four Lakes frames (PERFECT Water 3; D154, D496; `fix/falls-pour-2`)
+
+Judged on the in-game capture kit's Four Lakes r14 `falls` and `cave` start frames (day light; local only), ours posed
+from their cameras with the map opened from its file, real Chrome on the RTX 2070 SUPER, Standard and High (the same
+within 1 L* unless said). Four curtains: the Great Fall's middle and right curtains in `falls`, the left curtain and the
+one over the cave's mouth in `cave`. L* by the curtain's upper, middle and lower third; streaks as the spread of each
+row's luma less its 3-pixel mean. `.scratch` measures, not kept.
+
+- **Ranked, what keeps a fall from reading as the game's:**
+  1. **The curtain nearest the camera, seen almost level with its lip (`cave`, left), is darker and duller:** game
+     39.6 / 32.6 / 24.8, ours 27.5 / 22.8 / 19.1; its brightest 1 % over its median 20.8 against 18.5 (High 13.3).
+  2. **The right curtain, faced head-on from above (`falls`), is lighter:** game 29.6 / 25.4 / 22.8, ours 36.5 / 31.7 /
+     27.8.
+  3. **Fine streaks:** ours about 0.6 of the game's on three curtains (`falls` middle 1.23 against 2.03, `cave` left 0.81
+     (High 0.59) against 1.08, `cave` mouth 0.33 against 0.64), 1.4 times on the right curtain (0.68 against 0.48).
+  4. **Motion:** none visible in either, by construction. The face is the lower water's slope, 7.1 levels over a third
+     of a tile, so the flow textures, sampled at the world's xz, stretch 21 times down it into straight streaks, and the
+     flow carries them along their own length. The file's outflows at these falls are 0.1 to 0.9 (flows 0.008 to 0.06
+     ÷ 14). Frames a tenth of a second apart show the streaks still and the cross-fade alone. The game's formula and
+     mesh are ours, so nothing here to follow.
+  5. **The lip, the foot, the thickness:** the same as the game's (the slope's grid, no foam: the falls sections above).
+  The other two curtains match: `falls` middle 32.7 / 25.8 / 31.6 against 31.4 / 26.6 / 35.5, `cave` mouth 36.1 / 28.5 /
+  22.3 against 36.3 / 27.3 / 21.0.
+- **What the gaps are not** (each term switched alone in Standard's water shader, 1 and 2 above):
+  - the sun's shadow on the face: forced lit, +0.4 to +2.6 on the left curtain; forced dark, the right curtain 24.0 /
+    20.3 / 17.1, past the game's on the other side;
+  - the depth seen through the face (0.1 to 0.3 on all four): at none, +1.4 to +5;
+  - its see-through: opaque, +0.4 to +1.9;
+  - the roof's light: the faces stand in open air;
+  - the camera highlight the waterfall mask takes off (the mask is whole on every face): the highlight under it is a
+    mean of 0.005 on the left curtain, 0.03 on the middle one, which matches the game masked;
+  - the environment's reflection: off, the right curtain reads the game's (29.1 / 25.2 / 23.5), but the cave's mouth
+    falls 7.5 under it; tripled, the left curtain's mean nears the game's but stays without its streaks.
+  Every term is the game's (P4, P5, P11 to P15 above), so no change is made: the gaps change sign from curtain to
+  curtain, and none follows one term. What is left to read is how the game lights the face's pixels at these two
+  views (its sun's direction there against ours among them).
+- **Falls short:** (1) to (3) stand, unexplained. A frame of the game's falls in motion would settle (4) beyond its
+  formula.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:
