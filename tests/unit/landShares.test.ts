@@ -4,13 +4,13 @@ import { expect, it } from "vitest";
 import { landShares, shareWords } from "../../src/core/analysis/landShares";
 
 it("counts water, moist and dry ground, living trees and the logs grown trees hold", () => {
-  const s = landShares(9, (i) => i < 3, (i) => i < 5, [
+  const s = landShares(9, (i) => i < 3, (i) => i < 5, (i) => i === 8 || i === 0, [
     { template: "Oak", dead: false, young: false },
     { template: "Pine", dead: false, young: true },
     { template: "Birch", dead: true, young: false },
     { template: "BlueberryBush", dead: false, young: false },
   ]);
-  expect(s).toEqual({ tiles: 9, water: 3, moist: 2, dry: 4, trees: 2, logs: 9 });
-  expect(shareWords(s)).toEqual(["33%", "22%", "45%"]);
-  expect(shareWords({ tiles: 1000, water: 3, moist: 0, dry: 997 })).toEqual(["under 1%", "0%", "100%"]);
+  expect(s).toEqual({ tiles: 9, water: 3, moist: 2, dry: 3, spoiled: 1, trees: 2, logs: 9 });
+  expect(shareWords(s)).toEqual(["34%", "22%", "33%", "11%"]);
+  expect(shareWords({ tiles: 1000, water: 3, moist: 0, dry: 997, spoiled: 0 })).toEqual(["under 1%", "0%", "100%", "0%"]);
 });

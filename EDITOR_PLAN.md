@@ -423,8 +423,8 @@ place of its bottom rule.
   shadow, while H is held or until clicked again; §4, "Seeing the land behind objects"; beside Legend so the Show row
   keeps its room and the water row its place in the band, and where the water row takes a second line the two join the
   Show row as its last toggles). **Land**, between Hide objects and Legend, shows the land's shares in the key under Legend
-  while it is ticked: **Water**, **Moist ground** and **Dry ground** as whole per cents of the map's tiles that add up to
-  100 ("under 1%" for a share that is there but rounds to none; contaminated ground counts as dry), then **Living trees**
+  while it is ticked: **Water**, **Moist ground**, **Dry ground** and **Spoiled ground** (contaminated) as whole per cents of the map's tiles
+  that add up to 100 ("under 1%" for a share that is there but rounds to none), then **Living trees**
   and **Logs** (each grown tree's, as the checks count them). Plain numbers, no warning colour: dry land is not a fault,
   irrigating it is the game (MAPCRAFT section 4). They are read when the map changes and its water has settled, never per
   frame (the last numbers stay while the water flows), from the map's own water and soil, not a held weather day's
