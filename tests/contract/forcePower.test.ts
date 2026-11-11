@@ -20,20 +20,9 @@ let at: [number, number] = [W >> 1, W >> 1];
 const mid: [number, number] = [W >> 1, W >> 1];
 const fault = [{ x: 10, y: W * 0.4 }, { x: W - 10, y: W * 0.45 }];
 
-beforeAll(async () => {
-  // (River Valley 128² seed 1 since the height round, investigation/canyon-highlands-height, D148: on
-  // Highlands' tall terraces the gentlest crater, eruption or glacier at the largest Size fills a
-  // valley and moves more than a quarter of Power 100's on every seed tried, 5 to 10; seed 3 for generator 0.10.7's
-  // maps, D502, D148: on seed 1's the gentlest glacier moved 2,969 of Power 100's 11,690 (a quarter is 2,922), and on
-  // seeds 2, 4 and 5 the gentlest crater, and a Slide on seed 2, moved more than their share; seed 3 holds all six; seed 1
-  // since generator 0.10.16's ground with grade, D148: from seed 3's highest dry ground, (84, 78), the Carves at Power 0 and
-  // 50 run south-west to the map's edge (213 and 194 steps) while Power 100's runs north and spends its power in 122, so
-  // Power 0 moves 5,451 levels to Power 100's 6,980; seed 1, from (34, 40), holds all six, as seed 7 does; on seeds 2, 4, 6
-  // and 8 the gentlest crater, eruption or glacier moves more than its share; seed 11 since dev's Craterize rework (a
-  // cavity on a plane that leans with the land) met 0.10.16's graded slopes, D148: the gentlest crater's deepest change
-  // is 6 to 12 levels on seeds 1 to 5, 7, 9 and 10, past the 4 it may reach; 6 and 8 fail the eruption or glacier; 11
-  // holds all six)
-  const b = await openMap("riverValley", W, 11);
+/** River Valley 128 at `seed`, and its highest dry ground (where Carve and Glaciate start). */
+async function open(seed: number) {
+  const b = await openMap("riverValley", W, seed);
   let best = -1;
   for (let y = 10; y < W - 10; y += 2)
     for (let x = 10; x < W - 10; x += 2) {
@@ -42,6 +31,19 @@ beforeAll(async () => {
       best = b.heights[i];
       at = [x, y];
     }
+}
+
+beforeAll(async () => {
+  // (River Valley 128² seed 1 since the height round, investigation/canyon-highlands-height, D148: on
+  // Highlands' tall terraces the gentlest crater, eruption or glacier at the largest Size fills a
+  // valley and moves more than a quarter of Power 100's on every seed tried, 5 to 10; seed 3 for generator 0.10.7's
+  // maps, D502, D148; seed 1 again since generator 0.10.16's ground with grade, D148: from seed 3's highest dry ground,
+  // (84, 78), the Carves at Power 0 and 50 run south-west to the map's edge while Power 100's runs north and spends its
+  // power in 122 steps, so Power 0 moves 5,451 levels to Power 100's 6,980. Craterize runs on seeds 1 to 10 too, below.
+  // Known gaps on 0.10.16's seeds 1 to 10, the other forces': the gentlest glacier moves more than its share on seeds 2,
+  // 6 and 8 (2,190 of 7,386 on seed 2), the gentlest eruption reaches 5 levels on seed 6, and the gentlest Carve moves
+  // more than its share on seeds 3 and 5)
+  await open(1);
 });
 
 /** Each force at its largest Size (Carve's widest), the page's way (nature drawing its details). */
@@ -87,7 +89,7 @@ function change(force: string, power: number) {
 }
 
 describe("Size sets the reach, Power the strength within it (D361 (3))", () => {
-  for (const force of ["carve", "craterize", "erupt", "glaciate", "quake lift", "quake slide"])
+  for (const force of ["carve", "erupt", "glaciate", "quake lift", "quake slide"])
     it(`${force}: at its largest Size, Power 0 is gentle but visible, and the change grows with Power`, () => {
       const [p0, p50, p100] = [0, 50, 100].map((p) => change(force, p));
       const where = `${force}: ${JSON.stringify({ p0, p50, p100 })}`;
@@ -127,4 +129,23 @@ describe("a painted Lift answers Power while it is painted (D361 (1))", () => {
     expect(lift(ed.terrainNow().heights)).toBeGreaterThan(low + 3);
     ed.undo();
   });
+});
+
+describe("Craterize's gentlest is gentle on any ground: seeds 1 to 10 (D361 (3))", () => {
+  // (generator 0.10.16's graded slopes left the gentlest crater 6 to 12 levels deep on seeds 1 to 5, 7, 9 and 10: at
+  // Power 0 it still levelled the ground under it toward one level (its rim's ground, nearly all off the map at this Size),
+  // a fifth of the way, raising a valley or cutting a ridge by two or three levels, and the forces' last step then
+  // dropped the corners of the land's own ridges down their cliffs. Now a crater weaker than its Size replaces the
+  // land's relief only as far as its Power, and that step leaves the land's own ground where the force only brushed it)
+  for (let seed = 1; seed <= 10; seed++)
+    it(`seed ${seed}: at its largest Size, Power 0 is gentle but visible, and the change grows with Power`, async () => {
+      await open(seed);
+      const [p0, p50, p100] = [0, 50, 100].map((p) => change("craterize", p));
+      const where = `craterize, seed ${seed}: ${JSON.stringify({ p0, p50, p100 })}`;
+      expect(p0.tiles, where).toBeGreaterThanOrEqual(9);
+      expect(p0.sum, where).toBeLessThanOrEqual(p100.sum * 0.25);
+      expect(p0.max, where).toBeLessThanOrEqual(Math.min(4, p100.max * 0.6));
+      expect(p50.sum, where).toBeGreaterThan(p0.sum);
+      expect(p100.sum, where).toBeGreaterThan(p50.sum);
+    }, 120_000);
 });

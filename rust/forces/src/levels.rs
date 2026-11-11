@@ -39,8 +39,8 @@
 // 3. No one-tile pillar, pit, ridge, trench or lone block: the same rule, a pit or a trench filling to
 //    the ground beside it.
 //
-// The land's own narrow ledges stay where the force changes the ground by a level or less: the tidying
-// never drops a brink the force only brushed down its cliff.
+// The land's own narrow ground stays where the force changes the ground by a level or less: the tidying
+// never drops a brink, or the corner of a ridge, the force only brushed down its cliff.
 //
 // Ground the force did not change is never touched except right beside ground it did (a sliver left
 // between the two would be a fault of the force). Integers, comparisons and the planner's own rounding
@@ -204,16 +204,18 @@ pub(super) fn whole(surface: &[f64], ground: &[f64], before: &[u8], w: usize, h:
         }
     }
     nubs(&mut land, w, h, &free);
-    // The land's own narrow ledges stay, where the force changes the ground by a level or less: a
-    // tile of a ledge one tile wide that the tidying moved more than two levels from where it stood,
-    // with nothing round it changed by more than a level, goes back to where it stood (a brink one
-    // tile wide on a cliff the force only brushed would else fall the cliff's whole height). Ground
-    // that stood two tiles wide keeps what the tidying gave it, so nothing goes back to stand alone.
+    // The land's own ground stays, where the force changes the ground by a level or less: a tile that
+    // the tidying moved more than two levels from where it stood, with nothing round it changed by more
+    // than a level, goes back (a brink one tile wide, or the corner of a ridge two tiles wide, on a cliff
+    // the force only brushed would else fall the cliff's whole height): a tile of a ledge one tile wide
+    // to where it stood, one that stood two tiles wide to where the force put it, so it moves with the
+    // ground round it and never goes back to stand alone above it.
     let brushed = |i: usize| (rounded[i] as i32 - before[i] as i32).abs() <= 1;
+    let mut back = vec![];
     for y in 0..h {
         for x in 0..w {
             let i = y * w + x;
-            if !free[i] || (land[i] as i32 - before[i] as i32).abs() <= 2 || in_square(before, w, h, x, y) {
+            if !free[i] || (land[i] as i32 - before[i] as i32).abs() <= 2 {
                 continue;
             }
             let mut all = true;
@@ -223,9 +225,12 @@ pub(super) fn whole(surface: &[f64], ground: &[f64], before: &[u8], w: usize, h:
                 }
             }
             if all {
-                land[i] = before[i];
+                back.push((i, if in_square(before, w, h, x, y) { rounded[i] } else { before[i] }));
             }
         }
+    }
+    for (i, to) in back {
+        land[i] = to;
     }
     land
 }
@@ -629,6 +634,31 @@ mod tests {
         let land = whole(&surface, &ground, &before, W, W, 40.0, 3.0, 8.0);
         for i in 0..W * W {
             assert!((land[i] as i32 - before[i] as i32).abs() <= 2, "{},{}: {} from {}", i % W, i / W, land[i], before[i]);
+        }
+    }
+    #[test]
+    fn the_corner_of_a_ridge_the_force_only_brushed_stays() {
+        // (River Valley 128 seed 4, generator 0.10.16, under the gentlest Craterize at its largest Size: a
+        // ridge two tiles wide on a cliff ten levels tall, the force taking a level off some of it; the
+        // tidying dropped the ridge's corner, 13, to the cliff's foot, 3)
+        let rows: [[(u8, f64); 7]; 7] = [
+            [(15, 15.0), (15, 15.0), (15, 15.0), (14, 14.0), (14, 13.99), (4, 3.0), (4, 3.0)],
+            [(14, 14.0), (14, 14.0), (14, 14.0), (14, 14.0), (14, 14.0), (4, 4.0), (4, 3.99)],
+            [(14, 13.0), (14, 13.0), (13, 12.91), (13, 12.99), (4, 4.0), (4, 4.0), (3, 3.0)],
+            [(14, 13.0), (14, 13.0), (13, 12.0), (13, 12.94), (3, 3.0), (3, 3.0), (3, 3.0)],
+            [(15, 14.0), (14, 13.0), (14, 13.0), (4, 3.0), (3, 3.0), (3, 3.0), (3, 3.0)],
+            [(15, 14.0), (14, 13.0), (14, 13.0), (4, 3.0), (4, 4.0), (4, 4.0), (4, 4.0)],
+            [(14, 13.0), (14, 13.0), (4, 3.0), (4, 3.0), (4, 4.0), (4, 4.0), (4, 4.0)],
+        ];
+        let at = |x: usize, y: usize| rows[y.clamp(20, 26) - 20][x.clamp(20, 26) - 20];
+        let before: Vec<u8> = (0..W * W).map(|i| at(i % W, i / W).0).collect();
+        let surface: Vec<f64> = (0..W * W).map(|i| at(i % W, i / W).1).collect();
+        let ground: Vec<f64> = before.iter().map(|&l| l as f64).collect();
+        for seed in [0.0, 4.0, 9.0] {
+            let land = whole(&surface, &ground, &before, W, W, 40.0, seed, 27.0);
+            for i in 0..W * W {
+                assert!((land[i] as i32 - before[i] as i32).abs() <= 2, "seed {seed}, {},{}: {} from {}", i % W, i / W, land[i], before[i]);
+            }
         }
     }
     #[test]
