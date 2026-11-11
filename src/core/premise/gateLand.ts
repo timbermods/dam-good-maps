@@ -416,7 +416,7 @@ const valleyEnclosed: GateLandInvariant = {
 const frameLip: GateLandInvariant = {
   id: "frame.lip",
   test({ plan, water, heights }) {
-    const f = checkFrame(plan, water, Uint8Array.from(heights), { level: 0, farmland: 0 });
+    const f = checkFrame(plan, water, Uint8Array.from(heights), { bench: 0, moist: 0, reach: 0 });
     return f.reason ? fail(f.reason) : OK;
   },
 };

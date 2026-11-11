@@ -58,7 +58,7 @@ export function gateMap(spec: MapSpec, theme: StyleTheme = "riverValley"): GateM
   const land = gateLand(r.plan, r.water, style.relief);
   const landFails = gateLandFailures({ spec, plan: r.plan, water: r.water, heights: land.heights });
   const rules = rulesFor(spec);
-  const frame = checkFrame(r.plan, r.water, land.heights, { level: rules.levelLand, farmland: rules.farmland });
+  const frame = checkFrame(r.plan, r.water, land.heights, { bench: rules.levelLand, moist: rules.farmland + rules.forester, reach: rules.reachMin });
   const ladder = gateLadder(r.plan, r.water, land.heights);
   const out: GateMap = { plan: r.plan, water: r.water, land, landFails, frame, ladder, card: gateCard(r.plan, theme, ladder), worksFails: gateWorksFailures({ plan: r.plan, water: r.water, heights: land.heights, ladder }), attempt: r.attempt };
   if (frame.reason) return out;
