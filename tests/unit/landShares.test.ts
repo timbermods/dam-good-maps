@@ -1,4 +1,4 @@
-// The land's shares (core/analysis/landShares.ts): the three shares cover the map and their per cents add up to 100.
+// The land's shares (core/analysis/landShares.ts): the four shares cover the map and their per cents add up to 100.
 
 import { expect, it } from "vitest";
 import { landShares, shareWords } from "../../src/core/analysis/landShares";
