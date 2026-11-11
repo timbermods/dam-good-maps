@@ -579,13 +579,38 @@ export function designLand(): Land {
       for (const j of [i - 1, i + 1, i - W, i + W]) if (j >= 0 && j < N && Math.abs((j % W) - x) <= 1 && pool[j] === 3 + k) { ring.push(i); break; }
     }
     for (const i of ring) if (!channel[i] && h[i] < bench - 4) h[i] = Math.max(1, bench - 4);
-    const spill = ring.length ? ring[0] : -1;
-    if (spill >= 0) {
-      h[spill] = Math.max(1, bench - 4);
-      seepLips.push([spill]);
-    } else seepLips.push([]);
+    // the gully: from the ring toward the nearest bed, a tile at a time, falling a level every two tiles until it
+    // meets the bed, so the pond stands four under its flat (the soil reaches nothing up there) and the seep's
+    // trickle dies in the gully; without it a closed hollow fills to the flat and wets a disc of it
+    const bedTiles: number[] = [];
+    for (let i = 0; i < N; i++) if (channel[i] === chan("Gate Bed") + 1 || channel[i] === chan("Pass Bed") + 1) bedTiles.push(i);
+    let gx = S.at[0];
+    let gy = S.at[1];
+    let nearest = -1;
+    let nd = Infinity;
+    for (const t of bedTiles) {
+      const d = hypot((t % W) - gx, Math.floor(t / W) - gy);
+      if (d < nd) (nd = d), (nearest = t);
+    }
+    const gully: number[] = [];
+    let lv = Math.max(1, bench - 4);
+    for (let step = 0; nearest >= 0 && step < 40; step++) {
+      const dx = (nearest % W) - gx;
+      const dy = Math.floor(nearest / W) - gy;
+      if (Math.abs(dx) >= Math.abs(dy)) gx += Math.sign(dx);
+      else gy += Math.sign(dy);
+      const j = gy * W + gx;
+      if (channel[j]) break;
+      if (pool[j] === 3 + k) continue;
+      if (step % 2 === 1 && lv > 1) lv--;
+      if (h[j] > lv) h[j] = lv;
+      pool[j] = 3 + k;
+      gully.push(j);
+    }
+    seepLips.push(gully.slice(0, 1));
   });
 
+  if (has("design")) SEEPS.forEach((S, k) => { const t: number[] = []; for (let i = 0; i < N; i++) if (pool[i] === 3 + k) t.push(h[i]); console.log(`  ${S.name}: ${t.length} hollow tiles at ${[...new Set(t)].join("/")}; the flat round it ${h[Math.floor(S.at[1] + 4) * W + Math.floor(S.at[0])]}`); });
   // the lake's bed: a shelf at the sill, a shallow margin, then the deeper water along the old river's line
   for (let i = 0; i < N; i++) {
     const d = gLake[i];
@@ -603,7 +628,7 @@ export function designLand(): Land {
     }
     const line = pathDist(x + 0.5 + 2.5 * fbm(x, y, 12, SEED + 47, 2), y + 0.5 + 2.5 * fbm(x, y, 12, SEED + 48, 2), LAKE_ARMS[0].map((q) => [q[0], q[1]] as Pt)).d;
     const shore = Math.max(0, Math.floor((Math.min(-d, isle) - 1.0) / 1.5));
-    const channelDepth = line < 2.2 ? 2 : 1;
+    const channelDepth = 1;
     let depth = shore === 0 ? 0 : shore === 1 ? Math.min(1, channelDepth) : channelDepth;
     const arm = LAKE_ARMS.findIndex((a) => spineDist(x + 0.5, y + 0.5, a) < 0);
     if (arm >= 1 && arm !== 3) depth = 1;
@@ -1253,9 +1278,9 @@ function plant(s: MapSession, land: Land): void {
   const level = (i: number) => b.heights[i] === st.z && moist(i);
   const xI = (i: number) => i % W;
   const yI = (i: number) => Math.floor(i / W);
-  count.startBerries = paint("bushes", "BlueberryBush", (i) => level(i) && !nearStart(i, 5) && nearStart(i, 14) && yI(i) <= st.y && xI(i) < st.x + 3 && n(i, 5, 27) > -0.15, 0.55, 21, "The start's berries");
-  count.startOaks = paint("trees", "Oak", (i) => level(i) && !nearStart(i, 9) && nearStart(i, 22) && xI(i) > st.x + 5 && yI(i) <= st.y && n(i, 8, 33) > 0.1, 0.7, 22, "The start's oaks");
-  count.startPines = paint("trees", "Pine", (i) => level(i) && !nearStart(i, 9) && nearStart(i, 24) && xI(i) > st.x + 5 && yI(i) <= st.y && n(i, 8, 33) <= 0.1, 0.7, 24, "The start's pine wood", "mixed");
+  count.startBerries = paint("bushes", "BlueberryBush", (i) => level(i) && !nearStart(i, 4) && nearStart(i, 16) && yI(i) <= st.y + 2 && xI(i) > st.x - 4 && n(i, 5, 27) > -0.3, 0.7, 21, "The start's berries");
+  count.startOaks = paint("trees", "Oak", (i) => level(i) && !nearStart(i, 12) && nearStart(i, 30) && xI(i) > st.x + 8 && yI(i) <= st.y + 3 && n(i, 8, 33) > 0.0, 0.8, 22, "The start's oaks");
+  count.startPines = paint("trees", "Pine", (i) => level(i) && !nearStart(i, 12) && nearStart(i, 32) && xI(i) > st.x + 8 && yI(i) <= st.y + 3 && n(i, 8, 33) <= 0.0, 0.8, 24, "The start's pine wood", "mixed");
   // the basin, dressed on purpose: dead woods in clumps on the dry beds and round the seeps' hollows, succulents
   // on the far benches, thorns in the gullies
   const dry = (i: number) => !(b.moisture[i] > 0) && !(b.water[i] > 0) && !land.lake[i] && !land.pool[i];
