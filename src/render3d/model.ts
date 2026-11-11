@@ -6,6 +6,7 @@
 // X = x, Y = height, Z = −y, so north is −Z and the top-down view has north up until it is turned.
 
 import { contaminationByte, moistureByte } from "./palette";
+import { PILE_GOODS } from "./reserves";
 
 export const LAYERS = 23;
 export const ORIENTATION_NAMES = ["Cw0", "Cw90", "Cw180", "Cw270"] as const;
@@ -49,6 +50,10 @@ export interface EntityView {
   strength: Float32Array;
   /** Each object's stable id (the core entity's `id`); `ids[k]` is object k's, "" when none was given. Strings are copied with the view, not transferred. */
   ids: string[];
+  /** A reserve's stock (its `Inventory:Stockpile`): its good, as an index into reserves.ts `PILE_GOODS` + 1 (0 for any
+   *  other good, or none), and how much of it; 0 and 0 for anything else. Missing on a view made without them. */
+  stockGood?: Uint8Array;
+  stockAmount?: Float32Array;
 }
 
 /** Water columns (sparse): one entry per wet column. Under caves a tile may hold several; the
@@ -267,6 +272,8 @@ export interface EntityInput {
   variant?: string;
   /** A source's strength. */
   strength?: number;
+  /** A reserve's stock: its good and how much. */
+  stock?: { good: string; amount: number };
   /** A force knocked it down (a dead tree), and it lies along (dx, dy). */
 }
 
@@ -290,6 +297,8 @@ export function entityView(list: readonly EntityInput[]): EntityView {
     variant: new Uint8Array(n),
     strength: new Float32Array(n),
     ids: new Array<string>(n),
+    stockGood: new Uint8Array(n),
+    stockAmount: new Float32Array(n),
   };
   list.forEach((e, k) => {
     let t = tIndex.get(e.template);
@@ -314,6 +323,10 @@ export function entityView(list: readonly EntityInput[]): EntityView {
     v.flags[k] = (e.dead ? DEAD : 0) | (e.flipped ? FLIPPED : 0) | (e.young ? YOUNG : 0);
     v.variant[k] = variantIndex(e.variant);
     v.strength[k] = e.strength ?? 0;
+    if (e.stock) {
+      v.stockGood![k] = (PILE_GOODS as readonly string[]).indexOf(e.stock.good) + 1;
+      v.stockAmount![k] = e.stock.amount;
+    }
     v.ids[k] = e.id ?? "";
   });
   return v;
@@ -334,6 +347,6 @@ export function viewBuffers(v: Partial<MapView> & { terrain?: { pre: Uint8Array;
   }
   if (v.water) for (const a of [v.water.tile, v.water.floor, v.water.depth, v.water.contamination, v.water.outflow]) add(a);
   if (v.soil) for (const a of [v.soil.moisture, v.soil.contamination, v.soil.runs?.tile, v.soil.runs?.level, v.soil.runs?.moisture, v.soil.runs?.contamination]) add(a);
-  if (v.entities) for (const a of [v.entities.template, v.entities.x, v.entities.y, v.entities.z, v.entities.orientation, v.entities.flags, v.entities.owner, v.entities.variant, v.entities.strength]) add(a);
+  if (v.entities) for (const a of [v.entities.template, v.entities.x, v.entities.y, v.entities.z, v.entities.orientation, v.entities.flags, v.entities.owner, v.entities.variant, v.entities.strength, v.entities.stockGood, v.entities.stockAmount]) add(a);
   return out;
 }

@@ -8,6 +8,7 @@ import { BRUSHES } from "../brushes";
 import { COMPARE_KEY } from "../compare/useCompare";
 import { SHOWN_FORCES, SIZE_KEYS, STRENGTH_KEYS } from "../TopBar";
 import { HIDE_OBJECTS_KEY } from "../view/useHideObjects";
+import { IRRIGATION_KEY } from "../render/viewControls";
 
 /** One line of the panel: what the key does, and the keys that do it (any one of them; each shows as a key cap). */
 export interface Shortcut {
@@ -89,6 +90,7 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
         { what: "Zoom", keys: ["+", "-", "Scroll"] },
         { what: "Show markers", keys: ["M"] },
         { what: "See through the water", keys: ["T"] },
+        { what: "Show where more water would wet dry ground", keys: [IRRIGATION_KEY] },
         { what: "Hold to see the land behind objects", keys: [HIDE_OBJECTS_KEY] },
         { what: "Hold to see the version you compare with", keys: [COMPARE_KEY] },
         { what: "Keep this view in a slot", keys: ["Ctrl+Shift+1–9"] },

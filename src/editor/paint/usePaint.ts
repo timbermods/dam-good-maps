@@ -315,7 +315,7 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
   useEffect(() => {
     if (layer === "none") return setLayers(null);
     let live = true;
-    void enqueue(() => api.waterLayers()).then((l) => live && setLayers(l));
+    void enqueue(() => api.waterLayers(layer)).then((l) => live && setLayers(l));
     return () => {
       live = false;
     };
