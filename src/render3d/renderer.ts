@@ -3788,6 +3788,7 @@ export class MapRenderer {
   }
 
   setView(v: Partial<ViewState>): void {
+    this.leaveFirstView();
     this.view = { ...this.view, ...v };
     this.view.pitch = Math.min(PITCH_MAX, Math.max(PITCH_MIN, this.view.pitch));
     this.requestRender();
@@ -3809,6 +3810,7 @@ export class MapRenderer {
   switchMode(mode: ViewMode): void {
     if (mode === this.view.mode) return;
     cancelAnimationFrame(this.glideFrameTo);
+    this.leaveFirstView();
     let v = this.view;
     const box = this.canvas.getBoundingClientRect();
     const seen = this.map ? this.zoomPoint(box.left + box.width / 2, box.top + box.height / 2) : null;
@@ -3828,6 +3830,7 @@ export class MapRenderer {
    *  about half a second (at once with reduced motion); a top-down or orbit view switches at once. */
   glideTo(to: ViewState, ms = 600): void {
     cancelAnimationFrame(this.glideFrameTo);
+    this.leaveFirstView();
     const from = this.getView();
     if (this.reducedMotion || ms <= 0) {
       this.setView({ ...to, target: [...to.target] as [number, number, number] });
@@ -3854,12 +3857,27 @@ export class MapRenderer {
   }
 
   /** Pose the camera at once on `v` with a vertical field of view of `fov` degrees (the game's first view, its lens
-   *  35°): the lens stays until Reset view puts ours back. */
+   *  35°): the lens stays while the view does; any move away from it (a drag, a pan, a zoom, Top-down, a glide)
+   *  puts ours back first (`leaveFirstView`), and Reset view and a new map do too. */
   poseCamera(v: ViewState, fov: number): void {
     cancelAnimationFrame(this.glideFrameTo);
-    this.setFov(fov);
     this.setView(v);
+    this.setFov(fov);
+    this.posed = fov !== PERSP_FOV_DEG;
     this.sunNow();
+  }
+
+  /** Whether the view is posed with another lens than ours (`poseCamera`: the game's first view). */
+  private posed = false;
+
+  /** Leave a posed view for ours, unseen: our lens back, the distance shortened so the ground at the target keeps its
+   *  size on the screen, before the move that leaves it is worked out from the view. */
+  private leaveFirstView(): void {
+    if (!this.posed) return;
+    this.posed = false;
+    const k = Math.tan((this.persp.fov * Math.PI) / 360) / Math.tan((PERSP_FOV_DEG * Math.PI) / 360);
+    this.view = { ...this.view, distance: this.view.distance * k };
+    this.setFov(PERSP_FOV_DEG);
   }
 
   /** The perspective camera's vertical field of view, degrees. */
@@ -3873,6 +3891,7 @@ export class MapRenderer {
   resetView(): void {
     const m = this.map;
     if (!m) return;
+    this.posed = false;
     this.setFov(PERSP_FOV_DEG);
     let sum = 0;
     for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
@@ -4678,6 +4697,7 @@ export class MapRenderer {
    *  In, the camera stops short of the ground under the pointer (`zoomStopShort`), so a zoom into a cave's mouth ends in
    *  its air; a camera the rock holds nearer than its distance (cameraClamp.ts) zooms from where it is drawn. */
   zoom(factor: number, clientX?: number, clientY?: number): void {
+    this.leaveFirstView();
     const m = this.map;
     const step = zoomStep(
       this.view,

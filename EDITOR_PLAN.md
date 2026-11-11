@@ -434,8 +434,8 @@ place of its bottom rule.
   row, the objects list and the bar; it never scrolls and never changes shape (`layout.spec.ts`).
 - **The top right** (D345 B3, D368 (5)): the camera group, **Top-down** (lit while the view looks straight down),
   **Reset view**, **First view** (O: the camera exactly as the game opens the map, from its start, with the game's own
-  angle, zoom and lens, `gameFirstView` in `src/render3d/framing.ts` from `openingCamera`; greyed while the map has no
-  start) and the compass (a button, **Face north**: the view glides round to north), then under them the
+  angle, zoom and lens, `gameFirstView` in `src/render3d/framing.ts` from `openingCamera`; any move away from it, Top-down
+  included, puts our lens back unseen, the ground's size kept; greyed while the map has no start) and the compass (a button, **Face north**: the view glides round to north), then under them the
   **level control** (▾ value ▴, at one fixed width; its arrows "Show one layer less" and "Show one layer more"), **Slow
   forces** (under Reset view and First view) and **Sound** (a speaker icon, crossed out when muted; its volume opens beneath it, its tooltip to its left so the
   volume stays in view): a grid
