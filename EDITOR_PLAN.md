@@ -415,8 +415,9 @@ place of its bottom rule.
   height; its key under Legend while on: "Ground height", the ramp, the map's lowest and highest level), **Lines** (D248: a thin line wherever the ground steps down a level), **Markers** (the sources,
   each water object, core and reserve with a label of its own words, and the slopes), **Flow** (D353: the water's currents), **See-through** (the water, T), the overlays **Badwater**,
   **Irrigation** (I; where the soil's water stops and why: moist ground as it is, dry ground amber where the nearest
-  water one level higher or six tiles nearer would wet it, the rest dark as dry for good; the readout says why a dry tile
-  is dry, "3 levels above the nearest water", "9 tiles from water; soil carries it 7"; the soil rule's own reach,
+  water one level higher or six tiles nearer would wet it, the rest dark as dry for good; its key under Legend says why the dry tile
+  under the pointer is dry, "Here: 3 levels above the nearest water", "Here: 9 tiles from water; soil carries it 7" (in
+  the key, not the readout, so turning the view on moves nothing); the soil rule's own reach,
   `analysis/irrigation.ts` on `sim/soil3d.ts` `moistureReach3d`, worked out with the water's settle while the view is on)
   and **Caves and overhangs** (where the map has them, right after Irrigation; each with its caption under Legend while on);
   **Legend** stands at the top right, just left of Top-down, with **Hide objects** just left of it (every object and its
@@ -467,7 +468,9 @@ place of its bottom rule.
   `waterSettled`; the page begins a water journey only when it is false, and ends it at once when it is true, so an
   undo, a redo or an edit that leaves the water as it is never leaves the dot at "Settling…"
   (`WaterPlayer.settled`, `tests/contract/waterStatus.test.ts`). The water row is at the top middle, centred in the
-  map area, each piece floating on its own: Drought and Badtide (§5), then the weather's day (◀ Day 7 ▶: a drought or a badtide held on any day, from Day 0, the map's own water, to past its
+  map area, each piece floating on its own (in a window too narrow for the band's one line, it takes a second line at
+  the right, one gap left of the corner's second row, and a panel at the left clear of it starts under the band, so a
+  laptop's 1536×864 keeps the generator's room; `view/useBandLayout.ts`): Drought and Badtide (§5), then the weather's day (◀ Day 7 ▶: a drought or a badtide held on any day, from Day 0, the map's own water, to past its
   default length). The water plays into place after every edit with no controls, always at one pace; undo and redo
   show a change again, and the header's dot reads "Settling…" while it does: one status (Kyler, 2026-10-04). Double-clicking the day box while a hazard is shown turns it into a field
   in place, same size: a day from 0 to 99, Enter or clicking away shows it, Esc cancels.
