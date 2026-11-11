@@ -56,6 +56,12 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   (`bypassCourses`: two legs over the seed's rises and hollows, turning far from the start, kept off the edge), the tarns and basins, the works, the ridges, the
   regions; past 192² the lakes and rim tarns sized by the map, `mapScale` and `rimTarns`, the further rim tarns spread round the edges and drawn long or round; every rim tarn's run to the edge bent and slid along it, `edgeRun`), its second pass
   (`skeletonOf`, `siteStair`, `siteSide`; the works' floors and most `givesOf`) and the stair's `plan` invariants. `layoutTry` gives one layout try as far as it got, for tuning.
+- `premises/wallGate.ts`: the wall with one gate (§5.1), stage 0 only: `wallGateEligible`, the layout in a frame
+  turned to the start's camera (the wall's runs and jogs, the Veil's bastion and cleft, the lake, its trench and drain
+  bay, the Still Pool and its inlet, the Gate's slot and bed, the leat and the Pass, the rim and its notch, the Low
+  River through its spur, the brooks), its numbers in `GatePlan.gate` (`gateOf`) and its `plan` invariants. Not
+  offered: `premises/dev.ts` `DEV_PREMISES` lists it for the tools and tests until it makes a whole map; joining
+  `spec/mapspec.ts` `PREMISE_IDS` offers it. No playability floor of its own: the shared gate holds the start.
 - `planChecks.ts`: §1.4's checks every premise shares (levels fit, no bed under `BED_FLOOR`, bodies apart, the graph
   closes, the works add up, the skeleton is whole).
 - `geom.ts`: capsule chains, paths and gaps. `diagram.ts`: the water-story diagram (`planSvg`, `planRaster`).
@@ -109,6 +115,8 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
 the presets split; a pair refused in one line; the style changes the land past the start's ground, never the plan or
 day 1's water; every panel setting's role and the greyed list); `tests/contract/premisePlan.test.ts` (quick: the frame's arithmetic, eligibility, 18 plans, variety,
 a broken plan for every `plan` invariant, the Four Lakes fixture `tests/fixtures/four-lakes.plan.json`);
+`premiseGatePlan.test.ts` (quick: the wall with one gate kept out of the choices, its eligibility, seeds 1 to 24 a size,
+variety, a broken plan for every `plan` invariant);
 `premisePlan.heavy.test.ts` (seeds 1 to 200 at 128², 192² and 256²: every plan holds, 43 to 107 ms a plan on average;
 PREMISES §3.3 has the numbers against the budget); `premiseWater.test.ts` (quick: the table's arithmetic, the lip's
 stair, the `land` invariants on seeds 1 to 4 at each size and Four Lakes, a broken raster for each); and
