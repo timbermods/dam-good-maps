@@ -73,6 +73,11 @@ export interface BrushSettings {
   canalWidth: number;
   canalDepth: number;
   canalOpen: boolean;
+  /** Lower's Brush choice Lake (lake/useLake.ts): a drag draws a lake's outline (the core's `lake` operation), its water
+   *  standing at this level and its channel this deep under it (1 to 5). */
+  lake: boolean;
+  lakeLevel: number;
+  lakeDepth: number;
   /** Flatten in steps: benches every `steps` levels, or null. */
   steps: number | null;
   /** Each brush's mode and its sources choice, remembered per brush (D322). */
@@ -82,7 +87,7 @@ export interface BrushSettings {
 
 const EACH = <T,>(v: T): Record<BrushTool, T> => ({ raise: v, lower: v, flatten: v, smooth: v, naturalize: v });
 
-export const DEFAULT_BRUSH: BrushSettings = { tool: "raise", size: 5, strength: 5, target: null, square: false, straight: false, area: false, levelLines: false, canal: false, canalWidth: 2, canalDepth: 1, canalOpen: true, steps: null, modes: EACH<BrushMode>("both"), sources: EACH<SourcesChoice>("ride") };
+export const DEFAULT_BRUSH: BrushSettings = { tool: "raise", size: 5, strength: 5, target: null, square: false, straight: false, area: false, levelLines: false, canal: false, canalWidth: 2, canalDepth: 1, canalOpen: true, lake: false, lakeLevel: 8, lakeDepth: 2, steps: null, modes: EACH<BrushMode>("both"), sources: EACH<SourcesChoice>("ride") };
 
 /** The brush kit's shapes, one at a time: turning Square, Straight lines or Area on turns the other
  *  two off; turning one off leaves the others as they are. */

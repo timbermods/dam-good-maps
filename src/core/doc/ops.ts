@@ -138,7 +138,8 @@ export interface DrawnLakeParams {
   /** The level the lake stands at (its notch's) and its channel's depth under it (1 to 5). */
   level: number;
   depth: number;
-  /** Where the player dragged out of the outline: the notch is the rim's tile nearest it. Absent: the rim's lowest. */
+  /** Where the player dragged out of the outline: the notch is the rim's tile nearest it that can spill. Absent: where the
+   *  ground beyond the rim is lowest. */
   spill?: [number, number];
   /** The tiles it changes as runs [y, x0, x1] (the bed, the rim and the notch); the integrity pass leaves them. */
   cells: Runs;

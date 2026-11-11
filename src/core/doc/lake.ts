@@ -1,13 +1,14 @@
 // The drawn lake (the Lake, Lower's fifth Brush choice): a lake where there is none. The player drags an outline on the
 // land and it digs a basin inside it: a shelving bed (a margin one level under the lake's level, falling a level a tile
-// inward to a channel `depth` under it along the outline's long axis), a rim made whole around it (each tile of the ring
-// just outside the outline at least a level over the lake, a gap raised up to `LAKE_RIM_RAISE` levels; a lower gap is
-// refused, named), and one spill point: a notch one tile wide in the rim, at the lake's level, where the rim is lowest or
-// nearest where the player dragged out of the outline. It places no water of its own: water already in the outline or on
-// its rim fills it at the next settle; otherwise a source or a canal must bring some. A lake at level L stands from L
-// (the notch) up, as `setLakeLevel`'s does (doc/lakeLevel.ts, the other lake code: that one sets an existing lake's
-// level). The `lake` operation stores its tiles and each one's level literally and is applied as exact Flattens; the
-// engine's check plans it again on the map now and it must be the one stored (D342).
+// inward to a channel `depth` under it along the outline's long axis), a rim made whole around it (each tile of the
+// ring just outside the outline at least a level over the lake, a gap raised up to `LAKE_RIM_RAISE` levels; a lower gap
+// is refused, named), and one spill point: a notch one tile wide in the rim, at the lake's level, where the ground
+// beyond the rim is lowest or nearest where the player dragged out of the outline (always where ground beyond lies at
+// the level or lower, so the water runs out there; with none, it is refused). It places no water of its own: water
+// already in the outline or on its rim fills it at the next settle; otherwise a source or a canal must bring some. A
+// lake at level L stands from L (the notch) up, as `setLakeLevel`'s does (doc/lakeLevel.ts, the other lake code: that
+// one sets an existing lake's level). The `lake` operation stores its tiles and each one's level literally and is
+// applied as exact Flattens; the engine's check plans it again on the map now and it must be the one stored (D342).
 
 import { CEILING } from "../format/world";
 import { runsToTiles, tilesToRuns } from "../math/grid";
@@ -85,20 +86,22 @@ export function planDrawnLake(s: MapSession, outline: readonly (readonly [number
         rimAll.push(j);
       }
   rimAll.sort((a, b) => a - b);
-  // the spill point: nearest where the player dragged out, or the rim's lowest tile (the lowest land beyond it, then the
-  // first, as ties go)
-  let notch = rimAll[0];
+  // the spill point: a rim tile with ground beyond it at the lake's level or lower, so the water runs out there; the one
+  // nearest where the player dragged out, or else where the ground beyond is lowest (then the rim's own, then the first)
+  const beyond = (r: number) => Math.min(...around(r).filter((j) => j >= 0 && j < W * H && !inside[j] && !onRim[j]).map((j) => heights[j]));
+  const spills = rimAll.filter((r) => beyond(r) <= level);
+  if (!spills.length) return none(`no ground beyond the lake's rim lies at level ${level} or lower: its water would have nowhere to spill`);
+  let notch = spills[0];
   if (spill) {
     let best = Infinity;
-    for (const r of rimAll) {
+    for (const r of spills) {
       const d = (r % W - spill[0]) ** 2 + (Math.floor(r / W) - spill[1]) ** 2;
       if (d < best) [best, notch] = [d, r];
     }
   } else {
-    const beyond = (r: number) => Math.min(heights[r], ...around(r).filter((j) => j >= 0 && j < W * H && !inside[j] && !onRim[j]).map((j) => heights[j]));
     let best: [number, number] = [Infinity, Infinity];
-    for (const r of rimAll) {
-      const key: [number, number] = [heights[r], beyond(r)];
+    for (const r of spills) {
+      const key: [number, number] = [beyond(r), heights[r]];
       if (key[0] < best[0] || (key[0] === best[0] && key[1] < best[1])) [best, notch] = [key, r];
     }
   }
