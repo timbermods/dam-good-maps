@@ -440,11 +440,35 @@ export interface MoistureReach {
   barred: Uint8Array;
 }
 
+/** The steady moisture of a run whose water term `w` (> 0) is at least its spread, by the game's cell: each tick it
+ *  rises toward `w` by at most `M_SPREAD`, then its own water's 1 − c (`keep`) scales it, so with contaminated water
+ *  of its own it settles where the rise and the scaling meet (keep · M_SPREAD / (1 − keep)), under keep · w. Worked
+ *  tick by tick in float32, as `moisture3dGame` does. */
+function cappedWater(w: number, keep: number): number {
+  let x = 0;
+  for (let k = 0; k < 1000; k++) {
+    let decayed = f32(x - M_DECAY);
+    if (decayed < 0) decayed = 0;
+    let v = decayed;
+    if (w > decayed) {
+      const cap = f32(x + M_SPREAD);
+      v = w > cap ? cap : w;
+    }
+    let out = f32(v * keep);
+    if (out < M_MIN) out = 0;
+    if (out === x) break;
+    x = out;
+  }
+  return x;
+}
+
 export function moistureReach3d(runs: TerrainColumns, wc: WaterColumns, depth: ArrayLike<number>, contamination: ArrayLike<number>, barrier: ReadonlySet<number> | null = null, sat: Uint8Array = columnSaturation(wc, depth)): MoistureReach {
   const { g, NN, fixed, barred, num, numClimb, numBeside, keep, climbBase } = moistureTerms(runs, wc, depth, contamination, barrier, sat);
   const value = new Float32Array(NN).fill(-Infinity);
   const levels = new Uint16Array(NN);
   const tiles = new Float32Array(NN);
+  // the best spread each run is offered so far (the game's cell takes its water term while that is at least the spread)
+  const spread = new Float32Array(NN).fill(-Infinity);
   const heap = new MinHeap();
   for (let a = 0; a < g.nodes.length; a++) {
     const n = g.nodes[a];
@@ -459,7 +483,7 @@ export function moistureReach3d(runs: TerrainColumns, wc: WaterColumns, depth: A
     }
     const w = num[n];
     if (w === -Infinity) continue;
-    value[n] = w > 0 ? f32(w * keep[n]) : w;
+    value[n] = w > 0 ? cappedWater(w, keep[n]) : w;
     levels[n] = numClimb[n];
     tiles[n] = numBeside[n];
     heap.push(-value[n], n);
@@ -476,6 +500,10 @@ export function moistureReach3d(runs: TerrainColumns, wc: WaterColumns, depth: A
       // (overlap is symmetric: r's edge to n is n's to r, with the same step)
       const climb = runs.ceil[n] - climbBase[r];
       const v = climb < 0 ? f32(m - cost) : f32(f32(m - climb * 6) - cost);
+      if (!(v > spread[n])) continue;
+      spread[n] = v;
+      // (a run whose water term is at least the spread keeps its water's value: the spread changes nothing there)
+      if (num[n] > 0 && num[n] >= v) continue;
       const out = v > 0 ? f32(v * keep[n]) : v;
       if (out > value[n]) {
         value[n] = out;
