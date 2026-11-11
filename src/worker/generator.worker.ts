@@ -144,6 +144,7 @@ const api = {
   refine: () => sendOpen(ed.refine()),
   openTimber: (bytes: Uint8Array, fileName: string) => sendOpen(ed.openTimber(bytes, fileName)),
   openProject: (bytes: Uint8Array) => sendOpen(ed.openProject(bytes)),
+  newBlank: (size: number, level: number) => sendOpen(ed.newBlank(size, level)),
   /** A real place (its data file): built into its .timber, then opened as any .timber is. */
   openPlace(data: Uint8Array) {
     const place = decodePlaceFile(data);

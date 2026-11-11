@@ -52,6 +52,9 @@ The map document and its edit engine: a generation plus an ordered log of edit o
 - `crop.ts`: Crop map to selection (D340): the rectangle's refusals (`cropRectProblem`), what the edge cuts (`cropObjects`, `planCrop`: objects it crosses, and slopes whose step it cuts) and the cropped file (`cropFile`). The session makes the cropped map the document's next generation (`MapDocument.prior` holds the one before): one undo step, the full map back exactly.
 - `description.ts`: the map's description, written by the `setDescription` operation: its limit (`MAX_DESCRIPTION`), its refusals (`descriptionProblem`) and a real place's credits (`placeCredits`). `MapSession.description()` answers it; a generated map's own words are `gen/pack.ts` `description` and `gen/names.ts` `mapSays`.
 - `waterEdits.ts`: Remove unfed water and Fill (D387, D394), the questions (`unfedWater`, `planFill`) and the operations they build.
+- `blank.ts`: a new blank map (`blankTimber`, `blankDocument`, `MapSession.blank`): flat, dry ground at one level, the
+  start at its middle, built as a file and read as any .timber is; `blankLimits.ts` holds its sizes, levels and refusal
+  (the page's dialog reads them without loading the builder).
 - `lakeLevel.ts`: lakes by number: `planLakeLevel` (the sill cut down or raised that holds a lake at a level, `sim/sill.ts`,
   confirmed by the canonical settle), `applyLakeLevel` (one Select step, the confirming settle kept as the map's water,
   `MapSession.withSettled`) and the `setLakeLevel` operation's check (`lakeLevelProblem`).

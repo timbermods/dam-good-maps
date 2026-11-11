@@ -1804,6 +1804,14 @@ export function openTimber(bytes: Uint8Array, fileName: string, place?: string):
   return opened(MapSession.importMap(bytes, fileName, place));
 }
 
+/** A new blank map (core/doc/blank.ts): flat, dry ground `size` tiles a side at `level`, the start at its middle. A
+ *  size or a level it can't be made at throws its one-line reason. */
+export function newBlank(size: number, level: number): SessionOpen {
+  const blocked = gated(true);
+  if (blocked) throw new Error(blocked);
+  return opened(MapSession.blank(size, level));
+}
+
 /** Open a project file (.damgoodmaps.json). */
 export function openProject(bytes: Uint8Array): SessionOpen {
   const blocked = gated(true);

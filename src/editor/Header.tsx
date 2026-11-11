@@ -17,6 +17,8 @@ import { openTogether } from "./collab/togetherOpen";
 import { fitsHeaderTwoLines, limitName, linesIn } from "./nameFit";
 import { HelpPanels, REPORT_TIP, reportProblem, showHelpPanel } from "./help/helpPanels";
 import { GENERATOR_VERSION } from "../core/spec/mapspec";
+import { BLANK_LEVEL, BLANK_MAX_LEVEL, BLANK_SIZES } from "../core/doc/blankLimits";
+import { ChoiceSetting, NumberSetting } from "./settings";
 
 const ICON = { width: 18, height: 18, viewBox: "0 0 20 20", "aria-hidden": "true" as const, fill: "none", stroke: "currentColor", "stroke-width": 1.8, "stroke-linecap": "round" as const, "stroke-linejoin": "round" as const };
 
@@ -379,6 +381,8 @@ export interface HeaderProps {
   /** Pick or change the folder Save to Timberborn writes to. */
   onChooseFolder(): void;
   onOpenFile(file: File): void;
+  /** File → New blank map…: flat, dry ground of this size at this level. */
+  onNewBlank(size: number, level: number): void;
   onSaveProject(): void;
   /** File → Save a picture (the map from the game's opening view, large, as a JPEG), where this browser draws in 3D. */
   onSavePicture?: () => void;
@@ -409,6 +413,7 @@ export function Header(p: HeaderProps) {
   const [menu, setMenu] = useState(false);
   const fileMenu = useMenuPresence(menu);
   const [about, setAbout] = useState(false);
+  const [newBlank, setNewBlank] = useState(false);
   // (the time-lapse's dialog, loaded the first time it is asked for)
   const [lapse, setLapse] = useState<typeof import("./timelapse/TimelapseDialog").TimelapseDialog | null>(null);
   const openLapse = () => void import("./timelapse/TimelapseDialog").then((m) => setLapse(() => m.TimelapseDialog));
@@ -582,6 +587,11 @@ export function Header(p: HeaderProps) {
                   Open…
                 </button>
               </li>
+              <li role="none">
+                <button type="button" role="menuitem" {...tip("Start a map on flat, empty ground")} onClick={pick(() => setNewBlank(true))}>
+                  New blank map…
+                </button>
+              </li>
               {p.togetherEntry ? (
                 <li role="none" class="menu-together">
                   <button type="button" role="menuitem" {...tip("Edit this map with someone else")} onClick={pick(openTogether)}>
@@ -666,9 +676,59 @@ export function Header(p: HeaderProps) {
         </div>
       </div>
       {about ? <About onClose={() => setAbout(false)} /> : null}
+      {newBlank ? (
+        <NewBlank
+          onClose={() => setNewBlank(false)}
+          onMake={(size, level) => {
+            setNewBlank(false);
+            p.onNewBlank(size, level);
+          }}
+        />
+      ) : null}
       {lapse && p.timelapse ? h(lapse, { project: p.timelapse.project, steps: p.timelapse.steps, onClose: () => setLapse(null) }) : null}
       <HelpPanels />
     </header>
+  );
+}
+
+/** New blank map (File → New blank map…): its size (the generator's own) and its ground level, then flat, dry ground
+ *  with the start at its middle (core/doc/blank.ts). */
+function NewBlank(p: { onClose(): void; onMake(size: number, level: number): void }) {
+  const [size, setSize] = useState(128);
+  const [level, setLevel] = useState(BLANK_LEVEL);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") p.onClose();
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, []);
+  return (
+    <div class="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && p.onClose()}>
+      <form
+        class="dialog new-blank"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-blank-head"
+        onSubmit={(e) => {
+          e.preventDefault();
+          p.onMake(size, level);
+        }}
+      >
+        <h2 id="new-blank-head">New blank map</h2>
+        <p>Flat, dry ground with the start at its middle.</p>
+        <ChoiceSetting<number> line label="Size" title="How many tiles a side" value={size} options={BLANK_SIZES.map((v) => [v, String(v), `Size: ${v} × ${v}`] as const)} onChange={setSize} />
+        <NumberSetting line label="Ground level" title="The level the whole map starts at" value={level} min={1} max={BLANK_MAX_LEVEL} step={1} onChange={setLevel} />
+        <footer>
+          <button type="button" class="ghost" title="Keep the open map" onClick={p.onClose}>
+            Cancel
+          </button>
+          <button type="submit" class="primary" title="Make the blank map and open it" autoFocus>
+            Make the map
+          </button>
+        </footer>
+      </form>
+    </div>
   );
 }
 

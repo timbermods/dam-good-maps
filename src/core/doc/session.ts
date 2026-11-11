@@ -61,6 +61,7 @@ import { validateMap, type Validation } from "../validate/checks";
 import type { Profile } from "../validate/report";
 import { baseFromFile, baseTerrain, fileFromBase, type BaseMap, type BaseTerrain } from "./base";
 import { cropFalls, cropFile, cropObjects, START_CUT, type CropParams } from "./crop";
+import { blankDocument } from "./blank";
 import { lakeLevelLabel, lakeLevelProblem } from "./lakeLevel";
 import { entityProblem, objectCells, resourceOwners } from "./placing";
 import { applyPaintObjects } from "./paint";
@@ -664,6 +665,12 @@ export class MapSession {
    *  ImportError for saves. */
   static importMap(bytes: Uint8Array, fileName: string, place?: string): MapSession {
     return new MapSession(importDocument(bytes, fileName, place));
+  }
+
+  /** A new blank map (doc/blank.ts): flat, dry ground at `level`, `size` tiles a side, the start at its middle. Throws
+   *  the one-line reason a size or a level is refused. */
+  static blank(size: number, level: number): MapSession {
+    return new MapSession(blankDocument(size, level));
   }
 
   // --------------------------------------------------------------------------------- reading

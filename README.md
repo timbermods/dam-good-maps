@@ -93,7 +93,7 @@ The editor:
 - The dot at the top is green when the map is ready to play. Amber means something to look at:
   click it for the list and the fixes.
 - **Save to Timberborn** saves the map into the game (**Download .timber** in other browsers). **File**
-  has **Open…**, **Download project**, **Download .timber**, **Choose Maps folder…** (Chrome and Edge), **Clear everything**, **About**, **Keyboard shortcuts**,
+  has **Open…**, **New blank map…**, **Download project**, **Download .timber**, **Choose Maps folder…** (Chrome and Edge), **Clear everything**, **About**, **Keyboard shortcuts**,
   **Help** and **Report a problem**.
   **History** beside Undo lists every step: click one to go back to it.
 - Click the map's name at the top to rename it. The saved file takes the name.
@@ -101,6 +101,8 @@ The editor:
 - **Real places** in the header opens maps made from real land: click one to edit it.
 - The map you were on stays in **Your maps**, in the header: click it to go back.
 - Right-click a map in **Your maps** to download its `.timber`, rename it or delete it.
+- **File → New blank map…** starts a map on flat, dry ground: pick its size and its ground level. The start is at its
+  middle. Shape it, then add water sources.
 - **File → Open…**, or a file dropped on the page, opens any `.timber` from Timberborn 0.6 to 1.1.
 
 Your maps are saved in this browser as you work.
