@@ -121,6 +121,10 @@ describe("Broken plans fail their invariants", () => {
       const bed = neck.bed as number[];
       bed[bed.length - 1] = bed[0] + 1;
     }],
+    ["plan.floor", "the lowest lake dug under the floor", (plan) => {
+      const lake = plan.bodies.find((b) => b.id === plan.stair!.lakes[0])!;
+      lake.deep = lake.sill - 2;
+    }],
     ["plan.overlap", "two bodies on top of each other", (plan) => {
       const tarn = plan.bodies.find((b) => b.kind === "tarn")!;
       const lake = plan.bodies.find((b) => b.kind === "lake")!;

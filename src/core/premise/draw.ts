@@ -5,6 +5,7 @@
 import { stream, type Rng } from "../math/rng";
 import type { MapSpec } from "../spec/mapspec";
 import type { Invariant, PremiseDef, PremisePlan, Stage, StageContext } from "./types";
+import { waterByNumber, type StageWater } from "./water";
 
 /** Plans drawn for one spec before it goes to the themes' path (PREMISES §2.2, stage 8). */
 export const PLAN_TRIES = 8;
@@ -55,4 +56,30 @@ export function firstPlan(def: PremiseDef, spec: MapSpec): { plan: PremisePlan; 
     last = `${r.failures[0].id}: ${r.failures[0].reason}`;
   }
   return { reason: `No ${def.id} plan held in ${PLAN_TRIES} tries (${last})` };
+}
+
+/** The first plan of a spec whose stage 1 holds too: every `plan` invariant, then its water by number (water.ts) and
+ *  every `land` invariant stage 1 can judge (PREMISES §2.2: a plan whose water fails is drawn again, at the cost of
+ *  stage 1's row). With the attempt it took, its water, and the attempts' failures before it. */
+export function firstWater(def: PremiseDef, spec: MapSpec): { plan: PremisePlan; water: StageWater; attempt: number; failed: Failure[] } | { reason: string } {
+  let last = "";
+  const failed: Failure[] = [];
+  for (let attempt = 0; attempt < PLAN_TRIES; attempt++) {
+    const r = drawPlan(def, spec, attempt);
+    if ("reason" in r) {
+      if (attempt === 0 && def.eligible(spec)) return r;
+      last = r.reason;
+      continue;
+    }
+    if (r.failures.length) {
+      last = `${r.failures[0].id}: ${r.failures[0].reason}`;
+      continue;
+    }
+    const water = waterByNumber(r.plan);
+    const land = failing(def.invariants, "land", { spec, plan: r.plan, water });
+    if (!land.length) return { plan: r.plan, water, attempt, failed };
+    failed.push(land[0]);
+    last = `${land[0].id}: ${land[0].reason}`;
+  }
+  return { reason: `No ${def.id} plan's water held in ${PLAN_TRIES} tries (${last})` };
 }
