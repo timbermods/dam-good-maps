@@ -202,8 +202,9 @@ export const LAKES: Lake[] = [
       [[90, 72, 8.5], [90.5, 79, 8.5]],
       [[42, 36, 10], [40, 29, 8.5], [40, 26, 7.5]],
       [[40, 44, 9], [27, 50, 6]],
-      // the start's cove: deep water at the meadow's edge
-      [[72, 62, 9], [71, 69, 6], [69, 74, 4.5]],
+      // the start's cove: deep water at the meadow's edge (r15: its head four tiles further south, so the start's bench
+      // reaches Low Lake's shore; it was [69, 74, 4.5])
+      [[72, 62, 9], [71, 66, 5], [70, 68, 3.5]],
       // the south bay behind a peninsula
       [[62, 44, 7], [74, 40, 6]],
     ],
@@ -399,7 +400,9 @@ const SEED = 4107;
 const SEEP_BASIN = Number(process.env.FL_SEEP_BASIN ?? 0);
 const SEEP_BED = Number(process.env.FL_SEEP_BED ?? 0);
 const COVE_POOL = process.env.FL_COVE !== "0";
-const BENCH_SOUTH = Number(process.env.FL_BENCH ?? 79);
+/** The bench's south edge west of the Great Fall's bay (r15: 66, from 79: the bench runs down to Low Lake's shore, 700
+ *  level tiles against r14's 538; the Workshop's starts have 640 to 980). */
+const BENCH_SOUTH = Number(process.env.FL_BENCH ?? 66);
 /** (r14) The Still Pool: the start's first defence against a badtide, in the first frame. A shallow pool on the
  *  lawn under the crag, beside the Great Fall, fed from the water at the fall's foot (which stands at 6.7, over the
  *  bay's 6.3) through a neck one tile wide and two long. Its bed and the neck's are one level under the bench: one
@@ -787,7 +790,7 @@ export function designLand(): Land {
         depth = hypot(x + 0.5 - L.seed[0] - 1.5, y + 0.5 - L.seed[1] + 1) + 1.2 * fbm(x, y, 4, SEED + 55, 2) < 2.3 ? 2 : shelf ? 0 : 1;
       }
       // (the cove's head has a cut bank: deep water right at the meadow, so a pump there works through a drought)
-      if (k === 0 && hypot(x + 0.5 - 69, y + 0.5 - 74) < 5.5) depth = 2;
+      if (k === 0 && hypot(x + 0.5 - 70, y + 0.5 - 67) < 5.5) depth = 2;
       // (the Great Fall's bay, all of Weir Lake that the game's first frame holds: shallow. In the game water five
       // deep is near black (luminance 18 of 255 in the r9 capture), water under half a level deep is the lightest
       // there is (65); the drowned river's line keeps a level and a half of water through the bay, which a pump at

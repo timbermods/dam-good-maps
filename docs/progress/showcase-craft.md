@@ -94,6 +94,13 @@ frame (its lip at v 0.98), the cave behind it 91 blocks. 2,199 living trees (597
 The start: 262 logs grown within 20 tiles' walk (Easy asks 250), 86 berry bushes. Natural storage 1,215 against a need
 of 380.
 
+**Round 15 (planning's order on #236: the start only; not run in the game).** The bench runs south to Low Lake's
+shore (its south edge west of the bay at row 66, from 79) and the start's cove ends four tiles further south: 704
+level tiles joined to the start, from 538 (the Workshop's starts have 640 to 980); the way up from Low Lake now lands
+at X 76 Y 85. Fast wood at the door: the start's wood on the bench's west side is pine, grown, with oak in two small
+clumps: 250 logs within 20 tiles' walk, mostly pine (r14: 262, mostly oak), 288 within 40; `start.reach` 2,026.
+Nothing in the first frame moves but the wood's species at its bottom left.
+
 **The irrigation ladder** (`--irrigate`, cumulative; every count is by the model: the game's own what-if is not run).
 "Green or wet" counts tiles; the first row is the map as it opens.
 
@@ -131,7 +138,7 @@ days and the start's water stays clean; with the three notches and the bypass op
 - The dry uplands read plain from the far view: stepped benches and dead woods, little colour.
 - Nobody has played ten cycles: the start's generosity, the scarcity after it and the walk between the lakes are judged
   by the model and by captures, not by a played colony. The Workshop's starts have a bench of 640 to 980 level tiles;
-  this one has 538.
+  this one has 704 (r15; 538 to r14).
 - r14 itself was not judged in the game: its pool, piers, dead woods and old waterlines are seen only in our own sheet.
 - Our view draws a pond and a green ring in High Tarn's hollow that the core's settled water does not have, and cuts the
   cliff away over a cave, so the fall over the cave cannot be judged in it.
@@ -283,7 +290,7 @@ river terraces along the Gate Bed (the bed two under a low terrace that follows 
 broad unequal flats out to the rim), and the Gate Bed leaving by the one notch in the rim at X 148–152. The lake lies
 south of a bench seven rows deep; three brooks come to it from the valley's far corners; the Low River leaves west
 through the ridge. The start's water has a neck: a side pool east of the start (bed 6, 21 tiles, a rim a level over
-the bench all round) joined to the Veil's trench by an inlet one tile wide and three long. Shaped first in our own
+the bench all round) joined to the Veil's trench by an inlet one tile wide and two long. Shaped first in our own
 widest view (`C:\dgm-showcase\the-gate\ours\r6-widest.jpg`, `r6-first.jpg`, by `tools/showcase/capture.ts` from the
 round's shots file): the wall one dark band across the picture with the Gate's slot cut through it and the Veil's
 bastion at the start, the basin's terraces and rim beyond, the valley green below.
@@ -306,3 +313,127 @@ bastion at the start, the basin's terraces and rim beyond, the valley green belo
   wall with one gate, plainly. What falls short in it: the two near oases are discs of green thirty tiles across (a
   closed hollow fills to its flat whatever its depth, so each seep wet a disc of the flat: round 7 gives each hollow a
   gully to the bed), and the lake in front of the start is dark where it is two deep.
+
+**Round 7 (the last).** Each seep's hollow has a gully to the nearest bed, falling a level every two tiles, so its pond
+stands four under the flat and the seep's trickle dies in the gully: the basin 12.2 % moist or wet (three small
+oases), from 16.7 %. The lake is a level and a half deep at most (lighter in the first frame); the start's berries and
+oaks stand on the bench east of the door. Measures: 0 blocking, 4 warnings (`water.outflow`, `start.dry`, `start.food`
+27 of 30, `start.wood` 47 of 200); water 8.7 %, moist 28.1 %; 1,459 living trees (396 per 10,000), 369 dead; the neck's
+badtide as round 6 (the pool 13 % bad at most on day 1, 16 % on day 8, with a levee of 3 on the inlet). The ladder:
+the Gate opened +982 (2.7 %, 252 of them water); the second blast and the Low River levee +1,151/−16 (the lake 7.99);
+the leat's bar once and twice 0 (its water falls into the Gate's slot, already wet); the leat spanned +2,196/−2,216
+(the model blocks the slot to span it); the megadam to 9 holds 5,408 over 7,655 tiles. Our own widest view:
+`C:\dgm-showcase\the-gate\ours\r7-widest.jpg`; the game's: `C:\dgm-probe\captures\the-gate-r7\day1-widest.jpg`.
+- **Round 7 in the game** (`C:\dgm-probe\captures\the-gate-r7\day1-first.jpg`, `day1-widest.jpg`): valley, wall, gate,
+  basin, far rim: the wall one dark band with its bastions, the Gate's slot the one notch through it, the Gate Bed
+  leaving it as a channel with dead woods, the terraces and the rim beyond, the lake teal where round 6's was dark,
+  the side pool with its berries and birch beside the door. Still short: the west seep's oasis is a disc about
+  twenty tiles across (its gully's thread wets the flat beside it), the trench at the door's left is two and a half
+  deep and dark, the leat's and the far pieces are across the lake or the wall (bridges and stairs), nobody has
+  played it.
+
+**Round 8 (planning passed the shape at r7; one tidy round, no change of shape; the last).** Wood at the start: a stand
+of oak on the bench east of the door (finite, about forty trees) and pine beyond it: 200 logs or more within 20 tiles'
+walk, by land (`start.wood` passes). The leat earns its rung: the Pass is on the Veil's west side (the crest's dip to
+12 at X 20–28), so the leat runs west along the crest from the cleft's west lobe, never crosses the Gate's slot, and
+its cascade, the Pass Bed, winds across the basin's west to the Gate Bed at the notch: blasting its bar once waters
+1,839 tiles of the basin's west (5.0 %), twice 1,663 more (4.5 %, 92 of them water; the Veil dwindles). The Gate at a
+badtide, measured once by the model (8 days): left alone the lake is 96 % bad on day 1 and red water stands on 31
+basin tiles, 281 by day 8; with the Gate's bar blasted twice, its blockages cleared and the Low River's head levee'd,
+the lake is 96 % bad on day 1 all the same and the red stands on 710 basin tiles, 838 by day 4: the Gate sends the
+valley's red water into the basin, but the lake runs red whatever is built, because the Veil feeds it through the
+drain bay and the three brooks feed it too, every source red in a badtide; the clean water is the side pool's behind
+its neck (12 % bad at most on day 1, 16 % on day 8, with a levee of 3 on the inlet). The trench at the door stays
+two and a half deep on its west third, the seeps' discs and the crossings as they were. Measures (r8): 0 blocking, 2
+warnings (`water.outflow` on the three seeps, `start.dry`); flat 64.0 %, one-level steps 60.9 %; water 8.8 %, moist
+26.2 %, the basin 7.8 % moist or wet; the Veil 6.52 levels, 9 wide, whole in the first frame; 1,364 living trees (370
+per 10,000), 485 dead, 441 berry bushes; the start's bench 1,146 level tiles, the walk to the Gate's bar 37 tiles.
+The ladder: the Gate opened +1,318 (3.6 %, 305 water); the second blast and the Low River levee +1,534/−63 (the lake
+7.99); the leat's bar once +1,839/−228, twice +1,663; the megadam in the ridge's slot: the water gets out elsewhere at
+9 now the lake lies south of the bench (the valley's floor is not enclosed at 9). Our own widest view
+`C:\dgm-showcase\the-gate\ours\r8-widest.jpg`; the game's `C:\dgm-probe\captures\the-gate-r8\day1-widest.jpg`.
+- **Round 8 in the game** (`C:\dgm-probe\captures\the-gate-r8\day1-first.jpg`, `day1-widest.jpg`): the oak stand at the
+  door's east and the berries south of it, the side pool with its birch; from the widest view the wall, the Gate's
+  slot, the Veil's bastion, the leat's line west along the crest to the Pass and the Pass Bed winding across the
+  basin's west, the Gate Bed with its dead woods, the far rim: valley, wall, gate, basin. The map stops here.
+
+**Round 9 (planning's order on #236: the start, no change of shape; not run in the game).** A way out of the start's
+bench by land: the Arch, a rib of rock a level over the meadow (five rows, X 64 to 76, Y 94 to 98) across the drain
+bay, the bay's water running under its roof to the lake (one block thick, spanning six at most: the game's support
+reaches three; dug with the Block tool as a player digs) and a slope up onto it at each end. The lake, the trench and
+the bay stand as in r8 (7.47, the same water to a tenth). The walk to the west meadow is 29 tiles and to the Low
+River's head 64; `start.reach` 1,965 dry tiles (r8 1,186; aim 1,300), the bench 1,135 level tiles. Fast wood at the
+door: the oak stand east of the door is pine, grown, every free tile, with the oak a clump at its far end and the wood
+beyond it; pine also on the Arch and the bench's west end by it (out of the first frame): 249 logs within 20 tiles'
+walk, pine and oak (pine the main), 1,225 within 40. The checks add one warning, `terrain.single_floor` (the Arch's
+30 tiles of roof). Our own first frame is r8's: the Veil whole, the start in its lap, the berries; pine for oak beside
+the door (`C:\dgm-showcase\the-gate\ours\r9-first.jpg`, `r9-widest.jpg`).
+
+## The swallow hole: the third premise map, its water proved first
+
+Principles: [MAPCRAFT.md](../MAPCRAFT.md); the premise as planning set it on #236 (2026-11-11): a river runs across an
+upland and vanishes into a cave under an overhang mid-map, runs underground, and comes out as a spring far below; a
+dam before the sink floods the dry upper plain and the spring below runs dry. The verb is *catch*. Built by
+`tools/showcase/swallow-hole.ts` from blank 128² ground by operations only (D342, D455): the land by Flatten, the
+tunnel dug with the Block tool (`blocks`, remove) slice by slice from the mouth, each block from a face that looks at
+air, so the map's water is the stacked engine's (`sim/stackWater.ts`). Planning's gate: rounds 1 and 2 prove the water
+only, small and plain, in our engine and in the game alike; if the game's water differs by round 2, the premise stops
+and the braided delta is built instead. Each round is two maps in one probe batch, as built and with the dam, and the
+script reads the game's own whole-map record (`--game`, every tunnel column by its floor) beside our settle.
+
+- **Round 1 (the water in its simplest form).** The plain at 12 with the river in a bed at 10 (two springs of 2.0
+  in a pool in the south-west); a hill at 17 across the map's middle, its south face toward the camera, with a porch:
+  the mouth under an overhang two tiles out between two buttresses (the support rule: each roof block within two
+  steps of rock that stands on the ground; a canopy carried out further over the plain was refused, "1 block of ground
+  would fall"); the tunnel three wide and three high, 36 tiles north under the hill, its floor falling from 10 to 4, out
+  at the hill's north foot into a lowland stream (bed 3) to the north edge. The dam: ten tiles to 14 across a narrows
+  between two shoulders at 14 (a dam across the bed alone was walked round: the plain's water came back to the bed
+  behind it); the plain's rim at 15 with a spillway at 13 off the east edge. Ours: the tunnel's 108 columns wet, 0.40
+  deep, none under pressure; the stream 107 tiles wet, 0.76 at the exit; with the dam the tunnel and the stream dry and
+  6,626 plain tiles flooded to 13.25. **In the game** (run `20261111-0920-captures`, 1.1.2.8; every check passed): a
+  day in, the tunnel's 108 columns wet as ours, the largest difference 0.013 (0.415 against 0.402 at the mouth); the
+  stream 107 tiles and 73.9 of water as ours, 0.76 at the exit; with the dam the tunnel and the stream dry, 6,626 tiles
+  flooded to 13.26. At day 10.6, after the drought and the badtide, the same within 0.015; on the drought's last day
+  the river, the tunnel and the stream are dry (the springs stop). The two agree. What fell short, for the full
+  rounds: the mouth at 10 to 13 sat in a slot under the narrows' shoulders (14), so the first frame did not show it.
+- **Round 2 (the water in the layout the map will use).** The lowland along the south edge at 4, nearest the opening
+  camera, under an escarpment whose rim (15) faces the camera; the upper plain at 12 in a valley sixteen tiles either
+  side of the river, terraces at 14 beyond, a rim at 15 along the edges. The river (three springs of 2.0 in a pool in
+  the north-west) comes south and east across the plain and turns north into the mouth: five wide and four high in the
+  south face of a hill at 18, under an overhang three deep between two buttresses five tiles out. The tunnel, three
+  high and 72 long, runs north into the hill, east under it, then south under the plain (two levels of roof) to the
+  escarpment, its floor falling from 10 to 4, and comes out at the escarpment's foot as a spring facing the camera; its
+  stream crosses the lowland to the east edge. A notch at 13 in the escarpment's rim is the old spillway, its own
+  stream to the west edge. The dam: the recess's two open rows between the buttresses to 14 (ten tiles). The start on
+  a rise at 14 beside the last reach, the mouth whole in the first frame by `openingCamera` (u −0.09 to 0.10, v 0.48
+  to 0.90). Ours: the tunnel's 222 columns wet (0.61 to 0.66 along its line, none under pressure), the spring's stream
+  177 tiles and 119.7 of water, 0.78 at the exit, the spillway dry; with the dam the tunnel and the spring dry, 2,976
+  tiles of the valley flooded to 13.47 and the spillway's stream running (128 tiles, 114.5): what the lowland lives on
+  when the spring is caught. **In the game** (run `20261111-0932-captures`; every check passed, the probe's water check
+  100 % of 802 and 3,582 wet tiles within 0.1): a day in, the tunnel's 222 columns wet as ours, the largest difference
+  0.014 (0.630 against 0.616 under the plain); the spring 177 tiles and 119.9 of water, 0.76 at the exit; with the dam
+  the tunnel and the spring dry, the same 2,976 tiles flooded to 13.47, the spillway 115.1 of water. At day 10.6 the
+  same within 0.025. The water holds in both: the premise goes on to full rounds. (The record's per-tile depth is the
+  top wet column's, which over the dry plain is the tunnel's; the script reads the surface's water apart.)
+- **Round 3 (the first full round, 192²).** Round 2's layout grown into a map: the lowland at 4 along the south edge
+  under an escarpment that runs along the grid in straight runs joined by bold jogs; the valley at 12 within about
+  sixteen tiles of the river, terraces at 14, the upland at 16, a rim at 18; the springs' pool in the north-west; the
+  hill at 20; the tunnel 306 tiles and 100 long; the spillway's notch at 13 in the escarpment's edge with a dry channel
+  to it from the valley. The lowland's beds five wide and falling a second level past their first third: the spring's
+  stream first spread as a sheet over the flat lowland and the settle never ended (a drift test, `--drift`, found it).
+  The start on a rise at 14 in front of the mouth, a ramp down to the valley, its water a side pool joined by an inlet
+  one tile wide (the neck). Ours: settled in 2,944 ticks; the tunnel's 306 columns wet (0.58 to 0.67); the spring 435
+  tiles, 238.8 of water; checks 0 blocking (the one warning, caves on 306 tiles, is the premise); wood 1,299 living
+  trees (352 per 10,000 tiles) and 1,761 logs grown, 515 dead along the spillway's bed and on the dry terraces; 175
+  berry bushes; the pool 13 tiles' walk from the start. The neck: in eight days' badtide the open pool is 41 % bad, a
+  levee on its two neck tiles keeps it clean. The ladder of works (`--ladder`): green land a day in 6,259 tiles (17 %);
+  a weir to 11 at the dam's site +205; a weir to 12 +3,312 on the upland and +1,865 in the lowland (the spring still
+  runs, 182.3); the catch to 14 +1,356 more on the upland and the lowland's green gone (the spring dry, the spillway
+  151.4): 28.8 % green in all. **In the game** (run `20261111-0950-captures`; every check passed): the tunnel's 306
+  columns wet as ours, the largest difference 0.019; the spring 435 tiles and 238.6; top water within 0.1 on 888 of 888
+  wet tiles; with the dam the tunnel and the spring dry, the same 3,740 tiles flooded to 13.22, the spillway 153.9
+  against 151.4; within 0.1 on 4,486 of 4,486. The two agree. What fell short (the game's frames in
+  `C:\dgm-probe\captures\swallow-hole-r3\`): the mouth reads as a dark slot at the top of the first frame, its
+  overhang hiding the opening from the camera's height; the hill a flat featureless box; the terraces even bands round
+  the valley (contour bands); the far upland flat grey with succulents; the dam's flood leaves the start an island,
+  which is the price, but its berries drown with it.
