@@ -70,7 +70,7 @@ import { entityProblem, objectCells, resourceOwners } from "./placing";
 import { applyPaintObjects } from "./paint";
 import { forceLabel } from "../forces/op";
 import { versionName } from "../library/keptVersions";
-import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView, type VersionParent } from "./document";
+import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, keepGeneratedWords, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView, type VersionParent } from "./document";
 import { itemName, placeLabel, withArticle } from "./labels";
 import { restoreBuilt, sameMap, storeBuilt, storedFits, type StoredState } from "./stored";
 import { standingFeatures, standingOf } from "./startFit";
@@ -660,11 +660,8 @@ export class MapSession {
   /** The session of a map the generator just made: its own build is the starting map. */
   static fromGenerated(r: GenerateResult, file?: TimberFile, seedWord?: string): MapSession {
     const doc = toDocument(r.spec, r.features, r.built, file, r.field, seedWord);
-    // (M9b, D278 (1b): the map's own name and how it plays)
-    if (r.name) doc.meta.name = doc.meta.generatedName = r.name;
-    if (r.description) doc.meta.premise = r.description;
-    if (r.says?.length) doc.meta.says = [...r.says];
-    if (r.easyShort) doc.meta.easyShort = r.easyShort;
+    // (M9b, D278 (1b): the map's own name and how it plays; an idea map's card, D508)
+    keepGeneratedWords(doc, r);
     return new MapSession(doc, r.built);
   }
 
