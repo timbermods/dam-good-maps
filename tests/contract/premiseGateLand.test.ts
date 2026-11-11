@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import { gateFirstWater } from "../../src/core/premise/gateWater";
-import { GATE_LAND_CHECKS, gateLand, gateLandFailures, gateZones, bedGround } from "../../src/core/premise/gateLand";
+import { GATE_LAND_CHECKS, basinBeds, gateLand, gateLandFailures, gateZones, bedGround } from "../../src/core/premise/gateLand";
 import { gateOf, wallGate } from "../../src/core/premise/premises/wallGate";
 import { makeSpec, type MapSpec } from "../../src/core/spec/mapspec";
 
@@ -63,13 +63,10 @@ describe("Broken gate land fails its invariants", () => {
       const i = first((k) => zone[k] === 2 && !rim[k] && !r.fixed[k]);
       h[i] = g.sill + 3;
     }],
-    ["basin.terraces", "a floor tile beside its bed stood up four", (h) => {
-      const bed = r.channel;
-      const gate = base.plan.links.findIndex((l) => l.id === g.gate) + 1;
-      const i = first((k) => zone[k] === 2 && !rim[k] && !r.fixed[k] && [k - 1, k + 1, k - W, k + W].some((j) => bed[j] === gate));
-      // (four over its neighbouring bed tile)
-      const j = [i - 1, i + 1, i - W, i + W].find((q) => bed[q] === gate)!;
-      h[i] = r.heights[j] + 4;
+    ["basin.terraces", "a floor tile within 3 of its bed stood up six over it", (h) => {
+      const { dist, bed } = basinBeds(base.plan, base.water, gateZones(base.plan, g).zone);
+      const i = first((k) => zone[k] === 2 && !rim[k] && !r.fixed[k] && dist[k] <= 3);
+      h[i] = bed[i] + 6;
     }],
     ["valley.enclosed", "the band along the valley's edge worn down", (h) => {
       for (let i = 0; i < W * H; i++) {
