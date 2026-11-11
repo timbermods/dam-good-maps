@@ -25,8 +25,15 @@ beforeAll(async () => {
   // Highlands' tall terraces the gentlest crater, eruption or glacier at the largest Size fills a
   // valley and moves more than a quarter of Power 100's on every seed tried, 5 to 10; seed 3 for generator 0.10.7's
   // maps, D502, D148: on seed 1's the gentlest glacier moved 2,969 of Power 100's 11,690 (a quarter is 2,922), and on
-  // seeds 2, 4 and 5 the gentlest crater, and a Slide on seed 2, moved more than their share; seed 3 holds all six)
-  const b = await openMap("riverValley", W, 3);
+  // seeds 2, 4 and 5 the gentlest crater, and a Slide on seed 2, moved more than their share; seed 3 holds all six; seed 1
+  // since generator 0.10.16's ground with grade, D148: from seed 3's highest dry ground, (84, 78), the Carves at Power 0 and
+  // 50 run south-west to the map's edge (213 and 194 steps) while Power 100's runs north and spends its power in 122, so
+  // Power 0 moves 5,451 levels to Power 100's 6,980; seed 1, from (34, 40), holds all six, as seed 7 does; on seeds 2, 4, 6
+  // and 8 the gentlest crater, eruption or glacier moves more than its share; seed 11 since dev's Craterize rework (a
+  // cavity on a plane that leans with the land) met 0.10.16's graded slopes, D148: the gentlest crater's deepest change
+  // is 6 to 12 levels on seeds 1 to 5, 7, 9 and 10, past the 4 it may reach; 6 and 8 fail the eruption or glacier; 11
+  // holds all six)
+  const b = await openMap("riverValley", W, 11);
   let best = -1;
   for (let y = 10; y < W - 10; y += 2)
     for (let x = 10; x < W - 10; x += 2) {

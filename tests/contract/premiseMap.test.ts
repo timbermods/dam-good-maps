@@ -20,7 +20,9 @@ import { waterByNumber } from "../../src/core/premise/water";
 import { moisture } from "../../src/core/sim/moisture";
 import { decodeSpecFragment, encodeSpecFragment, makeSpec } from "../../src/core/spec/mapspec";
 
-const SHA = "9f91f1de89467e8b44469e59bdd6d7a1e66045fb4616e9b87acf524d00648fec";
+// (re-pinned since generator 0.10.16's ground with grade, D148: the map's own land is the same; its description names the
+// generator's version, "Made with Dam Good Maps 0.10.16", gen/pack.ts; and again for step 7's works, D148)
+const SHA = "da7249d04b854df289e0c7fbf13184bfdd75f52be1473fa47b94a8fc368e958e";
 
 describe("The premise mode (§2.2, build step 4)", () => {
   const made = makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "any" });
