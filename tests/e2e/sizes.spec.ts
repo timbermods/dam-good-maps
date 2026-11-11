@@ -5,6 +5,7 @@
 // Start, Pine, then the rest.
 
 import { expect, test, type Page } from "@playwright/test";
+import { ERUPT_AUTO_SHARE } from "../../src/core/forces/erupt";
 import { choose, openEditor, setLevel, settingValue, topDown } from "./open";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -88,11 +89,14 @@ test("the objects menu's order; every brush's size in its row, up to half the ma
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await page.keyboard.press("3");
 
-  // each force's size: following Power (Auto pressed); the slider sets it by hand; Auto puts it back
-  for (const [key, rowName, sizes] of [
-    ["Shift+Digit1", "Carve options", ["Size"]],
-    ["Shift+Digit2", "Craterize options", ["Size"]],
-    ["Shift+Digit3", "Erupt options", ["Size"]],
+  // each force's size: following Power (Auto pressed); the slider sets it by hand; Auto puts it back. `cap`: the
+  // breadth the map allows Auto at most (Erupt's, 18 % of the short side, core/forces/erupt.ts `shownBreadth`):
+  // at full Power the row shows it
+  const short = Math.min(i.W, i.H);
+  for (const [key, rowName, sizes, cap] of [
+    ["Shift+Digit1", "Carve options", ["Size"], null],
+    ["Shift+Digit2", "Craterize options", ["Size"], null],
+    ["Shift+Digit3", "Erupt options", ["Size"], 2 * Math.round(ERUPT_AUTO_SHARE * short)],
   ] as const) {
     await page.keyboard.press(key);
     const row = page.getByRole("group", { name: rowName });
@@ -100,10 +104,15 @@ test("the objects menu's order; every brush's size in its row, up to half the ma
       const auto = row.getByRole("button", { name: `${size} follows Power` });
       const slider = row.getByRole("slider", { name: size });
       await expect(auto).toHaveAttribute("aria-pressed", "true");
+      // (Power moves a size that follows it, at Powers whose breadth the map does not cap)
+      await row.getByRole("slider", { name: "Power" }).fill("10");
       const was = await slider.inputValue();
-      // (Power moves a size that follows it)
-      await row.getByRole("slider", { name: "Power" }).fill("100");
+      await row.getByRole("slider", { name: "Power" }).fill("40");
       await expect(slider).not.toHaveValue(was);
+      // (at full Power, a capped size shows the map's cap)
+      await row.getByRole("slider", { name: "Power" }).fill("100");
+      if (cap !== null) await expect(slider).toHaveValue(String(cap));
+      else await expect(slider).not.toHaveValue(was);
       await row.getByRole("slider", { name: "Power" }).fill("50");
       const max = Number(await slider.getAttribute("max"));
       const min = Number(await slider.getAttribute("min"));
