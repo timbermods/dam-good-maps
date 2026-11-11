@@ -784,6 +784,9 @@ the map green or wet, the basin 7.8 %):
 - `leat.own` (settled): the leat's bed never meets the Gate's slot; opened, it waters 1,000 tiles or more by the
   Irrigation reach.
 - `frame.lip` (land): the lake stair's, with the lip's foot allowed under v −0.1.
+- `valley.enclosed` (land): the valley's floor is closed at the megadam's level (the slot's walls' height) all round
+  but for the slot, so the megadam's rung exists; the hand-built round 8 failed this (its lake lies south of the
+  bench and the water gets out elsewhere at 9), so the generator's version must enclose it.
 
 **New beyond the lake stair:** a ridge along the grid with runs and jogs as a body's rim (`raster/wall.ts`); a slot
 through it as a channel whose walls are the crest; the rim and the notch (`raster/rim.ts`); terraces along a bed
