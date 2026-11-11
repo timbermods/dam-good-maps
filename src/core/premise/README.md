@@ -1,9 +1,9 @@
 # premise
 
 Maps from a premise (docs/PREMISES.md): a problem the player solves, with the water that makes it true. Build steps 1
-and 2 are here: the model, the lake stair's plan (stage 0) and its `plan` invariants; the water by number (stage 1)
-and its `land` invariants. Nothing here makes the land between the waters yet, and the generator does not call it (no
-`GENERATOR_VERSION` change).
+to 3 are here: the model, the lake stair's plan (stage 0) and its `plan` invariants; the water by number (stage 1)
+and its `land` invariants; the relief between (stage 2) and a whole map through the generator's own build. The
+generator does not call it yet (no `GENERATOR_VERSION` change).
 
 **Rules**
 - A plan is plain JSON (`types.ts`), drawn from the spec and an attempt alone, from the named stream `premise.plan`
@@ -35,6 +35,12 @@ and its `land` invariants. Nothing here makes the land between the waters yet, a
   and pools (`raster/falls.ts`), the weirs at the heads of channels a body's water splits between
   (`raster/weirs.ts`), the guard and where two waters may touch (`raster/guard.ts`), the rows of Blockages.
   `stageModel` is its water model for a settle.
+- `raster/relief.ts` `reliefBetween`: stage 2, the whole map's ground round stage 1's water (the lower envelope of
+  every water's bowl, rims kept from lower waters, the landmark's upper world, the bypass following the land, dry
+  benches in threes, ridges as crags, `tidy` and the bench-width floor `land/benches.ts`); `badwaterNiches` cuts the
+  permanent badwater source's niche beside the gorge.
+- `map.ts` `premiseMap`: stages 0 to 2, the start by the plan's frame, the sources and rows as features, one
+  `buildMap` and the checks: what `tools/premise-map.ts` writes as a `.timber` and a project.
 - `waterChecks.ts`: the `land` invariants, `flowThrough` on stage 1's heights alone (`stageFlow`, once per stage 1),
   and each weir whole (`water.weirs`).
 - `tools/premise-plan.ts` prints a seed's plan and writes its diagram; `--plan` checks and draws a plan file.
@@ -45,6 +51,7 @@ a broken plan for every `plan` invariant, the Four Lakes fixture `tests/fixtures
 `premisePlan.heavy.test.ts` (seeds 1 to 200 at 128², 192² and 256²: every plan holds, 43 to 107 ms a plan on average;
 PREMISES §3.3 has the numbers against the budget); `premiseWater.test.ts` (quick: the table's arithmetic, the lip's
 stair, the `land` invariants on seeds 1 to 4 at each size and Four Lakes, a broken raster for each); and
-`premiseWater.heavy.test.ts` (seed 1 at each size and Four Lakes settled as the game plays them: levels against the
+`premiseRelief.test.ts` (quick: stage 2 keeps stage 1's ground and guard; seed 1 at 128² built passes the
+ground's, the start's and the sources' checks); `premiseWater.heavy.test.ts` (seed 1 at each size and Four Lakes settled as the game plays them: levels against the
 table, each link out of a split within 20 % of the table's flow, no stray water, each fall's curtain by the fall
 judge with the notches open).

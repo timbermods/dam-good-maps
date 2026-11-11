@@ -74,7 +74,8 @@ export function waterByNumber(plan: PremisePlan): StageWater {
     if (!row?.length || !from) return;
     const holds = headHolds(table, from);
     let end = -Infinity;
-    for (const i of row) end = Math.max(end, r.along[i]);
+    // (the row's own channel's tiles only: another channel's `along` would raise the head too far)
+    for (const i of row) if (r.channel[i] === li + 1) end = Math.max(end, r.along[i]);
     for (let i = 0; i < W * H; i++) {
       if (r.channel[i] !== li + 1 || r.along[i] > end || r.heights[i] >= holds) continue;
       r.heights[i] = holds;
