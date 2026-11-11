@@ -11,12 +11,15 @@
 // its level), so it stops while any water stands on its middle tile, as ours does (`steamFields`). Left out: the
 // game's wind, which carries the puffs (`WindParticleController`), and its puffs' own texture, here a soft round puff
 // of our own. Drawn in Standard and High, never in the light look (software drawing, no motion), with the objects'
-// clock; still with reduced motion.
+// clock; still with reduced motion. An object's, not the land's shape: hidden with the objects and faded round the
+// pointer with them (objectFade.ts, by the field's middle), and cut away above the game's layer as every object is
+// (the slice), each puff by where it is.
 
-import { DoubleSide, InstancedBufferAttribute, InstancedMesh, Matrix4, PlaneGeometry, ShaderMaterial, type IUniform } from "three";
+import { DoubleSide, InstancedBufferAttribute, InstancedMesh, Matrix4, PlaneGeometry, ShaderMaterial, type IUniform, type Vector4 } from "three";
 import { waterAboveBase } from "../core/sim/withering";
 import { rotate, type Orientation } from "../core/format/footprints";
 import { ORIENTATION_NAMES, type EntityView } from "./model";
+import { OBJECT_FADE_GLSL } from "./objectFade";
 
 /** The puffs alive over a field: the game's `maxNumParticles`, which its 80 a second for 2–3 s fills. */
 export const STEAM_PUFFS = 100;
@@ -45,14 +48,21 @@ export function steamFields(e: EntityView, W: number, H: number, surface: { floo
 const VERTEX = /* glsl */ `
   attribute vec3 puffAt;
   attribute vec4 puffSeed;
-  uniform float time;
+  uniform float time;${OBJECT_FADE_GLSL}
   varying vec2 uvP;
+  varying float worldY;
   varying float alphaP;
   varying vec3 colourP;
   varying float seedP;
   // (a key of a curve: piecewise linear between its keys, as the game's gradients are)
   float ramp(float u, float u0, float v0, float u1, float v1) { return mix(v0, v1, clamp((u - u0) / (u1 - u0), 0.0, 1.0)); }
   void main() {
+    // (hidden with the objects, faded round the pointer with them: the whole field's steam by its middle)
+    float shows = objectShowsAt(vec2(puffAt.x, -puffAt.z), vec3(1.0));
+    if (shows <= 0.0) {
+      gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+      return;
+    }
     float life = 2.0 + puffSeed.x;
     float age = mod(time + puffSeed.y * life, life);
     float u = age / life;
@@ -62,7 +72,7 @@ const VERTEX = /* glsl */ `
     // (its size curve: 1 held, falling to 0.108 at its end with a slope of -2.016 there)
     float h = (2.0 * u * u * u - 3.0 * u * u + 1.0) + (-2.0 * u * u * u + 3.0 * u * u) * 0.108 - 2.016 * (u * u * u - u * u);
     float size = (0.8 + 0.2 * puffSeed.w) * h;
-    alphaP = 0.6 * (u < 0.439 ? ramp(u, 0.0, 0.0, 0.439, 0.094) : u < 0.858 ? ramp(u, 0.439, 0.094, 0.858, 0.039) : ramp(u, 0.858, 0.039, 1.0, 0.0));
+    alphaP = shows * 0.6 * (u < 0.439 ? ramp(u, 0.0, 0.0, 0.439, 0.094) : u < 0.858 ? ramp(u, 0.439, 0.094, 0.858, 0.039) : ramp(u, 0.858, 0.039, 1.0, 0.0));
     vec3 c0 = vec3(0.302, 0.26, 0.209);
     vec3 c1 = vec3(0.509);
     vec3 c2 = vec3(0.887);
@@ -71,17 +81,25 @@ const VERTEX = /* glsl */ `
     vec2 q = mat2(cos(spin), sin(spin), -sin(spin), cos(spin)) * position.xy;
     uvP = q + 0.5;
     seedP = puffSeed.z * 17.0;
-    vec4 p = modelViewMatrix * vec4(at, 1.0);
-    p.xy += position.xy * size;
-    gl_Position = projectionMatrix * p;
+    // (facing the camera: its corner along the view's right and up, in the world, so the layer cuts it where it is)
+    vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
+    vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
+    vec4 w = modelMatrix * vec4(at, 1.0);
+    w.xyz += (right * position.x + up * position.y) * size;
+    worldY = w.y;
+    gl_Position = projectionMatrix * viewMatrix * w;
   }`;
 
 const FRAGMENT = /* glsl */ `
+  uniform float slice;
   varying vec2 uvP;
+  varying float worldY;
   varying float alphaP;
   varying vec3 colourP;
   varying float seedP;
   void main() {
+    // the game's layers: what stands above the slice is cut away, as the objects' program cuts them
+    if (worldY > slice + 0.02) discard;
     vec2 p = uvP * 2.0 - 1.0;
     float r = length(p);
     float roll = sin(p.x * 6.0 + seedP) * sin(p.y * 5.0 + seedP * 1.7);
@@ -97,8 +115,11 @@ export class GeothermalSteam {
   private readonly geometry = new PlaneGeometry(1, 1);
   private fields = "";
 
-  constructor(time: IUniform<number>) {
-    this.material = new ShaderMaterial({ transparent: true, depthWrite: false, side: DoubleSide, uniforms: { time }, vertexShader: VERTEX, fragmentShader: FRAGMENT });
+  /** On the objects' clock, their layer cut (`slice`) and their fade and hiding (`objectFade`, `objectHide`): the
+   *  scene's own uniforms, shared, so the steam follows them with nothing to do. */
+  constructor(uniforms: { time: IUniform<number>; slice: IUniform<number>; objectFade: IUniform<Vector4>; objectHide: IUniform<number> }) {
+    const { time, slice, objectFade, objectHide } = uniforms;
+    this.material = new ShaderMaterial({ transparent: true, depthWrite: false, side: DoubleSide, uniforms: { time, slice, objectFade, objectHide }, vertexShader: VERTEX, fragmentShader: FRAGMENT });
     this.mesh = new InstancedMesh(this.geometry, this.material, 0);
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 4;

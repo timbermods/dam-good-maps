@@ -372,7 +372,7 @@ export function rasterizeBench(f: StartFeature, t: BuildTarget): void {
 export interface SculptEdit {
   /** Its place in the operation log (a session's; absent where order is not needed). */
   seq?: number;
-  params: { mode: string; cells: Runs; amount?: number; level?: number; step?: number; exact?: boolean; hold?: [number, number, number][] } | BrushParams | ForceResultParams | BlocksParams | LakeSillParams;
+  params: { mode: string; cells: Runs; amount?: number; level?: number; step?: number; exact?: boolean; hold?: [number, number, number][] } | BrushParams | ForceResultParams | BlocksParams | LakeSillParams | CanalCutParams;
 }
 
 /** A lake's sill set to its level (the `setLakeLevel` operation, doc/lakeLevel.ts): its tiles, each set to its own
@@ -386,9 +386,19 @@ export interface LakeSillParams {
   levels: number[];
 }
 
-/** A lake's sill (`setLakeLevel`). */
-export function isLakeSill(p: SculptEdit["params"]): p is LakeSillParams {
-  return "sill" in p;
+/** A canal's tiles set to their levels (the `canal` operation, doc/canal.ts), exactly, as a lake's sill's are. */
+export interface CanalCutParams {
+  path: [number, number][];
+  width: number;
+  depth: number;
+  open: boolean;
+  cells: Runs;
+  levels: number[];
+}
+
+/** A lake's sill (`setLakeLevel`) or a canal (`canal`): tiles stored with the level each is set to. */
+export function isLakeSill(p: SculptEdit["params"]): p is LakeSillParams | CanalCutParams {
+  return "levels" in p && "cells" in p;
 }
 
 function isBrush(p: SculptEdit["params"]): p is BrushParams {

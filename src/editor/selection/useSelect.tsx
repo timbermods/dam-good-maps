@@ -266,7 +266,7 @@ export function useSelect(ed: Ed): SelectSlice {
     const lowers = what === "lower" || what === "cut";
     setSelectPreview(null);
     void run(
-      () => api.applySelection(ops, label, tiles),
+      (w) => w.applySelection(ops, label, tiles),
       (u) => {
         if (!u.ok) return;
         feel(what === "raise" || what === "fill" ? "raise" : lowers ? "lower" : "shape", mid[0], mid[1], size);
@@ -345,7 +345,7 @@ export function useSelect(ed: Ed): SelectSlice {
     endWaterHint();
     setLakeBusy(true);
     void run(
-      () => api.lakeLevelAt(l.x, l.y, level),
+      (w) => w.lakeLevelAt(l.x, l.y, level),
       (u) => {
         if (!u.ok) return;
         feel(level > now ? "raise" : "lower", l.x, l.y, 3);
@@ -579,7 +579,7 @@ export function useSelect(ed: Ed): SelectSlice {
     endCropHint();
     // (a crop of a big map takes about a second: past 300 ms the message line says so, until the new map opens)
     const slow = window.setTimeout(() => setMessage({ kind: "info", text: "Cropping…" }), 300);
-    void run(() => api.cropTo({ x: b.x, y: b.y, w: b.w, h: b.h })).finally(() => {
+    void run((w) => w.cropTo({ x: b.x, y: b.y, w: b.w, h: b.h })).finally(() => {
       clearTimeout(slow);
       if (!ed.resizing.current) setMessage((m) => (m && m.text === "Cropping…" ? null : m));
     });
@@ -591,7 +591,7 @@ export function useSelect(ed: Ed): SelectSlice {
     if (!spot) return;
     endWaterHint();
     void run(
-      () => fillLevelAt(spot).then(({ level }) => api.fillAt(spot[0], spot[1], level)),
+      (w) => fillLevelAt(spot).then(({ level }) => w.fillAt(spot[0], spot[1], level)),
       (u) => u.ok && feel("raise", spot[0], spot[1], 2),
     );
   }
@@ -599,7 +599,7 @@ export function useSelect(ed: Ed): SelectSlice {
   function removeUnfed() {
     endWaterHint();
     if (!selection.current.count) return;
-    void run(() => api.removeUnfedWater(selection.current.tiles()));
+    void run((w) => w.removeUnfedWater(selection.current.tiles()));
   }
 
   /** The kinds of thing Delete can take in the selection, with how many of each stand there (the
@@ -732,8 +732,8 @@ export function useSelect(ed: Ed): SelectSlice {
       {
         key: "crop",
         row: 2,
-        at: 14,
-        span: 2,
+        at: 15,
+        span: 1,
         node: (
           <div class="set">
             <button type="button" class="set-button" ref={cropGone.current} aria-disabled={cropWhy() ? "true" : undefined} {...tip("Crop the map to the selection")} onMouseEnter={previewCrop} onFocus={previewCrop} onMouseLeave={endCropHint} onBlur={endCropHint} onClick={cropMap}>
@@ -800,15 +800,15 @@ export function useSelect(ed: Ed): SelectSlice {
         key: "depth",
         row: 2,
         at: 9,
-        span: 2,
+        span: 3,
         node: <NumberSetting label="Max water depth" title="The deepest the water may be" value={depth} min={1} max={Math.max(1, deepest)} step={1} disabled={!deep} onChange={(v) => setMaxDepth(v)} />,
       },
-      { key: "apply", row: 2, at: 11, span: 1, node: <ButtonSetting label="Apply" title="Make the water no deeper than this" disabled={!deep} onClick={() => selectAction("depth", depth)} /> },
+      { key: "apply", row: 2, at: 12, span: 1, node: <ButtonSetting label="Apply" title="Make the water no deeper than this" disabled={!deep} onClick={() => selectAction("depth", depth)} /> },
       // Lakes by number: the Wand on water takes a lake, and this is its level; a new one cuts or raises its sill
       {
         key: "lake",
         row: 2,
-        at: 12,
+        at: 13,
         span: 2,
         node: (
           <HeldNumberSetting

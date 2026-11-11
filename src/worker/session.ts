@@ -9,6 +9,7 @@
 // blamed on the player's edits, so an unedited import always exports unchanged (PLAN §20, D43).
 
 import { decodeProject, documentFileName, type MapDocument, type NameResult, type SavedView, type VersionParent } from "../core/doc/document";
+import { STALE, type Envelope } from "../core/doc/editQueue";
 import { MapSession, STEP_GONE, type BlockFalls, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
 import type { BlocksParams } from "../core/doc/blockTool";
 import { masksOf } from "../core/features/build";
@@ -20,6 +21,7 @@ import { ForceRolls } from "../core/forces/rolls";
 import { EVERY_KIND, planRemove, type RemoveKind } from "../core/doc/remove";
 export type { RemoveKind };
 import { paintDying, paintLevels, planPaintObjects } from "../core/doc/paint";
+import { planRuinLine, type RuinLineParams, type RuinPier } from "../core/doc/ruinLine";
 import type { PaintParams } from "../core/doc/paintParams";
 import { footprintCheck as checkFootprint, planEntity, planMoveEntity, planPlant, withSpringPools, type EntityRequest, type PlannedOps } from "../core/doc/placing";
 import { planStair, type StairStep } from "../core/doc/stair";
@@ -36,6 +38,7 @@ import { objectsIn } from "../core/doc/inArea";
 import { markerNotes, type MarkerNote } from "../core/doc/objectOps";
 import { fillLevel, planFill, unfedWater } from "../core/doc/waterEdits";
 import { applyLakeLevel, lakeHeldLevel, planLakeLevel, type LakeLevelPlan } from "../core/doc/lakeLevel";
+import { applyCanal, planCanal, type CanalPlan } from "../core/doc/canal";
 import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
 import { bakeLandforms } from "../core/doc/bake";
@@ -102,6 +105,8 @@ export interface SessionInfo {
   description: string;
   descriptionWritten: boolean;
   descriptionKept: string | null;
+  /** A generated map's own words after hand edits, until its player keeps or rewrites them (`MapDescription.stale`). */
+  descriptionStale: boolean;
   /** Bumped on every change (the page's autosave and checks key on it). */
   version: number;
   /** Changes only when the features do (the page keeps its copy, and its index, meanwhile). */
@@ -172,6 +177,22 @@ export interface SessionUpdate extends ViewNews {
   /** A shared session's answer to an edit (worker/collabEdit.ts): the session ordered it or refused it, and the map's news comes
    *  as the session's own `update` event, so this answer carries none and the page leaves the map alone. */
   routed?: true;
+  /** The map's revision after the call (`info.version`), and the step the history stands at after it (the one an edit
+   *  made or joined; null before the first): the edit queue reads them (core/doc/editQueue.ts). */
+  rev?: number;
+  step?: number | null;
+  /** The call's envelope, echoed when it came with one (`ticketed`). */
+  epoch?: number;
+  ticket?: number;
+}
+
+/** The answer to a call meant for a map this worker no longer has open (`ticketed`): nothing changed. */
+export interface StaleAnswer {
+  ok: false;
+  errors: string[];
+  stale: true;
+  epoch: number;
+  ticket: number;
 }
 
 /** The instant checks (EDITOR_PLAN §6): the load and design classes, run after every edit on the
@@ -185,6 +206,8 @@ export interface InstantCheck {
 }
 
 export interface SessionOpen {
+  /** The map's epoch: bumped whenever this worker takes another map (core/doc/editQueue.ts `Envelope`). */
+  epoch: number;
   info: SessionInfo;
   view: MapView;
   /** The terrain the page paints strokes on (see ViewUpdate.terrain). */
@@ -201,6 +224,8 @@ export interface ExportCheck extends CheckGroups {
 
 let session: MapSession | null = null;
 let version = 0;
+/** The open map's epoch (`SessionOpen.epoch`): a call naming another is stale (`ticketed`). */
+let epoch = 0;
 /** What the page last received, to send only what changed. */
 let sent: { heights: Uint8Array; water: unknown; stored: boolean; entities: unknown; soil: unknown; terrain: unknown } | null = null;
 /** The imported map as it was opened, with every check (the problems it had already, D43). */
@@ -223,7 +248,7 @@ function featuresKeyOf(features: readonly Feature[]): string {
 
 function descriptionInfo(s: MapSession) {
   const d = s.description();
-  return { description: d.text, descriptionWritten: d.written, descriptionKept: d.kept };
+  return { description: d.text, descriptionWritten: d.written, descriptionKept: d.kept, descriptionStale: d.stale };
 }
 
 export function sessionInfo(s: MapSession = need()): SessionInfo {
@@ -500,7 +525,7 @@ export function sessionView(): SessionOpen {
   const view = wholeView(s);
   sentEntities = copyEntityView(view.entities);
   markSent(s);
-  return { info: sessionInfo(s), view, terrain: s.terrainState(), ms: Math.round(performance.now() - t0) };
+  return { epoch, info: sessionInfo(s), view, terrain: s.terrainState(), ms: Math.round(performance.now() - t0) };
 }
 
 /** The tiles where two sets of the Block tool's masks differ, as their bounding rectangle; null when
@@ -582,7 +607,15 @@ function changed(s: MapSession, ok: boolean, errors: string[], t0: number): Sess
     kickWater();
     syncChecks();
   }
-  return { ok, errors, info: sessionInfo(s), view, ms: Math.round(performance.now() - t0), instant, waterSettled: !settlingOn(s) };
+  const info = sessionInfo(s);
+  return { ok, errors, info, view, ms: Math.round(performance.now() - t0), instant, waterSettled: !settlingOn(s), rev: info.version, step: headStep(info) };
+}
+
+/** The step the history stands at (the last applied row's), or null before the first. */
+function headStep(info: SessionInfo): number | null {
+  let seq: number | null = null;
+  for (const h of info.history) if (h.applied) seq = h.seq ?? null;
+  return seq;
 }
 
 // ------------------------------------------------------------------------------ the checks worker
@@ -754,6 +787,9 @@ export type EditorEvent =
   /** The instant checks of an edit (with a checks worker, they come a moment after the edit). */
   | { kind: "instant"; version: number; instant: InstantCheck };
 
+/** An event as it leaves the worker: it names the map it is about (`epoch`, core/doc/editQueue.ts). */
+export type EditorEventOut = EditorEvent & { epoch: number };
+
 /** A drought's day also says when each tile's water goes (the hover's "Dry on day 6", D133; core/sim/firstDays.ts
  *  `DryDays`): `firstDry`, per tile, 0 for water that lasts every day worked out so far (Day 1 to `firstDryThrough`) or a
  *  tile with none on Day 0, else the first day it holds none (the Drought view's own "dry", depth over `WATER_BODY`).
@@ -784,9 +820,9 @@ export interface StartNews {
 
 let listener: ((e: EditorEvent) => void) | null = null;
 
-/** Where the worker sends its events (the page's editor, through the worker's entry). */
-export function listen(fn: ((e: EditorEvent) => void) | null): void {
-  listener = fn;
+/** Where the worker sends its events (the page's editor, through the worker's entry), each naming its map. */
+export function listen(fn: ((e: EditorEventOut) => void) | null): void {
+  listener = fn ? (e) => fn(Object.assign(e, { epoch })) : null;
 }
 
 /** Whether the worker settles the water by itself after each edit (the page's worker). Node tests
@@ -833,9 +869,9 @@ let draftToken = 0;
  *  measurements). */
 const DRAFT_FRAME_MS = 16;
 
-export function draftStroke(rect: { x0: number; y0: number; x1: number; y1: number }, heights: Uint8Array): void {
+export function draftStroke(rect: { x0: number; y0: number; x1: number; y1: number }, heights: Uint8Array, env?: Envelope): void {
   const s = session;
-  if (!s) return;
+  if (!s || (env && env.epoch !== epoch)) return;
   // (a map with caves or overhangs: the stacked engine's water on the stroke, `draftStack`)
   if (s.built.waterModel.stacked) return draftStack(s, rect, heights);
   const W = s.size.x;
@@ -1778,6 +1814,7 @@ function opened(s: MapSession): SessionOpen {
   s.setWaterMode("defer");
   discardSessionWork();
   session = s;
+  epoch++;
   sent = null;
   originalFull = null;
   lastCheck = null;
@@ -1853,7 +1890,8 @@ export function collabChanged(): SessionUpdate {
   const view = viewUpdate(s);
   const instant = !checks ? instantCheck(s) : null;
   syncChecks();
-  return { ok: true, errors: [], info: sessionInfo(s), view, ms: Math.round(performance.now() - t0), instant, waterSettled: !s.waterPending };
+  const info = sessionInfo(s);
+  return { ok: true, errors: [], info, view, ms: Math.round(performance.now() - t0), instant, waterSettled: !s.waterPending, rev: info.version, step: headStep(info), epoch };
 }
 
 /** The answer to an edit the shared session ordered or refused (worker/collabEdit.ts): no news of the map in it, the session's
@@ -1877,6 +1915,8 @@ export const planned = {
   plant: (template: string, tiles: readonly number[]) => planPlant(need(), template, tiles, () => crypto.randomUUID()),
   remove: (tiles: readonly number[], kinds: readonly RemoveKind[], label?: string, cut?: number | null) => planRemove(need(), tiles, kinds, label, cut),
   paint: (params: PaintParams, z?: number) => planPaintObjects(need(), withLevels(params, z)),
+  /** A ruin line: its piers and the operations that place them, or why not. */
+  ruinLine: (params: RuinLineParams) => planRuinLine(need(), params),
   strokeClearing: (op: EditOp, label: string, tiles: readonly number[]) => planStrokeClearing(need(), op, label, tiles),
   move: (id: string, dx: number, dy: number, z?: number) => planMoveEntity(need(), id, dx, dy, z),
   start: (x: number, y: number, orientation?: Orientation, z?: number) => planStart(need(), x, y, orientation, () => crypto.randomUUID(), z),
@@ -1888,6 +1928,8 @@ export const planned = {
   fill: (x: number, y: number, level: number) => planFill(need(), x, y, level),
   /** Lakes by number: the sill that holds the lake at (x, y) at `level`, confirmed by the settle, or why not. */
   lakeLevel: (x: number, y: number, level: number, width?: number) => planLakeLevel(need(), x, y, level, width),
+  /** A canal along a path: its bed and banks, or why not. */
+  canal: (path: [number, number][], width: number, depth: number, open: boolean) => planCanal(need(), path, width, depth, open),
   /** Every tile of the map (Clear everything removes the objects on all of them). */
   everything: (): number[] => Array.from({ length: need().size.x * need().size.y }, (_, i) => i),
 };
@@ -1895,6 +1937,7 @@ export const planned = {
 export function closeSession(): void {
   discardSessionWork();
   session = null;
+  epoch++;
   sent = null;
   originalFull = null;
   lastCheck = null;
@@ -1976,6 +2019,34 @@ export function redo(): SessionUpdate {
   const blocked = gated();
   if (blocked) return changed(s, false, [blocked], t0);
   return changed(s, s.redo(), [], t0);
+}
+
+/** Stand at History step `seq` (null: before the first step), wherever it stands now: undo, redo and a History jump
+ *  each name their step once the edit queue sends them (core/doc/editQueue.ts). Refused with STEP_GONE when the step is
+ *  gone; a move to where the history already stands changes nothing and is no refusal. */
+export function moveTo(seq: number | null): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
+  const r = s.moveTo(seq);
+  if (r.moved) return changed(s, true, r.errors, t0);
+  return { ...changed(s, false, r.errors, t0), ok: !r.errors.length };
+}
+
+/** The open map's epoch. */
+export function currentEpoch(): number {
+  return epoch;
+}
+
+/** A call through the edit queue (core/doc/editQueue.ts): one meant for another map changes nothing and answers
+ *  `stale`; any other runs, its answer carrying the envelope back (the same object, so what it hands over stays
+ *  handed over). */
+export function ticketed<T>(env: Envelope, call: () => T): T | StaleAnswer {
+  if (env.epoch !== epoch) return { ok: false, errors: [STALE], stale: true, epoch: env.epoch, ticket: env.ticket };
+  const r = call();
+  const echo = (u: unknown) => (u && typeof u === "object" ? Object.assign(u, { epoch: env.epoch, ticket: env.ticket }) : u);
+  return (r instanceof Promise ? r.then(echo) : echo(r)) as T;
 }
 
 /** Step back or forward to history entry `index` (the state after it; −1: before the first), or to the step whose
@@ -2194,7 +2265,7 @@ async function remoteCheck(c: ChecksWorker, onProgress?: (p: CheckProgress) => v
 }
 
 /** Export the open map. Refused while load problems block it, or while warnings are not
- *  confirmed; confirmed warnings are noted in the map's description. The water settles
+ *  confirmed; they are never written into the map's description. The water settles
  *  canonically first, in slices with progress (PLAN §19.7: a file never gets the preview's water).
  *  `picture`: the map exactly as the file holds it (its canonical water), when the file carries the
  *  core's top-down thumbnail, for the page's 3D picture of it (D488). A map whose water is settled
@@ -2219,8 +2290,7 @@ export async function exportTimber(
   const c = bg.check;
   if (c.blocking.length) return { ok: false, errors: c.blocking.map((b) => (b.id === "start.count" && b.message === NO_START ? NO_START_REFUSAL : b.message)), bytes: new Uint8Array(), fileName: "" };
   if (c.warnings.length && !confirmWarnings) return { ok: false, errors: ["confirm the warnings first"], bytes: new Uint8Array(), fileName: "" };
-  // (a real place's own warnings are listed, never noted: an unedited place exports as the same file, D3)
-  const { bytes, fileName, thumbnailDrawn } = s.exportTimber({ warnings: c.warnings.filter((w) => !w.own).map((w) => w.message) });
+  const { bytes, fileName, thumbnailDrawn } = s.exportTimber();
   if (!opts.picture || !thumbnailDrawn) return { ok: true, errors: [], bytes, fileName };
   return { ok: true, errors: [], bytes, fileName, ...(early && s.built === early ? { pictureEarly: true } : { picture: wholeView(s) }) };
 }
@@ -2345,6 +2415,26 @@ export function paintAt(params: PaintParams, z?: number): SessionUpdate & { plan
   return { ...changed(s, r.ok, r.errors, t0), planted: r.ok ? plan.plan.map((o) => o.tile) : [] };
 }
 
+/** A ruin line's piers and the level their tops share (core/doc/ruinLine.ts `planRuinLine`), for the page's ghost, or
+ *  the one line why it can't be laid. Reads the map only. */
+export function ruinLinePlanAt(params: RuinLineParams): { piers: RuinPier[]; top: number; reason: string | null } {
+  const p = planRuinLine(need(), params);
+  return p.ok ? { piers: p.piers, top: p.top, reason: null } : { piers: [], top: 0, reason: p.errors[0] };
+}
+
+/** Lay a ruin line from the shelf (core/doc/ruinLine.ts): its columns placed as one step. The tiles they stand on, for
+ *  the page's pop. */
+export function ruinLineAt(params: RuinLineParams): SessionUpdate & { planted: number[] } {
+  const t0 = performance.now();
+  const s = need();
+  const blocked = gated();
+  if (blocked) return { ...changed(s, false, [blocked], t0), planted: [] };
+  const plan = planRuinLine(s, params);
+  if (!plan.ok) return { ...changed(s, false, plan.errors, t0), planted: [] };
+  const r = s.applyBatch(plan.ops, "user", plan.label);
+  return { ...changed(s, r.ok, r.errors, t0), planted: r.ok ? plan.piers.map((q) => q.tile) : [] };
+}
+
 /** Remove (D184): the objects standing on `tiles` that `kinds` names, as one step; it never changes
  *  the ground (core/doc/remove.ts `planRemove`); under the view's layer cut (`cut`), only what it shows. The tiles the
  *  removed objects stood on. */
@@ -2429,6 +2519,22 @@ export function fillAt(x: number, y: number, level: number, floor?: number | nul
   const p = planFill(s, x, y, level, floor);
   if (!p.op) return changed(s, false, [p.reason ?? "nothing to fill"], t0);
   const r = s.apply(p.op, "user");
+  return changed(s, r.ok, r.errors, t0);
+}
+
+/** A canal: what a channel along `path` would change (its bed's tiles and its raised banks', each with its level, and the
+ *  bed's level at its two ends), or the plain reason it can't be made (core/doc/canal.ts `planCanal`). Reads the map only;
+ *  no settle. */
+export function canalPlanAt(path: [number, number][], width: number, depth: number, open: boolean): Omit<CanalPlan, "op"> {
+  const { op: _op, ...plan } = planCanal(need(), path, width, depth, open);
+  return plan;
+}
+
+/** Make the canal along `path`: one undo step (core/doc/canal.ts `applyCanal`). */
+export function canalAt(path: [number, number][], width: number, depth: number, open: boolean): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const r = applyCanal(s, path, width, depth, open);
   return changed(s, r.ok, r.errors, t0);
 }
 
@@ -2603,7 +2709,8 @@ export function waterLayers(kind?: string): WaterLayers {
   let irrigation: Irrigation | null = null;
   if (kind === "irrigation") {
     // (the same water and soil the other layers show: an unedited import's from the background check)
-    const reach = s.moistureReach(b, fromCheck ? { depth, contamination } : undefined);
+    // (the background check's water itself is the key: the reach is worked out once for it)
+    const reach = s.moistureReach(b, fromCheck ?? undefined);
     irrigation = { ...reach, tone: irrigationTones(reach, fromCheck ? fromCheck.moist : b.moisture, depth) };
   }
   return {

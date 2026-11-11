@@ -72,7 +72,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
   const {
     api, mirror, renderer, tool, repaintRef, setForceStroke, setForceCursor, setForceRing, gestureRef, setBusy,
     setMessage, player, mounted, juice, weatherRef, setWeather, journey, firstDoneRef, setPicked, setShapeNote,
-    infoRef, enqueue, applyUpdate, applyView, brushRef, brushToolRef, setBrush, localUndo, localRedo, painter,
+    infoRef, enqueue, applyUpdate, applyView, brushRef, brushToolRef, setBrush, painter,
     notePointer, sourcesChanged, pointerWords, flashNote, carveUi, setCarveUi, carveUiRef, craterUi, setCraterUi,
     craterUiRef, eruptUi, setEruptUi, eruptUiRef, quakeUi, quakeUiRef, setQuakeUi, glaciateUi, setGlaciateUi,
     glaciateUiRef, riftUi, setRiftUi, riftUiRef, depositUi, setDepositUi, depositUiRef, erodeUi, setErodeUi, erodeUiRef, watchRef, floorRef, setForceTick
@@ -158,9 +158,8 @@ export function useForceRun(ed: Ed): ForceRunSlice {
           // (the kept map's own view replaces the force's last frames)
           flushForceView(true);
           flushDeferred();
-          localUndo.current = [];
-          localRedo.current = [];
           applyUpdate(u);
+          ed.landAgain();
           // (a kept view with no voxel runs of its own leaves the frames' hollows drawn: put the map's columns back)
           endShownColumns(!u.view?.columns);
           renderer.current?.refreshShadows();
@@ -186,10 +185,10 @@ export function useForceRun(ed: Ed): ForceRunSlice {
         flushDeferred();
         if (v.info) {
           // (kept already, and taken back as if never kept: the history changed too)
-          localUndo.current = [];
-          localRedo.current = [];
           applyUpdate({ ok: true, errors: [], info: v.info, view: v, ms: 0, ...(v.waterSettled !== undefined ? { waterSettled: v.waterSettled } : {}) });
         } else applyView(v);
+        // (the force's frames drew past the queue: its land again, whole)
+        ed.landAgain();
         endShownColumns(true);
         renderer.current?.refreshShadows();
       }),
@@ -535,9 +534,8 @@ export function useForceRun(ed: Ed): ForceRunSlice {
       try {
         const u = await api.forceRoll({ step: dir });
         if (!mounted.current) return;
-        localUndo.current = [];
-        localRedo.current = [];
         applyUpdate(u);
+        ed.landAgain();
         renderer.current?.refreshShadows();
         const r = u.info.forceRolls;
         if (!u.ok || !r) {

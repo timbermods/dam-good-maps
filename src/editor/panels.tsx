@@ -396,7 +396,7 @@ export function ExportDialog(p: ExportDialogProps) {
                 <Items items={check.warnings} actions={actions} />
                 <label class="check">
                   <input type="checkbox" checked={confirmed} onChange={() => setConfirmed(!confirmed)} />
-                  Export anyway. The warnings are added to the map's description.
+                  Export anyway.
                 </label>
               </section>
             ) : null}

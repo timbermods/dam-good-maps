@@ -10,7 +10,8 @@ import { FLIPPED, ORIENTATION_NAMES, surfaceWater } from "../../render3d/model";
 import type { MapRenderer, ViewState } from "../../render3d";
 import { Juice, type StrokeSound } from "../juice";
 import { selectTool } from "../select";
-import { BRUSH_NAMES, BrushPainter, hasTarget, sizeMax, targetWords } from "../brushes";
+import { BRUSH_NAMES, BrushPainter, cut, hasTarget, sizeMax, targetWords } from "../brushes";
+import { heldWords } from "../caveWords";
 import { tilesToRuns } from "../../core/math/grid";
 import { isSource, sourcesPressed } from "../sourceSpots";
 import { WET_DEPTH, type BrushParams } from "../../core/features/raster/brush";
@@ -27,7 +28,7 @@ export function useReady(ed: Ed): ReadySlice {
   const {
     api, mirror, renderer, setReady, setMarkersOn, setSliceLevel, setSelecting, selection, sound, juice, feel,
     weatherRef, firstDoneRef, minimapRef, setViewTick, setPicked, setPickedObject, infoRef, run, brushRef,
-    brushToolRef, setBrush, terrain, localUndo, localRedo, painter, sendTerrain, spots, targetAt, notePointer,
+    brushToolRef, setBrush, edits, track, lastStroke, painter, spots, targetAt, notePointer,
     grabSource, wheelSource, markerRef, setStartHint, hintRef, hintJob, lookForStartRef, pointerWords, flashNote,
     wheelHabit, pickTile
   } = ed;
@@ -107,6 +108,16 @@ export function useReady(ed: Ed): ReadySlice {
     if (glowAt.current && !painter.current?.painting) clearGlow(glowAt.current, null);
   }
 
+  /** The stroke being painted (or a Naturalize stroke landing): its ticket in the edit queue, made at pointer-down so
+   *  whatever the player does next waits behind it (I3, I8). */
+  const strokeTicket = useRef<number | null>(null);
+  /** The stroke ended without an operation (Esc, nothing changed, its worker never answered): its ticket goes. */
+  function dropStroke() {
+    const id = strokeTicket.current;
+    strokeTicket.current = null;
+    if (id !== null) edits.current.cancel(id);
+  }
+
   function onReady(r: MapRenderer) {
     renderer.current = r;
     setReady(r);
@@ -119,13 +130,16 @@ export function useReady(ed: Ed): ReadySlice {
       renderer: r,
       W: infoRef.current.W,
       H: infoRef.current.H,
-      heights: () => mirror.current.heights,
-      terrain: () => terrain.current,
+      // (the queue's shown land, and the terrain it paints on: the worker's with the unanswered tickets laid on, I2)
+      heights: () => edits.current.shown,
+      terrain: () => edits.current.terrain(),
       settings: () => ({ ...brushRef.current, tool: brushToolRef.current ?? "raise" }),
       commit: (stroke, pre, protect) => {
-        terrain.current = { ...terrain.current, pre, protect };
-        localUndo.current.push(stroke);
-        localRedo.current = [];
+        const id = strokeTicket.current;
+        strokeTicket.current = null;
+        if (id === null) return;
+        lastStroke.current = stroke.params;
+        juice.current?.edited();
         firstDoneRef.current("paint");
         hintJob.current++;
         setStartHint(null);
@@ -133,15 +147,35 @@ export function useReady(ed: Ed): ReadySlice {
         const clear = clears() ? sourcesPressed(spots(), stroke.params, stroke.params.dabs, infoRef.current.W).filter((c) => ed.inArea(c.tiles)) : [];
         endClearGlow();
         const op: EditOp = { op: "brush", params: stroke.params };
-        const done = sendTerrain(() => (clear.length ? api.strokeClearing(op, stroke.label, clear.flatMap((c) => c.tiles)) : api.apply(op, "user", stroke.label)));
-        if (clear.length) void done.then(() => feel("remove", clear[0].x, clear[0].y));
-        // a Flatten stroke: where its level ground could take the start, once it is on the map
-        if (stroke.params.tool === "flatten") void done.then(() => lookForStartRef.current(stroke.params));
+        // (the stroke's ticket is ready: its operation, and the land it changed before and after, laid on what the page
+        // shows until the worker answers; the terrain under the stroke is still the queue's as it began, its refresh
+        // held while the stroke was drawn)
+        const q = edits.current;
+        const W = q.W;
+        const t = q.terrain();
+        q.ready(id, clear.length ? { kind: "edit", name: "strokeClearing", args: [op, stroke.label, clear.flatMap((c) => c.tiles)] } : { kind: "edit", name: "apply", args: [op, "user", stroke.label] }, {
+          rect: stroke.rect,
+          before: { heights: stroke.before.shown, pre: stroke.before.pre, protect: cut(t.protect, stroke.rect, W) },
+          after: { heights: stroke.after.shown, pre: cut(pre, stroke.rect, W), protect: cut(protect, stroke.rect, W) },
+        });
+        void track(id, (u) => {
+          if (!u.ok) return;
+          // (a stroke that kept ground holding up a cave's or an overhang's rock, or an object under a roof, says how much
+          // in one line, and the map tints it until the next edit: D280 (3), amended by #623; D491)
+          ed.setRockHeld(u.held?.length ? { tiles: u.held, version: u.info.version } : null);
+          // (an edit's own note goes with the next kept step, a stroke, its undo or its redo, as it does with any other
+          // edit's: a held stroke taken back leaves no line about tiles the map no longer holds)
+          ed.setMessage(u.held?.length ? { kind: "info", text: heldWords(u.held.length, u.heldUnder) } : (m) => (m && !m.keep ? null : m));
+          if (clear.length) feel("remove", clear[0].x, clear[0].y);
+          // a Flatten stroke: where its level ground could take the start, once it is on the map
+          if (stroke.params.tool === "flatten") lookForStartRef.current(stroke.params);
+        });
       },
       // a stroke that changed no ground still takes the sources it pressed with Clear sources on
       // (item 15: a Flatten at the ground's own level or a Smooth over flat land left them), one step;
       // a Naturalize stroke that weathered nothing says why beside the pointer (showcase-craft gap 23)
       unchanged: (params) => {
+        dropStroke();
         const clear = clears() ? sourcesPressed(spots(), params, params.dabs, infoRef.current.W).filter((c) => ed.inArea(c.tiles)) : [];
         endClearGlow();
         if (!clear.length) {
@@ -150,7 +184,7 @@ export function useReady(ed: Ed): ReadySlice {
         }
         firstDoneRef.current("paint");
         void run(
-          () => api.strokeClearing({ op: "brush", params }, BRUSH_NAMES[params.tool], clear.flatMap((c) => c.tiles)),
+          (w) => w.strokeClearing({ op: "brush", params }, BRUSH_NAMES[params.tool], clear.flatMap((c) => c.tiles)),
           (u) => u.ok && feel("remove", clear[0].x, clear[0].y),
         );
       },
@@ -213,10 +247,21 @@ export function useReady(ed: Ed): ReadySlice {
       painting: (on) => {
         if (!on) {
           juice.current?.strokeEnd();
-          // (the worker's land that came while it was painted goes in, unless the stroke is on its way, #410)
-          setTimeout(() => ed.takeLand(), 0);
+          // (a stroke that ends without an operation, Esc or a Naturalize stroke its worker never answered, takes its
+          // ticket with it; one that ends with one is committed right after this, in the same turn)
+          const id = strokeTicket.current;
+          queueMicrotask(() => {
+            if (strokeTicket.current === id) dropStroke();
+          });
           return;
         }
+        // (its ticket from pointer-down; the whole map is its until it lets go, so the worker's answers that come
+        // meanwhile are laid once it does, never under the brush, #410)
+        dropStroke();
+        const q = edits.current;
+        const id = q.stroke(BRUSH_NAMES[brushToolRef.current ?? "raise"]);
+        q.painted(id, { x0: 0, y0: 0, x1: q.W - 1, y1: q.H - 1 });
+        strokeTicket.current = id;
         hintJob.current++;
         setStartHint(null);
       },
@@ -235,7 +280,7 @@ export function useReady(ed: Ed): ReadySlice {
         begin: (settings, ground) => {
           const shown = mirror.current.heights.slice();
           const { W, H } = infoRef.current;
-          return nature().weatherBegin(settings, ground.map((r) => [r[0], r[1], r[2]] as [number, number, number]), terrain.current, transfer(shown, [shown.buffer]), W, H);
+          return nature().weatherBegin(settings, ground.map((r) => [r[0], r[1], r[2]] as [number, number, number]), edits.current.terrain(), transfer(shown, [shown.buffer]), W, H);
         },
         add: (dabs, pressure) => nature().weatherAdd(dabs, pressure),
         finish: (rigid) => nature().weatherFinish(rigid),

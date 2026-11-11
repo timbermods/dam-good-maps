@@ -903,6 +903,24 @@
   display: flex;
 }
 
+/* with First view beside Reset view: three buttons and the compass in the same 310px; Slow forces then spans the
+   second and third columns, the sound under the compass */
+.editor-view .view3d-corner:has(.camera-group.with-first-view) {
+  grid-template-columns: 83px 84px 83px var(--corner-h);
+}
+
+.camera-group.with-first-view > button:not(.compass) {
+  padding: 0 6px;
+}
+
+.view3d-corner:has(.camera-group.with-first-view) > .slow-cell {
+  grid-column: 2 / 4;
+}
+
+.view3d-corner:has(.camera-group.with-first-view) > .sound-cell {
+  grid-column: 4;
+}
+
 /* the level control is one width for every value, ∞ to 22: it fills its track and its value takes what the arrows
    leave */
 .view3d-corner .corner-level .layer-widget {
@@ -4393,4 +4411,37 @@ body:has(.checks-list) .show-key {
     position: absolute;
     inset: min(0px, calc((100% - 32px) / 2)) 0;
   }
+}
+
+/* File → Description…: the map's name and its words, one under the other */
+.dialog.describe {
+  width: min(520px, calc(100vw - 32px));
+}
+
+.describe-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 10px;
+  font-size: 0.85rem;
+}
+
+.describe-field input,
+.describe-field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  resize: vertical;
+}
+
+.describe-note,
+.describe-kept,
+.describe-problem {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
 }
