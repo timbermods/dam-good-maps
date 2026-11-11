@@ -58,6 +58,9 @@ export interface ResourceConstraints {
    *  least `bushes` of them within `within` tiles' walk, the map's own patches kept out of the start's walk, and a
    *  small ruin field the colony walks to within `ruins` tiles' walk (scrap at hand). */
   easy?: { safe: Uint8Array; bushes: number; within: number; ruins: number };
+  /** The share of the moist ground the map's own groves may cover at most (default the official maps',
+   *  `OFFICIAL_LAYOUT.moistCover`; a premise map's wood budget asks less, PREMISES §2.2 stage 6). */
+  moistCover?: number;
   /** Retired (D253, D270, D336: no locks); always null. Kept only so the frozen investigation
    *  prototypes that still pass it type-check (investigation/generative/proto). */
   lockedMask?: null;
@@ -388,7 +391,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   const baseGroves = (keep: number, keepOut: Uint8Array | null = null) => {
     let moistRoom = 0;
     for (let i = 0; i < N; i++) if (free[i] && moist[i] && !clearings[i]) moistRoom++;
-    const livingWant = Math.max(0, Math.min(budget.living - succulents - (treeCount - succulentsPlanted) - keep, Math.floor(OFFICIAL_LAYOUT.moistCover * (moistRoom + treeCount)) - treeCount));
+    const livingWant = Math.max(0, Math.min(budget.living - succulents - (treeCount - succulentsPlanted) - keep, Math.floor((constraints?.moistCover ?? OFFICIAL_LAYOUT.moistCover) * (moistRoom + treeCount)) - treeCount));
     const dryWant = Math.max(0, succulents - succulentsPlanted);
     syncTaken();
     keepOutOf(keepOut);

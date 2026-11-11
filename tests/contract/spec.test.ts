@@ -4,7 +4,7 @@
 import Ajv2020 from "ajv/dist/2020";
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
-import { decodeSpecFragment, DIFFICULTY_RULES, encodeSpecFragment, GENERATOR_MIN_SIDE, generatorSizeRefusal, makeSpec, seedFromText, THEMES, type MapSpec } from "../../src/core/spec/mapspec";
+import { decodeSpecFragment, DIFFICULTY_RULES, encodeSpecFragment, GENERATOR_MIN_SIDE, generatorSizeRefusal, makeSpec, PREMISE_CHOICES, seedFromText, THEMES, type MapSpec } from "../../src/core/spec/mapspec";
 import { MAPSPEC_SCHEMA, validateSpec } from "../../src/core/spec/schema";
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
@@ -150,7 +150,8 @@ describe("URL codec (PLAN §14.5)", () => {
         rules: { waterWithin: int(4, 40), woodWithin20: int(0, 800), bushesWithin20: int(0, 200), badwaterWithin: int(12, 60), ruinsWithin: int(0, 60) },
       };
       if (rng() < 0.3) spec.archetype = pick(THEMES);
-      if (rng() < 0.2) spec.premise = "gorge-dammed basin";
+      // (a premise is a closed list since step 9, D508: a premise id or Any)
+      if (rng() < 0.2) spec.premise = pick(PREMISE_CHOICES);
       if (rng() < 0.2) spec.colonies = { count: pick([2, 3, 4] as const), mod: "timberTogether" };
       expect(both(spec), JSON.stringify(spec)).toEqual([true, true]);
       const back = decodeSpecFragment("#" + encodeSpecFragment(spec))!;

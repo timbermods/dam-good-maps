@@ -4,18 +4,28 @@
 // partway down and no basin flooding the mesa above, or is refused in one line. Before: from (60,44) a curtain, from
 // (59,44) the mesa cut to a basin with no fall, from (61,44) dry pillars splitting it in three, and an Unleash from
 // (53,46) poured into a slot two tiles wide.
+//
+// The map is Canyon 1 as generator 0.10.15 made it, saved (tests/fixtures/projects/canyon-96-1.damgoodmaps: made with
+// that generator's `MapSession.fromGenerated(generate(makeSpec({ seed: 1, theme: "canyon", size: { x: 96, y: 96 } })),
+// g.file).project()`): since generator 0.10.16's ground with grade the new Canyon 1 rolls in one-level steps and the
+// mesa, the gorge and the terraces the reviewed strokes cross moved, so the sweep keeps the land the looks were judged
+// on (D148). It opens as this generator's own map (its version relabelled), so it plays live as a generated map does:
+// the same heights, objects and settled water as the generator gave.
 
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { applyForce } from "../../src/core/collab";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { generate } from "../../src/core/gen/generate";
 import { MAX_PATH_POINTS } from "../../src/core/forces/carve/run";
 import { pathTiles, resamplePath } from "../../src/core/forces/path";
-import { makeSpec } from "../../src/core/spec/mapspec";
+import { GENERATOR_VERSION } from "../../src/core/spec/mapspec";
 import { curtains } from "./fallCurtain";
 
 const SOURCE = "11111111-2222-4333-8444-555555555555";
+const CANYON_1 = new Uint8Array(readFileSync("tests/fixtures/projects/canyon-96-1.damgoodmaps"));
+/** Canyon 1 at 96² as generator 0.10.15 made it, opened live. */
+const canyon1 = (): MapSession => MapSession.open({ ...decodeProject(CANYON_1), generatorVersion: GENERATOR_VERSION });
 
 /** A corner of a lip the carve cut, within `r` tiles of (cx, cy), standing on its own: ground with lower ground three
  *  levels or more under it on two sides and on its other two the lip, each of those meeting the lower ground too, and
@@ -59,9 +69,8 @@ function carvedSteps(W: number, before: ArrayLike<number>, H: ArrayLike<number>,
  *  generator was opened, edited and the edit undone (its build holding no water while it shows the file's own), else
  *  as the generator makes it. */
 function sweep(from: [number, number], to: [number, number] | null, set: Record<string, unknown>, need: number, under?: number, unleash = false, reach = 2, page = false, corners = false, older = false): string[] {
-  const g = generate(makeSpec({ seed: 1, theme: "canyon", size: { x: 96, y: 96 } }));
-  const base = MapSession.fromGenerated(g, g.file);
-  const edited = MapSession.fromGenerated(g, g.file);
+  const base = canyon1();
+  const edited = canyon1();
   edited.apply({ op: "placeEntity", params: { id: "11111111-2222-4333-8444-555555555556", template: "WaterSource", x: 2, y: 2, orientation: "Cw0" } } as never);
   const kept = edited.project();
   const opened = (): MapSession => {
@@ -79,7 +88,7 @@ function sweep(from: [number, number], to: [number, number] | null, set: Record<
   for (let dy = -reach; dy <= reach; dy++)
     for (let dx = -reach; dx <= reach; dx++) {
       const [x, y] = [from[0] + dx, from[1] + dy];
-      const s = older ? opened() : MapSession.fromGenerated(g, g.file);
+      const s = older ? opened() : canyon1();
       if (older) expect(s.mode === "frozen" && s.showsStoredWater && s.built.water.every((d) => d === 0)).toBe(true);
       const via: [number, number][] = [];
       if (to && page) {

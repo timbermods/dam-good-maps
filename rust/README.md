@@ -34,7 +34,8 @@ compute the same bytes as the TypeScript they replace, natively (batch jobs) and
   surface and the old ground in, whole levels out; steps of uneven width, no band narrower than two tiles, no
   one-tile pillar, pit or lone block; tiles a force leaves NaN, out of its reach or kept, are never tidied, so a force
   gives the ground right round what it shapes its own level; its contract and tests are in the file). Craterize ends with it; the other
-  forces that round a surface adopt it next.
+  forces that round a surface adopt it next. The core's own shapes reach it through the Wasm export `forces_levels`
+  (`src/core/forces/rust/bridge.ts` `levelsInRust`): the Ridge (`src/core/doc/ridge.ts`).
 - `analysis/`: the six analysis kernels generation and the checks repeat most (#157, D391): `distanceFrom`,
   `walkDistance`, `landRegions`, `spillLevels`, `damSites` and `roomMap` (their TypeScript is tag
   `ts-analysis-final`). Its Wasm is committed in `src/core/analysis/rust/analysisWasm.ts` and bound by

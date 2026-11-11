@@ -7,10 +7,10 @@
 // outline and a path are in the same units; the camera reads a tile at its middle (i + 0.5, j + 0.5).
 
 import type { Orientation } from "../format/footprints";
-import type { MapSpec } from "../spec/mapspec";
+import type { MapSpec, PremiseId } from "../spec/mapspec";
 import type { StageWater } from "./water";
 
-export type PremiseId = "lakeStair";
+export type { PremiseId };
 
 /** A point in tiles. */
 export type Point = [number, number];
@@ -44,7 +44,8 @@ export interface Body {
   islands?: Spine[];
   /** The width of its level meadow, in tiles. */
   meadow: number;
-  /** Its bed's deepest, below the sill. */
+  /** A lake's floor below its sill (its drowned river's line a level deeper where the floor leaves room); a pool's,
+   *  a tarn's or a basin's deepest. */
   deep: number;
   /** An empty basin on day 1: a work fills it. */
   dry: boolean;
@@ -162,6 +163,8 @@ export interface Work {
   gives: { green: [number, number]; reservoir?: [number, number] };
   /** One line, when the work has a cost (a notch from a spring tarn runs red). */
   tradeoff?: string;
+  /** The green stage 0's second pass estimated for it on the skeleton's land (`siting.ts`), where it sited it. */
+  estimate?: number;
   region: string;
 }
 
@@ -198,6 +201,8 @@ export interface StairPlan {
   /** The springs' total strength (River flow) and the meadow's base width (Buildable land). */
   flow: number;
   meadow: number;
+  /** The rim tarns: side bodies stage 0 places before the works are sited, so the skeleton keeps them. */
+  rims?: string[];
 }
 
 export interface PremisePlan {
@@ -205,8 +210,12 @@ export interface PremisePlan {
   seed: number;
   W: number;
   H: number;
-  /** The highest ground allowed (settings.terrain.highestTerrain). */
+  /** The highest ground the stair, its water and its works are drawn under: Highest terrain, at most 16 (PREMISES
+   *  §1.3, the lake stair's `stairTop`). */
   top: number;
+  /** The highest the land away from the water may rise (settings.terrain.highestTerrain: 22 from Verticality 70, D132);
+   *  absent, `top`. Only stage 2's uplands read it (PREMISES §1.5). */
+  sky?: number;
   /** The one-line problem, in this map's own names. */
   line: string;
   // the water story
@@ -227,6 +236,8 @@ export interface PremisePlan {
   names: Record<string, string>;
   /** The lake stair's numbers (other premises add their own). */
   stair?: StairPlan;
+  /** What stage 0 could not place as the premise asks (a work no site pays for, dropped), one line each (D342). */
+  notes?: string[];
 }
 
 /** What a stage hands an invariant: stage 1 its water; later stages add the heights, the settle and the proofs. */
@@ -255,6 +266,14 @@ export interface Invariant {
   test(ctx: StageContext): InvariantResult;
 }
 
+/** The land stage 0's second pass sites the works on (`siting.ts`): the skeleton's ground (stages 1 and 2) and day 1's
+ *  soil on it (2 water, 1 moist, 0 dry). */
+export interface SiteLand {
+  W: number;
+  H: number;
+  heights: Uint8Array;
+  soil: Uint8Array;
+}
 export interface PremiseDef {
   id: PremiseId;
   /** Why a spec can't have this premise, in one line, or null (size, lakes: none, waterfalls: off …). */
@@ -263,4 +282,9 @@ export interface PremiseDef {
   draw(spec: MapSpec, attempt: number): PremisePlan | { reason: string };
   /** Every rule a map of this premise must pass, each with the stage that can judge it. */
   invariants: Invariant[];
+  /** The plan without the side network its works stand on: the water that is there on day 1 whatever the works. */
+  skeleton?(plan: PremisePlan): PremisePlan;
+  /** The plan with its side network drawn again on the skeleton's land, each work where its water reaches ground day 1
+   *  leaves dry (`siting.ts`); or why none could be. */
+  site?(spec: MapSpec, plan: PremisePlan, attempt: number, land: SiteLand): PremisePlan | { reason: string };
 }

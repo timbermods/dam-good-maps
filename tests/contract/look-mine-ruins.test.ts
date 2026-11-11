@@ -70,8 +70,9 @@ import * as ed from "../../src/worker/session";
  *  map); `a4c34743…` before the game version stamped became 1.1.2.8-ffc2de0-sw (the same map, D148: re-stamped
  *  with 1.1.2.4-52e959e-sw the file is that one byte for byte); `30543f1d…` before generator 0.10.5's version
  *  string (the same map: its first land fails the course check, not the start or the trunk's search); `c1aa22cd…` before
- *  generator 0.10.12's version string (the same map: its stacked settle takes no unfed water, #814). */
-const LIVE_SHA = "963db7ee59955e15756616e29c01d04b9c7b04ccf625ac6e8f6609d77fe44a2c";
+ *  generator 0.10.12's version string (the same map: its stacked settle takes no unfed water, #814); `963db7ee…` before
+ *  generator 0.10.16's ground with grade (its land rolls in one-level steps: a new map, D148). */
+const LIVE_SHA = "d89bc166ff5ac63dda9c4a74f6f241fe07c909111c245bdf1648409f5732c861";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
@@ -107,6 +108,16 @@ describe("mine sites and ruins, models of our own", () => {
     // (and a geothermal field's middle tile, left out since its model became the game's, D496: its vent sinks there)
     const fields = page.entities.filter((e) => e.template === "GeothermalField");
     expect(cut.size).toBe(25 * mines.length + fields.length);
+    // (each field exactly its middle tile, the middle of its 3 × 3 as it is turned, at its level)
+    expect(fields.length).toBeGreaterThan(0);
+    for (const f of fields) {
+      const tiles = footprintTiles("GeothermalField", { template: "GeothermalField", x: f.x, y: f.y, z: f.z, orientation: f.orientation as Orientation, flipped: false });
+      expect(tiles).toHaveLength(9);
+      const mx = tiles.reduce((t, [x]) => t + x, 0) / 9;
+      const my = tiles.reduce((t, [, y]) => t + y, 0) / 9;
+      expect(cut.get(my * W + mx), `${f.x}, ${f.y}`).toBe(f.z);
+      for (const [x, y] of tiles) if (x !== mx || y !== my) expect(cut.has(y * W + x), `${x}, ${y}`).toBe(false);
+    }
     for (let k = 0; k < v.count; k++) {
       const t = v.templates[v.template[k]];
       if (t !== "UndergroundRuins") continue;

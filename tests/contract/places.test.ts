@@ -216,8 +216,9 @@ describe("real places stay out of the generator (D108)", () => {
       .map((f) => f.split(sep).join("/"))
       .filter((f) => !f.startsWith("src/places/") && !f.startsWith("src/core/places/"))
       .sort();
-    // (the gallery is the page's Real places panel)
-    expect(users).toEqual(["src/editor/generator/RealPlaces.tsx", "src/ui/App.tsx", "src/worker/generator.worker.ts"]);
+    // (the gallery is the page's Real places panel; core/doc/blank.ts is on the worker's side, reached only through
+    // core/doc/session.ts, and builds the blank map's file the way a place's is built: the page reads blankLimits.ts only)
+    expect(users).toEqual(["src/core/doc/blank.ts", "src/editor/generator/RealPlaces.tsx", "src/ui/App.tsx", "src/worker/generator.worker.ts"]);
     // the page's real-place link and its gallery load only the fetch helpers (and the gallery a type), never the
     // place builder
     expect(readFileSync("src/ui/App.tsx", "utf8")).not.toMatch(/core\/places/);
