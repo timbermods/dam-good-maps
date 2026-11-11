@@ -15,6 +15,7 @@ import { tilesToRuns } from "../math/grid";
 import type { MapSpec } from "../spec/mapspec";
 import type { PlayabilityAnalysis } from "../validate/playability";
 import type { ValidationReport } from "../validate/report";
+import { layWorks, type LaidWorks } from "./ladder";
 import { badwaterNiches, reliefBetween } from "./raster/relief";
 import type { PremisePlan } from "./types";
 import { waterByNumber, type StageWater } from "./water";
@@ -123,24 +124,25 @@ function badwaterOf(plan: PremisePlan, heights: Uint8Array, niches: Record<strin
   return out;
 }
 
-/** Each link's rows of Blockages as stage 1 laid them. */
-function rowsOf(plan: PremisePlan, w: StageWater): MapObjectFeature[] {
+/** Each link's rows of Blockages as stage 1 laid them (a notch shut by a rock plug instead has none: `layWorks`). */
+function rowsOf(plan: PremisePlan, w: StageWater, laid: LaidWorks): MapObjectFeature[] {
   const out: MapObjectFeature[] = [];
   for (const l of plan.links)
     (w.raster.rows[l.id] ?? []).forEach((row, k) => {
-      if (!row.length) return;
+      if (!row.length || (k === 0 && laid.plugs[l.id])) return;
       const role = `premise/row/${l.id}/${k}`;
       out.push({ id: featureId(plan.seed, "mapObject", role), kind: "mapObject", origin: "generated", role, locked: false, params: { kind: "plug", placement: { area: tilesToRuns([...row].sort((a, b) => a - b), plan.W) } } });
     });
   return out;
 }
 
-/** A plan's land: its water by number (stage 1, or the one given), the relief between (stage 2) and the permanent
- *  badwater's niche cut into it. */
+/** A plan's land: its water by number (stage 1, or the one given), the relief between (stage 2), the permanent
+ *  badwater's niche cut into it and the works' own ground (stage 4's `layWorks`). */
 export interface PremiseLand {
   water: StageWater;
   heights: Uint8Array;
   niches: Record<string, [number, number]>;
+  laid: LaidWorks;
   notes: string[];
 }
 
@@ -148,7 +150,8 @@ export function premiseLand(plan: PremisePlan, water: StageWater = waterByNumber
   const notes: string[] = [];
   const heights = reliefBetween(plan, water);
   const niches = badwaterNiches(plan, water, heights, notes);
-  return { water, heights, niches, notes };
+  const laid = layWorks(plan, water, heights);
+  return { water, heights, niches, laid, notes };
 }
 
 /** The map of a plan through stage 2, built and checked as the generator builds its maps; the start where stage 3
@@ -167,7 +170,7 @@ export function premiseMap(spec: MapSpec, plan: PremisePlan, land: PremiseLand =
   };
   const springs = springsOf(plan, water, notes);
   const bad = badwaterOf(plan, heights, niches);
-  const features: Feature[] = [start, ...springs, ...bad, ...rowsOf(plan, water)];
+  const features: Feature[] = [start, ...springs, ...bad, ...rowsOf(plan, water, land.laid)];
   const field: GeneratedField = { heights, contains: new Set([...springs, ...bad].map((f) => f.id)), top: plan.top };
   const built = buildMap({ W: plan.W, H: plan.H, seed: spec.seed, features, field });
   const file = toTimberFile(spec, built);

@@ -30,8 +30,14 @@ const LEAT_RIM = 6;
 /** The landmark's hanging valley stands in its own upper world: its rim this wide behind its lip, so it runs on high
  *  ground and leaves it by a cliff (never on a dyke over a lower lake's meadow). */
 const VALLEY_RIM = 8;
-/** Meadows beside channels, tiles (four-lakes-design's `Channel.brook.meadow`). */
-const MEADOW = { valley: 6, neck: 6, wetBrook: 9, dryBrook: 12, leat: 10, gorge: 1 };
+/** Meadows beside channels, tiles (four-lakes-design's `Channel.brook.meadow`). A living brook's is narrow: it is a
+ *  thread of green, never a valley of it (§4.2: the map is not handed over watered). */
+const MEADOW = { valley: 6, neck: 6, wetBrook: 4, dryBrook: 12, leat: 10, gorge: 1 };
+/** The side bodies (§4.2's templates): a spring tarn sits in a bowl, a narrow meadow under a crag of two, so its green
+ *  is a spot and its notch's bed leaves it for dry benches; an empty basin's beach at its sill + 1 under a bank two
+ *  levels high at the old waterline (§4.5), so a levee's water rises over the beach and no further. */
+const TARN = { meadow: 4, crag: 2, rim: 6 };
+const BASIN = { beach: 3, crag: 2, rim: 6 };
 /** The bypass follows the land (its plan's `bed: { under }`): its bed this many levels under the land beside it, the
  *  land read this far out from its bed; the old channel's floor beside its bed (a wadi) a level over it, this wide. */
 const BYPASS_UNDER = 2;
@@ -83,6 +89,8 @@ interface Bowl {
   basin: boolean;
   /** Its walls rise faster (the gorge, the bypass's wadi). */
   steep: boolean;
+  /** The least crag past its meadow, levels (a side body's bowl). */
+  crag?: number;
   /** Only behind this line (a point on it and the way out of it, the landmark's lip and its face). */
   cut: { x: number; y: number; nx: number; ny: number } | null;
   mask: Uint8Array;
@@ -113,7 +121,8 @@ function bowlsOf(plan: PremisePlan, w: StageWater): Bowl[] {
     if (r.lake[i]) {
       const k = r.lake[i] - 1;
       const b = plan.bodies[k];
-      add(i, `b${k}`, () => ({ level: b.sill, meadow: b.meadow, rim: b.kind === "pool" ? 4 : RIM, wet: !b.dry, basin: b.dry, steep: false, cut: null }));
+      const side = b.kind === "tarn" ? TARN : b.kind === "basin" ? { meadow: BASIN.beach, crag: BASIN.crag, rim: BASIN.rim } : null;
+      add(i, `b${k}`, () => ({ level: b.sill, meadow: side ? side.meadow : b.meadow, rim: side ? side.rim : b.kind === "pool" ? 4 : RIM, wet: !b.dry, basin: b.dry, steep: false, cut: null, ...(side ? { crag: side.crag } : {}) }));
       continue;
     }
     if (!r.channel[i]) continue;
@@ -305,7 +314,7 @@ export function reliefBetween(plan: PremisePlan, w: StageWater): Uint8Array {
         const meadow = b.meadow + (b.meadow > 4 ? 3 * meadowN : 0);
         const hill = Math.max(0, d - meadow);
         const dw = hill * (1 + 0.3 * warpA) + 5 * warpB * Math.min(1, hill / 6);
-        const v = b.level + 1 + (b.steep ? rise(Math.max(0, dw), 4, 3, 3) : rise(Math.max(0, dw), c1, w1, c2));
+        const v = b.level + 1 + (b.steep ? rise(Math.max(0, dw), 4, 3, 3) : rise(Math.max(0, dw), Math.max(c1, b.crag ?? 0), w1, c2));
         if (v < land) land = v;
       }
 

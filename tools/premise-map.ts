@@ -21,6 +21,8 @@ import type { PremiseId, PremisePlan } from "../src/core/premise/types";
 import { makeSpec, shareLink, type MapSpec } from "../src/core/spec/mapspec";
 import type { GenerateResult } from "../src/core/gen/generate";
 import { encodePng } from "./png";
+import { runsToTiles } from "../src/core/math/grid";
+import type { Ladder } from "../src/core/premise/ladder";
 
 const args = process.argv.slice(2);
 const opt = (name: string) => {
@@ -43,14 +45,34 @@ function specFor(seed: number, plan?: PremisePlan): MapSpec {
   return spec;
 }
 
-/** Top-down: the ground shaded by height and lit from the north-west, the settled water blue. */
-function picture(b: BuildResult, top: number): { rgb: Uint8Array; width: number; height: number } {
+/** Each work kind's colour on the picture: its site solid, its estimated green hatched. */
+const KIND_RGB: Record<string, [number, number, number]> = {
+  notch: [255, 140, 0],
+  damToPond: [230, 40, 200],
+  levee: [0, 230, 230],
+  leat: [255, 235, 0],
+  bypass: [150, 80, 255],
+  breach: [230, 30, 30],
+  raisedSill: [230, 30, 30],
+  megadam: [230, 30, 30],
+};
+
+/** Top-down: the ground shaded by height and lit from the north-west, the settled water blue, its moist ground
+ *  green; each work's site in its kind's colour and the ground it would turn green hatched in it (`ladder`). */
+function picture(b: BuildResult, top: number, ladder?: Ladder): { rgb: Uint8Array; width: number; height: number } {
   const { W, H } = b;
   const h = b.heights;
   const depth = b.settle.depth;
-  const S = 3;
+  const S = 4;
   const rgb = new Uint8Array(W * S * H * S * 3);
   const t = Math.max(1, top);
+  const site = new Map<number, [number, number, number]>();
+  const reach = new Map<number, [number, number, number]>();
+  for (const w of ladder?.works ?? []) {
+    const c = KIND_RGB[w.kind] ?? [255, 255, 255];
+    for (const i of runsToTiles(w.reach, W)) if (!reach.has(i)) reach.set(i, c);
+    for (const i of w.tiles) site.set(i, c);
+  }
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
@@ -61,19 +83,24 @@ function picture(b: BuildResult, top: number): { rgb: Uint8Array; width: number;
       if (depth[i] > 0.05) {
         const k = Math.min(1, depth[i] / 3);
         c = [70 - 50 * k, 150 - 60 * k, 220 - 40 * k];
-      }
+      } else if (b.moisture[i] > 0) c = [c[0] * 0.55, c[1] * 0.95 + 10, c[2] * 0.45];
+      const sc = site.get(i);
+      const rc = reach.get(i);
       for (let a = 0; a < S; a++)
         for (let bb = 0; bb < S; bb++) {
+          let px = c;
+          if (sc) px = a === 0 || bb === 0 ? [0, 0, 0] : sc;
+          else if (rc && (a + bb) % 2 === 0) px = rc;
           const o = ((H - 1 - y) * S + a) * W * S * 3 + (x * S + bb) * 3;
-          rgb[o] = Math.max(0, Math.min(255, c[0]));
-          rgb[o + 1] = Math.max(0, Math.min(255, c[1]));
-          rgb[o + 2] = Math.max(0, Math.min(255, c[2]));
+          rgb[o] = Math.max(0, Math.min(255, px[0]));
+          rgb[o + 1] = Math.max(0, Math.min(255, px[1]));
+          rgb[o + 2] = Math.max(0, Math.min(255, px[2]));
         }
     }
   return { rgb, width: W * S, height: H * S };
 }
 
-function write(r: Pick<GenerateResult, "spec" | "features" | "built" | "file" | "field" | "report" | "name" | "description">, top: number, name: string, ms: number, notes: string[]): void {
+function write(r: Pick<GenerateResult, "spec" | "features" | "built" | "file" | "field" | "report" | "name" | "description">, top: number, name: string, ms: number, notes: string[], ladder?: Ladder): void {
   const { W, H } = r.built;
   const g = measureGround(r.built.heights, W, H, (i) => r.built.settle.depth[i] > 0.05);
   console.log(`${name}: ${ms.toFixed(0)} ms; ground: flat ${(100 * g.flat).toFixed(0)} %, one-level steps ${(100 * g.s1).toFixed(0)} %, three commonest levels ${(100 * g.top3).toFixed(0)} %, thin ${(100 * g.thin).toFixed(0)} %`);
@@ -88,7 +115,19 @@ function write(r: Pick<GenerateResult, "spec" | "features" | "built" | "file" | 
   writeFileSync(project, encodeProject(doc));
   const timber = join(out, `${name}.timber`);
   writeFileSync(timber, writeTimber(r.file));
-  const p = picture(r.built, top);
+  if (ladder) {
+    let wet = 0;
+    let moist = 0;
+    for (let i = 0; i < W * H; i++) {
+      if (r.built.settle.depth[i] > 0) wet++;
+      else if (r.built.moisture[i] > 0) moist++;
+    }
+    const pc = (v: number) => `${(100 * v).toFixed(1)} %`;
+    console.log(`  day 1: water ${pc(wet / (W * H))}, moist ${pc(moist / (W * H))} settled (by number ${pc(ladder.day1.water)}, ${pc(ladder.day1.moist)}); small works green ${pc(ladder.small)}, all works ${pc(ladder.together)}`);
+    for (const w of ladder.works)
+      console.log(`  ${w.id} ${w.rung} ${w.kind} on ${w.on}: ${w.does} ${w.tiles.length} tiles${w.level !== undefined ? ` to ${w.level}` : ""}; green ${w.green}${w.reservoir ? `, holds ${w.reservoir}` : ""}${w.inRange ? "" : ` (${w.note ?? "out of range"})`}`);
+  }
+  const p = picture(r.built, top, ladder);
   const png = join(out, `${name}.png`);
   writeFileSync(png, encodePng(p.rgb, p.width, p.height));
   console.log(`  ${shareLink(PAGE, r.spec)}\n  ${timber}\n  ${project}\n  ${png}`);
@@ -113,5 +152,5 @@ if (file) {
     }
     const pi = r.result.info.premise!;
     console.log(`seed ${seed}: plan ${pi.attempt}, ${r.result.info.settles} settle(s), start moved ${pi.start?.moved} (level land ${pi.start?.level}, farmland ${pi.start?.farmland}, frame water shallow ${pi.start?.shallow}); failed before: ${r.result.failures.map((f) => f.failed[0]).join(", ") || "none"}`);
-    write(r.result, spec.settings.terrain.highestTerrain, `${premise}-${side}-${seed}`, ms, pi.notes ?? []);
+    write(r.result, spec.settings.terrain.highestTerrain, `${premise}-${side}-${seed}`, ms, pi.notes ?? [], pi.ladder);
   }
