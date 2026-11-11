@@ -329,6 +329,25 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   // every grove planted, for the starting wood's and the starting-logs floor's counts (D224, D227)
   const planted: PlantedGrove[] = [];
   let woodW = speciesW.map((w, k) => (k < 3 ? w * TREE_LOGS[species[k]] : 0));
+  // D471 with D515: in a rescue round, while the living trees' logs within the fast wood's walk fall short of
+  // `start.wood_fast`'s share (with its margin), the start's living groves planted for wood are pines, whatever the mix
+  // (two logs a tree to a birch's one); the rest of its wood leans to oak as before, and dead oak on dry ground, whose
+  // logs the share does not count, makes up Minimum starting wood. Oak planted first and turned to pine later lost the
+  // wood the rule asks for, and the attempts it spent were the starved starts' slowness
+  const fastFloor = START_FLOORS[spec.designedFor];
+  const fastWalk = fastFloor.fastWoodWalk > NEAR_WALK ? floorWalk : nearWalk;
+  const fastShort = (): boolean => {
+    if (!fastWalk) return false;
+    let fast = 0;
+    let live = 0;
+    for (const p of planted) {
+      if (!p.living) continue;
+      const n = grownLogs(seed, W, p.id, p.tiles, p.species, true, moist, fastWalk);
+      live += n;
+      if (p.species === "Pine" || p.species === "Birch") fast += n;
+    }
+    return live === 0 || fast < (fastFloor.fastWood + FAST_MARGIN) * live;
+  };
   // `place` leans the species by where the grove grows (pine, birch, oak, succulent), on the mix
   const growGrove = (seedTile: number, size: number, living: boolean, within: Uint8Array | null = null, fill?: number, forWood = false, prefix = "forest/grove", place?: readonly number[], only?: "Pine" | "Birch"): number => {
     const allowed = new Uint8Array(N);
@@ -346,6 +365,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     const mixed = byWood ? woodW : speciesW;
     const placed = place ? mixed.map((w, k) => w * place[k]) : mixed;
     let sp: (typeof species)[number] = only ?? species[anySpecies ? vegRng.weighted(placed.some((w) => w > 0) ? placed : mixed) : 0];
+    if (!only && living && forWood && constraints?.woodLean && sp !== "Pine" && fastShort()) sp = "Pine";
     if (sp === "Succulent" && living) sp = livingSpecies(speciesW); // succulents are the dry-land tree
     for (const i of grown.area) free[i] = 0;
     const role = anchorRole(prefix, tiles);
@@ -705,7 +725,8 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   if (g.start && nearWalk && floorWalk) {
     const floor = START_FLOORS[spec.designedFor];
     const within = floor.fastWoodWalk > NEAR_WALK ? floorWalk : nearWalk;
-    const fastSp = mixW.birch > mixW.pine ? "Birch" : "Pine";
+    // (pine in a rescue round, whatever the mix, as the rescue's planting above)
+    const fastSp = constraints?.woodLean ? "Pine" : mixW.birch > mixW.pine ? "Birch" : "Pine";
     const share = floor.fastWood + FAST_MARGIN;
     const logsIn = (p: PlantedGrove) => grownLogs(seed, W, p.id, p.tiles, p.species, p.living, moist, within);
     // (the share is of the living trees' logs, as `start.wood_fast` reads it: a standing dead tree grows none back)
