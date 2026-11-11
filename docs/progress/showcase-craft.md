@@ -264,3 +264,9 @@ moist 23.4 %, the basin 12.7 % moist or wet (three oases); the Veil 6.44 levels;
 seven level tiles a ramp needs), so the leat's head is a bridge or a stair away. The ladder: the Gate opened +1,329
 (3.6 %); the second blast and the Low River levee +1,144 (3.1 %); the leat's bar once +5/−124, twice 0/−267 (the
 Veil dwindles); the leat spanned +3,449 (9.4 %, the Pass Bed); the megadam to 9 holds 6,285 over 7,343 tiles.
+Round 5 in the game (`C:\dgm-probe\captures\the-gate-r5\day1-first.jpg`, `day1-widest.jpg`): the first frame's trench
+reads as water now, teal not black, the Veil one curtain; from the widest view the wall is a thinner band with its
+basin face one shadow line and the Gate's slot cutting through it to the dark channel of the Gate Bed winding to the
+edge with its dead woods: a wall with one gate, when the eye is on it; but the crest is still a light band two lines
+wide (the crest's edge and the ledge below it on the valley side), not one dark line, and the basin's one-level rolls
+read as contour bands, not grade. The map stopped at five rounds.
