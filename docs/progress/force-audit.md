@@ -36,9 +36,11 @@ Ride, 7,807 stay); Erupt in the Canyon river, 2,104 to 430; a Quake Lift over th
 every plant dead, at instant and at normal water speed. The player sees a small note. *Fix:* (a) cap Auto reach by the
 map (below, per force); (b) under Clear, a source goes only where its own ground is destroyed (buried 3 levels or more,
 cut away, or in a fault's crush zone); a source that only rides an intact block, or sits under a thin apron, rides.
-**(b) done** (`feature/force-sources-clear`, 2026-11-11): Clear takes a source only where its ground is buried 3 or more, cut 2 or more away, or (Quake, Rift) in the crush zone where a tile's 3 × 3 moves differ
-by 2 or more, or within 3.5 tiles of a Slide's line (`clear.ts` `destroyedGround`; Carve's cut in Rust the same).
-Glaciate's ice still takes what it reaches (item 10). (a), Auto reach capped by the map, comes with each force.
+**(b) done** (`feature/force-sources-clear`, 2026-11-11): Clear takes a source only where its ground is buried 3 or more, cut 2 or more away, or in a crush zone: within 2.5 tiles of a Quake's crack, or a Rift's
+wall, where a tile's 3 × 3 moves differ by 2 or more (`clear.ts` `destroyedGround`; Carve's cut in Rust the same).
+A Lift by River Valley 1's hillside spring now carries it up 4 levels, still flowing (sheet
+`docs/sheets/force-sources-clear.jpg`). Glaciate's ice still takes what it reaches (item 10). (a), Auto reach capped
+by the map, comes with each force.
 
 **S3. No force plans with the water it will meet.** Results drain neighbours, drown valleys in thin sheets, or let
 badwater into clean water (Rift Size 60: badwater 432 to 1,404 tiles; Unleash at its default: 432 to 1,349; Quake Lift
