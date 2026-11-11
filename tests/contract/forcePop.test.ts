@@ -95,30 +95,59 @@ const changed = (a: Uint8Array, b: Uint8Array) => {
   return n;
 };
 
+/** `g` run to its end at `speed`: its last frame is the land it keeps, the force is over with it, and (but for a
+ *  painted Lift, whose whole result shows as it is painted) it changes no more than its busiest frame before. */
+async function expectNoPop(g: Gesture, speed: ForceSpeed): Promise<void> {
+  const name = g.name;
+  const { frames, kept, before, after } = await run(g, speed);
+  const last = frames.at(-1)!;
+  expect(changed(last, kept), `${name}: the last frame differs from the land kept`).toBe(0);
+  // the moment the land is final the force is over: no frame is shown after it
+  expect(after, `${name}: frames shown after the land was final`).toBe(0);
+  // (a painted Lift shows its whole result as it is painted: there is no animation after it)
+  if (g.paint) return;
+  expect(frames.length, name).toBeGreaterThan(2);
+  let busiest = 0;
+  let prev = before;
+  for (const f of frames.slice(0, -1)) {
+    busiest = Math.max(busiest, changed(prev, f));
+    prev = f;
+  }
+  const end = changed(prev, last);
+  expect(end, `${name}: the last frame changes ${end} tiles, the busiest before it ${busiest} (of ${changed(before, kept)} in all, ${frames.length} frames)`).toBeLessThanOrEqual(busiest);
+}
+
+/** Generate Highlands 96² `seed` in the worker; dry, high ground far from the start (`at`), a point 40 tiles across
+ *  from it (`end`) and one between (`mid`), and the map's built start. */
+async function ground(seed: number) {
+  await runGenerate(makeSpec({ seed, theme: "highlands", size: { x: W, y: W } }));
+  ed.refine();
+  const b = MapSession.open(decodeProject(ed.project().bytes)).built;
+  const st = b.start!;
+  let at: [number, number] = [W >> 1, W >> 1];
+  let far = -1;
+  for (let y = 16; y < W - 16; y += 4)
+    for (let x = 16; x < W - 16; x += 4) {
+      const i = y * W + x;
+      if (b.water[i] > 0) continue;
+      const d = Math.hypot(x - st.x, y - st.y) + b.heights[i];
+      if (d > far) {
+        far = d;
+        at = [x, y];
+      }
+    }
+  const end: [number, number] = [Math.max(6, Math.min(W - 6, at[0] + (at[0] < W / 2 ? 40 : -40))), at[1]];
+  const mid: [number, number] = [Math.round((at[0] + end[0]) / 2), Math.round(at[1] + 3)];
+  return { st, at, end, mid };
+}
+
 describe("nothing pops in after a force's animation (D368 (9))", () => {
   const gestures: Gesture[] = [];
   beforeAll(async () => {
-    await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.refine();
-    const b = MapSession.open(decodeProject(ed.project().bytes)).built;
-    const st = b.start!;
+    const { st, at, end, mid } = await ground(21);
     // dry, high ground far from the start, and a fault across the far half
-    let at: [number, number] = [W >> 1, W >> 1];
-    let far = -1;
-    for (let y = 16; y < W - 16; y += 4)
-      for (let x = 16; x < W - 16; x += 4) {
-        const i = y * W + x;
-        if (b.water[i] > 0) continue;
-        const d = Math.hypot(x - st.x, y - st.y) + b.heights[i];
-        if (d > far) {
-          far = d;
-          at = [x, y];
-        }
-      }
     const fy = st.y < W / 2 ? Math.round(W * 0.72) : Math.round(W * 0.28);
     const fault = { path: [{ x: 4, y: fy }, { x: W * 0.5, y: fy + 1.5 }, { x: W - 5, y: fy }], side: (st.y < fy ? 1 : -1) as 1 | -1 };
-    const end: [number, number] = [Math.max(6, Math.min(W - 6, at[0] + (at[0] < W / 2 ? 40 : -40))), at[1]];
-    const mid: [number, number] = [Math.round((at[0] + end[0]) / 2), Math.round(at[1] + 3)];
     const carve = { ...CARVE_DEFAULTS, power: 60, banks: 5, riverDepth: 2 };
     gestures.push(
       { name: "Carve, clicked, with Banks", req: { verb: "carve", settings: carve, origin: at, cut: null, natural: true } },
@@ -137,22 +166,17 @@ describe("nothing pops in after a force's animation (D368 (9))", () => {
   for (const speed of ["fast", "watch"] as const)
     for (const name of ["Carve, clicked, with Banks", "Carve, drawn, with Banks", "Craterize", "Quake, Slide", "Quake, Lift", "Quake, painted Lift", "Erupt, vent", "Erupt, fissure", "Glaciate, flowing", "Glaciate, drawn"])
       it(`${name}, ${speed === "fast" ? "Fast" : "Slow forces"}: its last frame is the land it keeps, the force is over with it, and it changes no more than its busiest frame before`, async () => {
-        const g = gestures.find((k) => k.name === name)!;
-        const { frames, kept, before, after } = await run(g, speed);
-        const last = frames.at(-1)!;
-        expect(changed(last, kept), `${name}: the last frame differs from the land kept`).toBe(0);
-        // the moment the land is final the force is over: no frame is shown after it
-        expect(after, `${name}: frames shown after the land was final`).toBe(0);
-        // (a painted Lift shows its whole result as it is painted: there is no animation after it)
-        if (g.paint) return;
-        expect(frames.length, name).toBeGreaterThan(2);
-        let busiest = 0;
-        let prev = before;
-        for (const f of frames.slice(0, -1)) {
-          busiest = Math.max(busiest, changed(prev, f));
-          prev = f;
-        }
-        const end = changed(prev, last);
-        expect(end, `${name}: the last frame changes ${end} tiles, the busiest before it ${busiest} (of ${changed(before, kept)} in all, ${frames.length} frames)`).toBeLessThanOrEqual(busiest);
+        await expectNoPop(gestures.find((k) => k.name === name)!, speed);
       }, 600_000);
+});
+
+// (Highlands 96², seeds 22 and 24: a drawn glacier's lobe past its last station, its snout's trough, terminal moraine
+// and outwash fan, all took their levels in the last frame, more than any frame before; it forms as the ice enters
+// it now, glaciate/run.ts `shownArrival`)
+describe("a drawn glacier's snout forms as the ice reaches it (D344)", () => {
+  for (const seed of [22, 24])
+    it(`Highlands 96², seed ${seed}: Glaciate drawn, its last frame changes no more than its busiest frame before`, async () => {
+      const { at, end, mid } = await ground(seed);
+      await expectNoPop({ name: "Glaciate, drawn", req: { verb: "glaciate", settings: { ...GLACIATE_DEFAULTS, mode: "aim", power: 80 }, origin: at, end, via: [mid], cut: null, natural: true } }, "fast");
+    }, 600_000);
 });
