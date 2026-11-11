@@ -111,13 +111,20 @@ export class SiteModel {
     const depth = new Float64Array(bw * bh);
     const con = new Float64Array(bw * bh);
     const reachOf = (wet: Wet): Uint8Array => {
-      for (let y = oy0; y <= oy1; y++)
+      // (the land in the box, then the template's ground over it where it lays some: `at`)
+      for (let y = oy0; y <= oy1; y++) {
+        const row = (y - oy0) * bw - ox0;
         for (let x = ox0; x <= ox1; x++) {
-          const i = y * W + x;
-          const k = (y - oy0) * bw + x - ox0;
-          h[k] = this.at(i, ground);
-          depth[k] = 0;
+          h[row + x] = this.land[y * W + x];
+          depth[row + x] = 0;
         }
+      }
+      for (const [i, v] of ground) {
+        const x = i % W;
+        const y = (i - x) / W;
+        if (x < ox0 || x > ox1 || y < oy0 || y > oy1) continue;
+        h[(y - oy0) * bw + x - ox0] = v;
+      }
       for (const [i, s] of wet) {
         const x = i % W;
         const y = (i - x) / W;

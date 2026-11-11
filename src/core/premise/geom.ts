@@ -106,6 +106,27 @@ export function pathDist(px: number, py: number, path: readonly Point[]): { d: n
   return { d: best, s: at };
 }
 
+/** Whether a point stands within `d` of a path (`pathDist(px, py, path).d <= d`): the nearest segment found by its
+ *  distance squared, then one root, the same arithmetic as `segDist`'s, so the same answer, faster. */
+export function pathWithin(px: number, py: number, path: readonly Point[], d: number): boolean {
+  if (path.length === 1) return dist([px, py], path[0]) <= d;
+  let best = Infinity;
+  for (let k = 0; k + 1 < path.length; k++) {
+    const ax = path[k][0];
+    const ay = path[k][1];
+    const vx = path[k + 1][0] - ax;
+    const vy = path[k + 1][1] - ay;
+    const l2 = vx * vx + vy * vy;
+    let t = l2 > 0 ? ((px - ax) * vx + (py - ay) * vy) / l2 : 0;
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    const dx = px - (ax + vx * t);
+    const dy = py - (ay + vy * t);
+    const d2 = dx * dx + dy * dy;
+    if (d2 < best) best = d2;
+  }
+  return best < Infinity && sqrt(best) <= d;
+}
+
 export function pathLength(path: readonly Point[]): number {
   let run = 0;
   for (let k = 0; k + 1 < path.length; k++) run += dist(path[k], path[k + 1]);
@@ -337,6 +358,24 @@ export function bodyGap(a: Pick<Body, "arms">, b: Pick<Body, "arms">, bound = In
     }
   }
   return best;
+}
+
+/** The box round a body's outline: its arms' points and their radii, [x0, y0, x1, y1]. */
+export function outlineBox(body: Pick<Body, "arms">): Float64Array {
+  return boxesOf(body.arms).outline;
+}
+
+/** Whether a point stands within `d` of a body's outline (`bodyDist(px, py, body) <= d`): a point further than that
+ *  from the box round the body's outline (each arm's points and their radii) is further from the outline too, so it
+ *  needs no closer look. The same answer as `bodyDist`'s, faster where most points stand far off. */
+export function bodyWithin(px: number, py: number, body: Pick<Body, "arms">, d: number): boolean {
+  const o = boxesOf(body.arms).outline;
+  const gx = Math.max(0, o[0] - px, px - o[2]);
+  const gy = Math.max(0, o[1] - py, py - o[3]);
+  // (a hundredth of a tile over, so the root's rounding never decides it)
+  const lim = d + 0.01;
+  if (lim > 0 && gx * gx + gy * gy > lim * lim) return false;
+  return bodyDist(px, py, body) <= d;
 }
 
 /** The nearest an outline comes to a map edge (negative past it). */

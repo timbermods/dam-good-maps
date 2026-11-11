@@ -715,18 +715,22 @@ export function integrityAt(
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) out[y * W + x] = integrityLevel(get, W, H, prot, channel, candidate, y * W + x, cap);
 }
 
+/** A tile's height before the integrity pass, a candidate's capped at `cap`. */
+function clipAt(pre: (j: number) => number, candidate: (i: number) => boolean, cap: number, j: number): number {
+  return candidate(j) && pre(j) > cap ? cap : pre(j);
+}
+
 /** The level the integrity pass (step 7) gives tile `i` (see `integrityAt`), reading the heights
  *  before the pass through `pre`. */
 export function integrityLevel(pre: (j: number) => number, W: number, H: number, prot: Uint8Array, channel: Uint8Array, candidate: (i: number) => boolean, i: number, cap = MAX_TERRAIN): number {
-  const clip = (j: number) => (candidate(j) && pre(j) > cap ? cap : pre(j));
-  const v = clip(i);
+  const v = clipAt(pre, candidate, cap, i);
   const x = i % W;
   const y = (i - x) / W;
   if (x < 1 || y < 1 || x > W - 2 || y > H - 2 || prot[i] || channel[i] || !candidate(i)) return v;
-  const a = clip(i - 1);
-  const b = clip(i + 1);
-  const c = clip(i - W);
-  const d = clip(i + W);
+  const a = clipAt(pre, candidate, cap, i - 1);
+  const b = clipAt(pre, candidate, cap, i + 1);
+  const c = clipAt(pre, candidate, cap, i - W);
+  const d = clipAt(pre, candidate, cap, i + W);
   const lo = Math.min(a, b, c, d);
   const hi = Math.max(a, b, c, d);
   if (v < lo) return lo; // pit

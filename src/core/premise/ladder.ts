@@ -306,6 +306,44 @@ function waterOn(w: StageWater, floor: Float64Array): Water {
 
 // ------------------------------------------------------------------------------------------------- the soil's reach
 
+/** `clusterSaturation` (sim/moisture.ts) inside `box`, for water that lies inside it alone: a tile's saturation reads
+ *  the water two tiles round it, all of it in the box or none, so it is the whole map's, worked out on the box only. */
+function boxSaturation(wet: Uint8Array, W: number, H: number, box: readonly [number, number, number, number]): Uint8Array {
+  const [x0, y0, x1, y1] = box;
+  if (x0 === 0 && y0 === 0 && x1 === W - 1 && y1 === H - 1) return clusterSaturation(wet, W, H);
+  const wn = new Uint8Array(W * H);
+  for (let y = y0; y <= y1; y++)
+    for (let x = x0; x <= x1; x++) {
+      const i = y * W + x;
+      if (!wet[i]) continue;
+      let c = 1;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx >= 0 && xx < W && yy >= 0 && yy < H && wet[yy * W + xx]) c++;
+        }
+      wn[i] = c;
+    }
+  const sat = new Uint8Array(W * H);
+  for (let y = y0; y <= y1; y++)
+    for (let x = x0; x <= x1; x++) {
+      const i = y * W + x;
+      if (!wet[i]) continue;
+      let best = wn[i];
+      if (x > 0 && wn[i - 1] - 1 > best) best = wn[i - 1] - 1;
+      if (x + 1 < W && wn[i + 1] - 1 > best) best = wn[i + 1] - 1;
+      if (y > 0 && wn[i - W] - 1 > best) best = wn[i - W] - 1;
+      if (y + 1 < H && wn[i + W] - 1 > best) best = wn[i + W] - 1;
+      sat[i] = Math.min(8, best);
+    }
+  return sat;
+}
+
+/** `soilReach`'s buckets by moisture strength (0 to 1600), shared by every call. */
+const BUCKETS: number[][] = Array.from({ length: 1601 }, () => []);
+
 /** The tiles the soil makes moist from `water` (the game's rule, `sim/moisture.ts` `moisture`: a wet tile's reach is
  *  twice its cluster's saturation, a tile beside water loses 6 for each level over the water's ceiled surface, and the
  *  reach spreads a tile at a time, 1 along and √2 across, 6 for each level climbed), read inside `box` [x0, y0, x1,
@@ -317,7 +355,7 @@ export function soilReach(heights: ArrayLike<number>, water: { depth: ArrayLike<
   const [x0, y0, x1, y1] = box;
   const wet = new Uint8Array(N);
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (depth[y * W + x] > 0) wet[y * W + x] = 1;
-  const s = sat ?? clusterSaturation(wet, W, H);
+  const s = sat ?? boxSaturation(wet, W, H, box);
   const M = new Int32Array(N);
   const fixed = new Uint8Array(N);
   const range = (j: number) => {
@@ -326,7 +364,8 @@ export function soilReach(heights: ArrayLike<number>, water: { depth: ArrayLike<
     return c >= 0.01 ? Math.floor(r * Math.min(1, Math.max(0, 1 - c / 0.53))) : r;
   };
   const ceilOf = (j: number) => Math.ceil(heights[j] + depth[j] - 1e-9);
-  const buckets: number[][] = Array.from({ length: 1601 }, () => []);
+  // (the buckets are the module's, each emptied as it is walked: every reach leaves them empty)
+  const buckets = BUCKETS;
   for (let y = y0; y <= y1; y++)
     for (let x = x0; x <= x1; x++) {
       const i = y * W + x;
@@ -335,7 +374,12 @@ export function soilReach(heights: ArrayLike<number>, water: { depth: ArrayLike<
         fixed[i] = 1;
       }
     }
-  const nb = new Int32Array(4);
+  // (a dry tile beside water: the best of its four neighbours', in the order left, right, up, down)
+  const beside = (i: number, j: number, best: number): number => {
+    if (!wet[j]) return best;
+    const v = 100 * range(j) - 600 * Math.max(0, heights[i] - ceilOf(j));
+    return v > best ? v : best;
+  };
   for (let y = y0; y <= y1; y++)
     for (let x = x0; x <= x1; x++) {
       const i = y * W + x;
@@ -344,40 +388,51 @@ export function soilReach(heights: ArrayLike<number>, water: { depth: ArrayLike<
         continue;
       }
       let best = 0;
-      near4(W, H, i, nb);
-      for (const j of nb) {
-        if (j < 0 || !wet[j]) continue;
-        const v = 100 * range(j) - 600 * Math.max(0, heights[i] - ceilOf(j));
-        if (v > best) best = v;
-      }
+      if (x > 0) best = beside(i, i - 1, best);
+      if (x + 1 < W) best = beside(i, i + 1, best);
+      if (y > 0) best = beside(i, i - W, best);
+      if (y + 1 < H) best = beside(i, i + W, best);
       if (best > 0) {
         M[i] = best;
         buckets[best].push(i);
       }
     }
+  // (one neighbour of a tile at `m`: reached at `m` less the step and 6 a level climbed, kept where it is more)
+  const spread = (j: number, m: number, step: number, base: number): void => {
+    if (fixed[j]) return;
+    const v = m - step - 600 * Math.max(0, heights[j] - base);
+    if (v > M[j]) {
+      M[j] = v;
+      buckets[v].push(j);
+    }
+  };
   for (let m = 1600; m > 0; m--) {
     const list = buckets[m];
-    for (let k = 0; k < list.length; k++) {
-      const i = list[k];
-      if (M[i] !== m) continue;
-      const x = i % W;
-      const y = (i - x) / W;
-      const base = heights[i] + Math.ceil(depth[i] - 1e-9);
-      for (let dy = -1; dy <= 1; dy++)
-        for (let dx = -1; dx <= 1; dx++) {
-          if (!dx && !dy) continue;
-          const xx = x + dx;
-          const yy = y + dy;
-          if (xx < x0 || xx > x1 || yy < y0 || yy > y1) continue;
-          const j = yy * W + xx;
-          if (fixed[j]) continue;
-          const v = m - (dx && dy ? 141 : 100) - 600 * Math.max(0, heights[j] - base);
-          if (v > M[j]) {
-            M[j] = v;
-            buckets[v].push(j);
-          }
+    // (a step costs 100 at least, so a tile at 100 or less reaches no further)
+    if (m > 100)
+      for (let k = 0; k < list.length; k++) {
+        const i = list[k];
+        if (M[i] !== m) continue;
+        const x = i % W;
+        const y = (i - x) / W;
+        const base = heights[i] + Math.ceil(depth[i] - 1e-9);
+        const up = y > y0;
+        const down = y < y1;
+        const left = x > x0;
+        const right = x < x1;
+        if (up) {
+          if (left) spread(i - W - 1, m, 141, base);
+          spread(i - W, m, 100, base);
+          if (right) spread(i - W + 1, m, 141, base);
         }
-    }
+        if (left) spread(i - 1, m, 100, base);
+        if (right) spread(i + 1, m, 100, base);
+        if (down) {
+          if (left) spread(i + W - 1, m, 141, base);
+          spread(i + W, m, 100, base);
+          if (right) spread(i + W + 1, m, 141, base);
+        }
+      }
     list.length = 0;
   }
   const out = new Uint8Array(N);
@@ -476,6 +531,11 @@ function nearestAlong(r: WaterRaster, li: number, at: [number, number]): number 
  *  so the pond's green is not stopped at the first step up. `least` is the shortest pan a bed has room for. */
 export const NARROWS = { back: 15, least: 5, wide: 8, rim: 1.5, bench: 6, shoulder: 2.5, off: 6 } as const;
 
+/** The farthest from its bed a narrows lays ground, tiles: its widest pan, its rim and its bench. */
+const NEAR_MOST = Math.ceil(4 * NARROWS.wide * 0.25 + 0.5 + NARROWS.rim + NARROWS.bench);
+/** Whether a distance squared `e` is within `r`. */
+const within = (e: number, r: number): boolean => e <= r * r;
+
 /** The longest narrows (`narrowsGround`) at `at` that stands whole on free ground, its pan `most` tiles back at most,
  *  shortened two at a time to `NARROWS.least`; none where every length meets other water or the start. The siting and
  *  the ladder both lay it this way, so the pan the plan weighed is the pan the land gets where the ground agrees. */
@@ -519,31 +579,53 @@ export function narrowsGround(bed: readonly (readonly [number, number])[], at: n
     if (y > y1) y1 = y;
   }
   const span = back + 0.5;
-  for (let y = Math.max(0, y0 - reach); y <= Math.min(H - 1, y1 + reach); y++)
-    for (let x = Math.max(0, x0 - reach); x <= Math.min(W - 1, x1 + reach); x++) {
+  // (the nearest bed tile to each tile of the box: how far from the bed, squared, and how far up it from the dam; the
+  // first in the bed's order where two stand as near. Only a tile within `NEAR_MOST` of the bed takes any ground, so
+  // each bed tile marks the disc round it, in order, keeping the nearer)
+  const bx0 = Math.max(0, x0 - reach);
+  const by0 = Math.max(0, y0 - reach);
+  const bx1 = Math.min(W - 1, x1 + reach);
+  const by1 = Math.min(H - 1, y1 + reach);
+  const bw = bx1 - bx0 + 1;
+  const E = new Float64Array(bw * (by1 - by0 + 1)).fill(Infinity);
+  const U = new Float64Array(E.length);
+  for (const [i, s] of near) {
+    const ix = i % W;
+    const iy = Math.floor(i / W);
+    for (let dy = -NEAR_MOST; dy <= NEAR_MOST; dy++) {
+      const y = iy + dy;
+      if (y < by0 || y > by1) continue;
+      for (let dx = -NEAR_MOST; dx <= NEAR_MOST; dx++) {
+        const x = ix + dx;
+        const d = dx * dx + dy * dy;
+        if (x < bx0 || x > bx1 || d > NEAR_MOST * NEAR_MOST) continue;
+        const k = (y - by0) * bw + x - bx0;
+        if (d < E[k]) {
+          E[k] = d;
+          U[k] = at - s;
+        }
+      }
+    }
+  }
+  for (let y = by0; y <= by1; y++)
+    for (let x = bx0; x <= bx1; x++) {
       const j = y * W + x;
       if (own.has(j)) continue;
-      // (the nearest bed tile: how far from the bed, and how far up it from the dam)
-      let e = Infinity;
-      let u = 0;
-      for (const [i, s] of near) {
-        const dx = (i % W) - x;
-        const dy = Math.floor(i / W) - y;
-        const d = dx * dx + dy * dy;
-        if (d < e) [e, u] = [d, at - s];
-      }
+      const k = (y - by0) * bw + x - bx0;
+      const e = E[k];
+      if (e === Infinity) continue;
+      const u = U[k];
       // (distances compared squared: no root, D366)
-      const within = (r: number) => e <= r * r;
       let v = -1;
       if (u >= 1.5 && u <= span) {
         // (the pan widens and closes again as a parabola along the bed)
         const t = (u - 1) / (span - 1);
         const wide = 4 * NARROWS.wide * t * (1 - t);
-        if (within(wide + 0.5)) v = b + 1;
-        else if (within(wide + 0.5 + NARROWS.rim)) v = Math.max(h(j), b + 3);
-        else if (within(wide + 0.5 + NARROWS.rim + NARROWS.bench) && h(j) > b + 2) v = b + 2;
-      } else if (u > -2 && u < 1.5 && within(NARROWS.shoulder)) v = Math.max(h(j), b + 3);
-      else if (u > span && u <= span + 2 && within(NARROWS.rim + 1)) v = Math.max(h(j), b + 3);
+        if (within(e, wide + 0.5)) v = b + 1;
+        else if (within(e, wide + 0.5 + NARROWS.rim)) v = Math.max(h(j), b + 3);
+        else if (within(e, wide + 0.5 + NARROWS.rim + NARROWS.bench) && h(j) > b + 2) v = b + 2;
+      } else if (u > -2 && u < 1.5 && within(e, NARROWS.shoulder)) v = Math.max(h(j), b + 3);
+      else if (u > span && u <= span + 2 && within(e, NARROWS.rim + 1)) v = Math.max(h(j), b + 3);
       if (v < 0 || (v === h(j) && v !== b + 1)) continue;
       if (!free(j)) {
         // (the bench is cut where it can be; a pan, rim or shoulder must stand whole)

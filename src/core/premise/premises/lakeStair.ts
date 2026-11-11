@@ -20,7 +20,7 @@ import { rulesFor } from "../../validate/playability";
 import { premiseStream } from "../draw";
 import { holdDeep } from "../levels";
 import { FRAME, frameLimit, frameWidthAt, lipInFrame, START } from "../frame";
-import { bodyDist, bodyGap, dist, dist2, segDist, edgeGap, headingOf, norm, outlinePoints, unitAt, pathBodyGap, pathDist, pathGap, pathLength, pointAt, squareClear, subPath } from "../geom";
+import { bodyDist, bodyGap, bodyWithin, dist, dist2, outlineBox, segDist, edgeGap, headingOf, norm, outlinePoints, unitAt, pathBodyGap, pathDist, pathGap, pathLength, pathWithin, pointAt, squareClear, subPath } from "../geom";
 import { BODY_GAP, fail, linksFrom, nameOf, OK, PLAN_CHECKS, reach } from "../planChecks";
 import { WATER_CHECKS } from "../waterChecks";
 import type { Body, Edge, Exit, Fall, Invariant, Link, Point, PremiseDef, PremisePlan, Region, Ridge, SetPiece, SiteLand, Source, Spine, StairPlan, Work, WorkKind } from "../types";
@@ -705,7 +705,22 @@ function meadowRoom(sx: number, sy: number, bodies: Body[], W: number, H: number
   const R = START.near;
   const side = 2 * R + 1;
   const seen = new Uint8Array(side * side);
-  const dry = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && bodies.every((b) => bodyDist(x + 0.5, y + 0.5, b) > MEADOW_SHORE);
+  // (a body whose outline's box stands further off than the shore needs no closer look)
+  const boxes = bodies.map((b) => outlineBox(b));
+  const lim = (MEADOW_SHORE + 0.01) * (MEADOW_SHORE + 0.01);
+  const dry = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= W || y >= H) return false;
+    const px = x + 0.5;
+    const py = y + 0.5;
+    for (let k = 0; k < bodies.length; k++) {
+      const o = boxes[k];
+      const gx = Math.max(0, o[0] - px, px - o[2]);
+      const gy = Math.max(0, o[1] - py, py - o[3]);
+      if (gx * gx + gy * gy > lim) continue;
+      if (!(bodyDist(px, py, bodies[k]) > MEADOW_SHORE)) return false;
+    }
+    return true;
+  };
   let q: [number, number][] = [[sx, sy]];
   seen[R * side + R] = 1;
   let n = 0;
@@ -1002,6 +1017,17 @@ const COURSE_AWAY = 20;
  *  and how many exits from each. */
 const COURSE_TURN = [0.3, 0.65, 10, 3] as const;
 
+/** The bypass's course grid last worked out: its open cells, their distance from the start and the leads out of the
+ *  pool (cells and mouths), for the land its key names (`bypassCourses`). Read only. */
+const courseGrid = { key: "", open: new Uint8Array(0), near: new Float64Array(0), mouthOf: new Map<number, Point>(), seeds: [] as [number, number][] };
+
+/** The bypass's course search's heap, kept between searches and grown when a search needs more. */
+let courseHeapBuf = new Int32Array(0);
+function courseHeap(n: number): Int32Array {
+  if (courseHeapBuf.length < n) courseHeapBuf = new Int32Array(n);
+  return courseHeapBuf;
+}
+
 /** The bypass's courses (`placeBypass`), each its mouth on the pool's outline and the cells it runs by, `lo` to `hi`
  *  tiles long with the way out: on a grid `COURSE_CELL` tiles a side, a cell costing its length times the seed's rises
  *  and hollows (`COURSE_BUMPS`), more the nearer the map's edge and none at it (`COURSE_EDGE`), none within the
@@ -1023,22 +1049,111 @@ function* bypassCourses(L: Layout, others: Point[][], join: Point[] | null, lo: 
   const bumps = Array.from({ length: COURSE_BUMPS[0] }, () => ({ p: [rng.range(0, W), rng.range(0, W)] as Point, r: rng.range(COURSE_BUMPS[1], COURSE_BUMPS[2]) * W, a: rng.range(COURSE_BUMPS[3], COURSE_BUMPS[4]) }));
   const open = new Uint8Array(N);
   const cost = new Float64Array(N);
+  // (each other channel's box: a cell further from it than the room needs no closer look)
+  const otherBox = others.map((o) => {
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const [x, y] of o) {
+      x0 = Math.min(x0, x);
+      y0 = Math.min(y0, y);
+      x1 = Math.max(x1, x);
+      y1 = Math.max(y1, y);
+    }
+    return [x0, y0, x1, y1];
+  });
+  const roomBox = (room + 0.01) * (room + 0.01);
+  // (and every body's but the pool's, round its outline: a cell further from it than the room needs no closer look)
+  const bodies = plan.bodies.filter((b) => b !== L.pool);
+  const bodyBox = bodies.map((b) => outlineBox(b));
+  const nearBody = (p: Point): boolean => {
+    for (let k = 0; k < bodies.length; k++) {
+      const o = bodyBox[k];
+      const gx = Math.max(0, o[0] - p[0], p[0] - o[2]);
+      const gy = Math.max(0, o[1] - p[1], p[1] - o[3]);
+      if (gx * gx + gy * gy > roomBox) continue;
+      if (bodyDist(p[0], p[1], bodies[k]) <= room) return true;
+    }
+    return false;
+  };
+  const nearOther = (p: Point): boolean => {
+    for (let k = 0; k < others.length; k++) {
+      const [x0, y0, x1, y1] = otherBox[k];
+      const gx = Math.max(0, x0 - p[0], p[0] - x1);
+      const gy = Math.max(0, y0 - p[1], p[1] - y1);
+      if (gx * gx + gy * gy > roomBox) continue;
+      if (pathWithin(p[0], p[1], others[k], room)) return true;
+    }
+    return false;
+  };
+  // (the open cells and their distance from the start depend on the land laid so far alone: a layout's tail drawn
+  // again, and the gorge's course and the edge's, ask for the same grid, so the last is kept)
+  const key = JSON.stringify([W, plan.H, plan.frame.start, L.pool.id, plan.bodies.map((b) => b.arms), others]);
+  if (courseGrid.key !== key) {
+    const near = new Float64Array(N);
+    const shut = new Uint8Array(N);
+    for (let c = 0; c < N; c++) {
+      const p = at(c);
+      const edge = Math.min(p[0], p[1], W - p[0], W - p[1]);
+      near[c] = dist(p, s0);
+      if (edge < COURSE_EDGE[0] || near[c] <= COURSE_START || bodyWithin(p[0], p[1], L.pool, BYPASS_HALF + 1.5)) continue;
+      if (nearBody(p)) continue;
+      if (nearOther(p)) continue;
+      shut[c] = 1;
+    }
+    // the leads: straight out of the pool from its middle, `COURSE_LEAD` tiles past its outline, so the mouth's first
+    // row seals it
+    const pc: Point = [L.pool.arms[0][0][0], L.pool.arms[0][0][1]];
+    const mouthOf = new Map<number, Point>();
+    const seeds: [number, number][] = [];
+    for (let k = 0; k < 64; k++) {
+      const dir = unitAt(k);
+      let mouth: Point = pc;
+      for (let t = 0; t < 80 && bodyDist(mouth[0], mouth[1], L.pool) < 0; t++) mouth = [mouth[0] + dir[0] * 0.5, mouth[1] + dir[1] * 0.5];
+      const end: Point = [mouth[0] + dir[0] * COURSE_LEAD, mouth[1] + dir[1] * COURSE_LEAD];
+      if (end[0] < 0 || end[1] < 0 || end[0] >= G * COURSE_CELL || end[1] >= G * COURSE_CELL) continue;
+      const c = Math.floor(end[1] / COURSE_CELL) * G + Math.floor(end[0] / COURSE_CELL);
+      // (at the bypass's own room: a lead nearer another channel than that left most courses short of it)
+      if (!shut[c] || mouthOf.has(c) || !clearPath(plan, [mouth, at(c)], BYPASS_HALF, [L.pool.id], others, BYPASS_ROOM)) continue;
+      mouthOf.set(c, rp(mouth));
+      seeds.push([c, dist(mouth, at(c))]);
+    }
+    courseGrid.key = key;
+    courseGrid.open = shut;
+    courseGrid.near = near;
+    courseGrid.mouthOf = mouthOf;
+    courseGrid.seeds = seeds;
+  }
+  open.set(courseGrid.open);
+  const { mouthOf, seeds } = courseGrid;
+  const fromStart = courseGrid.near;
+  // (each cell's rises and hollows, each bump added in turn over the cells it reaches)
+  const rise = new Float64Array(N).fill(1);
+  for (const b of bumps) {
+    const r2 = b.r * b.r;
+    const gx0 = Math.max(0, Math.floor((b.p[0] - b.r) / COURSE_CELL) - 1);
+    const gx1 = Math.min(G - 1, Math.ceil((b.p[0] + b.r) / COURSE_CELL) + 1);
+    const gy0 = Math.max(0, Math.floor((b.p[1] - b.r) / COURSE_CELL) - 1);
+    const gy1 = Math.min(G - 1, Math.ceil((b.p[1] + b.r) / COURSE_CELL) + 1);
+    for (let gy = gy0; gy <= gy1; gy++)
+      for (let gx = gx0; gx <= gx1; gx++) {
+        const c = gy * G + gx;
+        if (!open[c]) continue;
+        const dx = (gx + 0.5) * COURSE_CELL - b.p[0];
+        const dy = (gy + 0.5) * COURSE_CELL - b.p[1];
+        const d2 = (dx * dx + dy * dy) / r2;
+        if (d2 < 1) rise[c] += b.a * (1 - d2) * (1 - d2);
+      }
+  }
   for (let c = 0; c < N; c++) {
+    if (!open[c]) continue;
     const p = at(c);
     const edge = Math.min(p[0], p[1], W - p[0], W - p[1]);
-    if (edge < COURSE_EDGE[0] || dist(p, s0) <= COURSE_START || bodyDist(p[0], p[1], L.pool) <= BYPASS_HALF + 1.5) continue;
-    if (plan.bodies.some((b) => b !== L.pool && bodyDist(p[0], p[1], b) <= room)) continue;
-    if (others.some((o) => pathDist(p[0], p[1], o).d <= room)) continue;
-    open[c] = 1;
-    let k = 1;
-    for (const b of bumps) {
-      const d2 = dist2(p, b.p) / (b.r * b.r);
-      if (d2 < 1) k += b.a * (1 - d2) * (1 - d2);
-    }
     const e = Math.max(0, (edgeIn - edge) / (edgeIn - COURSE_EDGE[0]));
     // (and more within the start's walk, where its small works stand: it leaves that land to them)
-    const walk = Math.max(0, 1 - dist(p, s0) / (NEAR_WALK + COURSE_AWAY));
-    cost[c] = Math.max(0.4, k) + COURSE_EDGE[2] * e * e + COURSE_WALK * walk;
+    const walk = Math.max(0, 1 - fromStart[c] / (NEAR_WALK + COURSE_AWAY));
+    cost[c] = Math.max(0.4, rise[c]) + COURSE_EDGE[2] * e * e + COURSE_WALK * walk;
   }
   /** The cheapest ways out from `seeds` (cell, length so far) over the open cells but `shut` (Dijkstra, a heap). */
   const ways = (seeds: [number, number][], shut?: Uint8Array) => {
@@ -1046,33 +1161,36 @@ function* bypassCourses(L: Layout, others: Point[][], join: Point[] | null, lo: 
     const len = new Float64Array(N);
     const from = new Int32Array(N).fill(-1);
     const done = new Uint8Array(N);
-    const heap: number[] = [];
-    const swap = (a: number, b: number) => {
-      const t = heap[a];
-      heap[a] = heap[b];
-      heap[b] = t;
-    };
+    // (a binary heap of cells by `best` in a typed array: each cell is pushed at most once a neighbour, eight, and
+    // once a seed)
+    const heap = courseHeap(8 * N + seeds.length);
+    let size = 0;
     const push = (c: number) => {
-      heap.push(c);
-      for (let k = heap.length - 1; k > 0; ) {
+      let k = size++;
+      heap[k] = c;
+      while (k > 0) {
         const q = (k - 1) >> 1;
         if (best[heap[q]] <= best[heap[k]]) break;
-        swap(q, k);
+        const t = heap[q];
+        heap[q] = heap[k];
+        heap[k] = t;
         k = q;
       }
     };
     const pop = (): number => {
       const top = heap[0];
-      const last = heap.pop()!;
-      if (heap.length) {
+      const last = heap[--size];
+      if (size) {
         heap[0] = last;
         for (let k = 0; ; ) {
           const a = 2 * k + 1;
           let m = k;
-          if (a < heap.length && best[heap[a]] < best[heap[m]]) m = a;
-          if (a + 1 < heap.length && best[heap[a + 1]] < best[heap[m]]) m = a + 1;
+          if (a < size && best[heap[a]] < best[heap[m]]) m = a;
+          if (a + 1 < size && best[heap[a + 1]] < best[heap[m]]) m = a + 1;
           if (m === k) break;
-          swap(m, k);
+          const t = heap[m];
+          heap[m] = heap[k];
+          heap[k] = t;
           k = m;
         }
       }
@@ -1083,7 +1201,7 @@ function* bypassCourses(L: Layout, others: Point[][], join: Point[] | null, lo: 
       len[c] = l;
       push(c);
     }
-    while (heap.length) {
+    while (size) {
       const c = pop();
       if (done[c]) continue;
       done[c] = 1;
@@ -1114,23 +1232,6 @@ function* bypassCourses(L: Layout, others: Point[][], join: Point[] | null, lo: 
     };
     return { done, len, back };
   };
-  // the leads: straight out of the pool from its middle, `COURSE_LEAD` tiles past its outline, so the mouth's first
-  // row seals it
-  const pc: Point = [L.pool.arms[0][0][0], L.pool.arms[0][0][1]];
-  const mouthOf = new Map<number, Point>();
-  const seeds: [number, number][] = [];
-  for (let k = 0; k < 64; k++) {
-    const dir = unitAt(k);
-    let mouth: Point = pc;
-    for (let t = 0; t < 80 && bodyDist(mouth[0], mouth[1], L.pool) < 0; t++) mouth = [mouth[0] + dir[0] * 0.5, mouth[1] + dir[1] * 0.5];
-    const end: Point = [mouth[0] + dir[0] * COURSE_LEAD, mouth[1] + dir[1] * COURSE_LEAD];
-    if (end[0] < 0 || end[1] < 0 || end[0] >= G * COURSE_CELL || end[1] >= G * COURSE_CELL) continue;
-    const c = Math.floor(end[1] / COURSE_CELL) * G + Math.floor(end[0] / COURSE_CELL);
-    // (at the bypass's own room: a lead nearer another channel than that left most courses short of it)
-    if (!open[c] || mouthOf.has(c) || !clearPath(plan, [mouth, at(c)], BYPASS_HALF, [L.pool.id], others, BYPASS_ROOM)) continue;
-    mouthOf.set(c, rp(mouth));
-    seeds.push([c, dist(mouth, at(c))]);
-  }
   const first = ways(seeds);
   // (the way out adds a few tiles from the last cell, the softened corners take a few off)
   const isEnd = (c: number, l: number) => {
