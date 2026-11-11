@@ -34,16 +34,23 @@ export interface GateSettled {
 
 /** Settle a gate plan's stage 1 water and read it. */
 export function settleGate(plan: PremisePlan, w: StageWater): GateSettled {
-  const r = w.raster;
-  const N = r.W * r.H;
   const m = gateSettleModel(w, Math.max(plan.sky ?? plan.top, plan.top) + 2);
   const t0 = performance.now();
   const s = canonicalSettle(m);
-  const ms = performance.now() - t0;
+  return readGateSettle(plan, w, m.floor, s, performance.now() - t0);
+}
+
+/** Read a settle of a gate plan's water on any ground (stage 1's alone, or a built map's land: `floor`). */
+export function readGateSettle(plan: PremisePlan, w: StageWater, floor: ArrayLike<number>, s: { depth: ArrayLike<number>; out?: ArrayLike<number> | null }, ms = 0, niches: Record<string, [number, number]> = {}): GateSettled {
+  // (the permanent badwater spring's niche, 3 × 3 beside the gorge, is planned water)
+  const niche = new Set<number>();
+  for (const [x, y] of Object.values(niches)) for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 3; dx++) niche.add((y + dy) * w.raster.W + x + dx);
+  const r = w.raster;
+  const N = r.W * r.H;
   const levels: GateSettled["levels"] = [];
   for (const [k, b] of plan.bodies.entries()) {
     const lv: number[] = [];
-    for (let i = 0; i < N; i++) if (r.lake[i] === k + 1 && !r.crest[i] && !r.pool[i] && s.depth[i] > WET) lv.push(r.heights[i] + s.depth[i]);
+    for (let i = 0; i < N; i++) if (r.lake[i] === k + 1 && !r.crest[i] && !r.pool[i] && s.depth[i] > WET) lv.push(floor[i] + s.depth[i]);
     lv.sort((p, q) => p - q);
     levels.push({ id: b.id, sill: b.sill, table: w.table.bodies[b.id].level, level: lv.length ? lv[lv.length >> 1] : NaN });
   }
@@ -67,7 +74,7 @@ export function settleGate(plan: PremisePlan, w: StageWater): GateSettled {
     const y = (i - x) / r.W;
     if (r.channel[i] === gk && r.along[i] > gh) gateWet++;
     if (r.channel[i] === lk && r.along[i] > lh) leatWet++;
-    if (!r.lake[i] && !r.channel[i] && !r.pool[i]) stray++;
+    if (!r.lake[i] && !r.channel[i] && !r.pool[i] && !niche.has(i)) stray++;
     const onEdge = x === 0 || y === 0 || x === r.W - 1 || y === r.H - 1;
     if (onEdge && r.channel[i] !== ok) edge++;
     if (onEdge && r.channel[i] === ok && s.out)
@@ -92,7 +99,7 @@ export function settleGate(plan: PremisePlan, w: StageWater): GateSettled {
   }
   for (let i = 0; i < N; i++) if (r.crest[i] && r.crest[i] !== li(g.veil) + 1) near[i] = 0;
   const depth = Float64Array.from(s.depth, (d, i) => (near[i] ? d : 0));
-  const ground = Float64Array.from(m.floor, (h, i) => (near[i] ? h : 99));
+  const ground = Float64Array.from(floor, (h, i) => (near[i] ? h : 99));
   const c = curtains({ W: r.W, H: r.H, before: ground, beforeDepth: new Float64Array(N), after: ground, depth, need: veil.fall!.height - VEIL_SHORT });
   let pouring = 0;
   for (let i = 0; i < N; i++) if (c.id && c.id[i] >= 0) pouring++;
