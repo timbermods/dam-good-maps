@@ -35,7 +35,7 @@ export function SourcesSetting(p: { value: ForceSources; onChange(v: ForceSource
       value={p.value}
       options={[
         ["ride", "Ride", "Sources move with the ground"],
-        ["clear", "Clear", "The force removes sources it reaches"],
+        ["clear", "Clear", "The force removes sources whose ground it destroys"],
       ]}
       onChange={p.onChange}
     />

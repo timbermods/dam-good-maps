@@ -4,10 +4,12 @@
 // badwater source or seep only where the force destroys its ground (the force audit's S2,
 // docs/progress/force-audit.md): buried 3 levels or more, cut 2 or more away, or, where the force moves
 // the ground whole (a Quake, a Rift), in the crush zone where the ground tears; a multi-tile one if any of
-// its tiles is. One that only rides an intact block, or sits under a thin apron, rides as under Ride. The sources a force places itself always stay (Carve's river, Glaciate's meltwater, an
-// unleashed source); every other object keeps riding the ground. Carve and Glaciate take what they
-// reach themselves under Clear (in Rust: `removed`, as their head or ice arrives) and keep it riding
-// under Ride; the other forces' sources ride in Rust and Clear takes them here.
+// its tiles is. One that only rides an intact block, or sits under a thin apron, rides as under Ride.
+// The sources a force places itself always stay (Carve's river, Glaciate's meltwater, an unleashed
+// source); every other object keeps riding the ground. Carve takes what it cuts away itself under Clear
+// (in Rust: `removed`, as its head arrives; the rest ride its cut), Glaciate everything its ice reaches
+// (its trough, the queue's item 10, brings it to this rule); the other forces' sources ride in Rust and
+// Clear takes them here.
 //
 // No pop: a cleared source goes at the step its showing first changes one of its tiles, never all at
 // the end; the force's operation keeps each one's id and that step (`cleared`).
