@@ -7,10 +7,10 @@
 // outline and a path are in the same units; the camera reads a tile at its middle (i + 0.5, j + 0.5).
 
 import type { Orientation } from "../format/footprints";
-import type { MapSpec } from "../spec/mapspec";
+import type { MapSpec, PremiseId } from "../spec/mapspec";
 import type { StageWater } from "./water";
 
-export type PremiseId = "lakeStair";
+export type { PremiseId };
 
 /** A point in tiles. */
 export type Point = [number, number];

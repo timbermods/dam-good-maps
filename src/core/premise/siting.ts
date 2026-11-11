@@ -10,6 +10,7 @@
 
 import { dayOneSoil, soilReach } from "./ladder";
 import { reliefBetween } from "./raster/relief";
+import type { ReliefStyle } from "./style";
 import type { PremiseDef, PremisePlan, SiteLand } from "./types";
 import { waterByNumber } from "./water";
 import type { MapSpec } from "../spec/mapspec";
@@ -19,18 +20,18 @@ export type { SiteLand };
 /** The soil's furthest reach (2 × a full cluster's saturation of 8), and one tile more. */
 const REACH = 17;
 
-/** The skeleton's land (stages 1 and 2) and day 1's soil on it. */
-export function siteLand(skeleton: PremisePlan): SiteLand {
+/** The skeleton's land (stages 1 and 2, in the theme's style where it has one) and day 1's soil on it. */
+export function siteLand(skeleton: PremisePlan, style?: ReliefStyle): SiteLand {
   const w = waterByNumber(skeleton);
-  const heights = reliefBetween(skeleton, w);
+  const heights = reliefBetween(skeleton, w, style);
   return { W: skeleton.W, H: skeleton.H, heights, soil: dayOneSoil(w, heights) };
 }
 
 /** A premise's plan with its works sited by moisture (`PremiseDef.site`), or the plan as drawn where the premise
  *  sites none; or why it could not be sited (the attempt is drawn again). */
-export function sitePlan(def: PremiseDef, spec: MapSpec, plan: PremisePlan, attempt: number): { plan: PremisePlan; land?: SiteLand } | { reason: string } {
+export function sitePlan(def: PremiseDef, spec: MapSpec, plan: PremisePlan, attempt: number, style?: ReliefStyle): { plan: PremisePlan; land?: SiteLand } | { reason: string } {
   if (!def.site || !def.skeleton) return { plan };
-  const land = siteLand(def.skeleton(plan));
+  const land = siteLand(def.skeleton(plan), style);
   const sited = def.site(spec, plan, attempt, land);
   return "reason" in sited ? sited : { plan: sited, land };
 }

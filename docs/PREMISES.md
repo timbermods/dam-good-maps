@@ -123,20 +123,28 @@ interface Work {
   setting contradicts the premise (`eligible` returns a reason), the premise is not drawn and the generator makes the
   map from the themes as today, so every setting still makes a map (D471). The page says the reason in one line.
 
-| Setting | What it moves in a premise plan |
-|---|---|
-| Size | The count of bodies and works (by area), the valley's length. Meadow widths and fall widths do not scale: the soil's reach and the first frame are fixed sizes. |
-| Difficulty (`designedFor`) | The start's held water (the breach's width, the cove pool's size), the sources' strength, how many small works stand within the start's walk. Hazard lengths are `sim/weather.ts` `HAZARD_DAYS`. |
-| Terrain: Highest terrain, Verticality | The stair's height: the fall heights and how many levels the plan may use (`top`). A tall map gets a higher skyline, not deeper water. |
-| Terrain: Relief, Terracing | The outlands' amplitude and crag heights; the share of two- and three-level scarps, kept inside the 60 to 80 % one-level band. |
-| Terrain: Buildable land | Meadow width (tight 12, normal 15, generous 18) and the start's bench. |
-| Terrain: Variety | Wander, and how many side bodies (tarns, kettles) the plan draws. |
-| Water: River flow | The sources' total strength; lips widen with it (`sim/sill.ts` `sillWidthFor`) so heads stay shallow. Lush lengthens meadows toward the top of the green range; it never removes a work. |
-| Water: Lakes, Waterfalls, Rivers | The count of bodies, of falls beyond the premise's own, of living side brooks on day 1. `lakes: none`, `waterfalls: off` and `sources: none` make a water premise ineligible. |
-| Water: Drought reserve | The start's held water and the first reservoir's size. |
-| Hazards | The permanent badwater source's strength and distance (D200: every map has one unless Badwater is off; placed below the lowest sill so it leaves by the exit, D498); thorns on the dry-for-good region; unstable cores by the springs. |
-| Resources | Scale the budgets of section 2 stage 6 inside their ranges: wood stays a budget at every Forest density. |
-| Start: Easy start, the rules | The start rules are the checks' own and always hold. Easy start is not offered with the lake stair yet (section 9, ruling 4). |
+As built (step 9, core): every setting of the panel has one role on a premise map, in `premise/choice.ts`
+`PREMISE_SETTINGS` (each with the one line the page may show); `premiseSettings(premise).greyed` is the list the page
+greys out.
+
+| Setting | Role | What it does on a lake stair |
+|---|---|---|
+| Size | plan | The count of bodies and works (by area), the valley's length. Meadow widths and fall widths do not scale: the soil's reach and the first frame are fixed sizes. Square, 128 to 256 a side, or refused. |
+| Difficulty (`designedFor`) | plan | The start's held water (the breach's width, the cove pool's size), the sources' strength, how many small works stand within the start's walk. Hazard lengths are `sim/weather.ts` `HAZARD_DAYS`. |
+| Terrain: Highest terrain, Verticality | plan | The stair's height: the fall heights and how many levels the plan may use (`top`). A tall map gets a higher skyline, not deeper water. Too low for the stair and its landmark: refused. |
+| Terrain: Buildable land | plan | Meadow width (tight 12, normal 15, generous 18) and the start's bench. |
+| Terrain: Variety | plan | Wander, and how many side bodies (tarns, kettles) the plan draws. |
+| Terrain: Relief, Terracing | style | The outlands' rise and fall (Relief over the premise's 55) and the uplands' share on the theme's benches (Terracing). |
+| Water: River flow, Lakes, Drought reserve, Badwater | plan | The sources' total strength (lips widen with it, `sim/sill.ts` `sillWidthFor`), the count of bodies, the start's held water and the first reservoir, the permanent badwater source (D200; below the lowest sill, D498). `lakes: none` refused. |
+| Water: Waterfalls, Sources; Start: Easy start | refuses | Only their refusing values act: Waterfalls Off, Sources None and Easy start on are refused in one line (section 9, ruling 4). |
+| Water: Rivers, River style; Hazards: Thorn belts, Unstable cores; Resources: Relics, Geothermal | none (greyed) | Nothing yet: the stair's water rises from its springs; thorns, cores, relics and geothermal wait for the set pieces (step 7). |
+| Resources: Forests, Species mix, Grove size, Berries, Bushes, Ruins, Mines | life | Stage 6's budgets inside their ranges; wood stays a budget at every Forest density. |
+| Start: the rules | rules | The checks' own, and they always hold. |
+
+The presets split (`spec/mapspec.ts` `defaultSettings(theme, difficulty, size, premise)`): with a premise, the theme's
+preset gives the style's settings (Relief, Terracing, the Resources) and the premise's preset gives what the plan reads
+(Verticality and Highest terrain, Buildable land, the Water, Badwater). So the same seed draws the same plan in every
+theme.
 
 ### 1.4 Invariants
 
@@ -169,9 +177,36 @@ frame. As the premise's stages firm up, the relief, life and dressing stages tak
 per-theme grade is the start), and Generate ends up offering both pickers, each with Any. The themes stay Generate's
 default until three premises pass in the game (D509, ruling 2 of section 9).
 
-The life stage reads its palette from the spec already: the species mix, grove size, Forests and Berries
-(`resources`), which a theme sets. A premise map drawn with a theme's spec takes that theme's plants without a change
-to `life.ts`; the stand rules (where each species grows) stay the premise's.
+As built (step 9, core; the pickers are the page session's):
+
+- **Two choices.** `spec.theme` (Any or a theme) and `spec.premise` (`"any"` or a premise; absent: the themes' map, still
+  the default) are independent fields; the link carries both (`t=`, `p=`). Any resolves from the seed
+  (`premise/choice.ts` `resolvePremise`): the premise first, then the theme among those the premise honours
+  (`PREMISE_THEMES`).
+- **A pair the premise can't honour is refused in one line** (`pairRefusal`): the lake stair takes River Valley,
+  Canyon, Highlands and Lake Basin; Delta ("The lake stair needs high ground for its falls, and a Delta is low and
+  flat") and Islands ("The lake stair climbs one valley, and Islands breaks the land into isles") are refused, and
+  Generate has the themes make the map with the line in `info.premise.fellBack` (D471). Never silent.
+- **The style seam** (`premise/style.ts` `premiseStyle`). Stage 2 (`raster/relief.ts` `reliefBetween`): the outlands
+  stand at the theme's height over the stair and rise and fall by Relief; the hillside past each meadow takes the
+  theme's crags and benches; the uplands are graded by the theme's grade (#956's `GRADE` through `land/levels.ts`
+  `grader`): Canyon high on tableland, walls a level taller, benches three apart; Highlands tall broad terraces four
+  apart; River Valley the premise's own land; Lake Basin a little gentler. The style fades in past the start's own
+  16 tiles, so the start, its frame and its walk are the premise's in every theme. Stage 6 (`life.ts`): a species mix
+  left as the panel's own takes the theme's woods (`drawWoods`); the stand rules stay the premise's. Terrain has one
+  material in the game, so the ground's look is its shape (D496).
+- **The premise's in every theme:** the plan, its water, levels, works and ladder. The dry beds follow the land, as
+  stage 2 lays them in any land, and a theme can change which of the seed's plans holds first where a check's verdict
+  on the styled land differs (seed 2: plan 3 in Canyon and Highlands, plan 9 in River Valley and Lake Basin).
+- **Measured** (128², seeds 1 to 8): the mean height of dry ground is 11.4 in River Valley, 11.4 in Lake Basin, 12.3 in
+  Canyon and 12.0 in Highlands; ground at level 13 or higher 44 %, 43 %, 56 % and 53 %. Every map a lake stair with
+  every blocking check passed, but Lake Basin seed 8, which falls back to the themes (no mine site reachable).
+- **Short:** the style has little height to work in (the stair stands on levels 6 to 14 of the 16 a map below
+  Verticality 70 has), so the themes read apart by walls and tableland more than by height, and Lake Basin barely
+  apart from River Valley. The set pieces (step 7) do not take the style yet.
+- **The map card's words** (`premise/card.ts` `premiseCard`, in `info.premise.card`): the premise's name, the style, the
+  landmark ("The Great Fall, a six-level fall into Low Lake, the start's lake") and the ladder's first rung in a
+  sentence ("Mend the breach in the old weir at the Gate Gorge (one tile), so Low Lake keeps its water in a drought.").
 
 ## 2. The pipeline
 
@@ -1112,7 +1147,7 @@ Each step is one PR that leaves dev green and is useful by itself.
 | 6 | **Built.** **Life and resources by budget**, the dry land's dress | The map looks as it plays: stands, open meadow, dead woods on old shores | 5 |
 | 7 | **Set pieces and secrets**: the ruined weir and its breach, piers at the works, the Still Pool, aquifers and drill, relics, then the cave | The first frame's story; the first two works | 6; new `MapObjectKind`s |
 | 8 | **The proofs and the judging tools**: background proof rows, `tools/premise-batch.ts`, tiers 1 to 4 run and recorded | The premise proved true on every map a player opens | 7. The first ten cycles (#927, in work) for the cycles' proof; not blocked |
-| 9 | **On the page**: the premise's control beside Generate, the map card naming the premise and its landmark, the settings' mapping (section 1.3) complete | Players get it | 8 passed; the page session |
+| 9 | **Core built** (theme × premise as two choices, the style seam, the pair refusals, the settings' mapping of section 1.3 complete, the card's words; section 1.5). **On the page**: the two pickers beside Generate, each with Any; the settings greyed by `premiseSettings`; the map card from `info.premise.card` | Players get it | 8 passed; the page session |
 | 10 | **The ladder's readout in the editor** (section 8) | The editor's missing step 5 | 5; the page session |
 | 11 | **The wall and the gate** | A second idea; Generate can surprise | 9 |
 | 12 | **The sketch start** (section 8) | The editor's missing steps 1 and 2 | 2, 3 |

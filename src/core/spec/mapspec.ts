@@ -25,6 +25,16 @@ export const THEME_NAMES: Record<ThemeId, string> = {
   islands: "Islands",
 };
 
+/** The premises (docs/PREMISES.md, D508): a problem the player solves, beside the theme, the land's style (§1.5).
+ *  `PremiseId` names one; a spec's `premise` may also be "any", which the seed resolves to one
+ *  (`premise/choice.ts` `resolvePremise`). A spec without a premise is the themes' map (D509: their default). */
+export const PREMISE_IDS = ["lakeStair"] as const;
+export type PremiseId = (typeof PREMISE_IDS)[number];
+export type PremiseChoice = "any" | PremiseId;
+/** The premises the page offers, in its order: Any first, then each premise. */
+export const PREMISE_CHOICES: readonly PremiseChoice[] = ["any", ...PREMISE_IDS];
+export const PREMISE_NAMES: Record<PremiseChoice, string> = { any: "Any", lakeStair: "Lake stair" };
+
 export const SIZE_PRESETS: Record<SizePreset, number> = { small: 96, medium: 128, large: 192, max: 256 };
 export const MIN_SIDE = 4;
 export const MAX_SIDE = 512;
@@ -123,7 +133,9 @@ export interface MapSpec {
   size: { x: number; y: number };
   theme: ThemeId;
   archetype: ArchetypeId;
-  premise?: string;
+  /** The problem the map is made from (D508), absent for the themes' map; "any" the seed resolves. With a premise,
+   *  `theme` is the land's style (PREMISES §1.5; "any" the seed resolves among the themes the premise honours). */
+  premise?: PremiseChoice;
   /** Another like this (M9b, D278 (1c)): a sibling's index (1, 2, …; absent for the map itself):
    *  the same theme, settings and intentions, different land. */
   variation?: number;
@@ -285,7 +297,43 @@ export function mineSitesForSize(x: number, y: number): number {
   return area <= 128 * 128 ? 2 : 3;
 }
 
-export function defaultSettings(theme: ThemeId, designedFor: Difficulty, size: { x: number; y: number }): Settings {
+/** What a premise's plan reads, preset (PREMISES §1.5): the settings that move its water, levels and ladder take the
+ *  premise's values, never the theme's, so a theme changes only the land's style. Any's values, the lake stair's
+ *  since step 1. */
+interface PremisePreset {
+  verticality: number;
+  buildableLand: Settings["terrain"]["buildableLand"];
+  water: Pick<ThemePreset, "rivers" | "riverStyle" | "riverFlow" | "droughtReserve" | "lakes" | "waterfalls">;
+  badwater: Settings["hazards"]["badwater"];
+}
+const ANY_PREMISE: PremisePreset = {
+  verticality: VT_DEFAULT.any,
+  buildableLand: THEME_PRESETS.any.buildableLand,
+  water: { rivers: THEME_PRESETS.any.rivers, riverStyle: THEME_PRESETS.any.riverStyle, riverFlow: THEME_PRESETS.any.riverFlow, droughtReserve: THEME_PRESETS.any.droughtReserve, lakes: THEME_PRESETS.any.lakes, waterfalls: THEME_PRESETS.any.waterfalls },
+  badwater: THEME_PRESETS.any.badwater,
+};
+export const PREMISE_PRESETS: Record<PremiseChoice, PremisePreset> = { any: ANY_PREMISE, lakeStair: ANY_PREMISE };
+
+/** The settings a spec starts from: its theme's preset at its difficulty and size. With a premise (PREMISES §1.5),
+ *  the theme's preset gives the land's style (Relief, Terracing, the Resources) and the premise's gives what its plan
+ *  reads (Verticality and Highest terrain, Buildable land, the Water, Badwater), so the theme never moves the
+ *  premise's water. The page resets the settings to this when the theme, the premise or the difficulty changes. */
+export function defaultSettings(theme: ThemeId, designedFor: Difficulty, size: { x: number; y: number }, premise?: PremiseChoice): Settings {
+  const s = themeSettings(theme, designedFor, size);
+  if (premise === undefined) return s;
+  const q = PREMISE_PRESETS[premise];
+  s.terrain.verticality = q.verticality;
+  s.terrain.highestTerrain = highestTerrainDefault(q.verticality);
+  s.terrain.buildableLand = q.buildableLand;
+  s.water = { ...q.water, sources: "placed" };
+  s.hazards.badwater = q.badwater;
+  return s;
+}
+
+/** The species mix the settings panel starts from: a map that keeps it takes the woods its land draws (D164). */
+export const DEFAULT_SPECIES_MIX: Readonly<Settings["resources"]["speciesMix"]> = { pine: 47, birch: 27, oak: 20, succulent: 6 };
+
+function themeSettings(theme: ThemeId, designedFor: Difficulty, size: { x: number; y: number }): Settings {
   const p = THEME_PRESETS[theme];
   const d = DIFFICULTY_RULES[designedFor];
   return {
@@ -303,7 +351,7 @@ export function defaultSettings(theme: ThemeId, designedFor: Difficulty, size: {
     resources: {
       forestDensity: p.forestDensity,
       groveSize: "normal",
-      speciesMix: { pine: 47, birch: 27, oak: 20, succulent: 6 },
+      speciesMix: { ...DEFAULT_SPECIES_MIX },
       berriesNearStart: d.berriesTarget,
       berryBushes: 100,
       ruins: p.ruins,
@@ -329,6 +377,8 @@ export function makeSpec(opts: {
   size?: { x: number; y: number };
   theme?: ThemeId;
   designedFor?: Difficulty;
+  /** A premise (D508): the spec takes the premise's preset for what its plan reads (`defaultSettings`). */
+  premise?: PremiseChoice;
 }): MapSpec {
   const theme = opts.theme ?? "riverValley";
   const designedFor = opts.designedFor ?? "normal";
@@ -340,8 +390,9 @@ export function makeSpec(opts: {
     size: { x: size.x, y: size.y },
     theme,
     archetype: theme,
+    ...(opts.premise !== undefined ? { premise: opts.premise } : {}),
     designedFor,
-    settings: defaultSettings(theme, designedFor, size),
+    settings: defaultSettings(theme, designedFor, size, opts.premise),
     colonies: { count: 1, mod: "none" },
   };
 }

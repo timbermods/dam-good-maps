@@ -21,13 +21,12 @@ import { moisture } from "../../src/core/sim/moisture";
 import { decodeSpecFragment, encodeSpecFragment, makeSpec } from "../../src/core/spec/mapspec";
 
 // (re-pinned since generator 0.10.16's ground with grade, D148: the map's own land is the same; its description names the
-// generator's version, "Made with Dam Good Maps 0.10.16", gen/pack.ts; again for step 7's works, and for step 8's works
-// sited by moisture, D148)
-const SHA = "68284f130bf27f34590ccb5236bad0a2a1769a73a9c0a9006acabee05efdfdd6";
+// generator's version, "Made with Dam Good Maps 0.10.16", gen/pack.ts; again for step 7's works; for step 9's style,
+// theme Any taking Canyon's on seed 1; and for step 8's works sited by moisture with step 9 merged, D148)
+const SHA = "a6a2391b88e7969c40ad7f95eb2cc22893da237f1138d5bdc01934d2df49942e";
 
 describe("The premise mode (§2.2, build step 4)", () => {
-  const made = makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "any" });
-  made.premise = "lakeStair";
+  const made = makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "any", premise: "lakeStair" });
   const link = encodeSpecFragment(made);
   const opened = decodeSpecFragment(link)!;
 
@@ -42,6 +41,16 @@ describe("The premise mode (§2.2, build step 4)", () => {
     const p = r.info.premise!;
     expect(p.fellBack).toBeUndefined();
     expect(p.plan?.premise).toBe("lakeStair");
+    // (theme Any resolves from the seed: seed 1 takes Canyon's style; the card names the premise, its landmark and the
+    // ladder's first rung, build step 9)
+    expect(p.theme).toBe("canyon");
+    expect(p.card).toEqual({
+      name: "Lake stair",
+      style: "Canyon",
+      landmark: "The Great Fall, a six-level fall into Low Lake, the start's lake",
+      first: "Mend the breach in the old weir at the Gate Gorge (one tile), so Low Lake keeps its water in a drought.",
+      line: p.plan!.line,
+    });
     expect(r.report.passed).toBe(true);
     // (step 6's plants and mine sites answer the start's wood and food and the mine pair: none waits for a later step)
     expect(p.later).toEqual([]);
@@ -98,8 +107,7 @@ describe("The premise mode (§2.2, build step 4)", () => {
   });
 
   it("hands a spec the premise rules out to the themes, saying why", () => {
-    const spec = makeSpec({ seed: 1, size: { x: 64, y: 64 }, theme: "any" });
-    spec.premise = "lakeStair";
+    const spec = makeSpec({ seed: 1, size: { x: 64, y: 64 }, theme: "any", premise: "lakeStair" });
     const r = generatePremise(spec);
     expect("reason" in r && r.reason.length).toBeGreaterThan(0);
   });

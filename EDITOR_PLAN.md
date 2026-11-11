@@ -566,8 +566,11 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   uneven width and pinch out instead of running round as even bands. Then every tile stands in a two-by-two square
   of its own level, or is a single tile on the side of one: no band narrower than two tiles (a steep slope is a
   cliff with ledges, never a stair of one-tile steps; a cliff the force made stays whole), no one-tile pillar, pit,
-  ridge, trench or lone block. Ground a force did not change is touched only right beside ground it did. Craterize
-  ends with it; Erupt, Rift, Deposit, Quake and Glaciate adopt it next.
+  ridge, trench or lone block. Ground a force did not change is touched only right beside ground it did, and where
+  it changed nothing round a tile by more than a level the tidying never moves that tile more than two: the land's
+  own one-tile ledge goes back to where it stood, and the corner of its own two-tile ridge, with the ground of its
+  level round it, to where the force put it, or where the force's rounding would leave that one tile wide to where it
+  stood, never down its cliff and never leaving ground one tile wide. Craterize ends with it; Erupt, Rift, Deposit, Quake and Glaciate adopt it next.
 - **Esc skips, undo takes it back** (D344, A4): while a gesture is still being drawn, Esc cancels it and nothing of
   it lands; once a force plays, Esc skips it to its end, its final land kept as one step; Ctrl+Z (or Z, or Revert)
   takes all of it back at any moment, and nothing lands afterwards (D341). The row's tooltip carries the keys (**Esc** skips,
@@ -651,9 +654,12 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   that** (`rust/forces`, `strength`): a force set larger than its Power's own size keeps its reach and acts in
   proportion (`strength`: 1 at Power 100 and at Power's own size, the square root of the natural share at Power
   0). A tempered force still moves every tile it reaches by at least a level: Power scales how deep, never whether
-  (D356). At the largest Size, Power 0 is the gentlest effect that still shows; `tests/contract/forcePower.test.ts`
-  holds each force to at least 9 tiles changed, at most a quarter of Power 100's change (a Slide 30%), at most 4
-  levels deep, and a change growing across Power 0, 50 and 100.
+  (D356). A force that replaces the land's relief with its own ground (Craterize's bowl) does so only as far as
+  Power's share of the strength (`relief`): at Power 0 the land under a crater larger than its Power keeps its
+  relief and the crater is a dish cut into it, never the hillside levelled toward one height. At the largest Size,
+  Power 0 is the gentlest effect that still shows; `tests/contract/forcePower.test.ts` holds each force to at least 9
+  tiles changed, at most a quarter of Power 100's change (a Slide 30%), at most 4 levels deep, and a change growing
+  across Power 0, 50 and 100 (Craterize on River Valley 128 seeds 1 to 10).
 - **Stored literally:** a force's run is one `forceResult` operation, stored literally, one undo step (§ The map
   document).
 - **Try another keeps every roll** (force variants, D488): each Try another is a new roll of the same force from the
@@ -954,7 +960,12 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   changes nothing says why beside the pointer for a moment: "Moist ground keeps its height: weather dry land" when
   most of it pressed on moist soil (an island in a lake is all moist), else "Nothing here to weather" (showcase-craft gap 23). It
   weathers dab by dab: each dab weathers the land the dabs before it left, only round where it presses harder
-  (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. It is
+  (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. Its edges
+  also wander only where it presses harder than the weathering strokes before it did on the land as they left it (rule
+  6: the build keeps how hard they pressed, the session's terrain hands it to the page, and the stroke records what it
+  read, `worn`), so the same stroke painted again only sheds and settles what the last one left and comes to rest;
+  before, each repeat drew its edges again along the noise and the shed wore them back, and the land kept changing,
+  most at Terracing 100 (River Valley 2: 164, 147, 77, 126, … tiles a stroke; now 164, 3, then nothing). It is
   weathered off the page in a worker of its own (D422, #868: `worker/naturalize.worker.ts`, `raster/remoteStroke.ts`),
   on the terrain and land the page shows, one call out at a time and the dabs meanwhile as one batch, the land a frame
   or two behind the cursor; the page sends that land to the map's worker for its water, as for the other brushes. Every
@@ -971,7 +982,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   at 256², 73 ms, and 4 times the slowest single dab, 308 ms at 512² and 327 ms at 256²): a worker that never answers in time has its stroke taken back as Esc takes one back (no
   land, water or operation), the page says "Naturalize stopped answering, so the stroke was taken back. Paint it
   again.", what waited for the stroke goes ahead, and the worker is started again for the next stroke. A new
-  stroke records its rule (`weathering: 5`, added by the core); a stroke saved with rule 4 (the top cut back
+  stroke records its rule (`weathering: 6`, added by the core); a stroke saved with rule 5 (its edges wandering
+  again on every stroke), rule 4 (the top cut back
   whatever its foot took, pulling back above water too), rule 3 (dab by dab, some
   cliffs' scree slopes lost, so a repeated stroke kept cutting those cliffs back), with D399's first rule
   (`weathering: 2`, the whole stroke at once) or before D399 replays with its own rule. Pen pressure on drawing tablets sets a soft stroke's strength. Every brush's options row starts with its **Size**, a

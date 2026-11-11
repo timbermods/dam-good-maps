@@ -9,7 +9,8 @@
 //   tiles downhill (between a higher and a lower neighbour across it) or a sliver of a level one tile
 //   thick (above or below both its neighbours across it), and no tile it left as it was becomes such a
 //   sliver; a tile that was already one tile wide (a tile of a one-tile staircase it had) may stay so.
-// - Painting the same spot again changes less and less (repeating settles).
+// - Painting the same spot again changes less and less (repeating settles), and comes to rest: the fourth stroke on
+//   the same path changes nothing (rule 6).
 // - An older map has fewer terraces: a Size 64, Strength 10 stroke leaves no more level edges than
 //   there were.
 // - The water stays where it stood (what you see is what you get): beside a river or a lake no dry
@@ -145,7 +146,7 @@ describe("Naturalize keeps the downhill order (D399)", () => {
         const before = s.built.heights.slice();
         const u = s.apply({ op: "brush", params: p }, "user", "Naturalize");
         expect(u.errors).toEqual([]);
-        expect(u.applied[0].params, "a new stroke records its rule").toMatchObject({ weathering: 5 });
+        expect(u.applied[0].params, "a new stroke records its rule").toMatchObject({ weathering: 6 });
         const reached = new Uint8Array(W * W);
         markBrushTiles(p, W, W, reached);
         const after = s.built.heights;
@@ -220,10 +221,39 @@ describe("painting the same spot again settles (D399)", () => {
   ] as const)
     it(`ten strokes at Size ${size}, Strength ${strength} change less each time`, () => settles(theme, seed, size, strength));
 
-  // A known fault since generator 0.10.16, listed in the themes PR: Naturalize's second stroke on the same path can change
-  // more than its first (River Valley 3 at (22, 78): 82, then 99; on the land before 0.10.16 River Valley 2: 94, then 132).
-  // Once fixed, this case passes, it.fails reports it, and it becomes an ordinary test.
-  it.fails("ten strokes at Size 12, Strength 10 on River Valley 3 change less each time", () => settles("riverValley", 3, 12, 10));
+  // (a fault from generator 0.10.16 to rule 6: the second stroke on the same path changed more than the first, River
+  // Valley 3 at (22, 78) 82, then 99, as each repeat's edges wandered again along the noise and the shed wore them back;
+  // rule 6 remembers how hard the strokes before pressed, and changes 82, 89, then nothing)
+  it("ten strokes at Size 12, Strength 10 on River Valley 3 change less each time", () => settles("riverValley", 3, 12, 10));
+
+  // Rule 6: an edge wanders only where a stroke presses harder than the strokes before it did on the land as they left
+  // it, so the same stroke painted again only sheds and settles what the last one left, and comes to rest: after three,
+  // the fourth changes nothing. River Valley 2 at Terracing 100 is where it kept changing most (#990: at Size 14,
+  // Strength 5, eight tiles went up and down by two levels on every stroke, for ever).
+  for (const [theme, seed, size, strength] of [
+    ["riverValley", 2, 14, 5],
+    ["riverValley", 2, 12, 10],
+    ["riverValley", 3, 12, 10],
+    ["riverValley", 4, 12, 10],
+    ["canyon", 4, 12, 10],
+  ] as const)
+    it(`${theme} ${seed} at Terracing 100, Size ${size}, Strength ${strength}: a fourth stroke on the same path changes nothing`, () => {
+      const s = session(theme, seed, 100);
+      const rand = mulberry(size * 31 + strength);
+      const [cx, cy] = terraced(s);
+      const p = stroke(rand, cx, cy, size, strength);
+      const counts: number[] = [];
+      for (let k = 0; k < 4; k++) {
+        const before = s.built.heights.slice();
+        // (its own seed each time, as the page paints a stroke)
+        expect(s.apply({ op: "brush", params: { ...p, seed: 1000 + k } }, "user", "Naturalize").errors).toEqual([]);
+        counts.push(changed(before, s.built.heights).tiles);
+      }
+      expect(counts[0], "the first stroke weathered the land").toBeGreaterThan(0);
+      expect(counts[3], `tiles changed by each stroke: ${counts.join(", ")}`).toBe(0);
+      // and the map is the one its operations build
+      expect(Array.from(s.fullBuild().heights)).toEqual(Array.from(s.built.heights));
+    });
 });
 
 describe("an older map has fewer terraces, not more (D399, Kyler's round 2 verdict)", () => {
@@ -403,7 +433,7 @@ describe("the page's stroke is the stroke the session builds (D399)", () => {
       const preview = new StrokePreview(settings, s.terrainState(), heights, W, W, groundUnderObjects(s.built.entities));
       for (let k = 0; k < dabs.length; k += 6) preview.add(dabs.slice(k, k + 6));
       // the page's settings now carry the rule and the water the preview kept, as its operation will
-      expect(settings).toMatchObject({ weathering: 5, shore: expect.any(Array), pools: expect.any(Array), moist: expect.any(Array) });
+      expect(settings).toMatchObject({ weathering: 6, shore: expect.any(Array), pools: expect.any(Array), moist: expect.any(Array) });
       const u = s.apply({ op: "brush", params: { ...settings, dabs } }, "user", "Naturalize");
       expect(u.errors).toEqual([]);
       expect(Array.from(heights), `Size ${size}`).toEqual(Array.from(s.built.heights));
