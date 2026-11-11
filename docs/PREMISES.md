@@ -1241,12 +1241,18 @@ Where it differs from the table, and why:
 - **Levels by number**: the lake's sill 7 (`BED_FLOOR` + 4), so the slot's floor (5) falls to the notch on the floor (3,
   D325; round 8's bed reached 1); the Veil 6 or 7; the crest 17 to 19 (9 over a floor at most the sill + 1, so Highest
   terrain under 17 is refused); the Pass two under the springs; the megadam's water the sill + 2; the rim 12 to 14.
-- **The bastion is 8 thick**, not 7: the cleft's pool stands `BODY_GAP` (3) behind the trench under the lip, with a row
-  of rock behind it. It is the wall's most southern run.
+- **The bastion is 10 thick**, not 7: the cleft's pool stands behind the Veil's mouth, which stage 1 widens to the lip
+  over 5 rows (`raster/falls.ts` `VALLEY_BACK`), with a row of rock behind it. It is the wall's most southern run.
 - **The Veil's lip runs along the wall**, so the lake stair's "square to the look" and "35 to 56 % of the frame" do not
   apply (the round's lip spans about a quarter); its ends and foot are in the first frame (the foot to v −1.1), its far
   end under the top edge's limit. The start stands 5 rows in front of the face.
-- **The Still Pool is a `kettle`** beside the start, its inlet a wet `channel` one wide, 3.0 to 3.5 between outlines.
+- **The Still Pool is a `kettle`** beside the start, its inlet a wet `channel` one wide, 3.0 to 3.5 between outlines, at
+  the lip's end the camera leans to (where the frame puts the start); the drain bay leaves by the other end.
+- **The Veil is the landmark with the shortest hanging valley**: a mouth from the cleft's front to the lip (`path`), so
+  stage 1 lays it as the first frame's landmark (its lip the plan's width, its foot a shelf). **The Low River** is a
+  `gorge` link over the lake's own wide sill (10 to 16 by the valley's flow, round 8's 14), as the lake stair's lowest
+  sill over its gorge, its bed on the floor through the spur. The brooks' springs are 2.0 to 2.6 (the round's 2.5 to 3):
+  the whole valley leaves over that lip.
 - **The Gate is one link** from the lake to the notch, the slot then the Gate Bed (`slot.to`); **the leat** one link
   from the cleft along the crest to the Pass and down the Pass Bed to the same notch (`passAt`). The seeps are left to
   the relief stage.
@@ -1256,6 +1262,42 @@ Where it differs from the table, and why:
   twice that: **(assumption)** until the ladder stage measures them.
 - **Measured** (`tests/contract/premiseGatePlan.test.ts`; seeds 1 to 200 at 128², 192² and 256²): every plan holds every
   `plan` invariant on its first attempt, 1 to 5 ms a plan.
+
+**As built (water, stage 1; the second PR).** The shared stage (`water.ts` `waterByNumber`) lays the gate's plan
+unchanged: no shared stage reads the lake stair's `stair` before stage 2. `gateWater.ts` adds what is the gate's own and
+its `land` invariants (`GATE_WATER_CHECKS`, in `wallGate.invariants`):
+
+- **The bars**: the Gate's head to its first row a level over the lake's sill (the shared head-hold already stands it
+  there), the leat's two over its bed (the springs' sill + 1, its row 3.5 along so the bar has its two tiles).
+- **The lake's floor by the drought hold** (`holdDeep`, as the lake stair's: 2 on normal, 4 on hard), the cleft and the
+  Still Pool a level deep; **the first frame's beds** raised to hold their water under two (§5.1's rule, `FRAME_DEEP`
+  1.9; the lake stair's stage 3 asks 1.2), since the plan fixes the start; **the Veil's foot** a level under the sill and
+  its outer row two (the drowned river's ribbon, "the row that carries the fall to the drain"). The foot is two rows
+  between the lip and the start's 5 × 5, so it carries the whole Veil sideways: on the lake stair's shelf at the sill it
+  stood 0.7 over the lake and wet the start's bench. **The trench and the drain bay are one arm**, the bay wide at the
+  lip's end (the shared stage's bay, `bayOf`, gives it the ribbon).
+- **Invariants**: the shared `land` ones, `water.levels` read for a backwater (a body with no way out fed by one wet link
+  from a body at its sill stands at that sill, not at a rim), `gate.dry` (on day 1 no water past the Gate's or the
+  leat's bar, none on the basin's side of the wall but in the cleft, none leaving the map but by the Low River) and
+  `frame.water` (85 % of the first frame's water under two, on stage 1's own beds).
+- **The settle** (`gateSettleModel`; `tests/contract/premiseGateWater.heavy.test.ts`, `tools/premise-gate-water.ts
+  --settle`): judged alone, stage 1's undrawn ground is 0, and the gate's waters close a loop (the cleft, the leat, the
+  Pass Bed, the notch, the Gate Bed, the slot, the lake) whose guard fences the basin into a pit the pre-fill fills; so
+  the settle stands the undrawn ground over every water, as stage 2 will.
+- **Measured**: every plan of seeds 1 to 60 at 128², 192² and 256² holds every `plan` and `land` invariant on its first
+  attempt (18 to 120 ms with its water). Settled (seeds 1 to 12 at 128², 1 to 6 at 192², 1 to 4 at 256²): the lake 0.48
+  to 0.58 over its sill, the cleft 0.36 to 0.48 over its lip, the Still Pool 0.09 to 0.16 over the lake (0.35 on seed 11
+  at 128², where the foot backs up), the Gate and the leat dry past their bars, no stray water, nothing on the map's
+  edge but the Low River, and what leaves 1.4 to 3.1 % under what the springs give (the settle's own loss). The Veil pours one curtain on 21 of 22, judged at its height less 0.5 (round 8
+  measured 6.5 for 7; the lake stair's landmark asks 0.3): seed 11 at 128² drops 6.5 for 7, at the line.
+- **Short, for milestone** (shared files, not edited): (1) `PremiseDef` has no seam for a premise's own stage 1, so
+  `gateFirstWater` copies `draw.ts` `firstWater`; with `water?(plan): StageWater` on `PremiseDef` (`types.ts`) and
+  `def.water?.(plan) ?? waterByNumber(plan)` at `draw.ts` `firstWater`, `generate.ts` (the stage 1 call) and `siting.ts`
+  `sitePlan`, the gate's stage 1 runs in the mode. (2) `waterChecks.ts` `levelsOf` reads a body with no way out as a
+  pond at its rim; a backwater (the Still Pool) stands at its feeder's sill. (3) `levels.ts` `route` gives a link into a
+  body with no way out a share of its body's flow (the Still Pool's inlet takes 1 to 2.3 of the lake's 17, which the
+  table then takes off the Low River), and reads the Veil's mouth by its channel's width, so the table stands the cleft
+  half a level over where it settles. None changes where the water goes.
 
 ### 5.2 The island sea
 
@@ -1382,7 +1424,7 @@ Each step is one PR that leaves dev green and is useful by itself.
 | 8 | **The proofs and the judging tools**: background proof rows, `tools/premise-batch.ts`, tiers 1 to 4 run and recorded | The premise proved true on every map a player opens | 7. The first ten cycles (#927, in work) for the cycles' proof; not blocked |
 | 9 | **Core built** (theme × premise as two choices, the style seam, the pair refusals, the settings' mapping of section 1.3 complete, the card's words; section 1.5). **On the page**: the two pickers beside Generate, each with Any; the settings greyed by `premiseSettings`; the map card from `info.premise.card` | Players get it | 8 passed; the page session |
 | 10 | **The ladder's readout in the editor** (section 8) | The editor's missing step 5 | 5; the page session |
-| 11 | **Plan built** (stage 0, not offered: §5.1 "As built"). **The wall with one gate** (§5.1, built by hand as The Gate); its water, relief and works next | A second idea; Generate can surprise | 9 |
+| 11 | **Plan and water built** (stages 0 and 1, not offered: §5.1 "As built"). **The wall with one gate** (§5.1, built by hand as The Gate); its water, relief and works next | A second idea; Generate can surprise | 9 |
 | 12 | **The sketch start** (section 8) | The editor's missing steps 1 and 2 | 2, 3 |
 | 13 | **The island sea** | A third idea; the first with a real delay | 11, 8 |
 
