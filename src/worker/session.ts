@@ -58,6 +58,8 @@ import { carryStack, sameKeptWater, StackLive, type LiveStack, type StackFrame }
 import { reshapeTop, TERRAIN_LAYERS } from "../core/terrain/runs";
 import { toMapObject } from "../core/features/build";
 import { soilObjects } from "../core/sim/columns";
+import type { MoistureReach } from "../core/sim/soil3d";
+import { irrigationTones } from "../core/analysis/irrigation";
 import { computeDaySoil, type SoilBase, type SoilJob, type SoilRunner } from "./daySoil";
 import { WaterSim, type WaterModel } from "../core/sim/water";
 import { changedRect } from "../render3d/mesh";
@@ -2552,6 +2554,9 @@ export interface WaterLayers {
   badwater: Uint8Array;
   /** An imported map's tiles with a cave or an overhang: the brushes shape only their tops. */
   roofed: Int32Array;
+  /** The Irrigation view's tones and the soil's reach behind them (analysis/irrigation.ts), worked out only when that
+   *  view asks: null otherwise. */
+  irrigation: Irrigation | null;
   /** Why the water checks are approximate on this map (null: they are not). */
   approximate: string | null;
   /** The water these layers show is the preview's (the canonical settle is still running). */
@@ -2567,7 +2572,13 @@ export function markerNotesNow(): MarkerNote[] {
 /** The water layers of the map as it now stands. An unedited import keeps the file's water and
  *  has no settle: its badwater soil comes from the background check's canonical settle, once it
  *  has run. */
-export function waterLayers(): WaterLayers {
+/** The Irrigation view: each tile's tone (analysis/irrigation.ts `irrigationTones`) and the soil's reach, for the hover's
+ *  why (`dryWords`). */
+export interface Irrigation extends MoistureReach {
+  tone: Uint8Array;
+}
+
+export function waterLayers(kind?: string): WaterLayers {
   const s = need();
   const b = s.built;
   const { W, H } = b;
@@ -2583,11 +2594,18 @@ export function waterLayers(): WaterLayers {
     else if (soil[i] > 0) badwater[i] = 2;
   }
   const roofed = Int32Array.from([...s.roofedTiles].sort((a, c) => a - c));
+  let irrigation: Irrigation | null = null;
+  if (kind === "irrigation") {
+    // (the same water and soil the other layers show: an unedited import's from the background check)
+    const reach = s.moistureReach(b, fromCheck ? { depth, contamination } : undefined);
+    irrigation = { ...reach, tone: irrigationTones(reach, fromCheck ? fromCheck.moist : b.moisture, depth) };
+  }
   return {
     W,
     H,
     badwater,
     roofed,
+    irrigation,
     approximate: lastCheck && lastCheck.version === version ? lastCheck.approximate : null,
     preview: s.waterPending,
     version,

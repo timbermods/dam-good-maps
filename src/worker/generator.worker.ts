@@ -299,9 +299,14 @@ const api = {
   markerNotes() {
     return ed.markerNotesNow();
   },
-  waterLayers() {
-    const r = ed.waterLayers();
-    return transfer(r, [r.badwater.buffer, r.roofed.buffer] as Transferable[]);
+  /** The water layers; `kind` "irrigation" adds the Irrigation view's tones and reach (worked out only then). */
+  waterLayers(kind?: string) {
+    const r = ed.waterLayers(kind);
+    const i = r.irrigation;
+    // (the reach is the session's cached one: copied, so the transfer leaves the cache whole)
+    if (i) r.irrigation = { tone: i.tone, value: i.value.slice(), levels: i.levels.slice(), tiles: i.tiles.slice(), barred: i.barred.slice() };
+    const extra = r.irrigation ? [r.irrigation.tone.buffer, r.irrigation.value.buffer, r.irrigation.levels.buffer, r.irrigation.tiles.buffer, r.irrigation.barred.buffer] : [];
+    return transfer(r, [r.badwater.buffer, r.roofed.buffer, ...extra] as Transferable[]);
   },
   async backgroundCheck(onProgress?: (p: ed.CheckProgress) => void) {
     return ed.backgroundCheck(onProgress);

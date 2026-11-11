@@ -303,6 +303,9 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
       } else if (!mod && !ev.altKey && ev.key.toLowerCase() === "t") {
         // T: clear water, as the game (D196)
         setClearWater((on) => !on);
+      } else if (!mod && !ev.altKey && !ev.shiftKey && ev.code === "KeyI") {
+        // I: the Irrigation view on or off, as the Show row's toggle does it
+        ed.setLayer((l) => (l === "irrigation" ? "none" : "irrigation"));
       }
     };
     // F let go: the size is set

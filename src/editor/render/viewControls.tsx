@@ -9,7 +9,10 @@ import type { Ed } from "../ed";
 import { HIDE_OBJECTS_KEY } from "../view/useHideObjects";
 
 /** The overlays' words on their view buttons. */
-const OVERLAY_WORDS: Record<LayerKind, string> = { none: "None", badwater: "Badwater", roofed: "Caves and overhangs" };
+const OVERLAY_WORDS: Record<LayerKind, string> = { none: "None", badwater: "Badwater", roofed: "Caves and overhangs", irrigation: "Irrigation" };
+
+/** The Irrigation view's key. */
+export const IRRIGATION_KEY = "I";
 
 export function levelLinesButton(ed: Ed) {
   const { brush, brushRef, setBrush } = ed;
@@ -23,17 +26,17 @@ export function levelLinesButton(ed: Ed) {
 }
 
 /** An overlay's toggle (its caption shows in the key under Legend, `layerCaption`). */
-function overlayRow(ed: Ed, k: LayerKind) {
+function overlayRow(ed: Ed, k: LayerKind, tipText = `Show ${LAYER_NAMES[k].toLowerCase()}`, key?: string) {
   const { layer, setLayer } = ed;
   return (
-    <ShowRow key={k} on={layer === k} onToggle={() => setLayer(layer === k ? "none" : k)} tip={tip(`Show ${LAYER_NAMES[k].toLowerCase()}`)}>
+    <ShowRow key={k} on={layer === k} onToggle={() => setLayer(layer === k ? "none" : k)} tip={tip(tipText, key)}>
       {OVERLAY_WORDS[k]}
     </ShowRow>
   );
 }
 
-/** The Show row's toggles after Flow: See-through, Badwater and, on a map that has them, Caves and overhangs, right
- *  after Badwater at every width (the band's layout moves the water row to a second line when the row needs the room). */
+/** The Show row's toggles after Flow: See-through, Badwater, Irrigation and, on a map that has them, Caves and
+ *  overhangs, right after Irrigation at every width (the band's layout moves the water row to a second line when the row needs the room). */
 export function viewButtons(ed: Ed) {
   const { clearWater, setClearWater } = ed;
   return (
@@ -42,6 +45,7 @@ export function viewButtons(ed: Ed) {
         See-through
       </ShowRow>
       {overlayRow(ed, "badwater")}
+      {overlayRow(ed, "irrigation", "Show where more water would wet dry ground", IRRIGATION_KEY)}
       {ed.info.caves ? overlayRow(ed, "roofed") : null}
     </>
   );
@@ -58,7 +62,7 @@ export function hideObjectsButton(ed: Ed) {
   );
 }
 
-/** The water overlay's caption while one is on (Badwater, Caves and overhangs), for the key under the Show column. */
+/** The water overlay's caption while one is on (Badwater, Irrigation, Caves and overhangs), for the key under the Show column. */
 export function layerCaption(ed: Ed) {
   const { waterLayers, layer } = ed;
   return layer !== "none" && waterLayers ? <LayerLegend kind={layer} layers={waterLayers} /> : null;
