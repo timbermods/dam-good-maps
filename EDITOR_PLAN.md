@@ -254,7 +254,8 @@ place of its bottom rule.
   keys only in tooltips.
   - Select: How to select's six shapes on the tools' cells, icon above name; "Drag on the map" beside them, or with a
     selection its size (and Max water depth with Apply over water), then its Level and its actions on the second
-    row, one per cell (Up 1, Down 1, Flatten, Cut down, Fill up, Delete). No close button: Esc or X closes it. The first row
+    row, one per cell (Up 1, Down 1, Flatten, Cut down, Fill up, Delete). After them on the second row: Max water depth (two cells), Apply, and **Lake level**
+    (two cells; §5, "Lakes by number"), live once the Wand has taken water. No close button: Esc or X closes it. The first row
     ends with **Crop** (the map becomes the selection's bounding rectangle, D340; one cell, the size's words take two),
     **Fill water** (the hollow under the selection's lowest ground filled with standing water to the brim, the highest
     level it holds (the core's `fillLevel`), so the first try holds; to the Level once the player sets it; hovering says
@@ -1151,8 +1152,16 @@ Make a valley, drop a source, and there's a river.
   settles once). Refused with one plain line when the land can't hold the lake: the level at or below its floor, a
   second way out below the level (one sill can't hold it), water that would spill off the map, a notch that would
   also drain another lake, a width for a sill that must be raised, no source filling it that high, a river standing a
-  level or more over the sill. One undo step; the start is carried if its ground broke. Engine and question in the core (`setLakeLevel`); its
-  control waits on the page session.
+  level or more over the sill. One undo step; the start is carried if its ground broke. Engine and question in the core (`setLakeLevel`).
+  **On the page:** Select's **Lake level** (`useSelect.tsx`; `settings.tsx` `HeldNumberSetting`). The Wand on water takes a
+  lake (or a river), and the field then shows the level it stands at (its surface's whole level, read from the map's
+  water); it is greyed with nothing taken, and goes back to that when the selection changes. A new level is typed (Enter
+  or leaving the field sets it), dragged on its slider or turned on the wheel over it, a step a notch; once the hand has
+  rested about half a second the worker's `lakeLevelAt` sets it. While the plan runs (a settle: seconds on a big map)
+  the field is greyed and the row's words say "Setting the lake's level…". A refusal is the core's one line on the
+  message line, as for every refusal, and the field goes back to the lake's level; a typed number out of range is sent
+  as typed and refused there, never clamped. One step in History, undone and redone as any other; afterwards the
+  selection is the lake as it now stands. Its tooltip: "Hold the lake at this level", key cap Scroll.
 - **Seeing underwater** (D196, D212): while a brush is over water already there, the water under and right round it
   turns clear, so the bed, ledges and sources show; working on dry land leaves the water as it is. T (the game's
   key) or **Clear water** makes all of it clear. The ground under water is drawn as it is dry, as the game draws it
