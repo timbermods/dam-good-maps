@@ -899,122 +899,191 @@ function frameReason(fr: ReturnType<typeof lipInFrame>): string | null {
 }
 
 /** The bypass (§4.1): a dry channel from the springs' pool round one side to an edge or into the gorge below the
- *  lowest sill, 250 to 320 tiles at 192² (scaled by side), mouth 10 wide, three rows of Blockages, the first at the
- *  mouth. It follows a ring inside the map's edge on the side the seed draws, wherever that ring is clear of the
- *  stair. */
+ *  lowest sill, 250 to 330 tiles at 192² (scaled by side), mouth 10 wide, three rows of Blockages, the first at the
+ *  mouth. Its course is a path of its own over the map (`bypassCourse`): the cheapest way from the pool round the
+ *  stair, clear of every body and channel, over a cost the seed draws (soft rises and hollows), kept off the band
+ *  along the map's edge but where it leaves by it. A ring at a fixed distance in from the edge, as before, read as a
+ *  band drawn parallel to the border on every map. */
 function placeBypass(L: Layout): string | null {
   const { rng, plan, W } = L;
   const lo = (BYPASS_LENGTH[0] * W) / 192;
   const hi = (BYPASS_LENGTH[1] * W) / 192;
-  const m = Math.round(W * 0.04) + rng.int(0, 3);
-  const c = 0.12 * W;
-  const ring: Point[] = [
-    [m + c, m], [W - m - c, m], [W - m, m + c], [W - m, W - m - c], [W - m - c, W - m], [m + c, W - m], [m, W - m - c], [m, m + c], [m + c, m],
-  ];
-  const per = pathLength(ring);
   const others = plan.links.filter((l) => l.path).map((l) => l.path!);
-  const okPoint = (p: Point) =>
-    plan.bodies.every((b) => bodyDist(p[0], p[1], b) > BYPASS_HALF + 4) &&
-    others.every((o) => pathDist(p[0], p[1], o).d > BYPASS_HALF + 4) &&
-    dist(p, [plan.frame.start.x, plan.frame.start.y]) > 14;
-  // (the walks from each entry, both ways, come by the same points of the ring: each is placed and judged once)
-  const ringAt = new Map<number, { p: Point; ok: boolean }>();
-  const atRing = (s: number) => {
-    let e = ringAt.get(s);
-    if (!e) {
-      const p = pointAt(ring, s).p;
-      e = { p, ok: okPoint(p) };
-      ringAt.set(s, e);
-    }
-    return e;
-  };
-  const pc: Point = [L.pool.arms[0][0][0], L.pool.arms[0][0][1]];
-  const entries: { s: number; p: Point; d: number }[] = [];
-  for (let s = 0; s < per; s += 4) {
-    const p = pointAt(ring, s).p;
-    entries.push({ s, p, d: dist(p, pc) });
-  }
-  entries.sort((a, b) => a.d - b.d);
-  const target = lo + rng.float() * (hi - lo) * 0.8;
-  // the exit the seed draws: an edge of its own, or the gorge below the lowest sill (past the megadam's slot), where
-  // the walk comes by it; an edge when it never does
   const gorge = plan.links.find((l) => l.id === "gorge")!;
   const gl = pathLength(gorge.path!);
   const below = subPath(gorge.path!, gl * 0.6, gl);
-  const tries = rng.shuffle(entries.slice(0, 24));
+  const course = bypassCourse(L, others);
+  const rows = (len: number) => [2, Math.round(len * rng.range(0.45, 0.6)), Math.round(len * rng.range(0.75, 0.88))];
+  // the exit the seed draws: an edge of its own, or the gorge below the lowest sill (past the megadam's slot); an
+  // edge when no course reaches the gorge
   for (const toGorge of rng.float() < 0.5 ? [true, false] : [false]) {
-    for (const e of tries) {
-      // the mouth: from the pool's outline toward the ring
-      const dir = norm([e.p[0] - pc[0], e.p[1] - pc[1]]);
-      let mouth: Point = pc;
-      for (let t = 0; t < 30 && bodyDist(mouth[0], mouth[1], L.pool) < 0; t++) mouth = [mouth[0] + dir[0] * 0.5, mouth[1] + dir[1] * 0.5];
-      const lead: Point[] = [mouth, e.p];
-      if (!clearPath(plan, lead, BYPASS_HALF, [L.pool.id], others, 4)) continue;
-      for (const way of rng.shuffle([1, -1])) {
-        const path: Point[] = [mouth, e.p];
-        let run = dist(mouth, e.p);
-        for (let k = 1; k * 2 < per * 0.9; k++) {
-          const s = (((e.s + way * k * 2) % per) + per) % per;
-          const { p, ok } = atRing(s);
-          const join = toGorge ? pathDist(p[0], p[1], below) : null;
-          if (join && join.d < BYPASS_HALF + (gorge.half ?? 3) + 10 && join.d > 4) {
-            const at = rp(pointAt(below, join.s).p);
-            const full = [...path, p, at];
-            const simple = softCorners([...full.slice(0, -2).filter((_, i) => i === 0 || i % 3 === 0), p, at].map(rp));
-            const len = pathLength(simple);
-            if (len >= lo && len <= hi && clearPath(plan, simple.slice(0, -1), BYPASS_HALF, [L.pool.id], others.filter((o) => o !== gorge.path), BYPASS_ROOM)) {
-              plan.links.push({
-                id: "bypass",
-                from: L.pool.id,
-                to: gorge.to,
-                kind: "bypass",
-                path: simple,
-                half: BYPASS_HALF,
-                mouth: BYPASS_MOUTH,
-                bed: { under: 3 },
-                wet: false,
-                gates: [],
-                rows: [2, Math.round(len * rng.range(0.45, 0.6)), Math.round(len * rng.range(0.75, 0.88))],
-              });
-              addName(plan, "bypass", rng.pick(BYPASS_NAMES));
-              return null;
-            }
-          }
-          if (!ok) break;
-          run += dist(path[path.length - 1], p);
-          path.push(p);
-          if (run > hi) break;
-          if (run < target || toGorge) continue;
-          const out = toEdge(p, W, W);
-          if (run + dist(p, out) > hi) break;
-          if (plan.exits.some((x) => dist(x.at, out) < 16)) continue;
-          const full = [...path, out];
-          const simple = softCorners(full.filter((_, i) => i === 0 || i === full.length - 1 || i % 3 === 0).map(rp));
-          if (pathLength(simple) < lo || pathLength(simple) > hi) continue;
-          if (!clearPath(plan, simple, BYPASS_HALF, [L.pool.id], others, BYPASS_ROOM)) continue;
-          const exit: Exit = { id: "exitBypass", edge: edgeOf(out, W, W), at: rp(out) };
-          plan.exits.push(exit);
-          const len = pathLength(simple);
-          plan.links.push({
-            id: "bypass",
-            from: L.pool.id,
-            to: exit.id,
-            kind: "bypass",
-            path: simple,
-            half: BYPASS_HALF,
-            mouth: BYPASS_MOUTH,
-            bed: { under: 3 },
-            wet: false,
-            gates: [],
-            rows: [2, Math.round(len * rng.range(0.45, 0.6)), Math.round(len * rng.range(0.75, 0.88))],
-          });
-          addName(plan, "bypass", rng.pick(BYPASS_NAMES));
-          return null;
-        }
+    const ends = course.ends(toGorge ? below : null, lo, hi);
+    for (const end of rng.shuffle(ends).slice(0, 16)) {
+      // (the mouth on the pool's outline, its lead's end, the course)
+      const [mouth, ...cells] = course.back(end);
+      const last = cells[cells.length - 1];
+      const join = toGorge ? pointAt(below, pathDist(last[0], last[1], below).s).p : null;
+      const out = join ?? toEdge(last, W, W);
+      if (!join && plan.exits.some((x) => dist(x.at, out) < 16)) continue;
+      const pts = cells.filter((_, k) => k === 0 || k === cells.length - 1 || k % 2 === 0);
+      const simple = softCorners([mouth, ...pts, out].map(rp));
+      const len = pathLength(simple);
+      if (len < lo || len > hi) continue;
+      if (join) {
+        if (!clearPath(plan, simple.slice(0, -1), BYPASS_HALF, [L.pool.id], others.filter((o) => o !== gorge.path), BYPASS_ROOM)) continue;
+        plan.links.push({ id: "bypass", from: L.pool.id, to: gorge.to, kind: "bypass", path: simple, half: BYPASS_HALF, mouth: BYPASS_MOUTH, bed: { under: 3 }, wet: false, gates: [], rows: rows(len) });
+      } else {
+        if (!clearPath(plan, simple, BYPASS_HALF, [L.pool.id], others, BYPASS_ROOM)) continue;
+        const exit: Exit = { id: "exitBypass", edge: edgeOf(out, W, W), at: rp(out) };
+        plan.exits.push(exit);
+        plan.links.push({ id: "bypass", from: L.pool.id, to: exit.id, kind: "bypass", path: simple, half: BYPASS_HALF, mouth: BYPASS_MOUTH, bed: { under: 3 }, wet: false, gates: [], rows: rows(len) });
       }
+      addName(plan, "bypass", rng.pick(BYPASS_NAMES));
+      return null;
     }
   }
   return "placeBypass#1";
+}
+
+/** The grid the bypass's course is found on, tiles a cell. */
+const COURSE_CELL = 2;
+/** The band along the map's edge the course keeps off but where it leaves by it, tiles, and what a cell in it costs
+ *  over one outside. */
+const COURSE_EDGE = [12, 3] as const;
+/** How far the bypass runs straight out of the pool before its course turns, tiles past the outline. */
+const COURSE_LEAD = 8;
+
+/** The bypass's courses (`placeBypass`): the cheapest way from the springs' pool to every cell of a grid
+ *  `COURSE_CELL` tiles a side, a cell costing its length times the seed's rises and hollows (six soft bumps), more
+ *  within `COURSE_EDGE` of the map's edge; no cell within the bypass's room of a body, a channel or the start. `ends`
+ *  gives the cells a course `lo` to `hi` tiles long may end at: by the map's edge, or beside `join` (the gorge below
+ *  the slot) at the room it keeps; `back` the cells from the pool to one. */
+function bypassCourse(L: Layout, others: Point[][]): { ends(join: Point[] | null, lo: number, hi: number): number[]; back(end: number): Point[] } {
+  const { rng, plan, W } = L;
+  const G = Math.floor(W / COURSE_CELL);
+  const N = G * G;
+  const at = (c: number): Point => [((c % G) + 0.5) * COURSE_CELL, (Math.floor(c / G) + 0.5) * COURSE_CELL];
+  // (clearPath's room and half a cell over: the course runs between cell middles)
+  const room = BYPASS_HALF + BYPASS_ROOM + 1.5;
+  const s0: Point = [plan.frame.start.x, plan.frame.start.y];
+  const bumps = Array.from({ length: 6 }, () => ({ p: [rng.range(0, W), rng.range(0, W)] as Point, r: rng.range(0.15, 0.35) * W, a: rng.range(-0.6, 0.9) }));
+  const open = new Uint8Array(N);
+  const cost = new Float64Array(N);
+  for (let c = 0; c < N; c++) {
+    const p = at(c);
+    if (p[0] < 1 || p[1] < 1 || p[0] > W - 1 || p[1] > W - 1 || dist(p, s0) <= 14) continue;
+    const pool = bodyDist(p[0], p[1], L.pool);
+    if (pool <= 0.5) continue;
+    if (plan.bodies.some((b) => b !== L.pool && bodyDist(p[0], p[1], b) <= room)) continue;
+    if (others.some((o) => pathDist(p[0], p[1], o).d <= room)) continue;
+    open[c] = 1;
+    let k = 1;
+    for (const b of bumps) {
+      const d2 = dist2(p, b.p) / (b.r * b.r);
+      if (d2 < 1) k += b.a * (1 - d2) * (1 - d2);
+    }
+    const edge = Math.min(p[0], p[1], W - p[0], W - p[1]);
+    cost[c] = Math.max(0.4, k) + (edge < COURSE_EDGE[0] ? COURSE_EDGE[1] : 0);
+  }
+  // the cheapest ways out from the cells beside the pool (Dijkstra, a binary heap)
+  const best = new Float64Array(N).fill(Infinity);
+  const len = new Float64Array(N);
+  const from = new Int32Array(N).fill(-1);
+  const heap: number[] = [];
+  const swap = (a: number, b: number) => {
+    const t = heap[a];
+    heap[a] = heap[b];
+    heap[b] = t;
+  };
+  const push = (c: number) => {
+    heap.push(c);
+    for (let k = heap.length - 1; k > 0; ) {
+      const q = (k - 1) >> 1;
+      if (best[heap[q]] <= best[heap[k]]) break;
+      swap(q, k);
+      k = q;
+    }
+  };
+  const pop = (): number => {
+    const top = heap[0];
+    const end = heap.pop()!;
+    if (heap.length) {
+      heap[0] = end;
+      for (let k = 0; ; ) {
+        const a = 2 * k + 1;
+        let m = k;
+        if (a < heap.length && best[heap[a]] < best[heap[m]]) m = a;
+        if (a + 1 < heap.length && best[heap[a + 1]] < best[heap[m]]) m = a + 1;
+        if (m === k) break;
+        swap(m, k);
+        k = m;
+      }
+    }
+    return top;
+  };
+  // (the course leaves the pool straight, `COURSE_LEAD` tiles out from its middle, so the mouth's first row seals it)
+  const pc: Point = [L.pool.arms[0][0][0], L.pool.arms[0][0][1]];
+  const mouthOf = new Map<number, Point>();
+  for (let k = 0; k < 64; k++) {
+    const dir = unitAt(k);
+    let mouth: Point = pc;
+    for (let t = 0; t < 80 && bodyDist(mouth[0], mouth[1], L.pool) < 0; t++) mouth = [mouth[0] + dir[0] * 0.5, mouth[1] + dir[1] * 0.5];
+    const end: Point = [mouth[0] + dir[0] * COURSE_LEAD, mouth[1] + dir[1] * COURSE_LEAD];
+    const c = Math.floor(end[1] / COURSE_CELL) * G + Math.floor(end[0] / COURSE_CELL);
+    if (end[0] < 0 || end[1] < 0 || end[0] >= G * COURSE_CELL || end[1] >= G * COURSE_CELL || !open[c] || mouthOf.has(c)) continue;
+    if (!clearPath(plan, [mouth, at(c)], BYPASS_HALF, [L.pool.id], others, 4)) continue;
+    mouthOf.set(c, rp(mouth));
+    best[c] = 0;
+    len[c] = dist(mouth, at(c));
+    push(c);
+  }
+  const done = new Uint8Array(N);
+  while (heap.length) {
+    const c = pop();
+    if (done[c]) continue;
+    done[c] = 1;
+    const x = c % G;
+    const y = (c - x) / G;
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= G || yy >= G) continue;
+        const n = yy * G + xx;
+        if (!open[n] || done[n]) continue;
+        const step = (dx && dy ? 1.41421356 : 1) * COURSE_CELL;
+        const v = best[c] + (step * (cost[c] + cost[n])) / 2;
+        if (v < best[n]) {
+          best[n] = v;
+          len[n] = len[c] + step;
+          from[n] = c;
+          push(n);
+        }
+      }
+  }
+  return {
+    ends(join, lo, hi) {
+      const out: number[] = [];
+      for (let c = 0; c < N; c++) {
+        // (the mouth's lead and the way out add a few tiles; softened corners take a few off)
+        if (!done[c] || len[c] < lo - 8 || len[c] > hi - 6) continue;
+        const p = at(c);
+        if (join) {
+          const d = pathDist(p[0], p[1], join).d;
+          if (d < BYPASS_HALF + 10 && d > room) out.push(c);
+        } else if (Math.min(p[0], p[1], W - p[0], W - p[1]) <= COURSE_CELL * 1.5) out.push(c);
+      }
+      return out;
+    },
+    back(end) {
+      const cells: Point[] = [];
+      let c = end;
+      for (; from[c] >= 0; c = from[c]) cells.push(at(c));
+      cells.push(at(c), mouthOf.get(c)!);
+      return cells.reverse();
+    },
+  };
 }
 
 /** A dry or wet brook, a leat or a run, straight from one outline toward a point, if it is clear. */
