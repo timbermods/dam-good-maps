@@ -22,7 +22,7 @@ import { CraterRun, EruptRun, modelOf, QuakeRun } from "../../src/core/forces/ru
 import { canonicalSettle } from "../../src/core/sim/prefill";
 import { WaterSim } from "../../src/core/sim/water";
 import { fixture } from "./forceFixtures";
-import { carve as protoCarve, erupt as protoErupt, quake as protoQuake } from "../../investigation/forces-core/verbs";
+import { carve as protoCarve, quake as protoQuake } from "../../investigation/forces-core/verbs";
 import { FLOOR_DEFAULT, holdAtFloor } from "../../src/core/forces/floor";
 import { fixture as protoFixture } from "../../investigation/forces-core/demo/maps";
 import { snapshot as protoSnapshot } from "../../investigation/forces-core/core/map";
@@ -55,6 +55,68 @@ const digest = (m: ForceMap) =>
     .update(JSON.stringify(m.entities))
     .update(JSON.stringify(m.fallen ?? []))
     .digest("hex");
+
+/** A vent's cone, judged as a landform (the force audit's findings 2 and 3): no higher than 0.6 of its radius (0.4 a
+ *  broad shield); its outline lobed (its foot a third further out on some bearing than on another); no one-tile pillar
+ *  or pit; a crater 5 or more tiles across, its rim notched 2 levels or more on one side (the breach); and a cone 7 or
+ *  more levels high stepped in benches, most of its steps 2 levels or more, not a stair of one-level rings. */
+function cone(before: Uint8Array, p: { map: ForceMap; anatomy: { x: number; y: number; datum: number; radius: number; height: number; summit: string } }, W: number, what: string) {
+  const { map, anatomy: a } = p;
+  const h = map.heights;
+  const top = Math.max(...h) - a.datum;
+  const broad = what.startsWith("broad");
+  expect(top, `${what}: its height`).toBeLessThanOrEqual((broad ? 0.4 : 0.6) * a.radius + 0.5);
+  const foot: number[] = [];
+  for (let k = 0; k < 24; k++) {
+    const t = (k / 24) * Math.PI * 2;
+    let far = 0;
+    for (let d = 0; d < W; d += 0.5) {
+      const x = Math.round(a.x + Math.cos(t) * d);
+      const y = Math.round(a.y + Math.sin(t) * d);
+      if (x < 0 || y < 0 || x >= W || y >= W) break;
+      if (h[y * W + x] - before[y * W + x] >= 2) far = d;
+    }
+    foot.push(far);
+  }
+  expect(Math.max(...foot), `${what}: its foot by bearing, ${foot}`).toBeGreaterThanOrEqual(Math.min(...foot) * 1.3);
+  let lone = 0;
+  let ones = 0;
+  let more = 0;
+  for (let y = 1; y < W - 1; y++)
+    for (let x = 1; x < W - 1; x++) {
+      const i = y * W + x;
+      if (h[i] === before[i]) continue;
+      const n = [h[i - 1], h[i + 1], h[i - W], h[i + W]];
+      if (h[i] > Math.max(...n) || h[i] < Math.min(...n)) lone++;
+      for (const j of [i + 1, i + W]) {
+        const d = Math.abs(h[i] - h[j]);
+        if (d === 1) ones++;
+        else if (d > 1) more++;
+      }
+    }
+  expect(lone, `${what}: one-tile pillars and pits`).toBe(0);
+  if (top >= 7) expect(ones / (ones + more), `${what}: the share of its steps one level high`).toBeLessThan(0.5);
+  if (a.summit !== "crater" || top < 7) return;
+  const rim: number[] = [];
+  for (let k = 0; k < 24; k++) {
+    const t = (k / 24) * Math.PI * 2;
+    let hi = 0;
+    for (let d = 0; d < a.radius * 0.6; d += 0.5) hi = Math.max(hi, h[Math.round(a.y + Math.sin(t) * d) * W + Math.round(a.x + Math.cos(t) * d)]);
+    rim.push(hi);
+  }
+  expect(Math.max(...rim) - Math.min(...rim), `${what}: the rim's notch`).toBeGreaterThanOrEqual(2);
+  // (its crater: the ground inside its rim below it, 5 or more across, 2 levels deep or more)
+  let crater = 0;
+  let deep = 0;
+  for (let y = 0; y < W; y++)
+    for (let x = 0; x < W; x++)
+      if (Math.hypot(x - a.x, y - a.y) < Math.max(3.5, a.radius * 0.3) && h[y * W + x] < Math.max(...rim)) {
+        crater++;
+        deep = Math.max(deep, Math.max(...rim) - h[y * W + x]);
+      }
+  expect(crater, `${what}: the crater's floor, 5 or more across`).toBeGreaterThanOrEqual(20);
+  expect(deep, `${what}: the crater's depth`).toBeGreaterThanOrEqual(2);
+}
 
 const pinned = (p: Partial<Pinned>) => PINNED.results.find((r) => Object.entries(p).every(([k, v]) => r[k as keyof Pinned] === v))!.sha256;
 
@@ -456,24 +518,51 @@ describe("the forces core, pinned to the prototypes (#59's 45 cases)", () => {
       }
   });
 
-  it("Erupt: Vent and Fissure, Steep and Broad (the prototype's height and reach, reshaped by D321 item 14; without the start: D257)", () => {
+  // (pinned to the prototype's height and reach until the force audit's findings 2 and 3 made a vent a cone: at most
+  // 0.6 of its radius high (0.4 a broad shield), its outline lobed, one breach, a crater 5 or more tiles across, its
+  // flanks benches of uneven width rather than one-level rings; a fissure's rampart goes through the shared levels
+  // stage; D148)
+  const ERUPTS: Record<string, string> = {
+    "vent steep 0": "342c21e9de4ce7f7dfdd3592334073ad3b9f4510ced2146c40f705e09c98dd51",
+    "vent steep 1": "420b81b190eebeab4b7ad32b9c0e3a1337f0ade383217122543ba85091f647c8",
+    "vent steep 42": "85d542e4a83054856d2fd80675428cf0acba9c0307deed2be6b216a7bc670919",
+    "vent broad 0": "c7d387661fe89cfd71f374ac908c4419808422d837015ec044b341b8c53537c2",
+    "vent broad 1": "fe491ba0078cd91ae9b71c714dc273afd73ed31a6fb01acdc2aa6f90b8ac0fe3",
+    "vent broad 42": "9ea1c4eea6e28bfbb113d38e11f6895af7191cf18f055bce8785a189fe975edf",
+    "fissure steep 0": "3dcd8023e9ccb7ba007bd3481386f3bc477ddc3c8dc56d78f86166e402f535ae",
+    "fissure steep 1": "bf38d16a542db7f912500938494d63899917b68049ea7b247da7851961ef8d83",
+    "fissure steep 42": "e16d29f8f3eb83ede49f3fbcc3068c57a5e5c0eea7c535715746149854215cdb",
+    "fissure broad 0": "472cccfc3cdf3c6af48153389ff36a027647fae041430b77e8948674857d3ece",
+    "fissure broad 1": "d9f66951b20347aee203ecdcbe6a020b252f62db9026d661e4a0f20b1d02dd53",
+    "fissure broad 42": "6f7c14f34a66780dffa73be66ebfae520a312a5832b9c451c96918bef4ce76f4",
+  };
+  it("Erupt: Vent and Fissure, Steep and Broad, three personalities (its own landform since the force audit; without the start: D257)", () => {
+    const got: Record<string, string> = {};
     for (const seed of [0, 1, 42])
       for (const mode of ["vent", "fissure"] as const)
         for (const shape of ["steep", "broad"] as const) {
-          const { m, proto } = startless("plain");
+          const { m } = startless("plain");
           const intent = { origin: 40 * 64 + 35, path: [{ x: 30, y: 40 }, { x: 50, y: 42 }] };
           const p = erupt(snapshotMap(m), { ...ERUPT_DEFAULTS, seed, mode, shape, power: 45 }, intent);
-          const q = protoErupt.erupt(protoSnapshot(proto), { ...protoErupt.DEFAULTS, seed, mode, shape, power: 45 }, intent);
-          // (item 14 reshapes its crater, its skirt of lava and its rock: the same height, a like reach)
-          const what = `${mode} ${shape} ${seed}`;
-          expect(Math.abs(Math.max(...p.map.heights) - Math.max(...q.map.heights)), what).toBeLessThanOrEqual(3);
-          const raised = (h: ArrayLike<number>) => Array.from(h).filter((v, i) => v !== m.heights[i]).length;
-          // (its skirt reaches less far than the prototype's: under a third less of the land, never more)
-          expect(raised(p.map.heights), what).toBeGreaterThan(raised(q.map.heights) * 0.3);
-          expect(raised(p.map.heights), what).toBeLessThan(raised(q.map.heights) * 1.6);
+          got[`${mode} ${shape} ${seed}`] = digest(p.map);
+          if (mode === "vent") cone(m.heights, p, 64, `${shape} ${seed}`);
         }
+    expect(got).toEqual(ERUPTS);
   });
 
+  it("Erupt: the default click is a volcano that reads as one (the force audit's findings 2 and 3): Auto's radius capped by the map, a crater 5 or more across with a low notch, benches rather than one-level rings", () => {
+    const W = 128;
+    for (const seed of [0, 1, 42])
+      for (const shape of ["steep", "broad"] as const)
+        for (const power of [62, 100]) {
+          const m = fixture("plain", W);
+          m.entities = m.entities.filter((e) => e.template !== "StartingLocation");
+          const p = erupt(snapshotMap(m), { ...ERUPT_DEFAULTS, seed, shape, power, summit: "crater" }, { origin: 60 * W + 66 });
+          const what = `${shape} ${power} ${seed}`;
+          expect(p.anatomy.radius, `${what}: Auto's radius, at most 18 % of the map's side`).toBeLessThanOrEqual(0.18 * W + 1e-9);
+          cone(m.heights, p, W, what);
+        }
+  });
   it("Carve: straight to winding, three personalities, every step to the end (the prototype's land held at the Floor, D321 item 40)", () => {
     for (const seed of [0, 1, 42])
       for (const wander of [0, 35, 100]) {
@@ -613,7 +702,9 @@ describe("the forces' own regressions (Quake's strokes and rivers, the rock betw
     expect(hard.lava.some((b) => b > 0)).toBe(true);
     const soft = { ...snapshotMap(hard), lava: new Uint32Array(hard.lava.length) };
     const cs = { ...CARVE_DEFAULTS, mode: "aim" as const, power: 60, seed: 18, wander: 0, width: 4, dry: true, defyGravity: true };
-    const ci = { origin: 72 * 128 + 28, end: 72 * 128 + 112 };
+    // (across the cone's flank: since the force audit's finding 2 the cone is no higher than 0.6 of its radius and its
+    // lava no longer reaches row 72; D148)
+    const ci = { origin: 68 * 128 + 28, end: 68 * 128 + 112 };
     const h = new CarveRun(hard, cs, ci);
     const s = new CarveRun(soft, cs, ci);
     for (const r of [h, s]) for (let k = 0; k < 1200 && !r.metrics.stable; k++) r.step();

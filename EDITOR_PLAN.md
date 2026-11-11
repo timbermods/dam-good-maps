@@ -111,7 +111,7 @@ place of its bottom rule.
   leaves the room above the bar. It has four shapes, the first that fits the room winning (`panelFit.ts`, chosen by the
   band's layout, `view/useBandLayout.ts`, from the room above the bar and beside the corner, with the open legend's
   room kept): two columns 640px wide (692 tall; 1920×1080 and up); three columns 880 wide (509 tall); the same with every
-  row tighter (449 tall; 1600×900, 1536×864, 1440×900); two columns tighter (594 tall; windows too narrow for three).
+  row tighter (449 tall; 1600×900, 1536×864, 1440×900); two columns tighter (620 tall; windows too narrow for three).
   The first-run hints stand aside while it is open. In a window with less room than the shortest shape that fits its
   width (1280×720, 1366×768) the panel keeps that shape and scrolls inside, a soft fade at its foot saying more lies
   below; `tests/e2e/generatorFit.spec.ts` holds the sizes. **Enter** anywhere in the panel is Generate (a field, a
@@ -119,7 +119,20 @@ place of its bottom rule.
   (the Showcase sheet's Esc closes the sheet first). A title block: the **Name** for the next map (the field starts
   empty, the open map's name in grey in it; what is typed names the map **Generate** makes next, then the field is
   empty again, and the open map is never renamed from here, only from the title), **Generate** and **Surprise me**; **Theme** (with **Reset
-  settings**); **Seed** (a typed seed is kept, with **Keep** to keep or let it go) and **Size** (96, 128, 192, 256 or
+  settings**); **Idea** directly under Theme (D508, PREMISES §1.5): **None** (the themes' map, the default, D509), then
+  the premise library's choices (`PREMISE_CHOICES`, named by `PREMISE_NAMES`: **Any**, **Lake stair**), its tooltip "The
+  problem the map is built around"; two columns wide it is a line of its own (the rows a pixel shorter, so the panel is no
+  taller), three columns wide it shares Size's line, before it. An idea resets the settings as a theme does
+  (`defaultSettings(theme, difficulty, size, premise)`), greys out the settings it does not use (`premiseSettings`, each
+  saying so in its tooltip) and marks in the warning colour the themes it does not take; a pair or a setting it refuses says
+  why in one line as a note over the map before Generate (`premiseRefusal`), and a map the themes made instead says so after
+  it (`info.premise.fellBack`). Generate, Surprise me, Another like this, Keep, the share link (`p=`) and a reopened map
+  carry it. A map made from an idea shows its card with the notes (`IdeaCard.tsx`, the core's `info.premise.card`: the idea
+  and its land, the landmark, the problem, what to do first) until its × or the next map. The card's five strings are kept
+  with the project (`DocMeta.card`, the page reads `SessionInfo.card`), so a reload, a file or Your maps reopens the map with
+  the same card, through hand edits too (it tells the map as it was made); its × hides it until the map is next opened; a
+  map with no idea, a .timber among them, has none; with a panel open it stands at the
+  dock's right, clear of the panel; **Seed** (a typed seed is kept, with **Keep** to keep or let it go) and **Size** (96, 128, 192, 256 or
   Custom, then the **Easy start** toggle at the line's end, D495: "A flat, roomy start with water and food close by";
   on, the next map's start is calm and generous, PLAN §5.6; a theme, Surprise me and Reset settings keep it, the page
   remembers it in this browser and the share link carries it, `es=1`; Custom's width and height typed, each 4 to 512, opening at the open map's own size; beyond 256 on a side that box turns the warning colour and its tooltip says Timberborn's
@@ -535,8 +548,11 @@ Every force (Carve, Craterize, Erupt, Quake, Glaciate, Rift, Deposit, Erode) fol
 on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README).
 
 - **Sources** (D474; Kyler, 2026-10-05): every force's settings hold **Sources**, Ride (sources and seeps ride the
-  ground) or **Clear** (the default: the force removes the sources and seeps on ground it changes), in the brushes'
-  Sources look, remembered per force with the other pins and sent as `settings.sources`; Try another sends the row's
+  ground) or **Clear** (the default: the force removes the sources and seeps whose ground it destroys, buried 3 levels
+  or more, cut 2 or more away, or in the crush zone where ground moved whole tears (2.5 tiles of a Quake's crack, a
+  Rift's walls); one that rides an intact block or
+  a thin apron stays, as under Ride; the force audit's S2, `src/core/forces/clear.ts` `destroyedGround`; Glaciate's
+  ice still takes what it reaches), in the brushes' Sources look, remembered per force with the other pins and sent as `settings.sources`; Try another sends the row's
   choice as it is. A force's own sources (Keep river, Meltwater, an unleashed source) always stay.
 - **One row** (D289): **Power**, **Size** (Quake has none), at most one signature choice (Carve's **Keep river** or
   **Dry canyon**; Quake's **Lift** or **Slide**; Glaciate's **Meltwater**), and **Try another**. The gesture is the
@@ -548,7 +564,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   colour with a chevron, D309, D361; closed by default, remembering how it was left) opens those details; every
   detail starts on **Auto**, nature's own pick; setting one pins it, with a small way back to Auto beside it. Once
   a force runs, a detail on Auto shows the value it just took, one click from being pinned; before one runs, the
-  value Auto gives where the row can tell (Craterize's centre by its size, Erupt's summit by Power) or the usual one;
+  value Auto gives where the row can tell (Craterize's centre by its size, Erupt's summit by Power and the seed) or the usual one;
   a rift's walls and a fan's channels are picked in the run (`autoPicked`), every detail outlined the same way. Try another re-rolls
   only the details still on Auto; pins are remembered with the editor preferences. While a force works its row is
   its status (Carve's with Pause) and Revert; it keeps itself when it ends (no Stop); the other tools wait.
@@ -571,7 +587,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   it changed nothing round a tile by more than a level the tidying never moves that tile more than two: the land's
   own one-tile ledge goes back to where it stood, and the corner of its own two-tile ridge, with the ground of its
   level round it, to where the force put it, or where the force's rounding would leave that one tile wide to where it
-  stood, never down its cliff and never leaving ground one tile wide. Craterize ends with it; Erupt, Rift, Deposit, Quake and Glaciate adopt it next.
+  stood, never down its cliff and never leaving ground one tile wide. Craterize, Erupt, Rift and Deposit end with it; Quake and Glaciate adopt it next.
 - **Esc skips, undo takes it back** (D344, A4): while a gesture is still being drawn, Esc cancels it and nothing of
   it lands; once a force plays, Esc skips it to its end, its final land kept as one step; Ctrl+Z (or Z, or Revert)
   takes all of it back at any moment, and nothing lands afterwards (D341). The row's tooltip carries the keys (**Esc** skips,
@@ -797,11 +813,16 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (along its flows, with ridges or without, D356), the smoke and the plume (bigger and darker with Power) play on,
   never blocking; the ground it raised reads as ash and basalt until the heat fades into the soil's own colours (#367).
   **A volcano always looks like a
-  volcano** (D321, item 14): the cone is the dominant shape at every setting, rising to a clear summit (Summit:
-  Crater, a bowl a fifth of its height deep under the rim), flows running down its sides, heavy flows a wider
-  thicker skirt, never a round plateau; its surface reads as rock (no lone raised tile, the summit aside); high
-  Power grows it toward the height ceiling (22, D244), and near the ceiling it spreads wider rather than taller,
-  never flat-topped. Overlapping eruptions build new cones on the flanks; an eruption always completes (D226).
+  volcano** (D321, item 14; the force audit's findings 2 and 3, `docs/progress/force-audit.md`): a cone at most 0.6 of
+  its radius high (a broad shield 0.4, 1.12 times as wide), Auto's radius at most 18 % of the map's short side; its
+  outline lobed by up to a quarter at seeded bearings; one breach where the crater opens out through the flank toward
+  the lowest ground; Summit: Crater a bowl 6 or more tiles across inside a rim 2 or more wide, Caldera a basin 0.29 of
+  the cone across with a scalloped rim and a small cone off its floor's centre (Auto: a peak below Power 32, a caldera
+  1 in 3 above 70, else a crater); its flanks benches of uneven width parted by faces of 2 to 4 levels (1 to 2 on a
+  low cone), their edges warped so they are neither concentric nor even, through the shared whole-levels step; flows
+  running down its sides, heavy flows a little further, never a round plateau; its surface reads as rock (no lone
+  raised tile); high Power grows it toward the height ceiling (22, D244) where the map is large enough, and near the
+  ceiling it spreads wider rather than taller, never flat-topped. Overlapping eruptions build new cones on the flanks; an eruption always completes (D226).
   Fresh volcanic rock is hard for Carve; flows can dam rivers; objects ride the rising ground, trees near a vent
   die, what stands in it goes, each as the heat reaches it (item 30); it erupts wherever asked (the start's ground
   too, D257) and never adds water; "No room to rise here" only where it can't rise at all.
@@ -826,30 +847,49 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   have them (D314). One `forceResult`; its ice, sounds and land keep one pace (D344, A7: `ForceCue.pace`). No ice-sheet
   mode for now.
 
-- **Rift** (D352, D438): land cracks open and drops between two rough faults, the opposite of Erupt's ridge: a
-  dropped block with its old floor tilted, hard-bed ledges on the walls, objects riding down upright, sources
-  riding too, or cleared (D474). A click makes a short rupture there (at least a set length, even at the edge);
-  a drag draws the fault.
+- **Rift** (D352, D438; the force audit's findings 6, 7, 23 and 29, `docs/progress/force-audit.md`): land cracks open
+  and drops between two border faults, the opposite of Erupt's ridge: a rift valley. Each fault is segments 12 to 20
+  tiles long set 2 to 4 tiles off one another, a relay ramp between two; the rift narrows to pointed tips and drops
+  most mid-length (about 5 levels at the default, 8 at Power 100). Walls on Auto: one sheer, the other stepping down
+  in benches about 2 levels apart and 3 to 5 tiles wide (Sheer or Stepped make both alike). Its floor keeps the old
+  relief, in two or three pieces each tilted toward the sheer wall, the whole tilted down the axis toward the end
+  with the lower ground beyond; a notch runs from that low end out to lower ground that drains (or the map's edge),
+  never deeper than the drop; then the shared whole-levels step. On a map with water the floor stands at or above
+  the level its water drains at, in long treads toward its head, so a stream runs down it: a lake at most 2 deep at
+  the low end, and the floor always a level down. Objects ride down upright (one of several tiles whole, by the drop
+  most of it takes), sources too, or cleared where a wall tears their ground (D474). A click makes a rift 3.2 times
+  as long as it is wide (Auto's width 8 + 0.12 × Power tiles, at most 0.16 of the map's short side), its middle kept
+  a quarter of its length in from the edge and running on past the edge, open to it; a drag draws the axis.
   **Power** (0–100, default 70; Power 0 still drops a level), **Size** (width, Auto or 4–64), **Try another**; behind
   More, **Walls** (Auto, Sheer, Stepped). The core half is adopted (`core/forces/rift.ts`, planned in Rust
   `rust/forces/src/rift.rs`; 21 fixed steps). The page: its settings (Power, Size, Walls with Auto; Floor, Try another),
   a click or a drawn fault, the stroke band as wide as its Size, the ring at the cursor, its sounds (a split, a deep
   drop, falling stone); no key yet. Its crack-and-drop effects on the land are the renderer's, to come.
-- **Deposit** (D352, D438): an alluvial fan at a valley's mouth: a lobed cone with curving distributaries, every block
-  of it paid for by ground taken from behind it and beside it (conserved; Keep, the Floor and the working area are
-  budgeted before it plays). Nothing changes outside its outline (Kyler, #341): a click's circle, Size across, and a
-  drag's band, Size wide along the line. A click builds the fan where it is clicked; a drag sets its direction and
-  reach. **Power** (default 70), **Size** (the fan's width, Auto or 8–64, independent of Power), **Try another**;
-  behind More, **Channels** (Auto, Few, Many). It never refuses for want of ground (D356): where no fan fits, what it
-  took lies a level deep on the nearest free ground inside the circle, and where the outline's free ground, beside the
-  fan's own tiles, has too little above the Floor to take (a lake's bed, the map's lowest ground, a working area the fan
-  fills), the water brings the rest of a small fan's sediment; only a working area that leaves no free ground in the outline refuses ("the working area leaves nothing to
-  take sediment from"), or an outline at the map's height ceiling ("the map leaves no room for sediment here"). Wet outlets keep their bed; objects ride or are buried,
-  none added. Every raised tile belongs to a filled 2 × 2 body: no lone pillars, stray tiles or connecting paths between
-  lobes, which stay separate; short draws, clicks and Power 0 still make a small fan. The core half is adopted (`core/forces/deposit.ts`, `rust/forces/src/deposit.rs`; 40 fixed steps). The
-  page: its settings (Power, Size, Channels with Auto; Floor, Try another), a click or a drawn line (a band as wide as its Size),
-  the ring at the cursor, its sounds (muddy water, settling earth); no key yet. Its sediment-and-water effects on the
-  land are the renderer's, to come.
+- **Deposit** (D352, D438; its landform the force audit's findings 4, 5, 14 and 28, 2026-11-11): an alluvial fan below
+  its gully: a low cone segment 60 to 120° wide from its apex (a few tiles behind where it is placed), a level per 4 to
+  8 tiles, 3 to 5 levels thick at the default, laid only where that cone stands above the ground and never above its
+  apex; its surface drawn to a seeded ladder of 1 to 2-level rungs with warped edges, then `levels::whole`, so it reads
+  as benches of uneven width with a feathered toe, never a step pyramid, even stairs or contour rings; 2 to 5
+  distributaries a level deep (Channels: Few 2, Many 5, Auto 3 or 4), each with one avulsion. What feeds it is a gully
+  up the steepest ascent behind it: a V-notch 2 to 4 wide at its floor, graded down to a level over the ground where
+  the fan is placed and on through the fan's head as a trench shallowing to nothing by nearly half its reach, so its
+  water runs out over the fan; where the ground behind is level it takes nothing and the water brings the sediment
+  (it is not conserved). Placed on dry ground it leaves water's beds as they are, and its gully keeps two tiles from
+  any water, so it never dams a stream, spills a pond or lets badwater into clean water; placed in water it lays a
+  level at most and keeps a wet outlet open. Try another turns it on level ground and re-rolls its spread, lobes and
+  channels. Nothing changes outside its outline (Kyler, #341): a click's circle, Size across, and a drag's band, Size
+  wide along the line. A click builds the fan where it is clicked; a drag sets its direction and reach. **Power**
+  (default 70), **Size** (the fan's width, Auto or 8–64, independent of Power), **Try another**; behind More,
+  **Channels** (Auto, Few, Many). Keep, the Floor (its gully never cuts under it) and the working area are applied
+  before it plays; an object of several tiles rides the fan whole. It never refuses for want of ground (D356): where
+  the fan leaves fewer than nine tiles changed, the nearest free 2 × 2 squares in its outline take a level; only a
+  working area that leaves no free ground in the outline refuses ("the working area leaves nothing to take sediment
+  from"), or an outline at the map's height ceiling ("the map leaves no room for sediment here"). Objects ride or are
+  buried, none added. Every raised tile belongs to a filled 2 × 2 body: no lone pillars or stray tiles. The core half
+  is adopted (`core/forces/deposit.ts`, `rust/forces/src/deposit.rs`; 40 fixed steps). The page: its settings (Power,
+  Size, Channels with Auto; Floor, Try another), a click or a drawn line (a band as wide as its Size), the ring at the
+  cursor, its sounds (muddy water, settling earth); no key yet. Its sediment-and-water effects on the land are the
+  renderer's, to come. Sheet: `docs/sheets/force-deposit.jpg`.
 - **Erode** (D279–D281; terrain above terrain, step 3): wind and water wear rock into caves, alcoves, overhangs and
   arches; the land decides which; every shape obeys the support rule; a click or a drawn sweep; **Power**,
   **Size** (4–40 tiles across, or Auto), **Try another**; two to four seconds of dust and rubble. Built in Rust in the

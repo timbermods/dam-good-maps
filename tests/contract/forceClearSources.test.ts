@@ -1,21 +1,23 @@
 // Forces can clear sources (D474): every force takes Sources, Ride or Clear (the default, and what an
-// operation without the choice is). Clear removes every water and badwater source and seep on ground
-// the force changes, at the step its showing first changes the source's tile (no pop); Ride keeps them
+// operation without the choice is). Clear removes a water or badwater source or seep only where the force
+// destroys its ground (the force audit's S2: buried 3 or more, cut 2 or more away, or in the crush zone of
+// ground moved whole), at the step its showing first changes the source's tile (no pop); one that only rides an
+// intact block or sits under a thin apron rides, as under Ride. Ride keeps them
 // riding the ground, on every force (Carve and Glaciate included: their plans keep them, and Glaciate's
 // springs take none of their water). The operation keeps the choice and what it cleared, so undo
 // brings the sources back.
 
 import { describe, expect, test } from "vitest";
 import { fluidObject, waterSource, type EntitySpec } from "../../src/core/format/entities";
-import { plainEntities, type FullForceMap } from "../../src/core/forces/force";
+import { plainEntities, snapshotMap, type FullForceMap } from "../../src/core/forces/force";
 import { footprint } from "../../src/core/forces/objects";
-import { CLEARABLE } from "../../src/core/forces/clear";
+import { BURIED, CLEARABLE, CUT, destroyedGround, motionOf, riddenLevel } from "../../src/core/forces/clear";
 import { CarvePlay } from "../../src/core/forces/carve/play";
 import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
 import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
 import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
 import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
-import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
+import { QUAKE_DEFAULTS, quake } from "../../src/core/forces/quake";
 import { RIFT_DEFAULTS } from "../../src/core/forces/rift";
 import { DEPOSIT_DEFAULTS } from "../../src/core/forces/deposit";
 import { planForce, type ForceRequest } from "../../src/core/forces/start";
@@ -50,16 +52,18 @@ function sourced(kind: FixtureKind): FullForceMap {
 const at = (x: number, y: number) => ({ x, y });
 /** Each force's request, the editor's way, and its study. Carve and Glaciate plan in Rust with the
  *  sources they keep, so their land may differ between the two; the others' never does. */
-const CASES: { name: string; kind: FixtureKind; request: ForceRequest; plans?: true }[] = [
+const CASES: { name: string; kind: FixtureKind; request: ForceRequest; plans?: true; rides?: true }[] = [
   { name: "carve", kind: "plain", request: { verb: "carve", settings: { ...CARVE_DEFAULTS, mode: "aim", power: 80, width: null, dry: false, seed: 3 }, origin: [10, 32], end: [54, 32], cut: null, natural: true } as ForceRequest, plans: true },
   { name: "carve shown from its end", kind: "plain", request: { verb: "carve", settings: { ...CARVE_DEFAULTS, mode: "aim", power: 80, width: null, dry: false, seed: 3 }, origin: [10, 32], end: [54, 32], cut: null, natural: true, shownFrom: "end" } as ForceRequest, plans: true },
   { name: "craterize", kind: "plain", request: { verb: "craterize", settings: { ...CRATER_DEFAULTS, mode: "strike", power: 70, size: 30 }, origin: [32, 32], cut: null } as ForceRequest },
   { name: "craterize in a working area", kind: "plain", request: { verb: "craterize", settings: { ...CRATER_DEFAULTS, mode: "strike", power: 90, size: 40 }, origin: [32, 32], cut: null, area: Array.from({ length: 30 }, (_, k) => [20 + k, 20, 44] as [number, number, number]) } as ForceRequest },
-  { name: "erupt", kind: "plain", request: { verb: "erupt", settings: { ...ERUPT_DEFAULTS, mode: "vent", power: 70, size: 30 }, origin: [32, 32], cut: null } as ForceRequest },
-  { name: "quake lift", kind: "plain", request: { verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "lift", power: 90 }, path: [at(8, 30), at(32, 33), at(56, 30)], side: 1, cut: null } as ForceRequest },
-  { name: "quake slide", kind: "slide", request: { verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power: 90 }, path: [at(8, 30), at(32, 33), at(56, 30)], side: 1, cut: null } as ForceRequest },
+  { name: "erupt", kind: "plain", request: { verb: "erupt", settings: { ...ERUPT_DEFAULTS, mode: "vent", power: 70, size: 30 }, origin: [32, 32], cut: null } as ForceRequest, rides: true },
+  { name: "quake lift", kind: "plain", request: { verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "lift", power: 90 }, path: [at(8, 30), at(32, 33), at(56, 30)], side: 1, cut: null } as ForceRequest, rides: true },
+  { name: "quake slide", kind: "slide", request: { verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power: 90 }, path: [at(8, 30), at(32, 33), at(56, 30)], side: 1, cut: null } as ForceRequest, rides: true },
   { name: "glaciate", kind: "river", request: { verb: "glaciate", settings: { ...GLACIATE_DEFAULTS, mode: "flow", power: 80, size: 24 }, origin: [35, 4], cut: null } as ForceRequest, plans: true },
-  { name: "rift", kind: "plain", request: { verb: "rift", settings: { ...RIFT_DEFAULTS, power: 100, size: 22 }, path: [at(12, 30), at(32, 33), at(52, 29)], cut: null } as ForceRequest },
+  // (a rift on ground water reaches drains, its lake at most 2 deep (the force audit's finding 6): on the plain's own sources
+  // it would be a shallow pond with no torn wall; across the river study's river it drains into it and tears its walls; D148)
+  { name: "rift", kind: "river", request: { verb: "rift", settings: { ...RIFT_DEFAULTS, power: 100, size: 22 }, path: [at(12, 30), at(32, 33), at(52, 29)], cut: null } as ForceRequest, rides: true },
   { name: "deposit", kind: "river", request: { verb: "deposit", settings: { ...DEPOSIT_DEFAULTS, power: 100, size: 40 }, path: [at(20, 32), at(40, 32)], cut: null } as ForceRequest },
 ];
 
@@ -123,11 +127,35 @@ describe("forces clear sources (D474)", () => {
         const changed = new Set(u.params.tiles.filter((i, k) => u.params.heights[k] !== m.heights[i]));
         return m.entities.filter((e) => ours(e) && footprint(m, e).some((i) => changed.has(i))).map((e) => e.id);
       };
-      // with Clear, no source or seep stays on ground the force changed, and it is gone from the last frame
-      const reached = reachedBy(clear);
+      // (the ground Clear destroyed: its result's land, by how the force moved it)
+      const land = m.heights.slice();
+      clear.params.tiles.forEach((i, k) => (land[i] = clear.params.heights[k]));
+      // (a Quake's crush zone lies along its crack as it ran)
+      const crack = c.request.verb === "quake" ? quake(snapshotMap(m), { ...c.request.settings, sources: "clear" }, { path: c.request.path, side: c.request.side }).fault.points : undefined;
+      const destroyed = destroyedGround(W, W, m.heights, land, null, motionOf(c.request.verb, crack));
+      const changedAll = reachedBy(clear);
+      const reached = changedAll.filter((id) => footprint(m, m.entities.find((e) => e.id === id)!).some(destroyed));
+      // with Clear, no source or seep stays on ground the force destroyed, and it is gone from the last frame
       expect(reached.length).toBeGreaterThan(0);
       const gone = new Set([...clear.params.removed, ...(clear.params.cleared ?? []).map((q) => q.id)]);
       expect(reached.filter((id) => !gone.has(id))).toEqual([]);
+      // it clears nothing else: one on ground only changed (an intact block's, a thin apron's) rides, standing on it
+      const spared = changedAll.filter((id) => !reached.includes(id));
+      expect((clear.params.cleared ?? []).map((q) => q.id).filter((id) => ours(m.entities.find((e) => e.id === id)!) && !reached.includes(id))).toEqual([]);
+      if (c.rides) expect(spared.length, "a source on ground it moved but did not destroy").toBeGreaterThan(0);
+      // (Glaciate's ice takes what it reaches itself, its moraines' too: the force audit's S2 waits for its trough, item 10)
+      if (c.request.verb !== "glaciate")
+        for (const id of spared) {
+          const e = clear.entities.find((q) => q.id === id);
+          expect(e, `${id} rides under Clear`).toBeDefined();
+          expect(e!.z, `${id} stands on its ground`).toBe(clear.heights[e!.y * W + e!.x]);
+        }
+      if (c.request.verb !== "quake" && c.request.verb !== "rift")
+        // (a building or cutting force: what it takes is buried or cut away)
+        for (const id of reached) {
+          const tiles = footprint(m, m.entities.find((e) => e.id === id)!);
+          expect(tiles.some((i) => land[i] - m.heights[i] >= BURIED || m.heights[i] - land[i] >= CUT), `${id} buried or cut`).toBe(true);
+        }
       // the count the editor says after the force is exactly the sources gone from its last frame (the study's own and
       // a fixture's river sources the force took too), and none under Ride
       const lastIds = new Set(clear.entities.map((e) => e.id));
@@ -163,17 +191,69 @@ describe("forces clear sources (D474)", () => {
       expect(use(m, c.request).params).toEqual(clear.params);
     }, 60000);
 
+  test("a source under a roof (a cave's) rides true to its cave: it stays in it while the ground above is raised or thinned, stands on the new ground once a cut reaches it, never below 0 or in rock; one on the surface moves with its ground", () => {
+    // (the rule: on the surface, as much as the ground moves; with a block a Quake lifts or a Rift drops, a cave's too)
+    expect(riddenLevel(10, 10, 14)).toBe(14);
+    expect(riddenLevel(7, 16, 20, undefined, true)).toBe(11);
+    expect(riddenLevel(7, 16, 4, undefined, true)).toBe(0);
+    expect(riddenLevel(10, 10, 4)).toBe(4);
+    expect(riddenLevel(11, 10, 13)).toBe(14);
+    // (a cave's source at 7 under ground at 16: buried deeper, thinned above, cut to it, cut below it, cut to 0)
+    expect(riddenLevel(7, 16, 20)).toBe(7);
+    expect(riddenLevel(7, 16, 9)).toBe(7);
+    expect(riddenLevel(7, 16, 7)).toBe(7);
+    expect(riddenLevel(7, 16, 4)).toBe(4);
+    expect(riddenLevel(7, 16, 0)).toBe(0);
+    // (with Erode's voxels: on the floor of its opening, falling to the next floor down where its floor wore away)
+    const run = (...r: [number, number][]) => r.reduce((m, [a, b]) => { for (let k = a; k < b; k++) m |= 1 << k; return m >>> 0; }, 0);
+    expect(riddenLevel(7, 16, 16, run([0, 7], [10, 16]))).toBe(7);
+    expect(riddenLevel(7, 16, 16, run([0, 4], [10, 16]))).toBe(4);
+    expect(riddenLevel(7, 16, 16, run([0, 9], [10, 16]))).toBe(9);
+    // every force, Ride and Clear: a source set 3 under its ground (a cave's) ends gone (Clear, its ground destroyed) or
+    // at its level while its ground stays above it, on its ground once the ground comes down to it, never below 0
+    for (const c of CASES)
+      for (const sources of ["ride", "clear"] as const) {
+        const m = sourced(c.kind);
+        const caved = new Map<string, { z: number; i: number }>();
+        m.entities.forEach((e, k) => {
+          if (!e.id.startsWith("src-") || k % 3 || m.heights[e.y * W + e.x] < 4) return;
+          e.z = m.heights[e.y * W + e.x] - 3;
+          caved.set(e.id, { z: e.z, i: e.y * W + e.x });
+        });
+        expect(caved.size).toBeGreaterThan(0);
+        const u = use(m, { ...c.request, settings: { ...c.request.settings, sources } } as ForceRequest);
+        const whole = c.request.verb === "quake" || c.request.verb === "rift";
+        let moved = 0;
+        for (const [id, q] of caved) {
+          const e = u.entities.find((o) => o.id === id);
+          if (!e) continue;
+          // (where it stands now: a Quake's slide carries it with its block)
+          const h = u.heights[e.y * W + e.x];
+          const h0 = m.heights[q.i];
+          if (h !== h0) moved++;
+          expect(e.z, `${c.name} (${sources}): ${id}, its ground ${h0} → ${h}`).toBe(whole ? Math.max(0, q.z + h - h0) : Math.max(0, Math.min(q.z, h)));
+        }
+        if (sources === "ride") expect(moved, `${c.name} (${sources}) moves a cave source's ground`).toBeGreaterThan(0);
+      }
+  }, 240000);
+
   test("a seep is cleared like a source, and rides like one", () => {
     const m = fixture("plain", W);
     m.entities.push(...plainEntities([fluidObject({ x: 32, y: 32, z: m.heights[32 * W + 32], id: "seep", owner: "test", template: "WaterSeep" })]));
+    // (a crater cuts its ground away: Clear takes it)
+    const crater = CASES.find((c) => c.name === "craterize")!.request;
+    expect(use(m, { ...crater, settings: { ...crater.settings, sources: "clear" } } as ForceRequest).params.cleared?.map((c) => c.id)).toEqual(["seep"]);
+    // (a rift drops its floor whole: the seep rides it down under Clear as under Ride: the force audit's S2)
     const req = CASES.find((c) => c.name === "rift")!.request;
-    expect(use(m, { ...req, settings: { ...req.settings, sources: "clear" } } as ForceRequest).params.cleared?.map((c) => c.id)).toEqual(["seep"]);
-    const ride = use(m, { ...req, settings: { ...req.settings, sources: "ride" } } as ForceRequest);
-    expect(ride.params.cleared).toBeUndefined();
-    expect(ride.entities.find((e) => e.id === "seep")?.z).toBe(ride.heights[32 * W + 32]);
+    for (const sources of ["clear", "ride"] as const) {
+      const u = use(m, { ...req, settings: { ...req.settings, sources } } as ForceRequest);
+      expect(u.heights[32 * W + 32], "the rift drops the seep's ground").toBeLessThan(m.heights[32 * W + 32]);
+      expect(u.params.cleared, sources).toBeUndefined();
+      expect(u.entities.find((e) => e.id === "seep")?.z, sources).toBe(u.heights[32 * W + 32]);
+    }
   }, 60000);
 
-  test("a source inside a crater: Clear takes it at its step, Ride sets it on the crater's ground, never a pillar of its own", () => {
+  test("a source inside a crater: Clear takes it at its step where the crater cuts its ground away (rides where it only moves), Ride sets it on the crater's ground, never a pillar of its own", () => {
     const req = CASES.find((c) => c.name === "craterize")!.request;
     const run = (m: FullForceMap, sources?: "ride" | "clear") => use(m, (sources ? { ...req, settings: { ...req.settings, sources } } : req) as ForceRequest);
     const bare = run(fixture("plain", W));
@@ -186,7 +266,14 @@ describe("forces clear sources (D474)", () => {
       const clear = run(m, "clear");
       expect(clear.heights[i], `Clear: the crater's ground at ${x}`).toBe(bare.heights[i]);
       const step = clear.params.cleared?.find((c) => c.id === "S")?.step;
-      expect(step, `Clear takes the source at ${x} as its ground moves`).toBe(clear.frames.find((f) => f.heights[i] !== m.heights[i])?.shown);
+      const dz = bare.heights[i] - m.heights[i];
+      if (dz <= -CUT || dz >= BURIED) expect(step, `Clear takes the source at ${x} as its ground moves`).toBe(clear.frames.find((f) => f.heights[i] !== m.heights[i])?.shown);
+      else {
+        expect(step, `Clear leaves the source at ${x}, its ground moved ${dz}`).toBeUndefined();
+        expect(clear.entities.find((e) => e.id === "S")?.z, `Clear: the source at ${x} stands on the crater's ground`).toBe(bare.heights[i]);
+      }
+      // (the crater's bowl is cut away)
+      if (x === 32) expect(step).toBeDefined();
       const ride = run(m, "ride");
       expect(ride.heights[i], `Ride: the crater's ground at ${x}`).toBe(bare.heights[i]);
       expect(ride.entities.find((e) => e.id === "S")?.z, `Ride: the source at ${x} stands on it`).toBe(bare.heights[i]);
@@ -203,7 +290,7 @@ describe("forces clear sources (D474)", () => {
   }, 60000);
 
   test("the operation's Sources and cleared list are checked, each refusal one line", () => {
-    const m = sourced("plain");
+    const m = sourced("river");
     const p = use(m, CASES.find((c) => c.name === "rift")!.request).params;
     const problem = (q: object) => forceProblems({ ...p, ...q } as ForceResultParams, W, W, 22);
     expect(problem({ settings: { ...p.settings, sources: "sweep" } })).toEqual(["a rift's sources are ride or clear"]);
@@ -220,7 +307,8 @@ describe("forces clear sources (D474)", () => {
     const src = open().built.entities.find((e) => e.template === "WaterSource" && e.x > 20 && e.x < 76 && e.y > 20 && e.y < 76)!;
     expect(src).toBeDefined();
     const before = ed.terrainNow().heights.slice();
-    const request = { verb: "rift", settings: { ...RIFT_DEFAULTS, power: 100, size: 22 }, path: [at(src.x - 12, src.y + 0.5), at(src.x + 12, src.y + 0.5)], cut: null } as ForceRequest;
+    // (a crater on it cuts its ground away; a rift dropping it whole would leave it riding, the force audit's S2)
+    const request = { verb: "craterize", settings: { ...CRATER_DEFAULTS, mode: "strike", power: 90, size: 30 }, origin: [src.x, src.y], cut: null } as ForceRequest;
     expect(ed.forceStart(request).errors).toEqual([]);
     let cleared: { id: string; step: number }[] = [];
     for (let k = 0; k < 80; k++) {
@@ -231,7 +319,7 @@ describe("forces clear sources (D474)", () => {
     expect(ed.forceStop().errors).toEqual([]);
     expect(cleared.map((c) => c.id)).toContain(src.id);
     // (the History says what went with it, as a brush's Clear sources does)
-    expect(ed.sessionInfo().history.filter((h) => h.applied).at(-1)!.label).toBe(cleared.length === 1 ? "Rift, a source cleared" : `Rift, ${cleared.length} sources cleared`);
+    expect(ed.sessionInfo().history.filter((h) => h.applied).at(-1)!.label).toBe(cleared.length === 1 ? "Craterize, a source cleared" : `Craterize, ${cleared.length} sources cleared`);
     const kept = open();
     const op = [...kept.logOps].reverse().find((o) => o.op === "forceResult") as unknown as { params: ForceResultParams };
     expect(op.params.settings.sources).toBe("clear");
@@ -266,7 +354,7 @@ describe("forces clear sources (D474)", () => {
     const i = sy * 96 + sx;
     const near = (d: Float64Array) => { let v = 0; for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) v += d[(sy + dy) * 96 + sx + dx]; return v; };
     const play = (sources: "ride" | "clear") => {
-      const request = { verb: "carve", settings: { ...CARVE_DEFAULTS, mode: "aim", power: 90, width: 8, dry: false, defyGravity: true, seed: 1, sources }, origin: [sx - 14, sy], end: [sx + 14, sy], cut: null } as ForceRequest;
+      const request = { verb: "carve", settings: { ...CARVE_DEFAULTS, mode: "aim", power: 90, width: 8, dry: false, defyGravity: true, seed: 3, sources }, origin: [sx - 14, sy], end: [sx + 14, sy], cut: null } as ForceRequest;
       expect(ed.forceStart(request).errors).toEqual([]);
       for (let k = 0; k < 400 && !ed.forceAdvance(8)!.done; k++) ed.flowForceWater(4);
       return ed.flowForceWater(80)!;
@@ -281,7 +369,9 @@ describe("forces clear sources (D474)", () => {
     const stop = ed.forceStop();
     expect(stop.errors).toEqual([]);
     const after = open().built;
-    expect(after.heights[i], "the carve cut under the source").not.toBe(b.heights[i]);
+    // (cut away, as Clear takes a source: the carve's roll 3, since the force audit's S2 left one a carve cuts a level
+    // under riding, as roll 1's at the cut's edge now does)
+    expect(b.heights[i] - after.heights[i], "the carve cut its ground away").toBeGreaterThanOrEqual(CUT);
     const kept = after.entities.find((e) => e.id === id);
     expect(kept, "the source rides").toBeDefined();
     expect(kept!.z).toBe(after.heights[i]);

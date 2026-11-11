@@ -7,7 +7,7 @@
 
 import { areaDepth } from "../features/raster/brush";
 import type { EntitySpec } from "../format/entities";
-import { CLEARABLE, clearable, clears, SOURCES_DEFAULT, type ClearedSource } from "./clear";
+import { CLEARABLE, clearable, clears, destroyedGround, motionOf, SOURCES_DEFAULT, type ClearedSource } from "./clear";
 import { carveForceParams } from "./carve/result";
 import type { DepositRun } from "./deposit";
 import type { ErodeRun } from "./erode";
@@ -148,13 +148,16 @@ function withSources(p: ForceResultParams, before: ForceMap, given: ForceSetting
   const rule = given ?? SOURCES_DEFAULT;
   const out: ForceResultParams = { ...p, settings: { ...p.settings, sources: rule } };
   if (!clears(rule)) return out;
-  const changed = new Uint8Array(before.W * before.H);
+  // (the land it kept, feathered as its showing cleared from: what Clear takes is where it destroyed the ground)
+  const after = before.heights.slice();
   p.tiles.forEach((i, k) => {
-    if (p.heights[k] !== before.heights[i]) changed[i] = 1;
+    after[i] = p.heights[k];
   });
+  const request = input.request;
+  const destroyed = destroyedGround(before.W, before.H, before.heights, after, null, motionOf(request.verb, input.staged?.crack));
   const own = new Set([...p.removed, ...(p.felled ?? []).map((f) => f.id), ...(p.source ? [p.source.id] : []), ...(p.sources ?? []).map((q) => q.id), ...(p.where.source ? [p.where.source] : [])]);
   const here = p.replaces === undefined ? input.standing : undefined;
-  const ids = clearable(before, (i) => changed[i] === 1, (id) => own.has(id) || (here !== undefined && !here.has(id))).map((e) => e.id);
+  const ids = clearable(before, destroyed, (id) => own.has(id) || (here !== undefined && !here.has(id))).map((e) => e.id);
   if (!ids.length) return out;
   const shown = new Map((input.staged?.cleared ?? input.shownCleared ?? []).map((c) => [c.id, c.step]));
   const last = input.staged ? input.staged.total : p.steps;

@@ -454,8 +454,8 @@ export function fallsBeforePlay(
 }
 
 /** What a force's Auto picked where it is decided in the run itself rather than by nature.ts (D309: an Auto detail
- *  shows its pick): a rift's walls, sheer or stepped by which most of them are (Auto steps them where the rock is
- *  hard); a fan's channels, Few for two or three, Many for four or five. Empty for the others. */
+ *  shows its pick): a rift's walls, sheer or stepped by which most of its ground lies beside (Auto makes one wall sheer
+ *  and steps the other down in benches); a fan's channels, Few for two or three, Many for four or five. Empty for the others. */
 export function autoPicked(staged: StagedRun | null): Record<string, string> {
   if (staged instanceof RiftRun) {
     const { stepped, sheer } = staged.plan0.stats;

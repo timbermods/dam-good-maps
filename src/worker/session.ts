@@ -42,6 +42,7 @@ import { applyCanal, planCanal, type CanalPlan } from "../core/doc/canal";
 import { applyDrawnLake, planDrawnLake, type DrawnLakePlan } from "../core/doc/lake";
 import { applyRidge, planRidge, type RidgePlan, type RidgeSteep } from "../core/doc/ridge";
 import type { ImportReport } from "../core/format/normalize";
+import type { PremiseCard } from "../core/premise/card";
 import type { Feature } from "../core/features/schema";
 import { bakeLandforms } from "../core/doc/bake";
 import { HazardRun, hazardDays, hazardSoil, type Hazard, type HazardWater } from "../core/sim/weather";
@@ -124,6 +125,9 @@ export interface SessionInfo {
   /** Easy start (D495): what a map made in a late rescue round left short of the full targets, one line; null when
    *  it met them all, or isn't an Easy start map. */
   easyShort: string | null;
+  /** A map made from an idea (D508): its card as it was when the map was made (`DocMeta.card`), kept with the project so
+   *  a reopened map shows it again; null on any other map, an import among them. */
+  card: PremiseCard | null;
   /** True until the canonical water can be carried in a saved project (D367). */
   waterPending?: boolean;
   /** The map has tiles with caves or overhangs (an import's): the "Caves and overhangs" layer's toggle shows. */
@@ -279,6 +283,7 @@ export function sessionInfo(s: MapSession = need()): SessionInfo {
     forceRolls: againVerb(s) ? { shown: series!.rolls.shown + 1, count: series!.rolls.count } : null,
     badwaterRemoved: s.badwaterRemoved(),
     easyShort: s.meta.easyShort ?? null,
+    card: s.meta.card ?? null,
     waterPending: s.waterPending,
     caves: s.roofedTiles.size > 0,
     keepOnlyHere: s.keepOnlyHere,

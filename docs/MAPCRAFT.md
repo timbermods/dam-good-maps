@@ -116,6 +116,23 @@ a premise or one still to come, may carry its own, lower playability floor.
   the start, left alone and with each answer built.
 - **Reach**: every region walkable by natural ways or by a crossing the land plainly asks for.
 
+What The Gate's seven rounds added (2026-11-11, judged in the game each round; [progress/showcase-craft.md](progress/showcase-craft.md)):
+
+- **A barrier faces the camera and runs along the grid.** The opening camera shows one face of a ridge: a wall built
+  as a diagonal band reads as a staircase of one-tile jogs with a plateau's edge, and a ledge on its face doubles the
+  line. Built along the grid in straight runs joined by bold jogs, its face toward the camera and sheer from crest to
+  floor, it is one dark band across the widest view, and a notch cut through it to the floor is a gate.
+- **A basin needs a far side.** A dry floor that runs off the map reads as plates; a rim along its far edges, its cliff
+  facing the camera, makes it a bowl, and the picture reads valley, wall, floor, far cliff.
+- **Steps follow the water's bed, never the barrier.** A floor's relief is river terraces along its bed (the bed cut
+  two below a low terrace that follows its bends, one more above, then broad unequal flats), not rolls parallel to the
+  wall and not plates.
+- **The start's water has a neck.** The start drinks from a side pool joined to the river by an inlet no wider than
+  three, so a few levees close it before the first badtide and it holds clean water through it; the meadow beside the
+  red river goes bad, and that is the game.
+- **A closed hollow fills to its flat whatever its depth**, so a seep in one wets a disc of the flat thirty tiles across;
+  a gully to the nearest bed keeps the pond under the flat and the oasis small.
+
 ## 6. What this asks of Dam Good Maps
 
 The generator and the editor exist to take a player through section 3. Where each step stands:

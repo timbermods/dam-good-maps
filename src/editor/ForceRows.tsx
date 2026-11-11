@@ -10,7 +10,7 @@
 // row is its status, the hint "Esc to skip · Ctrl+Z to undo" (D344, A4) and Revert. Built from the shared bar styles (D176).
 
 import { autoCentre, CRATER_DEFAULTS, naturalSize as craterSize, type CraterSettings } from "../core/forces/craterize";
-import { autoSummit, ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, naturalBreadth, type EruptSettings } from "../core/forces/erupt";
+import { autoSummit, ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, shownBreadth, type EruptSettings } from "../core/forces/erupt";
 import { QUAKE_DEFAULTS, slideTiles, type QuakeSettings } from "../core/forces/quake";
 import { GLACIATE_DEFAULTS, GLACIATE_SIZE_MAX, GLACIATE_SIZE_MIN, sizeOf as glacierSize, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { RIFT_DEFAULTS, RIFT_SIZE_MAX, RIFT_SIZE_MIN, riftWidth, type RiftSettings } from "../core/forces/rift";
@@ -35,7 +35,7 @@ export function SourcesSetting(p: { value: ForceSources; onChange(v: ForceSource
       value={p.value}
       options={[
         ["ride", "Ride", "Sources move with the ground"],
-        ["clear", "Clear", "The force removes sources it reaches"],
+        ["clear", "Clear", "The force removes sources whose ground it destroys"],
       ]}
       onChange={p.onChange}
     />
@@ -315,7 +315,8 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
   );
 }
 
-export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
+/** `map`: the map's size, which caps Auto's breadth (core/forces/erupt.ts `shownBreadth`). */
+export function EruptRow(p: RowProps<EruptUi, EruptSettings> & { map: { W: number; H: number } }) {
   const u = p.ui;
   const set = (patch: Partial<EruptUi>) => p.onUi({ ...u, ...patch });
   const drawn = p.drawn;
@@ -326,7 +327,7 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
   const flows = u.flows ?? drawn?.flows ?? "heavy";
   const ridges = u.ridges ?? drawn?.ridges ?? true;
   // (the preview breadth needs a concrete shape and summit, same as before D289: naturalBreadth branches on them, D226)
-  const breadth = u.size ?? Math.max(ERUPT_SIZE_MIN, Math.min(ERUPT_SIZE_MAX, Math.round(naturalBreadth({ ...eruptSettingsOf(u), shape, summit }) / 2) * 2));
+  const breadth = shownBreadth({ ...eruptSettingsOf(u), shape, summit }, p.map);
   return (
     <SettingsGrid
       label="Erupt options"

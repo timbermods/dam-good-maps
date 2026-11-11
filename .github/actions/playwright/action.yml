@@ -2,6 +2,8 @@ name: Playwright browsers
 description: >-
   Installs Playwright's browsers on an Ubuntu runner, cached on Playwright's version. Run it after `npm ci`
   (the install uses the project's own Playwright). On a cache hit only the system libraries are installed.
+  The system libraries come from Ubuntu's archive: install-deps.sh tries three times and, when the runner's first
+  mirror does not answer, takes it off the mirror list so apt uses the main archive.
 inputs:
   browsers:
     description: Space-separated browsers, for example "chromium" or "chromium firefox webkit".
@@ -26,8 +28,14 @@ runs:
     - name: Download the browsers and install their system libraries
       if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
-      run: npx playwright install --with-deps ${{ inputs.browsers }}
+      env:
+        BROWSERS: ${{ inputs.browsers }}
+      run: |
+        npx playwright install $BROWSERS
+        bash "$GITHUB_ACTION_PATH/install-deps.sh" $BROWSERS
     - name: Install the system libraries (the browsers are cached)
       if: steps.cache.outputs.cache-hit == 'true'
       shell: bash
-      run: npx playwright install-deps ${{ inputs.browsers }}
+      env:
+        BROWSERS: ${{ inputs.browsers }}
+      run: bash "$GITHUB_ACTION_PATH/install-deps.sh" $BROWSERS

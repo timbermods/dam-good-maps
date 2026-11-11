@@ -163,6 +163,9 @@ export function useBandLayout(ready: boolean): void {
         // (the generator's panel: the room without the hints, which it covers, and its width)
         "--gen-max": `${roomAbove(TOP, TOP + panelW, panelTop, pieces)}px`,
         "--gen-w": `${panelW}px`,
+        // (a map's idea card, with the notes over the bar: with the generator's panel open it takes the dock's room right of
+        // the panel, one gap clear of it, so it never shortens the panel; IdeaCard.tsx)
+        "--idea-room": `${Math.floor((dock ? dock.right - v.left : v.width) - (TOP + panelW + GAP))}px`,
         // (the objects' dock, the list and the picked object's window: as tall as the room under the corner's buttons, the
         // list scrolling inside when a short window can't hold both)
         "--dock-max": dockMax(v.height, corner.bottom - v.top),

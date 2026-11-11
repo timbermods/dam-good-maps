@@ -247,6 +247,11 @@ export function forceJobs(): { name: string; job: RustJob }[] {
     if (verb === "carve" || verb === "glaciate")
       for (const [name, j] of [[`${verb} 64 ride 1`, job(verb, 64, 1)], [`${verb} 64 ride 3`, job(verb, 64, 3)], [`${verb} 64 ride odd 0`, oddJob(verb, 64, 0)]] as const)
         out.push({ name, job: { ...sprinkled(j), settings: { ...j.settings, sources: "ride" } } });
+    // Sources set to Clear (the force audit's S2): Carve takes a source only where it cuts its ground 2 or more away;
+    // one it cuts less rides
+    if (verb === "carve")
+      for (const [name, j] of [[`${verb} 64 clear 1`, job(verb, 64, 1)], [`${verb} 64 clear 3`, job(verb, 64, 3)]] as const)
+        out.push({ name, job: { ...sprinkled(j), settings: { ...j.settings, sources: "clear" } } });
   }
   // Quake on a short line (D344 A6: the quake's line is its length): ground and slide stay near the line
   const quakeBase = job("quake", 64, 1);
