@@ -62,6 +62,11 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   River through its spur, the brooks), its numbers in `GatePlan.gate` (`gateOf`) and its `plan` invariants. Not
   offered: `premises/dev.ts` `DEV_PREMISES` lists it for the tools and tests until it makes a whole map; joining
   `spec/mapspec.ts` `PREMISE_IDS` offers it. No playability floor of its own: the shared gate holds the start.
+- `gateWater.ts`: the wall with one gate's stage 1 (§5.1 "As built (water)"): `gateWater` (the shared `waterByNumber`,
+  then the leat's bar, the Veil's foot a level under the sill with its outer row the ribbon, the first frame's beds under
+  two), `GATE_WATER_CHECKS` (`water.levels` read for a backwater, `gate.dry`, `frame.water`), `gateFirstWater` (`draw.ts`
+  `firstWater` with this stage, until `PremiseDef` has a seam for it) and `gateSettleModel` (the undrawn ground over every
+  water, for a settle of stage 1 alone). `tools/premise-gate-water.ts` prints and draws a seed's, `--settle` settles it.
 - `planChecks.ts`: §1.4's checks every premise shares (levels fit, no bed under `BED_FLOOR`, bodies apart, the graph
   closes, the works add up, the skeleton is whole).
 - `geom.ts`: capsule chains, paths and gaps. `diagram.ts`: the water-story diagram (`planSvg`, `planRaster`).
@@ -117,6 +122,10 @@ day 1's water; every panel setting's role and the greyed list); `tests/contract/
 a broken plan for every `plan` invariant, the Four Lakes fixture `tests/fixtures/four-lakes.plan.json`);
 `premiseGatePlan.test.ts` (quick: the wall with one gate kept out of the choices, its eligibility, seeds 1 to 24 a size,
 variety, a broken plan for every `plan` invariant);
+`premiseGateWater.test.ts` (quick: its `land` invariants on seeds 1 to 6 a size, the drought hold, the bars, the frame's
+water, the Still Pool as a backwater, a broken raster for each of its own) and `premiseGateWater.heavy.test.ts` (five
+plans settled: the lake and cleft over their sills, the Veil's curtain, the Gate and leat dry, nothing out but the Low
+River);
 `premisePlan.heavy.test.ts` (seeds 1 to 200 at 128², 192² and 256²: every plan holds, 43 to 107 ms a plan on average;
 PREMISES §3.3 has the numbers against the budget); `premiseWater.test.ts` (quick: the table's arithmetic, the lip's
 stair, the `land` invariants on seeds 1 to 4 at each size and Four Lakes, a broken raster for each); and

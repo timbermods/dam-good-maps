@@ -28,6 +28,7 @@ const HEAVY = [
   "tests/contract/islandsCleanSea.heavy.test.ts", // Islands' sea clean at 128² and 256², settled and played on (D498, #446)
   "tests/contract/premisePlan.heavy.test.ts", // the lake stair's plans on seeds 1 to 200 at three sizes (PREMISES §7 step 1)
   "tests/contract/premiseWater.heavy.test.ts", // stage 1's water settled on three plans and Four Lakes (PREMISES §7 step 2)
+  "tests/contract/premiseGateWater.heavy.test.ts", // the wall with one gate's water settled on five plans (PREMISES §5.1)
 ];
 
 export default defineConfig({
