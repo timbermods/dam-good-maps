@@ -12,13 +12,21 @@
 // by reading a bowl's distance a few tiles off (a warp), so no contour follows a ruler. Noise is `fbm` on the plan's
 // own seeds (named stream `premise.relief`), each field once, the broad ones read on a coarse grid. Integer or portable
 // maths only (D366).
+//
+// The style seam (PREMISES §1.5, `style.ts`): given a theme's style, the outlands stand at the theme's height over the
+// stair and rise and fall by Relief, the hillsides past each meadow take the theme's crags and benches, and the
+// uplands (where the plates stand without one) are the outlands graded by the theme's grade (`land/levels.ts`
+// `grader`, #956). Day 1's water, the meadows and the start's ground are the premise's whatever the style.
 
 import { hash32 } from "../../math/hash";
 import { distanceFrom } from "../../math/grid";
 import { fbm } from "../../math/noise";
+import { smoothstep } from "../../math/clamp";
 import { sqrt } from "../../math/portable";
 import { BED_FLOOR } from "../../land/genome";
 import { widenBenches } from "../../land/benches";
+import { grader } from "../../land/levels";
+import type { ReliefStyle } from "../style";
 import { HEADING_DIR } from "../geom";
 import type { Edge, Link, PremisePlan } from "../types";
 import type { StageWater } from "../water";
@@ -64,14 +72,17 @@ const STAIR_CELL = 8;
 const PLATE = { from: 5, wander: 3, start: 16, lift: 1.2 };
 /** How far over the stair the outlands may stand, as a share of the room left under the highest ground. */
 const OUTLAND_ROOM = 0.75;
+/** A style comes in over this many tiles past the start's own ground (`PLATE.start`), so the start's ground, its frame
+ *  and its walk are the premise's own in every theme. */
+const STYLE_FROM = 10;
 /** How far past its meadow a bowl's distance is worked out: its first crag, its bench and second crag, the plates'
  *  start and the land's wander (past it a bowl's land is the uplands'). */
 const BOWL_REACH = 30;
 
 /** How far the land has risen `t` tiles beyond a meadow's edge: a crag (`c1` levels in a tile), a bench `w1` wide that
- *  climbs a level, a second crag (`c2`), then benches and crags of two. Where `c1` is 1 the crag is a plain step: a
- *  way up (four-lakes-design's `rise`). */
-export function rise(t: number, c1: number, w1: number, c2: number): number {
+ *  climbs a level, a second crag (`c2`), then benches and crags of `cn` (two). Where `c1` is 1 the crag is a plain
+ *  step: a way up (four-lakes-design's `rise`). */
+export function rise(t: number, c1: number, w1: number, c2: number, cn = 2): number {
   if (!(t > 0)) return 0;
   // (far out the land is the outlands': a bowl stops rising there)
   if (t > 200) t = 200;
@@ -88,7 +99,7 @@ export function rise(t: number, c1: number, w1: number, c2: number): number {
     if (t < w1) return base + (0.6 * t) / w1;
     t -= w1;
     base += 0.6;
-    c = 2;
+    c = cn;
   }
 }
 
@@ -297,8 +308,9 @@ function edgeNear(plan: PremisePlan, x: number, y: number): number {
   return d;
 }
 
-/** Stage 2: the whole map's ground round stage 1's water. Deterministic from the plan and its water. */
-export function reliefBetween(plan: PremisePlan, w: StageWater): Uint8Array {
+/** Stage 2: the whole map's ground round stage 1's water. Deterministic from the plan, its water and the style (none:
+ *  the premise's own uplands). */
+export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefStyle): Uint8Array {
   const r = w.raster;
   const { W, H } = r;
   const N = W * H;
@@ -349,14 +361,19 @@ export function reliefBetween(plan: PremisePlan, w: StageWater): Uint8Array {
 
   // the outlands: a little over the stair near the valley (less where the stair nears the highest ground, so the
   // uplands keep levels to step between, never one flat at the top), falling away far from it and toward the edges
+  // (a style's: the theme's height over the stair and room under the highest ground, Relief's rise and fall; the
+  // start's ground keeps the premise's own, the style coming in over `STYLE_FROM` tiles past `PLATE.start`)
+  const sk = (x: number, y: number) => (style ? smoothstep((Math.max(Math.abs(x - stx), Math.abs(y - sty)) - PLATE.start) / STYLE_FROM) : 0);
   const outland = new Float64Array(N);
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
       const st = stair[i];
       const far = Math.max(0, nearAll[i] - OUTLANDS);
-      const over = Math.min(4.6 + 3.4 * Math.max(0, 1 - st / 10) - 0.3 * Math.max(0, st - 8), OUTLAND_ROOM * (top - st));
-      let o = st + over + 2.6 * out1F[i] + 1.0 * out2F[i] - 0.06 * far;
+      const k = sk(x, y);
+      const amp = style ? 1 + (style.amp - 1) * k : 1;
+      const over = Math.min(4.6 + 3.4 * Math.max(0, 1 - st / 10) - 0.3 * Math.max(0, st - 8) + (style ? style.lift * k : 0), (style ? OUTLAND_ROOM + (style.room - OUTLAND_ROOM) * k : OUTLAND_ROOM) * (top - st));
+      let o = st + over + amp * 2.6 * out1F[i] + amp * 1.0 * out2F[i] - 0.06 * far;
       o -= EDGE_FALL * Math.max(0, EDGE_RUN - edgeNear(plan, x, y));
       if (o > top) o = top;
       if (o < BED_FLOOR + 2) o = BED_FLOOR + 2 + 0.6 * fbm(sLow, x, y, 9, 2);
@@ -392,10 +409,13 @@ export function reliefBetween(plan: PremisePlan, w: StageWater): Uint8Array {
         const hill = Math.max(0, d - meadow);
         if (hill < inner[i]) inner[i] = hill;
         const dw = hill * (1 + 0.3 * warpAF[i]) + 5 * warpBF[i] * Math.min(1, hill / 6);
-        const c1 = Math.max(1, Math.min(4, Math.round(2.4 + 3.2 * cragF[i])));
-        const c2 = Math.max(1, Math.min(3, Math.round(1.9 + 2.4 * crag2F[i])));
-        const w1 = 10 + 6 * benchF[i];
-        const up = b.steep ? rise(Math.max(0, dw), 4, 3, 3) : rise(Math.max(0, dw), Math.max(c1, b.crag ?? 0), w1, c2);
+        // (a style's crags stand `crag` levels taller, its benches `bench` times as wide, its later crags `later`)
+        const k = style ? sk(x, y) : 0;
+        const hc = style ? style.crag * k : 0;
+        const c1 = Math.max(1, Math.min(4 + Math.max(0, hc), Math.round(2.4 + hc + 3.2 * cragF[i])));
+        const c2 = Math.max(1, Math.min(3 + Math.max(0, hc), Math.round(1.9 + hc + 2.4 * crag2F[i])));
+        const w1 = (10 + 6 * benchF[i]) * (style ? 1 + (style.bench - 1) * k : 1);
+        const up = b.steep ? rise(Math.max(0, dw), 4, 3, 3) : rise(Math.max(0, dw), Math.max(c1, b.crag ?? 0), w1, c2, style ? 2 + (style.later - 2) * k : 2);
         const v = b.level + 1 + Math.min(up, Math.max(0, outland[i] - b.level - 1));
         if (v < land[i]) land[i] = v;
       }
@@ -446,6 +466,11 @@ export function reliefBetween(plan: PremisePlan, w: StageWater): Uint8Array {
     }
   const plevel = new Float64Array(pw * ph);
   for (let k = 0; k < pw * ph; k++) if (pcnt[k]) plevel[k] = Math.max(BED_FLOOR + 1, Math.min(top, Math.round(psum[k] / pcnt[k] + plift[k])));
+  // with a style the uplands are the outlands graded: benched `step` levels apart over Terracing's share, rolling
+  // elsewhere
+  const grade = style ? grader(style.grade, plan.seed, 0, W, H) : null;
+  const terraceF = style && style.step > 1 ? field(S("terrace"), W, H, 24, 2, 2) : null;
+  const phase = style ? hash32(S("terrace"), 1) % style.step : 0;
 
   const f = new Float64Array(N);
   for (let y = 0; y < H; y++)
@@ -453,7 +478,10 @@ export function reliefBetween(plan: PremisePlan, w: StageWater): Uint8Array {
       const i = y * W + x;
       const near = nearAll[i];
       let v = land[i];
-      if (plate[i] >= 0) v = plevel[plate[i]];
+      if (plate[i] >= 0) {
+        v = plevel[plate[i]];
+        if (grade) v = grade(outland[i], x, y, terraceF && (terraceF[i] + 1) / 2 > 1 - style!.benched ? style!.step : 1, phase);
+      }
       else if (near > 4 && near < 9 && !(nearBasin[i] < 6) && Math.max(Math.abs(x - stx), Math.abs(y - sty)) > 12 && fbm(sKnob, x, y, 9, 2) > 0.42) v += 1;
       // ridges and spurs: crags, a crest and one ledge, never a slope of a level a tile
       if (near > 2.5)
