@@ -602,7 +602,8 @@ function placeFrame(L: Layout, o: StairOption): string | null {
   const F = K.sill;
   const z = F + 1;
   const crest = F + o.H;
-  const limit = frameLimit(z, crest + FRAME.overLip);
+  // (the lip's line stands `lipStair` short of the top edge: its tiles step a tile either side of it)
+  const limit = frameLimit(z, crest + FRAME.overLip) - FRAME.lipStair;
   if (limit < FRAME.lipNearest + 0.15) return "placeFrame#1";
   // the sources the landmark may come from: the pool or a lake H to H + 3 above
   const sources = rng.shuffle([L.pool, ...L.lakes.slice(o.k + 1)].filter((b) => sourceFits(F, o.H, b.sill, b === L.pool)));
