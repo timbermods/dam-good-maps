@@ -904,6 +904,22 @@ three maps of twelve (a `resources.mine_site` or `start.wood` failure after it).
 of reach by speed alone at 128² while plans that fail cost what they do (draws of 48 layouts that all fail, on seven
 maps of twelve), and at 256² while the tool settles on one thread.
 
+As measured after the second speed step (the same seeds; "the page" is the generator worker's pool, measured in Node
+with the page's own thread policy): **1.8 s at the median and 3.7 s at the worst at 128² as the page makes it** (from
+2.4 and 4.4), 2.1 and 4.5 s on one thread; at 256², 7.5 s at the median as the page makes it and 11.4 s on one thread,
+unchanged (its settle was on threads already). What took it there: the premise mode's settle on the multi-core water
+from 128² (about 4 threads, `withSmallMapThreads` in `sim/parallel.ts`; the themes keep theirs from 256²), about 0.3 s
+off each settle at 128²; a start's frame judged on the skeleton's land before its side network is sited (a frame short
+of level land there is short on the map: five of six such failures were caught there, none wrongly); and a layout's
+start asking for 2.65 times its level land in meadow room (from 2.2), so most of the rest are drawn again at a
+layout's cost. Ten of the twelve maps keep their bytes; seeds 2 and 6 draw another plan, and all twelve hold the
+water's numbers (moist 33 to 41 % settled, every lake's worst drought day at 27 % or more of its volume, the start's
+water held all nine days). What is left at 128²: a plan whose 48 layouts all fail (on seven maps of twelve, about
+0.2 s each: the pool's basins, its frame and its bypass find no room), a second settle on three maps of twelve (a
+`resources.mine_site` where the start's reach has no level ground for a second site at 30 tiles, which the themes' mine
+pads (D363) do not answer here, or `start.wood`), and the map stage (life, the checks and the file, about 0.4 s beside
+the settle).
+
 ### 3.4 Deferred to after the map opens
 
 Run by the background worker that already settles and checks an opened map (`backgroundCheck`), a slice at a time,
