@@ -306,3 +306,14 @@ bastion at the start, the basin's terraces and rim beyond, the valley green belo
   wall with one gate, plainly. What falls short in it: the two near oases are discs of green thirty tiles across (a
   closed hollow fills to its flat whatever its depth, so each seep wet a disc of the flat: round 7 gives each hollow a
   gully to the bed), and the lake in front of the start is dark where it is two deep.
+
+**Round 7 (the last).** Each seep's hollow has a gully to the nearest bed, falling a level every two tiles, so its pond
+stands four under the flat and the seep's trickle dies in the gully: the basin 12.2 % moist or wet (three small
+oases), from 16.7 %. The lake is a level and a half deep at most (lighter in the first frame); the start's berries and
+oaks stand on the bench east of the door. Measures: 0 blocking, 4 warnings (`water.outflow`, `start.dry`, `start.food`
+27 of 30, `start.wood` 47 of 200); water 8.7 %, moist 28.1 %; 1,459 living trees (396 per 10,000), 369 dead; the neck's
+badtide as round 6 (the pool 13 % bad at most on day 1, 16 % on day 8, with a levee of 3 on the inlet). The ladder:
+the Gate opened +982 (2.7 %, 252 of them water); the second blast and the Low River levee +1,151/−16 (the lake 7.99);
+the leat's bar once and twice 0 (its water falls into the Gate's slot, already wet); the leat spanned +2,196/−2,216
+(the model blocks the slot to span it); the megadam to 9 holds 5,408 over 7,655 tiles. Our own widest view:
+`C:\dgm-showcase\the-gate\ours\r7-widest.jpg`; the game's: `C:\dgm-probe\captures\the-gate-r7\day1-widest.jpg`.
