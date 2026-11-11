@@ -242,21 +242,52 @@ fn falls_in(t: &[u32], was: &[u32], w: usize, h: usize, b: (usize, usize, usize,
     out
 }
 
+/// How far from its gesture Erode may change a tile, in tiles, at its Size across: an opening's face found
+/// within twice the Size of a click, the opening's width and depth beside it, and the rills that run down from
+/// it (core/forces/erode.ts `erodeExtent`, which the collaboration band declares).
+pub(super) fn extent(size: f64) -> f64 {
+    2.0 * size + 12.0
+}
+
+/// An opening's height as a share of the face it is worn into (the force audit's 11): 0.4 at Power 55,
+/// 0.7 at 100, a quarter at Power 0.
+fn opening_share(power: f64) -> f64 {
+    let p = clamp(power, 0.0, 100.0);
+    if p >= 55.0 {
+        0.4 + 0.3 * (p - 55.0) / 45.0
+    } else {
+        0.25 + 0.15 * p / 55.0
+    }
+}
+
+/// One opening the gesture wears: the tile at the face's foot, the way into the face (an axis), the
+/// foot's level, its half-width along the face, its height and depth, and the thickness of the fin it
+/// cuts through (0: the face is no fin).
+struct Opening {
+    fx: i64,
+    fy: i64,
+    dx: i64,
+    dy: i64,
+    half: f64,
+    tall: f64,
+    depth: f64,
+    fin: usize,
+}
+
 pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, keep: &[u8], area_depth: &[u8]) -> Plan {
     let (w, h) = (map.w, map.h);
     let n = w * h;
     let power = clamp(s.power, 0.0, 100.0) / 100.0;
     let size = s.size.unwrap_or_else(|| auto_size(s.power));
     let r = size * 0.5;
-    let depth = 1.5 + 8.5 * power;
-    // how high a hollow stands over the ground at its mouth, at most (levels above its floor)
-    let tall = 2.4 + 3.6 * power;
-    let hmax = tall.ceil() as usize;
+    // how far into the rock an opening reaches at its foot (the force audit's 11: 2 to 5 or so)
+    let depth = 2.0 + 4.0 * power;
+    let share = opening_share(s.power);
     let floor_cut = (s.floor.unwrap_or(1.0) as usize).max(1);
     let seed = s.seed;
-    let steps = (2.0 * depth).ceil() as usize + 3;
     let orig = masks_of(before);
     let mut t = orig.clone();
+    let surf: Vec<usize> = orig.iter().map(|&m| surface(m).min(Z)).collect();
     let hard = |i: usize, z: usize| (before.lava[i] >> z) & 1 != 0 || before.rock.get(z).copied().unwrap_or(0.0) > 0.5;
     let solid = |t: &[u32], i: usize, z: usize| z < Z && (t[i] >> z) & 1 != 0;
     // water in every column: the heightfield's on top, and what the map holds in its caves (an
@@ -310,6 +341,13 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
         let (x, y) = (i % w, i / w);
         [(x > 0, i.wrapping_sub(1)), (x + 1 < w, i + 1), (y > 0, i.wrapping_sub(w)), (y + 1 < h, i + w)]
     };
+    let at = |x: i64, y: i64| -> Option<usize> {
+        if x < 0 || y < 0 || x >= w as i64 || y >= h as i64 {
+            None
+        } else {
+            Some(y as usize * w + x as usize)
+        }
+    };
     // rock that holds back water stays: next to water at its level, or under it
     let holds_water = |i: usize, z: usize| nbrs(i).iter().any(|&(ok, j)| ok && (wet[j] >> z) & 1 != 0) || (z + 1 < Z && (wet[i] >> (z + 1)) & 1 != 0);
     // a voxel the wind and water may take: under a roof of three blocks at least, above the Floor
@@ -321,10 +359,14 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
         }
         a
     };
-    // how far the gesture's weight reaches: 1 within about half its Size, none beyond it
-    let weight = |d: f64| smooth((r - d) / max(0.5, 0.45 * r));
-    let tile_d = |i: usize| portable_math::sqrt(distance2(&path, (i % w) as f64, (i / w) as f64));
-    // the tiles it can reach: within its Size and the depth Power gives of the gesture
+    // the gesture: a click, or a sweep along a line of this length
+    let mut length = 0.0;
+    for s in path.windows(2) {
+        length += hypot(s[1].x - s[0].x, s[1].y - s[0].y);
+    }
+    let click = length < 1.0;
+    // the band it may change: every tile within its extent of the gesture (nothing beyond is ever written)
+    let margin = extent(size);
     let (mut x0, mut y0, mut x1, mut y1) = (f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
     for p in &path {
         x0 = min(x0, p.x);
@@ -332,27 +374,180 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
         x1 = max(x1, p.x);
         y1 = max(y1, p.y);
     }
-    let margin = r + depth + 2.0;
     let bx0 = max(0.0, (x0 - margin).floor()) as usize;
     let by0 = max(0.0, (y0 - margin).floor()) as usize;
     let bx1 = min(w as f64 - 1.0, (x1 + margin).ceil()) as usize;
     let by1 = min(h as f64 - 1.0, (y1 + margin).ceil()) as usize;
-    // the support rule's working area: the tiles it may change and ground round them
-    let worked = (bx0.saturating_sub(6), by0.saturating_sub(6), (bx1 + 6).min(w - 1), (by1 + 6).min(h - 1));
-    let mut tiles: Vec<usize> = vec![];
+    let mut band: Vec<usize> = vec![];
     let mut dist = vec![f64::INFINITY; n];
     for y in by0..=by1 {
         for x in bx0..=bx1 {
             let i = y * w + x;
-            let d = tile_d(i);
+            let d = portable_math::sqrt(distance2(&path, x as f64, y as f64));
             if d <= margin {
                 dist[i] = d;
-                tiles.push(i);
+                band.push(i);
             }
         }
     }
+    // the feet of faces an opening can wear into: dry ground beside a column standing 5 or more over it
+    // (room for an opening 2 high under a roof of 3), the face the tallest such column beside it
+    let mut feet: Vec<(usize, usize, usize)> = vec![];
+    for &i in &band {
+        if wet[i] != 0 {
+            continue;
+        }
+        let f = surf[i];
+        let mut best: Option<(usize, usize)> = None;
+        for (ok, j) in nbrs(i) {
+            if !ok || edge[j] || !dist[j].is_finite() {
+                continue;
+            }
+            if surf[j] >= f + 5 && solid(&orig, j, f) && solid(&orig, j, f + 1) && best.map_or(true, |b| surf[j] > b.1) {
+                best = Some((j, surf[j]));
+            }
+        }
+        if let Some((j, top)) = best {
+            feet.push((i, j, top - f));
+        }
+    }
+    // where the openings go: a click's one at the nearest face within twice its Size; a sweep's every 6 to
+    // 10 tiles along it, each at the nearest face within reach of the line, of unequal size
+    let mut seeds: Vec<(f64, f64)> = vec![];
+    if click {
+        seeds.push((path[0].x, path[0].y));
+    } else {
+        let mut along = 3.0 * hash(seed, 101.0);
+        let mut k = 0usize;
+        while along <= length && k < 64 {
+            let mut left = along;
+            for q in 1..path.len() {
+                let (a, b) = (path[q - 1], path[q]);
+                let l = hypot(b.x - a.x, b.y - a.y);
+                if left <= l || q + 1 == path.len() {
+                    let u = if l > 0.0 { clamp(left / l, 0.0, 1.0) } else { 0.0 };
+                    seeds.push((a.x + u * (b.x - a.x), a.y + u * (b.y - a.y)));
+                    break;
+                }
+                left -= l;
+            }
+            along += 6.0 + 4.0 * hash(seed, 211.0 + k as f64);
+            k += 1;
+        }
+    }
+    let search = if click { 2.0 * size } else { r + 2.0 };
+    let mut openings: Vec<Opening> = vec![];
+    let mut widths: Vec<f64> = vec![];
+    for (k, &(sx, sy)) in seeds.iter().enumerate() {
+        let mut best: Option<(f64, usize)> = None;
+        for (q, &(i, _, _)) in feet.iter().enumerate() {
+            let (dx, dy) = ((i % w) as f64 - sx, (i / w) as f64 - sy);
+            let d2 = dx * dx + dy * dy;
+            if d2 <= search * search && best.map_or(true, |b| d2 < b.0) {
+                best = Some((d2, q));
+            }
+        }
+        let Some((_, q)) = best else { continue };
+        let (i, j, face) = feet[q];
+        let (fx, fy) = ((i % w) as i64, (i / w) as i64);
+        // (one opening to a stretch of face: a sweep's next lands at least 5 tiles on)
+        if openings.iter().any(|o| (o.fx - fx) * (o.fx - fx) + (o.fy - fy) * (o.fy - fy) < 25) {
+            continue;
+        }
+        let (dx, dy) = ((j % w) as i64 - fx, (j / w) as i64 - fy);
+        let level = surf[i];
+        let tall = clamp(round(share * face as f64 * (0.85 + 0.3 * hash(seed, 307.0 + k as f64))), 2.0, face as f64 - 3.0);
+        // a fin under 4 tiles thick (high ground falling back to the foot's level beyond it) is cut through
+        let (mut qx, mut qy, mut thick) = (fx + dx, fy + dy, 0usize);
+        while thick < 5 {
+            match at(qx, qy) {
+                Some(q) if surf[q] >= level + 5 => {
+                    thick += 1;
+                    qx += dx;
+                    qy += dy;
+                }
+                _ => break,
+            }
+        }
+        let fin = match at(qx, qy) {
+            Some(q) if thick < 4 && surf[q] <= level + 1 && wet[q] == 0 => thick,
+            _ => 0,
+        };
+        openings.push(Opening { fx, fy, dx, dy, half: 0.0, tall, depth: depth * (0.9 + 0.2 * hash(seed, 503.0 + k as f64)), fin });
+        widths.push(clamp(size * 0.5, 3.0, 8.0) * (0.75 + 0.5 * hash(seed, 401.0 + k as f64)));
+    }
+    // each 3 to 8 wide, never so wide it comes within 2 tiles of the next (a fin's no wider than its roof can span)
+    for k in 0..openings.len() {
+        let mut room = f64::INFINITY;
+        for (q, o) in openings.iter().enumerate() {
+            if q != k {
+                room = min(room, hypot((o.fx - openings[k].fx) as f64, (o.fy - openings[k].fy) as f64) - 3.0);
+            }
+        }
+        let wide = clamp(min(widths[k], room), 3.0, 8.0);
+        openings[k].half = if openings[k].fin > 0 { min(wide * 0.5, 2.5) } else { wide * 0.5 };
+    }
+    // how far each opening reaches into the rock at a voxel: deepest at its base and its middle, the
+    // rock's grain varying it; through a fin, all the way across its lower part
+    let reach = |o: &Opening, i: usize, z: usize, g: f64, above: f64| {
+        let grain = 0.85 + 0.3 * noise3(seed, (i % w) as f64, (i / w) as f64, z as f64, 4.5, 0x2d);
+        let lim = o.depth * portable_math::sqrt(g) * grain * (1.0 - 0.55 * pow(min(1.0, above / (o.tall + 1.0)), 1.5));
+        if o.fin > 0 && g > 0.3 && above + 1.0 <= 0.75 * o.tall + 0.5 {
+            max(lim, o.fin as f64 + 0.5)
+        } else {
+            lim
+        }
+    };
+    // its crown: rising toward the middle of the opening and falling toward its back; under a hard bed
+    // the soft rock wears up to it (seepage along the contact), leaving the bed as a lip
+    let crown = |o: &Opening, i: usize, z: usize, arch: f64, d: f64, lim: f64| {
+        let lump = 0.92 + 0.2 * noise3(seed, (i % w) as f64, (i / w) as f64, 0.0, 5.0, 0x6b);
+        let q = min(1.0, max(0.0, d - 1.0) / max(1.0, lim));
+        let bed = if hard(i, z + 1) || hard(i, z + 2) { 2.0 } else { 0.0 };
+        o.tall * (0.3 + 0.7 * arch) * lump * (1.0 - 0.45 * q * q) + bed + 0.5
+    };
+    // the tiles each opening may wear: a strip into the face from its foot, its edges tapering
+    let mut weight = vec![0f32; n];
+    let mut owner = vec![u8::MAX; n];
+    // (and how high its crown stands there: an arch across the opening's width)
+    let mut arch = vec![0f32; n];
+    for (k, o) in openings.iter().enumerate() {
+        let long = (max(o.depth * 1.15, o.fin as f64 + 0.5) + 1.0).ceil() as i64;
+        let span = (o.half + 1.0).ceil() as i64;
+        for along in -1..=long {
+            for lat in -span..=span {
+                let Some(q) = at(o.fx + along * o.dx - lat * o.dy, o.fy + along * o.dy + lat * o.dx) else { continue };
+                if !dist[q].is_finite() {
+                    continue;
+                }
+                let g = smooth((o.half - lat.abs() as f64) / max(0.5, 0.45 * o.half)) as f32;
+                if g > weight[q] {
+                    weight[q] = g;
+                    owner[q] = k as u8;
+                    let f = lat.abs() as f64 / max(1.0, o.half);
+                    arch[q] = portable_math::sqrt(max(0.0, 1.0 - f * f)) as f32;
+                }
+            }
+        }
+    }
+    let tiles: Vec<usize> = band.iter().copied().filter(|&i| weight[i] > 0.0).collect();
+    let deepest = openings.iter().map(|o| max(o.depth * 1.15, o.fin as f64 + 0.5)).fold(depth, max);
+    let steps = (2.0 * deepest).ceil() as usize + 4;
+    // the support rule's working area: the tiles it may wear and ground round them
+    let worked = if tiles.is_empty() {
+        (0, 0, 0, 0)
+    } else {
+        let (mut a, mut b, mut c, mut d) = (w, h, 0, 0);
+        for &i in &tiles {
+            a = a.min(i % w);
+            b = b.min(i / w);
+            c = c.max(i % w);
+            d = d.max(i / w);
+        }
+        (a.saturating_sub(6), b.saturating_sub(6), (c + 6).min(w - 1), (d + 6).min(h - 1))
+    };
     // each air voxel's way in from the face (0 for the air that was there), the weight of the
-    // gesture where that face met it, and the ground at the face's foot (a hollow's height above it
+    // opening where that face met it, and the ground at the face's foot (a hollow's height above it
     // is what the wind and splash read); each voxel's wear so far, and the step it went at
     let mut din = vec![255u8; Z * n];
     let mut gin = vec![0f32; Z * n];
@@ -361,7 +556,7 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
         for z in 0..Z {
             if !solid(&orig, i, z) {
                 din[z * n + i] = 0;
-                gin[z * n + i] = weight(dist[i]) as f32;
+                gin[z * n + i] = weight[i];
                 fl[z * n + i] = (z - air_below(&orig, i, z)) as u8;
             }
         }
@@ -373,25 +568,16 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
         let grain = 0.6 * noise3(seed, x, y, z as f64, 2.3, 0x51) + 0.4 * lattice(seed, x as i64, y as i64, z as i64, 0x93);
         (if hard(i, z) { 9.0 } else { 1.0 }) * (0.6 + 0.8 * grain)
     };
-    // the shape a hollow wears to: deepest at its base and where the gesture met the face, its crown
-    // rising toward the middle of the opening and falling toward its back, the rock's grain varying both
-    let reach = |i: usize, z: usize, g: f64, above: f64| {
-        let grain = 0.75 + 0.5 * noise3(seed, (i % w) as f64, (i / w) as f64, z as f64, 4.5, 0x2d);
-        depth * portable_math::sqrt(g) * grain * (1.0 - 0.55 * pow(min(1.0, above / (tall + 1.0)), 1.5))
-    };
-    let crown = |i: usize, g: f64, d: f64, lim: f64| {
-        let lump = 0.85 + 0.3 * noise3(seed, (i % w) as f64, (i / w) as f64, 0.0, 5.0, 0x6b);
-        let q = min(1.0, max(0.0, d - 1.0) / max(1.0, lim));
-        tall * (0.4 + 0.6 * g) * lump * (1.0 - 0.45 * q * q)
-    };
     // what wears this step, read from the land as it was when the step began
     let mut worn = 0usize;
-    for step in 1..=steps {
+    for step in 1..=if tiles.is_empty() { 0 } else { steps } {
         let mut go: Vec<(usize, u8, f32, u8)> = vec![];
         for &i in &tiles {
             if edge[i] {
                 continue;
             }
+            let o = &openings[owner[i] as usize];
+            let hmax = o.tall.ceil() as usize + 1;
             let top = surface(t[i]).min(Z);
             for z in floor_cut..top {
                 if !wearable(&t, i, z) {
@@ -429,9 +615,13 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
                 if sum == 0.0 {
                     continue;
                 }
+                // (no wider than its own strip: openings along a sweep stay apart)
+                if weight[i] < g_new {
+                    g_new = weight[i];
+                }
                 let above = z as f64 - f_new as f64;
-                let lim = reach(i, z, g_new as f64, above);
-                if d_new as f64 > lim || above + 1.0 > crown(i, g_new as f64, d_new as f64, depth * portable_math::sqrt(g_new as f64)) {
+                let lim = reach(o, i, z, g_new as f64, above);
+                if d_new as f64 > lim || above + 1.0 > crown(o, i, z, arch[i] as f64, d_new as f64, lim) {
                     continue;
                 }
                 let cap = if hard(i, z + 1) { 1.8 } else if z + 2 < Z && hard(i, z + 2) { 1.3 } else { 1.0 };
@@ -622,8 +812,10 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
         }
         tidy(&mut t);
     }
-    // where no face could wear (flat ground, low steps), the ground is scoured: a shallow hollow round
-    // the gesture, the tile under it always among it
+    // where no face could wear (flat ground, low steps), running water scours the ground at the gesture
+    // instead (the force audit's 24): rills a level deep down the fall line of a slope, 2 to 4 of them, 1
+    // or 2 wide; on level ground one scour 2 or 3 wide, run toward the nearest lower ground; what would
+    // hold water drains or is left as it was, so nothing it scours becomes a pond
     let mut scoured = 0usize;
     let mut floor_held = false;
     let mut water_held = false;
@@ -639,36 +831,237 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
         }
         top
     };
+    let mut lowered: Vec<(usize, usize, f64)> = vec![];
     if !hollowed {
-        for &i in &tiles {
-            let d = dist[i];
-            let ragged = r * (0.7 + 0.45 * noise3(seed, (i % w) as f64, (i / w) as f64, 0.0, 2.7, 0x7a));
-            if fixed[i] || whole[i] || !plain(orig[i]) || (d > ragged && d > 0.75) {
-                continue;
+        // the level a tile is scoured to, or why it is not: 1 water, 2 the Floor, 3 held
+        let lower = |i: usize| -> Result<usize, u8> {
+            if fixed[i] || whole[i] || !plain(orig[i]) || !dist[i].is_finite() {
+                return Err(3);
             }
-            // (water and the ground that holds it stay: no wet tile scoured, none below the water beside)
             if wet[i] != 0 {
-                water_held = true;
-                continue;
+                return Err(1);
             }
-            let top = surface(orig[i]);
+            let top = surf[i];
             if top <= floor_cut {
-                floor_held = true;
-                continue;
+                return Err(2);
             }
-            let k = 1.0 + (power * 2.0 * portable_math::sqrt(max(0.0, 1.0 - d / max(0.5, ragged))) + 0.5 * lattice(seed, (i % w) as i64, (i / w) as i64, 0, 0x5c)).floor();
-            let k = (clamp(k, 1.0, 3.0) as usize).min(area_depth.get(i).copied().unwrap_or(255) as usize);
-            let shore = water_beside(i);
-            let low = top.saturating_sub(k).max(floor_cut).max(shore);
+            let low = (top - 1).max(water_beside(i));
             if low >= top {
-                if shore >= top {
-                    water_held = true;
-                }
-                continue;
+                return Err(1);
             }
+            Ok(low)
+        };
+        // the fall of the ground round a point, levels a tile
+        let fall = |px: f64, py: f64| -> (f64, f64) {
+            let rad = max(2.0, r).ceil() as i64;
+            let (cx, cy) = (round(px) as i64, round(py) as i64);
+            let (mut gx, mut gy, mut k) = (0.0, 0.0, 0.0);
+            for y in cy - rad..=cy + rad {
+                for x in cx - rad..=cx + rad {
+                    let (Some(a), Some(b), Some(c), Some(d)) = (at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)) else { continue };
+                    gx += surf[b] as f64 - surf[a] as f64;
+                    gy += surf[d] as f64 - surf[c] as f64;
+                    k += 2.0;
+                }
+            }
+            if k > 0.0 {
+                (gx / k, gy / k)
+            } else {
+                (0.0, 0.0)
+            }
+        };
+        let unit = |x: f64, y: f64| {
+            let l = hypot(x, y);
+            if l > 1e-9 {
+                (x / l, y / l)
+            } else {
+                (1.0, 0.0)
+            }
+        };
+        let (cx, cy) = (path[0].x, path[0].y);
+        let (gx, gy) = fall(cx, cy);
+        let slope = hypot(gx, gy) >= 0.12;
+        // (start, way, length, width)
+        let mut rills: Vec<((f64, f64), (f64, f64), usize, usize)> = vec![];
+        let run = (1.2 * size + 2.0).ceil() as usize;
+        if slope {
+            let m = 2 + (power * 2.99).floor() as usize;
+            let sp = max(3.0, 0.8 * size / m as f64);
+            if click {
+                let v = unit(-gx, -gy);
+                for k in 0..m {
+                    let o = (k as f64 - (m as f64 - 1.0) / 2.0) * sp + (hash(seed, 601.0 + k as f64) - 0.5) * 1.5;
+                    let start = (cx - v.1 * o - v.0 * r * 0.5, cy + v.0 * o - v.1 * r * 0.5);
+                    rills.push((start, v, run, 1 + (hash(seed, 701.0 + k as f64) < power) as usize));
+                }
+            } else {
+                let mut along = 0.0;
+                let mut k = 0usize;
+                while along <= length && k < 32 {
+                    let mut left = along;
+                    for q in 1..path.len() {
+                        let (a, b) = (path[q - 1], path[q]);
+                        let l = hypot(b.x - a.x, b.y - a.y);
+                        if left <= l || q + 1 == path.len() {
+                            let u = if l > 0.0 { clamp(left / l, 0.0, 1.0) } else { 0.0 };
+                            let p = (a.x + u * (b.x - a.x), a.y + u * (b.y - a.y));
+                            let (fx, fy) = fall(p.0, p.1);
+                            rills.push((p, unit(-fx, -fy), run, 1 + (hash(seed, 701.0 + k as f64) < power) as usize));
+                            break;
+                        }
+                        left -= l;
+                    }
+                    along += sp;
+                    k += 1;
+                }
+            }
+        } else {
+            // level ground: one scour, toward the nearest lower ground within twice its Size (a sweep's, along its line)
+            let wide = 2 + (power >= 0.5) as usize;
+            if click {
+                let (ix, iy) = (round(cx) as i64, round(cy) as i64);
+                let base = at(ix, iy).map_or(0, |i| surf[i]);
+                let mut near: Option<(f64, usize)> = None;
+                for &q in &band {
+                    let (dx, dy) = ((q % w) as f64 - cx, (q / w) as f64 - cy);
+                    let d2 = dx * dx + dy * dy;
+                    if surf[q] < base && d2 <= 4.0 * size * size && near.map_or(true, |b| d2 < b.0) {
+                        near = Some((d2, q));
+                    }
+                }
+                match near {
+                    Some((d2, q)) => {
+                        let v = unit((q % w) as f64 - cx, (q / w) as f64 - cy);
+                        rills.push(((cx, cy), v, portable_math::sqrt(d2).ceil() as usize + 2, wide));
+                    }
+                    None => {
+                        let a = 2.0 * std::f64::consts::PI * hash(seed, 809.0);
+                        let v = (cos(a), sin(a));
+                        rills.push(((cx - v.0 * r * 0.5, cy - v.1 * r * 0.5), v, run, wide));
+                    }
+                }
+            } else {
+                let last = path[path.len() - 1];
+                rills.push(((cx, cy), unit(last.x - cx, last.y - cy), length.ceil() as usize + 1, wide));
+            }
+        }
+        // each rill: down the ground from its start, never uphill, level ground taken along its way, 1 or 2
+        // wide (3 for a scour on level ground), stopping where it may not scour
+        let mut is_low = vec![false; n];
+        let mut level = vec![0usize; n];
+        for (k, &((sx, sy), v, run, wide)) in rills.iter().enumerate() {
+            let (sx, sy) = (clamp(sx, 0.0, w as f64 - 1.0), clamp(sy, 0.0, h as f64 - 1.0));
+            let mut cur = round(sy) as usize * w + round(sx) as usize;
+            // (a start it may not scour, under water or held: the nearest dry ground within its half-Size instead)
+            if lower(cur).is_err() {
+                let reach2 = max(2.0, r) * max(2.0, r);
+                let mut near: Option<(f64, usize)> = None;
+                for &q in &band {
+                    let (dx, dy) = ((q % w) as f64 - sx, (q / w) as f64 - sy);
+                    let d2 = dx * dx + dy * dy;
+                    if d2 <= reach2 && near.map_or(true, |b| d2 < b.0) && lower(q).is_ok() {
+                        near = Some((d2, q));
+                    }
+                }
+                if let Some((_, q)) = near {
+                    cur = q;
+                }
+            }
+            let mut seq: Vec<usize> = vec![];
+            let side = if v.0.abs() >= v.1.abs() { (0i64, 1i64) } else { (1, 0) };
+            let flip = if hash(seed, 907.0 + k as f64) < 0.5 { -1 } else { 1 };
+            while seq.len() < run {
+                match lower(cur) {
+                    Ok(_) => seq.push(cur),
+                    Err(1) => {
+                        water_held = true;
+                        break;
+                    }
+                    Err(2) => {
+                        floor_held = true;
+                        break;
+                    }
+                    Err(_) => break,
+                }
+                let (x, y) = ((cur % w) as i64, (cur / w) as i64);
+                let mut best: Option<(usize, f64, usize)> = None;
+                for (dx, dy) in [(-1i64, 0i64), (1, 0), (0, -1), (0, 1)] {
+                    let Some(j) = at(x + dx, y + dy) else { continue };
+                    if surf[j] > surf[cur] || seq.contains(&j) {
+                        continue;
+                    }
+                    // along its way: the step most along it, keeping near the line from its start
+                    let (ox, oy) = ((x + dx) as f64 - sx, (y + dy) as f64 - sy);
+                    let score = dx as f64 * v.0 + dy as f64 * v.1 - 0.8 * (ox * v.1 - oy * v.0).abs();
+                    if best.map_or(true, |b| surf[j] < b.0 || (surf[j] == b.0 && score > b.1)) {
+                        best = Some((surf[j], score, j));
+                    }
+                }
+                match best {
+                    Some((_, _, j)) => cur = j,
+                    None => break,
+                }
+            }
+            // (it ends above its last drop, so the ground below that drop, left as it was, takes its water)
+            if let Some(k) = (0..seq.len().saturating_sub(1)).rev().find(|&k| surf[seq[k + 1]] < surf[seq[k]]) {
+                seq.truncate(k + 1);
+            }
+            for (q, &i) in seq.iter().enumerate() {
+                let order = (k as f64 + q as f64 / max(1.0, seq.len() as f64)) / rills.len() as f64;
+                let mut add = |j: usize| {
+                    if !is_low[j] {
+                        if let Ok(l) = lower(j) {
+                            is_low[j] = true;
+                            level[j] = l;
+                            lowered.push((j, l, order));
+                        }
+                    }
+                };
+                add(i);
+                let (x, y) = ((i % w) as i64, (i / w) as i64);
+                for (k2, sgn) in [(1usize, flip), (2, -flip)] {
+                    if wide > k2 {
+                        if let Some(j) = at(x + side.0 * sgn, y + side.1 * sgn) {
+                            // (a side tile no lower than the rill's own: it drains into it)
+                            if surf[j] >= surf[i] {
+                                add(j);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // what would hold water: a scoured tile drains if water on it runs to ground no higher outside the
+        // scour, or to a scoured tile that drains; the rest are left as they were (unless nothing drains: on
+        // ground with no lower ground in reach, the scour stays, a level deep)
+        let fin_h = |j: usize| if is_low[j] { level[j] } else { surf[j] };
+        let mut drains = vec![false; n];
+        let mut queue: Vec<usize> = vec![];
+        for &(i, l, _) in &lowered {
+            if nbrs(i).iter().any(|&(ok, j)| ok && !is_low[j] && fin_h(j) <= l) {
+                drains[i] = true;
+                queue.push(i);
+            }
+        }
+        let mut k = 0;
+        while k < queue.len() {
+            let i = queue[k];
+            k += 1;
+            for (ok, j) in nbrs(i) {
+                if ok && is_low[j] && !drains[j] && level[j] >= fin_h(i) {
+                    drains[j] = true;
+                    queue.push(j);
+                }
+            }
+        }
+        if !queue.is_empty() {
+            lowered.retain(|&(i, _, _)| drains[i]);
+        }
+        for &(i, low, order) in &lowered {
+            let top = surf[i];
             t[i] = mask(low as u8);
             for z in low..top {
-                went[z * n + i] = (1.0 + d / max(0.5, r) * steps as f64).floor() as u16;
+                went[z * n + i] = (1.0 + order * steps as f64).floor() as u16;
             }
             scoured += 1;
         }
@@ -801,7 +1194,7 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
     }
     // the voxels it took, in the order they are shown
     let mut cells: Vec<u32> = vec![];
-    for &i in &tiles {
+    for &i in &band {
         if t[i] == orig[i] {
             continue;
         }

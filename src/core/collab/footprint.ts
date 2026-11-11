@@ -35,6 +35,7 @@ import { inBench } from "../features/raster/terrain";
 import type { MapSession } from "../doc/session";
 import type { ForceResultParams, ForceWhere, Verb } from "../forces/op";
 import { quakeExtent } from "../forces/quake";
+import { erodeExtent, erodeSize } from "../forces/erode";
 import { GLACIATE_AUTO_SIZE } from "../forces/glaciate/model";
 import { forceReach } from "../forces/reach";
 import type { Runs } from "../math/grid";
@@ -418,7 +419,8 @@ const dist = (ax: number, ay: number, bx: number, by: number): number => portabl
  *  - an aimed Glaciate drawn through points stays by its line within 1.12 × its Size (5992) and a margin for
  *    hanging valleys and outwash: 0.5 × Size + 10 is not derived, it is the margin the long sweep
  *    (collabClaims.heavy.test.ts) shows to hold;
- *  - Rift and Deposit: their size (their width) and the ground they move.
+ *  - Rift and Deposit: their size (their width) and the ground they move;
+ *  - Erode: `erodeExtent` (rust/forces/src/erode.rs `extent`), a click's face sought within twice its Size.
  *  Carve Unleash and Glaciate flow are clicks with no drawing phase, and run as far as the land lets them. */
 function corridor(g: ForceBandRequest): { pts: [number, number][]; r: number } | null {
   const pts = gesturePoints(g);
@@ -460,6 +462,8 @@ function corridor(g: ForceBandRequest): { pts: [number, number][]; r: number } |
       const size = typeof s.size === "number" ? s.size : GLACIATE_AUTO_SIZE;
       return { pts, r: 1.12 * size + 0.5 * size + 10 };
     }
+    case "erode":
+      return { pts, r: erodeExtent(typeof s.size === "number" ? s.size : erodeSize(s.power)) + JITTER + 2 };
     default:
       return { pts, r: ((typeof s.size === "number" ? s.size : 20) / 2) * 3 + 8 };
   }
