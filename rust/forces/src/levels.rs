@@ -209,7 +209,7 @@ pub(super) fn whole(surface: &[f64], ground: &[f64], before: &[u8], w: usize, h:
     // than a level, goes back (a brink one tile wide, or the corner of a ridge two tiles wide, on a cliff
     // the force only brushed would else fall the cliff's whole height): a tile of a ledge one tile wide
     // to where it stood, one that stood two tiles wide to where the force put it, so it moves with the
-    // ground round it and never goes back to stand alone above it.
+    // ground round it and never goes back to stand alone above it or leaves ground round it one tile wide.
     let brushed = |i: usize| (rounded[i] as i32 - before[i] as i32).abs() <= 1;
     let mut back = vec![];
     for y in 0..h {
@@ -225,14 +225,89 @@ pub(super) fn whole(surface: &[f64], ground: &[f64], before: &[u8], w: usize, h:
                 }
             }
             if all {
-                back.push((i, if in_square(before, w, h, x, y) { rounded[i] } else { before[i] }));
+                back.push((i, in_square(before, w, h, x, y)));
             }
         }
     }
-    for (i, to) in back {
-        land[i] = to;
+    for &(i, square) in &back {
+        if !square {
+            land[i] = before[i];
+        }
+    }
+    // (a corner put back where the force put it goes with the ground of its level the force only brushed
+    // round it, which the tidying may have moved by less, so it stands in a square; and it stays only
+    // where that leaves nothing one tile wide that the tidying had left at least two wide: else that
+    // ground goes back where it stood, or the corner alone does, or failing that it keeps what the
+    // tidying gave it)
+    let tidied = land.clone();
+    let narrowed = |land: &[u8], tiles: &[usize]| {
+        tiles.iter().any(|&i| {
+            let (x, y) = (i % w, i / w);
+            let mut any = false;
+            for ny in y.saturating_sub(1)..=(y + 1).min(h - 1) {
+                for nx in x.saturating_sub(1)..=(x + 1).min(w - 1) {
+                    any = any || (wide(&tidied, w, h, nx, ny) && !wide(land, w, h, nx, ny));
+                }
+            }
+            any
+        })
+    };
+    for &(i, square) in &back {
+        if !square {
+            continue;
+        }
+        let (x0, y0) = ((i % w) as i64, (i / w) as i64);
+        let mut group = vec![i];
+        let mut k = 0;
+        while k < group.len() {
+            let (x, y) = ((group[k] % w) as i64, (group[k] / w) as i64);
+            k += 1;
+            for (dx, dy) in [(-1i64, 0i64), (1, 0), (0, -1), (0, 1)] {
+                let (nx, ny) = (x + dx, y + dy);
+                if nx < 0 || ny < 0 || nx >= w as i64 || ny >= h as i64 || (nx - x0).abs() > 2 || (ny - y0).abs() > 2 {
+                    continue;
+                }
+                let j = ny as usize * w + nx as usize;
+                if free[j] && before[j] == before[i] && brushed(j) && !group.contains(&j) {
+                    group.push(j);
+                }
+            }
+        }
+        let was: Vec<u8> = group.iter().map(|&j| land[j]).collect();
+        for &j in &group {
+            land[j] = rounded[j];
+        }
+        if !narrowed(&land, &group) {
+            continue;
+        }
+        // (the force's rounding can leave that ground one tile wide where it stood two wide: then all of it
+        // where it stood)
+        for &j in &group {
+            land[j] = before[j];
+        }
+        if !narrowed(&land, &group) {
+            continue;
+        }
+        for (n, &j) in group.iter().enumerate() {
+            land[j] = was[n];
+        }
+        land[i] = before[i];
+        if narrowed(&land, &[i]) {
+            land[i] = was[0];
+        }
     }
     land
+}
+
+/// Whether a tile is part of ground at least two tiles wide: it lies in a two-by-two square of its own
+/// level, or beside a tile of its level that does (a band's jog).
+fn wide(land: &[u8], w: usize, h: usize, x: usize, y: usize) -> bool {
+    let l = land[y * w + x];
+    let same = |dx: i64, dy: i64| {
+        let (nx, ny) = (x as i64 + dx, y as i64 + dy);
+        nx >= 0 && ny >= 0 && nx < w as i64 && ny < h as i64 && land[ny as usize * w + nx as usize] == l && in_square(land, w, h, nx as usize, ny as usize)
+    };
+    in_square(land, w, h, x, y) || same(-1, 0) || same(1, 0) || same(0, -1) || same(0, 1)
 }
 
 /// Whether a tile lies in a two-by-two square of its own level.

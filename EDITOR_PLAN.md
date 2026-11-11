@@ -567,8 +567,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   cliff with ledges, never a stair of one-tile steps; a cliff the force made stays whole), no one-tile pillar, pit,
   ridge, trench or lone block. Ground a force did not change is touched only right beside ground it did, and where
   it changed nothing round a tile by more than a level the tidying never moves that tile more than two: the land's
-  own one-tile ledge goes back to where it stood, and the corner of its own two-tile ridge to where the force put
-  it, never down its cliff. Craterize ends with it; Erupt, Rift, Deposit, Quake and Glaciate adopt it next.
+  own one-tile ledge goes back to where it stood, and the corner of its own two-tile ridge, with the ground of its
+  level round it, to where the force put it, or where the force's rounding would leave that one tile wide to where it
+  stood, never down its cliff and never leaving ground one tile wide. Craterize ends with it; Erupt, Rift, Deposit, Quake and Glaciate adopt it next.
 - **Esc skips, undo takes it back** (D344, A4): while a gesture is still being drawn, Esc cancels it and nothing of
   it lands; once a force plays, Esc skips it to its end, its final land kept as one step; Ctrl+Z (or Z, or Revert)
   takes all of it back at any moment, and nothing lands afterwards (D341). The row's tooltip carries the keys (**Esc** skips,
