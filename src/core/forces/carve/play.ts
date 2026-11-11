@@ -17,7 +17,7 @@
 // spreading of that last step).
 
 import type { EntitySpec } from "../../format/entities";
-import { clearable, clears, CLEARABLE, destroyedGround, type ClearedSource } from "../clear";
+import { clearable, clears, CLEARABLE, destroyedGround, riddenLevel, type ClearedSource } from "../clear";
 import { footprint } from "../objects";
 import type { ForceHead, ForceMap } from "../force";
 import type { CarveRun, Station } from "./run";
@@ -197,7 +197,14 @@ export class CarvePlay {
         .map((e) => {
           const own = ownById.get(e.id);
           if (own) return e.z === heights[own.tile] ? e : { ...e, z: heights[own.tile] };
-          if ((e === unleashed || (this.riding && CLEARABLE.has(e.template))) && e.x >= 0 && e.y >= 0 && e.x < W && e.y < this.map.H) return e.z === heights[e.y * W + e.x] ? e : { ...e, z: heights[e.y * W + e.x] };
+          if (e.x < 0 || e.y < 0 || e.x >= W || e.y >= this.map.H) return e;
+          const i = e.y * W + e.x;
+          if (e === unleashed) return e.z === heights[i] ? e : { ...e, z: heights[i] };
+          // (the map's own ride their ground: one under a roof, a cave's, stays in its cave, clear.ts `riddenLevel`)
+          if (this.riding && CLEARABLE.has(e.template)) {
+            const z = riddenLevel(e.z, this.run.original[i], heights[i]);
+            return e.z === z ? e : { ...e, z };
+          }
           return e;
         });
     }

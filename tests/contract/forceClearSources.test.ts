@@ -11,7 +11,7 @@ import { describe, expect, test } from "vitest";
 import { fluidObject, waterSource, type EntitySpec } from "../../src/core/format/entities";
 import { plainEntities, snapshotMap, type FullForceMap } from "../../src/core/forces/force";
 import { footprint } from "../../src/core/forces/objects";
-import { BURIED, CLEARABLE, CUT, destroyedGround, motionOf } from "../../src/core/forces/clear";
+import { BURIED, CLEARABLE, CUT, destroyedGround, motionOf, riddenLevel } from "../../src/core/forces/clear";
 import { CarvePlay } from "../../src/core/forces/carve/play";
 import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
 import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
@@ -190,6 +190,52 @@ describe("forces clear sources (D474)", () => {
       // a force that says nothing clears
       expect(use(m, c.request).params).toEqual(clear.params);
     }, 60000);
+
+  test("a source under a roof (a cave's) rides true to its cave: it stays in it while the ground above is raised or thinned, stands on the new ground once a cut reaches it, never below 0 or in rock; one on the surface moves with its ground", () => {
+    // (the rule: on the surface, as much as the ground moves; with a block a Quake lifts or a Rift drops, a cave's too)
+    expect(riddenLevel(10, 10, 14)).toBe(14);
+    expect(riddenLevel(7, 16, 20, undefined, true)).toBe(11);
+    expect(riddenLevel(7, 16, 4, undefined, true)).toBe(0);
+    expect(riddenLevel(10, 10, 4)).toBe(4);
+    expect(riddenLevel(11, 10, 13)).toBe(14);
+    // (a cave's source at 7 under ground at 16: buried deeper, thinned above, cut to it, cut below it, cut to 0)
+    expect(riddenLevel(7, 16, 20)).toBe(7);
+    expect(riddenLevel(7, 16, 9)).toBe(7);
+    expect(riddenLevel(7, 16, 7)).toBe(7);
+    expect(riddenLevel(7, 16, 4)).toBe(4);
+    expect(riddenLevel(7, 16, 0)).toBe(0);
+    // (with Erode's voxels: on the floor of its opening, falling to the next floor down where its floor wore away)
+    const run = (...r: [number, number][]) => r.reduce((m, [a, b]) => { for (let k = a; k < b; k++) m |= 1 << k; return m >>> 0; }, 0);
+    expect(riddenLevel(7, 16, 16, run([0, 7], [10, 16]))).toBe(7);
+    expect(riddenLevel(7, 16, 16, run([0, 4], [10, 16]))).toBe(4);
+    expect(riddenLevel(7, 16, 16, run([0, 9], [10, 16]))).toBe(9);
+    // every force, Ride and Clear: a source set 3 under its ground (a cave's) ends gone (Clear, its ground destroyed) or
+    // at its level while its ground stays above it, on its ground once the ground comes down to it, never below 0
+    for (const c of CASES)
+      for (const sources of ["ride", "clear"] as const) {
+        const m = sourced(c.kind);
+        const caved = new Map<string, { z: number; i: number }>();
+        m.entities.forEach((e, k) => {
+          if (!e.id.startsWith("src-") || k % 3 || m.heights[e.y * W + e.x] < 4) return;
+          e.z = m.heights[e.y * W + e.x] - 3;
+          caved.set(e.id, { z: e.z, i: e.y * W + e.x });
+        });
+        expect(caved.size).toBeGreaterThan(0);
+        const u = use(m, { ...c.request, settings: { ...c.request.settings, sources } } as ForceRequest);
+        const whole = c.request.verb === "quake" || c.request.verb === "rift";
+        let moved = 0;
+        for (const [id, q] of caved) {
+          const e = u.entities.find((o) => o.id === id);
+          if (!e) continue;
+          // (where it stands now: a Quake's slide carries it with its block)
+          const h = u.heights[e.y * W + e.x];
+          const h0 = m.heights[q.i];
+          if (h !== h0) moved++;
+          expect(e.z, `${c.name} (${sources}): ${id}, its ground ${h0} → ${h}`).toBe(whole ? Math.max(0, q.z + h - h0) : Math.max(0, Math.min(q.z, h)));
+        }
+        if (sources === "ride") expect(moved, `${c.name} (${sources}) moves a cave source's ground`).toBeGreaterThan(0);
+      }
+  }, 240000);
 
   test("a seep is cleared like a source, and rides like one", () => {
     const m = fixture("plain", W);
