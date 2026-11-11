@@ -16,7 +16,7 @@ import { newRampedStroke } from "../../src/core/doc/strokes";
 import { planStart } from "../../src/core/doc/tools";
 import { planFill, unfedWater } from "../../src/core/doc/waterEdits";
 import { applyLakeLevel } from "../../src/core/doc/lakeLevel";
-import { applyLeat } from "../../src/core/doc/leat";
+import { applyCanal } from "../../src/core/doc/canal";
 import { applyForce } from "../../src/core/collab/forceStep";
 import { isPickable } from "../../src/core/features/objects";
 import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
@@ -382,12 +382,12 @@ function applyOne(s: MapSession, raw: unknown): { label: string; held: number } 
         return done(s.apply(plan.op!, "user", label), lastLabel());
       }
       break;
-    case "leat":
-      // a channel that leads water: planned on the map as it stands (core/doc/leat.ts)
+    case "canal":
+      // a channel that leads water: planned on the map as it stands (core/doc/canal.ts)
       if (p.cells === undefined) {
         const path = p.path as Pair[] | undefined;
-        if (!Array.isArray(path) || path.length < 2) refuse("A leat needs path [[x, y], ...], from where the water is to where it should go");
-        return done(applyLeat(s, path!, (p.width as number | undefined) ?? 2, (p.depth as number | undefined) ?? 1, (p.open as boolean | undefined) ?? true), lastLabel());
+        if (!Array.isArray(path) || path.length < 2) refuse("A canal needs path [[x, y], ...], from where the water is to where it should go");
+        return done(applyCanal(s, path!, (p.width as number | undefined) ?? 2, (p.depth as number | undefined) ?? 1, (p.open as boolean | undefined) ?? true), lastLabel());
       }
       break;
     case "setLakeLevel":

@@ -130,7 +130,7 @@ export function touchesOf(ops: readonly EditOp[], before: MapState, after: MapSt
         whole();
         keys.add("lakes");
         break;
-      case "leat":
+      case "canal":
       case "setLakeLevel": {
         // (the sill's tiles are written; the basin and the way out it measured are read map-wide, as a Fill's hollow)
         const here = new Mask(N);

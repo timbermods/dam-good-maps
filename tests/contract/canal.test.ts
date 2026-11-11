@@ -1,9 +1,9 @@
-// The leat (core/doc/leat.ts): a channel that leads water. Its bed falls steadily and holds what runs in it; a path
+// The canal (core/doc/canal.ts): a channel that leads water. Its bed falls steadily and holds what runs in it; a path
 // the land can't give a fall along is refused with one line; a project with one reopens byte for byte (D455).
 
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
-import { applyLeat, leatLine, planLeat } from "../../src/core/doc/leat";
+import { applyCanal, canalLine, planCanal } from "../../src/core/doc/canal";
 import { planEntity } from "../../src/core/doc/placing";
 import { MapSession } from "../../src/core/doc/session";
 import { startingLocation } from "../../src/core/format/entities";
@@ -27,9 +27,9 @@ function slope(): MapSession {
   return MapSession.importMap(writeTimber(buildFileFromHeights(W, W, h, [start], "").file), "slope.timber");
 }
 
-describe("the leat", () => {
+describe("the canal", () => {
   it("walks its path edge to edge", () => {
-    const line = leatLine([[0, 0], [3, 2], [3, 5]]);
+    const line = canalLine([[0, 0], [3, 2], [3, 5]]);
     expect(line[0]).toEqual([0, 0]);
     expect(line[line.length - 1]).toEqual([3, 5]);
     for (let k = 1; k < line.length; k++) expect(Math.abs(line[k][0] - line[k - 1][0]) + Math.abs(line[k][1] - line[k - 1][1])).toBe(1);
@@ -37,7 +37,7 @@ describe("the leat", () => {
   it("cuts a bed that never rises, holds the water a source runs down it, undoes in one step and reopens byte for byte", () => {
     const s = slope();
     const before = s.built.heights.slice();
-    const r = applyLeat(s, [[8, 30], [78, 30]], 2, 1, true);
+    const r = applyCanal(s, [[8, 30], [78, 30]], 2, 1, true);
     expect(r.ok).toBe(true);
     expect([r.plan.from, r.plan.to]).toEqual([11, 4]);
     const row = Array.from({ length: 71 }, (_, k) => s.built.heights[30 * W + 8 + k]);
@@ -60,7 +60,7 @@ describe("the leat", () => {
   it("raises a bank where the land beside the bed is lower than its water would stand", () => {
     const s = slope();
     // along the terrace's edge: the bed at 7 on the upper side (y 69), the lower ground (5) beside it at y 70
-    const p = planLeat(s, [[10, 69], [60, 69]], 1, 1, true);
+    const p = planCanal(s, [[10, 69], [60, 69]], 1, 1, true);
     expect(p.reason).toBeNull();
     expect(p.banks.length).toBeGreaterThan(40);
     expect(p.banks.every((i) => Math.floor(i / W) === 70)).toBe(true);
@@ -68,15 +68,15 @@ describe("the leat", () => {
   });
   it("Dry leaves the first tile of its line standing", () => {
     const s = slope();
-    const p = planLeat(s, [[8, 30], [78, 30]], 1, 1, false);
+    const p = planCanal(s, [[8, 30], [78, 30]], 1, 1, false);
     expect(p.reason).toBeNull();
     expect(p.tiles.includes(30 * W + 8)).toBe(false);
     expect(p.tiles.includes(30 * W + 9)).toBe(true);
   });
   it("refuses, in one line that says where, a path the land rises along", () => {
     const s = slope();
-    expect(planLeat(s, [[78, 30], [8, 30]], 2, 1, true).reason).toBe("the land rises 4 levels above the leat's fall at X 39 · Y 30: it can't keep falling there");
-    expect(planLeat(s, [[8, 30], [78, 30]], 7, 1, true).reason).toBe("a leat's width must be a whole number from 1 to 6");
-    expect(planLeat(s, [[8, 30]], 2, 1, true).reason).toBe("a leat needs a path: drag from where the water is to where it should go");
+    expect(planCanal(s, [[78, 30], [8, 30]], 2, 1, true).reason).toBe("the land rises 4 levels above the canal's fall at X 39 · Y 30: it can't keep falling there");
+    expect(planCanal(s, [[8, 30], [78, 30]], 7, 1, true).reason).toBe("a canal's width must be a whole number from 1 to 6");
+    expect(planCanal(s, [[8, 30]], 2, 1, true).reason).toBe("a canal needs a path: drag from where the water is to where it should go");
   });
 });

@@ -1,31 +1,31 @@
-// The leat: a channel that leads water (MAPCRAFT's verb "lead water"; the hand-built map had no channel whose banks
+// The canal: a channel that leads water (MAPCRAFT's verb "lead water"; the hand-built map had no channel whose banks
 // hold). The player drags a path and it cuts a bed of a set width and depth that falls steadily from its start to its
 // end: the bed follows the land down, `depth` below it, and never rises again; where the land beside the bed is lower
 // than the water would stand in it, a bank is raised, so the channel holds what runs in it. Where the land rises along
 // the path by more than a cutting can take, it is refused in one line that says where. Open, it starts in the water it
-// leads off; Dry, the first tile of its line is left standing, for the player or a blockage to open later. The `leat`
+// leads off; Dry, the first tile of its line is left standing, for the player or a blockage to open later. The `canal`
 // operation stores its tiles and each one's level literally (as a lake's sill does) and is applied as exact Flattens;
 // the engine's check plans it again on the map now and it must be the one stored (D342).
 
 import { CEILING } from "../format/world";
 import { runsToTiles, tilesToRuns } from "../math/grid";
 import { WATER } from "../sim/fed";
-import type { LeatParams, OpOf } from "./ops";
+import type { CanalParams, OpOf } from "./ops";
 import type { ApplyResult, MapSession } from "./session";
 import { applySelection, selectionHeld } from "./start";
 
-export const LEAT_MAX_WIDTH = 6;
-export const LEAT_MAX_DEPTH = 3;
+export const CANAL_MAX_WIDTH = 6;
+export const CANAL_MAX_DEPTH = 3;
 /** How much deeper than its depth the bed may be cut to keep falling through a rise in the land. */
-export const LEAT_CUTTING = 3;
-/** The longest line of tiles a leat follows. */
-export const LEAT_MAX_LENGTH = 1024;
+export const CANAL_CUTTING = 3;
+/** The longest line of tiles a canal follows. */
+export const CANAL_MAX_LENGTH = 1024;
 
-export interface LeatPlan {
+export interface CanalPlan {
   /** The plain one-line reason it is refused, or null. */
   reason: string | null;
   /** The operation that makes it (null when refused). */
-  op: OpOf<"leat"> | null;
+  op: OpOf<"canal"> | null;
   /** The tiles it changes, ascending (y·W + x): the bed and the raised banks. */
   tiles: number[];
   /** The level each of `tiles` is set to, in their order. */
@@ -41,7 +41,7 @@ export interface LeatPlan {
 
 /** The tiles of a line through the points, each sharing an edge with the next (water runs between edges, never
  *  across a corner), without the same tile twice in a row. */
-export function leatLine(points: readonly (readonly [number, number])[]): [number, number][] {
+export function canalLine(points: readonly (readonly [number, number])[]): [number, number][] {
   const out: [number, number][] = [];
   const put = (x: number, y: number) => {
     const last = out[out.length - 1];
@@ -78,20 +78,20 @@ export function leatLine(points: readonly (readonly [number, number])[]): [numbe
   return out;
 }
 
-/** Plan a leat along `path` (points [x, y], start first): what it would change, or the one line why not. Reads the
+/** Plan a canal along `path` (points [x, y], start first): what it would change, or the one line why not. Reads the
  *  map only. */
-export function planLeat(s: MapSession, path: readonly (readonly [number, number])[], width: number, depth: number, open: boolean): LeatPlan {
-  const none = (reason: string): LeatPlan => ({ reason, op: null, tiles: [], levels: [], bed: [], banks: [], from: NaN, to: NaN });
+export function planCanal(s: MapSession, path: readonly (readonly [number, number])[], width: number, depth: number, open: boolean): CanalPlan {
+  const none = (reason: string): CanalPlan => ({ reason, op: null, tiles: [], levels: [], bed: [], banks: [], from: NaN, to: NaN });
   const now = s.waterNow();
   const { W, H } = now.model;
   const heights = s.built.heights;
   const where = (i: number) => `X ${i % W} · Y ${Math.floor(i / W)}`;
-  if (!Number.isInteger(width) || width < 1 || width > LEAT_MAX_WIDTH) return none(`a leat's width must be a whole number from 1 to ${LEAT_MAX_WIDTH}`);
-  if (!Number.isInteger(depth) || depth < 1 || depth > LEAT_MAX_DEPTH) return none(`a leat's depth must be a whole number from 1 to ${LEAT_MAX_DEPTH}`);
+  if (!Number.isInteger(width) || width < 1 || width > CANAL_MAX_WIDTH) return none(`a canal's width must be a whole number from 1 to ${CANAL_MAX_WIDTH}`);
+  if (!Number.isInteger(depth) || depth < 1 || depth > CANAL_MAX_DEPTH) return none(`a canal's depth must be a whole number from 1 to ${CANAL_MAX_DEPTH}`);
   for (const [x, y] of path) if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= W || y >= H) return none(`X ${x} · Y ${y} is off the map`);
-  const line = leatLine(path);
-  if (line.length < (open ? 2 : 3)) return none("a leat needs a path: drag from where the water is to where it should go");
-  if (line.length > LEAT_MAX_LENGTH) return none(`a leat follows at most ${LEAT_MAX_LENGTH} tiles: this path has ${line.length}`);
+  const line = canalLine(path);
+  if (line.length < (open ? 2 : 3)) return none("a canal needs a path: drag from where the water is to where it should go");
+  if (line.length > CANAL_MAX_LENGTH) return none(`a canal follows at most ${CANAL_MAX_LENGTH} tiles: this path has ${line.length}`);
   const centre = line.map(([x, y]) => y * W + x);
   const n = centre.length;
   // the land along the line: where water stands at the start, the level it stands at (the bed leaves from under it)
@@ -102,9 +102,9 @@ export function planLeat(s: MapSession, path: readonly (readonly [number, number
   for (let k = 0; k < n; k++) {
     const want = land(k) - depth;
     bedAt[k] = k ? Math.min(bedAt[k - 1], want) : want;
-    if (bedAt[k] < 1) return none(`the leat's bed would go below level 1 at ${where(centre[k])}: start it on higher ground or make it shallower`);
+    if (bedAt[k] < 1) return none(`the canal's bed would go below level 1 at ${where(centre[k])}: start it on higher ground or make it shallower`);
     const cut = heights[centre[k]] - bedAt[k];
-    if (cut > depth + LEAT_CUTTING) return none(`the land rises ${cut - depth} ${cut - depth === 1 ? "level" : "levels"} above the leat's fall at ${where(centre[k])}: it can't keep falling there`);
+    if (cut > depth + CANAL_CUTTING) return none(`the land rises ${cut - depth} ${cut - depth === 1 ? "level" : "levels"} above the canal's fall at ${where(centre[k])}: it can't keep falling there`);
   }
   // each tile of the bed takes the level of the nearest tile of the line (the earlier of two as near)
   const lo = -Math.floor((width - 1) / 2);
@@ -136,7 +136,7 @@ export function planLeat(s: MapSession, path: readonly (readonly [number, number
     level.set(i, bedAt[k]);
   }
   // the banks: beside the bed, the land must stand as high as the water would in it (the bed's level and its depth);
-  // never across the leat's two ends, which stay open
+  // never across the canal's two ends, which stay open
   const ahead = (i: number, k: number, back: boolean) => {
     const a = line[back ? 0 : n - 1];
     const b = line[back ? 1 : n - 2];
@@ -162,38 +162,38 @@ export function planLeat(s: MapSession, path: readonly (readonly [number, number
   const held = s.columns.size ? selectionHeld(s) : null;
   const tiles = [...level.keys()].sort((a, b) => a - b);
   for (const i of tiles) {
-    if (fixed[i]) return none(`a source stands in the leat's way at ${where(i)}`);
-    if (held?.has(i)) return none(`${where(i)} has a cave or overhang: a leat leaves those as they are`);
-    if (level.get(i)! > CEILING) return none(`the leat's bank at ${where(i)} would rise above the ceiling (level ${CEILING})`);
+    if (fixed[i]) return none(`a source stands in the canal's way at ${where(i)}`);
+    if (held?.has(i)) return none(`${where(i)} has a cave or overhang: a canal leaves those as they are`);
+    if (level.get(i)! > CEILING) return none(`the canal's bank at ${where(i)} would rise above the ceiling (level ${CEILING})`);
   }
   const changed = tiles.filter((i) => level.get(i) !== heights[i]);
   if (!changed.length) return none("the land already falls that way as a channel: nothing to cut");
   const levels = changed.map((i) => level.get(i)!);
-  const params: LeatParams = { path: path.map(([x, y]) => [x, y]), width, depth, open, cells: tilesToRuns(changed, W), levels };
+  const params: CanalParams = { path: path.map(([x, y]) => [x, y]), width, depth, open, cells: tilesToRuns(changed, W), levels };
   const inBed = new Set(bed);
-  return { reason: null, op: { op: "leat", params }, tiles: changed, levels, bed: changed.filter((i) => inBed.has(i)), banks: changed.filter((i) => !inBed.has(i)), from: bedAt[first], to: bedAt[n - 1] };
+  return { reason: null, op: { op: "canal", params }, tiles: changed, levels, bed: changed.filter((i) => inBed.has(i)), banks: changed.filter((i) => !inBed.has(i)), from: bedAt[first], to: bedAt[n - 1] };
 }
 
-/** Make the leat (`planLeat`), applied as a Select action: one undo step, exact, the objects on its ground riding it
+/** Make the canal (`planCanal`), applied as a Select action: one undo step, exact, the objects on its ground riding it
  *  and the start carried to level ground if its own broke (doc/start.ts `applySelection`). */
-export function applyLeat(s: MapSession, path: readonly (readonly [number, number])[], width: number, depth: number, open: boolean): ApplyResult & { plan: LeatPlan } {
-  const plan = planLeat(s, path, width, depth, open);
-  if (!plan.op) return { ok: false, errors: [plan.reason ?? "the leat can't be made"], applied: [], dirty: null, plan };
-  return { ...applySelection(s, [plan.op], leatLabel(plan.op.params), plan.tiles), plan };
+export function applyCanal(s: MapSession, path: readonly (readonly [number, number])[], width: number, depth: number, open: boolean): ApplyResult & { plan: CanalPlan } {
+  const plan = planCanal(s, path, width, depth, open);
+  if (!plan.op) return { ok: false, errors: [plan.reason ?? "the canal can't be made"], applied: [], dirty: null, plan };
+  return { ...applySelection(s, [plan.op], canalLabel(plan.op.params), plan.tiles), plan };
 }
 
-/** The history's words for a `leat` operation. */
-export function leatLabel(p: LeatParams): string {
-  return `Cut a leat ${p.width} wide and ${p.depth} deep${p.open ? "" : ", dry"}`;
+/** The history's words for a `canal` operation. */
+export function canalLabel(p: CanalParams): string {
+  return `Cut a canal ${p.width} wide and ${p.depth} deep${p.open ? "" : ", dry"}`;
 }
 
-/** Why a `leat` operation doesn't fit the map now (null when it does): planned again on the map as it stands, it must
+/** Why a `canal` operation doesn't fit the map now (null when it does): planned again on the map as it stands, it must
  *  be the one it stores (the engine's check). */
-export function leatProblem(s: MapSession, p: LeatParams): string | null {
-  const r = planLeat(s, p.path, p.width, p.depth, p.open);
+export function canalProblem(s: MapSession, p: CanalParams): string | null {
+  const r = planCanal(s, p.path, p.width, p.depth, p.open);
   if (r.reason) return r.reason;
   const { W } = s.waterNow().model;
   const stored = runsToTiles(p.cells, W).sort((a, b) => a - b);
   const same = stored.length === r.tiles.length && stored.every((i, k) => i === r.tiles[k] && p.levels[k] === r.levels[k]);
-  return same ? null : "the leat is no longer the one planned: draw it again";
+  return same ? null : "the canal is no longer the one planned: draw it again";
 }
