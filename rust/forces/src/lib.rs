@@ -8775,14 +8775,14 @@ fn glacier_absorb(
 /// What Sources set to Ride (D474) keeps riding the ground: water and badwater sources and seeps.
 /// What Sources set to Clear takes (D474, the force audit's S2): a source whose ground a force destroyed, buried
 /// `CLEAR_BURIED` levels or more or cut `CLEAR_CUT` or more away on one of its tiles (the same numbers are clear.ts
-/// `BURIED`, `CUT`). One on ground only moved a little rides.
+/// `BURIED`, `CUT`). One on ground only moved a little rides, but a multi-tile one (a badwater source's 3 × 3, a
+/// seep's 2 × 2) whose tiles moved by different amounts goes too: it rides only as one level piece (D249; clear.ts
+/// `clearable`).
 const CLEAR_BURIED: i32 = 3;
 const CLEAR_CUT: i32 = 2;
 fn clear_destroys(before: &[u8], now: &[u8], tiles: &[usize]) -> bool {
-    tiles.iter().any(|&i| {
-        let d = now[i] as i32 - before[i] as i32;
-        d >= CLEAR_BURIED || d <= -CLEAR_CUT
-    })
+    let d = |i: usize| now[i] as i32 - before[i] as i32;
+    tiles.iter().any(|&i| d(i) >= CLEAR_BURIED || d(i) <= -CLEAR_CUT) || (tiles.len() > 1 && tiles.iter().any(|&i| d(i) != d(tiles[0])))
 }
 /// The level a source or seep that rides stands at once its tile's ground went from `before` to `after`, from level
 /// `z` (clear.ts `riddenLevel`, without voxels): one on the surface moves with its ground; one under a roof, a cave's,
