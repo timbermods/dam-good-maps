@@ -67,6 +67,16 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   two), `GATE_WATER_CHECKS` (`water.levels` read for a backwater, `gate.dry`, `frame.water`), `gateFirstWater` (`draw.ts`
   `firstWater` with this stage, until `PremiseDef` has a seam for it) and `gateSettleModel` (the undrawn ground over every
   water, for a settle of stage 1 alone). `tools/premise-gate-water.ts` prints and draws a seed's, `--settle` settles it.
+- `gateLand.ts`: the wall with one gate's stage 2 (§5.1 "As built (relief)"): `gateRelief` (the shared relief with the
+  spur alone, then the wall's crest band, its sheer faces and the Pass, the basin's terraces along its beds, the rim and
+  its notch, the valley closed at the megadam's water), `gateZones`, `gateLand` (`premiseLand`'s parts for this land) and
+  `GATE_LAND_CHECKS` / `gateLandFailures` (its land invariants, on the ground). `gateMap.ts` `gateMap` makes the whole map
+  (stages 0 to 3, one `premiseMap` build and its checks) and `startNumbers` reads the start's five checks;
+  `tools/premise-gate-map.ts` writes a seed's, `tools/capture-gate.ts` renders its opening camera.
+- `gateWorks.ts`: the wall with one gate's stage 4 (§5.1 "As built (works)"): `gateLadder` (round 8's rungs as templates
+  on the land, measured as `ladder.ts` measures: the Still Pool's levee, the Gate opened and made whole, the leat and its
+  whole share, the megadam with the Gate dammed), `gateCard` / `gateWorkWords` (the card's words) and `GATE_WORKS_CHECKS`
+  / `gateWorksFailures`.
 - `planChecks.ts`: §1.4's checks every premise shares (levels fit, no bed under `BED_FLOOR`, bodies apart, the graph
   closes, the works add up, the skeleton is whole).
 - `geom.ts`: capsule chains, paths and gaps. `diagram.ts`: the water-story diagram (`planSvg`, `planRaster`).
@@ -122,7 +132,10 @@ day 1's water; every panel setting's role and the greyed list); `tests/contract/
 a broken plan for every `plan` invariant, the Four Lakes fixture `tests/fixtures/four-lakes.plan.json`);
 `premiseGatePlan.test.ts` (quick: the wall with one gate kept out of the choices, its eligibility, seeds 1 to 24 a size,
 variety, a broken plan for every `plan` invariant);
-`premiseGateWater.test.ts` (quick: its `land` invariants on seeds 1 to 6 a size, the drought hold, the bars, the frame's
+`premiseGateWorks.test.ts` (quick: the works invariants on two plans, the rungs and their gains, the card, a broken
+case for each); `premiseGateLand.test.ts` (quick: the land invariants on six plans, a broken ground for each) and
+`premiseGateLand.heavy.test.ts` (four maps built: every blocking check, the start's numbers printed, the water settled on
+the land); `premiseGateWater.test.ts` (quick: its `land` invariants on seeds 1 to 6 a size, the drought hold, the bars, the frame's
 water, the Still Pool as a backwater, a broken raster for each of its own) and `premiseGateWater.heavy.test.ts` (five
 plans settled: the lake and cleft over their sills, the Veil's curtain, the Gate and leat dry, nothing out but the Low
 River);

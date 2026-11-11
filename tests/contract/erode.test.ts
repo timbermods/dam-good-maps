@@ -65,12 +65,22 @@ describe("the land decides the form (D281)", () => {
       expect(solid(m, i, 3), `power ${power}`).toBe(false);
       expect(solid(m, i, 11)).toBe(true);
       expect(solid(m, i, 2), "the floor stays").toBe(true);
-      // deeper and taller with Power
+      // deeper and taller with Power: the opening a third of the nine-level face at Power 55, more than half at
+      // 100, 3 to 8 wide along it (D148, the force audit's 11: the wear no longer runs along the whole Size of the
+      // face, so its count of voxels, once over 300 at Power 100, is no longer what grows; its height is)
+      let high = 0;
+      for (let z = 3; z < 12; z++) if (!solid(m, i, z)) high = z - 2;
+      let wide = 0;
+      for (let y = 0; y < W; y++) if (!solid(m, y * W + 20, 3)) wide++;
+      expect(wide, `power ${power}: wide`).toBeGreaterThanOrEqual(3);
+      expect(wide, `power ${power}: wide`).toBeLessThanOrEqual(8);
+      if (power === 55) expect(high).toBeGreaterThanOrEqual(3);
       if (power === 100) {
         let deep = 0;
         for (let x = 20; x < W; x++) if (!solid(m, 20 * W + x, 3)) deep = x - 19;
         expect(deep).toBeGreaterThanOrEqual(5);
-        expect(run.plan0.stats.worn).toBeGreaterThan(300);
+        expect(high).toBeGreaterThanOrEqual(5);
+        expect(run.plan0.stats.worn).toBeGreaterThan(100);
       }
     }
   });

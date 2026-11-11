@@ -175,6 +175,14 @@ Right close up, invisible from where a player judges; no arch seen; on open grou
 2. Cut through fins for arches, and make separate alcoves along a sweep (11).
 3. No dish ponds, no speckle: rills on slopes, the nearest face on flats (24).
 
+**Done** (`feature/force-erode`, 2026-11-11): 1 to 3. A click wears one opening at the nearest face within twice its
+Size, a sweep one every 6 to 10 tiles of unequal size; 40 % of the face high at Power 55, 70 % at 100, 3 to 8 wide, 2 to
+6 deep; a fin under 4 tiles is cut through. Without a face in reach: 2 to 4 rills down a slope's fall line, or one scour
+toward lower ground on the level, kept only where it drains (no pond). On generated maps a face is nearly always within
+reach, so a click there makes an opening. A run costs about 130 to 180 ms at 256², 60 to 70 ms at 128². Sheet
+`docs/sheets/force-erode.jpg` (Highlands 4242, Power 100: an alcove under an overhang at the cliff's foot). Still open:
+Auto Size is not capped by the map (it needs none: 6 to 20 tiles); badwater is S3's (#1025).
+
 ### Naturalize: yes as a small brush, no as the forces' finisher
 It never changes the water in any case, and at Size 14 to 20 on cliffs it does what it says (Highlands). At Size 40,
 Strength 10 one stroke removes a hill or a volcano.
