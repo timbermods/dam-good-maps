@@ -128,7 +128,10 @@ place of its bottom rule.
   why in one line as a note over the map before Generate (`premiseRefusal`), and a map the themes made instead says so after
   it (`info.premise.fellBack`). Generate, Surprise me, Another like this, Keep, the share link (`p=`) and a reopened map
   carry it. A map made from an idea shows its card with the notes (`IdeaCard.tsx`, the core's `info.premise.card`: the idea
-  and its land, the landmark, the problem, what to do first) until its × or the next map; with a panel open it stands at the
+  and its land, the landmark, the problem, what to do first) until its × or the next map. The card's five strings are kept
+  with the project (`DocMeta.card`, the page reads `SessionInfo.card`), so a reload, a file or Your maps reopens the map with
+  the same card, through hand edits too (it tells the map as it was made); its × hides it until the map is next opened; a
+  map with no idea, a .timber among them, has none; with a panel open it stands at the
   dock's right, clear of the panel; **Seed** (a typed seed is kept, with **Keep** to keep or let it go) and **Size** (96, 128, 192, 256 or
   Custom, then the **Easy start** toggle at the line's end, D495: "A flat, roomy start with water and food close by";
   on, the next map's start is calm and generous, PLAN §5.6; a theme, Surprise me and Reset settings keep it, the page

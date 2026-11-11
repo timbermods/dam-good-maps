@@ -222,7 +222,8 @@ export function App() {
   const [theme, setTheme] = useState<ThemeId>(init.spec.theme);
   /** The idea the next map is built around (D508, PREMISES §1.5), or none: the themes' map, the default (D509). */
   const [premise, setPremise] = useState<PremiseChoice | undefined>(init.spec.premise);
-  /** The open map's card when it was made from an idea (`info.premise.card`): what it is, its landmark, what to do first. */
+  /** The open map's card when it was made from an idea (`SessionInfo.card`, kept with its project): what it is, its
+   *  landmark, what to do first. */
   const [card, setCard] = useState<PremiseCard | null>(null);
   const [settings, setSettings] = useState<Settings>(init.spec.settings);
   /** Another like this (D278 (1c)): the sibling shown, which joins the spec until a setting changes. */
@@ -544,10 +545,11 @@ export function App() {
     nameRef.current = e.name;
     // (a name typed for the next map belongs to a generated one; a cancelled Generate keeps it for the next try)
     if (!keepView) setNextName(null);
-    // (a version found for the map that was open is no version of this one; nor is its card)
+    // (a version found for the map that was open is no version of this one; the card is the opened map's own, kept with
+    // its project, so a reload or a reopen shows it again; its × hides it until the map is next opened)
     if (!keepView) {
       stopBackground();
-      setCard(null);
+      setCard(data.info.card);
     }
     infoRef.current = data.info;
     lastKey.current = `${data.info.version}|${JSON.stringify(data.info.views ?? [])}|${!!data.info.waterPending}`;
@@ -953,9 +955,9 @@ export function App() {
     if (keepsOld) setNote("The map before it is in Your maps.");
   }
 
-  /** A map made from an idea: its card, or the line saying the themes made it instead (never silent, D471). */
+  /** A map made from an idea that the themes made instead: the line saying so (never silent, D471). Its card, when it
+   *  has one, comes with the opened map (`SessionInfo.card`). */
   function showIdea(r: GenerateResponse) {
-    setCard(r.idea?.card ?? null);
     if (r.idea?.fellBack) setError(r.idea.fellBack);
   }
 
