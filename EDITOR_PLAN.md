@@ -75,7 +75,7 @@ place of its bottom rule.
   words ("Ready to play", "2 things to look at"; below about 1,000px wide the dot alone; its tooltip "What to fix before
   playing"; its list closes an open Legend while it is shown, and the Legend returns when it closes), **Save to Timberborn**
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, **Together** (a quiet
-  button with a small people icon: "Edit this map with someone else"; see "Together" below) and **File** (Open…,
+  button with a small people icon: "Edit this map with someone else"; see "Together" below) and **File** (Open…, New blank map… (below),
   Download project (says "Saved <file>" in a quiet note, as Download .timber does), Download .timber, Choose Maps folder… (Chrome and Edge), Record a time-lapse… (where the browser can make a video: §6b), Save a picture (§6b), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
   problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
   same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
@@ -1476,6 +1476,23 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   number pick a force); bookmarks
   are saved with the project. Every tool is reachable by keyboard, with labels for screen readers. (D180, D184,
   D196, D205, D212, D219.)
+
+### New blank map (File → New blank map…)
+
+A map built from an idea starts on empty ground, not on a generated seed (MAPCRAFT step 2). The dialog asks for a
+**Size** (the generator's own: 96, 128, 192 or 256 a side) and a **Ground level** (1 to 16, 8 unless changed: room to dig
+lakes below and raise hills above); **Make the map** opens flat, dry ground at that level with the start at its middle,
+named "Blank map", ready for the brushes, the forces, lakes by number and sources. It closes the open map as Open… does
+(the same question first when this browser isn't keeping its edits). The core makes it (`core/doc/blank.ts`
+`blankTimber`, `MapSession.blank`; the worker's `newBlank`): the file a map with that ground and one start stores, built
+the way a real place's is (`buildFileFromHeights`: the canonical settle of a map with no source is dry) and read as any
+.timber is, so it has no spec, saves as a project that reopens byte for byte (D455) and exports a .timber. A size or a
+level outside those is refused with one line. **The checks on an empty map:** every load, design and principle check
+passes as made; six playability checks fail until the player gives the map what they ask for, and none blocks the
+export: `start.water`, `start.farmland`, `start.food`, `start.wood` and `start.wood_floor` (no water, moist ground,
+berries or trees yet: they are what the player is about to make) and `resources.badwater_source` (no badwater source
+yet, D200). The quiet dot counts them as it does on any map that lacks those things ("7 things to look at", never "Ready to
+play": a start with no water is not ready), not as problems that were in a file the player opened.
 
 ### The File menu's help entries (M13)
 
