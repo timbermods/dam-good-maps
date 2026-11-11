@@ -9,7 +9,9 @@
 //   lip, an overhang;
 // - from both sides at once where a ridge is thin: it opens right through, an arch;
 // - hard rock (the map's beds, fresh volcanic rock) wears at a ninth of the rate.
-// Wear starts only at faces the gesture touched (Size sets how wide along them), and reaches into the
+// Wear starts only in the openings the gesture places (the force audit's 11): a click's at the nearest
+// face within twice its Size, a sweep's every 6 to 10 tiles along it, each a share of its face's height
+// (40 % at Power 55, 70 % at 100) and 3 to 8 wide, a fin under 4 tiles cut through; it reaches into the
 // rock as far as Power lets it, deepest at the base and with a crown rising toward the middle of the
 // opening. A voxel goes when its wear passes its own resistance (noise from the seed: Try another
 // changes the seams). Only rock under a roof wears: every tile keeps its top three blocks, so the map's
@@ -20,9 +22,9 @@
 //
 // Held, not dropped (the game's support rule, terrain/support.ts): after the wear, where a roof would
 // hang more than 3 tiles from support, the rock that wore least under it comes back as a ragged
-// remnant down to the floor; nothing the game would delete is ever left. Where no face can wear (flat
-// ground, low steps), water and wind scour the ground at the gesture instead: a shallow hollow, deeper
-// with Power (D356: a force always has a visible effect).
+// remnant down to the floor; nothing the game would delete is ever left. Where no face is in reach,
+// running water scours instead (D356: a force always has a visible effect; the audit's 24): rills a level
+// deep down a slope's fall line, or one scour toward lower ground on the level, kept only where it drains.
 //
 // A gesture's points are in tiles, a tile's centre at its whole coordinates (as every force's).
 //

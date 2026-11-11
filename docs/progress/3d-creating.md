@@ -36,10 +36,18 @@ showing is 24 buckets in the order the rock wore, over 2 s (Power 0) to 4 s (Pow
 the end of a bucket goes in that bucket, so no frame shows ground the game would drop. The session checks the result
 as every edit (`newFalls`) and would refuse it with D487's words; Erode never gives it cause.
 
-**A visible effect everywhere (D356).** Where no face can wear (flat ground, steps under three levels), water and wind
-scour the dry ground into a shallow hollow round the gesture, 1 to 3 levels deep with Power, the tile under the pointer
-always among it unless it is wet; no tile with water is scoured and none goes below the water beside it, so a lake and
-its rim stay as they are; what stands there rides it down. It refuses only with the true reason: "the Floor leaves no rock to
+**Openings scaled to their cliff (the force audit's 11).** A click wears one opening at the nearest face within twice
+its Size (a dry foot beside a column 5 or more higher); a sweep one every 6 to 10 tiles along its line, each at the
+nearest face, of unequal size and never two within 5 tiles. An opening stands a share of its face's height (a quarter
+at Power 0, 40 % at 55, 70 % at 100, never under 2 blocks, always under a 3-block roof), is 3 to 8 wide along it and 2
+to 6 deep; a fin under 4 tiles thick with low ground beyond is cut through, an arch. `extent` (2 × Size + 12,
+`erode.ts` `erodeExtent`) bounds every tile it changes, the collaboration band's reach.
+
+**A visible effect everywhere (D356), and no ponds (the audit's 24).** Where no face is in reach, running water scours
+instead: on a slope 2 to 4 rills a level deep down the fall line, 1 or 2 wide; on level ground one scour 2 or 3 wide run
+toward the nearest lower ground. A scoured tile stays only where its water drains out of the scour, so nothing it
+leaves holds a pond; no tile with water is scoured and none goes below the water beside it, so a lake and its rim stay
+as they are; what stands there rides it down. It refuses only with the true reason: "the Floor leaves no rock to
 wear here", "Nothing here can wear away without leaving ground to fall", "Erode leaves water and the ground that
 holds it as they are", or "There is no rock here that Erode may wear" (the layer showing or the working area named
 instead when the whole gesture is above it or outside it).
