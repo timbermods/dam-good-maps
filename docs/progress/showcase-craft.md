@@ -317,3 +317,10 @@ the Gate opened +982 (2.7 %, 252 of them water); the second blast and the Low Ri
 the leat's bar once and twice 0 (its water falls into the Gate's slot, already wet); the leat spanned +2,196/−2,216
 (the model blocks the slot to span it); the megadam to 9 holds 5,408 over 7,655 tiles. Our own widest view:
 `C:\dgm-showcase\the-gate\ours\r7-widest.jpg`; the game's: `C:\dgm-probe\captures\the-gate-r7\day1-widest.jpg`.
+- **Round 7 in the game** (`C:\dgm-probe\captures\the-gate-r7\day1-first.jpg`, `day1-widest.jpg`): valley, wall, gate,
+  basin, far rim: the wall one dark band with its bastions, the Gate's slot the one notch through it, the Gate Bed
+  leaving it as a channel with dead woods, the terraces and the rim beyond, the lake teal where round 6's was dark,
+  the side pool with its berries and birch beside the door. Still short: the west seep's oasis is a disc about
+  twenty tiles across (its gully's thread wets the flat beside it), the trench at the door's left is two and a half
+  deep and dark, the leat's and the far pieces are across the lake or the wall (bridges and stairs), nobody has
+  played it.
