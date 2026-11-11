@@ -159,7 +159,9 @@ export interface Work {
   tiles: number;
   /** Works that must come first. */
   needs: string[];
-  /** Tiles turned green or wet, as a range the later stages must hit; water held. */
+  /** What it buys: tiles turned green or wet, and water held (tile-levels), each as its floor and the most the plan
+   *  expects of it. The floor is what the later stages must reach (§4.2: a work must buy at least its floor; paying
+   *  more is fine); the most is what the siting aims under. */
   gives: { green: [number, number]; reservoir?: [number, number] };
   /** One line, when the work has a cost (a notch from a spring tarn runs red). */
   tradeoff?: string;

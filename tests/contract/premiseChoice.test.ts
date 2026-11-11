@@ -12,7 +12,7 @@ import { reliefBetween } from "../../src/core/premise/raster/relief";
 import { premiseStyle } from "../../src/core/premise/style";
 import { waterByNumber } from "../../src/core/premise/water";
 import { SETTING_KEYS } from "../../src/core/spec/codec";
-import { decodeSpecFragment, encodeSpecFragment, makeSpec, THEME_PRESETS, type MapSpec, type ThemeId } from "../../src/core/spec/mapspec";
+import { decodeSpecFragment, encodeSpecFragment, makeSpec, THEME_PRESETS, themeOwnSettings, type MapSpec, type ThemeId } from "../../src/core/spec/mapspec";
 
 const spec128 = (seed: number, theme: ThemeId, premise: MapSpec["premise"]) => makeSpec({ seed, size: { x: 128, y: 128 }, theme, premise });
 
@@ -59,7 +59,13 @@ describe("Theme × premise (§1.5, build step 9)", () => {
       expect(premiseRefusal(spec)).toBe(PAIR_REFUSALS.lakeStair[theme]);
       expect(generatePremise(spec)).toEqual({ reason: PAIR_REFUSALS.lakeStair[theme] });
       expect(premiseRefusal(spec128(1, theme, "any"))).toMatch(/^No premise takes the .+ style yet$/);
+      // (the themes then make the theme's own map: its own settings where the premise's preset set them)
+      expect(themeOwnSettings(spec)).toEqual(makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme }).settings);
     }
+    // (a setting changed from the premise's preset stays as set)
+    const set = spec128(1, "delta", "lakeStair");
+    set.settings.water.riverFlow = set.settings.water.riverFlow === "strong" ? "lush" : "strong";
+    expect(themeOwnSettings(set).water.riverFlow).toBe(set.settings.water.riverFlow);
     // (the settings a premise rules out are refused the same way)
     const off = spec128(1, "canyon", "lakeStair");
     off.settings.water.waterfalls = "off";
