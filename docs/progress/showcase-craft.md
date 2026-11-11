@@ -15,6 +15,8 @@ logs every gap, closes the page's gaps and sends the rest to their owners on #23
 | 2 | Twin Falls Gorge | Canyon, 128² | Each fall now fed by a winding stream 4–5 tiles wide and a level deep (bed two down, a lip at the fall); the upper sources moved back across the plateau | [view](../sheets/showcase-r2-twin-falls-gorge.jpg) |
 | 2 | Caldera Lake | Highlands, 128² | The island raised to a peak 4.8 levels above the lake, its outline broken up; the straight breach replaced by one that winds through the rim at 11, falls 3 levels, then runs at 8 to the drop | [view](../sheets/showcase-r2-caldera-lake.jpg) |
 
+All three maps above are retired (planning retired the hand-made maps after round 3a, below); Four Lakes, at the end of this page, was built from its idea.
+
 ## The gap log
 
 One line per gap: where, what was meant, what happened, the cost to a player. Owner: page (this stream), milestone
@@ -67,3 +69,93 @@ Round 3a's look review (a fresh reviewer each, against PERFECT): neither new map
 Highlands 128²) reached the bar, both for the force's shape (gaps 32 and 35). Planning then retired the hand-made maps:
 a seed with one force in a corner falls short of the bar however it's finished, so the next map is built from its idea at
 the scale of the whole map.
+
+## Four Lakes: a map built from its idea
+
+![Four Lakes, our own renderer](../sheets/showcase-four-lakes.jpg)
+
+Sheet: [showcase-four-lakes.jpg](../sheets/showcase-four-lakes.jpg), from our own renderer (the high look, real Chrome
+on the GPU), not the game's. Principles it was built against: [MAPCRAFT.md](../MAPCRAFT.md); the premise as a design for
+the generator: [PREMISES.md](../PREMISES.md).
+
+- **What it is.** 192², four lakes stepping down a valley over falls of about four levels, and a landmark fall of eight
+  with a cave behind it, all in the game's first frame.
+- **The question.** A badtide comes down the whole stair in a day unless the gates at the top are closed and the old
+  channel opened.
+- **How it was made.** From blank ground by operations only (`tools/showcase/four-lakes.ts`; the design by number is
+  `four-lakes-design.ts`; D342, and the saved project replays to the same map byte for byte, D455), in fourteen rounds,
+  each judged on captures in the game. Where DGM has no tool for what the map needs, the script has a helper marked
+  "TOOL:"; the gaps are below. How to run it: `tools/README.md`, "Showcase maps".
+
+**Latest measures (r14; all by the core's own checks and its water, not played).** Settled on the stacked engine in
+1,536 ticks; 0 blocking, 2 warnings (caves on 26 tiles, `start.dry`). Flat 42.8 %, one-level steps 63.9 %, water 20.8 %,
+green or wet on day 1 60.4 %. Falls 3.93, 3.77, 3.99 and the Great Fall 7.95 levels (12 tiles wide), whole in the first
+frame (its lip at v 0.98), the cave behind it 91 blocks. 2,199 living trees (597 per 10,000), 736 dead in twelve woods.
+The start: 262 logs grown within 20 tiles' walk (Easy asks 250), 86 berry bushes. Natural storage 1,215 against a need
+of 380.
+
+**The irrigation ladder** (`--irrigate`, cumulative; every count is by the model: the game's own what-if is not run).
+"Green or wet" counts tiles; the first row is the map as it opens.
+
+| Rung | The work | Kind | Green or wet gained |
+|---|---|---|---|
+| Day 1 | none | | 22,277 tiles, 60.4 % of the map (water 20.8 %, moist 39.7 %) |
+| Small | the notch on Crag Brook: 4 blockages | notch | 478 tiles (1.3 %), 84 of them water: Hill Tarn, Hill Brook, the bench's kettle |
+| Small | the notch on Birch Brook: 4 blockages | notch | 544 (1.5 %) |
+| Small | the notch on South Brook: 3 blockages | notch | 431 (1.2 %) |
+| Medium | the West Leat's blockage: 3 tiles (its gate for the badtide) | leat | 1,512 (4.1 %), 425 of them water: High Tarn, High Brook's bed |
+| Small | a dam in High Brook's bed: 5 tiles, one level, once the West Leat runs | dam to pond | 269 (0.7 %) |
+| Small | a levee at High Tarn's spill point: 8 tiles, once the West Leat runs | levee | 265 (0.7 %) |
+| Medium | the Steam Leat's blockage: 3 tiles | leat | 1,056 (2.9 %), 140 of them water: Bench Tarn, Bench Brook's bed, the South Leat |
+| Large | the old channel: 3 blockages (16, 6, 8 tiles) and 3 gates | bypass | about 1,382 within its water's reach |
+| Dry for good | the south-east's limestone benches: succulents only | | the remaining 23.6 % (dry benches, crags and ridges) |
+
+Totals: day 1 60.4 %; the small works 5.4 %; the two leats 7.0 %; the old channel 3.7 %; the rest 23.6 %. A raised sill
+on a lake (11 to 17 tiles; r13: Weir +597, Steam +1,334, Crown +865, Low +1,415 of water) and the megadam in the Gate's
+slot (5 long, 6 high; r13: 3,043 tiles of land under water) are r13's measures, not re-run in r14. The count of a rung
+moves with how far the what-if's canonical settle fills a slowly fed basin (the Steam Leat's rung measured 1,186, 1,970
+and 1,056 on three builds of the same works), so read a rung as about, not exactly.
+
+**The first badtide at the start** (`--firstbad`, an 8-day badtide on the settled water; by the model): left alone the
+Still Pool's water is bad on day 1 and all of it by day 4; with one levee on its neck (built while the water is clean)
+it stays clean for all 8 days (15.0 of water on day 1, 0.71 deep; 5.1 on day 8) and the bench beside the start stays
+31 % green at its worst (59 % in a drought). With the old channel opened and the three gates shut no lake is bad in 8
+days and the start's water stays clean; with the three notches and the bypass open, Low Lake is half bad on day 3 and
+75 % bad on day 8, and Weir, Steam and Crown Lake and the start stay clean.
+
+**What still falls short.**
+- The first badtide is harsh at the start: soil within seven tiles of the bay goes bad whatever is built (bad water
+  contaminates soil 7 tiles out, and a level climbed costs 5 of them), so a third of the bench, the door included, is
+  lost until the gates are shut. The Still Pool's levee keeps 31 % of the bench green, 40 % of what is green on day 0,
+  not most of it; the pool is a few days' water for a young colony (0.7 deep), not a reservoir.
+- The dry uplands read plain from the far view: stepped benches and dead woods, little colour.
+- Nobody has played ten cycles: the start's generosity, the scarcity after it and the walk between the lakes are judged
+  by the model and by captures, not by a played colony. The Workshop's starts have a bench of 640 to 980 level tiles;
+  this one has 538.
+- r14 itself was not judged in the game: its pool, piers, dead woods and old waterlines are seen only in our own sheet.
+- Our view draws a pond and a green ring in High Tarn's hollow that the core's settled water does not have, and cuts the
+  cliff away over a cave, so the fall over the cave cannot be judged in it.
+
+**Tool gaps its authors logged** (each is a helper in the script; the authors' full log has the cases):
+1. No blank or sketch start: the land came from a design function, set level by level.
+2. No readout of the moist and bare share, and no tool that shows why ground is dry.
+3. No lake-by-level tool: sill, crest, notch, shoulders, plunge pool and rim guard are all hand-built.
+4. No channel tool with a bed that follows the land and banks that hold; no leak finder for stray water.
+5. An object placed by operation refuses uneven ground; the script searches for level ground itself.
+6. On an imported (blank-start) map `built.start` is unset, so `mapStartWaterDays` has no start to read; the script
+   passes the tile itself.
+7. `terrain.dam_wall` blocks a hand-made map for a ring of rock round a spring pool (it was written for the
+   generator's stamped dam sites).
+8. A failing case for the core's owners: with one cave on the map, closed hollows near the top water hold water that no
+   source feeds, which the same map without the cave has dry (the stacked pre-fill fills them and the stacked settle
+   does not take the water back); the script runs Remove unfed water on them. A seep placed on open ground in the cave
+   build made the canonical settle end unsettled at its cap.
+9. No what-if for the weather: "the bypass opened on a full valley" had to be a hazard run from the saved water.
+10. A seep or a spring has no basin tool: a seep on open ground runs off wherever the land falls.
+11. No route tool: nothing says where the walk from the start ends or what would join it, and no natural way to cross
+    water.
+12. No light check for a landmark: nothing in the editor shows how dark the first frame's water is.
+13. No what-if for a dam: what a raised sill, a mended breach or a megadam holds had to be a flood fill in the script.
+14. Our view cuts the cliff away over a cave, so a fall over a cave cannot be judged in it.
+15. (r14) The what-if's canonical settle ends as settled before a slowly fed basin is full, so a rung's count moves with
+    the basin's volume.
