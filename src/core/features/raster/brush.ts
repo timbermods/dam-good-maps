@@ -124,9 +124,11 @@ export interface BrushParams {
    *  same, dab by dab, each dab weathering the land the dabs before it left where it presses harder
    *  (and moist ground keeps its height); 4 the same, its scree's slope measured from every cliff
    *  (weather.ts `shed`); 5 the same, the scree building up at a cliff's foot from what its top loses
-   *  (a cliff standing in water keeps its top). Absent, a stroke from before replays with the rule it was painted with. The
-   *  session records it on every new weathering stroke. */
-  weathering?: 2 | 3 | 4 | 5;
+   *  (a cliff standing in water keeps its top); 6 the same, its edges wandering only where it presses
+   *  harder than the strokes before it did (`worn`), so the same stroke painted again comes to rest.
+   *  Absent, a stroke from before replays with the rule it was painted with. The session records it on
+   *  every new weathering stroke. */
+  weathering?: 2 | 3 | 4 | 5 | 6;
   /** Naturalize, rule 2: where water would stand on the ring round its working rectangle when the
    *  stroke began, as pairs [tile along the ring (clockwise from its top-left corner), depth in
    *  levels]; the session records them, so nothing it does newly holds water outside it either. */
@@ -141,6 +143,10 @@ export interface BrushParams {
    *  (farmland: they keep their height, so they stay moist), as runs [y, x0, x1]. Recorded as
    *  `shore` and `pools` are. */
   moist?: [number, number, number][];
+  /** Naturalize, rule 6: how hard the weathering strokes before it pressed (in sixteenths, 1–16) on
+   *  the tiles that stand as the last of them left them, as runs [y, x0, x1, sixteenths] (weather.ts
+   *  `pressedOf`): its edges wander only where it presses harder. Recorded as `shore` and `pools` are. */
+  worn?: [number, number, number, number][];
   /** Square (by the larger distance, on the tile grid); an area (Raise and Lower: its two dabs the
    *  rectangle's opposite corners, every tile in it, hard-edged); round when absent. */
   shape?: "square" | "area";
@@ -376,13 +382,37 @@ function preciseReach(size: number): number {
   return Math.max(0, Math.round(size * 4) - 2);
 }
 
-/** The rule a new weathering Naturalize stroke records (D399; weather.ts): 5, its scree building up
- *  at a cliff's foot. */
-export const WEATHERING = 5;
+/** The rule a new weathering Naturalize stroke records (D399; weather.ts): 6, its scree building up
+ *  at a cliff's foot and its edges wandering only where it presses harder than the strokes before it. */
+export const WEATHERING = 6;
 
-/** Whether a rule weathers dab by dab (rules 3, 4 and 5). */
-export function byDabRule(w: number | undefined): w is 3 | 4 | 5 {
-  return w === 3 || w === 4 || w === 5;
+/** Whether a rule weathers dab by dab (rules 3 to 6). */
+export function byDabRule(w: number | undefined): w is 3 | 4 | 5 | 6 {
+  return w === 3 || w === 4 || w === 5 || w === 6;
+}
+
+/** A rule 6 stroke's record of the strokes before it (`worn`) over its working rectangle: runs of
+ *  `worn` (each tile's sixteenths, 0: none; null: none anywhere). */
+export function wornRuns(worn: ArrayLike<number> | null, box: Rect, W: number): [number, number, number, number][] {
+  const out: [number, number, number, number][] = [];
+  if (!worn) return out;
+  for (let y = box.y0; y <= box.y1; y++) {
+    let r: [number, number, number, number] | null = null;
+    for (let x = box.x0; x <= box.x1; x++) {
+      const v = worn[y * W + x];
+      if (!v) r = null;
+      else if (r && r[3] === v) r[2] = x;
+      else out.push((r = [y, x, x, v]));
+    }
+  }
+  return out;
+}
+
+/** What a rule 6 stroke recorded of the strokes before it, on the map (`worn`). */
+function recordedWorn(runs: readonly (readonly number[])[], W: number, H: number): Uint8Array {
+  const out = new Uint8Array(W * H);
+  for (const [y, a, b, v] of runs) if (y >= 0 && y < H) for (let x = Math.max(0, a); x <= Math.min(W - 1, b); x++) out[y * W + x] = v;
+  return out;
 }
 
 /** Whether a stroke weathers like nature (D399, weather.ts). */
@@ -649,10 +679,22 @@ export interface BrushStrokeOptions {
   shown?: ArrayLike<number>;
   /** Rule 3: the settled water's moisture (the moist ground keeps its height). */
   moisture?: ArrayLike<number> | null;
-  record?: (shore: [number, number, number, number][], pools: [number, number, number][], moist?: [number, number, number][]) => void;
+  record?: (shore: [number, number, number, number][], pools: [number, number, number][], moist?: [number, number, number][], worn?: [number, number, number, number][]) => void;
+  /** Rule 6: how hard the weathering strokes before it pressed on every tile, in sixteenths (0: none,
+   *  or the land changed since; session.ts `terrainState`): read, and handed to `record`, unless the
+   *  stroke recorded its own (`worn`). */
+  worn?: ArrayLike<number> | null;
   /** The lowest each tile's surface may go (D280 (3)): one above a roof's underside on a map with
    *  caves or overhangs (terrain/runs.ts `topFloors`), 0 elsewhere; null on a heightfield. */
   floor?: Uint8Array | null;
+}
+
+/** How hard a natural weathering pressed (`BrushStroke.pressed`): its intensity on every tile (0–1), the
+ *  rectangle of tiles it pressed on, and the land when it began. */
+export interface Pressed {
+  intensity: Float32Array;
+  box: Rect;
+  before: Uint8Array;
 }
 
 /** A stroke being applied to a heightfield, dab by dab. `heights` is changed in place; `write(i)`
@@ -729,6 +771,7 @@ export class BrushStroke {
   private readonly water: ArrayLike<number> | null;
   private readonly opts: BrushStrokeOptions;
   private cache: WeatherCache | null = null;
+  private wornAt: Uint8Array | null = null;
 
   constructor(settings: Omit<BrushParams, "dabs">, heights: Uint8Array, W: number, H: number, write: (i: number) => boolean = () => true, opts: BrushStrokeOptions = {}) {
     this.W = W;
@@ -997,7 +1040,7 @@ export class BrushStroke {
     }
     const cache = (this.cache ??= new WeatherCache(this.heights, W, H, true));
     const changes: number[] = [];
-    const changed = weather({ W, H, box, before: this.heights, intensity: I, size: this.settings.size, strength: this.settings.strength, write: may, room: this.inside, low: this.low, top: BRUSH_MAX_LEVEL, rim, limits: this.limits, version: this.version, origin: this.before, was, changes, cache, rule: this.settings.weathering, floor: this.floor }, this.heights);
+    const changed = weather({ W, H, box, before: this.heights, intensity: I, size: this.settings.size, strength: this.settings.strength, write: may, room: this.inside, low: this.low, top: BRUSH_MAX_LEVEL, rim, limits: this.limits, version: this.version, origin: this.before, was, earlier: this.earlier(), changes, cache, rule: this.settings.weathering, floor: this.floor }, this.heights);
     if (changed) {
       this.version++;
       cache.changed(changes);
@@ -1005,6 +1048,20 @@ export class BrushStroke {
     // (what this dab pressed is now the pressure before the next)
     for (let y = Math.max(0, y0 - 1); y <= Math.min(H - 1, y1 + 1); y++) for (let x = Math.max(0, x0 - 1); x <= Math.min(W - 1, x1 + 1); x++) was[y * W + x] = I[y * W + x];
     return changed;
+  }
+
+  /** Rule 6: how hard the strokes before it pressed (`worn`): its own record, or the page's. */
+  private earlier(): ArrayLike<number> | null {
+    if ((this.settings.weathering ?? 0) < 6) return null;
+    if (this.settings.worn) return (this.wornAt ??= recordedWorn(this.settings.worn, this.W, this.H));
+    return this.opts.worn ?? null;
+  }
+
+  /** A natural weathering's intensity on every tile once its dabs are in (rules 3 to 6; null for any
+   *  other stroke), the tiles it pressed on and the land when it began: how hard it pressed, which the
+   *  build remembers for the strokes after it. */
+  pressed(): Pressed | null {
+    return this.byDab && this.intensity && this.box && this.before ? { intensity: this.intensity, box: this.box, before: this.before } : null;
   }
 
   /** Rule 3: the page's stroke records where the water stood over its working rectangle as it grows,
@@ -1018,7 +1075,7 @@ export class BrushStroke {
     if (key === this.recorded) return;
     this.recorded = key;
     const runs = limitRuns(this.limits, box, this.W);
-    record(runs.shore, runs.pools, runs.moist);
+    record(runs.shore, runs.pools, runs.moist, (this.settings.weathering ?? 0) >= 6 ? wornRuns(this.opts.worn ?? null, box, this.W) : undefined);
   }
 
   /** Naturalize since D399: the land in the working rectangle again, from the land before the stroke
@@ -1328,7 +1385,7 @@ function pad(r: Rect, n: number, W: number, H: number): Rect {
 
 /** Apply a whole stroke to `heights` (the build's step 6). `floor`: the lowest each tile's surface may
  *  go (a roof's, D280 (3)); null on a heightfield. */
-export function applyBrush(p: BrushParams, heights: Uint8Array, W: number, H: number, write: (i: number) => boolean = () => true, floor: Uint8Array | null = null): void {
+export function applyBrush(p: BrushParams, heights: Uint8Array, W: number, H: number, write: (i: number) => boolean = () => true, floor: Uint8Array | null = null): BrushStroke {
   const { dabs, pressure, levels, ...settings } = p;
   // (rule 3: where water stood over its working rectangle when it began, from the ring it recorded)
   let water: Uint8Array | undefined;
@@ -1339,6 +1396,7 @@ export function applyBrush(p: BrushParams, heights: Uint8Array, W: number, H: nu
   const s = new BrushStroke(settings, heights, W, H, write, { ...(water ? { water } : {}), ...(floor ? { floor } : {}) });
   s.add(dabs, pressure, levels);
   if (p.rigid?.length) s.level(p.rigid);
+  return s;
 }
 
 /** Why a stroke's parameters are not a stroke this map can take (empty when they are). */
@@ -1357,8 +1415,10 @@ export function brushProblems(p: BrushParams, W: number, H: number): string[] {
   if (p.sources !== undefined && (p.sources !== "keep" || p.keep === undefined)) return ["a stroke keeps its sources with their kept runs"];
   if (p.seed !== undefined && !Number.isInteger(p.seed)) return ["a brush's seed is a whole number"];
   if (p.weathers !== undefined && (p.weathers !== true || p.tool !== "naturalize")) return ["only a naturalize stroke weathers"];
-  if (p.weathering !== undefined && ((p.weathering !== 2 && !byDabRule(p.weathering)) || p.weathers !== true || p.precise)) return ["only a weathering naturalize stroke, never a precise one, has rule 2, 3, 4 or 5"];
-  if (p.moist !== undefined && (!byDabRule(p.weathering) || !Array.isArray(p.moist) || p.moist.length > W * H || !p.moist.every((r) => Array.isArray(r) && r.length === 3 && r.every((v) => Number.isInteger(v)) && r[1] <= r[2]))) return ["a natural weathering's moist ground is runs [y, x0, x1], with rule 3, 4 or 5"];
+  if (p.weathering !== undefined && ((p.weathering !== 2 && !byDabRule(p.weathering)) || p.weathers !== true || p.precise)) return ["only a weathering naturalize stroke, never a precise one, has rule 2 to 6"];
+  if (p.worn !== undefined && (p.weathering !== 6 || !Array.isArray(p.worn) || p.worn.length > W * H || !p.worn.every((r) => Array.isArray(r) && r.length === 4 && r.every((v) => Number.isInteger(v)) && r[1] <= r[2] && r[3] >= 1 && r[3] <= 16)))
+    return ["a natural weathering's record of the strokes before it is runs [y, x0, x1, sixteenths 1 to 16], with rule 6"];
+  if (p.moist !== undefined && (!byDabRule(p.weathering) || !Array.isArray(p.moist) || p.moist.length > W * H || !p.moist.every((r) => Array.isArray(r) && r.length === 3 && r.every((v) => Number.isInteger(v)) && r[1] <= r[2]))) return ["a natural weathering's moist ground is runs [y, x0, x1], with rule 3 to 6"];
   if ((p.shore !== undefined || p.pools !== undefined) && ((p.weathering !== 2 && !byDabRule(p.weathering)) || !Array.isArray(p.shore ?? []) || !Array.isArray(p.pools ?? []) || (p.shore ?? []).length > W * H || (p.pools ?? []).length > W * H || !(p.shore ?? []).every((r) => Array.isArray(r) && r.length === 4 && r.every((v) => Number.isInteger(v)) && r[1] <= r[2] && r[3] >= 0 && r[3] <= 255) || !(p.pools ?? []).every((r) => Array.isArray(r) && r.length === 3 && r.every((v) => Number.isInteger(v)) && r[1] <= r[2])))
     return ["a natural weathering's shore is runs [y, x0, x1, level] and its pools runs [y, x0, x1]"];
   if (p.rim !== undefined && (p.weathering !== 2 || !Array.isArray(p.rim) || p.rim.length % 2 || p.rim.length > 8192 || !p.rim.every((v, k) => Number.isInteger(v) && (k % 2 ? v >= 1 && v <= BRUSH_MAX_LEVEL : v >= 0)))) return [`a natural weathering's rim is pairs [tile along the ring, depth 1 to ${BRUSH_MAX_LEVEL}]`];

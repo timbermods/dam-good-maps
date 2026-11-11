@@ -246,8 +246,9 @@ describe("Clear everything on a generated map", () => {
 describe("a map object measured where it stands, by the checks and the start's preview alike", () => {
   // (Highlands seed 4 for 3 since generator 0.10.6, D498, D148: on seed 3 every spot within 12 tiles of its relic has more than
   // the relic out of its band, and a start put there is flagged for the geothermal field and more; of Highlands seeds 1–12 checked,
-  // 4 and 6 have a spot a few tiles from the relic where only the relic is out of its band)
-  const r = generate(makeSpec({ seed: 4, theme: "highlands", size: { x: 128, y: 128 } }));
+  // 4 and 6 have a spot a few tiles from the relic where only the relic is out of its band; seed 1 for 4 since generator 0.10.16's
+  // ground with grade, D148: of Highlands seeds 1–12, 1 and 5 have such a spot now, and 4 has none)
+  const r = generate(makeSpec({ seed: 1, theme: "highlands", size: { x: 128, y: 128 } }));
   const fresh = () => MapSession.fromGenerated(r, r.file);
   const W = 128;
   const startOf = (s: MapSession) => s.features.find((g): g is StartFeature => g.kind === "start")!;

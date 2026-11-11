@@ -407,8 +407,9 @@ describe("a place in words", () => {
     const [rx, ry] = path[Math.floor(path.length / 2)];
     expect(placeOf(three, tilesAt([Math.floor(rx), Math.floor(ry)]))).toMatch(/^at the (north|south|east|west|north-east|north-west|south-east|south-west|middle) river$/);
     // two lakes: the one that holds the tiles, with where it lies (Canyon 7 for 4 since generator 0.10.11, the D410 round, D148:
-    // seed 4 has no lake now, and of Canyon seeds 1–12 at 48² only seed 7 has two)
-    const two = open(7, "canyon");
+    // seed 4 has no lake now, and of Canyon seeds 1–12 at 48² only seed 7 has two; Canyon 2 for 7 since generator 0.10.16's
+    // ground with grade, D148: seed 7 has no lake now, and of seeds 1–12 seeds 2, 10 and 12 have two)
+    const two = open(2, "canyon");
     const both = two.features.filter((f) => f.kind === "lake");
     expect(both.length).toBe(2);
     for (const lake of both) {

@@ -12,6 +12,7 @@ import { Items, type ItemActions } from "./panels";
 import { tip } from "../ui/Tooltip";
 import { useMenuPresence } from "../ui/menuPresence";
 import { cleanMapName } from "../core/doc/document";
+import { MAX_DESCRIPTION } from "../core/doc/description";
 import type { Role } from "../core/collab";
 import { openTogether } from "./collab/togetherOpen";
 import { fitsHeaderTwoLines, limitName, linesIn } from "./nameFit";
@@ -414,6 +415,7 @@ export function Header(p: HeaderProps) {
   const fileMenu = useMenuPresence(menu);
   const [about, setAbout] = useState(false);
   const [newBlank, setNewBlank] = useState(false);
+  const [describing, setDescribing] = useState(false);
   // (the time-lapse's dialog, loaded the first time it is asked for)
   const [lapse, setLapse] = useState<typeof import("./timelapse/TimelapseDialog").TimelapseDialog | null>(null);
   const openLapse = () => void import("./timelapse/TimelapseDialog").then((m) => setLapse(() => m.TimelapseDialog));
@@ -592,6 +594,11 @@ export function Header(p: HeaderProps) {
                   New blank map…
                 </button>
               </li>
+              <li role="none">
+                <button type="button" role="menuitem" {...tip("The map's name and the words the game shows with it")} onClick={pick(() => setDescribing(true))}>
+                  Description…
+                </button>
+              </li>
               {p.togetherEntry ? (
                 <li role="none" class="menu-together">
                   <button type="button" role="menuitem" {...tip("Edit this map with someone else")} onClick={pick(openTogether)}>
@@ -685,6 +692,9 @@ export function Header(p: HeaderProps) {
           }}
         />
       ) : null}
+      {describing ? (
+        <Describe name={p.name} text={p.info.description} written={p.info.descriptionWritten} stale={p.info.descriptionStale} kept={p.info.descriptionKept} locked={p.renameLocked} onRename={p.onRename} onDescribe={p.onDescribe} onClose={() => setDescribing(false)} />
+      ) : null}
       {lapse && p.timelapse ? h(lapse, { project: p.timelapse.project, steps: p.timelapse.steps, onClose: () => setLapse(null) }) : null}
       <HelpPanels />
     </header>
@@ -725,6 +735,98 @@ function NewBlank(p: { onClose(): void; onMake(size: number, level: number): voi
           </button>
           <button type="submit" class="primary" title="Make the blank map and open it" autoFocus>
             Make the map
+          </button>
+        </footer>
+      </form>
+    </div>
+  );
+}
+
+/** The map's own words (File → Description…): its name and the description the game shows with it, written by its
+ *  player. The description starts from the map's own (a generated map's, from the generator); once the map has been
+ *  changed by hand those words are marked as out of date until the player keeps them or writes their own. Both are
+ *  saved through the core, which refuses in its own one line (the name is never an undo step, D443; the description is
+ *  the `setDescription` operation). */
+function Describe(p: {
+  name: string;
+  text: string;
+  written: boolean;
+  stale: boolean;
+  kept: string | null;
+  locked?: string;
+  onRename(name: string): Promise<string | null>;
+  onDescribe(text: string): Promise<string | null>;
+  onClose(): void;
+}) {
+  const [name, setName] = useState(p.name);
+  const [text, setText] = useState(p.text);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") p.onClose();
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, []);
+  const count = [...text].length;
+  // (the words as they stand are the player's once kept: a generated map's own, out of date, are written as they are)
+  const keeps = p.stale && text === p.text;
+  const changed = text !== p.text;
+  async function save() {
+    setSaving(true);
+    setProblem(null);
+    let said: string | null = null;
+    if (name.trim() !== p.name && !p.locked) said = await p.onRename(name);
+    if (!said && (changed || keeps)) said = await p.onDescribe(text);
+    setSaving(false);
+    if (said) return setProblem(said);
+    p.onClose();
+  }
+  return (
+    <div class="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && p.onClose()}>
+      <form
+        class="dialog describe"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="describe-head"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void save();
+        }}
+      >
+        <h2 id="describe-head">Description</h2>
+        <label class="describe-field">
+          <span>Name</span>
+          <input type="text" value={name} disabled={!!p.locked} {...tip(p.locked ?? "The map's name in the game")} onInput={(e) => setName((e.target as HTMLInputElement).value)} />
+        </label>
+        <label class="describe-field">
+          <span>
+            Description <span class="muted">{count} of {MAX_DESCRIPTION}</span>
+          </span>
+          <textarea rows={7} value={text} {...tip("The words the game shows with the map")} onInput={(e) => setText((e.target as HTMLTextAreaElement).value)} onKeyDown={(e) => e.stopPropagation()} />
+        </label>
+        {p.stale ? (
+          <p class="describe-note" role="note">
+            The map has changed since the generator wrote these words. Keep them as yours, or write your own.
+          </p>
+        ) : !p.written && p.text ? (
+          <p class="describe-note muted" role="note">
+            These are the map's own words. Change them to write your own.
+          </p>
+        ) : null}
+        {p.kept ? <p class="describe-kept muted">Always added after it: {p.kept}</p> : null}
+        {problem ? (
+          <p class="describe-problem" role="alert">
+            {problem}
+          </p>
+        ) : null}
+        <footer>
+          <button type="button" class="ghost" title="Leave the name and the description as they are" onClick={p.onClose}>
+            Cancel
+          </button>
+          <button type="submit" class="primary" disabled={saving} title={keeps ? "Keep these words as the map's description" : "Save the name and the description"}>
+            {keeps ? "Keep these words" : "Save"}
           </button>
         </footer>
       </form>

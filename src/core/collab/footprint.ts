@@ -193,10 +193,17 @@ function forceTiles(p: ForceResultParams, m: Reader, W: number, H: number): Tile
     else out.addXY(mv.x, mv.y);
   }
   for (const s of [...(p.source ? [p.source] : []), ...(p.sources ?? [])]) out.addXY(s.x, s.y);
-  // Try another: the force it replaces comes out again, with its own ground and objects
+  // Try another: the force it replaces comes out again, with its own ground and objects, and a Slope it took away
+  // beside its ground comes back (the build took it when its step was gone; it is no longer on the map for `carried`
+  // to find), so the ring of tiles round that ground counts too
   if (p.replaces !== undefined && m.logOps) {
     const prior = m.logOps.find((o) => o.seq === p.replaces);
-    if (prior && prior.op === "forceResult") out.union(forceTiles(prior.params, m, W, H));
+    if (prior && prior.op === "forceResult") {
+      out.union(forceTiles(prior.params, m, W, H));
+      const beside = new TileMask(W, H);
+      for (const i of prior.params.tiles) beside.add(i);
+      out.union(beside.grow(1));
+    }
   }
   return out;
 }
@@ -271,6 +278,7 @@ function addOp(acc: Footprint, op: EditOp, m: Reader & Partial<MapSession>): voi
     case "sculpt": t.addRuns(op.params.cells); break;
     // (a lake's sill: the tiles it sets; the water that flows from it afterwards is not its own, as a Fill's)
     case "setLakeLevel": t.addRuns(op.params.cells); break;
+    case "canal": t.addRuns(op.params.cells); break;
     case "blocks": for (const i of blockTileBits(op.params, W, H).keys()) t.add(i); break;
     case "forceResult": t.union(forceTiles(op.params, m, W, H)); break;
     case "placeEntity": {

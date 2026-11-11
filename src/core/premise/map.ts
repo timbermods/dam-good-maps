@@ -4,7 +4,7 @@
 // its checks in profile "generate". The generator's mode (`generate.ts` `generatePremise`) runs it.
 
 import type { BuildResult, GeneratedField } from "../features/build";
-import { buildMap } from "../features/build";
+import { buildMap, SettleCache } from "../features/build";
 import { featureId } from "../features/ids";
 import type { Feature, LakeFeature, MapObjectFeature, SetPieceFeature, StartFeature } from "../features/schema";
 import type { TimberFile } from "../format/timber";
@@ -15,7 +15,10 @@ import { tilesToRuns } from "../math/grid";
 import type { MapSpec } from "../spec/mapspec";
 import type { PlayabilityAnalysis } from "../validate/playability";
 import type { ValidationReport } from "../validate/report";
+import { ladderOf, layWorks, type LaidWorks, type Ladder } from "./ladder";
+import { premiseLife, type LifeReport } from "./life";
 import { badwaterNiches, reliefBetween } from "./raster/relief";
+import type { PremiseStyle } from "./style";
 import type { PremisePlan } from "./types";
 import { waterByNumber, type StageWater } from "./water";
 
@@ -31,6 +34,8 @@ export interface PremiseMap {
   report: ValidationReport;
   analysis: PlayabilityAnalysis | null;
   name: string;
+  /** What stage 6 planted, against its budget. */
+  life: LifeReport;
   /** What could not stand as the plan has it, one line each (never silent, D342). */
   notes: string[];
 }
@@ -123,37 +128,42 @@ function badwaterOf(plan: PremisePlan, heights: Uint8Array, niches: Record<strin
   return out;
 }
 
-/** Each link's rows of Blockages as stage 1 laid them. */
-function rowsOf(plan: PremisePlan, w: StageWater): MapObjectFeature[] {
+/** Each link's rows of Blockages as stage 1 laid them (a notch shut by a rock plug instead has none: `layWorks`). */
+function rowsOf(plan: PremisePlan, w: StageWater, laid: LaidWorks): MapObjectFeature[] {
   const out: MapObjectFeature[] = [];
   for (const l of plan.links)
     (w.raster.rows[l.id] ?? []).forEach((row, k) => {
-      if (!row.length) return;
+      if (!row.length || (k === 0 && laid.plugs[l.id])) return;
       const role = `premise/row/${l.id}/${k}`;
       out.push({ id: featureId(plan.seed, "mapObject", role), kind: "mapObject", origin: "generated", role, locked: false, params: { kind: "plug", placement: { area: tilesToRuns([...row].sort((a, b) => a - b), plan.W) } } });
     });
   return out;
 }
 
-/** A plan's land: its water by number (stage 1, or the one given), the relief between (stage 2) and the permanent
- *  badwater's niche cut into it. */
+/** A plan's land: its water by number (stage 1, or the one given), the relief between (stage 2, in the theme's style
+ *  when one is given), the permanent badwater's niche cut into it and the works' own ground (stage 4's `layWorks`). */
 export interface PremiseLand {
   water: StageWater;
   heights: Uint8Array;
   niches: Record<string, [number, number]>;
+  laid: LaidWorks;
   notes: string[];
 }
 
-export function premiseLand(plan: PremisePlan, water: StageWater = waterByNumber(plan)): PremiseLand {
+export function premiseLand(plan: PremisePlan, water: StageWater = waterByNumber(plan), style?: PremiseStyle): PremiseLand {
   const notes: string[] = [];
-  const heights = reliefBetween(plan, water);
+  const heights = reliefBetween(plan, water, style?.relief);
   const niches = badwaterNiches(plan, water, heights, notes);
-  return { water, heights, niches, notes };
+  const laid = layWorks(plan, water, heights);
+  return { water, heights, niches, laid, notes };
 }
 
-/** The map of a plan through stage 2, built and checked as the generator builds its maps; the start where stage 3
- *  put it (`start`), else where the plan's frame does. */
-export function premiseMap(spec: MapSpec, plan: PremisePlan, land: PremiseLand = premiseLand(plan), at: PremisePlan["frame"]["start"] = plan.frame.start): PremiseMap {
+/** The map of a plan, built and checked as the generator builds its maps; the start where stage 3 put it (`start`),
+ *  else where the plan's frame does. One settle (stage 5) on the land and its sources, then stage 6's life planted on
+ *  the settled ground (`life.ts`, its ground kept off the works' by `ladder`, laid again if not given) and the map
+ *  built once more with that settle reused: plants and mine sites move no water. The style's woods are the plants'
+ *  palette when it has them. */
+export function premiseMap(spec: MapSpec, plan: PremisePlan, land: PremiseLand = premiseLand(plan), at: PremisePlan["frame"]["start"] = plan.frame.start, ladder: Ladder = ladderOf(plan, land.water, land.heights, land.laid), style?: PremiseStyle): PremiseMap {
   const { water, heights, niches } = land;
   const notes = [...land.notes];
   const { x, y, z, orientation } = at;
@@ -167,10 +177,17 @@ export function premiseMap(spec: MapSpec, plan: PremisePlan, land: PremiseLand =
   };
   const springs = springsOf(plan, water, notes);
   const bad = badwaterOf(plan, heights, niches);
-  const features: Feature[] = [start, ...springs, ...bad, ...rowsOf(plan, water)];
+  const features: Feature[] = [start, ...springs, ...bad, ...rowsOf(plan, water, land.laid)];
   const field: GeneratedField = { heights, contains: new Set([...springs, ...bad].map((f) => f.id)), top: plan.top };
-  const built = buildMap({ W: plan.W, H: plan.H, seed: spec.seed, features, field });
+  const settleCache = new SettleCache();
+  const base = buildMap({ W: plan.W, H: plan.H, seed: spec.seed, features, field }, { settleCache, stopBeforeResources: true });
+  const t6 = performance.now();
+  const life = premiseLife(spec, plan, water, ladder, base, features, spec.accepted?.attempt ?? 0, style?.woods ?? null);
+  notes.push(...life.notes);
+  features.push(...life.features);
+  const built = buildMap({ W: plan.W, H: plan.H, seed: spec.seed, features, field }, { settleCache });
+  life.report.ms = Math.round(performance.now() - t6);
   const file = toTimberFile(spec, built);
   const v = validateBuilt(spec, features, built, file);
-  return { plan, water, heights, features, field: fieldData(field, plan.W), built, file, report: v.report, analysis: v.analysis, name: nameOf(plan), notes };
+  return { plan, water, heights, features, field: fieldData(field, plan.W), built, file, report: v.report, analysis: v.analysis, name: nameOf(plan), life: life.report, notes };
 }

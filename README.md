@@ -80,6 +80,8 @@ The editor:
 - **Select** is in hand whenever nothing else is: drag on the land to mark an area (Ctrl+drag with a
   brush too). Raise it, lower it, level it or dig it out. **Delete** clears everything standing in
   it. Esc or X puts anything down and goes back to Select.
+- To lead water, pick **Lower**, set its **Brush** to **Canal**, and drag from the water to where it must go. The
+  canal's bed falls all the way and its banks hold the water. **Width**, **Depth** and **Starts** are in its row.
 - To set a lake's level, take the lake with Select's **Wand**, then type the level in **Lake level** (or scroll over
   it). The lake's outlet is cut down or raised so the water holds there.
 - Drag the start to move it. Point at it to see its water, wood and berries.
@@ -98,7 +100,7 @@ The editor:
 - The dot at the top is green when the map is ready to play. Amber means something to look at:
   click it for the list and the fixes.
 - **Save to Timberborn** saves the map into the game (**Download .timber** in other browsers). **File**
-  has **Open…**, **New blank map…**, **Download project**, **Download .timber**, **Choose Maps folder…** (Chrome and Edge), **Clear everything**, **About**, **Keyboard shortcuts**,
+  has **Open…**, **New blank map…**, **Description…**, **Download project**, **Download .timber**, **Choose Maps folder…** (Chrome and Edge), **Clear everything**, **About**, **Keyboard shortcuts**,
   **Help** and **Report a problem**.
   **History** beside Undo lists every step: click one to go back to it.
 - Click the map's name at the top to rename it. The saved file takes the name.
@@ -108,6 +110,8 @@ The editor:
 - Right-click a map in **Your maps** to download its `.timber`, rename it or delete it.
 - **File → New blank map…** starts a map on flat, dry ground: pick its size and its ground level. The start is at its
   middle. Shape it, then add water sources.
+- **File → Description…** holds the map's name and the words the game shows with it. A generated map starts with
+  the generator's words. After you change the map, keep them or write your own.
 - **File → Open…**, or a file dropped on the page, opens any `.timber` from Timberborn 0.6 to 1.1.
 
 Your maps are saved in this browser as you work.

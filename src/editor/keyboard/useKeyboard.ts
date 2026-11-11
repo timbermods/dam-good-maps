@@ -279,7 +279,7 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
         ev.preventDefault();
         const o = pickedObjectRef.current;
         setPickedObject(null);
-        void run(() => api.applyAll([{ op: "deleteEntities", params: { entities: [o.id] } }], "Remove an object"));
+        void run((w) => w.applyAll([{ op: "deleteEntities", params: { entities: [o.id] } }], "Remove an object"));
       } else if ((ev.key === "Delete" || ev.key === "Backspace") && pickedSources().length) {
         // a picked source: its water recedes live (D196)
         ev.preventDefault();

@@ -21,6 +21,10 @@ export interface WaterRaster {
   channel: Uint8Array;
   /** 1 + the fall's link index on its plunge pool. */
   pool: Uint8Array;
+  /** 1 on the drowned river's ribbon through the first frame's bay: two levels under its lake's sill, which stage 3
+   *  leaves deep (`frame.ts` `START.ribbon`), so a pump at the start draws from it when a breach sinks the lake a
+   *  level in a drought. */
+  ribbon: Uint8Array;
   /** 1 + the fall's link index on its crest, two tiles thick. */
   crest: Uint8Array;
   /** A channel tile's distance along its link's path from the path's first point (negative inside its body). */
@@ -52,6 +56,7 @@ export function emptyRaster(W: number, H: number): WaterRaster {
     lake: new Uint8Array(N),
     channel: new Uint8Array(N),
     pool: new Uint8Array(N),
+    ribbon: new Uint8Array(N),
     crest: new Uint8Array(N),
     along: new Float32Array(N),
     surface: new Float32Array(N).fill(NaN),
@@ -74,6 +79,7 @@ export function clearWater(r: WaterRaster, i: number): void {
   r.lake[i] = 0;
   r.channel[i] = 0;
   r.pool[i] = 0;
+  r.ribbon[i] = 0;
   r.crest[i] = 0;
   r.surface[i] = NaN;
 }

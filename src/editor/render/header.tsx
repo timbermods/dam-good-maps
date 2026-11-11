@@ -11,18 +11,20 @@ import { canDrawPicture, canRecordTimelapse } from "../timelapse/can";
 
 export function header(ed: Ed, props: EditorProps) {
   const {
-    api, info, renderer, localUndo, localRedo, undo, redo, check, instant, busy, progress, flowing, dotOpen, setDotOpen,
+    api, info, renderer, edits, undo, redo, check, instant, busy, progress, flowing, dotOpen, setDotOpen,
     actions, saving, saveMap, exportProject, exportPicture, run, flashNote, showHistory, setShowHistory, together, collab
   } = ed;
   // (in a shared session Undo and Redo take back only this player's own actions: the session says when there is one)
   const shared = !!collab && collab.phase !== "alone";
+  // (alone: the history as it stands once the edits on their way are answered, the edit queue's)
+  const steps = edits.current.history();
 
   /** The description written beside the name: the setDescription operation, one undo step; null when stored, else the core's one-line reason. */
   const describe = (text: string) =>
     new Promise<string | null>((done) => {
       let answer: string | null = "The map is busy: try again in a moment";
       void run(
-        () => api.apply({ op: "setDescription", params: { text } } as never, "user", text ? "Write the description" : "Clear the description"),
+        (w) => w.apply({ op: "setDescription", params: { text } } as never, "user", text ? "Write the description" : "Clear the description"),
         (u) => {
           answer = u.ok ? null : plain(u.errors[0] ?? "That description was not kept");
           // (said under the name, not twice)
@@ -35,8 +37,8 @@ export function header(ed: Ed, props: EditorProps) {
     <Header
       info={info}
       saveState={props.saveState}
-      canUndo={shared ? collab.canUndo || !!localUndo.current.length : info.canUndo || !!localUndo.current.length}
-      canRedo={shared ? collab.canRedo || !!localRedo.current.length : info.canRedo || !!localRedo.current.length}
+      canUndo={shared ? collab.canUndo || edits.current.pending() > 0 : steps.cursor >= 0}
+      canRedo={shared ? collab.canRedo : steps.cursor + 1 < steps.rows.length}
       onUndo={() => void undo()}
       onRedo={() => void redo()}
       dot={<ChecksDot check={check} instant={instant} busy={busy > 0} progress={progress} flowing={flowing} flags={ed.flags} badwaterRemoved={info.badwaterRemoved} easyShort={info.easyShort} open={dotOpen} onToggle={setDotOpen} actions={actions} />}
@@ -48,7 +50,7 @@ export function header(ed: Ed, props: EditorProps) {
       onNewBlank={props.onNewBlank}
       onSaveProject={() => void exportProject()}
       onSavePicture={canDrawPicture() ? () => void exportPicture() : undefined}
-      onClearEverything={() => void run(() => api.clearEverything(), (u) => u.ok && flashNote("Cleared: undo brings it all back"))}
+      onClearEverything={() => void run((w) => w.clearEverything(), (u) => u.ok && flashNote("Cleared: undo brings it all back"))}
       historyOpen={showHistory}
       // (one left panel at a time: History opening closes Map Generator, Real places or Your maps)
       onHistory={() => {
