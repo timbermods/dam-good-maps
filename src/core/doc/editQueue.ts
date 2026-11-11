@@ -22,7 +22,8 @@
 // - **Nothing seen is lost (I8).** A press always makes a ticket (behind a landing stroke, it waits its turn to compose,
 //   `composable`); a stroke let go is answered or refused with a line, never dropped; a map switch awaits `idle()`.
 //
-// The page does not use it yet (step 2 moves the page's strokes, moves and edits onto it; step 3 Naturalize).
+// The page's strokes, moves and edits are on it (step 2, src/editor/session/useSession.ts `edits`); Naturalize's
+// landing joins it in step 3 (`close`, `StrokeFeed`).
 
 import type { BrushParams } from "../features/raster/brush";
 import type { TerrainState } from "../features/raster/strokePreview";
@@ -218,6 +219,8 @@ export class EditQueue {
   private deferred: Rect | null = null;
   private watch: { id: number; state: TicketState; cancel: () => void } | null = null;
   private idlers: (() => void)[] = [];
+  /** Who waits for a ticket to end (`settled`). */
+  private settlers = new Map<number, ((t: TicketView) => void)[]>();
   private readonly all: Ticket[] | null;
   private readonly mapBound: number;
   /** Answers that showed land other than the queue had shown. */
@@ -300,6 +303,18 @@ export class EditQueue {
   idle(): Promise<void> {
     if (!this.tickets.length) return Promise.resolve();
     return new Promise((resolve) => this.idlers.push(resolve));
+  }
+
+  /** Resolves once ticket `id` has ended (answered, refused, cancelled or dropped), after the page heard its answer
+   *  (`QueueHost.answer`): its view as it ended. A ticket that ended already, or never was, resolves at once (null when
+   *  the queue no longer knows it). */
+  settled(id: number): Promise<TicketView | null> {
+    if (!this.live(id)) return Promise.resolve(this.ticket(id));
+    return new Promise((resolve) => {
+      const w = this.settlers.get(id);
+      if (w) w.push(resolve);
+      else this.settlers.set(id, [resolve]);
+    });
   }
 
   // ------------------------------------------------------------------------------------------ what the page does
@@ -555,6 +570,7 @@ export class EditQueue {
       t.overlay = null;
     }
     this.host.answer?.(a, view(t));
+    this.settle(t);
     this.pump();
   }
 
@@ -615,7 +631,17 @@ export class EditQueue {
     if (r && t.epoch === this.epoch) this.refresh(r);
     if (was === "open" || was === "closing") this.laid();
     if (line) this.host.line?.(line, t.id);
+    // (its waiters resume once this turn is over: a refused answer is heard first, `receive`)
+    this.settle(t);
     if (pump) this.pump();
+  }
+
+  private settle(t: Ticket): void {
+    const w = this.settlers.get(t.id);
+    if (!w) return;
+    this.settlers.delete(t.id);
+    const v = view(t);
+    for (const f of w) f(v);
   }
 
   private arm(t: Ticket, ms: number, line: string): void {

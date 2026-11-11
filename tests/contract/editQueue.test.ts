@@ -517,6 +517,21 @@ describe("the worker's side of the protocol", () => {
     expect(host.end(7)).toBeNull();
   });
 
+  it("settled(id) resolves once its ticket ends, whichever way: answered, refused by the worker, dropped (the page's run waits on it)", async () => {
+    const h = new Harness(P1);
+    const ok = await stroke(h, "raise", 10, 10);
+    const bad = await stroke(h, "lower", 30, 30, { refused: true });
+    const undo = h.undo()!;
+    const ends: Record<string, string | undefined> = {};
+    for (const [k, id] of Object.entries({ ok, bad, undo })) void h.queue.settled(id).then((t) => (ends[k] = t?.state));
+    await flush();
+    expect(ends).toEqual({});
+    await h.settle();
+    await flush();
+    expect(ends).toEqual({ ok: "done", bad: "refused", undo: "dropped" });
+    expect(await h.queue.settled(ok)).toMatchObject({ state: "done" });
+  });
+
   it("the queue's clock is the test's: the watchdog fires only when told", () => {
     const c = new Clock();
     let fired = 0;

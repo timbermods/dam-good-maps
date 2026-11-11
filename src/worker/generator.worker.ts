@@ -344,7 +344,7 @@ const api = {
 };
 
 /** The calls that change the map or its history, which the edit queue sends by name (core/doc/editQueue.ts). */
-type EditName = "apply" | "applyStep" | "applyAll" | "undo" | "redo" | "jump" | "moveTo" | "applyTool" | "moveStartTo" | "plantAt" | "layStair" | "paintAt" | "removeAt" | "removeUnfedWater" | "cropTo" | "fillAt" | "moveObjectBy" | "clearEverything" | "applySelection" | "strokeClearing";
+type EditName = "apply" | "applyStep" | "applyAll" | "undo" | "redo" | "jump" | "moveTo" | "applyTool" | "moveStartTo" | "plantAt" | "layStair" | "paintAt" | "removeAt" | "removeUnfedWater" | "cropTo" | "fillAt" | "lakeLevelAt" | "moveObjectBy" | "clearEverything" | "applySelection" | "strokeClearing";
 const edits: Pick<typeof api, EditName> = api;
 const queued = {
   /** One edit through the edit queue: `env` names the map it was made on and its ticket; one meant for another map

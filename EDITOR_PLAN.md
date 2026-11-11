@@ -950,8 +950,11 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. It is
   weathered off the page in a worker of its own (D422, #868: `worker/naturalize.worker.ts`, `raster/remoteStroke.ts`),
   on the terrain and land the page shows, one call out at a time and the dabs meanwhile as one batch, the land a frame
-  or two behind the cursor; the page sends that land to the map's worker for its water, as for the other brushes. Let
-  go, a stroke goes on the history once its last land is in: an undo, a redo or a History jump pressed meanwhile waits
+  or two behind the cursor; the page sends that land to the map's worker for its water, as for the other brushes. Every
+  brush's stroke is a ticket in the edit queue from pointer-down ("Architecture", "The edit queue", #922 step 2): the
+  page paints it on the queue's land, and once it lets go its land before and after is laid over the worker's until the
+  worker answers, so the land shown is the worker's with the strokes on their way, and a recent stroke's undo and redo
+  show at once from the queue's copy of it. Let go, a Naturalize stroke goes on the history once its last land is in: an undo, a redo or a History jump pressed meanwhile waits
   for it, then acts, so Z takes that stroke back as it takes any other brush's; the editor closing (a new or opened
   map) forgets a stroke still on its way, as Esc does, so nothing of it reaches the next map (#880). A History row
   clicked meanwhile goes to the step it shows wherever that step stands once the stroke lands, refused with "That
@@ -2036,8 +2039,16 @@ delivery routes, the artifact edition and bring-your-own-key) is in
   keeps its own rule (`resync`: `base` is the session's land, the overlays on their way laid on it again). Planning's
   rulings: an undo waiting behind a stroke that is refused or times out does nothing; a press during a landing paints;
   a map switch waits for a let-go stroke to land. The page moves onto it in steps (#922): its strokes, moves and
-  edits (2), Naturalize (3), one composer building a stroke's operation and answers the size of the edit (4); until
-  then the page works as §4 describes.
+  edits (2, done), Naturalize (3), one composer building a stroke's operation and answers the size of the edit (4).
+  Since step 2 the page holds one queue (`useSession.ts` `edits`): `mirror.heights` and the renderer's land are its
+  `shown`, and the brushes paint on its `terrain()`; every edit is `run`'s ticket (its call made when its turn comes,
+  with the ticket's envelope on it), a stroke's ticket is made at pointer-down and holds the whole map until it lets go
+  (the worker's answers meanwhile are laid then, #410), and is `ready` with its operation and its before and after when
+  it does; Ctrl+Z, Ctrl+Y and a History row are moves (in a shared session, the session's own undo, redo and jump, as
+  edits); a refusal or a silent worker (`MAP_ANSWER_MS`) says its one line; a save or a map switch waits for every
+  ticket made (`whenEdited`). Naturalize's landing is not yet a ticket of its own: its stroke's ticket stays open while
+  its land comes (`BrushPainter.afterLanding` still holds an undo, a redo or a jump pressed meanwhile, its timers
+  still take a silent stroke back), as §4 describes, until step 3.
 - **"Move the start here"** (D204, one label since D323): after a Flatten stroke the page looks, once it is idle, for
   a spot on the stroke's level ground where the district center stands (its footprint and door level and dry,
   nothing standing there); the start's full check (the walks to water, wood and berries) runs in a small worker of
