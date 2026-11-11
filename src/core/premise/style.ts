@@ -17,24 +17,34 @@ import { drawGrade, drawWoods, type Grade } from "../land/genome";
 import { DEFAULT_SPECIES_MIX as DEFAULT_MIX, type MapSpec, type Settings } from "../spec/mapspec";
 import type { StyleTheme } from "./choice";
 
+/** The land's character past the meadows (PREMISES §1.5): Canyon's mesas, flat-topped and cut by dry canyons; Highlands'
+ *  peaks, rolling heights with summits; River Valley's terraces, broad benches stepping up away from the water; Lake
+ *  Basin's low ground, broad and gentle round its lakes. */
+export type UplandForm = "mesas" | "peaks" | "terraces" | "basin";
+
 /** What stage 2 takes from the style (`reliefBetween`'s third argument; without one the relief is the premise's own). */
 export interface ReliefStyle {
   /** The theme's grade, drawn for the map (`drawGrade`). */
   grade: Grade;
+  /** The uplands' character. */
+  form: UplandForm;
+  /** Where the uplands stand in the room between the stair's ground and the highest ground, as shares: lowest and
+   *  highest (Relief widens or narrows it about its middle). */
+  span: [number, number];
   /** Levels between the uplands' benches where they are benched (1: none, rolling ground only). */
   step: number;
   /** The share of the uplands benched (Terracing ÷ 100). */
   benched: number;
-  /** How far the outlands stand over the stair beyond the premise's own, levels, and the share of the room under the
-   *  highest ground they may take (the premise's own: 0.75). */
-  lift: number;
-  room: number;
-  /** The hillside past a meadow: its first two crags this many levels taller, its benches this many times as wide,
-   *  its later crags this tall (the premise's own: 0, 1, 2). */
-  crag: number;
-  bench: number;
+  /** The hillside past a meadow: its first crag's height and its second's, levels, its first bench's width, tiles
+   *  (each drawn in its range by noise), and its later crags' height (the premise's own: 1 to 4, 1 to 3, 4 to 16, 2). */
+  crag: readonly [number, number];
+  crag2: readonly [number, number];
+  bench: readonly [number, number];
   later: number;
-  /** The uplands' rise and fall against the premise's own (Relief ÷ 55, Any's preset: 1). */
+  /** How far past the green of day 1's water the uplands' ground comes down toward the map's floor, as a share (0:
+   *  it stays at the stair's ground; 1: Canyon's canyons and the valleys between Highlands' peaks reach the floor). */
+  deep: number;
+  /** The uplands' rise and fall against the theme's own (Relief ÷ 55, Any's preset: 1). */
   amp: number;
 }
 
@@ -45,17 +55,18 @@ export interface PremiseStyle {
   woods: Settings["resources"]["speciesMix"] | null;
 }
 
-/** Each theme's land past the meadows. Canyon stands high over the stair on tableland, its walls a level taller and
- *  its benches narrow; Highlands' terraces are tall and broad (benches four apart, as its own maps from 128² up,
- *  `land/highlands.ts`); River Valley's is the premise's own land, rolling; Lake Basin and Delta lie lower and
- *  gentler. */
+/** Each theme's land past the meadows. Canyon's walls rise tall from the meadows to mesas high in the room, benched three
+ *  apart and cut by dry canyons; Highlands' heights roll from mid-height to summits at the highest ground; River
+ *  Valley's terraces step up two at a time away from the water, broad; Lake Basin's ground stays low and gentle, its
+ *  benches wide; Delta lower still; Islands' ground rises to rounded heights. The stair and its meadows are the
+ *  premise's in every theme. */
 export const THEME_UPLANDS: Record<StyleTheme, Omit<ReliefStyle, "grade" | "benched" | "amp">> = {
-  riverValley: { step: 1, lift: 0, room: 0.75, crag: -0.8, bench: 1.3, later: 1 },
-  canyon: { step: 3, lift: 4, room: 1, crag: 1, bench: 0.6, later: 3 },
-  highlands: { step: 4, lift: 3, room: 1, crag: 0.5, bench: 1.4, later: 4 },
-  lakeBasin: { step: 1, lift: -0.5, room: 0.7, crag: 0, bench: 1, later: 2 },
-  delta: { step: 1, lift: -1, room: 0.6, crag: 0, bench: 1.2, later: 1 },
-  islands: { step: 1, lift: 0, room: 0.75, crag: 0, bench: 1, later: 2 },
+  riverValley: { form: "terraces", span: [0.1, 0.85], step: 2, crag: [1, 3], crag2: [1, 2], bench: [12, 22], later: 1, deep: 0.3 },
+  canyon: { form: "mesas", span: [0.55, 1], step: 3, crag: [3, 6], crag2: [3, 4], bench: [5, 9], later: 3, deep: 1 },
+  highlands: { form: "peaks", span: [0.2, 1.15], step: 1, crag: [1, 3], crag2: [1, 2], bench: [3, 7], later: 1, deep: 0.8 },
+  lakeBasin: { form: "basin", span: [0, 0.4], step: 1, crag: [1, 2], crag2: [1, 1], bench: [16, 28], later: 1, deep: 0 },
+  delta: { form: "basin", span: [0, 0.3], step: 1, crag: [1, 2], crag2: [1, 1], bench: [16, 28], later: 1, deep: 0 },
+  islands: { form: "peaks", span: [0.1, 0.8], step: 1, crag: [2, 3], crag2: [1, 2], bench: [6, 12], later: 2, deep: 0.6 },
 };
 
 /** Relief's value at which the uplands rise and fall as the premise's own (Any's preset). */
