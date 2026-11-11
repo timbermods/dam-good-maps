@@ -405,10 +405,12 @@ export function App() {
   useEffect(() => {
     const was = saidRefusal.current;
     saidRefusal.current = refusal;
-    if (refusal === was) return;
+    // (none before a map is open: the first map's own Generate says it, as `fellBack`, and a note there would stop the
+    // loading frame)
+    if (refusal === was || !opened) return;
     if (refusal) setError(refusal);
     else if (was) setError((e) => (e === was ? null : e));
-  }, [refusal]);
+  }, [refusal, opened]);
   // the settings differ from the open map's (a fresh seed alone is not a change: Generate rolls one anyway)
   const changed = useMemo(() => {
     const of = session?.kind === "generated" ? session.spec : null;
