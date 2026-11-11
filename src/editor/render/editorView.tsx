@@ -25,13 +25,13 @@ import type { EditorProps } from "../Editor";
 import { DropTarget } from "./DropTarget";
 import { header } from "./header";
 import { topBar } from "./topBar";
-import { cornerButtons, hideObjectsButton, hoverHandler, layerCaption, levelLinesButton, viewButtons } from "./viewControls";
+import { cornerButtons, FIRST_VIEW_KEY, firstViewOf, hideObjectsButton, hoverHandler, layerCaption, levelLinesButton, viewButtons } from "./viewControls";
 
 export function editorView(ed: Ed, props: EditorProps) {
   const {
     floorContext, busy, shelf, pickShelf, dropShelf, icons, ready, forcer, view, info, onReady, layer, sliceLevel,
     renderer, hover, player, weather, toggleWeather, sourceMarkers, startHintTag, mirror, waterTick, heldTick,
-    shapeNote, blockNote, startDrag, needs, startReach, showHistory, setShowHistory, run, api, presenceMarkers
+    shapeNote, blockNote, startDrag, needs, startReach, showHistory, setShowHistory, presenceMarkers
   } = ed;
   const drawerOpen = props.drawerOpen;
 
@@ -44,7 +44,7 @@ export function editorView(ed: Ed, props: EditorProps) {
         {props.placesOpen ? <RealPlaces onOpen={props.drawer.onOpenPlace} /> : null}
         {props.mapsOpen ? <YourMaps model={props.drawer} /> : null}
         {/* History in the left panel's place, over the map, one panel at a time (Kyler, 2026-10-06) */}
-        {showHistory ? <HistoryPanel info={info} onJump={(k, step) => void (ed.painter.current ? ed.painter.current.afterLanding(() => run(() => api.jump(k, step))) : run(() => api.jump(k, step)))} onKeep={props.onKeepStep} onClose={() => setShowHistory(false)} /> : null}
+        {showHistory ? <HistoryPanel info={info} onJump={(k, step) => void ed.jump(k, step)} onKeep={props.onKeepStep} onClose={() => setShowHistory(false)} /> : null}
         <section class="editor-map" aria-label="Map">
           <div class="editor-map-area">
             <View3D
@@ -54,6 +54,9 @@ export function editorView(ed: Ed, props: EditorProps) {
               onReady={onReady}
               markersWanted={shelf?.id === "Slope"}
               markersToggle={ed.markersToggle}
+              firstView={firstViewOf(ed)}
+              firstViewCall={ed.firstViewCall}
+              firstViewKey={FIRST_VIEW_KEY}
               togglesInButtons
               lookMenu={false}
               besideHeight={levelLinesButton(ed)}

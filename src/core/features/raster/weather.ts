@@ -35,11 +35,17 @@
 //   stroke began, and its softening is three box passes (cheap to work out again round each change).
 // - Rule 4 is rule 3 with the scree's slope measured from every cliff (`shed`): rules 2 and 3 lost
 //   some cliffs' slopes, leaving cliffs that every pass cut back again, and replay so.
-// - Rule 5 (new strokes) is rule 4 with the scree building up at a cliff's foot from what its top
+// - Rule 5 is rule 4 with the scree building up at a cliff's foot from what its top
 //   loses (`shed`): each cliff's top comes down no more than its foot rises, and the reverse, so a
 //   cliff becomes a slope instead of being cut into small steps above a foot that stays; the slope
 //   may run out over all the stroke reaches. A cliff standing in water keeps its top (what it sheds
 //   the water takes away); above farmland or a stream it pulls back as before (D418).
+// - Rule 6 (new strokes) is rule 5 with the edges' wander remembered from stroke to stroke (`earlier`,
+//   brush.ts `worn`): an edge wanders only where this stroke presses harder than the earlier strokes
+//   did on land as they left it, as rule 3 already has it from dab to dab. Without it the wander drew
+//   each repeat's edges again along the noise, the shed and settle wore them back, and the same stroke
+//   painted again kept changing the land, most where the land is terraced; with it a stroke painted
+//   again only sheds and settles what the last one left, and comes to rest.
 // - It reads and writes only inside its rectangle (the stroke's bounds), so a rebuild gives the same land.
 //
 // Exact arithmetic only (+ − × ÷ and floor; PLAN §2.1, D366): the same stroke gives the same land on every
@@ -48,6 +54,12 @@
 import { fbm } from "../../math/noise";
 import { MinHeap } from "../../math/grid";
 import type { Rect } from "./brush";
+
+/** How hard a stroke pressed on a tile, in sixteenths (rule 6, brush.ts `worn`): its intensity's,
+ *  rounded up (0: not at all). */
+export function pressedOf(intensity: number): number {
+  return intensity > 0 ? Math.ceil(intensity * 16) : 0;
+}
 
 /** What a weathering needs. Arrays are the whole map's, row-major; only `box` is read or written. */
 export interface WeatherInput {
@@ -92,6 +104,9 @@ export interface WeatherInput {
   origin?: Uint8Array | null;
   /** Rule 3: each tile's intensity before this dab (an edge wanders only where it rose). */
   was?: Float32Array | null;
+  /** Rule 6: how hard earlier strokes pressed on each tile of the map, in sixteenths (brush.ts `worn`;
+   *  0: none, or the land changed since): an edge wanders only where this stroke presses harder. */
+  earlier?: ArrayLike<number> | null;
   /** Each tile it changes, as triples (map tile, level before, level after), when given. */
   changes?: number[] | null;
   /** The stroke's rule (brush.ts `weathering`): rule 4 measures the scree's slope from every cliff
@@ -225,17 +240,20 @@ export function weather(inp: WeatherInput, out: Uint8Array): Rect | null {
     const p = cache.prepared?.key === key ? cache.prepared : (cache.prepared = prepare(inp, h0, bw, bh, key));
     const { lo, hi, wet, shedHi, ring, w0, still, water } = p;
     // (rule 3: an edge wanders only where this dab presses harder than those before it)
+    // (rule 6: and harder than the strokes before it, `earlier`)
     let fresh: Uint8Array | null = null;
+    const earlier = (inp.rule ?? 0) >= 6 ? (inp.earlier ?? null) : null;
     if (inp.was) {
       fresh = u8("fresh", n).fill(0);
       for (let y = 0; y < bh; y++)
         for (let x = 0; x < bw; x++) {
           const k = y * bw + x;
-          if (I[k] > inp.was[(box.y0 + y) * W + box.x0 + x]) fresh[k] = 1;
+          const g = (box.y0 + y) * W + box.x0 + x;
+          if (I[k] > inp.was[g] && (!earlier || pressedOf(I[k]) > earlier[g])) fresh[k] = 1;
         }
     }
     h = wander(h0, I, bw, bh, box, inp.size, inp.strength, cache, hi, still, fresh);
-    shed(h, I, bw, bh, box, inp.strength, cache, lo, shedHi, inp.rule === 4 || inp.rule === 5, inp.rule === 5 ? water : null);
+    shed(h, I, bw, bh, box, inp.strength, cache, lo, shedHi, (inp.rule ?? 0) >= 4, (inp.rule ?? 0) >= 5 ? water : null);
     settle(h, I, bw, bh, box, inp.strength, cache, lo, wet);
     tidy(h, h0, I, bw, bh);
     // the limits: the working area's feather, the banks, the ceiling, the water

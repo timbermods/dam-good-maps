@@ -1271,6 +1271,18 @@ export function App() {
     }
   }
 
+  /** File → New blank map…: flat, dry ground of that size at that level, opened as a file is (core/doc/blank.ts). */
+  function newBlank(size: number, level: number) {
+    guard(() => {
+      setError(null);
+      setBusy(true);
+      void replacing(() => generator.newBlank(size, level))
+        .then((data) => enterEditor(data, { kind: "import" }))
+        .catch((e) => setError(`The blank map could not be made: ${words(e)}`))
+        .finally(() => setBusy(false));
+    }, "A new blank map");
+  }
+
   function openFile(file: File) {
     guard(() => void readFile(file).then((b) => openBytes(b, file.name)), `Opening ${file.name}`);
   }
@@ -1537,6 +1549,7 @@ export function App() {
         replacing={replacingMap}
         onPendingEdits={(wait) => (pendingEdits.current = wait)}
         onOpenFile={openFile}
+        onNewBlank={newBlank}
         saveState={saveState}
         name={name}
         onRename={rename}

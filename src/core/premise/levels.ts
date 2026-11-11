@@ -26,6 +26,29 @@ export const WATER = {
   designDepth: 0.3,
 } as const;
 
+/** A lake through a drought (PREMISES §4.4 `drought.lakes`): every source stops, a lake whose sill has a notch or a
+ *  breach a level deep sinks to it, and the sun takes the rest off its surface. The lake keeps `keep` of its water at
+ *  the drought's worst day when its floor stands `holdDeep` under its sill. */
+export const HOLD = {
+  /** The share of its day-1 water a lake keeps at the worst day of the difficulty's longest drought: most of it. */
+  keep: 0.55,
+  /** What the sun takes off a lake's open water a day (`sim/drought.ts`: 1e-4 a second × the saturation modifier,
+   *  about 1.16 there, × `SECONDS_PER_DAY`). */
+  sun: 0.0535,
+  /** The head a lake stands over its sill on day 1 (0.1 to 0.35 by the table), as the drought counts it. */
+  head: 0.2,
+  /** The deepest a lake's floor goes under its sill. */
+  most: 5,
+} as const;
+
+/** How deep under its sill a lake's floor stands to keep `HOLD.keep` of its water through `days` of drought, when its
+ *  sill drops a level (a notch or a breach) or not: the least whole depth `d` with (d − drop − sun × days) ÷ (d + head)
+ *  at least `keep`; 2 at least, `HOLD.most` at most. */
+export function holdDeep(drops: boolean, days: number): number {
+  const lost = (drops ? 1 : 0) + HOLD.sun * days + HOLD.keep * HOLD.head;
+  return Math.max(2, Math.min(HOLD.most, Math.ceil(lost / (1 - HOLD.keep) - 1e-9)));
+}
+
 /** A lip's width for the flow over it: `sillWidthFor`, never over `MAX_SILL_WIDTH` (16), and never under 8 plus its
  *  piers, notch and breach (`stair.settled` asks 8 tiles that pour; a pier pours nothing, and at a step of 3 a notch
  *  or breach a level deeper drops 2 and some, a rapid, not the curtain). */

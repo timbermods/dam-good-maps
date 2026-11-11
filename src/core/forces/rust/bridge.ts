@@ -35,6 +35,7 @@ interface Exports {
   forces_plan(job: number): number;
   forces_free(job: number): void;
   forces_execute(ptr: number, len: number, outLen: number): number;
+  forces_levels(input: number, w: number, h: number, ceiling: number, seed: number, grain: number, out: number): void;
 }
 
 let module: Exports | null = null;
@@ -330,6 +331,28 @@ export function executeInRust(job: Uint8Array): Uint8Array {
   } finally {
     x.forces_dealloc(lenPtr, 4);
     x.forces_dealloc(p, job.length);
+  }
+}
+
+/** Whole levels from a surface the core worked out itself (rust/forces/src/levels.rs `whole`, the forces' one last step:
+ *  slopes as uneven plates, no band narrower than two tiles, no one-tile pillar or pit, a jump in the surface kept as a
+ *  cliff). `surface`: levels at each tile, NaN where the ground is left alone; `ground`: what it stands on; `before`: the
+ *  land. The land it gives, `w·h` bytes. Used by the Ridge (core/doc/ridge.ts). */
+export function levelsInRust(surface: Float64Array, ground: Float64Array, before: Uint8Array, w: number, h: number, ceiling: number, seed: number, grain: number): Uint8Array {
+  const n = w * h;
+  const x = rustForces();
+  const input = x.forces_alloc(17 * n);
+  const out = x.forces_alloc(n);
+  try {
+    const bytes = new Uint8Array(x.memory.buffer, input, 17 * n);
+    bytes.set(new Uint8Array(surface.buffer, surface.byteOffset, 8 * n), 0);
+    bytes.set(new Uint8Array(ground.buffer, ground.byteOffset, 8 * n), 8 * n);
+    bytes.set(before.subarray(0, n), 16 * n);
+    x.forces_levels(input, w, h, ceiling, seed, grain, out);
+    return new Uint8Array(x.memory.buffer, out, n).slice();
+  } finally {
+    x.forces_dealloc(out, n);
+    x.forces_dealloc(input, 17 * n);
   }
 }
 
