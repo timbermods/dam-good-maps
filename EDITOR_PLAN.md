@@ -1758,7 +1758,12 @@ checks dot counts; every other row is information under Good to know, worded as 
     the journey; Esc drops it.
   - **Export:** the exported file always gets the canonical settle (`PLAN.md` §19.7), with a progress bar, so an
     export never depends on the preview's history. Its thumbnail is the map's 3D picture (D488): drawn off screen in
-    the High look, at twice its size and scaled down, from the game's own map thumbnail camera
+    the High look, at twice its size and scaled down, framed on the map's sight (showcase gap 10; `render3d/heroView.ts`
+    `sightCamera`): the landmark the start's opening frame holds, as the landmark intention reads it (`analysis/opening.ts`
+    `openingSight`: a standing form 8+ over its ring, else a fall of 6+; a premise's landmark fall is placed in that
+    frame), seen from the colony's side, 30° or 40° down, 45 to 85 tiles off, the nearest frame that holds its top and
+    shows at most 5% backdrop, the best of those by the looks score. A map with no start, no sight or no such frame
+    keeps the game's own map thumbnail camera
     (`ThumbnailCameraDefaultPositionProvider`; `render3d/heroView.ts` `heroCamera`: 40° down, face-on, the game camera's
     35° field of view, turned to the start's orientation (north without a start), centred on the land and pulled back
     only as far as the frame's corners still land on the map, so the map fills the picture with no backdrop past its
