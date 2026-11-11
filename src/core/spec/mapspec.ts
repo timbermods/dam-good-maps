@@ -330,6 +330,28 @@ export function defaultSettings(theme: ThemeId, designedFor: Difficulty, size: {
   return s;
 }
 
+/** The settings the themes make a premise's map with when the premise refuses it (PREMISES §2.1): each setting the
+ *  premise's preset gave (`defaultSettings`) and still holds goes back to the theme's own at the spec's difficulty and
+ *  size, so a refused theme × premise pair is the theme's map, not the theme with the premise's water; a setting
+ *  changed from the premise's stays as set. */
+export function themeOwnSettings(spec: Pick<MapSpec, "theme" | "designedFor" | "size" | "premise" | "settings">): Settings {
+  const s: Settings = structuredClone(spec.settings);
+  if (spec.premise === undefined) return s;
+  const q = defaultSettings(spec.theme, spec.designedFor, spec.size, spec.premise);
+  const t = themeSettings(spec.theme, spec.designedFor, spec.size);
+  if (s.terrain.verticality === q.terrain.verticality && s.terrain.highestTerrain === q.terrain.highestTerrain) {
+    s.terrain.verticality = t.terrain.verticality;
+    s.terrain.highestTerrain = t.terrain.highestTerrain;
+  }
+  if (s.terrain.buildableLand === q.terrain.buildableLand) s.terrain.buildableLand = t.terrain.buildableLand;
+  const w = s.water as unknown as Record<string, unknown>;
+  const qw = q.water as unknown as Record<string, unknown>;
+  const tw = t.water as unknown as Record<string, unknown>;
+  for (const k of Object.keys(qw)) if (w[k] === qw[k]) w[k] = tw[k];
+  if (s.hazards.badwater === q.hazards.badwater) s.hazards.badwater = t.hazards.badwater;
+  return s;
+}
+
 /** The species mix the settings panel starts from: a map that keeps it takes the woods its land draws (D164). */
 export const DEFAULT_SPECIES_MIX: Readonly<Settings["resources"]["speciesMix"]> = { pine: 47, birch: 27, oak: 20, succulent: 6 };
 
