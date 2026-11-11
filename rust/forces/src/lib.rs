@@ -5373,8 +5373,9 @@ impl CarveState {
                 r.unleashed_key = Some(e.id_key);
             }
         }
-        // Sources set to Ride (D474): the water sources and seeps it reaches ride the cut ground, as its own do
-        if r.settings.ride {
+        // Sources set to Ride (D474): the water sources and seeps it reaches ride the cut ground, as its own do; set to
+        // Clear, they ride it too until the cut destroys their ground, when it takes them (the force audit's S2)
+        {
             let (w, h) = (r.map.w, r.map.h);
             for e in &r.map.entities {
                 if ride_source(e.template.as_ref()) && r.rider_tiles[e.id_key] == usize::MAX && r.unleashed_key != Some(e.id_key) && e.x >= 0.0 && e.y >= 0.0 && (e.x as usize) < w && (e.y as usize) < h {
@@ -6516,10 +6517,19 @@ impl CarveState {
             return;
         }
         let mut entities = std::mem::take(&mut self.map.entities);
+        let ride = self.settings.ride;
         entities.retain(|e| {
             let rider =
                 self.rider_tiles[e.id_key] != usize::MAX || self.unleashed_key == Some(e.id_key);
-            if e.template.as_ref() == "StartingLocation" || rider || !hit[e.id_key] {
+            // (Sources set to Clear: a source or seep of the map's rides until the cut destroys its ground, the force
+            // audit's S2, asked again each time the cut reaches it; its own and an unleashed one always ride)
+            let taken = !ride
+                && hit[e.id_key]
+                && ride_source(e.template.as_ref())
+                && !self.group.iter().any(|g| g.id_key == e.id_key)
+                && self.unleashed_key != Some(e.id_key)
+                && clear_destroys(&self.original, &self.map.heights, &self.map.footprint(e, 0));
+            if e.template.as_ref() == "StartingLocation" || (rider && !taken) || !hit[e.id_key] {
                 true
             } else {
                 if !self.removed_keys[e.id_key] {
@@ -8750,6 +8760,17 @@ fn glacier_absorb(
     }
 }
 /// What Sources set to Ride (D474) keeps riding the ground: water and badwater sources and seeps.
+/// What Sources set to Clear takes (D474, the force audit's S2): a source whose ground a force destroyed, buried
+/// `CLEAR_BURIED` levels or more or cut `CLEAR_CUT` or more away on one of its tiles (the same numbers are clear.ts
+/// `BURIED`, `CUT`). One on ground only moved a little rides.
+const CLEAR_BURIED: i32 = 3;
+const CLEAR_CUT: i32 = 2;
+fn clear_destroys(before: &[u8], now: &[u8], tiles: &[usize]) -> bool {
+    tiles.iter().any(|&i| {
+        let d = now[i] as i32 - before[i] as i32;
+        d >= CLEAR_BURIED || d <= -CLEAR_CUT
+    })
+}
 fn ride_source(template: &str) -> bool {
     matches!(template, "WaterSource" | "BadwaterSource" | "WaterSeep" | "BadwaterSeep")
 }

@@ -25,7 +25,7 @@ import { clamp } from "./random";
 import { smoothstep } from "../math/clamp";
 import { forceFloor, holdAtFloor } from "./floor";
 import { settleKnocked } from "./objects";
-import { changedGround, clearable, clears, CLEARABLE, SourceClearing, type ClearedSource, type SourcesRule } from "./clear";
+import { clearable, clears, CLEARABLE, destroyedGround, motionOf, SourceClearing, type ClearedSource, type SourcesRule } from "./clear";
 import { transportRock, trimRock } from "./rock";
 
 /** What a force is doing now, for the effects, the camera and the sounds. */
@@ -232,15 +232,18 @@ export abstract class Staged {
       this.settled = true;
       this.clearing = null;
       const after = this.final();
-      // (Ride: a source or seep stands on the ground its last touches left, D474)
-      if (after && !clears(this.settings.sources)) {
+      // (a source or seep that rides stands on the ground its last touches left, D474: every one under Ride, and
+      // under Clear the ones whose ground it did not destroy)
+      if (after) {
         const W = after.W;
         for (const e of after.entities) if (CLEARABLE.has(e.template) && e.x >= 0 && e.y >= 0 && e.x < W && e.y < after.H) e.z = after.heights[e.y * W + e.x];
       }
       if (after && clears(this.settings.sources)) {
         const ground = this.before.heights;
         const standing = new Set(after.entities.map((e) => e.id));
-        this.clearing = new SourceClearing(ground, this.before, clearable(this.before, changedGround(ground, after.heights, this.ease), (id) => !standing.has(id)));
+        const self = this as unknown as { verb: string; settings: { mode?: string }; intent?: { path?: readonly Point[] } };
+        const motion = motionOf(self.verb, self.settings, self.intent?.path);
+        this.clearing = new SourceClearing(ground, this.before, clearable(this.before, destroyedGround(this.before.W, this.before.H, ground, after.heights, this.ease, motion), (id) => !standing.has(id)));
       }
     }
     return this;

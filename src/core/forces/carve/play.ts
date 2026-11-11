@@ -17,7 +17,7 @@
 // spreading of that last step).
 
 import type { EntitySpec } from "../../format/entities";
-import { changedGround, clearable, clears, CLEARABLE, type ClearedSource } from "../clear";
+import { clearable, clears, CLEARABLE, destroyedGround, type ClearedSource } from "../clear";
 import { footprint } from "../objects";
 import type { ForceHead, ForceMap } from "../force";
 import type { CarveRun, Station } from "./run";
@@ -38,7 +38,7 @@ export class CarvePlay {
   private removedShown = 0;
   /** Its own sources, or an unleashed one: they follow the ground as it is cut. */
   private readonly riders: boolean;
-  /** Sources set to Ride (D474): the map's sources and seeps ride the cut ground too. */
+  /** The map's sources and seeps ride the cut ground too (D474): under Clear, until it takes them. */
   private readonly riding: boolean;
 
   /** Shown from its end (A5): each step's changes, the latest step first, each tile once at its final
@@ -60,9 +60,10 @@ export class CarvePlay {
     // (drawn from its end: its surge gathers there while it is worked out)
     const end = run.intent.end;
     if (fromEnd && end !== undefined) this.first = { ...this.first, x: end % m.W, y: Math.floor(end / m.W), z: m.heights[end], dx: -this.first.dx, dy: -this.first.dy };
-    // (and with Sources set to Ride, every source and seep it reaches, D474)
-    this.riding = !clears(run.settings.sources);
-    this.riders = run.group.length > 0 || run.unleashedId !== null || this.riding;
+    // (and every source and seep it reaches, D474: under Ride all the way, under Clear until it takes them, where it
+    // destroys their ground, the force audit's S2)
+    this.riding = true;
+    this.riders = true;
     this.heads = [{ ...run.head }];
   }
 
@@ -132,7 +133,7 @@ export class CarvePlay {
     const standing = new Set(run.map.entities.map((e) => e.id));
     const own = new Set([run.sourceId, ...run.group.map((g) => g.id), ...(run.unleashedId ? [run.unleashedId] : [])]);
     // (the carve takes what it reaches itself, in Rust: this finds only what it left standing on changed ground)
-    const sources = clearable({ W: this.map.W, H: this.map.H, entities: this.objects }, changedGround(was, run.map.heights, ease), (id) => own.has(id) || !standing.has(id) || run.removedAt.has(id));
+    const sources = clearable({ W: this.map.W, H: this.map.H, entities: this.objects }, destroyedGround(this.map.W, this.map.H, was, run.map.heights, ease, { kind: "reshape" }), (id) => own.has(id) || !standing.has(id) || run.removedAt.has(id));
     if (!sources.length) return;
     // (each tile's first step shown with its level changed)
     const first = new Int32Array(was.length);
