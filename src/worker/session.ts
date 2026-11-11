@@ -39,6 +39,7 @@ import { markerNotes, type MarkerNote } from "../core/doc/objectOps";
 import { fillLevel, planFill, unfedWater } from "../core/doc/waterEdits";
 import { applyLakeLevel, lakeHeldLevel, planLakeLevel, type LakeLevelPlan } from "../core/doc/lakeLevel";
 import { applyCanal, planCanal, type CanalPlan } from "../core/doc/canal";
+import { applyRidge, planRidge, type RidgePlan, type RidgeSteep } from "../core/doc/ridge";
 import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
 import { bakeLandforms } from "../core/doc/bake";
@@ -1930,6 +1931,8 @@ export const planned = {
   lakeLevel: (x: number, y: number, level: number, width?: number) => planLakeLevel(need(), x, y, level, width),
   /** A canal along a path: its bed and banks, or why not. */
   canal: (path: [number, number][], width: number, depth: number, open: boolean) => planCanal(need(), path, width, depth, open),
+  /** A ridge along a path: its tiles and their levels, or why not. */
+  ridge: (path: [number, number][], height: number, width: number, steep: RidgeSteep, seed: number) => planRidge(need(), path, height, width, steep, seed),
   /** Every tile of the map (Clear everything removes the objects on all of them). */
   everything: (): number[] => Array.from({ length: need().size.x * need().size.y }, (_, i) => i),
 };
@@ -2519,6 +2522,21 @@ export function fillAt(x: number, y: number, level: number, floor?: number | nul
   const p = planFill(s, x, y, level, floor);
   if (!p.op) return changed(s, false, [p.reason ?? "nothing to fill"], t0);
   const r = s.apply(p.op, "user");
+  return changed(s, r.ok, r.errors, t0);
+}
+
+/** A ridge: what high ground along `path` would change (its tiles, each with its level, its top and its steep side), or
+ *  the plain reason it can't be raised (core/doc/ridge.ts `planRidge`). Reads the map only; no settle. */
+export function ridgePlanAt(path: [number, number][], height: number, width: number, steep: RidgeSteep, seed: number): Omit<RidgePlan, "op"> {
+  const { op: _op, ...plan } = planRidge(need(), path, height, width, steep, seed);
+  return plan;
+}
+
+/** Raise the ridge along `path`: one undo step (core/doc/ridge.ts `applyRidge`). */
+export function ridgeAt(path: [number, number][], height: number, width: number, steep: RidgeSteep, seed: number): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const r = applyRidge(s, path, height, width, steep, seed);
   return changed(s, r.ok, r.errors, t0);
 }
 

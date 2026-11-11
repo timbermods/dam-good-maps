@@ -55,6 +55,8 @@ The editor:
   either end, **Free** raises or digs softly.
 - The held tool's settings sit just above the bar: **Size**, **Level** (or **Strength**), **Mode**,
   **Sources** and **Brush** (**Round**, **Square** or **Lines**). **Flatten** adds **Steps**.
+- To draw high ground, pick **Raise**, set its **Brush** to **Ridge**, and drag a line. A ridge rises along it, steep
+  on one side and in broad benches on the other. **Height**, **Width** and **Steep** are in its row.
 - **Mode**: **Ground** leaves water alone, **Water** changes only the ground under it, **Both**
   changes everything.
 - **Sources**: **Ride** moves them with the ground, **Keep** leaves them where they are, **Clear**

@@ -279,7 +279,8 @@ place of its bottom rule.
     new size. Ctrl+Z, History or redo across the crop do the same; past 300 ms the message line says "Cropping…". Tooltip "Crop the map to the selection", no key.
   - The brushes: Size · Level (Raise, Lower, Flatten: Auto follows the ground; Free at its far end on Raise and
     Lower) or Strength (Smooth, Naturalize) · Mode; Sources · Brush (Round, Square or Lines, one at a time; the area
-    joins them on Raise and Lower) · Flatten's Steps (Off, 2, 3, 4).
+    joins them on Raise and Lower; Raise adds Ridge and Lower Canal) · Flatten's Steps (Off, 2, 3, 4). With Ridge chosen Raise's row is
+    Height · Width · Steep (Auto, Left, Right), the Brush choice across the second row (§4, "The ridge").
   - The forces: Power (cells 1–3) · Size (cells 4–6; Auto: it follows Power; Quake has none) in the same place on every force, then their choices (Carve's What it leaves, Wander, Walls, Canyon
     depth, River depth with Off at its far end, Banks; Craterize's Walls, Centre, Debris, Rays; Erupt's Shape, Summit,
     Flows, Ridges; Quake's Mode, Scarp and Side (V); Glaciate's Meltwater, Benches, Steps, Tarn, Scree) · the Floor ·
@@ -916,6 +917,23 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 
 ### The brushes and precision tools
 
+- **The ridge** (Raise's fourth **Brush** choice, **Ridge**: Round, Square, Lines, Ridge): draw high ground. A drag
+  draws a line (a point kept every three tiles) and a ridge rises along it, **Height** levels above the land it stands
+  on (2 to 10, 6 unless changed) and **Width** tiles across (4 to 20, 10). Its crest wanders off the line and rises
+  and falls along it; one side falls steeply, a cliff with ledges, and the other in two or three broad benches of
+  uneven breadth whose edges wander, the outermost halving to the land; a few crags stand on the crest; its ends come
+  down. **Steep** says which side is steep: **Auto** the side the drag curves away from (the left on a straight drag),
+  or **Left** or **Right** of the drag's way as the map is seen. The core works out the ridge's surface in levels and
+  fractions of one and the forces' last step turns it into land (`rust/forces/src/levels.rs` `whole`, through the
+  forces' Wasm, `forces_levels`; `forces/rust/bridge.ts` `levelsInRust`): no one-tile pillar or pit, no band
+  narrower than two tiles, no even stair and no contour rings. Each drag has its own seed. While it is dragged the
+  tiles it would raise are tinted and the words beside the pointer say "top at level 15, steep on the left", or the
+  core's one line with the line in red (a source or a cave in its way, its top over the ceiling, a line under 3 tiles);
+  the release raises the ridge that was shown, one step in History ("Raise a ridge 6 high and 10 wide"); objects on
+  it ride its ground. The core's `ridge` operation (`core/doc/ridge.ts` `planRidge`, `applyRidge`; its path, settings
+  and seed with its tiles and their levels, checked again by the engine as a lake's sill's are), the worker's
+  `ridgePlanAt` and `ridgeAt`, the collab route and the MCP server's `apply` (only `path` needed); the page's
+  `ridge/useRidge.ts` and `TopBar.tsx`.
 - **The brushes,** circle or square. Terrace is a Flatten option ("in steps"). Ramp is the shelf's **Slope** (a
   natural slope exactly where the player puts it; dragged from high ground down to low ground it lays a **stair**
   shaped as the generator's natural ramps are: a tread of two to four tiles a level, uneven, filling the drag's

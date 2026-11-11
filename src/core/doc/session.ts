@@ -63,6 +63,7 @@ import { baseFromFile, baseTerrain, fileFromBase, type BaseMap, type BaseTerrain
 import { cropFalls, cropFile, cropObjects, START_CUT, type CropParams } from "./crop";
 import { lakeLevelLabel, lakeLevelProblem } from "./lakeLevel";
 import { canalLabel, canalProblem } from "./canal";
+import { ridgeLabel, ridgeProblem } from "./ridge";
 import { entityProblem, objectCells, resourceOwners } from "./placing";
 import { applyPaintObjects } from "./paint";
 import { forceLabel } from "../forces/op";
@@ -980,7 +981,7 @@ export class MapSession {
    *  none, on a heightfield, or for an operation that reshapes no ground (the full build's check after
    *  it covers the rest, D280 (3)). */
   private fallsAhead(op: EditOp): number[] {
-    if (op.op !== "brush" && op.op !== "sculpt" && op.op !== "setLakeLevel" && op.op !== "canal" && op.op !== "forceResult") return [];
+    if (op.op !== "brush" && op.op !== "sculpt" && op.op !== "setLakeLevel" && op.op !== "canal" && op.op !== "ridge" && op.op !== "forceResult") return [];
     if (!this.layered(this.cur)) return [];
     const { x: W, y: H } = this.size;
     const { heights } = previewTerrain(this.cur, this.input());
@@ -1521,6 +1522,7 @@ export class MapSession {
       startObjects,
       lakeLevel: (p) => lakeLevelProblem(this, p),
       canal: (p) => canalProblem(this, p),
+      ridge: (p) => ridgeProblem(this, p),
       cropObjects: (r) => {
         const o = cropObjects(this.cur.entities, r);
         if (o.cutStart) return START_CUT;
@@ -2656,6 +2658,8 @@ export function labelOf(op: AppliedOp): string {
       return lakeLevelLabel(op.params);
     case "canal":
       return canalLabel(op.params);
+    case "ridge":
+      return ridgeLabel(op.params);
     case "setDescription":
       return op.params.text === "" ? "Clear the description" : "Write the description";
     case "crop":
