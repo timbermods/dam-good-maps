@@ -12,6 +12,7 @@ import { ORIENTATIONS } from "../../format/footprints";
 import { cos, log, sin, sqrt } from "../../math/portable";
 import type { Rng } from "../../math/rng";
 import { BED_FLOOR } from "../../land/genome";
+import { hash32 } from "../../math/hash";
 import { sillWidthFor, MAX_SILL_WIDTH } from "../../sim/sill";
 import { hazardDays } from "../../sim/weather";
 import type { MapSpec } from "../../spec/mapspec";
@@ -124,6 +125,10 @@ const NOTCH_BED = 20;
 /** How far a rim tarn stands from its edge at most, tiles: its run to the edge stays short, a thread of green. (14 lost
  *  seed 12 at 128² to its layouts, and in proportion to the side lost seed 3 at 256²; 9 left too few places.) */
 const RIM_EDGE = 11;
+/** A run to the edge never runs square to it like a ruler (D208): its mouth slides along the edge by up to `slide` of
+ *  its distance, and its course bends `bend` of its length across, at most `most` tiles, at points `every` tiles apart
+ *  (drawn from the run's own hash, so the plan's other draws stay put; a course that is not clear runs straight). */
+const RUN_WANDER = { slide: 0.7, bend: 0.16, most: 7, every: 9 };
 /** How far past a lake's or the pool's meadow its green reaches on day 1, and a little room, tiles: an empty basin
  *  stands past it, so the ground its works turn green is dry on day 1 (the soil reaches 16 tiles from water over level
  *  ground and stops at the first step up; a meadow is its width ± 3). */
@@ -1029,6 +1034,58 @@ function straightLink(plan: PremisePlan, from: Body, to: Point, half: number, en
   return clearPath(plan, path, half, ends, others, 3) ? path : null;
 }
 
+/** A run from a body to the edge (`RUN_WANDER`): its mouth slid along the edge, its course bent across; the straight
+ *  run square to the edge where neither is clear. Its path and its mouth on the edge. */
+function edgeRun(plan: PremisePlan, b: Body, c: Point, half: number): { path: Point[]; out: Point } | null {
+  const { W } = plan;
+  const u = (k: number) => (hash32(plan.seed, plan.W, "premise.run", b.id, k) % 10007) / 10006;
+  const square = toEdge(c, W, W);
+  const e = edgeOf(square, W, W);
+  const along = e === "S" || e === "N" ? 0 : 1;
+  const slid: Point = [square[0], square[1]];
+  slid[along] = Math.max(10, Math.min(W - 10, square[along] + (2 * u(0) - 1) * RUN_WANDER.slide * dist(c, square)));
+  for (const out of [slid, square]) {
+    if (plan.exits.some((x) => dist(x.at, out) < 10)) continue;
+    const straight = straightLink(plan, b, out, half, [b.id]);
+    if (!straight) continue;
+    straight[straight.length - 1] = rp(out);
+    // (the bend: points `every` tiles apart moved across the run, none at its ends)
+    const len = pathLength(straight);
+    const n = Math.floor(len / RUN_WANDER.every);
+    if (n >= 1) {
+      const a = straight[0];
+      const z = straight[1];
+      const dx = (z[0] - a[0]) / len;
+      const dy = (z[1] - a[1]) / len;
+      const most = Math.min(RUN_WANDER.most, RUN_WANDER.bend * len);
+      const bent: Point[] = [a];
+      for (let k = 1; k <= n; k++) {
+        const t = k / (n + 1);
+        const o = most * (2 * u(k) - 1) * Math.min(1, 4 * t, 4 * (1 - t));
+        bent.push(rp([a[0] + dx * len * t - dy * o, a[1] + dy * len * t + dx * o]));
+      }
+      bent.push(z);
+      const others = plan.links.filter((l) => l.path).map((l) => l.path!);
+      if (clearPath(plan, bent, half, [b.id], others, 3)) return { path: bent, out };
+    }
+    return { path: straight, out };
+  }
+  return null;
+}
+
+/** A run's bed at each point of its path: from `hi` at its head down to `lo` at its mouth, a whole level at a time by
+ *  the length run. */
+function runBed(path: Point[], hi: number, lo: number): number[] {
+  const len = pathLength(path);
+  const bed: number[] = [hi];
+  let s = 0;
+  for (let k = 1; k < path.length; k++) {
+    s += dist(path[k - 1], path[k]);
+    bed.push(k === path.length - 1 ? lo : hi - Math.floor(((hi - lo) * s) / len));
+  }
+  return bed;
+}
+
 /** The nearest outline point of a body to a point. */
 function nearestOn(b: Body, p: Point): Point {
   let best = Infinity;
@@ -1061,15 +1118,16 @@ function placeTarns(L: Layout): string | null {
   // level ground and stops at the first step up; a rim tarn hugs its edge, and the pool's basins stand near the pool)
   // (the pool's basins keep 6 from a lake, as from any body: 8 left a pool by the top lake no room for its basins)
   const sideGap = (o: Body, role: "rim" | "pool" | "wet") => (role === "rim" ? (o.kind === "lake" ? 8 : 6) : role === "pool" ? 6 : o.kind === "lake" || o.kind === "pool" ? o.meadow + GREEN_PAST : o.dry ? 6 : SPRING_GREEN);
-  const site = (near: Point | null, role: "rim" | "pool" | "wet"): Body | null => {
+  const site = (near: Point | null, role: "rim" | "pool" | "wet", edges?: number[]): Body | null => {
     const rim = role === "rim";
     for (let t = 0; t < 60; t++) {
       const r = rng.range(3.5, 6) * mapScale(W);
       // (a rim tarn's middle is drawn in the band along an edge it may stand in, the rest anywhere or near `near`)
       const rimAt = (e: number, a: number, d: number): Point => (e === 0 ? [a, d] : e === 1 ? [W - d, a] : e === 2 ? [a, W - d] : [d, a]);
-      const p: Point = near ? [near[0] + rng.range(-42, 42), near[1] + rng.range(-42, 42)] : rim ? rimAt(rng.int(0, 4), rng.range(8, W - 8), rng.range(4 + r, RIM_EDGE + r)) : [rng.range(8, W - 8), rng.range(8, W - 8)];
+      const p: Point = near ? [near[0] + rng.range(-42, 42), near[1] + rng.range(-42, 42)] : rim ? rimAt(edges ? edges[rng.int(0, edges.length)] : rng.int(0, 4), rng.range(8, W - 8), rng.range(4 + r, RIM_EDGE + r)) : [rng.range(8, W - 8), rng.range(8, W - 8)];
       const u = unitAt(rng.int(0, 64));
-      const len = rng.range(4, 8);
+      // (a further rim tarn is drawn long or round, so the rim's tarns never stand in a row of one shape)
+      const len = edges ? rng.range(0.6, 2) * r : rng.range(4, 8);
       const q: Point = [p[0] + u[0] * len, p[1] + u[1] * len];
       const b: Body = { id: "", kind: "tarn", sill: 0, arms: [[[r1(p[0]), r1(p[1]), r1(r)], [r1(q[0]), r1(q[1]), r1(r * 0.8)]]], meadow: 0, deep: 2, dry: false, region: "wet" };
       const eg = edgeGap(b, W, W);
@@ -1110,23 +1168,32 @@ function placeTarns(L: Layout): string | null {
   /** A spring tarn's run to its nearest edge, wet, never meeting a lake. */
   const runToEdge = (b: Body): boolean => {
     const c: Point = [b.arms[0][0][0], b.arms[0][0][1]];
-    const out = toEdge(c, W, W);
-    if (plan.exits.some((x) => dist(x.at, out) < 10)) return false;
-    const path = straightLink(plan, b, out, 1.1, [b.id]);
-    if (!path) return false;
-    path[path.length - 1] = rp(out);
+    const run = edgeRun(plan, b, c, 1.1);
+    if (!run) return false;
+    const { path, out } = run;
     if (pathLength(path) > 0.3 * W) return false;
     const exit: Exit = { id: `exit${plan.exits.length}`, edge: edgeOf(out, W, W), at: rp(out) };
     plan.exits.push(exit);
     const id = `run${b.id}`;
-    plan.links.push({ id, from: b.id, to: exit.id, kind: "brook", path, half: 1.1, bed: [b.sill, Math.max(BED_FLOOR, b.sill - 3)], wet: true, gates: [], rows: [] });
+    plan.links.push({ id, from: b.id, to: exit.id, kind: "brook", path, half: 1.1, bed: runBed(path, b.sill, Math.max(BED_FLOOR, b.sill - 3)), wet: true, gates: [], rows: [] });
     addName(plan, id, `${plan.names[b.id].split(" ")[0]} Run`);
     return true;
   };
   /** A rim tarn with its run to the edge, up to 8 draws; false where none fits. */
-  const rimTarn = (): boolean => {
+  const rimTarn = (spread = false): boolean => {
+    // (a further one on the edges with the fewest so far: the rim's tarns spread round it, never a row along one edge)
+    let edges: number[] | undefined;
+    if (spread) {
+      const used = [0, 0, 0, 0];
+      for (const id of L.stair.rims ?? []) {
+        const o = plan.bodies.find((x) => x.id === id);
+        if (o) used[["S", "E", "N", "W"].indexOf(edgeOf([o.arms[0][0][0], o.arms[0][0][1]], W, W))]++;
+      }
+      const least = Math.min(...used);
+      edges = [0, 1, 2, 3].filter((e) => used[e] === least);
+    }
     for (let t = 0; t < 8; t++) {
-      const b = site(null, "rim");
+      const b = site(null, "rim", edges);
       if (!b) return false;
       const sill = groundSill(b);
       const keep = plan.bodies.length;
@@ -1164,7 +1231,8 @@ function placeTarns(L: Layout): string | null {
     addName(plan, `leat${b.id}`, `${plan.names[b.id].split(" ")[0]} Leat`);
   }
   // a larger map's further rim tarns (`rimTarns`), after the pool's basins, as many as the rim has room for
-  for (let k = 2; k < rimTarns(W); k++) if (!rimTarn()) break;
+  // (on the edges with the fewest first, then any edge: a rim with fewer tarns is drier than the spectrum allows)
+  for (let k = 2; k < rimTarns(W); k++) if (!rimTarn(true) && !rimTarn()) break;
   // the rest: near the start first (NEAR_SIDE of them), so three small works stand within its walk; then anywhere on
   // the wet side, until the count and the ladder's floor are met. At 128² they are empty basins (only the two rim tarns
   // carry springs, §4.1: a spring tarn's green and its run's were three to five points of the map's moist ground each,

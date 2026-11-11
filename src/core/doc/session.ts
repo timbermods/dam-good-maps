@@ -61,9 +61,11 @@ import { validateMap, type Validation } from "../validate/checks";
 import type { Profile } from "../validate/report";
 import { baseFromFile, baseTerrain, fileFromBase, type BaseMap, type BaseTerrain } from "./base";
 import { cropFalls, cropFile, cropObjects, START_CUT, type CropParams } from "./crop";
+import { blankDocument } from "./blank";
 import { lakeLevelLabel, lakeLevelProblem } from "./lakeLevel";
 import { canalLabel, canalProblem } from "./canal";
 import { drawnLakeLabel, drawnLakeProblem } from "./lake";
+import { ridgeLabel, ridgeProblem } from "./ridge";
 import { entityProblem, objectCells, resourceOwners } from "./placing";
 import { applyPaintObjects } from "./paint";
 import { forceLabel } from "../forces/op";
@@ -672,6 +674,12 @@ export class MapSession {
     return new MapSession(importDocument(bytes, fileName, place));
   }
 
+  /** A new blank map (doc/blank.ts): flat, dry ground at `level`, `size` tiles a side, the start at its middle. Throws
+   *  the one-line reason a size or a level is refused. */
+  static blank(size: number, level: number): MapSession {
+    return new MapSession(blankDocument(size, level));
+  }
+
   // --------------------------------------------------------------------------------- reading
 
   get mode(): SessionMode {
@@ -981,7 +989,7 @@ export class MapSession {
    *  none, on a heightfield, or for an operation that reshapes no ground (the full build's check after
    *  it covers the rest, D280 (3)). */
   private fallsAhead(op: EditOp): number[] {
-    if (op.op !== "brush" && op.op !== "sculpt" && op.op !== "setLakeLevel" && op.op !== "canal" && op.op !== "lake" && op.op !== "forceResult") return [];
+    if (op.op !== "brush" && op.op !== "sculpt" && op.op !== "setLakeLevel" && op.op !== "canal" && op.op !== "lake" && op.op !== "ridge" && op.op !== "forceResult") return [];
     if (!this.layered(this.cur)) return [];
     const { x: W, y: H } = this.size;
     const { heights } = previewTerrain(this.cur, this.input());
@@ -1523,6 +1531,7 @@ export class MapSession {
       lakeLevel: (p) => lakeLevelProblem(this, p),
       canal: (p) => canalProblem(this, p),
       lake: (p) => drawnLakeProblem(this, p),
+      ridge: (p) => ridgeProblem(this, p),
       cropObjects: (r) => {
         const o = cropObjects(this.cur.entities, r);
         if (o.cutStart) return START_CUT;
@@ -2660,6 +2669,8 @@ export function labelOf(op: AppliedOp): string {
       return canalLabel(op.params);
     case "lake":
       return drawnLakeLabel(op.params);
+    case "ridge":
+      return ridgeLabel(op.params);
     case "setDescription":
       return op.params.text === "" ? "Clear the description" : "Write the description";
     case "crop":

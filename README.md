@@ -55,6 +55,8 @@ The editor:
   either end, **Free** raises or digs softly.
 - The held tool's settings sit just above the bar: **Size**, **Level** (or **Strength**), **Mode**,
   **Sources** and **Brush** (**Round**, **Square** or **Lines**). **Flatten** adds **Steps**.
+- To draw high ground, pick **Raise**, set its **Brush** to **Ridge**, and drag a line. A ridge rises along it, steep
+  on one side and in broad benches on the other. **Height**, **Width** and **Steep** are in its row.
 - **Mode**: **Ground** leaves water alone, **Water** changes only the ground under it, **Both**
   changes everything.
 - **Sources**: **Ride** moves them with the ground, **Keep** leaves them where they are, **Clear**
@@ -102,7 +104,7 @@ The editor:
 - The dot at the top is green when the map is ready to play. Amber means something to look at:
   click it for the list and the fixes.
 - **Save to Timberborn** saves the map into the game (**Download .timber** in other browsers). **File**
-  has **Open…**, **Description…**, **Download project**, **Download .timber**, **Choose Maps folder…** (Chrome and Edge), **Clear everything**, **About**, **Keyboard shortcuts**,
+  has **Open…**, **New blank map…**, **Description…**, **Download project**, **Download .timber**, **Choose Maps folder…** (Chrome and Edge), **Clear everything**, **About**, **Keyboard shortcuts**,
   **Help** and **Report a problem**.
   **History** beside Undo lists every step: click one to go back to it.
 - Click the map's name at the top to rename it. The saved file takes the name.
@@ -110,6 +112,8 @@ The editor:
 - **Real places** in the header opens maps made from real land: click one to edit it.
 - The map you were on stays in **Your maps**, in the header: click it to go back.
 - Right-click a map in **Your maps** to download its `.timber`, rename it or delete it.
+- **File → New blank map…** starts a map on flat, dry ground: pick its size and its ground level. The start is at its
+  middle. Shape it, then add water sources.
 - **File → Description…** holds the map's name and the words the game shows with it. A generated map starts with
   the generator's words. After you change the map, keep them or write your own.
 - **File → Open…**, or a file dropped on the page, opens any `.timber` from Timberborn 0.6 to 1.1.

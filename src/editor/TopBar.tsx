@@ -9,6 +9,7 @@
 
 import { CANAL_MAX_DEPTH, CANAL_MAX_WIDTH } from "../core/doc/canalLimits";
 import { LAKE_MAX_DEPTH } from "../core/doc/lakeLimits";
+import { RIDGE_MAX_HEIGHT, RIDGE_MAX_WIDTH, RIDGE_MIN_HEIGHT, RIDGE_MIN_WIDTH, type RidgeSteep } from "../core/doc/ridgeLimits";
 import { createContext, type ComponentChildren } from "preact";
 import { useContext, useLayoutEffect, useRef } from "preact/hooks";
 import { FirstRunSizer } from "./FirstRun";
@@ -349,16 +350,20 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
   // water along it; its row is Width, Depth and how it starts, with the Brush choice across the second row
   // Lower's fifth, Lake: a drag draws an outline and the core digs a basin inside it; its row is Level, Depth and what
   // fills it
+  // Raise's fourth, Ridge (planning, 2026-11-11): a drag draws a line and the core raises high ground along it; its row
+  // is Height, Width and the steep side, the same way
   const canal = t === "lower" && s.canal;
   const lake = t === "lower" && s.lake && !canal;
-  const shape = canal ? "canal" : lake ? "lake" : s.square ? "square" : s.straight ? "straight" : "round";
+  const ridge = t === "raise" && s.ridge;
+  const wide = canal || lake || ridge;
+  const shape = canal ? "canal" : lake ? "lake" : ridge ? "ridge" : s.square ? "square" : s.straight ? "straight" : "round";
   const brush: Group = {
     key: "brush",
     row: 2,
-    at: canal || lake ? 1 : 5,
-    span: canal || lake ? 13 : flatten ? 5 : 9,
+    at: wide ? 1 : 5,
+    span: wide ? 13 : flatten ? 5 : 9,
     node: (
-      <ChoiceSetting<"round" | "square" | "straight" | "canal" | "lake">
+      <ChoiceSetting<"round" | "square" | "straight" | "canal" | "lake" | "ridge">
         label="Brush"
         value={shape}
         options={[
@@ -371,8 +376,9 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
                 ["lake", "Lake", "Draw a lake's outline to dig its basin"],
               ] as const)
             : []),
+          ...(t === "raise" ? [["ridge", "Ridge", "Draw a ridge of high ground"] as const] : []),
         ]}
-        onChange={(v) => set({ square: v === "square", straight: v === "straight", canal: v === "canal", lake: v === "lake" })}
+        onChange={(v) => set({ square: v === "square", straight: v === "straight", ...(t === "lower" ? { canal: v === "canal", lake: v === "lake" } : {}), ...(t === "raise" ? { ridge: v === "ridge" } : {}) })}
       />
     ),
   };
@@ -404,6 +410,30 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
       { key: "level", row: 1, at: 1, span: 4, node: <HeldNumberSetting label="Level" title="The level the lake's water stands at" keys={["Scroll"]} value={s.lakeLevel} min={2} max={CEILING - 1} step={1} onChange={(lakeLevel) => set({ lakeLevel })} onCommit={(lakeLevel) => set({ lakeLevel })} /> },
       { key: "depth", row: 1, at: 5, span: 4, node: <NumberSetting label="Depth" title="How deep its channel lies under the water" value={s.lakeDepth} min={1} max={LAKE_MAX_DEPTH} step={1} onChange={(lakeDepth) => set({ lakeDepth })} /> },
       { key: "fills", row: 1, at: 9, span: 5, centre: true, node: <Words status>{lakeFed ? "The water here fills it" : "Add a source or lead water in"}</Words> },
+      brush,
+    ];
+  if (ridge)
+    return [
+      { key: "height", row: 1, at: 1, span: 4, node: <NumberSetting label="Height" title="How high the crest stands over the land" value={s.ridgeHeight} min={RIDGE_MIN_HEIGHT} max={RIDGE_MAX_HEIGHT} step={1} onChange={(ridgeHeight) => set({ ridgeHeight })} /> },
+      { key: "width", row: 1, at: 5, span: 5, node: <NumberSetting label="Width" title="How wide the ridge is" value={s.ridgeWidth} min={RIDGE_MIN_WIDTH} max={RIDGE_MAX_WIDTH} step={1} onChange={(ridgeWidth) => set({ ridgeWidth })} /> },
+      {
+        key: "steep",
+        row: 1,
+        at: 10,
+        span: 4,
+        node: (
+          <ChoiceSetting<RidgeSteep>
+            label="Steep"
+            value={s.ridgeSteep}
+            options={[
+              ["auto", "Auto", "Steep on the side the drag curves away from"],
+              ["left", "Left", "Steep on the left of the drag"],
+              ["right", "Right", "Steep on the right of the drag"],
+            ]}
+            onChange={(ridgeSteep) => set({ ridgeSteep })}
+          />
+        ),
+      },
       brush,
     ];
   const groups = [size, second, mode, sources, brush];

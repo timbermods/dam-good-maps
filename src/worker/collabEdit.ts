@@ -19,6 +19,7 @@ import { EVERY_KIND } from "../core/doc/remove";
 import { lakeLevelLabel } from "../core/doc/lakeLevel";
 import { canalLabel } from "../core/doc/canal";
 import { drawnLakeLabel } from "../core/doc/lake";
+import { ridgeLabel, type RidgeSteep } from "../core/doc/ridge";
 import { collabApi } from "./collab";
 import * as ed from "./session";
 
@@ -118,6 +119,12 @@ export const collabEditApi = {
     const p = ed.planned.lake(outline, level, depth, spill);
     if (!p.op) return Promise.resolve(ed.collabAnswer(false, [p.reason ?? "the lake can't be made"]));
     return order({ kind: "select", ops: [p.op], label: drawnLakeLabel(p.op.params) });
+  },
+  /** Raise a ridge along `path`: one step as a Select action, or the plain reason it can't be raised. */
+  ridgeAt(path: [number, number][], height: number, width: number, steep: RidgeSteep, seed: number): Promise<Answer> {
+    const p = ed.planned.ridge(path, height, width, steep, seed);
+    if (!p.op) return Promise.resolve(ed.collabAnswer(false, [p.reason ?? "the ridge can't be raised"]));
+    return order({ kind: "select", ops: [p.op], label: ridgeLabel(p.op.params) });
   },
 
   async removeAt(tiles: readonly number[], kinds: readonly ed.RemoveKind[], label?: string, cut?: number | null): Promise<Answer & { removed: number[] }> {

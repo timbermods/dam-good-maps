@@ -75,7 +75,7 @@ place of its bottom rule.
   words ("Ready to play", "2 things to look at"; below about 1,000px wide the dot alone; its tooltip "What to fix before
   playing"; its list closes an open Legend while it is shown, and the Legend returns when it closes), **Save to Timberborn**
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, **Together** (a quiet
-  button with a small people icon: "Edit this map with someone else"; see "Together" below) and **File** (Open…,
+  button with a small people icon: "Edit this map with someone else"; see "Together" below) and **File** (Open…, New blank map… (below),
   Download project (says "Saved <file>" in a quiet note, as Download .timber does), Download .timber, Choose Maps folder… (Chrome and Edge), Record a time-lapse… (where the browser can make a video: §6b), Save a picture (§6b), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
   problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
   same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
@@ -279,7 +279,8 @@ place of its bottom rule.
     new size. Ctrl+Z, History or redo across the crop do the same; past 300 ms the message line says "Cropping…". Tooltip "Crop the map to the selection", no key.
   - The brushes: Size · Level (Raise, Lower, Flatten: Auto follows the ground; Free at its far end on Raise and
     Lower) or Strength (Smooth, Naturalize) · Mode; Sources · Brush (Round, Square or Lines, one at a time; the area
-    joins them on Raise and Lower) · Flatten's Steps (Off, 2, 3, 4).
+    joins them on Raise and Lower; Raise adds Ridge and Lower Canal) · Flatten's Steps (Off, 2, 3, 4). With Ridge chosen Raise's row is
+    Height · Width · Steep (Auto, Left, Right), the Brush choice across the second row (§4, "The ridge").
   - The forces: Power (cells 1–3) · Size (cells 4–6; Auto: it follows Power; Quake has none) in the same place on every force, then their choices (Carve's What it leaves, Wander, Walls, Canyon
     depth, River depth with Off at its far end, Banks; Craterize's Walls, Centre, Debris, Rays; Erupt's Shape, Summit,
     Flows, Ridges; Quake's Mode, Scarp and Side (V); Glaciate's Meltwater, Benches, Steps, Tarn, Scree) · the Floor ·
@@ -781,7 +782,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   heavy debris can dam a river; it strikes wherever aimed (the start's ground too, D257) and never adds water.
 - **Quake** (D203, D219; key 9): splits the land along a fault drawn freehand (D327): **Lift** or **Slide**;
   **Power**; **Try another** (another tilt and crack). **V** flips the side that moves, even while painting; its
-  scarp (sheer or stepped) comes from the land and the seed. Lift raises along the curve and shows its whole
+  scarp (sheer or stepped) comes from the land and the seed. Lift raises along the curve, most at the fault and
+  fading within 20 tiles, to nothing at the fault's tips, the other side keeping its ground but for a trough at the
+  scarp's foot 1 to 2 levels deep (the force audit's finding 1, `docs/progress/force-audit.md`), and shows its whole
   result as it is painted, kept when let go; Slide shows the fault while it is painted, then its block slides
   along it, 2 to 20 tiles (D361 (3)), the way the drawn line runs there (where level ground slides along level
   ground and nothing would show, the ground splits along the fault a level up and down, D356), and a river that crossed the fault is
@@ -916,6 +919,23 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 
 ### The brushes and precision tools
 
+- **The ridge** (Raise's fourth **Brush** choice, **Ridge**: Round, Square, Lines, Ridge): draw high ground. A drag
+  draws a line (a point kept every three tiles) and a ridge rises along it, **Height** levels above the land it stands
+  on (2 to 10, 6 unless changed) and **Width** tiles across (4 to 20, 10). Its crest wanders off the line and rises
+  and falls along it; one side falls steeply, a cliff with ledges, and the other in two or three broad benches of
+  uneven breadth whose edges wander, the outermost halving to the land; a few crags stand on the crest; its ends come
+  down. **Steep** says which side is steep: **Auto** the side the drag curves away from (the left on a straight drag),
+  or **Left** or **Right** of the drag's way as the map is seen. The core works out the ridge's surface in levels and
+  fractions of one and the forces' last step turns it into land (`rust/forces/src/levels.rs` `whole`, through the
+  forces' Wasm, `forces_levels`; `forces/rust/bridge.ts` `levelsInRust`): no one-tile pillar or pit, no band
+  narrower than two tiles, no even stair and no contour rings. Each drag has its own seed. While it is dragged the
+  tiles it would raise are tinted and the words beside the pointer say "top at level 15, steep on the left", or the
+  core's one line with the line in red (a source or a cave in its way, its top over the ceiling, a line under 3 tiles);
+  the release raises the ridge that was shown, one step in History ("Raise a ridge 6 high and 10 wide"); objects on
+  it ride its ground. The core's `ridge` operation (`core/doc/ridge.ts` `planRidge`, `applyRidge`; its path, settings
+  and seed with its tiles and their levels, checked again by the engine as a lake's sill's are), the worker's
+  `ridgePlanAt` and `ridgeAt`, the collab route and the MCP server's `apply` (only `path` needed); the page's
+  `ridge/useRidge.ts` and `TopBar.tsx`.
 - **The brushes,** circle or square. Terrace is a Flatten option ("in steps"). Ramp is the shelf's **Slope** (a
   natural slope exactly where the player puts it; dragged from high ground down to low ground it lays a **stair**
   shaped as the generator's natural ramps are: a tread of two to four tiles a level, uneven, filling the drag's
@@ -1476,6 +1496,23 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   number pick a force); bookmarks
   are saved with the project. Every tool is reachable by keyboard, with labels for screen readers. (D180, D184,
   D196, D205, D212, D219.)
+
+### New blank map (File → New blank map…)
+
+A map built from an idea starts on empty ground, not on a generated seed (MAPCRAFT step 2). The dialog asks for a
+**Size** (the generator's own: 96, 128, 192 or 256 a side) and a **Ground level** (1 to 16, 8 unless changed: room to dig
+lakes below and raise hills above); **Make the map** opens flat, dry ground at that level with the start at its middle,
+named "Blank map", ready for the brushes, the forces, lakes by number and sources. It closes the open map as Open… does
+(the same question first when this browser isn't keeping its edits). The core makes it (`core/doc/blank.ts`
+`blankTimber`, `MapSession.blank`; the worker's `newBlank`): the file a map with that ground and one start stores, built
+the way a real place's is (`buildFileFromHeights`: the canonical settle of a map with no source is dry) and read as any
+.timber is, so it has no spec, saves as a project that reopens byte for byte (D455) and exports a .timber. A size or a
+level outside those is refused with one line. **The checks on an empty map:** every load, design and principle check
+passes as made; six playability checks fail until the player gives the map what they ask for, and none blocks the
+export: `start.water`, `start.farmland`, `start.food`, `start.wood` and `start.wood_floor` (no water, moist ground,
+berries or trees yet: they are what the player is about to make) and `resources.badwater_source` (no badwater source
+yet, D200). The quiet dot counts them as it does on any map that lacks those things ("7 things to look at", never "Ready to
+play": a start with no water is not ready), not as problems that were in a file the player opened.
 
 ### The File menu's help entries (M13)
 

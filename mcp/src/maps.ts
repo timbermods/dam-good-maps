@@ -18,6 +18,7 @@ import { planFill, unfedWater } from "../../src/core/doc/waterEdits";
 import { applyLakeLevel } from "../../src/core/doc/lakeLevel";
 import { applyCanal } from "../../src/core/doc/canal";
 import { applyDrawnLake } from "../../src/core/doc/lake";
+import { applyRidge, type RidgeSteep } from "../../src/core/doc/ridge";
 import { applyForce } from "../../src/core/collab/forceStep";
 import { isPickable } from "../../src/core/features/objects";
 import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
@@ -398,6 +399,14 @@ function applyOne(s: MapSession, raw: unknown): { label: string; held: number } 
         if (!Array.isArray(outline) || outline.length < 3) refuse("A lake needs outline [[x, y], ...] around the ground it should take, and level");
         if (typeof p.level !== "number") refuse("A lake needs the level its water stands at");
         return done(applyDrawnLake(s, outline!, p.level as number, (p.depth as number | undefined) ?? 2, (p.spill as Pair | undefined) ?? null), lastLabel());
+      }
+      break;
+    case "ridge":
+      // high ground along a path: planned on the map as it stands (core/doc/ridge.ts)
+      if (p.cells === undefined) {
+        const path = p.path as Pair[] | undefined;
+        if (!Array.isArray(path) || path.length < 2) refuse("A ridge needs path [[x, y], ...], the line its crest follows");
+        return done(applyRidge(s, path!, (p.height as number | undefined) ?? 5, (p.width as number | undefined) ?? 10, (p.steep as RidgeSteep | undefined) ?? "auto", (p.seed as number | undefined) ?? 1), lastLabel());
       }
       break;
     case "setLakeLevel":
