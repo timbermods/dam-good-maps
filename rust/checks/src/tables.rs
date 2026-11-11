@@ -104,6 +104,13 @@ pub fn reserve(key: &str) -> Option<f64> {
         _ => None,
     }
 }
+pub const START_FLOOR_BENCH: [[f64; 3]; 3] = [[480.0, 640.0, 980.0], [480.0, 640.0, 980.0], [480.0, 640.0, 980.0]];
+pub const START_FLOOR_REACH: [f64; 3] = [1300.0, 1300.0, 1300.0];
+pub const START_FLOOR_FAST_WOOD: [f64; 3] = [0.4, 0.4, 0.4];
+pub const START_FLOOR_FAST_WOOD_WALK: [f64; 3] = [20.0, 20.0, 40.0];
+pub const START_FLOOR_FORESTER: [f64; 3] = [100.0, 100.0, 100.0];
+pub const START_FLOORS_AREA: f64 = 16384.0;
+pub const FARMLAND_NEAR: f64 = 100.0;
 pub const LIVING_SHARE: [f64; 2] = [0.267, 0.434];
 pub const SIZE_ANCHORS: [f64; 4] = [3750.0, 16384.0, 36864.0, 65536.0];
 pub const DENSITY_SCRAP_PER_1K_TILES: [f64; 4] = [840.0, 705.0, 236.0, 235.0];
