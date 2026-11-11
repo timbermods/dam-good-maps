@@ -4,7 +4,8 @@
 // the band, at its right beside the corner's second row, and Legend's open legend starts under it, the panels too where
 // it would meet them (a panel clear of it starts under the band: a laptop's window keeps their room). Legend centres in the gap between the water row
 // and Top-down; with the water row below, it joins the Show row as its last toggle, one toggle gap after its last (Badwater, or Caves and overhangs on a map
-// that has them; Kyler, 2026-10-04), and its open legend hangs under the second line, clear of a panel open at the left. The panels and the open legend are as tall as the room left
+// that has them; Kyler, 2026-10-04), or, where that row would reach Top-down, on the second line one gap left of the water
+// row; its open legend hangs under the second line, clear of a panel open at the left. The panels and the open legend are as tall as the room left
 // above the controls under them, and scroll inside only when a window is too short for them (never at 1920×1080 or
 // 2560×1440); the objects' dock likewise, its list scrolling so the picked object's window is never cut off. Whole pixels throughout. The positions go to CSS variables on the editor's main area.
 
@@ -93,6 +94,8 @@ export function useBandLayout(ready: boolean): void {
       let top = TOP;
       let legendLeft: number;
       let panelLeft: number;
+      /** Legend's row on the second line too, left of the water row: the Show row leaves it no room in the band. */
+      let rowDown = false;
       // (the furthest right Legend's centre goes: the button one gap clear of Top-down, and the button and its open
       // legend 8px clear of the corner, whose second row hangs under the band beside the legend)
       const most = Math.min(C - GAP - L / 2, C - 8 - Math.max(L, LEGEND_W) / 2);
@@ -108,11 +111,16 @@ export function useBandLayout(ready: boolean): void {
         // under the second line, from its left edge, clear of a panel open at the left
         top = TOP + BAND + UNDER;
         left = Math.max(TOP, C - GAP - w);
+        // (a Show row so long that Legend's row, after it, would reach Top-down, as on a map with caves at 1280 wide: the
+        // row goes to the second line too, one gap left of the water row; nothing in the band covers a button)
+        rowDown = S + TOGGLE_GAP + L > C - GAP;
       }
       const below = top + BAND;
-      // (the panels start under the band, or under the second line where the water row there would meet them: a panel
+      /** The second line's left edge (the water row's, or Legend's row's when it is there too). */
+      const lineLeft = rowDown ? Math.max(TOP, left - GAP - L) : left;
+      // (the panels start under the band, or under the second line where the second line would meet them: a panel
       // `width` wide is clear of it with one gap between)
-      const panelTopFor = (width: number) => (top === TOP || left >= TOP + width + GAP ? TOP + BAND : below) + 10;
+      const panelTopFor = (width: number) => (top === TOP || lineLeft >= TOP + width + GAP ? TOP + BAND : below) + 10;
       // the generator's panel takes the shape that fits the room it has (panelFit.ts, the hints stepping aside while it is
       // open); the open legend, beside it at its right, stays clear of the corner and so of the panel, whatever its shape
       const widest = (inBand ? most - LEGEND_W / 2 : C - 8 - LEGEND_W) - GAP - TOP;
@@ -126,7 +134,7 @@ export function useBandLayout(ready: boolean): void {
         legendLeft = centre - L / 2;
         panelLeft = centre - LEGEND_W / 2;
       } else {
-        legendLeft = S + TOGGLE_GAP;
+        legendLeft = rowDown ? lineLeft : S + TOGGLE_GAP;
         panelLeft = Math.max(legendLeft, TOP + panelW + GAP);
       }
       left = Math.round(left);
@@ -138,13 +146,16 @@ export function useBandLayout(ready: boolean): void {
       }
       panelLeft = Math.round(panelLeft);
       const legendTop = below + 6;
-      const drop = top === TOP ? 0 : top + BAND - (TOP + BAND);
+      // (the open legend under the second line: the row itself there, or the band's row with the legend dropped under it)
+      const rowTop = rowDown ? top - TOP : 0;
+      const drop = top === TOP || rowDown ? 0 : top + BAND - (TOP + BAND);
       const vars: Record<string, string> = {
         "--water-left": `${left}px`,
         "--water-top": `${top}px`,
         "--legend-left": `${legendLeft}px`,
         "--legend-panel-left": `${panelLeft}px`,
         "--legend-drop": `${drop}px`,
+        "--legend-row-top": `${rowTop}px`,
         "--legend-max": `${roomAbove(panelLeft, panelLeft + LEGEND_W, legendTop)}px`,
         // (the panel sits in the main area, the view's own top and left)
         "--panel-top": `${Math.round(v.top - m.top + panelTop)}px`,
