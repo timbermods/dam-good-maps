@@ -1343,6 +1343,45 @@ plates), and lays the gate's own over it in the plan's frame (`gateZones`: valle
   are the next stage; the generator's mode still cannot run a premise's own stages (§5.1 "As built (water)" (1)), nor
   its land invariants (`StageContext.heights`).
 
+**As built (works, stage 4; the fourth PR).** `gateWorks.ts` `gateLadder` lays round 8's rungs as templates on the land
+and measures each as the lake stair's ladder does (`ladder.ts`: `flowThrough` and `prefillFrom` on the land with the
+work and the works it needs done against without, `estimateGain` for the green, the water held for a reservoir); the
+shared `ladderOf` reads the lake stair's kinds, so the gate's are its own templates. `gateMap` hands the ladder to the
+map (stage 6 keeps its plants off the works' sites and reach) and its card (`gateCard`, `gateWorkWords`: the card's
+name, style, landmark, first rung and line, in the map's own names).
+
+- **The rungs**: the Still Pool's levee (first: its inlet shut a level over the sill, one tile); the Gate opened (its two
+  rows cleared and its bar blasted to the sill: a row cleared comes down to the bar's new level, since stage 1's
+  head-hold stands the first row at the bar); the Gate made whole (the bar a level under the sill, a levee on the Low
+  River's lip); the leat opened (its row and bar to the springs' sill) and its whole share (to its bed); the megadam (a
+  wall across the gorge in the spur, two thick, to the megadam's water, the Gate's slot dammed with it). The megadam
+  keeps no reach: it drowns the start's bench, and stage 6 keeps nothing off a work's reach.
+- **What by number cannot see**: the two whole-share rungs send more of the river down a bed already wet, and
+  `flowThrough` counts every source whose water passes a tile, unsplit between outlets: by number they buy nothing, so
+  their floor is 0 and their gain is the settle's (a proof, §3.4; round 8's 1,534 and 1,663).
+- **The floors** (`gives`) are round 8's gains at 192² at two thirds, per tile of the map's side: a rung greens along its
+  bed, which grows with the side, not the area; the megadam's 12 tile-levels a tile of side.
+- **Invariants** (`GATE_WORKS_CHECKS`, by `gateWorksFailures`): `works.sites` (every rung on the land, with its level),
+  `works.paid` (every rung at its floor; a short one is said, as the lake stair's are), `neck.shuts` (left alone the
+  river reaches the Still Pool, with its levee none), `gate.opens` (shut, nothing leaves by the notch; opened, the river
+  does), `basin.dry` (day 1 by number: under 12 % of the basin's floor moist or wet).
+- **The look**: the valley's land stands 5 or more under the crest (`UNDER_CREST`; a style's uplands rose to the highest
+  ground beside the wall), and the basin's far side is warped plates from two to six over its nearest bed, under the
+  sill + 1. Terrain has one material in the game (D496), so its look is its shape; the plates read broad, not varied.
+  `docs/sheets/wall-gate-works.jpg` is seed 1 at 192² from the opening camera.
+- **Measured** (the same 19 seeds): the start's numbers, level land 267 to 337, farmland 265 to 339, wood 56 to 848, wood
+  floor 240 to 1,408, reach 2,356 to 7,360; all five pass on 18. Every blocking check passes on 15 (128² seed 1
+  `water.settles`, seeds 3 and 10 `start.food`, 256² seed 2 `start.wood`: stage 6's planting, which moves with the works'
+  sites). Gains: the Gate opened greens 685 to 861 at 128², 1,148 to 1,189 at 192², 1,604 to 2,008 at 256²; the leat
+  opened 522 to 3,495, 1,347 to 2,091 and 1,967 to 2,509; the megadam holds 1,828 to 2,161, 2,405 to 2,726 and 3,099 to
+  3,741. Every rung pays its floor but three leats at 128² (522 to 801 of 817). Day 1 by number is 12 % water and 29 %
+  moist at 128² (the lake stair's `spectrum` is not the gate's: its basin is dry by design).
+- **Short**: the seeps (§5.1's three in hollows, each with a gully to the bed) are not drawn: a gully's water runs down
+  the Gate Bed, which stage 1 lays dry (no guard, the table's flow none), so water leaves its bed; they need stage 1 to
+  route a wet link into a dry link's bed (`levels.ts` `route`, `raster/channels.ts`), or a seep source capped as the
+  game caps seeps (a `Source.seep` the table and `stageModel` read). The Still Pool's badtide (under 20 % bad with its
+  levee) and the whole shares are proofs, not built.
+
 ### 5.2 The island sea
 
 **The line:** "The big spring is on the far island and its fall feeds the sea; the red spreads from it across the
@@ -1468,7 +1507,7 @@ Each step is one PR that leaves dev green and is useful by itself.
 | 8 | **The proofs and the judging tools**: background proof rows, `tools/premise-batch.ts`, tiers 1 to 4 run and recorded | The premise proved true on every map a player opens | 7. The first ten cycles (#927, in work) for the cycles' proof; not blocked |
 | 9 | **Core built** (theme × premise as two choices, the style seam, the pair refusals, the settings' mapping of section 1.3 complete, the card's words; section 1.5). **On the page**: the two pickers beside Generate, each with Any; the settings greyed by `premiseSettings`; the map card from `info.premise.card` | Players get it | 8 passed; the page session |
 | 10 | **The ladder's readout in the editor** (section 8) | The editor's missing step 5 | 5; the page session |
-| 11 | **Plan, water and land built** (stages 0 to 3 and the map, the works not laid, not offered: §5.1 "As built"). **The wall with one gate** (§5.1, built by hand as The Gate); its water, relief and works next | A second idea; Generate can surprise | 9 |
+| 11 | **Plan, water, land and works built** (stages 0 to 4 and the map, not offered: §5.1 "As built"). **The wall with one gate** (§5.1, built by hand as The Gate); its water, relief and works next | A second idea; Generate can surprise | 9 |
 | 12 | **The sketch start** (section 8) | The editor's missing steps 1 and 2 | 2, 3 |
 | 13 | **The island sea** | A third idea; the first with a real delay | 11, 8 |
 
