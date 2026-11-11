@@ -42,6 +42,8 @@ describe("a force's character from the land and the seed, on Auto until pinned (
       carves.add(`${c.wander} ${c.walls}`);
       const k = craterNature({ ...CRATER_DEFAULTS, ...AUTO_CRATER_DETAILS, seed, power: 50, size: 30 }, flat);
       expect([k.power, k.size, k.mode]).toEqual([50, 30, "strike"]);
+      // (a centre left on Auto is never a peak or a ring: a central mountain is chosen, planning on #912)
+      expect(["auto", "bowl", "flat"], `seed ${seed}`).toContain(k.centre);
       craters.add(`${k.walls} ${k.centre} ${k.debris} ${k.rays}`);
       const e = eruptNature({ ...ERUPT_DEFAULTS, ...AUTO_ERUPT_DETAILS, seed, power: 50, size: 40 }, steep);
       expect([e.power, e.size, e.mode]).toEqual([50, 40, "vent"]);

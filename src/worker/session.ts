@@ -2603,7 +2603,8 @@ export function waterLayers(kind?: string): WaterLayers {
   let irrigation: Irrigation | null = null;
   if (kind === "irrigation") {
     // (the same water and soil the other layers show: an unedited import's from the background check)
-    const reach = s.moistureReach(b, fromCheck ? { depth, contamination } : undefined);
+    // (the background check's water itself is the key: the reach is worked out once for it)
+    const reach = s.moistureReach(b, fromCheck ?? undefined);
     irrigation = { ...reach, tone: irrigationTones(reach, fromCheck ? fromCheck.moist : b.moisture, depth) };
   }
   return {
