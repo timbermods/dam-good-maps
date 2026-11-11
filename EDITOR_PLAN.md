@@ -584,7 +584,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   it changed nothing round a tile by more than a level the tidying never moves that tile more than two: the land's
   own one-tile ledge goes back to where it stood, and the corner of its own two-tile ridge, with the ground of its
   level round it, to where the force put it, or where the force's rounding would leave that one tile wide to where it
-  stood, never down its cliff and never leaving ground one tile wide. Craterize, Erupt and Rift end with it; Deposit, Quake and Glaciate adopt it next.
+  stood, never down its cliff and never leaving ground one tile wide. Craterize, Erupt, Rift and Deposit end with it; Quake and Glaciate adopt it next.
 - **Esc skips, undo takes it back** (D344, A4): while a gesture is still being drawn, Esc cancels it and nothing of
   it lands; once a force plays, Esc skips it to its end, its final land kept as one step; Ctrl+Z (or Z, or Revert)
   takes all of it back at any moment, and nothing lands afterwards (D341). The row's tooltip carries the keys (**Esc** skips,
@@ -862,21 +862,31 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   `rust/forces/src/rift.rs`; 21 fixed steps). The page: its settings (Power, Size, Walls with Auto; Floor, Try another),
   a click or a drawn fault, the stroke band as wide as its Size, the ring at the cursor, its sounds (a split, a deep
   drop, falling stone); no key yet. Its crack-and-drop effects on the land are the renderer's, to come.
-- **Deposit** (D352, D438): an alluvial fan at a valley's mouth: a lobed cone with curving distributaries, every block
-  of it paid for by ground taken from behind it and beside it (conserved; Keep, the Floor and the working area are
-  budgeted before it plays). Nothing changes outside its outline (Kyler, #341): a click's circle, Size across, and a
-  drag's band, Size wide along the line. A click builds the fan where it is clicked; a drag sets its direction and
-  reach. **Power** (default 70), **Size** (the fan's width, Auto or 8–64, independent of Power), **Try another**;
-  behind More, **Channels** (Auto, Few, Many). It never refuses for want of ground (D356): where no fan fits, what it
-  took lies a level deep on the nearest free ground inside the circle, and where the outline's free ground, beside the
-  fan's own tiles, has too little above the Floor to take (a lake's bed, the map's lowest ground, a working area the fan
-  fills), the water brings the rest of a small fan's sediment; only a working area that leaves no free ground in the outline refuses ("the working area leaves nothing to
-  take sediment from"), or an outline at the map's height ceiling ("the map leaves no room for sediment here"). Wet outlets keep their bed; objects ride or are buried,
-  none added. Every raised tile belongs to a filled 2 × 2 body: no lone pillars, stray tiles or connecting paths between
-  lobes, which stay separate; short draws, clicks and Power 0 still make a small fan. The core half is adopted (`core/forces/deposit.ts`, `rust/forces/src/deposit.rs`; 40 fixed steps). The
-  page: its settings (Power, Size, Channels with Auto; Floor, Try another), a click or a drawn line (a band as wide as its Size),
-  the ring at the cursor, its sounds (muddy water, settling earth); no key yet. Its sediment-and-water effects on the
-  land are the renderer's, to come.
+- **Deposit** (D352, D438; its landform the force audit's findings 4, 5, 14 and 28, 2026-11-11): an alluvial fan below
+  its gully: a low cone segment 60 to 120° wide from its apex (a few tiles behind where it is placed), a level per 4 to
+  8 tiles, 3 to 5 levels thick at the default, laid only where that cone stands above the ground and never above its
+  apex; its surface drawn to a seeded ladder of 1 to 2-level rungs with warped edges, then `levels::whole`, so it reads
+  as benches of uneven width with a feathered toe, never a step pyramid, even stairs or contour rings; 2 to 5
+  distributaries a level deep (Channels: Few 2, Many 5, Auto 3 or 4), each with one avulsion. What feeds it is a gully
+  up the steepest ascent behind it: a V-notch 2 to 4 wide at its floor, graded down to a level over the ground where
+  the fan is placed and on through the fan's head as a trench shallowing to nothing by nearly half its reach, so its
+  water runs out over the fan; where the ground behind is level it takes nothing and the water brings the sediment
+  (it is not conserved). Placed on dry ground it leaves water's beds as they are, and its gully keeps two tiles from
+  any water, so it never dams a stream, spills a pond or lets badwater into clean water; placed in water it lays a
+  level at most and keeps a wet outlet open. Try another turns it on level ground and re-rolls its spread, lobes and
+  channels. Nothing changes outside its outline (Kyler, #341): a click's circle, Size across, and a drag's band, Size
+  wide along the line. A click builds the fan where it is clicked; a drag sets its direction and reach. **Power**
+  (default 70), **Size** (the fan's width, Auto or 8–64, independent of Power), **Try another**; behind More,
+  **Channels** (Auto, Few, Many). Keep, the Floor (its gully never cuts under it) and the working area are applied
+  before it plays; an object of several tiles rides the fan whole. It never refuses for want of ground (D356): where
+  the fan leaves fewer than nine tiles changed, the nearest free 2 × 2 squares in its outline take a level; only a
+  working area that leaves no free ground in the outline refuses ("the working area leaves nothing to take sediment
+  from"), or an outline at the map's height ceiling ("the map leaves no room for sediment here"). Objects ride or are
+  buried, none added. Every raised tile belongs to a filled 2 × 2 body: no lone pillars or stray tiles. The core half
+  is adopted (`core/forces/deposit.ts`, `rust/forces/src/deposit.rs`; 40 fixed steps). The page: its settings (Power,
+  Size, Channels with Auto; Floor, Try another), a click or a drawn line (a band as wide as its Size), the ring at the
+  cursor, its sounds (muddy water, settling earth); no key yet. Its sediment-and-water effects on the land are the
+  renderer's, to come. Sheet: `docs/sheets/force-deposit.jpg`.
 - **Erode** (D279–D281; terrain above terrain, step 3): wind and water wear rock into caves, alcoves, overhangs and
   arches; the land decides which; every shape obeys the support rule; a click or a drawn sweep; **Power**,
   **Size** (4–40 tiles across, or Auto), **Try another**; two to four seconds of dust and rubble. Built in Rust in the

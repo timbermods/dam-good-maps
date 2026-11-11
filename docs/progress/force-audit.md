@@ -155,6 +155,17 @@ nothing visible; a click on flat ground needs Undo and a guess.
 1. Feed it from a gully behind the apex, or from the water on flat ground; never a pit or an arc (4).
 2. Lay a true low cone with arc contours and a feathered toe (5).
 3. Visible distributaries, and a flat-topped delta where it meets water (14, 15).
+   **1, 2, the channels of 3 and Try another (28) done** (`feature/force-deposit`, 2026-11-11): a cone segment 60 to
+   120° wide from an apex a few tiles behind the click, a level per 4 to 8 tiles, 3 to 5 thick at the default, laid
+   only where it stands above the ground and never above its apex; drawn to a seeded 1 to 2-level ladder with warped
+   edges, then `levels::whole`; a toe a level thick. Fed by a gully up the steepest ascent behind it, a V-notch 2 to 4
+   wide at its floor, graded down to the fan and on through its head as a trench; on level ground it takes nothing
+   (the sediment is no longer conserved). 2 to 5 channels a level deep, each with one avulsion; Try another turns it on
+   level ground. Placed on dry ground it leaves water's beds alone and its gully keeps two tiles from any water (S3: a
+   first click beside River Valley 1's hillside badwater pocket once cut its rim and ran badwater into the lake). The
+   default click changes about 190 to 470 tiles on 128²; sheet `docs/sheets/force-deposit.jpg`. Still open: the delta
+   where it meets water (15); a gully on a gentle slope is short or absent, since its bed is graded a level over the
+   ground at the click; Auto Size is not yet capped by the map.
 
 ### Erode: no
 Right close up, invisible from where a player judges; no arch seen; on open ground it makes a pond.

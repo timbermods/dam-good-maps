@@ -12,11 +12,15 @@ const path=[{x:30,y:30},{x:53,y:30}];
 const sum=(a:Uint8Array)=>a.reduce((s,v)=>s+v,0);
 const plain=()=>fixture("plain",64);
 describe("Rust Deposit",()=>{
- test("sediment is taken upstream, a lobed fan keeps channels, and no material is minted",()=>{
+ // (D148: it took its sediment from behind and beside it, conserved, until the force audit's finding 4 (2026-11-11)
+ // made it a fan fed from a gully: what it takes is a notch cut back into the high ground behind its apex, and the
+ // water brings the rest, so the material is no longer conserved; the cut lies behind the fan)
+ test("a gully cut behind the apex feeds a lobed fan that keeps channels",()=>{
   const m=plain();for(let y=0;y<64;y++)for(let x=0;x<64;x++)m.heights[y*64+x]=x<27?12:7;
   const r=new DepositRun(m,{...DEPOSIT_DEFAULTS,power:100,size:40},{path}).finishAll();
-  expect(r.plan0.stats.eroded).toBeGreaterThan(100);expect(r.plan0.stats.deposited).toBe(r.plan0.stats.eroded);
-  expect(sum(r.map.heights)).toBe(sum(m.heights));expect(r.plan0.stats.balance).toBe(0);
+  expect(r.plan0.stats.eroded).toBeGreaterThan(20);expect(r.plan0.stats.deposited).toBeGreaterThan(r.plan0.stats.eroded);
+  expect(r.plan0.stats.balance).toBe(sum(r.map.heights)-sum(m.heights));
+  expect(r.map.heights.every((h,i)=>h>=m.heights[i]||i%64<30)).toBe(true);
   expect(r.plan0.branches.length).toBeGreaterThan(1);expect(r.plan0.channelStages).toHaveLength(3);
   expect(r.plan0.channelStages[0]).not.toEqual(r.plan0.channelStages[1]);
   expect(new Set(Array.from(r.map.heights.slice(32*64+30,32*64+52))).size).toBeGreaterThan(2);
@@ -28,12 +32,13 @@ describe("Rust Deposit",()=>{
    expect(e.z).toBe(b.z+r.map.heights[e.y*64+e.x]-m.heights[b.y*64+b.x]);
   }}
  });
- test("Power zero has a visible conserved effect on flat ground, edges and submerged ground",()=>{
+ // (D148: conserved until the force audit's finding 4: on level ground the fan takes nothing, the water brought it)
+ test("Power zero has a visible effect on flat ground, edges and submerged ground, and level ground gives nothing",()=>{
   for(const p of [{x:30,y:30},{x:0,y:0},{x:63,y:63}])for(const wet of [false,true]){
    const m=plain();if(wet)m.water.depth.fill(.5);
    const r=new DepositRun(m,{...DEPOSIT_DEFAULTS,power:0,size:64},{path:[p]}).finishAll();
    expect(r.plan0.stats.changed).toBeGreaterThan(0);expect(r.plan0.stats.deposited).toBeGreaterThan(0);
-   expect(sum(r.map.heights)).toBe(sum(m.heights));expect(r.map.water).toEqual(m.water);
+   expect(r.map.heights.every((h,i)=>h>=m.heights[i])).toBe(true);expect(r.map.water).toEqual(m.water);
    expect(r.map.entities.every(e=>m.entities.some(b=>b.id===e.id))).toBe(true);
   }
  });
@@ -41,12 +46,14 @@ describe("Rust Deposit",()=>{
   const m=plain(),keep=new Uint8Array(4096),area=new Uint8Array(4096);area.fill(1);keep[30*64+30]=1;
   for(let y=20;y<40;y++)area[y*64+10]=0;
   const r=new DepositRun(m,{...DEPOSIT_DEFAULTS,power:100,size:40,floor:8},{path},keep,area).finishAll();
-  expect(sum(r.map.heights)).toBe(sum(m.heights));expect(r.map.heights.every((h,i)=>Math.abs(h-m.heights[i])<=area[i])).toBe(true);
+  // (D148: conserved until the force audit's finding 4; level ground gives nothing)
+  expect(r.map.heights.every((h,i)=>h>=m.heights[i])).toBe(true);expect(r.map.heights.every((h,i)=>Math.abs(h-m.heights[i])<=area[i])).toBe(true);
   expect(r.map.heights[30*64+30]).toBe(m.heights[30*64+30]);expect(r.map.heights.every(h=>h>=8)).toBe(true);
  });
  test("a native wet outlet is not filled; sources keep their ids, strength and positions",()=>{
   const m=fixture("river",64),r=new DepositRun(m,{...DEPOSIT_DEFAULTS,power:100,size:64},{path:[{x:35,y:20},{x:35,y:55}]}).finishAll();
-  expect(sum(r.map.heights)).toBe(sum(m.heights));expect(r.map.water).toEqual(m.water);
+  // (D148: conserved until the force audit's finding 4; its numbers still count the ground as it is left)
+  expect(r.plan0.stats.balance).toBe(sum(r.map.heights)-sum(m.heights));expect(r.map.water).toEqual(m.water);
   const sources=m.entities.filter(e=>e.template==='WaterSource');expect(r.map.entities.filter(e=>e.template==='WaterSource')).toHaveLength(sources.length);
   for(const b of sources){const e=r.map.entities.find(e=>e.id===b.id)!;expect(e.x).toBe(b.x);expect(e.y).toBe(b.y);expect(e.before).toEqual(b.before);}
   const seen=new Set<number>(),todo=[20*64+35];let outlet=false;
