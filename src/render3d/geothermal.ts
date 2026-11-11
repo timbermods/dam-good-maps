@@ -16,7 +16,8 @@
 // The game's colours (palette.ts `GEOTHERMAL`): its albedo, not metallic, straight in the game's light (materials.ts
 // `gameObjectLight`). Its steam is geothermalSteam.ts.
 
-import { GEOTHERMAL, type Rgb } from "./palette";
+import { crustParts } from "./crust";
+import { GEOTHERMAL } from "./palette";
 import type { V } from "./relicParts";
 
 /** The crust's reach from the field's middle along each of its 16 headings (from east, toward the map's y). */
@@ -44,58 +45,7 @@ const ROCKS: [V[], number[][], number][] = [
   [[[0.5, -0.043, 0.724], [0.553, 0.101, 0.709], [0.568, 0.025, 0.841], [0.632, -0.054, 0.585], [0.635, 0.12, 0.701], [0.665, 0.098, 0.637], [0.692, -0.021, 0.589], [0.719, 0.04, 0.781], [0.744, 0.021, 0.686]], [[7, 2, 0], [7, 3, 0], [7, 3, 8], [7, 2, 4], [1, 3, 0], [1, 2, 0], [1, 2, 4], [5, 7, 8], [5, 7, 4], [5, 1, 4], [5, 1, 3], [6, 3, 8], [6, 5, 8], [6, 5, 3]], 0],
   [[[1.968, 0.074, 2.471], [2, 0.084, 2.377], [2.013, 0.044, 2.576], [2.041, 0.158, 2.517], [2.073, 0.014, 2.587], [2.075, 0.174, 2.454], [2.102, 0.14, 2.553], [2.154, 0.067, 2.331], [2.215, 0.014, 2.459]], [[7, 5, 8], [1, 7, 8], [1, 4, 0], [1, 4, 8], [1, 7, 5], [2, 4, 0], [6, 5, 8], [6, 4, 8], [6, 2, 4], [3, 6, 5], [3, 1, 0], [3, 1, 5], [3, 2, 0], [3, 6, 2]], 2],
 ];
-/** How far past its reach the crust's edge reaches into the ground, and how deep. */
-const SKIRT = 0.04;
-
-/** The field's triangles (our frame: centred on its footprint's middle, x east, y up, z south), each turned so its front
- *  faces out, with each corner's colour: the crust's by its grid, falling to the ground past its last ring, the vent's
- *  foot black, each rock its shade. */
+/** The field's triangles and each corner's colour (crust.ts): the vent's foot black. */
 export function geothermalParts(): { points: number[]; colours: number[] } {
-  const points: number[] = [];
-  const colours: number[] = [];
-  const ours = (p: V): V => [p[0] - 1.5, p[1], 1.5 - p[2]];
-  // (a triangle of the game's frame, its front turned away from `from`)
-  const tri = (a: V, b: V, c: V, ca: Rgb, cb: Rgb, cc: Rgb, from: V) => {
-    const [p, q, r] = [ours(a), ours(b), ours(c)];
-    const u = [q[0] - p[0], q[1] - p[1], q[2] - p[2]];
-    const v = [r[0] - p[0], r[1] - p[1], r[2] - p[2]];
-    const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
-    const f = ours(from);
-    const m = [(p[0] + q[0] + r[0]) / 3 - f[0], (p[1] + q[1] + r[1]) / 3 - f[1], (p[2] + q[2] + r[2]) / 3 - f[2]];
-    const flip = n[0] * m[0] + n[1] * m[1] + n[2] * m[2] < 0;
-    for (const [s, c] of (flip ? [[p, ca], [r, cc], [q, cb]] : [[p, ca], [q, cb], [r, cc]]) as [V, Rgb][]) {
-      points.push(...s);
-      colours.push(...c);
-    }
-  };
-  // the crust: a ring of points along each heading, the vent's foot at its middle, its edge sunk into the ground
-  const n = EDGE.length;
-  const at = (k: number, i: number): [V, Rgb] => {
-    const t = ((k % n) * 2 * Math.PI) / n;
-    const last = i === RINGS.length;
-    const r = last ? EDGE[k % n] + SKIRT : RINGS[i] * EDGE[k % n];
-    return [[1.5 + r * Math.cos(t), last ? -SKIRT : HEIGHT[k % n][i], 1.5 + r * Math.sin(t)], GEOTHERMAL.crust[SHADE[k % n][Math.min(i, RINGS.length - 1)]]];
-  };
-  const below: V = [1.5, -10, 1.5];
-  const foot: V = [1.5, VENT, 1.5];
-  for (let k = 0; k < n; k++) {
-    const [a, ca] = at(k, 0);
-    const [b, cb] = at(k + 1, 0);
-    tri(foot, a, b, GEOTHERMAL.vent, ca, cb, below);
-    for (let i = 0; i < RINGS.length; i++) {
-      const [p, cp] = at(k, i);
-      const [q, cq] = at(k + 1, i);
-      const [r, cr] = at(k + 1, i + 1);
-      const [s, cs] = at(k, i + 1);
-      tri(p, q, r, cp, cq, cr, below);
-      tri(p, r, s, cp, cr, cs, below);
-    }
-  }
-  // the rocks
-  for (const [corners, faces, shade] of ROCKS) {
-    const mid = corners.reduce<V>((s, p) => [s[0] + p[0] / corners.length, s[1] + p[1] / corners.length, s[2] + p[2] / corners.length], [0, 0, 0]);
-    const c = GEOTHERMAL.rock[shade];
-    for (const [a, b, d] of faces) tri(corners[a], corners[b], corners[d], c, c, c, mid);
-  }
-  return { points, colours };
+  return crustParts({ edge: EDGE, rings: RINGS, height: HEIGHT, shade: SHADE, foot: VENT, lift: -Infinity, rocks: ROCKS }, GEOTHERMAL.crust, GEOTHERMAL.vent, GEOTHERMAL.rock);
 }
