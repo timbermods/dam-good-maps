@@ -164,8 +164,9 @@ describe("the multi-core water", () => {
     g.crossOriginIsolated = true;
     try {
       const url = new URL("./threads/strip-helper.mjs", import.meta.url);
-      expect(installParallelWater({ eager: 3, spawn: () => { const w = new Worker(url); return { postMessage: (m) => w.postMessage(m), terminate: () => void w.terminate() }; } })).toBe(true);
-      while (parallelWaterThreads() < 4) await new Promise((r) => setTimeout(r, 10));
+      // (two threads: a 4-thread runner's budget is 3, `waterThreadBudget`, so waiting for 4 never ended there)
+      expect(installParallelWater({ eager: 1, spawn: () => { const w = new Worker(url); return { postMessage: (m) => w.postMessage(m), terminate: () => void w.terminate() }; } })).toBe(true);
+      while (parallelWaterThreads() < 2) await new Promise((r) => setTimeout(r, 10));
     } finally {
       g.crossOriginIsolated = was;
     }
