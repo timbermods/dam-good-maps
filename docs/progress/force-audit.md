@@ -42,8 +42,11 @@ rides only as one level piece (D249), and on torn ground it stood inside the gro
 force-save spec, 2026-11-11; `clear.ts` `clearable`; Carve's cut in Rust the same, `clear_destroys`, as its head reaches it, so its operation is the
 same whichever way it is shown). Under Ride (planning's ruling of 2026-11-11) such a source keeps riding and its seat is
 levelled to the lowest of its tiles as D290 levels a placed one, the cut part of the force's result (`clear.ts`
-`levelSeats` for every staged force, Rust's Carve `level_seat` as its cut reaches it); a seat across a working area's
-edge is held as it was. Highlands 4242's crater under Ride now exports (`tests/contract/rideSeat.test.ts`).
+`levelSeats` for every staged force, Rust's Carve `level_seat` as its cut reaches it); where that cut cannot stand (a
+seat across a working area's edge or past its feather, which the Rust measures on the job's `areaDepth`, or Erode's
+voxels) the whole footprint is left as it was and the source keeps its old seat, for every force, Carve included.
+Highlands 4242's crater under Ride now exports (`tests/contract/rideSeat.test.ts`; a Carve across a source on an
+area's edge, `carveSeatArea.test.ts`).
 A Lift by River Valley 1's hillside spring now carries it up 4 levels, still flowing (sheet
 `docs/sheets/force-sources-clear.jpg`). Glaciate's ice still takes what it reaches (item 10). (a), Auto reach capped
 by the map, comes with each force.
