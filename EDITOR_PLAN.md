@@ -2043,7 +2043,8 @@ delivery routes, the artifact edition and bring-your-own-key) is in
   one for another map is dropped at one door; (I5) undo, redo and a jump name the step they mean when pressed (a seq,
   or a ticket on its way), resolved when the move reaches the head into the worker's one call `moveTo(seq | null)`; a
   move whose step never happened (refused, cancelled, timed out) does nothing; (I6) a stroke answered with nothing else
-  between its start and its answer was guessed right (`mispredictions`); (I7) one watchdog, on the head ticket, refuses
+  between its start and its answer was guessed right (`mispredictions`, every channel; `landMispredictions`, the
+  answers whose heights differed, is what the browser specs read as `strokeMismatches`); (I7) one watchdog, on the head ticket, refuses
   it with its one line once its bound passes (a landing Naturalize stroke: `answerBound`; with the map's worker:
   `MAP_ANSWER_MS`), so nothing waits forever and `idle()` always resolves; (I8) a press always makes a ticket (behind a
   landing stroke it composes once that stroke has its land), a stroke let go is answered or refused with a line, and a

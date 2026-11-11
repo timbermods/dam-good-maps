@@ -223,8 +223,13 @@ export class EditQueue {
   private settlers = new Map<number, ((t: TicketView) => void)[]>();
   private readonly all: Ticket[] | null;
   private readonly mapBound: number;
-  /** Answers that showed land other than the queue had shown. */
+  /** Answers that showed land other than the queue had shown, in any channel: the heights, or the terrain's `pre` or
+   *  `protect` the page paints on (I6). */
   mispredictions = 0;
+  /** Of those, the answers whose heights differed: the land the player saw change when the answer came (the page's
+   *  `strokeMismatches`). Until step 4's one composer, an answer the worker completed (a stroke's `hold`, a precise
+   *  stroke's protected tiles) may differ in `protect` alone, which no one sees. */
+  landMispredictions = 0;
   /** Messages for another map that reached the door (and tickets a new map found waiting): never, in normal use. */
   staleDrops = 0;
 
@@ -566,6 +571,7 @@ export class EditQueue {
       if (predicted && changed) {
         t.mispredicted = true;
         this.mispredictions++;
+        if (changed === "land") this.landMispredictions++;
       }
       t.overlay = null;
     }
@@ -725,8 +731,9 @@ export class EditQueue {
     this.refresh(d);
   }
 
-  /** `shown` over `r` := `base`, then each waiting overlay laid on in order. Returns whether a byte changed. */
-  private refresh(r: Rect | null): boolean {
+  /** `shown` over `r` := `base`, then each waiting overlay laid on in order. Returns whether a byte changed: "land"
+   *  when the heights did, else true when only `pre` or `protect` did, else false. */
+  private refresh(r: Rect | null): boolean | "land" {
     if (!r) return false;
     r = clip(r, this.W, this.H);
     if (!r) return false;
@@ -746,9 +753,11 @@ export class EditQueue {
     }
     for (const t of this.tickets) if (t.overlay && meets(t.overlay.rect, r)) this.lay(t.overlay, r);
     const now = patchOf(this.shown, { pre: this.shownPre, protect: this.shownProtect }, r, W);
-    const changed = !same(old.heights, now.heights) || !same(old.pre, now.pre) || !same(old.protect, now.protect);
-    if (!same(old.heights, now.heights)) this.host.shown?.(r);
-    return changed;
+    if (!same(old.heights, now.heights)) {
+      this.host.shown?.(r);
+      return "land";
+    }
+    return !same(old.pre, now.pre) || !same(old.protect, now.protect);
   }
 
   /** An overlay laid on inside `r`: its `after` wherever it differs from its `before`, channel by channel. */
