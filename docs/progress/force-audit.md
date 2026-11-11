@@ -37,7 +37,10 @@ every plant dead, at instant and at normal water speed. The player sees a small 
 map (below, per force); (b) under Clear, a source goes only where its own ground is destroyed (buried 3 levels or more,
 cut away, or in a fault's crush zone); a source that only rides an intact block, or sits under a thin apron, rides.
 **(b) done** (`feature/force-sources-clear`, 2026-11-11): Clear takes a source only where its ground is buried 3 or more, cut 2 or more away, or in a crush zone: within 2.5 tiles of a Quake's crack, or a Rift's
-wall, where a tile's 3 × 3 moves differ by 2 or more (`clear.ts` `destroyedGround`; Carve's cut in Rust the same).
+wall, where a tile's 3 × 3 moves differ by 2 or more (`clear.ts` `destroyedGround`; Carve's cut in Rust the same). A multi-tile source (a badwater source's 3 × 3, a seep's 2 × 2) whose tiles moved by different amounts goes too: it
+rides only as one level piece (D249), and on torn ground it stood inside the ground, a map export refused (dev's
+force-save spec, 2026-11-11; `clear.ts` `clearable`; Carve's cut in Rust the same, `clear_destroys`, as its head reaches it, so its operation is the
+same whichever way it is shown).
 A Lift by River Valley 1's hillside spring now carries it up 4 levels, still flowing (sheet
 `docs/sheets/force-sources-clear.jpg`). Glaciate's ice still takes what it reaches (item 10). (a), Auto reach capped
 by the map, comes with each force.
@@ -172,6 +175,14 @@ Right close up, invisible from where a player judges; no arch seen; on open grou
 1. Scale the opening to the cliff (11).
 2. Cut through fins for arches, and make separate alcoves along a sweep (11).
 3. No dish ponds, no speckle: rills on slopes, the nearest face on flats (24).
+
+**Done** (`feature/force-erode`, 2026-11-11): 1 to 3. A click wears one opening at the nearest face within twice its
+Size, a sweep one every 6 to 10 tiles of unequal size; 40 % of the face high at Power 55, 70 % at 100, 3 to 8 wide, 2 to
+6 deep; a fin under 4 tiles is cut through. Without a face in reach: 2 to 4 rills down a slope's fall line, or one scour
+toward lower ground on the level, kept only where it drains (no pond). On generated maps a face is nearly always within
+reach, so a click there makes an opening. A run costs about 130 to 180 ms at 256², 60 to 70 ms at 128². Sheet
+`docs/sheets/force-erode.jpg` (Highlands 4242, Power 100: an alcove under an overhang at the cliff's foot). Still open:
+Auto Size is not capped by the map (it needs none: 6 to 20 tiles); badwater is S3's (#1025).
 
 ### Naturalize: yes as a small brush, no as the forces' finisher
 It never changes the water in any case, and at Size 14 to 20 on cliffs it does what it says (Highlands). At Size 40,

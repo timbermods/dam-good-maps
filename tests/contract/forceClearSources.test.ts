@@ -134,7 +134,12 @@ describe("forces clear sources (D474)", () => {
       const crack = c.request.verb === "quake" ? quake(snapshotMap(m), { ...c.request.settings, sources: "clear" }, { path: c.request.path, side: c.request.side }).fault.points : undefined;
       const destroyed = destroyedGround(W, W, m.heights, land, null, motionOf(c.request.verb, crack));
       const changedAll = reachedBy(clear);
-      const reached = changedAll.filter((id) => footprint(m, m.entities.find((e) => e.id === id)!).some(destroyed));
+      // (and a multi-tile one whose tiles it moved by different amounts: it rides only as one level piece, D249)
+      const torn = (tiles: number[]) => tiles.length > 1 && tiles.some((i) => land[i] - m.heights[i] !== land[tiles[0]] - m.heights[tiles[0]]);
+      const reached = changedAll.filter((id) => {
+        const tiles = footprint(m, m.entities.find((e) => e.id === id)!);
+        return tiles.some(destroyed) || torn(tiles);
+      });
       // with Clear, no source or seep stays on ground the force destroyed, and it is gone from the last frame
       expect(reached.length).toBeGreaterThan(0);
       const gone = new Set([...clear.params.removed, ...(clear.params.cleared ?? []).map((q) => q.id)]);
@@ -149,12 +154,14 @@ describe("forces clear sources (D474)", () => {
           const e = clear.entities.find((q) => q.id === id);
           expect(e, `${id} rides under Clear`).toBeDefined();
           expect(e!.z, `${id} stands on its ground`).toBe(clear.heights[e!.y * W + e!.x]);
+          // (every tile of it: a multi-tile one stands level, never inside the ground or over air)
+          for (const i of footprint(m, e!)) expect(clear.heights[i], `${id} stands level`).toBe(e!.z);
         }
       if (c.request.verb !== "quake" && c.request.verb !== "rift")
         // (a building or cutting force: what it takes is buried or cut away)
         for (const id of reached) {
           const tiles = footprint(m, m.entities.find((e) => e.id === id)!);
-          expect(tiles.some((i) => land[i] - m.heights[i] >= BURIED || m.heights[i] - land[i] >= CUT), `${id} buried or cut`).toBe(true);
+          expect(tiles.some((i) => land[i] - m.heights[i] >= BURIED || m.heights[i] - land[i] >= CUT) || torn(tiles), `${id} buried, cut or torn`).toBe(true);
         }
       // the count the editor says after the force is exactly the sources gone from its last frame (the study's own and
       // a fixture's river sources the force took too), and none under Ride

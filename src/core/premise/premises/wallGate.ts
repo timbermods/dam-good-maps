@@ -88,8 +88,18 @@ export const GORGE = { normal: 5, lush: 6 } as const;
 export const SPUR_HALF = 4.5;
 /** The megadam holds the valley `MEGADAM_RISE` over its lake's sill (the round's 9 over 7). */
 export const MEGADAM_RISE = 2;
-/** The start's bench aim (the shared gate holds the floor; this is only where stage 0 aims). */
-const BENCH_AIM = 700;
+/** The start's bench stage 0 builds for (D515, planning 2026-11-11): 1.1 × the shared gate's floor for the Start area
+ *  (`validate/playability.ts` `START_FLOORS`' 480, 640 and 980, milestone's #1015; read from there once it is on dev).
+ *  The gate holds no floor of its own: this is where it aims, the shared checks judge. */
+const BENCH_FLOOR = { small: 480, normal: 640, large: 980 } as const;
+const BENCH_OVER = 1.1;
+/** The start's walk before any slope stands is its level pocket, and the shared stage 3 (#1015) reads it against three
+ *  quarters of the walkable floor (1,300): the pocket holds that too. */
+const WALK_READ = 0.75 * 1300;
+/** The rows the lake stands off the wall's foot at the least (the trench, the start's 5 × 5 and the rows round it). */
+const BENCH_ROWS = 9;
+/** The valley's room under the lake (the brooks' springs and their runs), a share of the side. */
+const UNDER_LAKE = 0.22;
 
 /** What each rung buys (§4.2: a floor, the most twice it), per tile of the map's side: round 8's gains at 192² (the Gate
  *  opened 1,318, the leat 1,839, the whole shares 1,534 and 1,663: 3.6 %, 5.0 %, 4.2 % and 4.5 %) at two thirds, over
@@ -385,10 +395,19 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
 
   // ---- the Low River's spur and the lake
   const spurU = lowSide === "pass" ? Math.round(0.08 * N) : N - Math.round(0.08 * N);
-  const lakeTop = fb - 9;
-  const mv = lakeTop - 9 - 1.5;
   const uW = lowSide === "pass" ? spurU + SPUR_HALF + 5 + 7 : Math.round(0.17 * N);
   const uE = lowSide === "gate" ? spurU - SPUR_HALF - 5 - 7 : gu + 3;
+  // (the start's bench outranks the lake, D515: the lake stands off the wall's foot by the rows its pocket needs to hold
+  // the bench, between the drain bay and the Gate's arm, or, mirrored, the lake's open end; and narrows where the
+  // valley has no more room under it. The pocket is the lake's meadow at the sill + 1, so it is level)
+  const benchAim = BENCH_OVER * Math.max(BENCH_FLOOR[spec.settings.start.area], WALK_READ);
+  const bayIn = bEnd - 9 * ks + 2.6 * ks;
+  const pocket = Math.max(8, ks > 0 ? gu - 4.5 - bayIn : bayIn - uW);
+  const rows = Math.max(BENCH_ROWS, Math.ceil(benchAim / pocket) + 4);
+  const lakeTop = fb - rows;
+  const shrink = Math.max(0.55, Math.min(1, (lakeTop - UNDER_LAKE * N) / 19));
+  if (lakeTop - 19 * shrink < UNDER_LAKE * N - 1) return { why: "bench" };
+  const mv = lakeTop - (9 + 1.5) * shrink;
   if (uE - uW < 40 || (lowSide === "gate" && uE < gu + 8)) return { why: "lake span" };
   // (the Low River leaves over the lake's own wide sill, sized by the valley's flow as the lake stair's lowest sill
   // over its gorge: round 8's 14; its end of the lake as wide as the lip)
@@ -399,7 +418,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const nArm = Math.max(3, Math.round((uE - uW) / 14));
   for (let i = 0; i <= nArm; i++) {
     const end = i === 0 || i === nArm;
-    const r = (lowAt === 0 ? i === 0 : i === nArm) ? lowLip / 2 + 0.5 : end ? rng.range(5, 7) : rng.range(6, 9);
+    const r = (lowAt === 0 ? i === 0 : i === nArm) ? lowLip / 2 + 0.5 : (end ? rng.range(5, 7) : rng.range(6, 9)) * shrink;
     const v = Math.min(lakeTop - r, mv + rng.range(-1.5, 1.5));
     main.push([uW + ((uE - uW) * i) / nArm, v, r]);
   }
@@ -470,7 +489,9 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     [spurU, lowV],
     [lowSide === "pass" ? 0 : N, lowV + rng.range(-3, 3)],
   ];
-  const spurPath: Point[] = [[spurU, runAt(runs, spurU).v], [spurU + rng.range(-3, 3), Math.round(0.25 * N)]];
+  // (the spur runs from the wall's face to past the Low River by 14 rows: a lake stood off the wall for the start's bench
+  // left the gorge near the spur's end, and the valley at the megadam's water walked round it)
+  const spurPath: Point[] = [[spurU, runAt(runs, spurU).v], [spurU + rng.range(-3, 3), Math.max(6, Math.min(Math.round(0.25 * N), Math.round(lowV - 14)))]];
 
   // ---- the brooks: springs in the valley's far corners
   const tarnAt: Point[] = [
@@ -593,7 +614,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
       kind: "leat",
       path: pathOnMap(T, leat).map(rp),
       half: 0.5,
-      bed: [...bedAlong(leat.slice(0, passAt + 1), poolSill - 1, P - 1), ...bedAlong(leat.slice(passAt), S - 1, BED_FLOOR).slice(1)],
+      bed: [...bedAlong(leat.slice(0, passAt + 1), poolSill - 1, P - 1), ...bedAlong(leat.slice(passAt), S - 2, BED_FLOOR).slice(1)],
       wet: false,
       gates: [],
       // (its first tile or so is in the cleft: the row 3.5 along leaves the bar its two tiles before it, round 8's)
@@ -661,7 +682,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   );
 
   // ---- the start and its frame
-  plan.frame = { start: { x: start.x, y: start.y, z, orientation }, landmark: "veil", lipAhead, bench: BENCH_AIM };
+  plan.frame = { start: { x: start.x, y: start.y, z, orientation }, landmark: "veil", lipAhead, bench: Math.round(benchAim) };
 
   // ---- the ladder (round 8's rungs)
   const at = (p: Point) => rp(onMap(T, p));

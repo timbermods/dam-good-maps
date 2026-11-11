@@ -81,6 +81,7 @@ for (const seed of seeds) {
   const nums = Object.entries(five).map(([id, c]) => `${id.slice(6)} ${c.value}${c.ok ? "" : ` (under ${c.limit})`}`).join(", ");
   const failed = m.report.checks.filter((c) => !c.ok && c.severity === "error").map((c) => `${c.id}: ${c.message}`);
   console.log(`seed ${seed} at ${side}²: ${nums}; ${failed.length ? `FAILS ${failed.join("; ")}` : "every blocking check passes"}; ${(ms / 1000).toFixed(1)} s`);
+  if (r.failed.length) console.log(`  ${r.held ? `plan ${r.attempt}; refused before it` : "NO PLAN HELD; the last built"}: ${r.failed.join(" | ")}`);
   if (r.landFails.length) console.log(`  land FAILS ${r.landFails.map((f) => `${f.id}: ${f.reason}`).join("; ")}`);
   if (r.worksFails.length) console.log(`  works FAIL ${r.worksFails.map((f) => `${f.id}: ${f.reason}`).join("; ")}`);
   console.log(`  ${r.card.first}`);
