@@ -30,8 +30,9 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec } from "../../src/core
 // to Highest terrain 22, which drew seed 1 a six-level landmark; and for the works round's floors, the bypass's own
 // course (seed 1's plan a seven-level landmark again) and the start's ground kept from the style, D148; and for generator
 // 0.10.17's start floors, D515: the same plan and start, whose bench of 770 needs no building, and the version in its
-// description)
-const SHA = "d9579aae2fef171c9debd99ff1a43985b2d2be39dfee03f378ce1ba19a7b05f8";
+// description; and for the start's fast wood turning only the part of an oak grove the share needs (D515, D148: the bytes
+// moved with that change alone (its resources), and dev's changes merged in leave them as they were))
+const SHA = "e68259d47ef69378e2da3edcbe6a85483f30bb84bf170d98b5c7d5badf55715d";
 
 describe("The premise mode (§2.2, build step 4)", () => {
   const made = makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "any", premise: "lakeStair" });
