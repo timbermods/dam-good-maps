@@ -23,7 +23,8 @@ export const SHAPES: readonly PanelShape[] = [
   { cols: 2, width: 640, height: 692, tight: false },
   { cols: 3, width: 880, height: 509, tight: false },
   { cols: 3, width: 880, height: 449, tight: true },
-  { cols: 2, width: 640, height: 594, tight: true },
+  // (the Idea line its own here, D508: three columns wide it shares Size's, two columns wide not tight its rows are a pixel shorter)
+  { cols: 2, width: 640, height: 620, tight: true },
 ];
 
 /** The shape that fits `room` (its height, for a panel of that width) and the width left; when none fits, the shortest

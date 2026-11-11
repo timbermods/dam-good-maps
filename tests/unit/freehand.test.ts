@@ -12,16 +12,21 @@ import { CarveRun, DEFAULTS as CARVE } from "../../src/core/forces/carve/run";
 import { fixture } from "../contract/forceFixtures";
 
 describe("a force's reach at its Power and Size (D312)", () => {
+  const M = { W: 512, H: 512 };
   it("follows Power while Size is Auto, and Size once set", () => {
     for (const verb of ["carve", "craterize"] as const) {
-      const at = (power: number, size: number | null) => forceReach(verb === "carve" ? { verb, settings: { power, width: size } } : { verb, settings: { power, size } });
+      const at = (power: number, size: number | null) => forceReach(verb === "carve" ? { verb, settings: { power, width: size } } : { verb, settings: { power, size } }, M);
       expect(at(80, null), verb).toBeGreaterThan(at(20, null));
       expect(at(20, 12)).toBe(6);
       expect(at(80, 12)).toBe(6);
     }
-    const erupt = (power: number, size: number | null) => forceReach({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power, size } });
+    const erupt = (power: number, size: number | null) => forceReach({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power, size } }, M);
     expect(erupt(90, null)).toBeGreaterThan(erupt(20, null));
     expect(erupt(20, 30)).toBe(15);
+    // (Auto's breadth is capped at 18 % of the map's short side, as the run caps it: the ring shows that)
+    const small = forceReach({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 100, size: null } }, { W: 96, H: 160 });
+    expect(small).toBeCloseTo(0.18 * 96);
+    expect(erupt(100, null)).toBeGreaterThan(small);
   });
 });
 

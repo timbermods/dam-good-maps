@@ -21,6 +21,9 @@ The generator:
 - A map opens ready to edit. **Map Generator**, top left, opens every setting at once.
 - Pick **Any**, or a theme to lean toward: **River Valley**, **Canyon**, **Highlands**, **Lake
   Basin**, **Delta** or **Islands**. Then pick the size.
+- **Idea** builds the map around one problem; **None** leaves it to the theme. **Lake stair**
+  makes a chain of lakes that step down the map. The map's card names its landmark and what to
+  do first.
 - The land and its rivers grow from uplift, erosion and flowing water. **Terrain → Verticality**
   makes it taller and sheerer. From 70 it can rise above level 16, which the game's map editor
   can't edit.
