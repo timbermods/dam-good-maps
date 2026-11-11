@@ -959,14 +959,13 @@ water held all nine days). What is left at 128²: a plan whose 48 layouts all fa
 pads (D363) do not answer here, or `start.wood`), and the map stage (life, the checks and the file, about 0.4 s beside
 the settle).
 
-As measured with the start's floors and the bench's room (D515; River Valley × lake stair, seeds 1 to 12 at 128²):
-ten of twelve hold, with benches 743 to 1,330 and walkable land 1,407 to 2,927. Their moist ground is 33.9 to 38.9 %
-settled. In the nine-day drought, every lake keeps 32 % or more of its volume on its worst day. Seeds 5 and 10 fall to
-the themes. On seed 10, none of the 16 plans finds a layout in 48 tries: no frame candidate holds, or the basins'
-leats find no room. On seed 5, the plans whose layout holds fail the walkable land (691 to 914 tiles before the build,
-975 asked). Their start is walled in by cliffs of five to seven levels, or by land across the water, and a natural
-ramp climbs four at most. Across the twelve seeds, the ways out cut one ramp. At 256², seeds 1 to 3 hold (benches
-1,182 to 1,953). Times at 128²: 2 to 10 s a map.
+As measured with the start's floors and the bench's room (D515; lake stair at 128²): all twelve of River Valley's
+seeds 1 to 12 hold, and all 24 of theme Any's (seeds 5 and 10 fell to the themes before the tails were redrawn), with
+benches 762 to 1,452 and walkable land 1,347 to 2,649 (River Valley). At 256², seeds 1 to 3 hold (benches 1,095 to
+1,185). Times on the dedicated machine, one at a time: River Valley median 3.2 s, at most 7.6 s; Any median 3.3 to
+4.0 s, at most 9.5 to 12.9 s (seeds 6, 10 and 12, 13 or 14 plans each); 256² 10.9 to 12.9 s. #1011's code on the same
+machine: median 2.5 s, at most 6.4 s; 256² 10.1 to 20.7 s. What is left at 128²: plans whose 48 layouts all fail
+(the bench halves the frames that hold), and starts that read their walkable land but lose it in the settle.
 
 ### 3.4 Deferred to after the map opens
 
