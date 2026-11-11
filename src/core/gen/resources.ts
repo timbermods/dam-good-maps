@@ -791,7 +791,11 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       // (only as many of its trees as reach the share turn, those beyond the 20 tiles' walk first, then the farthest
       // from the start, and the rest stay oak: a whole grove turned past the share took the start's wood under its
       // rule, `start.wood`)
-      const away = (i: number) => (i % W - g.start!.x) ** 2 + (Math.floor(i / W) - g.start!.y) ** 2;
+      const away = (i: number) => {
+        const dx = (i % W) - g.start!.x;
+        const dy = Math.floor(i / W) - g.start!.y;
+        return dx * dx + dy * dy;
+      };
       const near = nearWalk;
       const order = [...best.tiles].sort((a, b) => near[a] - near[b] || away(b) - away(a) || a - b);
       let cut = order.length;
