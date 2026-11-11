@@ -439,10 +439,12 @@ place of its bottom rule.
   on every map (17px); the fullest legend fits at 1920×1080 under Legend, clear of the camera controls, the water
   row, the objects list and the bar; it never scrolls and never changes shape (`layout.spec.ts`).
 - **The top right** (D345 B3, D368 (5)): the camera group, **Top-down** (lit while the view looks straight down),
-  **Reset view** and the compass (a button, **Face north**: the view glides round to north), then under them the
+  **Reset view**, **First view** (O: the camera exactly as the game opens the map, from its start, with the game's own
+  angle, zoom and lens, `gameFirstView` in `src/render3d/framing.ts` from `openingCamera`; any move away from it, Top-down
+  included, puts our lens back unseen, the ground's size kept; greyed while the map has no start) and the compass (a button, **Face north**: the view glides round to north), then under them the
   **level control** (▾ value ▴, at one fixed width; its arrows "Show one layer less" and "Show one layer more"), **Slow
-  forces** and **Sound** (a speaker icon, crossed out when muted; its volume opens beneath it, its tooltip to its left so the
-  volume stays in view): a three-column grid
+  forces** (under Reset view and First view) and **Sound** (a speaker icon, crossed out when muted; its volume opens beneath it, its tooltip to its left so the
+  volume stays in view): a grid
   310px wide, one height and one gap throughout (`tests/e2e/viewAndHeader.spec.ts`). **A new map and Reset view frame the
   whole map, centred in the map area** (D345, B1; the Top-down toggle keeps the spot at the centre, the zoom and the turn, D492), clear of the page's controls: the page tells the renderer how
   far the top row (the Show row, the water row, the camera group), the minimap, the bar with its settings and the objects list with a
@@ -514,6 +516,9 @@ place of its bottom rule.
   pressed as drawn: a press on the roof, walls or lantern takes the start, though the ground the pointer sees behind
   them may be tiles away (`start/startPick.ts`: the walls about two levels high over the 3 × 3, the tower four over
   the middle tile).
+  While it is dragged, the game's first frame from where it would land is outlined on the ground in quiet white (an
+  editing aid on the overlay, D497; `openingFrame` from the drag's tile, never a render of the frame), so the maker
+  sees what the game's opening will hold before letting go; **First view** (O) then shows that frame itself.
 
 (D184, D212, D219.)
 

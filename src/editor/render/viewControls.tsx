@@ -7,9 +7,25 @@ import { ShowRow } from "../../ui/View3D";
 import { LAYER_NAMES, LayerLegend, type LayerKind } from "../panels";
 import type { Ed } from "../ed";
 import { HIDE_OBJECTS_KEY } from "../view/useHideObjects";
+import { gameFirstView } from "../../render3d/framing";
 
 /** The overlays' words on their view buttons. */
 const OVERLAY_WORDS: Record<LayerKind, string> = { none: "None", badwater: "Badwater", roofed: "Caves and overhangs", irrigation: "Irrigation" };
+
+/** First view's key: the camera as the game opens the map. */
+export const FIRST_VIEW_KEY = "O";
+
+/** The game's first view of the map from its start (render3d/framing.ts `gameFirstView`), or null while it has none. */
+export function firstViewOf(ed: Ed): (() => ReturnType<typeof gameFirstView> | null) | null {
+  if (!ed.startHere) return null;
+  return () => {
+    const s = ed.startHereRef.current;
+    if (!s) return null;
+    const { W } = ed.infoRef.current;
+    const z = s.z ?? ed.mirror.current.heights[s.y * W + s.x];
+    return gameFirstView({ x: s.x, y: s.y, z, orientation: s.orientation });
+  };
+}
 
 /** The Irrigation view's key. */
 export const IRRIGATION_KEY = "I";
