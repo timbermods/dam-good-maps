@@ -779,6 +779,8 @@ export class MapRenderer {
     this.uniforms.slice.value = v;
     this.droughtLayer?.setHidden(level !== null);
     this.blockCells?.setCut(level === null ? null : v);
+    // (High's sun shadows: what the cut takes away casts none)
+    this.high?.sliceChanged();
     // (the pits' tops the terrain leaves out, only over objects the cut leaves whole)
     if (this.map) this.cutTerrain(this.map.entities, level === null ? null : v);
     // (what an edit just changed was drawn under the cut it had)

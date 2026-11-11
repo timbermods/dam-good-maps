@@ -361,6 +361,12 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
   `tests/e2e/cutaway.spec.ts`: a pond's shelf cut at its level, and ground at 2 under a reservoir six levels deep cut
   at 7, draw as the same ground dry (each failed before its fix by 38 levels). Captures: `docs/sheets/cut-level-ground.jpg` (dev against the branch, Canyon's shelf and Hollows at cut 7,
   Standard and High, 1920×1080 dark and 1280×800 light).
+- **High's sun shadows under the cut (`fix/high-shadow-cut`):** the depth pass drew every caster whole, so a cut at an
+  object's level left the shadows of the objects it took away (a mine site's frame, a geothermal field's crust, trees,
+  ruins) and of the terrain above it on the ground in High. The depth pass now drops each caster's part above the slice
+  as the colour pass does (`shadows.ts` `fadingDepth`: the fragment's height over `slice` + 0.02), and the map is drawn
+  again when the cut moves (`HighLook.sliceChanged`). Standard's baked shadows are as before: they are baked without the
+  cut.
 - **Falls short:** objects and the drought line are cut as before: what stands above the cut is not drawn. Water whose
   surface stands above the cut and whose floor lies below it is drawn sliced at the cut, its bed a bed under it (built,
   "Water sliced by the cut" below). `tests/e2e/cutaway.spec.ts` compiles and draws the branch on a hand-made cave in CI.
