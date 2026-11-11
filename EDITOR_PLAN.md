@@ -1337,7 +1337,7 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
 ### New blank map (File → New blank map…)
 
 A map built from an idea starts on empty ground, not on a generated seed (MAPCRAFT step 2). The dialog asks for a
-**Size** (the generator's own: 96, 128, 192 or 256 a side) and a **Ground level** (1 to 16, 4 unless changed: room to dig
+**Size** (the generator's own: 96, 128, 192 or 256 a side) and a **Ground level** (1 to 16, 8 unless changed: room to dig
 lakes below and raise hills above); **Make the map** opens flat, dry ground at that level with the start at its middle,
 named "Blank map", ready for the brushes, the forces, lakes by number and sources. It closes the open map as Open… does
 (the same question first when this browser isn't keeping its edits). The core makes it (`core/doc/blank.ts`
