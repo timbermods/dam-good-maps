@@ -159,3 +159,150 @@ days and the start's water stays clean; with the three notches and the bypass op
 14. Our view cuts the cliff away over a cave, so a fall over a cave cannot be judged in it.
 15. (r14) The what-if's canonical settle ends as settled before a slowly fed basin is full, so a rung's count moves with
     the basin's volume.
+
+## The Gate: the second premise map, built from its idea
+
+Principles: [MAPCRAFT.md](../MAPCRAFT.md); the premise: [PREMISES.md](../PREMISES.md) §5.1, as planning ordered it on
+#236 (2026-11-11): a green valley and a dry basin split by a mountain wall corner to corner, one notch in the wall
+plugged by a natural dam and blockages, the valley's river and fall feeding a lake under the wall, the start in the
+valley, the basin dry but for a few seeps and the beds the water once ran in. Built by `tools/showcase/the-gate.ts`
+from blank 192² ground by operations only (D342, D455), the way Four Lakes was; the design by number is in the same
+file. Rounds are judged on the game's own captures (the capture kit, `C:\dgm-probe\captures\the-gate-rN\`, local only).
+
+- **What it is.** 192². The wall runs from the north-west corner to the south-east, its crest at 17 (16 to 18, a pass
+  at 11), eleven to thirteen tiles thick, ten over the valley's meadows (8) and eleven to fourteen over the basin's
+  benches (3 to 6); it wanders by a long swing and a short one, with a ledge at 13 on each face. The river rises in a
+  cleft of the wall (the springs' pool, bed 13, three springs of 10) and pours over the Veil, a lip of 12 tiles in
+  unequal runs facing south-west, 6.4 levels into Wall Lake (sill 7) at the wall's foot; two brooks (springs of 3 and
+  2.8) and a third of 2.3 join the lake, which leaves by the Low River's gorge through the west ridge (the megadam's
+  slot, 9 tiles). The start stands on a bench at 8 in the Veil's lap, the lip 3.5 tiles off: whole in the game's first
+  frame by `openingCamera` (lip (−0.40, 0.90) to (0.43, 0.70), foot to (0.34, 0.13)); the wall's crest stands above the
+  frame's top (v 1.65). The Gate is a slot seven wide from the lake's north-east shore across the bench and through the
+  wall to the basin, floored two under the lake's sill, plugged at the shore by a bar of rock a level over the sill (the
+  natural dam: 21 tiles, blasted a level down, and the bench's own way across the slot until then) and by two rows of
+  blockages (10 and 10). The old leat is a bed cut a level into the ledge along the wall's valley face, from the pool's
+  south-east lobe to the Pass (56 tiles south-east of the Veil), plugged at its head by a bar two high (3 tiles) and a
+  blockage row (3); the Gate's slot cuts it, so its water, let loose, falls into the slot unless the player spans it.
+  The basin: three seeps of 0.02 in closed hollows two under their plates (each an oasis of about 300 tiles by the
+  soil's reach), and two dry beds three under their plates with a floodplain a level over them: the Gate Bed from the
+  Gate's foot and the Pass Bed from the Pass's foot, both to the exit on the east edge. Moist or wet on day 1: the
+  valley about 60 %, the basin 10.1 % (the invariant: under 12 %), the map 30.9 %.
+- **The question.** How to carry the water through or round the wall: blast the Gate's bar and clear its rubble (the
+  river splits), blast again and levee the Low River (the whole river through the Gate; the lake sinks a level and the
+  Low River runs dry), pump over, or open the old leat and span the Gate for the Pass. The megadam in the west ridge
+  holds the valley two levels higher once the Gate's bar is dammed too.
+- **How it was made and judged.** Three rounds in a day, each built in under a minute (the whole map is one settle;
+  the plants and objects are the only replayed operations), each judged on the game's captures where one ran. Round 1
+  (built by the model only: its trench flooded the bench through a neck a tile wide, its leat's blockages were
+  overtopped by the pool, its seeps ran down the beds as rivers) was never captured: the probe runner waited an hour on
+  a preview server another session left running three days before, so it was replaced by round 2. Round 2's frames in
+  the game: the Veil whole in the first frame, 6.4 levels, the start in its lap, but two lip tiles stood dry as pillars
+  of rock in the curtain (a tile fed only by the lip tiles north and east of it pours a film), the trench and the lake
+  near black (two and three deep: the game's depth ramp), the wall's crest a flat grey band, and the basin's plates
+  flat tabletops; the wall, the Gate's slot cutting through it, the ledge and the two dry beds all read from the
+  widest view. Round 3: the dry corner tiles are the foot's, the lake two deep at most, the crest a ridge a level
+  higher along its line with peaks to 20, pits and knolls on the plates, the start's berries in patches. Its frames in
+  the game: the Veil one curtain again with its one buttress, the crest a ridge that catches the light, the Gate's
+  towers on the ledge beside the start; the trench (two and a half deep, the row that carries the fall to the drain)
+  and the lake's middle still dark, the basin's plates still tabletops. Round 4 (as saved): the lake a level and a
+  half deep but along its old river's line; in the game its middle is teal where round 3's was black, the first frame
+  the same as round 3's. The rounds stopped there: four of the five allowed, the map not yet beside Four Lakes.
+- **Latest measures (r4; the core's own checks and water, not played).** Settled in 2,432 ticks; 0 blocking, 3
+  warnings (`water.outflow` on the three seeps, `start.dry`, `start.wood` 160 of 200 logs). Flat 55.1 %, one-level
+  steps 59.8 %. Water 8.0 %, moist 22.8 %, bare 69.3 %; the basin 9.9 % moist or wet. The Veil 6.36 levels, 12 tiles.
+  883 living trees (240 per 10,000), 403 dead in five woods, 265 berry bushes, 1,054 succulents. The start's bench: the
+  valley's whole meadow at 8 (2,984 level tiles joined), 219 within 14 tiles; the walk to the Gate's natural dam 15
+  tiles, to the south meadow 60; the north-west shore, the brooks' springs and the megadam's slot are across the
+  drain bay or a brook (a bridge of 3 to 5), the leat's head across the Gate's slot.
+- **Weather (by the model).** Drought, 9 days: the Veil stops on day 1, Wall Lake holds (6.97 to 6.51), the start's
+  water never gone, the bench 49 % green throughout. Badtide: the lake 96 % bad on day 1, the start's water bad on day
+  1, the bench's green 49 % to 17 % by day 8: as harsh as Four Lakes', and the Still Pool's levee is not measured.
+
+**The ladder** (`--irrigate`, cumulative, by the Irrigation view's reach on a settle after each work).
+
+| Rung | The work | Green or wet gained |
+|---|---|---|
+| Day 1 | none | 11,330 tiles, 30.7 % of the map (the basin 9.9 %: three oases) |
+| Medium | the Gate opened: its bar blasted a level (21 tiles) and 20 blockages cleared; the river splits | 1,328 (3.6 %), 300 of them water: the Gate Bed to the exit, its floodplain |
+| Medium | the bar blasted again (to 6) and a levee on the Low River's head (21 tiles): the whole river through the Gate | 241 more, 162 fewer: the lake at 7.74, the Low River dry |
+| Medium | the leat's bar blasted once (3 tiles) and its 3 blockages cleared | 23: a trickle along the ledge into the Gate's slot |
+| Large | the leat's bar blasted twice: the springs' share | 23 more, 21 fewer: the Veil dwindles |
+| Large | the leat spanned over the Gate (22 tiles; an aqueduct in the game, which the model can only block the slot for) | 2,225 (6.0 %), 733 of them water: the Pass Bed and the far basin |
+| Large | the megadam in the west ridge's slot (9 tiles) with the Gate's bar dammed, to level 9 | holds 5,982 of water over 6,978 tiles; to 10 the valley spills by its south edge |
+
+After every work 39.6 % of the map; the rest is the wall, the ridges and the far benches.
+
+**What still falls short.**
+- The basin's plates read as tabletops in the game at every round: the relief between the beds is the generator's
+  "ground with grade" problem, not a map's. The trench at the start's door (the row that carries the fall to the drain,
+  two and a half deep) is still near black in the first frame; a level shallower it flooded the bench.
+- The badtide at the start is Four Lakes' problem again: the Veil runs red over the door on day 1. The Still Pool
+  south-east of the start is built for a levee on its neck; nothing measures it.
+- The lake stands 0.57 over its sill, 0.43 under the bench, so the whole-river answer costs a second blast: at one
+  level the Gate took 12 of the river's 17 and the levee'd sill spilled the rest at 8.06, over the bench.
+- The home side of the valley is the start's bench, the north-east shore and the south meadow; the west meadows, the
+  Low River's head and the megadam's slot are across the drain bay (five wide at its narrows) or a brook: bridges.
+- Nobody has played it; wood is 240 living trees per 10,000 tiles (the valley's half of the map at about 440).
+
+**Round 5 (planning's ruling on round 4, #236 07:44Z; the last).** The wall is a wall: a crest four to six tiles
+thick (eight only at the Veil's bastion round the cleft), the basin face sheer from the crest to the floor, the valley
+face with the leat's ledge only; the height kept (16 to 19). The basin's floor has grade: one-level rolls falling from
+the wall's foot toward the Gate Bed and the exit, no plates; the Gate Bed is one channel six wide with eight dead woods
+along it and two on the Pass Bed. The trench at the door is no deeper than two: three rows a level under the sill
+carry the fall to the drain, the drain and the Still Pool a level under the sill too. The badtide: planning's two
+options were tried by the model and neither holds. A clean Veil is impossible by the game's rule (every clean source
+runs bad in a badtide, `sim/weather.ts`). A terrace a level over the meadow at the start was built and taken out: its
+soil's moisture is the red water's and went bad within eight days anyway (72 % green on day 1 to 0 % on day 8), and in
+a drought the lake stood two levels under the door (the start's water gone on day 1). What stands is the Still Pool
+beside the start, a dead end off the trench with a neck one tile wide; with a levee of 6 on its neck, built while the
+water is clean, the model still has it 38 % bad on day 1 and 53 % by day 8 (the bench 59 % green on day 1, 21 % on day
+8, the same as without it): the red reaches it by a way the model's record did not show in the time there was. So the
+red over the door on day 1 stands as a shortfall. Measures (r5): flat 61.5 %, one-level steps 62.6 %; water 8.0 %,
+moist 23.4 %, the basin 12.7 % moist or wet (three oases); the Veil 6.44 levels; 1,096 living trees (297 per 10,000),
+469 dead, 367 berry bushes; 0 blocking, 2 warnings (`water.outflow`, `start.dry`); the walk to the Gate's natural dam
+16 tiles, to the south meadow 58; no ramp to the ledge found (the ledge stands straight over the bench without the
+seven level tiles a ramp needs), so the leat's head is a bridge or a stair away. The ladder: the Gate opened +1,329
+(3.6 %); the second blast and the Low River levee +1,144 (3.1 %); the leat's bar once +5/−124, twice 0/−267 (the
+Veil dwindles); the leat spanned +3,449 (9.4 %, the Pass Bed); the megadam to 9 holds 6,285 over 7,343 tiles.
+Round 5 in the game (`C:\dgm-probe\captures\the-gate-r5\day1-first.jpg`, `day1-widest.jpg`): the first frame's trench
+reads as water now, teal not black, the Veil one curtain; from the widest view the wall is a thinner band with its
+basin face one shadow line and the Gate's slot cutting through it to the dark channel of the Gate Bed winding to the
+edge with its dead woods: a wall with one gate, when the eye is on it; but the crest is still a light band two lines
+wide (the crest's edge and the ledge below it on the valley side), not one dark line, and the basin's one-level rolls
+read as contour bands, not grade. The map stopped at five rounds.
+
+**Round 6 (planning took the shape back, #236 08:05Z).** The wall runs along the grid across the map's middle in
+straight runs of 14 to 22 tiles joined by jogs of 4 to 6, its south face toward the opening camera and sheer from the
+crest (16 to 19) to the meadow (8), its north face sheer to the basin's floor; the crest five thick, seven at the
+Veil's bastion. The leat rides the crest: a channel one wide cut into the wall's top from the cleft's east side to the
+Pass (the crest's dip to 12 at X 164–172), bed 13 falling to 11, plugged at its head by a bar and a blockage row. The
+Gate is a slot six wide straight north from the lake's east arm through the bench and the wall, floored two under the
+lake's sill, both faces the crest's own; its plug the bar at the shore (21 tiles) and two rows of blockages. The basin
+is a bowl: a rim at 14 along the north, east and west edges with its cliff facing the camera, the floor 3 to 8 in
+river terraces along the Gate Bed (the bed two under a low terrace that follows its bends, one more terrace above,
+broad unequal flats out to the rim), and the Gate Bed leaving by the one notch in the rim at X 148–152. The lake lies
+south of a bench seven rows deep; three brooks come to it from the valley's far corners; the Low River leaves west
+through the ridge. The start's water has a neck: a side pool east of the start (bed 6, 21 tiles, a rim a level over
+the bench all round) joined to the Veil's trench by an inlet one tile wide and three long. Shaped first in our own
+widest view (`C:\dgm-showcase\the-gate\ours\r6-widest.jpg`, `r6-first.jpg`, by `tools/showcase/capture.ts` from the
+round's shots file): the wall one dark band across the picture with the Gate's slot cut through it and the Veil's
+bastion at the start, the basin's terraces and rim beyond, the valley green below.
+- **The neck's badtide (by the model).** With a levee of 3 on the inlet, built while the water is clean: the pool's
+  water 13 % bad at most on day 1, 16 % on day 8 (1.95 to 1.53 deep on 21 tiles); without it 51 % and 68 %. The
+  meadow's green beside it is the red trench's: 43 % of the bench on day 1 and 72 % within 12 tiles of the start,
+  6 % and 0 % by day 3, with or without the levee. The capture with no work done runs red, and that is the game.
+- **Measures (r6).** 0 blocking, 4 warnings (`water.outflow` on the three seeps, `start.dry`, `start.food` 10 of 30,
+  `start.wood` 49 of 200). Flat 66.3 %, one-level steps 64.3 %. Water 8.4 %, moist 30.2 %, bare 61.4 %; the basin
+  16.7 % moist or wet (three oases, over the 12 %). The Veil 6.52 levels, 9 tiles wide, whole in the first frame (lip
+  (−0.39, 0.49) to (0.06, 0.91)). 1,253 living trees (340 per 10,000), 375 dead; the start's bench 1,146 level tiles,
+  the walk to the Gate's bar 37 tiles; the south meadow and the west meadow are across the lake, the drain bay or a
+  brook. The ladder: the Gate opened +1,235 (3.4 %, 450 of them water: the Gate Bed to the notch); the second blast and
+  the Low River levee +821/−16 (the lake 7.99); the leat's bar once and twice 0 (its water falls into the Gate's slot,
+  already wet); the leat spanned +2,110/−2,080 (the model blocks the slot to span it); the megadam to 9 with the Gate's
+  bar dammed holds 5,420 over 7,655 tiles.
+- **Round 6 in the game** (`C:\dgm-probe\captures\the-gate-r6\day1-first.jpg`, `day1-widest.jpg`): from the widest
+  view the wall is one straight dark band across the picture, the Gate's slot cut through it with the lake's water
+  in its head, the Veil's bastion at the start, the basin's terraces and far rim beyond, the valley green below: a
+  wall with one gate, plainly. What falls short in it: the two near oases are discs of green thirty tiles across (a
+  closed hollow fills to its flat whatever its depth, so each seep wet a disc of the flat: round 7 gives each hollow a
+  gully to the bed), and the lake in front of the start is dark where it is two deep.
