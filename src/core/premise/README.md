@@ -28,8 +28,10 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   (`ladder.ts` `dayOneSoil`) and lets the premise draw its side network again on that land (`PremiseDef.site`);
   `SiteModel.gain` is a work's estimate, the soil rule on the skeleton's land with the work's water and the ground
   its template lays. The lake stair's `siteSide` places each empty basin with its feed, spill, levee and dam as one
-  chain, leaves out with a note (`plan.notes`, shown as `info.premise.notes`) a small work no site brings inside its
-  range, and keeps the first pass's side network, said in the notes, where no second-pass draw passes.
+  chain, lays a work that reaches its floor (`givesOf`: a floor and a most, the milestone's ruling within D508), keeps
+  the best short of its floor only where the ladder's kinds, count or three near the start ask it, said short in
+  `plan.notes` (shown as `info.premise.notes`), and keeps the first pass's side network, said in the notes, where no
+  second-pass draw passes. A dam to pond is weighed on the narrows the ladder lays (`ladder.ts` `narrowsFit`).
 - `choice.ts`: the two choices (§1.3, §1.5). `resolvePremise` (Any from the seed, the premise first, then the theme among
   `PREMISE_THEMES`), `pairRefusal` and `PAIR_REFUSALS` (one line a pair the premise cannot honour), `premiseRefusal`
   (the line for a spec that makes no premise map: the pair, then `eligible`), `PREMISE_SETTINGS` and `premiseSettings`
@@ -50,9 +52,10 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   level, the landmark's lip and foot are in the first frame, the frame's water is shallow (lake beds raised) and the
   walk finds the rules' level land and farmland.
 - `premises/lakeStair.ts`: the lake stair (§4): `lakeStairEligible`, the layout (the valley, the lakes on it, the
-  start, its frame and the landmark placed together, the bypass, the tarns and basins, the works, the ridges, the
-  regions; past 192² the lakes and rim tarns sized by the map, `mapScale` and `rimTarns`), its second pass
-  (`skeletonOf`, `siteStair`, `siteSide`; the works' green ranges `givesOf`) and the stair's `plan` invariants. `layoutTry` gives one layout try as far as it got, for tuning.
+  start, its frame and the landmark placed together, the bypass on a course of its own over the land
+  (`bypassCourses`: two legs over the seed's rises and hollows, turning far from the start, kept off the edge), the tarns and basins, the works, the ridges, the
+  regions; past 192² the lakes and rim tarns sized by the map, `mapScale` and `rimTarns`, the further rim tarns spread round the edges and drawn long or round; every rim tarn's run to the edge bent and slid along it, `edgeRun`), its second pass
+  (`skeletonOf`, `siteStair`, `siteSide`; the works' floors and most `givesOf`) and the stair's `plan` invariants. `layoutTry` gives one layout try as far as it got, for tuning.
 - `planChecks.ts`: §1.4's checks every premise shares (levels fit, no bed under `BED_FLOOR`, bodies apart, the graph
   closes, the works add up, the skeleton is whole).
 - `geom.ts`: capsule chains, paths and gaps. `diagram.ts`: the water-story diagram (`planSvg`, `planRaster`).
@@ -68,7 +71,7 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   `stageModel` is its water model for a settle.
 - `raster/relief.ts` `reliefBetween`: stage 2, the whole map's ground round stage 1's water (the lower envelope of
   every water's bowl, each bowl's distance bounded to its box, rims kept from lower waters, the landmark's upper
-  world, the bypass and every dry brook following the land (`followsLand`), the uplands as warped plates each at one level, ridges as crags, `tidy` and
+  world, the bypass and every dry brook following the land (`followsLand`), the uplands as warped plates each at one level (the rim's too: their fall toward an edge is a plate's, never a band along it), a theme's uplands in its form (`styledUplands`: high tables and canyons, peaks, terraces, low ground), ridges as crags, `tidy` and
   the bench-width floor `land/benches.ts`); `badwaterNiches` cuts the
   permanent badwater source's niche beside the gorge.
 - `ladder.ts`: stage 4 (§4.2). `layWorks` lays the works' own ground on stage 2's (each small levee's basin banked,
@@ -80,12 +83,16 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   each work's water is `flowThrough` and `prefillFrom` on the floor with it and the works it needs done, and its
   gain (`estimateGain`) the tiles the soil rule (`soilReach`, a bucketed copy of `sim/moisture.ts` without
   contamination, equal to it tile for tile) newly reaches, no settle. A breach's, raised sill's or megadam's gain is
-  the water it holds. The readout is `info.premise.ladder`: works with sites, gains, reach and notes; day 1's water
+  the water it holds. A dam to pond's ground is a narrows template (`NARROWS`, `narrowsFit`): a pan behind the dam at
+  the bench's level under rims, so its pond reaches the bench. A work is `paid` when it reaches its floor, with stage
+  0's `estimate` beside the measure. The readout is `info.premise.ladder`: works with sites, gains, reach and notes; day 1's water
   and moist shares against `spectrum`.
 - `life.ts` `premiseLife`: stage 6 on the settled ground (§2.2, "As built (step 6)"): the generator's own planting
   (`gen/resources.ts` `planResources`) by the premise's budget (`LIFE`: living trees 450 to 700 per 10,000 tiles, at
-  most 16 % of the moist ground under a tree, berries 185 to 230), living stands where it falls short, dead woods in
-  clumps on the empty basins' shores and beside dry beds, succulents on the dry-for-good side, and the mine sites
+  most 16 % of the moist ground under a tree, berries 185 to 230), its groves drawn together into close stands
+  (`groupGroves`), living stands where it falls short, dead woods in clumps on the empty basins' shores and beside dry
+  beds, a stand on each bench over a lake (`benchesOver`: succulents, or dead wood where the palette has none; the
+  one nearest the start first), succulents on the dry-for-good side, and the mine sites
   (`planExtras`'s, moved beside the start's reach where it cannot reach them); nothing on the works' sites and reach,
   the beds and basins or the start's sight line to the landmark. Its palette is the spec's resources: a theme's,
   when a theme sets them (PREMISES §1.5). The report is `info.premise.life`.

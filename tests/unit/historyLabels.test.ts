@@ -66,6 +66,7 @@ describe("labels read 'Verb the thing', with articles and plurals", () => {
     expect(labelOf(op("setLakeLevel", { sill: "cut", level: 7 }))).toBe("Cut a lake's sill to level 7");
     expect(labelOf(op("setLakeLevel", { sill: "raise", level: 3 }))).toBe("Raise a lake's sill to level 3");
     expect(labelOf(op("canal", { width: 2, depth: 1, open: false }))).toBe("Cut a canal 2 wide and 1 deep, dry");
+    expect(labelOf(op("ridge", { height: 6, width: 10 }))).toBe("Raise a ridge 6 high and 10 wide");
     expect(labelOf(op("sculpt", { mode: "raise" }))).toBe("Raise terrain");
     expect(labelOf(op("brush", { tool: "smooth" }))).toBe("Smooth");
     expect(labelOf(op("addFeature", { feature: { kind: "berryPatch" } }))).toBe("Add a berry patch");

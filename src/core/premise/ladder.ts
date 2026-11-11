@@ -290,7 +290,7 @@ type Change = [tile: number, floor: number][];
 
 /** The water `flowThrough` gives the land `floor` with the plan's sources: `prefillFrom`'s depths, each pond a head
  *  over its spill. */
-export function waterOn(w: StageWater, floor: Float64Array): Water {
+function waterOn(w: StageWater, floor: Float64Array): Water {
   const m = { ...stageModel(w), floor };
   const flow = flowThrough(m);
   const s = prefillFrom(m, flow);
@@ -659,7 +659,7 @@ function headOpen(plan: PremisePlan, w: StageWater, heights: ArrayLike<number>, 
  *  (stages 2 and 3, the works' own ground laid). */
 /** Day 1's floor: the land, every row shut (a Blockage is a level of floor), every notch and breach shut too, so the
  *  lakes stand on their sills (an open notch's share is the table's: `flowThrough`'s levels are static). */
-export function dayOneFloor(w: StageWater, heights: Uint8Array, laid: LaidWorks): { base: Float64Array; shut: Record<string, { tiles: number[]; crest: number }> } {
+function dayOneFloor(w: StageWater, heights: Uint8Array, laid: LaidWorks): { base: Float64Array; shut: Record<string, { tiles: number[]; crest: number }> } {
   const r = w.raster;
   const base = Float64Array.from(heights);
   for (const [id, rows] of Object.entries(r.rows)) {

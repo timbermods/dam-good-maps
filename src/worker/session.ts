@@ -39,6 +39,7 @@ import { markerNotes, type MarkerNote } from "../core/doc/objectOps";
 import { fillLevel, planFill, unfedWater } from "../core/doc/waterEdits";
 import { applyLakeLevel, lakeHeldLevel, planLakeLevel, type LakeLevelPlan } from "../core/doc/lakeLevel";
 import { applyCanal, planCanal, type CanalPlan } from "../core/doc/canal";
+import { applyRidge, planRidge, type RidgePlan, type RidgeSteep } from "../core/doc/ridge";
 import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
 import { bakeLandforms } from "../core/doc/bake";
@@ -1843,6 +1844,14 @@ export function openTimber(bytes: Uint8Array, fileName: string, place?: string):
   return opened(MapSession.importMap(bytes, fileName, place));
 }
 
+/** A new blank map (core/doc/blank.ts): flat, dry ground `size` tiles a side at `level`, the start at its middle. A
+ *  size or a level it can't be made at throws its one-line reason. */
+export function newBlank(size: number, level: number): SessionOpen {
+  const blocked = gated(true);
+  if (blocked) throw new Error(blocked);
+  return opened(MapSession.blank(size, level));
+}
+
 /** Open a project file (.damgoodmaps.json). */
 export function openProject(bytes: Uint8Array): SessionOpen {
   const blocked = gated(true);
@@ -1930,6 +1939,8 @@ export const planned = {
   lakeLevel: (x: number, y: number, level: number, width?: number) => planLakeLevel(need(), x, y, level, width),
   /** A canal along a path: its bed and banks, or why not. */
   canal: (path: [number, number][], width: number, depth: number, open: boolean) => planCanal(need(), path, width, depth, open),
+  /** A ridge along a path: its tiles and their levels, or why not. */
+  ridge: (path: [number, number][], height: number, width: number, steep: RidgeSteep, seed: number) => planRidge(need(), path, height, width, steep, seed),
   /** Every tile of the map (Clear everything removes the objects on all of them). */
   everything: (): number[] => Array.from({ length: need().size.x * need().size.y }, (_, i) => i),
 };
@@ -2104,8 +2115,9 @@ export async function settingsResponse(): Promise<GenerateResponse> {
 /** A validation grouped as the export dialog shows it (PLAN §19.5, D43; core/doc/checkItems.ts
  *  `groupChecks`), kept as the session's last check. */
 function grouped(s: MapSession, v: Validation, t0: number): ExportCheck {
-  // (a cropped map has no "as opened" map: the problems it has are the player's own, D340)
-  const out: ExportCheck = { ...groupChecks(s, v, s.mode === "import" && !s.cropped ? originalFull : null), version, ms: 0 };
+  // (a cropped map has no "as opened" map: the problems it has are the player's own, D340; nor has a new blank map,
+  // which comes from no file of the player's, `meta.source`: empty ground with no water is not ready to play)
+  const out: ExportCheck = { ...groupChecks(s, v, s.mode === "import" && !s.cropped && s.meta.source ? originalFull : null), version, ms: 0 };
   out.ms = Math.round(performance.now() - t0);
   lastCheck = out;
   return out;
@@ -2519,6 +2531,21 @@ export function fillAt(x: number, y: number, level: number, floor?: number | nul
   const p = planFill(s, x, y, level, floor);
   if (!p.op) return changed(s, false, [p.reason ?? "nothing to fill"], t0);
   const r = s.apply(p.op, "user");
+  return changed(s, r.ok, r.errors, t0);
+}
+
+/** A ridge: what high ground along `path` would change (its tiles, each with its level, its top and its steep side), or
+ *  the plain reason it can't be raised (core/doc/ridge.ts `planRidge`). Reads the map only; no settle. */
+export function ridgePlanAt(path: [number, number][], height: number, width: number, steep: RidgeSteep, seed: number): Omit<RidgePlan, "op"> {
+  const { op: _op, ...plan } = planRidge(need(), path, height, width, steep, seed);
+  return plan;
+}
+
+/** Raise the ridge along `path`: one undo step (core/doc/ridge.ts `applyRidge`). */
+export function ridgeAt(path: [number, number][], height: number, width: number, steep: RidgeSteep, seed: number): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const r = applyRidge(s, path, height, width, steep, seed);
   return changed(s, r.ok, r.errors, t0);
 }
 

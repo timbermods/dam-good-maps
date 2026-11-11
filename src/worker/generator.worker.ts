@@ -8,6 +8,7 @@ import type { EditOp, OpOrigin } from "../core/doc/ops";
 import type { PaintParams } from "../core/doc/paintParams";
 import type { RuinLineParams } from "../core/doc/ruinLine";
 import type { BlocksParams } from "../core/doc/blockTool";
+import type { RidgeSteep } from "../core/doc/ridgeLimits";
 import { decodePlaceFile, placeTimber } from "../core/places/place";
 import { replaceThumbnail } from "../core/format/timber";
 import type { MapSpec } from "../core/spec/mapspec";
@@ -146,6 +147,7 @@ const api = {
   refine: () => sendOpen(ed.refine()),
   openTimber: (bytes: Uint8Array, fileName: string) => sendOpen(ed.openTimber(bytes, fileName)),
   openProject: (bytes: Uint8Array) => sendOpen(ed.openProject(bytes)),
+  newBlank: (size: number, level: number) => sendOpen(ed.newBlank(size, level)),
   /** A real place (its data file): built into its .timber, then opened as any .timber is. */
   openPlace(data: Uint8Array) {
     const place = decodePlaceFile(data);
@@ -269,6 +271,8 @@ const api = {
   /** Lakes by number: what setting a lake's level would do (or why not), then doing it, one undo step. */
   lakeLevelPlanAt: (x: number, y: number, level: number, width?: number) => ed.lakeLevelPlanAt(x, y, level, width),
   lakeHeldAt: (x: number, y: number) => ed.lakeHeldAt(x, y),
+  ridgePlanAt: (path: [number, number][], height: number, width: number, steep: RidgeSteep, seed: number) => ed.ridgePlanAt(path, height, width, steep, seed),
+  ridgeAt: routed((path: [number, number][], height: number, width: number, steep: RidgeSteep, seed: number) => sendUpdate(ed.ridgeAt(path, height, width, steep, seed)), (...a) => collabEditApi.ridgeAt(...a).then(sendUpdate)),
   lakeLevelAt: routed((x: number, y: number, level: number, width?: number) => sendUpdate(ed.lakeLevelAt(x, y, level, width)), (...a) => collabEditApi.lakeLevelAt(...a).then(sendUpdate)),
   canalPlanAt: (path: [number, number][], width: number, depth: number, open: boolean) => ed.canalPlanAt(path, width, depth, open),
   canalAt: routed((path: [number, number][], width: number, depth: number, open: boolean) => sendUpdate(ed.canalAt(path, width, depth, open)), (...a) => collabEditApi.canalAt(...a).then(sendUpdate)),

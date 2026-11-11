@@ -8,6 +8,7 @@
 // force is at work the other tools wait.
 
 import { CANAL_MAX_DEPTH, CANAL_MAX_WIDTH } from "../core/doc/canalLimits";
+import { RIDGE_MAX_HEIGHT, RIDGE_MAX_WIDTH, RIDGE_MIN_HEIGHT, RIDGE_MIN_WIDTH, type RidgeSteep } from "../core/doc/ridgeLimits";
 import { createContext, type ComponentChildren } from "preact";
 import { useContext, useLayoutEffect, useRef } from "preact/hooks";
 import { FirstRunSizer } from "./FirstRun";
@@ -344,15 +345,19 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
   };
   // Lower's fourth Brush choice, Canal (planning, 2026-11-11): a drag draws a line and the core cuts a bed that leads
   // water along it; its row is Width, Depth and how it starts, with the Brush choice across the second row
+  // Raise's fourth, Ridge (planning, 2026-11-11): a drag draws a line and the core raises high ground along it; its row
+  // is Height, Width and the steep side, the same way
   const canal = t === "lower" && s.canal;
-  const shape = canal ? "canal" : s.square ? "square" : s.straight ? "straight" : "round";
+  const ridge = t === "raise" && s.ridge;
+  const line = canal || ridge;
+  const shape = canal ? "canal" : ridge ? "ridge" : s.square ? "square" : s.straight ? "straight" : "round";
   const brush: Group = {
     key: "brush",
     row: 2,
-    at: canal ? 1 : 5,
-    span: canal ? 13 : flatten ? 5 : 9,
+    at: line ? 1 : 5,
+    span: line ? 13 : flatten ? 5 : 9,
     node: (
-      <ChoiceSetting<"round" | "square" | "straight" | "canal">
+      <ChoiceSetting<"round" | "square" | "straight" | "canal" | "ridge">
         label="Brush"
         value={shape}
         options={[
@@ -360,8 +365,9 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
           ["square", "Square", "A square brush"],
           ["straight", "Lines", "Draw straight lines"],
           ...(t === "lower" ? [["canal", "Canal", "Draw a channel that leads water"] as const] : []),
+          ...(t === "raise" ? [["ridge", "Ridge", "Draw a ridge of high ground"] as const] : []),
         ]}
-        onChange={(v) => set({ square: v === "square", straight: v === "straight", canal: v === "canal" })}
+        onChange={(v) => set({ square: v === "square", straight: v === "straight", ...(t === "lower" ? { canal: v === "canal" } : {}), ...(t === "raise" ? { ridge: v === "ridge" } : {}) })}
       />
     ),
   };
@@ -383,6 +389,30 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
               ["dry", "Dry", "Its first tile stays, to open later"],
             ]}
             onChange={(v) => set({ canalOpen: v === "open" })}
+          />
+        ),
+      },
+      brush,
+    ];
+  if (ridge)
+    return [
+      { key: "height", row: 1, at: 1, span: 4, node: <NumberSetting label="Height" title="How high the crest stands over the land" value={s.ridgeHeight} min={RIDGE_MIN_HEIGHT} max={RIDGE_MAX_HEIGHT} step={1} onChange={(ridgeHeight) => set({ ridgeHeight })} /> },
+      { key: "width", row: 1, at: 5, span: 5, node: <NumberSetting label="Width" title="How wide the ridge is" value={s.ridgeWidth} min={RIDGE_MIN_WIDTH} max={RIDGE_MAX_WIDTH} step={1} onChange={(ridgeWidth) => set({ ridgeWidth })} /> },
+      {
+        key: "steep",
+        row: 1,
+        at: 10,
+        span: 4,
+        node: (
+          <ChoiceSetting<RidgeSteep>
+            label="Steep"
+            value={s.ridgeSteep}
+            options={[
+              ["auto", "Auto", "Steep on the side the drag curves away from"],
+              ["left", "Left", "Steep on the left of the drag"],
+              ["right", "Right", "Steep on the right of the drag"],
+            ]}
+            onChange={(ridgeSteep) => set({ ridgeSteep })}
           />
         ),
       },
