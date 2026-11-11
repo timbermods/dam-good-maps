@@ -143,7 +143,7 @@ describe("Naturalize keeps the downhill order (D399)", () => {
         const before = s.built.heights.slice();
         const u = s.apply({ op: "brush", params: p }, "user", "Naturalize");
         expect(u.errors).toEqual([]);
-        expect(u.applied[0].params, "a new stroke records its rule").toMatchObject({ weathering: 5 });
+        expect(u.applied[0].params, "a new stroke records its rule").toMatchObject({ weathering: 6 });
         const reached = new Uint8Array(W * W);
         markBrushTiles(p, W, W, reached);
         const after = s.built.heights;
@@ -387,7 +387,7 @@ describe("the page's stroke is the stroke the session builds (D399)", () => {
       const preview = new StrokePreview(settings, s.terrainState(), heights, W, W, groundUnderObjects(s.built.entities));
       for (let k = 0; k < dabs.length; k += 6) preview.add(dabs.slice(k, k + 6));
       // the page's settings now carry the rule and the water the preview kept, as its operation will
-      expect(settings).toMatchObject({ weathering: 5, shore: expect.any(Array), pools: expect.any(Array), moist: expect.any(Array) });
+      expect(settings).toMatchObject({ weathering: 6, shore: expect.any(Array), pools: expect.any(Array), moist: expect.any(Array), wells: expect.any(Array) });
       const u = s.apply({ op: "brush", params: { ...settings, dabs } }, "user", "Naturalize");
       expect(u.errors).toEqual([]);
       expect(Array.from(heights), `Size ${size}`).toEqual(Array.from(s.built.heights));

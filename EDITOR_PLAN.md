@@ -937,7 +937,12 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   with Strength, varying along the cliff where the noise says), its edges wandering: the top pulls back and
   the foot becomes an apron that runs out in lobes, the scree building up at the foot from what the top
   loses, so the top comes down no more than its foot rises (a cliff standing in water keeps its top, the
-  water taking what it sheds; above a stream the whole cliff pulls back); it sheds only so far round the cliff (taller cliffs farther, unevenly), only where the stroke
+  water taking what it sheds; above a stream the whole cliff pulls back); a bank standing in water (a river's, a
+  lake's, an outlet cut with Flatten) slumps instead (rule 6, showcase-craft gap 12): along it, where the map's noise
+  says, in stretches the size of Size, it stays a cut face or slumps back up to 1.5 + 0.3 × Strength tiles, the slump
+  at the water's surface (rounded up, never below it) rising a level every two or three tiles back up the bank, its
+  back edge bitten into scallops, never more than 2 + Strength/4 levels below the land as the stroke found it, so a
+  ruler-straight cut bank becomes an irregular one; it sheds only so far round the cliff (taller cliffs farther, unevenly), only where the stroke
   presses, narrowing into the cliff beside it, and a slope once shed is left as it is; old land has fewer
   terraces: a narrow stretch of a terrace joins the level it borders most, whole, where that takes away more
   edges than it adds (a Size 64, Strength 10 stroke leaves no more level edges than there were); flat tops
@@ -949,7 +954,10 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   or below all its neighbours, no neighbouring pair swaps which is higher, nothing one tile wide appears (a
   tread, ledge, wall or slot), nothing newly holds water and no way out for water closes; what would break one
   is mended or taken back. Farmland is never lost: moist ground (the settled water's moisture when the stroke
-  begins, recorded in it, `moist`) keeps its height, so a cliff above it pulls back instead of burying it. A stroke that
+  begins, recorded in it, `moist`) keeps its height, so a cliff above it pulls back instead of burying it; a slumping
+  bank's moist ground comes down only so far as no moist tile dries (the moisture worked out from where the water
+  stood, recorded in the stroke as `wells`: each wet run's surface and the moisture it gives, as `sim/moisture.ts`
+  spreads it, taken back where a dab would dry one). A stroke that
   changes nothing says why beside the pointer for a moment: "Moist ground keeps its height: weather dry land" when
   most of it pressed on moist soil (an island in a lake is all moist), else "Nothing here to weather" (showcase-craft gap 23). It
   weathers dab by dab: each dab weathers the land the dabs before it left, only round where it presses harder
@@ -970,7 +978,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   at 256², 73 ms, and 4 times the slowest single dab, 308 ms at 512² and 327 ms at 256²): a worker that never answers in time has its stroke taken back as Esc takes one back (no
   land, water or operation), the page says "Naturalize stopped answering, so the stroke was taken back. Paint it
   again.", what waited for the stroke goes ahead, and the worker is started again for the next stroke. A new
-  stroke records its rule (`weathering: 5`, added by the core); a stroke saved with rule 4 (the top cut back
+  stroke records its rule (`weathering: 6`, added by the core); a stroke saved with rule 5 (a bank standing in
+  water kept as it stood, moist ground held whole), rule 4 (the top cut back
   whatever its foot took, pulling back above water too), rule 3 (dab by dab, some
   cliffs' scree slopes lost, so a repeated stroke kept cutting those cliffs back), with D399's first rule
   (`weathering: 2`, the whole stroke at once) or before D399 replays with its own rule. Pen pressure on drawing tablets sets a soft stroke's strength. Every brush's options row starts with its **Size**, a

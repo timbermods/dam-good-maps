@@ -111,12 +111,13 @@ export class StrokePreview {
     // hands in, so the operation it records keeps exactly what this preview used (D399; the session
     // adds them itself to a stroke that comes without)
     const record = settings as Omit<BrushParams, "dabs">;
-    const fresh = settings.tool === "naturalize" && settings.weathers && (settings.weathering === undefined || (byDabRule(settings.weathering) && (record.shore !== undefined || record.pools !== undefined || record.moist !== undefined)));
+    const fresh = settings.tool === "naturalize" && settings.weathers && (settings.weathering === undefined || (byDabRule(settings.weathering) && (record.shore !== undefined || record.pools !== undefined || record.moist !== undefined || record.wells !== undefined)));
     if (fresh) {
       record.weathering = WEATHERING;
       delete record.shore;
       delete record.pools;
       delete record.moist;
+      delete record.wells;
     }
     // a weathering Naturalize stroke leaves the ground under sources and objects as it is: the core
     // adds those runs itself when the operation applies (session.ts, `weatherKeep`); the page, whose
@@ -160,7 +161,7 @@ export class StrokePreview {
     this.stroke = new BrushStroke(hold?.length && !settings.hold ? { ...settings, hold } : { ...settings }, this.pre, W, H, (i) => !(prot && prot[i]) && !(pads && padTile(pads, i % W, Math.floor(i / W))), {
       water,
       floor: state.floor ?? null,
-      ...(depth ? { depth, shown, moisture: state.moisture ?? null, record: (shore, pools, moist) => Object.assign(record, { shore, pools, ...(moist ? { moist } : {}) }) } : {}),
+      ...(depth ? { depth, shown, moisture: state.moisture ?? null, record: (shore, pools, moist, wells) => Object.assign(record, { shore, pools, ...(moist ? { moist } : {}), ...(wells ? { wells } : {}) }) } : {}),
     });
   }
 

@@ -26,7 +26,7 @@ import { isResource } from "../features/raster/resources";
 import { weatherKeep } from "../features/raster/objectGround";
 import { placedEntity, entityTiles, ridingPieces } from "../features/edits";
 import { objectHolds, rasterizeObjects, standProblem, type StandGround } from "../features/objects";
-import { applyBrush, brushBounds, byDabRule, limitRuns, markBrushTiles, MAX_DABS, strokeParts, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim, type BrushParams } from "../features/raster/brush";
+import { applyBrush, brushBounds, byDabRule, limitRuns, markBrushTiles, MAX_DABS, recordBox, strokeParts, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim, type BrushParams } from "../features/raster/brush";
 import { shoreOf, waterLevels } from "../features/raster/weather";
 import { MAX_TERRAIN, padTile } from "../features/raster/terrain";
 import { bottomRunTop, ColumnTerrain, isPlainMask, surfaceOfMask, terrainColumns } from "../terrain/runs";
@@ -1810,10 +1810,11 @@ export class MapSession {
   /** What the session records in a stroke as it applies (`applyChecked`), worked out on the map as it stands. */
   private strokeRecord(params: BrushParams): BrushParams {
     const { x: W, y: H } = this.size;
-    // a new weathering Naturalize stroke weathers like nature, dab by dab (D399, rule 5): its rule is
-    // recorded in it, so it replays the same, and strokes saved before keep their rule (rule 4, the
-    // top cut back whatever its foot took; rule 3, dab by dab with some scree slopes lost; rule 2,
-    // the whole stroke at once, saved with where water would stand round it, `rim`)
+    // a new weathering Naturalize stroke weathers like nature, dab by dab (D399, rule 6): its rule is
+    // recorded in it, so it replays the same, and strokes saved before keep their rule (rule 5, a bank
+    // standing in water kept as it stood; rule 4, the top cut back whatever its foot took; rule 3, dab by
+    // dab with some scree slopes lost; rule 2, the whole stroke at once, saved with where water would
+    // stand round it, `rim`)
     // (a rule painted on the page comes with its rule but never its ring: added here)
     let p = params;
     if (p.tool === "naturalize" && p.weathers && (p.weathering === undefined || (byDabRule(p.weathering) && p.rim === undefined))) {
@@ -1823,13 +1824,14 @@ export class MapSession {
     }
     // and where the settled water stood round it (rule 3: and the moist ground), unless the page
     // recorded the water it showed
-    if ((p.weathering === 2 || byDabRule(p.weathering)) && p.shore === undefined && p.pools === undefined && p.moist === undefined) {
-      const box = weatherBox(p, W, H);
+    // (rule 6: and the wells, as far as moisture reaches beyond it)
+    if ((p.weathering === 2 || byDabRule(p.weathering)) && p.shore === undefined && p.pools === undefined && p.moist === undefined && p.wells === undefined) {
+      const box = p.weathering === 2 ? weatherBox(p, W, H) : recordBox(p, W, H);
       if (box) {
         if (p.weathering === 2) {
           const { shore, pools } = shoreOf(box, this.cur.heights, this.cur.water, W);
           p = { ...p, shore, pools };
-        } else p = { ...p, ...limitRuns(waterLimits(this.cur.heights, this.cur.water, this.cur.moisture, W, H), box, W) };
+        } else p = { ...p, ...limitRuns(waterLimits(this.cur.heights, this.cur.water, this.cur.moisture, W, H), box, W, (p.weathering ?? 0) >= 6) };
       }
     }
     // a weathering Naturalize stroke leaves the ground under the sources and objects standing now: the
