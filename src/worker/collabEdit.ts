@@ -12,6 +12,7 @@
 import type { Command, ForceGesture, SubmitResult } from "../core/collab";
 import type { EditOp, OpOrigin } from "../core/doc/ops";
 import type { PaintParams } from "../core/doc/paintParams";
+import type { RuinLineParams } from "../core/doc/ruinLine";
 import type { ForceCue } from "../core/forces/runs";
 import type { Verb } from "../core/forces/op";
 import { EVERY_KIND } from "../core/doc/remove";
@@ -73,6 +74,13 @@ export const collabEditApi = {
     const p = ed.planned.paint(params, z);
     const a = await edit(p);
     return { ...a, planted: a.ok && p.ok ? p.plan.map((o) => o.tile) : [] };
+  },
+
+  /** A ruin line from the shelf: the core's plan, ordered as one step. */
+  async ruinLineAt(params: RuinLineParams): Promise<Answer & { planted: number[] }> {
+    const p = ed.planned.ruinLine(params);
+    const a = await edit(p);
+    return { ...a, planted: a.ok && p.ok ? p.piers.map((q) => q.tile) : [] };
   },
 
   /** Remove unfed water within `tiles` (the whole map with none): one step, or why nothing was removed. */
