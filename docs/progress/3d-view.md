@@ -3610,6 +3610,59 @@ for every field; the map stores its Coordinates and orientation (never flipped).
   game's model rendered offline, not the game's own light. (5) The rest of the placeholders in the large relic's falls
   short (2) remain.
 
+## The reserves as the game draws them (D135, D178 as amended 2026-11-10, D496, D497; `fix/reserves`)
+
+Ours drew the reserve pile and warehouse as pens of our own colours 0.75 and 0.80 high, and the tank as a barrel of our
+own 2.66 high, none of them showing what they held. The game's (`ReservePile.Model`, `ReserveWarehouse.Model`,
+`ReserveTank.Model`, 236, 330 and 630 triangles) are one model each, flipped by mirroring (all three are Flippable);
+each fills its 2 × 2, its entrance on the right half of its front.
+
+- **Read from the game's models** (numbers only, `tools/game-model-albedo.py` and scratch tools): the pile a pen of
+  grey-green boards (`BaseWoodCommon`) 0.48 high on an amber-brown frame (`BaseWoodCommon_Amber`) 0.1 high round a floor
+  of dirt (`DirtCommon`), posts at three corners; the warehouse a floor of boards in the same frame, posts 0.69 high at
+  three corners joined by four sagging ropes tied round them; both open at the entrance under an arch 1.01 high. The
+  tank a barrel of staves 1.54 across from 1.29 to 2.43 under a low cone to 2.81, banded, on a base ring 1.68 across
+  on four splayed legs with braces, a pipe down its middle, and a pump house 0.88 × 0.92 under an arched roof at the
+  entrance, its door a grey-green arched frame round a dark door. Each has a pale shield of a sign under a pale holder
+  at its entrance (the tank's holder gabled) and a pale threshold. The wood is a little metallic (0.07–0.15), folded
+  into albedo for our light as the relics' (`palette.ts` `RESERVE`).
+- **Their stock** (`Timberborn.StockpileVisualization`, read from the decompiled assembly and the blueprints' visualizer
+  specs): the game's pile draws dirt with `StockpilePlaneVisualizer` (`Dirt2x2`: the heap `MediumDirtPile` moved from
+  0.82 under its place, 0.01 to 0.78 up by the stock's share to the 0.8th power) and logs, planks, treated planks,
+  scrap metal and metal blocks with `StockpileGoodPileVisualizer` (over each tile layers of four goods 0.17 apart,
+  crossing layer by layer, ten layers a tile, the last layer's goods laid one by one on piles it picks at random); the
+  warehouse its boxes with `StockpileGoodColumnVisualizer` (`Box4H`: 36 columns 0.26 apart, boxes 0.232 a side, 144 at
+  most for its 200, columns picked at random to rise first); the tank has no visualizer, so it shows none. Ours
+  (`render3d/reserves.ts`, `stockOf`) draws them the same, picking in a fixed order where the game picks at random;
+  the dirt heap is one model moved, a stack of goods or boxes one model a good and amount. The view carries each
+  reserve's good and amount (`EntityView.stockGood`, `stockAmount`, from `FixedStockpile` and `Inventory:Stockpile`).
+  A reserve the shelf places holds its default good at full capacity, so a pile shows a full heap of dirt and a
+  warehouse its boxes four high.
+- **Built** (`render3d/reserves.ts`, new): the pens and the tank from boxes, faces and revolved profiles at the game's
+  measures, the tank 16 round as the game's: 262, 330 and 505 triangles. A flipped reserve has its own model, mirrored
+  across its footprint. Standard and High draw the same models, in the objects' game light.
+- **Measured:** the bounds within 0.03 of the game's. The silhouette, against the game's models from 16 cameras (8
+  headings, 30° and 60° down) and from above: the pile 1.00–1.01 times the game's area, IoU 0.99–1.00; the warehouse
+  1.00–1.03, IoU 0.97–1.00; the tank 0.99–1.02, IoU 0.97–0.99.
+- **Standard's shadow:** the tank casts a disc over each of its four tiles, 0.6 across before the inset, from its
+  barrel's base (0.95) to its top, each moved 0.15 toward the footprint's middle (light.ts `CORNER`, now a cast a kind,
+  the core's unchanged): on the ground it does not stand over, 0.79–1.12 of its model's shadow a heading, 0.94 in all,
+  0.76–0.92 of the model's under it, IoU 0.74–0.78 (`landmarksGame.test.ts`). The ground under its barrel stays lit,
+  as the game's. The pile and the warehouse cast none: their walls stand 0.48 and 0.69 high round their own floor, a
+  band of shadow 0.5–1.6 tiles² a heading outside the footprint, which discs would cast over their own floor and sunlit
+  walls; High casts their models' own.
+- **Cost:** +6 draw calls with ten reserves placed (the flipped models and a batch a stock), +4,500 triangles.
+  `benchOrbit` on river valley 2 at 128 with ten reserves by its weir, mixed goods, amounts and flips (1600 × 900,
+  headed Chrome, RTX 2070 Super; the GPU's median a frame, base → two runs of the branch): Standard whole map 2.76 →
+  3.15, 2.83 ms, the reserves 14 away 3.04 → 3.38, 3.15; High 2.55 → 2.62, 2.91 and 3.92 → 3.95, 4.05: within the
+  runs' spread. Every frame 7.0 ms at 144 Hz (one run's High p95 14 ms, not in the other).
+- **Falls short:** (1) The stock casts nothing in Standard's bake (High casts it): a full stack of logs stands 1.7
+  high. (2) The game's banner shows the good's icon on the sign, and its boxes carry the good's icon; ours draws the
+  sign plain and the boxes as columns without seams or icons. (3) Scrap metal is stacked as boxes of its measures, the
+  game's a heap of bent pieces. (4) Where the game picks at random which piles take the last layer's goods and which
+  columns rise first, each time it loads, ours picks in a fixed order. (5) Judged against the game's models rendered offline, not
+  the game's own light.
+
 ## A fall over a cave's mouth (D154 as amended 2026-11-08, D496; `fix/cave-mouth-curtain`)
 
 The in-game capture kit (#933) on Four Lakes r9: at the Great Fall the game draws one curtain over a dry cave's mouth
