@@ -205,8 +205,9 @@ file. Rounds are judged on the game's own captures (the capture kit, `C:\dgm-pro
   the game: the Veil one curtain again with its one buttress, the crest a ridge that catches the light, the Gate's
   towers on the ledge beside the start; the trench (two and a half deep, the row that carries the fall to the drain)
   and the lake's middle still dark, the basin's plates still tabletops. Round 4 (as saved): the lake a level and a
-  half deep but along its old river's line.
-- **Latest measures (r3; the core's own checks and water, not played).** Settled in 2,432 ticks; 0 blocking, 3
+  half deep but along its old river's line; in the game its middle is teal where round 3's was black, the first frame
+  the same as round 3's. The rounds stopped there: four of the five allowed, the map not yet beside Four Lakes.
+- **Latest measures (r4; the core's own checks and water, not played).** Settled in 2,432 ticks; 0 blocking, 3
   warnings (`water.outflow` on the three seeps, `start.dry`, `start.wood` 160 of 200 logs). Flat 55.1 %, one-level
   steps 59.8 %. Water 8.0 %, moist 22.8 %, bare 69.3 %; the basin 9.9 % moist or wet. The Veil 6.36 levels, 12 tiles.
   883 living trees (240 per 10,000), 403 dead in five woods, 265 berry bushes, 1,054 succulents. The start's bench: the
@@ -233,7 +234,8 @@ After every work 39.6 % of the map; the rest is the wall, the ridges and the far
 
 **What still falls short.**
 - The basin's plates read as tabletops in the game at every round: the relief between the beds is the generator's
-  "ground with grade" problem, not a map's; and round 4's shallower lake is judged only by the model.
+  "ground with grade" problem, not a map's. The trench at the start's door (the row that carries the fall to the drain,
+  two and a half deep) is still near black in the first frame; a level shallower it flooded the bench.
 - The badtide at the start is Four Lakes' problem again: the Veil runs red over the door on day 1. The Still Pool
   south-east of the start is built for a levee on its neck; nothing measures it.
 - The lake stands 0.57 over its sill, 0.43 under the bench, so the whole-river answer costs a second blast: at one
