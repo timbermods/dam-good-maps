@@ -909,9 +909,9 @@
   display: flex;
 }
 
-/* with First view beside Reset view: three buttons and the compass in the same 310px; the row under them keeps its own
-   widths, the level control and Slow forces 129px each, one gap apart, over the first three columns (each placed at
-   its end of a two-column span), the sound under the compass */
+/* with First view beside Reset view: three buttons and the compass in the same 310px; the row under them on their
+   columns (D368 (5)): the level control under Top-down, Slow forces under Reset view and First view, the sound under
+   the compass. In Top-down's 83px the level control's arrows are 28px each, so its value keeps 27px for "22" */
 .editor-view .view3d-corner:has(.camera-group.with-first-view) {
   grid-template-columns: 83px 84px 83px var(--corner-h);
 }
@@ -920,16 +920,13 @@
   padding: 0 6px;
 }
 
-.view3d-corner:has(.camera-group.with-first-view) > .corner-level {
-  grid-column: 1 / 3;
-  justify-self: start;
-  width: 129px;
+.view3d-corner:has(.camera-group.with-first-view) .layer-widget button {
+  min-width: 28px;
+  padding: 0;
 }
 
 .view3d-corner:has(.camera-group.with-first-view) > .slow-cell {
   grid-column: 2 / 4;
-  justify-self: end;
-  width: 129px;
 }
 
 .view3d-corner:has(.camera-group.with-first-view) > .sound-cell {
@@ -3246,6 +3243,7 @@ input.set-typed:disabled {
 
 .legend-stack > .legend-row {
   margin-left: var(--legend-left, calc(100% - 10px - 310px - 8px - 82px));
+  margin-top: var(--legend-row-top, 0px);
 }
 
 .legend-stack > .legend-panel,

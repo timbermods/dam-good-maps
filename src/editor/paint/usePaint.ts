@@ -69,11 +69,13 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
    *  as they are; alone, a move names the step it means (I5). */
   const shared = () => !!ed.collab && ed.collab.phase !== "alone";
 
-  /** A move's ticket: shown at once when the queue holds the step's land (a recent stroke), else when answered. */
+  /** A move's ticket: shown at once when the queue holds the step's land (a recent stroke), else when answered. The
+   *  last step's note goes with it (a held stroke taken back leaves no line about tiles the map no longer holds), as
+   *  it does with any other edit's; a note kept on purpose (a failed save) stays. */
   function moved(id: number | null, sound = true) {
     if (id === null) return;
     if (sound) juice.current?.undo();
-    void track(id);
+    void track(id, (u) => u.ok && setMessage((m) => (m && !m.keep ? null : m)));
   }
 
   // (a Naturalize stroke let go is on its way to the history until its last land comes from its worker: an undo, a
