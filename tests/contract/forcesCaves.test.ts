@@ -175,7 +175,9 @@ describe("objects of several tiles ride their ground whole (D368 (10))", () => {
       }
   });
 
-  it("a Deposit's numbers count the ground as it leaves it, the relics' footprints kept and its material too", () => {
+  // (D148: and its material too, conserved, until the force audit's finding 4 (2026-11-11) made Deposit a fan fed from a
+  // gully, the water bringing the rest)
+  it("a Deposit's numbers count the ground as it leaves it, the relics' footprints kept", () => {
     const before = forceMapOfSession(relicMap());
     const W0 = before.W;
     const relics = before.entities.map((e) => footprint(before, e)).filter((tiles) => tiles.length > 1);
@@ -197,8 +199,6 @@ describe("objects of several tiles ride their ground whole (D368 (10))", () => {
           }
           const at = `${x}, ${y}, ${a}, ${power}`;
           expect([stats.changed, stats.eroded, stats.deposited, stats.balance], at).toEqual([changed, eroded, deposited, deposited - eroded]);
-          // (what a relic's footprint kept as it was took back is laid or left elsewhere: it keeps its material, D356, #714)
-          expect(deposited, at).toBe(eroded);
           for (const tiles of relics) {
             expect(new Set(tiles.map(dz)).size, at).toBe(1);
             const edge = tiles.flatMap((i) => [i - 1, i + 1, i - W0, i + W0]).filter((j) => j >= 0 && j < raw.heights.length && !tiles.includes(j));
