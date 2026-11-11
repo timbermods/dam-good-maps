@@ -1,7 +1,9 @@
 // What the map's picture (D488, `hero.ts`) draws, and from where: the game's own camera and light for a map's
 // picture, as plain data (no three.js, no page), so it is tested headless.
 //
-// - **The camera** frames the map (amended 2026-11-07, showcase craft's look gap 2: the game's opening camera, centred
+// - **The camera** frames the map's sight where it has one (showcase gap 10, `sightCamera`: the landmark the start's
+//   opening frame holds, seen from the colony's side, close enough to read at the picker's size). Otherwise it
+//   frames the map (amended 2026-11-07, showcase craft's look gap 2: the game's opening camera, centred
 //   on a start near an edge, showed the backdrop past the map in half its frame). It is the game's own map thumbnail
 //   camera (`ThumbnailCameraDefaultPositionProvider`: 40° down, face-on, the game camera's 35° field of view), turned
 //   to the start's orientation (the side the colony faces, where the landmark is steered, D502; north without a
@@ -17,8 +19,10 @@
 // - **What shows** is what the game's thumbnail shows (`MapThumbnailCapturing`'s rendering listeners): the land,
 //   the water, the objects; the starting location is hidden (`StartingLocationThumbnailRenderingListener`).
 
-import { OPENING } from "../core/analysis/opening";
+import { OPENING, openingSight, prepareOpening } from "../core/analysis/opening";
 import { castPicture, looksScore, PIXEL, type PictureLand } from "../core/analysis/picture";
+import { fallsOf } from "../core/analysis/vertical";
+import { ORIENTATIONS, startMiddleTile } from "../core/format/footprints";
 import { columnMasks, type EntityView, type MapView } from "./model";
 
 /** The picture's camera, in the renderer's terms (`MapRenderer.setView`; world X east, Y up, Z south), and its
@@ -176,14 +180,94 @@ function withoutStart(e: EntityView): EntityView {
     variant: typed(e.variant),
     strength: typed(e.strength),
     ids: keep.map((k) => e.ids[k] ?? ""),
+    ...(e.stockGood && e.stockAmount ? { stockGood: typed(e.stockGood), stockAmount: typed(e.stockAmount) } : {}),
   };
 }
 
-/** What the picture draws (the map, its start hidden) and the camera it draws it from. */
+// ------------------------------------------------------------------------------ the map's sight
+
+/** The sight camera's pitches (degrees down: lower than the thumbnail camera's 40°, so a landmark's height shows),
+ *  distances (tiles from the point looked at: the nearest frames about 50 tiles across, the landmark large at the
+ *  picker's size) and steps back toward the start (tiles: the colony's ground in front of the sight). */
+const SIGHT_PITCHES = [30, 40] as const;
+const SIGHT_DISTANCES = [45, 65, 85] as const;
+const SIGHT_BACKS = [0, 12] as const;
+/** The most of the frame a sight picture may show of the backdrop past the map's edge. */
+const SIGHT_VOID = 0.05;
+
+/** The picture's camera on the map's sight (showcase gap 10): the landmark the opening frame holds, as the landmark
+ *  intention reads it (core `analysis/opening.ts` `openingSight`: a standing form, else a fall of 6+), seen from the
+ *  colony's side (the camera looks from the start's middle toward it), its middle height at the frame's middle. Of
+ *  `SIGHT_PITCHES` × `SIGHT_DISTANCES` × `SIGHT_BACKS` frames, those that hold the sight's top and show no more than
+ *  `SIGHT_VOID` of the backdrop; of them the nearest (the landmark largest), the best by the looks score among
+ *  those as near. Null when the map has no start or no sight, or no frame passes: the whole-map camera then. */
+export function sightCamera(view: MapView, land: PictureLand): { x: number; y: number; level: number; distance: number; pitch: number; yaw: number } | null {
+  const s = startOf(view.entities);
+  if (!s) return null;
+  const { W, H, heights } = view;
+  const orientation = ORIENTATIONS[s.o];
+  const [sx, sy] = startMiddleTile({ x: s.x, y: s.y, z: s.z, orientation });
+  // each tile's water over its ground (its top column standing on it), for the falls
+  const N = W * H;
+  const D = new Float32Array(N);
+  const st = land.stack;
+  if (st) for (let i = 0; i < N; i++) for (let q = 0; q < st.count[i]; q++) {
+    const c = q * N + i;
+    if (st.floor[c] === heights[i] && st.depth[c] > 0) D[i] = st.depth[c];
+  }
+  const sight = openingSight(prepareOpening(heights, W, H, D, fallsOf(heights, D, W, H, 1.5)), { x: sx, y: sy, z: s.z, orientation });
+  if (!sight) return null;
+  let lx = sight.x + 0.5 - (sx + 0.5);
+  let ly = sight.y + 0.5 - (sy + 0.5);
+  const len = Math.hypot(lx, ly);
+  if (!(len > 1)) return null;
+  lx /= len;
+  ly /= len;
+  const look: [number, number] = [lx, ly];
+  const right: [number, number] = [ly, -lx];
+  const tanV = Math.tan(deg(OPENING.fov / 2));
+  const tanH = tanV * OPENING.aspect;
+  const mid = sight.z - sight.stand / 2;
+  let best: { score: number; d: number; c: { x: number; y: number; level: number; distance: number; pitch: number; yaw: number } } | null = null;
+  for (const d of SIGHT_DISTANCES) {
+    // (a nearer frame that passes wins: the landmark reads at the picker's size)
+    if (best) break;
+    for (const pd of SIGHT_PITCHES)
+      for (const back of SIGHT_BACKS) {
+        const p = deg(pd);
+        const sinP = Math.sin(p);
+        const cosP = Math.cos(p);
+        const tx = sight.x + 0.5 - lx * back;
+        const ty = sight.y + 0.5 - ly * back;
+        const eye: [number, number, number] = [tx - lx * d * cosP, ty - ly * d * cosP, mid + d * sinP];
+        // the sight's top in the frame (its middle line kept clear of the frame's edges)
+        const dx = sight.x + 0.5 - eye[0];
+        const dy = sight.y + 0.5 - eye[1];
+        const dz = sight.z - eye[2];
+        const ahead = dx * lx + dy * ly;
+        const zc = ahead * cosP - dz * sinP;
+        if (!(zc > 0)) continue;
+        const u = (dx * right[0] + dy * right[1]) / (zc * tanH);
+        const v = (ahead * sinP + dz * cosP) / (zc * tanV);
+        if (Math.abs(u) > 0.85 || v > 0.85 || v < -0.7) continue;
+        const pic = castPicture(land, { eye, look, right, sinP, cosP, tanH, tanV });
+        let empty = 0;
+        for (let k = 0; k < pic.kind.length; k++) if (pic.kind[k] === PIXEL.void) empty++;
+        if (empty / pic.kind.length > SIGHT_VOID) continue;
+        const score = looksScore(pic).score;
+        if (!best || score > best.score + 1e-9) best = { score, d, c: { x: tx, y: ty, level: mid, distance: d, pitch: p, yaw: Math.atan2(-lx, ly) } };
+      }
+  }
+  return best ? best.c : null;
+}
+
+/** What the picture draws (the map, its start hidden) and the camera it draws it from: on the map's sight where it
+ *  has one (`sightCamera`), else the whole map from the game's thumbnail camera (`heroCamera`). */
 export function heroScene(view: MapView): { view: MapView; camera: HeroCamera } {
   const { W, H } = view;
   const s = startOf(view.entities);
-  const c = heroCamera(W, H, view.heights, s ? s.o : 0, pictureLand(view));
+  const land = pictureLand(view);
+  const c = sightCamera(view, land) ?? heroCamera(W, H, view.heights, s ? s.o : 0, land);
   const camera: HeroCamera = { yaw: c.yaw, pitch: c.pitch, distance: c.distance, target: [c.x, c.level, -c.y], fov: OPENING.fov };
   return { view: { ...view, entities: withoutStart(view.entities) }, camera };
 }

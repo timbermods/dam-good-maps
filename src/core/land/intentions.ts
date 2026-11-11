@@ -22,7 +22,7 @@
 // weighs each intention by its mean over the six themes (D209). The set and its rates are
 // decisions-pending #61's default (D209).
 
-import { fallInView, LANDMARK_LEAST, landmarkInView, levelDoorTurns, prepareOpening, type OpeningLand } from "../analysis/opening";
+import { fallInView, LANDMARK_FALL, LANDMARK_LEAST, landmarkInView, levelDoorTurns, prepareOpening, type OpeningLand } from "../analysis/opening";
 import { standingForms } from "../analysis/vertical";
 import type { Orientation } from "../format/footprints";
 import * as portable from "../math/portable";
@@ -486,7 +486,7 @@ export function startPreference(id: IntentionId, s: SettlerView, x: number, y: n
       for (const t of levelDoorTurns(h, W, H, x, y, L)) {
         const st = { x, y, z: L, orientation: t.o };
         const lm = landmarkInView(s.opening, st);
-        best = Math.max(best, lm ? lm.weight : fallInView(s.opening, st, 6) ? 0.7 : 0);
+        best = Math.max(best, lm ? lm.weight : fallInView(s.opening, st, LANDMARK_FALL) ? 0.7 : 0);
       }
       return best;
     }
@@ -867,7 +867,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       const land = prepareOpening(h, W, H, D, c.falls, forms);
       const st = { x: sx, y: sy, z, orientation: start.orientation ?? "Cw0" };
       const lm = landmarkInView(land, st);
-      const fall = lm ? null : fallInView(land, st, 6);
+      const fall = lm ? null : fallInView(land, st, LANDMARK_FALL);
       const standout = forms.reduce((m, f) => Math.max(m, f.prominence), 0);
       const tallest = c.falls.reduce((m, f) => Math.max(m, f.drop), 0);
       const ok = !!lm || !!fall;

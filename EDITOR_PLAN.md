@@ -254,7 +254,8 @@ place of its bottom rule.
   keys only in tooltips.
   - Select: How to select's six shapes on the tools' cells, icon above name; "Drag on the map" beside them, or with a
     selection its size (and Max water depth with Apply over water), then its Level and its actions on the second
-    row, one per cell (Up 1, Down 1, Flatten, Cut down, Fill up, Delete). No close button: Esc or X closes it. The first row
+    row, one per cell (Up 1, Down 1, Flatten, Cut down, Fill up, Delete). After them on the second row: Max water depth (two cells), Apply, and **Lake level**
+    (two cells; §5, "Lakes by number"), live once the Wand has taken water. No close button: Esc or X closes it. The first row
     ends with **Crop** (the map becomes the selection's bounding rectangle, D340; one cell, the size's words take two),
     **Fill water** (the hollow under the selection's lowest ground filled with standing water to the brim, the highest
     level it holds (the core's `fillLevel`), so the first try holds; to the Level once the player sets it; hovering says
@@ -412,14 +413,25 @@ place of its bottom rule.
 - **The Show toggles** (D287) in one row at the top left, each a 14px checkbox at the left of its name (as in
   Timberborn's settings; the toggle is never lit, a click anywhere on it toggles it): **Heights** (the ground by
   height; its key under Legend while on: "Ground height", the ramp, the map's lowest and highest level), **Lines** (D248: a thin line wherever the ground steps down a level), **Markers** (the sources,
-  each water object, core and reserve with a label of its own words, and the slopes), **Flow** (D353: the water's currents), **See-through** (the water, T), the overlays **Badwater**
-  and **Caves and overhangs** (where the map has them, right after Badwater; each with its caption under Legend while on);
+  each water object, core and reserve with a label of its own words, and the slopes), **Flow** (D353: the water's currents), **See-through** (the water, T), the overlays **Badwater**,
+  **Irrigation** (I; where the soil's water stops and why: moist ground as it is, dry ground amber where the nearest
+  water one level higher or six tiles nearer would wet it, the rest dark as dry for good; the readout says why a dry tile
+  is dry, "3 levels above the nearest water", "9 tiles from water; soil carries it 7"; the soil rule's own reach,
+  `analysis/irrigation.ts` on `sim/soil3d.ts` `moistureReach3d`, worked out with the water's settle while the view is on)
+  and **Caves and overhangs** (where the map has them, right after Irrigation; each with its caption under Legend while on);
   **Legend** stands at the top right, just left of Top-down, with **Hide objects** just left of it (every object and its
   shadow, while H is held or until clicked again; §4, "Seeing the land behind objects"; beside Legend so the Show row
   keeps its room and the water row its place in the band, and where the water row takes a second line the two join the
-  Show row as its last toggles). All off by default; ticking any of them moves nothing. No dam site is drawn on the map or named on the map
+  Show row as its last toggles). **Land**, between Hide objects and Legend, shows the land's shares in the key under Legend
+  while it is ticked: **Water**, **Moist ground** and **Dry ground** as whole per cents of the map's tiles that add up to
+  100 ("under 1%" for a share that is there but rounds to none; contaminated ground counts as dry), then **Living trees**
+  and **Logs** (each grown tree's, as the checks count them). Plain numbers, no warning colour: dry land is not a fault,
+  irrigating it is the game (MAPCRAFT section 4). They are read when the map changes and its water has settled, never per
+  frame (the last numbers stay while the water flows), from the map's own water and soil, not a held weather day's
+  (`core/analysis/landShares.ts`, `view/useLandShares.tsx`); the toggle is remembered in this browser. All off by default; ticking any of them moves nothing. No dam site is drawn on the map or named on the map
   card (Timberborn has no dam sites); the analysis stays internal. The land shows moisture itself, and the water
-  bar's Drought shows a drought day by day, so there is no Moisture or Drought view.
+  bar's Drought shows a drought day by day, so there is no Moisture or Drought view (Irrigation shows the dry ground's
+  why, not the moisture).
 - **The legend,** while Legend is ticked: directly under Legend, centred under it so "Legend" reads as its title (Kyler, 2026-10-04: DESIGN.md), one width,
   every line a name (Moist ground, Water, Trees and bushes, Start, Slope…; "Markers on:" Slope arrows, Wall levels,
   Contamination edge, Mine site outline), an object's line with the objects menu's own picture, the ground, the
@@ -799,6 +811,14 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   opening, rest a moment and fade; a faint stir of dust at the face as it rumbles. Visual only, gone about two
   seconds after its land is final, the same in Standard and High, off with reduced motion and in software. What it
   wore glows red on the faces it opened, fading a second after its last frame, as the Block tool's edits do.
+- **Roll** (ground with grade, 2026-11-10): soil creep and slumping, sped up. The land under a click or a drawn line
+  rolls in one-level steps: smooth swells (a level at Power 0, up to four at 100), then the nearest land that never
+  steps more than one level, so a cliff slumps into a walkable flank and a tabletop breaks into hills; water and the
+  ground beside it, kept ground and caves hold; inside a working area a tile moves at most its depth into it, up or
+  down (D254), and like Erode it waits for settled water (D281). **Power**, **Size** (8–64 tiles across, or Auto), the Floor,
+  Sources, **Try another** (the swells). The core half is adopted (`rust/forces/src/roll.rs`, `core/forces/roll.ts`;
+  20 fixed steps, each tile moving as the sweep reaches it). **The page:** its button, settings, ring, sounds and
+  key are the page session's, to come; it has no moment of its own.
 - **The block tool** (D280 (3); terrain above terrain, step 3): precision, beside Erode's magic. Point at a block's
   face and click to add a block against it, drag to paint a layer outward from that face; remove blocks to hollow a
   cave; sized like the brushes; shows at once any block the game's support rule would drop.
@@ -1143,8 +1163,16 @@ Make a valley, drop a source, and there's a river.
   settles once). Refused with one plain line when the land can't hold the lake: the level at or below its floor, a
   second way out below the level (one sill can't hold it), water that would spill off the map, a notch that would
   also drain another lake, a width for a sill that must be raised, no source filling it that high, a river standing a
-  level or more over the sill. One undo step; the start is carried if its ground broke. Engine and question in the core (`setLakeLevel`); its
-  control waits on the page session.
+  level or more over the sill. One undo step; the start is carried if its ground broke. Engine and question in the core (`setLakeLevel`).
+  **On the page:** Select's **Lake level** (`useSelect.tsx`; `settings.tsx` `HeldNumberSetting`). The Wand on water takes a
+  lake (or a river), and the field then shows the level it is held at (its sill's: the core's `lakeHeldLevel`, the
+  worker's `lakeHeldAt`, so a river standing a level over its sill does not read one high); it is greyed with nothing taken, and goes back to that when the selection changes. A new level is typed (Enter
+  or leaving the field sets it), dragged on its slider or turned on the wheel over it, a step a notch; once the hand has
+  rested about half a second the worker's `lakeLevelAt` sets it. While the plan runs (a settle: seconds on a big map)
+  the field is greyed and the row's words say "Setting the lake's level…". A refusal is the core's one line on the
+  message line, as for every refusal, and the field goes back to the lake's level; a typed number out of range is sent
+  as typed and refused there, never clamped. One step in History, undone and redone as any other; afterwards the
+  selection is the lake as it now stands. Its tooltip: "Hold the lake at this level", key cap Scroll.
 - **Seeing underwater** (D196, D212): while a brush is over water already there, the water under and right round it
   turns clear, so the bed, ledges and sources show; working on dry land leaves the water as it is. T (the game's
   key) or **Clear water** makes all of it clear. The ground under water is drawn as it is dry, as the game draws it
@@ -1750,7 +1778,12 @@ checks dot counts; every other row is information under Good to know, worded as 
     the journey; Esc drops it.
   - **Export:** the exported file always gets the canonical settle (`PLAN.md` §19.7), with a progress bar, so an
     export never depends on the preview's history. Its thumbnail is the map's 3D picture (D488): drawn off screen in
-    the High look, at twice its size and scaled down, from the game's own map thumbnail camera
+    the High look, at twice its size and scaled down, framed on the map's sight (showcase gap 10; `render3d/heroView.ts`
+    `sightCamera`): the landmark the start's opening frame holds, as the landmark intention reads it (`analysis/opening.ts`
+    `openingSight`: a standing form 8+ over its ring, else a fall of 6+; a premise's landmark fall is placed in that
+    frame), seen from the colony's side, 30° or 40° down, 45 to 85 tiles off, the nearest frame that holds its top and
+    shows at most 5% backdrop, the best of those by the looks score. A map with no start, no sight or no such frame
+    keeps the game's own map thumbnail camera
     (`ThumbnailCameraDefaultPositionProvider`; `render3d/heroView.ts` `heroCamera`: 40° down, face-on, the game camera's
     35° field of view, turned to the start's orientation (north without a start), centred on the land and pulled back
     only as far as the frame's corners still land on the map, so the map fills the picture with no backdrop past its

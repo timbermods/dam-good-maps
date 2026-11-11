@@ -38,8 +38,8 @@ import { clusterSaturation } from "../sim/moisture";
 import { canonicalRun, type CanonicalWater } from "../sim/prefill";
 import { sameKeptWater, type WaterModel } from "../sim/water";
 import { terrainColumns as runColumns, waterColumns } from "../sim/columns";
-import { runGround, stackedSoil, stackSoilOf, type RunGround } from "../sim/soil";
-import type { Soil3d } from "../sim/soil3d";
+import { gameMoistureReach, runGround, stackedMoistureReach, stackedSoil, stackSoilOf, type RunGround } from "../sim/soil";
+import type { MoistureReach, Soil3d } from "../sim/soil3d";
 import { storedStack, type StackSettle } from "../sim/stackWater";
 import { rawEntity } from "../format/entities";
 import { fromBase64 } from "../format/base64";
@@ -1350,6 +1350,25 @@ export class MapSession {
   }
 
   private readonly runSoils = new WeakMap<BuildResult, { soil: Soil3d; stack: StackSettle } | null>();
+
+  /** How far the soil's water reaches each tile's top (sim/soil.ts, the rule the build's moisture comes from), for the
+   *  Irrigation view: on the build's settle (its stacked columns on terrain above terrain), or on `water` (an unedited
+   *  import's water, which the build holds no settle for). Worked out once a build and water. */
+  moistureReach(built: BuildResult = this.cur, water?: { depth: ArrayLike<number>; contamination: ArrayLike<number> }): MoistureReach {
+    const hit = this.reaches.get(built);
+    if (hit && hit.water === water) return hit.reach;
+    const objects = built.entities.map(toMapObject);
+    const { x: W, y: H } = this.size;
+    const cs = water ? null : this.caveSoilOf(built);
+    const reach =
+      cs && built.settle.stack
+        ? stackedMoistureReach(this.terrainOf(built), cs.cols, built.settle.stack, objects)
+        : gameMoistureReach(W, H, built.heights, water?.depth ?? built.water, water?.contamination ?? built.contamination, objects, water ? undefined : built.settle.sat);
+    this.reaches.set(built, { water, reach });
+    return reach;
+  }
+
+  private readonly reaches = new WeakMap<BuildResult, { water: unknown; reach: MoistureReach }>();
 
   /** The document as it stands, for the project file and autosave. */
   get document(): MapDocument {

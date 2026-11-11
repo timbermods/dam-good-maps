@@ -78,6 +78,8 @@ The editor:
 - **Select** is in hand whenever nothing else is: drag on the land to mark an area (Ctrl+drag with a
   brush too). Raise it, lower it, level it or dig it out. **Delete** clears everything standing in
   it. Esc or X puts anything down and goes back to Select.
+- To set a lake's level, take the lake with Select's **Wand**, then type the level in **Lake level** (or scroll over
+  it). The lake's outlet is cut down or raised so the water holds there.
 - Drag the start to move it. Point at it to see its water, wood and berries.
 - The water flows into place after each edit. Undo and redo show a change again.
 - **Drought** and **Badtide** hold their last day on the map. **◀** and **▶** step through the days; double-click the
@@ -85,7 +87,8 @@ The editor:
 - A brush over water clears the water around it, so you see the bed. **See-through** (T) clears all
   of it.
 - Tick what to show at the top left: **Heights**, **Lines**, **Markers**, **Flow**, **See-through**,
-  **Badwater** and **Legend**. **Top-down**, **Reset view** and **Sound** are at the top right.
+  **Badwater**, **Land** and **Legend**. **Land** shows how much of the map is water, moist ground and dry ground,
+  and its living trees and logs. **Top-down**, **Reset view** and **Sound** are at the top right.
 - Alt+scroll hides the levels above a layer, as in the game. Alt+click jumps to a tile's layer.
 - Ctrl+Shift+1 to 9 keeps the view; Alt+1 to 9 goes back to it.
 - **File → Keyboard shortcuts**, or ?, lists every key.

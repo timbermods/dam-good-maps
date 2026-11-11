@@ -27,6 +27,7 @@ const HEAVY = [
   "tests/contract/carveFallSweep.heavy.test.ts", // a fall from one stroke from every start near the reviewed ones (gaps 1, 2, 20)
   "tests/contract/islandsCleanSea.heavy.test.ts", // Islands' sea clean at 128² and 256², settled and played on (D498, #446)
   "tests/contract/premisePlan.heavy.test.ts", // the lake stair's plans on seeds 1 to 200 at three sizes (PREMISES §7 step 1)
+  "tests/contract/premiseWater.heavy.test.ts", // stage 1's water settled on three plans and Four Lakes (PREMISES §7 step 2)
 ];
 
 export default defineConfig({

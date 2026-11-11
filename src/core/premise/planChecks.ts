@@ -1,7 +1,9 @@
-// The checks every premise's plan passes (docs/PREMISES.md §1.4, `plan`): the levels fit, the bodies don't overlap,
-// the graph closes, the works and the skeleton refer to what is there. Arithmetic on the plan, microseconds to
-// milliseconds; each fails with one line naming what is wrong ("Lake 2's sill (6) is not below lake 3's (6)").
+// The checks every premise's plan passes (docs/PREMISES.md §1.4, `plan`): the levels fit, every bed stands on the
+// floor, the bodies don't overlap, the graph closes, the works and the skeleton refer to what is there. Arithmetic on
+// the plan, microseconds to milliseconds; each fails with one line naming what is wrong ("Lake 2's sill (6) is not
+// below lake 3's (6)").
 
+import { BED_FLOOR } from "../land/genome";
 import { bodyGap, edgeGap, pathBodyGap, pathDist, pathGap, pathLength, subPath } from "./geom";
 import type { Body, Invariant, InvariantResult, Link, PremisePlan } from "./types";
 
@@ -80,6 +82,22 @@ const levels: Invariant = {
         if (from && bed[0] > from.sill) return fail(`${nameOf(plan, l.id)}'s bed starts at ${bed[0]}, over ${nameOf(plan, from.id)}'s sill (${from.sill})`);
         if (to && bed[bed.length - 1] < to.sill) return fail(`${nameOf(plan, l.id)}'s bed ends at ${bed[bed.length - 1]}, under ${nameOf(plan, to.id)}'s sill (${to.sill})`);
       }
+    }
+    return OK;
+  },
+};
+
+/** Every bed stands on the floor (`BED_FLOOR`, D325, PERFECT item 47): the deepest bed three levels over the map's
+ *  floor, room for a player to dig. A body's bed, a channel's, a fall's foot. */
+const floor: Invariant = {
+  id: "plan.floor",
+  at: "plan",
+  test({ plan }) {
+    for (const b of plan.bodies) if (b.sill - b.deep < BED_FLOOR) return fail(`${nameOf(plan, b.id)}'s bed (${b.sill - b.deep}) is under the floor (${BED_FLOOR})`);
+    for (const l of plan.links) {
+      const bed = bedOf(l);
+      if (bed && Math.min(...bed) < BED_FLOOR) return fail(`${nameOf(plan, l.id)}'s bed falls to ${Math.min(...bed)}, under the floor (${BED_FLOOR})`);
+      if (l.fall && l.fall.crest - l.fall.height < BED_FLOOR) return fail(`${nameOf(plan, l.id)} drops to ${l.fall.crest - l.fall.height}, under the floor (${BED_FLOOR})`);
     }
     return OK;
   },
@@ -238,4 +256,4 @@ const skeleton: Invariant = {
 };
 
 /** The checks every premise's plan passes. */
-export const PLAN_CHECKS: Invariant[] = [levels, overlap, graph, works, skeleton];
+export const PLAN_CHECKS: Invariant[] = [levels, floor, overlap, graph, works, skeleton];
