@@ -1141,7 +1141,18 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   standout intentions that emerged on it (at most two, the generator's `say` lines), then its badwater line, then
   "Made with Dam Good Maps <version>, seed <n>.". The session answers `description()`: `{text, written, kept}`
   (`SessionInfo.description`, `descriptionWritten`, `descriptionKept`: the page shows `kept` under the field, not editable). This is not the name (D443): a rename stays
-  off the history.
+  off the history. **Its own words, and when they go out of date:** `description()` also answers `stale`
+  (`SessionInfo.descriptionStale`). A generated map's words say what the seed made ("A spring rises in a cave…", the
+  generator's `says`); once its player changes the map by hand (an operation that changes the map stands in the log;
+  writing the description or locking a feature does not) those lines are dropped from the words and from the file,
+  which then say only what stays true (its size and theme,
+  its badwater, its credit), and the words are stale until the player keeps them or writes their own, either one a
+  `setDescription`. An opened or blank map's words are never stale. **File → Description…** is the same two things in
+  one dialog: the **Name** and the **Description** (its count of 600, what is always added after it, the core's
+  refusal in its own line); it starts from the map's own words, says so, and while they are stale says "The map has
+  changed since the generator wrote these words. Keep them as yours, or write your own." with **Keep these words** as
+  its button. **An export never carries the checks' notes:** `exportTimber` writes the map's words alone (it once
+  appended "Exported with N warnings: …"; planning, 2026-11-11).
 - **The working area is Select's open selection** (D254, D259); there is no second way of marking an area. While a
   selection is open, the brushes, the forces and a brush's Clear work only inside it; everything outside is locked,
   exactly as it is, and dimmed. **A feathered edge**: a tile changes at most as many levels as it is steps inside
@@ -1669,7 +1680,8 @@ checks dot counts; every other row is information under Good to know, worded as 
   highlighted on the map; clicking one flies the camera to it. **Error** (load class): the file would crash the
   game, lose objects on load, or start without beavers; export is blocked until fixed. **Warning** (playability or
   design): a flooded start, no water nearby, a map above height 16; it shows on the quiet dot and never blocks
-  export; the warning is noted in the map description.
+  export; it is never written into the map's description, which holds only the map's own words (below, "The map's
+  description"): the warnings are in the editor's checks list.
 - **Words.** The History's labels (`core/doc/labels.ts`) read "Verb the thing" with a correct article and plural and the
   Items list's names: "Raise 806 tiles", "Plant 34 birches", "Plant a berry bush", "Place a water source", "Craterize",
   "Quake: lift". A check that names several things is listed as one row for each, with its own Show (`checkRows`); the
