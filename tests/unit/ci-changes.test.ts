@@ -3,7 +3,7 @@
 // change only under src/editor/, src/ui/ and tests/e2e/ skips oracle, generation, engines and rust; rust runs only for
 // the Rust and the TypeScript that wraps it. Code, dependencies and scripts keep the rest of the suite.
 import { describe, expect, it } from "vitest";
-import { classify, isCollabOnly, isDocument, isInvestigation, isRustInput, isUiOnly, needsHeavy, needsTest, onlyLightFieldsDiffer } from "../../tools/ci-changes.mjs";
+import { classify, isCollabOnly, isDocument, isInvestigation, isPage, isRustInput, isUiOnly, needsHeavy, needsPage, needsTest, onlyLightFieldsDiffer } from "../../tools/ci-changes.mjs";
 
 const pkg = (over: object = {}) =>
   JSON.stringify({ name: "x", version: "1.0.0", license: "MIT", scripts: { test: "a" }, dependencies: { a: "1" }, devDependencies: { b: "1" }, ...over });
@@ -109,5 +109,20 @@ describe("the collaboration connection", () => {
   it("does not cover anything else, even beside it", () => {
     for (const f of ["src/editor/a.ts", ".github/workflows/ci.yml", "tests/unit/ci-changes.test.ts", "package.json", "tests/e2e/a.spec.ts"]) expect(isCollabOnly(f), f).toBe(false);
     expect(needsHeavy(["src/collab/transport.ts", "src/core/a.ts"], () => null)).toBe(true);
+  });
+});
+
+describe("the page job", () => {
+  it("is the page's own files: the editor, the interface, the 3D view and the styles", () => {
+    for (const f of ["src/editor/Editor.tsx", "src/ui/App.tsx", "src/render3d/water.ts", "src/styles/editor.css"]) expect(isPage(f), f).toBe(true);
+    for (const f of ["src/core/a.ts", "src/worker/a.ts", "tests/e2e/a.spec.ts", ".github/workflows/ci.yml", "docs/RULES.md", "src/editorial/a.ts"]) expect(isPage(f), f).toBe(false);
+  });
+  it("runs only for a pull request into dev (light) that touches the page, and when the change can't be read", () => {
+    expect(needsPage(["src/ui/a.tsx", "docs/STATUS.md"], "light")).toBe(true);
+    expect(needsPage(["src/core/a.ts", "src/render3d/a.ts"], "light")).toBe(true);
+    expect(needsPage(["src/core/a.ts", "docs/STATUS.md"], "light")).toBe(false);
+    expect(needsPage(["investigation/x/run.ts"], "light")).toBe(false);
+    expect(needsPage([], "light")).toBe(true);
+    for (const mode of ["auto", "full"]) expect(needsPage(["src/ui/a.tsx"], mode), mode).toBe(false);
   });
 });
