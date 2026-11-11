@@ -1,7 +1,7 @@
 // What each generator setting does, in one line, for its tooltip (D351), with the official maps' range where it has
 // one; and what the page gives the settings.
 
-import type { MapSpec, Settings, ThemeId } from "../../core/spec/mapspec";
+import type { MapSpec, PremiseChoice, Settings, ThemeId } from "../../core/spec/mapspec";
 
 export interface SettingsProps {
   spec: MapSpec;
@@ -17,6 +17,8 @@ export interface SettingsProps {
   onPinSeed(): void;
   onSize(size: { x: number; y: number }): void;
   onTheme(theme: ThemeId): void;
+  /** The idea the next map is built around (`spec.premise`), or none: the themes' map (D509: the default). */
+  onPremise(premise: PremiseChoice | undefined): void;
   onSettings(s: Settings): void;
   onReset(): void;
 }
