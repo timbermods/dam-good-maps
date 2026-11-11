@@ -9,7 +9,9 @@ import type { MapSpec } from "../spec/mapspec";
 import { rulesFor } from "../validate/playability";
 import { checkFrame, type FrameCheck } from "./frame";
 import { gateLand, gateLandFailures } from "./gateLand";
-import { gateFirstWater } from "./gateWater";
+import { gateWater } from "./gateWater";
+import { failing, PLAN_TRIES } from "./draw";
+import { gateOf } from "./premises/wallGate";
 import { gateCard, gateLadder, gateWorksFailures } from "./gateWorks";
 import type { PremiseCard } from "./card";
 import type { Ladder } from "./ladder";
@@ -50,19 +52,81 @@ export function startNumbers(m: PremiseMap): Record<(typeof START_CHECKS)[number
   return out;
 }
 
-/** A gate map for a spec, in a theme's style (River Valley by default), or why no plan's water held. */
-export function gateMap(spec: MapSpec, theme: StyleTheme = "riverValley"): GateMap | { reason: string } {
-  const r = gateFirstWater(wallGate, spec);
-  if ("reason" in r) return r;
-  const style = premiseStyle(theme, spec, r.attempt);
-  const land = gateLand(r.plan, r.water, style.relief);
-  const landFails = gateLandFailures({ spec, plan: r.plan, water: r.water, heights: land.heights });
+/** How many settles a gate map may cost before it gives up (the mode's `PREMISE_SETTLES`). */
+export const GATE_SETTLES = 3;
+
+/** `veil.settled` (§5.1, planning's ruling: the Veil drops its height less 0.5): on the map's settled water, the median
+ *  water surface over the Veil's lip less the median over its foot. */
+export function veilDrop(plan: PremisePlan, water: StageWater, heights: ArrayLike<number>, depth: ArrayLike<number>): number {
+  const r = water.raster;
+  const g = gateOf(plan)!;
+  const li = plan.links.findIndex((l) => l.id === g.veil) + 1;
+  const med = (v: number[]) => (v.sort((a, b) => a - b), v.length ? v[v.length >> 1] : NaN);
+  const lip = med((r.lips[g.veil] ?? []).map((i) => heights[i] + depth[i]));
+  const foot: number[] = [];
+  for (let i = 0; i < r.pool.length; i++) if (r.pool[i] === li && depth[i] > 0.05) foot.push(heights[i] + depth[i]);
+  return lip - med(foot);
+}
+export const VEIL_SHORT = 0.5;
+
+/** A gate map for a spec, in a theme's style (River Valley by default): the first plan, as the mode draws them, whose
+ *  water, land and start hold and whose map passes every blocking check with its Veil pouring (at most `GATE_SETTLES`
+ *  builds); or why none did. `failed` lists each refused plan's reason. */
+export function gateMap(spec: MapSpec, theme: StyleTheme = "riverValley"): (GateMap & { failed: string[]; held: boolean }) | { reason: string } {
+  const why = wallGate.eligible(spec);
+  if (why) return { reason: why };
   const rules = rulesFor(spec);
-  const frame = checkFrame(r.plan, r.water, land.heights, { level: rules.levelLand, farmland: rules.farmland });
-  const ladder = gateLadder(r.plan, r.water, land.heights);
-  const out: GateMap = { plan: r.plan, water: r.water, land, landFails, frame, ladder, card: gateCard(r.plan, theme, ladder), worksFails: gateWorksFailures({ plan: r.plan, water: r.water, heights: land.heights, ladder }), attempt: r.attempt };
-  if (frame.reason) return out;
-  const s: MapSpec = { ...JSON.parse(JSON.stringify(spec)), accepted: { attempt: r.attempt, candidate: 0 } };
-  out.map = premiseMap(s, r.plan, land, frame.start, ladder, style);
-  return out;
+  const failed: string[] = [];
+  let settles = 0;
+  let last: (GateMap & { failed: string[]; held: boolean }) | null = null;
+  for (let attempt = 0; attempt < PLAN_TRIES && settles < GATE_SETTLES; attempt++) {
+    const plan = wallGate.draw(spec, attempt);
+    if ("reason" in plan) {
+      failed.push(plan.reason);
+      continue;
+    }
+    const pf = failing(wallGate.invariants, "plan", { spec, plan });
+    if (pf.length) {
+      failed.push(`${pf[0].id}: ${pf[0].reason}`);
+      continue;
+    }
+    const water = gateWater(plan);
+    const wf = failing(wallGate.invariants, "land", { spec, plan, water });
+    if (wf.length) {
+      failed.push(`${wf[0].id}: ${wf[0].reason}`);
+      continue;
+    }
+    const style = premiseStyle(theme, spec, attempt);
+    const land = gateLand(plan, water, style.relief);
+    const landFails = gateLandFailures({ spec, plan, water, heights: land.heights });
+    if (landFails.length) {
+      failed.push(`${landFails[0].id}: ${landFails[0].reason}`);
+      continue;
+    }
+    const frame = checkFrame(plan, water, land.heights, { level: rules.levelLand, farmland: rules.farmland });
+    if (frame.reason) {
+      failed.push(`frame.start: ${frame.reason}`);
+      continue;
+    }
+    const ladder = gateLadder(plan, water, land.heights);
+    const out = { plan, water, land, landFails, frame, ladder, card: gateCard(plan, theme, ladder), worksFails: gateWorksFailures({ plan, water, heights: land.heights, ladder }), attempt, failed };
+    const s: MapSpec = { ...JSON.parse(JSON.stringify(spec)), accepted: { attempt, candidate: 0 } };
+    settles++;
+    const map = premiseMap(s, plan, land, frame.start, ladder, style);
+    last = { ...out, map, held: false };
+    if (!map.report.passed) {
+      const c = map.report.checks.find((x) => !x.ok && x.severity === "error");
+      failed.push(`${c?.id}: ${c?.message}`);
+      continue;
+    }
+    const drop = veilDrop(plan, water, map.built.heights, map.built.settle.depth);
+    const want = (plan.links.find((l) => l.id === gateOf(plan)!.veil)?.fall?.height ?? 0) - VEIL_SHORT;
+    if (!(drop >= want)) {
+      failed.push(`veil.settled: the Veil drops ${drop.toFixed(2)} settled (${want} or more)`);
+      continue;
+    }
+    return { ...out, map, held: true };
+  }
+  if (last) return last;
+  return { reason: `No wallGate map held in ${failed.length} plans and ${settles} settles (${failed[failed.length - 1] ?? ""})` };
 }

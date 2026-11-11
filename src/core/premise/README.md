@@ -70,8 +70,9 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
 - `gateLand.ts`: the wall with one gate's stage 2 (§5.1 "As built (relief)"): `gateRelief` (the shared relief with the
   spur alone, then the wall's crest band, its sheer faces and the Pass, the basin's terraces along its beds, the rim and
   its notch, the valley closed at the megadam's water), `gateZones`, `gateLand` (`premiseLand`'s parts for this land) and
-  `GATE_LAND_CHECKS` / `gateLandFailures` (its land invariants, on the ground). `gateMap.ts` `gateMap` makes the whole map
-  (stages 0 to 3, one `premiseMap` build and its checks) and `startNumbers` reads the start's five checks;
+  `GATE_LAND_CHECKS` / `gateLandFailures` (its land invariants, on the ground). `gateMap.ts` `gateMap` makes the whole map as the
+  mode's loop does (a plan at a time: stages 0 to 4, one `premiseMap` build and its checks, the Veil's drop on the settle,
+  `veil.settled`; at most three settles; `held` says whether a plan held) and `startNumbers` reads the start's five checks;
   `tools/premise-gate-map.ts` writes a seed's, `tools/capture-gate.ts` renders its opening camera.
 - `gateWorks.ts`: the wall with one gate's stage 4 (§5.1 "As built (works)"): `gateLadder` (round 8's rungs as templates
   on the land, measured as `ladder.ts` measures: the Still Pool's levee, the Gate opened and made whole, the leat and its
