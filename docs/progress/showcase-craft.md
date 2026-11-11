@@ -349,3 +349,50 @@ The ladder: the Gate opened +1,318 (3.6 %, 305 water); the second blast and the 
   door's east and the berries south of it, the side pool with its birch; from the widest view the wall, the Gate's
   slot, the Veil's bastion, the leat's line west along the crest to the Pass and the Pass Bed winding across the
   basin's west, the Gate Bed with its dead woods, the far rim: valley, wall, gate, basin. The map stops here.
+
+## The swallow hole: the third premise map, its water proved first
+
+Principles: [MAPCRAFT.md](../MAPCRAFT.md); the premise as planning set it on #236 (2026-11-11): a river runs across an
+upland and vanishes into a cave under an overhang mid-map, runs underground, and comes out as a spring far below; a
+dam before the sink floods the dry upper plain and the spring below runs dry. The verb is *catch*. Built by
+`tools/showcase/swallow-hole.ts` from blank 128² ground by operations only (D342, D455): the land by Flatten, the
+tunnel dug with the Block tool (`blocks`, remove) slice by slice from the mouth, each block from a face that looks at
+air, so the map's water is the stacked engine's (`sim/stackWater.ts`). Planning's gate: rounds 1 and 2 prove the water
+only, small and plain, in our engine and in the game alike; if the game's water differs by round 2, the premise stops
+and the braided delta is built instead. Each round is two maps in one probe batch, as built and with the dam, and the
+script reads the game's own whole-map record (`--game`, every tunnel column by its floor) beside our settle.
+
+- **Round 1 (the water in its simplest form).** The plain at 12 with the river in a bed at 10 (two springs of 2.0
+  in a pool in the south-west); a hill at 17 across the map's middle, its south face toward the camera, with a porch:
+  the mouth under an overhang two tiles out between two buttresses (the support rule: each roof block within two
+  steps of rock that stands on the ground; a canopy carried out further over the plain was refused, "1 block of ground
+  would fall"); the tunnel three wide and three high, 36 tiles north under the hill, its floor falling from 10 to 4, out
+  at the hill's north foot into a lowland stream (bed 3) to the north edge. The dam: ten tiles to 14 across a narrows
+  between two shoulders at 14 (a dam across the bed alone was walked round: the plain's water came back to the bed
+  behind it); the plain's rim at 15 with a spillway at 13 off the east edge. Ours: the tunnel's 108 columns wet, 0.40
+  deep, none under pressure; the stream 107 tiles wet, 0.76 at the exit; with the dam the tunnel and the stream dry and
+  6,626 plain tiles flooded to 13.25. **In the game** (run `20261111-0920-captures`, 1.1.2.8; every check passed): a
+  day in, the tunnel's 108 columns wet as ours, the largest difference 0.013 (0.415 against 0.402 at the mouth); the
+  stream 107 tiles and 73.9 of water as ours, 0.76 at the exit; with the dam the tunnel and the stream dry, 6,626 tiles
+  flooded to 13.26. At day 10.6, after the drought and the badtide, the same within 0.015; on the drought's last day
+  the river, the tunnel and the stream are dry (the springs stop). The two agree. What fell short, for the full
+  rounds: the mouth at 10 to 13 sat in a slot under the narrows' shoulders (14), so the first frame did not show it.
+- **Round 2 (the water in the layout the map will use).** The lowland along the south edge at 4, nearest the opening
+  camera, under an escarpment whose rim (15) faces the camera; the upper plain at 12 in a valley sixteen tiles either
+  side of the river, terraces at 14 beyond, a rim at 15 along the edges. The river (three springs of 2.0 in a pool in
+  the north-west) comes south and east across the plain and turns north into the mouth: five wide and four high in the
+  south face of a hill at 18, under an overhang three deep between two buttresses five tiles out. The tunnel, three
+  high and 72 long, runs north into the hill, east under it, then south under the plain (two levels of roof) to the
+  escarpment, its floor falling from 10 to 4, and comes out at the escarpment's foot as a spring facing the camera; its
+  stream crosses the lowland to the east edge. A notch at 13 in the escarpment's rim is the old spillway, its own
+  stream to the west edge. The dam: the recess's two open rows between the buttresses to 14 (ten tiles). The start on
+  a rise at 14 beside the last reach, the mouth whole in the first frame by `openingCamera` (u −0.09 to 0.10, v 0.48
+  to 0.90). Ours: the tunnel's 222 columns wet (0.61 to 0.66 along its line, none under pressure), the spring's stream
+  177 tiles and 119.7 of water, 0.78 at the exit, the spillway dry; with the dam the tunnel and the spring dry, 2,976
+  tiles of the valley flooded to 13.47 and the spillway's stream running (128 tiles, 114.5): what the lowland lives on
+  when the spring is caught. **In the game** (run `20261111-0932-captures`; every check passed, the probe's water check
+  100 % of 802 and 3,582 wet tiles within 0.1): a day in, the tunnel's 222 columns wet as ours, the largest difference
+  0.014 (0.630 against 0.616 under the plain); the spring 177 tiles and 119.9 of water, 0.76 at the exit; with the dam
+  the tunnel and the spring dry, the same 2,976 tiles flooded to 13.47, the spillway 115.1 of water. At day 10.6 the
+  same within 0.025. The water holds in both: the premise goes on to full rounds. (The record's per-tile depth is the
+  top wet column's, which over the dry plain is the tunnel's; the script reads the surface's water apart.)
