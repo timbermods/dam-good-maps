@@ -270,3 +270,33 @@ basin face one shadow line and the Gate's slot cutting through it to the dark ch
 edge with its dead woods: a wall with one gate, when the eye is on it; but the crest is still a light band two lines
 wide (the crest's edge and the ledge below it on the valley side), not one dark line, and the basin's one-level rolls
 read as contour bands, not grade. The map stopped at five rounds.
+
+**Round 6 (planning took the shape back, #236 08:05Z).** The wall runs along the grid across the map's middle in
+straight runs of 14 to 22 tiles joined by jogs of 4 to 6, its south face toward the opening camera and sheer from the
+crest (16 to 19) to the meadow (8), its north face sheer to the basin's floor; the crest five thick, seven at the
+Veil's bastion. The leat rides the crest: a channel one wide cut into the wall's top from the cleft's east side to the
+Pass (the crest's dip to 12 at X 164–172), bed 13 falling to 11, plugged at its head by a bar and a blockage row. The
+Gate is a slot six wide straight north from the lake's east arm through the bench and the wall, floored two under the
+lake's sill, both faces the crest's own; its plug the bar at the shore (21 tiles) and two rows of blockages. The basin
+is a bowl: a rim at 14 along the north, east and west edges with its cliff facing the camera, the floor 3 to 8 in
+river terraces along the Gate Bed (the bed two under a low terrace that follows its bends, one more terrace above,
+broad unequal flats out to the rim), and the Gate Bed leaving by the one notch in the rim at X 148–152. The lake lies
+south of a bench seven rows deep; three brooks come to it from the valley's far corners; the Low River leaves west
+through the ridge. The start's water has a neck: a side pool east of the start (bed 6, 21 tiles, a rim a level over
+the bench all round) joined to the Veil's trench by an inlet one tile wide and three long. Shaped first in our own
+widest view (`C:\dgm-showcase\the-gate\ours\r6-widest.jpg`, `r6-first.jpg`, by `tools/showcase/capture.ts` from the
+round's shots file): the wall one dark band across the picture with the Gate's slot cut through it and the Veil's
+bastion at the start, the basin's terraces and rim beyond, the valley green below.
+- **The neck's badtide (by the model).** With a levee of 3 on the inlet, built while the water is clean: the pool's
+  water 13 % bad at most on day 1, 16 % on day 8 (1.95 to 1.53 deep on 21 tiles); without it 51 % and 68 %. The
+  meadow's green beside it is the red trench's: 43 % of the bench on day 1 and 72 % within 12 tiles of the start,
+  6 % and 0 % by day 3, with or without the levee. The capture with no work done runs red, and that is the game.
+- **Measures (r6).** 0 blocking, 4 warnings (`water.outflow` on the three seeps, `start.dry`, `start.food` 10 of 30,
+  `start.wood` 49 of 200). Flat 66.3 %, one-level steps 64.3 %. Water 8.4 %, moist 30.2 %, bare 61.4 %; the basin
+  16.7 % moist or wet (three oases, over the 12 %). The Veil 6.52 levels, 9 tiles wide, whole in the first frame (lip
+  (−0.39, 0.49) to (0.06, 0.91)). 1,253 living trees (340 per 10,000), 375 dead; the start's bench 1,146 level tiles,
+  the walk to the Gate's bar 37 tiles; the south meadow and the west meadow are across the lake, the drain bay or a
+  brook. The ladder: the Gate opened +1,235 (3.4 %, 450 of them water: the Gate Bed to the notch); the second blast and
+  the Low River levee +821/−16 (the lake 7.99); the leat's bar once and twice 0 (its water falls into the Gate's slot,
+  already wet); the leat spanned +2,110/−2,080 (the model blocks the slot to span it); the megadam to 9 with the Gate's
+  bar dammed holds 5,420 over 7,655 tiles.
