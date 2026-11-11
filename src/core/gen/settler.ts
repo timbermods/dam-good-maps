@@ -16,7 +16,7 @@
 //
 // Ported from the design version 2 prototype (investigation/generative/v2/start.ts, rules.ts).
 
-import { bestTurn, levelDoorTurns, prepareOpening, type OpeningLand } from "../analysis/opening";
+import { bestTurn, landInFrame, levelDoorTurns, openingShotScore, prepareOpening, type OpeningLand } from "../analysis/opening";
 import { fallsOf } from "../analysis/vertical";
 import { PUMP_CLEAN, PUMP_DEPTH, PUMP_REACH, slopeLinks, walkDistance } from "../analysis/walk";
 import { placeSlopes, SLOPE_RULES } from "../features/slopes";
@@ -50,6 +50,9 @@ export type DroughtPolicy = "prefer" | "require";
 /** The least land (joined by one-level steps) the last-resort start by a bank must join, at 128²
  *  (in proportion to the map's area). */
 export const BANK_FOOT = 800;
+/** How much more of the opening frame a start among the good few must show of the map to be taken over the one drawn
+ *  (D506: a start near a corner frames mostly void; `landInFrame`). */
+export const FRAME_GAIN = 0.05;
 
 /** The least walk from a start's middle tile to a shore: its 5×5 stays dry (`start.dry`), so the
  *  nearest shore stands 3 tiles out. */
@@ -570,10 +573,34 @@ export function pickStart(
     };
     for (const t of good) if (d2(t) < d2(c) || (d2(t) === d2(c) && t.i < c.i)) c = t;
   }
+  // turned for the game's opening camera (D493)
+  const turned = (t: (typeof good)[number]): Orientation => {
+    const tx = t.i % W;
+    const ty = (t.i - tx) / W;
+    return bestTurn(openingLand(), tx, ty, h[t.i], levelDoorTurns(h, W, H, tx, ty, h[t.i]), dWet)!;
+  };
+  let orientation = turned(c);
+  // the frame (D507): among the good few, all of which keep the start's rules, the one whose opening frame shows
+  // clearly more of the map than the one drawn (a start near a corner frames mostly the void past the edge), never at
+  // the cost of its opening shot (a landmark in view first, D493, D502: its shot as `bestTurn` rounds it)
+  if (!near && good.length > 1) {
+    const at = (t: (typeof good)[number], o: Orientation) => ({ x: t.i % W, y: Math.floor(t.i / W), z: h[t.i], orientation: o });
+    const shot = (t: (typeof good)[number], o: Orientation) => Math.round(openingShotScore(openingLand(), at(t, o)).score * 20);
+    const drawnShot = shot(c, orientation);
+    let most = landInFrame(W, H, at(c, orientation)) + FRAME_GAIN;
+    for (const t of good) {
+      if (t === c) continue;
+      const o = turned(t);
+      const s = landInFrame(W, H, at(t, o));
+      if (s > most && shot(t, o) >= drawnShot) {
+        most = s;
+        c = t;
+        orientation = o;
+      }
+    }
+  }
   const x = c.i % W;
   const y = (c.i - x) / W;
-  // turned for the game's opening camera (D493)
-  const orientation = bestTurn(openingLand(), x, y, h[c.i], levelDoorTurns(h, W, H, x, y, h[c.i]), dWet)!;
   return { x, y, level: h[c.i], orientation, kind: c.kind, shoreWalk: c.walk, levelled: c.levelled, droughtOk: c.droughtOk, intent: c.intent };
 }
 

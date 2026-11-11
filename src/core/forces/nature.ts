@@ -141,6 +141,7 @@ export function glaciateNature(s: GlaciateDraft, g: ForceGround): GlaciateSettin
 export function autoDetailsOf(verb: Verb): Record<string, null> {
   switch (verb) {
     case "erode":
+    case "roll":
       return {};
     case "rift":
       return { walls: null };
@@ -169,6 +170,7 @@ export function natureOf(req: ForceRequest, base: { W: number; H: number; height
   const ground = (at: number): ForceGround => ({ W, H, heights: base.heights, at });
   switch (req.verb) {
     case "erode":
+    case "roll":
       return req;
     case "rift":
       return { ...req, settings: { ...req.settings, walls: req.settings.walls ?? "auto" } };

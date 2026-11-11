@@ -192,7 +192,7 @@ pub(super) fn unsupported(t: &[u32], w: usize, h: usize) -> Vec<u8> {
 }
 
 /// The squared distance from (x, y) to the gesture: its one point, or its polyline.
-fn distance2(path: &[Point], x: f64, y: f64) -> f64 {
+pub(super) fn distance2(path: &[Point], x: f64, y: f64) -> f64 {
     if path.len() == 1 {
         let (dx, dy) = (x - path[0].x, y - path[0].y);
         return dx * dx + dy * dy;

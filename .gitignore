@@ -29,3 +29,6 @@ rust/target/
 # collab-worker: wrangler local state and local secrets
 .wrangler/
 .dev.vars
+
+# The in-game capture kit writes the game's screenshots to ingame/ beside a map: never in git (no game screenshots in the repo)
+ingame/

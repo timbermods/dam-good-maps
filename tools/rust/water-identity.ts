@@ -19,7 +19,8 @@
 // A generated map with terrain above terrain (its 3D forms, D488, at the default Verticality too) settles in the
 // stacked engine (stackWater.ts `canonicalStackRun`, rust/water's `stack_*`), not the heightfield's, so its settle
 // is compared the stacked way, every column's bytes: the app's against the same operations run in Node's
-// WebAssembly and in the native stack-fixture binary (tools/rust/stack-fixtures.ts's input and output, built by
+// WebAssembly (with the water nothing feeds taken once it has settled, as the app takes it, D385), the engine's
+// operations alone against the native stack-fixture binary (tools/rust/stack-fixtures.ts's input and output, built by
 // `cargo build --release -p water --example stack-fixture` as stack-identity.ts runs it; --require-native asks
 // for it too), and, with --threads, the app's on N threads. Its stored-lake variant is the heightfield's case
 // (stack-identity.ts holds the stacked lakes).
@@ -38,7 +39,7 @@ import { AVAILABLE_THEMES, makeSpec } from "../../src/core/spec/mapspec";
 import { nativeCanonical, nativeWaterBinary } from "./native-water";
 import { parallelWaterStats, withoutParallelWater } from "../../src/core/sim/parallel";
 import { installNodeThreads, nodeThreadsReady, uninstallParallelWater } from "./water-threads";
-import { STACK_FIELD, STACK_INFO, STACK_OP, STACK_SETTLE_DAYS, StackWater, type StackSettle } from "../../src/core/sim/stackWater";
+import { STACK_DRAIN_DAYS, STACK_FIELD, STACK_INFO, STACK_OP, STACK_SETTLE_DAYS, StackWater, unfedTaken, type StackSettle } from "../../src/core/sim/stackWater";
 import { fixtureOutput } from "./stack-fixtures";
 
 const arg = (name: string, fallback: string) => {
@@ -99,19 +100,34 @@ function stackInput(m: WaterModel, days: number): Uint8Array {
   return b;
 }
 
-/** The same operations in Node's WebAssembly, read as stack-fixtures.ts `runStackFixture` reads a fixture's. */
-function stackInWasm(m: WaterModel, days: number): { info: number[]; fields: Uint8Array<ArrayBuffer>[] } {
+/** The same operations in Node's WebAssembly, read as stack-fixtures.ts `runStackFixture` reads a fixture's. With
+ *  `drain`, as the app's settle runs them on stacked columns: once the water has settled (before the saturation), the
+ *  water nothing feeds taken (stackWater.ts `unfedTaken`, D385) and the settle on from there (`took`: it took some). */
+function stackInWasm(m: WaterModel, days: number, drain = false): { info: number[]; fields: Uint8Array<ArrayBuffer>[]; took: boolean } {
   const t = m.stacked!;
   const w = new StackWater(m.W, m.H, t.objects.length / 8, 0);
+  let took = false;
   try {
     (w.view(STACK_FIELD.masks) as Uint32Array).set(t.mask);
     (w.view(STACK_FIELD.objects) as Float64Array).set(t.objects);
-    for (const [op, a, b] of stackOps(days)) w.op(op, a, b);
+    for (const [op, a, b] of stackOps(days)) {
+      const taken = drain && op === STACK_OP.saturation && w.info(STACK_INFO.stacked) === 1 ? unfedTaken(w, m.W, m.H, t, [], [], true) : null;
+      if (taken) {
+        (w.view(STACK_FIELD.depth) as Float64Array).set(taken.depth);
+        (w.view(STACK_FIELD.overflow) as Float64Array).set(taken.overflow);
+        (w.view(STACK_FIELD.contamination) as Float64Array).set(taken.contamination);
+        (w.view(STACK_FIELD.momentum) as Float64Array).set(taken.momentum);
+        w.op(STACK_OP.settleBegin, STACK_DRAIN_DAYS, 1);
+        w.op(STACK_OP.advance, 10_000_000);
+        took = true;
+      }
+      w.op(op, a, b);
+    }
     const fields = Array.from({ length: 20 }, (_, i) => {
       const v = w.view(i);
       return new Uint8Array(v.buffer, v.byteOffset, v.byteLength).slice();
     });
-    return { info: [0, 1, 2, 3, 4].map((q) => w.info(q)), fields };
+    return { info: [0, 1, 2, 3, 4].map((q) => w.info(q)), fields, took };
   } finally {
     w.close();
   }
@@ -132,21 +148,26 @@ function sameStack(a: StackSettle, info: number[], field: (id: number) => Uint8A
 }
 
 let stacked = 0;
+/** The stacked settles that took water nothing feeds (with --threads, its settle on N threads settles on on one). */
+let tookUnfed = 0;
 /** A model with terrain above terrain: the app's stacked settle against the same operations in Node's WebAssembly
  *  and natively (byte for byte, every field), and on N threads. */
 function checkStacked(name: string, m: WaterModel): CanonicalWater {
   const app = withoutParallelWater(() => canonicalSettle(m));
   const s = app.stack!;
   const days = s.stacked ? STACK_SETTLE_DAYS : 6;
-  const wasm = stackInWasm(m, days);
+  const wasm = stackInWasm(m, days, true);
   const diffs: [string, string | null][] = [["the stacked engine in Wasm", sameStack(s, wasm.info, (id) => wasm.fields[id])]];
+  if (wasm.took) tookUnfed++;
   if (stackNative) {
+    // (the native binary runs the engine's operations alone: the first settle, whose water the app's drain reads)
+    const ops = wasm.took ? stackInWasm(m, days) : wasm;
     const dir = join(ROOT, ".scratch/water-identity");
     mkdirSync(dir, { recursive: true });
     const file = join(dir, `${name.replace(/[^a-z0-9]+/gi, "-")}.input`);
     writeFileSync(file, stackInput(m, days));
     const native = execFileSync(stackNative, [file], { maxBuffer: 512 * 1024 * 1024, windowsHide: true });
-    const out = fixtureOutput(wasm);
+    const out = fixtureOutput(ops);
     const at = native.length === out.length ? native.findIndex((b, i) => b !== out[i]) : 0;
     diffs.push(["the stacked engine natively", at >= 0 ? `${native.length} vs ${out.length} bytes, first difference at byte ${at}` : null]);
   }
@@ -248,7 +269,7 @@ for (const size of sizes)
 
 if (threads) uninstallParallelWater();
 if (stacked && !stackNative && process.argv.includes("--require-native")) failures.push("the native stack-fixture isn't built: cd rust && cargo build --release -p water --example stack-fixture");
-console.log(`${cases} canonical settles (${stacked} stacked${stacked && !stackNative ? ", the native stack-fixture not built" : ""})${exe ? ", natively too" : " (native not built)"}${threads ? `, on ${threads} threads too (${parallelWaterStats.ticks} ticks)` : ""}: ${failures.length ? `${failures.length} differ` : "the same bytes every way"}`);
+console.log(`${cases} canonical settles (${stacked} stacked${tookUnfed ? `, ${tookUnfed} taking unfed water` : ""}${stacked && !stackNative ? ", the native stack-fixture not built" : ""})${exe ? ", natively too" : " (native not built)"}${threads ? `, on ${threads} threads too (${parallelWaterStats.ticks} ticks)` : ""}: ${failures.length ? `${failures.length} differ` : "the same bytes every way"}`);
 if (failures.length) {
   for (const f of failures.slice(0, 20)) console.error(f);
   process.exit(1);

@@ -9,7 +9,10 @@
 // What a column sees at a tile is one air gap of that tile's column (an air span between two solid runs, or
 // the open one above its top): the gap holding the column's surface (a hair under it, and never above its
 // ceiling); where rock stands there, the lowest gap above it still under the column's ceiling; where rock
-// stands up to the ceiling, a wall (`WALL`: the water meets rock, a shore). On a plain tile that is its one
+// stands up to the ceiling, a wall (`WALL`: the water meets rock, a shore). Where rock stands at its level and that
+// gap is dry, the lowest gap above it under its ceiling that holds water, as the game's `ProcessColumns` links a
+// column to a neighbour's wet column overlapping its own: a lake under a cave's mouth rises to the water on the
+// cave's roof (the fall over the mouth), never stopping at the dry cave. On a plain tile that is its one
 // gap, its top, whatever the level, unless the column is under a roof lower than that top (a wall). So on a
 // map without terrain above terrain every column sees exactly what the heightfield mesher saw, and the map
 // draws exactly as before (`plainLayers`; tests/unit/waterLayers.test.ts).
@@ -178,11 +181,14 @@ export function waterLayers(W: number, H: number, heights: Uint8Array, columns: 
   const nextIn = new Int32Array(n).fill(-1);
   /** The column on each tile's open gap (−1: none). */
   const openCol = new Int32Array(N).fill(-1);
+  /** The highest gap holding a wet column on each tile (−1: none). */
+  const wetTop = new Int16Array(N).fill(-1);
   for (let k = 0; k < n; k++) {
     const i = view.tile[k];
     const f = view.floor[k];
     const b = resolve(g, heights, i, f + 0.0005, Infinity);
     gapOf[k] = b;
+    if (b > wetTop[i]) wetTop[i] = b;
     const c = ceilingOf(g, i, b);
     refC[k] = c;
     refZ[k] = Math.max(f + 0.0005, Math.min(f + view.depth[k], c) - 0.01);
@@ -200,6 +206,21 @@ export function waterLayers(W: number, H: number, heights: Uint8Array, columns: 
     let best = -1;
     for (let k = firstIn[j]; k >= 0; k = nextIn[k]) if (gapOf[k] === b && (best < 0 || view.floor[best] < view.floor[k])) best = k;
     return best;
+  };
+  /** Where a column at level z (under ceiling c) sees rock at tile j and a dry gap b above it (`resolve`): the lowest gap
+   *  of j above b, under c, holding water, else b (`ProcessColumns` links a wet column whose span overlaps its own: a
+   *  cave's mouth under the lip of a fall, dry, with the fall's water on its roof). Asked only where j holds water
+   *  above b (`wetTop`): the loops below resolve a column's whole reach, so this stays out of their way. */
+  const wetAbove = (j: number, b: number, c: number): number => {
+    if (waterIn(j, b) >= 0) return b;
+    const gaps = g.gaps;
+    for (let q = g.gapAt[j], end = g.gapEnd[j]; q < end; q += 2) {
+      const a = gaps[q];
+      if (a <= b) continue;
+      if (a >= c) break;
+      if (waterIn(j, a) >= 0) return a;
+    }
+    return b;
   };
   const nearRoof = g.nearRoof;
   // the open sky's layer: every tile's top and the water on it; a column on it near a roof stays only if it sees the
@@ -263,7 +284,11 @@ export function waterLayers(W: number, H: number, heights: Uint8Array, columns: 
         continue;
       }
       let m = 0;
-      for (let yy = y0; yy <= y1; yy++) seen[m++] = resolve(g, heights, yy * W + x1, z, c);
+      for (let yy = y0; yy <= y1; yy++) {
+        const j = yy * W + x1;
+        const b = resolve(g, heights, j, z, c);
+        seen[m++] = b > z && wetTop[j] > b ? wetAbove(j, b, c) : b;
+      }
       const key = keys[last];
       let ok = true;
       for (let yy = y0, q = 0; yy <= y1; yy++, q++) {
@@ -285,7 +310,11 @@ export function waterLayers(W: number, H: number, heights: Uint8Array, columns: 
     lastClass = cls;
     // what it sees round it, once
     let m = 0;
-    for (let yy = y0; yy <= y1; yy++) for (let j = yy * W + x0, end = yy * W + x1; j <= end; j++) seen[m++] = resolve(g, heights, j, z, c);
+    for (let yy = y0; yy <= y1; yy++)
+      for (let j = yy * W + x0, end = yy * W + x1; j <= end; j++) {
+        const b = resolve(g, heights, j, z, c);
+        seen[m++] = b > z && wetTop[j] > b ? wetAbove(j, b, c) : b;
+      }
     // (the layer the last column went into first: the next along its row is most often the same water)
     let L = last < keys.length && fits(keys[last], x0, y0, x1, y1) ? last : -1;
     if (L < 0) for (L = 0; L < keys.length && !fits(keys[L], x0, y0, x1, y1); L++);

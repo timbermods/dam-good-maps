@@ -176,6 +176,7 @@ function withoutStart(e: EntityView): EntityView {
     variant: typed(e.variant),
     strength: typed(e.strength),
     ids: keep.map((k) => e.ids[k] ?? ""),
+    ...(e.stockGood && e.stockAmount ? { stockGood: typed(e.stockGood), stockAmount: typed(e.stockAmount) } : {}),
   };
 }
 

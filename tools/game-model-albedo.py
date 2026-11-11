@@ -248,6 +248,11 @@ def albedo(assets, model):
                 mg_pid = textures.get("_MetallicGlossMap", (0,))[0]
                 mg = sample(mg_pid, 4) if mg_pid else np.zeros((len(u_at), 4))
                 ao, metal, smooth = np.ones(len(u_at)), mg[:, 0], mg[:, 3]
+            elif "TerrainURP" in shader:
+                # (a part drawn as the ground round it, the terrain's own shader: the LargeRelic's footing; its look is
+                # the terrain's, D497, so it has no albedo of its own here)
+                print(f"  {mat}: drawn as the ground ({shader}), area {area.sum():.3f}: skipped")
+                continue
             else:
                 raise ValueError(f"{mat}: shader {shader!r}, not one this reads")
             out.setdefault(mat, []).append((area, alb, vc, texel, ao, metal, smooth))

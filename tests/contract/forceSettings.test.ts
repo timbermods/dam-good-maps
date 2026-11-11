@@ -14,6 +14,7 @@ import { DEPOSIT_DEFAULTS, validateDeposit } from "../../src/core/forces/deposit
 import { RIFT_DEFAULTS, validateRift } from "../../src/core/forces/rift";
 import { QUAKE_DEFAULTS, validateQuake } from "../../src/core/forces/quake";
 import { ERODE_DEFAULTS, validateErode } from "../../src/core/forces/erode";
+import { ROLL_DEFAULTS, validateRoll } from "../../src/core/forces/roll";
 import { FORCE_SETTINGS, POWER_MAX, POWER_MIN, SEED_MAX } from "../../src/core/forces/settings";
 
 type Prop = { type?: string | string[]; enum?: unknown[]; minimum?: number; maximum?: number };
@@ -28,10 +29,25 @@ const DEFAULTS: Record<Verb, Record<string, unknown>> = {
   rift: { ...RIFT_DEFAULTS },
   deposit: { ...DEPOSIT_DEFAULTS },
   erode: { ...ERODE_DEFAULTS },
+  roll: { ...ROLL_DEFAULTS },
 };
 
 const W = 16;
 const map: ForceMap = { W, H: W, heights: new Uint8Array(W * W).fill(4), entities: [], water: { depth: new Float64Array(W * W), contamination: new Float64Array(W * W) }, maxHeight: 22 };
+/** A mesa round the origin whose foot lies `fall` under its lip (one level under its top), so a set Fall is the
+ *  land's to make: it is exact, and refused where the land falls farther or less far. */
+const ledge = (fall: number): ForceMap => {
+  const foot = Math.max(1, Math.min(13, 15 - Math.round(Number(fall) || 0)));
+  // (round, so the course falls off it whichever way it heads; flat where its water lands and runs on, then a level
+  // lower to the map's edges, so its water drains with no second fall)
+  return {
+    ...map,
+    heights: Uint8Array.from({ length: W * W }, (_, i) => {
+      const d = Math.hypot((i % W) - 5, Math.floor(i / W) - 5);
+      return d <= 3 ? 16 : d <= 9 ? foot : Math.max(1, foot - 1);
+    }),
+  };
+};
 const path = [{ x: 2, y: 2 }, { x: 10, y: 10 }];
 
 /** Why each force refuses `s` when it starts (null: it starts). */
@@ -47,12 +63,16 @@ function atStart(verb: Verb, s: Record<string, unknown>): string | null {
   switch (verb) {
     case "erode":
       return thrown(() => validateErode(s as never));
+    case "roll":
+      return thrown(() => validateRoll(s as never));
     case "deposit":
       return thrown(() => validateDeposit(s as never));
     case "rift":
       return thrown(() => validateRift(s as never));
     case "carve":
-      return thrown(() => new CarveRun(map, s as never, { origin: 5 * W + 5 }));
+      // (a Fall set needs high ground that drops by it, or the carve is refused for the land, not its settings: a mesa
+      // whose foot is that far under its lip)
+      return thrown(() => new CarveRun(s.fall == null ? map : ledge(s.fall as number), s as never, { origin: 5 * W + 5 }));
     case "craterize":
       return thrown(() => validateCrater(s as never, map, { origin: 5 * W + 5 }));
     case "erupt":

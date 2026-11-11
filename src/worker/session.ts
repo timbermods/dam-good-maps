@@ -35,6 +35,7 @@ export type { EntityInfo };
 import { objectsIn } from "../core/doc/inArea";
 import { markerNotes, type MarkerNote } from "../core/doc/objectOps";
 import { fillLevel, planFill, unfedWater } from "../core/doc/waterEdits";
+import { applyLakeLevel, planLakeLevel, type LakeLevelPlan } from "../core/doc/lakeLevel";
 import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
 import { bakeLandforms } from "../core/doc/bake";
@@ -282,6 +283,17 @@ function strengthOf(comps: Record<string, unknown>): { strength?: number } {
   return typeof v === "number" ? { strength: v } : {};
 }
 
+/** A reserve's stock, for the view to show as the game does (render3d/reserves.ts): its good (`FixedStockpile`) and
+ *  how much of it it holds (`Inventory:Stockpile`). */
+function stockOf(comps: Record<string, unknown>): { stock?: { good: string; amount: number } } {
+  const fixed = plainJson((comps.FixedStockpile as { FixedGoodId?: unknown } | undefined)?.FixedGoodId);
+  if (typeof fixed !== "string") return {};
+  const goods = plainJson((comps["Inventory:Stockpile"] as { Storage?: { Goods?: unknown } } | undefined)?.Storage?.Goods);
+  let amount = 0;
+  if (Array.isArray(goods)) for (const g of goods as { Good?: unknown; Amount?: unknown }[]) if (g?.Good === fixed && typeof g.Amount === "number") amount += g.Amount;
+  return { stock: { good: fixed, amount } };
+}
+
 /** The objects as the view draws them: every tree upright on its tile, a knocked-down one dead
  *  (D321, item 7: no force leaves a tree leaning). */
 function entityInputs(list: readonly EntitySpec[]) {
@@ -289,7 +301,7 @@ function entityInputs(list: readonly EntitySpec[]) {
   for (const e of list) {
     if (e.raw && !placementOf(e.raw)) continue;
     const comps = componentsOf(e) as Record<string, unknown>;
-    out.push({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, owner: e.owner, flipped: e.flipped, ...lifeOf(comps), ...variantOf(comps), ...strengthOf(comps) });
+    out.push({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, owner: e.owner, flipped: e.flipped, ...lifeOf(comps), ...variantOf(comps), ...strengthOf(comps), ...stockOf(comps) });
   }
   return out;
 }
@@ -438,7 +450,7 @@ let sentEntities: EntityView | null = null;
 
 /** A copy that stays here (the view itself is handed over to the page, its arrays with it). */
 function copyEntityView(v: EntityView): EntityView {
-  return { ...v, templates: [...v.templates], owners: [...v.owners], template: v.template.slice(), x: v.x.slice(), y: v.y.slice(), z: v.z.slice(), orientation: v.orientation.slice(), flags: v.flags.slice(), owner: v.owner.slice(), variant: v.variant.slice(), strength: v.strength.slice(), ids: [...v.ids] };
+  return { ...v, templates: [...v.templates], owners: [...v.owners], template: v.template.slice(), x: v.x.slice(), y: v.y.slice(), z: v.z.slice(), orientation: v.orientation.slice(), flags: v.flags.slice(), owner: v.owner.slice(), variant: v.variant.slice(), strength: v.strength.slice(), ids: [...v.ids], stockGood: v.stockGood?.slice(), stockAmount: v.stockAmount?.slice() };
 }
 
 /** The page has these objects already: every field it reads the same, a source's strength and a ruin's
@@ -450,7 +462,7 @@ function sameEntityView(a: EntityView, b: EntityView | null): boolean {
     for (let i = 0; i < p.length; i++) if (p[i] !== q[i]) return false;
     return true;
   };
-  return eq(a.template, b.template) && eq(a.x, b.x) && eq(a.y, b.y) && eq(a.z, b.z) && eq(a.orientation, b.orientation) && eq(a.flags, b.flags) && eq(a.owner, b.owner) && eq(a.variant, b.variant) && eq(a.strength, b.strength);
+  return eq(a.template, b.template) && eq(a.x, b.x) && eq(a.y, b.y) && eq(a.z, b.z) && eq(a.orientation, b.orientation) && eq(a.flags, b.flags) && eq(a.owner, b.owner) && eq(a.variant, b.variant) && eq(a.strength, b.strength) && eq(a.stockGood ?? [], b.stockGood ?? []) && eq(a.stockAmount ?? [], b.stockAmount ?? []);
 }
 
 function markSent(s: MapSession): void {
@@ -1872,6 +1884,8 @@ export const planned = {
   /** Remove unfed water and Fill: the one operation each would apply, or why none. */
   unfedWater: (tiles: number[] | null) => unfedWater(need(), tiles && tiles.length ? tiles : null).op,
   fill: (x: number, y: number, level: number) => planFill(need(), x, y, level),
+  /** Lakes by number: the sill that holds the lake at (x, y) at `level`, confirmed by the settle, or why not. */
+  lakeLevel: (x: number, y: number, level: number, width?: number) => planLakeLevel(need(), x, y, level, width),
   /** Every tile of the map (Clear everything removes the objects on all of them). */
   everything: (): number[] => Array.from({ length: need().size.x * need().size.y }, (_, i) => i),
 };
@@ -2416,6 +2430,24 @@ export function fillAt(x: number, y: number, level: number, floor?: number | nul
   return changed(s, r.ok, r.errors, t0);
 }
 
+/** Lakes by number: what setting the lake at (x, y) to `level` would do (its sill cut down or raised, the sill's tiles,
+ *  where the water then stands and the lake's tiles, confirmed by the canonical settle), or the plain reason the land
+ *  can't hold it there (core/doc/lakeLevel.ts `planLakeLevel`). `width`: a cut notch's width; by default what its river
+ *  needs. Reads the map only; it settles the water once, so it takes about as long as the map's own settle. */
+export function lakeLevelPlanAt(x: number, y: number, level: number, width?: number): Omit<LakeLevelPlan, "op"> {
+  const { op: _op, ...plan } = planLakeLevel(need(), x, y, level, width);
+  return plan;
+}
+
+/** Set the lake at (x, y) to `level`: its sill cut down or raised, one undo step, the map's water the settle that
+ *  confirmed it (core/doc/lakeLevel.ts `applyLakeLevel`). */
+export function lakeLevelAt(x: number, y: number, level: number, width?: number): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const r = applyLakeLevel(s, x, y, level, width);
+  return changed(s, r.ok, r.errors, t0);
+}
+
 /** Clear everything (D323 item 44): every source, badwater source, tree, bush, ruin, object, slope
  *  and the start, as one undo step, leaving only the terrain; the water drains as its sources go
  *  (D260). */
@@ -2744,10 +2776,11 @@ function fallenOf(s: MapSession): Map<string, { dx: number; dy: number }> {
 }
 
 /** The open map as a force starts from it: its ground, its objects, the water as it stands (the
- *  water in flight, when it is still settling), its rock and the trees already down. */
+ *  water in flight, when it is still settling; else the water the map shows, a stored map's own while it keeps
+ *  it), its rock and the trees already down. */
 function sessionForceMap(s: MapSession): FullForceMap {
   const sim = waterJob && waterJob.session === s ? jobOf(waterJob).sim : null;
-  const m = fullForceMapOf(s.built, { ...(sim ? { water: { depth: sim.D, contamination: sim.C } } : {}), rockLayers: geologyOf(s), lava: rockOf(s), down: fallenOf(s), usedIds: s.usedEntityIds() });
+  const m = fullForceMapOf(s.built, { water: sim ? { depth: sim.D, contamination: sim.C } : s.waterShown(), rockLayers: geologyOf(s), lava: rockOf(s), down: fallenOf(s), usedIds: s.usedEntityIds() });
   // (a map with caves or overhangs: its voxels, which Erode reads and wears, D281)
   if (!s.columns.size) return m;
   const wet = s.caveWater();
@@ -2828,8 +2861,10 @@ export function forceStart(req: ForceRequest): ForceStarted {
   const blocked = gated();
   if (blocked) return refuse(blocked);
   if (force) return refuse("A force is already at work: let it finish, or press Esc");
-  // (Erode reads the water to leave the rock that holds it: it plans only on settled water, D281)
+  // (Erode reads the water to leave the rock that holds it, and Roll to hold the water and its banks: each plans only
+  // on settled water, D281)
   if (req.verb === "erode" && (s.waterStale || s.waterPending)) return refuse("Erode waits for the water to settle: try again in a moment");
+  if (req.verb === "roll" && (s.waterStale || s.waterPending)) return refuse("Roll waits for the water to settle: try again in a moment");
   return startForce(s, sessionForceMap(s), { ...req, settings: { ...req.settings, seed: req.settings.seed ?? 0 } } as ForceRequest);
 }
 

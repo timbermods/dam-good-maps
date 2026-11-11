@@ -135,7 +135,7 @@ function formWord(f: StandingForm): string {
 }
 
 /** The game's first frame as the arc reads it (D493): the opening camera at the game's own zoom
- *  (the start's level × 0.1, about 30 × 45 tiles round the start), what the player sees as the game
+ *  (the start's level × 0.1, about 38 × 42 tiles round the start), what the player sees as the game
  *  opens, before pulling back. */
 interface FirstFrame {
   camera: OpeningCamera;
@@ -375,7 +375,7 @@ export function arcOf(r: GenerateResult): Arc | null {
 }
 
 /** The looks of a map's opening picture (analysis/picture.ts): the picture from the game's first camera pulled back,
- *  as its own picture is drawn (render3d/hero.ts). Null without a start. */
+ *  what a player sees as a new game begins (D493). Null without a start. */
 export function looksOf(r: GenerateResult): { looks: LooksScore; picture: OpeningPicture } | null {
   const b = r.built;
   if (!b.start) return null;

@@ -63,6 +63,13 @@ export interface CarveSettings {
   /** Banks (item 18, river.ts): about how many tiles of flat land at the waterline on each side before
    *  the walls, 0 (none) to 10; absent, none. */
   banks?: number | null;
+  /** Fall (showcase craft gaps 1, 2 and 20): this many levels from the lip of the fall its course runs over to where
+   *  its water lands, 4–12 (a landmark: lower is a rapid); the reach below is cut down to it and held there. Where the land has no edge that tall, the
+   *  fall is where the ground the course starts on ends; where it never ends, or the land falls farther or less far
+   *  than this, the carve is refused. Null or absent: the land's
+   *  own falls only (where the ground drops 3 levels or more). Either way the stream above a fall keeps its bed two
+   *  levels under the top and a lip one level under it at the edge. */
+  fall?: number | null;
 }
 
 /** The most tiles of banks a carve leaves (item 18; settings.ts). */

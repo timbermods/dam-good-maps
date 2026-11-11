@@ -201,15 +201,52 @@ export function keptColumnSeeds(g: StackGraph, retained: readonly RetainedWater[
   return any ? mask : null;
 }
 
+/** `seeds` (a mask by column, or null) with the stored lakes' water a settle's end stored levelled into its hollow
+ *  (`levelled`, a mask by column: rust/water/src/stack_prefill.rs `keep_sealed`, where an edit widened the hollow below
+ *  the lake's level). That water is still the lake's, its own cause (D216, D394), even where it left the lake's own
+ *  columns dry; but not a pool of it with a column on a drained tile (a lake a removal drained, stored again by the
+ *  settle that takes it, `keptColumnSeeds`). */
+export function withLevelledSeeds(g: StackGraph, seeds: Uint8Array | null, levelled: ArrayLike<number>, depth: ArrayLike<number>, drained: readonly number[] | undefined): Uint8Array | null {
+  const size = g.L * g.N;
+  let any = false;
+  for (let c = 0; c < size && !any; c++) if (levelled[c] && depth[c] > 0) any = true;
+  if (!any) return seeds;
+  const gone = new Uint8Array(g.N);
+  for (const i of drained ?? []) gone[i] = 1;
+  const out = seeds ? seeds.slice() : new Uint8Array(size);
+  const seen = new Uint8Array(size);
+  const queue = new Int32Array(size);
+  for (let s = 0; s < size; s++) {
+    if (seen[s] || !levelled[s] || !(depth[s] > 0)) continue;
+    // one pool of levelled water: its columns joined by edges
+    seen[s] = 1;
+    queue[0] = s;
+    let tail = 1;
+    let keep = true;
+    for (let h = 0; h < tail; h++) {
+      const c = queue[h];
+      if (gone[c % g.N]) keep = false;
+      for (let e = g.start[c]; e < g.start[c + 1]; e++) {
+        const t = g.target[e];
+        if (t < 0 || seen[t] || !levelled[t] || !(depth[t] > 0)) continue;
+        seen[t] = 1;
+        queue[tail++] = t;
+      }
+    }
+    if (keep) for (let h = 0; h < tail; h++) out[queue[h]] = 1;
+  }
+  return out;
+}
+
 /** The unfed water on the drained tiles taken away, in place (`depth`, `overflow`, `contamination` by column; the
- *  momentum of their edges, when given): what a removal takes once the water has settled (stackWater.ts
- *  `canonicalStackRun`), and from the water carried over after an edit. Water a source or a kept lake feeds is never
- *  taken. Whether any was. */
-export function drainColumns(g: StackGraph, water: { depth: Float64Array; overflow: Float64Array; contamination: Float64Array; momentum?: Float64Array | null }, drained: readonly number[], seeds: ArrayLike<number> | null): boolean {
+ *  momentum of their edges, when given): what a removal takes from the water carried over after an edit. With
+ *  `drained` null, on every tile: what the canonical settle takes once the water has settled (stackWater.ts
+ *  `canonicalStackRun`: the pre-fill's water from nowhere and a removal's, D385, D387 (2)). Water a source or a kept
+ *  lake feeds is never taken. Whether any was. */
+export function drainColumns(g: StackGraph, water: { depth: Float64Array; overflow: Float64Array; contamination: Float64Array; momentum?: Float64Array | null }, drained: readonly number[] | null, seeds: ArrayLike<number> | null): boolean {
   const fed = fedColumns(g, water.depth, water.overflow, seeds);
   let any = false;
-  for (const i of drained) {
-    if (i < 0 || i >= g.N) continue;
+  const take = (i: number) => {
     for (let q = 0; q < g.count[i]; q++) {
       const c = q * g.N + i;
       if (!(water.depth[c] > 0) || fed[c]) continue;
@@ -219,7 +256,9 @@ export function drainColumns(g: StackGraph, water: { depth: Float64Array; overfl
       if (water.momentum) for (let e = g.start[c]; e < g.start[c + 1]; e++) water.momentum[e] = 0;
       any = true;
     }
-  }
+  };
+  if (drained === null) for (let i = 0; i < g.N; i++) take(i);
+  else for (const i of drained) if (i >= 0 && i < g.N) take(i);
   return any;
 }
 

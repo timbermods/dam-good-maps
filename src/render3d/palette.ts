@@ -137,7 +137,7 @@ const luma = (c: Rgb) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
  *  bushes, the water sources and seeps, the ruins, the start) take its albedo straight. Until then they took it at our
  *  lightness, 1.318 times the game's (our grass by the water, 0.353/0.372/0.128, before `fix/land-tone`, over the
  *  game's grass texture's mean, 0.263/0.285/0.096), under a light of our own; the colours we chose by eye (the mines,
- *  thorns, relics, geothermal fields, slopes, the 1.x objects, the succulent, the generic blocks, the birch's marks)
+ *  slopes, the 1.x objects, the succulent, the generic blocks, the birch's marks)
  *  were chosen at that lightness. They are drawn at `ownAlbedo` of it, so they keep their place among the game's. */
 export const OWN_LIGHTNESS = luma([0.353, 0.372, 0.128]) / luma([0.263, 0.285, 0.096]);
 /** A colour of our own (chosen at our old lightness) as an albedo in the game's light. */
@@ -385,15 +385,197 @@ export const RUIN = {
 /** Slopes: a stone ramp; with **Markers** on, a pale arrow rimmed dark points uphill. */
 export const SLOPE = { ramp: [0.5, 0.46, 0.4] as Rgb, side: [0.3, 0.31, 0.28] as Rgb, arrow: [0.97, 0.93, 0.78] as Rgb, rim: [0.14, 0.1, 0.07] as Rgb } as const;
 
-/** Geothermal fields: a mound of dark rock with vents glowing orange. */
-export const GEOTHERMAL: Rgb = [0.82, 0.48, 0.16];
-export const GEOTHERMAL_ROCK: Rgb = [0.27, 0.26, 0.25];
+/** The geothermal field as the game colours it (GeothermalField.Model, D178, D496): its albedo (texture × vertex colour,
+ *  `tools/game-model-albedo.py`), its materials not metallic, so straight. The crust (the blockage's material, its
+ *  vertex colours sulphur yellow over its rim, grey-brown in its bowl and on its outer slope; 0.249/0.201/0.045 over
+ *  its area) in six shades, each of our crust's corners the game's colour there (averaged over 0.05 round it) as the
+ *  nearest of them; its vent's foot the game's black; its rocks (the water source's rock material; 0.203/0.186/0.155)
+ *  in three shades, each rock its own. */
+export const GEOTHERMAL = {
+  crust: [[0.149, 0.122, 0.077], [0.224, 0.179, 0.039], [0.371, 0.287, 0.001], [0.462, 0.359, 0.002], [0.193, 0.173, 0.114], [0.274, 0.215, 0.014]] as readonly Rgb[],
+  vent: [0.003, 0.003, 0.002] as Rgb,
+  rock: [[0.18, 0.164, 0.138], [0.214, 0.197, 0.163], [0.197, 0.18, 0.152]] as readonly Rgb[],
+} as const;
 
-/** Relics: weathered pale stone, broken columns on a plinth. */
-export const RELIC_STONE: Rgb = [0.66, 0.62, 0.54];
+/** The blockage as the game colours it (Blockage.Model, D178, D496): its albedo (texture × vertex colour, area-weighted,
+ *  `tools/game-model-albedo.py`), its material not metallic, so straight. Its heap's rocks in the three greys of its
+ *  vertex colours (the heap's mean 0.173/0.160/0.133), its broken posts, the beam through it and the splinter brown, its plank shards pale,
+ *  each shard its own (front, and back where the game draws one). */
+export const BLOCKAGE = {
+  rock: [[0.155, 0.148, 0.127], [0.176, 0.167, 0.142], [0.194, 0.18, 0.152]] as readonly Rgb[],
+  post: [0.189, 0.145, 0.102] as Rgb,
+  splinter: [0.129, 0.086, 0.053] as Rgb,
+  beam: [0.171, 0.126, 0.086] as Rgb,
+  sawn: [0.219, 0.181, 0.137] as Rgb,
+  broken: [0.109, 0.075, 0.048] as Rgb,
+  shard: [[0.207, 0.178, 0.135], [0.294, 0.251, 0.19], [0.284, 0.245, 0.184], [0.267, 0.23, 0.175], [0.3, 0.252, 0.18], [0.288, 0.246, 0.182]] as readonly Rgb[],
+  shardBack: [[0.207, 0.178, 0.135], [0.294, 0.251, 0.19], [0.284, 0.245, 0.184], [0.209, 0.18, 0.137], [0.313, 0.265, 0.192], [0.288, 0.246, 0.182]] as readonly Rgb[],
+} as const;
 
-/** Thorns: a low, dark red-brown bramble. */
-export const THORNS: Rgb = [0.34, 0.16, 0.14];
+/** The badtide drain as the game colours it (BadtideDrain.Model, D178, D496): a box of rusted plate, its frame and
+ *  pipes rust-orange with grey corners, its panels dark, a black funnel in its mouth under a rusted hood. Its material
+ *  (EnvironmentURP on the `BeaverCarryingModels` atlas) is metallic (0.53; smoothness 0.3), folded into the albedo our
+ *  objects' light needs to show the game's brightness as the large relic's is (`LARGE_RELIC`): from the game's frame
+ *  and pipes 0.427/0.254/0.158, corners 0.286/0.233/0.188, panels 0.173/0.145/0.117, funnel 0.099/0.083/0.071 and hood
+ *  0.329/0.243/0.189 (texture × vertex colour, area-weighted, `tools/game-model-albedo.py`). */
+export const BADTIDE_DRAIN = {
+  rust: [0.233, 0.143, 0.09] as Rgb,
+  corner: [0.167, 0.143, 0.119] as Rgb,
+  panel: [0.1, 0.089, 0.074] as Rgb,
+  mouth: [0.056, 0.046, 0.039] as Rgb,
+  hood: [0.166, 0.102, 0.065] as Rgb,
+} as const;
+
+/** The unstable core as the game colours it (UnstableCore.Model, D178, D496): a ball of worn grey-brown metal panels,
+ *  pale, mid and dark, pale ribs and a pale strap over it, a pale ring round a grey lens, and dark studs with paler
+ *  gems. Its material (EnvironmentURP, `UnstableCore`) is metallic (0.5; smoothness 0.37, its lens 0.6), folded into
+ *  the albedo our objects' light needs to show the game's brightness as the large relic's is (`LARGE_RELIC`): from the
+ *  game's panels 0.318/0.272/0.203, 0.307/0.257/0.191 and 0.283/0.229/0.169, ribs 0.456/0.411/0.327, strap
+ *  0.423/0.354/0.274, ring 0.475/0.429/0.339, lens 0.265/0.255/0.232, studs 0.225/0.2/0.157 and gems
+ *  0.315/0.288/0.238 (texture × vertex colour, area-weighted, `tools/game-model-albedo.py`). Its lens is lit only while
+ *  its countdown runs (unstableCore.ts). */
+export const UNSTABLE_CORE = {
+  pale: [0.204, 0.184, 0.144] as Rgb,
+  mid: [0.197, 0.174, 0.136] as Rgb,
+  dark: [0.182, 0.155, 0.12] as Rgb,
+  rib: [0.294, 0.279, 0.231] as Rgb,
+  strap: [0.277, 0.246, 0.201] as Rgb,
+  ring: [0.307, 0.291, 0.241] as Rgb,
+  lens: [0.148, 0.15, 0.14] as Rgb,
+  stud: [0.149, 0.141, 0.117] as Rgb,
+  gem: [0.233, 0.224, 0.193] as Rgb,
+} as const;
+
+/** The natural dam as the game colours it (NaturalDam.Model, D178, D496): its albedo (texture × vertex colour,
+ *  area-weighted, `tools/game-model-albedo.py`), its material the blockage's, not metallic, so straight. Its heap's rock
+ *  in three shades, the thirds of its faces by lightness (the heap's mean 0.215/0.185/0.149), its logs brown, its flat
+ *  stones and shards paler, each its own. */
+export const NATURAL_DAM = {
+  rock: [[0.167, 0.14, 0.111], [0.21, 0.181, 0.146], [0.266, 0.232, 0.189]] as readonly Rgb[],
+  log: [0.202, 0.156, 0.11] as Rgb,
+  stone: [[0.243, 0.209, 0.159], [0.261, 0.225, 0.171], [0.253, 0.218, 0.165], [0.243, 0.21, 0.159], [0.213, 0.184, 0.139]] as readonly Rgb[],
+  shard: [[0.25, 0.215, 0.162], [0.242, 0.209, 0.157], [0.271, 0.233, 0.178]] as readonly Rgb[],
+} as const;
+
+/** The large relic as the game colours it (LargeRelic.Model, D178, D496): a fallen dish antenna of weathered pale metal,
+ *  darker toward its hub, on dark steel fittings, among dark stones. Its material (EnvironmentURP on the
+ *  `BeaverCarryingModels` atlas) is partly metallic (0.13–0.23 on the panels, 0.5 on the rim and fittings; smoothness
+ *  0.3), which the objects' light (materials.ts `gameObjectLight`, metallic 0) has no term for, so each part's albedo
+ *  (texture × vertex colour, area-weighted, `tools/game-model-albedo.py`) is given as the albedo that light needs to show
+ *  the game's brightness: URP's diffuse at its metallic, its occlusion map and the environment's reflection by its
+ *  Fresnel term, over the part's own normals, with the sun round the compass at the game's 45° and a camera 45° down
+ *  round it. The panels, by ring from the hub out (θ 9.3–20, 20–34, 34–46.8°): the face (toward the dish's mouth) from
+ *  the game's 0.288/0.258/0.208, 0.460/0.413/0.335 and 0.488/0.440/0.360; the back 0.288/0.258/0.208,
+ *  0.460/0.413/0.335 and 0.538/0.481/0.390; the cracked piece, both sides, 0.168/0.150/0.121, 0.302/0.271/0.221 and
+ *  0.364/0.325/0.263; the rim 0.344/0.319/0.271, the rings and ribs 0.26/0.245/0.225, the hub 0.255/0.237/0.214 and its
+ *  boss 0.337/0.314/0.284, the feed and its struts 0.330/0.304/0.263; the stones (metallic 0) straight. */
+export const LARGE_RELIC = {
+  face: [[0.239, 0.218, 0.178], [0.406, 0.368, 0.301], [0.432, 0.392, 0.321]] as readonly Rgb[],
+  back: [[0.286, 0.266, 0.222], [0.441, 0.402, 0.331], [0.529, 0.479, 0.392]] as readonly Rgb[],
+  cracked: [[0.141, 0.129, 0.107], [0.273, 0.249, 0.206], [0.324, 0.294, 0.241]] as readonly Rgb[],
+  rim: [0.216, 0.211, 0.187] as Rgb,
+  steel: [0.161, 0.159, 0.15] as Rgb,
+  hub: [0.177, 0.172, 0.161] as Rgb,
+  boss: [0.21, 0.203, 0.189] as Rgb,
+  feed: [0.204, 0.197, 0.176] as Rgb,
+  stone: [0.221, 0.203, 0.172] as Rgb,
+} as const;
+
+/** The small relic as the game colours it (SmallRelic.Model, D178, D496): a fallen telescope, its tubes pale, its
+ *  collars, lens and tripod dark steel, among stones. Its material (EnvironmentURP on the `BeaverCarryingModels` atlas)
+ *  is partly metallic (0.14 on the tubes, about 0.5 on the steel), folded into the albedo our objects' light needs to
+ *  show the game's brightness as the large relic's is (`LARGE_RELIC`): from the game's tubes 0.494/0.443/0.356 and
+ *  0.457/0.409/0.329, collars 0.215/0.198/0.178, lens 0.181/0.151/0.129, eyepiece 0.123/0.109/0.099, legs
+ *  0.228/0.215/0.195 (the bent one 0.286/0.267/0.241) and the tripod's head 0.189/0.175/0.155; the stones (metallic 0)
+ *  straight. */
+export const SMALL_RELIC = {
+  tube: [0.5, 0.453, 0.368] as Rgb,
+  collar: [0.138, 0.134, 0.124] as Rgb,
+  lens: [0.132, 0.117, 0.102] as Rgb,
+  eye: [0.089, 0.086, 0.081] as Rgb,
+  leg: [0.132, 0.131, 0.124] as Rgb,
+  bent: [0.199, 0.196, 0.185] as Rgb,
+  head: [0.119, 0.115, 0.105] as Rgb,
+  stone: [[0.21, 0.191, 0.164], [0.222, 0.205, 0.172], [0.241, 0.224, 0.188]] as readonly Rgb[],
+} as const;
+
+/** The medium relic as the game colours it (MediumRelic.Model, D178, D496): a crashed satellite, its body a pale box
+ *  half in the ground with dark straps round it, a grey plate on its top with dark knobs and a bar, a grey half-dish
+ *  with a copper feed on its south side, a wire arm, and three solar panels of dark cells in pale frames, among stones.
+ *  Its material is partly metallic (0.15 on the body, 0.53 on the rest), folded into albedo as the large relic's
+ *  (`LARGE_RELIC`): from the game's body 0.593/0.521/0.408, cells 0.122/0.114/0.104, frames 0.358/0.339/0.314, top
+ *  plate 0.311/0.291/0.263 and bar 0.381/0.367/0.334, straps 0.209/0.19/0.169, dish 0.334/0.311/0.282, feed
+ *  0.244/0.186/0.13, arm 0.293/0.264/0.228, port 0.235/0.227/0.207 and knobs 0.12/0.104/0.089 (metallic 0.2); the
+ *  stones straight. */
+export const MEDIUM_RELIC = {
+  body: [0.522, 0.463, 0.367] as Rgb,
+  cell: [0.071, 0.07, 0.066] as Rgb,
+  frame: [0.205, 0.204, 0.196] as Rgb,
+  plate: [0.191, 0.188, 0.176] as Rgb,
+  bar: [0.235, 0.237, 0.223] as Rgb,
+  strap: [0.129, 0.124, 0.115] as Rgb,
+  dish: [0.206, 0.201, 0.188] as Rgb,
+  feed: [0.151, 0.123, 0.092] as Rgb,
+  arm: [0.176, 0.167, 0.15] as Rgb,
+  port: [0.143, 0.145, 0.137] as Rgb,
+  knob: [0.094, 0.084, 0.074] as Rgb,
+  stone: [[0.21, 0.191, 0.164], [0.217, 0.198, 0.169], [0.24, 0.223, 0.186]] as readonly Rgb[],
+} as const;
+
+/** Thorns as the game colours them (Thorns.Model, D178, D496): dark grey-brown spikes paling to their points among
+ *  paler twigs. Its material (EnvironmentURP, `Thorns`, its texture cut out by its alpha) is a little metallic (0.13
+ *  over the spikes, 0.15 over the twigs; smoothness 0.19 and 0.2), folded into the albedo our objects' light needs to
+ *  show the game's brightness as the large relic's is (`LARGE_RELIC`). The spikes' corners at their foot take the
+ *  game's darkest (0.141/0.119/0.098, folded) and their points the colour that makes a spike's mean over its sides the
+ *  game's (0.184/0.158/0.132, folded to 0.156/0.135/0.114), as its texture pales up them to 0.42/0.37/0.33 at the
+ *  point; the twigs the game's 0.236/0.203/0.171 (texture, area-weighted where it is not cut out). */
+export const THORNS = {
+  foot: [0.12, 0.103, 0.085] as Rgb,
+  point: [0.228, 0.2, 0.172] as Rgb,
+  twig: [0.199, 0.175, 0.149] as Rgb,
+} as const;
+
+/** The reserves as the game colours them (ReservePile.Model, ReserveWarehouse.Model, ReserveTank.Model, D178, D496):
+ *  grey-green boards (`BaseWoodCommon`) in amber-brown frames (`BaseWoodCommon_Amber`), a pale shield of a sign under a
+ *  pale holder at the entrance. Their wood is a little metallic (0.07–0.15; smoothness about 0.37), folded into the
+ *  albedo our objects' light needs to show the game's brightness as the large relic's is (`LARGE_RELIC`); the game's
+ *  own, each part's texture × vertex colour area-weighted (`tools/game-model-albedo.py`): the pile's walls
+ *  0.291/0.307/0.254 and the tank's staves 0.288/0.304/0.247 (`board`), the warehouse's floor 0.235/0.251/0.184
+ *  (`floor`), the frames 0.266/0.204/0.161 (`frame`), the posts, legs and braces 0.27/0.207/0.162 (`post`), the
+ *  tank's pump house 0.248/0.187/0.15 (`house`) round its door's grey-green frame 0.298/0.316/0.265 and its dark door
+ *  0.127/0.102/0.078, its pipe 0.236/0.251/0.185; the sign 0.397/0.339/0.239 out and 0.31/0.265/0.187 in, its holder
+ *  0.41/0.355/0.262, the threshold 0.49–0.6 by reserve, the warehouse's ropes 0.404/0.351/0.309 and their ties
+ *  0.378/0.327/0.289; the pile's floor of dirt (`DirtCommon`, not metallic) 0.291/0.238/0.166, straight.
+ *  Their stock as the game's visualizers draw it (`StockpileVisualization`; reserves.ts), its goods' models folded
+ *  alike, the game's: dirt (`DirtPile`, not metallic) 0.354/0.274/0.2, straight; logs 0.232/0.188/0.138, planks
+ *  0.176/0.138/0.091, treated planks 0.505/0.395/0.247, scrap metal 0.408/0.252/0.168 and metal blocks
+ *  0.348/0.313/0.281 (metallic 0.53), and the boxes (`Box`) 0.472/0.411/0.32. */
+export const RESERVE = {
+  board: [0.26, 0.278, 0.23] as Rgb,
+  floor: [0.222, 0.24, 0.178] as Rgb,
+  frame: [0.246, 0.19, 0.153] as Rgb,
+  post: [0.258, 0.204, 0.16] as Rgb,
+  house: [0.23, 0.175, 0.145] as Rgb,
+  doorFrame: [0.277, 0.297, 0.251] as Rgb,
+  door: [0.131, 0.109, 0.086] as Rgb,
+  pipe: [0.233, 0.249, 0.188] as Rgb,
+  signOut: [0.386, 0.334, 0.239] as Rgb,
+  signIn: [0.303, 0.263, 0.189] as Rgb,
+  holder: [0.366, 0.318, 0.239] as Rgb,
+  threshold: { ReservePile: [0.525, 0.471, 0.38], ReserveWarehouse: [0.502, 0.449, 0.36], ReserveTank: [0.427, 0.385, 0.31] } as Readonly<Record<string, Rgb>>,
+  rope: [0.394, 0.347, 0.308] as Rgb,
+  tie: [0.33, 0.288, 0.255] as Rgb,
+  dirtFloor: [0.291, 0.238, 0.166] as Rgb,
+  dirt: [0.354, 0.274, 0.2] as Rgb,
+  goods: {
+    Log: [0.2, 0.158, 0.115],
+    Plank: [0.164, 0.129, 0.088],
+    TreatedPlank: [0.459, 0.363, 0.23],
+    ScrapMetal: [0.242, 0.147, 0.095],
+    MetalBlock: [0.212, 0.2, 0.186],
+  } as Readonly<Record<string, Rgb>>,
+  box: [0.403, 0.354, 0.279] as Rgb,
+} as const;
 
 /** The game's sky (D497): its camera's Skybox material (`resources.assets` "Skybox", shader path 1816, its pixel program
  *  read with D3DDisassemble), drawn without fog and graded by the post chain like the rest of the frame.
@@ -888,14 +1070,33 @@ export function objectLegend(): LegendEntry[] {
       label: "Badwater source",
     },
     {
-      swatch: icon(`<ellipse cx="12" cy="9" rx="10" ry="5" fill="${own(GEOTHERMAL_ROCK)}"/><circle cx="8" cy="8" r="1.6" fill="${own(GEOTHERMAL)}"/><circle cx="15" cy="10" r="1.6" fill="${own(GEOTHERMAL)}"/>`, dry),
+      // the game's crust: a sulphur rim round a dark bowl and its black vent, grey-brown rocks round it
+      swatch: icon(
+        `<ellipse cx="12" cy="9" rx="9" ry="5" fill="${o(GEOTHERMAL.crust[0])}"/><ellipse cx="12" cy="8.6" rx="7" ry="3.8" fill="${o(GEOTHERMAL.crust[3])}"/>` +
+          `<ellipse cx="12" cy="8.4" rx="4.4" ry="2.3" fill="${o(GEOTHERMAL.crust[4])}"/><ellipse cx="12" cy="8.4" rx="1.4" ry="0.8" fill="${o(GEOTHERMAL.vent)}"/>` +
+          `<circle cx="3.6" cy="9.5" r="1.3" fill="${o(GEOTHERMAL.rock[1])}"/><circle cx="20.4" cy="9" r="1.3" fill="${o(GEOTHERMAL.rock[0])}"/><circle cx="8" cy="13.6" r="1.2" fill="${o(GEOTHERMAL.rock[2])}"/><circle cx="16.5" cy="13.4" r="1.2" fill="${o(GEOTHERMAL.rock[1])}"/>`,
+        dry,
+      ),
       label: "Geothermal field",
     },
     {
-      swatch: icon(`<rect x="3" y="11" width="18" height="3" fill="${own(RELIC_STONE)}"/><rect x="6" y="3" width="3" height="8" fill="${own(RELIC_STONE)}"/><rect x="14" y="6" width="3" height="5" fill="${own(RELIC_STONE)}"/>`, dry),
+      // the small relic, the game's fallen telescope: its narrow and wide tubes pale, its collars and lens dark steel
+      swatch: icon(
+        `<g transform="rotate(-18 12 9)"><rect x="3" y="7.6" width="8" height="2.8" fill="${o(SMALL_RELIC.tube)}"/><rect x="11" y="6.6" width="8" height="4.8" fill="${o(SMALL_RELIC.tube)}"/>` +
+          `<rect x="2.2" y="7.2" width="1.4" height="3.6" fill="${o(SMALL_RELIC.collar)}"/><rect x="10.2" y="6.4" width="1.6" height="5.2" fill="${o(SMALL_RELIC.collar)}"/><rect x="18.6" y="5.6" width="2" height="6.8" fill="${o(SMALL_RELIC.collar)}"/></g>`,
+        dry,
+      ),
       label: "Relic",
     },
-    { swatch: icon(`<path d="M4 13 L7 5 L9 12 L12 3 L14 12 L17 6 L20 13Z" fill="${own(THORNS)}"/>`, dry), label: "Thorns" },
+    {
+      // the game's spikes, dark paling to their points, among paler twigs
+      swatch: icon(
+        `<path d="M3 13 L6 9 M8 12 L5 5 M16 12 L20 6 M18 13 L21 10" stroke="${o(THORNS.twig)}" stroke-width="1"/>` +
+          `<path d="M4 13 L7 5 L9 12 L12 3 L14 12 L17 6 L20 13Z" fill="${o(THORNS.foot)}"/><path d="M6.3 7 L7 5 L7.7 7Z M11.2 5.5 L12 3 L12.8 5.5Z M16.3 8 L17 6 L17.7 8Z" fill="${o(THORNS.point)}"/>`,
+        dry,
+      ),
+      label: "Thorns",
+    },
     { swatch: icon(`<circle cx="9" cy="10" r="4" fill="#858380"/><circle cx="15" cy="11" r="3.5" fill="#6f6d6a"/><circle cx="12" cy="6" r="3" fill="#9a9894"/>`, dry), label: "Blockage" },
     { swatch: icon(`<rect x="7" y="4" width="10" height="9" fill="#858380"/>`, dry), label: "Other objects" },
     // the information layer

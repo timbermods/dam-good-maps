@@ -17,6 +17,8 @@ how things are and what is next, not how they got there.
 | [STATUS.md](STATUS.md) | Where things stand now: what's released, what's in flight (branches, PRs, worktrees, owning session) and what waits for Kyler. |
 | [CHAT-HANDOFF.md](CHAT-HANDOFF.md) | The planning session's role (coordination, merging, releases) and how Kyler works. Read it when starting the planning session. |
 | [PERFECT.md](PERFECT.md) | What perfect means: Kyler's yardstick for every piece of work and every review (D225). |
+| [MAPCRAFT.md](MAPCRAFT.md) | What makes a map good, from first principles: the ten principles, the craft step by step, the budgets and measures, and what each step asks of the generator and the editor. |
+| [PREMISES.md](PREMISES.md) | A design, its first step built (the model and the lake stair's plan, `src/core/premise/`): how the generator makes a map from a premise (a one-line problem with its water story, skeleton, start, ladder of works and invariants), stage by stage, in seconds; the lake stair in full, two more premises sketched, how premise maps are judged, and the build order. Read it before building any of it. |
 | [ROADMAP.md](../ROADMAP.md) | The order of work (the release gate, the post-release list), the Codex adoptions with Kyler's verdicts, then each open step with what it delivers and what blocks it. |
 | [PLAN.md](../PLAN.md) | The product: the generator, the checks, the interface. Its §20 points to the decisions in force. |
 | [decisions/](decisions/README.md) | The decisions in force, by topic, one file per topic, with an index. Read the index, then `how-we-work.md`, then only the topic files your task touches. |

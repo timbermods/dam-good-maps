@@ -16,7 +16,7 @@
 import type { WaterColumns } from "./columns";
 import { PREVIEW_JOB_DAYS, PREVIEW_MOVED, PREVIEW_TOL } from "./preview";
 import { STACK_CHECK_TICKS, stackThreads, type StackThreads } from "./stackParallel";
-import { columnFlows, loadStack, retainedRows, staleStack, STACK_FIELD, STACK_INFO, STACK_OP, StackWater, type StackSettle } from "./stackWater";
+import { columnFlows, columnOutflows, loadStack, retainedRows, staleStack, STACK_FIELD, STACK_INFO, STACK_OP, StackWater, type StackSettle } from "./stackWater";
 import { sameRetained, type WaterModel } from "./water";
 
 /** Water on stacked columns carried over to other columns of the same map (the map after an edit, or under a
@@ -343,11 +343,12 @@ export class StackLive {
   }
 
   /** The water as it stands as a settle of the map (the journey's end, `preview`): every column with its saturation and
-   *  its outflows, but no `reach` or `start`, which only a canonical settle has (stackWater.ts `settledAgain`). */
+   *  its outflows (four a column, and toward each target as the file stores them), but no `reach` or `start`, which only
+   *  a canonical settle has (stackWater.ts `settledAgain`). */
   settle(): StackSettle {
     this.gather();
     this.m.op(STACK_OP.saturation);
-    return { ...this.water(), sat: this.m.copy(STACK_FIELD.saturation) as Uint8Array, flows: columnFlows(this.m, true) };
+    return { ...this.water(), sat: this.m.copy(STACK_FIELD.saturation) as Uint8Array, flows: columnFlows(this.m, true), outflows: columnOutflows(this.m) };
   }
 
   /** The strips' water since the run's last check, into the whole map's engine, its momentum with it: before it is read. */

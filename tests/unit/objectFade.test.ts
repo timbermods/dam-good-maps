@@ -60,13 +60,13 @@ describe("the fade round the pointer", () => {
     expect(validRegion({ x: 0, y: Infinity, radius: 1 })).toBe(false);
   });
 
-  it("hides every object while hidden, but never the land's own shape (a mine site's pit, a seep's)", () => {
+  it("hides every object while hidden, but never the land's own shape (a mine site's pit, a seep's, a geothermal field's vent)", () => {
     expect(objectShows(null, true, 10.5, 20.5, false)).toBe(0);
     expect(objectShows(region, true, 40, 40, false)).toBe(0);
     expect(objectShows(region, false, 10.5, 20.5, false)).toBeCloseTo(0.25, 9);
     expect(objectShows(region, true, 10.5, 20.5, true)).toBe(1);
     expect(objectShows(region, false, 10.5, 20.5, true)).toBe(1);
-    expect([...LAND].sort()).toEqual(["BadwaterSeep", "UndergroundRuins", "WaterSeep"]);
+    expect([...LAND].sort()).toEqual(["BadwaterSeep", "GeothermalField", "UndergroundRuins", "WaterSeep"]);
     expect(LAND_GROW[0]).toBeLessThan(0);
     expect(OBJECT_FADE_GLSL).toContain("if (grow.x < 0.0 || grow.z < 0.0) return 1.0;");
     expect(OBJECT_FADE_GLSL).toContain("return grow.x >= 0.0 && grow.z >= 0.0 && (objectHide > 0.5 ||");
@@ -97,6 +97,14 @@ describe("the fade round the pointer", () => {
     const turned = casterPlaces({ ...e, orientation: Uint8Array.from([2, 0]) } as unknown as EntityView, 32);
     expect(turned.get(19 * 32 + 9)).toEqual([9.5, 19.5]);
     expect(casterPlaces(null, 32).size).toBe(0);
+  });
+
+  it("drops the large relic's by its model's place too, the middle of its 3 × 3, as light.ts casts its dish from each tile", () => {
+    const e = { count: 1, templates: ["LargeRelic"], template: Uint16Array.from([0]), x: Int16Array.from([10]), y: Int16Array.from([20]), orientation: Uint8Array.from([0]) } as unknown as EntityView;
+    const places = casterPlaces(e, 32);
+    const footprint = [20, 21, 22].flatMap((y) => [10, 11, 12].map((x) => y * 32 + x));
+    expect([...places.keys()].sort((a, b) => a - b)).toEqual(footprint);
+    for (const t of footprint) expect(places.get(t)).toEqual([11.5, 21.5]);
   });
 
   it("is the shaders' own test: the same fade, edge and halfway mark", () => {

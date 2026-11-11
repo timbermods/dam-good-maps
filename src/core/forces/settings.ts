@@ -27,6 +27,10 @@ export const RIVER_DEPTH_MAX = 22;
 /** Carve's Banks, in tiles (item 18). */
 export const BANKS_MIN = 0;
 export const BANKS_MAX = 10;
+/** Carve's Fall, in levels from its lip to the water below (showcase craft gaps 1, 2 and 20; null: the land's own): a
+ *  landmark fall, four levels at least (planning's spec); lower is a rapid, not a fall. */
+export const FALL_MIN = 4;
+export const FALL_MAX = 12;
 /** Craterize's Size, in tiles across (null: it follows Power). */
 export const CRATER_SIZE_MIN = 4;
 export const CRATER_SIZE_MAX = 180;
@@ -83,6 +87,7 @@ export const FORCE_SETTINGS: Readonly<Record<Verb, ForceSettingsTable>> = {
       { key: "depth", min: DEPTH_MIN, max: DEPTH_MAX, whole: true, empty: "nullish", why: `a carve's depth is ${DEPTH_MIN} to ${DEPTH_MAX} levels, or null (it follows Power)` },
       { key: "riverDepth", min: RIVER_DEPTH_MIN, max: RIVER_DEPTH_MAX, whole: true, empty: "nullish", why: `a carve's river depth is ${RIVER_DEPTH_MIN} to ${RIVER_DEPTH_MAX} levels, or null (Off)` },
       { key: "banks", min: BANKS_MIN, max: BANKS_MAX, empty: "nullish", why: `a carve's banks are ${BANKS_MIN} to ${BANKS_MAX} tiles` },
+      { key: "fall", min: FALL_MIN, max: FALL_MAX, whole: true, empty: "nullish", why: `a carve's fall is ${FALL_MIN} to ${FALL_MAX} levels, or null (the land's own)` },
     ],
   },
   craterize: {
@@ -105,6 +110,7 @@ export const FORCE_SETTINGS: Readonly<Record<Verb, ForceSettingsTable>> = {
   },
   rift: { name: "a rift", choices: { mode: ["drop"], walls: ["auto", "sheer", "stepped"] }, flags: [], ranges: [{ key: "size", min: 4, max: 64, empty: "null", why: "a rift's size is 4 to 64 tiles, or null (it follows Power)" }] },
   deposit: { name: "a deposit", choices: { mode: ["fan"], channels: ["auto", "few", "many"] }, flags: [], ranges: [{ key: "size", min: 8, max: 64, empty: "null", why: "a deposit's size is 8 to 64 tiles, or null (it follows Power)" }] },
+  roll: { name: "a roll", choices: { mode: ["roll"] }, flags: [], ranges: [{ key: "size", min: 8, max: 64, empty: "null", why: "a roll's size is 8 to 64 tiles, or null (it follows Power)" }] },
   erode: { name: "an erosion", choices: { mode: ["wear"] }, flags: [], ranges: [{ key: "size", min: ERODE_SIZE_MIN, max: ERODE_SIZE_MAX, empty: "null", why: `an erosion's size is ${ERODE_SIZE_MIN} to ${ERODE_SIZE_MAX} tiles, or null (it follows Power)` }] },
   glaciate: {
     name: "a glacier",

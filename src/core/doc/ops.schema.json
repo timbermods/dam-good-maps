@@ -8,7 +8,7 @@
   "required": ["op", "params"],
   "properties": {
     "op": {
-      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow", "paintObjects", "crop", "blocks", "setDescription"]
+      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow", "paintObjects", "crop", "blocks", "setDescription", "setLakeLevel"]
     },
     "params": { "type": "object" },
     "label": { "type": "string" }
@@ -32,7 +32,8 @@
     { "if": { "properties": { "op": { "const": "paintObjects" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/paintObjects" } } } },
     { "if": { "properties": { "op": { "const": "crop" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/crop" } } } },
     { "if": { "properties": { "op": { "const": "blocks" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/blocks" } } } },
-    { "if": { "properties": { "op": { "const": "setDescription" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/setDescription" } } } }
+    { "if": { "properties": { "op": { "const": "setDescription" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/setDescription" } } } },
+    { "if": { "properties": { "op": { "const": "setLakeLevel" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/setLakeLevel" } } } }
   ],
   "$defs": {
     "id": { "type": "string", "pattern": "^(f-[a-z2-7]{13}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$" },
@@ -137,18 +138,18 @@
       }
     },
     "forceResult": {
-      "description": "A force of nature (Carve, Craterize, Erupt, Quake, Glaciate, Rift, Deposit or Erode: D194, D202, D203, D206, D220, D246, D281): what the player asked for (the force, its settings, where), and its result stored literally (the changed tiles as indices y·W + x, ascending, and their new levels; the fresh volcanic rock on the tiles where it changed, a bit per level 0–21; the voxels Erode hollowed under the surface, each tile's whole mask; the objects that lost their ground, the ones it carried, the trees it knocked down; a carve's source and sealed oxbow lake; a glacier's springs and its tarn; the sources it cleared, D474). Replay assigns the result and never runs the force; the engine checks it fits the map. A project's `carve` operations, from before the forces shared this one, become `forceResult` when it opens.",
+      "description": "A force of nature (Carve, Craterize, Erupt, Quake, Glaciate, Rift, Deposit, Erode or Roll: D194, D202, D203, D206, D220, D246, D281): what the player asked for (the force, its settings, where), and its result stored literally (the changed tiles as indices y·W + x, ascending, and their new levels; the fresh volcanic rock on the tiles where it changed, a bit per level 0–21; the voxels Erode hollowed under the surface, each tile's whole mask; the objects that lost their ground, the ones it carried, the trees it knocked down; a carve's source and sealed oxbow lake; a glacier's springs and its tarn; the sources it cleared, D474). Replay assigns the result and never runs the force; the engine checks it fits the map. A project's `carve` operations, from before the forces shared this one, become `forceResult` when it opens.",
       "type": "object",
       "additionalProperties": false,
       "required": ["version", "verb", "settings", "where", "steps", "reason", "tiles", "heights", "removed"],
       "properties": {
         "version": { "const": 1 },
-        "verb": { "enum": ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit", "erode"] },
+        "verb": { "enum": ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit", "erode", "roll"] },
         "settings": {
           "type": "object",
           "required": ["mode", "power", "seed"],
           "properties": {
-            "mode": { "enum": ["unleash", "aim", "strike", "vent", "fissure", "lift", "slide", "flow", "drop", "fan", "wear"] },
+            "mode": { "enum": ["unleash", "aim", "strike", "vent", "fissure", "lift", "slide", "flow", "drop", "fan", "wear", "roll"] },
             "power": { "type": "number", "minimum": 0, "maximum": 100 },
             "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
             "wander": { "type": "number", "minimum": 0, "maximum": 100 },
@@ -175,6 +176,7 @@
             "floor": { "type": "integer", "minimum": 1, "maximum": 22 },
             "riverDepth": { "type": ["integer", "null"], "minimum": 1, "maximum": 22 },
             "banks": { "type": "number", "minimum": 0, "maximum": 10 },
+            "fall": { "type": ["integer", "null"], "minimum": 4, "maximum": 12, "description": "Carve's fall: this many levels from its lip to the water below, the reach below cut down to it and held there; refused where the land can't give it. Null or absent: the land's own falls." },
             "sources": { "enum": ["ride", "clear"], "description": "Sources (D474): ride the ground, or clear every water and badwater source and seep on a tile the force changes. Absent: clear." }
           }
         },
@@ -356,6 +358,20 @@
             "contamination": { "type": "array", "maxItems": 262144, "items": { "const": 0 } }
           }
         }
+      }
+    },
+    "setLakeLevel": {
+      "description": "Lakes by number: the lake at 'at' made to hold at 'level', its water standing from the level up to under a level above it (the head of its flow over the sill). Its sill is cut down (a notch about 'width' tiles wide down the river's own course, its crest at the level, the rest a level lower, its sides stepping up to the ground) or raised (one bank across the outlet, its spillway at the level and the rest a level higher). Its tiles are stored literally: 'cells' as runs [y, x0, x1], and 'levels' the level of each, in the order of y·W + x; the integrity pass leaves them. The engine checks the sill, measured on the map now, is the one stored; the core's question confirms the water stands at the level with the canonical settle before it makes the operation (doc/lakeLevel.ts).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at", "level", "sill", "cells", "levels"],
+      "properties": {
+        "at": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
+        "level": { "type": "integer", "minimum": 1, "maximum": 22 },
+        "sill": { "enum": ["cut", "raise"] },
+        "width": { "type": "integer", "minimum": 1, "maximum": 32 },
+        "cells": { "$ref": "#/$defs/runs" },
+        "levels": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 22 } }
       }
     },
     "tile": {

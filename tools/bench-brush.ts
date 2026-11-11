@@ -52,6 +52,7 @@ import { chromium, type Page } from "@playwright/test";
 import { build, preview } from "vite";
 import { waitForEditor } from "./wait-editor";
 import { sin } from "../src/core/math/portable";
+import { BRUSHES } from "../src/editor/brushes";
 
 const arg = (name: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -65,8 +66,16 @@ const TOOL = arg("tool") ?? "raise";
 const BRUSH = arg("brush") ? Number(arg("brush")) : null;
 const STRENGTH = arg("strength") ? Number(arg("strength")) : null;
 const TERRACING = arg("terracing");
-/** The tool keys (the toolbar's order; 1 is Select, the brushes follow: BRUSHES in src/editor/brushes.ts). */
-const TOOL_KEY: Record<string, string> = { raise: "2", lower: "3", flatten: "4", smooth: "5", naturalize: "6" };
+/** The brush picked, by its key as a player picks it: read from the page's own list (BRUSHES), so a change to the
+ *  toolbar's keys can't leave the bench painting with another tool (#856: Select took 1, and the stroke painted
+ *  nothing). */
+const PICKED = (() => {
+  const b = BRUSHES.find((x) => x.tool === TOOL);
+  if (!b) throw new Error(`--tool ${TOOL}: not a brush (${BRUSHES.map((x) => x.tool).join(", ")})`);
+  return b;
+})();
+/** How long the bench waits after sending each pointer move (ms). */
+const MOVE_WAIT_MS = 6;
 const OUT = ".scratch/bench-brush-dist";
 
 interface Gpu {
@@ -137,7 +146,11 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
   // let the first checks finish, so painting is measured on its own
   await page.getByRole("button", { name: /Ready to play|warning|problem/ }).waitFor({ timeout: 300_000 });
   await page.getByRole("button", { name: "Top-down" }).click();
-  await page.keyboard.press(TOOL_KEY[TOOL]);
+  await page.keyboard.press(PICKED.key);
+  // (the key must pick the brush: its toolbar button pressed, or the stroke would paint nothing and the bench wait for
+  // a re-mesh that never comes, #856)
+  const button = page.getByRole("button", { name: new RegExp(`^${PICKED.name} brush`) });
+  if ((await button.getAttribute("aria-pressed")) !== "true") throw new Error(`key ${PICKED.key} didn't pick ${PICKED.name}: the toolbar's keys changed under the bench`);
   // the Size and Strength by their keys, from the brush as it opens (Size 5, Strength 5)
   if (BRUSH !== null) for (const s of [6, 8, 10, 12, 15, 18, 21, 24, 32, 40, 48, 64, 80, 96, 112, 128]) if (s <= BRUSH) await page.keyboard.press("}");
   if (STRENGTH !== null) for (let k = 5; k < STRENGTH; k++) await page.keyboard.press("]");
@@ -227,7 +240,7 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
   await page.mouse.down();
   for (let k = 1; k <= N; k++) {
     await page.mouse.move(path[k][0], path[k][1]);
-    await page.waitForTimeout(6);
+    await page.waitForTimeout(MOVE_WAIT_MS);
   }
   await page.waitForTimeout(700);
   const t0 = Date.now();
@@ -313,6 +326,13 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
   }
   // the cursor and the ring: from each pointer move to the next frame drawn (they are drawn in the
   // move's own handling)
+  // the moves' pace: the bench sends one every MOVE_WAIT_MS and a bit; on a machine too busy to keep that pace the
+  // moves come far apart, each lands on its own, and the numbers aren't what a player feels (#858: 2026-11-09, other
+  // builders using every thread, they came 0.4 s apart and a stroke took minutes)
+  const gaps: number[] = [];
+  for (let k = 1; k < raw.moves.length; k++) gaps.push(raw.moves[k] - raw.moves[k - 1]);
+  const gap50 = pct(gaps, 0.5);
+  if (gap50 > 5 * MOVE_WAIT_MS) console.warn(`the moves came ${round(gap50)} ms apart (p50), not about ${MOVE_WAIT_MS}: the machine is too busy for these numbers to be a player's`);
   const cursor: number[] = [];
   for (const e of raw.moves) {
     const f = raw.rend.find((x) => x >= e);
@@ -368,6 +388,7 @@ async function measure(page: Page): Promise<Record<string, unknown>> {
       : {}),
     inputToFrameMs: { p50: round(pct(lat, 0.5)), p95: round(pct(lat, 0.95)), max: round(Math.max(0, ...lat)), samples: lat.length },
     movesChangingNothing: remote ? unchanged : raw.idle + raw.pressing.length + raw.pending.length,
+    moveGapMs: { p50: round(gap50), p95: round(pct(gaps, 0.95)) },
     cursorToFrameMs: { p50: round(pct(cursor, 0.5)), p95: round(pct(cursor, 0.95)), samples: cursor.length },
     landShownMs: { p50: round(pct(shown, 0.5)), p95: round(pct(shown, 0.95)), samples: shown.length },
     ...(remote ? { landShownNextDabMs: { p50: round(pct(nextDabShown, 0.5)), p95: round(pct(nextDabShown, 0.95)), samples: nextDabShown.length } } : {}),

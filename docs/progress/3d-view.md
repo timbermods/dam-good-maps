@@ -2783,6 +2783,11 @@ more deep, the shortfall warm (about −5 to −10 R, in the shape of the glow's
   over the lake basin's badwater and its source (`m9b-lakeBasin-128-1`): 18 away, Standard 2.63, 2.96 → 2.61, 2.38 ms,
   High 2.27, 2.45 → 2.44, 2.42; 50 away, Standard 2.35, 2.29 → 2.15, 2.15, High 2.56, 2.46 → 2.47, 2.64. Within the
   runs' noise: the same samples, now without anisotropy. The worker's mips are made once a page, beside the pattern.
+- **The gap by day on the game's frames** (`--water all`, the twelve day-lit start shots, 1,749 clean and 73 badwater
+  tiles; `fix/badwater-day-gap`): the game 32.6 against 27.4, 5.2; before 6.8 (outside the 3.1–6.5 its frames allow),
+  after 5.6 in Standard and 5.5 in High (within). `look-high.spec.ts`'s scene (clean water over a moist bed, darker than
+  the frames', about 28) then read a gap under its old margin of 1 (0.94, 0.64); re-based under D148 to D496's terms:
+  the order (> 0) and its badwater within the game's frames' 27.0–27.9, each ± its standard error (26.3–28.7).
 - **Falls short:** (1) badwater's thinnest film at sunrise (109 tiles) reads 37.2 against the game's 34.5 (it read
   36.2 before), and the day's deep water 33.4 against 31.3, where the glow's phase dominates (two regions of 36–37
   tiles); (2) over the sources, registered, ours reads 1.8 L* over the game's (5 %), the glow round them; (3) the glow's
@@ -3174,6 +3179,551 @@ birch bark 1.13, the crowns' sides 3–21 % under their middles, Standard's berr
   (3) The pine's yield (its resin, a detail map as the berries') is not drawn: it covers little of what the camera sees.
   (4) Standard's baked shadows on open ground (`light.ts` `PLANT_SHAPES`) keep the reaches of High's old models. (5) High's far birch
   covers 0.75 of the game's area within its drawn width. (6) The water source's three samples still read 23 % over.
+
+## The large relic as the game draws it (D135, D178 as amended 2026-11-10, D496, D497; `fix/relic-look`)
+
+In Four Lakes a large relic stands in a cave behind the Great Fall; ours drew it as plain white columns, a placeholder.
+The game's (`LargeRelic.Model`, 3 × 3, 1,605 triangles) is a fallen dish antenna.
+
+- **Read from the game's model** (numbers only, `tools/game-model-albedo.py` and scratch fits): a dish of radius 2.0
+  about a centre at (2.19, 1.45, 2.18) of its footprint, its back axis (−0.53, −0.60, −0.60), so it lies on its back
+  with its face up 37° toward the footprint's +x +y corner; panels in three bands (θ 9.3–20, 20–34, 34–46.8°), 15°
+  each, 36 of 54 present and the piece from φ 75° to 150° cracked off, darker; a rim lip round φ ±135°; a steel ring
+  across the face and one behind it; eight ribs 0.05 wide from inside the hub through the back ring to the rim; a hub
+  and boss; the feed, a hoop 0.78 across, fallen into the dish's mouth on four bent struts; two broken bits and 13
+  stones on the ground. Its ground footing (TerrainURP, 0.1 high) is left to the terrain.
+- **Built** (`render3d/largeRelic.ts`, new): our own model to those measures, 928 triangles (the placeholder 156).
+  Standard and High draw the same model (`high/landmarks.ts` copies it, as the start and the sources); both take the
+  objects' game light (`gameObjectLight`), Standard's baked shadow casts discs fitted to the model's (below), High's
+  depth map casts the model itself, and its fade and shadow drop
+  by its footprint's middle (`objectFade.ts` `casterPlaces`).
+- **Colours** (`palette.ts` `LARGE_RELIC`): the game's albedo by part (the atlas × vertex colour). Its material is
+  partly metallic (0.13–0.23 on the panels, 0.5 on the fittings), which our objects' light has no term for, so each
+  part is given the albedo that light needs to show the game's brightness: URP's diffuse at that metallic, its
+  occlusion and the environment's Fresnel reflection, averaged over the part's normals, the sun round the compass at
+  45° and the camera 45° down. The panels become 0.24–0.53 by band and side (the game's 0.29–0.54), the steel 0.16.
+- **Measured:** the bounds within 1 % of the game's (ours −1.341…1.262 × −0.246…1.851 × −1.075…1.376 about the
+  footprint's middle; the game's −1.336…1.251 × −0.235…1.843 × −1.068…1.376). The silhouette, our model's triangles
+  against the game's projected from 16 cameras (8 headings, 30° and 60° down) and from above: ours covers 1.015–1.055
+  times the game's area, IoU 0.85–0.93 (the ribs first built as deep fins covered up to 1.13 times; the game's are thin
+  bars). From the game's own falls camera (DGM Probe, Four Lakes r9) the dish lies where the game's does.
+- **Standard's shadow** (the look review, #938): it first cast a column from the ground to the dish's height over each
+  of the 9 tiles, about 2½ times the dish's own shadow: a solid patch round a see-through dish, where High casts the
+  model, a small broken shadow. It now casts upright discs round tiles' middles, as the plants do (`largeRelic.ts`
+  `LARGE_RELIC_SHADOW`, light.ts kinds 8–16): three, by the hub and the high back (0.45–1.85 up, radius 0.5;
+  0.6–1.7, 0.6; 0–1.5, 0.5), none under the open mouth or the thin rim. They were fitted through the bake and the
+  shader's bilinear read to the model's triangles projected along the 45° sun at 8 headings (flat ground; tiles² of
+  shadow, the model's → ours):
+
+  | Heading | 0° | 45° | 90° | 135° | 180° | 225° | 270° | 315° |
+  |---|---|---|---|---|---|---|---|---|
+  | Model | 5.21 | 6.13 | 5.50 | 3.80 | 3.32 | 3.89 | 3.39 | 3.56 |
+  | Columns (before) | 11.03 | 11.11 | 11.31 | 10.57 | 9.79 | 9.57 | 9.56 | 10.35 |
+  | Discs (after) | 4.72 | 4.12 | 4.72 | 3.84 | 3.80 | 3.96 | 3.80 | 3.53 |
+
+  Outside the footprint the model's is 0.0–2.6, the columns' was 3.4–6.2, the discs' is 0.0–1.9. Round discs cannot
+  turn with the shell, so each heading is 0.67–1.14 of the model's (the columns 1.8–2.9), 0.93 in all;
+  `landmarksGame.test.ts` holds it within 0.6–1.25 a heading and a tenth in all.
+- **Cost:** +772 triangles a relic, the draw calls unchanged. `benchOrbit` on Four Lakes r9 (1600 × 900, headed
+  Chrome, RTX 2070 Super; the GPU's time a frame, median; base → two runs of the branch): Standard whole map 4.25 →
+  4.50, 4.24 ms, the relic 30 away 3.68 → 3.81, 3.65; High 3.25 → 3.46, 3.39 and 5.40 → 5.30, 5.44: within the runs'
+  own spread. Every frame 7.0 ms at 144 Hz, but High's orbit round the cave, whose p95 of 21 ms is the base's too.
+- **Tools:** `tools/game-water-shader.py` reads a texture kept inside its asset (the `BeaverCarryingModels` atlas), and
+  `tools/game-model-albedo.py` passes over TerrainURP parts.
+- **Falls short:** (1) The small and medium relics are still columns of our own (the game's are a fallen telescope,
+  480 triangles, 0.29 high, and a crashed satellite with solar panels, 1,072 triangles, 0.6 high; ours 1.2 and 1.7
+  high). (2) Of the other 1.0+ objects, drawn in colours of our own at our own measures: the geothermal field (game
+  0.24 high, ours 0.5), the blockage (game 1.08, ours a generic rubble block), the ancient aquifer drill (5.05, ours
+  5.0), the aquifer (0.13, ours 0.23), the unstable core (0.96, ours 0.57), thorns (0.72 reaching −0.26…1.33, ours
+  0.49), the badtide drain (1 × 1 × 2.37, ours 0.81), the reserve pile and warehouse (1.02, ours 0.75 and 0.80) and the
+  reserve tank (2.81, ours 2.66); the natural dam (179 triangles) has no model of ours. (3) The dish's look is judged
+  only through the falls' curtain in the game's frames; a frame of the cave from inside would judge its colours.
+
+## The blockage as the game draws it (D135, D178 as amended 2026-11-10, D496, D497; `fix/blockage-look`)
+
+Four Lakes r11's irrigation works turn on 38 blockages, laid in lines across streams. Ours drew each as a generic rubble
+block of our own colours. The game's (`Blockage.Model`, 1 × 1, 174 triangles) is the one model for every blockage: the
+map stores its Coordinates alone, no orientation and no state, so it has one look.
+
+- **Read from the game's model** (numbers only, `tools/game-model-albedo.py` and scratch fits): a heap of faceted dark
+  grey rock (138 triangles, albedo 0.17/0.16/0.13) 1.078 high, overhanging its tile by about 0.15 a side; two broken
+  posts, one 1.05 high at its west edge and one leaning out of its east side; a beam through its north side, sawn pale
+  at one end and broken at the other; a splinter 1.04 high on its south edge; six pale shards of plank (four drawn from
+  both sides), the farthest 0.56 past its tile. Its material is not metallic (smoothness 0.5) and opaque, so its albedo
+  goes straight into our light.
+- **Built** (`render3d/blockage.ts`, new): our own model to those measures, 197 triangles: eight rocks (icosahedra
+  stretched along three axes, fitted so their outline covers the game's heap's from 17 cameras, cut at the ground and
+  at 1.078), three-sided posts and beam, the splinter, the shards. In the game's colours (`palette.ts` `BLOCKAGE`),
+  straight in the objects' game light (`gameObjectLight`); Standard and High draw the same model (`high/landmarks.ts`
+  copies it), with the objects' fade near the pointer. High's rubble block is gone; the natural dam kept it until it became the game's too (below).
+- **Measured:** the bounds within 1 % of the game's. The silhouette, our triangles against the game's projected from
+  16 cameras (8 headings, 30° and 60° down) and from above: 0.97–1.02 times the game's area, IoU 0.92–0.97.
+- **Standard's shadow:** it cast none. One upright disc round the tile's middle (`BLOCKAGE_SHADOW`, light.ts kind 17:
+  0 to 1.1 up, radius 0.9, as wide as `PLANT_WIDEST` lets a disc be), fitted through the bake and the shader's bilinear
+  read to the model's triangles along the 45° sun at 8 headings. A disc round the heap shades the heap itself, as an
+  object reads the bake at its own place and height: its sunlit faces came out a third darker than High's (the near
+  frame's heaps 0.22 mean against High's 0.34; a disc down to radius 0.6 still 0.24). So the blockage's disc shades
+  nothing on its own tile (light.ts `OWN_TILE_LIT`), whose ground the heap covers. On the ground it does not stand
+  over, the model's shadow and ours, tiles² by heading (0°…315°): 1.03/0.98, 1.08/0.93, 1.09/1.00, 1.27/1.07,
+  1.08/1.07, 1.17/1.05, 1.11/1.03, 1.23/1.07: 0.84–0.99 a heading, 0.93 in all (the shards reach past the disc);
+  `landmarksGame.test.ts` holds it within 0.8–1.05 a heading and 0.85–1.05 in all.
+- **Judged:** the game's r11 frames hold the blockages only far off (the day-1 water frame, 168 tiles away, 28 of
+  them, a few pixels each); there the heaps' mean is the game's 0.371/0.480/0.472, High's 0.361/0.471/0.461, Standard's
+  0.356/0.469/0.455. At 30 away over the line across the stream (100.5, 136.5), Standard's heaps 0.326 against High's
+  0.341: dark faceted rock with pale shards and a post standing out, as the game's model renders offline.
+- **Cost:** +97 triangles a blockage in Standard (+3,686 on r11), −23 in High (the rubble block was heavier); the draw
+  calls unchanged. `benchOrbit` on Four Lakes r11 (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame,
+  base → branch): Standard whole map 3.90 → 3.85 ms, the blockages 30 away 3.56 → 3.48; High 3.20 → 2.97 and 3.96 →
+  4.02: within the runs' spread. Every frame 7.0 ms at 144 Hz.
+- **Falls short:** (1) No game frame shows a blockage near; the look at 30 away is judged against the game's model
+  rendered offline, not the game's own light. (2) The heap is eight smooth-faceted rocks, 20 faces each, where the
+  game's has more, smaller facets; from 30 away it reads alike, closer the facets are larger than the game's. (3) The
+  rest of the placeholders in the large relic's falls short (2) remain.
+
+## The small and medium relics as the game draws them (D135, D178 as amended 2026-11-10, D496, D497; `fix/relics-look`)
+
+Ours drew both as broken stone columns on a plinth, colours of our own (the large relic's falls short (1)). The game's
+are a fallen telescope (`SmallRelic.Model`, 2 × 1, 480 triangles) and a crashed satellite (`MediumRelic.Model`, 3 × 2,
+1,072 triangles); the map stores a relic's Coordinates alone, so each has one look.
+
+- **Read from the game's models** (numbers only, `tools/game-model-albedo.py` and scratch fits; each also has a
+  footing of ground, `SlopeCliffEdge`, the terrain's own shader, left to the terrain, and an `Underground` model of dirt
+  under it, not drawn):
+  - the telescope, 0.29 high, lying along its footprint: a wide tube (0.87 to 1.69, 0.23 to 0.26 across) and a narrow
+    one (0.2 to 0.84, 0.14 to 0.2) pale, bent 11° at their joint; four dark steel collars (0.33 across at the wide end,
+    round a brown lens, to 0.18 at the eyepiece); its tripod's three legs fallen beside it, one bent, by its head;
+    three stones;
+  - the satellite, 0.6 high: a pale box 0.6 × 0.66 × 0.67, its top corner 0.57 up and its far corner 0.47 in the
+    ground, three of its faces drawn; four dark straps across it; on its top face a grey plate with a bar and five dark
+    knobs, on its west face a round port; on its south a grey half-dish 0.9 across (a cap of a sphere of radius 0.46,
+    torn to 33° round its top and 74° low on its sides, its bottom in the ground) with a copper feed fallen into it; a
+    wire arm bent out east; three solar panels of dark cells in pale frames flat on the ground, 2 × 3 cells east and
+    3 × 2 and 3 × 1 west; thirteen stones.
+  Their material is partly metallic (0.14 on the tubes, 0.15 on the satellite's body, about 0.5 on the rest), so each
+  part's albedo is folded for our objects' light as the large relic's is (`palette.ts` `SMALL_RELIC`, `MEDIUM_RELIC`):
+  the tubes 0.5/0.45/0.37 (the game's 0.49/0.44/0.36), the body 0.52/0.46/0.37 (0.59/0.52/0.41), the steel and the
+  cells and frames about 0.6 of the game's.
+- **Built** (`render3d/smallRelics.ts`, new; their shapes in `render3d/relicParts.ts`, shared with the large relic,
+  whose triangles are byte for byte the same): our own models to those measures, 320 and 494 triangles. Standard and
+  High draw the same models (`high/landmarks.ts` copies them; High's chipped stumps are gone), in the objects' game
+  light, with the objects' fade near the pointer. The legend's relic is the telescope.
+- **Measured:** the bounds within 1 % of the game's for the telescope and 4 % for the satellite (its panels and
+  stones reach a little farther; its lowest point 0.09 higher, a strap's corner deep in the ground left out). The silhouette, our triangles against the game's from 16 cameras (8 headings, 30° and 60°
+  down) and from above: the telescope 0.96–0.99 times the game's area, IoU 0.88–0.93; the satellite 0.98–1.05, IoU
+  0.89–0.93 (its panels first built to their frames' outer edge covered up to 1.11 times; the game's frames stop
+  short).
+- **Standard's shadow:** none, as before. Lying on the ground, what they cast past themselves (the model's triangles
+  along the 45° sun, less the ground they stand over) is 0.14–0.31 tiles² by heading for the telescope (thin slivers
+  along its tubes) and 0.16–0.49 for the satellite (its body and dish), under the bake's half-tile samples; the
+  satellite's body stands between two tiles' middles, where no disc can stand without shading its own faces.
+  `landmarksGame.test.ts` holds that they cast nothing.
+- **Judged:** Four Lakes r11 has two telescopes and a satellite, none near any of the game's frames (the nearest pose
+  is 154 tiles back). At 30 and 8 to 9 away (heading 35° and 215°, 40° down; `capture-ingame.ts` poses of ours) both
+  read as the game's model rendered offline: a pale telescope with dark collars, the satellite's pale box with its
+  dark straps and grey top between its dark panels, Standard and High alike.
+- **Cost:** on Four Lakes r11 (two telescopes, a satellite) +870 triangles in Standard and +600 in High, the draw
+  calls unchanged. `benchOrbit` (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame, base → branch):
+  Standard whole map 3.82 → 3.95 ms, the satellite 30 away 4.57 → 4.57; High 3.06 → 3.22 and 5.35 → 5.34: within the
+  runs' spread (the same whole-map frame was 3.85–3.95 over this step's runs). Every frame 7.0 ms at 144 Hz, but
+  High's orbit round the satellite's island, whose p95 of 14 ms is the base's too.
+- **Falls short:** (1) No game frame shows them near; they are judged against the game's models rendered offline,
+  not the game's own light. (2) The satellite's east panel is flat, where the game's is creased across its middle, and
+  its cells are shallow pits, where the game's catch the light in facets. (3) The rest of the placeholders in the
+  large relic's falls short (2) remain, the natural dam next.
+
+## Dry ground and dead trees from the widest view (D135, D334 as amended 2026-11-10, D496, D497; `fix/dry-widest`)
+
+Four Lakes r12's widest frame (the game's `day1-widest`, posed in ours by `tools/capture-ingame.ts`) showed our dry
+ground mottled lilac and tan where the game's is one even grey-blue, and its dead birches as faint grey specks where the
+game's are white. Planning's ruling: match the dry tone there and the dead trees' white; nothing else of light or colour.
+
+- **The cause, dry ground.** Not the mean: under the game's mask of dry ground (209,127 pixels: grey, unsaturated, not
+  green) ours was already the game's to 0.005 a channel. The mottle was our own broad hue drift (D334: dry ground
+  drifting between `GROUND.dryCool` and `GROUND.dryWarm` over 4 to 11 tiles). The game draws one `Desert` texture × its
+  detail texture × 2: its red − blue varies over blocks of ¼, 1, 4 and 8 tiles by 7.0, 5.1, 3.0 and 1.9 % of its luma's
+  mean, mostly from its grains; ours drifted all the way, 9.6, 9.3, 7.7 and 5.8 (`tools/ground-variation.ts`, which now
+  prints this beside the luma's spread). The luma's spread was already the game's (`DRY_BROAD`), and neither the
+  altitude ramp, the moisture and contamination channels nor the mips added to it.
+- **The fix, dry ground.** The drift goes a quarter of the way from its own mean colour (`materials.ts` `DRY_DRIFT`,
+  `DRY_DRIFT_MEAN`), so the pattern's mean is unchanged (the flat dry map's albedo 69.1/57.1/46.3 against 69.2/57.2/46.4
+  before, the game's texture 69/57/46), and its fine grains are a little warmer and cooler over a quarter of a tile
+  (`DRY_GRAIN`), as the texture's: the hue's spread now 6.8, 4.2, 2.7 and 1.8 (Standard). The palette is unchanged.
+- **Measured** in the frame (mean, the 12-pixel blocks' spread, red − blue's spread), game / ours before → after:
+  Standard 0.474/0.516/0.497, 0.023/0.018/0.019, 0.020 / 0.471/0.511/0.498, 0.030/0.019/0.022, 0.034 →
+  0.472/0.511/0.496, 0.026/0.018/0.019, 0.023; High 0.463/0.506/0.495, 0.034/0.021/0.022, 0.036 → 0.465/0.507/0.494,
+  0.030/0.020/0.019, 0.025.
+- **The cause, dead trees.** Their colour is the game's (the dead birch's wood its light part, 0.517/0.466/0.388), but
+  ours were half as thick: their wood covered 0.70 to 0.82 of the area of the game's MatureDead models (where their
+  textures' alpha keeps it) and 0.4 to 0.7 of their outline from the widest views' 35 to 75° (High's far models 0.5 to
+  0.7). Most of r12's dead trees are birches (686 of 1,055).
+- **The fix, dead trees.** Each is built to the game's slices (`dying.ts` `DEAD_LIMBS`, used by both looks): the pine a
+  pole 0.12 thick at its foot and 0.06 near its top, broken off askew at 2.37, with five stubs; the birch a trunk forking
+  at 0.4 into two limbs rising near upright, 0.25 apart, to 1.39; the oak a trunk 0.27 at its flared foot and 0.15 at
+  1.0, splitting into three limbs broken off 0.3 out at 1.33, a pale broken twig on each to 1.53. High's far models
+  take three sides, each a little thicker so it is as wide on average. Their outlines are now 0.81 to 0.94 of the
+  game's (Standard and High near), High's far 0.70 to 0.92; their wood 0.90 to 1.39 of the game's area
+  (`dying.test.ts` holds 0.85 to 1.4 in every look). Every end that shows is closed: the oak's trunk top a pale broken
+  disc, its limbs' broken ends their pale twigs, the birch's limbs to a point (`dying.test.ts` looks straight down over
+  each trunk's top in every look). Standard 50, 48 and 61 triangles (the budget 64).
+- **Measured** in the frame, the dead trees' specks on the dry ground east (lighter than the ground round them by 0.1,
+  unsaturated): the game's 399 pixels, mean luma 0.668, the lightest tenth 0.792; Standard 183, 0.604, 0.670 → 216,
+  0.617, 0.698; High 171, 0.616, 0.720 → 214, 0.619, 0.713.
+- **Cost:** Standard +14,300 triangles on r12 (+2.7 %), High +25,700 (+3.5 %), draw calls unchanged. `benchOrbit` on r12
+  (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame, base → branch): Standard whole map 3.74 → 4.06
+  ms, dry ground 40 away 2.88 → 2.97; High 3.39 → 3.40 and 3.30 → 3.09. Every frame 7.0 ms at 144 Hz.
+- **Falls short:** (1) The game's dead birches still read whiter: its trunks, under a pixel wide from the widest view,
+  light whole pixels (its anti-aliasing is a post filter, `AntiAliasingType` 1 in the game's settings), where our
+  multisampling blends them with the ground at half their contrast. That is how every thin thing is drawn, not the dead
+  trees' look, and stays for its own decision. (2) The game's twig cards (a sixth of their area kept by their alpha) are
+  drawn only as the oak's three twigs. (3) Dry ground's blocks still spread 0.026 in red against the game's 0.023: the
+  rest of the frame's spread is its light on the land's slopes, which this did not touch.
+
+## The natural dam as the game draws it (D135, D178 as amended 2026-11-10, D496, D497; `fix/natural-dam`)
+
+The generator's weirs are lines of natural dams across a river's channel (half the maps; river valley 2 at 128 has six).
+Ours drew each as five grey stones on a generic block's batch in Standard and as rubble and planks of our own colours in
+High. The game's (`NaturalDam.Model`, 1 × 1, 179 triangles, one node) is the one model for every natural dam.
+
+- **Read from the game's model** (numbers only, `tools/game-model-albedo.py` and scratch fits): a low heap of faceted
+  brown rock (108 triangles, albedo 0.215/0.185/0.149) with a flat top 0.62 high, overhanging its tile by up to 0.18;
+  three five-sided logs through it, their ends sticking out of its sides (0.202/0.156/0.110); five flat pale stones
+  lying over its top, the highest to 0.72, and three loose shards. Its bounds about its tile's middle x −0.68…0.73,
+  z −0.63…0.69, 0…0.717 up. Its material is the blockage's (EnvironmentURP, smoothness 0.5, not metallic), so its
+  albedo goes straight into our light.
+- **Built** (`render3d/naturalDam.ts`, new): our own model to those measures, 174 triangles: the heap as rings at four
+  heights, each at its outline along 12 headings, closed by a flat top, faceted in the three shades of the game's
+  heap's faces by lightness; the logs as five-sided bars closed at their ends; the stones as low pyramids over their
+  rims; the shards. Built on the relics' `Parts` (`relicParts.ts`). In the game's colours (`palette.ts`
+  `NATURAL_DAM`), straight in the objects' game light; Standard and High draw the same model (`high/landmarks.ts`
+  copies it; High's rubble and planks are gone), with the objects' fade near the pointer.
+- **Measured:** the bounds within 0.03 of the game's (ours x −0.71…0.73, z −0.64…0.67, 0…0.732 up). The silhouette,
+  our triangles against the game's projected from 16 cameras (8 headings, 30° and 60° down) and from above:
+  0.96–1.02 times the game's area, IoU 0.91–0.94.
+- **Standard's shadow:** it cast none. At 0.62 high under the 45° sun the heap's shadow reaches about half a tile past
+  its own reach, so it casts: two upright discs round the tile's middle (`NATURAL_DAM_SHADOW`, light.ts kind 18: 0 to
+  0.4 up at radius 0.94, as wide as `PLANT_WIDEST` lets a disc be, and 0.4 to 0.75 at 0.8), fitted through the bake
+  and the shader's bilinear read to the model's triangles along the 45° sun at 8 headings, shading nothing on its own
+  tile as the blockage's (`OWN_TILE_LIT`). On the ground it does not stand over, 0.84–1.00 of the model's shadow a
+  heading, 0.92 in all (one disc fitted best at 0.92–1.19, too large on the diagonals); `landmarksGame.test.ts` holds
+  it within 0.8–1.05 a heading and 0.85–1.0 in all.
+- **Judged:** no game frame of ours holds a natural dam (Four Lakes has none). At 12 away over river valley 2's weir
+  (32…34, 92…93), Standard and High alike: low brown heaps of flat-topped rock with paler stones, awash in the pool the
+  weir holds, as the game's model renders offline.
+- **Cost:** +74 triangles a natural dam in Standard (+444 on river valley 2), −114 in High (its rubble and planks were
+  heavier); the draw calls unchanged. `benchOrbit` on river valley 2 at 128 (1600 × 900, headed Chrome, RTX 2070
+  Super; the GPU's median a frame, two runs of the base → two of the branch): Standard whole map 2.95, 2.61 → 1.35,
+  2.76 ms, the weir 12 away 2.96, 2.91 → 2.88, 2.84; High 1.80, 1.72 → 2.03, 1.97 and 3.90, 3.97 → 3.92, 3.91: within
+  the runs' spread. Every frame 7.0 ms at 144 Hz.
+- **Falls short:** (1) No game frame shows a natural dam; it is judged against the game's model rendered offline, not
+  the game's own light. (2) The heap's facets are its rings' 12 a ring, larger than the game's many small ones near.
+  (3) The rest of the placeholders in the large relic's falls short (2) remain.
+
+## The badtide drain as the game draws it (D135, D178 as amended 2026-11-10, D496, D497; `fix/badtide-drain`)
+
+Ours drew the badtide drain as a grated box of our own colours, 0.81 high (the large relic's falls short (2)). The
+game's (`BadtideDrain.Model`, 391 triangles, one node) is the one model for every drain; the map stores its Coordinates
+and its orientation, the way it flows. Its footprint is 1 × 3: the box on the two ground tiles, the third the air its
+water falls through.
+
+- **Read from the game's model** (numbers only, `tools/game-model-albedo.py` and scratch fits): a box 1 × 1 × 2
+  filling its two tiles, 1.0 high, its faces flat and coloured by vertex colour: a rust-orange frame 0.1 wide round
+  every face (grey squares at its corners) and dark panels; two rails along its top and down its back; on each side two
+  pipes 0.1 wide rising from its foot in quarter bends (radii 0.5–0.6 and 0.2–0.3 round one point) and running on to its
+  front. At its front a recess 0.1 deep round a plate sloping back from 1.62 to 1.9, a round hole 0.8 across in it,
+  and behind the hole a black funnel narrowing to 0.28 and closing at 0.7; over the hole's upper half a rusted hood
+  0.12 thick reaching 0.37 out at its top and sloping back to the box at its sides. Its material is metallic (0.53,
+  smoothness 0.3), folded into albedo for our light as the relics' are (`palette.ts` `BADTIDE_DRAIN`): the frame and
+  pipes 0.233/0.143/0.09 from the game's 0.427/0.254/0.158, the corners 0.167/0.143/0.119, the panels 0.1/0.089/0.074,
+  the funnel 0.056/0.046/0.039 and the hood 0.166/0.102/0.065.
+- **Built** (`render3d/badtideDrain.ts`, new): our own model to those measures, 236 triangles (ours before, 244): the
+  faces as their frames, panels and rails tiled flat, the pipes as strips standing 0.006 off the sides, the plate, the
+  funnel as one cone, the hood in 8 steps round. On the relics' `Parts`. Standard and High draw the same model, in the
+  objects' game light, with the objects' fade near the pointer.
+- **Measured:** the bounds within 0.006 of the game's. The silhouette, against the game's from 16 cameras (8
+  headings, 30° and 60° down) and from above: 1.00–1.01 times the game's area, IoU 0.99–1.00.
+- **Standard's shadow:** it cast none. One upright disc round the middle of each of its two tiles
+  (`BADTIDE_DRAIN_SHADOW`, light.ts kind 19: 0 to 1.2 up, radius 0.8), fitted to the model's shadow along the 45° sun at
+  8 headings, shading nothing on its own tile (`OWN_TILE_LIT`), turned with the drain. On the ground it does not stand
+  over, 0.97–1.19 of the model's shadow a heading (longest with the sun along it), 1.00 in all; a column over each tile
+  cast 0.69–0.99, its diagonals short. `landmarksGame.test.ts` holds 0.9–1.25 a heading and 0.95–1.05 in all.
+- **Judged:** no game frame of ours holds a drain (the generator places none). Six placed on river valley 2's banks,
+  14 away, Standard and High alike: dark rusted boxes with orange frames, rails and bent pipes, the funnel black under
+  its hood, as the game's model renders offline, their sunlit faces no darker in Standard than in High.
+- **Cost:** −8 triangles a drain, the draw calls unchanged. `benchOrbit` on river valley 2 at 128 with the six drains
+  (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame, one run each, base → branch): Standard whole map
+  2.59 → 2.57 ms, the drains 14 away 2.89 → 2.78; High 2.36 → 1.67 and 3.80 → 3.80: within the runs' spread. Every
+  frame 7.0 ms at 144 Hz.
+- **Falls short:** (1) No game frame shows a drain; it is judged against the game's model rendered offline, not the
+  game's own light. (2) The game's pipes are drawn flat on the sides; ours stand 0.006 off them. (3) The rest of the
+  placeholders in the large relic's falls short (2) remain.
+
+## The unstable core as the game draws it (D135, D178 as amended 2026-11-10, D496, D497; `fix/unstable-core`)
+
+Ours drew the unstable core as a small dark dome 0.57 high with one red glowing eye, on an orange scorch mark (the large
+relic's falls short (2)). The game's (`UnstableCore.Model`, 1,740 triangles with its footing) is the one model for every
+core; the map stores its Coordinates, its orientation and flip (drawn turned, never flipped) and its countdown.
+
+- **Read from the game's model** (numbers only, `tools/game-model-albedo.py` and scratch fits): a ball of metal panels
+  about 0.67 in radius round a centre 0.26 up, sunk into the ground to 0.96 high, its pole a port tipped up toward the
+  north-west (its axis −0.43, 0.75, 0.5): a pale ring 0.6 across round a grey lens, a shallow cone set 0.09 in. Six pale
+  ribs about 0.06 wide run from the port down its sides 55–65° apart, and a pale strap 0.094 wide runs round its middle,
+  square to the axis, 0.68–0.75 from the centre. Eight dark studs stand on it, each a bezel 0.26 across round a paler
+  gem, one half sunk at its foot. Its panels are three shades of grey-brown. A footing of ground in the terrain's own
+  material (`SlopeCliffEdge`) heaps round it to 0.45 with rocks. Its material is metallic (0.5, smoothness 0.37), folded
+  into albedo for our light as the relics' are (`palette.ts` `UNSTABLE_CORE`): the panels 0.204/0.184/0.144,
+  0.197/0.174/0.136 and 0.182/0.155/0.12 from the game's 0.318/0.272/0.203 to 0.283/0.229/0.169, the ribs
+  0.294/0.279/0.231, the strap 0.277/0.246/0.201, the ring 0.307/0.291/0.241, the lens 0.148/0.15/0.14, the studs
+  0.149/0.141/0.117 and the gems 0.233/0.224/0.193.
+- **Its states:** the game lights the lens (its `_LightingMap`, the lens alone) only while the countdown runs, in play,
+  blinking every 1.5 s down to 0.5 s as it nears its blast, with a spot light by the port (`UnstableCoreLighting`), and
+  never in its map editor. Ours is drawn as the map editor and the game before the countdown show it, unlit; the blink,
+  the light and the blast's effect are left out (the blast's removal is the simulation's, `core/sim/explosion.ts`).
+- **Built** (`render3d/unstableCore.ts`, new): our own model to those measures, 356 triangles (ours before, 377): the
+  ball as rings round the port's axis at its measured reach along 12 headings, each panel shaded as the game's there,
+  points under the ground raised to 0.03 below it; the ribs and strap as bands standing 0.012 and more off the panels;
+  the studs as five-sided bezels with their gems as their tops. On the relics' `Parts`. Standard and High draw the same
+  model, in the objects' game light, with the objects' fade near the pointer. The footing is left to the terrain, as
+  the relics' is.
+- **Measured:** the bounds within 0.02 of the game's (without its footing). The silhouette, against the game's ball,
+  ribs, strap and studs from 16 cameras (8 headings, 30° and 60° down) and from above: 0.92–1.01 times the game's area,
+  IoU 0.90–0.94.
+- **Standard's shadow:** it cast none. One upright disc over each of its four tiles (`UNSTABLE_CORE_SHADOW`, light.ts
+  kinds 20–23, one for each corner of a tile the footprint's middle can be at: 0 to 0.9 up, radius 0.5), moved 0.3
+  along each way toward the footprint's middle (`UNSTABLE_CORE_CAST`), turned with the core. The samples under the ball
+  (within 0.6 of its middle) are shaded only to 0.4 over its level, under its faces there: its faces read the bake
+  where they are, and its sunlit ones stay lit (0.997 of them, against 0.84 with those samples shaded to the discs'
+  tops), while the ground at its foot, reading the same samples, darkens. Fitted to the model's shadow along the 45° sun
+  at 8 headings, where it falls as well as how large: on the ground it does not stand over, 0.87–1.03 of the model's
+  shadow a heading, 0.96 in all, with 0.73–0.78 of the model's shadow under it (IoU 0.57–0.71). Lit on its own tiles,
+  as the blockage's discs are, it shaded a band round its footprint of the model's shadow's size but only 0.10–0.19 of
+  it (IoU 0.06–0.10): the ball's shadow falls mostly on its own tiles.
+- **Where every fitted shadow falls:** `landmarksGame.test.ts` now holds each fitted-disc kind to where its shadow falls
+  as well as how large it is (`expectWhereItFalls`: the share of the model's shadow under Standard's, and their IoU, at
+  every heading). As measured: the blockage 0.64–0.78 (IoU 0.54–0.64), the natural dam 0.68–0.86 (0.55–0.75), the
+  badtide drain 0.79–0.95 (0.66–0.83), the core 0.73–0.78 (0.57–0.71), the large relic 0.53–0.71 (0.43–0.54, its dish's
+  rim a thin shadow). Two samples a tile, bilinear, blur a shadow narrower than a tile, so none reaches 1.
+- **Judged:** eight placed on river valley 2's banks, 4 to 14 away, Standard and High alike: grey-brown metal balls
+  banded by pale ribs and a strap, dark studs over them, the port a grey lens in a pale ring, as the game's model renders
+  offline.
+- **Cost:** −21 triangles a core, the draw calls unchanged. `benchOrbit` on river valley 2 at 128 with the eight cores
+  (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame, one run each, base → branch): Standard whole map
+  2.75 → 2.56 ms, the cores 14 away 2.90 → 2.79; High 2.52 → 2.46 and 3.80 → 3.73: within the runs' spread. Every frame
+  7.0 ms at 144 Hz.
+- **Falls short:** (1) The countdown's blinking lens and light and the blast are not drawn. (2) The game's footing of
+  ground round it is left to the terrain: ours stands on the flat ground of its tiles. (3) Its studs' gems are flat
+  tops of five-sided bezels where the game's are round, and its panels three flat shades where the game's texture
+  weathers them. (4) It is judged against the game's model rendered offline, not the game's own light. (5) The rest of
+  the placeholders in the large relic's falls short (2) remain.
+
+## The thorns as the game draws them (D135, D178 as amended 2026-11-10, D496, D497; `fix/thorns`)
+
+Ours drew thorns as a low red-brown bramble of our own, two squashed balls with six canes (64 triangles), and High as a
+bramble of canes over a rock. The game's (`Thorns.Model`, 141 triangles, material `Thorns` on EnvironmentURP, its
+texture cut out by its alpha at 0.312) is the one model for every thorn bush; the map stores its Coordinates and its
+orientation and flip (drawn turned, never flipped).
+
+- **Its states:** none. No code of the game's names thorns beyond its blueprint; the bush is a block object with no
+  growth and no dying or dead form, unlike the plants, so it has one look in every season.
+- **Read from the game's model** (numbers only, scratch tools): 13 solid spikes, eight four-sided 0.35–0.49 high and five
+  three-sided about 0.18; and 35 two-sided twig cards whose texture keeps 10–16 % of each card, thin branches forked into
+  twigs. With its cut-out, it reaches −0.06 to 0.55 up and x −0.69…0.66, z −0.68…0.76 about its tile's middle,
+  overhanging it. Its texture over the spikes pales from 0.14 at their foot to 0.42 at their points (mean
+  0.184/0.158/0.132, metallic 0.13, smoothness 0.19), over the twigs 0.236/0.203/0.171 where not cut out (metallic 0.15,
+  smoothness 0.2), folded into albedo for our light as the relics' are (`palette.ts` `THORNS`): each spike's foot
+  0.12/0.103/0.085 and its point 0.228/0.2/0.172, so a spike's mean is the game's folded 0.156/0.135/0.114; the twigs
+  0.199/0.175/0.149.
+- **Built** (`render3d/thorns.ts`, new): the 13 spikes at the game's corners, coloured corner by corner; and of each of
+  the 22 branches its longest twigs (one or two, those longer than 0.15), each a three-sided cone from the branch's foot
+  to the twig's end, up to 0.05 thick at its foot: 164 triangles. On the relics' `Parts`; its own colour at each
+  corner. Standard and High draw the same model (High's bramble goes), in the objects' game light, with the objects'
+  fade near the pointer.
+- **Measured:** the bounds within 0.02 of the game's, but z's far side (0.68 against 0.76: its farthest twig is a side
+  twig). The silhouette, against the game's cut-out from 16 cameras (8 headings, 30° and 60° down) and from above: at
+  400 pixels 0.82–0.91 times the game's area, IoU 0.49–0.69; at 100 pixels, as a bush shows on a map, 0.62–0.79, IoU
+  0.51–0.70. The game's twigs are knobbly and branch again; our straight cones cover less where its forks spread.
+- **Standard's shadow:** none, as before. The game's model casts a lattice of thin twigs and spikes, about 0.5 tiles² off its
+  ground along the 45° sun but nowhere darker than 0.45 over half a tile, the bake's own sample. The best one or two
+  upright discs (the only shape the bake draws) share no more than 0.28 of their union with the model's shadow round the
+  compass, covering at most half of it, so they would draw a solid patch where the game draws a faint speckle. High casts the
+  model's own shadow.
+- **Judged:** offline, ours beside the game's model rendered with its texture's cut-out, from the 17 views: dark spikes
+  paling to their points among thin pale twigs, the bush's spread and height the game's; sparser, its twigs straight.
+- **Cost:** +100 triangles a bush in Standard; in High, where the bramble was, about 2,200 fewer a bush (its shadow's
+  pass counted); the draw calls unchanged. `benchOrbit` on river valley 2 at 128 with 16 thorn bushes (1600 × 900,
+  headed Chrome, RTX 2070 Super; the GPU's median a frame, one run each, base → branch): Standard whole map 2.64 → 1.31
+  ms, the bushes 14 away 2.81 → 2.58; High 1.92 → 1.43 and 3.80 → 3.80, triangles 289,874 → 253,970 and 297,250 →
+  261,346: within the runs' spread or better. Every frame 7.0 ms at 144 Hz.
+- **Falls short:** (1) The twigs are straight cones along the longest twigs alone; the game's knobbly, forking cards
+  and their side twigs are simplified, so ours reads sparser up close. (2) Standard casts no shadow where the game's
+  speckle darkens the ground a little. (3) It is judged against the game's model rendered offline, not the game's own
+  light. (4) The rest of the placeholders in the large relic's falls short (2) remain.
+
+## The geothermal field as the game draws it (D135, D178 as amended 2026-11-10, D496, D497; `fix/geothermal`)
+
+Ours drew the geothermal field as a mound of dark rock 0.5 high of our own with four vents glowing orange, and High as
+rocks round four glowing vents. The game's (`GeothermalField.Model`, 523 triangles with its footing) is the one model
+for every field; the map stores its Coordinates and orientation (never flipped).
+
+- **Read from the game's model** (numbers only, `tools/game-model-albedo.py` and scratch tools): a round crust in the
+  blockage's material (208 triangles), reaching 1.05–1.23 from its footprint's middle, rising from the ground to a rim
+  0.14–0.22 high about 0.8 out, falling inward to a bowl near the ground and a vent 0.4 deep under the middle. Its
+  vertex colours make the rim sulphur yellow and the bowl, its outer slope and the vent dark (albedo 0.249/0.201/0.045
+  over its area, from 0.149/0.122/0.077 to 0.462/0.359/0.002). Thirteen rocks in the water source's rock material
+  stand round its edge, 0.12–0.24 high (0.203/0.186/0.155). A footing of ground in the terrain's own material
+  (`SlopeCliffEdge`) heaps round it to its footprint's edge. Neither material is metallic, so the colours are drawn
+  straight (`palette.ts` `GEOTHERMAL`: the crust in six shades, the vent black, the rocks in three).
+- **Its blueprint:** it cuts its middle tile out of the terrain (`BlockObjectTerrainCutoutSpec`), as the crust's bowl
+  and vent sink below the ground there; ours does too (entities3d.ts `mineCutout`), so it is the land's own shape,
+  never faded or hidden (objectFade.ts `LAND`), as the mine site and seeps are.
+- **Its states and steam:** the field has no state of its own. Its steam, `GeothermalFieldSmoke`, runs while it is not
+  blocked; it is blocked while flooded (`BlockableFloodableObject`: its water object at its middle with water above its
+  base, the water's height ceiled over its level, so any water at all) or built over (our maps have no buildings).
+  Read from its ParticleSystem and its `Dust` material: 100 puffs alive at most (80 a second), each living 2–3 s, born
+  on a circle 0.48 round the middle, drifting in at 0.15 a second, rising under a twentieth of gravity turned upward;
+  0.8–1.0 across, shrinking to a tenth by the end; its colour pale grey 0.83/0.82/0.79 through its colour over life
+  (brown-grey 0.30/0.26/0.21, grey 0.51 at 0.45, pale 0.89 at the end) and very faint (alpha 0 → 0.094 at 0.44 of its
+  life → 0.039 at 0.86 → 0, times its material's 0.6). Ours (`render3d/geothermalSteam.ts`, new) draws those puffs,
+  each placed and timed on the GPU from the view's clock, one batch for every field, and stops a field's while any
+  water stands on its middle tile (`steamFields`, read each time the water or the objects change). Left out: the game's
+  wind, which carries its puffs, and its puffs' texture, ours a soft round puff. None in the light look; still with
+  reduced motion.
+- **Built** (`render3d/geothermal.ts`, new): the crust a grid of 16 headings by 7 rings out to its reach, each corner
+  at the game's height there and in its colour there (averaged over 0.05 round it, the nearest of the six shades), its
+  edge sunk 0.04 into the ground; each rock the hull of its farthest points six ways round, three ways up and its top:
+  416 triangles. Standard and High draw the same model (High's own rocks and vents go), in the objects' game light.
+- **Measured:** the bounds within 0.03 of the game's (without its footing). The silhouette, against the game's crust
+  and rocks from 16 cameras (8 headings, 30° and 60° down) and from above: 0.98–1.00 times the game's area, IoU
+  0.95–0.97.
+- **Standard's shadow:** none, as before. Low and wide, the model casts 0.07–0.14 tiles² past the ground it covers
+  along the 45° sun: its rocks' slivers, no shape a disc could follow.
+- **Judged:** eight placed on river valley 2's banks, Standard and High: sulphur rims round dark bowls and black vents,
+  grey-brown rocks round them, a faint grey haze rising over each, as the game's model renders offline.
+- **Cost:** +1 draw call (the steam, one batch for all fields), the triangles about the same. `benchOrbit` on river
+  valley 2 at 128 with the eight fields (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame, one run
+  each, base → branch): Standard whole map 2.60 → 2.70 ms, the fields 14 away 2.88 → 2.94; High 2.34 → 2.69 and 3.78
+  → 3.72: within the runs' spread. Every frame 7.0 ms at 144 Hz. A map with fields and no water now draws at the
+  water's 30 frames a second for the steam.
+- **Falls short:** (1) The game's wind does not carry the steam, and its puffs are a soft round puff of our own, not
+  the game's texture; the particle system was read from its serialized numbers without its field names, so its
+  smaller modules (noise, rotation over life) are left out. (2) The game's footing of ground round it is left to the
+  terrain. (3) Its rocks are hulls of a few points each where the game's are rounder. (4) It is judged against the
+  game's model rendered offline, not the game's own light. (5) The rest of the placeholders in the large relic's falls
+  short (2) remain.
+
+## The reserves as the game draws them (D135, D178 as amended 2026-11-10, D496, D497; `fix/reserves`)
+
+Ours drew the reserve pile and warehouse as pens of our own colours 0.75 and 0.80 high, and the tank as a barrel of our
+own 2.66 high, none of them showing what they held. The game's (`ReservePile.Model`, `ReserveWarehouse.Model`,
+`ReserveTank.Model`, 236, 330 and 630 triangles) are one model each, flipped by mirroring (all three are Flippable);
+each fills its 2 × 2, its entrance on the right half of its front.
+
+- **Read from the game's models** (numbers only, `tools/game-model-albedo.py` and scratch tools): the pile a pen of
+  grey-green boards (`BaseWoodCommon`) 0.48 high on an amber-brown frame (`BaseWoodCommon_Amber`) 0.1 high round a floor
+  of dirt (`DirtCommon`), posts at three corners; the warehouse a floor of boards in the same frame, posts 0.69 high at
+  three corners joined by four sagging ropes tied round them; both open at the entrance under an arch 1.01 high. The
+  tank a barrel of staves 1.54 across from 1.29 to 2.43 under a low cone to 2.81, banded, on a base ring 1.68 across
+  on four splayed legs with braces, a pipe down its middle, and a pump house 0.88 × 0.92 under an arched roof at the
+  entrance, its door a grey-green arched frame round a dark door. Each has a pale shield of a sign under a pale holder
+  at its entrance (the tank's holder gabled) and a pale threshold. The wood is a little metallic (0.07–0.15), folded
+  into albedo for our light as the relics' (`palette.ts` `RESERVE`).
+- **Their stock** (`Timberborn.StockpileVisualization`, read from the decompiled assembly and the blueprints' visualizer
+  specs): the game's pile draws dirt with `StockpilePlaneVisualizer` (`Dirt2x2`: the heap `MediumDirtPile` moved from
+  0.82 under its place, 0.01 to 0.78 up by the stock's share to the 0.8th power) and logs, planks, treated planks,
+  scrap metal and metal blocks with `StockpileGoodPileVisualizer` (over each tile layers of four goods 0.17 apart,
+  crossing layer by layer, ten layers a tile, the last layer's goods laid one by one on piles it picks at random); the
+  warehouse its boxes with `StockpileGoodColumnVisualizer` (`Box4H`: 36 columns 0.26 apart, boxes 0.232 a side, 144 at
+  most for its 200, columns picked at random to rise first); the tank has no visualizer, so it shows none. Ours
+  (`render3d/reserves.ts`, `stockOf`) draws them the same, picking in a fixed order where the game picks at random;
+  the dirt heap is one model moved, a stack of goods or boxes one model a good and amount. The view carries each
+  reserve's good and amount (`EntityView.stockGood`, `stockAmount`, from `FixedStockpile` and `Inventory:Stockpile`).
+  A reserve the shelf places holds its default good at full capacity, so a pile shows a full heap of dirt and a
+  warehouse its boxes four high.
+- **Built** (`render3d/reserves.ts`, new): the pens and the tank from boxes, faces and revolved profiles at the game's
+  measures, the tank 16 round as the game's: 262, 330 and 505 triangles. A flipped reserve has its own model, mirrored
+  across its footprint. Standard and High draw the same models, in the objects' game light.
+- **Measured:** the bounds within 0.03 of the game's. The silhouette, against the game's models from 16 cameras (8
+  headings, 30° and 60° down) and from above: the pile 1.00–1.01 times the game's area, IoU 0.99–1.00; the warehouse
+  1.00–1.03, IoU 0.97–1.00; the tank 0.99–1.02, IoU 0.97–0.99.
+- **Standard's shadow:** the tank casts a disc over each of its four tiles, 0.6 across before the inset, from its
+  barrel's base (0.95) to its top, each moved 0.15 toward the footprint's middle (light.ts `CORNER`, now a cast a kind,
+  the core's unchanged): on the ground it does not stand over, 0.79–1.12 of its model's shadow a heading, 0.94 in all,
+  0.76–0.92 of the model's under it, IoU 0.74–0.78 (`landmarksGame.test.ts`). The ground under its barrel stays lit,
+  as the game's. The pile and the warehouse cast none: their walls stand 0.48 and 0.69 high round their own floor, a
+  band of shadow 0.5–1.6 tiles² a heading outside the footprint, which discs would cast over their own floor and sunlit
+  walls; High casts their models' own.
+- **Cost:** +6 draw calls with ten reserves placed (the flipped models and a batch a stock), +4,500 triangles.
+  `benchOrbit` on river valley 2 at 128 with ten reserves by its weir, mixed goods, amounts and flips (1600 × 900,
+  headed Chrome, RTX 2070 Super; the GPU's median a frame, base → two runs of the branch): Standard whole map 2.76 →
+  3.15, 2.83 ms, the reserves 14 away 3.04 → 3.38, 3.15; High 2.55 → 2.62, 2.91 and 3.92 → 3.95, 4.05: within the
+  runs' spread. Every frame 7.0 ms at 144 Hz (one run's High p95 14 ms, not in the other).
+- **Falls short:** (1) The stock casts nothing in Standard's bake (High casts it): a full stack of logs stands 1.7
+  high. (2) The game's banner shows the good's icon on the sign, and its boxes carry the good's icon; ours draws the
+  sign plain and the boxes as columns without seams or icons. (3) Scrap metal is stacked as boxes of its measures, the
+  game's a heap of bent pieces. (4) Where the game picks at random which piles take the last layer's goods and which
+  columns rise first, each time it loads, ours picks in a fixed order. (5) Judged against the game's models rendered offline, not
+  the game's own light.
+
+## A fall over a cave's mouth (D154 as amended 2026-11-08, D496; `fix/cave-mouth-curtain`)
+
+The in-game capture kit (#933) on Four Lakes r9: at the Great Fall the game draws one curtain over a dry cave's mouth
+(air 7–10 under the lip, the lip's water at 14.2–14.5, the lake below at 6.4); ours drew bare rock there between two
+curtains, the cave open.
+
+- **Not the simulation:** the file's water, our stacked settle and the game's own record of that day agree on every
+  tile of the lip and the cave to the hundredth (the cave dry, the roof's water 0.2–0.5 deep).
+- **The cause:** the lake's tiles at the mouth stand under a roof's reach, so they are dealt into a layer of their own
+  (waterLayers.ts), seeing at each tile the gap at their level. At the mouth that was the dry cave (rock at the lake's
+  level, the cave's floor the lowest gap above it), so the lake took it as a shore and never rose. The roof's water, in
+  the open sky's layer, links to the lake below and stays flat to the lip, taking the lake's slope as drawn. Neither
+  layer drew the fall.
+- **Now:** where a column sees rock at its level at a tile and the gap above it is dry, it sees the lowest gap of that
+  tile above it, under its ceiling, holding water: the game's `ProcessColumns` links a neighbour's wet column whose span
+  overlaps its own. The lake's slope rises to the lip over the mouth as everywhere else along the fall
+  (`waterLayers.test.ts`, "a fall over a dry cave's mouth"). Ours from the game's `cave` and `falls` cameras now draws
+  the curtain whole over the mouth, as the game's does.
+- **Speed:** `waterLayers` in Node, both in one process, the least of 200 runs: Pillars 8.9 → 8.9–9.1 ms, Hollows
+  2.9 → 3.1–3.2, Four Lakes r9 0.67 → 0.71 (the check runs only at tiles holding water above the gap seen).
+- **Falls short:** where a tile holds water in two gaps above a column's level, which one the game links is not read;
+  ours takes the lower.
+
+## Falls that pour, against the game's Four Lakes frames (PERFECT Water 3; D154, D496; `fix/falls-pour-2`)
+
+Judged on the in-game capture kit's Four Lakes r14 `falls` and `cave` start frames (day light; local only), ours posed
+from their cameras with the map opened from its file, real Chrome on the RTX 2070 SUPER, Standard and High (the same
+within 1 L* unless said). Four curtains: the Great Fall's middle and right curtains in `falls`, the left curtain and the
+one over the cave's mouth in `cave`. L* by the curtain's upper, middle and lower third; streaks as the spread of each
+row's luma less its 3-pixel mean. `.scratch` measures, not kept.
+
+- **Ranked, what keeps a fall from reading as the game's:**
+  1. **The curtain nearest the camera, seen almost level with its lip (`cave`, left), is darker and duller:** game
+     39.6 / 32.6 / 24.8, ours 27.5 / 22.8 / 19.1; its brightest 1 % over its median 20.8 against 18.5 (High 13.3).
+  2. **The right curtain, faced head-on from above (`falls`), is lighter:** game 29.6 / 25.4 / 22.8, ours 36.5 / 31.7 /
+     27.8.
+  3. **Fine streaks:** ours about 0.6 of the game's on three curtains (`falls` middle 1.23 against 2.03, `cave` left 0.81
+     (High 0.59) against 1.08, `cave` mouth 0.33 against 0.64), 1.4 times on the right curtain (0.68 against 0.48).
+  4. **Motion:** none visible in either, by construction. The face is the lower water's slope, 7.1 levels over a third
+     of a tile, so the flow textures, sampled at the world's xz, stretch 21 times down it into straight streaks, and the
+     flow carries them along their own length. The file's outflows at these falls are 0.1 to 0.9 (flows 0.008 to 0.06
+     ÷ 14). Frames a tenth of a second apart show the streaks still and the cross-fade alone. The game's formula and
+     mesh are ours, so nothing here to follow.
+  5. **The lip, the foot, the thickness:** the same as the game's (the slope's grid, no foam: the falls sections above).
+  The other two curtains match: `falls` middle 32.7 / 25.8 / 31.6 against 31.4 / 26.6 / 35.5, `cave` mouth 36.1 / 28.5 /
+  22.3 against 36.3 / 27.3 / 21.0.
+- **What the gaps are not** (each term switched alone in Standard's water shader, 1 and 2 above):
+  - the sun's shadow on the face: forced lit, +0.4 to +2.6 on the left curtain; forced dark, the right curtain 24.0 /
+    20.3 / 17.1, past the game's on the other side;
+  - the depth seen through the face (0.1 to 0.3 on all four): at none, +1.4 to +5;
+  - its see-through: opaque, +0.4 to +1.9;
+  - the roof's light: the faces stand in open air;
+  - the camera highlight the waterfall mask takes off (the mask is whole on every face): the highlight under it is a
+    mean of 0.005 on the left curtain, 0.03 on the middle one, which matches the game masked;
+  - the environment's reflection: off, the right curtain reads the game's (29.1 / 25.2 / 23.5), but the cave's mouth
+    falls 7.5 under it; tripled, the left curtain's mean nears the game's but stays without its streaks.
+  Every term is the game's (P4, P5, P11 to P15 above), so no change is made: the gaps change sign from curtain to
+  curtain, and none follows one term. What is left to read is how the game lights the face's pixels at these two
+  views (its sun's direction there against ours among them).
+- **Falls short:** (1) to (3) stand, unexplained. A frame of the game's falls in motion would settle (4) beyond its
+  formula.
 
 ## The rest of the step (next parts)
 

@@ -661,7 +661,43 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   height ceiling or **Off**, 2 unless set; where the water would pool deeper over the cut ground the bed is raised
   under the pool's spill level) and **Banks** (item 18, Auto: 0 to 10 tiles of flat land each side of the river
   before the walls, wider inside a bend, at the river's waterline, the bed below them by the river's depth, at least
-  two levels; moist for crops and may flood when the river refills, D307; `rust/forces`, `shape_river`). **Keep
+  two levels; moist for crops and may flood when the river refills, D307; `rust/forces`, `shape_river`) and **Fall**
+  (showcase craft gaps 1, 2 and 20; Auto, "Edges", or 4 to 12: a landmark fall; lower is a rapid): where the course leaves high ground over an edge (the
+  ground three levels or more lower within two stations, or an escarpment five down within four, its terraces too
+  narrow to stand between two falls) it falls: on the ground just above the edge (back to where the course runs more
+  than a level higher, so a course down a slope keeps its own carve on the slope, and on over any plateau above it the
+  carve would cut down to the stream's bed anyway; upstream the bed stays at the stream's, so the fall holds whatever
+  the carve cuts on its way) the stream runs a level deep with its bed two levels under the top, about five to six tiles
+  wide on Auto (an Unleash's thin river too, so its lip reads as a fall), cut as the head reaches it, and leaves over a
+  lip one level under the top, straight across the stream; the high ground near it is kept (no bowl, no ramp, the
+  cliff beside the fall standing), and where lower ground meets the stream from its side (a notch, or ground at the
+  lip's level) its bank stands at the top, so the water leaves over the lip alone. The lip stands before any lower
+  ground reaching into the stream from its side or running aslant of it, and the fall's face in front of it, a tile
+  wider than the stream each side, is cut to where the water lands (every ledge and rib up to ten tiles on), with no
+  rock knob in it; on Auto the river below runs at the lowest bed it reaches within those ten tiles, so the curtain
+  falls whole and faces open ground with no ledge partway down, and the next fall is past them. A gentle Power (one
+  that only scratches the land) and a catastrophe (Power 90 and up) make no falls of their own. A set Fall makes the
+  first fall that tall in one drop: the ground where its water lands is exactly that far under the lip, and in the water
+  as the game settles it the drop is within half a level of it (the water skims the lip and the landing alike). The
+  course below is cut down to that bed (past Canyon depth if it must be, and through the land's own lower edges) and
+  held there for ten tiles, however hard the Power cuts, then comes down from it a level every two tiles to the bed the
+  Power cuts (riffles, never a second fall the land didn't have) and runs on to the stroke's end at any Power; a force
+  plans on the water the map shows (a stored map's own, while it keeps it); where the land has no such edge the fall is where the ground the stroke
+  starts on ends (an edge or the top of a slope), and a stroke whose ground never goes down is refused ("A fall needs
+  high ground to fall from…"). A Fall taller than the land can give from its lip down to the Floor (and at least a
+  level over the map's foot) is refused, never cut short ("No drop of 12 here: the land falls at most 11", D342), and so is
+  one taller than the water already standing where it lands (a river or a lake, which no longer stroke lowers) lets it
+  fall: "No drop of 10 here: the water standing below lets it fall at most 8", which wins over the next line. Below a set Fall the carve's sediment stays out of
+  standing water, so it never raises the river it lands in. Refused too is one whose water below
+  can't leave the map at the bed it is cut to, the stroke ending in a hollow of higher ground ("No drop of 4 here: the
+  stroke ends before the water below can drain; draw it on to lower ground"), and one shorter than the land already
+  falls where its water lands, or a few tiles on, where ground a fall's height lower would step it, since a carve only
+  cuts ("No drop of 4 here: the land falls at least 5 below the edge"); where the water below holds every drop short of
+  that, no Fall fits ("…nor any other: … leave Fall on Edges"). A bay of lower ground beside the stream that meets the face is cut to the landing with it, so water leaving
+  the stream's side falls the whole height with the curtain, and a corner of the lip where its front meets that bay,
+  the face on two sides, is cut with the face so no dry block splits the curtain; the river's own sources stand back
+  from the brink. Size sets the fall's width
+  (on Auto the stream stays a stream; a set Size makes it as wide as the river). Unleash's course takes the land's own falls the same way (`rust/forces`, `carve_falls`, `hold_fall`). **Keep
   river** (default) leaves a source group at the origin (D314, `core/water/sourceGroups.ts`: a row across the heading,
   fewer where cramped) whose total strength follows the river's Width, not its Power; **Dry canyon** leaves none. Space pauses it. An oxbow lake holds its
   water behind its sediment and evaporates when nothing feeds it (the quiet dot settles once the rest of the water
@@ -803,6 +839,14 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   opening, rest a moment and fade; a faint stir of dust at the face as it rumbles. Visual only, gone about two
   seconds after its land is final, the same in Standard and High, off with reduced motion and in software. What it
   wore glows red on the faces it opened, fading a second after its last frame, as the Block tool's edits do.
+- **Roll** (ground with grade, 2026-11-10): soil creep and slumping, sped up. The land under a click or a drawn line
+  rolls in one-level steps: smooth swells (a level at Power 0, up to four at 100), then the nearest land that never
+  steps more than one level, so a cliff slumps into a walkable flank and a tabletop breaks into hills; water and the
+  ground beside it, kept ground and caves hold; inside a working area a tile moves at most its depth into it, up or
+  down (D254), and like Erode it waits for settled water (D281). **Power**, **Size** (8–64 tiles across, or Auto), the Floor,
+  Sources, **Try another** (the swells). The core half is adopted (`rust/forces/src/roll.rs`, `core/forces/roll.ts`;
+  20 fixed steps, each tile moving as the sweep reaches it). **The page:** its button, settings, ring, sounds and
+  key are the page session's, to come; it has no moment of its own.
 - **The block tool** (D280 (3); terrain above terrain, step 3): precision, beside Erode's magic. Point at a block's
   face and click to add a block against it, drag to paint a layer outward from that face; remove blocks to hollow a
   cave; sized like the brushes; shows at once any block the game's support rule would drop.
@@ -1134,6 +1178,21 @@ Make a valley, drop a source, and there's a river.
   roughly how long it will last; it is refused with a plain reason when the hollow doesn't hold water at that
   level. Each is one undo step. Their engine and questions are in the core; where they sit in the page is agreed
   with the page session (D388).
+- **Lakes by number** (showcase craft, gap 19): pick a lake, type its level, and its sill is cut down or raised so the
+  lake holds there: its water stands from the level up to under a level above it (the head of its river over the
+  sill), as the hover readout's "Water at level 7.4" reads level 7. A sill higher than the level gets a notch cut down
+  its river's own course, never a new way out: a crest at the level beside the lake, the river's bed a level lower past
+  it so the water falls off the crest and runs away, as wide as its river needs (or as asked) and a tile wider here and
+  there, its corners rounded and a meander laid across its line, its sides stepping up a level a tile to the ground, never a ruled canal with sheer walls. A lower one is
+  closed by one bank across the outlet, joined edge to edge: its spillway where the river crosses at the level, the
+  rest a ridge a level above the water, two tiles thick, running to land above the water at both ends, with a step
+  down behind it (refused when no such ridge closes the outlet). The canonical settle confirms the water stands there
+  before anything changes, and that settle is the map's water after it (asking first and then setting the level
+  settles once). Refused with one plain line when the land can't hold the lake: the level at or below its floor, a
+  second way out below the level (one sill can't hold it), water that would spill off the map, a notch that would
+  also drain another lake, a width for a sill that must be raised, no source filling it that high, a river standing a
+  level or more over the sill. One undo step; the start is carried if its ground broke. Engine and question in the core (`setLakeLevel`); its
+  control waits on the page session.
 - **Seeing underwater** (D196, D212): while a brush is over water already there, the water under and right round it
   turns clear, so the bed, ledges and sources show; working on dry land leaves the water as it is. T (the game's
   key) or **Clear water** makes all of it clear. The ground under water is drawn as it is dry, as the game draws it
@@ -1635,6 +1694,29 @@ checks dot counts; every other row is information under Good to know, worded as 
     the canonical settle stops, `water.settles` passes and the quiet dot settles once the rest of the water has;
     the lake is written with the water its carve kept, levelled into its hollow if it would not stand as kept
     (`PLAN.md` §10, §11.3).
+  - **Lakes by number** (`core/doc/lakeLevel.ts`, `core/sim/sill.ts`): `planLakeLevel(session, x, y, level, width?)`
+    finds the sill (`sillFor`, on the water model's floors and the priority flood's spill levels, `spillLevels`): a
+    spill level at L + 1 or more is cut, a Dijkstra walk from the lake at L (the land below L joined to the tile) over
+    the river's present course only (`flowThrough`'s path) to the nearest ground whose water drains at L - 1 or lower,
+    or to where the river leaves the map, costing each level cut far above each tile walked; round that line the
+    notch's floor is `width` tiles wide (by default `sillWidthFor` the inflow, 1.5 blocks a second a tile: the settle
+    stands 0.33 × flow ÷ width over a sill), a tile wider where a slow sine says, at L - 1, its sides a level higher
+    each tile out, and every cut tile beside the lake at L (the crest; a notch flat at L through a thick rim kept a
+    generated map's lake rising past L + 1 for six days). A notch that lowers another lake's spill level (standing
+    water over a level deep) is refused before the settle. A spill level under L is raised, the minimum vertex cut
+    (fill volume, then tiles) between the lake with its upstream and the map's open edge, refused when it falls in
+    more than one 8-connected piece or touches no ground at L or higher; tiles meeting at a corner only are joined by
+    one between them; its spillway, from the lowest tile the river crosses along the bank to the river's width, at L,
+    the rest at L + 1, and a ring behind it one level under its neighbour. It leaves ground under sources, obstacles and natural
+    dams, and the ground Select leaves on a map with caves. The water model with the sill is settled canonically
+    (`canonicalSettle`): the lake's surface must stand in [L, L + 1), a cut the player didn't size widened up to three
+    times. The `setLakeLevel` operation stores the sill's tiles as runs and each tile's level, applied by the build as
+    exact Flattens, a level at a time;
+    the engine's check measures the sill again on the map now (`lakeLevelProblem`). `applyLakeLevel` applies it as a
+    Select action (`applySelection`) inside `MapSession.withSettled`, so the build takes the confirming settle as the
+    map's water instead of settling twice; the last answer on a session is kept while its map stands as measured, so
+    asking and then setting the level settles once. The worker's `lakeLevelPlanAt` and `lakeLevelAt` and the MCP server's
+    `apply` (only `at` and `level` needed) call it.
   - **Remove unfed water and Fill** (D387, D394; `core/doc/waterEdits.ts`): water is fed where a running emitter's
     water reaches it by the simulation's flow rule (`sim/fed.ts` `fedTiles`: a wet neighbour whose floor stands
     under a fed tile's surface, a natural dam only once overtopped); every other wet tile is unfed. The question
