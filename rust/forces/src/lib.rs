@@ -11359,6 +11359,8 @@ struct Motion {
     past: f64,
     dz: f64,
 }
+/// The farthest a Lift moves ground from its fault (tiles): the same number is quake.ts `LIFT_REACH`.
+const LIFT_REACH: f64 = 20.0;
 struct Fault {
     settings: Settings,
     side: f64,
@@ -11366,9 +11368,9 @@ struct Fault {
     segments: Vec<FSeg>,
     length: f64,
     reach: f64,
-    /// How far the quake reaches past the drawn line (tiles), set by Power. The ground it changes lies
-    /// within twice this of the line, its ends included (or 1.3 times the line's length, whichever is
-    /// wider), not the 40-odd tiles the old shaking ring did.
+    /// How far a Slide's block reaches past the drawn line (tiles), set by Power: the block is the line and
+    /// this margin past its ends and sides, or 1.3 times the line's length across. (A Lift's ground lies
+    /// within `LIFT_REACH` of its fault.)
     margin: f64,
     lift: f64,
     slide: f64,
@@ -11615,36 +11617,46 @@ impl Fault {
             f.dy = dy;
             return f;
         }
-        let block_reach = max(self.margin * 2.0, self.length * 1.3);
+        // Lift (the force audit's finding 1): the ground moves most at the fault and less with distance from it,
+        // exp(-distance / λ) with λ 8 to 14 tiles by Power, and an elliptical taper along the trace brings it to
+        // nothing at both tips; a window takes it to nothing at LIFT_REACH tiles, so no ground past 20 tiles
+        // moves. The other side is no block: only a back-tilted trough at the scarp's foot, deepest there and
+        // rising away over 3 to 6 tiles, at most 2 levels (a sag pond at most), and nothing beyond it.
+        let power = n(s0, "power");
         let away = hypot(dist, f.past);
-        let envelope = (1.0 - smooth((away - block_reach * 0.8) / (block_reach * 0.2)))
-            * (1.0 - smooth(f.end / max(8.0, self.reach * 0.6)));
-        let step = if s(s0, "scarp") == "stepped" {
-            min(1.0, ((dist / 3.0).floor() + 1.0) / 3.0)
+        let u = clamp((f.along / max(1e-9, self.length)) * 2.0 - 1.0, -1.0, 1.0);
+        let taper = if f.past > 0.0 {
+            0.0
         } else {
-            1.0
+            portable_math::sqrt(max(0.0, 1.0 - u * u))
         };
-        let tilt = (hash(n(s0, "seed"), 6.0) * 2.0 - 1.0) * (f.along / self.length - 0.5) * 2.4
-            + (hash(n(s0, "seed"), 7.0) * 2.0 - 1.0) * clamp(dist / self.reach, 0.0, 1.0) * 1.4;
-        let mut dz = round(
-            (if side > 0.0 {
-                self.lift + tilt
+        let window = max(0.0, 1.0 - (away / LIFT_REACH) * (away / LIFT_REACH));
+        let mut dz = if side > 0.0 {
+            let lambda = 8.0 + power * 0.06;
+            let decay = exp(-away / lambda) * window;
+            let shape = if s(s0, "scarp") == "stepped" {
+                min(decay, min(1.0, ((dist / 3.0).floor() + 1.0) / 3.0))
             } else {
-                -self.lift * 0.55
-            }) * envelope
-                * step,
-        );
+                decay
+            };
+            // (the throw varies along the strike with the seed: Try another)
+            let strike = (hash(n(s0, "seed"), 6.0) * 2.0 - 1.0) * (f.along / self.length - 0.5) * 2.4;
+            round(max(0.0, self.lift + strike) * taper * shape)
+        } else {
+            let drop = min(2.0, (self.lift / 3.0).floor());
+            let width = 3.0 + power * 0.03;
+            -round(drop * taper * (1.0 - smooth(away / width)))
+        };
+        // small secondary faults notch the scarp's crest, where the scarp stands
         let branch = (f.along / 22.0).floor();
-        let u = f.along / 22.0 - branch;
-        if dist < 2.2 && u > 0.3 && u < 0.62 && hash(n(s0, "seed"), branch + 200.0) > 0.48 {
-            dz -= 1.0;
-        }
-        if side < 0.0
-            && dist > 3.0
-            && dist < 8.0
-            && u > 0.38
-            && u < 0.58
-            && hash(n(s0, "seed"), branch + 230.0) > 0.65
+        let v = f.along / 22.0 - branch;
+        if side > 0.0
+            && dz > 0.0
+            && dist < 2.2
+            && taper > 0.2
+            && v > 0.3
+            && v < 0.62
+            && hash(n(s0, "seed"), branch + 200.0) > 0.48
         {
             dz -= 1.0;
         }
