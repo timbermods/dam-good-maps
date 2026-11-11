@@ -12,6 +12,7 @@
 
 import { CEILING } from "../format/world";
 import { runsToTiles, tilesToRuns } from "../math/grid";
+import * as portable from "../math/portable";
 import { WATER } from "../sim/fed";
 import { polygonMask } from "../features/geometry";
 import { canalLine } from "./canal";
@@ -106,7 +107,9 @@ export function planDrawnLake(s: MapSession, outline: readonly (readonly [number
   if (spill) {
     let best = Infinity;
     for (const r of spills) {
-      const d = (r % W - spill[0]) ** 2 + (Math.floor(r / W) - spill[1]) ** 2;
+      const ex = (r % W) - spill[0];
+      const ey = Math.floor(r / W) - spill[1];
+      const d = ex * ex + ey * ey;
       if (d < best) [best, notch] = [d, r];
     }
   } else {
@@ -161,11 +164,11 @@ export function planDrawnLake(s: MapSession, outline: readonly (readonly [number
     syy += dy * dy;
     sxy += dx * dy;
   }
-  const angle = 0.5 * Math.atan2(2 * sxy, sxx - syy);
-  const [ax, ay] = [Math.cos(angle), Math.sin(angle)];
+  const angle = 0.5 * portable.atan2(2 * sxy, sxx - syy);
+  const [ax, ay] = [portable.cos(angle), portable.sin(angle)];
   const tr = (sxx + syy) / basin.length;
-  const det = (sxx * syy - sxy * sxy) / basin.length ** 2;
-  const minor = Math.sqrt(Math.max(0, tr / 2 - Math.sqrt(Math.max(0, (tr * tr) / 4 - det))));
+  const det = (sxx * syy - sxy * sxy) / (basin.length * basin.length);
+  const minor = portable.sqrt(Math.max(0, tr / 2 - portable.sqrt(Math.max(0, (tr * tr) / 4 - det))));
   const half = Math.max(0.75, 0.6 * minor);
   const shelf = Math.max(1, Math.ceil(depth / 2));
   for (const i of basin) {
