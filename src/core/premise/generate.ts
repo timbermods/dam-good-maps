@@ -1,5 +1,7 @@
 // The generator's premise mode (docs/PREMISES.md §2.1, §2.2 stages 3, 5 and 8; build step 4): `generate` calls
-// `generatePremise` when `spec.premise` names a premise (share link key `p`; no control on the page yet). Each attempt
+// `generatePremise` when `spec.premise` names a premise or Any (share link key `p`). The pair is resolved first
+// (`choice.ts` `resolvePremise`: Any from the seed; a theme the premise does not honour is refused in one line), and
+// the theme gives the land's style (`style.ts`: stage 2's uplands, stage 6's woods; PREMISES §1.5). Each attempt
 // draws a plan (stage 0), lays its water by number (stage 1) and the relief between (stage 2), places the start for the
 // first frame (stage 3), lays the ladder (stage 4, `ladder.ts`: each work's site and its gain by number, read out in
 // `info.premise.ladder`), builds the map once with the generator's own `buildMap` (one canonical settle, stage 5) and
@@ -23,8 +25,11 @@ import { ladderOf, spectrumMiss, type Ladder } from "./ladder";
 import type { LifeReport } from "./life";
 import { premiseLand, premiseMap } from "./map";
 import { sitePlan } from "./siting";
+import { premiseCard, type PremiseCard } from "./card";
+import { resolvePremise, type StyleTheme } from "./choice";
 import { PREMISES } from "./premises";
-import type { PremiseId, PremisePlan } from "./types";
+import { premiseStyle } from "./style";
+import type { PremisePlan } from "./types";
 import { waterByNumber } from "./water";
 
 /** Settles one premise map may cost before the themes make it (PREMISES §2.2 stage 5: at most two a plan; the themes
@@ -38,7 +43,12 @@ export const LATER: Readonly<Record<string, string>> = {};
 
 /** What a premise map records of its making (`GenerationInfo.premise`). */
 export interface PremiseInfo {
+  /** The premise the map was made from (Any resolved), or the one asked for when the themes made it. */
   id: string;
+  /** The theme whose style the land took (Any resolved). */
+  theme?: StyleTheme;
+  /** The map card's words (`card.ts` `premiseCard`). */
+  card?: PremiseCard;
   /** The plan the map was made from (the ladder's readout reads it, §8). */
   plan?: PremisePlan;
   /** The attempt whose plan made the map. */
@@ -72,8 +82,9 @@ function deferLater(report: ValidationReport): { report: ValidationReport; later
 /** A premise map for a spec whose `premise` names one, or why the themes must make it (one line, D471). */
 export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { result: GenerateResult } | { reason: string } {
   const t0 = performance.now();
-  const def = PREMISES[specIn.premise as PremiseId];
-  if (!def) return { reason: `There is no premise "${specIn.premise}"` };
+  const pair = resolvePremise(specIn);
+  if ("reason" in pair) return pair;
+  const def = PREMISES[pair.premise];
   const why = def.eligible(specIn);
   if (why) return { reason: why };
   const rules = rulesFor(specIn);
@@ -115,8 +126,9 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
       fail(attempt, land);
       continue;
     }
-    // stage 2: the relief between; stage 3: the start for the first frame
-    const ground = premiseLand(plan, water);
+    // stage 2: the relief between, in the theme's style; stage 3: the start for the first frame
+    const style = premiseStyle(pair.theme, specIn, attempt);
+    const ground = premiseLand(plan, water, style);
     const frame = checkFrame(plan, water, ground.heights, needs);
     if (frame.reason) {
       fail(attempt, [{ id: "frame.start", reason: frame.reason }]);
@@ -134,7 +146,7 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
     opts.onProgress?.({ attempt, stage: "water" });
     const spec: MapSpec = { ...JSON.parse(JSON.stringify(specIn)), accepted: { attempt, candidate: 0 } };
     settles++;
-    const m = premiseMap(spec, plan, ground, frame.start, ladder);
+    const m = premiseMap(spec, plan, ground, frame.start, ladder, style);
     opts.onProgress?.({ attempt, stage: "check" });
     const { report, later } = deferLater(m.report);
     if (!report.passed) {
@@ -155,7 +167,7 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
       storage: null,
       startDrought: null,
       stage: "built",
-      premise: { id: def.id, plan, attempt, ladder, life: m.life, start: { moved: frame.moved, level: frame.level, farmland: frame.farmland, shallow: Math.round(frame.shallow * 100) / 100 }, later, ...(m.notes.length || plan.notes?.length ? { notes: [...(plan.notes ?? []), ...m.notes] } : {}) },
+      premise: { id: def.id, theme: pair.theme, card: premiseCard({ id: def.id, theme: pair.theme, plan, ladder }) ?? undefined, plan, attempt, ladder, life: m.life, start: { moved: frame.moved, level: frame.level, farmland: frame.farmland, shallow: Math.round(frame.shallow * 100) / 100 }, later, ...(m.notes.length || plan.notes?.length ? { notes: [...(plan.notes ?? []), ...m.notes] } : {}) },
     };
     // the first look is the map's own land (D348: a land shown is never replaced, so it is shown once it passed)
     if (opts.onLand) {

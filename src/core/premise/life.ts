@@ -7,8 +7,8 @@
 // green, in a dry bed or basin, or on the start's sight line to its landmark; so the map looks as it plays: stands and
 // open meadow on day 1's green, dead wood where water used to be.
 //
-// The plants' palette is the spec's (its species mix, grove size, Forests and Berries): a theme's style is that
-// palette (PREMISES §1.5), so a premise map drawn with a theme takes the theme's plants through it.
+// The plants' palette is the spec's (its species mix, grove size, Forests and Berries), whose preset is the theme's;
+// a species mix left as the panel's own takes the theme's woods (`palette`, `style.ts`: PREMISES §1.5).
 
 import type { BuildResult } from "../features/build";
 import { featureId } from "../features/ids";
@@ -117,7 +117,7 @@ function keepOff(plan: PremisePlan, w: StageWater, ladder: Ladder, green: boolea
 /** Stage 6 on a settled premise map (`built`, its first build): the generator's planting by the premise's budget, the
  *  dead woods on old shores and beside dry beds, succulents on the dry-for-good side and the mine sites, as features
  *  for one more build (its settle reused: nothing here moves water). */
-export function premiseLife(spec: MapSpec, plan: PremisePlan, w: StageWater, ladder: Ladder, built: BuildResult, features: readonly Feature[], attempt: number): PremiseLife {
+export function premiseLife(spec: MapSpec, plan: PremisePlan, w: StageWater, ladder: Ladder, built: BuildResult, features: readonly Feature[], attempt: number, palette: MapSpec["settings"]["resources"]["speciesMix"] | null = null): PremiseLife {
   const { W, H } = plan;
   const N = W * H;
   const r = w.raster;
@@ -127,7 +127,7 @@ export function premiseLife(spec: MapSpec, plan: PremisePlan, w: StageWater, lad
   const base = resourceBudget(W, H, { ...res, forestDensity: 100, berryBushes: 100 }, spec.seed);
   const wantLiving = Math.round((between(LIFE.living[0], LIFE.living[1], base.place.living) * N * res.forestDensity) / 1e6);
   const wantBushes = Math.round((between(LIFE.berries[0], LIFE.berries[1], base.place.bushes) * N * res.berryBushes) / 1e6);
-  const mix = res.speciesMix;
+  const mix = palette ?? res.speciesMix;
   // (succulents are the dry-for-good side's alone: planted below, out of the generator's mix)
   const succulentShare = mix.succulent / Math.max(1, mix.pine + mix.birch + mix.oak + mix.succulent);
   const lifeSpec: MapSpec = {
