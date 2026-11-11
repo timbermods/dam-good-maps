@@ -70,7 +70,8 @@ function specFor(theme: ThemeId, seed: number, size: number, difficulty: Difficu
   s.resources.groveSize = g.resources.grove;
   s.hazards.thornBelts = g.hazards.thorns ? "some" : "off";
   s.hazards.badwater = g.hazards.badwater === "none" ? "off" : g.hazards.ratio < 0.5 ? "low" : g.hazards.ratio < 0.85 ? "normal" : "high";
-  if (g.recipe) spec.premise = g.recipe;
+  // (a recipe name, from before premises were a closed list, D508)
+  if (g.recipe) (spec as { premise?: string }).premise = g.recipe;
   return spec;
 }
 
