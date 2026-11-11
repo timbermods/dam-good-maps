@@ -365,7 +365,9 @@ function nearestAlong(r: WaterRaster, li: number, at: [number, number]): number 
     if (r.channel[i] !== li + 1) continue;
     const x = i % r.W;
     const y = (i - x) / r.W;
-    const d = (x + 0.5 - at[0]) ** 2 + (y + 0.5 - at[1]) ** 2;
+    const dx = x + 0.5 - at[0];
+    const dy = y + 0.5 - at[1];
+    const d = dx * dx + dy * dy;
     if (d < best) [best, s] = [d, r.along[i]];
   }
   return s;
