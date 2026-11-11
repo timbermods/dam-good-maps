@@ -32,11 +32,13 @@ import type { StageWater } from "./water";
 import { bandAt, gateOf, localRuns, onLocal, RIM_DEPTH, NOTCH, turnOf, type GateNumbers } from "./premises/wallGate";
 
 /** The basin's terraces along its beds (§5.1): a low terrace `low` over the bed within `lowReach` tiles, one more
- *  within `highReach`, then flats up to `flats` levels over the bed in broad plates. */
-export const TERRACES = { low: 2, lowReach: 4, high: 3, highReach: 10, flats: 2, plate: 22 } as const;
+ *  within `highReach`, then broad warped plates from `low` to `low + flats` over the bed, under the sill + 1. */
+export const TERRACES = { low: 2, lowReach: 4, high: 3, highReach: 10, flats: 4, plate: 26 } as const;
 /** How far into the valley the wall's foot is held a step of `VALLEY_FACE` under the crest, rising a level every
  *  `FOOT_RISE` tiles past it. */
 const FOOT = { reach: 6, rise: 3 } as const;
+/** How far under the crest the valley's land stands at most (the wall the map's one great feature). */
+export const UNDER_CREST = 5;
 /** The band along the valley's map edges held over the megadam's water, in tiles. */
 const RING = 6;
 
@@ -100,6 +102,7 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
   const span = g.passSpan.map((p) => onLocal(T, p)[0]);
   const [p0, p1] = [Math.min(...span), Math.max(...span)];
   const sPlate = seedOf(plan, "gate", "plate");
+  const sWarp = seedOf(plan, "gate", "warp");
   // the basin's beds (the Gate Bed and the Pass Bed): each basin tile's nearest and how far
   const N = W * H;
   const { dist, bed } = basinBeds(plan, w, zone);
@@ -125,8 +128,13 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
       else {
         const d = dist[i];
         const b = bed[i] === bed[i] && d < Infinity ? bed[i] : BED_FLOOR;
-        const plate = Math.floor(((fbm(sPlate, x, y, TERRACES.plate, 2) + 1) / 2) * (TERRACES.flats + 1) * 0.999);
-        const lift = d <= TERRACES.lowReach ? TERRACES.low : d <= TERRACES.highReach ? TERRACES.high : TERRACES.high + Math.max(0, Math.min(TERRACES.flats, plate));
+        // (past the terraces broad warped plates from the low terrace's level to the sill + 1: unequal flats, not one
+        // level at the cap)
+        const wx = x + 9 * fbm(sWarp, x, y, 30, 2);
+        const wy = y + 9 * fbm(sWarp + 1, x, y, 30, 2);
+        const plate = Math.floor(((fbm(sPlate, wx, wy, TERRACES.plate, 2) + 1) / 2) * (TERRACES.flats + 1) * 0.999);
+        const far = TERRACES.low + Math.max(0, Math.min(TERRACES.flats, plate));
+        const lift = d <= TERRACES.lowReach ? TERRACES.low : d <= TERRACES.highReach ? TERRACES.high : Math.max(TERRACES.low, Math.min(far, TERRACES.high + TERRACES.flats));
         h[i] = Math.max(BED_FLOOR, Math.min(top, b + lift));
       }
     } else {
@@ -134,6 +142,9 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
       // wall tile, so a jog's side face is sheer too)
       const d = toWall[i];
       if (d < FOOT.reach) h[i] = Math.min(h[i], g.crest - 8 + Math.floor(Math.max(0, d - 1) / FOOT.rise));
+      // the wall the map's one great feature: the valley's land (a style's uplands rise to the highest ground) stands
+      // `UNDER_CREST` or more under the crest
+      h[i] = Math.min(h[i], g.crest - UNDER_CREST);
       // the spur over the megadam's water by three, whole across the valley (the Low River's gorge through it)
       if (spur && pathDist(x + 0.5, y + 0.5, spur.path).d < spur.half) h[i] = Math.max(h[i], spur.top);
       // the valley's edges a level over the megadam's water (the megadam's rung holds the valley)
