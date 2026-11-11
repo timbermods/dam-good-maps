@@ -73,3 +73,30 @@ describe("Try another after a force that carried the start (D257, D220)", () => 
     expect(objects(tried)).toEqual(objects(fresh));
   });
 });
+
+describe("Try another's clicked fault is the fault its operation keeps (D360 (1b), D309)", () => {
+  // (Highlands 64², seed 1: the operation kept the fault a click drew to a hundredth of a tile while the force ran on
+  // the fault unrounded, so the same try run fresh from the operation changed other tiles; the fault is drawn to a
+  // hundredth now, quake.ts `clickFault`)
+  it("Highlands 64², seed 1: a Slide clicked seven tiles north of the start and one east, then Try another; that try run fresh from its operation changes the same tiles", async () => {
+    const W = 64;
+    await runGenerate(makeSpec({ seed: 1, theme: "highlands", size: { x: W, y: W } }));
+    ed.refine();
+    const [sx, sy] = startMiddle(open())!;
+    const at = { x: sx + 1, y: Math.max(2, sy - 7) };
+    expect(ed.forceStart({ verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power: 40, seed: 0 }, path: [at, at], side: 1, cut: null, natural: true }).errors).toEqual([]);
+    expect(play()).toBe(true);
+    expect(ed.forceAgain().errors).toEqual([]);
+    expect(play()).toBe(true);
+    const b = open().logOps.filter((o) => o.op === "forceResult").at(-1)!;
+    if (b.op !== "forceResult") throw new Error("no force");
+    ed.jump(-1);
+    const p = b.params;
+    expect(ed.forceStart({ verb: "quake", settings: p.settings as typeof QUAKE_DEFAULTS, path: p.where.path!.map(([x, y]) => ({ x, y })), side: p.where.side!, cut: null }).errors).toEqual([]);
+    expect(play()).toBe(true);
+    const f = open().logOps.filter((o) => o.op === "forceResult").at(-1)!;
+    if (f.op !== "forceResult") throw new Error("no force");
+    expect(f.params.tiles).toEqual(p.tiles);
+    expect(f.params.removed).toEqual(p.removed);
+  });
+});
