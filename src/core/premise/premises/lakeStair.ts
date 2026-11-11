@@ -768,6 +768,18 @@ function meadowRoom(sx: number, sy: number, bodies: Body[], W: number, H: number
  *  on day 1 (every map that kept it had one within 19). */
 const BENCH_ROOM = { shore: 2, rim: 6, link: 3, keep: 6, step: 2, reach: [0.5, 0.75, 1, 1.25], turns: [0, 0.33, 0.67, 1], lengths: [0, 0.6, 1.2], water: 1 } as const;
 
+/** A lake's arms with room for its bay among `most`: as they are, or less the last side arm (never the first) whose
+ *  loss still leaves `keeps` true; null where `keeps` fails or no arm can go. */
+function bayRoom(arms: Spine[], most: number, keeps: (as: Spine[]) => boolean): Spine[] | null {
+  const as = arms.slice(0, most);
+  if (as.length < most) return keeps(as) ? arms : null;
+  for (let k = as.length - 1; k >= 1; k--) {
+    const t = as.filter((_, j) => j !== k);
+    if (keeps(t)) return t;
+  }
+  return null;
+}
+
 /** The bench's half width round a spine `len` long holding `area`: the capsule's π m² + 2 len m. */
 function benchHalf(area: number, len: number): number {
   return (-2 * len + sqrt(4 * len * len + 4 * Math.PI * area)) / (2 * Math.PI);
@@ -1165,8 +1177,11 @@ function placeFrame(L: Layout, o: StairOption): string | null {
         }
         if (!arms) continue;
       }
-      if (!nearWater(arms)) continue;
-      found.push({ start, C, w, a, look, right, hv, bay, arms, benchTo });
+      // (the bay is one of the lake's arms, `armsMost` at most: it takes the place of the last side arm that leaves
+      // one by the start's water, read here so the arms kept are the arms checked)
+      const kept = bayRoom(arms, armsMost(L.W), nearWater);
+      if (!kept) continue;
+      found.push({ start, C, w, a, look, right, hv, bay, arms: kept, benchTo });
     }
     if (!found.length) continue;
     const { start, C, w, a, look, right, hv, bay, arms, benchTo } = rng.pick(found);
@@ -1175,8 +1190,6 @@ function placeFrame(L: Layout, o: StairOption): string | null {
       K.arms = [...arms];
       if (K.islands?.some((s) => s.some(([x, y, r]) => !(bodyDist(x, y, K) < -(r + 4))))) delete K.islands;
     }
-    // the bay is one of the lake's arms (five at most): it takes the last side arm's place
-    if (K.arms.length >= armsMost(L.W)) K.arms.length = armsMost(L.W) - 1;
     K.arms.push(bay);
     const lip: [Point, Point] = [rp([C[0] - (w / 2) * right[0], C[1] - (w / 2) * right[1]]), rp([C[0] + (w / 2) * right[0], C[1] + (w / 2) * right[1]])];
     const path = hv.map(rp);
