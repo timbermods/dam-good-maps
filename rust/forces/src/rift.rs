@@ -369,12 +369,14 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
     }
     // On a map with water its floor drains: where water would stand on it (under the level it would drain at, from
     // the map's edges, the water standing on the map counted as its surface), the floor rises to that level, and toward its high end a level or a few above it, in long
-    // treads, so its stream runs down it to the low end; a lake a level deep may stand on it, at most `RIFT_LAKE` at the low end
+    // treads, so its stream runs down it to the low end; there a lake at most `RIFT_LAKE` deep may stand
     // (deeper only where the water stood before: its floor still drops a level).
     let wet = before.depth.iter().any(|&d| d > 0.0) || before.entities.iter().any(|e| emitter(&e.template));
-    if wet {
+    // (again while anything rises: a tread raised upstream can close a hollow below it, which then fills the same way)
+    let rise = min(3.0, (throw * 0.5).floor());
+    for _ in 0..if wet { 4 } else { 0 } {
         let level = drain_levels(w, h, &(0..w * h).map(|i| land[i] as f64 + before.depth.get(i).copied().unwrap_or(0.0)).collect::<Vec<_>>());
-        let rise = min(3.0, (throw * 0.5).floor());
+        let mut raised = false;
         for i in 0..w * h {
             if land[i] >= before.heights[i] || land[i] as f64 >= level[i] {
                 continue;
@@ -382,11 +384,16 @@ pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8]
             let (x, y) = ((i % w) as f64, (i / w) as f64);
             let f = fault.at(x, y);
             let tl = clamp(if low_at_end { f.along / max(1.0, length) } else { 1.0 - f.along / max(1.0, length) } + (lumps(seed, 4520, x, y, 6.0) - 0.5) * 0.16, 0.0, 1.0);
-            let lake = 1.0 + (RIFT_LAKE - 1.0) * smooth((tl - 0.6) / 0.35);
+            let lake = RIFT_LAKE * smooth((tl - 0.7) / 0.25);
             // (its treads rise with the room the ground gives above that level: none on a river's own plain)
             let tread = min(min(((1.0 - tl) * (rise + 1.0)).floor(), rise), ((before.heights[i] as f64 - level[i]) * 0.5).floor());
             // (never all the way back: what it dropped stays a level down at least, so it always shows, D356)
-            land[i] = max(min((level[i] - lake).ceil() + tread, before.heights[i] as f64 - 1.0), land[i] as f64) as u8;
+            let v = max(min((level[i] - lake).ceil() + tread, before.heights[i] as f64 - 1.0), land[i] as f64) as u8;
+            raised |= v != land[i];
+            land[i] = v;
+        }
+        if !raised {
+            break;
         }
     }
     // (no one-tile pit or pillar in what it dropped: a tile under all four beside it rises to the lowest of them, one

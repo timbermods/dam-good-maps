@@ -50,7 +50,9 @@ describe("Rust Rift",()=>{
     expect(Math.max(p,q),`${what}: the sheer wall`).toBeGreaterThanOrEqual(3.5);
     expect(Math.min(p,q),`${what}: the stepped side's first step`).toBeLessThanOrEqual(Math.max(p,q)/1.6);
    }else{
-    const lv=drain(h,m.water.depth);let deep=0;for(let i=0;i<W*W;i++)if(h[i]<b[i])deep=Math.max(deep,lv[i]-h[i]);
+    // (deeper only where water stood before, by the level its floor still drops)
+    const lv=drain(h,m.water.depth),was=drain(b,m.water.depth);let deep=0;
+    for(let i=0;i<W*W;i++)if(h[i]<b[i])deep=Math.max(deep,lv[i]-h[i]-Math.max(0,was[i]-b[i]+1-2));
     expect(deep,`${what}: the deepest water on its floor`).toBeLessThanOrEqual(2);
    }
   }
