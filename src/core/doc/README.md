@@ -52,6 +52,10 @@ The map document and its edit engine: a generation plus an ordered log of edit o
 - `crop.ts`: Crop map to selection (D340): the rectangle's refusals (`cropRectProblem`), what the edge cuts (`cropObjects`, `planCrop`: objects it crosses, and slopes whose step it cuts) and the cropped file (`cropFile`). The session makes the cropped map the document's next generation (`MapDocument.prior` holds the one before): one undo step, the full map back exactly.
 - `description.ts`: the map's description, written by the `setDescription` operation: its limit (`MAX_DESCRIPTION`), its refusals (`descriptionProblem`) and a real place's credits (`placeCredits`). `MapSession.description()` answers it; a generated map's own words are `gen/pack.ts` `description` and `gen/names.ts` `mapSays`.
 - `waterEdits.ts`: Remove unfed water and Fill (D387, D394), the questions (`unfedWater`, `planFill`) and the operations they build.
+- `canal.ts`: the canal, a channel that leads water: `planCanal` (a path's bed, `depth` under the land and never rising, a
+  rise cut through up to 3 levels deeper or refused saying where; banks raised where the land beside the bed is lower
+  than its water would stand; Open or Dry), `applyCanal` (one Select step) and the `canal` operation's check
+  (`canalProblem`). Its tiles are stored with their levels and applied as a lake's sill's are.
 - `ruinLine.ts`: the ruin line (the Ruin dragged): `planRuinLine` (piers evenly along a line, their tops at one level,
   gaps by the seed; a `placeEntity` each) and `applyRuinLine` (one step); `ruinLineLimits.ts` holds its limits.
 - `lakeLevel.ts`: lakes by number: `planLakeLevel` (the sill cut down or raised that holds a lake at a level, `sim/sill.ts`,

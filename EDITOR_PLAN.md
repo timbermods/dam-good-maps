@@ -1205,6 +1205,23 @@ Make a valley, drop a source, and there's a river.
   roughly how long it will last; it is refused with a plain reason when the hollow doesn't hold water at that
   level. Each is one undo step. Their engine and questions are in the core; where they sit in the page is agreed
   with the page session (D388).
+- **The canal** (a channel that leads water; MAPCRAFT's "lead water"): a path from where the water is to where it should
+  go becomes a bed of a set **width** (1 to 6) and **depth** (1 to 3). The bed lies that deep under the land and falls
+  with it from its start to its end, never rising again: a rise in the land is cut through, up to three levels deeper
+  than the depth; a higher one is refused with one line that says where ("the land rises 4 levels above the canal's fall
+  at X 39 · Y 30: it can't keep falling there"). Beside the bed, land lower than the water would stand in it (the bed's
+  level and the depth) is raised as a bank, so the channel holds what runs in it; its two ends stay open. **Open** starts
+  it in the water at its start (there the bed leaves from the water's level); **Dry** leaves the first tile of its line
+  standing, for the player or a blockage to open later. It leaves a source's ground and a cave's or an overhang's as they
+  are (refused, saying where). One undo step; the objects on it ride its ground. The core's `canal` operation
+  (`core/doc/canal.ts` `planCanal`, `applyCanal`; its tiles stored with their levels and checked again by the engine, as a
+  lake's sill's are), the worker's `canalPlanAt` and `canalAt`, and the MCP server's `apply` (only `path` needed). **On the page** it is Lower's fourth **Brush**
+  choice, **Canal** (Round, Square, Lines, Canal; `canal/useCanal.ts`, `TopBar.tsx`): with it chosen the row shows
+  **Width**, **Depth** and **Starts** (Open or Dry) over the Brush choice, and a drag draws the line (a point kept every
+  three tiles; the core walks the tiles between). While it is dragged the tiles it would change are tinted and the
+  words beside the pointer say "bed from level 15 to 12, 6 bank tiles", or the core's one line with the line in red;
+  the release makes the canal that was shown, one step in History ("Cut a canal 2 wide and 1 deep"); a refused line
+  says its reason again and changes nothing. Esc lets a drag go.
 - **Lakes by number** (showcase craft, gap 19): pick a lake, type its level, and its sill is cut down or raised so the
   lake holds there: its water stands from the level up to under a level above it (the head of its river over the
   sill), as the hover readout's "Water at level 7.4" reads level 7. A sill higher than the level gets a notch cut down
@@ -1475,7 +1492,9 @@ the stamp library, symmetry, regenerate-an-area and locks, the Dam sites, Moistu
 the aim arrow, "Generate, keeping my edits" and a rebuild that keeps edits, Carve's Maturity (Young, Mature, Auto;
 D473), and Claude as a panel. The superseded
 table, each with the decision that replaced it, is in the archive; `tools/retired-terms.json` names them and CI
-flags them if they reappear anywhere else (D188).
+flags them if they reappear anywhere else (D188). The **Canal** (§5; Lower's Brush choice) is not the Channel tool
+coming back: that one drew a river as a feature with handles; the Canal is one exact operation that cuts a bed and
+raises its banks along a dragged line (planning, 2026-11-11).
 <!-- /retired-terms:allow -->
 
 # Part 2: the technical reference

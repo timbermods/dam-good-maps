@@ -80,6 +80,8 @@ The editor:
 - **Select** is in hand whenever nothing else is: drag on the land to mark an area (Ctrl+drag with a
   brush too). Raise it, lower it, level it or dig it out. **Delete** clears everything standing in
   it. Esc or X puts anything down and goes back to Select.
+- To lead water, pick **Lower**, set its **Brush** to **Canal**, and drag from the water to where it must go. The
+  canal's bed falls all the way and its banks hold the water. **Width**, **Depth** and **Starts** are in its row.
 - To set a lake's level, take the lake with Select's **Wand**, then type the level in **Lake level** (or scroll over
   it). The lake's outlet is cut down or raised so the water holds there.
 - Drag the start to move it. Point at it to see its water, wood and berries.
