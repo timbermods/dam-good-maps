@@ -35,7 +35,7 @@ export type { EntityInfo };
 import { objectsIn } from "../core/doc/inArea";
 import { markerNotes, type MarkerNote } from "../core/doc/objectOps";
 import { fillLevel, planFill, unfedWater } from "../core/doc/waterEdits";
-import { applyLakeLevel, planLakeLevel, type LakeLevelPlan } from "../core/doc/lakeLevel";
+import { applyLakeLevel, lakeHeldLevel, planLakeLevel, type LakeLevelPlan } from "../core/doc/lakeLevel";
 import type { ImportReport } from "../core/format/normalize";
 import type { Feature } from "../core/features/schema";
 import { bakeLandforms } from "../core/doc/bake";
@@ -58,6 +58,8 @@ import { carryStack, sameKeptWater, StackLive, type LiveStack, type StackFrame }
 import { reshapeTop, TERRAIN_LAYERS } from "../core/terrain/runs";
 import { toMapObject } from "../core/features/build";
 import { soilObjects } from "../core/sim/columns";
+import type { MoistureReach } from "../core/sim/soil3d";
+import { irrigationTones } from "../core/analysis/irrigation";
 import { computeDaySoil, type SoilBase, type SoilJob, type SoilRunner } from "./daySoil";
 import { WaterSim, type WaterModel } from "../core/sim/water";
 import { changedRect } from "../render3d/mesh";
@@ -283,6 +285,17 @@ function strengthOf(comps: Record<string, unknown>): { strength?: number } {
   return typeof v === "number" ? { strength: v } : {};
 }
 
+/** A reserve's stock, for the view to show as the game does (render3d/reserves.ts): its good (`FixedStockpile`) and
+ *  how much of it it holds (`Inventory:Stockpile`). */
+function stockOf(comps: Record<string, unknown>): { stock?: { good: string; amount: number } } {
+  const fixed = plainJson((comps.FixedStockpile as { FixedGoodId?: unknown } | undefined)?.FixedGoodId);
+  if (typeof fixed !== "string") return {};
+  const goods = plainJson((comps["Inventory:Stockpile"] as { Storage?: { Goods?: unknown } } | undefined)?.Storage?.Goods);
+  let amount = 0;
+  if (Array.isArray(goods)) for (const g of goods as { Good?: unknown; Amount?: unknown }[]) if (g?.Good === fixed && typeof g.Amount === "number") amount += g.Amount;
+  return { stock: { good: fixed, amount } };
+}
+
 /** The objects as the view draws them: every tree upright on its tile, a knocked-down one dead
  *  (D321, item 7: no force leaves a tree leaning). */
 function entityInputs(list: readonly EntitySpec[]) {
@@ -290,7 +303,7 @@ function entityInputs(list: readonly EntitySpec[]) {
   for (const e of list) {
     if (e.raw && !placementOf(e.raw)) continue;
     const comps = componentsOf(e) as Record<string, unknown>;
-    out.push({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, owner: e.owner, flipped: e.flipped, ...lifeOf(comps), ...variantOf(comps), ...strengthOf(comps) });
+    out.push({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, owner: e.owner, flipped: e.flipped, ...lifeOf(comps), ...variantOf(comps), ...strengthOf(comps), ...stockOf(comps) });
   }
   return out;
 }
@@ -439,7 +452,7 @@ let sentEntities: EntityView | null = null;
 
 /** A copy that stays here (the view itself is handed over to the page, its arrays with it). */
 function copyEntityView(v: EntityView): EntityView {
-  return { ...v, templates: [...v.templates], owners: [...v.owners], template: v.template.slice(), x: v.x.slice(), y: v.y.slice(), z: v.z.slice(), orientation: v.orientation.slice(), flags: v.flags.slice(), owner: v.owner.slice(), variant: v.variant.slice(), strength: v.strength.slice(), ids: [...v.ids] };
+  return { ...v, templates: [...v.templates], owners: [...v.owners], template: v.template.slice(), x: v.x.slice(), y: v.y.slice(), z: v.z.slice(), orientation: v.orientation.slice(), flags: v.flags.slice(), owner: v.owner.slice(), variant: v.variant.slice(), strength: v.strength.slice(), ids: [...v.ids], stockGood: v.stockGood?.slice(), stockAmount: v.stockAmount?.slice() };
 }
 
 /** The page has these objects already: every field it reads the same, a source's strength and a ruin's
@@ -451,7 +464,7 @@ function sameEntityView(a: EntityView, b: EntityView | null): boolean {
     for (let i = 0; i < p.length; i++) if (p[i] !== q[i]) return false;
     return true;
   };
-  return eq(a.template, b.template) && eq(a.x, b.x) && eq(a.y, b.y) && eq(a.z, b.z) && eq(a.orientation, b.orientation) && eq(a.flags, b.flags) && eq(a.owner, b.owner) && eq(a.variant, b.variant) && eq(a.strength, b.strength);
+  return eq(a.template, b.template) && eq(a.x, b.x) && eq(a.y, b.y) && eq(a.z, b.z) && eq(a.orientation, b.orientation) && eq(a.flags, b.flags) && eq(a.owner, b.owner) && eq(a.variant, b.variant) && eq(a.strength, b.strength) && eq(a.stockGood ?? [], b.stockGood ?? []) && eq(a.stockAmount ?? [], b.stockAmount ?? []);
 }
 
 function markSent(s: MapSession): void {
@@ -2428,6 +2441,12 @@ export function lakeLevelPlanAt(x: number, y: number, level: number, width?: num
   return plan;
 }
 
+/** The level the lake at (x, y) is held at now (its sill's), or null where no water stands (core/doc/lakeLevel.ts
+ *  `lakeHeldLevel`): what the page's Lake level shows. Reads the map only; no settle. */
+export function lakeHeldAt(x: number, y: number): number | null {
+  return lakeHeldLevel(need(), x, y);
+}
+
 /** Set the lake at (x, y) to `level`: its sill cut down or raised, one undo step, the map's water the settle that
  *  confirmed it (core/doc/lakeLevel.ts `applyLakeLevel`). */
 export function lakeLevelAt(x: number, y: number, level: number, width?: number): SessionUpdate {
@@ -2541,6 +2560,9 @@ export interface WaterLayers {
   badwater: Uint8Array;
   /** An imported map's tiles with a cave or an overhang: the brushes shape only their tops. */
   roofed: Int32Array;
+  /** The Irrigation view's tones and the soil's reach behind them (analysis/irrigation.ts), worked out only when that
+   *  view asks: null otherwise. */
+  irrigation: Irrigation | null;
   /** Why the water checks are approximate on this map (null: they are not). */
   approximate: string | null;
   /** The water these layers show is the preview's (the canonical settle is still running). */
@@ -2556,7 +2578,13 @@ export function markerNotesNow(): MarkerNote[] {
 /** The water layers of the map as it now stands. An unedited import keeps the file's water and
  *  has no settle: its badwater soil comes from the background check's canonical settle, once it
  *  has run. */
-export function waterLayers(): WaterLayers {
+/** The Irrigation view: each tile's tone (analysis/irrigation.ts `irrigationTones`) and the soil's reach, for the hover's
+ *  why (`dryWords`). */
+export interface Irrigation extends MoistureReach {
+  tone: Uint8Array;
+}
+
+export function waterLayers(kind?: string): WaterLayers {
   const s = need();
   const b = s.built;
   const { W, H } = b;
@@ -2572,11 +2600,18 @@ export function waterLayers(): WaterLayers {
     else if (soil[i] > 0) badwater[i] = 2;
   }
   const roofed = Int32Array.from([...s.roofedTiles].sort((a, c) => a - c));
+  let irrigation: Irrigation | null = null;
+  if (kind === "irrigation") {
+    // (the same water and soil the other layers show: an unedited import's from the background check)
+    const reach = s.moistureReach(b, fromCheck ? { depth, contamination } : undefined);
+    irrigation = { ...reach, tone: irrigationTones(reach, fromCheck ? fromCheck.moist : b.moisture, depth) };
+  }
   return {
     W,
     H,
     badwater,
     roofed,
+    irrigation,
     approximate: lastCheck && lastCheck.version === version ? lastCheck.approximate : null,
     preview: s.waterPending,
     version,
@@ -2850,8 +2885,10 @@ export function forceStart(req: ForceRequest): ForceStarted {
   const blocked = gated();
   if (blocked) return refuse(blocked);
   if (force) return refuse("A force is already at work: let it finish, or press Esc");
-  // (Erode reads the water to leave the rock that holds it: it plans only on settled water, D281)
+  // (Erode reads the water to leave the rock that holds it, and Roll to hold the water and its banks: each plans only
+  // on settled water, D281)
   if (req.verb === "erode" && (s.waterStale || s.waterPending)) return refuse("Erode waits for the water to settle: try again in a moment");
+  if (req.verb === "roll" && (s.waterStale || s.waterPending)) return refuse("Roll waits for the water to settle: try again in a moment");
   return startForce(s, sessionForceMap(s), { ...req, settings: { ...req.settings, seed: req.settings.seed ?? 0 } } as ForceRequest);
 }
 

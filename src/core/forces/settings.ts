@@ -110,6 +110,7 @@ export const FORCE_SETTINGS: Readonly<Record<Verb, ForceSettingsTable>> = {
   },
   rift: { name: "a rift", choices: { mode: ["drop"], walls: ["auto", "sheer", "stepped"] }, flags: [], ranges: [{ key: "size", min: 4, max: 64, empty: "null", why: "a rift's size is 4 to 64 tiles, or null (it follows Power)" }] },
   deposit: { name: "a deposit", choices: { mode: ["fan"], channels: ["auto", "few", "many"] }, flags: [], ranges: [{ key: "size", min: 8, max: 64, empty: "null", why: "a deposit's size is 8 to 64 tiles, or null (it follows Power)" }] },
+  roll: { name: "a roll", choices: { mode: ["roll"] }, flags: [], ranges: [{ key: "size", min: 8, max: 64, empty: "null", why: "a roll's size is 8 to 64 tiles, or null (it follows Power)" }] },
   erode: { name: "an erosion", choices: { mode: ["wear"] }, flags: [], ranges: [{ key: "size", min: ERODE_SIZE_MIN, max: ERODE_SIZE_MAX, empty: "null", why: `an erosion's size is ${ERODE_SIZE_MIN} to ${ERODE_SIZE_MAX} tiles, or null (it follows Power)` }] },
   glaciate: {
     name: "a glacier",

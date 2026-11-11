@@ -8,6 +8,7 @@ import type { TileHit } from "../../render3d";
 import type { WaterLayers } from "../../worker/session";
 import { entitiesByTile, startDragStatus, type TileContext } from "../features";
 import { LAYER_COLORS, type LayerKind } from "../panels";
+import { IRRIGATION_DRY, IRRIGATION_NEAR } from "../../core/analysis/irrigation";
 import { isSource, SOURCE_SCREEN_REACH, sourceSpots, targetSource, type SourceSpot } from "../sourceSpots";
 import { BAD, PENDING, STATUS_COLOR, WARN, DRAWING, DRAWING_BAND, GOOD, HELD, HOVERED, LOCKED, MOVING, paintOverlay, PROBLEM, SELECTED, type OverlayLayer } from "../tools";
 import { type StartHere } from "../start/startHere";
@@ -27,9 +28,9 @@ function cornerToCentre(x: number, y: number, o: Orientation): [number, number] 
   }
 }
 
-/** The overlay of a water layer: moisture in three greens, badwater brown and the soil it spoils
- *  lighter, the drought's kept water blue and the water that dries up orange, the tiles under
- *  roofs violet. */
+/** The overlay of a water layer: badwater brown and the soil it spoils lighter, the tiles under roofs
+ *  violet, and Irrigation's dry ground amber where a little more water would wet it and dark where it
+ *  is dry for good (moist ground left as it is). */
 function layerOverlay(l: WaterLayers, kind: LayerKind): OverlayLayer[] {
   const pick = (codes: Uint8Array, code: number) => {
     const out: number[] = [];
@@ -44,6 +45,13 @@ function layerOverlay(l: WaterLayers, kind: LayerKind): OverlayLayer[] {
       ];
     case "roofed":
       return [{ tiles: Array.from(l.roofed), color: LAYER_COLORS.roofed }];
+    case "irrigation":
+      return l.irrigation
+        ? [
+            { tiles: pick(l.irrigation.tone, IRRIGATION_NEAR), color: LAYER_COLORS.near },
+            { tiles: pick(l.irrigation.tone, IRRIGATION_DRY), color: LAYER_COLORS.dry },
+          ]
+        : [];
     default:
       return [];
   }

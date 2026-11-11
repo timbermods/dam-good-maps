@@ -20,7 +20,8 @@ const BUDGET: Record<string, number> = {
   UnstableCore: 380,
   ReservePile: 340,
   ReserveWarehouse: 400,
-  ReserveTank: 340,
+  // (the game's barrel on legs over a pump house, 16 round as the game's: D178 amended, reserves.ts)
+  ReserveTank: 520,
 };
 
 describe("the 1.x objects' models", () => {
