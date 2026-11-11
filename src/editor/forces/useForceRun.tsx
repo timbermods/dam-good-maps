@@ -558,11 +558,11 @@ export function useForceRun(ed: Ed): ForceRunSlice {
   function reachNow(): number | null {
     switch (ed.toolRef.current) {
       case "carve":
-        return forceReach({ verb: "carve", settings: carveSettingsOf(carveUiRef.current) });
+        return forceReach({ verb: "carve", settings: carveSettingsOf(carveUiRef.current) }, infoRef.current);
       case "craterize":
-        return forceReach({ verb: "craterize", settings: craterSettingsOf(craterUiRef.current) });
+        return forceReach({ verb: "craterize", settings: craterSettingsOf(craterUiRef.current) }, infoRef.current);
       case "erupt":
-        return forceReach({ verb: "erupt", settings: eruptSettingsOf(eruptUiRef.current) });
+        return forceReach({ verb: "erupt", settings: eruptSettingsOf(eruptUiRef.current) }, infoRef.current);
       case "glaciate":
         // (its width: where it goes depends on the land)
         return glacierSize(glaciateUiRef.current) / 2;

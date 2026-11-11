@@ -420,13 +420,13 @@ const dist = (ax: number, ay: number, bx: number, by: number): number => portabl
  *    (collabClaims.heavy.test.ts) shows to hold;
  *  - Rift and Deposit: their size (their width) and the ground they move.
  *  Carve Unleash and Glaciate flow are clicks with no drawing phase, and run as far as the land lets them. */
-function corridor(g: ForceBandRequest): { pts: [number, number][]; r: number } | null {
+function corridor(g: ForceBandRequest, m: { W: number; H: number }): { pts: [number, number][]; r: number } | null {
   const pts = gesturePoints(g);
   const s = g.settings as unknown as Record<string, number | string | boolean | null | undefined> & { power: number };
   const JITTER = 1.65;
   switch (g.verb) {
     case "craterize": {
-      const R = forceReach({ verb: "craterize", settings: s as never });
+      const R = forceReach({ verb: "craterize", settings: s as never }, m);
       const diameter = R * 2;
       const aim = s.mode === "aim" && pts.length > 1;
       const glance = aim ? Math.max(0, Math.min(1, dist(pts[0][0], pts[0][1], pts[pts.length - 1][0], pts[pts.length - 1][1]) / Math.max(12, diameter))) : 0;
@@ -436,7 +436,7 @@ function corridor(g: ForceBandRequest): { pts: [number, number][]; r: number } |
       return { pts: pts.slice(0, 1), r: Math.max(skirt, ray) + JITTER + 2 };
     }
     case "erupt": {
-      const R = forceReach({ verb: "erupt", settings: s as never });
+      const R = forceReach({ verb: "erupt", settings: s as never }, m);
       const lobes = (s.flows === "light" ? 1.42 : 2.36) * R + 4.84 * Math.max(0.7, R / 22);
       return { pts, r: Math.max(lobes, R) + JITTER + 2 };
     }
@@ -473,7 +473,7 @@ function corridor(g: ForceBandRequest): { pts: [number, number][]; r: number } |
 export function forceBand(g: ForceBandRequest, map: MapView): Footprint {
   const { x: W, y: H } = map.size;
   const acc = emptyFootprint(W, H);
-  const c = corridor(g);
+  const c = corridor(g, { W, H });
   if (!c) {
     everywhere(acc);
     return acc;
