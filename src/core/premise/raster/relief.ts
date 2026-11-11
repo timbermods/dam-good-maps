@@ -37,6 +37,7 @@ import { smoothstep } from "../../math/clamp";
 import { hypot, sqrt } from "../../math/portable";
 import { BED_FLOOR } from "../../land/genome";
 import { widenBenches } from "../../land/benches";
+import { THIN } from "../../analysis/ground";
 import { grader } from "../../land/levels";
 import type { ReliefStyle } from "../style";
 import { bodyDist, HEADING_DIR, pathDist, pathLength, pointAt } from "../geom";
@@ -508,10 +509,14 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   // a style's outlands (PREMISES §1.5): the theme's form in the room between the stair's ground and the highest ground,
   // a plate at a time (the peaks a tile at a time, the cones of the plates' points), coming in over `STYLE_FROM` tiles
   // past `PLATE.start`, so the start's ground, its frame and its walk keep the premise's own
-  const sk = (x: number, y: number) => (style ? smoothstep((Math.max(Math.abs(x - stx), Math.abs(y - sty)) - PLATE.start) / STYLE_FROM) : 0);
+  // (and from `THIN` past it: the bench-width floor reads the land that far across, and carried the style's steps in)
+  const sk = (x: number, y: number) => (style ? smoothstep((Math.max(Math.abs(x - stx), Math.abs(y - sty)) - PLATE.start - THIN) / STYLE_FROM) : 0);
   // (and within `STYLE_GREEN` of day 1's water the land stays the premise's: the style's uplands took the green off
   // its first benches, and a map past 128² fell under the spectrum's 30 % of moist ground)
   const gk = (i: number) => smoothstep((nearWet[i] - STYLE_GREEN.from) / STYLE_GREEN.over);
+  // (the plates stand at the premise's own outlands: one by the start's ground, its mean read on the style's cap past
+  // it, took the style's height into that ground)
+  const ownOut = outland.slice();
   const styled = style ? styledUplands(style, { W, H, top, sky, pw, ph, px, py, plateOf, plate2, edge, cone, stair, nearWet, nearValley, pfall, seed: S("form") }) : null;
   if (styled)
     for (let y = 0; y < H; y++)
@@ -589,7 +594,7 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
       if (Math.max(Math.abs(x - stx), Math.abs(y - sty)) < PLATE.start) continue;
       const best = plateOf[i];
       plate[i] = best;
-      psum[best] += outland[i];
+      psum[best] += ownOut[i];
       pcnt[best]++;
     }
   const plevel = new Float64Array(pw * ph);
@@ -613,7 +618,10 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
         if (grade && styled) {
           const k = sk(x, y) * gk(i);
           const own = v;
-          v = grade(v + (styled.up[i] - v) * k, x, y, terraceF && (terraceF[i] + 1) / 2 > 1 - benched ? style!.step : 1, phase);
+          // (the grade comes in with the style too: graded at the start's ground, a plate by it took the theme's steps
+          // where the premise's own land stands, and the bench-width floor carried them in)
+          const graded = grade(v + (styled.up[i] - v) * k, x, y, terraceF && (terraceF[i] + 1) / 2 > 1 - benched ? style!.step : 1, phase);
+          v = k >= 1 ? graded : Math.round(own + (graded - own) * k);
           // (by day 1's water a plate stands no higher than the premise's own, the style's height coming in over the
           // green: a higher plate took the green off the benches under it)
           if (v > own && nearWet[i] < FLOOR.green) v = Math.round(own + (v - own) * smoothstep((nearWet[i] - FLOOR.green / 2) / (FLOOR.green / 2)));
@@ -652,7 +660,9 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   for (let i = 0; i < N; i++) h[i] = keep[i] ? base[i] : Math.max(base[i], Math.max(BED_FLOOR + 1, Math.min(sky, Math.round(f[i]))));
   // the bench-width floor on the land away from the water, then the guard again, then no pits, spikes or tongues
   const where = new Uint8Array(N);
-  for (let i = 0; i < N; i++) where[i] = !keep[i] && nearAll[i] > 3 && !narrow[i] ? 1 : 0;
+  // (never on the start's ground: the floor reads the land a run of treads across, and carried a style's steps into the
+  // ground every theme keeps as the premise's own; its benches there are the bowls' own, ten tiles wide and more)
+  for (let i = 0; i < N; i++) where[i] = !keep[i] && nearAll[i] > 3 && !narrow[i] && Math.max(Math.abs((i % W) - stx), Math.abs(Math.floor(i / W) - sty)) >= PLATE.start ? 1 : 0;
   tidy(h, r, base);
   widenBenches(h, W, H, where);
   for (let i = 0; i < N; i++) if (!keep[i] && h[i] < base[i]) h[i] = base[i];

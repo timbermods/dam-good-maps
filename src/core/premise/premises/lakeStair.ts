@@ -1018,6 +1018,8 @@ function* bypassCourses(L: Layout, others: Point[][], join: Point[] | null, lo: 
   // (clearPath's room and half a cell over: the course runs between cell middles)
   const room = BYPASS_HALF + BYPASS_ROOM + 1.5;
   const s0: Point = [plan.frame.start.x, plan.frame.start.y];
+  // (the graded band by the side past 128²: the rim tarns' band and their runs keep the edge's room)
+  const edgeIn = (COURSE_EDGE[1] * Math.max(128, W)) / 128;
   const bumps = Array.from({ length: COURSE_BUMPS[0] }, () => ({ p: [rng.range(0, W), rng.range(0, W)] as Point, r: rng.range(COURSE_BUMPS[1], COURSE_BUMPS[2]) * W, a: rng.range(COURSE_BUMPS[3], COURSE_BUMPS[4]) }));
   const open = new Uint8Array(N);
   const cost = new Float64Array(N);
@@ -1033,7 +1035,7 @@ function* bypassCourses(L: Layout, others: Point[][], join: Point[] | null, lo: 
       const d2 = dist2(p, b.p) / (b.r * b.r);
       if (d2 < 1) k += b.a * (1 - d2) * (1 - d2);
     }
-    const e = Math.max(0, (COURSE_EDGE[1] - edge) / (COURSE_EDGE[1] - COURSE_EDGE[0]));
+    const e = Math.max(0, (edgeIn - edge) / (edgeIn - COURSE_EDGE[0]));
     // (and more within the start's walk, where its small works stand: it leaves that land to them)
     const walk = Math.max(0, 1 - dist(p, s0) / (NEAR_WALK + COURSE_AWAY));
     cost[c] = Math.max(0.4, k) + COURSE_EDGE[2] * e * e + COURSE_WALK * walk;
