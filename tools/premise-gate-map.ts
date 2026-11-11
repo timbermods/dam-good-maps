@@ -82,6 +82,9 @@ for (const seed of seeds) {
   const failed = m.report.checks.filter((c) => !c.ok && c.severity === "error").map((c) => `${c.id}: ${c.message}`);
   console.log(`seed ${seed} at ${side}²: ${nums}; ${failed.length ? `FAILS ${failed.join("; ")}` : "every blocking check passes"}; ${(ms / 1000).toFixed(1)} s`);
   if (r.landFails.length) console.log(`  land FAILS ${r.landFails.map((f) => `${f.id}: ${f.reason}`).join("; ")}`);
+  if (r.worksFails.length) console.log(`  works FAIL ${r.worksFails.map((f) => `${f.id}: ${f.reason}`).join("; ")}`);
+  console.log(`  ${r.card.first}`);
+  for (const w of r.ladder.works) console.log(`  ${w.id} (${w.rung}) ${w.does} ${w.tiles.length} tiles to ${w.level}: green ${w.green}${w.reservoir ? `, holds ${w.reservoir}` : ""}${w.paid ? "" : " SHORT"}${w.note ? ` (${w.note})` : ""}`);
   const s = readGateSettle(r.plan, r.water, m.built.heights, m.built.settle, 0, r.land.niches);
   const L = (id: string) => s.levels.find((l) => l.id === id)!;
   console.log(`  settled: lake ${L("lake").level.toFixed(2)} (sill ${L("lake").sill}), Still Pool ${L("kettle").level.toFixed(2)}, cleft ${L("pool").level.toFixed(2)} (lip ${L("pool").sill}); the Veil ${s.veil.ok ? "pours" : "FAILS"}: ${s.veil.note}; Gate ${s.gateWet} and leat ${s.leatWet} wet past their bars; stray ${s.stray}; edge ${s.edge}`);
