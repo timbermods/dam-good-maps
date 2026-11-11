@@ -740,10 +740,10 @@ premise pair made with the theme's own settings; and (planning, mid-round) the b
 - **The fall-back** to the themes takes the theme's own settings (§1.5, `themeOwnSettings`).
 - **Measured** (seeds 1 to 12 at 128², seeds 1 to 3 at 192² and 256², `tools/premise-map.ts`): all twelve make a
   premise map at 128², seven sited by moisture and five keeping the first pass's network (four with two small works
-  near the start of three, one with no pool basin whose leat clears); day 1 water 19.4 to 23.8 % and moist 33.1 to
-  40.3 %. At or over their floor on the seven sited maps: notch 3 of 8, dam to pond 2 of 8, levee 0 of 12, leat 0 of
+  near the start of three, one with no pool basin whose leat clears); day 1 water 19.4 to 23.5 % and moist 33.0 to
+  40.3 %. At or over their floor on the seven sited maps: notch 0 of 8, dam to pond 3 of 8, levee 1 of 12, leat 0 of
   18; on the five others notch 0 of 4, dam 1 of 5, levee 2 of 7, leat 3 of 7. The mean measured green over the twelve:
-  notch 162, dam to pond 212, levee 136, leat 378 (against floors of 430, 270, 260 and 1,000). At 192² seeds 1 to 3
+  notch 139, dam to pond 233, levee 137, leat 382 (against floors of 430, 270, 260 and 1,000). At 192² seeds 1 to 3
   are sited (notch 9 of 9, levee 4 of 8, dam 3 of 6, leat 1 of 6 at their floor); at 256² seeds 1 and 2 make maps
   (seed 2 keeping the first pass's network) and seed 3 goes to the themes after sixteen plans, its moist ground 27.4
   to 29.6 % against `spectrum`'s 30 % (it made a map on its third plan before this round: close to the floor, as
@@ -1311,14 +1311,14 @@ work to these.
   `water.levels` and `water.falls` after sixteen plans.
 - **The small works pay little (found at step 5; step 8 sites them by day 1's soil; the works round rules ranges
   floors, not answered):** a work's range is a floor now (§4.2, the milestone's ruling within D508), but on the seven
-  maps of twelve sited by moisture at 128² 5 of 28 small works reach theirs, and no leat (section 2.2, "As built (the
+  maps of twelve sited by moisture at 128² 4 of 28 small works reach theirs, and no leat (section 2.2, "As built (the
   works round)"). What stands in the way: (1) a brook or bed already reaches 12 to 18 tiles of soil each side, so a
   work's water adds only what lies past that: a dam's pond adds 150 to 250 over its bed's thread even on a narrows,
   a levee's raised basin less; (2) the start stands by a lake whose meadow and green take most of its walk, so the
   three works near it are laid short of their floors where they stand at all (four of the five maps that keep the
   first pass's network find two near the start); (3) the estimate comes within a quarter of the measure on about a
   third of the works (the skeleton is not the land the side network's own relief makes). A leat's floor of 1,000 is
-  §4.2's from Four Lakes at 192²: at 128² a leat's chain measures 378 at the mean. Whether the leat's floor scales
+  §4.2's from Four Lakes at 192²: at 128² a leat's chain measures 382 at the mean. Whether the leat's floor scales
   with the map, and whether a work short of its floor is better left out than laid, are planning's.
 - **256² makes a premise map (found at step 7; answered at step 8)**: seeds 1 to 3 at 256² make maps, day 1 water
   19.8 to 21.7 % and moist 30.4 to 34.3 %, by the lakes' middles and arms grown to √2 times and ten rim tarns
