@@ -535,8 +535,11 @@ Every force (Carve, Craterize, Erupt, Quake, Glaciate, Rift, Deposit, Erode) fol
 on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README).
 
 - **Sources** (D474; Kyler, 2026-10-05): every force's settings hold **Sources**, Ride (sources and seeps ride the
-  ground) or **Clear** (the default: the force removes the sources and seeps on ground it changes), in the brushes'
-  Sources look, remembered per force with the other pins and sent as `settings.sources`; Try another sends the row's
+  ground) or **Clear** (the default: the force removes the sources and seeps whose ground it destroys, buried 3 levels
+  or more, cut 2 or more away, or in the crush zone where ground moved whole tears (2.5 tiles of a Quake's crack, a
+  Rift's walls); one that rides an intact block or
+  a thin apron stays, as under Ride; the force audit's S2, `src/core/forces/clear.ts` `destroyedGround`; Glaciate's
+  ice still takes what it reaches), in the brushes' Sources look, remembered per force with the other pins and sent as `settings.sources`; Try another sends the row's
   choice as it is. A force's own sources (Keep river, Meltwater, an unleashed source) always stay.
 - **One row** (D289): **Power**, **Size** (Quake has none), at most one signature choice (Carve's **Keep river** or
   **Dry canyon**; Quake's **Lift** or **Slide**; Glaciate's **Meltwater**), and **Try another**. The gesture is the
