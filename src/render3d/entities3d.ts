@@ -940,6 +940,17 @@ export function mineCutout(v: EntityView, W: number, H: number): Map<number, num
   return out;
 }
 
+/** The cutout as the game's layers leave it (`mineCutout`): a tile's top stays left out only while the layer cut is
+ *  above its object's level, the object standing whole over its pit; cut at its level or below, the object is cut away
+ *  with everything over the cut, and the tile takes its top again as every tile there does (at the cut, its cap),
+ *  never a hole to the sky. `slice` null: no cut, all of it. */
+export function cutoutUnder(cut: ReadonlyMap<number, number>, slice: number | null): Map<number, number> {
+  if (slice === null) return new Map(cut);
+  const out = new Map<number, number>();
+  for (const [i, z] of cut) if (z < slice) out.set(i, z);
+  return out;
+}
+
 /** Where the outline round mine sites runs (**Markers**; the terrain shader), RGBA bytes (W × H),
  *  on the tiles just outside each 5 × 5 footprint (the footprint's own tops are the pit's): R bits
  *  1, 2, 4, 8 the tile's east, west, north and south edge, where it meets the footprint; G bits 1,

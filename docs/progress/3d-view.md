@@ -3639,6 +3639,13 @@ aquifer; the map stores its Coordinates and orientation (never flipped).
 - **Measured:** the bounds within 0.01 of the game's (x −1.23…1.21, z −1.10…1.12, up to 0.126). The silhouette, against
   the game's crust and rocks from 16 cameras (8 headings, 30° and 60° down) and from above: 0.94–0.98 times the game's
   area, IoU 0.92–0.94.
+- **The layers over a pit** (found on #951's field, and the mine sites had it since their cutout): cut at an object's
+  level or below, its model went with everything over the cut while the terrain still left its tiles' tops out, so the
+  sky showed through round what was left (the field's middle tile round its vent; a mine site's frame, and its whole
+  footprint below its level). The terrain now leaves the tops out only while the cut leaves the object whole
+  (entities3d.ts `cutoutUnder`, the chunks meshed again when the layer changes); cut at its level or below, its tiles
+  show their tops (at the cut, the cap) as every tile there does. A picture is drawn with the tops left out, as with no
+  cut.
 - **Standard's shadow:** none, as before. 0.13 high, the model casts 0.015–0.03 tiles² past the ground it covers along
   the 45° sun.
 - **Judged:** placed on river valley 2's banks, Standard and High: a dark low crust over its cross with a brown dip at
