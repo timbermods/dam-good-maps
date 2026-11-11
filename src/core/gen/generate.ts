@@ -104,6 +104,7 @@ import { failurePhrase } from "./failWords";
 import { EASY_LAND, easyStartMeasures, easyTargets } from "../analysis/easyStart";
 import { pondWater, POND_WATER, shapeEasyStart } from "../land/easyStart";
 import { DIFFICULTY_RULES } from "../spec/mapspec";
+import { generatePremise, type PremiseInfo } from "../premise/generate";
 
 /** Easy start's badwater distance (D495): Easy's (D85), the start's badwater and its soil kept 30 tiles off. */
 const EASY_BADWATER = DIFFICULTY_RULES.easy.badwaterWithin;
@@ -232,6 +233,9 @@ export interface GenerationInfo {
   startDrought: boolean | null;
   /** Easy start's ground (D495), shaped as the land was: the pond's tiles, its cut's, and the clearing's. */
   easy?: { pond: number; cut: number; clearing: number };
+  /** A spec that names a premise (`spec.premise`, PREMISES §2.1): the plan its map was made from, or why the themes
+   *  made it instead (`fellBack`, one line, D471). */
+  premise?: PremiseInfo;
   stage: string;
 }
 
@@ -489,6 +493,19 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
   if (tooSmall) throw new Error(tooSmall);
   if (!AVAILABLE_THEMES.includes(specIn.theme)) throw new Error(`the ${specIn.theme} theme is not available yet`);
   if (specIn.colonies.count !== 1 || specIn.colonies.mod !== "none") throw new Error("multi-colony (Timber Together) maps are not built yet (PLAN §20, D5)");
+  // a premise (PREMISES §2.1): its own mode; a spec it rules out, or whose plans it spends, the themes make (D471)
+  if (specIn.premise !== undefined) {
+    const p = generatePremise(specIn, opts);
+    if ("result" in p) return p.result;
+    const r = generateThemes(specIn, opts);
+    r.info.premise = { id: specIn.premise, fellBack: `${p.reason}: the themes made this map` };
+    return r;
+  }
+  return generateThemes(specIn, opts);
+}
+
+/** The themes' path (everything but a premise's map). */
+function generateThemes(specIn: MapSpec, opts: GenerateOptions): GenerateResult {
   const t0 = performance.now();
   const record: RoundRecord = { failures: [], failedAt: [], before: 0 };
   // (D348 with D488: a map that looks for an arch over a gorge grows it on its finished land, which

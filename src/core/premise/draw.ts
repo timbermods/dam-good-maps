@@ -7,8 +7,11 @@ import type { MapSpec } from "../spec/mapspec";
 import type { Invariant, PremiseDef, PremisePlan, Stage, StageContext } from "./types";
 import { waterByNumber, type StageWater } from "./water";
 
-/** Plans drawn for one spec before it goes to the themes' path (PREMISES §2.2, stage 8). */
-export const PLAN_TRIES = 8;
+/** Plans drawn for one spec before it goes to the themes' path (PREMISES §2.2, stage 8). 16 since step 6: with the
+ *  lakes that hold (#986) and the moist ceiling redrawn before the settle (`ladder.spectrum`), eight left six seeds of
+ *  twelve at 128² to the themes, each with a plan that holds by number by its sixteenth. A plan that fails before its
+ *  settle costs its land only, less than the themes' map it saves. */
+export const PLAN_TRIES = 16;
 
 /** The stream of one stage (`premise.plan`, `premise.relief`, `premise.life`, `premise.pieces`), so a change to one
  *  stage never reshuffles another (PREMISES §1.3). `parts` name a draw inside the stage. */

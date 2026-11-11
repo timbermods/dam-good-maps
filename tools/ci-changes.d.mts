@@ -12,3 +12,5 @@ export function classify(
 ): { heavy: boolean; suites: boolean; rust: boolean };
 export function needsHeavy(files: string[], read: (path: string, side: "old" | "new") => string | null): boolean;
 export function needsTest(files: string[], mode?: "auto" | "full" | "light"): boolean;
+export function isPage(path: string): boolean;
+export function needsPage(files: string[], mode?: "auto" | "full" | "light"): boolean;

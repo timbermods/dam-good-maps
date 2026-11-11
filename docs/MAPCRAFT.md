@@ -122,7 +122,7 @@ The generator and the editor exist to take a player through section 3. Where eac
 | 3 Skeleton | Themes give forms, but features stay small on big maps and regions don't differ by role | Forces make landforms; each is being rebuilt to read as one |
 | 4 Start | Opens toward the map (D507) with the game's true camera (0.10.14); not yet on a landmark | The start can be moved; the first frame can be predicted |
 | 5 Ladder | Missing | Missing: a readout of what each work would turn green |
-| 6 Relief | Tabletops and contour bands: "ground with grade" is in work | Brushes; lakes by number (merged); a fall in one stroke (in review) |
+| 6 Relief | Ground with grade (0.10.16): tableland and rolling ground by region, benches at many levels; roughly half the height steps one level, under half dead flat | Brushes; lakes by number (merged); a fall in one stroke (in review) |
 | 7 Life and resources | Official mixes; not yet by budget or by region | Paint and groves; no budgets shown |
 | 8 Secrets | Places the shelf's objects; not tied to a premise | The shelf |
 | 9 Simulate | Settles and checks every map; no weather gate on the premise | Drought and Badtide day by day; the first-ten-cycles report is in work |

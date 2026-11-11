@@ -65,7 +65,7 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
   function placeSource(bad: boolean, x: number, y: number, level?: number) {
     const req = { ...sourceAtTile(bad, x, y), ...(level !== undefined ? { z: level } : {}) };
     void run(
-      () => api.applyTool(req, newId()),
+      (w) => w.applyTool(req, newId()),
       (u) => {
         if (!u.ok) return;
         feel("source", x, y, 1, false, bad ? "badwater" : undefined);
@@ -166,7 +166,7 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
           const name = e.template === "BadwaterSource" ? "badwater source" : "water source";
           // (a badwater source cuts its own spring pool where it lands on uneven ground, D290; it lands on the ground
           // aimed at, a cave's floor too, or with no level on the tile's top, out of a cave as well: D491)
-          void run(() => api.applyAll([{ op: "moveEntity", params: { id: e.id, x: e.x + dx, y: e.y + dy, ...(level !== undefined ? { z: level } : {}) } }], `Move a ${name}`));
+          void run((w) => w.applyAll([{ op: "moveEntity", params: { id: e.id, x: e.x + dx, y: e.y + dy, ...(level !== undefined ? { z: level } : {}) } }], `Move a ${name}`));
         });
       },
       cancel: end,
@@ -259,7 +259,7 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
           const y = rec.y + dy;
           const z = level ?? (x >= 0 && y >= 0 && x < W && y < H && rec.z !== mirror.current.heights[rec.y * W + rec.x] ? mirror.current.heights[y * W + x] : undefined);
           void run(
-            () => api.moveObjectBy(rec.id, dx, dy, z),
+            (w) => w.moveObjectBy(rec.id, dx, dy, z),
             (u) => {
               if (!u.ok) return;
               setPickedObject({ ...rec, x, y, ...(z !== undefined ? { z } : {}) });
@@ -350,7 +350,7 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
         const op: EditOp = { op: "setEntityProps", params: { id: e.id, components: { WaterSource: { SpecifiedStrength: v, CurrentStrength: v } } } };
         let ok = false;
         void run(
-          () => api.applyStep(op, `${name}: ${v} water/s`, `strength:${e.id}`, more),
+          (w) => w.applyStep(op, `${name}: ${v} water/s`, `strength:${e.id}`, more),
           (u) => {
             ok = u.ok;
             const p = pickedRef.current;

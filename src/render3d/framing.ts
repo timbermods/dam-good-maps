@@ -2,6 +2,7 @@
 // small map's framing must hold beyond its ground. Pure, so the headless tests can check them at 4x4 and 512x512.
 
 import { orbitEye } from "./cameraClamp";
+import { OPENING, openingCamera, type OpeningStart } from "../core/analysis/opening";
 import type { EntityView } from "./model";
 
 /** The game's default camera: turned 30 degrees east of north (Map look, D86). */
@@ -27,6 +28,17 @@ export function openingYaw(W: number, H: number, aspect: number): number {
   // the long axis along the view's long side: east-west along the width needs turn 0, north-south needs a quarter turn
   const quarter = eastWest === wide ? 0 : -Math.PI / 2;
   return quarter - LONG_MAP_SKEW;
+}
+
+/** The game's first view of a map (D493, `analysis/opening.ts` `openingCamera`, fitted to the game's own cameras): the
+ *  camera as the game opens it on `start` (its middle tile, level and turn), in the renderer's terms (world x, height,
+ *  −y; its yaw turns the other way from the game's horizontal angle), with the game camera's field of view. */
+export function gameFirstView(start: OpeningStart): { view: { mode: "orbit"; yaw: number; pitch: number; distance: number; target: [number, number, number] }; fov: number } {
+  const cam = openingCamera(start);
+  return {
+    view: { mode: "orbit", yaw: Math.atan2(-cam.look[0], cam.look[1]), pitch: (OPENING.pitch * Math.PI) / 180, distance: cam.distance, target: [cam.target[0], cam.target[2], -cam.target[1]] },
+    fov: OPENING.fov,
+  };
 }
 
 /** The nearest and farthest the camera's distance may be: the zoom's limits. The farthest is three map lengths, and

@@ -94,6 +94,15 @@ fn strength(power: f64, size: Option<f64>, natural: f64) -> f64 {
     let floor = portable_math::sqrt(natural / size);
     floor + (1.0 - floor) * pow(clamp(power, 0.0, 100.0) / 100.0, 1.2)
 }
+/// How far a force that replaces the land's relief with its own ground does so (D361 (3)): wholly at Power 100
+/// and at Power's own size; where Size outgrows Power, by Power's share of the strength (`strength`'s rise from
+/// its floor), so at Power 0 the land keeps its relief and the force only adds its own shape to it.
+fn relief(power: f64, size: Option<f64>, natural: f64) -> f64 {
+    if strength(power, size, natural) >= 1.0 {
+        return 1.0;
+    }
+    pow(clamp(power, 0.0, 100.0) / 100.0, 1.2)
+}
 fn tempered(before: f64, after: f64, k: f64) -> f64 {
     if k >= 1.0 {
         return after;
@@ -2242,6 +2251,23 @@ pub unsafe extern "C" fn forces_execute(p: *const u8, len: usize, out_len: *mut 
     Box::into_raw(b) as *mut u8
 }
 
+/// Whole levels from a surface the core worked out itself (levels.rs `whole`; the Ridge, core/doc/ridge.ts). `input`
+/// holds `w·h` surface levels, then `w·h` ground levels (f64, little-endian; NaN where the ground is left alone), then
+/// `w·h` bytes of the land before; `out` takes `w·h` bytes of land.
+///
+/// # Safety
+/// `input` must hold `17·w·h` bytes and `out` `w·h`.
+#[no_mangle]
+pub unsafe extern "C" fn forces_levels(input: *const u8, w: usize, h: usize, ceiling: f64, seed: f64, grain: f64, out: *mut u8) {
+    let n = w * h;
+    let bytes = std::slice::from_raw_parts(input, 17 * n);
+    let read = |k: usize| f64::from_le_bytes(bytes[8 * k..8 * k + 8].try_into().unwrap());
+    let surface: Vec<f64> = (0..n).map(read).collect();
+    let ground: Vec<f64> = (n..2 * n).map(read).collect();
+    let land = levels::whole(&surface, &ground, &bytes[16 * n..], w, h, ceiling, seed, grain);
+    std::ptr::copy_nonoverlapping(land.as_ptr(), out, n);
+}
+
 #[derive(Clone)]
 struct Ray {
     dx: f64,
@@ -2446,6 +2472,9 @@ struct Plate {
     plane: f64,
     /// What the crater adds to that ground, in levels (the uplift apart).
     add: f64,
+    /// What it adds to the land itself, where the land keeps its relief (a crater weaker than its Size,
+    /// `relief`): its cavity inside, its rim and debris round it.
+    own: f64,
     /// The central uplift's share here, 0–1 (a ring's mountains).
     lift: f64,
     /// The plate of a peak's hill here: 1 its top, 2 the one under it, and so on; 0 none.
@@ -3291,6 +3320,7 @@ impl Crater {
         // holds its bowl)
         let mut plane = if (m.heights[tile] as f64) < self.ground(x, y) { 1.0 - smooth((r - 1.0 - 2.6 / self.radius) / 0.25) } else { 1.0 - smooth((r - 0.8) / 0.2) };
         let add;
+        let own;
         let mut lift = 0.0;
         let mut tier = 0;
         if r < 1.35 {
@@ -3303,22 +3333,27 @@ impl Crater {
             let over = (m.heights[tile] as f64 - self.ground(x, y)) * (1.0 - plane);
             // (inside the bowl, on the crater's own ground, the rim and the debris stand above its surface)
             // (a small crater's lip stands at the hollow's very edge: on the top of its wall too)
-            add = if over == 0.0 && cavity <= if self.lip.is_empty() { 0.0 } else { -0.5 } {
-                cavity
-            } else if cavity <= 0.0 {
-                let lip = self.apron(e, (qx, qy), x, y);
-                if over == 0.0 && lip > 0.0 && ((!self.steep && self.deep >= 2.0) || e > -min(0.5, 0.1 * self.radius)) { lip } else { min(lip, cavity - over) }
-            } else {
-                min(self.apron(e, (qx, qy), x, y), cavity - over)
+            let on = |over: f64| {
+                if over == 0.0 && cavity <= if self.lip.is_empty() { 0.0 } else { -0.5 } {
+                    cavity
+                } else if cavity <= 0.0 {
+                    let lip = self.apron(e, (qx, qy), x, y);
+                    if over == 0.0 && lip > 0.0 && ((!self.steep && self.deep >= 2.0) || e > -min(0.5, 0.1 * self.radius)) { lip } else { min(lip, cavity - over) }
+                } else {
+                    min(self.apron(e, (qx, qy), x, y), cavity - over)
+                }
             };
+            add = on(over);
+            own = on(0.0);
             if r < 1.0 {
                 lift = self.uplift(qx, qy, x, y);
                 tier = self.hill(qx, qy, x, y);
             }
         } else {
             add = self.apron(e, (qx, qy), x, y);
+            own = add;
         }
-        Plate { r, plane, add, lift, tier }
+        Plate { r, plane, add, own, lift, tier }
     }
     /// The rays' height and their secondary pits' depth at a tile `r` out.
     fn rays_at(&self, s0: &Settings, x: f64, y: f64, r: f64) -> (f64, f64) {
@@ -3429,6 +3464,9 @@ impl Crater {
 fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]) -> Plan {
     let a = Crater::new(before, s0, intent);
     let k = strength(n(s0, "power"), s0.size, crater_size(n(s0, "power")));
+    // (a crater weaker than its Size replaces the land's relief only as far as its Power: on a hillside a
+    // gentle wide crater is a dish in the hill, never the hill levelled to its centre's height)
+    let give = relief(n(s0, "power"), s0.size, crater_size(n(s0, "power")));
     let mut keep = vec![0u8; m.w * m.h];
     for (i, &v) in extra.iter().enumerate() {
         if v != 0 {
@@ -3461,7 +3499,11 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
     let shape = |i: usize, p: &Plate| {
         let (xf, yf) = ((i % before.w) as f64, (i / before.w) as f64);
         let h = before.heights[i] as f64;
-        h + (a.ground(xf, yf) - h) * p.plane + p.add
+        if give >= 1.0 {
+            h + (a.ground(xf, yf) - h) * p.plane + p.add
+        } else {
+            h + give * ((a.ground(xf, yf) - h) * p.plane + p.add) + (1.0 - give) * p.own
+        }
     };
     let mut surface = vec![f64::NAN; m.w * m.h];
     let mut ground: Vec<f64> = before.heights.iter().map(|&l| l as f64).collect();
@@ -3492,7 +3534,7 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
             surface[i] = tempered(h, target, k);
             // (what the crater's own shape stands on: its level datum inside the bowl, the land
             // outside it; the fall from its rim to lower land is its own)
-            ground[i] = tempered(h, h + (a.datum - h) * (1.0 - smooth((p.r - 0.9) / 0.2)), k);
+            ground[i] = tempered(h, h + (a.datum - h) * (1.0 - smooth((p.r - 0.9) / 0.2)) * give, k);
             if p.lift > 0.0 || p.tier > 0 {
                 lifted.push((i, p));
             }
@@ -11317,6 +11359,8 @@ struct Motion {
     past: f64,
     dz: f64,
 }
+/// The farthest a Lift moves ground from its fault (tiles): the same number is quake.ts `LIFT_REACH`.
+const LIFT_REACH: f64 = 20.0;
 struct Fault {
     settings: Settings,
     side: f64,
@@ -11324,9 +11368,9 @@ struct Fault {
     segments: Vec<FSeg>,
     length: f64,
     reach: f64,
-    /// How far the quake reaches past the drawn line (tiles), set by Power. The ground it changes lies
-    /// within twice this of the line, its ends included (or 1.3 times the line's length, whichever is
-    /// wider), not the 40-odd tiles the old shaking ring did.
+    /// How far a Slide's block reaches past the drawn line (tiles), set by Power: the block is the line and
+    /// this margin past its ends and sides, or 1.3 times the line's length across. (A Lift's ground lies
+    /// within `LIFT_REACH` of its fault.)
     margin: f64,
     lift: f64,
     slide: f64,
@@ -11573,36 +11617,46 @@ impl Fault {
             f.dy = dy;
             return f;
         }
-        let block_reach = max(self.margin * 2.0, self.length * 1.3);
+        // Lift (the force audit's finding 1): the ground moves most at the fault and less with distance from it,
+        // exp(-distance / λ) with λ 8 to 14 tiles by Power, and an elliptical taper along the trace brings it to
+        // nothing at both tips; a window takes it to nothing at LIFT_REACH tiles, so no ground past 20 tiles
+        // moves. The other side is no block: only a back-tilted trough at the scarp's foot, deepest there and
+        // rising away over 3 to 6 tiles, at most 2 levels (a sag pond at most), and nothing beyond it.
+        let power = n(s0, "power");
         let away = hypot(dist, f.past);
-        let envelope = (1.0 - smooth((away - block_reach * 0.8) / (block_reach * 0.2)))
-            * (1.0 - smooth(f.end / max(8.0, self.reach * 0.6)));
-        let step = if s(s0, "scarp") == "stepped" {
-            min(1.0, ((dist / 3.0).floor() + 1.0) / 3.0)
+        let u = clamp((f.along / max(1e-9, self.length)) * 2.0 - 1.0, -1.0, 1.0);
+        let taper = if f.past > 0.0 {
+            0.0
         } else {
-            1.0
+            portable_math::sqrt(max(0.0, 1.0 - u * u))
         };
-        let tilt = (hash(n(s0, "seed"), 6.0) * 2.0 - 1.0) * (f.along / self.length - 0.5) * 2.4
-            + (hash(n(s0, "seed"), 7.0) * 2.0 - 1.0) * clamp(dist / self.reach, 0.0, 1.0) * 1.4;
-        let mut dz = round(
-            (if side > 0.0 {
-                self.lift + tilt
+        let window = max(0.0, 1.0 - (away / LIFT_REACH) * (away / LIFT_REACH));
+        let mut dz = if side > 0.0 {
+            let lambda = 8.0 + power * 0.06;
+            let decay = exp(-away / lambda) * window;
+            let shape = if s(s0, "scarp") == "stepped" {
+                min(decay, min(1.0, ((dist / 3.0).floor() + 1.0) / 3.0))
             } else {
-                -self.lift * 0.55
-            }) * envelope
-                * step,
-        );
+                decay
+            };
+            // (the throw varies along the strike with the seed: Try another)
+            let strike = (hash(n(s0, "seed"), 6.0) * 2.0 - 1.0) * (f.along / self.length - 0.5) * 2.4;
+            round(max(0.0, self.lift + strike) * taper * shape)
+        } else {
+            let drop = min(2.0, (self.lift / 3.0).floor());
+            let width = 3.0 + power * 0.03;
+            -round(drop * taper * (1.0 - smooth(away / width)))
+        };
+        // small secondary faults notch the scarp's crest, where the scarp stands
         let branch = (f.along / 22.0).floor();
-        let u = f.along / 22.0 - branch;
-        if dist < 2.2 && u > 0.3 && u < 0.62 && hash(n(s0, "seed"), branch + 200.0) > 0.48 {
-            dz -= 1.0;
-        }
-        if side < 0.0
-            && dist > 3.0
-            && dist < 8.0
-            && u > 0.38
-            && u < 0.58
-            && hash(n(s0, "seed"), branch + 230.0) > 0.65
+        let v = f.along / 22.0 - branch;
+        if side > 0.0
+            && dz > 0.0
+            && dist < 2.2
+            && taper > 0.2
+            && v > 0.3
+            && v < 0.62
+            && hash(n(s0, "seed"), branch + 200.0) > 0.48
         {
             dz -= 1.0;
         }

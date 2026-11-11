@@ -127,7 +127,7 @@ export function useDelete(ed: Ed): DeleteSlice {
     const W = info.W;
     const at = corners.length ? corners[0] : tiles[0];
     void run(
-      () => api.removeAt(tiles, kinds, renderer.current?.slice ?? null),
+      (w) => w.removeAt(tiles, kinds, renderer.current?.slice ?? null),
       (u) => u.ok && feel("remove", at % W, Math.floor(at / W)),
     );
     return true;
@@ -159,7 +159,7 @@ export function useDelete(ed: Ed): DeleteSlice {
     const mid: [number, number] = [Math.round(sx / low.length), Math.round(sy / low.length)];
     const ops: EditOp[] = [{ op: "sculpt", params: { mode: "lower", cells: tilesToRuns(low, W), amount: 1, exact: true } }];
     void run(
-      () => api.applySelection(ops, low.length === 1 ? "Delete a level of ground" : `Delete a level of ground on ${tileCount(low.length)}`, low),
+      (w) => w.applySelection(ops, low.length === 1 ? "Delete a level of ground" : `Delete a level of ground on ${tileCount(low.length)}`, low),
       (u) => {
         if (!u.ok) return;
         feel("lower", mid[0], mid[1], Math.max(1, Math.sqrt(low.length) / 2));
