@@ -24,7 +24,7 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec } from "../../src/core
 // generator's version, "Made with Dam Good Maps 0.10.16", gen/pack.ts; again for step 7's works; for step 9's style,
 // theme Any taking Canyon's on seed 1; for step 8's works sited by moisture with step 9 merged; and for the look round's
 // theme forms, rim runs and stands; for the works round's floors and the bypass's own course, D148)
-const SHA = "2f9db1daf2b24e46a781a8af8ae860b72008f4366133cb6d270b40c5e7508bd6";
+const SHA = "3a97a5c05a8b99174c13a18427bcadfc0069262c593fdecbc2af5b6633e0fb7b";
 
 describe("The premise mode (§2.2, build step 4)", () => {
   const made = makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "any", premise: "lakeStair" });

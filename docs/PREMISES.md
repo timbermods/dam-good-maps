@@ -727,7 +727,8 @@ premise pair made with the theme's own settings; and (planning, mid-round) the b
   notes; the ladder's `WorkSite.paid` says which reached it. A repair pass swaps a short candidate in for the least
   worth of the removable levees and dams where that brings the ladder whole.
 - **The narrows** (`ladder.ts` `NARROWS`, `narrowsFit`): a dam to pond lays a pan at bed + 2 behind the dam, up to 8
-  tiles each side and 15 back (shortened two at a time to 5 where other water or the start stands in the way), under
+  tiles each side and 15 back (shortened two at a time to 5 where other water, the start or ground stage 1 fixed
+  stands in the way), under
   rims and shoulders at bed + 3 and the bench cut to bed + 2 six tiles round; the dam stands 6 tiles or more below its
   bed's head, so its pond never reaches the body the bed leaves (`POND_REACH` is the pan's reach). The siting weighs
   the same narrows the ladder lays.

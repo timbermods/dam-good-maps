@@ -163,12 +163,13 @@ export function layWorks(plan: PremisePlan, w: StageWater, heights: Uint8Array):
     const si = plan.links.findIndex((l) => l.from === work.on && l.id.startsWith("spill"));
     if (bi >= 0 && si >= 0) banks[work.id] = bankBasin(plan, r, heights, bi, si);
   }
-  // each dam to pond's narrows and pan (`narrowsGround`), where its bed has room for one
+  // each dam to pond's narrows and pan (`narrowsGround`), where its bed has room for one, never on ground stage 1
+  // fixed (its guard and shores stand as laid, §2.2 stage 2)
   const { x: sx, y: sy } = plan.frame.start;
   const free = (i: number) => {
     const x = i % r.W;
     const y = (i - x) / r.W;
-    return !r.lake[i] && !r.channel[i] && !r.crest[i] && !r.pool[i] && !r.ribbon[i] && (Math.abs(x - sx) > 3 || Math.abs(y - sy) > 3);
+    return !r.lake[i] && !r.channel[i] && !r.crest[i] && !r.pool[i] && !r.ribbon[i] && !r.fixed[i] && (Math.abs(x - sx) > 3 || Math.abs(y - sy) > 3);
   };
   for (const work of plan.works) {
     if (work.kind !== "damToPond") continue;
