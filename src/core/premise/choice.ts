@@ -93,7 +93,7 @@ export const PREMISE_SETTINGS: Record<PremiseId, readonly PremiseSetting[]> = {
     { key: "z", path: "size", role: "plan", does: "Square maps from 128 to 256 a side: more lakes, tarns and works on a larger map" },
     { key: "d", path: "designedFor", role: "plan", does: "The breach in the start's weir and the drought the lakes are dug to last" },
     { key: "rl", path: "terrain.relief", role: "style", does: "How far the uplands rise and fall away from the lakes" },
-    { key: "ht", path: "terrain.highestTerrain", role: "plan", does: "How many levels the stair may climb; too low for its lakes and fall makes no lake stair" },
+    { key: "ht", path: "terrain.highestTerrain", role: "plan", does: "How high the uplands may rise (the stair stays under 16); too low for its lakes and fall makes no lake stair" },
     { key: "tr", path: "terrain.terracing", role: "style", does: "How much of the uplands stands on benches with cliffs between" },
     { key: "bl", path: "terrain.buildableLand", role: "plan", does: "The lakes' meadows and the start's bench, narrower or wider" },
     { key: "vt", path: "terrain.verticality", role: "plan", does: "How tall each step of the stair is, three to five levels" },

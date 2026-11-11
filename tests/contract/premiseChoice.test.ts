@@ -80,7 +80,7 @@ describe("Theme × premise (§1.5, build step 9)", () => {
     const { W, H } = a.plan;
     const { x: sx, y: sy } = a.plan.frame.start;
     let differ = 0;
-    let higher = 0;
+    let high = 0;
     const r = water.raster;
     // (day 1's water: a wet body's or a wet link's tiles; the dry beds follow the land, as stage 2 lays them in any land)
     const wet = (i: number) => (r.lake[i] > 0 && !a.plan.bodies[r.lake[i] - 1].dry) || (r.channel[i] > 0 && a.plan.links[r.channel[i] - 1].wet);
@@ -89,11 +89,14 @@ describe("Theme × premise (§1.5, build step 9)", () => {
       const y = (i - x) / W;
       if (wet(i) || Math.max(Math.abs(x - sx), Math.abs(y - sy)) < 16) expect(styled[i], `tile ${x},${y}`).toBe(own[i]);
       if (styled[i] !== own[i]) differ++;
-      higher += styled[i] - own[i];
+      // (the height round: a premise map rises to Highest terrain 22; Canyon's tables stand high in that room, cut by
+      // canyons deep under them, River Valley's terraces climb it step by step: Canyon's ground stands at 17 or more
+      // on more tiles, D148)
+      high += (styled[i] >= 17 ? 1 : 0) - (own[i] >= 17 ? 1 : 0);
     }
-    // (Canyon stands higher over the stair than River Valley, over a good part of the map)
+    // (Canyon stands apart from River Valley over a good part of the map, and over 16 on more of it)
     expect(differ).toBeGreaterThan(0.2 * W * H);
-    expect(higher).toBeGreaterThan(0);
+    expect(high).toBeGreaterThan(0);
   });
 
   it("says what every setting of the panel does to a premise map, and which the page greys out", () => {

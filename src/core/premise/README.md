@@ -68,7 +68,7 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   `stageModel` is its water model for a settle.
 - `raster/relief.ts` `reliefBetween`: stage 2, the whole map's ground round stage 1's water (the lower envelope of
   every water's bowl, each bowl's distance bounded to its box, rims kept from lower waters, the landmark's upper
-  world, the bypass and every dry brook following the land (`followsLand`), the uplands as warped plates each at one level (the rim's too: their fall toward an edge is a plate's, never a band along it), a theme's uplands in its form (`styledUplands`: high tables and canyons, peaks, terraces, low ground), ridges as crags, `tidy` and
+  world, the bypass and every dry brook following the land (`followsLand`), the uplands as warped plates each at one level (the rim's too: their fall toward an edge is a plate's, never a band along it), a theme's uplands in its form (`styledUplands`: high tables and canyons, peaks, terraces, a low floor in a rim) up to the plan's `sky` (Highest terrain, 22 from Verticality 70) while the stair stays under 16 (`stairTop`), ridges as crags, the hollow behind the skyline (`hollowsOf`), `tidy` and
   the bench-width floor `land/benches.ts`); `badwaterNiches` cuts the
   permanent badwater source's niche beside the gorge.
 - `ladder.ts`: stage 4 (§4.2). `layWorks` lays the works' own ground on stage 2's (each small levee's basin banked,
@@ -86,8 +86,8 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   (`gen/resources.ts` `planResources`) by the premise's budget (`LIFE`: living trees 450 to 700 per 10,000 tiles, at
   most 16 % of the moist ground under a tree, berries 185 to 230), its groves drawn together into close stands
   (`groupGroves`), living stands where it falls short, dead woods in clumps on the empty basins' shores and beside dry
-  beds, a stand on each bench over a lake (`benchesOver`: succulents, or dead wood where the palette has none; the
-  one nearest the start first), succulents on the dry-for-good side, and the mine sites
+  beds, a stand on the hollow behind the skyline and on each bench over a lake (`hollowsOf`, `benchesOver`:
+  succulents, or dead wood where the palette has none; the one nearest the start first), succulents on the dry-for-good side, and the mine sites
   (`planExtras`'s, moved beside the start's reach where it cannot reach them); nothing on the works' sites and reach,
   the beds and basins or the start's sight line to the landmark. Its palette is the spec's resources: a theme's,
   when a theme sets them (PREMISES §1.5). The report is `info.premise.life`.

@@ -23,8 +23,9 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec } from "../../src/core
 // (re-pinned since generator 0.10.16's ground with grade, D148: the map's own land is the same; its description names the
 // generator's version, "Made with Dam Good Maps 0.10.16", gen/pack.ts; again for step 7's works; for step 9's style,
 // theme Any taking Canyon's on seed 1; for step 8's works sited by moisture with step 9 merged; and for the look round's
-// theme forms, rim runs and stands, D148)
-const SHA = "35ce1a6c302d72bfca2b3f9aeeee2f26a5ea8f8927e74c3c21ee98796016976f";
+// theme forms, rim runs and stands; and for the height round, the premise's preset at Verticality 70 with the uplands
+// to Highest terrain 22, which draws seed 1 a six-level landmark, D148)
+const SHA = "ed47b4cf68947f52f7f2ae1afa0f9cffaad484b5a32963e64b7825c983eed790";
 
 describe("The premise mode (§2.2, build step 4)", () => {
   const made = makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "any", premise: "lakeStair" });
@@ -48,8 +49,8 @@ describe("The premise mode (§2.2, build step 4)", () => {
     expect(p.card).toEqual({
       name: "Lake stair",
       style: "Canyon",
-      landmark: "The Great Fall, a seven-level fall into Low Lake, the start's lake",
-      first: "Mend the breach in the old weir at the Gate Gorge (two tiles), so Low Lake keeps its water in a drought.",
+      landmark: "The Great Fall, a six-level fall into Low Lake, the start's lake",
+      first: "Mend the breach in the old weir at the Gate Gorge (one tile), so Low Lake keeps its water in a drought.",
       line: p.plan!.line,
     });
     expect(r.report.passed).toBe(true);
