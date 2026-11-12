@@ -429,7 +429,9 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const doorLip = Math.max(8, Math.min(MAX_SILL_WIDTH, sillWidthFor(flowOf(spec)) + 4));
   const doorR = doorLip / 2 + 0.5;
   const doorAt: Point = [bEnd - DOOR_LOBE * ks, fb - 4.5];
-  const trench: Spine = [[kEnd + ks, fb - 0.6, 0.7], [bEnd - 0.5 * ks, fb - 1.5, 1.4], [bEnd - 4 * ks, fb - 2.6, 2.4], [doorAt[0], doorAt[1], r2(doorR)]];
+  // (wider toward its lobe than the old drain bay: the Veil's whole flow runs along it to the lip, and narrower it stood
+  // the foot over its sill and the Veil short of its height)
+  const trench: Spine = [[kEnd + ks, fb - 0.6, 0.7], [bEnd - 0.5 * ks, fb - 1.6, 1.7], [bEnd - 4 * ks, fb - 2.8, 2.9], [doorAt[0], doorAt[1], r2(doorR)]];
   const cu = kEnd + 6.5 * ks;
   const kettle: Spine = [[cu, fb - 2.2, 1.8], [cu + 2.5 * ks, fb - 2.8, 1.8]];
   const inletPath: Point[] = [[kEnd + 1.6 * ks, fb - 0.7], [cu - 1.4 * ks, fb - 2.1]];

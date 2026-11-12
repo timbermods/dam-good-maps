@@ -38,7 +38,8 @@ describe("The wall with one gate's stage 1 water, settled", () => {
           continue;
         }
         // (the Still Pool stands at its lake's level: the table's reading of a body with no way out is its sill)
-        const want = l.id === "kettle" ? lake.level : l.table;
+        // (the Still Pool is the plunge pool's backwater since planning's ruling of 2026-11-12)
+        const want = l.id === "kettle" ? at("door").level : l.table;
         expect(Math.abs(l.level - want), `${l.id}: settled ${l.level.toFixed(2)}, want ${want.toFixed(2)}`).toBeLessThanOrEqual(TABLE_SLACK);
       }
       expect(s.veil.ok, `the Veil: ${s.veil.note}`).toBe(true);

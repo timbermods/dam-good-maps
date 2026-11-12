@@ -1197,8 +1197,8 @@ or edge-parallel band.
 |---|---|---|
 | The range | Its crest is noise along a stretch of a longer drawn line (`RANGE.profileCell`, 17 to 25 % of the side across), the map framing the stretch whose lowest saddle lies where a gap can stand; levels from the gap's saddle (the megadam's water + 2) to the peak (`CREST`, 18 to 21) as q (2 − q) of the way up. Its spine wanders behind the Veil's face by noise (4 to 7 tiles a 128 side); half-widths 9 to 14 toward the valley and 10 to 14 toward the basin, × (0.6 + 0.4 side ÷ 128). Across it the ground falls from the crest to its foot through a warp of 5 tiles: a concave flank (talus) on soft rock, high to a cliff near the foot on hard rock (a third of it by noise, and the Veil's buttress); ridged noise draws spurs and gullies; knobs of a level on the crest | Crest 11 to 21 along it: 4 levels or more of rise and fall (`range.crest`), peaks and saddles; sheer only on hard rock and at the Veil |
 | The gap | The Gate is a gorge where the crest is lowest on the Still Pool's side, winding (a point every 3 tiles, each up to 3 off the last), 5 to 7 wide, its floor two under the lake's sill; its walls are the range's own flanks (stage 1's wadi strips in the range are the range's ground). The Gate Bed winds on through the pan to the outlet | The one low way through: away from it the range is crossed at the saddle's level or over (`gate.lowest`) |
-| The basin | A dry lake in a depression past the range: its floor, read through a warp of 30 % of its shore's distance and lobes of 25 %, falls from the lake's sill + 1 at its old shore (20 to 25 % of the side from the pan) to a pan a level over the beds' floor (5 to 7.5 % of the side across), broad near the pan and steeper toward the shore, its rings wandering by 1.3 levels; past the shore hills of uneven height rise to the gap's saddle + 1 (± 2.4 levels); the dry beds cut their own valleys, their banks' distance read through noise | The old lake's floor 2.5 % of the map or more at the sill + 1 or under, joined to the pan, nowhere joined to the valley but by the beds (`basin.bowl`) |
-| The valley | The shared relief (`reliefBetween`, the spur its only ridge), its uplands' ceiling the peak − 4 (`UNDER_PEAK`), so the range is the map's great feature. The lake: a main arm whose width varies (radius 4.5 to 7 and 7 to 12 in turn) and whose shore toward the bench stands a few rows under it, point by point; no arm of water up to the Gate (with the drain bay it ringed the start's meadow in a moat): the Gate's dry channel leaves the lake's own shore and winds across the bench; the drain bay bends every 8 tiles into the main arm where it lies; two or three bays where they clear the brooks; three brooks from springs in the far corners, wandering 5 either way every 12 tiles | The shared stage's own lakes and brooks (`water.ts`) |
+| The basin | A dried lake's floor (planning's ruling of 2026-11-12: land a player can water): a playa, an oval along the range (40 to 48 % of the side long, half to three fifths of the basin's room deep, read through a warp and lobes), at the pan's level (a level over the beds' floor) in its middle and a level over toward its edge; two old shoreline benches a level apart round it, 4 to 7 tiles each; past them the hills, rising to the gap's saddle + 1 with uneven height; the dry beds cut their own valleys | 55 % of the basin or more within two levels of the pan (`basin.playa`); the basin's floor 24 to 31 % of the map |
+| The valley's water | Planning's ruling of 2026-11-12 (a pool, a brook and a lake, never channels). The Veil falls into a **plunge pool** at the start's door (the Veil's foot along the lip opening into a lobe past its end), a level over the lake; the Still Pool's neck leaves it. The pool leaves over a low lip (8 wide and more, sized by the Veil's flow and three wider) into a **brook** three wide, which runs on along the range's foot away from the bench and then winds down the valley. The **lake** lies at the valley's low end on the Gate's side: one broad body (its wide lobe 6 to 9.5 in radius, a narrows of half that, the Low River's end), lying down the valley where it is short along the range, a bay or two; the Gate leaves its shore, the Low River its far end. The valley's land is the shared relief, its uplands under the range's peak − 4 | The lake 14 to 22 across at its widest, its width varying 2.0 to 2.5-fold (`valley.water`); the bench meets water on one side, within 240° seen from the start (`bench.shore`) |
 | The Veil | The cleft's pool on the crest behind a lip of 9 to 12 tiles along the range's face where the crest is highest near the map's middle (its springs rise high in the range); the face a cliff (hard rock), the fall of 6 or 7 into the lake's trench at the start's door | Judged settled at its height less 0.5 (`veil.settled`) |
 | The check and the mend | Flooded from the lake at the megadam's water (the Gate and the Low River's gorge shut), the valley must reach neither the map's edge nor past the range's crest; where it does, the ground it spills over is raised a level or two over that water (`mendFlood`): a knoll on a saddle of the range, or one low swell across the whole stretch of the edge it reaches (its crest set in from the edge, its outline wandering), never a bead a tile; again after the badwater's niche is cut | 1 to 5 rises a map (`land.notes` says how many) |
 
@@ -1255,31 +1255,33 @@ to `PLAN_TRIES` and three settles, a plan refused when its water, land, start, a
 fails. `tools/premise-gate-map.ts` writes a seed's map; `tools/capture-gate.ts` renders the widest frame and the opening
 camera (`docs/sheets/wall-gate-natural.jpg`, seeds 1 and 2 at 128²).
 
-**Measured** (seeds 1 to 12 at 128², 1 to 4 at 192², 1 to 3 at 256², River Valley's style; `tools/premise-gate-map.ts`).
-Every map passes every blocking check and every land invariant. **The start** against `START_FLOORS`: the bench 1,049 to
-2,342 (640 asked), walkable land 2,460 to 7,659 (1,300), wood 258 to 680 logs (200), fast wood 0.41 to 1 of them (0.4),
-the forester's plot 386 to 541 (100), farmland 486 to 641 (100). **Redraws**: 7 of the 19 drew a later plan (15 plans
-refused: `veil.settled` 4, no layout in 24 tries 4, `terrain.ruled_land` 2, `water.falls`, `basin.bowl`, `range.crest`,
-`frame.lip` and stage 3's walk 1 each). **Ruled land** on the built map: straight 7.5 to 12.3 % at 128², 9.1 to 12.0 % at
-192², 10.5 to 11.4 % at 256² (limit 20; the laid wall's 34 to 38 %); bands 0.1 to 2.8 % (3; it was 4 to 8 %); corners
-0.2 to 3.2 per 1,000 (8). The valley, the shared relief's, holds most of what is straight (10 to 17 % of its own edges,
-as the lake stair's land); the range 7 to 11 %, the basin 6 to 13 %. **The Veil** drops 5.54 to 6.69 settled on falls of
-6 and 7 (each its height less 0.5 or more). **The settle** runs 896 to 1,664 ticks (1.2 to 2.2 days) against the shared
-limit of 6 days (`SETTLE_DAYS`, 4,608 ticks): the budget the rule sets (the most measured, twice over: 3,328) is inside
-it, so the Gate takes the shared limit and needs none of its own (round 8's drowned ribbon that crept past the limit on
-128² seed 1 went with the laid wall). **The mend** raises 1 to 4 rises a map. **The works' gains**: the Gate opened
-greens 1,213 to 1,599 at 128², 2,162 to 2,446 at 192², 2,832 to 3,713 at 256²; the leat opened 647 to 1,274, 1,341 to
-2,709 and 2,683 to 3,814; the megadam holds 1,649 to 2,066, 2,875 to 3,162 and 3,660 to 4,310. Every rung pays its floor
-but three leats at 128² (647 to 804 of 817), said as short.
+**Measured, the valley round** (planning's ruling of 2026-11-12; seeds 1 to 12 at 128², 1 to 4 at 192², 1 to 3 at
+256²). **At 128², 10 of 12 maps hold** every blocking check and the Veil's bar (6 drew a later plan, 19 plans refused);
+on the 10 the start against `START_FLOORS`: the bench 761 to 1,041 (640), walkable 1,424 to 2,929 (1,300), wood 274 to 643
+(200), fast 0.4 to 1 (0.4), the forester's plot 456 to 507 (100), farmland 556 to 607 (100). Valley green 30 to 33 % of
+the map, the basin's floor 25 to 31 %, the range and hills 38 to 43 %; the lake 14 to 18 across at its widest, its width
+varying 2.0 to 2.5-fold, one or two bays; ruled land straight 7.7 to 11.7 %, bands 0.3 to 2.4 %, corners 0.7 to 3.6. The
+Gate opened wets 34 to 49 % of the basin, the leat opened 33 to 43 %; the megadam holds 769 to 1,087. **At 192² and 256²
+the round does not hold yet**: 1 of 4 and 0 of 3 maps hold (the Veil short of its bar, water within two tiles of the
+start, the walk short), and the valley's green is 14 to 22 % of the map (the basin's floor 25 to 31 %).
+
+**Measured, the range round** (before the valley round; the same 19 seeds). Every map passed every blocking check and
+every land invariant. The bench 1,049 to 2,342, walkable land 2,460 to 7,659, wood 258 to 680, fast wood 0.41 to 1, the
+forester's plot 386 to 541, farmland 486 to 641. Ruled land straight 7.5 to 13.4 %, bands 0.1 to 2.8 %, corners 0.2 to
+3.2 per 1,000. The settle ran 896 to 1,664 ticks (1.2 to 2.2 days) against the shared limit of 6 days (`SETTLE_DAYS`,
+4,608 ticks): the budget the rule sets (the most measured, twice over: 3,328) is inside it, so the Gate takes the shared
+limit and needs none of its own.
 
 **As built (works, stage 4).** `gateWorks.ts` `gateLadder` lays round 8's rungs as templates on the land and measures
 each as the lake stair's ladder does; `gateCard` and `gateWorkWords` give the card's words. The megadam keeps no reach
 (it drowns the start's bench).
 
-**Short.** The seeps are not drawn (a wet link into a dry bed, the shared-stage edit planning allowed); the basin reads in the
-game as the one dry material (D496), so the dry lake shows by its shape and its pan alone; the valley's land is the
-shared relief's, which holds the map's straightness at 9 to 13 % (the themes' 6.6 % would need the shared relief's plates
-less ruled); the Veil's lip is still a straight run by the shared stage 1's falls; three leats at 128² fall short of their floor.
+**Short.** The valley round holds at 128² only (above). The plunge pool settles 0.3 to 0.4 over the level its table
+gives at 128² and 192² (0.7 at 256²), so the Veil sits at its bar and the stage 1 heavy test's slack (0.25) fails; the
+brook is three wide under a lip of 8 or more (a brook led straight from the pool stood it a level over its sill on the
+Veil's 9.5); the valley's green is under a quarter of the map past 128² (`map.shares` is said, not refused). The basin
+reads in the game as the one dry material (D496); the seeps are not drawn; the Veil's lip is a straight run by the shared
+falls stage.
 
 ### 5.2 The island sea
 
