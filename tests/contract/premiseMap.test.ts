@@ -39,8 +39,9 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // the start's lake giving up what it takes, its tails redrawn eight times and its channels kept off the bench (D453),
 // so seed 1 draws another frame; the fast-wood change leaves that frame's bytes as they were; and for a curtain's notch
 // on a lip with no run's middle near its middle taking an end of the lip: seed 1's fall2, a diagonal, moves its notch
-// from a step's corner to the lip's end, the same plan, start and bench)
-const SHA = "79e16475266ff091b2f836d485caa10b627040461ffb892d02a6396331494812";
+// from a step's corner to the lip's end, the same plan, start and bench; and for generator 0.10.18's dead stands on the
+// dry land, D516: the same plan, water, start and bench, its resources and the version in its description)
+const SHA = "2fac32ad3dec174b63754b1ce301bd35c3bbcc70825be515e0e062b69114555d";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040)
 const HARD_SEED = 7;

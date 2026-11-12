@@ -152,7 +152,7 @@ export function premiseLife(spec: MapSpec, plan: PremisePlan, w: StageWater, lad
     },
   };
   const protect = keepOff(plan, w, ladder, true);
-  const planted = planResources(lifeSpec, built, 0, attempt, { protect, moistCover: LIFE.moistCover, woodLean: true });
+  const planted = planResources(lifeSpec, built, 0, attempt, { protect, moistCover: LIFE.moistCover, woodLean: true, deadForests: res.forestDensity });
   const rng = stream(spec.seed, "premise.life", attempt);
   groupGroves(planted, built, protect, rng, W, H);
   const out: Feature[] = [...planted];

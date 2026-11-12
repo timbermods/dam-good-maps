@@ -89,6 +89,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The generator](generator.md)
 
+- D516: Dead stands on the dry land: about 40 per 1,000 dry tiles in a few old woods where forest was, pine and birch by the site, none in the start's walk
 - D515: The start's floors are the map's, in one gate: a bench, walkable land, fast wood and a forester's plot
 - D513: A premise map: no wading, squares only, one Probe run on clearing a Blockage before the ladder
 - D511: Easy start is not offered with the lake stair until a variant keeps its promise
