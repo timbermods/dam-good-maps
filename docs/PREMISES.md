@@ -1400,10 +1400,11 @@ the back slope falls a level every 2.1 to 2.6 tiles of distance; and the range's
 own ground, over its foot (past the scarp's foot the valley's plates were read as the range's flats). The southern
 brooks are three or four wide (two wide, a spring's 2.3 to 2.6 stood a level deep and ran out over the banks: the stray
 water of 128² seed 2). Over twelve seeds a size the land stage now refuses 0 plans at 128², 3 at 192² (`bench.shore`
-2, `range.crest` 1), 0 at 256² (before: 5, 6 and 25). A 256² map takes 4.4 to 4.7 s with the washes (the upper median of
+2, `range.crest` 1), 0 at 256² (before: 5, 6 and 25). A 256² map takes 4.4 to 4.6 s (the upper median of
 seeds 1 to 6, three runs beside another builder's tests; 6.4 to 7.2 s before). Flats 0 to 7 % of the range (before 0 to 10 %). Milestone's
-washes (`premise/washes.ts`) now run on the Gate's land as the mode runs them, after the start: two or three washes a
-map at 128²; the start's numbers move (walkable land 4 to 37 % less where a wash crosses it) and every floor holds.
+washes (`premise/washes.ts`) do not run on the Gate's land yet (planning's ruling of 2026-11-15): run after the start
+as the mode runs them, they cut the start's walkable land by up to 36 % on 7 of 12 seeds at 128², so the fords are not
+holding there; they come in by their own change, reach moving 3 % at most.
 `gorgeFaces` has its test (a known straight face read right; the Veil's drop and the Gate's bar left out).
 
 **As built (land, stage 2).** `gateLand.ts` `gateRelief`: the shared relief for the valley, the range and the basin
