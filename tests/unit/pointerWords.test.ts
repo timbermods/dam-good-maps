@@ -97,4 +97,41 @@ describe("the words beside the pointer (D322)", () => {
     c.tick(1300);
     expect(shown()).toBe("level 15");
   });
+
+  it("a flash's moment starts when the page has drawn it: a page busy for longer than the moment still shows it", () => {
+    // (blockTool.spec's size flash was never seen on CI: the page was busy 1.4 s from the key, the moment is 1.2 s)
+    const c = clock();
+    let drawn: (() => void) | null = null;
+    const timers: Timers = {
+      ...c,
+      painted(fn) {
+        drawn = fn;
+        return { cancel: () => (drawn = null) };
+      },
+      clear(t) {
+        if (typeof t === "number") c.clear(t);
+        else (t as { cancel(): void }).cancel();
+      },
+    };
+    let shown: string | null = null;
+    const w = new PointerWords((t) => (shown = t), () => true, timers, 1200);
+    w.brush("level 15");
+    w.flash("size 4");
+    // the page is busy, no frame drawn: the moment has not started
+    c.tick(5000);
+    expect(shown).toBe("size 4");
+    // drawn: the moment runs from here
+    drawn!();
+    c.tick(1100);
+    expect(shown).toBe("size 4");
+    c.tick(200);
+    expect(shown).toBe("level 15");
+    // a second flash before the first is drawn takes its place, and F's size ends a flash still waiting to be drawn
+    w.flash("size 5");
+    w.flash("size 6");
+    w.sizing("size 9");
+    expect(drawn).toBeNull();
+    c.tick(5000);
+    expect(shown).toBe("size 9");
+  });
 });
