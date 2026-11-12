@@ -1,5 +1,5 @@
-// A History row clicked while a Naturalize stroke lands (#884): the jump waits for the stroke (`afterLanding`, #880),
-// then runs. It goes to the step the row showed, found by that step wherever it stands then, never by the index the row
+// A History row clicked while a Naturalize stroke lands (#884): the jump waits behind the stroke in the edit queue
+// (#922), then runs. It goes to the step the row showed, found by that step wherever it stands then, never by the index the row
 // had before the stroke went on the history; a step the stroke replaced (an undone one) is refused with one line.
 
 import { describe, expect, it } from "vitest";
