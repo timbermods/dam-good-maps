@@ -130,7 +130,7 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   0's `estimate` beside the measure. The readout is `info.premise.ladder`: works with sites, gains, reach and notes; day 1's water
   and moist shares against `spectrum`.
 - `life.ts` `premiseLife`: stage 6 on the settled ground (§2.2, "As built (step 6)"): the generator's own planting
-  (`gen/resources.ts` `planResources`) by the premise's budget (`LIFE`: living trees 450 to 700 per 10,000 tiles, at
+  (`gen/resources.ts` `planResources`, with the dead stands every map has, D516) by the premise's budget (`LIFE`: living trees 450 to 700 per 10,000 tiles, at
   most 16 % of the moist ground under a tree, berries 185 to 230), its groves drawn together into close stands
   (`groupGroves`), living stands where it falls short, dead woods in clumps on the empty basins' shores and beside dry
   beds, a stand on the hollow behind the skyline and on each bench over a lake (`hollowsOf`, `benchesOver`:
