@@ -137,3 +137,17 @@ export function phases(spec: string) {
     },
   };
 }
+
+/** A wait for a file the page saves (a download, a blob offered), that fails at once with the page's own words when
+ *  the save is refused ("Not saved: …") instead of waiting out its timeout: `await orRefused(page, download)`. */
+export async function orRefused<T>(page: Page, wait: Promise<T>): Promise<T> {
+  const note = page.getByText(/^Not saved: /).first();
+  const refused = note.waitFor({ timeout: 0 }).then(
+    async () => {
+      throw new Error(`The page refused the save: ${await note.innerText()}`);
+    },
+    // (the page closed first: the file's own wait decides)
+    () => new Promise<never>(() => {}),
+  );
+  return Promise.race([wait, refused]);
+}

@@ -1493,6 +1493,7 @@ pub fn plan(task: &mut Job) {
             } else {
                 task.carve_options.clone()
             },
+            &task.area_depth,
         ),
         5 => glaciate(
             &before,
@@ -4999,8 +5000,13 @@ struct CarveOptions {
 struct CarveState {
     map: Map,
     original: Vec<u8>,
+    /// The fresh rock before it (`held`: a seat left as it was gets its rock back).
+    original_lava: Vec<u32>,
     initial_water: Vec<f64>,
     keep: Vec<u8>,
+    /// The working area's depth on each tile (D254): how many levels the kept carve may move it, 255 outside any area or
+    /// with none (the job's `areaDepth`; keep.ts `featherForce` eases the result by it). Empty: none.
+    area: Vec<u8>,
     sediment: Vec<u8>,
     bar_floor: Vec<u8>,
     planned: Option<CarveOxbow>,
@@ -5184,6 +5190,7 @@ impl CarveState {
         let mut r = Self {
             map,
             original: before.heights.clone(),
+            original_lava: before.lava.clone(),
             initial_water: before.depth.clone(),
             keep: if keep.is_empty() {
                 vec![0; n]
@@ -5220,6 +5227,7 @@ impl CarveState {
             removed_keys: vec![],
             rider_tiles: vec![],
             rider_z: vec![],
+            area: vec![],
             unleashed_key: None,
             cells: HashMap::new(),
             cells_up_to: 0,
@@ -6502,7 +6510,9 @@ impl CarveState {
             }
         }
     }
-    fn drop_objects(&mut self, changed: &[usize]) {
+    /// The objects its cut reaches (`changed`): those whose ground it takes go, the riders ride. Returns the tiles of
+    /// the seats it levelled under Ride (`level_seat`), which change with this step.
+    fn drop_objects(&mut self, changed: &[usize]) -> Vec<usize> {
         if self.occupants.is_none() {
             let mut o = vec![vec![]; self.original.len()];
             for e in &self.map.entities {
@@ -6524,7 +6534,7 @@ impl CarveState {
             .enumerate()
             .any(|(key, &hit)| hit && !self.removed_keys[key])
         {
-            return;
+            return vec![];
         }
         let mut entities = std::mem::take(&mut self.map.entities);
         let ride = self.settings.ride;
@@ -6549,6 +6559,16 @@ impl CarveState {
                 false
             }
         });
+        // (under Ride, a multi-tile one on ground the cut moved unevenly rides on a seat cut level, planning's ruling of
+        // 2026-11-11: clear.ts `levelSeats`)
+        let mut seats = vec![];
+        if ride {
+            for e in &entities {
+                if hit[e.id_key] {
+                    seats.extend(self.level_seat(e));
+                }
+            }
+        }
         for e in &mut entities {
             let tile = self.rider_tiles[e.id_key];
             if tile != usize::MAX {
@@ -6563,6 +6583,47 @@ impl CarveState {
             }
         }
         self.map.entities = entities;
+        seats
+    }
+    /// A multi-tile source or seep of the map's that rides (a badwater source's 3 × 3, a seep's 2 × 2) on ground the cut
+    /// moved unevenly: its seat cut down to the lowest of its tiles, as D290 levels a placed one (clear.ts `levelSeats`,
+    /// `seatLevel`), measured on the land the working area's feather keeps (`area`). Where that cut cannot stand (a kept
+    /// tile, or past the feather), the whole footprint is left as it was before the force, kept from then on, and the
+    /// source keeps its old seat. Not one under a roof. The tiles changed.
+    fn level_seat(&mut self, e: &Entity) -> Vec<usize> {
+        let tile = self.rider_tiles[e.id_key];
+        let z0 = if tile == usize::MAX { f64::NAN } else { self.rider_z[e.id_key] };
+        if !ride_source(e.template.as_ref()) || z0.is_nan() || z0 < self.original[tile] as f64 {
+            return vec![];
+        }
+        let fp = self.map.footprint(e, 0);
+        if fp.len() < 2 {
+            return vec![];
+        }
+        let ease = |i: usize| if self.area.is_empty() { 255 } else { self.area[i] as i32 };
+        let kept = |i: usize| {
+            let o = self.original[i] as i32;
+            (self.map.heights[i] as i32).clamp(o - ease(i), o + ease(i))
+        };
+        let dz = |i: usize| kept(i) - self.original[i] as i32;
+        if fp.iter().all(|&i| dz(i) == dz(fp[0])) {
+            return vec![];
+        }
+        let low = fp.iter().map(|&i| kept(i)).min().unwrap();
+        let held = fp.iter().any(|&i| low != kept(i) && (self.keep[i] != 0 || low < self.original[i] as i32 - ease(i)));
+        let mut cut = vec![];
+        for &i in &fp {
+            let to = if held { self.original[i] } else { low as u8 };
+            if held {
+                self.keep[i] = 1;
+            }
+            if self.map.heights[i] != to {
+                self.map.heights[i] = to;
+                self.map.lava[i] = if held { self.original_lava[i] } else { self.map.lava[i] & mask(to) };
+                cut.push(i);
+            }
+        }
+        cut
     }
     fn step(&mut self) -> Vec<usize> {
         if self.metrics.stable {
@@ -6677,7 +6738,8 @@ impl CarveState {
             self.delta[i] = 0;
         }
         if !changed.is_empty() {
-            self.drop_objects(&changed);
+            let seats = self.drop_objects(&changed);
+            changed.extend(seats);
         }
         self.quiet = if !changed.is_empty() || !infill.is_empty() {
             0
@@ -6698,8 +6760,9 @@ impl CarveState {
                 for &i in &shaped {
                     self.map.lava[i] &= mask(self.map.heights[i]);
                 }
-                self.drop_objects(&shaped);
+                let seats = self.drop_objects(&shaped);
                 changed.extend(shaped);
+                changed.extend(seats);
             }
             if self.metrics.reason == "map edge" {
                 self.metrics.exported = self.metrics.suspended;
@@ -7109,8 +7172,10 @@ fn carve(
     i: &Intent,
     keep: &[u8],
     options: CarveOptions,
+    area: &[u8],
 ) -> Plan {
     let mut run = CarveState::new(before, map, s, i, keep, options, false);
+    run.area = area.to_vec();
     if run.fall_error != 0 {
         // (a fall's height set, and nowhere along the course to fall from, or not that far)
         let mut map = run.map;
@@ -8875,14 +8940,14 @@ fn glacier_absorb(
 /// What Sources set to Ride (D474) keeps riding the ground: water and badwater sources and seeps.
 /// What Sources set to Clear takes (D474, the force audit's S2): a source whose ground a force destroyed, buried
 /// `CLEAR_BURIED` levels or more or cut `CLEAR_CUT` or more away on one of its tiles (the same numbers are clear.ts
-/// `BURIED`, `CUT`). One on ground only moved a little rides.
+/// `BURIED`, `CUT`). One on ground only moved a little rides, but a multi-tile one (a badwater source's 3 × 3, a
+/// seep's 2 × 2) whose tiles moved by different amounts goes too: it rides only as one level piece (D249; clear.ts
+/// `clearable`).
 const CLEAR_BURIED: i32 = 3;
 const CLEAR_CUT: i32 = 2;
 fn clear_destroys(before: &[u8], now: &[u8], tiles: &[usize]) -> bool {
-    tiles.iter().any(|&i| {
-        let d = now[i] as i32 - before[i] as i32;
-        d >= CLEAR_BURIED || d <= -CLEAR_CUT
-    })
+    let d = |i: usize| now[i] as i32 - before[i] as i32;
+    tiles.iter().any(|&i| d(i) >= CLEAR_BURIED || d(i) <= -CLEAR_CUT) || (tiles.len() > 1 && tiles.iter().any(|&i| d(i) != d(tiles[0])))
 }
 /// The level a source or seep that rides stands at once its tile's ground went from `before` to `after`, from level
 /// `z` (clear.ts `riddenLevel`, without voxels): one on the surface moves with its ground; one under a roof, a cave's,

@@ -558,13 +558,16 @@ describe("a carve in the document (breakage rule)", () => {
     // ground its fall keeps beside the stream (cut to the bed before) no longer lets its bend seal, by decision, not a
     // change in how Carve meanders; Highlands 26, 23 and 8 and Canyon 4 and 12 with seeds 1–6 seal none now, Highlands 18
     // with seed 2 seals 104; Highlands 18 with the carve's seed 6 since generator 0.10.16's ground with grade, D148: with
-    // seed 2 its bend seals no lake on the graded land, with seed 6 it seals 76 tiles that keep evaporating)
+    // seed 2 its bend seals no lake on the graded land, with seed 6 it seals 76 tiles that keep evaporating; Canyon 96² seed 8
+    // with the carve's seed 1 since generator 0.10.17's start floors (D515), D148: Highlands 18 with seeds 1–6 seals none now;
+    // of Highlands and Canyon seeds 1–30 with the carve's seeds 1–6 only Canyon 8 with seed 1 seals a lake that keeps
+    // evaporating, 90 tiles, while Highlands 3 with seed 2 and Canyon 28 with seed 4 seal ones that settle whole)
     // (without its 3D forms, D488: since they grow at the default Verticality this map has a cave on the
     // carve's way, which a force leaves as it is; the oxbow is the carve's, not the caves')
-    const r = generate(makeSpec({ seed: 18, theme: "highlands", size: { x: 96, y: 96 } }), { forms: false });
+    const r = generate(makeSpec({ seed: 8, theme: "canyon", size: { x: 96, y: 96 } }), { forms: false });
     const s = MapSession.fromGenerated(r, r.file);
     const before = Array.from(s.built.water);
-    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 6, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
+    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 1, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
     const lake = op.params.lake!;
     expect(lake.tiles.length).toBeGreaterThan(70);
     expect(checkSchema(opsSchema as Record<string, unknown>, op)).toEqual([]);

@@ -24,7 +24,7 @@ import { EDITOR_LEVEL, type MapSpec } from "../../spec/mapspec";
 import { premiseStream } from "../draw";
 import { lipInFrame } from "../frame";
 import { holdDeep } from "../levels";
-import { bodyDist, bodyGap, dist, headingOf, pathDist, pathLength } from "../geom";
+import { bodyDist, bodyGap, dist, headingOf, pathDist, pathLength, pointAt } from "../geom";
 import { fail, nameOf, OK, PLAN_CHECKS, reach } from "../planChecks";
 import { GATE_WATER_CHECKS } from "../gateWater";
 import type { Body, Edge, Exit, Invariant, Link, Point, PremiseDef, PremisePlan, Region, Ridge, Source, Spine, Work } from "../types";
@@ -48,11 +48,11 @@ export const BASIN_FACE = 9;
 /** The wall's face: runs along the grid of 14 to 22 tiles joined by jogs of 4 to 6. */
 export const RUN = [14, 22] as const;
 export const JOG = [4, 6] as const;
-/** The crest's thickness: 4 to 6; the Veil's bastion 10: the cleft's pool stands behind the Veil's mouth, which stage
- *  1 widens to the lip over 5 rows (`raster/falls.ts` `VALLEY_BACK`), with a row of rock behind it. The round's 7 had
+/** The crest's thickness: 4 to 6; the Veil's bastion 11: the cleft's pool stands behind the Veil's mouth, which stage
+ *  1 widens to the lip over 5 rows (`raster/falls.ts` `VALLEY_BACK`), with rock behind it (at 10, its guard stood past the wall's back). The round's 7 had
  *  the pool against the lip. */
 export const THICK = [4, 6] as const;
-export const BASTION_THICK = 10;
+export const BASTION_THICK = 11;
 /** The cleft's pool: its middle row behind the lip, its radius. */
 const CLEFT = { back: 7.6, r: 1.8 } as const;
 /** The bastion's run is longer than the rest: the lip, the cleft and the Still Pool's inlet stand before it. */
@@ -66,10 +66,12 @@ export const SLOT_BENCH = 8;
 export const BAR_LENGTH = 3;
 /** The leat's row of Blockages, this far along it: behind its bar, two tiles past the cleft. */
 export const LEAT_ROW = 3.5;
-/** The basin's rim: 12 to 14, 8 tiles deep along its far edges; the one notch 5 wide (4 to 6 between the rim's ends). */
+/** The basin's rim: 12 to 14, 8 tiles deep along its far edges; the one notch 11 wide (9 to 13 between the rim's ends):
+ *  the Gate Bed (5 to 7 wide), the Pass Bed and their wadi strips leave by it (round 8's 5 passed the Gate Bed alone,
+ *  the Pass Bed joining it before the rim). */
 export const RIM = [12, 14] as const;
 export const RIM_DEPTH = 8;
-export const NOTCH = 5;
+export const NOTCH = 11;
 /** The Still Pool (§5.1's neck): 12 tiles or more, its inlet 3 wide at most and 3.5 long at most (a kettle's neck,
  *  §4.5), shut by a levee of 3. */
 export const NECK = { least: 12, wide: 3, long: 3.5, levee: 3 } as const;
@@ -86,13 +88,28 @@ export const GORGE = { normal: 5, lush: 6 } as const;
 export const SPUR_HALF = 4.5;
 /** The megadam holds the valley `MEGADAM_RISE` over its lake's sill (the round's 9 over 7). */
 export const MEGADAM_RISE = 2;
-/** The start's bench aim (the shared gate holds the floor; this is only where stage 0 aims). */
-const BENCH_AIM = 700;
+/** The start's bench stage 0 builds for (D515, planning 2026-11-11): 1.1 × the shared gate's floor for the Start area
+ *  (`validate/playability.ts` `START_FLOORS`' 480, 640 and 980, milestone's #1015; read from there once it is on dev).
+ *  The gate holds no floor of its own: this is where it aims, the shared checks judge. */
+const BENCH_FLOOR = { small: 480, normal: 640, large: 980 } as const;
+const BENCH_OVER = 1.1;
+/** The start's walk before any slope stands is its level pocket, and the shared stage 3 (#1015) reads it against three
+ *  quarters of the walkable floor (1,300): the pocket holds that too. */
+const WALK_READ = 0.75 * 1300;
+/** The rows the lake stands off the wall's foot at the least (the trench, the start's 5 × 5 and the rows round it). */
+const BENCH_ROWS = 9;
+/** The valley's room under the lake (the brooks' springs and their runs), a share of the side. */
+const UNDER_LAKE = 0.22;
 
-/** What each rung buys, as shares of the map's tiles (round 8 at 192²: 3.6 %, 4.2 %, 5.0 % and 4.5 %), floor and
- *  most: a floor three quarters of the round's, the most twice the floor. **(assumption)** until the ladder stage
- *  measures them. The megadam's is water (tile-levels). */
-const GIVES = { gateOpen: 0.027, gateWhole: 0.031, leatOpen: 0.037, leatWhole: 0.034, megadam: 0.1 } as const;
+/** What each rung buys (§4.2: a floor, the most twice it), per tile of the map's side: round 8's gains at 192² (the Gate
+ *  opened 1,318, the leat 1,839, the whole shares 1,534 and 1,663: 3.6 %, 5.0 %, 4.2 % and 4.5 %) at two thirds, over
+ *  192. A rung greens along its bed, whose length grows with the side, not the map's area: measured on the ladder (19
+ *  seeds over three sizes), the Gate opened 3.1 % of the map at 192² and 2.4 % at 256². The megadam's is water
+ *  (tile-levels): it raises the lake and its meadow, which grow with the side too (1,828 to 3,741 measured). */
+const GIVES = { gateOpen: (2 / 3) * 1318 / 192, gateWhole: (2 / 3) * 1534 / 192, leatOpen: (2 / 3) * 1839 / 192, leatWhole: (2 / 3) * 1663 / 192, megadam: 12 } as const;
+/** The rungs whose gain is their share of the river down a bed already wet: by number none (`gateWorks.ts`
+ *  `SHARE_RUNGS`), so their floor is 0, the round's share their most. */
+const SHARE = new Set(["gateWhole", "leatWhole"]);
 
 /** Layouts an attempt draws before it gives up. */
 const LAYOUT_TRIES = 24;
@@ -186,7 +203,7 @@ export function wallGateEligible(spec: MapSpec): string | null {
 
 /** The local frame onto the map: u along the wall, v across it toward the basin. `k` turns local v onto the camera's
  *  look (Cw0: north, Cw90: east, Cw180: south, Cw270: west); `m` mirrors u first. */
-interface Turn {
+export interface Turn {
   k: number;
   m: boolean;
   N: number;
@@ -200,7 +217,7 @@ function onMap(T: Turn, [u0, v]: Point): Point {
 }
 
 /** A point from map to local. */
-function onLocal(T: Turn, [x, y]: Point): Point {
+export function onLocal(T: Turn, [x, y]: Point): Point {
   const N = T.N;
   const [u, v]: Point = T.k === 0 ? [x, y] : T.k === 1 ? [N - y, x] : T.k === 2 ? [N - x, N - y] : [y, N - x];
   return [T.m ? N - u : u, v];
@@ -225,7 +242,7 @@ function edgeOnMap(T: Turn, e: Edge): Edge {
   return dx > 0.5 ? "E" : dx < -0.5 ? "W" : dy > 0.5 ? "N" : "S";
 }
 
-const turnOf = (plan: PremisePlan, g: GateNumbers): Turn => ({ k: g.turn, m: g.mirror, N: plan.W });
+export const turnOf = (plan: PremisePlan, g: GateNumbers): Turn => ({ k: g.turn, m: g.mirror, N: plan.W });
 const spineOnMap = (T: Turn, s: Spine): Spine => s.map(([u, v, r]) => [...onMap(T, [u, v]), r] as [number, number, number]);
 const pathOnMap = (T: Turn, p: readonly Point[]): Point[] => p.map((q) => onMap(T, q));
 const r2 = (v: number) => Math.round(v * 100) / 100;
@@ -233,7 +250,7 @@ const rp = (p: Point): Point => [r2(p[0]), r2(p[1])];
 
 // ------------------------------------------------------------------------------------------------- the wall in local
 
-interface LocalRun {
+export interface LocalRun {
   u0: number;
   u1: number;
   v: number;
@@ -241,7 +258,7 @@ interface LocalRun {
 }
 
 /** The run at u (the last run owns the map's far edge). */
-function runAt(runs: readonly LocalRun[], u: number): LocalRun {
+export function runAt(runs: readonly LocalRun[], u: number): LocalRun {
   for (const r of runs) if (u < r.u1) return r;
   return runs[runs.length - 1];
 }
@@ -326,7 +343,12 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const P = poolSill - 2;
   const M = S + MEGADAM_RISE;
   const R = rng.int(RIM[0], Math.min(RIM[1], sky) + 1);
-  const lowSide: GateNumbers["lowSide"] = rng.float() < 0.5 ? "pass" : "gate";
+  // (the Low River leaves by the drain bay's side of the start: the bay cuts the start's bench there, and on the other
+  // side the bench reaches the valley round the lake's far end, over the Gate's bar; a lake run on to the spur on that
+  // side closed the bench in, 630 tiles of reach where 1,300 are aimed at)
+  const draw = rng.float();
+  void draw;
+  const lowSide: GateNumbers["lowSide"] = T.m ? "gate" : "pass";
   const flow = flowOf(spec);
   const gorge = gorgeOf(spec);
 
@@ -373,10 +395,19 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
 
   // ---- the Low River's spur and the lake
   const spurU = lowSide === "pass" ? Math.round(0.08 * N) : N - Math.round(0.08 * N);
-  const lakeTop = fb - 9;
-  const mv = lakeTop - 9 - 1.5;
   const uW = lowSide === "pass" ? spurU + SPUR_HALF + 5 + 7 : Math.round(0.17 * N);
   const uE = lowSide === "gate" ? spurU - SPUR_HALF - 5 - 7 : gu + 3;
+  // (the start's bench outranks the lake, D515: the lake stands off the wall's foot by the rows its pocket needs to hold
+  // the bench, between the drain bay and the Gate's arm, or, mirrored, the lake's open end; and narrows where the
+  // valley has no more room under it. The pocket is the lake's meadow at the sill + 1, so it is level)
+  const benchAim = BENCH_OVER * Math.max(BENCH_FLOOR[spec.settings.start.area], WALK_READ);
+  const bayIn = bEnd - 9 * ks + 2.6 * ks;
+  const pocket = Math.max(8, ks > 0 ? gu - 4.5 - bayIn : bayIn - uW);
+  const rows = Math.max(BENCH_ROWS, Math.ceil(benchAim / pocket) + 4);
+  const lakeTop = fb - rows;
+  const shrink = Math.max(0.55, Math.min(1, (lakeTop - UNDER_LAKE * N) / 19));
+  if (lakeTop - 19 * shrink < UNDER_LAKE * N - 1) return { why: "bench" };
+  const mv = lakeTop - (9 + 1.5) * shrink;
   if (uE - uW < 40 || (lowSide === "gate" && uE < gu + 8)) return { why: "lake span" };
   // (the Low River leaves over the lake's own wide sill, sized by the valley's flow as the lake stair's lowest sill
   // over its gorge: round 8's 14; its end of the lake as wide as the lip)
@@ -387,7 +418,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const nArm = Math.max(3, Math.round((uE - uW) / 14));
   for (let i = 0; i <= nArm; i++) {
     const end = i === 0 || i === nArm;
-    const r = (lowAt === 0 ? i === 0 : i === nArm) ? lowLip / 2 + 0.5 : end ? rng.range(5, 7) : rng.range(6, 9);
+    const r = (lowAt === 0 ? i === 0 : i === nArm) ? lowLip / 2 + 0.5 : (end ? rng.range(5, 7) : rng.range(6, 9)) * shrink;
     const v = Math.min(lakeTop - r, mv + rng.range(-1.5, 1.5));
     main.push([uW + ((uE - uW) * i) / nArm, v, r]);
   }
@@ -458,7 +489,9 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     [spurU, lowV],
     [lowSide === "pass" ? 0 : N, lowV + rng.range(-3, 3)],
   ];
-  const spurPath: Point[] = [[spurU, runAt(runs, spurU).v], [spurU + rng.range(-3, 3), Math.round(0.25 * N)]];
+  // (the spur runs from the wall's face to past the Low River by 14 rows: a lake stood off the wall for the start's bench
+  // left the gorge near the spur's end, and the valley at the megadam's water walked round it)
+  const spurPath: Point[] = [[spurU, runAt(runs, spurU).v], [spurU + rng.range(-3, 3), Math.max(6, Math.min(Math.round(0.25 * N), Math.round(lowV - 14)))]];
 
   // ---- the brooks: springs in the valley's far corners
   const tarnAt: Point[] = [
@@ -581,7 +614,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
       kind: "leat",
       path: pathOnMap(T, leat).map(rp),
       half: 0.5,
-      bed: [...bedAlong(leat.slice(0, passAt + 1), poolSill - 1, P - 1), ...bedAlong(leat.slice(passAt), S - 1, BED_FLOOR).slice(1)],
+      bed: [...bedAlong(leat.slice(0, passAt + 1), poolSill - 1, P - 1), ...bedAlong(leat.slice(passAt), S - 2, BED_FLOOR).slice(1)],
       wet: false,
       gates: [],
       // (its first tile or so is in the cleft: the row 3.5 along leaves the bar its two tiles before it, round 8's)
@@ -610,6 +643,10 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
       rows: [],
     },
   );
+  // the permanent badwater source (D200) in the Low River's gorge past the spur, as the lake stair's in its gorge: its
+  // water leaves by the exit and reaches no lake; its niche is stage 2's (`raster/relief.ts` `badwaterNiches`)
+  const bw = spec.settings.hazards.badwater;
+  if (bw !== "off") plan.sources.push({ id: "badwater", at: rp(pointAt(pathOnMap(T, low), pathLength(low) * 0.75).p), strength: bw === "low" ? 1 : bw === "normal" ? 1.5 : 2.75, into: "low", bad: true });
   tarns.forEach((tn, k) => {
     const id = `tarn${k + 1}`;
     const word = BROOK_WORDS[(rng.int(0, BROOK_WORDS.length) + k) % BROOK_WORDS.length];
@@ -645,18 +682,17 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   );
 
   // ---- the start and its frame
-  plan.frame = { start: { x: start.x, y: start.y, z, orientation }, landmark: "veil", lipAhead, bench: BENCH_AIM };
+  plan.frame = { start: { x: start.x, y: start.y, z, orientation }, landmark: "veil", lipAhead, bench: Math.round(benchAim) };
 
   // ---- the ladder (round 8's rungs)
-  const A = N * N;
   const at = (p: Point) => rp(onMap(T, p));
-  const gives = (f: number): [number, number] => [Math.round(f * A), Math.round(2 * f * A)];
+  const gives = (f: number, id = ""): [number, number] => [SHARE.has(id) ? 0 : Math.round(f * N), Math.round(2 * f * N)];
   const works: Work[] = [
     { id: "neck", rung: "first", kind: "levee", on: "inlet", at: at([(inletPath[0][0] + inletPath[1][0]) / 2, (inletPath[0][1] + inletPath[1][1]) / 2]), tiles: NECK.levee, needs: [], gives: { green: [0, 0] }, tradeoff: "Before the first badtide: it keeps the pool clean while the trench runs red", region: "home" },
     { id: "gateOpen", rung: "medium", kind: "canal", on: "gate", at: at([gu, shoreV + 1]), tiles: slotW * (BAR_LENGTH + 2), needs: [], gives: { green: gives(GIVES.gateOpen) }, tradeoff: "The river splits: the lake keeps less", region: "wet" },
-    { id: "gateWhole", rung: "medium", kind: "levee", on: "low", at: at(low[1]), tiles: gorge * 2 + slotW, needs: ["gateOpen"], gives: { green: gives(GIVES.gateWhole) }, tradeoff: "The lake sinks half a level and the Low River runs dry", region: "wet" },
+    { id: "gateWhole", rung: "medium", kind: "levee", on: "low", at: at(low[1]), tiles: gorge * 2 + slotW, needs: ["gateOpen"], gives: { green: gives(GIVES.gateWhole, "gateWhole") }, tradeoff: "The lake sinks half a level and the Low River runs dry", region: "wet" },
     { id: "leatOpen", rung: "medium", kind: "leat", on: "leat", at: at(leat[0]), tiles: 3, needs: [], gives: { green: gives(GIVES.leatOpen) }, region: "top" },
-    { id: "leatWhole", rung: "large", kind: "leat", on: "leat", at: at(leat[0]), tiles: 2, needs: ["leatOpen"], gives: { green: gives(GIVES.leatWhole) }, tradeoff: `${veilName[0].toUpperCase()}${veilName.slice(1)} dwindles`, region: "top" },
+    { id: "leatWhole", rung: "large", kind: "leat", on: "leat", at: at(leat[0]), tiles: 2, needs: ["leatOpen"], gives: { green: gives(GIVES.leatWhole, "leatWhole") }, tradeoff: `${veilName[0].toUpperCase()}${veilName.slice(1)} dwindles`, region: "top" },
     { id: "megadam", rung: "large", kind: "megadam", on: "low", at: at([spurU, lowV]), tiles: gorge + slotW, needs: [], gives: { green: [0, 0], reservoir: gives(GIVES.megadam) }, tradeoff: "It floods the bench and the low meadows, and the Gate is dammed with it", region: "low" },
   ];
   plan.works.push(...works);
@@ -759,12 +795,12 @@ const localRun = (T: Turn, r: GateRun): LocalRun & { thick: number } => {
   const b = onLocal(T, r.to);
   return { u0: Math.min(a[0], b[0]), u1: Math.max(a[0], b[0]), v: a[1], thick: r.thick };
 };
-const localRuns = (plan: PremisePlan, g: GateNumbers) => {
+export const localRuns = (plan: PremisePlan, g: GateNumbers) => {
   const T = turnOf(plan, g);
   return g.runs.map((r) => localRun(T, r)).sort((p, q) => p.u0 - q.u0);
 };
 /** The crest band's rows at local u, corners included (a jog's two columns hold both runs' bands). */
-function bandAt(runs: readonly LocalRun[], u: number): [number, number] {
+export function bandAt(runs: readonly LocalRun[], u: number): [number, number] {
   let lo = Infinity;
   let hi = -Infinity;
   for (const d of [-1, 0, 1]) {
@@ -942,7 +978,7 @@ const basinBowl: Invariant = {
     if (rims.length !== 2 || rims.some((r) => !r)) return fail("The rim is not two pieces about the notch");
     const notch = onLocal(T, g.notch.at);
     if (Math.abs(notch[1] - N) > 0.01) return fail("The notch is not on the basin's far edge");
-    if (g.notch.width < 4 || g.notch.width > 6) return fail(`The notch is ${g.notch.width} wide (4 to 6)`);
+    if (g.notch.width < NOTCH - 2 || g.notch.width > NOTCH + 2) return fail(`The notch is ${g.notch.width} wide (${NOTCH - 2} to ${NOTCH + 2})`);
     const ends: number[] = [];
     for (const r of rims as Ridge[]) {
       if (r.top < g.rim) return fail(`Ridge ${r.id} stands at ${r.top}, under the rim (${g.rim})`);

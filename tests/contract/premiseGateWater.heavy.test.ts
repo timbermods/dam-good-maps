@@ -1,5 +1,5 @@
-// The wall with one gate's stage 1 water settled as the game plays it (docs/PREMISES.md §5.1): seeds 1 to 3 at 128² and
-// seed 1 at 192² and 256², each on its rastered water with the ground stage 1 did not draw standing over every water
+// The wall with one gate's stage 1 water settled as the game plays it (docs/PREMISES.md §5.1): seeds 1, 2 and 4 at 128²
+// and seed 1 at 192² and 256², each on its rastered water with the ground stage 1 did not draw standing over every water
 // (`gateSettleModel`). The lake stands 0.05 to 0.6 over its sill (the lake stair's `stair.settled`), the cleft and the
 // springs' tarns where the table puts them, the Still Pool at its lake's level, the Veil pours one curtain of its height
 // less `VEIL_SHORT`, the Gate and the leat are dry past their bars, no water strays off the planned water, and the
@@ -15,7 +15,8 @@ const TABLE_SLACK = 0.25;
 const STRAY = 0.003;
 
 describe("The wall with one gate's stage 1 water, settled", () => {
-  for (const [side, seed] of [[128, 1], [128, 2], [128, 3], [192, 1], [256, 1]])
+  // (seed 3 at 128²'s first plan is refused on its Veil, planning's ruling, and the mode draws the next: `gateMap.ts`)
+  for (const [side, seed] of [[128, 1], [128, 2], [128, 4], [192, 1], [256, 1]])
     it(`stands where the plan puts it, pours the Veil and leaves by the Low River alone: seed ${seed} at ${side}²`, () => {
       const spec = makeSpec({ seed, size: { x: side, y: side }, theme: "any", premise: "any" });
       const r = gateFirstWater(wallGate, spec);

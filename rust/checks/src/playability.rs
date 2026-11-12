@@ -19,7 +19,6 @@ pub const BAD: f64 = 0.05;
 pub const NEAR: f64 = 20.0;
 pub const RESERVOIR_RADIUS: f64 = 40.0;
 pub const BLUEBERRY_DAYS_TO_DIE_DRY: f64 = 9.0;
-pub const FARMLAND_NEAR: f64 = 100.0;
 pub const MINES_WANTED: f64 = 2.0;
 pub const FLOOD_MARGIN: i64 = 2;
 
@@ -69,8 +68,13 @@ pub struct Rules {
     pub bushes_within20: f64,
     pub badwater_within: f64,
     pub ruins_within: f64,
+    /// The start's floors (`START_FLOORS`, D515) for this difficulty and Start area, at 128²: `check_start` scales
+    /// the land's for a smaller map (`start_floor_scale`).
     pub reach_min: f64,
     pub level_land: f64,
+    pub fast_wood: f64,
+    pub fast_wood_walk: f64,
+    pub forester: f64,
     pub farmland: f64,
     pub sources_none: bool,
     pub drought_days: f64,
@@ -81,13 +85,19 @@ pub struct Rules {
     pub badwater_source: bool,
 }
 
-fn start_area(key: &str) -> Option<(f64, f64)> {
+/// The Start area's place in `START_FLOOR_BENCH`'s rows.
+fn start_area(key: &str) -> Option<usize> {
     match key {
-        "small" => Some((0.6, 79.0)),
-        "normal" => Some((1.0, 113.0)),
-        "large" => Some((1.8, 180.0)),
+        "small" => Some(0),
+        "normal" => Some(1),
+        "large" => Some(2),
         _ => None,
     }
+}
+
+/// `startFloorScale`: how much of the start's floors' land a map of w × h must give (1 from 128², else its share).
+pub fn start_floor_scale(w: usize, h: usize) -> f64 {
+    portable::min(1.0, (w * h) as f64 / START_FLOORS_AREA)
 }
 
 /// A setting whose value is not one of its choices.
@@ -104,9 +114,11 @@ pub fn rules_for(p: &Playable) -> Result<Rules, Refusal> {
         Some(s) => portable::max(s.badwater_distance, s.rules.ok_or("The map's settings have no start rules")?[3]),
         None => r[3],
     };
+    // (Buildable land leans the generator above the floor, `REACH_MIN`; it is still one of its choices)
     let land = st.and_then(|s| s.buildable_land.clone()).unwrap_or_else(|| "normal".into());
+    reach_min(&land).ok_or(SETTING)?;
     let area = st.and_then(|s| s.start_area.clone()).unwrap_or_else(|| "normal".into());
-    let (area_k, level) = start_area(&area).ok_or(SETTING)?;
+    let area_k = start_area(&area).ok_or(SETTING)?;
     let reserve_key = st.and_then(|s| s.drought_reserve.clone()).unwrap_or_else(|| "normal".into());
     let theme = p.spec.as_ref().map(|s| s.theme.as_str());
     Ok(Rules {
@@ -116,8 +128,11 @@ pub fn rules_for(p: &Playable) -> Result<Rules, Refusal> {
         bushes_within20: r[2],
         badwater_within,
         ruins_within: r[4],
-        reach_min: reach_min(&land).ok_or(SETTING)? * area_k,
-        level_land: level,
+        reach_min: START_FLOOR_REACH[difficulty],
+        level_land: START_FLOOR_BENCH[difficulty][area_k],
+        fast_wood: START_FLOOR_FAST_WOOD[difficulty],
+        fast_wood_walk: START_FLOOR_FAST_WOOD_WALK[difficulty],
+        forester: START_FLOOR_FORESTER[difficulty],
         farmland: FARMLAND_NEAR,
         sources_none: st.is_some_and(|s| s.sources.as_deref() == Some("none")),
         drought_days: DROUGHT[difficulty][0],
@@ -329,12 +344,12 @@ fn playability(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], rules: &R
     Ok(an)
 }
 
-const START_CHECKS: [&str; 19] = [
-    "start.dry", "start.water", "start.badwater", "start.reach", "start.food", "start.wood", "start.wood_floor", "start.farmland", "start.level_land", "start.ruins_clear",
+const START_CHECKS: [&str; 21] = [
+    "start.dry", "start.water", "start.badwater", "start.reach", "start.food", "start.wood", "start.wood_fast", "start.wood_floor", "start.farmland", "start.forester", "start.level_land", "start.ruins_clear",
     "plants.survive", "plants.drought", "water.storage_possible", "resources.scrap", "resources.trees", "resources.bushes", "ruins.fields",
     "ruins.access", "extras.placement",
 ];
-const ADVISORY_START: [&str; 8] = ["start.badwater", "start.reach", "start.ruins_clear", "water.storage_possible", "plants.drought", "resources.scrap", "resources.trees", "resources.bushes"];
+const ADVISORY_START: [&str; 7] = ["start.badwater", "start.ruins_clear", "water.storage_possible", "plants.drought", "resources.scrap", "resources.trees", "resources.bushes"];
 
 /// `colonyReach`.
 fn colony_reach(w: usize, h: usize, hgt: &[f64], wet: &[u8], objects: &[&Entity], start: (i64, i64)) -> Vec<u8> {
@@ -686,6 +701,52 @@ fn is_sapling(o: &Entity) -> bool {
     o.growth.is_some_and(|g| g < 1.0)
 }
 
+/// `startBench`: the start's bench (D515), the dry tiles at the start's level joined to its 3×3 without a slope
+/// (4-connected, off the tiles the objects that block walking cover), at any distance; the walk joining them crosses
+/// water standing on that level, and only the dry tiles count.
+pub fn start_bench(hgt: &[u8], wet: &[u8], blocked: &[u8], w: usize, h: usize, start: (i64, i64)) -> f64 {
+    let (wi, hi) = (w as i64, h as i64);
+    let (sx, sy) = start;
+    if sx < 0 || sy < 0 || sx >= wi || sy >= hi {
+        return 0.0;
+    }
+    let level = hgt[(sy * wi + sx) as usize];
+    let ok = |i: usize| hgt[i] == level && blocked[i] == 0;
+    let mut seen = vec![0u8; w * h];
+    let mut queue: Vec<usize> = vec![];
+    for y in sy - 1..=sy + 1 {
+        for x in sx - 1..=sx + 1 {
+            if x < 0 || y < 0 || x >= wi || y >= hi {
+                continue;
+            }
+            let i = (y * wi + x) as usize;
+            if ok(i) && seen[i] == 0 {
+                seen[i] = 1;
+                queue.push(i);
+            }
+        }
+    }
+    let mut q = 0;
+    while q < queue.len() {
+        let i = queue[q];
+        q += 1;
+        let x = (i % w) as i64;
+        let y = (i / w) as i64;
+        for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+            let (nx, ny) = (x + dx, y + dy);
+            if nx < 0 || ny < 0 || nx >= wi || ny >= hi {
+                continue;
+            }
+            let n = (ny * wi + nx) as usize;
+            if seen[n] == 0 && ok(n) {
+                seen[n] = 1;
+                queue.push(n);
+            }
+        }
+    }
+    queue.iter().filter(|&&i| wet[i] == 0).count() as f64
+}
+
 #[allow(clippy::too_many_arguments)]
 fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &Entity, rules: &Rules, model: &Model, wet: &[u8], clean: &[u8], blocked: &[u8], links: &[f64], an: &mut Analysis, c: &mut Collector) -> Result<(), Refusal> {
     let (w, h) = (m.w, m.h);
@@ -789,7 +850,13 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
     ));
     c.add(r);
 
-    // reach: same-level land joined by slopes
+    // the start's floors' land, for this map's size (D515)
+    let scale = start_floor_scale(w, h);
+    let reach_floor = round(rules.reach_min * scale);
+    let bench_floor = round(rules.level_land * scale);
+    let forester_floor = round(rules.forester * scale);
+
+    // reach: same-level land joined by slopes (a floor, D515: walkable land without building)
     let labels = kernels::k_walk_regions(&hf, &bf, links, w, h);
     let k0 = sy * wi + sx;
     let root = if k0 >= 0 && (k0 as usize) < nn { labels[k0 as usize] } else { -1.0 };
@@ -805,11 +872,10 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
     c.add(vec![
         ("id", s("start.reach")),
         ("class", s("playability")),
-        ("advisory", b(true)),
-        ("ok", b(dry >= rules.reach_min)),
+        ("ok", b(dry >= reach_floor)),
         ("value", n(dry)),
-        ("limit", n(rules.reach_min)),
-        ("message", s(format!("{} walkable from the start, aim for {}", counted(dry, "dry tile"), num(rules.reach_min)))),
+        ("limit", n(reach_floor)),
+        ("message", s(format!("{} walkable from the start without building (at least {})", counted(dry, "dry tile"), num(reach_floor)))),
     ]);
 
     // starting food and wood
@@ -823,6 +889,10 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
     let mut growing = 0.0;
     let mut floor_wood = 0.0;
     let mut by_species = [0.0f64; 3];
+    // (the fast wood's share is of the living trees' logs, near and within the floor's walk: a standing dead tree keeps
+    // its logs but grows none back, so its species says nothing of how fast the start's wood returns)
+    let mut live_near = [0.0f64; 2];
+    let mut live_far = [0.0f64; 2];
     let farthest = portable::max(NEAR, LOG_FLOOR_WALK);
     for o in objects {
         let tree = is_tree(&o.template);
@@ -842,6 +912,17 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
         let grown = woody && !is_sapling(o);
         if grown && dd <= LOG_FLOOR_WALK {
             floor_wood += logs;
+        }
+        if grown && !o.dead {
+            let fast = matches!(o.template.as_str(), "Pine" | "Birch");
+            for (walked, t) in [(LOG_FLOOR_WALK, &mut live_far), (NEAR, &mut live_near)] {
+                if dd <= walked {
+                    t[1] += logs;
+                    if fast {
+                        t[0] += logs;
+                    }
+                }
+            }
         }
         if dd > NEAR {
             continue;
@@ -874,35 +955,14 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
     let cut = p.mine_cut.as_ref();
     let reach2 = colony_reach(w, h, &hf, wet, objects, (sx, sy));
     check_mines(objects, w, h, Some(&reach2), c, cut);
-    // the farmland and level building land within 20 tiles' walk (item 47)
+    // the farmland within 20 tiles' walk (item 47), and the forester's plot beside it (D515)
     let mut farmland = 0.0;
-    let mut level = 0.0;
-    let mut flat = vec![0u8; nn];
-    for y in 0..h.saturating_sub(1) {
-        for x in 0..w.saturating_sub(1) {
-            let i = y * w + x;
-            let v = hgt[i];
-            if hgt[i + 1] != v || hgt[i + w] != v || hgt[i + w + 1] != v {
-                continue;
-            }
-            if wet[i] != 0 || wet[i + 1] != 0 || wet[i + w] != 0 || wet[i + w + 1] != 0 || blocked[i] != 0 || blocked[i + 1] != 0 || blocked[i + w] != 0 || blocked[i + w + 1] != 0 {
-                continue;
-            }
-            flat[i] = 1;
-            flat[i + 1] = 1;
-            flat[i + w] = 1;
-            flat[i + w + 1] = 1;
-        }
-    }
     for i in 0..nn {
         if wet[i] != 0 || water::reach_at(&walk, w, h, i) > NEAR {
             continue;
         }
         if mo[i] > 0.0 && !(sc[i] > 0.0) && blocked[i] == 0 {
             farmland += 1.0;
-        }
-        if flat[i] != 0 {
-            level += 1.0;
         }
     }
     c.add(vec![
@@ -913,13 +973,24 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
         ("limit", n(rules.farmland)),
         ("message", s(format!("{} of moist farmland within {} tiles' walk of the start (at least {})", counted(farmland, "tile"), num(NEAR), num(rules.farmland)))),
     ]);
+    let plot = portable::max(0.0, farmland - rules.farmland);
+    c.add(vec![
+        ("id", s("start.forester")),
+        ("class", s("playability")),
+        ("ok", b(plot >= forester_floor)),
+        ("value", n(plot)),
+        ("limit", n(forester_floor)),
+        ("message", s(format!("{} of moist land within {} tiles' walk beyond the first farms' {}, for a forester (at least {})", counted(plot, "tile"), num(NEAR), num(rules.farmland), num(forester_floor)))),
+    ]);
+    // the start's bench (D515): dry level ground at the start's level joined to its 3×3 without a slope, at any distance
+    let bench = start_bench(hgt, wet, blocked, w, h, (sx, sy));
     c.add(vec![
         ("id", s("start.level_land")),
         ("class", s("playability")),
-        ("ok", b(level >= rules.level_land)),
-        ("value", n(level)),
-        ("limit", n(rules.level_land)),
-        ("message", s(format!("{} of level building land within {} tiles' walk of the start (at least {})", counted(level, "tile"), num(NEAR), num(rules.level_land)))),
+        ("ok", b(bench >= bench_floor)),
+        ("value", n(bench)),
+        ("limit", n(bench_floor)),
+        ("message", s(format!("{} of level ground on the start's bench, at its level without a slope (at least {})", counted(bench, "tile"), num(bench_floor)))),
     ]);
     let plant = start_planting(w, h, objects, blocked, wet, d, &mo, &sc, &walk, &sd, rules.bushes_within20 - bushes, rules.wood_within20 - wood);
     let mut r = vec![
@@ -946,6 +1017,25 @@ fn check_start(m: &Map, p: &Playable, hgt: &[u8], objects: &[&Entity], start: &E
         r.push(("fix", arr(plant.1)));
     }
     c.add(r);
+    // a fast species among the start's wood (D515): of its living trees' logs within the start's wood's walk, pines' and
+    // birches' a real share
+    let [fast, all] = if rules.fast_wood_walk > NEAR { live_far } else { live_near };
+    let share = if all > 0.0 { fast / all } else { 0.0 };
+    c.add(vec![
+        ("id", s("start.wood_fast")),
+        ("class", s("playability")),
+        ("ok", b(all > 0.0 && share >= rules.fast_wood)),
+        ("value", n(round(share * 100.0) / 100.0)),
+        ("limit", n(rules.fast_wood)),
+        (
+            "message",
+            s(if all > 0.0 {
+                format!("{}% of the living trees' logs within {} tiles' walk of the start grow on pines and birches (at least {}%)", num(round(share * 100.0)), num(rules.fast_wood_walk), num(round(rules.fast_wood * 100.0)))
+            } else {
+                format!("No logs within {} tiles' walk of the start", num(rules.fast_wood_walk))
+            }),
+        ),
+    ]);
     c.add(vec![
         ("id", s("start.wood_floor")),
         ("class", s("playability")),

@@ -34,17 +34,16 @@ WALK_BLOCKERS = ("Thorns", "Blockage", "NaturalDam", "UnstableCore", "Geothermal
                  # the reserves and the drill fill their tiles, and the drain its own (PLAN §20 D337, D338)
                  "ReservePile", "ReserveWarehouse", "ReserveTank", "AncientAquiferDrill", "BadtideDrain")
 RESERVE = {"scarce": 1.0, "normal": 1.5, "plenty": 3.0}      # PLAN §5.3 drought reserve
-START_AREA = {"small": 0.6, "normal": 1.0, "large": 1.8}      # PLAN §5.6 start area
 DROUGHT_DAYS = {"easy": 4, "normal": 9, "hard": 30}
 COLONY = {"easy": 40, "normal": 50, "hard": 50}
 START_CHECKS = ("start.dry", "start.water", "start.badwater", "start.reach", "start.food",
-                "start.wood", "start.wood_floor", "start.farmland", "start.level_land", "start.ruins_clear", "plants.survive", "plants.drought", "water.storage_possible",
+                "start.wood", "start.wood_fast", "start.wood_floor", "start.farmland", "start.forester", "start.level_land", "start.ruins_clear", "plants.survive", "plants.drought", "water.storage_possible",
                 "resources.scrap", "resources.trees", "resources.bushes", "ruins.fields", "ruins.access",
                 "extras.placement")
 # advisory from M8 (D85): generation targets with a warning, never a reason to reject a map; the
 # resource amounts are information (Kyler, 2026-09-25: resources like the official maps); water
 # storage near the start is information the generator prefers (D209, decisions-pending #67)
-ADVISORY_START = ("start.badwater", "start.reach", "start.ruins_clear", "water.storage_possible", "plants.drought",
+ADVISORY_START = ("start.badwater", "start.ruins_clear", "water.storage_possible", "plants.drought",
                   "resources.scrap", "resources.trees", "resources.bushes")
 
 TREE_LOGS = cal.LOGS_PER_TREE      # logs a grown tree gives (the game's blueprints, src/core/data/log-floor.json)
@@ -53,8 +52,44 @@ TREE_LOGS = cal.LOGS_PER_TREE      # logs a grown tree gives (the game's bluepri
 # living trees against the official maps' living share (item 26)
 MINES_WANTED = 2
 SMALL_MAP = 80 * 80                # D333 (7): below it, one mine site the colony reaches (minesWanted)
-LEVEL_LAND = {"small": 79, "normal": 113, "large": 180}
 FARMLAND_NEAR = 100
+# the start's floors (D515, validate/playability.ts START_FLOORS): the same at every difficulty but the
+# fast wood's walk; the land's for 128² and more, a smaller map's by its share of that area
+START_FLOOR_BENCH = {"small": 480, "normal": 640, "large": 980}
+START_FLOOR_REACH = 1300
+START_FLOOR_FAST_WOOD = 0.4
+START_FLOOR_FAST_WOOD_WALK = {"easy": 20, "normal": 20, "hard": 40}
+START_FLOOR_FORESTER = 100
+START_FLOORS_AREA = 128 * 128
+
+
+def js_round(v):
+    """Math.round: halves up."""
+    return math.floor(v + 0.5)
+
+
+def start_bench(h, wet, blocked, sx, sy):
+    """validate/playability.ts startBench: the dry, unblocked tiles at the start's level joined to its
+    3x3 without a slope (4-connected, the walk crossing water on that level), at any distance."""
+    Y, X = h.shape
+    level = h[sy, sx]
+    ok = (h == level) & ~blocked
+    seen = np.zeros((Y, X), bool)
+    queue = []
+    for y in range(sy - 1, sy + 2):
+        for x in range(sx - 1, sx + 2):
+            if 0 <= x < X and 0 <= y < Y and ok[y, x] and not seen[y, x]:
+                seen[y, x] = True
+                queue.append((y, x))
+    k = 0
+    while k < len(queue):
+        y, x = queue[k]
+        k += 1
+        for yy, xx in ((y, x + 1), (y, x - 1), (y + 1, x), (y - 1, x)):
+            if 0 <= xx < X and 0 <= yy < Y and not seen[yy, xx] and ok[yy, xx]:
+                seen[yy, xx] = True
+                queue.append((yy, xx))
+    return sum(1 for y, x in queue if not wet[y, x])
 LIVING_SHARE = (0.267, 0.434)
 
 
@@ -271,8 +306,7 @@ def rules_for(spec, difficulty, description=""):
         # the Badwater distance setting and the start rule say the same thing: the stricter counts
         "badwater_within": max(s["hazards"]["badwaterDistance"], r["badwaterWithin"]) if s else base["badwater_min"],
         "ruins_within": r["ruinsWithin"] if r else base["ruin_min"],
-        "reach_min": cal.START["reach_by_buildable_land"][s["terrain"]["buildableLand"] if s else "normal"]
-        * START_AREA[s["start"]["area"] if s else "normal"],
+        "reach_min": START_FLOOR_REACH,
         "drought_days": DROUGHT_DAYS[d],
         "reservoir_need": cal.reservoir_needed(d) * RESERVE[s["water"]["droughtReserve"] if s else "normal"],
         "reservoir_depth": 3 if d == "hard" else 0,
@@ -281,7 +315,10 @@ def rules_for(spec, difficulty, description=""):
         "mult": ({"scrap": s["resources"]["ruins"] / 100, "trees": s["resources"]["forestDensity"] / 100,
                   "bushes": s["resources"]["berryBushes"] / 100} if s else {"scrap": 1, "trees": 1, "bushes": 1}),
         "badwater_source": asks_for_badwater(s["hazards"]["badwater"] if s else None, description),
-        "level_land": LEVEL_LAND[s["start"]["area"] if s else "normal"],
+        "level_land": START_FLOOR_BENCH[s["start"]["area"] if s else "normal"],
+        "fast_wood": START_FLOOR_FAST_WOOD,
+        "fast_wood_walk": START_FLOOR_FAST_WOOD_WALK[d],
+        "forester": START_FLOOR_FORESTER,
         "farmland": FARMLAND_NEAR,
     }
 
@@ -531,8 +568,13 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     root = labels[sy, sx]
     reach = (labels == root) if root >= 0 else np.zeros((Y, X), bool)
     dry_reach = int(np.count_nonzero(reach & ~wet))
-    rep.add("start.reach", dry_reach >= rules["reach_min"], f"{dry_reach} dry tiles walkable from the start",
-            dry_reach, rules["reach_min"], advisory=True)
+    # the start's floors (D515), the land's scaled for a map under 128²
+    scale = min(1.0, (X * Y) / START_FLOORS_AREA)
+    reach_floor = js_round(rules["reach_min"] * scale)
+    bench_floor = js_round(rules["level_land"] * scale)
+    forester_floor = js_round(rules["forester"] * scale)
+    rep.add("start.reach", dry_reach >= reach_floor, f"{dry_reach} dry tiles walkable from the start without building",
+            dry_reach, reach_floor)
 
     # requirement 3 (D85): living berry bushes within 20 tiles' walk (slopes allowed); living: alive
     # and on soil where it survives at steady state. Requirement 2, starting wood (D164): the logs
@@ -540,6 +582,8 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     # sapling's logs are still growing and do not count. The starting-logs floor (D224, D227) counts
     # the same grown logs within a longer walk, 40 tiles, at every difficulty
     bushes = wood = floor_wood = 0
+    # (D515's fast wood: of the living trees' logs only, a dead tree grows none back)
+    live = {"near": [0, 0], "far": [0, 0]}
     for e in m.entities:
         if "BlockObject" not in e.get("Components", {}):
             continue
@@ -558,6 +602,12 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
                 floor_wood += logs
             if d <= NEAR:
                 wood += logs
+            if not is_dead(e):
+                for key, walked in (("far", cal.LOG_FLOOR_WALK), ("near", NEAR)):
+                    if d <= walked:
+                        live[key][1] += logs
+                        if q.template in ("Pine", "Birch"):
+                            live[key][0] += logs
         if tree or d > NEAR:
             continue
         if is_dead(e) or not (M[q.y, q.x] > 0 and not D[q.y, q.x] > 0 and not SC[q.y, q.x] > 0):
@@ -567,6 +617,12 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
             bushes, rules["bushes_within"])
     rep.add("start.wood", wood >= rules["wood_within"], f"{wood} logs within 20 tiles' walk", wood,
             rules["wood_within"])
+    # D515: a fast species (pine, birch) a real share of the start's living trees' logs within its wood's walk
+    fast_all = live["far"] if rules["fast_wood_walk"] > NEAR else live["near"]
+    share = fast_all[0] / fast_all[1] if fast_all[1] > 0 else 0.0
+    rep.add("start.wood_fast", fast_all[1] > 0 and share >= rules["fast_wood"],
+            f"{js_round(share * 100)}% of the living trees' logs within {rules['fast_wood_walk']} tiles' walk grow on pines and birches",
+            js_round(share * 100) / 100, rules["fast_wood"])
     # the starting-logs floor (D224, D227): enough logs within about 40 tiles' walk to build a
     # Forester; exact, never approximate
     rep.add("start.wood_floor", floor_wood >= cal.LOG_FLOOR,
@@ -576,31 +632,22 @@ def _check_playability(m, rep, fps, difficulty="normal", spec=None, features=Non
     land = land_regions(h, wet)
     land_root = land[sy, sx]
     check_mines(m, rep, fps, reach | ((land == land_root) if land_root >= 0 else False), X, Y)
-    # item 47: the start's farmland and level building land within 20 tiles' walk
-    flat = np.zeros((Y, X), bool)
-    for y in range(Y - 1):
-        for x in range(X - 1):
-            v = h[y, x]
-            if h[y, x + 1] != v or h[y + 1, x] != v or h[y + 1, x + 1] != v:
-                continue
-            if wet[y, x] or wet[y, x + 1] or wet[y + 1, x] or wet[y + 1, x + 1]:
-                continue
-            if blocked[y, x] or blocked[y, x + 1] or blocked[y + 1, x] or blocked[y + 1, x + 1]:
-                continue
-            flat[y, x] = flat[y, x + 1] = flat[y + 1, x] = flat[y + 1, x + 1] = True
-    farmland = level = 0
+    # item 47: the start's farmland within 20 tiles' walk; D515: the forester's plot beside it, and the
+    # start's bench
+    farmland = 0
     for y in range(Y):
         for x in range(X):
             if wet[y, x] or reach_at(walk, y, x) > NEAR:
                 continue
             if M[y, x] > 0 and not SC[y, x] > 0 and not blocked[y, x]:
                 farmland += 1
-            if flat[y, x]:
-                level += 1
     rep.add("start.farmland", farmland >= rules["farmland"], f"{farmland} tiles of moist farmland within {NEAR} tiles' walk",
             farmland, rules["farmland"])
-    rep.add("start.level_land", level >= rules["level_land"], f"{level} tiles of level building land within {NEAR} tiles' walk",
-            level, rules["level_land"])
+    plot = max(0, farmland - rules["farmland"])
+    rep.add("start.forester", plot >= forester_floor, f"{plot} tiles of moist land for a forester", plot, forester_floor)
+    bench = start_bench(h, wet, blocked.astype(bool), sx, sy)
+    rep.add("start.level_land", bench >= bench_floor, f"{bench} tiles of level ground on the start's bench",
+            bench, bench_floor)
     ruins = [e for e in m.entities if e["Template"].startswith("RuinColumnH") and "BlockObject" in e.get("Components", {})]
     near_ruins = sum(1 for e in ruins if 0 <= placement(e).x < X and 0 <= placement(e).y < Y
                      and sd[placement(e).y, placement(e).x] < rules["ruins_within"])

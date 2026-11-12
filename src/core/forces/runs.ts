@@ -25,7 +25,7 @@ import { clamp } from "./random";
 import { smoothstep } from "../math/clamp";
 import { forceFloor, holdAtFloor } from "./floor";
 import { settleKnocked } from "./objects";
-import { clearable, clears, CLEARABLE, destroyedGround, motionOf, riddenLevel, SourceClearing, type ClearedSource, type SourcesRule } from "./clear";
+import { clearable, clears, CLEARABLE, destroyedGround, levelSeats, motionOf, riddenLevel, SourceClearing, type ClearedSource, type SourcesRule } from "./clear";
 import { transportRock, trimRock } from "./rock";
 
 /** What a force is doing now, for the effects, the camera and the sounds. */
@@ -251,6 +251,9 @@ export abstract class Staged {
             const i = e.y * W + e.x;
             e.z = b ? riddenLevel(b.z, B.heights[b.y * B.W + b.x], after.heights[i], masks?.[i], whole) : after.heights[i];
           }
+        // (under Ride, a multi-tile one on ground it moved unevenly rides on a seat cut level, planning's ruling of
+        // 2026-11-11, clear.ts `levelSeats`: the cut is part of its land, shown and kept with it)
+        if (!clears(this.settings.sources) && levelSeats(B, after, whole, this.keep, this.ease).length) trimRock(after);
       }
       if (after && clears(this.settings.sources)) {
         const ground = this.before.heights;

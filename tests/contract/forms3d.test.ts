@@ -17,20 +17,22 @@ import { bottomRunTop, ColumnTerrain, isPlainMask, terrainColumns } from "../../
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 
 let made: ReturnType<typeof generate> | null = null;
-/** Canyon 96² seed 1 at Verticality 80, made once. (Seed 3 until generator 0.10.16's ground with grade, D148:
+/** Canyon 96² seed 6 at Verticality 80, made once. (Seed 3 until generator 0.10.16's ground with grade, D148:
  *  its graded canyon keeps its spring caves but no arch; seed 1 is the first of seeds 1–8 that keeps both, and arches
- *  are no rarer: kept on 4 of seeds 1–8, 6 in all, against 3 and 4 at 0.10.15.) */
-function canyon1(): ReturnType<typeof generate> {
+ *  are no rarer: kept on 4 of seeds 1–8, 6 in all, against 3 and 4 at 0.10.15. Seed 6 since generator 0.10.17's start
+ *  floors, D515, D148: seed 1 keeps its spring caves but leaves both its arches out; seed 6 is the only one of seeds 1–8
+ *  that keeps both, arches kept on 3 of them (5, 6 and 8), 4 in all.) */
+function canyon6(): ReturnType<typeof generate> {
   if (made) return made;
-  const spec = makeSpec({ seed: 1, theme: "canyon", size: { x: 96, y: 96 } });
+  const spec = makeSpec({ seed: 6, theme: "canyon", size: { x: 96, y: 96 } });
   spec.settings.terrain.verticality = 80;
   made = generate(spec);
   return made;
 }
 
 describe("a generated map's 3D forms (D488)", () => {
-  it("Canyon 96² seed 1 at Verticality 80: spring caves and an arch, stacked water, the project reopens to the same file", () => {
-    const r = canyon1();
+  it("Canyon 96² seed 6 at Verticality 80: spring caves and an arch, stacked water, the project reopens to the same file", () => {
+    const r = canyon6();
     expect(r.report.passed).toBe(true);
     const kept = r.intentions.filter((x) => x.ok && FORMS.includes(x.id as FormId)).map((x) => x.id);
     expect(kept).toContain("spring-cave");
@@ -56,7 +58,7 @@ describe("a generated map's 3D forms (D488)", () => {
   });
 
   it("a cave spring's source stands where the game keeps it, and no object is placed in its cells (D491)", () => {
-    const r = canyon1();
+    const r = canyon6();
     const springs = r.features.filter((f) => f.kind === "river" && f.role?.startsWith("river/caveSpring/")).map((f) => f.id);
     const src = r.built.entities.find((e) => e.template === "WaterSource" && springs.includes(e.owner))!;
     // the source passes the game's own rule on the cave's floor (the build routes every source on a map
@@ -97,7 +99,7 @@ describe("a generated map's 3D forms (D488)", () => {
   });
 
   it("a spring's source the game would not keep is left out with the game's reason, never silently (D342)", () => {
-    const r = canyon1();
+    const r = canyon6();
     const springs = r.features.filter((f) => f.kind === "river" && f.role?.startsWith("river/caveSpring/")).map((f) => f.id);
     const src = r.built.entities.find((e) => e.template === "WaterSource" && springs.includes(e.owner))!;
     // the map's own field, built again with a relic standing on the source's cell (the editor refuses
@@ -107,8 +109,8 @@ describe("a generated map's 3D forms (D488)", () => {
     for (let k = 0; k + 1 < (fd.ramps ?? []).length; k += 2) ramps.push([fd.ramps![k], fd.ramps![k + 1]]);
     const field: GeneratedField = { heights: terrainColumns(fd, 96 * 96).heights, contains: new Set(fd.contains), ...(ramps.length ? { ramps } : {}), ...(fd.top !== undefined ? { top: fd.top } : {}), caves: ColumnTerrain.fromData(fd, 96, 96) };
     const relic = { id: "f-aaaaaaaaaaaac", kind: "mapObject", origin: "user", locked: false, params: { kind: "relicSmall", placement: { x: src.x, y: src.y, orientation: "Cw0", z: src.z } } };
-    expect(buildMap({ W: 96, H: 96, seed: 1, features: r.features, field }).springsLeft).toBeUndefined();
-    const b = buildMap({ W: 96, H: 96, seed: 1, features: [...r.features, relic as never], field });
+    expect(buildMap({ W: 96, H: 96, seed: 6, features: r.features, field }).springsLeft).toBeUndefined();
+    const b = buildMap({ W: 96, H: 96, seed: 6, features: [...r.features, relic as never], field });
     const left = (b.springsLeft ?? []).filter((x) => x.feature === src.owner);
     expect(left.map((x) => [x.x, x.y])).toContainEqual([src.x, src.y]);
     expect(left[0].why).toMatch(/relic stands there/i);
@@ -116,7 +118,7 @@ describe("a generated map's 3D forms (D488)", () => {
   });
 
   it("its file without pre-filled water is the same map, dry on every level its caves need, and loads", () => {
-    const r = canyon1();
+    const r = canyon6();
     const empty = readTimber(writeTimber(toTimberFile(r.spec, r.built, { emptyWater: true })));
     const full = readTimber(r.bytes).world;
     const report = validateBuilt(r.spec, r.features, r.built, empty).report;
@@ -138,7 +140,7 @@ describe("a generated map's 3D forms (D488)", () => {
   });
 
   it("at Verticality 0 the same map grows none", () => {
-    const spec = makeSpec({ seed: 1, theme: "canyon", size: { x: 96, y: 96 } });
+    const spec = makeSpec({ seed: 6, theme: "canyon", size: { x: 96, y: 96 } });
     spec.settings.terrain.verticality = 0;
     const r = generate(spec);
     expect(r.intentions.filter((x) => FORMS.includes(x.id as FormId))).toEqual([]);

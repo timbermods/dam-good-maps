@@ -296,8 +296,7 @@ export function planForce(input: ForcePlanInput): ForcePlan {
           const via = aimed && req.via?.length ? req.via.map(at) : [];
           const intent: CarveIntent = { origin: from.origin, ...(aimed ? { end: at(aimed) } : {}), ...(via.length ? { via } : {}) };
           try {
-            carve = new CarveRun(base, settings, intent, { keep, sourceId: input.newId(), unleashed: e.id, bad: e.template === "BadwaterSource" });
-            carve.ease = inside;
+            carve = new CarveRun(base, settings, intent, { keep, sourceId: input.newId(), unleashed: e.id, bad: e.template === "BadwaterSource", ease: inside });
           } catch (err) {
             // (a source's own water runs downhill: an unleashed source never cuts uphill)
             throw /uphill/.test(String(err instanceof Error ? err.message : err)) ? new Error("That point is uphill of the source: water runs downhill, aim it lower") : err;
@@ -307,8 +306,7 @@ export function planForce(input: ForcePlanInput): ForcePlan {
         // (its drawn path, D321 item 41: a smooth curve through its points to the end)
         const via = aimed && req.via?.length ? req.via.map(at) : [];
         const intent: CarveIntent = { origin: at(req.origin), ...(aimed ? { end: at(aimed) } : {}), ...(via.length ? { via } : {}) };
-        carve = new CarveRun(base, req.settings, intent, { keep, sourceId: input.newId() });
-        carve.ease = inside;
+        carve = new CarveRun(base, req.settings, intent, { keep, sourceId: input.newId(), ease: inside });
         break;
       }
       case "craterize": {

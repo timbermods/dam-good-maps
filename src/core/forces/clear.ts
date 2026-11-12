@@ -4,7 +4,8 @@
 // badwater source or seep only where the force destroys its ground (the force audit's S2,
 // docs/progress/force-audit.md): buried 3 levels or more, cut 2 or more away, or, where the force moves
 // the ground whole, in the crush zone where the ground tears (a Quake's fault, a Rift's walls); a multi-tile one if any of
-// its tiles is. One that only rides an intact block, or sits under a thin apron, rides as under Ride.
+// its tiles is, or if the force moved its tiles by different amounts (it rides only as one level piece, D249).
+// One that only rides an intact block, or sits under a thin apron, rides as under Ride.
 // The sources a force places itself always stay (Carve's river, Glaciate's meltwater, an unleashed
 // source); every other object keeps riding the ground. Carve takes what it cuts away itself under Clear
 // (in Rust: `removed`, as its head arrives; the rest ride its cut), Glaciate everything its ice reaches
@@ -49,6 +50,74 @@ export function riddenLevel(z: number, before: number, after: number, mask?: num
   return after;
 }
 
+/** A water object's seat (D290): the level its footprint's ground is cut down to, the lowest of its tiles, so no
+ *  water is dammed (doc/placing.ts `levelFootprint` cuts a placed source's spring pool to it). */
+export function seatLevel(heights: ArrayLike<number>, tiles: readonly number[]): number {
+  let low = Infinity;
+  for (const i of tiles) low = Math.min(low, heights[i]);
+  return low;
+}
+
+/** Under Ride (planning's ruling of 2026-11-11), a multi-tile source or seep (a badwater source's 3 × 3, a seep's
+ *  2 × 2) on ground a force moved unevenly keeps riding, its seat levelled to the lowest of its tiles as D290 levels a
+ *  placed one: `after`'s heights are cut there and the source stands on the seat. Measured on the land the operation
+ *  keeps, a working area's feather applied (`ease`, keep.ts `featherForce`), and cut only where that land lets the cut
+ *  stand: a seat across the area's edge (a kept tile, `keep`, or one the feather holds above it), or on Erode's voxels
+ *  (a tile not one plain run), is held as it was before the force (its ground, voxels and rock), the source on its old
+ *  seat, so no force leaves a source the game refuses (planning's ruling of 2026-11-11). One under a roof (a cave's),
+ *  one cut off by the map's edge, or one whose tiles all moved alike rides as it is. `before` holds the objects where
+ *  they stood; `whole`: the force moves the ground whole (a Quake, a Rift). Rust's Carve does the same as its cut
+ *  reaches one (lib.rs `level_seat`). The tiles changed. */
+export function levelSeats(before: { W: number; H: number; heights: ArrayLike<number>; entities: readonly EntitySpec[]; masks?: Uint32Array; lava?: Uint32Array }, after: { W: number; H: number; heights: Uint8Array; entities: EntitySpec[]; masks?: Uint32Array; lava?: Uint32Array }, whole: boolean, keep: ArrayLike<number> | null = null, ease: ArrayLike<number> | null = null): number[] {
+  const was = new Map(before.entities.map((e) => [e.id, e]));
+  const kept = (i: number) => (ease ? Math.max(before.heights[i] - ease[i], Math.min(before.heights[i] + ease[i], after.heights[i])) : after.heights[i]);
+  const masks = after.masks;
+  const cut: number[] = [];
+  for (const e of after.entities) {
+    if (!CLEARABLE.has(e.template)) continue;
+    const b = was.get(e.id);
+    if (!b) continue;
+    const tiles = footprint(after, e);
+    const from = footprint(before, b);
+    if (tiles.length < 2 || tiles.length !== from.length) continue;
+    const anchor = b.y * before.W + b.x;
+    if (b.z < before.heights[anchor]) continue;
+    const dz = (k: number) => kept(tiles[k]) - before.heights[from[k]];
+    if (tiles.every((_, k) => dz(k) === dz(0))) continue;
+    let low = Infinity;
+    for (const i of tiles) low = Math.min(low, kept(i));
+    // (the other forces leave the voxels as they were: a tile is plain if they are one run to its height before or
+    // after; on Erode's openings there is no level seat to cut)
+    const voxels = !!masks && tiles.some((i, k) => masks[i] !== plainRun(after.heights[i]) && masks[i] !== plainRun(before.heights[from[k]]));
+    // (the cut stands only where the operation keeps it: never on a kept tile, never past the feather; a seat across
+    // the working area's edge, or on voxels, is held as it was instead, as the area holds the rest of it)
+    if (voxels || tiles.some((i) => low !== kept(i) && ((keep !== null && keep[i] !== 0) || (ease !== null && low < before.heights[i] - ease[i])))) {
+      if (!tiles.every((i, k) => i === from[k])) continue;
+      for (const i of tiles) {
+        const was = masks ? (before.masks?.[i] ?? plainRun(before.heights[i])) : 0;
+        if (after.heights[i] === before.heights[i] && (!masks || masks[i] === was)) continue;
+        if (masks) masks[i] = was;
+        if (after.lava && before.lava) after.lava[i] = before.lava[i];
+        after.heights[i] = before.heights[i];
+        cut.push(i);
+      }
+      e.z = b.z;
+      continue;
+    }
+    for (const i of tiles)
+      if (after.heights[i] !== low) {
+        if (masks && masks[i] === plainRun(after.heights[i])) masks[i] = plainRun(low);
+        after.heights[i] = low;
+        cut.push(i);
+      }
+    e.z = riddenLevel(b.z, before.heights[anchor], low, undefined, whole);
+  }
+  return cut;
+}
+
+/** A tile's voxels as one plain run from level 0 to its height (terrain/runs.ts' mask). */
+const plainRun = (h: number): number => (h >= 32 ? 0xffffffff : (1 << h) - 1) >>> 0;
+
 /** The tiles whose ground a force's result changes, its working area's feather applied (`ease`: how
  *  many levels each tile may move, D254; null for none), as its operation keeps them (keep.ts
  *  `featherForce`): the showing and the operation clear from the same tiles. */
@@ -83,17 +152,17 @@ export const FAULT_CRUSH = 2.5;
  *  for a force that moves ground whole, only its crush zone: a Quake's, `FAULT_CRUSH` tiles of its crack
  *  (its stepped scarp's benches ride), or where the moves of a Rift's 3 × 3 tiles differ by `TORN` levels or more
  *  (its walls). */
-export function destroyedGround(W: number, H: number, before: ArrayLike<number>, after: ArrayLike<number>, ease: ArrayLike<number> | null, motion: GroundMotion): (i: number) => boolean {
+export function destroyedGround(W: number, H: number, before: ArrayLike<number>, after: ArrayLike<number>, ease: ArrayLike<number> | null, motion: GroundMotion): Destroyed {
   const changed = changedGround(before, after, ease);
-  const dz = (i: number) => (ease ? Math.max(before[i] - ease[i], Math.min(before[i] + ease[i], after[i])) : after[i]) - before[i];
+  const dz = groundMoved(before, after, ease);
   if (motion.kind === "reshape")
-    return (i) => {
+    return withMoved((i) => {
       const d = dz(i);
       return d >= BURIED || d <= -CUT;
-    };
+    }, dz);
   if (motion.kind === "fault") {
     const pts = motion.path;
-    return (i) => {
+    return withMoved((i) => {
       if (!changed(i)) return false;
       const x = i % W;
       const y = (i - x) / W;
@@ -109,9 +178,9 @@ export function destroyedGround(W: number, H: number, before: ArrayLike<number>,
         if (ex * ex + ey * ey <= FAULT_CRUSH * FAULT_CRUSH) return true;
       }
       return false;
-    };
+    }, dz);
   }
-  return (i) => {
+  return withMoved((i) => {
     if (!changed(i)) return false;
     const x = i % W;
     const y = (i - x) / W;
@@ -124,7 +193,20 @@ export function destroyedGround(W: number, H: number, before: ArrayLike<number>,
         if (d > hi) hi = d;
       }
     return hi - lo >= TORN;
-  };
+  }, dz);
+}
+
+/** How many levels each tile's ground a force moved, its working area's feather applied (`ease`). */
+export function groundMoved(before: ArrayLike<number>, after: ArrayLike<number>, ease: ArrayLike<number> | null): (i: number) => number {
+  return (i) => (ease ? Math.max(before[i] - ease[i], Math.min(before[i] + ease[i], after[i])) : after[i]) - before[i];
+}
+
+/** The tiles whose ground a force destroyed (`destroyedGround`), with how far it moved each (`moved`): a
+ *  multi-tile source rides only as one level piece (D249), so `clearable` takes one whose tiles moved apart. */
+export type Destroyed = ((i: number) => boolean) & { moved?: (i: number) => number };
+
+function withMoved(f: (i: number) => boolean, moved: (i: number) => number): Destroyed {
+  return Object.assign(f, { moved });
 }
 
 /** A source a force cleared, and the step of its showing that took it: the frame whose `shown` is
@@ -135,10 +217,18 @@ export interface ClearedSource {
 }
 
 /** The sources Clear takes from the map `before` (its objects at their places then): those with a
- *  tile in their footprint whose ground the force destroyed (`changed`: `destroyedGround`), save the ones `stays` names (the force's
- *  own, and those it took itself). */
-export function clearable(before: { W: number; H: number; entities: readonly EntitySpec[] }, changed: (i: number) => boolean, stays: (id: string) => boolean): EntitySpec[] {
-  return before.entities.filter((e) => CLEARABLE.has(e.template) && !stays(e.id) && footprint(before, e).some(changed));
+ *  tile in their footprint whose ground the force destroyed (`changed`: `destroyedGround`), and a multi-tile one (a
+ *  badwater source's 3 × 3, a seep's 2 × 2) whose tiles the force moved by different amounts: it rides only as one
+ *  level piece (D249), and on torn ground it would stand inside the ground or over air, a map the game refuses. Save
+ *  the ones `stays` names (the force's own, and those it took itself). */
+export function clearable(before: { W: number; H: number; entities: readonly EntitySpec[] }, changed: Destroyed, stays: (id: string) => boolean): EntitySpec[] {
+  const moved = changed.moved;
+  return before.entities.filter((e) => {
+    if (!CLEARABLE.has(e.template) || stays(e.id)) return false;
+    const tiles = footprint(before, e);
+    if (tiles.some(changed)) return true;
+    return !!moved && tiles.length > 1 && tiles.some((i) => moved(i) !== moved(tiles[0]));
+  });
 }
 
 /** A force's showing, clearing its sources step by step: each goes at the first step whose land

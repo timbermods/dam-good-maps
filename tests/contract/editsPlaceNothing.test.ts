@@ -18,6 +18,7 @@ import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
 import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
 import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
 import { buildMap } from "../../src/core/features/build";
+import { entityTiles } from "../../src/core/features/edits";
 import { writeTimber } from "../../src/core/format/timber";
 import { toTimberFile } from "../../src/core/gen/pack";
 import { makeSpec } from "../../src/core/spec/mapspec";
@@ -204,16 +205,19 @@ describe("a spring the build derives again after an edit keeps its id (PLAN §19
   // start's ground keeping the third tile; a Lift carried the start away, the row was placed again
   // three long, and the third spring was new, an object the force added (D368 (10), D314). An edited
   // map keeps the row the generation placed. Here Highlands 96² seed 3's three-spring row at
-  // (71–73, 27) is stored two long, as that one was: no edit may give it its third. ((14–16, 44) until
+  // (17–19, 30) is stored two long, as that one was: no edit may give it its third. ((14–16, 44) until
   // the Canyon and Highlands height round, 0.8.8, D148: that spring's row is two long on its map now,
   // and this one is the map's three-spring row. Seed 1's (65–67, 58) until generator 0.10.5, D148: its
-  // three-spring row stands up the map now, (74, 75–77), and seed 3's runs along the fault as this one did.)
+  // three-spring row stands up the map now, (74, 75–77), and seed 3's runs along the fault as this one did. Seed 3's second
+  // spring's row at (17–19, 30) since generator 0.10.17's start floors (D515), D148: the feature that held the row at (71–73, 27)
+  // is the main river now, its head standing up the map at (73, 34–36); the map's three-spring rows are its second spring's
+  // and its third's at (61–63, 83), and the first of them is taken.)
   it("a Quake Lift leaves a generated spring's two-spring head row as it was: the same sources, count and ids", async () => {
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: 96, y: 96 } }));
     ed.refine();
     const doc = decodeProject(ed.project().bytes);
-    const row = (es: ReturnType<typeof entities>) => es.filter((e) => e.template === "WaterSource" && e.owner === "f-mngcmarnbq4x4").map((e) => `${e.id}@${e.x},${e.y}`);
-    const third = MapSession.open(doc).built.entities.find((e) => e.template === "WaterSource" && e.x === 73 && e.y === 27)!;
+    const row = (es: ReturnType<typeof entities>) => es.filter((e) => e.template === "WaterSource" && e.owner === "f-6krpq3fsfoh3i").map((e) => `${e.id}@${e.x},${e.y}`);
+    const third = MapSession.open(doc).built.entities.find((e) => e.template === "WaterSource" && e.x === 19 && e.y === 30)!;
     const world = JSON.parse(doc.base.world!) as { Entities: { Id: string }[] };
     const k = world.Entities.findIndex((e) => e.Id === third.id);
     world.Entities.splice(k, 1);
@@ -222,10 +226,10 @@ describe("a spring the build derives again after an edit keeps its id (PLAN §19
     doc.stored = undefined;
     ed.openProject(encodeProject(doc));
     const before = row(entities());
-    expect(before.map((s) => s.split("@")[1])).toEqual(["71,27", "72,27"]);
+    expect(before.map((s) => s.split("@")[1])).toEqual(["17,30", "18,30"]);
     for (const side of [1, -1] as const) {
       // (Ride, D474: the row rides the ground; Clear would take it)
-      run({ verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 60, sources: "ride" }, path: [{ x: 2, y: 27.5 }, { x: 48, y: 27.5 }, { x: 93, y: 27.5 }], side, cut: null, natural: true });
+      run({ verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 60, sources: "ride" }, path: [{ x: 2, y: 30.5 }, { x: 48, y: 30.5 }, { x: 93, y: 30.5 }], side, cut: null, natural: true });
       expect(row(entities()), `the Lift on side ${side}`).toEqual(before);
       ed.undo();
     }
@@ -236,13 +240,20 @@ describe("an edit that leaves the mine site out of reach shows in the checks, an
   it("walling the mine site off from the start adds no slope and reports resources.mine_site", async () => {
     // a generated map whose mine site the colony reaches
     let mine: { x: number; y: number; z: number } | null = null;
+    // (the footprint is 5 × 5 from its corner, turned with the site: its middle, the mean of its tiles; x + 2, y + 2 until
+    // generator 0.10.17's start floors (D515), D148: seed 8's site, the first found now, stands turned (Cw90), its footprint
+    // (61–65, 68–72), and the ring round (63, 74) ran beside it: the wall's top, joined to the high ground at level 16, stood
+    // next to the site, so the checks rightly counted it reached)
+    let middle: [number, number] = [0, 0];
     // (7 to 12 since the start's badwater distance became a rule, Kyler, 2026-10-05, D148: none of 4, 2, 5, 6 has one now)
     for (const seed of [4, 2, 5, 6, 7, 8, 9, 10, 11, 12]) {
       await open(seed, 96);
       const found = entities().find((e) => e.template === "UndergroundRuins");
       if (!found) continue;
+      const tiles = entityTiles(found);
+      const [mx, my] = [tiles.reduce((a, t) => a + t[0], 0) / tiles.length, tiles.reduce((a, t) => a + t[1], 0) / tiles.length];
       // (the ring below, 8 tiles out from the site's middle, has to stay on the map: M9b's seed 4 puts the site at the edge, D148)
-      if (found.x + 2 < 10 || found.y + 2 < 10 || found.x + 2 > 85 || found.y + 2 > 85) continue;
+      if (mx < 10 || my < 10 || mx > 85 || my > 85) continue;
       // (and the wall, at most level 16, has to stand at least three levels over the site's ground: generator 0.10.11's seed 4,
       // the D410 round, D148, puts the site at level 15, where the wall stands one level over it and the checks still
       // count the site as reached)
@@ -256,12 +267,11 @@ describe("an edit that leaves the mine site out of reach shows in the checks, an
       }
       ed.undo();
       mine = found;
+      middle = [mx, my];
       break;
     }
     expect(mine, "a generated map with a reachable mine site").toBeTruthy();
-    // (the footprint is 5 × 5 from its corner: its middle)
-    const cx = mine!.x + 2;
-    const cy = mine!.y + 2;
+    const [cx, cy] = middle;
     const before = entities();
     // a wall high above the site's ground in a ring round it, exact (D322): nothing joins it to the rest
     const dabs: number[] = [];

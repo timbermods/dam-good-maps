@@ -550,10 +550,15 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 - **Sources** (D474; Kyler, 2026-10-05): every force's settings hold **Sources**, Ride (sources and seeps ride the
   ground) or **Clear** (the default: the force removes the sources and seeps whose ground it destroys, buried 3 levels
   or more, cut 2 or more away, or in the crush zone where ground moved whole tears (2.5 tiles of a Quake's crack, a
-  Rift's walls); one that rides an intact block or
-  a thin apron stays, as under Ride; the force audit's S2, `src/core/forces/clear.ts` `destroyedGround`; Glaciate's
+  Rift's walls), and a multi-tile one (a badwater source's 3 × 3, a seep's 2 × 2) whose tiles it moves by different
+  amounts, since it rides only as one level piece (D249); one that rides an intact block or a thin apron stays, as under Ride; the force audit's S2, `src/core/forces/clear.ts` `destroyedGround`; Glaciate's
   ice still takes what it reaches), in the brushes' Sources look, remembered per force with the other pins and sent as `settings.sources`; Try another sends the row's
-  choice as it is. A force's own sources (Keep river, Meltwater, an unleashed source) always stay.
+  choice as it is. A force's own sources (Keep river, Meltwater, an unleashed source) always stay. Under Ride a
+  multi-tile source on ground the force moved unevenly keeps riding on a seat cut level to the lowest of its tiles, as
+  D290 levels a placed one; the cut is part of the force's result, shown with it and undone in its one step. Where
+  that cut cannot stand (a seat across a working area's edge, a tile the area's feather holds, Erode's voxels) the force
+  leaves the whole footprint as it was and the source keeps its old seat, Carve included, so no force ends in a map the
+  game refuses (planning's rulings of 2026-11-11; `clear.ts` `levelSeats`, Rust's Carve `level_seat`).
 - **One row** (D289): **Power**, **Size** (Quake has none), at most one signature choice (Carve's **Keep river** or
   **Dry canyon**; Quake's **Lift** or **Slide**; Glaciate's **Meltwater**), and **Try another**. The gesture is the
   mode: a click unleashes a carve, strikes, vents or flows; a drag draws a line freehand (below). Everything else
