@@ -127,7 +127,7 @@ describe("The premise mode (§2.2, build step 4)", () => {
     expect(ed.openTimber(r.bytes, "lake-stair.timber").info.card).toBeNull();
   });
 
-  it("holds day 1's moist ground to a floor that falls as the map grows (D???)", () => {
+  it("holds day 1's moist ground to a floor that falls as the map grows (D519)", () => {
     // (30 % at 128², 25 % at 192², 20 % at 256², a straight line between, held at its ends)
     expect(moistFloor(96)).toBe(0.3);
     expect(moistFloor(128)).toBe(0.3);
