@@ -116,6 +116,10 @@ describe("ruled land", () => {
     const p = generatePremise(makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "any", premise: "lakeStair" }));
     if ("reason" in p) throw new Error(p.reason);
     const r = measured(p.result.built);
+    // (and empty land, the row beside it, sees its grey slab: about two fifths of the land, planning 2026-11-12)
+    const empty = p.result.report.checks.find((c) => c.id === "terrain.empty_land");
+    expect(empty?.ok).toBe(true);
+    expect(Number(String(empty?.value).split(" ")[0])).toBeGreaterThanOrEqual(25);
     expect(r.straight).toBeLessThanOrEqual(RULED_LIMITS.straight);
     expect(r.bands).toBeLessThanOrEqual(RULED_LIMITS.bands);
     expect(r.channels).toBeLessThanOrEqual(0.1);

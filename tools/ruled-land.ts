@@ -1,5 +1,6 @@
-// Ruled land (`src/core/validate/ruledLand.ts`, the gate's `terrain.ruled_land`): its three numbers and verdict for a
-// map file, a theme's seeds, the lake stair's or today's Gate.
+// Ruled land (`src/core/validate/ruledLand.ts`, the gate's `terrain.ruled_land`): its numbers and verdict for a map file,
+// a theme's seeds, the lake stair's or today's Gate; and beside it empty land (`emptyLand.ts`, `terrain.empty_land`):
+// the share of the land that is bare slab and the largest slab, as the map's checks report it.
 //
 //   npx tsx tools/ruled-land.ts map.timber …
 //   npx tsx tools/ruled-land.ts --theme canyon|all [--seeds 1-12] [--size 128]
@@ -26,38 +27,42 @@ const seeds = Array.from({ length: (range[1] ?? range[0]) - range[0] + 1 }, (_, 
 
 const line = (label: string, r: RuledLand, ms?: number) =>
   console.log(`${label.padEnd(28)} straight ${(100 * r.straight).toFixed(1).padStart(5)} %  bands ${(100 * r.bands).toFixed(1).padStart(5)} %  corners ${r.corners.toFixed(1).padStart(5)}  channels ${(100 * r.channels).toFixed(1).padStart(5)} %  longest ${String(r.longest.length).padStart(3)} at X ${r.longest.x} · Y ${r.longest.y}  ${r.ok ? "pass" : "FAIL"}${ms !== undefined ? `  ${ms.toFixed(1)} ms` : ""}`);
-const measure = (label: string, b: { heights: ArrayLike<number>; settle: { depth: ArrayLike<number> }; W: number; H: number }) => {
+const emptyRow = (report: { checks: { id: string; value?: number | string }[] }) => report.checks.find((c) => c.id === "terrain.empty_land")?.value ?? "none";
+const measure = (label: string, b: { heights: ArrayLike<number>; settle: { depth: ArrayLike<number> }; W: number; H: number }, report: { checks: { id: string; value?: number | string }[] }) => {
   const wet = wetOf(b.settle.depth);
   const t = performance.now();
   const r = ruledLand(b.heights, wet, b.W, b.H);
   line(label, r, performance.now() - t);
+  console.log(`${"".padEnd(28)} empty land ${emptyRow(report)} (share / largest slab's tiles)`);
 };
 
 const files = args.filter((a) => /\.timber$/.test(a));
 for (const f of files) {
   const v = validateMap(readTimber(new Uint8Array(readFileSync(f))), { profile: "import", external: true });
   const row = v.report.checks.find((c) => c.id === "terrain.ruled_land");
+  const empty = v.report.checks.find((c) => c.id === "terrain.empty_land");
   console.log(`${basename(f)}: ${row ? `${row.ok ? "pass" : "FAIL"} ${row.message}` : "no ruled-land row"}`);
+  console.log(`  empty land ${empty ? `${empty.value}: ${empty.message}` : "no row"}`);
 }
 const theme = opt("theme");
 const premise = opt("premise");
 for (const t of theme === "all" ? THEMES.filter((x) => x !== "any") : theme ? [theme as ThemeId] : []) {
   for (const seed of seeds) {
     const r = generate(makeSpec({ seed, size: { x: side, y: side }, theme: t }));
-    measure(`${t} ${side}² seed ${seed}`, r.built);
+    measure(`${t} ${side}² seed ${seed}`, r.built, r.report);
   }
 }
 if (premise === "lakeStair") {
   for (const seed of seeds) {
     const r = generatePremise(makeSpec({ seed, size: { x: side, y: side }, theme: "any", premise: "lakeStair" }));
     if ("reason" in r) console.log(`lakeStair seed ${seed}: ${r.reason}`);
-    else measure(`lakeStair ${side}² seed ${seed}`, r.result.built);
+    else measure(`lakeStair ${side}² seed ${seed}`, r.result.built, r.result.report);
   }
 }
 if (premise === "gate") {
   for (const seed of seeds) {
     const r = gateMap(makeSpec({ seed, size: { x: side, y: side }, theme: "any", premise: "any" }));
     if ("reason" in r || !r.map) console.log(`gate seed ${seed}: no map`);
-    else measure(`gate ${side}² seed ${seed}`, r.map.built);
+    else measure(`gate ${side}² seed ${seed}`, r.map.built, r.map.report);
   }
 }

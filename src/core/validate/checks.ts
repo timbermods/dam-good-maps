@@ -24,6 +24,7 @@ import { surfaceOf } from "../format/world";
 import { mapObjects } from "../sim/model";
 import { seenThroughRoofs } from "../sim/stackWater";
 import { RULED_LIMITS, ruledLand, ruledLandMessage, wetOf } from "./ruledLand";
+import { emptyLand, emptyLandMessage, occupiedBy } from "./emptyLand";
 
 export type { CheckClass, CheckResult, Profile, Severity, ValidationReport } from "./report";
 export { blocks } from "./report";
@@ -105,7 +106,7 @@ export interface Validation {
  *  (the heightfield water model on the top surface: on maps with caves or overhangs an approximation,
  *  as terrain.single_floor says). Throws the one-line reason of a map the checks refuse. */
 export function validateMap(file: TimberFile, opts: ValidateOptions): Validation {
-  const v = withRuledLand(file, validateInRust(file, opts));
+  const v = withEmptyLand(file, withRuledLand(file, validateInRust(file, opts)));
   // (not on a map made with Sources: None, D330: its water is the player's to place)
   if (opts.profile !== "generate" || opts.spec?.settings?.start?.easyStart !== true || opts.spec.settings.water.sources === "none" || !v.analysis || !v.model || !v.water) return v;
   return withEasyStart(file, opts, v);
@@ -158,6 +159,24 @@ function withRuledLand(file: TimberFile, v: Validation): Validation {
     id: "terrain.ruled_land", class: "design", severity: severityOf("generate", "design", r.ok, true), ok: r.ok, advisory: true,
     value: `${Math.round(100 * r.straight)} % / ${Math.round(100 * r.bands)} % / ${Math.round(r.corners)} / ${Math.round(100 * r.channels)} %`, limit: `${100 * RULED_LIMITS.straight} % / ${100 * RULED_LIMITS.bands} % / ${RULED_LIMITS.corners} / none`,
     message: ruledLandMessage(r), ...(r.ok ? {} : { where: { tiles: r.channel ? [[r.longest.x, r.longest.y], [r.channel.x, r.channel.y]] : [[r.longest.x, r.longest.y]] } }),
+  };
+  return { ...v, report: { ...v.report, checks: [...v.report.checks, row] } };
+}
+
+/** Empty land (`emptyLand.ts`), one advisory row beside ruled land on every map: its bare slab, with no limit. */
+function withEmptyLand(file: TimberFile, v: Validation): Validation {
+  if (!v.water || !v.analysis) return v;
+  const w = file.world;
+  const W = w.sizeX;
+  const H = w.sizeY;
+  const depth = v.water.stack?.stacked ? seenThroughRoofs(v.water.stack).depth : v.water.depth;
+  const soil = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) soil[i] = v.analysis.moisture[i] > 0 || v.analysis.soilContamination[i] > 0 ? 1 : 0;
+  const r = emptyLand(surfaceOf(w), wetOf(depth), soil, occupiedBy(mapObjects(w), W, H), W, H);
+  const row: CheckResult = {
+    id: "terrain.empty_land", class: "design", severity: "info", ok: true, advisory: true,
+    value: `${Math.round(100 * r.share)} % / ${r.largest?.tiles ?? 0}`, limit: "none",
+    message: emptyLandMessage(r), ...(r.largest ? { where: { tiles: [[r.largest.x, r.largest.y]] } } : {}),
   };
   return { ...v, report: { ...v.report, checks: [...v.report.checks, row] } };
 }

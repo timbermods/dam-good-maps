@@ -34,7 +34,7 @@ describe.each([
     // information (Kyler, 2026-09-25: resources like the official maps; D148); the badwater distance
     // is a rule when generating (Kyler, 2026-10-05, #265); the start's walkable land is a floor since D515
     expect(r.report.checks.filter((c) => !c.ok && !c.advisory)).toEqual([]);
-    expect(r.report.checks.filter((c) => c.advisory).map((c) => c.id)).toEqual(["water.clean_exists", "water.clean_reach", "start.ruins_clear", "plants.drought", "water.storage_possible", "resources.scrap", "resources.trees", "resources.bushes", "water.sealed_source", "terrain.ruled_land"]);
+    expect(r.report.checks.filter((c) => c.advisory).map((c) => c.id)).toEqual(["water.clean_exists", "water.clean_reach", "start.ruins_clear", "plants.drought", "water.storage_possible", "resources.scrap", "resources.trees", "resources.bushes", "water.sealed_source", "terrain.ruled_land", "terrain.empty_land"]);
     expect(r.report.passed).toBe(true);
   });
 

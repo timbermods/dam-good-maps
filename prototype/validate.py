@@ -18,8 +18,8 @@ the map.
 
 Terrain above terrain (caves, overhangs, ledges): the load checks read it as the game does (the support
 rule, the floor a slope or the start stands on, the room over a plant). The rows that need the floor graph
-or the air inside the rock, walk.levels and water.sealed_source, are not computed here (nor is the look measure
-terrain.ruled_land, TypeScript's alone): there is no Python
+or the air inside the rock, walk.levels and water.sealed_source, are not computed here (nor are the look measures
+terrain.ruled_land and terrain.empty_land, TypeScript's alone): there is no Python
 copy of the 3D rules (PLAN section 20, D279: 3D is verified against the game, not against a second
 implementation kept in step). They are reported as information, marked "information", and the oracle does
 not compare their verdicts. So is water under roofs: this validator's water model sees the map from above,
@@ -486,6 +486,7 @@ def validate(path, difficulty="normal", water=None, load_only=False, profile=Non
     rep.add("water.sealed_source", True, note, advisory=True, information=True)
     # ruled land: a look measure in TypeScript only (validate/ruledLand.ts), reported here as information
     rep.add("terrain.ruled_land", True, "not computed in Python: a look measure (validate/ruledLand.ts)", advisory=True, information=True)
+    rep.add("terrain.empty_land", True, "not computed in Python: a look measure (validate/emptyLand.ts)", advisory=True, information=True)
     return rep
 
 

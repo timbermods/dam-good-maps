@@ -140,6 +140,22 @@ a premise or one still to come, may carry its own, lower playability floor.
   half of them on the outlands' rim. The real places (`places/`) are warned only. The game's maps are run on the
   machine that holds them: `npx tsx tools/ruled-land.ts <folder>/*.timber`.
 
+- **Nothing bare**: `terrain.empty_land` (PLAN §11.2) measures the bare slab: level, dry, not green ground with nothing
+  on it, in stretches of 36+ tiles, as a share of the land, and the largest. No limit yet: planning calibrates it on
+  the game's built-in maps. Measured (`tools/ruled-land.ts`; share %, median, largest slab's tiles):
+
+  | Maps | Share | Median | Largest |
+  |---|---|---|---|
+  | River Valley, 128² seeds 1–12 | 36–55 | 49 | 303–787 |
+  | Canyon | 45–65 | 59 | 511–2,090 |
+  | Highlands | 42–66 | 58 | 613–1,479 |
+  | Lake Basin | 26–47 | 35 | 540–1,182 |
+  | Delta | 37–64 | 55 | 391–1,347 |
+  | Islands | 10–36 | 29 | 122–879 |
+  | The six themes, 256² seeds 1–3 | 37–78 | 38–68 by theme | 1,191–6,774 |
+  | Lake stair 128², seeds 1, 2 | 37, 30 | | 394, 299 |
+  | The Gate as laid, 128² seeds 1, 2 | 49, 56 | | 1,134, 1,507 |
+
 What The Gate's seven rounds added (2026-11-11, judged in the game each round; [progress/showcase-craft.md](progress/showcase-craft.md)):
 
 - **A barrier faces the camera and runs along the grid.** The opening camera shows one face of a ridge: a wall built
