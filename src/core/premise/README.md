@@ -90,7 +90,8 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   writes a seed's, `tools/capture-gate.ts` renders the widest frame and the opening camera in one sheet.
 - `gateWorks.ts`: the wall with one gate's stage 4 (§5.1 "As built (works)"): `gateLadder` (round 8's rungs as templates
   on the land, measured as `ladder.ts` measures: the Still Pool's levee, the Gate opened and made whole, the leat and its
-  whole share, the megadam with the Gate dammed), `gateCard` / `gateWorkWords` (the card's words) and `GATE_WORKS_CHECKS`
+  whole share, the megadam with the Gate dammed across its gorge), `gateCard` / `gateWorkWords` (the card's words; `GateCard.dam`, what the
+  megadam buys in days of drought on the settled map, `gateDamDays` by `sim/fill.ts` `fillDays`) and `GATE_WORKS_CHECKS`
   / `gateWorksFailures`.
 - `planChecks.ts`: §1.4's checks every premise shares (levels fit, no bed under `BED_FLOOR`, bodies apart, the graph
   closes, the works add up, the skeleton is whole).

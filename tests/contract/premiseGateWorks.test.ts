@@ -22,7 +22,7 @@ const ctxOf = (seed: number, side: number): GateWorksContext => {
 
 describe("The wall with one gate's works", () => {
   const a = ctxOf(2, 128);
-  const b = ctxOf(3, 192);
+  const b = ctxOf(1, 192);
 
   // (`map.shares` is said, not refused, as `works.paid` is: at 192² seed 1 the valley's green is 20 % of the map and at
   // 128² seed 2 the basin's floor 24.5 %, under the quarter planning aims at; PREMISES §5.1 "Short")

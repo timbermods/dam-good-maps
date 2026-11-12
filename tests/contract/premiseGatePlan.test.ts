@@ -139,9 +139,13 @@ describe("Broken wall-with-one-gate plans fail their invariants", () => {
       out.path = [out.path![0], ...Array.from({ length: 4 }, (_, k) => [out.path![0][0] + 3 * (k + 1), out.path![0][1]] as [number, number])];
       out.halves = out.path.map(() => 2);
     }],
-    ["valley.water", "a southern brook two wide on its whole course", (plan) => {
+    ["valley.water", "a southern brook one width on its whole course", (plan) => {
       const b = plan.links.find((l) => l.id === "brook1")!;
       b.halves = b.path!.map(() => 1);
+    }],
+    ["valley.water", "a southern brook 4 and 5 wide by turns past its head", (plan) => {
+      const b = plan.links.find((l) => l.id === "brook1")!;
+      b.halves = b.path!.map((_, k) => (k < 2 ? 1.4 : k % 2 ? 2 : 2.5));
     }],
     ["valley.water", "the plunge pool's brook two wide", (plan) => {
       const out = plan.links.find((l) => l.id === "outflow")!;

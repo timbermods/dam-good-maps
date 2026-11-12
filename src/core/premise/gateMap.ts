@@ -12,8 +12,7 @@ import { gateLand, gateLandFailures } from "./gateLand";
 import { gateWater } from "./gateWater";
 import { failing, PLAN_TRIES } from "./draw";
 import { gateOf } from "./premises/wallGate";
-import { gateCard, gateLadder, gateWorksFailures } from "./gateWorks";
-import type { PremiseCard } from "./card";
+import { gateCard, gateDamDays, gateDamWords, gateLadder, gateWorksFailures, type GateCard } from "./gateWorks";
 import type { Ladder } from "./ladder";
 import { premiseMap, type PremiseLand, type PremiseMap } from "./map";
 import { wallGate } from "./premises/wallGate";
@@ -31,7 +30,7 @@ export interface GateMap {
   frame: FrameCheck;
   /** Stage 4: the ladder on this land (`gateWorks.ts` `gateLadder`), and the map card's words. */
   ladder: Ladder;
-  card: PremiseCard;
+  card: GateCard;
   /** The works invariants the ladder fails (`gateWorks.ts` `GATE_WORKS_CHECKS`). */
   worksFails: { id: string; reason: string }[];
   /** The built map and its checks; absent when stage 3 found no start. */
@@ -151,7 +150,9 @@ export function gateMap(spec: MapSpec, theme: StyleTheme = "riverValley"): (Gate
       failed.push(`veil.settled: the Veil drops ${drop.toFixed(2)} settled (${want} or more)`);
       continue;
     }
-    return { ...out, map, held: true };
+    // (what the megadam buys, in days of drought, on the settled map's own land and objects)
+    const days = gateDamDays(plan, water, ladder, map.built.waterModel);
+    return { ...out, card: { ...out.card, dam: days ? gateDamWords(plan, days) : null }, map, held: true };
   }
   if (last) return last;
   // (each refusal's check and how often, then the last in full)

@@ -1366,13 +1366,21 @@ width varying; seeds 1 to 12 at each size). **Holds: 12 of 12 at 128², 192² an
 two drops of about a level each. The start: the bench 668 to 1,352, walkable 1,777 to 12,911, wood 262 to 758, fast 0.41
 to 1, the forester's plot 388 to 559, farmland 488 to 659. Valley green 34 to 37 % at 128², 29 to 36 % at 192², 25 to
 29 % at 256² (seed 10 24.8 %); the basin's floor 23 to 30 %. Ruled land straight 3.9 to 8.7 %, bands 0.2 to 1.9 %, corners
-0.3 to 1.7. The megadam floods 1,463 to 1,809 / 3,148 to 3,977 / 5,080 to 7,480 tiles and holds 622 to 934 / 1,242 to
-1,739 / 1,969 to 2,450.
+0.3 to 1.7. The megadam floods 1,932 to 2,519 / 4,711 to 5,739 / 5,400 to 13,141 tiles and holds 3,301 to 4,394 / 7,222
+to 8,538 / 3,779 to 13,097 tile-levels: its wall now dams the Gate across its gorge in the range, wall to wall (dammed
+at its head alone, the raised lake ran round the head and down the wadi strips beside the slot's bed, off the map at
+the notch, so the reservoir counted only what that leak left). Its wall stands square to the Low River's line over 3
+tiles each way (`gateWorks.ts` `wallAcross`, `WALL_CHORD`): at a bend under the lake's lip the second row's tangent ran
+along the gorge, and 12 plans at 192² and 8 at 256² over twelve seeds were drawn again for a dam with no shoulders (0 at
+each size now; each such redraw cost 0.6 s at 192² and 0.9 s at 256², stages 0 to 4). The card says what the dam buys
+(`gateDamDays`, `GateCard.dam`): on the settled map, the days the lake's water lasts through a drought with the dam
+(filled to its level behind its walls) and without it (at its sill), by the game's evaporation as a Fill's days are read
+(`sim/fill.ts` `fillDays`, D29): 84 to 87 days against 49 to 52 at 128² and 192².
 
 **Short.** The Veil's brook is 3 or 4 wide, not 2 to 4: two wide, its 9.5 stood two deep, ran over its banks and down
 the Gate past its bar (seed 1 at 128²). The southern brooks are 2 or 3. The megadam's water (the lake's sill + 2) is now
-the plunge pool's sill, under the start's bench: it no longer floods the bench (the card's words say so). More plans are
-drawn again for a megadam with no shoulders at 192² and 256² (12 and 8 over twelve seeds, from 4 and 1). The basin's
+the plunge pool's sill, under the start's bench: it no longer floods the bench (the card's words say so, planning's
+ruling of 2026-11-12). The basin's
 floor is under a quarter of the map on some seeds at each size (23 to 25 %). The basin reads in the game as the one dry material (D496); the seeps are not drawn; the Veil's lip is a straight
 run by the shared falls stage.
 

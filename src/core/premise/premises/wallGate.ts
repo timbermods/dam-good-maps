@@ -55,15 +55,16 @@ export const DOOR_RISE = 2;
  *  sill, on the start's bench. */
 export const DOOR_LOBE = 8;
 export const OUTFLOW_HALF = 2;
-/** The valley's brooks (planning's ruling of 2026-11-12: never wide and straight). The plunge pool's falls the two
- *  levels to the lake in two steps, a level over the pool's low lip and a level at a short cascade `cascade` of its
- *  length down; its width `stream` (two to four), the southern brooks' `valley`, a whole width drawn afresh every
- *  `run` tiles, never the one before (so never the same for more than about six); a point every `every` tiles. */
 /** A southern brook's half width at its tarn (the table reads it: narrower, the tarns stood over their sills). */
 export const TARN_HALF = 1.4;
 /** The Steps, the small pool between the plunge pool's brook's two steps: across the brook, as wide as its lip
  *  (`r` its half length along the brook), at least `reach` tiles of brook each side of it. */
 export const STEPS = { r: 2.6, reach: 4, meadow: 4 } as const;
+/** The valley's brooks (planning's rulings of 2026-11-12: never wide and straight). The plunge pool's falls the two
+ *  levels to the lake in two steps, a level over the pool's low lip into a reach, then the Steps' cascade `cascade` of
+ *  the way between; its width `stream` (3 or 4: two wide, its 9.5 stood two deep), the southern brooks' `valley`. A
+ *  whole width is drawn afresh after a run of `run` tiles, never the one before; `valley.water` holds only the most:
+ *  never one width for more than `run[1]` tiles (the least only spaces the draws). A point every `every` tiles. */
 export const BROOK = { stream: [3, 4], valley: [2, 3], run: [3, 6], every: 3, cascade: [0.35, 0.6] } as const;
 /** The plunge pool's brook runs this far on from its lip, away from the bench, before it turns down the valley. */
 export const OUTFLOW_AWAY = 16;
