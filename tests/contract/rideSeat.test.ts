@@ -1,9 +1,9 @@
 // Under Ride, a multi-tile source on ground a force moved unevenly keeps riding, its seat levelled to the lowest of its
 // tiles as D290 levels a placed one (planning's ruling of 2026-11-11; clear.ts `levelSeats`, Rust's Carve `level_seat`).
-// The map that found it: Highlands 4242 at 256², a Craterize at (170, 70), whose debris apron tore a badwater source's
-// 3 × 3 south-west of it (at (150, 104) then, (147, 106) since the start's floors, #1015): it rode onto uneven ground
-// and stood inside it, and the export refused the map. The source is found by place, not by its generated id, and the
-// crater kept where it stood from it then (20 tiles east, 34 north); Clear taking it shows its ground torn.
+// The map that found it was Highlands 4242's (a Craterize at (170, 70) whose debris apron tore a badwater source's 3 × 3
+// south-west of it); a generator version moved that source, so the case builds its own ground: a flat blank map, a
+// badwater source where a Craterize's apron raises its rows by 2, 2 and 1 (thin, uneven: it rides under Ride, and its
+// ground is torn, so Clear takes it).
 
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
@@ -13,24 +13,20 @@ import { CRATER_DEFAULTS, type CraterSettings } from "../../src/core/forces/crat
 import { footprint } from "../../src/core/forces/objects";
 import { waterSource } from "../../src/core/format/entities";
 import { plainEntities } from "../../src/core/forces/force";
-import { makeSpec } from "../../src/core/spec/mapspec";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 
-const W = 256;
+const W = 96;
+const SOURCE = "00000000-0000-4000-8000-0000000000b2";
 
 describe("a multi-tile source rides a force on a level seat (planning's ruling of 2026-11-11)", () => {
-  it("Highlands 4242's crater under Ride: the badwater source rides on its seat, the export takes the map, replay and undo hold", async () => {
-    await runGenerate(makeSpec({ seed: 4242, theme: "highlands", size: { x: W, y: W } }));
-    ed.refine();
+  it("a crater's apron under Ride: the badwater source rides on its seat, the export takes the map, replay and undo hold", async () => {
+    ed.newBlank(W, 10);
+    // (its 3 × 3 at x 47-49, y 63-65: the apron of a crater at (48, 48) raises those rows by 2, 2 and 1)
+    expect(ed.apply({ op: "placeEntity", params: { id: SOURCE, template: "BadwaterSource", x: 47, y: 63, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 } } } } as never).errors ?? []).toEqual([]);
     const before = MapSession.open(decodeProject(ed.project().bytes)).built;
-    // (the badwater source the crater's apron reaches, south-west of it)
-    const was = before.entities.filter((e) => e.template === "BadwaterSource" && Math.hypot(e.x - 148, e.y - 105) <= 8).sort((p, q) => Math.hypot(p.x - 148, p.y - 105) - Math.hypot(q.x - 148, q.y - 105))[0];
-    expect(was, "a badwater source south-west of the crater").toBeDefined();
-    const SOURCE = was.id;
-    // (the crater where it was on the map that found it: 20 tiles east of the source and 34 north)
-    const at: [number, number] = [was.x + 20, was.y - 34];
-    const settings = { ...CRATER_DEFAULTS, size: 54, centre: "flat", sources: "ride" } as unknown as CraterSettings;
+    const was = before.entities.find((e) => e.id === SOURCE)!;
+    const at: [number, number] = [48, 48];
+    const settings = { ...CRATER_DEFAULTS, size: 30, centre: "flat", sources: "ride" } as unknown as CraterSettings;
     expect(ed.forceStart({ verb: "craterize", settings, origin: at, cut: null, natural: false }).errors).toEqual([]);
     for (let k = 0; k < 3; k++) ed.forceAdvance(1);
     expect(ed.forceStop().kept).toBe(true);
@@ -41,10 +37,11 @@ describe("a multi-tile source rides a force on a level seat (planning's ruling o
     const tiles = footprint({ W, H: W }, e!);
     expect(tiles.length).toBe(9);
     const low = Math.min(...tiles.map((i) => b.heights[i]));
-    // (the crater moved its tiles unevenly: without the seat it stood inside the ground)
+    // (the crater raised its tiles unevenly, by at most 2: without the seat it stood inside the ground)
     const op = s.state.sculpts.filter((o) => o.op === "forceResult").at(-1)!.params as { tiles: number[]; heights: number[] };
     expect(tiles.some((i) => op.tiles.includes(i))).toBe(true);
     for (const i of tiles) expect(b.heights[i], "its seat is level").toBe(low);
+    expect(low).toBeGreaterThan(before.heights[tiles[0]]);
     expect(e!.z).toBe(low);
     const ex = await ed.exportTimber(true);
     expect(ex.errors).toEqual([]);
@@ -62,7 +59,7 @@ describe("a multi-tile source rides a force on a level seat (planning's ruling o
     expect(ed.forceStop().kept).toBe(true);
     const cleared = MapSession.open(decodeProject(ed.project().bytes)).state.sculpts.filter((o) => o.op === "forceResult").at(-1)!.params as { cleared?: { id: string }[] };
     expect((cleared.cleared ?? []).map((c) => c.id), "Clear takes it: its ground was torn").toContain(SOURCE);
-  }, 600_000);
+  }, 300_000);
 
   it("a footprint moved evenly cuts nothing; a single-tile source and one under a roof are left as they ride", () => {
     const n = 8;
