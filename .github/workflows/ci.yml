@@ -14,7 +14,8 @@ on:
 #   pull request into dev    the quick checks: `changes` and `test` (typecheck, quick suite in two shards, build). The
 #                            browser shards and the heavier suites wait for the merge, except the `page` job (below), which runs
 #                            before it when the PR touches the page, and the browser shards themselves when the PR can change
-#                            what the generator makes (`generator`, tools/ci-changes.mjs `isGenerator`). Not while a PR is a draft: marking
+#                            what the generator makes (`generator`, tools/ci-changes.mjs `isGenerator`: any file generate()
+#                            imports, walked at the PR's head each run, no list to keep). Not while a PR is a draft: marking
 #                            it ready runs CI. A newer push cancels the run. One that touches only investigation/
 #                            (Codex's investigation PRs) runs `changes` alone.
 #   push to dev (a merge)    the suites the change needs, classified like a merge group (below), browser shards included:
