@@ -54,6 +54,9 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   opening camera. `checkFrame` is stage 3: the start kept or moved within 4 tiles to where its 5 × 5 is dry and
   level, the landmark's lip and foot are in the first frame, the frame's water is shallow (lake beds raised) and the
   walk finds the rules' level land and farmland.
+- `washes.ts` `premiseWashes`: the dry washes and old bed (D517, `land/washes.ts`) cut into the ground after stage 3,
+  off what stage 1 decided, the works and the niches; their ramps join `PremiseLand.ramps`, the beds `PremiseLand.washes`
+  (the dead stands' dry beds, `premiseLife`).
 - `premises/lakeStair.ts`: the lake stair (§4): `lakeStairEligible`, the layout (the valley, the lakes on it, the
   start, its frame and the landmark placed together, the bypass on a course of its own over the land
   (`bypassCourses`: two legs over the seed's rises and hollows, turning far from the start, kept off the edge), the tarns and basins, the works, the ridges, the

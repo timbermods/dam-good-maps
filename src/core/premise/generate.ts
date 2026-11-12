@@ -33,6 +33,7 @@ import { PREMISES } from "./premises";
 import { premiseStyle } from "./style";
 import type { PremisePlan } from "./types";
 import { waterByNumber } from "./water";
+import { premiseWashes } from "./washes";
 import { withSmallMapThreads } from "../sim/parallel";
 
 /** Settles one premise map may cost before the themes make it (PREMISES §2.2 stage 5: at most two a plan; the themes
@@ -165,6 +166,9 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}, own
       fail(attempt, [{ id: "frame.start", reason: frame.reason }]);
       continue;
     }
+    // (the dry washes and the old bed, `washes.ts`: cut once the start is put, before the ladder reads the land)
+    const washes = premiseWashes(plan, ground, frame.start, attempt);
+    if (washes.length) ground.washes = washes;
     // stage 4: the ladder, each work's site and its gain by number
     const ladder = ladderOf(plan, water, ground.heights, ground.laid);
     // (a map handed over too watered, or too dry, is drawn again before its settle: `spectrum` by number)
@@ -207,6 +211,7 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}, own
       storage: null,
       startDrought: null,
       stage: "built",
+      ...(ground.washes ? { washes: ground.washes } : {}),
       premise: { id: def.id, theme: pair.theme, card: premiseCard({ id: def.id, theme: pair.theme, plan, ladder }) ?? undefined, plan, attempt, ladder, life: m.life, start: { moved: frame.moved, bench: frame.bench, moist: frame.moist, reach: frame.reach, shallow: Math.round(frame.shallow * 100) / 100 }, later, ...(m.notes.length || plan.notes?.length ? { notes: [...(plan.notes ?? []), ...m.notes] } : {}) },
     };
     // the first look is the map's own land (D348: a land shown is never replaced, so it is shown once it passed)

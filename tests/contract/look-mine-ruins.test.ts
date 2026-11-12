@@ -74,8 +74,9 @@ import * as ed from "../../src/worker/session";
  *  generator 0.10.16's ground with grade (its land rolls in one-level steps: a new map, D148); `d89bc166…` before
  *  generator 0.10.17's start floors (D515: the settler's places need the bench and the start's wood a fast species, a
  *  new map, D148); `662d8789…` before generator 0.10.18's dead stands on the dry land (D516: the same land, water and
- *  start, dead stands among its resources, D148). */
-const LIVE_SHA = "3661b9d39c08838ce35eb694330c8c739cc01929893df235b6c783b1073723b2";
+ *  start, dead stands among its resources, D148); `3661b9d3…` before generator 0.10.19's dry washes (D517: two washes
+ *  cut into its land, a new map, D148). */
+const LIVE_SHA = "277fb85d76d6cf894fdc906a03dff69a50a6a7ffcfa35c74eb8b18339fcbbbd8";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

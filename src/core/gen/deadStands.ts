@@ -5,7 +5,7 @@
 //
 // They gather in a few old woods (two to four on a 128² map), each a region of stands, the rest of the dry land bare.
 // Where a wood goes is read from the land, never a random field: the old water line (the dry band just beyond the
-// moist ground, where the water used to reach), the banks of dry beds, the top of a mesa or butte (a level plate with
+// moist ground, where the water used to reach), the banks of dry beds and washes, the top of a mesa or butte (a level plate with
 // no higher ground beside it), and dry hollows and their rims; its trees are the site's (pines on dry tops, birches by
 // old water, a few old oaks among them), so a 128² map holds hundreds of dead logs, not thousands. Never on moist ground (living trees belong
 // there), nor in a living grove's clearing; none within the start's own walk and few out to the starting-logs floor's,
@@ -27,8 +27,6 @@ export const DEAD_STANDS = {
   stand: { least: 15, a: 21, b: 26 },
   /** Of a stand's ground, the share under a tree (thinned from the edge, as the living groves are). */
   fill: 0.52,
-  /** Stand seeds within a wood at least this far apart, tiles. */
-  gap: 8,
   /** The old woods: two to four on a 128² map (by area elsewhere, one at least), each a region of stands within
    *  `radius` of its middle, on the kind of place its middle stands on; woods at least `apart` tiles apart (a fifth of
    *  the map's side when that is more). One wood stands in the start's opening view where the land allows: its middle
@@ -46,7 +44,7 @@ export const DEAD_STANDS = {
   benchWalk: 50,
   /** The old water line: dry tiles this far from moist ground or water. */
   shore: [2, 7] as const,
-  /** A dry bed's bank: dry tiles this far from a channel. */
+  /** A dry bed's bank: dry tiles this far from a dry channel or a wash's bed (`land/washes.ts`). */
   bank: [1, 3] as const,
   /** A dry hollow: ground at least this many levels under its spill, and its rim this far out. */
   hollowDepth: 1,
@@ -83,6 +81,8 @@ export interface DeadStandsInput {
   free: Uint8Array;
   /** River and bed channels, wet or dry. */
   channel?: Uint8Array;
+  /** The dry washes' beds and hollows (`land/washes.ts` `bedMask`). */
+  beds?: Uint8Array;
   /** The walk from the start to each tile (null without a start). */
   walk: Float64Array | null;
   start?: { x: number; y: number };
@@ -176,12 +176,12 @@ export function planDeadStands(inp: DeadStandsInput): DeadStand[] {
   };
   // the old water line
   for (let i = 0; i < N; i++) if (allowed[i] && fromGreen[i] <= DEAD_STANDS.shore[1]) mark(i, "shore", -1);
-  // the banks of dry beds (a channel's dry stretch)
-  if (inp.channel) {
+  // the banks of dry beds (a channel's dry stretch, a wash's bed)
+  if (inp.channel || inp.beds) {
     const dryBed = new Uint8Array(N);
     let any = false;
     for (let i = 0; i < N; i++)
-      if (inp.channel[i] && !wet[i] && !moist[i]) {
+      if ((inp.channel?.[i] || inp.beds?.[i]) && !wet[i] && !moist[i]) {
         dryBed[i] = 1;
         any = true;
       }
@@ -280,7 +280,8 @@ export function planDeadStands(inp: DeadStandsInput): DeadStand[] {
         within(at, (i) => {
           if (allowed[i] && placeOf[i] >= 0 && (pass || (placeOf[i] === p0 && zoneOf[i] === z0))) local[i] = 1;
         });
-        const seeds = pickSeeds(rng, local, W, 1, DEAD_STANDS.gap);
+        // (one stand's seed at a time: the clearing round each stand keeps the next apart)
+        const seeds = pickSeeds(rng, local, W, 1, 0);
         if (!seeds.length) break;
         const seed = seeds[0];
         const p = placeOf[seed];

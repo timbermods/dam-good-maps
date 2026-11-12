@@ -114,6 +114,10 @@ a premise or one still to come, may carry its own, lower playability floor.
   tiles), as stands with a purpose; and dead trees on the dry land as the game's maps have them (36 to 124 per 1,000
   dry tiles; ours about 40, D516), in a few old woods where forest was: the old water line, dry beds, a mesa top, dry
   hollows; pines on the tops, birches by old water, a few old oaks. A dead tree keeps its logs and grows none back: wood travelled for, none in the start's walk.
+- **Dry washes**: a few winding dry beds across the dry land, as each of the game's maps has one or two (D517): 2 to 3
+  wide, a level or two deep, where rain would run, ending at water behind a lip, in a dry hollow that fills if water is
+  led in, or (the old bed, one a map) behind a lake's lip, one notch from running again. A dam at a wash's mouth or a
+  canal into it greens its floor first: irrigation the land offers, never water it gives.
 - **Weather**: by the model and in the game: the start's days of water in each early drought; the day badwater reaches
   the start, left alone and with each answer built.
 - **Reach**: every region walkable by natural ways or by a crossing the land plainly asks for.
