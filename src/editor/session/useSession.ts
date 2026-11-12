@@ -18,22 +18,24 @@ import type { Point as QuakePoint } from "../../core/forces/quake";
 import { loadFirstRun, saveFirstRun, type FirstStep } from "../FirstRun";
 import { Selection, type SelectMode } from "../select";
 import { WaterJourney } from "../waterJourney";
+import { EditQueue, type MapAnswer, type MapPort, type QueueHost, type QueueOpen, type TicketView } from "../../core/doc/editQueue";
 import { WaterPlayer } from "../waterPlayer";
 import { hazardDays, type Hazard } from "../../core/sim/weather";
 import { heldWords, type HeldFirstDays } from "../../core/sim/firstDays";
 import type { HeldStartWater } from "../../core/sim/startWaterDay";
 import { describeTile as describeTileFacts, tileWords } from "../../core/doc/describeTile";
-import type { TerrainState } from "../../core/features/raster/strokePreview";
+import { dryWords, IRRIGATION_MOIST } from "../../core/analysis/irrigation";
 import { DEFAULT_OPTIONS, type Rgba, type ToolOptions } from "../tools";
 import { type Mirror, mirrorOf } from "./mirror";
 import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
 
-function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-  return true;
-}
+/** A ticket's call to the map's worker made on the page (`run`): `w` is the worker's API with this ticket's envelope on
+ *  every call (`ticket`), called when the ticket's turn comes, so whatever the call works out first (a fill's level)
+ *  reads the map as the edits before it left it. */
+export type EditCall = (w: Remote<GeneratorApi>) => Promise<SessionUpdate>;
+/** The queue's name for a page call (`EditCall`) among the worker's edit names. */
+const PAGE_CALL = "page";
 
 /** An editor note: a refusal (error) goes with the next action; `keep` holds a note until it is dismissed (a save that failed). `action` is a
  *  quiet button beside it ("See it" on a shared session's water note). */
@@ -109,6 +111,8 @@ export interface SessionSlice {
   setMarkersOn: Dispatch<StateUpdater<boolean>>;
   /** The Show row's Markers toggle, as its click does it (the 3D view puts it here): M's way to it. */
   markersToggle: { current: (() => void) | null };
+  /** First view's press (the view fills it), for its key. */
+  firstViewCall: { current: (() => void) | null };
   setNearSources: Dispatch<StateUpdater<number[]>>;
   nearSources: number[];
   setFeeding: Dispatch<StateUpdater<number[]>>;
@@ -181,6 +185,12 @@ export interface SessionSlice {
   /** The hover readout's words for a tile: what is on it, and while the Drought or Badtide view is on, when its water
    *  dries or turns bad. */
   hoverWordsAt: (x: number, y: number, level?: number) => string;
+  /** While the Irrigation view is on, why the dry ground under the pointer is dry (the view's key says it, under
+   *  Legend, so the readout and the coordinates keep their boxes), else null. */
+  dryWhy: string | null;
+  setDryWhy: Dispatch<StateUpdater<string | null>>;
+  /** Why a tile's top is dry, while the Irrigation view is on (`dryWords`), else null. */
+  dryWhyAt: (x: number, y: number, level?: number) => string | null;
   /** A held hazard day's first dry or first bad days per tile (core/sim/firstDays.ts, from the worker), or null. */
   firstNews: { current: HeldFirstDays | null };
   /** Work out both weather hazards' days once Kyler has been idle a moment with the water settled (the worker stops
@@ -223,7 +233,7 @@ export interface SessionSlice {
   optionsRef: { current: ToolOptions };
   needs: { rules: Rules; reachMin: number };
   enqueue: <T>(fn: () => Promise<T>) => Promise<T>;
-  run: (fn: () => Promise<SessionUpdate>, onDone?: (u: SessionUpdate) => void) => Promise<void>;
+  run: (fn: EditCall, onDone?: (u: SessionUpdate) => void) => Promise<void>;
   draftWater: { current: WaterView | null };
   showWater: (w: WaterView, soon?: boolean, held?: boolean) => void;
   toggleWeather: (hazard: Hazard) => void;
@@ -231,8 +241,18 @@ export interface SessionSlice {
   showWithered: (tiles: Int32Array) => void;
   applyUpdate: (u: SessionUpdate) => void;
   applyView: (v: ViewUpdate) => void;
-  /** The worker's latest land, put in place once the page has no stroke of its own in flight. */
-  takeLand: () => void;
+  /** The edit queue (core/doc/editQueue.ts, #922): every edit, stroke, undo, redo and History jump is a ticket in it; the
+   *  page's land (`mirror.heights` is its `shown`) is the worker's answers with the unanswered tickets laid on. */
+  edits: { current: EditQueue };
+  /** A ticket the page made: busy until it ends, `onAnswer` with the worker's answer (also a refusal's); resolves once
+   *  it ends, however. */
+  track: (id: number, onAnswer?: (u: SessionUpdate) => void) => Promise<void>;
+  /** Resolves once every edit made so far is answered or refused (a stroke the button still holds is not one yet: a save
+   *  goes on without it). */
+  whenEdited: () => Promise<void>;
+  /** A force's frames drew the land past the queue (into the mirror, `applyForceTerrain`): once it is kept or dropped and
+   *  its land taken, the page shows the queue's land again, whole. */
+  landAgain: () => void;
 }
 
 export function useSession(ed: Ed, props: EditorProps): SessionSlice {
@@ -241,6 +261,27 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   // the map as opened; later changes go to the renderer as updates (the page re-mounts the
   // editor for another map)
   const view = props.opened.view;
+  /** The edit queue (I1, I2): the land the page shows is its `shown`, the worker's with the unanswered tickets laid on;
+   *  the renderer and the mirror hold that array (the opened view hands it to the renderer). */
+  const edits = useRef<EditQueue>(null as unknown as EditQueue);
+  const queueHost = useRef<QueueHost>({});
+  if (!edits.current) {
+    const port: MapPort = {
+      send: (env, call) => {
+        if (call.kind === "moveTo") return api.ticket(env, "moveTo", call.step) as Promise<MapAnswer>;
+        if (call.name === PAGE_CALL) return (call.args[0] as EditCall)(ticketApi(api, env)) as Promise<MapAnswer>;
+        const send = api.ticket as unknown as (e: typeof env, name: string, ...a: unknown[]) => Promise<MapAnswer>;
+        return send(env, call.name, ...call.args);
+      },
+    };
+    const clock = { now: () => performance.now(), after: (ms: number, fn: () => void) => { const t = setTimeout(fn, ms); return () => clearTimeout(t); } };
+    edits.current = new EditQueue(props.opened as unknown as QueueOpen, port, clock, {
+      shown: (r) => queueHost.current.shown?.(r),
+      line: (t, id) => queueHost.current.line?.(t, id),
+      answer: (a, t) => queueHost.current.answer?.(a, t),
+    });
+    view.heights = edits.current.shown;
+  }
   const mirror = useRef<Mirror>(mirrorOf(view));
   const columnsRef = useRef<MapView["columns"]>(view.columns);
   const renderer = useRef<MapRenderer | null>(null);
@@ -303,9 +344,19 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     const when = heldWords(n, weatherRef.current, infoRef.current.version, i);
     return when ? `${words} · ${when}` : words;
   };
+  const [dryWhy, setDryWhy] = useState<string | null>(null);
+  // (the Irrigation view: why a dry tile's top is dry, on the ground seen from above)
+  const dryWhyAt = (x: number, y: number, level?: number): string | null => {
+    const irr = shownLayers.current;
+    if (!irr || !irr.irrigation || x < 0 || y < 0 || x >= irr.W || y >= irr.H) return null;
+    const i = y * irr.W + x;
+    if (level !== undefined && level < mirror.current.heights[i]) return null;
+    return irr.irrigation.tone[i] > IRRIGATION_MOIST ? dryWords(irr.irrigation, i) : null;
+  };
   const rehover = () => {
     const h = lastHover.current;
     if (h) setHover(hoverWordsAt(h.x, h.y, h.level));
+    setDryWhy(h ? dryWhyAt(h.x, h.y, h.level) : null);
   };
   // A refusal's note goes with the next thing the player does (a press, a key, a tool picked, the layer or the view
   // changed); only a save that failed stays until it is dismissed or the map is saved. An edit's own note
@@ -334,6 +385,11 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [progress, setProgress] = useState<CheckProgress | null>(null);
   const [layer, setLayer] = useState<LayerKind>(props.carry?.layer ?? "none");
   const [waterLayers, setLayers] = useState<WaterLayers | null>(null);
+  /** The water layers on show, for the readout (the Irrigation view's why): kept as they come, read by the pointer. */
+  const shownLayers = useRef<WaterLayers | null>(null);
+  shownLayers.current = layer === "irrigation" ? waterLayers : null;
+  // (the readout says the why as soon as the view's layers come, without the pointer moving)
+  useEffect(() => rehover(), [shownLayers.current]);
   const [waterTick, setWaterTick] = useState(0);
   const [heldTick, setHeldTick] = useState(0);
   /** The water is flowing into an edit's new shape (the dot says "Settling…"): set as a journey starts and ends, never
@@ -342,6 +398,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   /** **Markers** is on (every source shows its marker then, D196). */
   const [markersOn, setMarkersOn] = useState(false);
   const markersToggle = useRef<(() => void) | null>(null);
+  const firstViewCall = useRef<(() => void) | null>(null);
   /** The source groups near the pointer, and those the pointer's water comes from (D196). */
   const [nearSources, setNearSources] = useState<number[]>([]);
   const [feeding, setFeeding] = useState<number[]>([]);
@@ -356,7 +413,9 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [selecting, setSelecting] = useState<SelectMode | null>("rect");
   const selectingRef = useRef(selecting);
   selectingRef.current = selecting;
-  const selection = useRef(new Selection(info.W, info.H));
+  // (made once: `useRef(new Selection(…))` built a map-sized mask on every render and threw it away)
+  const selection = useRef<Selection>(null as unknown as Selection);
+  selection.current ??= new Selection(info.W, info.H);
   const [selectionTick, setSelectionTick] = useState(0);
   /** The tiles being drawn, before they join the selection. */
   const [selectDraw, setSelectDraw] = useState<number[] | null>(null);
@@ -542,9 +601,10 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
 
   // the start requirements and targets of this map: its settings, or its difficulty's defaults
   const needs = useMemo(() => {
-    const r = rulesFor(info.spec, info.designedFor);
+    // (a map without its spec: its floors at its own size, as the gate scales them)
+    const r = rulesFor(info.spec, info.designedFor, "", { x: info.W, y: info.H });
     return { rules: r, reachMin: r.reachMin };
-  }, [info.spec, info.designedFor]);
+  }, [info.spec, info.designedFor, info.W, info.H]);
   // ------------------------------------------------------------------------------ worker calls
 
   /** Queue a worker call after the ones before it (edits and plans stay in order). */
@@ -554,9 +614,36 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     return next;
   }
 
-  /** Run worker calls one after another; apply what changed to the view. (While a force is at work
-   *  the other edits wait: it is kept when it ends, Esc skips it to its end, Ctrl+Z takes it back.) */
-  function run(fn: () => Promise<SessionUpdate>, onDone?: (u: SessionUpdate) => void): Promise<void> {
+  /** What the page does once a ticket is answered (by ticket id), and how many tickets are on their way (`busy`). */
+  const onAnswers = useRef(new Map<number, (u: SessionUpdate) => void>());
+  /** The last ticket the page tracked: the tickets end in the order made (I3), so it ends last. */
+  const lastTicket = useRef(0);
+  function track(id: number, onAnswer?: (u: SessionUpdate) => void): Promise<void> {
+    lastTicket.current = Math.max(lastTicket.current, id);
+    setBusy((b) => b + 1);
+    if (onAnswer) onAnswers.current.set(id, onAnswer);
+    return edits.current.settled(id).then(() => {
+      onAnswers.current.delete(id);
+      setBusy((b) => b - 1);
+    });
+  }
+
+  function landAgain(): void {
+    const q = edits.current;
+    if (q.W !== infoRef.current.W || q.H !== infoRef.current.H) return;
+    q.resync(q.base);
+    mirror.current.heights = q.shown;
+    renderer.current?.updateTerrain(q.shown, columnsRef.current);
+  }
+
+  function whenEdited(): Promise<void> {
+    return Promise.all([queue.current, edits.current.settled(lastTicket.current)]).then(() => undefined);
+  }
+
+  /** An edit: a ticket in the edit queue, sent once the tickets before it are answered; what it changed goes to the
+   *  view when its answer comes. (While a force is at work the other edits wait: it is kept when it ends, Esc skips it to
+   *  its end, Ctrl+Z takes it back.) Resolves once the edit is answered or refused. */
+  function run(fn: EditCall, onDone?: (u: SessionUpdate) => void): Promise<void> {
     // (the map is being opened again after a crop: what the player does meanwhile waits for the new editor)
     if (resizing.current) return Promise.resolve();
     if (ed.forcer.current?.running) {
@@ -565,28 +652,12 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     }
     // (an undo has taken the kept force's tails back already, on its key)
     juice.current?.edited();
-    const next = queue.current.then(async () => {
-      setBusy((b) => b + 1);
-      try {
-        const u = await fn();
-        // an edit other than a stroke: the strokes the page could undo on its own are no longer
-        // the latest steps of the history
-        if (u.ok) {
-          ed.localUndo.current = [];
-          ed.localRedo.current = [];
-        }
-        applyUpdate(u);
-        if (!u.ok && u.errors.length) setMessage({ kind: "error", text: plain(u.errors[0]) });
-        else if (u.ok) setMessage(null);
-        onDone?.(u);
-      } catch (e) {
-        setMessage({ kind: "error", text: String(e instanceof Error ? e.message : e) });
-      } finally {
-        setBusy((b) => b - 1);
-      }
+    const id = edits.current.edit(PAGE_CALL, [fn], "Edit");
+    return track(id, (u) => {
+      // (a refusal's line is the queue's, `line`)
+      if (u.ok) setMessage(null);
+      onDone?.(u);
     });
-    queue.current = next;
-    return next;
   }
 
   /** Put water on the map (a frame of its journey, a draft's): the renderer and the page's copy (the
@@ -741,9 +812,12 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     renderer.current?.setSeason(day > 0 ? weatherRef.current : null);
   }
 
-  function applyUpdate(u: SessionUpdate): void {
+  function applyUpdate(u: SessionUpdate, answered = false): void {
     // (a shared session's answer to an edit: the session orders the edit, and the map's news comes as its own update)
     if (u.routed && !Object.keys(u.view).length) return;
+    // (an update that did not come as a ticket's answer, a force's, a shared session's: its land and history are the
+    // worker's, taken by the queue as an event, I1)
+    if (!answered && (newLand(u.view) || u.info)) edits.current.event({ ok: u.ok, errors: u.errors, view: u.view as MapAnswer["view"], info: u.info });
     // a crop, or the undo or redo of one, made the map another size (D340): the page opens the session's map again, which
     // fits the camera and the minimap to it and clears the selection; nothing of this update goes into the old view
     if (u.ok && (u.info.W !== infoRef.current.W || u.info.H !== infoRef.current.H)) {
@@ -783,36 +857,40 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     syncDroughtLine();
   }
 
-  /** The worker's latest land and terrain, held while the page's own is ahead of it (`takeLand`). */
-  const heldLand = useRef<{ heights?: Uint8Array; columns?: ViewUpdate["columns"]; terrain?: TerrainState }>({});
-  /** Put the worker's latest land in place once nothing the page painted is its own alone: no stroke being painted
-   *  and none on its way to the worker. Until then the page's land is ahead of the worker's, and the worker's would
-   *  take away what the page shows (#410). When it goes in, the page's strokes are checked against it: the same,
-   *  byte for byte. */
-  function takeLand(): void {
-    const held = heldLand.current;
-    if (!held.heights && !held.terrain && !held.columns) return;
-    if (held.heights) endFlip();
-    if (ed.pendingTerrain.current > 0 || ed.painter.current?.busy) return;
-    heldLand.current = {};
-    const m = mirror.current;
-    if (held.heights) {
-      if (ed.checkStroke.current) {
-        ed.checkStroke.current = false;
-        if (!sameBytes(m.heights, held.heights)) {
-          ed.strokeMismatches.current++;
-          console.warn("a stroke painted on the page differs from the map the worker built; the worker's is shown");
-        }
-      }
-      m.heights = held.heights;
-      renderer.current?.updateTerrain(held.heights, held.columns);
-    } else if (held.columns) renderer.current?.updateTerrain(m.heights, held.columns);
-    if (held.terrain) ed.terrain.current = held.terrain;
+  /** Land in a view the queue has not taken: another array than its `base` (a ticket's answer's land is its `base`
+   *  already, by the same arrays). */
+  function newLand(v: ViewUpdate | undefined): boolean {
+    const base = edits.current.base;
+    return !!v && ((!!v.heights && v.heights !== base.heights) || (!!v.terrain && v.terrain !== base.terrain));
   }
 
-  /** Apply what changed on the map to the mirror and the renderer. While strokes the page painted
-   *  are on their way to the worker, or one is being painted, the page's own terrain is ahead of the
-   *  worker's: the worker's waits for them (it is the same, byte for byte). */
+  /** What the queue tells the page: the land it shows changed (drawn), a ticket was refused (its line), an answer came
+   *  (the rest of it: the water, the objects, the info; what the ticket's maker waits for). */
+  queueHost.current = {
+    shown: (r) => {
+      const q = edits.current;
+      // (a crop, or its undo: the map is another size, and the page opens it again in a new editor, `applyUpdate`)
+      if (resizing.current || q.W !== infoRef.current.W || q.H !== infoRef.current.H) return;
+      mirror.current.heights = q.shown;
+      endFlip();
+      const rr = renderer.current;
+      if (!rr) return;
+      if (r) rr.updateTerrainRect(q.shown, r);
+      else rr.updateTerrain(q.shown, columnsRef.current);
+      rr.refreshShadows();
+    },
+    line: (text) => setMessage({ kind: "error", text: plain(text) }),
+    answer: (a: MapAnswer, t: TicketView | null) => {
+      if (!t || !mounted.current) return;
+      const u = a as unknown as SessionUpdate;
+      // (a stale answer, a map before this one, carries nothing of this map)
+      if (u.info) applyUpdate(u, true);
+      onAnswers.current.get(t.id)?.(u);
+    },
+  };
+
+  /** Apply what changed on the map to the mirror and the renderer. Its land goes through the queue (I1): the land an
+   *  answer brought is in place already; land from elsewhere (a force, the settled water's terrain) is an event. */
   function applyView(v: ViewUpdate): void {
     // (new land ends the flip; water, soil and objects arriving while the other version is on show wait in the page's
     // copy, and are drawn when the key lets go)
@@ -820,16 +898,12 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     const flipped = comparing.current;
     const r = flipped ? null : renderer.current;
     const m = mirror.current;
-    // (a stroke being painted, or on its way to the worker, is ahead of the worker's land: the worker's latest
-    // land and terrain wait until the page has nothing of its own in flight, then go in, #410)
-    if (v.heights) heldLand.current.heights = v.heights;
+    if (newLand(v)) edits.current.event({ ok: true, errors: [], view: v as MapAnswer["view"] });
     // (a roof's top an edit reshaped: its columns go in with the land, D487)
     if (v.columns) {
-      heldLand.current.columns = v.columns;
       columnsRef.current = v.columns;
+      renderer.current?.updateTerrain(edits.current.shown, v.columns);
     }
-    if (v.terrain) heldLand.current.terrain = v.terrain;
-    takeLand();
     if (v.water && weatherRef.current) m.mapWater = v.water;
     else if (v.water) {
       // (the renderer works out the surface water: the page reads it from there)
@@ -868,15 +942,21 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     options, setOptions, setShelf, shelf, shelfOptions, setShelfOptions, setTurn, turn, setPainted, painted,
     setIcons, icons, startDrag, setStartDrag, setBusy, busy, setMessage, message, setHover, hover, showHistory,
     setShowHistory, setCheck, check, setProgress, progress, layer, setLayer, setLayers, waterLayers, waterTick, heldTick,
-    flowing, markersOn, setMarkersOn, markersToggle, setNearSources, nearSources, setFeeding, feeding, clearWater, setClearWater,
+    flowing, markersOn, setMarkersOn, markersToggle, firstViewCall, setNearSources, nearSources, setFeeding, feeding, clearWater, setClearWater,
     setSliceLevel, sliceLevel, setSelecting, selecting, selectingRef, selection, selectionTick, setSelectionTick,
     selectDraw, setSelectDraw, selectPreview, setSelectPreview, rockHeld, setRockHeld, deleteMenu, setDeleteMenu, setDeleteCounts,
     deleteCounts, sourceDrag, setSourceDrag, hoverObject, setHoverObject, player, mounted, sound, juice, setSound,
     feel, weather, weatherRef, comparing, endFlip, flipEnd, setWeather, weatherDay, weatherDays, weatherCounting, weatherTarget, setWeatherDay, setWeatherDays, startWater, setStartWater,
-    setWeatherCounting, heldDay, stepWeather, holdWeatherDay, requestHeldDay, lastHover, rehover, hoverWordsAt, firstNews, idlePrep, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
+    setWeatherCounting, heldDay, stepWeather, holdWeatherDay, requestHeldDay, lastHover, rehover, hoverWordsAt, dryWhy, setDryWhy, dryWhyAt, firstNews, idlePrep, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
     firstDoneRef, minimap, setMinimap, minimapRef, resizing, setDotOpen, dotOpen, saving, setSaving,
     viewTick, setViewTick, setFit, fit, setPicked, picked, setPickedObject, pickedObject,
     pickedObjectRef, pickedRef, setShapeNote, shapeNote, queue, indexed, infoRef, shelfRef, shelfOptionsRef, turnRef,
-    optionsRef, needs, enqueue, run, draftWater, showWater, toggleWeather, showSoil, showWithered, applyUpdate, applyView, takeLand
+    optionsRef, needs, enqueue, run, draftWater, showWater, toggleWeather, showSoil, showWithered, applyUpdate, applyView, edits, track, whenEdited, landAgain
   };
+}
+
+/** The worker's API with a ticket's envelope on every call (`queued.ticket`, worker/generator.worker.ts). */
+function ticketApi(api: Remote<GeneratorApi>, env: { epoch: number; ticket: number }): Remote<GeneratorApi> {
+  const send = api.ticket as unknown as (e: typeof env, name: string, ...a: unknown[]) => Promise<unknown>;
+  return new Proxy({} as Remote<GeneratorApi>, { get: (_, name) => (...a: unknown[]) => send(env, String(name), ...a) });
 }

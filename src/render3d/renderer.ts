@@ -62,6 +62,7 @@ import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
 import { blockReach, hollowFootprint, HollowMarks, roofOf, type HollowReach } from "./hollow";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
+import { GeothermalSteam, steamFields } from "./geothermalSteam";
 import { WALL_CLOCK, type Clock } from "./clock";
 import { Pops, type PopItem } from "./pops";
 import type { Voxels } from "./wear";
@@ -72,12 +73,12 @@ import { fogOf } from "./high/seasons";
 import type { DroughtLine } from "../core/sim/droughtLine";
 import { dyingCause, waterAboveBase, WITHERING_SPECIES } from "../core/sim/withering";
 import { markSourceTiles, sourceMiddle } from "./sourceMarks";
-import { buildEntities, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead, ruinsOvergrown } from "./entities3d";
+import { buildEntities, cutoutUnder, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead, ruinsOvergrown } from "./entities3d";
 import { whenIdle } from "./idle";
 import { casterLevelsOf, castersChangedRects, DEFAULT_SUN, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, sunOfYaw, sunVector, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type Sun, type TileSpan } from "./light";
 import { CaveLight } from "./caveLight";
 import { casterPlaces, FADE_COVERAGE, FADE_DITHER, FADE_OFF, markEditingAid, OBJECT_FADE_EDGE, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
-import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fillDetailTexture, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fillAlbedoTexture, fillDetailTexture, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
 import { AID_LAYER, onAidLayer } from "./aidLayer";
 import { GameBloom, GAME_BLOOM_LOOKS, LAVA_BLOOM_ENDS } from "./bloom";
@@ -98,7 +99,7 @@ import { effectsFrom, HIGH_EFFECTS, LOWER_PIXELS, type HighEffectKey, type HighE
 import { LIMITS, LookGovernor, saveChoice, savedChoice, savedOff, saveOff, savedVerdict, saveVerdict, startTier, type GovernorLimits, type LookChoice, type Tier } from "./high/fallback";
 import { HighLook, highLookMaterials, roofedOf, runSoilOf, type HighLookMaterials, type HighMaterials } from "./high/highLook";
 import { Programs, withDefine, type Defines } from "./programs";
-import { pageBaker, sunBaker, type Baker } from "./high/fields";
+import { pageBaker, sunBaker, textureBake, type Baker } from "./high/fields";
 import { fadingDepth } from "./high/shadows";
 import { WaterMotion } from "./motion";
 import { StillFlow } from "./stillFlow";
@@ -305,14 +306,16 @@ const SLOW_FRAME_MS = 100;
 const SLOW_FRAMES = 3;
 
 let waterSurface: Promise<void> | null = null;
-/** The surface the water's flow carries (waterTextures.ts) and contaminated ground's pattern (soilTexture.ts), made once
- *  a page in the bake worker (about 0.9 s) and written into the page's shared textures (materials.ts
- *  `waterSurfaceTexture`, `soilPatternTexture`); each is flat at its mean until then. */
-function waterSurfaceMade(baker: Baker): Promise<void> {
+/** The normal the water's flow carries, badwater's pattern (waterTextures.ts) and contaminated ground's (soilTexture.ts),
+ *  made once a page in a worker of their own (high/fields.ts `textureBake`; about 0.6 s in Chrome, more while the first
+ *  map opens beside them), so the first map's moving water never waits behind them, and written into the page's shared
+ *  textures (materials.ts `waterNormalTexture`, `soilPatternTexture`); each is flat at its mean until then. The flow's
+ *  albedo is its own job (`albedoTextureMade`). */
+function waterSurfaceMade(): Promise<void> {
   // (a failed bake is forgotten, so the next view tries again)
-  return (waterSurface ??= baker.run({ kind: "waterTexture" }).then(
+  return (waterSurface ??= textureBake({ kind: "waterTexture" }).then(
     (r) => {
-      if (r.kind === "waterTexture") fillWaterTexture(r.data, r.bad, r.soil);
+      if (r.kind === "waterTexture") fillWaterTexture(r.normal, r.normalSize, r.bad, r.badMips, r.soil);
     },
     (e: unknown) => {
       waterSurface = null;
@@ -321,14 +324,32 @@ function waterSurfaceMade(baker: Baker): Promise<void> {
   ));
 }
 
-let detailMade: Promise<void> | null = null;
-/** The light look's: the still detail albedo alone (Q9 P6; the game's Low quality draws it), made once a page in the
- *  bake worker and written into badwater's texture's B (materials.ts `fillDetailTexture`), with the water sources'
- *  pattern (Q9 P7) in its A; flat at their means until then. The light look reads none of the other patterns. */
-function detailTextureMade(baker: Baker): Promise<void> {
-  return (detailMade ??= baker.run({ kind: "detailTexture" }).then(
+let albedoMade: Promise<void> | null = null;
+/** The flow's albedo at the game's 2048² (waterTextures.ts `makeWaterTexture`, about 1.3 s), made once a page in the
+ *  textures' own worker, its last job (after the normal's, the patterns' and the detail's, which land as soon as
+ *  before), and written into the page's texture (materials.ts `fillAlbedoTexture`), a texel at its mean until then. */
+function albedoTextureMade(): Promise<void> {
+  return (albedoMade ??= textureBake({ kind: "albedoTexture" }).then(
     (r) => {
-      if (r.kind === "detailTexture") fillDetailTexture(r.detail, r.shape);
+      if (r.kind === "albedoTexture") fillAlbedoTexture(r.data, r.size);
+    },
+    (e: unknown) => {
+      albedoMade = null;
+      throw e;
+    },
+  ));
+}
+
+let detailMade: Promise<void> | null = null;
+/** The still detail albedo (Q9 P6; every look, the game's Low quality too), its own texture at the game's 2048², made
+ *  once a page in the textures' own worker (`textureBake`), after the surface's job when both are asked for, and
+ *  written into the page's texture (materials.ts `fillDetailTexture`), flat at its mean until then. With `shape` (the
+ *  light look, which makes none of the other patterns; a page draws in software or not for its whole life) the water
+ *  sources' pattern (Q9 P7) comes with it, into badwater's texture's A. */
+function detailTextureMade(shape: boolean): Promise<void> {
+  return (detailMade ??= textureBake({ kind: "detailTexture", shape }).then(
+    (r) => {
+      if (r.kind === "detailTexture") fillDetailTexture(r.detail, r.size, r.shape ?? undefined);
     },
     (e: unknown) => {
       detailMade = null;
@@ -460,7 +481,8 @@ export class MapRenderer {
   /** The Flow view (off by default): the current's foam and streaks over the water (D497: drawn there alone). */
   private flowOn = false;
   private lookNow: Look = "standard";
-  /** The copy of the screen behind the water for the game's refraction (refraction.ts), made in each frame of the view. */
+  /** The copies of the screen behind the water for its see-through and the game's refraction (refraction.ts), made in
+   *  each frame of the view. */
   private refraction!: Refraction;
   /** The game's bloom (bloom.ts), made with the first frame that draws it. */
   private bloom: GameBloom | null = null;
@@ -660,6 +682,9 @@ export class MapRenderer {
     this.sky.frustumCulled = false;
     this.sky.renderOrder = -1000;
     if (!this.software) this.scene.add(this.sky);
+    // the geothermal fields' steam, on the objects' clock (never in software drawing: geothermalSteam.ts)
+    this.steam = this.software ? null : new GeothermalSteam(this.uniforms);
+    if (this.steam) this.scene.add(this.steam.mesh);
     this.lookNow = this.software ? "light" : "standard";
     // the Flow view from the address (?flow=on) until the page has its switch (D353)
     try {
@@ -754,6 +779,10 @@ export class MapRenderer {
     this.uniforms.slice.value = v;
     this.droughtLayer?.setHidden(level !== null);
     this.blockCells?.setCut(level === null ? null : v);
+    // (High's sun shadows: what the cut takes away casts none)
+    this.high?.sliceChanged();
+    // (the pits' tops the terrain leaves out, only over objects the cut leaves whole)
+    if (this.map) this.cutTerrain(this.map.entities, level === null ? null : v);
     // (what an edit just changed was drawn under the cut it had)
     this.editGlow?.clear();
     this.hollowStale = true;
@@ -1076,7 +1105,7 @@ export class MapRenderer {
   /** Whether the water moves on screen now (a recording's caller draws its own frames). */
   get animated(): boolean {
     const m = this.map;
-    return !!m && (m.water.count > 0 || !!this.high?.animates) && this.clock === null && !this.benching && !this.recording && !this.reducedMotion && !this.software && this.inView && !document.hidden;
+    return !!m && (m.water.count > 0 || !!this.high?.animates || (this.steam?.count ?? 0) > 0) && this.clock === null && !this.benching && !this.recording && !this.reducedMotion && !this.software && this.inView && !document.hidden;
   }
 
   // -------------------------------------------------------------------------------------- the look
@@ -1493,7 +1522,7 @@ export class MapRenderer {
     const { W, H, heights } = v;
     this.waterShown = drawnWater(W * H);
     // (a mine site's pit: the terrain leaves its tops out, and the site's model draws the pit)
-    const source: TerrainSource = { W, H, heights, columns: columnMap(v.columns), masks: columnMasks(W * H, v.columns), cutout: mineCutout(v.entities, W, H) };
+    const source: TerrainSource = { W, H, heights, columns: columnMap(v.columns), masks: columnMasks(W * H, v.columns), cutout: cutoutUnder(mineCutout(v.entities, W, H), this.slice) };
     this.columnsSent = { tiles: v.columns.tiles, voxels: v.columns.voxels, key: ++this.columnsKey };
     const surface = surfaceWater(W, H, v.water);
     const soil = v.soil ?? null;
@@ -1598,8 +1627,8 @@ export class MapRenderer {
   }
 
   /** The water changed: its current and badwater share in the flow texture (motion.ts); where nothing moves (the
-   *  light look, or held still), the share alone, which the ground under a film reads too (waterPalette.ts
-   *  WATER_FILM); `now`: water that shows with the next frame (a version flipped to), its share with it. */
+   *  light look, or held still), the share alone, which the ground under water reads too (materials.ts
+   *  behindShare); `now`: water that shows with the next frame (a version flipped to), its share with it. */
   private flowChanged(heights: Uint8Array, surface: SurfaceWater, now = false): void {
     if (this.waterMotion) this.waterMotion.waterChanged(heights, surface, now);
     else this.stillFlow?.update(surface, now);
@@ -1731,9 +1760,9 @@ export class MapRenderer {
     return d.quads;
   }
 
-  private meshWater(cx: number, cy: number): number {
+  private meshWater(cx: number, cy: number, tiles = true): number {
     const m = this.map!;
-    return this.drawWater(`${cx},${cy}`, meshWaterChunk(m.W, m.H, this.waterLayers(), cx, cy), this.waterVersion, m.surface);
+    return this.drawWater(`${cx},${cy}`, meshWaterChunk(m.W, m.H, this.waterLayers(), cx, cy), this.waterVersion, m.surface, tiles);
   }
 
   /** The water dealt into layers for the mesher (waterLayers.ts): every column on its own floor, seeing the water
@@ -1816,13 +1845,18 @@ export class MapRenderer {
     return out;
   }
 
-  /** A water chunk's mesh on the scene, made on the water of `version` (`sw`). */
-  private drawWater(key: string, d: WaterMeshData, version: number, sw: SurfaceWater): number {
+  /** A water chunk's mesh on the scene, made on the water of `version` (`sw`), and the ground's tile data under it from
+   *  the same water (`tiles`, unless the caller made it from that water already): the terrain draws a tile's bed as
+   *  under water only where water is drawn over it. Written from the newest water instead, the bed showed bare and
+   *  grey ahead of spreading water for the frames its mesh was still with the workers (half a second on the GPU,
+   *  seconds in the light look). */
+  private drawWater(key: string, d: WaterMeshData, version: number, sw: SurfaceWater, tiles = true): number {
     const old = this.water.get(key);
     this.drawnWater.set(key, version);
     const m = this.map!;
     const [cx, cy] = key.split(",").map(Number);
     drewChunk(m.W, m.H, this.waterShown, sw, cx, cy);
+    if (tiles) this.waterTiles(m, cx, cy);
     const arrays: ChunkArrays = {
       quads: d.quads,
       attributes: [
@@ -1855,7 +1889,8 @@ export class MapRenderer {
     const m = this.map!;
     const { nx, ny } = chunkCount(m.W, m.H);
     let quads = 0;
-    for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) quads += this.meshWater(cx, cy);
+    // (the map's tile data was made from this same water: `setMap`)
+    for (let cy = 0; cy < ny; cy++) for (let cx = 0; cx < nx; cx++) quads += this.meshWater(cx, cy, false);
     return quads;
   }
 
@@ -1980,12 +2015,13 @@ export class MapRenderer {
     this.uniforms.caveTop.value = this.cave.highest;
   }
 
-  /** The terrain shader's tile data up to the water and soil the map has now (heights, soil, sky, water): only the tiles whose
-   *  bytes differ are rewritten and sent to the GPU, the same bytes as baking the whole map (`tileData`). */
+  /** The terrain shader's tile data up to the land and soil the map has now and the water drawn (heights, soil, sky,
+   *  water: water still with the mesh workers comes with its mesh, `drawWater`): only the tiles whose bytes differ are
+   *  rewritten and sent to the GPU, the same bytes as baking the whole map (`tileData`). */
   private bakeTiles(): void {
     const m = this.map;
     if (!m || !this.tileTex) return;
-    const c = tileDataChanges(m.W, m.H, m.heights, m.soil, m.surface, m.tiles);
+    const c = tileDataChanges(m.W, m.H, m.heights, m.soil, this.waterShown, m.tiles);
     for (const r of c.rows) this.tileRows.touch(r.x0, r.y, r.x1, r.y);
     this.redoEdges(c.edgeRows);
   }
@@ -2023,23 +2059,31 @@ export class MapRenderer {
     // (a source's glow stays with its source, on the objects as they are now)
     this.tintObjects();
     this.applyWithered();
-    // mine sites: the pits' cutouts (remesh the chunks where they changed) and their outline
-    const cut = mineCutout(e, m.W, m.H);
-    const old = m.source.cutout ?? new Map<number, number>();
-    const changed = new Set<string>();
-    for (const [i, z] of cut) if (old.get(i) !== z) changed.add(`${Math.floor((i % m.W) / CHUNK)},${Math.floor(Math.floor(i / m.W) / CHUNK)}`);
-    for (const [i, z] of old) if (cut.get(i) !== z) changed.add(`${Math.floor((i % m.W) / CHUNK)},${Math.floor(Math.floor(i / m.W) / CHUNK)}`);
-    m.source = { ...m.source, cutout: cut };
-    for (const key of changed) {
-      const [cx, cy] = key.split(",").map(Number);
-      this.meshTerrain(cx, cy);
-    }
+    // mine sites: the pits' cutouts and their outline
+    this.cutTerrain(e, this.slice);
     if (this.sites) {
       mineOutline(e, m.W, m.H, this.sites.image.data as Uint8Array);
       this.sites.needsUpdate = true;
     }
     this.markSources();
     return instances;
+  }
+
+  /** The tops the terrain leaves out for the objects `e`'s pits and vents under the layer cut `slice` (entities3d.ts
+   *  `mineCutout`, `cutoutUnder`), the chunks where they changed meshed again. */
+  private cutTerrain(e: EntityView, slice: number | null): void {
+    const m = this.map!;
+    const cut = cutoutUnder(mineCutout(e, m.W, m.H), slice);
+    const old = m.source.cutout ?? new Map<number, number>();
+    const changed = new Set<string>();
+    for (const [i, z] of cut) if (old.get(i) !== z) changed.add(`${Math.floor((i % m.W) / CHUNK)},${Math.floor(Math.floor(i / m.W) / CHUNK)}`);
+    for (const [i, z] of old) if (cut.get(i) !== z) changed.add(`${Math.floor((i % m.W) / CHUNK)},${Math.floor(Math.floor(i / m.W) / CHUNK)}`);
+    if (!changed.size) return;
+    m.source = { ...m.source, cutout: cut };
+    for (const key of changed) {
+      const [cx, cy] = key.split(",").map(Number);
+      this.meshTerrain(cx, cy);
+    }
   }
 
   /** The objects `e` drawn (the plants a held day has withered dead), the batches that would be built as they are drawn
@@ -2136,7 +2180,7 @@ export class MapRenderer {
     // water's shores there
     const r = TILE_REACH;
     if (this.tileTex) {
-      tileDataRect(m.W, m.H, heights, m.soil, m.surface, m.tiles, rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
+      tileDataRect(m.W, m.H, heights, m.soil, this.waterShown, m.tiles, rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
       this.tileRows.touch(rect.x0 - r, rect.y0 - r, rect.x1 + r, rect.y1 + r);
       // (the contamination outline reads the tile data, a tile further)
       if (this.edges) {
@@ -2227,11 +2271,7 @@ export class MapRenderer {
   private redrawWater(rect: { x0: number; y0: number; x1: number; y1: number }): void {
     const m = this.map!;
     const g = { x0: rect.x0 - 1, y0: rect.y0 - 1, x1: rect.x1 + 1, y1: rect.y1 + 1 };
-    if (this.tileTex) {
-      tileDataRect(m.W, m.H, m.heights, m.soil, m.surface, m.tiles, g.x0, g.y0, g.x1, g.y1);
-      this.tileRows.touch(g.x0, g.y0, g.x1, g.y1);
-      this.edgesAround(g.x0, g.y0, g.x1, g.y1);
-    }
+    // (the ground's tile data under each chunk follows its water as it is drawn: `drawWater`)
     if (this.layered) this.layeredWaterNear(rect);
     else for (const [cx, cy] of dirtyChunks(m.W, m.H, g)) this.meshWater(cx, cy);
     this.requestRender();
@@ -2432,9 +2472,7 @@ export class MapRenderer {
     if (r && sent) {
       for (const [k, data] of r.chunks) {
         if (r.version <= (this.drawnWater.get(k) ?? -1)) continue;
-        const [cx, cy] = k.split(",").map(Number);
         this.drawWater(k, data, r.version, sent);
-        this.waterTiles(m, cx, cy);
       }
     }
     if (!this.waterQueue.size) return;
@@ -2472,15 +2510,14 @@ export class MapRenderer {
       if (done && performance.now() - t0 > budget) break;
       this.waterQueue.delete(k);
       this.meshWater(cx, cy);
-      this.waterTiles(m, cx, cy);
       done = true;
     }
   }
 
-  /** The ground's tile data under a water chunk drawn anew (the water over each top). */
+  /** The ground's tile data under a water chunk drawn anew (the water drawn over each top). */
   private waterTiles(m: MapState, cx: number, cy: number): void {
     if (!this.tileTex) return;
-    tileDataRect(m.W, m.H, m.heights, m.soil, m.surface, m.tiles, cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
+    tileDataRect(m.W, m.H, m.heights, m.soil, this.waterShown, m.tiles, cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
     this.tileRows.touch(cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
     this.edgesAround(cx * CHUNK - 1, cy * CHUNK - 1, (cx + 1) * CHUNK, (cy + 1) * CHUNK);
   }
@@ -2627,6 +2664,8 @@ export class MapRenderer {
   private applyWithered(): void {
     const m = this.map;
     if (!m) return;
+    // (the geothermal fields' steam: over the fields no water stands on the middle of, as the game's stops while flooded)
+    if (this.steam?.set(steamFields(m.entities, m.W, m.H, m.surface, m.surface?.lower.length ? lowerWater(m.water, m.W * m.H) : null))) this.requestRender();
     const w = this.witheredView(m.entities);
     const flags = w.view.flags;
     const count = w.count;
@@ -2710,6 +2749,9 @@ export class MapRenderer {
     m.source = { ...m.source, heights };
     // (the hollow under the cursor follows the roof's new top)
     this.hollowStale = true;
+    // (the Block tool's land, come with its answer through the page's edit queue: it glows when it is drawn, on plain
+    // ground too; taken now, as its answer ends the edit before the next frame draws it)
+    if (this.blockEdit()) this.blockLand = true;
     // (drawn at the next frame, with every other change before it: flushTerrain)
     const p = this.pendingLand;
     this.pendingLand = p ? { x0: Math.min(p.x0, rect.x0), y0: Math.min(p.y0, rect.y0), x1: Math.max(p.x1, rect.x1), y1: Math.max(p.y1, rect.y1) } : { ...rect };
@@ -2738,15 +2780,18 @@ export class MapRenderer {
     const drawn = this.drawnLand;
     for (let y = c.rect.y0; y <= c.rect.y1; y++)
       for (let i = y * m.W + c.rect.x0, end = y * m.W + c.rect.x1; i <= end; i++) if (heights[i] !== drawn[i]) landBefore[i] = drawn[i];
-    // (Erode's frames paint its plain ground here, its hollows under roofs in updateTerrain: both glow)
-    if (this.eroding) this.glowEdits(editedCells(m.W, m.H, { heights: drawn, masks: m.source.masks }, { heights, masks: m.source.masks }, true, c.rect));
+    // (Erode's frames paint its plain ground here, its hollows under roofs in updateTerrain: both glow; and the Block
+    // tool's land, `updateTerrainRect`)
+    const block = this.blockLand;
+    this.blockLand = false;
+    if (this.eroding || block) this.glowEdits(editedCells(m.W, m.H, { heights: drawn, masks: m.source.masks }, { heights, masks: m.source.masks }, true, c.rect));
     if (m.water.count && this.landUnder(drawn, heights, c.rect)) {
       this.rodeLand(c.rect);
       this.flowChanged(heights, m.surface);
     }
     for (const [cx, cy] of c.chunks) this.meshTerrain(cx, cy);
     if (this.tileTex) {
-      for (const row of c.rows) tileDataRect(m.W, m.H, heights, m.soil, m.surface, m.tiles, row.x0, row.y, row.x1, row.y);
+      for (const row of c.rows) tileDataRect(m.W, m.H, heights, m.soil, this.waterShown, m.tiles, row.x0, row.y, row.x1, row.y);
       for (const row of c.rows) this.tileRows.touch(row.x0, row.y, row.x1, row.y);
       for (const row of c.rows) this.edgesAround(row.x0, row.y, row.x1, row.y);
     }
@@ -2986,6 +3031,8 @@ export class MapRenderer {
     // (the view's own draw counts stay as its last frame left them: a picture is not a frame of the view)
     const was = { target: this.gl.getRenderTarget(), slice: this.uniforms.slice.value, fade: this.uniforms.objectFade.value.w, hide: this.uniforms.objectHide.value, alpha: this.gl.getClearAlpha(), color: this.gl.getClearColor(new Color()), counts: { ...this.gl.info.render } };
     this.uniforms.slice.value = 99;
+    // (nor the layer: the pits' tops left out as with no cut)
+    if (was.slice < 99 && this.map) this.cutTerrain(this.map.entities, null);
     // (a picture never shows the fade round the pointer or the objects hidden: objectFade.ts)
     this.uniforms.objectFade.value.w = FADE_OFF;
     this.uniforms.objectHide.value = 0;
@@ -3009,6 +3056,7 @@ export class MapRenderer {
       this.gl.setClearColor(was.color, was.alpha);
       Object.assign(this.gl.info.render, was.counts);
       this.uniforms.slice.value = was.slice;
+      if (was.slice < 99 && this.map) this.cutTerrain(this.map.entities, was.slice);
       this.uniforms.objectFade.value.w = was.fade;
       this.uniforms.objectHide.value = was.hide;
     }
@@ -3126,6 +3174,8 @@ export class MapRenderer {
 
   private surge: Surge | null = null;
   private forceFx: ForceEffects | null = null;
+  /** The geothermal fields' steam (geothermalSteam.ts); none in software drawing. */
+  private steam: GeothermalSteam | null = null;
 
   /** A force's moment (D202, D203, D206, D281): an impact, a fault's crack, an eruption's plume, rock wearing away; the
    *  effects play on their own clocks. A new force's first moment, a carve's included, skips the last
@@ -3428,6 +3478,9 @@ export class MapRenderer {
   blockEditSent(sent = true): void {
     this.blockSent = sent;
   }
+
+  /** The Block tool's land is waiting for the next frame (`updateTerrainRect`): it glows when `flushTerrain` draws it. */
+  private blockLand = false;
 
   /** The land coming now is the Block tool's edit (sent, its land not come yet): taken once. */
   private blockEdit(): boolean {
@@ -3759,6 +3812,7 @@ export class MapRenderer {
   }
 
   setView(v: Partial<ViewState>): void {
+    this.leaveFirstView();
     this.view = { ...this.view, ...v };
     this.view.pitch = Math.min(PITCH_MAX, Math.max(PITCH_MIN, this.view.pitch));
     this.requestRender();
@@ -3780,6 +3834,7 @@ export class MapRenderer {
   switchMode(mode: ViewMode): void {
     if (mode === this.view.mode) return;
     cancelAnimationFrame(this.glideFrameTo);
+    this.leaveFirstView();
     let v = this.view;
     const box = this.canvas.getBoundingClientRect();
     const seen = this.map ? this.zoomPoint(box.left + box.width / 2, box.top + box.height / 2) : null;
@@ -3799,6 +3854,7 @@ export class MapRenderer {
    *  about half a second (at once with reduced motion); a top-down or orbit view switches at once. */
   glideTo(to: ViewState, ms = 600): void {
     cancelAnimationFrame(this.glideFrameTo);
+    this.leaveFirstView();
     const from = this.getView();
     if (this.reducedMotion || ms <= 0) {
       this.setView({ ...to, target: [...to.target] as [number, number, number] });
@@ -3824,9 +3880,43 @@ export class MapRenderer {
     step();
   }
 
+  /** Pose the camera at once on `v` with a vertical field of view of `fov` degrees (the game's first view, its lens
+   *  35°): the lens stays while the view does; any move away from it (a drag, a pan, a zoom, Top-down, a glide)
+   *  puts ours back first (`leaveFirstView`), and Reset view and a new map do too. */
+  poseCamera(v: ViewState, fov: number): void {
+    cancelAnimationFrame(this.glideFrameTo);
+    this.setView(v);
+    this.setFov(fov);
+    this.posed = fov !== PERSP_FOV_DEG;
+    this.sunNow();
+  }
+
+  /** Whether the view is posed with another lens than ours (`poseCamera`: the game's first view). */
+  private posed = false;
+
+  /** Leave a posed view for ours, unseen: our lens back, the distance shortened so the ground at the target keeps its
+   *  size on the screen, before the move that leaves it is worked out from the view. */
+  private leaveFirstView(): void {
+    if (!this.posed) return;
+    this.posed = false;
+    const k = Math.tan((this.persp.fov * Math.PI) / 360) / Math.tan((PERSP_FOV_DEG * Math.PI) / 360);
+    this.view = { ...this.view, distance: this.view.distance * k };
+    this.setFov(PERSP_FOV_DEG);
+  }
+
+  /** The perspective camera's vertical field of view, degrees. */
+  private setFov(fov: number): void {
+    if (this.persp.fov === fov) return;
+    this.persp.fov = fov;
+    this.persp.updateProjectionMatrix();
+    this.requestRender();
+  }
+
   resetView(): void {
     const m = this.map;
     if (!m) return;
+    this.posed = false;
+    this.setFov(PERSP_FOV_DEG);
     let sum = 0;
     for (let i = 0; i < m.heights.length; i++) sum += m.heights[i];
     const mean = sum / m.heights.length;
@@ -4061,11 +4151,15 @@ export class MapRenderer {
     this.requestRender();
   }
 
-  /** Settles once the water's surface, badwater's pattern and contaminated ground's pattern are made (they are flat at
-   *  their means until then; the light look makes and reads only the still detail albedo and the sources' pattern). For tests and pictures that
-   *  read the patterns. */
+  /** Settles once the water's surface, badwater's pattern, contaminated ground's pattern and the still detail albedo
+   *  are made (they are flat at their means until then; the light look makes and reads only the still detail albedo
+   *  and the sources' pattern). For tests and pictures that read the patterns. */
   patternsMade(): Promise<void> {
-    return this.software ? detailTextureMade(this.baker) : waterSurfaceMade(this.baker);
+    if (this.software) return detailTextureMade(true);
+    // (the surface's job first: the water's own patterns land as soon as before, the detail after them)
+    const surface = waterSurfaceMade();
+    const detail = detailTextureMade(false);
+    return Promise.all([surface, detail, albedoTextureMade()]).then(() => undefined);
   }
 
   /** The sun for the camera as it stands, baked here at once (a picture, drawn in one frame). */
@@ -4163,7 +4257,9 @@ export class MapRenderer {
     // the game's bloom: the frame before the grade drawn for it first, then the view, then the bloom put on it (bloom.ts)
     const bloom = this.blooms() ? (this.bloom ??= new GameBloom()) : null;
     bloom?.drawSource(this.gl, this.scene, cam);
-    this.refraction.begin(this.refracts(cam));
+    // (the copies only where the view's frame draws to the screen: the terrain overlays the ground under water itself
+    // otherwise, refraction.ts)
+    this.refraction.begin(this.refracts() && this.gl.getRenderTarget() === null);
     this.gl.render(this.scene, cam);
     this.refraction.end();
     if (bloom) {
@@ -4206,15 +4302,13 @@ export class MapRenderer {
     return !!u.eruptionAge && u.eruptionAge.value >= 0 && u.coolingAge.value < LAVA_BLOOM_ENDS;
   }
 
-  /** Whether this frame wants the copy of the screen behind the water (refraction.ts): a look that draws the game's
-   *  refraction, with water on the map, and the camera within its reach of the map's highest ground (the game's shift
-   *  is none past `WATER_REFRACTION.falloff[1]` from the camera). */
-  private refracts(cam: { position: Vector3 }): boolean {
+  /** Whether this frame wants the copies of the screen behind the water (refraction.ts): a look that draws the game's
+   *  high-quality water, with water on the map. From any distance: the ground behind the game's water always shows
+   *  from URP's half-size opaque texture, though its shift is none past `WATER_REFRACTION.falloff[1]`. */
+  private refracts(): boolean {
     const look = this.lookNow;
     if (look === "light" || this.software || !this.map || !this.water.size) return false;
-    if (!WATER_REFRACTION.looks[look === "standard" ? "standard" : "high"]) return false;
-    const top = (this.terrainMat.uniforms.heightRange.value as Vector2).y;
-    return cam.position.y - top - 2 <= WATER_REFRACTION.falloff[1];
+    return WATER_REFRACTION.looks[look === "standard" ? "standard" : "high"];
   }
 
   /** Everything a frame shows is in: the water chunks (none waiting or with the mesher workers), the programs (and in
@@ -4627,6 +4721,7 @@ export class MapRenderer {
    *  In, the camera stops short of the ground under the pointer (`zoomStopShort`), so a zoom into a cave's mouth ends in
    *  its air; a camera the rock holds nearer than its distance (cameraClamp.ts) zooms from where it is drawn. */
   zoom(factor: number, clientX?: number, clientY?: number): void {
+    this.leaveFirstView();
     const m = this.map;
     const step = zoomStep(
       this.view,
@@ -4813,6 +4908,7 @@ export class MapRenderer {
     this.droughtLayer?.dispose();
     this.surge?.dispose();
     this.forceFx?.dispose();
+    this.steam?.dispose();
     this.pops?.clear();
     this.high?.dispose();
     this.high = null;

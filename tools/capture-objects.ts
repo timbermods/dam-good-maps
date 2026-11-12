@@ -5,7 +5,7 @@
 //
 //   npx tsx tools/capture-objects.ts --label before|after [--only mine-close,ruins-low]
 //   npx tsx tools/capture-objects.ts --compose [--out docs/look/mine-ruins]
-//   npx tsx tools/capture-objects.ts --bench --label before|after [--seconds 8]
+//   npx tsx tools/capture-objects.ts --bench --label before|after [--seconds 8] [--look high]
 //
 // The before run is made on the code before the change (the branch's base), the after run on the
 // branch; the after run takes every camera from the before run's record, so the two match exactly.
@@ -45,6 +45,8 @@ const arg = (name: string) => {
 const LABEL = arg("label") ?? "after";
 const ONLY = arg("only")?.split(",");
 const OUT = arg("out") ?? "docs/look/mine-ruins";
+/** The look drawn (`--look high`; Standard by default, as these rounds were Standard's). */
+const LOOK = arg("look") === "high" ? "high" : "standard";
 const SECONDS = Number(arg("seconds") ?? 8);
 const RAW = ".scratch/objects";
 const PORT = Number(arg("port") ?? 4193);
@@ -343,8 +345,10 @@ async function otherGpu(): Promise<{ luid: string; name: string } | null> {
 async function withSite<T>(run: (page: Page) => Promise<T>, extraArgs: string[] = [], cpuSlowdown = 1): Promise<T> {
   process.env.DGM_BASE = "/";
   console.log("building the site…");
-  await build({ configFile: "vite.config.ts", base: "/", logLevel: "warn", build: { outDir: DIST, emptyOutDir: true } });
-  const server = await preview({ configFile: "vite.config.ts", base: "/", build: { outDir: DIST }, preview: { port: PORT, strictPort: true }, logLevel: "warn" });
+  // (its own cache: a worktree's node_modules may be another's, joined)
+  const cacheDir = ".scratch/objects-vite";
+  await build({ configFile: "vite.config.ts", base: "/", cacheDir, logLevel: "warn", build: { outDir: DIST, emptyOutDir: true } });
+  const server = await preview({ configFile: "vite.config.ts", base: "/", cacheDir, build: { outDir: DIST }, preview: { port: PORT, strictPort: true }, logLevel: "warn" });
   const keepDrawing = ["--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding", "--disable-background-timer-throttling"];
   const browser = await chromium.launch({ channel: "chrome", headless: false, args: [...keepDrawing, ...extraArgs] });
   try {
@@ -352,7 +356,7 @@ async function withSite<T>(run: (page: Page) => Promise<T>, extraArgs: string[] 
     // GPU would otherwise draw it in High by itself (found auditing capture-badwater.ts's same gap,
     // D304's investigation)
     const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
-    await context.addInitScript("try { localStorage.setItem('dgm.look', 'standard'); } catch {}");
+    await context.addInitScript(`try { localStorage.setItem('dgm.look', '${LOOK}'); } catch {}`);
     const page = await context.newPage();
     if (cpuSlowdown > 1) await (await page.context().newCDPSession(page)).send("Emulation.setCPUThrottlingRate", { rate: cpuSlowdown });
     const errors: string[] = [];
@@ -595,7 +599,7 @@ async function bench(): Promise<void> {
       console.log(`${name}: ${info.triangles.toLocaleString()} triangles, ${info.calls} calls; ${o.fps.toFixed(0)} fps, frames p50/p95 ${o.p50.toFixed(1)}/${o.p95.toFixed(1)} ms, CPU ${o.cpuP50.toFixed(2)}/${o.cpuP95.toFixed(2)} ms${o.gpuP50 === null ? "" : `, GPU ${o.gpuP50.toFixed(2)}/${o.gpuP95!.toFixed(2)} ms`}`);
     }
     const build = await page.evaluate(() => window.dgm3d!.build);
-    writeFileSync(join(dir, other ? "bench-other.json" : "bench.json"), JSON.stringify({ label: LABEL, date: new Date().toISOString().slice(0, 10), seconds: SECONDS, cpuSlowdown: other ? 4 : 1, build, runs }, null, 1) + "\n");
+    writeFileSync(join(dir, `${other ? "bench-other" : "bench"}${LOOK === "high" ? "-high" : ""}.json`), JSON.stringify({ label: LABEL, date: new Date().toISOString().slice(0, 10), seconds: SECONDS, cpuSlowdown: other ? 4 : 1, build, runs }, null, 1) + "\n");
   }, other ? [`--use-adapter-luid=${other.luid}`] : [], other ? 4 : 1);
 }
 

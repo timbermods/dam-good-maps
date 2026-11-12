@@ -1,10 +1,15 @@
 // A crop never leaves ground floating (D340, D121, D280 (3)): a ledge or a roof held from a column the new edge cuts
 // off would be deleted by the game as the cropped map loads, so the crop is refused in one line, as an edit that makes
-// ground fall is (the Any 128² map, seed 2: a column of six blocks at X 91 · Y 79 held from north of it, which a crop
-// with its north edge on y = 79 leaves unheld; generator 0.10.11 makes 3D forms only at 128² and over, D503, so a 64²
-// map has none to cut; since generator 0.10.11's maps, #726, D148, the crop is the one with its corner at X 60 · Y 71, which
-// leaves three blocks there unheld: the map's start moved to X 92 · Y 118, so the crop at X 44 · Y 79 would cut it). A crop
-// whose edge leaves every block held goes ahead, and its file's ground is all supported.
+// ground fall is (the Any 128² map, seed 1: five blocks at X 86–87 · Y 80–82, which a crop with its corner at
+// X 40 · Y 80 leaves unheld, the start at X 83 · Y 86 staying in it;
+// generator 0.10.11 makes 3D forms only at 128² and over, D503, so a 64² map has none to cut; the fixture moved twice:
+// since generator 0.10.11's maps, #726, D148, it was the corner at X 60 · Y 71 of seed 2, which left three blocks there
+// unheld, and since generator 0.10.13's, whose starts frame the map (D507), seed 2's map has none that leaves a
+// block unheld and keeps the start (corners scanned in steps of four, the 48 × 48 crops; of seeds 1–3 only seed 1's has one), so
+// seed 1's, D148; since generator 0.10.16's ground with grade, D148, seed 1's map has none, nor has seed 3's or seed 5's, and
+// seed 2's corner at X 12 · Y 20 leaves 25 blocks unheld, the first at X 59 · Y 63, its start at X 56 · Y 57 staying in it).
+// A crop whose edge
+// leaves every block held goes ahead, and its file's ground is all supported.
 
 import { describe, expect, it } from "vitest";
 import { cropFalls, cropObjects } from "../../src/core/doc/crop";
@@ -24,7 +29,7 @@ describe("a crop never leaves ground floating", () => {
       return s;
     };
     const s = session();
-    const bad = { x: 60, y: 71, w: 48, h: 48 };
+    const bad = { x: 12, y: 20, w: 48, h: 48 };
     expect(cropObjects(s.built.entities, bad).cutStart).toBeNull();
     const falls = cropFalls(s.terrain, bad);
     expect(falls.length).toBeGreaterThan(0);
@@ -36,12 +41,12 @@ describe("a crop never leaves ground floating", () => {
     expect(res.errors).toEqual(why);
     expect(s.size).toEqual({ x: 128, y: 128 });
     expect(Buffer.from(s.built.heights).equals(Buffer.from(before))).toBe(true);
-    // (a crop whose edge is four tiles further west keeps what holds them, and the game keeps all its ground)
-    const ok = { x: 56, y: 71, w: 52, h: 48 };
+    // (a crop whose west edge is four tiles further east keeps what holds them, and the game keeps all its ground)
+    const ok = { x: 16, y: 20, w: 48, h: 48 };
     const t = session();
     expect(cropFalls(t.terrain, ok)).toEqual([]);
     expect(t.apply({ op: "crop", params: ok }).errors).toEqual([]);
-    expect(t.size).toEqual({ x: 52, y: 48 });
+    expect(t.size).toEqual({ x: 48, y: 48 });
     expect(supported(t).ok).toBe(true);
   }, 300_000);
 });

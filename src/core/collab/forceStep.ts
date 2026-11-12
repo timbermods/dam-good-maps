@@ -29,11 +29,13 @@ export function forceBasis(s: MapSession): { ready: boolean } {
   return { ready: !s.waterPending };
 }
 
-/** The open map as a force starts from it (the worker's `sessionForceMap`), on its settled water. The water must have settled. */
+/** The open map as a force starts from it (the worker's `sessionForceMap`), on its settled water: the water the map
+ *  shows, which on a stored map opened by a newer generator, while it keeps its file's water, is the file's own (the
+ *  build then holds none). The water must have settled. */
 export function forceMapOfSession(s: MapSession): FullForceMap {
   if (s.waterPending) throw new Error("The water has not settled: a force plans on the settled water");
   const b = s.built;
-  const m = fullForceMapOf(b, { rockLayers: geology(s.openedHeights), lava: lavaOf(s.state.sculpts, b.heights, b.W, b.H), down: fallenPoses(s), usedIds: s.usedEntityIds() });
+  const m = fullForceMapOf(b, { water: s.waterShown(), rockLayers: geology(s.openedHeights), lava: lavaOf(s.state.sculpts, b.heights, b.W, b.H), down: fallenPoses(s), usedIds: s.usedEntityIds() });
   // (a map with caves or overhangs: its voxels, which Erode reads and wears, D281)
   if (!s.columns.size) return m;
   const wet = s.caveWater();

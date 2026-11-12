@@ -2,8 +2,9 @@
 // documents, LICENSE and package.json's descriptive fields skip everything but the typecheck and the document tests; a
 // change only under src/editor/, src/ui/ and tests/e2e/ skips oracle, generation, engines and rust; rust runs only for
 // the Rust and the TypeScript that wraps it. Code, dependencies and scripts keep the rest of the suite.
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { classify, isCollabOnly, isDocument, isInvestigation, isRustInput, isUiOnly, needsHeavy, needsTest, onlyLightFieldsDiffer } from "../../tools/ci-changes.mjs";
+import { classify, generatorGraph, GENERATOR_ROOT, isCollabOnly, isDocument, isGenerator, isInvestigation, isPage, isRustInput, isUiOnly, needsGenerator, needsHeavy, needsPage, needsTest, onlyLightFieldsDiffer } from "../../tools/ci-changes.mjs";
 
 const pkg = (over: object = {}) =>
   JSON.stringify({ name: "x", version: "1.0.0", license: "MIT", scripts: { test: "a" }, dependencies: { a: "1" }, devDependencies: { b: "1" }, ...over });
@@ -109,5 +110,82 @@ describe("the collaboration connection", () => {
   it("does not cover anything else, even beside it", () => {
     for (const f of ["src/editor/a.ts", ".github/workflows/ci.yml", "tests/unit/ci-changes.test.ts", "package.json", "tests/e2e/a.spec.ts"]) expect(isCollabOnly(f), f).toBe(false);
     expect(needsHeavy(["src/collab/transport.ts", "src/core/a.ts"], () => null)).toBe(true);
+  });
+});
+
+describe("the page job", () => {
+  it("is the page's own files: the editor, the interface, the 3D view and the styles", () => {
+    for (const f of ["src/editor/Editor.tsx", "src/ui/App.tsx", "src/render3d/water.ts", "src/styles/editor.css"]) expect(isPage(f), f).toBe(true);
+    for (const f of ["src/core/a.ts", "src/worker/a.ts", "tests/e2e/a.spec.ts", ".github/workflows/ci.yml", "docs/RULES.md", "src/editorial/a.ts"]) expect(isPage(f), f).toBe(false);
+  });
+  it("runs only for a pull request into dev (light) that touches the page, and when the change can't be read", () => {
+    expect(needsPage(["src/ui/a.tsx", "docs/STATUS.md"], "light")).toBe(true);
+    expect(needsPage(["src/core/a.ts", "src/render3d/a.ts"], "light")).toBe(true);
+    expect(needsPage(["src/core/a.ts", "docs/STATUS.md"], "light")).toBe(false);
+    expect(needsPage(["investigation/x/run.ts"], "light")).toBe(false);
+    expect(needsPage([], "light")).toBe(true);
+    for (const mode of ["auto", "full"] as const) expect(needsPage(["src/ui/a.tsx"], mode), mode).toBe(false);
+  });
+});
+
+// The generator's import graph in this checkout, walked the way CI walks it at a pull request's head.
+const fromDisk = (path: string) => (existsSync(path) ? readFileSync(path, "utf8") : null);
+const isFile = (path: string) => existsSync(path) && statSync(path).isFile();
+const reached = generatorGraph(fromDisk, isFile);
+const gen = (files: string[], mode: "auto" | "full" | "light" = "light") => needsGenerator(files, mode, reached);
+
+describe("a pull request that can change what the generator makes runs the browser shards before the merge", () => {
+  it("the walk reaches what generate() imports: the generator, the version constant, the checks, JSON and vendored JS", () => {
+    for (const f of [GENERATOR_ROOT, "src/core/spec/mapspec.ts", "src/core/validate/playability.ts", "src/core/validate/ruledLand.ts", "src/core/land/highlands.ts", "src/core/premise/raster/falls.ts", "src/core/features/features.schema.json", "src/core/format/vendor/jpeg-encoder.js"]) {
+      expect(reached.has(f), f).toBe(true);
+    }
+    // a sanity floor: the graph was 172 files when this became a walk; a broken parse would reach a handful
+    expect(reached.size).toBeGreaterThan(150);
+    // the premises not offered, the forces and the editor are not reached
+    for (const f of ["src/core/premise/gateLand.ts", "src/core/premise/gateMap.ts", "src/core/premise/gateWater.ts", "src/core/premise/gateWorks.ts", "src/core/premise/premises/wallGate.ts", "src/core/premise/premises/dev.ts", "src/core/forces/craterize.ts", "src/editor/Editor.tsx"]) {
+      expect(reached.has(f), f).toBe(false);
+      expect(isGenerator(f, reached), f).toBe(false);
+    }
+  });
+  it("a new file the generator imports is reached with no list to update; type-only imports and bare packages are not followed", () => {
+    const tree: Record<string, string> = {
+      [GENERATOR_ROOT]: 'import { a } from "./a";\nimport type { T } from "../types/t";\nimport x from "some-package";\nexport * from "./re";\nconst lazy = () => import("../lazy/l");',
+      "src/core/gen/a.ts": 'import { b } from "../newPlace/b";\nimport data from "./data.json";',
+      "src/core/newPlace/b.ts": 'import { c } from "./c/index";',
+      "src/core/newPlace/c/index.ts": "export const c = 1;",
+      "src/core/gen/data.json": "{}",
+      "src/core/gen/re.ts": "export const r = 1;",
+      "src/core/lazy/l.ts": "export const l = 1;",
+      "src/core/types/t.ts": "export type T = 1;",
+    };
+    const g = generatorGraph((p) => tree[p] ?? null, (p) => p in tree);
+    expect([...g].sort()).toEqual([GENERATOR_ROOT, "src/core/gen/a.ts", "src/core/gen/data.json", "src/core/gen/re.ts", "src/core/lazy/l.ts", "src/core/newPlace/b.ts", "src/core/newPlace/c/index.ts"].sort());
+    expect(needsGenerator(["src/core/newPlace/c/index.ts"], "light", g)).toBe(true);
+    expect(needsGenerator(["src/core/types/t.ts"], "light", g)).toBe(false);
+    // no root, or a reached file that can't be read: an error, so the run falls back to running the browser shards
+    expect(() => generatorGraph(() => null, () => false)).toThrow();
+    expect(() => generatorGraph((p) => (p === GENERATOR_ROOT ? 'import "./a";' : null), (p) => p === GENERATOR_ROOT || p === "src/core/gen/a.ts")).toThrow();
+  });
+  it("a generator file, the version constant and the Rust its Wasm is built from run them; a premise not offered does not", () => {
+    expect(gen([GENERATOR_ROOT])).toBe(true);
+    expect(gen(["src/core/land/highlands.ts", "docs/STATUS.md"])).toBe(true);
+    expect(gen(["src/core/spec/mapspec.ts"])).toBe(true);
+    expect(gen(["src/core/premise/raster/falls.ts"])).toBe(true);
+    expect(gen(["src/core/validate/playability.ts"])).toBe(true);
+    expect(gen(["src/core/validate/ruledLand.ts"])).toBe(true);
+    expect(gen(["rust/water/src/lib.rs"])).toBe(true);
+    expect(gen(["src/core/premise/gateWater.ts", "src/core/premise/premises/wallGate.ts", "src/core/premise/premises/dev.ts"])).toBe(false);
+    expect(gen(["src/core/forces/craterize.ts", "rust/forces/src/lib.rs"])).toBe(false);
+  });
+  it("documents only, a page PR and the other modes are as before", () => {
+    expect(gen(["docs/STATUS.md", "src/core/gen/README.md"])).toBe(false);
+    expect(classify(["docs/STATUS.md"], () => null, "light").heavy).toBe(false);
+    expect(gen(["src/editor/Editor.tsx", "src/ui/App.tsx"])).toBe(false);
+    expect(needsPage(["src/editor/Editor.tsx"], "light")).toBe(true);
+    // (on dev, main and manual runs the browser shards run by `heavy` as before; `generator` is for pull requests into dev)
+    expect(gen([GENERATOR_ROOT], "auto")).toBe(false);
+    expect(gen([GENERATOR_ROOT], "full")).toBe(false);
+    // (an unreadable change counts as one that can)
+    expect(gen([])).toBe(true);
   });
 });

@@ -15,8 +15,8 @@ test.use({ storageState: { cookies: [], origins: [] } });
 
 // (its tests run one after another on one worker, never two at once: each draws High, which on CI's software drawing
 // costs 2 to 3 s a frame, and two of them side by side on the runner's four cores took the slow-frames test past its
-// budget, run 40601987187. With the clipping net in its own file the shards stay balanced: about 17 minutes of tests at
-// most, as with this file in parallel.)
+// budget, run 40601987187. Any other spec beside it does the same (run 42592717654), so CI runs its browser shards on
+// one worker each: playwright.config.ts, ci.yml.)
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -24,11 +24,11 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-async function open(page: Page, errors: string[]): Promise<void> {
+async function open(page: Page, errors: string[], hash = "s=4242&z=96&d=n&t=riverValley"): Promise<void> {
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  await openEditor(page, hash);
 }
 
 const look = (page: Page) => page.evaluate(() => window.dgm3d!.renderer.look);
@@ -127,7 +127,7 @@ test("the Standard look is the same after High as before it", async ({ page }) =
       return { key: k, share: n / px.length, max, size: `${g.drawingBufferWidth}x${g.drawingBufferHeight}` };
     }, key);
   await page.evaluate(() => window.dgm3d!.renderer.setLookChoice("standard"));
-  // (the patterns are made in the bake worker after the view opens, flat at their means until then: made before the
+  // (the patterns are made in a worker of their own after the view opens, flat at their means until then: made before the
   // first frame, so none lands between the frames compared)
   await page.evaluate(() => window.dgm3d!.renderer.patternsMade());
   // (the view settles its size first: the legend beside it lays out after the map. Watched in the page until neither
@@ -298,7 +298,7 @@ test("the game's bloom is drawn only when something can pass its knee, and skipp
 test("contamination draws the game's rusty veins over dry earth and over grass, the same at any level, and clears exactly, in Standard and High (D334, D154 as amended 2026-11-07)", async ({ page }) => {
   const errors: string[] = [];
   await open(page, errors);
-  // (the pattern is made in the bake worker after the view opens, flat at its mean until then)
+  // (the pattern is made in a worker of its own after the view opens, flat at its mean until then)
   await page.evaluate(() => window.dgm3d!.renderer.patternsMade());
   for (const choice of ["standard", "high"] as const) {
     const result = await page.evaluate((c) => {
@@ -523,7 +523,9 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
 
 test("every basin source's highlight reads, under its own water too, in High as in Standard (D378, D249; Kyler, 2026-10-03), and the water over one the pointer's water comes from glows (D196), clean and bad alike", async ({ page }) => {
   const errors: string[] = [];
-  await open(page, errors);
+  // (River Valley seed 2 since generator 0.10.17, D515, D148: seed 4242's map now has a spring in a cave, D488, whose source
+  // the land's roof hides from above; seed 2's has no caves, and its badwater source stands 1.4 under its own water)
+  await open(page, errors, "s=2&z=96&d=n&t=riverValley");
   // (the drought line comes in by itself once the worker has worked it out, and where its strips overlap over water
   // the GPU blends it once or twice between redraws of one still frame (the Standard-after-High test above): wait for
   // it, then put it away, so the frames before and after the highlight compare only what this test is about)
@@ -692,7 +694,10 @@ test("High's visible seasons follow the game's timers: no plant dies of dryness 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley&bw=0");
+  // (seed 6 since generator 0.10.16's ground with grade, D148: on seed 5's new land no plant dies between days 20 and 24;
+  // seed 5 since generator 0.10.13, D507, D148: the start frames the map, and on seed 4242's the plants stand on ground
+  // that stays moist past the normal drought's 9 days, so none is surely dead even by day 24)
+  await openEditor(page, "s=6&z=96&d=n&t=riverValley&bw=0");
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
   await opensHigh(page);
   const withered = () => page.evaluate(() => window.dgm3d!.renderer.witheredPlants);
@@ -879,10 +884,22 @@ test("clean water and badwater a level and a half deep, by day, as drawn through
     }
     return out;
   });
-  // the order, in both looks. The size of the gap is judged against the game's own frames, where the game drew the
-  // same water (tools/water-pixel-judge.ts, "the gap by day"; waterPalette.ts WATER_LIGHT.gap): this scene the game
-  // never drew, and its clean water over its moist bed reads darker than the shots' (about 28 against 31 to 33.5)
+  // the order in both looks, and badwater as dark as the game's own frames draw it at this depth. D496 judges the
+  // gap's size on the game's frames, where the game drew the same water (tools/water-pixel-judge.ts, "the gap by
+  // day"; waterPalette.ts WATER_LIGHT.gap): there the game's gap is 5.2 L* (clean water 32.6 against badwater 27.4,
+  // twelve day-lit start shots), ours 5.6 in Standard and 5.5 in High, within the 3.1 to 6.5 its frames allow. This
+  // scene the game never drew, and its clean water over its moist bed reads darker than the frames' (about 28 against
+  // 31.3 to 33.5), so here the gap is narrow (about 1) and only its sign is the game's. Re-based under D148
+  // (fix/badwater-day-gap): the margin of 1 this held was set when badwater drew 1.5 L* darker than the game's at a
+  // distance (its mips, fix/badwater-low-light), and the frames' gap was 6.8, outside the game's range. Badwater's own
+  // darkness is held instead: the game's badwater a level or two deep reads 27.0 and 27.9 on its two frames (36 and 37
+  // tiles), each ± its mean's standard error (0.69, 0.77: its tiles' L* spread 4.2 and 4.7); the GPU moves this scene's
+  // badwater by 0.03 (CI's SwiftShader against a desktop GPU)
   console.log(`the gap by day, as drawn: ${JSON.stringify(gaps)}`);
-  for (const look of ["standard", "high"] as const) expect(gaps[look].clean - gaps[look].bad).toBeGreaterThan(1);
+  for (const look of ["standard", "high"] as const) {
+    expect(gaps[look].clean - gaps[look].bad).toBeGreaterThan(0);
+    expect(gaps[look].bad).toBeGreaterThan(26.3);
+    expect(gaps[look].bad).toBeLessThan(28.7);
+  }
   expect(errors).toEqual([]);
 });

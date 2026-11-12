@@ -91,6 +91,26 @@ namespace DGMProbe
         public string Pose;
         public string File;
         public double Day;
+        // The camera the shot was rendered with (0.3.4), so another view can be posed from it exactly.
+        public ShotCamera Camera;
+    }
+
+    // A shot's camera in the game's world (x east, y up, z north; Unity's left-handed axes): its place, where it looks
+    // and its up, its vertical field of view in degrees, the frame's width over its height and its clip planes; and the
+    // game's own camera state then (the point it turns round, its zoom level and its two angles in degrees).
+    public class ShotCamera
+    {
+        public float[] Position;
+        public float[] Forward;
+        public float[] Up;
+        public float FieldOfView;
+        public float Aspect;
+        public float Near;
+        public float Far;
+        public float[] StateTarget;
+        public float StateZoom;
+        public float StateHorizontal;
+        public float StateVertical;
     }
 
     public class LogLine
@@ -141,6 +161,8 @@ namespace DGMProbe
         public double LoadSeconds;
         public double WorkingSetAtLoadMb;
         public PerfResult Perf;
+        // The game's light every game hour and at each moment (0.3.3: LightReader).
+        public List<LightRecord> Lights = new List<LightRecord>();
     }
 
     public class PerfResult

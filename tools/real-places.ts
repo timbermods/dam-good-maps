@@ -76,6 +76,9 @@ const EDGE_LIP_REACH = 6;
 /** The longer walk to a shore a start's spot may have when no nearer spot gives it water (tiles; the
  *  check allows Normal's 20 from the start's middle). */
 const LONG_SHORE_WALK = 22;
+/** The start's land: item 47's farmland and the start's floors (D515: its bench, walkable land, fast wood and
+ *  forester's plot), information for a real place (D331): a place whose start falls short warns, never drops (D245). */
+const START_LAND = ["start.farmland", "start.level_land", "start.reach", "start.forester", "start.wood_fast"];
 /** The springs tried by a start that lost its water: [the walk the spring stands within plus 4, the
  *  places tried], nearer ones first. */
 const SPRING_TRIES: [number, number][] = [
@@ -327,7 +330,7 @@ for (const item of items) {
   const opened = place;
   let moved: [number, number] | null = null;
   const dry = strictFails.includes("start.dry");
-  const free = new Set(["start.wood", "start.food", "start.water", "start.farmland", "start.level_land"]);
+  const free = new Set(["start.wood", "start.food", "start.water", ...START_LAND]);
   // (water first, then the starting-logs floor, then the berries, then the wood: a spot or spring
   // that costs the start its berries ranks below one that keeps them)
   const score = (fails: string[]) => (fails.includes("start.water") ? 8 : 0) + (fails.includes("start.wood_floor") ? 4 : 0) + (fails.includes("start.food") ? 2 : 0) + (fails.includes("start.wood") ? 1 : 0);
@@ -483,7 +486,7 @@ for (const item of items) {
   // the conversion's known faults (every place has them, D200) and the places' own recorded
   // ones are not failures of the tool; anything else is, and so is a map the game would not load
   // (and the start-land preferences, information for a real place, D331)
-  const known = new Set<string>([...CONVERSION_FAULT_CHECKS, ...PLACE_FAULT_CHECKS, "start.farmland", "start.level_land"]);
+  const known = new Set<string>([...CONVERSION_FAULT_CHECKS, ...PLACE_FAULT_CHECKS, ...START_LAND]);
   const unknown = [...blocking.map((c) => c.id), ...strictFails].filter((id) => !known.has(id));
   const loads = v.report.checks.every((c) => c.class !== "load" || !counts(c));
   if (unknown.length) for (const c of [...blocking, ...strict.report.checks.filter(counts)]) if (unknown.includes(c.id)) console.log(`   ${place.name}: ${c.id}: ${c.message}${c.where?.tiles ? ` at ${JSON.stringify(c.where.tiles.slice(0, 4))}` : ""}`);

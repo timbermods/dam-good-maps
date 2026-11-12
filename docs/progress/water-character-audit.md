@@ -223,6 +223,9 @@ most maps' main rivers, so its front is on screen.
 - **The game.** It clips hard at the column's floor (Q9 P14).
 - **Ours.** `WATER_FILM.to` 0.03 fades the last sliver in (waterPalette.ts 474–496). It is anti-aliasing of a pixel or
   two at a shore, and nothing shows at play distance. Keep it as D154 records it.
+- *Overturned 2026-11-09 (`fix/thin-water-drawn`, D154 as amended).* The fade was driven by the water's depth, not the
+  shore: no sliver formed on water a tenth of a level deep or more, and whole pools under about a tenth drew as a tint
+  over their ground (the probe's `ceiling` pond, 0.01-0.03 deep, L* 45.8 against the game's 37.5). Gone in every look.
 
 ## Terms we draw that the game doesn't
 

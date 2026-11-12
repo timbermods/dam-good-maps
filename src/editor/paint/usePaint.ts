@@ -1,20 +1,18 @@
-// The brushes: the picked brush and its settings, strokes painted on the page's copy of the land
-// before the worker confirms them, undo and redo, picking a tool or a shelf item, and what the worker
-// says while it works.
+// The brushes: the picked brush and its settings, undo, redo and History's jumps (tickets in the edit queue,
+// core/doc/editQueue.ts, #922), picking a tool or a shelf item, and what the worker says while it works.
 
 import { proxy } from "comlink";
 import { cacheAfterEditable } from "../../platform/isolation";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { EditOp } from "../../core/doc/ops";
 import type { FixOp } from "../../core/validate/report";
-import type { CheckProgress, EditorEvent, SessionUpdate } from "../../worker/session";
+import type { CheckProgress, EditorEvent } from "../../worker/session";
 import { plain } from "../panels";
 import type { ShelfItem } from "../shelfItems";
 import type { Verb } from "../../core/forces/op";
 import { FORCES, forceShown, type TopTool } from "../TopBar";
-import { BrushPainter, paste, type BrushSettings, type BrushTool, type Stroke } from "../brushes";
-import type { TerrainState } from "../../core/features/raster/strokePreview";
-import { heldWords } from "../caveWords";
+import { BrushPainter, type BrushSettings, type BrushTool } from "../brushes";
+import type { BrushParams } from "../../core/features/raster/brush";
 import { loadBrush, saveBrush } from "../prefs/brushPrefs";
 import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
@@ -25,16 +23,13 @@ export interface PaintSlice {
   brushRef: { current: BrushSettings };
   brushToolRef: { current: BrushTool | null };
   setBrush: (s: BrushSettings, save?: boolean) => void;
-  terrain: { current: TerrainState };
-  pendingTerrain: { current: number };
-  checkStroke: { current: boolean };
-  strokeMismatches: { current: number };
-  localUndo: { current: Stroke[] };
-  localRedo: { current: Stroke[] };
+  /** The last stroke let go (the test hook reads it). */
+  lastStroke: { current: BrushParams | null };
   painter: { current: BrushPainter | null };
-  sendTerrain: (fn: () => Promise<SessionUpdate>) => Promise<void>;
   undo: () => void | Promise<void>;
   redo: () => void | Promise<void>;
+  /** History: stand at row `k` (−1: before the first step), the row's step `seq`. */
+  jump: (k: number, seq?: number) => void | Promise<void>;
   pickTop: (t: TopTool | null) => void;
   putDown: () => void;
   pickBrush: (t: BrushTool | null) => void;
@@ -46,8 +41,8 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
   const {
     api, info, mirror, renderer, setTool, setShelf, setTurn, setPainted, setBusy, setMessage, setCheck, check,
     setProgress, setInfo, layer, setLayers, waterTick, selectingRef, selection, player, mounted, juice, weatherRef,
-    setWeather, journey, setInstant, setFit, setPicked, setPickedObject, setShapeNote, queue, infoRef, enqueue, run,
-    draftWater, showWater, showSoil, applyUpdate, setRockHeld
+    setWeather, journey, setInstant, setFit, setPicked, setPickedObject, setShapeNote, infoRef, enqueue, run,
+    draftWater, showWater, showSoil, edits, track
   } = ed;
 
   // ------------------------------------------------------------------------------ the brushes
@@ -64,126 +59,62 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
     setBrushState(s);
     if (save) saveBrush(s);
   };
-  /** The terrain the page paints strokes on (the build's, from the worker), and the strokes on
-   *  their way to the worker. */
-  const terrain = useRef<TerrainState>(props.opened.terrain);
-  const pendingTerrain = useRef(0);
-  const checkStroke = useRef(false);
-  const strokeMismatches = useRef(0);
-  /** Strokes at the top of the history, which the page undoes and redoes at once. */
-  const localUndo = useRef<Stroke[]>([]);
-  const localRedo = useRef<Stroke[]>([]);
+  const lastStroke = useRef<BrushParams | null>(null);
   const painter = useRef<BrushPainter | null>(null);
   // (the editor closes for a new or opened map: a stroke being painted or still on its way is forgotten, as Esc
   // forgets one, so none of its land or its operation reaches the next map's editor, #880; a force's is cancelled so)
   useEffect(() => () => painter.current?.drop(), []);
 
-  /** Put a stroke's terrain before or after it back on the map, at once. */
-  function showStroke(s: Stroke, which: "before" | "after") {
-    ed.endFlip();
-    const r = renderer.current;
-    const W = infoRef.current.W;
-    const snap = s[which];
-    paste(mirror.current.heights, snap.shown, s.rect, W);
-    const pre = terrain.current.pre;
-    paste(pre, snap.pre, s.rect, W);
-    if (r) {
-      r.updateTerrainRect(mirror.current.heights, s.rect);
-      r.refreshShadows();
-    }
+  /** A shared session's history is each player's own (worker/collabEdit.ts): its undo and redo are the session's, sent
+   *  as they are; alone, a move names the step it means (I5). */
+  const shared = () => !!ed.collab && ed.collab.phase !== "alone";
+
+  /** A move's ticket: shown at once when the queue holds the step's land (a recent stroke), else when answered. The
+   *  last step's note goes with it (a held stroke taken back leaves no line about tiles the map no longer holds), as
+   *  it does with any other edit's; a note kept on purpose (a failed save) stays. */
+  function moved(id: number | null, sound = true) {
+    if (id === null) return;
+    if (sound) juice.current?.undo();
+    void track(id, (u) => u.ok && setMessage((m) => (m && !m.keep ? null : m)));
   }
 
-  /** Send the worker a stroke, an undo or a redo of one; the page has shown it already. */
-  function sendTerrain(fn: () => Promise<SessionUpdate>): Promise<void> {
-    juice.current?.edited();
-    pendingTerrain.current++;
-    const next = queue.current.then(async () => {
-      setBusy((b) => b + 1);
-      let counted = false;
-      try {
-        const u = await fn();
-        pendingTerrain.current--;
-        counted = true;
-        if (pendingTerrain.current === 0) checkStroke.current = true;
-        if (!u.ok) {
-          // the worker refused it: the page takes the worker's terrain again
-          localUndo.current = [];
-          localRedo.current = [];
-          if (u.errors.length) setMessage({ kind: "error", text: plain(u.errors[0]) });
-          const now = await api.terrainNow();
-          // (put in place once nothing else the page painted is on its way; no check: the page showed what was refused)
-          checkStroke.current = false;
-          applyUpdate({ ...u, view: { ...u.view, heights: now.heights, terrain: now.terrain } });
-          return;
-        }
-        applyUpdate(u);
-        // (a stroke that kept ground holding up a cave's or an overhang's rock, or an object under a roof, says how much in
-        // one line, and the map tints it until the next edit: D280 (3), amended by #623; D491)
-        setRockHeld(u.held?.length ? { tiles: u.held, version: u.info.version } : null);
-        // (an edit's own note goes with the next kept step, a stroke, its undo or its redo, as it does with any other
-        // edit's: a held stroke taken back leaves no line about tiles the map no longer holds)
-        setMessage(u.held?.length ? { kind: "info", text: heldWords(u.held.length, u.heldUnder) } : (m) => (m && !m.keep ? null : m));
-        // (the other player's terrain came in a shared session while these strokes were on their way, and waited: taken now)
-        if (u.ok && pendingTerrain.current === 0 && ed.collabStale.current) {
-          ed.collabStale.current = false;
-          const now = await api.terrainNow();
-          if (pendingTerrain.current === 0) {
-            mirror.current.heights = now.heights;
-            terrain.current = now.terrain;
-            renderer.current?.updateTerrain(now.heights);
-          }
-        }
-      } catch (e) {
-        if (!counted) pendingTerrain.current = Math.max(0, pendingTerrain.current - 1);
-        setMessage({ kind: "error", text: String(e instanceof Error ? e.message : e) });
-        // (no answer came: the worker's land, as it stands, once nothing else the page painted is on its way; no
-        // check, the page's may be what failed)
-        checkStroke.current = false;
-        await api.terrainNow().then(
-          (now) => ed.applyView({ heights: now.heights, terrain: now.terrain }),
-          () => ed.takeLand(),
-        );
-      } finally {
-        setBusy((b) => b - 1);
-      }
-    });
-    queue.current = next;
-    return next;
-  }
-
-  // (a Naturalize stroke let go is on its way to the history until its last land comes from its worker: an undo or a
-  // redo pressed meanwhile waits for it to land, then acts, so it takes that stroke back, as it would any other
-  // brush's, which is on the history the moment it is let go, #880)
+  // (a Naturalize stroke let go is on its way to the history until its last land comes from its worker: an undo, a
+  // redo or a jump pressed meanwhile waits for it to land, then acts, so it takes that stroke back, as it would any
+  // other brush's, which is on the queue the moment it is pressed, #880; step 3 puts its landing on the queue too)
+  const landed = (fn: () => void) => (painter.current ? painter.current.afterLanding(fn) : fn());
   const undo = () => {
     if (ed.forcer.current?.running) return ed.forcer.current.cancel();
     if (painter.current?.painting) return painter.current.cancel();
-    return painter.current ? painter.current.afterLanding(undoNow) : undoNow();
+    return landed(undoNow);
   };
   const undoNow = () => {
-    const s = localUndo.current.pop();
-    if (!s) {
-      // (a force just kept: its tails stop at the key, not when the worker answers: its sound and its effects, which
-      // would play on over land taken back, renderer.ts clearForce)
-      juice.current?.takeBack();
-      renderer.current?.clearForce();
-      return run(() => api.undo(), (u) => u.ok && juice.current?.undo());
-    }
-    juice.current?.undo();
-    showStroke(s, "before");
-    localRedo.current.push(s);
-    sendTerrain(() => api.undo());
+    if (ed.resizing.current) return;
+    // (a force just kept: its tails stop at the key, not when the worker answers: its sound and its effects, which
+    // would play on over land taken back, renderer.ts clearForce)
+    juice.current?.takeBack();
+    renderer.current?.clearForce();
+    juice.current?.edited();
+    moved(shared() ? edits.current.edit("undo", [], "Undo") : edits.current.undo());
   };
   const redo = () => {
     if (painter.current?.painting || ed.forcer.current?.running) return;
-    return painter.current ? painter.current.afterLanding(redoNow) : redoNow();
+    return landed(redoNow);
   };
   const redoNow = () => {
+    if (painter.current?.painting || ed.forcer.current?.running || ed.resizing.current) return;
+    juice.current?.edited();
+    moved(shared() ? edits.current.edit("redo", [], "Redo") : edits.current.redo(), false);
+  };
+  const jump = (k: number, seq?: number) => {
     if (painter.current?.painting || ed.forcer.current?.running) return;
-    const s = localRedo.current.pop();
-    if (!s) return run(() => api.redo());
-    showStroke(s, "after");
-    localUndo.current.push(s);
-    sendTerrain(() => api.redo());
+    return landed(() => {
+      if (ed.resizing.current) return;
+      juice.current?.edited();
+      if (shared()) return moved(edits.current.edit("jump", [k, seq], "Jump"), false);
+      const at = k < 0 ? null : (seq ?? infoRef.current.history[k]?.seq);
+      if (at === undefined) return;
+      moved(edits.current.jump(at === null ? null : { seq: at }), false);
+    });
   };
 
   /** The top bar: a brush, a force, or nothing; the shelf's object goes back. */
@@ -254,7 +185,7 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
     setTool(null);
     setPicked(null);
   }
-  const applyFix = (fix: FixOp[]) => run(() => api.applyAll(fix.map(({ label: _l, ...op }) => op as EditOp), fix[0]?.label || "Fix", "fix"));
+  const applyFix = (fix: FixOp[]) => run((w) => w.applyAll(fix.map(({ label: _l, ...op }) => op as EditOp), fix[0]?.label || "Fix", "fix"));
 
   // the map's health (export profile), checked in the background a moment after each change
   // (EDITOR_PLAN §6): the canonical settle runs in slices and replaces the preview's water, then
@@ -315,7 +246,7 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
   useEffect(() => {
     if (layer === "none") return setLayers(null);
     let live = true;
-    void enqueue(() => api.waterLayers()).then((l) => live && setLayers(l));
+    void enqueue(() => api.waterLayers(layer)).then((l) => live && setLayers(l));
     return () => {
       live = false;
     };
@@ -407,7 +338,7 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
   }, []);
 
   return {
-    brushTool, brush, brushRef, brushToolRef, setBrush, terrain, pendingTerrain, checkStroke, strokeMismatches,
-    localUndo, localRedo, painter, sendTerrain, undo, redo, pickTop, putDown, pickBrush, pickShelf, applyFix
+    brushTool, brush, brushRef, brushToolRef, setBrush, lastStroke, painter, undo, redo, jump, pickTop, putDown, pickBrush,
+    pickShelf, applyFix
   };
 }

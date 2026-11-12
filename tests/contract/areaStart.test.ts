@@ -34,22 +34,28 @@ describe("a force leaves the locked land, and the ground above the layer showing
   // stands, and the start's ground is then not broken; seed 1 for generator 0.10.11's maps, the D410 round, D148: seed 3's
   // start at (20, 52) is carried by no Erupt near it, at any Power, so its ground is never broken there; seed 1's start
   // stands at (50, 10), across the area's east edge: the area from (22, 4), 29 wide, and the Erupt at (45, 13), 5 tiles
-  // west and 3 south of the start, which carries it to (28, 8))
-  it("Highlands 64², seed 1: an Erupt (Power 69) at (45, 13) inside a 29 × 12 area from (22, 4) breaks the start's ground; the objects outside the area all stay where they stood", async () => {
+  // west and 3 south of the start, which carries it to (28, 8); seed 7 since generator 0.10.16's ground with grade, D148:
+  // seed 1's start stands at (28, 24) now, and no Erupt 5 to 9 tiles west of it carries it, nor on seeds 2, 4, 5 and 9; seed
+  // 7's start stands at (52, 37), across the area's east edge: the area from (24, 31), 29 wide, and the Erupt at (47, 40), 5
+  // tiles west and 3 south of the start, which carries it to (30, 40); seed 9 since generator 0.10.17's start floors (D515),
+  // D148: seed 7's start stands at (9, 18) now, and no Erupt 5 to 9 tiles east of it carries it, nor on seeds 1–3, 5, 6, 8
+  // and 12; seed 9's start stands at (9, 33), across the area's west edge: the area from (9, 27), 29 wide, and the Erupt at
+  // (14, 36), 5 tiles east and 3 south of the start, which carries it to (20, 33))
+  it("Highlands 64², seed 9: an Erupt (Power 69) at (14, 36) inside a 29 × 12 area from (9, 27) breaks the start's ground; the objects outside the area all stay where they stood", async () => {
     const W = 64;
-    await runGenerate(makeSpec({ seed: 1, theme: "highlands", size: { x: W, y: W } }));
+    await runGenerate(makeSpec({ seed: 9, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
     const area: [number, number, number][] = [];
-    for (let y = 4; y < 16; y++) area.push([y, 22, 50]);
+    for (let y = 27; y < 39; y++) area.push([y, 9, 37]);
     const inside = areaDepth(area, W, W);
     const before = open().built;
     const start = before.entities.find((e) => e.template === "StartingLocation")!;
-    // (the start stands across the area's east edge, partly inside it)
-    expect([start.x, start.y]).toEqual([50, 10]);
+    // (the start stands across the area's west edge, partly inside it)
+    expect([start.x, start.y]).toEqual([9, 33]);
     const locked = before.entities.filter((e) => e.template !== "StartingLocation" && !inside[e.y * W + e.x]);
     expect(locked.length).toBeGreaterThan(100);
 
-    expect(ed.forceStart({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 69 }, origin: [45, 13], cut: null, natural: true, area }).errors).toEqual([]);
+    expect(ed.forceStart({ verb: "erupt", settings: { ...ERUPT_DEFAULTS, power: 69 }, origin: [14, 36], cut: null, natural: true, area }).errors).toEqual([]);
     for (let k = 0; k < 4000 && !(ed.forceAdvance(16)?.done ?? true); k++);
     expect(ed.forceStop().kept).toBe(true);
     const after = open().built;
@@ -73,10 +79,13 @@ describe("a force leaves the locked land, and the ground above the layer showing
   // D148: on seed 7's new map the start stands at (42, 41), level 11, and the Craterize at (42, 30) carries it to
   // (42, 38), but the force's integrity pass also lowers four one-tile spikes above the layer far to the west,
   // (9, 15) among them, a separate matter from the start's carry that this test is about; seed 10's start stands at (15, 30), level 13, with 138 objects above it, and the Craterize 11 tiles
-  // north of it, at (15, 19), carries it to (19, 24), level 7, below the layer, and leaves the ground above alone)
-  it("Highlands 64², seed 10: a Craterize (Power 44) at (15, 19) with the layer cut at level 13 breaks the start's ground; the ground above the layer and every object on it stay as they were", async () => {
+  // north of it, at (15, 19), carries it to (19, 24), level 7, below the layer, and leaves the ground above alone; seed 8
+  // since generator 0.10.16's ground with grade, D148: seed 10 has 92 objects above the layer now; seed 8's start stands at
+  // (34, 35), level 13, with 129 above it, and the Craterize 11 tiles north of it, at (34, 24), carries it to (40, 28), level
+  // 4, below the layer, and leaves the ground above alone)
+  it("Highlands 64², seed 8: a Craterize (Power 44) at (34, 24) with the layer cut at level 13 breaks the start's ground; the ground above the layer and every object on it stay as they were", async () => {
     const W = 64;
-    await runGenerate(makeSpec({ seed: 10, theme: "highlands", size: { x: W, y: W } }));
+    await runGenerate(makeSpec({ seed: 8, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
     const cut = 13;
     const before = open().built;
@@ -84,7 +93,7 @@ describe("a force leaves the locked land, and the ground above the layer showing
     const above = before.entities.filter((e) => e.template !== "StartingLocation" && hidden(e.y * W + e.x));
     expect(above.length).toBeGreaterThan(100);
 
-    expect(ed.forceStart({ verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 44 }, origin: [15, 19], cut, natural: true }).errors).toEqual([]);
+    expect(ed.forceStart({ verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 44 }, origin: [34, 24], cut, natural: true }).errors).toEqual([]);
     for (let k = 0; k < 4000 && !(ed.forceAdvance(16)?.done ?? true); k++);
     expect(ed.forceStop().kept).toBe(true);
     const after = open().built;

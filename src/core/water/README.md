@@ -139,3 +139,11 @@ ground off the start's 5×5 within the rule's walk less 4, in a riverbed or a ho
 hollow, then the shorter walk, each place 6 tiles from the others. The generator's `springByStart` (on a shown land)
 and `doc/waterFix.ts` (on a map as edited) both use it, each with its own walk, filters (the generator: off the edge,
 under the start's pad), tries (3 and 6) and strengths.
+
+## Badwater let in (the force audit's S3)
+
+`badwaterLetIn(before, after, badBefore?)` (`badwaterLetIn.ts`) says whether a change let badwater into water that was
+clean: the tiles of `before.water` (0.05 deep or more, under 0.05 contamination) that `prefill.ts` `flowThrough`
+reaches with badwater on the land after and did not on the land before, with the count, a place among them, whether
+the start's water is among them (within 20 tiles of the start) and the note's one line; null under 4 tiles. Every
+force's keep calls it (worker `forceStop`); any other change to the land can. About 28 ms on 256² (two walks).

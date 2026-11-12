@@ -1,14 +1,19 @@
 // The opening shot (D493): what the game's first camera shows of a new game, as a plain core question.
 // When a new game starts, the game sets its camera on the district center (Timberborn.GameStartup.cs,
 // `StartingBuildingInitializer.SetCamera`): looking down at 60°, turned to the start's orientation
-// angle + 35°, zoomed to the start's level × 0.1, centered on the building. The camera stands
-// `ZoomBase ^ ZoomLevel × BaseDistance` from its target (Timberborn.CameraSystem.cs, `CameraService`;
+// angle + 35°, zoomed to the start's level × 0.1, centered on the building. Centering keeps the line of
+// sight through the building's middle at its base level (`BlockObjectCenter.WorldCenterAtBaseZ`) but puts
+// the target where that line meets the plane y = 0 (Timberborn.SelectionSystem.cs,
+// `CameraTargeter.CenterCameraOn`), so a start above level 0 has its target past the building, z × cot 60°
+// tiles along the look, and the camera nearer the ground than a target at the start's height would put it
+// (DGM Probe 0.3.4 recorded the first camera on nine maps; tests/unit/opening.test.ts holds each). The
+// camera stands `ZoomBase ^ ZoomLevel × BaseDistance` from its target (Timberborn.CameraSystem.cs, `CameraService`;
 // the values are the game's `CameraService.blueprint.json`: ZoomBase 1.3, BaseDistance 32, the
 // default zoom's widest 6), its rotation AngleAxis(H, up) × AngleAxis(V, right). The vertical field
 // of view, 35°, is read from the game camera's prefab in `resources.assets` (near 0.01, far 600);
 // the frame is the game's usual 16:9.
 //
-// At the opening zoom itself the frame covers only about 30 × 45 tiles round the start; the first
+// At the opening zoom itself the frame covers only about 38 × 42 tiles round the start; the first
 // thing a player does is pull back, which keeps the camera's turn and target. So "the opening frame"
 // here is the opening camera at the default zoom's widest (`VISTA_ZOOM`), what the player sees of the
 // land round the colony before turning the camera: `openingFrame` gives the tiles in it (any zoom),
@@ -78,7 +83,8 @@ export interface OpeningStart {
 }
 
 export interface OpeningCamera {
-  /** The point looked at: the district center's middle, a level over its ground. */
+  /** The point looked at: where the line of sight through the district center's middle, at its base
+   *  level, meets height 0 (the game's `CenterCameraOn`). Pulling back keeps it. */
   target: [number, number, number];
   /** The camera's place (tile x, tile y, height in levels). */
   eye: [number, number, number];
@@ -93,11 +99,13 @@ export interface OpeningCamera {
 export function openingCamera(start: OpeningStart, zoom = start.z * OPENING.zoomPerLevel): OpeningCamera {
   const t = TURNS[start.orientation];
   const distance = pow(OPENING.zoomBase, zoom) * OPENING.baseDistance;
-  const tx = start.x + 0.5;
-  const ty = start.y + 0.5;
-  const tz = start.z + 1;
+  // the building's middle at its base level, followed down the line of sight to height 0 (the camera's
+  // MapMargin, 50 tiles past the map's edge, never clamps it)
+  const run = (start.z * COS_P) / SIN_P;
+  const tx = start.x + 0.5 + t.fx * run;
+  const ty = start.y + 0.5 + t.fy * run;
   const back = distance * COS_P;
-  return { target: [tx, ty, tz], eye: [tx - t.fx * back, ty - t.fy * back, tz + distance * SIN_P], look: [t.fx, t.fy], right: [t.rx, t.ry], distance, zoom };
+  return { target: [tx, ty, 0], eye: [tx - t.fx * back, ty - t.fy * back, distance * SIN_P], look: [t.fx, t.fy], right: [t.rx, t.ry], distance, zoom };
 }
 
 /** Where a point (tile x, tile y, height) falls in the camera's frame: u across (−1 left edge to 1
@@ -240,6 +248,26 @@ export function fallInView(land: Pick<OpeningLand, "falls">, start: OpeningStart
   return best;
 }
 
+/** The least drop of a fall that stands as a landmark in the colony's view (the landmark intention's, land/intentions.ts). */
+export const LANDMARK_FALL = 6;
+
+/** The map's sight from its start, as the landmark intention reads it (land/intentions.ts, D488, D493): the standing
+ *  form the opening frame holds (`landmarkInView`), else the tallest fall of `LANDMARK_FALL` or more in it
+ *  (`fallInView`); a premise's landmark fall is placed in that frame (premise/frame.ts), so this finds it too. Its top
+ *  (tile x, tile y, height) and how tall it stands over the ground or water below; null when the frame holds none. */
+export function openingSight(land: OpeningLand, start: OpeningStart): { x: number; y: number; z: number; stand: number; kind: "form" | "fall" } | null {
+  const cam = openingCamera(start, VISTA_ZOOM);
+  const lm = landmarkInView(land, start, cam);
+  if (lm) {
+    const x = lm.tile % land.W;
+    return { x, y: (lm.tile - x) / land.W, z: land.h[lm.tile], stand: lm.stand, kind: "form" };
+  }
+  const fall = fallInView(land, start, LANDMARK_FALL, cam);
+  if (!fall) return null;
+  const top = land.falls.find((f) => f.x === fall.x && f.y === fall.y)!;
+  return { x: fall.x, y: fall.y, z: top.z, stand: fall.drop, kind: "fall" };
+}
+
 /** The best turn for a start among `turns` (its level-door orientations): the best opening shot,
  *  shots within a twentieth of each other tied, then the door nearest the water (`dWet`), then the
  *  orientations' order. */
@@ -248,7 +276,10 @@ export function bestTurn(land: OpeningLand, x: number, y: number, z: number, tur
   let bestShot = -1;
   let bestWet = Infinity;
   for (const t of turns) {
-    const shot = Math.round(openingShotScore(land, { x, y, z, orientation: t.o }).score * 20);
+    // (with the share of the frame that shows the map, D507: of turns whose shots are near alike the one framing more map
+    // than void wins; a strong landmark in view outweighs the frame, a weak one at the frame's edge (0.3 of a shot) can
+    // lose to a turn showing much more map)
+    const shot = Math.round((openingShotScore(land, { x, y, z, orientation: t.o }).score + landInFrame(land.W, land.H, { x, y, z, orientation: t.o })) * 20);
     const wet = dWet[t.door];
     if (shot > bestShot || (shot === bestShot && wet < bestWet)) {
       best = t.o;
@@ -257,6 +288,32 @@ export function bestTurn(land: OpeningLand, x: number, y: number, z: number, tur
     }
   }
   return best;
+}
+
+/** The share of the opening frame pulled back (`VISTA_ZOOM`) that shows the map rather than the game's void past its
+ *  edge: rays through a 32 × 18 grid of the frame, each meeting the start's level inside the map's W × H or not. A
+ *  start in the middle of a 128² map shows the map over about 70% of the frame, one near a corner under 45% (D506's
+ *  eye ranked such frames last). */
+export function landInFrame(W: number, H: number, start: OpeningStart): number {
+  const cam = openingCamera(start, VISTA_ZOOM);
+  const [ex, ey, ez] = cam.eye;
+  const [lx, ly] = cam.look;
+  const [rx, ry] = cam.right;
+  const drop = start.z - ez;
+  let n = 0;
+  for (let py = 0; py < 18; py++) {
+    const v = 1 - ((py + 0.5) * 2) / 18;
+    const dz = -SIN_P + v * TAN_V * COS_P;
+    if (!(dz < 0)) continue;
+    const t = drop / dz;
+    for (let px = 0; px < 32; px++) {
+      const u = ((px + 0.5) * 2) / 32 - 1;
+      const x = ex + t * (lx * COS_P + u * TAN_H * rx + v * TAN_V * lx * SIN_P);
+      const y = ey + t * (ly * COS_P + u * TAN_H * ry + v * TAN_V * ly * SIN_P);
+      if (x >= 0 && y >= 0 && x < W && y < H) n++;
+    }
+  }
+  return n / (32 * 18);
 }
 
 /** How good a shot the opening camera makes for a start (D493): the landmark in view weighs most,

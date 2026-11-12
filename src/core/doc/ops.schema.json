@@ -8,7 +8,7 @@
   "required": ["op", "params"],
   "properties": {
     "op": {
-      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow", "paintObjects", "crop", "blocks", "setDescription"]
+      "enum": ["addFeature", "updateFeature", "deleteFeature", "reorderFeature", "sculpt", "brush", "forceResult", "placeEntity", "moveEntity", "deleteEntities", "setEntityProps", "pinSlope", "removeSlope", "removeUnfedWater", "fillHollow", "paintObjects", "crop", "blocks", "setDescription", "setLakeLevel", "canal", "lake", "ridge"]
     },
     "params": { "type": "object" },
     "label": { "type": "string" }
@@ -32,7 +32,11 @@
     { "if": { "properties": { "op": { "const": "paintObjects" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/paintObjects" } } } },
     { "if": { "properties": { "op": { "const": "crop" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/crop" } } } },
     { "if": { "properties": { "op": { "const": "blocks" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/blocks" } } } },
-    { "if": { "properties": { "op": { "const": "setDescription" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/setDescription" } } } }
+    { "if": { "properties": { "op": { "const": "setDescription" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/setDescription" } } } },
+    { "if": { "properties": { "op": { "const": "setLakeLevel" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/setLakeLevel" } } } },
+    { "if": { "properties": { "op": { "const": "canal" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/canal" } } } },
+    { "if": { "properties": { "op": { "const": "lake" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/lake" } } } },
+    { "if": { "properties": { "op": { "const": "ridge" } } }, "then": { "properties": { "params": { "$ref": "#/$defs/ridge" } } } }
   ],
   "$defs": {
     "id": { "type": "string", "pattern": "^(f-[a-z2-7]{13}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$" },
@@ -61,11 +65,12 @@
         "sources": { "const": "keep" },
         "seed": { "type": "integer" },
         "weathers": { "const": true },
-        "weathering": { "enum": [2, 3, 4, 5] },
+        "weathering": { "enum": [2, 3, 4, 5, 6] },
         "rim": { "type": "array", "maxItems": 8192, "items": { "type": "integer", "minimum": 0 } },
         "shore": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer" } } },
         "pools": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
         "moist": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer" } } },
+        "worn": { "type": "array", "maxItems": 262144, "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer" } } },
         "layer": { "enum": ["top"] },
         "shape": { "enum": ["square", "area"] },
         "precise": { "type": "boolean" },
@@ -137,18 +142,18 @@
       }
     },
     "forceResult": {
-      "description": "A force of nature (Carve, Craterize, Erupt, Quake, Glaciate, Rift, Deposit or Erode: D194, D202, D203, D206, D220, D246, D281): what the player asked for (the force, its settings, where), and its result stored literally (the changed tiles as indices y·W + x, ascending, and their new levels; the fresh volcanic rock on the tiles where it changed, a bit per level 0–21; the voxels Erode hollowed under the surface, each tile's whole mask; the objects that lost their ground, the ones it carried, the trees it knocked down; a carve's source and sealed oxbow lake; a glacier's springs and its tarn; the sources it cleared, D474). Replay assigns the result and never runs the force; the engine checks it fits the map. A project's `carve` operations, from before the forces shared this one, become `forceResult` when it opens.",
+      "description": "A force of nature (Carve, Craterize, Erupt, Quake, Glaciate, Rift, Deposit, Erode or Roll: D194, D202, D203, D206, D220, D246, D281): what the player asked for (the force, its settings, where), and its result stored literally (the changed tiles as indices y·W + x, ascending, and their new levels; the fresh volcanic rock on the tiles where it changed, a bit per level 0–21; the voxels Erode hollowed under the surface, each tile's whole mask; the objects that lost their ground, the ones it carried, the trees it knocked down; a carve's source and sealed oxbow lake; a glacier's springs and its tarn; the sources it cleared, D474). Replay assigns the result and never runs the force; the engine checks it fits the map. A project's `carve` operations, from before the forces shared this one, become `forceResult` when it opens.",
       "type": "object",
       "additionalProperties": false,
       "required": ["version", "verb", "settings", "where", "steps", "reason", "tiles", "heights", "removed"],
       "properties": {
         "version": { "const": 1 },
-        "verb": { "enum": ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit", "erode"] },
+        "verb": { "enum": ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit", "erode", "roll"] },
         "settings": {
           "type": "object",
           "required": ["mode", "power", "seed"],
           "properties": {
-            "mode": { "enum": ["unleash", "aim", "strike", "vent", "fissure", "lift", "slide", "flow", "drop", "fan", "wear"] },
+            "mode": { "enum": ["unleash", "aim", "strike", "vent", "fissure", "lift", "slide", "flow", "drop", "fan", "wear", "roll"] },
             "power": { "type": "number", "minimum": 0, "maximum": 100 },
             "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
             "wander": { "type": "number", "minimum": 0, "maximum": 100 },
@@ -175,6 +180,7 @@
             "floor": { "type": "integer", "minimum": 1, "maximum": 22 },
             "riverDepth": { "type": ["integer", "null"], "minimum": 1, "maximum": 22 },
             "banks": { "type": "number", "minimum": 0, "maximum": 10 },
+            "fall": { "type": ["integer", "null"], "minimum": 4, "maximum": 12, "description": "Carve's fall: this many levels from its lip to the water below, the reach below cut down to it and held there; refused where the land can't give it. Null or absent: the land's own falls." },
             "sources": { "enum": ["ride", "clear"], "description": "Sources (D474): ride the ground, or clear every water and badwater source and seep on a tile the force changes. Absent: clear." }
           }
         },
@@ -356,6 +362,63 @@
             "contamination": { "type": "array", "maxItems": 262144, "items": { "const": 0 } }
           }
         }
+      }
+    },
+    "setLakeLevel": {
+      "description": "Lakes by number: the lake at 'at' made to hold at 'level', its water standing from the level up to under a level above it (the head of its flow over the sill). Its sill is cut down (a notch about 'width' tiles wide down the river's own course, its crest at the level, the rest a level lower, its sides stepping up to the ground) or raised (one bank across the outlet, its spillway at the level and the rest a level higher). Its tiles are stored literally: 'cells' as runs [y, x0, x1], and 'levels' the level of each, in the order of y·W + x; the integrity pass leaves them. The engine checks the sill, measured on the map now, is the one stored; the core's question confirms the water stands at the level with the canonical settle before it makes the operation (doc/lakeLevel.ts).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at", "level", "sill", "cells", "levels"],
+      "properties": {
+        "at": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
+        "level": { "type": "integer", "minimum": 1, "maximum": 22 },
+        "sill": { "enum": ["cut", "raise"] },
+        "width": { "type": "integer", "minimum": 1, "maximum": 32 },
+        "cells": { "$ref": "#/$defs/runs" },
+        "levels": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 22 } }
+      }
+    },
+    "canal": {
+      "description": "A canal: a channel that leads water along 'path' (points [x, y], the start first; the engine walks the tiles between them edge to edge). Its bed is 'width' tiles wide and lies 'depth' levels under the land, falling with it from the start to the end and never rising again (a rise is cut through, up to 3 levels deeper; more is refused, saying where); beside the bed, land lower than the water would stand in it is raised as a bank. 'open' true starts it in the water at its start; false leaves the line's first tile standing. Its tiles are stored literally: 'cells' as runs [y, x0, x1], and 'levels' the level of each, in the order of y·W + x; the integrity pass leaves them. The engine checks the canal, planned on the map now, is the one stored (doc/canal.ts).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "width", "depth", "open", "cells", "levels"],
+      "properties": {
+        "path": { "type": "array", "minItems": 2, "maxItems": 512, "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } } },
+        "width": { "type": "integer", "minimum": 1, "maximum": 6 },
+        "depth": { "type": "integer", "minimum": 1, "maximum": 3 },
+        "open": { "type": "boolean" },
+        "cells": { "$ref": "#/$defs/runs" },
+        "levels": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 22 } }
+      }
+    },
+    "lake": {
+      "description": "A drawn lake: a basin dug inside 'outline' (points [x, y], the tiles' middles; at least 4 tiles inside, none on the map's edge). Its bed shelves from one level under 'level' at the shore, a level a tile inward, to 'depth' under it along the outline's long axis; ground already lower is left. The ring of tiles just outside the outline is its rim, raised to a level over the lake (a gap up to 3 levels; a deeper one is refused, the lowest named), with one notch at 'level', always where the ground beyond the rim lies at that level or lower: the rim's tile nearest 'spill' if given, else where that ground is lowest (none: refused). It places no water: water in the outline or on its rim fills it. Its tiles are stored literally: 'cells' as runs [y, x0, x1], and 'levels' the level of each, in the order of y·W + x; the integrity pass leaves them. The engine checks the lake, planned on the map now, is the one stored (doc/lake.ts).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outline", "level", "depth", "cells", "levels"],
+      "properties": {
+        "outline": { "type": "array", "minItems": 1, "maxItems": 512, "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } } },
+        "level": { "type": "integer", "minimum": 1, "maximum": 21 },
+        "depth": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "spill": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } },
+        "cells": { "$ref": "#/$defs/runs" },
+        "levels": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 22 } }
+      }
+    },
+    "ridge": {
+      "description": "A ridge: high ground raised along 'path' (points [x, y], the drag's way), 'height' levels above the land it stands on (2 to 10) and 'width' tiles across (4 to 20). Its crest wanders and rises and falls by 'seed'; one side falls steeply, the other in broad uneven benches, and a few crags stand on the crest. 'steep' is the steep side: 'auto' the side the line curves away from (left on a straight line), or 'left' or 'right' of its way. The forces' last step makes its levels (no one-tile pillars, no even stairs). Its tiles are stored literally: 'cells' as runs [y, x0, x1], and 'levels' the level of each, in the order of y·W + x; the integrity pass leaves them. The engine checks the ridge, planned on the map now, is the one stored (doc/ridge.ts).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "height", "width", "steep", "seed", "cells", "levels"],
+      "properties": {
+        "path": { "type": "array", "minItems": 2, "maxItems": 512, "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/coordinate" } } },
+        "height": { "type": "integer", "minimum": 2, "maximum": 10 },
+        "width": { "type": "integer", "minimum": 4, "maximum": 20 },
+        "steep": { "enum": ["auto", "left", "right"] },
+        "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "cells": { "$ref": "#/$defs/runs" },
+        "levels": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 22 } }
       }
     },
     "tile": {

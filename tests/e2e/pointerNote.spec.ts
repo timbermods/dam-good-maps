@@ -224,7 +224,9 @@ test("the Block tool's refusal follows the pointer when the view moves under it 
 });
 
 test("a shelf object's \"Place here\" flips from under the shelf and the bar", async ({ page }) => {
-  await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
+  // (Lake Basin seed 79 since generator 0.10.17, D515, D148: a pine's note shows only over dry soil, "dry ground: these will
+  // die", and seed 77's dry stretch nearest the middle now lies on moist soil, where a pine shows its ring alone)
+  await openEditor(page, "s=79&z=96&d=n&t=lakeBasin");
   await putHintsAway(page);
   const spot = await dryTile(page);
   await page.getByRole("button", { name: /^Pine/ }).click();
@@ -247,7 +249,9 @@ test("a shelf object's \"Place here\" flips from under the shelf and the bar", a
 
 test("with the Legend open, a note beside the pointer keeps off its panel", async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
-  await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
+  // (Lake Basin seed 79 since generator 0.10.17, D515, D148: a pine's note shows only over dry soil, "dry ground: these will
+  // die", and seed 77's dry stretch nearest the middle now lies on moist soil, where a pine shows its ring alone)
+  await openEditor(page, "s=79&z=96&d=n&t=lakeBasin");
   await putHintsAway(page);
   const spot = await dryTile(page);
   const legend = await openLegend(page);

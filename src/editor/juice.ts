@@ -102,6 +102,9 @@ export interface SoundEngine {
   readonly ready?: boolean;
   /** Recordings sounding now, a stopped sound's not counted (tests). */
   readonly playing?: number;
+  /** Accents begun since the page opened (tests: an accent shorter than a frame has ended by a read that waits on the
+   *  page, so `playing` alone can miss it). */
+  readonly started?: number;
 }
 
 export class Juice {
@@ -333,8 +336,8 @@ export class Juice {
   }
 
   /** The sound as it is now (tests): the bank ready, and how many recordings are sounding. */
-  status(): { ready: boolean; playing: number } {
-    return { ready: !!this.engine.ready, playing: this.engine.playing ?? 0 };
+  status(): { ready: boolean; playing: number; started: number } {
+    return { ready: !!this.engine.ready, playing: this.engine.playing ?? 0, started: this.engine.started ?? 0 };
   }
 
   dispose(): void {

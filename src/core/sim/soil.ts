@@ -4,8 +4,8 @@
 // settler's first guess, on water the hydrology only planned, keeps the fast approximation
 // (sim/moisture.ts, sim/contamination.ts).
 
-import { heightMasks, waterColumns, type TerrainColumns, type VoxelMasks, type WaterColumns } from "./columns";
-import { columnSaturation, soil3d, soilBarrierCells, type Soil3d } from "./soil3d";
+import { heightMasks, terrainColumns, waterColumns, type TerrainColumns, type VoxelMasks, type WaterColumns } from "./columns";
+import { columnSaturation, moistureReach3d, soil3d, soilBarrierCells, type MoistureReach, type Soil3d } from "./soil3d";
 import type { MapObject } from "./model";
 import type { StackSettle } from "./stackWater";
 
@@ -19,9 +19,19 @@ export interface Soil {
  *  tile's water above the ground). */
 export function gameSoil(W: number, H: number, heights: ArrayLike<number>, depth: ArrayLike<number>, contamination: ArrayLike<number>, objects: readonly MapObject[], sat?: Uint8Array): Soil {
   const N = W * H;
+  const w = heightfieldWater(W, H, heights, depth, contamination, objects, sat);
+  const out = soil3d(w.masks, w.wc, w.water, objects);
+  // one run per tile: the first N values are the tiles'
+  return { moisture: out.moisture.length === N ? out.moisture : out.moisture.slice(0, N), contamination: out.contamination.length === N ? out.contamination : out.contamination.slice(0, N) };
+}
+
+/** A heightfield's ground and water as the soil rules take them: its masks, its water columns (a Blockage lifts its
+ *  tile's water above the ground), and the water per column id (a tile with more than one column, under an overhang,
+ *  holds none above). */
+function heightfieldWater(W: number, H: number, heights: ArrayLike<number>, depth: ArrayLike<number>, contamination: ArrayLike<number>, objects: readonly MapObject[], sat?: Uint8Array): { masks: VoxelMasks; wc: WaterColumns; water: { depth: ArrayLike<number>; contamination: ArrayLike<number>; sat: Uint8Array } } {
+  const N = W * H;
   const masks = heightMasks(W, H, heights);
   const wc = waterColumns(masks, objects);
-  // (water per column id: a tile with more than one column, under an overhang, holds none above)
   const M = wc.L * N;
   let d: ArrayLike<number> = depth;
   let c: ArrayLike<number> = contamination;
@@ -41,9 +51,37 @@ export function gameSoil(W: number, H: number, heights: ArrayLike<number>, depth
     ss.set(s.subarray(0, N));
     s = ss;
   }
-  const out = soil3d(masks, wc, { depth: d, contamination: c, sat: s ?? columnSaturation(wc, d) }, objects);
-  // one run per tile: the first N values are the tiles'
-  return { moisture: out.moisture.length === N ? out.moisture : out.moisture.slice(0, N), contamination: out.contamination.length === N ? out.contamination : out.contamination.slice(0, N) };
+  return { masks, wc, water: { depth: d, contamination: c, sat: s ?? columnSaturation(wc, d) } };
+}
+
+/** How far the soil's water reaches each tile of a heightfield (sim/soil3d.ts `moistureReach3d`, the rule `gameSoil`
+ *  stores): the Irrigation view's why, on the same water and objects. */
+export function gameMoistureReach(W: number, H: number, heights: ArrayLike<number>, depth: ArrayLike<number>, contamination: ArrayLike<number>, objects: readonly MapObject[], sat?: Uint8Array): MoistureReach {
+  const w = heightfieldWater(W, H, heights, depth, contamination, objects, sat);
+  const runs = terrainColumns(w.masks);
+  return topReach(moistureReach3d(runs, w.wc, w.water.depth, w.water.contamination, soilBarrierCells(W, H, objects), w.water.sat), runs);
+}
+
+/** The reach on each tile's top run of a map with terrain above terrain (`stackedSoil`'s water and objects). */
+export function stackedMoistureReach(t: VoxelMasks, cols: WaterColumns, stack: StackSettle, objects: readonly MapObject[]): MoistureReach {
+  const runs = terrainColumns(t);
+  const sat = stack.ticks > 0 ? stack.sat : columnSaturation(cols, stack.depth);
+  return topReach(moistureReach3d(runs, cols, stack.depth, stack.contamination, soilBarrierCells(t.W, t.H, objects), sat), runs);
+}
+
+/** A per-run reach cut to each tile's top run: the ground seen from above. */
+function topReach(r: MoistureReach, runs: TerrainColumns): MoistureReach {
+  const { N, count } = runs;
+  if (runs.T === 1) return r.value.length === N ? r : { value: r.value.slice(0, N), levels: r.levels.slice(0, N), tiles: r.tiles.slice(0, N), barred: r.barred.slice(0, N) };
+  const out: MoistureReach = { value: new Float32Array(N), levels: new Uint16Array(N), tiles: new Float32Array(N), barred: new Uint8Array(N) };
+  for (let i = 0; i < N; i++) {
+    const n = (count[i] - 1) * N + i;
+    out.value[i] = r.value[n];
+    out.levels[i] = r.levels[n];
+    out.tiles[i] = r.tiles[n];
+    out.barred[i] = r.barred[n];
+  }
+  return out;
 }
 
 const stackSoils = new WeakMap<StackSettle, { barrier: string; soil: Soil3d }>();

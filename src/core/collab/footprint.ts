@@ -35,6 +35,7 @@ import { inBench } from "../features/raster/terrain";
 import type { MapSession } from "../doc/session";
 import type { ForceResultParams, ForceWhere, Verb } from "../forces/op";
 import { quakeExtent } from "../forces/quake";
+import { erodeExtent, erodeSize } from "../forces/erode";
 import { GLACIATE_AUTO_SIZE } from "../forces/glaciate/model";
 import { forceReach } from "../forces/reach";
 import type { Runs } from "../math/grid";
@@ -193,10 +194,17 @@ function forceTiles(p: ForceResultParams, m: Reader, W: number, H: number): Tile
     else out.addXY(mv.x, mv.y);
   }
   for (const s of [...(p.source ? [p.source] : []), ...(p.sources ?? [])]) out.addXY(s.x, s.y);
-  // Try another: the force it replaces comes out again, with its own ground and objects
+  // Try another: the force it replaces comes out again, with its own ground and objects, and a Slope it took away
+  // beside its ground comes back (the build took it when its step was gone; it is no longer on the map for `carried`
+  // to find), so the ring of tiles round that ground counts too
   if (p.replaces !== undefined && m.logOps) {
     const prior = m.logOps.find((o) => o.seq === p.replaces);
-    if (prior && prior.op === "forceResult") out.union(forceTiles(prior.params, m, W, H));
+    if (prior && prior.op === "forceResult") {
+      out.union(forceTiles(prior.params, m, W, H));
+      const beside = new TileMask(W, H);
+      for (const i of prior.params.tiles) beside.add(i);
+      out.union(beside.grow(1));
+    }
   }
   return out;
 }
@@ -269,6 +277,11 @@ function addOp(acc: Footprint, op: EditOp, m: Reader & Partial<MapSession>): voi
   switch (op.op) {
     case "brush": t.union(brushTiles(op.params, W, H)); break;
     case "sculpt": t.addRuns(op.params.cells); break;
+    // (a lake's sill: the tiles it sets; the water that flows from it afterwards is not its own, as a Fill's)
+    case "setLakeLevel": t.addRuns(op.params.cells); break;
+    case "canal": t.addRuns(op.params.cells); break;
+    case "lake": t.addRuns(op.params.cells); break;
+    case "ridge": t.addRuns(op.params.cells); break;
     case "blocks": for (const i of blockTileBits(op.params, W, H).keys()) t.add(i); break;
     case "forceResult": t.union(forceTiles(op.params, m, W, H)); break;
     case "placeEntity": {
@@ -399,7 +412,7 @@ const dist = (ax: number, ay: number, bx: number, by: number): number => portabl
  *    crater's diameter (2223-2224);
  *  - Erupt: lava lobes run up to 2.36 radii for Heavy flows, 1.42 for Light (erupt.ts lavaLobes), and are
  *    up to 4.84 × max(0.7, radius / 22) wide;
- *  - Quake: lift moves ground out to max(2 × margin, 1.3 × the fault's length) from it, slide to
+ *  - Quake: lift moves ground out to `liftReach` from it (at most 20 tiles, whatever its length), slide to
  *    max(margin, 1.3 × length) + margin / 2, then a slide's travel on (a short line's no further than its length;
  *    quake.ts `quakeExtent`, `Fault` in rust/forces);
  *  - an aimed Carve stays within the drawn path's length + 20.25 of its end (3262, 4226), a half-width of 0.72 × 24
@@ -407,15 +420,16 @@ const dist = (ax: number, ay: number, bx: number, by: number): number => portabl
  *  - an aimed Glaciate drawn through points stays by its line within 1.12 × its Size (5992) and a margin for
  *    hanging valleys and outwash: 0.5 × Size + 10 is not derived, it is the margin the long sweep
  *    (collabClaims.heavy.test.ts) shows to hold;
- *  - Rift and Deposit: their size (their width) and the ground they move.
+ *  - Rift and Deposit: their size (their width) and the ground they move;
+ *  - Erode: `erodeExtent` (rust/forces/src/erode.rs `extent`), a click's face sought within twice its Size.
  *  Carve Unleash and Glaciate flow are clicks with no drawing phase, and run as far as the land lets them. */
-function corridor(g: ForceBandRequest): { pts: [number, number][]; r: number } | null {
+function corridor(g: ForceBandRequest, m: { W: number; H: number }): { pts: [number, number][]; r: number } | null {
   const pts = gesturePoints(g);
   const s = g.settings as unknown as Record<string, number | string | boolean | null | undefined> & { power: number };
   const JITTER = 1.65;
   switch (g.verb) {
     case "craterize": {
-      const R = forceReach({ verb: "craterize", settings: s as never });
+      const R = forceReach({ verb: "craterize", settings: s as never }, m);
       const diameter = R * 2;
       const aim = s.mode === "aim" && pts.length > 1;
       const glance = aim ? Math.max(0, Math.min(1, dist(pts[0][0], pts[0][1], pts[pts.length - 1][0], pts[pts.length - 1][1]) / Math.max(12, diameter))) : 0;
@@ -425,7 +439,7 @@ function corridor(g: ForceBandRequest): { pts: [number, number][]; r: number } |
       return { pts: pts.slice(0, 1), r: Math.max(skirt, ray) + JITTER + 2 };
     }
     case "erupt": {
-      const R = forceReach({ verb: "erupt", settings: s as never });
+      const R = forceReach({ verb: "erupt", settings: s as never }, m);
       const lobes = (s.flows === "light" ? 1.42 : 2.36) * R + 4.84 * Math.max(0.7, R / 22);
       return { pts, r: Math.max(lobes, R) + JITTER + 2 };
     }
@@ -449,6 +463,8 @@ function corridor(g: ForceBandRequest): { pts: [number, number][]; r: number } |
       const size = typeof s.size === "number" ? s.size : GLACIATE_AUTO_SIZE;
       return { pts, r: 1.12 * size + 0.5 * size + 10 };
     }
+    case "erode":
+      return { pts, r: erodeExtent(typeof s.size === "number" ? s.size : erodeSize(s.power)) + JITTER + 2 };
     default:
       return { pts, r: ((typeof s.size === "number" ? s.size : 20) / 2) * 3 + 8 };
   }
@@ -462,7 +478,7 @@ function corridor(g: ForceBandRequest): { pts: [number, number][]; r: number } |
 export function forceBand(g: ForceBandRequest, map: MapView): Footprint {
   const { x: W, y: H } = map.size;
   const acc = emptyFootprint(W, H);
-  const c = corridor(g);
+  const c = corridor(g, { W, H });
   if (!c) {
     everywhere(acc);
     return acc;

@@ -2,6 +2,7 @@
 // project, Save to Timberborn and Download .timber keep a running force first, so the file holds the land shown.
 
 import { expect, test, type Page } from "@playwright/test";
+import { orRefused } from "./helpers";
 import { openEditor, topDown } from "./open";
 
 const land = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.renderer.mapState()!.heights));
@@ -68,7 +69,8 @@ test("Download project and Download .timber keep a paused force, and the file re
     expect(await page.evaluate(() => window.dgmEditor!.force()?.paused)).toBe(true);
     await page.getByRole("button", { name: "File", exact: true }).click();
     await page.getByRole("menuitem", { name: choice, exact: true }).click();
-    await page.waitForFunction(() => (window as unknown as { files: unknown[] }).files.length > 0, null, { timeout: 120_000 });
+    // (a refused save fails here at once, in the page's words, not after the wait)
+    await orRefused(page, page.waitForFunction(() => (window as unknown as { files: unknown[] }).files.length > 0, null, { timeout: 120_000 }));
     const file = await page.evaluate(async () => {
       const f = (window as unknown as { files: { name: string; bytes: Promise<number[]> }[] }).files.at(-1)!;
       return { name: f.name, bytes: await f.bytes };

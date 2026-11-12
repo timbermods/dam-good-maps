@@ -9,6 +9,7 @@
 // blamed on the player's edits, so an unedited import always exports unchanged (PLAN §20, D43).
 
 import { decodeProject, documentFileName, type MapDocument, type NameResult, type SavedView, type VersionParent } from "../core/doc/document";
+import { STALE, type Envelope } from "../core/doc/editQueue";
 import { MapSession, STEP_GONE, type BlockFalls, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
 import type { BlocksParams } from "../core/doc/blockTool";
 import { masksOf } from "../core/features/build";
@@ -20,6 +21,7 @@ import { ForceRolls } from "../core/forces/rolls";
 import { EVERY_KIND, planRemove, type RemoveKind } from "../core/doc/remove";
 export type { RemoveKind };
 import { paintDying, paintLevels, planPaintObjects } from "../core/doc/paint";
+import { planRuinLine, type RuinLineParams, type RuinPier } from "../core/doc/ruinLine";
 import type { PaintParams } from "../core/doc/paintParams";
 import { footprintCheck as checkFootprint, planEntity, planMoveEntity, planPlant, withSpringPools, type EntityRequest, type PlannedOps } from "../core/doc/placing";
 import { planStair, type StairStep } from "../core/doc/stair";
@@ -35,7 +37,12 @@ export type { EntityInfo };
 import { objectsIn } from "../core/doc/inArea";
 import { markerNotes, type MarkerNote } from "../core/doc/objectOps";
 import { fillLevel, planFill, unfedWater } from "../core/doc/waterEdits";
+import { applyLakeLevel, lakeHeldLevel, planLakeLevel, type LakeLevelPlan } from "../core/doc/lakeLevel";
+import { applyCanal, planCanal, type CanalPlan } from "../core/doc/canal";
+import { applyDrawnLake, planDrawnLake, type DrawnLakePlan } from "../core/doc/lake";
+import { applyRidge, planRidge, type RidgePlan, type RidgeSteep } from "../core/doc/ridge";
 import type { ImportReport } from "../core/format/normalize";
+import type { PremiseCard } from "../core/premise/card";
 import type { Feature } from "../core/features/schema";
 import { bakeLandforms } from "../core/doc/bake";
 import { HazardRun, hazardDays, hazardSoil, type Hazard, type HazardWater } from "../core/sim/weather";
@@ -57,6 +64,8 @@ import { carryStack, sameKeptWater, StackLive, type LiveStack, type StackFrame }
 import { reshapeTop, TERRAIN_LAYERS } from "../core/terrain/runs";
 import { toMapObject } from "../core/features/build";
 import { soilObjects } from "../core/sim/columns";
+import type { MoistureReach } from "../core/sim/soil3d";
+import { irrigationTones } from "../core/analysis/irrigation";
 import { computeDaySoil, type SoilBase, type SoilJob, type SoilRunner } from "./daySoil";
 import { WaterSim, type WaterModel } from "../core/sim/water";
 import { changedRect } from "../render3d/mesh";
@@ -69,6 +78,7 @@ import { geology } from "../core/forces/random";
 import { modelOf, QuakeRun, type ForceCue, type StagedRun } from "../core/forces/runs";
 import { againRequest, autoPicked, fallsBeforePlay, fullForceMapOf, lavaOf, nextForceSeed, planForce, type AnyForceSettings, type ForcePoint, type ForceRequest } from "../core/forces/start";
 import { keptForceParams, sourcesRemovedBy } from "../core/forces/keep";
+import { badFlow, badwaterLetIn, type BadwaterLetIn } from "../core/water/badwaterLetIn";
 import { emittersById, type ClearedSource } from "../core/forces/clear";
 import { areaDepth } from "../core/features/raster/brush";
 import { outflowsOf } from "../render3d/current";
@@ -99,6 +109,8 @@ export interface SessionInfo {
   description: string;
   descriptionWritten: boolean;
   descriptionKept: string | null;
+  /** A generated map's own words after hand edits, until its player keeps or rewrites them (`MapDescription.stale`). */
+  descriptionStale: boolean;
   /** Bumped on every change (the page's autosave and checks key on it). */
   version: number;
   /** Changes only when the features do (the page keeps its copy, and its index, meanwhile). */
@@ -114,6 +126,9 @@ export interface SessionInfo {
   /** Easy start (D495): what a map made in a late rescue round left short of the full targets, one line; null when
    *  it met them all, or isn't an Easy start map. */
   easyShort: string | null;
+  /** A map made from an idea (D508): its card as it was when the map was made (`DocMeta.card`), kept with the project so
+   *  a reopened map shows it again; null on any other map, an import among them. */
+  card: PremiseCard | null;
   /** True until the canonical water can be carried in a saved project (D367). */
   waterPending?: boolean;
   /** The map has tiles with caves or overhangs (an import's): the "Caves and overhangs" layer's toggle shows. */
@@ -169,6 +184,22 @@ export interface SessionUpdate extends ViewNews {
   /** A shared session's answer to an edit (worker/collabEdit.ts): the session ordered it or refused it, and the map's news comes
    *  as the session's own `update` event, so this answer carries none and the page leaves the map alone. */
   routed?: true;
+  /** The map's revision after the call (`info.version`), and the step the history stands at after it (the one an edit
+   *  made or joined; null before the first): the edit queue reads them (core/doc/editQueue.ts). */
+  rev?: number;
+  step?: number | null;
+  /** The call's envelope, echoed when it came with one (`ticketed`). */
+  epoch?: number;
+  ticket?: number;
+}
+
+/** The answer to a call meant for a map this worker no longer has open (`ticketed`): nothing changed. */
+export interface StaleAnswer {
+  ok: false;
+  errors: string[];
+  stale: true;
+  epoch: number;
+  ticket: number;
 }
 
 /** The instant checks (EDITOR_PLAN §6): the load and design classes, run after every edit on the
@@ -182,6 +213,8 @@ export interface InstantCheck {
 }
 
 export interface SessionOpen {
+  /** The map's epoch: bumped whenever this worker takes another map (core/doc/editQueue.ts `Envelope`). */
+  epoch: number;
   info: SessionInfo;
   view: MapView;
   /** The terrain the page paints strokes on (see ViewUpdate.terrain). */
@@ -198,6 +231,8 @@ export interface ExportCheck extends CheckGroups {
 
 let session: MapSession | null = null;
 let version = 0;
+/** The open map's epoch (`SessionOpen.epoch`): a call naming another is stale (`ticketed`). */
+let epoch = 0;
 /** What the page last received, to send only what changed. */
 let sent: { heights: Uint8Array; water: unknown; stored: boolean; entities: unknown; soil: unknown; terrain: unknown } | null = null;
 /** The imported map as it was opened, with every check (the problems it had already, D43). */
@@ -220,7 +255,7 @@ function featuresKeyOf(features: readonly Feature[]): string {
 
 function descriptionInfo(s: MapSession) {
   const d = s.description();
-  return { description: d.text, descriptionWritten: d.written, descriptionKept: d.kept };
+  return { description: d.text, descriptionWritten: d.written, descriptionKept: d.kept, descriptionStale: d.stale };
 }
 
 export function sessionInfo(s: MapSession = need()): SessionInfo {
@@ -249,6 +284,7 @@ export function sessionInfo(s: MapSession = need()): SessionInfo {
     forceRolls: againVerb(s) ? { shown: series!.rolls.shown + 1, count: series!.rolls.count } : null,
     badwaterRemoved: s.badwaterRemoved(),
     easyShort: s.meta.easyShort ?? null,
+    card: s.meta.card ?? null,
     waterPending: s.waterPending,
     caves: s.roofedTiles.size > 0,
     keepOnlyHere: s.keepOnlyHere,
@@ -282,6 +318,17 @@ function strengthOf(comps: Record<string, unknown>): { strength?: number } {
   return typeof v === "number" ? { strength: v } : {};
 }
 
+/** A reserve's stock, for the view to show as the game does (render3d/reserves.ts): its good (`FixedStockpile`) and
+ *  how much of it it holds (`Inventory:Stockpile`). */
+function stockOf(comps: Record<string, unknown>): { stock?: { good: string; amount: number } } {
+  const fixed = plainJson((comps.FixedStockpile as { FixedGoodId?: unknown } | undefined)?.FixedGoodId);
+  if (typeof fixed !== "string") return {};
+  const goods = plainJson((comps["Inventory:Stockpile"] as { Storage?: { Goods?: unknown } } | undefined)?.Storage?.Goods);
+  let amount = 0;
+  if (Array.isArray(goods)) for (const g of goods as { Good?: unknown; Amount?: unknown }[]) if (g?.Good === fixed && typeof g.Amount === "number") amount += g.Amount;
+  return { stock: { good: fixed, amount } };
+}
+
 /** The objects as the view draws them: every tree upright on its tile, a knocked-down one dead
  *  (D321, item 7: no force leaves a tree leaning). */
 function entityInputs(list: readonly EntitySpec[]) {
@@ -289,7 +336,7 @@ function entityInputs(list: readonly EntitySpec[]) {
   for (const e of list) {
     if (e.raw && !placementOf(e.raw)) continue;
     const comps = componentsOf(e) as Record<string, unknown>;
-    out.push({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, owner: e.owner, flipped: e.flipped, ...lifeOf(comps), ...variantOf(comps), ...strengthOf(comps) });
+    out.push({ id: e.id, template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, owner: e.owner, flipped: e.flipped, ...lifeOf(comps), ...variantOf(comps), ...strengthOf(comps), ...stockOf(comps) });
   }
   return out;
 }
@@ -438,7 +485,7 @@ let sentEntities: EntityView | null = null;
 
 /** A copy that stays here (the view itself is handed over to the page, its arrays with it). */
 function copyEntityView(v: EntityView): EntityView {
-  return { ...v, templates: [...v.templates], owners: [...v.owners], template: v.template.slice(), x: v.x.slice(), y: v.y.slice(), z: v.z.slice(), orientation: v.orientation.slice(), flags: v.flags.slice(), owner: v.owner.slice(), variant: v.variant.slice(), strength: v.strength.slice(), ids: [...v.ids] };
+  return { ...v, templates: [...v.templates], owners: [...v.owners], template: v.template.slice(), x: v.x.slice(), y: v.y.slice(), z: v.z.slice(), orientation: v.orientation.slice(), flags: v.flags.slice(), owner: v.owner.slice(), variant: v.variant.slice(), strength: v.strength.slice(), ids: [...v.ids], stockGood: v.stockGood?.slice(), stockAmount: v.stockAmount?.slice() };
 }
 
 /** The page has these objects already: every field it reads the same, a source's strength and a ruin's
@@ -450,7 +497,7 @@ function sameEntityView(a: EntityView, b: EntityView | null): boolean {
     for (let i = 0; i < p.length; i++) if (p[i] !== q[i]) return false;
     return true;
   };
-  return eq(a.template, b.template) && eq(a.x, b.x) && eq(a.y, b.y) && eq(a.z, b.z) && eq(a.orientation, b.orientation) && eq(a.flags, b.flags) && eq(a.owner, b.owner) && eq(a.variant, b.variant) && eq(a.strength, b.strength);
+  return eq(a.template, b.template) && eq(a.x, b.x) && eq(a.y, b.y) && eq(a.z, b.z) && eq(a.orientation, b.orientation) && eq(a.flags, b.flags) && eq(a.owner, b.owner) && eq(a.variant, b.variant) && eq(a.strength, b.strength) && eq(a.stockGood ?? [], b.stockGood ?? []) && eq(a.stockAmount ?? [], b.stockAmount ?? []);
 }
 
 function markSent(s: MapSession): void {
@@ -486,7 +533,7 @@ export function sessionView(): SessionOpen {
   const view = wholeView(s);
   sentEntities = copyEntityView(view.entities);
   markSent(s);
-  return { info: sessionInfo(s), view, terrain: s.terrainState(), ms: Math.round(performance.now() - t0) };
+  return { epoch, info: sessionInfo(s), view, terrain: s.terrainState(), ms: Math.round(performance.now() - t0) };
 }
 
 /** The tiles where two sets of the Block tool's masks differ, as their bounding rectangle; null when
@@ -568,7 +615,15 @@ function changed(s: MapSession, ok: boolean, errors: string[], t0: number): Sess
     kickWater();
     syncChecks();
   }
-  return { ok, errors, info: sessionInfo(s), view, ms: Math.round(performance.now() - t0), instant, waterSettled: !settlingOn(s) };
+  const info = sessionInfo(s);
+  return { ok, errors, info, view, ms: Math.round(performance.now() - t0), instant, waterSettled: !settlingOn(s), rev: info.version, step: headStep(info) };
+}
+
+/** The step the history stands at (the last applied row's), or null before the first. */
+function headStep(info: SessionInfo): number | null {
+  let seq: number | null = null;
+  for (const h of info.history) if (h.applied) seq = h.seq ?? null;
+  return seq;
 }
 
 // ------------------------------------------------------------------------------ the checks worker
@@ -740,6 +795,9 @@ export type EditorEvent =
   /** The instant checks of an edit (with a checks worker, they come a moment after the edit). */
   | { kind: "instant"; version: number; instant: InstantCheck };
 
+/** An event as it leaves the worker: it names the map it is about (`epoch`, core/doc/editQueue.ts). */
+export type EditorEventOut = EditorEvent & { epoch: number };
+
 /** A drought's day also says when each tile's water goes (the hover's "Dry on day 6", D133; core/sim/firstDays.ts
  *  `DryDays`): `firstDry`, per tile, 0 for water that lasts every day worked out so far (Day 1 to `firstDryThrough`) or a
  *  tile with none on Day 0, else the first day it holds none (the Drought view's own "dry", depth over `WATER_BODY`).
@@ -770,9 +828,9 @@ export interface StartNews {
 
 let listener: ((e: EditorEvent) => void) | null = null;
 
-/** Where the worker sends its events (the page's editor, through the worker's entry). */
-export function listen(fn: ((e: EditorEvent) => void) | null): void {
-  listener = fn;
+/** Where the worker sends its events (the page's editor, through the worker's entry), each naming its map. */
+export function listen(fn: ((e: EditorEventOut) => void) | null): void {
+  listener = fn ? (e) => fn(Object.assign(e, { epoch })) : null;
 }
 
 /** Whether the worker settles the water by itself after each edit (the page's worker). Node tests
@@ -819,9 +877,9 @@ let draftToken = 0;
  *  measurements). */
 const DRAFT_FRAME_MS = 16;
 
-export function draftStroke(rect: { x0: number; y0: number; x1: number; y1: number }, heights: Uint8Array): void {
+export function draftStroke(rect: { x0: number; y0: number; x1: number; y1: number }, heights: Uint8Array, env?: Envelope): void {
   const s = session;
-  if (!s) return;
+  if (!s || (env && env.epoch !== epoch)) return;
   // (a map with caves or overhangs: the stacked engine's water on the stroke, `draftStack`)
   if (s.built.waterModel.stacked) return draftStack(s, rect, heights);
   const W = s.size.x;
@@ -1764,6 +1822,7 @@ function opened(s: MapSession): SessionOpen {
   s.setWaterMode("defer");
   discardSessionWork();
   session = s;
+  epoch++;
   sent = null;
   originalFull = null;
   lastCheck = null;
@@ -1790,6 +1849,14 @@ export function openTimber(bytes: Uint8Array, fileName: string, place?: string):
   const blocked = gated(true);
   if (blocked) throw new Error(blocked);
   return opened(MapSession.importMap(bytes, fileName, place));
+}
+
+/** A new blank map (core/doc/blank.ts): flat, dry ground `size` tiles a side at `level`, the start at its middle. A
+ *  size or a level it can't be made at throws its one-line reason. */
+export function newBlank(size: number, level: number): SessionOpen {
+  const blocked = gated(true);
+  if (blocked) throw new Error(blocked);
+  return opened(MapSession.blank(size, level));
 }
 
 /** Open a project file (.damgoodmaps.json). */
@@ -1839,7 +1906,8 @@ export function collabChanged(): SessionUpdate {
   const view = viewUpdate(s);
   const instant = !checks ? instantCheck(s) : null;
   syncChecks();
-  return { ok: true, errors: [], info: sessionInfo(s), view, ms: Math.round(performance.now() - t0), instant, waterSettled: !s.waterPending };
+  const info = sessionInfo(s);
+  return { ok: true, errors: [], info, view, ms: Math.round(performance.now() - t0), instant, waterSettled: !s.waterPending, rev: info.version, step: headStep(info), epoch };
 }
 
 /** The answer to an edit the shared session ordered or refused (worker/collabEdit.ts): no news of the map in it, the session's
@@ -1863,6 +1931,8 @@ export const planned = {
   plant: (template: string, tiles: readonly number[]) => planPlant(need(), template, tiles, () => crypto.randomUUID()),
   remove: (tiles: readonly number[], kinds: readonly RemoveKind[], label?: string, cut?: number | null) => planRemove(need(), tiles, kinds, label, cut),
   paint: (params: PaintParams, z?: number) => planPaintObjects(need(), withLevels(params, z)),
+  /** A ruin line: its piers and the operations that place them, or why not. */
+  ruinLine: (params: RuinLineParams) => planRuinLine(need(), params),
   strokeClearing: (op: EditOp, label: string, tiles: readonly number[]) => planStrokeClearing(need(), op, label, tiles),
   move: (id: string, dx: number, dy: number, z?: number) => planMoveEntity(need(), id, dx, dy, z),
   start: (x: number, y: number, orientation?: Orientation, z?: number) => planStart(need(), x, y, orientation, () => crypto.randomUUID(), z),
@@ -1872,6 +1942,14 @@ export const planned = {
   /** Remove unfed water and Fill: the one operation each would apply, or why none. */
   unfedWater: (tiles: number[] | null) => unfedWater(need(), tiles && tiles.length ? tiles : null).op,
   fill: (x: number, y: number, level: number) => planFill(need(), x, y, level),
+  /** Lakes by number: the sill that holds the lake at (x, y) at `level`, confirmed by the settle, or why not. */
+  lakeLevel: (x: number, y: number, level: number, width?: number) => planLakeLevel(need(), x, y, level, width),
+  /** A canal along a path: its bed and banks, or why not. */
+  canal: (path: [number, number][], width: number, depth: number, open: boolean) => planCanal(need(), path, width, depth, open),
+  /** A drawn lake inside an outline: its bed, rim and notch, or why not. */
+  lake: (outline: [number, number][], level: number, depth: number, spill: [number, number] | null) => planDrawnLake(need(), outline, level, depth, spill),
+  /** A ridge along a path: its tiles and their levels, or why not. */
+  ridge: (path: [number, number][], height: number, width: number, steep: RidgeSteep, seed: number) => planRidge(need(), path, height, width, steep, seed),
   /** Every tile of the map (Clear everything removes the objects on all of them). */
   everything: (): number[] => Array.from({ length: need().size.x * need().size.y }, (_, i) => i),
 };
@@ -1879,6 +1957,7 @@ export const planned = {
 export function closeSession(): void {
   discardSessionWork();
   session = null;
+  epoch++;
   sent = null;
   originalFull = null;
   lastCheck = null;
@@ -1962,6 +2041,34 @@ export function redo(): SessionUpdate {
   return changed(s, s.redo(), [], t0);
 }
 
+/** Stand at History step `seq` (null: before the first step), wherever it stands now: undo, redo and a History jump
+ *  each name their step once the edit queue sends them (core/doc/editQueue.ts). Refused with STEP_GONE when the step is
+ *  gone; a move to where the history already stands changes nothing and is no refusal. */
+export function moveTo(seq: number | null): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const blocked = gated();
+  if (blocked) return changed(s, false, [blocked], t0);
+  const r = s.moveTo(seq);
+  if (r.moved) return changed(s, true, r.errors, t0);
+  return { ...changed(s, false, r.errors, t0), ok: !r.errors.length };
+}
+
+/** The open map's epoch. */
+export function currentEpoch(): number {
+  return epoch;
+}
+
+/** A call through the edit queue (core/doc/editQueue.ts): one meant for another map changes nothing and answers
+ *  `stale`; any other runs, its answer carrying the envelope back (the same object, so what it hands over stays
+ *  handed over). */
+export function ticketed<T>(env: Envelope, call: () => T): T | StaleAnswer {
+  if (env.epoch !== epoch) return { ok: false, errors: [STALE], stale: true, epoch: env.epoch, ticket: env.ticket };
+  const r = call();
+  const echo = (u: unknown) => (u && typeof u === "object" ? Object.assign(u, { epoch: env.epoch, ticket: env.ticket }) : u);
+  return (r instanceof Promise ? r.then(echo) : echo(r)) as T;
+}
+
 /** Step back or forward to history entry `index` (the state after it; −1: before the first), or to the step whose
  *  first operation is `step` wherever it stands now (a History row clicked while a stroke was on its way, #884),
  *  refused when that step is gone. */
@@ -2017,8 +2124,9 @@ export async function settingsResponse(): Promise<GenerateResponse> {
 /** A validation grouped as the export dialog shows it (PLAN §19.5, D43; core/doc/checkItems.ts
  *  `groupChecks`), kept as the session's last check. */
 function grouped(s: MapSession, v: Validation, t0: number): ExportCheck {
-  // (a cropped map has no "as opened" map: the problems it has are the player's own, D340)
-  const out: ExportCheck = { ...groupChecks(s, v, s.mode === "import" && !s.cropped ? originalFull : null), version, ms: 0 };
+  // (a cropped map has no "as opened" map: the problems it has are the player's own, D340; nor has a new blank map,
+  // which comes from no file of the player's, `meta.source`: empty ground with no water is not ready to play)
+  const out: ExportCheck = { ...groupChecks(s, v, s.mode === "import" && !s.cropped && s.meta.source ? originalFull : null), version, ms: 0 };
   out.ms = Math.round(performance.now() - t0);
   lastCheck = out;
   return out;
@@ -2178,7 +2286,7 @@ async function remoteCheck(c: ChecksWorker, onProgress?: (p: CheckProgress) => v
 }
 
 /** Export the open map. Refused while load problems block it, or while warnings are not
- *  confirmed; confirmed warnings are noted in the map's description. The water settles
+ *  confirmed; they are never written into the map's description. The water settles
  *  canonically first, in slices with progress (PLAN §19.7: a file never gets the preview's water).
  *  `picture`: the map exactly as the file holds it (its canonical water), when the file carries the
  *  core's top-down thumbnail, for the page's 3D picture of it (D488). A map whose water is settled
@@ -2203,8 +2311,7 @@ export async function exportTimber(
   const c = bg.check;
   if (c.blocking.length) return { ok: false, errors: c.blocking.map((b) => (b.id === "start.count" && b.message === NO_START ? NO_START_REFUSAL : b.message)), bytes: new Uint8Array(), fileName: "" };
   if (c.warnings.length && !confirmWarnings) return { ok: false, errors: ["confirm the warnings first"], bytes: new Uint8Array(), fileName: "" };
-  // (a real place's own warnings are listed, never noted: an unedited place exports as the same file, D3)
-  const { bytes, fileName, thumbnailDrawn } = s.exportTimber({ warnings: c.warnings.filter((w) => !w.own).map((w) => w.message) });
+  const { bytes, fileName, thumbnailDrawn } = s.exportTimber();
   if (!opts.picture || !thumbnailDrawn) return { ok: true, errors: [], bytes, fileName };
   return { ok: true, errors: [], bytes, fileName, ...(early && s.built === early ? { pictureEarly: true } : { picture: wholeView(s) }) };
 }
@@ -2329,6 +2436,26 @@ export function paintAt(params: PaintParams, z?: number): SessionUpdate & { plan
   return { ...changed(s, r.ok, r.errors, t0), planted: r.ok ? plan.plan.map((o) => o.tile) : [] };
 }
 
+/** A ruin line's piers and the level their tops share (core/doc/ruinLine.ts `planRuinLine`), for the page's ghost, or
+ *  the one line why it can't be laid. Reads the map only. */
+export function ruinLinePlanAt(params: RuinLineParams): { piers: RuinPier[]; top: number; reason: string | null } {
+  const p = planRuinLine(need(), params);
+  return p.ok ? { piers: p.piers, top: p.top, reason: null } : { piers: [], top: 0, reason: p.errors[0] };
+}
+
+/** Lay a ruin line from the shelf (core/doc/ruinLine.ts): its columns placed as one step. The tiles they stand on, for
+ *  the page's pop. */
+export function ruinLineAt(params: RuinLineParams): SessionUpdate & { planted: number[] } {
+  const t0 = performance.now();
+  const s = need();
+  const blocked = gated();
+  if (blocked) return { ...changed(s, false, [blocked], t0), planted: [] };
+  const plan = planRuinLine(s, params);
+  if (!plan.ok) return { ...changed(s, false, plan.errors, t0), planted: [] };
+  const r = s.applyBatch(plan.ops, "user", plan.label);
+  return { ...changed(s, r.ok, r.errors, t0), planted: r.ok ? plan.piers.map((q) => q.tile) : [] };
+}
+
 /** Remove (D184): the objects standing on `tiles` that `kinds` names, as one step; it never changes
  *  the ground (core/doc/remove.ts `planRemove`); under the view's layer cut (`cut`), only what it shows. The tiles the
  *  removed objects stood on. */
@@ -2413,6 +2540,77 @@ export function fillAt(x: number, y: number, level: number, floor?: number | nul
   const p = planFill(s, x, y, level, floor);
   if (!p.op) return changed(s, false, [p.reason ?? "nothing to fill"], t0);
   const r = s.apply(p.op, "user");
+  return changed(s, r.ok, r.errors, t0);
+}
+
+/** A ridge: what high ground along `path` would change (its tiles, each with its level, its top and its steep side), or
+ *  the plain reason it can't be raised (core/doc/ridge.ts `planRidge`). Reads the map only; no settle. */
+export function ridgePlanAt(path: [number, number][], height: number, width: number, steep: RidgeSteep, seed: number): Omit<RidgePlan, "op"> {
+  const { op: _op, ...plan } = planRidge(need(), path, height, width, steep, seed);
+  return plan;
+}
+
+/** Raise the ridge along `path`: one undo step (core/doc/ridge.ts `applyRidge`). */
+export function ridgeAt(path: [number, number][], height: number, width: number, steep: RidgeSteep, seed: number): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const r = applyRidge(s, path, height, width, steep, seed);
+  return changed(s, r.ok, r.errors, t0);
+}
+
+/** A canal: what a channel along `path` would change (its bed's tiles and its raised banks', each with its level, and the
+ *  bed's level at its two ends), or the plain reason it can't be made (core/doc/canal.ts `planCanal`). Reads the map only;
+ *  no settle. */
+export function canalPlanAt(path: [number, number][], width: number, depth: number, open: boolean): Omit<CanalPlan, "op"> {
+  const { op: _op, ...plan } = planCanal(need(), path, width, depth, open);
+  return plan;
+}
+
+/** Make the canal along `path`: one undo step (core/doc/canal.ts `applyCanal`). */
+export function canalAt(path: [number, number][], width: number, depth: number, open: boolean): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const r = applyCanal(s, path, width, depth, open);
+  return changed(s, r.ok, r.errors, t0);
+}
+
+/** A drawn lake: what a lake inside `outline` at `level` would change (the bed dug, the rim raised and its notch, each tile
+ *  with its level; whether water there fills it), or the plain reason it can't be made (core/doc/lake.ts
+ *  `planDrawnLake`). Reads the map only; no settle. */
+export function lakePlanAt(outline: [number, number][], level: number, depth: number, spill: [number, number] | null): Omit<DrawnLakePlan, "op"> {
+  const { op: _op, ...plan } = planDrawnLake(need(), outline, level, depth, spill);
+  return plan;
+}
+
+/** Make the lake inside `outline`: one undo step (core/doc/lake.ts `applyDrawnLake`). */
+export function lakeAt(outline: [number, number][], level: number, depth: number, spill: [number, number] | null): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const r = applyDrawnLake(s, outline, level, depth, spill);
+  return changed(s, r.ok, r.errors, t0);
+}
+
+/** Lakes by number: what setting the lake at (x, y) to `level` would do (its sill cut down or raised, the sill's tiles,
+ *  where the water then stands and the lake's tiles, confirmed by the canonical settle), or the plain reason the land
+ *  can't hold it there (core/doc/lakeLevel.ts `planLakeLevel`). `width`: a cut notch's width; by default what its river
+ *  needs. Reads the map only; it settles the water once, so it takes about as long as the map's own settle. */
+export function lakeLevelPlanAt(x: number, y: number, level: number, width?: number): Omit<LakeLevelPlan, "op"> {
+  const { op: _op, ...plan } = planLakeLevel(need(), x, y, level, width);
+  return plan;
+}
+
+/** The level the lake at (x, y) is held at now (its sill's), or null where no water stands (core/doc/lakeLevel.ts
+ *  `lakeHeldLevel`): what the page's Lake level shows. Reads the map only; no settle. */
+export function lakeHeldAt(x: number, y: number): number | null {
+  return lakeHeldLevel(need(), x, y);
+}
+
+/** Set the lake at (x, y) to `level`: its sill cut down or raised, one undo step, the map's water the settle that
+ *  confirmed it (core/doc/lakeLevel.ts `applyLakeLevel`). */
+export function lakeLevelAt(x: number, y: number, level: number, width?: number): SessionUpdate {
+  const t0 = performance.now();
+  const s = need();
+  const r = applyLakeLevel(s, x, y, level, width);
   return changed(s, r.ok, r.errors, t0);
 }
 
@@ -2520,6 +2718,9 @@ export interface WaterLayers {
   badwater: Uint8Array;
   /** An imported map's tiles with a cave or an overhang: the brushes shape only their tops. */
   roofed: Int32Array;
+  /** The Irrigation view's tones and the soil's reach behind them (analysis/irrigation.ts), worked out only when that
+   *  view asks: null otherwise. */
+  irrigation: Irrigation | null;
   /** Why the water checks are approximate on this map (null: they are not). */
   approximate: string | null;
   /** The water these layers show is the preview's (the canonical settle is still running). */
@@ -2535,7 +2736,13 @@ export function markerNotesNow(): MarkerNote[] {
 /** The water layers of the map as it now stands. An unedited import keeps the file's water and
  *  has no settle: its badwater soil comes from the background check's canonical settle, once it
  *  has run. */
-export function waterLayers(): WaterLayers {
+/** The Irrigation view: each tile's tone (analysis/irrigation.ts `irrigationTones`) and the soil's reach, for the hover's
+ *  why (`dryWords`). */
+export interface Irrigation extends MoistureReach {
+  tone: Uint8Array;
+}
+
+export function waterLayers(kind?: string): WaterLayers {
   const s = need();
   const b = s.built;
   const { W, H } = b;
@@ -2551,11 +2758,19 @@ export function waterLayers(): WaterLayers {
     else if (soil[i] > 0) badwater[i] = 2;
   }
   const roofed = Int32Array.from([...s.roofedTiles].sort((a, c) => a - c));
+  let irrigation: Irrigation | null = null;
+  if (kind === "irrigation") {
+    // (the same water and soil the other layers show: an unedited import's from the background check)
+    // (the background check's water itself is the key: the reach is worked out once for it)
+    const reach = s.moistureReach(b, fromCheck ?? undefined);
+    irrigation = { ...reach, tone: irrigationTones(reach, fromCheck ? fromCheck.moist : b.moisture, depth) };
+  }
   return {
     W,
     H,
     badwater,
     roofed,
+    irrigation,
     approximate: lastCheck && lastCheck.version === version ? lastCheck.approximate : null,
     preview: s.waterPending,
     version,
@@ -2744,10 +2959,11 @@ function fallenOf(s: MapSession): Map<string, { dx: number; dy: number }> {
 }
 
 /** The open map as a force starts from it: its ground, its objects, the water as it stands (the
- *  water in flight, when it is still settling), its rock and the trees already down. */
+ *  water in flight, when it is still settling; else the water the map shows, a stored map's own while it keeps
+ *  it), its rock and the trees already down. */
 function sessionForceMap(s: MapSession): FullForceMap {
   const sim = waterJob && waterJob.session === s ? jobOf(waterJob).sim : null;
-  const m = fullForceMapOf(s.built, { ...(sim ? { water: { depth: sim.D, contamination: sim.C } } : {}), rockLayers: geologyOf(s), lava: rockOf(s), down: fallenOf(s), usedIds: s.usedEntityIds() });
+  const m = fullForceMapOf(s.built, { water: sim ? { depth: sim.D, contamination: sim.C } : s.waterShown(), rockLayers: geologyOf(s), lava: rockOf(s), down: fallenOf(s), usedIds: s.usedEntityIds() });
   // (a map with caves or overhangs: its voxels, which Erode reads and wears, D281)
   if (!s.columns.size) return m;
   const wet = s.caveWater();
@@ -2828,8 +3044,10 @@ export function forceStart(req: ForceRequest): ForceStarted {
   const blocked = gated();
   if (blocked) return refuse(blocked);
   if (force) return refuse("A force is already at work: let it finish, or press Esc");
-  // (Erode reads the water to leave the rock that holds it: it plans only on settled water, D281)
+  // (Erode reads the water to leave the rock that holds it, and Roll to hold the water and its banks: each plans only
+  // on settled water, D281)
   if (req.verb === "erode" && (s.waterStale || s.waterPending)) return refuse("Erode waits for the water to settle: try again in a moment");
+  if (req.verb === "roll" && (s.waterStale || s.waterPending)) return refuse("Roll waits for the water to settle: try again in a moment");
   return startForce(s, sessionForceMap(s), { ...req, settings: { ...req.settings, seed: req.settings.seed ?? 0 } } as ForceRequest);
 }
 
@@ -3756,9 +3974,12 @@ export function forceCancel(gesture?: number): ForceTakenBack {
   return { taken: null };
 }
 
+/** The badwater check's walk on each map a force started from (`badwaterLetIn`). */
+const badFlowBefore = new WeakMap<object, Uint8Array>();
+
 /** Keep the force (Stop, or it ended by itself; a painted Lift let go): what it has done, as one
  *  operation and one undo step. The water it shows flows on into the map's settled water. */
-export function forceStop(gesture?: number): SessionUpdate & { kept: boolean; sourcesRemoved?: number } {
+export function forceStop(gesture?: number): SessionUpdate & { kept: boolean; sourcesRemoved?: number; badwater?: BadwaterLetIn } {
   const t0 = performance.now();
   const s = need();
   const blocked = gated();
@@ -3824,7 +4045,12 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean; so
   } else if (u.view.water && !s.showsStoredWater) u.view.water = waterFromDepth(s.built.heights, water.water.depth, water.water.contamination);
   // (the sources it removed: the page says how many, with Undo)
   const sourcesRemoved = sourcesRemovedBy(params, f.before);
-  return { ...u, kept: true, ...(sourcesRemoved ? { sourcesRemoved } : {}) };
+  // (badwater it let into water that was clean: the page says where, with Undo; the force audit's S3)
+  // (the walk on the land before is read once per map a force starts from: Try another's rolls share it)
+  let badBefore = badFlowBefore.get(f.before);
+  if (!badBefore) badFlowBefore.set(f.before, (badBefore = badFlow(f.before)));
+  const badwater = badwaterLetIn(f.before, s.built, badBefore);
+  return { ...u, kept: true, ...(sourcesRemoved ? { sourcesRemoved } : {}), ...(badwater ? { badwater } : {}) };
 }
 
 /** A force that broke the start's own ground (carved it, buried it, moved it: off level ground, on

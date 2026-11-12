@@ -50,6 +50,7 @@ namespace DGMProbe
         private float _runStartReal;
         private int _ticks;
         private double _nextSample;
+        private double _nextLight;
         private readonly HashSet<string> _momentsDone = new HashSet<string>();
         private readonly HashSet<int> _actionsDone = new HashSet<int>();
         private readonly Queue<Moment> _pendingShots = new Queue<Moment>();
@@ -128,6 +129,7 @@ namespace DGMProbe
             _result.LoadSeconds = Probe.LoadStartedReal > 0 ? _runStartReal - Probe.LoadStartedReal : 0;
             _result.WorkingSetAtLoadMb = System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 / 1048576.0;
             _nextSample = Day;
+            _nextLight = Day;
             Probe.Day = Day;
             Probe.Phase = "running";
             _speed = Probe.Job.Settings.Speed;
@@ -202,6 +204,12 @@ namespace DGMProbe
                 _result.Samples.Add(row);
                 _nextSample += Math.Max(1.0 / 96, _map.SampleHours / 24.0);
             }
+            // The game's light every game hour (0.3.3, read only: LightReader).
+            if (day >= _nextLight)
+            {
+                RecordLight(null, day);
+                _nextLight += 1.0 / 24;
+            }
             if (_ticks % 8 == 0)
             {
                 List<PlantDeath> deaths = _recorder.NewDeaths(day);
@@ -233,6 +241,21 @@ namespace DGMProbe
             }
         }
 
+        private void RecordLight(string momentId, double day)
+        {
+            try
+            {
+                _result.Lights.Add(LightReader.Read(momentId, day, _weather.CurrentWeather()));
+            }
+            catch (Exception e)
+            {
+                if (_result.Notes.Count(n => n.StartsWith("light record failed")) == 0)
+                {
+                    _result.Notes.Add($"light record failed at day {day:0.000}: {e.Message}");
+                }
+            }
+        }
+
         private void CheckMoments()
         {
             double day = Day;
@@ -243,6 +266,7 @@ namespace DGMProbe
                     continue;
                 }
                 _momentsDone.Add(m.Id);
+                RecordLight(m.Id, day);
                 if (m.Snapshot)
                 {
                     try

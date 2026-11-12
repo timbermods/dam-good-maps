@@ -18,11 +18,18 @@ const HEAVY = [
   "tests/contract/editSequences.heavy.test.ts", // sequences of edits on every theme add no object (D368 (10))
   "tests/contract/everySetting.heavy.test.ts", // the settings panel's extremes each make a map (D471)
   "tests/contract/everySettingLarge.heavy.test.ts", // and over 128² (D471)
+  "tests/contract/lakeLevel.heavy.test.ts", // lakes by number on a 192² generated map
   "tests/contract/collabClaims.heavy.test.ts", // every force's plan and gesture band against the claims' writes (D362)
   "tests/contract/collabSoak.heavy.test.ts", // collaborative editing: a few hundred mixed edits, checkpoints and a rejoin
   "tests/contract/collabUndoSoak.heavy.test.ts", // collaborative editing: a few hundred mixed edits with undo and redo asked at random
   "mcp/tests/long.heavy.test.ts", // a 256² map through the MCP server, past the client's time limit (D501)
   "tests/unit/waterSkirts.heavy.test.ts", // no window between two waters on generated maps at 256² (D154)
+  "tests/contract/carveFallSweep.heavy.test.ts", // a fall from one stroke from every start near the reviewed ones (gaps 1, 2, 20)
+  "tests/contract/islandsCleanSea.heavy.test.ts", // Islands' sea clean at 128² and 256², settled and played on (D498, #446)
+  "tests/contract/premisePlan.heavy.test.ts", // the lake stair's plans on seeds 1 to 200 at three sizes (PREMISES §7 step 1)
+  "tests/contract/premiseWater.heavy.test.ts", // stage 1's water settled on three plans and Four Lakes (PREMISES §7 step 2)
+  "tests/contract/premiseGateWater.heavy.test.ts", // the wall with one gate's water settled on five plans (PREMISES §5.1)
+  "tests/contract/premiseGateLand.heavy.test.ts", // the wall with one gate's maps built and checked on four seeds (PREMISES §5.1)
 ];
 
 export default defineConfig({

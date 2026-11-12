@@ -8,6 +8,7 @@ import { isPickable, openPart, standProblem } from "../features/objects";
 import { floorBesideWater, platformLevel } from "../features/footprintLevel";
 import { FOOTPRINTS, startEntranceTile, startMiddleTile, worldBlocks, type Orientation } from "../format/footprints";
 import { FLUIDS } from "../data/parity";
+import { seatLevel } from "../forces/clear";
 import type { EntitySpec } from "../format/entities";
 import { placeComponents } from "./objectOps";
 import { distanceFrom, runsToTiles, tilesToRuns } from "../math/grid";
@@ -286,8 +287,7 @@ export function levelFootprint(s: MapSession, p: { template?: string; x: number;
   for (const i of extra) if (i >= 0 && i < W * H) tiles.add(i);
   const list = [...tiles];
   if (!list.length) return [];
-  let low = Infinity;
-  for (const i of list) low = Math.min(low, b.heights[i]);
+  const low = seatLevel(b.heights, list);
   const ops: EditOp[] = [];
   // (the water objects are cut-only, so no water is dammed: the sources, the seeps, an aquifer, the drain)
   const isSource = template === "BadwaterSource" || template === "WaterSource" || !!FLUIDS[template]?.tiles;

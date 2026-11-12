@@ -8,6 +8,7 @@ The map document and its edit engine: a generation plus an ordered log of edit o
 - Operations are small and serialisable, and are checked against their schema and the current map. An invalid one is rejected, never clamped silently.
 - Old saved strokes and operations replay exactly (D158). Changing an operation's meaning breaks saved projects.
 - Headless: it runs in the page's worker and in Node.
+- A generated map's own words go into `meta` once, from the generation (`keepGeneratedWords`: its name, description, what it shows, Easy start's shortfall and an idea map's card, `meta.card`, D508); never part of a build. The card describes the map as generated, so edits leave it as it is. An optional field opens absent on older projects (no upgrade, D475).
 
 **Start from**
 - `session.ts` `MapSession`: `apply`, undo and redo (each step's map kept near where the history stands, put back as it was), export; `followLog` and `spliceStep` (a step out of the log or back in, for collaborative editing) rebuild from where the map stood, as an edit does. Edits never replay onto new land (D336): no regeneration under a document's edits.
@@ -52,6 +53,27 @@ The map document and its edit engine: a generation plus an ordered log of edit o
 - `crop.ts`: Crop map to selection (D340): the rectangle's refusals (`cropRectProblem`), what the edge cuts (`cropObjects`, `planCrop`: objects it crosses, and slopes whose step it cuts) and the cropped file (`cropFile`). The session makes the cropped map the document's next generation (`MapDocument.prior` holds the one before): one undo step, the full map back exactly.
 - `description.ts`: the map's description, written by the `setDescription` operation: its limit (`MAX_DESCRIPTION`), its refusals (`descriptionProblem`) and a real place's credits (`placeCredits`). `MapSession.description()` answers it; a generated map's own words are `gen/pack.ts` `description` and `gen/names.ts` `mapSays`.
 - `waterEdits.ts`: Remove unfed water and Fill (D387, D394), the questions (`unfedWater`, `planFill`) and the operations they build.
+- `blank.ts`: a new blank map (`blankTimber`, `blankDocument`, `MapSession.blank`): flat, dry ground at one level, the
+  start at its middle, built as a file and read as any .timber is; `blankLimits.ts` holds its sizes, levels and refusal
+  (the page's dialog reads them without loading the builder).
+- `canal.ts`: the canal, a channel that leads water: `planCanal` (a path's bed, `depth` under the land and never rising, a
+  rise cut through up to 3 levels deeper or refused saying where; banks raised where the land beside the bed is lower
+  than its water would stand; Open or Dry), `applyCanal` (one Select step) and the `canal` operation's check
+  (`canalProblem`). Its tiles are stored with their levels and applied as a lake's sill's are.
+- `lake.ts`: the drawn lake, a lake where there is none: `planDrawnLake` (a basin inside an outline: a shelving bed, the
+  rim made whole a level over the lake with one notch at its level, or refused naming the rim's lowest gap),
+  `applyDrawnLake` (one Select step) and the `lake` operation's check (`drawnLakeProblem`); `lakeLimits.ts` holds its
+  limits. Not `lakeLevel.ts`, which sets an existing lake's level.
+- `ruinLine.ts`: the ruin line (the Ruin dragged): `planRuinLine` (piers evenly along a line, their tops at one level,
+  gaps by the seed; a `placeEntity` each) and `applyRuinLine` (one step); `ruinLineLimits.ts` holds its limits.
+- `ridge.ts`: the ridge, high ground along a line: `planRidge` (a surface with a wandering crest, a steep side and
+  broad benches, a few crags, made land by the forces' `levels::whole` through their Wasm, `levelsInRust`; a source's
+  ground, a cave's or a top over the ceiling refused saying where), `applyRidge` (one Select step) and the `ridge`
+  operation's check (`ridgeProblem`). Its tiles are stored with their levels and applied as a lake's sill's are;
+  `ridgeLimits.ts` holds its limits.
+- `lakeLevel.ts`: lakes by number: `planLakeLevel` (the sill cut down or raised that holds a lake at a level, `sim/sill.ts`,
+  confirmed by the canonical settle), `applyLakeLevel` (one Select step, the confirming settle kept as the map's water,
+  `MapSession.withSettled`) and the `setLakeLevel` operation's check (`lakeLevelProblem`).
 
 **Tests**: `tests/contract/` (document, ops, bake, import, projects, storedMap, views, sourcesUnderEdits, editor, waterEdits; properties is heavy). Old project files live in `tests/fixtures/projects/`. Run `npx vitest run tests/contract/ops.test.ts`.
 

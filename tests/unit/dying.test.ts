@@ -5,12 +5,11 @@
 import { describe, expect, it } from "vitest";
 import { ShaderMaterial } from "three";
 import { buildEntities, modelKeyOf, modelOf } from "../../src/render3d/entities3d";
-import { DEAD_FORM, deadLeaves, deadWood, DRYING, dryColour, isFoliage } from "../../src/render3d/dying";
+import { DEAD_FORM, DEAD_LIMBS, deadLeaves, deadWood, DRYING, dryColour, isFoliage } from "../../src/render3d/dying";
 import { TREE_COLOURS } from "../../src/render3d/palette";
 import { DEAD, DYING, entityView } from "../../src/render3d/model";
 import { Forest } from "../../src/render3d/high/forest";
-import { BIRCH_SUN, model, paletteDefaults, slots, WARM_SUN } from "../../src/render3d/high/models";
-import { SUNLIGHT } from "../../src/render3d/high/highLook";
+import { model, paletteDefaults, slots } from "../../src/render3d/high/models";
 
 const luma = (c: readonly number[]) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
 /** The largest distance from the trunk of the vertices that are foliage in the living model (the same vertices in its dying
@@ -74,13 +73,12 @@ describe("a dying plant's form, the game's way", () => {
     expect(names(true)).toEqual(["Oak.lite", "Pine.dying.lite"]);
   });
 
-  it("High's dying models: foliage in its dying slot, the game's dry colour at the living slot's lightness, as High's warm sun lights both", () => {
+  it("High's dying models: foliage in its dying slot, the game's dry colour at the living slot's lightness", () => {
     for (const [slot, species] of [["pine", "Pine"], ["birch", "Birch"], ["oak", "Oak"], ["bush", "BlueberryBush"]] as const) {
       const dry = `${slot}Dry` as keyof typeof paletteDefaults;
       const hex = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
-      // (as lit by High's warm sun: its albedo has the sun's tint taken out, below)
-      const lit = (h: string) => hex(h).map((c, k) => c * WARM_SUN[k]);
-      expect(luma(lit(paletteDefaults[dry])) / luma(lit(paletteDefaults[slot])), slot).toBeCloseTo(luma(DRYING[species].dry) / luma(DRYING[species].alive), 1);
+      // (High's objects are in the game's light, as Standard's: D135 as amended 2026-11-09, so the albedos compare as they are)
+      expect(luma(hex(paletteDefaults[dry])) / luma(hex(paletteDefaults[slot])), slot).toBeCloseTo(luma(DRYING[species].dry) / luma(DRYING[species].alive), 1);
       const regions = (g: ReturnType<typeof model>) => new Set(Array.from(g.getAttribute("region").array as Float32Array));
       const living = regions(model(species, 0, "near", "alive"));
       const dying = regions(model(species, 0, "near", "dying"));
@@ -109,15 +107,16 @@ describe("a dying plant's form, the game's way", () => {
     expect(f.setState(flags)).toBe(0);
   });
 
-  it("High's dying and dead colours are the game's as they read under High's warm sun (its tint taken out of the albedo)", () => {
-    expect([...WARM_SUN]).toEqual([...SUNLIGHT.sun]);
+  it("High's dying colours are the game's hue, as Standard's: both looks light objects with the game's light", () => {
+    // (until 2026-11-09 High lit its trees by its own warm sun and took its tint out of their albedo; D135 as amended then
+    // lights every object in both looks with the game's light, so High's albedo is Standard's)
     const hex = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
     for (const [slot, species] of [["pine", "Pine"], ["oak", "Oak"], ["birch", "Birch"]] as const) {
-      const lit = hex(paletteDefaults[`${slot}Dry`]).map((c, k) => c * WARM_SUN[k]);
+      const c = hex(paletteDefaults[`${slot}Dry`]);
       const d = DRYING[species].dry;
-      // lit, the game's hue (to the hex colour's rounding)
-      expect(lit[0] / lit[1], slot).toBeCloseTo(d[0] / d[1], 1);
-      expect(lit[2] / lit[1], slot).toBeCloseTo(d[2] / d[1], 1);
+      // the game's hue (to the hex colour's rounding)
+      expect(c[0] / c[1], slot).toBeCloseTo(d[0] / d[1], 1);
+      expect(c[2] / c[1], slot).toBeCloseTo(d[2] / d[1], 1);
     }
   });
 });
@@ -157,17 +156,14 @@ describe("a dead plant's form, by the game's numbers", () => {
   });
   it("High's bark and dead wood are the game's (TREE_COLOURS), as Standard's are: the pine's, the oak's and the birch's each its own", () => {
     const hex = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
-    // (High's albedo: the colour with the warm sun's tint taken out, models.ts `underSun`)
-    const underSun = (c: readonly number[]) => [c[0] * (WARM_SUN[1] / WARM_SUN[0]), c[1], c[2] * (WARM_SUN[1] / WARM_SUN[2])];
-    // (the birch's near-grey takes `BIRCH_SUN` of it, so its lit hue stays Standard's: models.ts)
-    const partSun = (c: readonly number[], f: number) => underSun(c).map((v, k) => c[k] + f * (v - c[k]));
-    const same = (slot: keyof typeof paletteDefaults, want: readonly number[], f = 1) => hex(paletteDefaults[slot]).forEach((c, k) => expect(Math.abs(c - partSun(want, f)[k]), slot).toBeLessThanOrEqual(0.5 / 255 + 1e-9));
+    // (High's albedo is Standard's: both looks light objects with the game's light, D135 as amended 2026-11-09)
+    const same = (slot: keyof typeof paletteDefaults, want: readonly number[]) => hex(paletteDefaults[slot]).forEach((c, k) => expect(Math.abs(c - want[k]), slot).toBeLessThanOrEqual(0.5 / 255 + 1e-9));
     same("bark", TREE_COLOURS.pineBark);
     same("oakBark", TREE_COLOURS.oakBark);
     same("dead", deadWood("Pine", TREE_COLOURS.pineBark));
     same("oakDead", deadWood("Oak", TREE_COLOURS.oakBark));
-    same("birchBark", TREE_COLOURS.birchBark, BIRCH_SUN);
-    same("birchDead", deadWood("Birch", TREE_COLOURS.birchBark), BIRCH_SUN);
+    same("birchBark", TREE_COLOURS.birchBark);
+    same("birchDead", deadWood("Birch", TREE_COLOURS.birchBark));
     // each tree draws its own: High's slots, and Standard's colours
     const regions = (species: "Pine" | "Oak", state: "alive" | "dead") => new Set(Array.from(model(species, 0, "near", state).getAttribute("region").array as Float32Array));
     for (const [species, alive, dead, other] of [["Pine", "bark", "dead", "oakBark"], ["Oak", "oakBark", "oakDead", "bark"]] as const) {
@@ -185,5 +181,73 @@ describe("a dead plant's form, by the game's numbers", () => {
     expect(has("Oak.dead", deadWood("Oak", TREE_COLOURS.oakBark))).toBe(true);
     expect(has("Birch", TREE_COLOURS.birchBark)).toBe(true);
     expect(has("Birch.dead", deadWood("Birch", TREE_COLOURS.birchBark))).toBe(true);
+  });
+});
+
+describe("a dead tree at the game's size", () => {
+  // the game's MatureDead models' wood, its surface where their textures' alpha keeps it (trunk, limbs and stubs; the
+  // twig cards, a sixth kept, left out): until 2026-11-10 ours had 0.70 to 0.82 of it, half as thick, and the dead
+  // birches' white read faint from the widest views (fix/dry-widest)
+  const GAME_WOOD = { Pine: 1.29, Birch: 0.571, Oak: 1.646 };
+  const area = (p: ArrayLike<number>) => {
+    let a = 0;
+    for (let v = 0; v + 8 < p.length; v += 9) {
+      const [ux, uy, uz, wx, wy, wz] = [p[v + 3] - p[v], p[v + 4] - p[v + 1], p[v + 5] - p[v + 2], p[v + 6] - p[v], p[v + 7] - p[v + 1], p[v + 8] - p[v + 2]];
+      a += Math.hypot(uy * wz - uz * wy, uz * wx - ux * wz, ux * wy - uy * wx) / 2;
+    }
+    return a;
+  };
+  it("closes its trunk's top in every look, so the ground never shows down through it", () => {
+    // (straight down over the trunk's top, out to half its radius (inside the far models' three sides), every line meets
+    // the wood at its top or above)
+    const highest = (p: ArrayLike<number>, x: number, z: number) => {
+      let top = -Infinity;
+      for (let v = 0; v + 8 < p.length; v += 9) {
+        const [ax, az, bx, bz, cx, cz] = [p[v], p[v + 2], p[v + 3], p[v + 5], p[v + 6], p[v + 8]];
+        const det = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz);
+        if (Math.abs(det) < 1e-12) continue;
+        const l1 = ((bz - cz) * (x - cx) + (cx - bx) * (z - cz)) / det;
+        const l2 = ((cz - az) * (x - cx) + (ax - cx) * (z - cz)) / det;
+        if (l1 < -1e-9 || l2 < -1e-9 || l1 + l2 > 1 + 1e-9) continue;
+        top = Math.max(top, l1 * p[v + 1] + l2 * p[v + 4] + (1 - l1 - l2) * p[v + 7]);
+      }
+      return top;
+    };
+    for (const species of ["Birch", "Oak"] as const) {
+      const [x, y, z, r] = DEAD_LIMBS[species][0].line.at(-1)!;
+      const g = (d: "near" | "far") => {
+        const m = model(species, 0, d, "dead");
+        const p = m.getAttribute("position").array as Float32Array;
+        return m.index ? Array.from(m.index.array as ArrayLike<number>, (i) => [p[3 * i], p[3 * i + 1], p[3 * i + 2]]).flat() : p;
+      };
+      // (each model's own scale upright: its trunk's top at y × its height ÷ the line's)
+      const models: [string, ArrayLike<number>][] = [["standard", modelOf(`${species}.dead`).pos], ["near", g("near")], ["far", g("far")]];
+      for (const [look, p] of models) {
+        let h = 0;
+        for (let v = 1; v < p.length; v += 3) h = Math.max(h, p[v]);
+        const lineTop = Math.max(...DEAD_LIMBS[species].flatMap((l) => l.line.map((q) => q[1])));
+        const k = h / lineTop;
+        for (let a = 0; a < 12; a++)
+          for (const f of [0, 0.25, 0.5]) {
+            const at = highest(p, x + Math.cos(a) * r * f, z + Math.sin(a) * r * f);
+            expect(at, `${species} ${look}`).toBeGreaterThanOrEqual((y - 0.01) * k);
+          }
+      }
+    }
+  });
+
+  it("has the game's wood in every look, near and far", () => {
+    for (const species of ["Pine", "Birch", "Oak"] as const) {
+      const standard = area(modelOf(`${species}.dead`).pos);
+      const high = (["near", "far"] as const).map((d) => {
+        const g = model(species, 0, d, "dead");
+        const p = g.getAttribute("position").array as Float32Array;
+        return area(g.index ? Array.from(g.index.array as ArrayLike<number>, (i) => [p[3 * i], p[3 * i + 1], p[3 * i + 2]]).flat() : p);
+      });
+      for (const a of [standard, ...high]) {
+        expect(a / GAME_WOOD[species], species).toBeGreaterThan(0.85);
+        expect(a / GAME_WOOD[species], species).toBeLessThan(1.4);
+      }
+    }
   });
 });

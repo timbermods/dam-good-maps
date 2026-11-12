@@ -18,7 +18,12 @@ import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 
 /** The live check's download (tests/live/live.spec.ts): tools/gen.ts's file for this spec, as generator
- *  0.10.11 makes it (the generator audit, #726: shores, not rims, on sea maps, natural ramps that read as ground and
+ *  0.10.14 makes it (the opening camera's target on height 0, as the game puts it, D493: this map keeps its start and
+ *  turn, so it is the map 0.10.13 made, only the version, D148: re-stamped 0.10.13 the file is `8ab10fc7…` byte for
+ *  byte); `8ab10fc7…` before it, as generator 0.10.13 made it (the start frames the map, D507: it keeps this map's start
+ *  and turn, so its land and water are as 0.10.12 made them, only the version, D148: re-stamped 0.10.12 the file is
+ *  `1dd8183d…` byte for byte); `1dd8183d…`
+ *  before it, as generator 0.10.12 made it (see the end of this note); `c1aa22cd…` before that, as generator 0.10.11 made it (the generator audit, #726: shores, not rims, on sea maps, natural ramps that read as ground and
  *  the start's berries on soil the drought keeps moist, so this map changed, D148); `cb585c69…` before it, as generator
  *  0.10.10 made it (3D forms that read, D503: this map grows no arch or overhang, so its land and water are as 0.10.9 made
  *  them, only the version, D148); `b11f46fd…` before it, as generator 0.10.9 made it (green over the whole 256² map, D504: a 128² map's land and water are as 0.10.7 made them, only the
@@ -64,8 +69,12 @@ import * as ed from "../../src/worker/session";
  *  (the same map, a new description; D382); `7f7c8677…` before generator 0.10.0's version string (D488, the same
  *  map); `a4c34743…` before the game version stamped became 1.1.2.8-ffc2de0-sw (the same map, D148: re-stamped
  *  with 1.1.2.4-52e959e-sw the file is that one byte for byte); `30543f1d…` before generator 0.10.5's version
- *  string (the same map: its first land fails the course check, not the start or the trunk's search). */
-const LIVE_SHA = "c1aa22cd65f789c14b79834d39745f52bfb69c4056b4b83baba5f4e4a7d8d343";
+ *  string (the same map: its first land fails the course check, not the start or the trunk's search); `c1aa22cd…` before
+ *  generator 0.10.12's version string (the same map: its stacked settle takes no unfed water, #814); `963db7ee…` before
+ *  generator 0.10.16's ground with grade (its land rolls in one-level steps: a new map, D148); `d89bc166…` before
+ *  generator 0.10.17's start floors (D515: the settler's places need the bench and the start's wood a fast species, a
+ *  new map, D148). */
+const LIVE_SHA = "662d87890c147b1da11165128737fc8a01fcc7ac5c710f60956075d165de3c6f";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
@@ -98,7 +107,19 @@ describe("mine sites and ruins, models of our own", () => {
     const { group } = buildEntities(v, new ShaderMaterial());
     const W = page.W;
     const cut = mineCutout(v, W, page.H);
-    expect(cut.size).toBe(25 * mines.length);
+    // (and a geothermal field's middle tile, left out since its model became the game's, D496: its vent sinks there)
+    const fields = page.entities.filter((e) => e.template === "GeothermalField");
+    expect(cut.size).toBe(25 * mines.length + fields.length);
+    // (each field exactly its middle tile, the middle of its 3 × 3 as it is turned, at its level)
+    expect(fields.length).toBeGreaterThan(0);
+    for (const f of fields) {
+      const tiles = footprintTiles("GeothermalField", { template: "GeothermalField", x: f.x, y: f.y, z: f.z, orientation: f.orientation as Orientation, flipped: false });
+      expect(tiles).toHaveLength(9);
+      const mx = tiles.reduce((t, [x]) => t + x, 0) / 9;
+      const my = tiles.reduce((t, [, y]) => t + y, 0) / 9;
+      expect(cut.get(my * W + mx), `${f.x}, ${f.y}`).toBe(f.z);
+      for (const [x, y] of tiles) if (x !== mx || y !== my) expect(cut.has(y * W + x), `${x}, ${y}`).toBe(false);
+    }
     for (let k = 0; k < v.count; k++) {
       const t = v.templates[v.template[k]];
       if (t !== "UndergroundRuins") continue;

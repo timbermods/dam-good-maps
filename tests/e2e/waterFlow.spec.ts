@@ -46,7 +46,9 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  // (seed 2 since generator 0.10.17, D515, D148: on seed 4242's map the source's water now spreads over some 40 tiles, too few
+  // for four frames on a slow machine; on seed 2's over some 320)
+  await openEditor(page, "s=2&z=96&d=n&t=riverValley");
   await topDown(page);
   const bar = page.getByRole("toolbar", { name: "Water time" });
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 30_000 }).toBe(true);
@@ -218,17 +220,19 @@ test("an Unstable Core's moment shows under the water row while a hazard is held
   const cores = notes.filter({ hasText: /^Unstable core/ });
   await expect(notes).toHaveCount(0);
   await bar.getByRole("button", { name: "Badtide" }).click();
-  // (this map's two cores start their countdowns in cycles 9 and 7, since generator 0.10.11, #726, D148, cycles 6 and 7
-  // before; a Normal cycle opens with 13 to 17 temperate days, so the generator's 10.5 days put each 2 to 7 days before
+  // (this map's two cores start their countdowns in cycles 12 and 11 since generator 0.10.17's start floors, D515, D148: the
+  // land moved the cores' draws; cycles 9 and 8 since generator 0.10.16's ground with grade, D148: the
+  // land moved the cores' draws; cycles 12 and 7 since 0.10.13, D507: the start frames
+  // the map, and the draws after it moved; cycles 9 and 7 since 0.10.11, #726, 6 and 7 before; a Normal cycle opens with 13 to 17 temperate days, so the generator's 10.5 days put each 2 to 7 days before
   // the hazard)
   await expect(cores).toHaveText([
-    "Unstable core: goes off 2 to 7 days before cycle 9's drought or badtide",
-    "Unstable core: goes off 2 to 7 days before cycle 7's drought or badtide",
+    "Unstable core: goes off 2 to 7 days before cycle 12's drought or badtide",
+    "Unstable core: goes off 2 to 7 days before cycle 11's drought or badtide",
   ]);
   // (the row never changes shape for it)
   const box = await bar.boundingBox();
   await bar.getByRole("button", { name: "Drought" }).click();
-  await expect(notes.first()).toHaveText("Unstable core: goes off 2 to 7 days before cycle 9's drought or badtide");
+  await expect(notes.first()).toHaveText("Unstable core: goes off 2 to 7 days before cycle 12's drought or badtide");
   await expect(cores).toHaveCount(2);
   expect(await bar.boundingBox()).toEqual(box);
   await bar.getByRole("button", { name: "Drought" }).click();

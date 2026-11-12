@@ -4,8 +4,11 @@ use portable as portable_math;
 #[macro_use]
 mod json;
 mod rift;
+mod roll;
 mod deposit;
 mod erode;
+mod levels;
+use levels::lumps;
 // The water a force plans with (a carve's oxbow lake, a glacier's floor) is rust/water's simulation and settle,
 // linked without its Wasm exports; the bridge allocates through these two, named apart from the water's so a
 // workspace-wide build, which turns those exports back on, still links (src/core/forces/rust/bridge.ts).
@@ -65,6 +68,15 @@ use portable_math::{atan, atan2, cos, exp, log, pow, sin};
 fn hypot(x: f64, y: f64) -> f64 {
     portable_math::hypot(&[x, y])
 }
+/// A square root for the hot loops: Newton's steps on the reciprocal root from a guess read off the float's bits.
+/// Only adds and multiplies, so the same bits natively and in Wasm, and many times quicker than the exact root
+/// (whose wide integer division is slow in Wasm); good to about one part in ten billion, ample for an outline.
+fn root(x: f64) -> f64 {
+    if !(x > 0.0) { return 0.0; }
+    let mut y = f64::from_bits(0x5FE6_EB50_C7B5_37A9 - (x.to_bits() >> 1));
+    for _ in 0..3 { y = y * (1.5 - 0.5 * x * y * y); }
+    x * y
+}
 fn hash(seed: f64, k: f64) -> f64 {
     let mut x = ((seed as u64 as u32)
         ^ ((k as i64 as u32).wrapping_add(1).wrapping_mul(0x9e3779b9)))
@@ -81,6 +93,15 @@ fn strength(power: f64, size: Option<f64>, natural: f64) -> f64 {
     }
     let floor = portable_math::sqrt(natural / size);
     floor + (1.0 - floor) * pow(clamp(power, 0.0, 100.0) / 100.0, 1.2)
+}
+/// How far a force that replaces the land's relief with its own ground does so (D361 (3)): wholly at Power 100
+/// and at Power's own size; where Size outgrows Power, by Power's share of the strength (`strength`'s rise from
+/// its floor), so at Power 0 the land keeps its relief and the force only adds its own shape to it.
+fn relief(power: f64, size: Option<f64>, natural: f64) -> f64 {
+    if strength(power, size, natural) >= 1.0 {
+        return 1.0;
+    }
+    pow(clamp(power, 0.0, 100.0) / 100.0, 1.2)
 }
 fn tempered(before: f64, after: f64, k: f64) -> f64 {
     if k >= 1.0 {
@@ -768,6 +789,7 @@ fn write_value(out: &mut Vec<u8>, v: &V) {
 enum Records {
     Erode(Box<erode::ErodeRecords>),
     Rift(Box<rift::RiftRecords>),
+    Roll(Box<roll::RollRecords>),
     Deposit(Box<deposit::DepositRecords>),
     Glaciate(Box<GlacierPlan>),
     Carve(Box<CarveRecords>),
@@ -827,6 +849,7 @@ impl Plan {
         let mut out = match &self.records {
             Records::Erode(r) => r.value(),
             Records::Rift(r) => r.value(),
+            Records::Roll(r) => r.value(),
             Records::Deposit(r) => r.value(),
             Records::Glaciate(r) => r.value(),
             Records::Carve(r) => r.value(),
@@ -924,6 +947,7 @@ pub fn prepare(input: &[u8]) -> Job {
         "rift" => 6.0,
         "deposit" => 7.0,
         "erode" => 8.0,
+        "roll" => 9.0,
         _ => panic!("force not ported"),
     };
     let index =
@@ -978,10 +1002,14 @@ pub fn prepare(input: &[u8]) -> Job {
     command[33] = map.w as f64;
     if opcode == 6.0 || opcode == 7.0 { command[9] = if settings.mode == if opcode == 6.0 { "drop" } else { "fan" } {0.0} else {-1.0}; }
     if opcode == 8.0 { command[9] = if settings.mode == "wear" {0.0} else {-1.0}; }
+    if opcode == 9.0 { command[9] = if settings.mode == "roll" {0.0} else {-1.0}; }
     if opcode == 7.0 { command[5] = ["auto", "few", "many"].iter().position(|&x| x == job["settings"]["channels"].as_str().unwrap_or("")).map_or(-1.0, |i| i as f64); }
     if opcode == 6.0 { command[5] = ["auto", "sheer", "stepped"].iter().position(|&x| x == settings.walls).map_or(-1.0, |i| i as f64); }
     command[21] = (job["options"]["finish"].as_bool() == Some(false)) as u8 as f64;
     command[22] = (s(&job["settings"], "sources") == "ride") as u8 as f64;
+    if opcode == 4.0 {
+        command[23] = cs.fall.unwrap_or(f64::NAN);
+    }
     command[34] = boolean(&job["settings"], "meltwater") as u8 as f64;
     command[35] = index(
         job["settings"]["benches"].as_str().unwrap_or("some"),
@@ -1089,7 +1117,7 @@ fn refresh_id_bytes(task: &mut Job) {
         task.id_offsets.push(task.id_bytes.len() as u32);
     }
 }
-const FORCE_ERRORS: [&str; 41] = [
+const FORCE_ERRORS: [&str; 46] = [
     "",
     "Invalid impact settings",
     "Strike on the map",
@@ -1131,6 +1159,11 @@ const FORCE_ERRORS: [&str; 41] = [
     "Nothing here can wear away without leaving ground to fall",
     "There is no rock here that Erode may wear",
     "Erode leaves water and the ground that holds it as they are",
+    "A fall needs high ground to fall from: draw the stroke from it over an edge or down a slope",
+    "Invalid Roll settings",
+    "Draw Roll on the map",
+    "the Floor and the working area leave nothing here to roll",
+    "Roll leaves water and the ground beside it as they are",
 ];
 fn operation_problem(m: &Map, c: &[f64; 44], path: &[f64], keep: &[u8]) -> u32 {
     let opcode = c[0] as u32;
@@ -1207,6 +1240,7 @@ fn operation_problem(m: &Map, c: &[f64; 44], path: &[f64], keep: &[u8]) -> u32 {
                 || !(c[4].is_nan() || whole(c[4], 1.0, 22.0))
                 || !(c[28].is_nan() || whole(c[28], 1.0, 22.0))
                 || !bounded(c[27], 0.0, 10.0)
+                || !(c[23].is_nan() || whole(c[23], 2.0, 12.0))
             {
                 return 12;
             }
@@ -1288,6 +1322,12 @@ fn operation_problem(m: &Map, c: &[f64; 44], path: &[f64], keep: &[u8]) -> u32 {
             // (Erode: Size 4 to 40 tiles across, or Auto; the Floor 1 to the ceiling)
             if c[9] != 0.0 || !power || !seed || !(c[2].is_nan() || bounded(c[2],4.0,40.0)) || !(c[4].is_nan() || whole(c[4],1.0,m.ceiling)) {return 35;}
             if !whole(c[19],1.0,512.0) || points*2>path.len() || !path[..points*2].chunks_exact(2).all(|p|bounded(p[0],0.0,m.w as f64-1.0)&&bounded(p[1],0.0,m.h as f64-1.0)) {return 36;}
+            0
+        }
+        9 => {
+            // (Roll: Size 8 to 64 tiles across, or Auto; the Floor 1 to the ceiling)
+            if c[9] != 0.0 || !power || !seed || !(c[2].is_nan() || bounded(c[2],8.0,64.0)) || !(c[4].is_nan() || whole(c[4],1.0,m.ceiling)) {return 42;}
+            if !whole(c[19],1.0,512.0) || points*2>path.len() || !path[..points*2].chunks_exact(2).all(|p|bounded(p[0],0.0,m.w as f64-1.0)&&bounded(p[1],0.0,m.h as f64-1.0)) {return 43;}
             0
         }
         _ => 11,
@@ -1401,6 +1441,7 @@ pub fn plan(task: &mut Job) {
     let before = m.clone();
     let mut p = match c[0] as u32 {
         8 => erode::plan(&before, m, &settings, &intent, &task.keep, &task.area_depth),
+        9 => roll::plan(&before, m, &settings, &intent, &task.keep, &task.area_depth),
         7 => deposit::plan(&before,m,&settings,&intent,&task.keep,&task.area_depth,c[5] as u32),
         6 => rift::plan(&before, m, &settings, &intent, &task.keep, &task.area_depth, c[5] as u32),
         1 => crater(&before, m, &settings, &intent, &task.keep),
@@ -1423,6 +1464,7 @@ pub fn plan(task: &mut Job) {
                 floor: if c[4].is_nan() { 1.0 } else { c[4] },
                 river_depth: if c[28].is_nan() { None } else { Some(c[28]) },
                 banks: c[27],
+                fall: if c[23].is_nan() { None } else { Some(c[23]) },
                 ride: c[22] != 0.0,
             },
             &intent,
@@ -1450,6 +1492,7 @@ pub fn plan(task: &mut Job) {
             } else {
                 task.carve_options.clone()
             },
+            &task.area_depth,
         ),
         5 => glaciate(
             &before,
@@ -1542,7 +1585,7 @@ fn output_views(task: &mut Job) {
     }
     let g = &mut p.geometry;
     match &p.records {
-        Records::Erode(_) => {}
+        Records::Erode(_) | Records::Roll(_) => {}
         Records::Rift(r) => r.geometry(g),
         Records::Deposit(r) => r.geometry(g),
         Records::Glaciate(r) => {
@@ -1686,6 +1729,7 @@ fn output_views(task: &mut Job) {
                 a.length,
                 a.scale,
                 a.ceiling,
+                a.breach,
                 a.vents.len() as f64,
                 a.segments.len() as f64,
                 a.lobes.len() as f64,
@@ -1941,6 +1985,7 @@ fn describe(task: &mut Job) {
         match &p.records {
             Records::Erode(r) => {pair(d,10,&r.cells);pair(d,11,&r.buckets);pair(d,12,&r.stats);pair(d,13,&r.tiles);pair(d,14,&r.masks);},
             Records::Rift(r) => {pair(d,10,&r.arrival);pair(d,12,&r.stats);},
+            Records::Roll(r) => {pair(d,10,&r.arrival);pair(d,12,&r.stats);},
             Records::Deposit(r) => {pair(d,10,&r.arrival);pair(d,11,&r.channel);pair(d,12,&r.stats);pair(d,25,&r.stages);},
             Records::Glaciate(r) => {
                 pair(d, 10, &r.arrival);
@@ -2208,6 +2253,23 @@ pub unsafe extern "C" fn forces_execute(p: *const u8, len: usize, out_len: *mut 
     Box::into_raw(b) as *mut u8
 }
 
+/// Whole levels from a surface the core worked out itself (levels.rs `whole`; the Ridge, core/doc/ridge.ts). `input`
+/// holds `w·h` surface levels, then `w·h` ground levels (f64, little-endian; NaN where the ground is left alone), then
+/// `w·h` bytes of the land before; `out` takes `w·h` bytes of land.
+///
+/// # Safety
+/// `input` must hold `17·w·h` bytes and `out` `w·h`.
+#[no_mangle]
+pub unsafe extern "C" fn forces_levels(input: *const u8, w: usize, h: usize, ceiling: f64, seed: f64, grain: f64, out: *mut u8) {
+    let n = w * h;
+    let bytes = std::slice::from_raw_parts(input, 17 * n);
+    let read = |k: usize| f64::from_le_bytes(bytes[8 * k..8 * k + 8].try_into().unwrap());
+    let surface: Vec<f64> = (0..n).map(read).collect();
+    let ground: Vec<f64> = (n..2 * n).map(read).collect();
+    let land = levels::whole(&surface, &ground, &bytes[16 * n..], w, h, ceiling, seed, grain);
+    std::ptr::copy_nonoverlapping(land.as_ptr(), out, n);
+}
+
 #[derive(Clone)]
 struct Ray {
     dx: f64,
@@ -2232,6 +2294,113 @@ impl Ray {
             * (0.8 + 0.2 * sin(t * 19.0 + self.phase))
     }
 }
+/// A hollow of the crater's cavity, in crater tiles (the crater's own frame: its ellipse made a circle
+/// of its radius): a floor at `level`, then a wall `wall` tiles wide rising to the ground's level at
+/// `s` from its centre, and on up past it.
+#[derive(Clone, Copy)]
+struct Hollow {
+    x: f64,
+    y: f64,
+    s: f64,
+    wall: f64,
+    level: f64,
+}
+impl Hollow {
+    /// How far past the hollow's outline a point is, in tiles (negative inside it): exact on the
+    /// outline and close near it, where the wall and the rim are, with no square root (this runs for
+    /// every hollow on every tile of the largest craters).
+    fn past(&self, qx: f64, qy: f64) -> f64 {
+        let (dx, dy) = (qx - self.x, qy - self.y);
+        (dx * dx + dy * dy - self.s * self.s) / (2.0 * self.s)
+    }
+}
+/// An oval of ground in crater tiles, turned its own way: a slumped block against the wall (a bench
+/// at `level`) or a lump of the central uplift (`level` its share of the uplift's height, `high` its
+/// highest point, off its centre, in the oval's own units).
+#[derive(Clone, Copy)]
+struct Oval {
+    x: f64,
+    y: f64,
+    c: f64,
+    sn: f64,
+    along: f64,
+    across: f64,
+    level: f64,
+    high: (f64, f64),
+}
+impl Oval {
+    /// How far a point is from the oval's highest point, as a share of the way from there to its
+    /// outline (so one flank is short and steep and the other long); 1 and more outside it.
+    fn climb(&self, qx: f64, qy: f64) -> f64 {
+        let (dx, dy) = (qx - self.x, qy - self.y);
+        let (ex, ey) = ((dx * self.c + dy * self.sn) / self.along - self.high.0, (-dx * self.sn + dy * self.c) / self.across - self.high.1);
+        let far = ex * ex + ey * ey;
+        if far < 1e-9 {
+            return 0.0;
+        }
+        let toward = self.high.0 * ex + self.high.1 * ey;
+        far / (portable_math::sqrt(toward * toward + far * (1.0 - self.high.0 * self.high.0 - self.high.1 * self.high.1)) - toward)
+    }
+    /// A point's distance from its centre, squared, 1 on its outline, and how far across it lies (-1 to 1 inside).
+    fn reach(&self, qx: f64, qy: f64) -> (f64, f64) {
+        let (dx, dy) = (qx - self.x, qy - self.y);
+        let t = (dx * self.c + dy * self.sn) / self.along;
+        let n = (-dx * self.sn + dy * self.c) / self.across;
+        (t * t + n * n, n)
+    }
+}
+/// The least width of a ledge of a peak's hill, in tiles (a ledge that lies across the grid's diagonal is
+/// two tiles wide only at three across).
+const CRAG: f64 = 3.0;
+/// One plate of a peak's hill: ground at one level (`level` its place from the hill's top, each one two
+/// levels lower), round its own centre, stretched and lobed its own way and ragged by its own share of
+/// two noise fields, so no plate's outline follows another's. A summit is a run of plates, its top one
+/// first; a plate holds the ones above it in its run with a ledge round them.
+#[derive(Clone, Copy)]
+struct Shelf {
+    x: f64,
+    y: f64,
+    c: f64,
+    sn: f64,
+    along: f64,
+    across: f64,
+    /// Its lobes: two round it and three round it, each a share of its radius and a phase.
+    lobes: (f64, f64, f64, f64),
+    /// How deep the two ragged fields dent its outline, each a share of its radius: dents only, so the
+    /// ledges round it run from a ledge's width to wide and back, never one width all round.
+    mix: (f64, f64),
+    level: f64,
+    /// The lobes' phases as cosines and sines.
+    turn: (f64, f64, f64, f64),
+    /// How far from its centre its outline reaches at the most.
+    bound: f64,
+    /// One over its length and its width.
+    inverse: (f64, f64),
+}
+impl Shelf {
+    /// How far a point lies outside its outline, in tiles (negative inside).
+    fn past(&self, qx: f64, qy: f64, ragged: (f64, f64)) -> f64 {
+        let (dx, dy) = (qx - self.x, qy - self.y);
+        let (t, n) = (dx * self.c + dy * self.sn, -dx * self.sn + dy * self.c);
+        let d2 = t * t + n * n;
+        if d2 < 1e-18 {
+            return -min(self.along, self.across);
+        }
+        let (ia, ib) = self.inverse;
+        let (u, v) = (t * ia, n * ib);
+        let e = root(u * u + v * v);
+        // (the lobes round it by the bearing on its stretched outline, from that bearing's cosine and
+        // sine, without the angle)
+        let (c, s) = (u / e, v / e);
+        let (c2, s2, c3, s3) = (c * c - s * s, 2.0 * c * s, c * (4.0 * c * c - 3.0), s * (3.0 - 4.0 * s * s));
+        let (a2, _, a3, _) = self.lobes;
+        let (k2, n2, k3, n3) = self.turn;
+        let shape = 1.0 + a2 * (c2 * k2 - s2 * n2) + a3 * (c3 * k3 - s3 * n3) - self.mix.0 * ragged.0 - self.mix.1 * ragged.1;
+        // (the way across its outline, not along the way from its centre: true at its ends too)
+        let (gu, gv) = (u * ia, v * ib);
+        (e - shape) * e / root(gu * gu + gv * gv)
+    }
+}
 struct Crater {
     x: f64,
     y: f64,
@@ -2250,6 +2419,68 @@ struct Crater {
     floor: f64,
     centre: String,
     rays: Vec<Ray>,
+    // (the crater's shape, built from a few irregular fields: kept out of the anatomy's record)
+    seed: f64,
+    heavy: bool,
+    /// Where the rim runs low (its lowest ground, or the seed's on level ground), and how wide.
+    notch: f64,
+    notch_cos: f64,
+    /// (the crater's turn, its cosine and sine, worked out once)
+    turn: (f64, f64),
+    /// The ground the crater is cut into: a plane through the datum at the crater's centre that leans
+    /// with the land round it (levels a tile, east and south).
+    lean: (f64, f64),
+    /// The land's own slope there, whole.
+    slope: (f64, f64),
+    /// The cavity: a few hollows that overlap (its outline is theirs together, so it is lobed, with
+    /// spurs between them), blocks slumped against its wall, and the lumps of its central uplift.
+    lobes: Vec<Hollow>,
+    blocks: Vec<Oval>,
+    lumps: Vec<Oval>,
+    /// A peak: a broad low hill of one, two or three summits, each a run of plates, its top one first
+    /// (see `Shelf`).
+    plates: Vec<Shelf>,
+    /// The hill's middle and how far from it its plates reach, in crater tiles, and its lowest plate.
+    hill: (f64, f64, f64, f64),
+    /// A small crater's lip: low lumps round its outline, in crater tiles (x, y, radius, levels).
+    lip: Vec<(f64, f64, f64, f64)>,
+    /// A large crater's low massif, when the crater chooses its own centre: two or three broad hummocks
+    /// off the middle, each an oval a level over the floor (its foot) and a smaller one two levels over it
+    /// (its top), in pairs.
+    mounds: Vec<Oval>,
+    steep: bool,
+    /// The floor's depth below the crater's ground, in whole levels.
+    deep: f64,
+    /// (what depends on the bearing alone, worked out once per bearing: the rim's height, how far it
+    /// falls away, the debris's tongue and the rim's dip)
+    bearings: Vec<(f64, f64, f64, f64)>,
+}
+/// Value noise round a circle, 0–1: `cells` points, each its own hash, eased between.
+fn ring(seed: f64, salt: f64, theta: f64, cells: i64) -> f64 {
+    let t = (theta / (2.0 * PI) + 0.5) * cells as f64;
+    let k = t.floor();
+    let f = smooth(t - k);
+    let k = k as i64;
+    let a = hash(seed, salt + k.rem_euclid(cells) as f64);
+    let b = hash(seed, salt + (k + 1).rem_euclid(cells) as f64);
+    a + (b - a) * f
+}
+/// What the crater does at a tile.
+#[derive(Clone, Copy, Default)]
+struct Plate {
+    /// The tile's distance out, 1 on the cavity's outline.
+    r: f64,
+    /// How far the land under it gives way to the crater's own plane (1 inside the bowl, 0 outside).
+    plane: f64,
+    /// What the crater adds to that ground, in levels (the uplift apart).
+    add: f64,
+    /// What it adds to the land itself, where the land keeps its relief (a crater weaker than its Size,
+    /// `relief`): its cavity inside, its rim and debris round it.
+    own: f64,
+    /// The central uplift's share here, 0–1 (a ring's mountains).
+    lift: f64,
+    /// The plate of a peak's hill here: 1 its top, 2 the one under it, and so on; 0 none.
+    tier: u8,
 }
 fn crater_size(p: f64) -> f64 {
     round(6.0 + 112.0 * pow(p / 100.0, 1.4))
@@ -2274,15 +2505,38 @@ impl Crater {
         let glance = clamp(hypot(ex - x, ey - y) / max(12.0, diameter), 0.0, 1.0);
         let a = radius * (1.0 + 0.65 * glance);
         let b = radius / (1.0 + 0.18 * glance);
+        let centre = if s(s0, "centre") == "auto" {
+            if diameter < 28.0 {
+                "bowl"
+            } else {
+                // (a hummocky floor, as most craters' are; from Size 68 a low massif on it, below: a
+                // central mountain is the Peak's, chosen)
+                "flat"
+            }
+        } else {
+            s(s0, "centre")
+        }
+        .to_string();
+        let simple = centre == "bowl";
+        // The depth Power gives, and never more than the crater has room for: a simple bowl about a
+        // sixth of its width, a crater with a floor about a tenth (a small crater is a shallow bowl,
+        // never a shaft; the depth grows with the size, gently).
+        // (a crater with a peak is the shallowest for its width: its hill stands from its floor to
+        // above its rim's low side, and is broad for that height only in a bowl no deeper)
+        let room = if simple { 0.4 + 0.13 * diameter } else if centre == "peak" { 1.0 + 0.07 * diameter } else { 1.0 + 0.09 * diameter };
         let depth = clamp(
-            (1.0 + (12.0 * power) / 100.0)
-                * portable_math::sqrt(crater_size(power) / diameter)
-                * (1.0 - 0.28 * glance),
+            min(
+                (1.0 + (12.0 * power) / 100.0) * portable_math::sqrt(crater_size(power) / diameter),
+                room,
+            ) * (1.0 - 0.28 * glance),
             1.0,
             20.0,
         );
-        let rim = clamp(1.0 + depth * 0.23, 1.0, 5.0);
+        let rim = clamp(0.6 + depth * 0.35, 1.0, 5.0);
         let mut samples = vec![];
+        // (the rim runs low where the ground round it is lowest; on level ground the seed decides)
+        let mut notch = hash(seed, 1251.0) * PI * 2.0;
+        let mut lowest = f64::INFINITY;
         for k in 0..48 {
             let t = (k as f64 * PI) / 24.0;
             let u = cos(t) * a;
@@ -2290,7 +2544,13 @@ impl Crater {
             let xx = round(x + u * cos(angle) - v * sin(angle));
             let yy = round(y + u * sin(angle) + v * cos(angle));
             if xx >= 0.0 && yy >= 0.0 && xx < m.w as f64 && yy < m.h as f64 {
-                samples.push(m.heights[yy as usize * m.w + xx as usize]);
+                let g = m.heights[yy as usize * m.w + xx as usize];
+                samples.push(g);
+                let score = g as f64 + 0.9 * hash(seed, 1250.0 + k as f64);
+                if score < lowest {
+                    lowest = score;
+                    notch = t;
+                }
             }
         }
         samples.sort();
@@ -2366,30 +2626,103 @@ impl Crater {
                     ray.pits.push((
                         x + dx * d - dy * offset,
                         y + dy * d + dx * offset,
-                        (0.8 + hash(ray.seed, j + 300.0) * 1.1)
-                            * if heavy { 1.55 } else { 1.0 }
-                            * (1.0 - f * 0.45),
+                        // (never narrower than two tiles)
+                        max(
+                            2.3,
+                            (0.8 + hash(ray.seed, j + 300.0) * 1.1)
+                                * if heavy { 1.55 } else { 1.0 }
+                                * (1.0 - f * 0.45),
+                        ),
                     ));
-                    d += max(4.0, radius * if heavy { 0.12 } else { 0.15 })
+                    d += max(7.0, radius * if heavy { 0.12 } else { 0.15 })
                         * (1.0 + hash(ray.seed, j + 400.0));
                     j += 1.0;
                 }
                 rays.push(ray);
             }
         }
-        let centre = if s(s0, "centre") == "auto" {
-            if diameter < 28.0 {
-                "bowl"
-            } else if diameter < 68.0 {
-                "peak"
-            } else {
-                "ring"
+        // The land round the crater, as a plane: the crater leans with it, by a share of its slope (a
+        // crater on a hillside has its rim high uphill and low or breached downhill, and its floor
+        // leans the same way, less).
+        let (turn_c, turn_s) = (cos(angle), sin(angle));
+        let reach = max(a, b) * 1.4 + 1.0;
+        let (x0, x1) = (max(0.0, (x - reach).floor()) as usize, min(m.w as f64 - 1.0, (x + reach).ceil()) as usize);
+        let (y0, y1) = (max(0.0, (y - reach).floor()) as usize, min(m.h as f64 - 1.0, (y + reach).ceil()) as usize);
+        // (fitted three times, the second and third without the ground that stands far off the fit before:
+        // a cliff or a canyon beside the crater is not a slope, and a plateau's edge leaves it level)
+        let mut lean = (0.0, 0.0);
+        let mut slope = (0.0, 0.0);
+        let mut fit: Option<(f64, f64, f64)> = None;
+        for off in [f64::INFINITY, 2.5, 1.5] {
+            let mut sums = [0.0f64; 9];
+            for yy in y0..=y1 {
+                for xx in x0..=x1 {
+                    let (dx, dy) = (xx as f64 - x, yy as f64 - y);
+                    let (u, v) = ((dx * turn_c + dy * turn_s) / a, (-dx * turn_s + dy * turn_c) / b);
+                    let d = u * u + v * v;
+                    if d < 0.64 || d > 1.96 {
+                        continue;
+                    }
+                    let g = m.heights[yy * m.w + xx] as f64;
+                    if let Some((at, sx, sy)) = fit {
+                        if (g - at - sx * dx - sy * dy).abs() > off {
+                            continue;
+                        }
+                    }
+                    for (k, v) in [1.0, dx, dy, g, dx * dx, dx * dy, dy * dy, dx * g, dy * g].into_iter().enumerate() {
+                        sums[k] += v;
+                    }
+                }
             }
-        } else {
-            s(s0, "centre")
+            if sums[0] < 24.0 {
+                break;
+            }
+            let c = sums[0];
+            let (sxx, sxy, syy) = (sums[4] - sums[1] * sums[1] / c, sums[5] - sums[1] * sums[2] / c, sums[6] - sums[2] * sums[2] / c);
+            let (sxg, syg) = (sums[7] - sums[1] * sums[3] / c, sums[8] - sums[2] * sums[3] / c);
+            let det = sxx * syy - sxy * sxy;
+            if !(det > 1e-6 * sxx * syy && det > 0.0) {
+                break;
+            }
+            slope = ((sxg * syy - syg * sxy) / det, (syg * sxx - sxg * sxy) / det);
+            fit = Some(((sums[3] - slope.0 * sums[1] - slope.1 * sums[2]) / c, slope.0, slope.1));
         }
-        .to_string();
-        Self {
+        if fit.is_some() {
+            lean = (slope.0 * 0.6, slope.1 * 0.6);
+            // (never so much that the floor's steps are narrow, or that it leans out of its bowl)
+            let steep = hypot(lean.0, lean.1);
+            let most = min(0.25, max(1.0, 0.6 * depth) / radius);
+            if steep > most {
+                lean = (lean.0 * most / steep, lean.1 * most / steep);
+            }
+        }
+        // The shape, in crater tiles: the cavity's hollows, one near the centre and two or three off it.
+        let steep = s(s0, "walls") == "steep";
+        let rnd = |k: f64| hash(seed, k);
+        let deep = max(1.0, round(depth));
+        let mut lobes = vec![];
+        // (the smallest craters have two: three in so little room make a square)
+        let count = if diameter < 16.0 { 2 } else { 3 + (rnd(2101.0) * 2.0).floor() as usize - if simple { 1 } else { 0 } };
+        let first = rnd(2102.0) * PI * 2.0;
+        for j in 0..count {
+            let jf = j as f64;
+            let t = first + (jf + 0.6 * (rnd(2110.0 + jf) - 0.5)) * PI * 2.0 / (count as f64 - 1.0);
+            let off = radius * if j == 0 { 0.06 * rnd(2120.0) } else { 0.2 + 0.12 * rnd(2120.0 + jf) };
+            let reach = radius * if j == 0 { 0.9 + 0.05 * rnd(2130.0) } else { 0.68 + 0.12 * rnd(2130.0 + jf) };
+            // (a level floor, then a wall a few tiles wide: a cliff with ledges, never a stair of rings;
+            // a small crater's is wider for its depth and goes down in whole levels, so its bowl is
+            // rounded: a step two tiles wide or more for each level down, two or three in all)
+            let wall = if simple && !steep && deep >= 2.0 { clamp(2.2 * deep, 2.6, 0.75 * reach) * (0.95 + 0.1 * rnd(2140.0 + jf)) } else { clamp(0.3 * deep + 0.8, 1.5, 3.0) * (0.8 + 0.4 * rnd(2140.0 + jf)) };
+            lobes.push(Hollow {
+                x: off * cos(t),
+                y: off * sin(t),
+                s: reach,
+                wall,
+                // (a simple crater's lesser hollows are shallower: its floor steps up on a side or two)
+                level: if simple && !steep && j > 0 { -max(1.0, round(deep * (0.55 + 0.35 * rnd(2150.0 + jf)))) } else { -deep },
+            });
+        }
+        let mut c = Self {
             x,
             y,
             w: m.w as f64,
@@ -2407,21 +2740,627 @@ impl Crater {
             floor,
             centre,
             rays,
+            seed,
+            heavy,
+            notch,
+            notch_cos: cos(0.32 + 0.3 * hash(seed, 1260.0)),
+            turn: (turn_c, turn_s),
+            lean,
+            slope,
+            lobes,
+            blocks: vec![],
+            lumps: vec![],
+            plates: vec![],
+            hill: (0.0, 0.0, 0.0, 0.0),
+            lip: vec![],
+            mounds: vec![],
+            steep,
+            deep,
+            bearings: vec![],
+        };
+        let count = clamp((PI * 2.0 * 1.5 * max(a, b) * 2.0).ceil(), 64.0, 2048.0) as usize;
+        c.bearings = (0..count)
+            .map(|k| {
+                let theta = ((k as f64 + 0.5) / count as f64 - 0.5) * PI * 2.0;
+                (c.rim_at(theta), 0.23 * (0.6 + 0.9 * ring(seed, 1900.0, theta, 6)), ring(seed, 1990.0, theta, 7), c.dip(theta))
+            })
+            .collect();
+        // Blocks slumped against a terraced wall, where the crater has room for them: ovals lying
+        // along the wall, each turned a little its own way and at its own level, with gaps between
+        // (there the wall stands whole), higher ones at the wall and lower ones further in. A bench is
+        // what shows of a block between its own front and the wall behind: an arc that pinches out.
+        if !steep && diameter >= 16.0 {
+            let tiers = if radius < 22.0 { 1 } else if radius < 46.0 { 2 } else { 3 };
+            for tier in 0..tiers {
+                // (each tier its own two levels, a block never at its neighbour's: no bench runs on
+                // from block to block)
+                let top = 2.0 * tier as f64 + 1.0;
+                if top > deep - 1.0 {
+                    break;
+                }
+                let two = top + 1.0 <= deep - 1.0;
+                let salt = 2600.0 + 100.0 * tier as f64;
+                let at = [0.84, 0.68, 0.55][tier];
+                let across = clamp(radius * [0.2, 0.17, 0.14][tier], 2.0, 8.0);
+                let count = max(3.0, round(PI * 2.0 * at * radius / (across * 3.9)));
+                let first = rnd(salt) * PI * 2.0;
+                let odd = if rnd(salt + 2.0) < 0.5 { 0 } else { 1 };
+                for j in 0..count as usize {
+                    let jf = j as f64;
+                    // (gaps, where the wall stands whole; with one level only, every other block)
+                    if rnd(salt + 1.0 + jf) < [0.26, 0.34, 0.4][tier] || (!two && j % 2 == odd) || (two && j + 1 == count as usize && (count as usize) % 2 == 1) {
+                        continue;
+                    }
+                    let phi = first + (jf + 0.7 * (rnd(salt + 20.0 + jf) - 0.5)) * PI * 2.0 / count;
+                    let d = c.reach(phi) * (at + 0.1 * (rnd(salt + 40.0 + jf) - 0.5));
+                    let across = across * (0.75 + 0.6 * rnd(salt + 60.0 + jf));
+                    let turned = phi + PI / 2.0 + 0.8 * (rnd(salt + 80.0 + jf) - 0.5);
+                    c.blocks.push(Oval {
+                        x: d * cos(phi),
+                        y: d * sin(phi),
+                        c: cos(turned),
+                        sn: sin(turned),
+                        along: across * (1.2 + 0.7 * rnd(salt + 30.0 + jf)),
+                        across,
+                        level: -(top + if two && j % 2 == odd { 1.0 } else { 0.0 }),
+                        high: (0.0, 0.0),
+                    });
+                }
+            }
         }
+        // A small crater's lip: low lumps all round its outline, each two tiles across or more, one
+        // level high, two where the rim stands highest (those on a wider foot that falls away outward),
+        // and none in the rim's low side. (A rim two tiles wide all round would stand only where it
+        // runs along the grid: straight slabs.)
+        if simple && diameter < 28.0 {
+            let count = max(5.0, round(PI * 2.0 * (radius + 1.5) / 2.9));
+            let first = rnd(2701.0) * PI * 2.0;
+            let big = clamp(radius / 9.0, 1.0, 1.3);
+            for j in 0..count as usize {
+                let jf = j as f64;
+                let phi = first + (jf + 0.5 * (rnd(2710.0 + jf) - 0.5)) * PI * 2.0 / count;
+                if c.dip(phi) > 0.5 {
+                    continue;
+                }
+                // (low and narrow: three tiles of lip or so, its inner side on the top of the wall)
+                let r = (1.5 + 0.6 * rnd(2720.0 + jf)) * big;
+                let d = c.reach(phi) + r * (0.5 + 0.3 * rnd(2730.0 + jf));
+                // (two levels where the rim stands highest, never two such lumps side by side: no slab)
+                if c.rim_at(phi) >= 1.5 && j % 2 == 0 {
+                    c.lip.push(((d + 0.8) * cos(phi), (d + 0.8) * sin(phi), r + 1.0, 1.0));
+                    c.lip.push((d * cos(phi), d * sin(phi), max(1.6, r * 0.8), 2.0));
+                } else {
+                    c.lip.push((d * cos(phi), d * sin(phi), r, 1.0));
+                }
+            }
+        }
+        let off_centre = |k: f64| {
+            let (t, d) = (rnd(k) * PI * 2.0, 0.15 + 0.25 * rnd(k + 1.0));
+            (d * cos(t), d * sin(t))
+        };
+        // A large crater left to choose its own centre: a low massif on its hummocky floor, two or three
+        // broad hummocks off the middle and apart, each two levels over the floor, with a ledge of a
+        // few tiles round its top (a central mountain is the Peak's, chosen).
+        if s(s0, "centre") == "auto" && c.centre == "flat" && diameter >= 68.0 {
+            let count = 2 + (rnd(2501.0) * 2.0).floor() as usize;
+            let t0 = rnd(2502.0) * PI * 2.0;
+            for j in 0..count {
+                let jf = j as f64;
+                let b = t0 + (jf + 0.5 * (rnd(2510.0 + jf) - 0.5)) * PI * 2.0 / count as f64;
+                let d = radius * (0.3 + 0.08 * rnd(2520.0 + jf));
+                let across = radius * (0.17 + 0.05 * rnd(2530.0 + jf));
+                let turned = b + PI / 2.0 + 0.5 * (rnd(2550.0 + jf) - 0.5);
+                let along = across * (1.2 + 0.5 * rnd(2540.0 + jf));
+                let (x, y) = (d * cos(b), d * sin(b));
+                // (its foot, a level over the floor)
+                c.mounds.push(Oval { x, y, c: cos(turned), sn: sin(turned), along, across, level: 1.0, high: (0.0, 0.0) });
+                // (its top, a level higher: pushed its own way and turned a little, so the ledge round it is
+                // wide on one side and narrow on the other, never a ring)
+                let core = max(0.0, 1.0 - CRAG * (1.0 + 0.3 * rnd(2560.0 + jf)) / across);
+                let (inner, narrow) = (across * core, along * core);
+                let (u, v) = ((rnd(2570.0 + jf) - 0.5) * 1.2 * (along - narrow), (rnd(2580.0 + jf) - 0.5) * 0.8 * (across - inner));
+                let top = turned + 0.6 * (rnd(2590.0 + jf) - 0.5);
+                c.mounds.push(Oval {
+                    x: x + u * cos(turned) - v * sin(turned),
+                    y: y + u * sin(turned) + v * cos(turned),
+                    c: cos(top),
+                    sn: sin(top),
+                    along: narrow,
+                    across: inner,
+                    level: 2.0,
+                    high: (0.0, 0.0),
+                });
+            }
+        }
+        // The central uplift, where the crater has room for one. A peak is a broad, low hill, as a real
+        // central uplift is: a steep side (its crag) and a long gentle one (its ramp), with a lower summit
+        // as a knob on its flank, or in a large crater a massif of three or four summits that run together
+        // below. Its plates stand on whole levels, two levels apart, the top one first; each one under the
+        // top holds the one above it with a ledge of a few tiles on the crag's side and a wide one on the
+        // ramp's, so it is pushed toward the ramp from the one above, on a bearing of its own, wider at one
+        // end than the other, turned and lobed its own way and dented by the ragged fields its own way:
+        // from above no outline runs round the one over it evenly, and the top stands off the hill's
+        // middle, toward the crag. A ring is three or four separate mountains round
+        // the centre, off it, open on one side.
+        if c.centre == "peak" && radius >= 8.0 {
+            // (the plates a hill shows on level ground, from the floor to two levels above the ground,
+            // and two more under them for a hill that must stand higher: a lake held up by a lake round
+            // the crater)
+            let tiers = max(2.0, ((deep + 2.0) / 2.0).ceil());
+            let last = tiers + 1.0;
+            // (a small hill one summit, a hill a main summit and a lower one beside it, a large crater's a
+            // massif of three or four round its middle)
+            let massif = radius >= 34.0;
+            let own = clamp(tiers - 2.0, 1.0, 3.0);
+            let summits = if radius < 20.0 { 1 } else if !massif { 2 } else if radius < 44.0 { 3 } else { 4 };
+            let t0 = rnd(2302.0) * PI * 2.0;
+            let ramp = t0 + PI + rnd(2305.0) - 0.5;
+            // (the ridge runs across the ramp)
+            let ridge = ramp + PI / 2.0 + 0.6 * (rnd(2304.0) - 0.5);
+            let top = clamp(radius * 0.1, 2.6, 4.0);
+            // (the plates that stand above the hill's foot keep within three fifths of the way out, clear of
+            // the wall's benches: the ramp's ledges as wide as that leaves room for, narrowed until they fit,
+            // the hill then moved to the bowl's middle)
+            let room = radius * 0.6;
+            let mut squeeze = 1.0;
+            let mut shift = (0.0, 0.0);
+            let mut hill = (0.0, 0.0);
+            let mut reached: f64 = 0.0;
+            for attempt in 0..8 {
+                c.plates.clear();
+                // (the ramp's ledges as wide as that room allows, or as narrow as a ledge can be)
+                let wide = clamp(squeeze * (if massif { radius * 0.66 } else { room * 1.8 } - 2.0 * top - own * CRAG) / own, CRAG + 1.0, radius * 0.4);
+                // (the top leans to the crag's side by half what the ramp outreaches the crag, so the hill's
+                // foot stands about the bowl's middle)
+                let lean = own * (wide - CRAG) / 2.0;
+                let off = radius * 0.05 * rnd(2303.0);
+                let (hx, hy) = if massif { (0.0, 0.0) } else { (lean * cos(t0) + off * cos(t0 + 2.0), lean * sin(t0) + off * sin(t0 + 2.0)) };
+                // (the lower summit beside the main one: a knob on its flank a plate down, along the ridge,
+                // standing out past that plate)
+                let knob = {
+                    let b = ridge + 0.5 * (rnd(2309.0) - 0.5) + if rnd(2306.0) < 0.5 { 0.0 } else { PI };
+                    let d = top * 1.2 + (wide + CRAG) / 2.0 + 0.5 + rnd(2307.0);
+                    (hx + d * cos(b), hy + d * sin(b))
+                };
+                hill = (hx, hy);
+                for k in 0..summits {
+                    let salt = 3200.0 + 200.0 * k as f64;
+                    let r = |q: f64| rnd(salt + q);
+                    let (mut px, mut py, from, ramp, ridge) = if massif {
+                        // (round the middle, the main one nearest it, the others a level or two lower, each
+                        // with its ramp outward, or near it)
+                        let b = t0 + k as f64 * PI * 2.0 / summits as f64 + 0.8 * (r(2.0) - 0.5);
+                        let d = radius * squeeze * (0.16 + 0.08 * r(3.0));
+                        let ramp = b + 1.4 * (r(4.0) - 0.5);
+                        let from = if k == 0 { 0.0 } else if k == 1 { 1.0 } else { 1.0 + (r(1.0) * 2.0).floor() };
+                        (d * cos(b), d * sin(b), from, ramp, ramp + PI / 2.0 + 0.6 * (r(5.0) - 0.5))
+                    } else if k == 0 {
+                        (hx, hy, 0.0, ramp, ridge)
+                    } else {
+                        (knob.0, knob.1, 1.0, ramp, ridge)
+                    };
+                    let ramp = ramp + 0.5 * (r(6.0) - 0.5);
+                    let mut across = top * if k == 0 { 1.0 } else { 0.8 + 0.2 * r(7.0) };
+                    let mut along = across * (1.0 + 0.3 * r(8.0));
+                    let mut axis = ridge + 0.4 * (r(9.0) - 0.5);
+                    let mut level = from;
+                    // (a massif's summits two plates each, the ground under them a ledge round each one
+                    // above, so they run together below)
+                    let stop = if massif { min(last, from + 1.0) } else if k > 0 { from } else { last };
+                    while level <= stop {
+                        let j = 10.0 * (level + 1.0);
+                        if level > from + 3.0 {
+                            // (under its third plate a summit only spills a lobe out its own way, a ledge's width
+                            // round the rest: a high hill's foot, never a stack)
+                            let b = r(j + 1.0) * PI * 2.0;
+                            let shift = wide * (0.8 + 0.6 * r(j));
+                            px += shift * cos(b);
+                            py += shift * sin(b);
+                            across += CRAG * 0.5;
+                            along += CRAG * 0.5;
+                            axis += 0.8 * (r(j + 4.0) - 0.5);
+                        } else if level > from {
+                            // (each plate pushed its own way off the ramp's line, the first along it, the next to
+                            // one side of it, the next to the other; the first's ledge wider or narrower than the
+                            // ramp's share, the next's the other way)
+                            let n = level - from - 1.0;
+                            let vary = 0.5 * (r(1.7) - 0.5);
+                            let wide = max(CRAG + 2.0, wide * if n == 0.0 { 1.0 + vary } else if n == 1.0 { 1.0 - vary } else { 1.0 });
+                            let swing = if n == 0.0 { 0.0 } else if n == 1.0 { 1.0 } else { -1.0 } * (0.3 + 0.4 * r(j + 1.0)) * if rnd(2310.0) < 0.5 { 1.0 } else { -1.0 };
+                            let b = ramp + swing + 0.3 * (r(j + 1.5) - 0.5);
+                            // (a ledge's width from the plate above on the crag's side, and `wide` on the push's)
+                            let (shift, grow) = ((wide - CRAG) / 2.0, (wide + CRAG) / 2.0);
+                            px += shift * cos(b);
+                            py += shift * sin(b);
+                            across += grow;
+                            // (and along its length a ledge's width at one end and a wider one at the other)
+                            let end = CRAG + 1.0 + (wide - CRAG) * 0.5 * r(j + 3.0);
+                            let side = if rnd(2311.0 + n) < 0.5 { 1.0 } else { -1.0 };
+                            px += side * (end - CRAG) / 2.0 * cos(axis);
+                            py += side * (end - CRAG) / 2.0 * sin(axis);
+                            along += (end + CRAG) / 2.0;
+                            axis += 0.3 * (r(j + 4.0) - 0.5);
+                        }
+                        // (the top's outline near an oval, so it stays broad; the plates under it lobed)
+                        let lobed = if level == from { 0.4 } else { 1.0 };
+                        c.plates.push(Shelf {
+                            x: px,
+                            y: py,
+                            c: cos(axis),
+                            sn: sin(axis),
+                            along,
+                            across,
+                            lobes: (lobed * (0.03 + 0.06 * r(j + 5.0)), r(j + 6.0) * PI * 2.0, lobed * (0.03 + 0.08 * r(j + 7.0)), r(j + 8.0) * PI * 2.0),
+                            mix: (lobed * (0.08 + 0.17 * r(j + 9.0)), lobed * (0.08 + 0.17 * r(j + 9.5))),
+                            level,
+                            turn: (0.0, 0.0, 0.0, 0.0),
+                            bound: 0.0,
+                            inverse: (0.0, 0.0),
+                        });
+                        level += 1.0;
+                    }
+                }
+                // (how far out the plates above the foot reach round their outlines, or the ledges round
+                // a summit's lowest plate, and the middle of the box that holds them)
+                let (mut x0, mut y0, mut x1, mut y1) = (f64::INFINITY, f64::INFINITY, -f64::INFINITY, -f64::INFINITY);
+                let mut rim = vec![];
+                for (i, p) in c.plates.iter().enumerate() {
+                    let end = i + 1 == c.plates.len() || c.plates[i + 1].level <= p.level;
+                    let spread = if end { 1.5 * CRAG * max(0.0, tiers - 2.0 - p.level) } else { 0.0 };
+                    if p.level >= tiers - 1.0 {
+                        continue;
+                    }
+                    let (a2, p2, a3, p3) = p.lobes;
+                    for q in 0..24 {
+                        let t = q as f64 * PI / 12.0;
+                        let k = 1.0 + a2 * cos(2.0 * t + p2) + a3 * cos(3.0 * t + p3);
+                        let (u, v) = (p.along * cos(t) * k, p.across * sin(t) * k);
+                        let out = hypot(u, v);
+                        let (u, v) = (u * (out + spread) / out, v * (out + spread) / out);
+                        let (x, y) = (p.x + u * p.c - v * p.sn, p.y + u * p.sn + v * p.c);
+                        (x0, y0, x1, y1) = (min(x0, x), min(y0, y), max(x1, x), max(y1, y));
+                        rim.push((x, y));
+                    }
+                }
+                shift = if rim.is_empty() { (0.0, 0.0) } else { ((x0 + x1) / 2.0, (y0 + y1) / 2.0) };
+                reached = 0.0;
+                for (x, y) in &rim {
+                    reached = max(reached, hypot(x - shift.0, y - shift.1));
+                }
+                if reached <= room || attempt == 7 {
+                    break;
+                }
+                squeeze *= max(0.5, min(0.9, room / reached));
+            }
+            // (moved to the middle; one that still reaches too far drawn in)
+            let fit = min(1.0, room / max(1.0, reached));
+            for p in &mut c.plates {
+                p.x = (p.x - shift.0) * fit;
+                p.y = (p.y - shift.1) * fit;
+                p.along = max(2.6, p.along * fit);
+                p.across = max(2.6, p.across * fit);
+            }
+            let (hx, hy) = ((hill.0 - shift.0) * fit, (hill.1 - shift.1) * fit);
+            let mut reach: f64 = 0.0;
+            for (i, p) in c.plates.iter().enumerate() {
+                let end = i + 1 == c.plates.len() || c.plates[i + 1].level <= p.level;
+                let spread = if end { 1.5 * CRAG * (last - p.level) } else { 0.0 };
+                reach = max(reach, hypot(p.x - hx, p.y - hy) + max(p.along, p.across) * (1.2 + p.lobes.0 + p.lobes.2) + spread + 1.0);
+            }
+            c.hill = (hx, hy, reach, last);
+            // (the top one first, then each level down, and how far each one's outline reaches)
+            c.plates.sort_by(|a, b| a.level.partial_cmp(&b.level).unwrap());
+            for p in &mut c.plates {
+                let (a2, p2, a3, p3) = p.lobes;
+                p.turn = (cos(p2), sin(p2), cos(p3), sin(p3));
+                p.inverse = (1.0 / p.along, 1.0 / p.across);
+                p.bound = max(p.along, p.across) * (1.0 + a2 + a3);
+            }
+        } else if c.centre == "ring" && radius >= 14.0 {
+            let count = 4 + (rnd(2401.0) * 2.0).floor() as usize;
+            let (t0, off) = (rnd(2402.0) * PI * 2.0, radius * (0.04 + 0.06 * rnd(2403.0)));
+            let first = rnd(2404.0) * PI * 2.0;
+            let gap = (rnd(2405.0) * count as f64).floor() as usize;
+            let tallest = (gap + 1 + (rnd(2406.0) * (count as f64 - 1.0)).floor() as usize) % count;
+            for j in 0..count {
+                if j == gap {
+                    continue;
+                }
+                let jf = j as f64;
+                let phi = first + (jf + 0.5 * (rnd(2410.0 + jf) - 0.5)) * PI * 2.0 / count as f64;
+                let d = radius * (0.36 + 0.08 * rnd(2420.0 + jf));
+                // (the tallest broad enough to be a mountain; the others no higher than their width carries)
+                let across = max(if j == tallest { (deep + 2.0) / 1.3 } else { 2.6 }, radius * (0.15 + 0.07 * rnd(2430.0 + jf)));
+                let turned = phi + PI / 2.0 + 0.9 * (rnd(2440.0 + jf) - 0.5);
+                c.lumps.push(Oval {
+                    x: off * cos(t0) + d * cos(phi),
+                    y: off * sin(t0) + d * sin(phi),
+                    c: cos(turned),
+                    sn: sin(turned),
+                    along: across * (1.15 + 0.5 * rnd(2450.0 + jf)),
+                    across,
+                    level: if j == tallest { 1.0 } else { min(0.4 + 0.5 * rnd(2460.0 + jf), across * 1.2 / (deep + 2.0)) },
+                    high: off_centre(2470.0 + 2.0 * jf),
+                });
+            }
+        }
+        c
     }
-    fn field(&self, s0: &Settings, x: f64, y: f64) -> (f64, f64, f64, f64, f64) {
-        let dx = x - self.x;
-        let dy = y - self.y;
-        let c = cos(self.angle);
-        let sn = sin(self.angle);
-        let u = (dx * c + dy * sn) / self.a;
-        let v = (-dx * sn + dy * c) / self.b;
-        let theta = atan2(v, u);
-        let phase = hash(n(s0, "seed"), 71.0) * PI * 2.0;
-        let edge = 1.0 + 0.035 * sin(theta * 3.0 + phase) + 0.022 * sin(theta * 5.0 - phase * 0.6);
-        let r = hypot(u, v) / edge;
-        let down = (1.0 + cos(theta)) * 0.5;
-        let heavy = s(s0, "debris") == "heavy";
+    /// A tile in the crater's own units (the ellipse, before its outline).
+    fn local(&self, x: f64, y: f64) -> (f64, f64) {
+        let (dx, dy) = (x - self.x, y - self.y);
+        let (c, sn) = self.turn;
+        ((dx * c + dy * sn) / self.a, (-dx * sn + dy * c) / self.b)
+    }
+    /// A tile in crater tiles: the ellipse made a circle of the crater's radius, bent by a broad
+    /// wander and a finer one, so no line of the crater runs true.
+    fn frame(&self, x: f64, y: f64) -> (f64, f64) {
+        let (u, v) = self.local(x, y);
+        let broad = max(7.0, self.radius * 0.55);
+        // (in tiles: a small crater's outline wanders too, by less than would square its bowl)
+        let far = 2.0 * min(0.12 * self.radius, max(1.0, 0.08 * self.radius));
+        let wx = far * (lumps(self.seed, 3001, x, y, broad) - 0.5);
+        let wy = far * (lumps(self.seed, 3002, x, y, broad) - 0.5);
+        (u * self.radius + wx, v * self.radius + wy)
+    }
+    /// How far outside the cavity's outline a point is, in tiles (negative inside it).
+    fn edge(&self, qx: f64, qy: f64) -> f64 {
+        let mut e = f64::INFINITY;
+        for l in &self.lobes {
+            e = min(e, l.past(qx, qy));
+        }
+        e
+    }
+    /// The same past the outline, where it must be true far out too (the debris's reach): the
+    /// nearest hollow's own distance.
+    fn beyond(&self, qx: f64, qy: f64) -> f64 {
+        let mut near = (f64::INFINITY, 0);
+        for (k, l) in self.lobes.iter().enumerate() {
+            let e = l.past(qx, qy);
+            if e < near.0 {
+                near = (e, k);
+            }
+        }
+        if near.0 <= 0.0 {
+            return near.0;
+        }
+        let l = &self.lobes[near.1];
+        hypot(qx - l.x, qy - l.y) - l.s
+    }
+    /// The outline's distance from the centre at a bearing, in tiles.
+    fn reach(&self, phi: f64) -> f64 {
+        let (c, sn) = (cos(phi), sin(phi));
+        let (mut lo, mut hi) = (0.0, self.radius * 1.6);
+        for _ in 0..24 {
+            let mid = (lo + hi) / 2.0;
+            if self.edge(mid * c, mid * sn) < 0.0 {
+                lo = mid;
+            } else {
+                hi = mid;
+            }
+        }
+        lo
+    }
+    /// A tile's distance out: 1 on the cavity's outline.
+    fn out(&self, x: f64, y: f64) -> f64 {
+        let (qx, qy) = self.frame(x, y);
+        1.0 + self.beyond(qx, qy) / self.radius
+    }
+    /// The crater's own ground at a tile: the plane it is cut into.
+    fn ground(&self, x: f64, y: f64) -> f64 {
+        self.datum + self.lean.0 * (x - self.x) + self.lean.1 * (y - self.y)
+    }
+    /// How far the rim dips at a bearing: 1 in the middle of its low side.
+    fn dip(&self, theta: f64) -> f64 {
+        smooth((cos(theta - self.notch) - self.notch_cos) / (1.0 - self.notch_cos))
+    }
+    /// The rim's height above the ground round it at a bearing: uneven all round, and gone on one
+    /// side (a gap, where a lake in the bowl spills at the level of the ground round the crater).
+    fn rim_at(&self, theta: f64) -> f64 {
+        let high = 0.45 + 0.9 * ring(self.seed, 1200.0, theta, 5);
+        self.rim * high * (1.0 - self.dip(theta))
+    }
+    /// The cavity's surface at a point, in levels above the crater's ground: the lowest of its
+    /// hollows, a floor with low hummocks, and the blocks slumped on it.
+    fn cavity(&self, qx: f64, qy: f64, x: f64, y: f64) -> f64 {
+        let mut z = f64::INFINITY;
+        // (a small crater's bowl goes down in whole levels, each step as wide as the next: its wall is
+        // most of the bowl, so the distance in from the outline is worked out true)
+        let stepped = !self.lip.is_empty() && !self.steep;
+        for l in &self.lobes {
+            let past = if stepped { hypot(qx - l.x, qy - l.y) - l.s } else { l.past(qx, qy) };
+            let t = 1.0 + past / l.wall;
+            z = min(z, if t <= 0.0 { l.level } else if t <= 1.0 { if stepped { round(l.level * (1.0 - t)) } else { l.level * (1.0 - t) } } else { past * 4.0 });
+        }
+        let floor = 1.0 - smooth((z + self.deep) / max(1.0, 0.3 * self.deep));
+        if floor > 0.0 && self.centre != "bowl" && self.radius >= 14.0 {
+            // (a floor with no uplift is hummocky: more of it stands a level up)
+            let above = if self.centre == "flat" { 0.62 } else { 0.72 };
+            let rise = smooth((lumps(self.seed, 3100, x, y, max(5.0, self.radius * 0.12)) - above) / 0.06);
+            z += floor * rise;
+        }
+        if !self.mounds.is_empty() {
+            // (the massif's hummocks, their outlines ragged, standing on the floor: where they meet the wall
+            // it is already higher, so they never raise it)
+            let ragged = 0.85 + 0.3 * lumps(self.seed, 3140, x, y, max(5.0, self.radius * 0.15));
+            for o in &self.mounds {
+                let d2 = o.reach(qx, qy).0 * ragged * ragged;
+                if d2 < 1.0 {
+                    z = max(z, -self.deep + o.level);
+                }
+            }
+        }
+        if !self.blocks.is_empty() {
+            // (their outlines ragged)
+            let ragged = 0.8 + 0.4 * lumps(self.seed, 3120, x, y, max(5.0, self.radius * 0.18));
+            for b in &self.blocks {
+                let d2 = b.reach(qx, qy).0 * ragged * ragged;
+                if d2 < 4.0 {
+                    // (its front falls away steeply: no square root, the fall is the same near its edge)
+                    z = max(z, if d2 <= 1.0 { b.level } else { b.level - (d2 - 1.0) * 0.5 * b.across * 3.0 });
+                }
+            }
+        }
+        z
+    }
+    /// The central uplift's share at a point, 0–1: the highest of its lumps, each a cone with a small
+    /// level top, their outlines ragged.
+    fn uplift(&self, qx: f64, qy: f64, x: f64, y: f64) -> f64 {
+        if self.lumps.is_empty() {
+            return 0.0;
+        }
+        let ragged = 0.8 + 0.4 * lumps(self.seed, 2350, x, y, max(4.0, self.radius * 0.14));
+        let mut shape: f64 = 0.0;
+        for l in &self.lumps {
+            if l.reach(qx, qy).0 < 2.2 {
+                let d = l.climb(qx, qy) * ragged;
+                if d < 1.0 {
+                    // (a broad top and a steep flank: a crag, not a cone)
+                    shape = max(shape, l.level * min(1.0, (1.0 - d) / 0.65));
+                }
+            }
+        }
+        shape
+    }
+    /// The plate of the peak's hill a point lies on: 1 its top, 2 the level under it, and so on; 0 none.
+    /// A point is on a plate where it lies inside the plate's outline, or within a ledge's width (`CRAG`
+    /// tiles, and up to four fifths again, unevenly round the hill) for each level down of a plate above it:
+    /// every plate holds the ones over it with a ledge of a few tiles at the least, so no face is more
+    /// than one plate high, and a summit's ground runs on down to the hill's lowest plate.
+    fn hill(&self, qx: f64, qy: f64, x: f64, y: f64) -> u8 {
+        if self.plates.is_empty() {
+            return 0;
+        }
+        // (most of the bowl is nowhere near the hill)
+        let (hx, hy, reach, last) = self.hill;
+        if (qx - hx) * (qx - hx) + (qy - hy) * (qy - hy) > reach * reach {
+            return 0;
+        }
+        let scale = max(4.0, self.radius * 0.14);
+        // (the ragged fields and the ledges' width worked out only where a plate is near)
+        let mut fields: Option<((f64, f64), f64)> = None;
+        let mut level = f64::INFINITY;
+        // (the plates in order, the top one first: none lower than the level found counts)
+        for p in &self.plates {
+            if p.level >= level {
+                break;
+            }
+            // (a plate too far off to give a level higher than any found, its widest ledges and some
+            // to spare)
+            let near = p.bound + 1.6 * CRAG * (min(level, last + 1.0) - p.level - 1.0) + 1.0;
+            if (qx - p.x) * (qx - p.x) + (qy - p.y) * (qy - p.y) > near * near {
+                continue;
+            }
+            let (ragged, step) = *fields.get_or_insert_with(|| {
+                // (the dents in the plates' outlines, and the ledges round a plate as wide as a ledge can be
+                // and up to four fifths again, unevenly round it)
+                ((lumps(self.seed, 2350, x, y, scale * 1.4), lumps(self.seed, 2351, x, y, scale * 1.4)), CRAG * (1.0 + 0.8 * lumps(self.seed, 2352, x, y, scale)))
+            });
+            let past = p.past(qx, qy, ragged);
+            let here = if past <= 0.0 { p.level } else { p.level + (past / step).floor() + 1.0 };
+            if here <= last {
+                level = min(level, here);
+            }
+        }
+        if level.is_finite() { level as u8 + 1 } else { 0 }
+    }
+    /// What the rim and the debris raise at a point `e` tiles outside the outline (the crest's own
+    /// height inside it): the rim two or three tiles wide, then falling away, further on some sides; the debris
+    /// in broad tongues; both low on the rim's low side.
+    fn apron(&self, e: f64, (qx, qy): (f64, f64), x: f64, y: f64) -> f64 {
+        let theta = atan2(qy, qx);
+        let r = 1.0 + max(0.0, e) / self.radius;
+        let count = self.bearings.len();
+        let (crest, fall, tongue, dip) = self.bearings[clamp(((theta / (PI * 2.0) + 0.5) * count as f64).floor(), 0.0, count as f64 - 1.0) as usize];
+        // (the rim, as far out as it can reach on this bearing; a small crater's is its lip of lumps)
+        let mut rim: f64 = 0.0;
+        if !self.lip.is_empty() {
+            // (none in the rim's low side: its gap; all along the top of a stepped bowl's wall, so the
+            // hollow keeps its round outline and no sliver of ground lies between the two)
+            if dip <= 0.5 {
+                if e <= 0.0 && !self.steep && self.deep >= 2.0 {
+                    rim = 1.0;
+                }
+                for &(lx, ly, lr, level) in &self.lip {
+                    if (qx - lx) * (qx - lx) + (qy - ly) * (qy - ly) < lr * lr {
+                        rim = max(rim, level);
+                    }
+                }
+            }
+        } else if r - 1.0 - 4.1 / self.radius < fall * 1.2 {
+            let fall = fall * (0.8 + 0.4 * lumps(self.seed, 1960, x, y, max(8.0, self.radius * 0.4)));
+            let past = max(0.0, r - 1.0 - (2.3 + 1.8 * lumps(self.seed, 1970, x, y, max(8.0, self.radius * 0.4))) / self.radius);
+            rim = crest * (0.8 + 0.4 * lumps(self.seed, 1950, x, y, max(8.0, self.radius * 0.5))) * max(0.0, 1.0 - past / fall);
+        }
+        // (the debris in tongues: far and thick on some bearings, short on others)
+        let reach = if self.heavy { 1.6 + 1.4 * tongue } else { 1.2 + 0.4 * tongue };
+        if r >= reach {
+            return rim;
+        }
+        let thrown = if self.glance != 0.0 { 1.0 + self.glance * ((1.0 + cos(theta)) * 0.5 * 1.65 - 0.65) } else { 1.0 };
+        let skirt = (if self.heavy { min(2.1 + self.depth * 0.36, 0.3 + self.depth * 0.72) } else { 0.9 })
+            * exp(-(r - 1.0) * if self.heavy { 2.15 / (0.55 + 0.9 * tongue) } else { 7.0 })
+            * smooth((reach - r) / 0.4)
+            * thrown
+            * (0.7 + 0.6 * lumps(self.seed, 1980, x, y, max(10.0, self.radius * 0.6)))
+            * (1.0 - dip);
+        max(rim, skirt)
+    }
+    /// What the crater does at a tile.
+    fn plate(&self, m: &Map, x: f64, y: f64) -> Plate {
+        let (u, v) = self.local(x, y);
+        let reach = if self.heavy { 3.1 } else { 1.95 };
+        if u * u + v * v > reach * reach {
+            return Plate { r: reach, ..Plate::default() };
+        }
+        let (qx, qy) = self.frame(x, y);
+        let e = self.beyond(qx, qy);
+        let r = 1.0 + e / self.radius;
+        let tile = clamp(round(y), 0.0, self.h - 1.0) as usize * m.w + clamp(round(x), 0.0, self.w - 1.0) as usize;
+        // (the land gives way to the crater's own ground inside the bowl; land that lies lower gives
+        // way out past the rim too, so the rim stands whole, two tiles wide, beside a canyon or a lake and
+        // holds its bowl)
+        let mut plane = if (m.heights[tile] as f64) < self.ground(x, y) { 1.0 - smooth((r - 1.0 - 2.6 / self.radius) / 0.25) } else { 1.0 - smooth((r - 0.8) / 0.2) };
+        let add;
+        let own;
+        let mut lift = 0.0;
+        let mut tier = 0;
+        if r < 1.35 {
+            let cavity = self.cavity(qx, qy, x, y);
+            // (downhill, where the crater's own surface would stand above the land's fall, the land
+            // keeps its shape: the crater is open there, it never builds the hillside up)
+            let fall = (self.lean.0 - self.slope.0) * (x - self.x) + (self.lean.1 - self.slope.1) * (y - self.y);
+            plane *= 1.0 - smooth((fall + min(cavity, 0.0) - 0.5) / 2.0);
+            // (the land above the crater's own ground, where the land still shows)
+            let over = (m.heights[tile] as f64 - self.ground(x, y)) * (1.0 - plane);
+            // (inside the bowl, on the crater's own ground, the rim and the debris stand above its surface)
+            // (a small crater's lip stands at the hollow's very edge: on the top of its wall too)
+            let on = |over: f64| {
+                if over == 0.0 && cavity <= if self.lip.is_empty() { 0.0 } else { -0.5 } {
+                    cavity
+                } else if cavity <= 0.0 {
+                    let lip = self.apron(e, (qx, qy), x, y);
+                    if over == 0.0 && lip > 0.0 && ((!self.steep && self.deep >= 2.0) || e > -min(0.5, 0.1 * self.radius)) { lip } else { min(lip, cavity - over) }
+                } else {
+                    min(self.apron(e, (qx, qy), x, y), cavity - over)
+                }
+            };
+            add = on(over);
+            own = on(0.0);
+            if r < 1.0 {
+                lift = self.uplift(qx, qy, x, y);
+                tier = self.hill(qx, qy, x, y);
+            }
+        } else {
+            add = self.apron(e, (qx, qy), x, y);
+            own = add;
+        }
+        Plate { r, plane, add, own, lift, tier }
+    }
+    /// The rays' height and their secondary pits' depth at a tile `r` out.
+    fn rays_at(&self, s0: &Settings, x: f64, y: f64, r: f64) -> (f64, f64) {
+        let (dx, dy) = (x - self.x, y - self.y);
+        let heavy = self.heavy;
         let edge_fade = if heavy && self.inset != 0.0 {
             smooth((min(min(x, y), min(self.w - 1.0 - x, self.h - 1.0 - y)) - self.inset) / 12.0)
         } else {
@@ -2441,7 +3380,8 @@ impl Crater {
                 let width = ray.width(t);
                 if offset.abs() < width {
                     let feather = smooth(1.0 - offset.abs() / width);
-                    let grain = hash(ray.seed, x + (y as i32).wrapping_mul(65537) as f64);
+                    // (in clumps, never lone blocks)
+                    let grain = lumps(ray.seed, 77, x, y, 2.6);
                     if heavy {
                         let wave = sin(t * 13.0 + ray.phase);
                         let lobes = smooth((wave + 0.8) / 1.25);
@@ -2474,7 +3414,50 @@ impl Crater {
                 }
             }
         }
-        (r, theta, down, ray_height, secondary)
+        (ray_height, secondary)
+    }
+    /// The level a lake in the bowl would stand at: the least, over every way from its centre to
+    /// lower ground past the crater or the map's edge, of the highest ground on the way (standing
+    /// water past the crater counts as ground: a lake there holds the bowl's up). Where the land
+    /// round the crater is itself a hollow that holds water only a little higher, that level, the one
+    /// a Fill gives.
+    fn lake(&self, heights: &[u8], before: &Map) -> u8 {
+        let (w, h) = (before.w, before.h);
+        let start = clamp(round(self.y), 0.0, h as f64 - 1.0) as usize * w + clamp(round(self.x), 0.0, w as f64 - 1.0) as usize;
+        let mut seen = vec![false; w * h];
+        let mut levels: Vec<Vec<u32>> = vec![vec![]; 256];
+        seen[start] = true;
+        levels[heights[start] as usize].push(start as u32);
+        let mut pass = None;
+        for level in heights[start] as usize..256 {
+            let mut k = 0;
+            while k < levels[level].len() {
+                let i = levels[level][k] as usize;
+                k += 1;
+                let (x, y) = (i % w, i / w);
+                if x == 0 || y == 0 || x == w - 1 || y == h - 1 {
+                    return match pass {
+                        Some(p) if level > p + 2 => p,
+                        _ => level,
+                    } as u8;
+                }
+                let (u, v) = self.local(x as f64, y as f64);
+                let past = u * u + v * v > 2.56;
+                if pass.is_none() && past && (heights[i] as usize) < level {
+                    pass = Some(level);
+                }
+                for j in [i - 1, i + 1, i - w, i + w] {
+                    if !seen[j] {
+                        seen[j] = true;
+                        let (u, v) = self.local((j % w) as f64, (j / w) as f64);
+                        let water = if u * u + v * v > 2.56 { before.depth.get(j).copied().unwrap_or(0.0) } else { 0.0 };
+                        let top = heights[j] as usize + if water > 0.05 { water.ceil() as usize } else { 0 };
+                        levels[level.max(top).min(255)].push(j as u32);
+                    }
+                }
+            }
+        }
+        heights[start]
     }
     fn value(&self) -> V {
         json!({"x":self.x,"y":self.y,"W":self.w,"H":self.h,"edgeInset":self.inset,"radius":self.radius,"a":self.a,"b":self.b,"angle":self.angle,"glance":self.glance,"diameter":self.diameter,"depth":self.depth,"rim":self.rim,"datum":self.datum,"floor":self.floor,"centre":self.centre,"rays":self.rays.iter().map(|r|json!({"dx":r.dx,"dy":r.dy,"start":r.start,"length":r.length,"width":r.width,"bend":r.bend,"phase":r.phase,"seed":r.seed,"pits":r.pits.iter().map(|&(x,y,r)|json!({"x":x,"y":y,"r":r})).collect::<Vec<_>>()})).collect::<Vec<_>>()})
@@ -2483,6 +3466,9 @@ impl Crater {
 fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]) -> Plan {
     let a = Crater::new(before, s0, intent);
     let k = strength(n(s0, "power"), s0.size, crater_size(n(s0, "power")));
+    // (a crater weaker than its Size replaces the land's relief only as far as its Power: on a hillside a
+    // gentle wide crater is a dish in the hill, never the hill levelled to its centre's height)
+    let give = relief(n(s0, "power"), s0.size, crater_size(n(s0, "power")));
     let mut keep = vec![0u8; m.w * m.h];
     for (i, &v) in extra.iter().enumerate() {
         if v != 0 {
@@ -2498,111 +3484,174 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
             }
         }
     }
-    let phase = hash(n(s0, "seed"), 80.0) * PI * 2.0;
     let mut cut = 0.0;
     let mut raised = 0.0;
     let mut changed = 0;
     let mut erased = 0;
     let mut flattened = 0;
+    // (each tile's distance on the ellipse, kept for the debris's arrival; NaN where it was not shaped)
+    let mut ellipse = vec![f64::NAN; m.w * m.h];
+    let rays = boolean(s0, "rays");
+    let ceiling = min(22.0, m.ceiling);
+    // The crater's own surface at each tile, real-valued (NaN where the crater leaves the ground
+    // alone); its floors and benches stand on whole levels. It becomes land in one step, shared by
+    // the forces (levels.rs): quantized once, its steps of uneven width, no band narrower than two
+    // tiles, no one-tile pillar, pit or lone block.
+    let grain = max(6.0, a.radius * 0.3);
+    let shape = |i: usize, p: &Plate| {
+        let (xf, yf) = ((i % before.w) as f64, (i / before.w) as f64);
+        let h = before.heights[i] as f64;
+        if give >= 1.0 {
+            h + (a.ground(xf, yf) - h) * p.plane + p.add
+        } else {
+            h + give * ((a.ground(xf, yf) - h) * p.plane + p.add) + (1.0 - give) * p.own
+        }
+    };
+    let mut surface = vec![f64::NAN; m.w * m.h];
+    let mut ground: Vec<f64> = before.heights.iter().map(|&l| l as f64).collect();
+    // (the tiles of the central uplift, which goes on last)
+    let mut lifted: Vec<(usize, Plate)> = vec![];
     for y in 0..m.h {
         for x in 0..m.w {
             let i = y * m.w + x;
             if keep[i] != 0 {
                 continue;
             }
-            let (r, theta, down, ray, secondary) = a.field(s0, x as f64, y as f64);
+            let (xf, yf) = (x as f64, y as f64);
+            let (u, v) = a.local(xf, yf);
+            ellipse[i] = hypot(u, v);
+            let p = a.plate(before, xf, yf);
             let h = before.heights[i] as f64;
-            let mut target;
-            if r < 1.0 {
-                let mut wall = 0.0;
-                if s(s0, "walls") == "steep" {
-                    wall = smooth((r - 0.89) / 0.055);
-                } else {
-                    let shift = (hash(n(s0, "seed"), 7.0) - 0.5) * 0.025;
-                    for step in 0..4 {
-                        wall += smooth((r - (0.48 + step as f64 * 0.16 + shift)) / 0.025) / 4.0;
-                    }
-                }
-                let curve = if s(s0, "walls") == "steep" {
-                    0.23
-                } else {
-                    0.16
-                };
-                let t = if a.centre == "bowl" {
-                    curve
-                        * pow(
-                            clamp(
-                                r / if s(s0, "walls") == "steep" {
-                                    0.89
-                                } else {
-                                    0.48
-                                },
-                                0.0,
-                                1.0,
-                            ),
-                            2.0,
-                        )
-                        + (1.0 - curve) * wall
-                } else {
-                    wall
-                };
-                let mut inside = a.floor + (a.datum - a.floor + a.rim) * t;
-                if a.centre == "peak" {
-                    inside += a.depth * 0.69 * pow(max(0.0, 1.0 - r / 0.31), 1.25);
-                }
-                if a.centre == "ring" {
-                    inside += a.depth
-                        * 0.55
-                        * exp(-pow((r - 0.38) / 0.1, 2.0))
-                        * (1.0 + 0.18 * sin(theta * 7.0 + phase));
-                }
-                target = inside + (h - a.datum) * smooth((r - 0.84) / 0.16);
-                if s(s0, "walls") == "terraced"
-                    && r > 0.54
-                    && r < 0.93
-                    && before.rock[clamp(round(target), 0.0, 22.0) as usize] > 0.5
-                {
-                    target = target.ceil();
-                }
+            let (ray, secondary) = if rays && p.r > 1.15 { a.rays_at(s0, xf, yf, p.r) } else { (0.0, 0.0) };
+            if p.add == 0.0 && p.plane == 0.0 && ray == 0.0 && secondary == 0.0 {
+                continue;
+            }
+            let mut target = shape(i, &p);
+            if ray > 0.0 {
+                target = max(h, target) + ray;
+            }
+            if secondary != 0.0 {
+                target = h - secondary;
+            }
+            surface[i] = tempered(h, target, k);
+            // (what the crater's own shape stands on: its level datum inside the bowl, the land
+            // outside it; the fall from its rim to lower land is its own)
+            ground[i] = tempered(h, h + (a.datum - h) * (1.0 - smooth((p.r - 0.9) / 0.2)) * give, k);
+            if p.lift > 0.0 || p.tier > 0 {
+                lifted.push((i, p));
+            }
+        }
+    }
+    // (the ground right round what the crater shapes, where it may: its own level, so the last step
+    // may tidy it with the crater's and leaves no sliver one tile wide between the two)
+    let reach: Vec<usize> = (0..m.w * m.h)
+        .filter(|&i| {
+            let (x, y) = (i % m.w, i / m.w);
+            surface[i].is_nan() && keep[i] == 0 && [(x > 0, i.wrapping_sub(1)), (x + 1 < m.w, i + 1), (y > 0, i.wrapping_sub(m.w)), (y + 1 < m.h, i + m.w)].iter().any(|&(on, j)| on && !surface[j].is_nan())
+        })
+        .collect();
+    for i in reach {
+        surface[i] = before.heights[i] as f64;
+    }
+    if lifted.is_empty() {
+        m.heights = levels::whole(&surface, &ground, &before.heights, m.w, m.h, ceiling, a.seed, grain);
+    } else {
+        // The central uplift stands clear of the lake the bowl would hold, so a crater filled as a
+        // lake keeps its island: its top two levels above the lake, at whatever strength the crater
+        // acts, and never less than a crater's own peak. The lake's level is taken first from the
+        // surface rounded tile by tile (nearly always the land's own), so the land is worked out once;
+        // then from the land itself, and the uplift is set again if that differs.
+        let floor_of = |i: usize, p: &Plate| tempered(before.heights[i] as f64, shape(i, p), k);
+        let bare = |land: &[u8]| -> Vec<u8> {
+            let mut bare = land.to_vec();
+            for (i, p) in &lifted {
+                bare[*i] = clamp(round(floor_of(*i, p)), 0.0, 255.0) as u8;
+            }
+            bare
+        };
+        let rough: Vec<u8> = (0..m.w * m.h).map(|i| if surface[i].is_nan() { before.heights[i] } else { clamp(round(surface[i]), 0.0, min(255.0, ceiling)) as u8 }).collect();
+        let mut lake = a.lake(&bare(&rough), before) as f64;
+        let hill = lifted.iter().any(|t| t.1.tier > 0);
+        let mut top = &lifted[0];
+        for t in &lifted {
+            if t.1.lift > top.1.lift {
+                top = t;
+            }
+        }
+        // (a ring's mountains rise from the floor under the highest, wherever it stands: on a floor
+        // that leans, or on a bench, no lump stands higher than its share)
+        let from = shape(top.0, &top.1);
+        // (a peak's hill stands on the lowest floor under its top plate, on whole levels at
+        // whatever strength: its plates are land as they are)
+        let first = lifted.iter().map(|t| t.1.tier).filter(|&t| t > 0).min().unwrap_or(1);
+        let mut base = f64::INFINITY;
+        for (i, p) in &lifted {
+            if p.tier == first {
+                base = min(base, floor_of(*i, p));
+            }
+        }
+        let base = round(base);
+        // (the uplift's height for a lake: a hill's top level, a ring's rise)
+        let height_for = |lake: f64| {
+            if hill {
+                base + max(max(2.0, round(a.depth * 0.6 * min(1.0, k))), lake + 2.0 - base)
             } else {
-                let rim = a.rim * max(0.0, 1.0 - (r - 1.0) / 0.23);
-                let heavy = s(s0, "debris") == "heavy";
-                let reach = if heavy { 2.65 } else { 1.48 };
-                let directional = 1.0 + a.glance * (down * 1.65 - 0.65);
-                let hummock = 0.8
-                    + 0.18 * sin(theta * 5.0 + phase + (r - 1.0) * 3.0)
-                    + 0.13 * sin(theta * 3.0 - phase);
-                let skirt = (if heavy { 2.1 + a.depth * 0.36 } else { 0.9 })
-                    * exp(-(r - 1.0) * if heavy { 2.15 } else { 7.0 })
-                    * smooth((reach - r) / 0.4)
-                    * directional
-                    * hummock;
-                target = h + max(rim, skirt);
-                if ray > 0.0 {
-                    target = max(h + ray, round(target) + ray);
-                }
-                if secondary != 0.0 {
-                    target = h - secondary;
-                }
+                let h = before.heights[top.0] as f64;
+                let clear = lake + 2.4;
+                let aim = if k < 1.0 && clear > h { h + (clear - h) / k } else { clear };
+                max(a.depth * 0.6, aim - from) / top.1.lift
             }
-            target = tempered(h, target, k);
-            target = clamp(
-                round(round(target * 4096.0) / 4096.0),
-                0.0,
-                min(22.0, m.ceiling),
-            );
-            m.heights[i] = target as u8;
-            if target != h {
-                changed += 1;
-                cut += max(0.0, h - target);
-                raised += max(0.0, target - h);
+        };
+        let step = if hill { 1.0 } else { 1.0 / (top.1.lift * min(1.0, k)) };
+        let mut height = height_for(lake);
+        for _ in 0..4 {
+            for (i, p) in &lifted {
+                let floor = floor_of(*i, p);
+                surface[*i] = if hill {
+                    // (the top plate at the hill's height, each one under it two levels lower; one that
+                    // would stand under the hill's floor is not there, and one at the floor's level is
+                    // that level, so the plate over it never stands a level further above the floor where
+                    // the floor dips)
+                    let level = height - 2.0 * (p.tier as f64 - 1.0);
+                    if p.tier > 0 && level > floor - 0.5 { level } else { floor }
+                } else {
+                    tempered(before.heights[*i] as f64, max(shape(*i, p), from + height * p.lift), k)
+                };
             }
+            m.heights = levels::whole(&surface, &ground, &before.heights, m.w, m.h, ceiling, a.seed, grain);
+            let now = a.lake(&bare(&m.heights), before) as f64;
+            let mut highest = 0.0;
+            for (i, _) in &lifted {
+                highest = max(highest, m.heights[*i] as f64);
+            }
+            let stands = highest >= min(now + 2.0, ceiling);
+            let wanted = height_for(now);
+            // (done where it stands clear and no higher than it must: at most a level over, or as
+            // high as the land's own lake asks)
+            if stands && (now == lake || highest <= now + 3.0 || wanted >= height) {
+                break;
+            }
+            // (the steps' wander or the tidying can take a level off a small top: then it stands a level
+            // higher; a lake that stands lower than the rounded surface's, and the uplift comes down)
+            height = if stands { wanted } else { max(wanted, height + step) };
+            lake = now;
+        }
+    }
+    for i in 0..m.w * m.h {
+        if keep[i] != 0 {
+            continue;
+        }
+        let (h, target) = (before.heights[i] as f64, m.heights[i] as f64);
+        if target != h {
+            changed += 1;
+            cut += max(0.0, h - target);
+            raised += max(0.0, target - h);
         }
     }
     m.fallen = before
         .fallen
         .iter()
-        .filter(|e| a.field(s0, e.x, e.y).0 > 1.0)
+        .filter(|e| a.out(e.x, e.y) > 1.0)
         .cloned()
         .map(|mut e| {
             let i = n(&e, "y").floor() as usize * m.w + n(&e, "x").floor() as usize;
@@ -2631,7 +3680,8 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
             entities.push(e);
             continue;
         }
-        let (r, _, _, ray, _) = a.field(s0, n(&e, "x"), n(&e, "y"));
+        let r = a.out(n(&e, "x"), n(&e, "y"));
+        let ray = if rays && r > 1.15 { a.rays_at(s0, n(&e, "x"), n(&e, "y"), r).0 } else { 0.0 };
         let is_plant = plant(s(&e, "template"));
         if is_plant
             && r < 0.93
@@ -2656,9 +3706,12 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
             entities.push(e);
             continue;
         }
-        if m.footprint(&e, 0)
-            .iter()
-            .any(|&i| m.heights[i] != before.heights[i])
+        // (nothing is left standing inside the bowl: a ruin on a bench or a peak that happens to stand
+        // at the ground's old level goes with the ground round it)
+        if r < 1.0
+            || m.footprint(&e, 0)
+                .iter()
+                .any(|&i| m.heights[i] != before.heights[i])
         {
             continue;
         }
@@ -2679,13 +3732,15 @@ fn crater(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8]
     } else {
         1.48
     }) + if boolean(s0, "rays") { 1.4 } else { 0.0 };
-    let c = cos(a.angle);
-    let sn = sin(a.angle);
     for y in 0..m.h {
         for x in 0..m.w {
-            let dx = x as f64 - a.x;
-            let dy = y as f64 - a.y;
-            let r = hypot((dx * c + dy * sn) / a.a, (-dx * sn + dy * c) / a.b);
+            let r = ellipse[y * m.w + x];
+            let r = if r.is_nan() {
+                let (u, v) = a.local(x as f64, y as f64);
+                hypot(u, v)
+            } else {
+                r
+            };
             arrival[y * m.w + x] = (if r < 1.05 {
                 0.0
             } else {
@@ -2799,6 +3854,9 @@ struct CarveSettings {
     floor: f64,
     river_depth: Option<f64>,
     banks: f64,
+    /// The fall's height (gaps 1, 2 and 20): at least this many levels from its lip to the water below, the reach
+    /// below cut down to it; None, the land's own falls only.
+    fall: Option<f64>,
     /// Sources set to Ride (D474): the water sources and seeps it reaches ride the cut ground instead of going.
     ride: bool,
 }
@@ -2818,6 +3876,7 @@ impl CarveSettings {
             floor: v["floor"].as_f64().unwrap_or(1.0),
             river_depth: v["riverDepth"].as_f64(),
             banks: v["banks"].as_f64().unwrap_or(0.0),
+            fall: v["fall"].as_f64(),
             ride: s(v, "sources") == "ride",
         }
     }
@@ -3603,6 +4662,316 @@ fn carve_mouths(cut: &CarveOxbow, m: &Map) -> Vec<u8> {
     }
     floor
 }
+/// A fall the course runs over (showcase craft gaps 1, 2 and 20): the stations on the high ground above it
+/// (`start..=end`, each with its tile's centre and the width it cuts) and the high ground's level where the course
+/// leaves it (`top`). Found from the course
+/// before the carve cuts (its path is the land's, never the cut's), so the stream above it is cut to suit it.
+#[derive(Clone)]
+struct CarveFall {
+    start: usize,
+    end: usize,
+    top: f64,
+    stations: Vec<(f64, f64, f64)>,
+    /// The course's stations before its reach, and after it those on high ground again, whose channel the fall leaves
+    /// to the carve.
+    before: Vec<(f64, f64, f64)>,
+    after: Vec<(f64, f64, f64)>,
+    /// The rest of the course: its stations before the reach and after it.
+    course: Vec<(f64, f64)>,
+    /// Its height when the player set it (`CarveSettings::fall`).
+    height: Option<f64>,
+    /// On Auto, where its water lands: the lowest bed the course reaches within `FOOT_REACH` tiles past the lip, and the
+    /// last station there, so the river below it runs at that bed from the lip on and never steps down a ledge first.
+    foot: f64,
+    foot_until: usize,
+}
+/// How far past the lip a fall's face reaches (tiles): the ground in front of the lip cut down to where its water
+/// lands, and on Auto the river below run at that foot, so no ledge or second fall stands within it.
+const FOOT_REACH: f64 = 10.0;
+/// Past a set Fall's landing, the tiles along the course for each level its river's bed comes down (`foot_grade`).
+const FOOT_GRADE: f64 = 2.0;
+/// How far the ground falls ahead of a station, within the next two stations (about 2.7 tiles), for the course to
+/// fall there rather than run down a slope: three levels, so a lip one level down still falls two.
+const FALL_DROP: f64 = 3.0;
+/// The widest a stream above a fall runs on Auto Width (a station's width; about six tiles across), so it reads as a
+/// stream on the high ground, not a flooded basin as wide as the river the carve leaves below; a set Size makes it as
+/// wide as the river, as the player asks.
+const STREAM_WIDTH: f64 = 4.0;
+/// The narrowest a stream above a fall runs (a station's width; five tiles across), so even an Unleash's thin river or
+/// the narrowest Size pours over a lip wide enough to read as a fall.
+const FALL_WIDTH: f64 = 3.0;
+/// How far from where it falls the high ground keeps its own height against what the water below cuts (tiles):
+/// past the cut and the banks of the reach below, so the cliff stands and the lip holds.
+/// The falls along a course, from the original ground under its stations: where the ground falls `FALL_DROP` levels
+/// or more within two stations. A reach above a fall holds only where the surface (the ground, or the water standing
+/// on it) under every station from where the reach starts (the origin, or below the last fall) is no more than two
+/// levels below the top: water that came up to the edge from below never had a stream on top to hold. With a height
+/// set (`height`), the first fall takes it; where the land has none that tall, the fall is where the ground the
+/// course starts on (the stations at most a level under the first) ends, over an edge or at the top of a slope;
+/// None: the ground never goes down, and the carve is refused.
+/// The course's falls, or why a set Fall can't be made: 41 where it has no high ground to fall from, where the land
+/// can't give the drop set, `FALL_SHORT` plus the most it can (`FALL_SHORT_FLOOR` plus it where the Floor is what stops
+/// it), `FALL_STEEP` plus the least it can where the land already falls farther, and `FALL_UNDRAINED` where the water
+/// below it has no way out that low. `fixed`: the tiles the carve can't cut
+/// (kept or rock), when a set Fall is checked.
+fn carve_falls(m: &Map, path: &[CarveStation], height: Option<f64>, floor: f64, set_width: bool, fixed: &dyn Fn(usize) -> bool) -> Result<Vec<CarveFall>, u32> {
+    let raw: Vec<f64> = path.iter().map(|p| m.heights[m.at(p.x, p.y)] as f64).collect();
+    let surface: Vec<f64> = path
+        .iter()
+        .map(|p| {
+            let i = m.at(p.x, p.y);
+            m.heights[i] as f64 + m.depth[i]
+        })
+        .collect();
+    let n = raw.len();
+    // (a fall: three levels down within the next two stations, or an escarpment, five down within four, its terraces
+    // too narrow to stand between two falls, so the course falls from the top of it)
+    let down = |k: usize, ahead: usize| raw[k] - (k + 1..=(k + ahead).min(n - 1)).map(|j| raw[j]).fold(f64::INFINITY, min);
+    let falls_at = |k: usize| down(k, 2) >= FALL_DROP || down(k, 4) >= FALL_DROP + 2.0;
+    // the stations on the high ground from k on (those at most a level under its top), and the fall there with its
+    // reach from `start`, where the reach holds
+    let edge = |k: usize| {
+        let mut end = k;
+        while end + 1 < n && raw[end + 1] >= raw[k] - 1.0 {
+            end += 1;
+        }
+        end
+    };
+    // (whether ground lower than the lip lies within the stream's width of a station, beside it or behind it)
+    let notched = |k: usize, top: f64| -> bool {
+        let (p, q) = (&path[k], &path[k.saturating_sub(1)]);
+        let (hx, hy) = (p.x - q.x, p.y - q.y);
+        let len = max(hypot(hx, hy), 1e-9);
+        let width = max(FALL_WIDTH, if set_width { p.width } else { min(p.width, STREAM_WIDTH) });
+        let r = width * 0.72 + 0.5;
+        for yy in max(0.0, (p.y - r).floor()) as usize..=min((m.h - 1) as f64, (p.y + r).ceil()) as usize {
+            for xx in max(0.0, (p.x - r).floor()) as usize..=min((m.w - 1) as f64, (p.x + r).ceil()) as usize {
+                let (rx, ry) = (xx as f64 - p.x, yy as f64 - p.y);
+                if hypot(rx, ry) <= r && (rx * hx + ry * hy) / len <= 0.5 && (m.heights[yy * m.w + xx] as f64) < top - 1.0 {
+                    return true;
+                }
+            }
+        }
+        false
+    };
+    // (the reach is the ground just above the edge: back from it while the course is at most a level above the edge's
+    // top, so a course that runs down a slope to an edge keeps its own carve on the slope and only the ground at the
+    // edge holds a stream; the stream's top is the lowest ground on its reach, so a course that climbs a rise on its
+    // way cuts through it, and the ground it started on is high ground too, never a bowl)
+    let fall = |from: usize, k: usize| -> Option<CarveFall> {
+        let mut start = k;
+        while start > from && raw[start - 1] <= raw[k] + 1.0 {
+            start -= 1;
+        }
+        let top = raw[start..=k].iter().copied().fold(f64::INFINITY, min);
+        // (and back over a plateau above it, flat ground two levels or more higher, that the carve would cut down to the
+        // stream's bed or deeper anyway, and any high ground no higher behind it: it carries the stream, as narrow as on
+        // the edge and its high ground kept, never the carve's own canyon flooded flat to the stream's level; a slope
+        // rising above keeps its own carve)
+        if start > from && raw[start - 1] >= top + 2.0 {
+            let plateau = raw[start - 1];
+            while start > from && raw[start - 1] >= top - 1.0 && raw[start - 1] <= plateau && path[start - 1].bed <= top - 2.0 {
+                start -= 1;
+            }
+        }
+        let mut end = k;
+        while end + 1 < n && raw[end + 1] >= top - 1.0 {
+            end += 1;
+        }
+        // (the lip stands before any lower ground that reaches into the stream from its side, a notch of the edge or an
+        // edge running aslant of the course, so the lip runs straight across the stream and never spills onto a ledge
+        // first: the face in front of it is cut clean instead)
+        while end > start + 1 && notched(end, top) {
+            end -= 1;
+        }
+        if end + 1 >= n || !surface[start..=end].iter().all(|&r| r >= top - 2.0) {
+            return None;
+        }
+        Some(CarveFall {
+            start,
+            end,
+            top,
+            stations: path[start..=end].iter().map(|p| (p.x, p.y, p.width)).collect(),
+            before: path[..start].iter().map(|p| (p.x, p.y, p.width)).collect(),
+            // (below, only where the course crosses high ground again: the cliff beside the fall stands)
+            after: path[end + 1..].iter().zip(&raw[end + 1..]).filter(|(_, &r)| r >= top - 1.0).map(|(p, _)| (p.x, p.y, p.width)).collect(),
+            course: path[..start].iter().chain(&path[end + 1..]).map(|p| (p.x, p.y)).collect(),
+            height: None,
+            foot: path[end + 1..].iter().take_while(|p| hypot(p.x - path[end].x, p.y - path[end].y) <= FOOT_REACH).map(|p| p.bed).fold(path[end + 1].bed, min),
+            foot_until: end + path[end + 1..].iter().take_while(|p| hypot(p.x - path[end].x, p.y - path[end].y) <= FOOT_REACH).count(),
+        })
+    };
+    let mut falls = vec![];
+    let mut start = 0;
+    let mut k = 0;
+    while k + 1 < n {
+        if !falls_at(k) {
+            k += 1;
+            continue;
+        }
+        start = match fall(start, k) {
+            Some(f) => {
+                // (the next fall is past where this one's water lands: the ground between is its face, cut away)
+                let end = f.end;
+                falls.push(f);
+                end + 1 + path[end + 1..].iter().take_while(|p| hypot(p.x - path[end].x, p.y - path[end].y) <= FOOT_REACH).count()
+            }
+            None => edge(k) + 1,
+        };
+        k = start;
+    }
+    let Some(height) = height else {
+        return Ok(falls);
+    };
+    if falls.is_empty() {
+        // (the end of the ground the course starts on)
+        falls.push(fall(0, 0).ok_or(41u32)?);
+    }
+    // (the water skims the lip and the bed below it alike, so it falls as far as the lip, one level under the top,
+    // stands over the bed below; the bed goes no lower than the Floor, nor than a level over the map's foot)
+    let most = falls[0].top - 1.0 - max(floor, 1.0);
+    if height > most {
+        return Err(if floor > 1.0 { FALL_SHORT_FLOOR } else { FALL_SHORT } + max(0.0, most) as u32);
+    }
+    // (nor can it fall less than the land does: where its water lands, the ground in front of the lip across the stream's
+    // width, the carve only cuts, so ground already lower than the bed below a set Fall gives a taller drop, or a step)
+    // (just in front of the lip no lower than its bed; a few tiles on, no lower than a riffle under it, or the water
+    // falls again there, a step in the fall; and where water already stands there, a river or a lake the carve can't
+    // drain, its water lands on that, however long the stroke: the most it can fall. Levels to the nearest)
+    // (where its water lands it stands at the level it drains to: over the ground with the course below the lip cut to
+    // the bed, the level its water rises to before it leaves the map, or before it joins water already standing there,
+    // a river or a lake, whose surface it lands on however long the stroke; so the drop is from the lip to that level,
+    // across the stream's width just in front of the lip, and a few tiles on no more than a riffle lower, or the water
+    // falls again there, a step in the fall)
+    let lip = falls[0].top - 1.0;
+    let bed = lip - height;
+    let mut ground = m.heights.clone();
+    let mut cut = vec![false; m.w * m.h];
+    for p in &path[falls[0].end + 1..] {
+        for y in max(0.0, (p.y - 1.0).floor()) as usize..=min((m.h - 1) as f64, (p.y + 1.0).ceil()) as usize {
+            for x in max(0.0, (p.x - 1.0).floor()) as usize..=min((m.w - 1) as f64, (p.x + 1.0).ceil()) as usize {
+                let i = y * m.w + x;
+                if hypot(x as f64 - p.x, y as f64 - p.y) <= 1.0 && !fixed(i) && (ground[i] as f64) > bed {
+                    ground[i] = bed as u8;
+                    cut[i] = true;
+                }
+            }
+        }
+    }
+    let dry: Vec<f64> = ground.iter().map(|&g| g as f64).collect();
+    let wet: Vec<f64> = (0..m.w * m.h).map(|i| dry[i] + if !cut[i] && m.depth[i] > 0.05 { m.depth[i] } else { 0.0 }).collect();
+    let (drains, stands) = (drain_levels(m.w, m.h, &dry), drain_levels(m.w, m.h, &wet));
+    let end = falls[0].end;
+    let near = landing(m, path, end, set_width, 2.5, &stands);
+    let far = landing(m, path, end, set_width, LANDING, &stands);
+    if near.is_finite() {
+        // (its settled drop, within half a level of the height or refused: a fall that lands higher, where the water
+        // already standing below holds it, falls at most that far however long the stroke; where the land holds it, a
+        // longer stroke would drain it)
+        // (the curtain lands at the course's first station below the lip: on water already standing there, a little higher
+        // for its own water, or at the level it drains to; just past it, within a riffle of that, and a few tiles on
+        // within two)
+        let foot = m.at(path[end + 1].x, path[end + 1].y);
+        let held = stands[foot] > drains[foot] + FALL_SKIM;
+        let drop = lip - stands[foot] - if held { FALL_SKIM } else { 0.0 };
+        let most = if held { (drop + 0.5).floor() } else { f64::INFINITY };
+        let least = max(max((drop - 0.5).ceil(), (lip - near - 0.5).ceil() - 1.0), (lip - far - 0.5).ceil() - (FALL_DROP - 1.0));
+        if (height > most || height < least) && least > most {
+            // (water below holds every drop short of where the land a few tiles on falls to: no set Fall fits)
+            return Err(FALL_NONE);
+        }
+        if height > most {
+            return Err(FALL_SHORT_WATER + max(0.0, most) as u32);
+        }
+        if drop < height - 0.5 {
+            return Err(FALL_UNDRAINED);
+        }
+        if least > height {
+            return Err(FALL_STEEP + min(least, 60.0) as u32);
+        }
+    }
+    // (the water below drains, as the game plays it, only where it can leave the map no higher than the bed the river
+    // is cut to: a stroke ending in a hollow of higher ground would pool it partway up the fall)
+    let foot = &path[end + 1];
+    if drains[m.at(foot.x, foot.y)] > bed {
+        return Err(FALL_UNDRAINED);
+    }
+    falls[0].height = Some(height);
+    Ok(falls)
+}
+/// How far in front of a fall's lip its water runs on as part of the same fall (tiles): ground a fall's height lower
+/// there drops it again a few tiles on, a step in the fall.
+const LANDING: f64 = 5.5;
+/// The lowest surface in front of a fall's lip (the ground, or the water standing on it), across its stream's width
+/// and, as its water spreads where it lands, as much wider each side as it is ahead: within `reach` tiles past its
+/// lip station `end` of `path` along its heading; and the lowest surface of water standing there (infinite: none).
+fn landing(m: &Map, path: &[CarveStation], end: usize, set_width: bool, reach: f64, surface: &[f64]) -> f64 {
+    let (e, p) = (&path[end], &path[end.saturating_sub(2)]);
+    // (where the stream is a station or two long, its heading on to the course past the lip)
+    let (hx, hy) = match path.get(end + 1) {
+        Some(q) if hypot(e.x - p.x, e.y - p.y) <= 0.5 => (q.x - e.x, q.y - e.y),
+        _ => (e.x - p.x, e.y - p.y),
+    };
+    let len = hypot(hx, hy);
+    let (hx, hy) = if len > 0.5 { (hx / len, hy / len) } else { (0.0, 0.0) };
+    let half = max(FALL_WIDTH, if set_width { e.width } else { min(e.width, STREAM_WIDTH) }) * 0.72 + 0.5;
+    let span = 2.0 * reach + half;
+    let mut low = f64::INFINITY;
+    for y in max(0.0, (e.y - span).floor()) as usize..=min((m.h - 1) as f64, (e.y + span).ceil()) as usize {
+        for x in max(0.0, (e.x - span).floor()) as usize..=min((m.w - 1) as f64, (e.x + span).ceil()) as usize {
+            let (rx, ry) = (x as f64 - e.x, y as f64 - e.y);
+            let along = rx * hx + ry * hy;
+            if along > 0.5 && along <= reach && (rx * hy - ry * hx).abs() <= half + along {
+                low = min(low, surface[y * m.w + x]);
+            }
+        }
+    }
+    low
+}
+/// How much higher a fall's water stands where it lands in water already standing than that water stood (levels): its
+/// own water raises it.
+const FALL_SKIM: f64 = 0.2;
+/// The level water on each tile stands at before it leaves the map, over `surface` (a priority flood from the map's
+/// edges, which drain; water already standing counts as its surface).
+fn drain_levels(w: usize, h: usize, surface: &[f64]) -> Vec<f64> {
+    let key = |v: f64| (max(0.0, v) * 4096.0) as u64;
+    let mut level = vec![f64::INFINITY; w * h];
+    let mut heap = std::collections::BinaryHeap::new();
+    for (i, &g) in surface.iter().enumerate() {
+        let (x, y) = (i % w, i / w);
+        if x == 0 || y == 0 || x == w - 1 || y == h - 1 {
+            level[i] = g;
+            heap.push(std::cmp::Reverse((key(g), i)));
+        }
+    }
+    while let Some(std::cmp::Reverse((_, i))) = heap.pop() {
+        let (x, y) = (i % w, i / w);
+        let at = level[i];
+        for (ok, j) in [(x > 0, i.wrapping_sub(1)), (x + 1 < w, i + 1), (y > 0, i.wrapping_sub(w)), (y + 1 < h, i + w)] {
+            if ok {
+                let s = max(surface[j], at);
+                if s < level[j] {
+                    level[j] = s;
+                    heap.push(std::cmp::Reverse((key(s), j)));
+                }
+            }
+        }
+    }
+    level
+}
+/// A set Fall the land can't give: this plus the most it can (the error codes past `FORCE_ERRORS`, worded by the bridge).
+const FALL_SHORT: u32 = 100;
+/// The same where the Floor is what stops it.
+const FALL_SHORT_FLOOR: u32 = 140;
+/// A set Fall whose water below has no way out under its drop: the stroke ends before it can drain.
+const FALL_UNDRAINED: u32 = 180;
+/// No set Fall fits: the water standing below holds it shorter than the land a few tiles on falls.
+const FALL_NONE: u32 = 181;
+/// A set Fall the water standing below holds short (a river or a lake, which no longer stroke lowers): this plus the
+/// most it can.
+const FALL_SHORT_WATER: u32 = 300;
+/// A set Fall shorter than the land falls where its water lands: this plus the least it can.
+const FALL_STEEP: u32 = 200;
 #[derive(Default)]
 struct CarveMetrics {
     cut: f64,
@@ -3629,8 +4998,13 @@ struct CarveOptions {
 struct CarveState {
     map: Map,
     original: Vec<u8>,
+    /// The fresh rock before it (`held`: a seat left as it was gets its rock back).
+    original_lava: Vec<u32>,
     initial_water: Vec<f64>,
     keep: Vec<u8>,
+    /// The working area's depth on each tile (D254): how many levels the kept carve may move it, 255 outside any area or
+    /// with none (the job's `areaDepth`; keep.ts `featherForce` eases the result by it). Empty: none.
+    area: Vec<u8>,
     sediment: Vec<u8>,
     bar_floor: Vec<u8>,
     planned: Option<CarveOxbow>,
@@ -3654,6 +5028,9 @@ struct CarveState {
     occupants: Option<Vec<Vec<usize>>>,
     removed_keys: Vec<bool>,
     rider_tiles: Vec<usize>,
+    /// Each of the map's riders' level when the carve starts: it rides its ground by `ridden_level` (a cave's source,
+    /// under a roof, stays in its cave; play.ts does the same).
+    rider_z: Vec<f64>,
     unleashed_key: Option<usize>,
     cells: HashMap<i32, Vec<usize>>,
     cells_up_to: usize,
@@ -3675,6 +5052,39 @@ struct CarveState {
     deposit_done: bool,
     delta: Vec<i8>,
     planning: bool,
+    /// The falls along its course (`carve_falls`), and how many of them it has reached.
+    falls: Vec<CarveFall>,
+    fall_at: usize,
+    /// The fall reached holds (its reach came to it with its bed at the floor or above).
+    fall_held: bool,
+    /// Below a fall of a set height: the deepest the bed below may stand, so the water falls that far.
+    foot_cap: Option<f64>,
+    /// Below a fall of a set height, where its water lands: the bed held at its cap from below too, to the last
+    /// station within `FOOT_REACH` of the lip, so the water falls the height set and no more.
+    foot_hold: Option<(f64, usize)>,
+    /// Past a set Fall's landing: its cap, where the landing ended and how far its lanes reached; the bed graded down
+    /// from the cap a level every `FOOT_GRADE` tiles from there, so the river leaves it in riffles, never in a second
+    /// fall the land didn't have.
+    foot_grade: Option<(f64, f64, f64, f64)>,
+    /// Below a fall on Auto: its foot, to the station it runs to (`CarveFall::foot`).
+    auto_foot: Option<(f64, usize)>,
+    /// A fall's height was set, and the course has nowhere to fall (`carve_falls`): the carve is refused.
+    /// Why a set Fall can't be made (0: it can, or none is set).
+    fall_error: u32,
+    /// The least level each tile is cut to (0: none): the high ground round a fall the carve holds, its lip one
+    /// level down and the stream's bed two (gap 20).
+    hold: Vec<u8>,
+    /// The stream above a fall the carve holds (1): cut to its bed or lip, and no bank raises it.
+    stream: Vec<u8>,
+    /// The stream's tiles above the fall held, by the station that cuts them (each as the head reaches it, so the
+    /// carve still cuts at its head), and how many of those stations are cut.
+    fall_cuts: Vec<Vec<usize>>,
+    fall_cut_at: usize,
+    /// The fall's face: the ground in front of its lip cut to where the water lands, once its stream is cut.
+    fall_face: Vec<(usize, u8)>,
+    /// The face's tiles once cut: the carve's guard against a lone spike or pit (`reject_isolated`) never holds them
+    /// partway, so the face falls whole to its landing and no step of it stands dry inside the lip.
+    faced: Vec<u8>,
 }
 impl CarveState {
     fn new(
@@ -3697,7 +5107,7 @@ impl CarveState {
         };
         let depth = cap.map_or(s.depth, |c| Some(min(c, s.depth.unwrap_or(c))));
         let seed = map_seed(before);
-        let character = RiverCharacter::new(before, &s, seed, intent);
+        let mut character = RiverCharacter::new(before, &s, seed, intent);
         let course = CarveCourse::new(before, &s, intent);
         let mut source_id = options
             .source_id
@@ -3710,10 +5120,47 @@ impl CarveState {
         let y = (origin / map.w) as f64;
         let p = s.power / 100.0;
         let h = before.heights[origin] as f64;
-        let bed = max(
+        let mut bed = max(
             min(2.0, h),
             h - round(min(12.0, 1.0 + 6.0 * p * character.intensity)),
         );
+        // the falls its course runs over, from a look along it first (the course is the land's alone); a river's, so a
+        // gentle carve (the Power that only scratches the land, or Canyon depth 1) and a catastrophe (Power 90 and up,
+        // tearing through whatever stands) make none of their own, only a Fall set
+        let shallow = p * character.intensity < 0.45 || s.power >= 90.0 || depth.map_or(false, |d| d < 2.0);
+        let (falls, fall_error) = if planning || (shallow && settings.fall.is_none()) {
+            (vec![], 0)
+        } else {
+            let mut look = Self::new(before, before.clone(), settings, intent, keep, CarveOptions { source_id: options.source_id.clone(), ..Default::default() }, true);
+            while !look.ended {
+                look.metrics.steps += 2;
+                look.advance();
+            }
+            let fixed = |i: usize| keep.get(i).copied().unwrap_or(0) != 0 || character.rock.get(i).copied().unwrap_or(0) != 0;
+            carve_falls(before, &look.path, settings.fall, settings.floor, settings.width.is_some() && options.unleashed.is_none(), &fixed).map_or_else(|e| (vec![], e), |f| (f, 0))
+        };
+        if let Some(f) = falls.first().filter(|f| f.start == 0) {
+            bed = max(bed, f.top - 2.0);
+        }
+        // (no rock knob stands in a fall's stream or in front of its lip: it would split the curtain with a dry pillar)
+        for f in &falls {
+            let last = f.stations.last().copied();
+            let clear = |k: &Knob| {
+                f.stations.iter().any(|&(x, y, w)| hypot(k.x - x, k.y - y) <= k.radius + w + 3.0)
+                    || last.map_or(false, |(x, y, w)| hypot(k.x - x, k.y - y) <= k.radius + w + 12.0)
+            };
+            let (gone, kept): (Vec<Knob>, Vec<Knob>) = std::mem::take(&mut character.knobs).into_iter().partition(|k| clear(k));
+            character.knobs = kept;
+            for k in gone {
+                for yy in (k.y - k.radius).ceil() as i32..=(k.y + k.radius).floor() as i32 {
+                    for xx in (k.x - k.radius).ceil() as i32..=(k.x + k.radius).floor() as i32 {
+                        if xx >= 0 && yy >= 0 && xx < before.w as i32 && yy < before.h as i32 && hypot(xx as f64 - k.x, yy as f64 - k.y) <= k.radius {
+                            character.rock[yy as usize * before.w + xx as usize] = 0;
+                        }
+                    }
+                }
+            }
+        }
         let energy = map.w.max(map.h) as f64 * (1.2 + 4.0 * p) * (1.0 + 0.6 * character.wander);
         let heading = course.guide(x, y);
         let head = CarveHead {
@@ -3741,6 +5188,7 @@ impl CarveState {
         let mut r = Self {
             map,
             original: before.heights.clone(),
+            original_lava: before.lava.clone(),
             initial_water: before.depth.clone(),
             keep: if keep.is_empty() {
                 vec![0; n]
@@ -3776,6 +5224,8 @@ impl CarveState {
             occupants: None,
             removed_keys: vec![],
             rider_tiles: vec![],
+            rider_z: vec![],
+            area: vec![],
             unleashed_key: None,
             cells: HashMap::new(),
             cells_up_to: 0,
@@ -3797,6 +5247,20 @@ impl CarveState {
             deposit_done: false,
             delta: vec![0; n],
             planning,
+            falls,
+            fall_at: 0,
+            fall_held: false,
+            foot_cap: None,
+            foot_hold: None,
+            foot_grade: None,
+            auto_foot: None,
+            fall_error,
+            hold: vec![0; n],
+            stream: vec![0; n],
+            fall_cuts: vec![],
+            fall_cut_at: 0,
+            fall_face: vec![],
+            faced: vec![0; n],
         };
         r.stamp(x, y);
         if !planning && r.character.wander >= 0.85 && p * r.character.intensity >= 0.6 {
@@ -3835,6 +5299,27 @@ impl CarveState {
             for e in &before.entities {
                 for i in before.footprint(e, 0) {
                     occupied[i] = 1;
+                }
+            }
+            // (a stream above a fall from the origin: its sources stand back from the brink of a drop a fall's height,
+            // so none spills off the stream's side into a notch of the edge; the bank there stands, `hold_fall`)
+            // (and within the stream's own width, never on the high ground kept beside it)
+            if let Some(f) = r.falls.first().filter(|f| f.start == 0) {
+                let (w, h) = (before.w, before.h);
+                let z = before.heights[origin];
+                let set_width = r.settings.width.is_some() && r.options.unleashed.is_none();
+                let (sx, sy, sw) = f.stations[0];
+                let reach = max(FALL_WIDTH, if set_width { sw } else { min(sw, STREAM_WIDTH) }) * 0.72;
+                for i in 0..n {
+                    let (xx, yy) = (i % w, i / w);
+                    let brink = [(xx > 0).then(|| i - 1), (xx + 1 < w).then(|| i + 1), (yy > 0).then(|| i - w), (yy + 1 < h).then(|| i + w)]
+                        .into_iter()
+                        .flatten()
+                        .any(|j| before.heights[j] as f64 <= z as f64 - FALL_DROP);
+                    let beside = hypot(xx as f64 - sx, yy as f64 - sy) > reach;
+                    if (brink || beside) && i != origin {
+                        occupied[i] = 1;
+                    }
                 }
             }
             let (row, wanted) = clean_source_row(
@@ -3893,6 +5378,7 @@ impl CarveState {
         }
         r.removed_keys = vec![false; r.map.next_id.get()];
         r.rider_tiles = vec![usize::MAX; r.map.next_id.get()];
+        r.rider_z = vec![f64::NAN; r.map.next_id.get()];
         for g in &r.group {
             r.rider_tiles[g.id_key] = g.tile;
         }
@@ -3901,12 +5387,15 @@ impl CarveState {
                 r.unleashed_key = Some(e.id_key);
             }
         }
-        // Sources set to Ride (D474): the water sources and seeps it reaches ride the cut ground, as its own do
-        if r.settings.ride {
+        // Sources set to Ride (D474): the water sources and seeps it reaches ride the cut ground, as its own do; set to
+        // Clear, they ride it too until the cut destroys their ground, when it takes them (the force audit's S2)
+        {
             let (w, h) = (r.map.w, r.map.h);
             for e in &r.map.entities {
                 if ride_source(e.template.as_ref()) && r.rider_tiles[e.id_key] == usize::MAX && r.unleashed_key != Some(e.id_key) && e.x >= 0.0 && e.y >= 0.0 && (e.x as usize) < w && (e.y as usize) < h {
-                    r.rider_tiles[e.id_key] = e.y as usize * w + e.x as usize;
+                    let tile = e.y as usize * w + e.x as usize;
+                    r.rider_tiles[e.id_key] = tile;
+                    r.rider_z[e.id_key] = e.z;
                 }
             }
         }
@@ -3955,6 +5444,51 @@ impl CarveState {
             min(self.bed, grade),
             max(0.0, max(min(2.0, raw), raw - incision) - drop),
         );
+        // above a fall the stream's bed stays two levels under the top, however deep the carve cuts elsewhere:
+        // the lip, one level down, holds the water about a level deep, and it falls over the edge (gap 20)
+        let held = self.fall_floor(old_bed);
+        if let Some(floor) = held {
+            self.bed = max(self.bed, floor);
+        }
+        if let Some(cap) = self.foot_cap {
+            self.bed = max(0.0, min(self.bed, cap));
+        }
+        let landing = match self.foot_hold {
+            Some((cap, until)) if self.path.len() <= until => Some(cap),
+            _ => None,
+        };
+        if let Some(cap) = landing {
+            self.bed = max(self.bed, cap);
+        } else if let Some((cap, _)) = self.foot_hold.take() {
+            // (from past the tiles the landing's lanes reached ahead and held, a lane's width on)
+            self.foot_grade = Some((cap, x, y, self.character.width(self.metrics.distance)));
+        }
+        // (past the landing the bed comes down from it gently: a Power that cuts the canyon deeper than the cap would
+        // otherwise drop the river a second fall there, made by the carve)
+        // (each tile by how far it lies from where the landing ended, so the lanes reaching ahead, and a course that
+        // winds, step it a level at a time too)
+        let grade = |g: (f64, f64, f64, f64), tx: f64, ty: f64| g.0 - (max(0.0, hypot(tx - g.1, ty - g.2) - g.3) / FOOT_GRADE).floor();
+        let graded = match self.foot_grade {
+            Some(g) if landing.is_none() => {
+                if grade(g, x, y) > self.settings.floor {
+                    Some(g)
+                } else {
+                    self.foot_grade = None;
+                    None
+                }
+            }
+            _ => None,
+        };
+        if let Some(g) = graded {
+            self.bed = max(self.bed, grade(g, x, y));
+        }
+        if let Some((foot, until)) = self.auto_foot {
+            if self.path.len() <= until {
+                self.bed = max(self.settings.floor, min(self.bed, foot));
+            } else {
+                self.auto_foot = None;
+            }
+        }
         let reach = self.character.width(self.metrics.distance);
         let dx = cos(self.heading);
         let dy = sin(self.heading);
@@ -4044,17 +5578,34 @@ impl CarveState {
                         if d > lane.width && self.hard(t, i) > 0.5 {
                             t += 1.0;
                         }
+                        // (a gentle Power scratches the land, except below a set Fall, which is cut to its cap)
                         let work = p * self.character.intensity;
-                        if work < 0.45 {
+                        if work < 0.45 && self.foot_cap.is_none() {
                             t = max(
                                 t,
                                 self.original[i] as f64 - max(1.0, round(1.0 + 6.0 * work)),
                             );
                         }
-                        if let Some(depth) = self.depth {
+                        // (below a set Fall the river is cut down to its cap, deeper than Canyon depth if it must be, so
+                        // its water stands that far under the lip in one drop and no rim pools it partway down)
+                        if let (Some(depth), None) = (self.depth, self.foot_cap) {
                             t = max(t, self.original[i] as f64 - depth);
                         }
-                        t = max(t, self.settings.floor);
+                        if let Some(floor) = held {
+                            t = max(t, floor);
+                        }
+                        if let Some(cap) = landing {
+                            // (and the stations past it, whose lanes reach back, keep it: where the water lands stays
+                            // at the height set under the lip)
+                            t = max(t, cap);
+                            self.hold[i] = self.hold[i].max(cap as u8);
+                        }
+                        if let Some(g) = graded {
+                            let g = max(grade(g, xx as f64, yy as f64), self.settings.floor);
+                            t = max(t, g);
+                            self.hold[i] = self.hold[i].max(g as u8);
+                        }
+                        t = max(t, max(self.settings.floor, self.hold[i] as f64));
                         if t < self.target[i] as f64 {
                             self.target[i] = t as u8;
                             self.activate(i);
@@ -4080,6 +5631,357 @@ impl CarveState {
             lanes,
         };
     }
+    /// The bed's floor at the station about to be cut, when it is above a fall that holds: two levels under the
+    /// fall's top. A fall holds when its reach comes to it with its bed (`old_bed`, the station before's) at that
+    /// floor or above, so the bed never rises downstream; then the ground round it is held too (`hold_fall`). Coming to a
+    /// set Fall's reach the course keeps its bed at that floor or above too, however deep the carve cuts the higher ground.
+    fn fall_floor(&mut self, old_bed: f64) -> Option<f64> {
+        let k = self.path.len();
+        while self.fall_at < self.falls.len() && self.falls[self.fall_at].end < k {
+            let f = &self.falls[self.fall_at];
+            if self.fall_held {
+                if let Some(height) = f.height {
+                    // (its water a level deep, the height set below the lip)
+                    // (the bed the height set under the lip: the water skims both)
+                    self.foot_cap = Some(f.top - 1.0 - height);
+                    self.foot_hold = Some((f.top - 1.0 - height, f.foot_until));
+                } else if f.foot <= f.top - 5.0 {
+                    // (on Auto it lands where the river below goes lowest near it, three levels or more down)
+                    self.auto_foot = Some((f.foot, f.foot_until));
+                }
+            }
+            self.fall_at += 1;
+            self.fall_held = false;
+        }
+        // (below a set Fall, the land's own falls whose stream would stand above the river's cap are cut through, so the
+        // water falls the height set in one drop, never onto a rim the carve left)
+        while let (Some(f), Some(cap)) = (self.falls.get(self.fall_at), self.foot_cap) {
+            if f.top - 2.0 <= cap {
+                break;
+            }
+            self.fall_at += 1;
+        }
+        let f = self.falls.get(self.fall_at)?;
+        if k < f.start {
+            // (to a set Fall the course keeps its bed at the stream's or above, so the fall holds when its reach comes;
+            // to the land's own, a carve that cuts deeper on the way runs on as its canyon, the land's slope kept: a
+            // plateau the carve would cut that deep is the reach's own, `carve_falls`)
+            return f.height.map(|_| f.top - 2.0);
+        }
+        let (floor, start) = (f.top - 2.0, f.start);
+        if k == start {
+            self.fall_held = old_bed >= floor;
+            if self.fall_held {
+                self.hold_fall();
+            }
+        }
+        if self.fall_held {
+            self.cut_stream(k - start);
+            Some(floor)
+        } else {
+            None
+        }
+    }
+    /// The ground a fall that holds keeps (`hold`): in the stream (within its width of each station above the fall)
+    /// the high ground (at the lip's level or above) is cut to the stream's bed, and where it meets lower ground to
+    /// the lip, so the stream's water leaves only over the lip, as wide as the stream; the rest of the high ground
+    /// joined to it, beside the stream too, is kept as it is (no basin opens round the stream).
+    fn hold_fall(&mut self) {
+        let f = &self.falls[self.fall_at];
+        let lip = f.top - 1.0;
+        let (w, h) = (self.map.w, self.map.h);
+        // the high ground: at the lip's level or above (the ground below the fall is lower than the lip)
+        let original = &self.original;
+        let high = |j: usize| original[j] as f64 >= lip;
+        // in the stream (within its own width of its stations) its bed, and where the high ground meets lower ground the
+        // lip (so its water leaves only over the lip, as wide as the stream); beside it, and the rest of the high
+        // ground joined to it, as it is, so no bowl opens on it and the cliff stands
+        let mut near = vec![0u8; w * h];
+        let mut owner = vec![usize::MAX; w * h];
+        let mut tiles = vec![];
+        // (the high ground kept: what is nearer the reach than the rest of the course, which carves its own walls and
+        // banks; a breadth-first search from all the course's stations at once, each tile taking its nearest's side)
+        let mut zone = vec![0u8; w * h];
+        // (an Unleash's width is its source's, not the player's Size: its stream takes Auto's)
+        let set_width = self.settings.width.is_some() && self.options.unleashed.is_none();
+        let mut queue = vec![];
+        for (k, (cx, cy)) in f.stations.iter().map(|&(x, y, _)| (x, y)).chain(f.course.iter().copied()).enumerate() {
+            let i = (clamp(round(cy), 0.0, (h - 1) as f64) as usize) * w + clamp(round(cx), 0.0, (w - 1) as f64) as usize;
+            if zone[i] == 0 {
+                zone[i] = if k < f.stations.len() { 1 } else { 2 };
+                queue.push(i);
+            }
+        }
+        let mut q = 0;
+        while q < queue.len() {
+            let i = queue[q];
+            q += 1;
+            let (xx, yy) = (i % w, i / w);
+            for j in [(xx > 0).then(|| i - 1), (xx + 1 < w).then(|| i + 1), (yy > 0).then(|| i - w), (yy + 1 < h).then(|| i + w)].into_iter().flatten() {
+                if zone[j] == 0 {
+                    zone[j] = zone[i];
+                    queue.push(j);
+                }
+            }
+        }
+        // the stream's width: the set Size, or on Auto at most a stream's (STREAM_WIDTH), however wide the river the
+        // carve leaves below, so a stream crosses the high ground and no flooded basin opens on it
+        for (s, &(cx, cy, width)) in f.stations.iter().enumerate() {
+            let width = max(FALL_WIDTH, if set_width { width } else { min(width, STREAM_WIDTH) });
+            let radius = width + 3.0;
+            for yy in max(0.0, (cy - radius).floor()) as usize..=min((h - 1) as f64, (cy + radius).ceil()) as usize {
+                for xx in max(0.0, (cx - radius).floor()) as usize..=min((w - 1) as f64, (cx + radius).ceil()) as usize {
+                    let i = yy * w + xx;
+                    let d = hypot(xx as f64 - cx, yy as f64 - cy);
+                    if !high(i) || d > radius {
+                        continue;
+                    }
+                    // (1: near the stream, 2: in it)
+                    let was = near[i];
+                    near[i] = if d <= width * 0.72 + 0.5 { 2 } else { was.max(1) };
+                    if near[i] == 2 && owner[i] == usize::MAX {
+                        owner[i] = s;
+                    }
+                    if was == 0 {
+                        tiles.push(i);
+                    }
+                }
+            }
+        }
+        // (4: the channel the course cuts before its reach and after it, left to the carve, so the river above runs into
+        // the stream and the river below cuts its way on through any high ground it crosses)
+        // (4 before the reach, 5 after it)
+        let after = f.before.len();
+        for (s, &(cx, cy, width)) in f.before.iter().chain(&f.after).enumerate() {
+            let radius = width * 0.72 + 0.5;
+            let mark = if s < after { 4 } else { 5 };
+            for yy in max(0.0, (cy - radius).floor()) as usize..=min((h - 1) as f64, (cy + radius).ceil()) as usize {
+                for xx in max(0.0, (cx - radius).floor()) as usize..=min((w - 1) as f64, (cx + radius).ceil()) as usize {
+                    let i = yy * w + xx;
+                    if near[i] != 2 && hypot(xx as f64 - cx, yy as f64 - cy) <= radius {
+                        near[i] = mark;
+                    }
+                }
+            }
+        }
+        // (6: the fall's face, in front of the lip as wide as the stream, along the stream's heading at its last
+        // station; the ground there is cut to where the water lands, ledges near the lip and any rib of high ground
+        // farther on, so the curtain falls whole and clean and faces open ground, never a dark slot)
+        let mut face = vec![];
+        if let (Some(&(ex, ey, ew)), Some(&(px, py, _))) = (f.stations.last(), f.stations.get(f.stations.len().saturating_sub(3))) {
+            // (its heading along the stream, or where the stream is a station or two long, from its start on to the
+            // course past the lip: two stations a tile apart give a heading too rough to face the edge by)
+            let (hx, hy) = match f.course.get(f.before.len()) {
+                Some(&(nx, ny)) if hypot(ex - px, ey - py) <= 0.5 => (nx - ex, ny - ey),
+                _ => (ex - px, ey - py),
+            };
+            let len = hypot(hx, hy);
+            let ew = max(FALL_WIDTH, if set_width { ew } else { min(ew, STREAM_WIDTH) });
+            let half = ew * 0.72 + 0.5;
+            if len > 0.5 {
+                let (hx, hy) = (hx / len, hy / len);
+                const REACH: f64 = FOOT_REACH;
+                let span = REACH + half + 1.0;
+                let mut corridor = vec![];
+                for yy in max(0.0, (ey - span).floor()) as usize..=min((h - 1) as f64, (ey + span).ceil()) as usize {
+                    for xx in max(0.0, (ex - span).floor()) as usize..=min((w - 1) as f64, (ex + span).ceil()) as usize {
+                        let (rx, ry) = (xx as f64 - ex, yy as f64 - ey);
+                        let along = rx * hx + ry * hy;
+                        // (a tile wider than the stream each side, so its corners meet the face, not the land's edge)
+                        if along > 0.5 && along <= REACH && (rx * hy - ry * hx).abs() <= half + 1.0 {
+                            corridor.push((yy * w + xx, along));
+                        }
+                    }
+                }
+                // (where it lands: a set Fall's cap, or on Auto the river's foot below it, or the ground just below the lip;
+                // every ledge and rib above it in front of the lip is cut away)
+                let landing = corridor.iter().filter(|&&(_, a)| a <= 3.5).map(|&(i, _)| original[i] as f64).fold(f64::INFINITY, min);
+                let landing = if f.foot <= f.top - 5.0 { min(landing, f.foot) } else { landing };
+                let foot = max(self.settings.floor, f.height.map_or(landing, |height| lip - height));
+                if foot.is_finite() && foot < lip - 1.0 {
+                    for (i, _) in corridor {
+                        let o = original[i] as f64;
+                        if near[i] != 2 || o > foot {
+                            near[i] = 6;
+                        }
+                        if o > foot && self.keep[i] == 0 && self.character.rock[i] == 0 {
+                            face.push((i, foot as u8));
+                        }
+                        // (a set Fall's landing, held at its height under the lip against the cut past it)
+                        if f.height.is_some() {
+                            self.hold[i] = self.hold[i].max(foot as u8);
+                        }
+                    }
+                    // (a bay of the same cliff beside the stream at its lip: lower ground that meets the face and reaches
+                    // in along the stream's side there is cut to the landing too, so the stream's water that leaves into it, a spring
+                    // on its bank's, falls the whole height with the curtain, never onto a step partway down)
+                    // (beside the lip's end of the stream only, never in front of the lip, which is the face's: a bay
+                    // farther up its side is the side's, its bank stands)
+                    let beside = |j: usize| {
+                        let (rx, ry) = ((j % w) as f64 - ex, (j / w) as f64 - ey);
+                        hypot(rx, ry) <= half + 2.0 && rx * hx + ry * hy <= 0.5
+                    };
+                    // (from the face, and from any ground already at the landing, which its water runs on to)
+                    let mut bay: Vec<usize> = (0..w * h).filter(|&i| near[i] == 6 || (original[i] as f64) <= foot + 1.0).collect();
+                    let mut b = 0;
+                    while b < bay.len() {
+                        let i = bay[b];
+                        b += 1;
+                        let (xx, yy) = (i % w, i / w);
+                        for j in [(xx > 0).then(|| i - 1), (xx + 1 < w).then(|| i + 1), (yy > 0).then(|| i - w), (yy + 1 < h).then(|| i + w)].into_iter().flatten() {
+                            // (in the stream's width too where it lies under the stream's bed: a hole the bed can't fill)
+                            let o = original[j] as f64;
+                            // (a step: ground already at the landing, or a level over it, is the foot's and left as it is)
+                            if (matches!(near[j], 0 | 1 | 3 | 5) && o < lip || near[j] == 2 && o < lip - 1.0) && o > foot + 1.0 && beside(j) {
+                                near[j] = 6;
+                                bay.push(j);
+                                if o > foot && self.keep[j] == 0 && self.character.rock[j] == 0 {
+                                    face.push((j, foot as u8));
+                                }
+                                if f.height.is_some() {
+                                    self.hold[j] = self.hold[j].max(foot as u8);
+                                }
+                            }
+                        }
+                    }
+                    // (a corner of the lip, where its front meets a bay or the face on its side: lower ground on two sides,
+                    // so a thin stream runs off both ways and leaves it dry, a block splitting the curtain in two; it is
+                    // the face's, cut to the landing, where both its neighbours in the stream are on the lip themselves,
+                    // so no notch opens to the stream's bed and the lip runs on round it)
+                    let lower = |j: usize| (original[j] as f64) < f.top && near[j] != 2 || near[j] >= 5;
+                    let ns = |i: usize| {
+                        let (xx, yy) = (i % w, i / w);
+                        [(xx > 0).then(|| i - 1), (xx + 1 < w).then(|| i + 1), (yy > 0).then(|| i - w), (yy + 1 < h).then(|| i + w)]
+                    };
+                    let corners: Vec<usize> = (0..w * h)
+                        .filter(|&i| {
+                            if near[i] != 2 || (original[i] as f64) < lip || hypot((i % w) as f64 - ex, (i / w) as f64 - ey) > half + 2.0 {
+                                return false;
+                            }
+                            let around = ns(i);
+                            around.iter().flatten().filter(|&&j| lower(j)).count() >= 2
+                                && around.iter().flatten().any(|&j| near[j] == 6)
+                                && around.iter().flatten().filter(|&&j| near[j] == 2).all(|&j| ns(j).iter().flatten().any(|&k| k != i && lower(k)))
+                        })
+                        .collect();
+                    for i in corners {
+                        near[i] = 6;
+                        if self.keep[i] == 0 && self.character.rock[i] == 0 {
+                            face.push((i, foot as u8));
+                        }
+                        if f.height.is_some() {
+                            self.hold[i] = self.hold[i].max(foot as u8);
+                        }
+                    }
+                }
+            }
+        }
+        // (3: the high ground joined to it, near it)
+        let mut k = 0;
+        while k < tiles.len() {
+            let i = tiles[k];
+            k += 1;
+            let (xx, yy) = (i % w, i / w);
+            for j in [(xx > 0).then(|| i - 1), (xx + 1 < w).then(|| i + 1), (yy > 0).then(|| i - w), (yy + 1 < h).then(|| i + w)].into_iter().flatten() {
+                if near[j] == 0 && high(j) && zone[j] == 1 {
+                    near[j] = 3;
+                    tiles.push(j);
+                }
+            }
+        }
+        // (each tile, the ground it keeps, and the station whose stream cuts it: in the stream, it is cut to the bed or
+        // the lip, so the stream and its lip are as wide as the river)
+        let fronted = near.iter().any(|&n| n == 6);
+        let mut cuts = vec![vec![]; f.stations.len()];
+        let plan: Vec<(usize, u8, bool)> = tiles
+            .into_iter()
+            .filter(|&i| near[i] < 4)
+            .map(|i| {
+                let (xx, yy) = (i % w, i / w);
+                // (lower ground: below the lip, or the course's own channel through high ground past the edge, so the
+                // lip runs the whole width of the stream's front and no part of it stands dry between two curtains)
+                // (the channel before the reach is not: the stream runs on from it with no sill)
+                // (ground beside the stream no higher than the lip is lower too: its water, a little over the lip, would
+                // trickle off the side over it)
+                let lower = |j: usize| (original[j] as f64) < f.top && near[j] != 2 || near[j] >= 5;
+                let rim = (xx > 0 && lower(i - 1)) || (xx + 1 < w && lower(i + 1)) || (yy > 0 && lower(i - w)) || (yy + 1 < h && lower(i + w));
+                // (where lower ground meets the stream from its side, not in front of the lip, its bank stands at the
+                // top, so the water leaves over the lip alone and no sliver of it pours off the side into a notch)
+                // (a tile at the front that also meets lower ground off to the side is the side's: no water off it there)
+                let ahead = |j: usize| near[j] == 6;
+                // (lower ground that meets the face too is the same cliff, the curtain's: aside is lower ground apart from it)
+                let by_face = |j: usize| {
+                    let (jx, jy) = (j % w, j / w);
+                    (jx > 0 && near[j - 1] == 6) || (jx + 1 < w && near[j + 1] == 6) || (jy > 0 && near[j - w] == 6) || (jy + 1 < h && near[j + w] == 6)
+                };
+                let aside = |j: usize| lower(j) && near[j] != 6 && !by_face(j);
+                let any = |f: &dyn Fn(usize) -> bool| (xx > 0 && f(i - 1)) || (xx + 1 < w && f(i + 1)) || (yy > 0 && f(i - w)) || (yy + 1 < h && f(i + w));
+                let front = !fronted || (any(&ahead) && !any(&aside));
+                let level = match (near[i], rim, front) {
+                    (2, true, true) => lip,
+                    (2, true, false) => min(original[i] as f64, f.top),
+                    (2, false, _) => lip - 1.0,
+                    _ => original[i] as f64,
+                } as u8;
+                (i, level, near[i] == 2)
+            })
+            .collect();
+        for (i, level, stream) in plan {
+            if level > self.hold[i] {
+                self.hold[i] = level;
+                self.target[i] = self.target[i].max(level.min(self.map.heights[i]));
+            }
+            if stream && self.keep[i] == 0 && self.character.rock[i] == 0 && self.sign[i] <= 0 {
+                self.stream[i] = 1;
+                cuts[owner[i]].push(i);
+            }
+        }
+        self.fall_cuts = cuts;
+        self.fall_cut_at = 0;
+        self.fall_face = face;
+    }
+    /// Cuts the held fall's stream at its stations up to `upto` (from the reach's first): its tiles to the bed, or
+    /// at the edge the lip, no deeper than the carve cuts anywhere.
+    fn cut_stream(&mut self, upto: usize) {
+        while self.fall_cut_at < self.fall_cuts.len() && self.fall_cut_at <= upto {
+            let tiles = std::mem::take(&mut self.fall_cuts[self.fall_cut_at]);
+            self.fall_cut_at += 1;
+            for i in tiles {
+                self.cut_held(i);
+            }
+        }
+        if self.fall_cut_at >= self.fall_cuts.len() {
+            for (i, level) in std::mem::take(&mut self.fall_face) {
+                if level < self.target[i] && self.sign[i] <= 0 {
+                    self.target[i] = level;
+                    self.channel[i] = 1;
+                    self.faced[i] = 1;
+                    // (no bank raises it)
+                    self.stream[i] = 1;
+                    self.activate(i);
+                }
+            }
+        }
+    }
+    fn cut_held(&mut self, i: usize) {
+        {
+            // (no deeper than the carve cuts anywhere: Canyon depth, and a gentle Power's shallow cut)
+            let mut cut = max(self.hold[i] as f64, self.settings.floor);
+            let work = self.settings.power / 100.0 * self.character.intensity;
+            if work < 0.45 {
+                cut = max(cut, self.original[i] as f64 - max(1.0, round(1.0 + 6.0 * work)));
+            }
+            if let Some(depth) = self.depth {
+                cut = max(cut, self.original[i] as f64 - depth);
+            }
+            let cut = cut as u8;
+            if cut < self.target[i] && self.sign[i] <= 0 {
+                self.target[i] = cut;
+                self.channel[i] = 1;
+                self.activate(i);
+            }
+        }
+    }
     fn cut_at(&mut self, x: f64, y: f64, floor: f64, radius: f64) {
         let w = self.map.w;
         let h = self.map.h;
@@ -4095,7 +5997,7 @@ impl CarveState {
                 if let Some(depth) = self.depth {
                     t = max(t, self.original[i] as f64 - depth);
                 }
-                t = max(t, self.settings.floor);
+                t = max(t, max(self.settings.floor, self.hold[i] as f64));
                 if self.keep[i] != 0
                     || self.character.rock[i] != 0
                     || self.sign[i] > 0
@@ -4314,11 +6216,15 @@ impl CarveState {
             self.original[ahead] as f64 - self.original[self.map.at(x, y)] as f64,
         );
         self.energy -= 1.0 + climb * (1.0 - p) * 8.0;
-        if self.energy <= 0.0 || self.metrics.distance > 3.0 * (w + h) as f64 {
+        // (below a set Fall the river runs on to the stroke's end at any Power, its water's way out: the carve checked
+        // at its start that the end drains, `carve_falls`)
+        let below_fall = self.foot_cap.is_some();
+        if (self.energy <= 0.0 && !below_fall) || self.metrics.distance > 3.0 * (w + h) as f64 {
             self.end("power spent");
             return;
         }
         if p < 0.28
+            && !below_fall
             && self.original[ahead] as f64 - self.bed > 4.0
             && self.hard(self.original[ahead] as f64, ahead) > 0.5
         {
@@ -4500,6 +6406,7 @@ fn clean_source_row(
 impl CarveState {
     fn plan_deposit(&mut self) {
         self.deposit_done = true;
+        let set_fall = self.falls.iter().any(|f| f.height.is_some());
         let h = &self.head;
         let mut seen = vec![false; self.original.len()];
         let surface = self.original[self.map.at(h.x, h.y)] as f64
@@ -4521,6 +6428,9 @@ impl CarveState {
                     || self.channel[i] != 0
                     || self.target[i] < self.original[i]
                     || self.map.heights[i] as f64 >= self.map.ceiling
+                    // (below a set Fall, never in water already standing: a river or lake its water drains through,
+                    // raised, would hold its landing higher than the Fall set)
+                    || set_fall && self.initial_water[i] > 0.05
                 {
                     continue;
                 }
@@ -4580,12 +6490,15 @@ impl CarveState {
                 if (v < lo && self.map.heights[i] >= oldlo)
                     || (v > hi && self.map.heights[i] <= oldhi)
                 {
+                    // (a fall's face is cut whole however it steps on the way: its tiles are never held back)
                     if self.delta[i] != 0 {
-                        self.delta[i] = 0;
-                        again = true;
+                        if self.faced[i] == 0 {
+                            self.delta[i] = 0;
+                            again = true;
+                        }
                     } else {
                         for &j in &ns {
-                            if self.delta[j] != 0 {
+                            if self.delta[j] != 0 && self.faced[j] == 0 {
                                 self.delta[j] = 0;
                                 again = true;
                             }
@@ -4595,7 +6508,9 @@ impl CarveState {
             }
         }
     }
-    fn drop_objects(&mut self, changed: &[usize]) {
+    /// The objects its cut reaches (`changed`): those whose ground it takes go, the riders ride. Returns the tiles of
+    /// the seats it levelled under Ride (`level_seat`), which change with this step.
+    fn drop_objects(&mut self, changed: &[usize]) -> Vec<usize> {
         if self.occupants.is_none() {
             let mut o = vec![vec![]; self.original.len()];
             for e in &self.map.entities {
@@ -4617,13 +6532,22 @@ impl CarveState {
             .enumerate()
             .any(|(key, &hit)| hit && !self.removed_keys[key])
         {
-            return;
+            return vec![];
         }
         let mut entities = std::mem::take(&mut self.map.entities);
+        let ride = self.settings.ride;
         entities.retain(|e| {
             let rider =
                 self.rider_tiles[e.id_key] != usize::MAX || self.unleashed_key == Some(e.id_key);
-            if e.template.as_ref() == "StartingLocation" || rider || !hit[e.id_key] {
+            // (Sources set to Clear: a source or seep of the map's rides until the cut destroys its ground, the force
+            // audit's S2, asked again each time the cut reaches it; its own and an unleashed one always ride)
+            let taken = !ride
+                && hit[e.id_key]
+                && ride_source(e.template.as_ref())
+                && !self.group.iter().any(|g| g.id_key == e.id_key)
+                && self.unleashed_key != Some(e.id_key)
+                && clear_destroys(&self.original, &self.map.heights, &self.map.footprint(e, 0));
+            if e.template.as_ref() == "StartingLocation" || (rider && !taken) || !hit[e.id_key] {
                 true
             } else {
                 if !self.removed_keys[e.id_key] {
@@ -4633,15 +6557,71 @@ impl CarveState {
                 false
             }
         });
+        // (under Ride, a multi-tile one on ground the cut moved unevenly rides on a seat cut level, planning's ruling of
+        // 2026-11-11: clear.ts `levelSeats`)
+        let mut seats = vec![];
+        if ride {
+            for e in &entities {
+                if hit[e.id_key] {
+                    seats.extend(self.level_seat(e));
+                }
+            }
+        }
         for e in &mut entities {
             let tile = self.rider_tiles[e.id_key];
             if tile != usize::MAX {
-                e.z = self.map.heights[tile] as f64;
+                let z0 = self.rider_z[e.id_key];
+                e.z = if z0.is_nan() {
+                    self.map.heights[tile] as f64
+                } else {
+                    ridden_level(z0, self.original[tile] as f64, self.map.heights[tile] as f64)
+                };
             } else if self.unleashed_key == Some(e.id_key) {
                 e.z = self.map.heights[e.y as usize * self.map.w + e.x as usize] as f64;
             }
         }
         self.map.entities = entities;
+        seats
+    }
+    /// A multi-tile source or seep of the map's that rides (a badwater source's 3 × 3, a seep's 2 × 2) on ground the cut
+    /// moved unevenly: its seat cut down to the lowest of its tiles, as D290 levels a placed one (clear.ts `levelSeats`,
+    /// `seatLevel`), measured on the land the working area's feather keeps (`area`). Where that cut cannot stand (a kept
+    /// tile, or past the feather), the whole footprint is left as it was before the force, kept from then on, and the
+    /// source keeps its old seat. Not one under a roof. The tiles changed.
+    fn level_seat(&mut self, e: &Entity) -> Vec<usize> {
+        let tile = self.rider_tiles[e.id_key];
+        let z0 = if tile == usize::MAX { f64::NAN } else { self.rider_z[e.id_key] };
+        if !ride_source(e.template.as_ref()) || z0.is_nan() || z0 < self.original[tile] as f64 {
+            return vec![];
+        }
+        let fp = self.map.footprint(e, 0);
+        if fp.len() < 2 {
+            return vec![];
+        }
+        let ease = |i: usize| if self.area.is_empty() { 255 } else { self.area[i] as i32 };
+        let kept = |i: usize| {
+            let o = self.original[i] as i32;
+            (self.map.heights[i] as i32).clamp(o - ease(i), o + ease(i))
+        };
+        let dz = |i: usize| kept(i) - self.original[i] as i32;
+        if fp.iter().all(|&i| dz(i) == dz(fp[0])) {
+            return vec![];
+        }
+        let low = fp.iter().map(|&i| kept(i)).min().unwrap();
+        let held = fp.iter().any(|&i| low != kept(i) && (self.keep[i] != 0 || low < self.original[i] as i32 - ease(i)));
+        let mut cut = vec![];
+        for &i in &fp {
+            let to = if held { self.original[i] } else { low as u8 };
+            if held {
+                self.keep[i] = 1;
+            }
+            if self.map.heights[i] != to {
+                self.map.heights[i] = to;
+                self.map.lava[i] = if held { self.original_lava[i] } else { self.map.lava[i] & mask(to) };
+                cut.push(i);
+            }
+        }
+        cut
     }
     fn step(&mut self) -> Vec<usize> {
         if self.metrics.stable {
@@ -4756,7 +6736,8 @@ impl CarveState {
             self.delta[i] = 0;
         }
         if !changed.is_empty() {
-            self.drop_objects(&changed);
+            let seats = self.drop_objects(&changed);
+            changed.extend(seats);
         }
         self.quiet = if !changed.is_empty() || !infill.is_empty() {
             0
@@ -4765,17 +6746,21 @@ impl CarveState {
         };
         if self.ended && (self.active.is_empty() || self.quiet >= 24 || self.tail >= 220) {
             self.metrics.stable = true;
-            let shaped = if self.planning {
+            let mut shaped = if self.planning {
                 vec![]
             } else {
                 self.shape_river()
             };
+            if !self.planning {
+                shaped.extend(self.grade_steps());
+            }
             if !shaped.is_empty() {
                 for &i in &shaped {
                     self.map.lava[i] &= mask(self.map.heights[i]);
                 }
-                self.drop_objects(&shaped);
+                let seats = self.drop_objects(&shaped);
                 changed.extend(shaped);
+                changed.extend(seats);
             }
             if self.metrics.reason == "map edge" {
                 self.metrics.exported = self.metrics.suspended;
@@ -4845,11 +6830,65 @@ impl CarveState {
         } else {
             min(h, level)
         };
-        v = max(v, min(h, self.settings.floor));
+        v = max(v, min(h, max(self.settings.floor, self.hold[i] as f64)));
         if let Some(d) = self.strength_depth {
             v = max(v, min(h, self.original[i] as f64 - d));
         }
         self.map.heights[i] = v as u8;
+    }
+    /// Below a set Fall's landing, the river's channel the carve cut never steps down `FALL_DROP` levels or more from one
+    /// tile to the next: where its wear left a tile that high over the channel beside it, it is cut on to a level short of
+    /// that, never under what it holds (the landing, and the grade below it). The water leaves the landing in riffles,
+    /// never in a second fall the land didn't have.
+    fn grade_steps(&mut self) -> Vec<usize> {
+        let Some(cap) = self.foot_cap else {
+            return vec![];
+        };
+        let (w, n) = (self.map.w, self.map.heights.len());
+        // (the river's own bed: within its width of the course, under the landing's level)
+        let mut core = vec![0u8; n];
+        for st in &self.path {
+            let r = st.width * 0.72 + 0.5;
+            for yy in max(0.0, (st.y - r).floor()) as usize..=min((self.map.h - 1) as f64, (st.y + r).ceil()) as usize {
+                for xx in max(0.0, (st.x - r).floor()) as usize..=min((w - 1) as f64, (st.x + r).ceil()) as usize {
+                    if hypot(xx as f64 - st.x, yy as f64 - st.y) <= r {
+                        core[yy * w + xx] = 1;
+                    }
+                }
+            }
+        }
+        let mut out = vec![];
+        for _ in 0..32 {
+            let mut moved = false;
+            for i in 0..n {
+                let hi = self.map.heights[i] as f64;
+                if core[i] == 0 || hi >= self.original[i] as f64 || hi > cap || self.keep[i] != 0 || self.character.rock[i] != 0 {
+                    continue;
+                }
+                let x = i % w;
+                let mut lo = f64::INFINITY;
+                for j in [if x > 0 { i - 1 } else { i }, if x + 1 < w { i + 1 } else { i }, if i >= w { i - w } else { i }, if i + w < n { i + w } else { i }] {
+                    if j != i && core[j] != 0 && self.map.heights[j] < self.original[j] {
+                        lo = min(lo, self.map.heights[j] as f64);
+                    }
+                }
+                if hi - lo < FALL_DROP {
+                    continue;
+                }
+                let v = max(lo + FALL_DROP - 1.0, max(self.settings.floor, self.hold[i] as f64));
+                if v < hi {
+                    self.map.heights[i] = v as u8;
+                    out.push(i);
+                    moved = true;
+                }
+            }
+            if !moved {
+                break;
+            }
+        }
+        out.sort_unstable();
+        out.dedup();
+        out
     }
     fn shape_river(&mut self) -> Vec<usize> {
         if self.settings.dry && self.options.unleashed.is_none() {
@@ -4974,7 +7013,7 @@ impl CarveState {
             let carved = self.map.heights.clone();
             let depth = max(2.0, depth.unwrap_or(2.0));
             for i in 0..n {
-                if near[i] < 0 {
+                if near[i] < 0 || self.stream[i] != 0 {
                     continue;
                 }
                 let k = near[i] as usize;
@@ -5131,8 +7170,33 @@ fn carve(
     i: &Intent,
     keep: &[u8],
     options: CarveOptions,
+    area: &[u8],
 ) -> Plan {
     let mut run = CarveState::new(before, map, s, i, keep, options, false);
+    run.area = area.to_vec();
+    if run.fall_error != 0 {
+        // (a fall's height set, and nowhere along the course to fall from, or not that far)
+        let mut map = run.map;
+        map.error = run.fall_error;
+        return Plan {
+            raw: None,
+            map,
+            records: Records::Footprint { offsets: vec![], tiles: vec![] },
+            literal: Literal::default(),
+            geometry: vec![],
+            objects: vec![],
+            fallen: vec![],
+            raw_objects: vec![],
+            raw_fallen: vec![],
+            step_objects: vec![],
+            closure_objects: vec![],
+            closure_fallen: vec![],
+            literal_objects: vec![],
+            before: None,
+            before_objects: vec![],
+            before_fallen: vec![],
+        };
+    }
     let objects = run.map.entities.clone();
     let mut raw_changes = vec![];
     let mut raw_offsets = vec![0, 0];
@@ -6774,6 +8838,27 @@ fn glacier_absorb(
     }
 }
 /// What Sources set to Ride (D474) keeps riding the ground: water and badwater sources and seeps.
+/// What Sources set to Clear takes (D474, the force audit's S2): a source whose ground a force destroyed, buried
+/// `CLEAR_BURIED` levels or more or cut `CLEAR_CUT` or more away on one of its tiles (the same numbers are clear.ts
+/// `BURIED`, `CUT`). One on ground only moved a little rides, but a multi-tile one (a badwater source's 3 × 3, a
+/// seep's 2 × 2) whose tiles moved by different amounts goes too: it rides only as one level piece (D249; clear.ts
+/// `clearable`).
+const CLEAR_BURIED: i32 = 3;
+const CLEAR_CUT: i32 = 2;
+fn clear_destroys(before: &[u8], now: &[u8], tiles: &[usize]) -> bool {
+    let d = |i: usize| now[i] as i32 - before[i] as i32;
+    tiles.iter().any(|&i| d(i) >= CLEAR_BURIED || d(i) <= -CLEAR_CUT) || (tiles.len() > 1 && tiles.iter().any(|&i| d(i) != d(tiles[0])))
+}
+/// The level a source or seep that rides stands at once its tile's ground went from `before` to `after`, from level
+/// `z` (clear.ts `riddenLevel`, without voxels): one on the surface moves with its ground; one under a roof, a cave's,
+/// stays in its cave until a cut reaches its level, then stands on the new ground. Never below 0, never in rock.
+fn ridden_level(z: f64, before: f64, after: f64) -> f64 {
+    if z >= before {
+        after + (z - before)
+    } else {
+        max(0.0, min(z, after))
+    }
+}
 fn ride_source(template: &str) -> bool {
     matches!(template, "WaterSource" | "BadwaterSource" | "WaterSeep" | "BadwaterSeep")
 }
@@ -8104,7 +10189,8 @@ fn glacier_finish_morphology(
     if s.ride {
         for e in &mut entities {
             if ride_source(e.template.as_ref()) && e.x >= 0.0 && e.y >= 0.0 && (e.x as usize) < w && (e.y as usize) < h {
-                e.z = out.map.heights[e.y as usize * w + e.x as usize] as f64;
+                let i = e.y as usize * w + e.x as usize;
+                e.z = ridden_level(e.z, before.heights[i] as f64, out.map.heights[i] as f64);
             }
         }
     }
@@ -8451,6 +10537,9 @@ struct Volcano {
     lobes: Vec<Lobe>,
     scale: f64,
     ceiling: f64,
+    /// A vent's breach: the bearing (radians) its crater opens out through its flank, toward the lowest
+    /// ground round it (the force audit's finding 2); 0 for a fissure.
+    breach: f64,
     asked: Option<Point>,
     /// No ground within reach has the room to rise (eruptAnatomy's NO_ROOM_REASON).
     no_room: bool,
@@ -8458,70 +10547,103 @@ struct Volcano {
 fn erupt_size(p: f64) -> f64 {
     2.0 * (7.0 + 36.0 * pow(p / 100.0, 1.15))
 }
+// The cone (the force audit's findings 2 and 3): a vent's height is at most 0.6 of its radius (0.4 for a broad
+// shield); Auto's radius at most 18 % of the map's short side, a broad one 1.12 times a steep one; its outline
+// lobed by a quarter or more at seeded bearings; a crater 6 or more tiles across inside a rim 2 or more wide, a
+// caldera at most 0.35 of the cone across with a scalloped rim, an uneven floor and a small cone off its centre;
+// and one breach, where the crater opens out through the flank toward the lowest ground. Its land is
+// `levels::whole`'s: benches of uneven width, never contour rings. The same numbers are in erupt.ts.
+/// How high a vent rises at most, in radii: a steep cone, a broad shield.
+fn height_cap(s0: &Settings) -> f64 {
+    if s(s0, "shape") == "broad" {
+        0.4
+    } else {
+        0.6
+    }
+}
+/// Auto's radius at most, as a share of the map's short side.
+const ERUPT_AUTO_SHARE: f64 = 0.18;
+/// How far a vent's outline swells or pinches at its lobes, at most (a share of its radius).
+const ERUPT_LOBING: f64 = 0.28;
 fn summit(s0: &Settings) -> &str {
     if s(s0, "summit") == "auto" {
-        if n(s0, "power") < 32.0 {
+        // (a caldera 1 in 3 above Power 70, never always)
+        let p = n(s0, "power");
+        if p < 32.0 {
             "peak"
-        } else if n(s0, "power") < 80.0 {
-            "crater"
-        } else {
+        } else if p > 70.0 && hash(n(s0, "seed"), 77.0) < 1.0 / 3.0 {
             "caldera"
+        } else {
+            "crater"
         }
     } else {
         s(s0, "summit")
     }
 }
-fn vent_radius(s0: &Settings) -> f64 {
+/// Its radius, in tiles: half its Size when set; else Power's, at most `ERUPT_AUTO_SHARE` of the map's short
+/// side (`short`; infinite for Power's own breadth).
+fn vent_radius(s0: &Settings, short: f64) -> f64 {
     s0.size.map(|v| v / 2.0).unwrap_or_else(|| {
-        erupt_size(n(s0, "power"))
+        let r = erupt_size(n(s0, "power"))
             * 0.5
-            * (if s(s0, "shape") == "broad" {
-                1.6
-            } else if s(s0, "mode") == "vent" && summit(s0) != "caldera" {
+            * if s(s0, "mode") == "fissure" {
+                (if s(s0, "shape") == "broad" { 1.6 } else { 1.0 }) * 0.47
+            } else if s(s0, "shape") == "broad" {
+                0.83
+            } else {
                 0.74
-            } else {
-                1.0
-            })
-            * (if s(s0, "mode") == "fissure" {
-                0.47
-            } else {
-                1.0
-            })
+            };
+        min(r, ERUPT_AUTO_SHARE * short)
     })
 }
 fn natural_breadth(s0: &Settings) -> f64 {
     let mut v = s0.clone();
     v.size = None;
-    2.0 * vent_radius(&v)
+    2.0 * vent_radius(&v, f64::INFINITY)
 }
-fn profile(s0: &Settings, summit: &str, r: f64, fissure: bool) -> f64 {
-    let e = if s(s0, "shape") == "steep" {
-        if fissure {
-            0.83
-        } else {
-            1.7
+/// A crater's radius and its rim's width (radii) and how deep it sinks under its rim (a share of the height):
+/// 6 or more tiles across, a rim 2 or more wide, 2.5 levels deep or more.
+fn crater_of(radius: f64, height: f64) -> (f64, f64, f64) {
+    (max(0.2, 3.2 / max(1.0, radius)), min(0.15, 2.2 / max(1.0, radius)), min(0.6, max(0.3, 2.5 / max(1.0, height))))
+}
+/// A caldera's radius at a bearing (radii): 0.29, its rim scalloped by a fifth.
+fn caldera_at(seed: f64, theta: f64) -> f64 {
+    0.29 * (1.0 + 0.2 * (0.6 * sin(theta * 4.0 + hash(seed, 975.0) * PI * 2.0) + 0.4 * sin(theta * 7.0 + hash(seed, 976.0) * PI * 2.0)))
+}
+/// A vent's cone along its radius (1 at its rim or peak, 0 at its foot): `c` the crater's or caldera's radius.
+fn vent_radial(s0: &Settings, summit: &str, r: f64, radius: f64, height: f64, c: f64) -> f64 {
+    let e = if s(s0, "shape") == "steep" { 1.7 } else { 1.2 };
+    let (inner, rim, depth) = match summit {
+        "crater" => crater_of(radius, height),
+        "caldera" => (c, min(0.12, max(0.06, 2.2 / max(1.0, radius))), 0.4),
+        // (a peak's top a little plate, 3 or more tiles across: a summit, never a lone tile)
+        _ => {
+            let t = min(0.2, 1.6 / max(1.0, radius));
+            return pow(max(0.0, 1.0 - max(0.0, r - t) / (1.0 - t)), e);
         }
-    } else {
-        1.65
     };
-    if !fissure && summit == "caldera" {
-        return if r < 0.43 {
-            0.34
-        } else if r < 0.6 {
-            0.34 + 0.48 * smooth((r - 0.43) / 0.17)
+    let inner = if summit == "crater" { inner } else { c };
+    if r < inner {
+        if summit == "caldera" {
+            1.0 - depth * (1.0 - smooth((r - 0.7 * inner) / (0.3 * inner)))
         } else {
-            0.82 * max(0.0, 1.0 - (r - 0.6) / 0.65)
-        };
+            1.0 - depth * (1.0 - smooth(r / inner))
+        }
+    } else if r < inner + rim {
+        1.0
+    } else {
+        pow(max(0.0, (1.0 - r) / (1.0 - inner - rim)), e)
     }
-    if !fissure && summit == "crater" && r < 0.19 {
-        let rim = pow(1.0 - 0.19, e);
-        return rim - 0.22 * (1.0 - smooth(r / 0.19));
-    }
-    pow(max(0.0, 1.0 - r), e)
 }
+/// The prototype's fissure profile at r (0 at its line, 1 at its foot).
+fn profile(s0: &Settings, r: f64) -> f64 {
+    pow(max(0.0, 1.0 - r), if s(s0, "shape") == "steep" { 0.83 } else { 1.65 })
+}
+/// How far a vent's apron of lava reaches (radii) and how thick it is at most (levels): heavy flows a little
+/// further and thicker than light, so Try another keeps its footprint within a fifth.
 fn apron(s0: &Settings) -> (f64, f64) {
     if s(s0, "flows") == "heavy" {
-        (1.75, 2.0 + n(s0, "power") * 0.014)
+        (1.45, 1.6 + n(s0, "power") * 0.01)
     } else {
         (1.25, 0.8)
     }
@@ -8545,10 +10667,12 @@ fn lava_lobes(m: &Map, a: &Volcano, seed: f64, heavy: bool) -> Vec<Lobe> {
             attempt += 1.0;
         }
         angles.push(angle);
+        // (from the rim: a crater's or a caldera's, a peak's upper flank)
         let start = if a.summit == "caldera" {
-            0.64
+            0.4
         } else if a.summit == "crater" {
-            0.19
+            let (c, rim, _) = crater_of(a.radius, a.height);
+            min(0.5, c + rim)
         } else {
             0.12
         };
@@ -8641,46 +10765,52 @@ fn lobe_field(w: usize, h: usize, lobes: &[Lobe]) -> Vec<f32> {
     }
     field
 }
+/// Where a vent's flow ridges start (radii): on its lower flanks, so they never heap its summit into a plateau.
+fn ridge_start(a: &Volcano) -> f64 {
+    match a.summit.as_str() {
+        "crater" => {
+            let (c, rim, _) = crater_of(a.radius, a.height);
+            max(0.45, c + rim)
+        }
+        _ => 0.45,
+    }
+}
 fn rise_bound(s0: &Settings, a: &Volcano) -> f64 {
     let fissure = s(s0, "mode") == "fissure";
     let strength = a.lobes.iter().fold(0.0, |v, l| max(v, l.strength));
     let mut top = 0.0;
     for k in 0..=260 {
         let r = k as f64 / 100.0;
-        let p = profile(s0, &a.summit, r, fissure);
+        // (a vent's cone is at most 1 at any bearing: its rim; its basin read at its narrowest, so the bound
+        // holds wherever the rim's scallops put it)
+        let p = if fissure { profile(s0, r) } else { vent_radial(s0, &a.summit, r, a.radius, a.height, 0.29 * 0.8) };
         let (reach, thick) = apron(s0);
         let apron = thick * pow(max(0.0, 1.0 - r / reach), 1.4);
         let ridge = if boolean(s0, "ridges") {
             if fissure {
-                (1.0 - smooth((r - 1.05) / 0.85))
-                    * smooth((r - 0.34) / 0.32)
-                    * (0.8 + n(s0, "power") * 0.022)
+                (1.0 - smooth((r - 1.05) / 0.85)) * smooth((r - 0.34) / 0.32) * (0.8 + n(s0, "power") * 0.022)
             } else {
-                strength
-                    * (0.7 + n(s0, "power") * 0.013)
-                    * smooth((r - if a.summit == "caldera" { 0.6 } else { 0.19 }) / 0.2)
+                strength * (0.7 + n(s0, "power") * 0.013) * smooth((r - ridge_start(a)) / 0.2)
             }
         } else {
             0.0
         };
-        let basin = !fissure
-            && r < if a.summit == "caldera" {
-                0.6
-            } else if a.summit == "crater" {
-                0.19
-            } else {
-                0.0
-            };
-        let rise = if basin {
-            a.height * p
-        } else {
-            max(a.height * p, apron) + ridge
-        };
+        let basin = !fissure && r < basin_of(a, 0.29 * 0.8);
+        let rise = if basin { a.height * p } else { max(a.height * p, apron) + ridge };
         if rise > top {
             top = rise;
         }
     }
     top
+}
+/// Inside this (radii) a vent's summit is a basin, its crater or caldera (`c` the caldera's radius there): no
+/// apron or ridge piles into it.
+fn basin_of(a: &Volcano, c: f64) -> f64 {
+    match a.summit.as_str() {
+        "caldera" => c,
+        "crater" => crater_of(a.radius, a.height).0,
+        _ => 0.0,
+    }
 }
 #[allow(dead_code)]
 #[derive(Clone, Copy)]
@@ -8693,6 +10823,8 @@ struct EField {
     along: f64,
     vent: Point,
     vent_distance: f64,
+    /// Its distance from the line or the vent (tiles).
+    d: f64,
 }
 impl Volcano {
     fn proto(m: &Map, s0: &Settings, intent: &Intent) -> Self {
@@ -8701,18 +10833,29 @@ impl Volcano {
         let y = (origin / m.w) as f64;
         let p = n(s0, "power") / 100.0;
         let summit = summit(s0).to_string();
-        let radius = vent_radius(s0);
+        let radius = vent_radius(s0, m.w.min(m.h) as f64);
         let fissure = s(s0, "mode") == "fissure";
-        let legacy = fissure || summit == "caldera";
-        let height = (2.0 + 18.0 * p)
-            * (if legacy {
-                (if s(s0, "shape") == "broad" { 0.7 } else { 1.0 })
-                    * (if fissure { 0.75 } else { 1.0 })
-            } else if s(s0, "shape") == "broad" {
-                0.55
-            } else {
-                1.42
-            });
+        let broad = s(s0, "shape") == "broad";
+        let height = if fissure {
+            (2.0 + 18.0 * p) * (if broad { 0.7 } else { 1.0 }) * 0.75
+        } else {
+            min((2.0 + 18.0 * p) * (if broad { 0.9 } else { 1.42 }), height_cap(s0) * radius)
+        };
+        // (the breach faces the lowest ground round the cone, the seed choosing among the nearly lowest)
+        let mut breach = 0.0;
+        if !fissure {
+            let mut best = f64::INFINITY;
+            for k in 0..16 {
+                let t = k as f64 / 16.0 * PI * 2.0;
+                let gx = clamp(round(x + cos(t) * radius * 1.3), 0.0, m.w as f64 - 1.0) as usize;
+                let gy = clamp(round(y + sin(t) * radius * 1.3), 0.0, m.h as f64 - 1.0) as usize;
+                let score = m.heights[gy * m.w + gx] as f64 + 2.5 * hash(n(s0, "seed"), 960.0 + k as f64);
+                if score < best {
+                    best = score;
+                    breach = t + (hash(n(s0, "seed"), 980.0) - 0.5) * 0.3;
+                }
+            }
+        }
         let mut segments = vec![];
         let mut vents = vec![];
         let mut length = 0.0;
@@ -8764,6 +10907,7 @@ impl Volcano {
             lobes: vec![],
             scale: 1.0,
             ceiling: 22.0,
+            breach,
             asked: None,
             no_room: false,
         };
@@ -8796,9 +10940,19 @@ impl Volcano {
             }
         }
         let theta = atan2(y - cy, x - cx);
-        let edge =
-            1.0 + 0.07 * sin(theta * 3.0 + self.phase) + 0.045 * sin(theta * 5.0 - self.phase);
-        let r = hypot(x - cx, y - cy) / (self.radius * edge);
+        let d = hypot(x - cx, y - cy);
+        let edge = if s(s0, "mode") == "vent" {
+            // (a vent's outline swells and pinches at seeded bearings by up to `ERUPT_LOBING`, its summit round)
+            let seed = n(s0, "seed");
+            let lobe = (0.6 * sin(theta * 2.0 + hash(seed, 970.0) * PI * 2.0)
+                + 0.55 * sin(theta * 3.0 + hash(seed, 971.0) * PI * 2.0)
+                + 0.3 * sin(theta * 5.0 + hash(seed, 972.0) * PI * 2.0))
+                / 1.45;
+            1.0 + ERUPT_LOBING * smooth(d / (self.radius * 0.55)) * lobe
+        } else {
+            1.0 + 0.07 * sin(theta * 3.0 + self.phase) + 0.045 * sin(theta * 5.0 - self.phase)
+        };
+        let r = d / (self.radius * edge);
         let wave = if s(s0, "mode") == "vent" {
             theta * (6.0 + (hash(n(s0, "seed"), 20.0) * 4.0).floor()) + self.phase + r * 0.9
         } else {
@@ -8823,7 +10977,43 @@ impl Volcano {
             along,
             vent,
             vent_distance: nearest,
+            d,
         }
+    }
+    /// A vent's cone at a point (its share of the height, 1 at its rim or peak): its crater or caldera (with
+    /// its scalloped rim and the small cone off its floor's centre) and its breach.
+    fn vent_shape(&self, s0: &Settings, f: &EField) -> f64 {
+        let seed = n(s0, "seed");
+        let c = caldera_at(seed, f.theta);
+        let mut p = vent_radial(s0, &self.summit, f.r, self.radius, self.height, c);
+        let (dx, dy) = (f.d * cos(f.theta), f.d * sin(f.theta));
+        if self.summit == "caldera" {
+            // (a small cone on the caldera's floor, off its centre, below its rim)
+            let t = hash(seed, 990.0) * PI * 2.0;
+            let (ox, oy) = (cos(t) * self.radius * 0.1, sin(t) * self.radius * 0.1);
+            let rc = max(2.5, self.radius * 0.12);
+            let dd = hypot(dx - ox, dy - oy);
+            if dd < rc {
+                p = max(p, 0.6 + 0.3 * pow(1.0 - dd / rc, 1.4));
+            }
+        }
+        // (the breach: a valley from the summit out through the flank, widening outward; its floor falls from
+        // the crater's to the foot)
+        let rel = f.theta - self.breach;
+        let along = f.d * cos(rel);
+        if along > 0.0 {
+            let lateral = (f.d * sin(rel)).abs();
+            let half = max(1.6, self.radius * (0.08 + 0.14 * min(1.0, along / self.radius)));
+            let wb = 1.0 - smooth((lateral - half * 0.5) / (half * 0.5));
+            let (floor, share) = match self.summit.as_str() {
+                "caldera" => (0.6, 1.0),
+                "crater" => (1.0 - crater_of(self.radius, self.height).2, 1.0),
+                _ => (0.72, 0.7),
+            };
+            let pf = floor * pow(max(0.0, 1.0 - along / (self.radius * 1.05)), 1.15);
+            p -= share * wb * max(0.0, p - pf);
+        }
+        p
     }
     fn raise(
         &self,
@@ -8839,7 +11029,7 @@ impl Volcano {
         let local = m.heights[round(f.cy) as usize * m.w + round(f.cx) as usize] as f64;
         let vent = s(s0, "mode") == "vent";
         let datum = if vent { self.datum } else { local };
-        let mut p = profile(s0, &self.summit, r, !vent);
+        let mut p = if vent { self.vent_shape(s0, &f) } else { profile(s0, r) };
         if !vent {
             let bowl = 1.0 - smooth(f.vent_distance / max(2.4, self.radius * 0.19));
             p = max(
@@ -8870,8 +11060,9 @@ impl Volcano {
             1.0
         };
         let (reach, thick) = apron(s0);
+        // (a vent's apron is its flows, a thin skirt between them: never a round plateau)
         let lobed = if vent && !self.lobes.is_empty() {
-            0.7 + 0.3 * min(1.0, flows[i] as f64 / 1.1)
+            0.2 + 0.8 * min(1.0, flows[i] as f64 / 1.1)
         } else {
             1.0
         };
@@ -8890,23 +11081,15 @@ impl Volcano {
             } else {
                 flows[i] as f64
                     * (0.7 + n(s0, "power") * 0.013)
-                    * smooth((r - if self.summit == "caldera" { 0.6 } else { 0.19 }) / 0.2)
-                    * (1.0 - smooth((r - reach * 0.7) / (reach * 0.3)))
+                    * smooth((r - ridge_start(self)) / 0.2)
+                    * (1.0 - smooth((r - 0.75) / 0.35))
             }) * k
                 * flows_here
         } else {
             0.0
         };
         let mut target = max(max(h, cone), h + apron) + ridge;
-        if vent
-            && r < if self.summit == "caldera" {
-                0.6
-            } else if self.summit == "crater" {
-                0.19
-            } else {
-                0.0
-            }
-        {
+        if vent && r < basin_of(self, caldera_at(n(s0, "seed"), f.theta)) {
             target = max(h, cone);
         }
         target
@@ -8935,13 +11118,7 @@ impl Volcano {
         let vent = s(s0, "mode") == "vent";
         if vent {
             let basin = self.summit == "caldera" || self.summit == "crater";
-            let peak = if self.summit == "caldera" {
-                0.34
-            } else if self.summit == "crater" {
-                profile(s0, "crater", 0.0, false)
-            } else {
-                1.0
-            };
+            let peak = self.vent_shape(s0, &self.field(s0, self.x, self.y));
             let apron = if basin { 0.0 } else { apron(s0).1 };
             if keep
                 .get(self.y as usize * m.w + self.x as usize)
@@ -9064,14 +11241,14 @@ impl Volcano {
         if s0.size.is_none() {
             let mut top = 0.0;
             for k in 0..=650 {
-                top = max(top, profile(s0, &a.summit, k as f64 / 500.0, false));
+                top = max(top, vent_radial(s0, &a.summit, k as f64 / 500.0, a.radius, a.height, 0.29));
             }
             let edge = top - 0.5 / max(0.5, a.height);
             let mut widest = 0.0;
             let mut from = -1.0;
             for k in 0..=650 {
                 let r = k as f64 / 500.0;
-                let at = profile(s0, &a.summit, r, false) >= edge;
+                let at = vent_radial(s0, &a.summit, r, a.radius, a.height, 0.29) >= edge;
                 if at && from < 0.0 {
                     from = r;
                 }
@@ -9085,7 +11262,7 @@ impl Volcano {
                 min(
                     min(1.25, 1.0 / portable_math::sqrt(k)),
                     if widest > 0.0 {
-                        3.0 / (a.radius * widest)
+                        (3.0 + if a.summit == "peak" { 1.6 } else { 0.0 }) / (a.radius * widest)
                     } else {
                         1.25
                     },
@@ -9094,10 +11271,12 @@ impl Volcano {
             a.radius *= broad;
             a.lobes = lava_lobes(m, &a, n(s0, "seed"), s(s0, "flows") == "heavy");
         }
+        // (never taller than its cap allows, however it was fitted)
+        a.height = min(a.height, height_cap(s0) * a.radius);
         a
     }
     fn value(&self) -> V {
-        let mut v = json!({"x":self.x,"y":self.y,"datum":self.datum,"radius":self.radius,"height":self.height,"summit":self.summit,"phase":self.phase,"segments":self.segments.iter().map(Segment::value).collect::<Vec<_>>(),"vents":self.vents.iter().map(Point::value).collect::<Vec<_>>(),"length":self.length,"lobes":self.lobes.iter().map(Lobe::value).collect::<Vec<_>>(),"scale":self.scale,"ceiling":self.ceiling});
+        let mut v = json!({"x":self.x,"y":self.y,"datum":self.datum,"radius":self.radius,"height":self.height,"summit":self.summit,"phase":self.phase,"segments":self.segments.iter().map(Segment::value).collect::<Vec<_>>(),"vents":self.vents.iter().map(Point::value).collect::<Vec<_>>(),"length":self.length,"lobes":self.lobes.iter().map(Lobe::value).collect::<Vec<_>>(),"scale":self.scale,"ceiling":self.ceiling,"breach":self.breach});
         if let Some(p) = self.asked {
             v["asked"] = p.value();
         }
@@ -9127,6 +11306,38 @@ fn eruption(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u
     let mut flattened = 0;
     let mut erased = 0;
     let mut hard = 0;
+    // The volcano's own surface at each tile, real-valued (NaN where it leaves the ground alone): it becomes
+    // land in one step shared by the forces (levels.rs), its slopes benches of uneven width rather than rings
+    // of one-level steps, no one-tile pillar or pit. It stands on the land as it was.
+    let ceiling = min(22.0, m.ceiling);
+    let mut surface = vec![f64::NAN; m.w * m.h];
+    let ground: Vec<f64> = before.heights.iter().map(|&l| l as f64).collect();
+    let vent = s(s0, "mode") == "vent";
+    let seed = n(s0, "seed");
+    let grain = max(6.0, a.radius * 0.33);
+    // The ladder of its benches (levels above its base): from its summit down in faces of 2 to 4 levels, the
+    // seed choosing each, to a last bench a level or two up (its apron and flows); below its base (a vent's
+    // flank on lower ground) on down the same way.
+    let top = round(a.height);
+    // (a low cone's faces are a level or two, so its top stays a summit)
+    let face = |k: f64| if top <= 6.0 { 1.0 + (hash(seed, 1000.0 + k) * 1.6).floor() } else { 2.0 + (hash(seed, 1000.0 + k) * 2.2).floor() };
+    let mut ladder = vec![];
+    let mut rung = top;
+    let mut k = 0.0;
+    while rung > 0.0 {
+        ladder.push(rung);
+        rung -= face(k);
+        k += 1.0;
+    }
+    if ladder.last().map_or(true, |&r| r >= 3.0) {
+        ladder.push(1.0);
+    }
+    let mut rung = 0.0;
+    while rung > -24.0 {
+        ladder.push(rung);
+        rung -= face(k);
+        k += 1.0;
+    }
     for y in 0..m.h {
         for x in 0..m.w {
             let i = y * m.w + x;
@@ -9139,73 +11350,67 @@ fn eruption(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u
                 continue;
             }
             let k = if bound != 0.0 {
-                min(
-                    1.0,
-                    max(
-                        0.0,
-                        a.ceiling
-                            - before.heights[round(f.cy) as usize * m.w + round(f.cx) as usize]
-                                as f64,
-                    ) / bound,
-                )
+                min(1.0, max(0.0, a.ceiling - before.heights[round(f.cy) as usize * m.w + round(f.cx) as usize] as f64) / bound)
             } else {
                 a.scale
             };
-            let mut target = a.raise(before, s0, &flows, f, i, h, k);
-            target = tempered(h, target, strength);
-            target = clamp(
-                round(round(target * 4096.0) / 4096.0),
-                0.0,
-                min(22.0, m.ceiling),
-            );
-            m.heights[i] = target as u8;
-            if target != h {
-                changed += 1;
-                raised += target - h;
-                for z in h as u32..target as u32 {
-                    m.lava[i] |= 1u32.wrapping_shl(z);
-                }
-                hard += 1;
+            let target = tempered(h, a.raise(before, s0, &flows, f, i, h, k), strength);
+            let rise = target - h;
+            // (a fissure's rampart goes to the shared stage as it is: its plates)
+            if vent && rise > 1.5 {
+                // (benches: the rise above its base cut at the ladder's rungs, the bench edges warped so they
+                // are neither concentric nor even; a thin edge, its apron and flows, as it is)
+                let base = a.datum;
+                let z = target - base;
+                let warp = ((levels::lumps(seed, 4410, x as f64, y as f64, max(8.0, a.radius * 0.5)) - 0.5) * 3.0
+                    + (levels::lumps(seed, 4420, x as f64, y as f64, 3.5) - 0.5) * 0.8)
+                    * smooth((top - z) / 4.0)
+                    * min(1.0, (rise - 1.5) / 2.5);
+                let bench = ladder.iter().copied().filter(|&r| r <= z + warp + 0.35).fold(-24.0, max);
+                surface[i] = max(h + 1.0, base + bench);
+            } else if rise > 0.05 {
+                surface[i] = target;
             }
         }
     }
-    for _pass in 0..2 {
-        for y in 1..m.h - 1 {
-            for x in 1..m.w - 1 {
-                let i = y * m.w + x;
-                if m.heights[i] == before.heights[i] || keep[i] != 0 {
-                    continue;
-                }
-                if a.vents
-                    .iter()
-                    .any(|v| hypot(x as f64 - v.x, y as f64 - v.y) < max(2.5, a.radius * 0.15))
-                {
-                    continue;
-                }
-                let ns = [
-                    m.heights[i - 1],
-                    m.heights[i + 1],
-                    m.heights[i - m.w],
-                    m.heights[i + m.w],
-                ];
-                let lo = *ns.iter().min().unwrap();
-                let hi = *ns.iter().max().unwrap();
-                let mut v = m.heights[i];
-                if v > hi {
-                    v = hi;
-                } else if v < lo && hypot(x as f64 - a.x, y as f64 - a.y) > a.radius * 0.19 * 1.2 {
-                    v = lo;
-                }
-                if v == m.heights[i] {
-                    continue;
-                }
-                v = v.max(before.heights[i]);
-                m.heights[i] = v;
-                m.lava[i] &= if v >= 31 { u32::MAX } else { mask(v) };
-                for z in before.heights[i]..v {
-                    m.lava[i] |= 1u32.wrapping_shl(z as u32);
-                }
+    // (the ground right round what it shapes: its own level, so the last step may tidy it with the volcano's)
+    let rim: Vec<usize> = (0..m.w * m.h)
+        .filter(|&i| {
+            let (x, y) = (i % m.w, i / m.w);
+            surface[i].is_nan() && keep[i] == 0 && [(x > 0, i.wrapping_sub(1)), (x + 1 < m.w, i + 1), (y > 0, i.wrapping_sub(m.w)), (y + 1 < m.h, i + m.w)].iter().any(|&(on, j)| on && !surface[j].is_nan())
+        })
+        .collect();
+    for i in rim {
+        surface[i] = before.heights[i] as f64;
+    }
+    let land = levels::whole(&surface, &ground, &before.heights, m.w, m.h, ceiling, seed, grain);
+    for i in 0..m.w * m.h {
+        // (an eruption only adds: what the benching would take from the land stays; and the tidying never fills
+        // a notch of the land's own more than a level over what the volcano raises there)
+        let cap = if surface[i].is_nan() { before.heights[i] } else { clamp(surface[i].ceil() + 1.0, 0.0, 255.0) as u8 };
+        m.heights[i] = land[i].min(cap.max(before.heights[i])).max(before.heights[i]);
+    }
+    // (a tile the cap left a one-tile pit in what the volcano raised rises to the lowest beside it)
+    let capped = m.heights.clone();
+    for i in 0..m.w * m.h {
+        let (x, y) = (i % m.w, i / m.w);
+        if surface[i].is_nan() || x == 0 || y == 0 || x + 1 == m.w || y + 1 == m.h || capped[i] == land[i] {
+            continue;
+        }
+        let low = capped[i - 1].min(capped[i + 1]).min(capped[i - m.w]).min(capped[i + m.w]);
+        if capped[i] < low {
+            m.heights[i] = low.min(land[i]);
+        }
+    }
+    for i in 0..m.w * m.h {
+        let (h, v) = (before.heights[i], m.heights[i]);
+        if v != h {
+            changed += 1;
+            raised += (v - h) as f64;
+            for z in h as u32..v as u32 {
+                m.lava[i] |= 1u32.wrapping_shl(z);
             }
+            hard += 1;
         }
     }
     for f in &mut m.fallen {
@@ -9383,6 +11588,8 @@ struct Motion {
     past: f64,
     dz: f64,
 }
+/// The farthest a Lift moves ground from its fault (tiles): the same number is quake.ts `LIFT_REACH`.
+const LIFT_REACH: f64 = 20.0;
 struct Fault {
     settings: Settings,
     side: f64,
@@ -9390,9 +11597,9 @@ struct Fault {
     segments: Vec<FSeg>,
     length: f64,
     reach: f64,
-    /// How far the quake reaches past the drawn line (tiles), set by Power. The ground it changes lies
-    /// within twice this of the line, its ends included (or 1.3 times the line's length, whichever is
-    /// wider), not the 40-odd tiles the old shaking ring did.
+    /// How far a Slide's block reaches past the drawn line (tiles), set by Power: the block is the line and
+    /// this margin past its ends and sides, or 1.3 times the line's length across. (A Lift's ground lies
+    /// within `LIFT_REACH` of its fault.)
     margin: f64,
     lift: f64,
     slide: f64,
@@ -9639,36 +11846,46 @@ impl Fault {
             f.dy = dy;
             return f;
         }
-        let block_reach = max(self.margin * 2.0, self.length * 1.3);
+        // Lift (the force audit's finding 1): the ground moves most at the fault and less with distance from it,
+        // exp(-distance / λ) with λ 8 to 14 tiles by Power, and an elliptical taper along the trace brings it to
+        // nothing at both tips; a window takes it to nothing at LIFT_REACH tiles, so no ground past 20 tiles
+        // moves. The other side is no block: only a back-tilted trough at the scarp's foot, deepest there and
+        // rising away over 3 to 6 tiles, at most 2 levels (a sag pond at most), and nothing beyond it.
+        let power = n(s0, "power");
         let away = hypot(dist, f.past);
-        let envelope = (1.0 - smooth((away - block_reach * 0.8) / (block_reach * 0.2)))
-            * (1.0 - smooth(f.end / max(8.0, self.reach * 0.6)));
-        let step = if s(s0, "scarp") == "stepped" {
-            min(1.0, ((dist / 3.0).floor() + 1.0) / 3.0)
+        let u = clamp((f.along / max(1e-9, self.length)) * 2.0 - 1.0, -1.0, 1.0);
+        let taper = if f.past > 0.0 {
+            0.0
         } else {
-            1.0
+            portable_math::sqrt(max(0.0, 1.0 - u * u))
         };
-        let tilt = (hash(n(s0, "seed"), 6.0) * 2.0 - 1.0) * (f.along / self.length - 0.5) * 2.4
-            + (hash(n(s0, "seed"), 7.0) * 2.0 - 1.0) * clamp(dist / self.reach, 0.0, 1.0) * 1.4;
-        let mut dz = round(
-            (if side > 0.0 {
-                self.lift + tilt
+        let window = max(0.0, 1.0 - (away / LIFT_REACH) * (away / LIFT_REACH));
+        let mut dz = if side > 0.0 {
+            let lambda = 8.0 + power * 0.06;
+            let decay = exp(-away / lambda) * window;
+            let shape = if s(s0, "scarp") == "stepped" {
+                min(decay, min(1.0, ((dist / 3.0).floor() + 1.0) / 3.0))
             } else {
-                -self.lift * 0.55
-            }) * envelope
-                * step,
-        );
+                decay
+            };
+            // (the throw varies along the strike with the seed: Try another)
+            let strike = (hash(n(s0, "seed"), 6.0) * 2.0 - 1.0) * (f.along / self.length - 0.5) * 2.4;
+            round(max(0.0, self.lift + strike) * taper * shape)
+        } else {
+            let drop = min(2.0, (self.lift / 3.0).floor());
+            let width = 3.0 + power * 0.03;
+            -round(drop * taper * (1.0 - smooth(away / width)))
+        };
+        // small secondary faults notch the scarp's crest, where the scarp stands
         let branch = (f.along / 22.0).floor();
-        let u = f.along / 22.0 - branch;
-        if dist < 2.2 && u > 0.3 && u < 0.62 && hash(n(s0, "seed"), branch + 200.0) > 0.48 {
-            dz -= 1.0;
-        }
-        if side < 0.0
-            && dist > 3.0
-            && dist < 8.0
-            && u > 0.38
-            && u < 0.58
-            && hash(n(s0, "seed"), branch + 230.0) > 0.65
+        let v = f.along / 22.0 - branch;
+        if side > 0.0
+            && dz > 0.0
+            && dist < 2.2
+            && taper > 0.2
+            && v > 0.3
+            && v < 0.62
+            && hash(n(s0, "seed"), branch + 200.0) > 0.48
         {
             dz -= 1.0;
         }

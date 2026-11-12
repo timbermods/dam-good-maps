@@ -112,7 +112,7 @@ export function useStartHint(ed: Ed): StartHintSlice {
           // (the ground may have changed since: on a cave or an overhang the start stays where it is, D491)
           if (startRoofed(ed.columnsRef.current, info.W, info.H, h.x, h.y)) return;
           // (to the tile's top: a start under a roof comes out onto the open ground, D491)
-          void run(() => api.moveStartTo(h.x, h.y, undefined, mirror.current.heights[h.y * info.W + h.x]));
+          void run((w) => w.moveStartTo(h.x, h.y, undefined, mirror.current.heights[h.y * info.W + h.x]));
         }}
       >
         {h.strong ? "Move the start here: water, wood and berries in reach" : "Move the start here"}

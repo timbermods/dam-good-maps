@@ -6,7 +6,8 @@
 import type { JSX } from "preact";
 import { useRef, useState } from "preact/hooks";
 import { clone } from "../../core/spec/mergepatch";
-import { MAX_SIDE, MIN_SIDE, SIZE_PRESETS, THEME_NAMES, THEMES, type SizePreset, type Settings, type ThemeId } from "../../core/spec/mapspec";
+import { MAX_SIDE, MIN_SIDE, PREMISE_CHOICES, PREMISE_NAMES, SIZE_PRESETS, THEME_NAMES, THEMES, type PremiseChoice, type SizePreset, type Settings, type ThemeId } from "../../core/spec/mapspec";
+import { pairRefusal, premiseSettings } from "../../core/premise/choice";
 import { AREAS, BADWATER, band, BUILDABLE, CORES, FALLS, FLOWS, GROVES, highestMax, LAKE_CHOICES, OFF_SOME, reserveGuard, RESERVES, setVerticality, SOURCES, STYLES, type Choice } from "../../ui/settingsModel";
 import { tip } from "../../ui/Tooltip";
 import { ChoiceSetting, NumberSetting } from "../settings";
@@ -24,6 +25,38 @@ const THEME_TIPS: Record<ThemeId, string> = {
   islands: "Land in open water",
 };
 
+/** The Idea row's own tooltip (D351), and each idea's: the premise library offers no phrase of its own yet, so the page
+ *  words them; a premise with none says its name. */
+export const IDEA_TIP = "The problem the map is built around";
+const IDEA_TIPS: Record<"none" | PremiseChoice, string> = {
+  none: "Land from the theme alone, with no problem built in",
+  any: "Any idea the theme can take",
+  lakeStair: "Lakes stepping down the map, each behind a rim you can raise",
+};
+type IdeaValue = "none" | PremiseChoice;
+const IDEAS: [IdeaValue, string, string][] = [["none", "None", IDEA_TIPS.none], ...PREMISE_CHOICES.map((c): [IdeaValue, string, string] => [c, PREMISE_NAMES[c], IDEA_TIPS[c] ?? `Build the map around the ${PREMISE_NAMES[c].toLowerCase()}`])];
+
+/** Each setting's place in the spec's settings (the core's `premiseSettings` names the ones an idea does not use by it). */
+const PATHS: Record<string, string> = {
+  relief: "terrain.relief", verticality: "terrain.verticality", variety: "terrain.variety", highest: "terrain.highestTerrain", terracing: "terrain.terracing", buildable: "terrain.buildableLand",
+  rivers: "water.rivers", "river-style": "water.riverStyle", "river-flow": "water.riverFlow", reserve: "water.droughtReserve", lakes: "water.lakes", falls: "water.waterfalls", sources: "water.sources",
+  badwater: "hazards.badwater", "badwater-distance": "hazards.badwaterDistance", thorns: "hazards.thornBelts", cores: "hazards.unstableCores",
+  forest: "resources.forestDensity", groves: "resources.groveSize", "berries-start": "resources.berriesNearStart", berries: "resources.berryBushes", ruins: "resources.ruins", relics: "resources.relics", geothermal: "resources.geothermal", mines: "resources.mineSites",
+  "rule-wood": "start.rules.woodWithin20", "rule-water": "start.rules.waterWithin", "rule-bushes": "start.rules.bushesWithin20", "start-area": "start.area", "rule-ruins": "start.rules.ruinsWithin",
+};
+
+/** The tooltip of a setting the idea does not use: the core's line where it is a tooltip's length (D351), else a phrase. */
+function greyedTip(premise: PremiseChoice, path: string): string {
+  if (premise === "any") return "Not used by any idea yet";
+  const does = premiseSettings(premise).settings.find((x) => x.path === path)?.does;
+  return does && does.length <= 60 && !/[.!?]\s/.test(does) ? does : `Not used on a ${PREMISE_NAMES[premise].toLowerCase()} map`;
+}
+
+/** A theme's tooltip where the idea chosen does not take it (the full line shows as a note when the pair is picked). */
+function refusedTip(premise: PremiseChoice): string {
+  return premise === "any" ? "No idea takes this land yet: the themes make the map" : `The ${PREMISE_NAMES[premise].toLowerCase()} does not take this land: the themes make it`;
+}
+
 /** A choice's options from the settings model's, with some words shortened (Kyler, 2026-10-04); each option's tooltip
  *  the choice's name and the option's word ("River style: Braided"). */
 function opts<T extends string>(choices: Choice<T>[], label: string, words: Partial<Record<T, string>> = {}): [T, string, string, string | false][] {
@@ -35,7 +68,7 @@ const DASH = "–";
 
 /** The keys of every generator setting, as the panel places them. */
 export type FieldKey =
-  | "theme" | "seed" | "size"
+  | "theme" | "idea" | "seed" | "size"
   | "relief" | "verticality" | "variety" | "highest" | "terracing" | "buildable"
   | "rivers" | "riverStyle" | "riverFlow" | "reserve" | "lakes" | "falls" | "sources"
   | "badwater" | "badwaterDistance" | "thorns" | "cores"
@@ -64,11 +97,15 @@ export function genFields(p: SettingsProps): Record<FieldKey, JSX.Element> {
     patch(c);
     p.onSettings(c);
   };
+  // (an idea greys out the settings it does not use, each saying so: the core's `premiseSettings`)
+  const premise = blank ? undefined : spec.premise;
+  const greyed = new Set(premise ? premiseSettings(premise).greyed : []);
+  const off = (id: string) => (premise && greyed.has(PATHS[id]) ? greyedTip(premise, PATHS[id]) : null);
   const num = (id: string, label: string, value: number, min: number, max: number, onChange: (v: number) => void, o: { step?: number; unit?: string; bandKey?: string } = {}) => (
-    <NumberSetting line label={label} title={tipOf(id, o.bandKey ? band(o.bandKey, spec) : undefined)} value={value} min={min} max={max} step={o.step ?? 1} words={blank ? DASH : `${value}${o.unit ?? ""}`} onChange={onChange} />
+    <NumberSetting line label={label} title={off(id) ?? tipOf(id, o.bandKey ? band(o.bandKey, spec) : undefined)} disabled={!!off(id)} value={value} min={min} max={max} step={o.step ?? 1} words={blank ? DASH : `${value}${o.unit ?? ""}`} onChange={onChange} />
   );
   const pick = <T extends string>(id: string, label: string, value: T, options: [T, string, string, string | false][], onChange: (v: T) => void, bandKey?: string) => (
-    <ChoiceSetting<T> line fit label={label} title={tipOf(id, bandKey ? band(bandKey, spec) : undefined)} value={blank ? null : value} options={options} onChange={onChange} />
+    <ChoiceSetting<T> line fit label={label} title={off(id) ?? tipOf(id, bandKey ? band(bandKey, spec) : undefined)} off={!!off(id)} value={blank ? null : value} options={options} onChange={onChange} />
   );
   const reserves = RESERVES.map((c) => (reserveGuard(spec.designedFor, c.value, W, H).fits ? c : { ...c, disabled: "too big for this map size" }));
   const preset = (Object.entries(SIZE_PRESETS).find(([, v]) => v === W && v === H)?.[0] as SizePreset | undefined) ?? "custom";
@@ -80,8 +117,19 @@ export function genFields(p: SettingsProps): Record<FieldKey, JSX.Element> {
         label="Theme"
         title="The kind of land the map leans toward"
         value={blank ? null : spec.theme}
-        options={THEMES.map((t) => [t, THEME_NAMES[t], THEME_TIPS[t]] as const)}
+        options={THEMES.map((t) => [t, THEME_NAMES[t], premise && pairRefusal(t, premise) ? refusedTip(premise) : THEME_TIPS[t]] as const)}
+        warn={premise ? THEMES.filter((t) => pairRefusal(t, premise)) : undefined}
         onChange={p.onTheme}
+      />
+    ),
+    idea: (
+      <ChoiceSetting<IdeaValue>
+        line
+        label="Idea"
+        title={IDEA_TIP}
+        value={blank ? null : (spec.premise ?? "none")}
+        options={IDEAS}
+        onChange={(v) => p.onPremise(v === "none" ? undefined : v)}
       />
     ),
     seed: <SeedSetting {...p} />,

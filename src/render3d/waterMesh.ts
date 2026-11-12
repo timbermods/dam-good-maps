@@ -489,16 +489,18 @@ function meshLayer(b: WaterBuffer, W: number, H: number, heights: Uint8Array, sw
   }
 }
 
-/** The water each tile's chunk was last drawn with: its surface (NaN where dry), depth and badwater
- *  share (the renderer's `drawWater`). */
+/** The water each tile's chunk was last drawn with: its surface (NaN where dry), floor, depth and badwater
+ *  share (the renderer's `drawWater`). The terrain's tile data reads its water from this, never from newer water
+ *  still on its way to the mesh: the bed under water and the water drawn over it come and go together. */
 export interface DrawnWater {
   surface: Float32Array;
+  floor: Float32Array;
   depth: Float32Array;
   contamination: Float32Array;
 }
 
 export function drawnWater(N: number): DrawnWater {
-  return { surface: new Float32Array(N).fill(NaN), depth: new Float32Array(N), contamination: new Float32Array(N) };
+  return { surface: new Float32Array(N).fill(NaN), floor: new Float32Array(N), depth: new Float32Array(N), contamination: new Float32Array(N) };
 }
 
 /** A chunk drawn on `sw`: what it shows, tile by tile. */
@@ -507,6 +509,7 @@ export function drewChunk(W: number, H: number, drawn: DrawnWater, sw: SurfaceWa
     for (let x = cx * CHUNK; x < Math.min(W, (cx + 1) * CHUNK); x++) {
       const i = y * W + x;
       drawn.surface[i] = sw.surface[i];
+      drawn.floor[i] = sw.floor[i];
       drawn.depth[i] = sw.depth[i];
       drawn.contamination[i] = sw.contamination[i];
     }

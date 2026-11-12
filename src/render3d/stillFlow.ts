@@ -1,6 +1,6 @@
 // The flow texture where nothing moves (the light look in software, a view held still): no current, only the
-// water's badwater share (high/flow.ts `surfaceContamination`), which the ground under a film reads for its
-// tint (waterPalette.ts WATER_FILM), and the game's waterfall mask (A, fallMask.ts). One texture for the map, kept
+// water's badwater share (high/flow.ts `surfaceContamination`), which the ground under water reads for its
+// tint where no copy of the screen is made (materials.ts behindShare), and the game's waterfall mask (A, fallMask.ts). One texture for the map, kept
 // without costing the page's thread a frame (D453): both are worked out in the bake worker (high/bake.ts
 // `stillBytes`), one job at a time and at most
 // every `STILL_FLOW_WAIT` ms while the water moves, always on the latest water, and only the rows whose share

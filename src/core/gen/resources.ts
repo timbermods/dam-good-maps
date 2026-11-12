@@ -17,6 +17,7 @@ import { stream, type Rng } from "../math/rng";
 import type { MapSpec } from "../spec/mapspec";
 import { pickSeeds } from "./blobs";
 import { BUSHES, density, FOREST, OFFICIAL_LAYOUT, RUIN_HEIGHT_SHARES, RUINS } from "./calibrated";
+import { START_FLOORS } from "../validate/playability";
 import { growGroveAt, growPatchAt, livingSpecies, NEAR_WALK, planGroves, planPatches, planRuinFields, resourceBudget, ruinColumns, saplings, startWalkField, succulentsOf, woodPerTree, type BaselineGround } from "../resources/baseline";
 
 export interface Ground {
@@ -58,6 +59,9 @@ export interface ResourceConstraints {
    *  least `bushes` of them within `within` tiles' walk, the map's own patches kept out of the start's walk, and a
    *  small ruin field the colony walks to within `ruins` tiles' walk (scrap at hand). */
   easy?: { safe: Uint8Array; bushes: number; within: number; ruins: number };
+  /** The share of the moist ground the map's own groves may cover at most (default the official maps',
+   *  `OFFICIAL_LAYOUT.moistCover`; a premise map's wood budget asks less, PREMISES §2.2 stage 6). */
+  moistCover?: number;
   /** Retired (D253, D270, D336: no locks); always null. Kept only so the frozen investigation
    *  prototypes that still pass it type-check (investigation/generative/proto). */
   lockedMask?: null;
@@ -325,8 +329,27 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   // every grove planted, for the starting wood's and the starting-logs floor's counts (D224, D227)
   const planted: PlantedGrove[] = [];
   let woodW = speciesW.map((w, k) => (k < 3 ? w * TREE_LOGS[species[k]] : 0));
+  // D471 with D515: in a rescue round, while the living trees' logs within the fast wood's walk fall short of
+  // `start.wood_fast`'s share (with its margin), the start's living groves planted for wood are pines, whatever the mix
+  // (two logs a tree to a birch's one); the rest of its wood leans to oak as before, and dead oak on dry ground, whose
+  // logs the share does not count, makes up Minimum starting wood. Oak planted first and turned to pine later lost the
+  // wood the rule asks for, and the attempts it spent were the starved starts' slowness
+  const fastFloor = START_FLOORS[spec.designedFor];
+  const fastWalk = fastFloor.fastWoodWalk > NEAR_WALK ? floorWalk : nearWalk;
+  const fastShort = (): boolean => {
+    if (!fastWalk) return false;
+    let fast = 0;
+    let live = 0;
+    for (const p of planted) {
+      if (!p.living) continue;
+      const n = grownLogs(seed, W, p.id, p.tiles, p.species, true, moist, fastWalk);
+      live += n;
+      if (p.species === "Pine" || p.species === "Birch") fast += n;
+    }
+    return live === 0 || fast < (fastFloor.fastWood + FAST_MARGIN) * live;
+  };
   // `place` leans the species by where the grove grows (pine, birch, oak, succulent), on the mix
-  const growGrove = (seedTile: number, size: number, living: boolean, within: Uint8Array | null = null, fill?: number, forWood = false, prefix = "forest/grove", place?: readonly number[]): number => {
+  const growGrove = (seedTile: number, size: number, living: boolean, within: Uint8Array | null = null, fill?: number, forWood = false, prefix = "forest/grove", place?: readonly number[], only?: "Pine" | "Birch"): number => {
     const allowed = new Uint8Array(N);
     for (let i = 0; i < N; i++) allowed[i] = free[i] && (living ? moist[i] : !moist[i]) && (!within || within[i]) ? 1 : 0;
     if (!allowed[seedTile]) return 0;
@@ -341,7 +364,8 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     const byWood = forWood && woodW.some((w) => w > 0);
     const mixed = byWood ? woodW : speciesW;
     const placed = place ? mixed.map((w, k) => w * place[k]) : mixed;
-    let sp: (typeof species)[number] = species[anySpecies ? vegRng.weighted(placed.some((w) => w > 0) ? placed : mixed) : 0];
+    let sp: (typeof species)[number] = only ?? species[anySpecies ? vegRng.weighted(placed.some((w) => w > 0) ? placed : mixed) : 0];
+    if (!only && living && forWood && constraints?.woodLean && sp !== "Pine" && fastShort()) sp = "Pine";
     if (sp === "Succulent" && living) sp = livingSpecies(speciesW); // succulents are the dry-land tree
     for (const i of grown.area) free[i] = 0;
     const role = anchorRole(prefix, tiles);
@@ -388,7 +412,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   const baseGroves = (keep: number, keepOut: Uint8Array | null = null) => {
     let moistRoom = 0;
     for (let i = 0; i < N; i++) if (free[i] && moist[i] && !clearings[i]) moistRoom++;
-    const livingWant = Math.max(0, Math.min(budget.living - succulents - (treeCount - succulentsPlanted) - keep, Math.floor(OFFICIAL_LAYOUT.moistCover * (moistRoom + treeCount)) - treeCount));
+    const livingWant = Math.max(0, Math.min(budget.living - succulents - (treeCount - succulentsPlanted) - keep, Math.floor((constraints?.moistCover ?? OFFICIAL_LAYOUT.moistCover) * (moistRoom + treeCount)) - treeCount));
     const dryWant = Math.max(0, succulents - succulentsPlanted);
     syncTaken();
     keepOutOf(keepOut);
@@ -691,8 +715,123 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       treeCount += f.params.groveSize ?? 0;
     }
   }
+
+  // ---- a fast species among the start's wood (D515, `start.wood_fast`): of the living trees' grown logs within the start's
+  //      wood's walk (20 tiles, the floor's 40 at Hard), the pines' and birches' at least the floor's share, with a
+  //      margin. Fast groves of the species the mix leans to (pine where it has neither) grow first on the moist ground
+  //      there outside the start's yard, adding logs; where that ground runs out short of the share, the living oak
+  //      groves that give the most logs turn to it. The floor holds, the mix leans the rest of the map (as D471's
+  //      rescue does with oak)
+  if (g.start && nearWalk && floorWalk) {
+    const floor = START_FLOORS[spec.designedFor];
+    const within = floor.fastWoodWalk > NEAR_WALK ? floorWalk : nearWalk;
+    // (pine in a rescue round, whatever the mix, as the rescue's planting above)
+    const fastSp = constraints?.woodLean ? "Pine" : mixW.birch > mixW.pine ? "Birch" : "Pine";
+    const share = floor.fastWood + FAST_MARGIN;
+    const logsIn = (p: PlantedGrove) => grownLogs(seed, W, p.id, p.tiles, p.species, p.living, moist, within);
+    // (the share is of the living trees' logs, as `start.wood_fast` reads it: a standing dead tree grows none back)
+    const tally = () => {
+      let fast = 0;
+      let all = 0;
+      let live = 0;
+      for (const p of planted) {
+        const n = logsIn(p);
+        all += n;
+        if (!p.living) continue;
+        live += n;
+        if (p.species === "Pine" || p.species === "Birch") fast += n;
+      }
+      return { fast, all, live };
+    };
+    const woodWant = Math.ceil(1.15 * (within === nearWalk ? spec.settings.start.rules.woodWithin20 : LOG_FLOOR));
+    const yard = new Uint8Array(N);
+    for (let i = 0; i < N; i++) {
+      const x = i % W;
+      const y = (i - x) / W;
+      yard[i] = (x - g.start.x) * (x - g.start.x) + (y - g.start.y) * (y - g.start.y) < YARD_CLEAR * YARD_CLEAR ? 1 : 0;
+    }
+    for (let k = 0; k < 12; k++) {
+      const t = tally();
+      if (t.all >= woodWant && t.fast >= share * t.live) break;
+      const w = new Float64Array(N);
+      for (let i = 0; i < N; i++) if (within[i] && free[i] && moist[i] && !yard[i]) w[i] = 1;
+      const seeds = pickSeeds(vegRng, w, W, 3, 4);
+      if (!seeds.length) break;
+      const need = Math.max(woodWant - t.all, (share * t.live - t.fast) / (1 - share), 1);
+      const n = Math.max(6, Math.min(Math.ceil(need / (TREE_LOGS[fastSp] * 0.8)), Math.round(grove.median * 2.5)));
+      let grew = false;
+      for (const s of seeds)
+        if (growGrove(s, n, true, within, nearFill.trees, true, "forest/start/fast", undefined, fastSp)) {
+          grew = true;
+          break;
+        }
+      if (!grew) break;
+    }
+    for (let k = 0; k < 40; k++) {
+      const t = tally();
+      if (t.live > 0 && t.fast >= share * t.live) break;
+      // (the living oak grove with the most logs beyond the start's 20 tiles' walk, where the fast wood's walk is
+      // longer (Hard's 40), else the most logs: the wood within 20 tiles' walk is `start.wood`'s, and an oak gives 8
+      // logs, a pine 2 and a birch 1)
+      let best: PlantedGrove | null = null;
+      let most = 0;
+      let bestKey = -1;
+      for (const p of planted) {
+        if (p.species !== "Oak" || !p.living) continue;
+        const n = logsIn(p);
+        const key = (within === nearWalk ? 0 : n - grownLogs(seed, W, p.id, p.tiles, p.species, p.living, moist, nearWalk)) * 1e6 + n;
+        if (n > 0 && key > bestKey) {
+          bestKey = key;
+          most = n;
+          best = p;
+        }
+      }
+      if (!best) break;
+      const grove = out.find((f): f is ForestFeature => f.kind === "forest" && f.id === best.id)!;
+      // (only as many of its trees as reach the share turn, those beyond the 20 tiles' walk first, then the farthest
+      // from the start, and the rest stay oak: a whole grove turned past the share took the start's wood under its
+      // rule, `start.wood`)
+      const away = (i: number) => {
+        const dx = (i % W) - g.start!.x;
+        const dy = Math.floor(i / W) - g.start!.y;
+        return dx * dx + dy * dy;
+      };
+      const near = nearWalk;
+      const order = [...best.tiles].sort((a, b) => near[a] - near[b] || away(b) - away(a) || a - b);
+      let cut = order.length;
+      let partId = "";
+      for (let c = 1; c < order.length; c++) {
+        const part = order.slice(0, c);
+        const id = featureId(seed, "forest", anchorRole("forest/start/fast", part));
+        const gain = grownLogs(seed, W, id, part, fastSp, true, moist, within);
+        const kept = grownLogs(seed, W, best.id, order.slice(c), "Oak", true, moist, within);
+        if (t.fast + gain >= share * (t.live - most + gain + kept)) {
+          cut = c;
+          partId = id;
+          break;
+        }
+      }
+      if (cut === order.length) {
+        best.species = fastSp;
+        grove.params.speciesMix = { [fastSp]: 1 };
+        continue;
+      }
+      const part = order.slice(0, cut);
+      const rest = order.slice(cut).sort((a, b) => a - b);
+      best.tiles = rest;
+      grove.params = { ...grove.params, area: tilesToRuns(rest, W), groveSize: rest.length };
+      const role = anchorRole("forest/start/fast", part);
+      part.sort((a, b) => a - b);
+      out.push({ ...grove, id: partId, role, params: { ...grove.params, area: tilesToRuns(part, W), speciesMix: { [fastSp]: 1 }, groveSize: part.length } });
+      planted.push({ id: partId, tiles: part, species: fastSp, living: true });
+    }
+  }
   return out;
 }
+
+/** How far above `start.wood_fast`'s floor the start's planting holds its fast wood's share (D515): saplings and the
+ *  last settle's soil move a grove's grown logs a little. */
+const FAST_MARGIN = 0.05;
 
 /** A grove the generator planted: its trees' tiles, its species, and whether it stands on moist
  *  ground (alive; else standing dead, a tree that keeps its logs). */
@@ -900,7 +1039,7 @@ interface FloorWoodInput {
   walk: Float64Array;
   floorWalk: Uint8Array;
   nearWalk: Uint8Array | null;
-  planted: readonly PlantedGrove[];
+  planted: PlantedGrove[];
   ground: BaselineGround;
   clearings: Uint8Array;
 }
@@ -979,6 +1118,7 @@ function floorWood(o: FloorWoodInput): ForestFeature[] {
           params: { area: tilesToRuns(tiles, W), density: 1, speciesMix: { [sp]: 1 }, groveSize: tiles.length, life: "auto", youngShare: FOREST.youngShare },
         };
         out.push(f);
+        o.planted.push({ id: f.id, tiles, species: sp, living: kd.living });
         for (const i of grown.area) {
           free[i] = 0;
           o.ground.taken[i] = 1;

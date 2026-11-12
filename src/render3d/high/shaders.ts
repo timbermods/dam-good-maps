@@ -26,7 +26,7 @@
 // chose: docs/decisions-pending.md #110).
 
 import { HIGH_WATER_GLSL, WATER_LIGHT } from "../waterPalette";
-import { GAME_LIGHT, LIGHT } from "../palette";
+import { GAME_LIGHT, LIGHT, OWN_LIGHTNESS } from "../palette";
 import { RUN_LEVELS } from "../runSoil";
 
 /** A number as GLSL writes a float. */
@@ -178,9 +178,8 @@ export function terrainHooks(): ShaderHooks {
           c *= vec3(1.0 + broad * 0.055, 1.0 + broad * 0.015, 1.0 - broad * 0.045);
         }
 `,
-    filmBad: "(hlWater > 0.5 ? WATER_FILM_HIGH_BAD_TINT : WATER_FILM_BAD_TINT)",
-    // (the scene's flow texture is High's own, hlFlow: read through it, one sampler fewer, materials.ts filmShare)
-    filmShare: "texture2D(hlFlow, g / hlFlowSize).b",
+    // (the scene's flow texture is High's own, hlFlow: read through it, one sampler fewer, materials.ts behindShare)
+    behindShare: "texture2D(hlFlow, g / hlFlowSize).b",
     // (a still film's flow at a tile corner, as the water's vertex shader reads it: shoreFilm.ts)
     shoreFlow: "texture2D(hlFlow, P / hlFlowSize).rg",
     // rock (#65's strata, D334's stone): stones of unequal size and slope, soft mortar between them, calibrated as
@@ -230,9 +229,10 @@ ${HIGH_WATER_GLSL}
   /** The last measuredSurfaceWater's badwater, lit, with its glowing lines: High's own badwater, which the clear
    *  water's veil keeps (materials.ts clearBad), so the T view shows the badwater of the look it is in. */
   vec3 hlBadLit;
-  /** The surface at g: N the flow's normal, albedo the flow's albedo, bpat badwater's pattern (R its base colour's, G
+  /** The surface at g: N the flow's normal (as the game lights it; Nh its camera highlight's, boosted: waterTextures.ts
+   *  waterFlowNormal), albedo the flow's albedo, bpat badwater's pattern (R its base colour's, G
    *  its emissive detail's; all the Standard surface's, from its one sample). */
-  vec4 measuredSurfaceWater(vec2 g, float depth, float shore, float contamination, vec3 N, vec3 V, float lit, vec3 albedo, vec2 bpat, float smoothness) {
+  vec4 measuredSurfaceWater(vec2 g, float depth, float shore, float contamination, vec3 N, vec3 Nh, vec3 V, float lit, vec3 albedo, vec2 bpat, float smoothness) {
     float bodyDepth = smoothstep(0.25, 1.25, depth);
     float deep = smoothstep(1.0, 3.5, depth);
     vec3 body = mix(mix(HW_SHALLOW, HW_BODY, bodyDepth), HW_DEEP, deep);
@@ -260,6 +260,9 @@ ${HIGH_WATER_GLSL}
     #endif
     // water partly bad as the Standard look has it (one shared blend, the game's: waterPalette.ts WATER_BLEND)
     vec3 colour = waterBlend(body, badBody, contamination);
+    // (the game's albedo here and its diffuse light, which P13 puts on what shows behind the water: refraction.ts)
+    behindLight = gameWaterLight(N, lit);
+    behindAlbedo = colour * shade / max(behindLight, 0.001);
     float tint = waterTint(contamination);
     // the game's own highlight on the ripples (its camera-tied light; WATER_SURFACE.highlight), not a sun hotspot:
     // in the colour before its light, and again after it as the game's emission, unlit and unshadowed
@@ -268,16 +271,19 @@ ${HIGH_WATER_GLSL}
       // highlight in the game's sun colour, lit by the game's light as the albedo it is added to; the probe by the
       // reflected direction (its head-on part where WATER_LIGHT.held); the sun's GGX glint by its shadow
       // (none where a fall lands: the game's waterfall mask, fallMask.ts, Q9 P1)
-      vec3 highlight = GAME_SUN_COLOUR * waterCameraHighlight(N, V, tint) * (1.0 - waterFall);
+      vec3 highlight = GAME_SUN_COLOUR * waterCameraHighlight(Nh, V, tint) * (1.0 - waterFall);
       colour *= shade;
       colour += highlight * gameWaterLight(N, lit);
+      // (the lit albedo with its highlight, which the game's see-through takes its share of; the rest on top: refraction.ts)
+      behindBase = colour;
       colour += waterEnvironment(N, V, smoothness, float(WATER_HELD_HIGH));
       colour += highlight;
       colour += GAME_SUN_COLOUR * waterSunGlint(N, V, sunDir, smoothness) * lit;
     #else
-      vec3 highlight = sunColor * waterCameraHighlight(N, V, tint) * (1.0 - waterFall);
+      vec3 highlight = sunColor * waterCameraHighlight(Nh, V, tint) * (1.0 - waterFall);
       colour += highlight;
       colour *= shade;
+      behindBase = colour;
       colour += highlight;
     #endif
     // badwater's emissive detail, unlit (the Standard look's: its glowing lines carried by the flow)
@@ -316,15 +322,12 @@ export function waterHooks(): ShaderHooks {
             // (its smoothness as the Standard surface's, by this look's badwater share: the gloss's slow variation, toward
             // badwater's by the tint × the pattern's R)
             float hlSmooth = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, waterTint(hlBad) * bpat.x);
-            vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, N, V, lit, albedo, bpat, hlSmooth);
-            // the same water at any depth: only a sliver at a shore's very edge fades in, over WATER_FILM.to
-            // deep, as the Standard look's (waterPalette.ts WATER_FILM: our anti-aliasing of the edge, where the
-            // game clips hard), by its own depth, not the one seen along the view; no foam, no froth, as the game draws none
-            float hlFilm = waterFilm(depth);
-            float hlTint = waterTint(hlBad);
+            vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, N, Nh, V, lit, albedo, bpat, hlSmooth);
+            // the same water at any depth, as the game's and the Standard look's (waterPalette.ts waterOpacity: no film,
+            // D154 as amended 2026-11-09); no foam, no froth, as the game draws none
             c = hlSurface.rgb;
             clearBad = hlBadLit;
-            alpha = mix(min(mix(WATER_FILM_CLEAN, WATER_FILM_BAD, hlTint), hlSurface.a), hlSurface.a, hlFilm);
+            alpha = hlSurface.a;
           } else {
             // the water's side: at the map's edge its section (below), any other side the surface going on (below);
             // no whitewater, no foam
@@ -352,6 +355,8 @@ export function waterHooks(): ShaderHooks {
                 c = section * (0.94 + vnoise(vec2(g.x + g.y, vWorld.y * 5.7)) * 0.08);
                 alpha = mix(0.91, 0.98, waterTint(cont));
               }
+              // (all of it the lit colour the see-through takes its share of: refraction.ts)
+              behindBase = c;
             } else {
               // any other side (a skirt between two tops, a fall's slope's side over lower dry ground): the surface going
               // on, as the game's skirt is its top's mesh dropped and drawn by the same program, High's surface itself
@@ -360,7 +365,7 @@ export function waterHooks(): ShaderHooks {
               // and patterns (the surface's, facing up, carried by its current: stretched down it as on the fall's slope
               // beside it, as the game's are)
               float stepSmooth = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, waterTint(cont) * bpat.x);
-              vec4 stepSurface = measuredSurfaceWater(g, max(0.0, d), 1.0, cont, N, V, lit, albedo, bpat, stepSmooth);
+              vec4 stepSurface = measuredSurfaceWater(g, max(0.0, d), 1.0, cont, N, Nh, V, lit, albedo, bpat, stepSmooth);
               c = stepSurface.rgb;
               // (what the clear water's veil keeps of its badwater: the side's own, at its depth)
               clearBad = hlBadLit;
@@ -431,12 +436,14 @@ export function slopeHooks(): ShaderHooks {
     }
     return color;
   }`,
-    objectFinal: "hlSlopeColour(n) * light",
+    // (colours of our own: their albedo at palette.ts `ownAlbedo`)
+    objectFinal: `hlSlopeColour(n) * ${(1 / OWN_LIGHTNESS).toFixed(6)} * light`,
   };
 }
 
-/** The vegetation (#66): palette regions (the colours are uniforms), wind in the vertex shader
- *  (roots fixed, the same bend for the normal), wrapped sun light and a matte sheen. */
+/** The vegetation (#66): palette regions (the colours are uniforms) and wind in the vertex shader (roots fixed, the same
+ *  bend for the normal), in the game's light as every object (D135 as amended 2026-11-09: no wrapped sun and no sheen of
+ *  our own, as the game's VegetationURP has neither). */
 export function vegetationHooks(slots: number): ShaderHooks {
   return {
     ...objectHooks(),
@@ -464,8 +471,6 @@ export function vegetationHooks(slots: number): ShaderHooks {
     objectNormal: "bendNormal(position, normal, wv)",
     objectColor: "pcolor * vegPalette[int(region + 0.5)]",
     objectPosition: "bend(position, wv)",
-    objectSun: "(dot(n, sunDir) + 0.25) / 1.25",
-    objectFinal: "vColor * light + sunColor * 0.045 * (1.0 - 0.92 * 0.85) * pow(max(dot(n, normalize(sunDir + normalize(cameraPosition - vWorld))), 0.0), mix(64.0, 4.0, 0.92)) * lit",
   };
 }
 

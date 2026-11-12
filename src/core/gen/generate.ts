@@ -71,11 +71,11 @@ import { stream } from "../math/rng";
 import { droughtStorage } from "../sim/drought";
 import { waterModel } from "../sim/model";
 import { moisture } from "../sim/moisture";
-import { AVAILABLE_THEMES, EDITOR_LEVEL, generatorSizeRefusal, THEME_PRESETS, VARIETY_DEFAULT, VT_DEFAULT, VT_TALL, type MapSpec, type Settings, type ThemeId } from "../spec/mapspec";
+import { AVAILABLE_THEMES, EDITOR_LEVEL, generatorSizeRefusal, THEME_PRESETS, themeOwnSettings, VARIETY_DEFAULT, VT_DEFAULT, VT_TALL, type MapSpec, type Settings, type ThemeId } from "../spec/mapspec";
 import { assertSpec } from "../spec/schema";
 import { ColumnTerrain, plainMask, terrainColumns, terrainData } from "../terrain/runs";
 import { validateMap, type Validation } from "../validate/checks";
-import { bandScale, colonyReach, MINE_LO, MINE_REACH_LO, minesReached, minesWanted, nearestBadwater, rulesFor, WET, type PlayabilityAnalysis } from "../validate/playability";
+import { bandScale, colonyReach, FLOOR_MARGIN, MINE_LO, MINE_REACH_LO, minesReached, minesWanted, nearestBadwater, rulesFor, startBench, WET, type PlayabilityAnalysis } from "../validate/playability";
 import { blocks, type ValidationReport } from "../validate/report";
 import { walkRegions } from "../analysis/regions";
 import { planSetPiece } from "../features/setpieces";
@@ -104,6 +104,7 @@ import { failurePhrase } from "./failWords";
 import { EASY_LAND, easyStartMeasures, easyTargets } from "../analysis/easyStart";
 import { pondWater, POND_WATER, shapeEasyStart } from "../land/easyStart";
 import { DIFFICULTY_RULES } from "../spec/mapspec";
+import { generatePremise, type PremiseInfo } from "../premise/generate";
 
 /** Easy start's badwater distance (D495): Easy's (D85), the start's badwater and its soil kept 30 tiles off. */
 const EASY_BADWATER = DIFFICULTY_RULES.easy.badwaterWithin;
@@ -174,8 +175,12 @@ const LAND_SETTLES = 10;
 /** The first Normal drought's days for the drought-aware start (investigation/cycles: 2 in the
  *  game's schedule, after a day of ramp-down). */
 export const FIRST_DROUGHT_DAYS = 3;
-/** Moist land within 20 tiles' walk the settler asks for (food and wood grow there, D85). */
-const MOIST_WALK = 160;
+/** Moist land within 20 tiles' walk the settler asks for (food and wood grow there, D85): `MOIST_WALK.share` of the
+ *  start's moist floors (the first farms and the forester's plot, D515), never under `MOIST_WALK.least` (D85's 160,
+ *  which a map under 128² keeps: its forester's plot scales down with its area). */
+const MOIST_WALK = { share: 1.2, least: 160 } as const;
+/** The generators' margin over the start's floors (D515), kept by the floors (`validate/playability.ts`). */
+export { FLOOR_MARGIN };
 /** Grown logs an oak gives, its saplings counted out (resources: an oak 8 logs, a third young). */
 const OAK_LOGS = 5;
 
@@ -232,6 +237,9 @@ export interface GenerationInfo {
   startDrought: boolean | null;
   /** Easy start's ground (D495), shaped as the land was: the pond's tiles, its cut's, and the clearing's. */
   easy?: { pond: number; cut: number; clearing: number };
+  /** A spec that names a premise (`spec.premise`, PREMISES §2.1): the plan its map was made from, or why the themes
+   *  made it instead (`fellBack`, one line, D471). */
+  premise?: PremiseInfo;
   stage: string;
 }
 
@@ -489,6 +497,20 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
   if (tooSmall) throw new Error(tooSmall);
   if (!AVAILABLE_THEMES.includes(specIn.theme)) throw new Error(`the ${specIn.theme} theme is not available yet`);
   if (specIn.colonies.count !== 1 || specIn.colonies.mod !== "none") throw new Error("multi-colony (Timber Together) maps are not built yet (PLAN §20, D5)");
+  // a premise (PREMISES §2.1): its own mode; a spec it rules out, or whose plans it spends, the themes make (D471)
+  if (specIn.premise !== undefined) {
+    const p = generatePremise(specIn, opts);
+    if ("result" in p) return p.result;
+    // (with the theme's own settings where the premise's preset set them, `themeOwnSettings`)
+    const r = generateThemes({ ...specIn, settings: themeOwnSettings(specIn) }, opts);
+    r.info.premise = { id: specIn.premise, fellBack: `${p.reason}: the themes made this map` };
+    return r;
+  }
+  return generateThemes(specIn, opts);
+}
+
+/** The themes' path (everything but a premise's map). */
+function generateThemes(specIn: MapSpec, opts: GenerateOptions): GenerateResult {
   const t0 = performance.now();
   const record: RoundRecord = { failures: [], failedAt: [], before: 0 };
   // (D348 with D488: a map that looks for an arch over a gorge grows it on its finished land, which
@@ -1316,6 +1338,26 @@ function walkLand(b: BuildResult): number {
   return n;
 }
 
+/** The start's floors (D515) on a build, as the checks read them: its bench (`start.level_land`), its walkable dry
+ *  land (`start.reach`) and its moist land within 20 tiles' walk (`start.farmland` and `start.forester`). */
+function startFloorsOf(b: BuildResult): { bench: number; reach: number; moist: number } {
+  if (!b.start) return { bench: 0, reach: 0, moist: 0 };
+  const { W, H } = b;
+  const N = W * H;
+  const { blocked, links } = walkWorld(b.entities, W, H);
+  const wet = new Uint8Array(N);
+  for (let i = 0; i < N; i++) wet[i] = b.water[i] > WET ? 1 : 0;
+  const bench = startBench(b.heights, wet, blocked, W, H, b.start);
+  const labels = walkRegions(b.heights, W, H, blocked, links);
+  const root = labels[b.start.y * W + b.start.x];
+  let reach = 0;
+  for (let i = 0; i < N; i++) if (root >= 0 && labels[i] === root && !wet[i]) reach++;
+  const d = walkDistance(b.heights, W, H, blocked, links, b.start);
+  let moist = 0;
+  for (let i = 0; i < N; i++) if (!wet[i] && !blocked[i] && b.moisture[i] > 0 && !(b.soilContamination[i] > 0) && reachAt(d, W, H, i) <= 20) moist++;
+  return { bench, reach, moist };
+}
+
 /** Tiles the colony walks to from the start (the objects must not cut the start off). */
 function startWalkable(b: BuildResult): number {
   const d = startWalk(b, true);
@@ -1668,7 +1710,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // the moist land the start's walk asks for: in a rescue round, room for the wood and berries the
   // start rules ask (a tree or bush a tile, the wood by oak's yield, with room between)
   const startRules = spec.settings.start.rules;
-  const moistWant = ease >= 1 ? Math.max(MOIST_WALK, Math.round(1.3 * (startRules.bushesWithin20 + startRules.woodWithin20 / OAK_LOGS))) : MOIST_WALK;
+  const floors = rulesFor(spec);
+  const moistWalk = Math.max(MOIST_WALK.least, Math.round(MOIST_WALK.share * (floors.farmland + floors.forester)));
+  const moistWant = ease >= 1 ? Math.max(moistWalk, Math.round(1.3 * (startRules.bushesWithin20 + startRules.woodWithin20 / OAK_LOGS))) : moistWalk;
   // the rule's drought, which a start's unfed water must last (D302; `start.water`)
   const droughtDays = DROUGHT[spec.designedFor].days;
   // the drought-aware start (#59): Easy requires water that lasts the first drought, Normal and Hard prefer it
@@ -1829,6 +1873,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const reachMin = REACH_MIN[spec.settings.terrain.buildableLand];
   let minFoot = Math.round(Math.max(Math.min(1200, reachMin), 0.12 * N) * (ease >= 2 ? 0.5 : 1));
   const footWant = 2 * reachMin;
+  // the start's floors (D515): every start the settler gives has its bench, its walkable land and its moist land
+  const benchMin = Math.ceil(FLOOR_MARGIN * floors.levelLand);
   const room = { small: 400, normal: 900, large: 1600 }[spec.settings.start.area];
   const bench = { small: 79, normal: 113, large: 180 }[spec.settings.start.area];
   // (on a land kept for another attempt, D333 (2): the starts that failed on it are kept off too)
@@ -1885,7 +1931,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const lengthwise = mapShape(W, H).long;
     const prefer = lengthwise ? (x: number, y: number, L: number, w: number) => intended(x, y, L, w) + SHAPE_PULL * startAlong(spec.theme, x, y, W, H) : intended;
     const rng = stream(seed, "settler2", attempt, salt);
-    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, storage, near, level: allowLevel, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}) });
+    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}) });
   };
   const levelStart = (p: StartPick) => {
     if (!p.levelled) return;
@@ -1988,7 +2034,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const planBad = (D: ArrayLike<number>, ask: typeof badAsk, salt: number, start: { x: number; y: number }): Hazards => {
     let out: Hazards | null = null;
     for (const extra of [orMask(mineKeep, mineWay), mineKeep, null]) {
-      out = planBadwater(h, W, H, D, hy, { ...ask, keepOff: extra ? orMask(ask.keepOff ?? null, extra) : ask.keepOff, join: joinWater(), spare: spareWater() }, seed, salt, start);
+      out = planBadwater(h, W, H, D, hy, { ...ask, keepOff: extra ? orMask(ask.keepOff ?? null, extra) : ask.keepOff, join: joinWater(), spare: spareWater(), sea: shown.theme === "islands" }, seed, salt, start);
       if (out.features.length) break;
     }
     return out!;
@@ -2855,7 +2901,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
 
     // (else level dry ground joined to enough land, nearest the water: its spring comes below)
     if (!p) {
-      p = dryStart(h, W, H, b1.water, hy, { avoid: roomy(avoidOf(bad)), foot, minFoot, near: guess, level: allowLevel }) ?? dryStart(h, W, H, b1.water, hy, { avoid: avoidOf(bad), foot, minFoot, near: guess, level: allowLevel });
+      p = dryStart(h, W, H, b1.water, hy, { avoid: roomy(avoidOf(bad)), foot, minFoot, benchMin, near: guess, level: allowLevel }) ?? dryStart(h, W, H, b1.water, hy, { avoid: avoidOf(bad), foot, minFoot, benchMin, near: guess, level: allowLevel });
       if (p) fixes.push("start on dry ground");
     }
     return p;
@@ -2887,7 +2933,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     if (easy) return landStage?.prepared.find((q) => !tried[q.y * W + q.x] && !avoidOf(bad)[q.y * W + q.x] && !wetRing(b1, q) && !padFloods(h, W, H, b1.water, q.x, q.y, q.level)) ?? null;
     const ready = N <= 96 * 96 ? landStage?.prepared.find(q => !tried[q.y * W + q.x] && !avoidOf(bad)[q.y * W + q.x] && !wetRing(b1, q) && !padFloods(h, W, H, b1.water, q.x, q.y, q.level)) : null;
     if (ready) return ready;
-    return settlerOn(b1.water, b1.contamination, b1.moisture, 7, roomy(beyondBad(b1)), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, roomy(avoidOf(bad)), 1, near) ?? dryStart(h, W, H, b1.water, hy, { avoid: roomy(avoidOf(bad)), foot, minFoot, near: guess, level: allowLevel }) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, avoidOf(bad), 1, near);
+    return settlerOn(b1.water, b1.contamination, b1.moisture, 7, roomy(beyondBad(b1)), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, roomy(avoidOf(bad)), 1, near) ?? dryStart(h, W, H, b1.water, hy, { avoid: roomy(avoidOf(bad)), foot, minFoot, benchMin, near: guess, level: allowLevel }) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, avoidOf(bad), 1, near);
   };
   for (let tryN = 0; ; tryN++) {
     const hBefore = h.slice();
@@ -2975,7 +3021,15 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // (D471: in a rescue round, a start whose 20 tiles' walk holds less dry land than the wood and
     // berries the start rules ask need gives way to another, as one whose water moved does: a 48²
     // start asked for 800 logs and 200 bushes in a pocket of land got neither)
-    if (!why && !lastAttempt && ease >= 1 && moistWant > MOIST_WALK && b.start && walkLand(b) < moistWant) why = "start walk too small";
+    if (!why && !lastAttempt && ease >= 1 && moistWant > moistWalk && b.start && walkLand(b) < moistWant) why = "start walk too small";
+    // (D515: the start's floors on its settled water, as the checks read them; a start short of one gives way to
+    // another on the same settled water)
+    if (!why && !lastAttempt && b.start) {
+      const got = startFloorsOf(b);
+      if (got.bench < benchMin) why = "start.level_land";
+      else if (got.reach < FLOOR_MARGIN * floors.reachMin) why = "start.reach";
+      else if (got.moist < FLOOR_MARGIN * (floors.farmland + floors.forester)) why = "start.forester";
+    }
     if (!why && N <= 96 * 96) {
       const objects = planExtras({ spec, base: b, features: layout, avoid: avoidOf(bad, false), candidate: 0, attempt, relicHigh: !!g.relicHigh });
       const mb = build([...layout, ...objects.filter(f => f.params.kind === "mineSite")], "resources");

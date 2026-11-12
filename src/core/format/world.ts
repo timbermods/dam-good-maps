@@ -264,6 +264,47 @@ export interface StackedSettledState {
   runs: TerrainColumns;
   moisture: ArrayLike<number>;
   soilContamination: ArrayLike<number>;
+  /** The settled water's outflows toward each column they reach (sim/stackWater.ts `StackOutflows`: per edge, its
+   *  column id, its target column id or −1 off the map's edge, its way −y, −x, +y, +x, and its flow; by column id,
+   *  then way, then the target's slot); none writes all `"0"`. */
+  outflows?: { column: ArrayLike<number>; target: ArrayLike<number>; dir: ArrayLike<number>; flow: ArrayLike<number> };
+}
+
+/** Each water column's `ColumnOutflows` token (FORMAT.md §4.3), the way the game fills one
+ *  (`WaterParametersUpdateTask.ProcessWaterDepthChanges`): per way, the first column it flows to (by slot) in that
+ *  way's part, every other one after the four, in the order of their way and slot; each `targetIndex|flow`, the
+ *  target its column's index in the game's grid padded by one tile on every side (`MapIndexService`:
+ *  `slot · (X + 2)(Y + 2) + (y + 1)(X + 2) + x + 1`; off the map's edge, the margin's own column, slot 0). A flow under
+ *  1e-6 is none, as `outflowToken`'s; a dry column (`"0"` in `wet`) has none. */
+function stackedOutflowTokens(sizeX: number, sizeY: number, L: number, o: NonNullable<StackedSettledState["outflows"]>, wet: readonly string[]): string[] {
+  const N = sizeX * sizeY;
+  const stride = sizeX + 2;
+  const vertical = stride * (sizeY + 2);
+  const padded = (i: number) => {
+    const x = i % sizeX;
+    return ((i - x) / sizeX + 1) * stride + x + 1;
+  };
+  const step = [-stride, -1, stride, 1];
+  const out: string[] = new Array(L * N).fill("0");
+  let e = 0;
+  while (e < o.column.length) {
+    const c = o.column[e];
+    const ways: (string | null)[] = [null, null, null, null];
+    const more: string[] = [];
+    for (; e < o.column.length && o.column[e] === c; e++) {
+      const f = o.flow[e];
+      if (!(f > 1e-6)) continue;
+      const t = o.target[e];
+      const d = o.dir[e];
+      const index = t < 0 ? padded(c % N) + step[d] : Math.floor(t / N) * vertical + padded(t % N);
+      const part = `${index}|${numToken(f)}`;
+      if (ways[d] === null) ways[d] = part;
+      else more.push(part);
+    }
+    if (c >= L * N || wet[c] === "0" || ways.every((p) => p === null)) continue;
+    out[c] = [...ways.map((p) => p ?? "0"), ...more].join(":");
+  }
+  return out;
 }
 
 /** Simulation singletons holding settled water and soil per slot, the way the game saves a map with
@@ -273,9 +314,10 @@ export interface StackedSettledState {
  *    slot; `WaterEvaporationMap` has the same levels;
  *  - `SoilMoistureSimulator` and `SoilContaminationSimulator` have `Size` = the most terrain runs of
  *    any tile, one value per run top.
- *  Outflows are all "0": the game rebuilds the flow within a few ticks (the T1–T6 probe maps were
- *  played so). On a heightfield (one run and one water column per tile) this is
- *  `settledSimulationSingletons` without its outflows, byte for byte: such a tile's token names its
+ *  - `ColumnOutflows` per water column, toward each column the water flows to (`stackedOutflowTokens`,
+ *    #532), as the game stores them; all "0" without `outflows`.
+ *  On a heightfield (one run and one water column per tile) this is `settledSimulationSingletons`
+ *  byte for byte, with the same outflows (its writer's `out` four a tile): such a tile's token names its
  *  terrain's surface as the floor, as that writer does (a Blockage lifts the column's floor above it;
  *  the game recomputes the field on load), and every other tile its column's own floor. */
 export function stackedSimulationSingletons(sizeX: number, sizeY: number, st: StackedSettledState): JsonObject {
@@ -312,6 +354,7 @@ export function stackedSimulationSingletons(sizeX: number, sizeY: number, st: St
       soil[n] = numToken(st.soilContamination[n]);
     }
   (s.WaterMapNew as JsonObject).WaterColumns = { Array: water.join(" ") };
+  if (st.outflows) (s.WaterMapNew as JsonObject).ColumnOutflows = { Array: stackedOutflowTokens(sizeX, sizeY, L, st.outflows, water).join(" ") };
   (s.WaterEvaporationMap as JsonObject).EvaporationModifiers = { Array: evap.join(" ") };
   const soilText = soil.join(" ");
   s.SoilMoistureSimulator = { Size: T, MoistureLevels: { Array: moist.join(" ") } };
@@ -453,7 +496,8 @@ export function storedWater(singletons: JsonObject, W: number, H: number): { til
 }
 
 /** The outflows a map stores (`ColumnOutflows`, FORMAT.md §4.3) of every column `storedWater` lists, four an entry in
- *  its order (the simulation's −y, −x, +y, +x; each `outflowToken`'s flow): a cave's water its own, not the water on
+ *  its order (the simulation's −y, −x, +y, +x; each way's flows summed, toward every column that way, the parts after
+ *  the four included, as the stacked settle's `flows` are): a cave's water its own, not the water on
  *  its roof's. For the view's moving water and falls; null when the file has none that fit. */
 export function storedColumnOutflows(singletons: JsonObject, W: number, H: number): Float32Array | null {
   const wm = singletons.WaterMapNew;
@@ -464,12 +508,26 @@ export function storedColumnOutflows(singletons: JsonObject, W: number, H: numbe
   const flows = String(wm.ColumnOutflows.Array).split(" ");
   if (columns.length !== levels * plane || flows.length !== columns.length) return null;
   const out: number[] = [];
+  const stride = W + 2;
+  const vertical = stride * (H + 2);
   // (the entries `storedWater` keeps, in its order)
   for (let k = 0; k < columns.length; k++) {
     const t = columns[k];
     if (t === "0" || !(Number(t.split(":")[0]) > 0.001)) continue;
     const f = flows[k] === "0" ? [] : flows[k].split(":");
+    const at = out.length;
     for (let d = 0; d < 4; d++) out.push(Number((f[d] ?? "0").split("|")[1]) || 0);
+    // (a way's flows toward its other columns, after the four: added to that way's, the way their target's tile lies)
+    if (f.length > 4) {
+      const i = k % plane;
+      const x = i % W;
+      const from = ((i - x) / W + 1) * stride + x + 1;
+      for (let e = 4; e < f.length; e++) {
+        const [target, flow] = f[e].split("|");
+        const d = [-stride, -1, stride, 1].indexOf((Number(target) % vertical) - from);
+        if (d >= 0) out[at + d] += Number(flow) || 0;
+      }
+    }
   }
   return Float32Array.from(out);
 }

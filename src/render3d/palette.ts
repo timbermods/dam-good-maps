@@ -31,7 +31,7 @@ import { deadWood } from "./dying";
 
 // The water's colours, opacity and blend live in waterPalette.ts (D177); they are re-exported here
 // for the pages and tests that read the palette.
-export { BADWATER, blendWater, badwaterBody, badwaterOpacity, cleanWaterBody, WATER, WATER_BLEND, WATER_CALIBRATION, WATER_SURFACE, WATER_UI, waterBody, waterOpacity, waterTint, type Rgb } from "./waterPalette";
+export { BADWATER, blendWater, badwaterBody, cleanWaterBody, WATER, WATER_BLEND, WATER_CALIBRATION, WATER_SURFACE, WATER_UI, waterBody, waterOpacity, waterTint, type Rgb } from "./waterPalette";
 
 /** What colours the tops of the ground. */
 export type GroundMode = "moisture" | "height";
@@ -126,36 +126,69 @@ export const GROUND = {
    *  doubled, so 74.2/80.6/27.4; measured after, Standard 74.4/80.8/27.5 near and 74.0/80.4/27.5 from afar (High from afar
    *  73.2/79.8/27.3). */
   grass: [0.371, 0.389, 0.133] as Rgb,
-  /** Ground under water (seen through it). */
+  /** Our old bed under water, drawn only with `materials.ts` `WATER_BED` 1 for the pixel judge: the game draws the
+   *  ground under its water as it draws it dry (Q9 P14). */
   underwater: [0.36, 0.38, 0.34] as Rgb,
 } as const;
 
 const luma = (c: Rgb) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
-/** The game's grass (its terrain's Grass texture, mean): with ours as it was when the models took their colours (the
- *  grass by the water, 0.353/0.372/0.128, before `fix/land-tone` drew grass alike at every moisture) it gives how much
- *  lighter our albedo is than the game's, so a colour the game gives is drawn at our lightness, in the game's own hue
- *  (D135 as amended 2026-10-29: models in the game's colour). Held at that, so the ground's calibration never moves the
- *  models. */
-export const GAME_GRASS: Rgb = [0.263, 0.285, 0.096];
-export const ALBEDO_SCALE = luma([0.353, 0.372, 0.128]) / luma(GAME_GRASS);
-/** A colour of the game's albedo as ours. */
-export const asOurs = (c: Rgb): Rgb => [Math.min(1, c[0] * ALBEDO_SCALE), Math.min(1, c[1] * ALBEDO_SCALE), Math.min(1, c[2] * ALBEDO_SCALE)];
-/** Trees and bushes as the game colours them: the grown models' foliage and bark (texture x vertex colour, means over
- *  their area, read from resources.assets), as ours. Olive and yellow-green, darker than the grass. The birch's bark is
+/** How much lighter the colours of our own are than the game's albedo for them would be. The models are lit by the
+ *  game's light (materials.ts `GAME_LIT`, D135 as amended 2026-11-09), and those the game colours (the trees and
+ *  bushes, the water sources and seeps, the ruins, the start) take its albedo straight. Until then they took it at our
+ *  lightness, 1.318 times the game's (our grass by the water, 0.353/0.372/0.128, before `fix/land-tone`, over the
+ *  game's grass texture's mean, 0.263/0.285/0.096), under a light of our own; the colours we chose by eye (the mines,
+ *  slopes, the 1.x objects, the succulent, the generic blocks, the birch's marks)
+ *  were chosen at that lightness. They are drawn at `ownAlbedo` of it, so they keep their place among the game's. */
+export const OWN_LIGHTNESS = luma([0.353, 0.372, 0.128]) / luma([0.263, 0.285, 0.096]);
+/** A colour of our own (chosen at our old lightness) as an albedo in the game's light. */
+export const ownAlbedo = (c: Rgb): Rgb => [c[0] / OWN_LIGHTNESS, c[1] / OWN_LIGHTNESS, c[2] / OWN_LIGHTNESS];
+/** Trees and bushes as the game colours them: the grown models' foliage and bark (texture x vertex colour, read from
+ *  resources.assets), straight. Olive and yellow-green, darker than the grass. The foliage is its mean as the camera sees
+ *  it (`tools/game-crowns.py`: the grown model cut by its texture's alpha, from the start shots' 55°, through a full
+ *  turn), not over its whole area: the game's crowns are cards whose vertex colours darken those inside and under the
+ *  crown, which the camera barely sees, and ours are hulls, all outside. Until 2026-11-09 ours took the mean over the
+ *  area its texture's alpha keeps (pine 0.114/0.181/0.099, birch 0.174/0.231/0.099, oak 0.126/0.176/0.083, bush
+ *  0.153/0.175/0.088), 13 to 25 % darker than what shows (the bush 5 %). Higher up a crown is lighter, as the game's is
+ *  (`CROWN_GRADIENT`). The birch's bark is
  *  its white-vertex part (11.9 % of its area) without its dark marks, which our models draw as geometry of their own:
  *  its texels lighter than 0.3 (`tools/game-model-albedo.py BirchMature --above 0.3`: 76 % of the bark, where its
  *  texture parts, the marks below 0.2 and the light bark above 0.4 with only 3 % between), a light warm grey; the whole
  *  texture's mean, 0.525/0.474/0.392, would count the marks twice. Until 2026-11-08 ours was a near-white
- *  0.93/0.91/0.86 of our own, neutral where the game's is warm. */
+ *  0.93/0.91/0.86 of our own, neutral where the game's is warm. The bush's berries are its yield as the game shows it
+ *  (decompiled `Timberborn.Gathering` `GatherableModel`: `_EnableDetail` 1 while the yield stands, as it does on a new
+ *  map): VegetationURP lays its `_DetailMap` over the leaves by its alpha, 12 % of what the camera sees of the bush, its
+ *  colour there 0.225/0.25/0.384, its albedo pulled a quarter of the way toward a quarter of its emission and the colour added again
+ *  as emission at half its strength; lit as a berry the sun lights (the ambient from above and the sun at 45°), that is
+ *  its colour × 1.09 in the game's light, as ours draw it (`tools/game-crowns.py`). Until 2026-11-09 ours were the
+ *  leaves' texture's few bluer texels, 0.294/0.302/0.414, which the game draws under the leaves' green. */
 export const TREE_COLOURS = {
-  pine: asOurs([0.114, 0.181, 0.099]),
-  birch: asOurs([0.174, 0.231, 0.099]),
-  oak: asOurs([0.126, 0.176, 0.083]),
-  bush: asOurs([0.153, 0.175, 0.088]),
-  pineBark: asOurs([0.269, 0.183, 0.117]),
-  oakBark: asOurs([0.21, 0.17, 0.103]),
-  birchBark: asOurs([0.634, 0.579, 0.49]),
+  pine: [0.13, 0.206, 0.114] as Rgb,
+  birch: [0.202, 0.266, 0.116] as Rgb,
+  oak: [0.158, 0.213, 0.105] as Rgb,
+  bush: [0.16, 0.183, 0.092] as Rgb,
+  berry: [0.245, 0.272, 0.418] as Rgb,
+  pineBark: [0.269, 0.183, 0.117] as Rgb,
+  oakBark: [0.21, 0.17, 0.103] as Rgb,
+  birchBark: [0.634, 0.579, 0.49] as Rgb,
 } as const;
+
+/** The game's foliage is lighter higher up its crown (its vertex colours): what the camera sees of it, by height in the
+ *  grown model, fitted as 1 + `slope` × (height − `mid`), `mid` the height its seen foliage averages
+ *  (`tools/game-crowns.py`, from the start shots' 55°): the pine 0.86 of its mean low in its whorls to 1.17 at its top,
+ *  the oak 0.79 to 1.10, the birch 0.90 to 1.04. The bush's runs the other way by a few percent over its 0.4, which no
+ *  pixel shows, so it has none. Both looks' living foliage takes it by each vertex's height (`crownShade`), their
+ *  parts' own shades about it. */
+export const CROWN_GRADIENT: Readonly<Record<string, { slope: number; mid: number }>> = {
+  Pine: { slope: 0.206, mid: 1.99 },
+  Birch: { slope: 0.201, mid: 1.61 },
+  Oak: { slope: 0.457, mid: 1.98 },
+};
+
+/** A species' foliage shade at a height in its model (`CROWN_GRADIENT`; 1 where it has none). */
+export function crownShade(species: string, y: number): number {
+  const g = CROWN_GRADIENT[species];
+  return g ? 1 + g.slope * (y - g.mid) : 1;
+}
 
 /** Juice (D205): the dust a lowered stroke puffs up (a light, dry earth), and a source's splash
  *  (the editor's water-blue). A carve at work (D199): the foam surging round its head, the blocks
@@ -304,59 +337,255 @@ export const HATCH = { dark: [0.06, 0.05, 0.04] as Rgb } as const;
 export const CUT_CAP = { base: [0.25, 0.265, 0.3] as Rgb, line: [0.36, 0.375, 0.41] as Rgb } as const;
 
 /** The water sources and seeps as the game colours them (D496): its models' albedo (texture × vertex colour, means over
- *  their area, read from resources.assets), at our lightness. A water source is an outcrop of dark rock; a badwater
+ *  their area, read from resources.assets), straight. A water source is an outcrop of dark rock; a badwater
  *  source a flat dark crater; a seep a stone slab round a pit heaped with rocks, its gaps dark teal (water) or rust
  *  orange (badwater). */
 export const LANDMARK = {
-  rock: asOurs([0.19, 0.19, 0.16]),
-  rockTop: asOurs([0.22, 0.21, 0.178]),
-  rockLow: asOurs([0.161, 0.168, 0.144]),
-  crater: asOurs([0.14, 0.13, 0.11]),
-  craterDeep: asOurs([0.125, 0.112, 0.093]),
-  craterRim: asOurs([0.183, 0.173, 0.154]),
-  seepSlab: asOurs([0.23, 0.217, 0.182]),
-  seepRock: asOurs([0.254, 0.236, 0.196]),
-  seepGap: asOurs([0.116, 0.14, 0.123]),
-  badSeepSlab: asOurs([0.18, 0.151, 0.122]),
-  badSeepRock: asOurs([0.195, 0.165, 0.136]),
+  rock: [0.19, 0.19, 0.16] as Rgb,
+  rockTop: [0.22, 0.21, 0.178] as Rgb,
+  rockLow: [0.161, 0.168, 0.144] as Rgb,
+  crater: [0.14, 0.13, 0.11] as Rgb,
+  craterDeep: [0.125, 0.112, 0.093] as Rgb,
+  craterRim: [0.183, 0.173, 0.154] as Rgb,
+  seepSlab: [0.23, 0.217, 0.182] as Rgb,
+  seepRock: [0.254, 0.236, 0.196] as Rgb,
+  seepGap: [0.116, 0.14, 0.123] as Rgb,
+  badSeepSlab: [0.18, 0.151, 0.122] as Rgb,
+  badSeepRock: [0.195, 0.165, 0.136] as Rgb,
   /** Badwater's rust between a badwater seep's rocks: its texture's orange, a little brighter than the means. */
-  badSeepGap: asOurs([0.24, 0.13, 0.05]),
+  badSeepGap: [0.24, 0.13, 0.05] as Rgb,
 } as const;
 
-/** Ruins (Kyler's rounds, D178; D334: bright orange with cream, near and far, as Timberborn's
- *  references): ruined scaffold towers, one storey per level: thin orange posts, beams and braces
- *  (#D4781F), cream sacks and slab panels (#E3CF96) and, on moist ground, ivy (#405634, the brighter
- *  green on its clusters' edges) draped over about the lower half of the storeys, the sacks' middles
- *  showing through. From afar each storey is a block in the scaffolding's orange (what makes ruins
- *  read from afar), a cream panel set in where it has one. Both stand apart from contaminated ground. */
+/** Ruins (Kyler's rounds, D178; D334: orange with cream, near and far, as Timberborn's references), in the game's own
+ *  colours (D496): RuinColumnA..E's albedo (texture × vertex colour over their area, `tools/game-model-albedo.py`), which
+ *  falls in five clusters: a pale cream (10 % of the area), a tan (11 %), a rust orange (20 %), a mid brown (37 %) and a
+ *  dark brown (23 %). Ruined scaffold towers, one storey per level: thin posts, beams and braces in the rust, cream sacks
+ *  and slab panels and, on moist ground, ivy (the game's: UndergroundRuins' Ivy_Wet) draped over about the lower half of
+ *  the storeys, the sacks' middles showing through. From afar each storey is a block in the ruins' mean colour (what
+ *  makes ruins read from afar), a cream panel set in where it has one. Until 2026-11-09 colours of our own at about
+ *  twice the game's (#D4781F, #E3CF96, #405634; D334), drawn in a light of our own. Both stand apart from contaminated
+ *  ground (`look-water-slopes.test.ts`). */
 export const RUIN = {
-  rust: [0.83, 0.47, 0.12] as Rgb,
-  /** The cream sacks and slab panels: the game's ruins' lightest colour, at our lightness (D496; the brightest tenth of
-   *  RuinColumnA..E's area, weighted clusters of `tools/game-model-albedo.py`'s samples: 0.507/0.430/0.272). Until
+  /** The posts, beams and braces: the game's rust cluster. */
+  rust: [0.424, 0.209, 0.099] as Rgb,
+  /** The cream sacks and slab panels: the game's ruins' lightest colour (the brightest tenth of their area). Until
    *  2026-11-08 #E3CF96, half again the game's, its lit faces over the bloom's knee. */
-  panel: asOurs([0.507, 0.43, 0.272]),
-  ivy: [0.251, 0.337, 0.204] as Rgb,
-  /** The ivy's brighter leaves, on its clusters' edges. */
-  leaf: [0.36, 0.5, 0.24] as Rgb,
-  /** The far block's own colour (D305; D334: the near skeleton's orange as seen from afar, a little
-   *  darker, #B86E30, not D305's muted rust), apart from contaminated ground in lightness
-   *  (`look-water-slopes.test.ts`). Both the far block's four faces and its top use it; the lattice
-   *  pattern (materials.ts, `RUIN_LATTICE_SCALE`) is what tells it apart from a solid box. */
-  far: [0.72, 0.43, 0.19] as Rgb,
+  panel: [0.507, 0.43, 0.272] as Rgb,
+  /** The ivy: the game's (UndergroundRuins' Ivy_Wet). */
+  ivy: [0.157, 0.158, 0.087] as Rgb,
+  /** The ivy's brighter leaves, on its clusters' edges: the ivy as much lighter and yellower as ours was (#5C7F3D over
+   *  #405634). */
+  leaf: [0.225, 0.234, 0.103] as Rgb,
+  /** The far block's own colour (D305): the game's ruins' mean over their area, as they read from afar. Both the far
+   *  block's four faces and its top use it; the lattice pattern (materials.ts, `RUIN_LATTICE_SCALE`) is what tells it
+   *  apart from a solid box. */
+  far: [0.332, 0.225, 0.129] as Rgb,
 } as const;
 
 /** Slopes: a stone ramp; with **Markers** on, a pale arrow rimmed dark points uphill. */
 export const SLOPE = { ramp: [0.5, 0.46, 0.4] as Rgb, side: [0.3, 0.31, 0.28] as Rgb, arrow: [0.97, 0.93, 0.78] as Rgb, rim: [0.14, 0.1, 0.07] as Rgb } as const;
 
-/** Geothermal fields: a mound of dark rock with vents glowing orange. */
-export const GEOTHERMAL: Rgb = [0.82, 0.48, 0.16];
-export const GEOTHERMAL_ROCK: Rgb = [0.27, 0.26, 0.25];
+/** The geothermal field as the game colours it (GeothermalField.Model, D178, D496): its albedo (texture × vertex colour,
+ *  `tools/game-model-albedo.py`), its materials not metallic, so straight. The crust (the blockage's material, its
+ *  vertex colours sulphur yellow over its rim, grey-brown in its bowl and on its outer slope; 0.249/0.201/0.045 over
+ *  its area) in six shades, each of our crust's corners the game's colour there (averaged over 0.05 round it) as the
+ *  nearest of them; its vent's foot the game's black; its rocks (the water source's rock material; 0.203/0.186/0.155)
+ *  in three shades, each rock its own. */
+export const GEOTHERMAL = {
+  crust: [[0.149, 0.122, 0.077], [0.224, 0.179, 0.039], [0.371, 0.287, 0.001], [0.462, 0.359, 0.002], [0.193, 0.173, 0.114], [0.274, 0.215, 0.014]] as readonly Rgb[],
+  vent: [0.003, 0.003, 0.002] as Rgb,
+  rock: [[0.18, 0.164, 0.138], [0.214, 0.197, 0.163], [0.197, 0.18, 0.152]] as readonly Rgb[],
+} as const;
 
-/** Relics: weathered pale stone, broken columns on a plinth. */
-export const RELIC_STONE: Rgb = [0.66, 0.62, 0.54];
+/** The aquifer as the game colours it (Aquifer.Model, D178, D496): its albedo (texture × vertex colour,
+ *  `tools/game-model-albedo.py`), its materials not metallic, so straight. The crust (the blockage's material, its vertex
+ *  colours dark blue-grey and grey, brown at its middle; 0.149/0.142/0.123 over its area) in five shades, each of our
+ *  crust's corners the game's colour there (averaged over 0.05 round it) as the nearest of them; its rocks (the
+ *  blockage's and the water source's rock; 0.18/0.164/0.141 the water source's) in three, each rock its own. */
+export const AQUIFER = {
+  crust: [[0.194, 0.165, 0.129], [0.168, 0.14, 0.102], [0.134, 0.098, 0.033], [0.106, 0.109, 0.105], [0.125, 0.127, 0.121]] as readonly Rgb[],
+  rock: [[0.175, 0.166, 0.143], [0.203, 0.193, 0.159], [0.212, 0.202, 0.166]] as readonly Rgb[],
+} as const;
 
-/** Thorns: a low, dark red-brown bramble. */
-export const THORNS: Rgb = [0.34, 0.16, 0.14];
+/** The blockage as the game colours it (Blockage.Model, D178, D496): its albedo (texture × vertex colour, area-weighted,
+ *  `tools/game-model-albedo.py`), its material not metallic, so straight. Its heap's rocks in the three greys of its
+ *  vertex colours (the heap's mean 0.173/0.160/0.133), its broken posts, the beam through it and the splinter brown, its plank shards pale,
+ *  each shard its own (front, and back where the game draws one). */
+export const BLOCKAGE = {
+  rock: [[0.155, 0.148, 0.127], [0.176, 0.167, 0.142], [0.194, 0.18, 0.152]] as readonly Rgb[],
+  post: [0.189, 0.145, 0.102] as Rgb,
+  splinter: [0.129, 0.086, 0.053] as Rgb,
+  beam: [0.171, 0.126, 0.086] as Rgb,
+  sawn: [0.219, 0.181, 0.137] as Rgb,
+  broken: [0.109, 0.075, 0.048] as Rgb,
+  shard: [[0.207, 0.178, 0.135], [0.294, 0.251, 0.19], [0.284, 0.245, 0.184], [0.267, 0.23, 0.175], [0.3, 0.252, 0.18], [0.288, 0.246, 0.182]] as readonly Rgb[],
+  shardBack: [[0.207, 0.178, 0.135], [0.294, 0.251, 0.19], [0.284, 0.245, 0.184], [0.209, 0.18, 0.137], [0.313, 0.265, 0.192], [0.288, 0.246, 0.182]] as readonly Rgb[],
+} as const;
+
+/** The badtide drain as the game colours it (BadtideDrain.Model, D178, D496): a box of rusted plate, its frame and
+ *  pipes rust-orange with grey corners, its panels dark, a black funnel in its mouth under a rusted hood. Its material
+ *  (EnvironmentURP on the `BeaverCarryingModels` atlas) is metallic (0.53; smoothness 0.3), folded into the albedo our
+ *  objects' light needs to show the game's brightness as the large relic's is (`LARGE_RELIC`): from the game's frame
+ *  and pipes 0.427/0.254/0.158, corners 0.286/0.233/0.188, panels 0.173/0.145/0.117, funnel 0.099/0.083/0.071 and hood
+ *  0.329/0.243/0.189 (texture × vertex colour, area-weighted, `tools/game-model-albedo.py`). */
+export const BADTIDE_DRAIN = {
+  rust: [0.233, 0.143, 0.09] as Rgb,
+  corner: [0.167, 0.143, 0.119] as Rgb,
+  panel: [0.1, 0.089, 0.074] as Rgb,
+  mouth: [0.056, 0.046, 0.039] as Rgb,
+  hood: [0.166, 0.102, 0.065] as Rgb,
+} as const;
+
+/** The unstable core as the game colours it (UnstableCore.Model, D178, D496): a ball of worn grey-brown metal panels,
+ *  pale, mid and dark, pale ribs and a pale strap over it, a pale ring round a grey lens, and dark studs with paler
+ *  gems. Its material (EnvironmentURP, `UnstableCore`) is metallic (0.5; smoothness 0.37, its lens 0.6), folded into
+ *  the albedo our objects' light needs to show the game's brightness as the large relic's is (`LARGE_RELIC`): from the
+ *  game's panels 0.318/0.272/0.203, 0.307/0.257/0.191 and 0.283/0.229/0.169, ribs 0.456/0.411/0.327, strap
+ *  0.423/0.354/0.274, ring 0.475/0.429/0.339, lens 0.265/0.255/0.232, studs 0.225/0.2/0.157 and gems
+ *  0.315/0.288/0.238 (texture × vertex colour, area-weighted, `tools/game-model-albedo.py`). Its lens is lit only while
+ *  its countdown runs (unstableCore.ts). */
+export const UNSTABLE_CORE = {
+  pale: [0.204, 0.184, 0.144] as Rgb,
+  mid: [0.197, 0.174, 0.136] as Rgb,
+  dark: [0.182, 0.155, 0.12] as Rgb,
+  rib: [0.294, 0.279, 0.231] as Rgb,
+  strap: [0.277, 0.246, 0.201] as Rgb,
+  ring: [0.307, 0.291, 0.241] as Rgb,
+  lens: [0.148, 0.15, 0.14] as Rgb,
+  stud: [0.149, 0.141, 0.117] as Rgb,
+  gem: [0.233, 0.224, 0.193] as Rgb,
+} as const;
+
+/** The natural dam as the game colours it (NaturalDam.Model, D178, D496): its albedo (texture × vertex colour,
+ *  area-weighted, `tools/game-model-albedo.py`), its material the blockage's, not metallic, so straight. Its heap's rock
+ *  in three shades, the thirds of its faces by lightness (the heap's mean 0.215/0.185/0.149), its logs brown, its flat
+ *  stones and shards paler, each its own. */
+export const NATURAL_DAM = {
+  rock: [[0.167, 0.14, 0.111], [0.21, 0.181, 0.146], [0.266, 0.232, 0.189]] as readonly Rgb[],
+  log: [0.202, 0.156, 0.11] as Rgb,
+  stone: [[0.243, 0.209, 0.159], [0.261, 0.225, 0.171], [0.253, 0.218, 0.165], [0.243, 0.21, 0.159], [0.213, 0.184, 0.139]] as readonly Rgb[],
+  shard: [[0.25, 0.215, 0.162], [0.242, 0.209, 0.157], [0.271, 0.233, 0.178]] as readonly Rgb[],
+} as const;
+
+/** The large relic as the game colours it (LargeRelic.Model, D178, D496): a fallen dish antenna of weathered pale metal,
+ *  darker toward its hub, on dark steel fittings, among dark stones. Its material (EnvironmentURP on the
+ *  `BeaverCarryingModels` atlas) is partly metallic (0.13–0.23 on the panels, 0.5 on the rim and fittings; smoothness
+ *  0.3), which the objects' light (materials.ts `gameObjectLight`, metallic 0) has no term for, so each part's albedo
+ *  (texture × vertex colour, area-weighted, `tools/game-model-albedo.py`) is given as the albedo that light needs to show
+ *  the game's brightness: URP's diffuse at its metallic, its occlusion map and the environment's reflection by its
+ *  Fresnel term, over the part's own normals, with the sun round the compass at the game's 45° and a camera 45° down
+ *  round it. The panels, by ring from the hub out (θ 9.3–20, 20–34, 34–46.8°): the face (toward the dish's mouth) from
+ *  the game's 0.288/0.258/0.208, 0.460/0.413/0.335 and 0.488/0.440/0.360; the back 0.288/0.258/0.208,
+ *  0.460/0.413/0.335 and 0.538/0.481/0.390; the cracked piece, both sides, 0.168/0.150/0.121, 0.302/0.271/0.221 and
+ *  0.364/0.325/0.263; the rim 0.344/0.319/0.271, the rings and ribs 0.26/0.245/0.225, the hub 0.255/0.237/0.214 and its
+ *  boss 0.337/0.314/0.284, the feed and its struts 0.330/0.304/0.263; the stones (metallic 0) straight. */
+export const LARGE_RELIC = {
+  face: [[0.239, 0.218, 0.178], [0.406, 0.368, 0.301], [0.432, 0.392, 0.321]] as readonly Rgb[],
+  back: [[0.286, 0.266, 0.222], [0.441, 0.402, 0.331], [0.529, 0.479, 0.392]] as readonly Rgb[],
+  cracked: [[0.141, 0.129, 0.107], [0.273, 0.249, 0.206], [0.324, 0.294, 0.241]] as readonly Rgb[],
+  rim: [0.216, 0.211, 0.187] as Rgb,
+  steel: [0.161, 0.159, 0.15] as Rgb,
+  hub: [0.177, 0.172, 0.161] as Rgb,
+  boss: [0.21, 0.203, 0.189] as Rgb,
+  feed: [0.204, 0.197, 0.176] as Rgb,
+  stone: [0.221, 0.203, 0.172] as Rgb,
+} as const;
+
+/** The small relic as the game colours it (SmallRelic.Model, D178, D496): a fallen telescope, its tubes pale, its
+ *  collars, lens and tripod dark steel, among stones. Its material (EnvironmentURP on the `BeaverCarryingModels` atlas)
+ *  is partly metallic (0.14 on the tubes, about 0.5 on the steel), folded into the albedo our objects' light needs to
+ *  show the game's brightness as the large relic's is (`LARGE_RELIC`): from the game's tubes 0.494/0.443/0.356 and
+ *  0.457/0.409/0.329, collars 0.215/0.198/0.178, lens 0.181/0.151/0.129, eyepiece 0.123/0.109/0.099, legs
+ *  0.228/0.215/0.195 (the bent one 0.286/0.267/0.241) and the tripod's head 0.189/0.175/0.155; the stones (metallic 0)
+ *  straight. */
+export const SMALL_RELIC = {
+  tube: [0.5, 0.453, 0.368] as Rgb,
+  collar: [0.138, 0.134, 0.124] as Rgb,
+  lens: [0.132, 0.117, 0.102] as Rgb,
+  eye: [0.089, 0.086, 0.081] as Rgb,
+  leg: [0.132, 0.131, 0.124] as Rgb,
+  bent: [0.199, 0.196, 0.185] as Rgb,
+  head: [0.119, 0.115, 0.105] as Rgb,
+  stone: [[0.21, 0.191, 0.164], [0.222, 0.205, 0.172], [0.241, 0.224, 0.188]] as readonly Rgb[],
+} as const;
+
+/** The medium relic as the game colours it (MediumRelic.Model, D178, D496): a crashed satellite, its body a pale box
+ *  half in the ground with dark straps round it, a grey plate on its top with dark knobs and a bar, a grey half-dish
+ *  with a copper feed on its south side, a wire arm, and three solar panels of dark cells in pale frames, among stones.
+ *  Its material is partly metallic (0.15 on the body, 0.53 on the rest), folded into albedo as the large relic's
+ *  (`LARGE_RELIC`): from the game's body 0.593/0.521/0.408, cells 0.122/0.114/0.104, frames 0.358/0.339/0.314, top
+ *  plate 0.311/0.291/0.263 and bar 0.381/0.367/0.334, straps 0.209/0.19/0.169, dish 0.334/0.311/0.282, feed
+ *  0.244/0.186/0.13, arm 0.293/0.264/0.228, port 0.235/0.227/0.207 and knobs 0.12/0.104/0.089 (metallic 0.2); the
+ *  stones straight. */
+export const MEDIUM_RELIC = {
+  body: [0.522, 0.463, 0.367] as Rgb,
+  cell: [0.071, 0.07, 0.066] as Rgb,
+  frame: [0.205, 0.204, 0.196] as Rgb,
+  plate: [0.191, 0.188, 0.176] as Rgb,
+  bar: [0.235, 0.237, 0.223] as Rgb,
+  strap: [0.129, 0.124, 0.115] as Rgb,
+  dish: [0.206, 0.201, 0.188] as Rgb,
+  feed: [0.151, 0.123, 0.092] as Rgb,
+  arm: [0.176, 0.167, 0.15] as Rgb,
+  port: [0.143, 0.145, 0.137] as Rgb,
+  knob: [0.094, 0.084, 0.074] as Rgb,
+  stone: [[0.21, 0.191, 0.164], [0.217, 0.198, 0.169], [0.24, 0.223, 0.186]] as readonly Rgb[],
+} as const;
+
+/** Thorns as the game colours them (Thorns.Model, D178, D496): dark grey-brown spikes paling to their points among
+ *  paler twigs. Its material (EnvironmentURP, `Thorns`, its texture cut out by its alpha) is a little metallic (0.13
+ *  over the spikes, 0.15 over the twigs; smoothness 0.19 and 0.2), folded into the albedo our objects' light needs to
+ *  show the game's brightness as the large relic's is (`LARGE_RELIC`). The spikes' corners at their foot take the
+ *  game's darkest (0.141/0.119/0.098, folded) and their points the colour that makes a spike's mean over its sides the
+ *  game's (0.184/0.158/0.132, folded to 0.156/0.135/0.114), as its texture pales up them to 0.42/0.37/0.33 at the
+ *  point; the twigs the game's 0.236/0.203/0.171 (texture, area-weighted where it is not cut out). */
+export const THORNS = {
+  foot: [0.12, 0.103, 0.085] as Rgb,
+  point: [0.228, 0.2, 0.172] as Rgb,
+  twig: [0.199, 0.175, 0.149] as Rgb,
+} as const;
+
+/** The reserves as the game colours them (ReservePile.Model, ReserveWarehouse.Model, ReserveTank.Model, D178, D496):
+ *  grey-green boards (`BaseWoodCommon`) in amber-brown frames (`BaseWoodCommon_Amber`), a pale shield of a sign under a
+ *  pale holder at the entrance. Their wood is a little metallic (0.07–0.15; smoothness about 0.37), folded into the
+ *  albedo our objects' light needs to show the game's brightness as the large relic's is (`LARGE_RELIC`); the game's
+ *  own, each part's texture × vertex colour area-weighted (`tools/game-model-albedo.py`): the pile's walls
+ *  0.291/0.307/0.254 and the tank's staves 0.288/0.304/0.247 (`board`), the warehouse's floor 0.235/0.251/0.184
+ *  (`floor`), the frames 0.266/0.204/0.161 (`frame`), the posts, legs and braces 0.27/0.207/0.162 (`post`), the
+ *  tank's pump house 0.248/0.187/0.15 (`house`) round its door's grey-green frame 0.298/0.316/0.265 and its dark door
+ *  0.127/0.102/0.078, its pipe 0.236/0.251/0.185; the sign 0.397/0.339/0.239 out and 0.31/0.265/0.187 in, its holder
+ *  0.41/0.355/0.262, the threshold 0.49–0.6 by reserve, the warehouse's ropes 0.404/0.351/0.309 and their ties
+ *  0.378/0.327/0.289; the pile's floor of dirt (`DirtCommon`, not metallic) 0.291/0.238/0.166, straight.
+ *  Their stock as the game's visualizers draw it (`StockpileVisualization`; reserves.ts), its goods' models folded
+ *  alike, the game's: dirt (`DirtPile`, not metallic) 0.354/0.274/0.2, straight; logs 0.232/0.188/0.138, planks
+ *  0.176/0.138/0.091, treated planks 0.505/0.395/0.247, scrap metal 0.408/0.252/0.168 and metal blocks
+ *  0.348/0.313/0.281 (metallic 0.53), and the boxes (`Box`) 0.472/0.411/0.32. */
+export const RESERVE = {
+  board: [0.26, 0.278, 0.23] as Rgb,
+  floor: [0.222, 0.24, 0.178] as Rgb,
+  frame: [0.246, 0.19, 0.153] as Rgb,
+  post: [0.258, 0.204, 0.16] as Rgb,
+  house: [0.23, 0.175, 0.145] as Rgb,
+  doorFrame: [0.277, 0.297, 0.251] as Rgb,
+  door: [0.131, 0.109, 0.086] as Rgb,
+  pipe: [0.233, 0.249, 0.188] as Rgb,
+  signOut: [0.386, 0.334, 0.239] as Rgb,
+  signIn: [0.303, 0.263, 0.189] as Rgb,
+  holder: [0.366, 0.318, 0.239] as Rgb,
+  threshold: { ReservePile: [0.525, 0.471, 0.38], ReserveWarehouse: [0.502, 0.449, 0.36], ReserveTank: [0.427, 0.385, 0.31] } as Readonly<Record<string, Rgb>>,
+  rope: [0.394, 0.347, 0.308] as Rgb,
+  tie: [0.33, 0.288, 0.255] as Rgb,
+  dirtFloor: [0.291, 0.238, 0.166] as Rgb,
+  dirt: [0.354, 0.274, 0.2] as Rgb,
+  goods: {
+    Log: [0.2, 0.158, 0.115],
+    Plank: [0.164, 0.129, 0.088],
+    TreatedPlank: [0.459, 0.363, 0.23],
+    ScrapMetal: [0.242, 0.147, 0.095],
+    MetalBlock: [0.212, 0.2, 0.186],
+  } as Readonly<Record<string, Rgb>>,
+  box: [0.403, 0.354, 0.279] as Rgb,
+} as const;
 
 /** The game's sky (D497): its camera's Skybox material (`resources.assets` "Skybox", shader path 1816, its pixel program
  *  read with D3DDisassemble), drawn without fog and graded by the post chain like the rest of the frame.
@@ -408,6 +637,33 @@ export function gamePostRgb(c: Rgb): Rgb {
   return l.map((v) => disp(clamp(y + GAME_FINISH.saturation * (v - y)))) as unknown as Rgb;
 }
 
+/** The post chain undone (materials.ts `gamePostInverse`): the display colour a graded one came from, where no step
+ *  clipped it. The water reads the screen behind it graded, where the game's opaque texture holds it before the grade
+ *  (refraction.ts). Saturation round the luminance keeps the luminance, the contrast is linear in LogC, and the
+ *  Neutral curve is a ratio of quadratics, so each step is solved exactly. */
+export function gamePostInverseRgb(c: Rgb): Rgb {
+  const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const disp = (v: number) => (v <= 0.0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055);
+  const curve = (x: number) => (x * (0.2 * x + 0.24 * 0.29) + 0.272 * 0.02) / (x * (0.2 * x + 0.29) + 0.272 * 0.3) - 0.02 / 0.3;
+  const white = 1 / curve(5.3);
+  const logC = (x: number) => (x > 0.011361 ? 0.244161 * Math.log10(5.555556 * x + 0.047996) + 0.386036 : 5.301883 * x + 0.092819);
+  const fromLogC = (x: number) => (x > 5.301883 * 0.011361 + 0.092819 ? (10 ** ((x - 0.386036) / 0.244161) - 0.047996) / 5.555556 : (x - 0.092819) / 5.301883);
+  // (the Neutral curve's x for y: y' × (0.2x² + 0.29x + 0.0816) = 0.2x² + 0.0696x + 0.00544, its positive root)
+  const uncurve = (y: number) => {
+    const t = Math.min(y, 0.93) + 0.02 / 0.3;
+    const a = 0.2 * t - 0.2;
+    const b = 0.29 * t - 0.24 * 0.29;
+    const k = 0.272 * 0.3 * t - 0.272 * 0.02;
+    return Math.max(0, (b + Math.sqrt(Math.max(0, b * b - 4 * a * k))) / (-2 * a));
+  };
+  const s = c.map((v) => lin(Math.min(1, Math.max(0, v))));
+  const y = 0.2126729 * s[0] + 0.7151522 * s[1] + 0.072175 * s[2];
+  return s
+    .map((v) => Math.max(0, y + (v - y) / GAME_FINISH.saturation))
+    .map((v) => Math.max(0, fromLogC((logC(v) - 0.4135884) / GAME_FINISH.contrast + 0.4135884)))
+    .map((v) => disp(uncurve(v / white) / white / 2 ** GAME_FINISH.postExposure)) as unknown as Rgb;
+}
+
 /** Mine sites (Kyler's rounds, D178; his colours, measured in the game; the pit's earth a little darker
  *  since D324): a rusty frame in a dull
  *  brown-orange (#844D2F) round the edge of the 5 × 5 footprint, and a pit with real depth filling
@@ -440,8 +696,9 @@ export const MINE = {
   frame: [0.518, 0.302, 0.184] as Rgb,
   wood: [0.655, 0.557, 0.396] as Rgb,
   /** The ground the game's round pit leaves in its square's corners: its albedo there (UndergroundRuins.Model, the
-   *  up-facing corners' mean, 0.355, 0.285, 0.195) as ours. */
-  ledge: asOurs([0.355, 0.285, 0.195]),
+   *  up-facing corners' mean, 0.355, 0.285, 0.195), at `OWN_LIGHTNESS`: the mine is a model of our own colours, drawn at
+   *  `ownAlbedo` of them, which brings this to the game's own. */
+  ledge: [0.355 * OWN_LIGHTNESS, 0.285 * OWN_LIGHTNESS, 0.195 * OWN_LIGHTNESS] as Rgb,
   /** **Markers**: the outline round the footprint. */
   outline: [1.0, 0.56, 0.18] as Rgb,
   outlineDark: [0.1, 0.05, 0.02] as Rgb,
@@ -479,14 +736,14 @@ export const LIGHT = {
  *  texture is a neutral grey that shades its parts, and its material (EnvironmentURP, `StartingLocationMaterial`)
  *  multiplies it by `_Color` 0.5, so the game's albedo is half the texture's grey: area-weighted means read from its model
  *  (`tools/game-model-albedo.py`: the texture walls and shaft 0.79, cornice, gallery and cap 0.84, the roof the lightest at
- *  0.96, the lantern's inside and the openings about 0.36; the whole model 0.265), drawn at our lightness (`asOurs`, D178,
- *  D496), as the trees take the game's own colour in every look. (Until 2026-11-08 the texture's greys stood in for the
+ *  0.96, the lantern's inside and the openings about 0.36; the whole model 0.265), straight (D178, D496), as the trees take
+ *  the game's own colour in every look. (Until 2026-11-08 the texture's greys stood in for the
  *  albedo, twice the game's: a near-white tower that outshone everything round it.) */
 export const START = {
-  stone: asOurs([0.395, 0.395, 0.395]),
-  trim: asOurs([0.42, 0.42, 0.42]),
-  roof: asOurs([0.4815, 0.4815, 0.4815]),
-  dark: asOurs([0.18, 0.18, 0.18]),
+  stone: [0.395, 0.395, 0.395] as Rgb,
+  trim: [0.42, 0.42, 0.42] as Rgb,
+  roof: [0.4815, 0.4815, 0.4815] as Rgb,
+  dark: [0.18, 0.18, 0.18] as Rgb,
 } as const;
 
 /** The game's altitude colour ramps (D497; `tools/altitude-ramp.ts` reads them from the game's `resources.assets`,
@@ -505,8 +762,8 @@ export const ALTITUDE_RAMP = {
  *  m_ActiveColorSpace 0), so its lighting works on display values. A face's colour is its albedo × `diffuse` × (the
  *  ambient by its normal + the sun × max(n·L, 0) × its shadow), with a little specular left out. The ambient is Unity's
  *  Trilight (decompiled `Timberborn.SkySystem` `Sun`; the day's colours in `Configurations/Sun.blueprint.json`: the sky's
- *  from above, the equator's from the side, the ground's from below) as Unity's ambient probe, irradiance SH
- *  (`GAME_AMBIENT_SH`), turned back to display values (URP's `SampleSH` under Gamma). The sun is its colour × its intensity, 1.1, at full shadow strength. `diffuse` is URP's
+ *  from above, the equator's from the side, the ground's from below) as the ambient probe the engine makes of it
+ *  (`GAME_AMBIENT_SH`, captured from the running game), turned to display values (URP's `SampleSH` under Gamma). The sun is its colour × its intensity, 1.1, at full shadow strength. `diffuse` is URP's
  *  0.96 − 0.96 × `_Metallic` (0.05 on the terrain's materials). The water takes it too, though its own metallic is 0
  *  (clean water's `WaterMetalAndGloss` red, badwater's `_Contamination_Metallic`), which gives 0.96: the water draws
  *  that where its look draws the game's light on it (waterPalette.ts WATER_LIGHT.held; fix/water-sky, with the
@@ -517,6 +774,14 @@ export const GAME_LIGHT = {
   ground: [0.2831488, 0.2269659, 0.3712378] as Rgb,
   sun: [1.1, 1.1 * 0.9625, 1.1 * 0.85] as Rgb,
   diffuse: 0.96 - 0.96 * 0.05,
+  /** The objects' diffuse share (D135 as amended 2026-11-09): URP's 0.96 − 0.96 × metallic, metallic 0. The trees and
+   *  bushes are drawn by VegetationURP, whose `_MetallicGlossMap` none of them sets (the shader's default, "black":
+   *  metallic and smoothness 0); the ruins (RuinColumnA–E), the start's marker and the water sources by EnvironmentURP,
+   *  their metallic maps 0 and no ambient occlusion map (`tools/game-model-albedo.py`, its occlusion, metallic and
+   *  smoothness by material). Both programs are URP's lit model as the terrain's (their ForwardLit read with
+   *  `tools/game-water-shader.py --shader "Shader Graphs/VegetationURP"`): the ambient probe by the normal in display
+   *  values and the sun by n·L and its shadow, no wrapped light. */
+  objectDiffuse: 0.96,
 } as const;
 
 /** A colour as a level top in full sun shows it in the game's light (`GAME_LIGHT`: the sky's ambient from above and the
@@ -525,6 +790,12 @@ export function sunlitTop(c: Rgb): Rgb {
   const up = Math.sin(LIGHT.sunElevation);
   const ambient = gameAmbient(1);
   return [0, 1, 2].map((k) => c[k] * GAME_LIGHT.diffuse * (ambient[k] + GAME_LIGHT.sun[k] * up)) as unknown as Rgb;
+}
+
+/** A colour as a model's top in full sun shows it in the game's light: `sunlitTop` by the objects' diffuse share
+ *  (`GAME_LIGHT.objectDiffuse`, materials.ts `gameObjectLight`). The legend's swatches for what stands on the map. */
+export function objectTop(c: Rgb): Rgb {
+  return sunlitTop(c).map((v) => (v * GAME_LIGHT.objectDiffuse) / GAME_LIGHT.diffuse) as unknown as Rgb;
 }
 
 /** Water `depth` levels deep with a badwater share (0–1) as the shipped shaders show it on open water in full sun, before
@@ -606,25 +877,20 @@ export const GAME_AMBIENT_LINEAR = {
   ground: GAME_LIGHT.ground.map(toLinear) as unknown as Rgb,
 } as const;
 
-/** The game's ambient as Unity's ambient probe holds it (D497): irradiance SH. Unity renders the Trilight gradient as an
- *  environment (the equator's colour at the horizon, toward the sky's straight up and the ground's straight down,
- *  blended in linear values by the direction's height), projects it to L2 spherical harmonics and bakes in the clamped
- *  cosine's convolution (A0 = π, A1 = 2π/3, A2 = π/4), so URP's SampleSH returns the diffuse light by the normal. The
- *  gradient depends on the height alone, so only the zonal terms remain: by the normal's height y, in linear values,
- *  `E(y) = c0 + c1 y + c2 (3y² − 1)` (the integrals of the gradient against P0, P1, P2 over [−1, 1], each times
- *  (2l + 1) / 2 and its A_l / π). The engine's own projection is not in the game's files; a frame capture of the SH the
- *  game uploads (unity_SHAr..SHC) is still to check it, fix forward. */
+/** The game's ambient as Unity's ambient probe holds it (D497), captured from the running game (DGM Probe 0.3.3,
+ *  `RenderSettings.ambientProbe`, run 20261109-2110-smoke; investigation/notes/game-ambient-probe.md). The engine makes
+ *  the probe of a Trilight from its three colours in linear values (sRGB decoded), and the probe it holds is the light
+ *  itself: `SphericalHarmonicsL2.Evaluate` and URP's SampleSH return its polynomial by the normal, which URP turns to
+ *  display values under Gamma. A Trilight's depends on the normal's height y alone:
+ *  `E(y) = c0 + c1 y + c2 (3y² − 1)`, with c0 = (4 equator + sky + ground) / 6, c1 = √6/9 (sky − ground) and
+ *  c2 = 5/96 (sky + ground − 2 equator), exact to 1e-7 on the day's, the sunset's and the night's colours alike. (It is
+ *  not the gradient's projection we had worked out, which lit shade about a tenth darker.) */
 export const GAME_AMBIENT_SH = trilightSH(GAME_AMBIENT_LINEAR.sky, GAME_AMBIENT_LINEAR.equator, GAME_AMBIENT_LINEAR.ground);
 
-/** Any Trilight's irradiance SH (its colours in linear values), as `GAME_AMBIENT_SH` takes the day's; the pixel judge
- *  takes another time of day's with it (tools/game-day-light.ts). */
+/** Any Trilight's ambient probe as the engine makes it (its colours in linear values), as `GAME_AMBIENT_SH` takes the
+ *  day's; the pixel judge takes another time of day's with it (tools/game-day-light.ts). */
 export function trilightSH(sky: Rgb, eq: Rgb, ground: Rgb): { c0: Rgb; c1: Rgb; c2: Rgb } {
-  const c = (k: number) => {
-    const i0 = 2 * eq[k] + (sky[k] - eq[k]) / 2 + (ground[k] - eq[k]) / 2;
-    const i1 = (sky[k] - ground[k]) / 3;
-    const i2 = (sky[k] + ground[k] - 2 * eq[k]) / 8;
-    return [i0 / 2, i1, (5 / 16) * i2];
-  };
+  const c = (k: number) => [(4 * eq[k] + sky[k] + ground[k]) / 6, (Math.sqrt(6) / 9) * (sky[k] - ground[k]), (5 / 96) * (sky[k] + ground[k] - 2 * eq[k])];
   const [r, g, b] = [c(0), c(1), c(2)];
   return { c0: [r[0], g[0], b[0]] as Rgb, c1: [r[1], g[1], b[1]] as Rgb, c2: [r[2], g[2], b[2]] as Rgb };
 }
@@ -741,7 +1007,7 @@ export function legendEntries(mode: GroundMode): LegendEntry[] {
     // badwater as it shows a level deep, its glowing lines round its cells (Q9 P9)
     { swatch: icon(`<path d="M0 9 Q4 5 9 7 T17 4 L24 6 M9 7 L11 15 M17 4 L19 0" stroke="${c(BADWATER_GLOW_COLOUR)}" stroke-width="0.9" fill="none" opacity="0.8"/>`, c(waterShown(1, 1))), label: "Badwater" },
     { swatch: walls, label: "Walls" },
-    { swatch: cssColor(DEAD_TREE), label: "Dead trees" },
+    { swatch: cssColor(objectTop(DEAD_TREE)), label: "Dead trees" },
   ];
 }
 
@@ -751,6 +1017,9 @@ export function objectLegend(): LegendEntry[] {
   const c = cssColor;
   const grass = c(sunlitTop(GROUND.grass));
   const dry = c(sunlitTop(GROUND.dry));
+  // (each model as its top shows in the game's light, as the ground: the game's colours straight, ours at `ownAlbedo`)
+  const o = (x: Rgb) => c(objectTop(x));
+  const own = (x: Rgb) => o(ownAlbedo(x));
   return [
     {
       // clean water turning to badwater as the game turns it (teal-grey, grey, dull red-brown, crimson;
@@ -761,30 +1030,30 @@ export function objectLegend(): LegendEntry[] {
       label: "Mixed water",
     },
     {
-      swatch: icon(`<circle cx="7" cy="8" r="5" fill="${c(LIVING_TREE)}"/><path d="M16 2 L21 14 H11Z" fill="${c(TREE_COLOURS.pine)}"/>`, grass),
+      swatch: icon(`<circle cx="7" cy="8" r="5" fill="${o(LIVING_TREE)}"/><path d="M16 2 L21 14 H11Z" fill="${o(TREE_COLOURS.pine)}"/>`, grass),
       label: "Trees and bushes",
     },
     {
       swatch: icon(
         // the lantern tower: its walled base, the roof, the shaft, the lantern and the cap
-        `<rect x="5" y="11" width="14" height="5" fill="${c(START.stone)}"/><rect x="4" y="10" width="16" height="1.3" fill="${c(START.trim)}"/>` +
-          `<path d="M4.5 10 L8.5 7.5 L15.5 7.5 L19.5 10Z" fill="${c(START.roof)}"/><path d="M9 7.5 L10 3.6 L14 3.6 L15 7.5Z" fill="${c(START.stone)}"/>` +
-          `<rect x="9" y="3" width="6" height="0.9" fill="${c(START.trim)}"/><rect x="10.6" y="1.4" width="2.8" height="1.6" fill="${c(START.dark)}"/><path d="M9.6 1.4 L12 0 L14.4 1.4Z" fill="${c(START.trim)}"/>` +
-          `<rect x="11" y="13" width="2" height="3" fill="${c(START.dark)}"/>`,
+        `<rect x="5" y="11" width="14" height="5" fill="${o(START.stone)}"/><rect x="4" y="10" width="16" height="1.3" fill="${o(START.trim)}"/>` +
+          `<path d="M4.5 10 L8.5 7.5 L15.5 7.5 L19.5 10Z" fill="${o(START.roof)}"/><path d="M9 7.5 L10 3.6 L14 3.6 L15 7.5Z" fill="${o(START.stone)}"/>` +
+          `<rect x="9" y="3" width="6" height="0.9" fill="${o(START.trim)}"/><rect x="10.6" y="1.4" width="2.8" height="1.6" fill="${o(START.dark)}"/><path d="M9.6 1.4 L12 0 L14.4 1.4Z" fill="${o(START.trim)}"/>` +
+          `<rect x="11" y="13" width="2" height="3" fill="${o(START.dark)}"/>`,
         dry,
       ),
       label: "Start",
     },
     {
-      swatch: icon(`<path d="M3 14 L12 3 L21 14Z" fill="${c(SLOPE.ramp)}"/><path d="M3 14 L21 14 L21 15 L3 15Z" fill="${c(SLOPE.side)}"/>`, dry),
+      swatch: icon(`<path d="M3 14 L12 3 L21 14Z" fill="${own(SLOPE.ramp)}"/><path d="M3 14 L21 14 L21 15 L3 15Z" fill="${own(SLOPE.side)}"/>`, dry),
       label: "Slope",
     },
     {
       // a rusty skeleton with beige panels, one askew, its top storey partly there
       swatch: icon(
-        `<rect x="8.3" y="9.6" width="7.4" height="5.6" fill="${c(RUIN.panel)}"/><rect x="9" y="4.4" width="5" height="4.2" fill="${c(RUIN.panel)}" transform="rotate(-9 11.5 6.5)"/>` +
-          `<rect x="7" y="3" width="1.3" height="13" fill="${c(RUIN.rust)}"/><rect x="15.7" y="0.5" width="1.3" height="15.5" fill="${c(RUIN.rust)}"/><rect x="7" y="8.6" width="10" height="1.1" fill="${c(RUIN.rust)}"/>` +
-          `<path d="M8 8.6 L16 1.5" stroke="${c(RUIN.rust)}" stroke-width="0.9"/>`,
+        `<rect x="8.3" y="9.6" width="7.4" height="5.6" fill="${o(RUIN.panel)}"/><rect x="9" y="4.4" width="5" height="4.2" fill="${o(RUIN.panel)}" transform="rotate(-9 11.5 6.5)"/>` +
+          `<rect x="7" y="3" width="1.3" height="13" fill="${o(RUIN.rust)}"/><rect x="15.7" y="0.5" width="1.3" height="15.5" fill="${o(RUIN.rust)}"/><rect x="7" y="8.6" width="10" height="1.1" fill="${o(RUIN.rust)}"/>` +
+          `<path d="M8 8.6 L16 1.5" stroke="${o(RUIN.rust)}" stroke-width="0.9"/>`,
         dry,
       ),
       label: "Ruins",
@@ -792,33 +1061,52 @@ export function objectLegend(): LegendEntry[] {
     {
       // the rusty frame round the footprint, the pit filling it, its corners pale ground, rusty posts round its lip
       swatch: icon(
-        `<rect x="4" y="1" width="16" height="14" fill="${c(MINE.frame)}"/><rect x="5.3" y="2.3" width="13.4" height="11.4" fill="${c(MINE.pit)}"/>` +
-          `<rect x="5.3" y="2.3" width="3" height="3" fill="${c(MINE.wood)}"/><rect x="15.7" y="2.3" width="3" height="3" fill="${c(MINE.wood)}"/><rect x="5.3" y="10.7" width="3" height="3" fill="${c(MINE.wood)}"/><rect x="15.7" y="10.7" width="3" height="3" fill="${c(MINE.wood)}"/>` +
-          `<rect x="8.3" y="2.3" width="7.4" height="0.8" fill="${c(MINE.frame)}"/><rect x="8.3" y="12.9" width="7.4" height="0.8" fill="${c(MINE.frame)}"/><rect x="5.3" y="5.3" width="0.8" height="5.4" fill="${c(MINE.frame)}"/><rect x="17.9" y="5.3" width="0.8" height="5.4" fill="${c(MINE.frame)}"/>`,
+        `<rect x="4" y="1" width="16" height="14" fill="${own(MINE.frame)}"/><rect x="5.3" y="2.3" width="13.4" height="11.4" fill="${own(MINE.pit)}"/>` +
+          `<rect x="5.3" y="2.3" width="3" height="3" fill="${own(MINE.wood)}"/><rect x="15.7" y="2.3" width="3" height="3" fill="${own(MINE.wood)}"/><rect x="5.3" y="10.7" width="3" height="3" fill="${own(MINE.wood)}"/><rect x="15.7" y="10.7" width="3" height="3" fill="${own(MINE.wood)}"/>` +
+          `<rect x="8.3" y="2.3" width="7.4" height="0.8" fill="${own(MINE.frame)}"/><rect x="8.3" y="12.9" width="7.4" height="0.8" fill="${own(MINE.frame)}"/><rect x="5.3" y="5.3" width="0.8" height="5.4" fill="${own(MINE.frame)}"/><rect x="17.9" y="5.3" width="0.8" height="5.4" fill="${own(MINE.frame)}"/>`,
         dry,
       ),
       label: "Mine site",
     },
     {
       // the outcrop of dark rock in the water it gives
-      swatch: icon(`<circle cx="12" cy="8" r="7" fill="${c([0.32, 0.62, 0.95])}"/><path d="M8 11 L9 6 L12 3.5 L15.5 5.5 L16.5 10.5 L13 12.5Z" fill="${c(LANDMARK.rock)}"/><path d="M9 6 L12 3.5 L15.5 5.5 L12 7Z" fill="${c(LANDMARK.rockTop)}"/>`, dry) + `, ${dry}`,
+      swatch: icon(`<circle cx="12" cy="8" r="7" fill="${c([0.32, 0.62, 0.95])}"/><path d="M8 11 L9 6 L12 3.5 L15.5 5.5 L16.5 10.5 L13 12.5Z" fill="${o(LANDMARK.rock)}"/><path d="M9 6 L12 3.5 L15.5 5.5 L12 7Z" fill="${o(LANDMARK.rockTop)}"/>`, dry) + `, ${dry}`,
       label: "Water source",
     },
     {
       // the flat dark crater, darker in its middle, low stones round its rim
-      swatch: icon(`<circle cx="12" cy="8" r="7" fill="${c(LANDMARK.crater)}"/><circle cx="12" cy="8" r="4.5" fill="${c(LANDMARK.craterDeep)}"/><circle cx="12" cy="8" r="2" fill="${c([0.17, 0.155, 0.13])}"/>` +
-        `<circle cx="5.5" cy="6" r="0.9" fill="${c(LANDMARK.craterRim)}"/><circle cx="17.5" cy="11" r="0.9" fill="${c(LANDMARK.craterRim)}"/><circle cx="14" cy="1.6" r="0.8" fill="${c(LANDMARK.craterRim)}"/><circle cx="9" cy="14.3" r="0.8" fill="${c(LANDMARK.craterRim)}"/>`, dry),
+      swatch: icon(`<circle cx="12" cy="8" r="7" fill="${o(LANDMARK.crater)}"/><circle cx="12" cy="8" r="4.5" fill="${o(LANDMARK.craterDeep)}"/><circle cx="12" cy="8" r="2" fill="${o(LANDMARK.craterDeep.map((v) => v * 0.85) as unknown as Rgb)}"/>` +
+        `<circle cx="5.5" cy="6" r="0.9" fill="${o(LANDMARK.craterRim)}"/><circle cx="17.5" cy="11" r="0.9" fill="${o(LANDMARK.craterRim)}"/><circle cx="14" cy="1.6" r="0.8" fill="${o(LANDMARK.craterRim)}"/><circle cx="9" cy="14.3" r="0.8" fill="${o(LANDMARK.craterRim)}"/>`, dry),
       label: "Badwater source",
     },
     {
-      swatch: icon(`<ellipse cx="12" cy="9" rx="10" ry="5" fill="${c(GEOTHERMAL_ROCK)}"/><circle cx="8" cy="8" r="1.6" fill="${c(GEOTHERMAL)}"/><circle cx="15" cy="10" r="1.6" fill="${c(GEOTHERMAL)}"/>`, dry),
+      // the game's crust: a sulphur rim round a dark bowl and its black vent, grey-brown rocks round it
+      swatch: icon(
+        `<ellipse cx="12" cy="9" rx="9" ry="5" fill="${o(GEOTHERMAL.crust[0])}"/><ellipse cx="12" cy="8.6" rx="7" ry="3.8" fill="${o(GEOTHERMAL.crust[3])}"/>` +
+          `<ellipse cx="12" cy="8.4" rx="4.4" ry="2.3" fill="${o(GEOTHERMAL.crust[4])}"/><ellipse cx="12" cy="8.4" rx="1.4" ry="0.8" fill="${o(GEOTHERMAL.vent)}"/>` +
+          `<circle cx="3.6" cy="9.5" r="1.3" fill="${o(GEOTHERMAL.rock[1])}"/><circle cx="20.4" cy="9" r="1.3" fill="${o(GEOTHERMAL.rock[0])}"/><circle cx="8" cy="13.6" r="1.2" fill="${o(GEOTHERMAL.rock[2])}"/><circle cx="16.5" cy="13.4" r="1.2" fill="${o(GEOTHERMAL.rock[1])}"/>`,
+        dry,
+      ),
       label: "Geothermal field",
     },
     {
-      swatch: icon(`<rect x="3" y="11" width="18" height="3" fill="${c(RELIC_STONE)}"/><rect x="6" y="3" width="3" height="8" fill="${c(RELIC_STONE)}"/><rect x="14" y="6" width="3" height="5" fill="${c(RELIC_STONE)}"/>`, dry),
+      // the small relic, the game's fallen telescope: its narrow and wide tubes pale, its collars and lens dark steel
+      swatch: icon(
+        `<g transform="rotate(-18 12 9)"><rect x="3" y="7.6" width="8" height="2.8" fill="${o(SMALL_RELIC.tube)}"/><rect x="11" y="6.6" width="8" height="4.8" fill="${o(SMALL_RELIC.tube)}"/>` +
+          `<rect x="2.2" y="7.2" width="1.4" height="3.6" fill="${o(SMALL_RELIC.collar)}"/><rect x="10.2" y="6.4" width="1.6" height="5.2" fill="${o(SMALL_RELIC.collar)}"/><rect x="18.6" y="5.6" width="2" height="6.8" fill="${o(SMALL_RELIC.collar)}"/></g>`,
+        dry,
+      ),
       label: "Relic",
     },
-    { swatch: icon(`<path d="M4 13 L7 5 L9 12 L12 3 L14 12 L17 6 L20 13Z" fill="${c(THORNS)}"/>`, dry), label: "Thorns" },
+    {
+      // the game's spikes, dark paling to their points, among paler twigs
+      swatch: icon(
+        `<path d="M3 13 L6 9 M8 12 L5 5 M16 12 L20 6 M18 13 L21 10" stroke="${o(THORNS.twig)}" stroke-width="1"/>` +
+          `<path d="M4 13 L7 5 L9 12 L12 3 L14 12 L17 6 L20 13Z" fill="${o(THORNS.foot)}"/><path d="M6.3 7 L7 5 L7.7 7Z M11.2 5.5 L12 3 L12.8 5.5Z M16.3 8 L17 6 L17.7 8Z" fill="${o(THORNS.point)}"/>`,
+        dry,
+      ),
+      label: "Thorns",
+    },
     { swatch: icon(`<circle cx="9" cy="10" r="4" fill="#858380"/><circle cx="15" cy="11" r="3.5" fill="#6f6d6a"/><circle cx="12" cy="6" r="3" fill="#9a9894"/>`, dry), label: "Blockage" },
     { swatch: icon(`<rect x="7" y="4" width="10" height="9" fill="#858380"/>`, dry), label: "Other objects" },
     // the information layer

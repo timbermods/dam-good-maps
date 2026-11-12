@@ -2,6 +2,7 @@
 
 import type { Remote } from "comlink";
 import type { EditOp } from "../../core/doc/ops";
+import type { EditQueue } from "../../core/doc/editQueue";
 import type { GeneratorApi } from "../../worker/generator.worker";
 import type { CheckItem, SessionInfo } from "../../worker/session";
 import type { StartCheck } from "../features";
@@ -32,10 +33,13 @@ declare global {
       edit(op: EditOp, label: string): Promise<void>;
       /** The worker, for timing its answers (tests/e2e/preview.spec.ts). */
       worker: Remote<GeneratorApi>;
-      /** Strokes whose painted terrain differed from the worker's build (0 when all is well). */
+      /** Answers whose heights differed from the land the page had shown: a stroke guessed wrong (the edit queue's
+       *  `landMispredictions`; 0 when all is well). */
       strokeMismatches(): number;
-      /** Strokes, undos and redos on their way to the worker. */
+      /** Tickets in the edit queue not yet ended: strokes, edits, undos, redos and jumps on their way to the worker. */
       pendingTerrain(): number;
+      /** The edit queue (core/doc/editQueue.ts). */
+      edits(): EditQueue;
       /** The carve at work (D199), or null. */
       carve(): ForceStatus | null;
       /** Any force at work (D202, D203, D206), or null. */
@@ -46,8 +50,9 @@ declare global {
       lastStroke(): BrushParams | null;
       /** "The start fits here" after a Flatten stroke (D204), and how long its search took. */
       startHint(): { x: number; y: number; strong: boolean; ms: number } | null;
-      /** The editor's sounds (D226): the recorded bank ready, and recordings sounding now (a stopped sound's not counted). */
-      sound(): { ready: boolean; playing: number } | null;
+      /** The editor's sounds (D226): the recorded bank ready, recordings sounding now (a stopped sound's not counted), and
+       *  accents begun since the page opened. */
+      sound(): { ready: boolean; playing: number; started: number } | null;
       /** What the force picked draws (D258): the stroke being painted (its tiles), the cursor's tile,
        *  and Aim's arrow (from a tile to the pointer), each null when not shown; and the side of a
        *  fault that moves (1 its left, -1 its right: V flips it, D289). */

@@ -9,12 +9,18 @@
 // one finished one, and keeping it orders the gesture. Try another is not available in a session (a force that replaces another is
 // not an entry kind, core/collab README).
 
+import type { BadwaterLetIn } from "../core/water/badwaterLetIn";
 import type { Command, ForceGesture, SubmitResult } from "../core/collab";
 import type { EditOp, OpOrigin } from "../core/doc/ops";
 import type { PaintParams } from "../core/doc/paintParams";
+import type { RuinLineParams } from "../core/doc/ruinLine";
 import type { ForceCue } from "../core/forces/runs";
 import type { Verb } from "../core/forces/op";
 import { EVERY_KIND } from "../core/doc/remove";
+import { lakeLevelLabel } from "../core/doc/lakeLevel";
+import { canalLabel } from "../core/doc/canal";
+import { drawnLakeLabel } from "../core/doc/lake";
+import { ridgeLabel, type RidgeSteep } from "../core/doc/ridge";
 import { collabApi } from "./collab";
 import * as ed from "./session";
 
@@ -73,6 +79,13 @@ export const collabEditApi = {
     return { ...a, planted: a.ok && p.ok ? p.plan.map((o) => o.tile) : [] };
   },
 
+  /** A ruin line from the shelf: the core's plan, ordered as one step. */
+  async ruinLineAt(params: RuinLineParams): Promise<Answer & { planted: number[] }> {
+    const p = ed.planned.ruinLine(params);
+    const a = await edit(p);
+    return { ...a, planted: a.ok && p.ok ? p.piers.map((q) => q.tile) : [] };
+  },
+
   /** Remove unfed water within `tiles` (the whole map with none): one step, or why nothing was removed. */
   removeUnfedWater(tiles: number[] | null): Promise<Answer> {
     const op = ed.planned.unfedWater(tiles);
@@ -85,6 +98,34 @@ export const collabEditApi = {
     const p = ed.planned.fill(x, y, level);
     if (!p.op) return Promise.resolve(ed.collabAnswer(false, [p.reason ?? "nothing to fill"]));
     return order({ kind: "edit", ops: [p.op], label: p.op.op });
+  },
+
+  /** Set the lake at (x, y) to `level`, its sill cut down or raised: one step as a Select action (the start carried if
+   *  its ground broke), or the plain reason the land can't hold it there. */
+  lakeLevelAt(x: number, y: number, level: number, width?: number): Promise<Answer> {
+    const p = ed.planned.lakeLevel(x, y, level, width);
+    if (!p.op) return Promise.resolve(ed.collabAnswer(false, [p.reason ?? "the lake's level can't be set"]));
+    return order({ kind: "select", ops: [p.op], label: lakeLevelLabel(p.op.params) });
+  },
+
+  /** Make a canal along `path`: one step as a Select action, or the plain reason it can't be made. */
+  canalAt(path: [number, number][], width: number, depth: number, open: boolean): Promise<Answer> {
+    const p = ed.planned.canal(path, width, depth, open);
+    if (!p.op) return Promise.resolve(ed.collabAnswer(false, [p.reason ?? "the canal can't be made"]));
+    return order({ kind: "select", ops: [p.op], label: canalLabel(p.op.params) });
+  },
+
+  /** Dig a lake inside `outline`: one step as a Select action, or the plain reason it can't be made. */
+  lakeAt(outline: [number, number][], level: number, depth: number, spill: [number, number] | null): Promise<Answer> {
+    const p = ed.planned.lake(outline, level, depth, spill);
+    if (!p.op) return Promise.resolve(ed.collabAnswer(false, [p.reason ?? "the lake can't be made"]));
+    return order({ kind: "select", ops: [p.op], label: drawnLakeLabel(p.op.params) });
+  },
+  /** Raise a ridge along `path`: one step as a Select action, or the plain reason it can't be raised. */
+  ridgeAt(path: [number, number][], height: number, width: number, steep: RidgeSteep, seed: number): Promise<Answer> {
+    const p = ed.planned.ridge(path, height, width, steep, seed);
+    if (!p.op) return Promise.resolve(ed.collabAnswer(false, [p.reason ?? "the ridge can't be raised"]));
+    return order({ kind: "select", ops: [p.op], label: ridgeLabel(p.op.params) });
   },
 
   async removeAt(tiles: readonly number[], kinds: readonly ed.RemoveKind[], label?: string, cut?: number | null): Promise<Answer & { removed: number[] }> {
@@ -167,7 +208,7 @@ export const collabEditApi = {
     return finishedFrame(f.request);
   },
 
-  async forceStop(gesture?: number): Promise<Answer & { kept: boolean; sourcesRemoved?: number }> {
+  async forceStop(gesture?: number): Promise<Answer & { kept: boolean; sourcesRemoved?: number; badwater?: BadwaterLetIn }> {
     const f = routedForce;
     if (!f || (gesture !== undefined && f.gesture !== gesture)) return { ...ed.collabAnswer(false, ["There is no force at work"]), kept: false };
     routedForce = null;

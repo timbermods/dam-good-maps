@@ -22,7 +22,7 @@ const EVERY_TOOL = [["2", "Raise"], ["3", "Lower"], ["4", "Flatten"], ["5", "Smo
 
 const SIZES: [number, number][] = [[1920, 1080], [2560, 1440]];
 /** The Show toggles: each on, nothing moves. */
-const TOGGLES = ["Heights", "Lines", "Markers", "Flow", "See-through", "Badwater"];
+const TOGGLES = ["Heights", "Lines", "Markers", "Flow", "See-through", "Badwater", "Irrigation"];
 /** The map generator's one width at both sizes (Kyler, 2026-10-04). */
 const PANEL = 640;
 /** The page's margin round the map's edges. */
@@ -142,7 +142,7 @@ async function onTheCells(page: Page, state: string) {
   // nothing cut off (Kyler, 2026-10-04): every name in full beside its longest value and its Auto, every option and
   // button its whole word (the values put back as they were afterwards)
   const cut = await page.evaluate(() => {
-    const LONGEST: Record<string, string> = { Wander: "Meandering", Level: "Ground", "River depth": "Off", Banks: "None", Size: "180", Power: "100" };
+    const LONGEST: Record<string, string> = { Wander: "Meandering", Level: "Ground", "River depth": "Off", Banks: "10", Fall: "Edges", Size: "180", Power: "100" };
     const out: string[] = [];
     for (const set of document.querySelectorAll(".tool-settings .set")) {
       const label = set.querySelector(".set-label");

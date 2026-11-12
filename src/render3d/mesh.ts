@@ -15,9 +15,10 @@
 //
 // Each tile emits its own faces, so a chunk depends only on its tiles and their neighbours' columns:
 // a terrain edit remeshes the chunks within one tile of the changed rectangle (`dirtyChunks`). A
-// mine site's or seep's pit leaves its tiles' tops out (`cutout`), as the game hides the terrain under an
-// object's cutout; the object's model draws the pit's walls and floor in the hole. Nothing else
-// changes: the voxels, every wall and every other top stay, so the hole is only where the pit is.
+// mine site's or seep's pit, and a geothermal field's middle, leaves its tiles' tops out (`cutout`), as the game hides
+// the terrain under an object's cutout; the object's model draws the pit's walls and floor (the field's crust and vent)
+// in the hole; under a layer cut at the object's level or below, the object cut away, the tops come back (entities3d.ts
+// `cutoutUnder`). Nothing else changes: the voxels, every wall and every other top stay, so the hole is only where the pit is.
 //
 // The light under roofs reads the same columns (caveLight.ts); under a layer cut the shaders fold these
 // meshes onto the cut and open it over air (cutaway.ts), so the mesh never depends on the level shown.
@@ -43,9 +44,10 @@ export interface TerrainSource {
    *  tile), what `columnMask` looks a column up in; absent on a map without terrain above terrain (every
    *  column is its height) and on a source made by hand (worked out from `columns` at each look). */
   masks?: Uint32Array;
-  /** Tile index → a level whose top face is not drawn: a mine site's or a seep's pit, whose model draws the
-   *  pit's walls and floor instead (as the game hides the terrain's top under an object's cutout).
-   *  Only the top at exactly that level is left out; the voxels and every wall stay. */
+  /** Tile index → a level whose top face is not drawn: a mine site's or a seep's pit, or a geothermal field's middle,
+   *  whose model draws the pit's walls and floor (the field's crust and vent) instead (as the game hides the terrain's top under an object's cutout).
+   *  Only the top at exactly that level is left out; the voxels and every wall stay. Under a layer cut, only where the
+   *  cut leaves the object whole (entities3d.ts `cutoutUnder`). */
   cutout?: ReadonlyMap<number, number>;
 }
 

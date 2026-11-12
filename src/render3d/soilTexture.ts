@@ -8,10 +8,10 @@
 // One RGBA texture, `SOIL_TEXTURE_SIZE` square, one repeat `CONTAMINATION.repeat` tiles across (as the game's): RGB the
 // pattern's colour (a dark rust in the cracks, the game's own darker brown between them, which its mips average in),
 // A how much of it covers the ground (1 in a crack, 0 between, a soft edge a texel or two wide). Pure TypeScript, no
-// three.js: made once a page in the renderer's bake worker, with the water's textures; the ground takes the pattern's
+// three.js: made once a page with the water's textures, in their own worker; the ground takes the pattern's
 // mean until then (materials.ts `soilPatternTexture`).
 
-import { cellPoints, hash, lattice, valueNoise, voronoi } from "./waterTextures";
+import { cellPoints, hash, lattice, noiseRows, voronoi } from "./waterTextures";
 
 /** The game's pattern as `tools/game-water-shader.py --soil` measures it (Timberborn 1.1.2.8-ffc2de0-sw,
  *  `SoilContamination`, 1024², BC7, read raw: the game renders in Gamma colour space, so these are what its shader
@@ -69,52 +69,83 @@ export function makeSoilTexture(size: number): Uint8Array {
   const tiles = 4;
   const pts = cellPoints(P.cells, 211);
   const fine = cellPoints(P.fineCells, 223);
-  const warpX = lattice(P.warpCells, 231);
-  const warpY = lattice(P.warpCells, 232);
-  const wobX = lattice(P.wobbleCells, 233);
-  const wobY = lattice(P.wobbleCells, 234);
-  const keep = lattice(6, 235);
-  const widths = lattice(P.widthNoise, 236);
-  const tone = lattice(P.colourCells, 237);
+  // (the noises at the texels' middles, a row at a time)
+  const warpX = noiseRows(lattice(P.warpCells, 231), size);
+  const warpY = noiseRows(lattice(P.warpCells, 232), size);
+  const wobX = noiseRows(lattice(P.wobbleCells, 233), size);
+  const wobY = noiseRows(lattice(P.wobbleCells, 234), size);
+  const keep = noiseRows(lattice(6, 235), size);
+  const widths = noiseRows(lattice(P.widthNoise, 236), size);
+  const tone = noiseRows(lattice(P.colourCells, 237), size);
   const v = new Float64Array(3);
   // each texel's distance to the nearest crack's middle over that crack's width (in tiles), before the widening
   const ratio = new Float64Array(n);
   const width = new Float64Array(n);
-  for (let y = 0; y < size; y++)
+  for (let y = 0; y < size; y++) {
+    const [warpXs, warpYs, wobXs, wobYs, keepAt, widthsAt] = [warpX(y), warpY(y), wobX(y), wobY(y), keep(y), widths(y)];
     for (let x = 0; x < size; x++) {
       const u0 = (x + 0.5) / size;
       const w0 = (y + 0.5) / size;
-      const u = u0 + ((valueNoise(warpX, u0, w0) - 0.5) * P.warp + (valueNoise(wobX, u0, w0) - 0.5) * P.wobble) / P.cells;
-      const w = w0 + ((valueNoise(warpY, u0, w0) - 0.5) * P.warp + (valueNoise(wobY, u0, w0) - 0.5) * P.wobble) / P.cells;
+      const u = u0 + ((warpXs[x] - 0.5) * P.warp + (wobXs[x] - 0.5) * P.wobble) / P.cells;
+      const w = w0 + ((warpYs[x] - 0.5) * P.warp + (wobYs[x] - 0.5) * P.wobble) / P.cells;
       const uw = u - Math.floor(u);
       const ww = w - Math.floor(w);
-      const hw = P.widthRange[0] + (P.widthRange[1] - P.widthRange[0]) * valueNoise(widths, u0, w0);
+      const hw = P.widthRange[0] + (P.widthRange[1] - P.widthRange[0]) * widthsAt[x];
       // (an edge's distance from its middle, in tiles: half the gap between the nearest two points, in cells, × the cell)
       voronoi(uw * P.cells, ww * P.cells, P.cells, pts, v);
       const main = (((v[1] - v[0]) / 2) * tiles) / P.cells / hw;
       voronoi(uw * P.fineCells, ww * P.fineCells, P.fineCells, fine, v);
-      const kept = valueNoise(keep, u0, w0) > P.fineFrom;
+      const kept = keepAt[x] > P.fineFrom;
       const branch = kept ? (((v[1] - v[0]) / 2) * tiles) / P.fineCells / (hw * P.fineWidth) : Infinity;
       const i = y * size + x;
       ratio[i] = Math.min(main, branch);
       width[i] = main <= branch ? hw : hw * P.fineWidth;
     }
+  }
   // widened until the share of texels inside a crack is the game's
-  const sorted = Float64Array.from(ratio).sort();
-  const k = sorted[Math.min(n - 1, Math.floor(G.cover * n))];
+  const k = nthSmallest(Float64Array.from(ratio), Math.min(n - 1, Math.floor(G.cover * n)));
   const data = new Uint8Array(n * 4);
-  for (let y = 0; y < size; y++)
+  for (let y = 0; y < size; y++) {
+    const toneAt = tone(y);
     for (let x = 0; x < size; x++) {
       const i = y * size + x;
       // (the signed distance to the crack's edge, in tiles: inside below 0)
       const edge = (ratio[i] - k) * width[i];
       const a = Math.min(1, Math.max(0, 0.5 - edge / P.softTiles));
-      const z = Math.max(-2.2, Math.min(2.2, (valueNoise(tone, (x + 0.5) / size, (y + 0.5) / size) - 0.5) / 0.17 + (hash(x, y, 239) - 0.5) * 0.6));
+      const z = Math.max(-2.2, Math.min(2.2, (toneAt[x] - 0.5) / 0.17 + (hash(x, y, 239) - 0.5) * 0.6));
       for (let c = 0; c < 3; c++) {
         const inCrack = G.vein[c] + G.veinSpread[c] * z;
         data[i * 4 + c] = Math.round(Math.min(255, Math.max(0, G.between[c] + (inCrack - G.between[c]) * a)));
       }
       data[i * 4 + 3] = Math.round(a * 255);
     }
+  }
   return data;
+}
+
+/** The `k`th smallest of `v` (0-based; as a sorted copy's `k`th, without sorting it all): Hoare's selection, `v`
+ *  reordered in place. */
+export function nthSmallest(v: Float64Array, k: number): number {
+  let lo = 0;
+  let hi = v.length - 1;
+  while (lo < hi) {
+    const pivot = v[(lo + hi) >> 1];
+    let i = lo;
+    let j = hi;
+    while (i <= j) {
+      while (v[i] < pivot) i++;
+      while (v[j] > pivot) j--;
+      if (i <= j) {
+        const t = v[i];
+        v[i] = v[j];
+        v[j] = t;
+        i++;
+        j--;
+      }
+    }
+    if (k <= j) hi = j;
+    else if (k >= i) lo = i;
+    else return v[k];
+  }
+  return v[k];
 }

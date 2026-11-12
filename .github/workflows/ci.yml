@@ -12,7 +12,10 @@ on:
 # What runs, by event (Kyler, 2026-10-15: a change merges once it is reviewed and its quick checks pass; the slow
 # suites run after it is in, on dev's tip):
 #   pull request into dev    the quick checks: `changes` and `test` (typecheck, quick suite in two shards, build). The
-#                            browser shards and the heavier suites wait for the merge. Not while a PR is a draft: marking
+#                            browser shards and the heavier suites wait for the merge, except the `page` job (below), which runs
+#                            before it when the PR touches the page, and the browser shards themselves when the PR can change
+#                            what the generator makes (`generator`, tools/ci-changes.mjs `isGenerator`: any file generate()
+#                            imports, walked at the PR's head each run, no list to keep). Not while a PR is a draft: marking
 #                            it ready runs CI. A newer push cancels the run. One that touches only investigation/
 #                            (Codex's investigation PRs) runs `changes` alone.
 #   push to dev (a merge)    the suites the change needs, classified like a merge group (below), browser shards included:
@@ -30,7 +33,7 @@ concurrency:
   group: ci-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' && github.base_ref == 'dev' }}
 
-# Jobs run side by side: the tests (typecheck and the quick suite), the browser tests in eight shards, the
+# Jobs run side by side: the tests (typecheck and the quick suite), the browser tests in fifteen shards, the
 # Python oracle, generation, and the cross-engine determinism check with the Rust build. They fail only on
 # breakage. The heaviest checks run nightly (nightly.yml): the long property runs, the full oracle and the
 # 100-seed batches.
@@ -60,6 +63,8 @@ jobs:
       suites: ${{ steps.which.outputs.suites }}
       rust: ${{ steps.which.outputs.rust }}
       test: ${{ steps.which.outputs.test }}
+      page: ${{ steps.which.outputs.page }}
+      generator: ${{ steps.which.outputs.generator }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -131,23 +136,38 @@ jobs:
         if: matrix.shard == 1
         run: npm run build
 
-  # The browser specs run as parallel shards, each on its own runner with its own build (Playwright builds
-  # the app itself, twice, in its web server). Every spec runs in exactly one shard (`--shard=i/N`); the
-  # split is by test count in file order (a file in parallel mode splits by test), so the same workflow suits any
-  # branch. Raising the shard count is the fix if a branch's specs outgrow the 30 minutes a job gets, never a longer
-  # limit; the slowest specs (layout, look-high, textClipping) run in parallel mode so no shard holds them all on one
-  # worker. (Seven since 2026-10-27: with six, the shard holding layout and look-high ran past its 30 minutes twice.)
-  browser:
+  # The page check, before the merge (2026-11-10): a pull request into dev that touches src/editor/, src/ui/, src/render3d/ or
+  # src/styles/ (`page` from tools/ci-changes.mjs, light mode only) runs the specs that catch a page's layout faults, on the
+  # same steps as a browser shard (one worker each, a build each, about a minute before the first test): the clipping net in
+  # full (textClipping: five widths, light and dark, 50 tests, about 33 minutes of tests on one worker, so ten shards of five
+  # tests, the slowest about 5.3 minutes) and, in three shards, the layout spec and the specs that pin the page's rows, menus,
+  # panels, tooltips and key caps (about 10 minutes of tests; the slowest shard 4 minutes). Each job is about six minutes.
+  # Times from dev's run 42961949825. A shard is a contiguous run of tests (--shard splits by count, in file order), so a
+  # new test or a new width may move the slowest one; rebalance the numbers then. Any other pull request skips the job, and so
+  # does every other event: dev's tip still runs all the browser specs. A PR that touches the page merges only when it is green.
+  page:
     needs: changes
-    # (not on a pull request into dev: the browser specs run on dev's tip once it merges)
-    if: needs.changes.outputs.heavy == 'true' && !(github.event_name == 'pull_request' && github.base_ref == 'dev')
-    name: browser (${{ matrix.shard }}/8)
+    if: needs.changes.outputs.page == 'true' && github.event_name == 'pull_request' && github.base_ref == 'dev'
+    name: page (${{ matrix.group }} ${{ matrix.shard }}/${{ matrix.of }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        include:
+          - { group: clipping, shard: 1, of: 10, specs: tests/e2e/textClipping.spec.ts }
+          - { group: clipping, shard: 2, of: 10, specs: tests/e2e/textClipping.spec.ts }
+          - { group: clipping, shard: 3, of: 10, specs: tests/e2e/textClipping.spec.ts }
+          - { group: clipping, shard: 4, of: 10, specs: tests/e2e/textClipping.spec.ts }
+          - { group: clipping, shard: 5, of: 10, specs: tests/e2e/textClipping.spec.ts }
+          - { group: clipping, shard: 6, of: 10, specs: tests/e2e/textClipping.spec.ts }
+          - { group: clipping, shard: 7, of: 10, specs: tests/e2e/textClipping.spec.ts }
+          - { group: clipping, shard: 8, of: 10, specs: tests/e2e/textClipping.spec.ts }
+          - { group: clipping, shard: 9, of: 10, specs: tests/e2e/textClipping.spec.ts }
+          - { group: clipping, shard: 10, of: 10, specs: tests/e2e/textClipping.spec.ts }
+          - { group: layout and rows, shard: 1, of: 3, specs: "tests/e2e/layout.spec.ts tests/e2e/tooltips.spec.ts tests/e2e/selectRow.spec.ts tests/e2e/notes.spec.ts tests/e2e/sizes.spec.ts tests/e2e/viewAndHeader.spec.ts tests/e2e/polishLabels.spec.ts tests/e2e/frameInsets.spec.ts tests/e2e/help.spec.ts" }
+          - { group: layout and rows, shard: 2, of: 3, specs: "tests/e2e/layout.spec.ts tests/e2e/tooltips.spec.ts tests/e2e/selectRow.spec.ts tests/e2e/notes.spec.ts tests/e2e/sizes.spec.ts tests/e2e/viewAndHeader.spec.ts tests/e2e/polishLabels.spec.ts tests/e2e/frameInsets.spec.ts tests/e2e/help.spec.ts" }
+          - { group: layout and rows, shard: 3, of: 3, specs: "tests/e2e/layout.spec.ts tests/e2e/tooltips.spec.ts tests/e2e/selectRow.spec.ts tests/e2e/notes.spec.ts tests/e2e/sizes.spec.ts tests/e2e/viewAndHeader.spec.ts tests/e2e/polishLabels.spec.ts tests/e2e/frameInsets.spec.ts tests/e2e/help.spec.ts" }
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -158,8 +178,51 @@ jobs:
       - uses: ./.github/actions/playwright
         with:
           browsers: chromium
-      - name: Browser tests, shard ${{ matrix.shard }} of 8 (Node and Chromium produce the same bytes)
-        run: npx playwright test --shard=${{ matrix.shard }}/8
+      - name: Page specs (${{ matrix.group }}), shard ${{ matrix.shard }} of ${{ matrix.of }}
+        run: npx playwright test --shard=${{ matrix.shard }}/${{ matrix.of }} ${{ matrix.specs }}
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report-page-${{ matrix.group == 'clipping' && 'clipping' || 'rows' }}-${{ matrix.shard }}
+          path: playwright-report/
+          retention-days: 7
+
+  # The browser specs run as parallel shards, each on its own runner with its own build (Playwright builds
+  # the app itself, twice, in its web server), one worker to a runner (playwright.config.ts). Every spec runs in exactly
+  # one shard (`--shard=i/N`); the split is by test count in file order (a file in parallel mode, as layout and
+  # textClipping are, splits by test), so the same workflow suits any branch. Raising the shard count is the fix if a
+  # branch's specs outgrow the 30 minutes a job gets, never a longer limit or a second worker.
+  # One worker since 2026-11-09: with two, each spec drawing in software on the runner's four cores, whichever spec lost
+  # the cores ran two to three times slower and went red (dev's runs 42592717654, look-high.spec.ts:77 at 3.1 min past
+  # its 180 s beside naturalizeWorker; 42599783087, editGlow.spec.ts:236 past a 5 s wait beside forces and forceKeys).
+  # Fifteen shards, measured on those two runs: each test's smaller time of the two, which is no less than its time on a
+  # runner to itself, summed by `--list --shard=i/N`, gives the slowest shard 27 minutes of tests at fifteen (31 at
+  # twelve to fourteen, past the 30 with the build). Alone, look-high took 0.44 of its time beside a neighbour; at 0.6
+  # the slowest shard is about 16 minutes of tests, 18 to 20 a job. (Seven shards from 2026-10-27, eight from 2026-11-09, #893, each with two workers.)
+  browser:
+    needs: changes
+    # (not on a pull request into dev: the browser specs run on dev's tip once it merges; except one that can change what
+    # the generator makes, `generator` from tools/ci-changes.mjs, which runs them before the merge, as a page PR runs `page`)
+    if: needs.changes.outputs.heavy == 'true' && (!(github.event_name == 'pull_request' && github.base_ref == 'dev') || needs.changes.outputs.generator == 'true')
+    name: browser (${{ matrix.shard }}/15)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: ./.github/actions/playwright
+        with:
+          browsers: chromium
+      - name: Browser tests, shard ${{ matrix.shard }} of 15 (Node and Chromium produce the same bytes)
+        run: npx playwright test --shard=${{ matrix.shard }}/15
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

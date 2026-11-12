@@ -130,6 +130,18 @@ export function touchesOf(ops: readonly EditOp[], before: MapState, after: MapSt
         whole();
         keys.add("lakes");
         break;
+      case "canal":
+      case "lake":
+      case "ridge":
+      case "setLakeLevel": {
+        // (the sill's tiles are written; the basin and the way out it measured are read map-wide, as a Fill's hollow)
+        const here = new Mask(N);
+        runs(here, op.params.cells);
+        intent.union(here);
+        whole();
+        keys.add("lakes");
+        break;
+      }
       case "addFeature":
       case "updateFeature":
       case "deleteFeature":

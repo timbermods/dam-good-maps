@@ -8,6 +8,10 @@
 //   npm --prefix investigation/probe run batch -- --compare-only RUN_ID --compare-to NAME
 //       (the run's results judged again, written to results\NAME and sheet\NAME.html; the run's own
 //       folders untouched, and refused if this checkout builds other maps than the ones played)
+//   npm --prefix investigation/probe run batch -- <map.timber|project.damgoodmaps> --captures [--angles "id@x,y[,heading[,pitch[,distance]]];…"]
+//       [--out <folder>] [--no-sheet]   (the in-game capture kit, runner/captures.ts: the map seen in the game on day 1 and on
+//       the first drought's and badtide's worst days, its captures and a contact sheet beside our renderer's view in a
+//       local folder, `ingame/` beside the map by default; never committed)
 //   npm --prefix investigation/probe run batch -- --restore-only
 //   npm --prefix investigation/probe run batch -- --backup-settings   (a copy of the game's settings, kept by hand)
 //   Steps, when the runner itself runs in a sandbox that cannot see the real settings:
@@ -18,10 +22,11 @@
 // and a one-time code; Kyler's yes is needed for every launch (runner/consent.ts).
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { buildMod } from './build-mod';
 import { type CompanionLaunch, companionInstalled, companionSummary, installCompanion, removeCompanion, runCompanion, variantsFrom, writeCompanionReport } from './companion';
 import { catalog, type GameDef, gameIdsFor, type GivenOptions } from './catalog';
+import { defaultCapturesDir, parseAngles, writeCaptures } from './captures';
 import { evaluate, type GameVerdicts, Loaded } from './compare';
 import { cycleTable } from './cycles';
 import { askInTerminal, consumeConsent, describe, requestConsent } from './consent';
@@ -30,7 +35,7 @@ import { makeJob, prepare, type Prepared, summary } from './jobs';
 import { type LaunchLog, resultsDir, runJob } from './launch';
 import { runModel, type ModelRun } from './model';
 import { prefsValueName, probeAndCompanionOnly, probeOnly } from './mods';
-import { CACHE, CHECKED_GAME_VERSION, companionInstallDir, gameVersion, isEntry, modInstallDir, probePaths, REGISTRY_KEY } from './paths';
+import { CACHE, CHECKED_GAME_VERSION, companionInstallDir, gameVersion, isEntry, modInstallDir, probePaths, REGISTRY_KEY, REPO } from './paths';
 import { waitQuiet } from './quiet';
 import { backupSettings, compareWithBackup, handRestore, hasPendingRestore, isGameRunning, leftovers, marker, parseRegFile, registryValues, restore, type SettingsDiff, takeSnapshot } from './safety';
 import { writeSheet } from './sheet';
@@ -60,6 +65,8 @@ interface Plan {
   companion?: { variants: string[] };
   /** The maps the runner wrote for this plan with their groups' writers (writers.ts). */
   written?: ReturnType<typeof writtenForPlan>;
+  /** The capture kit (`--captures`): each given map's captures folder (by its .timber's path), and the sheet's step. */
+  captures?: { out: Record<string, string>; sheet: boolean };
 }
 
 function selectGames(plan: Plan): GameDef[] {
@@ -88,15 +95,36 @@ function givenFromArgs(): GivenOptions | undefined {
   const cycles = cyclesArg === undefined ? undefined : Number(cyclesArg);
   if (cycles !== undefined && !(Number.isInteger(cycles) && cycles >= 1 && cycles <= 30)) throw new Error(`--cycles needs a whole number of cycles from 1 to 30, not "${cyclesArg ?? ''}"`);
   if (cycles !== undefined && flag('badtide')) throw new Error('--cycles plays its own weather (badtides included): leave out --badtide');
-  if (!factions?.length && !flag('badtide') && cycles === undefined) return undefined;
-  return { ...(factions?.length ? { factions: [...new Set(factions)] } : {}), ...(flag('badtide') ? { badtide: true } : {}), ...(cycles !== undefined ? { cycles } : {}) };
+  if (flag('captures') && (flag('badtide') || cycles !== undefined)) throw new Error('--captures plays its own weather (the first drought and badtide): leave out --badtide and --cycles');
+  if (!flag('captures') && opt('angles')) throw new Error("--angles chooses the capture kit's angles: add --captures");
+  const captures = flag('captures') ? { ...(opt('angles') ? { angles: parseAngles(opt('angles')!) } : {}) } : undefined;
+  if (!factions?.length && !flag('badtide') && cycles === undefined && !captures) return undefined;
+  return { ...(factions?.length ? { factions: [...new Set(factions)] } : {}), ...(flag('badtide') ? { badtide: true } : {}), ...(cycles !== undefined ? { cycles } : {}), ...(captures ? { captures } : {}) };
 }
 
 function planFromArgs(): Plan {
-  const valued = new Set(['--only', '--group', '--confirmed-launch', '--run-id', '--speed', '--compare-only', '--compare-to', '--days', '--companion-variants', '--factions', '--cycles']);
+  const valued = new Set(['--only', '--group', '--confirmed-launch', '--run-id', '--speed', '--compare-only', '--compare-to', '--days', '--companion-variants', '--factions', '--cycles', '--angles', '--out', '--reference']);
   // npm --prefix runs the script in investigation/probe; paths are meant from where the command was typed
-  const extraMaps = argv.filter((a, i) => a.toLowerCase().endsWith('.timber') && !valued.has(argv[i - 1])).map((a) => resolve(process.env.INIT_CWD ?? process.cwd(), a));
+  const here = (a: string) => resolve(process.env.INIT_CWD ?? process.cwd(), a);
+  const named = argv.filter((a, i) => /\.(timber|damgoodmaps)$/i.test(a) && !valued.has(argv[i - 1])).map(here);
   const given = givenFromArgs();
+  if (named.some((a) => /\.damgoodmaps$/i.test(a)) && !given?.captures) throw new Error('A project (.damgoodmaps) is played by the capture kit only: add --captures, or export it from the app first.');
+  // the capture kit: each map's captures folder (`--out`; a folder per map when several are named), and a project
+  // exported first as the app exports it (D483), into that folder
+  const outArg = opt('out');
+  const outOf = (path: string) => (outArg ? (named.length > 1 ? join(here(outArg), basename(path).replace(/\.(timber|damgoodmaps)$/i, '')) : here(outArg)) : defaultCapturesDir(path));
+  const out: Record<string, string> = {};
+  const extraMaps = named.map((path) => {
+    if (!/\.damgoodmaps$/i.test(path)) {
+      out[path] = outOf(path);
+      return path;
+    }
+    const dir = outOf(path);
+    log(`exporting ${path} as the app does (tools/export-project.ts)`);
+    const timber = execFileSync('npx', ['tsx', 'tools/export-project.ts', `"${path}"`, `"${dir}"`], { cwd: REPO, encoding: 'utf8', shell: true }).trim().split(/\r?\n/).pop()!;
+    out[timber] = dir;
+    return timber;
+  });
   if (flag('companion')) {
     const variants = variantsFrom(opt('companion-variants')).map((v) => v.id);
     return { runId: opt('run-id') ?? newRunId('companion'), kind: 'batch', extraMaps: [], gameIds: [], speed: 99, keepMods: flag('keep-mods'), companion: { variants } };
@@ -113,7 +141,10 @@ function planFromArgs(): Plan {
   if (given?.cycles && !ids.length) ids = all.filter((g) => g.longPlay).map((g) => g.id);
   if (smoke && !ids.length) ids = ['m8-preview'];
   if (smoke) ids = ids.slice(0, 1);
-  return { runId: opt('run-id') ?? newRunId(smoke ? 'smoke' : 'batch'), kind: smoke ? 'smoke' : 'batch', extraMaps, gameIds: ids, ...(given ? { given } : {}), speed: Number(opt('speed') ?? 99), smokeDays: smoke ? Number(opt('days') ?? 1) : undefined, keepMods: flag('keep-mods'), ...(written.length ? { written: writtenForPlan(written) } : {}) };
+  if (given?.captures && !extraMaps.length) throw new Error('--captures plays the maps named on the command line: name a .timber or .damgoodmaps. Nothing was planned.');
+  // the capture kit plays only its maps unless --only or --group names more
+  if (given?.captures && !ids.length) ids = all.filter((g) => g.captures).map((g) => g.id);
+  return { runId: opt('run-id') ?? newRunId(given?.captures ? 'captures' : smoke ? 'smoke' : 'batch'), kind: smoke ? 'smoke' : 'batch', extraMaps, gameIds: ids, ...(given ? { given } : {}), speed: Number(opt('speed') ?? 99), smokeDays: smoke ? Number(opt('days') ?? 1) : undefined, keepMods: flag('keep-mods'), ...(written.length ? { written: writtenForPlan(written) } : {}), ...(given?.captures ? { captures: { out, sheet: !flag('no-sheet') } } : {}) };
 }
 
 /**
@@ -328,6 +359,22 @@ export function compareRun(plan: Plan, compareTo?: string): { verdicts: GameVerd
     verdicts: verdicts.find((v) => v.game === p.game.id)!.checks.map((c) => ({ id: c.id, verdict: c.verdict, detail: c.detail })),
   })));
   log(`verdicts: ${join(outDir, 'verdicts.json')}; summary: ${join(outDir, 'summary.md')}; contact sheet: ${sheet}`);
+  if (plan.captures && !compareTo) {
+    // the capture kit: the shots into each map's captures folder with their cameras, then the contact sheet beside ours
+    for (const p of prepared.filter((x) => x.game.captures)) {
+      const base = plan.captures.out[p.game.captures!.source];
+      if (!base) continue;
+      const json = writeCaptures({ out: p.game.faction === 'IronTeeth' ? join(base, 'ironteeth') : base, result: loaded.get(p.game.id)?.result ?? null, resultsDir: dir, shotsDir: probePaths().shots, info: p.info, poses: p.map.poses, moments: p.game.captures!.moments, given: p.game.captures!.angles, runId: plan.runId });
+      log(`captures: ${json}`);
+      if (!plan.captures.sheet) continue;
+      log('the contact sheet beside our renderer (tools/capture-ingame.ts)');
+      try {
+        execFileSync('npx', ['tsx', 'tools/capture-ingame.ts', `"${json}"`], { cwd: REPO, stdio: 'inherit', shell: true });
+      } catch (e) {
+        log(`the sheet failed: ${(e as Error).message}; make it again with npx tsx tools/capture-ingame.ts "${json}"`);
+      }
+    }
+  }
   // the maps built only to be checked against the played ones
   if (compareTo) rmSync(join(probePaths().maps, compareTo), { recursive: true, force: true });
   return { verdicts, sheet };

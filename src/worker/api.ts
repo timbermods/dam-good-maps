@@ -15,6 +15,8 @@ import type { MapSpec } from "../core/spec/mapspec";
 import type { PlayabilityAnalysis } from "../core/validate/playability";
 import { mapFacts, type MapFacts } from "../core/validate/facts";
 import type { CheckResult } from "../core/validate/report";
+import type { PremiseInfo } from "../core/premise/generate";
+import type { PremiseCard } from "../core/premise/card";
 
 export interface PreviewEntity {
   template: string;
@@ -65,6 +67,20 @@ export interface GenerateResponse {
    *  them all is worth starting, and the note that version gets ("A version that keeps its theme's promise is ready"),
    *  or null when it is kept quietly (D333 (5): only a missed theme promise notifies). */
   version?: { misses: Misses; note: string | null } | null;
+  /** A map made from an idea (`spec.premise`): the card's words, or why the themes made it instead (one line, D471). */
+  idea?: MapIdea;
+}
+
+/** What the page shows of a premise map: its card, or the line saying the themes made the map. */
+export interface MapIdea {
+  card?: PremiseCard;
+  fellBack?: string;
+}
+
+/** The page's part of the core's `info.premise`. */
+export function ideaOf(p: PremiseInfo | undefined): MapIdea | undefined {
+  if (!p) return undefined;
+  return { ...(p.card ? { card: p.card } : {}), ...(p.fellBack ? { fellBack: p.fellBack } : {}) };
 }
 
 async function sha256(bytes: Uint8Array): Promise<string> {
@@ -118,6 +134,7 @@ export interface ResponseInput {
   name?: string;
   premise?: string;
   intentions?: string[];
+  idea?: MapIdea;
 }
 
 /** The page's view of a built map (a fresh generation, or an editor document's current map). */
@@ -154,6 +171,7 @@ export async function responseOf(r: ResponseInput): Promise<GenerateResponse> {
     sha256: r.timber.length ? await sha256(r.timber) : "",
     ms: r.ms,
     intentions: r.intentions ?? [],
+    ...(r.idea ? { idea: r.idea } : {}),
   };
 }
 
@@ -184,6 +202,7 @@ export async function responseOfResult(r: GenerateResult, ms: number): Promise<G
     ...(r.name ? { name: r.name } : {}),
     ...(r.description ? { premise: r.description } : {}),
     intentions: r.info.genome?.intentions ?? [],
+    idea: ideaOf(r.info.premise),
   });
 }
 
@@ -235,6 +254,7 @@ export async function runGenerate(spec: MapSpec, onProgress?: (p: GenProgress) =
     ...(r.name ? { name: r.name } : {}),
     ...(r.description ? { premise: r.description } : {}),
     intentions: r.info.genome?.intentions ?? [],
+    idea: ideaOf(r.info.premise),
   }).then((resp) => {
     // (a miss worth a background search, D329)
     if (r.report.passed && r.outcomes) {
