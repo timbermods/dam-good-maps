@@ -423,6 +423,7 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
     let mut surface = vec![f64::NAN; n];
     let mut ground = vec![f64::NAN; n];
     let mut kind = vec![0u8; n]; // 1 floor, 2 channel, 3 wall
+    let mut benched = vec![false; n];
     for i in 0..n {
         if !zone[i] {
             continue;
@@ -457,6 +458,7 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
             continue;
         }
         kind[i] = 3;
+        benched[i] = v != u;
         surface[i] = max(z, old(i) - cap);
         ground[i] = f;
     }
@@ -723,13 +725,27 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
         p.map.heights[i] = v;
         if zone[i] && kind[i] != 0 {
             let j = near[i] as usize;
-            p.mask[i] = if kind[i] == 3 { 2 } else { 1 };
+            // (2: a bench, as the planner's; the rest of the trough, its walls too, 1)
+            p.mask[i] = if kind[i] == 3 && benched[i] { 2 } else { 1 };
             p.floor[i] = clamp(floor[j], 0.0, top) as u8;
             p.arrival[i] = (line[j].s / length) as f32;
             p.stream[i] = if kind[i] == 2 { 1 } else if p.stream[i] == 1 { 0 } else { p.stream[i] };
         } else if p.map.heights[i] == before.heights[i] && (p.mask[i] == 1 || p.mask[i] == 2) && p.stream[i] == 0 && p.fan[i] == 0 {
             p.mask[i] = 0;
         }
+    }
+    // (each station's floor, the tread nearest it, so the showing reads the same floor)
+    for q in p.path.iter_mut() {
+        let mut bj = 0;
+        let mut bd = f64::INFINITY;
+        for (j, l) in line.iter().enumerate() {
+            let d = hypot(l.x - q.x, l.y - q.y);
+            if d < bd {
+                bd = d;
+                bj = j;
+            }
+        }
+        q.floor = floor[bj];
     }
     p.stream_path = (0..ns)
         .step_by(2)
@@ -743,10 +759,6 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
             return true;
         }
         let moved: Vec<usize> = p.map.footprint(e, 0).into_iter().filter(|&i| prev[i] != p.map.heights[i]).collect();
-        // (nor keeps springs of its own)
-        if !drains && e.owner.as_ref() == "glaciate" && ride_source(e.template.as_ref()) {
-            return false;
-        }
         if moved.is_empty() || e.template.as_ref() == "StartingLocation" {
             return true;
         }
