@@ -17,7 +17,7 @@ import type { PlayabilityAnalysis } from "../validate/playability";
 import type { ValidationReport } from "../validate/report";
 import { ladderOf, layWorks, type LaidWorks, type Ladder } from "./ladder";
 import { premiseLife, type LifeReport } from "./life";
-import { buildBench } from "./frame";
+import { buildBench, cutWaysOut } from "./frame";
 import { badwaterNiches, reliefBetween } from "./raster/relief";
 import type { PremiseStyle } from "./style";
 import type { PremisePlan } from "./types";
@@ -149,16 +149,20 @@ export interface PremiseLand {
   niches: Record<string, [number, number]>;
   laid: LaidWorks;
   notes: string[];
+  /** The start's ways out, natural ramps' steps as (low tile, high tile) pairs (`frame.ts` `cutWaysOut`). */
+  ramps?: [number, number][];
 }
 
-export function premiseLand(plan: PremisePlan, water: StageWater = waterByNumber(plan), style?: PremiseStyle, bench = 0): PremiseLand {
+export function premiseLand(plan: PremisePlan, water: StageWater = waterByNumber(plan), style?: PremiseStyle, bench = 0, reach = 0): PremiseLand {
   const notes: string[] = [];
   const heights = reliefBetween(plan, water, style?.relief);
-  // the start's bench, made where the relief left it short of `bench` (D515, `buildBench`)
+  // the start's bench, made where the relief left it short of `bench` (D515, `buildBench`), and its ways out where
+  // the ground it walks is walled in short of `reach` (`cutWaysOut`)
   buildBench(plan, water, heights, bench);
+  const ramps = cutWaysOut(plan, water, heights, reach);
   const niches = badwaterNiches(plan, water, heights, notes);
   const laid = layWorks(plan, water, heights);
-  return { water, heights, niches, laid, notes };
+  return { water, heights, niches, laid, notes, ...(ramps.length ? { ramps } : {}) };
 }
 
 /** The map of a plan, built and checked as the generator builds its maps; the start where stage 3 put it (`start`),
@@ -181,7 +185,7 @@ export function premiseMap(spec: MapSpec, plan: PremisePlan, land: PremiseLand =
   const springs = springsOf(plan, water, notes);
   const bad = badwaterOf(plan, heights, niches);
   const features: Feature[] = [start, ...springs, ...bad, ...rowsOf(plan, water, land.laid)];
-  const field: GeneratedField = { heights, contains: new Set([...springs, ...bad].map((f) => f.id)), top: plan.top };
+  const field: GeneratedField = { heights, contains: new Set([...springs, ...bad].map((f) => f.id)), top: plan.top, ...(land.ramps?.length ? { ramps: land.ramps } : {}) };
   const settleCache = new SettleCache();
   const base = buildMap({ W: plan.W, H: plan.H, seed: spec.seed, features, field }, { settleCache, stopBeforeResources: true });
   const t6 = performance.now();

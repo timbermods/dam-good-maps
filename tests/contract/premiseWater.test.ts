@@ -153,7 +153,9 @@ describe("The land invariants of stage 1 (§7 step 2)", () => {
         const s = spec(seed, side);
         const r = firstWater(lakeStair, s);
         if ("reason" in r) throw new Error(r.reason);
-        expect(r.attempt, `seed ${seed} at ${side}²: ${r.failed.map((f) => f.id).join(", ")}`).toBeLessThanOrEqual(2);
+        // (the re-draws the land invariants ask: a plan the layout draws no frame for is not theirs, D148 for D515's
+        // bench room, which turns down more of the frames a layout draws)
+        expect(r.failed.length, `seed ${seed} at ${side}²: ${r.failed.map((f) => f.id).join(", ")}`).toBeLessThanOrEqual(2);
         expect(landFails(s, r.plan, r.water)).toEqual([]);
       }
   });

@@ -142,6 +142,9 @@ export interface FrameGroup {
   lipAhead: number;
   /** The level tiles the start's bench should hold. */
   bench: number;
+  /** Where the bench's spine ends (D515, `raster/relief.ts` `BENCH`): the bench is level ground round the line from
+   *  the start's tile to here, leaning away from the lip and the bay; the start's tile where absent. */
+  benchTo?: Point;
 }
 
 export type WorkRung = "first" | "small" | "medium" | "large";
