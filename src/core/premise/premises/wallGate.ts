@@ -1110,7 +1110,6 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
       way = brookWay(ground, [...places, ...ends], head, open, into, (p) => (cove >= 0 ? dist(p, end) : lakeAt(p)), lakeAt);
       if (way) break;
     }
-    if (!way && process.env.DBG_BROOK) console.error("noway", tk, "cove", cove, "end", end.map((v) => v.toFixed(1)).join(","), "lakeAt(end)", lakeAt(end).toFixed(1), "coves", coves.length, "near end open", places.filter((q) => dist(q, end) < 8 && open(q)).length);
     if (!way || way.length < 3) return { why: "brook room" };
     // (its corners cut twice: a brook bends, never turns a corner)
     const courseLine = smooth(way);
