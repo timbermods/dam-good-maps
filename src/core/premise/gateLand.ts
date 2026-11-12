@@ -16,12 +16,12 @@
 //   the pan; the dry beds cut their own valleys through it to the outlet.
 // - The check and the mend: flooded from the lake at the megadam's water, the valley must reach neither the map's edge
 //   nor the basin but by the Low River's gorge or the Gate; where it does, the land where the water crosses is raised
-//   by the least that closes it, as a knoll (`mendFlood`).
+//   by the least that closes it, a knoll on a saddle or one low swell across a stretch of the edge (`mendFlood`).
 //
 // Every tile stage 1 fixed keeps the shared relief's ground, and every other stands at least at its guard.
 
 import { BED_FLOOR } from "../land/genome";
-import { cleanPitsAndSpikes, mergeSmallRegions } from "../land/levels";
+import { cleanPitsAndSpikes, mergeSmallRegions, readable } from "../land/levels";
 import { fbm } from "../math/noise";
 import { polyDist } from "../math/polyline";
 import { smoothstep } from "../math/clamp";
@@ -177,8 +177,9 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
       const ra = rangeAt(R, wu);
       const front = wv < ra.v;
       const half = (front ? ra.front : ra.back) * (1 + RANGE_LAND.width * fbm(sHw, x, y, 14, 2));
-      // (spurs and gullies: ridged noise reaching the flanks out and in)
-      const ridged = 1 - 2 * Math.abs(fbm(sSp, x, y, 9, 2));
+      // (spurs and gullies: ridged noise reaching the flanks out and in; not across the Veil's face, a cliff it pours from)
+      const atVeil = front && u > lu0 - 1 && u < lu1 + 1 ? 1 : 0;
+      const ridged = atVeil ? 0 : 1 - 2 * Math.abs(fbm(sSp, x, y, 9, 2));
       const t = polyDist(wu, wv, spine) / half - RANGE_LAND.spur * ridged;
       const basin = front ? -Infinity : basinAt(plan, g, x, y, bs, bedD[i], bedL[i]);
       const foot = front ? valleyFoot : basin;
@@ -190,7 +191,6 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
         // is hard: its face a cliff the lip pours from)
         const soft = (1 - tt) * (1 + 0.6 * tt);
         const firm = tt < RANGE_LAND.cliff ? 1 - 0.4 * tt : ((1 - 0.4 * RANGE_LAND.cliff) * (1 - tt)) / (1 - RANGE_LAND.cliff);
-        const atVeil = front && u > lu0 - 3 && u < lu1 + 3 ? 1 : 0;
         const hard = Math.max(atVeil, smoothstep((fbm(sHard, x, y, 12, 2) - RANGE_LAND.hard) / 0.25));
         rangeH = foot + Math.max(0, crest - foot) * (soft + (firm - soft) * hard);
       }
@@ -208,19 +208,24 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
   const h = new Uint8Array(N);
   const top = Math.max(plan.top, plan.sky ?? plan.top);
   for (let i = 0; i < N; i++) h[i] = keep[i] ? h0[i] : Math.max(r.heights[i], Math.max(BED_FLOOR + 1, Math.min(top, Math.round(f[i]))));
-  // no pits, spikes or slivers (the build's own rules), stage 1's ground kept
+  // no pits, spikes or slivers (the build's own rules), stage 1's ground kept; in the range and the basin no spike, wall
+  // or trench one or two tiles wide standing two levels or more out of the land round it (the themes' rule at high
+  // Verticality, `readable`: a hard face cut by a gully stood as towers beside the start)
+  const rd = Uint8Array.from(h);
+  readable(rd, W, H);
+  for (let i = 0; i < N; i++) if (!keep[i] && zone[i] !== 0) h[i] = rd[i];
   mergeSmallRegions(h, W, H, 4, keep);
   cleanPitsAndSpikes(h, W, H, keep);
   for (let i = 0; i < N; i++) if (!keep[i] && h[i] < r.heights[i]) h[i] = r.heights[i];
   const mends = mendFlood(plan, w, h);
-  if (mends) notes.push(`The valley held at the megadam's water by ${mends} knoll${mends === 1 ? "" : "s"} raised where it spilled`);
+  if (mends) notes.push(`The valley held at the megadam's water by ${mends} rise${mends === 1 ? "" : "s"} where it spilled`);
   return h;
 }
 
 /** The tiles the valley's water reaches at the megadam's level from the lake, the Gate's channel and the Low River's
- *  gorge shut; and the first tile where it leaves the valley (the map's edge or past the range's crest), with the way
- *  it came. */
-function floodAt(plan: PremisePlan, w: StageWater, h: ArrayLike<number>): { leak: number; from: Int32Array } {
+ *  gorge shut; the first tile where it leaves the valley (the map's edge or past the range's crest), with the way it
+ *  came; and, with `all`, every flooded tile on the map's edge. */
+function floodAt(plan: PremisePlan, w: StageWater, h: ArrayLike<number>, all = false): { leak: number; from: Int32Array; edge: number[] } {
   const g = gateOf(plan)!;
   const { W, H } = plan;
   const r = w.raster;
@@ -230,14 +235,21 @@ function floodAt(plan: PremisePlan, w: StageWater, h: ArrayLike<number>): { leak
   const lowIx = plan.links.findIndex((l) => l.id === g.low) + 1;
   const from = new Int32Array(W * H).fill(-2);
   const queue: number[] = [];
+  const edge: number[] = [];
+  let leak = -1;
   for (let i = 0; i < W * H; i++) if (r.lake[i] === lake) (from[i] = -1), queue.push(i);
   for (let k = 0; k < queue.length; k++) {
     const i = queue[k];
     const x = i % W;
     const y = (i - x) / W;
-    if (x === 0 || y === 0 || x === W - 1 || y === H - 1) return { leak: i, from };
+    const onEdge = x === 0 || y === 0 || x === W - 1 || y === H - 1;
     const [u, v] = onLocal(T, [x + 0.5, y + 0.5]);
-    if (v > rangeAt(g.range, u).v) return { leak: i, from };
+    if (onEdge || v > rangeAt(g.range, u).v) {
+      if (leak < 0) leak = i;
+      if (!all) break;
+      if (onEdge) edge.push(i);
+      continue;
+    }
     for (const j of [i - 1, i + 1, i - W, i + W]) {
       if (j < 0 || j >= W * H || (j === i - 1 && x === 0) || (j === i + 1 && x === W - 1)) continue;
       if (from[j] !== -2 || shut.has(r.channel[j]) || h[j] > g.megadam) continue;
@@ -247,24 +259,72 @@ function floodAt(plan: PremisePlan, w: StageWater, h: ArrayLike<number>): { leak
       queue.push(j);
     }
   }
-  return { leak: -1, from };
+  return { leak, from, edge };
 }
 
 /** The flood check and its least mend (planning: "where water would cross the range anywhere but the gap, raise that
  *  saddle by the least that closes it, with the relief's own shape"): while the valley at the megadam's water spills,
- *  the place it spills through (the lowest ground on its way out, nearest the leak) is raised a level over that water
- *  as a knoll of ragged outline, a few tiles across, never on stage 1's ground. The knolls raised. */
-export function mendFlood(plan: PremisePlan, w: StageWater, h: Uint8Array, most = 40, skip?: Uint8Array): number {
+ *  the ground it spills over is raised a level or two over that water, never on stage 1's ground: across the range, a
+ *  knoll of ragged outline on the saddle it crossed; at the map's edge, one swell across the whole stretch the valley
+ *  reaches the edge by (a low divide, its outline wandering, its crest set in from the edge), not a bead a tile. The
+ *  mends made. */
+export function mendFlood(plan: PremisePlan, w: StageWater, h: Uint8Array, most = 16, skip?: Uint8Array): number {
   const g = gateOf(plan)!;
   const { W, H } = plan;
   const r = w.raster;
   const s = seedOf(plan, "gate", "mend");
+  const raise = (x0: number, y0: number, x1: number, y1: number, d: (x: number, y: number) => number) => {
+    for (let y = Math.max(0, Math.floor(y0)); y <= Math.min(H - 1, Math.ceil(y1)); y++)
+      for (let x = Math.max(0, Math.floor(x0)); x <= Math.min(W - 1, Math.ceil(x1)); x++) {
+        const i = y * W + x;
+        if (r.fixed[i] || skip?.[i]) continue;
+        const q = d(x, y) * (1 + 0.3 * fbm(s, x, y, 5, 2));
+        if (q >= 1) continue;
+        const want = g.megadam + 1 + Math.round(1.6 * (1 - q * q));
+        if (h[i] < want) h[i] = want;
+      }
+  };
   let mends = 0;
   for (; mends < most; mends++) {
-    const { leak, from } = floodAt(plan, w, h);
+    const { leak, from, edge } = floodAt(plan, w, h, true);
     if (leak < 0) break;
-    // the saddle: along the way the water came, the last tile that is not stage 1's ground, a few tiles back from where
-    // it left (so the knoll stands across the way, not on the map's edge)
+    if (edge.length) {
+      // the longest stretch of the edge the flood reaches (tiles along one side, gaps of three or less joined)
+      const side = (i: number) => {
+        const x = i % W;
+        const y = (i - x) / W;
+        return y === 0 ? 0 : y === H - 1 ? 1 : x === 0 ? 2 : 3;
+      };
+      const along = (i: number) => (side(i) < 2 ? i % W : Math.floor(i / W));
+      let best: number[] = [];
+      for (let sd = 0; sd < 4; sd++) {
+        const ts = edge.filter((i) => side(i) === sd).sort((p, q) => along(p) - along(q));
+        let run: number[] = [];
+        for (const i of ts) {
+          if (run.length && along(i) - along(run[run.length - 1]) > 3) {
+            if (run.length > best.length) best = run;
+            run = [];
+          }
+          run.push(i);
+        }
+        if (run.length > best.length) best = run;
+      }
+      const sd = side(best[0]);
+      const a0 = along(best[0]);
+      const a1 = along(best[best.length - 1]);
+      const half = (a1 - a0) / 2 + 4;
+      const deep = Math.max(5, Math.min(14, (a1 - a0) / 3 + 3));
+      const mid = (a0 + a1) / 2;
+      // (the swell in the edge's own frame: along it and in from it)
+      const toEdge = (x: number, y: number): [number, number] => (sd === 0 ? [x - mid, y] : sd === 1 ? [x - mid, H - 1 - y] : sd === 2 ? [y - mid, x] : [y - mid, W - 1 - x]);
+      const [x0, y0, x1, y1] = sd < 2 ? [mid - half, sd === 0 ? 0 : H - 1 - deep * 1.4, mid + half, sd === 0 ? deep * 1.4 : H - 1] : [sd === 2 ? 0 : W - 1 - deep * 1.4, mid - half, sd === 2 ? deep * 1.4 : W - 1, mid + half];
+      raise(x0, y0, x1, y1, (x, y) => {
+        const [p, q] = toEdge(x, y);
+        return hypot(p / half, (q - deep * 0.45) / (deep * 0.7));
+      });
+      continue;
+    }
+    // across the range: a knoll on the saddle, a few tiles back along the way the water came
     let at = leak;
     let back = 0;
     for (let i = leak; i >= 0 && back < 3; i = from[i]) {
@@ -273,16 +333,8 @@ export function mendFlood(plan: PremisePlan, w: StageWater, h: Uint8Array, most 
     }
     const ax = at % W;
     const ay = (at - ax) / W;
-    const rad = 3 + (mends % 4);
-    for (let y = Math.max(0, ay - rad - 2); y <= Math.min(H - 1, ay + rad + 2); y++)
-      for (let x = Math.max(0, ax - rad - 2); x <= Math.min(W - 1, ax + rad + 2); x++) {
-        const i = y * W + x;
-        if (r.fixed[i] || skip?.[i]) continue;
-        const d = hypot(x - ax, y - ay) / (rad * (1 + 0.3 * fbm(s, x, y, 4, 2)));
-        if (d >= 1) continue;
-        const want = g.megadam + 1 + Math.round(1.5 * (1 - d));
-        if (h[i] < want) h[i] = want;
-      }
+    const rad = 4 + (mends % 3);
+    raise(ax - rad - 2, ay - rad - 2, ax + rad + 2, ay + rad + 2, (x, y) => hypot(x - ax, y - ay) / rad);
   }
   return mends;
 }
@@ -298,8 +350,8 @@ export function gateLand(plan: PremisePlan, water: StageWater, style?: ReliefSty
   const skip = new Uint8Array(plan.W * plan.H);
   for (const [nx, ny] of Object.values(niches))
     for (let y = Math.max(0, ny - 4); y <= Math.min(plan.H - 1, ny + 4); y++) for (let x = Math.max(0, nx - 4); x <= Math.min(plan.W - 1, nx + 4); x++) skip[y * plan.W + x] = 1;
-  const more = mendFlood(plan, water, heights, 40, skip);
-  if (more) notes.push(`The valley held round the badwater's niche by ${more} more knoll${more === 1 ? "" : "s"}`);
+  const more = mendFlood(plan, water, heights, 16, skip);
+  if (more) notes.push(`The valley held round the badwater's niche by ${more} more rise${more === 1 ? "" : "s"}`);
   const laid = layWorks(plan, water, heights);
   return { water, heights, niches, laid, notes };
 }

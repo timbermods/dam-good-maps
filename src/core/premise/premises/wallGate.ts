@@ -433,8 +433,10 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const nArm = Math.max(3, Math.round((uE - uW) / 12));
   for (let i = 0; i <= nArm; i++) {
     const end = i === 0 || i === nArm;
-    const r = (lowAt === 0 ? i === 0 : i === nArm) ? lowLip / 2 + 0.5 : (end ? rng.range(5, 7) : rng.range(5, 10)) * shrink;
-    const v = Math.min(lakeTop - r, mv + rng.range(-4, 2.5) * shrink);
+    const r = (lowAt === 0 ? i === 0 : i === nArm) ? lowLip / 2 + 0.5 : (end ? rng.range(5, 7) : rng.range(4.5, 10)) * shrink;
+    // (its shore toward the bench never along one row: each point's top stands a few rows under the bench, by its own
+    // draw, so the bench's edge wanders with the water's)
+    const v = Math.min(lakeTop - r - rng.range(0, 4) * shrink, mv + rng.range(-4, 2.5) * shrink);
     main.push([r2(uW + ((uE - uW) * i) / nArm + (end ? 0 : rng.range(-2, 2))), r2(v), r2(r)]);
   }
   // (the Gate's arm and the drain bay bend on their way to the lake, so neither runs as a canal)
@@ -602,10 +604,10 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     tarns.every((tn) => dist(p, [tn.spine[0][0], tn.spine[0][1]]) > r + tn.spine[0][2] + 5 && pathDist(p[0], p[1], tn.path).d > r + 4) &&
     pathDist(p[0], p[1], low).d > r + 5;
   const want = rng.int(2, 4);
-  for (let tries = 0; tries < 12 && lakeArms.length < 3 + want; tries++) {
+  for (let tries = 0; tries < 24 && lakeArms.length < 3 + want; tries++) {
     const j = rng.int(1, main.length - 1);
     const base = main[j];
-    const dx = rng.range(-1.1, 1.1);
+    const dx = rng.range(-2.4, 2.4);
     const dl = sqrt(dx * dx + 1);
     const len = rng.range(8, 16) * shrink;
     const tip = rng.range(3, 5) * shrink;
