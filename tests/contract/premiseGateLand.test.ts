@@ -10,6 +10,7 @@ import { gateFirstWater, gateWater } from "../../src/core/premise/gateWater";
 import { GATE_LAND_CHECKS, gateLand, gateLandFailures, gateZones } from "../../src/core/premise/gateLand";
 import { gateOf, onLocal, rangeAt, turnOf, wallGate } from "../../src/core/premise/premises/wallGate";
 import { makeSpec, type MapSpec } from "../../src/core/spec/mapspec";
+import { gateWetPast } from "../../src/core/premise/gateMap";
 
 const spec = (seed: number, side: number): MapSpec => makeSpec({ seed, size: { x: side, y: side }, theme: "any", premise: "any" });
 
@@ -117,4 +118,27 @@ describe("Broken gate land fails its invariants", () => {
       breakIt(h);
       expect(gateLandFailures({ spec: s, plan: base.plan, water: base.water, heights: h }).map((f) => f.id)).toContain(id);
     });
+});
+
+describe("gate.settled: the Gate dry past its rows on the settled map (`gateMap.ts` `gateWetPast`, a plan refused when over 0)", () => {
+  const s = spec(2, 128);
+  const r = gateFirstWater(wallGate, s);
+  if ("reason" in r) throw new Error(r.reason);
+  const g = gateOf(r.plan)!;
+  const raster = r.water.raster;
+  const gi = r.plan.links.findIndex((l) => l.id === g.gate) + 1;
+  const past = Math.max(...r.plan.links[gi - 1].rows) + 1;
+
+  it("counts none on a dry settle, and water held in the Gate before its rows (the lake's side) none", () => {
+    const depth = new Float64Array(raster.W * raster.H);
+    expect(gateWetPast(r.plan, r.water, depth)).toBe(0);
+    for (let i = 0; i < depth.length; i++) if (raster.channel[i] === gi && raster.along[i] < past) depth[i] = 0.4;
+    expect(gateWetPast(r.plan, r.water, depth)).toBe(0);
+  });
+
+  it("broken: water standing in the Gate past its rows is counted, so the plan is refused", () => {
+    const depth = new Float64Array(raster.W * raster.H);
+    for (let i = 0; i < depth.length; i++) if (raster.channel[i] === gi && raster.along[i] > past + 2) depth[i] = 0.1;
+    expect(gateWetPast(r.plan, r.water, depth)).toBeGreaterThan(0);
+  });
 });
