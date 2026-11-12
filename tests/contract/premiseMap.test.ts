@@ -34,8 +34,10 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec } from "../../src/core
 // moved with that change alone (its resources), and dev's changes merged in leave them as they were); and for the
 // start's bench room, D515: the lake stair's frame keeps room for the bench, leaning it away from the lip and the bay,
 // the start's lake giving up what it takes, its tails redrawn eight times and its channels kept off the bench (D453),
-// so seed 1 draws another frame; the fast-wood change leaves that frame's bytes as they were)
-const SHA = "4d97d1316b39c27b695b4306ebb346d62cfdbff55d4f8781948d32316f3d473c";
+// so seed 1 draws another frame; the fast-wood change leaves that frame's bytes as they were; and for a curtain's notch
+// on a lip with no run's middle near its middle taking an end of the lip: seed 1's fall2, a diagonal, moves its notch
+// from a step's corner to the lip's end, the same plan, start and bench)
+const SHA = "79e16475266ff091b2f836d485caa10b627040461ffb892d02a6396331494812";
 
 describe("The premise mode (§2.2, build step 4)", () => {
   const made = makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "any", premise: "lakeStair" });
