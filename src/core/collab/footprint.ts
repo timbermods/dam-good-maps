@@ -36,7 +36,7 @@ import type { MapSession } from "../doc/session";
 import type { ForceResultParams, ForceWhere, Verb } from "../forces/op";
 import { quakeExtent } from "../forces/quake";
 import { erodeExtent, erodeSize } from "../forces/erode";
-import { GLACIATE_AUTO_SIZE } from "../forces/glaciate/model";
+import { glaciateAutoMost } from "../forces/glaciate/model";
 import { forceReach } from "../forces/reach";
 import type { Runs } from "../math/grid";
 import * as portable from "../math/portable";
@@ -460,7 +460,8 @@ function corridor(g: ForceBandRequest, m: { W: number; H: number }): { pts: [num
     case "glaciate": {
       const drawn = pts.length > 2 || ((g.where?.path?.length ?? 0) > 2);
       if (s.mode !== "aim" || !drawn) return null;
-      const size = typeof s.size === "number" ? s.size : GLACIATE_AUTO_SIZE;
+      // (Auto takes the valley's width, at most glaciateAutoMost on this map)
+      const size = typeof s.size === "number" ? s.size : glaciateAutoMost(m.W, m.H);
       return { pts, r: 1.12 * size + 0.5 * size + 10 };
     }
     case "erode":
