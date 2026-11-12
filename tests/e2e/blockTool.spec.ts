@@ -51,8 +51,9 @@ async function look(page: Page, x: number, y: number, h: number, distance = 20) 
 }
 
 /** The map the tests that need `flatSpot` open (Lake Basin 96² seed 78 since generator 0.10.16's ground with grade,
- *  D148: seed 77's land now rolls and has no level 12 × 9 stretch clear of objects). */
-const FLAT = "s=78&z=96&d=n&t=lakeBasin";
+ *  D148: seed 77's land now rolls and has no level 12 × 9 stretch clear of objects; seed 80 since generator 0.10.17's start
+ *  floors, D515, D148: seed 78's has none now either, and of seeds 77–84 only 80 and 84 have one). */
+const FLAT = "s=80&z=96&d=n&t=lakeBasin";
 
 /** A flat dry stretch of the map with nothing standing near it: its corner and its level. */
 async function flatSpot(page: Page) {
