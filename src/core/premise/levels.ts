@@ -211,9 +211,17 @@ function route(plan: PremisePlan, bodies: Map<string, Body>, widths: Map<string,
     const b = bodies.get(id)!;
     const q = inflow.get(id) ?? 0;
     const bad = badIn.get(id) ?? 0;
-    const outs = plan.links.filter((l) => l.from === id && open(l)).map((l) => ({ l, w: widths.get(l.id) ?? 1, weir: weir.has(l.id) }));
+    // (a link into a backwater takes no share: the backwater fills from it, then it carries nothing, `Body.backwater`)
+    const back = plan.links.filter((l) => l.from === id && open(l) && bodies.get(l.to)?.backwater);
+    const outs = plan.links.filter((l) => l.from === id && open(l) && !bodies.get(l.to)?.backwater).map((l) => ({ l, w: widths.get(l.id) ?? 1, weir: weir.has(l.id) }));
     const level = q > 0 && outs.length ? levelFor(q, outs, b) : b.sill;
     out.bodies[id] = { id, sill: b.sill, level, inflow: q, bad, dry: !(q > 0), outlets: outs.map((o) => o.l.id) };
+    // (a backwater stands at its feeder's level, filled; its link is wet and carries nothing)
+    if (b.backwater && !(q > 0)) {
+      const feeder = plan.links.find((l) => l.to === id && open(l) && out.bodies[l.from] && !out.bodies[l.from].dry);
+      if (feeder) out.bodies[id] = { ...out.bodies[id], level: out.bodies[feeder.from].level, dry: false };
+    }
+    for (const l of back) if (q > 0) out.links[l.id].wet = true;
     if (!(q > 0)) continue;
     let total = 0;
     for (const o of outs) total += carried(o.l, b, o.w, level, o.weir);

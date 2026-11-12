@@ -52,7 +52,8 @@ export function levelsOf(plan: PremisePlan, w: StageWater): { id: string; sill: 
       if (spill[i] < low) low = spill[i];
       if (spill[i] > high) high = spill[i];
     }
-    const want = plan.links.some((l) => l.from === b.id) ? b.sill : b.sill + 1;
+    // (a backwater stands at its feeder's sill, its own: `Body.backwater`)
+    const want = b.backwater || plan.links.some((l) => l.from === b.id) ? b.sill : b.sill + 1;
     return { id: b.id, sill: b.sill, want, low, high, tiles };
   });
 }

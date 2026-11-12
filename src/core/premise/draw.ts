@@ -78,7 +78,7 @@ export function firstWater(def: PremiseDef, spec: MapSpec): { plan: PremisePlan;
       last = `${r.failures[0].id}: ${r.failures[0].reason}`;
       continue;
     }
-    const water = waterByNumber(r.plan);
+    const water = def.water?.(r.plan) ?? waterByNumber(r.plan);
     const land = failing(def.invariants, "land", { spec, plan: r.plan, water });
     if (!land.length) return { plan: r.plan, water, attempt, failed };
     failed.push(land[0]);
