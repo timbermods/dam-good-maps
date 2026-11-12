@@ -551,20 +551,24 @@ and bands. Measured on seeds 1 to 3 at 128² and Four Lakes (`tools/premise-map.
   goes to the themes' path: "No valid map" never shows (D471).
 - **The start's water through the drought** (`hold.ts` `startWaterGate`, D133's rule): a map that passes its checks
   is read by number first: each tile of the start's lake falls from its settled depth to its depth at the end of the
-  difficulty's longest drought by the analytic rule (`sim/drought.ts` `droughtStorage`: the water over its spill level
-  drains at once, each pool loses its surface's evaporation) and `START_SCREEN.margin` (0.1 of a level) more, read at
-  12 levels between, since a pump's shore is a band (0 to 2 levels over the water), not a floor. Where a pump on a
-  shore within the start water rule's walk reaches the lake at every level, nothing is run. Where not, the drought is
-  run a day at a time as the Drought view runs it (on the settle's threads), each day judged by the rule
-  (`StartWaterDays`) and read by number again for the days left, so the run stops once the lake's drain is past and
-  the read vouches for the rest. A start whose water goes in the run is the next plan (`drought.start`); only the run
-  refuses. The rule reads the lake lower than the run on every tile: at the drought's end the run's water stood 0.03
-  to 0.43 over it on each start lake of River Valley's seeds 1 to 24 at 128² and seeds 1 and 3 at 256², where the
-  start's lake fell 1.5 to 3.2 levels by the ninth day; read from a later day of the run, the gap closes to 0.00
-  (0.000 at 256²). The read before this, a fall of 1.5 levels all over, missed what the lakes lost after it. On River
-  Valley's seeds 1 to 12 at 128² the read vouched at once on eleven maps and the run went all nine days on seed 2
-  (1.8 s); at 256² seeds 1 and 3 ran two days (2.4 to 2.6 s on one thread, against 8.5 to 9.4 s for the whole
-  drought). Every map kept its start's water all nine days, the gate's verdict the full run's on each.
+  difficulty's longest drought by the analytic rule a day at a time (`sim/drought.ts` `droughtStorageByDay`: the water
+  over its spill level drains at once, and each day every pool, found again on the water left, loses its own surface's
+  evaporation) and `START_SCREEN.margin` (0.1 of a level) more, read at 12 levels between, since a pump's shore is a
+  band (0 to 2 levels over the water), not a floor. Where a pump on a shore within the start water rule's walk reaches
+  the lake at every level, nothing is run. Where not, the drought is run a day at a time as the Drought view runs it
+  (on the settle's threads), each day judged by the rule (`StartWaterDays`) and read by number again for the days
+  left, so the run stops once the lake's drain is past and the read vouches for the rest. A start whose water goes in
+  the run is the next plan (`drought.start`); only the run refuses. Read from the settled water, the rule never stood
+  over the run on any tile of the start's lake (River Valley 128², Easy seeds 1 to 8, Normal seeds 1 to 8, Hard's six
+  maps of seeds 1 to 12); read from a later day of the run, mid-drain, it stood at most
+  0.033 over (Hard), under the margin. The day-by-day reading matters on Hard: a lake that parts as it falls has its
+  narrow part evaporate at about 0.11 a day against the whole pool's 0.06, and the reading in one step, the pool's
+  mean over all 30 days, stood up to 0.44 over the run there. The read before this, a fall of 1.5 levels all over,
+  missed what Normal's lakes lost after it (1.5 to 3.2 levels by the ninth day). On River Valley's seeds 1 to 12 at
+  128², Normal, the read vouched at once on eleven maps and the run went all nine days on seed 2 (1.8 s); at 256²
+  seeds 1 and 3 ran two days (2.4 to 2.6 s on one thread, against 8.5 to 9.4 s for the whole drought); on Hard the
+  runs stopped after two days on four of six maps, at once on one and ran all 30 on one (6.3 s). Every map kept its
+  start's water through its drought, the gate's verdict the full run's on each.
 - **The land is shown** (`opts.onLand`) when stage 4 passes: every check the land alone can judge has run, and by
   design the settle moves no ground (D348). The two repairs that touch ground after the settle (a lip's width, a
   guard tile) are of the kind D348 already allows for a worn way out.

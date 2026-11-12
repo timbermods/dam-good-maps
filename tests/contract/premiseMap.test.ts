@@ -20,11 +20,11 @@ import { soilReach } from "../../src/core/premise/ladder";
 import { premiseLand } from "../../src/core/premise/map";
 import { PREMISES } from "../../src/core/premise/premises";
 import { waterByNumber } from "../../src/core/premise/water";
-import { droughtStorage } from "../../src/core/sim/drought";
+import { droughtStorageByDay } from "../../src/core/sim/drought";
 import { moisture } from "../../src/core/sim/moisture";
 import { TICKS_PER_DAY } from "../../src/core/sim/water";
 import { HazardRun } from "../../src/core/sim/weather";
-import { decodeSpecFragment, encodeSpecFragment, makeSpec } from "../../src/core/spec/mapspec";
+import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "../../src/core/spec/mapspec";
 
 // (re-pinned since generator 0.10.16's ground with grade, D148: the map's own land is the same; its description names the
 // generator's version, "Made with Dam Good Maps 0.10.16", gen/pack.ts; again for step 7's works; for step 9's style,
@@ -39,6 +39,9 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec } from "../../src/core
 // the start's lake giving up what it takes, its tails redrawn eight times and its channels kept off the bench (D453),
 // so seed 1 draws another frame; the fast-wood change leaves that frame's bytes as they were)
 const SHA = "4d97d1316b39c27b695b4306ebb346d62cfdbff55d4f8781948d32316f3d473c";
+
+// (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040)
+const HARD_SEED = 7;
 
 describe("The premise mode (§2.2, build step 4)", () => {
   const made = makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "any", premise: "lakeStair" });
@@ -148,27 +151,14 @@ describe("The premise mode (§2.2, build step 4)", () => {
     }
     expect(hold.has).toBe(true);
     expect(hold.gone).toBe(0);
-    // the start's water as stage 8 gates it: the analytic drought (`droughtStorage`) reads the start's lake no higher
-    // than the run at the drought's end on any tile a pump may stand on, so the gate's read by number never vouches for
-    // water the run loses; and the gate agrees with the run
-    const b = r.result.built;
-    const water = waterByNumber(plan);
-    const k = plan.bodies.findIndex((x) => x.id === plan.stair!.startLake) + 1;
-    const run = new HazardRun(b.waterModel, { depth: b.water, contamination: b.contamination, stack: null } as never, "drought", hold.days);
-    for (let d = 1; d <= hold.days; d++) run.step(TICKS_PER_DAY);
-    const last = Float64Array.from(run.water().depth);
-    run.dispose();
-    const kept = droughtStorage(b.waterModel, b.water, hold.days);
-    let tiles = 0;
-    let over = 0;
-    for (let i = 0; i < kept.length; i++) {
-      if (water.raster.lake[i] !== k || !(b.water[i] > 0.3)) continue;
-      tiles++;
-      if (kept[i] > last[i]) over++;
-    }
-    expect(tiles).toBeGreaterThan(100);
-    expect(over).toBe(0);
-    expect(startWaterGate(made, plan, b, water).gone).toBe(0);
+    expectReadUnderRun(made, r.result);
+  });
+
+  it("reads the start's water through Hard's 30-day drought no higher than the run, its lake parting as it falls", () => {
+    const hard = makeSpec({ seed: HARD_SEED, size: { x: 128, y: 128 }, theme: "riverValley", premise: "lakeStair", designedFor: "hard" });
+    const r = generatePremise(hard);
+    if ("reason" in r) throw new Error(r.reason);
+    expectReadUnderRun(hard, r.result);
   });
 
   it("hands a spec the premise rules out to the themes, saying why", () => {
@@ -177,3 +167,29 @@ describe("The premise mode (§2.2, build step 4)", () => {
     expect("reason" in r && r.reason.length).toBeGreaterThan(0);
   });
 });
+
+/** The start's water as stage 8 gates it: the analytic drought a day at a time (`droughtStorageByDay`) reads the start's
+ *  lake no higher than the run at the drought's end on any tile a pump may stand on, so the gate's read by number never
+ *  vouches for water the run loses; and the gate agrees with the run. */
+function expectReadUnderRun(spec: MapSpec, made: GenerateResult): void {
+  const plan = made.info.premise!.plan!;
+  const b = made.built;
+  const water = waterByNumber(plan);
+  const hold = droughtHold(spec, plan, b, water);
+  const k = plan.bodies.findIndex((x) => x.id === plan.stair!.startLake) + 1;
+  const run = new HazardRun(b.waterModel, { depth: b.water, contamination: b.contamination, stack: null } as never, "drought", hold.days);
+  for (let d = 1; d <= hold.days; d++) run.step(TICKS_PER_DAY);
+  const last = Float64Array.from(run.water().depth);
+  run.dispose();
+  const kept = droughtStorageByDay(b.waterModel, b.water, hold.days);
+  let tiles = 0;
+  let over = 0;
+  for (let i = 0; i < kept.length; i++) {
+    if (water.raster.lake[i] !== k || !(b.water[i] > 0.3)) continue;
+    tiles++;
+    if (kept[i] > last[i]) over++;
+  }
+  expect(tiles).toBeGreaterThan(100);
+  expect(over).toBe(0);
+  expect(startWaterGate(spec, plan, b, water).gone).toBe(hold.has ? hold.gone : 0);
+}
