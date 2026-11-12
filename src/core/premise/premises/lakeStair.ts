@@ -29,6 +29,7 @@ import { WATER_CHECKS } from "../waterChecks";
 import type { Body, Edge, Exit, Fall, Invariant, Link, Point, PremiseDef, PremisePlan, Region, Ridge, SetPiece, SiteLand, Source, Spine, StairPlan, Work, WorkKind } from "../types";
 import { NARROWS, narrowsFit } from "../ladder";
 import { SiteModel, type Ground, type Wet } from "../siting";
+import { waterByNumber, type StageWater } from "../water";
 
 // ------------------------------------------------------------------------------------------------- the ranges
 
@@ -3472,10 +3473,87 @@ function draw(spec: MapSpec, attempt: number): PremisePlan | { reason: string } 
   return { reason: `No lake stair fits seed ${spec.seed} at ${spec.size.x}² in ${LAYOUT_TRIES} layouts` };
 }
 
+/** The start's landing (D515's water, D133's rule, `drought.start`): the start's lake's shelf (its bed at the sill,
+ *  `raster/bodies.ts`) cut a level, to the lake's floor, along the line from the lake's tile nearest the start to the
+ *  nearest floor tile (`half` tiles either side: none, one tile wide; three wide took walkable land from 128² seed 1's
+ *  start), so deep water meets the dry shore by the start. Without it the shelf
+ *  rings the start's lake: in a drought its water drains to the sill, and while it stands under 0.3 over the shelf
+ *  the shelf is neither a shore nor water a pump draws, and no deeper water meets a dry shore. A 128² lake passes that
+ *  band within the drought's first day (a fall of 0.8 a day); a 256² lake, three to four times the area over an
+ *  outlet as wide, falls 0.35 to 0.45 a day, and on seed 2 stood 0.02 over its sill at day 1's end: its start's water
+ *  "gone on day 1", back on day 2. The landing is the pump's water, as the bay's drowned river's ribbon is (the frame
+ *  lets it stand deeper than its shallows, `START.ribbon`). */
+const LANDING = { half: 0 } as const;
+
+function landed(plan: PremisePlan, w: StageWater): StageWater {
+  const r = w.raster;
+  const { W, H } = r;
+  const s = plan.frame.start;
+  const k = plan.bodies.findIndex((b) => b.id === plan.stair?.startLake) + 1;
+  if (s.z < 0 || !k) return w;
+  const sill = plan.bodies[k - 1].sill;
+  // the start's lake's tile nearest the start
+  let p0 = -1;
+  let best = Infinity;
+  for (let i = 0; i < W * H; i++) {
+    if (r.lake[i] !== k) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    const d = (x - s.x) * (x - s.x) + (y - s.y) * (y - s.y);
+    if (d < best) {
+      best = d;
+      p0 = i;
+    }
+  }
+  if (p0 < 0) return w;
+  // the nearest floor tile through the lake's own tiles
+  const prev = new Int32Array(W * H).fill(-1);
+  prev[p0] = p0;
+  const queue = [p0];
+  let floor = -1;
+  for (let q = 0; q < queue.length && floor < 0; q++) {
+    const c = queue[q];
+    if (r.heights[c] <= sill - 1) {
+      floor = c;
+      break;
+    }
+    const x = c % W;
+    const y = (c - x) / W;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const xx = x + dx;
+      const yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+      const j = yy * W + xx;
+      if (prev[j] >= 0 || r.lake[j] !== k) continue;
+      prev[j] = c;
+      queue.push(j);
+    }
+  }
+  if (floor < 0) return w;
+  for (let c = floor; ; c = prev[c]) {
+    const x = c % W;
+    const y = (c - x) / W;
+    for (let dy = -LANDING.half; dy <= LANDING.half; dy++)
+      for (let dx = -LANDING.half; dx <= LANDING.half; dx++) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        if (r.lake[j] !== k || r.heights[j] <= sill - 1) continue;
+        r.heights[j] = sill - 1;
+        // (the pump's water, as the bay's drowned river is: the frame lets it stand deeper, `START.ribbon`)
+        r.ribbon[j] = 1;
+      }
+    if (c === p0) break;
+  }
+  return w;
+}
+
 export const lakeStair: PremiseDef = {
   id: "lakeStair",
   eligible: lakeStairEligible,
   draw,
+  water: (plan) => landed(plan, waterByNumber(plan)),
   invariants: [...PLAN_CHECKS, ...stairPlanInvariants, ...WATER_CHECKS],
   skeleton: skeletonOf,
   site: siteStair,

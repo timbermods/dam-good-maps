@@ -1045,11 +1045,18 @@ lay in three to five pieces, at 128² in one: the side network's count grows wit
 Stage 0's second pass now keeps it off the start's walk on the skeleton (`lakeStair.ts` `WALK_KEEP`: the floor's
 1,430 nearest tiles, channels 4 tiles past their half width, side bodies 4 past their outline), and the ways out try
 only grounds a ramp can reach, 4 levels at most (`frame.ts` `WAYS_OUT`; the four largest grounds of the map were all out
-of reach at 256²). The 128² pin is unchanged. River Valley, one thread, median of three: seed 1 15.9 s, seed 2 35.6 s
-(was a fallback at 33.7), seed 3 15.7 s (was 54.5, plan 9); Any: seed 1 16.6 s (22.1), seed 3 14.3 s (was a fallback
-at 51.0), seed 2 still falls back (35.8 s): its plans then miss `spectrum`'s moist floor (26.9 to 29.4 %), lose the
-start's water on a drought's first day, or keep the first pass's side network where no sited draw puts three small
-works in the start's walk (`premiseStair256.heavy.test.ts`).
+of reach at 256²).
+
+The second round: `spectrum`'s moist floor falls with the map's side (D???, §4.4's table), and the start's lake has a
+landing (`lakeStair.ts` `LANDING`, the premise's own stage 1 seam): its shelf, the bed at the sill that rings every lake
+(`raster/bodies.ts`), cut a level on a one-tile line from the shore by the start to the lake's floor, marked as the
+drowned river's ribbon (the pump's water, which the frame lets stand deeper). In a drought the start's lake drains to
+its sill; while it stands under 0.3 over the shelf, the shelf is neither a shore nor water a pump draws, and nowhere
+did deeper water meet a dry shore (on every map measured, at 128² and 256²). A 128² lake falls past that band within the
+first day (0.8 of a level a day); a 256² lake, three to four times the area behind an outlet as wide, falls 0.35 to 0.45,
+and two of Any seed 2's plans stood 0.02 and 0.03 over their sill at day 1's end: "gone on day 1", reachable again on
+day 2, each costing a settle. The landing moves 128² seed 1's bytes (its plan, start, bench and card unchanged; D148).
+Times are in the round's report and `premiseStair256.heavy.test.ts` holds seeds 1 to 3 in River Valley and Any.
 
 ### 3.4 Deferred to after the map opens
 
@@ -1239,7 +1246,7 @@ outlines, wander, crags, stands, the pieces' places, the names.
 | `springs.side` | plan | A body with its own spring drains to a map edge without meeting a lake, unless it is a notch's, whose `tradeoff` says its water runs red |
 | `drought.lakes` | settled (storage) | Through the difficulty's longest drought each lake keeps half its water or more at its worst day (it drops a level, it does not empty); the lowest lake, when the start's, 28 % or more (section 9). Held by `premiseMap.test.ts` on seed 1; not yet a stage check |
 | `drought.start` | settled (storage), proof | The start's water lasts the difficulty's longest drought by the editor's rule; 60 % of the bench within 12 tiles stays moist every day of it; the falls stop from the top |
-| `spectrum` | settled | Water 15 to 25 % of tiles; moist ground 30 to 42 %; small irrigation works (`notch`, `damToPond`, `levee`) 6 to 8, each 250 to 1,100 tiles and at most 3 % of the map; all works together 10 to 20 %; dry for good 12 to 25 %, on one side |
+| `spectrum` | settled | Water 15 to 25 % of tiles; moist ground 30 to 42 % (the floor by the map's side since D???: 30 % at 128², 25 % at 192², 20 % at 256², a straight line between, `ladder.ts` `moistFloor`); small irrigation works (`notch`, `damToPond`, `levee`) 6 to 8, each 250 to 1,100 tiles and at most 3 % of the map; all works together 10 to 20 %; dry for good 12 to 25 %, on one side |
 | `ladder.kinds` | land | Each of the three small irrigation kinds (`notch`, `damToPond`, `levee`) is on the map at least once; the first and small works together have all four kinds (`breach`, `levee`, `notch`, `damToPond`); three small irrigation works within 40 tiles' walk of the bench; one first work inside the first frame |
 | `ground` | land | Flat under 50 %; one-level steps 60 to 80 %; the three commonest levels under 35 % |
 | `wood` | settled | Living trees 450 to 700 per 10,000 tiles; at most 16 % of level moist ground under a tree; 250 logs or more grown within 20 tiles' walk of the start |
