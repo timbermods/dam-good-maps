@@ -3,7 +3,7 @@
 // the skeleton's land without the start's walk, cut the start's lake shore beside the bench (walkable land 973 to 1,290
 // against the 1,300 floor, where the skeleton gave 1,601 to 2,528), and the start's ways out were tried only on the
 // map's four largest grounds, out of reach at 256² (`lakeStair.ts` `WALK_KEEP`, `frame.ts` `WAYS_OUT`). Then its
-// plans missed `spectrum`'s moist floor (now by the map's side, D???) or lost the start's water on a drought's first
+// plans missed `spectrum`'s moist floor (now by the map's side, D519) or lost the start's water on a drought's first
 // day, the lake standing just over the shelf that rings it (`lakeStair.ts` `LANDING`).
 
 import { describe, expect, it } from "vitest";
