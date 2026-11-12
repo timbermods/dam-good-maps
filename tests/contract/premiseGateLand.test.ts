@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { failing, PLAN_TRIES } from "../../src/core/premise/draw";
 import { gateWater } from "../../src/core/premise/gateWater";
 import { firstWater } from "../../src/core/premise/draw";
-import { GATE_LAND_CHECKS, gateLand, gateLandFailures, gateZones, rangeBand } from "../../src/core/premise/gateLand";
+import { GATE_FACE_RUN, GATE_LAND_CHECKS, gateLand, gateLandFailures, gateZones, gorgeFaces, rangeBand } from "../../src/core/premise/gateLand";
 import { gateOf, onLocal, rangeAt, turnOf, wallGate } from "../../src/core/premise/premises/wallGate";
 import { makeSpec, type MapSpec } from "../../src/core/spec/mapspec";
 import { gateWetPast } from "../../src/core/premise/gateMap";
@@ -160,5 +160,58 @@ describe("gate.settled: the Gate dry past its rows on the settled map (`gateMap.
     const depth = new Float64Array(raster.W * raster.H);
     for (let i = 0; i < depth.length; i++) if (raster.channel[i] === gi && raster.along[i] > past + 2) depth[i] = 0.1;
     expect(gateWetPast(r.plan, r.water, depth)).toBeGreaterThan(0);
+  });
+});
+
+describe("gorgeFaces: the longest straight face over three levels on the range and the gorge (a measure, not a check)", () => {
+  const s = spec(1, 128);
+  const r = firstWater(wallGate, s);
+  if ("reason" in r) throw new Error(r.reason);
+  gateLand(r.plan, r.water);
+  const { W, H } = r.plan;
+  const ras = r.water.raster;
+  const g = gateOf(r.plan)!;
+  const band = rangeBand(r.plan, r.water);
+  const gi = r.plan.links.findIndex((l) => l.id === g.gate) + 1;
+  const vi = r.plan.links.findIndex((l) => l.id === g.veil) + 1;
+  const flat = () => new Uint8Array(W * H).fill(10);
+  // (a stretch of `n` tiles along a row, it and the row under it on `ok` ground)
+  const rowRun = (n: number, ok: (i: number) => boolean): [number, number] => {
+    for (let y = 1; y + 2 < H; y++)
+      for (let x = 1; x + n + 1 < W; x++) {
+        let all = true;
+        for (let k = -1; k <= n && all; k++) all = ok(y * W + x + k) && ok((y + 1) * W + x + k);
+        if (all) return [x, y];
+      }
+    throw new Error("no stretch");
+  };
+  const far = (i: number, mark: (j: number) => boolean, d: number) => {
+    const x = i % W;
+    const y = Math.floor(i / W);
+    for (let dy = -d; dy <= d; dy++) for (let dx = -d; dx <= d; dx++) if (mark((y + dy) * W + x + dx)) return false;
+    return true;
+  };
+  const isVeil = (j: number) => ras.channel[j] === vi || !!ras.crest[j];
+  const isGate = (j: number) => ras.channel[j] === gi;
+
+  it("reads a straight face of five levels, ten tiles long, on the range as ten; none on level ground", () => {
+    const h = flat();
+    expect(gorgeFaces(r.plan, r.water, h).run).toBe(0);
+    const [x, y] = rowRun(10, (i) => band[i] === 1 && far(i, isVeil, 6) && far(i, isGate, 6) && !ras.lake[i] && !ras.channel[i]);
+    for (let k = 0; k < 10; k++) h[(y + 1) * W + x + k] = 15;
+    expect(gorgeFaces(r.plan, r.water, h).run).toBe(10);
+    expect(10).toBeGreaterThan(GATE_FACE_RUN);
+  });
+
+  it("leaves out the Veil's own drop and the Gate's bar, laid on purpose", () => {
+    // (the Veil's lip: a face along it, its tiles at the crest, the ground in front five lower)
+    const h = flat();
+    for (const i of ras.lips[g.veil] ?? []) h[i] = 15;
+    expect(gorgeFaces(r.plan, r.water, h).run).toBeLessThanOrEqual(1);
+    // (the Gate's head: its bar's tiles five over the ground beside them)
+    const b = flat();
+    const barEnd = Math.max(...(r.plan.links[gi - 1].rows ?? [0])) + 2;
+    for (let i = 0; i < W * H; i++) if (ras.channel[i] === gi && ras.along[i] <= barEnd) b[i] = 15;
+    expect(gorgeFaces(r.plan, r.water, b).run).toBe(0);
   });
 });
