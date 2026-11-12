@@ -1255,15 +1255,32 @@ to `PLAN_TRIES` and three settles, a plan refused when its water, land, start, a
 fails. `tools/premise-gate-map.ts` writes a seed's map; `tools/capture-gate.ts` renders the widest frame and the opening
 camera (`docs/sheets/wall-gate-natural.jpg`, seeds 1 and 2 at 128²).
 
-**Measured, the valley round** (planning's ruling of 2026-11-12; seeds 1 to 12 at 128², 1 to 4 at 192², 1 to 3 at
-256²). **At 128², 10 of 12 maps hold** every blocking check and the Veil's bar (6 drew a later plan, 19 plans refused);
-on the 10 the start against `START_FLOORS`: the bench 761 to 1,041 (640), walkable 1,424 to 2,929 (1,300), wood 274 to 643
-(200), fast 0.4 to 1 (0.4), the forester's plot 456 to 507 (100), farmland 556 to 607 (100). Valley green 30 to 33 % of
-the map, the basin's floor 25 to 31 %, the range and hills 38 to 43 %; the lake 14 to 18 across at its widest, its width
-varying 2.0 to 2.5-fold, one or two bays; ruled land straight 7.7 to 11.7 %, bands 0.3 to 2.4 %, corners 0.7 to 3.6. The
-Gate opened wets 34 to 49 % of the basin, the leat opened 33 to 43 %; the megadam holds 769 to 1,087. **At 192² and 256²
-the round does not hold yet**: 1 of 4 and 0 of 3 maps hold (the Veil short of its bar, water within two tiles of the
-start, the walk short), and the valley's green is 14 to 22 % of the map (the basin's floor 25 to 31 %).
+**Measured, the valley round** (planning's rulings of 2026-11-12; seeds 1 to 12 at each size). **Holds: 11 of 12 at
+128², 12 of 12 at 192², 10 of 12 at 256²** (every blocking check and the Veil's bar; 128² seed 9 draws no plan whose bench
+meets water on one side, 256² seeds 4 and 10 fall 0.02 to 0.03 short of the Veil's bar). The start against
+`START_FLOORS` on the maps that hold: the bench 654 to 1,182 (640), walkable 1,315 to 5,262 (1,300), wood 263 to 642
+(200), fast 0.43 to 1 (0.4), the forester's plot 421 to 535 (100), farmland 521 to 635 (100). The map's shares: valley
+green 30 to 33 % at 128², 20 to 23 % at 192², 16 % at 256²; the basin's floor 24 to 31 %; the lake 14 to 21 across at its
+widest, its width varying 2.0 to 2.4-fold. Ruled land straight 8.7 to 14.3 %, bands 0.2 to 2.8 %, corners 1.1 to 5.0. The
+Gate opened wets 35 to 53 % of the basin at 128², 27 to 36 % at 192², 20 to 32 % at 256²; the leat opened 23 to 43 %,
+23 to 30 %, 11 to 27 %.
+
+**Why 192² and 256² fell short, and the mend.** The lake's near end stood at a reach of the plunge pool that grew with
+the map (its offset from the bench and the brook's wander scaled with the side), while the brook falls one level
+whatever the side: at 256² the brook ran 69 tiles and backed the pool up to the start's bench (water within two tiles of
+the start, the Veil short). The lake's near end now stands at a fixed reach (the brook 17 to 27 tiles at every size).
+
+**The plunge pool's level.** The shared table stands a body at its sill plus its outlet's head, written for a lake at a
+sill; under a fall the plunge pool leaves over a lip its own brook drowns (the brook's water, its bed plus the depth its
+width sets, stands over the lip's crest), so the pool stands the lip's head over the brook's water. `gateWater.ts`
+`plungePool` sets the pool's level and surface so (7.49 for 7.33 before; settled 7.56 to 7.71, within the stage 1 test's 0.25), the shared table left as
+it is.
+
+**The megadam's floor** came down from 12 to 5 tile-levels a tile of side because the design changed, not to pass a
+number: round 8's lake lay along the start's bench, and the megadam at its sill + 2 drowned the bench and its meadow; the
+lake now lies at the valley's low end, and the megadam raises it and its own meadows. It still floods 1,456 to 2,208
+tiles at 128², 2,599 to 3,563 at 192² and 3,338 to 5,269 at 256² (newly wet), holding 751 to 1,020, 997 to 1,657 and
+1,608 to 2,002 tile-levels: a reservoir worth the large rung. A plan whose megadam finds no shoulders is drawn again.
 
 **Measured, the range round** (before the valley round; the same 19 seeds). Every map passed every blocking check and
 every land invariant. The bench 1,049 to 2,342, walkable land 2,460 to 7,659, wood 258 to 680, fast wood 0.41 to 1, the
@@ -1276,12 +1293,11 @@ limit and needs none of its own.
 each as the lake stair's ladder does; `gateCard` and `gateWorkWords` give the card's words. The megadam keeps no reach
 (it drowns the start's bench).
 
-**Short.** The valley round holds at 128² only (above). The plunge pool settles 0.3 to 0.4 over the level its table
-gives at 128² and 192² (0.7 at 256²), so the Veil sits at its bar and the stage 1 heavy test's slack (0.25) fails; the
-brook is three wide under a lip of 8 or more (a brook led straight from the pool stood it a level over its sill on the
-Veil's 9.5); the valley's green is under a quarter of the map past 128² (`map.shares` is said, not refused). The basin
-reads in the game as the one dry material (D496); the seeps are not drawn; the Veil's lip is a straight run by the shared
-falls stage.
+**Short.** The brook is three wide all along, not one to three narrowing where it runs steeper: it falls one level from
+the plunge pool to the lake under the Veil's whole flow (9.5 on normal), and a one-wide reach would carry it near four
+levels deep; a brook that steps would need the lake a level lower or the springs smaller. The valley's green is under a
+quarter of the map past 128² (`map.shares` is said, not refused). The basin reads in the game as the one dry material
+(D496); the seeps are not drawn; the Veil's lip is a straight run by the shared falls stage.
 
 ### 5.2 The island sea
 
