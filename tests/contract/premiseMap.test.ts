@@ -15,12 +15,15 @@ import { generate, type GenerateResult } from "../../src/core/gen/generate";
 import { firstWater } from "../../src/core/premise/draw";
 import { dayOneWater } from "../../src/core/premise/frame";
 import { generatePremise } from "../../src/core/premise/generate";
-import { droughtHold } from "../../src/core/premise/hold";
+import { droughtHold, startWaterGate } from "../../src/core/premise/hold";
 import { soilReach } from "../../src/core/premise/ladder";
 import { premiseLand } from "../../src/core/premise/map";
 import { PREMISES } from "../../src/core/premise/premises";
 import { waterByNumber } from "../../src/core/premise/water";
+import { droughtStorage } from "../../src/core/sim/drought";
 import { moisture } from "../../src/core/sim/moisture";
+import { TICKS_PER_DAY } from "../../src/core/sim/water";
+import { HazardRun } from "../../src/core/sim/weather";
 import { decodeSpecFragment, encodeSpecFragment, makeSpec } from "../../src/core/spec/mapspec";
 
 // (re-pinned since generator 0.10.16's ground with grade, D148: the map's own land is the same; its description names the
@@ -145,6 +148,27 @@ describe("The premise mode (§2.2, build step 4)", () => {
     }
     expect(hold.has).toBe(true);
     expect(hold.gone).toBe(0);
+    // the start's water as stage 8 gates it: the analytic drought (`droughtStorage`) reads the start's lake no higher
+    // than the run at the drought's end on any tile a pump may stand on, so the gate's read by number never vouches for
+    // water the run loses; and the gate agrees with the run
+    const b = r.result.built;
+    const water = waterByNumber(plan);
+    const k = plan.bodies.findIndex((x) => x.id === plan.stair!.startLake) + 1;
+    const run = new HazardRun(b.waterModel, { depth: b.water, contamination: b.contamination, stack: null } as never, "drought", hold.days);
+    for (let d = 1; d <= hold.days; d++) run.step(TICKS_PER_DAY);
+    const last = Float64Array.from(run.water().depth);
+    run.dispose();
+    const kept = droughtStorage(b.waterModel, b.water, hold.days);
+    let tiles = 0;
+    let over = 0;
+    for (let i = 0; i < kept.length; i++) {
+      if (water.raster.lake[i] !== k || !(b.water[i] > 0.3)) continue;
+      tiles++;
+      if (kept[i] > last[i]) over++;
+    }
+    expect(tiles).toBeGreaterThan(100);
+    expect(over).toBe(0);
+    expect(startWaterGate(made, plan, b, water).gone).toBe(0);
   });
 
   it("hands a spec the premise rules out to the themes, saying why", () => {

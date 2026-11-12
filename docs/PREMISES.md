@@ -549,6 +549,22 @@ and bands. Measured on seeds 1 to 3 at 128² and Four Lakes (`tools/premise-map.
 - A failure with a repair is repaired once. Any other failure draws the next plan (`attempt + 1`). Stages 0 to 4
   are arithmetic, so a re-roll before the settle costs under half a second. After `PLAN_TRIES` (16 since step 6) plans the spec
   goes to the themes' path: "No valid map" never shows (D471).
+- **The start's water through the drought** (`hold.ts` `startWaterGate`, D133's rule): a map that passes its checks
+  is read by number first: each tile of the start's lake falls from its settled depth to its depth at the end of the
+  difficulty's longest drought by the analytic rule (`sim/drought.ts` `droughtStorage`: the water over its spill level
+  drains at once, each pool loses its surface's evaporation) and `START_SCREEN.margin` (0.1 of a level) more, read at
+  12 levels between, since a pump's shore is a band (0 to 2 levels over the water), not a floor. Where a pump on a
+  shore within the start water rule's walk reaches the lake at every level, nothing is run. Where not, the drought is
+  run a day at a time as the Drought view runs it (on the settle's threads), each day judged by the rule
+  (`StartWaterDays`) and read by number again for the days left, so the run stops once the lake's drain is past and
+  the read vouches for the rest. A start whose water goes in the run is the next plan (`drought.start`); only the run
+  refuses. The rule reads the lake lower than the run on every tile: at the drought's end the run's water stood 0.03
+  to 0.43 over it on each start lake of River Valley's seeds 1 to 24 at 128² and seeds 1 and 3 at 256², where the
+  start's lake fell 1.5 to 3.2 levels by the ninth day; read from a later day of the run, the gap closes to 0.00
+  (0.000 at 256²). The read before this, a fall of 1.5 levels all over, missed what the lakes lost after it. On River
+  Valley's seeds 1 to 12 at 128² the read vouched at once on eleven maps and the run went all nine days on seed 2
+  (1.8 s); at 256² seeds 1 and 3 ran two days (2.4 to 2.6 s on one thread, against 8.5 to 9.4 s for the whole
+  drought). Every map kept its start's water all nine days, the gate's verdict the full run's on each.
 - **The land is shown** (`opts.onLand`) when stage 4 passes: every check the land alone can judge has run, and by
   design the settle moves no ground (D348). The two repairs that touch ground after the settle (a lip's width, a
   guard tile) are of the kind D348 already allows for a worn way out.
@@ -574,7 +590,11 @@ stage 4 and the repairs are not built. Where it differs from the above, and why:
   levels at most or filled one, never on ground stage 1 fixed, within 2 tiles of the water, a lip or a crest, nor
   where it would leave a step of two beside it (the slopes still join the bench). The early refusal on the skeleton
   reads only what the side network cannot undo (the 5 × 5, its door, the landmark in the frame, the bench); the
-  frame's water depth, the moist land and the walkable land wait for the full land. The stair's falls and weirs
+  frame's water depth, the moist land and the walkable land wait for the full land. (The walkable land read on the
+  skeleton, its ways out cut, was tried and dropped: on 256² seed 2 it read 1,601 to 2,528 where the full land read
+  973 to 1,279 (there the ways out cut no ramp: the cliffs round the start stand 6 and 7 levels, over `RAMP_MOST`, or
+  the way runs over ground stage 1 fixed), and at 128² it read under the full land's on five plans, 1,319 against
+  1,355 the most.) The stair's falls and weirs
   (`water.falls`, `water.weirs`) are judged there too, on the skeleton's water (`SKELETON_LAND`): the side network
   never touches them, and a plan that failed them there always failed them in stage 1, after its siting's cost. The meadow room a layout's
   start asks (`meadowRoom`) is 1.5 times the gate's moist land (300 tiles, as before).
@@ -970,6 +990,18 @@ finds no frame whose start keeps its water and falls to the themes (open). Times
 4.0 s, at most 9.5 to 12.9 s (seeds 6, 10 and 12, 13 or 14 plans each); 256² 10.9 to 12.9 s. #1011's code on the same
 machine: median 2.5 s, at most 6.4 s; 256² 10.1 to 20.7 s. What is left at 128²: plans whose 48 layouts all fail
 (the bench halves the frames that hold), and starts that read their walkable land but lose it in the settle.
+
+As measured with the start's water gated through the drought (stage 8, `startWaterGate`; River Valley, the whole
+`generate` call on one thread under `tsx`, dev's code timed right after under the same load): 128² median 2.9 to
+3.1 s, at most 9.5 s (dev 3.4 to 3.5 and 8.6); 256² seed 1 15.2 s (dev 15.1), seed 2 49.2 s with its fallback to the themes (dev
+53.9), seed 3 31.7 s (dev 29.2). The gate's run costs 2.4 to 2.6 s at 256² on one thread (two days of the drought),
+in the page on the settle's threads. The bypass's course search, about half of a 256² plan's draw, writes out its
+heap with the same comparisons (every plan the same): the draw is 11 % faster at 256², unchanged at 128². What is
+left at 256²: plans whose start is walled in by cliffs of 6 and 7 levels no ramp climbs (seed 2's 973 to 1,279 tiles
+of walkable land against the 1,300 floor, each paying its draw, siting and land, 2 to 3 s), draws of 48 layouts that
+all fail (0.2 to 1.9 s each; on seed 2, 281 of the 370 tails that failed did so at the pool's basins, `placeTarns`,
+after the bypass was laid),
+and the settle and checks.
 
 ### 3.4 Deferred to after the map opens
 
