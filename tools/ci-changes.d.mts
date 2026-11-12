@@ -14,3 +14,8 @@ export function needsHeavy(files: string[], read: (path: string, side: "old" | "
 export function needsTest(files: string[], mode?: "auto" | "full" | "light"): boolean;
 export function isPage(path: string): boolean;
 export function needsPage(files: string[], mode?: "auto" | "full" | "light"): boolean;
+export const GENERATOR_DIRS: string[];
+export const GENERATOR_FILES: string[];
+export const GENERATOR_RUST: string[];
+export function isGenerator(path: string): boolean;
+export function needsGenerator(files: string[], mode?: "auto" | "full" | "light"): boolean;

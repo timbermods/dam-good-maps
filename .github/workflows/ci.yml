@@ -13,7 +13,8 @@ on:
 # suites run after it is in, on dev's tip):
 #   pull request into dev    the quick checks: `changes` and `test` (typecheck, quick suite in two shards, build). The
 #                            browser shards and the heavier suites wait for the merge, except the `page` job (below), which runs
-#                            before it when the PR touches the page. Not while a PR is a draft: marking
+#                            before it when the PR touches the page, and the browser shards themselves when the PR can change
+#                            what the generator makes (`generator`, tools/ci-changes.mjs `isGenerator`). Not while a PR is a draft: marking
 #                            it ready runs CI. A newer push cancels the run. One that touches only investigation/
 #                            (Codex's investigation PRs) runs `changes` alone.
 #   push to dev (a merge)    the suites the change needs, classified like a merge group (below), browser shards included:
@@ -62,6 +63,7 @@ jobs:
       rust: ${{ steps.which.outputs.rust }}
       test: ${{ steps.which.outputs.test }}
       page: ${{ steps.which.outputs.page }}
+      generator: ${{ steps.which.outputs.generator }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -198,8 +200,9 @@ jobs:
   # the slowest shard is about 16 minutes of tests, 18 to 20 a job. (Seven shards from 2026-10-27, eight from 2026-11-09, #893, each with two workers.)
   browser:
     needs: changes
-    # (not on a pull request into dev: the browser specs run on dev's tip once it merges)
-    if: needs.changes.outputs.heavy == 'true' && !(github.event_name == 'pull_request' && github.base_ref == 'dev')
+    # (not on a pull request into dev: the browser specs run on dev's tip once it merges; except one that can change what
+    # the generator makes, `generator` from tools/ci-changes.mjs, which runs them before the merge, as a page PR runs `page`)
+    if: needs.changes.outputs.heavy == 'true' && (!(github.event_name == 'pull_request' && github.base_ref == 'dev') || needs.changes.outputs.generator == 'true')
     name: browser (${{ matrix.shard }}/15)
     runs-on: ubuntu-latest
     timeout-minutes: 30
