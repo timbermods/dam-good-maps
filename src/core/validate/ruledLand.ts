@@ -40,12 +40,14 @@ export const CHANNEL_WIDTH = 2;
 export const EDGE_MARGIN = 2;
 
 /** The limits (calibrated: docs, "Ruled land"). A map fails when any number is over its limit. */
-export const RULED_LIMITS = { straight: 0.17, bands: 0.03, corners: 3, channels: 0.2 } as const;
+/** The limits (planning, 2026-11-12). Channels has none: the game's own rivers lie in straight reaches of even width
+ *  as often as a laid trench does (Nomads 39 %, Meander 38 %), so the number is reported, never failed on. */
+export const RULED_LIMITS = { straight: 0.17, bands: 0.03, corners: 3 } as const;
 /** The aim (planning, 2026-11-12: the game's built-in maps' median): a map that passes with more of its edges
  *  straight than this is told so. */
 export const RULED_AIM = { straight: 0.08 } as const;
 
-export type RuledLimits = { straight: number; bands: number; corners: number; channels: number };
+export type RuledLimits = { straight: number; bands: number; corners: number };
 
 export interface RuledLand {
   /** Edge sides counted (height steps between dry tiles, and shoreline sides). */
@@ -153,7 +155,7 @@ export function ruledLand(h: ArrayLike<number>, wet: ArrayLike<number>, W: numbe
   const bandShare = bandTiles / (W * H);
   const perK = edges ? (corners * 1000) / edges : 0;
   const ch = channels(wet, W, H);
-  return { edges, straight, bands: bandShare, corners: perK, longest, channels: ch.share, channel: ch.worst, ok: straight <= limits.straight && bandShare <= limits.bands && perK <= limits.corners && ch.share <= limits.channels };
+  return { edges, straight, bands: bandShare, corners: perK, longest, channels: ch.share, channel: ch.worst, ok: straight <= limits.straight && bandShare <= limits.bands && perK <= limits.corners };
 }
 
 /** Tiles in constant-width bands, counted along rows (bands running along y) and along columns, each tile once. */
@@ -350,9 +352,9 @@ function channelSweep(wet: ArrayLike<number>, cols: number, rows: number, rs: nu
 export function ruledLandMessage(r: RuledLand): string {
   const pct = (v: number) => `${Math.round(v * 100)} %`;
   const nums = `${pct(r.straight)} of edges straight, ${pct(r.bands)} of the land in even bands, ${Math.round(r.corners * 10) / 10} square corners per 1,000 edges, ${pct(r.channels)} of the water in straight even channels`;
-  const where = `the longest straight edge is ${r.longest.length} tiles at X ${r.longest.x} · Y ${r.longest.y}${r.channel ? `; the largest channel is ${r.channel.tiles} tiles at X ${r.channel.x} · Y ${r.channel.y}` : ""}`;
+  const where = `the longest straight edge is ${r.longest.length} tiles at X ${r.longest.x} · Y ${r.longest.y}${r.channel ? `; the largest straight reach of water is ${r.channel.tiles} tiles at X ${r.channel.x} · Y ${r.channel.y}` : ""}`;
   if (!r.ok) return `The land looks ruled: ${nums}; ${where}`;
-  return r.straight > RULED_AIM.straight ? `The land is not ruled, but straighter than the aim of ${pct(RULED_AIM.straight)}: ${nums}; ${where}` : `The land is not ruled: ${nums}`;
+  return r.straight > RULED_AIM.straight ? `The land is not ruled, but straighter than the aim of ${pct(RULED_AIM.straight)}: ${nums}; ${where}` : `The land is not ruled: ${nums}${r.channel ? `; the largest straight reach of water is ${r.channel.tiles} tiles at X ${r.channel.x} · Y ${r.channel.y}` : ""}`;
 }
 
 /** Wet tiles of settled water, as the Workshop study read them (depth 0.1 or more). */
