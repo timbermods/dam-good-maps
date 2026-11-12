@@ -10,6 +10,7 @@ import { tilesToRuns } from "../../src/core/math/grid";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { heightsAfter } from "../../src/core/doc/landPatch";
 
 const W = 96;
 const box = (x0: number, y0: number, x1: number, y1: number) => {
@@ -36,10 +37,21 @@ describe("the editor's document in the worker", () => {
     expect(u1.view.entities).toBeDefined(); // new trees
     expect(u1.info.edits).toBe(1);
     const plateau = { id: "0b8e9a64-2222-4c2d-9e1f-2a3b4c5d6e7f", kind: "landform" as const, origin: "user" as const, locked: false, params: { kind: "plateau" as const, edgeStyle: "cliff" as const, outline: [[79.5, 79.5], [88.5, 79.5], [88.5, 88.5], [79.5, 88.5]] as [number, number][], height: 14 } };
+    const was = ed.terrainNow().heights;
     const u2 = ed.apply({ op: "addFeature", params: { feature: plateau } });
     expect(u2.errors).toEqual([]);
-    expect(u2.view.heights).toBeDefined();
-    expect(u2.view.terrainRect).toMatchObject({ x0: 80, y0: 80, x1: 88, y1: 88 });
+    // (the answer carries the land it changed, over its rectangle, #922 step 4: the plateau's tiles, and nothing else)
+    expect(u2.view.land?.heights).toBeDefined();
+    const now = heightsAfter(was, u2.view, W);
+    let changed: { x0: number; y0: number; x1: number; y1: number } | null = null;
+    for (let i = 0; i < now.length; i++)
+      if (now[i] !== was[i]) {
+        const x = i % W;
+        const y = (i - x) / W;
+        changed = changed ? { x0: Math.min(changed.x0, x), y0: Math.min(changed.y0, y), x1: Math.max(changed.x1, x), y1: Math.max(changed.y1, y) } : { x0: x, y0: y, x1: x, y1: y };
+      }
+    expect(changed).toEqual({ x0: 80, y0: 80, x1: 88, y1: 88 });
+    expect(Buffer.from(now).equals(Buffer.from(ed.terrainNow().heights))).toBe(true);
 
     // back to settings: the card shows the edited map
     const card = await ed.settingsResponse();

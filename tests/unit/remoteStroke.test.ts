@@ -325,7 +325,7 @@ const ev = (x: number, y: number) => ({ button: 0, clientX: x, clientY: y, point
  *  operation and its land before and after. `tool` is the brush picked. */
 function painterOn(q: EditQueue, N: number, weather: StrokeWorker, log: string[], more: Partial<PainterHost> = {}) {
   const brush: { current: BrushSettings } = { current: { ...DEFAULT_BRUSH, tool: "naturalize", strength: 10 } };
-  const commits: { stroke: Stroke; shown: Uint8Array; pre: Uint8Array; terrainPre: Uint8Array }[] = [];
+  const commits: { stroke: Stroke; shown: Uint8Array; terrainPre: Uint8Array }[] = [];
   const painter = new BrushPainter({
     renderer: rendererOn(() => q.shown, N),
     W: N,
@@ -334,16 +334,11 @@ function painterOn(q: EditQueue, N: number, weather: StrokeWorker, log: string[]
     terrain: () => q.terrain(),
     edits: () => q,
     settings: () => brush.current,
-    commit: (stroke, pre, protect, id) => {
+    commit: (stroke, id) => {
       log.push(`commit ${stroke.params.tool}`);
-      // (the land shown, the stroke's heights before the integrity pass, and the terrain it was painted on)
-      commits.push({ stroke, shown: q.shown.slice(), pre: pre.slice(), terrainPre: q.terrain().pre.slice() });
-      const t = q.terrain();
-      q.ready(id, { kind: "edit", name: "apply", args: [{ op: "brush", params: stroke.params }, "user", stroke.label] }, {
-        rect: stroke.rect,
-        before: { heights: stroke.before.shown, pre: stroke.before.pre, protect: cutRect(t.protect, stroke.rect, N) },
-        after: { heights: stroke.after.shown, pre: cutRect(pre, stroke.rect, N), protect: cutRect(protect, stroke.rect, N) },
-      });
+      // (the land shown, and the terrain it was painted on)
+      commits.push({ stroke, shown: q.shown.slice(), terrainPre: q.terrain().pre.slice() });
+      q.ready(id, { kind: "edit", name: "apply", args: [{ op: "brush", params: stroke.params }, "user", stroke.label] }, stroke.overlay);
     },
     unchanged: () => void log.push("unchanged"),
     picked: () => {},
@@ -480,10 +475,12 @@ describe("a stroke on its way to the history is a ticket in the edit queue (#880
     // (nothing of the press was lost, and it began on the land the Naturalize stroke left)
     const [nat, raise] = commits;
     expect(raise.stroke.params.dabs.length).toBeGreaterThan(2);
-    expect(Buffer.from(raise.stroke.before.shown).equals(Buffer.from(cutRect(nat.shown, raise.stroke.rect, 40)))).toBe(true);
-    expect(Buffer.from(raise.stroke.after.shown).equals(Buffer.from(raise.stroke.before.shown))).toBe(false);
+    const ro = raise.stroke.overlay;
+    const no = nat.stroke.overlay;
+    expect(Buffer.from(ro.before.heights).equals(Buffer.from(cutRect(nat.shown, ro.rect, 40)))).toBe(true);
+    expect(Buffer.from(ro.after.heights).equals(Buffer.from(ro.before.heights))).toBe(false);
     // (and on its terrain: the heights before the integrity pass the Naturalize stroke left, U4)
-    expect(Buffer.from(cutRect(raise.terrainPre, nat.stroke.rect, 40)).equals(Buffer.from(cutRect(nat.pre, nat.stroke.rect, 40)))).toBe(true);
+    expect(Buffer.from(cutRect(raise.terrainPre, no.rect, 40)).equals(Buffer.from(no.after.pre))).toBe(true);
   });
 
   it("a map switch waits for it (U5): the queue is idle only once it landed and the map's worker took it", async () => {
@@ -630,7 +627,7 @@ describe("a worker that never answers (#884): the queue's one watchdog", () => {
     ]);
     // (the Raise began on the land as it was before the Naturalize stroke: its land was laid back)
     const r = commits[0].stroke;
-    expect(Buffer.from(r.before.shown).equals(Buffer.from(cutRect(heights, r.rect, N)))).toBe(true);
+    expect(Buffer.from(r.overlay.before.heights).equals(Buffer.from(cutRect(heights, r.overlay.rect, N)))).toBe(true);
     expect(q.pending()).toBe(0);
   });
 });

@@ -57,6 +57,7 @@ import type { Validation } from "../core/validate/checks";
 import { canonicalRun, type CanonicalWater } from "../core/sim/prefill";
 import { PREVIEW_JOB_DAYS, PreviewJob, TICKS_PER_DAY, type WarmState } from "../core/sim/preview";
 import type { TerrainState } from "../core/features/raster/strokePreview";
+import { diffLand, WET, type Chain, type Land, type LandPatch } from "../core/doc/landPatch";
 import { EMITTERS, objectTile } from "../core/sim/model";
 import { cavesOf, stackGraph, stackObjectRows, surfaceWater, worldWaterModel, type StackSettle } from "../core/sim/stackWater";
 import { keptOnStack } from "../core/sim/stackFed";
@@ -144,6 +145,15 @@ export interface ViewUpdate {
    *  its own copy, exactly as the build applies them). */
   terrain?: TerrainState;
   terrainRect?: { x0: number; y0: number; x1: number; y1: number } | null;
+  /** What changed of the land and the terrain, over the rectangle it changed (core/doc/landPatch.ts, #922 step 4): in
+   *  place of `heights` and `terrain` whenever the page holds the land it lays on. */
+  land?: LandPatch;
+  /** What changed of the settled water's depth and moisture in the terrain, over its rectangle: with the water's news
+   *  (core/doc/landPatch.ts `wet`, its own numbering). */
+  wet?: LandPatch;
+  /** With whole `heights` and `terrain`: the numbers of the land and of its water (a patch names the one it lays on). */
+  landSeq?: number;
+  wetSeq?: number;
   /** On a map with caves or overhangs, its columns as they stand, when an edit reshaped a roof's top
    *  (D280 (3)) or the Block tool dug or built ground (D335; then with `heights` and a `terrainRect`
    *  even where the surface did not move): the voxel mesher draws those tiles from them, not from
@@ -219,6 +229,10 @@ export interface SessionOpen {
   view: MapView;
   /** The terrain the page paints strokes on (see ViewUpdate.terrain). */
   terrain: TerrainState;
+  /** The numbers of the land and of its water (core/doc/landPatch.ts): the next patches lay on them (-1: none, and
+   *  the editor asks for the whole land at its first patch). */
+  landSeq: number;
+  wetSeq: number;
   ms: number;
 }
 
@@ -500,6 +514,56 @@ function sameEntityView(a: EntityView, b: EntityView | null): boolean {
   return eq(a.template, b.template) && eq(a.x, b.x) && eq(a.y, b.y) && eq(a.z, b.z) && eq(a.orientation, b.orientation) && eq(a.flags, b.flags) && eq(a.owner, b.owner) && eq(a.variant, b.variant) && eq(a.strength, b.strength) && eq(a.stockGood ?? [], b.stockGood ?? []) && eq(a.stockAmount ?? [], b.stockAmount ?? []);
 }
 
+/** The land and terrain the page holds as this worker last sent them (its edit queue's `base`), and their number: an
+ *  answer sends what changed of them, over the rectangle it changed (core/doc/landPatch.ts, #922 step 4). */
+let sentLand: Land | null = null;
+let landSeq = 0;
+let wetSeq = 0;
+
+/** Whole land sent: the worker's copy of it (its arrays go to the page), and its numbers. */
+function landWhole(heights: Uint8Array, terrain: TerrainState): { landSeq: number; wetSeq: number } {
+  sentLand = { heights: heights.slice(), terrain: structuredClone(terrain) };
+  return { landSeq: ++landSeq, wetSeq: ++wetSeq };
+}
+
+/** What changed of the land (`land`: with an answer; the heights and every tile map but the water's) or of its water
+ *  (`wet`: with the water's news) since the page was sent it, as a patch on that chain; the worker's copy follows. */
+function patchOf(next: Land, chain: Chain, W: number, also: { x0: number; y0: number; x1: number; y1: number } | null = null): LandPatch | null {
+  const prev = sentLand!;
+  const wet = chain === "wet";
+  // (the other chain's tile maps as the page holds them: this patch leaves them to theirs)
+  const t = { ...next.terrain } as unknown as Record<string, unknown>;
+  const p = prev.terrain as unknown as Record<string, unknown>;
+  if (wet) for (const k of Object.keys(p)) if (!(WET as readonly string[]).includes(k)) t[k] = p[k];
+  if (!wet) for (const k of WET) t[k] = p[k];
+  const made: Land = { heights: wet ? prev.heights : next.heights, terrain: t as unknown as TerrainState };
+  const from = wet ? wetSeq : landSeq;
+  const patch = diffLand(prev, made, W, from, from + 1, also, chain);
+  if (!patch) return null;
+  if (wet) wetSeq++;
+  else landSeq++;
+  sentLand = { heights: made.heights === prev.heights ? prev.heights : made.heights.slice(), terrain: made.terrain };
+  return patch;
+}
+
+/** The whole map's land, numbered for a page that may open on it (`sessionView`): a new number when no page holds this
+ *  map's land (a map just opened); the number a page holds when it is that land; else none (-1), and an editor opened on
+ *  it asks for the whole land once, at its first patch. A read never renumbers the land a live page holds: its next
+ *  answer's patch would not lay (a test's read, between the water settling and its news going out, did). */
+function landFor(heights: Uint8Array, terrain: TerrainState): { landSeq: number; wetSeq: number } {
+  if (!sentLand) return landWhole(heights, terrain);
+  if (sentLand.heights.length === heights.length && !diffLand(sentLand, { heights, terrain }, 1, 0, 0)) return { landSeq, wetSeq };
+  return { landSeq: -1, wetSeq: -1 };
+}
+
+/** The land and terrain whole, as they stand (the page asks when a patch did not lay on the land it holds). */
+export function landNow(): { epoch: number; view: ViewUpdate } {
+  const s = need();
+  const heights = s.built.heights.slice();
+  const terrain = s.terrainState();
+  return { epoch, view: { heights, terrain, terrainRect: null, ...landWhole(heights, terrain) } };
+}
+
 function markSent(s: MapSession): void {
   const b = s.built;
   sent = { heights: b.heights, water: s.showsStoredWater ? "stored" : b.water, stored: s.showsStoredWater, entities: b.entities, soil: soilKey(s), terrain: b.cache.terrain };
@@ -533,7 +597,8 @@ export function sessionView(): SessionOpen {
   const view = wholeView(s);
   sentEntities = copyEntityView(view.entities);
   markSent(s);
-  return { epoch, info: sessionInfo(s), view, terrain: s.terrainState(), ms: Math.round(performance.now() - t0) };
+  const terrain = s.terrainState();
+  return { epoch, info: sessionInfo(s), view, terrain, ...landFor(view.heights, terrain), ms: Math.round(performance.now() - t0) };
 }
 
 /** The tiles where two sets of the Block tool's masks differ, as their bounding rectangle; null when
@@ -550,12 +615,16 @@ function diffMasks(a: ReadonlyMap<number, number>, b: ReadonlyMap<number, number
   return r;
 }
 
-function viewUpdate(s: MapSession): ViewUpdate {
+/** What changed since the page was last sent the map. `kind`: an edit's answer (`answer`: the land's chain), the water's
+ *  news (`water`: the water's chain, and the land's only should it have changed, which a settle never does), or a shared
+ *  session's update, the one channel that carries both (`both`). */
+function viewUpdate(s: MapSession, kind: "answer" | "water" | "both" = "answer"): ViewUpdate {
   const b = s.built;
   const out: ViewUpdate = {};
   const prev = sent;
   if (!prev || prev.heights.length !== b.heights.length) {
     const all: ViewUpdate = { heights: b.heights.slice(), terrainRect: null, water: waterOf(s), entities: entityView(entityInputs(b.entities)), soil: soilOf(s), terrain: s.terrainState() };
+    Object.assign(all, landWhole(all.heights!, all.terrain!));
     sentEntities = copyEntityView(all.entities!);
     markSent(s);
     return all;
@@ -582,6 +651,30 @@ function viewUpdate(s: MapSession): ViewUpdate {
         out.heights = b.heights.slice();
         out.terrainRect = dug;
       }
+    }
+  }
+  // the land and terrain: what changed of what the page holds, over the rectangle it changed (#922 step 4), or whole
+  // when the page holds none of this map's
+  if (out.heights || out.terrain) {
+    const next: Land = { heights: b.heights, terrain: out.terrain ?? sentLand?.terrain ?? s.terrainState() };
+    if (sentLand && sentLand.heights.length === b.heights.length) {
+      // (ground dug under a surface that did not move goes with its columns: its rectangle is drawn again)
+      const also = out.columns ? (out.terrainRect ?? null) : null;
+      delete out.heights;
+      delete out.terrain;
+      delete out.terrainRect;
+      // (the land with an answer; with the water's news only should a settle have changed it)
+      const land = patchOf(next, "land", b.W, also);
+      if (land) out.land = land;
+      if (kind !== "answer") {
+        const wet = patchOf(next, "wet", b.W);
+        if (wet) out.wet = wet;
+      }
+    } else {
+      out.heights ??= b.heights.slice();
+      out.terrain ??= next.terrain;
+      out.terrainRect ??= null;
+      Object.assign(out, landWhole(out.heights, out.terrain));
     }
   }
   if (water !== prev.water) out.water = waterOf(s);
@@ -718,6 +811,7 @@ export function follow(p: FollowPayload): FollowResult {
     s.setWaterMode("defer");
     session = s;
     sent = null;
+    sentLand = null;
     originalFull = null;
   } else {
     const s = need();
@@ -1132,7 +1226,7 @@ async function runStack(token: number): Promise<void> {
       stackJob = null;
       live.close();
       const s = j.session;
-      if (session === s && s.adoptWater(j.model, water)) settledNews(s, viewUpdate(s));
+      if (session === s && s.adoptWater(j.model, water)) settledNews(s, viewUpdate(s, "water"));
       return;
     }
     await breathe();
@@ -1329,7 +1423,7 @@ function finishWater(j: WaterJob, water: CanonicalWater): void {
   j.job?.dispose();
   const s = j.session;
   if (session !== s || !s.adoptWater(j.model, water)) return;
-  settledNews(s, viewUpdate(s));
+  settledNews(s, viewUpdate(s, "water"));
 }
 
 /** The map's water is settled and in place: tell the page, on the channel its frames came on, so that its
@@ -1756,7 +1850,7 @@ export function settleWater(): ViewUpdate {
   if (session?.waterPending && session.built.waterModel.stacked) {
     stopWater();
     session.settleCanonical();
-    return viewUpdate(session);
+    return viewUpdate(session, "water");
   }
   if (!j || session !== j.session) return {};
   const job = jobOf(j);
@@ -1765,7 +1859,7 @@ export function settleWater(): ViewUpdate {
   waterJob = null;
   job.dispose();
   if (!j.session.adoptWater(j.model, r)) return {};
-  return viewUpdate(j.session);
+  return viewUpdate(j.session, "water");
 }
 
 /** Whether the water is still settling after an edit. */
@@ -1824,6 +1918,7 @@ function opened(s: MapSession): SessionOpen {
   session = s;
   epoch++;
   sent = null;
+  sentLand = null;
   originalFull = null;
   lastCheck = null;
   version++;
@@ -1903,7 +1998,7 @@ export function collabChanged(): SessionUpdate {
   version++;
   lastCheck = null;
   stopWater();
-  const view = viewUpdate(s);
+  const view = viewUpdate(s, "both");
   const instant = !checks ? instantCheck(s) : null;
   syncChecks();
   const info = sessionInfo(s);
@@ -1959,6 +2054,7 @@ export function closeSession(): void {
   session = null;
   epoch++;
   sent = null;
+  sentLand = null;
   originalFull = null;
   lastCheck = null;
   version++;
@@ -2233,7 +2329,7 @@ export async function backgroundCheck(onProgress?: (p: CheckProgress) => void): 
     s.adoptWater(model, w);
     // the canonical water replaces the preview's: the background preview has nothing left to do
     stopWater();
-    view = settledNews(s, viewUpdate(s));
+    view = settledNews(s, viewUpdate(s, "water"));
   }
   onProgress?.({ stage: "checks", done: 1 });
   let v: Validation;
@@ -2278,7 +2374,7 @@ async function remoteCheck(c: ChecksWorker, onProgress?: (p: CheckProgress) => v
   let view: ViewUpdate = {};
   if (r.water && s.waterPending && s.adoptWater(r.water.model, r.water.water)) {
     stopWater();
-    view = settledNews(s, viewUpdate(s));
+    view = settledNews(s, viewUpdate(s, "water"));
   }
   if (r.layers) lastWater = { version: v0, ...r.layers };
   lastCheck = r.check;
@@ -3932,7 +4028,9 @@ export function forcePaint(path: Point[], side: 1 | -1, power?: number, patches 
 /** The page's view back to the map as it stands (a force dropped, or refused). */
 function restoreView(s: MapSession): ViewUpdate {
   const b = s.built;
-  const view: ViewUpdate = { heights: b.heights.slice(), terrainRect: null, water: waterOf(s), entities: entityView(entityInputs(b.entities)) };
+  const view: ViewUpdate = { heights: b.heights.slice(), terrainRect: null, water: waterOf(s), entities: entityView(entityInputs(b.entities)), terrain: s.terrainState() };
+  // (the whole land, numbered: the next answer's patch lays on it, core/doc/landPatch.ts)
+  Object.assign(view, landWhole(view.heights!, view.terrain!));
   sentEntities = copyEntityView(view.entities!);
   markSent(s);
   return view;

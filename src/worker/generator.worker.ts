@@ -159,6 +159,12 @@ const api = {
   sessionView: () => sendOpen(ed.sessionView()),
   /** The Block tool's preview: what a click or a drag would add, take and drop (no build). */
   blockFalls: (params: BlocksParams) => ed.blockFalls(params),
+  /** The land and terrain whole, numbered (the page asks when an answer's patch did not lay on the land it holds,
+   *  core/doc/landPatch.ts). */
+  landNow() {
+    const l = ed.landNow();
+    return transfer(l, viewBuffers(l.view) as Transferable[]);
+  },
   terrainNow() {
     const t = ed.terrainNow();
     return transfer(t, viewBuffers({ heights: t.heights, terrain: t.terrain }) as Transferable[]);

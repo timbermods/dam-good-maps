@@ -20,7 +20,8 @@ import { newRampedStroke } from "../../src/core/doc/strokes";
 import type { BrushParams } from "../../src/core/features/raster/brush";
 import { answerBound, WEATHER_SILENT, WeatherHost } from "../../src/core/features/raster/remoteStroke";
 import { groundUnderObjects } from "../../src/core/features/raster/objectGround";
-import { StrokePreview } from "../../src/core/features/raster/strokePreview";
+import { StrokePreview, type TerrainState } from "../../src/core/features/raster/strokePreview";
+import { composeStroke } from "../../src/core/features/raster/strokeComposer";
 import * as ed from "../../src/worker/session";
 import { stable } from "../../src/core/collab";
 import { projectDiff } from "./collabFixtures";
@@ -88,6 +89,9 @@ const EDITS: Record<string, (...a: never[]) => ed.SessionUpdate> = {
   redo: ed.redo,
 };
 
+/** The objects standing on the worker's map, as the page's mirror holds them. */
+const entities = () => ed.collabSession()!.built.entities.map((e) => ({ template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: e.flipped }));
+
 /** A stroke the harness's pointer drew: held, or let go and waiting its turn to compose. */
 interface PageStroke {
   id: number;
@@ -98,7 +102,8 @@ interface PageStroke {
   dabs: number[];
   letGo: boolean;
   preview: StrokePreview | null;
-  before: { pre: Uint8Array; protect: Uint8Array } | null;
+  /** The terrain it began on (its `pre` and `protect` copied). */
+  before: TerrainState | null;
   feed: StrokeFeed | null;
   /** The worker will refuse its operation (a fault: a ramped Flatten). */
   refused: boolean;
@@ -138,7 +143,7 @@ export class Harness {
     ed.listen(null);
     const open = ed.openProject(project);
     this.opened.set(open.epoch, project);
-    this.queue = new EditQueue(open as QueueOpen, this.port(), this.clock, { line: (t) => void this.lines.push(t), expired: () => this.restartNat() }, { log: opts.log ?? true, mapBound: opts.mapBound });
+    this.queue = new EditQueue(open as QueueOpen, this.port(), this.clock, { line: (t) => void this.lines.push(t), expired: () => this.restartNat(), stale: () => this.resendLand() }, { log: opts.log ?? true, mapBound: opts.mapBound });
   }
 
   get W(): number {
@@ -163,6 +168,12 @@ export class Harness {
       end: (id) => call(() => this.nat.end(id)),
       cancel: (id) => void this.toNat.push({ run: () => this.nat.cancel(id), resolve: () => {} }),
     };
+  }
+
+  /** A patch of the land did not lay on the land the queue holds: the worker's whole land, as the page asks for it. */
+  private resendLand(): void {
+    const l = ed.landNow();
+    queueMicrotask(() => this.queue.event({ ok: true, errors: [], epoch: l.epoch, view: l.view as MapAnswer["view"] }));
   }
 
   /** The Naturalize worker never answered a stroke in time: a fresh one (what was sent to the old one is gone). */
@@ -370,7 +381,7 @@ export class Harness {
     const q = this.queue;
     if (!s.preview) {
       const t = q.terrain();
-      s.before = { pre: t.pre.slice(), protect: t.protect.slice() };
+      s.before = { ...t, pre: t.pre.slice(), protect: t.protect.slice() };
       s.preview = new StrokePreview({ ...s.settings }, t, q.shown, q.W, q.H);
     }
     const p = s.preview;
@@ -384,22 +395,18 @@ export class Harness {
       }
     }
     if (!s.letGo) return;
-    if (!p.changed()) return q.cancel(s.id);
-    const b = p.bounds!;
-    const rect = { x0: Math.max(0, b.x0 - 1), y0: Math.max(0, b.y0 - 1), x1: Math.min(q.W - 1, b.x1 + 1), y1: Math.min(q.H - 1, b.y1 + 1) };
-    const params = { ...s.settings, ...(s.refused ? { tool: "flatten" as const, edges: "ramped" as const } : {}), dabs: s.dabs } as BrushParams;
+    // (the one composer, as the page composes it: the operation complete, and its land before and after)
+    const c = composeStroke({ ...s.settings, dabs: s.dabs } as BrushParams, s.settings.tool, { start: p.start, shown: q.shown, pre: p.pre, protect: p.protect, bounds: p.bounds, finished: p.finished, before: s.before! }, { W: q.W, H: q.H, heights: p.start, terrain: s.before!, entities: entities() });
+    if (!c.tiles) return q.cancel(s.id);
+    const params = { ...c.params, ...(s.refused ? { tool: "flatten" as const, edges: "ramped" as const } : {}) } as BrushParams;
     const op: EditOp = { op: "brush", params };
-    q.ready(s.id, { kind: "edit", name: "apply", args: [op, "user", s.settings.tool] }, {
-      rect,
-      before: patchOf(p.start, s.before!, rect, q.W),
-      after: patchOf(q.shown, { pre: p.pre, protect: p.protect }, rect, q.W),
-    });
+    q.ready(s.id, { kind: "edit", name: "apply", args: [op, "user", s.settings.tool] }, c.overlay);
   }
 
   private composeNature(s: PageStroke): void {
     if (!s.feed) {
       // (the ground under objects stays as it is: the page hands the preview the same runs the core adds, D368 (8))
-      const ground = groundUnderObjects(ed.collabSession()!.built.entities.map((e) => ({ template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: e.flipped })));
+      const ground = groundUnderObjects(entities());
       s.feed = new StrokeFeed(this.queue, s.id, s.settings, this.natWorker(), (d) => answerBound(d, s.settings.size), WEATHER_SILENT, ground.map((r) => [r[0], r[1], r[2]] as [number, number, number]));
       this.feeds.push(s.feed);
     }
@@ -408,7 +415,7 @@ export class Harness {
       s.dabs.push(...dabs);
       s.feed.add(dabs);
     }
-    if (s.letGo) void s.feed.end();
+    if (s.letGo) void s.feed.end({ entities: entities() });
   }
 
   /** How many messages wait in each channel. */
@@ -451,23 +458,34 @@ export function checkConverged(h: Harness, where: string): void {
   expect(Buffer.from(q.base.heights).equals(Buffer.from(now.heights)), `${where}: base is the worker's land`).toBe(true);
   expect(Buffer.from(q.terrain().pre).equals(Buffer.from(now.terrain.pre)), `${where}: pre is the worker's`).toBe(true);
   expect(Buffer.from(q.terrain().protect).equals(Buffer.from(now.terrain.protect)), `${where}: protect is the worker's`).toBe(true);
+  // (every tile map of the terrain the page paints on, laid from the answers' patches, #922 step 4; but the settled
+  // water's depth and moisture, which come with the water's news, a channel the harness does not deliver)
+  for (const k of ["channel", "floor", "worn", "base", "locked", "field"] as const) {
+    const a = q.base.terrain[k] as ArrayLike<number> | null | undefined;
+    const b = now.terrain[k] as ArrayLike<number> | null | undefined;
+    expect(!a === !b, `${where}: ${k} is there as the worker's`).toBe(true);
+    if (a && b) expect(Buffer.from(new Uint8Array((a as Uint8Array).buffer, (a as Uint8Array).byteOffset, (a as Uint8Array).byteLength)).equals(Buffer.from(new Uint8Array((b as Uint8Array).buffer, (b as Uint8Array).byteOffset, (b as Uint8Array).byteLength))), `${where}: ${k} is the worker's`).toBe(true);
+  }
+  expect(JSON.stringify(q.base.terrain.rockHold ?? null), `${where}: the rock's holds are the worker's`).toBe(JSON.stringify(now.terrain.rockHold ?? null));
+  expect(q.landResends, `${where}: every patch laid on the land it was made against`).toBe(0);
   const rows = q.history();
   const worker = ed.sessionInfo().history;
   expect(rows.rows.map((r) => [("seq" in r.ref ? r.ref.seq : -1), r.applied]), `${where}: history`).toEqual(worker.map((w) => [w.seq, w.applied]));
 }
 
-/** I6: a stroke answered with nothing else between its start and its answer, whose operation the worker logged as it
- *  was sent, was guessed right. (Where the worker completed the operation, adding what only it worked out, the guess may
- *  differ: one composer, step 4, makes the operation leave the page complete.) */
+/** I6: a stroke answered with nothing else between its start and its answer was guessed right, and the session logged
+ *  its operation as the page sent it (since step 4 the one composer completes it on the page, strokeComposer.ts: before,
+ *  where the worker completed the operation, adding what only it worked out, the guess could differ). */
 export function checkGuesses(h: Harness, epoch: number): string[] {
   const log = ed.collabSession()!.document.edits;
   const out: string[] = [];
   for (const t of h.queue.log()) {
-    if (t.epoch !== epoch || t.kind !== "stroke" || t.state !== "done" || !t.alone || !t.mispredicted) continue;
+    if (t.epoch !== epoch || t.kind !== "stroke" || t.state !== "done") continue;
     const e = log.find((o) => o.seq === t.step);
     if (!e) continue;
     const sent = (t.call as { args: unknown[] }).args[0];
-    if (stable({ op: e.op, params: e.params }) === stable(sent)) out.push(`stroke ${t.id} was alone, its operation logged as sent, and guessed wrong`);
+    if (stable({ op: e.op, params: e.params }) !== stable(sent)) out.push(`stroke ${t.id}: the session logged another operation than the page sent`);
+    if (t.alone && t.mispredicted) out.push(`stroke ${t.id} was alone and guessed wrong`);
   }
   return out;
 }
