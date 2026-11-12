@@ -371,8 +371,9 @@ table and draws its heights and water. Where it differs from the above, and why:
   it, is the pool's: it would pour a film. A stair fall's horseshoe is set into a straight lip only: on a diagonal it
   flattened the stair's middle into one run and steepened its ends into risers its lake barely reached, or combed
   the lip with pockets. A notch whose drop is a curtain (a step of 4 or 5) sits in a run's middle, never beside a
-  step, which would starve the tile past it; at a step of 3 its drop, 2 and some, is a rapid, which in the lip's
-  middle split the curtain in two (12 of 36 maps), so it sits at one end. A notch or breach is cut through the
+  step, which would starve the tile past it (a diagonal's lip, runs of one or two with no middle near the lip's
+  middle, takes it at an end, where no tile lies past it); at a step of 3 its drop, 2 and some, is a rapid, which in the lip's
+  middle split the curtain in two (12 of 36 maps), so it sits at one end (the tossed one where the crest stands behind it, else the other). A notch or breach is cut through the
   crest behind it, a corner's across from whichever front has the crest's second row behind it. Piers stand three
   tiles apart about the lip's middle, on the lip only (the crest behind runs on, so no lip tile is cut off), as
   ground a level over the crest; the breach is between the middle two.
