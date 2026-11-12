@@ -24,7 +24,7 @@ import { ORIENTATIONS } from "../../format/footprints";
 import { BED_FLOOR } from "../../land/genome";
 import { smoothstep } from "../../math/clamp";
 import { fbm } from "../../math/noise";
-import { hypot, sqrt } from "../../math/portable";
+import { cos, hypot, sin, sqrt } from "../../math/portable";
 import { hazardDays } from "../../sim/weather";
 import { MAX_SILL_WIDTH, sillWidthFor } from "../../sim/sill";
 import { EDITOR_LEVEL, type MapSpec } from "../../spec/mapspec";
@@ -495,7 +495,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
       let p = from;
       for (let d = 2; d <= l + 1e-9; d += 2) {
         const aa = a + rng.range(-0.25, 0.25);
-        p = [p[0] + 2 * Math.sin(aa), p[1] + 2 * dv * Math.cos(aa)];
+        p = [p[0] + 2 * sin(aa), p[1] + 2 * dv * cos(aa)];
         out.push([r2(p[0]), r2(p[1])]);
       }
       return out;

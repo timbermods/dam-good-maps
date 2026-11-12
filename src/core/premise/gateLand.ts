@@ -28,7 +28,7 @@ import { fbm } from "../math/noise";
 import { polyDist } from "../math/polyline";
 import { distanceFrom } from "../math/grid";
 import { smoothstep } from "../math/clamp";
-import { atan2, hypot, sqrt } from "../math/portable";
+import { atan2, hypot, pow, sqrt } from "../math/portable";
 import { badwaterNiches, reliefBetween } from "./raster/relief";
 import { layWorks } from "./ladder";
 import type { PremiseLand } from "./map";
@@ -134,7 +134,7 @@ function spurAt(sp: { path: Point[] }, u: number, v: number, spineV: number, cre
   }
   if (best > half) return -Infinity;
   const q = Math.min(1, Math.abs(at[1] - spineV) / (1.25 * half));
-  const top = foot + 0.5 + (crest - foot - 0.5) * (1 - Math.pow(q, 1.3));
+  const top = foot + 0.5 + (crest - foot - 0.5) * (1 - pow(q, 1.3));
   return top - RANGE_LAND.spurSide * best;
 }
 /** The basin's shape: the playa and its benches read through a warp of `warp` of its depth, lobed by `lobe`, its
