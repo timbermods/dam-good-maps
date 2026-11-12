@@ -14,6 +14,8 @@ export function needsHeavy(files: string[], read: (path: string, side: "old" | "
 export function needsTest(files: string[], mode?: "auto" | "full" | "light"): boolean;
 export function isPage(path: string): boolean;
 export function needsPage(files: string[], mode?: "auto" | "full" | "light"): boolean;
+export function isForces(path: string): boolean;
+export function needsForces(files: string[], mode?: "auto" | "full" | "light"): boolean;
 export const GENERATOR_ROOT: string;
 export function generatorGraph(read: (path: string) => string | null, exists: (path: string) => boolean): Set<string>;
 export const GENERATOR_RUST: string[];

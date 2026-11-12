@@ -13,7 +13,9 @@
 //
 //   node tools/ci-changes.mjs <base sha> <head sha> [--full | --light]
 //
-// prints heavy, suites, rust, test, page and generator (and writes them to $GITHUB_OUTPUT). page (pull requests into dev
+// prints heavy, suites, rust, test, page, generator and forces (and writes them to $GITHUB_OUTPUT). forces (pull requests
+// into dev only): the change touches a force's Rust, its Wasm, its settings or its row (`isForces`), so the `forces` job's
+// browser specs run before the merge. page (pull requests into dev
 // only): the change touches src/editor/, src/ui/, src/render3d/ or src/styles/, so the `page` job's browser specs run
 // before the merge. generator (pull requests into dev only): the change can change what the generator makes
 // (`isGenerator`), so the browser shards run before the merge, as they do on dev after one: what generate() imports is walked at the head
@@ -150,6 +152,29 @@ export function needsPage(files, mode = "auto") {
   return mode === "light" && (!files.length || files.some(isPage));
 }
 
+/** The forces: their Rust (rust/forces/), its committed Wasm and the TypeScript round them (src/core/forces/: the bridge,
+ *  each force's run, its settings and their ranges) and the forces' rows on the page. A pull request into dev touching any
+ *  of them runs the `forces` job (ci.yml), the forces' browser specs, before the merge: two merges of a force went red on
+ *  dev for want of them (#1054's Size in glaciate.spec.ts). */
+export function isForces(path) {
+  if (isDocument(path)) return false;
+  return (
+    path.startsWith("rust/forces/") ||
+    path.startsWith("src/core/forces/") ||
+    path === "src/editor/ForceRows.tsx" ||
+    path.startsWith("src/editor/forces/") ||
+    path === "src/editor/forceDriver.ts" ||
+    path === "rust/Cargo.toml" ||
+    path === "rust/Cargo.lock"
+  );
+}
+
+/** True when the `forces` job runs: a pull request into dev (light) that touches the forces. An unreadable change counts as
+ *  touching them. */
+export function needsForces(files, mode = "auto") {
+  return mode === "light" && (!files.length || files.some(isForces));
+}
+
 /** True when the browser shards and the quick suite must run (anything but documents). */
 export function needsHeavy(files, read) {
   return classify(files, read).heavy;
@@ -223,7 +248,7 @@ function main() {
   const args = process.argv.slice(2);
   const mode = args.includes("--full") ? "full" : args.includes("--light") ? "light" : "auto";
   const [base, head] = args.filter((a) => !a.startsWith("--"));
-  let result = { heavy: true, suites: true, rust: true, test: true, page: false, generator: false };
+  let result = { heavy: true, suites: true, rust: true, test: true, page: false, generator: false, forces: false };
   const zero = /^0+$/;
   try {
     if (mode === "full") {
@@ -246,11 +271,11 @@ function main() {
         const tree = new Set(git("ls-tree", "-r", "--name-only", head).split("\n").filter(Boolean));
         reached = generatorGraph((path) => read(path, "new"), (path) => tree.has(path));
       }
-      result = { ...classify(files, read, mode), test: needsTest(files, mode), page: needsPage(files, mode), generator: needsGenerator(files, mode, reached) };
+      result = { ...classify(files, read, mode), test: needsTest(files, mode), page: needsPage(files, mode), generator: needsGenerator(files, mode, reached), forces: needsForces(files, mode) };
       console.log(`${files.length} changed file(s), ${mode} run`);
     }
   } catch (e) {
-    if (mode === "light") result = { heavy: true, suites: false, rust: false, test: true, page: true, generator: true };
+    if (mode === "light") result = { heavy: true, suites: false, rust: false, test: true, page: true, generator: true, forces: true };
     console.log(`${e.message}: ${mode === "light" ? "the tests and the browser shards run" : "everything runs"}`);
   }
   const lines = Object.entries(result).map(([k, v]) => `${k}=${v}`);
