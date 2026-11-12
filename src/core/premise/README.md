@@ -60,8 +60,9 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   `wallGateEligible`, the layout in a frame turned to the start's camera (the range: its crest as noise along a stretch
   of a longer drawn line, read so its lowest saddle lies where a gap can stand, its spine wandering behind the Veil's
   face, `GateNumbers.range`; the Veil at its high ground near the middle, the Gate's winding gorge at its lowest saddle,
-  the Pass at the lowest on the other side; the lake with a wandering shore, bent arms and bays, its trench and drain
-  bay, the Still Pool and its inlet; the leat along the crest and the Pass Bed; the basin's pan and the beds' outlet;
+  the Pass at the lowest on the other side; the plunge pool at the start's door the Veil falls into, its brook over a
+  low lip down the valley, the lake at the valley's low end (one broad body, its width varying, a bay or two), the Still
+  Pool and its inlet off the plunge pool; the playa past the range; the leat along the crest and the Pass Bed; the basin's pan and the beds' outlet;
   the Low River through its spur; the brooks), its numbers in `GatePlan.gate` (`gateOf`) and its `plan` invariants.
   `gateRange.ts` reads the range along u (`rangeAt`, `sideOf`, `spineLocal`). Not offered: `premises/dev.ts`
   `DEV_PREMISES` lists it for the tools and tests; joining `spec/mapspec.ts` `PREMISE_IDS` offers it. No playability
@@ -73,12 +74,12 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   water, for a settle of stage 1 alone). `tools/premise-gate-water.ts` prints and draws a seed's, `--settle` settles it.
 - `gateLand.ts`: the wall with one gate's stage 2 (§5.1 "As built (land)"): `gateRelief` (the shared relief for the
   valley, its uplands under the range's peak; the range shaped across its warped spine, talus on soft rock, cliffs on
-  hard, spurs and gullies; the basin a dry lake's depression falling in wandering rings to its pan, hills past it, the
-  beds' own valleys; then the flood check at the megadam's water and its least mend, `mendFlood`: a knoll on a saddle,
+  hard, spurs and gullies; the basin a playa within two levels of its pan, two old shoreline benches round it, hills past
+  them, the beds' own valleys; then the flood check at the megadam's water and its least mend, `mendFlood`: a knoll on a saddle,
   one swell across a stretch of the edge), `gateZones`, `basinBeds`, `gateLand` (`premiseLand`'s parts for this land,
   the mend again round the badwater's niche) and `GATE_LAND_CHECKS` / `gateLandFailures` (its land invariants, on the
-  ground: `range.crest`, `gate.lowest`, `wall.camera`, `basin.bowl`, `valley.enclosed`, `terrain.ruled_land`,
-  `frame.lip`). `gateMap.ts` `gateMap` makes the whole map as the mode's loop does (a plan at a time: stages 0 to 4,
+  ground: `range.crest`, `gate.lowest`, `wall.camera`, `basin.bowl`, `basin.playa`, `bench.shore`, `valley.enclosed`,
+  `terrain.ruled_land`, `frame.lip`). `gateMap.ts` `gateMap` makes the whole map as the mode's loop does (a plan at a time: stages 0 to 4,
   one `premiseMap` build and its checks, the Veil's drop on the settle, `veil.settled`; at most three settles; `held`
   says whether a plan held) and `startNumbers` reads the start's checks (D515's floors); `tools/premise-gate-map.ts`
   writes a seed's, `tools/capture-gate.ts` renders the widest frame and the opening camera in one sheet.
