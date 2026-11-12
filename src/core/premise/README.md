@@ -116,8 +116,8 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   `stageModel` is its water model for a settle.
 - `raster/relief.ts` `reliefBetween`: stage 2, the whole map's ground round stage 1's water (the lower envelope of
   every water's bowl, each bowl's distance bounded to its box, rims kept from lower waters, the landmark's upper
-  world, the bypass and every dry brook following the land (`followsLand`), the uplands as warped plates each at one level (the rim's too: their fall toward an edge is a plate's, never a band along it), a theme's uplands in its form (`styledUplands`: high tables and canyons, peaks, terraces, a low floor in a rim) up to the plan's `sky` (Highest terrain, 22 from Verticality 70) while the stair stays under 16 (`stairTop`), ridges as crags, the hollow behind the skyline (`hollowsOf`), `tidy` and
-  the bench-width floor `land/benches.ts`); `badwaterNiches` cuts the
+  world, the bypass and every dry brook following the land (`followsLand`), the uplands as warped plates each at one level on a turned scatter (the rim's too: their fall toward an edge is a plate's, never a band along it), a theme's uplands in its form (`styledUplands`: high tables and canyons, peaks, terraces, a low floor in a rim) up to the plan's `sky` (Highest terrain, 22 from Verticality 70) while the stair stays under 16 (`stairTop`), ridges as crags, the hollow behind the skyline (`hollowsOf`), `tidy` and
+  the bench-width floor `land/benches.ts`, its steps bent by `bendLevels`, D518); `badwaterNiches` cuts the
   permanent badwater source's niche beside the gorge.
 - `ladder.ts`: stage 4 (§4.2). `layWorks` lays the works' own ground on stage 2's (each small levee's basin banked,
   a beach at its sill + 1 under a rim, the banks it raised kept in `LaidWorks.banks`; a notch's rock plug when `NOTCH_SHUT` is `"plug"`, D513(3): one switch from

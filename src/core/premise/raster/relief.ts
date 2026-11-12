@@ -36,7 +36,7 @@ import { fbm } from "../../math/noise";
 import { smoothstep } from "../../math/clamp";
 import { hypot, sqrt } from "../../math/portable";
 import { BED_FLOOR } from "../../land/genome";
-import { widenBenches } from "../../land/benches";
+import { bendLevels, widenBenches } from "../../land/benches";
 import { THIN } from "../../analysis/ground";
 import { openingCamera } from "../../analysis/opening";
 import { grader } from "../../land/levels";
@@ -89,6 +89,8 @@ const STAIR_CELL = 8;
  *  outlands' mean over it, rounded after a lift of its own, up to `lift` levels either way, so neighbours meet in a
  *  step of none to three. */
 const PLATE = { from: 5, wander: 3, start: 16, lift: 1.2 };
+/** The plates' scatter's turn off the tile grid (cos, sin: 3-4-5, exact). */
+const PLATE_TURN = [4 / 5, 3 / 5] as const;
 /** Highlands' peaks: `share` of the plates' points a cone, its summit `low` to 1 of the form's span and level for
  *  `flat` tiles round its point (a summit narrower than the bench-width floor's 5 tiles is worn down by it), falling a
  *  span's height over `reach` plates' widths; between them rolling heights at `base` of the span, `roll` either way
@@ -524,10 +526,13 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   }
 
   // the plates: every tile belongs to one, the tiles nearest one point of a scatter read through the land's wander,
-  // so whatever is set a plate at a time meets its neighbours along ragged lines that run every way
+  // so whatever is set a plate at a time meets its neighbours along ragged lines that run every way. The scatter's
+  // lattice is turned off the tile grid (by 3-4-5, `PLATE_TURN`), so the plates' sides never run along its rows and
+  // columns and meet in no square corner (D518: the scatter on the grid met in rectangles)
   const P = 8 + Math.round(W / 16);
-  const pw = Math.ceil(W / P) + 3;
-  const ph = Math.ceil(H / P) + 3;
+  const [tc, ts] = PLATE_TURN;
+  const pw = Math.ceil((tc * W + ts * H) / P) + 3;
+  const ph = Math.ceil((ts * W + tc * H) / P) + 3;
   const px = new Float64Array(pw * ph);
   const py = new Float64Array(pw * ph);
   const plift = new Float64Array(pw * ph);
@@ -550,8 +555,10 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
-      const qx = x + 0.5 + 7 * wxF[i] + 2 * wobF[i];
-      const qy = y + 0.5 + 7 * wyF[i] - 2 * wobF[i];
+      const ux = x + 0.5 + 7 * wxF[i] + 2 * wobF[i];
+      const uy = y + 0.5 + 7 * wyF[i] - 2 * wobF[i];
+      const qx = tc * ux - ts * uy + ts * H;
+      const qy = ts * ux + tc * uy;
       const gx = Math.floor(qx / P) + 1;
       const gy = Math.floor(qy / P) + 1;
       let best = 0;
@@ -799,6 +806,8 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   for (let i = 0; i < N; i++) where[i] = !keep[i] && nearAll[i] > 3 && !narrow[i] && Math.max(Math.abs((i % W) - stx), Math.abs(Math.floor(i / W) - sty)) >= PLATE.start ? 1 : 0;
   tidy(h, r, base);
   widenBenches(h, W, H, where);
+  // (its benches' sides bent, so they meet in no straight side or square corner, D518)
+  bendLevels(h, W, H, where, S("bend"));
   for (let i = 0; i < N; i++) if (!keep[i] && h[i] < base[i]) h[i] = base[i];
   tidy(h, r, base);
   return h;

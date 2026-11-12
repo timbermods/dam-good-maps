@@ -104,6 +104,13 @@ export const WASHES = {
   /** A part of a level region a bed cuts off with less ground than this, tiles, is let go (a pocket by the bed's side);
    *  a bed that parts a region into two bigger parts no ford rejoins, or that the colony can't step into, is undone. */
   pocket: 12,
+  /** Canyon's side canyons (D518; planning's ruling on #236, 6814608915, item 4: the game's Canyon has real cliffs and
+   *  side valleys): on Canyon's land the washes are canyons, more of them, cut `cut[0]` under the lowest ground beside
+   *  them (`cut[1]` at most, over a sill), `radius` tiles each side of the line, so their walls stand three levels and
+   *  more, each deepening a level every `deepen` tiles from its head and its floor falling a level at a time while the
+   *  land lets it; their fords climb a level at each step as a wash's do, a lane as long as the wall asks, and a
+   *  stretch of floor the colony can't step into gets one of its own. The old bed stays a trough at its lake's level. */
+  canyon: { per128: [2, 3] as const, cut: [3, 4] as const, radius: [1.6, 2.5] as const, deepen: 4 },
 } as const;
 
 export interface WashInput {
@@ -129,6 +136,8 @@ export interface WashInput {
    *  on, and the plate's largest part, keep this much ground at its level. */
   bench?: number;
   benchPlates?: Uint8Array;
+  /** Canyon's land: the washes are its side canyons (`WASHES.canyon`). */
+  canyon?: boolean;
 }
 
 export interface Wash {
@@ -319,6 +328,14 @@ function curveOf(line: readonly number[], W: number, seed: number, smooth: numbe
 export function planWashes(inp: WashInput): Washes {
   const { W, H, heights: h, surface, keepOff, rng } = inp;
   const N = W * H;
+  // (a wash's depth under the ground beside it, least and most, its half width, how many a map, and its fords' longest
+  // lane: Canyon's side canyons' or a dry wash's)
+  const deep = inp.canyon ? WASHES.canyon : null;
+  const cutLeast = deep ? deep.cut[0] : 1;
+  const cutMost = deep ? deep.cut[1] : WASHES.cutMost;
+  const radius = deep ? deep.radius : WASHES.radius;
+  const per128 = deep ? deep.per128 : WASHES.per128;
+  const laneMost = deep ? 2 * cutMost : WASHES.ford.lane;
   const h0 = h.slice();
   const mask = new Uint16Array(N);
   const beds: Wash[] = [];
@@ -457,8 +474,7 @@ export function planWashes(inp: WashInput): Washes {
     let last = n;
     for (let s = 0; s < n; s++) {
       const r =
-        WASHES.radius[0] +
-        (WASHES.radius[1] - WASHES.radius[0]) * (0.5 + 0.5 * valueNoise(rSeed, s, 7, WASHES.radiusCell));
+        radius[0] + (radius[1] - radius[0]) * (0.5 + 0.5 * valueNoise(rSeed, s, 7, WASHES.radiusCell));
       const cx = x[s];
       const cy = y[s];
       const ci = Math.round(cy) * W + Math.round(cx);
@@ -507,20 +523,25 @@ export function planWashes(inp: WashInput): Washes {
         last = s;
         break;
       }
-      // (a level under the lowest ground beside it: two under where it runs along a step's foot or the land rises)
-      let f = Math.min(prev, low - 1);
+      // (a level under the lowest ground beside it, a side canyon three: two under, four, where it runs along a step's
+      // foot or the land rises; the old bed a level, at its lake's. A side canyon deepens a level every few tiles from
+      // its head, as a gully grows into a canyon, and its floor falls a level at a time while it can, so the colony
+      // walks it from its head to its mouth)
+      const depth = opts.start !== undefined ? 1 : deep ? Math.min(cutLeast, 1 + Math.floor(s / deep.deepen)) : cutLeast;
+      let f = Math.min(prev, low - depth);
+      if (deep && prev < Infinity) f = Math.max(f, Math.min(prev - 1, low - 1));
       if (opts.start !== undefined) f = Math.min(f, opts.start);
       if (f < inp.floor) f = inp.floor;
       // (too deep under the ground beside it, where the land rises over a sill: the floor rises with it, as little as
       // keeps it within its deepest cut, as a dry wash's floor is uneven; the old bed, held at its lake's level, ends
       // there in a hollow)
-      if (low - f > WASHES.cutMost) {
+      if (low - f > cutMost) {
         if (opts.start !== undefined) {
           last = s;
           end = "hollow";
           break;
         }
-        f = Math.max(low - WASHES.cutMost, inp.floor);
+        f = Math.max(low - cutMost, inp.floor);
       }
       // (near water a floor keeps over the water's level: short of that, the bed ends by its lip)
       let under = false;
@@ -546,7 +567,7 @@ export function planWashes(inp: WashInput): Washes {
     for (let s = from; s < keep; s++)
       for (const t of stamps[s]) {
         const f = floor[s];
-        if (h0[t] - f > WASHES.cutMost) continue;
+        if (h0[t] - f > cutMost) continue;
         const was = tileFloor.get(t);
         if (was === undefined || f < was) tileFloor.set(t, f);
       }
@@ -606,7 +627,7 @@ export function planWashes(inp: WashInput): Washes {
         const ft = dx * dx + dy * dy <= core ? f : ring;
         if (!allowed[t] || taken[t] >= 0 || h0[t] <= ft || (minFloor[t] >= 0 && ft < minFloor[t])) continue;
         // (no deeper under the ground it is dug in than the bed's cut, a core a level more)
-        if (h0[t] - ft > WASHES.cutMost + (ft < ring ? 1 : 0)) continue;
+        if (h0[t] - ft > cutMost + (ft < ring ? 1 : 0)) continue;
         out.push(t);
         floors.push(ft);
         inside.set(t, ft);
@@ -707,7 +728,7 @@ export function planWashes(inp: WashInput): Washes {
     const path = [p0];
     const levels = [F];
     let end = -1;
-    for (let j = 1; j <= WASHES.ford.lane; j++) {
+    for (let j = 1; j <= laneMost; j++) {
       const x = x0 + j * dx;
       const y = y0 + j * dy;
       if (x < 0 || y < 0 || x >= W || y >= H) return false;
@@ -720,7 +741,7 @@ export function planWashes(inp: WashInput): Washes {
         end = j;
         break;
       }
-      if (h[p] < L || !allowed[p] || h[p] - L > WASHES.cutMost || (minFloor[p] >= 0 && L < minFloor[p])) return false;
+      if (h[p] < L || !allowed[p] || h[p] - L > cutMost || (minFloor[p] >= 0 && L < minFloor[p])) return false;
     }
     if (end < 0) return false;
     const f: Ford = { bed: beds[k], steps: [], held: [b, ...path], lane: path.slice(1, end) };
@@ -824,6 +845,9 @@ export function planWashes(inp: WashInput): Washes {
       const y = (i - x) / W;
       return !(inp.starts ?? []).some((p) => Math.max(Math.abs(p.x - x), Math.abs(p.y - y)) <= WASHES.ford.clear);
     };
+    // (a side canyon's head deepens from the land, the colony's way in, and its walls are the point: it gets the fords
+    // the walk needs and none every few tiles)
+    if (deep && bed.kind !== "old") return;
     if (bed.kind !== "old" && clear(0)) fordAt(k, 0, true);
     const [lo, hi] = WASHES.ford.every;
     for (let s = Math.round((lo + hi) / 4) + rng.int(0, 6); s < n - 3; s += lo + rng.int(0, hi - lo + 1))
@@ -922,6 +946,29 @@ export function planWashes(inp: WashInput): Washes {
       for (const f of fords) pre.push(...f.steps);
       const { steps, stranded } = rampsInto(beds, h, mask, wet, keepOff, W, H, pre, held, lane);
       const small = stranded.filter((c) => c.length < WASHES.pocket);
+      // (a side canyon's stretch of floor no step reaches, one a level fall cut off from the next: a ford up out of it,
+      // from the point of its bed's line nearest its middle)
+      if (deep && !small.length) {
+        let added = 0;
+        for (const c of stranded) {
+          const t = c[c.length >> 1];
+          const k = mask[t] - 1;
+          if (k < 0 || beds[k].kind === "old") continue;
+          const tx = t % W;
+          const ty = (t - tx) / W;
+          let best = -1;
+          let bd = Infinity;
+          beds[k].line.forEach((i, q) => {
+            const d = Math.abs((i % W) - tx) + Math.abs((i - (i % W)) / W - ty);
+            if (d < bd) {
+              bd = d;
+              best = q;
+            }
+          });
+          if (best >= 0 && fordAt(k, best)) added++;
+        }
+        if (added) continue;
+      }
       if (!small.length) return steps;
       const drop = new Set<number>();
       const hollow = new Set(beds.flatMap((b) => b.hollow ?? []));
@@ -1056,7 +1103,7 @@ export function planWashes(inp: WashInput): Washes {
   // spaced, each with its side branches where the flow joins it
   const want = Math.max(
     1,
-    Math.round(((WASHES.per128[0] + rng.int(0, WASHES.per128[1] - WASHES.per128[0] + 1)) * N) / (128 * 128)),
+    Math.round(((per128[0] + rng.int(0, per128[1] - per128[0] + 1)) * N) / (128 * 128)),
   );
   const ends: { i: number; score: number; toWater: boolean }[] = [];
   for (let i = 0; i < N; i++) {
@@ -1171,7 +1218,8 @@ export function planWashes(inp: WashInput): Washes {
       for (const m of made.slice(1)) markNear(beds[m].line, Math.round(WASHES.apart / 2));
       guard();
     }
-    if (washCount()) break;
+    // (Canyon's side canyons go on to the shorter lines until it has its count)
+    if (deep ? washCount() >= want : washCount()) break;
   }
 
   // ---- the old bed: from behind a lake's lip, at the lake's own level, out into the dry land

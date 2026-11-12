@@ -65,7 +65,7 @@ import { mapShape, startAlong } from "../land/shape";
 import { planHydro, type Hydro } from "../land/hydro";
 import { ACTIVE, checkIntention, INTENTION_TEXT, type IntentionId } from "../land/intentions";
 import type { FormPlan, FormsWanted } from "../land/forms3d";
-import { carveOutlets, widenOutlets, unreachedLakes, cleanPitsAndSpikes, fillDryHollows, footComponents, mergeSmallRegions, naturalRamps, relaxEdges, snapLevels } from "../land/levels";
+import { carveOutlets, widenOutlets, unreachedLakes, cleanPitsAndSpikes, contourField, fillDryHollows, footComponents, mergeSmallRegions, naturalRamps, relaxEdges, snapLevels } from "../land/levels";
 import { distanceFrom, levelRegions, N4 } from "../math/grid";
 import { hash32 } from "../math/hash";
 import { stream } from "../math/rng";
@@ -715,7 +715,8 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
       const o = orientationOf(seed, drawn, W, H);
       g.orientation = o;
       g.flowDir = orientDir(g.flowDir, o);
-      const E = orientField(F.E, W, H, o);
+      // (D518: the field's contours softened and bent, so the levels' edges follow the land's warped contours)
+      const E = contourField(orientField(F.E, W, H, o), W, H, seed, drawn);
       land = { g, E, h0: snapLevels(E, g, seed, W, H), settles: 0 };
       // (round 6: Islands' sea's lip at the map's edge, a tile or two, D151's edge rule kept)
       if (g.seaLayout && g.theme === "islands") holdSeaLip(land.h0, W, H);
@@ -2457,7 +2458,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         for (let i = 0; i < N; i++) if (!wetNow[i] && fromWater[i] <= WASH_BENCH_WATER && plates.size[plates.labels[i]] >= benchMin) benchPlate[plates.labels[i]] = 1;
         const benchPlates = new Uint8Array(N);
         for (let i = 0; i < N; i++) if (benchPlate[plates.labels[i]]) benchPlates[i] = 1;
-        const washes = planWashes({ W, H, heights: h, surface, lakes: hy.lakes.map((l) => l.tiles), keepOff: off, floor: BED_FLOOR, rng: stream(seed, "washes", attempt), seed: hash32(seed, "washes", attempt), starts, bench: benchMin, benchPlates });
+        const washes = planWashes({ W, H, heights: h, surface, lakes: hy.lakes.map((l) => l.tiles), keepOff: off, floor: BED_FLOOR, rng: stream(seed, "washes", attempt), seed: hash32(seed, "washes", attempt), starts, bench: benchMin, benchPlates, canyon: specIn.theme === "canyon" });
         if (washes.beds.length) info.washes = washes.beds;
         // (their natural ramps: the colony walks into the beds and across them)
         for (const st of washes.steps) {
