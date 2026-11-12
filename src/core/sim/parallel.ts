@@ -13,7 +13,8 @@
 // Where it runs (#130's approved shape): only where it helps, in a worker that installed a pool
 // (`installParallelWater`: the editor's generator worker, with helpers the page starts, and the checks' worker for its
 // canonical settle, with helpers it starts; both take from one budget the page shares, `shareWaterBudget`, D402's
-// amendment) on a cross-origin isolated page (the service worker,
+// amendment; and the premise mode's drought run beside its map, worker/drought.worker.ts, with helpers it starts, on the
+// generator's budget, `sharedWaterBudget`) on a cross-origin isolated page (the service worker,
 // public/sw.js) in Chromium and Firefox, for maps of 256² and more (about 8 threads at 256², up to 16 at 512²; the
 // premise mode's settle from 128², about 4, `withSmallMapThreads`)
 // with enough water to share, within the machine's budget (`waterThreadBudget`: the page's thread, the water mesh
@@ -456,6 +457,12 @@ export function restOf(total: number): number {
  *  both). */
 export function shareWaterBudget(sab: SharedArrayBuffer): void {
   budget = new Int32Array(sab);
+}
+
+/** The budget this thread shares (`shareWaterBudget`), for a worker it starts that runs water of its own (the premise
+ *  mode's drought beside its map, worker/drought.worker.ts), or null. */
+export function sharedWaterBudget(): SharedArrayBuffer | null {
+  return budget ? (budget.buffer as SharedArrayBuffer) : null;
 }
 
 /** Gives this thread a pool of helper threads for the water (once; again is a no-op). Returns whether the

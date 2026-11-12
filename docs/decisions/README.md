@@ -89,6 +89,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The generator](generator.md)
 
+- D???: A premise map's moist floor falls as the map grows: 30 % at 128², 25 % at 192², 20 % at 256² (TODO: number from the milestone session)
 - D518: Contour edges and Canyon's side canyons: the levels' edges on warped contours, rises in nested rings, the premise plates turned and bent; Canyon's side canyons cut 3 levels by the wash pass
 - D517: Dry washes and an old bed: one or two long winding dry channels a map where rain would run, with branches and fords, ending at water, in a dry hollow, or behind a lake's lip; none in the start's ground, no reach lost
 - D516: Dead stands on the dry land: about 40 per 1,000 dry tiles in a few old woods where forest was, pine and birch by the site, none in the start's walk

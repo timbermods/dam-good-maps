@@ -49,8 +49,35 @@ function screenFrom(b: BuildResult, own: Float64Array, walk: Float64Array, tiles
  *  the day it goes (`gone`, 0 when it holds) and the days the drought was run for it (`ran`). Read by number first
  *  (`START_SCREEN`); where that read cannot vouch for the start's lake, the drought is run a day at a time as the
  *  editor's Drought view runs it, the day's water judged by the rule, and read by number again for the days left, so
- *  the run stops once the lake's drain is past and the rule vouches for the rest. Only the run says the water goes. */
+ *  the run stops once the lake's drain is past and the rule vouches for the rest. Only the run says the water goes.
+ *  The run here, on this thread (and its pool, the caller's `withSmallMapThreads`); `startWaterGateSteps` is the same
+ *  gate taking each day's water from its caller. */
 export function startWaterGate(spec: MapSpec, plan: PremisePlan, b: BuildResult, water: StageWater): { gone: number; days: number; ran: number } {
+  const steps = startWaterGateSteps(spec, plan, b, water);
+  let run: HazardRun | null = null;
+  try {
+    for (let next = steps.next(); ; ) {
+      if (next.done) return next.value;
+      run ??= new HazardRun(b.waterModel, { depth: b.water, contamination: b.contamination, stack: null } as never, "drought", hazardDays(spec.designedFor, "drought"));
+      run.step(TICKS_PER_DAY);
+      next = steps.next(run.water());
+    }
+  } finally {
+    run?.dispose();
+  }
+}
+
+/** One day's water of a drought run (`HazardRun.water`): what the gate reads. */
+export interface GateDay {
+  depth: ArrayLike<number>;
+  contamination: ArrayLike<number>;
+}
+
+/** `startWaterGate`, its run left to the caller: it yields each day it needs (1, 2, …, in order) and takes that day's
+ *  water of the drought run (`HazardRun` on the map's water and model, a day of `TICKS_PER_DAY` ticks a step), so the
+ *  run may be made anywhere, beside other work (the page's generator, `generatePremise`'s caller); the same water, the
+ *  same judgement. */
+export function* startWaterGateSteps(spec: MapSpec, plan: PremisePlan, b: BuildResult, water: StageWater): Generator<number, { gone: number; days: number; ran: number }, GateDay> {
   const days = hazardDays(spec.designedFor, "drought");
   const st = b.start;
   const k = plan.bodies.findIndex((x) => x.id === plan.stair?.startLake) + 1;
@@ -63,17 +90,11 @@ export function startWaterGate(spec: MapSpec, plan: PremisePlan, b: BuildResult,
   if (walk && tiles.length && screenFrom(b, own, walk, tiles, within, b.water, b.contamination, days)) return { gone: 0, days, ran: 0 };
   const sw = new StartWaterDays("drought", { depth: b.water, contamination: b.contamination }, { W: b.W, H: b.H, heights: b.heights, objects: b.entities as never, start: st ? { x: st.x, y: st.y } : null, within });
   if (!sw.has) return { gone: 0, days, ran: 0 };
-  const run = new HazardRun(b.waterModel, { depth: b.water, contamination: b.contamination, stack: null } as never, "drought", days);
-  try {
-    for (let day = 1; day <= days; day++) {
-      run.step(TICKS_PER_DAY);
-      const w = run.water();
-      sw.see(w);
-      if (sw.day) return { gone: sw.day, days, ran: day };
-      if (day < days && walk && tiles.length && screenFrom(b, own, walk, tiles, within, w.depth, w.contamination, days - day)) return { gone: 0, days, ran: day };
-    }
-  } finally {
-    run.dispose();
+  for (let day = 1; day <= days; day++) {
+    const w = yield day;
+    sw.see(w as never);
+    if (sw.day) return { gone: sw.day, days, ran: day };
+    if (day < days && walk && tiles.length && screenFrom(b, own, walk, tiles, within, w.depth, w.contamination, days - day)) return { gone: 0, days, ran: day };
   }
   return { gone: 0, days, ran: days };
 }

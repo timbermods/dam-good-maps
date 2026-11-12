@@ -105,7 +105,7 @@ import { failurePhrase } from "./failWords";
 import { EASY_LAND, easyStartMeasures, easyTargets } from "../analysis/easyStart";
 import { pondWater, POND_WATER, shapeEasyStart } from "../land/easyStart";
 import { DIFFICULTY_RULES } from "../spec/mapspec";
-import { generatePremise, type PremiseInfo } from "../premise/generate";
+import { generatePremise, generatePremiseAsync, type DroughtRunner, type PremiseInfo } from "../premise/generate";
 
 /** Easy start's badwater distance (D495): Easy's (D85), the start's badwater and its soil kept 30 tiles off. */
 const EASY_BADWATER = DIFFICULTY_RULES.easy.badwaterWithin;
@@ -279,7 +279,16 @@ export interface GenerateResult {
   /** Milliseconds from the call: the first look (land and planned water), the first settled
    *  water, the finished map, and when each failed attempt ended (`failed`, in `failures`' order).
    *  Information only: nothing depends on them, and they are never part of the record. */
-  timings: { firstLook: number; firstWater: number; final: number; failed?: number[] };
+  timings: {
+    firstLook: number;
+    firstWater: number;
+    final: number;
+    failed?: number[];
+    /** A premise map's stages, ms (`premise/generate.ts`): the attempts that failed (`before`), then the one that held:
+     *  its plan and siting, its water, land, start and ladder (`land`), the first build with its settle, life and
+     *  the second build, the file and the checks, and the start's water through the drought (`gate`). */
+    stages?: Record<string, number>;
+  };
 }
 
 /** A generation's progress: the attempt (counted from 0 in each round) and its stage (land, water,
@@ -516,6 +525,22 @@ export function generate(specIn: MapSpec, opts: GenerateOptions = {}): GenerateR
     return r;
   }
   return generateThemes(specIn, opts);
+}
+
+/** `generate`, a premise's start's drought run by `runner` beside the map (`premise/generate.ts`
+ *  `generatePremiseAsync`): the page's generator. The same map as `generate`, byte for byte. */
+export async function generateAsync(specIn: MapSpec, opts: GenerateOptions, runner: DroughtRunner): Promise<GenerateResult> {
+  if (specIn.premise === undefined) return generate(specIn, opts);
+  assertSpec(specIn);
+  const tooSmall = generatorSizeRefusal(specIn.size.x, specIn.size.y, specIn.theme);
+  if (tooSmall) throw new Error(tooSmall);
+  if (!AVAILABLE_THEMES.includes(specIn.theme)) throw new Error(`the ${specIn.theme} theme is not available yet`);
+  if (specIn.colonies.count !== 1 || specIn.colonies.mod !== "none") throw new Error("multi-colony (Timber Together) maps are not built yet (PLAN §20, D5)");
+  const p = await generatePremiseAsync(specIn, opts, runner);
+  if ("result" in p) return p.result;
+  const r = generateThemes({ ...specIn, settings: themeOwnSettings(specIn) }, opts);
+  r.info.premise = { id: specIn.premise, fellBack: `${p.reason}: the themes made this map` };
+  return r;
 }
 
 /** The themes' path (everything but a premise's map). */

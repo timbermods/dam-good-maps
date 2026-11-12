@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { failing, PLAN_TRIES } from "../../src/core/premise/draw";
 import { gateWater } from "../../src/core/premise/gateWater";
 import { firstWater } from "../../src/core/premise/draw";
-import { GATE_FACE_RUN, GATE_LAND_CHECKS, gateLand, gateLandFailures, gateZones, gorgeFaces, rangeBand } from "../../src/core/premise/gateLand";
+import { GATE_FACE_RUN, GATE_LAND_CHECKS, gateLand, gateLandFailures, gateRelief, gateZones, gorgeFaces, rangeBand, rangeBandParts } from "../../src/core/premise/gateLand";
 import { gateOf, onLocal, rangeAt, turnOf, wallGate } from "../../src/core/premise/premises/wallGate";
 import { makeSpec, type MapSpec } from "../../src/core/spec/mapspec";
 import { gateWetPast } from "../../src/core/premise/gateMap";
@@ -46,6 +46,28 @@ describe("The wall with one gate's land", () => {
     const { zone } = gateZones(plan);
     for (let i = 0; i < heights.length; i++) if (r.fixed[i] && zone[i] !== 1) expect(heights[i]).toBe(r.heights[i]);
   });
+
+  // (the band `range.flat` and the column pass read: the frame's band where the relief's whole level stands over the
+  // tile's foot, read once the gorge's walls are raised and the valley mended; made before them, gap tiles raised over
+  // their foot stayed out of it, and the unrounded level put tiles in or out that the map's whole levels did not)
+  for (const [side, seed] of [[128, 1], [128, 2], [192, 1], [256, 1]])
+    it(`keeps every tile of the range's frame standing over its foot in its band, and no other: seed ${seed} at ${side}²`, () => {
+      const r = firstWater(wallGate, spec(seed, side));
+      if ("reason" in r) throw new Error(r.reason);
+      const h = gateRelief(r.plan, r.water);
+      const band = rangeBand(r.plan, r.water);
+      const parts = rangeBandParts(r.plan, r.water)!;
+      expect(parts).not.toBeNull();
+      const out: number[] = [];
+      const stray: number[] = [];
+      for (let i = 0; i < h.length; i++) {
+        const over = h[i] > parts.foots[i] + 0.25;
+        if (parts.frame[i] && over && !band[i]) out.push(i);
+        if (band[i] && !(parts.frame[i] && over)) stray.push(i);
+      }
+      expect(out, "frame tiles over their foot left out of the band").toEqual([]);
+      expect(stray, "band tiles off the frame or not over their foot").toEqual([]);
+    });
 });
 
 describe("Broken gate land fails its invariants", () => {

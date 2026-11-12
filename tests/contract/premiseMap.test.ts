@@ -16,7 +16,7 @@ import { firstWater } from "../../src/core/premise/draw";
 import { dayOneWater } from "../../src/core/premise/frame";
 import { generatePremise } from "../../src/core/premise/generate";
 import { droughtHold, startWaterGate } from "../../src/core/premise/hold";
-import { soilReach } from "../../src/core/premise/ladder";
+import { moistFloor, soilReach, spectrumMiss } from "../../src/core/premise/ladder";
 import { premiseLand } from "../../src/core/premise/map";
 import { PREMISES } from "../../src/core/premise/premises";
 import { waterByNumber } from "../../src/core/premise/water";
@@ -43,11 +43,15 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // dry land, D516: the same plan, water, start and bench, its resources and the version in its description; and for
 // generator 0.10.19's dry washes, D517: the same plan, water, start and bench, a wash and its hollow cut into its ground
 // and their ramps, its resources and the version in its description; and for the washes run long with fords, D517: the
-// same plan, water, start and bench, its dry land giving no line long enough for a wash, so its ground is uncut; and for
-// generator 0.10.20's contour edges, D518: its plates on a turned scatter and its bench-width steps bent, a new ground;
-// and for D518's mends: the same plan, water, start and bench, its wash's banks in long treads and its dead stands in
-// knots, a third of their trees young)
-const SHA = "6b96c1fcc4ee96d65da23ddabfbeb135bf187e5e0ee051c09fee9593a597a8a0";
+// same plan, water, start and bench, its dry land giving no line long enough for a wash, so its ground is uncut; and
+// for the start's landing (D148, `lakeStair.ts` `LANDING`): the same plan, start, bench and card, a one-tile strip of
+// the start's lake's shelf a level deeper from the shore by the start to the lake's floor; and for the landing found
+// from the land, D148: along the shore's own line from where the start meets the lake to where its floor comes
+// nearest the bank, then down the bed's fall; the same plan, start, bench and card; and for generator 0.10.20's contour
+// edges, D518: its plates on a turned scatter and its bench-width steps bent, a new ground; and for D518's mends: the
+// same plan, water, start and bench, its wash's banks in long treads, its dead stands in knots in their woods, a third
+// of their trees young, its rolling and rises reweighed and its bend kept off the start)
+const SHA = "PENDING";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now
@@ -127,6 +131,22 @@ describe("The premise mode (§2.2, build step 4)", () => {
     // with no idea, carries none)
     expect(ed.openProject(saved).info.card).toEqual(card);
     expect(ed.openTimber(r.bytes, "lake-stair.timber").info.card).toBeNull();
+  });
+
+  it("holds day 1's moist ground to a floor that falls as the map grows (D???)", () => {
+    // (30 % at 128², 25 % at 192², 20 % at 256², a straight line between, held at its ends)
+    expect(moistFloor(96)).toBe(0.3);
+    expect(moistFloor(128)).toBe(0.3);
+    expect(moistFloor(160)).toBeCloseTo(0.275, 9);
+    expect(moistFloor(192)).toBeCloseTo(0.25, 9);
+    expect(moistFloor(224)).toBeCloseTo(0.225, 9);
+    expect(moistFloor(256)).toBeCloseTo(0.2, 9);
+    expect(moistFloor(320)).toBe(0.2);
+    const day1 = { water: 0.2, moist: 0.27 };
+    expect(spectrumMiss(day1, 128)).toMatch(/30 % at least/);
+    expect(spectrumMiss(day1, 192)).toBeNull();
+    expect(spectrumMiss({ water: 0.2, moist: 0.19 }, 256)).toMatch(/20 % at least/);
+    expect(spectrumMiss({ water: 0.2, moist: 0.2 }, 256)).toBeNull();
   });
 
   it("reads the soil's reach as the game's soil rule does (stage 4's estimateGain)", () => {

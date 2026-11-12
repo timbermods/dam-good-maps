@@ -633,7 +633,16 @@ minimap, never scrolling). What the mockups left open is in DESIGN.md, "Layout 2
   strength) from the page's own copy (`EntityView.ids`, #200), found by the same footprints the worker's
   `entitiesAt` uses (`useSourcePointer.ts` `entitiesHere`); the worker answers only where an object has no id.
 - **The warm-up (#208):** the page starts `prepareRenderer()` as the first map starts loading; the view takes the
-  warmed renderer and its canvas in place of a new one, and a page left with no map drops it.
+  warmed renderer and its canvas in place of a new one, and a page left with no map drops it. The warming canvas is
+  sized by its 64 px host (2026-11-12): with no CSS size it was as large as its own drawing buffer, so on any display
+  with more than one device pixel to a CSS pixel each fit enlarged it again, a frame at a time, to tens of thousands
+  of pixels a side until the view took it (1.6 GB in Chrome's GPU process at a phone's size; a phone's browser closed
+  the page). `canvasSize.spec.ts` loads the page at two device pixels to a CSS pixel and holds every canvas to the
+  picture's size.
+- **A flash beside the pointer lasts from the frame that shows it** (2026-11-12): `PointerWords.flash` starts its
+  moment once the page has drawn the words, not at the key. Dev's run after #1064 failed `blockTool.spec.ts:398` with
+  no "size 4": the trace shows the page busy 1.36 s from the key (the Block preview rebuilt, drawn in software) against
+  a moment of 1.2 s, so the flash ended before any frame showed it.
 - **The camera insets (#206):** `src/editor/view/insets.ts` measures how far the top row, the Show column, the bar
   with its settings and the objects menu reach into the view and keeps the renderer's insets up to date; a new map is
   framed within them; setting them never moves the camera.

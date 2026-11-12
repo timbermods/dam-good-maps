@@ -350,7 +350,14 @@ export function rangeBand(plan: PremisePlan, w: StageWater): Uint8Array {
   bands.set(w, { plan, band });
   return band;
 }
-const bands = new WeakMap<StageWater, { plan: PremisePlan; band: Uint8Array }>();
+const bands = new WeakMap<StageWater, { plan: PremisePlan; band: Uint8Array; frame?: Uint8Array; foots?: Float64Array }>();
+
+/** The range's frame band (`rangeFrame`'s `t` under 1, off the bench) and each tile's foot level, as the relief last made
+ *  them for this water and plan (null before it has): what `rangeBand` keeps of the frame is the ground over its foot. */
+export function rangeBandParts(plan: PremisePlan, w: StageWater): { frame: Uint8Array; foots: Float64Array } | null {
+  const kept = bands.get(w);
+  return kept && kept.plan === plan && kept.frame && kept.foots ? { frame: kept.frame, foots: kept.foots } : null;
+}
 
 function rangeBandOf(plan: PremisePlan, w: StageWater): Uint8Array {
   const g = gateOf(plan)!;
@@ -404,7 +411,6 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
   // (the range's band, where its own ground stands, and each tile's foot level: the base the valleys cut to)
   const band = new Uint8Array(N);
   const foots = new Float64Array(N);
-  const own = new Uint8Array(N).fill(1);
   const spurs = g.spurs ?? [];
   // (each spur's box, six tiles out: a tile past it is never near it)
   const boxes = spurs.map((sp) => {
@@ -463,12 +469,7 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
         if (basin <= g.pan.level + 1 && d0 >= SCARP.playaFrom) L = basin;
       }
       f[i] = L;
-      // (the range's own ground: where it stands over its foot; past the scarp's foot the land is the valley's)
-      if (band[i] && !(L > foot + 0.25)) own[i] = 0;
     }
-  // (the band as `rangeBand` reads it, kept for the column pass and the checks: the range's own ground in it, laid to
-  // `range.flat` as it is, so the valley's plates at the scarp's foot are not read as the range's flats)
-  bands.set(w, { plan, band: Uint8Array.from(band, (b, i) => (b && own[i] ? 1 : 0)) });
   // (stage 1's ground beside a dry bed in the range, its wadi strips, is the range's own: the gorge's walls are its
   // flanks, and a wadi strip a level over the bed through the range let the valley out at the megadam's water)
   const { zone } = gateZones(plan, g);
@@ -559,6 +560,10 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
   }
   const mends = mendFlood(plan, w, h);
   if (mends) notes.push(`The valley held at the megadam's water by ${mends} rise${mends === 1 ? "" : "s"} where it spilled`);
+  // (the band as `rangeBand` reads it, kept for the column pass and the checks: the range's own ground in it, where its
+  // whole level stands over its foot once the gorge's walls are raised and the valley mended, laid to `range.flat` as
+  // it is, so the valley's plates at the scarp's foot are not read as the range's flats)
+  bands.set(w, { plan, band: Uint8Array.from(band, (b, i) => (b && h[i] > foots[i] + 0.25 ? 1 : 0)), frame: band, foots });
 
   return h;
 }

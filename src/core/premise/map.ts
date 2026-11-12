@@ -40,6 +40,8 @@ export interface PremiseMap {
   life: LifeReport;
   /** What could not stand as the plan has it, one line each (never silent, D342). */
   notes: string[];
+  /** Its parts' time, ms: the first build with its settle, life and the second build, the file and the checks. */
+  ms: { build: number; life: number; checks: number };
 }
 
 /** The map's name: its start's lake and the landmark, from the plan's own names. */
@@ -168,12 +170,33 @@ export function premiseLand(plan: PremisePlan, water: StageWater = waterByNumber
   return { water, heights, niches, laid, notes, ...(ramps.length ? { ramps } : {}) };
 }
 
+/** A premise map's first build (stage 5): its land, sources and start built and settled, before its life. Its water is
+ *  the map's: stage 6's plants and mine sites move none (`premiseFinish` reuses the settle). */
+export interface PremiseBase {
+  spec: MapSpec;
+  plan: PremisePlan;
+  land: PremiseLand;
+  ladder: Ladder;
+  style?: PremiseStyle;
+  features: Feature[];
+  field: GeneratedField;
+  settleCache: SettleCache;
+  base: BuildResult;
+  notes: string[];
+  ms: number;
+}
+
 /** The map of a plan, built and checked as the generator builds its maps; the start where stage 3 put it (`start`),
  *  else where the plan's frame does. One settle (stage 5) on the land and its sources, then stage 6's life planted on
  *  the settled ground (`life.ts`, its ground kept off the works' by `ladder`, laid again if not given) and the map
  *  built once more with that settle reused: plants and mine sites move no water. The style's woods are the plants'
- *  palette when it has them. */
+ *  palette when it has them. (`premiseBase`, then `premiseFinish`: the generator runs the start's drought on the
+ *  first build's water beside the second, `generate.ts`.) */
 export function premiseMap(spec: MapSpec, plan: PremisePlan, land: PremiseLand = premiseLand(plan), at: PremisePlan["frame"]["start"] = plan.frame.start, ladder: Ladder = ladderOf(plan, land.water, land.heights, land.laid), style?: PremiseStyle): PremiseMap {
+  return premiseFinish(premiseBase(spec, plan, land, at, ladder, style));
+}
+
+export function premiseBase(spec: MapSpec, plan: PremisePlan, land: PremiseLand = premiseLand(plan), at: PremisePlan["frame"]["start"] = plan.frame.start, ladder: Ladder = ladderOf(plan, land.water, land.heights, land.laid), style?: PremiseStyle): PremiseBase {
   const { water, heights, niches } = land;
   const notes = [...land.notes];
   const { x, y, z, orientation } = at;
@@ -190,14 +213,24 @@ export function premiseMap(spec: MapSpec, plan: PremisePlan, land: PremiseLand =
   const features: Feature[] = [start, ...springs, ...bad, ...rowsOf(plan, water, land.laid)];
   const field: GeneratedField = { heights, contains: new Set([...springs, ...bad].map((f) => f.id)), top: plan.top, ...(land.ramps?.length ? { ramps: land.ramps } : {}) };
   const settleCache = new SettleCache();
+  const t5 = performance.now();
   const base = buildMap({ W: plan.W, H: plan.H, seed: spec.seed, features, field }, { settleCache, stopBeforeResources: true });
+  return { spec, plan, land, ladder, ...(style ? { style } : {}), features, field, settleCache, base, notes, ms: Math.round(performance.now() - t5) };
+}
+
+/** A premise map's life, its second build (the settle reused), its file and its checks, on its first build. */
+export function premiseFinish(p: PremiseBase): PremiseMap {
+  const { spec, plan, land, ladder, style, features, field, settleCache, base, notes } = p;
+  const { water, heights } = land;
   const t6 = performance.now();
   const life = premiseLife(spec, plan, water, ladder, base, features, spec.accepted?.attempt ?? 0, style?.woods ?? null, land.washes ? bedMask(land.washes, plan.W * plan.H) : null);
   notes.push(...life.notes);
   features.push(...life.features);
   const built = buildMap({ W: plan.W, H: plan.H, seed: spec.seed, features, field }, { settleCache });
   life.report.ms = Math.round(performance.now() - t6);
+  const t8 = performance.now();
   const file = toTimberFile(spec, built);
   const v = validateBuilt(spec, features, built, file);
-  return { plan, water, heights, features, field: fieldData(field, plan.W), built, file, report: v.report, analysis: v.analysis, name: nameOf(plan), life: life.report, notes };
+  const ms = { build: p.ms, life: life.report.ms, checks: Math.round(performance.now() - t8) };
+  return { plan, water, heights, features, field: fieldData(field, plan.W), built, file, report: v.report, analysis: v.analysis, name: nameOf(plan), life: life.report, notes, ms };
 }

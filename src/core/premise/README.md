@@ -69,9 +69,11 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   face, `GateNumbers.range`; the Veil at its high ground near the middle, the Gate's winding gorge at its lowest saddle,
   the Pass at the lowest on the other side; the plunge pool at the start's door the Veil falls into, two levels over the lake, its
   brook over a low lip down the valley in two steps (a reach, the Steps and their cascade, a reach), 3 or 4 wide by turns
-  (`Link.halves`, `BROOK`, `STEPS`), the lake at the valley's low end (one broad body, its width varying, a bay or two), the Still
+  (`Link.halves`, `BROOK`, `STEPS`), the lake at the valley's low end (one broad body, its width varying, a bay or two, coves along its shore by turns,
+  `LAKE_WANDER`), the Still
   Pool and its inlet off the plunge pool; the playa past the range; the leat along the crest and the Pass Bed; the basin's pan and the beds' outlet;
-  the Low River through its spur; the southern brooks, 2 or 3 wide by turns), its numbers in `GatePlan.gate` (`gateOf`) and its `plan` invariants.
+  the Low River through its spur; the southern brooks, 2 or 3 wide by turns, wandering, kinked out of their tarns and
+  kept `BROOK_APART` from each other), its numbers in `GatePlan.gate` (`gateOf`) and its `plan` invariants.
   `gateRange.ts` reads the range along u (`rangeAt`, `sideOf`, `spineLocal`). Not offered: `premises/dev.ts`
   `DEV_PREMISES` lists it for the tools and tests; joining `spec/mapspec.ts` `PREMISE_IDS` offers it. No playability
   floor of its own: the shared gate holds the start.
@@ -81,7 +83,7 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   water, for a settle of stage 1 alone). `tools/premise-gate-water.ts` prints and draws a seed's, `--settle` settles it.
 - `gateLand.ts`: the wall with one gate's stage 2 (§5.1 "As built (land)"): the range as a scarp (§5.1 "The range, a scarp":
   the scarp's cliff bands and the back slope, `SCARP`; spurs `GateNumbers.spurs`, canyons by `erodeHard`, fans; the
-  column pass `rangeColumns`; `rangeBand`, `rangeFlatShare`, `rangeValleys`, `rangeHeight` and the checks `range.flat`,
+  column pass `rangeColumns`; `rangeBand` (the frame's band where the ground stands over its foot, `rangeBandParts`), `rangeFlatShare`, `rangeValleys`, `rangeHeight` and the checks `range.flat`,
   `range.valleys`, `range.columns`); `gateRelief` (the shared relief for the
   valley, its uplands under the gap's saddle or its highest water + 2 and read through a warp away from the water,
   `valleyWarp`; the range shaped across its warped spine, talus on soft rock, cliffs on
