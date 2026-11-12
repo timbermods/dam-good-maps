@@ -21,7 +21,11 @@ afterEach(() => {
 });
 
 it("a force started while the page still plays the water's journey starts from the water on screen", async () => {
-  await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
+  // (seed 25 for 21 since generator 0.10.17's start floors, D515, D148: seed 21's first dry spot, (43, 40), drains its
+  // source's water away, so the settled water stands over half a level deeper on only 5 tiles; a map with a roof (a cave
+  // or an overhang) starts a force from the worker's water by design, `shownByPage`, so the map wants none: of seeds
+  // 21, 22 and 25–32, seeds 25 and 27 have no roof, and seed 25's source pools on 423 tiles)
+  await runGenerate(makeSpec({ seed: 25, theme: "highlands", size: { x: W, y: W } }));
   ed.refine();
   const b = MapSession.open(decodeProject(ed.project().bytes)).built;
   // the page shows the map's water as it was before the edit below (its journey has only begun)

@@ -12,7 +12,7 @@ import { walkWorld, WALK_BLOCKERS } from "../analysis/walk";
 import type { WoodBySpecies } from "../analysis/wood";
 import { footprintTiles, startMiddleTile } from "../format/footprints";
 import { channelTiles } from "../features/route";
-import { DROUGHT, REACH_MIN, RESERVE, reservoirNeeded } from "../gen/calibrated";
+import { DROUGHT, RESERVE, reservoirNeeded } from "../gen/calibrated";
 import type { MapObject } from "../sim/model";
 import { asksForBadwater } from "../resources/badwater";
 import { generatedThemeOf } from "../gen/pack";
@@ -25,7 +25,6 @@ export const WET = 0.05;
 export const BAD = 0.05;
 /** (`analysis/walk.ts` holds it, beside the walk graph; the editor's start indicators read it here.) */
 export { WALK_BLOCKERS };
-const START_AREA = { small: 0.6, normal: 1, large: 1.8 } as const;
 
 /** Thresholds for one map: from its spec, or the difficulty's defaults for an imported map. The
  *  three start requirements (PLAN §5.6, D85) are `waterWithin` (water without stairs: tiles' walk
@@ -39,10 +38,15 @@ export interface Rules {
   bushesWithin20: number;
   badwaterWithin: number;
   ruinsWithin: number;
+  /** The start's floors (`START_FLOORS`, D515), for this map's size and Start area: the walkable land
+   *  (`start.reach`), the bench (`start.level_land`), the fast wood's share of the start's logs within
+   *  `fastWoodWalk` tiles' walk (`start.wood_fast`) and the forester's plot (`start.forester`). */
   reachMin: number;
-  /** Item 47 (no stairs, no heavy terraforming to get going): the level building land (tiles of a
-   *  level, dry 2×2) and the moist farmland within 20 tiles' walk the start needs. */
   levelLand: number;
+  fastWood: number;
+  fastWoodWalk: number;
+  forester: number;
+  /** Item 47 (no stairs): the moist farmland within 20 tiles' walk the start's first farms need. */
   farmland: number;
   /** Sources: None (D330): the map was generated without its sources, for the player to place. */
   sourcesNone: boolean;
@@ -59,22 +63,57 @@ export interface Rules {
   badwaterSource: boolean;
 }
 
-/** The level building land a start needs within 20 tiles' walk, by Start area (item 47: its first
- *  buildings without reshaping): the start's bench the settler asks for (radius 5 / 6 / 8, PLAN
- *  §5.7), as tiles of a level, dry 2×2. */
-export const LEVEL_LAND = { small: 79, normal: 113, large: 180 } as const;
+/** The start's floors (D515, restoring the start's room and reach of D85's start rules, item 47 and D428): what
+ *  every map's start gives, whatever made it (a theme, a premise, any pairing of the two, a hand-built map; a real
+ *  place warns, D245), in the one gate every map passes. No generator path carries a floor of its own below these.
+ *  They are the same at every difficulty: the game's difficulty slows expansion, it never starves the start
+ *  (PERFECT). From the loved maps (MAPCRAFT §4; investigation/WORKSHOP.md "The start"; the official maps in
+ *  investigation/calibration.json), for maps of 128² and more; a smaller map keeps the same share of its area
+ *  (`startFloorScale`: the bench, the walkable land and the forester's plot; the first farms' 100, item 47's floor
+ *  from before D515, and the fast wood's share stay at every size).
+ *  - `bench`: dry level ground at the start's level, joined to its 3×3 without a slope (4-connected, off the
+ *    objects that block walking, at any distance, the walk crossing water on that level as the loved maps' bench was
+ *    counted), by Start area: Small 480 (the official maps' p10, 484), Normal
+ *    640 (the workshop's median, 643), Large 980 (the official median).
+ *  - `reach`: dry tiles walkable from the start over the map's own ground and slopes: 1,300 (the official median,
+ *    1,296; it does not grow with the map, their 256² maps' median is 1,340). Buildable land's target leans the
+ *    generator above it (`REACH_MIN`).
+ *  - `fastWood`: the share of the start's living trees' logs that grow on pines and birches (a standing dead tree
+ *    grows none back), within `fastWoodWalk` tiles' walk
+ *    (the start's wood: 20 tiles at Easy and Normal, the starting-logs floor's 40 at Hard, whose wood stands
+ *    further, D85): 0.4, the start's wood not mostly oak (the official maps' median share of their logs, 0.43).
+ *  - `forester`: moist land within 20 tiles' walk beyond what the first farms take (`FARMLAND_NEAR`): a forester's
+ *    plot, 100 tiles. */
+export const START_FLOORS: Record<Difficulty, { bench: Record<StartArea, number>; reach: number; fastWood: number; fastWoodWalk: number; forester: number }> = {
+  easy: { bench: { small: 480, normal: 640, large: 980 }, reach: 1300, fastWood: 0.4, fastWoodWalk: 20, forester: 100 },
+  normal: { bench: { small: 480, normal: 640, large: 980 }, reach: 1300, fastWood: 0.4, fastWoodWalk: 20, forester: 100 },
+  hard: { bench: { small: 480, normal: 640, large: 980 }, reach: 1300, fastWood: 0.4, fastWoodWalk: 40, forester: 100 },
+};
+/** The Start area setting's choices. */
+export type StartArea = "small" | "normal" | "large";
+/** The map area the start's floors hold at in full (128²): a smaller map keeps their share of its area. */
+export const START_FLOORS_AREA = 128 * 128;
+
+/** How much of the start's floors' land a map of W × H must give: 1 from 128², else its share of 128². */
+export function startFloorScale(W: number, H: number): number {
+  return Math.min(1, (W * H) / START_FLOORS_AREA);
+}
 /** Moist farmland (dry, clean soil the water keeps moist) a start needs within 20 tiles' walk (item
  *  47: its first farmland without stairs); the settler asks for 160 of moist land before the
  *  resources take some. */
 export const FARMLAND_NEAR = 100;
 
-export function rulesFor(spec: MapSpec | null, designedFor: Difficulty = "normal", description = ""): Rules {
+export function rulesFor(spec: MapSpec | null, designedFor: Difficulty = "normal", description = "", size: { x: number; y: number } | null = null): Rules {
   const difficulty = spec?.designedFor ?? designedFor;
   const d = DIFFICULTY_RULES[difficulty];
   const s = spec?.settings;
   const r = s?.start.rules ?? d;
   // (a map without its spec made with Dam Good Maps: its description's theme, as the checks read it)
   const theme = spec?.theme ?? generatedThemeOf(description);
+  const floors = START_FLOORS[difficulty];
+  // (a map without its spec: its own size, when the caller gives it)
+  const sized = spec?.size ?? size;
+  const scale = sized ? startFloorScale(sized.x, sized.y) : 1;
   return {
     difficulty,
     waterWithin: r.waterWithin,
@@ -83,8 +122,11 @@ export function rulesFor(spec: MapSpec | null, designedFor: Difficulty = "normal
     // the Badwater distance setting and the start rule say the same thing: the stricter counts
     badwaterWithin: s ? Math.max(s.hazards.badwaterDistance, s.start.rules.badwaterWithin) : r.badwaterWithin,
     ruinsWithin: r.ruinsWithin,
-    reachMin: REACH_MIN[s?.terrain.buildableLand ?? "normal"] * START_AREA[s?.start.area ?? "normal"],
-    levelLand: LEVEL_LAND[s?.start.area ?? "normal"],
+    reachMin: Math.round(floors.reach * scale),
+    levelLand: Math.round(floors.bench[s?.start.area ?? "normal"] * scale),
+    fastWood: floors.fastWood,
+    fastWoodWalk: floors.fastWoodWalk,
+    forester: Math.round(floors.forester * scale),
     farmland: FARMLAND_NEAR,
     sourcesNone: s?.water.sources === "none",
     droughtDays: DROUGHT[difficulty].days,
@@ -167,6 +209,45 @@ export function colonyReach(W: number, H: number, h: Uint8Array, wet: Uint8Array
   const out = new Uint8Array(N);
   for (let i = 0; i < N; i++) if ((root >= 0 && labels[i] === root) || (landRoot >= 0 && land[i] === landRoot)) out[i] = 1;
   return out;
+}
+
+/** The start's bench (D515; `start.level_land` reads it the same way, rust/checks `playability.rs` `start_bench`):
+ *  the dry tiles at the start's level joined to its 3×3 without a slope (4-connected, off the tiles `blocked`
+ *  marks), at any distance. The walk joining them crosses water standing on that level, as a beaver's walk without
+ *  slopes does (`walkDistance`) and as the loved maps' bench was counted (the workshop's `startStats`, the floors'
+ *  source); only the dry tiles count. `wet` is the map's water tiles (deeper than `WET`). */
+export function startBench(h: ArrayLike<number>, wet: ArrayLike<number>, blocked: ArrayLike<number> | null, W: number, H: number, start: { x: number; y: number }): number {
+  const { x: sx, y: sy } = start;
+  if (sx < 0 || sy < 0 || sx >= W || sy >= H) return 0;
+  const level = h[sy * W + sx];
+  const ok = (i: number) => h[i] === level && !blocked?.[i];
+  const seen = new Uint8Array(W * H);
+  const queue: number[] = [];
+  for (let y = sy - 1; y <= sy + 1; y++)
+    for (let x = sx - 1; x <= sx + 1; x++) {
+      if (x < 0 || y < 0 || x >= W || y >= H) continue;
+      const i = y * W + x;
+      if (ok(i) && !seen[i]) {
+        seen[i] = 1;
+        queue.push(i);
+      }
+    }
+  for (let q = 0; q < queue.length; q++) {
+    const i = queue[q];
+    const x = i % W;
+    const y = (i - x) / W;
+    for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]] as const) {
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const n = ny * W + nx;
+      if (!seen[n] && ok(n)) {
+        seen[n] = 1;
+        queue.push(n);
+      }
+    }
+  }
+  let n = 0;
+  for (const i of queue) if (!wet[i]) n++;
+  return n;
 }
 
 /** The mine sites the colony does not reach, as each one's first tile: a site is reached when a

@@ -181,8 +181,10 @@ describe("Fill (D387 (3), D394) and Remove unfed water within a selection", () =
   let pits: { at: [number, number]; level: number }[];
 
   beforeAll(() => {
-    // (River Valley 7 on 0.8.1's maps, D148: River Valley 2's map has no dry plateau for the two pits)
-    s = session("riverValley", 7);
+    // (River Valley 7 on 0.8.1's maps, D148: River Valley 2's map has no dry plateau for the two pits; River Valley 1 for 7
+    // since generator 0.10.17's start floors (D515), D148: seed 7's map has none now; of seeds 1–14, seeds 1, 9, 10, 12 and 13
+    // have one, seed 1's from (44, 8) at level 14; the same map for the byte-for-byte test below)
+    s = session("riverValley", 1);
     pits = digPits(s, 2);
   });
 
@@ -330,7 +332,7 @@ describe("Fill (D387 (3), D394) and Remove unfed water within a selection", () =
   });
 
   it("the same edits give the same file, byte for byte, every time", () => {
-    const dug = session("riverValley", 7);
+    const dug = session("riverValley", 1);
     const p = digPits(dug, 2);
     const start = dug.project();
     const run = () => {

@@ -22,6 +22,7 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 - `check-rows.ts` lists every check row of a folder's maps as the editor shows them on import: run it on dev and on a branch and diff, to show what a change to the checks does to real maps.
 - `probe-3d.ts` writes the DGM Probe's Terrain 3D maps by hand (T3–T7; the same writer the runner calls, `probe-maps/terrain3d.ts`, on the scenes in `terrain3d-maps.ts`) into `C:\dgm-probe\terrain3d-2\`; `--check` writes nothing. `rust/stack-sink-fixture.ts` writes the sink case of the stacked engine's identity fixtures.
 - `import-hashes.ts` hashes a folder's maps through import, one sculpt stroke, the project file, reopening and export: run it on dev and on a branch and diff, to show a change left imported maps alone.
+- `ruled-land.ts` prints ruled land's three numbers and verdict (`terrain.ruled_land`, PLAN §11.2) for `.timber` files, a theme's seeds (`--theme canyon|all --seeds 1-12 --size 128`), the lake stair's or the Gate's (`--premise lakeStair|gate`).
 - `oracle.ts` (`npm run oracle`) checks generated maps with the Python implementation in `prototype/`.
 - `determinism/run.ts` runs the same maps, brushes, forces, placements and water in Chromium, Firefox, WebKit and Node and compares them bit for bit (D366; `--smoke` is CI's short list); `determinism/compare.ts` compares runs from different machines.
 

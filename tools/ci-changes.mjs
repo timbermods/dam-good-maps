@@ -13,8 +13,10 @@
 //
 //   node tools/ci-changes.mjs <base sha> <head sha> [--full | --light]
 //
-// prints heavy, suites, rust, test and page (and writes them to $GITHUB_OUTPUT). page (pull requests into dev only): the
-// change touches src/editor/, src/ui/, src/render3d/ or src/styles/, so the `page` job's browser specs run before the merge. --full (pushes to main, pull requests into main,
+// prints heavy, suites, rust, test, page and generator (and writes them to $GITHUB_OUTPUT). page (pull requests into dev
+// only): the change touches src/editor/, src/ui/, src/render3d/ or src/styles/, so the `page` job's browser specs run
+// before the merge. generator (pull requests into dev only): the change can change what the generator makes
+// (`isGenerator`), so the browser shards run before the merge, as they do on dev after one. --full (pushes to main, pull requests into main,
 // manual runs) turns everything on; --light (pull requests into dev) turns suites and rust off, because the merge queue
 // runs them on the merged state. Plain Node, no dependencies: the CI job that runs it does not install anything.
 // Tested by tests/unit/ci-changes.test.ts.
@@ -151,6 +153,68 @@ export function needsHeavy(files, read) {
   return classify(files, read).heavy;
 }
 
+/**
+ * What can change the maps the generator makes (a pull request into dev touching it runs the browser shards before the
+ * merge, as a page PR runs the page job): every file `generate()` (src/core/gen/generate.ts) reaches through its value
+ * imports, the generator's version constant (src/core/spec/mapspec.ts) among them, and the Rust crates its Wasm is built
+ * from (the water, the analysis, the checks and the maths they share, with the workspace's Cargo files). A directory is
+ * listed when `generate()` reaches every file directly in it, else its files one by one; type-only imports, a premise
+ * not offered (premise/gate*.ts, premises/wallGate.ts, premises/dev.ts) and the showcase are not reached. Kept true by
+ * tests/unit/ci-changes.test.ts, which walks the imports and fails when they and this list differ.
+ */
+export const GENERATOR_DIRS = [
+  "src/core/analysis/rust",
+  "src/core/data",
+  "src/core/features/setpieces",
+  "src/core/land",
+  "src/core/math",
+  "src/core/premise/raster",
+  "src/core/spec",
+  "src/core/water",
+];
+
+const inDir = (dir, ...names) => names.map((n) => `${dir}/${n}`);
+
+export const GENERATOR_FILES = [
+  ...inDir("src/core/analysis", "damsites.ts", "easyStart.ts", "edges.ts", "ground.ts", "mechanics.ts", "opening.ts", "regions.ts", "ridge.ts", "seeThrough.ts", "signature.ts", "sources.ts", "story.ts", "straight.ts", "vertical.ts", "walk.ts", "wood.ts"),
+  ...inDir("src/core/doc", "labels.ts"),
+  ...inDir("src/core/features", "build.ts", "edits.ts", "features.schema.json", "geometry.ts", "ids.ts", "objects.ts", "route.ts", "slopes.ts", "target.ts"),
+  ...inDir("src/core/features/raster", "brush.ts", "resources.ts", "terrain.ts", "weather.ts"),
+  ...inDir("src/core/forces", "clear.ts", "floor.ts", "objects.ts", "op.ts", "settings.ts"),
+  ...inDir("src/core/format", "base64.ts", "entities.ts", "footprints.ts", "json.ts", "timber.ts", "world.ts"),
+  ...inDir("src/core/format/vendor", "jpeg-encoder.js"),
+  ...inDir("src/core/gen", "blobs.ts", "calibrated.ts", "extras.ts", "failWords.ts", "forms3d.ts", "generate.ts", "intentions.ts", "names.ts", "outcomes.ts", "pack.ts", "plug.ts", "readback.ts", "resources.ts", "ruinStories.ts", "settler.ts", "weir.ts"),
+  ...inDir("src/core/premise", "card.ts", "choice.ts", "draw.ts", "frame.ts", "generate.ts", "geom.ts", "ladder.ts", "levels.ts", "life.ts", "map.ts", "planChecks.ts", "siting.ts", "style.ts", "water.ts", "waterChecks.ts"),
+  ...inDir("src/core/premise/premises", "index.ts", "lakeStair.ts"),
+  ...inDir("src/core/render", "shade.ts"),
+  ...inDir("src/core/resources", "badwater.ts", "baseline.ts", "budget.ts", "measure.ts", "mineGround.ts"),
+  ...inDir("src/core/sim", "columns.ts", "drought.ts", "droughtLine.ts", "fed.ts", "firstDays.ts", "model.ts", "moisture.ts", "parallel.ts", "parallelPolicy.ts", "prefill.ts", "preview.ts", "rustWater.ts", "sill.ts", "soil.ts", "soil3d.ts", "stackFed.ts", "stackParallel.ts", "stackWater.ts", "startWaterDay.ts", "water.ts", "waterWasm.ts", "weather.ts", "withering.ts"),
+  ...inDir("src/core/terrain", "blocks.ts", "clearance.ts", "runs.ts", "support.ts"),
+  ...inDir("src/core/validate", "checks.ts", "checksWasm.ts", "playability.ts", "report.ts", "rust.ts"),
+];
+
+/** The Rust the generator's Wasm is built from (src/core/sim/waterWasm.ts, analysis/rust/analysisWasm.ts,
+ *  validate/checksWasm.ts): its crates and the workspace's Cargo files. */
+export const GENERATOR_RUST = ["rust/water/", "rust/analysis/", "rust/checks/", "rust/portable/", "rust/Cargo.toml", "rust/Cargo.lock"];
+
+const GENERATOR_FILE_SET = new Set(GENERATOR_FILES);
+
+/** True when a change to this path can change what the generator makes (`GENERATOR_DIRS`, `GENERATOR_FILES`,
+ *  `GENERATOR_RUST`). Documents never do. */
+export function isGenerator(path) {
+  if (isDocument(path)) return false;
+  if (GENERATOR_FILE_SET.has(path)) return true;
+  const slash = path.lastIndexOf("/");
+  if (slash > 0 && GENERATOR_DIRS.includes(path.slice(0, slash))) return true;
+  return GENERATOR_RUST.some((r) => (r.endsWith("/") ? path.startsWith(r) : path === r));
+}
+
+/** True when the browser shards run on a pull request into dev (light) before the merge: it can change what the
+ *  generator makes. An unreadable change counts as one that can. */
+export function needsGenerator(files, mode = "auto") {
+  return mode === "light" && (!files.length || files.some(isGenerator));
+}
+
 function git(...args) {
   return execFileSync("git", args, { encoding: "utf8", maxBuffer: 256 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
 }
@@ -159,7 +223,7 @@ function main() {
   const args = process.argv.slice(2);
   const mode = args.includes("--full") ? "full" : args.includes("--light") ? "light" : "auto";
   const [base, head] = args.filter((a) => !a.startsWith("--"));
-  let result = { heavy: true, suites: true, rust: true, test: true, page: false };
+  let result = { heavy: true, suites: true, rust: true, test: true, page: false, generator: false };
   const zero = /^0+$/;
   try {
     if (mode === "full") {
@@ -176,11 +240,11 @@ function main() {
           return null;
         }
       };
-      result = { ...classify(files, read, mode), test: needsTest(files, mode), page: needsPage(files, mode) };
+      result = { ...classify(files, read, mode), test: needsTest(files, mode), page: needsPage(files, mode), generator: needsGenerator(files, mode) };
       console.log(`${files.length} changed file(s), ${mode} run`);
     }
   } catch (e) {
-    if (mode === "light") result = { heavy: true, suites: false, rust: false, test: true, page: true };
+    if (mode === "light") result = { heavy: true, suites: false, rust: false, test: true, page: true, generator: true };
     console.log(`${e.message}: ${mode === "light" ? "the tests and the browser shards run" : "everything runs"}`);
   }
   const lines = Object.entries(result).map(([k, v]) => `${k}=${v}`);

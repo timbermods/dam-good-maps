@@ -71,8 +71,10 @@ import * as ed from "../../src/worker/session";
  *  with 1.1.2.4-52e959e-sw the file is that one byte for byte); `30543f1d…` before generator 0.10.5's version
  *  string (the same map: its first land fails the course check, not the start or the trunk's search); `c1aa22cd…` before
  *  generator 0.10.12's version string (the same map: its stacked settle takes no unfed water, #814); `963db7ee…` before
- *  generator 0.10.16's ground with grade (its land rolls in one-level steps: a new map, D148). */
-const LIVE_SHA = "d89bc166ff5ac63dda9c4a74f6f241fe07c909111c245bdf1648409f5732c861";
+ *  generator 0.10.16's ground with grade (its land rolls in one-level steps: a new map, D148); `d89bc166…` before
+ *  generator 0.10.17's start floors (D515: the settler's places need the bench and the start's wood a fast species, a
+ *  new map, D148). */
+const LIVE_SHA = "662d87890c147b1da11165128737fc8a01fcc7ac5c710f60956075d165de3c6f";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

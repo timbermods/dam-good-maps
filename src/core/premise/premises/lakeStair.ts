@@ -693,11 +693,11 @@ const FRAME_KEEP = 1;
 const BAY_END = [3.2, 4.8] as const;
 const BAY_ROOT = 7;
 
-/** The dry ground a start needs within its walk (`START.near`), as a multiple of the level land its checks ask for: a
- *  share of it climbs off its meadow. At 2.2, half the frames under 300 tiles of room fell short of their level land
- *  on the relief (seeds 1 to 12 at 128²), each costing its attempt's siting; at 2.65 one frame in forty that held is
- *  drawn again instead, at a layout's cost (the speed step). */
-const MEADOW_ROOM = 2.65;
+/** The dry ground a start needs within its walk (`START.near`), as a multiple of the moist land the gate asks of it
+ *  (`start.farmland` and `start.forester`'s plot, D515): a share of it climbs off its meadow. 1.5 keeps the 300 tiles
+ *  of room the speed step settled on (2.65 × the 113 tiles of the old level land; under 300, half the frames fell
+ *  short on the relief); the start's bench itself is built on the land (`frame.ts` `buildBench`). */
+const MEADOW_ROOM = 1.5;
 
 /** How far a lake's water reaches past its spine's outline once stage 1 lays it on its ground, about. */
 const MEADOW_SHORE = 3;
@@ -851,7 +851,8 @@ function placeFrame(L: Layout, o: StairOption): string | null {
       if (channels.some((l) => pathBodyGap(l.path!, bayBody, 3, pathLength(l.path!) - 3, (l.half ?? 1) + 2) < (l.half ?? 1) + 2)) continue;
       // the start's meadow: dry ground it walks to without crossing water (a start between its lake and the bay has
       // none to build on)
-      if (meadowRoom(sx, sy, bodies, plan.W, plan.H) < MEADOW_ROOM * rulesFor(L.spec).levelLand) continue;
+      const rules = rulesFor(L.spec);
+      if (meadowRoom(sx, sy, bodies, plan.W, plan.H) < MEADOW_ROOM * (rules.farmland + rules.forester)) continue;
       // the hanging valley: straight back from the lip, then to the source
       const trial: PremisePlan = { ...plan, bodies, frame: { ...plan.frame, start } };
       let hv: Point[] | null = null;

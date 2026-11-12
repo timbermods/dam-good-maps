@@ -23,6 +23,7 @@ import { easyShortfall, easyStartMeasures, easyTargets } from "../analysis/easyS
 import { surfaceOf } from "../format/world";
 import { mapObjects } from "../sim/model";
 import { seenThroughRoofs } from "../sim/stackWater";
+import { RULED_LIMITS, ruledLand, ruledLandMessage, wetOf } from "./ruledLand";
 
 export type { CheckClass, CheckResult, Profile, Severity, ValidationReport } from "./report";
 export { blocks } from "./report";
@@ -104,7 +105,7 @@ export interface Validation {
  *  (the heightfield water model on the top surface: on maps with caves or overhangs an approximation,
  *  as terrain.single_floor says). Throws the one-line reason of a map the checks refuse. */
 export function validateMap(file: TimberFile, opts: ValidateOptions): Validation {
-  const v = validateInRust(file, opts);
+  const v = withRuledLand(file, validateInRust(file, opts));
   // (not on a map made with Sources: None, D330: its water is the player's to place)
   if (opts.profile !== "generate" || opts.spec?.settings?.start?.easyStart !== true || opts.spec.settings.water.sources === "none" || !v.analysis || !v.model || !v.water) return v;
   return withEasyStart(file, opts, v);
@@ -145,6 +146,20 @@ function withEasyStart(file: TimberFile, opts: ValidateOptions, v: Validation): 
     easyShort = easyShortfall(badtide ? [...full, badtide] : full);
   }
   return { ...v, report: { ...v.report, checks: [...v.report.checks, ...rows], passed }, ...(easyShort ? { easyShort } : {}) };
+}
+
+/** Ruled land (`ruledLand.ts`), one advisory row after the Rust checks' on every map: the land drawn with a ruler. */
+function withRuledLand(file: TimberFile, v: Validation): Validation {
+  if (!v.water) return v;
+  const w = file.world;
+  const depth = v.water.stack?.stacked ? seenThroughRoofs(v.water.stack).depth : v.water.depth;
+  const r = ruledLand(surfaceOf(w), wetOf(depth), w.sizeX, w.sizeY);
+  const row: CheckResult = {
+    id: "terrain.ruled_land", class: "design", severity: severityOf("generate", "design", r.ok, true), ok: r.ok, advisory: true,
+    value: `${Math.round(100 * r.straight)} % / ${Math.round(100 * r.bands)} % / ${Math.round(r.corners)}`, limit: `${100 * RULED_LIMITS.straight} % / ${100 * RULED_LIMITS.bands} % / ${RULED_LIMITS.corners}`,
+    message: ruledLandMessage(r), ...(r.ok ? {} : { where: { tiles: [[r.longest.x, r.longest.y]] } }),
+  };
+  return { ...v, report: { ...v.report, checks: [...v.report.checks, row] } };
 }
 
 export function validateFile(file: TimberFile, opts: ValidateOptions): ValidationReport {

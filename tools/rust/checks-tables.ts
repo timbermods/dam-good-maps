@@ -18,7 +18,7 @@ import * as objects from "../../src/core/features/objects";
 import * as model from "../../src/core/sim/model";
 import { NAMES } from "../../src/core/doc/describeTile";
 import { REQUIRED } from "../../src/core/validate/checks";
-import { EXTRA_BANDS } from "../../src/core/validate/playability";
+import { EXTRA_BANDS, FARMLAND_NEAR, START_FLOORS, START_FLOORS_AREA } from "../../src/core/validate/playability";
 import { WALK_BLOCKERS } from "../../src/core/analysis/walk";
 import { SLOPE_RULES } from "../../src/core/features/slopes";
 import { PLANT_CLEARANCE } from "../../src/core/terrain/clearance";
@@ -102,6 +102,15 @@ export function checksTables(): string {
   };
   kv("reach_min", cal.REACH_MIN as Record<string, number>);
   kv("reserve", cal.RESERVE as Record<string, number>);
+  // the start's floors (D515), by difficulty in DIFFICULTIES' order; the bench by Start area (small, normal, large)
+  const fl = D.map((d) => START_FLOORS[d]);
+  out.push(`pub const START_FLOOR_BENCH: [[f64; 3]; 3] = [${fl.map((x) => `[${f(x.bench.small)}, ${f(x.bench.normal)}, ${f(x.bench.large)}]`).join(", ")}];`);
+  out.push(`pub const START_FLOOR_REACH: [f64; 3] = [${fl.map((x) => f(x.reach)).join(", ")}];`);
+  out.push(`pub const START_FLOOR_FAST_WOOD: [f64; 3] = [${fl.map((x) => f(x.fastWood)).join(", ")}];`);
+  out.push(`pub const START_FLOOR_FAST_WOOD_WALK: [f64; 3] = [${fl.map((x) => f(x.fastWoodWalk)).join(", ")}];`);
+  out.push(`pub const START_FLOOR_FORESTER: [f64; 3] = [${fl.map((x) => f(x.forester)).join(", ")}];`);
+  out.push(`pub const START_FLOORS_AREA: f64 = ${f(START_FLOORS_AREA)};`);
+  out.push(`pub const FARMLAND_NEAR: f64 = ${f(FARMLAND_NEAR)};`);
   out.push(`pub const LIVING_SHARE: [f64; 2] = [${cal.OFFICIAL_LAYOUT.livingShare.map(f).join(", ")}];`);
   out.push(`pub const SIZE_ANCHORS: [f64; 4] = [${cal.SIZE_ANCHORS.map(f).join(", ")}];`);
   const density = cal.DENSITY as unknown as Record<string, number[]>;

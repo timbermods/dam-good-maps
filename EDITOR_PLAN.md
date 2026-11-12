@@ -550,10 +550,15 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 - **Sources** (D474; Kyler, 2026-10-05): every force's settings hold **Sources**, Ride (sources and seeps ride the
   ground) or **Clear** (the default: the force removes the sources and seeps whose ground it destroys, buried 3 levels
   or more, cut 2 or more away, or in the crush zone where ground moved whole tears (2.5 tiles of a Quake's crack, a
-  Rift's walls); one that rides an intact block or
-  a thin apron stays, as under Ride; the force audit's S2, `src/core/forces/clear.ts` `destroyedGround`; Glaciate's
+  Rift's walls), and a multi-tile one (a badwater source's 3 × 3, a seep's 2 × 2) whose tiles it moves by different
+  amounts, since it rides only as one level piece (D249); one that rides an intact block or a thin apron stays, as under Ride; the force audit's S2, `src/core/forces/clear.ts` `destroyedGround`; Glaciate's
   ice still takes what it reaches), in the brushes' Sources look, remembered per force with the other pins and sent as `settings.sources`; Try another sends the row's
-  choice as it is. A force's own sources (Keep river, Meltwater, an unleashed source) always stay.
+  choice as it is. A force's own sources (Keep river, Meltwater, an unleashed source) always stay. Under Ride a
+  multi-tile source on ground the force moved unevenly keeps riding on a seat cut level to the lowest of its tiles, as
+  D290 levels a placed one; the cut is part of the force's result, shown with it and undone in its one step. Where
+  that cut cannot stand (a seat across a working area's edge, a tile the area's feather holds, Erode's voxels) the force
+  leaves the whole footprint as it was and the source keeps its old seat, Carve included, so no force ends in a map the
+  game refuses (planning's rulings of 2026-11-11; `clear.ts` `levelSeats`, Rust's Carve `level_seat`).
 - **One row** (D289): **Power**, **Size** (Quake has none), at most one signature choice (Carve's **Keep river** or
   **Dry canyon**; Quake's **Lift** or **Slide**; Glaciate's **Meltwater**), and **Try another**. The gesture is the
   mode: a click unleashes a carve, strikes, vents or flows; a drag draws a line freehand (below). Everything else
@@ -900,8 +905,13 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   at the faces the gesture touches, hardest at a face's foot and just under a hard bed, from both sides of a thin
   ridge, into worn shapes (no one-block walls or slots, nothing sealed); every tile keeps its top three blocks, so the
   surface and its objects stay; no rock that holds back water wears, nor an object's ground or a source's tile; the
-  rock that wore least comes back as ragged remnants wherever a roof would hang; where no face can wear, the dry ground
-  at the pointer is scoured into a shallow hollow (D356), never below the water beside it and never under water. Its
+  rock that wore least comes back as ragged remnants wherever a roof would hang. Openings are scaled to their cliff
+  (the force audit's 11): a click's at the nearest face within twice its Size, a sweep's one every 6 to 10 tiles of
+  unequal size; 40 % of the face high at Power 55, 70 % at 100, 3 to 8 wide; a fin under 4 tiles is cut through, an
+  arch. Where no face is in reach (D356, the audit's 24) it scours rills a level deep down a slope's fall line, or on
+  level ground one scour toward lower ground, keeping only what drains: never a pond, never below the water beside it,
+  never under water. Every tile it changes lies within `erodeExtent` (2 × Size + 12) of its gesture. Sheet
+  `docs/sheets/force-erode.jpg`. Its
   result writes runs (the operation's `runs`), so any map gains caves. **The page:** Erode is the last button of the
   forces row (after Glaciate), key Shift+8, tooltip "Wear caves and arches"; its row is Power and Size (Auto) on row 1
   with "The land decides the form" across the rest of it, the Floor and Try another on row 2 (no choice of its own, and no Sources: it never wears a source's tile, so it

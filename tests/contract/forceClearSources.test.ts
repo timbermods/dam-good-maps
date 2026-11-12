@@ -134,7 +134,12 @@ describe("forces clear sources (D474)", () => {
       const crack = c.request.verb === "quake" ? quake(snapshotMap(m), { ...c.request.settings, sources: "clear" }, { path: c.request.path, side: c.request.side }).fault.points : undefined;
       const destroyed = destroyedGround(W, W, m.heights, land, null, motionOf(c.request.verb, crack));
       const changedAll = reachedBy(clear);
-      const reached = changedAll.filter((id) => footprint(m, m.entities.find((e) => e.id === id)!).some(destroyed));
+      // (and a multi-tile one whose tiles it moved by different amounts: it rides only as one level piece, D249)
+      const torn = (tiles: number[]) => tiles.length > 1 && tiles.some((i) => land[i] - m.heights[i] !== land[tiles[0]] - m.heights[tiles[0]]);
+      const reached = changedAll.filter((id) => {
+        const tiles = footprint(m, m.entities.find((e) => e.id === id)!);
+        return tiles.some(destroyed) || torn(tiles);
+      });
       // with Clear, no source or seep stays on ground the force destroyed, and it is gone from the last frame
       expect(reached.length).toBeGreaterThan(0);
       const gone = new Set([...clear.params.removed, ...(clear.params.cleared ?? []).map((q) => q.id)]);
@@ -149,12 +154,14 @@ describe("forces clear sources (D474)", () => {
           const e = clear.entities.find((q) => q.id === id);
           expect(e, `${id} rides under Clear`).toBeDefined();
           expect(e!.z, `${id} stands on its ground`).toBe(clear.heights[e!.y * W + e!.x]);
+          // (every tile of it: a multi-tile one stands level, never inside the ground or over air)
+          for (const i of footprint(m, e!)) expect(clear.heights[i], `${id} stands level`).toBe(e!.z);
         }
       if (c.request.verb !== "quake" && c.request.verb !== "rift")
         // (a building or cutting force: what it takes is buried or cut away)
         for (const id of reached) {
           const tiles = footprint(m, m.entities.find((e) => e.id === id)!);
-          expect(tiles.some((i) => land[i] - m.heights[i] >= BURIED || m.heights[i] - land[i] >= CUT), `${id} buried or cut`).toBe(true);
+          expect(tiles.some((i) => land[i] - m.heights[i] >= BURIED || m.heights[i] - land[i] >= CUT) || torn(tiles), `${id} buried, cut or torn`).toBe(true);
         }
       // the count the editor says after the force is exactly the sources gone from its last frame (the study's own and
       // a fixture's river sources the force took too), and none under Ride
@@ -170,11 +177,29 @@ describe("forces clear sources (D474)", () => {
         const e = ride.entities.find((q) => q.id === id);
         expect(e, `${id} rides`).toBeDefined();
         expect(e!.z).toBe(ride.heights[e!.y * W + e!.x]);
+        // (a multi-tile one on a seat levelled where the ground moved unevenly, planning's ruling of 2026-11-11: shown
+        // and kept alike)
+        const kept = new Map(ride.params.tiles.map((i, k) => [i, ride.params.heights[k]]));
+        for (const i of footprint(m, e!)) {
+          expect(ride.heights[i], `${id} stands level`).toBe(e!.z);
+          expect(kept.get(i) ?? m.heights[i], `${id}'s seat as kept`).toBe(ride.heights[i]);
+        }
       }
       if (!c.plans) {
-        // (Clear changes objects only: the land, the objects the force took and the trees it felled are Ride's)
-        expect(clear.params.tiles).toEqual(ride.params.tiles);
-        expect(clear.params.heights).toEqual(ride.params.heights);
+        // (Clear changes objects only: the land, the objects the force took and the trees it felled are Ride's, but for
+        // the seats Ride cut level under the multi-tile sources it kept riding, planning's ruling of 2026-11-11)
+        const landOf = (u: Used) => {
+          const h = m.heights.slice();
+          u.params.tiles.forEach((i, k) => (h[i] = u.params.heights[k]));
+          return h;
+        };
+        const seats = new Set(ride.entities.filter((e) => CLEARABLE.has(e.template)).flatMap((e) => (footprint(m, e).length > 1 ? footprint(m, e) : [])));
+        const [lc, lr] = [landOf(clear), landOf(ride)];
+        const differ: number[] = [];
+        for (let i = 0; i < lc.length; i++) if (lc[i] !== lr[i]) differ.push(i);
+        expect(differ.filter((i) => !seats.has(i)), "Clear's land is Ride's but for Ride's seats").toEqual([]);
+        // (a seat is cut to its lowest tile, or, across a working area's edge, held as it was)
+        for (const i of differ) expect(lr[i] < lc[i] || lr[i] === m.heights[i], `seat tile ${i}: ${lc[i]} to ${lr[i]}, was ${m.heights[i]}`).toBe(true);
         expect(clear.params.removed).toEqual(ride.params.removed);
         expect(clear.params.felled).toEqual(ride.params.felled);
         expect(clear.params.cleared?.length).toBeGreaterThan(0);
@@ -334,8 +359,12 @@ describe("forces clear sources (D474)", () => {
     // (seed 5 for seed 21 since generator 0.10.16's ground with grade, D148: seed 21's dry spot is now at (62, 30), at a
     // cliff's foot where the carve cuts all round the source but leaves its own tile as it was, so both plays keep the
     // same water there; seed 5's is at (65, 30), and the kept source holds 45.6 of water near it to Clear's 31.8; like
-    // seed 21's map before, seed 5's has no terrain above terrain, as seeds 1–4 now have)
-    await runGenerate(makeSpec({ seed: 5, theme: "highlands", size: { x: 96, y: 96 } }));
+    // seed 21's map before, seed 5's has no terrain above terrain, as seeds 1–4 now have; seed 6 since generator 0.10.17's
+    // start floors (D515), D148: seed 5's dry spot, (65, 30), is a cliff's foot again, where the carve leaves the source's
+    // tile as it was and both plays keep 49.0 near it; seed 6's is at (30, 30), the carve cuts under it, and the kept source
+    // holds 48.3 of water near it to Clear's 27.8; of seeds 1–8 only 6 and 8 cut under the spot on a map without terrain
+    // above terrain)
+    await runGenerate(makeSpec({ seed: 6, theme: "highlands", size: { x: 96, y: 96 } }));
     ed.refine();
     const open = () => MapSession.open(decodeProject(ed.project().bytes));
     const b = open().built;

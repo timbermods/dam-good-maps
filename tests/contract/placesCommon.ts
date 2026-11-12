@@ -155,8 +155,12 @@ export function placeFailures(checks: readonly CheckResult[]): { other: string[]
     f.startsWith("start.wood_floor:") ||
     // (item 47's start land is a preference for real places, D331: a place whose start lacks it
     // still opens; its conversion picks a start with it where one qualifies, when it resumes)
+    // (and the start's floors, D515: a real place warns where its start falls short, D245)
     f.startsWith("start.farmland:") ||
     f.startsWith("start.level_land:") ||
+    f.startsWith("start.reach:") ||
+    f.startsWith("start.forester:") ||
+    f.startsWith("start.wood_fast:") ||
     f.startsWith("start.water:") ||
     f.startsWith("start.food:") ||
     f.startsWith("plants.survive:");
