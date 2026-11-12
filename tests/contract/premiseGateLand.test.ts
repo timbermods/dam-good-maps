@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { failing, PLAN_TRIES } from "../../src/core/premise/draw";
 import { gateWater } from "../../src/core/premise/gateWater";
 import { firstWater } from "../../src/core/premise/draw";
-import { GATE_LAND_CHECKS, gateLand, gateLandFailures, gateZones } from "../../src/core/premise/gateLand";
+import { GATE_LAND_CHECKS, gateLand, gateLandFailures, gateZones, rangeBand } from "../../src/core/premise/gateLand";
 import { gateOf, onLocal, rangeAt, turnOf, wallGate } from "../../src/core/premise/premises/wallGate";
 import { makeSpec, type MapSpec } from "../../src/core/spec/mapspec";
 import { gateWetPast } from "../../src/core/premise/gateMap";
@@ -65,6 +65,20 @@ describe("Broken gate land fails its invariants", () => {
   const broken: [id: string, what: string, breakIt: (h: Uint8Array) => void][] = [
     ["range.crest", "the range worn to one level", (h) => {
       for (let i = 0; i < W * H; i++) if (zone[i] === 1 && !water(i)) h[i] = 13;
+    }],
+    ["range.flat", "the range's flanks laid as terraces three levels apart, eight tiles deep", (h) => {
+      const band = rangeBand(base.plan, base.water);
+      for (let i = 0; i < W * H; i++) if (band[i] && !water(i)) h[i] = 9 + 3 * Math.floor(Math.abs(local(i)[1] - rangeAt(g.range, local(i)[0]).v) / 8);
+    }],
+    ["range.valleys", "the range worn down to its feet, the cleft's ground with it: no valley falls from it", (h) => {
+      for (let i = 0; i < W * H; i++) if (zone[i] === 1 && !r.channel[i] && !r.lake[i]) h[i] = g.sill + 2;
+    }],
+    ["range.height", "the range worn to two over the valley's floor", (h) => {
+      const vv: number[] = [];
+      for (let i = 0; i < W * H; i++) if (zone[i] === 0) vv.push(h[i]);
+      vv.sort((p, q) => p - q);
+      const floor = vv[vv.length >> 1];
+      for (let i = 0; i < W * H; i++) if (zone[i] === 1 && !water(i)) h[i] = Math.min(h[i], floor + 2);
     }],
     ["gate.lowest", "the Gate's gorge filled to the crest", (h) => {
       for (let i = 0; i < W * H; i++) if (r.channel[i] === gate && zone[i] === 1) h[i] = g.crest;

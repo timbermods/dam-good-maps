@@ -1325,8 +1325,10 @@ whole shares' floor is 0 (by number their bed is the same; their gain is the set
 **As built (water, stage 1).** The shared stage (`water.ts` `waterByNumber`) lays the plan; `gateWater.ts` adds the
 bars (the Gate's head a level over the sill, the leat's two over its bed), the Veil's foot a level under the sill with
 its outer row the drowned river's ribbon, the first frame's beds raised to hold their water under two, and its checks.
-The seeps are not drawn: they need stage 1 to route a wet link into a dry link's bed (`levels.ts` `route` and
-`raster/channels.ts`), which none of the shared stages' seams (§2.2, "Seams") gives. **Through the seams**: `wallGate`'s
+No seeps (planning's ruling of 2026-11-13). Tried: one seep's arroyo to the Gate Bed moistened 34 to 44 % of the
+basin's floor at 128² (`basin.dry` asks under 12 %), and no hollow holds a spring alone (a hollow of 20 to 30 tiles
+evaporates about 0.003 a second, a thirtieth of the least spring, 0.1). `Link.joins` stays for the washes. **Through
+the seams**: `wallGate`'s
 `PremiseDef.water` is `gateWater` and its `PremiseDef.land` `gateLand`, so the shared `draw.ts` `firstWater` draws its
 plans (no copy of it here); the Still Pool is a `Body.backwater`, so the shared `water.levels` reads it at its sill and
 the table gives its inlet no share; the brooks' widths are `Link.halves`. `gateMap.ts` stays the Gate's own loop (the
