@@ -287,6 +287,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       expired: () => restartNaturalizer(),
       answer: (a, t) => queueHost.current.answer?.(a, t),
       // (a patch of the land that did not lay on the land the queue holds: the worker's whole land, as an event)
+      // (nothing on its way: the water's news for water the page lacks, which an undo or a redo leaves unsettled)
+      idle: () => void api.idleWater(),
       stale: () => void api.landNow().then((l) => edits.current.event({ ok: true, errors: [], epoch: l.epoch, view: l.view as MapAnswer["view"] })),
     });
     view.heights = edits.current.shown;

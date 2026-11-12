@@ -128,6 +128,9 @@ export interface QueueHost {
   /** A patch of the land did not lay on the land `base` holds (an answer missed, or whole land from elsewhere): ask the
    *  worker for the whole land again (its `landNow`, taken as an event). */
   stale?(): void;
+  /** The last ticket ended: nothing is on its way (the page has the session's land; its water's news may follow, the
+   *  worker's `idleWater`). Once each time the queue goes idle. */
+  idle?(): void;
 }
 
 /** A step of the history named for a move: a step the worker made (`seq`), or a ticket still on its way. */
@@ -230,6 +233,8 @@ export class EditQueue {
   private deferred: Rect | null = null;
   private watch: { id: number; state: TicketState; cancel: () => void } | null = null;
   private idlers: (() => void)[] = [];
+  /** A ticket was made since the queue was last idle (`QueueHost.idle` once on the way back). */
+  private worked = false;
   /** Strokes waiting their turn to compose (`whenComposable`). */
   private composers: { id: number; resolve: (ok: boolean) => void }[] = [];
   /** Who waits for a ticket to end (`settled`). */
@@ -517,6 +522,7 @@ export class EditQueue {
     const t: Ticket = { id: this.nextId++, epoch: this.epoch, kind, state, label, call, overlay: null, painted: null, bound: null, silentLine: STROKE_SILENT, move, drafts: null, drafted: false, step: null, line: null, mispredicted: false, alone, timedOut: false };
     this.tickets.push(t);
     this.all?.push(t);
+    this.worked = true;
     // (shown at once when the queue holds the land of the step a move goes over, and the land stands as that step left
     // it: a recent stroke's undo or redo is one paste of a rectangle, D453)
     if (kind === "move") this.predict(t);
@@ -758,6 +764,9 @@ export class EditQueue {
     if (this.tickets.length) return;
     const w = this.idlers.splice(0);
     for (const f of w) f();
+    if (!this.worked) return;
+    this.worked = false;
+    this.host.idle?.();
   }
 
   /** Drafts may go for a stroke once every ticket before it has gone to the worker. */

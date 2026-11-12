@@ -2227,8 +2227,10 @@ delivery routes, the artifact edition and bring-your-own-key) is in
   terrain the page holds, and the queue lays a patch only on the land it was made against, else asks for the whole land
   once (`landNow`); one it holds already is passed over. Two chains, numbered apart, each on one channel so each stays
   in order (an answer and the water's news travel on two and may cross): the land with the answers, the settled water's
-  depth and moisture in the terrain (`wet`) with the water's news, so the page's copy of those follows the news, not
-  the edit. A read of the whole map (`sessionView`) never renumbers the land a live page holds. A 12-tile Raise's answer
+  depth and moisture in the terrain (`wet`) with the water's news. What the page holds with nothing moving is what the
+  session holds: when the queue goes idle (`QueueHost.idle`), the worker sends the water's news for water the page
+  lacks with nothing settling (an undo or a redo puts its step's water back with no settle after it; `idleWater`, a
+  compare, nothing when a settle's news brought it), once, on the water's channel. A read of the whole map (`sessionView`) never renumbers the land a live page holds. A 12-tile Raise's answer
   at 256² fell from 1.75 MB to 0.24 MB, its land from 1.5 MB to 2–5 KB (the rest is the water's journey and the soil);
   the worker's time is the same.
 - **"Move the start here"** (D204, one label since D323): after a Flatten stroke the page looks, once it is idle, for

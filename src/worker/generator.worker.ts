@@ -161,6 +161,8 @@ const api = {
   blockFalls: (params: BlocksParams) => ed.blockFalls(params),
   /** The land and terrain whole, numbered (the page asks when an answer's patch did not lay on the land it holds,
    *  core/doc/landPatch.ts). */
+  /** The page's edits all answered: the water's news for the water the page lacks, if any (`idleWater`). */
+  idleWater: () => ed.idleWater(),
   landNow() {
     const l = ed.landNow();
     return transfer(l, viewBuffers(l.view) as Transferable[]);
