@@ -31,6 +31,7 @@ const HEAVY = [
   "tests/contract/premiseGateWater.heavy.test.ts", // the wall with one gate's water settled on five plans (PREMISES §5.1)
   "tests/contract/premiseGateLand.heavy.test.ts", // the wall with one gate's maps built and checked on four seeds (PREMISES §5.1)
   "tests/contract/premiseStair256.heavy.test.ts", // the lake stair at 256², seeds 1 to 3 in two themes, none falling back (PREMISES §3.3)
+  "tests/contract/premiseThreads.heavy.test.ts", // the premise mode on four threads, its drought beside the map, is the one-thread map (D455)
 ];
 
 export default defineConfig({

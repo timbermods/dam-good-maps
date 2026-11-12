@@ -24,11 +24,13 @@ import { drawPlan, failing, PLAN_TRIES, type Failure } from "./draw";
 import { checkFrame, type FrameNeeds } from "./frame";
 import { ladderOf, spectrumMiss, type Ladder } from "./ladder";
 import type { LifeReport } from "./life";
-import { premiseLand, premiseMap } from "./map";
+import { premiseBase, premiseFinish, premiseLand } from "./map";
 import { premiseCard, type PremiseCard } from "./card";
 import { resolvePremise, type StyleTheme } from "./choice";
 import { sitePlan } from "./siting";
-import { startWaterGate } from "./hold";
+import { startWaterGateSteps, type GateDay } from "./hold";
+import { HazardRun, hazardDays } from "../sim/weather";
+import { TICKS_PER_DAY, type WaterModel } from "../sim/water";
 import { PREMISES } from "./premises";
 import { premiseStyle } from "./style";
 import type { PremisePlan } from "./types";
@@ -88,8 +90,131 @@ function deferLater(report: ValidationReport): { report: ValidationReport; later
   return { report: { ...report, checks, passed: !checks.some((c) => blocks(report.profile, c)) }, later };
 }
 
-/** A premise map for a spec whose `premise` names one, or why the themes must make it (one line, D471). */
-export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}, own?: PremiseDef): { result: GenerateResult } | { reason: string } {
+type PremiseOutcome = { result: GenerateResult } | { reason: string };
+
+/** What the premise mode asks of its caller as it goes (`premiseSteps`): `settled`, an attempt's first build is settled,
+ *  its water and model those of the start's drought run (`hold.ts` `startWaterGateSteps`), which the caller may start
+ *  now, beside the rest of the map; `day`, that run's water at the end of day `day` (1, 2, … in order), which the
+ *  caller answers; `done`, the attempt needs no more of it. */
+export type PremiseAsk = { kind: "settled"; model: WaterModel; depth: Float64Array; contamination: Float64Array; days: number } | { kind: "day"; day: number } | { kind: "done" };
+
+/** A premise map for a spec whose `premise` names one, or why the themes must make it (one line, D471). The start's
+ *  drought run on this thread, after the map (and on its pool, `withSmallMapThreads`). */
+export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}, own?: PremiseDef): PremiseOutcome {
+  const steps = premiseSteps(specIn, opts, own);
+  let run: LocalRun | null = null;
+  try {
+    for (let next = steps.next(); ; ) {
+      if (next.done) return next.value;
+      const a = next.value;
+      if (a.kind === "settled") {
+        run?.stop();
+        run = localRun(a.model, a.depth, a.contamination, a.days);
+        next = steps.next();
+      } else if (a.kind === "done") {
+        run?.stop();
+        run = null;
+        next = steps.next();
+      } else next = steps.next(run!.day(a.day));
+    }
+  } finally {
+    run?.stop();
+  }
+}
+
+interface LocalRun {
+  day(k: number): GateDay;
+  stop(): void;
+}
+
+/** The start's drought run on this thread (and its pool, `withSmallMapThreads`), made when a day is first asked for:
+ *  day `k`'s water, the run stepped on from the last day it reached (a day asked again or earlier is run anew). */
+function localRun(model: WaterModel, depth: Float64Array, contamination: Float64Array, days: number): LocalRun {
+  let run: HazardRun | null = null;
+  let at = 0;
+  let last: GateDay | null = null;
+  const stop = () => {
+    run?.dispose();
+    run = null;
+    at = 0;
+  };
+  return {
+    day(k) {
+      if (run && k === at && last) return last;
+      if (run && k < at) stop();
+      const r = (run ??= new HazardRun(model, { depth, contamination, stack: null } as never, "drought", days));
+      while (at < k) {
+        withSmallMapThreads(() => r.step(TICKS_PER_DAY));
+        at++;
+      }
+      return (last = r.water());
+    },
+    stop,
+  };
+}
+
+/** Where the page's generator runs the start's drought beside the map (`generatePremiseAsync`): from the first build's
+ *  water and model, each day's water as it comes; `stop` ends the run. */
+export interface DroughtRunner {
+  /** The run started; `day` rejects when the run fails (the generator then runs it on its own thread). */
+  start(model: WaterModel, depth: Float64Array, contamination: Float64Array, days: number): { day(k: number): Promise<GateDay>; stop(): void };
+}
+
+/** `generatePremise` with the start's drought run by `runner`, started as soon as an attempt's first build is settled
+ *  and run beside its life, second build and checks (the page's generator, D453); the gate judges the same days'
+ *  water, so the map is the same, byte for byte (D455), and nothing is handed over before the gate has passed. */
+export async function generatePremiseAsync(specIn: MapSpec, opts: GenerateOptions, runner: DroughtRunner, own?: PremiseDef): Promise<PremiseOutcome> {
+  const steps = premiseSteps(specIn, opts, own);
+  let run: ReturnType<DroughtRunner["start"]> | null = null;
+  // (where the runner fails, its worker failing to load, throwing or dying: the run on this thread, the same water)
+  let local: LocalRun | null = null;
+  let ask: Extract<PremiseAsk, { kind: "settled" }> | null = null;
+  const fallBack = (): LocalRun => {
+    run?.stop();
+    run = null;
+    return (local ??= localRun(ask!.model, ask!.depth, ask!.contamination, ask!.days));
+  };
+  const stopAll = () => {
+    run?.stop();
+    local?.stop();
+    run = null;
+    local = null;
+  };
+  try {
+    for (let next = steps.next(); ; ) {
+      if (next.done) return next.value;
+      const a = next.value;
+      if (a.kind === "settled") {
+        stopAll();
+        ask = a;
+        try {
+          run = runner.start(a.model, a.depth, a.contamination, a.days);
+        } catch {
+          run = null;
+        }
+        next = steps.next();
+      } else if (a.kind === "done") {
+        stopAll();
+        next = steps.next();
+      } else {
+        let w: GateDay | null = null;
+        if (run && !local) {
+          try {
+            w = await run.day(a.day);
+          } catch {
+            w = null;
+          }
+        }
+        next = steps.next(w ?? fallBack().day(a.day));
+      }
+    }
+  } finally {
+    stopAll();
+  }
+}
+
+/** The premise mode's attempts, asking its caller for the start's drought run (`PremiseAsk`). */
+function* premiseSteps(specIn: MapSpec, opts: GenerateOptions = {}, own?: PremiseDef): Generator<PremiseAsk, PremiseOutcome, GateDay | undefined> {
   const t0 = performance.now();
   const pair = resolvePremise(specIn);
   if ("reason" in pair) return pair;
@@ -113,7 +238,11 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}, own
     failedAt.push(Math.round(performance.now() - t0));
     last = typeof f[0] === "string" ? f[0] : `${f[0].id}: ${f[0].reason}`;
   };
+  // (each attempt's start, and its stages' marks, for `timings.stages`)
+  let tA = t0;
+  const marks: Record<string, number> = {};
   for (let attempt = 0; attempt < PLAN_TRIES && settles < PREMISE_SETTLES; attempt++) {
+    tA = performance.now();
     // stage 0: the plan
     opts.onProgress?.({ attempt, stage: "plan" });
     const drawn = drawPlan(def, specIn, attempt);
@@ -145,6 +274,7 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}, own
       continue;
     }
     const plan = sited.plan;
+    marks.plan = performance.now();
     // stage 1: its water by number, and the `land` invariants it alone can judge
     opts.onProgress?.({ attempt, stage: "land" });
     const water = def.water?.(plan) ?? waterByNumber(plan);
@@ -182,11 +312,16 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}, own
     opts.onProgress?.({ attempt, stage: "water" });
     const spec: MapSpec = { ...JSON.parse(JSON.stringify(specIn)), accepted: { attempt, candidate: 0 } };
     settles++;
+    marks.land = performance.now();
     // (on threads from 128² where this thread has them, the page's generator worker: the settle is most of the wait)
-    const m = withSmallMapThreads(() => premiseMap(spec, plan, ground, frame.start, ladder, style));
+    const settled = withSmallMapThreads(() => premiseBase(spec, plan, ground, frame.start, ladder, style));
+    // (the start's drought may start now: its water and model are the first build's, which life leaves as they are)
+    yield { kind: "settled", model: settled.base.waterModel, depth: settled.base.water, contamination: settled.base.contamination, days: hazardDays(spec.designedFor, "drought") };
+    const m = withSmallMapThreads(() => premiseFinish(settled));
     opts.onProgress?.({ attempt, stage: "check" });
     const { report, later } = deferLater(m.report);
     if (!report.passed) {
+      yield { kind: "done" };
       fail(
         attempt,
         report.checks.filter((c) => blocks(report.profile, c)).map((c) => c.id),
@@ -197,7 +332,13 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}, own
     // the start's water through the difficulty's longest drought (D133's rule, PREMISES §2.2 stage 8): read by number,
     // the drought run (on the settle's threads) only where that read cannot vouch for it; a start whose water goes in
     // the run is the next plan
-    const held = withSmallMapThreads(() => startWaterGate(spec, plan, m.built, water));
+    marks.map = performance.now();
+    const gate = startWaterGateSteps(spec, plan, m.built, water);
+    let g = gate.next();
+    while (!g.done) g = gate.next((yield { kind: "day", day: g.value })!);
+    const held = g.value;
+    yield { kind: "done" };
+    marks.gate = performance.now();
     if (held.gone) {
       fail(attempt, [{ id: "drought.start", reason: `the start's water is gone on day ${held.gone} of a ${held.days}-day drought` }]);
       continue;
@@ -237,7 +378,13 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}, own
       info,
       name: m.name,
       description: plan.line,
-      timings: { firstLook: final, firstWater: final, final, failed: failedAt },
+      timings: {
+        firstLook: final,
+        firstWater: final,
+        final,
+        failed: failedAt,
+        stages: { before: Math.round(tA - t0), plan: Math.round(marks.plan - tA), land: Math.round(marks.land - marks.plan), build: m.ms.build, life: m.ms.life, checks: m.ms.checks, gate: Math.round(marks.gate - marks.map) },
+      },
     };
     return { result };
   }
