@@ -38,6 +38,7 @@ import { hypot, sqrt } from "../../math/portable";
 import { BED_FLOOR } from "../../land/genome";
 import { widenBenches } from "../../land/benches";
 import { THIN } from "../../analysis/ground";
+import { openingCamera } from "../../analysis/opening";
 import { grader } from "../../land/levels";
 import type { ReliefStyle } from "../style";
 import { bodyDist, HEADING_DIR, pathDist, pathLength, pointAt } from "../geom";
@@ -161,6 +162,8 @@ interface Bowl {
   crag?: number;
   /** Only behind this line (a point on it and the way out of it, the landmark's lip and its face). */
   cut: { x: number; y: number; nx: number; ny: number } | null;
+  /** The side network's (a tarn, a basin, a leat or a brook): its rim gives way to the start's bench (`BENCH.sideRim`). */
+  side?: boolean;
   tiles: number[];
   /** Its box (first and last column and row) and the distance from its water inside it, row by row. */
   x0: number;
@@ -242,7 +245,7 @@ function bowlsOf(plan: PremisePlan, w: StageWater): Bowl[] {
       const k = r.lake[i] - 1;
       const b = plan.bodies[k];
       const side = b.kind === "tarn" ? TARN : b.kind === "basin" ? { meadow: BASIN.beach, crag: BASIN.crag, rim: BASIN.rim } : null;
-      add(i, `b${k}`, () => ({ level: b.sill, meadow: side ? side.meadow : b.meadow, rim: side ? side.rim : b.kind === "pool" ? 4 : RIM, wet: !b.dry, basin: b.dry, steep: false, cut: null, ...(side ? { crag: side.crag } : {}) }));
+      add(i, `b${k}`, () => ({ level: b.sill, meadow: side ? side.meadow : b.meadow, rim: side ? side.rim : b.kind === "pool" ? 4 : RIM, wet: !b.dry, basin: b.dry, steep: false, cut: null, ...(side ? { crag: side.crag, side: true } : {}) }));
       continue;
     }
     if (!r.channel[i]) continue;
@@ -269,7 +272,7 @@ function bowlsOf(plan: PremisePlan, w: StageWater): Bowl[] {
       // brooks and leats: a dry bed is two deep (its valley floor a level over its bed + 1, §4.2's dam to pond)
       const v = wet ? level(i) : r.heights[i] + (l.kind === "brook" ? 1 : 0);
       const meadow = l.kind === "leat" ? MEADOW.leat : wet ? MEADOW.wetBrook : MEADOW.dryBrook;
-      add(i, `l${li}:${v}`, () => ({ level: v, meadow, rim: l.kind === "leat" ? LEAT_RIM : CHANNEL_RIM, wet, basin: false, steep: false, cut: null }));
+      add(i, `l${li}:${v}`, () => ({ level: v, meadow, rim: l.kind === "leat" ? LEAT_RIM : CHANNEL_RIM, wet, basin: false, steep: false, cut: null, side: true }));
     }
   }
   const out = [...byKey.values()];
@@ -307,6 +310,54 @@ function bowlsOf(plan: PremisePlan, w: StageWater): Bowl[] {
     }
   }
   return out;
+}
+
+/** The start's bench as the relief draws it (D515): level ground at the start's level round its spine, the line from
+ *  the start's tile to `frame.benchTo` (`premises/lakeStair.ts` `BENCH_ROOM` leans it away from the lip and the
+ *  bay), wide enough to hold `BENCH.room` times the plan's bench (`FrameGroup.bench`; the water and the higher waters'
+ *  rims inside it take some), never past the landmark's lip (the bench extends behind the first frame; the landmark
+ *  stays in it), rising past its edge as a meadow's hillside does by `BENCH.reach` tiles at most (past that the land
+ *  is the waters' and the uplands'). The side network's rims (a tarn's or a basin's 12, a leat's 6) give way to it
+ *  past `sideRim` tiles (planning, 2026-11-11: the bench outranks them as it does the start's lake): laid after the
+ *  frame found the bench its room, they left 23 of 62 plans' benches short on the relief at 128², 18 so held. */
+export const BENCH = { room: 1.6, reach: 6, sideRim: 3 } as const;
+
+/** The start's bench as a bowl (`BENCH`), or null where the plan asks none. It is read with the waters' bowls in the
+ *  lower envelope only: it is no water (no rim, no lift, no green, no stair level). */
+function startBowl(plan: PremisePlan, W: number, H: number): Bowl | null {
+  const { x: sx, y: sy, z } = plan.frame.start;
+  if (!(plan.frame.bench > 0) || z < 1 || sx < 1 || sy < 1 || sx >= W - 1 || sy >= H - 1) return null;
+  const [tx, ty] = plan.frame.benchTo ?? [sx, sy];
+  const len = hypot(tx - sx, ty - sy);
+  const area = BENCH.room * plan.frame.bench;
+  // (the capsule round the spine: π m² + 2 len m tiles)
+  const meadow = (-2 * len + sqrt(4 * len * len + 4 * Math.PI * area)) / (2 * Math.PI);
+  const look = openingCamera(plan.frame.start).look;
+  const cut = { x: sx + 0.5 + plan.frame.lipAhead * look[0], y: sy + 0.5 + plan.frame.lipAhead * look[1], nx: look[0], ny: look[1] };
+  const m = Math.ceil(meadow + 3 + BENCH.reach);
+  const x0 = Math.max(0, Math.min(sx, tx) - 1 - m);
+  const y0 = Math.max(0, Math.min(sy, ty) - 1 - m);
+  const x1 = Math.min(W - 1, Math.max(sx, tx) + 1 + m);
+  const y1 = Math.min(H - 1, Math.max(sy, ty) + 1 + m);
+  const bw = x1 - x0 + 1;
+  const bh = y1 - y0 + 1;
+  const tiles: number[] = [];
+  const mask = new Uint8Array(bw * bh);
+  const mark = (x: number, y: number) => {
+    if (x < x0 || y < y0 || x > x1 || y > y1 || mask[(y - y0) * bw + x - x0]) return;
+    tiles.push(y * W + x);
+    mask[(y - y0) * bw + x - x0] = 1;
+  };
+  for (let y = sy - 1; y <= sy + 1; y++) for (let x = sx - 1; x <= sx + 1; x++) mark(x, y);
+  const steps = Math.ceil(len * 2);
+  for (let k = 1; k <= steps; k++) mark(Math.round(sx + ((tx - sx) * k) / steps), Math.round(sy + ((ty - sy) * k) / steps));
+  const d = distanceFrom(mask, bw, bh);
+  for (let y = y0; y <= y1; y++)
+    for (let x = x0; x <= x1; x++) {
+      const k = (y - y0) * bw + x - x0;
+      if ((x + 0.5 - cut.x) * cut.nx + (y + 0.5 - cut.y) * cut.ny > 0.5 || d[k] > meadow + BENCH.reach) d[k] = Infinity;
+    }
+  return { level: z - 1, meadow, rim: 0, wet: false, basin: false, steep: false, cut, tiles, x0, y0, x1, y1, d };
 }
 
 /** The outlands' stair level at each tile: the water's levels, averaged in cells, weighted by nearness
@@ -460,6 +511,17 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
         if (b.d[k] < b.rim && b.level > lift[i]) lift[i] = b.level;
       }
   }
+  // (the start's bench reads the rims with the side network's held to `BENCH.sideRim`)
+  const benchLift = new Float64Array(N).fill(-Infinity);
+  for (const b of bowls) {
+    const bw = b.x1 - b.x0 + 1;
+    const rim = b.side ? Math.min(b.rim, BENCH.sideRim) : b.rim;
+    for (let y = b.y0; y <= b.y1; y++)
+      for (let x = b.x0, k = (y - b.y0) * bw; x <= b.x1; x++, k++) {
+        const i = y * W + x;
+        if (b.d[k] < rim && b.level > benchLift[i]) benchLift[i] = b.level;
+      }
+  }
 
   // the plates: every tile belongs to one, the tiles nearest one point of a scatter read through the land's wander,
   // so whatever is set a plate at a time meets its neighbours along ragged lines that run every way
@@ -578,14 +640,16 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   // (both are least values over the bowls, so the order they are read in changes nothing: the lowest first, since a
   // bowl's ground never stands under its level + 1, and a tile a lower bowl already brought that low needs no more of
   // a higher one than its distance)
-  for (const b of [...bowls].sort((p, q) => p.level - q.level)) {
+  // (the start's bench is a bowl of its own, read with the waters': its level ground the start's, D515)
+  const bench = startBowl(plan, W, H);
+  for (const b of [...bowls, ...(bench ? [bench] : [])].sort((p, q) => p.level - q.level)) {
     const bw = b.x1 - b.x0 + 1;
     const bh = b.y1 - b.y0 + 1;
     for (let y = b.y0; y <= b.y1; y++)
       for (let x = b.x0; x <= b.x1; x++) {
         const i = y * W + x;
         const di = b.d[(y - b.y0) * bw + x - b.x0];
-        if (di === Infinity || b.level < lift[i]) continue;
+        if (di === Infinity || b.level < (b === bench ? benchLift[i] : lift[i])) continue;
         const wob = wobF[i];
         let d: number;
         if (di < 6) d = di + 0.8 * wob * Math.min(1, di / 3);
