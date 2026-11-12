@@ -50,8 +50,11 @@ test("brushes and sources (D249, D322): they ride the ground; Keep holds them; C
   // two spots below, clear of the rows)
   await page.setViewportSize({ width: 1280, height: 960 });
   // (seed 4244 on M9b's maps, D148: 4242's highlands have no 13 × 13 dry patch below level 12 twice 14 tiles
-  // apart far from the start; 4244 has one at (16, 56))
-  await openEditor(page, "s=4244&z=96&d=n&t=highlands");
+  // apart far from the start; 4244 has one at (16, 56). Seed 3 since generator 0.10.20's contour edges and its mends
+  // (D518), D148: seed 4244 has none now, and 4249's, at (30, 16), stands on uneven ground (levels 10 to 11 round A),
+  // so after the Ride stroke the tile beside the source is a level under its raised ground and the Keep stroke's
+  // raise of it, to 12, no longer passes that; seed 3's is at (56, 66), on ground of levels 3 and 4)
+  await openEditor(page, "s=3&z=96&d=n&t=highlands");
   await topDown(page);
   await setWaterSpeed(page, "instant");
 
