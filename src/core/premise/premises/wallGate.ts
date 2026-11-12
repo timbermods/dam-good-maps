@@ -159,6 +159,8 @@ const GIVES = { gateOpen: (2 / 3) * 1318 / 192, gateWhole: (2 / 3) * 1534 / 192,
  *  `SHARE_RUNGS`), so their floor is 0, the round's share their most. */
 const SHARE = new Set(["gateWhole", "leatWhole"]);
 
+/** How far the Gate's gorge swings to each side of its line across the range, a point every three tiles. */
+export const GORGE_WANDER = [1.5, 2.5] as const;
 /** Layouts an attempt draws before it gives up. */
 const LAYOUT_TRIES = 72;
 
@@ -555,8 +557,18 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   // (the Gate leaves the lake's shore nearest it, and winds across the bench to the range)
   let gs: Spine[number] = main[0];
   for (const p of main) if (Math.abs(p[0] - gu) < Math.abs(gs[0] - gu)) gs = p;
-  const gShore = gs[1] + gs[2] + 0.5;
   const gate0u = Math.max(gs[0] - gs[2] + 2, Math.min(gs[0] + gs[2] - 2, gu));
+  // (its shore where the gorge leaves it: the main arm's edge at the gorge's u, the capsules between the lobes included;
+  // from the nearest lobe's own edge, the gorge started inside the arm between two lobes, the commonest plan refused)
+  let gShore = gs[1] + gs[2] + 0.5;
+  for (let k = 0; k + 1 < main.length; k++)
+    for (let f = 0; f <= 1; f += 0.05) {
+      const pu = main[k][0] + (main[k + 1][0] - main[k][0]) * f;
+      const pv = main[k][1] + (main[k + 1][1] - main[k][1]) * f;
+      const pr = main[k][2] + (main[k + 1][2] - main[k][2]) * f;
+      const du = Math.abs(pu - gate0u);
+      if (du < pr) gShore = Math.max(gShore, pv + sqrt(pr * pr - du * du) + 0.5);
+    }
   const lakeArms: Spine[] = [main];
   // ---- the frame: the start in the Veil's lap, the lip whole in the first frame
   const z = D + 1;
@@ -565,7 +577,11 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   let start: { x: number; y: number } | null = null;
   let bestU = Infinity;
   let lipAhead = 0;
-  for (let sv0 = fb - 6; sv0 >= fb - 7; sv0--)
+  // (the start's tile is its corner, so its 5 × 5 reaches toward the lip or away from it by the camera's turn: from
+  // fb − 6 and fb − 7 alone, every layout turned Cw180 stood the lip past the frame's top edge, a quarter of all tries)
+  // (the farthest row that frames the lip first, rows 6 and 7 off the face as before: nearer, the plunge pool reached the
+  // start's 5 × 5)
+  for (let sv0 = fb - 7; sv0 <= fb - 3 && !start; sv0++)
     for (let su = lu0 + 1; su <= lu1 - 4; su++) {
       const [x, y] = tileOnMap(T, [su, sv0]);
       const fr = lipInFrame({ x, y, z, orientation }, lipMap, poolSill, D + 0.3);
@@ -669,12 +685,20 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const jog = () => (ju = Math.max(-5, Math.min(5, ju + rng.range(-3, 3))));
   // (straight for its bar and rows, then winding across the bench to the range's foot)
   const gate: Point[] = [[gate0u, gShore - 0.5], [gate0u, gShore + BAR_LENGTH + 4]];
-  const benchLegs = Math.max(1, Math.round((foot(gu) - 1 - (gShore + BAR_LENGTH + 4)) / 6));
-  for (let i = 1; i <= benchLegs; i++) gate.push([gate0u + ((gu - gate0u) * i) / benchLegs + jog(), gShore + BAR_LENGTH + 4 + ((foot(gu) - 1 - (gShore + BAR_LENGTH + 4)) * i) / benchLegs]);
+  const benchLegs = Math.max(1, Math.round((foot(gu) - 1 - (gShore + BAR_LENGTH + 4)) / 3));
+  // (swinging side to side across the bench too, as through the range)
+  const benchSwing = rng.float() < 0.5 ? -1 : 1;
+  for (let i = 1; i <= benchLegs; i++) gate.push([gate0u + ((gu - gate0u) * i) / benchLegs + (i % 2 ? benchSwing : -benchSwing) * rng.range(GORGE_WANDER[0], GORGE_WANDER[1]), gShore + BAR_LENGTH + 4 + ((foot(gu) - 1 - (gShore + BAR_LENGTH + 4)) * i) / benchLegs]);
   const gr = rangeAt(R0, gu);
-  // (a point every three tiles or so across the range, each off the last by up to 3: a gorge winds)
+  // (a point every three tiles or so across the range, swinging from side to side of its line by `GORGE_WANDER` tiles,
+  // so it is two or more off its line in every eight (planning's ruling of 2026-11-14): a random walk ran straight for
+  // fifteen tiles and stood one sheer face along it)
   const across = Math.max(3, Math.round((footV - (gr.v - gr.front / 2)) / 3));
-  for (let i = 0; i <= across; i++) gate.push([gu + jog(), gr.v - gr.front / 2 + ((footV - (gr.v - gr.front / 2)) * i) / across]);
+  let swing = rng.float() < 0.5 ? -1 : 1;
+  for (let i = 0; i <= across; i++) {
+    gate.push([gu + (i === 0 ? jog() : swing * rng.range(GORGE_WANDER[0], GORGE_WANDER[1])), gr.v - gr.front / 2 + ((footV - (gr.v - gr.front / 2)) * i) / across]);
+    swing = -swing;
+  }
   const slotTo = gate.length - 1;
   const inPan: Point = [panU + 0.3 * panR, panV - 0.4 * panR];
   const outPan: Point = [panU + 0.4 * panR + rng.range(-1, 1), panV + 0.6 * panR];
@@ -781,19 +805,24 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   for (const [tu, tv] of tarnAt) {
     const r = rng.range(2.6, 3.2);
     const sill = S + rng.int(3, 5);
-    // the nearest point of the main arm, a tile inside it
+    // the nearest point of the main arm's shore, a tile inside it (by the capsules' own edge: from the nearest point of
+    // its line and the smallest lobe near it, a brook's end lay deep in the arm and its middle ran through the lake)
     let best: Point = [main[0][0], main[0][1]];
     let bd = Infinity;
+    let lr = main[0][2];
+    let be = Infinity;
     for (let k = 0; k + 1 < main.length; k++)
-      for (let s = 0; s <= 1; s += 0.1) {
+      for (let s = 0; s <= 1; s += 0.05) {
         const p: Point = [main[k][0] + (main[k + 1][0] - main[k][0]) * s, main[k][1] + (main[k + 1][1] - main[k][1]) * s];
+        const pr = main[k][2] + (main[k + 1][2] - main[k][2]) * s;
         const d = dist(p, [tu, tv]);
-        if (d < bd) {
+        if (d - pr < be) {
+          be = d - pr;
           bd = d;
           best = p;
+          lr = pr;
         }
       }
-    const lr = main.reduce((m, p) => Math.min(m, dist([p[0], p[1]], best) < 8 ? p[2] : m), 9);
     const dx = (best[0] - tu) / bd;
     const dy = (best[1] - tv) / bd;
     const head: Point = [tu + dx * (r - 1), tv + dy * (r - 1)];
@@ -832,7 +861,9 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     p[1] + r < lakeTopV &&
     pathDist(p[0], p[1], outflow).d > r + 4 &&
     tarns.every((tn) => dist(p, [tn.spine[0][0], tn.spine[0][1]]) > r + tn.spine[0][2] + 5 && pathDist(p[0], p[1], tn.path).d > r + 4) &&
-    pathDist(p[0], p[1], low).d > r + 5;
+    pathDist(p[0], p[1], low).d > r + 5 &&
+    // (and off the Gate's gorge: a bay across it was the commonest plan refused, the Gate running through the lake)
+    pathDist(p[0], p[1], gate.slice(1)).d > r + slotW / 2 + 3;
   const want = rng.int(1, 3);
   for (let tries = 0; tries < 24 && lakeArms.length < 1 + want; tries++) {
     const j = rng.int(0, main.length - 1);
