@@ -34,6 +34,7 @@ import { holdDeep } from "../levels";
 import { bodyDist, bodyGap, dist, headingOf, pathDist, pathGap, pathLength, pointAt, subPath } from "../geom";
 import { fail, nameOf, OK, PLAN_CHECKS, reach } from "../planChecks";
 import { GATE_WATER_CHECKS, gateWater } from "../gateWater";
+import { brookGround, brookLegsWrong, brookPlaces, brookWay, meander } from "../gateBrooks";
 import { gateLand } from "../gateLand";
 import { rangeAt, sideOf, spineLocal, type GateRange } from "../gateRange";
 export { rangeAt, sideOf, spineLocal, type GateRange } from "../gateRange";
@@ -42,16 +43,22 @@ import type { Body, Edge, Exit, Invariant, Link, Point, PremiseDef, PremisePlan,
 // ------------------------------------------------------------------------------------------------- the ranges
 
 /** Whether (u, v) lies in the spine's union of tapered capsules. */
-function inSpine(sp: Spine, u: number, v: number): boolean {
+function inSpine(sp: Spine, u: number, v: number, inset = 0): boolean {
+  return edgeOf(sp, u, v) <= -inset;
+}
+
+/** How far (u, v) stands outside the spine's union of tapered capsules (under 0 inside it). */
+function edgeOf(sp: Spine, u: number, v: number): number {
+  let least = Infinity;
   for (let k = 0; k + 1 < sp.length; k++) {
     const [a, b] = [sp[k], sp[k + 1]];
     const du = b[0] - a[0];
     const dv = b[1] - a[1];
     const l2 = du * du + dv * dv;
     const f = l2 > 0 ? Math.max(0, Math.min(1, ((u - a[0]) * du + (v - a[1]) * dv) / l2)) : 0;
-    if (hypot(u - a[0] - du * f, v - a[1] - dv * f) <= a[2] + (b[2] - a[2]) * f) return true;
+    least = Math.min(least, hypot(u - a[0] - du * f, v - a[1] - dv * f) - (a[2] + (b[2] - a[2]) * f));
   }
-  return false;
+  return least;
 }
 
 /** The premise's id. Not a `PremiseId` yet: it joins `PREMISE_IDS` when it makes a whole map. */
@@ -76,6 +83,10 @@ export const TARN_HALF = 1.4;
 export const SPURS = { gap: [8, 30], len: [0.3, 1.2], turn: 0.5, fork: 0.85, forkTurn: [0.3, 0.6], least: 2 } as const;
 /** Two southern brooks' middles stand this far apart at the least (the plan's checks refuse under 1.5). */
 export const BROOK_APART = 3;
+/** Two brooks come into the lake this many tiles of its main arm apart at the least. */
+export const BROOK_ROOM = 8;
+/** A brook takes a cove no further from its spring than `[0]` times the lake's nearest shore and `[1]` tiles. */
+export const BROOK_COVE = [1.15, 8] as const;
 /** The lake's main arm between its lobes: a point every `every` tiles, `off` tiles off its line by turns, its width
  *  `width` of the lobes' between them, `least` at the least. */
 export const LAKE_WANDER = { every: 6, off: [1, 2.2], width: [-0.25, 0.25], least: 2.8, nub: 7, nubOut: [3.5, 5], nubR: [2.5, 3.5], apart: 12 } as const;
@@ -679,10 +690,11 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     return q;
   };
 
-  // (a path again with a point every `every` tiles, its ends kept: a width and a bed at each)
+  // (a path again with a point every `every` tiles at most, its ends kept: a width and a bed at each; rounded, the
+  // points stood a little over `every` apart and three of one width ran over `BROOK.run`'s most)
   const resample = (p: Point[], every: number): Point[] => {
     const L = pathLength(p);
-    const n = Math.max(1, Math.round(L / every));
+    const n = Math.max(1, Math.ceil(L / every - 1e-9));
     const out: Point[] = [p[0]];
     for (let i = 1; i < n; i++) out.push(pointAt(p, (L * i) / n).p);
     out.push(p[p.length - 1]);
@@ -694,6 +706,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     const out: number[] = [];
     let w = not;
     let until = -Infinity;
+    let began = 0;
     let s = 0;
     for (let k = 0; k < p.length; k++) {
       if (k > 0) s += dist(p[k - 1], p[k]);
@@ -701,11 +714,14 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
         out.push(headHalf);
         continue;
       }
-      if (s >= until) {
+      // (a fresh width at its run's end, or before the next point would carry this one past `BROOK.run`'s most)
+      const next = k + 1 < p.length ? dist(p[k], p[k + 1]) : 0;
+      if (s >= until || s + next - began > BROOK.run[1]) {
         const choices: number[] = [];
         for (let x = wide[0]; x <= wide[1]; x++) if (x !== w) choices.push(x);
         w = choices[rng.int(0, choices.length)];
         until = s + rng.range(BROOK.run[0], BROOK.run[1]);
+        began = s;
       }
       out.push(w / 2);
     }
@@ -846,115 +862,20 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     });
   };
   const tarns: { spine: Spine; sill: number; path: Point[]; bed: number[]; halves: number[] }[] = [];
-  for (const [tu, tv] of tarnAt) {
-    const r = rng.range(2.6, 3.2);
-    const sill = S + rng.int(3, 5);
-    // the nearest point of the main arm's shore, a tile inside it (by the capsules' own edge: from the nearest point of
-    // its line and the smallest lobe near it, a brook's end lay deep in the arm and its middle ran through the lake)
-    let best: Point = [main[0][0], main[0][1]];
-    let bd = Infinity;
-    let lr = main[0][2];
-    let be = Infinity;
-    for (let k = 0; k + 1 < main.length; k++)
-      for (let s = 0; s <= 1; s += 0.05) {
-        const p: Point = [main[k][0] + (main[k + 1][0] - main[k][0]) * s, main[k][1] + (main[k + 1][1] - main[k][1]) * s];
-        const pr = main[k][2] + (main[k + 1][2] - main[k][2]) * s;
-        const d = dist(p, [tu, tv]);
-        if (d - pr < be) {
-          be = d - pr;
-          bd = d;
-          best = p;
-          lr = pr;
-        }
-      }
-    const dx = (best[0] - tu) / bd;
-    const dy = (best[1] - tv) / bd;
-    const head: Point = [tu + dx * (r - 1), tv + dy * (r - 1)];
-    const end: Point = [best[0] - dx * (lr - 1), best[1] - dy * (lr - 1)];
-    const L = dist(head, end);
-    // (wandering every 8 tiles: at every 12 a brook ran straight for stretches)
-    // (a leg every 6 tiles, off the line by turns: with a leg of 8 and an offset drawn either way, a brook ran straight
-    // and even for 50 to 100 tiles)
-    const legs = Math.max(3, Math.round(L / 6));
-    const side0 = rng.float() < 0.5 ? -1 : 1;
-    const wobs: number[] = [];
-    for (let i = 1; i < legs; i++) wobs.push(rng.range(2, 4.5));
-    // its course, the legs' offsets scaled by `k` and the first side `sd`
-    const courseOf = (k: number, sd: number): Point[] => {
-      const path: Point[] = [head];
-      // (and a kink five tiles out of its tarn, the other way from its first leg: its tarn and its first leg, the
-      // tarn hardly wider than its brook, lay as one straight even reach of 50 to 60 tiles)
-      if (L > 12) path.push([head[0] + (end[0] - head[0]) * (5 / L) + dy * sd * 2.5, head[1] + (end[1] - head[1]) * (5 / L) - dx * sd * 2.5]);
-      let side = sd;
-      for (let i = 1; i < legs; i++) {
-        const f = i / legs;
-        const wob = side * wobs[i - 1] * k;
-        side = -side;
-        path.push([head[0] + (end[0] - head[0]) * f - dy * wob, head[1] + (end[1] - head[1]) * f + dx * wob]);
-      }
-      path.push(end);
-      return resample(path, BROOK.every);
-    };
-    // (clear of the brooks laid before it, its middle as the plan's checks read it: wandering, neighbouring brooks met
-    // near the lake, the plan the commonest refused; the other way first, then less far)
-    const apart = (c: Point[]): number => {
-      const len = pathLength(c);
-      if (len <= 10) return Infinity;
-      const mid = subPath(c, 4, len - 4);
-      let least = Infinity;
-      for (const tn of tarns) {
-        const tl = pathLength(tn.path);
-        if (tl > 10) least = Math.min(least, pathGap(mid, subPath(tn.path, 4, tl - 4), BROOK_APART));
-      }
-      return least;
-    };
-    let course = courseOf(1, side0);
-    let gap = apart(course);
-    for (const [k, sd] of [[1, -side0], [0.6, side0], [0.6, -side0], [0.3, side0], [0.3, -side0]] as const) {
-      if (gap >= BROOK_APART) break;
-      const c = courseOf(k, sd);
-      const g = apart(c);
-      if (g > gap) [course, gap] = [c, g];
-    }
-    // (its tarn's width to its bed's first step, two points down, then the rest evenly, at its wider just under the
-    // step: narrower over the step or under it, the brook stood its tarn 0.4 over the level the table gives)
-    if (course.length < 4) return { why: "brook room" };
-    const bed = [sill, sill, ...bedAlong(course.slice(2), sill - 1, S)];
-    const halves = halvesAlong(course, BROOK.valley, TARN_HALF, 2, BROOK.valley[0]);
-    // (on its last reach, level with the lake's sill, three or four wide: two wide there, its spring's 2.3 stood a level
-    // deep, over its banks, and ran out beside it, the stray water of 192² seed 1; the table reads one width)
-    const flatFrom = bed.findIndex((b) => b === S);
-    if (flatFrom >= 0) {
-      const tail = halvesAlong(course.slice(flatFrom), BROOK.mouth, BROOK.mouth[0] / 2, 1, Math.round(2 * halves[Math.max(0, flatFrom - 1)]));
-      for (let k = flatFrom; k < course.length; k++) halves[k] = tail[k - flatFrom];
-    }
-    tarns.push({ spine: [[tu, tv, r]], sill, path: course, bed, halves });
-  }
-  // the lake's bays: one or two arms off the main arm into the valley, clear of the springs, the brooks, the start's
-  // bench and the Low River
+  // what the lake's coves and bays keep clear of: the springs, the brooks, the start's bench and the Low River
   const clear = (p: Point, r: number) =>
     p[1] - r > 4 &&
     p[0] - r > 4 &&
     p[0] + r < N - 4 &&
     p[1] + r < lakeTopV &&
     pathDist(p[0], p[1], outflow).d > r + 4 &&
-    tarns.every((tn) => dist(p, [tn.spine[0][0], tn.spine[0][1]]) > r + tn.spine[0][2] + 5 && pathDist(p[0], p[1], tn.path).d > r + 4) &&
+    tarnAt.every((t) => dist(p, t) > r + 3.2 + 5) &&
+    tarns.every((tn) => pathDist(p[0], p[1], tn.path).d > r + 4) &&
     pathDist(p[0], p[1], low).d > r + 5 &&
     // (and off the Gate's gorge: a bay across it was the commonest plan refused, the Gate running through the lake)
     pathDist(p[0], p[1], gate.slice(1)).d > r + slotW / 2 + 3;
-  const want = rng.int(1, 3);
-  for (let tries = 0; tries < 24 && lakeArms.length < 1 + want; tries++) {
-    const j = rng.int(0, main.length - 1);
-    const base = main[j];
-    const dx = rng.range(-2.4, 2.4);
-    const dl = sqrt(dx * dx + 1);
-    const len = rng.range(7, 14) * (0.75 + 0.25 * m);
-    const tip = rng.range(3, 4.5);
-    const mid: Point = [base[0] + (dx / dl) * len * 0.55, base[1] - (1 / dl) * len * 0.55];
-    const end: Point = [base[0] + (dx / dl) * len, base[1] - (1 / dl) * len];
-    if (!clear(mid, (base[2] + tip) / 2 + 0.5) || !clear(end, tip)) continue;
-    lakeArms.push([[base[0], base[1], r2(Math.min(base[2], 6))], [r2(mid[0]), r2(mid[1]), r2((Math.min(base[2], 6) + tip) / 2 + 0.5)], [r2(end[0]), r2(end[1]), r2(tip)]]);
-  }
+  // the lake's coves, before the brooks: coves are where the brooks come in (planning's ruling of 2026-11-16)
+  const coves: { spine: Spine; out: Point; at: number }[] = [];
   // (and small coves along its shore, every `LAKE_WANDER.nub` tiles by turns each side, `nubOut` tiles past its edge: a
   // broad arm's shore is the union of its lobes, so points between them changed little, and a 20-wide arm still lay
   // as a straight even reach of 250 to 330 tiles)
@@ -986,7 +907,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
           let edge = pr;
           while (edge < pr + 8 && inSpine(main, pu + nu * (edge + 0.25), pv + nv * (edge + 0.25))) edge += 0.25;
           const tip: Point = [pu + nu * (edge + nubOut - nr), pv + nv * (edge + nubOut - nr)];
-          // (clear of the brooks, the Low River and the Gate as the bays are: deeper, the coves met them, the plans the
+          // (clear of the springs, the Low River and the Gate as the bays are: deeper, the coves met them, the plans the
           // commonest refused)
           if (tip[1] + nr > lakeTopV - 0.5 || tip[1] - nr < lakeLow - 1 || !clear(tip, nr)) return null;
           return [[r2(pu), r2(pv), r2(Math.min(pr, nr + 1))], [r2(tip[0]), r2(tip[1]), r2(nr)]];
@@ -1003,6 +924,8 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
         side = -side;
         if (got) {
           lakeArms.push(got);
+          const gl = dist([got[0][0], got[0][1]], [got[1][0], got[1][1]]);
+          coves.push({ spine: got, out: [(got[1][0] - got[0][0]) / gl, (got[1][1] - got[0][1]) / gl], at: done + t });
           lastAt[sd + 1] = done + t;
         }
       }
@@ -1011,6 +934,217 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     }
   }
 
+  // the lake's bays: one or two arms off the main arm into the valley, clear of the springs, the start's bench and the
+  // Low River (`clear`), before the brooks, which find their way round them
+  const want = rng.int(1, 3);
+  for (let tries = 0, bays = lakeArms.length; tries < 24 && lakeArms.length < bays + want; tries++) {
+    const j = rng.int(0, main.length - 1);
+    const base = main[j];
+    const dx = rng.range(-2.4, 2.4);
+    const dl = sqrt(dx * dx + 1);
+    const len = rng.range(7, 14) * (0.75 + 0.25 * m);
+    const tip = rng.range(3, 4.5);
+    const mid: Point = [base[0] + (dx / dl) * len * 0.55, base[1] - (1 / dl) * len * 0.55];
+    const end: Point = [base[0] + (dx / dl) * len, base[1] - (1 / dl) * len];
+    if (!clear(mid, (base[2] + tip) / 2 + 0.5) || !clear(end, tip)) continue;
+    lakeArms.push([[base[0], base[1], r2(Math.min(base[2], 6))], [r2(mid[0]), r2(mid[1]), r2((Math.min(base[2], 6) + tip) / 2 + 0.5)], [r2(end[0]), r2(end[1]), r2(tip)]]);
+  }
+  // (the valley's rises and hollows the brooks find their way through, one ground for all of them)
+  const ground = brookGround(N, rng.int(0, 0x7fffffff));
+  const places = brookPlaces(N, () => rng.float());
+  const radii = tarnAt.map(() => rng.range(2.6, 3.2));
+  const sills = tarnAt.map(() => S + rng.int(3, 5));
+  // (places along the main arm's shore, a tile and a half inside it, every two tiles: where a brook with no cove left
+  // comes in)
+  const lakeEdge = (): Point[] => {
+    const out: Point[] = [];
+    for (let k = 0; k + 1 < main.length; k++) {
+      const [a, b] = [main[k], main[k + 1]];
+      const len = hypot(b[0] - a[0], b[1] - a[1]);
+      for (let t = 0; t < len; t += 2)
+        for (const sd of [-1, 1]) {
+          const f = t / len;
+          const rr = a[2] + (b[2] - a[2]) * f - 1.5;
+          const p: Point = [a[0] + (b[0] - a[0]) * f - ((b[1] - a[1]) / len) * sd * rr, a[1] + (b[1] - a[1]) * f + ((b[0] - a[0]) / len) * sd * rr];
+          const e = edgeOf(main, p[0], p[1]);
+          if (e <= -1 && e >= -2) out.push(p);
+        }
+    }
+    return out;
+  };
+  // (the lake's water, its main arm's with its coves' and bays': under 0 in it)
+  const lakeAt = (p: Point): number => Math.min(edgeOf(main, p[0], p[1]), ...lakeArms.slice(1).map((arm) => edgeOf(arm, p[0], p[1])));
+  // each brook comes into the lake at a cove's head, never across a cove's mouth (planning's ruling of 2026-11-16: coves
+  // are where streams come in): the tarns in their order along the arm take the coves facing them in theirs, each the
+  // nearest left, so no two lines cross and each brook has its own share of the valley down to the lake; a tarn with
+  // none left comes in at the main arm's nearest shore
+  const heads: Point[] = coves.map((c) => [c.spine[1][0] + c.out[0] * (c.spine[1][2] - 1.5), c.spine[1][1] + c.out[1] * (c.spine[1][2] - 1.5)]);
+  const armOf = (t: Point): number => {
+    let best = 0;
+    let be = Infinity;
+    let a = 0;
+    for (let k = 0; k + 1 < main.length; k++) {
+      const len = dist([main[k][0], main[k][1]], [main[k + 1][0], main[k + 1][1]]);
+      for (let s = 0; s <= len; s += 1) {
+        const f = s / len;
+        const e = dist([main[k][0] + (main[k + 1][0] - main[k][0]) * f, main[k][1] + (main[k + 1][1] - main[k][1]) * f], t) - (main[k][2] + (main[k + 1][2] - main[k][2]) * f);
+        if (e < be) {
+          be = e;
+          best = a + s;
+        }
+      }
+      a += len;
+    }
+    return best;
+  };
+  const lines: { head: Point; end: Point; line: Point[]; cove: number }[] = [];
+  {
+    const order = tarnAt.map((t, k) => ({ k, at: armOf(t) })).sort((x, y) => x.at - y.at || x.k - y.k);
+    const byArm = coves.map((c, k) => ({ k, at: c.at })).sort((x, y) => x.at - y.at);
+    let from = 0;
+    let past = -Infinity;
+    for (const { k: tk } of order) {
+      const [tu, tv] = tarnAt[tk];
+      const r = radii[tk];
+      let pick = -1;
+      let pd = Infinity;
+      for (let q = from; q < byArm.length; q++) {
+        if (byArm[q].at < past) continue;
+        const c = byArm[q].k;
+        const h = heads[c];
+        if ((tu - h[0]) * coves[c].out[0] + (tv - h[1]) * coves[c].out[1] <= 0) continue;
+        const d = dist(h, [tu, tv]);
+        // (a cove near the way the tarn would come, not one across the valley)
+        if (d > BROOK_COVE[0] * edgeOf(main, tu, tv) + BROOK_COVE[1]) continue;
+        if (d < pd) {
+          pd = d;
+          pick = q;
+        }
+      }
+      let end: Point;
+      let cove = -1;
+      if (pick >= 0) {
+        cove = byArm[pick].k;
+        end = heads[cove];
+        from = pick + 1;
+        past = byArm[pick].at + BROOK_ROOM;
+      } else {
+        // (the main arm's nearest shore past the last taken, a tile inside it)
+        let best: Point = [main[0][0], main[0][1]];
+        let be = Infinity;
+        let lr = main[0][2];
+        let ba = past;
+        let a = 0;
+        for (let k = 0; k + 1 < main.length; k++) {
+          const len = dist([main[k][0], main[k][1]], [main[k + 1][0], main[k + 1][1]]);
+          for (let t = 0; t <= len; t += 1) {
+            const f = t / len;
+            if (a + t < past) continue;
+            const p: Point = [main[k][0] + (main[k + 1][0] - main[k][0]) * f, main[k][1] + (main[k + 1][1] - main[k][1]) * f];
+            const pr = main[k][2] + (main[k + 1][2] - main[k][2]) * f;
+            if (dist(p, [tu, tv]) - pr < be) {
+              be = dist(p, [tu, tv]) - pr;
+              best = p;
+              lr = pr;
+              ba = a + t;
+            }
+          }
+          a += len;
+        }
+        past = ba + BROOK_ROOM;
+        while (from < byArm.length && byArm[from].at < past) from++;
+        const bd = dist(best, [tu, tv]);
+        end = [best[0] - ((best[0] - tu) / bd) * (lr - 1), best[1] - ((best[1] - tv) / bd) * (lr - 1)];
+      }
+      const ed = dist(end, [tu, tv]);
+      const head: Point = [tu + ((end[0] - tu) / ed) * (r - 1), tv + ((end[1] - tv) / ed) * (r - 1)];
+      lines[tk] = { head, end, line: [[tu, tv], end], cove };
+    }
+  }
+  // (each brook clear of the straight lines of the tarns laid after it, by more than a brook keeps from another: so each
+  // later tarn keeps its own way to the lake; wandering anywhere, a brook laid first fenced another tarn off the lake)
+  // (nearest the lake first: a far spring's brook, laid first, passed in front of a nearer spring)
+  const laying = tarnAt.map((t, k) => ({ k, d: edgeOf(main, t[0], t[1]) })).sort((x, y) => x.d - y.d || x.k - y.k).map((x) => x.k);
+  const rank = laying.map((_, i) => laying.indexOf(i));
+  const mine = (tk: number, p: Point): boolean => lines.every((ln, j) => rank[j] <= rank[tk] || pathDist(p[0], p[1], ln.line).d > BROOK_APART + 3.5);
+  const laid: { spine: Spine; sill: number; path: Point[]; bed: number[]; halves: number[] }[] = [];
+  for (const tk of laying) {
+    const [tu, tv] = tarnAt[tk];
+    const r = radii[tk];
+    const sill = sills[tk];
+    const { head, end, cove } = lines[tk];
+    // its course: the cheapest way from its tarn down to its cove over the valley's own rises and hollows
+    // (`gateBrooks.ts`), never back up the valley's fall, clear of what is laid: which side of the valley, round which
+    // rise, to which shore
+    const others = tarnAt.filter(([x, y]) => x !== tu || y !== tv);
+    let apart: number = BROOK_APART + 3;
+    let free: boolean = false;
+    const near = (p: Point, room: number): boolean =>
+      p[0] > 3 &&
+      p[1] > 3 &&
+      p[0] < N - 3 &&
+      p[1] < lakeTopV &&
+      // (and a brook's room round every other spring, so a spring laid after it still has its way out)
+      others.every(([x, y]) => dist(p, [x, y]) > 3.2 + 4 + BROOK_APART + 3) &&
+      pathDist(p[0], p[1], outflow).d > room + 3 &&
+      pathDist(p[0], p[1], low).d > room + 3 &&
+      pathDist(p[0], p[1], gate).d > slotW / 2 + room + 2;
+    const open = (p: Point): boolean =>
+      dist(p, [tu, tv]) > r + 1.5 &&
+      (free || mine(tk, p)) &&
+      near(p, 3) &&
+      // (but at the lake, where the plan reads no brook's middle: their mouths may meet)
+      (lakeAt(p) < 3 || tarns.every((tn) => pathDist(p[0], p[1], tn.path).d > apart)) &&
+      lakeAt(p) > 2;
+    // (it comes in at its cove's head; with none, a tile or two inside the main arm's shore)
+    const into = cove >= 0 ? (p: Point): boolean => dist(p, end) < 0.01 : (p: Point): boolean => edgeOf(main, p[0], p[1]) <= -1 && edgeOf(main, p[0], p[1]) >= -2;
+    // (and a place four tiles out from its cove's head, the way in square to the cove's end)
+    const ends: Point[] = cove >= 0 ? [end, [end[0] + coves[cove].out[0] * 4, end[1] + coves[cove].out[1] * 4]] : lakeEdge();
+    // (and a place three tiles out of its tarn toward its end: its way out)
+    const ed = dist(end, [tu, tv]);
+    ends.push([tu + ((end[0] - tu) / ed) * (r + 3), tv + ((end[1] - tv) / ed) * (r + 3)]);
+    let way: Point[] | null = null;
+    for (const [ap, fr] of [[BROOK_APART + 3, false], [BROOK_APART, false], [BROOK_APART, true]] as const) {
+      apart = ap;
+      free = fr;
+      way = brookWay(ground, [...places, ...ends], head, open, into, (p) => (cove >= 0 ? dist(p, end) : lakeAt(p)), lakeAt);
+      if (way) break;
+    }
+    if (!way && process.env.DBG_BROOK) console.error("noway", tk, "cove", cove, "end", end.map((v) => v.toFixed(1)).join(","), "lakeAt(end)", lakeAt(end).toFixed(1), "coves", coves.length, "near end open", places.filter((q) => dist(q, end) < 8 && open(q)).length);
+    if (!way || way.length < 3) return { why: "brook room" };
+    // (its corners cut twice: a brook bends, never turns a corner)
+    const courseLine = smooth(way);
+    // its channel meanders about its course (`meander`; planning's ruling of 2026-11-16: on a flat floor a stream does
+    // not follow relief, it meanders by its own flow), straight for a few tiles where its bed drops a level
+    const drops: number[] = [];
+    for (let j = 1; j <= sill - 1 - S; j++) drops.push(j / (sill - 1 - S + 0.999));
+    const Lc = pathLength(courseLine);
+    const channel = meander(
+      courseLine,
+      (BROOK.valley[0] + BROOK.valley[1]) / 2,
+      () => rng.float(),
+      drops,
+      (p, u) => near(p, 2) && (free || mine(tk, p)) && (u < 4 || dist(p, [tu, tv]) > r + 1) && (u > Lc - 5 || lakeAt(p) > 1.5) && tarns.every((tn) => pathDist(p[0], p[1], tn.path).d > BROOK_APART + 1),
+    );
+    // (a point every `BROOK.every` tiles at most, four at the least: its bed's first step needs two past the head)
+    const course = resample(channel, Math.min(BROOK.every, pathLength(channel) / 4));
+    // (its tarn's width to its bed's first step, two points down, then the rest evenly, at its wider just under the
+    // step: narrower over the step or under it, the brook stood its tarn 0.4 over the level the table gives)
+    if (course.length < 4) return { why: "brook room" };
+    const bed = [sill, sill, ...bedAlong(course.slice(2), sill - 1, S)];
+    const halves = halvesAlong(course, BROOK.valley, TARN_HALF, 2, BROOK.valley[0]);
+    // (on its last reach, level with the lake's sill, three or four wide: two wide there, its spring's 2.3 stood a level
+    // deep, over its banks, and ran out beside it, the stray water of 192² seed 1; the table reads one width)
+    const flatFrom = bed.findIndex((b) => b === S);
+    if (flatFrom >= 0) {
+      const tail = halvesAlong(course.slice(flatFrom), BROOK.mouth, BROOK.mouth[0] / 2, 1, Math.round(2 * halves[Math.max(0, flatFrom - 1)]));
+      for (let k = flatFrom; k < course.length; k++) halves[k] = tail[k - flatFrom];
+    }
+    laid[tk] = { spine: [[tu, tv, r]], sill, path: course, bed, halves };
+    tarns.push(laid[tk]);
+  }
+  // (in the springs' own order again, for their names)
+  tarns.splice(0, tarns.length, ...laid);
   // ---- onto the map
   const plan = emptyPlan(spec);
   const names = plan.names;
@@ -1748,6 +1882,25 @@ const valleyWater: Invariant = {
 };
 const LAKE_AWAY = 16;
 
+/** `valley.brooks` (planning's ruling of 2026-11-16: a brook turning every few tiles at one angle, left and right by
+ *  turns, is a ruler with a rhythm): each southern brook's legs between its turns (`gateBrooks.ts` `brookLegsWrong`)
+ *  vary, no three of one length in a row, their spread over their mean `BROOK_LEGS.spread` or more, and its turns not
+ *  left and right by turns throughout. */
+const valleyBrooks: Invariant = {
+  id: "valley.brooks",
+  at: "plan",
+  test({ plan }) {
+    const g = gateOf(plan);
+    if (!g) return fail("The plan has no wall with one gate");
+    for (const l of plan.links) {
+      if (l.kind !== "brook" || l.to !== g.lake || !l.path || bodyOf(plan, l.from)?.kind !== "tarn") continue;
+      const wrong = brookLegsWrong(l.path);
+      if (wrong) return fail(`${nameOf(plan, l.id)} ${wrong}`);
+    }
+    return OK;
+  },
+};
+
 /** `range.spurs` (planning's ruling of 2026-11-13): spurs leave the spine toward both sides, `SPURS.least` or more a side
  *  per 128 tiles of the map's side, a fork's branches aside. */
 const rangeSpurs: Invariant = {
@@ -1763,7 +1916,7 @@ const rangeSpurs: Invariant = {
 };
 
 
-const gatePlanInvariants: Invariant[] = [rangeSpurs, gateLevels, rangeSpine, valleyWater, wallCamera, frameLip, gateGap, basinBowl, startNeck, leatOwn, valleyEnclosed, gateLadder, gateSkeleton];
+const gatePlanInvariants: Invariant[] = [rangeSpurs, gateLevels, rangeSpine, valleyWater, valleyBrooks, wallCamera, frameLip, gateGap, basinBowl, startNeck, leatOwn, valleyEnclosed, gateLadder, gateSkeleton];
 
 // ------------------------------------------------------------------------------------------------- the def
 

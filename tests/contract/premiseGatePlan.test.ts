@@ -124,6 +124,18 @@ describe("Broken wall-with-one-gate plans fail their invariants", () => {
     ["wall.camera", "the start turned away from the wall", (plan) => {
       plan.frame.start.orientation = (["Cw180", "Cw270", "Cw0", "Cw90"] as const)[g(plan).turn];
     }],
+    ["valley.brooks", "a brook drawn as a sawtooth, six tiles a leg, left and right by turns", (plan) => {
+      const l = link(plan, "brook1");
+      const [a, b] = [l.path![0], l.path![l.path!.length - 1]];
+      const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const n = Math.round(L / 6);
+      l.path = Array.from({ length: n + 1 }, (_, k) => {
+        const off = k === 0 || k === n ? 0 : k % 2 ? 2.5 : -2.5;
+        return [a[0] + ((b[0] - a[0]) * k) / n - ((b[1] - a[1]) / L) * off, a[1] + ((b[1] - a[1]) * k) / n + ((b[0] - a[0]) / L) * off];
+      });
+      l.halves = l.path.map(() => 1.5);
+      l.bed = l.path.map(() => (l.bed as number[])[0]);
+    }],
     ["valley.water", "the lake drawn one width along its length", (plan) => {
       const lake = body(plan, "lake");
       lake.arms[0] = lake.arms[0].map(([x, y]) => [x, y, 6]);
