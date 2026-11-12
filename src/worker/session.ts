@@ -3,8 +3,8 @@
 // summary (features, history, orphans) and only the parts of the map view that changed, as
 // compact typed arrays; never the document itself.
 //
-// Export follows the `export` profile (PLAN §19.5): load problems block, playability and design
-// problems warn and are noted in the map's description when the player exports anyway. An
+// Export follows the `export` profile (PLAN §19.5, D3): only load problems block; principle, playability
+// and design problems warn ("Worth a look") and the file is saved as it is. An
 // imported map's own problems (those it already had when it was opened) are listed but never
 // blamed on the player's edits, so an unedited import always exports unchanged (PLAN §20, D43).
 
