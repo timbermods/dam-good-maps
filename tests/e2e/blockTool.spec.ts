@@ -50,31 +50,64 @@ async function look(page: Page, x: number, y: number, h: number, distance = 20) 
   await page.evaluate(([x, y, h, distance]) => window.dgm3d!.renderer.setView({ target: [x + 0.5, h, -(y + 0.5)], distance, yaw: 0.5, pitch: 0.7 }), [x, y, h, distance] as const);
 }
 
-/** The map the tests that need `flatSpot` open (Lake Basin 96² seed 78 since generator 0.10.16's ground with grade,
- *  D148: seed 77's land now rolls and has no level 12 × 9 stretch clear of objects; seed 80 since generator 0.10.17's start
- *  floors, D515, D148: seed 78's has none now either, and of seeds 77–84 only 80 and 84 have one). */
+/** The map the tests that need `flatSpot` open. Since generator 0.10.18 (D516) `flatSpot` clears what stands on the
+ *  stretch, so the map needs only level dry ground, not ground the generator happened to leave empty: dead stands
+ *  took the last empty stretch of seed 80 (CI run 43174871479), as grade (0.10.16) and the start's floors (0.10.17)
+ *  had taken seeds 77 and 78's before it (D148). */
 const FLAT = "s=80&z=96&d=n&t=lakeBasin";
 
-/** A flat dry stretch of the map with nothing standing near it: its corner and its level. */
+/** A flat dry stretch 12 × 9 with nothing standing on it or within 3 tiles: its corner and its level. The stretch
+ *  needing the fewest objects deleted is chosen (never one near the start or a water object); what stands there is
+ *  deleted in one edit before the test begins, as the sources spec does (sources.spec.ts `spots`). */
 async function flatSpot(page: Page) {
   const spot = await page.evaluate(() => {
     const m = window.dgm3d!.renderer.mapState()!;
-    const { W, H, heights, surface, entities } = m;
-    const busy = new Set<number>();
-    for (let k = 0; k < entities.count; k++) for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) busy.add((entities.y[k] + dy) * W + entities.x[k] + dx);
+    const { W, H, heights, surface, entities: e } = m;
+    // the objects standing within 3 tiles of each tile; a start or a water object marks its tiles off limits
+    const near: number[][] = Array.from({ length: W * H }, () => []);
+    const barred = new Uint8Array(W * H);
+    for (let k = 0; k < e.count; k++) {
+      const keep = /StartingLocation|Source|Seep|Aquifer|Drill|Drain|Dam|Blockage/.test(e.templates[e.template[k]]);
+      for (let dy = -3; dy <= 3; dy++)
+        for (let dx = -3; dx <= 3; dx++) {
+          const x = e.x[k] + dx;
+          const y = e.y[k] + dy;
+          if (x < 0 || y < 0 || x >= W || y >= H) continue;
+          if (keep) barred[y * W + x] = 1;
+          else near[y * W + x].push(k);
+        }
+    }
+    let best: { x: number; y: number; h: number; clear: string[] } | null = null;
     for (let y = 4; y < H - 12; y++)
       for (let x = 4; x < W - 16; x++) {
         const h0 = heights[y * W + x];
         let ok = h0 > 1 && h0 < 15;
+        const clear = new Set<number>();
         for (let j = 0; j < 9 && ok; j++) for (let i = 0; i < 12 && ok; i++) {
           const k = (y + j) * W + x + i;
-          if (heights[k] !== h0 || surface.depth[k] > 0.01 || busy.has(k)) ok = false;
+          if (heights[k] !== h0 || surface.depth[k] > 0.01 || barred[k]) ok = false;
+          else for (const n of near[k]) clear.add(n);
+          if (best && clear.size >= best.clear.length) ok = false;
         }
-        if (ok) return { x, y, h: h0 };
+        if (!ok || (best && clear.size >= best.clear.length)) continue;
+        const ids = [...clear].map((n) => e.ids[n]);
+        if (ids.every((id) => id)) best = { x, y, h: h0, clear: ids };
+        if (best?.clear.length === 0) return best;
       }
-    return null;
+    return best;
   });
-  expect(spot, "a flat dry stretch 12 × 9 clear of objects").not.toBeNull();
+  expect(spot, "a flat dry stretch 12 × 9 away from the start and the water objects").not.toBeNull();
+  if (spot!.clear.length) {
+    await page.evaluate((ids) => window.dgmEditor!.edit({ op: "deleteEntities", params: { entities: ids } } as never, "Delete"), spot!.clear);
+    await idle(page);
+    const left = await page.evaluate(({ x, y }) => {
+      const e = window.dgm3d!.renderer.mapState()!.entities;
+      let n = 0;
+      for (let k = 0; k < e.count; k++) if (e.x[k] >= x - 3 && e.x[k] < x + 15 && e.y[k] >= y - 3 && e.y[k] < y + 12) n++;
+      return n;
+    }, spot!);
+    expect(left, "nothing left standing on or beside the stretch").toBe(0);
+  }
   return spot!;
 }
 
