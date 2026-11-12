@@ -7,7 +7,8 @@ import { describe, expect, it } from "vitest";
 import { writeTimber } from "../../src/core/format/timber";
 import type { BrushParams } from "../../src/core/features/raster/brush";
 import { groundUnderObjects } from "../../src/core/features/raster/objectGround";
-import { RemotePreview, WeatherStroke, type WeatherChannel, type WeatheredLand } from "../../src/core/features/raster/remoteStroke";
+import { answerBound, WEATHER_SILENT, WeatherStroke, type WeatheredLand } from "../../src/core/features/raster/remoteStroke";
+import { EditQueue, StrokeFeed, type FeedLanding, type StrokeWorker } from "../../src/core/doc/editQueue";
 import { StrokePreview } from "../../src/core/features/raster/strokePreview";
 import type { Rect } from "../../src/core/features/raster/brush";
 import { makeSpec } from "../../src/core/spec/mapspec";
@@ -20,7 +21,7 @@ const turn = <T>(f: () => T) => new Promise<T>((resolve) => setTimeout(() => res
 
 /** The map's worker weathering the stroke, as it did before #868 (session.ts `weatherBegin`, `weatherAdd`, …, taken
  *  out with it): a preview of its own on the map's terrain and heights as the session holds them. */
-function mapWorker(W: number, H: number): WeatherChannel {
+function mapWorker(W: number, H: number): StrokeWorker {
   let w: { preview: StrokePreview; shown: Uint8Array; settings: Omit<BrushParams, "dabs"> } | null = null;
   const land = (r: Rect | null): WeatheredLand | null => {
     if (!r || !w) return null;
@@ -30,15 +31,15 @@ function mapWorker(W: number, H: number): WeatherChannel {
     return { rect: r, heights, settings: { ...w.settings } };
   };
   return {
-    begin: (settings, ground) =>
+    begin: (_id, settings, ground) =>
       turn(() => {
         const s = ed.collabSession()!;
         const shown = s.built.heights.slice();
         const own = { ...settings };
         w = { preview: new StrokePreview(own, s.terrainState(), shown, W, H, ground.map((r) => [r[0], r[1], r[2]])), shown, settings: own };
       }),
-    add: (dabs, pressure) => turn(() => land(w!.preview.add(dabs, pressure))),
-    finish: (rigid) => turn(() => land(w!.preview.finish(rigid))),
+    add: (_id, dabs, pressure) => turn(() => land(w!.preview.add(dabs, pressure))),
+    finish: (_id, rigid) => turn(() => land(w!.preview.finish(rigid))),
     end: () => turn(() => ({ pre: w!.preview.pre.slice(), protect: w!.preview.protect.slice(), settings: { ...w!.settings } })),
     cancel: () => void (w = null),
   };
@@ -46,22 +47,19 @@ function mapWorker(W: number, H: number): WeatherChannel {
 
 /** Naturalize's own worker (naturalize.worker.ts): the page's terrain and shown heights go with the start, copied as
  *  a message copies them. */
-function ownWorker(terrain: ReturnType<typeof ed.terrainNow>["terrain"], W: number, H: number): WeatherChannel {
+function ownWorker(): StrokeWorker {
   let w: WeatherStroke | null = null;
   return {
-    begin: (settings, ground, ...rest) => {
-      void rest;
-      const sent = structuredClone({ settings, ground, terrain });
-      return turn(() => void (w = new WeatherStroke(sent.settings, sent.terrain, structuredClone(shownAtBegin!), W, H, sent.ground.map((r) => [r[0], r[1], r[2]]))));
+    begin: (_id, settings, ground, state, heights, W, H) => {
+      const sent = structuredClone({ settings, ground, state, heights });
+      return turn(() => void (w = new WeatherStroke(sent.settings, sent.state, sent.heights, W, H, sent.ground.map((r) => [r[0], r[1], r[2]]))));
     },
-    add: (dabs, pressure) => turn(() => structuredClone(w!.add(dabs, pressure))),
-    finish: (rigid) => turn(() => structuredClone(w!.finish(rigid))),
+    add: (_id, dabs, pressure) => turn(() => structuredClone(w!.add(dabs, pressure))),
+    finish: (_id, rigid) => turn(() => structuredClone(w!.finish(rigid))),
     end: () => turn(() => structuredClone(w!.end())),
     cancel: () => void (w = null),
   };
 }
-/** The page's shown heights as the stroke begins (what the page sends with it). */
-let shownAtBegin: Uint8Array | null = null;
 
 const settings = (): Omit<BrushParams, "dabs"> => ({ tool: "naturalize", size: 5, strength: 10, seed: 11, weathers: true });
 
@@ -79,22 +77,24 @@ function along(points: [number, number][]): number[] {
   return out;
 }
 
-/** The page painting a stroke through `channel`, its dabs a frame's worth at a time and the worker answering now and
- *  then (so calls carry batches): the land shown, the heights before the integrity pass, the protected tiles and the
- *  operation it sends. */
-async function paint(channel: WeatherChannel, heights: Uint8Array, terrain: ReturnType<typeof ed.terrainNow>["terrain"], W: number, H: number, ground: [number, number, number][], dabs: number[]) {
-  const shown = heights.slice();
-  shownAtBegin = shown.slice();
-  const record = settings();
-  const p = new RemotePreview(record, shown, W, H, ground, channel, () => {}, terrain.pre.slice(), terrain.protect);
+/** The page painting a stroke through `worker` (the edit queue's feed, #922 step 3), its dabs a frame's worth at a
+ *  time and the worker answering now and then (so calls carry batches): the land shown, the heights before the
+ *  integrity pass, the protected tiles and the operation it sends. */
+async function paint(worker: StrokeWorker, heights: Uint8Array, terrain: ReturnType<typeof ed.terrainNow>["terrain"], W: number, H: number, ground: [number, number, number][], dabs: number[]) {
+  const q = new EditQueue({ epoch: 1, view: { W, H, heights }, terrain, info: { history: [] } }, { send: () => new Promise(() => {}) }, { now: () => 0, after: () => () => {} });
+  const feed = new StrokeFeed(q, q.stroke("Naturalize"), settings(), worker, (d) => answerBound(d, 5), WEATHER_SILENT, ground);
   for (let k = 0; k < dabs.length; k += 4) {
-    p.add(dabs.slice(k, k + 4));
+    feed.add(dabs.slice(k, k + 4));
     if (k % 12 === 8) await new Promise((r) => setTimeout(r, 0));
   }
-  p.finish([]);
-  await p.done();
+  let l: FeedLanding | null = null;
+  let shown: Uint8Array | null = null;
+  expect(await feed.end({ landed: (x) => ((l = x), (shown = q.shown.slice())) })).toBe(true);
+  const { pre, protect, start, settings: record } = l!;
   const params: BrushParams = { ...record, dabs };
-  return { shown, pre: p.pre, protect: p.protect, params, changed: p.changed() };
+  let changed = 0;
+  for (let i = 0; i < shown!.length; i++) if (shown![i] !== start[i]) changed++;
+  return { shown: shown!, pre, protect, params, changed };
 }
 
 async function compare(W: number, H: number, dabs: number[]) {
@@ -103,7 +103,7 @@ async function compare(W: number, H: number, dabs: number[]) {
   // (the page's terrain and land, as the session hands them to it)
   const { heights, terrain } = ed.terrainNow();
   const before = await paint(mapWorker(W, H), heights, terrain, W, H, ground, dabs);
-  const after = await paint(ownWorker(terrain, W, H), heights, terrain, W, H, ground, dabs);
+  const after = await paint(ownWorker(), heights, terrain, W, H, ground, dabs);
   expect(before.changed).toBeGreaterThan(0);
   expect(before.params.weathering).toBeDefined();
   expect(JSON.stringify(after.params)).toBe(JSON.stringify(before.params));

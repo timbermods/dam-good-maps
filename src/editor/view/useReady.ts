@@ -15,7 +15,7 @@ import { heldWords } from "../caveWords";
 import { tilesToRuns } from "../../core/math/grid";
 import { isSource, sourcesPressed } from "../sourceSpots";
 import { WET_DEPTH, type BrushParams } from "../../core/features/raster/brush";
-import { naturalizer, restartNaturalizer } from "../../platform";
+import { naturalizer } from "../../platform";
 import type { Ed } from "../ed";
 
 export interface ReadySlice {
@@ -108,16 +108,6 @@ export function useReady(ed: Ed): ReadySlice {
     if (glowAt.current && !painter.current?.painting) clearGlow(glowAt.current, null);
   }
 
-  /** The stroke being painted (or a Naturalize stroke landing): its ticket in the edit queue, made at pointer-down so
-   *  whatever the player does next waits behind it (I3, I8). */
-  const strokeTicket = useRef<number | null>(null);
-  /** The stroke ended without an operation (Esc, nothing changed, its worker never answered): its ticket goes. */
-  function dropStroke() {
-    const id = strokeTicket.current;
-    strokeTicket.current = null;
-    if (id !== null) edits.current.cancel(id);
-  }
-
   function onReady(r: MapRenderer) {
     renderer.current = r;
     setReady(r);
@@ -126,6 +116,9 @@ export function useReady(ed: Ed): ReadySlice {
     // (each call asks for it again: a worker that never answered is started again, #884)
     naturalizer();
     const nature = () => naturalizer();
+    // (a stroke's name in the Naturalize worker: its ticket, and the map's epoch, so a call left over from an editor
+    // that closed never names a stroke of the next one's)
+    const named = (id: number) => edits.current.epoch * 1_000_000 + id;
     painter.current = new BrushPainter({
       renderer: r,
       W: infoRef.current.W,
@@ -133,11 +126,10 @@ export function useReady(ed: Ed): ReadySlice {
       // (the queue's shown land, and the terrain it paints on: the worker's with the unanswered tickets laid on, I2)
       heights: () => edits.current.shown,
       terrain: () => edits.current.terrain(),
+      // (every stroke a ticket from pointer-down, I3, I8)
+      edits: () => edits.current,
       settings: () => ({ ...brushRef.current, tool: brushToolRef.current ?? "raise" }),
-      commit: (stroke, pre, protect) => {
-        const id = strokeTicket.current;
-        strokeTicket.current = null;
-        if (id === null) return;
+      commit: (stroke, pre, protect, id) => {
         lastStroke.current = stroke.params;
         juice.current?.edited();
         firstDoneRef.current("paint");
@@ -175,7 +167,6 @@ export function useReady(ed: Ed): ReadySlice {
       // (item 15: a Flatten at the ground's own level or a Smooth over flat land left them), one step;
       // a Naturalize stroke that weathered nothing says why beside the pointer (showcase-craft gap 23)
       unchanged: (params) => {
-        dropStroke();
         const clear = clears() ? sourcesPressed(spots(), params, params.dabs, infoRef.current.W).filter((c) => ed.inArea(c.tiles)) : [];
         endClearGlow();
         if (!clear.length) {
@@ -245,23 +236,7 @@ export function useReady(ed: Ed): ReadySlice {
       },
       // a new stroke puts away the last one's start hint (its water flows while it is painted, D197)
       painting: (on) => {
-        if (!on) {
-          juice.current?.strokeEnd();
-          // (a stroke that ends without an operation, Esc or a Naturalize stroke its worker never answered, takes its
-          // ticket with it; one that ends with one is committed right after this, in the same turn)
-          const id = strokeTicket.current;
-          queueMicrotask(() => {
-            if (strokeTicket.current === id) dropStroke();
-          });
-          return;
-        }
-        // (its ticket from pointer-down; the whole map is its until it lets go, so the worker's answers that come
-        // meanwhile are laid once it does, never under the brush, #410)
-        dropStroke();
-        const q = edits.current;
-        const id = q.stroke(BRUSH_NAMES[brushToolRef.current ?? "raise"]);
-        q.painted(id, { x0: 0, y0: 0, x1: q.W - 1, y1: q.H - 1 });
-        strokeTicket.current = id;
+        if (!on) return juice.current?.strokeEnd();
         hintJob.current++;
         setStartHint(null);
       },
@@ -271,26 +246,16 @@ export function useReady(ed: Ed): ReadySlice {
       },
       wet: (x, y) => (mirror.current.water?.depth[y * infoRef.current.W + x] ?? 0) > 0.05,
       depth: (x, y) => mirror.current.water?.depth[y * infoRef.current.W + x] ?? 0,
-      // the water flows on the stroke while it is painted (D197)
-      draft: (rect, heights) => void api.draftStroke(rect, transfer(heights, [heights.buffer as ArrayBuffer])),
-      cancelDraft: () => void api.cancelDraft(),
       // a Naturalize stroke's land, worked out in its own worker (D422, #868) on the terrain and the land the page
-      // shows, as the other brushes' are on the page (its water from the map's worker, as theirs is)
+      // shows, as the other brushes' are on the page (its water from the map's worker, through the queue, as theirs
+      // is); a worker that never answers in time is started again by the queue's watchdog (useSession.ts, #884)
       weather: {
-        begin: (settings, ground) => {
-          const shown = mirror.current.heights.slice();
-          const { W, H } = infoRef.current;
-          return nature().weatherBegin(settings, ground.map((r) => [r[0], r[1], r[2]] as [number, number, number]), edits.current.terrain(), transfer(shown, [shown.buffer]), W, H);
-        },
-        add: (dabs, pressure) => nature().weatherAdd(dabs, pressure),
-        finish: (rigid) => nature().weatherFinish(rigid),
-        end: () => nature().weatherEnd(),
-        cancel: () => void nature().weatherCancel(),
-        // (it never answered a stroke in time: a fresh one for the next, #884)
-        restart: () => restartNaturalizer(),
+        begin: (id, settings, ground, state, heights, W, H) => nature().weatherBegin(settings, ground, state, transfer(heights, [heights.buffer as ArrayBuffer]), W, H, named(id)),
+        add: (id, dabs, pressure) => nature().weatherAdd(dabs, pressure, named(id)),
+        finish: (id, rigid) => nature().weatherFinish(rigid, named(id)),
+        end: (id) => nature().weatherEnd(named(id)),
+        cancel: (id) => void nature().weatherCancel(named(id)),
       },
-      // (a stroke its worker never answered in time, taken back: the one line says why, #884)
-      refuse: (text) => ed.setMessage({ kind: "error", text }),
     });
     r.onSlice = (level) => setSliceLevel(level);
     r.onMarkers = (on) => setMarkersOn(on);
