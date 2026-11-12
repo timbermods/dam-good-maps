@@ -16,7 +16,7 @@ import { lakeStair } from "../../src/core/premise/premises/lakeStair";
 import { halfAt } from "../../src/core/premise/raster/channels";
 import type { Body, Invariant, Link, PremiseDef, PremisePlan } from "../../src/core/premise/types";
 import { pathLength } from "../../src/core/premise/geom";
-import { levelsOf } from "../../src/core/premise/waterChecks";
+import { levelsOf, WATER_CHECKS } from "../../src/core/premise/waterChecks";
 import { waterByNumber } from "../../src/core/premise/water";
 import { writeTimber } from "../../src/core/format/timber";
 import { makeSpec } from "../../src/core/spec/mapspec";
@@ -162,5 +162,11 @@ describe("a wet link into a dry link's bed (`Link.joins`)", () => {
     }
     expect(gone).toBeGreaterThan(0);
     expect(goneAbove).toBe(0);
+  });
+
+  it("reads the joined bed wet where its water comes in, as the table has it (`water.wet`)", () => {
+    const { plan } = joined();
+    const water = waterByNumber(plan);
+    expect(WATER_CHECKS.find((x) => x.id === "water.wet")!.test({ spec: makeSpec({ seed: 1, size: { x: 256, y: 256 }, theme: "any", premise: "lakeStair" }), plan, water })).toEqual({ ok: true });
   });
 });
