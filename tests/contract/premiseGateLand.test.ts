@@ -73,12 +73,17 @@ describe("Broken gate land fails its invariants", () => {
     ["range.valleys", "the range worn down to its feet, the cleft's ground with it: no valley falls from it", (h) => {
       for (let i = 0; i < W * H; i++) if (zone[i] === 1 && !r.channel[i] && !r.lake[i]) h[i] = g.sill + 2;
     }],
-    ["range.height", "the range worn to two over the valley's floor", (h) => {
-      const vv: number[] = [];
-      for (let i = 0; i < W * H; i++) if (zone[i] === 0) vv.push(h[i]);
-      vv.sort((p, q) => p - q);
-      const floor = vv[vv.length >> 1];
-      for (let i = 0; i < W * H; i++) if (zone[i] === 1 && !water(i)) h[i] = Math.min(h[i], floor + 2);
+    ["range.columns", "two-tile columns three levels over the range's flank", (h) => {
+      const band = rangeBand(base.plan, base.water);
+      let n = 0;
+      for (let i = W * 2; i < W * H - W * 2 && n < 6; i++) {
+        if (!band[i] || r.fixed[i] || water(i) || (i % W) % 9 || Math.floor(i / W) % 9) continue;
+        if ([i - 1, i + 1, i + 2, i - W, i + W, i + 1 - W, i + 1 + W].some((j) => !band[j] || r.fixed[j] || water(j))) continue;
+        const top = Math.max(h[i - 1], h[i + 2], h[i - W], h[i + W], h[i + 1 - W], h[i + 1 + W]) + 3;
+        h[i] = top;
+        h[i + 1] = top;
+        n++;
+      }
     }],
     ["gate.lowest", "the Gate's gorge filled to the crest", (h) => {
       for (let i = 0; i < W * H; i++) if (r.channel[i] === gate && zone[i] === 1) h[i] = g.crest;
