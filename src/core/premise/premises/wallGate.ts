@@ -55,8 +55,8 @@ export const CREST = [18, 21] as const;
 /** The range (§5.1, planning's ruling of 2026-11-11: a mountain range, not a wall): its spine wanders across the map,
  *  sampled every `sample` tiles along u; it stands `veil` tiles behind the Veil's face, there and within `calm` tiles
  *  of the Veil's middle, coming in over `calmIn` more; elsewhere it wanders behind by `wander` of the side (by noise
- *  `wanderCell` of the side across), its back foot within `reach` of the side past the Veil's face, so the basin keeps
- *  its room. Its crest is noise along it (`profileCell` of the side across), its lowest saddle
+ *  `wanderCell` of the side across), past `reach` of the side behind the Veil's face (its back foot) a third as fast, so
+ *  the basin keeps its room. Its crest is noise along it (`profileCell` of the side across), its lowest saddle
  *  the gap's, `SADDLE_OVER` over the megadam's water, its highest peak `CREST`. Half-widths: `front` toward the valley
  *  (`veilFront` at the Veil, whose face is a cliff), `back` toward the basin, both wandering, and both wider on a larger
  *  map (0.6 + 0.4 × side ÷ 128 times). */
@@ -371,7 +371,12 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const fm = ((RANGE.front[0] + RANGE.front[1]) / 2) * wide;
   const bm = ((RANGE.back[0] + RANGE.back[1]) / 2) * wide;
   const back = us.map((u) => Math.max(RANGE.back[0] * wide, Math.min(RANGE.back[1] * wide, bm + 0.8 * wide * (RANGE.back[1] - RANGE.back[0]) * fbm(sB, u, 0.5, 18, 2))));
-  const sv = us.map((u, k) => Math.min(fb + RANGE.reach * N - back[k], fb + RANGE.veil + calm(u) * A * Math.max(0, 1 + 1.3 * fbm(sV, u, 0.5, vCell, 2))));
+  // (past its reach the spine comes on a third as fast, so it keeps wandering and the basin keeps its room)
+  const sv = us.map((u, k) => {
+    const cap = fb + RANGE.reach * N - back[k];
+    const v = fb + RANGE.veil + calm(u) * A * Math.max(0, 1 + 1.3 * fbm(sV, u, 0.5, vCell, 2));
+    return v <= cap ? v : cap + (v - cap) / 3;
+  });
   const front = us.map((u, k) => {
     const f = RANGE.veilFront + calm(u) * (fm - RANGE.veilFront + 0.8 * wide * (RANGE.front[1] - RANGE.front[0]) * fbm(sF, u, 0.5, 18, 2));
     return Math.max(RANGE.front[0] - (1 - calm(u)) * 2, Math.min(RANGE.front[1] * wide + 1, f, sv[k] - fb + 2));
@@ -433,7 +438,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const nArm = Math.max(3, Math.round((uE - uW) / 12));
   for (let i = 0; i <= nArm; i++) {
     const end = i === 0 || i === nArm;
-    const r = (lowAt === 0 ? i === 0 : i === nArm) ? lowLip / 2 + 0.5 : (end ? rng.range(5, 7) : rng.range(4.5, 10)) * shrink;
+    const r = (lowAt === 0 ? i === 0 : i === nArm) ? lowLip / 2 + 0.5 : (end ? rng.range(5, 7) : i % 2 ? rng.range(4.5, 7) : rng.range(7, 12)) * shrink;
     // (its shore toward the bench never along one row: each point's top stands a few rows under the bench, by its own
     // draw, so the bench's edge wanders with the water's)
     const v = Math.min(lakeTop - r - rng.range(0, 4) * shrink, mv + rng.range(-4, 2.5) * shrink);
@@ -452,9 +457,24 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     out.push(to);
     return out;
   };
-  const gateArm: Spine = bend([gu + rng.range(-3, 3), mv, 4.5], [gu, shoreV - 3.5, 3.5], 4, 3.5, 6.5);
-  trench.push(...bend([bEnd - 9 * ks, fb - 6, 2.6], [bEnd - 9 * ks + rng.range(-2, 2), mv, 2.6], 3, 2.6, 4.5).slice(1));
-  const lakeArms: Spine[] = [main, trench, gateArm];
+  // (the Gate leaves the lake where it lies: no arm of water is drawn up to the range for it, which with the drain bay
+  // ringed the start's meadow in a moat; its dry channel crosses the bench, winding, from the lake's own shore)
+  const mainAt = (u: number): [number, number] => {
+    const q = Math.max(main[0][0], Math.min(main[main.length - 1][0], u));
+    for (let k = 0; k + 1 < main.length; k++)
+      if (q <= main[k + 1][0]) {
+        const f = (q - main[k][0]) / Math.max(1e-9, main[k + 1][0] - main[k][0]);
+        return [main[k][1] + (main[k + 1][1] - main[k][1]) * f, main[k][2] + (main[k + 1][2] - main[k][2]) * f];
+      }
+    return [main[main.length - 1][1], main[main.length - 1][2]];
+  };
+  const [gv, grad] = mainAt(gu);
+  const gShore = Math.min(shoreV, gv + grad - 1.5);
+  // (the drain bay runs on into the lake's main arm where it lies, so the Veil's water never backs up a neck)
+  const tu = bEnd - 9 * ks + rng.range(-2, 2);
+  const [tv, tr] = mainAt(tu);
+  trench.push(...bend([bEnd - 9 * ks, fb - 6, 2.6], [tu, tv, Math.max(2.6, 0.6 * tr)], 3, 2.6, 4.5).slice(1));
+  const lakeArms: Spine[] = [main, trench];
 
   // ---- the frame: the start in the Veil's lap, the lip whole in the first frame
   const z = S + 1;
@@ -480,11 +500,12 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   // ---- the basin: a depression past the range, its pan low on the Gate's side of the middle, the old lake's shore round
   // it; the beds leave by one outlet on the far edge near it
   const panU = Math.max(0.3 * N, Math.min(0.75 * N, gu + N * rng.range(-0.08, 0.16)));
-  const panR = N * rng.range(BASIN.pan[0], BASIN.pan[1]);
   const shore = N * rng.range(BASIN.lake[0], BASIN.lake[1]);
   const room = N - backFoot(panU);
-  const panV = backFoot(panU) + Math.max(panR + 9, room * rng.range(0.42, 0.52));
-  if (N - panV < panR + 6) return { why: "basin room" };
+  // (a smaller pan where the basin has less room)
+  const panR = Math.min(N * rng.range(BASIN.pan[0], BASIN.pan[1]), Math.max(4, (room - 12) / 2));
+  const panV = backFoot(panU) + Math.max(panR + 7, room * rng.range(0.42, 0.52));
+  if (N - panV < panR + 3) return { why: "basin room" };
   const notchU = Math.round(Math.max(pu + 24, Math.min(N - 16, panU + N * rng.range(-0.08, 0.08))));
   if (notchU - 6 <= pu + 8 || panV - panR <= footV + 3) return { why: "notch" };
   // (a bed's run between two points, winding: a point every `leg` tiles, each off the straight line by up to `wob`)
@@ -527,9 +548,12 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   leat.push(...smooth([passFoot, ...wind(passFoot, passPan, 10, (6 * N) / 128), ...wind(passPan, [notchU - 2, N], 10, (3 * N) / 128)]).slice(0, -1), [notchU - 2, N]);
 
   // ---- the Gate's path: the gorge winding through the range at the gap, then the Gate Bed through the pan to the outlet
-  const gate: Point[] = [[gu, shoreV - 0.5], [gu, foot(gu) - 1]];
   let ju = 0;
   const jog = () => (ju = Math.max(-5, Math.min(5, ju + rng.range(-3, 3))));
+  // (straight for its bar and rows, then winding across the bench to the range's foot)
+  const gate: Point[] = [[gu, gShore - 0.5], [gu, gShore + BAR_LENGTH + 4]];
+  const benchLegs = Math.max(1, Math.round((foot(gu) - 1 - (gShore + BAR_LENGTH + 4)) / 6));
+  for (let i = 1; i <= benchLegs; i++) gate.push([gu + jog(), gShore + BAR_LENGTH + 4 + ((foot(gu) - 1 - (gShore + BAR_LENGTH + 4)) * i) / benchLegs]);
   const gr = rangeAt(R0, gu);
   // (a point every three tiles or so across the range, each off the last by up to 3: a gorge winds)
   const across = Math.max(3, Math.round((footV - (gr.v - gr.front / 2)) / 3));
@@ -763,7 +787,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const gives = (f: number, id = ""): [number, number] => [SHARE.has(id) ? 0 : Math.round(f * N), Math.round(2 * f * N)];
   const works: Work[] = [
     { id: "neck", rung: "first", kind: "levee", on: "inlet", at: at([(inletPath[0][0] + inletPath[1][0]) / 2, (inletPath[0][1] + inletPath[1][1]) / 2]), tiles: NECK.levee, needs: [], gives: { green: [0, 0] }, tradeoff: "Before the first badtide: it keeps the pool clean while the trench runs red", region: "home" },
-    { id: "gateOpen", rung: "medium", kind: "canal", on: "gate", at: at([gu, shoreV + 1]), tiles: slotW * (BAR_LENGTH + 2), needs: [], gives: { green: gives(GIVES.gateOpen) }, tradeoff: "The river splits: the lake keeps less", region: "wet" },
+    { id: "gateOpen", rung: "medium", kind: "canal", on: "gate", at: at([gu, gShore + 1]), tiles: slotW * (BAR_LENGTH + 2), needs: [], gives: { green: gives(GIVES.gateOpen) }, tradeoff: "The river splits: the lake keeps less", region: "wet" },
     { id: "gateWhole", rung: "medium", kind: "levee", on: "low", at: at(low[1]), tiles: gorge * 2 + slotW, needs: ["gateOpen"], gives: { green: gives(GIVES.gateWhole, "gateWhole") }, tradeoff: "The lake sinks half a level and the Low River runs dry", region: "wet" },
     { id: "leatOpen", rung: "medium", kind: "leat", on: "leat", at: at(leat[0]), tiles: 3, needs: [], gives: { green: gives(GIVES.leatOpen) }, region: "top" },
     { id: "leatWhole", rung: "large", kind: "leat", on: "leat", at: at(leat[0]), tiles: 2, needs: ["leatOpen"], gives: { green: gives(GIVES.leatWhole, "leatWhole") }, tradeoff: `${veilName[0].toUpperCase()}${veilName.slice(1)} dwindles`, region: "top" },
@@ -1044,7 +1068,7 @@ const basinBowl: Invariant = {
     const N = plan.W;
     const [pu, pv] = onLocal(T, g.pan.at);
     if (sideOf(R, pu, pv - g.pan.r) !== 2) return fail("The basin's pan reaches into the range");
-    if (pu - g.pan.r < 4 || pu + g.pan.r > N - 4 || pv + g.pan.r > N - 4) return fail("The basin's pan reaches the map's edge");
+    if (pu - g.pan.r < 4 || pu + g.pan.r > N - 4 || pv + g.pan.r > N - 2) return fail("The basin's pan reaches the map's edge");
     if (!(g.pan.shore > g.pan.r + 4)) return fail(`The old lake's shore stands ${g.pan.shore} from the pan's middle, inside its pan (${g.pan.r})`);
     const gate = linkOf(plan, g.gate);
     if (!gate?.path || pathDist(g.pan.at[0], g.pan.at[1], gate.path).d > g.pan.r) return fail("The Gate Bed does not cross the basin's pan");

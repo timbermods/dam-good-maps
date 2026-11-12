@@ -165,15 +165,19 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
   const veil = plan.links.find((l) => l.id === g.veil)!;
   const lipU = veil.fall!.lip.map((p) => onLocal(T, [p[0] + 0.5, p[1] + 0.5])[0]);
   const [lu0, lu1] = [Math.min(...lipU) - 0.5, Math.max(...lipU) + 0.5];
+  const lm = (lu0 + lu1) / 2;
   const valleyFoot = g.sill + RANGE_LAND.foot;
   const f = new Float64Array(N);
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
       const [u, v] = onLocal(T, [x + 0.5, y + 0.5]);
-      // the spine read through a warp, so the range's contours wander and its foot never follows a line
-      const wu = u + RANGE_LAND.warp * fbm(sWu, x, y, RANGE_LAND.warpCell, 3);
-      const wv = v + RANGE_LAND.warp * fbm(sWv, x, y, RANGE_LAND.warpCell, 3);
+      // the spine read through a warp, so the range's contours wander and its foot never follows a line (calm before the
+      // Veil, whose face stands where the plan put it: warped there, the range stood as towers on the start's bench)
+      const calm = smoothstep((Math.abs(u - lm) - (lu1 - lu0) / 2 - 4) / 12);
+      const warp = RANGE_LAND.warp * (0.25 + 0.75 * calm);
+      const wu = u + warp * fbm(sWu, x, y, RANGE_LAND.warpCell, 3);
+      const wv = v + warp * fbm(sWv, x, y, RANGE_LAND.warpCell, 3);
       const ra = rangeAt(R, wu);
       const front = wv < ra.v;
       const half = (front ? ra.front : ra.back) * (1 + RANGE_LAND.width * fbm(sHw, x, y, 14, 2));
@@ -184,7 +188,9 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
       const basin = front ? -Infinity : basinAt(plan, g, x, y, bs, bedD[i], bedL[i]);
       const foot = front ? valleyFoot : basin;
       let rangeH = -Infinity;
-      if (t < 1) {
+      // (and none of it before the Veil's face, on the start's bench)
+      const bench = front && v < g.face - 1 && Math.abs(u - lm) < (lu1 - lu0) / 2 + 8;
+      if (t < 1 && !bench) {
         const crest = ra.crest + RANGE_LAND.knob * fbm(sCr, x, y, 8, 2);
         const tt = Math.max(0, t);
         // soft rock: a concave flank, talus at the foot; hard rock high to a cliff near the foot (the Veil's buttress
@@ -359,7 +365,7 @@ export function gateLand(plan: PremisePlan, water: StageWater, style?: ReliefSty
 // ------------------------------------------------------------------------------------------------- the land's invariants
 
 /** What a land invariant reads: stage 1's water and stage 2's ground. `StageContext` has no ground yet (§5.1 "As built
- *  (relief)" says the edit), so these run by `gateLandFailures`, not with the def's `land` invariants. */
+ *  (water)", its seams, says the edit), so these run by `gateLandFailures`, not with the def's `land` invariants. */
 export interface GateLandContext {
   spec: MapSpec;
   plan: PremisePlan;
@@ -511,7 +517,7 @@ const basinBowl: GateLandInvariant = {
     const px = Math.floor(g.pan.at[0]);
     const py = Math.floor(g.pan.at[1]);
     const T = turnOf(plan, g);
-    const pr = Math.max(2, Math.floor(g.pan.r * 0.7));
+    const pr = Math.max(3, Math.floor(g.pan.r * 0.9));
     let pan = 0;
     let high = 0;
     for (let y = py - pr; y <= py + pr; y++)

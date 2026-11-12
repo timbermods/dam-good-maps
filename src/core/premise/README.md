@@ -56,24 +56,32 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   (`bypassCourses`: two legs over the seed's rises and hollows, turning far from the start, kept off the edge), the tarns and basins, the works, the ridges, the
   regions; past 192² the lakes and rim tarns sized by the map, `mapScale` and `rimTarns`, the further rim tarns spread round the edges and drawn long or round; every rim tarn's run to the edge bent and slid along it, `edgeRun`), its second pass
   (`skeletonOf`, `siteStair`, `siteSide`; the works' floors and most `givesOf`) and the stair's `plan` invariants. `layoutTry` gives one layout try as far as it got, for tuning.
-- `premises/wallGate.ts`: the wall with one gate (§5.1), stage 0 only: `wallGateEligible`, the layout in a frame
-  turned to the start's camera (the wall's runs and jogs, the Veil's bastion and cleft, the lake, its trench and drain
-  bay, the Still Pool and its inlet, the Gate's slot and bed, the leat and the Pass, the rim and its notch, the Low
-  River through its spur, the brooks), its numbers in `GatePlan.gate` (`gateOf`) and its `plan` invariants. Not
-  offered: `premises/dev.ts` `DEV_PREMISES` lists it for the tools and tests until it makes a whole map; joining
-  `spec/mapspec.ts` `PREMISE_IDS` offers it. No playability floor of its own: the shared gate holds the start.
+- `premises/wallGate.ts`: the wall with one gate (§5.1), stage 0, land first (planning's ruling of 2026-11-11):
+  `wallGateEligible`, the layout in a frame turned to the start's camera (the range: its crest as noise along a stretch
+  of a longer drawn line, read so its lowest saddle lies where a gap can stand, its spine wandering behind the Veil's
+  face, `GateNumbers.range`; the Veil at its high ground near the middle, the Gate's winding gorge at its lowest saddle,
+  the Pass at the lowest on the other side; the lake with a wandering shore, bent arms and bays, its trench and drain
+  bay, the Still Pool and its inlet; the leat along the crest and the Pass Bed; the basin's pan and the beds' outlet;
+  the Low River through its spur; the brooks), its numbers in `GatePlan.gate` (`gateOf`) and its `plan` invariants.
+  `gateRange.ts` reads the range along u (`rangeAt`, `sideOf`, `spineLocal`). Not offered: `premises/dev.ts`
+  `DEV_PREMISES` lists it for the tools and tests; joining `spec/mapspec.ts` `PREMISE_IDS` offers it. No playability
+  floor of its own: the shared gate holds the start.
 - `gateWater.ts`: the wall with one gate's stage 1 (§5.1 "As built (water)"): `gateWater` (the shared `waterByNumber`,
   then the leat's bar, the Veil's foot a level under the sill with its outer row the ribbon, the first frame's beds under
   two), `GATE_WATER_CHECKS` (`water.levels` read for a backwater, `gate.dry`, `frame.water`), `gateFirstWater` (`draw.ts`
   `firstWater` with this stage, until `PremiseDef` has a seam for it) and `gateSettleModel` (the undrawn ground over every
   water, for a settle of stage 1 alone). `tools/premise-gate-water.ts` prints and draws a seed's, `--settle` settles it.
-- `gateLand.ts`: the wall with one gate's stage 2 (§5.1 "As built (relief)"): `gateRelief` (the shared relief with the
-  spur alone, then the wall's crest band, its sheer faces and the Pass, the basin's terraces along its beds, the rim and
-  its notch, the valley closed at the megadam's water), `gateZones`, `gateLand` (`premiseLand`'s parts for this land) and
-  `GATE_LAND_CHECKS` / `gateLandFailures` (its land invariants, on the ground). `gateMap.ts` `gateMap` makes the whole map as the
-  mode's loop does (a plan at a time: stages 0 to 4, one `premiseMap` build and its checks, the Veil's drop on the settle,
-  `veil.settled`; at most three settles; `held` says whether a plan held) and `startNumbers` reads the start's five checks;
-  `tools/premise-gate-map.ts` writes a seed's, `tools/capture-gate.ts` renders its opening camera.
+- `gateLand.ts`: the wall with one gate's stage 2 (§5.1 "As built (land)"): `gateRelief` (the shared relief for the
+  valley, its uplands under the range's peak; the range shaped across its warped spine, talus on soft rock, cliffs on
+  hard, spurs and gullies; the basin a dry lake's depression falling in wandering rings to its pan, hills past it, the
+  beds' own valleys; then the flood check at the megadam's water and its least mend, `mendFlood`: a knoll on a saddle,
+  one swell across a stretch of the edge), `gateZones`, `basinBeds`, `gateLand` (`premiseLand`'s parts for this land,
+  the mend again round the badwater's niche) and `GATE_LAND_CHECKS` / `gateLandFailures` (its land invariants, on the
+  ground: `range.crest`, `gate.lowest`, `wall.camera`, `basin.bowl`, `valley.enclosed`, `terrain.ruled_land`,
+  `frame.lip`). `gateMap.ts` `gateMap` makes the whole map as the mode's loop does (a plan at a time: stages 0 to 4,
+  one `premiseMap` build and its checks, the Veil's drop on the settle, `veil.settled`; at most three settles; `held`
+  says whether a plan held) and `startNumbers` reads the start's checks (D515's floors); `tools/premise-gate-map.ts`
+  writes a seed's, `tools/capture-gate.ts` renders the widest frame and the opening camera in one sheet.
 - `gateWorks.ts`: the wall with one gate's stage 4 (§5.1 "As built (works)"): `gateLadder` (round 8's rungs as templates
   on the land, measured as `ladder.ts` measures: the Still Pool's levee, the Gate opened and made whole, the leat and its
   whole share, the megadam with the Gate dammed), `gateCard` / `gateWorkWords` (the card's words) and `GATE_WORKS_CHECKS`
@@ -134,7 +142,8 @@ a broken plan for every `plan` invariant, the Four Lakes fixture `tests/fixtures
 `premiseGatePlan.test.ts` (quick: the wall with one gate kept out of the choices, its eligibility, seeds 1 to 24 a size,
 variety, a broken plan for every `plan` invariant);
 `premiseGateWorks.test.ts` (quick: the works invariants on two plans, the rungs and their gains, the card, a broken
-case for each); `premiseGateLand.test.ts` (quick: the land invariants on six plans, a broken ground for each) and
+case for each); `premiseGateLand.test.ts` (quick: on six seeds a plan the mode keeps holds every land invariant, a
+broken ground for each) and
 `premiseGateLand.heavy.test.ts` (four maps built: every blocking check, the start's numbers printed, the water settled on
 the land); `premiseGateWater.test.ts` (quick: its `land` invariants on seeds 1 to 6 a size, the drought hold, the bars, the frame's
 water, the Still Pool as a backwater, a broken raster for each of its own) and `premiseGateWater.heavy.test.ts` (five
