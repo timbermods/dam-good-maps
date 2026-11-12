@@ -75,7 +75,7 @@ import { AVAILABLE_THEMES, EDITOR_LEVEL, generatorSizeRefusal, THEME_PRESETS, th
 import { assertSpec } from "../spec/schema";
 import { ColumnTerrain, plainMask, terrainColumns, terrainData } from "../terrain/runs";
 import { validateMap, type Validation } from "../validate/checks";
-import { bandScale, colonyReach, MINE_LO, MINE_REACH_LO, minesReached, minesWanted, nearestBadwater, rulesFor, startBench, WET, type PlayabilityAnalysis } from "../validate/playability";
+import { bandScale, colonyReach, FLOOR_MARGIN, MINE_LO, MINE_REACH_LO, minesReached, minesWanted, nearestBadwater, rulesFor, startBench, WET, type PlayabilityAnalysis } from "../validate/playability";
 import { blocks, type ValidationReport } from "../validate/report";
 import { walkRegions } from "../analysis/regions";
 import { planSetPiece } from "../features/setpieces";
@@ -179,9 +179,8 @@ export const FIRST_DROUGHT_DAYS = 3;
  *  start's moist floors (the first farms and the forester's plot, D515), never under `MOIST_WALK.least` (D85's 160,
  *  which a map under 128² keeps: its forester's plot scales down with its area). */
 const MOIST_WALK = { share: 1.2, least: 160 } as const;
-/** How far above the start's floors (D515) the settler holds a start's bench, walkable land and moist land on the
- *  water it settles: the objects placed after (mine sites, relics) and the last settle take a little of each. */
-export const FLOOR_MARGIN = 1.1;
+/** The generators' margin over the start's floors (D515), kept by the floors (`validate/playability.ts`). */
+export { FLOOR_MARGIN };
 /** Grown logs an oak gives, its saplings counted out (resources: an oak 8 logs, a third young). */
 const OAK_LOGS = 5;
 

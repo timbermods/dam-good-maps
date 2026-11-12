@@ -241,7 +241,7 @@ export function naturalRamps(h: Uint8Array, W: number, H: number, water: Uint8Ar
 
 /** The gentlest line from a component to the main one: side-to-side steps over land, each level
  *  climbed costing more the steeper it is, so the line finds the lowest part of the cliff. */
-function rampPath(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: Uint8Array, lab: Int32Array, from: number, to: number): number[] | null {
+export function rampPath(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: Uint8Array, lab: Int32Array, from: number, to: number): number[] | null {
   const N = W * H;
   const cost = new Float64Array(N).fill(Infinity);
   const prev = new Int32Array(N).fill(-1);
@@ -308,7 +308,7 @@ export const RAMP_MOST = 4;
  *  sides as far as the drop and its landings need. A ramp that would read as built is not cut: one
  *  taller than `RAMP_MOST`, one whose regrade raises a causeway over the lower ground beside it, and
  *  one running between water or kept ground on both sides, a pier (the D410 round). */
-function cutRamp(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: Uint8Array, path: number[], tiles: Uint8Array, steps: [number, number][], lay: Rng): boolean {
+export function cutRamp(h: Uint8Array, W: number, H: number, water: Uint8Array, keep: Uint8Array, path: number[], tiles: Uint8Array, steps: [number, number][], lay: Rng): boolean {
   const a = h[path[0]];
   const b = h[path[path.length - 1]];
   const drop = Math.abs(a - b);
