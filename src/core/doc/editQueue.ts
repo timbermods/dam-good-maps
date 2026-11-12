@@ -27,6 +27,8 @@
 
 import type { BrushParams } from "../features/raster/brush";
 import type { TerrainState } from "../features/raster/strokePreview";
+import type { StandingObject } from "../features/raster/objectGround";
+import { composeStroke } from "../features/raster/strokeComposer";
 import type { HistoryItem } from "./session";
 
 export type Rect = { x0: number; y0: number; x1: number; y1: number };
@@ -940,6 +942,8 @@ export class StrokeFeed {
   /** The shown heights as the stroke began. */
   readonly start: Uint8Array;
   private before: { pre: Uint8Array; protect: Uint8Array };
+  /** The terrain it was painted on (its holds, the settled water, `worn`: what its operation is completed from). */
+  private readonly terrainAt: TerrainState;
   private changed: Rect | null = null;
   private letGo = false;
   private gone = false;
@@ -965,6 +969,7 @@ export class StrokeFeed {
     const t = queue.terrain();
     this.start = queue.shown.slice();
     this.before = { pre: t.pre.slice(), protect: t.protect.slice() };
+    this.terrainAt = { ...t, ...this.before };
     const state: TerrainState = { ...t, pre: t.pre.slice(), protect: t.protect.slice() };
     this.chain = this.call(0, () => worker.begin(id, { ...settings }, ground, state, queue.shown.slice(), queue.W, queue.H));
   }
@@ -997,10 +1002,11 @@ export class StrokeFeed {
   }
 
   /** Let go: the ticket closes; once its dabs' land is in, the pieces that ride it whole (`rigid`, D249) go, then the
-   *  operation follows the last land. `landed`, when given, builds the operation instead of the feed (the page: its
-   *  label, its call) and must make the ticket ready or cancel it. Resolves true once it landed, false when it was
-   *  taken back first (Esc, its worker silent past its bound, another map). */
-  end(opts: { rigid?: () => Rigid[]; landed?: (l: FeedLanding) => void } = {}): Promise<boolean> {
+   *  operation follows the last land, composed and completed by the one composer (strokeComposer.ts) on the map it was
+   *  painted on (`entities`: the objects standing). `landed`, when given, builds the operation instead of the feed (the
+   *  page: its call) and must make the ticket ready or cancel it. Resolves true once it landed, false when it was taken
+   *  back first (Esc, its worker silent past its bound, another map). */
+  end(opts: { rigid?: () => Rigid[]; landed?: (l: FeedLanding) => void; entities?: readonly StandingObject[] } = {}): Promise<boolean> {
     if (this.gone || this.letGo) return Promise.resolve(this.landed);
     this.letGo = true;
     // (a call still out when it is let go has its own bound: a long press's batch may take seconds)
@@ -1014,7 +1020,7 @@ export class StrokeFeed {
       })
       .then((land) => this.land(land))
       .then(() => (this.gone || !this.alive() ? null : this.call(0, () => this.worker.end(this.id))))
-      .then((rec) => this.ready(rec, rigid, opts.landed));
+      .then((rec) => this.ready(rec, rigid, opts.landed, opts.entities ?? []));
     // (a worker that fails or never answers: the watchdog ends the ticket, and that is the answer)
     const ended = this.queue.settled(this.id).then(() => this.landed);
     const done = this.chain.then(
@@ -1081,7 +1087,7 @@ export class StrokeFeed {
     this.queue.draft(this.id, rect);
   }
 
-  private ready(rec: { pre: Uint8Array; protect: Uint8Array; settings: Omit<BrushParams, "dabs"> } | null, rigid: Rigid[], landed?: (l: FeedLanding) => void): void {
+  private ready(rec: { pre: Uint8Array; protect: Uint8Array; settings: Omit<BrushParams, "dabs"> } | null, rigid: Rigid[], landed: ((l: FeedLanding) => void) | undefined, entities: readonly StandingObject[]): void {
     if (this.gone || !this.alive()) return;
     this.gone = true;
     const b = this.changed;
@@ -1089,14 +1095,10 @@ export class StrokeFeed {
     const settings = rigid.length ? { ...rec.settings, rigid } : rec.settings;
     this.landed = true;
     if (landed) return landed({ start: this.start, before: this.before, bounds: b, pre: rec.pre, protect: rec.protect, settings });
-    const W = this.queue.W;
-    const H = this.queue.H;
-    const rect = { x0: Math.max(0, b!.x0 - 1), y0: Math.max(0, b!.y0 - 1), x1: Math.min(W - 1, b!.x1 + 1), y1: Math.min(H - 1, b!.y1 + 1) };
+    const q = this.queue;
     const params: BrushParams = { ...settings, ...(this.pressure ? { pressure: this.pressure } : {}), dabs: this.dabs };
-    this.queue.ready(this.id, { kind: "edit", name: "apply", args: [{ op: "brush", params }, "user", "Naturalize"] }, {
-      rect,
-      before: patchOf(this.start, this.before, rect, W),
-      after: patchOf(this.queue.shown, rec, rect, W),
-    });
+    const c = composeStroke(params, "Naturalize", { start: this.start, shown: q.shown, pre: rec.pre, protect: rec.protect, bounds: b, before: this.terrainAt }, { W: q.W, H: q.H, heights: this.start, terrain: this.terrainAt, entities });
+    if (!c.tiles) return q.cancel(this.id);
+    q.ready(this.id, { kind: "edit", name: "apply", args: [{ op: "brush", params: c.params }, "user", c.label] }, c.overlay);
   }
 }

@@ -90,10 +90,10 @@ describe("the edit queue against the worker: pinned scenarios", () => {
     checkOracle(h, h.queue.epoch, "#873");
   });
 
-  it("#873 (step 4's acceptance, today's gap): the session still completes a Naturalize stroke with what only it works out", async () => {
-    // (step 4's composer completes the operation on the page, `completeStroke`, so the session adds nothing and the
-    // operation logged deep-equals the operation sent; step 4 changes this list to [] and the oracle's I6 then covers
-    // every stroke)
+  it("#873 (step 4): the page completes a Naturalize stroke itself: the session adds nothing, and it lands as it was shown", async () => {
+    // (step 4's composer completes the operation on the page, strokeComposer.ts `completeStroke`, so the operation logged
+    // deep-equals the operation sent and the oracle's I6 covers every stroke; until step 4 this test pinned the gap: the
+    // session added `hold` and `keep`, and the hold's tiles came back protected, one wrong guess in `protect`, D148)
     const h = new Harness(P1);
     const id = h.press("naturalize", 5, { seed: 3 });
     await h.drag(line(20, 26, 12));
@@ -101,13 +101,12 @@ describe("the edit queue against the worker: pinned scenarios", () => {
     await h.settle();
     const sent = ((h.queue.ticket(id)!.call as { args: unknown[] }).args[0] as Extract<EditOp, { op: "brush" }>).params;
     const logged = (lastOp() as Extract<EditOp, { op: "brush" }>).params;
-    const added = Object.keys(logged).filter((k) => !(k in sent)).sort();
-    expect(added).toEqual(["hold", "keep"]);
-    // (and so it does not land quite as it was shown: the hold's tiles come back protected, which the page's guess did
-    // not know; step 4 changes this to 0)
-    expect(h.queue.mispredictions).toBe(1);
-    expect(h.queue.ticket(id)!.mispredicted).toBe(true);
-    // (in `protect` alone: the land the player saw stays as it was shown, the page's `strokeMismatches`)
+    // (it holds the ground this map holds, and leaves the ground under its objects: the page found both)
+    expect(sent.hold?.length).toBeGreaterThan(0);
+    expect(sent.keep?.length).toBeGreaterThan(0);
+    expect(logged).toEqual(sent);
+    expect(h.queue.mispredictions).toBe(0);
+    expect(h.queue.ticket(id)!.mispredicted).toBe(false);
     expect(h.queue.landMispredictions).toBe(0);
   });
 

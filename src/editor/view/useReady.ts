@@ -10,7 +10,7 @@ import { FLIPPED, ORIENTATION_NAMES, surfaceWater } from "../../render3d/model";
 import type { MapRenderer, ViewState } from "../../render3d";
 import { Juice, type StrokeSound } from "../juice";
 import { selectTool } from "../select";
-import { BRUSH_NAMES, BrushPainter, cut, hasTarget, sizeMax, targetWords } from "../brushes";
+import { BRUSH_NAMES, BrushPainter, hasTarget, sizeMax, targetWords } from "../brushes";
 import { heldWords } from "../caveWords";
 import { tilesToRuns } from "../../core/math/grid";
 import { isSource, sourcesPressed } from "../sourceSpots";
@@ -129,7 +129,7 @@ export function useReady(ed: Ed): ReadySlice {
       // (every stroke a ticket from pointer-down, I3, I8)
       edits: () => edits.current,
       settings: () => ({ ...brushRef.current, tool: brushToolRef.current ?? "raise" }),
-      commit: (stroke, pre, protect, id) => {
+      commit: (stroke, id) => {
         lastStroke.current = stroke.params;
         juice.current?.edited();
         firstDoneRef.current("paint");
@@ -139,17 +139,9 @@ export function useReady(ed: Ed): ReadySlice {
         const clear = clears() ? sourcesPressed(spots(), stroke.params, stroke.params.dabs, infoRef.current.W).filter((c) => ed.inArea(c.tiles)) : [];
         endClearGlow();
         const op: EditOp = { op: "brush", params: stroke.params };
-        // (the stroke's ticket is ready: its operation, and the land it changed before and after, laid on what the page
-        // shows until the worker answers; the terrain under the stroke is still the queue's as it began, its refresh
-        // held while the stroke was drawn)
-        const q = edits.current;
-        const W = q.W;
-        const t = q.terrain();
-        q.ready(id, clear.length ? { kind: "edit", name: "strokeClearing", args: [op, stroke.label, clear.flatMap((c) => c.tiles)] } : { kind: "edit", name: "apply", args: [op, "user", stroke.label] }, {
-          rect: stroke.rect,
-          before: { heights: stroke.before.shown, pre: stroke.before.pre, protect: cut(t.protect, stroke.rect, W) },
-          after: { heights: stroke.after.shown, pre: cut(pre, stroke.rect, W), protect: cut(protect, stroke.rect, W) },
-        });
+        // (the stroke's ticket is ready: its operation, complete, and the land it changes before and after, laid on what
+        // the page shows until the worker answers, as the composer worked them out, strokeComposer.ts)
+        edits.current.ready(id, clear.length ? { kind: "edit", name: "strokeClearing", args: [op, stroke.label, clear.flatMap((c) => c.tiles)] } : { kind: "edit", name: "apply", args: [op, "user", stroke.label] }, stroke.overlay);
         void track(id, (u) => {
           if (!u.ok) return;
           // (a stroke that kept ground holding up a cave's or an overhang's rock, or an object under a roof, says how much
@@ -201,6 +193,8 @@ export function useReady(ed: Ed): ReadySlice {
       sourceGround: () => tilesToRuns([...new Set(spots().flatMap((c) => c.tiles))].sort((a, b) => a - b), infoRef.current.W),
       // Naturalize leaves the ground under every source and object as it is (D368 (8))
       objectGround: () => groundUnderObjects(objectList()),
+      // (and a stroke's operation records that ground, completed on the page as the session would, #922 step 4)
+      objects: () => objectList(),
       maxSize: () => sizeMax(infoRef.current.W, infoRef.current.H),
       // a mode's water (D322): the map's own, never a drought's or a badtide's shown now
       water: () => (weatherRef.current ? surfaceWater(infoRef.current.W, infoRef.current.H, mirror.current.mapWater).surface : (mirror.current.water?.surface ?? null)),

@@ -43,7 +43,9 @@ import type { RidgeSteep } from "../core/doc/ridgeLimits";
 import { areaRect, BRUSH_MAX_LEVEL, brushHard, type BrushParams, type BrushTool } from "../core/features/raster/brush";
 import { StrokePreview, type TerrainState } from "../core/features/raster/strokePreview";
 import { answerBound, WEATHER_SILENT } from "../core/features/raster/remoteStroke";
-import { StrokeFeed, type EditQueue, type FeedLanding, type Rigid, type StrokeWorker } from "../core/doc/editQueue";
+import { StrokeFeed, type EditQueue, type FeedLanding, type Overlay, type Rigid, type StrokeWorker } from "../core/doc/editQueue";
+import { composeStroke } from "../core/features/raster/strokeComposer";
+import type { StandingObject } from "../core/features/raster/objectGround";
 import { tilesToRuns } from "../core/math/grid";
 import { tileCount } from "../core/doc/labels";
 
@@ -145,14 +147,13 @@ export function targetWords(tool: "raise" | "lower" | "flatten", t: number | "fr
   return tool === "raise" ? `up to ${t}` : tool === "lower" ? `down to ${t}` : `level ${t}`;
 }
 
-/** A finished stroke: its operation, its history label, and the terrain before and after it (the
- *  page undoes and redoes a stroke at once, without waiting for the worker). */
+/** A finished stroke, composed by the one composer (core/features/raster/strokeComposer.ts, #922 step 4): its
+ *  operation complete, its history label, and the land it changes before and after (its overlay in the edit queue: the
+ *  page shows it until the worker answers, and undoes and redoes a recent stroke at once from it). */
 export interface Stroke {
   params: BrushParams;
   label: string;
-  rect: { x0: number; y0: number; x1: number; y1: number };
-  before: { shown: Uint8Array; pre: Uint8Array };
-  after: { shown: Uint8Array; pre: Uint8Array };
+  overlay: Overlay;
 }
 
 type Rect = { x0: number; y0: number; x1: number; y1: number };
@@ -169,7 +170,10 @@ export interface PainterHost {
    *  and `terrain()`; a press behind a Naturalize stroke still landing waits its turn to compose (I8). */
   edits(): EditQueue;
   /** A stroke ended with changes: its ticket is ready with its operation (`ticket`, the stroke's). */
-  commit(stroke: Stroke, pre: Uint8Array, protect: Uint8Array, ticket: number): void;
+  commit(stroke: Stroke, ticket: number): void;
+  /** The objects standing, as the core reads where they stand: what a stroke's operation is completed with (a
+   *  Naturalize stroke leaves the ground under them, D368 (8)). */
+  objects?(): StandingObject[];
   /** A stroke ended without changing the ground (a Flatten at the ground's own level, a Smooth over
    *  flat land; its ticket is gone): its operation, for what the stroke does besides the ground (the sources Clear
    *  takes, item 15). */
@@ -277,18 +281,6 @@ class FeedPreview {
     return null;
   }
 
-  /** How many shown tiles the stroke changed (0: none). */
-  changed(): number {
-    const b = this.bounds;
-    if (!b) return 0;
-    let n = 0;
-    for (let y = b.y0; y <= b.y1; y++)
-      for (let x: number = b.x0; x <= b.x1; x++) {
-        const i = y * this.W + x;
-        if (this.heights[i] !== this.start[i]) n++;
-      }
-    return n;
-  }
 }
 
 interface StrokeState {
@@ -1208,28 +1200,18 @@ export class BrushPainter {
     }
     const p = st.preview!;
     const params: BrushParams = { ...settings, ...(st.pressure ? { pressure: st.pressure } : {}), dabs: st.dabs };
-    const tiles = p.changed();
-    if (!tiles) {
+    // (the one composer: the operation complete, as the session would complete it, on the map it was painted on, the
+    // queue's terrain as the stroke began; and the land it changes before and after, as the build leaves it)
+    const terrain = h.terrain();
+    const c = composeStroke(params, BRUSH_NAMES[st.settings.tool as BrushTool], { start: p.start, shown: h.heights(), pre: p.pre, protect: p.protect, bounds: p.bounds, finished: p.finished, before: terrain }, { W: h.W, H: h.H, heights: p.start, terrain, entities: h.objects?.() ?? [] });
+    if (!c.tiles) {
       // (its ticket goes, and with it any water it drew)
       h.edits().cancel(st.id);
-      h.unchanged?.(params);
+      h.unchanged?.(c.params);
       this.showCursor();
       return;
     }
-    const b = p.bounds!;
-    // (and the pieces that rode it whole, with the tile round them the ground's check reads)
-    const f = p.finished;
-    const rect = { x0: Math.max(0, Math.min(b.x0, f ? f.x0 : b.x0) - 1), y0: Math.max(0, Math.min(b.y0, f ? f.y0 : b.y0) - 1), x1: Math.min(h.W - 1, Math.max(b.x1, f ? f.x1 : b.x1) + 1), y1: Math.min(h.H - 1, Math.max(b.y1, f ? f.y1 : b.y1) + 1) };
-    const before = h.terrain();
-    const shown = h.heights();
-    const stroke: Stroke = {
-      params,
-      label: `${BRUSH_NAMES[st.settings.tool as BrushTool]} ${tileCount(tiles)}`,
-      rect,
-      before: { shown: cut(p.start, rect, h.W), pre: cut(before.pre, rect, h.W) },
-      after: { shown: cut(shown, rect, h.W), pre: cut(p.pre, rect, h.W) },
-    };
-    h.commit(stroke, p.pre, p.protect, st.id);
+    h.commit({ params: c.params, label: c.label, overlay: c.overlay }, st.id);
     this.showCursor();
   }
 
