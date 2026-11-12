@@ -1,11 +1,14 @@
-// The wall with one gate's stage 2 (docs/PREMISES.md §5.1): its land's invariants (`gateLand.ts` `GATE_LAND_CHECKS`) on
-// seeds 1 to 4 at 128² and seed 1 at 192² and 256², and a hand-broken ground for each. The built map, its checks and
-// its water settled on the land are premiseGateLand.heavy.test.ts's.
+// The wall with one gate's stage 2 (docs/PREMISES.md §5.1; land first, story second, planning's ruling of 2026-11-11):
+// its land's invariants (`gateLand.ts` `GATE_LAND_CHECKS`: the range's crest, the gap the lowest crossing, the range in
+// the first frame, the dry lake's bowl, the valley held at the megadam's water, ruled land, the first frame's lip) on
+// seeds 1 to 4 at 128² and seed 1 at 192² and 256², and a hand-broken ground for each. The built map, its checks and its
+// water settled on the land are premiseGateLand.heavy.test.ts's.
 
 import { describe, expect, it } from "vitest";
-import { gateFirstWater } from "../../src/core/premise/gateWater";
-import { GATE_LAND_CHECKS, basinBeds, gateLand, gateLandFailures, gateZones, bedGround } from "../../src/core/premise/gateLand";
-import { gateOf, wallGate } from "../../src/core/premise/premises/wallGate";
+import { failing, PLAN_TRIES } from "../../src/core/premise/draw";
+import { gateFirstWater, gateWater } from "../../src/core/premise/gateWater";
+import { GATE_LAND_CHECKS, gateLand, gateLandFailures, gateZones } from "../../src/core/premise/gateLand";
+import { gateOf, onLocal, rangeAt, turnOf, wallGate } from "../../src/core/premise/premises/wallGate";
 import { makeSpec, type MapSpec } from "../../src/core/spec/mapspec";
 
 const spec = (seed: number, side: number): MapSpec => makeSpec({ seed, size: { x: side, y: side }, theme: "any", premise: "any" });
@@ -17,14 +20,25 @@ const landOf = (s: MapSpec) => {
 };
 
 describe("The wall with one gate's land", () => {
+  // (land first: a plan whose land fails an invariant is drawn again, as the mode does (`gateMap.ts`), never forced; the
+  // first plan whose land holds is found within the mode's tries)
   for (const [side, seed] of [[128, 1], [128, 2], [128, 3], [128, 4], [192, 1], [256, 1]])
-    it(`holds every land invariant: seed ${seed} at ${side}²`, () => {
+    it(`holds every land invariant on a plan the mode keeps: seed ${seed} at ${side}²`, () => {
       const s = spec(seed, side);
-      const { plan, water, heights } = landOf(s);
-      expect(gateLandFailures({ spec: s, plan, water, heights })).toEqual([]);
+      const refused: string[] = [];
+      for (let attempt = 0; attempt < PLAN_TRIES; attempt++) {
+        const plan = wallGate.draw(s, attempt);
+        if ("reason" in plan || failing(wallGate.invariants, "plan", { spec: s, plan }).length) continue;
+        const water = gateWater(plan);
+        if (failing(wallGate.invariants, "land", { spec: s, plan, water }).length) continue;
+        const f = gateLandFailures({ spec: s, plan, water, heights: gateLand(plan, water).heights });
+        if (!f.length) return;
+        refused.push(`${f[0].id}: ${f[0].reason}`);
+      }
+      expect(refused, "no plan's land held").toEqual([]);
     });
 
-  it("keeps every tile stage 1 fixed as stage 1 laid it, but the crest band's own rock", () => {
+  it("keeps every tile stage 1 fixed as stage 1 laid it, but the range's own ground beside its dry beds", () => {
     const { plan, water, heights } = landOf(spec(2, 128));
     const r = water.raster;
     const { zone } = gateZones(plan);
@@ -38,42 +52,37 @@ describe("Broken gate land fails its invariants", () => {
   const g = gateOf(base.plan)!;
   const { W, H } = base.plan;
   const r = base.water.raster;
-  const { zone, rim } = gateZones(base.plan, g, bedGround(base.plan, base.water));
-  const first = (pred: (i: number) => boolean) => {
-    for (let i = 0; i < W * H; i++) if (pred(i)) return i;
-    throw new Error("no such tile");
-  };
-  const near = (i: number, z: number) => [i - 1, i + 1, i - W, i + W].some((j) => j >= 0 && j < W * H && zone[j] === z);
+  const T = turnOf(base.plan, g);
+  const { zone } = gateZones(base.plan, g);
+  const water = (i: number) => r.lake[i] || r.channel[i] || r.pool[i] || r.crest[i];
+  const local = (i: number) => onLocal(T, [(i % W) + 0.5, Math.floor(i / W) + 0.5]);
+  const gate = base.plan.links.findIndex((l) => l.id === g.gate) + 1;
 
   // one hand-broken ground for each land invariant, which must fail it: a drawn land always passes, so only these catch
   // an invariant that has stopped testing anything
   const broken: [id: string, what: string, breakIt: (h: Uint8Array) => void][] = [
-    ["wall.faces", "a ledge two under the crest at the valley's foot", (h) => {
-      const i = first((k) => zone[k] === 0 && !r.fixed[k] && near(k, 1) && Math.min(k % W, Math.floor(k / W)) > 10 && h[k - W] !== undefined);
-      h[i] = g.crest - 2;
+    ["range.crest", "the range worn to one level", (h) => {
+      for (let i = 0; i < W * H; i++) if (zone[i] === 1 && !water(i)) h[i] = 13;
     }],
-    ["wall.camera", "the crest worn down a level", (h) => {
-      for (let i = 0; i < W * H; i++) if (zone[i] === 1 && h[i] === g.crest) h[i] = g.crest - 1;
+    ["gate.lowest", "the Gate's gorge filled to the crest", (h) => {
+      for (let i = 0; i < W * H; i++) if (r.channel[i] === gate && zone[i] === 1) h[i] = g.crest;
     }],
-    ["gate.slot", "a second gap through the wall", (h) => {
-      const i = first((k) => zone[k] === 1 && !r.fixed[k] && h[k] === g.crest);
-      h[i] = g.sill;
+    ["wall.camera", "the range worn down to its foot", (h) => {
+      for (let i = 0; i < W * H; i++) if (zone[i] === 1 && !water(i)) h[i] = g.sill + 2;
     }],
-    ["basin.bowl", "a basin floor tile over the lake's sill + 1", (h) => {
-      const i = first((k) => zone[k] === 2 && !rim[k] && !r.fixed[k]);
-      h[i] = g.sill + 3;
+    ["basin.bowl", "the dry lake's pan filled", (h) => {
+      const [px, py] = g.pan.at;
+      for (let i = 0; i < W * H; i++) if (!r.fixed[i] && (i % W - px) ** 2 + (Math.floor(i / W) - py) ** 2 < (g.pan.r + 2) ** 2) h[i] = g.sill + 3;
     }],
-    ["basin.terraces", "a floor tile within 3 of its bed stood up six over it", (h) => {
-      const { dist, bed } = basinBeds(base.plan, base.water, gateZones(base.plan, g).zone);
-      const i = first((k) => zone[k] === 2 && !rim[k] && !r.fixed[k] && dist[k] <= 3);
-      h[i] = bed[i] + 6;
+    ["valley.enclosed", "a cut through the range to the megadam's water beside the lake", (h) => {
+      const lake = base.plan.bodies.findIndex((b) => b.id === g.lake) + 1;
+      let at = -1;
+      for (let i = 0; i < W * H && at < 0; i++) if (r.lake[i] === lake) at = i;
+      const u0 = local(at)[0];
+      for (let i = 0; i < W * H; i++) if (!water(i) && Math.abs(local(i)[0] - u0) < 2 && local(i)[1] < rangeAt(g.range, u0).v + 4) h[i] = Math.min(h[i], g.megadam);
     }],
-    ["valley.enclosed", "the band along the valley's edge worn down", (h) => {
-      for (let i = 0; i < W * H; i++) {
-        const x = i % W;
-        const y = Math.floor(i / W);
-        if (zone[i] === 0 && !r.fixed[i] && Math.min(x, y, W - 1 - x, H - 1 - y) < 8) h[i] = g.sill;
-      }
+    ["terrain.ruled_land", "the basin laid in bands along the grid", (h) => {
+      for (let i = 0; i < W * H; i++) if (zone[i] === 2 && !r.fixed[i]) h[i] = 5 + 2 * (Math.floor((i % W) / 6) % 2);
     }],
     ["frame.lip", "the start's ground broken up for 6 tiles round it (stage 3 moves the start up to 4)", (h) => {
       const st = base.plan.frame.start;

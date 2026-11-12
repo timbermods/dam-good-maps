@@ -408,12 +408,12 @@ const gateOpens: GateWorksInvariant = {
 const basinDry: GateWorksInvariant = {
   id: "basin.dry",
   test({ plan, water, heights }) {
-    const { zone, rim } = gateZones(plan);
+    const { zone } = gateZones(plan);
     const soil = soilReach(heights, waterOn(water, dayOneFloor(water, heights)), plan.W, plan.H);
     let floor = 0;
     let wet = 0;
     for (let i = 0; i < soil.length; i++) {
-      if (zone[i] !== 2 || rim[i]) continue;
+      if (zone[i] !== 2) continue;
       floor++;
       if (soil[i]) wet++;
     }

@@ -39,9 +39,10 @@ export interface GateMap {
   attempt: number;
 }
 
-/** The start's five numbers planning asks every map report to open with (#236, 6800513400), from the map's checks:
+/** The start's numbers planning asks every map report to open with (#236, 6800513400; D515's `START_FLOORS`: the bench,
+ *  walkable land, wood, the fast wood's share, the forester's plot, farmland), from the map's checks:
  *  each check's value, its limit and whether it passed. */
-export const START_CHECKS = ["start.level_land", "start.farmland", "start.wood", "start.wood_floor", "start.reach"] as const;
+export const START_CHECKS = ["start.level_land", "start.reach", "start.wood", "start.wood_fast", "start.forester", "start.farmland"] as const;
 
 export function startNumbers(m: PremiseMap): Record<(typeof START_CHECKS)[number], { value: number; limit: number; ok: boolean }> {
   const out = {} as Record<(typeof START_CHECKS)[number], { value: number; limit: number; ok: boolean }>;

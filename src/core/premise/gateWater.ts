@@ -30,6 +30,7 @@ import { stageModel, waterByNumber, type StageWater } from "./water";
 import { guardWater } from "./raster/guard";
 import type { Invariant, InvariantResult, PremiseDef, PremisePlan } from "./types";
 import type { GateNumbers } from "./premises/wallGate";
+import { rangeAt } from "./gateRange";
 
 /** The deepest water in the first frame, but the drowned river's ribbon (§5.1: "the water in the first frame stays
  *  under two but for the row that carries the fall to the drain"; the lake stair's is 1.2, `frame.ts` `START`). */
@@ -80,7 +81,7 @@ export function gateWater(plan: PremisePlan): StageWater {
   const lake = plan.bodies.find((b) => b.id === g.lake)!;
   // (and its outer row, the start's side, two under: the row that carries the fall to the drain, the drowned river's
   // ribbon, which the frame lets stand 2.5 deep; the start's 5 × 5 stands a row beyond it, so the foot cannot widen)
-  const fb = toLocal(plan, g, g.runs[g.bastion].from)[1];
+  const fb = g.face;
   for (let i = 0; i < r.W * r.H; i++) {
     if (r.pool[i] !== veil || r.crest[i]) continue;
     const outer = toLocal(plan, g, [(i % r.W) + 0.5, Math.floor(i / r.W) + 0.5])[1] < fb - 1;
@@ -160,15 +161,10 @@ const gateDry: Invariant = {
   },
 };
 
-/** Whether a point stands past the wall's back, on the basin's side (local v over the crest band's top). */
+/** Whether a point stands past the range's crest line, on the basin's side (two tiles past its spine). */
 function basinSide(plan: PremisePlan, g: GateNumbers, x: number, y: number): boolean {
   const [u, v] = toLocal(plan, g, [x, y]);
-  for (const r of g.runs) {
-    const a = toLocal(plan, g, r.from);
-    const b = toLocal(plan, g, r.to);
-    if (u >= Math.min(a[0], b[0]) && u < Math.max(a[0], b[0])) return v > a[1] + r.thick;
-  }
-  return false;
+  return v > rangeAt(g.range, u).v + 2;
 }
 
 /** A map point in the plan's local frame (`premises/wallGate.ts`: u along the wall, v toward the basin). */

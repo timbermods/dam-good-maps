@@ -1,4 +1,5 @@
-// The wall with one gate's stage 0 (docs/PREMISES.md §5.1, the Gate's first PR): its eligibility, its plans on seeds
+// The wall with one gate's stage 0 (docs/PREMISES.md §5.1; its range, gap and basin since planning's ruling of
+// 2026-11-11): its eligibility, its plans on seeds
 // of each size holding every `plan` invariant, the seed varying its structure, a broken plan for every `plan`
 // invariant, and the premise kept out of the players' choices until it makes a whole map.
 
@@ -12,7 +13,7 @@ import { GATE_ID, gateOf, wallGate, wallGateEligible } from "../../src/core/prem
 import type { PremisePlan } from "../../src/core/premise/types";
 import { makeSpec, PREMISE_CHOICES, PREMISE_IDS, type MapSpec } from "../../src/core/spec/mapspec";
 
-// a premise map's spec takes the premises' preset (Highest terrain 22): the wall's crest stands at 17 or more
+// a premise map's spec takes the premises' preset (Highest terrain 22): the range's peak stands at 18 or more
 const spec = (seed: number, side: number, edit?: (s: MapSpec) => void): MapSpec => {
   const s = makeSpec({ seed, size: { x: side, y: side }, theme: "any", premise: "any" });
   edit?.(s);
@@ -71,7 +72,7 @@ describe("The wall with one gate's plans", () => {
     expect(JSON.stringify(planOf(spec(5, 192)))).toBe(JSON.stringify(planOf(spec(5, 192))));
   });
 
-  it("vary in structure from seed to seed (the turn and mirror, the fall, the Low River's side, the slot)", () => {
+  it("vary in structure from seed to seed (the turn and mirror, the fall, the Low River's side, the gorge)", () => {
     const keys = new Set<string>();
     for (let seed = 1; seed <= 12; seed++) {
       const g = gateOf(planOf(spec(seed, 192)))!;
@@ -112,13 +113,13 @@ describe("Broken wall-with-one-gate plans fail their invariants", () => {
     ["plan.skeleton", "water leaving by an edge the plan calls a ridge", (plan) => {
       plan.edges[plan.exits[0].edge] = "ridge";
     }],
-    ["gate.levels", "a crest of 16", (plan) => {
+    ["gate.levels", "a peak of 16", (plan) => {
       g(plan).crest = 16;
       plan.ridges.find((r) => r.id === "wall")!.top = 16;
     }],
-    ["wall.grid", "a run of the wall drawn diagonally", (plan) => {
-      const r = g(plan).runs[0];
-      r.to = [r.to[0] + 1, r.to[1] + 1];
+    ["range.spine", "the range's spine drawn straight along the grid", (plan) => {
+      const R = g(plan).range;
+      R.v = R.v.map(() => R.v[0]);
     }],
     ["wall.camera", "the start turned away from the wall", (plan) => {
       plan.frame.start.orientation = (["Cw180", "Cw270", "Cw0", "Cw90"] as const)[g(plan).turn];
@@ -128,12 +129,12 @@ describe("Broken wall-with-one-gate plans fail their invariants", () => {
       const look = openingCamera(plan.frame.start).look;
       veil.fall!.lip = veil.fall!.lip.map(([x, y]) => [x + 4 * look[0], y + 4 * look[1]]) as [[number, number], [number, number]];
     }],
-    ["gate.slot", "a slot 8 wide", (plan) => {
+    ["gate.gap", "a gorge 8 wide", (plan) => {
       g(plan).slot.width = 8;
       link(plan, "gate").half = 4;
     }],
-    ["basin.bowl", "the rim's east piece gone", (plan) => {
-      g(plan).rims = ["rimW"];
+    ["basin.bowl", "the old lake's shore inside its pan", (plan) => {
+      g(plan).pan.shore = g(plan).pan.r;
     }],
     ["start.neck", "an inlet 4 wide", (plan) => {
       link(plan, "inlet").half = 2;
