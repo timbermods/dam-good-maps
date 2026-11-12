@@ -8,7 +8,7 @@ import { generate } from "../../src/core/gen/generate";
 import { generatePremise } from "../../src/core/premise/generate";
 import { gateMap } from "../../src/core/premise/gateMap";
 import { makeSpec } from "../../src/core/spec/mapspec";
-import { RULED_LIMITS, ruledLand, wetOf } from "../../src/core/validate/ruledLand";
+import { RULED_LIMITS, ruledLand, ruledLandMessage, wetOf } from "../../src/core/validate/ruledLand";
 import { splitmix32 } from "../../src/core/math/rng";
 
 /** A heightfield of smoothed value noise, quantised to levels: land with no ruler in it. */
@@ -64,7 +64,7 @@ describe("ruled land", () => {
     expect(ruledLand(h, new Uint8Array(W * W), W, W).straight).toBeCloseTo(r.straight, 6);
   });
 
-  it("channels: a canal of straight reaches meeting at sharp bends and a moat fail; a winding river of even width and a blob lake pass with room", () => {
+  it("channels (reported, no limit): a canal of straight reaches meeting at sharp bends and a moat measure high; a winding river of even width and a blob lake low", () => {
     const W = 128;
     const flat = new Uint8Array(W * W).fill(4);
     const moat = new Uint8Array(W * W);
@@ -88,20 +88,25 @@ describe("ruled land", () => {
     for (const [name, wet] of [["moat", moat], ["canal", canal]] as const) {
       const r = ruledLand(flat, wet, W, W);
       expect(r.channels, name).toBeGreaterThan(0.8);
-      expect(r.ok, name).toBe(false);
       expect(r.channel, name).not.toBeNull();
+      expect(ruledLandMessage(r), name).toMatch(/of the water in straight even channels/);
     }
-    expect(ruledLand(flat, lake, W, W).channels).toBeLessThanOrEqual(RULED_LIMITS.channels / 2);
-    expect(ruledLand(flat, river, W, W).channels).toBeLessThanOrEqual(RULED_LIMITS.channels / 2);
+    expect(ruledLand(flat, lake, W, W).channels).toBeLessThanOrEqual(0.1);
+    expect(ruledLand(flat, river, W, W).channels).toBeLessThanOrEqual(0.1);
+    // channels never fails the row: the verdict is the other three's alone
+    for (const wet of [moat, canal, lake, river]) {
+      const r = ruledLand(flat, wet, W, W);
+      expect(r.ok).toBe(r.straight <= RULED_LIMITS.straight && r.bands <= RULED_LIMITS.bands && r.corners <= RULED_LIMITS.corners);
+    }
   });
 
-  it("the Gate as laid fails on seeds 1 and 2 at 128², on its edges and on its channels (flips to passes when the Gate's land is rebuilt)", () => {
+  it("the Gate as laid fails on seeds 1 and 2 at 128², on its edges, and measures high on channels (flips to passes when the Gate's land is rebuilt)", () => {
     for (const seed of [1, 2]) {
       const g = gateMap(makeSpec({ seed, size: { x: 128, y: 128 }, theme: "any", premise: "any" }));
       if ("reason" in g || !g.map) throw new Error(`the Gate made no map on seed ${seed}`);
       const r = measured(g.map.built);
       expect(r.ok, `seed ${seed}`).toBe(false);
-      expect(r.channels, `seed ${seed}`).toBeGreaterThan(RULED_LIMITS.channels);
+      expect(r.channels, `seed ${seed}`).toBeGreaterThan(0.4);
     }
   });
 
@@ -113,7 +118,7 @@ describe("ruled land", () => {
     const r = measured(p.result.built);
     expect(r.straight).toBeLessThanOrEqual(RULED_LIMITS.straight);
     expect(r.bands).toBeLessThanOrEqual(RULED_LIMITS.bands);
-    expect(r.channels).toBeLessThanOrEqual(RULED_LIMITS.channels);
+    expect(r.channels).toBeLessThanOrEqual(0.1);
     const t = generate(makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "riverValley" }));
     expect(measured(t.built).ok).toBe(true);
   });

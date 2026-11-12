@@ -156,7 +156,7 @@ function withRuledLand(file: TimberFile, v: Validation): Validation {
   const r = ruledLand(surfaceOf(w), wetOf(depth), w.sizeX, w.sizeY);
   const row: CheckResult = {
     id: "terrain.ruled_land", class: "design", severity: severityOf("generate", "design", r.ok, true), ok: r.ok, advisory: true,
-    value: `${Math.round(100 * r.straight)} % / ${Math.round(100 * r.bands)} % / ${Math.round(r.corners)} / ${Math.round(100 * r.channels)} %`, limit: `${100 * RULED_LIMITS.straight} % / ${100 * RULED_LIMITS.bands} % / ${RULED_LIMITS.corners} / ${100 * RULED_LIMITS.channels} %`,
+    value: `${Math.round(100 * r.straight)} % / ${Math.round(100 * r.bands)} % / ${Math.round(r.corners)} / ${Math.round(100 * r.channels)} %`, limit: `${100 * RULED_LIMITS.straight} % / ${100 * RULED_LIMITS.bands} % / ${RULED_LIMITS.corners} / none`,
     message: ruledLandMessage(r), ...(r.ok ? {} : { where: { tiles: r.channel ? [[r.longest.x, r.longest.y], [r.channel.x, r.channel.y]] : [[r.longest.x, r.longest.y]] } }),
   };
   return { ...v, report: { ...v.report, checks: [...v.report.checks, row] } };
