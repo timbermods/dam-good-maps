@@ -85,7 +85,9 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   sources down the graph, and the fitted constants `WATER`; `HOLD` and `holdDeep`, how deep a lake's floor lies so it
   keeps most of its water through the difficulty's longest drought (§4.4 `drought.lakes`).
 - `hold.ts` `droughtHold`: that drought run on a built map (`HazardRun`, as the editor's Drought view): each lake's
-  volume at its worst day and the day the start's water goes.
+  volume at its worst day and the day the start's water goes; `startWaterGate`, stage 8's gate on the start's water:
+  read by the analytic drought first (`START_SCREEN`), the run only where that read cannot vouch, cut short once it
+  can.
 - `water.ts` `waterByNumber`: stage 1, the plan's water as heights and masks (`raster/field.ts` `WaterRaster`): the
   bodies' beds (`raster/bodies.ts`), the channels and their wander (`raster/channels.ts`), the falls' crests, lips
   and pools (`raster/falls.ts`), the weirs at the heads of channels a body's water splits between

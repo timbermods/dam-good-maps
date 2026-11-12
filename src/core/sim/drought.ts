@@ -9,13 +9,12 @@ import { clusterSaturation, evapModifier } from "./moisture";
 import { spillLevels } from "./prefill";
 import { SECONDS_PER_DAY, type WaterModel } from "./water";
 
-/** Depth left per tile after `days` of drought, from the settled `depth`. */
-export function droughtStorage(m: WaterModel, depth: ArrayLike<number>, days: number): Float64Array {
+/** The level the water on each tile drains to in a drought (`droughtStorage`): its spill level, except on a weir,
+ *  whose own water runs off over its lowest neighbour. */
+export function drainLevels(m: WaterModel): Float64Array {
   const { W, H } = m;
   const N = W * H;
   const spill = spillLevels(m);
-  // the level water on a tile drains to: its spill level, except on a weir, whose own water runs
-  // off over its lowest neighbour
   const own = spill.slice();
   if (m.dam) {
     for (let i = 0; i < N; i++) {
@@ -30,6 +29,14 @@ export function droughtStorage(m: WaterModel, depth: ArrayLike<number>, days: nu
       own[i] = lo > m.floor[i] ? lo : m.floor[i];
     }
   }
+  return own;
+}
+
+/** Depth left per tile after `days` of drought, from the settled `depth` (`own`: `drainLevels`, worked out once by a
+ *  caller that reads several droughts on one map). */
+export function droughtStorage(m: WaterModel, depth: ArrayLike<number>, days: number, own: ArrayLike<number> = drainLevels(m)): Float64Array {
+  const { W, H } = m;
+  const N = W * H;
   const kept = new Float64Array(N);
   const wet = new Uint8Array(N);
   for (let i = 0; i < N; i++) {
@@ -79,4 +86,13 @@ export function droughtStorage(m: WaterModel, depth: ArrayLike<number>, days: nu
     kept[i] = k > 0 ? k : 0;
   }
   return kept;
+}
+
+/** `droughtStorage` a day at a time: each day's pools found again on the water the day before left, so a pool that
+ *  parts as it falls has each part lose its own surface's evaporation (a narrow arm cut off dries faster than the
+ *  pool's mean; on Hard's 30 days the single reading stood up to 0.34 over the simulation). */
+export function droughtStorageByDay(m: WaterModel, depth: ArrayLike<number>, days: number, own: ArrayLike<number> = drainLevels(m)): Float64Array {
+  let d = droughtStorage(m, depth, Math.min(1, days), own);
+  for (let left = days - 1; left > 0; left--) d = droughtStorage(m, d, Math.min(1, left), own);
+  return d;
 }
