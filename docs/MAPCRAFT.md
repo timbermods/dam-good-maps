@@ -115,13 +115,16 @@ a premise or one still to come, may carry its own, lower playability floor.
 - **Wood**: living trees near the official maps' count to about half the Workshop's (roughly 350–700 per 10,000
   tiles), as stands with a purpose; and dead trees on the dry land as the game's maps have them (36 to 124 per 1,000
   dry tiles; ours about 40, D516), in a few old woods where forest was: the old water line, dry beds, a mesa top, dry
-  hollows; pines on the tops, birches by old water, a few old oaks. A dead tree keeps its logs and grows none back: wood travelled for, none in the start's walk.
+  hollows; pines on the tops, birches by old water, a few old oaks. A stand is knots of 3 to 8 trunks with gaps, thinning
+  to single trees at its edge, its outline the land's (a rim, a bank, the old water line), a third of its trees shorter
+  (died young; D518). A dead tree keeps its logs and grows none back: wood travelled for, none in the start's walk.
 - **Dry washes**: one or two long winding dry beds across the dry land, as each of the game's maps has (D517): 60 to
-  150 tiles on a 128² map, 2 to 3 wide, a level or two deep, where rain would run, with side branches and fords every
+  150 tiles on a 128² map, 3 wide (a branch 2), a level or two deep, its banks long straight treads (each reach 3 tiles
+  at least before it steps aside, no teeth; D518), where rain would run, with side branches and fords every
   15 to 25 tiles where the bank slopes down and up again, ending at water behind a lip, in a dry hollow that fills if
   water is led in, or (the old bed, one a map) behind a lake's lip, one notch from running again. A dam at a wash's mouth or a
   canal into it greens its floor first: irrigation the land offers, never water it gives. Canyon's side canyons are
-  deeper washes (D518): two or three a 128² map, walls of three levels or four, 3 to 5 wide, deepening from the head,
+  deeper washes (D518): two or three a 128² map, walls of three levels or four, 4 wide, deepening from the head,
   dry unless they reach the river.
 - **Weather**: by the model and in the game: the start's days of water in each early drought; the day badwater reaches
   the start, left alone and with each answer built.

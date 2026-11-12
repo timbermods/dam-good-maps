@@ -89,8 +89,11 @@ const STAIR_CELL = 8;
  *  outlands' mean over it, rounded after a lift of its own, up to `lift` levels either way, so neighbours meet in a
  *  step of none to three. */
 const PLATE = { from: 5, wander: 3, start: 16, lift: 1.2 };
-/** The plates' scatter's turn off the tile grid (cos, sin: 3-4-5, exact). */
+/** The plates' scatter's turn off the tile grid (cos, sin: 3-4-5, exact), and the bend of their benches' sides, on maps
+ *  of this many tiles at most (D518 is 128²'s; a bigger map's plates stay as they were, its stair's fallback the
+ *  premise's own). */
 const PLATE_TURN = [4 / 5, 3 / 5] as const;
+const PLATE_TURN_MOST = 128 * 128;
 /** Highlands' peaks: `share` of the plates' points a cone, its summit `low` to 1 of the form's span and level for
  *  `flat` tiles round its point (a summit narrower than the bench-width floor's 5 tiles is worn down by it), falling a
  *  span's height over `reach` plates' widths; between them rolling heights at `base` of the span, `roll` either way
@@ -530,7 +533,7 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   // lattice is turned off the tile grid (by 3-4-5, `PLATE_TURN`), so the plates' sides never run along its rows and
   // columns and meet in no square corner (D518: the scatter on the grid met in rectangles)
   const P = 8 + Math.round(W / 16);
-  const [tc, ts] = PLATE_TURN;
+  const [tc, ts] = W * H <= PLATE_TURN_MOST ? PLATE_TURN : ([1, 0] as const);
   const pw = Math.ceil((tc * W + ts * H) / P) + 3;
   const ph = Math.ceil((ts * W + tc * H) / P) + 3;
   const px = new Float64Array(pw * ph);
@@ -807,7 +810,7 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   tidy(h, r, base);
   widenBenches(h, W, H, where);
   // (its benches' sides bent, so they meet in no straight side or square corner, D518)
-  bendLevels(h, W, H, where, S("bend"));
+  if (W * H <= PLATE_TURN_MOST) bendLevels(h, W, H, where, S("bend"));
   for (let i = 0; i < N; i++) if (!keep[i] && h[i] < base[i]) h[i] = base[i];
   tidy(h, r, base);
   return h;
