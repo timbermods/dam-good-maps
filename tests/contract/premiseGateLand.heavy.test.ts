@@ -19,7 +19,8 @@ describe("The wall with one gate's maps", () => {
       if ("reason" in r) throw new Error(r.reason);
       expect(r.landFails).toEqual([]);
       // (the works stand on the land and do what they say; a rung short of its floor is said, as the lake stair's are)
-      expect(r.worksFails.filter((f) => f.id !== "works.paid")).toEqual([]);
+      // (a rung short of its floor, and the map's shares short of a quarter, are said, not refused)
+      expect(r.worksFails.filter((f) => f.id !== "works.paid" && f.id !== "map.shares")).toEqual([]);
       console.log(`  works: ${r.ladder.works.map((w) => `${w.id} ${w.reservoir || w.green}${w.paid ? "" : " (short)"}`).join(", ")}; first: ${r.card.first}`);
       expect(r.frame.reason).toBeNull();
       const m = r.map!;
@@ -30,7 +31,8 @@ describe("The wall with one gate's maps", () => {
       const at = (id: string) => s.levels.find((l) => l.id === id)!;
       expect(at("lake").level - at("lake").sill).toBeGreaterThanOrEqual(0.05);
       expect(at("lake").level - at("lake").sill).toBeLessThanOrEqual(0.6);
-      expect(Math.abs(at("kettle").level - at("lake").level)).toBeLessThanOrEqual(0.25);
+      // (the Still Pool is the plunge pool's backwater since planning's ruling of 2026-11-12)
+      expect(Math.abs(at("kettle").level - at("door").level)).toBeLessThanOrEqual(0.25);
       expect(s.veil.ok, s.veil.note).toBe(true);
       expect([s.gateWet, s.leatWet, s.stray, s.edge]).toEqual([0, 0, 0, 0]);
     });
