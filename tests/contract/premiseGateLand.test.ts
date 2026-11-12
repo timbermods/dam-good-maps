@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { failing, PLAN_TRIES } from "../../src/core/premise/draw";
 import { gateWater } from "../../src/core/premise/gateWater";
 import { firstWater } from "../../src/core/premise/draw";
-import { GATE_LAND_CHECKS, gateLand, gateLandFailures, gateZones } from "../../src/core/premise/gateLand";
+import { GATE_LAND_CHECKS, gateLand, gateLandFailures, gateZones, rangeBand } from "../../src/core/premise/gateLand";
 import { gateOf, onLocal, rangeAt, turnOf, wallGate } from "../../src/core/premise/premises/wallGate";
 import { makeSpec, type MapSpec } from "../../src/core/spec/mapspec";
 import { gateWetPast } from "../../src/core/premise/gateMap";
@@ -65,6 +65,25 @@ describe("Broken gate land fails its invariants", () => {
   const broken: [id: string, what: string, breakIt: (h: Uint8Array) => void][] = [
     ["range.crest", "the range worn to one level", (h) => {
       for (let i = 0; i < W * H; i++) if (zone[i] === 1 && !water(i)) h[i] = 13;
+    }],
+    ["range.flat", "the range's flanks laid as terraces three levels apart, eight tiles deep", (h) => {
+      const band = rangeBand(base.plan, base.water);
+      for (let i = 0; i < W * H; i++) if (band[i] && !water(i)) h[i] = 9 + 3 * Math.floor(Math.abs(local(i)[1] - rangeAt(g.range, local(i)[0]).v) / 8);
+    }],
+    ["range.valleys", "the range worn down to its feet, the cleft's ground with it: no valley falls from it", (h) => {
+      for (let i = 0; i < W * H; i++) if (zone[i] === 1 && !r.channel[i] && !r.lake[i]) h[i] = g.sill + 2;
+    }],
+    ["range.columns", "two-tile columns three levels over the range's flank", (h) => {
+      const band = rangeBand(base.plan, base.water);
+      let n = 0;
+      for (let i = W * 2; i < W * H - W * 2 && n < 6; i++) {
+        if (!band[i] || r.fixed[i] || water(i) || (i % W) % 9 || Math.floor(i / W) % 9) continue;
+        if ([i - 1, i + 1, i + 2, i - W, i + W, i + 1 - W, i + 1 + W].some((j) => !band[j] || r.fixed[j] || water(j))) continue;
+        const top = Math.max(h[i - 1], h[i + 2], h[i - W], h[i + W], h[i + 1 - W], h[i + 1 + W]) + 3;
+        h[i] = top;
+        h[i + 1] = top;
+        n++;
+      }
     }],
     ["gate.lowest", "the Gate's gorge filled to the crest", (h) => {
       for (let i = 0; i < W * H; i++) if (r.channel[i] === gate && zone[i] === 1) h[i] = g.crest;

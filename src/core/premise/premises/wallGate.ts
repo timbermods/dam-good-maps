@@ -24,7 +24,7 @@ import { ORIENTATIONS } from "../../format/footprints";
 import { BED_FLOOR } from "../../land/genome";
 import { smoothstep } from "../../math/clamp";
 import { fbm } from "../../math/noise";
-import { hypot, sqrt } from "../../math/portable";
+import { cos, hypot, sin, sqrt } from "../../math/portable";
 import { hazardDays } from "../../sim/weather";
 import { MAX_SILL_WIDTH, sillWidthFor } from "../../sim/sill";
 import { EDITOR_LEVEL, type MapSpec } from "../../spec/mapspec";
@@ -57,15 +57,19 @@ export const DOOR_LOBE = 8;
 export const OUTFLOW_HALF = 2;
 /** A southern brook's half width at its tarn (the table reads it: narrower, the tarns stood over their sills). */
 export const TARN_HALF = 1.4;
+/** The range's spurs (planning's ruling of 2026-11-13): roots `gap` tiles apart along the spine, `len` of their flank
+ *  long, turned up to `turn` radians off square, forking where longer than `fork` of the flank, the branches `forkTurn`
+ *  radians apart each way. */
+export const SPURS = { gap: [8, 30], len: [0.3, 1.2], turn: 0.5, fork: 0.85, forkTurn: [0.3, 0.6], least: 2 } as const;
 /** The Steps, the small pool between the plunge pool's brook's two steps: across the brook, as wide as its lip
  *  (`r` its half length along the brook), at least `reach` tiles of brook each side of it. */
-export const STEPS = { r: 2.6, reach: 4, meadow: 4 } as const;
+export const STEPS = { r: 2.6, reach: 4, meadow: 4, clear: 3.2 } as const;
 /** The valley's brooks (planning's rulings of 2026-11-12: never wide and straight). The plunge pool's falls the two
  *  levels to the lake in two steps, a level over the pool's low lip into a reach, then the Steps' cascade `cascade` of
  *  the way between; its width `stream` (3 or 4: two wide, its 9.5 stood two deep), the southern brooks' `valley`. A
  *  whole width is drawn afresh after a run of `run` tiles, never the one before; `valley.water` holds only the most:
  *  never one width for more than `run[1]` tiles (the least only spaces the draws). A point every `every` tiles. */
-export const BROOK = { stream: [3, 4], valley: [2, 3], run: [3, 6], every: 3, cascade: [0.35, 0.6] } as const;
+export const BROOK = { stream: [3, 4], valley: [2, 3], mouth: [3, 4], run: [3, 6], every: 3, cascade: [0.35, 0.6] } as const;
 /** The plunge pool's brook runs this far on from its lip, away from the bench, before it turns down the valley. */
 export const OUTFLOW_AWAY = 16;
 /** The valley's lake at its low end (planning's ruling: one broad body with a shore, ten across or more at its widest,
@@ -75,9 +79,14 @@ export const OUTFLOW_AWAY = 16;
 export const LAKE_SHAPE = { wide: [6, 9.5], span: 36, least: 22, offBench: 16, meadow: 10, widest: 10, varies: 2 } as const;
 /** The Veil: a fall of 6 or 7 from the cleft's lip into the plunge pool at the start's door. */
 export const VEIL = [6, 7] as const;
-/** The range's highest peak: 18 to 21, under the highest ground (its crest falls from there to the gap's saddle): the
- *  map's great feature, over the valley's uplands. */
-export const CREST = [18, 21] as const;
+/** The range's highest peak: 17 to 22, under the highest ground (its crest falls from there to the gap's saddle): 17 or
+ *  18 at 128², a level more each 64 tiles of side (planning's ruling of 2026-11-14: height follows breadth; the back
+ *  slope's breadth at a level every three to five tiles is what earns it). Never under 17: the Veil's cleft stands on the
+ *  crest two over its pool. */
+export const CREST = [17, 22] as const;
+/** The least Highest terrain the premise takes (unchanged by the scarp's lower crest: the Veil's crest stands 18 at the
+ *  most likely). */
+export const CREST_SKY = 18;
 /** The range (§5.1, planning's ruling of 2026-11-11: a mountain range, not a wall): its spine wanders across the map,
  *  sampled every `sample` tiles along u; it stands `veil` tiles behind the Veil's face, there and within `calm` tiles
  *  of the Veil's middle, coming in over `calmIn` more; elsewhere it wanders behind by `wander` of the side (by noise
@@ -151,7 +160,7 @@ const GIVES = { gateOpen: (2 / 3) * 1318 / 192, gateWhole: (2 / 3) * 1534 / 192,
 const SHARE = new Set(["gateWhole", "leatWhole"]);
 
 /** Layouts an attempt draws before it gives up. */
-const LAYOUT_TRIES = 24;
+const LAYOUT_TRIES = 72;
 
 // ------------------------------------------------------------------------------------------------- the plan's own numbers
 
@@ -192,6 +201,9 @@ export interface GateNumbers {
   /** The Gate: the gorge's width, the index of the gate's path point where the gorge ends (the Gate Bed begins); its bar's
    *  level and length from the shore. */
   slot: { width: number; to: number };
+  /** The range's spurs (local u, v), each a path from where it leaves (the spine, or a fork) toward a side (0 the
+   *  valley's, 2 the basin's); a fork's two branches start where its trunk ends. */
+  spurs: { side: 0 | 2; trunk: boolean; path: Point[] }[];
   bar: { level: number; length: number };
   /** The leat: the bar at its head (two over its bed), and the index of its path point at the Pass (the Pass Bed
    *  begins after it); the Pass's span along the crest. */
@@ -229,7 +241,7 @@ export function wallGateEligible(spec: MapSpec): string | null {
   if (spec.settings.water.lakes === "none") return "The wall with one gate needs its valley lake, and Lakes is None";
   if (spec.settings.water.waterfalls === "off") return "The wall with one gate needs its fall, and Waterfalls is Off";
   if (spec.settings.water.sources === "none") return "The wall with one gate needs its springs, and Sources is None";
-  if (spec.settings.terrain.highestTerrain < CREST[0]) return `Highest terrain ${spec.settings.terrain.highestTerrain} is too low for the wall (its crest stands at ${CREST[0]} or more)`;
+  if (spec.settings.terrain.highestTerrain < CREST_SKY) return `Highest terrain ${spec.settings.terrain.highestTerrain} is too low for the wall (its crest stands at ${CREST_SKY} or more)`;
   if (LAKE_SILL + VEIL[0] > gateTop(spec) - 2) return `Highest terrain ${spec.settings.terrain.highestTerrain} is too low for the springs over the fall`;
   return null;
 }
@@ -245,7 +257,7 @@ export interface Turn {
 }
 
 /** A point (continuous) from local to map. */
-function onMap(T: Turn, [u0, v]: Point): Point {
+export function onMap(T: Turn, [u0, v]: Point): Point {
   const u = T.m ? T.N - u0 : u0;
   const N = T.N;
   return T.k === 0 ? [u, v] : T.k === 1 ? [v, N - u] : T.k === 2 ? [N - u, N - v] : [N - v, u];
@@ -315,7 +327,9 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const veils = VEIL.filter((h) => D + h <= top - 2);
   const Hv = veils[rng.int(0, veils.length)];
   const poolSill = D + Hv;
-  const C = rng.int(CREST[0], Math.min(CREST[1], sky) + 1);
+  // (as high as the theme's ceiling allows, a level of play: planning's ruling of 2026-11-13, use the height)
+  // (and three over the cleft's pool at least: the Veil's springs rise in the crest)
+  const C = Math.min(CREST[1], sky, Math.max(poolSill + 3, CREST[0] + 1 + Math.round((N - 128) / 64) + rng.int(0, 2)));
   const P = poolSill - 2;
   const M = S + MEGADAM_RISE;
   const Gs = M + SADDLE_OVER;
@@ -349,7 +363,9 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   // reach (the land is drawn first; the frame only chooses what of it to show)
   const long = Array.from({ length: 3 * n + 1 }, (_, k) => fbm(sP, k * step, 0.5, pCell, 3));
   const o0 = rng.int(0, 2 * n + 1);
-  const lift = (q: number) => q * (2 - q);
+  // (planning's ruling of 2026-11-13, use the height: the range stands high between its saddles, the noise's share of
+  // the way up taken as 1 − (1 − q)³, so the crest stands near its peak for most of its length)
+  const lift = (q: number) => 1 - (1 - q) * (1 - q) * (1 - q);
   const atU = (a: readonly number[], u: number) => {
     const q = Math.max(0, Math.min(a.length - 1, u / step));
     const k = Math.min(a.length - 2, Math.floor(q));
@@ -455,6 +471,45 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const span = Math.max(...raw) - raw[kg];
   const crest = raw.map((r) => r2(Gs + lift((r - raw[kg]) / span) * (C - Gs)));
   const R: GateRange = { step, v: sv.map(r2), crest, front: front.map(r2), back: back.map(r2) };
+
+  // ---- the range's spurs (planning's ruling of 2026-11-13: not on a beat): from the spine at spacings drawn from
+  // `SPURS.gap`, toward either side as it falls (two in a row from one side as often as not), each `SPURS.len` of its
+  // flank long, wandering; a long one forks. Not before the Veil's face, nor across the Gate's gorge or the Pass. The
+  // side valleys lie between them.
+  const spurs: GateNumbers["spurs"] = [];
+  for (let su = rng.range(4, 12); su < N - 6; su += rng.range(SPURS.gap[0], SPURS.gap[1])) {
+    // (either side as it falls, but never three more on one side than the other: both flanks have their valleys)
+    const lead = spurs.filter((x) => x.trunk && x.side === 0).length - spurs.filter((x) => x.trunk && x.side === 2).length;
+    const toss = rng.float();
+    const side: 0 | 2 = lead >= 2 ? 2 : lead <= -2 ? 0 : toss < 0.5 ? 0 : 2;
+    const ra = rangeAt(R, su);
+    const flank = side === 0 ? ra.front : ra.back;
+    const len = flank * rng.range(SPURS.len[0], SPURS.len[1]);
+    const turn = rng.range(-SPURS.turn, SPURS.turn);
+    const forkAt = len > SPURS.fork * flank ? rng.range(0.45, 0.65) : 2;
+    const forkTurn = rng.range(SPURS.forkTurn[0], SPURS.forkTurn[1]);
+    if (su < 6 || (side === 0 && su > lu0 - 10 && su < lu1 + 10) || Math.abs(su - gu) < slotW / 2 + 6 || Math.abs(su - pu) < 8) continue;
+    const dv = side === 0 ? -1 : 1;
+    const walk = (from: Point, a: number, l: number): Point[] => {
+      const out: Point[] = [from];
+      let p = from;
+      for (let d = 2; d <= l + 1e-9; d += 2) {
+        const aa = a + rng.range(-0.25, 0.25);
+        p = [p[0] + 2 * sin(aa), p[1] + 2 * dv * cos(aa)];
+        out.push([r2(p[0]), r2(p[1])]);
+      }
+      return out;
+    };
+    const root: Point = [r2(su), r2(ra.v)];
+    if (forkAt > 1) spurs.push({ side, trunk: true, path: walk(root, turn, len) });
+    else {
+      const trunk = walk(root, turn, len * forkAt);
+      spurs.push({ side, trunk: true, path: trunk });
+      const at = trunk[trunk.length - 1];
+      spurs.push({ side, trunk: false, path: walk(at, turn - forkTurn, len * (1 - forkAt)) });
+      spurs.push({ side, trunk: false, path: walk(at, turn + forkTurn, len * (1 - forkAt) * rng.range(0.6, 1)) });
+    }
+  }
 
   const shoreV = foot(gu) - SLOT_BENCH;
   const footV = backFoot(gu) + 3;
@@ -662,7 +717,26 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const stepsFrom = STEPS.r + STEPS.reach;
   const stepsTo = outLen - STEPS.r - 1 - STEPS.reach;
   if (stepsTo < stepsFrom) return { why: "brook room" };
-  const cascadeAt = stepsFrom + (stepsTo - stepsFrom) * rng.range(BROOK.cascade[0], BROOK.cascade[1]);
+  // (clear of the plunge pool by `BODY_GAP` and a tile: the drawn place first, then on down the brook until it is)
+  const gapToDoor = (c: number): number => {
+    const { p, dir } = pointAt(outflow, c);
+    const n: Point = [-dir[1], dir[0]];
+    let least = Infinity;
+    for (let q = -1; q <= 1; q += 0.25) {
+      const sp: Point = [p[0] + n[0] * q * (stepLip / 2 - STEPS.r), p[1] + n[1] * q * (stepLip / 2 - STEPS.r)];
+      for (let k = 0; k + 1 < trench.length; k++)
+        for (let f = 0; f <= 1; f += 0.25) {
+          const a = trench[k];
+          const b = trench[k + 1];
+          const tp: Point = [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
+          least = Math.min(least, dist(sp, tp) - (a[2] + (b[2] - a[2]) * f) - STEPS.r);
+        }
+    }
+    return least;
+  };
+  let cascadeAt = stepsFrom + (stepsTo - stepsFrom) * rng.range(BROOK.cascade[0], BROOK.cascade[1]);
+  while (cascadeAt <= stepsTo && gapToDoor(cascadeAt) < STEPS.clear) cascadeAt += 1;
+  if (cascadeAt > stepsTo) return { why: "brook room" };
   const along = (k: number) => pathLength(outflow.slice(0, k + 1));
   const { p: stepsAt, dir: sd } = pointAt(outflow, cascadeAt);
   const sn: Point = [-sd[1], sd[0]];
@@ -739,7 +813,15 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     // step: narrower over the step or under it, the brook stood its tarn 0.4 over the level the table gives)
     if (course.length < 4) return { why: "brook room" };
     const bed = [sill, sill, ...bedAlong(course.slice(2), sill - 1, S)];
-    tarns.push({ spine: [[tu, tv, r]], sill, path: course, bed, halves: halvesAlong(course, BROOK.valley, TARN_HALF, 2, BROOK.valley[0]) });
+    const halves = halvesAlong(course, BROOK.valley, TARN_HALF, 2, BROOK.valley[0]);
+    // (on its last reach, level with the lake's sill, three or four wide: two wide there, its spring's 2.3 stood a level
+    // deep, over its banks, and ran out beside it, the stray water of 192² seed 1; the table reads one width)
+    const flatFrom = bed.findIndex((b) => b === S);
+    if (flatFrom >= 0) {
+      const tail = halvesAlong(course.slice(flatFrom), BROOK.mouth, BROOK.mouth[0] / 2, 1, Math.round(2 * halves[Math.max(0, flatFrom - 1)]));
+      for (let k = flatFrom; k < course.length; k++) halves[k] = tail[k - flatFrom];
+    }
+    tarns.push({ spine: [[tu, tv, r]], sill, path: course, bed, halves });
   }
   // the lake's bays: one or two arms off the main arm into the valley, clear of the springs, the brooks, the start's
   // bench and the Low River
@@ -1005,6 +1087,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     wall: "wall",
     spur: "spur",
     slot: { width: slotW, to: slotTo },
+    spurs,
     bar: { level: S + 1, length: BAR_LENGTH },
     leatBar: poolSill + 1,
     passAt,
@@ -1474,7 +1557,14 @@ const valleyWater: Invariant = {
     for (const l of [...reaches, ...southern]) {
       const run = sameWidthRun(l);
       if (run > BROOK.run[1] + 1e-9) return fail(`${nameOf(plan, l.id)} runs ${run.toFixed(1)} tiles at one width (${BROOK.run[1]} at most)`);
-      if (southern.includes(l) && (l.halves ?? []).slice(2).some((h) => 2 * h < BROOK.valley[0] || 2 * h > BROOK.valley[1])) return fail(`${nameOf(plan, l.id)} is wider than ${BROOK.valley[1]} or narrower than ${BROOK.valley[0]} past its head`);
+      // (past its head `BROOK.valley` wide; on its last reach, level with the lake's sill, `BROOK.mouth`)
+      const bed = Array.isArray(l.bed) ? l.bed : [];
+      const wrong = (l.halves ?? []).some((h, k) => {
+        if (k < 2) return false;
+        const [lo, hi] = bed[k] === lake.sill ? BROOK.mouth : BROOK.valley;
+        return 2 * h < lo || 2 * h > hi;
+      });
+      if (southern.includes(l) && wrong) return fail(`${nameOf(plan, l.id)} is not ${BROOK.valley[0]} to ${BROOK.valley[1]} wide past its head (${BROOK.mouth[0]} to ${BROOK.mouth[1]} on its last reach)`);
     }
     const s = plan.frame.start;
     const away = bodyDist(s.x + 0.5, s.y + 0.5, lake);
@@ -1493,7 +1583,22 @@ const valleyWater: Invariant = {
 };
 const LAKE_AWAY = 16;
 
-const gatePlanInvariants: Invariant[] = [gateLevels, rangeSpine, valleyWater, wallCamera, frameLip, gateGap, basinBowl, startNeck, leatOwn, valleyEnclosed, gateLadder, gateSkeleton];
+/** `range.spurs` (planning's ruling of 2026-11-13): spurs leave the spine toward both sides, `SPURS.least` or more a side
+ *  per 128 tiles of the map's side, a fork's branches aside. */
+const rangeSpurs: Invariant = {
+  id: "range.spurs",
+  at: "plan",
+  test({ plan }) {
+    const g = gateOf(plan);
+    if (!g) return fail("The plan has no wall with one gate");
+    const least = Math.round((SPURS.least * plan.W) / 128);
+    const [f, b] = [0, 2].map((sd) => (g.spurs ?? []).filter((x) => x.trunk && x.side === sd).length);
+    return f >= least && b >= least ? OK : fail(`The range has ${f} spurs toward the valley and ${b} toward the basin (${least} or more each)`);
+  },
+};
+
+
+const gatePlanInvariants: Invariant[] = [rangeSpurs, gateLevels, rangeSpine, valleyWater, wallCamera, frameLip, gateGap, basinBowl, startNeck, leatOwn, valleyEnclosed, gateLadder, gateSkeleton];
 
 // ------------------------------------------------------------------------------------------------- the def
 

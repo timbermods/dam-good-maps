@@ -1327,13 +1327,44 @@ whole shares' floor is 0 (by number their bed is the same; their gain is the set
 **As built (water, stage 1).** The shared stage (`water.ts` `waterByNumber`) lays the plan; `gateWater.ts` adds the
 bars (the Gate's head a level over the sill, the leat's two over its bed), the Veil's foot a level under the sill with
 its outer row the drowned river's ribbon, the first frame's beds raised to hold their water under two, and its checks.
-The seeps are not drawn: they need stage 1 to route a wet link into a dry link's bed (`levels.ts` `route` and
-`raster/channels.ts`), which none of the shared stages' seams (§2.2, "Seams") gives. **Through the seams**: `wallGate`'s
+No seeps (planning's ruling of 2026-11-13). Tried: one seep's arroyo to the Gate Bed moistened 34 to 44 % of the
+basin's floor at 128² (`basin.dry` asks under 12 %), and no hollow holds a spring alone (a hollow of 20 to 30 tiles
+evaporates about 0.003 a second, a thirtieth of the least spring, 0.1). `Link.joins` stays for the washes. **Through
+the seams**: `wallGate`'s
 `PremiseDef.water` is `gateWater` and its `PremiseDef.land` `gateLand`, so the shared `draw.ts` `firstWater` draws its
 plans (no copy of it here); the Still Pool is a `Body.backwater`, so the shared `water.levels` reads it at its sill and
 the table gives its inlet no share; the brooks' widths are `Link.halves`. `gateMap.ts` stays the Gate's own loop (the
 land invariants by `gateLandFailures`, the start, the works' sites, the settle's own refusals) until the Gate is offered
 and the mode builds it.
+
+**The range, a scarp** (planning's rulings of 2026-11-13 and 14; `gateLand.ts` `gateRelief`, `SCARP`, `RANGE_FLOW`;
+`premises/wallGate.ts` `SPURS`, `CREST`): a tilted block. The scarp faces the valley: from a crest half a tile wide it
+falls in two or three cliff bands of two or three levels, ledges two to four wide between them (as wide as the plan's
+front allows), talus a level over the foot; a spur toward the valley is a buttress that carries the ledges out. The
+back slope falls a level every 2.2 to 2.8 tiles of distance from the spine (three to four on the ground, where the
+warp stretches it), its contours wandering by broad noise, to the basin's hills, then twice as fast to its benches,
+never over the playa; under it the basin keeps its benches, not its capped hills. The peak is the plan's crest, 18 or
+19 at 128² and a level more each 64 tiles of side, three over the cleft's pool at least (the Veil's springs), the
+crest itself four over the scarp's foot but at the gap and the Pass. Spurs leave the spine at 8 to 30 tiles, either
+side (never three more on one), 0.3 to 1.2 of their flank, the long ones forking; on the back slope a spur is a ridge
+falling slower than the slope. Side canyons are cut by flow (`land/field.ts` `erodeHard`), three levels into the block
+at most, and each ends in a low fan at its mouth. No columns: after the mends and the works' ground, a piece of one
+level under six tiles standing two or more over all its neighbours, two tiles or more from stage 1's water, is lowered
+into them. The megadam's wall across the Gate stands three tiles before the spine, along it. The southern brooks are
+three or four wide on their last reach, level with the lake's sill: two wide there, a spring's 2.3 stood a level deep
+and ran over the banks (the 0.32 % stray water of 192² seed 1; the table reads one width).
+Checks: `range.spurs`, `range.flat` (the band's own ground over its feet, at most 10 % in flats wider than four),
+`range.valleys` (canyons gathering 25 tiles and falling four levels, two a side per 128 tiles), `range.columns` (none).
+**`range.height` is withdrawn** (planning's ruling of 2026-11-14): a floor of eight levels on a band this narrow could
+only be a tower; height follows breadth. Measured (seeds 1 to 12, the mode's maps): holds 12 of 12 at each size; the
+band 23 to 28 tiles across at 128², 23 to 31 at 192², 27 to 33 at 256² (seeds 1 to 6); the crest's highest a column
+15 to 20, its median 6 to 10 over the valley's median ground; flats 1 to 9 %; canyons 4 to 8 a side at 128², 7 to 16
+at 192², 17 to 24 at 256², each with its fan; the valley's green 33 to 40 % / 30 to 35 % / 25 to 29 %, the basin's floor
+21 to 29 % / 24 to 29 % / 24 to 31 %; corners 0.1 to 1.1, straight 6 to 12 %, bands 0.4 to 2 %. A map takes 6.6 s at 256²
+(3.6 s on dev), most of it plans drawn again (`basin.bowl`, `range.flat`) and 72 layouts an attempt. Sheet:
+`docs/sheets/wall-gate-range.jpg` (nine frames). **Short:** the band is under planning's 30 to 40 at 128² (the
+valley's room before the Veil and the basin's floor fix it); from the widest frame the back slope reads as the basin's
+grey; near the gorge and the Veil the scarp still stands as square walls.
 
 **As built (land, stage 2).** `gateLand.ts` `gateRelief`: the shared relief for the valley, the range and the basin
 shaped from the plan as the table says, the valley's land coming in over the range's lowest flank (never under it),
