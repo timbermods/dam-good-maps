@@ -64,7 +64,7 @@ describe("ruled land", () => {
     expect(ruledLand(h, new Uint8Array(W * W), W, W).straight).toBeCloseTo(r.straight, 6);
   });
 
-  it("the Gate as laid fails on seeds 1 and 2 at 128²", () => {
+  it("the Gate as laid fails on seeds 1 and 2 at 128² (flips to passes when the Gate's land is rebuilt)", () => {
     for (const seed of [1, 2]) {
       const g = gateMap(makeSpec({ seed, size: { x: 128, y: 128 }, theme: "any", premise: "any" }));
       if ("reason" in g || !g.map) throw new Error(`the Gate made no map on seed ${seed}`);

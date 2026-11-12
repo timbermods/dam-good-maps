@@ -172,9 +172,9 @@ describe.skipIf(!PY)("both validators agree on the sample (prototype/validate.py
     // (the places are settled under the port's water rules until Real places 2 converts them, D311)
     const r = spawnSync(PY!, ["-B", "prototype/validate.py", "--json", "--water-rules", "port", ...paths], { encoding: "utf8", maxBuffer: 256 << 20 });
     expect(r.error).toBeUndefined();
-    const reports = new Map<string, { passed: boolean; checks: { id: string; ok: boolean; na: boolean; approx?: string }[] }>();
+    const reports = new Map<string, { passed: boolean; checks: { id: string; ok: boolean; na: boolean; approx?: string; information?: boolean }[] }>();
     for (const line of (r.stdout ?? "").split(/\r?\n/)) if (line.startsWith("{")) {
-      const j = JSON.parse(line) as { path: string; passed: boolean; checks: { id: string; ok: boolean; na: boolean; approx?: string }[] };
+      const j = JSON.parse(line) as { path: string; passed: boolean; checks: { id: string; ok: boolean; na: boolean; approx?: string; information?: boolean }[] };
       reports.set(relative(".", j.path).split(sep).join("/"), j);
     }
     const ts = (c: CheckResult) => (c.applicable === false ? "na" : c.approximate ? "approx" : c.ok ? "pass" : "fail");
@@ -192,8 +192,10 @@ describe.skipIf(!PY)("both validators agree on the sample (prototype/validate.py
       expect(rep!.checks.filter((c) => !c.ok && !c.na && !c.approx && !(c as { advisory?: boolean }).advisory).map((c) => c.id).sort(), e.id).toEqual(known.sort());
       const b = built(e.id);
       const v = validateMap(readTimber(b.bytes), { profile: "generate", designedFor: "normal", features: [], water: { model: b.validation.model!, settled: b.validation.water! } });
-      const a = Object.fromEntries(v.report.checks.map((c) => [c.id, ts(c)]));
-      const p = Object.fromEntries(rep!.checks.map((c) => [c.id, py(c)]));
+      // (a row the Python validator reports as information, not computing it, is never compared: the oracle's rule)
+      const info = new Set(rep!.checks.filter((c) => c.information).map((c) => c.id));
+      const a = Object.fromEntries(v.report.checks.filter((c) => !info.has(c.id)).map((c) => [c.id, ts(c)]));
+      const p = Object.fromEntries(rep!.checks.filter((c) => !info.has(c.id)).map((c) => [c.id, py(c)]));
       expect(p, e.id).toEqual(a);
     }
     expect(r.status).toBe(PLACES_HAVE_EDGE_WALLS || PLACES_LACK_MINE_SITES || PLACES_LACK_BADWATER || SAMPLE.some((e) => PLACES_SOURCES_IN_FLOW.has(e.id) || PLACES_WATER_WITHOUT_OUTLET.has(e.id) || PLACES_SHORT_OF_WOOD.has(e.id) || PLACES_BELOW_THE_FLOOR.has(e.id) || PLACES_START_WITHOUT_FED_WATER.has(e.id) || PLACES_SHORT_OF_BERRIES.has(e.id) || PLACES_PLANTS_ON_DRY_SOIL.has(e.id)) ? 1 : 0);
