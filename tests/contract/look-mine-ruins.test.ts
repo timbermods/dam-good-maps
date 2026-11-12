@@ -77,8 +77,10 @@ import * as ed from "../../src/worker/session";
  *  start, dead stands among its resources, D148); `3661b9d3…` before generator 0.10.19's dry washes (D517: two washes
  *  cut into its land, a new map, D148); `277fb85d…` before the washes ran long with fords (D517: its dry land
  *  gives no line long enough, so its land is uncut again; a new map's version, D148); `46c38b8e…` before generator
- *  0.10.20's contour edges (D518: the levels' edges on warped contours, a new map, D148). */
-const LIVE_SHA = "cfe7ab147f54ed8b12d9f9fdf9dda2da8c51d4ee9e9140645171e74d6902592e";
+ *  0.10.20's contour edges (D518: the levels' edges on warped contours, a new map, D148); `cfe7ab14…` before D518's
+ *  mends (wash banks in long treads, dead stands in knots with a third of their trees young: its washes and dead trees
+ *  moved, D148). */
+const LIVE_SHA = "cfdfd381a30ca64d4c3c7b66cc0f27d625e0ff92b805bf251b0cb7671c8557f7";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

@@ -44,8 +44,10 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // generator 0.10.19's dry washes, D517: the same plan, water, start and bench, a wash and its hollow cut into its ground
 // and their ramps, its resources and the version in its description; and for the washes run long with fords, D517: the
 // same plan, water, start and bench, its dry land giving no line long enough for a wash, so its ground is uncut; and for
-// generator 0.10.20's contour edges, D518: its plates on a turned scatter and its bench-width steps bent, a new ground)
-const SHA = "8ae74089b964c8834c15142485535e2dbc1fe9e48ec6e49f6b16c85937a3eca3";
+// generator 0.10.20's contour edges, D518: its plates on a turned scatter and its bench-width steps bent, a new ground;
+// and for D518's mends: the same plan, water, start and bench, its wash's banks in long treads and its dead stands in
+// knots, a third of their trees young)
+const SHA = "6b96c1fcc4ee96d65da23ddabfbeb135bf187e5e0ee051c09fee9593a597a8a0";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040)
 const HARD_SEED = 7;

@@ -19,7 +19,8 @@ describe("Select's actions on a map with a 3D form (D487)", () => {
   // 0.10.16's ground with grade, D148, seed 4245's spring cave stands at (42–45, 77–83), and Delete's box round it moved with it;
   // since generator 0.10.17's start floors, D515, D148, seed 4245's one spring cave stands at (60–64, 23–28), and the box moved
   // with it again; since generator 0.10.20's contour edges, D518, D148, seed 4245's one spring cave stands at (76�79,
-  // 73�78), and the box moved with it once more)
+  // 73�78), and the box moved with it once more;
+  // since the D518 mends (wash treads and dead-stand knots), D148: seed 4245's one spring cave stands at (43–48, 61–65) and the box moved with it again, to X 37–55 · Y 53–73)
   const r = generate(makeSpec({ seed: 4245, theme: "highlands", size: { x: W, y: W } }));
 
   it("the whole map cut down to level 8: every tile but the cave's and its roof's holders, which stay as they were", () => {
@@ -47,7 +48,7 @@ describe("Select's actions on a map with a 3D form (D487)", () => {
     const h0 = s.built.heights.slice();
     // (a box round the cave, as the page sends it: an exact lower of one level, useDelete.ts `deleteGround`)
     const box: number[] = [];
-    for (let y = 66; y <= 86; y++) for (let x = 69; x <= 87; x++) if (h0[y * W + x] > 0) box.push(y * W + x);
+    for (let y = 53; y <= 73; y++) for (let x = 37; x <= 55; x++) if (h0[y * W + x] > 0) box.push(y * W + x);
     const inBox = box.filter((i) => held.has(i));
     expect(inBox.length).toBeGreaterThan(0);
     const op: EditOp = { op: "sculpt", params: { mode: "lower", cells: tilesToRuns(box, W), amount: 1, exact: true } };
