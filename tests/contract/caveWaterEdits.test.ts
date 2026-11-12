@@ -210,8 +210,8 @@ describe("Fill water and Remove unfed water on a generated map with a Block dig"
   // (seed 12 since generator 0.10.6, D498, D148: seed 3's River Valley has no level, dry patch for the pit any more
   // (`levelPatch`), nor seeds 2, 4, 5, 8–10 and 13–14; seed 12's is at (17, 18), level 11; seed 6 for generator 0.10.7, D502, D148: seed 12 has none now, nor has any of seeds 1–5, 7–27, 29–31, 33–37 and 39–40 but 28, 32 and 38; seed 6's is at (33, 20), level 16;
   // seed 10 for seed 6 since generator 0.10.16's ground with grade, D148: the land rolls in one-level steps, and of seeds 1–60
-  // only 10, 11, 13, 23, 34 and 49 keep a level patch; seed 10's is at (54, 36), level 16)
-  const r = generate(makeSpec({ seed: 10, theme: "riverValley", size: { x: 64, y: 64 } }));
+  // only 10, 11, 13, 23, 34 and 49 keep a level patch; seed 10's is at (54, 36), level 16; seed 1 since generator 0.10.20's contour edges, D518, D148: seed 10 has none now, and of seeds 1–60 only 1, 8, 9, 11, 18, 37, 43 and 48 keep one; seed 1 is the first, its patch at (48, 52), level 14)
+  const r = generate(makeSpec({ seed: 1, theme: "riverValley", size: { x: 64, y: 64 } }));
 
   it("a pit and the hollow under its edge fill to the pit's rim, the hollow full under pressure; removed, both are dry; undo, redo and reopen are byte-exact", () => {
     const s = MapSession.fromGenerated(r, r.file);

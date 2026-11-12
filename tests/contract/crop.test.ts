@@ -347,8 +347,11 @@ describe("Crop map to selection: the project", () => {
     expect(timber(rebuilt)).toBe(timber(s));
   });
 
+  // (seed 2 since generator 0.10.20's contour edges, D518, D148: on seed 1's map the second crop, 16 × 16 round the start, is
+  // refused: "2 blocks of ground would fall at X 5 · Y 39: nothing would hold them up"; of seeds 1–40 only seeds 1 and 6 are refused
+  // so, and seed 2 is the first whose chain works, saves, reopens and undoes byte for byte)
   it("crops of crops chain, and each undo is the map before it", () => {
-    const s = session();
+    const s = session(2);
     const f0 = timber(s);
     const r1 = rectAroundStart(s);
     expect(s.apply(crop(r1.x, r1.y, r1.w, r1.h)).ok).toBe(true);
@@ -426,16 +429,18 @@ describe("Crop map to selection: the lip at the new edge (M9b's rule, water/edge
   // south edge, leaves the start whole and no water beside the new edge, with the lip raising ten tiles of it at 0
   // behind and nine at 1; seed 5's spring 23 tiles in from the west edge for generator 0.10.11's maps, the D410 round, D148:
   // seed 1's start moved west of its head, so a crop to the west at it cuts the start; seed 5's leaves the start whole and
-  // no water beside the new edge, with the lip raising five tiles of it at both distances)
+  // no water beside the new edge, with the lip raising five tiles of it at both distances; seed 4 since generator 0.10.20's contour edges,
+  // D518, D148: seed 5 has no spring 23 tiles in from the west edge now; of seeds 1–40 seeds 4, 6, 12, 13, 17 and 35 have one, and seed 4 is
+  // the first whose crop leaves the start whole, raises the edge beside the head (2 tiles at 0 behind, 1 at 1) and leaves no water beside it, at both distances; its spring is at (23, 20))
   it.each([0, 1])("a source %i tile(s) behind the new edge does not pour its water off the map", (behind) => {
-    const original = session(5);
+    const original = session(4);
     const spring = original.built.entities.filter((e) => e.template === "WaterSource" && e.x === 23);
     expect(spring.length).toBeGreaterThan(0);
     const sy = spring[0].y;
     const rect = { x: 23 - behind, y: 0, w: W - 23 + behind, h: W };
     expect(cropObjects(original.built.entities, rect).cutStart).toBeNull();
     original.settleCanonical();
-    const s = session(5);
+    const s = session(4);
     s.settleCanonical();
     expect(s.apply(crop(rect.x, rect.y, rect.w, rect.h)).errors).toEqual([]);
     const sources = new Set(s.built.entities.filter((e) => /Source/.test(e.template)).map((e) => e.y * rect.w + e.x));

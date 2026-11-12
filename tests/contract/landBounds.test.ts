@@ -45,11 +45,11 @@ const spec = (theme: ThemeId, size: number, seed: number, badwaterDistance?: num
 
 describe("the shown land's bounds (#236)", () => {
   it("above 128², a shown land failing the same way three times in a row ends its round, and is never dropped within it", () => {
-    // (Highlands 136², badwater distance 60, seed 1: a shown land fails the same way three times and its round
+    // (Highlands 136², badwater distance 60, seed 15: a shown land fails the same way three times and its round
     // ends; seed 4 for generator 0.10.7, whose first shown land's start was within 60 tiles of its badwater on every
     // attempt, until D504's springs toward the far land changed its land: its shown land now fails once and passes, D148; of
-    // seeds 1–8, 1 and 5 end a round)
-    const { steps, passed } = traced(spec("highlands", 136, 1, 60));
+    // seeds 1–8, 1 and 5 end a round; seed 15 for 1 since generator 0.10.20's contour edges, D518, D148: seed 1's attempts now fail as drawn lands, never three alike on a shown one, so no round ends by the bound, and of seeds 1–60 only 15, 19, 26, 30, 32, 43, 51, 54 and 57 end one)
+    const { steps, passed } = traced(spec("highlands", 136, 15, 60));
     expect(passed).toBe(true);
     const at = JSON.stringify(steps);
     let ended = 0;

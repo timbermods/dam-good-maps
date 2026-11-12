@@ -104,8 +104,10 @@ describe("plants under a roof: their run top's soil, for the warning and the che
     // (the hollows are this test's own: the map without its 3D forms, D488, so none stands where one is dug; seed 29 for seed 5 on generator 0.10.7's maps, D502: seeds 1 to 9 have fewer than three moist dry feet of a hillside, and seed 29 has six;
     // seed 2 for seed 29 on generator 0.10.11's maps, the D410 round, D148: seed 29 has none now, and seed 2 has nine;
     // seed 8 for seed 2 since generator 0.10.16's ground with grade, D148: seed 2 has one now, and seed 8, the first of
-    // seeds 1 to 30 with three or more, has three; as many seeds have three as before, 9 of 30 against 8)
-    const r = generate(makeSpec({ seed: 8, theme: "riverValley", size: { x: 64, y: 64 } }), { forms: false });
+    // seeds 1 to 30 with three or more, has three; as many seeds have three as before, 9 of 30 against 8;
+    // seed 16 for seed 8 since generator 0.10.20's contour edges, D518, D148: seed 8 has one now, and seed 16, the only one of
+    // seeds 1 to 30 with three or more, has eight)
+    const r = generate(makeSpec({ seed: 16, theme: "riverValley", size: { x: 64, y: 64 } }), { forms: false });
     const s = MapSession.fromGenerated(r, r.file);
     const M = s.size.x;
     // hollows dug at the feet of hillsides on moist ground, each a roof over it, the hillside's top dry

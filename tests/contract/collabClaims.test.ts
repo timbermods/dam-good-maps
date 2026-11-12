@@ -39,11 +39,14 @@ const square = (x0: number, y0: number, x1: number, y1: number): [number, number
 /** One map, a 48 x 48 Highlands (seed 4; since generator 0.10.11's natural ramps seed 5, the collab floor, leaves
  *  no bare block for two claims, D148, seed 16 was used; since generator 0.10.16's ground with grade seed 16 leaves
  *  none either, its first free place for the relics is on a lake's shore and its spring floods no claim, D148; of
- *  seeds 1–40, 21 have the bare block and of those seed 4 is the first whose map serves every test here) saved as the
- *  app saves it (tests/fixtures/projects: made with `MapSession.fromGenerated(generate(makeSpec({ seed: 4, theme:
+ *  seeds 1–40, 21 have the bare block and of those seed 4 is the first whose map serves every test here; seed 3 since
+ *  generator 0.10.20's contour edges, D518, D148: the stored seed 4 project is rebuilt on opening now (it no longer opens as
+ *  saved), and on its new map a lock toggle writes 2 tiles; of seeds 1–40 the first, seed 3, serves every test here but the water
+ *  note's, whose spring moves to (38, 32), see there) saved as the
+ *  app saves it (tests/fixtures/projects: made with `MapSession.fromGenerated(generate(makeSpec({ seed: 3, theme:
  *  "highlands", size: { x: 48, y: 48 } }))).project()`; it opens exactly as saved, so the test does not wait on the
  *  generator). Every test opens its own session from it. */
-const bytes = new Uint8Array(readFileSync("tests/fixtures/projects/collab-highlands-48-4.damgoodmaps"));
+const bytes = new Uint8Array(readFileSync("tests/fixtures/projects/collab-highlands-48-3.damgoodmaps"));
 function session(water: "defer" | "canonical" = "defer"): MapSession {
   const s = MapSession.open(decodeProject(bytes));
   s.setWaterMode(water);
@@ -642,11 +645,13 @@ describe("water notes (§4)", () => {
   it("notes whose edits flooded the other's area and where, and nothing for an edit far from it", () => {
     const s = session("canonical");
     const claims = new ClaimsState(W, W);
-    // hers beside the spring's flood, his own elsewhere
+    // hers beside the spring's flood, his own elsewhere (the spring at (38, 32), not (36, 30) since generator 0.10.20's contour edges,
+    // D518, D148: on seed 3's map the spring at (36, 30) floods 3 tiles of her area, and at (38, 32) 26; seeds 3, 11, 13, 15 and 37 served
+    // every other test here but this one; (38, 32) is the first spring of those tried, from (8, 8) in steps of 2, that floods more than 3 of her tiles with the water rise she asks for)
     claims.apply("guest", { kind: "claim", runs: square(38, 33, 44, 39) }, NAMES);
     claims.apply("host", { kind: "claim", runs: square(2, 6, 12, 14) }, NAMES);
     const before = Float64Array.from(s.built.water);
-    const plan = planEntity(s, { template: "WaterSource", x: 36, y: 30, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 3, CurrentStrength: 3 } } }, "d0000000-0000-4000-8000-000000000a01");
+    const plan = planEntity(s, { template: "WaterSource", x: 38, y: 32, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 3, CurrentStrength: 3 } } }, "d0000000-0000-4000-8000-000000000a01");
     expect(plan.ok).toBe(true);
     if (!plan.ok) return;
     expect(s.applyAll(plan.ops).errors).toEqual([]);

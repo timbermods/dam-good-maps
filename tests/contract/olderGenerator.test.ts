@@ -25,9 +25,10 @@ describe("a project opened by a newer generator", () => {
   it("keeps the start where the player moved it", () => {
     const s = session(1, 64);
     const start = s.features.find((f) => f.kind === "start")!;
-    // the page's Move on the start (worker moveFeature → moveEdit), one step (3 west: 3 east until generator
-    // 0.10.16's ground with grade, D148, whose land puts an overhang 2–4 tiles east, so the start is refused there)
-    const m = moveEdit(s, start.id, -3, 0);
+    // the page's Move on the start (worker moveFeature → moveEdit), one step (3 east; 3 west from generator 0.10.16's ground with
+    // grade, D148, whose land put an overhang 2–4 tiles east, so the start was refused there; 3 east again since 0.10.20's contour
+    // edges, D518, D148: its land has the overhang 3–6 tiles west now, and 1–6 tiles east are open, of seed 1, moves -6 to 6 tried)
+    const m = moveEdit(s, start.id, 3, 0);
     expect(m.ok).toBe(true);
     if (!m.ok) return;
     expect(s.applyAll(m.ops, "user", m.label).ok).toBe(true);

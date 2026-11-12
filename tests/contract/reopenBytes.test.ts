@@ -30,7 +30,9 @@ function worked(): MapSession {
   const s = session();
   expect(s.apply(stroke([20 * 4 + 2, 21 * 4 + 2, 22 * 4 + 2, 21 * 4 + 2])).errors).toEqual([]);
   expect(s.apply(stroke([40 * 4 + 2, 41 * 4 + 2, 42 * 4 + 2, 41 * 4 + 2], "lower")).errors).toEqual([]);
-  expect(s.apply(carve(s, [12, 50]), "user", "Carve").errors).toEqual([]);
+  // (the Carve at [11, 50] since generator 0.10.20's contour edges, D518, D148: at [12, 50] it is refused, "X 17 · Y 51 has a cave or
+  // overhang, which a force leaves as it is", as at 53 of the 95 origins tried around it and over the map's west; [11, 50], one tile west, is the first that applies)
+  expect(s.apply(carve(s, [11, 50]), "user", "Carve").errors).toEqual([]);
   // a group of feature edits: log entries that carry undo data and a step mark
   const forest = s.document.features.find((f) => f.kind === "forest")!;
   const h = s.applyAll(

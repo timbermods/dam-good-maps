@@ -3,7 +3,9 @@
 // water easing in as the ice melts back), and kept, the map's water flows on from exactly the water last shown:
 // nothing jumps at the keep; a source the force clears stops feeding it at its step, one that rides runs on
 // (D474). On a map with caves the page draws every column, a fed cave's water under its roof too, and that is kept
-// as drawn (River Valley seed 2 at verticality 70: water under the rock, away from the forces; seed 1 before generator 0.10.10,
+// as drawn (River Valley seed 1 at verticality 70: water under the rock, away from the forces; seed 2 until generator 0.10.20's
+// contour edges, D518, D148: seed 2's map has no stacked water now, and of seeds 1–20 at verticality 70 seeds 1, 4, 7, 11,
+// 12, 15, 17, 18 and 19 have it; seed 1 before generator 0.10.10,
 // whose water under a roof was its river under two gorge arches that D503 drops as they read as no arch, D148).
 // (Carve's own rules: carveBornAsItCuts.test.ts, caveForceWater.test.ts, forceClearSources.test.ts.)
 
@@ -24,13 +26,13 @@ import * as ed from "../../src/worker/session";
 const W = 96;
 const N = W * W;
 
-/** The map (River Valley seed 3; `caves`: seed 2 at verticality 70, with water under the rock), and its river's tile nearest
+/** The map (River Valley seed 3; `caves`: seed 1 at verticality 70, with water under the rock), and its river's tile nearest
  *  the middle. (Seed 3 for 4242 since generator 0.10.17's start floors (D515), D148: seed 4242's map has caves now, and the
  *  first dry spot beside its river, (32, 54), is a roof, where the game keeps no source; of seeds 1–12, seeds 3, 5–10 and 12
  *  have no caves and a spot that takes one, seed 3's at (66, 54).) */
 async function open(caves = false): Promise<{ river: [number, number]; ground: Uint8Array }> {
   ed.forceCancel();
-  const spec = makeSpec({ seed: caves ? 2 : 3, theme: "riverValley", size: { x: W, y: W } });
+  const spec = makeSpec({ seed: caves ? 1 : 3, theme: "riverValley", size: { x: W, y: W } });
   if (caves) spec.settings.terrain.verticality = 70;
   await runGenerate(spec);
   ed.refine();

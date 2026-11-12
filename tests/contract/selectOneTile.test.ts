@@ -24,11 +24,13 @@ describe("Select's actions on a one-tile selection change that tile (D259, D264)
   // D148: the map has no lone level tile at level 7 now; (44, 25) at level 8 since generator 0.10.13, whose starts frame
   // the map, D507, D148: an oak stands on (49, 22) now, and (44, 25) is one of the map's 197 dry level-8 tiles with level
   // ground on its four sides and nothing standing on it; (41, 7) at level 8 since generator 0.10.16's ground with grade,
-  // D148: (44, 25) stands at level 15 now, and (41, 7), the nearest to it, is one of the map's 38 such tiles)
-  it("Highlands 64², seed 3: the dry level tile (41, 7), at level 8, selected alone: Raise, Lower, Cut down to 4 and Fill up to 10 each leave it where they said", async () => {
+  // D148: (44, 25) stands at level 15 now, and (41, 7), the nearest to it, is one of the map's 38 such tiles; (35, 16) at level 8 since generator 0.10.20's contour edges, D518, D148: (41, 7) stands at
+  // level 13 now, and of the map's 7 tiles at level 8, dry, unbuilt, with level ground on four sides, (35, 16) is the first
+  // in row order)
+  it("Highlands 64², seed 3: the dry level tile (35, 16), at level 8, selected alone: Raise, Lower, Cut down to 4 and Fill up to 10 each leave it where they said", async () => {
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
-    const t = 7 * W + 41;
+    const t = 16 * W + 35;
     const b = open().built;
     expect(b.heights[t]).toBe(8);
     expect(b.water[t]).toBe(0);
