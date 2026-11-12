@@ -1288,8 +1288,12 @@ whole shares' floor is 0 (by number their bed is the same; their gain is the set
 **As built (water, stage 1).** The shared stage (`water.ts` `waterByNumber`) lays the plan; `gateWater.ts` adds the
 bars (the Gate's head a level over the sill, the leat's two over its bed), the Veil's foot a level under the sill with
 its outer row the drowned river's ribbon, the first frame's beds raised to hold their water under two, and its checks.
-The seeps are not drawn: they need stage 1 to route a wet link into a dry link's bed (`levels.ts` `route` and
-`raster/channels.ts`), which none of the shared stages' seams (§2.2, "Seams") gives. **Through the seams**: `wallGate`'s
+**The seeps** (`SEEPS`, on this branch, not yet passing): three hollows beside the Gate Bed's floor reach, past its
+last step, each a spring of 0.4 and a gully joining the bed (`Link.joins`, §2.2 "Seams"), so the bed runs a thread to
+the notch and is dry above the step. `gate.dry` judges the river's water with the seeps' springs off (`riverWater`) and
+the seeps' water on its own (their hollows, gullies and beds, out by the notch); `gate.settled` and `gate.opens` read
+the same. They hold, settle and keep 12 of 12, but fail `basin.dry`: on the flat playa the thread's 338 wet tiles moisten
+41 % of the basin's floor by the soil rule (under 12 % asked; one seep alone near the notch, 38 %). **Through the seams**: `wallGate`'s
 `PremiseDef.water` is `gateWater` and its `PremiseDef.land` `gateLand`, so the shared `draw.ts` `firstWater` draws its
 plans (no copy of it here); the Still Pool is a `Body.backwater`, so the shared `water.levels` reads it at its sill and
 the table gives its inlet no share; the brooks' widths are `Link.halves`. `gateMap.ts` stays the Gate's own loop (the

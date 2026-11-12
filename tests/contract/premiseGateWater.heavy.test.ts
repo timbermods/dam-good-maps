@@ -19,7 +19,7 @@ describe("The wall with one gate's stage 1 water, settled", () => {
   // seed 1's first plans back the Veil's foot up into the Still Pool 0.4 over the lake on stage 1 alone, and the mode
   // refuses both on other checks and keeps a later one)
   for (const [side, seed] of [[128, 1], [128, 2], [128, 4], [192, 1], [256, 1]])
-    it(`stands where the plan puts it, pours the Veil and leaves by the Low River alone: seed ${seed} at ${side}²`, () => {
+    it(`stands where the plan puts it, pours the Veil and leaves by the Low River and the seeps' notch alone: seed ${seed} at ${side}²`, () => {
       const spec = makeSpec({ seed, size: { x: side, y: side }, theme: "any", premise: "any" });
       const r = gateMap(spec);
       if ("reason" in r) throw new Error(r.reason);
@@ -47,7 +47,7 @@ describe("The wall with one gate's stage 1 water, settled", () => {
       expect(s.gateWet, "the Gate past its bar").toBe(0);
       expect(s.leatWet, "the leat past its bar").toBe(0);
       expect(s.stray / (side * side), `${s.stray} tiles off the planned water`).toBeLessThan(STRAY);
-      expect(s.edge, "water on the map's edge but the Low River's").toBe(0);
+      expect(s.edge, "water on the map's edge but the Low River's and the notch's").toBe(0);
       expect(Math.abs(s.out / s.sources - 1), `out ${s.out.toFixed(2)} of ${s.sources.toFixed(2)}`).toBeLessThan(0.05);
       console.log(`seed ${seed} at ${side}²: ${s.ms.toFixed(0)} ms; ${s.levels.map((l) => `${l.id} ${l.level.toFixed(2)}`).join(", ")}; the Veil ${s.veil.note}; out ${s.out.toFixed(2)} of ${s.sources.toFixed(2)}`);
     });

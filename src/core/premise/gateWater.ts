@@ -21,6 +21,7 @@
 
 import { frameAt, openingCamera } from "../analysis/opening";
 import type { WaterModel } from "../sim/water";
+import { flowThrough } from "../sim/prefill";
 import { dayOneWater, START } from "./frame";
 import { stageFlow, WATER_CHECKS } from "./waterChecks";
 import { stageModel, waterByNumber, type StageWater } from "./water";
@@ -28,6 +29,7 @@ import { guardWater } from "./raster/guard";
 import type { Invariant, InvariantResult, PremisePlan } from "./types";
 import type { GateNumbers } from "./premises/wallGate";
 import { rangeAt } from "./gateRange";
+import { BED_FLOOR } from "../land/genome";
 
 /** The deepest water in the first frame, but the drowned river's ribbon (§5.1: "the water in the first frame stays
  *  under two but for the row that carries the fall to the drain"; the lake stair's is 1.2, `frame.ts` `START`). */
@@ -172,7 +174,8 @@ const gateDry: Invariant = {
     if (!g || !ctx.water) return fail("The plan has no wall with one gate");
     const r = ctx.water.raster;
     const { W, H } = r;
-    const { path } = stageFlow(ctx.water);
+    // (the river's water alone: the seeps' springs off, their own check below)
+    const path = seeplessFlow(ctx.plan, g, ctx.water);
     const li = (id: string) => ctx.plan.links.findIndex((l) => l.id === id) + 1;
     const [gate, leat, low, veil] = [li(g.gate), li(g.leat), li(g.low), li(g.veil)];
     const pool = ctx.plan.bodies.findIndex((b) => b.id === g.pool) + 1;
@@ -188,9 +191,40 @@ const gateDry: Invariant = {
       if (r.lake[i] === pool || r.pool[i] || r.channel[i] === veil) continue;
       if (basinSide(ctx.plan, g, x + 0.5, y + 0.5)) return fail(`Water stands in the basin at ${x}, ${y}`);
     }
+    // the seeps' water: in their hollows, their gullies and the beds alone, leaving by the notch
+    const all = stageFlow(ctx.water).path;
+    const seepBodies = new Set(g.seeps.map((x) => ctx.plan.bodies.findIndex((b) => b.id === x.body) + 1));
+    const gullies = new Set(g.seeps.map((x) => li(x.gully)));
+    for (let i = 0; i < W * H; i++) {
+      if (!all[i] || path[i]) continue;
+      const x = i % W;
+      const y = (i - x) / W;
+      const own = seepBodies.has(r.lake[i]) || gullies.has(r.channel[i]) || r.channel[i] === gate || r.channel[i] === leat;
+      if (!own) return fail(`The seeps' water leaves their gullies and beds at ${x}, ${y}`);
+      if (r.channel[i] === gate && r.heights[i] > BED_FLOOR) return fail(`The seeps' water runs up the Gate over its bed's last step at ${x}, ${y}`);
+    }
     return OK;
   },
 };
+
+/** Stage 1's water with the basin's seeps' springs off: the river's water alone (what the Gate and the leat shut). */
+export function riverWater(plan: PremisePlan, g: GateNumbers, w: StageWater): StageWater {
+  const springs = new Set(plan.sources.filter((s) => g.seeps.some((x) => x.body === s.into)).map((s) => s.id));
+  return springs.size ? { ...w, emitters: w.emitters.filter((e) => !springs.has(e.id)) } : w;
+}
+
+/** Stage 1's flow with the basin's seeps' springs off (`riverWater`). */
+const seepless = new WeakMap<StageWater, Uint8Array>();
+function seeplessFlow(plan: PremisePlan, g: GateNumbers, w: StageWater): ArrayLike<number> {
+  if (!g.seeps.length) return stageFlow(w).path;
+  let p = seepless.get(w);
+  if (!p) {
+    p = Uint8Array.from(flowThrough(stageModel(riverWater(plan, g, w), { shutNotches: true })).path);
+    seepless.set(w, p);
+  }
+  return p;
+}
+
 
 /** Whether a point stands past the range's crest line, on the basin's side (two tiles past its spine). */
 function basinSide(plan: PremisePlan, g: GateNumbers, x: number, y: number): boolean {

@@ -57,6 +57,10 @@ export const DOOR_LOBE = 8;
 export const OUTFLOW_HALF = 2;
 /** A southern brook's half width at its tarn (the table reads it: narrower, the tarns stood over their sills). */
 export const TARN_HALF = 1.4;
+/** The basin's seeps (§5.1): `count` hollows of radius `r` beside the Gate Bed at `along` of its run past the gorge,
+ *  `off` tiles off it by turns each side, their sill `over` its bed where the gully joins it, a spring of `strength`. */
+export const SEEPS = { count: 3, along: [0.2, 0.5, 0.8], off: [7, 10], r: 2.6, over: 2, strength: 0.4, meadow: 3 } as const;
+const SEEP_WORDS = ["Upper", "Middle", "Lower"];
 /** The Steps, the small pool between the plunge pool's brook's two steps: across the brook, as wide as its lip
  *  (`r` its half length along the brook), at least `reach` tiles of brook each side of it. */
 export const STEPS = { r: 2.6, reach: 4, meadow: 4 } as const;
@@ -192,6 +196,8 @@ export interface GateNumbers {
   /** The Gate: the gorge's width, the index of the gate's path point where the gorge ends (the Gate Bed begins); its bar's
    *  level and length from the shore. */
   slot: { width: number; to: number };
+  /** The basin's seeps: each hollow, its gully and how far along the Gate's path the gully joins its bed. */
+  seeps: { body: string; gully: string; at: number }[];
   bar: { level: number; length: number };
   /** The leat: the bar at its head (two over its bed), and the index of its path point at the Pass (the Pass Bed
    *  begins after it); the Pass's span along the crest. */
@@ -940,6 +946,44 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     plan.sources.push({ id: `${id}Spring`, at: rp(onMap(T, [tn.spine[0][0], tn.spine[0][1]])), strength: r2((rng.range(BROOK_SPRING[0], BROOK_SPRING[1]) * flow) / GATE_FLOW.normal), into: id });
     plan.links.push({ id: `brook${k + 1}`, from: id, to: "lake", kind: "brook", path: pathOnMap(T, tn.path).map(rp), half: TARN_HALF, halves: tn.halves, bed: tn.bed, wet: true, gates: [], rows: [] });
   });
+  // the basin's seeps (§5.1's three in hollows, each with a gully to the Gate Bed): a weak spring in a hollow beside the
+  // bed, its gully joining the bed (`Link.joins`), so the bed runs a thread of water from the first join to the notch
+  // and is dry above it, the Gate shut
+  const seeps: GateNumbers["seeps"] = [];
+  const gateOnMap = pathOnMap(T, gate).map(rp);
+  // (where the Gate Bed lies on the floor, past its last step: a gully joining above a step spread its water up the flat
+  // reach toward the Gate's rows)
+  const bedFrom = Math.max(slotTo + 2, gateBed.indexOf(BED_FLOOR));
+  const bedTo = gate.length - 3;
+  if (gateBed.indexOf(BED_FLOOR) > 0 && bedTo - bedFrom >= 3) {
+    for (let k = 0; k < SEEPS.count; k++) {
+      const j = Math.round(bedFrom + (bedTo - bedFrom) * SEEPS.along[k]);
+      const P = gate[j];
+      const tv = [gate[j + 1][0] - gate[j - 1][0], gate[j + 1][1] - gate[j - 1][1]];
+      const tl = hypot(tv[0], tv[1]) || 1;
+      const side = k % 2 ? -1 : 1;
+      const nrm: Point = [(-tv[1] / tl) * side, (tv[0] / tl) * side];
+      const off = rng.range(SEEPS.off[0], SEEPS.off[1]);
+      const c: Point = [P[0] + nrm[0] * off, P[1] + nrm[1] * off];
+      const rc = rangeAt(R, c[0]);
+      const rp0 = rangeAt(R, P[0]);
+      if (c[0] < 6 || c[1] < 6 || c[0] > N - 6 || c[1] > N - 6 || c[1] - SEEPS.r < rc.v + rc.back + 2 || P[1] < rp0.v + rp0.back + 2) continue;
+      const bedAtJoin = gateBed[j];
+      const sill = bedAtJoin + SEEPS.over;
+      const head: Point = [c[0] - nrm[0] * (SEEPS.r - 0.5), c[1] - nrm[1] * (SEEPS.r - 0.5)];
+      const wob = rng.range(-1.5, 1.5);
+      const mid: Point = [(head[0] + P[0]) / 2 + (tv[0] / tl) * wob, (head[1] + P[1]) / 2 + (tv[1] / tl) * wob];
+      const gully = resample([head, mid, P], BROOK.every);
+      const id = `seep${k + 1}`;
+      names[id] = `the ${SEEP_WORDS[k]} Seep`;
+      names[`gully${k + 1}`] = `the ${SEEP_WORDS[k]} Seep's gully`;
+      plan.bodies.push(body(id, "pool", sill, [[[r2(c[0]), r2(c[1]), SEEPS.r]]], SEEPS.meadow, "wet"));
+      plan.sources.push({ id: `${id}Spring`, at: rp(onMap(T, c)), strength: SEEPS.strength, into: id });
+      const at = r2(pathLength(gateOnMap.slice(0, j + 1)));
+      plan.links.push({ id: `gully${k + 1}`, from: id, to: "notch", kind: "brook", path: pathOnMap(T, gully).map(rp), half: 0.55, bed: [sill, ...bedAlong(gully.slice(1), sill - 1, bedAtJoin)], wet: true, gates: [], rows: [], joins: { link: "gate", at } });
+      seeps.push({ body: id, gully: `gully${k + 1}`, at });
+    }
+  }
   const exits: Exit[] = [
     { id: "lowExit", edge: edgeOnMap(T, lowSide === "pass" ? "W" : "E"), at: rp(onMap(T, low[low.length - 1])) },
     { id: "notch", edge: edgeOnMap(T, "N"), at: rp(onMap(T, [notchU, N])) },
@@ -1005,6 +1049,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     wall: "wall",
     spur: "spur",
     slot: { width: slotW, to: slotTo },
+    seeps,
     bar: { level: S + 1, length: BAR_LENGTH },
     leatBar: poolSill + 1,
     passAt,
@@ -1227,9 +1272,11 @@ const gateGap: Invariant = {
     for (const l of plan.links) {
       // (the Veil's own mouth, from the cleft to its lip, is the range's)
       if (l.id === g.gate || l.id === g.leat || l.id === g.veil || l.id === g.inlet || !l.path) continue;
+      // (the basin's seeps' gullies run on the basin's side, past the range's back foot)
+      const basin = g.seeps.some((x) => x.gully === l.id);
       for (const p of l.path) {
         const [u, v] = onLocal(T, p);
-        if (sideOf(R, u, v + 0.5) !== 0) return fail(`${nameOf(plan, l.id)} crosses the range`);
+        if (sideOf(R, u, v + (basin ? -0.5 : 0.5)) !== (basin ? 2 : 0)) return fail(`${nameOf(plan, l.id)} crosses the range`);
       }
     }
     return OK;
@@ -1358,7 +1405,8 @@ const valleyEnclosed: Invariant = {
     if (!g) return fail("The plan has no wall with one gate");
     const low = linkOf(plan, g.low);
     if (!low?.path || low.kind !== "gorge" || !low.wet || low.from !== g.lake) return fail("The Low River is not a gorge out of the lake");
-    const valley = new Set(plan.bodies.filter((b) => b.id !== g.pool).map((b) => b.id));
+    // (the basin's seeps are past the range: their water leaves by the notch, down the Gate Bed)
+    const valley = new Set(plan.bodies.filter((b) => b.id !== g.pool && !g.seeps.some((x) => x.body === b.id)).map((b) => b.id));
     const exits = new Set(plan.exits.map((e) => e.id));
     for (const l of plan.links) {
       if (!valley.has(l.from) || !l.wet || l.id === g.low) continue;

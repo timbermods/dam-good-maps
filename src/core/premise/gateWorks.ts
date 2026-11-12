@@ -29,6 +29,7 @@ import { pathDist, pathLength, pointAt } from "./geom";
 import { estimateGain, soilReach, spectrumMiss, type Ladder, type WorkSite } from "./ladder";
 import { gateOf } from "./premises/wallGate";
 import { gateZones } from "./gateLand";
+import { riverWater } from "./gateWater";
 import type { Point, PremisePlan } from "./types";
 import { stageModel, type StageWater } from "./water";
 
@@ -441,8 +442,10 @@ const gateOpens: GateWorksInvariant = {
     const gate = plan.links.findIndex((l) => l.id === g.gate) + 1;
     const open = ladder.works.find((x) => x.id === "gateOpen");
     if (!open) return no("The Gate is never opened");
+    // (the river's water: the basin's seeps' thread leaves by the notch whether the Gate is shut or open)
+    const river = riverWater(plan, g, water);
     const out = (floor: Float64Array) => {
-      const p = flowThrough({ ...stageModel(water), floor }).path;
+      const p = flowThrough({ ...stageModel(river), floor }).path;
       for (let i = 0; i < p.length; i++) {
         const x = i % r.W;
         const y = (i - x) / r.W;

@@ -10,6 +10,7 @@ import { rulesFor } from "../validate/playability";
 import { checkFrame, type FrameCheck } from "./frame";
 import { gateLand, gateLandFailures } from "./gateLand";
 import { gateWater } from "./gateWater";
+import { BED_FLOOR } from "../land/genome";
 import { failing, PLAN_TRIES } from "./draw";
 import { gateOf } from "./premises/wallGate";
 import { gateCard, gateDamDays, gateDamWords, gateLadder, gateWorksFailures, type GateCard } from "./gateWorks";
@@ -69,14 +70,17 @@ export function veilDrop(plan: PremisePlan, water: StageWater, heights: ArrayLik
 }
 export const VEIL_SHORT = 0.5;
 
-/** `gate.settled`: the Gate's channel tiles past its second row of Blockages that hold water on the settled map. */
+/** `gate.settled`: the Gate's channel tiles past its second row of Blockages, and over its
+ *  bed's last step (under it the bed carries the seeps' thread), that hold water on the settled map. */
 export function gateWetPast(plan: PremisePlan, water: StageWater, depth: ArrayLike<number>): number {
   const g = gateOf(plan)!;
   const li = plan.links.findIndex((l) => l.id === g.gate) + 1;
   const past = Math.max(...(plan.links[li - 1]?.rows ?? [0])) + 1;
+  // (over the bed's last step: under it, on the floor, the bed carries the basin's seeps' thread to the notch)
   const r = water.raster;
+  const seeps = g.seeps.length > 0;
   let n = 0;
-  for (let i = 0; i < r.channel.length; i++) if (r.channel[i] === li && r.along[i] > past && depth[i] > 0.05) n++;
+  for (let i = 0; i < r.channel.length; i++) if (r.channel[i] === li && r.along[i] > past && !(seeps && r.heights[i] <= BED_FLOOR) && depth[i] > 0.05) n++;
   return n;
 }
 const GATE_WET_MOST = 0;

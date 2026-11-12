@@ -1,8 +1,10 @@
 // The wall with one gate's stage 1 water settled as the game plays it (docs/PREMISES.md §5.1): what the heavy test and
 // its sweep read. The ground stage 1 did not draw stands over every water (`gateSettleModel`), so the settle judges
 // the water's own beds: the lake at its sill, the Still Pool at the lake's level, the Veil's one curtain, the Gate and
-// the leat dry past their bars, nothing on the basin's side but the cleft, nothing leaving but by the Low River.
+// the leat dry past their bars (over their last step: the basin's seeps' thread runs down their floor reach), nothing
+// on the basin's side but the cleft and the seeps, nothing leaving but by the Low River and the seeps' notch.
 
+import { BED_FLOOR } from "../../src/core/land/genome";
 import type { PremisePlan } from "../../src/core/premise/types";
 import type { StageWater } from "../../src/core/premise/water";
 import { gateSettleModel } from "../../src/core/premise/gateWater";
@@ -27,7 +29,7 @@ export interface GateSettled {
   leatWet: number;
   stray: number;
   edge: number;
-  /** The Low River's flow out over the edge, and the sources' total. */
+  /** The flow out over the edge (the Low River's, and the seeps' by the notch), and the sources' total. */
   out: number;
   sources: number;
 }
@@ -55,7 +57,9 @@ export function readGateSettle(plan: PremisePlan, w: StageWater, floor: ArrayLik
     levels.push({ id: b.id, sill: b.sill, table: w.table.bodies[b.id].level, level: lv.length ? lv[lv.length >> 1] : NaN });
   }
   const li = (id: string) => plan.links.findIndex((l) => l.id === id);
-  const g = (plan as unknown as { gate: { gate: string; leat: string; low: string; veil: string } }).gate;
+  const g = (plan as unknown as { gate: { gate: string; leat: string; low: string; veil: string; seeps?: unknown[] } }).gate;
+  // (the basin's seeps' thread runs down the beds' floor reach to the notch: the beds are judged over their last step)
+  const seeps = (g.seeps?.length ?? 0) > 0;
   const head = (id: string) => {
     const row = r.rows[id]?.[0] ?? [];
     return row.length ? Math.max(...row.map((i) => r.along[i])) : 0;
@@ -72,12 +76,14 @@ export function readGateSettle(plan: PremisePlan, w: StageWater, floor: ArrayLik
     if (s.depth[i] <= WET) continue;
     const x = i % r.W;
     const y = (i - x) / r.W;
-    if (r.channel[i] === gk && r.along[i] > gh) gateWet++;
-    if (r.channel[i] === lk && r.along[i] > lh) leatWet++;
+    const thread = seeps && r.heights[i] <= BED_FLOOR;
+    if (r.channel[i] === gk && r.along[i] > gh && !thread) gateWet++;
+    if (r.channel[i] === lk && r.along[i] > lh && !thread) leatWet++;
     if (!r.lake[i] && !r.channel[i] && !r.pool[i] && !niche.has(i)) stray++;
     const onEdge = x === 0 || y === 0 || x === r.W - 1 || y === r.H - 1;
-    if (onEdge && r.channel[i] !== ok) edge++;
-    if (onEdge && r.channel[i] === ok && s.out)
+    const notch = seeps && (r.channel[i] === gk || r.channel[i] === lk);
+    if (onEdge && r.channel[i] !== ok && !notch) edge++;
+    if (onEdge && (r.channel[i] === ok || notch) && s.out)
       for (let d = 0; d < 4; d++) {
         const j = i + step[d];
         const off = j < 0 || j >= N || (d === 1 && x === 0) || (d === 3 && x === r.W - 1);
