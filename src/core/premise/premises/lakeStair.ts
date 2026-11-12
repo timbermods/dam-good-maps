@@ -8,6 +8,8 @@
 // chains), then outline and names. The later stages' invariants come with their stages.
 
 import { openingCamera, frameAt } from "../../analysis/opening";
+import { slopeLinks, walkDistance } from "../../analysis/walk";
+import { placeSlopes, SLOPE_RULES } from "../../features/slopes";
 import { ORIENTATIONS } from "../../format/footprints";
 import { cos, log, sin, sqrt } from "../../math/portable";
 import type { Rng } from "../../math/rng";
@@ -393,6 +395,9 @@ function clearPath(plan: PremisePlan, path: Point[], half: number, ends: string[
   // (a channel laid after the frame keeps off the start's bench, the bypass but for, `BENCH_KEEP`)
   const bench = half === BYPASS_HALF ? null : benchBody(plan);
   if (bench && !benchClear(plan, bench, path, half + BENCH_KEEP.link)) return false;
+  // (and, sited on the skeleton's land, off the start's walk, `WALK_KEEP`)
+  const walk = half === BYPASS_HALF ? undefined : keptWalk.get(plan);
+  if (walk && !pathOffWalk(walk, plan.W, plan.H, path, half + WALK_KEEP.link)) return false;
   for (let k = 0; k < path.length; k++) {
     const [x, y] = path[k];
     if (x < -0.01 || y < -0.01 || x > plan.W + 0.01 || y > plan.H + 0.01) return false;
@@ -791,6 +796,58 @@ function benchHalf(area: number, len: number): number {
  *  the tarns and basins themselves are not kept off (that halved the layouts that hold at 128²), their rims give way
  *  instead (`raster/relief.ts` `BENCH.sideRim`). */
 const BENCH_KEEP = { link: BENCH_ROOM.link } as const;
+
+/** The start's walk the side network keeps off when stage 0's second pass sites it (`siteStair`): the tiles the start
+ *  walks to first on the skeleton's land, as many as the gate's walkable floor with the generator's margin
+ *  (`FLOOR_MARGIN` × `start.reach`); a channel sited then keeps `link` tiles past its half width from them (its banks),
+ *  a side body `body` tiles past its outline (its beach and crag). The skeleton's land walks its start to 1,601 to
+ *  2,528 tiles on 256² seed 2's plans; their side networks, sited without it, cut the start's lake shore beside the
+ *  bench with a spill's, a notch bed's or a leat's banks, or a basin, and left 973 to 1,290 (the floor 1,300): the
+ *  side network's count grows with the map's area, the start's shore with its side. */
+const WALK_KEEP = { link: 4, body: 4 } as const;
+const keptWalk = new WeakMap<PremisePlan, Uint8Array>();
+
+/** The start's walk on the skeleton's land (`WALK_KEEP`): its `want` nearest tiles by walking distance, the slopes the
+ *  build derives for the start (`placeSlopes`) standing, off day 1's water. */
+function startWalk(plan: PremisePlan, land: SiteLand, want: number): Uint8Array {
+  const { W, H } = land;
+  const N = W * H;
+  const { x: sx, y: sy } = plan.frame.start;
+  const kept = new Uint8Array(N);
+  if (plan.frame.start.z < 0) return kept;
+  const wet = new Uint8Array(N);
+  for (let i = 0; i < N; i++) wet[i] = land.soil[i] === 2 ? 1 : 0;
+  const occ = new Uint8Array(N);
+  for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) occ[(sy + dy) * W + sx + dx] = 1;
+  const slopes = placeSlopes(land.heights, W, H, { x: sx, y: sy }, occ, SLOPE_RULES);
+  const d = walkDistance(land.heights, W, H, wet, slopeLinks(slopes, W, H), { x: sx, y: sy }, N);
+  const order: number[] = [];
+  for (let i = 0; i < N; i++) if (d[i] < Infinity && !wet[i]) order.push(i);
+  order.sort((a, b) => d[a] - d[b] || a - b);
+  for (let k = 0; k < Math.min(want, order.length); k++) kept[order[k]] = 1;
+  return kept;
+}
+
+/** Whether no tile of the start's walk (`kept`) lies within `gap` of a path's line. */
+function pathOffWalk(kept: Uint8Array, W: number, H: number, path: readonly Point[], gap: number): boolean {
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const [x, y] of path) {
+    x0 = Math.min(x0, x);
+    y0 = Math.min(y0, y);
+    x1 = Math.max(x1, x);
+    y1 = Math.max(y1, y);
+  }
+  const ax = Math.max(0, Math.floor(x0 - gap - 1));
+  const ay = Math.max(0, Math.floor(y0 - gap - 1));
+  const bx = Math.min(W - 1, Math.ceil(x1 + gap + 1));
+  const by = Math.min(H - 1, Math.ceil(y1 + gap + 1));
+  for (let y = ay; y <= by; y++)
+    for (let x = ax; x <= bx; x++) if (kept[y * W + x] && pathDist(x + 0.5, y + 0.5, path).d < gap) return false;
+  return true;
+}
 
 /** The start's bench as a body: the capsule round its spine the frame found room in (`benchHalf` of `BENCH.room`
  *  times the bench the frame read, and its 1.5 more), null before the frame. */
@@ -2620,8 +2677,10 @@ function siteSide(L: Layout, firsts: readonly FirstChain[]): string | null {
     if (!pool && pathDist(p[0], p[1], bypass).d < lakeGap(b) + 4) return false;
     let dry = 0;
     let all = 0;
+    const walk = keptWalk.get(plan);
     for (const [i, d] of bodyTiles(b, W, DRY_RING)) {
       if (d < 2 && (M.soil[i] === 2 || M.taken[i])) return false;
+      if (walk && d < WALK_KEEP.body && walk[i]) return false;
       if (d < 3) continue;
       all++;
       if (!M.soil[i] && !M.taken[i]) dry++;
@@ -3148,8 +3207,11 @@ function siteStair(spec: MapSpec, plan: PremisePlan, attempt: number, land: Site
     firsts.push({ b: { ...b, id: "", meadow: 0 }, src: l.from, s: b.sill, path: l.path, spill: { path: sp.path!, to: exit ? "" : sp.to, lo: (sp.bed as number[])[1], into: !!to && !to.dry, exit: exit ? { ...exit } : undefined } });
   }
   let last = "";
+  // (the start's walk on the skeleton's land, which the side network keeps off, `WALK_KEEP`)
+  const walk = startWalk(plan, land, Math.ceil(FLOOR_MARGIN * rulesFor(spec).reachMin));
   for (let k = 0; k < SITE_TRIES; k++) {
     const p = JSON.parse(base) as PremisePlan;
+    keptWalk.set(p, walk);
     const st = p.stair!;
     const byId = new Map(p.bodies.map((b) => [b.id, b]));
     const lakes = st.lakes.map((id) => byId.get(id)!);

@@ -1038,6 +1038,19 @@ all fail (0.2 to 1.9 s each; on seed 2, 281 of the 370 tails that failed did so 
 after the bypass was laid),
 and the settle and checks.
 
+As mended at 256² (seed 2's fallback): on seed 2's plans the skeleton's land walks the start to 1,601 to 2,528 tiles,
+the full land to 973 to 1,290 (floor 1,300). The side network, sited on the skeleton without the start's walk, cut
+the start's lake shore beside the bench with a spill's, a notch bed's or a leat's banks (the shore at the start's level
+lay in three to five pieces, at 128² in one: the side network's count grows with the area, the shore with the side).
+Stage 0's second pass now keeps it off the start's walk on the skeleton (`lakeStair.ts` `WALK_KEEP`: the floor's
+1,430 nearest tiles, channels 4 tiles past their half width, side bodies 4 past their outline), and the ways out try
+only grounds a ramp can reach, 4 levels at most (`frame.ts` `WAYS_OUT`; the four largest grounds of the map were all out
+of reach at 256²). The 128² pin is unchanged. River Valley, one thread, median of three: seed 1 15.9 s, seed 2 35.6 s
+(was a fallback at 33.7), seed 3 15.7 s (was 54.5, plan 9); Any: seed 1 16.6 s (22.1), seed 3 14.3 s (was a fallback
+at 51.0), seed 2 still falls back (35.8 s): its plans then miss `spectrum`'s moist floor (26.9 to 29.4 %), lose the
+start's water on a drought's first day, or keep the first pass's side network where no sited draw puts three small
+works in the start's walk (`premiseStair256.heavy.test.ts`).
+
 ### 3.4 Deferred to after the map opens
 
 Run by the background worker that already settles and checks an opened map (`backgroundCheck`), a slice at a time,

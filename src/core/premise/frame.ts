@@ -15,7 +15,7 @@
 import { COS_P, frameAt, levelDoorTurns, OPENING, openingCamera, SIN_P, TAN_H, TAN_V, type OpeningStart } from "../analysis/opening";
 import { reachAt, slopeLinks, walkDistance } from "../analysis/walk";
 import { placeSlopes, SLOPE_RULES } from "../features/slopes";
-import { cutRamp, footComponents, rampPath } from "../land/levels";
+import { cutRamp, footComponents, RAMP_MOST, rampPath } from "../land/levels";
 import { stream } from "../math/rng";
 import type { Orientation } from "../format/footprints";
 import { pow, sqrt } from "../math/portable";
@@ -419,7 +419,10 @@ export function buildBench(plan: PremisePlan, w: StageWater, heights: Uint8Array
  *  cut up the cliff that walls it in, as the themes cut theirs (`land/levels.ts` `rampPath`, `cutRamp`: the gentlest
  *  line to the ground beyond, a step a level, four levels at most, never a pier), to the largest grounds the walk
  *  does not reach first (`tries` of them, `least` tiles or more), `most` ramps at most. Never through the water or the
- *  ground stage 1 decided. `share` is the frame's read (`START.reachRead`) with the generator's margin (1.1). */
+ *  ground stage 1 decided. `share` is the frame's read (`START.reachRead`) with the generator's margin (1.1).
+ *  A try goes only to a ground the walked land can reach by a ramp's line (over dry ground stage 1 did not decide) no
+ *  more than `RAMP_MOST` levels off: taken from the four largest grounds of the whole map, the tries at 256² all went
+ *  to grounds behind the lakes, the side network's brooks or a cliff of 6 to 9 levels, and no way out was cut. */
 export const WAYS_OUT = { share: 1.1, most: 2, tries: 4, least: 200 } as const;
 
 /** Cuts the start's ways out (`WAYS_OUT`) into the heights in place; returns their steps as (low tile, high tile)
@@ -452,18 +455,42 @@ export function cutWaysOut(plan: PremisePlan, w: StageWater, heights: Uint8Array
       lab[i] = d[i] < Infinity ? 0 : fc.lab[i] + 1;
       if (lab[i] > 0) size[lab[i]]++;
     }
+    // (the grounds a ramp's line can get to from the walked land, as `rampPath` runs: over dry ground stage 1 did not
+    // decide, off the map's four outer rows)
+    const open = new Uint8Array(size.length);
+    const seen = new Uint8Array(N);
+    const queue: number[] = [];
+    for (let i = 0; i < N; i++) if (lab[i] === 0) queue.push(i);
+    while (queue.length) {
+      const c = queue.pop()!;
+      const x = c % W;
+      const y = (c - x) / W;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 4 || yy < 4 || xx >= W - 4 || yy >= H - 4) continue;
+        const j = yy * W + xx;
+        if (seen[j] || water[j] || keep[j] || lab[j] === 0) continue;
+        seen[j] = 1;
+        open[lab[j]] = 1;
+        queue.push(j);
+      }
+    }
     const order = size
       .map((n, k) => [n, k])
-      .filter(([n, k]) => k > 0 && n >= WAYS_OUT.least)
-      .sort((a, b) => b[0] - a[0] || a[1] - b[1])
-      .slice(0, WAYS_OUT.tries);
+      .filter(([n, k]) => k > 0 && n >= WAYS_OUT.least && open[k])
+      .sort((a, b) => b[0] - a[0] || a[1] - b[1]);
     let done = false;
+    let tried = 0;
     for (const [, to] of order) {
       const path = rampPath(heights, W, H, water, keep, lab, 0, to);
-      if (path && cutRamp(heights, W, H, water, keep, path, tiles, steps, lay)) {
+      // (a line that climbs past `RAMP_MOST` is no ramp, and no try)
+      if (!path || Math.abs(heights[path[0]] - heights[path[path.length - 1]]) > RAMP_MOST) continue;
+      if (cutRamp(heights, W, H, water, keep, path, tiles, steps, lay)) {
         done = true;
         break;
       }
+      if (++tried >= WAYS_OUT.tries) break;
     }
     if (!done) break;
   }

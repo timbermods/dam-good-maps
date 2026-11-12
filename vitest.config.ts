@@ -30,6 +30,7 @@ const HEAVY = [
   "tests/contract/premiseWater.heavy.test.ts", // stage 1's water settled on three plans and Four Lakes (PREMISES §7 step 2)
   "tests/contract/premiseGateWater.heavy.test.ts", // the wall with one gate's water settled on five plans (PREMISES §5.1)
   "tests/contract/premiseGateLand.heavy.test.ts", // the wall with one gate's maps built and checked on four seeds (PREMISES §5.1)
+  "tests/contract/premiseStair256.heavy.test.ts", // the lake stair at 256² on five seeds and themes, none falling back (PREMISES §3.3)
 ];
 
 export default defineConfig({
