@@ -1071,6 +1071,20 @@ and two of Any seed 2's plans stood 0.02 and 0.03 over their sill at day 1's end
 day 2, each costing a settle. The landing moves 128² seed 1's bytes (its plan, start, bench and card unchanged; D148).
 Times are in the round's report and `premiseStair256.heavy.test.ts` holds seeds 1 to 3 in River Valley and Any.
 
+**The page's time at 256² (the premise page-time round).** Each premise map now records its stages
+(`GenerateResult.timings.stages`, on the page `window.dgm.current().stages`): `before` (the attempts that failed),
+`plan` (the plan and its siting), `land` (stages 1 to 4), `build` (the first build and its settle), `life` (life and the
+second build), `checks` (the file and the checks), `gate` (the start's drought, D133's rule). The drought gate's water
+already ran on the settle's threads (`withSmallMapThreads`); what this round moved: the gate is a step generator
+(`hold.ts` `startWaterGateSteps`) that asks its caller for each day's water, the premise mode a step generator
+(`generate.ts` `premiseSteps`) that hands its caller the first build's water and model as soon as they are settled
+(life moves no water), and the page's generator (`worker/api.ts` `runGenerate`, `gen/generate.ts` `generateAsync`,
+`premise/generate.ts` `generatePremiseAsync`) starts the drought then in a worker of its own (`worker/drought.worker.ts`,
+on threads of the page's water budget), beside the map's life, second build and checks; the gate judges the same
+days' water, so the map is the same byte for byte (`premiseThreads.heavy.test.ts`: four threads and the run apart
+against one thread), and nothing is shown before it has passed. Node and the tools run it all on one thread
+(`generatePremise`). Times are in this round's report; the stage that is left largest is the first build's settle.
+
 ### 3.4 Deferred to after the map opens
 
 Run by the background worker that already settles and checks an opened map (`backgroundCheck`), a slice at a time,

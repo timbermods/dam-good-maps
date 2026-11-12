@@ -8,7 +8,8 @@ import type { JsonObject } from "../core/format/json";
 import type { BuildResult } from "../core/features/build";
 import type { Feature } from "../core/features/schema";
 import { writeTimber } from "../core/format/timber";
-import { generate, type GenerateResult } from "../core/gen/generate";
+import { generate, generateAsync, type GenerateOptions, type GenerateResult } from "../core/gen/generate";
+import { droughtRunner } from "./droughtRunner";
 import { findVersion, missesOf, notifies, versionNote, worthSearching, type Misses } from "../core/gen/versions";
 import { fileName, mapName, description, toTimberFile } from "../core/gen/pack";
 import type { MapSpec } from "../core/spec/mapspec";
@@ -61,6 +62,9 @@ export interface GenerateResponse {
   premise: string;
   sha256: string;
   ms: number;
+  /** A premise map's stages, ms (`GenerateResult.timings.stages`), with the whole generate call and the document made
+   *  after it (`generate`, `document`). */
+  stages?: Record<string, number>;
   /** The intentions a generated map was steered toward (Another like this keeps them, D278). */
   intentions: string[];
   /** D329: the outcomes a generated map missed, when a background search for a version meeting
@@ -221,8 +225,9 @@ export type GenProgress =
 
 export async function runGenerate(spec: MapSpec, onProgress?: (p: GenProgress) => void, seedWord?: string): Promise<GenerateResponse> {
   const t0 = performance.now();
-  const r = generate(
-    spec,
+  // (a premise's start's drought runs beside its map where this worker can start one of its own, `droughtRunner`)
+  const runner = spec.premise !== undefined ? droughtRunner() : null;
+  const r = await (runner ? (o: GenerateOptions) => generateAsync(spec, o, runner) : (o: GenerateOptions) => Promise.resolve(generate(spec, o)))(
     onProgress
       ? {
           onProgress: (p) => onProgress({ kind: "stage", attempt: p.attempt, stage: p.stage, ...(p.tried !== undefined ? { tried: p.tried } : {}), ...(p.failed ? { failed: p.failed } : {}) }),
@@ -240,6 +245,7 @@ export async function runGenerate(spec: MapSpec, onProgress?: (p: GenProgress) =
   last = r;
   lastSeedWord = seedWord;
   const project = encodeProject(generatedDocument({ ...r, seedWord }));
+  const stages = r.timings.stages ? { ...r.timings.stages, generate: ms, document: Math.round(performance.now() - t0) - ms } : undefined;
   return responseOf({
     spec: r.spec,
     features: r.features,
@@ -256,6 +262,7 @@ export async function runGenerate(spec: MapSpec, onProgress?: (p: GenProgress) =
     intentions: r.info.genome?.intentions ?? [],
     idea: ideaOf(r.info.premise),
   }).then((resp) => {
+    if (stages) resp.stages = { ...stages, response: Math.round(performance.now() - t0) - ms - stages.document };
     // (a miss worth a background search, D329)
     if (r.report.passed && r.outcomes) {
       const m = missesOf(r.outcomes);
