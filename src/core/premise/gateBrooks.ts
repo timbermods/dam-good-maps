@@ -1,12 +1,12 @@
-// The wall with one gate's southern brooks (docs/PREMISES.md §5.1, "The brooks find their way"; planning's ruling of
-// 2026-11-16): each brook takes the cheapest way from its tarn down to the lake over ground with its own relief (noise
+// The wall with one gate's southern brooks (docs/PREMISES.md §5.1, "The brooks find their way"; planning's ruling
+// on the brooks): each brook takes the cheapest way from its tarn down to the lake over ground with its own relief (noise
 // the seed draws, shared by every brook), never back up the valley's fall, clear of what is laid; so
 // the land decides where it turns and how far it runs between turns. And the measure of its legs (`brookLegs`): a
 // brook turning every few tiles at one angle, left and right by turns, is a ruler with a rhythm.
 // Portable maths only: `../math/portable`.
 
 import { fbm } from "../math/noise";
-import { cos, hypot, sin, sqrt } from "../math/portable";
+import { atan2, cos, hypot, sin } from "../math/portable";
 import { ruledLand } from "../validate/ruledLand";
 import { pathDist, pathLength, pointAt } from "./geom";
 import type { Point } from "./types";
@@ -17,11 +17,12 @@ import type { Point } from "./types";
  *  tiles). */
 export const BROOK_GROUND = { cell: 7, octaves: 2, a: 8, fall: 1.5, descent: 0.25, grid: 2 } as const;
 
-/** A brook's legs (planning's ruling of 2026-11-16): its course simplified to the turns that stand `turn` tiles or more
- *  off the straight line; no `equalRun` legs in a row within `equal` of each other (a share of the longer); their
- *  spread over their mean `spread` or more; its turns not left and right by turns throughout (with `alternate` turns
- *  or more). Read on courses of `least` legs or more. */
-export const BROOK_LEGS = { turn: 1.5, equalRun: 3, equal: 0.1, spread: 0.5, alternate: 4, least: 3 } as const;
+/** A brook's bends (planning's ruling on the meanders): its course read a tile and a half at a time, each run of turns
+ *  one way (turns under `still` radians aside) a bend, its length along the course and its swing (the heading it
+ *  turns through). No two neighbouring bends within `alike` of each other in both length and swing, and no
+ *  `equalRun` bends in a row within `alike` of each other in length: a sawtooth, or a sine laid on a line, is a ruler
+ *  with a rhythm. Read on courses of `least` bends or more. */
+export const BROOK_LEGS = { step: 1.5, still: 0.03, alike: 0.1, equalRun: 3, least: 3 } as const;
 
 /** The ground a brook's search reads: each cell's cost. */
 export interface BrookGround {
@@ -184,7 +185,7 @@ export function courseReach(course: readonly Point[], half = 2): { tiles: number
   return c ? { tiles: c.tiles, at: [ox + c.x + 0.5, oy + c.y + 0.5] } : { tiles: 0, at: [0, 0] };
 }
 
-/** A brook's meanders about its course (planning's ruling of 2026-11-16, the sine-generated curve of Langbein and
+/** A brook's meanders about its course (planning's ruling on the meanders, the sine-generated curve of Langbein and
  *  Leopold): its heading swings about the course's own, θ(s) = ±ω sin(π s ÷ L) over each bend of length L, the bends
  *  by turns each side; L half a wavelength of `wave` × its width, ω `swing` radians, each bend's L and ω drawn
  *  `apart` either way; the swing falls to nothing within `drop` tiles of a level its bed drops (a steep reach runs
@@ -210,9 +211,20 @@ export function meander(course: readonly Point[], width: number, draw: () => num
   let u = 0;
   let y = 0;
   let side = draw() < 0.5 ? -1 : 1;
+  // (each bend unlike the one before in length or swing, and no three of one length: drawn again where it is)
+  const alike = (x: number, y: number) => Math.abs(x - y) <= 0.15 * Math.max(x, y);
+  const was: { L: number; w: number }[] = [];
   while (u < Lc) {
-    const L = (wave / 2) * apart();
-    const w = M.swing * apart();
+    let L = (wave / 2) * apart();
+    let w = M.swing * apart();
+    for (let t = 0; t < 8; t++) {
+      const p = was[was.length - 1];
+      const q = was[was.length - 2];
+      if (!p || (!(alike(L, p.L) && alike(w, p.w)) && !(q && alike(L, p.L) && alike(p.L, q.L)))) break;
+      L = (wave / 2) * apart();
+      w = M.swing * apart();
+    }
+    was.push({ L, w });
     let bend: Point[] = [];
     let at = { u, y };
     for (const k of M.tries) {
@@ -245,7 +257,7 @@ export function meander(course: readonly Point[], width: number, draw: () => num
 
 /** A path's turns: the Douglas–Peucker simplification keeping each point `tol` tiles or more off the line between the
  *  points kept about it. */
-export function turnsOf(path: readonly Point[], tol: number = BROOK_LEGS.turn): Point[] {
+export function turnsOf(path: readonly Point[], tol = 1.5): Point[] {
   if (path.length <= 2) return path.slice();
   const keep = new Uint8Array(path.length);
   keep[0] = 1;
@@ -273,36 +285,42 @@ export function turnsOf(path: readonly Point[], tol: number = BROOK_LEGS.turn): 
   return path.filter((_, k) => keep[k]);
 }
 
-/** A brook's legs as `BROOK_LEGS` reads them: their lengths, the longest run of legs in a row within `equal` of each
- *  other, their spread over their mean, and the share of its turns that turn the other way from the one before. */
-export function brookLegs(path: readonly Point[]): { legs: number[]; equalRun: number; spread: number; alternate: number; turns: number } {
-  const t = turnsOf(path);
-  const legs: number[] = [];
-  for (let k = 0; k + 1 < t.length; k++) legs.push(hypot(t[k + 1][0] - t[k][0], t[k + 1][1] - t[k][1]));
-  let equalRun = legs.length ? 1 : 0;
-  let run = 1;
-  for (let k = 1; k < legs.length; k++) {
-    run = Math.abs(legs[k] - legs[k - 1]) <= BROOK_LEGS.equal * Math.max(legs[k], legs[k - 1]) ? run + 1 : 1;
-    equalRun = Math.max(equalRun, run);
+/** A brook's bends as `BROOK_LEGS` reads them: each bend's length and swing. */
+export function brookBends(path: readonly Point[]): { length: number; swing: number }[] {
+  const L = pathLength(path);
+  const n = Math.max(2, Math.round(L / BROOK_LEGS.step));
+  const pts: Point[] = [];
+  for (let k = 0; k <= n; k++) pts.push(pointAt(path, (L * k) / n).p);
+  const step = L / n;
+  const bends: { length: number; swing: number }[] = [];
+  let sign = 0;
+  for (let k = 1; k + 1 < pts.length; k++) {
+    const a = [pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]];
+    const b = [pts[k + 1][0] - pts[k][0], pts[k + 1][1] - pts[k][1]];
+    const turn = atan2(a[0] * b[1] - a[1] * b[0], a[0] * b[0] + a[1] * b[1]);
+    const sg = Math.abs(turn) < BROOK_LEGS.still ? sign : turn > 0 ? 1 : -1;
+    if (sg !== sign || !bends.length) {
+      if (sg !== 0) bends.push({ length: 0, swing: 0 });
+      sign = sg;
+    }
+    if (bends.length) {
+      bends[bends.length - 1].length += step;
+      bends[bends.length - 1].swing += Math.abs(turn);
+    }
   }
-  const mean = legs.reduce((s, l) => s + l, 0) / Math.max(1, legs.length);
-  const sd = sqrt(legs.reduce((s, l) => s + (l - mean) * (l - mean), 0) / Math.max(1, legs.length));
-  const signs: number[] = [];
-  for (let k = 1; k + 1 < t.length; k++) {
-    const cr = (t[k][0] - t[k - 1][0]) * (t[k + 1][1] - t[k][1]) - (t[k][1] - t[k - 1][1]) * (t[k + 1][0] - t[k][0]);
-    signs.push(cr > 0 ? 1 : -1);
-  }
-  let flips = 0;
-  for (let k = 1; k < signs.length; k++) if (signs[k] !== signs[k - 1]) flips++;
-  return { legs, equalRun, spread: mean > 0 ? sd / mean : 0, alternate: signs.length > 1 ? flips / (signs.length - 1) : 0, turns: signs.length };
+  return bends;
 }
 
-/** Why a brook's legs read as a ruler (`BROOK_LEGS`), or null. */
+/** Why a brook's bends read as a ruler (`BROOK_LEGS`), or null. */
 export function brookLegsWrong(path: readonly Point[]): string | null {
-  const m = brookLegs(path);
-  if (m.legs.length < BROOK_LEGS.least) return null;
-  if (m.equalRun >= BROOK_LEGS.equalRun) return `has ${m.equalRun} legs in a row of one length (fewer than ${BROOK_LEGS.equalRun})`;
-  if (m.spread < BROOK_LEGS.spread) return `has legs of nearly one length (their spread ${m.spread.toFixed(2)} of their mean, ${BROOK_LEGS.spread} or more)`;
-  if (m.turns >= BROOK_LEGS.alternate && m.alternate === 1) return `turns left and right by turns at every one of its ${m.turns} turns`;
+  const b = brookBends(path);
+  if (b.length < BROOK_LEGS.least) return null;
+  const alike = (x: number, y: number) => Math.abs(x - y) <= BROOK_LEGS.alike * Math.max(x, y);
+  let run = 1;
+  for (let k = 1; k < b.length; k++) {
+    if (alike(b[k].length, b[k - 1].length) && alike(b[k].swing, b[k - 1].swing)) return `has two bends side by side alike in length and swing (${b[k - 1].length.toFixed(1)} and ${b[k].length.toFixed(1)} tiles)`;
+    run = alike(b[k].length, b[k - 1].length) ? run + 1 : 1;
+    if (run >= BROOK_LEGS.equalRun) return `has ${run} bends in a row of one length (fewer than ${BROOK_LEGS.equalRun})`;
+  }
   return null;
 }

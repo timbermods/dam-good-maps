@@ -83,10 +83,10 @@ export const TARN_HALF = 1.4;
 export const SPURS = { gap: [8, 30], len: [0.3, 1.2], turn: 0.5, fork: 0.85, forkTurn: [0.3, 0.6], least: 2 } as const;
 /** Two southern brooks' middles stand this far apart at the least (the plan's checks refuse under 1.5). */
 export const BROOK_APART = 3;
-/** Two brooks come into the lake this many tiles of its main arm apart at the least. */
-export const BROOK_ROOM = 8;
 /** A brook takes a cove no further from its spring than `[0]` times the lake's nearest shore and `[1]` tiles. */
 export const BROOK_COVE = [1.15, 8] as const;
+/** Within this many tiles of a cove's head two brooks may come together. */
+export const BROOK_SHARE = 5;
 /** The lake's main arm between its lobes: a point every `every` tiles, `off` tiles off its line by turns, its width
  *  `width` of the lobes' between them, `least` at the least. */
 export const LAKE_WANDER = { every: 6, off: [1, 2.2], width: [-0.25, 0.25], least: 2.8, nub: 7, nubOut: [3.5, 5], nubR: [2.5, 3.5], apart: 12 } as const;
@@ -874,7 +874,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     pathDist(p[0], p[1], low).d > r + 5 &&
     // (and off the Gate's gorge: a bay across it was the commonest plan refused, the Gate running through the lake)
     pathDist(p[0], p[1], gate.slice(1)).d > r + slotW / 2 + 3;
-  // the lake's coves, before the brooks: coves are where the brooks come in (planning's ruling of 2026-11-16)
+  // the lake's coves, before the brooks: coves are where the brooks come in (planning's ruling on the brooks)
   const coves: { spine: Spine; out: Point; at: number }[] = [];
   // (and small coves along its shore, every `LAKE_WANDER.nub` tiles by turns each side, `nubOut` tiles past its edge: a
   // broad arm's shore is the union of its lobes, so points between them changed little, and a 20-wide arm still lay
@@ -974,111 +974,25 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   };
   // (the lake's water, its main arm's with its coves' and bays': under 0 in it)
   const lakeAt = (p: Point): number => Math.min(edgeOf(main, p[0], p[1]), ...lakeArms.slice(1).map((arm) => edgeOf(arm, p[0], p[1])));
-  // each brook comes into the lake at a cove's head, never across a cove's mouth (planning's ruling of 2026-11-16: coves
-  // are where streams come in): the tarns in their order along the arm take the coves facing them in theirs, each the
-  // nearest left, so no two lines cross and each brook has its own share of the valley down to the lake; a tarn with
-  // none left comes in at the main arm's nearest shore
+  // each brook comes into the lake at a cove's head, never across a cove's mouth (planning's ruling on the brooks: coves
+  // are where streams come in), the nearest it can reach, a tile and a half inside the cove's end
   const heads: Point[] = coves.map((c) => [c.spine[1][0] + c.out[0] * (c.spine[1][2] - 1.5), c.spine[1][1] + c.out[1] * (c.spine[1][2] - 1.5)]);
-  const armOf = (t: Point): number => {
-    let best = 0;
-    let be = Infinity;
-    let a = 0;
-    for (let k = 0; k + 1 < main.length; k++) {
-      const len = dist([main[k][0], main[k][1]], [main[k + 1][0], main[k + 1][1]]);
-      for (let s = 0; s <= len; s += 1) {
-        const f = s / len;
-        const e = dist([main[k][0] + (main[k + 1][0] - main[k][0]) * f, main[k][1] + (main[k + 1][1] - main[k][1]) * f], t) - (main[k][2] + (main[k + 1][2] - main[k][2]) * f);
-        if (e < be) {
-          be = e;
-          best = a + s;
-        }
-      }
-      a += len;
-    }
-    return best;
-  };
-  const lines: { head: Point; end: Point; line: Point[]; cove: number }[] = [];
-  {
-    const order = tarnAt.map((t, k) => ({ k, at: armOf(t) })).sort((x, y) => x.at - y.at || x.k - y.k);
-    const byArm = coves.map((c, k) => ({ k, at: c.at })).sort((x, y) => x.at - y.at);
-    let from = 0;
-    let past = -Infinity;
-    for (const { k: tk } of order) {
-      const [tu, tv] = tarnAt[tk];
-      const r = radii[tk];
-      let pick = -1;
-      let pd = Infinity;
-      for (let q = from; q < byArm.length; q++) {
-        if (byArm[q].at < past) continue;
-        const c = byArm[q].k;
-        const h = heads[c];
-        if ((tu - h[0]) * coves[c].out[0] + (tv - h[1]) * coves[c].out[1] <= 0) continue;
-        const d = dist(h, [tu, tv]);
-        // (a cove near the way the tarn would come, not one across the valley)
-        if (d > BROOK_COVE[0] * edgeOf(main, tu, tv) + BROOK_COVE[1]) continue;
-        if (d < pd) {
-          pd = d;
-          pick = q;
-        }
-      }
-      let end: Point;
-      let cove = -1;
-      if (pick >= 0) {
-        cove = byArm[pick].k;
-        end = heads[cove];
-        from = pick + 1;
-        past = byArm[pick].at + BROOK_ROOM;
-      } else {
-        // (the main arm's nearest shore past the last taken, a tile inside it)
-        let best: Point = [main[0][0], main[0][1]];
-        let be = Infinity;
-        let lr = main[0][2];
-        let ba = past;
-        let a = 0;
-        for (let k = 0; k + 1 < main.length; k++) {
-          const len = dist([main[k][0], main[k][1]], [main[k + 1][0], main[k + 1][1]]);
-          for (let t = 0; t <= len; t += 1) {
-            const f = t / len;
-            if (a + t < past) continue;
-            const p: Point = [main[k][0] + (main[k + 1][0] - main[k][0]) * f, main[k][1] + (main[k + 1][1] - main[k][1]) * f];
-            const pr = main[k][2] + (main[k + 1][2] - main[k][2]) * f;
-            if (dist(p, [tu, tv]) - pr < be) {
-              be = dist(p, [tu, tv]) - pr;
-              best = p;
-              lr = pr;
-              ba = a + t;
-            }
-          }
-          a += len;
-        }
-        past = ba + BROOK_ROOM;
-        while (from < byArm.length && byArm[from].at < past) from++;
-        const bd = dist(best, [tu, tv]);
-        end = [best[0] - ((best[0] - tu) / bd) * (lr - 1), best[1] - ((best[1] - tv) / bd) * (lr - 1)];
-      }
-      const ed = dist(end, [tu, tv]);
-      const head: Point = [tu + ((end[0] - tu) / ed) * (r - 1), tv + ((end[1] - tv) / ed) * (r - 1)];
-      lines[tk] = { head, end, line: [[tu, tv], end], cove };
-    }
-  }
-  // (each brook clear of the straight lines of the tarns laid after it, by more than a brook keeps from another: so each
-  // later tarn keeps its own way to the lake; wandering anywhere, a brook laid first fenced another tarn off the lake)
   // (nearest the lake first: a far spring's brook, laid first, passed in front of a nearer spring)
   const laying = tarnAt.map((t, k) => ({ k, d: edgeOf(main, t[0], t[1]) })).sort((x, y) => x.d - y.d || x.k - y.k).map((x) => x.k);
-  const rank = laying.map((_, i) => laying.indexOf(i));
-  const mine = (tk: number, p: Point): boolean => lines.every((ln, j) => rank[j] <= rank[tk] || pathDist(p[0], p[1], ln.line).d > BROOK_APART + 3.5);
+  // (two brooks may share a cove, meeting at its head: a confluence at the water's edge; planning's ruling on room)
+  const uses = coves.map(() => 0);
   const laid: { spine: Spine; sill: number; path: Point[]; bed: number[]; halves: number[] }[] = [];
   for (const tk of laying) {
     const [tu, tv] = tarnAt[tk];
     const r = radii[tk];
     const sill = sills[tk];
-    const { head, end, cove } = lines[tk];
-    // its course: the cheapest way from its tarn down to its cove over the valley's own rises and hollows
+    // its course: the cheapest way from its tarn down to a cove's head over the valley's own rises and hollows
     // (`gateBrooks.ts`), never back up the valley's fall, clear of what is laid: which side of the valley, round which
-    // rise, to which shore
+    // rise, to which shore; where no cove's head is in reach, to the nearest shore, its mouth its own small notch
     const others = tarnAt.filter(([x, y]) => x !== tu || y !== tv);
+    const reach = BROOK_COVE[0] * edgeOf(main, tu, tv) + BROOK_COVE[1];
+    const targets = coves.map((_, c) => c).filter((c) => uses[c] < 2 && dist(heads[c], [tu, tv]) <= reach);
     let apart: number = BROOK_APART + 3;
-    let free: boolean = false;
     const near = (p: Point, room: number): boolean =>
       p[0] > 3 &&
       p[1] > 3 &&
@@ -1089,31 +1003,48 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
       pathDist(p[0], p[1], outflow).d > room + 3 &&
       pathDist(p[0], p[1], low).d > room + 3 &&
       pathDist(p[0], p[1], gate).d > slotW / 2 + room + 2;
-    const open = (p: Point): boolean =>
-      dist(p, [tu, tv]) > r + 1.5 &&
-      (free || mine(tk, p)) &&
-      near(p, 3) &&
-      // (but at the lake, where the plan reads no brook's middle: their mouths may meet)
-      (lakeAt(p) < 3 || tarns.every((tn) => pathDist(p[0], p[1], tn.path).d > apart)) &&
-      lakeAt(p) > 2;
-    // (it comes in at its cove's head; with none, a tile or two inside the main arm's shore)
-    const into = cove >= 0 ? (p: Point): boolean => dist(p, end) < 0.01 : (p: Point): boolean => edgeOf(main, p[0], p[1]) <= -1 && edgeOf(main, p[0], p[1]) >= -2;
-    // (and a place four tiles out from its cove's head, the way in square to the cove's end)
-    const ends: Point[] = cove >= 0 ? [end, [end[0] + coves[cove].out[0] * 4, end[1] + coves[cove].out[1] * 4]] : lakeEdge();
-    // (and a place three tiles out of its tarn toward its end: its way out)
-    const ed = dist(end, [tu, tv]);
-    ends.push([tu + ((end[0] - tu) / ed) * (r + 3), tv + ((end[1] - tv) / ed) * (r + 3)]);
+    // (clear of the brooks laid before it, but at the lake and at a cove's head it may share)
+    const byOthers = (p: Point, room: number): boolean => lakeAt(p) < 3 || targets.some((c) => dist(p, heads[c]) < BROOK_SHARE) || tarns.every((tn) => pathDist(p[0], p[1], tn.path).d > room);
+    const open = (p: Point): boolean => dist(p, [tu, tv]) > r + 1.5 && near(p, 3) && byOthers(p, apart) && lakeAt(p) > 2;
+    // (the shore's places a tile or two inside the main arm, off every cove and bay: a brook never crosses a cove's mouth)
+    const shore = lakeEdge().filter((q) => lakeArms.slice(1).every((arm) => edgeOf(arm, q[0], q[1]) > 1.5));
+    const passes: { into: (p: Point) => boolean; ends: Point[]; toward: (p: Point) => number }[] = [];
+    if (targets.length)
+      passes.push({
+        into: (p) => targets.some((c) => dist(p, heads[c]) < 0.01),
+        // (each head, and a place four tiles out from it, the way in square to the cove's end)
+        ends: targets.flatMap((c) => [heads[c], [heads[c][0] + coves[c].out[0] * 4, heads[c][1] + coves[c].out[1] * 4] as Point]),
+        toward: (p) => Math.min(...targets.map((c) => dist(p, heads[c]))),
+      });
+    passes.push({ into: (p) => shore.some((q) => q[0] === p[0] && q[1] === p[1]), ends: shore, toward: lakeAt });
     let way: Point[] | null = null;
-    for (const [ap, fr] of [[BROOK_APART + 3, false], [BROOK_APART, false], [BROOK_APART, true]] as const) {
-      apart = ap;
-      free = fr;
-      way = brookWay(ground, [...places, ...ends], head, open, into, (p) => (cove >= 0 ? dist(p, end) : lakeAt(p)), lakeAt);
+    for (const pass of passes) {
+      // (its head on its tarn's shore toward the nearest end, and a place three tiles out of the tarn that way)
+      let aim = pass.ends[0];
+      for (const q of pass.ends) if (dist(q, [tu, tv]) < dist(aim, [tu, tv])) aim = q;
+      const ad = dist(aim, [tu, tv]);
+      const head: Point = [tu + ((aim[0] - tu) / ad) * (r - 1), tv + ((aim[1] - tv) / ad) * (r - 1)];
+      const out: Point = [tu + ((aim[0] - tu) / ad) * (r + 3), tv + ((aim[1] - tv) / ad) * (r + 3)];
+      for (const ap of [BROOK_APART + 3, BROOK_APART]) {
+        apart = ap;
+        way = brookWay(ground, [...places, ...pass.ends, out], head, open, pass.into, pass.toward, lakeAt);
+        if (way) break;
+      }
       if (way) break;
     }
     if (!way || way.length < 3) return { why: "brook room" };
+    const end = way[way.length - 1];
+    const cove = coves.findIndex((_, c) => dist(end, heads[c]) < 0.01);
+    if (cove >= 0) uses[cove]++;
+    else {
+      // (its mouth its own small notch in the shore, a tile or two, square to where it comes in)
+      const prev = way[way.length - 2];
+      const pd = dist(prev, end);
+      lakeArms.push([[r2(end[0]), r2(end[1]), 1.2], [r2(end[0] + ((prev[0] - end[0]) / pd) * 1), r2(end[1] + ((prev[1] - end[1]) / pd) * 1), 0.9]]);
+    }
     // (its corners cut twice: a brook bends, never turns a corner)
     const courseLine = smooth(way);
-    // its channel meanders about its course (`meander`; planning's ruling of 2026-11-16: on a flat floor a stream does
+    // its channel meanders about its course (`meander`; planning's ruling on the brooks: on a flat floor a stream does
     // not follow relief, it meanders by its own flow), straight for a few tiles where its bed drops a level
     const drops: number[] = [];
     for (let j = 1; j <= sill - 1 - S; j++) drops.push(j / (sill - 1 - S + 0.999));
@@ -1123,7 +1054,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
       (BROOK.valley[0] + BROOK.valley[1]) / 2,
       () => rng.float(),
       drops,
-      (p, u) => near(p, 2) && (free || mine(tk, p)) && (u < 4 || dist(p, [tu, tv]) > r + 1) && (u > Lc - 5 || lakeAt(p) > 1.5) && tarns.every((tn) => pathDist(p[0], p[1], tn.path).d > BROOK_APART + 1),
+      (p, u) => near(p, 2) && (u < 4 || dist(p, [tu, tv]) > r + 1) && (u > Lc - 5 || lakeAt(p) > 1.5) && byOthers(p, BROOK_APART + 1),
     );
     // (a point every `BROOK.every` tiles at most, four at the least: its bed's first step needs two past the head)
     const course = resample(channel, Math.min(BROOK.every, pathLength(channel) / 4));
@@ -1881,7 +1812,7 @@ const valleyWater: Invariant = {
 };
 const LAKE_AWAY = 16;
 
-/** `valley.brooks` (planning's ruling of 2026-11-16: a brook turning every few tiles at one angle, left and right by
+/** `valley.brooks` (planning's ruling on the brooks: a brook turning every few tiles at one angle, left and right by
  *  turns, is a ruler with a rhythm): each southern brook's legs between its turns (`gateBrooks.ts` `brookLegsWrong`)
  *  vary, no three of one length in a row, their spread over their mean `BROOK_LEGS.spread` or more, and its turns not
  *  left and right by turns throughout. */

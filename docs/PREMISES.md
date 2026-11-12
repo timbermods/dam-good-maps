@@ -1292,7 +1292,7 @@ playability floor of its own: the start's numbers are the shared gate's (`START_
 **The line:** "A mountain range runs across the map, a green valley on your side and a dry lake's basin beyond; the
 river rises in a cleft of the range, pours over the Veil and runs down to the lake at your door. Carry the water
 through the Gate or round by the Pass, and before the first badtide close the Still Pool's inlet." (Planning's wording
-of 2026-11-16; "your door" is said once, in the line, so the card's landmark is the fall into the plunge pool alone.)
+for the card; "your door" is said once, in the line, so the card's landmark is the fall into the plunge pool alone.)
 Closing the Gate is the premise's choice: hold the valley's water behind the wall, or send it through to the basin.
 
 **Land first, story second** (planning's ruling of 2026-11-11, after Kyler called the laid wall "an artificial wall
