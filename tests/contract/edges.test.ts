@@ -1,7 +1,8 @@
 // No edge walls (Kyler, 2026-09-25, D151, extending D111's no built walls to the map's edges): no
 // generated or converted map may raise a wall along its edges to hold water (D151).
 // `terrain.edge_wall` (analysis/edges.ts, prototype/validate.py `edge_walls`) is a principle beside
-// the dam-wall rule: it blocks in `generate` and `export`, and is information on an import.
+// the dam-wall rule: it blocks in `generate`, warns in `export` (a player's own map exports whenever the
+// game will load it, D3) and is information on an import.
 //
 // The fixture is the terrain of one real place as converted for real-places-done: every one of
 // the 85 conversions stands in a full-height wall one tile thick round the whole map.
@@ -114,13 +115,13 @@ describe("the edge-wall rule (terrain.edge_wall)", () => {
     expect(edgeCheck(cliff, W, H).ok).toBe(true);
   });
 
-  it("blocks a generated map and an export, and is information on an import", () => {
+  it("blocks a generated map, warns on an export, and is information on an import (D3)", () => {
     const h = decodeHeights(fixture.heights);
     const at = (p: Profile) => edgeCheck(h, fixture.W, fixture.H, p);
     expect(at("generate").severity).toBe("error");
     expect(blocks("generate", at("generate"))).toBe(true);
-    expect(at("export").severity).toBe("error");
-    expect(blocks("export", at("export"))).toBe(true);
+    expect(at("export").severity).toBe("warning");
+    expect(blocks("export", at("export"))).toBe(false);
     expect(at("import").severity).toBe("info");
     expect(blocks("import", at("import"))).toBe(false);
   });
@@ -193,7 +194,7 @@ describe("the height limit (terrain.max_height)", () => {
 });
 
 describe("the edge-wall rule on an edited map (D323)", () => {
-  it("is a warning with a Lower the wall fix, never a block; the same land on generate and export still blocks", () => {
+  it("is a warning with a Lower the wall fix, never a block; the same land on generate still blocks", () => {
     const { W, H } = fixture;
     const h = decodeHeights(fixture.heights);
     const edited = validateMap(fileOf(h, W, H), { profile: "export", loadOnly: true, editing: true });
@@ -209,7 +210,9 @@ describe("the edge-wall rule on an edited map (D323)", () => {
       for (const [y, a, b] of op.params.cells) for (let x = a; x <= b; x++) fixed[y * W + x] = op.params.level!;
     }
     expect(edgeCheck(fixed, W, H).ok).toBe(true);
-    // without `editing`, the export still blocks
-    expect(blocks("export", edgeCheck(h, W, H, "export"))).toBe(true);
+    // the same principle: the generator's own gate refuses it, and only `editing` offers the fix
+    expect(c.class).toBe("principle");
+    expect(blocks("generate", edgeCheck(h, W, H, "generate"))).toBe(true);
+    expect(edgeCheck(h, W, H, "export").fix).toBeUndefined();
   });
 });

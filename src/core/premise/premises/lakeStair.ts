@@ -1484,65 +1484,80 @@ function* bypassCourses(L: Layout, others: Point[][], join: Point[] | null, lo: 
     // once a seed)
     const heap = courseHeap(8 * N + seeds.length);
     let size = 0;
+    // (the heap's sift-up and sift-down written out where they run, comparing by `best` as it stands: this search is
+    // most of a layout's tail at 256², a binary heap of cells by their key read at each comparison)
     const push = (c: number) => {
       let k = size++;
-      heap[k] = c;
+      const bc = best[c];
       while (k > 0) {
         const q = (k - 1) >> 1;
-        if (best[heap[q]] <= best[heap[k]]) break;
-        const t = heap[q];
-        heap[q] = heap[k];
-        heap[k] = t;
+        const hq = heap[q];
+        if (best[hq] <= bc) break;
+        heap[k] = hq;
         k = q;
       }
+      heap[k] = c;
     };
-    const pop = (): number => {
-      const top = heap[0];
-      const last = heap[--size];
-      if (size) {
-        heap[0] = last;
-        for (let k = 0; ; ) {
-          const a = 2 * k + 1;
-          let m = k;
-          if (a < size && best[heap[a]] < best[heap[m]]) m = a;
-          if (a + 1 < size && best[heap[a + 1]] < best[heap[m]]) m = a + 1;
-          if (m === k) break;
-          const t = heap[m];
-          heap[m] = heap[k];
-          heap[k] = t;
-          k = m;
-        }
-      }
-      return top;
-    };
+    // (a cell is closed, or out of the search: shut, or not open)
+    const closed = new Uint8Array(N);
+    for (let c = 0; c < N; c++) if (!open[c] || shut?.[c]) closed[c] = 1;
+    const DIAG = 1.41421356 * COURSE_CELL;
     for (const [c, l] of seeds) {
       best[c] = 0;
       len[c] = l;
       push(c);
     }
     while (size) {
-      const c = pop();
+      const c = heap[0];
+      const last = heap[--size];
+      if (size) {
+        const bl = best[last];
+        let k = 0;
+        for (;;) {
+          const a = 2 * k + 1;
+          if (a >= size) break;
+          let m = a;
+          let bm = best[heap[a]];
+          if (a + 1 < size) {
+            const b2 = best[heap[a + 1]];
+            if (b2 < bm) {
+              m = a + 1;
+              bm = b2;
+            }
+          }
+          if (!(bm < bl)) break;
+          heap[k] = heap[m];
+          k = m;
+        }
+        heap[k] = last;
+      }
       if (done[c]) continue;
       done[c] = 1;
+      closed[c] = 1;
       const x = c % G;
       const y = (c - x) / G;
-      for (let dy = -1; dy <= 1; dy++)
+      const bc = best[c];
+      const cc = cost[c];
+      const lc = len[c];
+      for (let dy = -1; dy <= 1; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= G) continue;
         for (let dx = -1; dx <= 1; dx++) {
           if (!dx && !dy) continue;
           const xx = x + dx;
-          const yy = y + dy;
-          if (xx < 0 || yy < 0 || xx >= G || yy >= G) continue;
+          if (xx < 0 || xx >= G) continue;
           const n = yy * G + xx;
-          if (!open[n] || done[n] || shut?.[n]) continue;
-          const step = (dx && dy ? 1.41421356 : 1) * COURSE_CELL;
-          const v = best[c] + (step * (cost[c] + cost[n])) / 2;
+          if (closed[n]) continue;
+          const step = dx && dy ? DIAG : COURSE_CELL;
+          const v = bc + (step * (cc + cost[n])) / 2;
           if (v < best[n]) {
             best[n] = v;
-            len[n] = len[c] + step;
+            len[n] = lc + step;
             from[n] = c;
             push(n);
           }
         }
+      }
     }
     const back = (end: number): number[] => {
       const cells: number[] = [];
