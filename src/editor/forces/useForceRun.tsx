@@ -166,8 +166,10 @@ export function useForceRun(ed: Ed): ForceRunSlice {
           if (!u.ok && u.errors.length) setMessage({ kind: "info", text: plain(u.errors[0]) });
           else if (u.ok) {
             // (a force that cleared sources says so, and offers to take it back: nothing it does goes unsaid, D474)
+            // (and one that let badwater into clean water says where, first: the force audit's S3)
             const n = u.sourcesRemoved;
-            setMessage(n ? { kind: "info", text: `Cleared ${n} ${n === 1 ? "source" : "sources"}. Set Sources to Ride to keep them.`, action: { label: "Undo", tip: "Take the force back", step: u.info.history.filter((h) => h.applied).length, run: () => void ed.undo() } } : null);
+            const said = [u.badwater?.note ?? "", n ? `Cleared ${n} ${n === 1 ? "source" : "sources"}. Set Sources to Ride to keep them.` : ""].filter(Boolean).join(" ");
+            setMessage(said ? { kind: "info", text: said, action: { label: "Undo", tip: "Take the force back", step: u.info.history.filter((h) => h.applied).length, run: () => void ed.undo() } } : null);
             // (its rolls are on offer: Tab shows another, D488)
             offerRolls(u.info.version);
             // (the first-run hint points at Carve: a force kept is shaping the land too, D352)
