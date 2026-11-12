@@ -58,6 +58,20 @@ donor pit, Erode's scour on the River Valley plain), which hides the landform; o
 the same pits stay dry. I did not establish whether the game itself would fill them: the editor's settle does. *Fix:*
 each plan runs the forces' own water model on its result before it is kept and adjusts the shape, never refuses: keep a
 sill between a badwater channel and clean water; give a pit an outlet at its low end; size a channel to its source.
+**The check done** (`feature/badwater-check`, 2026-11-11): `core/water/badwaterLetIn.ts` says whether a change let
+badwater into water that was clean: tiles of the water shown before (0.05 deep or more, under 0.05 contamination)
+that the canonical settle's flow walk (`prefill.ts` `flowThrough`) reaches with badwater after the change and did not
+before, 4 or more. Every force's keep calls it (worker `forceStop`) and the page puts it first in the kept force's
+note with Undo, naming the start's water when a tile lies within 20 tiles of the start. Two walks, about 28 ms on
+256² on the first keep, half that on Try another (the walk before is kept). On its own ground (a blank 96² map: a clean
+channel through a pool by the start, a badwater trench behind a ridge), a Rift through the ridge is caught with the
+start's water named (608 tiles; the settled water fouls 283), one elsewhere is not; a second Rift over water the
+first already mixed is not blamed, while the same Rift on the first ground is (`tests/contract/badwaterLetIn.test.ts`).
+The sheet `docs/sheets/badwater-check.jpg` was taken on Highlands 4242 before generator #1015; its numbers are that
+map's. Still open: the plans
+do not yet adjust their shape (a sill, an outlet, a channel sized to its source); a pool the walk already reached
+with badwater before (it spreads level over flat ground) is never counted, though the settled water may be clean
+there until the change; a collaborative session's keep does not say it.
 
 ## Ranked findings
 
@@ -143,7 +157,7 @@ amphitheatre. The 100-tile drag on 256² (a ribbon lake) is the nearest to the r
    (deeper only where water already stood); then `levels::whole`. A click is 3.2 times as long as wide (Auto's width
    8 + 0.12 × Power, at most 0.16 of the map), running on past an edge (29). A multi-tile object rides down whole.
    The default click changes about 600 tiles on 128²; sheet `docs/sheets/force-rift.jpg`. Still open: on low wet
-   ground (a river's own plain) it is only 1 to 2 levels deep, by the drainage rule; badwater it lets in (S3); the
+   ground (a river's own plain) it is only 1 to 2 levels deep, by the drainage rule; badwater it lets in is said (S3's check) but not prevented; the
    floor's pieces read as plates of a level more than as blocks; Try another re-rolls the walls' side and offsets
    but the click's bearing only by the seed (28); the cursor ring shows Power's width, not the map's cap.
 

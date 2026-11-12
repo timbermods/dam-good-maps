@@ -78,6 +78,7 @@ import { geology } from "../core/forces/random";
 import { modelOf, QuakeRun, type ForceCue, type StagedRun } from "../core/forces/runs";
 import { againRequest, autoPicked, fallsBeforePlay, fullForceMapOf, lavaOf, nextForceSeed, planForce, type AnyForceSettings, type ForcePoint, type ForceRequest } from "../core/forces/start";
 import { keptForceParams, sourcesRemovedBy } from "../core/forces/keep";
+import { badFlow, badwaterLetIn, type BadwaterLetIn } from "../core/water/badwaterLetIn";
 import { emittersById, type ClearedSource } from "../core/forces/clear";
 import { areaDepth } from "../core/features/raster/brush";
 import { outflowsOf } from "../render3d/current";
@@ -3973,9 +3974,12 @@ export function forceCancel(gesture?: number): ForceTakenBack {
   return { taken: null };
 }
 
+/** The badwater check's walk on each map a force started from (`badwaterLetIn`). */
+const badFlowBefore = new WeakMap<object, Uint8Array>();
+
 /** Keep the force (Stop, or it ended by itself; a painted Lift let go): what it has done, as one
  *  operation and one undo step. The water it shows flows on into the map's settled water. */
-export function forceStop(gesture?: number): SessionUpdate & { kept: boolean; sourcesRemoved?: number } {
+export function forceStop(gesture?: number): SessionUpdate & { kept: boolean; sourcesRemoved?: number; badwater?: BadwaterLetIn } {
   const t0 = performance.now();
   const s = need();
   const blocked = gated();
@@ -4041,7 +4045,12 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean; so
   } else if (u.view.water && !s.showsStoredWater) u.view.water = waterFromDepth(s.built.heights, water.water.depth, water.water.contamination);
   // (the sources it removed: the page says how many, with Undo)
   const sourcesRemoved = sourcesRemovedBy(params, f.before);
-  return { ...u, kept: true, ...(sourcesRemoved ? { sourcesRemoved } : {}) };
+  // (badwater it let into water that was clean: the page says where, with Undo; the force audit's S3)
+  // (the walk on the land before is read once per map a force starts from: Try another's rolls share it)
+  let badBefore = badFlowBefore.get(f.before);
+  if (!badBefore) badFlowBefore.set(f.before, (badBefore = badFlow(f.before)));
+  const badwater = badwaterLetIn(f.before, s.built, badBefore);
+  return { ...u, kept: true, ...(sourcesRemoved ? { sourcesRemoved } : {}), ...(badwater ? { badwater } : {}) };
 }
 
 /** A force that broke the start's own ground (carved it, buried it, moved it: off level ground, on

@@ -9,6 +9,7 @@
 // one finished one, and keeping it orders the gesture. Try another is not available in a session (a force that replaces another is
 // not an entry kind, core/collab README).
 
+import type { BadwaterLetIn } from "../core/water/badwaterLetIn";
 import type { Command, ForceGesture, SubmitResult } from "../core/collab";
 import type { EditOp, OpOrigin } from "../core/doc/ops";
 import type { PaintParams } from "../core/doc/paintParams";
@@ -207,7 +208,7 @@ export const collabEditApi = {
     return finishedFrame(f.request);
   },
 
-  async forceStop(gesture?: number): Promise<Answer & { kept: boolean; sourcesRemoved?: number }> {
+  async forceStop(gesture?: number): Promise<Answer & { kept: boolean; sourcesRemoved?: number; badwater?: BadwaterLetIn }> {
     const f = routedForce;
     if (!f || (gesture !== undefined && f.gesture !== gesture)) return { ...ed.collabAnswer(false, ["There is no force at work"]), kept: false };
     routedForce = null;
