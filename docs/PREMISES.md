@@ -56,7 +56,7 @@ interface PremisePlan {
   ridges: Ridge[];             // skyline, the spurs at each fall, the wall an exit cuts through
   edges: Record<Edge, "falls away" | "ridge" | "water leaves">;
   // the start and its first frame
-  frame: FrameGroup;           // { start: {x, y, z, orientation}, landmark: linkId, lipAhead, bench: tiles }
+  frame: FrameGroup;           // { start: {x, y, z, orientation}, landmark: linkId, lipAhead, bench: tiles, benchTo? }
   // the ladder
   works: Work[];
   // set pieces and secrets
@@ -564,8 +564,8 @@ stage 4 and the repairs are not built. Where it differs from the above, and why:
   and the pool's foot inside the first frame (`frameAt` at the start's own zoom, |u| ≤ 0.95, v ≤ 0.98), a lip tile
   measured at its corner toward the camera, where the rendered lip's edge stands; and the start's floors (D515) as the
   gate's table gives them: its bench (`startBench`, the measure `start.level_land` reads, 640 on Normal), its walkable
-  land once the slopes the build derives for it stand (`slopeReach`, at least 0.75 of `start.reach`'s 1,300 before
-  the build's own slopes, `START.reachRead`), and its moist land within 20 tiles (the farms' 100 and the forester's
+  land once the slopes the build derives for it stand (`slopeReach`, at least `start.reach`'s 1,300 before the
+  build's own slopes, `START.reachRead`: 0.75 of it let six starts in nine that failed it reach their settle), and its moist land within 20 tiles (the farms' 100 and the forester's
   plot of 100). A plan whose start holds nowhere is the next plan, before its settle (`frame.start`). No lip is
   trimmed; a lip tile outside is a re-roll.
 - **The start's bench built** (`frame.ts` `buildBench`, D515), on the skeleton's land for the siting and on the map's
@@ -574,8 +574,36 @@ stage 4 and the repairs are not built. Where it differs from the above, and why:
   levels at most or filled one, never on ground stage 1 fixed, within 2 tiles of the water, a lip or a crest, nor
   where it would leave a step of two beside it (the slopes still join the bench). The early refusal on the skeleton
   reads only what the side network cannot undo (the 5 × 5, its door, the landmark in the frame, the bench); the
-  frame's water depth, the moist land and the walkable land wait for the full land. The meadow room a layout's
+  frame's water depth, the moist land and the walkable land wait for the full land. The stair's falls and weirs
+  (`water.falls`, `water.weirs`) are judged there too, on the skeleton's water (`SKELETON_LAND`): the side network
+  never touches them, and a plan that failed them there always failed them in stage 1, after its siting's cost. The meadow room a layout's
   start asks (`meadowRoom`) is 1.5 times the gate's moist land (300 tiles, as before).
+- **The start's bench kept room for in the plan** (`lakeStair.ts` `BENCH_ROOM`, `relief.ts` `startBowl`, D515). The
+  relief lays the bench as a bowl of its own at the start's level: level ground round a spine from the start to
+  `frame.benchTo`, holding 1.6 times the bench, never past the lip. The frame picks the spine: straight back from
+  the lip, or turned toward the side away from the bay, up to 1.2 times the bench's radius long. It takes the first
+  lean whose room holds the bench with the generator's margin (704 on Normal). The room is the ground 2 tiles or
+  more from the start's lake and the waters under it, out of a higher water's rim, off the channels, and joined to
+  the start. Where the start's lake takes that room, it gives it up (planning's ruling: the bench outranks the lake's
+  size, never its start's water days). Its arms, but not the bay, narrow to stand clear of the spine, by the least
+  that frees the room, and never so far that no arm but the bay stands within the start water rule's walk less a tile
+  (19 tiles on Normal); a candidate without such an arm is turned down (`BENCH_ROOM.water`). The bay's water by the
+  start is the frame's shallows, gone on a drought's first day: at 256² seeds 2 and 3 lost the start's water on day
+  1 with their nearest arm 21 and 26 tiles out. The lake
+  keeps its width at its sills, its links' ends and the bay's root, and a side arm narrowed under radius 7 goes. A
+  candidate whose room still falls short is turned down. Each source tries 240 candidates (120 before), since the
+  room turns down half of those that reach it. The side network laid after the frame gives way to the bench too: a
+  tarn's, a basin's or a leat's rim stops 3 tiles out where it meets the bench (`BENCH.sideRim`), and its channels
+  but the bypass keep 3 tiles past their half width off the bench's capsule (`BENCH_KEEP`; at 256² the rim tarns'
+  brooks had taken the bench of most plans that fell short). Keeping the tarns and basins off it as well halved the
+  layouts that hold at 128², so they are not. A tail drawn again
+  on the same stair and frame is tried 8 times (`TAIL_TRIES`, 2 before), since a frame that holds the bench is rarer.
+  The lip's ends are held inside the frame by as much as its tiles stand past them (`FRAME.lipTiles`, 0.045 up and
+  0.13 out); a fifth of the plans that reached stage 3 had lip tiles outside it before.
+- **The start's ways out** (`frame.ts` `cutWaysOut`, D515). The start may walk to less than 1.1 times the gate's
+  walkable land once its slopes stand. Then a natural ramp is cut, the themes' (`rampPath`, `cutRamp`: four levels
+  at most, never a pier), to the largest ground the walk does not reach, two ramps at most. Its steps go to the build
+  as slope targets (`GeneratedField.ramps`), and to the frame's walk (`slopeReach`).
 - **The frame's water made shallow by its beds**: lake beds inside the first frame stand at most 1.2 under the
   surface (85 % of the frame's water so; the crest's pour is left). Before this, 31 to 54 % of it was shallow. The
   pump's ribbon is cut since the hold, to 2.5 (stage 2's "As built (the hold)").
@@ -935,12 +963,13 @@ water held all nine days). What is left at 128²: a plan whose 48 layouts all fa
 pads (D363) do not answer here, or `start.wood`), and the map stage (life, the checks and the file, about 0.4 s beside
 the settle).
 
-As measured with the start's floors (D515; River Valley × lake stair, seeds 1 to 6 at 128²): seeds 1, 2 and 6 hold
-(benches 770, 1,074 and 650; walkable land 1,388, 1,608 and 2,046); seeds 3, 4 and 5 fall to the themes, each made
-there to the same floors. On them the stair's geometry leaves the start no room: its meadow sits between its lake and
-cliffs three to eight levels high (the bench built stops at 335 to 618 tiles), or its ways out climb those cliffs
-(805 to 810 walkable tiles read before the build). Open: the lowest lake giving up area to the bench, and a natural
-ramp cut up the cliff behind the start as its way out.
+As measured with the start's floors and the bench's room (D515; lake stair at 128²): all twelve of River Valley's
+seeds 1 to 12 hold, and all 24 of theme Any's (seeds 5 and 10 fell to the themes before the tails were redrawn), with
+benches 762 to 1,452 and walkable land 1,347 to 2,649 (River Valley). At 256², seeds 1 and 3 hold, with the start's water all 9 drought days (seed 3 in 25.6 s, on its ninth plan); seed 2
+finds no frame whose start keeps its water and falls to the themes (open). Times on the dedicated machine, one at a time: River Valley median 3.2 s, at most 7.6 s; Any median 3.3 to
+4.0 s, at most 9.5 to 12.9 s (seeds 6, 10 and 12, 13 or 14 plans each); 256² 10.9 to 12.9 s. #1011's code on the same
+machine: median 2.5 s, at most 6.4 s; 256² 10.1 to 20.7 s. What is left at 128²: plans whose 48 layouts all fail
+(the bench halves the frames that hold), and starts that read their walkable land but lose it in the settle.
 
 ### 3.4 Deferred to after the map opens
 

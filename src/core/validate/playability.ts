@@ -93,6 +93,10 @@ export const START_FLOORS: Record<Difficulty, { bench: Record<StartArea, number>
 export type StartArea = "small" | "normal" | "large";
 /** The map area the start's floors hold at in full (128²): a smaller map keeps their share of its area. */
 export const START_FLOORS_AREA = 128 * 128;
+/** How far above the start's floors (D515) the generators hold a start's bench, walkable land and moist land on the
+ *  water they settle: the objects placed after (mine sites, relics) and the last settle take a little of each. Here,
+ *  by the floors, so the premise plans read it without the themes' generator (`gen/generate.ts` uses it too). */
+export const FLOOR_MARGIN = 1.1;
 
 /** How much of the start's floors' land a map of W × H must give: 1 from 128², else its share of 128². */
 export function startFloorScale(W: number, H: number): number {
