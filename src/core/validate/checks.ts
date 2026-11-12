@@ -67,7 +67,7 @@ export interface ValidateOptions {
   /** The canonical settle already computed for exactly this terrain and these sources (the build's),
    *  so generation does not settle twice. */
   water?: { model: WaterModel; settled: CanonicalWater };
-  /** The map is being edited (a session, D323): an edge wall is a warning with a fix, never a block. */
+  /** The map is being edited (a session, D323): an edge wall gets its Lower the wall fix. */
   editing?: boolean;
   /** The editor's: the mine sites already out of reach when the map was opened (`mineSitesCutAt`);
    *  given, `resources.mine_site` is advisory and also names what edits cut off since (D368 (10)). */

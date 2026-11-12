@@ -155,7 +155,7 @@ test("invite and join with names, edits from both sides on both maps, the other'
     const { finish } = await connect(host, guest, ["Ada", "Bo"]);
     // the host edits while the Invite waits (the checkpoint a guest joins is the map as it stands)
     // (row 26: on 0.10.17's map a raise along row 20 crosses a valley as a thin wall, a built dam wall that
-    // terrain.dam_wall refuses at export (D111, D512), and the Download further on would be refused)
+    // terrain.dam_wall flags; the export only warns of it (D3), but the edit stays clear of one)
     await pick(host.page, "2");
     await stroke(host.page, [20, 26], [30, 26]);
     await host.page.evaluate(() => window.dgmEditor!.idle());

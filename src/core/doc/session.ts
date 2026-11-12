@@ -2444,7 +2444,7 @@ export class MapSession {
     return validateMap(this.exportFile(this.cur, opts.loadOnly ? { thumbnail: false } : {}), {
       profile: profile ?? (this.gen.spec ? "export" : "import"),
       external: !live,
-      // (the map is being edited: an edge wall warns, D323)
+      // (the map is being edited: an edge wall offers its fix, D323)
       editing: true,
       mineCutAtOpen: this.mineCutAtOpen(),
       // (what the build's support pass removed: a generated map's row, D121; an import has none)
