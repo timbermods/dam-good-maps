@@ -192,10 +192,11 @@ describe.skipIf(!PY)("both validators agree on the sample (prototype/validate.py
       expect(rep!.checks.filter((c) => !c.ok && !c.na && !c.approx && !(c as { advisory?: boolean }).advisory).map((c) => c.id).sort(), e.id).toEqual(known.sort());
       const b = built(e.id);
       const v = validateMap(readTimber(b.bytes), { profile: "generate", designedFor: "normal", features: [], water: { model: b.validation.model!, settled: b.validation.water! } });
-      // (a row the Python validator reports as information, not computing it, is never compared: the oracle's rule)
-      const info = new Set(rep!.checks.filter((c) => c.information).map((c) => c.id));
-      const a = Object.fromEntries(v.report.checks.filter((c) => !info.has(c.id)).map((c) => [c.id, ts(c)]));
-      const p = Object.fromEntries(rep!.checks.filter((c) => !info.has(c.id)).map((c) => [c.id, py(c)]));
+      // (terrain.ruled_land is the one row the Python validator reports without computing it, so it alone is not compared)
+      const uncomputed = "terrain.ruled_land";
+      expect(rep!.checks.find((c) => c.id === uncomputed)?.information, e.id).toBe(true);
+      const a = Object.fromEntries(v.report.checks.filter((c) => c.id !== uncomputed).map((c) => [c.id, ts(c)]));
+      const p = Object.fromEntries(rep!.checks.filter((c) => c.id !== uncomputed).map((c) => [c.id, py(c)]));
       expect(p, e.id).toEqual(a);
     }
     expect(r.status).toBe(PLACES_HAVE_EDGE_WALLS || PLACES_LACK_MINE_SITES || PLACES_LACK_BADWATER || SAMPLE.some((e) => PLACES_SOURCES_IN_FLOW.has(e.id) || PLACES_WATER_WITHOUT_OUTLET.has(e.id) || PLACES_SHORT_OF_WOOD.has(e.id) || PLACES_BELOW_THE_FLOOR.has(e.id) || PLACES_START_WITHOUT_FED_WATER.has(e.id) || PLACES_SHORT_OF_BERRIES.has(e.id) || PLACES_PLANTS_ON_DRY_SOIL.has(e.id)) ? 1 : 0);
