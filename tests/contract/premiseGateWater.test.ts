@@ -98,10 +98,10 @@ describe("Broken gate water fails its invariants", () => {
       for (let i = 0; i < r.W * r.H; i++) if (r.channel[i] === li(g.gate) && r.along[i] >= 0 && r.along[i] < 8) r.heights[i] = g.sill - 2;
       r.rows[g.gate] = [];
     }],
-    ["frame.water", "the first frame's lake beds dug four under the sill", (w) => {
+    ["frame.water", "the plunge pool's beds dug four under its sill", (w) => {
       const r = w.raster;
-      const lake = plan.bodies.findIndex((b) => b.id === g.lake) + 1;
-      for (let i = 0; i < r.W * r.H; i++) if (r.lake[i] === lake && !r.crest[i]) r.heights[i] = g.sill - 4;
+      const door = plan.bodies.findIndex((b) => b.id === g.door) + 1;
+      for (let i = 0; i < r.W * r.H; i++) if (r.lake[i] === door && !r.crest[i]) r.heights[i] = g.sill - 3;
     }],
   ];
 

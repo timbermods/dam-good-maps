@@ -1,7 +1,7 @@
 // Ruled land (`validate/ruledLand.ts`, the gate's advisory `terrain.ruled_land`; planning on #236, 2026-11-11): a grid
-// laid with a ruler fails and noise-shaped land passes; the Gate as laid today fails (the order's own example: when its
-// land is rebuilt on the shared relief, these two cases flip to passing, and that is the rebuild's test); the lake
-// stair's captured seed and a theme's sample pass; 256² costs milliseconds.
+// laid with a ruler fails and noise-shaped land passes; the Gate's land, rebuilt on the shared relief (a range, a gap and
+// a dry lake, planning's ruling of 2026-11-11), passes on seeds 1 to 3 (the case that failed while its land was laid,
+// flipped as the order asked); the lake stair's captured seed and a theme's sample pass; 256² costs milliseconds.
 
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
@@ -100,13 +100,12 @@ describe("ruled land", () => {
     }
   });
 
-  it("the Gate as laid fails on seeds 1 and 2 at 128², on its edges, and measures high on channels (flips to passes when the Gate's land is rebuilt)", () => {
-    for (const seed of [1, 2]) {
+  it("the Gate's seeds 1 to 3 pass at 128²", () => {
+    for (const seed of [1, 2, 3]) {
       const g = gateMap(makeSpec({ seed, size: { x: 128, y: 128 }, theme: "any", premise: "any" }));
       if ("reason" in g || !g.map) throw new Error(`the Gate made no map on seed ${seed}`);
-      const r = measured(g.map.built);
-      expect(r.ok, `seed ${seed}`).toBe(false);
-      expect(r.channels, `seed ${seed}`).toBeGreaterThan(0.4);
+      const m = measured(g.map.built);
+      expect(m.ok, `seed ${seed}: ${JSON.stringify(m)}`).toBe(true);
     }
   });
 
