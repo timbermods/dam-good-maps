@@ -556,6 +556,29 @@ function landFor(heights: Uint8Array, terrain: TerrainState): { landSeq: number;
   return { landSeq: -1, wetSeq: -1 };
 }
 
+/** The page's edit queue went idle (core/doc/editQueue.ts `QueueHost.idle`): what it shows with nothing moving must be
+ *  what the session holds. The land came with the answers; the water's depth and moisture in the terrain come with the
+ *  water's news, and when an edit changed them with no settle after it (an undo or a redo puts its step's water back),
+ *  that news is sent now, on the water's channel and numbering. Nothing when a settle is running (its news brings the
+ *  water where it comes to rest) or the page holds the water already (a settle's news delivered it): a cheap compare. */
+export function idleWater(): void {
+  const s = session;
+  if (!s || !listener || !sentLand || settlingOn(s)) return;
+  const b = s.built;
+  const t = sentLand.terrain;
+  if (sentLand.heights.length !== b.heights.length || (sameTiles(t.water, b.water) && sameTiles(t.moisture, b.moisture))) return;
+  const wet = patchOf({ heights: b.heights, terrain: s.terrainState() }, "wet", b.W);
+  if (wet) listener({ kind: "wet", version, view: { wet } });
+}
+
+/** Two tile maps, value for value (NaN as NaN). */
+function sameTiles(a: ArrayLike<number> | null | undefined, b: ArrayLike<number> | null | undefined): boolean {
+  if (!a || !b) return !a === !b;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i] && (a[i] === a[i] || b[i] === b[i])) return false;
+  return true;
+}
+
 /** The land and terrain whole, as they stand (the page asks when a patch did not lay on the land it holds). */
 export function landNow(): { epoch: number; view: ViewUpdate } {
   const s = need();
@@ -887,7 +910,10 @@ export type EditorEvent =
   /** The water has settled after an edit: the water, the soil and the plants on it. */
   | ({ kind: "settled"; version: number } & ViewNews)
   /** The instant checks of an edit (with a checks worker, they come a moment after the edit). */
-  | { kind: "instant"; version: number; instant: InstantCheck };
+  | { kind: "instant"; version: number; instant: InstantCheck }
+  /** The page's edits all answered and nothing settling: the settled water's depth and moisture in the terrain where they
+   *  differ from the page's copy (an undo or a redo puts its step's water back with no settle after it), `idleWater`. */
+  | { kind: "wet"; version: number; view: ViewUpdate };
 
 /** An event as it leaves the worker: it names the map it is about (`epoch`, core/doc/editQueue.ts). */
 export type EditorEventOut = EditorEvent & { epoch: number };

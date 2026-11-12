@@ -129,3 +129,57 @@ describe("an edit's answer is the size of the edit", () => {
     expect(Buffer.from(q.base.heights).equals(Buffer.from(ed.terrainNow().heights))).toBe(true);
   });
 });
+
+describe("at idle the page's water is the session's", () => {
+  it("an undo puts its step's water back with no settle after it: the water's news follows once the queue is idle, once", async () => {
+    const W = 96;
+    const open = ed.openProject(mapProject(11, "riverValley", W));
+    let wets = 0;
+    // (the page's wiring: answers through the port, the water's news through the listener, the idle hook to the worker)
+    const q: EditQueue = new EditQueue(
+      open as unknown as QueueOpen,
+      {
+        send: async (env, call) =>
+          ed.ticketed(env, () => (call.kind === "moveTo" ? ed.moveTo(call.step) : ed.apply(...(call.args as Parameters<typeof ed.apply>)))) as unknown as MapAnswer,
+      },
+      { now: () => 0, after: () => () => {} },
+      { idle: () => ed.idleWater() },
+    );
+    ed.listen((e) => {
+      if (e.kind === "wet") wets++;
+      if (e.kind === "wet" || e.kind === "settled") q.event({ ok: true, errors: [], epoch: e.epoch, view: e.view as MapAnswer["view"] });
+    });
+    try {
+      const water = () => {
+        const now = ed.terrainNow().terrain;
+        const t = q.base.terrain;
+        const eq = (a: Float64Array | null | undefined, b: Float64Array | null | undefined) => Buffer.from(new Uint8Array(a!.buffer, a!.byteOffset, a!.byteLength)).equals(Buffer.from(new Uint8Array(b!.buffer, b!.byteOffset, b!.byteLength)));
+        return eq(t.water, now.water) && eq(t.moisture, now.moisture);
+      };
+      const dabs: number[] = [];
+      for (let k = 0; k < 10; k++) dabs.push((40 + k) * 4 + 2, 48 * 4 + 2);
+      q.edit("apply", [{ op: "brush", params: { tool: "lower", size: 4, strength: 9, dabs } }, "user", "Lower"]);
+      await q.idle();
+      // (settling: its news brings the water, so nothing is sent at idle)
+      expect(ed.waterSettling()).toBe(true);
+      expect(wets).toBe(0);
+      q.event({ ok: true, errors: [], epoch: open.epoch, view: ed.settleWater() as MapAnswer["view"] });
+      expect(water()).toBe(true);
+      // (the undo puts the water before the stroke back, and nothing settles after it)
+      q.undo();
+      await q.idle();
+      expect(ed.waterSettling()).toBe(false);
+      expect(wets).toBe(1);
+      expect(water()).toBe(true);
+      // (asked again with the page's water the session's: nothing)
+      ed.idleWater();
+      expect(wets).toBe(1);
+      q.redo();
+      await q.idle();
+      expect(water()).toBe(true);
+      expect(q.landResends).toBe(0);
+    } finally {
+      ed.listen(null);
+    }
+  });
+});
