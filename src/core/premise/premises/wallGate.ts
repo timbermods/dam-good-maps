@@ -66,10 +66,11 @@ export const SPURS = { gap: [8, 30], len: [0.3, 1.2], turn: 0.5, fork: 0.85, for
 export const STEPS = { r: 2.6, reach: 4, meadow: 4, clear: 3.2 } as const;
 /** The valley's brooks (planning's rulings of 2026-11-12: never wide and straight). The plunge pool's falls the two
  *  levels to the lake in two steps, a level over the pool's low lip into a reach, then the Steps' cascade `cascade` of
- *  the way between; its width `stream` (3 or 4: two wide, its 9.5 stood two deep), the southern brooks' `valley`. A
+ *  the way between; its width `stream` (3 or 4: two wide, its 9.5 stood two deep), the southern brooks' `valley` (3 or 4: two
+ *  wide, a spring's 2.5 stood a level deep and ran out over the banks). A
  *  whole width is drawn afresh after a run of `run` tiles, never the one before; `valley.water` holds only the most:
  *  never one width for more than `run[1]` tiles (the least only spaces the draws). A point every `every` tiles. */
-export const BROOK = { stream: [3, 4], valley: [2, 3], mouth: [3, 4], run: [3, 6], every: 3, cascade: [0.35, 0.6] } as const;
+export const BROOK = { stream: [3, 4], valley: [3, 4], mouth: [3, 4], run: [3, 6], every: 3, cascade: [0.35, 0.6] } as const;
 /** The plunge pool's brook runs this far on from its lip, away from the bench, before it turns down the valley. */
 export const OUTFLOW_AWAY = 16;
 /** The valley's lake at its low end (planning's ruling: one broad body with a shore, ten across or more at its widest,

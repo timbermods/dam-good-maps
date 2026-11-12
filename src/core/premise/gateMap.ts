@@ -6,7 +6,8 @@
 // (stage 4) are not laid yet: the ladder is the plan's, read on this land by `ladder.ts` `ladderOf` as the mode does.
 
 import type { MapSpec } from "../spec/mapspec";
-import { rulesFor } from "../validate/playability";
+import { FLOOR_MARGIN, rulesFor } from "../validate/playability";
+import { premiseWashes } from "./washes";
 import { checkFrame, type FrameCheck } from "./frame";
 import { gateLand, gateLandFailures } from "./gateLand";
 import { gateWater } from "./gateWater";
@@ -120,6 +121,10 @@ export function gateMap(spec: MapSpec, theme: StyleTheme = "riverValley"): (Gate
       failed.push(`frame.start: ${frame.reason}`);
       continue;
     }
+    // (the dry washes and the old bed, the pass every generator path shares (`washes.ts`): cut once the start is put,
+    // before the ladder reads the land, as the mode cuts them)
+    const washes = premiseWashes(plan, land, frame.start, attempt, Math.ceil(FLOOR_MARGIN * rules.levelLand));
+    if (washes.length) land.washes = washes;
     const ladder = gateLadder(plan, water, land.heights);
     const worksFails = gateWorksFailures({ plan, water, heights: land.heights, ladder });
     // (a work with no site on the land: the plan is drawn again, never the land forced for it)

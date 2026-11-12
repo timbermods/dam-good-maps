@@ -56,12 +56,21 @@ export const RANGE_FLOW = { reach: 1, iterations: 6, k: 0.008, diffusion: 0.04, 
 /** The walls of the dry beds through the range: bands of `band` levels, ledges `ledge` tiles wide, out `reach` tiles. */
 export const GORGE = { band: 3, ledge: [2, 3], reach: 18 } as const;
 
+/** The scarp's cliff bands for a drop: one to three, each two levels or more (the last a level less, the talus's). */
+function scarpBands(drop: number): number {
+  return Math.max(1, Math.min(3, Math.floor((drop - 1) / 2)));
+}
+
+/** How far from the Gate's gorge through the range its walls stand at the gap's saddle at least. */
+const GORGE_WALL = 3;
+
 /** The scarp's profile: from the crest (`SCARP.dome` tiles of it) down cliff bands, each a cliff a tile wide, a ledge of
  *  `ledge(k)` tiles below it, to talus a level over the foot falling a level in `SCARP.talus` tiles. */
 function scarpAt(x: number, crest: number, foot: number, ledge: (k: number) => number): number {
   const drop = crest - foot;
   if (drop <= 0.5) return foot;
-  const bands = drop <= 4 ? 2 : 3;
+  // (cliffs of two levels or more: shorter, rounded to whole levels, their ledges ran together into broad flats)
+  const bands = scarpBands(drop);
   const c = (drop - 1) / bands;
   let at = SCARP.dome;
   let L = crest;
@@ -116,7 +125,7 @@ function backSpurAt(sp: { path: Point[] }, u: number, v: number, crest: number, 
  *  foot but at the saddles; the scarp's ledges `ledge` tiles wide by noise `ledgeCell` across, its talus `talus` tiles;
  *  a buttress carries the ledges `buttress` tiles out; a back spur falls `spurRun` tiles slower than the slope and
  *  `spurSide` a tile to its sides. */
-export const SCARP = { fade: 3, benches: 3, wander: 0.5, wanderCell: 14, run: [2.2, 2.8], dome: 0.5, knob: 0.8, knobCell: 14, least: 4, ledge: [1.6, 2.6], ledgeCell: 12, talus: 2, buttress: 1.5, spurRun: 0.8, spurSide: 0.8 } as const;
+export const SCARP = { playaFrom: 8, fade: 3, benches: 3, wander: 0.5, wanderCell: 14, run: [2.1, 2.6], dome: 0.5, knob: 0.8, knobCell: 14, least: 4, ledge: [1.6, 2.6], ledgeCell: 12, talus: 2, buttress: 1.5, spurRun: 0.8, spurSide: 0.8 } as const;
 
 /** A spur's height at local (u, v): its crest line falling from the range's crest at the spine to the foot past the
  *  flank's end, and a level a tile or so to each side of it. */
@@ -395,6 +404,7 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
   // (the range's band, where its own ground stands, and each tile's foot level: the base the valleys cut to)
   const band = new Uint8Array(N);
   const foots = new Float64Array(N);
+  const own = new Uint8Array(N).fill(1);
   const spurs = g.spurs ?? [];
   // (each spur's box, six tiles out: a tile past it is never near it)
   const boxes = spurs.map((sp) => {
@@ -435,7 +445,7 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
         let x0 = d;
         for (let k = 0; k < spurs.length; k++) if (spurs[k].side === 0 && nearBox(k, wu, wv)) x0 = Math.min(x0, d - SCARP.buttress * spurNear(spurs[k], wu, wv));
         // (its ledges as wide as the scarp's room allows: the plan's front, from the spine to the valley's ground)
-        const bands = crest - foot <= 4 ? 2 : 3;
+        const bands = scarpBands(crest - foot);
         const room = Math.max(0, (half - SCARP.dome - bands - SCARP.talus) / bands);
         L = scarpAt(Math.max(0, x0), crest, foot, (k) => Math.min(room, SCARP.ledge[0] + (SCARP.ledge[1] - SCARP.ledge[0]) * (0.5 + 0.5 * fbm(sLedge + k, x, y, SCARP.ledgeCell, 2))));
       } else {
@@ -448,14 +458,17 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
         // (under the slope the basin keeps its benches, not its hills: capped hills under it stood as flat-topped knolls
         // across the slope)
         L = Math.max(L, Math.min(basin, g.pan.level + SCARP.benches));
-        // (and never over the dry lake's playa: the slope's terraces come down to its edge in steps of two, ledges two or
-        // three wide; cut off at its edge, the slope stood a wall ten levels high along it)
-        if (basin <= g.pan.level + 1) L = basin;
+        // (and never over the dry lake's playa, but within `SCARP.playaFrom` tiles of the spine: where the playa reached
+        // the crest, its floor ran through to the valley)
+        if (basin <= g.pan.level + 1 && d0 >= SCARP.playaFrom) L = basin;
       }
       f[i] = L;
+      // (the range's own ground: where it stands over its foot; past the scarp's foot the land is the valley's)
+      if (band[i] && !(L > foot + 0.25)) own[i] = 0;
     }
-  // (the band as `rangeBand` reads it, kept for the column pass and the checks)
-  bands.set(w, { plan, band: Uint8Array.from(band) });
+  // (the band as `rangeBand` reads it, kept for the column pass and the checks: the range's own ground in it, laid to
+  // `range.flat` as it is, so the valley's plates at the scarp's foot are not read as the range's flats)
+  bands.set(w, { plan, band: Uint8Array.from(band, (b, i) => (b && own[i] ? 1 : 0)) });
   // (stage 1's ground beside a dry bed in the range, its wadi strips, is the range's own: the gorge's walls are its
   // flanks, and a wadi strip a level over the bed through the range let the valley out at the megadam's water)
   const { zone } = gateZones(plan, g);
@@ -510,6 +523,17 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
         }
     }
     for (let i = 0; i < N; i++) if (fan[i] > f[i] && !r.fixed[i] && !r.lake[i] && !r.channel[i] && !r.pool[i]) f[i] = fan[i];
+  }
+  // the Gate's gorge's walls through the range stand at the gap's saddle at least (laid to `basin.bowl` and `gate.lowest`
+  // as they are, so no plan is made and then refused): where the scarp and the back slope fall low at the gap, the
+  // gorge's wadi strips and the slope beside them, under the lake's sill + 1, let the dry lake's floor through to the
+  // valley
+  {
+    const gi = plan.links.findIndex((l) => l.id === g.gate) + 1;
+    const gorge = new Uint8Array(N);
+    for (let i = 0; i < N; i++) if (r.channel[i] === gi && zone[i] === 1) gorge[i] = 1;
+    const dg = distanceFrom(gorge, W, H);
+    for (let i = 0; i < N; i++) if (zone[i] === 1 && !gorge[i] && dg[i] <= GORGE_WALL && !r.lake[i] && !r.channel[i] && !r.pool[i]) f[i] = Math.max(f[i], g.saddle);
   }
   const h = new Uint8Array(N);
   const top = Math.max(plan.top, plan.sky ?? plan.top);
@@ -1251,6 +1275,8 @@ export function gorgeFaces(plan: PremisePlan, water: StageWater, heights: ArrayL
   return { run, at };
 }
 export const GORGE_FACE = { levels: 3, run: 6, veil: 4 } as const;
+/** The run planning asks (`GORGE_FACE.run`): no face over three levels straight for more than six tiles. */
+export const GATE_FACE_RUN = GORGE_FACE.run;
 
 /** `gorge.walls` (planning's ruling of 2026-11-14): no face over three levels runs straight for more than six tiles on
  *  the range and the Gate's gorge, the Veil's drop excepted. */
