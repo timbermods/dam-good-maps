@@ -1,13 +1,12 @@
 // The wall with one gate's stage 1 water settled as the game plays it (docs/PREMISES.md §5.1): seeds 1, 2 and 4 at 128²
-// and seed 1 at 192² and 256², each on its rastered water with the ground stage 1 did not draw standing over every water
+// and seed 1 at 192² and 256², the plan the mode keeps for each, on its rastered water with the ground stage 1 did not draw standing over every water
 // (`gateSettleModel`). The lake stands 0.05 to 0.6 over its sill (the lake stair's `stair.settled`), the cleft and the
 // springs' tarns where the table puts them, the Still Pool at its lake's level, the Veil pours one curtain of its height
 // less `VEIL_SHORT`, the Gate and the leat are dry past their bars, no water strays off the planned water, and the
 // valley's water leaves the map by the Low River alone: what leaves is what the springs give.
 
 import { describe, expect, it } from "vitest";
-import { gateFirstWater } from "../../src/core/premise/gateWater";
-import { wallGate } from "../../src/core/premise/premises/wallGate";
+import { gateMap } from "../../src/core/premise/gateMap";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { settleGate } from "./gateSettle";
 
@@ -15,11 +14,14 @@ const TABLE_SLACK = 0.25;
 const STRAY = 0.003;
 
 describe("The wall with one gate's stage 1 water, settled", () => {
-  // (seed 3 at 128²'s first plan is refused on its Veil, planning's ruling, and the mode draws the next: `gateMap.ts`)
+  // (the plan the mode keeps, `gateMap.ts`: a plan whose Veil, land or start fails is refused and the next drawn, so a
+  // first plan the mode never builds is not this test's; since the land was rebuilt land first, 128² seed 1's and 192²
+  // seed 1's first plans back the Veil's foot up into the Still Pool 0.4 over the lake on stage 1 alone, and the mode
+  // refuses both on other checks and keeps a later one)
   for (const [side, seed] of [[128, 1], [128, 2], [128, 4], [192, 1], [256, 1]])
     it(`stands where the plan puts it, pours the Veil and leaves by the Low River alone: seed ${seed} at ${side}²`, () => {
       const spec = makeSpec({ seed, size: { x: side, y: side }, theme: "any", premise: "any" });
-      const r = gateFirstWater(wallGate, spec);
+      const r = gateMap(spec);
       if ("reason" in r) throw new Error(r.reason);
       const s = settleGate(r.plan, r.water);
       const at = (id: string) => s.levels.find((l) => l.id === id)!;
@@ -36,7 +38,8 @@ describe("The wall with one gate's stage 1 water, settled", () => {
           continue;
         }
         // (the Still Pool stands at its lake's level: the table's reading of a body with no way out is its sill)
-        const want = l.id === "kettle" ? lake.level : l.table;
+        // (the Still Pool is the plunge pool's backwater since planning's ruling of 2026-11-12)
+        const want = l.id === "kettle" ? at("door").level : l.table;
         expect(Math.abs(l.level - want), `${l.id}: settled ${l.level.toFixed(2)}, want ${want.toFixed(2)}`).toBeLessThanOrEqual(TABLE_SLACK);
       }
       expect(s.veil.ok, `the Veil: ${s.veil.note}`).toBe(true);

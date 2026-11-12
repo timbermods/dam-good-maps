@@ -7,8 +7,8 @@
 import type { EditOp } from "../doc/ops";
 
 /** `principle`: a principle Kyler has decided about how a map is built (D115 (2)), such as no edge
- *  walls (D151): it blocks the download in `generate` and the export in `export`, and is
- *  information on an import. */
+ *  walls (D151): it blocks the download in `generate`, warns in `export` (a player's own map exports
+ *  whenever the game will load it, D3) and is information on an import. */
 export type CheckClass = "load" | "playability" | "design" | "principle";
 export type Severity = "error" | "warning" | "info";
 export type Profile = "generate" | "export" | "import";
@@ -46,16 +46,15 @@ export interface ValidationReport {
   passed: boolean;
 }
 
-/** Severity of a result in a profile (PLAN §19.5): load problems are errors everywhere;
- *  playability and design problems must pass in `generate`, warn in `export`, and are reported in
- *  `import` (design as information); a principle must pass in `generate` and `export` and is
- *  information on an import. Advisory checks warn. */
+/** Severity of a result in a profile (PLAN §19.5): load problems are errors everywhere; every other
+ *  class must pass in `generate` and warns in `export`; on an import playability is reported, and
+ *  design and principles are information. Advisory checks warn. */
 export function severityOf(profile: Profile, cls: CheckClass, ok: boolean, advisory = false): Severity {
   if (ok) return "info";
   if (advisory) return "warning";
   if (cls === "load") return "error";
   if (profile === "generate") return "error";
-  if (profile === "export") return cls === "principle" ? "error" : "warning";
+  if (profile === "export") return "warning";
   return cls === "design" || cls === "principle" ? "info" : "warning";
 }
 
@@ -65,13 +64,13 @@ export function failing(r: CheckResult): boolean {
   return !r.ok && !r.advisory && r.applicable !== false;
 }
 
-/** Whether a result blocks the profile's action: the download in `generate`, the export in
- *  `export` (load problems and principles). Nothing blocks an import: the importer reports, and
- *  fixes what the game would. */
+/** Whether a result blocks the profile's action: the download in `generate` (every failing check),
+ *  the export in `export` (load problems only: a player's own map exports whenever the game will load
+ *  it, D3). Nothing blocks an import: the importer reports, and fixes what the game would. */
 export function blocks(profile: Profile, r: CheckResult): boolean {
   if (!failing(r)) return false;
   if (profile === "generate") return true;
-  if (profile === "export") return r.class === "load" || r.class === "principle";
+  if (profile === "export") return r.class === "load";
   return false;
 }
 

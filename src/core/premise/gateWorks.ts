@@ -5,7 +5,7 @@
 // reservoir work's the water it holds. The shared `ladderOf` reads the lake stair's kinds (a notch's row, a basin's
 // spill levee, a megadam at the next lake's sill); the gate's rungs are other templates:
 //
-// - the Still Pool's levee (first): its inlet shut a level over the lake's sill, before the first badtide;
+// - the Still Pool's levee (first): its inlet shut a level over the plunge pool's sill, before the first badtide;
 // - the Gate opened (medium): its two rows of Blockages cleared and its bar blasted a level, to the lake's sill: the
 //   river splits, a share down the slot and the Gate Bed;
 // - the Gate made whole (medium, after it): the bar blasted again, a level under the sill, and a levee on the Low
@@ -136,16 +136,18 @@ export function gateLadder(plan: PremisePlan, w: StageWater, heights: Uint8Array
     const s = site(work.id);
     const change: Change = [];
     if (work.id === "neck") {
-      // the inlet's tiles at its middle, and the banks beside them, a level over the lake's sill
+      // the inlet's tiles at its middle, a level over the plunge pool's sill
       const k = li(g.inlet);
       const tiles: number[] = [];
       for (let i = 0; i < N; i++) if (r.channel[i] === k) tiles.push(i);
       tiles.sort((a, b) => r.along[a] - r.along[b]);
       const mid = tiles[tiles.length >> 1];
       if (mid !== undefined) {
+        // (a level over the plunge pool it feeds from)
+        const D = plan.bodies.find((b) => b.id === g.door)!.sill;
         s.tiles = [mid];
-        s.level = S + 1;
-        change.push([mid, S + 1]);
+        s.level = D + 1;
+        change.push([mid, D + 1]);
       }
       add(s, change);
     } else if (work.id === "gateOpen") {
@@ -297,7 +299,7 @@ export function gateCard(plan: PremisePlan, theme: StyleTheme, ladder: Ladder): 
   return {
     name: "Wall with one gate",
     style: THEME_NAMES[theme],
-    landmark: `${cap(name(g.veil))}, a ${number(veil.fall?.height ?? g.drop)}-level fall from a cleft in the wall into ${name(g.lake)}, at the start's door`,
+    landmark: `${cap(name(g.veil))}, a ${number(veil.fall?.height ?? g.drop)}-level fall from a cleft in the range into ${name(g.door)}, at the start's door`,
     first: first ? gateWorkWords(plan, first) : null,
     line: plan.line,
   };
@@ -408,12 +410,12 @@ const gateOpens: GateWorksInvariant = {
 const basinDry: GateWorksInvariant = {
   id: "basin.dry",
   test({ plan, water, heights }) {
-    const { zone, rim } = gateZones(plan);
+    const { zone } = gateZones(plan);
     const soil = soilReach(heights, waterOn(water, dayOneFloor(water, heights)), plan.W, plan.H);
     let floor = 0;
     let wet = 0;
     for (let i = 0; i < soil.length; i++) {
-      if (zone[i] !== 2 || rim[i]) continue;
+      if (zone[i] !== 2) continue;
       floor++;
       if (soil[i]) wet++;
     }
@@ -423,8 +425,46 @@ const basinDry: GateWorksInvariant = {
 };
 const BASIN_DRY = 0.12;
 
+/** `map.shares` (planning's ruling of 2026-11-12: the valley's green and the basin's floor each a quarter of the map or
+ *  more, the range and the hills the rest): day 1's moist or wet ground before the range, and the basin's dry ground
+ *  past it within two levels of its pan, each `SHARE_LEAST` of the map or more. */
+const mapShares: GateWorksInvariant = {
+  id: "map.shares",
+  test({ plan, water, heights }) {
+    const g = gateOf(plan)!;
+    const { zone } = gateZones(plan);
+    const soil = soilReach(heights, waterOn(water, dayOneFloor(water, heights)), plan.W, plan.H);
+    const N = plan.W * plan.H;
+    let green = 0;
+    let floor = 0;
+    for (let i = 0; i < N; i++) {
+      if (zone[i] === 0 && soil[i]) green++;
+      if (zone[i] === 2 && soil[i] !== 2 && heights[i] <= g.pan.level + 2) floor++;
+    }
+    if (green / N < SHARE_LEAST) return no(`The valley's green is ${(100 * green / N).toFixed(1)} % of the map (${100 * SHARE_LEAST} % or more)`);
+    if (floor / N < SHARE_LEAST) return no(`The basin's floor is ${(100 * floor / N).toFixed(1)} % of the map (${100 * SHARE_LEAST} % or more)`);
+    return ok;
+  },
+};
+export const SHARE_LEAST = 0.25;
+
+/** The map's shares on day 1 (`map.shares`' reading): the valley's green, the basin's floor, the rest. */
+export function gateShares(plan: PremisePlan, water: StageWater, heights: Uint8Array): { green: number; floor: number; rest: number } {
+  const g = gateOf(plan)!;
+  const { zone } = gateZones(plan);
+  const soil = soilReach(heights, waterOn(water, dayOneFloor(water, heights)), plan.W, plan.H);
+  const N = plan.W * plan.H;
+  let green = 0;
+  let floor = 0;
+  for (let i = 0; i < N; i++) {
+    if (zone[i] === 0 && soil[i]) green++;
+    if (zone[i] === 2 && soil[i] !== 2 && heights[i] <= g.pan.level + 2) floor++;
+  }
+  return { green: green / N, floor: floor / N, rest: 1 - (green + floor) / N };
+}
+
 /** The gate's works invariants, on its ladder. */
-export const GATE_WORKS_CHECKS: GateWorksInvariant[] = [worksSites, worksPaid, neckShuts, gateOpens, basinDry];
+export const GATE_WORKS_CHECKS: GateWorksInvariant[] = [worksSites, worksPaid, neckShuts, gateOpens, basinDry, mapShares];
 
 export function gateWorksFailures(ctx: GateWorksContext): { id: string; reason: string }[] {
   const out: { id: string; reason: string }[] = [];

@@ -1644,8 +1644,8 @@ raises its banks along a dragged line (planning, 2026-11-11).
 
 - Editor work follows `ROADMAP.md`, one step at a time; each ends with its checks passing and a short progress
   entry. Record deviations and decisions in `docs/decisions/` (its index says how).
-- The editor must never export a file that breaks the game. Load problems block export; playability and design
-  problems show on the quiet dot and never block it. The classes are defined in `PLAN.md` §19.5.
+- The editor must never export a file that breaks the game. Load problems block export; playability, design and
+  principle problems show on the quiet dot and never block it (D3). The classes are defined in `PLAN.md` §19.5.
 - In-game checks are logged in `docs/archive/ingame-log.md`; a DGM Probe batch plays maps in the real game only
   after Kyler's yes in chat, every time (`PLAN.md` §20, D117; `CLAUDE.md`).
 - Everything works without Claude. Claude is an add-on.
@@ -1805,8 +1805,8 @@ checks dot counts; every other row is information under Good to know, worded as 
   then the checks run in the editor's own worker, so Save and export keep their full check.
 - Issues have a severity, a location and a plain-language explanation. They are listed from the quiet dot, each
   highlighted on the map; clicking one flies the camera to it. **Error** (load class): the file would crash the
-  game, lose objects on load, or start without beavers; export is blocked until fixed. **Warning** (playability or
-  design): a flooded start, no water nearby, a map above height 16; it shows on the quiet dot and never blocks
+  game, lose objects on load, or start without beavers; export is blocked until fixed. **Warning** (playability, design or
+  principle): a flooded start, no water nearby, a map above height 16, a dam wall across a valley; it shows on the quiet dot and never blocks
   export; it is never written into the map's description, which holds only the map's own words (below, "The map's
   description"): the warnings are in the editor's checks list.
 - **Words.** The History's labels (`core/doc/labels.ts`) read "Verb the thing" with a correct article and plural and the

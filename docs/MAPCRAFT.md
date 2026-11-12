@@ -142,7 +142,16 @@ a premise or one still to come, may carry its own, lower playability floor.
   half of them on the outlands' rim. The real places (`places/`) are warned only. The game's maps are run on the
   machine that holds them: `npx tsx tools/ruled-land.ts <folder>/*.timber`.
 
-What The Gate's seven rounds added (2026-11-11, judged in the game each round; [progress/showcase-craft.md](progress/showcase-craft.md)):
+**Land first, story second** (planning's ruling of 2026-11-11, for every path: themes, premises, hand maps). Every
+landform is one geology makes, shaped by the shared natural relief. A premise is found in or cut into natural land by a
+natural agent, and its gameplay constraint is checked on that land and mended by the least change, never drawn: a wall
+is a mountain range, a gate is the gap an old river cut at its lowest saddle, a basin is a dry lake in a natural
+depression, and a valley held at a dam's water is flooded to it and closed where it spills by the least rise. A
+premise holds no geometry of its own, as it holds no playability floor of its own. Nothing ruled, nothing in bands.
+
+What The Gate's seven rounds added (2026-11-11, judged in the game each round; [progress/showcase-craft.md](progress/showcase-craft.md));
+the rule above replaces the first three, which describe the laid wall Kyler judged "artificial, rigid, mechanical and
+fake":
 
 - **A barrier faces the camera and runs along the grid.** The opening camera shows one face of a ridge: a wall built
   as a diagonal band reads as a staircase of one-tile jogs with a plateau's edge, and a ledge on its face doubles the
