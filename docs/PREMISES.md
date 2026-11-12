@@ -1419,6 +1419,32 @@ washes (`premise/washes.ts`) do not run on the Gate's land yet (planning's rulin
 as the mode runs them, they cut the start's walkable land by up to 36 % on 7 of 12 seeds at 128², so the fords are not
 holding there; they come in by their own change, reach moving 3 % at most.
 `gorgeFaces` has its test (a known straight face read right; the Veil's drop and the Gate's bar left out).
+The range's band as the checks read it (`rangeBand`) is made last, once the gorge's walls are raised and the valley
+mended, on the map's whole levels: a tile of the frame's band is in it where its level stands over its foot
+(`rangeBandParts` gives the frame and the feet; a test holds that no frame tile over its foot is left out).
+
+**The water wanders** (planning's ruling of 2026-11-15: no water reach over 40 tiles straight; brooks follow the
+valley's fall and wander). Read by `terrain.ruled_land`'s channels (a run of 12 rows or more whose width varies by two
+tiles at most and whose middle keeps to a straight line). What lay straight, and why: the plunge pool's lobe, its lip
+and the brook's head lay on one line as wide as each other (118 to 142 tiles at every size); the lake's main arm between
+its broad lobes, whose shore is their union, so points between them changed little (250 to 373 tiles at 256²); and a
+southern brook's tarn and its first leg, the tarn hardly wider than the brook (46 to 62). Now: the plunge pool's lip
+stands three tiles off its lobe's middle, toward the valley; the lake's shore has a cove every seven tiles by turns
+each side (`LAKE_WANDER`), square to the arm's whole run and 3.5 to 5 tiles past its edge (the union's own edge, read
+by `inSpine`), clear of the brooks, the Low River and the Gate as the bays are, moved a few tiles along where it is
+not, and on the other side only twelve tiles or more from that side's last; a brook has three legs at least and a kink
+five tiles out of its tarn, and is drawn again less wandering where its middle comes within three tiles of a brook
+laid before it (`BROOK_APART`: wandering, neighbouring brooks met near the lake). Tried and backed out: the trench
+along the Veil's lip swelling and narrowing (it put the plunge pool on the start's 5 × 5 for most turns and mirrors),
+and the Low River winding past its lip (its water ran over its banks beside the spur's gorge, stray water on 192²).
+The spur runs to 0.16 of the side at least (to a quarter, the valley at the megadam's water walked round its end on 3
+of 12 maps at 256², and the card had no megadam days), and a plan whose valley still leaves the map at the megadam's
+water is drawn again (`megadam.holds`). Measured (seeds 1 to 12 at each size, the mode's maps): no straight reach
+(before: 0 to 140 tiles at 128², 53 to 143 at 192², 57 to 320 at 256²); holds 12 of 12 at each size, every start
+floor holding; no stray water; every map's card says what the megadam buys. Seeds 13 to 24: none at 128², two brooks
+of 44 and 48 tiles at 192² (drawn less wandering to keep off a neighbour). **Short:** a 256² map takes about a tenth
+longer than before (side by side, seeds 1 to 12: median 4.9 s against 4.5 s): the settle runs 15 to 20 % more ticks.
+The heavy maps test holds the longest straight reach to 40 tiles.
 
 **As built (land, stage 2).** `gateLand.ts` `gateRelief`: the shared relief for the valley, the range and the basin
 shaped from the plan as the table says, the valley's land coming in over the range's lowest flank (never under it),

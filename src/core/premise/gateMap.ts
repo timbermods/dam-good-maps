@@ -152,7 +152,13 @@ export function gateMap(spec: MapSpec, theme: StyleTheme = "riverValley"): (Gate
     }
     // (what the megadam buys, in days of drought, on the settled map's own land and objects)
     const days = gateDamDays(plan, water, ladder, map.built.waterModel);
-    return { ...out, card: { ...out.card, dam: days ? gateDamWords(plan, days) : null }, map, held: true };
+    // (a megadam whose valley at its water walks round the spur's end to the map's edge buys nothing: the plan is drawn
+    // again; 3 of 12 maps at 256² were so before the spur ran to 0.16 of the side)
+    if (!days) {
+      failed.push("megadam.holds: the valley at the megadam's water leaves the map round its walls");
+      continue;
+    }
+    return { ...out, card: { ...out.card, dam: gateDamWords(plan, days) }, map, held: true };
   }
   if (last) return last;
   // (each refusal's check and how often, then the last in full)
