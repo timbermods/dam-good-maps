@@ -115,6 +115,8 @@ a premise or one still to come, may carry its own, lower playability floor.
 - **Weather**: by the model and in the game: the start's days of water in each early drought; the day badwater reaches
   the start, left alone and with each answer built.
 - **Reach**: every region walkable by natural ways or by a crossing the land plainly asks for.
+- **Nothing ruled**: `terrain.ruled_land` (PLAN §11.2) measures land drawn with a ruler: edges and shores in straight
+  runs, strips of even width, square corners. Loved maps hold under 10 % of their edges in straight runs of 8+.
 
 What The Gate's seven rounds added (2026-11-11, judged in the game each round; [progress/showcase-craft.md](progress/showcase-craft.md)):
 

@@ -2,8 +2,12 @@
 // documents, LICENSE and package.json's descriptive fields skip everything but the typecheck and the document tests; a
 // change only under src/editor/, src/ui/ and tests/e2e/ skips oracle, generation, engines and rust; rust runs only for
 // the Rust and the TypeScript that wraps it. Code, dependencies and scripts keep the rest of the suite.
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { posix } from "node:path";
 import { describe, expect, it } from "vitest";
-import { classify, isCollabOnly, isDocument, isInvestigation, isPage, isRustInput, isUiOnly, needsHeavy, needsPage, needsTest, onlyLightFieldsDiffer } from "../../tools/ci-changes.mjs";
+import { classify, GENERATOR_DIRS, GENERATOR_FILES, isCollabOnly, isDocument, isGenerator, isInvestigation, isPage, isRustInput, isUiOnly, needsGenerator, needsHeavy, needsPage, needsTest, onlyLightFieldsDiffer } from "../../tools/ci-changes.mjs";
+// (POSIX joins: the list is written with forward slashes, and this test also runs on Windows)
+const { dirname, join } = posix;
 
 const pkg = (over: object = {}) =>
   JSON.stringify({ name: "x", version: "1.0.0", license: "MIT", scripts: { test: "a" }, dependencies: { a: "1" }, devDependencies: { b: "1" }, ...over });
@@ -124,5 +128,64 @@ describe("the page job", () => {
     expect(needsPage(["investigation/x/run.ts"], "light")).toBe(false);
     expect(needsPage([], "light")).toBe(true);
     for (const mode of ["auto", "full"] as const) expect(needsPage(["src/ui/a.tsx"], mode), mode).toBe(false);
+  });
+});
+
+/** Every file `generate()` reaches through its value imports (type-only imports change nothing it makes). */
+function generatorGraph(): Set<string> {
+  const seen = new Set<string>();
+  const stack = ["src/core/gen/generate.ts"];
+  const re = /(?:^|\n)\s*(?:import|export)\s+(type\s+)?(?:[^'"]*?\sfrom\s+)?["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g;
+  while (stack.length) {
+    const f = stack.pop()!;
+    if (seen.has(f)) continue;
+    seen.add(f);
+    for (const m of readFileSync(f, "utf8").matchAll(re)) {
+      const spec = m[1] ? null : (m[2] ?? m[3]);
+      if (!spec?.startsWith(".")) continue;
+      const p = join(dirname(f), spec);
+      const hit = [p, `${p}.ts`, `${p}.tsx`, join(p, "index.ts")].find((c) => /\.(ts|tsx|json|js|mjs)$/.test(c) && existsSync(c));
+      if (!hit) continue;
+      if (/\.tsx?$/.test(hit)) stack.push(hit);
+      else seen.add(hit);
+    }
+  }
+  return seen;
+}
+
+describe("a pull request that can change what the generator makes runs the browser shards before the merge", () => {
+  it("the list is what generate() imports, no more and no less", () => {
+    const graph = generatorGraph();
+    // every file it reaches is listed
+    expect([...graph].filter((f) => !isGenerator(f)), "reached by generate(), missing from ci-changes' list").toEqual([]);
+    // every listed file is reached (a listed directory: every file directly in it, documents aside)
+    const listed = [...GENERATOR_FILES, ...GENERATOR_DIRS.flatMap((d) => readdirSync(d, { withFileTypes: true }).filter((e) => e.isFile() && !isDocument(`${d}/${e.name}`)).map((e) => `${d}/${e.name}`))];
+    expect(listed.filter((f) => !graph.has(f)), "listed in ci-changes but not reached by generate()").toEqual([]);
+    // the premises not offered are not reached
+    for (const f of ["src/core/premise/gateLand.ts", "src/core/premise/gateMap.ts", "src/core/premise/gateWater.ts", "src/core/premise/gateWorks.ts", "src/core/premise/premises/wallGate.ts", "src/core/premise/premises/dev.ts"]) {
+      expect(graph.has(f), f).toBe(false);
+      expect(isGenerator(f), f).toBe(false);
+    }
+  });
+  it("a generator file, the version constant and the Rust its Wasm is built from run them; a premise not offered does not", () => {
+    expect(needsGenerator(["src/core/gen/generate.ts"], "light")).toBe(true);
+    expect(needsGenerator(["src/core/land/highlands.ts", "docs/STATUS.md"], "light")).toBe(true);
+    expect(needsGenerator(["src/core/spec/mapspec.ts"], "light")).toBe(true);
+    expect(needsGenerator(["src/core/premise/raster/falls.ts"], "light")).toBe(true);
+    expect(needsGenerator(["src/core/validate/playability.ts"], "light")).toBe(true);
+    expect(needsGenerator(["rust/water/src/lib.rs"], "light")).toBe(true);
+    expect(needsGenerator(["src/core/premise/gateWater.ts", "src/core/premise/premises/wallGate.ts", "src/core/premise/premises/dev.ts"], "light")).toBe(false);
+    expect(needsGenerator(["src/core/forces/craterize.ts", "rust/forces/src/lib.rs"], "light")).toBe(false);
+  });
+  it("documents only, a page PR and the other modes are as before", () => {
+    expect(needsGenerator(["docs/STATUS.md", "src/core/gen/README.md"], "light")).toBe(false);
+    expect(classify(["docs/STATUS.md"], () => null, "light").heavy).toBe(false);
+    expect(needsGenerator(["src/editor/Editor.tsx", "src/ui/App.tsx"], "light")).toBe(false);
+    expect(needsPage(["src/editor/Editor.tsx"], "light")).toBe(true);
+    // (on dev, main and manual runs the browser shards run by `heavy` as before; `generator` is for pull requests into dev)
+    expect(needsGenerator(["src/core/gen/generate.ts"], "auto")).toBe(false);
+    expect(needsGenerator(["src/core/gen/generate.ts"], "full")).toBe(false);
+    // (an unreadable change counts as one that can)
+    expect(needsGenerator([], "light")).toBe(true);
   });
 });
