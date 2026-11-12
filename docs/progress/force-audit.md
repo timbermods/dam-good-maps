@@ -63,9 +63,12 @@ badwater into water that was clean: tiles of the water shown before (0.05 deep o
 that the canonical settle's flow walk (`prefill.ts` `flowThrough`) reaches with badwater after the change and did not
 before, 4 or more. Every force's keep calls it (worker `forceStop`) and the page puts it first in the kept force's
 note with Undo, naming the start's water when a tile lies within 20 tiles of the start. Two walks, about 28 ms on
-256² on the first keep, half that on Try another (the walk before is kept). On Highlands 4242, a Size 60 Rift at
-(40, 68) is caught (886 tiles, the start's lake; the settled water fouls 602), one at (26, 12) is not; a second Rift
-over water the first already mixed is not blamed (`tests/contract/badwaterLetIn.test.ts`). Still open: the plans
+256² on the first keep, half that on Try another (the walk before is kept). On its own ground (a blank 96² map: a clean
+channel through a pool by the start, a badwater trench behind a ridge), a Rift through the ridge is caught with the
+start's water named (608 tiles; the settled water fouls 283), one elsewhere is not; a second Rift over water the
+first already mixed is not blamed, while the same Rift on the first ground is (`tests/contract/badwaterLetIn.test.ts`).
+The sheet `docs/sheets/badwater-check.jpg` was taken on Highlands 4242 before generator #1015; its numbers are that
+map's. Still open: the plans
 do not yet adjust their shape (a sill, an outlet, a channel sized to its source); a pool the walk already reached
 with badwater before (it spreads level over flat ground) is never counted, though the settled water may be clean
 there until the change; a collaborative session's keep does not say it.

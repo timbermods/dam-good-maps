@@ -632,8 +632,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   them back. Where the row shows the choice is the page's. A force that removed sources says so as it is kept, a note
   above the bar with the count and **Undo** ("Cleared 12 sources. Set Sources to Ride to keep them."), which goes as soon as any other step lands so Undo only ever takes back that force; the count is the
   core's (`keep.ts` `sourcesRemovedBy`, `forceStop`'s `sourcesRemoved`), never worked out in the page. A force that
-  let badwater into water that was clean says so first in the same note ("Badwater now reaches the start's water: 842
-  tiles, at X 112 · Y 90."), from the core's shared check (`core/water/badwaterLetIn.ts`, `forceStop`'s `badwater`;
+  let badwater into water that was clean says so first in the same note ("Badwater now reaches the start's water: <n>
+  tiles, at X <x> · Y <y>."), from the core's shared check (`core/water/badwaterLetIn.ts`, `forceStop`'s `badwater`;
   the force audit's S3); the force is kept as it is.
 - **The Floor** (D321, item 40): at the end of every force's More, the lowest level any force cuts down to, 1 by
   default, up to the height ceiling: one setting shared by all the forces, kept with the editor preferences, never
