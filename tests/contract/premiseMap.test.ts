@@ -42,8 +42,9 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // from a step's corner to the lip's end, the same plan, start and bench; and for generator 0.10.18's dead stands on the
 // dry land, D516: the same plan, water, start and bench, its resources and the version in its description; and for
 // generator 0.10.19's dry washes, D517: the same plan, water, start and bench, a wash and its hollow cut into its ground
-// and their ramps, its resources and the version in its description)
-const SHA = "f45995a0c1b9cf39372fbb2bf1af1196e4cf3c9c56a0dd12a59a776ac7d4c06c";
+// and their ramps, its resources and the version in its description; and for the washes run long with fords, D517: the
+// same plan, water, start and bench, its dry land giving no line long enough for a wash, so its ground is uncut)
+const SHA = "3473a6fb0758373d91ba91a6a11be985f6f3f766a33aa2713fe2b128da818f30";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040)
 const HARD_SEED = 7;
