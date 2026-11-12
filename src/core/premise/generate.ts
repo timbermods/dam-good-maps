@@ -15,6 +15,7 @@
 // (`LATER`), never silently; none is now.
 
 import type { GenerateOptions, GenerateResult, GenerationInfo } from "../gen/generate";
+import type { PremiseDef } from "./types";
 import { writeTimber } from "../format/timber";
 import type { MapSpec } from "../spec/mapspec";
 import { FLOOR_MARGIN, rulesFor } from "../validate/playability";
@@ -87,11 +88,12 @@ function deferLater(report: ValidationReport): { report: ValidationReport; later
 }
 
 /** A premise map for a spec whose `premise` names one, or why the themes must make it (one line, D471). */
-export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { result: GenerateResult } | { reason: string } {
+export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}, own?: PremiseDef): { result: GenerateResult } | { reason: string } {
   const t0 = performance.now();
   const pair = resolvePremise(specIn);
   if ("reason" in pair) return pair;
-  const def = PREMISES[pair.premise];
+  // (a premise's own definition where the caller gives one: its stages' seams in use before it joins `PREMISES`)
+  const def = own ?? PREMISES[pair.premise];
   const why = def.eligible(specIn);
   if (why) return { reason: why };
   // the start held to the shared gate's floors (D515: a premise carries none of its own), its bench built with the
@@ -144,14 +146,20 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
     const plan = sited.plan;
     // stage 1: its water by number, and the `land` invariants it alone can judge
     opts.onProgress?.({ attempt, stage: "land" });
-    const water = waterByNumber(plan);
+    const water = def.water?.(plan) ?? waterByNumber(plan);
     const land = failing(def.invariants, "land", { spec: specIn, plan, water });
     if (land.length) {
       fail(attempt, land);
       continue;
     }
     // stage 2: the relief between, in the theme's style; stage 3: the start for the first frame
-    const ground = premiseLand(plan, water, style, bench, needs.reach);
+    const ground = def.land?.(plan, water, style, bench, needs.reach) ?? premiseLand(plan, water, style, bench, needs.reach);
+    // (and the `ground` invariants, on stage 2's ground)
+    const onGround = failing(def.invariants, "ground", { spec: specIn, plan, water, heights: ground.heights });
+    if (onGround.length) {
+      fail(attempt, onGround);
+      continue;
+    }
     const frame = checkFrame(plan, water, ground.heights, needs, ground.ramps);
     if (frame.reason) {
       fail(attempt, [{ id: "frame.start", reason: frame.reason }]);

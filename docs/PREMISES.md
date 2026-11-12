@@ -836,6 +836,22 @@ premise pair made with the theme's own settings; and (planning, mid-round) the b
   are sited (notch 5 of 8, levee 3 of 9, dam 2 of 7, leat 0 of 7 at their floor), moist 31.2 to 32.0 %; at 256² seeds
   1 to 3 make maps, sited, moist 30.5 to 31.8 % (seed 3 on its third plan). Section 9 has what stays short.
 
+**Seams** (where a premise changes a shared stage without a copy of it). Each is optional: a premise that gives none
+is built byte for byte as before (the lake stair's pinned `.timber` in `premiseMap.test.ts` is unchanged), and each has
+a test on a small fixture (`premiseSeams.test.ts`).
+- **A premise's own stage 1** (`PremiseDef.water`): read in place of `waterByNumber` by `draw.ts` `firstWater`, the
+  siting's skeleton land (`siting.ts` `siteLand`) and the mode (`generate.ts`).
+- **A premise's own stage 2** (`PremiseDef.land`): read in place of `map.ts` `premiseLand` by the mode.
+- **Invariants on the ground** (`at: "ground"`, `StageContext.heights`): run on stage 2's heights before the start; a
+  plan that fails one is drawn again, as at stage 1.
+- **A width per channel point** (`Link.halves`, one half-width a path point): `raster/channels.ts` `halfAt` reads it
+  straight between the points, so a brook narrows and widens along its course; a list that does not match the path is
+  not read. The table's depth still reads the link's one `half`.
+- **A backwater** (`Body.backwater`): a body its feeder's water stands in and does not run through. `levels.ts`
+  `route` gives its links no share of the feeder's flow (the inlet's water is the river's), keeps them wet when the
+  feeder runs and stands the body at the feeder's level; `waterChecks.ts` `levelsOf` reads it at its sill, not its rim
+  (as a body with an outflow).
+
 **After the map opens: the proofs** (background, section 3). The premise true both ways by `HazardRun`; each work's
 gain by a what-if settle; the first cycles. Their results are rows in the checks panel and the ladder's readout; they
 are also what section 6 runs offline before a premise ships.
