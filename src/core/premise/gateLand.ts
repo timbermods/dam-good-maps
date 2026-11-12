@@ -25,7 +25,7 @@ import { cleanPitsAndSpikes, mergeSmallRegions, readable } from "../land/levels"
 import { fbm } from "../math/noise";
 import { polyDist } from "../math/polyline";
 import { smoothstep } from "../math/clamp";
-import { hypot } from "../math/portable";
+import { atan2, hypot, sqrt } from "../math/portable";
 import { badwaterNiches, reliefBetween } from "./raster/relief";
 import { layWorks } from "./ladder";
 import type { PremiseLand } from "./map";
@@ -44,12 +44,12 @@ import { ruledLand } from "../validate/ruledLand";
  *  wandering by `width` of themselves, knobs of `knob` levels on the crest, spurs and gullies of `spur` of the width,
  *  hard rock where its noise is over `hard` (about a third of the range; its face a cliff from `cliff` of the way down). The foot on the valley's side stands at the
  *  lake's sill + `foot`. */
-export const RANGE_LAND = { warp: 5, warpCell: 17, width: 0.22, knob: 1.1, spur: 0.2, hard: 0.35, cliff: 0.75, foot: 2 } as const;
-/** The basin's shape: the old lake's floor rising from the pan to the lake's sill + 1 at its shore, its rings wandering
- *  by `ring` levels; past the shore hills rising `rise` a tile to the gap's saddle + 1, with `hills` levels of uneven
- *  height (under the range); the dry beds' valleys
+export const RANGE_LAND = { warp: 5, warpCell: 17, width: 0.22, knob: 1.1, spur: 0.2, hard: 0.35, cliff: 0.75, foot: 3 } as const;
+/** The basin's shape: the playa and its benches read through a warp of `warp` of its depth, lobed by `lobe`, its
+ *  shorelines wandering by `ring` of its extent; past the benches hills rising `rise` a tile of its depth to the gap's
+ *  saddle + 1, with `hills` levels of uneven height (under the range); the dry beds' valleys
  *  rising `bank` a tile from a level over the bed. */
-export const BASIN_LAND = { warp: 0.3, lobe: 0.25, ring: 1.3, rise: 0.22, hills: 2.4, bank: 0.5 } as const;
+export const BASIN_LAND = { warp: 0.2, lobe: 0.15, ring: 0.1, rise: 0.3, hills: 2.2, bank: 0.5 } as const;
 
 /** The valley's uplands stand this far under the range's highest peak at the most (the shared relief's ceiling). */
 export const UNDER_PEAK = 4;
@@ -115,29 +115,33 @@ export function basinBeds(plan: PremisePlan, w: StageWater): { dist: Float32Arra
   return { dist, bed };
 }
 
-/** The basin's ground at a tile, unrounded: the old lake's floor in wandering rings from the pan to its shore, hills
- *  past it, the dry beds' valleys cut through both. */
-function basinAt(plan: PremisePlan, g: GateNumbers, x: number, y: number, s: { warp: number; lobe: number; ring: number; hill: number; bank: number }, bedD: number, bedL: number): number {
+/** The basin's ground at a tile (local u, v), unrounded: a dried lake's floor is flat (planning's ruling of
+ *  2026-11-12). Its playa, a rounded oblong along the range read through a warp, stands at the pan's level in its middle
+ *  and a level over it toward its edge; round it two old shoreline benches a level apart; past them the natural hills,
+ *  rising to the gap's saddle + 1 with uneven height; the dry beds cut their own valleys through all of it. */
+function basinAt(g: GateNumbers, pu: number, pv: number, x: number, y: number, u: number, v: number, s: { warp: number; lobe: number; ring: number; hill: number; bank: number }, bedD: number, bedL: number): number {
   const { pan } = g;
-  const sh = pan.shore;
-  const wx = x + BASIN_LAND.warp * sh * fbm(s.warp, x, y, 0.6 * sh, 2);
-  const wy = y + BASIN_LAND.warp * sh * fbm(s.warp + 1, x, y, 0.6 * sh, 2);
-  const q = hypot(wx - pan.at[0], wy - pan.at[1]) * (1 + BASIN_LAND.lobe * fbm(s.lobe, x, y, 0.5 * sh, 2));
-  const top = g.sill + 1;
+  const wu = u + BASIN_LAND.warp * pan.r * fbm(s.warp, x, y, 0.8 * pan.r, 2);
+  const wv = v + BASIN_LAND.warp * pan.r * fbm(s.warp + 1, x, y, 0.8 * pan.r, 2);
+  const a = (wu - pu) / pan.long;
+  const b = (wv - pv) / pan.r;
+  // (an oval, its outline lobed and its shorelines wandering by noise: a squarer norm ran its long sides along the grid)
+  const q = sqrt(a * a + b * b) * (1 + BASIN_LAND.lobe * fbm(s.lobe, x, y, 0.6 * pan.r, 2)) + BASIN_LAND.ring * fbm(s.ring, x, y, 11, 2);
+  const k = pan.shore / pan.r;
   let L: number;
-  if (q <= pan.r) L = pan.level + 0.3;
-  else if (q <= sh) {
-    // (a lake's bed: broad and low near the pan, steeper toward its old shore)
-    const k = (q - pan.r) / (sh - pan.r);
-    L = pan.level + 0.5 + k * (0.45 + 0.55 * k) * (top - pan.level) + BASIN_LAND.ring * fbm(s.ring, x, y, 13, 2);
-  } else L = Math.min(g.saddle + 1, top + 0.4 + (q - sh) * BASIN_LAND.rise) + BASIN_LAND.hills * (0.2 + fbm(s.hill, x, y, 17, 3));
-  // (the old lake's floor never over its shore's level)
-  if (q <= sh) L = Math.min(L, top + 0.4);
+  if (q <= PLAYA.inner) L = pan.level;
+  else if (q <= 1) L = pan.level + 1;
+  else if (q <= 1 + k) L = pan.level + 2;
+  else if (q <= 1 + 2 * k) L = pan.level + 3;
+  else L = Math.min(g.saddle + 1, pan.level + 3.6 + (q - 1 - 2 * k) * pan.r * BASIN_LAND.rise) + BASIN_LAND.hills * (0.2 + fbm(s.hill, x, y, 17, 3));
   // the dry beds' own valleys, through the floor and the hills to the outlet
   // (its banks wander: the distance read through noise, so no level runs beside the bed at one width)
   if (bedD < Infinity) L = Math.min(L, bedL + 1 + BASIN_LAND.bank * Math.max(0, bedD * (1 + 0.45 * fbm(s.bank, x, y, 9, 2)) - 1.5 + 2.5 * fbm(s.bank + 1, x, y, 13, 2)));
   return L;
 }
+
+/** The playa's middle, at the pan's own level, out to this share of its extent (the rest a level over it). */
+const PLAYA = { inner: 0.65 } as const;
 
 /** Stage 2 of a gate plan: the whole map's ground round stage 1's water. */
 export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle, notes: string[] = []): Uint8Array {
@@ -167,6 +171,7 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
   const [lu0, lu1] = [Math.min(...lipU) - 0.5, Math.max(...lipU) + 0.5];
   const lm = (lu0 + lu1) / 2;
   const valleyFoot = g.sill + RANGE_LAND.foot;
+  const [pu0, pv0] = onLocal(T, g.pan.at);
   const f = new Float64Array(N);
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
@@ -185,7 +190,7 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
       const atVeil = front && u > lu0 - 1 && u < lu1 + 1 ? 1 : 0;
       const ridged = atVeil ? 0 : 1 - 2 * Math.abs(fbm(sSp, x, y, 9, 2));
       const t = polyDist(wu, wv, spine) / half - RANGE_LAND.spur * ridged;
-      const basin = front ? -Infinity : basinAt(plan, g, x, y, bs, bedD[i], bedL[i]);
+      const basin = front ? -Infinity : basinAt(g, pu0, pv0, x, y, u, v, bs, bedD[i], bedL[i]);
       const foot = front ? valleyFoot : basin;
       let rangeH = -Infinity;
       // (and none of it before the Veil's face, on the start's bench)
@@ -593,6 +598,99 @@ const ruled: GateLandInvariant = {
   },
 };
 
+/** Day 1's planned water (stage 1): the bodies, the falls' pools and crests, the wet channels. */
+function dayOneWet(plan: PremisePlan, water: StageWater): Uint8Array {
+  const r = water.raster;
+  const wet = new Uint8Array(plan.W * plan.H);
+  for (let i = 0; i < wet.length; i++) {
+    const l = r.channel[i] ? plan.links[r.channel[i] - 1] : null;
+    if (r.lake[i] || r.pool[i] || r.crest[i] || (l && l.wet)) wet[i] = 1;
+  }
+  return wet;
+}
+
+/** The start's bench on day 1: the dry ground at the start's level joined to it without a step (4-connected). */
+export function benchOf(plan: PremisePlan, water: StageWater, heights: ArrayLike<number>): Uint8Array {
+  const { W, H } = plan;
+  const wet = dayOneWet(plan, water);
+  const s = plan.frame.start;
+  const out = new Uint8Array(W * H);
+  const i0 = s.y * W + s.x;
+  if (heights[i0] !== s.z || wet[i0]) return out;
+  out[i0] = 1;
+  const queue = [i0];
+  for (let k = 0; k < queue.length; k++) {
+    const i = queue[k];
+    const x = i % W;
+    for (const j of [i - 1, i + 1, i - W, i + W]) {
+      if (j < 0 || j >= W * H || (j === i - 1 && x === 0) || (j === i + 1 && x === W - 1) || out[j] || wet[j] || heights[j] !== s.z) continue;
+      out[j] = 1;
+      queue.push(j);
+    }
+  }
+  return out;
+}
+
+/** `bench.shore` (planning's ruling of 2026-11-12: the bench touches water on one side only, never ringed): seen
+ *  from the start, the bench's edge tiles beside day 1's water lie within an arc of `BENCH_ARC` degrees (a moat or a
+ *  cross of channels round it spans the whole turn), and they are `BENCH_SHORE` of its edge or less. */
+const benchShore: GateLandInvariant = {
+  id: "bench.shore",
+  test({ plan, water, heights }) {
+    const { W, H } = plan;
+    const bench = benchOf(plan, water, heights);
+    const wet = dayOneWet(plan, water);
+    const s = plan.frame.start;
+    const n4 = (i: number) => {
+      const x = i % W;
+      return [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W].filter((j) => j >= 0 && j < W * H);
+    };
+    let edge = 0;
+    const angles: number[] = [];
+    for (let i = 0; i < W * H; i++) {
+      if (!bench[i]) continue;
+      const ns = n4(i);
+      if (ns.length === 4 && ns.every((j) => bench[j])) continue;
+      edge++;
+      if (ns.some((j) => wet[j])) angles.push(atan2((Math.floor(i / W) - s.y) as number, (i % W) - s.x));
+    }
+    if (!edge) return fail("The start has no bench");
+    if (!angles.length) return OK;
+    angles.sort((p, q) => p - q);
+    let gap = angles[0] + 2 * PI - angles[angles.length - 1];
+    for (let k = 1; k < angles.length; k++) gap = Math.max(gap, angles[k] - angles[k - 1]);
+    const arc = ((2 * PI - gap) * 180) / PI;
+    if (arc > BENCH_ARC) return fail(`Seen from the start, the water round its bench spans ${Math.round(arc)}° (${BENCH_ARC}° at most: one side only)`);
+    const share = angles.length / edge;
+    if (share > BENCH_SHORE) return fail(`${Math.round(100 * share)} % of the start's bench's edge is shore (${100 * BENCH_SHORE} % or less)`);
+    return OK;
+  },
+};
+const BENCH_ARC = 240;
+const BENCH_SHORE = 0.4;
+const PI = 3.141592653589793;
+
+/** `basin.playa` (planning's ruling of 2026-11-12: the basin is land a player can water, a broad playa): of the basin's
+ *  dry ground past the range, `PLAYA_SHARE` or more stands within two levels of its pan. */
+const basinPlaya: GateLandInvariant = {
+  id: "basin.playa",
+  test({ plan, water, heights }) {
+    const g = gateOf(plan)!;
+    const { zone } = gateZones(plan, g);
+    const wet = dayOneWet(plan, water);
+    let all = 0;
+    let floor = 0;
+    for (let i = 0; i < zone.length; i++) {
+      if (zone[i] !== 2 || wet[i]) continue;
+      all++;
+      if (heights[i] <= g.pan.level + 2) floor++;
+    }
+    const share = all ? floor / all : 0;
+    return share >= PLAYA_SHARE ? OK : fail(`${Math.round(100 * share)} % of the basin stands within two levels of its pan (${100 * PLAYA_SHARE} % or more)`);
+  },
+};
+export const PLAYA_SHARE = 0.55;
+
 /** `frame.lip`, its land half (§5.1, the lake stair's stage 3 `checkFrame` on this land, with no level land of its
  *  own asked: the shared gate holds the start's room): the start's 5 × 5 dry and level with a level door, the Veil's
  *  lip and foot in the first frame, the frame's water shallow. */
@@ -605,7 +703,7 @@ const frameLip: GateLandInvariant = {
 };
 
 /** The gate's land invariants, judged on stage 2's ground. */
-export const GATE_LAND_CHECKS: GateLandInvariant[] = [rangeCrest, gateLowest, wallCamera, basinBowl, valleyEnclosed, ruled, frameLip];
+export const GATE_LAND_CHECKS: GateLandInvariant[] = [rangeCrest, gateLowest, wallCamera, basinBowl, basinPlaya, benchShore, valleyEnclosed, ruled, frameLip];
 
 /** The land invariants a gate plan's ground fails, each with its one line. */
 export function gateLandFailures(ctx: GateLandContext): { id: string; reason: string }[] {

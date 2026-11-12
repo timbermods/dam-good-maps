@@ -74,18 +74,20 @@ export function gateWater(plan: PremisePlan): StageWater {
       raised = true;
     }
   }
-  // the Veil's foot a level under the lake's sill, a level and a half of water (§5.1, round 8): it carries the whole
+  // the Veil's foot a level under the plunge pool's sill, a level and a half of water (§5.1, round 8): it carries the whole
   // fall sideways to the drain bay past the start's bench, where the lake stair's shelf at the sill (a third of a
   // level deep, two rows) stood its water over the bench
   const veil = plan.links.findIndex((l) => l.id === g.veil) + 1;
-  const lake = plan.bodies.find((b) => b.id === g.lake)!;
+  const lake = plan.bodies.find((b) => b.id === g.door)!;
   // (and its outer row, the start's side, two under: the row that carries the fall to the drain, the drowned river's
   // ribbon, which the frame lets stand 2.5 deep; the start's 5 × 5 stands a row beyond it, so the foot cannot widen)
   const fb = g.face;
   for (let i = 0; i < r.W * r.H; i++) {
     if (r.pool[i] !== veil || r.crest[i]) continue;
     const outer = toLocal(plan, g, [(i % r.W) + 0.5, Math.floor(i / r.W) + 0.5])[1] < fb - 1;
-    const bed = lake.sill - (outer ? 2 : 1);
+    // (never deeper than the frame lets it stand on the plunge pool's own level: its brook's head stands it over its sill)
+    const level = w.table.bodies[lake.id]?.level ?? lake.sill;
+    const bed = Math.max(lake.sill - (outer ? 2 : 1), Math.ceil(level - (outer ? START.ribbon : FRAME_DEEP) - 1e-9));
     if (r.heights[i] > bed) r.heights[i] = bed;
     if (outer) r.ribbon[i] = 1;
   }
@@ -94,13 +96,18 @@ export function gateWater(plan: PremisePlan): StageWater {
   // hold its water at most `FRAME_DEEP`; the drowned river's ribbon (the row that carries the fall to the drain), the
   // crests and the Veil's foot keep theirs
   const cam = openingCamera(plan.frame.start);
+  const outflow = plan.links.findIndex((l) => l.id === "outflow") + 1 || -1;
   for (let i = 0; i < r.W * r.H; i++) {
-    if (!r.lake[i] || r.crest[i] || r.pool[i] || r.ribbon[i]) continue;
+    // (and the plunge pool's brook's bed, where it runs in the frame)
+    // (the ribbon to its own 2.5: the plunge pool's brook's head stands its water over the sill, and the ribbon two under
+    // it stood deeper)
+    if ((!r.lake[i] && r.channel[i] !== outflow) || r.crest[i] || r.pool[i]) continue;
     const s = r.surface[i];
-    if (!(s - r.heights[i] > FRAME_DEEP)) continue;
+    const most = r.ribbon[i] ? START.ribbon : FRAME_DEEP;
+    if (!(s - r.heights[i] > most)) continue;
     const p = frameAt(cam, (i % r.W) + 0.5, Math.floor(i / r.W) + 0.5, s);
     if (!p || Math.abs(p.u) > 1 || Math.abs(p.v) > 1) continue;
-    r.heights[i] = Math.ceil(s - FRAME_DEEP);
+    r.heights[i] = Math.ceil(s - most);
   }
   if (raised) guardWater(r);
   return w;
@@ -144,7 +151,7 @@ const gateDry: Invariant = {
     const { W, H } = r;
     const { path } = stageFlow(ctx.water);
     const li = (id: string) => ctx.plan.links.findIndex((l) => l.id === id) + 1;
-    const [gate, leat, low] = [li(g.gate), li(g.leat), li(g.low)];
+    const [gate, leat, low, veil] = [li(g.gate), li(g.leat), li(g.low), li(g.veil)];
     const pool = ctx.plan.bodies.findIndex((b) => b.id === g.pool) + 1;
     const ends = [headEnd(ctx.water, ctx.plan, g.gate) ?? 0, headEnd(ctx.water, ctx.plan, g.leat) ?? 0];
     for (let i = 0; i < W * H; i++) {
@@ -154,7 +161,8 @@ const gateDry: Invariant = {
       if (r.channel[i] === gate && r.along[i] >= ends[0]) return fail(`Water runs down the Gate past its bar at ${x}, ${y}`);
       if (r.channel[i] === leat && r.along[i] >= ends[1]) return fail(`Water runs down the leat past its bar at ${x}, ${y}`);
       if ((x === 0 || y === 0 || x === W - 1 || y === H - 1) && r.channel[i] !== low) return fail(`Water leaves the map at ${x}, ${y}, not by the Low River`);
-      if (r.lake[i] === pool || r.pool[i]) continue;
+      // (the cleft, its Veil's mouth to the lip, and the fall's pool are the range's own water)
+      if (r.lake[i] === pool || r.pool[i] || r.channel[i] === veil) continue;
       if (basinSide(ctx.plan, g, x + 0.5, y + 0.5)) return fail(`Water stands in the basin at ${x}, ${y}`);
     }
     return OK;

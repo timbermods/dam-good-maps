@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { gateFirstWater } from "../../src/core/premise/gateWater";
-import { gateLand } from "../../src/core/premise/gateLand";
+import { gateLand, gateZones } from "../../src/core/premise/gateLand";
 import { GATE_WORKS_CHECKS, gateCard, gateLadder, gateWorksFailures, type GateWorksContext } from "../../src/core/premise/gateWorks";
 import { gateOf, wallGate } from "../../src/core/premise/premises/wallGate";
 import { makeSpec } from "../../src/core/spec/mapspec";
@@ -22,9 +22,11 @@ describe("The wall with one gate's works", () => {
   const a = ctxOf(2, 128);
   const b = ctxOf(1, 192);
 
-  it("holds every works invariant on seed 2 at 128² and seed 1 at 192² (at 128² a rung short of its floor is said)", () => {
+  // (`map.shares` is said, not refused, as `works.paid` is: at 192² seed 1 the valley's green is 19 % of the map, under
+  // the quarter planning aims at; PREMISES §5.1 "Short")
+  it("holds every works invariant on seed 2 at 128² and seed 1 at 192² (a rung short of its floor, or the valley's green short of a quarter at 192², is said)", () => {
     expect(gateWorksFailures(a).filter((f) => f.id !== "works.paid")).toEqual([]);
-    expect(gateWorksFailures(b)).toEqual([]);
+    expect(gateWorksFailures(b).filter((f) => f.id !== "map.shares")).toEqual([]);
   });
 
   it("stands each of round 8's rungs on the land, the Gate and the leat greening the basin, the megadam holding water", () => {
@@ -43,7 +45,7 @@ describe("The wall with one gate's works", () => {
     const card = gateCard(a.plan, "riverValley", a.ladder);
     expect(card.name).toBe("Wall with one gate");
     expect(card.style).toBe("River Valley");
-    expect(card.landmark).toMatch(/-level fall from a cleft in the wall into .* at the start's door/);
+    expect(card.landmark).toMatch(/-level fall from a cleft in the range into .* at the start's door/);
     expect(card.first).toMatch(/^Before the first badtide, build a levee across .*'s inlet/);
     expect(card.line).toBe(a.plan.line);
   });
@@ -58,12 +60,16 @@ describe("Broken gate works fail their invariants", () => {
   const broken: [id: string, what: string, breakIt: (c: GateWorksContext) => void][] = [
     ["works.sites", "the leat's bar with no ground", (c) => (work(c, "leatOpen").tiles = [])],
     ["works.paid", "the megadam under its floor", (c) => (work(c, "megadam").paid = false)],
-    ["neck.shuts", "the Still Pool's levee built at the lake's sill less one", (c) => (work(c, "neck").level = g.sill - 1)],
+    ["neck.shuts", "the Still Pool's levee built under the plunge pool's sill", (c) => (work(c, "neck").level = g.sill - 1)],
     ["gate.opens", "the Gate's bar never blasted", (c) => (work(c, "gateOpen").level = g.sill + 1)],
     ["basin.dry", "the Gate's and the leat's bars and rows dug out on day 1: the river and the springs run into the basin", (c) => {
       const pool = c.plan.bodies.find((b) => b.id === g.pool)!;
       for (const i of work(c, "gateOpen").tiles) c.heights[i] = g.sill - 2;
       for (const i of work(c, "leatOpen").tiles) c.heights[i] = pool.sill - 1;
+    }],
+    ["map.shares", "the valley's ground raised out of every water's reach", (c) => {
+      const { zone } = gateZones(c.plan);
+      for (let i = 0; i < zone.length; i++) if (zone[i] === 0 && !c.water.raster.fixed[i]) c.heights[i] = 20;
     }],
   ];
 

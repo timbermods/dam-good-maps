@@ -74,6 +74,9 @@ describe("Broken gate land fails its invariants", () => {
       const [px, py] = g.pan.at;
       for (let i = 0; i < W * H; i++) if (!r.fixed[i] && (i % W - px) ** 2 + (Math.floor(i / W) - py) ** 2 < (g.pan.r + 2) ** 2) h[i] = g.sill + 3;
     }],
+    ["basin.playa", "the basin's floor raised four over its pan", (h) => {
+      for (let i = 0; i < W * H; i++) if (zone[i] === 2 && !r.fixed[i] && h[i] <= g.pan.level + 2) h[i] = g.pan.level + 4;
+    }],
     ["valley.enclosed", "a cut through the range to the megadam's water beside the lake", (h) => {
       const lake = base.plan.bodies.findIndex((b) => b.id === g.lake) + 1;
       let at = -1;
@@ -91,7 +94,21 @@ describe("Broken gate land fails its invariants", () => {
   ];
 
   it("has one broken ground for every land invariant", () => {
-    expect(broken.map(([id]) => id).sort()).toEqual(GATE_LAND_CHECKS.map((x) => x.id).sort());
+    expect([...broken.map(([id]) => id), "bench.shore"].sort()).toEqual(GATE_LAND_CHECKS.map((x) => x.id).sort());
+  });
+
+  it("bench.shore: a moat drawn round the start's bench", () => {
+    const st = base.plan.frame.start;
+    const lake = Uint8Array.from(r.lake);
+    for (let i = 0; i < W * H; i++) {
+      const d = Math.max(Math.abs((i % W) - st.x), Math.abs(Math.floor(i / W) - st.y));
+      if (d === 9 && base.heights[i] === st.z) lake[i] = 1;
+    }
+    const water = { ...base.water, raster: { ...r, lake } };
+    // (the bench stands inside the moat: its edge's water seen from the start spans the whole turn)
+    const h = Uint8Array.from(base.heights);
+    for (let i = 0; i < W * H; i++) if (Math.max(Math.abs((i % W) - st.x), Math.abs(Math.floor(i / W) - st.y)) < 9 && !r.lake[i] && !r.channel[i]) h[i] = st.z;
+    expect(gateLandFailures({ spec: s, plan: base.plan, water, heights: h }).map((f) => f.id)).toContain("bench.shore");
   });
 
   for (const [id, what, breakIt] of broken)

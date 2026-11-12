@@ -124,6 +124,10 @@ describe("Broken wall-with-one-gate plans fail their invariants", () => {
     ["wall.camera", "the start turned away from the wall", (plan) => {
       plan.frame.start.orientation = (["Cw180", "Cw270", "Cw0", "Cw90"] as const)[g(plan).turn];
     }],
+    ["valley.water", "the lake drawn one width along its length", (plan) => {
+      const lake = body(plan, "lake");
+      lake.arms[0] = lake.arms[0].map(([x, y]) => [x, y, 6]);
+    }],
     ["frame.lip", "a lip past the frame's top edge", (plan) => {
       const veil = link(plan, "veil");
       const look = openingCamera(plan.frame.start).look;
@@ -133,8 +137,8 @@ describe("Broken wall-with-one-gate plans fail their invariants", () => {
       g(plan).slot.width = 8;
       link(plan, "gate").half = 4;
     }],
-    ["basin.bowl", "the old lake's shore inside its pan", (plan) => {
-      g(plan).pan.shore = g(plan).pan.r;
+    ["basin.bowl", "the playa's shoreline benches two wide", (plan) => {
+      g(plan).pan.shore = 2;
     }],
     ["start.neck", "an inlet 4 wide", (plan) => {
       link(plan, "inlet").half = 2;
