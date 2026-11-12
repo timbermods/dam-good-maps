@@ -128,6 +128,29 @@ describe("Broken wall-with-one-gate plans fail their invariants", () => {
       const lake = body(plan, "lake");
       lake.arms[0] = lake.arms[0].map(([x, y]) => [x, y, 6]);
     }],
+    ["valley.water", "the plunge pool's brook straight into the lake, one step", (plan) => {
+      const out = plan.links.find((l) => l.id === "outflow")!;
+      out.to = "lake";
+      plan.links = plan.links.filter((l) => l.id !== "cascade");
+      plan.bodies = plan.bodies.filter((b) => b.id !== "steps");
+    }],
+    ["valley.water", "the plunge pool's brook four wide the whole way", (plan) => {
+      const out = plan.links.find((l) => l.id === "outflow")!;
+      out.path = [out.path![0], ...Array.from({ length: 4 }, (_, k) => [out.path![0][0] + 3 * (k + 1), out.path![0][1]] as [number, number])];
+      out.halves = out.path.map(() => 2);
+    }],
+    ["valley.water", "a southern brook one width on its whole course", (plan) => {
+      const b = plan.links.find((l) => l.id === "brook1")!;
+      b.halves = b.path!.map(() => 1);
+    }],
+    ["valley.water", "a southern brook 4 and 5 wide by turns past its head", (plan) => {
+      const b = plan.links.find((l) => l.id === "brook1")!;
+      b.halves = b.path!.map((_, k) => (k < 2 ? 1.4 : k % 2 ? 2 : 2.5));
+    }],
+    ["valley.water", "the plunge pool's brook two wide", (plan) => {
+      const out = plan.links.find((l) => l.id === "outflow")!;
+      out.halves = out.path!.map((_, k) => (k % 2 ? 1 : 1.5));
+    }],
     ["frame.lip", "a lip past the frame's top edge", (plan) => {
       const veil = link(plan, "veil");
       const look = openingCamera(plan.frame.start).look;
@@ -157,9 +180,9 @@ describe("Broken wall-with-one-gate plans fail their invariants", () => {
     }],
   ];
 
-  it("has one broken plan for every plan invariant", () => {
+  it("has a broken plan for every plan invariant (one or more)", () => {
     const ids = wallGate.invariants.filter((inv) => inv.at === "plan").map((inv) => inv.id);
-    expect(broken.map(([id]) => id).sort()).toEqual([...ids].sort());
+    expect([...new Set(broken.map(([id]) => id))].sort()).toEqual([...ids].sort());
   });
 
   for (const [id, what, breakIt] of broken)

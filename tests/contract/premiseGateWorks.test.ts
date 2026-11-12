@@ -4,17 +4,19 @@
 // words.
 
 import { describe, expect, it } from "vitest";
-import { gateFirstWater } from "../../src/core/premise/gateWater";
+import { firstWater } from "../../src/core/premise/draw";
 import { gateLand, gateZones } from "../../src/core/premise/gateLand";
 import { GATE_WORKS_CHECKS, gateCard, gateLadder, gateWorksFailures, type GateWorksContext } from "../../src/core/premise/gateWorks";
 import { gateOf, wallGate } from "../../src/core/premise/premises/wallGate";
 import { makeSpec } from "../../src/core/spec/mapspec";
+import { premiseStyle } from "../../src/core/premise/style";
 
 const ctxOf = (seed: number, side: number): GateWorksContext => {
   const spec = makeSpec({ seed, size: { x: side, y: side }, theme: "any", premise: "any" });
-  const r = gateFirstWater(wallGate, spec);
+  const r = firstWater(wallGate, spec);
   if ("reason" in r) throw new Error(r.reason);
-  const heights = gateLand(r.plan, r.water).heights;
+  // (the land in River Valley's style, as `gateMap` lays it)
+  const heights = gateLand(r.plan, r.water, premiseStyle("riverValley", spec, r.attempt).relief).heights;
   return { plan: r.plan, water: r.water, heights, ladder: gateLadder(r.plan, r.water, heights) };
 };
 

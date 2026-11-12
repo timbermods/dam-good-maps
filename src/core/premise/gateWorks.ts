@@ -19,7 +19,10 @@
 
 import { THEME_NAMES } from "../spec/mapspec";
 import { tilesToRuns } from "../math/grid";
+import { hypot } from "../math/portable";
 import { flowThrough, prefillFrom } from "../sim/prefill";
+import { fillDays, fillLake } from "../sim/fill";
+import type { WaterModel } from "../sim/water";
 import type { StyleTheme } from "./choice";
 import type { PremiseCard } from "./card";
 import { pathDist, pathLength, pointAt } from "./geom";
@@ -37,6 +40,8 @@ const HEAD = 0.1;
 export const SHARE_RUNGS = ["gateWhole", "leatWhole"] as const;
 /** How far the megadam's wall runs each way from the gorge to its shoulders. */
 const WALL_REACH = 30;
+/** How far each way along the gorge the megadam's wall reads its line (`wallAcross`). */
+const WALL_CHORD = 3;
 
 type Change = [tile: number, floor: number][];
 interface Water {
@@ -72,8 +77,10 @@ function headAndRows(plan: PremisePlan, w: StageWater, id: string, least: number
   return { head, rows };
 }
 
-/** A wall across a channel at the point nearest `at`, square to its path, two tiles thick, out to ground at `level` on
- *  each side (`ladder.ts` `wallAcross`'s reading); empty where a side finds none within `WALL_REACH`. */
+/** A wall across a channel at the point nearest `at`, square to its path's line there (the chord `WALL_CHORD` tiles each
+ *  way, not the tangent: at a bend the second row's tangent turned along the gorge, ran up the valley at the lake's
+ *  level one way and off the map's edge the other, and the plan was drawn again), two tiles thick, out to ground at
+ *  `level` on each side (`ladder.ts` `wallAcross`'s reading); empty where a side finds none within `WALL_REACH`. */
 function wallAcross(path: readonly Point[], at: Point, heights: Uint8Array, W: number, H: number, level: number): number[] {
   const len = pathLength(path);
   let best = Infinity;
@@ -84,9 +91,14 @@ function wallAcross(path: readonly Point[], at: Point, heights: Uint8Array, W: n
     if (d < best) [best, s0] = [d, s];
   }
   const out = new Set<number>();
+  const c0 = pointAt(path, Math.max(0, s0 - WALL_CHORD)).p;
+  const c1 = pointAt(path, Math.min(len, s0 + WALL_CHORD)).p;
+  const cl = hypot(c1[0] - c0[0], c1[1] - c0[1]);
+  const dir: Point = cl > 0 ? [(c1[0] - c0[0]) / cl, (c1[1] - c0[1]) / cl] : pointAt(path, s0).dir;
+  const n: Point = [-dir[1], dir[0]];
+  const p0 = pointAt(path, s0).p;
   for (const ds of [0, 0.7]) {
-    const { p, dir } = pointAt(path, s0 + ds);
-    const n: Point = [-dir[1], dir[0]];
+    const p: Point = [p0[0] + dir[0] * ds, p0[1] + dir[1] * ds];
     for (const side of [1, -1]) {
       let met = false;
       for (let k = 0; k <= WALL_REACH; k += 0.5) {
@@ -193,10 +205,14 @@ export function gateLadder(plan: PremisePlan, w: StageWater, heights: Uint8Array
         }
       }
       const wall = wallAcross(low.path ?? [], at, heights, W, H, g.megadam);
+      // (and the Gate dammed to the same level across its gorge in the range, wall to wall: else the raised lake leaves
+      // by it. Dammed at its head alone, the lake ran round the head over the meadow and down the wadi strips beside
+      // the slot's bed, off the map at the notch)
+      const gp = plan.links.find((l) => l.id === g.gate)?.path ?? [];
+      const slotWall = gp.length > 1 ? wallAcross(gp, gp[Math.max(1, Math.round(g.slot.to / 2))], heights, W, H, g.megadam) : [];
       s.level = g.megadam;
-      if (wall.length) {
-        // (and the Gate's slot dammed at its head to the same level: else the raised lake leaves by it)
-        s.tiles = [...wall, ...gate.head];
+      if (wall.length && slotWall.length) {
+        s.tiles = [...wall, ...gate.head, ...slotWall];
         for (const i of s.tiles) change.push([i, g.megadam]);
       } else s.note = `no shoulders at ${g.megadam} within ${WALL_REACH} tiles of the gorge`;
       add(s, change, true);
@@ -232,7 +248,7 @@ export function gateLadder(plan: PremisePlan, w: StageWater, heights: Uint8Array
     const gain = estimateGain(heights, W, H, before, after);
     s.green = gain.green;
     s.wet = gain.wet;
-    // (a reservoir's reach is the valley it drowns, the start's bench among it: its measure is the water it holds, and
+    // (a reservoir's reach is the valley it drowns: its measure is the water it holds, and
     // stage 6 plants day 1's land, which keeps nothing off a work's reach)
     s.reach = reservoir.has(work.id) ? [] : tilesToRuns(gain.tiles, W);
     if (reservoir.has(work.id)) s.reservoir = Math.max(0, Math.round(after.held - before.held));
@@ -283,14 +299,49 @@ export function gateWorkWords(plan: PremisePlan, w: WorkSite): string {
     case "leatWhole":
       return `Blast ${name(g.leat)}'s bar again (${tiles(w.tiles.length)}) to take the springs' share over the pass.`;
     case "megadam":
-      return `Dam ${name(g.low)} in the ridge and ${name(g.gate)} with it (${tiles(w.tiles.length)}) to raise ${name(g.lake)} into a reservoir.`;
+      return `Dam ${name(g.low)} in the spur and ${name(g.gate)} across its gorge in the range, two walls (${tiles(w.tiles.length)}), to raise ${name(g.lake)} into a reservoir.`;
     default:
       return `Build at ${name(w.on)} (${tiles(w.tiles.length)}).`;
   }
 }
 
+/** A gate map's card: the shared card's words, and what the megadam buys (`gateDamWords`, from the settled map; null
+ *  before the settle or where the dam has no site). */
+export type GateCard = PremiseCard & { dam: string | null };
+
+/** What the megadam buys in a drought, from the settled map's water model `m`: how many days the lake's water lasts
+ *  through a drought with the dam built (the valley filled to the megadam's level behind its wall and the Gate's head)
+ *  and without it (the lake at its sill, the Low River's lip), by the game's evaporation as a Fill's are read
+ *  (`sim/fill.ts` `fillDays`, D29: the sources stopped, the surface sinking flat). Null where the dam has no site or a
+ *  level's water would leave the map. */
+export function gateDamDays(plan: PremisePlan, w: StageWater, ladder: Ladder, m: WaterModel): { dammed: number; lake: number } | null {
+  const g = gateOf(plan)!;
+  const site = ladder.works.find((x) => x.id === "megadam");
+  if (!site?.tiles.length) return null;
+  const k = plan.bodies.findIndex((b) => b.id === g.lake) + 1;
+  let at = -1;
+  for (let i = 0; i < w.raster.lake.length; i++) if (w.raster.lake[i] === k && (at < 0 || m.floor[i] < m.floor[at])) at = i;
+  if (at < 0) return null;
+  const x = at % m.W;
+  const y = (at - x) / m.W;
+  const floor = Float64Array.from(m.floor);
+  for (const i of site.tiles) floor[i] = Math.max(floor[i], g.megadam);
+  const dammed = fillLake({ ...m, floor }, x, y, g.megadam);
+  const lake = fillLake(m, x, y, g.sill);
+  if ("reason" in dammed || "reason" in lake) return null;
+  return { dammed: Math.round(fillDays(m.W, m.H, dammed.lake)), lake: Math.round(fillDays(m.W, m.H, lake.lake)) };
+}
+
+/** The card's line for what the megadam buys (`gateDamDays`). */
+export function gateDamWords(plan: PremisePlan, days: { dammed: number; lake: number }): string {
+  const g = gateOf(plan)!;
+  const name = plan.names[g.lake] ?? g.lake;
+  const n = (id: string) => plan.names[id] ?? id;
+  return `With the megadam's two walls, across ${n(g.low)} in the spur and across ${n(g.gate)} in the range, ${name} holds water for ${days.dammed} days of drought; without them, for ${days.lake}.`;
+}
+
 /** The card's words for a gate map: the premise's name, the style, the landmark and the ladder's first rung. */
-export function gateCard(plan: PremisePlan, theme: StyleTheme, ladder: Ladder): PremiseCard {
+export function gateCard(plan: PremisePlan, theme: StyleTheme, ladder: Ladder): GateCard {
   const g = gateOf(plan)!;
   const name = (id: string) => plan.names[id] ?? id;
   const veil = plan.links.find((l) => l.id === g.veil)!;
@@ -302,6 +353,7 @@ export function gateCard(plan: PremisePlan, theme: StyleTheme, ladder: Ladder): 
     landmark: `${cap(name(g.veil))}, a ${number(veil.fall?.height ?? g.drop)}-level fall from a cleft in the range into ${name(g.door)}, at the start's door`,
     first: first ? gateWorkWords(plan, first) : null,
     line: plan.line,
+    dam: null,
   };
 }
 

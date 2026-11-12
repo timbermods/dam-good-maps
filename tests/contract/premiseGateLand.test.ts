@@ -6,7 +6,8 @@
 
 import { describe, expect, it } from "vitest";
 import { failing, PLAN_TRIES } from "../../src/core/premise/draw";
-import { gateFirstWater, gateWater } from "../../src/core/premise/gateWater";
+import { gateWater } from "../../src/core/premise/gateWater";
+import { firstWater } from "../../src/core/premise/draw";
 import { GATE_LAND_CHECKS, gateLand, gateLandFailures, gateZones } from "../../src/core/premise/gateLand";
 import { gateOf, onLocal, rangeAt, turnOf, wallGate } from "../../src/core/premise/premises/wallGate";
 import { makeSpec, type MapSpec } from "../../src/core/spec/mapspec";
@@ -15,7 +16,7 @@ import { gateWetPast } from "../../src/core/premise/gateMap";
 const spec = (seed: number, side: number): MapSpec => makeSpec({ seed, size: { x: side, y: side }, theme: "any", premise: "any" });
 
 const landOf = (s: MapSpec) => {
-  const r = gateFirstWater(wallGate, s);
+  const r = firstWater(wallGate, s);
   if ("reason" in r) throw new Error(r.reason);
   return { plan: r.plan, water: r.water, heights: gateLand(r.plan, r.water).heights };
 };
@@ -122,7 +123,7 @@ describe("Broken gate land fails its invariants", () => {
 
 describe("gate.settled: the Gate dry past its rows on the settled map (`gateMap.ts` `gateWetPast`, a plan refused when over 0)", () => {
   const s = spec(2, 128);
-  const r = gateFirstWater(wallGate, s);
+  const r = firstWater(wallGate, s);
   if ("reason" in r) throw new Error(r.reason);
   const g = gateOf(r.plan)!;
   const raster = r.water.raster;

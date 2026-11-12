@@ -33,7 +33,8 @@ import { lipInFrame } from "../frame";
 import { holdDeep } from "../levels";
 import { bodyDist, bodyGap, dist, headingOf, pathDist, pathLength, pointAt } from "../geom";
 import { fail, nameOf, OK, PLAN_CHECKS, reach } from "../planChecks";
-import { GATE_WATER_CHECKS } from "../gateWater";
+import { GATE_WATER_CHECKS, gateWater } from "../gateWater";
+import { gateLand } from "../gateLand";
 import { rangeAt, sideOf, spineLocal, type GateRange } from "../gateRange";
 export { rangeAt, sideOf, spineLocal, type GateRange } from "../gateRange";
 import type { Body, Edge, Exit, Invariant, Link, Point, PremiseDef, PremisePlan, Region, Ridge, Source, Spine, Work } from "../types";
@@ -47,13 +48,24 @@ export const GATE_SIDE = [128, 256] as const;
 /** The valley lake's sill: four over the floor, so the Gate's slot floor (two under it) still falls a level or more to
  *  the rim's notch on `BED_FLOOR` (D325). The Gate's round 8 stood it at 7, its bed at 1: here the bed stops at 3. */
 export const LAKE_SILL = BED_FLOOR + 3;
-/** The plunge pool at the start's door stands this far over the valley's lake (its brook falls it). */
-export const DOOR_RISE = 1;
-/** The plunge pool's lobe: its middle this far past the lip's end; it leaves over a low lip into its brook three wide
- *  (half `OUTFLOW_HALF`): the Veil's whole flow (9.5 on normal) over a brook's own head stood the pool a level over its
+/** The plunge pool at the start's door stands this far over the valley's lake (its brook falls it, in two steps). */
+export const DOOR_RISE = 2;
+/** The plunge pool's lobe: its middle this far past the lip's end; it leaves over a low lip into its brook four wide
+ *  there (half `OUTFLOW_HALF`, its widest): the Veil's whole flow (9.5 on normal) over a brook's own head stood the pool a level over its
  *  sill, on the start's bench. */
 export const DOOR_LOBE = 8;
 export const OUTFLOW_HALF = 2;
+/** A southern brook's half width at its tarn (the table reads it: narrower, the tarns stood over their sills). */
+export const TARN_HALF = 1.4;
+/** The Steps, the small pool between the plunge pool's brook's two steps: across the brook, as wide as its lip
+ *  (`r` its half length along the brook), at least `reach` tiles of brook each side of it. */
+export const STEPS = { r: 2.6, reach: 4, meadow: 4 } as const;
+/** The valley's brooks (planning's rulings of 2026-11-12: never wide and straight). The plunge pool's falls the two
+ *  levels to the lake in two steps, a level over the pool's low lip into a reach, then the Steps' cascade `cascade` of
+ *  the way between; its width `stream` (3 or 4: two wide, its 9.5 stood two deep), the southern brooks' `valley`. A
+ *  whole width is drawn afresh after a run of `run` tiles, never the one before; `valley.water` holds only the most:
+ *  never one width for more than `run[1]` tiles (the least only spaces the draws). A point every `every` tiles. */
+export const BROOK = { stream: [3, 4], valley: [2, 3], run: [3, 6], every: 3, cascade: [0.35, 0.6] } as const;
 /** The plunge pool's brook runs this far on from its lip, away from the bench, before it turns down the valley. */
 export const OUTFLOW_AWAY = 16;
 /** The valley's lake at its low end (planning's ruling: one broad body with a shore, ten across or more at its widest,
@@ -555,6 +567,39 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     return q;
   };
 
+  // (a path again with a point every `every` tiles, its ends kept: a width and a bed at each)
+  const resample = (p: Point[], every: number): Point[] => {
+    const L = pathLength(p);
+    const n = Math.max(1, Math.round(L / every));
+    const out: Point[] = [p[0]];
+    for (let i = 1; i < n; i++) out.push(pointAt(p, (L * i) / n).p);
+    out.push(p[p.length - 1]);
+    return out;
+  };
+  // (a brook's half width at each point: a whole width in `wide` held for a run of `BROOK.run` tiles, then another;
+  // the first `head` points at `headHalf`, and the first width past them never `not`)
+  const halvesAlong = (p: Point[], wide: readonly [number, number], headHalf: number, head = 1, not = Math.round(2 * headHalf)): number[] => {
+    const out: number[] = [];
+    let w = not;
+    let until = -Infinity;
+    let s = 0;
+    for (let k = 0; k < p.length; k++) {
+      if (k > 0) s += dist(p[k - 1], p[k]);
+      if (k < head) {
+        out.push(headHalf);
+        continue;
+      }
+      if (s >= until) {
+        const choices: number[] = [];
+        for (let x = wide[0]; x <= wide[1]; x++) if (x !== w) choices.push(x);
+        w = choices[rng.int(0, choices.length)];
+        until = s + rng.range(BROOK.run[0], BROOK.run[1]);
+      }
+      out.push(w / 2);
+    }
+    return out;
+  };
+
   // ---- the leat: from the cleft along the crest to the Pass, then the Pass Bed down to the pan's side and the outlet
   const leat: Point[] = [[lm - 2.5 - CLEFT.r + 1, fb + CLEFT.back]];
   for (let u = lm - 2.5 - CLEFT.r - 4; u > pu + 3; u -= 5) leat.push([u, vAt(u)]);
@@ -607,7 +652,34 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const od = dist(outFrom, [main[0][0], main[0][1]]);
   const outTo: Point = [main[0][0] + ((outFrom[0] - main[0][0]) / od) * (main[0][2] - 1), main[0][1] + ((outFrom[1] - main[0][1]) / od) * (main[0][2] - 1)];
   if (outTo[0] < outFrom[0] - 2 || outFrom[1] - outTo[1] < 4 || dist(outFrom, outTo) < 6) return { why: "brook room" };
-  const outflow: Point[] = [doorLipAt, ...smooth([[doorLipAt[0] - ks * 3, doorLipAt[1]], outFrom, ...wind(outFrom, outTo, 9, 4)]).slice(0)];
+  const outflow: Point[] = resample([doorLipAt, ...smooth([[doorLipAt[0] - ks * 3, doorLipAt[1]], outFrom, ...wind(outFrom, outTo, 9, 4)])], BROOK.every);
+  // its two steps (planning's ruling of 2026-11-12): over the plunge pool's low lip into its upper reach a level under
+  // it, along to the Steps, a small pool across the brook, and over its lip, a short cascade, into its lower reach at
+  // the lake's level. (Each step a lip as wide as its flow asks, as the lake stair's: a step in a brook's own bed under
+  // the Veil's whole flow stood its water over the step, and a fall planned two dropped one)
+  const outLen = pathLength(outflow);
+  const stepLip = Math.max(8, Math.min(MAX_SILL_WIDTH, sillWidthFor(flowOf(spec))));
+  const stepsFrom = STEPS.r + STEPS.reach;
+  const stepsTo = outLen - STEPS.r - 1 - STEPS.reach;
+  if (stepsTo < stepsFrom) return { why: "brook room" };
+  const cascadeAt = stepsFrom + (stepsTo - stepsFrom) * rng.range(BROOK.cascade[0], BROOK.cascade[1]);
+  const along = (k: number) => pathLength(outflow.slice(0, k + 1));
+  const { p: stepsAt, dir: sd } = pointAt(outflow, cascadeAt);
+  const sn: Point = [-sd[1], sd[0]];
+  const stepsAcross = stepLip / 2 - STEPS.r;
+  const stepsSpine: Spine = [
+    [r2(stepsAt[0] + sn[0] * stepsAcross), r2(stepsAt[1] + sn[1] * stepsAcross), STEPS.r],
+    [r2(stepsAt[0] - sn[0] * stepsAcross), r2(stepsAt[1] - sn[1] * stepsAcross), STEPS.r],
+  ];
+  const stepsLipAt: Point = [stepsAt[0] + sd[0] * (STEPS.r + 1), stepsAt[1] + sd[1] * (STEPS.r + 1)];
+  const upperK = outflow.map((_, k) => k).filter((k) => along(k) < cascadeAt - STEPS.r - 1);
+  const lowerK = outflow.map((_, k) => k).filter((k) => along(k) > cascadeAt + STEPS.r + 2);
+  const upper: Point[] = [...upperK.map((k) => outflow[k]), [stepsAt[0] - sd[0] * (STEPS.r - 1), stepsAt[1] - sd[1] * (STEPS.r - 1)]];
+  const lower: Point[] = [stepsLipAt, ...lowerK.map((k) => outflow[k])];
+  if (upper.length < 2 || lower.length < 2) return { why: "brook room" };
+  // (four wide at the plunge pool's lip; two wide, the Veil's whole flow stood two deep and ran over its banks)
+  const upperHalves = halvesAlong(upper, BROOK.stream, OUTFLOW_HALF);
+  const lowerHalves = halvesAlong(lower, BROOK.stream, OUTFLOW_HALF);
 
   // ---- the brooks: springs in the valley's far corners, each brook wandering to the lake's nearest point
   // (more of them on a larger map, spread along the valley's far edge: the valley's green is the brooks' and the lake's,
@@ -621,7 +693,17 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   if (more >= 1) tarnAt.push([N * rng.range(0.26, 0.34), N * rng.range(0.08, 0.14)]);
   if (more >= 2) tarnAt.push([N * rng.range(0.05, 0.08), N * rng.range(0.3, 0.38)]);
   if (more >= 3) tarnAt.push([N * rng.range(0.66, 0.74), N * rng.range(0.08, 0.14)]);
-  const tarns: { spine: Spine; sill: number; path: Point[] }[] = [];
+  // (a bed from `hi` at its head down to `lo` at its end, a level at a time, evenly along the path)
+  const bedAlong = (path: readonly Point[], hi: number, lo: number, from = 0): number[] => {
+    const len = pathLength(path.slice(from));
+    let run = 0;
+    return path.map((p, k) => {
+      if (k <= from) return hi;
+      run += dist(path[k - 1], p);
+      return k === path.length - 1 ? lo : Math.max(lo, hi - Math.floor(((hi - lo + 0.999) * run) / len));
+    });
+  };
+  const tarns: { spine: Spine; sill: number; path: Point[]; bed: number[]; halves: number[] }[] = [];
   for (const [tu, tv] of tarnAt) {
     const r = rng.range(2.6, 3.2);
     const sill = S + rng.int(3, 5);
@@ -652,7 +734,12 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
       path.push([head[0] + (end[0] - head[0]) * f - dy * wob, head[1] + (end[1] - head[1]) * f + dx * wob]);
     }
     path.push(end);
-    tarns.push({ spine: [[tu, tv, r]], sill, path });
+    const course = resample(path, BROOK.every);
+    // (its tarn's width to its bed's first step, two points down, then the rest evenly, at its wider just under the
+    // step: narrower over the step or under it, the brook stood its tarn 0.4 over the level the table gives)
+    if (course.length < 4) return { why: "brook room" };
+    const bed = [sill, sill, ...bedAlong(course.slice(2), sill - 1, S)];
+    tarns.push({ spine: [[tu, tv, r]], sill, path: course, bed, halves: halvesAlong(course, BROOK.valley, TARN_HALF, 2, BROOK.valley[0]) });
   }
   // the lake's bays: one or two arms off the main arm into the valley, clear of the springs, the brooks, the start's
   // bench and the Low River
@@ -689,6 +776,8 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     lake: lakeName,
     door: DOOR_NAMES[rng.int(0, DOOR_NAMES.length)],
     outflow: `${veilName.replace(/^the /, "").replace(/^./, (c) => c.toUpperCase())} Brook`,
+    steps: `${veilName.replace(/^the /, "").replace(/^./, (c) => c.toUpperCase())} Steps`,
+    cascade: `the cascade at ${veilName.replace(/^the /, "").replace(/^./, (c) => c.toUpperCase())} Steps`,
     pool: POOL_NAMES[rng.int(0, POOL_NAMES.length)],
     kettle: kettleName,
     inlet: `${kettleName}'s inlet`,
@@ -706,22 +795,16 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     body("lake", "lake", S, lakeArms, Math.round(LAKE_SHAPE.meadow * m), "low", Math.min(S - BED_FLOOR, hold)),
     body("door", "lake", D, [trench], meadowOf(spec), "home", Math.min(D - BED_FLOOR, hold)),
     body("pool", "pool", poolSill, [poolSpine], 4, "top"),
-    body("kettle", "kettle", D, [kettle], 4, "home"),
+    // (a backwater: the plunge pool's water stands in it through its inlet and does not run through it)
+    { ...body("kettle", "kettle", D, [kettle], 4, "home"), backwater: true },
+    body("steps", "pool", S + 1, [stepsSpine], STEPS.meadow, "low"),
   );
   const strengths = [0.36, 0.33, 0.31].map((f) => r2(f * flow));
   strengths[2] = r2(flow - strengths[0] - strengths[1]);
   const sources: Source[] = strengths.map((s, k) => ({ id: `spring${k + 1}`, at: rp(onMap(T, [lm - 2.5 + 2.5 * k, fb + CLEFT.back])), strength: s, into: "pool" }));
   plan.sources.push(...sources);
 
-  const bedAlong = (path: readonly Point[], hi: number, lo: number, from = 0): number[] => {
-    const len = pathLength(path.slice(from));
-    let run = 0;
-    return path.map((p, k) => {
-      if (k <= from) return hi;
-      run += dist(path[k - 1], p);
-      return k === path.length - 1 ? lo : Math.max(lo, hi - Math.floor(((hi - lo + 0.999) * run) / len));
-    });
-  };
+
   const veilFace = dirOnMap(T, [0, -1]);
   const veilBack = dirOnMap(T, [0, 1]);
   const lipMid: Point = [(lipMap[0][0] + lipMap[1][0]) / 2, (lipMap[0][1] + lipMap[1][1]) / 2];
@@ -745,15 +828,15 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
       gates: [],
       rows: [],
     },
-    // (the plunge pool leaves over a low lip, a level, into its brook three wide: a brook led straight from the pool, its
-    // head a weir three or four wide, stood the pool a level over its sill on the Veil's 9.5, over the start's bench)
+    // (the plunge pool leaves over a low lip, a level, into its brook: a brook led straight from the pool, its head a
+    // weir three or four wide, stood the pool a level over its sill on the Veil's 9.5, over the start's bench)
     {
       id: "outflow",
       from: "door",
-      to: "lake",
+      to: "steps",
       kind: "gorge",
       fall: {
-        height: D - S,
+        height: 1,
         crest: D,
         width: doorLip,
         face: headingOf(...dirOnMap(T, [-ks, 0])),
@@ -762,9 +845,35 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
         piers: 0,
         breach: 0,
       },
-      path: pathOnMap(T, outflow).map(rp),
-      half: OUTFLOW_HALF,
-      bed: outflow.map(() => S),
+      path: pathOnMap(T, upper).map(rp),
+      // (the table's depth reads one width: its middle; the raster lays each point's)
+      half: (BROOK.stream[0] + BROOK.stream[1]) / 4,
+      halves: upperHalves,
+      bed: upper.map(() => S + 1),
+      wet: true,
+      gates: [],
+      rows: [],
+    },
+    // (the Steps leave over their lip, the brook's cascade, a level down into its lower reach on to the lake)
+    {
+      id: "cascade",
+      from: "steps",
+      to: "lake",
+      kind: "gorge",
+      fall: {
+        height: 1,
+        crest: S + 1,
+        width: stepLip,
+        face: headingOf(...dirOnMap(T, sd)),
+        lip: [rp(onMap(T, [stepsLipAt[0] + (sn[0] * stepLip) / 2, stepsLipAt[1] + (sn[1] * stepLip) / 2])), rp(onMap(T, [stepsLipAt[0] - (sn[0] * stepLip) / 2, stepsLipAt[1] - (sn[1] * stepLip) / 2]))],
+        notch: 0,
+        piers: 0,
+        breach: 0,
+      },
+      path: pathOnMap(T, lower).map(rp),
+      half: (BROOK.stream[0] + BROOK.stream[1]) / 4,
+      halves: lowerHalves,
+      bed: lower.map(() => S),
       wet: true,
       gates: [],
       rows: [],
@@ -829,7 +938,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     names[`brook${k + 1}`] = `${word} Brook`;
     plan.bodies.push(body(id, "tarn", tn.sill, [tn.spine], 6, "low"));
     plan.sources.push({ id: `${id}Spring`, at: rp(onMap(T, [tn.spine[0][0], tn.spine[0][1]])), strength: r2((rng.range(BROOK_SPRING[0], BROOK_SPRING[1]) * flow) / GATE_FLOW.normal), into: id });
-    plan.links.push({ id: `brook${k + 1}`, from: id, to: "lake", kind: "brook", path: pathOnMap(T, tn.path).map(rp), half: 1.4, bed: bedAlong(tn.path, tn.sill, S), wet: true, gates: [], rows: [] });
+    plan.links.push({ id: `brook${k + 1}`, from: id, to: "lake", kind: "brook", path: pathOnMap(T, tn.path).map(rp), half: TARN_HALF, halves: tn.halves, bed: tn.bed, wet: true, gates: [], rows: [] });
   });
   const exits: Exit[] = [
     { id: "lowExit", edge: edgeOnMap(T, lowSide === "pass" ? "W" : "E"), at: rp(onMap(T, low[low.length - 1])) },
@@ -855,7 +964,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     { id: "gateWhole", rung: "medium", kind: "levee", on: "low", at: at(low[1]), tiles: gorge * 2 + slotW, needs: ["gateOpen"], gives: { green: gives(GIVES.gateWhole, "gateWhole") }, tradeoff: "The lake sinks half a level and the Low River runs dry", region: "wet" },
     { id: "leatOpen", rung: "medium", kind: "leat", on: "leat", at: at(leat[0]), tiles: 3, needs: [], gives: { green: gives(GIVES.leatOpen) }, region: "top" },
     { id: "leatWhole", rung: "large", kind: "leat", on: "leat", at: at(leat[0]), tiles: 2, needs: ["leatOpen"], gives: { green: gives(GIVES.leatWhole, "leatWhole") }, tradeoff: `${veilName[0].toUpperCase()}${veilName.slice(1)} dwindles`, region: "top" },
-    { id: "megadam", rung: "large", kind: "megadam", on: "low", at: at([spurU, lowV]), tiles: gorge + slotW, needs: [], gives: { green: [0, 0], reservoir: gives(GIVES.megadam) }, tradeoff: "It floods the bench and the low meadows, and the Gate is dammed with it", region: "low" },
+    { id: "megadam", rung: "large", kind: "megadam", on: "low", at: at([spurU, lowV]), tiles: gorge + slotW, needs: [], gives: { green: [0, 0], reservoir: gives(GIVES.megadam) }, tradeoff: "It floods the lake's low meadows, and the Gate is dammed with it", region: "low" },
   ];
   plan.works.push(...works);
 
@@ -1323,8 +1432,23 @@ const gateSkeleton: Invariant = {
   },
 };
 
+/** The longest run of a link's course at one width (`Link.halves`), tiles: the whole course where it has one width. */
+export function sameWidthRun(l: Link): number {
+  const p = l.path ?? [];
+  const h = l.halves && l.halves.length === p.length ? l.halves : p.map(() => l.half ?? 0);
+  let most = 0;
+  let run = 0;
+  for (let k = 1; k < p.length; k++) {
+    run = h[k] === h[k - 1] ? run + dist(p[k - 1], p[k]) : 0;
+    most = Math.max(most, run);
+  }
+  return most;
+}
+
 /** `valley.water` (planning's ruling of 2026-11-12: a pool, a brook and a lake, never channels): the Veil falls into the
- *  plunge pool at the start's door; one brook four wide at most leaves it for the lake; the lake lies away from the start
+ *  plunge pool at the start's door; its brook leaves it for the lake, falling the two levels in two steps (the pool's
+ *  lip to a reach a level under it, the Steps, then their lip's cascade to the lake's level), `BROOK.stream` wide and never one width for
+ *  more than `BROOK.run`'s most; the southern brooks `BROOK.valley` wide past their heads, likewise; the lake lies away from the start
  *  (`LAKE_AWAY` tiles or more), ten across or more at its widest and its width varying two-fold or more along its main
  *  arm, with a bay or more; the Low River leaves the lake. */
 const valleyWater: Invariant = {
@@ -1336,10 +1460,22 @@ const valleyWater: Invariant = {
     const lake = bodyOf(plan, g.lake);
     const door = bodyOf(plan, g.door);
     if (!lake || !door) return fail("The plan has no lake or plunge pool");
-    const outs = plan.links.filter((l) => l.from === g.door && l.to === g.lake);
-    if (outs.length !== 1 || !outs[0].wet || !outs[0].path) return fail(`No one brook from ${nameOf(plan, g.door)} to ${nameOf(plan, g.lake)}`);
-    const w = 2 * (outs[0].half ?? 0);
-    if (w < 1 || w > 2 * OUTFLOW_HALF) return fail(`${nameOf(plan, outs[0].id)} is ${w} wide (1 to ${2 * OUTFLOW_HALF})`);
+    // (the plunge pool's brook: a reach a level under it to the Steps, then the cascade's reach to the lake)
+    const outs = plan.links.filter((l) => l.from === g.door && l.wet && l.to !== g.kettle);
+    const mid = outs.length === 1 ? bodyOf(plan, outs[0].to) : undefined;
+    const ons = mid ? plan.links.filter((l) => l.from === mid.id && l.wet) : [];
+    if (!mid || mid.sill !== door.sill - 1 || ons.length !== 1 || ons[0].to !== g.lake || lake.sill !== mid.sill - 1) return fail(`${nameOf(plan, g.door)}'s brook does not fall to ${nameOf(plan, g.lake)} a level at a time in two steps`);
+    const reaches = [outs[0], ons[0]];
+    for (const l of reaches) {
+      const ws = (l.halves ?? []).map((h) => 2 * h);
+      if (!l.path || ws.length !== l.path.length || ws.some((w) => w < BROOK.stream[0] || w > BROOK.stream[1])) return fail(`${nameOf(plan, l.id)} is ${ws.length ? `${Math.min(...ws)} to ${Math.max(...ws)}` : 2 * (l.half ?? 0)} wide (${BROOK.stream[0]} to ${BROOK.stream[1]} at each point)`);
+    }
+    const southern = plan.links.filter((k) => k.kind === "brook" && k.to === g.lake);
+    for (const l of [...reaches, ...southern]) {
+      const run = sameWidthRun(l);
+      if (run > BROOK.run[1] + 1e-9) return fail(`${nameOf(plan, l.id)} runs ${run.toFixed(1)} tiles at one width (${BROOK.run[1]} at most)`);
+      if (southern.includes(l) && (l.halves ?? []).slice(2).some((h) => 2 * h < BROOK.valley[0] || 2 * h > BROOK.valley[1])) return fail(`${nameOf(plan, l.id)} is wider than ${BROOK.valley[1]} or narrower than ${BROOK.valley[0]} past its head`);
+    }
     const s = plan.frame.start;
     const away = bodyDist(s.x + 0.5, s.y + 0.5, lake);
     if (away < LAKE_AWAY) return fail(`${nameOf(plan, g.lake)} lies ${away.toFixed(1)} tiles from the start (${LAKE_AWAY} or more)`);
@@ -1351,7 +1487,7 @@ const valleyWater: Invariant = {
     if (linkOf(plan, g.low)?.from !== g.lake) return fail(`The Low River does not leave ${nameOf(plan, g.lake)}`);
     // (the brook keeps off the Gate's dry channel: beside it, its water ran into the Gate past its bar)
     const gate = linkOf(plan, g.gate);
-    if (gate?.path) for (const p of outs[0].path!) if (pathDist(p[0], p[1], gate.path).d < (gate.half ?? 0) + (outs[0].half ?? 0) + 4) return fail(`${nameOf(plan, outs[0].id)} runs beside ${nameOf(plan, g.gate)}`);
+    if (gate?.path) for (const l of reaches) for (const p of l.path!) if (pathDist(p[0], p[1], gate.path).d < (gate.half ?? 0) + Math.max(l.half ?? 0, ...(l.halves ?? [])) + 4) return fail(`${nameOf(plan, l.id)} runs beside ${nameOf(plan, g.gate)}`);
     return OK;
   },
 };
@@ -1401,4 +1537,7 @@ export const wallGate: PremiseDef = {
   eligible: wallGateEligible,
   draw,
   invariants,
+  // (its own stages 1 and 2, through the shared stages' seams: PREMISES §2.2 "Seams")
+  water: gateWater,
+  land: (plan, water, style) => gateLand(plan, water, style?.relief),
 };
