@@ -97,6 +97,12 @@ export interface Link {
    *  points at the width read between them (`raster/channels.ts` `halfAt`), so a brook narrows and widens along its
    *  course; the table still reads `half`. Absent, the bed is `half` wide the whole way. */
   halves?: number[];
+  /** A wet link into a dry link's bed (a seam, PREMISES §2.2 "Seams"): this link's water joins link `link` `at` tiles
+   *  along its path and runs down its bed to that link's end (an exit), so the bed is wet from there down and dry above
+   *  (`levels.ts` `route` gives it `LinkFlow.wetFrom`; `raster/channels.ts` lays the wet reach with its water's depth and
+   *  the dry one with its wadi). `to` names where the water leaves: the joined link's end. Absent, a link is read as
+   *  before. */
+  joins?: { link: string; at: number };
   /** The mouth's full width where it differs from 2 × `half` (the bypass's 10). */
   mouth?: number;
   /** The bed's level at each point of `path`, or following the land `under` levels beneath it. */

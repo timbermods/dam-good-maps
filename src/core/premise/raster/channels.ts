@@ -149,7 +149,9 @@ export function rasterChannels(plan: PremisePlan, table: WaterTable, r: WaterRas
       ext.push([path[n - 1][0] + u[0] * 2, path[n - 1][1] + u[1] * 2]);
     }
     const lf = table.links[l.id];
-    const wet = !!lf?.wet;
+    // (a dry bed a wet link joins (`Link.joins`) is wet from the join down, its wadi above it)
+    const wetFrom = lf?.wetFrom ?? (lf?.wet ? -Infinity : Infinity);
+    const wet = wetFrom === -Infinity;
     const brook = l.kind === "brook" && (l.half ?? 0) >= 1;
     const course = courseOf(ext, wanderOf(plan, l), seedOf(plan, l.id, "course"));
     const sWide = seedOf(plan, l.id, "wide");
@@ -227,6 +229,7 @@ export function rasterChannels(plan: PremisePlan, table: WaterTable, r: WaterRas
       }
     }
     const depth = Math.max(lf?.bedDepth ?? 0, WATER.designDepth);
+    const depthAt = (s: number) => (s >= wetFrom ? depth : WATER.designDepth);
     // a shut link's head holds its first row's top (a level over the bed) clear of its body's water: where that water
     // stands more than a level over its sill (the springs' pool through its neck alone), the head is a level higher
     const from = fromBody >= 0 ? plan.bodies[fromBody] : null;
@@ -247,12 +250,12 @@ export function rasterChannels(plan: PremisePlan, table: WaterTable, r: WaterRas
       r.heights[i] = Math.max(0, bed);
       r.fixed[i] = 1;
       r.along[i] = s;
-      r.surface[i] = bed + depth;
+      r.surface[i] = bed + (wetFrom === -Infinity ? depth : depthAt(s));
     }
-    // a dry channel's wadi: a ragged strip a level over its bed
+    // a dry channel's wadi: a ragged strip a level over its bed (where it is dry)
     if (!wet)
       for (const i of touched) {
-        if (inBed.has(i) || r.fixed[i] || r.lake[i] || r.channel[i]) continue;
+        if (inBed.has(i) || r.fixed[i] || r.lake[i] || r.channel[i] || sBest[i] >= wetFrom) continue;
         const x = i % W;
         const y = (i - x) / W;
         const half = halfAt(l, Math.max(0, sBest[i]));
