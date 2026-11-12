@@ -9,6 +9,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openEditor, setWaterSpeed, topDown } from "./open";
 import { FAST_MS, GLACIATE_SHOW_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
+import { glaciateAutoGuess } from "../../src/core/forces/glaciate/model";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -60,7 +61,8 @@ test("Glaciate's settings are Power, Size, Meltwater, its benches, steps, tarn a
   await expect(row).toBeVisible();
   await expect(row.getByRole("group", { name: "Mode" })).toHaveCount(0);
   expect(await row.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Power", "Size", "Floor"]);
-  await expect(row.getByRole("button", { name: "Size follows Power" })).toBeVisible();
+  // (#914, D148: Auto's width is the valley's own, so its button reads "Size follows the valley")
+  await expect(row.getByRole("button", { name: "Size follows the valley" })).toBeVisible();
   await expect(row.getByRole("group", { name: "Meltwater" }).getByRole("button", { name: "On" })).toHaveAttribute("aria-pressed", "true");
   await expect(row.getByRole("combobox")).toHaveCount(0);
   await expect(row.getByRole("button", { name: "More" })).toHaveCount(0);
@@ -220,11 +222,12 @@ test("Glaciate's size at the cursor (D312): a faint ring of its width, its Size 
   await page.mouse.move(p.x + 4, p.y);
   await page.mouse.move(p.x, p.y);
   await expect.poll(async () => (await gesture(page)).ring).not.toBeNull();
-  // (Auto: round 4's width, whatever the Power)
-  expect((await gesture(page)).ring).toBe(15);
+  // (Auto, before a glacier has found its valley: the width the map's size suggests, whatever the Power;
+  // #914, D148: Auto is the valley's own width, no longer round 4's 30, so the ring guesses 10 on 96², `glaciateAutoGuess`)
+  expect((await gesture(page)).ring).toBe(glaciateAutoGuess(96, 96) / 2);
   await row.getByRole("slider", { name: "Power" }).fill("90");
   await page.waitForTimeout(100);
-  expect((await gesture(page)).ring).toBe(15);
+  expect((await gesture(page)).ring).toBe(glaciateAutoGuess(96, 96) / 2);
   await row.getByRole("slider", { name: "Size" }).fill("20");
   await expect.poll(async () => (await gesture(page)).ring).toBe(10);
   expect((await gesture(page)).stroke).toBeNull();
