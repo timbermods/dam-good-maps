@@ -1,7 +1,9 @@
 // Under Ride, a multi-tile source on ground a force moved unevenly keeps riding, its seat levelled to the lowest of its
 // tiles as D290 levels a placed one (planning's ruling of 2026-11-11; clear.ts `levelSeats`, Rust's Carve `level_seat`).
-// The map that found it: Highlands 4242 at 256², a Craterize at (170, 70), whose debris apron tore a badwater source's
-// 3 × 3 at (150, 104): it rode onto uneven ground and stood inside it, and the export refused the map.
+// The map that found it was Highlands 4242's (a Craterize at (170, 70) whose debris apron tore a badwater source's 3 × 3
+// south-west of it); a generator version moved that source, so the case builds its own ground: a flat blank map, a
+// badwater source where a Craterize's apron raises its rows by 2, 2 and 1 (thin, uneven: it rides under Ride, and its
+// ground is torn, so Clear takes it).
 
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
@@ -11,22 +13,21 @@ import { CRATER_DEFAULTS, type CraterSettings } from "../../src/core/forces/crat
 import { footprint } from "../../src/core/forces/objects";
 import { waterSource } from "../../src/core/format/entities";
 import { plainEntities } from "../../src/core/forces/force";
-import { makeSpec } from "../../src/core/spec/mapspec";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 
-const W = 256;
-const SOURCE = "98a92938-81f3-40e5-bbd9-0966c0277dbc";
+const W = 96;
+const SOURCE = "00000000-0000-4000-8000-0000000000b2";
 
 describe("a multi-tile source rides a force on a level seat (planning's ruling of 2026-11-11)", () => {
-  it("Highlands 4242's crater under Ride: the badwater source rides on its seat, the export takes the map, replay and undo hold", async () => {
-    await runGenerate(makeSpec({ seed: 4242, theme: "highlands", size: { x: W, y: W } }));
-    ed.refine();
+  it("a crater's apron under Ride: the badwater source rides on its seat, the export takes the map, replay and undo hold", async () => {
+    ed.newBlank(W, 10);
+    // (its 3 × 3 at x 47-49, y 63-65: the apron of a crater at (48, 48) raises those rows by 2, 2 and 1)
+    expect(ed.apply({ op: "placeEntity", params: { id: SOURCE, template: "BadwaterSource", x: 47, y: 63, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 1, CurrentStrength: 1 } } } } as never).errors ?? []).toEqual([]);
     const before = MapSession.open(decodeProject(ed.project().bytes)).built;
     const was = before.entities.find((e) => e.id === SOURCE)!;
-    expect(was.template).toBe("BadwaterSource");
-    const settings = { ...CRATER_DEFAULTS, size: 54, centre: "flat", sources: "ride" } as unknown as CraterSettings;
-    expect(ed.forceStart({ verb: "craterize", settings, origin: [170, 70], cut: null, natural: false }).errors).toEqual([]);
+    const at: [number, number] = [48, 48];
+    const settings = { ...CRATER_DEFAULTS, size: 30, centre: "flat", sources: "ride" } as unknown as CraterSettings;
+    expect(ed.forceStart({ verb: "craterize", settings, origin: at, cut: null, natural: false }).errors).toEqual([]);
     for (let k = 0; k < 3; k++) ed.forceAdvance(1);
     expect(ed.forceStop().kept).toBe(true);
     const s = MapSession.open(decodeProject(ed.project().bytes));
@@ -36,10 +37,11 @@ describe("a multi-tile source rides a force on a level seat (planning's ruling o
     const tiles = footprint({ W, H: W }, e!);
     expect(tiles.length).toBe(9);
     const low = Math.min(...tiles.map((i) => b.heights[i]));
-    // (the crater moved its tiles unevenly: without the seat it stood inside the ground)
+    // (the crater raised its tiles unevenly, by at most 2: without the seat it stood inside the ground)
     const op = s.state.sculpts.filter((o) => o.op === "forceResult").at(-1)!.params as { tiles: number[]; heights: number[] };
     expect(tiles.some((i) => op.tiles.includes(i))).toBe(true);
     for (const i of tiles) expect(b.heights[i], "its seat is level").toBe(low);
+    expect(low).toBeGreaterThan(before.heights[tiles[0]]);
     expect(e!.z).toBe(low);
     const ex = await ed.exportTimber(true);
     expect(ex.errors).toEqual([]);
@@ -51,7 +53,13 @@ describe("a multi-tile source rides a force on a level seat (planning's ruling o
     expect(Buffer.compare(Buffer.from(back.heights), Buffer.from(before.heights))).toBe(0);
     const again = back.entities.find((q) => q.id === SOURCE)!;
     expect([again.x, again.y, again.z]).toEqual([was.x, was.y, was.z]);
-  }, 600_000);
+    // (its ground was torn, not only moved: the same crater under Clear takes it)
+    expect(ed.forceStart({ verb: "craterize", settings: { ...settings, sources: "clear" } as CraterSettings, origin: at, cut: null, natural: false }).errors).toEqual([]);
+    for (let k = 0; k < 3; k++) ed.forceAdvance(1);
+    expect(ed.forceStop().kept).toBe(true);
+    const cleared = MapSession.open(decodeProject(ed.project().bytes)).state.sculpts.filter((o) => o.op === "forceResult").at(-1)!.params as { cleared?: { id: string }[] };
+    expect((cleared.cleared ?? []).map((c) => c.id), "Clear takes it: its ground was torn").toContain(SOURCE);
+  }, 300_000);
 
   it("a footprint moved evenly cuts nothing; a single-tile source and one under a roof are left as they ride", () => {
     const n = 8;
@@ -77,5 +85,19 @@ describe("a multi-tile source rides a force on a level seat (planning's ruling o
     const torn3 = heights.slice();
     footprint(before, bad).forEach((i, k) => (torn3[i] = 5 + (k % 3)));
     expect(levelSeats({ ...before, entities: [cave] }, { W: n, H: n, heights: torn3, entities: [{ ...cave }] }, false)).toEqual([]);
+    // on Erode's voxels (a tile not one plain run: an opening under its top), there is no level seat to cut: the
+    // footprint is held as it was, voxels and all, and the source keeps its old seat
+    const plain = (h: number) => (1 << h) - 1;
+    const masks0 = Uint32Array.from(heights, (h) => plain(h));
+    const torn4 = heights.slice();
+    const masks4 = masks0.slice();
+    footprint(before, bad).forEach((i, k) => {
+      torn4[i] = 5 + (k % 3);
+      masks4[i] = plain(torn4[i]) & ~0b100;
+    });
+    const after4 = { W: n, H: n, heights: torn4, masks: masks4, entities: [{ ...bad }] };
+    expect(levelSeats({ ...before, masks: masks0 }, after4, false).length).toBe(9);
+    for (const i of footprint(before, bad)) expect([torn4[i], masks4[i]]).toEqual([5, masks0[i]]);
+    expect(after4.entities[0].z).toBe(5);
   });
 });
