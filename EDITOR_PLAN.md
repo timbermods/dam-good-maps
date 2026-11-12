@@ -592,7 +592,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   it changed nothing round a tile by more than a level the tidying never moves that tile more than two: the land's
   own one-tile ledge goes back to where it stood, and the corner of its own two-tile ridge, with the ground of its
   level round it, to where the force put it, or where the force's rounding would leave that one tile wide to where it
-  stood, never down its cliff and never leaving ground one tile wide. Craterize, Erupt, Rift and Deposit end with it; Quake and Glaciate adopt it next.
+  stood, never down its cliff and never leaving ground one tile wide. Craterize, Erupt, Rift and Deposit end with it, and Glaciate's walls; Quake adopts it next.
 - **Esc skips, undo takes it back** (D344, A4): while a gesture is still being drawn, Esc cancels it and nothing of
   it lands; once a force plays, Esc skips it to its end, its final land kept as one step; Ctrl+Z (or Z, or Revert)
   takes all of it back at any moment, and nothing lands afterwards (D341). The row's tooltip carries the keys (**Esc** skips,
@@ -842,25 +842,27 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (D368 (3)): Power 100 is round 4's glacier in full; below it the plan lifts each station's floor toward a level
   under the valley's bottom (`liftFloors`, `glacierCut`: 1 level at Power 0, 6 at 50; channels and pools two more), so
   at every Power the valley is a U and its water lies in a channel or a tarn, never a sheet
-  (`tests/contract/glaciateFloor.test.ts`, `glaciatePowerSize.test.ts`). Below Power 100 the floor is one level
-  across the trough (its ground's upper quarter less the cut, smoothed along the path) and steps down the route in a
-  few long treads, never rising down it and never above the valley's old bottom, not the old land cut tile by tile;
-  the river runs one level below its tread, in one channel two or three tiles wide that winds gently within the
-  floor. Inside its edge the floor meets the walls through a step or two (the U), never wider than Size; near the
-  edge, ground already low joins the floor and a high spur stays wall, so the sides keep some of the land's outline;
-  benches are cut to one level part way up the wall, and a bench too small to read (under 12 tiles) is left as it
-  was; a last pass takes away 1–2-tile posts and fills 1–2-tile pits (never above the old ground), a post that banks
-  water widening into a bank instead, and a knob of the old land (40 tiles or fewer) left standing in the trough's
-  floor or mouth is planed down to the ground beside it (showcase craft's gap 26, #914's look review). **A lake is
-  never drained** (#914): a lake the route runs through (broad standing water, an eighth of it three tiles from its
-  shore; a river, however still, is none) keeps its surface as a deeper ribbon lake across the trough's floor, with
-  a sill at its old level, a bar three tiles across, wherever its water would leave lower than it did; a lake the
-  route passes keeps a wall at its level; no lake's water runs into another's, so badwater and clean water never
-  mix, and the sources in a lake stay to feed it. The river leaving the snout ends in the first water it meets on
-  ground the glacier left as it was. Floor left level
-  with a lake standing on it, reaching no lower ground, comes down a level into the lake (no thin sheet over
-  it); where the plan would wet dry land outside the trough, a river's old bed it banked over is opened
-  again from the outside water in, if that drains it. Default Power 60;
+  (`tests/contract/glaciateFloor.test.ts`, `glaciatePowerSize.test.ts`). **One U-shaped trough** (#914; its last
+  stage, `rust/forces/src/trough.rs`): the line is the stations rounded into a smooth curve that wanders a little
+  either side of the drawn one, so nothing in the trough runs ruled; its edge wanders too, and it closes at both ends,
+  the cirque's headwall and the snout's lip rising from the floor as its walls do. The floor is one level across the
+  trough (the valley's low dry ground near the line less Power's cut, 1 level at Power 0 to 11 at 100, easing off over
+  the last third) and steps down the route in uneven treads, never rising down it; a tread longer than twice its
+  length steps down part way. The river runs in one channel a level below the floor, two or three tiles wide,
+  winding gently; where the valley has its own river or a canyon's stream the channel follows it and the floor widens
+  to take it in, so no second channel is cut beside it. The walls rise from the floor's edge as the square of the way
+  across to the old rim, a bench (two with Benches Many) held level part way up a tall wall, through
+  `levels::whole`. Power bounds every cut (Power's cut and two levels more, four more at 100). **Water** (#914): a
+  lake the line meets becomes a ribbon lake at its old surface (its floor cut below it, the treads above standing at
+  its level), and wherever ground the trough lowered within three tiles of a lake or its ribbon would let it out lower,
+  a bar stands at its level, the old outlet at its sill; a river beside the trough keeps its banks the same way, so
+  none is drained, captured or mixed with badwater. The river leaves the snout by the cheapest way down the old land
+  to ground or water below its level (a gorge through the lip at most three levels deep and a few tiles long);
+  where there is none, the whole profile lifts a level at a time, its treads kept, never above the valley's own bottom
+  at the snout; a snout just short of water at its floor's level ends in it. The glacier's springs and the side
+  valleys' landings reach the channel by winding feeders, and the water is let settle once on the land so far and any
+  sheet left on the floor gets a feeder too; a trough whose springs' water would still flood dry land round it keeps
+  none. Default Power 60;
   **Size Auto is the valley's own width** (gap 14): measured across the route every other station, from its
   bottom to where the ground stands two or three levels up (half the valley's rise, at most a fifth of the map
   away), its median, between 8 and a sixth of the map; on flat ground, a tenth of the map.
