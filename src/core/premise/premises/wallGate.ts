@@ -454,12 +454,15 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   // ---- the valley's lake at its low end, away from the bench: one broad body with a shore, its width varying two-fold
   // and more (a wide lobe, a narrows, the Low River's end), the Gate leaving its shore, the Low River its far end
   const uE = spurU - SPUR_HALF - 8;
-  const uL = Math.max(lu1 + DOOR_LOBE + 12, Math.min(gu - 8, uE - LAKE_SHAPE.span * (N / 128)));
+  const uL = lu1 + DOOR_LOBE + 12 + rng.range(0, 4);
   if (uE - uL < 6) return { why: "lake span" };
+  if (gu < uL - 8) return { why: "gate before the lake" };
   const m = N / 128;
   const rWide = rng.range(LAKE_SHAPE.wide[0], LAKE_SHAPE.wide[1]) * (0.75 + 0.25 * m);
   const rNeck = Math.max(2.8, rWide / 2 - rng.range(0, 0.6));
-  const lakeTopV = Math.min(foot(gu) - SLOT_BENCH - 1, fb - LAKE_SHAPE.offBench * (0.8 + 0.2 * m));
+  // (its near end at a reach of the plunge pool that does not grow with the map: the brook falls one level whatever the
+  // side, and on a larger map led further it backed the pool up over the start's bench)
+  const lakeTopV = Math.min(foot(gu) - SLOT_BENCH - 1, fb - LAKE_SHAPE.offBench);
   const lakeLow = UNDER_LAKE * N;
   const cv = Math.min(lakeTopV - rWide, Math.max(lakeLow + rWide + 3, (lakeTopV + lakeLow) / 2));
   if (cv - rWide < lakeLow - 1 || cv + rWide > lakeTopV + 0.5) return { why: "lake room" };
@@ -469,7 +472,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   // (where the valley is short along the range, the lake lies down it as well: from under the Gate toward the Low
   // River's end, lower in the valley)
   const vEnd = Math.max(lakeLow + lowLip / 2 + 1, Math.min(lakeTopV - lowLip / 2 - 0.5, cv - rng.range(0, 1) * Math.max(0, LAKE_SHAPE.least - (uE - uL))));
-  const v0 = Math.min(lakeTopV - rs[0], cv + rng.range(0, 3) * m);
+  const v0 = lakeTopV - rs[0] - rng.range(0, 2);
   if (hypot(uE - uL, v0 - vEnd) < LAKE_SHAPE.least) return { why: "lake span" };
   const main: Spine = [];
   for (let i = 0; i < 3; i++) {
@@ -596,13 +599,13 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const doorLipAt: Point = [doorAt[0] - ks * (doorR + 1), doorAt[1]];
   // (it runs on along the range's foot away from the bench before it turns down the valley: down at once, it ran beside
   // the bench and ringed it with the pool)
-  const outFrom: Point = [Math.min(doorLipAt[0] - ks * OUTFLOW_AWAY * (0.75 + 0.25 * m), main[0][0] - main[0][2]), doorAt[1] - 1];
+  const outFrom: Point = [Math.min(doorLipAt[0] - ks * OUTFLOW_AWAY, main[0][0] - main[0][2]), doorAt[1] - 1];
   // (into the lake's near lobe on the side it comes from, a tile inside its shore; it falls down the valley, never back
   // toward the bench)
   const od = dist(outFrom, [main[0][0], main[0][1]]);
   const outTo: Point = [main[0][0] + ((outFrom[0] - main[0][0]) / od) * (main[0][2] - 1), main[0][1] + ((outFrom[1] - main[0][1]) / od) * (main[0][2] - 1)];
   if (outTo[0] < outFrom[0] - 2 || outFrom[1] - outTo[1] < 4 || dist(outFrom, outTo) < 6) return { why: "brook room" };
-  const outflow: Point[] = [doorLipAt, ...smooth([[doorLipAt[0] - ks * 3, doorLipAt[1]], outFrom, ...wind(outFrom, outTo, 9, 4 * m)]).slice(0)];
+  const outflow: Point[] = [doorLipAt, ...smooth([[doorLipAt[0] - ks * 3, doorLipAt[1]], outFrom, ...wind(outFrom, outTo, 9, 4)]).slice(0)];
 
   // ---- the brooks: springs in the valley's far corners, each brook wandering to the lake's nearest point
   const tarnAt: Point[] = [
@@ -1337,6 +1340,9 @@ const valleyWater: Invariant = {
     if (Math.max(...rs) < LAKE_SHAPE.varies * Math.min(...rs) - 0.01) return fail(`${nameOf(plan, g.lake)}'s width varies ${(Math.max(...rs) / Math.min(...rs)).toFixed(2)}-fold (${LAKE_SHAPE.varies} or more)`);
     if (lake.arms.length < 2) return fail(`${nameOf(plan, g.lake)} has no bay`);
     if (linkOf(plan, g.low)?.from !== g.lake) return fail(`The Low River does not leave ${nameOf(plan, g.lake)}`);
+    // (the brook keeps off the Gate's dry channel: beside it, its water ran into the Gate past its bar)
+    const gate = linkOf(plan, g.gate);
+    if (gate?.path) for (const p of outs[0].path!) if (pathDist(p[0], p[1], gate.path).d < (gate.half ?? 0) + (outs[0].half ?? 0) + 4) return fail(`${nameOf(plan, outs[0].id)} runs beside ${nameOf(plan, g.gate)}`);
     return OK;
   },
 };

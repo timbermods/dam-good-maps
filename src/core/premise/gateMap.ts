@@ -110,7 +110,14 @@ export function gateMap(spec: MapSpec, theme: StyleTheme = "riverValley"): (Gate
       continue;
     }
     const ladder = gateLadder(plan, water, land.heights);
-    const out = { plan, water, land, landFails, frame, ladder, card: gateCard(plan, theme, ladder), worksFails: gateWorksFailures({ plan, water, heights: land.heights, ladder }), attempt, failed };
+    const worksFails = gateWorksFailures({ plan, water, heights: land.heights, ladder });
+    // (a work with no site on the land: the plan is drawn again, never the land forced for it)
+    const unsited = worksFails.find((f) => f.id === "works.sites");
+    if (unsited) {
+      failed.push(`${unsited.id}: ${unsited.reason}`);
+      continue;
+    }
+    const out = { plan, water, land, landFails, frame, ladder, card: gateCard(plan, theme, ladder), worksFails, attempt, failed };
     const s: MapSpec = { ...JSON.parse(JSON.stringify(spec)), accepted: { attempt, candidate: 0 } };
     settles++;
     const map = premiseMap(s, plan, land, frame.start, ladder, style);

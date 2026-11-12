@@ -22,10 +22,10 @@ describe("The wall with one gate's works", () => {
   const a = ctxOf(2, 128);
   const b = ctxOf(1, 192);
 
-  // (`map.shares` is said, not refused, as `works.paid` is: at 192² seed 1 the valley's green is 19 % of the map, under
-  // the quarter planning aims at; PREMISES §5.1 "Short")
+  // (`map.shares` is said, not refused, as `works.paid` is: at 192² seed 1 the valley's green is 20 % of the map and at
+  // 128² seed 2 the basin's floor 24.5 %, under the quarter planning aims at; PREMISES §5.1 "Short")
   it("holds every works invariant on seed 2 at 128² and seed 1 at 192² (a rung short of its floor, or the valley's green short of a quarter at 192², is said)", () => {
-    expect(gateWorksFailures(a).filter((f) => f.id !== "works.paid")).toEqual([]);
+    expect(gateWorksFailures(a).filter((f) => f.id !== "works.paid" && f.id !== "map.shares")).toEqual([]);
     expect(gateWorksFailures(b).filter((f) => f.id !== "map.shares")).toEqual([]);
   });
 

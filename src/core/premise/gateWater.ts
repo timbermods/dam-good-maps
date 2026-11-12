@@ -50,12 +50,37 @@ function headEnd(w: StageWater, plan: PremisePlan, id: string): number | null {
   return a === Infinity ? null : a;
 }
 
+/** The plunge pool's level (planning's ruling of 2026-11-12: the table was written for a lake at a sill, not a pool
+ *  under a fall): the pool leaves over a low lip into its brook, whose water on its own bed stands over the lip's crest
+ *  (the brook's depth, `bedDepth`, from its bed: its width sets it), so the lip is drowned and the pool stands the
+ *  lip's head over the brook's water, not over the crest. The table's level and the pool's planned surface are set so;
+ *  the shared table (`levels.ts`, the lake stair's too) is left as it is. */
+function plungePool(plan: PremisePlan, w: StageWater): void {
+  const g = gateOf(plan);
+  if (!g) return;
+  const door = plan.bodies.find((b) => b.id === g.door);
+  const out = plan.links.find((l) => l.from === g.door && l.to === g.lake && l.fall);
+  if (!door || !out || !Array.isArray(out.bed)) return;
+  const t = w.table.bodies[door.id];
+  const lf = w.table.links[out.id];
+  if (!t || !lf) return;
+  const head = Math.max(0, t.level - out.fall!.crest);
+  const tail = Math.min(...out.bed) + lf.bedDepth;
+  const level = Math.max(t.level, tail + head);
+  if (level === t.level) return;
+  t.level = level;
+  const r = w.raster;
+  const di = plan.bodies.indexOf(door) + 1;
+  for (let i = 0; i < r.W * r.H; i++) if (r.lake[i] === di && !Number.isNaN(r.surface[i])) r.surface[i] = level;
+}
+
 /** Stage 1 of a gate plan: the shared stage, then the leat's bar. Deterministic from the plan alone. */
 export function gateWater(plan: PremisePlan): StageWater {
   const w = waterByNumber(plan);
   const g = gateOf(plan);
   if (!g) return w;
   const r = w.raster;
+  plungePool(plan, w);
   const bars: [string, number][] = [
     [g.leat, g.leatBar],
     [g.gate, g.bar.level],
