@@ -383,8 +383,10 @@ describe("a place in words", () => {
 
   test("a lake, the start and a river are named; a compass word only when there are several of the kind", () => {
     // (Highlands 13 for 51 since generator 0.10.17's start floors, D515, D148: seed 51's map has a spring river beside its
-    // main one now; of Highlands seeds 1–100 at 48² only seed 13 has one lake and one river besides a spring cave's stream)
-    const one = open(13, "highlands");
+    // main one now; of Highlands seeds 1–100 at 48² only seed 13 has one lake and one river besides a spring cave's stream; Highlands 23 for
+    // 13 since generator 0.10.20's contour edges, D518, D148: seed 13 has two lakes now, and of seeds 1–50 seeds 23, 27 and 35
+    // have one lake and one river)
+    const one = open(23, "highlands");
     const lakes = one.features.filter((f) => f.kind === "lake");
     expect(lakes.length, "the map has a single lake").toBe(1);
     const [lx, ly] = centre((lakes[0].params as { outline: number[][] }).outline);
@@ -411,8 +413,9 @@ describe("a place in words", () => {
     // two lakes: the one that holds the tiles, with where it lies (Canyon 7 for 4 since generator 0.10.11, the D410 round, D148:
     // seed 4 has no lake now, and of Canyon seeds 1–12 at 48² only seed 7 has two; Canyon 2 for 7 since generator 0.10.16's
     // ground with grade, D148: seed 7 has no lake now, and of seeds 1–12 seeds 2, 10 and 12 have two; Canyon 10 for 2 since
-    // generator 0.10.17's start floors (D515), D148: seed 2 has one lake now, and of seeds 1–20 seeds 7, 10 and 12 have two)
-    const two = open(10, "canyon");
+    // generator 0.10.17's start floors (D515), D148: seed 2 has one lake now, and of seeds 1–20 seeds 7, 10 and 12 have two; Canyon 2 for 10 since generator 0.10.20's
+    // contour edges, D518, D148: seed 10 has no lake now, and of seeds 1–20 only seed 2 has two)
+    const two = open(2, "canyon");
     const both = two.features.filter((f) => f.kind === "lake");
     expect(both.length).toBe(2);
     for (const lake of both) {

@@ -106,7 +106,9 @@ a premise or one still to come, may carry its own, lower playability floor.
 - **The first frame**: the landmark whole in the game's first camera, and the start in front of it.
 - **Falls**: a landmark fall of 6 levels or more and wide (loved maps' tallest: median 6.1); lesser falls of about 4.
 - **Ground**: under half the tiles dead flat; 60–80 % of height steps one level; no two or three levels holding most
-  of the map. Bold scarps and broad benches, not thin contour bands.
+  of the map. Bold scarps and broad benches, not thin contour bands. Every level's edge follows the land's warped
+  contours, never a lattice or a rectangle, and rises stand in two or three nested one-level rings, as the game's hills
+  do (D518).
 - **Water and green are a spectrum, set by the premise**, not targets to maximise: a living core, veins toward the
   rim, and dry land that is irrigable by design. What is measured is the ladder (what each work turns green), not a
   bare-ground share.
@@ -118,7 +120,9 @@ a premise or one still to come, may carry its own, lower playability floor.
   150 tiles on a 128² map, 2 to 3 wide, a level or two deep, where rain would run, with side branches and fords every
   15 to 25 tiles where the bank slopes down and up again, ending at water behind a lip, in a dry hollow that fills if
   water is led in, or (the old bed, one a map) behind a lake's lip, one notch from running again. A dam at a wash's mouth or a
-  canal into it greens its floor first: irrigation the land offers, never water it gives.
+  canal into it greens its floor first: irrigation the land offers, never water it gives. Canyon's side canyons are
+  deeper washes (D518): two or three a 128² map, walls of three levels or four, 3 to 5 wide, deepening from the head,
+  dry unless they reach the river.
 - **Weather**: by the model and in the game: the start's days of water in each early drought; the day badwater reaches
   the start, left alone and with each answer built.
 - **Reach**: every region walkable by natural ways or by a crossing the land plainly asks for.

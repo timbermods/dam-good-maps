@@ -144,8 +144,11 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // seeds 1–20, 21 keep every rule against 23 on 0.10.15; Islands 8 for Islands 17 since generator 0.10.17 (D515's start
     // floors move the starts), D148: Islands 17 has no site now, and of Islands, River Valley and Canyon seeds 1–20, 23 keep
     // every rule (Islands 8, 12, 14, 16, 19; Canyon 4, 5, 9, 14; River Valley 14 of 20); Islands 11 and 15 and River Valley 10
-    // place item 47's close site behind its debris, 40–70 tiles out by design, so they are not this rule's sites)
-    for (const [theme, seed] of [["islands", 8], ["riverValley", 3], ["canyon", 5], ["canyon", 9]] as [ThemeId, number][]) {
+    // place item 47's close site behind its debris, 40–70 tiles out by design, so they are not this rule's sites; Islands 12 and
+    // Canyon 3 and 7 for Islands 8 and Canyon 5 and 9 since generator 0.10.20's contour edges, D518, D148: those three have no
+    // site now, and of Islands, River Valley and Canyon seeds 1–20, 16 keep every rule (Islands 12; Canyon 3, 7; River Valley 1–8,
+    // 12–16), Islands 9's lying 44 tiles out)
+    for (const [theme, seed] of [["islands", 12], ["riverValley", 3], ["canyon", 3], ["canyon", 7]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       expect(r.report.passed).toBe(true);
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "secondDistrict");
@@ -194,9 +197,12 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // fell from 13 to 8 (Canyon 3 to 5, River Valley 7 to 2, Islands 3 to 1); of those, these four are the first;
     // canyon 4, canyon 10 and river valley 5 for canyon 19, canyon 2 and river valley 7 since generator 0.10.17 (D515's start
     // floors move the starts), D148: those three hold no rise that keeps every rule now, and over seeds 1–20 of Islands, River
-    // Valley and Canyon 13 do (Canyon 4, 10, 11, 12, 14, 15; Islands 12, 14, 18; River Valley 5, 12, 17, 20))
+    // Valley and Canyon 13 do (Canyon 4, 10, 11, 12, 14, 15; Islands 12, 14, 18; River Valley 5, 12, 17, 20); canyon 1, canyon 7
+    // and river valley 1 for canyon 4, canyon 14 and river valley 5 since generator 0.10.20's contour edges, D518, D148: those
+    // three hold no rise that keeps every rule now, and over seeds 1–20 of Islands, River Valley and Canyon 15 do (Canyon 1, 7,
+    // 8, 10, 12, 15; Islands 3, 4, 20; River Valley 1, 4, 7, 14, 18, 20))
     let seen = 0;
-    for (const [theme, seed] of [["canyon", 4], ["canyon", 10], ["canyon", 14], ["riverValley", 5]] as [ThemeId, number][]) {
+    for (const [theme, seed] of [["canyon", 1], ["canyon", 7], ["canyon", 10], ["riverValley", 1]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;
@@ -236,8 +242,10 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // Highlands height round, 0.8.8, D148: neither map's river takes a weir now (highlands 2 has one, holding 0.65,
     // on a spring river a second channel runs beside, which this reading would count with it); canyon 1 for canyon 4 and
     // highlands 6 for highlands 4 since generator 0.10.16's ground with grade, D148: neither river takes a weir now; no fewer weirs
-    // over all: of Canyon and Highlands 96² seeds 1–20, 12 hold 0.6 or more against 14 on 0.10.15, and one holds less, as one did)
-    for (const [theme, seed] of [["canyon", 6], ["canyon", 7], ["canyon", 1], ["canyon", 10], ["highlands", 6]] as [ThemeId, number][]) {
+    // over all: of Canyon and Highlands 96² seeds 1–20, 12 hold 0.6 or more against 14 on 0.10.15, and one holds less, as one did;
+    // canyon 2, canyon 4 and highlands 2 for canyon 6, canyon 1 and highlands 6 since generator 0.10.20's contour edges, D518,
+    // D148: those rivers take no weir now; of Canyon and Highlands 96² seeds 1–20, 15 hold 0.6 or more and none holds less)
+    for (const [theme, seed] of [["canyon", 7], ["canyon", 10], ["canyon", 2], ["canyon", 4], ["highlands", 2]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 96, y: 96 }, theme }));
       const w = r.features.find((g) => g.kind === "mapObject" && g.params.kind === "weir");
       if (!w || w.kind !== "mapObject") continue;

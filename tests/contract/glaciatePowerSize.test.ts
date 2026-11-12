@@ -13,11 +13,11 @@ import * as ed from "../../src/worker/session";
 import { openMap } from "./forceEverywhere";
 
 const W = 128;
-const SEED = 22;
+const SEED = 29;
 /** Size's map and head (its own map since generator 0.10.11, see below). */
-const SIZE_SEED = 29;
-const SIZE_HEAD: [number, number] = [58, 58];
-const POWER_HEAD: [number, number] = [82, 18];
+const SIZE_SEED = 26;
+const SIZE_HEAD: [number, number] = [50, 30];
+const POWER_HEAD: [number, number] = [70, 50];
 let at: [number, number] = [W >> 1, W >> 1];
 
 beforeAll(async () => {
@@ -55,7 +55,12 @@ beforeAll(async () => {
   // grid of 4 taken outward from it, (82, 18), level 15, the fourteenth, keeps every check of Power. Size's moved with
   // generator 0.10.19's long dry washes, D517, D148: on seed 27 a wash runs through (42, 42), and Power 20's narrow ice
   // makes no section there; none of the 40 heads nearest it keeps every check of Size, nor any of the 15 nearest the
-  // middle on seeds 21, 23–26 and 28; on seed 29, (58, 58), level 15, the thirteenth, keeps them all at Power 20, 60 and 100)
+  // middle on seeds 21, 23–26 and 28; on seed 29, (58, 58), level 15, the thirteenth, keeps them all at Power 20, 60 and 100).
+  // Both moved with generator 0.10.20's contour edges, D518, D148: on seed 22 Power 0's light scour wears walls of 4 from
+  // the 25 heads nearest (82, 18) or Power 100's stand within 3 of Power 50's, its floor cut to level 1 at both, and on
+  // seed 29 Power 20's ice makes under 10 sections on the shared stretch from every head of the 30 nearest (58, 58);
+  // taking the heads of level 16 first, Power's is seed 29's (70, 50), the eighteenth, and Size's seed 26's (50, 30), the
+  // seventh (none of 30 on seeds 22 and 29 keeps every check of Size)
   at = SIZE_HEAD;
 });
 

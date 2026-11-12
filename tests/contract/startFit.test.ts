@@ -358,13 +358,16 @@ describe("a map object measured where it stands, by the checks and the start's p
     };
     // (the map's other belts, which must keep their band where the start goes)
     const others = s.features.filter((f): f is MapObjectFeature => f.kind === "mapObject" && f.params.kind === "thornBelt" && f.id !== belt.id).map((f) => ({ kind: f.params.kind, tiles: objectTiles(f, W, W) }));
-    // the start near the belt, where it is out of its band (20+) and some of its thorns are 21+ tiles off
+    // the start near the belt, where it is out of its band (20+) and some of its thorns are 21+ tiles off (and where the
+    // check names every line, six at most, since generator 0.10.20's contour edges, D518, D148: on seed 13 the first spot
+    // flags seven extras, and the check's message ends "and 1 more" before the belt)
     let spot: [number, number] | null = null;
     for (let d = 10; d <= 18 && !spot; d++)
       for (const [bx, by] of bt) {
         for (const [x, y] of [[bx + d, by], [bx - d, by], [bx, by + d], [bx, by - d]]) {
           if (x < 3 || y < 3 || x > W - 4 || y > W - 4 || !fits(s, x, y)) continue;
-          if (!preview(s, [x, y]).some((l) => l.startsWith("Thorn belt")) || !bt.some(([qx, qy]) => dist(qx, qy, x, y) >= 21) || startFitWarnings(others, W, W, x, y).length) continue;
+          const w0 = preview(s, [x, y]);
+          if (w0.length > 6 || !w0.some((l) => l.startsWith("Thorn belt")) || !bt.some(([qx, qy]) => dist(qx, qy, x, y) >= 21) || startFitWarnings(others, W, W, x, y).length) continue;
           spot = [x, y];
           break;
         }

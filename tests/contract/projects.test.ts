@@ -115,8 +115,9 @@ describe("generated outlines past the map edge are edited and locked (decisions-
     // and speed rounds, whose seed 3 keeps its lakes off the edges, D148; River Valley 1 since Lake Basin
     // round 2, D453, whose one central basin keeps every Lake Basin lake off the edges; Canyon 7 since River
     // Valley round 2, 0.8.5, whose River Valley 96² lakes, seeds 1 to 24, keep off the edges; Canyon 11 since generator
-    // 0.10.16's ground with grade, D148, whose Canyon 7 keeps its lakes off the edges: of Canyon 96² seeds 1 to 12 only 11 has one)
-    const r = gen("canyon", 96, 11);
+    // 0.10.16's ground with grade, D148, whose Canyon 7 keeps its lakes off the edges: of Canyon 96² seeds 1 to 12 only 11 has one; Canyon 16 since generator 0.10.20's
+    // contour edges, D518, D148: of Canyon 96² seeds 1 to 24 only 16 and 19 have one, and of River Valley's 1 to 12 none)
+    const r = gen("canyon", 96, 16);
     const s = MapSession.fromGenerated(r, r.file);
     const W = s.size.x;
     const past = ([x, y]: [number, number]) => x < 0 || y < 0 || x > W - 1 || y > W - 1;

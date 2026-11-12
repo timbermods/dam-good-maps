@@ -93,10 +93,12 @@ describe("the edit queue against the worker: pinned scenarios", () => {
   it("#873 (step 4's acceptance, today's gap): the session still completes a Naturalize stroke with what only it works out", async () => {
     // (step 4's composer completes the operation on the page, `completeStroke`, so the session adds nothing and the
     // operation logged deep-equals the operation sent; step 4 changes this list to [] and the oracle's I6 then covers
-    // every stroke)
+    // every stroke; from (20, 40) since generator 0.10.20's contour edges, D518, D148: on River Valley 11's new land water
+    // stands on the ring round (20, 26)'s working rectangle, so the session records its `rim` too, and on its land
+    // the hold changes nothing the page showed)
     const h = new Harness(P1);
     const id = h.press("naturalize", 5, { seed: 3 });
-    await h.drag(line(20, 26, 12));
+    await h.drag(line(20, 40, 12));
     await h.letGo();
     await h.settle();
     const sent = ((h.queue.ticket(id)!.call as { args: unknown[] }).args[0] as Extract<EditOp, { op: "brush" }>).params;
