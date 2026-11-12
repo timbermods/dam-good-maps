@@ -16,13 +16,15 @@
 // prints heavy, suites, rust, test, page and generator (and writes them to $GITHUB_OUTPUT). page (pull requests into dev
 // only): the change touches src/editor/, src/ui/, src/render3d/ or src/styles/, so the `page` job's browser specs run
 // before the merge. generator (pull requests into dev only): the change can change what the generator makes
-// (`isGenerator`), so the browser shards run before the merge, as they do on dev after one. --full (pushes to main, pull requests into main,
+// (`isGenerator`), so the browser shards run before the merge, as they do on dev after one: what generate() imports is walked at the head
+// when this runs (generatorGraph), so no list of files needs keeping. --full (pushes to main, pull requests into main,
 // manual runs) turns everything on; --light (pull requests into dev) turns suites and rust off, because the merge queue
 // runs them on the merged state. Plain Node, no dependencies: the CI job that runs it does not install anything.
 // Tested by tests/unit/ci-changes.test.ts.
 
 import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
+import { posix } from "node:path";
 import { pathToFileURL } from "node:url";
 
 /** package.json fields that describe the package and change nothing a test runs. Everything else is heavy. */
@@ -153,66 +155,64 @@ export function needsHeavy(files, read) {
   return classify(files, read).heavy;
 }
 
+/** The generator's entry point: what it reaches is what can change the maps it makes. */
+export const GENERATOR_ROOT = "src/core/gen/generate.ts";
+
+const IMPORT_RE = /(?:^|\n)\s*(?:import|export)\s+(type\s+)?(?:[^'"]*?\sfrom\s+)?["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g;
+
 /**
- * What can change the maps the generator makes (a pull request into dev touching it runs the browser shards before the
- * merge, as a page PR runs the page job): every file `generate()` (src/core/gen/generate.ts) reaches through its value
- * imports, the generator's version constant (src/core/spec/mapspec.ts) among them, and the Rust crates its Wasm is built
- * from (the water, the analysis, the checks and the maths they share, with the workspace's Cargo files). A directory is
- * listed when `generate()` reaches every file directly in it, else its files one by one; type-only imports, a premise
- * not offered (premise/gate*.ts, premises/wallGate.ts, premises/dev.ts) and the showcase are not reached. Kept true by
- * tests/unit/ci-changes.test.ts, which walks the imports and fails when they and this list differ.
+ * Every file `generate()` (GENERATOR_ROOT) reaches through its relative value imports, static and dynamic, walked when
+ * the script runs, so there is no list to keep up: a new file the generator imports is reached the day it is imported.
+ * Type-only imports change nothing it makes and are not followed. TypeScript files are followed; JSON and JavaScript are
+ * reached but not read. Plain regular expressions, no dependencies (the CI job installs nothing).
+ * @param read   (path) => the file's text, or null when it doesn't exist
+ * @param exists (path) => true when the file exists
+ * @returns repository-relative paths, forward slashes
  */
-export const GENERATOR_DIRS = [
-  "src/core/analysis/rust",
-  "src/core/data",
-  "src/core/features/setpieces",
-  "src/core/land",
-  "src/core/math",
-  "src/core/premise/raster",
-  "src/core/spec",
-  "src/core/water",
-];
-
-const inDir = (dir, ...names) => names.map((n) => `${dir}/${n}`);
-
-export const GENERATOR_FILES = [
-  ...inDir("src/core/analysis", "damsites.ts", "easyStart.ts", "edges.ts", "ground.ts", "mechanics.ts", "opening.ts", "regions.ts", "ridge.ts", "seeThrough.ts", "signature.ts", "sources.ts", "story.ts", "straight.ts", "vertical.ts", "walk.ts", "wood.ts"),
-  ...inDir("src/core/doc", "labels.ts"),
-  ...inDir("src/core/features", "build.ts", "edits.ts", "features.schema.json", "geometry.ts", "ids.ts", "objects.ts", "route.ts", "slopes.ts", "target.ts"),
-  ...inDir("src/core/features/raster", "brush.ts", "resources.ts", "terrain.ts", "weather.ts"),
-  ...inDir("src/core/forces", "clear.ts", "floor.ts", "objects.ts", "op.ts", "settings.ts"),
-  ...inDir("src/core/format", "base64.ts", "entities.ts", "footprints.ts", "json.ts", "timber.ts", "world.ts"),
-  ...inDir("src/core/format/vendor", "jpeg-encoder.js"),
-  ...inDir("src/core/gen", "blobs.ts", "calibrated.ts", "extras.ts", "failWords.ts", "forms3d.ts", "generate.ts", "intentions.ts", "names.ts", "outcomes.ts", "pack.ts", "plug.ts", "readback.ts", "resources.ts", "ruinStories.ts", "settler.ts", "weir.ts"),
-  ...inDir("src/core/premise", "card.ts", "choice.ts", "draw.ts", "frame.ts", "generate.ts", "geom.ts", "ladder.ts", "levels.ts", "life.ts", "map.ts", "planChecks.ts", "siting.ts", "style.ts", "water.ts", "waterChecks.ts"),
-  ...inDir("src/core/premise/premises", "index.ts", "lakeStair.ts"),
-  ...inDir("src/core/render", "shade.ts"),
-  ...inDir("src/core/resources", "badwater.ts", "baseline.ts", "budget.ts", "measure.ts", "mineGround.ts"),
-  ...inDir("src/core/sim", "columns.ts", "drought.ts", "droughtLine.ts", "fed.ts", "firstDays.ts", "model.ts", "moisture.ts", "parallel.ts", "parallelPolicy.ts", "prefill.ts", "preview.ts", "rustWater.ts", "sill.ts", "soil.ts", "soil3d.ts", "stackFed.ts", "stackParallel.ts", "stackWater.ts", "startWaterDay.ts", "water.ts", "waterWasm.ts", "weather.ts", "withering.ts"),
-  ...inDir("src/core/terrain", "blocks.ts", "clearance.ts", "runs.ts", "support.ts"),
-  ...inDir("src/core/validate", "checks.ts", "checksWasm.ts", "playability.ts", "report.ts", "rust.ts"),
-];
+export function generatorGraph(read, exists) {
+  if (!exists(GENERATOR_ROOT)) throw new Error(`${GENERATOR_ROOT} not found`);
+  const seen = new Set();
+  const stack = [GENERATOR_ROOT];
+  while (stack.length) {
+    const f = stack.pop();
+    if (seen.has(f)) continue;
+    seen.add(f);
+    const text = read(f);
+    if (text === null) throw new Error(`${f}: unreadable`);
+    for (const m of text.matchAll(IMPORT_RE)) {
+      const spec = m[1] ? null : (m[2] ?? m[3]);
+      if (!spec?.startsWith(".")) continue;
+      const p = posix.join(posix.dirname(f), spec);
+      const hit = [p, `${p}.ts`, `${p}.tsx`, posix.join(p, "index.ts")].find((c) => /\.(ts|tsx|json|js|mjs)$/.test(c) && exists(c));
+      if (!hit) continue;
+      if (/\.tsx?$/.test(hit)) stack.push(hit);
+      else seen.add(hit);
+    }
+  }
+  return seen;
+}
 
 /** The Rust the generator's Wasm is built from (src/core/sim/waterWasm.ts, analysis/rust/analysisWasm.ts,
  *  validate/checksWasm.ts): its crates and the workspace's Cargo files. */
 export const GENERATOR_RUST = ["rust/water/", "rust/analysis/", "rust/checks/", "rust/portable/", "rust/Cargo.toml", "rust/Cargo.lock"];
 
-const GENERATOR_FILE_SET = new Set(GENERATOR_FILES);
-
-/** True when a change to this path can change what the generator makes (`GENERATOR_DIRS`, `GENERATOR_FILES`,
- *  `GENERATOR_RUST`). Documents never do. */
-export function isGenerator(path) {
+/**
+ * What can change the maps the generator makes (a pull request into dev touching it runs the browser shards before the
+ * merge, as a page PR runs the page job): a file `generate()` reaches (`reached`, from generatorGraph at the change's
+ * head), the generator's version constant (src/core/spec/mapspec.ts) among them, and the Rust its Wasm is built from
+ * (GENERATOR_RUST). A premise not offered (premise/gate*.ts, premises/wallGate.ts, premises/dev.ts) and the showcase
+ * are not reached. Documents never count.
+ */
+export function isGenerator(path, reached) {
   if (isDocument(path)) return false;
-  if (GENERATOR_FILE_SET.has(path)) return true;
-  const slash = path.lastIndexOf("/");
-  if (slash > 0 && GENERATOR_DIRS.includes(path.slice(0, slash))) return true;
+  if (reached.has(path)) return true;
   return GENERATOR_RUST.some((r) => (r.endsWith("/") ? path.startsWith(r) : path === r));
 }
 
 /** True when the browser shards run on a pull request into dev (light) before the merge: it can change what the
  *  generator makes. An unreadable change counts as one that can. */
-export function needsGenerator(files, mode = "auto") {
-  return mode === "light" && (!files.length || files.some(isGenerator));
+export function needsGenerator(files, mode, reached) {
+  return mode === "light" && (!files.length || files.some((f) => isGenerator(f, reached)));
 }
 
 function git(...args) {
@@ -240,7 +240,13 @@ function main() {
           return null;
         }
       };
-      result = { ...classify(files, read, mode), test: needsTest(files, mode), page: needsPage(files, mode), generator: needsGenerator(files, mode) };
+      // the generator's import graph at the head (pull requests into dev only: it is what `generator` reads)
+      let reached = new Set();
+      if (mode === "light") {
+        const tree = new Set(git("ls-tree", "-r", "--name-only", head).split("\n").filter(Boolean));
+        reached = generatorGraph((path) => read(path, "new"), (path) => tree.has(path));
+      }
+      result = { ...classify(files, read, mode), test: needsTest(files, mode), page: needsPage(files, mode), generator: needsGenerator(files, mode, reached) };
       console.log(`${files.length} changed file(s), ${mode} run`);
     }
   } catch (e) {
