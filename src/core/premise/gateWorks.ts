@@ -27,7 +27,7 @@ import type { StyleTheme } from "./choice";
 import type { PremiseCard } from "./card";
 import { pathDist, pathLength, pointAt } from "./geom";
 import { estimateGain, soilReach, spectrumMiss, type Ladder, type WorkSite } from "./ladder";
-import { gateOf } from "./premises/wallGate";
+import { gateOf, onLocal, onMap, rangeAt, turnOf } from "./premises/wallGate";
 import { gateZones } from "./gateLand";
 import type { Point, PremisePlan } from "./types";
 import { stageModel, type StageWater } from "./water";
@@ -42,6 +42,8 @@ export const SHARE_RUNGS = ["gateWhole", "leatWhole"] as const;
 const WALL_REACH = 30;
 /** How far each way along the gorge the megadam's wall reads its line (`wallAcross`). */
 const WALL_CHORD = 3;
+/** How far toward the valley from the range's spine the megadam's wall crosses the Gate's gorge. */
+const SLOT_WALL_OFF = 3;
 
 type Change = [tile: number, floor: number][];
 interface Water {
@@ -209,12 +211,25 @@ export function gateLadder(plan: PremisePlan, w: StageWater, heights: Uint8Array
       // by it. Dammed at its head alone, the lake ran round the head over the meadow and down the wadi strips beside
       // the slot's bed, off the map at the notch)
       const gp = plan.links.find((l) => l.id === g.gate)?.path ?? [];
-      const slotWall = gp.length > 1 ? wallAcross(gp, gp[Math.max(1, Math.round(g.slot.to / 2))], heights, W, H, g.megadam) : [];
+      // (where the gorge crosses the range `SLOT_WALL_OFF` tiles before its spine, under the crest: on the back slope's
+      // lower half its walls fell to the basin's floor, and on the spine the wall ran along the leat's wadi on the crest)
+      const T = turnOf(plan, g);
+      let ks = Math.max(1, Math.round(g.slot.to / 2));
+      for (let k = 1; k <= g.slot.to && k < gp.length; k++) {
+        const [u, v] = onLocal(T, gp[k]);
+        const [u0, v0] = onLocal(T, gp[ks]);
+        if (Math.abs(v - rangeAt(g.range, u).v + SLOT_WALL_OFF) < Math.abs(v0 - rangeAt(g.range, u0).v + SLOT_WALL_OFF)) ks = k;
+      }
+      // (and square to the range there, along its spine: square to the gorge's own winding line, it ran along the gorge's
+      // wadi strip where the gorge bent)
+      const [ku, kv] = onLocal(T, gp[ks]);
+      const across: Point[] = [onMap(T, [ku, kv - 4]), onMap(T, [ku, kv + 4])];
+      const slotWall = gp.length > 1 ? wallAcross(across, gp[ks], heights, W, H, g.megadam) : [];
       s.level = g.megadam;
       if (wall.length && slotWall.length) {
         s.tiles = [...wall, ...gate.head, ...slotWall];
         for (const i of s.tiles) change.push([i, g.megadam]);
-      } else s.note = `no shoulders at ${g.megadam} within ${WALL_REACH} tiles of the gorge`;
+      } else s.note = `no shoulders at ${g.megadam} within ${WALL_REACH} tiles of ${wall.length ? "the Gate's gorge" : "the gorge"}`;
       add(s, change, true);
     } else add(s, change);
   }
