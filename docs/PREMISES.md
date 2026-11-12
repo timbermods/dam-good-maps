@@ -1284,6 +1284,30 @@ to `PLAN_TRIES` and three settles, a plan refused when its water, land, start, a
 fails. `tools/premise-gate-map.ts` writes a seed's map; `tools/capture-gate.ts` renders the widest frame and the opening
 camera (`docs/sheets/wall-gate-natural.jpg`, seeds 1 and 2 at 128²).
 
+**Measured, the third round** (planning's rulings of 2026-11-12 on the valley sheet; seeds 1 to 12 at each size).
+**Holds: 12 of 12 at 128², 192² and 256²** (every blocking check, the Veil's bar, the Gate dry past its rows settled).
+The start against `START_FLOORS`: the bench 672 to 1,271 (640), walkable 2,148 to 19,302 (1,300), wood 252 to 700 (200),
+fast 0.41 to 1 (0.4), the forester's plot 447 to 641 (100), farmland 547 to 741 (100). **Valley green** 35 to 39 % of the
+map at 128², 29 to 35 % at 192², 27 to 30 % at 256²; the basin's floor 21 to 32 %. **The range**: its crest's median
+stands 10 to 15 levels over the basin's pan and 4 to 10 over the valley's median ground, peaks 18 to 21. **Ruled land**
+(the limits straight 17 %, bands 3 %, corners 3): straight 5.3 to 9.1 %, bands 0.3 to 2.0 %, corners 0 to 1.6 per
+1,000. The megadam floods 1,351 to 2,176 / 2,928 to 3,977 / 5,200 to 6,947 tiles and holds 752 to 1,031 / 1,361 to 1,841
+/ 2,013 to 2,459.
+
+**The lengths changed in this round** (fixed where they should scale, scaled where they should be fixed): the valley's
+brooks now number 3 at 128², 5 at 192² and 6 at 256² (fixed at 3, so a larger valley greened a sixth of the map), the
+Low River's lip sized for every one of them; the lake's wide lobe grows with the side by half (by a quarter) and its
+meadow with the side (fixed at 10); the brooks wander every 8 tiles (12, straight for stretches); the stream from the
+plunge pool is 4 wide. The plunge pool's reach of the lake stays fixed (the last round's mend).
+
+**The range** stands its flank near evenly from the crest to the foot (a convex shoulder stood the crest as a broad
+tread, a plateau's edge from the widest frame), in rises of two and three levels whose levels wander by broad noise (a
+stair a level a step, in parallel straight terraces on its south face), its summits knobs of two levels a few tiles
+across, its widths 6 to 10 toward the valley and 8 to 12 toward the basin. The valley's uplands stand under the
+gap's saddle + 2 or its highest water + 2, so the range stands clearly over the land on both sides; read through a
+warp of 3.5 tiles away from the water and the start (`valleyWarp`), their plates' square corners and grid runs wander.
+A map whose Gate holds water past its rows settled is refused (`gate.settled`), as is one whose work finds no site.
+
 **Measured, the valley round** (planning's rulings of 2026-11-12; seeds 1 to 12 at each size). **Holds: 11 of 12 at
 128², 12 of 12 at 192², 10 of 12 at 256²** (every blocking check and the Veil's bar; 128² seed 9 draws no plan whose bench
 meets water on one side, 256² seeds 4 and 10 fall 0.02 to 0.03 short of the Veil's bar). The start against
@@ -1322,11 +1346,15 @@ limit and needs none of its own.
 each as the lake stair's ladder does; `gateCard` and `gateWorkWords` give the card's words. The megadam keeps no reach
 (it drowns the start's bench).
 
-**Short.** The brook is three wide all along, not one to three narrowing where it runs steeper: it falls one level from
-the plunge pool to the lake under the Veil's whole flow (9.5 on normal), and a one-wide reach would carry it near four
-levels deep; a brook that steps would need the lake a level lower or the springs smaller. The valley's green is under a
-quarter of the map past 128² (`map.shares` is said, not refused). The basin reads in the game as the one dry material
-(D496); the seeps are not drawn; the Veil's lip is a straight run by the shared falls stage.
+**Short.** The brook falls the plunge pool's two levels in one step, not two, and runs one width (four, widened here
+and there by the shared stage), not two to four by turns. Tried this round, with the evidence: a body as narrow as a
+stream is laid at its sill with no bed (`raster/bodies.ts`), so the Veil's 9.5 ran over a sill-level shelf and stood the
+stream 1.5 over its sill; a channel draws one width along its path (`raster/channels.ts`, `Link.half`); and a stream
+2 to 4 wide carrying 9.5 stands about 1.3 over its bed, which drowned the pool's lip and stood the pool on the start's
+bench. Two steps and a width that varies need the shared channel stage to take a width per path point (a seam, not
+edited). The basin's floor is under a quarter of the map on some seeds at each size (21 to 25 %), its back a tile
+wider this round. The basin reads in the game as the one dry material (D496); the seeps are not drawn; the Veil's lip is a straight
+run by the shared falls stage.
 
 ### 5.2 The island sea
 

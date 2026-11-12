@@ -59,13 +59,15 @@ function plungePool(plan: PremisePlan, w: StageWater): void {
   const g = gateOf(plan);
   if (!g) return;
   const door = plan.bodies.find((b) => b.id === g.door);
-  const out = plan.links.find((l) => l.from === g.door && l.to === g.lake && l.fall);
-  if (!door || !out || !Array.isArray(out.bed)) return;
+  const out = plan.links.find((l) => l.from === g.door && l.fall);
+  if (!door || !out) return;
   const t = w.table.bodies[door.id];
   const lf = w.table.links[out.id];
   if (!t || !lf) return;
   const head = Math.max(0, t.level - out.fall!.crest);
-  const tail = Math.min(...out.bed) + lf.bedDepth;
+  // (the water it falls into: its own bed and depth, or the stream it runs into, whichever stands higher)
+  const below = w.table.bodies[out.to]?.level ?? -Infinity;
+  const tail = Math.max(Array.isArray(out.bed) ? Math.min(...out.bed) + lf.bedDepth : -Infinity, below);
   const level = Math.max(t.level, tail + head);
   if (level === t.level) return;
   t.level = level;
@@ -97,6 +99,29 @@ export function gateWater(plan: PremisePlan): StageWater {
       r.surface[i] = NaN;
       r.fixed[i] = 1;
       raised = true;
+    }
+  }
+  // the Gate's bar stands across its wadi strips too, where they meet the lake (a strip a level over the bed lay under
+  // the lake's water with the lake a level lower, and the lake ran round the bar into the channel)
+  {
+    const gi = plan.links.findIndex((l) => l.id === g.gate) + 1;
+    const end = headEnd(w, plan, g.gate);
+    if (end !== null) {
+      const W = r.W;
+      for (let i = 0; i < r.W * r.H; i++) {
+        if (r.channel[i] !== gi || r.along[i] > end + 3) continue;
+        const x = i % W;
+        for (let dy = -2; dy <= 2; dy++)
+          for (let dx = -2; dx <= 2; dx++) {
+            const xx = x + dx;
+            const j = i + dy * W + dx;
+            if (xx < 0 || xx >= W || j < 0 || j >= r.W * r.H || !r.fixed[j] || r.lake[j] || r.channel[j] || r.pool[j] || r.crest[j]) continue;
+            if (r.heights[j] < g.bar.level) {
+              r.heights[j] = g.bar.level;
+              raised = true;
+            }
+          }
+      }
     }
   }
   // the Veil's foot a level under the plunge pool's sill, a level and a half of water (§5.1, round 8): it carries the whole

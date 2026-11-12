@@ -73,14 +73,15 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   `firstWater` with this stage, until `PremiseDef` has a seam for it) and `gateSettleModel` (the undrawn ground over every
   water, for a settle of stage 1 alone). `tools/premise-gate-water.ts` prints and draws a seed's, `--settle` settles it.
 - `gateLand.ts`: the wall with one gate's stage 2 (§5.1 "As built (land)"): `gateRelief` (the shared relief for the
-  valley, its uplands under the range's peak; the range shaped across its warped spine, talus on soft rock, cliffs on
+  valley, its uplands under the gap's saddle or its highest water + 2 and read through a warp away from the water,
+  `valleyWarp`; the range shaped across its warped spine, talus on soft rock, cliffs on
   hard, spurs and gullies; the basin a playa within two levels of its pan, two old shoreline benches round it, hills past
   them, the beds' own valleys; then the flood check at the megadam's water and its least mend, `mendFlood`: a knoll on a saddle,
   one swell across a stretch of the edge), `gateZones`, `basinBeds`, `gateLand` (`premiseLand`'s parts for this land,
   the mend again round the badwater's niche) and `GATE_LAND_CHECKS` / `gateLandFailures` (its land invariants, on the
   ground: `range.crest`, `gate.lowest`, `wall.camera`, `basin.bowl`, `basin.playa`, `bench.shore`, `valley.enclosed`,
   `terrain.ruled_land`, `frame.lip`). `gateMap.ts` `gateMap` makes the whole map as the mode's loop does (a plan at a time: stages 0 to 4,
-  one `premiseMap` build and its checks, the Veil's drop on the settle, `veil.settled`; at most three settles; `held`
+  one `premiseMap` build and its checks, the Veil's drop on the settle, `veil.settled`, the Gate dry past its rows, `gate.settled`, and every work sited; at most three settles; `held`
   says whether a plan held) and `startNumbers` reads the start's checks (D515's floors); `tools/premise-gate-map.ts`
   writes a seed's, `tools/capture-gate.ts` renders the widest frame and the opening camera in one sheet.
 - `gateWorks.ts`: the wall with one gate's stage 4 (§5.1 "As built (works)"): `gateLadder` (round 8's rungs as templates

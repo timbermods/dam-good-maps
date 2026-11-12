@@ -70,6 +70,18 @@ export function veilDrop(plan: PremisePlan, water: StageWater, heights: ArrayLik
 }
 export const VEIL_SHORT = 0.5;
 
+/** `gate.settled`: the Gate's channel tiles past its second row of Blockages that hold water on the settled map. */
+export function gateWetPast(plan: PremisePlan, water: StageWater, depth: ArrayLike<number>): number {
+  const g = gateOf(plan)!;
+  const li = plan.links.findIndex((l) => l.id === g.gate) + 1;
+  const past = Math.max(...(plan.links[li - 1]?.rows ?? [0])) + 1;
+  const r = water.raster;
+  let n = 0;
+  for (let i = 0; i < r.channel.length; i++) if (r.channel[i] === li && r.along[i] > past && depth[i] > 0.05) n++;
+  return n;
+}
+const GATE_WET_MOST = 0;
+
 /** A gate map for a spec, in a theme's style (River Valley by default): the first plan, as the mode draws them, whose
  *  water, land and start hold and whose map passes every blocking check with its Veil pouring (at most `GATE_SETTLES`
  *  builds); or why none did. `failed` lists each refused plan's reason. */
@@ -127,6 +139,12 @@ export function gateMap(spec: MapSpec, theme: StyleTheme = "riverValley"): (Gate
       failed.push(`${c?.id}: ${c?.message}`);
       continue;
     }
+    // (the Gate shut on day 1: settled, no water past its rows; the basin's dryness is the premise's promise)
+    const wetGate = gateWetPast(plan, water, map.built.settle.depth);
+    if (wetGate > GATE_WET_MOST) {
+      failed.push(`gate.settled: ${wetGate} tiles of the Gate hold water past its rows settled`);
+      continue;
+    }
     const drop = veilDrop(plan, water, map.built.heights, map.built.settle.depth);
     const want = (plan.links.find((l) => l.id === gateOf(plan)!.veil)?.fall?.height ?? 0) - VEIL_SHORT;
     if (!(drop >= want)) {
@@ -136,5 +154,11 @@ export function gateMap(spec: MapSpec, theme: StyleTheme = "riverValley"): (Gate
     return { ...out, map, held: true };
   }
   if (last) return last;
-  return { reason: `No wallGate map held in ${failed.length} plans and ${settles} settles (${failed[failed.length - 1] ?? ""})` };
+  // (each refusal's check and how often, then the last in full)
+  const tally = new Map<string, number>();
+  for (const f of failed) {
+    const id = f.startsWith("No ") ? "layout" : f.split(":")[0];
+    tally.set(id, (tally.get(id) ?? 0) + 1);
+  }
+  return { reason: `No wallGate map held in ${failed.length} plans and ${settles} settles (${[...tally].map(([k, n]) => `${k} ${n}`).join(", ")}; the last: ${failed[failed.length - 1] ?? ""})` };
 }

@@ -53,7 +53,7 @@ export const DOOR_RISE = 1;
  *  (half `OUTFLOW_HALF`): the Veil's whole flow (9.5 on normal) over a brook's own head stood the pool a level over its
  *  sill, on the start's bench. */
 export const DOOR_LOBE = 8;
-export const OUTFLOW_HALF = 1.5;
+export const OUTFLOW_HALF = 2;
 /** The plunge pool's brook runs this far on from its lip, away from the bench, before it turns down the valley. */
 export const OUTFLOW_AWAY = 16;
 /** The valley's lake at its low end (planning's ruling: one broad body with a shore, ten across or more at its widest,
@@ -74,7 +74,7 @@ export const CREST = [18, 21] as const;
  *  the gap's, `SADDLE_OVER` over the megadam's water, its highest peak `CREST`. Half-widths: `front` toward the valley
  *  (`veilFront` at the Veil, whose face is a cliff), `back` toward the basin, both wandering, and both wider on a larger
  *  map (0.6 + 0.4 × side ÷ 128 times). */
-export const RANGE = { sample: 4, veil: 7, calm: 6, calmIn: 14, wander: [4, 7], wanderCell: [0.18, 0.3], profileCell: [0.17, 0.25], front: [6, 10], veilFront: 9, back: [7, 11], reach: 0.2 } as const;
+export const RANGE = { sample: 4, veil: 7, calm: 6, calmIn: 14, wander: [4, 7], wanderCell: [0.18, 0.3], profileCell: [0.17, 0.25], front: [6, 10], veilFront: 9, back: [8, 12], reach: 0.22 } as const;
 /** The gap's saddle over the megadam's water: the range's lowest, so the gorge is the one low way through. */
 export const SADDLE_OVER = 2;
 /** The crest varies by this many levels or more along the range (planning: peaks and saddles, four or more). */
@@ -449,7 +449,9 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const benchAim = BENCH_OVER * Math.max(BENCH_FLOOR[spec.settings.start.area], WALK_READ);
   // (the Low River leaves over the lake's own wide sill, sized by the valley's flow as the lake stair's lowest sill
   // over its gorge: round 8's 14; its end of the lake as wide as the lip)
-  const valleyFlow = flow * (1 + (3 * (BROOK_SPRING[0] + BROOK_SPRING[1])) / 2 / GATE_FLOW.normal);
+  // (with every brook the valley has: more of them on a larger map)
+  const brooks = 3 + Math.round(3 * (N / 128 - 1));
+  const valleyFlow = flow * (1 + (brooks * (BROOK_SPRING[0] + BROOK_SPRING[1])) / 2 / GATE_FLOW.normal);
   const lowLip = Math.max(10, Math.min(MAX_SILL_WIDTH, sillWidthFor(valleyFlow) + 2));
   // ---- the valley's lake at its low end, away from the bench: one broad body with a shore, its width varying two-fold
   // and more (a wide lobe, a narrows, the Low River's end), the Gate leaving its shore, the Low River its far end
@@ -458,7 +460,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   if (uE - uL < 6) return { why: "lake span" };
   if (gu < uL - 8) return { why: "gate before the lake" };
   const m = N / 128;
-  const rWide = rng.range(LAKE_SHAPE.wide[0], LAKE_SHAPE.wide[1]) * (0.75 + 0.25 * m);
+  const rWide = rng.range(LAKE_SHAPE.wide[0], LAKE_SHAPE.wide[1]) * (0.5 + 0.5 * m);
   const rNeck = Math.max(2.8, rWide / 2 - rng.range(0, 0.6));
   // (its near end at a reach of the plunge pool that does not grow with the map: the brook falls one level whatever the
   // side, and on a larger map led further it backed the pool up over the start's bench)
@@ -608,11 +610,17 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const outflow: Point[] = [doorLipAt, ...smooth([[doorLipAt[0] - ks * 3, doorLipAt[1]], outFrom, ...wind(outFrom, outTo, 9, 4)]).slice(0)];
 
   // ---- the brooks: springs in the valley's far corners, each brook wandering to the lake's nearest point
+  // (more of them on a larger map, spread along the valley's far edge: the valley's green is the brooks' and the lake's,
+  // and three brooks on a 256² valley greened a sixth of the map where a quarter is asked)
   const tarnAt: Point[] = [
     [N * 0.12, N * 0.1],
     [N * rng.range(0.42, 0.58), N * 0.07],
     [N * 0.88, N * 0.12],
   ];
+  const more = brooks - 3;
+  if (more >= 1) tarnAt.push([N * rng.range(0.26, 0.34), N * rng.range(0.08, 0.14)]);
+  if (more >= 2) tarnAt.push([N * rng.range(0.05, 0.08), N * rng.range(0.3, 0.38)]);
+  if (more >= 3) tarnAt.push([N * rng.range(0.66, 0.74), N * rng.range(0.08, 0.14)]);
   const tarns: { spine: Spine; sill: number; path: Point[] }[] = [];
   for (const [tu, tv] of tarnAt) {
     const r = rng.range(2.6, 3.2);
@@ -636,10 +644,11 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     const end: Point = [best[0] - dx * (lr - 1), best[1] - dy * (lr - 1)];
     const path: Point[] = [head];
     const L = dist(head, end);
-    const m = Math.max(2, Math.round(L / 12));
-    for (let i = 1; i < m; i++) {
-      const f = i / m;
-      const wob = rng.range(-5, 5);
+    // (wandering every 8 tiles: at every 12 a brook ran straight for stretches)
+    const legs = Math.max(2, Math.round(L / 8));
+    for (let i = 1; i < legs; i++) {
+      const f = i / legs;
+      const wob = rng.range(-4, 4);
       path.push([head[0] + (end[0] - head[0]) * f - dy * wob, head[1] + (end[1] - head[1]) * f + dx * wob]);
     }
     path.push(end);
@@ -694,7 +703,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   // deep, stage 1's bay. The Still Pool and the springs' tarns a level)
   const hold = holdDeep(false, hazardDays(spec.designedFor, "drought"));
   plan.bodies.push(
-    body("lake", "lake", S, lakeArms, LAKE_SHAPE.meadow, "low", Math.min(S - BED_FLOOR, hold)),
+    body("lake", "lake", S, lakeArms, Math.round(LAKE_SHAPE.meadow * m), "low", Math.min(S - BED_FLOOR, hold)),
     body("door", "lake", D, [trench], meadowOf(spec), "home", Math.min(D - BED_FLOOR, hold)),
     body("pool", "pool", poolSill, [poolSpine], 4, "top"),
     body("kettle", "kettle", D, [kettle], 4, "home"),
