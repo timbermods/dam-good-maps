@@ -6,8 +6,9 @@
 
 import { describe, expect, it } from "vitest";
 import { failing, PLAN_TRIES } from "../../src/core/premise/draw";
-import { gateFirstWater, gateWater } from "../../src/core/premise/gateWater";
-import { GATE_LAND_CHECKS, gateLand, gateLandFailures, gateZones } from "../../src/core/premise/gateLand";
+import { gateWater } from "../../src/core/premise/gateWater";
+import { firstWater } from "../../src/core/premise/draw";
+import { GATE_FACE_RUN, GATE_LAND_CHECKS, gateLand, gateLandFailures, gateRelief, gateZones, gorgeFaces, rangeBand, rangeBandParts } from "../../src/core/premise/gateLand";
 import { gateOf, onLocal, rangeAt, turnOf, wallGate } from "../../src/core/premise/premises/wallGate";
 import { makeSpec, type MapSpec } from "../../src/core/spec/mapspec";
 import { gateWetPast } from "../../src/core/premise/gateMap";
@@ -15,7 +16,7 @@ import { gateWetPast } from "../../src/core/premise/gateMap";
 const spec = (seed: number, side: number): MapSpec => makeSpec({ seed, size: { x: side, y: side }, theme: "any", premise: "any" });
 
 const landOf = (s: MapSpec) => {
-  const r = gateFirstWater(wallGate, s);
+  const r = firstWater(wallGate, s);
   if ("reason" in r) throw new Error(r.reason);
   return { plan: r.plan, water: r.water, heights: gateLand(r.plan, r.water).heights };
 };
@@ -45,6 +46,28 @@ describe("The wall with one gate's land", () => {
     const { zone } = gateZones(plan);
     for (let i = 0; i < heights.length; i++) if (r.fixed[i] && zone[i] !== 1) expect(heights[i]).toBe(r.heights[i]);
   });
+
+  // (the band `range.flat` and the column pass read: the frame's band where the relief's whole level stands over the
+  // tile's foot, read once the gorge's walls are raised and the valley mended; made before them, gap tiles raised over
+  // their foot stayed out of it, and the unrounded level put tiles in or out that the map's whole levels did not)
+  for (const [side, seed] of [[128, 1], [128, 2], [192, 1], [256, 1]])
+    it(`keeps every tile of the range's frame standing over its foot in its band, and no other: seed ${seed} at ${side}²`, () => {
+      const r = firstWater(wallGate, spec(seed, side));
+      if ("reason" in r) throw new Error(r.reason);
+      const h = gateRelief(r.plan, r.water);
+      const band = rangeBand(r.plan, r.water);
+      const parts = rangeBandParts(r.plan, r.water)!;
+      expect(parts).not.toBeNull();
+      const out: number[] = [];
+      const stray: number[] = [];
+      for (let i = 0; i < h.length; i++) {
+        const over = h[i] > parts.foots[i] + 0.25;
+        if (parts.frame[i] && over && !band[i]) out.push(i);
+        if (band[i] && !(parts.frame[i] && over)) stray.push(i);
+      }
+      expect(out, "frame tiles over their foot left out of the band").toEqual([]);
+      expect(stray, "band tiles off the frame or not over their foot").toEqual([]);
+    });
 });
 
 describe("Broken gate land fails its invariants", () => {
@@ -64,6 +87,25 @@ describe("Broken gate land fails its invariants", () => {
   const broken: [id: string, what: string, breakIt: (h: Uint8Array) => void][] = [
     ["range.crest", "the range worn to one level", (h) => {
       for (let i = 0; i < W * H; i++) if (zone[i] === 1 && !water(i)) h[i] = 13;
+    }],
+    ["range.flat", "the range's flanks laid as terraces three levels apart, eight tiles deep", (h) => {
+      const band = rangeBand(base.plan, base.water);
+      for (let i = 0; i < W * H; i++) if (band[i] && !water(i)) h[i] = 9 + 3 * Math.floor(Math.abs(local(i)[1] - rangeAt(g.range, local(i)[0]).v) / 8);
+    }],
+    ["range.valleys", "the range worn down to its feet, the cleft's ground with it: no valley falls from it", (h) => {
+      for (let i = 0; i < W * H; i++) if (zone[i] === 1 && !r.channel[i] && !r.lake[i]) h[i] = g.sill + 2;
+    }],
+    ["range.columns", "two-tile columns three levels over the range's flank", (h) => {
+      const band = rangeBand(base.plan, base.water);
+      let n = 0;
+      for (let i = W * 2; i < W * H - W * 2 && n < 6; i++) {
+        if (!band[i] || r.fixed[i] || water(i) || (i % W) % 9 || Math.floor(i / W) % 9) continue;
+        if ([i - 1, i + 1, i + 2, i - W, i + W, i + 1 - W, i + 1 + W].some((j) => !band[j] || r.fixed[j] || water(j))) continue;
+        const top = Math.max(h[i - 1], h[i + 2], h[i - W], h[i + W], h[i + 1 - W], h[i + 1 + W]) + 3;
+        h[i] = top;
+        h[i + 1] = top;
+        n++;
+      }
     }],
     ["gate.lowest", "the Gate's gorge filled to the crest", (h) => {
       for (let i = 0; i < W * H; i++) if (r.channel[i] === gate && zone[i] === 1) h[i] = g.crest;
@@ -122,7 +164,7 @@ describe("Broken gate land fails its invariants", () => {
 
 describe("gate.settled: the Gate dry past its rows on the settled map (`gateMap.ts` `gateWetPast`, a plan refused when over 0)", () => {
   const s = spec(2, 128);
-  const r = gateFirstWater(wallGate, s);
+  const r = firstWater(wallGate, s);
   if ("reason" in r) throw new Error(r.reason);
   const g = gateOf(r.plan)!;
   const raster = r.water.raster;
@@ -140,5 +182,58 @@ describe("gate.settled: the Gate dry past its rows on the settled map (`gateMap.
     const depth = new Float64Array(raster.W * raster.H);
     for (let i = 0; i < depth.length; i++) if (raster.channel[i] === gi && raster.along[i] > past + 2) depth[i] = 0.1;
     expect(gateWetPast(r.plan, r.water, depth)).toBeGreaterThan(0);
+  });
+});
+
+describe("gorgeFaces: the longest straight face over three levels on the range and the gorge (a measure, not a check)", () => {
+  const s = spec(1, 128);
+  const r = firstWater(wallGate, s);
+  if ("reason" in r) throw new Error(r.reason);
+  gateLand(r.plan, r.water);
+  const { W, H } = r.plan;
+  const ras = r.water.raster;
+  const g = gateOf(r.plan)!;
+  const band = rangeBand(r.plan, r.water);
+  const gi = r.plan.links.findIndex((l) => l.id === g.gate) + 1;
+  const vi = r.plan.links.findIndex((l) => l.id === g.veil) + 1;
+  const flat = () => new Uint8Array(W * H).fill(10);
+  // (a stretch of `n` tiles along a row, it and the row under it on `ok` ground)
+  const rowRun = (n: number, ok: (i: number) => boolean): [number, number] => {
+    for (let y = 1; y + 2 < H; y++)
+      for (let x = 1; x + n + 1 < W; x++) {
+        let all = true;
+        for (let k = -1; k <= n && all; k++) all = ok(y * W + x + k) && ok((y + 1) * W + x + k);
+        if (all) return [x, y];
+      }
+    throw new Error("no stretch");
+  };
+  const far = (i: number, mark: (j: number) => boolean, d: number) => {
+    const x = i % W;
+    const y = Math.floor(i / W);
+    for (let dy = -d; dy <= d; dy++) for (let dx = -d; dx <= d; dx++) if (mark((y + dy) * W + x + dx)) return false;
+    return true;
+  };
+  const isVeil = (j: number) => ras.channel[j] === vi || !!ras.crest[j];
+  const isGate = (j: number) => ras.channel[j] === gi;
+
+  it("reads a straight face of five levels, ten tiles long, on the range as ten; none on level ground", () => {
+    const h = flat();
+    expect(gorgeFaces(r.plan, r.water, h).run).toBe(0);
+    const [x, y] = rowRun(10, (i) => band[i] === 1 && far(i, isVeil, 6) && far(i, isGate, 6) && !ras.lake[i] && !ras.channel[i]);
+    for (let k = 0; k < 10; k++) h[(y + 1) * W + x + k] = 15;
+    expect(gorgeFaces(r.plan, r.water, h).run).toBe(10);
+    expect(10).toBeGreaterThan(GATE_FACE_RUN);
+  });
+
+  it("leaves out the Veil's own drop and the Gate's bar, laid on purpose", () => {
+    // (the Veil's lip: a face along it, its tiles at the crest, the ground in front five lower)
+    const h = flat();
+    for (const i of ras.lips[g.veil] ?? []) h[i] = 15;
+    expect(gorgeFaces(r.plan, r.water, h).run).toBeLessThanOrEqual(1);
+    // (the Gate's head: its bar's tiles five over the ground beside them)
+    const b = flat();
+    const barEnd = Math.max(...(r.plan.links[gi - 1].rows ?? [0])) + 2;
+    for (let i = 0; i < W * H; i++) if (ras.channel[i] === gi && ras.along[i] <= barEnd) b[i] = 15;
+    expect(gorgeFaces(r.plan, r.water, b).run).toBe(0);
   });
 });

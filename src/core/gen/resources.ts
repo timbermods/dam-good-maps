@@ -18,6 +18,7 @@ import type { MapSpec } from "../spec/mapspec";
 import { pickSeeds } from "./blobs";
 import { BUSHES, density, FOREST, OFFICIAL_LAYOUT, RUIN_HEIGHT_SHARES, RUINS } from "./calibrated";
 import { START_FLOORS } from "../validate/playability";
+import { planDeadStands } from "./deadStands";
 import { growGroveAt, growPatchAt, livingSpecies, NEAR_WALK, planGroves, planPatches, planRuinFields, resourceBudget, ruinColumns, saplings, startWalkField, succulentsOf, woodPerTree, type BaselineGround } from "../resources/baseline";
 
 export interface Ground {
@@ -62,6 +63,11 @@ export interface ResourceConstraints {
   /** The share of the moist ground the map's own groves may cover at most (default the official maps',
    *  `OFFICIAL_LAYOUT.moistCover`; a premise map's wood budget asks less, PREMISES §2.2 stage 6). */
   moistCover?: number;
+  /** Forests, %, for the dead stands on the dry land (D516) where the spec's own was rescaled for a living budget of
+   *  the caller's (a premise's life stage): the stands follow the player's setting, never that budget. */
+  deadForests?: number;
+  /** The dry washes' beds and hollows (`land/washes.ts`): the dead stands' dry beds. */
+  beds?: Uint8Array;
   /** Retired (D253, D270, D336: no locks); always null. Kept only so the frozen investigation
    *  prototypes that still pass it type-check (investigation/generative/proto). */
   lockedMask?: null;
@@ -689,20 +695,44 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     baseGroves(0);
   }
 
-  // ---- a small drought-killed grove as a feature (item 26: dead trees rare and deliberate), on a
-  //      third of the maps: 8–20 standing dead trees on dry ground at the edge of moist land, where a
-  //      drought would have killed them, beyond the starting-logs floor's walk (their logs are no
-  //      easy early wood)
+  // ---- dead stands on the dry land (D516, `deadStands.ts`): standing dead pines, birches and oaks in clumped stands
+  //      where forest was (the old water line, dry beds' banks, mesa tops, dry hollows), about 40 per 1,000 dry tiles,
+  //      none in the start's walk and few out to the floor's: wood a colony travels for. They keep their logs and grow
+  //      none back; the start's wood and the floor count them where they stand within their walks (D85, D224), the fast
+  //      wood's share does not (D515: living trees only)
   {
-    const dr = stream(seed, "drought-grove", candidate, attempt);
-    if (dr.float() < 1 / 3 && anySpecies) {
-      const edgeOfMoist = distanceFrom(moist, W, H);
-      const w = new Float64Array(N);
-      for (let i = 0; i < N; i++) if (free[i] && !moist[i] && !wet[i] && !clearings[i] && edgeOfMoist[i] <= 3 && (!walk || walk[i] > LOG_FLOOR_WALK + 5)) w[i] = 1;
-      const zone = new Uint8Array(N);
-      for (let i = 0; i < N; i++) zone[i] = w[i] > 0 ? 1 : 0;
-      const n = 8 + dr.int(0, 13);
-      for (const s of pickSeeds(dr, w, W, 3, 4)) if (growGrove(s, n, false, zone, nearFill.trees, false, "forest/droughtKilled", [1, 1, 1, 0])) break;
+    const open = new Uint8Array(N);
+    for (let i = 0; i < N; i++) open[i] = free[i] && !clearings[i] ? 1 : 0;
+    let already = 0;
+    for (const p of planted) if (!p.living && p.species !== "Succulent") already += p.tiles.length;
+    const stands = planDeadStands({
+      W,
+      H,
+      heights: g.heights,
+      wet,
+      moist,
+      free: open,
+      channel: g.channel,
+      ...(constraints?.beds ? { beds: constraints.beds } : {}),
+      walk,
+      start: g.start,
+      forestDensity: constraints?.deadForests ?? spec.settings.resources.forestDensity,
+      mix: [mixW.pine, mixW.birch, mixW.oak],
+      already,
+      rng: stream(seed, "dead-stands", candidate, attempt),
+    });
+    for (const st of stands) {
+      const role = anchorRole(`forest/dead/${st.place}${st.giants ? "/giants" : ""}`, st.tiles);
+      const id = featureId(seed, "forest", role);
+      out.push({ id, kind: "forest", origin: "generated", role, locked: false, params: { area: tilesToRuns(st.tiles, W), density: 1, speciesMix: { [st.species]: 1 }, groveSize: st.tiles.length, life: "dead", youngShare: 0 } });
+      planted.push({ id, tiles: st.tiles, species: st.species, living: false });
+      treeCount += st.tiles.length;
+      for (const i of st.area) {
+        free[i] = 0;
+        const x = i % W;
+        const y = (i - x) / W;
+        for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H) clearings[(y + dy) * W + x + dx] = 1;
+      }
     }
   }
 

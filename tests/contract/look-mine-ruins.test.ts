@@ -73,8 +73,11 @@ import * as ed from "../../src/worker/session";
  *  generator 0.10.12's version string (the same map: its stacked settle takes no unfed water, #814); `963db7ee…` before
  *  generator 0.10.16's ground with grade (its land rolls in one-level steps: a new map, D148); `d89bc166…` before
  *  generator 0.10.17's start floors (D515: the settler's places need the bench and the start's wood a fast species, a
- *  new map, D148). */
-const LIVE_SHA = "662d87890c147b1da11165128737fc8a01fcc7ac5c710f60956075d165de3c6f";
+ *  new map, D148); `662d8789…` before generator 0.10.18's dead stands on the dry land (D516: the same land, water and
+ *  start, dead stands among its resources, D148); `3661b9d3…` before generator 0.10.19's dry washes (D517: two washes
+ *  cut into its land, a new map, D148); `277fb85d…` before the washes ran long with fords (D517: its dry land
+ *  gives no line long enough, so its land is uncut again; a new map's version, D148). */
+const LIVE_SHA = "46c38b8eb106102ccc998fc7a4205c2e72cfcad2872938f70951265658980895";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

@@ -22,11 +22,16 @@
 // - **Nothing seen is lost (I8).** A press always makes a ticket (behind a landing stroke, it waits its turn to compose,
 //   `composable`); a stroke let go is answered or refused with a line, never dropped; a map switch awaits `idle()`.
 //
-// The page's strokes, moves and edits are on it (step 2, src/editor/session/useSession.ts `edits`); Naturalize's
-// landing joins it in step 3 (`close`, `StrokeFeed`).
+// The page's strokes, moves and edits are on it (step 2, src/editor/session/useSession.ts `edits`), and Naturalize's
+// strokes through `StrokeFeed`, its landing a `closing` ticket under the one watchdog (step 3, src/editor/brushes.ts);
+// every stroke's operation is composed complete on the page (step 4, raster/strokeComposer.ts), and an answer's land
+// is the rectangle it changed, laid on `base` (step 4, landPatch.ts).
 
 import type { BrushParams } from "../features/raster/brush";
 import type { TerrainState } from "../features/raster/strokePreview";
+import type { StandingObject } from "../features/raster/objectGround";
+import { composeStroke } from "../features/raster/strokeComposer";
+import { layLand, type Chain, type LandPatch } from "./landPatch";
 import type { HistoryItem } from "./session";
 
 export type Rect = { x0: number; y0: number; x1: number; y1: number };
@@ -71,6 +76,9 @@ export interface QueueOpen {
   view: { W: number; H: number; heights: Uint8Array };
   terrain: TerrainState;
   info: { history: HistoryItem[] };
+  /** The numbers of the land and of its water (landPatch.ts): the first patches lay on them. */
+  landSeq?: number;
+  wetSeq?: number;
 }
 
 /** The parts of a worker's answer or event the queue reads (its `SessionUpdate`, `StaleAnswer` or an event). */
@@ -84,7 +92,7 @@ export interface MapAnswer {
   rev?: number;
   /** The step the history stands at after the call (the one an edit made or joined), or null before the first. */
   step?: number | null;
-  view?: { heights?: Uint8Array; terrain?: TerrainState; terrainRect?: Rect | null };
+  view?: { heights?: Uint8Array; terrain?: TerrainState; terrainRect?: Rect | null; land?: LandPatch; wet?: LandPatch; landSeq?: number; wetSeq?: number };
   info?: { history: HistoryItem[]; W?: number; H?: number };
 }
 
@@ -117,6 +125,12 @@ export interface QueueHost {
   expired?(ticket: number): void;
   /** Every answer for the map open, after `base` took it, and the ticket it answers (null: an event, or late). */
   answer?(a: MapAnswer, ticket: TicketView | null): void;
+  /** A patch of the land did not lay on the land `base` holds (an answer missed, or whole land from elsewhere): ask the
+   *  worker for the whole land again (its `landNow`, taken as an event). */
+  stale?(): void;
+  /** The last ticket ended: nothing is on its way (the page has the session's land; its water's news may follow, the
+   *  worker's `idleWater`). Once each time the queue goes idle. */
+  idle?(): void;
 }
 
 /** A step of the history named for a move: a step the worker made (`seq`), or a ticket still on its way. */
@@ -219,6 +233,10 @@ export class EditQueue {
   private deferred: Rect | null = null;
   private watch: { id: number; state: TicketState; cancel: () => void } | null = null;
   private idlers: (() => void)[] = [];
+  /** A ticket was made since the queue was last idle (`QueueHost.idle` once on the way back). */
+  private worked = false;
+  /** Strokes waiting their turn to compose (`whenComposable`). */
+  private composers: { id: number; resolve: (ok: boolean) => void }[] = [];
   /** Who waits for a ticket to end (`settled`). */
   private settlers = new Map<number, ((t: TicketView) => void)[]>();
   private readonly all: Ticket[] | null;
@@ -227,11 +245,17 @@ export class EditQueue {
    *  `protect` the page paints on (I6). */
   mispredictions = 0;
   /** Of those, the answers whose heights differed: the land the player saw change when the answer came (the page's
-   *  `strokeMismatches`). Until step 4's one composer, an answer the worker completed (a stroke's `hold`, a precise
-   *  stroke's protected tiles) may differ in `protect` alone, which no one sees. */
+   *  `strokeMismatches`). Since step 4 the page sends a stroke complete (strokeComposer.ts), so a stroke `alone` is
+   *  never guessed wrong in any channel. */
   landMispredictions = 0;
   /** Messages for another map that reached the door (and tickets a new map found waiting): never, in normal use. */
   staleDrops = 0;
+  /** The numbers of the land and of its water `base` holds (landPatch.ts), each null when unknown. */
+  private seqs: Record<Chain, number | null>;
+  /** The patches `base` took (the page asks, so it never lays one twice, `took`). */
+  private taken = new WeakSet<LandPatch>();
+  /** Patches that did not lay on the land `base` held (the worker sent the whole land again). */
+  landResends = 0;
 
   constructor(
     open: QueueOpen,
@@ -250,9 +274,15 @@ export class EditQueue {
     this.shownPre = open.terrain.pre.slice();
     this.shownProtect = open.terrain.protect.slice();
     this.rows = open.info.history;
+    this.seqs = { land: open.landSeq ?? null, wet: open.wetSeq ?? null };
   }
 
   // ------------------------------------------------------------------------------------------ what the page reads
+
+  /** Did `base` take this patch already (an answer's, or an event's)? */
+  took(p: LandPatch): boolean {
+    return this.taken.has(p);
+  }
 
   /** The terrain the page paints strokes on: the worker's, with the overlays' `pre` and `protect` laid on. */
   terrain(): TerrainState {
@@ -302,6 +332,14 @@ export class EditQueue {
       if (t.kind === "stroke" && (t.state === "open" || t.state === "closing")) return false;
     }
     return true;
+  }
+
+  /** Resolves true once stroke `id` may compose (`composable`), or false once its ticket ended first (Esc, another
+   *  map): a press behind a landing stroke composes then (I8). */
+  whenComposable(id: number): Promise<boolean> {
+    if (!this.live(id)) return Promise.resolve(false);
+    if (this.composable(id)) return Promise.resolve(true);
+    return new Promise((resolve) => this.composers.push({ id, resolve }));
   }
 
   /** Resolves once no ticket is left (a stroke the button still holds counts: `cancelOpen` lets it go as Esc). */
@@ -368,6 +406,7 @@ export class EditQueue {
     if (this.watch?.id === id) this.disarm();
     this.refresh(r);
     this.laid();
+    this.unblock();
     this.pump();
   }
 
@@ -430,6 +469,7 @@ export class EditQueue {
     this.shownPre = open.terrain.pre.slice();
     this.shownProtect = open.terrain.protect.slice();
     this.rows = open.info.history;
+    this.seqs = { land: open.landSeq ?? null, wet: open.wetSeq ?? null };
     this.resolved.clear();
     this.kept = [];
     this.deferred = null;
@@ -448,6 +488,18 @@ export class EditQueue {
     this.refresh({ x0: 0, y0: 0, x1: this.W - 1, y1: this.H - 1 });
   }
 
+  /** A shared session's update (D362): its land, whole or a patch on the land `base` holds, is `base` (`resync`). */
+  resyncView(v: NonNullable<MapAnswer["view"]>, history?: HistoryItem[]): void {
+    if (v.land || v.wet) {
+      if (v.land) this.layPatch(v.land);
+      if (v.wet) this.layPatch(v.wet);
+    } else if (v.heights || v.terrain) {
+      this.seqs = { land: v.landSeq ?? null, wet: v.wetSeq ?? null };
+      this.base = { heights: v.heights ?? this.base.heights, terrain: v.terrain ?? this.base.terrain };
+    }
+    this.resync(this.base, history);
+  }
+
   /** An event from the map's worker (its water, a check, a shared session's update): its land, if it carries any,
    *  is the worker's. */
   event(e: MapAnswer): void {
@@ -455,7 +507,7 @@ export class EditQueue {
       this.staleDrops++;
       return;
     }
-    if (!e.view?.heights && !e.view?.terrain && !e.info) return;
+    if (!e.view?.heights && !e.view?.terrain && !e.view?.land && !e.view?.wet && !e.info) return;
     for (const t of this.tickets) t.alone = false;
     const r = this.take(e);
     if (r) this.refresh(r);
@@ -470,6 +522,7 @@ export class EditQueue {
     const t: Ticket = { id: this.nextId++, epoch: this.epoch, kind, state, label, call, overlay: null, painted: null, bound: null, silentLine: STROKE_SILENT, move, drafts: null, drafted: false, step: null, line: null, mispredicted: false, alone, timedOut: false };
     this.tickets.push(t);
     this.all?.push(t);
+    this.worked = true;
     // (shown at once when the queue holds the land of the step a move goes over, and the land stands as that step left
     // it: a recent stroke's undo or redo is one paste of a rectangle, D453)
     if (kind === "move") this.predict(t);
@@ -566,8 +619,8 @@ export class EditQueue {
       const predicted = !!t.overlay;
       this.tickets.splice(this.tickets.indexOf(t), 1);
       const changed = this.refresh(grow(r, t.overlay?.rect ?? null));
-      // (I6: a stroke `alone` whose operation the worker took as sent is never guessed wrong; until one composer builds
-      // a stroke's operation on the page, step 4, the worker may still complete it, and then the guess may differ)
+      // (I6: a stroke `alone` is never guessed wrong: the one composer builds its operation complete on the page, and
+      // its land before and after as the build leaves it, step 4)
       if (predicted && changed) {
         t.mispredicted = true;
         this.mispredictions++;
@@ -585,6 +638,8 @@ export class EditQueue {
     if (a.info?.history) this.rows = a.info.history;
     const v = a.view;
     if (!v) return null;
+    if (v.land || v.wet) return grow(v.land ? this.layPatch(v.land) : null, v.wet ? this.layPatch(v.wet) : null);
+    if (v.heights || v.terrain) this.seqs = { land: v.landSeq ?? null, wet: v.wetSeq ?? null };
     let r: Rect | null = null;
     const terrain = v.terrain ?? this.base.terrain;
     if (v.heights && v.heights.length !== this.base.heights.length) {
@@ -609,6 +664,27 @@ export class EditQueue {
       this.base = { ...this.base, terrain: v.terrain };
     }
     return r;
+  }
+
+  /** `base` takes a patch of the land (I1: the worker's, laid byte for byte); one made against other land is not laid,
+   *  and the whole land is asked for. Returns the rectangle of shown land it may change (null: none). */
+  private layPatch(p: LandPatch): Rect | null {
+    if (this.taken.has(p)) return null;
+    this.taken.add(p);
+    const at = this.seqs[p.chain];
+    // (the same patch again, a copy of it: the land it makes is the land `base` holds)
+    if (at === p.seq) return null;
+    if (at === null || p.from !== at) {
+      this.seqs[p.chain] = null;
+      this.landResends++;
+      this.host.stale?.();
+      return null;
+    }
+    this.base = layLand(this.base, p, this.W);
+    this.seqs[p.chain] = p.seq;
+    // (the shown land and the terrain the page paints on: the patch's rectangle, or everywhere when one came whole)
+    if (p.whole.pre !== undefined || p.whole.protect !== undefined) return { x0: 0, y0: 0, x1: this.W - 1, y1: this.H - 1 };
+    return p.heights || p.dense.pre || p.dense.protect ? { ...p.rect } : null;
   }
 
   private resize(): void {
@@ -636,6 +712,7 @@ export class EditQueue {
     t.drafts = null;
     if (r && t.epoch === this.epoch) this.refresh(r);
     if (was === "open" || was === "closing") this.laid();
+    this.unblock();
     if (line) this.host.line?.(line, t.id);
     // (its waiters resume once this turn is over: a refused answer is heard first, `receive`)
     this.settle(t);
@@ -669,10 +746,27 @@ export class EditQueue {
     this.watch = null;
   }
 
+  /** A stroke let go or ended: the presses waiting behind it whose turn has come compose (or hear theirs ended). */
+  private unblock(): void {
+    if (!this.composers.length) return;
+    const go: (() => void)[] = [];
+    const wait: typeof this.composers = [];
+    for (const c of this.composers) {
+      const live = !!this.live(c.id);
+      if (live && !this.composable(c.id)) wait.push(c);
+      else go.push(() => c.resolve(live));
+    }
+    this.composers = wait;
+    for (const f of go) f();
+  }
+
   private wake(): void {
     if (this.tickets.length) return;
     const w = this.idlers.splice(0);
     for (const f of w) f();
+    if (!this.worked) return;
+    this.worked = false;
+    this.host.idle?.();
   }
 
   /** Drafts may go for a stroke once every ticket before it has gone to the worker. */
@@ -883,21 +977,47 @@ export interface StrokeWorker {
   cancel(id: number): void;
 }
 
+/** A piece that rides a stroke whole and level (D249): its rectangle [x0, y0, x1, y1]. */
+export type Rigid = [number, number, number, number];
+
+/** A Naturalize stroke's last land and its record are in (`StrokeFeed.end`'s `landed`): what its operation is built
+ *  from. */
+export interface FeedLanding {
+  /** The shown heights as the stroke began, and the terrain's `pre` and `protect` then. */
+  start: Uint8Array;
+  before: { pre: Uint8Array; protect: Uint8Array };
+  /** The rectangle its land changed (null: none came). */
+  bounds: Rect | null;
+  /** The worker's heights before the integrity pass, and its protected tiles (the whole map). */
+  pre: Uint8Array;
+  protect: Uint8Array;
+  /** The worker's whole record (#873), with the pieces that rode it whole (`rigid`) when any did. */
+  settings: Omit<BrushParams, "dabs">;
+}
+
 /** A Naturalize stroke through the queue (I9): one call with its worker at a time, the dabs that come meanwhile joined
- *  into one batch sent when it answers; its land drawn into `shown` as it comes. Let go, its ticket is `closing` until
- *  the worker's last land and its record come, then `ready` with its operation, built once from the worker's whole
- *  record (#873). `bound(dabs)` is how long one call may take (remoteStroke.ts `answerBound`). */
+ *  into one batch sent when it answers; its land drawn into `shown` as it comes (`onLand` says where). Let go, its
+ *  ticket is `closing` until the worker's last land and its record come, then `ready` with its operation, built once
+ *  from the worker's whole record (#873). `bound(dabs)` is how long one call may take (remoteStroke.ts
+ *  `answerBound`): the queue's one watchdog gives each call let go that long, and takes the stroke back with
+ *  `silentLine` when it passes. */
 export class StrokeFeed {
-  private out = false;
   private waiting: { dabs: number[]; pressure: number[] | undefined } | null = null;
   private dabs: number[] = [];
   private pressure: number[] | null = null;
-  private start: Uint8Array;
+  /** The shown heights as the stroke began. */
+  readonly start: Uint8Array;
   private before: { pre: Uint8Array; protect: Uint8Array };
-  private bounds: Rect | null = null;
+  /** The terrain it was painted on (its holds, the settled water, `worn`: what its operation is completed from). */
+  private readonly terrainAt: TerrainState;
+  private changed: Rect | null = null;
   private letGo = false;
   private gone = false;
+  /** Its operation went to the queue (`ready`, or the page's `landed`). */
+  private landed = false;
   private chain: Promise<unknown>;
+  /** How many dabs the call with the worker now carries (its bound), or null when none is out. */
+  private outDabs: number | null = null;
   /** The most calls ever with the worker at once (a test reads it: never more than one). */
   maxOut = 0;
   private outNow = 0;
@@ -910,12 +1030,19 @@ export class StrokeFeed {
     private readonly bound: (dabs: number) => number,
     private readonly silentLine: string,
     ground: [number, number, number][] = [],
+    private readonly onLand?: (rect: Rect) => void,
   ) {
     const t = queue.terrain();
     this.start = queue.shown.slice();
     this.before = { pre: t.pre.slice(), protect: t.protect.slice() };
+    this.terrainAt = { ...t, ...this.before };
     const state: TerrainState = { ...t, pre: t.pre.slice(), protect: t.protect.slice() };
     this.chain = this.call(0, () => worker.begin(id, { ...settings }, ground, state, queue.shown.slice(), queue.W, queue.H));
+  }
+
+  /** The rectangle of shown heights its land changed so far (null: none yet). */
+  get bounds(): Rect | null {
+    return this.changed;
   }
 
   /** More dabs (tile × 4 pairs, as the brush records them). */
@@ -923,13 +1050,16 @@ export class StrokeFeed {
     if (this.gone || this.letGo || !dabs.length) return;
     this.dabs.push(...dabs);
     if (pressure) (this.pressure ??= []).push(...pressure);
-    if (this.waiting) {
-      this.waiting.dabs.push(...dabs);
-      if (pressure) (this.waiting.pressure ??= []).push(...pressure);
+    const w = this.waiting;
+    // (a batch either has a pressure for every dab or none: one without joins one with only as its own call)
+    if (w && !w.pressure === !pressure) {
+      w.dabs.push(...dabs);
+      if (w.pressure && pressure) w.pressure.push(...pressure);
       return;
     }
-    this.waiting = { dabs: [...dabs], pressure: pressure ? [...pressure] : undefined };
-    this.chain = this.chain.then(() => this.sendWaiting());
+    const batch = { dabs: [...dabs], pressure: pressure ? [...pressure] : undefined };
+    this.waiting = batch;
+    this.chain = this.chain.then(() => this.sendWaiting(batch));
   }
 
   /** Dabs sent but not yet answered, and waiting: how far the land trails the pointer. */
@@ -937,17 +1067,33 @@ export class StrokeFeed {
     return (this.waiting?.dabs.length ?? 0) >> 1;
   }
 
-  /** Let go: the ticket closes; the operation follows the last land. */
-  end(): Promise<void> {
-    if (this.gone || this.letGo) return Promise.resolve();
+  /** Let go: the ticket closes; once its dabs' land is in, the pieces that ride it whole (`rigid`, D249) go, then the
+   *  operation follows the last land, composed and completed by the one composer (strokeComposer.ts) on the map it was
+   *  painted on (`entities`: the objects standing). `landed`, when given, builds the operation instead of the feed (the
+   *  page: its call) and must make the ticket ready or cancel it. Resolves true once it landed, false when it was taken
+   *  back first (Esc, its worker silent past its bound, another map). */
+  end(opts: { rigid?: () => Rigid[]; landed?: (l: FeedLanding) => void; entities?: readonly StandingObject[] } = {}): Promise<boolean> {
+    if (this.gone || this.letGo) return Promise.resolve(this.landed);
     this.letGo = true;
-    this.queue.close(this.id, this.bound(0), this.silentLine);
+    // (a call still out when it is let go has its own bound: a long press's batch may take seconds)
+    this.queue.close(this.id, this.bound(this.outDabs ?? 0), this.silentLine);
+    let rigid: Rigid[] = [];
     this.chain = this.chain
-      .then(() => this.call(0, () => this.worker.finish(this.id, [])))
+      .then(() => {
+        if (this.gone || !this.alive()) return null;
+        rigid = opts.rigid?.() ?? [];
+        return this.call(rigid.length, () => this.worker.finish(this.id, rigid));
+      })
       .then((land) => this.land(land))
-      .then(() => this.call(0, () => this.worker.end(this.id)))
-      .then((rec) => this.ready(rec));
-    return this.chain.then(() => undefined);
+      .then(() => (this.gone || !this.alive() ? null : this.call(0, () => this.worker.end(this.id))))
+      .then((rec) => this.ready(rec, rigid, opts.landed, opts.entities ?? []));
+    // (a worker that fails or never answers: the watchdog ends the ticket, and that is the answer)
+    const ended = this.queue.settled(this.id).then(() => this.landed);
+    const done = this.chain.then(
+      () => this.landed,
+      () => ended,
+    );
+    return Promise.race([done, ended]);
   }
 
   /** Esc: the stroke goes, and its worker forgets it. */
@@ -958,20 +1104,31 @@ export class StrokeFeed {
     this.queue.cancel(this.id);
   }
 
+  /** The editor closes: the worker forgets the stroke (the queue goes with the editor). */
+  forget(): void {
+    if (this.gone) return;
+    this.gone = true;
+    this.worker.cancel(this.id);
+  }
+
   private call<T>(dabs: number, send: () => Promise<T>): Promise<T> {
     this.outNow++;
     this.maxOut = Math.max(this.maxOut, this.outNow);
+    this.outDabs = dabs;
     if (this.letGo) this.queue.due(this.id, this.bound(dabs));
     const p = send();
-    const done = () => void this.outNow--;
+    const done = () => {
+      this.outNow--;
+      this.outDabs = null;
+    };
     p.then(done, done);
     return p;
   }
 
-  private async sendWaiting(): Promise<void> {
-    const w = this.waiting;
-    this.waiting = null;
-    if (!w || this.gone || !this.alive()) return;
+  private async sendWaiting(w: { dabs: number[]; pressure: number[] | undefined }): Promise<void> {
+    // (the batch goes: what comes from now on waits for its answer)
+    if (this.waiting === w) this.waiting = null;
+    if (this.gone || !this.alive()) return;
     const land = await this.call(w.dabs.length >> 1, () => this.worker.add(this.id, w.dabs, w.pressure));
     this.land(land);
   }
@@ -990,24 +1147,24 @@ export class StrokeFeed {
     const W = this.queue.W;
     const bw = rect.x1 - rect.x0 + 1;
     for (let y = rect.y0; y <= rect.y1; y++) this.queue.shown.set(heights.subarray((y - rect.y0) * bw, (y - rect.y0 + 1) * bw), y * W + rect.x0);
-    this.bounds = grow(this.bounds, rect);
+    this.changed = grow(this.changed, rect);
     this.queue.painted(this.id, rect);
+    this.onLand?.(rect);
     this.queue.draft(this.id, rect);
   }
 
-  private ready(rec: { pre: Uint8Array; protect: Uint8Array; settings: Omit<BrushParams, "dabs"> } | null): void {
+  private ready(rec: { pre: Uint8Array; protect: Uint8Array; settings: Omit<BrushParams, "dabs"> } | null, rigid: Rigid[], landed: ((l: FeedLanding) => void) | undefined, entities: readonly StandingObject[]): void {
     if (this.gone || !this.alive()) return;
     this.gone = true;
-    const b = this.bounds;
-    if (!rec || !b) return this.queue.cancel(this.id);
-    const W = this.queue.W;
-    const H = this.queue.H;
-    const rect = { x0: Math.max(0, b.x0 - 1), y0: Math.max(0, b.y0 - 1), x1: Math.min(W - 1, b.x1 + 1), y1: Math.min(H - 1, b.y1 + 1) };
-    const params: BrushParams = { ...rec.settings, ...(this.pressure ? { pressure: this.pressure } : {}), dabs: this.dabs };
-    this.queue.ready(this.id, { kind: "edit", name: "apply", args: [{ op: "brush", params }, "user", "Naturalize"] }, {
-      rect,
-      before: patchOf(this.start, this.before, rect, W),
-      after: patchOf(this.queue.shown, rec, rect, W),
-    });
+    const b = this.changed;
+    if (!rec || (!b && !landed)) return this.queue.cancel(this.id);
+    const settings = rigid.length ? { ...rec.settings, rigid } : rec.settings;
+    this.landed = true;
+    if (landed) return landed({ start: this.start, before: this.before, bounds: b, pre: rec.pre, protect: rec.protect, settings });
+    const q = this.queue;
+    const params: BrushParams = { ...settings, ...(this.pressure ? { pressure: this.pressure } : {}), dabs: this.dabs };
+    const c = composeStroke(params, "Naturalize", { start: this.start, shown: q.shown, pre: rec.pre, protect: rec.protect, bounds: b, before: this.terrainAt }, { W: q.W, H: q.H, heights: this.start, terrain: this.terrainAt, entities });
+    if (!c.tiles) return q.cancel(this.id);
+    q.ready(this.id, { kind: "edit", name: "apply", args: [{ op: "brush", params: c.params }, "user", c.label] }, c.overlay);
   }
 }

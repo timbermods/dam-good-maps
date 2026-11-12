@@ -592,7 +592,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   it changed nothing round a tile by more than a level the tidying never moves that tile more than two: the land's
   own one-tile ledge goes back to where it stood, and the corner of its own two-tile ridge, with the ground of its
   level round it, to where the force put it, or where the force's rounding would leave that one tile wide to where it
-  stood, never down its cliff and never leaving ground one tile wide. Craterize, Erupt, Rift and Deposit end with it; Quake and Glaciate adopt it next.
+  stood, never down its cliff and never leaving ground one tile wide. Craterize, Erupt, Rift and Deposit end with it, and Glaciate's walls; Quake adopts it next.
 - **Esc skips, undo takes it back** (D344, A4): while a gesture is still being drawn, Esc cancels it and nothing of
   it lands; once a force plays, Esc skips it to its end, its final land kept as one step; Ctrl+Z (or Z, or Revert)
   takes all of it back at any moment, and nothing lands afterwards (D341). The row's tooltip carries the keys (**Esc** skips,
@@ -834,7 +834,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   Fresh volcanic rock is hard for Carve; flows can dam rivers; objects ride the rising ground, trees near a vent
   die, what stands in it goes, each as the heat reaches it (item 30); it erupts wherever asked (the start's ground
   too, D257) and never adds water; "No room to rise here" only where it can't rise at all.
-- **Glaciate** (D246, D291, D292; key -): turns a valley that is already there into a glacial valley: a broad, level
+- **Glaciate** (D246, D291, D292; key Shift+7): turns a valley that is already there into a glacial valley: a broad, level
   floor between steep walls stepping down by bars, a tarn in its cirque, hanging side valleys with springs and falls
   (Meltwater), scree, a moraine and an outwash plain, the river leaving by the old outlet ("Carve gives you water;
   Glaciate gives you land"). A **click Flows** (down the valleys; on flat ground a seeded way to lower ground or an
@@ -842,7 +842,31 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (D368 (3)): Power 100 is round 4's glacier in full; below it the plan lifts each station's floor toward a level
   under the valley's bottom (`liftFloors`, `glacierCut`: 1 level at Power 0, 6 at 50; channels and pools two more), so
   at every Power the valley is a U and its water lies in a channel or a tarn, never a sheet
-  (`tests/contract/glaciateFloor.test.ts`, `glaciatePowerSize.test.ts`); default Power 60, Size Auto 30. Its row:
+  (`tests/contract/glaciateFloor.test.ts`, `glaciatePowerSize.test.ts`). **One U-shaped trough** (#914; its last
+  stage, `rust/forces/src/trough.rs`): the line is the stations rounded into a smooth curve that wanders a little
+  either side of the drawn one, so nothing in the trough runs ruled; its edge wanders too, and it closes at both ends,
+  the cirque's headwall and the snout's lip rising from the floor as its walls do. The floor is one level across the
+  trough (the valley's low dry ground near the line less Power's cut, 1 level at Power 0 to 11 at 100, easing off over
+  the last third) and steps down the route in uneven treads, never rising down it; a tread longer than twice its
+  length steps down part way. The river runs in one channel a level below the floor, two or three tiles wide,
+  winding gently; where the valley has its own river or a canyon's stream the channel follows it and the floor widens
+  to take it in, so no second channel is cut beside it. The walls rise from the floor's edge as the square of the way
+  across to the old rim, a bench (two with Benches Many) held level part way up a tall wall, through
+  `levels::whole`. Power bounds every cut (Power's cut and two levels more, four more at 100). **Water** (#914): a
+  lake the line meets becomes a ribbon lake at its old surface (its floor cut below it, the treads above standing at
+  its level), and wherever ground the trough lowered within three tiles of a lake or its ribbon would let it out lower,
+  a bar stands at its level, the old outlet at its sill; a river beside the trough keeps its banks the same way, so
+  none is drained, captured or mixed with badwater. The river leaves the snout by the cheapest way down the old land
+  to ground or water below its level (a gorge through the lip at most three levels deep and a few tiles long);
+  where there is none, the whole profile lifts a level at a time, its treads kept, never above the valley's own bottom
+  at the snout; a snout just short of water at its floor's level ends in it. The glacier's springs and the side
+  valleys' landings reach the channel by winding feeders, and the water is let settle once on the land so far and any
+  sheet left on the floor gets a feeder too; a trough whose springs' water would still flood dry land round it keeps
+  none. Default Power 60;
+  **Size Auto is the valley's own width** (gap 14): measured across the route every other station, from its
+  bottom to where the ground stands two or three levels up (half the valley's rise, at most a fifth of the map
+  away), its median, between 8 and a sixth of the map; on flat ground, a tenth of the map.
+  The row shows the width Auto took once the glacier is planned. Its row:
   **Power**, **Size**, **Meltwater** (on), **Try another**, **More** (**Benches**, **Steps**, **Tarn**, **Scree**, each
   on Auto). Two acts, the ice advancing for three fifths of its showing and melting back for two; each tile takes its
   level as the front passes, and the snout's lobe past the last station (its trough, moraine and outwash fan) forms
@@ -1042,19 +1066,22 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   weathered off the page in a worker of its own (D422, #868: `worker/naturalize.worker.ts`, `raster/remoteStroke.ts`),
   on the terrain and land the page shows, one call out at a time and the dabs meanwhile as one batch, the land a frame
   or two behind the cursor; the page sends that land to the map's worker for its water, as for the other brushes. Every
-  brush's stroke is a ticket in the edit queue from pointer-down ("Architecture", "The edit queue", #922 step 2): the
-  page paints it on the queue's land, and once it lets go its land before and after is laid over the worker's until the
-  worker answers, so the land shown is the worker's with the strokes on their way, and a recent stroke's undo and redo
-  show at once from the queue's copy of it. Let go, a Naturalize stroke goes on the history once its last land is in: an undo, a redo or a History jump pressed meanwhile waits
-  for it, then acts, so Z takes that stroke back as it takes any other brush's; the editor closing (a new or opened
-  map) forgets a stroke still on its way, as Esc does, so nothing of it reaches the next map (#880). A History row
+  brush's stroke is a ticket in the edit queue from pointer-down ("Architecture", "The edit queue", #922 steps 2 and 3):
+  the page paints it on the queue's land, and once it lets go its land before and after is laid over the worker's until
+  the worker answers, so the land shown is the worker's with the strokes on their way, and a recent stroke's undo and
+  redo show at once from the queue's copy of it. Let go, a Naturalize stroke's ticket closes and goes on the history
+  once its last land is in (`StrokeFeed`): an undo, a redo, a History jump or any edit pressed meanwhile waits behind it
+  in the queue, so Z takes that stroke back as it takes any other brush's (#880); a press meanwhile paints, its points
+  kept until the stroke has its land and then pressed on that land (U6); its water drafts wait behind the tickets
+  before it (U7); a save or a map switch waits for it to land on the map it was painted on (U5). A History row
   clicked meanwhile goes to the step it shows wherever that step stands once the stroke lands, refused with "That
-  step is gone: a newer edit replaced it." when the stroke replaced it (an undone step). The page waits for each call
-  only as long as it can take (`answerBound`: 4 s, plus 0.4 ms + Size² × 80 µs a dab it carries, 1.3 s at Size 128,
-  #884; on canyon at Size 128, Strength 10, that is 13.7 times a dab of a 30-dab batch at 512², 96 ms, and 18 times one
-  at 256², 73 ms, and 4 times the slowest single dab, 308 ms at 512² and 327 ms at 256²): a worker that never answers in time has its stroke taken back as Esc takes one back (no
-  land, water or operation), the page says "Naturalize stopped answering, so the stroke was taken back. Paint it
-  again.", what waited for the stroke goes ahead, and the worker is started again for the next stroke. A new
+  step is gone: a newer edit replaced it." when the stroke replaced it (an undone step). The queue's one watchdog
+  waits for each call only as long as it can take (`answerBound`: 4 s, plus 0.4 ms + Size² × 80 µs a dab it carries,
+  1.3 s at Size 128, #884; on canyon at Size 128, Strength 10, that is 13.7 times a dab of a 30-dab batch at 512², 96 ms,
+  and 18 times one at 256², 73 ms, and 4 times the slowest single dab, 308 ms at 512² and 327 ms at 256²): a worker
+  that never answers in time has its stroke taken back as Esc takes one back (no land, water or operation), the page
+  says "Naturalize stopped answering, so the stroke was taken back. Paint it again.", an undo that waited for it does
+  nothing (U1), what else waited goes ahead, and the worker is started again for the next stroke. A new
   stroke records its rule (`weathering: 6`, added by the core); a stroke saved with rule 5 (its edges wandering
   again on every stroke), rule 4 (the top cut back
   whatever its foot took, pulling back above water too), rule 3 (dab by dab, some
@@ -2179,16 +2206,33 @@ delivery routes, the artifact edition and bring-your-own-key) is in
   keeps its own rule (`resync`: `base` is the session's land, the overlays on their way laid on it again). Planning's
   rulings: an undo waiting behind a stroke that is refused or times out does nothing; a press during a landing paints;
   a map switch waits for a let-go stroke to land. The page moves onto it in steps (#922): its strokes, moves and
-  edits (2, done), Naturalize (3), one composer building a stroke's operation and answers the size of the edit (4).
+  edits (2, done), Naturalize (3, done), one composer building a stroke's operation and answers the size of the edit (4,
+  done).
   Since step 2 the page holds one queue (`useSession.ts` `edits`): `mirror.heights` and the renderer's land are its
   `shown`, and the brushes paint on its `terrain()`; every edit is `run`'s ticket (its call made when its turn comes,
   with the ticket's envelope on it), a stroke's ticket is made at pointer-down and holds the whole map until it lets go
   (the worker's answers meanwhile are laid then, #410), and is `ready` with its operation and its before and after when
   it does; Ctrl+Z, Ctrl+Y and a History row are moves (in a shared session, the session's own undo, redo and jump, as
   edits); a refusal or a silent worker (`MAP_ANSWER_MS`) says its one line; a save or a map switch waits for every
-  ticket made (`whenEdited`). Naturalize's landing is not yet a ticket of its own: its stroke's ticket stays open while
-  its land comes (`BrushPainter.afterLanding` still holds an undo, a redo or a jump pressed meanwhile, its timers
-  still take a silent stroke back), as §4 describes, until step 3.
+  ticket made (`whenEdited`). Since step 3 a Naturalize stroke is the queue's `StrokeFeed`: its ticket `closing` once let
+  go, under the one watchdog (`expired` starts its worker again), its drafts through the queue; a press behind it waits
+  for `whenComposable`; `whenEdited` is the queue's `idle()`. Gone with it: the painter's `committing`, `afterLanding`,
+  `dropped` and `drop()`, and `RemotePreview` with its timers. Since step 4 one composer (`raster/strokeComposer.ts`)
+  builds every stroke's operation, the page's and the harness's, hard or Naturalize: `completeStroke` adds what the
+  session would (the ground it holds, Naturalize's rule, ring, water and wear, the ground under objects) and the session
+  completes with the same code, now idempotent, so the operation logged is the one sent; `composeStroke` lays its land
+  before and after as the build leaves it (held tiles in reach protected), so a stroke `alone` is never guessed wrong
+  in any channel (#873's last gap); the session's check accepts a stroke as it records one (a rule-6 stroke's `rim`).
+  An answer's land is the rectangle it changed (`core/doc/landPatch.ts`): the worker sends what changed of the land and
+  terrain the page holds, and the queue lays a patch only on the land it was made against, else asks for the whole land
+  once (`landNow`); one it holds already is passed over. Two chains, numbered apart, each on one channel so each stays
+  in order (an answer and the water's news travel on two and may cross): the land with the answers, the settled water's
+  depth and moisture in the terrain (`wet`) with the water's news. What the page holds with nothing moving is what the
+  session holds: when the queue goes idle (`QueueHost.idle`), the worker sends the water's news for water the page
+  lacks with nothing settling (an undo or a redo puts its step's water back with no settle after it; `idleWater`, a
+  compare, nothing when a settle's news brought it), once, on the water's channel. A read of the whole map (`sessionView`) never renumbers the land a live page holds. A 12-tile Raise's answer
+  at 256² fell from 1.75 MB to 0.24 MB, its land from 1.5 MB to 2–5 KB (the rest is the water's journey and the soil);
+  the worker's time is the same.
 - **"Move the start here"** (D204, one label since D323): after a Flatten stroke the page looks, once it is idle, for
   a spot on the stroke's level ground where the district center stands (its footprint and door level and dry,
   nothing standing there); the start's full check (the walks to water, wood and berries) runs in a small worker of

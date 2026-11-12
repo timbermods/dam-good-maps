@@ -4,12 +4,17 @@
 // passes (the start's five numbers are the shared gate's: printed, as planning asks every map report to open), and the
 // water settled on the land stands as the plan says: the lake 0.05 to 0.6 over its sill, the Still Pool at the lake's
 // level, the Veil's curtain, the Gate and the leat dry past their bars, no stray water, nothing on the map's edge but
-// the Low River.
+// the Low River. No water lies as a straight even reach of more than 40 tiles (`terrain.ruled_land`'s channels; planning,
+// 2026-11-15: 128² seed 2 had one of 242).
 
 import { describe, expect, it } from "vitest";
 import { gateMap, startNumbers } from "../../src/core/premise/gateMap";
 import { makeSpec } from "../../src/core/spec/mapspec";
+import { ruledLand, wetOf } from "../../src/core/validate/ruledLand";
 import { readGateSettle } from "./gateSettle";
+
+/** The longest straight even reach of water a Gate map may have, in tiles (planning, 2026-11-15). */
+const LONGEST_REACH = 40;
 
 describe("The wall with one gate's maps", () => {
   for (const [side, seed] of [[128, 2], [128, 4], [192, 1], [256, 1]])
@@ -35,5 +40,14 @@ describe("The wall with one gate's maps", () => {
       expect(Math.abs(at("kettle").level - at("door").level)).toBeLessThanOrEqual(0.25);
       expect(s.veil.ok, s.veil.note).toBe(true);
       expect([s.gateWet, s.leatWet, s.stray, s.edge]).toEqual([0, 0, 0, 0]);
+      // (its water wanders with the land: the lake's coves, the plunge pool's lip off its lobe, the brooks kinked)
+      const reach = ruledLand(m.built.heights, wetOf(m.built.settle.depth), m.built.W, m.built.H).channel;
+      expect(reach?.tiles ?? 0, `a straight reach of ${reach?.tiles} tiles at ${reach?.x},${reach?.y}`).toBeLessThanOrEqual(LONGEST_REACH);
+      // (the card says what the megadam buys, in days of drought on the settled map: more than the lake alone)
+      // (the megadam is two walls, and the card names both places)
+      expect(r.card.dam).toMatch(/two walls, across .* in the spur and across .* in the range/);
+      const days = r.card.dam?.match(/for (\d+) days of drought; without them, for (\d+)\./);
+      expect(days, r.card.dam ?? "no dam words").toBeTruthy();
+      expect(Number(days![1])).toBeGreaterThan(Number(days![2]));
     });
 });

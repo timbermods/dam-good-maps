@@ -61,9 +61,9 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
   };
   const lastStroke = useRef<BrushParams | null>(null);
   const painter = useRef<BrushPainter | null>(null);
-  // (the editor closes for a new or opened map: a stroke being painted or still on its way is forgotten, as Esc
-  // forgets one, so none of its land or its operation reaches the next map's editor, #880; a force's is cancelled so)
-  useEffect(() => () => painter.current?.drop(), []);
+  // (the editor closes for a new or opened map, once every stroke let go has landed on the map it was painted on, U5:
+  // a stroke the button still holds is forgotten, as Esc forgets one, so nothing of it reaches the next map's editor)
+  useEffect(() => () => painter.current?.close(), []);
 
   /** A shared session's history is each player's own (worker/collabEdit.ts): its undo and redo are the session's, sent
    *  as they are; alone, a move names the step it means (I5). */
@@ -78,16 +78,12 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
     void track(id, (u) => u.ok && setMessage((m) => (m && !m.keep ? null : m)));
   }
 
-  // (a Naturalize stroke let go is on its way to the history until its last land comes from its worker: an undo, a
-  // redo or a jump pressed meanwhile waits for it to land, then acts, so it takes that stroke back, as it would any
-  // other brush's, which is on the queue the moment it is pressed, #880; step 3 puts its landing on the queue too)
-  const landed = (fn: () => void) => (painter.current ? painter.current.afterLanding(fn) : fn());
+  // (every stroke is a ticket from pointer-down, a Naturalize stroke's until its last land comes from its worker: an
+  // undo, a redo or a jump pressed meanwhile names the step it means and waits behind it in the queue, so it takes that
+  // stroke back as it would any other brush's, #880; one behind a stroke taken back does nothing, U1)
   const undo = () => {
     if (ed.forcer.current?.running) return ed.forcer.current.cancel();
     if (painter.current?.painting) return painter.current.cancel();
-    return landed(undoNow);
-  };
-  const undoNow = () => {
     if (ed.resizing.current) return;
     // (a force just kept: its tails stop at the key, not when the worker answers: its sound and its effects, which
     // would play on over land taken back, renderer.ts clearForce)
@@ -97,24 +93,17 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
     moved(shared() ? edits.current.edit("undo", [], "Undo") : edits.current.undo());
   };
   const redo = () => {
-    if (painter.current?.painting || ed.forcer.current?.running) return;
-    return landed(redoNow);
-  };
-  const redoNow = () => {
     if (painter.current?.painting || ed.forcer.current?.running || ed.resizing.current) return;
     juice.current?.edited();
     moved(shared() ? edits.current.edit("redo", [], "Redo") : edits.current.redo(), false);
   };
   const jump = (k: number, seq?: number) => {
-    if (painter.current?.painting || ed.forcer.current?.running) return;
-    return landed(() => {
-      if (ed.resizing.current) return;
-      juice.current?.edited();
-      if (shared()) return moved(edits.current.edit("jump", [k, seq], "Jump"), false);
-      const at = k < 0 ? null : (seq ?? infoRef.current.history[k]?.seq);
-      if (at === undefined) return;
-      moved(edits.current.jump(at === null ? null : { seq: at }), false);
-    });
+    if (painter.current?.painting || ed.forcer.current?.running || ed.resizing.current) return;
+    juice.current?.edited();
+    if (shared()) return moved(edits.current.edit("jump", [k, seq], "Jump"), false);
+    const at = k < 0 ? null : (seq ?? infoRef.current.history[k]?.seq);
+    if (at === undefined) return;
+    moved(edits.current.jump(at === null ? null : { seq: at }), false);
   };
 
   /** The top bar: a brush, a force, or nothing; the shelf's object goes back. */
@@ -260,6 +249,8 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
   useEffect(() => {
     void api.listen(
       proxy((e: EditorEvent) => {
+        // (the water the page lacks once its edits are answered: the terrain's copy of it, as the session holds it)
+        if (e.kind === "wet") return void edits.current.event({ ok: true, errors: [], epoch: (e as { epoch?: number }).epoch, view: e.view as Parameters<typeof edits.current.event>[0]["view"] });
         // the water's journey keeps its own count of versions: news that comes before the page reaches its
         // version waits for it, older news is dropped (waterJourney.ts)
         const news = (e.kind === "water" && !e.draft) || e.kind === "settled";

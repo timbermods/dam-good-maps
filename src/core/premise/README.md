@@ -22,8 +22,8 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
 - `types.ts`: `PremisePlan` and its parts, `PremiseDef`, `Invariant`. Its fields beyond PREMISES §1.1 are listed
   there (§1.1, "As built"). The seams a premise may use to change a shared stage (PREMISES §2.2, "Seams"; each
   optional): `PremiseDef.water` and `PremiseDef.land` (its own stages 1 and 2), `ground` invariants
-  (`StageContext.heights`), `Link.halves` (a width per channel point) and `Body.backwater` (a body its feeder stands
-  in). `generatePremise` takes a `PremiseDef` as its third argument, for tests and tools.
+  (`StageContext.heights`), `Link.halves` (a width per channel point), `Body.backwater` (a body its feeder stands
+  in) and `Link.joins` (a wet link into a dry link's bed, wet from the join down). `generatePremise` takes a `PremiseDef` as its third argument, for tests and tools.
 - `draw.ts`: `drawPlan` (one attempt, checked), `firstPlan` (the first that holds), `firstWater` (the first whose
   stage 1 water holds too), `failing`.
 - `siting.ts`: stage 0's second pass (§2.2, "As built (step 8)"). `sitePlan` lays a premise's skeleton (its plan
@@ -54,28 +54,37 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   opening camera. `checkFrame` is stage 3: the start kept or moved within 4 tiles to where its 5 × 5 is dry and
   level, the landmark's lip and foot are in the first frame, the frame's water is shallow (lake beds raised) and the
   walk finds the rules' level land and farmland.
+- `washes.ts` `premiseWashes`: the dry washes and old bed (D517, `land/washes.ts`) cut into the ground after stage 3,
+  off what stage 1 decided, the works and the niches; their fords join `PremiseLand.ramps`, the beds `PremiseLand.washes`
+  (the dead stands' dry beds, `premiseLife`).
 - `premises/lakeStair.ts`: the lake stair (§4): `lakeStairEligible`, the layout (the valley, the lakes on it, the
   start, its frame and the landmark placed together, the bypass on a course of its own over the land
   (`bypassCourses`: two legs over the seed's rises and hollows, turning far from the start, kept off the edge), the tarns and basins, the works, the ridges, the
   regions; past 192² the lakes and rim tarns sized by the map, `mapScale` and `rimTarns`, the further rim tarns spread round the edges and drawn long or round; every rim tarn's run to the edge bent and slid along it, `edgeRun`), its second pass
   (`skeletonOf`, `siteStair`, `siteSide`; the works' floors and most `givesOf`) and the stair's `plan` invariants. `layoutTry` gives one layout try as far as it got, for tuning.
-- `premises/wallGate.ts`: the wall with one gate (§5.1), stage 0, land first (planning's ruling of 2026-11-11):
+- `premises/wallGate.ts`: the wall with one gate (§5.1), stage 0, land first (planning's ruling of 2026-11-11), its
+  stages 1 and 2 (`gateWater`, `gateLand`) its `PremiseDef.water` and `PremiseDef.land`:
   `wallGateEligible`, the layout in a frame turned to the start's camera (the range: its crest as noise along a stretch
   of a longer drawn line, read so its lowest saddle lies where a gap can stand, its spine wandering behind the Veil's
   face, `GateNumbers.range`; the Veil at its high ground near the middle, the Gate's winding gorge at its lowest saddle,
-  the Pass at the lowest on the other side; the plunge pool at the start's door the Veil falls into, its brook over a
-  low lip down the valley, the lake at the valley's low end (one broad body, its width varying, a bay or two), the Still
+  the Pass at the lowest on the other side; the plunge pool at the start's door the Veil falls into, two levels over the lake, its
+  brook over a low lip down the valley in two steps (a reach, the Steps and their cascade, a reach), 3 or 4 wide by turns
+  (`Link.halves`, `BROOK`, `STEPS`), the lake at the valley's low end (one broad body, its width varying, a bay or two, coves along its shore by turns,
+  `LAKE_WANDER`), the Still
   Pool and its inlet off the plunge pool; the playa past the range; the leat along the crest and the Pass Bed; the basin's pan and the beds' outlet;
-  the Low River through its spur; the brooks), its numbers in `GatePlan.gate` (`gateOf`) and its `plan` invariants.
+  the Low River through its spur; the southern brooks, 2 or 3 wide by turns, wandering, kinked out of their tarns and
+  kept `BROOK_APART` from each other), its numbers in `GatePlan.gate` (`gateOf`) and its `plan` invariants.
   `gateRange.ts` reads the range along u (`rangeAt`, `sideOf`, `spineLocal`). Not offered: `premises/dev.ts`
   `DEV_PREMISES` lists it for the tools and tests; joining `spec/mapspec.ts` `PREMISE_IDS` offers it. No playability
   floor of its own: the shared gate holds the start.
 - `gateWater.ts`: the wall with one gate's stage 1 (§5.1 "As built (water)"): `gateWater` (the shared `waterByNumber`,
   then the leat's bar, the Veil's foot a level under the sill with its outer row the ribbon, the first frame's beds under
-  two), `GATE_WATER_CHECKS` (`water.levels` read for a backwater, `gate.dry`, `frame.water`), `gateFirstWater` (`draw.ts`
-  `firstWater` with this stage, until `PremiseDef` has a seam for it) and `gateSettleModel` (the undrawn ground over every
+  two), `GATE_WATER_CHECKS` (the shared ones, the Still Pool a `Body.backwater`; `gate.dry`, `frame.water`) and `gateSettleModel` (the undrawn ground over every
   water, for a settle of stage 1 alone). `tools/premise-gate-water.ts` prints and draws a seed's, `--settle` settles it.
-- `gateLand.ts`: the wall with one gate's stage 2 (§5.1 "As built (land)"): `gateRelief` (the shared relief for the
+- `gateLand.ts`: the wall with one gate's stage 2 (§5.1 "As built (land)"): the range as a scarp (§5.1 "The range, a scarp":
+  the scarp's cliff bands and the back slope, `SCARP`; spurs `GateNumbers.spurs`, canyons by `erodeHard`, fans; the
+  column pass `rangeColumns`; `rangeBand` (the frame's band where the ground stands over its foot, `rangeBandParts`), `rangeFlatShare`, `rangeValleys`, `rangeHeight` and the checks `range.flat`,
+  `range.valleys`, `range.columns`); `gateRelief` (the shared relief for the
   valley, its uplands under the gap's saddle or its highest water + 2 and read through a warp away from the water,
   `valleyWarp`; the range shaped across its warped spine, talus on soft rock, cliffs on
   hard, spurs and gullies; the basin a playa within two levels of its pan, two old shoreline benches round it, hills past
@@ -89,7 +98,8 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   writes a seed's, `tools/capture-gate.ts` renders the widest frame and the opening camera in one sheet.
 - `gateWorks.ts`: the wall with one gate's stage 4 (§5.1 "As built (works)"): `gateLadder` (round 8's rungs as templates
   on the land, measured as `ladder.ts` measures: the Still Pool's levee, the Gate opened and made whole, the leat and its
-  whole share, the megadam with the Gate dammed), `gateCard` / `gateWorkWords` (the card's words) and `GATE_WORKS_CHECKS`
+  whole share, the megadam with the Gate dammed across its gorge), `gateCard` / `gateWorkWords` (the card's words; `GateCard.dam`, what the
+  megadam buys in days of drought on the settled map, `gateDamDays` by `sim/fill.ts` `fillDays`) and `GATE_WORKS_CHECKS`
   / `gateWorksFailures`.
 - `planChecks.ts`: §1.4's checks every premise shares (levels fit, no bed under `BED_FLOOR`, bodies apart, the graph
   closes, the works add up, the skeleton is whole).
@@ -125,7 +135,7 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   0's `estimate` beside the measure. The readout is `info.premise.ladder`: works with sites, gains, reach and notes; day 1's water
   and moist shares against `spectrum`.
 - `life.ts` `premiseLife`: stage 6 on the settled ground (§2.2, "As built (step 6)"): the generator's own planting
-  (`gen/resources.ts` `planResources`) by the premise's budget (`LIFE`: living trees 450 to 700 per 10,000 tiles, at
+  (`gen/resources.ts` `planResources`, with the dead stands every map has, D516) by the premise's budget (`LIFE`: living trees 450 to 700 per 10,000 tiles, at
   most 16 % of the moist ground under a tree, berries 185 to 230), its groves drawn together into close stands
   (`groupGroves`), living stands where it falls short, dead woods in clumps on the empty basins' shores and beside dry
   beds, a stand on the hollow behind the skyline and on each bench over a lake (`hollowsOf`, `benchesOver`:

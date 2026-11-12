@@ -58,8 +58,9 @@ function savesAndExports(s: MapSession, name: string): Uint8Array {
 }
 
 describe("a hollow made on a map without caves saves and exports (#435)", () => {
-  // (seed 2 for seed 3 on generator 0.10.11, the D410 round's ramps and shores, D148: seed 3's hillsides all stand within three tiles of an object now)
-  const r = generate(makeSpec({ seed: 2, theme: "riverValley", size: { x: 64, y: 64 } }));
+  // (seed 2 for seed 3 on generator 0.10.11, the D410 round's ramps and shores, D148: seed 3's hillsides all stand within three tiles of an object now;
+  // seed 3 again since generator 0.10.18's dead stands on the dry land, D516, D148: seed 2 has no hillside clear of objects now, seed 3 has five)
+  const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 64, y: 64 } }));
 
   it("a Block dig into a hillside on a generated map: water per column, the same bytes reopened, and undone, the same bytes as before", () => {
     const s = MapSession.fromGenerated(r, r.file);

@@ -23,11 +23,10 @@ import { mineSitesCutAt } from "../validate/playability";
 import { buildMap, groundDropped, masksOf, previewBuild, previewTerrain, rebuild, SettleCache, modelOf, toMapObject, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer, wornOf } from "../features/build";
 import { heldOf, type TerrainState } from "../features/raster/strokePreview";
 import { isResource } from "../features/raster/resources";
-import { weatherKeep } from "../features/raster/objectGround";
+import { heldIn, recordStroke, type StrokeFacts } from "../features/raster/strokeComposer";
 import { placedEntity, entityTiles, ridingPieces } from "../features/edits";
 import { objectHolds, rasterizeObjects, standProblem, type StandGround } from "../features/objects";
-import { applyBrush, brushBounds, byDabRule, limitRuns, markBrushTiles, MAX_DABS, strokeParts, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim, wornRuns, type BrushParams } from "../features/raster/brush";
-import { shoreOf, waterLevels } from "../features/raster/weather";
+import { applyBrush, brushBounds, markBrushTiles, MAX_DABS, strokeParts, tiltedPieces, type BrushParams } from "../features/raster/brush";
 import { MAX_TERRAIN, padTile } from "../features/raster/terrain";
 import { bottomRunTop, ColumnTerrain, isPlainMask, surfaceOfMask, terrainColumns } from "../terrain/runs";
 import { blockEffect, blockGround, cellPairs, layeredMasks, terrainUnder, withBlocks, type BlockGround } from "../terrain/blocks";
@@ -865,14 +864,9 @@ export class MapSession {
     else
       for (const [y, a, b] of op.params.cells)
         box = box ? { x0: Math.min(box.x0, a), y0: Math.min(box.y0, y), x1: Math.max(box.x1, b), y1: Math.max(box.y1, y) } : { x0: a, y0: y, x1: b, y1: y };
-    if (!box) return op;
-    const hold = all.filter(([i]) => {
-      const x = i % W;
-      const y = Math.floor(i / W);
-      return x >= box.x0 - 1 && x <= box.x1 + 1 && y >= box.y0 - 1 && y <= box.y1 + 1;
-    });
+    const hold = heldIn(box, all, W);
     if (!hold.length) return op;
-    return { ...op, params: { ...op.params, hold: hold.map((h) => [...h] as [number, number, number]) } } as EditOp;
+    return { ...op, params: { ...op.params, hold } } as EditOp;
   }
 
   /** Why a held stroke or sculpt is refused (D491; D280 (3), amended by #623): only when holding
@@ -1819,40 +1813,30 @@ export class MapSession {
    *  after a reopen (which deletes and re-adds `undo`): a project saves byte for byte the same. */
   /** What the session records in a stroke as it applies (`applyChecked`), worked out on the map as it stands. */
   private strokeRecord(params: BrushParams): BrushParams {
+    return recordStroke(params, this.strokeFacts());
+  }
+
+  /** The map as a stroke finds it (strokeComposer.ts), read lazily: the page completes its strokes with the same code on
+   *  its own copy of these, so a stroke it sent complete gains nothing here (#922 step 4). */
+  private strokeFacts(): StrokeFacts {
+    const cur = this.cur;
     const { x: W, y: H } = this.size;
-    // a new weathering Naturalize stroke weathers like nature, dab by dab (D399, rule 6): its rule is
-    // recorded in it, so it replays the same, and strokes saved before keep their rule (rule 5, its
-    // edges wandering again on every stroke; rule 4, the
-    // top cut back whatever its foot took; rule 3, dab by dab with some scree slopes lost; rule 2,
-    // the whole stroke at once, saved with where water would stand round it, `rim`)
-    // (a rule painted on the page comes with its rule but never its ring: added here)
-    let p = params;
-    if (p.tool === "naturalize" && p.weathers && (p.weathering === undefined || (byDabRule(p.weathering) && p.rim === undefined))) {
-      const pre = this.cur.cache.terrain.pre7;
-      const rim = weatherRim(p, pre, waterLevels(pre, W, H), W, H);
-      p = { ...p, weathering: p.weathering ?? WEATHERING, ...(rim.length ? { rim } : {}) };
-    }
-    // and where the settled water stood round it (rule 3: and the moist ground), unless the page
-    // recorded the water it showed
-    if ((p.weathering === 2 || byDabRule(p.weathering)) && p.shore === undefined && p.pools === undefined && p.moist === undefined) {
-      const box = weatherBox(p, W, H);
-      if (box) {
-        if (p.weathering === 2) {
-          const { shore, pools } = shoreOf(box, this.cur.heights, this.cur.water, W);
-          p = { ...p, shore, pools };
-        } else p = { ...p, ...limitRuns(waterLimits(this.cur.heights, this.cur.water, this.cur.moisture, W, H), box, W) };
-      }
-    }
-    // and how hard the weathering strokes before it pressed there (rule 6), unless the page recorded what it read
-    if (p.weathering === 6 && p.worn === undefined) {
-      const box = weatherBox(p, W, H);
-      p = { ...p, worn: box ? wornRuns(wornOf(this.cur.cache.terrain), box, W) : [] };
-    }
-    // a weathering Naturalize stroke leaves the ground under the sources and objects standing now: the
-    // runs are recorded in it, so it replays the same whatever moves later (D368 (8), D342)
-    const runs = weatherKeep(p, this.cur.entities, W, H);
-    if (runs.length) p = { ...p, keep: [...(p.keep ?? []), ...runs] };
-    return p;
+    return {
+      W,
+      H,
+      heights: cur.heights,
+      terrain: {
+        get pre() {
+          return cur.cache.terrain.pre7;
+        },
+        water: cur.water,
+        moisture: cur.moisture,
+        get worn() {
+          return wornOf(cur.cache.terrain);
+        },
+      },
+      entities: cur.entities,
+    };
   }
 
   private applyChecked(op: EditOp, origin: OpOrigin, label?: string, step?: number, recorded = false): AppliedOp {

@@ -8,6 +8,8 @@
 // chains), then outline and names. The later stages' invariants come with their stages.
 
 import { openingCamera, frameAt } from "../../analysis/opening";
+import { slopeLinks, walkDistance } from "../../analysis/walk";
+import { placeSlopes, SLOPE_RULES } from "../../features/slopes";
 import { ORIENTATIONS } from "../../format/footprints";
 import { cos, log, sin, sqrt } from "../../math/portable";
 import type { Rng } from "../../math/rng";
@@ -27,6 +29,7 @@ import { WATER_CHECKS } from "../waterChecks";
 import type { Body, Edge, Exit, Fall, Invariant, Link, Point, PremiseDef, PremisePlan, Region, Ridge, SetPiece, SiteLand, Source, Spine, StairPlan, Work, WorkKind } from "../types";
 import { NARROWS, narrowsFit } from "../ladder";
 import { SiteModel, type Ground, type Wet } from "../siting";
+import { waterByNumber, type StageWater } from "../water";
 
 // ------------------------------------------------------------------------------------------------- the ranges
 
@@ -393,6 +396,9 @@ function clearPath(plan: PremisePlan, path: Point[], half: number, ends: string[
   // (a channel laid after the frame keeps off the start's bench, the bypass but for, `BENCH_KEEP`)
   const bench = half === BYPASS_HALF ? null : benchBody(plan);
   if (bench && !benchClear(plan, bench, path, half + BENCH_KEEP.link)) return false;
+  // (and, sited on the skeleton's land, off the start's walk, `WALK_KEEP`)
+  const walk = half === BYPASS_HALF ? undefined : keptWalk.get(plan);
+  if (walk && !pathOffWalk(walk, plan.W, plan.H, path, half + WALK_KEEP.link)) return false;
   for (let k = 0; k < path.length; k++) {
     const [x, y] = path[k];
     if (x < -0.01 || y < -0.01 || x > plan.W + 0.01 || y > plan.H + 0.01) return false;
@@ -791,6 +797,58 @@ function benchHalf(area: number, len: number): number {
  *  the tarns and basins themselves are not kept off (that halved the layouts that hold at 128²), their rims give way
  *  instead (`raster/relief.ts` `BENCH.sideRim`). */
 const BENCH_KEEP = { link: BENCH_ROOM.link } as const;
+
+/** The start's walk the side network keeps off when stage 0's second pass sites it (`siteStair`): the tiles the start
+ *  walks to first on the skeleton's land, as many as the gate's walkable floor with the generator's margin
+ *  (`FLOOR_MARGIN` × `start.reach`); a channel sited then keeps `link` tiles past its half width from them (its banks),
+ *  a side body `body` tiles past its outline (its beach and crag). The skeleton's land walks its start to 1,601 to
+ *  2,528 tiles on 256² seed 2's plans; their side networks, sited without it, cut the start's lake shore beside the
+ *  bench with a spill's, a notch bed's or a leat's banks, or a basin, and left 973 to 1,290 (the floor 1,300): the
+ *  side network's count grows with the map's area, the start's shore with its side. */
+const WALK_KEEP = { link: 4, body: 4 } as const;
+const keptWalk = new WeakMap<PremisePlan, Uint8Array>();
+
+/** The start's walk on the skeleton's land (`WALK_KEEP`): its `want` nearest tiles by walking distance, the slopes the
+ *  build derives for the start (`placeSlopes`) standing, off day 1's water. */
+function startWalk(plan: PremisePlan, land: SiteLand, want: number): Uint8Array {
+  const { W, H } = land;
+  const N = W * H;
+  const { x: sx, y: sy } = plan.frame.start;
+  const kept = new Uint8Array(N);
+  if (plan.frame.start.z < 0) return kept;
+  const wet = new Uint8Array(N);
+  for (let i = 0; i < N; i++) wet[i] = land.soil[i] === 2 ? 1 : 0;
+  const occ = new Uint8Array(N);
+  for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) occ[(sy + dy) * W + sx + dx] = 1;
+  const slopes = placeSlopes(land.heights, W, H, { x: sx, y: sy }, occ, SLOPE_RULES);
+  const d = walkDistance(land.heights, W, H, wet, slopeLinks(slopes, W, H), { x: sx, y: sy }, N);
+  const order: number[] = [];
+  for (let i = 0; i < N; i++) if (d[i] < Infinity && !wet[i]) order.push(i);
+  order.sort((a, b) => d[a] - d[b] || a - b);
+  for (let k = 0; k < Math.min(want, order.length); k++) kept[order[k]] = 1;
+  return kept;
+}
+
+/** Whether no tile of the start's walk (`kept`) lies within `gap` of a path's line. */
+function pathOffWalk(kept: Uint8Array, W: number, H: number, path: readonly Point[], gap: number): boolean {
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const [x, y] of path) {
+    x0 = Math.min(x0, x);
+    y0 = Math.min(y0, y);
+    x1 = Math.max(x1, x);
+    y1 = Math.max(y1, y);
+  }
+  const ax = Math.max(0, Math.floor(x0 - gap - 1));
+  const ay = Math.max(0, Math.floor(y0 - gap - 1));
+  const bx = Math.min(W - 1, Math.ceil(x1 + gap + 1));
+  const by = Math.min(H - 1, Math.ceil(y1 + gap + 1));
+  for (let y = ay; y <= by; y++)
+    for (let x = ax; x <= bx; x++) if (kept[y * W + x] && pathDist(x + 0.5, y + 0.5, path).d < gap) return false;
+  return true;
+}
 
 /** The start's bench as a body: the capsule round its spine the frame found room in (`benchHalf` of `BENCH.room`
  *  times the bench the frame read, and its 1.5 more), null before the frame. */
@@ -2620,8 +2678,10 @@ function siteSide(L: Layout, firsts: readonly FirstChain[]): string | null {
     if (!pool && pathDist(p[0], p[1], bypass).d < lakeGap(b) + 4) return false;
     let dry = 0;
     let all = 0;
+    const walk = keptWalk.get(plan);
     for (const [i, d] of bodyTiles(b, W, DRY_RING)) {
       if (d < 2 && (M.soil[i] === 2 || M.taken[i])) return false;
+      if (walk && d < WALK_KEEP.body && walk[i]) return false;
       if (d < 3) continue;
       all++;
       if (!M.soil[i] && !M.taken[i]) dry++;
@@ -3148,8 +3208,11 @@ function siteStair(spec: MapSpec, plan: PremisePlan, attempt: number, land: Site
     firsts.push({ b: { ...b, id: "", meadow: 0 }, src: l.from, s: b.sill, path: l.path, spill: { path: sp.path!, to: exit ? "" : sp.to, lo: (sp.bed as number[])[1], into: !!to && !to.dry, exit: exit ? { ...exit } : undefined } });
   }
   let last = "";
+  // (the start's walk on the skeleton's land, which the side network keeps off, `WALK_KEEP`)
+  const walk = startWalk(plan, land, Math.ceil(FLOOR_MARGIN * rulesFor(spec).reachMin));
   for (let k = 0; k < SITE_TRIES; k++) {
     const p = JSON.parse(base) as PremisePlan;
+    keptWalk.set(p, walk);
     const st = p.stair!;
     const byId = new Map(p.bodies.map((b) => [b.id, b]));
     const lakes = st.lakes.map((id) => byId.get(id)!);
@@ -3410,10 +3473,116 @@ function draw(spec: MapSpec, attempt: number): PremisePlan | { reason: string } 
   return { reason: `No lake stair fits seed ${spec.seed} at ${spec.size.x}² in ${LAYOUT_TRIES} layouts` };
 }
 
+/** The start's landing (D515's water, D133's rule, `drought.start`; PREMISES §2.2, "Ringed lakes"): the start's lake's
+ *  shelf (its bed at the sill, `raster/bodies.ts`) cut a level, one tile wide, found from the land: from where the start
+ *  meets the lake (its shore tile nearest the start) along the shore's own line (shore tiles, `along` at most) to where
+ *  the lake's floor comes nearest the bank, then down the bed's fall to the floor, so deep water meets the dry shore by
+ *  the start. Without it the shelf rings the start's lake: in a drought its water drains to the sill, and while it
+ *  stands under 0.3 over the shelf the shelf is neither a shore nor water a pump draws, and no deeper water meets a dry
+ *  shore. A 128² lake passes that band within the drought's first day (a fall of 0.8 of a level a day); a 256² lake,
+ *  three to four times the area behind an outlet as wide, falls 0.35 to 0.45, and on seed 2 stood 0.02 over its sill
+ *  at day 1's end: its start's water "gone on day 1", back on day 2. The landing is the pump's water, as the bay's
+ *  drowned river's ribbon is (the frame lets it stand deeper than its shallows, `START.ribbon`). A landing reaching
+ *  12 tiles along the shore, or three tiles wide, left 128² seed 1's first plan short of its walkable land
+ *  (`start.reach`). */
+const LANDING = { along: 4 } as const;
+
+function landed(plan: PremisePlan, w: StageWater): StageWater {
+  const r = w.raster;
+  const { W, H } = r;
+  const N = W * H;
+  const s = plan.frame.start;
+  const k = plan.bodies.findIndex((b) => b.id === plan.stair?.startLake) + 1;
+  if (s.z < 0 || !k) return w;
+  const sill = plan.bodies[k - 1].sill;
+  const near4 = (i: number): number[] => {
+    const x = i % W;
+    const y = (i - x) / W;
+    const out: number[] = [];
+    if (x > 0) out.push(i - 1);
+    if (x + 1 < W) out.push(i + 1);
+    if (y > 0) out.push(i - W);
+    if (y + 1 < H) out.push(i + W);
+    return out;
+  };
+  // the lake's shore: its tiles beside dry ground (no water of any kind)
+  const shore = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (r.lake[i] === k && near4(i).some((j) => !r.lake[j] && !r.channel[j])) shore[i] = 1;
+  // how far each of the lake's tiles stands from its floor (its bed a level or more under the sill), through the lake
+  const toFloor = new Int32Array(N).fill(-1);
+  const queue: number[] = [];
+  for (let i = 0; i < N; i++)
+    if (r.lake[i] === k && r.heights[i] <= sill - 1) {
+      toFloor[i] = 0;
+      queue.push(i);
+    }
+  for (let q = 0; q < queue.length; q++)
+    for (const j of near4(queue[q]))
+      if (r.lake[j] === k && toFloor[j] < 0) {
+        toFloor[j] = toFloor[queue[q]] + 1;
+        queue.push(j);
+      }
+  // where the start meets the lake: its shore tile nearest the start
+  let p0 = -1;
+  let best = Infinity;
+  for (let i = 0; i < N; i++) {
+    if (!shore[i] || toFloor[i] < 0) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    const d = (x - s.x) * (x - s.x) + (y - s.y) * (y - s.y);
+    if (d < best) {
+      best = d;
+      p0 = i;
+    }
+  }
+  if (p0 < 0) return w;
+  // along the shore's own line from there (shore tiles, 8 ways round, `LANDING.along` at most), to where the floor comes
+  // nearest the bank: the bed's own steepest fall
+  const along = new Int32Array(N).fill(-1);
+  const prev = new Int32Array(N).fill(-1);
+  along[p0] = 0;
+  const line = [p0];
+  let anchor = p0;
+  for (let q = 0; q < line.length; q++) {
+    const c = line[q];
+    if (toFloor[c] < toFloor[anchor] || (toFloor[c] === toFloor[anchor] && along[c] < along[anchor])) anchor = c;
+    if (along[c] >= LANDING.along) continue;
+    const x = c % W;
+    const y = (c - x) / W;
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if ((!dx && !dy) || xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        if (!shore[j] || along[j] >= 0 || toFloor[j] < 0) continue;
+        along[j] = along[c] + 1;
+        prev[j] = c;
+        line.push(j);
+      }
+  }
+  const cut: number[] = [];
+  for (let c = anchor; c >= 0; c = prev[c]) cut.push(c);
+  // then down the bed's fall to the floor (the neighbour a step nearer it; the first so in the grid's order)
+  for (let c = anchor; toFloor[c] > 0; ) {
+    const next = near4(c).filter((j) => r.lake[j] === k && toFloor[j] === toFloor[c] - 1).sort((a, b) => a - b)[0];
+    cut.push(next);
+    c = next;
+  }
+  for (const j of cut) {
+    if (r.heights[j] <= sill - 1) continue;
+    r.heights[j] = sill - 1;
+    // (the pump's water, as the bay's drowned river is: the frame lets it stand deeper, `START.ribbon`)
+    r.ribbon[j] = 1;
+  }
+  return w;
+}
+
 export const lakeStair: PremiseDef = {
   id: "lakeStair",
   eligible: lakeStairEligible,
   draw,
+  water: (plan) => landed(plan, waterByNumber(plan)),
   invariants: [...PLAN_CHECKS, ...stairPlanInvariants, ...WATER_CHECKS],
   skeleton: skeletonOf,
   site: siteStair,

@@ -1,6 +1,6 @@
 // The wall with one gate's map (docs/PREMISES.md §5.1): its stages 0 to 3 and the shared map's build, as the
-// generator's mode (`generate.ts` `generatePremise`) runs the lake stair's, until the mode can take a premise's own
-// stages (§5.1 "As built (water)", its seams, says the edits). The plan and its water (`gateWater.ts` `gateFirstWater`), the land
+// generator's mode (`generate.ts` `generatePremise`) runs the lake stair's: its own loop until the Gate is offered and
+// the mode builds it through the seams (§5.1 "As built (water)"). The plan and its water (`gateWater.ts` `gateWater`), the land
 // (`gateLand.ts`), its land invariants, stage 3's start for the first frame (`frame.ts` `checkFrame`, with the shared
 // rules' needs as the mode asks them), and one build with its checks (`map.ts` `premiseMap`, stages 5 and 6). The works
 // (stage 4) are not laid yet: the ladder is the plan's, read on this land by `ladder.ts` `ladderOf` as the mode does.
@@ -12,8 +12,7 @@ import { gateLand, gateLandFailures } from "./gateLand";
 import { gateWater } from "./gateWater";
 import { failing, PLAN_TRIES } from "./draw";
 import { gateOf } from "./premises/wallGate";
-import { gateCard, gateLadder, gateWorksFailures } from "./gateWorks";
-import type { PremiseCard } from "./card";
+import { gateCard, gateDamDays, gateDamWords, gateLadder, gateWorksFailures, type GateCard } from "./gateWorks";
 import type { Ladder } from "./ladder";
 import { premiseMap, type PremiseLand, type PremiseMap } from "./map";
 import { wallGate } from "./premises/wallGate";
@@ -31,7 +30,7 @@ export interface GateMap {
   frame: FrameCheck;
   /** Stage 4: the ladder on this land (`gateWorks.ts` `gateLadder`), and the map card's words. */
   ladder: Ladder;
-  card: PremiseCard;
+  card: GateCard;
   /** The works invariants the ladder fails (`gateWorks.ts` `GATE_WORKS_CHECKS`). */
   worksFails: { id: string; reason: string }[];
   /** The built map and its checks; absent when stage 3 found no start. */
@@ -151,7 +150,15 @@ export function gateMap(spec: MapSpec, theme: StyleTheme = "riverValley"): (Gate
       failed.push(`veil.settled: the Veil drops ${drop.toFixed(2)} settled (${want} or more)`);
       continue;
     }
-    return { ...out, map, held: true };
+    // (what the megadam buys, in days of drought, on the settled map's own land and objects)
+    const days = gateDamDays(plan, water, ladder, map.built.waterModel);
+    // (a megadam whose valley at its water walks round the spur's end to the map's edge buys nothing: the plan is drawn
+    // again; 3 of 12 maps at 256² were so before the spur ran to 0.16 of the side)
+    if (!days) {
+      failed.push("megadam.holds: the valley at the megadam's water leaves the map round its walls");
+      continue;
+    }
+    return { ...out, card: { ...out.card, dam: gateDamWords(plan, days) }, map, held: true };
   }
   if (last) return last;
   // (each refusal's check and how often, then the last in full)

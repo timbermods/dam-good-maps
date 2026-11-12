@@ -2,7 +2,8 @@
 // renderer, the tools picked, the panels' state, the sounds, the water's player) and the queue that
 // sends every edit to the worker and shows what comes back.
 
-import { proxy, type Remote } from "comlink";
+import { proxy, transfer, type Remote } from "comlink";
+import { restartNaturalizer } from "../../platform";
 import { useEffect, useMemo, useRef, useState, type Dispatch, type StateUpdater } from "preact/hooks";
 import { rulesFor, type Rules } from "../../core/validate/playability";
 import { surfaceWater, type MapView, type SoilView, type WaterView } from "../../render3d/model";
@@ -273,12 +274,22 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
         const send = api.ticket as unknown as (e: typeof env, name: string, ...a: unknown[]) => Promise<MapAnswer>;
         return send(env, call.name, ...call.args);
       },
+      // (a stroke's water flows on its ground while it is painted, D197: sent once every ticket before it has gone, U7)
+      draft: (env, rect, heights) => void api.draftStroke(rect, transfer(heights, [heights.buffer as ArrayBuffer]), env),
+      cancelDraft: () => void api.cancelDraft(),
     };
     const clock = { now: () => performance.now(), after: (ms: number, fn: () => void) => { const t = setTimeout(fn, ms); return () => clearTimeout(t); } };
     edits.current = new EditQueue(props.opened as unknown as QueueOpen, port, clock, {
       shown: (r) => queueHost.current.shown?.(r),
       line: (t, id) => queueHost.current.line?.(t, id),
+      // (a Naturalize stroke let go whose worker never answered in time: taken back with its line; a fresh worker for
+      // the next stroke, #884)
+      expired: () => restartNaturalizer(),
       answer: (a, t) => queueHost.current.answer?.(a, t),
+      // (a patch of the land that did not lay on the land the queue holds: the worker's whole land, as an event)
+      // (nothing on its way: the water's news for water the page lacks, which an undo or a redo leaves unsettled)
+      idle: () => void api.idleWater(),
+      stale: () => void api.landNow().then((l) => edits.current.event({ ok: true, errors: [], epoch: l.epoch, view: l.view as MapAnswer["view"] })),
     });
     view.heights = edits.current.shown;
   }
@@ -616,10 +627,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
 
   /** What the page does once a ticket is answered (by ticket id), and how many tickets are on their way (`busy`). */
   const onAnswers = useRef(new Map<number, (u: SessionUpdate) => void>());
-  /** The last ticket the page tracked: the tickets end in the order made (I3), so it ends last. */
-  const lastTicket = useRef(0);
   function track(id: number, onAnswer?: (u: SessionUpdate) => void): Promise<void> {
-    lastTicket.current = Math.max(lastTicket.current, id);
     setBusy((b) => b + 1);
     if (onAnswer) onAnswers.current.set(id, onAnswer);
     return edits.current.settled(id).then(() => {
@@ -636,8 +644,10 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     renderer.current?.updateTerrain(q.shown, columnsRef.current);
   }
 
+  /** Every edit made has its answer: the queue idle, a Naturalize stroke let go landed on the map it was painted on
+   *  and answered (U5; a save or a map switch waits for this, `onPendingEdits`). */
   function whenEdited(): Promise<void> {
-    return Promise.all([queue.current, edits.current.settled(lastTicket.current)]).then(() => undefined);
+    return Promise.all([queue.current, edits.current.idle()]).then(() => undefined);
   }
 
   /** An edit: a ticket in the edit queue, sent once the tickets before it are answered; what it changed goes to the
@@ -861,6 +871,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
    *  already, by the same arrays). */
   function newLand(v: ViewUpdate | undefined): boolean {
     const base = edits.current.base;
+    if (v?.land || v?.wet) return (!!v.land && !edits.current.took(v.land)) || (!!v.wet && !edits.current.took(v.wet));
     return !!v && ((!!v.heights && v.heights !== base.heights) || (!!v.terrain && v.terrain !== base.terrain));
   }
 
@@ -894,7 +905,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   function applyView(v: ViewUpdate): void {
     // (new land ends the flip; water, soil and objects arriving while the other version is on show wait in the page's
     // copy, and are drawn when the key lets go)
-    if (v.heights) endFlip();
+    if (v.heights || v.land) endFlip();
     const flipped = comparing.current;
     const r = flipped ? null : renderer.current;
     const m = mirror.current;

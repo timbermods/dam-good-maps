@@ -9,11 +9,10 @@
 // - the Veil's foot a level under the sill, so it carries the fall sideways to the drain bay past the start's bench;
 // - the first frame's lake beds raised to hold their water under two (§5.1), as stage 3 does on the lake stair (the
 //   plan fixes the gate's start, so its frame is known at stage 1); the drought hold's floor stays outside the frame;
-// - the gate's `land` invariants: the shared ones, `water.levels` read for a backwater (the Still Pool stands at its
-//   lake's level through its inlet, not at a rim), the day-1 water leaving only by the gorge with the basin dry
-//   (`gate.dry`), and the first frame's water shallow on stage 1's own beds (`frame.water`);
-// - `gateFirstWater`, `draw.ts` `firstWater` with this stage: `PremiseDef` has no seam for a premise's own stage 1
-//   yet (PREMISES §5.1 "As built (water)" says the edit it needs).
+// - the gate's `land` invariants: the shared ones (the Still Pool is a `Body.backwater`: it stands at its lake's level
+//   through its inlet, read at its sill, not at a rim), the day-1 water leaving only by the gorge with the basin dry
+//   (`gate.dry`), and the first frame's water shallow on stage 1's own beds (`frame.water`).
+// `wallGate`'s `PremiseDef.water` is `gateWater`, so `draw.ts` `firstWater` draws its plans with this stage.
 //
 // Judged alone, stage 1's ground is 0 wherever nothing is drawn, and the gate's waters close a loop (the cleft, the
 // leat, the Pass Bed, the notch, the Gate Bed, the slot, the lake): the guard round them fences the basin into a pit
@@ -21,14 +20,12 @@
 // every tile to at least its guard), so a settle judges the water's own beds.
 
 import { frameAt, openingCamera } from "../analysis/opening";
-import type { MapSpec } from "../spec/mapspec";
 import type { WaterModel } from "../sim/water";
-import { PLAN_TRIES, failing, type Failure } from "./draw";
 import { dayOneWater, START } from "./frame";
-import { stageFlow, levelsOf, LEVEL_SLACK, WATER_CHECKS } from "./waterChecks";
+import { stageFlow, WATER_CHECKS } from "./waterChecks";
 import { stageModel, waterByNumber, type StageWater } from "./water";
 import { guardWater } from "./raster/guard";
-import type { Invariant, InvariantResult, PremiseDef, PremisePlan } from "./types";
+import type { Invariant, InvariantResult, PremisePlan } from "./types";
 import type { GateNumbers } from "./premises/wallGate";
 import { rangeAt } from "./gateRange";
 
@@ -65,9 +62,10 @@ function plungePool(plan: PremisePlan, w: StageWater): void {
   const lf = w.table.links[out.id];
   if (!t || !lf) return;
   const head = Math.max(0, t.level - out.fall!.crest);
-  // (the water it falls into: its own bed and depth, or the stream it runs into, whichever stands higher)
+  // (the water it falls into: its own reach's bed (the one under the lip) and depth, or the body it runs into,
+  // whichever stands higher)
   const below = w.table.bodies[out.to]?.level ?? -Infinity;
-  const tail = Math.max(Array.isArray(out.bed) ? Math.min(...out.bed) + lf.bedDepth : -Infinity, below);
+  const tail = Math.max(Array.isArray(out.bed) ? out.bed[0] + lf.bedDepth : -Infinity, below);
   const level = Math.max(t.level, tail + head);
   if (level === t.level) return;
   t.level = level;
@@ -163,31 +161,6 @@ export function gateWater(plan: PremisePlan): StageWater {
   return w;
 }
 
-/** A body with no way out fed by one wet link from a body at its own sill: a backwater, standing at its feeder's
- *  level (the Still Pool), not a pond a work fills to its rim. */
-function backwater(plan: PremisePlan, id: string): boolean {
-  if (plan.links.some((l) => l.from === id)) return false;
-  const ins = plan.links.filter((l) => l.to === id && l.wet);
-  const b = plan.bodies.find((x) => x.id === id);
-  return ins.length === 1 && !!b && plan.bodies.find((x) => x.id === ins[0].from)?.sill === b.sill;
-}
-
-/** `water.levels` (§2.2, the shared check's reading but for a backwater): each body's spill level within half a level
- *  of its sill; a pond a work fills, of its rim; a backwater, of its feeder's sill. */
-const gateLevels: Invariant = {
-  id: "water.levels",
-  at: "land",
-  test(ctx) {
-    if (!ctx.water) throw new Error("A land invariant needs stage 1's water");
-    for (const b of levelsOf(ctx.plan, ctx.water)) {
-      const want = backwater(ctx.plan, b.id) ? b.sill : b.want;
-      if (!b.tiles) return fail(`${b.id} has no water tiles`);
-      if (b.high - want > LEVEL_SLACK || want - b.low > LEVEL_SLACK) return fail(`${b.id} stands at ${b.low}–${b.high}, its ${want === b.sill ? "sill" : "rim"} ${want}`);
-    }
-    return OK;
-  },
-};
-
 /** `gate.dry` (§5.1: the basin dry, the Gate and the leat shut on day 1): by `flowThrough` on stage 1's water, no
  *  water runs down the Gate or the leat past their bars and rows, none stands or runs on the basin's side of the wall
  *  but in the cleft, and the only water that leaves the map leaves by the Low River. */
@@ -263,35 +236,9 @@ export function frameShallow(plan: PremisePlan, w: StageWater): { shallow: numbe
   return { shallow, all };
 }
 
-/** The gate's `land` invariants: the shared ones, `water.levels` read for a backwater, `gate.dry` and `frame.water`. */
-export const GATE_WATER_CHECKS: Invariant[] = [...WATER_CHECKS.map((inv) => (inv.id === "water.levels" ? gateLevels : inv)), gateDry, frameWater];
-
-/** `draw.ts` `firstWater` with the gate's stage 1: the first plan of a spec whose `plan` and `land` invariants hold,
- *  with the attempt it took, its water, and the attempts' failures before it. */
-export function gateFirstWater(def: PremiseDef, spec: MapSpec): { plan: PremisePlan; water: StageWater; attempt: number; failed: Failure[] } | { reason: string } {
-  const why = def.eligible(spec);
-  if (why) return { reason: why };
-  let last = "";
-  const failed: Failure[] = [];
-  for (let attempt = 0; attempt < PLAN_TRIES; attempt++) {
-    const plan = def.draw(spec, attempt);
-    if ("reason" in plan) {
-      last = plan.reason;
-      continue;
-    }
-    const pf = failing(def.invariants, "plan", { spec, plan });
-    if (pf.length) {
-      last = `${pf[0].id}: ${pf[0].reason}`;
-      continue;
-    }
-    const water = gateWater(plan);
-    const land = failing(def.invariants, "land", { spec, plan, water });
-    if (!land.length) return { plan, water, attempt, failed };
-    failed.push(land[0]);
-    last = `${land[0].id}: ${land[0].reason}`;
-  }
-  return { reason: `No ${def.id} plan's water held in ${PLAN_TRIES} tries (${last})` };
-}
+/** The gate's `land` invariants: the shared ones (the Still Pool a `Body.backwater`, read at its sill), `gate.dry` and
+ *  `frame.water`. */
+export const GATE_WATER_CHECKS: Invariant[] = [...WATER_CHECKS, gateDry, frameWater];
 
 /** Stage 1's water model for a settle (`water.ts` `stageModel`, rows shut), with the ground stage 1 did not draw
  *  standing over every water: the land is stage 2's, which lifts every tile to at least its guard. */

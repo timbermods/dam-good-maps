@@ -15,6 +15,7 @@ The map document and its edit engine: a generation plus an ordered log of edit o
 - `ops.ts`: the operation envelope `{op, params}`; the schema is `ops.schema.json`.
 - `document.ts`: `toDocument`, `importDocument`, `encodeProject`, `DOCUMENT_FORMAT_VERSION`.
 - `stored.ts`: the stored map (`storeBuilt`, `restoreBuilt`, `sameMap`).
+- `landPatch.ts`: an answer's land as the rectangle it changed (`diffLand` in the worker, `layLand` in the edit queue), numbered so a patch lays only on the land it was made against (#922 step 4); the water's depth and moisture come with the water's news, and at idle with nothing settling (`idleWater`), so the page's copy is the session's whenever nothing moves.
 - The editor's edits as plain questions on the session's map, each returning the operations and label (or why not) for
   the worker to apply (D342): `placing.ts` (an object or a source from the shelf, `planEntity`; moving one; trees and
   bushes painted, `planPlant`; a group of edits' spring pools, `withSpringPools`), `remove.ts` `planRemove` (Remove and
