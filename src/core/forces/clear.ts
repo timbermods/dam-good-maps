@@ -62,12 +62,13 @@ export function seatLevel(heights: ArrayLike<number>, tiles: readonly number[]):
  *  2 × 2) on ground a force moved unevenly keeps riding, its seat levelled to the lowest of its tiles as D290 levels a
  *  placed one: `after`'s heights are cut there and the source stands on the seat. Measured on the land the operation
  *  keeps, a working area's feather applied (`ease`, keep.ts `featherForce`), and cut only where that land lets the cut
- *  stand: a seat across the area's edge (a kept tile, `keep`, or one the feather holds above it) is held as it was
- *  before the force, the source on it. One under a roof (a cave's), one on Erode's voxels (a tile not one plain run),
+ *  stand: a seat across the area's edge (a kept tile, `keep`, or one the feather holds above it), or on Erode's voxels
+ *  (a tile not one plain run), is held as it was before the force (its ground, voxels and rock), the source on its old
+ *  seat, so no force leaves a source the game refuses (planning's ruling of 2026-11-11). One under a roof (a cave's),
  *  one cut off by the map's edge, or one whose tiles all moved alike rides as it is. `before` holds the objects where
  *  they stood; `whole`: the force moves the ground whole (a Quake, a Rift). Rust's Carve does the same as its cut
  *  reaches one (lib.rs `level_seat`). The tiles changed. */
-export function levelSeats(before: { W: number; H: number; heights: ArrayLike<number>; entities: readonly EntitySpec[] }, after: { W: number; H: number; heights: Uint8Array; entities: EntitySpec[]; masks?: Uint32Array }, whole: boolean, keep: ArrayLike<number> | null = null, ease: ArrayLike<number> | null = null): number[] {
+export function levelSeats(before: { W: number; H: number; heights: ArrayLike<number>; entities: readonly EntitySpec[]; masks?: Uint32Array; lava?: Uint32Array }, after: { W: number; H: number; heights: Uint8Array; entities: EntitySpec[]; masks?: Uint32Array; lava?: Uint32Array }, whole: boolean, keep: ArrayLike<number> | null = null, ease: ArrayLike<number> | null = null): number[] {
   const was = new Map(before.entities.map((e) => [e.id, e]));
   const kept = (i: number) => (ease ? Math.max(before.heights[i] - ease[i], Math.min(before.heights[i] + ease[i], after.heights[i])) : after.heights[i]);
   const masks = after.masks;
@@ -81,22 +82,25 @@ export function levelSeats(before: { W: number; H: number; heights: ArrayLike<nu
     if (tiles.length < 2 || tiles.length !== from.length) continue;
     const anchor = b.y * before.W + b.x;
     if (b.z < before.heights[anchor]) continue;
-    // (the other forces leave the voxels as they were: a tile is plain if they are one run to its height before or after)
-    if (masks && tiles.some((i, k) => masks[i] !== plainRun(after.heights[i]) && masks[i] !== plainRun(before.heights[from[k]]))) continue;
     const dz = (k: number) => kept(tiles[k]) - before.heights[from[k]];
     if (tiles.every((_, k) => dz(k) === dz(0))) continue;
     let low = Infinity;
     for (const i of tiles) low = Math.min(low, kept(i));
+    // (the other forces leave the voxels as they were: a tile is plain if they are one run to its height before or
+    // after; on Erode's openings there is no level seat to cut)
+    const voxels = !!masks && tiles.some((i, k) => masks[i] !== plainRun(after.heights[i]) && masks[i] !== plainRun(before.heights[from[k]]));
     // (the cut stands only where the operation keeps it: never on a kept tile, never past the feather; a seat across
-    // the working area's edge is held as it was instead, as the area holds the rest of it)
-    if (tiles.some((i) => low !== kept(i) && ((keep !== null && keep[i] !== 0) || (ease !== null && low < before.heights[i] - ease[i])))) {
+    // the working area's edge, or on voxels, is held as it was instead, as the area holds the rest of it)
+    if (voxels || tiles.some((i) => low !== kept(i) && ((keep !== null && keep[i] !== 0) || (ease !== null && low < before.heights[i] - ease[i])))) {
       if (!tiles.every((i, k) => i === from[k])) continue;
-      for (const i of tiles)
-        if (after.heights[i] !== before.heights[i]) {
-          if (masks && masks[i] === plainRun(after.heights[i])) masks[i] = plainRun(before.heights[i]);
-          after.heights[i] = before.heights[i];
-          cut.push(i);
-        }
+      for (const i of tiles) {
+        const was = masks ? (before.masks?.[i] ?? plainRun(before.heights[i])) : 0;
+        if (after.heights[i] === before.heights[i] && (!masks || masks[i] === was)) continue;
+        if (masks) masks[i] = was;
+        if (after.lava && before.lava) after.lava[i] = before.lava[i];
+        after.heights[i] = before.heights[i];
+        cut.push(i);
+      }
       e.z = b.z;
       continue;
     }

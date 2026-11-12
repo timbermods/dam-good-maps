@@ -139,9 +139,6 @@ interface PyCheck {
 const tsVerdict = (c: CheckResult): Verdict => (c.applicable === false ? "na" : c.approximate ? "approx" : c.ok ? "pass" : "fail");
 const pyVerdict = (c: PyCheck): Verdict => (c.na ? "na" : c.approx ? "approx" : c.ok ? "pass" : "fail");
 
-/** Rows the oracle has no counterpart for (TypeScript's own, validate/README.md). */
-const TS_ONLY = new Set(["terrain.ruled_land"]);
-
 /** Compare the two reports of one map; returns the disagreements. */
 function compare(label: string, ts: CheckResult[], pyChecks: PyCheck[]): string[] {
   const out: string[] = [];
@@ -150,7 +147,6 @@ function compare(label: string, ts: CheckResult[], pyChecks: PyCheck[]): string[
   for (const id of new Set([...a.keys(), ...b.keys()])) {
     const x = a.get(id);
     const y = b.get(id);
-    if (x && !y && TS_ONLY.has(id)) continue;
     if (!x || !y) {
       out.push(`${label}: ${id} only in ${x ? "TypeScript" : "Python"}`);
       continue;
