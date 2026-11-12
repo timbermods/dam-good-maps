@@ -83,6 +83,9 @@ export const WASHES = {
    *  level under the land; a two-deep one's core a level under that), and its least tiles (a bed whose hollow the
    *  ramps' pass leaves smaller is undone). */
   hollow: { radius: [2.0, 3.0] as const, depth: [1, 2] as const, least: 5 },
+  /** A broad flat, tiles: a dry wash may cut into one, never leave it in parts all smaller (D518: the flats keep their
+   *  size; Canyon's side canyons are cut to part its land). */
+  flat: 600,
   /** The old bed: its length, and the most its ground at the lake's end stands over the lake's level. */
   old: { least: 16, most: 44, rim: 2 },
   /** The start's ground the beds keep off (`startKeepOff`): its walk out to this many tiles (its farmland's, forester's
@@ -1173,9 +1176,9 @@ export function planWashes(inp: WashInput): Washes {
   };
 
   // ---- the bench a start needs: a bed may cross a level plate a start may take, so long as it keeps that
-  const plate = inp.bench ? levelRegions(h0, W, H) : null;
-  const plateFlag = plate ? new Uint8Array(plate.size.length) : null;
-  if (plate && plateFlag) {
+  const plate = levelRegions(h0, W, H);
+  const plateFlag = inp.bench ? new Uint8Array(plate.size.length) : null;
+  if (plateFlag) {
     for (const p of inp.starts ?? [])
       if (p.x >= 0 && p.y >= 0 && p.x < W && p.y < H) plateFlag[plate.labels[p.y * W + p.x]] = 1;
     if (inp.benchPlates) for (let i = 0; i < N; i++) if (inp.benchPlates[i]) plateFlag[plate.labels[i]] = 1;
@@ -1184,12 +1187,13 @@ export function planWashes(inp: WashInput): Washes {
    *  stands on; or, where fewer than two plates keep it, a plate's largest), by label: a bed keeps off them from then
    *  on. */
   const benchShort = (): number[] => {
-    if (!plate || !plateFlag || !inp.bench) return [];
-    const need = inp.bench;
+    const need = inp.bench ?? Infinity;
+    // (Canyon's side canyons are cut to part its land: the guard is the dry washes')
+    const flat = deep ? Infinity : WASHES.flat;
     const hit = new Set<number>();
     for (let i = 0; i < N; i++) {
       const L = plate.labels[i];
-      if (mask[i] && L >= 0 && plateFlag[L] && plate.size[L] >= need) hit.add(L);
+      if (mask[i] && L >= 0 && ((plateFlag?.[L] && plate.size[L] >= need) || plate.size[L] >= flat)) hit.add(L);
     }
     if (!hit.size) return [];
     const part = new Int32Array(N).fill(-1);
@@ -1219,21 +1223,25 @@ export function planWashes(inp: WashInput): Washes {
     // (a plate no place a start may take stands on may go short while two plates or more keep the bench: the settle's
     // start keeps its choice)
     const short = new Set<number>();
+    // (a broad flat keeps its size: a bed may cut into it, never leave it in parts all under a broad flat's, D518)
+    for (const L of hit) if (plate.size[L] >= flat && (largest.get(L) ?? 0) < flat) short.add(L);
     let keep = 0;
-    for (let L = 0; L < plateFlag.length; L++)
-      if (plateFlag[L] && plate.size[L] >= need && (!hit.has(L) || largest.get(L)! >= need)) keep++;
-    if (keep < 2) for (const L of hit) if ((largest.get(L) ?? 0) < need) short.add(L);
-    for (const p of inp.starts ?? []) {
-      if (p.x < 0 || p.y < 0 || p.x >= W || p.y >= H) continue;
-      const i = p.y * W + p.x;
-      if (hit.has(plate.labels[i]) && (part[i] < 0 || sizes[part[i]] < need)) short.add(plate.labels[i]);
-    }
+    if (plateFlag)
+      for (let L = 0; L < plateFlag.length; L++)
+        if (plateFlag[L] && plate.size[L] >= need && (!hit.has(L) || largest.get(L)! >= need)) keep++;
+    if (plateFlag && keep < 2) for (const L of hit) if (plateFlag[L] && plate.size[L] >= need && (largest.get(L) ?? 0) < need) short.add(L);
+    if (plateFlag)
+      for (const p of inp.starts ?? []) {
+        if (p.x < 0 || p.y < 0 || p.x >= W || p.y >= H) continue;
+        const i = p.y * W + p.x;
+        if (hit.has(plate.labels[i]) && plateFlag[plate.labels[i]] && plate.size[plate.labels[i]] >= need && (part[i] < 0 || sizes[part[i]] < need)) short.add(plate.labels[i]);
+      }
     return [...short];
   };
   /** Keep the beds off `plates` from now on. */
   const keepPlates = (plates: readonly number[]): void => {
     const off = new Set(plates);
-    for (let i = 0; i < N; i++) if (off.has(plate!.labels[i])) allowed[i] = 0;
+    for (let i = 0; i < N; i++) if (off.has(plate.labels[i])) allowed[i] = 0;
   };
 
   // ---- the washes: the longest bed a trunk end gives, from the ends with the most land draining through them,

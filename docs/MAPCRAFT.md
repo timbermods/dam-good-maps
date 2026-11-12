@@ -114,10 +114,12 @@ a premise or one still to come, may carry its own, lower playability floor.
   bare-ground share.
 - **Wood**: living trees near the official maps' count to about half the Workshop's (roughly 350–700 per 10,000
   tiles), as stands with a purpose; and dead trees on the dry land as the game's maps have them (36 to 124 per 1,000
-  dry tiles; ours about 40, D516), in a few old woods where forest was: the old water line, dry beds, a mesa top, dry
-  hollows; pines on the tops, birches by old water, a few old oaks. A stand is knots of 3 to 8 trunks with gaps, thinning
-  to single trees at its edge, its outline the land's (a rim, a bank, the old water line), a third of its trees shorter
-  (died young; D518). A dead tree keeps its logs and grows none back: wood travelled for, none in the start's walk.
+  dry tiles; ours about 40, D516), in two to four old woods where forest was: the old water line, dry beds, a mesa top,
+  dry hollows; pines on the tops, birches by old water, a few old oaks. The rest of the dry land is bare: at most a
+  quarter of it within 6 tiles of a dead tree, the count giving way first. A stand is irregular knots of 3 to 8 trunks
+  with gaps, never a filled square, thinning to single trees at its edge, its outline the land's (a rim, a bank, the old
+  water line), a third of its trees shorter (died young; D518). A dead tree keeps its logs and grows none back: wood
+  travelled for, none in the start's walk.
 - **Dry washes**: one or two long winding dry beds across the dry land, as each of the game's maps has (D517): 60 to
   150 tiles on a 128² map, 3 wide (a branch 2), a level or two deep, its banks long straight treads (each reach 3 tiles
   at least before it steps aside, no teeth; D518), where rain would run, with side branches and fords every
@@ -143,7 +145,7 @@ a premise or one still to come, may carry its own, lower playability floor.
   | Loved Workshop maps, aggregate only (p10–p90, 130 maps) | 1.1–9.8 | – | – | – |
   | Themes at 128², seeds 1–12 (72 maps) | 0.8–12.2 (Islands 5.5–12.2) | 0–2.0 | 0–1.5 | 0–8.1 |
   | Themes at 256², seeds 1–3 (18 maps) | 1.8–8.0 | 0–0.4 | 0–0.3 | 0–8.5 |
-  | Lake stair 128², seeds 1–3 in Any (D518) | 8.1, 3.3, 5.3 | 0.7, 0.4, 0.0 | 0.9, 1.6, 2.2 | – |
+  | Lake stair 128², seeds 1–3 in Any (D518) | 8.9, 3.1, 5.6 | 0.8, 0.4, 0.0 | 1.1, 1.8, 2.0 | – |
   | (before D518: seeds 1, 2; seed 3 in Canyon or Highlands style) | 11.7, 11.5; 7.8 | 1.7, 0.8; 0.5 | **5.4, 3.9; 3.7–3.8** | 0, 3.5; 1.7 |
   | Four Lakes plan, 192² | 9.8 | 1.0 | 2.8 | 2.3 |
   | The Gate as laid, 128² seeds 1, 2 | 38.4, 34.4 | 7.6, 4.1 | 9.0, 4.6 | 57.6, 45.1 |

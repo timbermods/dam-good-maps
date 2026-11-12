@@ -94,6 +94,8 @@ const PLATE = { from: 5, wander: 3, start: 16, lift: 1.2 };
  *  premise's own). */
 const PLATE_TURN = [4 / 5, 3 / 5] as const;
 const PLATE_TURN_MOST = 128 * 128;
+/** The bend keeps off the start's own ground, this many tiles round it (its walk out to the reach floor's). */
+const BEND_START = 24;
 /** Highlands' peaks: `share` of the plates' points a cone, its summit `low` to 1 of the form's span and level for
  *  `flat` tiles round its point (a summit narrower than the bench-width floor's 5 tiles is worn down by it), falling a
  *  span's height over `reach` plates' widths; between them rolling heights at `base` of the span, `roll` either way
@@ -810,8 +812,10 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   for (let i = 0; i < N; i++) where[i] = !keep[i] && nearAll[i] > 3 && !narrow[i] && Math.max(Math.abs((i % W) - stx), Math.abs(Math.floor(i / W) - sty)) >= PLATE.start ? 1 : 0;
   tidy(h, r, base);
   widenBenches(h, W, H, where);
-  // (its benches' sides bent, so they meet in no straight side or square corner, D518)
-  if (W * H <= PLATE_TURN_MOST) bendLevels(h, W, H, where, S("bend"));
+  // (its benches' sides bent, so they meet in no straight side or square corner, D518; not within `BEND_START` of the
+  // start, whose walk the bend would narrow)
+  if (W * H <= PLATE_TURN_MOST)
+    bendLevels(h, W, H, Uint8Array.from(where, (v, i) => (v && Math.max(Math.abs((i % W) - stx), Math.abs(Math.floor(i / W) - sty)) >= BEND_START ? 1 : 0)), S("bend"));
   for (let i = 0; i < N; i++) if (!keep[i] && h[i] < base[i]) h[i] = base[i];
   tidy(h, r, base);
   return h;

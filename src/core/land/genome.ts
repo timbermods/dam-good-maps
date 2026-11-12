@@ -692,9 +692,10 @@ export interface Grade {
   rise: number;
 }
 
-/** The rises' noise (D518): its cell, tiles, and the share of the land under them (where the noise passes `from`; at
- *  `from + span` a rise stands `roll × rise` over the land round it). */
-export const RISES = { cell: 24, from: 0.2, span: 0.4 } as const;
+/** The rises' noise (D518): its cell, tiles, and the share of the land under them (where the noise passes `from`, its
+ *  highest few hundredths, so a rise is a compact hill and the broad flats keep their size; each `span` more, a rise
+ *  stands `roll × rise` higher over the land round it, so its rings nest close). */
+export const RISES = { cell: 24, from: 0.6, span: 0.15 } as const;
 
 /** Each theme's grade, about the middle of its draw: Highlands and Canyon keep the most tableland (their
  *  promises' cliffs and plateaus), the low themes roll gently so their floors stay broad. */

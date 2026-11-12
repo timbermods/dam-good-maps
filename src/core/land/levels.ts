@@ -159,8 +159,9 @@ export function grader(gr: Grade, seed: number, variation: number, W: number, H:
     const mesa = smoothstep(((lattice ? fbm(gs + 1, x, y, wide / 4, 2) : warpedFbm(gs + 1, x, y, wide / 4, 2, wide / 8)) - table) / 0.1 + 0.5);
     if (st > 1) L = bench(L, phase + gr.drift * st * (lattice ? fbm(gs, x, y, wide / 3, 2) : warpedFbm(gs, x, y, wide / 3, 2, wide / 6)), st, gr.riser * (1 - mesa));
     // the rolling ground: swells and hollows of a level or two between the features (gentler on the
-    // tableland's tops, which keep broad level ground)
-    if (gr.roll > 0) L += gr.roll * (1 - gr.calm * mesa) * (lattice ? fbm(gs + 3, x, y, gr.rollCell, 3) : warpedFbm(gs + 3, x, y, gr.rollCell, 2, 0.5 * gr.rollCell));
+    // tableland's tops, which keep broad level ground); the turned noise's two octaves weighed as the lattice's first
+    // two were (1 and 1/2 over 1.75), so the swells stand no higher and the flats between them keep their size
+    if (gr.roll > 0) L += gr.roll * (1 - gr.calm * mesa) * (lattice ? fbm(gs + 3, x, y, gr.rollCell, 3) : (1.5 / 1.75) * warpedFbm(gs + 3, x, y, gr.rollCell, 2, 0.5 * gr.rollCell));
     // the rises: hills over the land round them, a level a ring, gentler on the tableland's tops (D518)
     if (!lattice && gr.roll > 0 && gr.rise > 0) {
       const n = warpedFbm(gs + 5, x, y, RISES.cell, 2, RISES.cell / 2);
