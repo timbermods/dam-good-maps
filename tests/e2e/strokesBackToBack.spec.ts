@@ -15,6 +15,12 @@ test("strokes painted back to back end with the page's land the worker's, byte f
   await page.setViewportSize({ width: 1400, height: 900 });
   await watchOpen(page);
   await openEditor(page, "s=4242&z=128&d=n&t=riverValley");
+  // (the "Move the start here" tag the Flatten stroke leaves is a button over the map, above its level ground: here
+  // right over the Smooth stroke's start once it shows its longer words, when the start's check meets, a moment that
+  // depends on the machine. A press on it is the tag's and begins no stroke: in CI's run 43149840803 the Smooth
+  // stroke's press waited 660 ms for a busy page, the tag grew under it meanwhile, and that stroke left no step. This
+  // spec is about strokes, so here the tag takes no press; brushKit.spec.ts presses it.)
+  await page.addStyleTag({ content: ".start-hint { pointer-events: none; }" });
   await log.open(page);
   await topDown(page);
   log.lap("top-down");
