@@ -40,6 +40,8 @@ test("strokes painted back to back end with the page's land the worker's, byte f
   await page.evaluate(() => window.dgmEditor!.idle());
   expect((await page.evaluate(() => window.dgmEditor!.info())).history.filter((h) => h.applied).length).toBe(keys.length);
   expect(await page.evaluate(() => window.dgmEditor!.strokeMismatches())).toBe(0);
+  // (every answer's land was its rectangle, laid on the land the page held: never the whole land again, #922 step 4)
+  expect(await page.evaluate(() => window.dgmEditor!.edits().landResends)).toBe(0);
   const built = await page.evaluate(async () => Array.from((await window.dgmEditor!.worker.terrainNow()).heights));
   expect(await heights(page)).toEqual(built);
   log.lap("idle and checks");

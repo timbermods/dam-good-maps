@@ -3,9 +3,9 @@
 // oracle, and one pinned scenario per issue of the family (#410, #873, #880, #884, #868, #829) and per failure nobody
 // had filed (U1–U10, #922).
 //
-// The page does not use the queue yet. The harness plays the page as steps 2 and 3 make it play (strokes, moves and
-// edits as tickets; Naturalize through `StrokeFeed`; a map switch awaiting `idle()`), so each scenario passes here now
-// and is the acceptance test the page's step must meet: its title says which step ("step 2", "step 3", "step 4").
+// The harness plays the page as steps 2 to 4 make it play (strokes, moves and edits as tickets; Naturalize through
+// `StrokeFeed`; a map switch awaiting `idle()`; every stroke composed complete by the one composer, and answers' land
+// laid from their patches), so each scenario is the acceptance test of the step its title names ("step 2" to "step 4").
 // Where today's page still behaves otherwise, its own tests (tests/unit/remoteStroke.test.ts) keep asserting today's
 // behaviour until that step changes it (D148): planning's three rulings on #922's behaviours are asserted here, on the
 // queue, already.
@@ -85,7 +85,7 @@ describe("the edit queue against the worker: pinned scenarios", () => {
     const logged = (lastOp() as Extract<EditOp, { op: "brush" }>).params;
     // (the record the worker's preview grew is the one the session replays)
     for (const k of ["weathering", "shore", "pools", "moist", "dabs", "seed"] as const) expect(logged[k], k).toEqual(sent[k]);
-    // (whether it lands as it was shown is step 4's: below)
+    // (and it lands as it was shown: step 4's, below)
     checkConverged(h, "#873");
     checkOracle(h, h.queue.epoch, "#873");
   });

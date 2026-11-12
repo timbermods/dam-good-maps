@@ -21,6 +21,7 @@
 import { createHash } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
+import { heightsAfter } from "../../src/core/doc/landPatch";
 import { MapSession } from "../../src/core/doc/session";
 import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
 import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
@@ -72,6 +73,9 @@ function page(clock: StepClock, speed: ForceSpeed, req: ed.ForceRequest) {
     return next;
   };
   const shown: { heights: Uint8Array } = { heights: ed.terrainNow().heights.slice() };
+  /** The land the worker's answers left (the edit queue's `base`): the force's frames draw over it, a keep's answer lays
+   *  the land it changed on it (#922 step 4), and the page shows it again. */
+  let base: Uint8Array = shown.heights.slice();
   const note = (e: string) => {
     trace.push(e);
     hook?.(e, trace.length);
@@ -94,12 +98,14 @@ function page(clock: StepClock, speed: ForceSpeed, req: ed.ForceRequest) {
         if (!wanted()) return;
         const u = await call("keep", () => ed.forceStop(gesture));
         if (!wanted()) return;
-        if (u.view.heights) shown.heights = u.view.heights;
+        // (the answer carries the land it changed, laid on the land the worker's answers left, #922 step 4)
+        base = heightsAfter(base, u.view, W);
+        shown.heights = base;
       }),
     drop: (gesture) =>
       enqueue(async () => {
         const v = await call("drop", () => ed.forceCancel(gesture));
-        if (v.heights) shown.heights = v.heights;
+        if (v.heights) shown.heights = base = v.heights;
       }),
     renderer: () => null,
     show: (f) => {

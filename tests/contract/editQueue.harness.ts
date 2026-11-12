@@ -143,7 +143,7 @@ export class Harness {
     ed.listen(null);
     const open = ed.openProject(project);
     this.opened.set(open.epoch, project);
-    this.queue = new EditQueue(open as QueueOpen, this.port(), this.clock, { line: (t) => void this.lines.push(t), expired: () => this.restartNat() }, { log: opts.log ?? true, mapBound: opts.mapBound });
+    this.queue = new EditQueue(open as QueueOpen, this.port(), this.clock, { line: (t) => void this.lines.push(t), expired: () => this.restartNat(), stale: () => this.resendLand() }, { log: opts.log ?? true, mapBound: opts.mapBound });
   }
 
   get W(): number {
@@ -168,6 +168,12 @@ export class Harness {
       end: (id) => call(() => this.nat.end(id)),
       cancel: (id) => void this.toNat.push({ run: () => this.nat.cancel(id), resolve: () => {} }),
     };
+  }
+
+  /** A patch of the land did not lay on the land the queue holds: the worker's whole land, as the page asks for it. */
+  private resendLand(): void {
+    const l = ed.landNow();
+    queueMicrotask(() => this.queue.event({ ok: true, errors: [], epoch: l.epoch, view: l.view as MapAnswer["view"] }));
   }
 
   /** The Naturalize worker never answered a stroke in time: a fresh one (what was sent to the old one is gone). */
@@ -452,6 +458,16 @@ export function checkConverged(h: Harness, where: string): void {
   expect(Buffer.from(q.base.heights).equals(Buffer.from(now.heights)), `${where}: base is the worker's land`).toBe(true);
   expect(Buffer.from(q.terrain().pre).equals(Buffer.from(now.terrain.pre)), `${where}: pre is the worker's`).toBe(true);
   expect(Buffer.from(q.terrain().protect).equals(Buffer.from(now.terrain.protect)), `${where}: protect is the worker's`).toBe(true);
+  // (every tile map of the terrain the page paints on, laid from the answers' patches, #922 step 4; but the settled
+  // water's depth and moisture, which come with the water's news, a channel the harness does not deliver)
+  for (const k of ["channel", "floor", "worn", "base", "locked", "field"] as const) {
+    const a = q.base.terrain[k] as ArrayLike<number> | null | undefined;
+    const b = now.terrain[k] as ArrayLike<number> | null | undefined;
+    expect(!a === !b, `${where}: ${k} is there as the worker's`).toBe(true);
+    if (a && b) expect(Buffer.from(new Uint8Array((a as Uint8Array).buffer, (a as Uint8Array).byteOffset, (a as Uint8Array).byteLength)).equals(Buffer.from(new Uint8Array((b as Uint8Array).buffer, (b as Uint8Array).byteOffset, (b as Uint8Array).byteLength))), `${where}: ${k} is the worker's`).toBe(true);
+  }
+  expect(JSON.stringify(q.base.terrain.rockHold ?? null), `${where}: the rock's holds are the worker's`).toBe(JSON.stringify(now.terrain.rockHold ?? null));
+  expect(q.landResends, `${where}: every patch laid on the land it was made against`).toBe(0);
   const rows = q.history();
   const worker = ed.sessionInfo().history;
   expect(rows.rows.map((r) => [("seq" in r.ref ? r.ref.seq : -1), r.applied]), `${where}: history`).toEqual(worker.map((w) => [w.seq, w.applied]));

@@ -23,7 +23,7 @@ function facts(): StrokeFacts {
     moisture: new Float64Array(W * W),
     worn: new Uint8Array(W * W),
   };
-  return { W, H: W, heights: pre.slice(), terrain, entities: [{ template: "WaterSource", x: 14, y: 10, z: 6, orientation: "Cw0", flipped: false }] };
+  return { W, H: W, heights: pre.slice(), terrain, entities: [{ template: "WaterSource", x: 14, y: 10, orientation: "Cw0", flipped: false }] };
 }
 const stroke = (): BrushParams => ({ tool: "naturalize", size: 3, strength: 5, seed: 1, weathers: true, dabs: [12 * 4 + 2, 10 * 4 + 2, 14 * 4 + 2, 10 * 4 + 2] });
 

@@ -13,6 +13,7 @@ import { columnMask, meshChunk, CHUNK, type TerrainSource } from "../../src/rend
 import { columnMap, columnMasks, LAYERS, type MapView } from "../../src/render3d/model";
 import { pickTerrain, type Ray } from "../../src/render3d/pick";
 import { apply, openTimber } from "../../src/worker/session";
+import { heightsAfter } from "../../src/core/doc/landPatch";
 import { CAVE, CAVE_H as H, CAVE_W as W, caveFile, dig, LEDGE } from "./caveMap";
 
 /** The source as the renderer builds it (the masks looked up) and as it was (the voxels read at each look). */
@@ -53,7 +54,8 @@ describe("the masks from the worker (3D view, item 1)", () => {
       const u = apply(op as Parameters<typeof apply>[0]);
       expect(u.errors, JSON.stringify(op.params).slice(0, 60)).toEqual([]);
       expect(u.view.columns, "the columns go with an edit that reshaped them").toBeDefined();
-      const now = u.view.heights ?? heights;
+      // (the answer carries the land it changed, #922 step 4)
+      const now = heightsAfter(heights, u.view, W);
       checkMasks(now, u.view.columns!);
       // the page's stroke: the new heights painted in place over the columns it had; every column follows its
       // height as the worker's columns now have it (a plain column its height, a roof its top run)

@@ -286,6 +286,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
       // the next stroke, #884)
       expired: () => restartNaturalizer(),
       answer: (a, t) => queueHost.current.answer?.(a, t),
+      // (a patch of the land that did not lay on the land the queue holds: the worker's whole land, as an event)
+      stale: () => void api.landNow().then((l) => edits.current.event({ ok: true, errors: [], epoch: l.epoch, view: l.view as MapAnswer["view"] })),
     });
     view.heights = edits.current.shown;
   }
@@ -867,6 +869,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
    *  already, by the same arrays). */
   function newLand(v: ViewUpdate | undefined): boolean {
     const base = edits.current.base;
+    if (v?.land || v?.wet) return (!!v.land && !edits.current.took(v.land)) || (!!v.wet && !edits.current.took(v.wet));
     return !!v && ((!!v.heights && v.heights !== base.heights) || (!!v.terrain && v.terrain !== base.terrain));
   }
 
@@ -900,7 +903,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   function applyView(v: ViewUpdate): void {
     // (new land ends the flip; water, soil and objects arriving while the other version is on show wait in the page's
     // copy, and are drawn when the key lets go)
-    if (v.heights) endFlip();
+    if (v.heights || v.land) endFlip();
     const flipped = comparing.current;
     const r = flipped ? null : renderer.current;
     const m = mirror.current;
