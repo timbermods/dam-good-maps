@@ -28,6 +28,7 @@ import { premiseLand, premiseMap } from "./map";
 import { premiseCard, type PremiseCard } from "./card";
 import { resolvePremise, type StyleTheme } from "./choice";
 import { sitePlan } from "./siting";
+import { startWaterGate } from "./hold";
 import { PREMISES } from "./premises";
 import { premiseStyle } from "./style";
 import type { PremisePlan } from "./types";
@@ -186,6 +187,14 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}, own
         report.checks.filter((c) => blocks(report.profile, c)).map((c) => c.id),
       );
       last = report.checks.filter((c) => blocks(report.profile, c)).map((c) => `${c.id}: ${c.message}`)[0] ?? last;
+      continue;
+    }
+    // the start's water through the difficulty's longest drought (D133's rule, PREMISES §2.2 stage 8): read by number,
+    // the drought run (on the settle's threads) only where that read cannot vouch for it; a start whose water goes in
+    // the run is the next plan
+    const held = withSmallMapThreads(() => startWaterGate(spec, plan, m.built, water));
+    if (held.gone) {
+      fail(attempt, [{ id: "drought.start", reason: `the start's water is gone on day ${held.gone} of a ${held.days}-day drought` }]);
       continue;
     }
     const info: GenerationInfo = {

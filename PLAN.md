@@ -923,8 +923,8 @@ The same modules serve the editor. Each check has a class, and a profile decides
   on an import they are only information, because official and workshop maps with caves, or terrain up to 22, load
   fine in the game.
 - **principle** (D115 (2)): `terrain.edge_wall` (no edge walls, D151) and `terrain.dam_wall` (no built dam wall,
-  D111). It must pass in `generate` and blocks the export in `export`; on an import it is information, and a problem
-  an imported map already had never blocks its export (the export dialog lists it apart).
+  D111). It must pass in `generate`; in `export` it warns with its reason and never blocks (a player's own map exports
+  whenever the game will load it, D3); on an import it is information.
 
 Imported maps have no spec, so thresholds come from the document's "designed for" difficulty (default Normal) and
 default settings. Checks that need a planned feature (`water.badwater_contained`, `water.outflow`) report "not
@@ -1313,9 +1313,9 @@ checks and export gating.
 - **Check result:** `{id, class, severity, ok, value, limit, message, where?, fix?}`. The classes are `load`,
   `playability`, `design` and `principle` (§11). A check marked advisory (`plants.drought`, the start targets of
   §11.4, `water.storage_possible`) is reported in every profile and never blocks.
-- **Profiles:** `generate` (retry until all pass, then offer the download): load, playability and design must pass.
-  `export` (editor export): load blocks; playability warns on the quiet dot, never blocking (D184), and is noted in
-  the map description; design warns. `import` (opening a file): load is reported, and the importer fixes what the
+- **Profiles:** `generate` (retry until all pass, then offer the download): load, playability, design and principle
+  must pass. `export` (editor export): only load blocks (D3); playability warns on the quiet dot, never blocking
+  (D184), and is never written into the map's description; design and principle warn. `import` (opening a file): load is reported, and the importer fixes what the
   game itself would fix (§19.6); playability is reported; design is information.
 - **Scope:** every check runs on the whole map or on a dirty region. The instant subset (footprints, overlaps, start
   area, limits, slopes, terrain support) runs after each edit; the rest runs in a worker. **Thresholds** come from

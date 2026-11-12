@@ -300,7 +300,7 @@ export function gateWorkWords(plan: PremisePlan, w: WorkSite): string {
     case "leatWhole":
       return `Blast ${name(g.leat)}'s bar again (${tiles(w.tiles.length)}) to take the springs' share over the pass.`;
     case "megadam":
-      return `Dam ${name(g.low)} in the ridge and ${name(g.gate)} with it (${tiles(w.tiles.length)}) to raise ${name(g.lake)} into a reservoir.`;
+      return `Dam ${name(g.low)} in the spur and ${name(g.gate)} across its gorge in the range, two walls (${tiles(w.tiles.length)}), to raise ${name(g.lake)} into a reservoir.`;
     default:
       return `Build at ${name(w.on)} (${tiles(w.tiles.length)}).`;
   }
@@ -337,7 +337,8 @@ export function gateDamDays(plan: PremisePlan, w: StageWater, ladder: Ladder, m:
 export function gateDamWords(plan: PremisePlan, days: { dammed: number; lake: number }): string {
   const g = gateOf(plan)!;
   const name = plan.names[g.lake] ?? g.lake;
-  return `With the megadam, ${name} holds water for ${days.dammed} days of drought; without it, for ${days.lake}.`;
+  const n = (id: string) => plan.names[id] ?? id;
+  return `With the megadam's two walls, across ${n(g.low)} in the spur and across ${n(g.gate)} in the range, ${name} holds water for ${days.dammed} days of drought; without them, for ${days.lake}.`;
 }
 
 /** The card's words for a gate map: the premise's name, the style, the landmark and the ladder's first rung. */

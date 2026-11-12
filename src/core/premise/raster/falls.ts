@@ -440,12 +440,16 @@ function rasterFall(
     // and in the lip's middle it split the curtain in two: at one end of the lip, through the crest behind it)
     if (f.notch > 0) {
       const toss = rng.float();
-      let p: number;
+      // (at one end of the lip, the tossed end where the crest stands behind it, else the other)
+      const ends = toss < 0.5 ? [0, L - f.notch] : [L - f.notch, 0];
+      const atEnd = () => ends.find((e) => behindOf(lip[e]) >= 0) ?? ends[0];
+      let p = -1;
       if (f.height - 1 >= CURTAIN_DROP) {
+        // (a curtain's notch in a run's middle near the lip's middle; a lip with none there, a diagonal's runs of one
+        // or two, takes it at an end, where no lip tile lies past it to starve)
         const want = pick(0.35 + 0.3 * toss);
         const midRun = (k: number) =>
           k >= 1 && k + f.notch < L && rowOf(lip[k - 1]) === rowOf(lip[k]) && rowOf(lip[k + f.notch]) === rowOf(lip[k]);
-        p = want;
         for (let d = 0; d <= L * 0.2; d++) {
           if (midRun(want - d)) {
             p = want - d;
@@ -456,10 +460,8 @@ function rasterFall(
             break;
           }
         }
-      } else {
-        const ends = toss < 0.5 ? [0, L - f.notch] : [L - f.notch, 0];
-        p = ends.find((e) => behindOf(lip[e]) >= 0) ?? ends[0];
-      }
+        if (p < 0) p = atEnd();
+      } else p = atEnd();
       for (let k = 0; k < f.notch; k++) notch.push(lip[Math.max(0, Math.min(L - 1, p + k))]);
     }
   }
