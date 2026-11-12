@@ -699,7 +699,9 @@ above, and why:
 - **Nothing grows** on a work's site and a tile round it, on the ground only a work's water would turn green (its
   reach), in a dry bed or basin, or within a tile of the start's sight line to each lip tile of its landmark.
 - **Dead woods**: a clump of 6 to 14 dead trees on each empty basin's old shore (1 to 4 tiles out, on dry ground),
-  and beside each dry bed 15 tiles long or more (1 to 3 tiles out; the bypass one for each 60 tiles of it).
+  and beside each dry bed 15 tiles long or more (1 to 3 tiles out; the bypass one for each 60 tiles of it). Before
+  them, the generator's planting lays the dead stands every map has (D516, `gen/deadStands.ts`): about 40 per 1,000
+  dry tiles by the player's Forests, on the dry land the premise leaves open.
 - **The benches over the lakes are dressed** (`benchesOver`, `LIFE.bench`): dry level ground 3 or more levels over a
   lake's sill within 10 tiles of it, 12 tiles or more together, is a place (§9's dry places); one stand on each, a
   bench for each 5,000 tiles of map at most, the one nearest the start first, so one is in the start's sight:

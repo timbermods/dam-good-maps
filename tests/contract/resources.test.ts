@@ -11,9 +11,10 @@ import { readTimber, writeTimber } from "../../src/core/format/timber";
 import { DENSITY, OFFICIAL_LAYOUT, officialRange, RUIN_HEIGHT_SHARES, SPREAD } from "../../src/core/gen/calibrated";
 import { generate } from "../../src/core/gen/generate";
 import { toTimberFile } from "../../src/core/gen/pack";
-import { distanceFrom } from "../../src/core/math/grid";
+import type { ForestFeature } from "../../src/core/features/schema";
+import { distanceFrom, runsToTiles } from "../../src/core/math/grid";
 import { stream } from "../../src/core/math/rng";
-import { meanStoreys, pickMineSite, planGroves, planPatches, planRuinFields, resourceBudget, ruinColumns, storeyMix, type BaselineGround } from "../../src/core/resources/baseline";
+import { meanStoreys, pickMineSite, planGroves, planPatches, planRuinFields, resourceBudget, ruinColumns, startWalkField, storeyMix, type BaselineGround } from "../../src/core/resources/baseline";
 import { isSapling, treeLogs } from "../../src/core/analysis/wood";
 import { startingLocation } from "../../src/core/format/entities";
 import { groundOfFile, measureResources, startCentreOf, TOWER } from "../../tools/lib/resources";
@@ -310,13 +311,30 @@ describe("the resource baseline (Kyler, 2026-09-25)", () => {
       const sc = officialRange("scrap", area);
       expect(m.ruins.scrap, `${theme} scrap`).toBeGreaterThan(0.85 * sc.low * (s.ruins / 100));
       expect(m.ruins.scrap, `${theme} scrap`).toBeLessThan(1.15 * sc.high * (s.ruins / 100));
-      // dead trees rare and deliberate (item 26: the official maps store two thirds dead; ours, the
-      // start's fallback and a drought-killed grove); the map's own groves as full as the official
-      // ones. (D148: item 26 counts living trees only, so where the start's walk holds little moist
-      // ground its planting fills that ground to make the starting wood (D85, D252), with no dead
-      // grove on dry land to share it: Canyon 96² seed 5's start packs 308 trees at 0.76, its map's
-      // own groves 0.36. The groves beyond the start's 25 tiles are the map's own.)
-      expect(m.trees.deadShare, `${theme} dead share`).toBeLessThan(0.1);
+      // dead trees: the dead stands on the dry land (D516, amending item 26's "rare and deliberate", D148), about 40
+      // per 1,000 dry tiles at Forests 100 %, in stands, none within 24 tiles' walk of the start, on dry ground (a
+      // spring a 3D form opens after the planting may green a few of their tiles); any other dead tree rare and
+      // deliberate as item 26 has it (the start's fallback, the floor's dry-ground wood). The map's own groves as
+      // full as the official ones. (D148: item 26 counts living trees only, so where the start's walk holds little
+      // moist ground its planting fills that ground to make the starting wood (D85, D252), with no dead grove on dry
+      // land to share it: Canyon 96² seed 5's start packs 308 trees at 0.76, its map's own groves 0.36. The groves
+      // beyond the start's 25 tiles are the map's own.)
+      const b = r.built;
+      const stands = r.features.filter((f): f is ForestFeature => f.kind === "forest" && (f.role ?? "").startsWith("forest/dead/"));
+      const standTiles = stands.flatMap((f) => runsToTiles(f.params.area, side));
+      const dryAt = (i: number) => !(b.water[i] > 0) && !(b.moisture[i] > 0);
+      let dry = 0;
+      for (let i = 0; i < area; i++) if (dryAt(i)) dry++;
+      const per1000 = (1000 * standTiles.length) / dry / (s.forestDensity / 100);
+      expect(per1000, `${theme} dead stands per 1,000 dry tiles`).toBeGreaterThan(30);
+      expect(per1000, `${theme} dead stands per 1,000 dry tiles`).toBeLessThan(50);
+      const sizes = stands.map((f) => f.params.groveSize ?? 0).sort((a, c) => a - c);
+      expect(sizes[Math.floor(sizes.length / 2)], `${theme} median stand`).toBeGreaterThanOrEqual(8);
+      expect(standTiles.filter(dryAt).length, `${theme} stands on dry ground`).toBeGreaterThanOrEqual(0.9 * standTiles.length);
+      const walk = startWalkField(b.heights, side, side, b.entities, b.start!);
+      expect(standTiles.filter((i) => walk[i] <= 24), `${theme} stands in the start's walk`).toEqual([]);
+      const deadAll = Object.values(m.trees.bySpecies).reduce((a, v) => a + v.dead, 0);
+      expect((deadAll - standTiles.length) / m.trees.total, `${theme} other dead trees`).toBeLessThan(0.1);
       const ground = groundOfFile(r.file);
       const st = startCentreOf(ground.objects.find((o) => o.template === "StartingLocation")!);
       const own = measureResources({ ...ground, objects: ground.objects.filter((o) => Math.max(Math.abs(o.x - st.x), Math.abs(o.y - st.y)) > 25) });

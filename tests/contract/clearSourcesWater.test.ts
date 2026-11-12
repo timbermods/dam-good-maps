@@ -96,8 +96,10 @@ describe("Clear sources and the water (item 15)", () => {
     // seed 11 since River Valley's main river stays clean, #265, and seed 9 has no such spot;
     // seed 1 for 0.10.7's maps, D502, D148: seed 11 has none now, and seed 1's is at (53, 24), level 7;
     // seed 2 since generator 0.10.13, whose starts frame the map (D507), D148: seed 1's map now has stacked columns, so
-    // its settle no longer runs on the heightfield's engine; seed 2's spot is at (77, 81), level 6, on a heightfield map)
-    expect(await clearedPit(2)).toBe(false);
+    // its settle no longer runs on the heightfield's engine; seed 2's spot is at (77, 81), level 6, on a heightfield map;
+    // seed 15 since generator 0.10.18's dead stands on the dry land, D516, D148: a stand stands within five tiles of seed 2's
+    // spot, and seed 15's is at (77, 12), level 12, on a heightfield map)
+    expect(await clearedPit(15)).toBe(false);
   }, 120_000);
 
   it("and on a map with terrain above terrain: the pit drains there too (#814)", async () => {
