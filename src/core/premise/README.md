@@ -22,8 +22,8 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
 - `types.ts`: `PremisePlan` and its parts, `PremiseDef`, `Invariant`. Its fields beyond PREMISES §1.1 are listed
   there (§1.1, "As built"). The seams a premise may use to change a shared stage (PREMISES §2.2, "Seams"; each
   optional): `PremiseDef.water` and `PremiseDef.land` (its own stages 1 and 2), `ground` invariants
-  (`StageContext.heights`), `Link.halves` (a width per channel point) and `Body.backwater` (a body its feeder stands
-  in). `generatePremise` takes a `PremiseDef` as its third argument, for tests and tools.
+  (`StageContext.heights`), `Link.halves` (a width per channel point), `Body.backwater` (a body its feeder stands
+  in) and `Link.joins` (a wet link into a dry link's bed, wet from the join down). `generatePremise` takes a `PremiseDef` as its third argument, for tests and tools.
 - `draw.ts`: `drawPlan` (one attempt, checked), `firstPlan` (the first that holds), `firstWater` (the first whose
   stage 1 water holds too), `failing`.
 - `siting.ts`: stage 0's second pass (§2.2, "As built (step 8)"). `sitePlan` lays a premise's skeleton (its plan

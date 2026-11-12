@@ -85,6 +85,9 @@ export interface LinkFlow {
   wet: boolean;
   /** A row of Blockages shuts it on day 1. */
   shut: boolean;
+  /** Where a link carries only water that joins it (`Link.joins`): its water from this far along its path down; dry
+   *  above. Absent, its water runs its whole length. */
+  wetFrom?: number;
 }
 
 export interface WaterTable {
@@ -241,6 +244,17 @@ function route(plan: PremisePlan, bodies: Map<string, Body>, widths: Map<string,
     lf.flow += s.strength;
     if (s.bad) lf.bad += s.strength;
     lf.wet = true;
+  }
+  // a wet link into a dry link's bed (`Link.joins`): the bed carries its water from where it joins down to its end
+  for (const l of plan.links) {
+    const lf = out.links[l.id];
+    const into = l.joins ? out.links[l.joins.link] : undefined;
+    if (!l.joins || !into || !lf.wet) continue;
+    const dry = !into.wet;
+    into.flow += lf.flow;
+    into.bad += lf.bad;
+    into.wet = true;
+    if (dry || into.wetFrom !== undefined) into.wetFrom = Math.min(into.wetFrom ?? Infinity, l.joins.at);
   }
   for (const l of plan.links) {
     const lf = out.links[l.id];
