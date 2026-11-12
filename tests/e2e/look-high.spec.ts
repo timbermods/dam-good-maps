@@ -24,11 +24,11 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-async function open(page: Page, errors: string[]): Promise<void> {
+async function open(page: Page, errors: string[], hash = "s=4242&z=96&d=n&t=riverValley"): Promise<void> {
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  await openEditor(page, hash);
 }
 
 const look = (page: Page) => page.evaluate(() => window.dgm3d!.renderer.look);
@@ -523,7 +523,9 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
 
 test("every basin source's highlight reads, under its own water too, in High as in Standard (D378, D249; Kyler, 2026-10-03), and the water over one the pointer's water comes from glows (D196), clean and bad alike", async ({ page }) => {
   const errors: string[] = [];
-  await open(page, errors);
+  // (River Valley seed 2 since generator 0.10.17, D515, D148: seed 4242's map now has a spring in a cave, D488, whose source
+  // the land's roof hides from above; seed 2's has no caves, and its badwater source stands 1.4 under its own water)
+  await open(page, errors, "s=2&z=96&d=n&t=riverValley");
   // (the drought line comes in by itself once the worker has worked it out, and where its strips overlap over water
   // the GPU blends it once or twice between redraws of one still frame (the Standard-after-High test above): wait for
   // it, then put it away, so the frames before and after the highlight compare only what this test is about)
