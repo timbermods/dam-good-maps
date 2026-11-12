@@ -3,9 +3,11 @@
 // tiles), aimed near the low end, about 40 per 1,000 dry tiles. One pass shared by every generator path: the
 // resource pass (`resources.ts` `planResources`) runs it, so the themes and the premises both get it.
 //
-// Where a stand goes is read from the land, never a random field: the old water line (the dry band just beyond the
-// moist ground, where the water used to reach), the banks of dry beds, the tops of mesas and buttes (level plates
-// with no higher ground beside them), and dry hollows and their rims. Never on moist ground (living trees belong
+// They gather in a few old woods (two to four on a 128² map), each a region of stands, the rest of the dry land bare.
+// Where a wood goes is read from the land, never a random field: the old water line (the dry band just beyond the
+// moist ground, where the water used to reach), the banks of dry beds, the top of a mesa or butte (a level plate with
+// no higher ground beside it), and dry hollows and their rims; its trees are the site's (pines on dry tops, birches by
+// old water, a few old oaks among them), so a 128² map holds hundreds of dead logs, not thousands. Never on moist ground (living trees belong
 // there), nor in a living grove's clearing; none within the start's own walk and few out to the starting-logs floor's,
 // and none on the start's bench near it, so this is wood a colony travels for. A dead tree keeps its logs
 // (`data/log-floor.json` `deadTreesKeepLogs`, from the game's blueprints) and grows none back: finite wood, never a
@@ -21,14 +23,20 @@ import { pickSeeds } from "./blobs";
 export const DEAD_STANDS = {
   /** Dead trees per 1,000 dry tiles at Forests 100 %, the seed moving it within this range. */
   per1000: [36, 48] as const,
-  /** Trees in one stand: the least, and two draws added on top (most stands 12 to 24). */
-  stand: { least: 6, a: 12, b: 14 },
+  /** Trees in one stand: the least, and two draws added on top (15 to 60, most 25 to 50). */
+  stand: { least: 15, a: 21, b: 26 },
   /** Of a stand's ground, the share under a tree (thinned from the edge, as the living groves are). */
   fill: 0.52,
-  /** Stand seeds at least this far apart, tiles. */
-  gap: 7,
-  /** An old wood: its stands (two to four) seeded within `radius` of it, woods `gap` apart. */
-  wood: { stands: [2, 4] as const, radius: 13, gap: 24 },
+  /** Stand seeds within a wood at least this far apart, tiles. */
+  gap: 8,
+  /** The old woods: two to four on a 128² map (by area elsewhere, one at least), each a region of stands within
+   *  `radius` of its middle, on the kind of place its middle stands on; woods at least `apart` tiles apart (a fifth of
+   *  the map's side when that is more). One wood stands in the start's opening view where the land allows: its middle
+   *  past the start's clear walk and within `view` tiles' walk. */
+  wood: { per128: [2, 4] as const, radius: 20, apart: 30, view: 60 },
+  /** An old giant among a stand's trees: an oak for every `oakEvery` trees, `oakMost` a stand at most. */
+  oakEvery: 25,
+  oakMost: 2,
   /** No stand within this many tiles' walk of the start (its wood's 20 and a margin). */
   clearWalk: 24,
   /** Out to this walk (the starting-logs floor's 40), a seed is this much less likely. */
@@ -51,12 +59,13 @@ export const DEAD_STANDS = {
 export type DeadPlace = "shore" | "bank" | "top" | "hollow";
 const PLACES: readonly DeadPlace[] = ["shore", "bank", "top", "hollow"];
 
-/** How likely each place is to hold a stand, and the species each suits (pine, birch, oak), by weight on the mix. */
-const PLACE: Record<DeadPlace, { like: number; species: readonly [number, number, number] }> = {
-  shore: { like: 1, species: [1, 2, 0.5] },
-  bank: { like: 1.5, species: [2, 1, 0.5] },
-  top: { like: 1, species: [1, 0.3, 2] },
-  hollow: { like: 1.5, species: [1, 1.5, 1] },
+/** How likely each place is to hold a wood, and the tree the land would have had there: pines on dry tops, birches
+ *  along old water and beds. */
+const PLACE: Record<DeadPlace, { like: number; tree: "Pine" | "Birch" }> = {
+  shore: { like: 1, tree: "Birch" },
+  bank: { like: 1.5, tree: "Birch" },
+  top: { like: 1, tree: "Pine" },
+  hollow: { like: 1.5, tree: "Birch" },
 };
 
 export const DEAD_SPECIES = ["Pine", "Birch", "Oak"] as const;
@@ -91,6 +100,8 @@ export interface DeadStand {
   area: number[];
   species: DeadSpecies;
   place: DeadPlace;
+  /** A stand's old oaks, standing among its trees (its ground is the stand's). */
+  giants?: boolean;
 }
 
 /** The dry tiles: no water and no moisture. The aim is per 1,000 of them. */
@@ -217,33 +228,68 @@ export function planDeadStands(inp: DeadStandsInput): DeadStand[] {
   let got = 0;
   const s = DEAD_STANDS.stand;
   const w = DEAD_STANDS.wood;
-  const mean = s.least + (s.a - 1) / 2 + (s.b - 1) / 2;
-  const weight = new Float64Array(N);
   const r2 = w.radius * w.radius;
-  // old woods first (where forest was), then a few stands in each: clumped at both scales, never an even scatter
-  for (let round = 0; round < 3 && got < want; round++) {
-    for (let i = 0; i < N; i++) weight[i] = allowed[i] && placeOf[i] >= 0 ? PLACE[PLACES[placeOf[i]]].like * near[i] : 0;
-    const woods = pickSeeds(rng, weight, W, Math.ceil((want - got) / (mean * w.stands[0])) + 1, w.gap);
-    if (!woods.length) break;
-    for (const at of woods) {
-      if (got >= want) break;
-      const ax = at % W;
-      const ay = (at - ax) / W;
-      const local = new Float64Array(N);
-      for (let y = Math.max(0, ay - w.radius); y <= Math.min(H - 1, ay + w.radius); y++)
-        for (let x = Math.max(0, ax - w.radius); x <= Math.min(W - 1, ax + w.radius); x++) {
-          const i = y * W + x;
-          if ((x - ax) * (x - ax) + (y - ay) * (y - ay) <= r2 && allowed[i] && placeOf[i] >= 0) local[i] = weight[i];
-        }
-      local[at] = allowed[at] ? 1e9 : 0;
-      for (const seed of pickSeeds(rng, local, W, w.stands[0] + rng.int(0, w.stands[1] - w.stands[0] + 1), DEAD_STANDS.gap)) {
-        if (got >= want) break;
-        if (!allowed[seed] || placeOf[seed] < 0) continue;
+  // the old woods: their count by area, their middles on the places the land gives, the roomiest first
+  const woodsWanted = Math.max(1, Math.round(((w.per128[0] + rng.int(0, w.per128[1] - w.per128[0] + 1)) * N) / (128 * 128)));
+  const weight = new Float64Array(N);
+  for (let i = 0; i < N; i++) weight[i] = allowed[i] && placeOf[i] >= 0 ? PLACE[PLACES[placeOf[i]]].like * near[i] : 0;
+  const within = (at: number, f: (i: number) => void) => {
+    const ax = at % W;
+    const ay = (at - ax) / W;
+    for (let y = Math.max(0, ay - w.radius); y <= Math.min(H - 1, ay + w.radius); y++)
+      for (let x = Math.max(0, ax - w.radius); x <= Math.min(W - 1, ax + w.radius); x++) if ((x - ax) * (x - ax) + (y - ay) * (y - ay) <= r2) f(y * W + x);
+  };
+  const roomOf = (at: number) => {
+    let n = 0;
+    within(at, (i) => {
+      if (allowed[i] && placeOf[i] === placeOf[at] && zoneOf[i] === zoneOf[at]) n++;
+    });
+    return n;
+  };
+  const apart = Math.max(w.apart, Math.round(Math.min(W, H) / 5));
+  const cands = pickSeeds(rng, weight, W, 6 * woodsWanted + 6, apart).map((at) => ({ at, room: roomOf(at) * (0.6 + 0.8 * rng.float()) }));
+  cands.sort((p, q) => q.room - p.room);
+  const each = (want - got) / woodsWanted;
+  const woods: number[] = [];
+  // (one in the start's opening view: the roomiest middle past its clear walk and within `view`)
+  const seen = walk ? cands.find((c) => walk[c.at] > DEAD_STANDS.clearWalk && walk[c.at] <= w.view && c.room >= each / DEAD_STANDS.fill / 2) : undefined;
+  if (seen) woods.push(seen.at);
+  for (const c of cands) {
+    if (woods.length >= woodsWanted) break;
+    const cx = c.at % W;
+    const cy = (c.at - cx) / W;
+    if (woods.some((o) => (o % W - cx) * (o % W - cx) + (Math.floor(o / W) - cy) * (Math.floor(o / W) - cy) < apart * apart)) continue;
+    woods.push(c.at);
+  }
+  const sp = (p: DeadPlace): DeadSpecies => {
+    const tree = PLACE[p].tree;
+    const k = DEAD_SPECIES.indexOf(tree);
+    if (inp.mix[k] > 0) return tree;
+    const other = tree === "Pine" ? 1 : 0;
+    return inp.mix[other] > 0 ? DEAD_SPECIES[other] : "Oak";
+  };
+  // each wood: stands on its middle's kind of place within its radius (any kind there on the second pass), till its share
+  for (let pass = 0; pass < 2 && got < want; pass++)
+    for (let k = 0; k < woods.length && got < want; k++) {
+      const at = woods[k];
+      const goal = Math.min(want, Math.round(each * (k + 1)) + (pass ? want : 0));
+      const p0 = placeOf[at];
+      const z0 = zoneOf[at];
+      for (let tries = 0; tries < 8 && got < goal; tries++) {
+        const local = new Float64Array(N);
+        within(at, (i) => {
+          if (allowed[i] && placeOf[i] >= 0 && (pass || (placeOf[i] === p0 && zoneOf[i] === z0))) local[i] = 1;
+        });
+        const seeds = pickSeeds(rng, local, W, 1, DEAD_STANDS.gap);
+        if (!seeds.length) break;
+        const seed = seeds[0];
         const p = placeOf[seed];
         const z = zoneOf[seed];
         const zone = new Uint8Array(N);
-        for (let i = 0; i < N; i++) zone[i] = allowed[i] && placeOf[i] === p && zoneOf[i] === z ? 1 : 0;
-        const n = Math.min(want - got, s.least + rng.int(0, s.a) + rng.int(0, s.b));
+        within(at, (i) => {
+          zone[i] = allowed[i] && placeOf[i] === p && zoneOf[i] === z ? 1 : 0;
+        });
+        const n = Math.min(goal - got, s.least + rng.int(0, s.a) + rng.int(0, s.b));
         if (n < 3) break;
         const grown = growGroveAt(ground, rng, zone, seed, n, DEAD_STANDS.fill, true);
         if (!grown || grown.tiles.length < 3) {
@@ -251,17 +297,24 @@ export function planDeadStands(inp: DeadStandsInput): DeadStand[] {
           continue;
         }
         // (a stand keeps a tile's clearing from the next, so stands stay apart and read as stands)
-        for (const i of grown.area) {
-          const x = i % W;
-          const y = (i - x) / W;
-          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H) allowed[(y + dy) * W + x + dx] = 0;
+        for (const i of grown.area)
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++) {
+              const x = (i % W) + dx;
+              const y = Math.floor(i / W) + dy;
+              if (x >= 0 && y >= 0 && x < W && y < H) allowed[y * W + x] = 0;
+            }
+        const tiles = [...grown.tiles].sort((a, c) => a - c);
+        // (a few old oaks among them, the giants that outlasted the rest)
+        const oaks: number[] = [];
+        if (inp.mix[2] > 0) {
+          const k2 = Math.min(DEAD_STANDS.oakMost, Math.floor(tiles.length / DEAD_STANDS.oakEvery));
+          for (let q = 0; q < k2; q++) oaks.push(tiles.splice(rng.int(0, tiles.length), 1)[0]);
         }
-        const lean = PLACE[PLACES[p]].species.map((v, k) => v * inp.mix[k]);
-        const sp = DEAD_SPECIES[rng.weighted(lean.some((v) => v > 0) ? lean : [...inp.mix])];
-        out.push({ tiles: [...grown.tiles].sort((a, b) => a - b), area: grown.area, species: sp, place: PLACES[p] });
+        out.push({ tiles, area: grown.area, species: sp(PLACES[p]), place: PLACES[p] });
+        if (oaks.length) out.push({ tiles: oaks.sort((a, c) => a - c), area: [], species: "Oak", place: PLACES[p], giants: true });
         got += grown.tiles.length;
       }
     }
-  }
   return out;
 }

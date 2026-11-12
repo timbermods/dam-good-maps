@@ -328,7 +328,7 @@ describe("the resource baseline (Kyler, 2026-09-25)", () => {
       const per1000 = (1000 * standTiles.length) / dry / (s.forestDensity / 100);
       expect(per1000, `${theme} dead stands per 1,000 dry tiles`).toBeGreaterThan(30);
       expect(per1000, `${theme} dead stands per 1,000 dry tiles`).toBeLessThan(50);
-      const sizes = stands.map((f) => f.params.groveSize ?? 0).sort((a, c) => a - c);
+      const sizes = stands.filter((f) => !(f.role ?? "").includes("/giants")).map((f) => f.params.groveSize ?? 0).sort((a, c) => a - c);
       expect(sizes[Math.floor(sizes.length / 2)], `${theme} median stand`).toBeGreaterThanOrEqual(8);
       expect(standTiles.filter(dryAt).length, `${theme} stands on dry ground`).toBeGreaterThanOrEqual(0.9 * standTiles.length);
       const walk = startWalkField(b.heights, side, side, b.entities, b.start!);

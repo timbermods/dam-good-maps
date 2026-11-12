@@ -719,7 +719,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       rng: stream(seed, "dead-stands", candidate, attempt),
     });
     for (const st of stands) {
-      const role = anchorRole(`forest/dead/${st.place}`, st.tiles);
+      const role = anchorRole(`forest/dead/${st.place}${st.giants ? "/giants" : ""}`, st.tiles);
       const id = featureId(seed, "forest", role);
       out.push({ id, kind: "forest", origin: "generated", role, locked: false, params: { area: tilesToRuns(st.tiles, W), density: 1, speciesMix: { [st.species]: 1 }, groveSize: st.tiles.length, life: "dead", youngShare: 0 } });
       planted.push({ id, tiles: st.tiles, species: st.species, living: false });
