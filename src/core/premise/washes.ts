@@ -1,11 +1,11 @@
 // The dry washes and the old bed on a premise's ground (`land/washes.ts`, the pass every generator path shares): cut
 // into stage 2's ground once stage 3 has put the start, before the ladder reads the land. They keep off what stage 1
 // decided (its beds, sills, lips, wadi strips and the start's 5 × 5, `WaterRaster.fixed`), the planned water and a
-// margin round it, the works with the ladder's window round them, the badwater's niches, the start's
-// ground and its ways out; the old bed starts behind the lip of a lake that holds water on day 1.
+// margin round it, the works with the ladder's window round them, the badwater's niches, the start's near
+// ground and its ways out, and keep the start the bench it needs; the old bed starts behind the lip of a lake that holds water on day 1.
 
 import { BED_FLOOR } from "../land/genome";
-import { planWashes, startKeepOff, type Wash } from "../land/washes";
+import { planWashes, startKeepOff, WASHES, type Wash } from "../land/washes";
 import { hash32 } from "../math/hash";
 import { stream } from "../math/rng";
 import type { PremiseLand } from "./map";
@@ -18,8 +18,9 @@ const WORK_CLEAR = 20;
 const FIXED_CLEAR = 3;
 const NICHE_CLEAR = 5;
 
-/** Cut the washes into `land.heights` for a start at `start` and add their ramps to `land.ramps`; the beds cut. */
-export function premiseWashes(plan: PremisePlan, land: PremiseLand, start: { x: number; y: number }, attempt: number): Wash[] {
+/** Cut the washes into `land.heights` for a start at `start` that needs `bench` tiles of bench, and add their ramps to
+ *  `land.ramps`; the beds cut. */
+export function premiseWashes(plan: PremisePlan, land: PremiseLand, start: { x: number; y: number }, attempt: number, bench: number): Wash[] {
   const { W, H } = plan;
   const N = W * H;
   const r = land.water.raster;
@@ -44,7 +45,7 @@ export function premiseWashes(plan: PremisePlan, land: PremiseLand, start: { x: 
   for (const ts of [...Object.values(land.laid.plugs), ...Object.values(land.laid.banks)]) for (const i of ts) disc(i % W, Math.floor(i / W), FIXED_CLEAR);
   const ways: number[] = [];
   for (const [a, b] of land.ramps ?? []) ways.push(a, b);
-  startKeepOff(h, W, H, [start], ways, off);
+  startKeepOff(h, W, H, [start], ways, off, WASHES.startPut);
   // the water as planned: its surface where a body or a channel holds water on day 1
   const surface = new Float64Array(N).fill(NaN);
   const lakes = new Map<number, number[]>();
@@ -60,7 +61,7 @@ export function premiseWashes(plan: PremisePlan, land: PremiseLand, start: { x: 
       lakes.set(r.lake[i], l);
     }
   }
-  const { beds, steps } = planWashes({ W, H, heights: h, surface, lakes: [...lakes.values()], keepOff: off, floor: BED_FLOOR, rng: stream(plan.seed, "washes", attempt), seed: hash32(plan.seed, "washes", attempt), starts: [start] });
+  const { beds, steps } = planWashes({ W, H, heights: h, surface, lakes: [...lakes.values()], keepOff: off, floor: BED_FLOOR, rng: stream(plan.seed, "washes", attempt), seed: hash32(plan.seed, "washes", attempt), starts: [start], bench });
   // (their natural ramps join the start's ways out in the field: the colony walks into the beds and across them)
   if (steps.length) land.ramps = [...(land.ramps ?? []), ...steps];
   return beds;

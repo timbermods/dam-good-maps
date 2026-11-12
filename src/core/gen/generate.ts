@@ -2446,16 +2446,18 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           const d = Math.max(est[i], shownFill ? shownFill[i] : 0);
           if (d > WET || hy.water[i] === 1 || hy.water[i] === 2) surface[i] = h[i] + d;
         }
-        // (and off the level plates a start the settled water gives could take for its bench, D515: a plate as big as
-        // the bench asks that reaches near the water; the start is chosen after the settle, the washes before it)
+        // (and the level plates a start the settled water gives could take for its bench, D515: a plate as big as the
+        // bench asks that reaches near the water; the start is chosen after the settle, the washes before it. A bed
+        // may cross one so long as it keeps the bench)
         const plates = levelRegions(h, W, H);
         const wetNow = new Uint8Array(N);
         for (let i = 0; i < N; i++) wetNow[i] = surface[i] === surface[i] ? 1 : 0;
         const fromWater = distanceFrom(wetNow, W, H);
         const benchPlate = new Uint8Array(plates.size.length);
         for (let i = 0; i < N; i++) if (!wetNow[i] && fromWater[i] <= WASH_BENCH_WATER && plates.size[plates.labels[i]] >= benchMin) benchPlate[plates.labels[i]] = 1;
-        for (let i = 0; i < N; i++) if (benchPlate[plates.labels[i]]) off[i] = 1;
-        const washes = planWashes({ W, H, heights: h, surface, lakes: hy.lakes.map((l) => l.tiles), keepOff: off, floor: BED_FLOOR, rng: stream(seed, "washes", attempt), seed: hash32(seed, "washes", attempt), starts });
+        const benchPlates = new Uint8Array(N);
+        for (let i = 0; i < N; i++) if (benchPlate[plates.labels[i]]) benchPlates[i] = 1;
+        const washes = planWashes({ W, H, heights: h, surface, lakes: hy.lakes.map((l) => l.tiles), keepOff: off, floor: BED_FLOOR, rng: stream(seed, "washes", attempt), seed: hash32(seed, "washes", attempt), starts, bench: benchMin, benchPlates });
         if (washes.beds.length) info.washes = washes.beds;
         // (their natural ramps: the colony walks into the beds and across them)
         for (const st of washes.steps) {

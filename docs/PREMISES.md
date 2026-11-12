@@ -706,7 +706,9 @@ above, and why:
 - **Dry washes** (D517, `premise/washes.ts` on `land/washes.ts`): once stage 3 has put the start and before the ladder
   reads the land, the washes every map has and the old bed are cut into stage 2's ground, off what stage 1 decided (2
   tiles; the falls, empty basins and works' laid ground 3), the works (20, the ladder's window), the badwater's niches
-  (5) and the start's ground and ways out; their ramps join the field's natural ramps.
+  (5) and the start's ground and ways out (its walk to 20 tiles, its ground within 28); their fords join the field's
+  natural ramps. The lake stair's keep-off leaves little dry land a long line crosses, so it often has no wash, or
+  only the old bed.
 - **The benches over the lakes are dressed** (`benchesOver`, `LIFE.bench`): dry level ground 3 or more levels over a
   lake's sill within 10 tiles of it, 12 tiles or more together, is a place (§9's dry places); one stand on each, a
   bench for each 5,000 tiles of map at most, the one nearest the start first, so one is in the start's sight:

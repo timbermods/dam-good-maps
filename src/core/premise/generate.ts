@@ -167,7 +167,7 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}, own
       continue;
     }
     // (the dry washes and the old bed, `washes.ts`: cut once the start is put, before the ladder reads the land)
-    const washes = premiseWashes(plan, ground, frame.start, attempt);
+    const washes = premiseWashes(plan, ground, frame.start, attempt, bench);
     if (washes.length) ground.washes = washes;
     // stage 4: the ladder, each work's site and its gain by number
     const ladder = ladderOf(plan, water, ground.heights, ground.laid);

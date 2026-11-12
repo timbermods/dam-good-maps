@@ -89,7 +89,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The generator](generator.md)
 
-- D517: Dry washes and an old bed: a few winding dry channels a map where rain would run, ending at water, in a dry hollow, or behind a lake's lip; none in the start's ground or the walk
+- D517: Dry washes and an old bed: one or two long winding dry channels a map where rain would run, with branches and fords, ending at water, in a dry hollow, or behind a lake's lip; none in the start's ground, no reach lost
 - D516: Dead stands on the dry land: about 40 per 1,000 dry tiles in a few old woods where forest was, pine and birch by the site, none in the start's walk
 - D515: The start's floors are the map's, in one gate: a bench, walkable land, fast wood and a forester's plot
 - D513: A premise map: no wading, squares only, one Probe run on clearing a Blockage before the ladder
