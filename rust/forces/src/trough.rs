@@ -150,6 +150,25 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
             }
         }
     }
+    // (past the line's two ends the trough closes: the cirque's headwall and the snout's lip rise from the floor's
+    // edge as its walls do, so the floor ends where the ice did, never a round pad beyond it)
+    for i in 0..n {
+        if near[i] < 0 {
+            continue;
+        }
+        let j = near[i] as usize;
+        if j != 0 && j != line.len() - 1 {
+            continue;
+        }
+        let q = &line[j];
+        let along = (i % w) as f64 + 0.5 - q.x;
+        let along = along * q.ny - ((i / w) as f64 + 0.5 - q.y) * q.nx;
+        let past = if j == 0 { -along } else { along };
+        if past > 0.0 {
+            let sign = if lat[i] < 0.0 { -1.0 } else { 1.0 };
+            lat[i] = sign * max(lat[i].abs(), q.r * 0.55 + past);
+        }
+    }
     // (its edge wanders a little, slowly, so the rim never runs as a ruled curve)
     let edge = |i: usize, r: f64| r * (1.0 + 0.16 * (levels::lumps(seed, 7101, (i % w) as f64, (i / w) as f64, 7.0) - 0.5));
     let zone: Vec<bool> = (0..n).map(|i| near[i] >= 0 && keep[i] == 0 && best[i] <= edge(i, line[near[i] as usize].r)).collect();
@@ -248,6 +267,30 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
         }
         floor[j] = c;
     }
+    // (a tread longer than twice its length steps down a level part way, at an uneven point, so the floor and its
+    // river keep falling down a level valley too: water never lies flat along it far enough to pile over the floor)
+    {
+        let mut a = 0;
+        let mut salt = 0u32;
+        while a < ns {
+            let mut b = a;
+            while b + 1 < ns && floor[b + 1] == floor[a] {
+                b += 1;
+            }
+            let (sa, sb) = (line[a].s, line[b].s);
+            if sb - sa > tread * 2.0 && floor[a] - 1.0 >= bottom {
+                let at = sa + (sb - sa) * (0.4 + 0.25 * glacier_noise(s.seed, 7500 + salt));
+                salt += 1;
+                for j in a..ns {
+                    if line[j].s >= at && floor[j] >= floor[a] {
+                        floor[j] = floor[a] - 1.0;
+                    }
+                }
+                continue;
+            }
+            a = b + 1;
+        }
+    }
     // Lakes the floor meets: a ribbon lake along its stretch, the treads above it at its level or higher.
     let mut ribbon = vec![-1i32; ns];
     for (id, (tiles, surface)) in lakes.iter().enumerate() {
@@ -312,18 +355,48 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
     };
     let mut outlet: Vec<usize> = vec![];
     let planned = floor.clone();
-    // (a snout that ends in a lake it keeps drains into it, by the lake's own outlet)
-    let mut drains = ribbon[ns - 1] >= 0;
+    // (a snout that ends in a lake it keeps drains into it, by the lake's own outlet; and a snout that stops just
+    // short of water standing at its floor's level ends in it: the water reaches up the trough's last treads as a
+    // deeper reach of itself, never a sheet over the floor)
+    let mut joins_water: Option<(f64, i32)> = None;
+    {
+        let end = &line[ns - 1];
+        let reach = max(6.0, end.r);
+        let (x0, x1) = (max(0.0, (end.x - reach).floor()) as usize, min(w as f64, (end.x + reach).ceil()) as usize);
+        let (y0, y1) = (max(0.0, (end.y - reach).floor()) as usize, min(h as f64, (end.y + reach).ceil()) as usize);
+        for y in y0..y1 {
+            for x in x0..x1 {
+                let i = y * w + x;
+                if zone[i] || before.depth[i] <= 0.05 || hypot(x as f64 + 0.5 - end.x, y as f64 + 0.5 - end.y) > reach {
+                    continue;
+                }
+                let sfc = old(i) + before.depth[i];
+                if sfc >= floor[ns - 1] - 0.5 && joins_water.map_or(true, |(v, _)| sfc < v) {
+                    joins_water = Some((sfc, lake_of[i]));
+                }
+            }
+        }
+    }
+    if let Some((sfc, id)) = joins_water {
+        let held = (sfc - 0.02).ceil();
+        for j in 0..ns {
+            if floor[j] < held + 1.0 {
+                floor[j] = max(bottom, min(floor[j], held - 2.0));
+                if id >= 0 && ribbon[j] < 0 {
+                    ribbon[j] = id;
+                }
+            }
+        }
+    }
+    let mut drains = ribbon[ns - 1] >= 0 || joins_water.is_some();
     if !drains {
         let end = &line[ns - 1];
         let start = glacier_tile(before, Point { x: clamp(end.x, 0.0, w as f64 - 1.0), y: clamp(end.y, 0.0, h as f64 - 1.0) });
         // (the treads may stand higher by Power's cut at most: never above the valley's old bottom)
         for _ in 0..=(cut as usize + 1) {
             let d = floor[ns - 1] - 1.0;
-            // (never a floor above the valley's own bottom at the snout)
-            if floor[ns - 1] > grounds[ns - 1] {
-                break;
-            }
+            // (raised, never a floor above the valley's own bottom at the snout)
+            let room = floor[ns - 1] + 1.0 <= grounds[ns - 1];
             let mut cost = vec![f64::INFINITY; n];
             let mut parent = vec![-1i32; n];
             let mut heap = ForceHeap::default();
@@ -334,7 +407,7 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
                 if c0 != cost[i] {
                     continue;
                 }
-                if !zone[i] && spill[i] <= d - 1.0 {
+                if !zone[i] && (spill[i] <= d - if room { 1.0 } else { 0.0 } || (before.depth[i] > 0.05 && old(i) + before.depth[i] <= d + 0.6)) {
                     goal = Some(i);
                     break;
                 }
@@ -347,7 +420,7 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
                         continue;
                     }
                     // (through water only where it is where the river goes: a pool higher up it would dam)
-                    if before.depth[j] > 0.05 && !zone[j] && old(j) + before.depth[j] > d + 1.5 {
+                    if before.depth[j] > 0.05 && !zone[j] && old(j) + before.depth[j] > d + 0.6 {
                         continue;
                     }
                     // (inside the trough only round its snout: the river runs down the floor, never back up it)
@@ -363,8 +436,13 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
                 }
             }
             let Some(g) = goal else {
-                for f in floor.iter_mut() {
-                    *f = max(*f, d + 2.0);
+                if !room {
+                    break;
+                }
+                // (the whole profile lifts a level, its treads kept)
+                let end = floor[ns - 1];
+                for j in 0..ns {
+                    floor[j] = max(floor[j], planned[j] - planned[ns - 1] + end + 1.0);
                 }
                 continue;
             };
@@ -375,20 +453,44 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
                 i = parent[i as usize];
             }
             let deepest = way.iter().filter(|&&i| !zone[i]).map(|&i| old(i) - d).fold(0.0, max);
-            if deepest <= 3.0 && way.iter().filter(|&&i| !zone[i]).count() as f64 <= max(16.0, mean_r * 2.0) {
-                outlet = way.into_iter().filter(|&i| !zone[i]).collect();
+            if deepest <= 3.0 && way.iter().filter(|&&i| !zone[i]).count() as f64 <= max(24.0, mean_r * 3.0) {
+                outlet = way;
                 drains = true;
                 break;
             }
-            for f in floor.iter_mut() {
-                *f = max(*f, d + 2.0);
+            if !room {
+                break;
+            }
+            let end = floor[ns - 1];
+            for j in 0..ns {
+                floor[j] = max(floor[j], planned[j] - planned[ns - 1] + end + 1.0);
             }
         }
     }
 
-    // (no way out within reach: the trough keeps its treads and holds a lake behind its lip)
-    if !drains {
-        floor = planned;
+    // (no way out within reach: the treads stay as high as they went, the snout's at the valley's own bottom, so its
+    // water leaves over the lip as the valley's did)
+
+    // The channel's depth: a level under its tread, two over the tread's lower half (all but the last tread), so it
+    // falls all the way down the trough and never lies flat along a long tread, piling its water over the floor.
+    let mut sink = vec![1.0f64; ns];
+    {
+        let mut a = 0;
+        while a < ns {
+            let mut b = a;
+            while b + 1 < ns && floor[b + 1] == floor[a] {
+                b += 1;
+            }
+            let (sa, sb) = (line[a].s, line[b].s);
+            if b + 1 < ns && sb - sa >= 8.0 {
+                for j in a..=b {
+                    if line[j].s - sa > (sb - sa) * 0.5 {
+                        sink[j] = 2.0;
+                    }
+                }
+            }
+            a = b + 1;
+        }
     }
 
     // The channel's line: the valley's own river where it has one, else a gentle meander.
@@ -482,8 +584,23 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
         match kind[i] {
             3 => land[i] = walls[i] as f64,
             1 | 2 => {
-                let f = floor[j] - if kind[i] == 2 { 1.0 } else { 0.0 };
-                let lift = 0.0;
+                let f = floor[j] - if kind[i] == 2 { sink[j] } else { 0.0 };
+                // (a dry hollow in the floor fills a level, so the tread is one level and holds no pond; never ground
+                // beside water, which it would dam)
+                let wet_by = {
+                    let (x, y) = ((i % w) as i64, (i / w) as i64);
+                    let mut any = false;
+                    for dy in -2i64..=2 {
+                        for dx in -2i64..=2 {
+                            let (xx, yy) = (x + dx, y + dy);
+                            if xx >= 0 && yy >= 0 && xx < w as i64 && yy < h as i64 && before.depth[yy as usize * w + xx as usize] > 0.05 {
+                                any = true;
+                            }
+                        }
+                    }
+                    any
+                };
+                let lift = if wet_by || kind[i] == 2 { 0.0 } else { 1.0 };
                 land[i] = clamp(f, old(i) - cap, old(i) + lift);
             }
             _ => {
@@ -541,16 +658,31 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
 
     // Feeders: the glacier's own springs and the hanging valleys' landings lead to the channel by the shortest
     // way down, two tiles wide, falling all the way, so their water never stands as a sheet on the level floor.
-    {
+    // Then the water is let settle on the land so far, and wherever it still stands as a sheet on the floor, a
+    // feeder leads it down to the channel the same way.
+    for pass in 0..2 {
         let mut starts: Vec<usize> = vec![];
-        for e in &p.map.entities {
-            if e.owner.as_ref() == "glaciate" && ride_source(e.template.as_ref()) && e.x >= 0.0 && e.y >= 0.0 && (e.x as usize) < w && (e.y as usize) < h {
-                starts.push(e.y as usize * w + e.x as usize);
+        if pass == 0 {
+            for e in &p.map.entities {
+                if e.owner.as_ref() == "glaciate" && ride_source(e.template.as_ref()) && e.x >= 0.0 && e.y >= 0.0 && (e.x as usize) < w && (e.y as usize) < h {
+                    starts.push(e.y as usize * w + e.x as usize);
+                }
             }
-        }
-        for g in &p.hanging {
-            if g.wet || g.source.is_some() {
-                starts.push(g.landing);
+            for g in &p.hanging {
+                if g.wet || g.source.is_some() {
+                    starts.push(g.landing);
+                }
+            }
+        } else {
+            let mut m = p.map.clone();
+            for i in 0..n {
+                m.heights[i] = clamp(round(land[i]), 0.0, top) as u8;
+            }
+            let (depth, _) = force_prefill(&force_water_model(&m), Some(&p.retained));
+            for i in 0..n {
+                if kind[i] == 1 && depth[i] > 0.02 && depth[i] < 0.3 && p.stream[i] == 0 {
+                    starts.push(i);
+                }
             }
         }
         starts.sort_unstable();
@@ -618,13 +750,17 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
 
     // The way out, two tiles wide, at the snout's channel level.
     let out_level = floor[ns - 1] - 1.0;
+    let mut led = vec![false; n];
     for &i in &outlet {
         let (x, y) = (i % w, i / w);
         let beside = if x + 1 < w && (y + 1 >= h || old(i + 1) <= old(i + w)) { i + 1 } else if y + 1 < h { i + w } else { i };
         for j in [i, beside] {
-            if keep[j] == 0 && !zone[j] && before.depth[j] <= 0.05 {
+            // (its way across the snout's floor too, so the river never crosses the tread as a sheet)
+            // (water on its way lies at the river's level or lower: the search passes no higher)
+            if keep[j] == 0 && lake_of[j] < 0 && (before.depth[j] <= 0.05 || old(j) + before.depth[j] <= out_level + 0.6) {
                 land[j] = min(land[j], max(out_level, old(j) - cap));
                 p.stream[j] = 1;
+                led[j] = true;
             }
         }
     }
@@ -670,7 +806,8 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
         seen.sort_unstable();
         for (j, _) in seen {
             if land[j] < old(j) && lake_of[j] != id as i32 {
-                let stand = if old(j) >= held { held } else { sill };
+                // (the river's way out of the snout keeps its level: no bar at more than the lake's own sill)
+                let stand = if old(j) >= held && !led[j] { held } else { sill };
                 land[j] = max(land[j], min(old(j), stand));
             }
         }
@@ -681,6 +818,11 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
     {
         // (a trough with no way out takes in no river: it would fill and spill over the land round it)
         let mut queue: Vec<usize> = if !drains { vec![] } else { (0..n).filter(|&i| zone[i] && river(i)).collect() };
+        if joins_water.is_some() {
+            let end = &line[ns - 1];
+            let reach = max(6.0, end.r) + 1.0;
+            queue.extend((0..n).filter(|&i| river(i) && hypot((i % w) as f64 + 0.5 - end.x, (i / w) as f64 + 0.5 - end.y) <= reach));
+        }
         for &i in &queue {
             taken[i] = true;
         }
@@ -709,7 +851,7 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
                     continue;
                 }
                 let j = yy as usize * w + xx as usize;
-                if river(j) && !taken[j] {
+                if river(j) && (!taken[j] || !zone[j]) {
                     stand = max(stand, (old(j) + before.depth[j] - 0.02).ceil());
                 }
             }
@@ -752,6 +894,19 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
         .map(|j| Point { x: line[j].x + line[j].nx * course[j], y: line[j].y + line[j].ny * course[j] })
         .collect();
 
+    // (closed: its springs' water, let settle on the land it leaves, would wet ground outside the trough that was
+    // dry, as a sheet or a pond spilling from a trough with no way out)
+    let closed = {
+        let (wet, _) = force_prefill(&force_water_model(&p.map), Some(&p.retained));
+        let mut out = 0usize;
+        for i in 0..n {
+            if !zone[i] && p.stream[i] == 0 && wet[i] > 0.02 && before.depth[i] <= 0.02 {
+                out += 1;
+            }
+        }
+        let inside = zone.iter().filter(|&&z| z).count();
+        !drains && out > max(20.0, inside as f64 * 0.02) as usize
+    };
     // What stood on ground this stage moved: a source or seep the glacier keeps rides it; the rest is swept.
     let mut entities = std::mem::take(&mut p.map.entities);
     entities.retain_mut(|e| {
@@ -759,6 +914,11 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
             return true;
         }
         let moved: Vec<usize> = p.map.footprint(e, 0).into_iter().filter(|&i| prev[i] != p.map.heights[i]).collect();
+        // (a trough with no way out keeps no springs of its own: their water would fill it and spill over the land
+        // round it)
+        if closed && e.owner.as_ref() == "glaciate" && ride_source(e.template.as_ref()) {
+            return false;
+        }
         if moved.is_empty() || e.template.as_ref() == "StartingLocation" {
             return true;
         }
