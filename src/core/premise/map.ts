@@ -21,6 +21,7 @@ import { buildBench, cutWaysOut } from "./frame";
 import { badwaterNiches, reliefBetween } from "./raster/relief";
 import type { PremiseStyle } from "./style";
 import type { PremisePlan } from "./types";
+import { bedMask, type Wash } from "../land/washes";
 import { waterByNumber, type StageWater } from "./water";
 
 export interface PremiseMap {
@@ -151,6 +152,8 @@ export interface PremiseLand {
   notes: string[];
   /** The start's ways out, natural ramps' steps as (low tile, high tile) pairs (`frame.ts` `cutWaysOut`). */
   ramps?: [number, number][];
+  /** The dry washes and the old bed cut into it once the start was put (`washes.ts`). */
+  washes?: Wash[];
 }
 
 export function premiseLand(plan: PremisePlan, water: StageWater = waterByNumber(plan), style?: PremiseStyle, bench = 0, reach = 0): PremiseLand {
@@ -189,7 +192,7 @@ export function premiseMap(spec: MapSpec, plan: PremisePlan, land: PremiseLand =
   const settleCache = new SettleCache();
   const base = buildMap({ W: plan.W, H: plan.H, seed: spec.seed, features, field }, { settleCache, stopBeforeResources: true });
   const t6 = performance.now();
-  const life = premiseLife(spec, plan, water, ladder, base, features, spec.accepted?.attempt ?? 0, style?.woods ?? null);
+  const life = premiseLife(spec, plan, water, ladder, base, features, spec.accepted?.attempt ?? 0, style?.woods ?? null, land.washes ? bedMask(land.washes, plan.W * plan.H) : null);
   notes.push(...life.notes);
   features.push(...life.features);
   const built = buildMap({ W: plan.W, H: plan.H, seed: spec.seed, features, field }, { settleCache });

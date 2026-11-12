@@ -15,8 +15,8 @@ import { openMap } from "./forceEverywhere";
 const W = 128;
 const SEED = 22;
 /** Size's map and head (its own map since generator 0.10.11, see below). */
-const SIZE_SEED = 27;
-const SIZE_HEAD: [number, number] = [42, 42];
+const SIZE_SEED = 29;
+const SIZE_HEAD: [number, number] = [58, 58];
 const POWER_HEAD: [number, number] = [82, 18];
 let at: [number, number] = [W >> 1, W >> 1];
 
@@ -52,7 +52,10 @@ beforeAll(async () => {
   // keeps every check of Size; (42, 42), level 16, the tenth, keeps them all at Power 20, 60 and 100. Power's moved with
   // #914's one trough (a level floor in treads, the trough closed at its ends), D148: from (74, 26) Power 0's light scour
   // made 7 sections on the shared stretch (it needs 10) and Power 100's walls stood 9 to Power 50's 8; of the heads on a
-  // grid of 4 taken outward from it, (82, 18), level 15, the fourteenth, keeps every check of Power)
+  // grid of 4 taken outward from it, (82, 18), level 15, the fourteenth, keeps every check of Power. Size's moved with
+  // generator 0.10.19's long dry washes, D517, D148: on seed 27 a wash runs through (42, 42), and Power 20's narrow ice
+  // makes no section there; none of the 40 heads nearest it keeps every check of Size, nor any of the 15 nearest the
+  // middle on seeds 21, 23–26 and 28; on seed 29, (58, 58), level 15, the thirteenth, keeps them all at Power 20, 60 and 100)
   at = SIZE_HEAD;
 });
 

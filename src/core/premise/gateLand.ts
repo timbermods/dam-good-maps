@@ -53,6 +53,9 @@ export const RANGE_LAND = { warp: 6, warpCell: 17, width: 0.25, knob: 2, spur: 0
  *  of radius `fan` at its mouth. */
 export const RANGE_FLOW = { reach: 1, iterations: 6, k: 0.008, diffusion: 0.04, mouth: 20, fan: 5, cut: 3 } as const;
 
+/** The walls of the dry beds through the range: bands of `band` levels, ledges `ledge` tiles wide, out `reach` tiles. */
+export const GORGE = { band: 3, ledge: [2, 3], reach: 18 } as const;
+
 /** The scarp's profile: from the crest (`SCARP.dome` tiles of it) down cliff bands, each a cliff a tile wide, a ledge of
  *  `ledge(k)` tiles below it, to talus a level over the foot falling a level in `SCARP.talus` tiles. */
 function scarpAt(x: number, crest: number, foot: number, ledge: (k: number) => number): number {
@@ -113,7 +116,7 @@ function backSpurAt(sp: { path: Point[] }, u: number, v: number, crest: number, 
  *  foot but at the saddles; the scarp's ledges `ledge` tiles wide by noise `ledgeCell` across, its talus `talus` tiles;
  *  a buttress carries the ledges `buttress` tiles out; a back spur falls `spurRun` tiles slower than the slope and
  *  `spurSide` a tile to its sides. */
-export const SCARP = { fade: 3, benches: 3, wander: 0.5, wanderCell: 14, run: [2.2, 2.8], dome: 0.5, knob: 0.8, knobCell: 14, least: 4, ledge: [1.6, 2.6], ledgeCell: 12, talus: 2, buttress: 3, spurRun: 0.8, spurSide: 0.8 } as const;
+export const SCARP = { fade: 3, benches: 3, wander: 0.5, wanderCell: 14, run: [2.2, 2.8], dome: 0.5, knob: 0.8, knobCell: 14, least: 4, ledge: [1.6, 2.6], ledgeCell: 12, talus: 2, buttress: 1.5, spurRun: 0.8, spurSide: 0.8 } as const;
 
 /** A spur's height at local (u, v): its crest line falling from the range's crest at the spine to the foot past the
  *  flank's end, and a level a tile or so to each side of it. */
@@ -312,8 +315,35 @@ function rangeFrame(plan: PremisePlan, g: GateNumbers, w: StageWater) {
   };
 }
 
+/** The box round a mask's tiles, `margin` tiles out, inside the map. */
+function bandBox(mask: Uint8Array, W: number, H: number, margin: number): { x: number; y: number; w: number; h: number } {
+  let [x0, y0, x1, y1] = [W, H, -1, -1];
+  for (let i = 0; i < mask.length; i++)
+    if (mask[i]) {
+      const x = i % W;
+      const y = (i - x) / W;
+      [x0, y0, x1, y1] = [Math.min(x0, x), Math.min(y0, y), Math.max(x1, x), Math.max(y1, y)];
+    }
+  if (x1 < 0) return { x: 0, y: 0, w: 1, h: 1 };
+  x0 = Math.max(0, x0 - margin);
+  y0 = Math.max(0, y0 - margin);
+  x1 = Math.min(W - 1, x1 + margin);
+  y1 = Math.min(H - 1, y1 + margin);
+  return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
+
 /** The range's band (`rangeFrame`'s `t` under 1, off the start's bench): where the range's own ground stands. */
 export function rangeBand(plan: PremisePlan, w: StageWater): Uint8Array {
+  // (read a few times a plan, by the column pass and the checks: kept for its stage 1 water and plan)
+  const kept = bands.get(w);
+  if (kept && kept.plan === plan) return kept.band;
+  const band = rangeBandOf(plan, w);
+  bands.set(w, { plan, band });
+  return band;
+}
+const bands = new WeakMap<StageWater, { plan: PremisePlan; band: Uint8Array }>();
+
+function rangeBandOf(plan: PremisePlan, w: StageWater): Uint8Array {
   const g = gateOf(plan)!;
   const { W, H } = plan;
   const at = rangeFrame(plan, g, w);
@@ -366,6 +396,13 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
   const band = new Uint8Array(N);
   const foots = new Float64Array(N);
   const spurs = g.spurs ?? [];
+  // (each spur's box, six tiles out: a tile past it is never near it)
+  const boxes = spurs.map((sp) => {
+    const us = sp.path.map((p) => p[0]);
+    const vs = sp.path.map((p) => p[1]);
+    return [Math.min(...us) - 6, Math.min(...vs) - 6, Math.max(...us) + 6, Math.max(...vs) + 6];
+  });
+  const nearBox = (k: number, u: number, v: number) => u >= boxes[k][0] && u <= boxes[k][2] && v >= boxes[k][1] && v <= boxes[k][3];
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
@@ -396,7 +433,7 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
         // the scarp: two or three cliff bands of two or three levels, ledges two to four wide between them, wandering
         // with broad noise; a spur toward the valley a buttress that carries the ledges out; talus at the foot
         let x0 = d;
-        for (const sp of spurs) if (sp.side === 0) x0 = Math.min(x0, d - SCARP.buttress * spurNear(sp, wu, wv));
+        for (let k = 0; k < spurs.length; k++) if (spurs[k].side === 0 && nearBox(k, wu, wv)) x0 = Math.min(x0, d - SCARP.buttress * spurNear(spurs[k], wu, wv));
         // (its ledges as wide as the scarp's room allows: the plan's front, from the spine to the valley's ground)
         const bands = crest - foot <= 4 ? 2 : 3;
         const room = Math.max(0, (half - SCARP.dome - bands - SCARP.talus) / bands);
@@ -407,15 +444,18 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
         // (past the band, down to the basin's benches, at twice the pace: the slope's terraces fade into the pan)
         const inBand = Math.min(d0, half);
         L = crest - Math.max(0, inBand - SCARP.dome) / run - Math.max(0, d0 - half) / (run / 2) + SCARP.wander * fbm(sLedge + 9, x, y, SCARP.wanderCell, 2);
-        if (band[i]) for (const sp of spurs) if (sp.side === 2) L = Math.max(L, backSpurAt(sp, wu, wv, crest, run));
+        if (band[i]) for (let k = 0; k < spurs.length; k++) if (spurs[k].side === 2 && nearBox(k, wu, wv)) L = Math.max(L, backSpurAt(spurs[k], wu, wv, crest, run));
         // (under the slope the basin keeps its benches, not its hills: capped hills under it stood as flat-topped knolls
         // across the slope)
         L = Math.max(L, Math.min(basin, g.pan.level + SCARP.benches));
-        // (and never over the dry lake's playa: the slope's terraces end at its edge)
+        // (and never over the dry lake's playa: the slope's terraces come down to its edge in steps of two, ledges two or
+        // three wide; cut off at its edge, the slope stood a wall ten levels high along it)
         if (basin <= g.pan.level + 1) L = basin;
       }
       f[i] = L;
     }
+  // (the band as `rangeBand` reads it, kept for the column pass and the checks)
+  bands.set(w, { plan, band: Uint8Array.from(band) });
   // (stage 1's ground beside a dry bed in the range, its wadi strips, is the range's own: the gorge's walls are its
   // flanks, and a wadi strip a level over the bed through the range let the valley out at the megadam's water)
   const { zone } = gateZones(plan, g);
@@ -432,17 +472,31 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
     for (const i of r.lips[g.veil] ?? []) veilAt[i] = 1;
     const nearVeil = distanceFrom(veilAt, W, H);
     for (let i = 0; i < N; i++) if (nearVeil[i] < 10) hard[i] = 1;
-    const e = erodeHard(f, hard, W, H, RANGE_FLOW.iterations, RANGE_FLOW.k, RANGE_FLOW.diffusion, (i) => !band[i]);
+    // (on the band's box and `RANGE_FLOW.iterations` + 2 tiles round it, the furthest the diffusion carries anything in;
+    // the whole map took a second at 256²)
+    const box = bandBox(band, W, H, RANGE_FLOW.iterations + 2);
+    const sub = (a: ArrayLike<number>) => {
+      const o = new Float64Array(box.w * box.h);
+      for (let y = 0; y < box.h; y++) for (let x = 0; x < box.w; x++) o[y * box.w + x] = a[(y + box.y) * W + x + box.x];
+      return o;
+    };
+    const at = (k: number) => (Math.floor(k / box.w) + box.y) * W + (k % box.w) + box.x;
+    const eSub = erodeHard(sub(f), sub(hard), box.w, box.h, RANGE_FLOW.iterations, RANGE_FLOW.k, RANGE_FLOW.diffusion, (k) => !band[at(k)]);
+    const e = Float64Array.from(f);
+    for (let k = 0; k < eSub.length; k++) e[at(k)] = eSub[k];
     // (a canyon cuts `RANGE_FLOW.cut` levels into the block at most: cut to the basin's floor, one ran through the range
     // under the gap's saddle and the dry lake reached the valley)
     for (let i = 0; i < N; i++) if (band[i] && hard[i] < 1) f[i] = Math.max(foots[i], f[i] - RANGE_FLOW.cut, e[i]);
     // fans at the side valleys' mouths, on both sides: where a valley's water leaves the range, a low cone a level over the
     // foot, out `RANGE_FLOW.fan` tiles
-    const d = drainage(f, W, H, { outlet: (i) => !band[i], epsilon: 1e-6 });
+    const dSub = drainage(sub(f), box.w, box.h, { outlet: (k) => !band[at(k)], epsilon: 1e-6 });
     const fan = new Float64Array(N).fill(-Infinity);
-    for (let i = 0; i < N; i++) {
-      const rc = d.rcv[i];
-      if (!band[i] || rc < 0 || band[rc] || d.area[i] < RANGE_FLOW.mouth) continue;
+    for (let k = 0; k < box.w * box.h; k++) {
+      const i = at(k);
+      const rk = dSub.rcv[k];
+      const rc = rk < 0 ? -1 : at(rk);
+      const area = dSub.area[k];
+      if (!band[i] || rc < 0 || band[rc] || area < RANGE_FLOW.mouth) continue;
       const x0 = i % W;
       const y0 = Math.floor(i / W);
       const R2 = RANGE_FLOW.fan;
@@ -1153,6 +1207,58 @@ const rangeValleysCheck: GateLandInvariant = {
     const v = rangeValleys(plan, water, heights);
     const least = Math.round((RANGE_CHECK.valleys * plan.W) / 128);
     return v.front >= least && v.back >= least ? OK : fail(`The range has ${v.front} side valleys toward the valley and ${v.back} toward the basin (${least} or more each)`);
+  },
+};
+
+/** The longest straight run, along a row or a column, of faces over `GORGE_FACE.levels` levels on the range and the
+ *  Gate's gorge (the band, and three tiles round the gorge's channel), the Veil's own drop excepted (`GORGE_FACE.veil`
+ *  tiles round its lip, its cleft and its mouth) and the Gate's head (its bar and rows, laid straight); with where. */
+export function gorgeFaces(plan: PremisePlan, water: StageWater, heights: ArrayLike<number>): { run: number; at: number } {
+  const g = gateOf(plan)!;
+  const { W, H } = plan;
+  const N = W * H;
+  const r = water.raster;
+  const band = rangeBand(plan, water);
+  const gi = plan.links.findIndex((l) => l.id === g.gate) + 1;
+  const vi = plan.links.findIndex((l) => l.id === g.veil) + 1;
+  const pi = plan.bodies.findIndex((b) => b.id === g.pool) + 1;
+  const gate = new Uint8Array(N);
+  const veil = new Uint8Array(N);
+  const barEnd = Math.max(0, ...(plan.links[gi - 1]?.rows ?? [0])) + 2;
+  for (let i = 0; i < N; i++) {
+    if (r.channel[i] === gi) gate[i] = 1;
+    if (r.channel[i] === vi || r.lake[i] === pi || r.pool[i] === vi || r.crest[i]) veil[i] = 1;
+    // (and the Gate's head, its bar and rows of Blockages, laid straight on purpose)
+    if (r.channel[i] === gi && r.along[i] <= barEnd) veil[i] = 1;
+  }
+  const nearGate = distanceFrom(gate, W, H);
+  const nearVeil = distanceFrom(veil, W, H);
+  const own = (i: number) => (band[i] === 1 || nearGate[i] <= 3) && nearVeil[i] > GORGE_FACE.veil;
+  const face = (i: number, j: number) => own(i) && own(j) && Math.abs(heights[i] - heights[j]) > GORGE_FACE.levels;
+  let run = 0;
+  let at = -1;
+  // (faces between rows, run along x; faces between columns, run along y)
+  for (let y = 0; y + 1 < H; y++)
+    for (let x = 0, n = 0; x < W; x++) {
+      n = face(y * W + x, (y + 1) * W + x) ? n + 1 : 0;
+      if (n > run) [run, at] = [n, y * W + x];
+    }
+  for (let x = 0; x + 1 < W; x++)
+    for (let y = 0, n = 0; y < H; y++) {
+      n = face(y * W + x, y * W + x + 1) ? n + 1 : 0;
+      if (n > run) [run, at] = [n, y * W + x];
+    }
+  return { run, at };
+}
+export const GORGE_FACE = { levels: 3, run: 6, veil: 4 } as const;
+
+/** `gorge.walls` (planning's ruling of 2026-11-14): no face over three levels runs straight for more than six tiles on
+ *  the range and the Gate's gorge, the Veil's drop excepted. */
+const gorgeWalls: GateLandInvariant = {
+  id: "gorge.walls",
+  test({ plan, water, heights }) {
+    const f = gorgeFaces(plan, water, heights);
+    return f.run <= GORGE_FACE.run ? OK : fail(`A face over ${GORGE_FACE.levels} levels runs straight for ${f.run} tiles at ${f.at % plan.W}, ${Math.floor(f.at / plan.W)} (${GORGE_FACE.run} at most)`);
   },
 };
 

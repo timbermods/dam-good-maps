@@ -126,7 +126,7 @@ function keepOff(plan: PremisePlan, w: StageWater, ladder: Ladder, green: boolea
 /** Stage 6 on a settled premise map (`built`, its first build): the generator's planting by the premise's budget, the
  *  dead woods on old shores and beside dry beds, succulents on the dry-for-good side and the mine sites, as features
  *  for one more build (its settle reused: nothing here moves water). */
-export function premiseLife(spec: MapSpec, plan: PremisePlan, w: StageWater, ladder: Ladder, built: BuildResult, features: readonly Feature[], attempt: number, palette: MapSpec["settings"]["resources"]["speciesMix"] | null = null): PremiseLife {
+export function premiseLife(spec: MapSpec, plan: PremisePlan, w: StageWater, ladder: Ladder, built: BuildResult, features: readonly Feature[], attempt: number, palette: MapSpec["settings"]["resources"]["speciesMix"] | null = null, beds: Uint8Array | null = null): PremiseLife {
   const { W, H } = plan;
   const N = W * H;
   const r = w.raster;
@@ -152,7 +152,7 @@ export function premiseLife(spec: MapSpec, plan: PremisePlan, w: StageWater, lad
     },
   };
   const protect = keepOff(plan, w, ladder, true);
-  const planted = planResources(lifeSpec, built, 0, attempt, { protect, moistCover: LIFE.moistCover, woodLean: true, deadForests: res.forestDensity });
+  const planted = planResources(lifeSpec, built, 0, attempt, { protect, moistCover: LIFE.moistCover, woodLean: true, deadForests: res.forestDensity, ...(beds ? { beds } : {}) });
   const rng = stream(spec.seed, "premise.life", attempt);
   groupGroves(planted, built, protect, rng, W, H);
   const out: Feature[] = [...planted];

@@ -21,9 +21,11 @@ import { makeSpec } from "../../src/core/spec/mapspec";
 const W = 96;
 
 // (seed 4 since generator 0.10.11, the D410 round, D148: seed 5's carve from its far spot crosses no rise that Depth 2 cannot
-// cut, so nothing is refused; seed 4's crosses one at (10, 87) that needs Depth 5)
+// cut, so nothing is refused; seed 4's crosses one at (10, 87) that needs Depth 5; seed 2 since generator 0.10.19's dry
+// washes, D517, D148: seed 4's far spot moved to (81, 12), whose carve crosses no such rise; seed 2's crosses one at
+// (69, 76) that needs Depth 4)
 function session() {
-  const r = generate(makeSpec({ seed: 4, theme: "highlands", size: { x: W, y: W } }));
+  const r = generate(makeSpec({ seed: 2, theme: "highlands", size: { x: W, y: W } }));
   const s = MapSession.fromGenerated(r, r.file);
   s.setWaterMode("defer");
   return s;

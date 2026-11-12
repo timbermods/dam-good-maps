@@ -703,6 +703,12 @@ above, and why:
   and beside each dry bed 15 tiles long or more (1 to 3 tiles out; the bypass one for each 60 tiles of it). Before
   them, the generator's planting lays the dead stands every map has (D516, `gen/deadStands.ts`): about 40 per 1,000
   dry tiles by the player's Forests, on the dry land the premise leaves open.
+- **Dry washes** (D517, `premise/washes.ts` on `land/washes.ts`): once stage 3 has put the start and before the ladder
+  reads the land, the washes every map has and the old bed are cut into stage 2's ground, off what stage 1 decided (2
+  tiles; the falls, empty basins and works' laid ground 3), the works (20, the ladder's window), the badwater's niches
+  (5) and the start's ground and ways out (its walk to 20 tiles, its ground within 28); their fords join the field's
+  natural ramps. The lake stair's keep-off leaves little dry land a long line crosses, so it often has no wash, or
+  only the old bed.
 - **The benches over the lakes are dressed** (`benchesOver`, `LIFE.bench`): dry level ground 3 or more levels over a
   lake's sill within 10 tiles of it, 12 tiles or more together, is a place (§9's dry places); one stand on each, a
   bench for each 5,000 tiles of map at most, the one nearest the start first, so one is in the start's sight:
@@ -1365,6 +1371,25 @@ at 192², 17 to 24 at 256², each with its fan; the valley's green 33 to 40 % / 
 `docs/sheets/wall-gate-range.jpg` (nine frames). **Short:** the band is under planning's 30 to 40 at 128² (the
 valley's room before the Veil and the basin's floor fix it); from the widest frame the back slope reads as the basin's
 grey; near the gorge and the Veil the scarp still stands as square walls.
+
+**The gorge and the time** (planning's ruling of 2026-11-14). The Gate's gorge swings from side to side of its line,
+1.5 to 2.5 tiles a point every three tiles, across the bench and through the range (`GORGE_WANDER`), and the scarp's
+buttresses carry its ledges 1.5 tiles out. `gateLand.ts` `gorgeFaces` reads the longest straight run of a face over three
+levels on the range and the gorge (the Veil and the Gate's bar and rows excepted): 9 to 23 tiles at 128², 12 to 21 at
+192², 10 to 38 at 256² (seeds 1 to 6); **short of the six asked**, so `gorge.walls` is not yet a land invariant. Tried and
+backed out: the beds' walls stepped back in bands of three with ledges (the first face to the gap's saddle, the
+valley held there) and the back slope stepped down to the playa: the runs fell to 5 to 9 tiles, but the steps made
+columns and flats, and the maps held 8, 5 and 0 of 12. **The time**: a 256² map took 6.6 s (3.6 s on dev) because of the
+plans drawn again; of the layouts an attempt draws, a quarter (every one turned Cw180) failed the first frame (the
+start's row was searched at the Veil's face − 6 and − 7 only, which put the lip past the frame's top edge for that
+turn: it is now searched from − 7 to − 3, the farthest row that frames the lip first), and most of the rest were
+refused for the Gate running through the lake (its shore was the nearest lobe's edge, not the arm's between two lobes:
+now the arm's own edge) and a brook running through the lake (its end lay deep in the arm: now a tile inside the
+shore's own edge). The land stage keeps the range's band for its checks and erodes on the band's box: 1.6 s to 1.1 s
+at 256². A 256² map now takes 5.5 s (median, seeds 1 to 6), still over the 4.5 s asked: each map is refused at the land
+two times or so (`range.flat`, `basin.bowl`), a second and a half a time. Milestone's dead stands (D516, `gen/deadStands.ts`)
+run on the Gate's land through `premiseLife`'s `planResources`: 14 to 26 stands a map at 128² (shores, hollows, tops);
+the start's level land, reach, forester and farmland are unchanged, its wood moves by up to 22 logs.
 
 **As built (land, stage 2).** `gateLand.ts` `gateRelief`: the shared relief for the valley, the range and the basin
 shaped from the plan as the table says, the valley's land coming in over the range's lowest flank (never under it),
