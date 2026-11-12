@@ -76,9 +76,10 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   then the leat's bar, the Veil's foot a level under the sill with its outer row the ribbon, the first frame's beds under
   two), `GATE_WATER_CHECKS` (the shared ones, the Still Pool a `Body.backwater`; `gate.dry`, `frame.water`) and `gateSettleModel` (the undrawn ground over every
   water, for a settle of stage 1 alone). `tools/premise-gate-water.ts` prints and draws a seed's, `--settle` settles it.
-- `gateLand.ts`: the wall with one gate's stage 2 (§5.1 "As built (land)"): the range's landforms (§5.1 "The range, landforms":
-  a field, its spurs `GateNumbers.spurs`, side valleys by `erodeHard`, fans; `rangeBand`, `rangeFlatShare`,
-  `rangeValleys`, `rangeHeight` and the checks `range.flat`, `range.valleys`, `range.height`); `gateRelief` (the shared relief for the
+- `gateLand.ts`: the wall with one gate's stage 2 (§5.1 "As built (land)"): the range as a scarp (§5.1 "The range, a scarp":
+  the scarp's cliff bands and the back slope, `SCARP`; spurs `GateNumbers.spurs`, canyons by `erodeHard`, fans; the
+  column pass `rangeColumns`; `rangeBand`, `rangeFlatShare`, `rangeValleys`, `rangeHeight` and the checks `range.flat`,
+  `range.valleys`, `range.columns`); `gateRelief` (the shared relief for the
   valley, its uplands under the gap's saddle or its highest water + 2 and read through a warp away from the water,
   `valleyWarp`; the range shaped across its warped spine, talus on soft rock, cliffs on
   hard, spurs and gullies; the basin a playa within two levels of its pan, two old shoreline benches round it, hills past
