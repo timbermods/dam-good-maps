@@ -830,7 +830,8 @@ a test on a small fixture (`premiseSeams.test.ts`).
   the joining link's flow to the bed it joins and gives that bed `LinkFlow.wetFrom`, so the bed carries the water from
   the join down to its end (an exit) and stays dry above; `raster/channels.ts` lays the reach below the join at its
   water's depth with no wadi, the reach above with its wadi as a dry bed's. The joining link's `to` is the bed's end.
-  The water is not routed on into a body: a bed it joins ends at an exit.
+  `waterChecks.ts` `water.wet` reads the bed wet where its water comes in. The water is not routed on into a body: a
+  bed it joins ends at an exit.
 
 **After the map opens: the proofs** (background, section 3). The premise true both ways by `HazardRun`; each work's
 gain by a what-if settle; the first cycles. Their results are rows in the checks panel and the ladder's readout; they
