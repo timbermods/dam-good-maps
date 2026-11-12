@@ -95,8 +95,9 @@ function wetCut(ground: Uint8Array, now: Uint8Array, depth: ArrayLike<number>): 
 }
 
 describe("Carve's river is born as it cuts (D371)", () => {
-  // (seed 22 has caves: a pool under a roof stays apart from the carve's water, checked on its own; #814)
-  it.each([21, 22])("the water flows into the channel as it is cut, from the carve's source; kept, the map's water flows on from it (seed %i)", async (seed) => {
+  // (seed 22 has caves: a pool under a roof stays apart from the carve's water, checked on its own; #814. Seed 24 for 21
+  // since generator 0.10.19's dry washes, D517, D148: seed 21's channel holds no more water at the cut's end than halfway)
+  it.each([24, 22])("the water flows into the channel as it is cut, from the carve's source; kept, the map's water flows on from it (seed %i)", async (seed) => {
     const { origin, ground, water, roofed } = await open(seed);
     const st = ed.forceStart({ verb: "carve", settings: { ...DEFAULTS, power: 70 }, origin, cut: null });
     expect(st.errors).toEqual([]);

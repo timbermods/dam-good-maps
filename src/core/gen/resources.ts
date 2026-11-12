@@ -66,6 +66,8 @@ export interface ResourceConstraints {
   /** Forests, %, for the dead stands on the dry land (D516) where the spec's own was rescaled for a living budget of
    *  the caller's (a premise's life stage): the stands follow the player's setting, never that budget. */
   deadForests?: number;
+  /** The dry washes' beds and hollows (`land/washes.ts`): the dead stands' dry beds. */
+  beds?: Uint8Array;
   /** Retired (D253, D270, D336: no locks); always null. Kept only so the frozen investigation
    *  prototypes that still pass it type-check (investigation/generative/proto). */
   lockedMask?: null;
@@ -711,6 +713,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       moist,
       free: open,
       channel: g.channel,
+      ...(constraints?.beds ? { beds: constraints.beds } : {}),
       walk,
       start: g.start,
       forestDensity: constraints?.deadForests ?? spec.settings.resources.forestDensity,

@@ -46,6 +46,7 @@ import { objectTiles } from "../features/objects";
 import type { Feature, MapObjectFeature, RiverFeature, StartFeature } from "../features/schema";
 import { writeTimber, type TimberFile } from "../format/timber";
 import { drainage } from "../land/drainage";
+import { bedMask, planWashes, startKeepOff, type Wash } from "../land/washes";
 import { EDGE_SHARE, edgeRuleApplies, edgeWalls } from "../analysis/edges";
 import { lakeRise, shallowSheet } from "../land/sheets";
 import { FIRM, mineRoom, minePads, mineSquares, mineWays, roomMap, type MinePad } from "../land/minePads";
@@ -65,7 +66,7 @@ import { planHydro, type Hydro } from "../land/hydro";
 import { ACTIVE, checkIntention, INTENTION_TEXT, type IntentionId } from "../land/intentions";
 import type { FormPlan, FormsWanted } from "../land/forms3d";
 import { carveOutlets, widenOutlets, unreachedLakes, cleanPitsAndSpikes, fillDryHollows, footComponents, mergeSmallRegions, naturalRamps, relaxEdges, snapLevels } from "../land/levels";
-import { distanceFrom, N4 } from "../math/grid";
+import { distanceFrom, levelRegions, N4 } from "../math/grid";
 import { hash32 } from "../math/hash";
 import { stream } from "../math/rng";
 import { droughtStorage } from "../sim/drought";
@@ -206,6 +207,8 @@ export interface GenerationInfo {
   /** Mine-site pads levelled as the land was shaped (D363): each pad's middle, level and the tiles
    *  taken down a level. */
   pads?: MinePad[];
+  /** The dry washes and the old bed cut as the land was shaped (`land/washes.ts`): each one's line, floor and tiles. */
+  washes?: Wash[];
   /** The largest shallow sheet the shown land's planned lakes would stand as, a share of the map
    *  (D372's reading; its rule is off). */
   sheet?: number;
@@ -378,6 +381,10 @@ interface StageBundle {
  *  (small starts, #153); above it the land is shown once it passes the land stage (D348, D278). */
 export const SHOW_PROVED_MOST = 128 * 128;
 
+/** A level plate that comes this near the water (tiles) and holds a start's bench is one the settled water's start
+ *  may take: the washes keep off it (D515's bench). */
+const WASH_BENCH_WATER = 16;
+
 /** Prepared land retained across attempts. It becomes the fixed, editable map once shown: at the
  *  land stage above SHOW_PROVED_MOST, else once its actual settled start reaches the required mine
  *  pair; new land is never drawn after display. */
@@ -399,6 +406,8 @@ interface LandStage {
   mineWay: Uint8Array;
   /** The mine sites' pads levelled as it was shaped (D363). */
   pads?: MinePad[];
+  /** The dry washes cut as it was shaped. */
+  washes?: Wash[];
   /** The places for a start whose pads were made ready as it was shaped (D373 (3)): a start on it
    *  is one of these when the settled water gives none that needs no levelling. */
   prepared: StartPick[];
@@ -2024,6 +2033,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const mineKeep = from ? from.mineKeep : new Uint8Array(N);
   const mineWay = from ? from.mineWay : new Uint8Array(N);
   if (from?.pads) info.pads = from.pads;
+  if (from?.washes) info.washes = from.washes;
   if (from?.sheet !== undefined) info.sheet = from.sheet;
   if (from?.rise !== undefined) info.rise = from.rise;
   if (from?.lakeStraight !== undefined) info.lakeStraight = from.lakeStraight;
@@ -2420,6 +2430,41 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         } else if (!leave.length) break;
       }
       if (guess && badAsk.count > 0 && !bad.features.length && !lastAttempt) return fail("no place for badwater", null, true);
+      // (the dry washes and an old bed, `land/washes.ts` (D517): cut as the land is shaped,
+      // before it is shown, off every place a start may take and its ground, the hollows, the mine sites' squares and
+      // ways, the weir's pool and the natural ramps; on the water as the settle starts from it, which they never reach)
+      {
+        const off = new Uint8Array(N);
+        for (let i = 0; i < N; i++) off[i] = keep[i] || pool[i] || bad.avoid[i] || mineKeep[i] || mineWay[i] || tried[i] ? 1 : 0;
+        const ways: number[] = [];
+        for (let i = 0; i < N; i++) if (ramps.tiles[i]) ways.push(i);
+        for (const p of info.pads ?? []) for (const j of p.cut) off[j] = 1;
+        const starts = [guess, second, ...prepared].filter((p): p is StartPick => !!p);
+        startKeepOff(h, W, H, starts, ways, off);
+        const surface = new Float64Array(N).fill(NaN);
+        for (let i = 0; i < N; i++) {
+          const d = Math.max(est[i], shownFill ? shownFill[i] : 0);
+          if (d > WET || hy.water[i] === 1 || hy.water[i] === 2) surface[i] = h[i] + d;
+        }
+        // (and the level plates a start the settled water gives could take for its bench, D515: a plate as big as the
+        // bench asks that reaches near the water; the start is chosen after the settle, the washes before it. A bed
+        // may cross one so long as it keeps the bench)
+        const plates = levelRegions(h, W, H);
+        const wetNow = new Uint8Array(N);
+        for (let i = 0; i < N; i++) wetNow[i] = surface[i] === surface[i] ? 1 : 0;
+        const fromWater = distanceFrom(wetNow, W, H);
+        const benchPlate = new Uint8Array(plates.size.length);
+        for (let i = 0; i < N; i++) if (!wetNow[i] && fromWater[i] <= WASH_BENCH_WATER && plates.size[plates.labels[i]] >= benchMin) benchPlate[plates.labels[i]] = 1;
+        const benchPlates = new Uint8Array(N);
+        for (let i = 0; i < N; i++) if (benchPlate[plates.labels[i]]) benchPlates[i] = 1;
+        const washes = planWashes({ W, H, heights: h, surface, lakes: hy.lakes.map((l) => l.tiles), keepOff: off, floor: BED_FLOOR, rng: stream(seed, "washes", attempt), seed: hash32(seed, "washes", attempt), starts, bench: benchMin, benchPlates });
+        if (washes.beds.length) info.washes = washes.beds;
+        // (their natural ramps: the colony walks into the beds and across them)
+        for (const st of washes.steps) {
+          ramps.steps.push(st);
+          ramps.tiles[st[0]] = 1;
+        }
+      }
       hLand.set(h);
       // (no dam wall on the pre-fill's water either, the water the settle starts from: a wall the
       // planned water missed fails every attempt on the land once it is shown)
@@ -2462,7 +2507,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         const wet = Uint8Array.from(pf.depth, (d) => (d > WET ? 1 : 0));
         if (!mb.start || minesReached(objs, W, H, colonyReach(W, H, mb.heights, wet, objs, mb.start)) < minesWanted(W, H)) return fail("mine pair (pre-fill)", null, true);
       }
-      landStage = { shown: false, hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, prepared: [guess, second, ...prepared].filter((p): p is StartPick => !!p).map((p) => ({ ...p, levelled: false, shore: undefined })), sheet: info.sheet, rise: info.rise, lakeStraight: info.lakeStraight, preWet: info.preWet, fillWalls: info.fillWalls, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid, ...(bad.past ? { past: true } : {}) } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
+      landStage = { shown: false, hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, washes: info.washes, prepared: [guess, second, ...prepared].filter((p): p is StartPick => !!p).map((p) => ({ ...p, levelled: false, shore: undefined })), sheet: info.sheet, rise: info.rise, lakeStraight: info.lakeStraight, preWet: info.preWet, fillWalls: info.fillWalls, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid, ...(bad.past ? { past: true } : {}) } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
       // (above 128² the land is shown as soon as it passes the land stage, D348, D278: there the
       // target is time to editable land, 3 s typical, and the settle a hidden land would wait for
       // takes most of a map's time; small starts' proof of the settled start's mine pair before the
@@ -3242,7 +3287,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const md = gameSoil(W, H, b.heights, kept, cd, mapObjects({ entities: b.entities.map(entityJson) })).moisture;
     return { easy: { safe: Uint8Array.from(md, (v) => (v > 0 ? 1 : 0)), bushes: Math.ceil(1.3 * easyT.bushes), within: easyT.bushesWithin, ruins: easyT.ruins } };
   };
-  const resources = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, droughtGround(base), 0, attempt, { protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1, ...easyFood(base) }, sites)];
+  const resources = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, droughtGround(base), 0, attempt, { protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1, ...(info.washes ? { beds: bedMask(info.washes, N) } : {}), ...easyFood(base) }, sites)];
   let features = [...layout, ...resources];
   let built = build(features, null);
   opts.onProgress?.({ attempt, stage: "check" });
@@ -3263,7 +3308,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         if (d < 60 || d > 120 || !walkableFromStart(b3, st.x, st.y)) return null;
       }
       if (risePlan && !riseStands(b3, risePlan.x, risePlan.y, risePlan.radius, risePlan.top, risePlan.rise)) return null;
-      const r3 = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, droughtGround(b3), 0, attempt, { protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1, ...easyFood(b3) }, sites)];
+      const r3 = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, droughtGround(b3), 0, attempt, { protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1, ...(info.washes ? { beds: bedMask(info.washes, N) } : {}), ...easyFood(b3) }, sites)];
       const f3 = [...lay3, ...r3];
       const bb = build(f3, null);
       const file3 = toTimberFile(spec, bb);
