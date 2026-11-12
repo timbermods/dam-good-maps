@@ -13,7 +13,14 @@
 //   the grid or at 45°).
 // - corners: right-angled corners per 1,000 edge sides, where a row-wise and a column-wise run of the same contour
 //   both `CORNER_ARM`+ sides long meet at one vertex.
-//
+// - channels: the share of the map's water lying in straight reaches of even width (a trench, a canal, a moat's side).
+//   In each row (and each column) a run of wet tiles bounded by dry ground is a slice; a slice continues the slice in
+//   the row before whose two ends are each within one tile of its own, so a chain follows one body of water. Along a
+//   chain, a reach is a run of `CHANNEL_RUN`+ rows whose width varies by at most `CHANNEL_WIDTH` tiles and whose
+//   centre line keeps to one straight line (along the grid or at 45°) within one tile. A river of even width that
+//   winds passes: its centre line turns within fewer rows (planning on #236, 2026-11-12: what reads as ruled is even
+//   width and straight reaches meeting at sharp bends). The water is all settled water: the settle holds a river as
+//   level pools and a generated map's settle keeps no flow, so a river is told by its shape, not its flow.
 // Game-forced straightness does not count: sides within `EDGE_MARGIN` tiles of the map's edge and parallel to it, and
 // slices touching the edge, are left out. Integers throughout but the three shares (one division each).
 
@@ -25,11 +32,20 @@ export const BAND_RUN = 12;
 export const BAND_WIDTH = 16;
 /** A right-angled corner's arms: each run at least this long. */
 export const CORNER_ARM = 6;
+/** Channels: a straight reach is this many rows long, at least. */
+export const CHANNEL_RUN = 12;
+/** Channels: a reach's widths lie within this many tiles of each other. */
+export const CHANNEL_WIDTH = 2;
 /** Sides this close to the map's edge and parallel to it are the game's, not the land's. */
 export const EDGE_MARGIN = 2;
 
 /** The limits (calibrated: docs, "Ruled land"). A map fails when any number is over its limit. */
-export const RULED_LIMITS = { straight: 0.2, bands: 0.03, corners: 8 } as const;
+export const RULED_LIMITS = { straight: 0.17, bands: 0.03, corners: 3, channels: 0.2 } as const;
+/** The aim (planning, 2026-11-12: the game's built-in maps' median): a map that passes with more of its edges
+ *  straight than this is told so. */
+export const RULED_AIM = { straight: 0.08 } as const;
+
+export type RuledLimits = { straight: number; bands: number; corners: number; channels: number };
 
 export interface RuledLand {
   /** Edge sides counted (height steps between dry tiles, and shoreline sides). */
@@ -42,11 +58,15 @@ export interface RuledLand {
   corners: number;
   /** The longest straight run: its length in sides and its middle tile. */
   longest: { length: number; x: number; y: number };
+  /** Share of the map's water (its wet tiles) in channels. */
+  channels: number;
+  /** The largest channel: its tiles and its middle (null when there is none). */
+  channel: { tiles: number; x: number; y: number } | null;
   ok: boolean;
 }
 
 /** Ruled land of a map from its top surface `h` (levels) and its settled water (`wet`: 1 on a wet tile). */
-export function ruledLand(h: ArrayLike<number>, wet: ArrayLike<number>, W: number, H: number, limits: { straight: number; bands: number; corners: number } = RULED_LIMITS): RuledLand {
+export function ruledLand(h: ArrayLike<number>, wet: ArrayLike<number>, W: number, H: number, limits: RuledLimits = RULED_LIMITS): RuledLand {
   // the key of the side between tiles a and b: 0 for no edge; ± (1 + upper level) for a step between dry tiles; ±1000
   // for a shoreline (the sign: which side is higher, or wet)
   const key = (a: number, b: number): number => {
@@ -132,7 +152,8 @@ export function ruledLand(h: ArrayLike<number>, wet: ArrayLike<number>, W: numbe
   const straight = edges ? straightSides / edges : 0;
   const bandShare = bandTiles / (W * H);
   const perK = edges ? (corners * 1000) / edges : 0;
-  return { edges, straight, bands: bandShare, corners: perK, longest, ok: straight <= limits.straight && bandShare <= limits.bands && perK <= limits.corners };
+  const ch = channels(wet, W, H);
+  return { edges, straight, bands: bandShare, corners: perK, longest, channels: ch.share, channel: ch.worst, ok: straight <= limits.straight && bandShare <= limits.bands && perK <= limits.corners && ch.share <= limits.channels };
 }
 
 /** Tiles in constant-width bands, counted along rows (bands running along y) and along columns, each tile once. */
@@ -199,11 +220,139 @@ function sweep(cls: Int16Array, cols: number, rows: number, mark: Uint8Array, rs
   }
 }
 
+/** The share of the water in channels, counted along rows and along columns, each tile once; and the largest. */
+function channels(wet: ArrayLike<number>, W: number, H: number): { share: number; worst: { tiles: number; x: number; y: number } | null } {
+  const N = W * H;
+  const mark = new Uint8Array(N);
+  let worst: { tiles: number; x: number; y: number } | null = null;
+  for (const [cols, rows, rs, cs] of [[W, H, W, 1], [H, W, 1, W]] as const) {
+    const w = channelSweep(wet, cols, rows, rs, cs, mark);
+    if (w && (!worst || w.tiles > worst.tiles)) worst = rs === W ? { tiles: w.tiles, x: w.col, y: w.row } : { tiles: w.tiles, x: w.row, y: w.col };
+  }
+  let water = 0;
+  let inChannels = 0;
+  for (let i = 0; i < N; i++) {
+    if (wet[i]) water++;
+    inChannels += mark[i];
+  }
+  return { share: water ? inChannels / water : 0, worst };
+}
+
+/** One direction of the channels: marks the tiles of straight reaches of even width; returns the largest reach's
+ *  tiles and middle (row, col). */
+function channelSweep(wet: ArrayLike<number>, cols: number, rows: number, rs: number, cs: number, mark: Uint8Array): { tiles: number; row: number; col: number } | null {
+  // each row's slices [start, width]; each slice's predecessor in the row before (its index, or -1), each taken once
+  const slices: Int32Array[] = [];
+  const pred: Int32Array[] = [];
+  const succ: Uint8Array[] = [];
+  for (let r = 0; r < rows; r++) {
+    const a: number[] = [];
+    let c = 0;
+    while (c < cols) {
+      const v = wet[r * rs + c * cs] ? 1 : 0;
+      let e = c + 1;
+      while (e < cols && (wet[r * rs + e * cs] ? 1 : 0) === v) e++;
+      if (v && c > 0 && e < cols) a.push(c, e - c);
+      c = e;
+    }
+    const s = Int32Array.from(a);
+    const p = new Int32Array(s.length >> 1).fill(-1);
+    if (r > 0) {
+      const q = slices[r - 1];
+      const taken = succ[r - 1];
+      let from = 0;
+      for (let i = 0; i < s.length; i += 2) {
+        // (a row's slices lie in order: a pointer walks the row before)
+        while (from < q.length && q[from] < s[i] - 1) from += 2;
+        for (let j = from; j < q.length && q[j] <= s[i] + 1; j += 2) {
+          const d1 = q[j] + q[j + 1] - s[i] - s[i + 1];
+          if (!taken[j >> 1] && d1 <= 1 && -d1 <= 1) {
+            p[i >> 1] = j;
+            taken[j >> 1] = 1;
+            break;
+          }
+        }
+      }
+    }
+    slices.push(s);
+    pred.push(p);
+    succ.push(new Uint8Array(s.length >> 1));
+  }
+  let best = { tiles: 0, row: 0, col: 0 };
+  const chainR: number[] = [];
+  const chainI: number[] = [];
+  const centre: number[] = [];
+  const width: number[] = [];
+  for (let r = rows - 1; r >= 0; r--) {
+    const s = slices[r];
+    for (let i = 0; i < s.length; i += 2) {
+      if (succ[r][i >> 1]) continue;
+      // a chain ends here: walk it back to its start
+      chainR.length = 0;
+      chainI.length = 0;
+      for (let rr = r, ii = i; ii >= 0; rr--) {
+        chainR.push(rr);
+        chainI.push(ii);
+        ii = pred[rr][ii >> 1];
+      }
+      const n = chainR.length;
+      if (n < CHANNEL_RUN) continue;
+      // each slope (centre moving -1, 0 or +1 tile a row), a window that keeps the centre (doubled, less the slope's
+      // drift) within 2 and the widths within CHANNEL_WIDTH; every window of CHANNEL_RUN+ rows is a straight reach
+      for (let k = -1; k <= 1; k++) {
+        centre.length = 0;
+        width.length = 0;
+        for (let t = 0; t < n; t++) {
+          const sl = slices[chainR[t]];
+          centre.push(2 * sl[chainI[t]] + sl[chainI[t] + 1] - 2 * k * chainR[t]);
+          width.push(sl[chainI[t] + 1]);
+        }
+        let lo = 0;
+        let marked = -1;
+        for (let hi = 0; hi < n; hi++) {
+          for (;;) {
+            let c0 = centre[hi];
+            let c1 = c0;
+            let w0 = width[hi];
+            let w1 = w0;
+            for (let t = lo; t < hi; t++) {
+              c0 = Math.min(c0, centre[t]);
+              c1 = Math.max(c1, centre[t]);
+              w0 = Math.min(w0, width[t]);
+              w1 = Math.max(w1, width[t]);
+            }
+            if (c1 - c0 <= 2 && w1 - w0 <= CHANNEL_WIDTH) break;
+            lo++;
+          }
+          if (hi - lo + 1 < CHANNEL_RUN) continue;
+          let tiles = 0;
+          let sr = 0;
+          let sc = 0;
+          for (let t = lo; t <= hi; t++) {
+            const sl = slices[chainR[t]];
+            const st = sl[chainI[t]];
+            const wd = sl[chainI[t] + 1];
+            tiles += wd;
+            sr += chainR[t] * wd;
+            sc += st * wd + ((wd * (wd - 1)) >> 1);
+            if (t > marked) for (let c = st; c < st + wd; c++) mark[chainR[t] * rs + c * cs] = 1;
+          }
+          marked = hi;
+          if (tiles > best.tiles) best = { tiles, row: Math.round(sr / tiles), col: Math.round(sc / tiles) };
+        }
+      }
+    }
+  }
+  return best.tiles ? best : null;
+}
+
 /** The check's one-line reason, in the gate's style. */
 export function ruledLandMessage(r: RuledLand): string {
   const pct = (v: number) => `${Math.round(v * 100)} %`;
-  const nums = `${pct(r.straight)} of edges straight, ${pct(r.bands)} of the land in even bands, ${Math.round(r.corners * 10) / 10} square corners per 1,000 edges`;
-  return r.ok ? `The land is not ruled: ${nums}` : `The land looks ruled: ${nums}; the longest straight edge is ${r.longest.length} tiles at X ${r.longest.x} · Y ${r.longest.y}`;
+  const nums = `${pct(r.straight)} of edges straight, ${pct(r.bands)} of the land in even bands, ${Math.round(r.corners * 10) / 10} square corners per 1,000 edges, ${pct(r.channels)} of the water in straight even channels`;
+  const where = `the longest straight edge is ${r.longest.length} tiles at X ${r.longest.x} · Y ${r.longest.y}${r.channel ? `; the largest channel is ${r.channel.tiles} tiles at X ${r.channel.x} · Y ${r.channel.y}` : ""}`;
+  if (!r.ok) return `The land looks ruled: ${nums}; ${where}`;
+  return r.straight > RULED_AIM.straight ? `The land is not ruled, but straighter than the aim of ${pct(RULED_AIM.straight)}: ${nums}; ${where}` : `The land is not ruled: ${nums}`;
 }
 
 /** Wet tiles of settled water, as the Workshop study read them (depth 0.1 or more). */
