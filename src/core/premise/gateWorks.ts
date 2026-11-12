@@ -232,7 +232,7 @@ export function gateLadder(plan: PremisePlan, w: StageWater, heights: Uint8Array
     const gain = estimateGain(heights, W, H, before, after);
     s.green = gain.green;
     s.wet = gain.wet;
-    // (a reservoir's reach is the valley it drowns, the start's bench among it: its measure is the water it holds, and
+    // (a reservoir's reach is the valley it drowns: its measure is the water it holds, and
     // stage 6 plants day 1's land, which keeps nothing off a work's reach)
     s.reach = reservoir.has(work.id) ? [] : tilesToRuns(gain.tiles, W);
     if (reservoir.has(work.id)) s.reservoir = Math.max(0, Math.round(after.held - before.held));

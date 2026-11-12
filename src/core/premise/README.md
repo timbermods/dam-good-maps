@@ -59,21 +59,22 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   (`bypassCourses`: two legs over the seed's rises and hollows, turning far from the start, kept off the edge), the tarns and basins, the works, the ridges, the
   regions; past 192² the lakes and rim tarns sized by the map, `mapScale` and `rimTarns`, the further rim tarns spread round the edges and drawn long or round; every rim tarn's run to the edge bent and slid along it, `edgeRun`), its second pass
   (`skeletonOf`, `siteStair`, `siteSide`; the works' floors and most `givesOf`) and the stair's `plan` invariants. `layoutTry` gives one layout try as far as it got, for tuning.
-- `premises/wallGate.ts`: the wall with one gate (§5.1), stage 0, land first (planning's ruling of 2026-11-11):
+- `premises/wallGate.ts`: the wall with one gate (§5.1), stage 0, land first (planning's ruling of 2026-11-11), its
+  stages 1 and 2 (`gateWater`, `gateLand`) its `PremiseDef.water` and `PremiseDef.land`:
   `wallGateEligible`, the layout in a frame turned to the start's camera (the range: its crest as noise along a stretch
   of a longer drawn line, read so its lowest saddle lies where a gap can stand, its spine wandering behind the Veil's
   face, `GateNumbers.range`; the Veil at its high ground near the middle, the Gate's winding gorge at its lowest saddle,
-  the Pass at the lowest on the other side; the plunge pool at the start's door the Veil falls into, its brook over a
-  low lip down the valley, the lake at the valley's low end (one broad body, its width varying, a bay or two), the Still
+  the Pass at the lowest on the other side; the plunge pool at the start's door the Veil falls into, two levels over the lake, its
+  brook over a low lip down the valley in two steps (a reach, the Steps and their cascade, a reach), 3 or 4 wide by turns
+  (`Link.halves`, `BROOK`, `STEPS`), the lake at the valley's low end (one broad body, its width varying, a bay or two), the Still
   Pool and its inlet off the plunge pool; the playa past the range; the leat along the crest and the Pass Bed; the basin's pan and the beds' outlet;
-  the Low River through its spur; the brooks), its numbers in `GatePlan.gate` (`gateOf`) and its `plan` invariants.
+  the Low River through its spur; the southern brooks, 2 or 3 wide by turns), its numbers in `GatePlan.gate` (`gateOf`) and its `plan` invariants.
   `gateRange.ts` reads the range along u (`rangeAt`, `sideOf`, `spineLocal`). Not offered: `premises/dev.ts`
   `DEV_PREMISES` lists it for the tools and tests; joining `spec/mapspec.ts` `PREMISE_IDS` offers it. No playability
   floor of its own: the shared gate holds the start.
 - `gateWater.ts`: the wall with one gate's stage 1 (§5.1 "As built (water)"): `gateWater` (the shared `waterByNumber`,
   then the leat's bar, the Veil's foot a level under the sill with its outer row the ribbon, the first frame's beds under
-  two), `GATE_WATER_CHECKS` (`water.levels` read for a backwater, `gate.dry`, `frame.water`), `gateFirstWater` (`draw.ts`
-  `firstWater` with this stage, until `PremiseDef` has a seam for it) and `gateSettleModel` (the undrawn ground over every
+  two), `GATE_WATER_CHECKS` (the shared ones, the Still Pool a `Body.backwater`; `gate.dry`, `frame.water`) and `gateSettleModel` (the undrawn ground over every
   water, for a settle of stage 1 alone). `tools/premise-gate-water.ts` prints and draws a seed's, `--settle` settles it.
 - `gateLand.ts`: the wall with one gate's stage 2 (§5.1 "As built (land)"): `gateRelief` (the shared relief for the
   valley, its uplands under the gap's saddle or its highest water + 2 and read through a warp away from the water,

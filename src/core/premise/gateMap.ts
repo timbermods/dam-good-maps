@@ -1,6 +1,6 @@
 // The wall with one gate's map (docs/PREMISES.md §5.1): its stages 0 to 3 and the shared map's build, as the
-// generator's mode (`generate.ts` `generatePremise`) runs the lake stair's, until the mode can take a premise's own
-// stages (§5.1 "As built (water)", its seams, says the edits). The plan and its water (`gateWater.ts` `gateFirstWater`), the land
+// generator's mode (`generate.ts` `generatePremise`) runs the lake stair's: its own loop until the Gate is offered and
+// the mode builds it through the seams (§5.1 "As built (water)"). The plan and its water (`gateWater.ts` `gateWater`), the land
 // (`gateLand.ts`), its land invariants, stage 3's start for the first frame (`frame.ts` `checkFrame`, with the shared
 // rules' needs as the mode asks them), and one build with its checks (`map.ts` `premiseMap`, stages 5 and 6). The works
 // (stage 4) are not laid yet: the ladder is the plan's, read on this land by `ladder.ts` `ladderOf` as the mode does.
