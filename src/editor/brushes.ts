@@ -42,7 +42,8 @@ import type { TileHit } from "../render3d/pick";
 import type { RidgeSteep } from "../core/doc/ridgeLimits";
 import { areaRect, BRUSH_MAX_LEVEL, brushHard, type BrushParams, type BrushTool } from "../core/features/raster/brush";
 import { StrokePreview, type TerrainState } from "../core/features/raster/strokePreview";
-import { RemotePreview, WEATHER_SILENT, type WeatherChannel } from "../core/features/raster/remoteStroke";
+import { answerBound, WEATHER_SILENT } from "../core/features/raster/remoteStroke";
+import { StrokeFeed, type EditQueue, type FeedLanding, type Rigid, type StrokeWorker } from "../core/doc/editQueue";
 import { tilesToRuns } from "../core/math/grid";
 import { tileCount } from "../core/doc/labels";
 
@@ -164,11 +165,14 @@ export interface PainterHost {
   heights(): Uint8Array;
   terrain(): TerrainState;
   settings(): BrushSettings;
-  /** A stroke ended with changes: send it (the host updates its terrain to `pre` and `protect`). */
-  commit(stroke: Stroke, pre: Uint8Array, protect: Uint8Array): void;
+  /** The edit queue (core/doc/editQueue.ts, #922): every stroke is a ticket from pointer-down, painted on its `shown`
+   *  and `terrain()`; a press behind a Naturalize stroke still landing waits its turn to compose (I8). */
+  edits(): EditQueue;
+  /** A stroke ended with changes: its ticket is ready with its operation (`ticket`, the stroke's). */
+  commit(stroke: Stroke, pre: Uint8Array, protect: Uint8Array, ticket: number): void;
   /** A stroke ended without changing the ground (a Flatten at the ground's own level, a Smooth over
-   *  flat land): its operation, for what the stroke does besides the ground (the sources Clear takes,
-   *  item 15). */
+   *  flat land; its ticket is gone): its operation, for what the stroke does besides the ground (the sources Clear
+   *  takes, item 15). */
   unchanged?(params: BrushParams): void;
   /** Ctrl+click: the land's level, for the target (D322). */
   picked(level: number): void;
@@ -195,11 +199,6 @@ export interface PainterHost {
   /** The tiles drawn as water now, from the map's own water (never a drought's or a badtide's), and
    *  each one's surface (NaN where dry): a mode's wet tiles and banks (D322). */
   water?(): Float32Array | null;
-  /** The stroke's ground so far, a rectangle of the shown heights at a time: the water flows on it
-   *  while painting (D197). */
-  draft?(rect: Rect, heights: Uint8Array): void;
-  /** The stroke was taken back: its water goes. */
-  cancelDraft?(): void;
   /** The tiles of each object that stands on more than one tile (a mine site, a relic, a badwater
    *  source, the start): a Flatten stroke's rim must not leave one on a step (D204). */
   footprints?(): number[][];
@@ -216,10 +215,8 @@ export interface PainterHost {
    *  (D368 (8)). */
   objectGround?(): [number, number, number][];
   /** The worker's weathering (D422): a Naturalize stroke's land is worked out there, the page showing
-   *  what comes back. */
-  weather?: WeatherChannel;
-  /** An edit was refused: its one line, where the page shows refusals (#884: the worker never answered a stroke). */
-  refuse?(text: string): void;
+   *  what comes back (a silent worker's stroke is taken back by the queue's watchdog, with its line, #884). */
+  weather?: StrokeWorker;
   /** The working area (D254, D259: the Select tool's open selection) as runs [y, x0, x1], or null:
    *  a stroke changes only its tiles, feathered toward its edge. */
   area?(): [number, number, number][] | null;
@@ -242,9 +239,70 @@ const DEEPENS = 0.5;
 /** Quarter tiles, for a dab's centre on a map `size` tiles across. */
 const q = (v: number, size: number) => Math.max(0, Math.min(4 * size - 1, Math.round(v * 4)));
 
+/** A Naturalize stroke weathered in its worker (D422) through the edit queue's feed (#922 step 3): the surface the
+ *  brushes read of a preview. Its land comes as the worker sends it, written into the queue's `shown`. */
+class FeedPreview {
+  /** Once it landed: the heights before the integrity pass, and the protected tiles. */
+  pre: Uint8Array;
+  protect: Uint8Array;
+  /** The pieces that rode it whole changed no more than its land: `bounds` holds both. */
+  readonly finished = null;
+
+  constructor(
+    readonly feed: StrokeFeed,
+    private readonly heights: Uint8Array,
+    private readonly W: number,
+  ) {
+    this.pre = new Uint8Array(0);
+    this.protect = new Uint8Array(0);
+  }
+
+  get start(): Uint8Array {
+    return this.feed.start;
+  }
+
+  get bounds(): Rect | null {
+    return this.feed.bounds;
+  }
+
+  /** The dabs go to the worker; their land comes later. */
+  add(dabs: ArrayLike<number>, pressure?: ArrayLike<number>): Rect | null {
+    this.feed.add(Array.from(dabs), pressure ? Array.from(pressure) : undefined);
+    return null;
+  }
+
+  /** Esc: the worker forgets it, and the queue lays the land back as it was (its ticket goes). */
+  restore(): Rect | null {
+    this.feed.cancel();
+    return null;
+  }
+
+  /** How many shown tiles the stroke changed (0: none). */
+  changed(): number {
+    const b = this.bounds;
+    if (!b) return 0;
+    let n = 0;
+    for (let y = b.y0; y <= b.y1; y++)
+      for (let x: number = b.x0; x <= b.x1; x++) {
+        const i = y * this.W + x;
+        if (this.heights[i] !== this.start[i]) n++;
+      }
+    return n;
+  }
+}
+
 interface StrokeState {
-  /** The stroke's preview: the page's own, or (a Naturalize stroke, D422) the worker's. */
-  preview: StrokePreview | RemotePreview;
+  /** Its ticket in the edit queue, made at pointer-down (I3, I8). */
+  id: number;
+  /** The stroke's preview: the page's own, or (a Naturalize stroke, D422) the worker's; null while the press waits
+   *  behind a Naturalize stroke still landing (its points wait in `queued`, I8: never dropped). */
+  preview: StrokePreview | FeedPreview | null;
+  /** The button came up (a waiting press composes and ends at once when its turn comes). */
+  letGo: boolean;
+  /** The ground under sources and objects a Naturalize stroke leaves as it is (D368 (8)). */
+  ground: [number, number, number][];
+  /** Weathered in the worker (Naturalize, D422). */
+  remote: boolean;
   settings: Omit<BrushParams, "dabs">;
   dabs: number[];
   /** A pen's pressure per dab (null: a mouse). */
@@ -262,8 +320,9 @@ interface StrokeState {
   lastDab: number;
   raf: number;
   /** Points the pointer reached since the last frame: pressed together in the next one, so a stroke
-   *  works out its land at most once a frame however many pointer events arrive (D380). */
-  queued: [number, number][];
+   *  works out its land at most once a frame however many pointer events arrive (D380); while the press waits its
+   *  turn, each with the pen's pressure then. */
+  queued: [number, number, number?][];
   /** Ground changed since it last went to the water, and when it last went. */
   drafted: Rect | null;
   draftAt: number;
@@ -284,9 +343,10 @@ interface StrokeState {
 
 /** Paints strokes with the brushes: the renderer's pointer tool while a brush is out. */
 export class BrushPainter {
-  /** The ground under sources and objects while a Naturalize stroke is painted (D368 (8)): its preview leaves it as it is. */
-  private ground: [number, number, number][] = [];
   private stroke: StrokeState | null = null;
+  /** Strokes let go that wait their turn to compose behind a Naturalize stroke still landing (U6), and the Naturalize
+   *  strokes landing (their worker's last land and record still coming): the editor closing forgets them. */
+  private letGo = new Set<StrokeState>();
   private cursorAt: [number, number] | null = null;
   /** The ground's level under the pointer (under a layer cut: at most the cut). */
   private hereLevel = 0;
@@ -422,12 +482,6 @@ export class BrushPainter {
 
   get painting(): boolean {
     return this.stroke !== null;
-  }
-
-  /** A stroke is being painted, or a Naturalize stroke's land is still coming from the worker (D422): the
-   *  page's land is its own until it is sent. */
-  get busy(): boolean {
-    return this.stroke !== null || this.committing !== null;
   }
 
   /** A click that set the size: its drag and release do nothing. */
@@ -661,8 +715,7 @@ export class BrushPainter {
   }
 
   private begin(hit: TileHit, ev: PointerEvent): void {
-    // (the last Naturalize stroke is still going to the worker, D422: a moment, then press again)
-    if (this.committing || this.dropped) return;
+    if (this.closed) return;
     const x = hit.x + 0.5;
     const y = hit.y + 0.5;
     const h = this.host;
@@ -697,7 +750,7 @@ export class BrushPainter {
     keep.push(...sourceRuns);
     // Naturalize leaves the ground under sources and objects as it is: the preview shows it, and the
     // core works it out itself when the operation applies (D368 (8), D342); the recorded stroke has no runs for it
-    this.ground = tool === "naturalize" ? (h.objectGround?.() ?? []) : [];
+    const ground = tool === "naturalize" ? (h.objectGround?.() ?? []) : [];
     const stop = target === null && tool === "raise" && cut !== null ? Math.min(BRUSH_MAX_LEVEL, cut) : null;
     const settings: Omit<BrushParams, "dabs"> = {
       tool,
@@ -721,7 +774,6 @@ export class BrushPainter {
     // a Naturalize stroke is weathered in the worker (D422), the land following a frame or two behind
     // the cursor (but for a straight line, drawn again from its start at every move, and Keep)
     const remote = tool === "naturalize" && !!h.weather && !s.straight && !keepSources;
-    const preview = remote ? this.remotePreview(settings) : new StrokePreview(settings, h.terrain(), h.heights(), h.W, h.H, this.ground);
     // the stroke follows the cursor on the level it started on (a target's, for Flatten), so the
     // brush stays under the pointer while the ground rises or sinks beneath it
     const aim = this.aimAt(hit, ev);
@@ -737,8 +789,15 @@ export class BrushPainter {
       if (p) shift = [at[0] - p.point[0], at[1] + p.point[2]];
     }
     const pen = ev.pointerType === "pen" && target === null ? ev.pressure : null;
-    this.stroke = {
-      preview,
+    // its ticket in the edit queue at once, whatever is landing (I3, I8): whatever the player does next waits behind it
+    const q = h.edits();
+    const id = q.stroke(BRUSH_NAMES[s.tool]);
+    const st: StrokeState = {
+      id,
+      preview: null,
+      letGo: false,
+      ground,
+      remote,
       settings,
       dabs: [],
       pressure: pen === null ? null : [],
@@ -759,32 +818,57 @@ export class BrushPainter {
       feltAt: 0,
       sourceRuns,
     };
+    this.stroke = st;
     h.painting(true);
+    // (behind a Naturalize stroke still landing, the press waits its turn: its points are kept, and it paints on the
+    // land that stroke leaves, U6)
+    if (q.composable(id)) this.compose(st);
+    else void q.whenComposable(id).then((ok) => this.turn(st, ok));
     if (rect) this.areaTo(ev);
-    else this.dab([at]);
+    else if (st.preview) this.dab(st, [at]);
+    else st.queued.push(this.stamp(st, at));
     this.loop();
   }
 
-  /** A preview whose land the worker works out (D422): its land is drawn as it comes. */
-  private remotePreview(settings: Omit<BrushParams, "dabs">): RemotePreview {
+  /** The stroke's preview, once its turn has come: the page's own, or (Naturalize) its worker's through the queue's
+   *  feed (D422). */
+  private compose(st: StrokeState): void {
     const h = this.host;
-    const t = h.terrain();
-    return new RemotePreview(settings, h.heights(), h.W, h.H, this.ground, h.weather!, (r) => this.landed(r), t.pre.slice(), t.protect);
-  }
-
-  /** The worker's land for a stroke arrived (D422): drawn now, and to the map's worker for its water (D197), as
-   *  the other brushes' land goes: with the next frame's draft while the stroke is painted, at once after it. */
-  private landed(r: Rect): void {
-    const h = this.host;
-    h.renderer.updateTerrainRect(h.heights(), r);
-    const st = this.stroke;
-    if (!st || !(st.preview instanceof RemotePreview)) {
-      h.draft?.(r, cut(h.heights(), r, h.W));
+    // (the whole map is its until it lets go, so the worker's answers meanwhile are laid then, never under the brush,
+    // #410; not before its turn, so the land and terrain of the stroke ahead of it are laid for it to paint on)
+    const q = h.edits();
+    q.painted(st.id, { x0: 0, y0: 0, x1: q.W - 1, y1: q.H - 1 });
+    if (!st.remote) {
+      st.preview = new StrokePreview(st.settings, h.terrain(), h.heights(), h.W, h.H, st.ground);
       return;
     }
-    const d = st.drafted;
-    st.drafted = d ? { x0: Math.min(d.x0, r.x0), y0: Math.min(d.y0, r.y0), x1: Math.max(d.x1, r.x1), y1: Math.max(d.y1, r.y1) } : { ...r };
-    this.feel();
+    const feed = new StrokeFeed(h.edits(), st.id, st.settings, h.weather!, (d) => answerBound(d, st.settings.size), WEATHER_SILENT, st.ground, (r) => this.landed(st, r));
+    st.preview = new FeedPreview(feed, h.heights(), h.W);
+  }
+
+  /** A press that waited behind a landing stroke: its turn came, and what it was drawn meanwhile is pressed now (and
+   *  ended, once let go); or its ticket went first (Esc). */
+  private turn(st: StrokeState, ok: boolean): void {
+    if (!ok || st.preview || this.closed) return;
+    this.compose(st);
+    if (st.anchor) {
+      st.queued.length = 0;
+      if (!st.area) this.straight(st, null);
+    } else if (st.queued.length) this.dab(st, st.queued.splice(0));
+    if (st.letGo) this.finish(st);
+  }
+
+  /** A point pressed while the press waits its turn: with the pen's pressure then. */
+  private stamp(st: StrokeState, p: readonly [number, number]): [number, number, number?] {
+    return st.pen !== null ? [p[0], p[1], st.pen] : [p[0], p[1]];
+  }
+
+  /** The worker's land for a stroke arrived (D422): drawn now (the feed sends it on to the map's worker for its water,
+   *  D197, behind the tickets before it, U7). */
+  private landed(st: StrokeState, r: Rect): void {
+    const h = this.host;
+    h.renderer.updateTerrainRect(h.heights(), r);
+    if (this.stroke === st) this.feel(st);
   }
 
   /** The pointer moved while painting: dabs along the way, a fifth of the brush apart (or the whole
@@ -814,11 +898,16 @@ export class BrushPainter {
     }
     if (st.anchor) {
       if (st.area) this.areaTo(ev);
-      else this.straight(ev);
+      else if (st.preview) this.straight(st, ev);
       return;
     }
     if (points.length) {
-      st.queued.push(...points);
+      if (st.preview) st.queued.push(...points);
+      else {
+        // (waiting its turn: each point as pressed now, and holding still counts from here)
+        for (const p of points) st.queued.push(this.stamp(st, p));
+        st.lastDab = performance.now();
+      }
       st.dabAt = points[points.length - 1];
     }
     this.showCursor();
@@ -827,17 +916,16 @@ export class BrushPainter {
 
   /** Straight lines: the stroke again, from where it started to the pointer, its length beside
    *  the pointer (D183). */
-  private straight(ev: PointerEvent): void {
-    const st = this.stroke!;
+  private straight(st: StrokeState, ev: PointerEvent | null): void {
     const h = this.host;
-    const back = st.preview.restore();
+    const back = st.preview!.restore();
     if (back) h.renderer.updateTerrainRect(h.heights(), back);
     // (smart Lower, D263: the line starts again as it began, a deepening pass from inside the water)
     if (st.channel && st.anchor) {
       const { deepen: _d, bed: _b, dry: _y, ...rest } = st.settings;
       st.settings = st.channel.deep[Math.floor(st.anchor[1]) * h.W + Math.floor(st.anchor[0])] ? { ...rest, deepen: true } : { ...rest, bed: st.channel.bed, dry: 0 };
     }
-    st.preview = new StrokePreview(st.settings, h.terrain(), h.heights(), h.W, h.H, this.ground);
+    st.preview = new StrokePreview(st.settings, h.terrain(), h.heights(), h.W, h.H, st.ground);
     st.dabs = [];
     if (st.pressure) st.pressure = [];
     const [ax, ay] = st.anchor!;
@@ -847,7 +935,7 @@ export class BrushPainter {
     const n = Math.max(0, Math.floor(len / spacing));
     const points: [number, number][] = [[ax, ay]];
     for (let k = 1; k <= n; k++) points.push([ax + ((bx - ax) * k) / Math.max(1, n), ay + ((by - ay) * k) / Math.max(1, n)]);
-    this.dab(points, back);
+    this.dab(st, points, back);
     h.note?.(`${Math.round(len)} tile${Math.round(len) === 1 ? "" : "s"}`, ev);
   }
 
@@ -860,7 +948,7 @@ export class BrushPainter {
     const [ax, ay] = st.anchor!;
     const [bx, by] = st.last;
     st.dabs = [q(ax, h.W), q(ay, h.H), q(bx, h.W), q(by, h.H)];
-    const trial = new StrokePreview(st.settings, h.terrain(), h.heights(), h.W, h.H, this.ground);
+    const trial = new StrokePreview(st.settings, h.terrain(), h.heights(), h.W, h.H, st.ground);
     const r = trial.add(st.dabs);
     const shown = h.heights();
     const tiles: GhostTile[] = [];
@@ -878,9 +966,9 @@ export class BrushPainter {
   }
 
   /** Press the brush at these points: the ground changes in this frame. */
-  private dab(points: [number, number][], also: Rect | null = null): void {
-    const st = this.stroke!;
+  private dab(st: StrokeState, points: readonly (readonly [number, number, number?])[], also: Rect | null = null): void {
     const h = this.host;
+    const preview = st.preview!;
     const add: number[] = [];
     for (const [x, y] of points) add.push(q(x, h.W), q(y, h.H));
     // smart Lower (D263): a deepening pass whose dab leaves the water it began in is a new channel
@@ -891,34 +979,34 @@ export class BrushPainter {
     st.dabs.push(...add);
     let pressure: number[] | undefined;
     if (st.pressure) {
-      const v = Math.max(1, Math.min(255, Math.round((st.pen ?? 1) * 255)));
-      pressure = points.map(() => v);
+      // (a point pressed while the press waited its turn carries the pen's pressure then)
+      pressure = points.map((p) => Math.max(1, Math.min(255, Math.round((p[2] ?? st.pen ?? 1) * 255))));
       st.pressure.push(...pressure);
     }
     st.lastDab = performance.now();
-    st.dabAt = points[points.length - 1];
+    const end = points[points.length - 1];
+    st.dabAt = [end[0], end[1]];
     let r: Rect | null;
     if (dry >= 0) {
       const { deepen: _deepen, ...rest } = st.settings;
       st.settings = { ...rest, bed: st.channel!.bed, dry };
-      const back = st.preview.restore();
-      st.preview = new StrokePreview(st.settings, h.terrain(), h.heights(), h.W, h.H, this.ground);
+      const back = preview.restore();
+      st.preview = new StrokePreview(st.settings, h.terrain(), h.heights(), h.W, h.H, st.ground);
       const again = st.preview.add(st.dabs, st.pressure ?? undefined);
       r = again && back ? { x0: Math.min(again.x0, back.x0), y0: Math.min(again.y0, back.y0), x1: Math.max(again.x1, back.x1), y1: Math.max(again.y1, back.y1) } : (again ?? back);
-    } else r = st.preview.add(add, pressure);
+    } else r = preview.add(add, pressure);
     const changed = r && also ? { x0: Math.min(r.x0, also.x0), y0: Math.min(r.y0, also.y0), x1: Math.max(r.x1, also.x1), y1: Math.max(r.y1, also.y1) } : (r ?? also);
     if (changed) {
       h.renderer.updateTerrainRect(h.heights(), changed);
       const d = st.drafted;
       st.drafted = d ? { x0: Math.min(d.x0, changed.x0), y0: Math.min(d.y0, changed.y0), x1: Math.max(d.x1, changed.x1), y1: Math.max(d.y1, changed.y1) } : { ...changed };
-      this.feel();
+      this.feel(st);
     }
     this.showCursor();
   }
 
   /** The land's answer (D205): at the stroke's first change, then now and then while it goes on. */
-  private feel(): void {
-    const st = this.stroke!;
+  private feel(st: StrokeState): void {
     const now = performance.now();
     if (st.feltAt && now - st.feltAt < 380) return;
     const tool = st.settings.tool;
@@ -927,17 +1015,16 @@ export class BrushPainter {
   }
 
   /** The ground the stroke changed since the last time, to the water (D197): at once for the first
-   *  change, then at most once a frame. */
-  private sendDraft(force: boolean): void {
-    const st = this.stroke;
-    const h = this.host;
-    if (!st || !st.drafted || !h.draft) return;
+   *  change, then at most once a frame; through the queue, so none of it reaches the map's worker before the
+   *  tickets ahead of the stroke (U7). */
+  private sendDraft(st: StrokeState, force: boolean): void {
+    if (!st.drafted) return;
     const now = performance.now();
     if (!force && st.draftAt && now - st.draftAt < 1000 / 60) return;
     st.draftAt = now;
     const r = st.drafted;
     st.drafted = null;
-    h.draft(r, cut(h.heights(), r, h.W));
+    this.host.edits().draft(st.id, r);
   }
 
   /** Holding still keeps pressing a soft brush, thirty times a second; a target's stroke has done
@@ -947,11 +1034,18 @@ export class BrushPainter {
     if (!st) return;
     st.raf = requestAnimationFrame(() => {
       if (this.stroke !== st) return;
-      if (st.queued.length) this.dab(st.queued.splice(0));
-      else if (st.target === null && !st.anchor && performance.now() - st.lastDab >= 1000 / 30) this.dab([st.last]);
+      const still = st.target === null && !st.anchor && performance.now() - st.lastDab >= 1000 / 30;
+      if (!st.preview) {
+        // (waiting its turn: holding still is kept as the dabs it would press)
+        if (still) {
+          st.queued.push(this.stamp(st, st.last));
+          st.lastDab = performance.now();
+        }
+      } else if (st.queued.length) this.dab(st, st.queued.splice(0));
+      else if (still) this.dab(st, [st.last]);
       // the water's draft once the frame showing the land is drawn
       setTimeout(() => {
-        if (this.stroke === st) this.sendDraft(false);
+        if (this.stroke === st) this.sendDraft(st, false);
       }, 0);
       this.loop();
     });
@@ -965,9 +1059,10 @@ export class BrushPainter {
   private rideObjects(st: StrokeState): void {
     const h = this.host;
     if ((st.settings.tool !== "flatten" && st.target === null) || !h.footprints) return;
+    const preview = st.preview!;
     const now = h.heights();
-    const was = st.preview.start;
-    const b = st.preview.bounds;
+    const was = preview.start;
+    const b = preview.bounds;
     if (!b) return;
     const tiles: number[] = [];
     for (const g of h.footprints()) {
@@ -983,33 +1078,38 @@ export class BrushPainter {
     }
     if (!tiles.length) return;
     const keep = tilesToRuns([...new Set(tiles)].sort((a, c) => a - c), h.W);
-    const back = st.preview.restore();
+    const back = preview.restore();
     st.settings = { ...st.settings, keep: [...(st.settings.keep ?? []), ...keep] };
-    st.preview = new StrokePreview(st.settings, h.terrain(), h.heights(), h.W, h.H, this.ground);
+    st.preview = new StrokePreview(st.settings, h.terrain(), h.heights(), h.W, h.H, st.ground);
     const r = st.preview.add(st.dabs, st.pressure ?? undefined);
     const changed = r && back ? { x0: Math.min(r.x0, back.x0), y0: Math.min(r.y0, back.y0), x1: Math.max(r.x1, back.x1), y1: Math.max(r.y1, back.y1) } : (r ?? back);
     if (changed) h.renderer.updateTerrainRect(h.heights(), changed);
   }
 
-  /** The pieces that ride the stroke whole (D249): each one it changed a tile of takes the level
-   *  of its middle tile, as the build does with the stroke's `rigid` rectangles. */
-  private rideWhole(st: StrokeState): void {
+  /** The pieces that ride the stroke whole (D249): each one it changed a tile of takes the level of its middle tile,
+   *  as the build does with the stroke's `rigid` rectangles; on the settings themselves, the record the preview
+   *  writes where the water stood into (#875's review). */
+  private rigidFor(st: StrokeState): Rigid[] {
     const h = this.host;
-    const b = st.preview.bounds;
-    if (!b || !h.rides) return;
+    const b = st.preview?.bounds;
+    if (!b || !h.rides) return [];
     const now = h.heights();
-    const was = st.preview.start;
+    const was = st.preview!.start;
     const rigid = h.rides(was).filter(([x0, y0, x1, y1]) => {
       if (x1 < b.x0 - 1 || x0 > b.x1 + 1 || y1 < b.y0 - 1 || y0 > b.y1 + 1) return false;
       for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (now[y * h.W + x] !== was[y * h.W + x]) return true;
       return false;
     });
+    if (rigid.length) st.settings.rigid = rigid;
+    return rigid;
+  }
+
+  /** The page's stroke: its riding pieces levelled now (a worker's stroke sends them with its last call, `end`). */
+  private rideWhole(st: StrokeState): void {
+    const rigid = this.rigidFor(st);
     if (!rigid.length) return;
-    // (on the settings themselves: they are the record the preview writes where the water stood into, and a
-    // worker's stroke takes its whole record into them after this, #875's review)
-    st.settings.rigid = rigid;
-    const r = st.preview.finish(rigid);
-    if (r) h.renderer.updateTerrainRect(now, r);
+    const r = (st.preview as StrokePreview).finish(rigid);
+    if (r) this.host.renderer.updateTerrainRect(this.host.heights(), r);
   }
 
   /** The stroke's settings as its operation keeps them: its runs only where its dabs reach (kept
@@ -1028,40 +1128,40 @@ export class BrushPainter {
     return out;
   }
 
-  /** The button came up: the stroke becomes one operation. */
+  /** The button came up: the stroke becomes one operation (a press still waiting its turn, once it has composed). */
   end(): void {
     const st = this.stroke;
     if (!st) return;
     cancelAnimationFrame(st.raf);
-    // (what the pointer reached since the last frame, pressed before the stroke ends)
-    if (st.queued.length) this.dab(st.queued.splice(0));
-    // (the worker's stroke: once its land is all in)
-    if (st.preview instanceof RemotePreview) {
-      // (the land drawn since the last frame's draft goes to the water now; what comes after goes as it comes)
-      this.sendDraft(true);
-      this.stroke = null;
-      const preview = st.preview;
-      // (a worker that never answers in time: the stroke is taken back as Esc takes one back, and what waited for it
-      // goes ahead, #884)
-      const landed = preview
-        .done(() => this.rideWhole(st))
-        .then((ok) => {
-          if (this.dropped) return;
-          if (ok) this.finishEnd(st);
-          else if (preview.silent) this.unanswered(preview);
-        })
-        .finally(() => {
-          if (this.committing?.preview === preview) this.committing = null;
-        });
-      this.committing = { preview, landed };
+    this.stroke = null;
+    st.letGo = true;
+    if (!st.preview) {
+      this.letGo.add(st);
       return;
     }
-    this.stroke = null;
+    this.finish(st);
+  }
+
+  private finish(st: StrokeState): void {
+    this.letGo.delete(st);
+    // (what the pointer reached since the last frame, pressed before the stroke ends)
+    if (st.queued.length) this.dab(st, st.queued.splice(0));
+    const preview = st.preview!;
+    // (the worker's stroke: its ticket closes, and it lands once its last land and record are in; the queue's one
+    // watchdog takes it back with its line if its worker falls silent, #884, and what waited behind it goes ahead)
+    if (preview instanceof FeedPreview) {
+      this.letGo.add(st);
+      void preview.feed.end({ rigid: () => this.rigidFor(st), landed: (l) => this.feedLanded(st, preview, l) }).then((ok) => {
+        this.letGo.delete(st);
+        if (!ok && !this.closed) this.takenBack();
+      });
+      return;
+    }
     const h = this.host;
     // an area: its blocks go, and the land takes them (one stroke)
     if (st.area) {
       h.renderer.setBlockGhost(null);
-      const r = st.preview.add(st.dabs);
+      const r = preview.add(st.dabs);
       if (r) h.renderer.updateTerrainRect(h.heights(), r);
     }
     this.rideObjects(st);
@@ -1069,76 +1169,56 @@ export class BrushPainter {
     this.finishEnd(st);
   }
 
-  /** A Naturalize stroke still going to the worker (D422): a new stroke waits for it, and so do an undo and a redo
-   *  (`afterLanding`, #880). `landed` resolves once it is on the history, or built nothing, or was taken back because
-   *  its worker never answered in time (#884). */
-  private committing: { preview: RemotePreview; landed: Promise<void> } | null = null;
-  /** The editor closed (a new or opened map, #880): nothing it painted goes on to the next. */
-  private dropped = false;
-
-  /** `fn` (an undo or a redo) once the Naturalize stroke on its way has landed on the history, so it acts after the
-   *  stroke, as it does after every other brush's (#880), or now when none is on its way; never once the editor has
-   *  closed. */
-  afterLanding(fn: () => void | Promise<void>): void | Promise<void> {
-    const c = this.committing;
-    if (!c) return fn();
-    const go = () => (this.dropped ? undefined : fn());
-    return c.landed.then(go, go);
+  /** A Naturalize stroke's last land and its worker's whole record are in (#873): its operation. */
+  private feedLanded(st: StrokeState, preview: FeedPreview, l: FeedLanding): void {
+    preview.pre = l.pre;
+    preview.protect = l.protect;
+    takeRecord(st.settings, l.settings);
+    this.finishEnd(st);
   }
 
-  /** The editor closed (a new or opened map, #880): the stroke being painted and the one still on its way are
-   *  forgotten, as Esc forgets a stroke, so no land, draft or operation of theirs reaches the next map. Nothing is
-   *  drawn back: the page they were painted on is gone. */
-  drop(): void {
-    this.dropped = true;
-    const st = this.stroke;
-    this.stroke = null;
-    if (st) {
-      cancelAnimationFrame(st.raf);
-      if (st.preview instanceof RemotePreview) st.preview.restore();
-    }
-    this.committing?.preview.restore();
-  }
-
-  /** The worker never answered a stroke let go in time (#884): taken back as Esc takes one back (no land, no water,
-   *  no operation), and the page says why. */
-  private unanswered(preview: RemotePreview): void {
+  /** A Naturalize stroke let go was taken back before it landed (its worker silent past its bound, #884): the queue
+   *  laid its land back, took its water and said its line. */
+  private takenBack(): void {
     const h = this.host;
-    if (preview.bounds) h.renderer.updateTerrainRect(h.heights(), preview.bounds);
+    if (!this.stroke) h.painting(false);
     h.renderer.refreshShadows();
-    h.cancelDraft?.();
-    h.painting(false);
-    h.refuse?.(WEATHER_SILENT);
     this.showCursor();
   }
 
   /** The stroke's dabs are all in: it becomes one operation. */
   private finishEnd(st: StrokeState): void {
     const h = this.host;
-    h.painting(false);
-    if (st.anchor) h.note?.(null, null);
+    const preview = st.preview!;
+    // (a stroke that waited its turn ends while the next may be held: that one's sound and words stay)
+    const alone = !this.stroke;
+    if (alone) h.painting(false);
+    if (st.anchor && alone) h.note?.(null, null);
     h.renderer.refreshShadows();
     const settings = this.recorded(st);
     // Keep's ground was held out of the integrity pass all over the map while it was painted: again
     // with only the kept tiles it keeps, as the build makes it
-    if (st.settings.sources === "keep") {
-      const back = st.preview.restore();
+    if (st.settings.sources === "keep" && preview instanceof StrokePreview) {
+      const back = preview.restore();
       st.settings = settings;
-      st.preview = new StrokePreview(settings, h.terrain(), h.heights(), h.W, h.H, this.ground);
+      st.preview = new StrokePreview(settings, h.terrain(), h.heights(), h.W, h.H, st.ground);
       const r = st.preview.add(st.dabs, st.pressure ?? undefined);
       const changed = r && back ? { x0: Math.min(r.x0, back.x0), y0: Math.min(r.y0, back.y0), x1: Math.max(r.x1, back.x1), y1: Math.max(r.y1, back.y1) } : (r ?? back);
       if (changed) h.renderer.updateTerrainRect(h.heights(), changed);
     }
+    const p = st.preview!;
     const params: BrushParams = { ...settings, ...(st.pressure ? { pressure: st.pressure } : {}), dabs: st.dabs };
-    const tiles = st.preview.changed();
+    const tiles = p.changed();
     if (!tiles) {
+      // (its ticket goes, and with it any water it drew)
+      h.edits().cancel(st.id);
       h.unchanged?.(params);
       this.showCursor();
       return;
     }
-    const b = st.preview.bounds!;
+    const b = p.bounds!;
     // (and the pieces that rode it whole, with the tile round them the ground's check reads)
-    const f = st.preview.finished;
+    const f = p.finished;
     const rect = { x0: Math.max(0, Math.min(b.x0, f ? f.x0 : b.x0) - 1), y0: Math.max(0, Math.min(b.y0, f ? f.y0 : b.y0) - 1), x1: Math.min(h.W - 1, Math.max(b.x1, f ? f.x1 : b.x1) + 1), y1: Math.min(h.H - 1, Math.max(b.y1, f ? f.y1 : b.y1) + 1) };
     const before = h.terrain();
     const shown = h.heights();
@@ -1146,12 +1226,28 @@ export class BrushPainter {
       params,
       label: `${BRUSH_NAMES[st.settings.tool as BrushTool]} ${tileCount(tiles)}`,
       rect,
-      before: { shown: cut(st.preview.start, rect, h.W), pre: cut(before.pre, rect, h.W) },
-      after: { shown: cut(shown, rect, h.W), pre: cut(st.preview.pre, rect, h.W) },
+      before: { shown: cut(p.start, rect, h.W), pre: cut(before.pre, rect, h.W) },
+      after: { shown: cut(shown, rect, h.W), pre: cut(p.pre, rect, h.W) },
     };
-    h.commit(stroke, st.preview.pre, st.preview.protect);
+    h.commit(stroke, p.pre, p.protect, st.id);
     this.showCursor();
   }
+
+  /** The editor closes (a new or opened map waits first for every stroke let go to land on the map it was painted on,
+   *  I8): the stroke the button holds, and any still waiting, are forgotten as Esc forgets one, their worker told.
+   *  Nothing is drawn back: the page they were painted on is going. */
+  close(): void {
+    this.closed = true;
+    const held = this.stroke;
+    this.stroke = null;
+    for (const st of held ? [held, ...this.letGo] : this.letGo) {
+      cancelAnimationFrame(st.raf);
+      if (st.preview instanceof FeedPreview) st.preview.feed.forget();
+    }
+    this.letGo.clear();
+  }
+
+  private closed = false;
 
   /** Esc: the stroke never happened. */
   cancel(): void {
@@ -1160,14 +1256,21 @@ export class BrushPainter {
     cancelAnimationFrame(st.raf);
     this.stroke = null;
     if (st.area) this.host.renderer.setBlockGhost(null);
-    const r = st.preview.restore();
+    const r = st.preview?.restore() ?? null;
     if (r) this.host.renderer.updateTerrainRect(this.host.heights(), r);
+    // (its ticket goes, and the land it drew and its water with it, I2)
+    this.host.edits().cancel(st.id);
     this.host.renderer.refreshShadows();
-    this.host.cancelDraft?.();
     this.host.painting(false);
     if (st.anchor) this.host.note?.(null, null);
     this.showCursor();
   }
+}
+
+/** The worker's record of a Naturalize stroke (its rule, where the water stood, how hard the strokes before it pressed),
+ *  into the stroke's settings, as the operation keeps them. */
+function takeRecord(record: Omit<BrushParams, "dabs">, s: Omit<BrushParams, "dabs">): void {
+  Object.assign(record, { weathering: s.weathering, ...(s.shore ? { shore: s.shore } : {}), ...(s.pools ? { pools: s.pools } : {}), ...(s.moist ? { moist: s.moist } : {}), ...(s.worn ? { worn: s.worn } : {}) });
 }
 
 /** The tiles above a cut, as runs [y, x0, x1] (the brush leaves them as they are). */

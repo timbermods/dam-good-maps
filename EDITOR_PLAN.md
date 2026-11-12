@@ -1066,19 +1066,22 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   weathered off the page in a worker of its own (D422, #868: `worker/naturalize.worker.ts`, `raster/remoteStroke.ts`),
   on the terrain and land the page shows, one call out at a time and the dabs meanwhile as one batch, the land a frame
   or two behind the cursor; the page sends that land to the map's worker for its water, as for the other brushes. Every
-  brush's stroke is a ticket in the edit queue from pointer-down ("Architecture", "The edit queue", #922 step 2): the
-  page paints it on the queue's land, and once it lets go its land before and after is laid over the worker's until the
-  worker answers, so the land shown is the worker's with the strokes on their way, and a recent stroke's undo and redo
-  show at once from the queue's copy of it. Let go, a Naturalize stroke goes on the history once its last land is in: an undo, a redo or a History jump pressed meanwhile waits
-  for it, then acts, so Z takes that stroke back as it takes any other brush's; the editor closing (a new or opened
-  map) forgets a stroke still on its way, as Esc does, so nothing of it reaches the next map (#880). A History row
+  brush's stroke is a ticket in the edit queue from pointer-down ("Architecture", "The edit queue", #922 steps 2 and 3):
+  the page paints it on the queue's land, and once it lets go its land before and after is laid over the worker's until
+  the worker answers, so the land shown is the worker's with the strokes on their way, and a recent stroke's undo and
+  redo show at once from the queue's copy of it. Let go, a Naturalize stroke's ticket closes and goes on the history
+  once its last land is in (`StrokeFeed`): an undo, a redo, a History jump or any edit pressed meanwhile waits behind it
+  in the queue, so Z takes that stroke back as it takes any other brush's (#880); a press meanwhile paints, its points
+  kept until the stroke has its land and then pressed on that land (U6); its water drafts wait behind the tickets
+  before it (U7); a save or a map switch waits for it to land on the map it was painted on (U5). A History row
   clicked meanwhile goes to the step it shows wherever that step stands once the stroke lands, refused with "That
-  step is gone: a newer edit replaced it." when the stroke replaced it (an undone step). The page waits for each call
-  only as long as it can take (`answerBound`: 4 s, plus 0.4 ms + Size² × 80 µs a dab it carries, 1.3 s at Size 128,
-  #884; on canyon at Size 128, Strength 10, that is 13.7 times a dab of a 30-dab batch at 512², 96 ms, and 18 times one
-  at 256², 73 ms, and 4 times the slowest single dab, 308 ms at 512² and 327 ms at 256²): a worker that never answers in time has its stroke taken back as Esc takes one back (no
-  land, water or operation), the page says "Naturalize stopped answering, so the stroke was taken back. Paint it
-  again.", what waited for the stroke goes ahead, and the worker is started again for the next stroke. A new
+  step is gone: a newer edit replaced it." when the stroke replaced it (an undone step). The queue's one watchdog
+  waits for each call only as long as it can take (`answerBound`: 4 s, plus 0.4 ms + Size² × 80 µs a dab it carries,
+  1.3 s at Size 128, #884; on canyon at Size 128, Strength 10, that is 13.7 times a dab of a 30-dab batch at 512², 96 ms,
+  and 18 times one at 256², 73 ms, and 4 times the slowest single dab, 308 ms at 512² and 327 ms at 256²): a worker
+  that never answers in time has its stroke taken back as Esc takes one back (no land, water or operation), the page
+  says "Naturalize stopped answering, so the stroke was taken back. Paint it again.", an undo that waited for it does
+  nothing (U1), what else waited goes ahead, and the worker is started again for the next stroke. A new
   stroke records its rule (`weathering: 6`, added by the core); a stroke saved with rule 5 (its edges wandering
   again on every stroke), rule 4 (the top cut back
   whatever its foot took, pulling back above water too), rule 3 (dab by dab, some
@@ -2203,16 +2206,17 @@ delivery routes, the artifact edition and bring-your-own-key) is in
   keeps its own rule (`resync`: `base` is the session's land, the overlays on their way laid on it again). Planning's
   rulings: an undo waiting behind a stroke that is refused or times out does nothing; a press during a landing paints;
   a map switch waits for a let-go stroke to land. The page moves onto it in steps (#922): its strokes, moves and
-  edits (2, done), Naturalize (3), one composer building a stroke's operation and answers the size of the edit (4).
+  edits (2, done), Naturalize (3, done), one composer building a stroke's operation and answers the size of the edit (4).
   Since step 2 the page holds one queue (`useSession.ts` `edits`): `mirror.heights` and the renderer's land are its
   `shown`, and the brushes paint on its `terrain()`; every edit is `run`'s ticket (its call made when its turn comes,
   with the ticket's envelope on it), a stroke's ticket is made at pointer-down and holds the whole map until it lets go
   (the worker's answers meanwhile are laid then, #410), and is `ready` with its operation and its before and after when
   it does; Ctrl+Z, Ctrl+Y and a History row are moves (in a shared session, the session's own undo, redo and jump, as
   edits); a refusal or a silent worker (`MAP_ANSWER_MS`) says its one line; a save or a map switch waits for every
-  ticket made (`whenEdited`). Naturalize's landing is not yet a ticket of its own: its stroke's ticket stays open while
-  its land comes (`BrushPainter.afterLanding` still holds an undo, a redo or a jump pressed meanwhile, its timers
-  still take a silent stroke back), as §4 describes, until step 3.
+  ticket made (`whenEdited`). Since step 3 a Naturalize stroke is the queue's `StrokeFeed`: its ticket `closing` once let
+  go, under the one watchdog (`expired` starts its worker again), its drafts through the queue; a press behind it waits
+  for `whenComposable`; `whenEdited` is the queue's `idle()`. Gone with it: the painter's `committing`, `afterLanding`,
+  `dropped` and `drop()`, and `RemotePreview` with its timers.
 - **"Move the start here"** (D204, one label since D323): after a Flatten stroke the page looks, once it is idle, for
   a spot on the stroke's level ground where the district center stands (its footprint and door level and dry,
   nothing standing there); the start's full check (the walks to water, wood and berries) runs in a small worker of

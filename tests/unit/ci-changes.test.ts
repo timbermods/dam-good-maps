@@ -4,7 +4,7 @@
 // the Rust and the TypeScript that wraps it. Code, dependencies and scripts keep the rest of the suite.
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { classify, generatorGraph, GENERATOR_ROOT, isCollabOnly, isDocument, isGenerator, isInvestigation, isPage, isRustInput, isUiOnly, needsGenerator, needsHeavy, needsPage, needsTest, onlyLightFieldsDiffer } from "../../tools/ci-changes.mjs";
+import { classify, generatorGraph, GENERATOR_ROOT, isCollabOnly, isDocument, isForces, isGenerator, isInvestigation, isPage, isRustInput, isUiOnly, needsForces, needsGenerator, needsHeavy, needsPage, needsTest, onlyLightFieldsDiffer } from "../../tools/ci-changes.mjs";
 
 const pkg = (over: object = {}) =>
   JSON.stringify({ name: "x", version: "1.0.0", license: "MIT", scripts: { test: "a" }, dependencies: { a: "1" }, devDependencies: { b: "1" }, ...over });
@@ -125,6 +125,20 @@ describe("the page job", () => {
     expect(needsPage(["investigation/x/run.ts"], "light")).toBe(false);
     expect(needsPage([], "light")).toBe(true);
     for (const mode of ["auto", "full"] as const) expect(needsPage(["src/ui/a.tsx"], mode), mode).toBe(false);
+  });
+});
+
+describe("the forces job", () => {
+  it("is a force's Rust, its Wasm, the TypeScript round it (its settings among it) and the forces' rows", () => {
+    for (const f of ["rust/forces/src/trough.rs", "rust/Cargo.lock", "src/core/forces/rust/forcesWasm.ts", "src/core/forces/settings.ts", "src/core/forces/glaciate/model.ts", "src/editor/ForceRows.tsx", "src/editor/forces/useForceRun.tsx", "src/editor/forceDriver.ts"]) expect(isForces(f), f).toBe(true);
+    for (const f of ["rust/water/src/lib.rs", "src/core/gen/generate.ts", "src/editor/Editor.tsx", "tests/e2e/glaciate.spec.ts", "src/core/forces/README.md", "docs/sheets/force-glaciate.jpg"]) expect(isForces(f), f).toBe(false);
+  });
+  it("runs only for a pull request into dev (light) that touches a force, and when the change can't be read", () => {
+    expect(needsForces(["rust/forces/src/lib.rs", "docs/STATUS.md"], "light")).toBe(true);
+    expect(needsForces(["src/core/forces/settings.ts"], "light")).toBe(true);
+    expect(needsForces(["src/core/gen/generate.ts", "docs/STATUS.md"], "light")).toBe(false);
+    expect(needsForces([], "light")).toBe(true);
+    for (const mode of ["auto", "full"] as const) expect(needsForces(["rust/forces/src/lib.rs"], mode), mode).toBe(false);
   });
 });
 
