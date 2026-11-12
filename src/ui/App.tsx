@@ -99,7 +99,7 @@ window.dgm = {
       }
     : {}),
   current() {
-    return shown ? { made, ms: shown.ms, attempts: shown.attempts, sha256: shown.sha256, link: shareLink(location.href, shown.spec), passed: shown.passed, checks: shown.checks.map((c) => ({ id: c.id, ok: c.ok, value: c.value, limit: c.limit, ...(c.where?.tiles ? { where: { tiles: c.where.tiles } } : {}) })) } : null;
+    return shown ? { made, ms: shown.ms, ...(shown.stages ? { stages: shown.stages } : {}), attempts: shown.attempts, sha256: shown.sha256, link: shareLink(location.href, shown.spec), passed: shown.passed, checks: shown.checks.map((c) => ({ id: c.id, ok: c.ok, value: c.value, limit: c.limit, ...(c.where?.tiles ? { where: { tiles: c.where.tiles } } : {}) })) } : null;
   },
 };
 

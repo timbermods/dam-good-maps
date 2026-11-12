@@ -72,18 +72,43 @@ export interface Ladder {
 
 /** Day 1's shares by `spectrum` (§4.4): water 15 to 25 % of the map's tiles, moist ground 30 to 42 %. The moist
  *  ceiling by number stands `SPECTRUM_MARGIN` under 42, since the settle's share differs from the number's by up to a
- *  point (§2.2, "As built (step 5)"). */
+ *  point (§2.2, "As built (step 5)"). The moist floor falls as the map grows (`moistFloor`, D519). */
 export const SPECTRUM = { water: [0.15, 0.25], moist: [0.3, 0.42] } as const;
 export const SPECTRUM_MARGIN = 0.01;
+/** `spectrum`'s moist floor by the map's side (D519): 30 % at 128², 25 % at 192², 20 % at 256², on a straight line
+ *  between, held at its ends below 128 and above 256. A share is the wrong measure as the map grows: the soil's reach
+ *  round the water does not grow with the map, so the moist ground grows with the side while the map grows with its
+ *  square (at 20 % a 256² map still holds more than twice a 128² map's moist ground at 30 %). */
+export const MOIST_FLOOR: readonly (readonly [number, number])[] = [
+  [128, 0.3],
+  [192, 0.25],
+  [256, 0.2],
+];
+
+/** The moist floor of `spectrum` for a map `side` tiles across (`MOIST_FLOOR`). */
+export function moistFloor(side: number): number {
+  const f = MOIST_FLOOR;
+  if (side <= f[0][0]) return f[0][1];
+  for (let k = 1; k < f.length; k++) {
+    const [s1, v1] = f[k];
+    if (side <= s1) {
+      const [s0, v0] = f[k - 1];
+      return v0 + ((v1 - v0) * (side - s0)) / (s1 - s0);
+    }
+  }
+  return f[f.length - 1][1];
+}
 
 /** Why day 1 by number stands outside `spectrum`, in one line, or null: a plan whose map would be handed over too
- *  watered (or too dry) is drawn again before its settle (§2.2 stage 4). */
-export function spectrumMiss(day1: Ladder["day1"]): string | null {
+ *  watered (or too dry) is drawn again before its settle (§2.2 stage 4). `side` is the map's (the moist floor's,
+ *  `moistFloor`); without it, 128²'s floor. */
+export function spectrumMiss(day1: Ladder["day1"], side = MOIST_FLOOR[0][0]): string | null {
   const pc = (v: number) => `${(100 * v).toFixed(1)} %`;
   const { water, moist } = SPECTRUM;
+  const floor = moistFloor(side);
   if (day1.water < water[0] || day1.water > water[1]) return `Day 1's water is ${pc(day1.water)} of the map (15 to 25 %)`;
   if (day1.moist > moist[1] - SPECTRUM_MARGIN) return `Day 1's moist ground is ${pc(day1.moist)} of the map (41 % at most by number, 42 % settled)`;
-  if (day1.moist < moist[0]) return `Day 1's moist ground is ${pc(day1.moist)} of the map (30 % at least)`;
+  if (day1.moist < floor - 1e-9) return `Day 1's moist ground is ${pc(day1.moist)} of the map (${Math.round(1000 * floor) / 10} % at least at ${side}²)`;
   return null;
 }
 
