@@ -36,6 +36,18 @@ export function headHolds(table: WaterTable, from: Body): number {
   return Math.ceil(designLevel(table, from) + ROW_CLEAR) - 1;
 }
 
+/** The half width `s` tiles along a path with one at each of its points, read straight between them. */
+function halvesAt(path: readonly Point[], halves: readonly number[], s: number): number {
+  if (s <= 0) return halves[0];
+  let run = 0;
+  for (let k = 0; k + 1 < path.length; k++) {
+    const len = dist(path[k], path[k + 1]);
+    if (s <= run + len) return halves[k] + (halves[k + 1] - halves[k]) * (len > 0 ? (s - run) / len : 1);
+    run += len;
+  }
+  return halves[halves.length - 1];
+}
+
 /** A link's bed level `s` tiles along its path (negative: inside the body it leaves). */
 export function bedAt(plan: PremisePlan, l: Link, s: number): number {
   const path = l.path!;
@@ -64,9 +76,10 @@ export function bedAt(plan: PremisePlan, l: Link, s: number): number {
   return Math.max(BYPASS_END, head - Math.floor(t * (head - BYPASS_END + 0.999)));
 }
 
-/** A link's half width `s` tiles along it (its mouth's at its head). */
+/** A link's half width `s` tiles along it (its mouth's at its head): `half`, or read between its path's points where
+ *  the link gives a width for each (`Link.halves`). */
 export function halfAt(l: Link, s: number): number {
-  const half = l.half ?? 0.55;
+  const half = l.halves && l.path && l.halves.length === l.path.length ? halvesAt(l.path, l.halves, s) : (l.half ?? 0.55);
   if (!l.mouth || s >= MOUTH_RUN + 3) return half;
   const m = l.mouth / 2;
   if (s < MOUTH_RUN) return m;

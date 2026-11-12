@@ -20,7 +20,10 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
 
 **Start from**
 - `types.ts`: `PremisePlan` and its parts, `PremiseDef`, `Invariant`. Its fields beyond PREMISES §1.1 are listed
-  there (§1.1, "As built").
+  there (§1.1, "As built"). The seams a premise may use to change a shared stage (PREMISES §2.2, "Seams"; each
+  optional): `PremiseDef.water` and `PremiseDef.land` (its own stages 1 and 2), `ground` invariants
+  (`StageContext.heights`), `Link.halves` (a width per channel point) and `Body.backwater` (a body its feeder stands
+  in). `generatePremise` takes a `PremiseDef` as its third argument, for tests and tools.
 - `draw.ts`: `drawPlan` (one attempt, checked), `firstPlan` (the first that holds), `firstWater` (the first whose
   stage 1 water holds too), `failing`.
 - `siting.ts`: stage 0's second pass (§2.2, "As built (step 8)"). `sitePlan` lays a premise's skeleton (its plan
@@ -140,6 +143,8 @@ the land); `premiseGateWater.test.ts` (quick: its `land` invariants on seeds 1 t
 water, the Still Pool as a backwater, a broken raster for each of its own) and `premiseGateWater.heavy.test.ts` (five
 plans settled: the lake and cleft over their sills, the Veil's curtain, the Gate and leat dry, nothing out but the Low
 River);
+`premiseSeams.test.ts` (quick: one test a seam on a small fixture, and the lake stair's bytes unchanged through a
+premise that gives its stages as seams);
 `premisePlan.heavy.test.ts` (seeds 1 to 200 at 128², 192² and 256²: every plan holds, 43 to 107 ms a plan on average;
 PREMISES §3.3 has the numbers against the budget); `premiseWater.test.ts` (quick: the table's arithmetic, the lip's
 stair, the `land` invariants on seeds 1 to 4 at each size and Four Lakes, a broken raster for each); and
