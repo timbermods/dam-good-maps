@@ -870,6 +870,19 @@ a test on a small fixture (`premiseSeams.test.ts`).
 gain by a what-if settle; the first cycles. Their results are rows in the checks panel and the ladder's readout; they
 are also what section 6 runs offline before a premise ships.
 
+**Ringed lakes and the start's water (every premise).** A lake's bed is a shelf at its sill round its edge, then
+its floor (`raster/bodies.ts`). In a drought the lake drains to its sill, and while its water stands under 0.3 over
+the shelf (`walk.ts` `PUMP_DEPTH`) the shelf is neither a shore (a pump's shore stands 0 to 2 levels over the water,
+dry) nor water a pump draws, and the deeper water behind it meets no dry shore: a start on a ringed lake has no water
+in that band, however long it lasts. A small lake falls through it within a drought's first day (128²'s lake stair,
+0.8 of a level a day); a large one behind an outlet as wide falls slower (256², 0.35 to 0.45 a day) and can stand in
+it at a day's end, which D133's rule reads as the start's water gone. A premise whose start draws from a ringed lake
+gives it a landing: deep water meeting the dry shore within the start's walk. The lake stair's (`lakeStair.ts`
+`LANDING`, its own stage 1) is found from the land, one tile wide: from where the start meets the lake along the
+shore's own line, at most 4 tiles, to where the lake's floor comes nearest the bank, then down the bed's fall to the
+floor, marked as the drowned river's ribbon (the pump's water, which the frame lets stand deeper). The close-ups:
+[`docs/sheets/lake-stair-landing.jpg`](sheets/lake-stair-landing.jpg).
+
 ## 3. Speed
 
 ### 3.1 Where the script's minutes go
@@ -1049,7 +1062,7 @@ of reach at 256²).
 
 The second round: `spectrum`'s moist floor falls with the map's side (D???, §4.4's table), and the start's lake has a
 landing (`lakeStair.ts` `LANDING`, the premise's own stage 1 seam): its shelf, the bed at the sill that rings every lake
-(`raster/bodies.ts`), cut a level on a one-tile line from the shore by the start to the lake's floor, marked as the
+(`raster/bodies.ts`), cut a level on a one-tile line found from the land (§2.2, "Ringed lakes"), marked as the
 drowned river's ribbon (the pump's water, which the frame lets stand deeper). In a drought the start's lake drains to
 its sill; while it stands under 0.3 over the shelf, the shelf is neither a shore nor water a pump draws, and nowhere
 did deeper water meet a dry shore (on every map measured, at 128² and 256²). A 128² lake falls past that band within the

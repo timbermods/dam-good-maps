@@ -45,8 +45,10 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // and their ramps, its resources and the version in its description; and for the washes run long with fords, D517: the
 // same plan, water, start and bench, its dry land giving no line long enough for a wash, so its ground is uncut; and
 // for the start's landing (D148, `lakeStair.ts` `LANDING`): the same plan, start, bench and card, a one-tile strip of
-// the start's lake's shelf a level deeper from the shore by the start to the lake's floor)
-const SHA = "e760c4e97dd1dc4bf76a34444b1ccbee3d86c935945d47cd25e20c49ea88680c";
+// the start's lake's shelf a level deeper from the shore by the start to the lake's floor; and for the landing found
+// from the land, D148: along the shore's own line from where the start meets the lake to where its floor comes
+// nearest the bank, then down the bed's fall; the same plan, start, bench and card)
+const SHA = "7eb23f524a57f4032f9fb8ff17617c54ce78e207c0e7c04b6ec3d841ac202ab2";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040)
 const HARD_SEED = 7;
