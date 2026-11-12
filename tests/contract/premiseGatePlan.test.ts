@@ -128,6 +128,9 @@ describe("Broken wall-with-one-gate plans fail their invariants", () => {
       const lake = body(plan, "lake");
       lake.arms[0] = lake.arms[0].map(([x, y]) => [x, y, 6]);
     }],
+    ["range.spurs", "the range's spurs all toward the valley", (plan) => {
+      for (const sp of gateOf(plan)!.spurs) sp.side = 0;
+    }],
     ["basin.seep", "the seep's arroyo three wide", (plan) => {
       plan.links.find((l) => l.id === "arroyo")!.half = 1.5;
     }],

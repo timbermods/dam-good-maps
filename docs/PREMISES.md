@@ -1325,6 +1325,23 @@ whole shares' floor is 0 (by number their bed is the same; their gain is the set
 **As built (water, stage 1).** The shared stage (`water.ts` `waterByNumber`) lays the plan; `gateWater.ts` adds the
 bars (the Gate's head a level over the sill, the leat's two over its bed), the Veil's foot a level under the sill with
 its outer row the drowned river's ribbon, the first frame's beds raised to hold their water under two, and its checks.
+**The range, landforms** (planning's ruling of 2026-11-13; `gateLand.ts` `gateRelief`, `RANGE_LAND`, `RANGE_FLOW`;
+`premises/wallGate.ts` `SPURS`): no stepped rises. The flank falls from a crest a tile or so wide to the foot (on the
+valley's side from the valley's own land where it stands over the foot), at least six over the foot but at the gap and
+the Pass; the crest stands near the theme's ceiling (`CREST` 18 to 22, the plan's crest 1 − (1 − q)⁴ of the way up).
+Spurs leave the spine at spacings of 8 to 30 tiles toward either side (never three more on one side), 0.3 to 1.2 of
+their flank long, the long ones forking. Side valleys are cut by flow (`land/field.ts` `erodeHard` on the range's band,
+the Veil's buttress and the gorge's walls hard), and each valley whose water leaves the band ends in a low fan at its
+mouth. The seep stands at the mouth of a side valley toward the basin. Checks: `range.spurs` (two a side per 128 tiles),
+`range.flat` (at most 10 % of the band, off stage 1's banks, in flats wider than four), `range.valleys` (two a side
+per 128 tiles, each gathering 25 tiles and falling four levels), `range.height` (the crest's median eight over the
+valley's median ground at 128², nine from 192²). Measured (seeds 1 to 12): holds 12 of 12 at each size; the crest
+8 to 11 over the valley's floor at 128², 9 to 11 at 192², 9 to 10 at 256²; flats 0 to 10 %; valleys 3 to 8 toward the
+valley and 7 to 14 toward the basin at 128²; corners 0.2 to 1.8, straight 5 to 11 %, bands 0 to 1.8 %; a map takes 4.9 s
+at 256² (3.8 s before). Sheet: `docs/sheets/wall-gate-range.jpg`. **Short:** in 3D the range still reads as stacked
+grey blocks from close in; the valley's green at 256² is 23 to 29 %; 192² seed 1's stage 1 settle leaves 119 tiles of
+stray water beside two southern brooks (0.32 %, 0.3 % asked).
+
 **The seep** (planning's ruling of 2026-11-12, `SEEPS`, `basin.seep`; not yet passing `basin.dry`): one hollow at
 the range's back foot with a spring of 0.4 (on normal River flow), its arroyo winding a tile wide across the pan, cut a
 level into it, and meeting the Gate Bed square on its floor reach (`Link.joins`, §2.2 "Seams"), so the bed runs a

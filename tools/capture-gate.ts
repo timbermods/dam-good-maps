@@ -18,6 +18,7 @@ import { writeTimber } from "../src/core/format/timber";
 import { gateMap, startNumbers } from "../src/core/premise/gateMap";
 import { makeSpec } from "../src/core/spec/mapspec";
 import { waitForEditor } from "./wait-editor";
+import { gateZones } from "../src/core/premise/gateLand";
 
 const arg = (name: string, f: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -35,7 +36,9 @@ const VIEWPORT = { width: 1280, height: 720 };
 /** The widest frame: pitch from the horizontal, and the camera's distance per tile of the map's side. */
 const WIDEST = { pitch: 62, distance: 1.3 } as const;
 
-type Frame = "opening" | "vista" | "widest";
+type Frame = "opening" | "vista" | "widest" | "range";
+/** The view along the range: pitch from the horizontal, and the camera's distance per tile of the map's side. */
+const ALONG = { pitch: 24, distance: 0.62 } as const;
 
 /** One map's frames, each a jpeg of the 3D canvas. */
 async function shoot(browser: Browser, seed: number): Promise<{ label: string; jpg: Buffer }[]> {
@@ -72,6 +75,27 @@ async function shoot(browser: Browser, seed: number): Promise<{ label: string; j
   for (const frame of FRAMES) {
     let view: unknown;
     if (frame === "widest") view = { mode: "orbit", yaw, pitch: (WIDEST.pitch * Math.PI) / 180, distance: WIDEST.distance * SIZE, target: [SIZE / 2, 8, -SIZE / 2] };
+    else if (frame === "range") {
+      // (along the range from its valley side: the camera over the valley's foot, looking along the range's line,
+      // turned a little toward it; target its middle, at the crest's height)
+      const { zone } = gateZones(r.plan);
+      let n = 0;
+      let cx = 0;
+      let cy = 0;
+      for (let i = 0; i < zone.length; i++) if (zone[i] === 1) [n, cx, cy] = [n + 1, cx + (i % SIZE), cy + Math.floor(i / SIZE)];
+      [cx, cy] = [cx / n, cy / n];
+      let sxx = 0;
+      let sxy = 0;
+      let syy = 0;
+      for (let i = 0; i < zone.length; i++) {
+        if (zone[i] !== 1) continue;
+        const dx = (i % SIZE) - cx;
+        const dy = Math.floor(i / SIZE) - cy;
+        [sxx, sxy, syy] = [sxx + dx * dx, sxy + dx * dy, syy + dy * dy];
+      }
+      const along = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+      view = { mode: "orbit", yaw: -along + Math.PI / 2 + 0.35, pitch: (ALONG.pitch * Math.PI) / 180, distance: ALONG.distance * SIZE, target: [cx, 14, -cy] };
+    }
     else {
       const cam = openingCamera({ x: mx, y: my, z: s.benchLevel, orientation: s.orientation }, frame === "vista" ? VISTA_ZOOM : undefined);
       view = { mode: "orbit", yaw, pitch: (60 * Math.PI) / 180, distance: cam.distance, target: [cam.target[0], cam.target[2], -cam.target[1]] };
@@ -87,7 +111,7 @@ async function shoot(browser: Browser, seed: number): Promise<{ label: string; j
     await page.evaluate(() => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(() => res(null)))));
     const box = (await page.locator("[data-opening-view]").boundingBox())!;
     const w = Math.min(box.width, (box.height * 16) / 9);
-    out.push({ label: `seed ${seed} at ${SIZE}², ${frame === "widest" ? "the widest frame" : frame === "vista" ? "the opening camera at the vista's zoom" : "the opening camera"}`, jpg: await page.screenshot({ type: "jpeg", quality: 90, clip: { x: box.x + (box.width - w) / 2, y: box.y, width: w, height: box.height } }) });
+    out.push({ label: `seed ${seed} at ${SIZE}², ${frame === "widest" ? "the widest frame" : frame === "range" ? "along the range" : frame === "vista" ? "the opening camera at the vista's zoom" : "the opening camera"}`, jpg: await page.screenshot({ type: "jpeg", quality: 90, clip: { x: box.x + (box.width - w) / 2, y: box.y, width: w, height: box.height } }) });
     console.log(`  ${frame}: start ${mx},${my} z${s.benchLevel} ${s.orientation}`);
   }
   await context.close();
