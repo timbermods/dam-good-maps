@@ -24,6 +24,17 @@ function end(): void {
 }
 
 function next(): void {
+  try {
+    day();
+  } catch (e) {
+    // (the generator's worker hears it and runs the drought itself, droughtRunner.ts)
+    const id = current?.id ?? 0;
+    end();
+    (self as unknown as Worker).postMessage({ id, error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+function day(): void {
   const c = current;
   if (!c) return;
   // (on the water's threads where the page has them, as the settle's: the same water on any count)
@@ -50,6 +61,11 @@ self.onmessage = (e: MessageEvent<DroughtJob>) => {
     return;
   }
   end();
-  current = { id: m.id, run: new HazardRun(m.model, { depth: m.depth, contamination: m.contamination, stack: null } as never, "drought", m.days), day: 0, days: m.days };
+  try {
+    current = { id: m.id, run: new HazardRun(m.model, { depth: m.depth, contamination: m.contamination, stack: null } as never, "drought", m.days), day: 0, days: m.days };
+  } catch (e) {
+    (self as unknown as Worker).postMessage({ id: m.id, error: e instanceof Error ? e.message : String(e) });
+    return;
+  }
   setTimeout(next, 0);
 };

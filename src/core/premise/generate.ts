@@ -102,37 +102,61 @@ export type PremiseAsk = { kind: "settled"; model: WaterModel; depth: Float64Arr
  *  drought run on this thread, after the map (and on its pool, `withSmallMapThreads`). */
 export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}, own?: PremiseDef): PremiseOutcome {
   const steps = premiseSteps(specIn, opts, own);
-  let ask: { model: WaterModel; depth: Float64Array; contamination: Float64Array; days: number } | null = null;
-  let run: HazardRun | null = null;
-  const stop = () => {
-    run?.dispose();
-    run = null;
-  };
+  let run: LocalRun | null = null;
   try {
     for (let next = steps.next(); ; ) {
       if (next.done) return next.value;
       const a = next.value;
       if (a.kind === "settled") {
-        stop();
-        ask = a;
+        run?.stop();
+        run = localRun(a.model, a.depth, a.contamination, a.days);
         next = steps.next();
       } else if (a.kind === "done") {
-        stop();
+        run?.stop();
+        run = null;
         next = steps.next();
-      } else {
-        const r = (run ??= new HazardRun(ask!.model, { depth: ask!.depth, contamination: ask!.contamination, stack: null } as never, "drought", ask!.days));
-        withSmallMapThreads(() => r.step(TICKS_PER_DAY));
-        next = steps.next(r.water());
-      }
+      } else next = steps.next(run!.day(a.day));
     }
   } finally {
-    stop();
+    run?.stop();
   }
+}
+
+interface LocalRun {
+  day(k: number): GateDay;
+  stop(): void;
+}
+
+/** The start's drought run on this thread (and its pool, `withSmallMapThreads`), made when a day is first asked for:
+ *  day `k`'s water, the run stepped on from the last day it reached (a day asked again or earlier is run anew). */
+function localRun(model: WaterModel, depth: Float64Array, contamination: Float64Array, days: number): LocalRun {
+  let run: HazardRun | null = null;
+  let at = 0;
+  let last: GateDay | null = null;
+  const stop = () => {
+    run?.dispose();
+    run = null;
+    at = 0;
+  };
+  return {
+    day(k) {
+      if (run && k === at && last) return last;
+      if (run && k < at) stop();
+      const r = (run ??= new HazardRun(model, { depth, contamination, stack: null } as never, "drought", days));
+      while (at < k) {
+        withSmallMapThreads(() => r.step(TICKS_PER_DAY));
+        at++;
+      }
+      return (last = r.water());
+    },
+    stop,
+  };
 }
 
 /** Where the page's generator runs the start's drought beside the map (`generatePremiseAsync`): from the first build's
  *  water and model, each day's water as it comes; `stop` ends the run. */
 export interface DroughtRunner {
+  /** The run started; `day` rejects when the run fails (the generator then runs it on its own thread). */
   start(model: WaterModel, depth: Float64Array, contamination: Float64Array, days: number): { day(k: number): Promise<GateDay>; stop(): void };
 }
 
@@ -142,22 +166,50 @@ export interface DroughtRunner {
 export async function generatePremiseAsync(specIn: MapSpec, opts: GenerateOptions, runner: DroughtRunner, own?: PremiseDef): Promise<PremiseOutcome> {
   const steps = premiseSteps(specIn, opts, own);
   let run: ReturnType<DroughtRunner["start"]> | null = null;
+  // (where the runner fails, its worker failing to load, throwing or dying: the run on this thread, the same water)
+  let local: LocalRun | null = null;
+  let ask: Extract<PremiseAsk, { kind: "settled" }> | null = null;
+  const fallBack = (): LocalRun => {
+    run?.stop();
+    run = null;
+    return (local ??= localRun(ask!.model, ask!.depth, ask!.contamination, ask!.days));
+  };
+  const stopAll = () => {
+    run?.stop();
+    local?.stop();
+    run = null;
+    local = null;
+  };
   try {
     for (let next = steps.next(); ; ) {
       if (next.done) return next.value;
       const a = next.value;
       if (a.kind === "settled") {
-        run?.stop();
-        run = runner.start(a.model, a.depth, a.contamination, a.days);
+        stopAll();
+        ask = a;
+        try {
+          run = runner.start(a.model, a.depth, a.contamination, a.days);
+        } catch {
+          run = null;
+        }
         next = steps.next();
       } else if (a.kind === "done") {
-        run?.stop();
-        run = null;
+        stopAll();
         next = steps.next();
-      } else next = steps.next(await run!.day(a.day));
+      } else {
+        let w: GateDay | null = null;
+        if (run && !local) {
+          try {
+            w = await run.day(a.day);
+          } catch {
+            w = null;
+          }
+        }
+        next = steps.next(w ?? fallBack().day(a.day));
+      }
     }
   } finally {
-    run?.stop();
+    stopAll();
   }
 }
 
