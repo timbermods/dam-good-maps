@@ -631,7 +631,10 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (`core/forces/clear.ts`). The operation keeps the choice and each cleared source with its step, so undo brings
   them back. Where the row shows the choice is the page's. A force that removed sources says so as it is kept, a note
   above the bar with the count and **Undo** ("Cleared 12 sources. Set Sources to Ride to keep them."), which goes as soon as any other step lands so Undo only ever takes back that force; the count is the
-  core's (`keep.ts` `sourcesRemovedBy`, `forceStop`'s `sourcesRemoved`), never worked out in the page.
+  core's (`keep.ts` `sourcesRemovedBy`, `forceStop`'s `sourcesRemoved`), never worked out in the page. A force that
+  let badwater into water that was clean says so first in the same note ("Badwater now reaches the start's water: <n>
+  tiles, at X <x> · Y <y>."), from the core's shared check (`core/water/badwaterLetIn.ts`, `forceStop`'s `badwater`;
+  the force audit's S3); the force is kept as it is.
 - **The Floor** (D321, item 40): at the end of every force's More, the lowest level any force cuts down to, 1 by
   default, up to the height ceiling: one setting shared by all the forces, kept with the editor preferences, never
   Auto (a rule, not a flavour), with **Default** back to 1. Where a force would go deeper it runs shallower there,
@@ -1663,8 +1666,8 @@ raises its banks along a dragged line (planning, 2026-11-11).
 
 - Editor work follows `ROADMAP.md`, one step at a time; each ends with its checks passing and a short progress
   entry. Record deviations and decisions in `docs/decisions/` (its index says how).
-- The editor must never export a file that breaks the game. Load problems block export; playability and design
-  problems show on the quiet dot and never block it. The classes are defined in `PLAN.md` §19.5.
+- The editor must never export a file that breaks the game. Load problems block export; playability, design and
+  principle problems show on the quiet dot and never block it (D3). The classes are defined in `PLAN.md` §19.5.
 - In-game checks are logged in `docs/archive/ingame-log.md`; a DGM Probe batch plays maps in the real game only
   after Kyler's yes in chat, every time (`PLAN.md` §20, D117; `CLAUDE.md`).
 - Everything works without Claude. Claude is an add-on.
@@ -1824,8 +1827,8 @@ checks dot counts; every other row is information under Good to know, worded as 
   then the checks run in the editor's own worker, so Save and export keep their full check.
 - Issues have a severity, a location and a plain-language explanation. They are listed from the quiet dot, each
   highlighted on the map; clicking one flies the camera to it. **Error** (load class): the file would crash the
-  game, lose objects on load, or start without beavers; export is blocked until fixed. **Warning** (playability or
-  design): a flooded start, no water nearby, a map above height 16; it shows on the quiet dot and never blocks
+  game, lose objects on load, or start without beavers; export is blocked until fixed. **Warning** (playability, design or
+  principle): a flooded start, no water nearby, a map above height 16, a dam wall across a valley; it shows on the quiet dot and never blocks
   export; it is never written into the map's description, which holds only the map's own words (below, "The map's
   description"): the warnings are in the editor's checks list.
 - **Words.** The History's labels (`core/doc/labels.ts`) read "Verb the thing" with a correct article and plural and the

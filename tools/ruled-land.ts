@@ -25,7 +25,7 @@ const range = (opt("seeds") ?? "1-12").split("-").map(Number);
 const seeds = Array.from({ length: (range[1] ?? range[0]) - range[0] + 1 }, (_, k) => range[0] + k);
 
 const line = (label: string, r: RuledLand, ms?: number) =>
-  console.log(`${label.padEnd(28)} straight ${(100 * r.straight).toFixed(1).padStart(5)} %  bands ${(100 * r.bands).toFixed(1).padStart(5)} %  corners ${r.corners.toFixed(1).padStart(5)}  longest ${String(r.longest.length).padStart(3)} at X ${r.longest.x} · Y ${r.longest.y}  ${r.ok ? "pass" : "FAIL"}${ms !== undefined ? `  ${ms.toFixed(1)} ms` : ""}`);
+  console.log(`${label.padEnd(28)} straight ${(100 * r.straight).toFixed(1).padStart(5)} %  bands ${(100 * r.bands).toFixed(1).padStart(5)} %  corners ${r.corners.toFixed(1).padStart(5)}  channels ${(100 * r.channels).toFixed(1).padStart(5)} %  longest ${String(r.longest.length).padStart(3)} at X ${r.longest.x} · Y ${r.longest.y}  ${r.ok ? "pass" : "FAIL"}${ms !== undefined ? `  ${ms.toFixed(1)} ms` : ""}`);
 const measure = (label: string, b: { heights: ArrayLike<number>; settle: { depth: ArrayLike<number> }; W: number; H: number }) => {
   const wet = wetOf(b.settle.depth);
   const t = performance.now();

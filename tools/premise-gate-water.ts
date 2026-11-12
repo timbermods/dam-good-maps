@@ -1,5 +1,5 @@
 // The wall with one gate's water by number for a seed (docs/PREMISES.md §5.1, §2.2 stage 1): the first plan whose water
-// holds (`gateFirstWater`), its water table, which `land` invariants hold, and a picture of its heights and water; with
+// holds (`draw.ts` `firstWater`), its water table, which `land` invariants hold, and a picture of its heights and water; with
 // `--settle`, the water settled as the game plays it (`tests/contract/gateSettle.ts`): each body's level against its
 // sill, the Veil's curtain, the Gate and the leat dry, stray water, water on the edge but the Low River's, and what
 // leaves against what the springs give.
@@ -13,7 +13,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { failing } from "../src/core/premise/draw";
-import { frameShallow, gateFirstWater } from "../src/core/premise/gateWater";
+import { frameShallow } from "../src/core/premise/gateWater";
+import { firstWater } from "../src/core/premise/draw";
 import { wallGate } from "../src/core/premise/premises/wallGate";
 import type { PremisePlan } from "../src/core/premise/types";
 import type { StageWater } from "../src/core/premise/water";
@@ -70,7 +71,7 @@ function picture(plan: PremisePlan, w: StageWater): { rgb: Uint8Array; width: nu
 for (const seed of seeds) {
   const spec = makeSpec({ seed, size: { x: side, y: side }, theme: "any", premise: "any" });
   const t0 = performance.now();
-  const r = gateFirstWater(wallGate, spec);
+  const r = firstWater(wallGate, spec);
   const ms = performance.now() - t0;
   if ("reason" in r) {
     console.log(`seed ${seed}: ${r.reason}`);

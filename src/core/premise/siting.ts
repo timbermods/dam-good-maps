@@ -23,8 +23,8 @@ const REACH = 17;
 
 /** The skeleton's land (stages 1 and 2, in the theme's style where it has one, the start's `bench` built as the map's
  *  will be: `frame.ts` `buildBench`) and day 1's soil on it. */
-export function siteLand(skeleton: PremisePlan, style?: ReliefStyle, refuse?: Refuse, bench = 0): SiteLand | { reason: string; id: string } {
-  const w = waterByNumber(skeleton);
+export function siteLand(skeleton: PremisePlan, style?: ReliefStyle, refuse?: Refuse, bench = 0, water: (plan: PremisePlan) => StageWater = waterByNumber): SiteLand | { reason: string; id: string } {
+  const w = water(skeleton);
   const heights = reliefBetween(skeleton, w, style);
   buildBench(skeleton, w, heights, bench);
   // (a copy: the frame's reading raises the beds under its water in place)
@@ -41,7 +41,7 @@ export type Refuse = (skeleton: PremisePlan, water: StageWater, heights: Uint8Ar
  *  sites none; or why it could not be sited, or `refuse`d on the skeleton's land (the attempt is drawn again). */
 export function sitePlan(def: PremiseDef, spec: MapSpec, plan: PremisePlan, attempt: number, style?: ReliefStyle, refuse?: Refuse, bench = 0): { plan: PremisePlan; land?: SiteLand } | { reason: string; id?: string } {
   if (!def.site || !def.skeleton) return { plan };
-  const land = siteLand(def.skeleton(plan), style, refuse, bench);
+  const land = siteLand(def.skeleton(plan), style, refuse, bench, def.water ? (p) => def.water!(p) : waterByNumber);
   if ("reason" in land) return land;
   const sited = def.site(spec, plan, attempt, land);
   return "reason" in sited ? sited : { plan: sited, land };

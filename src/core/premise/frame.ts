@@ -15,6 +15,8 @@
 import { COS_P, frameAt, levelDoorTurns, OPENING, openingCamera, SIN_P, TAN_H, TAN_V, type OpeningStart } from "../analysis/opening";
 import { reachAt, slopeLinks, walkDistance } from "../analysis/walk";
 import { placeSlopes, SLOPE_RULES } from "../features/slopes";
+import { cutRamp, footComponents, rampPath } from "../land/levels";
+import { stream } from "../math/rng";
 import type { Orientation } from "../format/footprints";
 import { pow, sqrt } from "../math/portable";
 import { distanceFrom } from "../math/grid";
@@ -43,6 +45,12 @@ export const FRAME = {
    *  tile at its edge toward the camera, half a tile to most of a tile nearer than its middle. Without it a third of
    *  the plans at 128² had lip tiles over the top edge (v to 1.1). */
   lipStair: 0.5,
+  /** How much further up (`v`) and out (`u`) the lip's tiles stand in the frame than its line's ends, as the water by
+   *  number lays them (`raster/falls.ts` `lipStair`, read at their edge toward the camera as stage 3 reads them): at
+   *  most 0.042 and 0.128 over the 62 plans of seeds 1 to 24 at 128², whatever the look. Stage 0 holds the ends this
+   *  far inside the frame: without it a fifth of the plans that reached stage 3 had lip tiles outside it, and every
+   *  start looking one way (Cw180) a tenth of the frame's height nearer the top than its ends read. */
+  lipTiles: { v: 0.045, u: 0.13 },
 } as const;
 
 const TAN_PITCH = SIN_P / COS_P;
@@ -100,14 +108,15 @@ export interface LipInFrame {
 }
 
 /** A lip (two crest ends in tiles, the crest at `crest`) and its foot (`foot`, the water's level under it) as the
- *  start's first camera sees them. The foot is read 1.5 tiles toward the camera from each end. */
+ *  start's first camera sees them. The ends are read where they stand (the line the raster lays its tiles along); the
+ *  foot 1.5 tiles toward the camera from each end. */
 export function lipInFrame(start: OpeningStart, lip: [Point, Point], crest: number, foot: number): LipInFrame {
   const cam = openingCamera(start);
   const h = crest + FRAME.overLip;
   const a0 = aheadOf(start, lip[0]).ahead;
   const a1 = aheadOf(start, lip[1]).ahead;
   const at = (p: Point, z: number) => frameAt(cam, p[0] + 0.5, p[1] + 0.5, z) ?? { u: Infinity, v: Infinity };
-  const ends = lip.map((p) => at(p, h));
+  const ends = lip.map((p) => frameAt(cam, p[0], p[1], h) ?? { u: Infinity, v: Infinity });
   const feet = lip.map((p) => at([p[0] - 1.5 * cam.look[0], p[1] - 1.5 * cam.look[1]], foot));
   const lx = lip[1][0] - lip[0][0];
   const ly = lip[1][1] - lip[0][1];
@@ -139,9 +148,10 @@ export const START = {
    *  head over that (2.1 to 2.4 deep): the pump's water when a breach sinks the lake a level in a drought. */
   ribbon: 2.5,
   /** `start.reach` read before the build (`slopeReach`, the start's own slopes on the land) is this share of its
-   *  floor at least: the build's other slopes (its works', the water rule's) and its settled water gave the built map
-   *  1.1 to 1.3 times the reading (seeds 1 to 6 at 128²), so a start under it is drawn again before its settle. */
-  reachRead: 0.75,
+   *  floor at least, so a start under it is drawn again before its settle. Since the bench and the ways out (D515) the
+   *  built map's reach is 0.7 to 1.6 times the reading (seeds 1 to 24 at 128²; 1.1 to 1.3 before): six of the nine
+   *  settles that failed it read under the floor itself, at 0.75 of it. */
+  reachRead: 1,
 } as const;
 
 /** The start stage 3 settled on, what it measured there, and why it does not hold, in one line. */
@@ -200,7 +210,7 @@ export interface FrameNeeds {
  *  the water by number as the checks count them, meet `needs` (`FrameNeeds`). The plan's start is kept when it holds;
  *  else the nearest tile within `START.shift` that does (the start onto the meadow, §9); else the one whose land comes
  *  nearest, with the reason it fails (stage 8 then draws the next plan). */
-export function checkFrame(plan: PremisePlan, w: StageWater, heights: Uint8Array, needs: FrameNeeds): FrameCheck {
+export function checkFrame(plan: PremisePlan, w: StageWater, heights: Uint8Array, needs: FrameNeeds, ramps: readonly (readonly [number, number])[] = []): FrameCheck {
   const { W, H } = plan;
   const N = W * H;
   const s0 = plan.frame.start;
@@ -244,7 +254,7 @@ export function checkFrame(plan: PremisePlan, w: StageWater, heights: Uint8Array
     if (out.bench < needs.bench) return { ...out, reason: `${out.bench} tiles of level ground on the start's bench (at least ${needs.bench})` };
     if (needs.early) return out;
     // the walkable land, read before the build on the slopes it derives for the start alone (`START.reach`)
-    out.reach = slopeReach(heights, wet, W, H, x, y);
+    out.reach = slopeReach(heights, wet, W, H, x, y, ramps);
     if (out.reach < START.reachRead * needs.reach) return { ...out, reason: `${out.reach} dry tiles walkable from the start once its slopes stand (at least ${Math.ceil(START.reachRead * needs.reach)} before the build's own)` };
     // the frame's water shallow: water three levels deep is near black in the game (§4.3). A body's bed inside the
     // frame rises to hold its water at most 1.2 deep (a lip's crest and the channels keep theirs), the drowned river's
@@ -404,12 +414,69 @@ export function buildBench(plan: PremisePlan, w: StageWater, heights: Uint8Array
   return moved;
 }
 
+/** The start's ways out (D515, `start.reach`): where the land the start walks to once its slopes stand (`slopeReach`,
+ *  with the ramps cut so far) holds less than `WAYS_OUT.share` of the walkable land the gate asks, a natural ramp is
+ *  cut up the cliff that walls it in, as the themes cut theirs (`land/levels.ts` `rampPath`, `cutRamp`: the gentlest
+ *  line to the ground beyond, a step a level, four levels at most, never a pier), to the largest grounds the walk
+ *  does not reach first (`tries` of them, `least` tiles or more), `most` ramps at most. Never through the water or the
+ *  ground stage 1 decided. `share` is the frame's read (`START.reachRead`) with the generator's margin (1.1). */
+export const WAYS_OUT = { share: 1.1, most: 2, tries: 4, least: 200 } as const;
+
+/** Cuts the start's ways out (`WAYS_OUT`) into the heights in place; returns their steps as (low tile, high tile)
+ *  pairs, the build's slope targets (`GeneratedField.ramps`). */
+export function cutWaysOut(plan: PremisePlan, w: StageWater, heights: Uint8Array, reach: number): [number, number][] {
+  const { W, H } = plan;
+  const N = W * H;
+  const { x: sx, y: sy } = plan.frame.start;
+  const steps: [number, number][] = [];
+  if (!(reach > 0)) return steps;
+  const water = new Uint8Array(N);
+  for (let i = 0; i < N; i++) water[i] = w.raster.lake[i] || w.raster.channel[i] ? 1 : 0;
+  const keep = w.raster.fixed;
+  const tiles = new Uint8Array(N);
+  const lay = stream(plan.seed, "premise.waysOut");
+  const occ = new Uint8Array(N);
+  for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) occ[(sy + dy) * W + sx + dx] = 1;
+  for (let cut = 0; cut < WAYS_OUT.most; cut++) {
+    // the land the start walks to now: 0; the rest by the ground it stands on (joined by steps of one level)
+    const slopes = placeSlopes(heights, W, H, { x: sx, y: sy }, occ, steps.length ? { ...SLOPE_RULES, ramps: steps } : SLOPE_RULES);
+    const d = walkDistance(heights, W, H, water, slopeLinks(slopes, W, H), { x: sx, y: sy }, N);
+    let walked = 0;
+    for (let i = 0; i < N; i++) if (d[i] < Infinity && !water[i]) walked++;
+    if (walked >= WAYS_OUT.share * reach) break;
+    const fc = footComponents(heights, W, H, water);
+    const lab = new Int32Array(N).fill(-1);
+    const size = new Array<number>(fc.size.length + 1).fill(0);
+    for (let i = 0; i < N; i++) {
+      if (water[i]) continue;
+      lab[i] = d[i] < Infinity ? 0 : fc.lab[i] + 1;
+      if (lab[i] > 0) size[lab[i]]++;
+    }
+    const order = size
+      .map((n, k) => [n, k])
+      .filter(([n, k]) => k > 0 && n >= WAYS_OUT.least)
+      .sort((a, b) => b[0] - a[0] || a[1] - b[1])
+      .slice(0, WAYS_OUT.tries);
+    let done = false;
+    for (const [, to] of order) {
+      const path = rampPath(heights, W, H, water, keep, lab, 0, to);
+      if (path && cutRamp(heights, W, H, water, keep, path, tiles, steps, lay)) {
+        done = true;
+        break;
+      }
+    }
+    if (!done) break;
+  }
+  return steps;
+}
+
 /** The dry tiles a start walks to once the generator's slopes stand (`start.reach`, read before the build): the
- *  slopes the build derives for a start there (`placeSlopes`, `SLOPE_RULES`), walked off the water. */
-export function slopeReach(heights: Uint8Array, wet: Uint8Array, W: number, H: number, sx: number, sy: number): number {
+ *  slopes the build derives for a start there (`placeSlopes`, `SLOPE_RULES`, a slope on every step of the land's
+ *  natural ramps, `ramps`), walked off the water. */
+export function slopeReach(heights: Uint8Array, wet: Uint8Array, W: number, H: number, sx: number, sy: number, ramps: readonly (readonly [number, number])[] = []): number {
   const occ = new Uint8Array(W * H);
   for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) occ[(sy + dy) * W + sx + dx] = 1;
-  const slopes = placeSlopes(heights, W, H, { x: sx, y: sy }, occ, SLOPE_RULES);
+  const slopes = placeSlopes(heights, W, H, { x: sx, y: sy }, occ, ramps.length ? { ...SLOPE_RULES, ramps } : SLOPE_RULES);
   const d = walkDistance(heights, W, H, wet, slopeLinks(slopes, W, H), { x: sx, y: sy }, W * H);
   let n = 0;
   for (let i = 0; i < W * H; i++) if (d[i] < Infinity && !wet[i]) n++;

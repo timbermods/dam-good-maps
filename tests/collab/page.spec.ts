@@ -12,6 +12,7 @@ import type { Stack } from "./localStack";
 import { killPeer, launchPeer } from "./peers";
 import type { Kind, Peer } from "./peers";
 import { generateButton, openDrawer, openYourMaps } from "../e2e/open";
+import { orRefused } from "../e2e/helpers";
 
 test.skip(!workerInstalled(), "collab-worker's dependencies are not installed (npm ci --prefix collab-worker)");
 test.describe.configure({ mode: "serial", timeout: 600_000 });
@@ -153,8 +154,10 @@ test("invite and join with names, edits from both sides on both maps, the other'
 
     const { finish } = await connect(host, guest, ["Ada", "Bo"]);
     // the host edits while the Invite waits (the checkpoint a guest joins is the map as it stands)
+    // (row 26: on 0.10.17's map a raise along row 20 crosses a valley as a thin wall, a built dam wall that
+    // terrain.dam_wall flags; the export only warns of it (D3), but the edit stays clear of one)
     await pick(host.page, "2");
-    await stroke(host.page, [20, 20], [30, 20]);
+    await stroke(host.page, [20, 26], [30, 26]);
     await host.page.evaluate(() => window.dgmEditor!.idle());
     await expect.poll(async () => (await info(host.page)).history.at(-1)?.label ?? "").toMatch(/^Raise/);
     await finish();
@@ -301,7 +304,8 @@ test("the guest is killed: the host is paused, read-only, Save still works; Invi
     await host.page.keyboard.press("Escape");
     await host.page.getByRole("button", { name: "Download .timber" }).click();
   }
-  expect((await download).suggestedFilename()).toMatch(/.timber$/);
+  // (a refused save fails at once with the page's words, not at the wait's end)
+  expect((await orRefused(host.page, download)).suggestedFilename()).toMatch(/.timber$/);
   // Invite again: a new code carries on the same session; a new browser joins it and has the map as it stands
   await (await openPanel(host.page)).getByRole("button", { name: "Invite again" }).click();
   const code = (await panel(host.page).getByLabel("Room code", { exact: true }).textContent())!.trim();

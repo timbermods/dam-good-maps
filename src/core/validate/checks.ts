@@ -67,7 +67,7 @@ export interface ValidateOptions {
   /** The canonical settle already computed for exactly this terrain and these sources (the build's),
    *  so generation does not settle twice. */
   water?: { model: WaterModel; settled: CanonicalWater };
-  /** The map is being edited (a session, D323): an edge wall is a warning with a fix, never a block. */
+  /** The map is being edited (a session, D323): an edge wall gets its Lower the wall fix. */
   editing?: boolean;
   /** The editor's: the mine sites already out of reach when the map was opened (`mineSitesCutAt`);
    *  given, `resources.mine_site` is advisory and also names what edits cut off since (D368 (10)). */
@@ -156,8 +156,8 @@ function withRuledLand(file: TimberFile, v: Validation): Validation {
   const r = ruledLand(surfaceOf(w), wetOf(depth), w.sizeX, w.sizeY);
   const row: CheckResult = {
     id: "terrain.ruled_land", class: "design", severity: severityOf("generate", "design", r.ok, true), ok: r.ok, advisory: true,
-    value: `${Math.round(100 * r.straight)} % / ${Math.round(100 * r.bands)} % / ${Math.round(r.corners)}`, limit: `${100 * RULED_LIMITS.straight} % / ${100 * RULED_LIMITS.bands} % / ${RULED_LIMITS.corners}`,
-    message: ruledLandMessage(r), ...(r.ok ? {} : { where: { tiles: [[r.longest.x, r.longest.y]] } }),
+    value: `${Math.round(100 * r.straight)} % / ${Math.round(100 * r.bands)} % / ${Math.round(r.corners)} / ${Math.round(100 * r.channels)} %`, limit: `${100 * RULED_LIMITS.straight} % / ${100 * RULED_LIMITS.bands} % / ${RULED_LIMITS.corners} / none`,
+    message: ruledLandMessage(r), ...(r.ok ? {} : { where: { tiles: r.channel ? [[r.longest.x, r.longest.y], [r.channel.x, r.channel.y]] : [[r.longest.x, r.longest.y]] } }),
   };
   return { ...v, report: { ...v.report, checks: [...v.report.checks, row] } };
 }

@@ -1,7 +1,8 @@
 // Edge walls on a map being edited (PLAN §20 D323, feedback item 12): a wall raised along an edge
 // is a warning in the checks, never a block on the save, with a one-click "Lower the wall" fix
-// (the outer tiles cut down to the land inside, one undo step). Generated maps and Real places
-// still guarantee no walls (D151): the `generate` profile and `place.ts` do not take `editing`.
+// (the outer tiles cut down to the land inside, one undo step). It stays a principle: a player's export only
+// warns of one (D3), while generated maps and Real places still guarantee no walls (D151), the `generate`
+// profile blocking it.
 
 import { describe, expect, it } from "vitest";
 import { edgeWalls, EDGE_SHARE } from "../../src/core/analysis/edges";
@@ -42,6 +43,7 @@ describe("an edge wall on an edited map (D323)", () => {
     expect(wallItem(c.blocking)).toBeUndefined();
     const warn = wallItem(c.warnings)!;
     expect(warn, "a warning").toBeDefined();
+    expect(warn.class).toBe("principle");
     expect(warn.fix?.[0]?.label).toBe("Lower the wall");
     // the quick checks after the edit name it too, in the dot
     expect(wallItem(ed.instantCheck().items)).toBeDefined();

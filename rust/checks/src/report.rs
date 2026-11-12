@@ -60,13 +60,7 @@ pub fn severity_of(profile: Profile, cls: &str, ok: bool, advisory: bool) -> &'s
     }
     match profile {
         Profile::Generate => "error",
-        Profile::Export => {
-            if cls == "principle" {
-                "error"
-            } else {
-                "warning"
-            }
-        }
+        Profile::Export => "warning",
         Profile::Import => {
             if cls == "design" || cls == "principle" {
                 "info"
@@ -84,10 +78,7 @@ pub fn blocks(profile: Profile, r: &Entries) -> bool {
     }
     match profile {
         Profile::Generate => true,
-        Profile::Export => {
-            let c = str_of(r, "class");
-            c == "load" || c == "principle"
-        }
+        Profile::Export => str_of(r, "class") == "load",
         Profile::Import => false,
     }
 }
@@ -171,4 +162,32 @@ pub fn report_json(profile: Profile, checks: &[Entries]) -> String {
     let passed = !checks.iter().any(|r| blocks(profile, r));
     let list = Json::Arr(checks.iter().map(|r| Json::Obj(r.clone())).collect());
     Json::Obj(vec![("profile".into(), s(profile.name())), ("checks".into(), list), ("passed".into(), b(passed))]).text()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn failing(cls: &str) -> Entries {
+        vec![("id".into(), s("x")), ("class".into(), s(cls)), ("ok".into(), b(false))]
+    }
+
+    // D3: a principle blocks what the generator hands over, warns on a player's export and is information on an
+    // import; a load problem blocks the export.
+    #[test]
+    fn export_blocks_only_on_load() {
+        let p = failing("principle");
+        assert!(blocks(Profile::Generate, &p));
+        assert!(!blocks(Profile::Export, &p));
+        assert!(!blocks(Profile::Import, &p));
+        assert_eq!(severity_of(Profile::Generate, "principle", false, false), "error");
+        assert_eq!(severity_of(Profile::Export, "principle", false, false), "warning");
+        assert_eq!(severity_of(Profile::Import, "principle", false, false), "info");
+        for cls in ["playability", "design"] {
+            assert!(blocks(Profile::Generate, &failing(cls)));
+            assert!(!blocks(Profile::Export, &failing(cls)));
+        }
+        assert!(blocks(Profile::Export, &failing("load")));
+        assert_eq!(severity_of(Profile::Export, "load", false, false), "error");
+    }
 }

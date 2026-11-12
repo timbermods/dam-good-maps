@@ -6,7 +6,8 @@
 
 import { describe, expect, it } from "vitest";
 import { failing } from "../../src/core/premise/draw";
-import { FRAME_DEEP, frameShallow, gateFirstWater, gateWater, GATE_WATER_CHECKS } from "../../src/core/premise/gateWater";
+import { FRAME_DEEP, frameShallow, gateWater } from "../../src/core/premise/gateWater";
+import { firstWater } from "../../src/core/premise/draw";
 import { holdDeep } from "../../src/core/premise/levels";
 import { gateOf, wallGate } from "../../src/core/premise/premises/wallGate";
 import type { PremisePlan } from "../../src/core/premise/types";
@@ -18,7 +19,7 @@ import { makeSpec, type MapSpec } from "../../src/core/spec/mapspec";
 const spec = (seed: number, side: number): MapSpec => makeSpec({ seed, size: { x: side, y: side }, theme: "any", premise: "any" });
 
 const first = (s: MapSpec): { plan: PremisePlan; water: StageWater } => {
-  const r = gateFirstWater(wallGate, s);
+  const r = firstWater(wallGate, s);
   if ("reason" in r) throw new Error(r.reason);
   return r;
 };
@@ -30,7 +31,7 @@ describe("The wall with one gate's water by number", () => {
     for (const side of [128, 192, 256])
       for (let seed = 1; seed <= 6; seed++) {
         const s = spec(seed, side);
-        const r = gateFirstWater(wallGate, s);
+        const r = firstWater(wallGate, s);
         if ("reason" in r) throw new Error(`seed ${seed} at ${side}²: ${r.reason}`);
         expect(landFails(s, r.plan, r.water), `seed ${seed} at ${side}²`).toEqual([]);
       }
@@ -72,13 +73,17 @@ describe("The wall with one gate's water by number", () => {
     expect(FRAME_DEEP).toBeLessThan(2);
   });
 
-  it("reads the Still Pool as a backwater at its lake's level, where the shared check reads a pond at its rim", () => {
+  it("reads the Still Pool as a backwater at its lake's level, where without the flag the shared check reads a pond at its rim", () => {
     const s = spec(1, 128);
     const { plan, water } = first(s);
-    const shared = WATER_CHECKS.find((x) => x.id === "water.levels")!.test({ spec: s, plan, water });
+    const levels = WATER_CHECKS.find((x) => x.id === "water.levels")!;
+    expect(plan.bodies.find((b) => b.id === "kettle")!.backwater).toBe(true);
+    expect(levels.test({ spec: s, plan, water }).ok).toBe(true);
+    const plain = JSON.parse(JSON.stringify(plan)) as typeof plan;
+    delete plain.bodies.find((b) => b.id === "kettle")!.backwater;
+    const shared = levels.test({ spec: s, plan: plain, water });
     expect(shared.ok).toBe(false);
-    if (!shared.ok) expect(shared.reason).toMatch(/kettle .* its rim 8/);
-    expect(GATE_WATER_CHECKS.find((x) => x.id === "water.levels")!.test({ spec: s, plan, water }).ok).toBe(true);
+    if (!shared.ok) expect(shared.reason).toMatch(/kettle .* its rim/);
   });
 });
 
@@ -98,10 +103,10 @@ describe("Broken gate water fails its invariants", () => {
       for (let i = 0; i < r.W * r.H; i++) if (r.channel[i] === li(g.gate) && r.along[i] >= 0 && r.along[i] < 8) r.heights[i] = g.sill - 2;
       r.rows[g.gate] = [];
     }],
-    ["frame.water", "the first frame's lake beds dug four under the sill", (w) => {
+    ["frame.water", "the plunge pool's beds dug four under its sill", (w) => {
       const r = w.raster;
-      const lake = plan.bodies.findIndex((b) => b.id === g.lake) + 1;
-      for (let i = 0; i < r.W * r.H; i++) if (r.lake[i] === lake && !r.crest[i]) r.heights[i] = g.sill - 4;
+      const door = plan.bodies.findIndex((b) => b.id === g.door) + 1;
+      for (let i = 0; i < r.W * r.H; i++) if (r.lake[i] === door && !r.crest[i]) r.heights[i] = g.sill - 3;
     }],
   ];
 

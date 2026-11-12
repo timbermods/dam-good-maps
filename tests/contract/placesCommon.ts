@@ -25,7 +25,7 @@ export const failing = (checks: readonly CheckResult[]) => checks.filter((c) => 
 
 /** No edge walls (Kyler, 2026-09-25, D151): the places are built from the survey's unsealed land
  *  (tools/real-places.ts), so no place has the sealed border's wall, which `terrain.edge_wall`
- *  would flag, a principle that blocks the export profile. */
+ *  would flag, a principle that blocks the generate profile and warns in the export profile (D3). */
 export const PLACES_HAVE_EDGE_WALLS = false;
 
 /** Water whose source has no outlet (`water.outflow`, a design check of the generate profile): on
@@ -191,9 +191,9 @@ export function checkShard(k: number, n: number): void {
     it.each(places.map((p) => [p.name, p] as const))("%s", (_name, entry) => {
       const r = placeTimber(placeData(entry));
       expect(r.validation.report.profile).toBe("export");
-      // the export profile passes but for the edge wall, a principle it blocks (D151); the gallery
-      // still gets the file, as placeTimber refuses only what would not load
-      expect(r.validation.report.passed).toBe(!PLACES_HAVE_EDGE_WALLS);
+      // the export profile passes: an edge wall, a principle (D151), only warns there (D3), and
+      // placeTimber refuses only what would not load
+      expect(r.validation.report.passed).toBe(true);
       expect(r.fileName).toBe(namedFile(entry.name));
       // the written file, read back: every check of the strictest profile, on its own settle
       const file = readTimber(r.bytes);
@@ -214,7 +214,7 @@ export function checkShard(k: number, n: number): void {
       const has: Record<(typeof PLACE_FAULT_CHECKS)[number], boolean> = { "water.source_in_flow": f.sourceInFlow, "water.outflow": f.outflow, "start.wood": f.wood, "start.wood_floor": f.floor, "start.water": f.startWater, "start.food": f.food, "plants.survive": f.plants };
       expect(entry.faults).toEqual(PLACE_FAULT_CHECKS.filter((id) => has[id]));
       expect(v.report.passed).toBe(!PLACES_HAVE_EDGE_WALLS && !PLACES_LACK_MINE_SITES && !PLACES_LACK_BADWATER);
-      expect(r.validation.report.checks.find((c) => c.id === "terrain.edge_wall")!.severity).toBe(PLACES_HAVE_EDGE_WALLS ? "error" : "info");
+      expect(r.validation.report.checks.find((c) => c.id === "terrain.edge_wall")!.severity).toBe(PLACES_HAVE_EDGE_WALLS ? "warning" : "info");
       // the missing mine site only warns on export: the gallery's download works
       expect(r.validation.report.checks.find((c) => c.id === "resources.mine_site")!.severity).toBe(PLACES_LACK_MINE_SITES ? "warning" : "info");
       expect(r.validation.report.checks.find((c) => c.id === "resources.badwater_source")!.severity).toBe(PLACES_LACK_BADWATER ? "warning" : "info");

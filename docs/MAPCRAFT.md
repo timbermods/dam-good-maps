@@ -91,7 +91,7 @@ What "generous, then earned" means in numbers. They are starting points to tune 
 | **Water held** | The start's water lasts the first droughts (3–5 days) with a pump and a tank or two | Each longer drought needs the next reservoir: a mended weir, a raised sill, the megadam; each a bigger prize for a longer dam |
 | **Green ground** | The start's own meadow and the map's living core; it stays green through the first drought | Dry land with a named work each: six to eight small works of a few hundred tiles, then regions, then the great ones; one part dry for good, on purpose |
 | **Level ground to build on** | 640–980 tiles round the start (what loved maps give) | Benches and meadows up the map, each behind a gate (a climb, a crossing, a work) |
-| **Wood** | A finite, generous stand in easy reach: more than a forester's first needs | Stands at each region; wood is managed and travelled for, never a carpet |
+| **Wood** | A finite, generous stand in easy reach: more than a forester's first needs | Stands at each region, and dead stands on the dry land where forest was (about 40 per 1,000 dry tiles in two to four old woods a 128² map, 300 to 900 logs, none in the start's walk; D516); wood is managed and travelled for, never a carpet |
 | **Food** | Berries in the start's walk through the first cycles | Farmland as irrigation spreads |
 | **Metal** | A little, in a ruin near the start | The rest in ruins with a reason, further up |
 | **Power** | One fall or run of flow in reach | Greater falls further on; the landmark fall tamed late |
@@ -111,14 +111,47 @@ a premise or one still to come, may carry its own, lower playability floor.
   rim, and dry land that is irrigable by design. What is measured is the ladder (what each work turns green), not a
   bare-ground share.
 - **Wood**: living trees near the official maps' count to about half the Workshop's (roughly 350–700 per 10,000
-  tiles), as stands with a purpose.
+  tiles), as stands with a purpose; and dead trees on the dry land as the game's maps have them (36 to 124 per 1,000
+  dry tiles; ours about 40, D516), in a few old woods where forest was: the old water line, dry beds, a mesa top, dry
+  hollows; pines on the tops, birches by old water, a few old oaks. A dead tree keeps its logs and grows none back: wood travelled for, none in the start's walk.
 - **Weather**: by the model and in the game: the start's days of water in each early drought; the day badwater reaches
   the start, left alone and with each answer built.
 - **Reach**: every region walkable by natural ways or by a crossing the land plainly asks for.
-- **Nothing ruled**: `terrain.ruled_land` (PLAN §11.2) measures land drawn with a ruler: edges and shores in straight
-  runs, strips of even width, square corners. Loved maps hold under 10 % of their edges in straight runs of 8+.
+- **Nothing ruled**: `terrain.ruled_land` (PLAN §11.2) measures land and water drawn with a ruler: edges and shores in
+  straight runs, strips of even width, square corners, water in straight reaches of even width (a river of even width
+  that winds is natural; even width in straight reaches meeting at sharp bends is not). Limits 17 % / 3 % / 3, channels reported with no limit,
+  the straight edges' aim 8 % (the built-in maps' median). Measured (`tools/ruled-land.ts`; straight % / bands % /
+  corners per 1,000 edges / channels %):
 
-What The Gate's seven rounds added (2026-11-11, judged in the game each round; [progress/showcase-craft.md](progress/showcase-craft.md)):
+  | Maps | Straight | Bands | Corners | Channels |
+  |---|---|---|---|---|
+  | The game's 19 named maps (planning, dev 97ff769d) | 4–16, median 7.5 | 0–3, median 1 | 0–2.2, median 0.1 | Nomads 39, Meander 38, Waterfalls and Pressure 33, Hollows 29, Beaverome 21, six others 15–18 |
+  | (highest: Beaverome, a built dome, 16 / 3 / 0.1; Pressure 13; Waterfalls and Meander 11; Cliffside's corners 2.2) | | | | |
+  | The game's 3 flat test maps (00, 08, 09) | 32–52 | 1–14 | 5–11.5 | 00: 94 |
+  | Loved Workshop maps, aggregate only (p10–p90, 130 maps) | 1.1–9.8 | – | – | – |
+  | Themes at 128², seeds 1–12 (72 maps) | 0.8–12.2 (Islands 5.5–12.2) | 0–2.0 | 0–1.5 | 0–8.1 |
+  | Themes at 256², seeds 1–3 (18 maps) | 1.8–8.0 | 0–0.4 | 0–0.3 | 0–8.5 |
+  | Lake stair 128², seeds 1, 2 | 11.7, 11.5 | 1.7, 0.8 | **5.4, 3.9** | 0, 3.5 |
+  | Lake stair 128² seed 3 (Canyon or Highlands style; Any holds no plan) | 7.8 | 0.5 | **3.7–3.8** | 1.7 |
+  | Four Lakes plan, 192² | 9.8 | 1.0 | 2.8 | 2.3 |
+  | The Gate as laid, 128² seeds 1, 2 | 38.4, 34.4 | 7.6, 4.1 | 9.0, 4.6 | 57.6, 45.1 |
+
+  Channels has no limit: the game's own rivers lie in straight reaches of even width as much as the laid Gate's
+  trenches do, so the number tells what a map's water is like and is never failed on. Every theme map passes. The
+  lake stair fails on its corners alone: rectangular plates of one level, 6 to 15 tiles,
+  half of them on the outlands' rim. The real places (`places/`) are warned only. The game's maps are run on the
+  machine that holds them: `npx tsx tools/ruled-land.ts <folder>/*.timber`.
+
+**Land first, story second** (planning's ruling of 2026-11-11, for every path: themes, premises, hand maps). Every
+landform is one geology makes, shaped by the shared natural relief. A premise is found in or cut into natural land by a
+natural agent, and its gameplay constraint is checked on that land and mended by the least change, never drawn: a wall
+is a mountain range, a gate is the gap an old river cut at its lowest saddle, a basin is a dry lake in a natural
+depression, and a valley held at a dam's water is flooded to it and closed where it spills by the least rise. A
+premise holds no geometry of its own, as it holds no playability floor of its own. Nothing ruled, nothing in bands.
+
+What The Gate's seven rounds added (2026-11-11, judged in the game each round; [progress/showcase-craft.md](progress/showcase-craft.md));
+the rule above replaces the first three, which describe the laid wall Kyler judged "artificial, rigid, mechanical and
+fake":
 
 - **A barrier faces the camera and runs along the grid.** The opening camera shows one face of a ridge: a wall built
   as a diagonal band reads as a staircase of one-tile jogs with a plateau's edge, and a ledge on its face doubles the

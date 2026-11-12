@@ -9,6 +9,8 @@
 import type { Orientation } from "../format/footprints";
 import type { MapSpec, PremiseId } from "../spec/mapspec";
 import type { StageWater } from "./water";
+import type { PremiseLand } from "./map";
+import type { PremiseStyle } from "./style";
 
 export type { PremiseId };
 
@@ -50,6 +52,10 @@ export interface Body {
   /** An empty basin on day 1: a work fills it. */
   dry: boolean;
   region: string;
+  /** A backwater (a seam, PREMISES §2.2 "Seams"): a side body with no way out, fed by one wet link from a body at its
+   *  own sill. It stands at that sill (`waterChecks.ts` `levelsOf`) and its link takes no share of the feeder's flow
+   *  (`levels.ts` `route`): it fills, then carries nothing. Absent, a body is read as before. */
+  backwater?: boolean;
 }
 
 export type LinkKind = "fall" | "channel" | "leat" | "brook" | "gorge" | "bypass";
@@ -84,8 +90,19 @@ export interface Link {
   fall?: Fall;
   /** A channel: along a path, `from` first. */
   path?: Point[];
-  /** Half the bed's width, in tiles. */
+  /** Half the bed's width, in tiles: the width the water table reads (`levels.ts`), and the bed's where `halves` is
+   *  absent. */
   half?: number;
+  /** Half the bed's width at each point of `path` (a seam, PREMISES §2.2 "Seams"): stage 1 lays the bed between the
+   *  points at the width read between them (`raster/channels.ts` `halfAt`), so a brook narrows and widens along its
+   *  course; the table still reads `half`. Absent, the bed is `half` wide the whole way. */
+  halves?: number[];
+  /** A wet link into a dry link's bed (a seam, PREMISES §2.2 "Seams"): this link's water joins link `link` `at` tiles
+   *  along its path and runs down its bed to that link's end (an exit), so the bed is wet from there down and dry above
+   *  (`levels.ts` `route` gives it `LinkFlow.wetFrom`; `raster/channels.ts` lays the wet reach with its water's depth and
+   *  the dry one with its wadi). `to` names where the water leaves: the joined link's end. Absent, a link is read as
+   *  before. */
+  joins?: { link: string; at: number };
   /** The mouth's full width where it differs from 2 × `half` (the bypass's 10). */
   mouth?: number;
   /** The bed's level at each point of `path`, or following the land `under` levels beneath it. */
@@ -142,6 +159,9 @@ export interface FrameGroup {
   lipAhead: number;
   /** The level tiles the start's bench should hold. */
   bench: number;
+  /** Where the bench's spine ends (D515, `raster/relief.ts` `BENCH`): the bench is level ground round the line from
+   *  the start's tile to here, leaning away from the lip and the bay; the start's tile where absent. */
+  benchTo?: Point;
 }
 
 export type WorkRung = "first" | "small" | "medium" | "large";
@@ -248,6 +268,8 @@ export interface StageContext {
   plan: PremisePlan;
   /** Stage 1's water by number (water.ts), for the `land` invariants. */
   water?: StageWater;
+  /** Stage 2's ground (a seam, PREMISES §2.2 "Seams"), for the `ground` invariants. */
+  heights?: Uint8Array;
 }
 
 /** The repair to try before a re-roll (stages 3 to 5 define them). */
@@ -258,7 +280,7 @@ export interface Repair {
 
 export type InvariantResult = { ok: true } | { ok: false; reason: string; repair?: Repair };
 
-export type Stage = "plan" | "land" | "settled" | "proof" | "game";
+export type Stage = "plan" | "land" | "ground" | "settled" | "proof" | "game";
 
 export interface Invariant {
   /** "stair.levels", "frame.lip", "premise.open" … */
@@ -289,4 +311,10 @@ export interface PremiseDef {
   /** The plan with its side network drawn again on the skeleton's land, each work where its water reaches ground day 1
    *  leaves dry (`siting.ts`); or why none could be. */
   site?(spec: MapSpec, plan: PremisePlan, attempt: number, land: SiteLand): PremisePlan | { reason: string };
+  /** The premise's own stage 1 (a seam, PREMISES §2.2 "Seams"): its water by number, where the shared stage's
+   *  (`water.ts` `waterByNumber`) needs more of its own. Absent, the shared stage's. */
+  water?(plan: PremisePlan): StageWater;
+  /** The premise's own stage 2 (a seam): its land round its water, where the shared relief (`map.ts` `premiseLand`)
+   *  needs more of its own. Absent, the shared stage's. */
+  land?(plan: PremisePlan, water: StageWater, style?: PremiseStyle, bench?: number, reach?: number): PremiseLand;
 }

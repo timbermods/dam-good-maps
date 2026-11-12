@@ -286,7 +286,7 @@ fn check_edge_wall(w: usize, h: usize, surface: &[u8], c: &mut Collector, editin
     let fix = if editing && !walled.is_empty() { lower_the_wall(surface, w, h, &walled.iter().map(|e| e.edge).collect::<Vec<_>>()) } else { None };
     let mut r = vec![
         ("id", s("terrain.edge_wall")),
-        ("class", s(if editing { "design" } else { "principle" })),
+        ("class", s("principle")),
         ("ok", b(walled.is_empty())),
         ("value", n(round(most.share * 100.0) / 100.0)),
         ("limit", n(EDGE_SHARE)),
@@ -378,7 +378,7 @@ fn check_dam_wall(w: usize, h: usize, surface: &[u8], depth: &[f64], c: &mut Col
         (
             "message",
             s(if !walls.is_empty() {
-                format!("{} across a valley", counted(k, "dam wall"))
+                format!("{} across a valley: a ready-made dam site, only the river's gap to close", counted(k, "dam wall"))
             } else {
                 "No dam wall across a valley".into()
             }),

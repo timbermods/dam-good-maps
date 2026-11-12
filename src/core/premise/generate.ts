@@ -15,10 +15,10 @@
 // (`LATER`), never silently; none is now.
 
 import type { GenerateOptions, GenerateResult, GenerationInfo } from "../gen/generate";
-import { FLOOR_MARGIN } from "../gen/generate";
+import type { PremiseDef } from "./types";
 import { writeTimber } from "../format/timber";
 import type { MapSpec } from "../spec/mapspec";
-import { rulesFor } from "../validate/playability";
+import { FLOOR_MARGIN, rulesFor } from "../validate/playability";
 import { blocks, type CheckResult, type ValidationReport } from "../validate/report";
 import { drawPlan, failing, PLAN_TRIES, type Failure } from "./draw";
 import { checkFrame, type FrameNeeds } from "./frame";
@@ -28,6 +28,7 @@ import { premiseLand, premiseMap } from "./map";
 import { premiseCard, type PremiseCard } from "./card";
 import { resolvePremise, type StyleTheme } from "./choice";
 import { sitePlan } from "./siting";
+import { startWaterGate } from "./hold";
 import { PREMISES } from "./premises";
 import { premiseStyle } from "./style";
 import type { PremisePlan } from "./types";
@@ -37,6 +38,11 @@ import { withSmallMapThreads } from "../sim/parallel";
 /** Settles one premise map may cost before the themes make it (PREMISES §2.2 stage 5: at most two a plan; the themes
  *  allow five a genome). A plan that fails before the settle costs none. */
 export const PREMISE_SETTLES = 3;
+
+/** The `land` invariants read on the skeleton's water before the siting (the stair's falls and weirs, which the side
+ *  network never touches): every plan that failed them there failed them in stage 1 too (seeds 6, 12 and 14 at 128²,
+ *  six of six), each after half a second to a second of siting. */
+const SKELETON_LAND: ReadonlySet<string> = new Set(["water.falls", "water.weirs"]);
 
 /** The checks a premise map answers only at a later build step (PREMISES §7), each with the step that answers it:
  *  until then a warning on it. Empty since step 6: its plants answer `start.food`, `start.wood` and
@@ -82,11 +88,12 @@ function deferLater(report: ValidationReport): { report: ValidationReport; later
 }
 
 /** A premise map for a spec whose `premise` names one, or why the themes must make it (one line, D471). */
-export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { result: GenerateResult } | { reason: string } {
+export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}, own?: PremiseDef): { result: GenerateResult } | { reason: string } {
   const t0 = performance.now();
   const pair = resolvePremise(specIn);
   if ("reason" in pair) return pair;
-  const def = PREMISES[pair.premise];
+  // (a premise's own definition where the caller gives one: its stages' seams in use before it joins `PREMISES`)
+  const def = own ?? PREMISES[pair.premise];
   const why = def.eligible(specIn);
   if (why) return { reason: why };
   // the start held to the shared gate's floors (D515: a premise carries none of its own), its bench built with the
@@ -94,6 +101,7 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
   const rules = rulesFor(specIn);
   const needs: FrameNeeds = { bench: rules.levelLand, moist: rules.farmland + rules.forester, reach: rules.reachMin };
   const bench = Math.ceil(FLOOR_MARGIN * rules.levelLand);
+  const skeletonLand = def.invariants.filter((inv) => SKELETON_LAND.has(inv.id));
   const failures: GenerateResult["failures"] = [];
   const failedAt: number[] = [];
   let settles = 0;
@@ -123,7 +131,11 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
     // short of its bench there is short on the map, and is drawn again before its works are sited. Only the reasons
     // the side network cannot undo are read there, `FrameNeeds.early`: the 5 × 5, its door, the landmark's lip and
     // foot in the frame, and the bench; the frame's water depth and the moist land wait for the full land)
+    // (and the stair's falls and weirs, `SKELETON_LAND`, on the skeleton's water: the side network never touches them,
+    // so a plan they fail there fails them in stage 1, after the siting's cost)
     const sited = sitePlan(def, specIn, drawn.plan, attempt, style.relief, (sk, w, heights) => {
+      const early = failing(skeletonLand, "land", { spec: specIn, plan: sk, water: w });
+      if (early.length) return early[0];
       const f = checkFrame(sk, w, heights, { ...needs, early: true });
       return f.reason ? { id: "frame.start", reason: f.reason } : null;
     }, bench);
@@ -134,15 +146,21 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
     const plan = sited.plan;
     // stage 1: its water by number, and the `land` invariants it alone can judge
     opts.onProgress?.({ attempt, stage: "land" });
-    const water = waterByNumber(plan);
+    const water = def.water?.(plan) ?? waterByNumber(plan);
     const land = failing(def.invariants, "land", { spec: specIn, plan, water });
     if (land.length) {
       fail(attempt, land);
       continue;
     }
     // stage 2: the relief between, in the theme's style; stage 3: the start for the first frame
-    const ground = premiseLand(plan, water, style, bench);
-    const frame = checkFrame(plan, water, ground.heights, needs);
+    const ground = def.land?.(plan, water, style, bench, needs.reach) ?? premiseLand(plan, water, style, bench, needs.reach);
+    // (and the `ground` invariants, on stage 2's ground)
+    const onGround = failing(def.invariants, "ground", { spec: specIn, plan, water, heights: ground.heights });
+    if (onGround.length) {
+      fail(attempt, onGround);
+      continue;
+    }
+    const frame = checkFrame(plan, water, ground.heights, needs, ground.ramps);
     if (frame.reason) {
       fail(attempt, [{ id: "frame.start", reason: frame.reason }]);
       continue;
@@ -169,6 +187,14 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}): { 
         report.checks.filter((c) => blocks(report.profile, c)).map((c) => c.id),
       );
       last = report.checks.filter((c) => blocks(report.profile, c)).map((c) => `${c.id}: ${c.message}`)[0] ?? last;
+      continue;
+    }
+    // the start's water through the difficulty's longest drought (D133's rule, PREMISES §2.2 stage 8): read by number,
+    // the drought run (on the settle's threads) only where that read cannot vouch for it; a start whose water goes in
+    // the run is the next plan
+    const held = withSmallMapThreads(() => startWaterGate(spec, plan, m.built, water));
+    if (held.gone) {
+      fail(attempt, [{ id: "drought.start", reason: `the start's water is gone on day ${held.gone} of a ${held.days}-day drought` }]);
       continue;
     }
     const info: GenerationInfo = {
