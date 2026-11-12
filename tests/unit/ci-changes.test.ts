@@ -3,9 +3,11 @@
 // change only under src/editor/, src/ui/ and tests/e2e/ skips oracle, generation, engines and rust; rust runs only for
 // the Rust and the TypeScript that wraps it. Code, dependencies and scripts keep the rest of the suite.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { posix } from "node:path";
 import { describe, expect, it } from "vitest";
 import { classify, GENERATOR_DIRS, GENERATOR_FILES, isCollabOnly, isDocument, isGenerator, isInvestigation, isPage, isRustInput, isUiOnly, needsGenerator, needsHeavy, needsPage, needsTest, onlyLightFieldsDiffer } from "../../tools/ci-changes.mjs";
+// (POSIX joins: the list is written with forward slashes, and this test also runs on Windows)
+const { dirname, join } = posix;
 
 const pkg = (over: object = {}) =>
   JSON.stringify({ name: "x", version: "1.0.0", license: "MIT", scripts: { test: "a" }, dependencies: { a: "1" }, devDependencies: { b: "1" }, ...over });
