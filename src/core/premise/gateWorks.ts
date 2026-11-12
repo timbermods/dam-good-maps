@@ -462,19 +462,24 @@ const gateOpens: GateWorksInvariant = {
 };
 
 /** `basin.dry`, by number (§5.1: the basin under 12 % moist or wet on day 1): day 1's soil over the basin's floor. */
+/** The share of the basin's floor moist or wet on day 1 (`basin.dry`'s reading: the seep's arroyo and the beds in). */
+export function basinMoist(plan: PremisePlan, water: StageWater, heights: Uint8Array): number {
+  const { zone } = gateZones(plan);
+  const soil = soilReach(heights, waterOn(water, dayOneFloor(water, heights)), plan.W, plan.H);
+  let floor = 0;
+  let wet = 0;
+  for (let i = 0; i < soil.length; i++) {
+    if (zone[i] !== 2) continue;
+    floor++;
+    if (soil[i]) wet++;
+  }
+  return floor ? wet / floor : 0;
+}
+
 const basinDry: GateWorksInvariant = {
   id: "basin.dry",
   test({ plan, water, heights }) {
-    const { zone } = gateZones(plan);
-    const soil = soilReach(heights, waterOn(water, dayOneFloor(water, heights)), plan.W, plan.H);
-    let floor = 0;
-    let wet = 0;
-    for (let i = 0; i < soil.length; i++) {
-      if (zone[i] !== 2) continue;
-      floor++;
-      if (soil[i]) wet++;
-    }
-    const share = floor ? wet / floor : 0;
+    const share = basinMoist(plan, water, heights);
     return share < BASIN_DRY ? ok : no(`${(100 * share).toFixed(1)} % of the basin's floor is moist or wet on day 1 (under ${100 * BASIN_DRY} %)`);
   },
 };

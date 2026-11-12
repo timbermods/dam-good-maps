@@ -128,6 +128,21 @@ describe("Broken wall-with-one-gate plans fail their invariants", () => {
       const lake = body(plan, "lake");
       lake.arms[0] = lake.arms[0].map(([x, y]) => [x, y, 6]);
     }],
+    ["basin.seep", "the seep's arroyo three wide", (plan) => {
+      plan.links.find((l) => l.id === "arroyo")!.half = 1.5;
+    }],
+    ["basin.seep", "the seep's arroyo straight from its hollow to the bed", (plan) => {
+      const a = plan.links.find((l) => l.id === "arroyo")!;
+      const p = a.path!;
+      a.path = p.map((_, k) => [p[0][0] + ((p[p.length - 1][0] - p[0][0]) * k) / (p.length - 1), p[0][1] + ((p[p.length - 1][1] - p[0][1]) * k) / (p.length - 1)] as [number, number]);
+    }],
+    ["basin.seep", "the seep's arroyo joining the Gate over its bed's last step", (plan) => {
+      const a = plan.links.find((l) => l.id === "arroyo")!;
+      a.joins = { link: "gate", at: 2 };
+    }],
+    ["basin.seep", "the seep's hollow with no spring", (plan) => {
+      plan.sources = plan.sources.filter((x) => x.into !== "seep");
+    }],
     ["valley.water", "the plunge pool's brook straight into the lake, one step", (plan) => {
       const out = plan.links.find((l) => l.id === "outflow")!;
       out.to = "lake";

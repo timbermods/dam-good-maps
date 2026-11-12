@@ -1325,12 +1325,17 @@ whole shares' floor is 0 (by number their bed is the same; their gain is the set
 **As built (water, stage 1).** The shared stage (`water.ts` `waterByNumber`) lays the plan; `gateWater.ts` adds the
 bars (the Gate's head a level over the sill, the leat's two over its bed), the Veil's foot a level under the sill with
 its outer row the drowned river's ribbon, the first frame's beds raised to hold their water under two, and its checks.
-**The seeps** (`SEEPS`, on this branch, not yet passing): three hollows beside the Gate Bed's floor reach, past its
-last step, each a spring of 0.4 and a gully joining the bed (`Link.joins`, §2.2 "Seams"), so the bed runs a thread to
-the notch and is dry above the step. `gate.dry` judges the river's water with the seeps' springs off (`riverWater`) and
-the seeps' water on its own (their hollows, gullies and beds, out by the notch); `gate.settled` and `gate.opens` read
-the same. They hold, settle and keep 12 of 12, but fail `basin.dry`: on the flat playa the thread's 338 wet tiles moisten
-41 % of the basin's floor by the soil rule (under 12 % asked; one seep alone near the notch, 38 %). **Through the seams**: `wallGate`'s
+**The seep** (planning's ruling of 2026-11-12, `SEEPS`, `basin.seep`; not yet passing `basin.dry`): one hollow at
+the range's back foot with a spring of 0.4 (on normal River flow), its arroyo winding a tile wide across the pan, cut a
+level into it, and meeting the Gate Bed square on its floor reach (`Link.joins`, §2.2 "Seams"), so the bed runs a
+thread to the notch and is dry above its last step. No hollow holds a spring alone: a hollow of 20 to 30 tiles
+evaporates about 0.003 a second by the game's rule (1e-4 a tile), a thirtieth of the least spring the tools set (0.1),
+so the other two are not drawn. `gate.dry`, `gate.settled` and `gate.opens` judge the river's water with the spring off
+(`riverWater`) and the seep's water on its own (its hollow, arroyo and the beds, out by the notch). **Short:** the moist
+share of the basin's floor with the arroyo in is 34 to 44 % at 128², 28 % at 192², 18 % at 256² (`basin.dry` asks
+under 12 %): the thread spreads over the Gate Bed's and the leat's whole floor reach (5 to 7 wide) to their shared
+notch, and the arroyo and hollow alone moisten 16 to 18 % at 128² (water a level under the pan's ground ceils to it, so
+the soil rule takes nothing off for the cut); the pan a level higher gave 34 %. **Through the seams**: `wallGate`'s
 `PremiseDef.water` is `gateWater` and its `PremiseDef.land` `gateLand`, so the shared `draw.ts` `firstWater` draws its
 plans (no copy of it here); the Still Pool is a `Body.backwater`, so the shared `water.levels` reads it at its sill and
 the table gives its inlet no share; the brooks' widths are `Link.halves`. `gateMap.ts` stays the Gate's own loop (the

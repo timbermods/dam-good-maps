@@ -57,10 +57,10 @@ export const DOOR_LOBE = 8;
 export const OUTFLOW_HALF = 2;
 /** A southern brook's half width at its tarn (the table reads it: narrower, the tarns stood over their sills). */
 export const TARN_HALF = 1.4;
-/** The basin's seeps (§5.1): `count` hollows of radius `r` beside the Gate Bed at `along` of its run past the gorge,
- *  `off` tiles off it by turns each side, their sill `over` its bed where the gully joins it, a spring of `strength`. */
-export const SEEPS = { count: 3, along: [0.2, 0.5, 0.8], off: [7, 10], r: 2.6, over: 2, strength: 0.4, meadow: 3 } as const;
-const SEEP_WORDS = ["Upper", "Middle", "Lower"];
+/** The basin's seep (§5.1, planning's ruling of 2026-11-12): a hollow of radius `r` at the range's back foot, `off` tiles
+ *  along the range from where its arroyo joins the Gate Bed's floor reach, the arroyo `least` tiles long or more and
+ *  winding by `wind`, a spring of `strength` on normal River flow. */
+export const SEEPS = { r: 2.6, off: [8, 22], least: 10, wind: 2, strength: 0.4, meadow: 3, tries: 12, nearNotch: 2 } as const;
 /** The Steps, the small pool between the plunge pool's brook's two steps: across the brook, as wide as its lip
  *  (`r` its half length along the brook), at least `reach` tiles of brook each side of it. */
 export const STEPS = { r: 2.6, reach: 4, meadow: 4 } as const;
@@ -946,43 +946,47 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     plan.sources.push({ id: `${id}Spring`, at: rp(onMap(T, [tn.spine[0][0], tn.spine[0][1]])), strength: r2((rng.range(BROOK_SPRING[0], BROOK_SPRING[1]) * flow) / GATE_FLOW.normal), into: id });
     plan.links.push({ id: `brook${k + 1}`, from: id, to: "lake", kind: "brook", path: pathOnMap(T, tn.path).map(rp), half: TARN_HALF, halves: tn.halves, bed: tn.bed, wet: true, gates: [], rows: [] });
   });
-  // the basin's seeps (§5.1's three in hollows, each with a gully to the Gate Bed): a weak spring in a hollow beside the
-  // bed, its gully joining the bed (`Link.joins`), so the bed runs a thread of water from the first join to the notch
-  // and is dry above it, the Gate shut
+  // the basin's seep (planning's ruling of 2026-11-12: one seep, its water down an arroyo, never a dry gully below a live
+  // spring): a spring in a hollow at the range's back foot, its arroyo winding a tile wide across the pan to the Gate
+  // Bed's floor reach, cut a level or two into the pan, joining the bed (`Link.joins`), so the bed runs a thread of
+  // water from the join to the notch and is dry above its last step, the Gate shut. (Hollows with a spring and no way
+  // out: a hollow of 20 to 30 tiles evaporates about 0.003 a second by the game's rule, a thirtieth of the least spring
+  // the tools set, 0.1, so none holds a spring worth having: none is drawn)
   const seeps: GateNumbers["seeps"] = [];
   const gateOnMap = pathOnMap(T, gate).map(rp);
-  // (where the Gate Bed lies on the floor, past its last step: a gully joining above a step spread its water up the flat
-  // reach toward the Gate's rows)
   const bedFrom = Math.max(slotTo + 2, gateBed.indexOf(BED_FLOOR));
   const bedTo = gate.length - 3;
-  if (gateBed.indexOf(BED_FLOOR) > 0 && bedTo - bedFrom >= 3) {
-    for (let k = 0; k < SEEPS.count; k++) {
-      const j = Math.round(bedFrom + (bedTo - bedFrom) * SEEPS.along[k]);
-      const P = gate[j];
-      const tv = [gate[j + 1][0] - gate[j - 1][0], gate[j + 1][1] - gate[j - 1][1]];
-      const tl = hypot(tv[0], tv[1]) || 1;
-      const side = k % 2 ? -1 : 1;
-      const nrm: Point = [(-tv[1] / tl) * side, (tv[0] / tl) * side];
-      const off = rng.range(SEEPS.off[0], SEEPS.off[1]);
-      const c: Point = [P[0] + nrm[0] * off, P[1] + nrm[1] * off];
-      const rc = rangeAt(R, c[0]);
-      const rp0 = rangeAt(R, P[0]);
-      if (c[0] < 6 || c[1] < 6 || c[0] > N - 6 || c[1] > N - 6 || c[1] - SEEPS.r < rc.v + rc.back + 2 || P[1] < rp0.v + rp0.back + 2) continue;
-      const bedAtJoin = gateBed[j];
-      const sill = bedAtJoin + SEEPS.over;
-      const head: Point = [c[0] - nrm[0] * (SEEPS.r - 0.5), c[1] - nrm[1] * (SEEPS.r - 0.5)];
-      const wob = rng.range(-1.5, 1.5);
-      const mid: Point = [(head[0] + P[0]) / 2 + (tv[0] / tl) * wob, (head[1] + P[1]) / 2 + (tv[1] / tl) * wob];
-      const gully = resample([head, mid, P], BROOK.every);
-      const id = `seep${k + 1}`;
-      names[id] = `the ${SEEP_WORDS[k]} Seep`;
-      names[`gully${k + 1}`] = `the ${SEEP_WORDS[k]} Seep's gully`;
-      plan.bodies.push(body(id, "pool", sill, [[[r2(c[0]), r2(c[1]), SEEPS.r]]], SEEPS.meadow, "wet"));
-      plan.sources.push({ id: `${id}Spring`, at: rp(onMap(T, c)), strength: SEEPS.strength, into: id });
-      const at = r2(pathLength(gateOnMap.slice(0, j + 1)));
-      plan.links.push({ id: `gully${k + 1}`, from: id, to: "notch", kind: "brook", path: pathOnMap(T, gully).map(rp), half: 0.55, bed: [sill, ...bedAlong(gully.slice(1), sill - 1, bedAtJoin)], wet: true, gates: [], rows: [], joins: { link: "gate", at } });
-      seeps.push({ body: id, gully: `gully${k + 1}`, at });
-    }
+  for (let tries = 0; tries < SEEPS.tries && !seeps.length && gateBed.indexOf(BED_FLOOR) > 0 && bedTo - bedFrom >= 2; tries++) {
+    // (near the notch: down the Gate Bed, five to seven wide, the thread spreads thin and its cluster moistens far)
+    const j = rng.int(Math.max(bedFrom, bedTo - SEEPS.nearNotch), bedTo + 1);
+    const P = gate[j];
+    const side = rng.float() < 0.5 ? -1 : 1;
+    const cu = P[0] + side * rng.range(SEEPS.off[0], SEEPS.off[1]);
+    const rc = rangeAt(R, cu);
+    const c: Point = [cu, rc.v + rc.back + SEEPS.r + 1.5];
+    const rp0 = rangeAt(R, P[0]);
+    if (c[0] < 8 || c[0] > N - 8 || c[1] > N - 8 || P[1] < rp0.v + rp0.back + 2 || c[1] >= P[1] - 4) continue;
+    if (pathDist(c[0], c[1], gate).d < SEEPS.r + slotW / 2 + 4) continue;
+    // (it meets the bed square, its last 6 tiles straight in from the side the hollow lies: along the bed, a gully ran
+    // beside the Gate's channel and the two read as crossing)
+    const tg = [gate[j + 1][0] - gate[j - 1][0], gate[j + 1][1] - gate[j - 1][1]];
+    const tgl = hypot(tg[0], tg[1]) || 1;
+    let nrm: Point = [-tg[1] / tgl, tg[0] / tgl];
+    if (nrm[0] * (c[0] - P[0]) + nrm[1] * (c[1] - P[1]) < 0) nrm = [-nrm[0], -nrm[1]];
+    const into: Point = [P[0] + nrm[0] * (slotW / 2 + 6), P[1] + nrm[1] * (slotW / 2 + 6)];
+    const head: Point = [c[0] + ((into[0] - c[0]) / dist(c, into)) * (SEEPS.r - 0.5), c[1] + ((into[1] - c[1]) / dist(c, into)) * (SEEPS.r - 0.5)];
+    if (dist(head, into) < SEEPS.least) continue;
+    const arroyo = resample([...smooth([head, ...wind(head, into, 5, SEEPS.wind)]), P], BROOK.every);
+    const sill = BED_FLOOR + 1;
+    names.seep = "the Seep";
+    names.arroyo = "the Seep's arroyo";
+    plan.bodies.push(body("seep", "pool", sill, [[[r2(c[0]), r2(c[1]), SEEPS.r]]], SEEPS.meadow, "wet"));
+    plan.sources.push({ id: "seepSpring", at: rp(onMap(T, c)), strength: r2((SEEPS.strength * flow) / GATE_FLOW.normal), into: "seep" });
+    const at = r2(pathLength(gateOnMap.slice(0, j + 1)));
+    // (its head a level over the bed, then down to the floor two points on)
+    const bed = arroyo.map((_, k) => (k < 2 ? sill : BED_FLOOR));
+    plan.links.push({ id: "arroyo", from: "seep", to: "notch", kind: "brook", path: pathOnMap(T, arroyo).map(rp), half: 0.5, bed, wet: true, gates: [], rows: [], joins: { link: "gate", at } });
+    seeps.push({ body: "seep", gully: "arroyo", at });
   }
   const exits: Exit[] = [
     { id: "lowExit", edge: edgeOnMap(T, lowSide === "pass" ? "W" : "E"), at: rp(onMap(T, low[low.length - 1])) },
@@ -1541,7 +1545,43 @@ const valleyWater: Invariant = {
 };
 const LAKE_AWAY = 16;
 
-const gatePlanInvariants: Invariant[] = [gateLevels, rangeSpine, valleyWater, wallCamera, frameLip, gateGap, basinBowl, startNeck, leatOwn, valleyEnclosed, gateLadder, gateSkeleton];
+/** `basin.seep` (planning's ruling of 2026-11-12): the basin's one seep, a hollow past the range's back foot with its
+ *  spring, its arroyo a tile wide, winding (a point `SEEP_WIND` or more off the straight line from its head to its end),
+ *  joining the Gate Bed where the bed lies on the floor (`Link.joins`); no other spring in the basin. */
+const basinSeep: Invariant = {
+  id: "basin.seep",
+  at: "plan",
+  test({ plan }) {
+    const g = gateOf(plan);
+    if (!g) return fail("The plan has no wall with one gate");
+    if (!g.seeps.length) return OK;
+    if (g.seeps.length !== 1) return fail(`The basin has ${g.seeps.length} seeps (one)`);
+    const sp = g.seeps[0];
+    const hollow = bodyOf(plan, sp.body);
+    const arroyo = linkOf(plan, sp.gully);
+    const gate = linkOf(plan, g.gate);
+    if (!hollow || !arroyo?.path || !gate?.path || !Array.isArray(gate.bed)) return fail("The seep has no hollow, arroyo or bed to join");
+    if (!plan.sources.some((x) => x.into === hollow.id)) return fail(`${nameOf(plan, hollow.id)} has no spring`);
+    const T = turnOf(plan, g);
+    const [hu, hv] = onLocal(T, [hollow.arms[0][0][0], hollow.arms[0][0][1]]);
+    if (sideOf(g.range, hu, hv) !== 2) return fail(`${nameOf(plan, hollow.id)} is not past the range's back foot`);
+    if ((arroyo.half ?? 0) * 2 > 1 || (arroyo.halves ?? []).some((h) => h * 2 > 1)) return fail(`${nameOf(plan, arroyo.id)} is ${2 * (arroyo.half ?? 0)} wide (one)`);
+    if (arroyo.joins?.link !== g.gate) return fail(`${nameOf(plan, arroyo.id)} does not join ${nameOf(plan, g.gate)}`);
+    // (where it joins: the bed's level there, the floor)
+    let run = 0;
+    let k = 0;
+    for (; k + 1 < gate.path.length && run + dist(gate.path[k], gate.path[k + 1]) <= arroyo.joins.at + 0.5; k++) run += dist(gate.path[k], gate.path[k + 1]);
+    if (gate.bed[k] !== BED_FLOOR) return fail(`${nameOf(plan, arroyo.id)} joins ${nameOf(plan, g.gate)} where its bed stands at ${gate.bed[k]}, over its last step`);
+    const a = arroyo.path[0];
+    const b = arroyo.path[arroyo.path.length - 1];
+    const off = Math.max(...arroyo.path.map((p) => pathDist(p[0], p[1], [a, b]).d));
+    if (off < SEEP_WIND) return fail(`${nameOf(plan, arroyo.id)} runs straight (${off.toFixed(1)} tiles off its line at most)`);
+    return OK;
+  },
+};
+const SEEP_WIND = 1;
+
+const gatePlanInvariants: Invariant[] = [basinSeep, gateLevels, rangeSpine, valleyWater, wallCamera, frameLip, gateGap, basinBowl, startNeck, leatOwn, valleyEnclosed, gateLadder, gateSkeleton];
 
 // ------------------------------------------------------------------------------------------------- the def
 
