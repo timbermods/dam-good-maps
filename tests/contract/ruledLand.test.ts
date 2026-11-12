@@ -64,30 +64,35 @@ describe("ruled land", () => {
     expect(ruledLand(h, new Uint8Array(W * W), W, W).straight).toBeCloseTo(r.straight, 6);
   });
 
-  it("channels: a moat round a meadow fails; a blob lake and a winding river of varying width pass", () => {
+  it("channels: a canal of straight reaches meeting at sharp bends and a moat fail; a winding river of even width and a blob lake pass with room", () => {
     const W = 128;
     const flat = new Uint8Array(W * W).fill(4);
     const moat = new Uint8Array(W * W);
+    const canal = new Uint8Array(W * W);
     const lake = new Uint8Array(W * W);
     const river = new Uint8Array(W * W);
-    const rnd = splitmix32(5);
-    for (let y = 0; y < W; y++) {
-      const centre = 64 + 22 * Math.sin(y / 11);
-      const half = 2.5 + 2 * Math.sin(y / 7 + 1) + rnd();
-      for (let x = 0; x < W; x++) {
+    for (let y = 1; y < W - 1; y++)
+      for (let x = 1; x < W - 1; x++) {
         const ring = Math.max(Math.abs(x - 64), Math.abs(y - 64));
         if (ring >= 22 && ring < 26) moat[y * W + x] = 1; // 4 wide round a meadow 44 across
         const a = Math.atan2(y - 64, x - 64);
         if ((x - 64) ** 2 + (y - 64) ** 2 <= (24 + 5 * Math.sin(3 * a) + 3 * Math.cos(5 * a + 1)) ** 2) lake[y * W + x] = 1;
-        if (y > 0 && y < W - 1 && Math.abs(x - centre) <= half) river[y * W + x] = 1;
+        if (Math.abs(x - (64 + 24 * Math.sin(y / 14))) <= 2.5) river[y * W + x] = 1; // 5 wide, winding
       }
+    // a canal 4 wide: straight legs of 20 to 40 tiles joined at right angles
+    let cx = 10;
+    let cy = 10;
+    for (const [dx, dy, n] of [[1, 0, 30], [0, 1, 25], [1, 0, 28], [0, 1, 30], [-1, 0, 20], [0, 1, 25], [1, 0, 40]]) {
+      for (let k = 0; k < n; k++, cx += dx, cy += dy) for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) canal[(cy + b) * W + cx + a] = 1;
     }
-    const m = ruledLand(flat, moat, W, W);
-    expect(m.channels).toBeGreaterThan(0.9);
-    expect(m.ok).toBe(false);
-    expect(m.channel).not.toBeNull();
-    expect(ruledLand(flat, lake, W, W).channels).toBeLessThanOrEqual(RULED_LIMITS.channels);
-    expect(ruledLand(flat, river, W, W).channels).toBeLessThanOrEqual(RULED_LIMITS.channels);
+    for (const [name, wet] of [["moat", moat], ["canal", canal]] as const) {
+      const r = ruledLand(flat, wet, W, W);
+      expect(r.channels, name).toBeGreaterThan(0.8);
+      expect(r.ok, name).toBe(false);
+      expect(r.channel, name).not.toBeNull();
+    }
+    expect(ruledLand(flat, lake, W, W).channels).toBeLessThanOrEqual(RULED_LIMITS.channels / 2);
+    expect(ruledLand(flat, river, W, W).channels).toBeLessThanOrEqual(RULED_LIMITS.channels / 2);
   });
 
   it("the Gate as laid fails on seeds 1 and 2 at 128², on its edges and on its channels (flips to passes when the Gate's land is rebuilt)", () => {
@@ -101,8 +106,8 @@ describe("ruled land", () => {
   });
 
   it("the lake stair's seed 1 passes but for its corners, and a River Valley sample passes, at 128²", () => {
-    // (the lake stair's corners, 5.4 per 1,000 edges, are over planning's limit of 3 (2026-11-12): reported to
-    // planning, not loosened for)
+    // (the lake stair's corners, 5.4 per 1,000 edges, are over planning's limit of 3 (2026-11-12): rectangular
+    // plates of one level, half of them on the outlands' rim; reported to planning, not loosened for)
     const p = generatePremise(makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "any", premise: "lakeStair" }));
     if ("reason" in p) throw new Error(p.reason);
     const r = measured(p.result.built);
