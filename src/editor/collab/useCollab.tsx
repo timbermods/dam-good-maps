@@ -62,7 +62,7 @@ export function useCollab(ed: Ed, props: EditorProps): CollabSlice {
     void e.enqueue(async () => {
       if (!e.mounted.current) return;
       const q = e.edits.current;
-      if (u.view.heights || u.view.terrain) q.resync({ heights: u.view.heights ?? q.base.heights, terrain: u.view.terrain ?? q.base.terrain }, u.info?.history);
+      if (u.view.heights || u.view.terrain || u.view.land || u.view.wet) q.resyncView(u.view as Parameters<typeof q.resyncView>[0], u.info?.history);
       e.applyUpdate(u);
     });
   };

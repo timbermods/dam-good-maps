@@ -146,8 +146,9 @@ export function softened(f: ArrayLike<number>, W: number, H: number, r: number):
  *  bench levels wandering by `gr.drift` steps; swells and hollows of `gr.roll` levels over `gr.rollCell`
  *  tiles). The returned function takes a level `L` at a tile and the benches it stands on (`st` levels apart
  *  from `phase`; `st` 1 for none) and gives the graded level, unrounded. The same seed and variation give the
- *  same land. */
-export function grader(gr: Grade, seed: number, variation: number, W: number, H: number): (L: number, x: number, y: number, st: number, phase: number) => number {
+ *  same land. `lattice` keeps the grade as it was before D518 (its noise on the tile grid, no rises): a premise's relief
+ *  on a map over 128², whose plans and fallback are the premise's own. */
+export function grader(gr: Grade, seed: number, variation: number, W: number, H: number, lattice = false): (L: number, x: number, y: number, st: number, phase: number) => number {
   const gs = hash32(seed, "grade", variation);
   // (the benches' levels drift over a third of the map; the land's character, tableland or rolling ground,
   // changes over a quarter of it, the share above `table` tableland)
@@ -155,13 +156,13 @@ export function grader(gr: Grade, seed: number, variation: number, W: number, H:
   const table = 0.6 * (0.5 - gr.mesa);
   return (L, x, y, st, phase) => {
     // rolling ground (0) or tableland (1)
-    const mesa = smoothstep((warpedFbm(gs + 1, x, y, wide / 4, 2, wide / 8) - table) / 0.1 + 0.5);
-    if (st > 1) L = bench(L, phase + gr.drift * st * warpedFbm(gs, x, y, wide / 3, 2, wide / 6), st, gr.riser * (1 - mesa));
+    const mesa = smoothstep(((lattice ? fbm(gs + 1, x, y, wide / 4, 2) : warpedFbm(gs + 1, x, y, wide / 4, 2, wide / 8)) - table) / 0.1 + 0.5);
+    if (st > 1) L = bench(L, phase + gr.drift * st * (lattice ? fbm(gs, x, y, wide / 3, 2) : warpedFbm(gs, x, y, wide / 3, 2, wide / 6)), st, gr.riser * (1 - mesa));
     // the rolling ground: swells and hollows of a level or two between the features (gentler on the
     // tableland's tops, which keep broad level ground)
-    if (gr.roll > 0) L += gr.roll * (1 - gr.calm * mesa) * warpedFbm(gs + 3, x, y, gr.rollCell, 2, 0.5 * gr.rollCell);
+    if (gr.roll > 0) L += gr.roll * (1 - gr.calm * mesa) * (lattice ? fbm(gs + 3, x, y, gr.rollCell, 3) : warpedFbm(gs + 3, x, y, gr.rollCell, 2, 0.5 * gr.rollCell));
     // the rises: hills over the land round them, a level a ring, gentler on the tableland's tops (D518)
-    if (gr.roll > 0 && gr.rise > 0) {
+    if (!lattice && gr.roll > 0 && gr.rise > 0) {
       const n = warpedFbm(gs + 5, x, y, RISES.cell, 2, RISES.cell / 2);
       if (n > RISES.from) L += (gr.roll * gr.rise * (1 - 0.5 * gr.calm * mesa) * (n - RISES.from)) / RISES.span;
     }

@@ -249,6 +249,8 @@ export function usePaint(ed: Ed, props: EditorProps): PaintSlice {
   useEffect(() => {
     void api.listen(
       proxy((e: EditorEvent) => {
+        // (the water the page lacks once its edits are answered: the terrain's copy of it, as the session holds it)
+        if (e.kind === "wet") return void edits.current.event({ ok: true, errors: [], epoch: (e as { epoch?: number }).epoch, view: e.view as Parameters<typeof edits.current.event>[0]["view"] });
         // the water's journey keeps its own count of versions: news that comes before the page reaches its
         // version waits for it, older news is dropped (waterJourney.ts)
         const news = (e.kind === "water" && !e.draft) || e.kind === "settled";

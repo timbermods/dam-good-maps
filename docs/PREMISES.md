@@ -1038,6 +1038,19 @@ all fail (0.2 to 1.9 s each; on seed 2, 281 of the 370 tails that failed did so 
 after the bypass was laid),
 and the settle and checks.
 
+As mended at 256² (seed 2's fallback): on seed 2's plans the skeleton's land walks the start to 1,601 to 2,528 tiles,
+the full land to 973 to 1,290 (floor 1,300). The side network, sited on the skeleton without the start's walk, cut
+the start's lake shore beside the bench with a spill's, a notch bed's or a leat's banks (the shore at the start's level
+lay in three to five pieces, at 128² in one: the side network's count grows with the area, the shore with the side).
+Stage 0's second pass now keeps it off the start's walk on the skeleton (`lakeStair.ts` `WALK_KEEP`: the floor's
+1,430 nearest tiles, channels 4 tiles past their half width, side bodies 4 past their outline), and the ways out try
+only grounds a ramp can reach, 4 levels at most (`frame.ts` `WAYS_OUT`; the four largest grounds of the map were all out
+of reach at 256²). The 128² pin is unchanged. River Valley, one thread, median of three: seed 1 15.9 s, seed 2 35.6 s
+(was a fallback at 33.7), seed 3 15.7 s (was 54.5, plan 9); Any: seed 1 16.6 s (22.1), seed 3 14.3 s (was a fallback
+at 51.0), seed 2 still falls back (35.8 s): its plans then miss `spectrum`'s moist floor (26.9 to 29.4 %), lose the
+start's water on a drought's first day, or keep the first pass's side network where no sited draw puts three small
+works in the start's walk (`premiseStair256.heavy.test.ts`).
+
 ### 3.4 Deferred to after the map opens
 
 Run by the background worker that already settles and checks an opened map (`backgroundCheck`), a slice at a time,
@@ -1390,6 +1403,22 @@ at 256². A 256² map now takes 5.5 s (median, seeds 1 to 6), still over the 4.5
 two times or so (`range.flat`, `basin.bowl`), a second and a half a time. Milestone's dead stands (D516, `gen/deadStands.ts`)
 run on the Gate's land through `premiseLife`'s `planResources`: 14 to 26 stands a map at 128² (shores, hollows, tops);
 the start's level land, reach, forester and farmland are unchanged, its wood moves by up to 22 logs.
+
+**Laid right the first time** (planning's ruling of 2026-11-15). The land stage builds to its checks, so no map is
+made and then refused: the Gate's gorge's walls through the range stand at the gap's saddle at least (`GORGE_WALL`:
+where the scarp and the back slope fell low at the gap, its wadi strips let the dry lake's floor through to the
+valley, `basin.bowl`); the playa never comes within eight tiles of the spine (`SCARP.playaFrom`); the scarp's cliff
+bands are two levels or more (`scarpBands`: shorter, rounded to whole levels, their ledges ran together into flats);
+the back slope falls a level every 2.1 to 2.6 tiles of distance; and the range's band, as the checks read it, is its
+own ground, over its foot (past the scarp's foot the valley's plates were read as the range's flats). The southern
+brooks are three or four wide (two wide, a spring's 2.3 to 2.6 stood a level deep and ran out over the banks: the stray
+water of 128² seed 2). Over twelve seeds a size the land stage now refuses 0 plans at 128², 3 at 192² (`bench.shore`
+2, `range.crest` 1), 0 at 256² (before: 5, 6 and 25). A 256² map takes 4.4 to 4.6 s (the upper median of
+seeds 1 to 6, three runs beside another builder's tests; 6.4 to 7.2 s before). Flats 0 to 7 % of the range (before 0 to 10 %). Milestone's
+washes (`premise/washes.ts`) do not run on the Gate's land yet (planning's ruling of 2026-11-15): run after the start
+as the mode runs them, they cut the start's walkable land by up to 36 % on 7 of 12 seeds at 128², so the fords are not
+holding there; they come in by their own change, reach moving 3 % at most.
+`gorgeFaces` has its test (a known straight face read right; the Veil's drop and the Gate's bar left out).
 
 **As built (land, stage 2).** `gateLand.ts` `gateRelief`: the shared relief for the valley, the range and the basin
 shaped from the plan as the table says, the valley's land coming in over the range's lowest flank (never under it),

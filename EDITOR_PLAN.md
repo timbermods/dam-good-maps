@@ -2206,7 +2206,8 @@ delivery routes, the artifact edition and bring-your-own-key) is in
   keeps its own rule (`resync`: `base` is the session's land, the overlays on their way laid on it again). Planning's
   rulings: an undo waiting behind a stroke that is refused or times out does nothing; a press during a landing paints;
   a map switch waits for a let-go stroke to land. The page moves onto it in steps (#922): its strokes, moves and
-  edits (2, done), Naturalize (3, done), one composer building a stroke's operation and answers the size of the edit (4).
+  edits (2, done), Naturalize (3, done), one composer building a stroke's operation and answers the size of the edit (4,
+  done).
   Since step 2 the page holds one queue (`useSession.ts` `edits`): `mirror.heights` and the renderer's land are its
   `shown`, and the brushes paint on its `terrain()`; every edit is `run`'s ticket (its call made when its turn comes,
   with the ticket's envelope on it), a stroke's ticket is made at pointer-down and holds the whole map until it lets go
@@ -2216,7 +2217,22 @@ delivery routes, the artifact edition and bring-your-own-key) is in
   ticket made (`whenEdited`). Since step 3 a Naturalize stroke is the queue's `StrokeFeed`: its ticket `closing` once let
   go, under the one watchdog (`expired` starts its worker again), its drafts through the queue; a press behind it waits
   for `whenComposable`; `whenEdited` is the queue's `idle()`. Gone with it: the painter's `committing`, `afterLanding`,
-  `dropped` and `drop()`, and `RemotePreview` with its timers.
+  `dropped` and `drop()`, and `RemotePreview` with its timers. Since step 4 one composer (`raster/strokeComposer.ts`)
+  builds every stroke's operation, the page's and the harness's, hard or Naturalize: `completeStroke` adds what the
+  session would (the ground it holds, Naturalize's rule, ring, water and wear, the ground under objects) and the session
+  completes with the same code, now idempotent, so the operation logged is the one sent; `composeStroke` lays its land
+  before and after as the build leaves it (held tiles in reach protected), so a stroke `alone` is never guessed wrong
+  in any channel (#873's last gap); the session's check accepts a stroke as it records one (a rule-6 stroke's `rim`).
+  An answer's land is the rectangle it changed (`core/doc/landPatch.ts`): the worker sends what changed of the land and
+  terrain the page holds, and the queue lays a patch only on the land it was made against, else asks for the whole land
+  once (`landNow`); one it holds already is passed over. Two chains, numbered apart, each on one channel so each stays
+  in order (an answer and the water's news travel on two and may cross): the land with the answers, the settled water's
+  depth and moisture in the terrain (`wet`) with the water's news. What the page holds with nothing moving is what the
+  session holds: when the queue goes idle (`QueueHost.idle`), the worker sends the water's news for water the page
+  lacks with nothing settling (an undo or a redo puts its step's water back with no settle after it; `idleWater`, a
+  compare, nothing when a settle's news brought it), once, on the water's channel. A read of the whole map (`sessionView`) never renumbers the land a live page holds. A 12-tile Raise's answer
+  at 256² fell from 1.75 MB to 0.24 MB, its land from 1.5 MB to 2–5 KB (the rest is the water's journey and the soil);
+  the worker's time is the same.
 - **"Move the start here"** (D204, one label since D323): after a Flatten stroke the page looks, once it is idle, for
   a spot on the stroke's level ground where the district center stands (its footprint and door level and dry,
   nothing standing there); the start's full check (the walks to water, wood and berries) runs in a small worker of

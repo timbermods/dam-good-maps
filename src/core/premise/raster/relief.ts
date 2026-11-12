@@ -721,7 +721,8 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   for (let k = 0; k < pw * ph; k++) if (pcnt[k]) plevel[k] = Math.max(BED_FLOOR + 1, Math.min(top, Math.round(psum[k] / pcnt[k] + plift[k])));
   // with a style the uplands are its form, graded by the theme's grade (#956): benched `step` levels apart over
   // Terracing's share, rolling elsewhere
-  const grade = style ? grader(style.grade, plan.seed, 0, W, H) : null;
+  // (on a map over 128² the grade is as it was before D518, the premise's plans and fallback its own)
+  const grade = style ? grader(style.grade, plan.seed, 0, W, H, W * H > PLATE_TURN_MOST) : null;
   const terraceF = style && style.step > 1 ? field(S("terrace"), W, H, 24, 2, 2) : null;
   const benched = style ? Math.min(1, style.benched * (style.form === "terraces" ? TERRACE.benched : 1)) : 0;
   const phase = style ? hash32(S("terrace"), 1) % style.step : 0;

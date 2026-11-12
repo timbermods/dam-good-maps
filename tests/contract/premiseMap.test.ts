@@ -49,8 +49,11 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // knots, a third of their trees young)
 const SHA = "6b96c1fcc4ee96d65da23ddabfbeb135bf187e5e0ee051c09fee9593a597a8a0";
 
-// (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040)
-const HARD_SEED = 7;
+// (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
+// seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now
+// (the start's water gone on day 14), and of Hard seeds 1-14, 4, 5, 10, 11 and 13 hold (dev: 4, 5, 7, 10, 11); seed 5's
+// start lake parts into three pieces of 10 tiles or more by the drought's end)
+const HARD_SEED = 5;
 
 describe("The premise mode (§2.2, build step 4)", () => {
   const made = makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "any", premise: "lakeStair" });
