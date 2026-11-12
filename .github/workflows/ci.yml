@@ -15,7 +15,8 @@ on:
 #                            browser shards and the heavier suites wait for the merge, except the `page` job (below), which runs
 #                            before it when the PR touches the page, and the browser shards themselves when the PR can change
 #                            what the generator makes (`generator`, tools/ci-changes.mjs `isGenerator`: any file generate()
-#                            imports, walked at the PR's head each run, no list to keep). Not while a PR is a draft: marking
+#                            imports, walked at the PR's head each run, no list to keep), and the `forces` job (below) when it
+#                            touches a force (`forces`, `isForces`). Not while a PR is a draft: marking
 #                            it ready runs CI. A newer push cancels the run. One that touches only investigation/
 #                            (Codex's investigation PRs) runs `changes` alone.
 #   push to dev (a merge)    the suites the change needs, classified like a merge group (below), browser shards included:
@@ -65,6 +66,7 @@ jobs:
       test: ${{ steps.which.outputs.test }}
       page: ${{ steps.which.outputs.page }}
       generator: ${{ steps.which.outputs.generator }}
+      forces: ${{ steps.which.outputs.forces }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -184,6 +186,40 @@ jobs:
         if: failure()
         with:
           name: playwright-report-page-${{ matrix.group == 'clipping' && 'clipping' || 'rows' }}-${{ matrix.shard }}
+          path: playwright-report/
+          retention-days: 7
+
+  # A pull request into dev that touches the forces (a force's Rust, its Wasm, the TypeScript round it, its settings or its
+  # row: `forces` from tools/ci-changes.mjs `isForces`, light mode only) runs the forces' browser specs before the merge, on
+  # the same steps as the page job: two merges of a force went red on dev without them (#1054: glaciate.spec.ts's Size).
+  # About 9 minutes of tests on one worker (glaciate, forces, forceKeys, forceSpeed, force-save, erode and carve), so three
+  # shards. Any other pull request and every other event skips it: dev's tip still runs all the browser specs.
+  forces:
+    needs: changes
+    if: needs.changes.outputs.forces == 'true' && github.event_name == 'pull_request' && github.base_ref == 'dev'
+    name: forces (${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: ./.github/actions/playwright
+        with:
+          browsers: chromium
+      - name: The forces' browser specs, shard ${{ matrix.shard }} of 3
+        run: npx playwright test --shard=${{ matrix.shard }}/3 tests/e2e/glaciate.spec.ts tests/e2e/forces.spec.ts tests/e2e/forceKeys.spec.ts tests/e2e/forceSpeed.spec.ts tests/e2e/force-save.spec.ts tests/e2e/erode.spec.ts tests/e2e/carve.spec.ts
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report-forces-${{ matrix.shard }}
           path: playwright-report/
           retention-days: 7
 
