@@ -1,7 +1,7 @@
 // The wall with one gate (docs/PREMISES.md §5.1): The Gate (tools/showcase/the-gate.ts), generalised. "A mountain wall
 // runs across the map, a green valley on your side and a dry basin beyond; the river rises in a cleft of the wall and
-// pours over the Veil into the lake at your door. Carry the water through the one gate or round by the pass, and
-// before the first badtide shut the pool by your door."
+// pours over the Veil and runs down to the lake at your door. Carry the water through the one gate or round by the pass, and
+// before the first badtide close the Still Pool's inlet."
 //
 // Stage 0 only (the Gate's first PR): `eligible`, `draw` (the plan, by arithmetic, from the stream `premise.plan`)
 // and the `plan` halves of §5.1's invariants with §1.4's checks. Not offered to players yet: it is not in
@@ -1224,7 +1224,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     region("dry", "dry", "No water reaches it", "Room, the hills' far view", "dryForGood", [Math.max(8, Math.min(pu, notchU) / 2), N - 10]),
   );
 
-  plan.line = `A mountain range runs across the map, a green valley on your side and a dry lake's basin beyond; the river rises in a cleft of the range and pours over ${veilName} into ${lakeName} at your door. Carry the water through the Gate or round by ${passName}, and before the first badtide shut ${kettleName}.`;
+  plan.line = `A mountain range runs across the map, a green valley on your side and a dry lake's basin beyond; the river rises in a cleft of the range, pours over ${veilName} and runs down to ${lakeName} at your door. Carry the water through the Gate or round by ${passName}, and before the first badtide close ${kettleName}'s inlet.`;
 
   plan.gate = {
     turn: T.k,
