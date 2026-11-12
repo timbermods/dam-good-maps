@@ -1409,8 +1409,8 @@ at its head alone, the raised lake ran round the head and down the wadi strips b
 the notch, so the reservoir counted only what that leak left). Its wall stands square to the Low River's line over 3
 tiles each way (`gateWorks.ts` `wallAcross`, `WALL_CHORD`): at a bend under the lake's lip the second row's tangent ran
 along the gorge, and 12 plans at 192² and 8 at 256² over twelve seeds were drawn again for a dam with no shoulders (0 at
-each size now; each such redraw cost 0.6 s at 192² and 0.9 s at 256², stages 0 to 4). The card says what the dam buys
-(`gateDamDays`, `GateCard.dam`): on the settled map, the days the lake's water lasts through a drought with the dam
+each size now; each such redraw cost 0.6 s at 192² and 0.9 s at 256², stages 0 to 4). The card names both walls (across the Low River in the spur, across
+the Gate in the range) and says what they buy (`gateDamDays`, `GateCard.dam`): on the settled map, the days the lake's water lasts through a drought with the dam
 (filled to its level behind its walls) and without it (at its sill), by the game's evaporation as a Fill's days are read
 (`sim/fill.ts` `fillDays`, D29): 84 to 87 days against 49 to 52 at 128² and 192².
 

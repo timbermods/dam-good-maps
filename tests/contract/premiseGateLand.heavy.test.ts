@@ -36,7 +36,9 @@ describe("The wall with one gate's maps", () => {
       expect(s.veil.ok, s.veil.note).toBe(true);
       expect([s.gateWet, s.leatWet, s.stray, s.edge]).toEqual([0, 0, 0, 0]);
       // (the card says what the megadam buys, in days of drought on the settled map: more than the lake alone)
-      const days = r.card.dam?.match(/for (\d+) days of drought; without it, for (\d+)\./);
+      // (the megadam is two walls, and the card names both places)
+      expect(r.card.dam).toMatch(/two walls, across .* in the spur and across .* in the range/);
+      const days = r.card.dam?.match(/for (\d+) days of drought; without them, for (\d+)\./);
       expect(days, r.card.dam ?? "no dam words").toBeTruthy();
       expect(Number(days![1])).toBeGreaterThan(Number(days![2]));
     });
