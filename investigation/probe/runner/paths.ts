@@ -113,7 +113,7 @@ export function isEntry(file: string): boolean {
 }
 
 /** The game version the mod was built and checked against. */
-export const CHECKED_GAME_VERSION = '1.1.2.4-52e959e-sw';
+export const CHECKED_GAME_VERSION = '1.1.2.8-ffc2de0-sw';
 
 export function gameVersion(): string {
   try {

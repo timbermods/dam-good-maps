@@ -10,7 +10,7 @@ it, and compares the records with the project's models.
 
 ## Run it
 
-Needs Windows, Timberborn 1.1.2.4 from Steam, the .NET 8 SDK and Node 22 or later.
+Needs Windows, Timberborn 1.1.2.8 from Steam, the .NET 8 SDK and Node 22 or later.
 
 ```sh
 npm --prefix investigation/probe ci
