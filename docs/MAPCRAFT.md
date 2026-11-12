@@ -143,15 +143,15 @@ a premise or one still to come, may carry its own, lower playability floor.
   | Loved Workshop maps, aggregate only (p10–p90, 130 maps) | 1.1–9.8 | – | – | – |
   | Themes at 128², seeds 1–12 (72 maps) | 0.8–12.2 (Islands 5.5–12.2) | 0–2.0 | 0–1.5 | 0–8.1 |
   | Themes at 256², seeds 1–3 (18 maps) | 1.8–8.0 | 0–0.4 | 0–0.3 | 0–8.5 |
-  | Lake stair 128², seeds 1, 2 | 11.7, 11.5 | 1.7, 0.8 | **5.4, 3.9** | 0, 3.5 |
-  | Lake stair 128² seed 3 (Canyon or Highlands style; Any holds no plan) | 7.8 | 0.5 | **3.7–3.8** | 1.7 |
+  | Lake stair 128², seeds 1–3 in Any (D518) | 8.1, 3.3, 5.3 | 0.7, 0.4, 0.0 | 0.9, 1.6, 2.2 | – |
+  | (before D518: seeds 1, 2; seed 3 in Canyon or Highlands style) | 11.7, 11.5; 7.8 | 1.7, 0.8; 0.5 | **5.4, 3.9; 3.7–3.8** | 0, 3.5; 1.7 |
   | Four Lakes plan, 192² | 9.8 | 1.0 | 2.8 | 2.3 |
   | The Gate as laid, 128² seeds 1, 2 | 38.4, 34.4 | 7.6, 4.1 | 9.0, 4.6 | 57.6, 45.1 |
 
   Channels has no limit: the game's own rivers lie in straight reaches of even width as much as the laid Gate's
   trenches do, so the number tells what a map's water is like and is never failed on. Every theme map passes. The
-  lake stair fails on its corners alone: rectangular plates of one level, 6 to 15 tiles,
-  half of them on the outlands' rim. The real places (`places/`) are warned only. The game's maps are run on the
+  lake stair failed on its corners alone (rectangular plates of one level, 6 to 15 tiles, half of them on the outlands'
+  rim) until D518 turned its plates' scatter off the grid and bent its benches' sides; at 128² it passes now. The real places (`places/`) are warned only. The game's maps are run on the
   machine that holds them: `npx tsx tools/ruled-land.ts <folder>/*.timber`.
 
 **Land first, story second** (planning's ruling of 2026-11-11, for every path: themes, premises, hand maps). Every
