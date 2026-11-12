@@ -97,7 +97,8 @@ describe("a premise's own stages (`PremiseDef.water`, `PremiseDef.land`) and the
     const def: PremiseDef = {
       ...lakeStair,
       invariants: [...lakeStair.invariants, onGround],
-      water: (plan) => (water++, waterByNumber(plan)),
+      // (the lake stair's own stage 1 since its landing, `lakeStair.ts` `LANDING`: the shared stage and its landing)
+      water: (plan) => (water++, lakeStair.water!(plan)),
       land: (plan, w, style, bench, reach) => (land++, premiseLand(plan, w, style, bench, reach)),
     };
     expect("reason" in firstWater(def, spec)).toBe(false);

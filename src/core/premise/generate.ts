@@ -171,8 +171,9 @@ export function generatePremise(specIn: MapSpec, opts: GenerateOptions = {}, own
     if (washes.length) ground.washes = washes;
     // stage 4: the ladder, each work's site and its gain by number
     const ladder = ladderOf(plan, water, ground.heights, ground.laid);
-    // (a map handed over too watered, or too dry, is drawn again before its settle: `spectrum` by number)
-    const miss = spectrumMiss(ladder.day1);
+    // (a map handed over too watered, or too dry, is drawn again before its settle: `spectrum` by number, its moist
+    // floor by the map's side, `moistFloor`)
+    const miss = spectrumMiss(ladder.day1, plan.W);
     if (miss) {
       fail(attempt, [{ id: "ladder.spectrum", reason: miss }]);
       continue;
