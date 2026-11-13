@@ -4,7 +4,7 @@
 // the connection dropped), it says so, the map read-only, with Invite again (the host) or the new code's field (the guest).
 // Colours are the session's, a swatch beside each name; the button wears the other player's dot while a session is live.
 
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { Together as TogetherController, TogetherState } from "../../collab/together";
 import type { Role } from "../../core/collab";
 import { tip } from "../../ui/Tooltip";
@@ -90,7 +90,9 @@ export function Together(p: { controller: TogetherController; state: TogetherSta
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   const [name, setName] = useState(s.me.name);
-  useEffect(() => {
+  // (in place as the panel is shown, not after the next paint: an Escape pressed the moment it shows closes it, on a
+  // slow machine too, togetherEscape.spec.ts)
+  useLayoutEffect(() => {
     if (!open) return;
     const off = (e: PointerEvent) => {
       if (!wrap.current?.contains(e.target as Node)) setOpen(false);
