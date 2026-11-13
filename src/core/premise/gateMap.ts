@@ -12,7 +12,7 @@ import { gateLand, gateLandFailures } from "./gateLand";
 import { gateWater } from "./gateWater";
 import { failing, PLAN_TRIES } from "./draw";
 import { gateOf } from "./premises/wallGate";
-import { gateCard, gateDamDays, gateDamWords, gateLadder, gateWorksFailures, type GateCard } from "./gateWorks";
+import { gateCard, gateDamWords, megadamHolds, gateLadder, gateWorksFailures, type GateCard } from "./gateWorks";
 import type { Ladder } from "./ladder";
 import { premiseMap, type PremiseLand, type PremiseMap } from "./map";
 import { wallGate } from "./premises/wallGate";
@@ -151,11 +151,11 @@ export function gateMap(spec: MapSpec, theme: StyleTheme = "riverValley"): (Gate
       continue;
     }
     // (what the megadam buys, in days of drought, on the settled map's own land and objects)
-    const days = gateDamDays(plan, water, ladder, map.built.waterModel);
     // (a megadam whose valley at its water walks round the spur's end to the map's edge buys nothing: the plan is drawn
     // again; 3 of 12 maps at 256² were so before the spur ran to 0.16 of the side)
-    if (!days) {
-      failed.push("megadam.holds: the valley at the megadam's water leaves the map round its walls");
+    const days = megadamHolds(plan, water, ladder, map.built.waterModel);
+    if ("reason" in days) {
+      failed.push(days.reason);
       continue;
     }
     return { ...out, card: { ...out.card, dam: gateDamWords(plan, days) }, map, held: true };

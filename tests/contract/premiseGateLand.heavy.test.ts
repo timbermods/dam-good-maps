@@ -9,6 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 import { gateMap, startNumbers } from "../../src/core/premise/gateMap";
+import { MEGADAM_HOLDS, megadamHolds } from "../../src/core/premise/gateWorks";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { ruledLand, wetOf } from "../../src/core/validate/ruledLand";
 import { readGateSettle } from "./gateSettle";
@@ -50,4 +51,23 @@ describe("The wall with one gate's maps", () => {
       expect(days, r.card.dam ?? "no dam words").toBeTruthy();
       expect(Number(days![1])).toBeGreaterThan(Number(days![2]));
     });
+});
+
+// `megadam.holds` (#1067): a map whose valley at the megadam's water leaves the map round its walls is drawn again
+// (`gateMap.ts`); `megadamHolds` says so, and on a map the mode keeps gives the days the card says.
+describe("megadam.holds", () => {
+  const spec = makeSpec({ seed: 2, size: { x: 128, y: 128 }, theme: "any", premise: "any" });
+  const r = gateMap(spec);
+  if ("reason" in r) throw new Error(r.reason);
+  const m = r.map!.built.waterModel;
+  it("holds on a map the mode keeps, the days its card says", () => {
+    const d = megadamHolds(r.plan, r.water, r.ladder, m);
+    expect("reason" in d ? d.reason : null).toBeNull();
+    if (!("reason" in d)) expect(r.card.dam).toContain(`for ${d.dammed} days of drought; without them, for ${d.lake}.`);
+  });
+  it("refuses a valley whose ground round the walls is cut to the floor (hand-broken)", () => {
+    const site = new Set(r.ladder.works.find((w) => w.id === "megadam")!.tiles);
+    const floor = Float64Array.from(m.floor, (f, i) => (site.has(i) ? f : Math.min(f, 1)));
+    expect(megadamHolds(r.plan, r.water, r.ladder, { ...m, floor })).toEqual({ reason: MEGADAM_HOLDS });
+  });
 });

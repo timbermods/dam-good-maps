@@ -355,6 +355,15 @@ export function gateDamWords(plan: PremisePlan, days: { dammed: number; lake: nu
   return `With the megadam's two walls, across ${n(g.low)} in the spur and across ${n(g.gate)} in the range, ${name} holds water for ${days.dammed} days of drought; without them, for ${days.lake}.`;
 }
 
+/** `megadam.holds` (#1067): the reason a map is refused when its megadam buys nothing, the valley at the megadam's
+ *  water leaving the map round its walls (or the dam with no site). */
+export const MEGADAM_HOLDS = "megadam.holds: the valley at the megadam's water leaves the map round its walls";
+
+/** What the megadam buys on the settled map's water model (`gateDamDays`), or `megadam.holds`'s refusal. */
+export function megadamHolds(plan: PremisePlan, w: StageWater, ladder: Ladder, m: WaterModel): { dammed: number; lake: number } | { reason: string } {
+  return gateDamDays(plan, w, ladder, m) ?? { reason: MEGADAM_HOLDS };
+}
+
 /** The card's words for a gate map: the premise's name, the style, the landmark and the ladder's first rung. */
 export function gateCard(plan: PremisePlan, theme: StyleTheme, ladder: Ladder): GateCard {
   const g = gateOf(plan)!;
@@ -365,7 +374,7 @@ export function gateCard(plan: PremisePlan, theme: StyleTheme, ladder: Ladder): 
   return {
     name: "Wall with one gate",
     style: THEME_NAMES[theme],
-    landmark: `${cap(name(g.veil))}, a ${number(veil.fall?.height ?? g.drop)}-level fall from a cleft in the range into ${name(g.door)}, at the start's door`,
+    landmark: `${cap(name(g.veil))}, a ${number(veil.fall?.height ?? g.drop)}-level fall from a cleft in the range into ${name(g.door)}`,
     first: first ? gateWorkWords(plan, first) : null,
     line: plan.line,
     dam: null,
