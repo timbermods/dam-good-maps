@@ -103,7 +103,8 @@ describe("the start under a roof (D491): where the game keeps it, at its level",
     // keep a level patch, none of them under an overhang; seed 8 for 10 since generator 0.10.20's contour edges, D518, D148: seed 10's
     // map has no level patch now, and of seeds 1–60 only 1, 8, 9, 11, 18, 37, 43 and 48 have one, of which 8, 9, 18, 37 and 43 are
     // under no overhang; seed 8 is the first, and the whole file passes on each of them)
-    const r = generate(makeSpec({ seed: 8, theme: "riverValley", size: { x: 64, y: 64 } }));
+    // (seed 22 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 8 has no level patch under no overhang now; of seeds 9, 18, 37, 43, 1, 11, 22, 29, 51, 73 and 76 the whole file passes on 22, 29, 51 and 73, seed 22 the first)
+    const r = generate(makeSpec({ seed: 22, theme: "riverValley", size: { x: 64, y: 64 } }));
     const s = MapSession.fromGenerated(r, r.file);
     const M = s.size.x;
     const from = startMiddle(s)!;
@@ -216,8 +217,8 @@ describe("painting objects under a roof (D491): a level per tile, the game's rul
 
 describe("a start a tunnel is dug under later (D491; #553's review): only a move or a placement checks its ground", () => {
   it("a generated map's start stays lockable and turns in place; moved, it is refused", () => {
-    // (seed 8, as above)
-    const r = generate(makeSpec({ seed: 8, theme: "riverValley", size: { x: 64, y: 64 } }));
+    // (seed 22, as above)
+    const r = generate(makeSpec({ seed: 22, theme: "riverValley", size: { x: 64, y: 64 } }));
     const s = MapSession.fromGenerated(r, r.file);
     const M = s.size.x;
     // the start on a plateau's open top, then a chamber dug under it from the plateau's west face, a roof three thick

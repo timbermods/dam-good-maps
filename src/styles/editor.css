@@ -416,6 +416,8 @@ button[aria-pressed="true"] {
 /* M5: the tool preview, the problems an edit made, the start's indicators, map layers */
 
 .start-indicators {
+  /* (a readout: it never takes the pointer from the map under it, so the map keeps its hover and a Delete pressed on the start finds it) */
+  pointer-events: none;
   position: absolute;
   left: 10px;
   top: 96px;

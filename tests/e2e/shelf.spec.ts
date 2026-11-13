@@ -294,6 +294,9 @@ test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the 
   const at = await client(page, start[0], start[1]);
   await page.mouse.move(at.x + 3, at.y);
   await page.mouse.move(at.x, at.y);
+  // (the start's indicators, which show while the pointer is on the start, never take the pointer from the map: on CI their panel lay
+  // under the pointer, the map saw the pointer leave and Delete took nothing, three runs in a row, D341)
+  await expect.poll(() => page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.tagName, [at.x, at.y] as const)).toBe("CANVAS");
   const kept = (await labels(page)).length;
   await page.keyboard.press("Delete");
   await idle(page);

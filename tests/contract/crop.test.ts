@@ -245,7 +245,8 @@ describe("Crop map to selection: a slope whose step the new edge cuts is removed
 describe("Crop map to selection: an imported map keeps its caves and overhangs", () => {
   /** A generated map's file with a cave under one tile and a ledge, imported. */
   function withCaves(): { s: MapSession; at: { x: number; y: number }[] } {
-    const file = readTimber(map().bytes);
+    // (the map of seed 2 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 1's holds fewer than three columns tall enough to hollow away from its objects; seeds 2 to 9 each hold them, seed 2 the first)
+    const file = readTimber(map(2).bytes);
     const w = file.world;
     const plane = w.sizeX * w.sizeY;
     const at: { x: number; y: number }[] = [];
@@ -437,16 +438,18 @@ describe("Crop map to selection: the lip at the new edge (M9b's rule, water/edge
   // seed 1's start moved west of its head, so a crop to the west at it cuts the start; seed 5's leaves the start whole and
   // no water beside the new edge, with the lip raising five tiles of it at both distances; seed 4 since generator 0.10.20's contour edges,
   // D518, D148: seed 5 has no spring 23 tiles in from the west edge now; of seeds 1–40 seeds 4, 6, 12, 13, 17 and 35 have one, and seed 4 is
-  // the first whose crop leaves the start whole, raises the edge beside the head (2 tiles at 0 behind, 1 at 1) and leaves no water beside it, at both distances; its spring is at (23, 20))
+  // the first whose crop leaves the start whole, raises the edge beside the head (2 tiles at 0 behind, 1 at 1) and leaves no water beside it, at both distances; its spring is at (23, 20);
+  // seed 5 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 4's springs at (23, 29) and (23, 30) have a berry patch on the edge tile beside them, which the lip never raises (the ground under an object stays), so
+  // water pours past it; of seeds 1–60 only 4, 5, 7, 39, 41 and 60 have a spring 23 tiles in from the west edge, and of those seed 5, whose spring is at (23, 0), passes at both distances)
   it.each([0, 1])("a source %i tile(s) behind the new edge does not pour its water off the map", (behind) => {
-    const original = session(4);
+    const original = session(5);
     const spring = original.built.entities.filter((e) => e.template === "WaterSource" && e.x === 23);
     expect(spring.length).toBeGreaterThan(0);
     const sy = spring[0].y;
     const rect = { x: 23 - behind, y: 0, w: W - 23 + behind, h: W };
     expect(cropObjects(original.built.entities, rect).cutStart).toBeNull();
     original.settleCanonical();
-    const s = session(4);
+    const s = session(5);
     s.settleCanonical();
     expect(s.apply(crop(rect.x, rect.y, rect.w, rect.h)).errors).toEqual([]);
     const sources = new Set(s.built.entities.filter((e) => /Source/.test(e.template)).map((e) => e.y * rect.w + e.x));

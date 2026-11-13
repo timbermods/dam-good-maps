@@ -160,7 +160,8 @@ const HOLLOWS = OFFICIAL + "builtin_18_MapMetadataHollowsName.timber";
 // level patch now, and of seeds 1 to 150 only 8, 11, 15, 22, 24, 29, 30, 36, 43, 85, 96, 129, 139, 146, 148 and 150 do; seeds 30 and 36
 // have no hillside to hollow, the shortcut answers none of the Fill's edits on seed 8's and 4 on seed 29's, and seed 43 keeps
 // every check, its patch at (34, 53), level 11)
-const SEED = 43;
+// (seed 22 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 43 has no level patch now; of seeds 22, 29, 51, 73 and 76 the whole file passes on each, seed 22 the first)
+const SEED = 22;
 
 describe("random edits on a map with caves: the settle at once is the settle from cold (D453)", () => {
   it("a generated 64² map, hollowed", () => {
