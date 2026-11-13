@@ -417,8 +417,10 @@ describe("a place in words", () => {
     // ground with grade, D148: seed 7 has no lake now, and of seeds 1–12 seeds 2, 10 and 12 have two; Canyon 10 for 2 since
     // generator 0.10.17's start floors (D515), D148: seed 2 has one lake now, and of seeds 1–20 seeds 7, 10 and 12 have two; Canyon 2 for 10 since generator 0.10.20's
     // contour edges, D518, D148: seed 10 has no lake now, and of seeds 1–20 only seed 2 has two; Canyon 4 since the later D518 mends moved the land, D148:
-    // seed 2 has one lake now, and of seeds 1–20 seeds 4 and 14 have two, seed 4 the first)
-    const two = open(4, "canyon");
+    // seed 2 has one lake now, and of seeds 1–20 seeds 4 and 14 have two, seed 4 the first; Canyon 31 since generator 0.10.21's look round (D518: the land's long
+    // straight steps jog, the dead stands read the dry land as the checks do), D148: seed 4 has one lake now, and of seeds 1–40 seeds 31 and 39 have two, of which only
+    // 31 names both by their compass words)
+    const two = open(31, "canyon");
     const both = two.features.filter((f) => f.kind === "lake");
     expect(both.length).toBe(2);
     for (const lake of both) {
