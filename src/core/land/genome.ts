@@ -1623,6 +1623,15 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
   // (and more of the land is tableland, its benches ending in cliffs, the rest's flanks steeper)
   g.grade.mesa = clamp(g.grade.mesa + 0.5 * dt, 0, 1);
   g.grade.riser = clamp(g.grade.riser - 0.6 * dt, 0, 1);
+  // verticality away from the theme's own: the benches' flanks sheerer (cliffs) and more of the land tableland as it
+  // rises, gentler (graded flanks of one-level steps) as it falls. (Ground with grade, 0.10.16, graded every flank into
+  // one-level steps whatever the Verticality, and its benches' taller steps no longer stood as cliffs: Any 96²,
+  // seeds 1–8, the cliff share moved 0.023 from 10 to 90, now 0.044. At the theme's own nothing changes.)
+  const dv = (s.terrain.verticality - VT_DEFAULT[g.theme]) / 100;
+  if (dv > 0) {
+    g.grade.riser *= Math.max(0, 1 - 1.5 * dv);
+    g.grade.mesa = clamp(g.grade.mesa + 0.5 * dv, 0, 1);
+  } else if (dv < 0) g.grade.riser = clamp(g.grade.riser - 2 * dv, 0, 1);
   // (D333 (3): no springs added toward far land where the player asked for Generous buildable land,
   // which keeps its flats, or moved the Drought reserve from the theme's own, which plans the water
   // near the start itself: the added tributaries drew starts to water a Scarce reserve should lack
