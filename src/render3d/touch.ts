@@ -95,24 +95,34 @@ export function twoStep(a0: Point, b0: Point, a1: Point, b1: Point, mode: Mode):
   return { motion, at: m1 };
 }
 
-/** The fingers' speed over their last moves, for the glide after they let go. */
+/** The fingers' speed over their last moves, for the glide after they let go. Every time is an event's own
+ *  (`timeStamp`, ms), never when a handler happened to run: a busy page's moves arrive a long frame apart, and their
+ *  speed is the distance over that whole gap, never over a frame it did not take. */
 export class Speed {
   private samples: { t: number; dt: number; m: Motion }[] = [];
+  /** When the fingers went down: the first move's time is counted from it. */
+  private since: number | null = null;
 
-  /** A step of the camera's at time `t` (ms). */
+  /** The fingers went down (or a gesture began) at `t`: what came before is forgotten. */
+  begin(t: number): void {
+    this.samples = [];
+    this.since = t;
+  }
+
+  /** A step of the camera's at time `t`. */
   add(t: number, m: Motion): void {
-    const last = this.samples[this.samples.length - 1];
-    // (the first move's time since the one before is unknown: a frame)
-    const dt = Math.min(50, Math.max(1, last ? t - last.t : 16));
-    this.samples.push({ t, dt, m });
-    while (this.samples.length && t - this.samples[0].t > 100) this.samples.shift();
+    // (the first move's time since a press not seen: a frame)
+    const from = this.samples[this.samples.length - 1]?.t ?? this.since ?? t - 16;
+    this.samples.push({ t, dt: Math.max(1, t - from), m });
+    while (this.samples.length > 1 && t - this.samples[0].t > 100) this.samples.shift();
   }
 
   clear(): void {
     this.samples = [];
+    this.since = null;
   }
 
-  /** The speed at time `t` (ms), per second: none when the fingers had stopped `FLING_RECENT_MS` before. */
+  /** The speed at time `t`, per second: none when the fingers had stopped `FLING_RECENT_MS` before. */
   at(t: number): Motion {
     const s = this.samples.filter((x) => t - x.t <= 100);
     if (!s.length || t - s[s.length - 1].t > FLING_RECENT_MS) return { ...NO_MOTION };
@@ -135,10 +145,12 @@ export function flingFrom(v: Motion): Motion | null {
   return out.dx || out.dy || out.zoom || out.turn || out.tilt ? out : null;
 }
 
-/** One frame of a glide, `seconds` long: how far it goes and its speed after, slowed by `FLING_TAU`; `moving` is false
- *  once every speed is below its stop. Pure. */
+/** One frame of a glide, `seconds` long (the wall clock's, however long the frame took): how far it goes and its speed
+ *  after, slowed by `FLING_TAU`; `moving` is false once every speed is below its stop. The slowing is integrated exactly,
+ *  so a long frame goes as far as the glide would have in that time and never past speed × `FLING_TAU` in all: a busy
+ *  page's glide ends when a quick one's does, never stretched over its slow frames. Pure. */
 export function flingStep(v: Motion, seconds: number): { move: Motion; v: Motion; moving: boolean } {
-  const dt = Math.min(0.05, Math.max(0, seconds));
+  const dt = Math.max(0, seconds);
   // (the distance the slowing speed covers over the frame, exactly)
   const k = FLING_TAU * (1 - Math.exp(-dt / FLING_TAU));
   const f = Math.exp(-dt / FLING_TAU);
@@ -193,7 +205,7 @@ export class Touches {
     this.fingers.set(ev.pointerId, p);
     if (this.fingers.size === 1 || !this.seq) {
       this.seq = { t0: ev.timeStamp, max: 1, travel: 0, camera: false };
-      this.speed.clear();
+      this.speed.begin(ev.timeStamp);
       return false;
     }
     const s = this.seq;
@@ -202,7 +214,10 @@ export class Touches {
       s.camera = true;
       this.host.drop();
     }
-    if (!this.pair) this.pairUp();
+    if (!this.pair) {
+      this.pairUp();
+      this.speed.begin(ev.timeStamp);
+    }
     this.lone = null;
     return true;
   }
