@@ -21,7 +21,8 @@ describe("the gallery's data", () => {
   it("holds the survey's real places: no random-land controls, one entry and two files each", () => {
     expect(INDEX.format).toBe(1);
     expect(INDEX.count).toBe(INDEX.places.length);
-    expect(INDEX.count).toBe(85);
+    // 85 places in the library, 4 withheld because their start fails the floors (tools/real-places.ts)
+    expect(INDEX.count).toBe(81);
     expect(INDEX.places.filter((p) => p.family === "random" || /random/i.test(p.name))).toEqual([]);
     expect(new Set(INDEX.places.map((p) => p.id)).size).toBe(INDEX.count);
     expect(new Set(INDEX.places.map((p) => p.name)).size).toBe(INDEX.count);
@@ -86,7 +87,7 @@ describe("the gallery shows every place, with a note on those whose start reache
     expect(noWater.map((p) => p.id).sort()).toEqual(INDEX.places.filter((p) => p.faults.includes("start.water")).map((p) => p.id).sort());
     // the same places the checks flag on the real builds (tests/contract/placesCommon.ts checkShard)
     expect(noWater.map((p) => p.id).sort()).toEqual([...PLACES_START_WITHOUT_FED_WATER].sort());
-    expect(noWater.length).toBe(24);
+    expect(noWater.length).toBe(20);
     // no other fault gets a note
     for (const p of INDEX.places) if (!p.faults.includes("start.water")) expect(placeNote(p), p.id).toBeNull();
     expect(placeNote({ faults: ["start.wood", "plants.survive"] })).toBeNull();

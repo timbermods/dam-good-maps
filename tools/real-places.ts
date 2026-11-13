@@ -12,8 +12,9 @@
 // - cards/<id>.jpg: the card's picture, our own top-down render (src/core/render/shade.ts) of the
 //   map with its settled water, north up;
 // - index.json: every place for the gallery page, with the sha256 of its .timber and the faults
-//   its own map has (`faults`, from the generate profile's checks): the page leaves out the places
-//   whose start reaches no fed water until they are fixed (D421, src/core/places/place.ts).
+//   its own map has (`faults`, from the generate profile's checks). A place whose start fails the floors
+//   (its plants on dry soil cannot move without costing the start its fast wood: no moist ground within
+//   its walk) ships no data, card or index entry; every run prints it by name and counts it withheld.
 // Each .timber is built with src/core/places (build, settle, validate, write) and must pass the
 // export profile and every check of the generate profile but the known faults (the conversion's, which
 // every place has, and each place's own, recorded in `faults`); the tool stops on any other that fails.
@@ -315,6 +316,8 @@ const skipped = library.items.filter((it) => it.family === "random");
 const files = new Map<string, Uint8Array>();
 const entries: PlaceIndexEntry[] = [];
 let failures = 0;
+/** Places whose start fails the floors: not offered (no map, card or index entry), printed by every run. */
+const withheld: string[] = [];
 const t0 = performance.now();
 for (const item of items) {
   const fx = JSON.parse(new TextDecoder().decode(gunzipSync(new Uint8Array(readFileSync(join(LIBRARY, item.fixture)))))) as Fixture;
@@ -432,6 +435,7 @@ for (const item of items) {
   // it, the fast species `start.wood_fast` (D515) counts, so an oak never lowers its share. The log says so.
   const survive = strict.report.checks.find((c) => c.id === "plants.survive");
   let plants = "";
+  let floorsFail = false;
   if (survive && counts(survive) && strict.analysis) {
     // (a start a few logs under the limit is the conversion's rounding, not a land without wood: its wood is topped up)
     const topUp = (have: number, want: number) => (have < want && want - have <= WOOD_NEAR_MISS ? want : Math.min(have, want));
@@ -501,10 +505,17 @@ for (const item of items) {
           ...(value(r.strict, "start.food") < bar.food ? [`berries ${value(r.strict, "start.food")} of ${bar.food}`] : []),
         ].join(", ") +
         ")";
+    floorsFail = !meets;
     if (meets) {
       place = next;
       ({ built, v, strict, blocking, strictFails } = r);
     }
+  }
+  if (floorsFail) {
+    // (a start that cannot keep its wood once its plants stand on ground they live on: never forgotten, never offered)
+    withheld.push(place.name);
+    console.log(`WITHHELD ${place.W}² ${place.name}: start fails the floors${plants.replace(/^ +plants on dry soil kept/, " - plants on dry soil kept")}`);
+    continue;
   }
   const bytes = writeTimber(built.file);
   const ms = Math.round(performance.now() - t);
@@ -559,7 +570,7 @@ const total = [...files.values()].reduce((s, b) => s + b.length, 0);
 const dataBytes = [...files].filter(([k]) => k.startsWith("data/")).reduce((s, [, b]) => s + b.length, 0);
 const cardBytes = [...files].filter(([k]) => k.startsWith("cards/")).reduce((s, [, b]) => s + b.length, 0);
 console.log(
-  `${entries.length} places in ${Math.round((performance.now() - t0) / 1000)} s; left out ${skipped.length} random-land controls (${skipped.map((s) => s.id).join(", ")}). ` +
+  `${entries.length} offered, ${withheld.length} withheld${withheld.length ? `: ${withheld.join(", ")}` : ""} (start fails the floors); ${Math.round((performance.now() - t0) / 1000)} s; left out ${skipped.length} random-land controls (${skipped.map((s) => s.id).join(", ")}). ` +
     `Data ${(dataBytes / 1024).toFixed(0)} KB, cards ${(cardBytes / 1024).toFixed(0)} KB (${(cardBytes / 1024 / Math.max(1, entries.length)).toFixed(1)} KB each), total ${(total / 1024).toFixed(0)} KB.`,
 );
 

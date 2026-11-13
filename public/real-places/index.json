@@ -1,6 +1,6 @@
 {
  "format": 1,
- "count": 85,
+ "count": 81,
  "families": [
   {
    "id": "fan",
@@ -794,25 +794,6 @@
    ]
   },
   {
-   "id": "near-lake-toba",
-   "name": "Near Lake Toba",
-   "family": "caldera",
-   "familyName": "Caldera",
-   "plays": "A volcanic bowl; a dam on its outlet can hold a large lake.",
-   "size": 256,
-   "metres": 30,
-   "data": "data/near-lake-toba.json.gz",
-   "image": "cards/near-lake-toba.jpg",
-   "bytes": 394720,
-   "sha256": "95e9e6e513448179ec57ccb2f93db0097c2e3ee80fbbe37368546380c9d32692",
-   "faults": [
-    "start.wood",
-    "start.water",
-    "start.food",
-    "plants.survive"
-   ]
-  },
-  {
    "id": "near-grand-canyon-colorado",
    "name": "Near Grand Canyon Colorado",
    "family": "canyon",
@@ -977,26 +958,6 @@
    ]
   },
   {
-   "id": "near-dinaric-karst-plitvice",
-   "name": "Near Dinaric karst Plitvice",
-   "family": "karst",
-   "familyName": "Karst",
-   "plays": "Steep hills around separate basins; routes between them take planning.",
-   "size": 256,
-   "metres": 30,
-   "data": "data/near-dinaric-karst-plitvice.json.gz",
-   "image": "cards/near-dinaric-karst-plitvice.jpg",
-   "bytes": 597245,
-   "sha256": "4405e976b74effccb89079a664e43cd141df4d7a712d126f4bad811a92a05913",
-   "faults": [
-    "water.source_in_flow",
-    "start.wood",
-    "start.water",
-    "start.food",
-    "plants.survive"
-   ]
-  },
-  {
    "id": "near-lower-mississippi-oxbows",
    "name": "Near Lower Mississippi oxbows",
    "family": "meander",
@@ -1010,24 +971,6 @@
    "sha256": "0f84d7716840ee9e8d38679f3bfcd7b2be13f7c20b3b5f9ea7ec4bfffdeeccd3",
    "faults": [
     "start.wood"
-   ]
-  },
-  {
-   "id": "near-bungle-bungle",
-   "name": "Near Bungle Bungle",
-   "family": "mesa",
-   "familyName": "Mesa",
-   "plays": "Flat-topped heights that are hard to reach; the gaps between them make dam sites.",
-   "size": 256,
-   "metres": 30,
-   "data": "data/near-bungle-bungle.json.gz",
-   "image": "cards/near-bungle-bungle.jpg",
-   "bytes": 411234,
-   "sha256": "fa940260ea4ac42f8e750550c01325bba270610747ecc8c408a5d93e60d9ef13",
-   "faults": [
-    "start.water",
-    "start.food",
-    "plants.survive"
    ]
   },
   {
@@ -1349,25 +1292,6 @@
    "sha256": "4699653b98484cc8dc8593bf350c13e4d08154817ba50caf8d377c426494eb8f",
    "faults": [
     "start.wood"
-   ]
-  },
-  {
-   "id": "near-mount-taranaki",
-   "name": "Near Mount Taranaki",
-   "family": "cone",
-   "familyName": "Volcano",
-   "plays": "Land falls away from a peak on every side, so you build upward.",
-   "size": 256,
-   "metres": 30,
-   "data": "data/near-mount-taranaki.json.gz",
-   "image": "cards/near-mount-taranaki.jpg",
-   "bytes": 452113,
-   "sha256": "ab3801e5413d9d1818a8615ffc9e0dd0066eee2349ad5dc53c28340fc7ca912e",
-   "faults": [
-    "start.wood",
-    "start.water",
-    "start.food",
-    "plants.survive"
    ]
   },
   {
