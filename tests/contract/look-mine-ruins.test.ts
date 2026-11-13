@@ -81,8 +81,9 @@ import * as ed from "../../src/worker/session";
  *  mends (wash banks in long treads, dead stands in knots with a third of their trees young: its washes and dead trees
  *  moved, D148); `cfdfd381…` before D518's later mends (dead stands kept to two to four woods, a stand its ground holds
  *  short of 15 trees none, the rolling and rises reweighed and a dry wash never leaving a broad flat in parts all smaller:
- *  a new map, D148). */
-const LIVE_SHA = "45998c3e1886e7d319f328c016a64551159ef07fc6a4a482a83b0d8472bb9012";
+ *  a new map, D148); `45998c3e…` before the dead stands grew dense in their woods, each knot its own shape (its dead
+ *  trees moved, D148). */
+const LIVE_SHA = "32c11abacc7ba0ac48ace6e161e25d77211ebb081b58e4735cdf4b127e431a81";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

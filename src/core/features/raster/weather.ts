@@ -44,8 +44,11 @@
 //   brush.ts `worn`): an edge wanders only where this stroke presses harder than the earlier strokes
 //   did on land as they left it, as rule 3 already has it from dab to dab. Without it the wander drew
 //   each repeat's edges again along the noise, the shed and settle wore them back, and the same stroke
-//   painted again kept changing the land, most where the land is terraced; with it a stroke painted
-//   again only sheds and settles what the last one left, and comes to rest.
+//   painted again kept changing the land, most where the land is terraced. Its cliffs shed only there
+//   too (`shed`): a shed slope is held by the ground round it, and a repeat found that ground on the
+//   slope the last stroke cut (its dabs pressing less at first, its shortened cliffs reaching less
+//   far), so each repeat cut the slope a level or two deeper, for four strokes or more. With both, a
+//   stroke painted again only settles what the last one left, and comes to rest.
 // - It reads and writes only inside its rectangle (the stroke's bounds), so a rebuild gives the same land.
 //
 // Exact arithmetic only (+ − × ÷ and floor; PLAN §2.1, D366): the same stroke gives the same land on every
@@ -105,7 +108,8 @@ export interface WeatherInput {
   /** Rule 3: each tile's intensity before this dab (an edge wanders only where it rose). */
   was?: Float32Array | null;
   /** Rule 6: how hard earlier strokes pressed on each tile of the map, in sixteenths (brush.ts `worn`;
-   *  0: none, or the land changed since): an edge wanders only where this stroke presses harder. */
+   *  0: none, or the land changed since): an edge wanders, and a cliff sheds, only where this stroke
+   *  presses harder. */
   earlier?: ArrayLike<number> | null;
   /** Each tile it changes, as triples (map tile, level before, level after), when given. */
   changes?: number[] | null;
@@ -253,7 +257,21 @@ export function weather(inp: WeatherInput, out: Uint8Array): Rect | null {
         }
     }
     h = wander(h0, I, bw, bh, box, inp.size, inp.strength, cache, hi, still, fresh);
-    shed(h, I, bw, bh, box, inp.strength, cache, lo, shedHi, (inp.rule ?? 0) >= 4, (inp.rule ?? 0) >= 5 ? water : null);
+    // (rule 6: a cliff sheds only where this stroke presses harder than the strokes before it did, on
+    // the land as they left it; elsewhere the ground holds the slope as ground the stroke doesn't
+    // reach does. A shed slope is held by the ground round it, and a repeat's dabs, pressing less at
+    // first, and its cliffs, shorter, reaching less far, found that ground on the slope the last
+    // stroke cut: each repeat cut it a level or two deeper again)
+    let shedI = I;
+    if (earlier) {
+      shedI = f32("shed.I", n);
+      for (let y = 0; y < bh; y++)
+        for (let x = 0; x < bw; x++) {
+          const k = y * bw + x;
+          shedI[k] = I[k] > 0 && pressedOf(I[k]) > earlier[(box.y0 + y) * W + box.x0 + x] ? I[k] : 0;
+        }
+    }
+    shed(h, shedI, bw, bh, box, inp.strength, cache, lo, shedHi, (inp.rule ?? 0) >= 4, (inp.rule ?? 0) >= 5 ? water : null);
     settle(h, I, bw, bh, box, inp.strength, cache, lo, wet);
     tidy(h, h0, I, bw, bh);
     // the limits: the working area's feather, the banks, the ceiling, the water

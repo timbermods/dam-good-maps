@@ -114,10 +114,10 @@ a premise or one still to come, may carry its own, lower playability floor.
   bare-ground share.
 - **Wood**: living trees near the official maps' count to about half the Workshop's (roughly 350–700 per 10,000
   tiles), as stands with a purpose; and dead trees on the dry land as the game's maps have them (36 to 124 per 1,000
-  dry tiles; ours about 40, D516), in two to four old woods where forest was: the old water line, dry beds, a mesa top,
+  dry tiles; ours about 40, 30 to 34 where the bare land's share holds it, D516, D518), in two to four old woods where forest was: the old water line, dry beds, a mesa top,
   dry hollows; pines on the tops, birches by old water, a few old oaks. The rest of the dry land is bare: at most a
-  quarter of it within 6 tiles of a dead tree, the count giving way first. A stand is irregular knots of 3 to 8 trunks
-  with gaps, never a filled square, thinning to single trees at its edge, its outline the land's (a rim, a bank, the old
+  quarter of it within 6 tiles of a dead tree, the count giving way first. A wood is dense inside its outline. A stand is irregular knots of 3 to 8
+  trunks, each its own shape, with gaps, never a filled square, thinning to single trees at its edge, its outline the land's (a rim, a bank, the old
   water line), a third of its trees shorter (died young; D518). A dead tree keeps its logs and grows none back: wood
   travelled for, none in the start's walk.
 - **Dry washes**: one or two long winding dry beds across the dry land, as each of the game's maps has (D517): 60 to

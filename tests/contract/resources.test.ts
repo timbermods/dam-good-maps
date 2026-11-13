@@ -326,10 +326,8 @@ describe("the resource baseline (Kyler, 2026-09-25)", () => {
       let dry = 0;
       for (let i = 0; i < area; i++) if (dryAt(i)) dry++;
       const per1000 = (1000 * standTiles.length) / dry / (s.forestDensity / 100);
-      // (the rest of the dry land bare: at most a quarter of the dry tiles within 6 tiles of a dead tree, and where
-      // that, or the woods' own ground, and the aim of 40 a thousand meet, the aim gives way, D518. D148: so the count's
-      // floor is 20, not 30: River Valley 128² seed 3's four woods fill their ground at 21.9 with 0.20 of its dry land
-      // near a tree; Lake Basin 4 holds 35.3 at 0.235, Canyon 96² 5 25.1 at 0.19, Highlands 192² 6 33.1 at 0.24)
+      // (the rest of the dry land bare: at most a quarter of the dry tiles within 6 tiles of a dead tree, D518; the
+      // woods dense enough inside their outlines that the count still holds)
       const near = new Uint8Array(area);
       for (const t of standTiles)
         for (let dy = -6; dy <= 6; dy++)
@@ -341,7 +339,7 @@ describe("the resource baseline (Kyler, 2026-09-25)", () => {
       let cover = 0;
       for (let i = 0; i < area; i++) if (near[i] && dryAt(i)) cover++;
       expect(cover / dry, `${theme} dry land within 6 tiles of a dead tree`).toBeLessThanOrEqual(0.25);
-      expect(per1000, `${theme} dead stands per 1,000 dry tiles`).toBeGreaterThan(20);
+      expect(per1000, `${theme} dead stands per 1,000 dry tiles`).toBeGreaterThan(30);
       expect(per1000, `${theme} dead stands per 1,000 dry tiles`).toBeLessThan(50);
       // (D148: a stand's third that died young is its own feature since D518, so a stand's size is its grown trees')
       const sizes = stands.filter((f) => !/\/(giants|young)/.test(f.role ?? "")).map((f) => f.params.groveSize ?? 0).sort((a, c) => a - c);

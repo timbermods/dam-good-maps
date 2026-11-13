@@ -228,10 +228,14 @@ describe("painting the same spot again settles (D399)", () => {
   // rule 6 remembers how hard the strokes before pressed, and changes 82, 89, then nothing)
   it("ten strokes at Size 12, Strength 10 on River Valley 3 change less each time", () => settles("riverValley", 3, 12, 10));
 
-  // Rule 6: an edge wanders only where a stroke presses harder than the strokes before it did on the land as they left
-  // it, so the same stroke painted again only sheds and settles what the last one left, and comes to rest: after three,
-  // the fourth changes nothing. River Valley 2 at Terracing 100 is where it kept changing most (#990: at Size 14,
-  // Strength 5, eight tiles went up and down by two levels on every stroke, for ever).
+  // Rule 6: an edge wanders, and a cliff sheds, only where a stroke presses harder than the strokes before it did on the
+  // land as they left it, so the same stroke painted again only settles what the last one left, and comes to rest: after
+  // three, the fourth changes nothing. River Valley 2 at Terracing 100 is where it kept changing most (#990: at Size 14,
+  // Strength 5, eight tiles went up and down by two levels on every stroke, for ever). On D518's land (warped contours,
+  // compact rises) Canyon 4's most terraced dry ground changed 529, 290, 42, then 4 tiles (River Valley 6 334, 97, 136,
+  // 65; Canyon 2 529, 95, 98, 34) while the shed still ran on every repeat: a shed slope is held by the ground round it,
+  // and a repeat found that ground on the slope the last stroke cut and cut it deeper again. Now each changes nothing
+  // after its first stroke.
   const rests = (theme: ThemeId, seed: number, size: number, strength: number) => () => {
     const s = session(theme, seed, 100);
     const rand = mulberry(size * 31 + strength);
@@ -254,13 +258,11 @@ describe("painting the same spot again settles (D399)", () => {
     ["riverValley", 2, 12, 10],
     ["riverValley", 3, 12, 10],
     ["riverValley", 4, 12, 10],
+    ["canyon", 4, 12, 10],
+    ["riverValley", 6, 12, 10],
+    ["canyon", 2, 12, 10],
   ] as const)
     it(`${theme} ${seed} at Terracing 100, Size ${size}, Strength ${strength}: a fourth stroke on the same path changes nothing`, rests(theme, seed, size, strength));
-  // Expected failure, kept on the seed that caught it: on D518's land (warped contours, compact rises) Canyon 4's most
-  // terraced dry ground changes 529, 290, 42, then 4 tiles, so rule 6 does not bring it to rest by the fourth stroke
-  // (River Valley 6 gives 334, 97, 136, 65 and Canyon 2 529, 95, 98, 34 the same way). A fault of the force's rule 6,
-  // for the milestone session; when it passes, it comes off as expected.
-  it.fails("canyon 4 at Terracing 100, Size 12, Strength 10: a fourth stroke on the same path changes nothing", rests("canyon", 4, 12, 10));
 });
 
 describe("an older map has fewer terraces, not more (D399, Kyler's round 2 verdict)", () => {

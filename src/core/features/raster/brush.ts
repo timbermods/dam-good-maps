@@ -124,8 +124,9 @@ export interface BrushParams {
    *  same, dab by dab, each dab weathering the land the dabs before it left where it presses harder
    *  (and moist ground keeps its height); 4 the same, its scree's slope measured from every cliff
    *  (weather.ts `shed`); 5 the same, the scree building up at a cliff's foot from what its top loses
-   *  (a cliff standing in water keeps its top); 6 the same, its edges wandering only where it presses
-   *  harder than the strokes before it did (`worn`), so the same stroke painted again comes to rest.
+   *  (a cliff standing in water keeps its top); 6 the same, its edges wandering and its cliffs shedding
+   *  only where it presses harder than the strokes before it did (`worn`), so the same stroke painted
+   *  again comes to rest.
    *  Absent, a stroke from before replays with the rule it was painted with. The session records it on
    *  every new weathering stroke. */
   weathering?: 2 | 3 | 4 | 5 | 6;
@@ -145,7 +146,8 @@ export interface BrushParams {
   moist?: [number, number, number][];
   /** Naturalize, rule 6: how hard the weathering strokes before it pressed (in sixteenths, 1–16) on
    *  the tiles that stand as the last of them left them, as runs [y, x0, x1, sixteenths] (weather.ts
-   *  `pressedOf`): its edges wander only where it presses harder. Recorded as `shore` and `pools` are. */
+   *  `pressedOf`): its edges wander and its cliffs shed only where it presses harder. Recorded as
+   *  `shore` and `pools` are. */
   worn?: [number, number, number, number][];
   /** Square (by the larger distance, on the tile grid); an area (Raise and Lower: its two dabs the
    *  rectangle's opposite corners, every tile in it, hard-edged); round when absent. */
@@ -383,7 +385,8 @@ function preciseReach(size: number): number {
 }
 
 /** The rule a new weathering Naturalize stroke records (D399; weather.ts): 6, its scree building up
- *  at a cliff's foot and its edges wandering only where it presses harder than the strokes before it. */
+ *  at a cliff's foot, its edges wandering and its cliffs shedding only where it presses harder than the strokes
+ *  before it. */
 export const WEATHERING = 6;
 
 /** Whether a rule weathers dab by dab (rules 3 to 6). */
@@ -665,6 +668,23 @@ export function tiltedPieces(pieces: readonly (readonly [number, number, number,
         if (now[i] !== before[i]) changed = true;
       }
     if (changed && !level) out.push([x0, y0, x1, y1]);
+  }
+  return out;
+}
+
+/** Of the pieces that may ride a stroke whole (D249), the ones the page hands the stroke as its `rigid` when it is let
+ *  go: each within a tile of the stroke's reach (`bounds`) with a tile changed from `start` to `now` (the shown heights
+ *  before and after). One it changed and left level is listed too: the session adds only those it tilted
+ *  (`tiltedPieces`, session.ts `rideTilted`), never one the operation lists already, so it logs what the page sent.
+ *  The page's brush and the edit queue's harness both ask this. */
+export function strokeRigid(pieces: readonly (readonly [number, number, number, number])[], bounds: Rect | null, start: ArrayLike<number>, now: ArrayLike<number>, W: number): [number, number, number, number][] {
+  if (!bounds) return [];
+  const out: [number, number, number, number][] = [];
+  for (const [x0, y0, x1, y1] of pieces) {
+    if (x1 < bounds.x0 - 1 || x0 > bounds.x1 + 1 || y1 < bounds.y0 - 1 || y0 > bounds.y1 + 1) continue;
+    let changed = false;
+    for (let y = y0; y <= y1 && !changed; y++) for (let x = x0; x <= x1; x++) if (now[y * W + x] !== start[y * W + x]) changed = true;
+    if (changed) out.push([x0, y0, x1, y1]);
   }
   return out;
 }

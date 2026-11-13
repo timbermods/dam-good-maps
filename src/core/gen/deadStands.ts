@@ -28,8 +28,9 @@ import { pickSeeds } from "./blobs";
 export const DEAD_STANDS = {
   /** Dead trees per 1,000 dry tiles at Forests 100 %, the seed moving it within this range. */
   per1000: [36, 48] as const,
-  /** Trees in one stand: the least, and two draws added on top (15 to 60, most 25 to 50). */
-  stand: { least: 15, a: 21, b: 26 },
+  /** Trees in one stand: the least, and two draws added on top (15 to 60, most 25 to 50); a stand its ground holds
+   *  short of the least joins its wood's stand within `join` tiles of it, or is none. */
+  stand: { least: 15, a: 21, b: 26, join: 6 },
   /** A stand's ground, tiles a tree: it grows from its seed along its place (a rim, a bank, the old water line), its
    *  outline the land's, never a box. */
   spread: 2.6,
@@ -37,12 +38,15 @@ export const DEAD_STANDS = {
    *  8, irregular, never a filled square): knots of `core` trunks (least, most; the ground may leave fewer, never under
    *  3) for its first `inner` share of trees, of `mid` out to `outer`, single trees for the rest (the knots come nearest
    *  its seed first, so it thins to singles at its edge); each knot grown trunk by trunk within `reach` tiles of its
-   *  middle (`reachBig` for six or more), never beside another knot's trunk, so a tile's gap at least parts them; a
+   *  middle (`reachBig` for six or more), that reach drawn out along one axis by up to `stretch` more and narrowed across
+   *  it by up to `narrow`, each knot grown from its last trunk by up to `chain` of its steps (each knot its own shape,
+   *  never one stamp), never beside another knot's trunk, so a tile's gap at least parts them; its knots' middles the
+   *  ground nearest its seed, give or take `shuffle` of its reach; a
    *  single tree `single` tiles from any other at least (up to `singleMore` more; `near` of that where the first sweep
    *  left the stand short); where its knots crowd it so its nearest neighbours' spread is under `cv` of their mean,
-   *  single trees set apart till it holds, and a stand still under `least` is none; its last single trees may stray `off`
+   *  single trees set apart `lone` tiles from any other till it holds, and a stand still under `least` is none; its last single trees may stray `off`
    *  tiles off its place onto free ground beside it (each such step costing `offCost` more on its walk). */
-  knot: { core: [6, 8] as const, mid: [4, 6] as const, inner: 0.55, outer: 0.85, reach: 1.5, reachBig: 2.0, single: 3, singleMore: 2, near: 0.7, cv: 0.55, least: 0.5, off: 1, offCost: 4 },
+  knot: { core: [6, 8] as const, mid: [4, 7] as const, inner: 0.75, outer: 0.92, reach: 1.5, reachBig: 2.0, stretch: 0.9, narrow: 0.35, chain: 0.6, shuffle: 0.1, single: 3, lone: 3, singleMore: 2, near: 0.7, cv: 0.55, least: 0.5, off: 1, offCost: 4 },
   /** A share of its trees died young, standing shorter (6819039430: mixed heights; the game stores a tree a drought
    *  killed growing as dead with its growth, and it keeps no logs). */
   young: 0.33,
@@ -52,10 +56,10 @@ export const DEAD_STANDS = {
    *  ground there, where its places are narrow); woods at least `apart` tiles apart (a fifth of the map's side when that
    *  is more), and where their land falls short, more woods up to the most. One wood stands in the start's opening view
    *  where the land allows: its middle past the start's clear walk and within `view` tiles' walk. */
-  wood: { per128: [2, 4] as const, trees: 150, radius: 20, near: 4, apart: 30, view: 60 },
+  wood: { per128: [2, 4] as const, trees: 250, radius: 20, near: 4, apart: 30, view: 60 },
   /** The rest of the dry land bare (#236, after 6819039430): at most `most` of the dry tiles within `reach` tiles of a
-   *  dead tree; the woods stop short of the aim where they would pass it. */
-  bare: { reach: 6, most: 0.24 },
+   *  dead tree; a stand that would pass it is not grown, and after `misses` such the woods stop short of the aim. */
+  bare: { reach: 6, most: 0.245, misses: 8 },
   /** An old giant among a stand's trees: an oak for every `oakEvery` trees, `oakMost` a stand at most. */
   oakEvery: 25,
   oakMost: 2,
@@ -207,6 +211,9 @@ const KNOT_STEPS: readonly (readonly [number, number])[] = (() => {
   return out;
 })();
 
+/** A knot's axes: along a row, a column or a diagonal (its reach drawn out along one). */
+const KNOT_AXES: readonly (readonly [number, number])[] = [[1, 0], [0, 1], [1, 1], [1, -1]];
+
 /** One stand's trees (6819039430, and its follow-up on #236): its ground grows from `seed` within `zone` (a noisy walk,
  *  so its outline is the place's own, a rim's, a bank's or the old water line's, ragged, never a box), `spread` tiles a
  *  tree; its trees stand in knots of 3 to 8 trunks with gaps between, each knot grown trunk by trunk from its middle
@@ -258,7 +265,7 @@ export function clumpStand(zone: Uint8Array, loose: Uint8Array, seed: number, n:
   const far = reach.get(ground[Math.min(ground.length - 1, Math.ceil(m * DEAD_STANDS.spread))]) || 1;
   // (the knots: middles drawn from the ground nearest first, a little shuffled, kept apart from the trees already
   // standing; the first trees in big knots, the last single trees, so the stand thins to singles at its edge)
-  const order = ground.map((t) => ({ t, key: (reach.get(t) ?? 0) + 0.35 * far * rng.float() }));
+  const order = ground.map((t) => ({ t, key: (reach.get(t) ?? 0) + k.shuffle * far * rng.float() }));
   order.sort((a, b) => a.key - b.key || a.t - b.t);
   const owner = new Map<number, number>();
   const out: number[] = [];
@@ -302,16 +309,26 @@ export function clumpStand(zone: Uint8Array, loose: Uint8Array, seed: number, n:
       owner.set(c, id);
       out.push(c);
       const mine = [c];
-      // (its trunks: steps from its own, within its reach of its middle, on the stand's ground)
+      // (its trunks: steps from its own, within its reach of its middle, on the stand's ground; each knot its own shape,
+      // never one stamp: its reach drawn out along one of four axes by its own amount, and its trunks grown from its
+      // last one by its own share of the steps (a chain) and from any of its own by the rest (a clump))
       const r = size >= 6 ? k.reachBig : k.reach;
+      const [ux, uy] = KNOT_AXES[rng.int(0, KNOT_AXES.length)];
+      const len = ux * ux + uy * uy;
+      const along = r * (1 + k.stretch * rng.float());
+      const across = r * (1 - k.narrow * rng.float());
+      const chain = k.chain * rng.float();
       const cx = c % W;
       const cy = (c - cx) / W;
       for (let tries = 0; mine.length < take && tries < 12 * take; tries++) {
-        const from = mine[rng.int(0, mine.length)];
+        const from = rng.float() < chain ? mine[mine.length - 1] : mine[rng.int(0, mine.length)];
         const [dx, dy] = KNOT_STEPS[rng.int(0, KNOT_STEPS.length)];
         const x = (from % W) + dx;
         const y = Math.floor(from / W) + dy;
-        if (x < 0 || y < 0 || x >= W || y >= H || (x - cx) * (x - cx) + (y - cy) * (y - cy) > r * r) continue;
+        if (x < 0 || y < 0 || x >= W || y >= H) continue;
+        const a = (x - cx) * ux + (y - cy) * uy;
+        const b = (y - cy) * ux - (x - cx) * uy;
+        if ((a * a) / (along * along) + (b * b) / (across * across) > len) continue;
         const t = y * W + x;
         if (!reach.has(t) || owner.has(t) || refused(t, id)) continue;
         owner.set(t, id);
@@ -331,7 +348,7 @@ export function clumpStand(zone: Uint8Array, loose: Uint8Array, seed: number, n:
   // the nearest the seed first, `single` tiles from any other at least, till it holds or a fifth more trees stand)
   for (let q = 0; q < order.length && out.length > 2 && out.length < m * 1.2 && nnSpread(out, W) < k.cv; q++) {
     const c = order[q].t;
-    if (owner.has(c) || !clear(c, k.single)) continue;
+    if (owner.has(c) || !clear(c, k.lone)) continue;
     owner.set(c, knots++);
     out.push(c);
     const rc = reach.get(c) ?? 0;
@@ -442,6 +459,7 @@ export function planDeadStands(inp: DeadStandsInput): DeadStand[] {
   const over = new Uint8Array(N);
   let overN = 0;
   let full = false;
+  let missed = 0;
   const B = DEAD_STANDS.bare;
   const R = Math.ceil(B.reach);
   const overBy = (tiles: readonly number[], mark: boolean): number => {
@@ -510,6 +528,40 @@ export function planDeadStands(inp: DeadStandsInput): DeadStand[] {
   // a wood: stands on its middle's kind of place within its radius (any kind there on the second pass, and on the third
   // any dry ground there, where the places are narrow) till `goal`, each stand's seed the free ground nearest the
   // wood's middle, so a wood grows outward as one group and the land round it stays bare
+  // (a stand's trees taken: the land within `bare.reach` of its trees counted, and a tile's clearing round its trees,
+  // so the next stand's knots keep apart from its; the gaps between its knots stay the wood's, where the next stand's
+  // knots may stand, so a wood is dense inside its outline and the land round it bare)
+  const claim = (trees: readonly number[]): void => {
+    overN += overBy(trees, true);
+    for (const i of trees)
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const x = (i % W) + dx;
+          const y = Math.floor(i / W) + dy;
+          if (x >= 0 && y >= 0 && x < W && y < H) allowed[y * W + x] = 0;
+        }
+  };
+  // (the wood each stand of `out` belongs to, -1 for a stand's oaks)
+  const woodOf: number[] = [];
+  // (wood `k`'s stand with a tree nearest `trees`, within `join` tiles; -1 where none is)
+  const hostOf = (trees: readonly number[], k: number): number => {
+    let best = -1;
+    let bd = s.join * s.join + 1;
+    for (let o = 0; o < out.length; o++) {
+      if (woodOf[o] !== k) continue;
+      for (const a of [...out[o].tiles, ...out[o].young])
+        for (const b of trees) {
+          const dx = (a % W) - (b % W);
+          const dy = Math.floor(a / W) - Math.floor(b / W);
+          const d = dx * dx + dy * dy;
+          if (d < bd) {
+            bd = d;
+            best = o;
+          }
+        }
+    }
+    return best;
+  };
   const grow = (k: number, goal: number): void => {
     const at = woods[k];
     const p0 = placeOf[at];
@@ -549,8 +601,24 @@ export function planDeadStands(inp: DeadStandsInput): DeadStand[] {
           const k2 = Math.min(DEAD_STANDS.oakMost, Math.floor(tiles.length / DEAD_STANDS.oakEvery));
           for (let q = 0; q < k2; q++) oaks.push(tiles.splice(rng.int(0, tiles.length), 1)[0]);
         }
-        // (a stand its ground holds short of a stand's least is none, its ground too narrow for one: left bare)
+        // (a stand its ground holds short of a stand's least: where it lies beside one of this wood's stands, within
+        // `join` tiles of its trees, its trees are that stand's, reaching into the narrow ground beside it, so long as
+        // that stand stays a stand's most and its spread holds; elsewhere it is none, its ground left bare)
         if (grown.tiles.length < Math.min(n, s.least)) {
+          const host = grown.tiles.length >= 3 ? hostOf(grown.tiles, k) : -1;
+          if (host >= 0) {
+            const st = out[host];
+            const both = [...st.tiles, ...st.young, ...grown.tiles];
+            if (both.length <= s.least + s.a + s.b - 2 && nnSpread(both, W) >= DEAD_STANDS.knot.least && overN + overBy(grown.tiles, false) <= B.most * dryN) {
+              claim(grown.tiles);
+              for (const t of grown.tiles) (rng.float() < DEAD_STANDS.young ? st.young : st.tiles).push(t);
+              st.tiles.sort((a, c) => a - c);
+              st.young.sort((a, c) => a - c);
+              st.area.push(...grown.area);
+              got += grown.tiles.length;
+              continue;
+            }
+          }
           for (const i of grown.area) allowed[i] = 0;
           allowed[seed] = 0;
           continue;
@@ -560,26 +628,25 @@ export function planDeadStands(inp: DeadStandsInput): DeadStand[] {
           allowed[seed] = 0;
           continue;
         }
+        // (a stand that would pass the bare land's share is not grown, its ground left bare; the next try is nearer
+        // the wood's trees, under the land they already stand over; after `misses` such, the woods are full)
         if (overN + overBy(grown.tiles, false) > B.most * dryN) {
-          full = true;
-          break;
+          for (const i of grown.area) allowed[i] = 0;
+          allowed[seed] = 0;
+          if (++missed >= B.misses) full = true;
+          continue;
         }
-        overN += overBy(grown.tiles, true);
-        // (its ground is its own, and a tile's clearing round its trees, so the next stand's knots keep apart from its)
-        for (const i of grown.area) allowed[i] = 0;
-        for (const i of grown.tiles)
-          for (let dy = -1; dy <= 1; dy++)
-            for (let dx = -1; dx <= 1; dx++) {
-              const x = (i % W) + dx;
-              const y = Math.floor(i / W) + dy;
-              if (x >= 0 && y >= 0 && x < W && y < H) allowed[y * W + x] = 0;
-            }
+        claim(grown.tiles);
         // (a third of the rest died young, standing shorter)
         const grownTiles: number[] = [];
         const young: number[] = [];
         for (const t of tiles) (rng.float() < DEAD_STANDS.young ? young : grownTiles).push(t);
         out.push({ tiles: grownTiles, young, area: grown.area, species: sp(PLACES[p]), place: PLACES[p] });
-        if (oaks.length) out.push({ tiles: oaks.sort((a, c) => a - c), young: [], area: [], species: "Oak", place: PLACES[p], giants: true });
+        woodOf.push(k);
+        if (oaks.length) {
+          out.push({ tiles: oaks.sort((a, c) => a - c), young: [], area: [], species: "Oak", place: PLACES[p], giants: true });
+          woodOf.push(-1);
+        }
         got += grown.tiles.length;
       }
   };
