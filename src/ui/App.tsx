@@ -10,6 +10,7 @@
 import type { ComponentType } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { proxy } from "comlink";
+import { writeProject } from "./projectWriter";
 import { createBackground, createGeneratorWorker, readFile, saveFile, storage } from "../platform";
 import { sameLand } from "../core/analysis/story";
 import { cleanMapName } from "../core/doc/document";
@@ -186,6 +187,10 @@ const rowOf = (e: YourMapEntry): YourMapRow => ({ id: e.id, name: e.name, size: 
  *  (`thumbnail.worker.ts`), or null when the worker can't make it in time (`thumbnails.ts`). */
 const thumbnailUrl = thumbnailMaker(() => new Worker(new URL("./thumbnail.worker.ts", import.meta.url), { type: "module", name: "thumbnail" }));
 
+/** How long Cancel waits for the old worker to write the map it brings back when its file could not be written beside
+ *  the new map, ms (a worker gone never answers). */
+const CANCEL_WAIT = 30_000;
+
 /** When the page is next idle (or `ms` from now at the latest). */
 const whenIdle = (ms: number) =>
   new Promise<void>((go) => (typeof window.requestIdleCallback === "function" ? window.requestIdleCallback(() => go(), { timeout: ms }) : setTimeout(go, 0)));
@@ -249,6 +254,8 @@ export function App() {
   const back = useRef<{ entry: YourMapEntry; bytes: Uint8Array; kept: boolean } | null>(null);
   /** That project while it is still being taken (Cancel waits for it before ending the worker it comes from), and a
    *  Cancel already under way (a second one does nothing). */
+  /** Whether the map `backReady` is written of is kept in Your maps (or edited). */
+  const backKept = useRef(false);
   const backReady = useRef<Promise<{ entry: YourMapEntry; bytes: Uint8Array; kept: boolean }> | null>(null);
   const cancelling = useRef(false);
   /** A real place or a saved map being opened before any map is on show: what the page says meanwhile. */
@@ -481,30 +488,39 @@ export function App() {
 
   /** The open map, as Your maps keeps it: its project file now. */
   async function snapshot() {
+    return (await snapshotTaken()).written;
+  }
+
+  /** `snapshot` in two steps: `kept` once the generator's worker has handed over the open map's document (it is free
+   *  for the next map from then; whether Your maps keeps it is known then), `written` once its file is written (on a
+   *  worker of its own, `writeProject`). */
+  async function snapshotTaken() {
     // (the map it is taken of, fixed before anything waits: a capture queued as the map changes stays its map's; its
     // edits already made go in first, and its version is the worker's)
     const of = entry.current!;
     await pendingEdits.current?.();
     // (the picture when the page is idle, never stacked on the edit or the water that just went in, while the worker
     // writes the project)
-    const [p, made] = await Promise.all([
-      generator.project(6),
-      whenIdle(250).then(() => {
-        const pic = picture.current?.();
-        return pic ? thumbnailUrl(pic) : null;
-      }),
-    ]);
-    const thumbnail = made ?? of.thumbnail;
-    // (what the page changed on the entry while this waited, an edited-since mark among it, is kept: the entry as it is now)
-    const now = entry.current?.id === of.id ? entry.current : of;
-    // (its name and size from the worker and the page, so the save never unzips the project to read them)
-    const info = infoRef.current;
-    const size = now.size ?? (info ? { w: info.W, h: info.H } : undefined);
-    const e = { ...now, name: p.name || nameRef.current || of.name, revision: p.version, bytes: p.bytes.length, editedAt: new Date().toISOString(), thumbnail, ...(size ? { size } : {}) };
-    if (entry.current?.id === of.id) entry.current = e;
+    const picture_ = whenIdle(250).then(() => {
+      const pic = picture.current?.();
+      return pic ? thumbnailUrl(pic) : null;
+    });
+    const p = await generator.projectDocument();
     // (`kept`: Your maps keeps the map as taken, every edit made answered: a first edit still on its way when the snapshot
     // was asked for keeps it, D455)
-    return { entry: e, project: p.bytes, name: p.name, kept: keepsMap({ kept: kept.current, openedVersion: openedVersion.current, version: p.version }) };
+    const keeps = keepsMap({ kept: kept.current, openedVersion: openedVersion.current, version: p.version });
+    const written = Promise.all([writeProject(p.doc, 6), picture_]).then(([bytes, made]) => {
+      const thumbnail = made ?? of.thumbnail;
+      // (what the page changed on the entry while this waited, an edited-since mark among it, is kept: the entry as it is now)
+      const now = entry.current?.id === of.id ? entry.current : of;
+      // (its name and size from the worker and the page, so the save never unzips the project to read them)
+      const info = infoRef.current;
+      const size = now.size ?? (info ? { w: info.W, h: info.H } : undefined);
+      const e = { ...now, name: p.name || nameRef.current || of.name, revision: p.version, bytes: bytes.length, editedAt: new Date().toISOString(), thumbnail, ...(size ? { size } : {}) };
+      if (entry.current?.id === of.id) entry.current = e;
+      return { entry: e, project: bytes, name: p.name, kept: keeps };
+    });
+    return { kept: keeps, written };
   }
 
   /** Replace the open map: what is waiting to be saved of it (a kept map's) is saved first. In a shared session this is the
@@ -516,6 +532,8 @@ export function App() {
       if (hosting && !announced) together.announce("a new map");
       // (the edits already made finish on the map leaving, and its save is registered before it is flushed)
       await pendingEdits.current?.();
+      // (the file `holdBack` writes beside the new map's making: a kept map's was stored before the request)
+      await backReady.current?.catch(() => null);
       await saver.flush();
       if (!keeping.current && !discardAllowed.current) throw new Error("Your map was not saved. Download the project before replacing it.");
       // (a kept map leaving, and really stored: where it went is said once the new one is in)
@@ -972,22 +990,35 @@ export function App() {
    *  first when Your maps keeps it. False when a later run has taken over meanwhile. */
   async function holdBack(id: number, before: string): Promise<boolean> {
     back.current = null;
-    // (whether it is kept is asked of the map as the snapshot took it, every edit made answered: a first edit still on its
-    // way when Generate was pressed keeps it, and it is stored before the next map is asked for, D455)
-    backReady.current = snapshot().then((s) => {
-      const keeps = kept.current || s.kept === true;
-      kept.current = keeps;
-      return { entry: s.entry, bytes: s.project, kept: keeps };
-    });
-    const b = await backReady.current;
-    if (b.kept) {
+    // (whether it is kept is asked of the map as the worker handed it over, every edit made answered: a first edit still
+    // on its way when Generate was pressed keeps it, D455)
+    const t = await snapshotTaken();
+    const keeps = kept.current || t.kept;
+    kept.current = keeps;
+    backKept.current = keeps;
+    const ready = (backReady.current = t.written.then((s) => ({ entry: s.entry, bytes: s.project, kept: keeps })));
+    void ready.then(
+      (b) => {
+        performance.mark("dgm:written");
+        if (backReady.current === ready) back.current = b;
+      },
+      () => {},
+    );
+    // a kept or edited map is in Your maps before the next one is asked for (D455): its file written and stored; a map
+    // neither kept nor edited goes on at once, its file written beside the next map's making (Cancel waits for it)
+    if (keeps) {
+      let b: Awaited<typeof ready>;
+      try {
+        b = await ready;
+      } catch (e) {
+        console.error("the map being replaced could not be written:", e);
+        throw new Error("Your map could not be saved, so it stays open. Download the project before replacing it.");
+      }
       saver.changed(b.entry.id, () => ({ entry: b.entry, project: b.bytes }));
       await saver.flush();
       if (!keeping.current && !discardAllowed.current) throw new Error(`Your map was not saved. Download the project before ${before}.`);
     }
-    if (id !== runId.current) return false;
-    back.current = b;
-    return true;
+    return id === runId.current;
   }
 
   async function run(s: MapSpec, tries = 0, keepError = false): Promise<GenerateResponse | null> {
@@ -1018,6 +1049,8 @@ export function App() {
       // (a seed typed as a word names the saved file, D345 B10)
       const word = seedText.trim();
       const seedWord = word && !/^\d+$/.test(word) && seedFromText(word) === s.seed ? word : undefined;
+      // (the map is asked for: the click's lag ends here, generateLag.spec.ts)
+      performance.mark("dgm:sent");
       const r = await (maker?.api ?? generator).generate(
         s,
         proxy((p: GenProgress) =>
@@ -1077,6 +1110,10 @@ export function App() {
       }, shared);
       enterEditor(fresh, { kind: "generated" });
       showIdea(r);
+      // (the map stored while the page is idle: the next Generate takes it at once, `holdBack`)
+      void whenIdle(3000)
+        .then(() => (id === runId.current ? generator.warmProject().then(() => void performance.mark("dgm:warmed")) : undefined))
+        .catch(() => {});
       // (a name given keeps the map in Your maps, as a rename does)
       if (named) {
         keepNow();
@@ -1131,7 +1168,18 @@ export function App() {
     try {
       // (the old worker lives until the open map's project has come from it: ended sooner, the call never answers and
       // the editor is left on a worker that is gone; investigation/page-hunt)
-      const b = back.current ?? (backReady.current ? await backReady.current : null);
+      // (its file failing to be written beside the new map, the old worker writes it once its work is done, never waited on
+      // past `CANCEL_WAIT`: a worker gone never answers)
+      const b =
+        back.current ??
+        (backReady.current
+          ? await backReady.current.catch(async (e) => {
+              console.error("the open map's file could not be written beside the new map:", e);
+              const p = await Promise.race([generator.project(6), new Promise<null>((done) => setTimeout(() => done(null), CANCEL_WAIT))]);
+              if (!p) throw new Error("Your map could not be brought back. It is in Your maps as it was last saved.");
+              return { entry: entry.current!, bytes: p.bytes, kept: backKept.current };
+            })
+          : null);
       // (a map being opened in the old worker never answers: the swap it began is over, and the editor takes edits again)
       switching.current = false;
       setReplacingMap(false);
