@@ -502,7 +502,9 @@ export function App() {
     const size = now.size ?? (info ? { w: info.W, h: info.H } : undefined);
     const e = { ...now, name: p.name || nameRef.current || of.name, revision: p.version, bytes: p.bytes.length, editedAt: new Date().toISOString(), thumbnail, ...(size ? { size } : {}) };
     if (entry.current?.id === of.id) entry.current = e;
-    return { entry: e, project: p.bytes, name: p.name };
+    // (`kept`: Your maps keeps the map as taken, every edit made answered: a first edit still on its way when the snapshot
+    // was asked for keeps it, D455)
+    return { entry: e, project: p.bytes, name: p.name, kept: keepsMap({ kept: kept.current, openedVersion: openedVersion.current, version: p.version }) };
   }
 
   /** Replace the open map: what is waiting to be saved of it (a kept map's) is saved first. In a shared session this is the
@@ -973,8 +975,8 @@ export function App() {
     // (whether it is kept is asked of the map as the snapshot took it, every edit made answered: a first edit still on its
     // way when Generate was pressed keeps it, and it is stored before the next map is asked for, D455)
     backReady.current = snapshot().then((s) => {
-      const keeps = keepsMap({ kept: kept.current, openedVersion: openedVersion.current, version: s.entry.revision });
-      if (keeps) keepNow();
+      const keeps = kept.current || s.kept === true;
+      kept.current = keeps;
       return { entry: s.entry, bytes: s.project, kept: keeps };
     });
     const b = await backReady.current;
