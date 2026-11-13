@@ -223,7 +223,18 @@ for (const size of SIZES) {
       // pan, so where a finger lands on a tree, a double tap zooms nothing and a drag may move it; which spot of the map the
       // fingers land on follows how far the glides before them ran, a runner's timing, dev's run 43428024707. The
       // objects' own presses are the mouse's, in their own specs)
+      // (on a phone the toggle is in the Show sheet, #1074 slice 2: opened and closed by its button, as a player does)
+      const showButton = page.locator(".phone-show-button");
+      const onPhone = await showButton.isVisible();
+      if (onPhone) {
+        await showButton.tap();
+        await expect(page.locator(".phone-show")).toBeVisible();
+      }
       await page.getByRole("checkbox", { name: "Hide objects" }).click();
+      if (onPhone) {
+        await showButton.tap();
+        await expect(page.locator(".phone-show")).toBeHidden();
+      }
       await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.objectsHidden)).toBe(true);
       await page.evaluate(() => {
         const r = window.dgm3d!.renderer;
