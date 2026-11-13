@@ -109,7 +109,9 @@ describe("Clear sources and the water (item 15)", () => {
     // D148: seed 10's map now settles on the heightfield's engine; seed 1's has stacked columns and its spot is at
     // (43, 16), level 8; seed 6 for seed 1 since the D518 mends (compact hills, no broad wash flats, dead-stand knots), D148: seed 1's
     // map settles on the heightfield's engine now; of seeds 1–80 with a dry flat spot, seeds 6, 33, 44, 59 and 68 have stacked columns
-    // and seeds 6, 33 and 44 pass (59 and 68 were not tried); seed 6's spot is at (60, 17), level 16)
-    expect(await clearedPit(6)).toBe(true);
+    // and seeds 6, 33 and 44 pass (59 and 68 were not tried); seed 6's spot is at (60, 17), level 16; seed 33 since generator 0.10.21's look round
+    // (D518: the land's long straight steps jog), D148: seed 6's map settles on the heightfield's engine now, and of seeds 6, 33, 44, 59, 68 and 2–5, 7 and 8
+    // only seed 33 holds a pit that drains on stacked columns)
+    expect(await clearedPit(33)).toBe(true);
   }, 120_000);
 });

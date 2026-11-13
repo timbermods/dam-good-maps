@@ -47,6 +47,7 @@ import type { Feature, MapObjectFeature, RiverFeature, StartFeature } from "../f
 import { writeTimber, type TimberFile } from "../format/timber";
 import { drainage } from "../land/drainage";
 import { bedMask, planWashes, startKeepOff, type Wash } from "../land/washes";
+import { WANDER, wanderEdges } from "../land/wander";
 import { EDGE_SHARE, edgeRuleApplies, edgeWalls } from "../analysis/edges";
 import { lakeRise, shallowSheet } from "../land/sheets";
 import { FIRM, mineRoom, minePads, mineSquares, mineWays, roomMap, type MinePad } from "../land/minePads";
@@ -96,7 +97,7 @@ import { planRuinStories } from "./ruinStories";
 import { DROUGHT, REACH_MIN, RESERVE, reservoirNeeded, RUIN_HEIGHT_SHARES } from "./calibrated";
 import { gameSoil } from "../sim/soil";
 import { DAYS_TO_DIE_DRY } from "../sim/withering";
-import { resourceBudget, ruinColumns } from "../resources/baseline";
+import { resourceBudget, ruinColumns, ruinRagged } from "../resources/baseline";
 import { tilesToRuns } from "../math/grid";
 import { obstacleTiles, type ObstaclePlan } from "../features/setpieces/obstaclePayoff";
 import type { SetPieceFeature } from "../features/schema";
@@ -2465,20 +2466,36 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         const ways: number[] = [];
         for (let i = 0; i < N; i++) if (ramps.tiles[i]) ways.push(i);
         for (const p of info.pads ?? []) for (const j of p.cut) off[j] = 1;
+        // (what the land's straight steps may be moved in: the same kept-off ground, but for the start's, which is only its
+        // walk and box of `WANDER.startNear` tiles: a step moved a tile or two further out leaves its bench, walk and moist
+        // ground as they were)
+        const offWander = off.slice();
         const starts = [guess, second, ...prepared].filter((p): p is StartPick => !!p);
+        startKeepOff(h, W, H, starts, ways, offWander, WANDER.startNear, WANDER.startNear);
         startKeepOff(h, W, H, starts, ways, off);
         const surface = new Float64Array(N).fill(NaN);
         for (let i = 0; i < N; i++) {
           const d = Math.max(est[i], shownFill ? shownFill[i] : 0);
           if (d > WET || hy.water[i] === 1 || hy.water[i] === 2) surface[i] = h[i] + d;
         }
+        const wetNow = new Uint8Array(N);
+        for (let i = 0; i < N; i++) wetNow[i] = surface[i] === surface[i] ? 1 : 0;
+        const fromWater = distanceFrom(wetNow, W, H);
+        // (the land's long straight one-level steps jog a tile every few tiles, D518 (the look round): the ones the land
+        // stages left, off the water by three tiles, every place kept off, and the natural ramps)
+        const movable = new Uint8Array(N);
+        const unmove = (t: number, r: number) => {
+          const x = t % W;
+          const y = (t - x) / W;
+          for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H) movable[(y + dy) * W + x + dx] = 0;
+        };
+        for (let i = 0; i < N; i++) movable[i] = !offWander[i] && fromWater[i] > 3 ? 1 : 0;
+        for (const t of ways) unmove(t, 2);
+        wanderEdges(h, W, H, hash32(seed, "wander-late", attempt), movable);
         // (and the level plates a start the settled water gives could take for its bench, D515: a plate as big as the
         // bench asks that reaches near the water; the start is chosen after the settle, the washes before it. A bed
         // may cross one so long as it keeps the bench)
         const plates = levelRegions(h, W, H);
-        const wetNow = new Uint8Array(N);
-        for (let i = 0; i < N; i++) wetNow[i] = surface[i] === surface[i] ? 1 : 0;
-        const fromWater = distanceFrom(wetNow, W, H);
         const benchPlate = new Uint8Array(plates.size.length);
         for (let i = 0; i < N; i++) if (!wetNow[i] && fromWater[i] <= WASH_BENCH_WATER && plates.size[plates.labels[i]] >= benchMin) benchPlate[plates.labels[i]] = 1;
         const benchPlates = new Uint8Array(N);
@@ -2490,6 +2507,18 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           ramps.steps.push(st);
           ramps.tiles[st[0]] = 1;
         }
+        // (and what the beds left straight: their banks' edges jog too, never on the beds, their hollows or fords)
+        // (a main wash's bed may pinch a tile where its bank is held: its floor tiles at the edge may take the bank's level; no other
+        // bed tile moves)
+        const mainBed = new Uint8Array(N);
+        for (const b of washes.beds) if (b.kind === "wash") for (const t of b.tiles) mainBed[t] = 1;
+        for (let i = 0; i < N; i++) if (washes.mask[i] && !mainBed[i]) unmove(i, 0);
+        for (const b of washes.beds) for (const t of b.hollow ?? []) unmove(t, 2);
+        for (const st of washes.steps) {
+          unmove(st[0], 2);
+          unmove(st[1], 2);
+        }
+        wanderEdges(h, W, H, hash32(seed, "wander-banks", attempt), movable);
       }
       hLand.set(h);
       // (no dam wall on the pre-fill's water either, the water the settle starts from: a wall the
@@ -3276,8 +3305,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       const fr = "ruinField/obstacle";
       const fid = featureId(seed, "ruinField", fr);
       const tallness = 0.5;
-      scrapPlaced = ruinColumns(disc, W, stream(seed, fid, "heights"), tallness).scrap;
-      rise.push(piece, { id: fid, kind: "ruinField", origin: "generated", role: fr, locked: false, params: { area: tilesToRuns(disc, W), scrapTarget: scrapPlaced, heightMix: [...RUIN_HEIGHT_SHARES], centerBias: 0, layout: { tallness } } });
+      // (D518, the look round: the columns stand along the rise's edge and in its heart, with gaps, never on the whole
+      // disc: the outermost ring is broken, nearly half of it gone, and a few of the heart's tiles with it)
+      const ruined = ruinRagged(disc, W, hash32(seed, "ruin-rise"));
+      scrapPlaced = ruinColumns(ruined, W, stream(seed, fid, "heights"), tallness).scrap;
+      rise.push(piece, { id: fid, kind: "ruinField", origin: "generated", role: fr, locked: false, params: { area: tilesToRuns(ruined, W), scrapTarget: scrapPlaced, heightMix: [...RUIN_HEIGHT_SHARES], centerBias: 0, layout: { tallness } } });
       for (const i of obstacleTiles({ x, y, radius: radius + 3 }, W, H)) keepOff[i] = 1;
       layout.push(piece);
       risePlan = plan;

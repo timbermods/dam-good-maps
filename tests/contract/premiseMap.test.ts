@@ -51,8 +51,9 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // edges, D518: its plates on a turned scatter and its bench-width steps bent, a new ground; and for D518's mends: its
 // wash's banks in long treads, its dead stands in knots in their woods (a stand its ground holds short of 15 trees none),
 // a third of their trees young, its rolling and rises reweighed and its bend kept off the start, a new ground, D148; and
-// for the dead stands dense in their woods, each knot its own shape: its resources, D148)
-const SHA = "07a2346104c47b10510c4c1f6fe9304d2ef7e512052e314cfb5c15c4d8d98348";
+// for the dead stands dense in their woods, each knot its own shape: its resources, D148; and for generator 0.10.21's
+// look round, D518: its ruin fields along their level's rim, a wash's banks jogging, the dead stands reading the dry land as the checks do, the version in its description, D148)
+const SHA = "71f39a6165bcfbed6548bf9a29daf0591bc93d8a0cc9d2969a2526df42e1e8d7";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now

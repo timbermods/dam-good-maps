@@ -82,8 +82,9 @@ import * as ed from "../../src/worker/session";
  *  moved, D148); `cfdfd381…` before D518's later mends (dead stands kept to two to four woods, a stand its ground holds
  *  short of 15 trees none, the rolling and rises reweighed and a dry wash never leaving a broad flat in parts all smaller:
  *  a new map, D148); `45998c3e…` before the dead stands grew dense in their woods, each knot its own shape (its dead
- *  trees moved, D148). */
-const LIVE_SHA = "32c11abacc7ba0ac48ace6e161e25d77211ebb081b58e4735cdf4b127e431a81";
+ *  trees moved, D148); `32c11aba…` before generator 0.10.21's look round (D518: no one-level step runs straight over 8
+ *  tiles, so its land's edges jog; its ruin fields lie along their level's rim, and the dead stands read the dry land as the checks do: a new map, D148); `46455017…` before the dead stands' dry reading. */
+const LIVE_SHA = "b3d2c3d929754ae953ee92ca9818c808dd22fa80a3e204c94b9da8fe57a699f5";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

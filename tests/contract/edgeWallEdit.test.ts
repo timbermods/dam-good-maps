@@ -31,7 +31,8 @@ describe("an edge wall on an edited map (D323)", () => {
     // levels above the land inside, so a tile of the wall (level 15) beside inside land at level 14 stays, and the last
     // check below wants every outer tile at or under the land inside; seed 3's new map has such rows (5–9 and 46), seeds 1
     // and 6 have none)
-    await runGenerate(makeSpec({ seed: 1, theme: "riverValley", size: { x: W, y: W } }));
+    // (seed 2 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 1's map has an outer row with inside land at level 14 beside the wall; of seeds 1–5 the test passes on 2, 3 and 4, seed 2 the first)
+    await runGenerate(makeSpec({ seed: 2, theme: "riverValley", size: { x: W, y: W } }));
     ed.refine();
     // the generated map has none (D151)
     expect(wallItem((await ed.backgroundCheck())!.check.warnings)).toBeUndefined();

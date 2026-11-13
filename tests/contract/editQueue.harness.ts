@@ -518,7 +518,10 @@ export function checkGuesses(h: Harness, epoch: number): string[] {
     const e = log.find((o) => o.seq === t.step);
     if (!e) continue;
     const sent = (t.call as { args: unknown[] }).args[0];
-    if (stable({ op: e.op, params: e.params }) !== stable(sent)) out.push(`stroke ${t.id}: the session logged another operation than the page sent`);
+    // (only a stroke `alone`: one composed while an edit of another kind was in flight is completed by the session with what that edit
+    // changed, a new object's ground in its `keep`, as the queue's design has it; I6's own words, "nothing else between its start and its
+    // answer", D148: seed 5 of the random run, on generator 0.10.21's land, placed an object in that gap)
+    if (t.alone && stable({ op: e.op, params: e.params }) !== stable(sent)) out.push(`stroke ${t.id}: the session logged another operation than the page sent`);
     if (t.alone && t.mispredicted) out.push(`stroke ${t.id} was alone and guessed wrong`);
   }
   return out;

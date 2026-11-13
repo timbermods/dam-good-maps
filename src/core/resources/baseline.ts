@@ -28,7 +28,7 @@ import { growBlob, pickSeeds, punchHoles } from "../gen/blobs";
 import { density, FOREST, OFFICIAL_LAYOUT as L, RUIN_HEIGHT_SHARES } from "../gen/calibrated";
 import { expDet } from "../math/detmath";
 import { hash32, tileHash01 } from "../math/hash";
-import { distanceFrom } from "../math/grid";
+import { distanceFrom, N4, N8 } from "../math/grid";
 import { reachAt, walkDistance, walkWorld } from "../analysis/walk";
 import { stream, type Rng } from "../math/rng";
 import { resourceBudget, type ResourceBudget, type ResourceSettings } from "./budget";
@@ -398,6 +398,77 @@ export interface RuinFieldOptions {
   scrapOf?: (tiles: number[], tallness: number) => number;
   /** Stop after this many fields. */
   maxFields?: number;
+  /** Fields follow the land (D518, the look round): each lies in a band along its level's rim (a contour, a rise's
+   *  edge or a shore), 2 to 4 tiles wide, ragged, with gaps, never an ellipse's filled blob. */
+  follow?: boolean;
+}
+
+/** The ruin bands' widths, tiles (least, most), and the share of a band's tiles left as gaps (least, most). */
+export const RUIN_BAND = { width: [2, 4] as const, gaps: [0.12, 0.22] as const, reach: 28 } as const;
+
+/** A ruin field's ground broken at its edge (D518, the look round): of the tiles given (a disc on a rise), nearly half of
+ *  the outermost ring is gone, and one in ten of the rest, so the columns stand along the rise's edge and in its heart
+ *  with gaps, never on the whole disc. Deterministic per `seed`. */
+export function ruinRagged(tiles: readonly number[], W: number, seed: number): number[] {
+  const set = new Set(tiles);
+  const out: number[] = [];
+  for (const t of tiles) {
+    let rim = false;
+    for (const [dx, dy] of N4) if (!set.has(t + dx + dy * W)) rim = true;
+    const u = tileHash01(seed, t % W, (t - (t % W)) / W);
+    if (u < (rim ? 0.45 : 0.1)) continue;
+    out.push(t);
+  }
+  return out;
+}
+
+/** Each tile's distance from the rim of its level: 0 on a tile with a neighbour (of eight) at another level or in water,
+ *  then the steps over its own level's tiles, to `max`; `max + 1` beyond. */
+export function rimDistance(g: BaselineGround, max: number): Uint8Array {
+  const { W, H } = g;
+  const N = W * H;
+  const out = new Uint8Array(N).fill(max + 1);
+  const level = g.heights;
+  const wet = (i: number) => g.water[i] > 0;
+  let frontier: number[] = [];
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (wet(i)) continue;
+      let rim = false;
+      for (const [dx, dy] of N8) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        if (wet(j) || level[j] !== level[i]) {
+          rim = true;
+          break;
+        }
+      }
+      if (rim) {
+        out[i] = 0;
+        frontier.push(i);
+      }
+    }
+  for (let d = 1; d <= max; d++) {
+    const next: number[] = [];
+    for (const i of frontier) {
+      const x = i % W;
+      const y = (i - x) / W;
+      for (const [dx, dy] of N8) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        if (out[j] <= max || level[j] !== level[i] || wet(j)) continue;
+        out[j] = d;
+        next.push(j);
+      }
+    }
+    frontier = next;
+  }
+  return out;
 }
 
 /** A field's ground: an ellipse of random aspect (1–2) and direction round its seed, which the blob
@@ -431,6 +502,7 @@ export function planRuinFields(g: BaselineGround, scrap: number, o: RuinFieldOpt
   if (allowedCount < 0.05 * N) for (let i = 0; i < N; i++) ruinFree[i] = freeAt(g, i) && !nearWater[i] && far(i) ? 1 : 0;
   const fields: RuinField[] = [];
   const centres: [number, number][] = [];
+  const rim = o.follow ? rimDistance(g, RUIN_BAND.width[1] + 1) : null;
   let left = scrap;
   for (let tries = 0; left > 0 && tries < 200 && fields.length < (o.maxFields ?? 64); tries++) {
     // (to a thousandth: the feature stores it, and its build draws the same heights)
@@ -441,12 +513,62 @@ export function planRuinFields(g: BaselineGround, scrap: number, o: RuinFieldOpt
     size = Math.min(size, Math.ceil(left / perColumn));
     if (size < 10) break;
     const cands: number[] = [];
-    for (let i = 0; i < N; i++) if (ruinFree[i]) cands.push(i);
+    // (a field that follows the land starts on its level's rim band, a tile or more in from the edge)
+    for (let i = 0; i < N; i++) if (ruinFree[i] && (!rim || (rim[i] >= 1 && rim[i] <= RUIN_BAND.width[1]))) cands.push(i);
     if (!cands.length) break;
     const s = o.rng.pick(cands);
     const sx = s % W;
     const sy = (s - sx) / W;
     if (centres.some(([cx, cy]) => (sx - cx) * (sx - cx) + (sy - cy) * (sy - cy) < spacing * spacing)) continue;
+    if (rim) {
+      // a band along the rim: the tiles of the seed's level within `width` tiles of it, as far round as the field needs
+      const width = RUIN_BAND.width[0] + o.rng.int(0, RUIN_BAND.width[1] - RUIN_BAND.width[0] + 1);
+      const gaps = RUIN_BAND.gaps[0] + (RUIN_BAND.gaps[1] - RUIN_BAND.gaps[0]) * o.rng.float();
+      const want = Math.floor(size / (1 - gaps));
+      const level0 = g.heights[s];
+      const band = new Uint8Array(N);
+      let reach = 6;
+      let have = 0;
+      for (; reach <= RUIN_BAND.reach; reach += 2) {
+        have = 0;
+        band.fill(0);
+        for (let y = Math.max(0, sy - reach); y <= Math.min(H - 1, sy + reach); y++)
+          for (let x = Math.max(0, sx - reach); x <= Math.min(W - 1, sx + reach); x++) {
+            const i = y * W + x;
+            if (ruinFree[i] && g.heights[i] === level0 && rim[i] >= 1 && rim[i] <= width) {
+              band[i] = 1;
+              have++;
+            }
+          }
+        if (have >= 1.6 * want) break;
+      }
+      if (have < 1.15 * want) {
+        ruinFree[s] = 0;
+        continue;
+      }
+      let tiles = growBlob(o.rng, band, W, H, s, want, 1.5);
+      if (tiles.length < Math.max(10, Math.floor(size / 2))) {
+        ruinFree[s] = 0;
+        continue;
+      }
+      tiles = punchHoles(o.rng, tiles, W, gaps);
+      const got = o.scrapOf ? o.scrapOf(tiles, tallness) : Math.round(tiles.length * perColumn);
+      fields.push({ tiles, tallness });
+      left -= got;
+      for (const i of tiles) {
+        const x = i % W;
+        const y = (i - x) / W;
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++) {
+            const xx = x + dx;
+            const yy = y + dy;
+            if (xx >= 0 && xx < W && yy >= 0 && yy < H) ruinFree[yy * W + xx] = 0;
+          }
+        g.taken[i] = 1;
+      }
+      centres.push(centreOf(tiles, W));
+      continue;
+    }
     // an ellipse of the field's ground: its area about the field's columns over the official fill
     const aspect = 1 + o.rng.float();
     const [ax, ay] = AXES[o.rng.int(0, 4)];

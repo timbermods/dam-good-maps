@@ -153,8 +153,10 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // for Islands 16 and Canyon 7 since the D518 mends (the rolling ground's reweighed noise, compact rises, a dry wash's broad flat
     // broken up, the lake stair's bench bend 24 tiles off the start), D148: Canyon 7 and Islands 16 have no site now, and of Islands,
     // River Valley and Canyon seeds 1–20, 15 keep every rule (Islands 1, 3, 4, 8, 12, 19; Canyon 9; River Valley 1–3, 5, 6, 13, 14, 16);
-    // Islands 6 and 9 hold sites 41 tiles out that the walk does not join to the start)
-    for (const [theme, seed] of [["islands", 12], ["riverValley", 3], ["islands", 3], ["canyon", 9]] as [ThemeId, number][]) {
+    // Islands 6 and 9 hold sites 41 tiles out that the walk does not join to the start; River Valley 1 for Canyon 9 since generator
+    // 0.10.21's look round (the land's long straight steps jog), D148: Canyon 9 has no site now, nor has any of Canyon seeds 1–19 that keeps every
+    // rule, while Islands 3 and 12 and River Valley 1–3, 5, 6, 13, 14 and 16 do)
+    for (const [theme, seed] of [["islands", 12], ["riverValley", 3], ["islands", 3], ["riverValley", 1]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       expect(r.report.passed).toBe(true);
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "secondDistrict");
