@@ -27,10 +27,14 @@ test("Generate on an edited map makes a new map that no edit touches, and the ed
   await page.mouse.down();
   await page.mouse.move(b.x, b.y, { steps: 6 });
   await page.mouse.up();
-  // the first edit keeps the map in this browser, and the page says so once, quietly
+  // the first edit keeps the map in this browser, and the page says so once, quietly, as its save is stored: waited on
+  // as that fact (`dgm.kept`), not on time (its quiet save comes 1.5 s after the edit, and the taking and storing
+  // after it took 3.4 to 4.7 s under load, near the note's default wait of 5 s: the spec failed there once)
+  await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
+  const version = await page.evaluate(() => window.dgmEditor!.info().version);
+  await page.waitForFunction((v) => window.dgm!.kept!(v), version, { timeout: 60_000, polling: 100 });
   await expect(page.getByRole("status").filter({ hasText: "Kept in Your maps, in this browser" })).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem("dgm.keptNote"))).toBe("1");
-  await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
   await page.evaluate(() => window.dgmEditor!.idle());
   await page.keyboard.press("Escape");
   const edited = await page.evaluate(() => window.dgmEditor!.info());
