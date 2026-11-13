@@ -3,7 +3,8 @@
 // or half the screen pulled up), Show and the objects as sheets of their own. On its side: the tools in a rail at the
 // left, the sheets in a panel at the right. Nothing here edits the map: the same tools, the same operations (D342).
 
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
+import { measureInsets, roomCentre } from "./insets";
 import type { Ed } from "../ed";
 import { phoneLayoutFor, type PhoneLayout } from "./phoneLayout";
 
@@ -22,6 +23,9 @@ export interface PhoneSlice {
   phoneSelect: boolean;
   setPhoneSelect: (open: boolean) => void;
 }
+
+/** How long the view takes to slide into the room a sheet leaves, ms. */
+const SLIDE_MS = 250;
 
 const roomNow = (): PhoneLayout => (typeof window === "undefined" ? null : phoneLayoutFor(window.innerWidth, window.innerHeight));
 
@@ -50,10 +54,46 @@ export function usePhone(ed: Ed): PhoneSlice {
       setPhoneSelect(false);
     }
   }, [brushTool, tool, block]);
-  // an object picked from its sheet: the sheet goes, so the map is there to place it on
+  // an object picked from its sheet: the sheet closes to one row saying what is in hand, so the map is free to tap
   useEffect(() => {
+    setSheetTall(false);
     if (shelf) setPhoneSheet((s) => (s === "objects" ? null : s));
   }, [shelf]);
+
+  // the map moves with the room (planning, #1074): a sheet or the panel opening or closing slides the view so the ground
+  // that was in the middle of the room left is in the middle of the room now, the zoom and the angle as they were; the
+  // next framing (Reset view) keeps clear of them too. The desktop's view never moves for a panel (D265).
+  const room = useRef<{ x: number; y: number; phone: PhoneLayout } | null>(null);
+  const aim = useRef<{ target: [number, number, number]; until: number } | null>(null);
+  const selected = !!ed.selection.current.count;
+  useEffect(() => {
+    if (!phone) {
+      room.current = null;
+      return;
+    }
+    const id = requestAnimationFrame(() => {
+      const r = ed.renderer.current;
+      const view = r?.canvas.parentElement;
+      if (!r || !view || !ed.ready) return;
+      const ins = measureInsets(view);
+      r.setFrameInsets(ins);
+      const now = { ...roomCentre(r.canvas.getBoundingClientRect(), ins), phone };
+      const was = room.current;
+      room.current = now;
+      // (turned to its other side: a new view, nothing to keep in place)
+      if (!was || was.phone !== phone || Math.hypot(now.x - was.x, now.y - was.y) < 1) return;
+      const v = r.getView();
+      const a = r.pickAtLevel(was.x, was.y, v.target[1]);
+      const b = r.pickAtLevel(now.x, now.y, v.target[1]);
+      if (!a || !b) return;
+      // (a slide still on its way: the next one goes on from where it was going; a pan keeps the ground's offsets)
+      const from = aim.current && performance.now() < aim.current.until ? aim.current.target : v.target;
+      const target: [number, number, number] = [from[0] + a.point[0] - b.point[0], from[1], from[2] + a.point[2] - b.point[2]];
+      aim.current = { target, until: performance.now() + SLIDE_MS };
+      r.glideTo({ ...v, target }, SLIDE_MS);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [phone, phoneSheet, sheetTall, phoneSelect, brushTool, tool, block, shelf, selected, ed.ready]);
 
   return { phone, phoneSheet, setPhoneSheet, sheetTall, setSheetTall, phoneSelect, setPhoneSelect };
 }

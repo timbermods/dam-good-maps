@@ -887,3 +887,147 @@ for (const phone of PHONES) {
     });
   });
 }
+
+// ---- the phone layouts' polish (#1074): Show at most 40 % of the view (upright its height, on its side its width), so
+// the map changes above it as its toggles are tapped; a picked object closes the objects' sheet to one row saying what
+// is in hand; a sheet or the panel opening or closing slides the view so the ground in the middle of the room left
+// stays in its middle, and no sheet lies in that room; a pulled-up sheet ends on a whole setting; the menu ends whole on
+// the screen, with nothing to scroll; and the first steps' hints never cover the map's middle.
+
+/** The room the controls leave (the renderer's insets for its framing) and the ground in its middle. */
+async function roomNow(page: Page) {
+  return page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    const c = r.canvas.getBoundingClientRect();
+    const i = r.frameInsets;
+    const room = { left: c.left + i.left, top: c.top + i.top, right: c.right - i.right, bottom: c.bottom - i.bottom };
+    const x = (room.left + room.right) / 2;
+    const y = (room.top + room.bottom) / 2;
+    const at = r.pickAtLevel(x, y, r.getView().target[1]);
+    return { room, x, y, ground: at ? [at.point[0], at.point[2]] : null };
+  });
+}
+
+/** The boxes of the sheets, the panel and the tool row shown now. */
+async function sheetBoxes(page: Page) {
+  return page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>(".tool-dock > .tool-bar, .tool-dock > .tool-settings, .objects-dock > *, .phone-show")]
+      .filter((e) => !e.closest("[hidden]") && getComputedStyle(e).display !== "none" && e.getBoundingClientRect().height > 0)
+      .map((e) => {
+        const r = e.getBoundingClientRect();
+        return { name: e.className, left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+      }),
+  );
+}
+
+for (const phone of PHONES) {
+  test.describe(`a phone ${phone.name}, polished`, () => {
+    test.use({ viewport: phone.viewport, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+
+    test(`at ${phone.viewport.width}×${phone.viewport.height}: Show at most 40 % of the view, a picked object one row, the map kept in the room left, a pulled-up sheet ending on a whole setting, the menu whole`, async ({ page }) => {
+      test.setTimeout(300_000);
+      await openEditor(page);
+      const upright = phone.viewport.width < phone.viewport.height;
+      const tap = (selector: string) => page.locator(selector).first().tap();
+      let before = await roomNow(page);
+      expect(before.ground, "ground in the room's middle at rest").not.toBeNull();
+      /** After a change, once the view has settled: no sheet lies in the room left, and the ground in the room's middle
+       *  is the ground that was there. */
+      const kept = async (state: string) => {
+        const measure = async () => {
+          const now = await roomNow(page);
+          const inRoom = (await sheetBoxes(page)).filter((b) => b.left < now.room.right - 1 && b.right > now.room.left + 1 && b.top < now.room.bottom - 1 && b.bottom > now.room.top + 1).map((b) => b.name);
+          const moved = now.ground ? Math.hypot(now.ground[0] - before.ground![0], now.ground[1] - before.ground![1]) : Infinity;
+          return { now, inRoom, moved };
+        };
+        await page.waitForTimeout(300);
+        await expect.poll(async () => (await measure()).inRoom, { message: `${state}: sheets in the room left`, timeout: 10_000 }).toEqual([]);
+        await expect.poll(async () => (await measure()).moved, { message: `${state}: the ground in the room's middle stays there (tiles)`, timeout: 10_000 }).toBeLessThan(1.5);
+        before = (await measure()).now;
+      };
+
+      await tap(".tool-bar button[aria-label^='Raise']");
+      await kept("Raise in hand, one row");
+      await tap(".sheet-handle");
+      await kept("the sheet pulled up");
+      // pulled up and too short for every setting, it ends after a whole one
+      const cut = await page.evaluate(() => {
+        const g = document.querySelector<HTMLElement>(".tool-settings.sheet.tall .settings-grid")!;
+        const r = g.getBoundingClientRect();
+        return [...g.children].map((c) => c.getBoundingClientRect()).filter((b) => b.height && b.top < r.bottom - 1 && b.bottom > r.bottom + 1).length;
+      });
+      expect(cut, "settings cut by the pulled-up sheet's end").toBe(0);
+      await tap(".tool-bar button[aria-label^='Raise']");
+      await kept("Raise put down");
+
+      // Show: at most 40 % of the view, the map kept in the room above it (or beside it)
+      await tap(".phone-show-button");
+      await expect(page.locator(".phone-show")).toBeVisible();
+      const share = await page.evaluate(() => {
+        const s = document.querySelector(".phone-show")!.getBoundingClientRect();
+        const v = window.dgm3d!.renderer.canvas.getBoundingClientRect();
+        return { h: s.height / v.height, w: s.width / v.width };
+      });
+      expect(upright ? share.h : share.w, "Show's share of the view").toBeLessThanOrEqual(0.4);
+      await kept("Show open");
+      // its groups under headings, the layers' control named
+      await expect(page.locator(".phone-show .ps-head")).toHaveText(["What to show", "Camera", "Weather", "Forces and sound"]);
+      await expect(page.locator(".phone-show .ps-line", { has: page.locator(".layer-widget") })).toContainText("Layers shown");
+      await tap(".phone-show-button");
+      await kept("Show closed");
+
+      // a picked object: the objects' sheet closes to one row saying what is in hand
+      await tap(".objects-button");
+      await kept("the objects open");
+      await tap(".shelf-item[aria-label='Water source']");
+      await expect(page.locator(".objects-menu")).toBeHidden();
+      await expect(page.locator(".phone-held .held-name")).toHaveText("Water source");
+      const held = await page.evaluate(() => {
+        const s = document.querySelector<HTMLElement>(".tool-settings.sheet")!;
+        return { groups: s.querySelectorAll(".ow-group").length, rowsOfLine: s.querySelector(".held-line")!.getBoundingClientRect().height };
+      });
+      expect(held.groups, "settings shown under what is in hand before the sheet is pulled up").toBe(0);
+      expect(held.rowsOfLine, "what is in hand: one row").toBeLessThanOrEqual(56);
+      expect(await viewShare(page), "an object in hand: the view's share").toBeGreaterThanOrEqual(0.6);
+      await kept("Water source in hand");
+      await tap(".held-close");
+      await expect(page.locator(".phone-held")).toHaveCount(0);
+
+      // the menu: whole on the screen, nothing in it to scroll
+      await tap(".phone-menu-button");
+      const menu = await page.evaluate(() => {
+        const m = document.querySelector<HTMLElement>(".menu.phone-menu")!;
+        const r = m.getBoundingClientRect();
+        return { bottom: r.bottom, right: r.right, scrolls: m.scrollHeight > m.clientHeight + 1 };
+      });
+      if (!upright) {
+        expect(menu.scrolls, "on its side the menu needs no scrolling").toBe(false);
+        expect(menu.bottom, "the menu ends on the screen").toBeLessThanOrEqual(phone.viewport.height);
+      }
+      expect(menu.right, "the menu ends on the screen").toBeLessThanOrEqual(phone.viewport.width);
+    });
+
+    test(`at ${phone.viewport.width}×${phone.viewport.height}: the first steps' hints never cover the map's middle`, async ({ page }) => {
+      test.setTimeout(300_000);
+      await page.goto("./#s=4242&z=96&d=n&t=riverValley");
+      await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 120_000 });
+      await expect(page.locator(".first-run")).toBeVisible();
+      const clear = async (state: string) => {
+        await page.waitForTimeout(400);
+        const { x, y } = await roomNow(page);
+        const card = await page.evaluate(() => {
+          const e = document.querySelector<HTMLElement>(".first-run");
+          if (!e || getComputedStyle(e).display === "none") return null;
+          const r = e.getBoundingClientRect();
+          return r.height ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null;
+        });
+        if (card) expect(x > card.left - 24 && x < card.right + 24 && y > card.top - 24 && y < card.bottom + 24, `${state}: the hints cover the map's middle`).toBe(false);
+      };
+      await clear("at rest");
+      await page.locator(".tool-bar button[aria-label^='Raise']").tap();
+      await clear("Raise in hand");
+      await page.locator(".sheet-handle").tap();
+      await clear("the sheet pulled up");
+    });
+  });
+}
