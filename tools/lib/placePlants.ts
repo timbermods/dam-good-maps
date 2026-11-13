@@ -3,10 +3,12 @@
 // (D385) much of that ground is dry, and `plants.survive` counts the plants there as dying. Objects only, never
 // the land or the water (D245, D331): each living plant on soil that kills it (doc/plantSoil.ts `diesOnSoil`, the
 // check's own rule) moves to the nearest free tile close by where it lives, or goes. The start's wood comes first:
-// logs lost near the start come back as fast trees, pines or birches, on moist ground nearest it (`startWood`):
+// the dying trees nearest the start stay where they stood, as the dead trees they are (`keepNearest`): a tree on soil
+// that kills it is dead in the game, a dead tree keeps its logs (data/logFloor.ts `DEAD_TREES_KEEP_LOGS`; the wood
+// checks count them, the fast share does not) and is no plant on dry soil to `plants.survive`. Where the start is
+// still short, its lost logs come back as fast trees, pines or birches, on moist ground nearest it (`startWood`):
 // `start.wood_fast` (D515) counts the pines' and birches' share of the living trees' logs there, which oaks (the
-// `start.wood` fix's tree) would lower. Where there is too little of that ground, the dying trees nearest the start
-// stay (`keepNearest`), since a dead tree keeps its logs (data/logFloor.ts `DEAD_TREES_KEEP_LOGS`).
+// `start.wood` fix's tree) would lower.
 // tools/real-places.ts builds and checks each step. Pure and deterministic.
 
 import { decodeTiles, type PlaceData } from "../../src/core/places/place";
@@ -38,7 +40,7 @@ function takenTiles(p: PlaceData): Uint8Array {
   const taken = new Uint8Array(p.W * p.H);
   for (const [x, y] of p.sources) taken[y * p.W + x] = 1;
   for (const i of startTiles(p.W, p.start)) if (i >= 0 && i < taken.length) taken[i] = 1;
-  for (const k of ["bushes", "pines", "birches", "oaks", "deadPines", "ruins"] as const) for (const i of decodeTiles(p[k])) taken[i] = 1;
+  for (const k of ["bushes", "pines", "birches", "oaks", "deadPines", "deadBirches", "deadOaks", "ruins"] as const) for (const i of decodeTiles(p[k])) taken[i] = 1;
   return taken;
 }
 
@@ -124,9 +126,11 @@ export function startWood(
   return { place: { ...p, [kind]: encodeTiles([...decodeTiles(p[kind]), ...add]) }, planted: add.length };
 }
 
-/** `p` with the dying trees nearest the start by `walk` (within `within` tiles' walk) back where they stood (off
- *  the tile they moved to, if they moved), until their logs (`logs`, by template) reach `want`; and the moves still
- *  made. Bushes stay off: a dying bush feeds no one, where a dead tree keeps its logs. */
+/** `p` with the dying trees nearest the start by `walk` (within `within` tiles' walk) back where they stood, dead
+ *  and of their own species (off the tile they moved to, if they moved), until their logs (`logs`, by template: what a
+ *  dead tree of it keeps) reach `want`; and the moves still made. Bushes stay off: a dying bush feeds no one, where a
+ *  dead tree keeps its logs. With `dead` off the trees stand living where they stood, still dying (the contract
+ *  test pins a few places so; `PLANTS_HELD` in tools/real-places.ts). */
 export function keepNearest(
   p: PlaceData,
   moves: readonly MovedPlant[],
@@ -134,6 +138,7 @@ export function keepNearest(
   within: number,
   want: number,
   logs: Readonly<Record<string, number>>,
+  dead = true,
 ): { place: PlaceData; kept: number; moves: MovedPlant[] } {
   const template = Object.fromEntries(LIVING) as Record<LivingKind, string>;
   // (a tree that moved no farther from the start by the walk gives the start nothing by coming back)
@@ -146,11 +151,14 @@ export function keepNearest(
     got += logs[template[d.kind]] ?? 0;
   }
   const out = { ...p };
+  const deadKind = { pines: "deadPines", birches: "deadBirches", oaks: "deadOaks" } as const;
   for (const k of ["pines", "birches", "oaks"] as const) {
     const mine = [...back].filter((d) => d.kind === k);
     if (!mine.length) continue;
     const off = new Set(mine.map((d) => d.to));
-    out[k] = encodeTiles([...decodeTiles(p[k]).filter((i) => !off.has(i)), ...mine.map((d) => d.tile)]);
+    const kind = dead ? deadKind[k] : k;
+    out[k] = encodeTiles(decodeTiles(p[k]).filter((i) => !off.has(i)));
+    out[kind] = encodeTiles([...decodeTiles(out[kind]), ...mine.map((d) => d.tile)]);
   }
   return { place: out, kept: back.size, moves: moves.filter((d) => !back.has(d)) };
 }

@@ -48,7 +48,7 @@ import {
 } from "../src/core/places/place";
 import { encodeHeights, encodeTiles } from "./lib/placeData";
 import { keepNearest, settlePlants, startWood, startWoodSpecies } from "./lib/placePlants";
-import { LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../src/core/data/logFloor";
+import { DEAD_TREES_KEEP_LOGS, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../src/core/data/logFloor";
 import { startWalkField } from "../src/core/resources/baseline";
 import { writeTimber } from "../src/core/format/timber";
 import { namedFile } from "../src/core/gen/pack";
@@ -91,6 +91,15 @@ const PLANT_REACH = 4;
 /** The walk from the start the trees that give back the start's lost logs stand within (the `start.wood` fix's:
  *  2 inside the 20 tiles the check counts). Their logs per tree are the species' own (`LOGS_PER_TREE_SPECIES`). */
 const WOOD_WALK = 18;
+/** How many logs under `start.wood`'s limit a place's start may be and still be topped up to it (a twentieth of Normal's 200). */
+const WOOD_NEAR_MISS = 10;
+/** Places that keep their trees on dry soil as they were (planted first, the rest kept living and dying where they
+ *  stood): the contract test pins their fault (`PLACES_PLANTS_ON_DRY_SOIL`, tests/contract/placesCommon.ts), and a
+ *  list may shrink only by a ruling. Every other place leaves the dying trees it needs dead where they stood. */
+const PLANTS_HELD = new Set([
+  "near-bungle-bungle", "near-chocolate-hills", "near-dinaric-karst-plitvice", "near-lake-toba",
+  "near-mount-taranaki", "near-phong-nha", "near-rhine-and-moselle", "near-tsingy-bemaraha",
+]);
 
 /** Each family's name on the page and how it plays: the survey's "play value" for the family
  *  (investigation/landscapes/FAMILIES.md), in plain words. A family label names the region the
@@ -252,6 +261,8 @@ function toPlace(item: LibraryItem, fx: Fixture): PlaceData {
     birches: encodeTiles(kinds.birches),
     oaks: encodeTiles(kinds.oaks),
     deadPines: encodeTiles(kinds.deadPines),
+    deadBirches: encodeTiles([]),
+    deadOaks: encodeTiles([]),
     ruins: encodeTiles(kinds.ruins),
   };
   // the builders write exactly the survey's objects (ids aside)
@@ -286,7 +297,7 @@ function cardJpeg(heights: Uint8Array, W: number, H: number, water: ArrayLike<nu
 function withStart(place: PlaceData, at: [number, number]): PlaceData {
   const under = new Set(startTiles(place.W, at));
   const off = (gaps: number[]) => encodeTiles(decodeTiles(gaps).filter((i) => !under.has(i)));
-  return { ...place, start: at, bushes: off(place.bushes), pines: off(place.pines), birches: off(place.birches), oaks: off(place.oaks), deadPines: off(place.deadPines), ruins: off(place.ruins) };
+  return { ...place, start: at, bushes: off(place.bushes), pines: off(place.pines), birches: off(place.birches), oaks: off(place.oaks), deadPines: off(place.deadPines), deadBirches: off(place.deadBirches), deadOaks: off(place.deadOaks), ruins: off(place.ruins) };
 }
 
 const counts = (c: CheckResult) => !c.ok && !c.advisory && c.applicable !== false && !c.approximate;
@@ -422,22 +433,25 @@ for (const item of items) {
   // sealed pools kept moist, which the open edges drained) move to the nearest free tile close by
   // where they live, by `plants.survive`'s own rule, or go (tools/lib/placePlants.ts; objects only,
   // the land and water stay). The start's needs come first: its berries never fall, and the logs it
-  // loses (the wood checks count a dying tree's logs: a dead tree keeps them) come back as pines (birches
-  // where the place leans to them) on the moist ground nearest it, the fast species `start.wood_fast` (D515)
-  // counts, so an oak never lowers its share; where there is too little of that ground, the dying trees
-  // nearest the start stay, and the log says so.
+  // loses (the wood checks count a dying tree's logs: a dead tree keeps them) are kept by the dying trees nearest
+  // it, which stay where they stood as the dead trees they are in the game (DEAD_TREES_KEEP_LOGS); where that is
+  // short, the wood moves, not the rule: pines (birches where the place leans to them) on the moist ground nearest
+  // it, the fast species `start.wood_fast` (D515) counts, so an oak never lowers its share. The log says so.
   const survive = strict.report.checks.find((c) => c.id === "plants.survive");
   let plants = "";
   if (survive && counts(survive) && strict.analysis) {
+    // (a start a few logs under the limit is the conversion's rounding, not a land without wood: its wood is topped up)
+    const topUp = (have: number, want: number) => (have < want && want - have <= WOOD_NEAR_MISS ? want : Math.min(have, want));
     const value = (s: typeof strict, id: string) => Number(s.report.checks.find((c) => c.id === id)?.value ?? 0);
     const limit = (id: string) => Number(strict.report.checks.find((c) => c.id === id)?.limit ?? 0);
-    const bar = { wood: Math.min(value(strict, "start.wood"), limit("start.wood")), floor: Math.min(value(strict, "start.wood_floor"), limit("start.wood_floor")), food: value(strict, "start.food") };
+    const bar = { wood: topUp(value(strict, "start.wood"), limit("start.wood")), floor: Math.min(value(strict, "start.wood_floor"), limit("start.wood_floor")), food: value(strict, "start.food") };
     const short = (s: typeof strict) => Math.max(bar.wood - value(s, "start.wood"), bar.floor - value(s, "start.wood_floor"));
     const g = { moisture: strict.analysis.moisture, contamination: strict.analysis.soilContamination, depth: built.settle.depth };
     const near = strict.analysis.startDistance;
     const settled = settlePlants(place, g, near, PLANT_REACH);
     let next = settled.place;
     let r = buildChecked(next);
+    const held = PLANTS_HELD.has(place.id);
     let woods = 0;
     let woodKind = "pines";
     let kept = 0;
@@ -448,8 +462,23 @@ for (const item of items) {
     if (short(r.strict) > 0 || fastLow(r)) {
       const walk = startWalkField(built.heights, place.W, place.H, placeEntities(next, built.heights), { x: place.start[0] + 1, y: place.start[1] + 1 });
       // (the walk here is the tool's estimate of the check's: each step is built and checked again)
-      // (the replanted wood is pines, or birches where the place leans to them: `start.wood_fast`, which a place
-      // that met it must go on meeting, counts only those; where it is short, a batch sized by its share is added)
+      // the trees that stood on soil that kills them stay dead where they stood, the nearest the start first, as far as
+      // their logs are wanted (the game gives a dead tree's logs: DEAD_TREES_KEEP_LOGS; none to the fast share)
+      const deadLogs = Object.fromEntries(Object.entries(LOGS_PER_TREE_SPECIES).map(([t, n]) => [t, DEAD_TREES_KEEP_LOGS[t] ? n : 0]));
+      const keepDead = () => {
+        for (let round = 0; round < 6 && short(r.strict) > 0; round++) {
+          const k = keepNearest(next, moves, walk, LOG_FLOOR_WALK, short(r.strict), deadLogs, !held);
+          if (!k.kept) break;
+          next = k.place;
+          moves = k.moves;
+          kept += k.kept;
+          r = buildChecked(next);
+        }
+      };
+      if (!held) keepDead();
+      // still short: the wood moves, not the rule. Its lost logs are planted on the moist ground nearest the start as
+      // pines, or birches where the place leans to them: `start.wood_fast`, which a place that met it must go on
+      // meeting, counts only those; where it is short, a batch sized by its share is added
       const fast = startWoodSpecies(next);
       woodKind = fast === "Birch" ? "birches" : "pines";
       const fastLogs = LOGS_PER_TREE_SPECIES[fast];
@@ -463,14 +492,7 @@ for (const item of items) {
         woods += o.planted;
         r = buildChecked(next);
       }
-      for (let round = 0; round < 6 && short(r.strict) > 0; round++) {
-        const k = keepNearest(next, moves, walk, LOG_FLOOR_WALK, short(r.strict), LOGS_PER_TREE_SPECIES);
-        if (!k.kept) break;
-        next = k.place;
-        moves = k.moves;
-        kept += k.kept;
-        r = buildChecked(next);
-      }
+      keepDead();
     }
     if (!r.built.settle.depth.every((d, i) => d === built.settle.depth[i])) throw new Error(`${place.name}: moving plants changed the water`);
     const left = r.strict.report.checks.find((c) => c.id === "plants.survive");
@@ -478,7 +500,7 @@ for (const item of items) {
     plants = meets
       ? `  plants on dry soil ${survive.value} → ${left && counts(left) ? left.value : 0}: ${moved(true)} moved, ${moved(false)} gone` +
         (woods ? `, ${woods} ${woodKind} planted by the start` : "") +
-        (kept ? `, ${kept} dying trees kept for the start's wood` : "")
+        (kept ? `, ${kept} dying trees ${held ? "kept living" : "left dead"} for the start's wood` : "")
       : `  plants on dry soil kept (${survive.value}): moving them costs the start (` +
         [
           ...r.strictFails.filter((id) => !strictFails.includes(id)),
