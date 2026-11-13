@@ -151,6 +151,10 @@ export function Together(p: { controller: TogetherController; state: TogetherSta
       </button>
       {open ? (
         <div class="together-panel" role="dialog" aria-label="Together">
+          {/* (a phone's panel has no outside to tap: it closes here, #1074; the desktop's closes as a menu does) */}
+          <button type="button" class="ghost together-close phone-only" aria-label="Close Together" {...tip("Close Together", "Esc")} onClick={() => setOpen(false)}>
+            ×
+          </button>
           {s.phase === "alone" ? (
             <>
               <label class="together-field">

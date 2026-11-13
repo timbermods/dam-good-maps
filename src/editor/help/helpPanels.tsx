@@ -124,6 +124,9 @@ function Help(p: { onClose(): void }) {
             Press <strong>Save to Timberborn</strong>. The first time, pick <code>Documents\Timberborn\Maps</code>. In a browser that can't save to a folder, <strong>Download .timber</strong> instead and move the file there.
           </li>
           <li>
+            On a phone, <strong>Save</strong> opens the share sheet. Send the file to the computer that plays, then move it there.
+          </li>
+          <li>
             In Timberborn, choose <strong>New game</strong> and pick the map. <a href={INSTALL_URL} target="_blank" rel="noopener" {...tip("Install help on GitHub")}>More about installing a map</a>.
           </li>
         </ol>
