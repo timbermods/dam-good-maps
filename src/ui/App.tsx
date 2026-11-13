@@ -371,6 +371,8 @@ export function App() {
   const saver = useMemo(
     () =>
       new YourMapsSaver(yourMaps, {
+        // (the end-to-end build lets a test hold the quiet save after an edit: generateReload.spec.ts)
+        ...(import.meta.env.MODE === "e2e" ? { setTimer: (fn: () => void, ms: number) => ((window as unknown as { __dgmHoldAutosave?: boolean }).__dgmHoldAutosave ? null : setTimeout(fn, ms)) } : {}),
         onResult: (r, id) => {
           // (the open map's entry takes its new storage token: its next save is over this one, investigation/saving-review)
           if (r.ok && r.storageVersion && entry.current?.id === id) entry.current = { ...entry.current, storageVersion: r.storageVersion };
