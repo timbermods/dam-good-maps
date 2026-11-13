@@ -130,6 +130,7 @@ function Help(p: { onClose(): void }) {
         <h3>Controls</h3>
         <ul>
           <li>Middle-drag turns the view, right-drag moves it, scroll zooms toward the pointer.</li>
+          <li>On a touch screen, two fingers move, zoom, turn and tilt the view, and one finger moves it with nothing in hand. A two-finger tap undoes, a three-finger tap redoes.</li>
           <li>Drag on the map to paint with the tool in hand.</li>
           <li>
             Select an area first, and the brushes and forces stay inside it. A brush in hand can mark one too.

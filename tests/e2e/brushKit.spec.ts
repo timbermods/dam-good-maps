@@ -73,8 +73,14 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   // Select tool, and a mine site standing unturned; seed 24, used since M9a's first maps, had room for
   // only two, and 0.7.0's 4242 for none. Seed 34 on M9b's maps: its two flat pits once filled with
   // water from nowhere a few seconds after the stroke, D385, fixed by #177; the seed that caught it
-  // stays)
-  await openEditor(page, "s=34&z=96&d=n&t=riverValley");
+  // stays. Seed 21 since generator 0.10.20's contour edges and its mends (D518), D148: seed 34 has no
+  // such ground 4 wide with no water within 10 now; seed 44 has four stretches, but the lines stroke's
+  // stretch is beside its mine site (75, 19), which the stroke takes down a level before the Flatten
+  // that crosses it, so that Flatten's rim no longer finds the footprint level, and its `keep` is empty;
+  // seed 21's mine site, at (52, 41), is 26 tiles from all four stretches. Seed 60 since D518's later mends (the rolling
+  // and rises reweighed), D148: seed 21's third stretch, 4 wide with no water within 10, now lies only at the map's east
+  // edge, out of the view; seed 60's four lie in the map's north half, its mine site at (71, 88) 70 tiles from them)
+  await openEditor(page, "s=60&z=96&d=n&t=riverValley");
   await topDown(page);
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;

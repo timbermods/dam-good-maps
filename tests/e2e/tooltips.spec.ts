@@ -84,14 +84,15 @@ async function wordy(page: Page): Promise<string[]> {
 
 async function open(page: Page) {
   await page.setViewportSize({ width: 1400, height: 1000 });
-  // (seed 2 since generator 0.10.16's ground with grade, D148: seed 6's land now rolls and has no open, level, dry spot;
+  // (seed 1 since D518's contour edges, D148: seed 2's land has no open, level, dry spot now, seed 1's has two;
+  // seed 2 since generator 0.10.16's ground with grade, D148: seed 6's land now rolls and has no open, level, dry spot;
   // seed 6 for 0.8.3's maps, D148: seed 8 has one open, level, dry spot since badwater joins the main
   // water, D476; seed 8 for #265's maps, D148: seed 6 has one open, level, dry spot since the start's badwater
   // distance became a rule and River Valley's main river stays clean; seed 6 for 0.8.1's maps, D148: seed 4's land has no open, level, dry spot since the badwater
   // ditches follow the land; seed 4 since D385, D148: seed 9's land changed when its water from nowhere
   // went; its one flat spot is a plateau by the map's edge, where the placed source's water runs over the
   // uneven ground the mine site needs levelled, and "the water is in the way")
-  await openEditor(page, "s=2&z=96&d=n&t=riverValley");
+  await openEditor(page, "s=1&z=96&d=n&t=riverValley");
   await topDown(page);
   await page.waitForTimeout(500);
 }

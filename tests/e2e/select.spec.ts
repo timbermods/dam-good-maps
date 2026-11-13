@@ -76,8 +76,11 @@ async function deleteFrom(page: Page, row: Locator, name: RegExp, optional = fal
 test("Select: its button and shapes; a circle set to a level changes exactly its tiles, one step; Ctrl+click takes a level; the working area keeps a stroke inside, with the row a chip", async ({ page }) => {
   // (seed 4244 since 0.8.8's maps, the Canyon and Highlands height round, D148: on 4242 the first dry land is a
   // slope at levels 6 to 9 whose stroke starts seven tiles west on level 4, so Raise's target, a level above
-  // where a stroke starts (D322), is 5 and rightly lifts nothing in the circle)
-  await openTopDown(page, "s=4244&z=96&d=n&t=highlands");
+  // where a stroke starts (D322), is 5 and rightly lifts nothing in the circle. Seed 4249 since generator 0.10.20's
+  // contour edges and its mends (D518), D148: the first dry land on 4244 is a slope again, with 16 of the circle's 49
+  // tiles more than a level over where the stroke starts; 4249's is level, the whole circle at the stroke's level
+  // or under it)
+  await openTopDown(page, "s=4249&z=96&d=n&t=highlands");
   const bar = page.getByRole("toolbar", { name: "Tools" });
   await expect(bar.getByRole("button", { name: "Select (1)" })).toHaveAttribute("aria-pressed", "true");
   const row = page.getByRole("group", { name: "Selection" });

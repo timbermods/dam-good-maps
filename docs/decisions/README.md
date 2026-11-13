@@ -1,7 +1,7 @@
 # Editor decisions
 
 These are the decisions in force, by topic, one file per topic. Every decision as recorded, with its reasons, date and amendments, is in [docs/archive/decisions.md](../archive/decisions.md); a number missing here is superseded or completed there.
-A decision gets a number only when it is a rule that constrains future work (D470); model choices, which session does what and Kyler's verdict on one round go in STATUS or the Progress log, unnumbered. New decisions are written once, into their topic file, with the next free number (D518; only the milestone session hands out numbers) and a line added to this index; they move to the archive when superseded or completed.
+A decision gets a number only when it is a rule that constrains future work (D470); model choices, which session does what and Kyler's verdict on one round go in STATUS or the Progress log, unnumbered. New decisions are written once, into their topic file, with the next free number (D520; only the milestone session hands out numbers) and a line added to this index; they move to the archive when superseded or completed.
 
 Read this index, then [how-we-work.md](how-we-work.md), then only the topic files your task touches.
 
@@ -90,8 +90,9 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 ## [The generator](generator.md)
 
 - D519: A premise map's moist floor falls as the map grows: 30 % at 128², 25 % at 192², 20 % at 256²
+- D518: Contour edges and Canyon's side canyons: the levels' edges on warped contours, no one-level step straight over 8 tiles, ruin fields along the land, rises in nested rings, the premise plates turned and bent; Canyon's side canyons cut 3 levels by the wash pass
 - D517: Dry washes and an old bed: one or two long winding dry channels a map where rain would run, with branches and fords, ending at water, in a dry hollow, or behind a lake's lip; none in the start's ground, no reach lost
-- D516: Dead stands on the dry land: about 40 per 1,000 dry tiles in a few old woods where forest was, pine and birch by the site, none in the start's walk
+- D516: Dead stands on the dry land: a floor of 28 per 1,000 dry tiles (the aim about 40) in a few old woods where forest was, pine and birch by the site, none in the start's walk
 - D515: The start's floors are the map's, in one gate: a bench, walkable land, fast wood and a forester's plot
 - D513: A premise map: no wading, squares only, one Probe run on clearing a Blockage before the ladder
 - D511: Easy start is not offered with the lake stair until a variant keeps its promise

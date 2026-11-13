@@ -82,12 +82,24 @@ describe("the drought line (D133, D269)", () => {
   // lake keeps 148 tiles of shore), seed 15 keeps 24 tiles of water on the last day and seed 6's river dries out entirely;
   // Lake Basin 14 for 1 and River Valley 3 for 4 since generator 0.10.16's ground with grade, D148: no pool of Lake Basin
   // seeds 1–13 dries out now (seed 14's do, 55 bed tiles gone, and its lake keeps 201 tiles of shore), and River Valley 4's
-  // river dries out entirely, as 2, 6 and 10 do; seed 3's line keeps 23 tiles of shore while the start's 341 tiles of water dry out)
+  // river dries out entirely, as 2, 6 and 10 do; seed 3's line keeps 23 tiles of shore while the start's 341 tiles of water dry out;
+  // Lake Basin 3 for 14 and River Valley 2 for 6 since generator 0.10.20's contour edges, D518, D148: no pool of Lake Basin 14
+  // dries out now (a lake keeps 161 tiles of shore, no bed tile gone); of Lake Basin seeds 1–30 the pools dry out in 3, 5, 6, 9,
+  // 15, 18, 20, 25, 27 and 29, and seed 3 is the first (its lake keeps 193 tiles of shore); River Valley 6's river keeps 27 tiles
+  // of water on the last day now; of River Valley seeds 1–30 the river dries out entirely in 2, 3, 5, 12, 15, 16, 17, 20, 21, 24
+  // and 27, and seed 2 is the first; River Valley 3 stays in the list, dry as well now;
+  // Lake Basin 1 for 3 and River Valley 7 for 2 since the D518 mends (compact hills, no broad wash flats, dead-stand
+  // knots), D148: no pool of Lake Basin 3 dries out now (a lake keeps 199 tiles of shore, no bed tile gone); of Lake Basin
+  // seeds 1–30 the pools dry out in 1, 7, 8, 9, 11, 12, 20, 21 and 26–29, and seed 1 is the first (its lake keeps 189 tiles of
+  // shore); River Valley 2's river keeps 23 tiles of water on the last day now; of River Valley seeds 1–30 the river dries out
+  // entirely in 3, 7, 16, 17 and 20, and seed 7 is the first after seed 3, which stays in the list;
+  // Lake Basin 3 for 1 since generator 0.10.21's look round (D518: the land's long straight steps jog), D148: no pool of Lake Basin 1
+  // dries out now; of Lake Basin seeds 1–15 the pools dry out in 3, 7 and 8, and seed 3 is the first)
   for (const [theme, seed] of [
-    ["lakeBasin", 14],
+    ["lakeBasin", 3],
     ["riverValley", 3],
     ["delta", 1],
-    ["riverValley", 6],
+    ["riverValley", 7],
   ] as const)
     it(`matches the Drought view's last day tile for tile (${theme} ${seed})`, async () => {
       const { day0, last, news, seen } = await drought(seed, theme);
@@ -133,7 +145,7 @@ describe("the drought line (D133, D269)", () => {
           "a pool dries out",
         ).toBe(true);
       }
-      if (theme === "riverValley" && seed === 6) expect(L.line.count, "the river dries out").toBe(0);
+      if (theme === "riverValley" && seed === 7) expect(L.line.count, "the river dries out").toBe(0);
     });
 
   it("marks the start's water: the bodies the start's pumps draw from, and their water on the last day", async () => {
@@ -228,8 +240,9 @@ describe("the drought line (D133, D269)", () => {
 
   it("is only ever the map's line as it is: none yet when a map opens, none after an edit or once it closes", async () => {
     // (River Valley 3 for 4 since generator 0.10.16's ground with grade, D148: seed 4's river dries out entirely, so its
-    // line is empty; seed 3's keeps water)
-    await runGenerate(makeSpec({ seed: 3, theme: "riverValley", size: { x: W, y: W } }));
+    // line is empty; seed 3's keeps water; seed 1 since generator 0.10.20's contour edges, D518, D148: seed 3's river dries out
+    // entirely now, its line empty; of seeds 1–30 seed 1 is the first whose line keeps water, 57 tiles of it)
+    await runGenerate(makeSpec({ seed: 1, theme: "riverValley", size: { x: W, y: W } }));
     ed.setAutoWater(false);
     const got: ed.DroughtLineNews[] = [];
     ed.watchDroughtLine((n) => got.push(n));

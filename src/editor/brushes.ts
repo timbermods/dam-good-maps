@@ -40,7 +40,7 @@
 import type { GhostTile, MapRenderer, PointerTool } from "../render3d";
 import type { TileHit } from "../render3d/pick";
 import type { RidgeSteep } from "../core/doc/ridgeLimits";
-import { areaRect, BRUSH_MAX_LEVEL, brushHard, type BrushParams, type BrushTool } from "../core/features/raster/brush";
+import { areaRect, BRUSH_MAX_LEVEL, brushHard, strokeRigid, type BrushParams, type BrushTool } from "../core/features/raster/brush";
 import { StrokePreview, type TerrainState } from "../core/features/raster/strokePreview";
 import { answerBound, WEATHER_SILENT } from "../core/features/raster/remoteStroke";
 import { StrokeFeed, type EditQueue, type FeedLanding, type Overlay, type Rigid, type StrokeWorker } from "../core/doc/editQueue";
@@ -1085,13 +1085,8 @@ export class BrushPainter {
     const h = this.host;
     const b = st.preview?.bounds;
     if (!b || !h.rides) return [];
-    const now = h.heights();
     const was = st.preview!.start;
-    const rigid = h.rides(was).filter(([x0, y0, x1, y1]) => {
-      if (x1 < b.x0 - 1 || x0 > b.x1 + 1 || y1 < b.y0 - 1 || y0 > b.y1 + 1) return false;
-      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (now[y * h.W + x] !== was[y * h.W + x]) return true;
-      return false;
-    });
+    const rigid = strokeRigid(h.rides(was), b, was, h.heights(), h.W);
     if (rigid.length) st.settings.rigid = rigid;
     return rigid;
   }

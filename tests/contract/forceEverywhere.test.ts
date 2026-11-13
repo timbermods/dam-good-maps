@@ -13,8 +13,10 @@ describe("every force has a visible effect wherever it is used (D356)", () => {
     // D148: seed 6's map changed, so the sample's draws moved with it, and its edge place became (95, 10), where a Lift at
     // Power 10 raises 4 tiles; dev's map gives the same 4 there, as at 4 more of 56 edge places and headings on it (a
     // fault half off the map, lifting its outer side): the edge's low-Power Lift, not the new map; of seeds 7–9, 7 and 9
-    // sample no such place, and seed 8's edge Lift raises 8)
-    const o = await sweep("highlands", 96, 7, 2, undefined, [10, 90]);
+    // sample no such place, and seed 8's edge Lift raises 8; seed 9 since generator 0.10.20's mends (wash treads and dead-stand knots, D518), D148: seed 7's map
+    // changed, and its edge place became (0, 75), where a Lift at Power 10 raises 8 tiles, the same edge low-Power Lift as above, not a
+    // force gone wrong; of seeds 5, 6 and 8–14 none has an unexpected use at Powers 10 and 90)
+    const o = await sweep("highlands", 96, 9, 2, undefined, [10, 90]);
     expect(o.length).toBeGreaterThanOrEqual(6 * 2 * 7);
     expect(unexpected(o).map(line)).toEqual([]);
   }, 300_000);

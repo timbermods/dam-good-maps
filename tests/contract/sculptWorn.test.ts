@@ -8,7 +8,10 @@ import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
 
 const W = 64;
-const r = generate(makeSpec({ seed: 4, theme: "lakeBasin", size: { x: W, y: W } }));
+// seed 1 for 4 since generator 0.10.20's contour edges, D518, D148: seed 4's Lake Basin has no level spot now (no 3×3 of
+// dry ground at one level with room to rise six); of seeds 1–30, seeds 1, 2, 7, 8, 9, 11, 14 and others have one, and
+// seed 1 is the first.
+const r = generate(makeSpec({ seed: 1, theme: "lakeBasin", size: { x: W, y: W } }));
 
 /** A dry tile on level ground, low enough to rise six: the 3Ã—3 round it and the tiles either side of the row at its
  *  level and dry, and nothing standing on the row of three the test shapes. */

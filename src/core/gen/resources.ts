@@ -208,6 +208,8 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   syncTaken();
   const ruinPlan = planRuinFields(ground, Math.max(0, budget.scrap - (constraints?.scrapPlaced ?? 0) - easyScrap), {
     rng: ruinRng,
+    // (D518, the look round: a field lies along its level's rim, never in a filled blob)
+    follow: true,
     startDist: g.start ? startDist : null,
     minStart: near.ruinsClear,
     spacing: RUINS.minFieldSpacing,
@@ -710,7 +712,9 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       H,
       heights: g.heights,
       wet,
-      moist,
+      // (the dry land is the checks' and the tests' own reading, no water and no moisture, contaminated or not: the bare
+      // land's share, D516, then holds on the map as built)
+      moist: Uint8Array.from(g.moisture, (m, i) => (m > 0 && !wet[i] ? 1 : 0)),
       free: open,
       channel: g.channel,
       ...(constraints?.beds ? { beds: constraints.beds } : {}),
@@ -722,11 +726,20 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       rng: stream(seed, "dead-stands", candidate, attempt),
     });
     for (const st of stands) {
-      const role = anchorRole(`forest/dead/${st.place}${st.giants ? "/giants" : ""}`, st.tiles);
-      const id = featureId(seed, "forest", role);
-      out.push({ id, kind: "forest", origin: "generated", role, locked: false, params: { area: tilesToRuns(st.tiles, W), density: 1, speciesMix: { [st.species]: 1 }, groveSize: st.tiles.length, life: "dead", youngShare: 0 } });
-      planted.push({ id, tiles: st.tiles, species: st.species, living: false });
-      treeCount += st.tiles.length;
+      if (st.tiles.length) {
+        const role = anchorRole(`forest/dead/${st.place}${st.giants ? "/giants" : ""}`, st.tiles);
+        const id = featureId(seed, "forest", role);
+        out.push({ id, kind: "forest", origin: "generated", role, locked: false, params: { area: tilesToRuns(st.tiles, W), density: 1, speciesMix: { [st.species]: 1 }, groveSize: st.tiles.length, life: "dead", youngShare: 0 } });
+        planted.push({ id, tiles: st.tiles, species: st.species, living: false });
+      }
+      // (its trees that died young: shorter, stored with their growth, keeping no logs, so no wood counts them)
+      if (st.young.length) {
+        // (anchored where its stand's grown trees are, so the two read as one stand)
+        const role = anchorRole(`forest/dead/${st.place}/young`, st.tiles.length ? st.tiles : st.young);
+        const id = featureId(seed, "forest", role);
+        out.push({ id, kind: "forest", origin: "generated", role, locked: false, params: { area: tilesToRuns(st.young, W), density: 1, speciesMix: { [st.species]: 1 }, groveSize: st.young.length, life: "dead", youngShare: 1 } });
+      }
+      treeCount += st.tiles.length + st.young.length;
       for (const i of st.area) {
         free[i] = 0;
         const x = i % W;

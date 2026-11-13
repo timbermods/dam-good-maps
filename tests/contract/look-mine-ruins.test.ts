@@ -76,8 +76,15 @@ import * as ed from "../../src/worker/session";
  *  new map, D148); `662d8789…` before generator 0.10.18's dead stands on the dry land (D516: the same land, water and
  *  start, dead stands among its resources, D148); `3661b9d3…` before generator 0.10.19's dry washes (D517: two washes
  *  cut into its land, a new map, D148); `277fb85d…` before the washes ran long with fords (D517: its dry land
- *  gives no line long enough, so its land is uncut again; a new map's version, D148). */
-const LIVE_SHA = "46c38b8eb106102ccc998fc7a4205c2e72cfcad2872938f70951265658980895";
+ *  gives no line long enough, so its land is uncut again; a new map's version, D148); `46c38b8e…` before generator
+ *  0.10.20's contour edges (D518: the levels' edges on warped contours, a new map, D148); `cfe7ab14…` before D518's
+ *  mends (wash banks in long treads, dead stands in knots with a third of their trees young: its washes and dead trees
+ *  moved, D148); `cfdfd381…` before D518's later mends (dead stands kept to two to four woods, a stand its ground holds
+ *  short of 15 trees none, the rolling and rises reweighed and a dry wash never leaving a broad flat in parts all smaller:
+ *  a new map, D148); `45998c3e…` before the dead stands grew dense in their woods, each knot its own shape (its dead
+ *  trees moved, D148); `32c11aba…` before generator 0.10.21's look round (D518: no one-level step runs straight over 8
+ *  tiles, so its land's edges jog; its ruin fields lie along their level's rim, and the dead stands read the dry land as the checks do: a new map, D148); `46455017…` before the dead stands' dry reading. */
+const LIVE_SHA = "b3d2c3d929754ae953ee92ca9818c808dd22fa80a3e204c94b9da8fe57a699f5";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

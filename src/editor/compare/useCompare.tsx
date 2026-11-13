@@ -3,7 +3,7 @@
 // stand where the open map's are; let go and the open map is back. The other map is read once, settled (the page
 // opens it in a worker of its own); nothing here changes either map.
 
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { ComponentChildren } from "preact";
 import { tip } from "../../ui/Tooltip";
 import type { Ed } from "../ed";
@@ -30,7 +30,9 @@ export function useCompare(ed: Ed, props: EditorProps): CompareSlice {
   const [flipped, setFlipped] = useState(false);
   const show = useRef<(on: boolean) => void>(() => undefined);
 
-  useEffect(() => {
+  // (a layout effect: the key is listened for in the same commit that shows the note. Preact runs a plain effect after
+  // the next frame, and a B pressed in that frame went to the no-version hint: #1066's run 43361146176)
+  useLayoutEffect(() => {
     if (!compare) {
       show.current = () => undefined;
       flipEnd.current = null;
