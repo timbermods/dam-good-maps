@@ -712,7 +712,9 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       H,
       heights: g.heights,
       wet,
-      moist,
+      // (the dry land is the checks' and the tests' own reading, no water and no moisture, contaminated or not: the bare
+      // land's share, D516, then holds on the map as built)
+      moist: Uint8Array.from(g.moisture, (m, i) => (m > 0 && !wet[i] ? 1 : 0)),
       free: open,
       channel: g.channel,
       ...(constraints?.beds ? { beds: constraints.beds } : {}),

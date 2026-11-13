@@ -207,6 +207,33 @@ describe("the resource baseline (Kyler, 2026-09-25)", () => {
       }
   });
 
+  it("the dead stands' cover limit holds by construction on the maps that came nearest it: at most 24.5 % of the dry land within 6 tiles of a dead tree (D516, D518)", () => {
+    // (the placer reads the dry land as the checks do, no water and no moisture, contaminated or not: Delta 4 stood at 25.1 % while it
+    // took the contaminated moist tiles for dry; Delta 4 and the maps at the limit since, themes × seeds, 128²)
+    for (const [theme, seed] of [["delta", 4], ["riverValley", 4], ["lakeBasin", 3], ["lakeBasin", 1], ["highlands", 4], ["riverValley", 3]] as const) {
+      const r = generate(makeSpec({ seed, theme, size: { x: 128, y: 128 } }));
+      const side = 128;
+      const b = r.built;
+      const tiles = r.features.filter((f): f is ForestFeature => f.kind === "forest" && (f.role ?? "").startsWith("forest/dead/")).flatMap((f) => runsToTiles(f.params.area, side));
+      const near = new Uint8Array(side * side);
+      for (const t of tiles)
+        for (let dy = -6; dy <= 6; dy++)
+          for (let dx = -6; dx <= 6; dx++) {
+            const x = (t % side) + dx;
+            const y = Math.floor(t / side) + dy;
+            if (x >= 0 && y >= 0 && x < side && y < side && dx * dx + dy * dy <= 36) near[y * side + x] = 1;
+          }
+      let dry = 0;
+      let cover = 0;
+      for (let i = 0; i < side * side; i++)
+        if (!(b.water[i] > 0) && !(b.moisture[i] > 0)) {
+          dry++;
+          if (near[i]) cover++;
+        }
+      expect(cover / dry, `${theme} ${seed}: dry land within 6 tiles of a dead tree`).toBeLessThanOrEqual(0.245);
+    }
+  });
+
   it("ruin fields that follow the land lie along the rim of their level, in bands with gaps (D518, the look round)", () => {
     const g = flatGround();
     const W = g.W;
@@ -373,7 +400,7 @@ describe("the resource baseline (Kyler, 2026-09-25)", () => {
           }
       let cover = 0;
       for (let i = 0; i < area; i++) if (near[i] && dryAt(i)) cover++;
-      expect(cover / dry, `${theme} dry land within 6 tiles of a dead tree`).toBeLessThanOrEqual(0.25);
+      expect(cover / dry, `${theme} dry land within 6 tiles of a dead tree`).toBeLessThanOrEqual(0.245);
       expect(per1000, `${theme} dead stands per 1,000 dry tiles`).toBeGreaterThan(28);
       expect(per1000, `${theme} dead stands per 1,000 dry tiles`).toBeLessThan(50);
       // (D148: a stand's third that died young is its own feature since D518, so a stand's size is its grown trees')

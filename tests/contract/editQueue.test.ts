@@ -387,11 +387,7 @@ describe("the edit queue against the worker: pinned scenarios", () => {
 
 describe("the edit queue against the worker: random interleavings (I1–I10)", () => {
   // (seeded: a failure reports its seed and the actions that led to it, D341)
-  // (seed 11 for seed 5 since generator 0.10.21's look round, D518, D148: on River Valley 48² seed 11's new land seed 5's run
-  // leaves one stroke whose logged `keep` holds a raised column, (30, 20, 20), that the page's composer did not (I6), after seeds
-  // 2 to 4 and not on its own or after seed 1; of seeds 1 to 14 only seed 5 does: a finding for the page session, kept in the
-  // PR that moved the land, not a reason for a seed to stay)
-  for (const seed of [1, 2, 3, 4, 11, 6, 7, 8, 9, 10]) {
+  for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
     it(`seed ${seed}: ~250 actions, every invariant after each, the oracle at every map's end`, async () => {
       const next = seeded(seed);
       const h = new Harness(P1);
