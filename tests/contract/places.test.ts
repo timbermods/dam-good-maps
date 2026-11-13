@@ -21,9 +21,10 @@ describe("the gallery's data", () => {
   it("holds the survey's real places: no random-land controls, one entry and two files each", () => {
     expect(INDEX.format).toBe(1);
     expect(INDEX.count).toBe(INDEX.places.length);
-    // 85 places in the library; none withheld: since the start-moving step ranks a lake's shore plate by the
-    // start's land floors and grows its wood (tools/real-places.ts), every start meets the floors
-    expect(INDEX.count).toBe(85);
+    // 85 places in the library; every start meets the floors since the start-moving step ranks a lake's shore
+    // plate by the start's land floors and grows its wood (tools/real-places.ts), and one is withheld by name
+    // until its land's sources are mended (Near Dinaric karst Plitvice, `WITHHELD_UNTIL`)
+    expect(INDEX.count).toBe(84);
     expect(INDEX.places.filter((p) => p.family === "random" || /random/i.test(p.name))).toEqual([]);
     expect(new Set(INDEX.places.map((p) => p.id)).size).toBe(INDEX.count);
     expect(new Set(INDEX.places.map((p) => p.name)).size).toBe(INDEX.count);

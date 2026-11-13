@@ -14,7 +14,8 @@
 // - index.json: every place for the gallery page, with the sha256 of its .timber and the faults
 //   its own map has (`faults`, from the generate profile's checks). A place whose start fails the floors
 //   (its plants on dry soil cannot move without costing the start its fast wood: no moist ground within
-//   its walk) ships no data, card or index entry; every run prints it by name and counts it withheld.
+//   its walk), or one named in WITHHELD_UNTIL until a fault of its land is mended, ships no data, card or
+//   index entry; every run prints it by name with its reason and counts it withheld.
 // Each .timber is built with src/core/places (build, settle, validate, write) and must pass the
 // export profile and every check of the generate profile but the known faults (the conversion's, which
 // every place has, and each place's own, recorded in `faults`); the tool stops on any other that fails.
@@ -100,6 +101,14 @@ const LAND_FLOORS = ["start.level_land", "start.reach", "start.farmland", "start
 /** The start's wood checks, which fast trees planted by it can meet: its logs, the starting-logs floor and the
  *  fast species' share (D85, D224, D515). */
 const WOOD_CHECKS = ["start.wood", "start.wood_floor", "start.wood_fast"];
+/** Places withheld by name until a fault of their land is mended, with the reason every run prints. Near Dinaric
+ *  karst Plitvice's start meets every floor since the start's move ranks by the land floors, but its conversion puts
+ *  a source in another's flow (`water.source_in_flow`); it left `PLACES_SOURCES_IN_FLOW` (tests/contract/placesCommon.ts,
+ *  whose note says Real places 2 places sources only at heads) when #1094 withheld it, and that list never grows:
+ *  planning's ruling on #1096. */
+const WITHHELD_UNTIL: Record<string, string> = {
+  "near-dinaric-karst-plitvice": "withheld until water.source_in_flow is mended (sources at heads only)",
+};
 /** How many logs under `start.wood`'s limit a place's start may be and still be topped up to it (a twentieth of Normal's 200). */
 const WOOD_NEAR_MISS = 10;
 
@@ -351,13 +360,18 @@ const skipped = library.items.filter((it) => it.family === "random");
 const files = new Map<string, Uint8Array>();
 const entries: PlaceIndexEntry[] = [];
 let failures = 0;
-/** Places whose start fails the floors: not offered (no map, card or index entry), printed by every run. */
+/** Places whose start fails the floors, or named in WITHHELD_UNTIL: not offered (no map, card or index entry), printed by every run. */
 const withheld: string[] = [];
 const t0 = performance.now();
 for (const item of items) {
   const fx = JSON.parse(new TextDecoder().decode(gunzipSync(new Uint8Array(readFileSync(join(LIBRARY, item.fixture)))))) as Fixture;
   let place = toPlace(item, fx);
   if (only && !only.includes(place.id)) continue;
+  if (WITHHELD_UNTIL[place.id]) {
+    withheld.push(place.name);
+    console.log(`WITHHELD ${place.W}² ${place.name}: ${WITHHELD_UNTIL[place.id]}`);
+    continue;
+  }
   if (entries.some((e) => e.id === place.id)) throw new Error(`two places are called ${place.name}`);
   const t = performance.now();
   let { built, v, strict, blocking, strictFails } = buildChecked(place);
@@ -616,7 +630,7 @@ const total = [...files.values()].reduce((s, b) => s + b.length, 0);
 const dataBytes = [...files].filter(([k]) => k.startsWith("data/")).reduce((s, [, b]) => s + b.length, 0);
 const cardBytes = [...files].filter(([k]) => k.startsWith("cards/")).reduce((s, [, b]) => s + b.length, 0);
 console.log(
-  `${entries.length} offered, ${withheld.length} withheld${withheld.length ? `: ${withheld.join(", ")}` : ""} (start fails the floors); ${Math.round((performance.now() - t0) / 1000)} s; left out ${skipped.length} random-land controls (${skipped.map((s) => s.id).join(", ")}). ` +
+  `${entries.length} offered, ${withheld.length} withheld${withheld.length ? `: ${withheld.join(", ")}` : ""}; ${Math.round((performance.now() - t0) / 1000)} s; left out ${skipped.length} random-land controls (${skipped.map((s) => s.id).join(", ")}). ` +
     `Data ${(dataBytes / 1024).toFixed(0)} KB, cards ${(cardBytes / 1024).toFixed(0)} KB (${(cardBytes / 1024 / Math.max(1, entries.length)).toFixed(1)} KB each), total ${(total / 1024).toFixed(0)} KB.`,
 );
 

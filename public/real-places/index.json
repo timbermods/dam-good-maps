@@ -1,6 +1,6 @@
 {
  "format": 1,
- "count": 85,
+ "count": 84,
  "families": [
   {
    "id": "fan",
@@ -959,22 +959,6 @@
    "sha256": "2200196e54b2e1fa3ee693c31bda2fb6b64bf371b635586c4e68c407565d3621",
    "faults": [
     "start.wood"
-   ]
-  },
-  {
-   "id": "near-dinaric-karst-plitvice",
-   "name": "Near Dinaric karst Plitvice",
-   "family": "karst",
-   "familyName": "Karst",
-   "plays": "Steep hills around separate basins; routes between them take planning.",
-   "size": 256,
-   "metres": 30,
-   "data": "data/near-dinaric-karst-plitvice.json.gz",
-   "image": "cards/near-dinaric-karst-plitvice.jpg",
-   "bytes": 591801,
-   "sha256": "eb4aa55641a881d993361629015bcaa60963a4c4a536541aa4b57818a1cf78e4",
-   "faults": [
-    "water.source_in_flow"
    ]
   },
   {
