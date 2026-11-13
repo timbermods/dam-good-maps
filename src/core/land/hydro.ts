@@ -1362,19 +1362,50 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     // mouth could before it ran back out by the same edge beside the mouth)
     const maxSill = natural ? Math.min(h[hd.cell], upSpill(tr.k)) : Infinity;
     const { st, prof, L, n, lakeAt } = profileOf(path, width, cut, true, rid, half, Infinity, -Infinity, maxSill, natural && tr.joins >= 0);
-    // knickpoints: a steep reach's drops gather at its head; the reach below is cut to its foot
+    // knickpoints: a steep reach's drops gather at its head; the reach below is cut to its foot (three levels or more;
+    // with Waterfalls above the theme's own, `falls` 2, two: on ground with grade a river mostly crosses one-level
+    // flanks, and many falls were too few, 2.0 a River Valley 96² map against the setting's 3 to 6)
     const win = Math.round(g.knick);
+    const gather = g.falls === 2 ? 2 : 3;
     if (win > 0)
       for (let j = 0; j < n; j++) {
         if (!(prof[j + 1] < prof[j]) || lakeAt[j] || lakeAt[j + 1]) continue;
         let foot = -1;
         for (let k = j + 1; k <= Math.min(n, j + win); k++) {
           if (lakeAt[k]) break;
-          if (prof[k] < prof[k - 1] && prof[j] - prof[k] >= 3) foot = k;
+          if (prof[k] < prof[k - 1] && prof[j] - prof[k] >= gather) foot = k;
         }
         if (foot < 0) continue;
-        for (let k = j + 1; k < foot; k++) prof[k] = prof[foot];
+        // (with Waterfalls above the theme's own, the reach's drop is a cascade: falls of two levels or more, three tiles
+        // apart at least, rather than one fall at its head; the bed never above where the reach had it)
+        const T = prof[j] - prof[foot];
+        const len = foot - j;
+        const m = g.falls === 2 ? Math.max(1, Math.min(Math.floor(T / 2), Math.floor((len - 1) / 3) + 1)) : 1;
+        let level = prof[j];
+        for (let f = 0; f < m; f++) {
+          level -= Math.floor(T / m) + (f < T % m ? 1 : 0);
+          const to = f + 1 < m ? j + 1 + Math.floor(((f + 1) * len) / m) : foot;
+          for (let k = j + 1 + Math.floor((f * len) / m); k < to; k++) prof[k] = Math.min(prof[k], level);
+        }
         j = foot;
+      }
+    // Waterfalls above the theme's own (`falls` 2): a drop of four levels or more is a cascade, falls of two levels or
+    // more a few tiles apart, its upper falls cut back into the reach above it (ground taken away, none raised, D111);
+    // a fall at the course's head stays one
+    if (g.falls === 2)
+      for (let j = n; j >= 1; j--) {
+        const drop = prof[j - 1] - prof[j];
+        if (drop < 4 || lakeAt[j] || lakeAt[j - 1]) continue;
+        const gap = 4;
+        const a = j - gap;
+        if (a < 1) continue;
+        let flat = true;
+        for (let q = a; q < j; q++) if (lakeAt[q] || prof[q] !== prof[j - 1]) flat = false;
+        if (!flat) continue;
+        const lower = Math.ceil(drop / 2);
+        for (let q = a; q < j; q++) prof[q] = prof[j] + lower;
+        // (the upper part is looked at again, a cascade of three for a drop of six or more)
+        j = a + 1;
       }
     // Waterfalls off: every drop spread along the course, a level a tile at most (the river cuts a
     // steady grade into the land above a cliff instead of falling over it); lakes keep their levels
