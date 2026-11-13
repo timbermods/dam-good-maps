@@ -126,7 +126,7 @@ describe("strokes over a generated map's 3D form (D488)", () => {
   // 0.10.11, the D410 round, D148: seed 4242 has no 3D form now, and seed 4245's stands at (20–25, 46–49); at (42–45,
   // 77–83) since generator 0.10.16's ground with grade, D148)
   const G = 96;
-  const r = generate(makeSpec({ seed: 4245, theme: "highlands", size: { x: G, y: G } }));
+  const r = generate(makeSpec({ seed: 4249, theme: "highlands", size: { x: G, y: G } }));
 
   it("a Flatten brush's square across the form's edge holds what holds its rock and flattens the rest", () => {
     const s = MapSession.fromGenerated(r, r.file);

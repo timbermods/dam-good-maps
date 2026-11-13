@@ -11,8 +11,10 @@ import { runsToTiles } from "../../src/core/math/grid";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
 import { ColumnTerrain, terrainColumns } from "../../src/core/terrain/runs";
 
-/** Maps that show each story (tools/ruin-stories.ts finds more). */
-const DAM: [ThemeId, number] = ["riverValley", 4];
+/** Maps that show each story (tools/ruin-stories.ts finds more). (River Valley 2 for 4 since generator 0.10.20's contour edges
+ *  and the D518 mends, D148: seed 4 shows a drowned village now and no ruined dam; of River Valley seeds 1-14 a dam is on 2, 5, 7, 8,
+ *  11 and 14.) */
+const DAM: [ThemeId, number] = ["riverValley", 2];
 const VILLAGE: [ThemeId, number] = ["lakeBasin", 2];
 
 function map([theme, seed]: [ThemeId, number]) {

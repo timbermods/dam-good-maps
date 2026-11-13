@@ -1058,11 +1058,13 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   most of it pressed on moist soil (an island in a lake is all moist), else "Nothing here to weather" (showcase-craft gap 23). It
   weathers dab by dab: each dab weathers the land the dabs before it left, only round where it presses harder
   (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. Its edges
-  also wander only where it presses harder than the weathering strokes before it did on the land as they left it (rule
-  6: the build keeps how hard they pressed, the session's terrain hands it to the page, and the stroke records what it
-  read, `worn`), so the same stroke painted again only sheds and settles what the last one left and comes to rest;
-  before, each repeat drew its edges again along the noise and the shed wore them back, and the land kept changing,
-  most at Terracing 100 (River Valley 2: 164, 147, 77, 126, … tiles a stroke; now 164, 3, then nothing). It is
+  also wander, and its cliffs shed, only where it presses harder than the weathering strokes before it did on the land
+  as they left it (a cliff on either of its sides) (rule 6: the build keeps how hard they pressed, the session's terrain hands it to the page, and the
+  stroke records what it read, `worn`), so the same stroke painted again only settles what the last one left and comes
+  to rest; before, each repeat drew its edges again along the noise and the shed wore them back, and the land kept
+  changing, most at Terracing 100 (River Valley 2: 164, 147, 77, 126, … tiles a stroke; then 164, 3, then nothing). A
+  repeat's shed also found the ground that holds a shed slope on the slope the last stroke cut, and cut it a level or two
+  deeper each time, for four strokes or more on D518's land (Canyon 4: 529, 290, 42, 4); now 529, then nothing. It is
   weathered off the page in a worker of its own (D422, #868: `worker/naturalize.worker.ts`, `raster/remoteStroke.ts`),
   on the terrain and land the page shows, one call out at a time and the dabs meanwhile as one batch, the land a frame
   or two behind the cursor; the page sends that land to the map's worker for its water, as for the other brushes. Every

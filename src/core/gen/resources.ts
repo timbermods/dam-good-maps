@@ -722,11 +722,20 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       rng: stream(seed, "dead-stands", candidate, attempt),
     });
     for (const st of stands) {
-      const role = anchorRole(`forest/dead/${st.place}${st.giants ? "/giants" : ""}`, st.tiles);
-      const id = featureId(seed, "forest", role);
-      out.push({ id, kind: "forest", origin: "generated", role, locked: false, params: { area: tilesToRuns(st.tiles, W), density: 1, speciesMix: { [st.species]: 1 }, groveSize: st.tiles.length, life: "dead", youngShare: 0 } });
-      planted.push({ id, tiles: st.tiles, species: st.species, living: false });
-      treeCount += st.tiles.length;
+      if (st.tiles.length) {
+        const role = anchorRole(`forest/dead/${st.place}${st.giants ? "/giants" : ""}`, st.tiles);
+        const id = featureId(seed, "forest", role);
+        out.push({ id, kind: "forest", origin: "generated", role, locked: false, params: { area: tilesToRuns(st.tiles, W), density: 1, speciesMix: { [st.species]: 1 }, groveSize: st.tiles.length, life: "dead", youngShare: 0 } });
+        planted.push({ id, tiles: st.tiles, species: st.species, living: false });
+      }
+      // (its trees that died young: shorter, stored with their growth, keeping no logs, so no wood counts them)
+      if (st.young.length) {
+        // (anchored where its stand's grown trees are, so the two read as one stand)
+        const role = anchorRole(`forest/dead/${st.place}/young`, st.tiles.length ? st.tiles : st.young);
+        const id = featureId(seed, "forest", role);
+        out.push({ id, kind: "forest", origin: "generated", role, locked: false, params: { area: tilesToRuns(st.young, W), density: 1, speciesMix: { [st.species]: 1 }, groveSize: st.young.length, life: "dead", youngShare: 1 } });
+      }
+      treeCount += st.tiles.length + st.young.length;
       for (const i of st.area) {
         free[i] = 0;
         const x = i % W;

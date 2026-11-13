@@ -24,22 +24,26 @@ describe("Select's actions on a one-tile selection change that tile (D259, D264)
   // D148: the map has no lone level tile at level 7 now; (44, 25) at level 8 since generator 0.10.13, whose starts frame
   // the map, D507, D148: an oak stands on (49, 22) now, and (44, 25) is one of the map's 197 dry level-8 tiles with level
   // ground on its four sides and nothing standing on it; (41, 7) at level 8 since generator 0.10.16's ground with grade,
-  // D148: (44, 25) stands at level 15 now, and (41, 7), the nearest to it, is one of the map's 38 such tiles)
-  it("Highlands 64², seed 3: the dry level tile (41, 7), at level 8, selected alone: Raise, Lower, Cut down to 4 and Fill up to 10 each leave it where they said", async () => {
+  // D148: (44, 25) stands at level 15 now, and (41, 7), the nearest to it, is one of the map's 38 such tiles; (35, 16) at level 8 since generator 0.10.20's contour edges, D518, D148: (41, 7) stands at
+  // level 13 now, and of the map's 7 tiles at level 8, dry, unbuilt, with level ground on four sides, (35, 16) is the first
+  // in row order; (35, 17) at level 7 since the D518 mends (wash treads and dead-stand knots), D148: seed 3's map has no
+  // such tile at level 8 now, and of its 74 tiles at level 7, dry, unbuilt, with level ground on four sides, (35, 17) is the first
+  // off the map's edge row, so Raise and Lower want 8 and 6 where they wanted 9 and 7; Cut down to 4 and Fill up to 10 are as they were)
+  it("Highlands 64², seed 3: the dry level tile (35, 17), at level 7, selected alone: Raise, Lower, Cut down to 4 and Fill up to 10 each leave it where they said", async () => {
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
-    const t = 7 * W + 41;
+    const t = 17 * W + 35;
     const b = open().built;
-    expect(b.heights[t]).toBe(8);
+    expect(b.heights[t]).toBe(7);
     expect(b.water[t]).toBe(0);
     // (level ground round it, nothing standing there)
-    for (const j of [t - 1, t + 1, t - W, t + W]) expect(b.heights[j]).toBe(8);
+    for (const j of [t - 1, t + 1, t - W, t + W]) expect(b.heights[j]).toBe(7);
     expect(b.entities.filter((e) => e.y * W + e.x === t)).toEqual([]);
 
     const cells = tilesToRuns([t], W);
     const actions: [string, EditOp, number][] = [
-      ["Raise 1 tile", { op: "sculpt", params: { mode: "raise", cells, amount: 1 } }, 9],
-      ["Lower 1 tile", { op: "sculpt", params: { mode: "lower", cells, amount: 1 } }, 7],
+      ["Raise 1 tile", { op: "sculpt", params: { mode: "raise", cells, amount: 1 } }, 8],
+      ["Lower 1 tile", { op: "sculpt", params: { mode: "lower", cells, amount: 1 } }, 6],
       ["Cut 1 tiles down to level 4", { op: "sculpt", params: { mode: "flatten", cells, level: 4 } }, 4],
       ["Fill 1 tiles up to level 10", { op: "sculpt", params: { mode: "flatten", cells, level: 10 } }, 10],
     ];

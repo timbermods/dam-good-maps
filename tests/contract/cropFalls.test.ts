@@ -11,7 +11,15 @@
 // since generator 0.10.18's dead stands on the dry land, D516, D148, seed 2's 3D forms come out otherwise and of seeds 1–6 only
 // seed 4's map has such a corner: X 68 · Y 52 leaves one block unheld at X 69 · Y 96, its start at X 99 · Y 61 staying in it;
 // since generator 0.10.19's dry washes, D517, D148, of seeds 1–8 only seed 2's has one: X 48 · Y 24 leaves one block
-// unheld at X 48 · Y 71, its start at X 56 · Y 57 staying in it).
+// unheld at X 48 · Y 71, its start at X 56 · Y 57 staying in it; since generator 0.10.20's contour edges, D518, D148, seed 2's
+// corner is X 48 · Y 44, which leaves one block unheld at X 95 · Y 85, its start at X 91 · Y 87 staying in it;
+// since the D518 mends (wash treads and dead-stand knots), D148, seed 2 has none now, nor has any of seeds 1–11 but seed 7 (whose
+// only block unheld at X 53 · Y 44 stays unheld four tiles east); seed 12 is the first, its corner X 64 · Y 28 leaving three blocks unheld,
+// the first at X 64 · Y 73, its start at X 86 · Y 32 staying in it;
+// since the later D518 mends (the rolling ground reweighed, compact rises, dead stands in woods), D148, seed 12 has none now, nor has any of
+// seeds 1 to 16 but seeds 3 and 5 (corners scanned in steps of four, the 48 × 48 crops, the start staying in); seed 3's corner at X 24 · Y 32
+// leaves one block unheld at X 24 · Y 76, its start at X 53 · Y 52 staying in it, and the crop four tiles east, X 28, holds it; seed 5's
+// blocks stay unheld four tiles east).
 // A crop whose edge
 // leaves every block held goes ahead, and its file's ground is all supported.
 
@@ -26,14 +34,14 @@ const supported = (s: MapSession) => validateMap(readTimber(s.exportTimber().byt
 
 describe("a crop never leaves ground floating", () => {
   it("an edge that would leave blocks unheld is refused with how many and where; one that holds them all goes ahead", () => {
-    const r = map(2, 128);
+    const r = map(3, 128);
     const session = () => {
       const s = MapSession.fromGenerated(r, r.file);
       s.setWaterMode("defer");
       return s;
     };
     const s = session();
-    const bad = { x: 48, y: 24, w: 48, h: 48 };
+    const bad = { x: 24, y: 32, w: 48, h: 48 };
     expect(cropObjects(s.built.entities, bad).cutStart).toBeNull();
     const falls = cropFalls(s.terrain, bad);
     expect(falls.length).toBeGreaterThan(0);
@@ -46,7 +54,7 @@ describe("a crop never leaves ground floating", () => {
     expect(s.size).toEqual({ x: 128, y: 128 });
     expect(Buffer.from(s.built.heights).equals(Buffer.from(before))).toBe(true);
     // (a crop whose west edge is four tiles further east keeps what holds them, and the game keeps all its ground)
-    const ok = { x: 52, y: 24, w: 48, h: 48 };
+    const ok = { x: 28, y: 32, w: 48, h: 48 };
     const t = session();
     expect(cropFalls(t.terrain, ok)).toEqual([]);
     expect(t.apply({ op: "crop", params: ok }).errors).toEqual([]);
