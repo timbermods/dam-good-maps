@@ -1482,6 +1482,21 @@ of 44 and 48 tiles at 192² (drawn less wandering to keep off a neighbour). **Sh
 longer than before (side by side, seeds 1 to 12: median 4.9 s against 4.5 s): the settle runs 15 to 20 % more ticks.
 The heavy maps test holds the longest straight reach to 40 tiles.
 
+**The brooks meander** (planning's ruling on the brooks, in this branch; work in progress). The course is a way the
+land finds (`gateBrooks.ts` `brookWay`: the cheapest way from the spring through places one to a three-tile cell, over
+noise ground, a way that comes nearer the lake by less than a quarter of its length costing more); the channel meanders
+about it (`meander`, the sine-generated curve: the heading swings ±ω sin(π s ÷ L) bend by bend, L half a wavelength of
+10 to 14 times the brook's width, ω a radian, each bend's L and ω a third either way and redrawn where it would match
+the one before, the swing nothing within two tiles of a level its bed drops and five of its ends, and less, then none,
+where a bend leaves its room). The lake's coves and bays are laid before the brooks; a brook comes in at the nearest
+cove head it can reach (two may share one, meeting at its head), else at the nearest shore off every cove, its mouth
+its own notch of a tile or two. The springs nearest the lake are laid first. The lake swells `LAKE_SWELL` before the
+Low River's lip (as wide as the lip there, its end and the lip lay as one straight block of 160 to 250 tiles).
+`valley.brooks` reads a brook's bends (runs of turns one way): no two neighbouring bends within a tenth of each other in
+both length and swing, no three in a row within a tenth in length; the hand-broken sawtooth fails it. **Short:**
+meandering brooks still hold straight reaches of 44 to 77 tiles on most maps (where neighbouring brooks run close, a
+bend has no room and runs straight), and one lake end at 128² still lies straight; see the round's report.
+
 **As built (land, stage 2).** `gateLand.ts` `gateRelief`: the shared relief for the valley, the range and the basin
 shaped from the plan as the table says, the valley's land coming in over the range's lowest flank (never under it),
 pits and slivers merged (`land/levels.ts`), every tile at least its guard, the check and the mend; `gateLand` adds the

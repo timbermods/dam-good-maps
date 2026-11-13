@@ -84,7 +84,7 @@ export const SPURS = { gap: [8, 30], len: [0.3, 1.2], turn: 0.5, fork: 0.85, for
 /** Two southern brooks' middles stand this far apart at the least (the plan's checks refuse under 1.5). */
 export const BROOK_APART = 3;
 /** The lake's swell before the Low River's lip: `wider` tiles wider than the lip, `back` tiles before it. */
-export const LAKE_SWELL = { wider: 7, back: 7 } as const;
+export const LAKE_SWELL = { wider: 8, back: 3 } as const;
 /** A brook takes a cove no further from its spring than `[0]` times the lake's nearest shore and `[1]` tiles. */
 export const BROOK_COVE = [1.5, 12] as const;
 /** Within this many tiles of a cove's head two brooks may come together. */
