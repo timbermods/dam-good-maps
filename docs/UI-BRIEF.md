@@ -6,7 +6,7 @@ Kyler's decisions, 2026-09-29. One workspace is a core part of Dam Good Maps' id
 > [UI-QUESTIONS.md](archive/UI-QUESTIONS.md) (feedback item 23). Approved by Kyler on 2026-09-29; built right after the forces' release.
 
 ## 1. One workspace
-One window for everything. The map fills it from the first visit. There is no separate editor, no expand button, no full-screen mode and no "Refine this map" step. The keys are the same everywhere; Esc means what it means today; keys are ignored while typing in a field. Phones are view-only (D185): the map, the panel and Your maps to browse, with no editing.
+One window for everything. The map fills it from the first visit. There is no separate editor, no expand button, no full-screen mode and no "Refine this map" step. The keys are the same everywhere; Esc means what it means today; keys are ignored while typing in a field. Phones and tablets edit maps, first class (#1074, amending D185's view-only phones): the same editor, touch another way in. The 3D view takes fingers (EDITOR_PLAN §7, "Touch"): two fingers pan, pinch, twist and tilt; one finger pans with nothing in hand, a tap reads the tile and a double tap zooms in; one finger paints with a brush; a second finger cancels a stroke; a two-finger tap undoes and a three-finger tap redoes. The phone layouts follow (#1074, slice 2).
 
 ## 2. The rule
 The panel is the map; the rows are the land. Everything about the map as a whole (choosing, comparing, keeping) lives in the side panel. Everything you do to the terrain lives in the rows over the map.

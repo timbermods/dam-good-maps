@@ -135,6 +135,9 @@ export function useSelect(ed: Ed): SelectSlice {
     const t = selectTool(selection.current, selectHost());
     // Alt takes tiles away only from a selection; with none, Alt+click picks the tile's layer, as everywhere (D207)
     Object.defineProperty(t, "wantsAlt", { get: () => selection.current.count > 0, configurable: true });
+    // with nothing selected Select is nothing in hand to the player: a finger moves the map, and a tap is its click
+    // (render3d/touch.ts, #1074)
+    Object.defineProperty(t, "touchPans", { get: () => selection.current.count === 0, configurable: true });
     // Select is the resting tool. A press on a source or the start is left to the pointer, as before Select was
     // always in hand (a click picks a source, Ctrl+click adds one to a row; their drags move them); a drag that
     // starts on an object marks an area, and a plain click picks the object (a drag then moves it). With a
