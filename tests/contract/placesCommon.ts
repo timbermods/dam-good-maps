@@ -42,7 +42,7 @@ export const PLACES_WATER_WITHOUT_OUTLET = new Set([
 export const PLACES_SOURCES_IN_FLOW = new Set([
   "near-alaknanda-and-bhagirathi", "near-altiplano", "near-atacama-fan", "near-bandiagara",
   "near-blyde-river-canyon", "near-brahmaputra-near-majuli", "near-capitol-reef",
-  "near-chilean-aysen-fjord", "near-chocolate-hills", "near-death-valley", "near-dinaric-karst-plitvice",
+  "near-chilean-aysen-fjord", "near-chocolate-hills", "near-death-valley",
   "near-ennedi-plateau", "near-ethiopian-highlands", "near-finnish-saimaa", "near-geirangerfjord",
   "near-glencoe", "near-goosenecks-san-juan", "near-gullfoss", "near-iguazu-falls",
   "near-ilulissat-icefjord", "near-kenai-aialik-bay", "near-lena-delta", "near-lofoten",
@@ -75,15 +75,15 @@ export const PLACES_SHORT_OF_WOOD = new Set([
   "near-bandiagara", "near-bardenas-reales", "near-blue-mountains-jamison", "near-blyde-river-canyon",
   "near-brahmaputra-near-majuli", "near-capitol-reef", "near-chilean-aysen-fjord", "near-chocolate-hills",
   "near-cliffs-of-moher", "near-colca-canyon", "near-colorado-plateau", "near-copper-canyon",
-  "near-danube-delta", "near-death-valley", "near-dinaric-karst-plitvice",
+  "near-danube-delta", "near-death-valley",
   "near-drakensberg-amphitheatre", "near-english-lake-district", "near-ennedi-plateau",
   "near-ethiopian-highlands", "near-finnish-saimaa", "near-geirangerfjord", "near-glencoe",
   "near-godavari-delta", "near-goosenecks-san-juan", "near-grand-canyon-colorado",
   "near-ilulissat-icefjord", "near-kaieteur-falls", "near-katherine-gorge", "near-kenai-aialik-bay",
-  "near-kinabatangan-river", "near-lake-toba", "near-lauterbrunnen", "near-lena-delta",
+  "near-kinabatangan-river", "near-lauterbrunnen", "near-lena-delta",
   "near-li-river-yangshuo", "near-lofoten", "near-lower-mississippi-oxbows", "near-milford-sound",
   "near-monument-valley", "near-mount-etna", "near-mount-fuji", "near-mount-mayon", "near-mount-roraima",
-  "near-mount-taranaki", "near-na-pali-coast", "near-niagara-escarpment-hamilton", "near-painted-desert",
+  "near-na-pali-coast", "near-niagara-escarpment-hamilton", "near-painted-desert",
   "near-paricutin", "near-phong-nha", "near-roaring-river-fan", "near-sete-cidades",
   "near-skeidara-outwash", "near-tagliamento-river", "near-taklimakan-kunlun-fan", "near-tara-gorge",
   "near-thousand-islands-saint-lawrence", "near-tibetan-plateau", "near-tiger-leaping-gorge",
@@ -108,10 +108,10 @@ export const PLACES_BELOW_THE_FLOOR = new Set([
  *  and one that had water on the sealed land got a spring by it (tools/real-places.ts). Real places
  *  2 gives the rest their water (D300) and empties the list. */
 export const PLACES_START_WITHOUT_FED_WATER = new Set([
-  "near-bungle-bungle", "near-capitol-reef", "near-cliffs-of-moher", "near-colca-canyon",
-  "near-death-valley", "near-deccan-plateau", "near-dinaric-karst-plitvice", "near-drumheller",
+  "near-capitol-reef", "near-cliffs-of-moher", "near-colca-canyon",
+  "near-death-valley", "near-deccan-plateau", "near-drumheller",
   "near-english-lake-district", "near-fish-river-canyon", "near-iguazu-falls", "near-kaieteur-falls",
-  "near-kinabatangan-river", "near-lake-toba", "near-mount-mayon", "near-mount-taranaki",
+  "near-kinabatangan-river", "near-mount-mayon",
   "near-ngorongoro", "near-niagara-falls", "near-phong-nha", "near-tibetan-plateau",
   "near-tsingy-bemaraha", "near-twelve-apostles", "near-uvac-river", "near-yosemite-valley",
 ]);
@@ -122,12 +122,11 @@ export const PLACES_START_WITHOUT_FED_WATER = new Set([
  *  With the edges open (D151) the water the sealed border held drained too. Such plants now move to
  *  moist ground close by or go (#523, tools/lib/placePlants.ts); the trees the start's wood needs
  *  stay where they stood, dead (a dead tree keeps its logs), and where the start is still short the
- *  wood is planted on the moist ground nearest it. These four starts have no moist ground within
- *  their walk, so moving their plants costs the start its fast wood (`start.wood_fast`) and they stay.
- *  Real places 2 plants them by the settled water and empties the list. */
-export const PLACES_PLANTS_ON_DRY_SOIL = new Set([
-  "near-bungle-bungle", "near-dinaric-karst-plitvice", "near-lake-toba", "near-mount-taranaki",
-]);
+ *  wood is planted on the moist ground nearest it. A start with no moist ground within its walk
+ *  cannot move its plants without costing the fast wood (`start.wood_fast`): such a place ships no
+ *  data (tools/real-places.ts withholds it), so no place offered has plants on dry soil and the
+ *  list is empty. */
+export const PLACES_PLANTS_ON_DRY_SOIL = new Set<string>();
 
 /** Berries at the start (D385): these places' starting berry bushes stood on the same puddles'
  *  moist ground, so `start.food` (a playability check, a warning in the export profile) now finds
@@ -136,8 +135,7 @@ export const PLACES_PLANTS_ON_DRY_SOIL = new Set([
  *  start, or a spring's thin sheet over the land round it). Real places 2 plants them by the
  *  settled water and empties the list. */
 export const PLACES_SHORT_OF_BERRIES = new Set([
-  "near-alaknanda-and-bhagirathi", "near-bungle-bungle", "near-colorado-plateau",
-  "near-dinaric-karst-plitvice", "near-lake-toba", "near-mount-taranaki", "near-phong-nha",
+  "near-alaknanda-and-bhagirathi", "near-colorado-plateau", "near-phong-nha",
   "near-rhine-and-moselle",
 ]);
 
