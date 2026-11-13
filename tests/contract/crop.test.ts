@@ -440,18 +440,25 @@ describe("Crop map to selection: the lip at the new edge (M9b's rule, water/edge
   // D518, D148: seed 5 has no spring 23 tiles in from the west edge now; of seeds 1–40 seeds 4, 6, 12, 13, 17 and 35 have one, and seed 4 is
   // the first whose crop leaves the start whole, raises the edge beside the head (2 tiles at 0 behind, 1 at 1) and leaves no water beside it, at both distances; its spring is at (23, 20);
   // seed 5 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 4's springs at (23, 29) and (23, 30) have a berry patch on the edge tile beside them, which the lip never raises (the ground under an object stays), so
-  // water pours past it; of seeds 1–60 only 4, 5, 7, 39, 41 and 60 have a spring 23 tiles in from the west edge, and of those seed 5, whose spring is at (23, 0), passes at both distances)
-  it.each([0, 1])("a source %i tile(s) behind the new edge does not pour its water off the map", (behind) => {
-    const original = session(5);
+  // water pours past it; of seeds 1–60 only 4, 5, 7, 39, 41 and 60 have a spring 23 tiles in from the west edge, and of those seed 5, whose spring is at (23, 0), passes at both distances);
+  // seed 4 again besides seed 5 since the lip lifts the objects on the ground it raises (planning's ruling, 2026-11-13): its berry patch beside the springs rises with the edge
+  it.each([
+    [4, 0],
+    [4, 1],
+    [5, 0],
+    [5, 1],
+  ])("seed %i: a source %i tile(s) behind the new edge does not pour its water off the map", (seed, behind) => {
+    const original = session(seed);
     const spring = original.built.entities.filter((e) => e.template === "WaterSource" && e.x === 23);
     expect(spring.length).toBeGreaterThan(0);
     const sy = spring[0].y;
     const rect = { x: 23 - behind, y: 0, w: W - 23 + behind, h: W };
     expect(cropObjects(original.built.entities, rect).cutStart).toBeNull();
     original.settleCanonical();
-    const s = session(5);
+    const s = session(seed);
     s.settleCanonical();
-    expect(s.apply(crop(rect.x, rect.y, rect.w, rect.h)).errors).toEqual([]);
+    const result = s.apply(crop(rect.x, rect.y, rect.w, rect.h));
+    expect(result.errors).toEqual([]);
     const sources = new Set(s.built.entities.filter((e) => /Source/.test(e.template)).map((e) => e.y * rect.w + e.x));
     const wetBeside: number[] = [];
     let raised = 0;
@@ -462,6 +469,9 @@ describe("Crop map to selection: the lip at the new edge (M9b's rule, water/edge
     }
     expect(raised, "the edge beside the head stands higher").toBeGreaterThan(0);
     expect(wetBeside).toEqual([]);
+    // (every object on the new edge stands on the ground under it: lifted with the lip, never buried or left floating)
+    for (const e of s.built.entities)
+      if (e.x === 0 && e.template !== "WaterSource" && e.template !== "BadwaterSource") expect(e.z, `${e.template} at ${e.x},${e.y}`).toBe(s.built.heights[e.y * rect.w]);
   });
 });
 
