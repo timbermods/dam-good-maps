@@ -180,6 +180,10 @@ interface Pair {
   start: [Point, Point];
   last: [Point, Point];
   mode: Mode | null;
+  /** Each finger's last move's time (the touch's: both fingers' moves in one touch share it). */
+  seen: [number, number];
+  /** The decision waited once for the other finger's move. */
+  waited: boolean;
 }
 
 /** The fingers on the view, and the camera's gesture once there are two. */
@@ -234,10 +238,28 @@ export class Touches {
     const pr = this.pair;
     if (pr && pr.ids.includes(ev.pointerId)) {
       const cur: [Point, Point] = [this.fingers.get(pr.ids[0])!, this.fingers.get(pr.ids[1])!];
+      const mine = pr.ids[0] === ev.pointerId ? 0 : 1;
+      const other = 1 - mine;
+      const theirs = pr.seen[other] === ev.timeStamp;
+      pr.seen[mine] = ev.timeStamp;
       if (!pr.mode) {
-        pr.mode = decide(pr.start, cur, this.host.canTilt());
+        const canTilt = this.host.canTilt();
+        const mode = decide(pr.start, cur, canTilt);
         // (undecided, nothing moves yet; decided, the first step carries the whole move so far)
-        if (!pr.mode) return true;
+        if (!mode) return true;
+        // (one touch moves both fingers, but the browser tells it a finger at a time, each at the touch's time: where
+        // moves pile up behind a slow frame, the first finger's tells the whole of a two-finger tilt before the other's
+        // has come; when the other going the same way would make it a tilt, the decision waits for the other's move)
+        if (mode === "free" && canTilt && !theirs && !pr.waited) {
+          const d = sub(now, was);
+          const both: [Point, Point] = [cur[0], cur[1]];
+          both[other] = { x: cur[other].x + d.x, y: cur[other].y + d.y };
+          if (decide(pr.start, both, true) === "tilt") {
+            pr.waited = true;
+            return true;
+          }
+        }
+        pr.mode = mode;
       }
       const { motion, at } = twoStep(pr.last[0], pr.last[1], cur[0], cur[1], pr.mode);
       pr.last = cur;
@@ -334,7 +356,7 @@ export class Touches {
   private pairUp(): void {
     const [a, b] = [...this.fingers.entries()];
     if (!a || !b) return;
-    this.pair = { ids: [a[0], b[0]], start: [{ ...a[1] }, { ...b[1] }], last: [{ ...a[1] }, { ...b[1] }], mode: null };
+    this.pair = { ids: [a[0], b[0]], start: [{ ...a[1] }, { ...b[1] }], last: [{ ...a[1] }, { ...b[1] }], mode: null, seen: [-Infinity, -Infinity], waited: false };
   }
 }
 
