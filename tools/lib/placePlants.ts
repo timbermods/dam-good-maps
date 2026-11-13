@@ -3,10 +3,11 @@
 // (D385) much of that ground is dry, and `plants.survive` counts the plants there as dying. Objects only, never
 // the land or the water (D245, D331): each living plant on soil that kills it (doc/plantSoil.ts `diesOnSoil`, the
 // check's own rule) moves to the nearest free tile close by where it lives, or goes. The start's wood comes first:
-// logs lost near the start come back as oaks on moist ground nearest it (`startOaks`, as the `start.wood` fix
-// plants them), and where there is too little of that, the dying trees nearest the start stay (`keepNearest`),
-// since a dead tree keeps its logs (data/logFloor.ts `DEAD_TREES_KEEP_LOGS`). tools/real-places.ts builds and
-// checks each step. Pure and deterministic.
+// logs lost near the start come back as fast trees, pines or birches, on moist ground nearest it (`startWood`):
+// `start.wood_fast` (D515) counts the pines' and birches' share of the living trees' logs there, which oaks (the
+// `start.wood` fix's tree) would lower. Where there is too little of that ground, the dying trees nearest the start
+// stay (`keepNearest`), since a dead tree keeps its logs (data/logFloor.ts `DEAD_TREES_KEEP_LOGS`).
+// tools/real-places.ts builds and checks each step. Pure and deterministic.
 
 import { decodeTiles, type PlaceData } from "../../src/core/places/place";
 import { encodeTiles } from "./placeData";
@@ -95,16 +96,32 @@ export function settlePlants(
   return { place: { ...p, bushes: next("bushes"), pines: next("pines"), birches: next("birches"), oaks: next("oaks") }, moves };
 }
 
-/** Up to `count` oaks on the free tiles nearest the start by `walk` (the walk from the start, in tiles) within
- *  `within` tiles' walk, where they live, and how many there were room for. */
-export function startOaks(p: PlaceData, g: PlantGround, startDistance: ArrayLike<number> | null, walk: ArrayLike<number>, count: number, within: number): { place: PlaceData; planted: number } {
+/** The fast species the start's replanted wood is: pines, or birches where the place has more birches than pines
+ *  (the mix it leans to, as the generator's fast groves lean). Pines and birches are what `start.wood_fast` counts. */
+export function startWoodSpecies(p: PlaceData): "Pine" | "Birch" {
+  return decodeTiles(p.birches).length > decodeTiles(p.pines).length ? "Birch" : "Pine";
+}
+
+/** Up to `count` trees of the fast `species` (a pine or a birch) on the free tiles nearest the start by `walk`
+ *  (the walk from the start, in tiles) within `within` tiles' walk, where they live, and how many there were room
+ *  for. The caller counts `count` by the species' logs per tree (`LOGS_PER_TREE_SPECIES`). */
+export function startWood(
+  p: PlaceData,
+  g: PlantGround,
+  startDistance: ArrayLike<number> | null,
+  walk: ArrayLike<number>,
+  species: "Pine" | "Birch",
+  count: number,
+  within: number,
+): { place: PlaceData; planted: number } {
   if (count <= 0) return { place: p, planted: 0 };
   const taken = takenTiles(p);
   const near: number[] = [];
   for (let i = 0; i < p.W * p.H; i++) if (walk[i] <= within && plantable(p, g, startDistance, taken, i)) near.push(i);
   near.sort((a, b) => walk[a] - walk[b] || a - b);
   const add = near.slice(0, count);
-  return { place: { ...p, oaks: encodeTiles([...decodeTiles(p.oaks), ...add]) }, planted: add.length };
+  const kind = species === "Birch" ? "birches" : "pines";
+  return { place: { ...p, [kind]: encodeTiles([...decodeTiles(p[kind]), ...add]) }, planted: add.length };
 }
 
 /** `p` with the dying trees nearest the start by `walk` (within `within` tiles' walk) back where they stood (off
