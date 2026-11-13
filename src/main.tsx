@@ -6,6 +6,7 @@ import "./styles/app.css";
 import "./styles/editor.css";
 import "./styles/components.css";
 import "./styles/page.css";
+import "./styles/phone.css";
 
 fitFonts();
 

@@ -1160,7 +1160,7 @@ pays off) is not part of M9b's five outcomes. It needs a design step of its own,
 **Versioned deploys and mobile layouts** (Kyler, 2026-09-27; D285 (1), moved out of M13): versioned
 deploys at `/v/<version>/`, so an old-version link reproduces its file; and a mobile layout for the
 generator page and the Real places gallery. The editor itself becomes a first-class phone and tablet editor (#1074,
-amending D185), in five slices: touch in the 3D view (built), the phone layouts, seeing before applying by touch, the
+amending D185), in five slices: touch in the 3D view (built), the phone layouts (built), seeing before applying by touch, the
 rest of the page on a phone, and a pass on tablets and real phones.
 
 **A companion mod for one-click play** (Kyler, 2026-09-25; D163; built in `mods/companion/`, its README is the

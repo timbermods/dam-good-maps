@@ -131,6 +131,7 @@ function Help(p: { onClose(): void }) {
         <ul>
           <li>Middle-drag turns the view, right-drag moves it, scroll zooms toward the pointer.</li>
           <li>On a touch screen, two fingers move, zoom, turn and tilt the view, and one finger moves it with nothing in hand. A two-finger tap undoes, a three-finger tap redoes.</li>
+          <li>On a phone, the tools are in a row at the foot, or down the left side when the phone is on its side. Tap a tool again to put it down. Show and Objects open their own sheets. Hold a finger on a button to see what it does.</li>
           <li>Drag on the map to paint with the tool in hand.</li>
           <li>
             Select an area first, and the brushes and forces stay inside it. A brush in hand can mark one too.

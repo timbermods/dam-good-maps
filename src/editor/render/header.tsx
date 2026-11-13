@@ -67,6 +67,7 @@ export function header(ed: Ed, props: EditorProps) {
       onMaps={() => props.onMaps(!props.mapsOpen)}
       placesOpen={props.placesOpen}
       onPlaces={() => props.onPlaces(!props.placesOpen)}
+      phone={ed.phone}
       look={<LookMenu renderer={renderer.current} buttonClass="ghost" />}
       together={together && collab ? <Together controller={together} state={collab} /> : null}
       timelapse={
