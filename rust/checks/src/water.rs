@@ -383,7 +383,13 @@ pub fn sources_in_flow(m: &Model, objects: &[&Entity], depth: &[f64]) -> Sources
         }
         false
     };
+    // (the links are found first, apart from the touching groups; a row is kept only when every pair in it holds)
+    let down = |ca: usize, cb: usize| -> bool {
+        let fall = if exit_dist[ca] >= 0 && exit_dist[cb] >= 0 { (exit_dist[ca] - exit_dist[cb]).abs() } else { 0 };
+        fall <= channel_width(ca).min(channel_width(cb))
+    };
     let heads: Vec<usize> = (0..units.len()).filter(|&k| units[k].source).collect();
+    let mut row_parent: Vec<usize> = (0..units.len()).collect();
     for i in 0..heads.len() {
         for j in (i + 1)..heads.len() {
             let (ua, ub) = (&units[heads[i]], &units[heads[j]]);
@@ -392,19 +398,43 @@ pub fn sources_in_flow(m: &Model, objects: &[&Entity], depth: &[f64]) -> Sources
             }
             let (ca, cb) = (ua.cells[0], ub.cells[0]);
             let apart = ((ca % w) as i64 - (cb % w) as i64).abs().max(((ca / w) as i64 - (cb / w) as i64).abs());
-            if apart > ROW_REACH {
+            if apart > ROW_REACH || !same_water(ca, cb) || !down(ca, cb) {
                 continue;
             }
-            let ra = find(&mut parent, heads[i]);
-            let rb = find(&mut parent, heads[j]);
-            if ra == rb || !same_water(ca, cb) {
-                continue;
+            let ra = find(&mut row_parent, heads[i]);
+            let rb = find(&mut row_parent, heads[j]);
+            if ra != rb {
+                row_parent[ra.max(rb)] = ra.min(rb);
             }
-            let fall = if exit_dist[ca] >= 0 && exit_dist[cb] >= 0 { (exit_dist[ca] - exit_dist[cb]).abs() } else { 0 };
-            if fall > channel_width(ca).min(channel_width(cb)) {
-                continue;
+        }
+    }
+    let mut row_roots: Vec<usize> = vec![];
+    let mut rows: Vec<Vec<usize>> = vec![];
+    for &k in &heads {
+        let r = find(&mut row_parent, k);
+        match row_roots.iter().position(|&q| q == r) {
+            Some(g) => rows[g].push(k),
+            None => {
+                row_roots.push(r);
+                rows.push(vec![k]);
             }
-            parent[ra.max(rb)] = ra.min(rb);
+        }
+    }
+    for row in &rows {
+        if row.len() < 2 {
+            continue;
+        }
+        // a row that drifts down the flow link by link is not a head: its sources stay as they are, each judged alone
+        let whole = (0..row.len()).all(|i| ((i + 1)..row.len()).all(|j| down(units[row[i]].cells[0], units[row[j]].cells[0])));
+        if !whole {
+            continue;
+        }
+        for &k in &row[1..] {
+            let ra = find(&mut parent, row[0]);
+            let rb = find(&mut parent, k);
+            if ra != rb {
+                parent[ra.max(rb)] = ra.min(rb);
+            }
         }
     }
     let mut roots: Vec<usize> = vec![];

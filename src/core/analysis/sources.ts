@@ -31,10 +31,12 @@
 //  c. neither lies down the other's flow by more than the channel's width there: the steps to the flat's way
 //     out (`exitDist`) differ by no more than the narrower of the two sources' channel widths, a channel's
 //     width at a tile being the shorter of its wet runs of that spill level along x and along y.
-// A row is the transitive group of such pairs, and the check treats it as one source: the water of a row's
-// head reaches its other members, so none of them is flagged for that. The definition is narrow on purpose, so
-// a source set downstream (across a fall, further down the flow than the channel is wide, or in other water)
-// is never excused. Planning's ruling, #236.
+// A row is the transitive group of such pairs, kept only when condition c holds for EVERY pair in it, not
+// only for the pairs that link it, so a row cannot drift downstream link by link; a group that fails is no
+// row (its sources are judged as they would be without this rule). The check treats a row as one source: the
+// water of a row's head reaches its other members, so none of them is flagged for that. The definition is
+// narrow on purpose, so a source set downstream (across a fall, further down the flow than the channel is
+// wide, or in other water) is never excused. Planning's ruling, #236.
 
 import { objectTile, EMITTERS, isDelayed, MAX_STRENGTH_PER_TILE, specifiedStrength, type MapObject } from "../sim/model";
 import { spillLevels } from "../sim/prefill";
@@ -192,7 +194,17 @@ export function sourcesInFlow(model: WaterModel, objects: readonly MapObject[], 
     }
     return false;
   };
+  // (the links are found first, apart from the touching groups; a row is kept only when every pair in it holds)
+  const down = (ca: number, cb: number) => (exitDist[ca] >= 0 && exitDist[cb] >= 0 ? Math.abs(exitDist[ca] - exitDist[cb]) : 0) <= Math.min(channelWidth(ca), channelWidth(cb));
   const heads = units.map((_, k) => k).filter((k) => units[k].source);
+  const rowParent = units.map((_, k) => k);
+  const rowFind = (a: number): number => {
+    while (rowParent[a] !== a) {
+      rowParent[a] = rowParent[rowParent[a]];
+      a = rowParent[a];
+    }
+    return a;
+  };
   for (let i = 0; i < heads.length; i++)
     for (let j = i + 1; j < heads.length; j++) {
       const a = units[heads[i]];
@@ -201,13 +213,28 @@ export function sourcesInFlow(model: WaterModel, objects: readonly MapObject[], 
       const cb = b.cells[0];
       if (a.template !== b.template) continue;
       if (Math.max(Math.abs((ca % W) - (cb % W)), Math.abs(Math.floor(ca / W) - Math.floor(cb / W))) > ROW_REACH) continue;
-      const ra = find(heads[i]);
-      const rb = find(heads[j]);
-      if (ra === rb || !sameWater(ca, cb)) continue;
-      const fall = exitDist[ca] >= 0 && exitDist[cb] >= 0 ? Math.abs(exitDist[ca] - exitDist[cb]) : 0;
-      if (fall > Math.min(channelWidth(ca), channelWidth(cb))) continue;
-      parent[Math.max(ra, rb)] = Math.min(ra, rb);
+      if (!sameWater(ca, cb) || !down(ca, cb)) continue;
+      const ra = rowFind(heads[i]);
+      const rb = rowFind(heads[j]);
+      if (ra !== rb) rowParent[Math.max(ra, rb)] = Math.min(ra, rb);
     }
+  const rows = new Map<number, number[]>();
+  for (const k of heads) {
+    const r = rowFind(k);
+    const g = rows.get(r);
+    if (g) g.push(k);
+    else rows.set(r, [k]);
+  }
+  for (const row of rows.values()) {
+    if (row.length < 2) continue;
+    // a row that drifts down the flow link by link is not a head: its sources stay as they are, each judged alone
+    if (!row.every((p, i) => row.slice(i + 1).every((q) => down(units[p].cells[0], units[q].cells[0])))) continue;
+    for (const k of row.slice(1)) {
+      const ra = find(row[0]);
+      const rb = find(k);
+      if (ra !== rb) parent[Math.max(ra, rb)] = Math.min(ra, rb);
+    }
+  }
 
   const byRoot = new Map<number, number[]>();
   units.forEach((_, k) => {

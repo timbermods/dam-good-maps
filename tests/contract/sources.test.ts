@@ -85,6 +85,20 @@ describe("water sources start rivers (D171)", () => {
     expect(flagged(h, [...mouth(h), source(2, 11, 6, 1, "BadwaterSource")]).inFlow).toEqual([4]);
   });
 
+  it("a chain of sources, each within the channel's width of the next, that drifts further down the flow end to end is not a row", () => {
+    const h = river();
+    // the mouth, a source 3 steps in, and one 6 steps in: neighbours are within the width of 4, the mouth and the last are not
+    expect(flagged(h, [...mouth(h), source(3, 11, 6, 0.5), source(6, 11, 6, 0.5)]).inFlow).toEqual([4, 5]);
+    // without the last, the other is one head with the mouth
+    expect(flagged(h, [...mouth(h), source(3, 11, 6, 0.5)]).inFlow).toEqual([]);
+  });
+
+  it("a source down the flow by exactly the channel's width is a row member; one step more is not", () => {
+    const h = river();
+    expect(flagged(h, [...mouth(h), source(4, 11, 6, 1)]).inFlow).toEqual([]);
+    expect(flagged(h, [...mouth(h), source(5, 11, 6, 1)]).inFlow).toEqual([4]);
+  });
+
   it("a cluster of sources side by side at a spring-fed river's head is where it begins; more flow comes from the cluster or its strength", () => {
     const h = river();
     // no mouth: the channel's west end is walled, and a 2 × 2 cluster feeds the river from there

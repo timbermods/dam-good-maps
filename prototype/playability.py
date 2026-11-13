@@ -919,7 +919,9 @@ def sources_in_flow(floor, sources, dam, D):
     other, and (c) neither lies down the other's flow by more than the channel's width there (the steps
     to the flat's way out differ by no more than the narrower channel width, a channel's width at a tile
     being the shorter of its wet runs of that spill level along x and along y). A row is the transitive
-    group of such pairs and the check treats it as one source."""
+    group of such pairs, kept only when (c) holds for every pair in it (a row cannot drift downstream
+    link by link; a group that fails is no row, its sources are judged as without this rule), and the
+    check treats it as one source."""
     Y, X = floor.shape
     N = X * Y
     units = []
@@ -1034,7 +1036,20 @@ def sources_in_flow(floor, sources, dam, D):
                 queue.append(n)
         return False
 
+    # (the links are found first, apart from the touching groups; a row is kept only when every pair in it holds)
+    def down(ca, cb):
+        fall = abs(exit_dist[ca] - exit_dist[cb]) if exit_dist[ca] >= 0 and exit_dist[cb] >= 0 else 0
+        return fall <= min(channel_width(ca), channel_width(cb))
+
     heads = [k for k in range(len(units)) if units[k][3]]
+    row_parent = list(range(len(units)))
+
+    def row_find(a):
+        while row_parent[a] != a:
+            row_parent[a] = row_parent[row_parent[a]]
+            a = row_parent[a]
+        return a
+
     for i, ka in enumerate(heads):
         for kb in heads[i + 1:]:
             if sources[units[ka][0]].get("template") != sources[units[kb][0]].get("template"):
@@ -1042,13 +1057,24 @@ def sources_in_flow(floor, sources, dam, D):
             ca, cb = units[ka][1][0], units[kb][1][0]
             if max(abs(ca % X - cb % X), abs(ca // X - cb // X)) > ROW_REACH:
                 continue
-            ra, rb = find(ka), find(kb)
-            if ra == rb or not same_water(ca, cb):
+            if not same_water(ca, cb) or not down(ca, cb):
                 continue
-            fall = abs(exit_dist[ca] - exit_dist[cb]) if exit_dist[ca] >= 0 and exit_dist[cb] >= 0 else 0
-            if fall > min(channel_width(ca), channel_width(cb)):
-                continue
-            parent[max(ra, rb)] = min(ra, rb)
+            ra, rb = row_find(ka), row_find(kb)
+            if ra != rb:
+                row_parent[max(ra, rb)] = min(ra, rb)
+    rows = {}
+    for k in heads:
+        rows.setdefault(row_find(k), []).append(k)
+    for row in rows.values():
+        if len(row) < 2:
+            continue
+        # a row that drifts down the flow link by link is not a head: its sources stay as they are, each judged alone
+        if not all(down(units[p][1][0], units[q][1][0]) for i, p in enumerate(row) for q in row[i + 1:]):
+            continue
+        for k in row[1:]:
+            ra, rb = find(row[0]), find(k)
+            if ra != rb:
+                parent[max(ra, rb)] = min(ra, rb)
 
     by_root = {}
     for k in range(len(units)):
