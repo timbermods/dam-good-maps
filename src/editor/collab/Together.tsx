@@ -121,7 +121,7 @@ export function Together(p: { controller: TogetherController; state: TogetherSta
       return;
     }
     focusIn.current = false;
-    wrap.current?.querySelector<HTMLElement>(".together-panel :is(input, button):not(:disabled)")?.focus();
+    wrap.current?.querySelector<HTMLElement>(".together-panel :is(input, button):not(:disabled):not(.together-close)")?.focus();
   }, [open]);
   // (an Invite just made: the panel shows its code)
   useEffect(() => {
