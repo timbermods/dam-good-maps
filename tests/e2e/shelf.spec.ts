@@ -72,26 +72,6 @@ async function openGround(page: Page, r: number, o: { ry?: number; dry?: number;
   );
 }
 
-/** Points at a tile and waits for the renderer to have read it: the pointer is moved on to it (a few pixels off and back, the
- *  second move always a move) until `hoverHit` is within a tile of it. A Delete pressed before the hover was read took nothing:
- *  CI failed twice on the start's Delete (the Delete of the start, last step) with `hoverHit` null after both moves, and passed on
- *  the third run with the same map (D341). */
-async function pointAt(page: Page, at: { x: number; y: number }, tile: readonly [number, number]): Promise<void> {
-  await expect
-    .poll(
-      async () => {
-        await page.mouse.move(at.x + 3, at.y);
-        await page.mouse.move(at.x, at.y);
-        return page.evaluate(([x, y]) => {
-          const h = window.dgm3d!.renderer.hoverHit;
-          return !!h && Math.abs(h.x - x) <= 1 && Math.abs(h.y - y) <= 1;
-        }, tile);
-      },
-      { message: `the renderer read the pointer on ${tile}` },
-    )
-    .toBe(true);
-}
-
 const trees = (page: Page, near: [number, number], r: number) =>
   page.evaluate(
     ([x, y, rr]) => {
@@ -243,7 +223,8 @@ test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the 
     [gx - 1, gy] as const,
   );
   const op = await client(page, one![0], one![1]);
-  await pointAt(page, op, one!);
+  await page.mouse.move(op.x + 3, op.y);
+  await page.mouse.move(op.x, op.y);
   const steps = (await labels(page)).length;
   await page.keyboard.press("Delete");
   await idle(page);
@@ -288,7 +269,8 @@ test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the 
   // with nothing left standing there, Delete takes the ground's top level: one step, one undo
   await page.keyboard.press("Escape");
   const ground = await client(page, gx, gy);
-  await pointAt(page, ground, [gx, gy]);
+  await page.mouse.move(ground.x + 3, ground.y);
+  await page.mouse.move(ground.x, ground.y);
   const beforeGround = (await labels(page)).length;
   const W = (await info(page)).W;
   await page.keyboard.press("Delete");
@@ -310,51 +292,15 @@ test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the 
 
   // the start is the player's like any object (item 44): pointed at, Delete takes it, one step
   const at = await client(page, start[0], start[1]);
-  await page.evaluate(() => {
-    const w = window as unknown as { __pe: string[] };
-    w.__pe = [];
-    const c = document.querySelector(".view3d > canvas")!;
-    for (const t of ["pointerleave", "pointerenter", "pointerdown", "pointerup", "pointercancel", "lostpointercapture"]) c.addEventListener(t, (e) => w.__pe.push(`${t}@${Math.round(performance.now())}>${(e as PointerEvent).relatedTarget ? ((e as PointerEvent).relatedTarget as HTMLElement).tagName + "." + ((e as PointerEvent).relatedTarget as HTMLElement).className : "-"}`), true);
-    window.addEventListener("blur", () => w.__pe.push(`window-blur@${Math.round(performance.now())}`));
-  });
-  await pointAt(page, at, start);
+  await page.mouse.move(at.x + 3, at.y);
+  await page.mouse.move(at.x, at.y);
+  // (the start's indicators, which show while the pointer is on the start, never take the pointer from the map: on CI their panel lay
+  // under the pointer, the map saw the pointer leave and Delete took nothing, three runs in a row, D341)
+  await expect.poll(() => page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.tagName, [at.x, at.y] as const)).toBe("CANVAS");
   const kept = (await labels(page)).length;
-  const probe = () =>
-    page.evaluate(([sx, sy, cx, cy]) => {
-      const r = window.dgm3d!.renderer;
-      const h = r.hoverHit;
-      const m = r.mapState()!;
-      const e = m.entities;
-      const near: string[] = [];
-      for (let k = 0; k < e.count; k++) if (Math.abs(e.x[k] - sx) <= 3 && Math.abs(e.y[k] - sy) <= 3) near.push(`${e.templates[e.template[k]]}@${e.x[k]},${e.y[k]}`);
-      const act = document.activeElement;
-      const live = Array.from(document.querySelectorAll('[role="status"],[role="alert"],.shape-note,.flash,.note,.message')).map((n) => (n.textContent ?? "").slice(0, 80));
-      const top = document.elementFromPoint(cx, cy);
-      return JSON.stringify({
-        pe: (window as unknown as { __pe: string[] }).__pe,
-        top: top && `${top.tagName}.${top.className}`,
-        hover: h && { x: h.x, y: h.y, keys: Object.keys(h) },
-        sel: window.dgmEditor!.selection().length,
-        focus: act && `${act.tagName}.${act.className}|${(act.textContent ?? "").slice(0, 30)}`,
-        near,
-        start: (window.dgmEditor!.info().features.find((f) => f.kind === "start")?.params as { position: number[] } | undefined)?.position ?? null,
-        live,
-        objectsHidden: (r as unknown as { objectsHidden: boolean }).objectsHidden,
-        slice: (r as unknown as { slice: number | null }).slice,
-      });
-    }, [start[0], start[1], at.x, at.y] as const);
-  const probeBefore = await probe();
-  await page.evaluate(() => {
-    const w = window as unknown as { __kd: string[] };
-    w.__kd = [];
-    window.addEventListener("keydown", (e) => setTimeout(() => w.__kd.push(`${e.key}:${e.defaultPrevented}:${(e.target as HTMLElement).tagName}`), 0), true);
-  });
   await page.keyboard.press("Delete");
   await idle(page);
-  const probeAfter = (await probe()) + " keys " + (await page.evaluate(() => JSON.stringify((window as unknown as { __kd: string[] }).__kd))) + " labelsNow " + (await labels(page)).length;
-  await page.waitForTimeout(3000);
-  const probeLater = `labels 3s later ${(await labels(page)).length}`;
-  await expect.poll(async () => (await labels(page)).length, { message: `start delete: before ${probeBefore} | after ${probeAfter} | ${probeLater}` }).toBe(kept + 1);
+  await expect.poll(async () => (await labels(page)).length).toBe(kept + 1);
   expect((await labels(page)).at(-1)).toBe("Remove the start");
   expect((await info(page)).features.some((f) => f.kind === "start")).toBe(false);
   // the checks say so, and the save asks for one
