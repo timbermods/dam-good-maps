@@ -85,6 +85,10 @@ export const SPURS = { gap: [8, 30], len: [0.3, 1.2], turn: 0.5, fork: 0.85, for
 export const BROOK_APART = 3;
 /** The lake's swell before the Low River's lip: `wider` tiles wider than the lip, `back` tiles before it. */
 export const LAKE_SWELL = { wider: 8, back: 3 } as const;
+/** How far round the lake its field is read, tiles (past it, the lake is that far). */
+export const LAKE_FIELD = 18;
+/** How far round the paths the brooks keep from their field is read, tiles. */
+export const PATH_FIELD = 16;
 /** A brook takes a cove no further from its spring than `[0]` times the lake's nearest shore and `[1]` tiles. */
 export const BROOK_COVE = [1.5, 12] as const;
 /** Within this many tiles of a cove's head two brooks may come together. */
@@ -965,7 +969,22 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const radii = tarnAt.map(() => rng.range(2.6, 3.2));
   const sills = tarnAt.map(() => S + rng.int(3, 5));
   // (the lake's water, its main arm's with its coves' and bays': under 0 in it)
-  const lakeAt = (p: Point): number => Math.min(edgeOf(main, p[0], p[1]), ...lakeArms.slice(1).map((arm) => edgeOf(arm, p[0], p[1])));
+  // (read a tile at a time from a field laid once, each arm over its own box and `LAKE_FIELD` tiles round it, and again
+  // for each mouth's notch: read afresh from every arm, it was most of a plan's time at 256²)
+  const lakeField = new Float32Array(N * N).fill(LAKE_FIELD);
+  const layArm = (arm: Spine) => {
+    const x0 = Math.max(0, Math.floor(Math.min(...arm.map((q) => q[0] - q[2])) - LAKE_FIELD));
+    const x1 = Math.min(N - 1, Math.ceil(Math.max(...arm.map((q) => q[0] + q[2])) + LAKE_FIELD));
+    const y0 = Math.max(0, Math.floor(Math.min(...arm.map((q) => q[1] - q[2])) - LAKE_FIELD));
+    const y1 = Math.min(N - 1, Math.ceil(Math.max(...arm.map((q) => q[1] + q[2])) + LAKE_FIELD));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) lakeField[y * N + x] = Math.min(lakeField[y * N + x], edgeOf(arm, x + 0.5, y + 0.5));
+  };
+  for (const arm of lakeArms) layArm(arm);
+  const lakeAt = (p: Point): number => {
+    const x = Math.floor(p[0]);
+    const y = Math.floor(p[1]);
+    return x < 0 || y < 0 || x >= N || y >= N ? LAKE_FIELD : lakeField[y * N + x];
+  };
   // each brook comes into the lake at a cove's head, never across a cove's mouth (planning's ruling on the brooks: coves
   // are where streams come in), the nearest it can reach, a tile and a half inside the cove's end
   const heads: Point[] = coves.map((c) => [c.spine[1][0] + c.out[0] * (c.spine[1][2] - 1.5), c.spine[1][1] + c.out[1] * (c.spine[1][2] - 1.5)]);
@@ -981,6 +1000,33 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
         if (e <= -1 && e >= -2) shoreAll.push(q);
       }
   }
+  // (how far each tile stands from the plunge pool's brook, the Low River, the Gate and the brooks laid so far, `PATH_FIELD`
+  // tiles out at most, laid once and read a tile at a time: asked afresh of every place and way, they were most of a
+  // plan's time at 256²)
+  const layPath = (f: Float32Array, path: readonly Point[]) => {
+    for (let k = 0; k + 1 < path.length; k++) {
+      const [a, b] = [path[k], path[k + 1]];
+      const x0 = Math.max(0, Math.floor(Math.min(a[0], b[0]) - PATH_FIELD));
+      const x1 = Math.min(N - 1, Math.ceil(Math.max(a[0], b[0]) + PATH_FIELD));
+      const y0 = Math.max(0, Math.floor(Math.min(a[1], b[1]) - PATH_FIELD));
+      const y1 = Math.min(N - 1, Math.ceil(Math.max(a[1], b[1]) + PATH_FIELD));
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) f[y * N + x] = Math.min(f[y * N + x], pathDist(x + 0.5, y + 0.5, [a, b]).d);
+    }
+  };
+  const fieldOf = (path: readonly Point[]): Float32Array => {
+    const f = new Float32Array(N * N).fill(PATH_FIELD);
+    layPath(f, path);
+    return f;
+  };
+  const fieldAt = (f: Float32Array, p: Point): number => {
+    const x = Math.floor(p[0]);
+    const y = Math.floor(p[1]);
+    return x < 0 || y < 0 || x >= N || y >= N ? PATH_FIELD : f[y * N + x];
+  };
+  const nearOut = fieldOf(outflow);
+  const nearLow = fieldOf(low);
+  const nearGate = fieldOf(gate);
+  const nearBrooks = new Float32Array(N * N).fill(PATH_FIELD);
   // (nearest the lake first: a far spring's brook, laid first, passed in front of a nearer spring)
   const laying = tarnAt.map((t, k) => ({ k, d: edgeOf(main, t[0], t[1]) })).sort((x, y) => x.d - y.d || x.k - y.k).map((x) => x.k);
   // (two brooks may share a cove, meeting at its head: a confluence at the water's edge; planning's ruling on room)
@@ -1005,12 +1051,25 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
       p[1] < lakeTopV &&
       // (and a brook's room round every other spring, so a spring laid after it still has its way out)
       others.every(([x, y]) => dist(p, [x, y]) > 3.2 + 4 + BROOK_APART + 3) &&
-      pathDist(p[0], p[1], outflow).d > room + 3 &&
-      pathDist(p[0], p[1], low).d > room + 3 &&
-      pathDist(p[0], p[1], gate).d > slotW / 2 + room + 2;
+      fieldAt(nearOut, p) > room + 3 &&
+      fieldAt(nearLow, p) > room + 3 &&
+      fieldAt(nearGate, p) > slotW / 2 + room + 2;
     // (clear of the brooks laid before it, but at the lake and at a cove's head it may share)
-    const byOthers = (p: Point, room: number): boolean => lakeAt(p) < 3 || targets.some((c) => dist(p, heads[c]) < BROOK_SHARE) || tarns.every((tn) => pathDist(p[0], p[1], tn.path).d > room);
-    const open = (p: Point): boolean => dist(p, [tu, tv]) > r + 1.5 && near(p, 3) && byOthers(p, apart) && lakeAt(p) > 2;
+    const byOthers = (p: Point, room: number): boolean => lakeAt(p) < 3 || targets.some((c) => dist(p, heads[c]) < BROOK_SHARE) || fieldAt(nearBrooks, p) > room;
+    // (read a tile at a time and kept: the way's search asks of each place and each way's middle, and asked afresh it was
+    // most of a plan's time at 256²)
+    let memo = new Uint8Array(N * N);
+    const open = (p: Point): boolean => {
+      const x = Math.floor(p[0]);
+      const y = Math.floor(p[1]);
+      if (x < 0 || y < 0 || x >= N || y >= N) return false;
+      const i = y * N + x;
+      if (!memo[i]) {
+        const q: Point = [x + 0.5, y + 0.5];
+        memo[i] = dist(q, [tu, tv]) > r + 1.5 && near(q, 3) && byOthers(q, apart) && lakeAt(q) > 2 ? 1 : 2;
+      }
+      return memo[i] === 1;
+    };
     // (the shore's places a tile or two inside the main arm, off every cove and bay: a brook never crosses a cove's mouth)
     const shore = shoreAll.filter((q) => coves.every((c) => edgeOf(c.spine, q[0], q[1]) > 0.5));
     const passes: { into: (p: Point) => boolean; ends: Point[]; toward: (p: Point) => number }[] = [];
@@ -1021,7 +1080,8 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
         ends: targets.flatMap((c) => [heads[c], [heads[c][0] + coves[c].out[0] * 4, heads[c][1] + coves[c].out[1] * 4] as Point]),
         toward: (p) => Math.min(...targets.map((c) => dist(p, heads[c]))),
       });
-    passes.push({ into: (p) => shore.some((q) => q[0] === p[0] && q[1] === p[1]), ends: shore, toward: lakeAt });
+    const onShore = new Set(shore);
+    passes.push({ into: (p) => onShore.has(p), ends: shore, toward: lakeAt });
     let way: Point[] | null = null;
     for (const pass of passes) {
       if (!pass.ends.length) continue;
@@ -1033,6 +1093,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
       const out: Point = [tu + ((aim[0] - tu) / ad) * (r + 3), tv + ((aim[1] - tv) / ad) * (r + 3)];
       for (const ap of [BROOK_APART + 3, BROOK_APART]) {
         apart = ap;
+        memo = new Uint8Array(N * N);
         way = brookWay(ground, [...places, ...pass.ends, out], head, open, pass.into, pass.toward, lakeAt);
         if (way) break;
       }
@@ -1047,6 +1108,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
       const prev = way[way.length - 2];
       const pd = dist(prev, end);
       lakeArms.push([[r2(end[0]), r2(end[1]), 1.2], [r2(end[0] + ((prev[0] - end[0]) / pd) * 1), r2(end[1] + ((prev[1] - end[1]) / pd) * 1), 0.9]]);
+      layArm(lakeArms[lakeArms.length - 1]);
     }
     // (its corners cut twice: a brook bends, never turns a corner)
     const courseLine = smooth(way);
@@ -1078,6 +1140,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     }
     laid[tk] = { spine: [[tu, tv, r]], sill, path: course, bed, halves };
     tarns.push(laid[tk]);
+    layPath(nearBrooks, course);
   }
   // (in the springs' own order again, for their names)
   tarns.splice(0, tarns.length, ...laid);
