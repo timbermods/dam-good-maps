@@ -22,7 +22,8 @@
 // Objects only, never the land (D245, D331): a start moves to the best spot its land offers, a start
 // that lost its water gets a spring, a start short of berries gets bushes, and plants on soil that
 // kills them move to moist ground close by or go (#523, tools/lib/placePlants.ts), the start's wood and
-// berries first. Everything it writes is the same bytes on every run.
+// berries first. A source that stands in another's flow merges into the upstream source that feeds it, where the
+// ruling's limits allow (tools/lib/placeSources.ts: sources only at heads, D171). Everything it writes is the same bytes on every run.
 //
 // The product never imports from investigation/ (tests/unit/boundaries.test.ts); this tool reads the
 // library's data files at run time, as tools may.
@@ -50,6 +51,7 @@ import {
 } from "../src/core/places/place";
 import { encodeHeights, encodeTiles } from "./lib/placeData";
 import { keepNearest, settlePlants, startWood, startWoodSpecies } from "./lib/placePlants";
+import { mendSources } from "./lib/placeSources";
 import { DEAD_TREES_KEEP_LOGS, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../src/core/data/logFloor";
 import { startWalkField } from "../src/core/resources/baseline";
 import { writeTimber } from "../src/core/format/timber";
@@ -374,6 +376,13 @@ for (const item of items) {
   }
   if (entries.some((e) => e.id === place.id)) throw new Error(`two places are called ${place.name}`);
   const t = performance.now();
+  // Sources only at heads (D171, tools/lib/placeSources.ts): a source in another's flow merges into the upstream source
+  // where that file's rules allow it; the rest stay, and the place keeps the fault until none is left. (The sealed-land
+  // comparison for the start's water below is the survey's own, so it keeps the unmended sources.)
+  const surveyed = place;
+  const mend = mendSources(place);
+  place = mend.place;
+  const mendNote = mend.merges.length || mend.left.length ? `  sources: ${mend.merges.length} merged${mend.left.length ? `, ${mend.left.length} left in a flow (${mend.left.map((l) => `${l.at.join(",")} ${l.why}`).join("; ")})` : ""}` : "";
   let { built, v, strict, blocking, strictFails } = buildChecked(place);
   // A start the opened rivers flood, or that reaches no water a source feeds, moves (D245: the best
   // spot its own land offers; moving it toward water is fine): the spots that stay dry and have a shore
@@ -385,7 +394,7 @@ for (const item of items) {
   // wood falls below what the start met gets fast trees by it (`growFastWood`, objects only) up to the
   // wood checks' limits. Never one that falls below the starting-logs floor it met (D224) or fails
   // anything else it passed but the wood, the berries and the start land (information, D331).
-  const opened = place;
+  const opened = surveyed;
   let moved: [number, number] | null = null;
   let movedWood = "";
   const dry = strictFails.includes("start.dry");
@@ -593,6 +602,7 @@ for (const item of items) {
       (blocking.length ? `  export: ${blocking.map((c) => c.id).join(", ")}` : "") +
       (strictFails.length ? `  generate profile: ${strictFails.join(", ")}` : "") +
       (moved ? `  start moved from ${moved.join(",")} to ${place.start.join(",")}${movedWood}` : "") +
+      mendNote +
       (spring ? `  spring by the start at ${spring.map((s) => `${s[0]},${s[1]}`).join(" ")}` : "") +
       (planted ? `  ${planted} berry bushes planted by the start` : "") +
       plants,
