@@ -81,6 +81,14 @@ export function storeProblem(r: StoreResult): string | null {
     : "This browser can't keep Your maps. Download the project to keep this one.";
 }
 
+/** Whether Your maps keeps the open map (D234, D455): from its first edit (an operation applied, so the worker's version
+ *  is past the one the map opened at) or a rename (`kept`), whatever its kind, and still after every edit is undone.
+ *  `version` is the worker's, taken after every edit made has its answer: an edit still on its way when the map is about
+ *  to be replaced is an edit, and the map is stored before anything replaces it. */
+export function keepsMap(m: { kept: boolean; openedVersion: number; version: number }): boolean {
+  return m.kept || m.version !== m.openedVersion;
+}
+
 /** The list's order: newest edit first. */
 export function byEdited(entries: readonly YourMapEntry[]): YourMapEntry[] {
   return [...entries].sort((a, b) => b.editedAt.localeCompare(a.editedAt));
