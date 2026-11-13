@@ -78,7 +78,7 @@ import { AVAILABLE_THEMES, EDITOR_LEVEL, generatorSizeRefusal, THEME_PRESETS, th
 import { assertSpec } from "../spec/schema";
 import { ColumnTerrain, plainMask, terrainColumns, terrainData } from "../terrain/runs";
 import { validateMap, type Validation } from "../validate/checks";
-import { bandScale, colonyReach, FLOOR_MARGIN, MINE_LO, MINE_REACH_LO, minesReached, minesWanted, nearestBadwater, rulesFor, startBench, WET, type PlayabilityAnalysis } from "../validate/playability";
+import { bandScale, colonyReach, FLOOR_MARGIN, startFloorScale, MINE_LO, MINE_REACH_LO, minesReached, minesWanted, nearestBadwater, rulesFor, startBench, WET, type PlayabilityAnalysis } from "../validate/playability";
 import { blocks, type ValidationReport } from "../validate/report";
 import { walkRegions } from "../analysis/regions";
 import { planSetPiece } from "../features/setpieces";
@@ -1944,6 +1944,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const reachMin = REACH_MIN[spec.settings.terrain.buildableLand];
   let minFoot = Math.round(Math.max(Math.min(1200, reachMin), 0.12 * N) * (ease >= 2 ? 0.5 : 1));
   const footWant = 2 * reachMin;
+  const generousReach = spec.settings.terrain.buildableLand === "generous" && THEME_PRESETS[spec.theme].buildableLand !== "generous" ? Math.round(REACH_MIN.generous * startFloorScale(W, H)) : 0;
   // the start's floors (D515): every start the settler gives has its bench, its walkable land and its moist land
   const benchMin = Math.ceil(FLOOR_MARGIN * floors.levelLand);
   const room = { small: 400, normal: 900, large: 1600 }[spec.settings.start.area];
@@ -3170,6 +3171,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       const got = startFloorsOf(b);
       if (got.bench < benchMin) why = "start.level_land";
       else if (got.reach < FLOOR_MARGIN * floors.reachMin) why = "start.reach";
+      // (Buildable land Generous where the theme's own is less, and not in a rescue round: the start walks to the land
+      // the setting promises, at least 2,500 tiles at 128², by area below it as the floors are (PLAN §5.2))
+      else if (ease === 0 && generousReach > 0 && got.reach < generousReach) why = "start.reach";
       else if (got.moist < FLOOR_MARGIN * (floors.farmland + floors.forester)) why = "start.forester";
     }
     if (!why && N <= 96 * 96) {
