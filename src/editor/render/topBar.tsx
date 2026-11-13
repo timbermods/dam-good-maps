@@ -6,14 +6,18 @@ import type { EditorProps } from "../Editor";
 import { TopBar } from "../TopBar";
 import { tip } from "../../ui/Tooltip";
 import { sizeMax } from "../brushes";
+import { ObjectWindow } from "../ObjectWindow";
 import type { Ed } from "../ed";
 
 export function topBar(ed: Ed, props: EditorProps) {
   const {
     brushTool, tool, forcer, forceRow, unleashRow, firstRun, setFirstRun, brush, info, pickTop,
     setBrush, ready, selectRow, selectChip, selecting, selectingRef, brushToolRef, toolRef, closeSelect, openSelect, shelf, shelfRef,
-    message, setMessage, compareNote, block, blockSettings, blockFlip, setBlockSettings
+    message, setMessage, compareNote, block, blockSettings, blockFlip, setBlockSettings, phone, phoneSheet, setPhoneSheet,
+    phoneSelect, setPhoneSelect
   } = ed;
+  // (a phone: the object in hand's window takes the settings' sheet above the tool row)
+  const objectPanel = phone && !unleashRow() ? (ed.shelfRow() ?? ed.pickedRow()) : null;
   const notes =
     message || props.notice || props.compare ? (
       <>
@@ -50,6 +54,7 @@ export function topBar(ed: Ed, props: EditorProps) {
       hints={
         <FirstRun
           done={firstRun}
+          touch={!!phone}
           onHelp={() => showHelpPanel("help")}
           onClose={() => {
             const all = new Set<FirstStep>(["paint", "place", "water"]);
@@ -68,10 +73,38 @@ export function topBar(ed: Ed, props: EditorProps) {
       onPick={pickTop}
       onSettings={setBrush}
       loading={!ready}
-      selectRow={selectRow()}
+      // (on a phone Select rests in hand with its sheet closed: a tap on it opens its settings, a tap again puts them and
+      // any selection down; a selection made keeps them open)
+      selectRow={phone && !phoneSelect && !ed.selection.current.count ? null : selectRow()}
       selectChip={selectChip()}
       selecting={!!selecting && !brushTool && !tool && !shelf && !block}
-      onSelect={() => (selectingRef.current && !brushToolRef.current && !toolRef.current && !shelfRef.current && !ed.blockRef.current ? closeSelect() : openSelect())}
+      onSelect={() => {
+        const resting = selectingRef.current && !brushToolRef.current && !toolRef.current && !shelfRef.current && !ed.blockRef.current;
+        if (phone) {
+          setPhoneSheet(null);
+          // (in hand with its settings open: put down, the selection with it, as X does)
+          if (resting && (phoneSelect || ed.selection.current.count)) {
+            closeSelect();
+            return setPhoneSelect(false);
+          }
+          if (!resting) openSelect();
+          return setPhoneSelect(true);
+        }
+        if (resting) closeSelect();
+        else openSelect();
+      }}
+      phone={
+        phone
+          ? {
+              tall: ed.sheetTall,
+              onTall: ed.setSheetTall,
+              objectsOpen: phoneSheet === "objects",
+              holding: !!shelf,
+              onObjects: () => setPhoneSheet(phoneSheet === "objects" ? null : "objects"),
+              object: objectPanel ? <ObjectWindow panel={objectPanel} /> : null,
+            }
+          : null
+      }
     />
   );
 }

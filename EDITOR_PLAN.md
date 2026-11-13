@@ -17,8 +17,9 @@ text this document condensed (at D390) and the deferred Claude integration's des
 A studio for creating maps. Start from a generated map or a real place, shape it like a painter, and the water
 responds to everything you do. It is deliberately different from the game's own editor, which is a precision
 workshop; players can still fine-tune in the game's editor if they want. The editor was desktop-first (D185); phones and
-tablets now edit maps too, first class (#1074, amending D185): touch in the 3D view is built (§7, "Touch"), the phone
-layouts and the rest come in its later slices.
+tablets now edit maps too, first class (#1074, amending D185): touch in the 3D view (§7, "Touch") and the phone layouts
+(§3, "Phones") are built; seeing a press before it applies, the rest of the page on a phone and the passes on real
+phones come in its later slices.
 
 ## 2. The principles
 
@@ -182,7 +183,32 @@ place of its bottom rule.
   greyed otherwise with the reason in Compare's tooltip; Delete asks once ("Delete 7 maps?"), focus on
   Delete so Enter confirms, Esc cancels. The Delete key deletes the selected maps, or the one under the pointer, while
   the pointer is over Your maps or a tile has the keyboard's focus. On a touch screen the view takes fingers (§7, "Touch");
-  Your maps' selection by touch comes with the phone layouts (#1074).
+  Your maps' selection by touch comes with the rest of the page on a phone (#1074, slice 4).
+- **Phones** (#1074, slice 2; amends D185; `editor/view/phoneLayout.ts`, `usePhone.ts`, `src/styles/phone.css`;
+  `tests/e2e/layout.spec.ts` at 393×852 and 852×393). The layout goes by the room, never by the device: under 600 CSS px
+  wide the phone held upright, under 500 tall the phone on its side; anything else (a tablet, a laptop) keeps the layout
+  above. One editor: the same controls and operations (D342), only placed for a finger. **Upright:** one slim bar at the
+  top: a menu (**Map Generator**, **Real places**, **Your maps**, **History**, **Help and keys**, then File's entries),
+  the map's name (two lines at most), Undo, Redo, the checks' dot (a tap opens the checks under the bar) and **Save**
+  (Save to Timberborn's or Download .timber's call). The view fills the rest. At the foot the tools in one row that
+  scrolls sideways, icon over name, 56px tall: Select, **Objects**, the brushes, Block, the forces. The tool in hand's
+  settings stand in a sheet above the row with a grab handle: one row by default (Size and the tool's main choice, the
+  first two settings of its first row), every setting in up to half the screen when the handle is tapped or pulled up,
+  one row again when pulled down. Tapping the tool in hand puts it down. Select rests in hand with its sheet closed; a
+  tap on it opens Select's settings, a tap again puts them and any selection down. **Show**, a button at the view's top
+  right, opens a sheet of what the map shows: the Show row's toggles, Legend and its key, the camera's buttons, the
+  slice, Slow forces and the sound, the weather days, the minimap and Look. **Objects** opens a sheet of large tiles; a
+  tile picked closes it, and the object in hand's window stands above the row as a tool's settings do. One sheet at a
+  time: a tool taken up closes Show and the objects. The tapped tile's readout sits at the view's top left. The first
+  steps' hints say what a finger does and stand above the sheet, never over a control, and their × puts them away for
+  good. The menu's panels lie over the view at the screen's width and scroll inside (their own phone layouts are
+  slice 4). **On its side:** the same bar; the tools in a rail down the left edge; a tool's settings, Show and the
+  objects in a panel at the right, at most 40 % of the width (320px), clear of Show's button at the bottom right.
+  **Everywhere on a phone:** every control at least 44px, none off the screen, the page never zoomed or scrolled (the
+  editor is the dynamic viewport's height and clips what would spill), the notch and the home bar kept clear (safe
+  areas, `viewport-fit=cover`), fields 16px so the browser never zooms on focus. A long press on a control shows its
+  tooltip (D351) and is not a tap. With a tool's one-row sheet open the view keeps 66 % of the screen upright and 63 %
+  on its side (the spec holds 60 %).
 - **Together** (D362, D431, D486; `docs/COLLAB-BRIEF.md`; part 6a): two players edit one map through a relay and a
   room-code function, in the page's own panel style. One quiet button in the header's right group, before **File**
   (a small people icon and "Together", the icon alone, 40px square like Undo and Redo, below about 1,400px wide; tooltip

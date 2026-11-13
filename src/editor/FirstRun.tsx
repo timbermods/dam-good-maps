@@ -13,6 +13,13 @@ const LINES: [FirstStep, string][] = [
   ["water", "Add water: pick Water source on the right, then click where the water starts."],
 ];
 
+/** The same hints for a finger, wherever the phone layouts put the tools (#1074). */
+const TOUCH_LINES: Record<FirstStep, string> = {
+  paint: "Shape the land: pick a brush, then drag a finger on the map.",
+  place: "Place things: tap Objects, pick one, then tap the map.",
+  water: "Add water: in Objects, pick Water source, then tap where the water starts.",
+};
+
 /** The steps done so far (all three when the hints are over). */
 export function loadFirstRun(): Set<FirstStep> {
   try {
@@ -47,8 +54,8 @@ export function FirstRunSizer() {
   );
 }
 
-export function FirstRun(p: { done: Set<FirstStep>; onClose(): void; onHelp(): void }) {
-  const left = LINES.filter(([k]) => !p.done.has(k));
+export function FirstRun(p: { done: Set<FirstStep>; onClose(): void; onHelp(): void; touch?: boolean }) {
+  const left = LINES.filter(([k]) => !p.done.has(k)).map(([k, words]): [FirstStep, string] => [k, p.touch ? TOUCH_LINES[k] : words]);
   if (!left.length) return null;
   return (
     <div class="map-note first-run" role="status" aria-label="First steps">

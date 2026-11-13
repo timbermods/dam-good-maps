@@ -743,3 +743,147 @@ test("at 1280×800: every tool's settings sit on the bar's cells and nothing in 
     await page.keyboard.press("Escape");
   }
 });
+
+// ---- the phone layouts (#1074 slice 2, amends D185; EDITOR_PLAN §3, "Phones"): upright at 393×852 and on its side at
+// 852×393, three device pixels to a CSS pixel and a touch screen, as a phone shows the page. In every state a player
+// meets (at rest, a brush in hand with its one-row sheet, the sheet pulled up, Show, the objects, the menu): no control
+// under 44px, none off the screen, the page itself neither zoomed nor scrolled, every field 16px (no zoom on focus); with
+// a tool's one-row sheet open the view keeps at least 60 % of the screen uncovered; a tool tapped again is put down, and
+// a long press shows a control's tooltip without pressing it.
+
+const PHONES = [
+  { name: "upright", viewport: { width: 393, height: 852 } },
+  { name: "on its side", viewport: { width: 852, height: 393 } },
+];
+
+/** Every control a finger can press on the page: its size, and whether what of it shows is on the screen. A control
+ *  scrolled out of a row that scrolls (the tool row) is reachable, so only its size counts. */
+async function phoneControls(page: Page) {
+  return page.evaluate(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const out: { name: string; w: number; h: number; off: boolean; font: number | null }[] = [];
+    const sel = "button, select, textarea, a[href], input:not([type=hidden]):not([type=file]), [role=checkbox], [role=menuitem], [role=slider]";
+    for (const el of document.querySelectorAll<HTMLElement>(sel)) {
+      if (el.closest("[hidden], .visually-hidden, [aria-hidden=true]") || el.classList.contains("visually-hidden")) continue;
+      const cs = getComputedStyle(el);
+      if (cs.visibility === "hidden" || cs.display === "none") continue;
+      const r = el.getBoundingClientRect();
+      if (!r.width || !r.height) continue;
+      // what of it shows: cut by every ancestor that clips; one that scrolls may hide it whole
+      let l = r.left, t = r.top, rr = r.right, b = r.bottom;
+      /** The nearest row or panel that scrolls, which must itself be on the screen. */
+      let scroller: Element | null = null;
+      for (let a = el.parentElement; a && a !== document.documentElement; a = a.parentElement) {
+        const s = getComputedStyle(a);
+        if (s.overflowX === "visible" && s.overflowY === "visible") continue;
+        const q = a.getBoundingClientRect();
+        l = Math.max(l, q.left);
+        t = Math.max(t, q.top);
+        rr = Math.min(rr, q.right);
+        b = Math.min(b, q.bottom);
+        if (!scroller && /auto|scroll/.test(s.overflowX + s.overflowY)) scroller = a;
+      }
+      const shows = rr - l > 0.5 && b - t > 0.5;
+      if (!shows && !scroller) continue;
+      const outside = (q: { left: number; top: number; right: number; bottom: number }) => q.left < -0.5 || q.top < -0.5 || q.right > W + 0.5 || q.bottom > H + 0.5;
+      const off = shows ? outside({ left: l, top: t, right: rr, bottom: b }) : outside(scroller!.getBoundingClientRect());
+      const typed = el.tagName === "TEXTAREA" || el.tagName === "SELECT" || (el.tagName === "INPUT" && !["range", "checkbox", "radio", "button"].includes((el as HTMLInputElement).type));
+      const name = (el.getAttribute("aria-label") || el.textContent || el.className || el.tagName).trim().replace(/\s+/g, " ").slice(0, 40);
+      out.push({ name, w: r.width, h: r.height, off, font: typed ? parseFloat(cs.fontSize) : null });
+    }
+    return out;
+  });
+}
+
+/** The share of the screen where the view shows, under none of the controls laid over it (counted on a 4px grid). */
+async function viewShare(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const v = window.dgm3d!.renderer.canvas.getBoundingClientRect();
+    const over: DOMRect[] = [];
+    for (const el of document.querySelectorAll<HTMLElement>(".tool-dock > *, .objects-dock > *, .phone-show, .phone-show-button, .bottom-left-stack > *, .gen, .editor-bar, .menu, .checks-list")) {
+      if (el.closest("[hidden]") || getComputedStyle(el).display === "none" || getComputedStyle(el).visibility === "hidden") continue;
+      const r = el.getBoundingClientRect();
+      if (r.width && r.height) over.push(r);
+    }
+    let seen = 0;
+    const step = 4;
+    for (let y = step / 2; y < H; y += step)
+      for (let x = step / 2; x < W; x += step) {
+        if (x < v.left || x > v.right || y < v.top || y > v.bottom) continue;
+        if (!over.some((r) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom)) seen++;
+      }
+    return (seen * step * step) / (W * H);
+  });
+}
+
+for (const phone of PHONES) {
+  test.describe(`a phone ${phone.name}`, () => {
+    test.use({ viewport: phone.viewport, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+
+    test(`at ${phone.viewport.width}×${phone.viewport.height}: every control at least 44px and on the screen in every state, the page never zoomed or scrolled, the view at least 60 % with a tool's one-row sheet`, async ({ page }) => {
+      test.setTimeout(300_000);
+      await openEditor(page);
+      const W = phone.viewport.width;
+      const H = phone.viewport.height;
+      const check = async (state: string) => {
+        await page.waitForTimeout(300);
+        const page_ = await page.evaluate(() => ({ w: document.documentElement.scrollWidth, h: document.documentElement.scrollHeight, iw: window.innerWidth, ih: window.innerHeight, x: window.scrollX, y: window.scrollY, scale: window.visualViewport?.scale ?? 1 }));
+        expect(page_, `${state}: the page is laid out at the screen's size, neither zoomed nor scrolled`).toEqual({ w: W, h: H, iw: W, ih: H, x: 0, y: 0, scale: 1 });
+        const controls = await phoneControls(page);
+        expect(controls.length, `${state}: controls found`).toBeGreaterThan(5);
+        const small = controls.filter((c) => Math.min(c.w, c.h) < 44 - 0.5).map((c) => `${c.name} ${Math.round(c.w)}×${Math.round(c.h)}`);
+        expect(small, `${state}: controls under 44px`).toEqual([]);
+        expect(controls.filter((c) => c.off).map((c) => c.name), `${state}: controls off the screen`).toEqual([]);
+        expect(controls.filter((c) => c.font !== null && c.font < 16).map((c) => c.name), `${state}: fields under 16px`).toEqual([]);
+        return controls;
+      };
+      const tap = (selector: string) => page.locator(selector).first().tap();
+
+      await check("at rest");
+      expect(await viewShare(page), "at rest: the view's share").toBeGreaterThanOrEqual(0.6);
+
+      // a brush in hand: its one-row sheet (Size and the main choice)
+      await tap(".tool-bar button[aria-label^='Raise']");
+      await expect(page.locator(".tool-settings.sheet:not(.tall)")).toBeVisible();
+      await check("Raise in hand");
+      expect(await viewShare(page), "Raise in hand, its one-row sheet: the view's share").toBeGreaterThanOrEqual(0.6);
+      // pulled up: every setting
+      await tap(".sheet-handle");
+      await expect(page.locator(".tool-settings.sheet.tall")).toBeVisible();
+      await check("the sheet pulled up");
+      // tapped again, the brush is put down
+      await tap(".tool-bar button[aria-label^='Raise']");
+      await expect(page.locator(".tool-settings.sheet")).toHaveCount(0);
+
+      await tap(".phone-show-button");
+      await expect(page.locator(".phone-show")).toBeVisible();
+      await check("Show open");
+      await tap(".phone-show-button");
+      await expect(page.locator(".phone-show")).toBeHidden();
+
+      await tap(".objects-button");
+      await expect(page.locator(".objects-menu")).toBeVisible();
+      await check("the objects open");
+      await tap(".objects-button");
+      await expect(page.locator(".objects-menu")).toBeHidden();
+
+      // a long press shows a control's tooltip (D351) and is not a tap: the tool stays down
+      const cdp = await page.context().newCDPSession(page);
+      const lower = page.locator(".tool-bar button[aria-label^='Lower']");
+      await lower.scrollIntoViewIfNeeded();
+      const r = (await lower.boundingBox())!;
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: r.x + r.width / 2, y: r.y + r.height / 2 }] });
+      await expect(page.locator(".tip")).toContainText("Lower");
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await page.waitForTimeout(200);
+      await expect(lower).toHaveAttribute("aria-pressed", "false");
+
+      await tap(".phone-menu-button");
+      await expect(page.getByRole("menuitem", { name: "Map Generator" })).toBeVisible();
+      await check("the menu open");
+    });
+  });
+}

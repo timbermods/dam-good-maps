@@ -47,6 +47,8 @@ export function SettingsGrid(p: { label: string; groups: readonly Group[]; fresh
         <div
           key={g.key}
           class={`set-group${g.centre ? " centre" : ""}`}
+          // (a phone's one-row sheet shows the first row alone: Size and the tool's main choice, #1074)
+          data-row={g.row}
           style={{ gridColumn: `${column(g.at)} / ${column(g.at + g.span - 1) + 1}`, gridRow: `${g.row} / ${g.row + (g.rows ?? 1)}` }}
         >
           {g.node}

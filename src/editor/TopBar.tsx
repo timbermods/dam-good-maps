@@ -241,6 +241,59 @@ export interface TopBarProps {
   notes?: ComponentChildren;
   /** The Lake's outline drawn last touches water, which fills it (its row says so). */
   lakeFed?: boolean;
+  /** A phone's layout (#1074): the settings' sheet and its grab handle (one row, or all of them pulled up), and the
+   *  Objects button that opens the objects' sheet. */
+  phone?: PhoneBar | null;
+}
+
+/** The tool row's phone parts (#1074). */
+export interface PhoneBar {
+  /** The settings' sheet pulled up: every setting (else Size and the main choice). */
+  tall: boolean;
+  onTall(tall: boolean): void;
+  /** The objects' sheet is open, an object is in hand, and Objects' tap. */
+  objectsOpen: boolean;
+  holding: boolean;
+  onObjects(): void;
+  /** The object in hand's window (or a picked source's): it takes the settings' sheet, as a tool's settings do. */
+  object?: ComponentChildren;
+}
+
+/** How far a drag on the grab handle goes before it pulls the sheet up or down, in CSS px. */
+const PULL_PX = 24;
+
+/** The settings' sheet's grab handle (#1074): a tap or a drag up shows every setting, a tap or a drag down one row. */
+function SheetHandle(p: { tall: boolean; onTall(tall: boolean): void }) {
+  const from = useRef<{ y: number; id: number; moved: boolean } | null>(null);
+  return (
+    <button
+      type="button"
+      class="sheet-handle"
+      aria-expanded={p.tall}
+      aria-label={p.tall ? "Fewer settings" : "All settings"}
+      {...tip(p.tall ? "Show only the main settings" : "Show every setting")}
+      onPointerDown={(e) => {
+        from.current = { y: e.clientY, id: e.pointerId, moved: false };
+        (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+      }}
+      onPointerMove={(e) => {
+        const f = from.current;
+        if (!f || f.id !== e.pointerId || f.moved) return;
+        const dy = e.clientY - f.y;
+        if (Math.abs(dy) < PULL_PX) return;
+        f.moved = true;
+        p.onTall(dy < 0);
+      }}
+      onPointerUp={() => void setTimeout(() => (from.current = null))}
+      onPointerCancel={() => (from.current = null)}
+      onClick={() => {
+        if (from.current?.moved) return;
+        p.onTall(!p.tall);
+      }}
+    >
+      <span class="grip" aria-hidden="true" />
+    </button>
+  );
 }
 
 /** The forces' Floor (D321, item 40): one level every force that digs keeps to, set in any force's settings and
@@ -531,8 +584,10 @@ export function TopBar(p: TopBarProps) {
   ) : p.row ? (
     <SettingsGrid label={p.row.label} groups={p.row.groups} />
   ) : (
-    (p.selectRow ?? null)
+    (p.phone?.object ?? p.selectRow ?? null)
   );
+  // (an object's window has no rows to pull up: no handle)
+  const handle = !!p.phone && grid !== p.phone.object;
   const button = (tool: BrushTool | "select" | "block" | Verb, name: string, label: string, pressed: boolean, title: ReturnType<typeof tip>, disabled: boolean | undefined, onClick: () => void) => (
     <button type="button" key={tool} class="icon-button" aria-pressed={pressed} aria-label={label} {...title} disabled={disabled} onClick={onClick}>
       <Icon tool={tool} />
@@ -555,9 +610,23 @@ export function TopBar(p: TopBarProps) {
       {p.notes ? <div class="dock-notes">{p.notes}</div> : null}
       {p.hints ?? null}
       {p.selectChip ? <div class="working-note">{p.selectChip}</div> : null}
-      {grid ? <div class="map-bar tool-settings">{grid}</div> : null}
+      {grid ? (
+        <div class={`map-bar tool-settings${p.phone ? (p.phone.tall ? " sheet tall" : " sheet") : ""}`}>
+          {p.phone && handle ? <SheetHandle tall={p.phone.tall} onTall={p.phone.onTall} /> : null}
+          {grid}
+        </div>
+      ) : null}
       <div class="map-bar tool-bar" role="toolbar" aria-label="Tools">
         {p.onSelect ? button("select", "Select", "Select (1)", !!p.selecting, off ? why : SELECT_TIP, off, p.onSelect) : null}
+        {p.phone ? (
+          <button type="button" key="objects" class="icon-button objects-button" aria-pressed={p.phone.holding || p.phone.objectsOpen} aria-expanded={p.phone.objectsOpen} aria-label="Objects" {...tip(p.phone.objectsOpen ? "Close the objects" : "Place the start, water, trees and more")} onClick={p.phone.onObjects}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3l-5 8h3l-4 6h12l-4-6h3z" />
+              <path d="M12 17v4" />
+            </svg>
+            <span class="icon-word">Objects</span>
+          </button>
+        ) : null}
         {BRUSHES.map((b) => button(b.tool, b.name, `${b.name} brush (${b.key})`, p.active === b.tool, off ? why : brushTip(b), off, () => p.onPick(p.active === b.tool ? null : b.tool)))}
         {p.blockSettings ? button("block", "Block", "Block tool (7)", !!p.block, off ? why : BLOCK_TIP, off, () => p.onPick(p.block ? null : "block")) : null}
         {SHOWN_FORCES.length ? <span class="tool-sep" aria-hidden="true" /> : null}
