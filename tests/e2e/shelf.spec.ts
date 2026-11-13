@@ -334,10 +334,17 @@ test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the 
       });
     }, start);
   const probeBefore = await probe();
+  await page.evaluate(() => {
+    const w = window as unknown as { __kd: string[] };
+    w.__kd = [];
+    window.addEventListener("keydown", (e) => setTimeout(() => w.__kd.push(`${e.key}:${e.defaultPrevented}:${(e.target as HTMLElement).tagName}`), 0), true);
+  });
   await page.keyboard.press("Delete");
   await idle(page);
-  const probeAfter = await probe();
-  await expect.poll(async () => (await labels(page)).length, { message: `start delete: before ${probeBefore} | after ${probeAfter}` }).toBe(kept + 1);
+  const probeAfter = (await probe()) + " keys " + (await page.evaluate(() => JSON.stringify((window as unknown as { __kd: string[] }).__kd))) + " labelsNow " + (await labels(page)).length;
+  await page.waitForTimeout(3000);
+  const probeLater = `labels 3s later ${(await labels(page)).length}`;
+  await expect.poll(async () => (await labels(page)).length, { message: `start delete: before ${probeBefore} | after ${probeAfter} | ${probeLater}` }).toBe(kept + 1);
   expect((await labels(page)).at(-1)).toBe("Remove the start");
   expect((await info(page)).features.some((f) => f.kind === "start")).toBe(false);
   // the checks say so, and the save asks for one
