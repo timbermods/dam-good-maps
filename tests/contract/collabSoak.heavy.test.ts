@@ -41,8 +41,7 @@ describe.each(MAPS)("a soak on $name", (m) => {
   test("three hundred edits, checkpoints on the way and a rejoin leave identical maps", () => soak(m));
 });
 
-// The known fault collabLog pins (Highlands 48² seed 5, terrain above terrain since generator 0.10.16): one
-// `pumpWater()` can leave a peer's water unsettled. The soak on seed 5 shows it on the host: a force's plan, after the
-// host's one settle, throws "The water has not settled: a force plans on the settled water". When the fault is fixed
-// this passes and `fails` comes off.
-test.fails("a soak on highlands, seed 5: three hundred edits leave identical maps (the known fault, collabLog)", () => soak({ name: "highlands, seed 5", seed: 5, theme: "highlands" }));
+// Highlands 48² seed 5, terrain above terrain since generator 0.10.16: one `pumpWater()` once left a peer's water
+// unsettled, and a force's plan after the host's one settle threw "The water has not settled". D486 fixed it (one pump
+// settles a peer's water, as collabLog pins), so the soak on seed 5 holds the fix.
+test("a soak on highlands, seed 5: three hundred edits leave identical maps (D486: one pump settles)", () => soak({ name: "highlands, seed 5", seed: 5, theme: "highlands" }));
