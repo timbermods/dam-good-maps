@@ -45,7 +45,10 @@ test("Cancel while the recovery snapshot is pending restores a live editor worke
     cancelling: { current: false }, session: { kind: "import" }, entry: { current: { id: "old" } }, kept: { current: true },
     gen: old, generator: { generate: async () => { generated++; throw new Error("stale generation"); } },
     createGeneratorWorker: () => ({ api: { deferChecks: async () => {}, openProject: async (b: Uint8Array) => { opened.push([...b]); return {}; } } }),
-    snapshot: () => recovery.promise, saver: { changed() {}, flush: async () => {} },
+    // (the page takes the open map in two steps since the click's lag round, D148: the worker hands over its document
+    // (`snapshotTaken`), then its file is written; the recovery project pending is the first step pending)
+    snapshotTaken: () => recovery.promise.then((s) => ({ kept: true, written: Promise.resolve(s) })), backKept: { current: false }, CANCEL_WAIT: 30_000,
+    saver: { changed() {}, flush: async () => {} },
     stopBackground() {}, setBusy() {}, setError() {}, setProgress() {}, setSeedText() {},
     setMaking: (v: unknown) => { making = v; }, performance: { mark() {} },
     enterEditor() {}, words: (e: unknown) => String(e), seedText: "4242", proxy: (v: unknown) => v,

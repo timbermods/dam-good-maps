@@ -992,11 +992,14 @@ export function App() {
     back.current = null;
     // (whether it is kept is asked of the map as the worker handed it over, every edit made answered: a first edit still
     // on its way when Generate was pressed keeps it, D455)
-    const t = await snapshotTaken();
+    // (`backReady` is set before anything is awaited: Cancel pressed while the map is still being taken waits for it, and
+    // the old worker lives until it has come, investigation/page-hunt)
+    const taken = snapshotTaken();
+    const ready = (backReady.current = taken.then((t) => t.written.then((s) => ({ entry: s.entry, bytes: s.project, kept: kept.current || t.kept }))));
+    const t = await taken;
     const keeps = kept.current || t.kept;
     kept.current = keeps;
     backKept.current = keeps;
-    const ready = (backReady.current = t.written.then((s) => ({ entry: s.entry, bytes: s.project, kept: keeps })));
     void ready.then(
       (b) => {
         performance.mark("dgm:written");
