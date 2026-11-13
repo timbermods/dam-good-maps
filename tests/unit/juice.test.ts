@@ -201,6 +201,16 @@ describe("the editor's juice", () => {
     expect(log.some((l) => l.startsWith("stop force-") && l.endsWith("-wear"))).toBe(true);
   });
 
+  it("a force's first stone lands however young the page is (the first is never held back by the clock)", () => {
+    const { r } = fakeRenderer();
+    const { e, log } = fakeEngine();
+    const j = new Juice(() => r, DEFAULT_SOUND, e);
+    const now = vi.spyOn(performance, "now").mockReturnValue(50);
+    j.forceMoment({ ...cue("erode", "wear"), erode: { went: Uint32Array.from([1, 2, 3]), worn: 120, scoured: false } });
+    now.mockRestore();
+    expect(log).toContain("play erode:land");
+  });
+
   it("sounds are on at the round-two mix's own clearly audible level unless the player turned them off (D226), a quarter lower by default since D313, and a saved choice is kept as it is", () => {
     expect(loadSound()).toEqual(DEFAULT_SOUND);
     expect(DEFAULT_SOUND).toEqual({ on: true, volume: 0.54, ambience: false });

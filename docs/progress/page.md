@@ -643,6 +643,10 @@ minimap, never scrolling). What the mockups left open is in DESIGN.md, "Layout 2
   moment once the page has drawn the words, not at the key. Dev's run after #1064 failed `blockTool.spec.ts:398` with
   no "size 4": the trace shows the page busy 1.36 s from the key (the Block preview rebuilt, drawn in software) against
   a moment of 1.2 s, so the flash ended before any frame showed it.
+- **A force's first stone or puff never waits on the clock** (2026-11-13): `Juice.forceMoment` spaced a force's
+  repeated sounds from a time of 0, so a force begun in the page's first tenth of a second lost its first stone. The
+  preview's build failed on it once (`juice.test.ts`, Erode's cues, in a test worker 50 ms old). The time now starts
+  before any clock.
 - **The camera insets (#206):** `src/editor/view/insets.ts` measures how far the top row, the Show column, the bar
   with its settings and the objects menu reach into the view and keeps the renderer's insets up to date; a new map is
   framed within them; setting them never moves the camera.
