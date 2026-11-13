@@ -676,6 +676,8 @@ export function Header(p: HeaderProps) {
   return (
     <header class={`editor-bar${p.phone ? " phone-bar" : ""}`} ref={bar}>
       {p.phone ? menuWrap : null}
+      {/* (a phone's Together: its panel, opened from the menu's Together…; its own button is the desktop's) */}
+      {p.phone ? p.together : null}
       {p.phone ? null : (
         <>
           <button type="button" class="ghost new-map" aria-pressed={p.drawerOpen} {...tip(p.drawerOpen ? "Close the map generator" : "Make a new map and change its settings", p.drawerOpen && "Esc")} onClick={p.onDrawer}>

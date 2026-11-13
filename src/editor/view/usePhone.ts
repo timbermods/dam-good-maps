@@ -95,5 +95,43 @@ export function usePhone(ed: Ed): PhoneSlice {
     return () => cancelAnimationFrame(id);
   }, [phone, phoneSheet, sheetTall, phoneSelect, brushTool, tool, block, shelf, selected, ed.ready]);
 
+  // Show ends after a whole row of its chips (or a whole line), never on a heading with nothing under it, as a pulled-up
+  // sheet ends on a whole setting; the rest scroll up into view
+  useEffect(() => {
+    const sheet = document.querySelector<HTMLElement>(".editor[data-phone] .phone-show");
+    if (!sheet) return;
+    const fit = () => endShowOnWhole(sheet);
+    const id = requestAnimationFrame(fit);
+    const watch = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => requestAnimationFrame(fit));
+    watch?.observe(sheet.parentElement ?? sheet);
+    return () => {
+      cancelAnimationFrame(id);
+      watch?.disconnect();
+    };
+  }, [phone, phoneSheet]);
+
   return { phone, phoneSheet, setPhoneSheet, sheetTall, setSheetTall, phoneSelect, setPhoneSelect };
+}
+
+/** The Show sheet's height stops where the room would cut a row of chips or a line: at that row's top, or at the top of
+ *  the heading above it when that heading would be left with nothing under it. */
+export function endShowOnWhole(sheet: HTMLElement): void {
+  sheet.style.maxHeight = "";
+  if (sheet.hidden) return;
+  const room = sheet.clientHeight;
+  if (sheet.scrollHeight <= room + 1) return;
+  const pad = parseFloat(getComputedStyle(sheet).paddingBottom) || 0;
+  const top = sheet.getBoundingClientRect().top - sheet.scrollTop;
+  const pieces = [...sheet.querySelectorAll<HTMLElement>(".ps-head, .ps-grid > *, .ps-line, .legend-panel, .show-key, .water-bar > *, .minimap")]
+    .map((el) => ({ el, r: el.getBoundingClientRect() }))
+    .filter((p) => p.r.height > 0)
+    .map((p) => ({ head: p.el.classList.contains("ps-head"), t: p.r.top - top, b: p.r.bottom - top }));
+  const limit = room - pad;
+  let cut = Infinity;
+  for (const p of pieces) if (p.b > limit + 0.5) cut = Math.min(cut, p.t);
+  if (!Number.isFinite(cut)) return;
+  // (a heading whose first row is cut goes with it)
+  for (const p of pieces) if (p.head && p.b <= cut + 0.5 && !pieces.some((q) => !q.head && q.t >= p.b - 0.5 && q.b <= cut + 0.5)) cut = Math.min(cut, p.t);
+  // (the scrolling box shows its content through its padding too: the box ends a gap above the row it leaves out)
+  sheet.style.maxHeight = `${Math.max(88, Math.floor(cut - 6))}px`;
 }

@@ -219,6 +219,22 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
                     {inside}
                   </button>
                 )}
+                {/* (a phone's way to what the right-click gives, #1074: no key and no right button there) */}
+                {renaming === e.id ? null : (
+                  <button
+                    type="button"
+                    class="ghost ym-more phone-only"
+                    aria-label={`More for ${e.name}`}
+                    aria-haspopup="menu"
+                    {...tip("Download, rename or delete this map")}
+                    onClick={(ev) => {
+                      const r = (ev.currentTarget as HTMLElement).getBoundingClientRect();
+                      setMenu({ id: e.id, x: r.left, y: r.bottom });
+                    }}
+                  >
+                    ⋯
+                  </button>
+                )}
               </li>
             );
           })}
