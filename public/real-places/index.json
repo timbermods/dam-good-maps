@@ -1,6 +1,6 @@
 {
  "format": 1,
- "count": 81,
+ "count": 84,
  "families": [
   {
    "id": "fan",
@@ -316,11 +316,9 @@
    "metres": 60,
    "data": "data/near-torres-del-paine.json.gz",
    "image": "cards/near-torres-del-paine.jpg",
-   "bytes": 187249,
-   "sha256": "10034d0b90c5a079fa67721974d2e67e9326e5f28e20f1713c71fe485a1e8e37",
-   "faults": [
-    "start.wood"
-   ]
+   "bytes": 188353,
+   "sha256": "ae72e32d995d2dc79452c8aad9c4ac617f76061ec2e73f23b1ae23410cc6f265",
+   "faults": []
   },
   {
    "id": "near-tiger-leaping-gorge",
@@ -434,11 +432,10 @@
    "metres": 60,
    "data": "data/near-lofoten.json.gz",
    "image": "cards/near-lofoten.jpg",
-   "bytes": 255729,
-   "sha256": "b4a6c4d6216d09ec7663f2cc27f7506d337595e7364bb8f8338affb485291c05",
+   "bytes": 256496,
+   "sha256": "e1e4ff463603d39f57216b3862b02df3ec74ab25335ca971c2a8d00c0db7de39",
    "faults": [
-    "water.source_in_flow",
-    "start.wood"
+    "water.source_in_flow"
    ]
   },
   {
@@ -483,8 +480,8 @@
    "metres": 30,
    "data": "data/near-aso-caldera.json.gz",
    "image": "cards/near-aso-caldera.jpg",
-   "bytes": 167069,
-   "sha256": "22e6fd1f0726afc7e44a5ab25c0700e195cb40cdddcae4e605ab3c27b92df3de",
+   "bytes": 168099,
+   "sha256": "70de337fa548a9246c9664ee119bd67eda9e6ff6cec23a9892131ee9e592f4d7",
    "faults": []
   },
   {
@@ -497,12 +494,10 @@
    "metres": 30,
    "data": "data/near-blyde-river-canyon.json.gz",
    "image": "cards/near-blyde-river-canyon.jpg",
-   "bytes": 179684,
-   "sha256": "75c65ef71e0840132f010cde0ed8afe841415209805bcb9c6aaec2f98afd37bd",
+   "bytes": 181568,
+   "sha256": "24679e41f856d810dc8149e5cd89b27ba5a56092d0053ace8739d746a46006ab",
    "faults": [
-    "water.source_in_flow",
-    "start.wood",
-    "start.wood_floor"
+    "water.source_in_flow"
    ]
   },
   {
@@ -568,11 +563,9 @@
    "metres": 120,
    "data": "data/near-danube-delta.json.gz",
    "image": "cards/near-danube-delta.jpg",
-   "bytes": 146294,
-   "sha256": "461b5252777eefe8f32807452a838e16b6868692d64893e225cd530f952058c0",
-   "faults": [
-    "start.wood"
-   ]
+   "bytes": 148510,
+   "sha256": "7709c765c6248106a8e13b0ba42537790bf1f1e47f3fcf05a276da46b2a62fdb",
+   "faults": []
   },
   {
    "id": "near-western-ghats-mahabaleshwar",
@@ -785,13 +778,25 @@
    "metres": 30,
    "data": "data/near-waimakariri-river.json.gz",
    "image": "cards/near-waimakariri-river.jpg",
-   "bytes": 623469,
-   "sha256": "1e0a7829e13dbe19307ccf2631eeb4575b8879b097b01c7f46c57bfc730aad30",
+   "bytes": 626307,
+   "sha256": "79204e0f9729989e1126e67d39cf160cb97e516ceaf3693b5be130bd6ce6dbf0",
    "faults": [
-    "water.outflow",
-    "start.wood",
-    "start.wood_floor"
+    "water.outflow"
    ]
+  },
+  {
+   "id": "near-lake-toba",
+   "name": "Near Lake Toba",
+   "family": "caldera",
+   "familyName": "Caldera",
+   "plays": "A volcanic bowl; a dam on its outlet can hold a large lake.",
+   "size": 256,
+   "metres": 30,
+   "data": "data/near-lake-toba.json.gz",
+   "image": "cards/near-lake-toba.jpg",
+   "bytes": 365599,
+   "sha256": "a4bdb1ca69d416b5a2c6b7c16eb6193a3d89a9d1b963cd23a3aa78be7d8c1e23",
+   "faults": []
   },
   {
    "id": "near-grand-canyon-colorado",
@@ -900,11 +905,10 @@
    "metres": 60,
    "data": "data/near-taklimakan-kunlun-fan.json.gz",
    "image": "cards/near-taklimakan-kunlun-fan.jpg",
-   "bytes": 606027,
-   "sha256": "f1aa60210ea318a4d7e4cd23c45e8d8013f9582a8f66047e72195b411315342a",
+   "bytes": 608979,
+   "sha256": "097beaf9016a2ca725df029f6f7390e3df95b1d44a39479176f2a3c6589c4d4e",
    "faults": [
-    "water.source_in_flow",
-    "start.wood"
+    "water.source_in_flow"
    ]
   },
   {
@@ -974,6 +978,20 @@
    ]
   },
   {
+   "id": "near-bungle-bungle",
+   "name": "Near Bungle Bungle",
+   "family": "mesa",
+   "familyName": "Mesa",
+   "plays": "Flat-topped heights that are hard to reach; the gaps between them make dam sites.",
+   "size": 256,
+   "metres": 30,
+   "data": "data/near-bungle-bungle.json.gz",
+   "image": "cards/near-bungle-bungle.jpg",
+   "bytes": 385448,
+   "sha256": "6fc4454aeec833a07415c31c49353af3fb8b72f6f4b68640e56d568495048c0d",
+   "faults": []
+  },
+  {
    "id": "near-tibetan-plateau",
    "name": "Near Tibetan Plateau",
    "family": "plateau",
@@ -983,12 +1001,10 @@
    "metres": 120,
    "data": "data/near-tibetan-plateau.json.gz",
    "image": "cards/near-tibetan-plateau.jpg",
-   "bytes": 529961,
-   "sha256": "8e84201ddce0b7eeb6bd639ef9379ae9e68d9f9909705019e9a0a8c582ca84ef",
+   "bytes": 532734,
+   "sha256": "9735de4c7062c74969a5fd981cdd57209f649e79773d66ac49f0b646aa6a45ad",
    "faults": [
-    "water.outflow",
-    "start.wood",
-    "start.water"
+    "water.outflow"
    ]
   },
   {
@@ -1101,8 +1117,8 @@
    "metres": 60,
    "data": "data/near-victoria-falls.json.gz",
    "image": "cards/near-victoria-falls.jpg",
-   "bytes": 230497,
-   "sha256": "aebdd54a97b64e4ff0ec320fb2844460eb9c6f8ba9e56689ac5b81e2b8ca4c43",
+   "bytes": 231476,
+   "sha256": "277395614833791ee1b44da63956ae5881df5f441ea6cc12804c02f0f31f25c7",
    "faults": []
   },
   {
@@ -1295,6 +1311,20 @@
    ]
   },
   {
+   "id": "near-mount-taranaki",
+   "name": "Near Mount Taranaki",
+   "family": "cone",
+   "familyName": "Volcano",
+   "plays": "Land falls away from a peak on every side, so you build upward.",
+   "size": 256,
+   "metres": 30,
+   "data": "data/near-mount-taranaki.json.gz",
+   "image": "cards/near-mount-taranaki.jpg",
+   "bytes": 441245,
+   "sha256": "1afe81d664c9eab08e8998cdf7c0d784877e917a82b07a71ff16ce2f1a8027c7",
+   "faults": []
+  },
+  {
    "id": "near-bandiagara",
    "name": "Near Bandiagara",
    "family": "escarpment",
@@ -1390,12 +1420,10 @@
    "metres": 30,
    "data": "data/near-tsingy-bemaraha.json.gz",
    "image": "cards/near-tsingy-bemaraha.jpg",
-   "bytes": 138012,
-   "sha256": "1dcd5fa10fe930cc96a0fe96df88beb0eefa0b2f6763252207688ea9993afab4",
+   "bytes": 137755,
+   "sha256": "6d73fadafcecdfbc8f28aaa8bb93e720e2ceb6b21616688c38906a3e60203e8c",
    "faults": [
-    "water.source_in_flow",
-    "start.wood",
-    "start.water"
+    "water.source_in_flow"
    ]
   },
   {

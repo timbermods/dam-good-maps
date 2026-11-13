@@ -14,7 +14,8 @@
 // - index.json: every place for the gallery page, with the sha256 of its .timber and the faults
 //   its own map has (`faults`, from the generate profile's checks). A place whose start fails the floors
 //   (its plants on dry soil cannot move without costing the start its fast wood: no moist ground within
-//   its walk) ships no data, card or index entry; every run prints it by name and counts it withheld.
+//   its walk), or one named in WITHHELD_UNTIL until a fault of its land is mended, ships no data, card or
+//   index entry; every run prints it by name with its reason and counts it withheld.
 // Each .timber is built with src/core/places (build, settle, validate, write) and must pass the
 // export profile and every check of the generate profile but the known faults (the conversion's, which
 // every place has, and each place's own, recorded in `faults`); the tool stops on any other that fails.
@@ -92,6 +93,22 @@ const PLANT_REACH = 4;
 /** The walk from the start the trees that give back the start's lost logs stand within (the `start.wood` fix's:
  *  2 inside the 20 tiles the check counts). Their logs per tree are the species' own (`LOGS_PER_TREE_SPECIES`). */
 const WOOD_WALK = 18;
+/** The walk the farmland check counts the start's moist ground within (tiles: `start.farmland` and `start.forester`). */
+const FARM_WALK = 20;
+/** The start's land floors (D515) no object makes: its bench, its walkable land, and the moist ground for its
+ *  first farms and a forester. A moved start is ranked on these before its wood and berries, which objects give. */
+const LAND_FLOORS = ["start.level_land", "start.reach", "start.farmland", "start.forester"];
+/** The start's wood checks, which fast trees planted by it can meet: its logs, the starting-logs floor and the
+ *  fast species' share (D85, D224, D515). */
+const WOOD_CHECKS = ["start.wood", "start.wood_floor", "start.wood_fast"];
+/** Places withheld by name until a fault of their land is mended, with the reason every run prints. Near Dinaric
+ *  karst Plitvice's start meets every floor since the start's move ranks by the land floors, but its conversion puts
+ *  a source in another's flow (`water.source_in_flow`); it left `PLACES_SOURCES_IN_FLOW` (tests/contract/placesCommon.ts,
+ *  whose note says Real places 2 places sources only at heads) when #1094 withheld it, and that list never grows:
+ *  planning's ruling on #1096. */
+const WITHHELD_UNTIL: Record<string, string> = {
+  "near-dinaric-karst-plitvice": "withheld until water.source_in_flow is mended (sources at heads only)",
+};
 /** How many logs under `start.wood`'s limit a place's start may be and still be topped up to it (a twentieth of Normal's 200). */
 const WOOD_NEAR_MISS = 10;
 
@@ -305,6 +322,33 @@ function buildChecked(place: PlaceData) {
   return { built, v, strict, blocking: v.report.checks.filter(counts), strictFails: strict.report.checks.filter(counts).map((c) => c.id) };
 }
 
+type Checked = ReturnType<typeof buildChecked>;
+const checkValue = (s: Checked["strict"], id: string) => Number(s.report.checks.find((c) => c.id === id)?.value ?? 0);
+const checkLimit = (s: Checked["strict"], id: string) => Number(s.report.checks.find((c) => c.id === id)?.limit ?? 0);
+
+/** Fast trees (pines, or birches where the place leans to them: `start.wood_fast` counts only those, D515) on the
+ *  free moist ground nearest the start by `walk`, within WOOD_WALK, in rounds, each built and checked, until the
+ *  start has `bar`'s logs within 20 tiles' walk (`start.wood`) and 40 (`start.wood_floor`) and, while `fast` says
+ *  so, the fast share. Objects only (D331). */
+function growFastWood(p: PlaceData, r: Checked, walk: ArrayLike<number>, bar: { wood: number; floor: number }, fast: (r: Checked) => boolean) {
+  const g = { moisture: r.strict.analysis!.moisture, contamination: r.strict.analysis!.soilContamination, depth: r.built.settle.depth };
+  const near = r.strict.analysis!.startDistance;
+  const short = (c: Checked) => Math.max(bar.wood - checkValue(c.strict, "start.wood"), bar.floor - checkValue(c.strict, "start.wood_floor"));
+  const species = startWoodSpecies(p);
+  const logs = LOGS_PER_TREE_SPECIES[species];
+  let planted = 0;
+  for (let round = 0; round < 6 && (short(r) > 0 || fast(r)); round++) {
+    const share = checkLimit(r.strict, "start.wood_fast");
+    const fastNeed = Math.ceil(((share - checkValue(r.strict, "start.wood_fast")) * Math.max(bar.wood, checkValue(r.strict, "start.wood"))) / (1 - share));
+    const o = startWood(p, g, near, walk, species, Math.ceil(Math.max(short(r), fastNeed, 1) / logs), WOOD_WALK);
+    if (!o.planted) break;
+    p = o.place;
+    planted += o.planted;
+    r = buildChecked(p);
+  }
+  return { place: p, r, planted, kind: species === "Birch" ? "birches" : "pines" };
+}
+
 // ------------------------------------------------------------------------------------------ run
 
 const check = process.argv.includes("--check");
@@ -316,49 +360,73 @@ const skipped = library.items.filter((it) => it.family === "random");
 const files = new Map<string, Uint8Array>();
 const entries: PlaceIndexEntry[] = [];
 let failures = 0;
-/** Places whose start fails the floors: not offered (no map, card or index entry), printed by every run. */
+/** Places whose start fails the floors, or named in WITHHELD_UNTIL: not offered (no map, card or index entry), printed by every run. */
 const withheld: string[] = [];
 const t0 = performance.now();
 for (const item of items) {
   const fx = JSON.parse(new TextDecoder().decode(gunzipSync(new Uint8Array(readFileSync(join(LIBRARY, item.fixture)))))) as Fixture;
   let place = toPlace(item, fx);
   if (only && !only.includes(place.id)) continue;
+  if (WITHHELD_UNTIL[place.id]) {
+    withheld.push(place.name);
+    console.log(`WITHHELD ${place.W}² ${place.name}: ${WITHHELD_UNTIL[place.id]}`);
+    continue;
+  }
   if (entries.some((e) => e.id === place.id)) throw new Error(`two places are called ${place.name}`);
   const t = performance.now();
   let { built, v, strict, blocking, strictFails } = buildChecked(place);
   // A start the opened rivers flood, or that reaches no water a source feeds, moves (D245: the best
-  // spot its own land offers; moving it toward water is fine): the spots nearest it that stay dry and
-  // have a shore near (a flooded start where the place has none: the nearest dry ones), each built
-  // and checked, then spots with a longer walk to their shore; the best wins, water first (D245's
-  // water floor), then the wood and berries by it, then the nearest. Never one that falls below the
-  // starting-logs floor it met (D224) or fails anything else it passed but the wood, the berries
-  // and the start land (information, D331).
+  // spot its own land offers; moving it toward water is fine): the spots that stay dry and have a shore
+  // near (a flooded start where the place has none: dry ones), those whose land can give the start's
+  // land floors first (D515: its walkable land and the moist ground for the first farms and a forester,
+  // which no object makes), each nearest it first, each built and checked, then spots with a longer
+  // walk to their shore; the best wins, water first (D245's water floor), then the land floors, then
+  // the wood and berries by it, then the nearest. A spot whose water and land meet the floors but whose
+  // wood falls below what the start met gets fast trees by it (`growFastWood`, objects only) up to the
+  // wood checks' limits. Never one that falls below the starting-logs floor it met (D224) or fails
+  // anything else it passed but the wood, the berries and the start land (information, D331).
   const opened = place;
   let moved: [number, number] | null = null;
+  let movedWood = "";
   const dry = strictFails.includes("start.dry");
   const free = new Set(["start.wood", "start.food", "start.water", ...START_LAND]);
-  // (water first, then the starting-logs floor, then the berries, then the wood: a spot or spring
-  // that costs the start its berries ranks below one that keeps them)
-  const score = (fails: string[]) => (fails.includes("start.water") ? 8 : 0) + (fails.includes("start.wood_floor") ? 4 : 0) + (fails.includes("start.food") ? 2 : 0) + (fails.includes("start.wood") ? 1 : 0);
+  // (water first, then the land floors, then the starting-logs floor, then the berries, then the wood:
+  // a spot or spring that costs the start its berries ranks below one that keeps them)
+  const score = (fails: string[]) =>
+    (fails.includes("start.water") ? 32 : 0) + (fails.some((id) => LAND_FLOORS.includes(id)) ? 16 : 0) + (fails.includes("start.wood_floor") ? 4 : 0) + (fails.includes("start.food") ? 2 : 0) + (fails.includes("start.wood") ? 1 : 0);
   for (const walk of [undefined, LONG_SHORE_WALK]) {
     if (!strictFails.includes("start.dry") && !strictFails.includes("start.water")) break;
     const had = new Set(strictFails);
-    const spots = placeStartSpots(place, built.heights, built.settle.depth, built.settle.contamination, { walk });
-    if (dry && !walk) spots.push(...placeStartSpots(place, built.heights, built.settle.depth, built.settle.contamination, { shore: false, limit: 4 }));
-    let best: { at: [number, number]; r: ReturnType<typeof buildChecked>; score: number } | null = null;
+    const land = { moisture: strict.analysis!.moisture, reach: checkLimit(strict, "start.reach"), moist: checkLimit(strict, "start.farmland") + checkLimit(strict, "start.forester"), within: FARM_WALK };
+    const spots = placeStartSpots(place, built.heights, built.settle.depth, built.settle.contamination, { walk, land });
+    if (dry && !walk) spots.push(...placeStartSpots(place, built.heights, built.settle.depth, built.settle.contamination, { shore: false, limit: 4, land }));
+    let best: { at: [number, number]; place: PlaceData; r: Checked; score: number; grown: string } | null = null;
     const bar = had.has("start.dry") ? Infinity : score(strictFails);
     for (const at of spots) {
-      const r = buildChecked(withStart(place, at));
+      let cand = withStart(place, at);
+      let r = buildChecked(cand);
+      let grown = "";
+      const sound = !r.strictFails.includes("start.water") && !r.strictFails.some((id) => LAND_FLOORS.includes(id));
+      if (sound && r.strictFails.some((id) => WOOD_CHECKS.includes(id) && !had.has(id)) && !(best && score(r.strictFails.filter((id) => !WOOD_CHECKS.includes(id))) >= best.score)) {
+        const walkField = startWalkField(r.built.heights, cand.W, cand.H, placeEntities(cand, r.built.heights), { x: at[0] + 1, y: at[1] + 1 });
+        const g = growFastWood(cand, r, walkField, { wood: checkLimit(r.strict, "start.wood"), floor: checkLimit(r.strict, "start.wood_floor") }, (c) => c.strictFails.includes("start.wood_fast"));
+        if (g.planted) {
+          cand = g.place;
+          r = g.r;
+          grown = `, ${g.planted} ${g.kind} planted by it`;
+        }
+      }
       if (r.strictFails.some((id) => !had.has(id) && !free.has(id))) continue;
       if (!had.has("start.dry") && r.strictFails.includes("start.water")) continue;
       const sc = score(r.strictFails);
       if (sc >= bar || (best && sc >= best.score)) continue;
-      best = { at, r, score: sc };
+      best = { at, place: cand, r, score: sc, grown };
       if (sc === 0) break;
     }
     if (best) {
       moved ??= place.start;
-      place = withStart(place, best.at);
+      movedWood = best.grown;
+      place = best.place;
       ({ built, v, strict, blocking, strictFails } = best.r);
     }
   }
@@ -475,19 +543,11 @@ for (const item of items) {
       // still short: the wood moves, not the rule. Its lost logs are planted on the moist ground nearest the start as
       // pines, or birches where the place leans to them: `start.wood_fast`, which a place that met it must go on
       // meeting, counts only those; where it is short, a batch sized by its share is added
-      const fast = startWoodSpecies(next);
-      woodKind = fast === "Birch" ? "birches" : "pines";
-      const fastLogs = LOGS_PER_TREE_SPECIES[fast];
-      for (let round = 0; round < 6 && (short(r.strict) > 0 || fastLow(r)); round++) {
-        const lost = short(r.strict);
-        const share = limit("start.wood_fast");
-        const fastNeed = Math.ceil(((share - value(r.strict, "start.wood_fast")) * Math.max(bar.wood, value(r.strict, "start.wood"))) / (1 - share));
-        const o = startWood(next, g, near, walk, fast, Math.ceil(Math.max(lost, fastNeed, 1) / fastLogs), WOOD_WALK);
-        if (!o.planted) break;
-        next = o.place;
-        woods += o.planted;
-        r = buildChecked(next);
-      }
+      const grown = growFastWood(next, r, walk, bar, fastLow);
+      next = grown.place;
+      r = grown.r;
+      woods += grown.planted;
+      woodKind = grown.kind;
       keepDead();
     }
     if (!r.built.settle.depth.every((d, i) => d === built.settle.depth[i])) throw new Error(`${place.name}: moving plants changed the water`);
@@ -532,7 +592,7 @@ for (const item of items) {
     `${unknown.length || !loads ? "FAIL" : "ok  "} ${place.W}² ${String(ms).padStart(6)} ms  ticks ${String(built.settle.ticks).padStart(5)}${built.settle.settled ? "" : " (not settled)"}  ${place.name}` +
       (blocking.length ? `  export: ${blocking.map((c) => c.id).join(", ")}` : "") +
       (strictFails.length ? `  generate profile: ${strictFails.join(", ")}` : "") +
-      (moved ? `  start moved from ${moved.join(",")} to ${place.start.join(",")}` : "") +
+      (moved ? `  start moved from ${moved.join(",")} to ${place.start.join(",")}${movedWood}` : "") +
       (spring ? `  spring by the start at ${spring.map((s) => `${s[0]},${s[1]}`).join(" ")}` : "") +
       (planted ? `  ${planted} berry bushes planted by the start` : "") +
       plants,
@@ -570,7 +630,7 @@ const total = [...files.values()].reduce((s, b) => s + b.length, 0);
 const dataBytes = [...files].filter(([k]) => k.startsWith("data/")).reduce((s, [, b]) => s + b.length, 0);
 const cardBytes = [...files].filter(([k]) => k.startsWith("cards/")).reduce((s, [, b]) => s + b.length, 0);
 console.log(
-  `${entries.length} offered, ${withheld.length} withheld${withheld.length ? `: ${withheld.join(", ")}` : ""} (start fails the floors); ${Math.round((performance.now() - t0) / 1000)} s; left out ${skipped.length} random-land controls (${skipped.map((s) => s.id).join(", ")}). ` +
+  `${entries.length} offered, ${withheld.length} withheld${withheld.length ? `: ${withheld.join(", ")}` : ""}; ${Math.round((performance.now() - t0) / 1000)} s; left out ${skipped.length} random-land controls (${skipped.map((s) => s.id).join(", ")}). ` +
     `Data ${(dataBytes / 1024).toFixed(0)} KB, cards ${(cardBytes / 1024).toFixed(0)} KB (${(cardBytes / 1024 / Math.max(1, entries.length)).toFixed(1)} KB each), total ${(total / 1024).toFixed(0)} KB.`,
 );
 
