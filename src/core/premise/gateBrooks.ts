@@ -191,7 +191,7 @@ export function courseReach(course: readonly Point[], half = 2): { tiles: number
  *  `apart` either way; the swing falls to nothing within `drop` tiles of a level its bed drops (a steep reach runs
  *  straight) and within `ease` tiles of its ends; `pull` turns it back toward its course a radian a tile off it, so
  *  bends of unequal swing do not carry it away. Integrated a `step` at a time. */
-export const BROOK_MEANDER = { wave: [10, 14], swing: 0.55, apart: 1 / 3, drop: 3, ease: 5, pull: 0.08, step: 0.5, tries: [1, 0.5, 0] } as const;
+export const BROOK_MEANDER = { wave: [10, 14], swing: 1, apart: 1 / 3, drop: 2, ease: 5, pull: 0.08, step: 0.5, tries: [1, 0.5, 0] } as const;
 
 /** A brook's channel meandering about its `course` (`BROOK_MEANDER`): `width` its width, `draw` uniform [0, 1), `drops`
  *  the shares of the course where its bed drops a level, `room` whether a point of the channel may stand there (a bend
