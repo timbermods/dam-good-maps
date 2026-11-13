@@ -39,15 +39,14 @@ export const PLACES_WATER_WITHOUT_OUTLET = new Set([
  *  another source already feeds (`water.source_in_flow`, a design check: it fails the generate
  *  profile; in the export profile it does not apply, since sources go anywhere in the editor,
  *  D184). The mend (tools/lib/placeSources.ts) merges a flagged source into its head where it can; what stays is here:
- *  rows of sources along a map edge, sources with no head within 20 tiles and merges that move the depth below too far.
+ *  sources with no head within 20 tiles and merges that move the depth below too far.
  *  The list only shrinks. */
 export const PLACES_SOURCES_IN_FLOW = new Set([
-  "near-blyde-river-canyon", "near-brahmaputra-near-majuli", "near-capitol-reef",
+  "near-blyde-river-canyon", "near-brahmaputra-near-majuli",
   "near-chilean-aysen-fjord", "near-chocolate-hills", "near-death-valley", "near-ethiopian-highlands",
-  "near-finnish-saimaa", "near-geirangerfjord", "near-glencoe", "near-goosenecks-san-juan",
-  "near-gullfoss", "near-iguazu-falls", "near-ilulissat-icefjord", "near-kenai-aialik-bay",
+  "near-finnish-saimaa", "near-geirangerfjord", "near-glencoe", "near-iguazu-falls", "near-kenai-aialik-bay",
   "near-lofoten", "near-mamore-river", "near-milford-sound", "near-monument-valley", "near-mount-fuji",
-  "near-mount-mayon", "near-niagara-falls", "near-painted-desert", "near-phong-nha",
+  "near-niagara-falls", "near-painted-desert", "near-phong-nha",
   "near-rhine-and-moselle", "near-roaring-river-fan", "near-sete-cidades", "near-skeidara-outwash",
   "near-taklimakan-kunlun-fan", "near-tara-gorge", "near-toklat-river", "near-twelve-apostles",
 ]);

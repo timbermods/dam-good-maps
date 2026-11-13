@@ -65,6 +65,26 @@ describe("water sources start rivers (D171)", () => {
     expect(r.inFlow).toEqual([4]);
   });
 
+  it("sources a step or two in from a river's mouth, in the same water at the same level, are one head with it", () => {
+    const h = river();
+    // the survey's inflows: not touching the sealed mouth, a tile or two further in (the channel is 4 wide)
+    const objects = [...mouth(h), source(2, 11, 6, 0.5), source(3, 12, 6, 0.5)];
+    expect(flagged(h, objects).inFlow).toEqual([]);
+  });
+
+  it("a source down the flow by more than the channel is wide, across a fall, or in other water is not a row member", () => {
+    const h = river();
+    // 6 tiles on is within reach, but 6 steps down the flow is more than the channel's 4 width; 8 is out of reach
+    expect(flagged(h, [...mouth(h), source(6, 12, 6, 1)]).inFlow).toEqual([4]);
+    expect(flagged(h, [...mouth(h), source(8, 12, 6, 1)]).inFlow).toEqual([4]);
+    // across a fall: the bed steps from 6 to 5 at x 4, so the source there is not at the mouth's surface level
+    const f = river();
+    for (let y = 10; y <= 13; y++) for (let x = 4; x <= 11; x++) f[y * W + x] = 5;
+    expect(flagged(f, [...mouth(f), source(4, 11, 5, 1)]).inFlow).toEqual([4]);
+    // a badwater source beside the water sources is another head
+    expect(flagged(h, [...mouth(h), source(2, 11, 6, 1, "BadwaterSource")]).inFlow).toEqual([4]);
+  });
+
   it("a cluster of sources side by side at a spring-fed river's head is where it begins; more flow comes from the cluster or its strength", () => {
     const h = river();
     // no mouth: the channel's west end is walled, and a 2 × 2 cluster feeds the river from there
