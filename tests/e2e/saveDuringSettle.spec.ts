@@ -8,6 +8,27 @@ import { centreOn, openEditor, topDown, waitForEditor } from "./open";
 
 const decode = (bytes: number[]) => JSON.parse(gunzipSync(Buffer.from(bytes)).toString()) as Record<string, unknown> & { stored?: { map: unknown; blobs: string[] } };
 
+/** While `__dgmSlowAnswers` is set, every answer from a worker reaches the page that much later, in order: a stroke
+ *  still on its way when Generate is pressed, as on a large map or a slow machine. */
+async function slowAnswers(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __dgmSlowAnswers?: number };
+    const add = Worker.prototype.addEventListener;
+    const queue: (() => void)[] = [];
+    const pass = () => {
+      while (queue.length) queue.shift()!();
+    };
+    Worker.prototype.addEventListener = function (this: Worker, type: string, fn: EventListenerOrEventListenerObject, o?: boolean | AddEventListenerOptions) {
+      if (type !== "message" || typeof fn !== "function") return add.call(this, type, fn, o);
+      return add.call(this, type, (e: Event) => {
+        if (!w.__dgmSlowAnswers && !queue.length) return fn.call(this, e);
+        queue.push(() => fn.call(this, e));
+        if (queue.length === 1) setTimeout(pass, w.__dgmSlowAnswers ?? 0);
+      }, o);
+    } as typeof Worker.prototype.addEventListener;
+  });
+}
+
 /** The open map's project once its water has settled (the worker's own, with its stored map). */
 async function settledProject(page: Page): Promise<ReturnType<typeof decode>> {
   await expect.poll(() => page.evaluate(async () => (await window.dgmEditor!.worker.sessionInfo())?.waterPending), { timeout: 120_000 }).toBe(false);
@@ -34,23 +55,29 @@ async function keptProject(page: Page): Promise<number[] | null> {
   );
 }
 
-for (const z of [96, 256])
-test(`a map first saved while its water settles reopens with the same stored map (${z}²)`, async ({ page, context }) => {
+for (const z of [96, 256]) for (const slow of [0, 1500])
+test(`a map first saved while its water settles reopens with the same stored map (${z}², answers ${slow} ms late)`, async ({ page, context }) => {
   test.setTimeout(300_000);
+  await slowAnswers(page);
   await openEditor(page, `s=4244&z=${z}&d=n&t=riverValley`, { timeout: 240_000 });
   const c = z / 2;
   await topDown(page);
   // (the quiet save after an edit held, the e2e build's hook: the map is saved only when the test says)
   await page.evaluate(() => ((window as unknown as { __dgmHoldAutosave?: boolean }).__dgmHoldAutosave = true));
   await page.getByRole("button", { name: "Lower brush (3)" }).click();
-  await centreOn(page, c, c);
-  const a = await page.evaluate((c) => window.dgmEditor!.tileToClient(c - 6, c), c);
-  const b = await page.evaluate((c) => window.dgmEditor!.tileToClient(c + 6, c), c);
-  await page.mouse.move(a.x, a.y);
-  await page.mouse.down();
-  await page.mouse.move(b.x, b.y, { steps: 8 });
-  await page.mouse.up();
+  // (strokes across the map, through its river and its dry ground)
+  for (const [x, y] of [[c, c], [c / 2, c], [c, c / 2], [(3 * c) / 2, (3 * c) / 2]]) {
+    await centreOn(page, x, y);
+    const a = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x - 6, y), [x, y]);
+    const b = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x + 6, y), [x, y]);
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    await page.mouse.move(b.x, b.y, { steps: 8 });
+    await page.mouse.up();
+  }
   await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
+  // (from here the worker's answers reach the page late, as on a slow machine, while the water settles and is saved)
+  await page.evaluate((ms) => ((window as unknown as { __dgmSlowAnswers?: number }).__dgmSlowAnswers = ms), slow);
   // the save now, its water still settling: the page saves what waits as it is hidden
   await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
   await expect.poll(() => keptProject(page), { timeout: 60_000 }).not.toBeNull();
