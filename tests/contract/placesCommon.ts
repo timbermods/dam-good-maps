@@ -120,12 +120,13 @@ export const PLACES_START_WITHOUT_FED_WATER = new Set([
  *  pre-fill's puddles kept moist (water from nowhere, see above); with that water gone, some stand on
  *  dry soil, which `plants.survive` flags (a playability check: it warns in the export profile).
  *  With the edges open (D151) the water the sealed border held drained too. Such plants now move to
- *  moist ground close by or go (#523, tools/lib/placePlants.ts); on these places the start's wood
- *  needs dying trees by it, which stay (a dead tree keeps its logs) where too little moist ground
- *  near the start takes oaks. Real places 2 plants them by the settled water and empties the list. */
+ *  moist ground close by or go (#523, tools/lib/placePlants.ts); the trees the start's wood needs
+ *  stay where they stood, dead (a dead tree keeps its logs), and where the start is still short the
+ *  wood is planted on the moist ground nearest it. These four starts have no moist ground within
+ *  their walk, so moving their plants costs the start its fast wood (`start.wood_fast`) and they stay.
+ *  Real places 2 plants them by the settled water and empties the list. */
 export const PLACES_PLANTS_ON_DRY_SOIL = new Set([
-  "near-bungle-bungle", "near-chocolate-hills", "near-dinaric-karst-plitvice", "near-lake-toba",
-  "near-mount-taranaki", "near-phong-nha", "near-rhine-and-moselle", "near-tsingy-bemaraha",
+  "near-bungle-bungle", "near-dinaric-karst-plitvice", "near-lake-toba", "near-mount-taranaki",
 ]);
 
 /** Berries at the start (D385): these places' starting berry bushes stood on the same puddles'

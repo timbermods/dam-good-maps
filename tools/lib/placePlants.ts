@@ -129,8 +129,7 @@ export function startWood(
 /** `p` with the dying trees nearest the start by `walk` (within `within` tiles' walk) back where they stood, dead
  *  and of their own species (off the tile they moved to, if they moved), until their logs (`logs`, by template: what a
  *  dead tree of it keeps) reach `want`; and the moves still made. Bushes stay off: a dying bush feeds no one, where a
- *  dead tree keeps its logs. With `dead` off the trees stand living where they stood, still dying (the contract
- *  test pins a few places so; `PLANTS_HELD` in tools/real-places.ts). */
+ *  dead tree keeps its logs. */
 export function keepNearest(
   p: PlaceData,
   moves: readonly MovedPlant[],
@@ -138,7 +137,6 @@ export function keepNearest(
   within: number,
   want: number,
   logs: Readonly<Record<string, number>>,
-  dead = true,
 ): { place: PlaceData; kept: number; moves: MovedPlant[] } {
   const template = Object.fromEntries(LIVING) as Record<LivingKind, string>;
   // (a tree that moved no farther from the start by the walk gives the start nothing by coming back)
@@ -156,7 +154,7 @@ export function keepNearest(
     const mine = [...back].filter((d) => d.kind === k);
     if (!mine.length) continue;
     const off = new Set(mine.map((d) => d.to));
-    const kind = dead ? deadKind[k] : k;
+    const kind = deadKind[k];
     out[k] = encodeTiles(decodeTiles(p[k]).filter((i) => !off.has(i)));
     out[kind] = encodeTiles([...decodeTiles(out[kind]), ...mine.map((d) => d.tile)]);
   }

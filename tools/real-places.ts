@@ -93,13 +93,6 @@ const PLANT_REACH = 4;
 const WOOD_WALK = 18;
 /** How many logs under `start.wood`'s limit a place's start may be and still be topped up to it (a twentieth of Normal's 200). */
 const WOOD_NEAR_MISS = 10;
-/** Places that keep their trees on dry soil as they were (planted first, the rest kept living and dying where they
- *  stood): the contract test pins their fault (`PLACES_PLANTS_ON_DRY_SOIL`, tests/contract/placesCommon.ts), and a
- *  list may shrink only by a ruling. Every other place leaves the dying trees it needs dead where they stood. */
-const PLANTS_HELD = new Set([
-  "near-bungle-bungle", "near-chocolate-hills", "near-dinaric-karst-plitvice", "near-lake-toba",
-  "near-mount-taranaki", "near-phong-nha", "near-rhine-and-moselle", "near-tsingy-bemaraha",
-]);
 
 /** Each family's name on the page and how it plays: the survey's "play value" for the family
  *  (investigation/landscapes/FAMILIES.md), in plain words. A family label names the region the
@@ -451,7 +444,6 @@ for (const item of items) {
     const settled = settlePlants(place, g, near, PLANT_REACH);
     let next = settled.place;
     let r = buildChecked(next);
-    const held = PLANTS_HELD.has(place.id);
     let woods = 0;
     let woodKind = "pines";
     let kept = 0;
@@ -467,7 +459,7 @@ for (const item of items) {
       const deadLogs = Object.fromEntries(Object.entries(LOGS_PER_TREE_SPECIES).map(([t, n]) => [t, DEAD_TREES_KEEP_LOGS[t] ? n : 0]));
       const keepDead = () => {
         for (let round = 0; round < 6 && short(r.strict) > 0; round++) {
-          const k = keepNearest(next, moves, walk, LOG_FLOOR_WALK, short(r.strict), deadLogs, !held);
+          const k = keepNearest(next, moves, walk, LOG_FLOOR_WALK, short(r.strict), deadLogs);
           if (!k.kept) break;
           next = k.place;
           moves = k.moves;
@@ -475,7 +467,7 @@ for (const item of items) {
           r = buildChecked(next);
         }
       };
-      if (!held) keepDead();
+      keepDead();
       // still short: the wood moves, not the rule. Its lost logs are planted on the moist ground nearest the start as
       // pines, or birches where the place leans to them: `start.wood_fast`, which a place that met it must go on
       // meeting, counts only those; where it is short, a batch sized by its share is added
@@ -500,7 +492,7 @@ for (const item of items) {
     plants = meets
       ? `  plants on dry soil ${survive.value} → ${left && counts(left) ? left.value : 0}: ${moved(true)} moved, ${moved(false)} gone` +
         (woods ? `, ${woods} ${woodKind} planted by the start` : "") +
-        (kept ? `, ${kept} dying trees ${held ? "kept living" : "left dead"} for the start's wood` : "")
+        (kept ? `, ${kept} dying trees left dead for the start's wood` : "")
       : `  plants on dry soil kept (${survive.value}): moving them costs the start (` +
         [
           ...r.strictFails.filter((id) => !strictFails.includes(id)),
