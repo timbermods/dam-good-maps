@@ -73,22 +73,52 @@ class Fingers {
     for (const [id, p] of Object.entries(fingers)) this.on.set(Number(id), p);
     this.fresh = true;
     await this.send();
+    await this.taken();
   }
 
   async move(fingers: Record<number, P>): Promise<void> {
+    await this.step(fingers);
+    await this.taken();
+  }
+
+  /** A move sent, not waited for the page to take (`drag`'s steps). */
+  private step(fingers: Record<number, P>): Promise<void> {
     for (const [id, p] of Object.entries(fingers)) this.on.set(Number(id), p);
-    await this.send();
+    return this.send();
   }
 
   async up(...ids: number[]): Promise<void> {
     for (const id of ids) this.on.delete(id);
     await this.send();
+    await this.taken();
+  }
+
+  /** Wait until the page has taken what was sent: its pointers (`calibrate` watches them) are the fingers now down, each
+   *  where its finger is, and the handlers of every event up to there have run. The protocol answers a send when the
+   *  browser has the event, not when the page has run it: on a busy page the last move of a drag can reach it after a
+   *  frame that began once the send was answered, and a read of the view, or a poll for a glide, made meanwhile finds the
+   *  page before it. */
+  private async taken(): Promise<void> {
+    const want = [...this.on.values()];
+    try {
+      await this.page.waitForFunction(
+        (want) => {
+          const here = [...(window as unknown as { pointersNow: Map<number, P> }).pointersNow.values()];
+          return here.length === want.length && want.every((q) => here.some((p) => Math.abs(p.x - q.x) < 3 && Math.abs(p.y - q.y) < 3));
+        },
+        want,
+        { timeout: 30_000, polling: 20 },
+      );
+    } catch (e) {
+      const here = await this.page.evaluate(() => [...(window as unknown as { pointersNow: Map<number, P> }).pointersNow.values()]);
+      throw new Error(`the page never took the fingers: sent ${JSON.stringify(want)}, its pointers ${JSON.stringify(here)} (${String(e).split("\n")[0]})`);
+    }
   }
 
   /** Move fingers from where they are to `to` in `steps` even steps, a frame apart on the fingers' clock, as a finger
    *  sends them: it doesn't wait for the page to take each one (where a frame takes a second, as on a slow runner
    *  drawing in software, the page reads the moves that came meanwhile together, as it does a phone's), and the page has
-   *  them all when this returns (a frame begins with its input). */
+   *  them all when this returns (`taken`). */
   async drag(to: Record<number, P>, steps = 10): Promise<void> {
     const from = new Map([...this.on]);
     const sent: Promise<void>[] = [];
@@ -98,9 +128,10 @@ class Fingers {
         const p = from.get(Number(id))!;
         at[Number(id)] = { x: p.x + ((q.x - p.x) * k) / steps, y: p.y + ((q.y - p.y) * k) / steps };
       }
-      sent.push(this.move(at));
+      sent.push(this.step(at));
     }
     await Promise.all(sent);
+    await this.taken();
     await this.page.evaluate(() => new Promise((r) => requestAnimationFrame(r)));
   }
 
@@ -118,9 +149,13 @@ class Fingers {
   /** Learn how the screen's points map to the page's: a finger's press is seen where it lands. */
   async calibrate(a: P, b: P): Promise<void> {
     await this.page.evaluate(() => {
-      const w = window as unknown as { seen: P[] };
+      const w = window as unknown as { seen: P[]; pointersNow: Map<number, P> };
       w.seen = [];
+      w.pointersNow = new Map();
       window.addEventListener("pointerdown", (e) => w.seen.push({ x: e.clientX, y: e.clientY }), { capture: true });
+      // (where the page has each finger now: a finger's moves reach the page after the protocol has answered for them)
+      for (const type of ["pointerdown", "pointermove"]) window.addEventListener(type, (e) => w.pointersNow.set((e as PointerEvent).pointerId, { x: (e as PointerEvent).clientX, y: (e as PointerEvent).clientY }), { capture: true });
+      for (const type of ["pointerup", "pointercancel"]) window.addEventListener(type, (e) => w.pointersNow.delete((e as PointerEvent).pointerId), { capture: true });
     });
     const vv = await this.page.evaluate(() => ({ scale: window.visualViewport!.scale, x: window.visualViewport!.offsetLeft, y: window.visualViewport!.offsetTop }));
     this.scale = vv.scale;
@@ -184,6 +219,12 @@ for (const size of SIZES) {
         document.querySelector<HTMLButtonElement>('button[aria-label="No more hints"]')?.click();
         window.scrollTo(0, 0);
       });
+      // (no objects on the map: a press on an object is the mouse's press for now, press, drag, lift, and not a tap or a
+      // pan, so where a finger lands on a tree, a double tap zooms nothing and a drag may move it; which spot of the map the
+      // fingers land on follows how far the glides before them ran, a runner's timing, dev's run 43428024707. The
+      // objects' own presses are the mouse's, in their own specs)
+      await page.getByRole("checkbox", { name: "Hide objects" }).click();
+      await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.objectsHidden)).toBe(true);
       await page.evaluate(() => {
         const r = window.dgm3d!.renderer;
         const m = r.mapState()!;
