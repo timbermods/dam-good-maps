@@ -72,6 +72,26 @@ async function openGround(page: Page, r: number, o: { ry?: number; dry?: number;
   );
 }
 
+/** Points at a tile and waits for the renderer to have read it: the pointer is moved on to it (a few pixels off and back, the
+ *  second move always a move) until `hoverHit` is within a tile of it. A Delete pressed before the hover was read took nothing:
+ *  CI failed twice on the start's Delete (the Delete of the start, last step) with `hoverHit` null after both moves, and passed on
+ *  the third run with the same map (D341). */
+async function pointAt(page: Page, at: { x: number; y: number }, tile: readonly [number, number]): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        await page.mouse.move(at.x + 3, at.y);
+        await page.mouse.move(at.x, at.y);
+        return page.evaluate(([x, y]) => {
+          const h = window.dgm3d!.renderer.hoverHit;
+          return !!h && Math.abs(h.x - x) <= 1 && Math.abs(h.y - y) <= 1;
+        }, tile);
+      },
+      { message: `the renderer read the pointer on ${tile}` },
+    )
+    .toBe(true);
+}
+
 const trees = (page: Page, near: [number, number], r: number) =>
   page.evaluate(
     ([x, y, rr]) => {
@@ -223,8 +243,7 @@ test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the 
     [gx - 1, gy] as const,
   );
   const op = await client(page, one![0], one![1]);
-  await page.mouse.move(op.x + 3, op.y);
-  await page.mouse.move(op.x, op.y);
+  await pointAt(page, op, one!);
   const steps = (await labels(page)).length;
   await page.keyboard.press("Delete");
   await idle(page);
@@ -269,8 +288,7 @@ test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the 
   // with nothing left standing there, Delete takes the ground's top level: one step, one undo
   await page.keyboard.press("Escape");
   const ground = await client(page, gx, gy);
-  await page.mouse.move(ground.x + 3, ground.y);
-  await page.mouse.move(ground.x, ground.y);
+  await pointAt(page, ground, [gx, gy]);
   const beforeGround = (await labels(page)).length;
   const W = (await info(page)).W;
   await page.keyboard.press("Delete");
@@ -292,13 +310,11 @@ test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the 
 
   // the start is the player's like any object (item 44): pointed at, Delete takes it, one step
   const at = await client(page, start[0], start[1]);
-  await page.mouse.move(at.x + 3, at.y);
-  await page.mouse.move(at.x, at.y);
+  await pointAt(page, at, start);
   const kept = (await labels(page)).length;
-  const why = await page.evaluate(([sx, sy, cx, cy]) => { const r = window.dgm3d!.renderer; const m = r.mapState()!; const e = m.entities; const near: string[] = []; for (let k = 0; k < e.count; k++) if (Math.abs(e.x[k] - sx) <= 3 && Math.abs(e.y[k] - sy) <= 3) near.push(`${e.templates[e.template[k]]}@${e.x[k]},${e.y[k]},z${e.z[k]}`); const h = r.hoverHit; const top = document.elementFromPoint(cx, cy); const pk = r.pick(cx, cy); return JSON.stringify({ hover: h && [h.x, h.y], pick: pk && [pk.x, pk.y], over: top && `${top.tagName}.${top.className}`, drag: !!(r as unknown as { drag: unknown }).drag, slice: (r as unknown as { slice: number | null }).slice, hidden: (r as unknown as { objectsHidden: boolean }).objectsHidden, near, h: m.heights[sy * m.W + sx] }); }, [start[0], start[1], at.x, at.y] as const);
   await page.keyboard.press("Delete");
   await idle(page);
-  await expect.poll(async () => (await labels(page)).length, { message: `the start at ${start} was not deleted: ${why}` }).toBe(kept + 1);
+  await expect.poll(async () => (await labels(page)).length).toBe(kept + 1);
   expect((await labels(page)).at(-1)).toBe("Remove the start");
   expect((await info(page)).features.some((f) => f.kind === "start")).toBe(false);
   // the checks say so, and the save asks for one
