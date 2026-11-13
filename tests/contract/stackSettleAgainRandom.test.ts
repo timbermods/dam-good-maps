@@ -156,8 +156,11 @@ const HOLLOWS = OFFICIAL + "builtin_18_MapMetadataHollowsName.timber";
 // seed 10's is the first, with 15 hillsides to hollow and no caves of its own; seed 1 since generator 0.10.20's contour
 // edges (D518, D148): seed 10 has neither a level patch nor a hillside now, and of seeds 1 to 60 only 1, 8, 9, 18, 37, 43
 // and 48 have both; on seed 1's the shortcut answers 3 of the Fill's 25 edits and on seed 8's none, and seed 9 keeps every
-// check
-const SEED = 9;
+// check; seed 43 for seed 9 since the D518 mends (compact hills, no broad wash flats, dead-stand knots), D148: seed 9 has no
+// level patch now, and of seeds 1 to 150 only 8, 11, 15, 22, 24, 29, 30, 36, 43, 85, 96, 129, 139, 146, 148 and 150 do; seeds 30 and 36
+// have no hillside to hollow, the shortcut answers none of the Fill's edits on seed 8's and 4 on seed 29's, and seed 43 keeps
+// every check, its patch at (34, 53), level 11)
+const SEED = 43;
 
 describe("random edits on a map with caves: the settle at once is the settle from cold (D453)", () => {
   it("a generated 64² map, hollowed", () => {

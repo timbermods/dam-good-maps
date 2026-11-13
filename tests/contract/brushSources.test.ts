@@ -58,12 +58,13 @@ function spot(s: MapSession): [number, number] | null {
  *  under its strokes but the sources; seed 59 first since generator 0.10.19's dry washes, D517, D148: seed 43 holds no spot
  *  now, nor do 66, 17, 25, 20–28 or 3–19 but 13, whose mine site is still under the Keep test's raise; of seeds 27–140 only
  *  seed 59 holds one, at (71, 20); seed 20 first since generator 0.10.20's contour edges, D518, D148: seed 59 holds no
- *  spot now, and of seeds 1–70 only seed 20 holds one, at (17, 18)). */
+ *  spot now, and of seeds 1–70 only seed 20 holds one, at (17, 18); seed 98 first since the D518 mends (compact hills, no broad
+ *  wash flats, dead-stand knots), D148: seed 20 holds no spot now, and of seeds 1–120 only seeds 98 and 109 hold one, seed 98's at (61, 22)). */
 let cached: { r: ReturnType<typeof generate>; at: [number, number] } | null = null;
 function session(): { s: MapSession; x: number; y: number } {
   // (the map found is kept, so the search runs once for the file)
   if (!cached)
-    for (const seed of [20, 59, 43, 66, 17, 25, ...Array.from({ length: 17 }, (_, k) => k + 3)]) {
+    for (const seed of [98, 20, 59, 43, 66, 17, 25, ...Array.from({ length: 17 }, (_, k) => k + 3)]) {
       if (cached) break;
       const r = generate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
       const probe = MapSession.fromGenerated(r, r.file);

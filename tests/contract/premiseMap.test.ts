@@ -48,10 +48,10 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // the start's lake's shelf a level deeper from the shore by the start to the lake's floor; and for the landing found
 // from the land, D148: along the shore's own line from where the start meets the lake to where its floor comes
 // nearest the bank, then down the bed's fall; the same plan, start, bench and card; and for generator 0.10.20's contour
-// edges, D518: its plates on a turned scatter and its bench-width steps bent, a new ground; and for D518's mends: the
-// same plan, water, start and bench, its wash's banks in long treads, its dead stands in knots in their woods, a third
-// of their trees young, its rolling and rises reweighed and its bend kept off the start)
-const SHA = "PENDING";
+// edges, D518: its plates on a turned scatter and its bench-width steps bent, a new ground; and for D518's mends: its
+// wash's banks in long treads, its dead stands in knots in their woods (a stand its ground holds short of 15 trees none),
+// a third of their trees young, its rolling and rises reweighed and its bend kept off the start, a new ground, D148)
+const SHA = "d041d6494e085d017f68c9d836ed9b24e3a6344e6a78fe2307443f6f7aa21119";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now

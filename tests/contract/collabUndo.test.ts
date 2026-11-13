@@ -404,7 +404,9 @@ describe("a place in words", () => {
       const [cx, cy] = (caves[0].params as { path: number[][] }).path[0];
       expect(placeOf(one, tilesAt([Math.floor(cx), Math.floor(cy)]))).toBe("at the cave");
     }
-    const three = open(2, "highlands");
+    // (Highlands 1 for 2 since the later D518 mends moved the land, D148: seed 2's first river's middle lies in a lake now, "at the lake"; of seeds 1–20
+    // those with several rivers and a first river named by its compass word are 1, 4, 6, 8, 9, 13–16 and 18–20, seed 1 the first)
+    const three = open(1, "highlands");
     const rivers = three.features.filter((f) => f.kind === "river");
     expect(rivers.length).toBeGreaterThan(1);
     const path = (rivers[0].params as { path: number[][] }).path;
@@ -414,8 +416,9 @@ describe("a place in words", () => {
     // seed 4 has no lake now, and of Canyon seeds 1–12 at 48² only seed 7 has two; Canyon 2 for 7 since generator 0.10.16's
     // ground with grade, D148: seed 7 has no lake now, and of seeds 1–12 seeds 2, 10 and 12 have two; Canyon 10 for 2 since
     // generator 0.10.17's start floors (D515), D148: seed 2 has one lake now, and of seeds 1–20 seeds 7, 10 and 12 have two; Canyon 2 for 10 since generator 0.10.20's
-    // contour edges, D518, D148: seed 10 has no lake now, and of seeds 1–20 only seed 2 has two)
-    const two = open(2, "canyon");
+    // contour edges, D518, D148: seed 10 has no lake now, and of seeds 1–20 only seed 2 has two; Canyon 4 since the later D518 mends moved the land, D148:
+    // seed 2 has one lake now, and of seeds 1–20 seeds 4 and 14 have two, seed 4 the first)
+    const two = open(4, "canyon");
     const both = two.features.filter((f) => f.kind === "lake");
     expect(both.length).toBe(2);
     for (const lake of both) {

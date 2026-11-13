@@ -77,8 +77,10 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   // such ground 4 wide with no water within 10 now; seed 44 has four stretches, but the lines stroke's
   // stretch is beside its mine site (75, 19), which the stroke takes down a level before the Flatten
   // that crosses it, so that Flatten's rim no longer finds the footprint level, and its `keep` is empty;
-  // seed 21's mine site, at (52, 41), is 26 tiles from all four stretches)
-  await openEditor(page, "s=21&z=96&d=n&t=riverValley");
+  // seed 21's mine site, at (52, 41), is 26 tiles from all four stretches. Seed 60 since D518's later mends (the rolling
+  // and rises reweighed), D148: seed 21's third stretch, 4 wide with no water within 10, now lies only at the map's east
+  // edge, out of the view; seed 60's four lie in the map's north half, its mine site at (71, 88) 70 tiles from them)
+  await openEditor(page, "s=60&z=96&d=n&t=riverValley");
   await topDown(page);
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;

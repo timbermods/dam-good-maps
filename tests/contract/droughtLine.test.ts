@@ -87,12 +87,17 @@ describe("the drought line (D133, D269)", () => {
   // dries out now (a lake keeps 161 tiles of shore, no bed tile gone); of Lake Basin seeds 1–30 the pools dry out in 3, 5, 6, 9,
   // 15, 18, 20, 25, 27 and 29, and seed 3 is the first (its lake keeps 193 tiles of shore); River Valley 6's river keeps 27 tiles
   // of water on the last day now; of River Valley seeds 1–30 the river dries out entirely in 2, 3, 5, 12, 15, 16, 17, 20, 21, 24
-  // and 27, and seed 2 is the first; River Valley 3 stays in the list, dry as well now)
+  // and 27, and seed 2 is the first; River Valley 3 stays in the list, dry as well now;
+  // Lake Basin 1 for 3 and River Valley 7 for 2 since the D518 mends (compact hills, no broad wash flats, dead-stand
+  // knots), D148: no pool of Lake Basin 3 dries out now (a lake keeps 199 tiles of shore, no bed tile gone); of Lake Basin
+  // seeds 1–30 the pools dry out in 1, 7, 8, 9, 11, 12, 20, 21 and 26–29, and seed 1 is the first (its lake keeps 189 tiles of
+  // shore); River Valley 2's river keeps 23 tiles of water on the last day now; of River Valley seeds 1–30 the river dries out
+  // entirely in 3, 7, 16, 17 and 20, and seed 7 is the first after seed 3, which stays in the list)
   for (const [theme, seed] of [
-    ["lakeBasin", 3],
+    ["lakeBasin", 1],
     ["riverValley", 3],
     ["delta", 1],
-    ["riverValley", 2],
+    ["riverValley", 7],
   ] as const)
     it(`matches the Drought view's last day tile for tile (${theme} ${seed})`, async () => {
       const { day0, last, news, seen } = await drought(seed, theme);
@@ -138,7 +143,7 @@ describe("the drought line (D133, D269)", () => {
           "a pool dries out",
         ).toBe(true);
       }
-      if (theme === "riverValley" && seed === 2) expect(L.line.count, "the river dries out").toBe(0);
+      if (theme === "riverValley" && seed === 7) expect(L.line.count, "the river dries out").toBe(0);
     });
 
   it("marks the start's water: the bodies the start's pumps draw from, and their water on the last day", async () => {

@@ -252,7 +252,8 @@ function paramsOf(s: MapSession, req: ed.ForceRequest): ForceResultParams {
 describe("the forces in the document (breakage rule)", () => {
   it("forces, brushes and placements share one history: undo and redo in any order give the same maps, the project file reopens them, and the export is the same bytes", () => {
     // (seed 4 on M9b's maps, D148: seed 3's start sits near the east edge, so the brush row 8 to 14 tiles east of it runs off the map)
-    const r = generate(makeSpec({ seed: 4, theme: "highlands", size: { x: 96, y: 96 } }));
+    // (seed 5 for seed 4, D148: D518's mends moved the land; seed 4's start now sits 9 tiles from the south edge, so its brush row runs off the map)
+    const r = generate(makeSpec({ seed: 5, theme: "highlands", size: { x: 96, y: 96 } }));
     const s = MapSession.fromGenerated(r, r.file);
     s.setWaterMode("defer");
     const maps: Uint8Array[] = [s.built.heights.slice()];

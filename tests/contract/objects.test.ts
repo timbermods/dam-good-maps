@@ -149,8 +149,12 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // site now, and of Islands, River Valley and Canyon seeds 1–20, 16 keep every rule (Islands 12; Canyon 3, 7; River Valley 1–8,
     // 12–16), Islands 9's lying 44 tiles out; Islands 16 for Canyon 3 since the D518 mends (wash treads and dead-stand knots), D148:
     // Canyon 3 has no site now, and of Islands, River Valley and Canyon seeds 1–20, 17 keep every rule (Islands 12, 16, 18; Canyon 7;
-    // River Valley 1–8, 13–16, 20), Islands 9's still lying 44 tiles out and not joined to the start by the walk)
-    for (const [theme, seed] of [["islands", 12], ["riverValley", 3], ["islands", 16], ["canyon", 7]] as [ThemeId, number][]) {
+    // River Valley 1–8, 13–16, 20), Islands 9's still lying 44 tiles out and not joined to the start by the walk; Islands 3 and Canyon 9
+    // for Islands 16 and Canyon 7 since the D518 mends (the rolling ground's reweighed noise, compact rises, a dry wash's broad flat
+    // broken up, the lake stair's bench bend 24 tiles off the start), D148: Canyon 7 and Islands 16 have no site now, and of Islands,
+    // River Valley and Canyon seeds 1–20, 15 keep every rule (Islands 1, 3, 4, 8, 12, 19; Canyon 9; River Valley 1–3, 5, 6, 13, 14, 16);
+    // Islands 6 and 9 hold sites 41 tiles out that the walk does not join to the start)
+    for (const [theme, seed] of [["islands", 12], ["riverValley", 3], ["islands", 3], ["canyon", 9]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       expect(r.report.passed).toBe(true);
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "secondDistrict");
@@ -206,7 +210,11 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // dead-stand knots), D148: canyon 10 holds no rise now, and over seeds 1–20 of Islands, River Valley and Canyon 17 do (Canyon 1, 5,
     // 7, 8, 14, 15, 18; Islands 3, 4, 20; River Valley 1, 4, 7, 9, 14, 18, 20), canyon 15's of two levels))
     let seen = 0;
-    for (const [theme, seed] of [["canyon", 1], ["canyon", 7], ["canyon", 15], ["riverValley", 1]] as [ThemeId, number][]) {
+    // canyon 2, canyon 8 and river valley 4 for canyon 1, canyon 15 and river valley 1 since the D518 mends (the rolling ground's
+    // reweighed noise, compact rises, a dry wash's broad flat broken up, the lake stair's bench bend 24 tiles off the start), D148:
+    // those three hold no rise now, and over seeds 1–20 of Canyon and River Valley 15 hold one that keeps every rule (Canyon 2, 3, 7, 8,
+    // 11, 12, 17, 20; River Valley 4, 5, 7, 11, 15, 18, 20))
+    for (const [theme, seed] of [["canyon", 2], ["canyon", 7], ["canyon", 8], ["riverValley", 4]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;
@@ -251,7 +259,11 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // D148: those rivers take no weir now; of Canyon and Highlands 96² seeds 1–20, 15 hold 0.6 or more and none holds less;
     // canyon 14 for canyon 4 since the D518 mends (wash treads and dead-stand knots), D148: canyon 4's river takes no weir now; of Canyon
     // and Highlands 96² seeds 1–20, 13 hold 0.6 or more (Canyon 2, 7, 10, 14, 16, 17; Highlands 2, 4, 5, 8, 9, 13, 15) and none holds less)
-    for (const [theme, seed] of [["canyon", 7], ["canyon", 10], ["canyon", 2], ["canyon", 14], ["highlands", 2]] as [ThemeId, number][]) {
+    // canyon 3 and canyon 17 for canyon 2 and canyon 14 since the D518 mends of the land (the rolling ground's reweighed noise,
+    // compact rises, a dry wash's broad flat broken up, the lake stair's bench bend 24 tiles off the start), D148: those two rivers
+    // take no weir now; of Canyon and Highlands 96² seeds 1–20, 10 hold 0.6 or more (Canyon 3, 7, 10, 17; Highlands 2, 4, 9, 10, 12,
+    // 13) and none holds less)
+    for (const [theme, seed] of [["canyon", 7], ["canyon", 10], ["canyon", 3], ["canyon", 17], ["highlands", 2]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 96, y: 96 }, theme }));
       const w = r.features.find((g) => g.kind === "mapObject" && g.params.kind === "weir");
       if (!w || w.kind !== "mapObject") continue;

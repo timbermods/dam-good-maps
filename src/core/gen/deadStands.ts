@@ -549,6 +549,12 @@ export function planDeadStands(inp: DeadStandsInput): DeadStand[] {
           const k2 = Math.min(DEAD_STANDS.oakMost, Math.floor(tiles.length / DEAD_STANDS.oakEvery));
           for (let q = 0; q < k2; q++) oaks.push(tiles.splice(rng.int(0, tiles.length), 1)[0]);
         }
+        // (a stand its ground holds short of a stand's least is none, its ground too narrow for one: left bare)
+        if (grown.tiles.length < Math.min(n, s.least)) {
+          for (const i of grown.area) allowed[i] = 0;
+          allowed[seed] = 0;
+          continue;
+        }
         // (a stand whose knots its ground crowded into an even spread is none: its seed's ground is left bare)
         if (grown.tiles.length < 3 || (tiles.length >= 10 && nnSpread(tiles, W) < DEAD_STANDS.knot.least)) {
           allowed[seed] = 0;

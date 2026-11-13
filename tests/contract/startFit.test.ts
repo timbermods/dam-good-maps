@@ -251,8 +251,10 @@ describe("a map object measured where it stands, by the checks and the start's p
   // generator 0.10.17's start floors, D515, D148: seed 1's relic, once flagged, finds no spot within 40 tiles of its start
   // where the move allows it and its band clears; of Highlands seeds 1–12 only 7 serves all four tests here; seed 13 for
   // 7 since generator 0.10.19's dry washes, D517, D148: of Highlands seeds 1–12 none serves all four now (seed 7's relic
-  // has no spot 5 to 12 tiles off where a start fits with only the relic out of its band); 13 is the first that does)
-  const r = generate(makeSpec({ seed: 13, theme: "highlands", size: { x: 128, y: 128 } }));
+  // has no spot 5 to 12 tiles off where a start fits with only the relic out of its band); 13 is the first that does;
+  // seed 2 for 13 since D518's mends (wash treads, compact rises, dead-stand knots), D148: on seed 13 no spot 5 to 12 tiles
+  // from the relic has only the relic out of its band; of Highlands seeds 1–13, 2, 6, 7 and 11 serve all four tests, and 2 is the first)
+  const r = generate(makeSpec({ seed: 2, theme: "highlands", size: { x: 128, y: 128 } }));
   const fresh = () => MapSession.fromGenerated(r, r.file);
   const W = 128;
   const startOf = (s: MapSession) => s.features.find((g): g is StartFeature => g.kind === "start")!;

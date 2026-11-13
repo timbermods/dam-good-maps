@@ -262,8 +262,14 @@ describe("Crop map to selection: an imported map keeps its caves and overhangs",
       for (let x = Math.max(2, sc.X - 16); x < Math.min(62, sc.X + 16) && at.length < 6; x++) {
         const i = y * w.sizeX + x;
         let top = 0;
-        for (let z = 0; z < LAYERS; z++) if (w.voxels[z * plane + i]) top = z + 1;
-        if (top >= 6 && !taken.has(i) && (at.length === 0 || Math.abs(at[at.length - 1].x - x) > 4 || at[at.length - 1].y !== y)) {
+        let runs = 0;
+        for (let z = 0; z < LAYERS; z++) {
+          if (w.voxels[z * plane + i]) top = z + 1;
+          if (w.voxels[z * plane + i] && (z === 0 || !w.voxels[(z - 1) * plane + i])) runs++;
+        }
+        // (a column of one run only: a map's own cave or ledge on the tile would make the dug one a column of three runs, D148: since
+        // the later D518 mends the first tall column is a natural cave's)
+        if (top >= 6 && runs === 1 && !taken.has(i) && (at.length === 0 || Math.abs(at[at.length - 1].x - x) > 4 || at[at.length - 1].y !== y)) {
           // a cave: the voxel two layers below the surface is air, the ground above it stays
           w.voxels[(top - 3) * plane + i] = 0;
           at.push({ x, y });

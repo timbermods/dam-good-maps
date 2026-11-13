@@ -20,8 +20,8 @@ import { surfaceWater, waterFromDepth } from "../../src/render3d/model";
 // with grade: seed 25's map now has terrain above terrain; of seeds 1–30 only 7, 9, 20 and 26 have flat columns now, and
 // only seeds 20 and 26 have films, D148; seed 26 for seed 20 since generator 0.10.17's start floors (D515): seed 20's map
 // now has terrain above terrain, so its water has no flat columns' outflows; of seeds 1–12, 20, 24–26 and 29 only 7, 9
-// and 26 have flat columns now, and only seed 26 has films, D148)
-const r = generate(decodeSpecFragment("s=26&t=riverValley&z=128&d=n")!.spec);
+// and 26 have flat columns now, and only seed 26 has films, D148; seed 7 for seed 26 since the D518 mends (compact hills, no broad wash flats, dead-stand knots), D148: seed 26's map has no film on its banks now; of seeds 1–34 only 4, 7, 9, 24, 26 and 31 have flat columns, and only seeds 7 and 24 have films (1 and 2 tiles), seed 7 the first)
+const r = generate(decodeSpecFragment("s=7&t=riverValley&z=128&d=n")!.spec);
 const { W, H } = r.built;
 const S = r.built.settle;
 const view = waterFromDepth(r.built.heights, S.depth, S.contamination);
@@ -31,7 +31,7 @@ const sw0 = surfaceWater(W, H, view);
 const c0 = surfaceCurrent(W, H, sw0);
 const cur = Float32Array.from({ length: view.count * 2 }, (_, n) => c0[view.tile[n >> 1] * 2 + (n & 1)]);
 
-describe("the current of River Valley seed 26 at 128 squared", () => {
+describe("the current of River Valley seed 7 at 128 squared", () => {
   it("the river moves: a quarter of the wet columns are quicker than 0.5, none beyond 10", () => {
     let fast = 0;
     for (let k = 0; k < view.count; k++) {

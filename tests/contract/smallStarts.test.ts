@@ -10,10 +10,12 @@ describe("small starts prepared before the land is shown (D348, D363, D373)", ()
   // three again since Islands round 5, D148; since generator 0.10.17's start floors, D515, D148: Canyon 128² seed 9 meets
   // all three again, its main river holding all its water, and Canyon 96² seed 17 misses its water story, its start
   // moved to a bench that clears the floor, away from the river, and the spring by the start that gives it water holds
-  // 46% of the map's water as a second system; both still pass on the land first shown; since generator 0.10.20's contour edges, D518, D148: Canyon 96� seed 17 meets all
-  // three again, so seed 2 stands for it, the first of Canyon 96� seeds 1�18 that passes on the land first shown and misses
-  // an outcome: 2, 12 and 16 do)
-  for (const [theme, seed, size, met] of [["any", 31, 96, true], ["islands", 4, 96, true], ["highlands", 14, 96, true], ["canyon", 2, 96, false], ["canyon", 9, 128, true]] as const)
+  // 46% of the map's water as a second system; both still pass on the land first shown; since generator 0.10.20's contour edges, D518, D148: Canyon 96² seed 17 meets all
+  // three again, so seed 2 stands for it, the first of Canyon 96² seeds 1–18 that passes on the land first shown and misses
+  // an outcome: 2, 12 and 16 do; since D518's mends (wash treads, compact rises, dead-stand knots), D148: seed 2's land
+  // moved and it meets all three, so seed 3 stands for it, the first of Canyon 96² seeds 1–20 that misses an outcome, its
+  // promise, and still passes on the land first shown: 3, 4, 6, 8 and 12 miss)
+  for (const [theme, seed, size, met] of [["any", 31, 96, true], ["islands", 4, 96, true], ["highlands", 14, 96, true], ["canyon", 3, 96, false], ["canyon", 9, 128, true]] as const)
     it(`${theme} ${size}² seed ${seed} passes without changing the shown land`, () => {
       const shown: Uint8Array[] = [];
       const r = generate(makeSpec({ theme: theme as ThemeId, seed, size: { x: size, y: size } }), {

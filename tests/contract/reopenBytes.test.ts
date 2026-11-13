@@ -31,8 +31,11 @@ function worked(): MapSession {
   expect(s.apply(stroke([20 * 4 + 2, 21 * 4 + 2, 22 * 4 + 2, 21 * 4 + 2])).errors).toEqual([]);
   expect(s.apply(stroke([40 * 4 + 2, 41 * 4 + 2, 42 * 4 + 2, 41 * 4 + 2], "lower")).errors).toEqual([]);
   // (the Carve at [11, 50] since generator 0.10.20's contour edges, D518, D148: at [12, 50] it is refused, "X 17 · Y 51 has a cave or
-  // overhang, which a force leaves as it is", as at 53 of the 95 origins tried around it and over the map's west; [11, 50], one tile west, is the first that applies)
-  expect(s.apply(carve(s, [11, 50]), "user", "Carve").errors).toEqual([]);
+  // overhang, which a force leaves as it is", as at 53 of the 95 origins tried around it and over the map's west; [11, 50], one tile west, is the first that applies;
+  // at [9, 50] since the D518 mends (wash treads and dead-stand knots), D148: [11, 50] is refused again, "X 18 · Y 54 has a cave or
+  // overhang, which a force leaves as it is", as at 84 of the 117 origins from X 6 to 14, Y 44 to 56 tried after the two brush strokes; [9, 50], two tiles
+  // west, is the nearest that applies)
+  expect(s.apply(carve(s, [9, 50]), "user", "Carve").errors).toEqual([]);
   // a group of feature edits: log entries that carry undo data and a step mark
   const forest = s.document.features.find((f) => f.kind === "forest")!;
   const h = s.applyAll(
