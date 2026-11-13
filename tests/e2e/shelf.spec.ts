@@ -312,9 +312,32 @@ test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the 
   const at = await client(page, start[0], start[1]);
   await pointAt(page, at, start);
   const kept = (await labels(page)).length;
+  const probe = () =>
+    page.evaluate(([sx, sy]) => {
+      const r = window.dgm3d!.renderer;
+      const h = r.hoverHit;
+      const m = r.mapState()!;
+      const e = m.entities;
+      const near: string[] = [];
+      for (let k = 0; k < e.count; k++) if (Math.abs(e.x[k] - sx) <= 3 && Math.abs(e.y[k] - sy) <= 3) near.push(`${e.templates[e.template[k]]}@${e.x[k]},${e.y[k]}`);
+      const act = document.activeElement;
+      const live = Array.from(document.querySelectorAll('[role="status"],[role="alert"],.shape-note,.flash,.note,.message')).map((n) => (n.textContent ?? "").slice(0, 80));
+      return JSON.stringify({
+        hover: h && { x: h.x, y: h.y, keys: Object.keys(h) },
+        sel: window.dgmEditor!.selection().length,
+        focus: act && `${act.tagName}.${act.className}|${(act.textContent ?? "").slice(0, 30)}`,
+        near,
+        start: (window.dgmEditor!.info().features.find((f) => f.kind === "start")?.params as { position: number[] } | undefined)?.position ?? null,
+        live,
+        objectsHidden: (r as unknown as { objectsHidden: boolean }).objectsHidden,
+        slice: (r as unknown as { slice: number | null }).slice,
+      });
+    }, start);
+  const probeBefore = await probe();
   await page.keyboard.press("Delete");
   await idle(page);
-  await expect.poll(async () => (await labels(page)).length).toBe(kept + 1);
+  const probeAfter = await probe();
+  await expect.poll(async () => (await labels(page)).length, { message: `start delete: before ${probeBefore} | after ${probeAfter}` }).toBe(kept + 1);
   expect((await labels(page)).at(-1)).toBe("Remove the start");
   expect((await info(page)).features.some((f) => f.kind === "start")).toBe(false);
   // the checks say so, and the save asks for one
