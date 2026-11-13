@@ -176,9 +176,13 @@ describe("a fall from one stroke holds one tile away too (showcase craft gaps 1,
   }, 600_000);
 
   it("an Unleash from every source within two tiles: a fall a player sees, never a slot", () => {
-    // (KNOWN: a source at (55,48) stands on the mesa's back rim, and half its water runs off behind it, down to the
-    // terrace east; what reaches the lip pours two hundredths of a level deep, too thin to read as a fall)
-    const known = ["55,48"];
-    expect(failing(sweep([53, 46], [40, 46], {}, 3, undefined, true)).filter((l) => !known.some((k) => l.startsWith(`${k} `)))).toEqual([]);
+    // (KNOWN, each pinned to the one line it gives, so anything else there fails too: a source at (55,48) stands on the
+    // mesa's back rim, and half its water runs off behind it, down to the terrace east; what reaches the lip pours two
+    // hundredths of a level deep, too thin to read as a fall. From (55,45) since #1004's Clear (planning's ruling,
+    // 2026-11-13, D148): the map's spring at (50,42) and (50,43), whose ground the carve cuts a level, stays where Clear
+    // once took it and spills over the new cliff into the slot north of the curtain; that is the land the player's map
+    // had behaving honestly, not the Unleash's water split, and it shows as exactly one more fall, at x 45 y 42)
+    const known = ["55,48 FAILS: no fall", "55,45 FAILS: split: 4 tiles at 13 x 44-45 y 44-47 drop 8.7; 1 more at x 45 y 42"];
+    expect(failing(sweep([53, 46], [40, 46], {}, 3, undefined, true)).sort()).toEqual(known.slice().sort());
   }, 600_000);
 });
