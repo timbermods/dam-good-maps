@@ -81,7 +81,7 @@ describe("the resource baseline (Kyler, 2026-09-25)", () => {
         seen.add(b.trees);
       }
       // maps vary: not every map hits the median
-      expect(seen.size).toBeGreaterThan(0);
+      expect(seen.size).toBeGreaterThan(30);
     }
     // the same seed, the same amounts; the settings move them around the baseline
     expect(resourceBudget(128, 128, settings, 7)).toEqual(resourceBudget(128, 128, settings, 7));
