@@ -428,7 +428,12 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
+  // (Highlands seed 31 since generator 0.10.20's contour edges, D518, D148: the spot found below on seed 4242's land is
+  // now a valley floor at X 33 · Y 63 beside its river and lake, whose flows run into the water, where lava is not drawn,
+  // and through woods: 1,013 lava pixels on CI, 1,400 to 1,600 here. Same camera, same scale; dev's frames span 700 to
+  // 2,300 across seeds too, so the glow per lava tile is unchanged. Seed 31's flows stay on dry rock: 2,463 here, dev's
+  // seed 4242 2,273)
+  await openEditor(page, "s=31&z=96&d=n&t=highlands");
   await topDown(page);
   await opensHigh(page);
   await page.keyboard.press("Shift+Digit3");
