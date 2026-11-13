@@ -129,8 +129,8 @@
    "metres": 60,
    "data": "data/near-toklat-river.json.gz",
    "image": "cards/near-toklat-river.jpg",
-   "bytes": 203235,
-   "sha256": "b87350ac4528558214ddfa52cebabcff217eab579528f2492f77dbf576bde452",
+   "bytes": 203206,
+   "sha256": "c834aebd8af4e7cc03d80f6615bc9a4d26697846105f96b2f3cfca5341a9d932",
    "faults": [
     "water.source_in_flow",
     "start.wood"
@@ -146,8 +146,8 @@
    "metres": 30,
    "data": "data/near-crater-lake.json.gz",
    "image": "cards/near-crater-lake.jpg",
-   "bytes": 250135,
-   "sha256": "c4caa7836daf2595fc2a763acc7f2b55a2b654923a0d2f9c616c1600a0fe8644",
+   "bytes": 250130,
+   "sha256": "04697e910c9343bf532631b50879d19f3e16a054f1f4131c9fc9e2560bf2302b",
    "faults": []
   },
   {
@@ -160,8 +160,8 @@
    "metres": 30,
    "data": "data/near-colca-canyon.json.gz",
    "image": "cards/near-colca-canyon.jpg",
-   "bytes": 290117,
-   "sha256": "e5a341aaf4a6483f3b00aecf8594001a8be4d5d848318777bd0ed76e780205d9",
+   "bytes": 290202,
+   "sha256": "7ebd18669576edeeffbbfdf7c4715fe28239eb4e1ea0e94f61ee5d05392017f3",
    "faults": [
     "start.wood",
     "start.water"
@@ -194,8 +194,8 @@
    "metres": 60,
    "data": "data/near-mount-mayon.json.gz",
    "image": "cards/near-mount-mayon.jpg",
-   "bytes": 233181,
-   "sha256": "9a57487262f61c237de860198b8564ce723c8f7264e31faeba20d2da55f36ce1",
+   "bytes": 233426,
+   "sha256": "1a0b69480695fefdd5ce7a5392aa998695b53eef95373553444c86a849fe1a3a",
    "faults": [
     "water.source_in_flow",
     "start.wood",
@@ -212,12 +212,11 @@
    "metres": 60,
    "data": "data/near-rhine-and-moselle.json.gz",
    "image": "cards/near-rhine-and-moselle.jpg",
-   "bytes": 250676,
-   "sha256": "1f6e09be2869b31678bf240307bd76458c96ddd583cebea7d012a6f1a6361be0",
+   "bytes": 251377,
+   "sha256": "193742963c001daba6acebc67987e76c3f38aadc223e4370cd2d820436fa15b4",
    "faults": [
     "water.source_in_flow",
-    "start.food",
-    "plants.survive"
+    "start.food"
    ]
   },
   {
@@ -281,8 +280,8 @@
    "metres": 120,
    "data": "data/near-death-valley.json.gz",
    "image": "cards/near-death-valley.jpg",
-   "bytes": 214927,
-   "sha256": "599cbb4958c9bcbc2b7b67d2f4d1ddf41553b99b7ef21ac0d499104e99f84ebd",
+   "bytes": 215084,
+   "sha256": "f59b5f5ee86055d9ee1c1312ce6e4d696cf533d74e41bf50da8aa397e46afd4a",
    "faults": [
     "water.source_in_flow",
     "start.wood",
@@ -350,14 +349,13 @@
    "metres": 120,
    "data": "data/near-phong-nha.json.gz",
    "image": "cards/near-phong-nha.jpg",
-   "bytes": 211433,
-   "sha256": "5491e89d2ba226ee6415740f2677fd8c654ca0c3423592a3410a6865732faa0b",
+   "bytes": 211578,
+   "sha256": "fb551597e092dfb8efcabb26ce7c292a84abaa0d5382c6e12fae5e8f4947d297",
    "faults": [
     "water.source_in_flow",
     "start.wood",
     "start.water",
-    "start.food",
-    "plants.survive"
+    "start.food"
    ]
   },
   {
@@ -387,8 +385,8 @@
    "metres": 60,
    "data": "data/near-uvac-river.json.gz",
    "image": "cards/near-uvac-river.jpg",
-   "bytes": 185819,
-   "sha256": "85b2146e90fdaba96ee66b78de7bfc507d8752c04e77b743928d5ee051d13509",
+   "bytes": 186759,
+   "sha256": "4d209ed41726cb5346bc9e3da838bf0dbfff620306032a3e04d1ac48f555d121",
    "faults": [
     "start.water"
    ]
@@ -403,8 +401,8 @@
    "metres": 30,
    "data": "data/near-mount-roraima.json.gz",
    "image": "cards/near-mount-roraima.jpg",
-   "bytes": 253019,
-   "sha256": "34b2ec9496bba12dd8a30b425971b9fc604b3c2351d9f6fcdc2812452dd9b321",
+   "bytes": 252991,
+   "sha256": "fbb7888a018857a31ce8dd76c118bcb2a0f9dec5d5170f661a4e0fd92cba635a",
    "faults": [
     "start.wood"
    ]
@@ -453,8 +451,8 @@
    "metres": 30,
    "data": "data/near-drumheller.json.gz",
    "image": "cards/near-drumheller.jpg",
-   "bytes": 119434,
-   "sha256": "c9581bbeda6c5963b1c435643622e8123520e20cff0128f3c569e4e3374f9d02",
+   "bytes": 119728,
+   "sha256": "51eb5d74b420289d4a241f51536a67629c7d45cdf622f1d82fd18ae2ce7ea676",
    "faults": [
     "start.water"
    ]
@@ -517,8 +515,8 @@
    "metres": 60,
    "data": "data/near-cliffs-of-moher.json.gz",
    "image": "cards/near-cliffs-of-moher.jpg",
-   "bytes": 190283,
-   "sha256": "279fcff91ec440c5825f4092c50ef4d89cc42a36a2fdb15349d14753783dd5f4",
+   "bytes": 190881,
+   "sha256": "e652aa5ab150c17edbef420766becab3a3597423acd0fdddb16b52469009ff52",
    "faults": [
     "start.wood",
     "start.water"
@@ -586,8 +584,8 @@
    "metres": 120,
    "data": "data/near-western-ghats-mahabaleshwar.json.gz",
    "image": "cards/near-western-ghats-mahabaleshwar.jpg",
-   "bytes": 158757,
-   "sha256": "576e31d5ae0bae755d6bbe5da16a927a5c926fa03bcfee3cf9e661791ca4ff0d",
+   "bytes": 158723,
+   "sha256": "17acc83d4a29017345443b47ba7fb14a73ef8c85f22edbfe3df7521048c1d67d",
    "faults": [
     "start.wood"
    ]
@@ -602,8 +600,8 @@
    "metres": 60,
    "data": "data/near-niagara-falls.json.gz",
    "image": "cards/near-niagara-falls.jpg",
-   "bytes": 200052,
-   "sha256": "7b45ad36051b60fd01a005d3118697a53f774707e902c88725faa94fb78709bc",
+   "bytes": 201104,
+   "sha256": "bdc2fa63d72748a3e82f64b6cd5205382ba199e3322483b49b27c53385bf9c4f",
    "faults": [
     "water.source_in_flow",
     "start.water"
@@ -671,8 +669,8 @@
    "metres": 60,
    "data": "data/near-verdon-gorge.json.gz",
    "image": "cards/near-verdon-gorge.jpg",
-   "bytes": 153050,
-   "sha256": "2cf4c007a0488e4f122b138b1cde0b9678e615740d575ea9a85ba0132b5de0ac",
+   "bytes": 153055,
+   "sha256": "f4c64befa751d873555560f3cc0f80e0470ce0b24ecd8e60ff5ee7dbe518e1de",
    "faults": [
     "start.wood"
    ]
@@ -687,12 +685,11 @@
    "metres": 120,
    "data": "data/near-chocolate-hills.json.gz",
    "image": "cards/near-chocolate-hills.jpg",
-   "bytes": 200747,
-   "sha256": "23dc58106abf6837dff5b18c437c2a112fd5bcc443865a19f80c4dbe9e42299a",
+   "bytes": 200833,
+   "sha256": "eff39d3bfb2bd1268fb37bbde871e8076a6ca3a894da0529f9e4f644497f8570",
    "faults": [
     "water.source_in_flow",
-    "start.wood",
-    "plants.survive"
+    "start.wood"
    ]
   },
   {
@@ -705,8 +702,8 @@
    "metres": 30,
    "data": "data/near-finnish-saimaa.json.gz",
    "image": "cards/near-finnish-saimaa.jpg",
-   "bytes": 189572,
-   "sha256": "314d227ffad88cdc145877aa0fe9eda9ae573fcd11f41c1c4e7ef73c70ded7fa",
+   "bytes": 189629,
+   "sha256": "054e8192e1196b32f748f3439cc825572511ab2e6fe348b7bca7e3315d213270",
    "faults": [
     "water.source_in_flow",
     "start.wood"
@@ -788,8 +785,8 @@
    "metres": 30,
    "data": "data/near-waimakariri-river.json.gz",
    "image": "cards/near-waimakariri-river.jpg",
-   "bytes": 623509,
-   "sha256": "60f4ee0ef1a92eff3fbb11fec5350e893bfaec40c36799e7fd2f033ef2f1af1b",
+   "bytes": 623469,
+   "sha256": "1e0a7829e13dbe19307ccf2631eeb4575b8879b097b01c7f46c57bfc730aad30",
    "faults": [
     "water.outflow",
     "start.wood",
@@ -806,8 +803,8 @@
    "metres": 30,
    "data": "data/near-lake-toba.json.gz",
    "image": "cards/near-lake-toba.jpg",
-   "bytes": 363969,
-   "sha256": "e8e0e635755eda53513a900d35cb2d3abfc84cab6c456f9b019c48542a5ec255",
+   "bytes": 394720,
+   "sha256": "95e9e6e513448179ec57ccb2f93db0097c2e3ee80fbbe37368546380c9d32692",
    "faults": [
     "start.wood",
     "start.water",
@@ -857,8 +854,8 @@
    "metres": 30,
    "data": "data/near-mount-etna.json.gz",
    "image": "cards/near-mount-etna.jpg",
-   "bytes": 583460,
-   "sha256": "a926b980b06866423042554d5027ed89480c9c8925ae1d5f13c5d30d2cae591e",
+   "bytes": 583583,
+   "sha256": "c73d4279c7ff2bbddbd2e40f85c17fff97a43e0ef3face7bf951eb14cf88454c",
    "faults": [
     "start.wood"
    ]
@@ -973,8 +970,8 @@
    "metres": 120,
    "data": "data/near-katherine-gorge.json.gz",
    "image": "cards/near-katherine-gorge.jpg",
-   "bytes": 551269,
-   "sha256": "9d14873c2ddb6e682efb70bd96a1aa5a8723286a08a459a49b6014a2c96a75c0",
+   "bytes": 551265,
+   "sha256": "2200196e54b2e1fa3ee693c31bda2fb6b64bf371b635586c4e68c407565d3621",
    "faults": [
     "start.wood"
    ]
@@ -989,8 +986,8 @@
    "metres": 30,
    "data": "data/near-dinaric-karst-plitvice.json.gz",
    "image": "cards/near-dinaric-karst-plitvice.jpg",
-   "bytes": 590789,
-   "sha256": "ff3deac177bcfc34f13bd756ddcbfc145b9a28297fc1aa474a828abb20b77786",
+   "bytes": 597245,
+   "sha256": "4405e976b74effccb89079a664e43cd141df4d7a712d126f4bad811a92a05913",
    "faults": [
     "water.source_in_flow",
     "start.wood",
@@ -1009,8 +1006,8 @@
    "metres": 60,
    "data": "data/near-lower-mississippi-oxbows.json.gz",
    "image": "cards/near-lower-mississippi-oxbows.jpg",
-   "bytes": 604428,
-   "sha256": "716d828013353c3f0cbcb621a9468c1944521fc53d71874e8a4d4dc7865ebf7e",
+   "bytes": 604587,
+   "sha256": "0f84d7716840ee9e8d38679f3bfcd7b2be13f7c20b3b5f9ea7ec4bfffdeeccd3",
    "faults": [
     "start.wood"
    ]
@@ -1025,8 +1022,8 @@
    "metres": 30,
    "data": "data/near-bungle-bungle.json.gz",
    "image": "cards/near-bungle-bungle.jpg",
-   "bytes": 383922,
-   "sha256": "69b74186a1412dc6a9f4d15e88e2bce67e80cb12d45aa08556df59523f16da94",
+   "bytes": 411234,
+   "sha256": "fa940260ea4ac42f8e750550c01325bba270610747ecc8c408a5d93e60d9ef13",
    "faults": [
     "start.water",
     "start.food",
@@ -1078,8 +1075,8 @@
    "metres": 120,
    "data": "data/near-skeidara-outwash.json.gz",
    "image": "cards/near-skeidara-outwash.jpg",
-   "bytes": 243861,
-   "sha256": "6c6eeece4a9749033a7015fa7401ffa4dce4c727d625b6d5067f8c9550165c96",
+   "bytes": 244136,
+   "sha256": "facde87b314ec2e203b6e726bbce51cfe2465aa3e3bf1f24a961c8dae3940f9b",
    "faults": [
     "water.source_in_flow",
     "start.wood",
@@ -1244,8 +1241,8 @@
    "metres": 60,
    "data": "data/near-li-river-yangshuo.json.gz",
    "image": "cards/near-li-river-yangshuo.jpg",
-   "bytes": 264630,
-   "sha256": "8db483b37342889936c79e6a03371083f7d4ae39d113ca8c1d7c4050736cbffa",
+   "bytes": 264636,
+   "sha256": "79e69397c866934f8f47d0abbedfa79efa3d6ed3e821db017e8e2a20afc01ca8",
    "faults": [
     "start.wood"
    ]
@@ -1330,8 +1327,8 @@
    "metres": 60,
    "data": "data/near-sete-cidades.json.gz",
    "image": "cards/near-sete-cidades.jpg",
-   "bytes": 177016,
-   "sha256": "d7299f0c247ac60031b5394f71650c3f1259b68d3d380d37ad3dc8d05ab3071b",
+   "bytes": 176988,
+   "sha256": "464b520634be0e59baf5137b840e364bb4558e0abac6af885ccf17ceebaaf21e",
    "faults": [
     "water.source_in_flow",
     "start.wood",
@@ -1364,8 +1361,8 @@
    "metres": 30,
    "data": "data/near-mount-taranaki.json.gz",
    "image": "cards/near-mount-taranaki.jpg",
-   "bytes": 439643,
-   "sha256": "9ee2141b498d7600aa10990d1879cec4f17ab85dc997f3e2a84af8cc15422400",
+   "bytes": 452113,
+   "sha256": "ab3801e5413d9d1818a8615ffc9e0dd0066eee2349ad5dc53c28340fc7ca912e",
    "faults": [
     "start.wood",
     "start.water",
@@ -1401,8 +1398,8 @@
    "metres": 60,
    "data": "data/near-iguazu-falls.json.gz",
    "image": "cards/near-iguazu-falls.jpg",
-   "bytes": 255805,
-   "sha256": "f02bb48d310ea2e76019d49ac0bc83f5312684490c6ea92c215eeb9b9d52c752",
+   "bytes": 256196,
+   "sha256": "51c22f95b7a63df77745e55136b80bdf8455faf92c71dfa0c376e2acdcca82d6",
    "faults": [
     "water.source_in_flow",
     "start.water"
@@ -1435,8 +1432,8 @@
    "metres": 60,
    "data": "data/near-yosemite-valley.json.gz",
    "image": "cards/near-yosemite-valley.jpg",
-   "bytes": 161538,
-   "sha256": "437a25fd9fb4a9d17b337dc3191812f282b1881c3d763fa83c8d78c5e64c554d",
+   "bytes": 162025,
+   "sha256": "446123cbfe341ccc0db8c7f271f67c11045864a75030650566cee179e2aa5a00",
    "faults": [
     "start.wood",
     "start.water"
@@ -1452,8 +1449,8 @@
    "metres": 60,
    "data": "data/near-tara-gorge.json.gz",
    "image": "cards/near-tara-gorge.jpg",
-   "bytes": 184377,
-   "sha256": "370b97e62739957f1bbac2b1e080a7c2d84fff22bf8487f42e2a7de3be2e4faf",
+   "bytes": 184324,
+   "sha256": "8cf9428928a0e16b3988656a3d635930c4c69ab5b241cb5f9f4f639f2fb0dafd",
    "faults": [
     "water.source_in_flow",
     "start.wood"
@@ -1469,13 +1466,12 @@
    "metres": 30,
    "data": "data/near-tsingy-bemaraha.json.gz",
    "image": "cards/near-tsingy-bemaraha.jpg",
-   "bytes": 138060,
-   "sha256": "40a907c5e6a1eda82b2e8eb38636495a96650d343ab4f4069b10d3f79f409ecb",
+   "bytes": 138012,
+   "sha256": "1dcd5fa10fe930cc96a0fe96df88beb0eefa0b2f6763252207688ea9993afab4",
    "faults": [
     "water.source_in_flow",
     "start.wood",
-    "start.water",
-    "plants.survive"
+    "start.water"
    ]
   },
   {
