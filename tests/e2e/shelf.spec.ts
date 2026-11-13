@@ -295,9 +295,10 @@ test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the 
   await page.mouse.move(at.x + 3, at.y);
   await page.mouse.move(at.x, at.y);
   const kept = (await labels(page)).length;
+  const why = await page.evaluate(([sx, sy]) => { const r = window.dgm3d!.renderer; const m = r.mapState()!; const e = m.entities; const near: string[] = []; for (let k = 0; k < e.count; k++) if (Math.abs(e.x[k] - sx) <= 3 && Math.abs(e.y[k] - sy) <= 3) near.push(`${e.templates[e.template[k]]}@${e.x[k]},${e.y[k]},z${e.z[k]}`); const h = r.hoverHit; return JSON.stringify({ hover: h && [h.x, h.y], slice: (r as unknown as { slice: number | null }).slice, hidden: (r as unknown as { objectsHidden: boolean }).objectsHidden, near, h: m.heights[sy * m.W + sx] }); }, start);
   await page.keyboard.press("Delete");
   await idle(page);
-  await expect.poll(async () => (await labels(page)).length).toBe(kept + 1);
+  await expect.poll(async () => (await labels(page)).length, { message: `the start at ${start} was not deleted: ${why}` }).toBe(kept + 1);
   expect((await labels(page)).at(-1)).toBe("Remove the start");
   expect((await info(page)).features.some((f) => f.kind === "start")).toBe(false);
   // the checks say so, and the save asks for one
