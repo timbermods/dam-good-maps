@@ -188,6 +188,29 @@ describe("Touches", () => {
     expect(log.moves[0].dy).toBe(0);
   });
 
+  it("a tilt told a finger at a time (the moves piled up behind a slow frame) is a tilt; a pivot about a still finger is not", () => {
+    const { t, log, ev } = layer();
+    t.down(ev("pointerdown", 1, 100, 300, 0));
+    t.down(ev("pointerdown", 2, 220, 300, 5));
+    // one touch, both fingers up 40 px: the browser tells finger 1's move, then finger 2's, at the touch's time
+    t.move(ev("pointermove", 1, 100, 260, 100));
+    expect(log.moves).toEqual([]);
+    t.move(ev("pointermove", 2, 220, 260, 100));
+    expect(log.moves.length).toBe(1);
+    expect(log.moves[0].tilt).toBeCloseTo(-40 * TILT_PER_PX, 9);
+    expect(log.moves[0]).toMatchObject({ dx: 0, dy: 0 });
+    // finger 2 still: finger 1's next move decides, and carries the whole move so far
+    const p = layer();
+    p.t.down(p.ev("pointerdown", 1, 100, 300, 0));
+    p.t.down(p.ev("pointerdown", 2, 220, 300, 5));
+    p.t.move(p.ev("pointermove", 1, 100, 260, 100));
+    expect(p.log.moves).toEqual([]);
+    p.t.move(p.ev("pointermove", 1, 100, 250, 116));
+    expect(p.log.moves.length).toBe(1);
+    expect(p.log.moves[0]).toMatchObject({ dx: 0, dy: -25, tilt: 0 });
+    expect(p.log.moves[0].turn).not.toBe(0);
+  });
+
   it("in the top-down view the same drag pans", () => {
     const { t, log, ev } = layer(false);
     t.down(ev("pointerdown", 1, 100, 300, 0));
