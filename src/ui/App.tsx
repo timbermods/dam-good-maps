@@ -994,12 +994,11 @@ export function App() {
     // on its way when Generate was pressed keeps it, D455)
     // (`backReady` is set before anything is awaited: Cancel pressed while the map is still being taken waits for it, and
     // the old worker lives until it has come, investigation/page-hunt)
+    // (`backKept` is this map's from the start: Cancel's fallback reads it, never the map before)
+    backKept.current = kept.current;
     const taken = snapshotTaken();
     const ready = (backReady.current = taken.then((t) => t.written.then((s) => ({ entry: s.entry, bytes: s.project, kept: kept.current || t.kept }))));
-    const t = await taken;
-    const keeps = kept.current || t.kept;
-    kept.current = keeps;
-    backKept.current = keeps;
+    // (its outcome heard at once: a failure is the caller's below, or Cancel's)
     void ready.then(
       (b) => {
         performance.mark("dgm:written");
@@ -1007,6 +1006,17 @@ export function App() {
       },
       () => {},
     );
+    let t: Awaited<typeof taken>;
+    try {
+      t = await taken;
+    } catch (e) {
+      // (the worker could not hand the map over: it stays open, nothing replaces it)
+      console.error("the map being replaced could not be taken:", e);
+      throw new Error("Your map could not be saved, so it stays open. Download the project before replacing it.");
+    }
+    const keeps = kept.current || t.kept;
+    kept.current = keeps;
+    backKept.current = keeps;
     // a kept or edited map is in Your maps before the next one is asked for (D455): its file written and stored; a map
     // neither kept nor edited goes on at once, its file written beside the next map's making (Cancel waits for it)
     if (keeps) {
