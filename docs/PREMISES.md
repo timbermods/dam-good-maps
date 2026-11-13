@@ -1082,8 +1082,28 @@ already ran on the settle's threads (`withSmallMapThreads`); what this round mov
 `premise/generate.ts` `generatePremiseAsync`) starts the drought then in a worker of its own (`worker/drought.worker.ts`,
 on threads of the page's water budget), beside the map's life, second build and checks; the gate judges the same
 days' water, so the map is the same byte for byte (`premiseThreads.heavy.test.ts`: four threads and the run apart
-against one thread), and nothing is shown before it has passed. Node and the tools run it all on one thread
-(`generatePremise`). Times are in this round's report; the stage that is left largest is the first build's settle.
+against one thread), and nothing is shown before it has passed. Node runs it all on one thread (`generatePremise`);
+`tools/premise-map.ts` makes its maps as the page does (below). Times are in this round's report; the stage that is
+left largest is the first build's settle.
+
+**The lake stair at 256², timed as players wait for it.** `tools/premise-map.ts` timed `generatePremise` on one
+thread: seeds 1 to 3 in Any took 10.7, 12.2 and 12.5 s, every one holding on its first settled plan. That is not the
+page's wait: the page's generator settles on the water's threads and runs the start's drought beside the map. The
+tool now makes each map as the page does (`tools/rust/page-path.ts`: the water on the threads the page's budget gives
+this machine, `waterThreadBudget`, shared with the drought, which runs in a worker of its own,
+`tools/rust/drought-node.ts`, the Node twin of `worker/drought.worker.ts`); `--one-thread` keeps the old path. The same
+bytes either way. On the dedicated machine (12 threads, 7 for the water): 8.8 to 9.0, 7.3 to 7.6 and 7.6 to 7.7 s
+made one after another; 8.9, 9.1 and 9.7 s each the first map of a fresh process (a page's first Generate: the code
+not yet compiled hot costs 1 to 2 s); with the 3 threads a machine of 4 to 6 gives the water, 8.8, 7.3 and 7.7 s.
+Where the time goes, on one thread: the
+settle 3.9 to 5.3 s (2,176 to 2,944 ticks at 1.7 to 1.8 ms; 1.5 to 2.2 s on 7 threads, 1.8 to 2.6 s on 3), the drought
+gate 0 to 3.1 s (0, 2 and 3 days of the run before the read by number vouches for the rest; beside the map on the page,
+under 0.15 s of wait), the plan and its siting 1.4 to 2.0 s, stages 1 to 4 1.2 to 1.7 s, life 0.9 to 1.2 s, the checks
+and file 0.5 to 0.8 s. Not the levers here: no plan fails after its settle on these seeds (nothing to refuse before
+it), and seed 3's two plans whose 48 layouts all fail cost 0.17 s once the code is warm (most of their 0.74 s is the
+first code's compile). What is left: WebKit's page, whose water stays on one thread (#130), waits about 10.6 to 12.1 s
+with the drought beside it; under 10 s there needs the settle itself faster, or the JavaScript stages (about 5 s of the
+wait) halved.
 
 **The click's lag (before the generator starts).** It was the map Generate replaces being written: the page asked
 the generator's worker for the old map's project file (its stored map, `storeBuilt`, about 0.3 s at 256², and the file
