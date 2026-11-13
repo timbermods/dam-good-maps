@@ -191,7 +191,11 @@ for (const size of SIZES) {
       const zoomed = () => page.evaluate(() => ({ scale: window.visualViewport!.scale, x: window.scrollX, y: window.scrollY }));
       const page0 = await zoomed();
 
-      const fingers = new Fingers(page, await page.context().newCDPSession(page));
+      const cdp = await page.context().newCDPSession(page);
+      // (DGM_E2E_CPU_THROTTLE=4 runs it as a slow runner or a slow phone does: every gesture times itself from its events)
+      const throttle = Number(process.env.DGM_E2E_CPU_THROTTLE ?? 0);
+      if (throttle > 1) await cdp.send("Emulation.setCPUThrottlingRate", { rate: throttle });
+      const fingers = new Fingers(page, cdp);
       const R = Math.min(90, Math.floor(Math.min(size.viewport.width, size.viewport.height) / 7));
       let c = await roomy(page, R);
       await fingers.calibrate({ x: c.x - R / 2, y: c.y }, { x: c.x + R / 2, y: c.y });
@@ -210,7 +214,10 @@ for (const size of SIZES) {
       expect((await view(page)).target).not.toEqual(v0.target);
       expect((await view(page)).yaw).toBe(v0.yaw);
 
-      // a pinch apart zooms in about the ground under the fingers' middle, which stays under it
+      // a pinch apart zooms in about the ground under the fingers' middle, which stays under it (each gesture from the
+      // same distance, not wherever the glide after the one before ended: a flick's glide is as long as the machine is
+      // slow, and how near the ground the camera is changes how a finger's ground follows it)
+      await page.evaluate(() => window.dgm3d!.renderer.setView({ distance: 48 }));
       c = await roomy(page, R);
       let under = await tileAt(page, c);
       let d0 = (await view(page)).distance;
@@ -222,6 +229,7 @@ for (const size of SIZES) {
       await still(page);
 
       // a twist turns the view with the fingers (clockwise, clockwise), about the ground under their middle
+      await page.evaluate(() => window.dgm3d!.renderer.setView({ distance: 48 }));
       c = await roomy(page, R);
       under = await tileAt(page, c);
       const yaw0 = (await view(page)).yaw;
@@ -239,6 +247,7 @@ for (const size of SIZES) {
       await still(page);
 
       // two fingers side by side dragged up together tilt the view toward the horizon (down: toward straight down)
+      await page.evaluate(() => window.dgm3d!.renderer.setView({ distance: 48 }));
       c = await roomy(page, R);
       const p0 = (await view(page)).pitch;
       const up = p0 > 0.6 ? -1 : 1;

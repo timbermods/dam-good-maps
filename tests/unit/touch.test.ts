@@ -65,6 +65,19 @@ describe("the glide after a flick", () => {
     expect(s.at(300).dx).toBe(0);
   });
 
+  it("on a busy page, moves a long frame apart are as fast as their events' times say, never a frame's worth", () => {
+    // (a slow phone: the press at 0, then a move every 620 ms of 100 px, 161 px a second; capping each gap at a frame
+    // read 2000 px a second and threw the view)
+    const s = new Speed();
+    s.begin(0);
+    for (let t = 620; t <= 1860; t += 620) s.add(t, { ...NO_MOTION, dx: 100 });
+    expect(s.at(1860).dx).toBeCloseTo(100 / 0.62, 6);
+    // the first move after a press is counted from the press
+    s.begin(5000);
+    s.add(5400, { ...NO_MOTION, dx: 40 });
+    expect(s.at(5400).dx).toBeCloseTo(100, 6);
+  });
+
   it("starts only above a speed, and slows by e every FLING_TAU seconds, going as far as the speed times FLING_TAU", () => {
     expect(flingFrom({ ...NO_MOTION, dx: 50 })).toBeNull();
     const v0: Motion = { ...NO_MOTION, dx: 1000, zoom: 0.1, turn: 2 };
@@ -82,8 +95,17 @@ describe("the glide after a flick", () => {
     }
     expect(x).toBeGreaterThan(1000 * FLING_TAU * 0.95);
     expect(x).toBeLessThan(1000 * FLING_TAU);
-    // a stalled frame never throws it further than a frame of 50 ms
-    expect(flingStep({ ...NO_MOTION, dx: 1000 }, 5).move.dx).toBeCloseTo(1000 * FLING_TAU * (1 - Math.exp(-0.05 / FLING_TAU)), 9);
+    // a long frame (a busy page) goes as far as the glide would have in that time, never past speed × FLING_TAU, and a
+    // glide in slow frames ends when one in quick frames does
+    expect(flingStep({ ...NO_MOTION, dx: 1000 }, 0.6).move.dx).toBeCloseTo(1000 * FLING_TAU * (1 - Math.exp(-0.6 / FLING_TAU)), 9);
+    expect(flingStep({ ...NO_MOTION, dx: 1000 }, 60).move.dx).toBeLessThanOrEqual(1000 * FLING_TAU);
+    const lasts = (frame: number) => {
+      let v: Motion = { ...NO_MOTION, dx: 1000 };
+      let t = 0;
+      for (let moving = true; moving; t += frame) ({ v, moving } = flingStep(v, frame));
+      return t;
+    };
+    expect(Math.abs(lasts(0.62) - lasts(1 / 60))).toBeLessThanOrEqual(0.62);
   });
 });
 

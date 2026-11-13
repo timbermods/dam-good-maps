@@ -3851,7 +3851,7 @@ export class MapRenderer {
    *  than it. At once, as a mode always switches. */
   switchMode(mode: ViewMode): void {
     if (mode === this.view.mode) return;
-    cancelAnimationFrame(this.glideFrameTo);
+    this.stopGlideTo();
     this.leaveFirstView();
     let v = this.view;
     const box = this.canvas.getBoundingClientRect();
@@ -3868,10 +3868,15 @@ export class MapRenderer {
   }
 
   private glideFrameTo = 0;
+  /** A glide to a view stops where it is (a new glide, a mode switch, a finger). */
+  private stopGlideTo(): void {
+    cancelAnimationFrame(this.glideFrameTo);
+    this.glideFrameTo = 0;
+  }
   /** Glide smoothly to a view (a camera bookmark, D205): target, turn, tilt and zoom eased there in
    *  about half a second (at once with reduced motion); a top-down or orbit view switches at once. */
   glideTo(to: ViewState, ms = 600): void {
-    cancelAnimationFrame(this.glideFrameTo);
+    this.stopGlideTo();
     this.leaveFirstView();
     const from = this.getView();
     if (this.reducedMotion || ms <= 0) {
@@ -3893,7 +3898,7 @@ export class MapRenderer {
         distance: Math.exp(Math.log(from.distance) + (Math.log(to.distance) - Math.log(from.distance)) * e),
         target: [0, 1, 2].map((k) => from.target[k] + (to.target[k] - from.target[k]) * e) as [number, number, number],
       });
-      if (t < 1 && !this.disposed) this.glideFrameTo = requestAnimationFrame(step);
+      this.glideFrameTo = t < 1 && !this.disposed ? requestAnimationFrame(step) : 0;
     };
     step();
   }
@@ -3902,7 +3907,7 @@ export class MapRenderer {
    *  35°): the lens stays while the view does; any move away from it (a drag, a pan, a zoom, Top-down, a glide)
    *  puts ours back first (`leaveFirstView`), and Reset view and a new map do too. */
   poseCamera(v: ViewState, fov: number): void {
-    cancelAnimationFrame(this.glideFrameTo);
+    this.stopGlideTo();
     this.setView(v);
     this.setFov(fov);
     this.posed = fov !== PERSP_FOV_DEG;
@@ -4565,7 +4570,7 @@ export class MapRenderer {
       const finger = ev.pointerType === "touch";
       // (a press stops a flick's glide; a finger, a double tap's too)
       this.touches.stop();
-      if (finger) cancelAnimationFrame(this.glideFrameTo);
+      if (finger) this.stopGlideTo();
       // a second finger: the press in progress is dropped and the fingers move the camera (touch.ts)
       if (finger && this.touches.down(ev)) return;
       c.focus({ preventScroll: true });
@@ -4816,9 +4821,10 @@ export class MapRenderer {
     if (step) this.glideTo({ ...this.getView(), ...step }, 250);
   }
 
-  /** Whether the view glides on after a flick of the fingers (tests). */
+  /** Whether the view is still moving on its own after the fingers: a flick's glide, or a double tap's (or any other)
+   *  glide to a view (tests wait on it, not on a clock). */
   get touchGliding(): boolean {
-    return this.touches.gliding;
+    return this.touches.gliding || this.glideFrameTo !== 0;
   }
 
   /** The camera keys' glide now (tests): its speed on each axis, Shift, and whether it is still
