@@ -87,7 +87,7 @@ describe("Max water depth (D264)", () => {
       for (const i of r.raised) expect(rv[i], `river tile ${i}`).toBeLessThan(1.6);
     }
   };
-  // (seed 4 for seed 10 since generator 0.10.17's start floors, D515, D148: seed 10's pit now ends 0.07 over, the shortfall
+  // (seed 18 for 15 since the D518 mends (compact hills, no broad wash flats, dead-stand knots), D148: seed 15 has no dry spot for the pit now; of seeds 1–30 only 9, 11, 12, 13, 18 and 29 pass with a river stretch the rule raises (7, 7, 8, 8, 73 and 193 tiles; seed 18's 73 is nearest seed 15's 74 before), seeds 1, 3, 6, 14, 17, 21, 22, 23 and 25 pass with none deeper than 1.2, seeds 24 and 27 have their river step refused as "nothing to change", 2, 8 and 15 have no dry spot for the pit, 7 and 19 have a mine site on it, and the pit ends over the bound on 4, 5, 10, 16, 20, 26, 28 and 30. Seed 15 for 4 since generator 0.10.20's contour edges, D518, D148: seed 4's river step is refused as "nothing to change" now; of seeds 1–30 only 15, 19 and 29 pass with a river stretch the rule raises (10, 75 and 297 tiles), seeds 1, 3, 7, 9, 10, 13, 14, 16, 17, 21, 22, 25 and 30 pass with none deeper than 1.2, seeds 4, 11, 23 and 24 have their river step refused as "nothing to change", 6, 8 and 20 have no dry spot for the pit, and the pit ends over the bound on 2, 5, 12, 18, 26, 27 and 28. Seed 4 for seed 10 since generator 0.10.17's start floors, D515, D148: seed 10's pit now ends 0.07 over, the shortfall
   // the expected failure below pins, so that failure moved to seed 10; of seeds 1–20 only 4 passes with a river stretch the
   // rule raises (96 tiles), seeds 3, 13, 14, 16 and 17 pass with none deeper than 1.2, seeds 1, 2, 8, 11, 12, 18, 19 and 20
   // have their river step refused as "nothing to change", 5, 6 and 15 have no dry spot for the pit, 7's pit is 0.14 over
@@ -97,15 +97,15 @@ describe("Max water depth (D264)", () => {
   // the rule raises; seed 9 for 0.8.5's maps, whose pit now shows the shortfall below, as do seeds 11, 16 and 19
   // (3.072 for the 3.06), while seeds 1, 2, 5 and 8 have no river stretch to raise. Seed 5 for 0.8.1's maps: seed 2's river had no stretch
   // deeper than 1.2 that the rule raises, so the river half had nothing to apply)
-  it("a lake 6 deep becomes 3 deep with the same surface, in one step; a river ends no deeper than about the number", () => lakeAndRiver(4));
+  it("a lake 6 deep becomes 3 deep with the same surface, in one step; a river ends no deeper than about the number", () => lakeAndRiver(18));
   // An expected failure, kept on a seed that shows it (Kyler, 2026-10-02): the settle leaves the pit 0.07 over
   // the 3, past the 0.06 the bound allows (the editor's water, for the milestone session); when it passes,
   // `fails` comes off. M9b's River Valley 96² seed 3 caught it; on 0.8.5's maps seed 3's pit ends within the
   // bound and seed 5's 0.07 over; on 0.10.5's maps seed 5 has no river stretch to raise and seed 9's pit is 0.07 over;
   // on 0.10.7's maps seed 2's pit is 0.07 over (3.072; seeds 6 and 11 too); on 0.10.17's maps (D515) seed 2's pit ends
-  // within the bound (its river step is refused as "nothing to change"), and seed 10's pit is 0.07 over (3.072) (D148, the same failure
-  // re-seeded).
-  it.fails("seed 10: the pit's water ends 0.07 over the number, past the bound", () => lakeAndRiver(10));
+  // within the bound (its river step is refused as "nothing to change"), and seed 10's pit is 0.07 over (3.072); on 0.10.20's maps (D518) seed 10's pit ends within the bound, and seed 2's is 0.09 over (3.088; seeds 5, 12, 18, 26, 27 and 28 are 0.07 over too, of seeds 1–30) (D148, the same failure
+  // re-seeded); on the D518 mends' maps seed 2 has no dry spot for the pit (the test would then fail for that, not for the shortfall), and seed 4's pit is 0.07 over (3.073; seeds 5, 10, 16, 20, 26, 28 and 30 are 0.07 over too, of seeds 1–30).
+  it.fails("seed 4: the pit's water ends 0.07 over the number, past the bound", () => lakeAndRiver(4));
 
   // Where no water is deeper than the number there is nothing to raise, and nothing is sent; an empty
   // step reaching the session is refused with a reason, never a history entry (reading the history

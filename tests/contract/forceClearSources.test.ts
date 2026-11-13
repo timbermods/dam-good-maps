@@ -326,7 +326,9 @@ describe("forces clear sources (D474)", () => {
   });
 
   test("kept in the editor: a cleared source goes with the force, undo brings it back, reopening keeps it gone", async () => {
-    await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: 96, y: 96 } }));
+    // (seed 2 for seed 21, D148: D518's mends moved the land; the crater no longer cuts seed 21's first source's ground
+    // away, it clears no source there, where seed 2's crater clears three, this one among them)
+    await runGenerate(makeSpec({ seed: 2, theme: "highlands", size: { x: 96, y: 96 } }));
     ed.refine();
     const open = () => MapSession.open(decodeProject(ed.project().bytes));
     const src = open().built.entities.find((e) => e.template === "WaterSource" && e.x > 20 && e.x < 76 && e.y > 20 && e.y < 76)!;

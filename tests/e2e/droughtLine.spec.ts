@@ -25,13 +25,36 @@ const firstLake = (page: Page) =>
       }
     return null;
   });
+/** Of the tiles of the lakes on show (as `firstLake` finds them), the one nearest the map's middle: in the top-down view
+ *  the farthest from the notes at the view's foot and the bars at its top. */
+const middleLake = (page: Page) =>
+  page.evaluate(() => {
+    const m = window.dgm3d!.renderer.mapState()!;
+    const wet = (x: number, y: number) => m.surface.depth[y * m.W + x] > 0.5;
+    let best: [number, number] | null = null;
+    let far = Infinity;
+    for (let y = 4; y < m.H - 4; y++)
+      for (let x = 4; x < m.W - 4; x++) {
+        let all = true;
+        for (let dy = -2; dy <= 2 && all; dy++) for (let dx = -2; dx <= 2; dx++) if (!wet(x + dx, y + dy)) all = false;
+        const d = (2 * x - m.W) ** 2 + (2 * y - m.H) ** 2;
+        if (all && d < far) {
+          far = d;
+          best = [x, y];
+        }
+      }
+    return best;
+  });
 
 test("a river that dries out completely gets the dry tint as well as the line, drawn in Standard and in High", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 800 });
-  // (Islands seed 2 since generator 0.10.11, #726, D148: seed 1's water no longer dries out completely)
-  await openEditor(page, "s=2&z=96&d=n&t=islands");
+  // (Islands seed 2 since generator 0.10.11, #726, D148: seed 1's water no longer dries out completely; seed 3 since
+  // generator 0.10.20's contour edges and their mends, D518, D148: no water of seed 2 dries out completely now; of Islands
+  // 96² seeds 1–30 a stream dries out completely in 3, 9, 13, 18, 19, 20, 25, 26 and 27, and seed 3 is the first, 52 bed
+  // tiles gone, 43 of them flowing on Day 0)
+  await openEditor(page, "s=3&z=96&d=n&t=islands");
   const drawn = () => page.evaluate(() => window.dgm3d!.renderer.droughtDrawn);
   await expect.poll(async () => (await drawn()).tint, { timeout: 60_000 }).toBeGreaterThan(0);
   expect((await drawn()).line).toBeGreaterThan(0);
@@ -224,7 +247,10 @@ test("a Compare flip while the Drought view is held, to a version whose land cov
   await topDown(page);
   const info = () => page.evaluate(() => window.dgmEditor!.info());
   const name = (await info()).name;
-  const lake = await firstLake(page);
+  // (the lake tile nearest the map's middle since generator 0.10.20's contour edges and their mends, D518, D148: the first
+  // lake tile, (58, 9), lies at the view's foot, a few pixels above the Compare note, which covers it on CI's fonts, so the
+  // hover read nothing)
+  const lake = await middleLake(page);
   expect(lake).not.toBeNull();
   const [x, y] = lake!;
   const depth = () =>

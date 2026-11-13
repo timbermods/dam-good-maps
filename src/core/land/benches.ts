@@ -4,6 +4,30 @@
 // (D366). The grade (land/levels.ts) and a premise's relief (premise/raster/relief.ts) both end with it.
 
 import { ledgeAt, THIN } from "../analysis/ground";
+import { fbm } from "../math/noise";
+
+/** The bend (D518): how far the land is read off its own tile, at most, and over how many tiles the push turns. */
+export const BEND = { reach: 3, cell: 8 } as const;
+
+/** The benches bent (D518): the bench-width floor reads the land along its rows and columns, so the benches it widens
+ *  meet in straight sides and square corners (rectangles from the game's widest view); the land is read back through a
+ *  slow push of up to `BEND.reach` tiles, so their sides bend as a land's contours do. Each tile where `where` is set
+ *  takes the level of the tile the push reads, when that one is set in `where` too (the water's ground and the start's
+ *  are never read nor moved); in place, deterministic for `seed`. */
+export function bendLevels(h: Uint8Array, W: number, H: number, where: Uint8Array, seed: number): void {
+  const src = h.slice();
+  const sy = (seed ^ 0x5bd1e995) >>> 0;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (!where[i]) continue;
+      const qx = Math.round(x + BEND.reach * fbm(seed, x, y, BEND.cell, 2));
+      const qy = Math.round(y + BEND.reach * fbm(sy, x, y, BEND.cell, 2));
+      if (qx < 0 || qy < 0 || qx >= W || qy >= H) continue;
+      const j = qy * W + qx;
+      if (where[j]) h[i] = src[j];
+    }
+}
 
 /** The bench-width floor (#956): no level band on graded land narrower than `THIN` tiles across its fall line,
  *  since a stack of ledges that thin reads as hatching from the game's widest view, where broad benches between

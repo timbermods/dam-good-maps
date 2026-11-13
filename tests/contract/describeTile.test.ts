@@ -172,8 +172,8 @@ describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
     // (seed 1 on M9b's maps, D148: seed 3's River Valley has no dry, flat, empty 7×7 at level 5 or
     // above, 6 tiles clear of the water, that the test edits on; seed 2 since 0.8.3's badwater courses
     // follow the land, D476, D148: seed 1 has none; seed 5 since generator 0.10.18's dead stands on the dry land, D516,
-    // D148: seed 2 has none clear of objects now, seed 5's is at (80, 26), level 14)
-    await runGenerate(makeSpec({ seed: 5, theme: "riverValley", size: { x: W, y: W } }));
+    // D148: seed 2 has none clear of objects now, seed 5's is at (80, 26), level 14; seed 1 since generator 0.10.20's contour edges, D518, D148: seed 5 has none now, and of seeds 1–60 36 have one, seed 1 the first, at (12, 47), level 8)
+    await runGenerate(makeSpec({ seed: 1, theme: "riverValley", size: { x: W, y: W } }));
     ed.refine();
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const b0 = s.built;

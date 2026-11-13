@@ -144,7 +144,9 @@ async function ground(seed: number) {
 describe("nothing pops in after a force's animation (D368 (9))", () => {
   const gestures: Gesture[] = [];
   beforeAll(async () => {
-    const { st, at, end, mid } = await ground(21);
+    // (seed 1 for seed 21, D148: D518's mends moved the land; on seed 21 the drawn Carve's end point is now uphill of its
+    // start, so the force is refused; seed 1's carves both ways and all ten gestures hold)
+    const { st, at, end, mid } = await ground(1);
     // dry, high ground far from the start, and a fault across the far half
     const fy = st.y < W / 2 ? Math.round(W * 0.72) : Math.round(W * 0.28);
     const fault = { path: [{ x: 4, y: fy }, { x: W * 0.5, y: fy + 1.5 }, { x: W - 5, y: fy }], side: (st.y < fy ? 1 : -1) as 1 | -1 };

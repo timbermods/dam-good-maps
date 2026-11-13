@@ -251,8 +251,10 @@ describe("a map object measured where it stands, by the checks and the start's p
   // generator 0.10.17's start floors, D515, D148: seed 1's relic, once flagged, finds no spot within 40 tiles of its start
   // where the move allows it and its band clears; of Highlands seeds 1–12 only 7 serves all four tests here; seed 13 for
   // 7 since generator 0.10.19's dry washes, D517, D148: of Highlands seeds 1–12 none serves all four now (seed 7's relic
-  // has no spot 5 to 12 tiles off where a start fits with only the relic out of its band); 13 is the first that does)
-  const r = generate(makeSpec({ seed: 13, theme: "highlands", size: { x: 128, y: 128 } }));
+  // has no spot 5 to 12 tiles off where a start fits with only the relic out of its band); 13 is the first that does;
+  // seed 2 for 13 since D518's mends (wash treads, compact rises, dead-stand knots), D148: on seed 13 no spot 5 to 12 tiles
+  // from the relic has only the relic out of its band; of Highlands seeds 1–13, 2, 6, 7 and 11 serve all four tests, and 2 is the first)
+  const r = generate(makeSpec({ seed: 2, theme: "highlands", size: { x: 128, y: 128 } }));
   const fresh = () => MapSession.fromGenerated(r, r.file);
   const W = 128;
   const startOf = (s: MapSession) => s.features.find((g): g is StartFeature => g.kind === "start")!;
@@ -358,13 +360,16 @@ describe("a map object measured where it stands, by the checks and the start's p
     };
     // (the map's other belts, which must keep their band where the start goes)
     const others = s.features.filter((f): f is MapObjectFeature => f.kind === "mapObject" && f.params.kind === "thornBelt" && f.id !== belt.id).map((f) => ({ kind: f.params.kind, tiles: objectTiles(f, W, W) }));
-    // the start near the belt, where it is out of its band (20+) and some of its thorns are 21+ tiles off
+    // the start near the belt, where it is out of its band (20+) and some of its thorns are 21+ tiles off (and where the
+    // check names every line, six at most, since generator 0.10.20's contour edges, D518, D148: on seed 13 the first spot
+    // flags seven extras, and the check's message ends "and 1 more" before the belt)
     let spot: [number, number] | null = null;
     for (let d = 10; d <= 18 && !spot; d++)
       for (const [bx, by] of bt) {
         for (const [x, y] of [[bx + d, by], [bx - d, by], [bx, by + d], [bx, by - d]]) {
           if (x < 3 || y < 3 || x > W - 4 || y > W - 4 || !fits(s, x, y)) continue;
-          if (!preview(s, [x, y]).some((l) => l.startsWith("Thorn belt")) || !bt.some(([qx, qy]) => dist(qx, qy, x, y) >= 21) || startFitWarnings(others, W, W, x, y).length) continue;
+          const w0 = preview(s, [x, y]);
+          if (w0.length > 6 || !w0.some((l) => l.startsWith("Thorn belt")) || !bt.some(([qx, qy]) => dist(qx, qy, x, y) >= 21) || startFitWarnings(others, W, W, x, y).length) continue;
           spot = [x, y];
           break;
         }

@@ -106,19 +106,28 @@ a premise or one still to come, may carry its own, lower playability floor.
 - **The first frame**: the landmark whole in the game's first camera, and the start in front of it.
 - **Falls**: a landmark fall of 6 levels or more and wide (loved maps' tallest: median 6.1); lesser falls of about 4.
 - **Ground**: under half the tiles dead flat; 60–80 % of height steps one level; no two or three levels holding most
-  of the map. Bold scarps and broad benches, not thin contour bands.
+  of the map. Bold scarps and broad benches, not thin contour bands. Every level's edge follows the land's warped
+  contours, never a lattice or a rectangle, and rises stand in two or three nested one-level rings, as the game's hills
+  do (D518).
 - **Water and green are a spectrum, set by the premise**, not targets to maximise: a living core, veins toward the
   rim, and dry land that is irrigable by design. What is measured is the ladder (what each work turns green), not a
   bare-ground share.
 - **Wood**: living trees near the official maps' count to about half the Workshop's (roughly 350–700 per 10,000
   tiles), as stands with a purpose; and dead trees on the dry land as the game's maps have them (36 to 124 per 1,000
-  dry tiles; ours about 40, D516), in a few old woods where forest was: the old water line, dry beds, a mesa top, dry
-  hollows; pines on the tops, birches by old water, a few old oaks. A dead tree keeps its logs and grows none back: wood travelled for, none in the start's walk.
+  dry tiles; ours about 40, 30 to 34 where the bare land's share holds it, D516, D518), in two to four old woods where forest was: the old water line, dry beds, a mesa top,
+  dry hollows; pines on the tops, birches by old water, a few old oaks. The rest of the dry land is bare: at most a
+  quarter of it within 6 tiles of a dead tree, the count giving way first. A wood is dense inside its outline. A stand is irregular knots of 3 to 8
+  trunks, each its own shape, with gaps, never a filled square, thinning to single trees at its edge, its outline the land's (a rim, a bank, the old
+  water line), a third of its trees shorter (died young; D518). A dead tree keeps its logs and grows none back: wood
+  travelled for, none in the start's walk.
 - **Dry washes**: one or two long winding dry beds across the dry land, as each of the game's maps has (D517): 60 to
-  150 tiles on a 128² map, 2 to 3 wide, a level or two deep, where rain would run, with side branches and fords every
+  150 tiles on a 128² map, 3 wide (a branch 2), a level or two deep, its banks long straight treads (each reach 3 tiles
+  at least before it steps aside, no teeth; D518), where rain would run, with side branches and fords every
   15 to 25 tiles where the bank slopes down and up again, ending at water behind a lip, in a dry hollow that fills if
   water is led in, or (the old bed, one a map) behind a lake's lip, one notch from running again. A dam at a wash's mouth or a
-  canal into it greens its floor first: irrigation the land offers, never water it gives.
+  canal into it greens its floor first: irrigation the land offers, never water it gives. Canyon's side canyons are
+  deeper washes (D518): two or three a 128² map, walls of three levels or four, 4 wide, deepening from the head,
+  dry unless they reach the river.
 - **Weather**: by the model and in the game: the start's days of water in each early drought; the day badwater reaches
   the start, left alone and with each answer built.
 - **Reach**: every region walkable by natural ways or by a crossing the land plainly asks for.
@@ -136,15 +145,15 @@ a premise or one still to come, may carry its own, lower playability floor.
   | Loved Workshop maps, aggregate only (p10–p90, 130 maps) | 1.1–9.8 | – | – | – |
   | Themes at 128², seeds 1–12 (72 maps) | 0.8–12.2 (Islands 5.5–12.2) | 0–2.0 | 0–1.5 | 0–8.1 |
   | Themes at 256², seeds 1–3 (18 maps) | 1.8–8.0 | 0–0.4 | 0–0.3 | 0–8.5 |
-  | Lake stair 128², seeds 1, 2 | 11.7, 11.5 | 1.7, 0.8 | **5.4, 3.9** | 0, 3.5 |
-  | Lake stair 128² seed 3 (Canyon or Highlands style; Any holds no plan) | 7.8 | 0.5 | **3.7–3.8** | 1.7 |
+  | Lake stair 128², seeds 1–3 in Any (D518) | 8.9, 3.1, 5.6 | 0.8, 0.4, 0.0 | 1.1, 1.8, 2.0 | – |
+  | (before D518: seeds 1, 2; seed 3 in Canyon or Highlands style) | 11.7, 11.5; 7.8 | 1.7, 0.8; 0.5 | **5.4, 3.9; 3.7–3.8** | 0, 3.5; 1.7 |
   | Four Lakes plan, 192² | 9.8 | 1.0 | 2.8 | 2.3 |
   | The Gate as laid, 128² seeds 1, 2 | 38.4, 34.4 | 7.6, 4.1 | 9.0, 4.6 | 57.6, 45.1 |
 
   Channels has no limit: the game's own rivers lie in straight reaches of even width as much as the laid Gate's
   trenches do, so the number tells what a map's water is like and is never failed on. Every theme map passes. The
-  lake stair fails on its corners alone: rectangular plates of one level, 6 to 15 tiles,
-  half of them on the outlands' rim. The real places (`places/`) are warned only. The game's maps are run on the
+  lake stair failed on its corners alone (rectangular plates of one level, 6 to 15 tiles, half of them on the outlands'
+  rim) until D518 turned its plates' scatter off the grid and bent its benches' sides; at 128² it passes now. The real places (`places/`) are warned only. The game's maps are run on the
   machine that holds them: `npx tsx tools/ruled-land.ts <folder>/*.timber`.
 
 **Land first, story second** (planning's ruling of 2026-11-11, for every path: themes, premises, hand maps). Every
