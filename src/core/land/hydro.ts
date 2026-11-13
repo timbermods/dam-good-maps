@@ -1398,7 +1398,8 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
         if (drop < 4 || lakeAt[j] || lakeAt[j - 1]) continue;
         const gap = 4;
         const a = j - gap;
-        if (a < 1) continue;
+        // (never a lake's outlet: cut, its sill would drain the lake)
+        if (a < 1 || lakeAt[a - 1]) continue;
         let flat = true;
         for (let q = a; q < j; q++) if (lakeAt[q] || prof[q] !== prof[j - 1]) flat = false;
         if (!flat) continue;
