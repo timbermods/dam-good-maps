@@ -310,10 +310,17 @@ test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the 
 
   // the start is the player's like any object (item 44): pointed at, Delete takes it, one step
   const at = await client(page, start[0], start[1]);
+  await page.evaluate(() => {
+    const w = window as unknown as { __pe: string[] };
+    w.__pe = [];
+    const c = document.querySelector(".view3d > canvas")!;
+    for (const t of ["pointerleave", "pointerenter", "pointerdown", "pointerup", "pointercancel", "lostpointercapture"]) c.addEventListener(t, (e) => w.__pe.push(`${t}@${Math.round(performance.now())}>${(e as PointerEvent).relatedTarget ? ((e as PointerEvent).relatedTarget as HTMLElement).tagName + "." + ((e as PointerEvent).relatedTarget as HTMLElement).className : "-"}`), true);
+    window.addEventListener("blur", () => w.__pe.push(`window-blur@${Math.round(performance.now())}`));
+  });
   await pointAt(page, at, start);
   const kept = (await labels(page)).length;
   const probe = () =>
-    page.evaluate(([sx, sy]) => {
+    page.evaluate(([sx, sy, cx, cy]) => {
       const r = window.dgm3d!.renderer;
       const h = r.hoverHit;
       const m = r.mapState()!;
@@ -322,7 +329,10 @@ test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the 
       for (let k = 0; k < e.count; k++) if (Math.abs(e.x[k] - sx) <= 3 && Math.abs(e.y[k] - sy) <= 3) near.push(`${e.templates[e.template[k]]}@${e.x[k]},${e.y[k]}`);
       const act = document.activeElement;
       const live = Array.from(document.querySelectorAll('[role="status"],[role="alert"],.shape-note,.flash,.note,.message')).map((n) => (n.textContent ?? "").slice(0, 80));
+      const top = document.elementFromPoint(cx, cy);
       return JSON.stringify({
+        pe: (window as unknown as { __pe: string[] }).__pe,
+        top: top && `${top.tagName}.${top.className}`,
         hover: h && { x: h.x, y: h.y, keys: Object.keys(h) },
         sel: window.dgmEditor!.selection().length,
         focus: act && `${act.tagName}.${act.className}|${(act.textContent ?? "").slice(0, 30)}`,
@@ -332,7 +342,7 @@ test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the 
         objectsHidden: (r as unknown as { objectsHidden: boolean }).objectsHidden,
         slice: (r as unknown as { slice: number | null }).slice,
       });
-    }, start);
+    }, [start[0], start[1], at.x, at.y] as const);
   const probeBefore = await probe();
   await page.evaluate(() => {
     const w = window as unknown as { __kd: string[] };
