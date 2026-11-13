@@ -14,7 +14,7 @@ import { createBackground, createGeneratorWorker, readFile, saveFile, storage } 
 import { sameLand } from "../core/analysis/story";
 import { cleanMapName } from "../core/doc/document";
 import { openYourMaps } from "../platform/yourMaps";
-import { storeProblem, type YourMapEntry } from "../core/library/yourMaps";
+import { keepsMap, storeProblem, type YourMapEntry } from "../core/library/yourMaps";
 import { compareProblem } from "../core/library/keptVersions";
 import { numberedName } from "./versionName";
 import { surfaceWater, type MapView } from "../render3d/model";
@@ -371,6 +371,8 @@ export function App() {
   const saver = useMemo(
     () =>
       new YourMapsSaver(yourMaps, {
+        // (the end-to-end build lets a test hold the quiet save after an edit: generateReload.spec.ts)
+        ...(import.meta.env.MODE === "e2e" ? { setTimer: (fn: () => void, ms: number) => ((window as unknown as { __dgmHoldAutosave?: boolean }).__dgmHoldAutosave ? null : setTimeout(fn, ms)) } : {}),
         onResult: (r, id) => {
           // (the open map's entry takes its new storage token: its next save is over this one, investigation/saving-review)
           if (r.ok && r.storageVersion && entry.current?.id === id) entry.current = { ...entry.current, storageVersion: r.storageVersion };
@@ -500,7 +502,9 @@ export function App() {
     const size = now.size ?? (info ? { w: info.W, h: info.H } : undefined);
     const e = { ...now, name: p.name || nameRef.current || of.name, revision: p.version, bytes: p.bytes.length, editedAt: new Date().toISOString(), thumbnail, ...(size ? { size } : {}) };
     if (entry.current?.id === of.id) entry.current = e;
-    return { entry: e, project: p.bytes, name: p.name };
+    // (`kept`: Your maps keeps the map as taken, every edit made answered: a first edit still on its way when the snapshot
+    // was asked for keeps it, D455)
+    return { entry: e, project: p.bytes, name: p.name, kept: keepsMap({ kept: kept.current, openedVersion: openedVersion.current, version: p.version }) };
   }
 
   /** Replace the open map: what is waiting to be saved of it (a kept map's) is saved first. In a shared session this is the
@@ -626,7 +630,7 @@ export function App() {
     lastKey.current = key;
     // (not kept yet: only an operation applied makes it so; camera bookmarks alone don't)
     if (!kept.current) {
-      if (info.version === openedVersion.current) return;
+      if (!keepsMap({ kept: false, openedVersion: openedVersion.current, version: info.version })) return;
       keepNow();
     }
     // a kept version opened and edited: the kept copy itself changes, so it says so, once, and its card says it was edited
@@ -967,11 +971,16 @@ export function App() {
   /** The open map's project, which Cancel opens again while a map is made or opened over it: kept in memory, and saved
    *  first when Your maps keeps it. False when a later run has taken over meanwhile. */
   async function holdBack(id: number, before: string): Promise<boolean> {
-    const was = kept.current;
     back.current = null;
-    backReady.current = snapshot().then((s) => ({ entry: s.entry, bytes: s.project, kept: was }));
+    // (whether it is kept is asked of the map as the snapshot took it, every edit made answered: a first edit still on its
+    // way when Generate was pressed keeps it, and it is stored before the next map is asked for, D455)
+    backReady.current = snapshot().then((s) => {
+      const keeps = kept.current || s.kept === true;
+      kept.current = keeps;
+      return { entry: s.entry, bytes: s.project, kept: keeps };
+    });
     const b = await backReady.current;
-    if (was) {
+    if (b.kept) {
       saver.changed(b.entry.id, () => ({ entry: b.entry, project: b.bytes }));
       await saver.flush();
       if (!keeping.current && !discardAllowed.current) throw new Error(`Your map was not saved. Download the project before ${before}.`);
