@@ -1090,9 +1090,10 @@ the generator's worker for the old map's project file (its stored map, `storeBui
 itself, about 0.3 s) and sent the new map's request only once it came, 0.6 to 0.9 s at 256² and 0.17 to 0.25 s at
 128². Now the worker hands over the old map's document unwritten (`MapSession.projectDocument`), its stored map made
 while the page was idle after the map opened (`warmStored`), and the file is written on a worker of the page's own
-(`ui/projectWriter.ts`, the same bytes) beside the new map's making; Cancel and Your maps wait for it, and a kept
-map's save is flushed before the new map replaces it, as before. The request now goes 0.04 to 0.06 s after the click
-at 128², 0.25 to 0.5 s at 256² on a shared machine (`tests/e2e/generateLag.spec.ts`).
+(`ui/projectWriter.ts`, the same bytes). A kept or edited map is still stored in Your maps before the next map is
+asked for (D455, `keepsMap`), so it pays the file's time; a map neither kept nor edited goes on at once, its file
+written beside the new map's making, and Cancel waits for it. For such a map the request now goes 0.08 to 0.44 s after
+the click at 128² and 0.16 to 0.30 s at 256², on a loaded machine (`tests/e2e/generateLag.spec.ts`).
 
 ### 3.4 Deferred to after the map opens
 
