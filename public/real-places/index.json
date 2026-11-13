@@ -387,11 +387,10 @@
    "metres": 60,
    "data": "data/near-uvac-river.json.gz",
    "image": "cards/near-uvac-river.jpg",
-   "bytes": 189989,
-   "sha256": "f1e37be85520fe7def61fe5c6160a64faa79719c8f5671c60e426c0b6128979c",
+   "bytes": 185819,
+   "sha256": "85b2146e90fdaba96ee66b78de7bfc507d8752c04e77b743928d5ee051d13509",
    "faults": [
-    "start.water",
-    "plants.survive"
+    "start.water"
    ]
   },
   {
@@ -603,12 +602,11 @@
    "metres": 60,
    "data": "data/near-niagara-falls.json.gz",
    "image": "cards/near-niagara-falls.jpg",
-   "bytes": 208667,
-   "sha256": "6da5e46ddb7be269a51ff6271adc77547cc1283739c3bebe3d6506baeeba1feb",
+   "bytes": 200052,
+   "sha256": "7b45ad36051b60fd01a005d3118697a53f774707e902c88725faa94fb78709bc",
    "faults": [
     "water.source_in_flow",
-    "start.water",
-    "plants.survive"
+    "start.water"
    ]
   },
   {
@@ -790,13 +788,12 @@
    "metres": 30,
    "data": "data/near-waimakariri-river.json.gz",
    "image": "cards/near-waimakariri-river.jpg",
-   "bytes": 632158,
-   "sha256": "ee64e84f7dd05eaaefc14159d6f9eba33a308ee6183e206e8407c6b0fdfed024",
+   "bytes": 623509,
+   "sha256": "60f4ee0ef1a92eff3fbb11fec5350e893bfaec40c36799e7fd2f033ef2f1af1b",
    "faults": [
     "water.outflow",
     "start.wood",
-    "start.wood_floor",
-    "plants.survive"
+    "start.wood_floor"
    ]
   },
   {
@@ -1404,12 +1401,11 @@
    "metres": 60,
    "data": "data/near-iguazu-falls.json.gz",
    "image": "cards/near-iguazu-falls.jpg",
-   "bytes": 259386,
-   "sha256": "b98d5cb66066526a07603dd9fef48e4527eaa077ee409b6550cf58956d0a306d",
+   "bytes": 255805,
+   "sha256": "f02bb48d310ea2e76019d49ac0bc83f5312684490c6ea92c215eeb9b9d52c752",
    "faults": [
     "water.source_in_flow",
-    "start.water",
-    "plants.survive"
+    "start.water"
    ]
   },
   {
@@ -1439,12 +1435,11 @@
    "metres": 60,
    "data": "data/near-yosemite-valley.json.gz",
    "image": "cards/near-yosemite-valley.jpg",
-   "bytes": 162628,
-   "sha256": "b2e8fefcff311cace73c11429b483fb8072ade9f624a449d937a3c3919c2ca0b",
+   "bytes": 161538,
+   "sha256": "437a25fd9fb4a9d17b337dc3191812f282b1881c3d763fa83c8d78c5e64c554d",
    "faults": [
     "start.wood",
-    "start.water",
-    "plants.survive"
+    "start.water"
    ]
   },
   {

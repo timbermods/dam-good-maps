@@ -84,7 +84,8 @@ import * as ed from "../../src/worker/session";
  *  a new map, D148); `45998c3e…` before the dead stands grew dense in their woods, each knot its own shape (its dead
  *  trees moved, D148); `32c11aba…` before generator 0.10.21's look round (D518: no one-level step runs straight over 8
  *  tiles, so its land's edges jog; its ruin fields lie along their level's rim, and the dead stands read the dry land as the checks do: a new map, D148); `46455017…` before the dead stands' dry reading. */
-const LIVE_SHA = "b3d2c3d929754ae953ee92ca9818c808dd22fa80a3e204c94b9da8fe57a699f5";
+// (generator 0.10.22, the settings keeping their promises: the version in the file alone, the map otherwise byte for byte 0.10.21's, D148)
+const LIVE_SHA = "52341eabd72a4b0b8fc7f47700f9bfd0ffc3b4647170c7a4e4947f2bc62bdd9b";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
