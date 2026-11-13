@@ -197,7 +197,6 @@
    "bytes": 233426,
    "sha256": "1a0b69480695fefdd5ce7a5392aa998695b53eef95373553444c86a849fe1a3a",
    "faults": [
-    "water.source_in_flow",
     "start.wood",
     "start.water"
    ]
@@ -887,9 +886,7 @@
    "image": "cards/near-gullfoss.jpg",
    "bytes": 270598,
    "sha256": "0a1a73efe8435f1b1efced3154e7636e39eee9014236ab79cf0e3c4c536f122c",
-   "faults": [
-    "water.source_in_flow"
-   ]
+   "faults": []
   },
   {
    "id": "near-taklimakan-kunlun-fan",
@@ -1213,7 +1210,6 @@
    "bytes": 240638,
    "sha256": "bf401706e3c3287e114dac06190fd1f7aa3ed542aff5d8660fa629131ad62abe",
    "faults": [
-    "water.source_in_flow",
     "start.wood"
    ]
   },
@@ -1362,10 +1358,9 @@
    "metres": 120,
    "data": "data/near-ilulissat-icefjord.json.gz",
    "image": "cards/near-ilulissat-icefjord.jpg",
-   "bytes": 121747,
-   "sha256": "1d0dc0b313b8d18de6e3fbcfb806196e87a13005a382a6cd2ed535f1607ee16a",
+   "bytes": 126543,
+   "sha256": "745b791e10a0a676b1f2e7d977149e6fe68d12d052d9e9af87bbb3d5853461d3",
    "faults": [
-    "water.source_in_flow",
     "start.wood"
    ]
   },
@@ -1396,8 +1391,8 @@
    "metres": 60,
    "data": "data/near-tara-gorge.json.gz",
    "image": "cards/near-tara-gorge.jpg",
-   "bytes": 184324,
-   "sha256": "8cf9428928a0e16b3988656a3d635930c4c69ab5b241cb5f9f4f639f2fb0dafd",
+   "bytes": 184052,
+   "sha256": "5cf68b1513a591c19a1b36f83cbb8eba22951119f5343b05110cd127ac82cce5",
    "faults": [
     "water.source_in_flow",
     "start.wood"
@@ -1446,7 +1441,6 @@
    "bytes": 145426,
    "sha256": "7b27664710bc49cd943ba69cb938723482791787b8959532d4bb2f2b907d3869",
    "faults": [
-    "water.source_in_flow",
     "start.wood",
     "start.water"
    ]

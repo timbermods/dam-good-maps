@@ -3,12 +3,12 @@
 // removed and its strength given to the upstream source whose flow reaches it, the same water entering
 // at the head instead. Objects only, never the land (D331): the map's heights are not read or changed.
 //
-// After the water settle the check's in-flow list is read (`sourcesInFlow`, src/core/analysis/sources.ts).
-// A flagged source is merged only when all three hold (planning's ruling on the mend, #236):
-//  1. it is not the downstream member of a row of sources along a map edge (`rowMember`: a row stays until the
-//     check reads a connected row as one source);
-//  2. an unflagged source whose water reaches it stands within HEAD_REACH tiles;
-//  3. the settled depth on the water tiles below it stays within DEPTH_MARGIN of what it was.
+// After the water settle the check's in-flow list is read (`sourcesInFlow`, src/core/analysis/sources.ts), which
+// reads a row of sources across a river's mouth as one head, so a row's members are not flagged and need no mend.
+// A flagged source is merged only when both hold (planning's ruling on the mend, #236):
+//  1. an unflagged source whose water reaches it stands within HEAD_REACH tiles, and the target's strength with
+//     everything merged into it stays within the game's cap (SOURCE_MAX, running);
+//  2. the settled depth on the water tiles below it stays within DEPTH_MARGIN of what it was.
 // Every other flagged source stays exactly as it is, so a place leaves the faults only when none is left.
 
 import { sourcesInFlow } from "../../src/core/analysis/sources";
@@ -25,11 +25,6 @@ export const SOURCE_MAX = maxStrength("WaterSource");
 export const HEAD_REACH = 20;
 /** The most the settled depth below a merged source may change (tiles of water): planning's ruling on the mend. */
 export const DEPTH_MARGIN = 0.25;
-/** A row: a flagged source and a source reaching it both within ROW_EDGE tiles of the same map edge and within ROW_REACH
- *  tiles of each other, with water on every tile between (the survey's inflows laid across a river's width). */
-export const ROW_EDGE = 4;
-export const ROW_REACH = 8;
-
 export interface Flagged {
   /** Index into `place.sources`. */
   index: number;
@@ -71,25 +66,6 @@ export function flaggedSources(place: PlaceData) {
 }
 
 const cheb = (a: readonly number[], b: readonly number[]) => Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]));
-
-/** Whether source `s` is the downstream member of a row with one of the sources `by` (see ROW_EDGE). */
-export function rowMember(place: PlaceData, depth: ArrayLike<number>, s: readonly number[], by: readonly number[]): boolean {
-  const W = place.W;
-  const edge = (p: readonly number[]) => [p[0] < ROW_EDGE ? "W" : "", p[0] >= W - ROW_EDGE ? "E" : "", p[1] < ROW_EDGE ? "N" : "", p[1] >= W - ROW_EDGE ? "S" : ""].filter(Boolean);
-  for (const b of by) {
-    const h = place.sources[b];
-    const d = cheb(s, h);
-    if (!edge(s).some((e) => edge(h).includes(e)) || d > ROW_REACH) continue;
-    let wet = true;
-    for (let t = 0; t <= d; t++) {
-      const x = Math.round(s[0] + ((h[0] - s[0]) * t) / d);
-      const y = Math.round(s[1] + ((h[1] - s[1]) * t) / d);
-      if (!(depth[y * W + x] > 0)) wet = false;
-    }
-    if (wet) return true;
-  }
-  return false;
-}
 
 /** The water tiles below a point: where water from it runs down over water (either settle), by the spill levels.
  *  A superset of the check's own reach (a flat is counted both ways). */
@@ -144,10 +120,6 @@ export function mendSources(place: PlaceData): Mend {
   const at = (i: number): [number, number] => [place.sources[i][0], place.sources[i][1]];
   for (const f of first.flagged) {
     const s = place.sources[f.index];
-    if (rowMember(place, before, s, f.by)) {
-      left.push({ at: at(f.index), why: "downstream member of a row" });
-      continue;
-    }
     const heads = f.by.filter((q) => !flaggedIdx.has(q) && cheb(place.sources[q], s) <= HEAD_REACH);
     if (!heads.length) {
       left.push({ at: at(f.index), why: f.by.some((q) => !flaggedIdx.has(q)) ? `no head within ${HEAD_REACH} tiles` : "no unflagged source upstream" });
@@ -157,16 +129,22 @@ export function mendSources(place: PlaceData): Mend {
     cand.push({ f, to });
   }
   const accepted: { f: Flagged; to: number; change: number }[] = [];
+  // the cap is on each target's running total: its own strength plus every strength accepted into it so far
+  const total = new Map<number, number>();
   for (const c of cand) {
     const s = place.sources[c.f.index];
-    if (place.sources[c.to][2] + s[2] > SOURCE_MAX + 1e-9) {
+    const running = total.get(c.to) ?? place.sources[c.to][2];
+    if (running + s[2] > SOURCE_MAX + 1e-9) {
       left.push({ at: at(c.f.index), why: `merged strength would pass the game's ${SOURCE_MAX}` });
       continue;
     }
     const after = buildPlace(merged(place, [[c.f.index, c.to]])).settle.depth;
     const change = changeBelow(place, spill, s, before, after);
     if (change > DEPTH_MARGIN) left.push({ at: at(c.f.index), why: `the depth below would change by ${change.toFixed(2)}` });
-    else accepted.push({ ...c, change });
+    else {
+      accepted.push({ ...c, change });
+      total.set(c.to, running + s[2]);
+    }
   }
   // together: each accepted source's change below it, on the settle of them all
   let set = accepted;
