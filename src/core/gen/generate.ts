@@ -491,6 +491,9 @@ const SPRING_TRIES = 3;
 /** Starts tried on one settled water before the attempt is planned again (each new plan settles
  *  the water again). */
 const START_TRIES = 3;
+/** The starts that pass every floor looked at for Buildable land moved off the theme's own (the least or most walkable land). */
+const REACH_CHOICES = 4;
+const LEVEL3_OF = { tight: -1, normal: 0, generous: 1 } as const;
 /** The widths a stuck basin's way out is worn to, narrowest first (D350 (b); each settles once). */
 const WEAR_WIDTHS = [9, 17];
 /** The most tiles of a sea's planned water on ground at its own spill level (a shelf) before the
@@ -3078,6 +3081,23 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     if (ready) return ready;
     return settlerOn(b1.water, b1.contamination, b1.moisture, 7, roomy(beyondBad(b1)), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, roomy(avoidOf(bad)), 1, near) ?? dryStart(h, W, H, b1.water, hy, { avoid: roomy(avoidOf(bad)), foot, minFoot, benchMin, near: guess, level: allowLevel }) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, avoidOf(bad), 1, near);
   };
+  // (Buildable land moved off the theme's own, not in a rescue round: among the starts that pass every floor, Tight
+  // takes the one walking to the least land and Generous the most, `REACH_CHOICES` looked at; at the theme's own the
+  // first that passes is the start, as before)
+  const lean = ease === 0 && !lastAttempt && !easy ? Math.sign(LEVEL3_OF[spec.settings.terrain.buildableLand] - LEVEL3_OF[THEME_PRESETS[spec.theme].buildableLand]) : 0;
+  let chosen: { cur: StartPick; base: BuildResult; layout: Feature[]; provedObjects: MapObjectFeature[] | null; h: Uint8Array; fixes: string[]; contains: string[]; reach: number } | null = null;
+  let looked = 0;
+  const takeChosen = (): void => {
+    const c = chosen!;
+    cur = c.cur;
+    base = c.base;
+    layout = c.layout;
+    provedObjects = c.provedObjects;
+    h.set(c.h);
+    fixes.splice(0, fixes.length, ...c.fixes);
+    contains.clear();
+    for (const id of c.contains) contains.add(id);
+  };
   for (let tryN = 0; ; tryN++) {
     const hBefore = h.slice();
     levelStart(cur);
@@ -3185,15 +3205,41 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       else provedObjects = objects;
     }
     base = b;
+    if (!why && lean !== 0) {
+      const reach = startFloorsOf(b).reach;
+      if (!chosen || (lean < 0 ? reach < chosen.reach : reach > chosen.reach)) chosen = { cur, base: b, layout: layout.slice(), provedObjects, h: h.slice(), fixes: fixes.slice(), contains: [...contains], reach };
+      looked++;
+      const levelled = h.slice();
+      h.set(hBefore);
+      const again = looked < REACH_CHOICES ? nextStart(cur) : null;
+      if (!again) {
+        h.set(levelled);
+        takeChosen();
+        break;
+      }
+      for (const f of layout) if (f.kind === "river" && f.role === "river/startSpring") contains.delete(f.id);
+      provedObjects = null;
+      cur = again;
+      continue;
+    }
     if (!why) break;
     // (another start on the same settled water, off this one and the ground round it; the last
-    // attempt keeps what it has)
-    if (!(tryN + 1 < START_TRIES) || lastAttempt) return fail(why, b, true);
+    // attempt keeps what it has, and a start already chosen among those that passed stands)
+    if (chosen && (!(tryN + 1 < START_TRIES + REACH_CHOICES) || lastAttempt)) {
+      takeChosen();
+      break;
+    }
+    if (!(tryN + 1 < START_TRIES) && !chosen) return fail(why, b, true);
+    if (lastAttempt) return fail(why, b, true);
     const levelled = h.slice();
     h.set(hBefore);
     const again = nextStart(cur);
     if (!again) {
       h.set(levelled);
+      if (chosen) {
+        takeChosen();
+        break;
+      }
       return fail(why, b, true);
     }
     if (why === "start.badwater" && !fixes.includes("start moved off badwater")) fixes.push("start moved off badwater");
