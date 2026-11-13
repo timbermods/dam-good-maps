@@ -7,6 +7,7 @@
 
 import type { MapSpec } from "../spec/mapspec";
 import { rulesFor } from "../validate/playability";
+import { ruledLand, wetOf } from "../validate/ruledLand";
 import { checkFrame, type FrameCheck } from "./frame";
 import { gateLand, gateLandFailures } from "./gateLand";
 import { gateWater } from "./gateWater";
@@ -84,6 +85,9 @@ const GATE_WET_MOST = 0;
 /** A gate map for a spec, in a theme's style (River Valley by default): the first plan, as the mode draws them, whose
  *  water, land and start hold and whose map passes every blocking check with its Veil pouring (at most `GATE_SETTLES`
  *  builds); or why none did. `failed` lists each refused plan's reason. */
+/** The longest straight even reach of water a Gate map may hold, tiles (planning's ruling of the wander round). */
+export const GATE_REACH = 40;
+
 export function gateMap(spec: MapSpec, theme: StyleTheme = "riverValley"): (GateMap & { failed: string[]; held: boolean }) | { reason: string } {
   const why = wallGate.eligible(spec);
   if (why) return { reason: why };
@@ -153,6 +157,13 @@ export function gateMap(spec: MapSpec, theme: StyleTheme = "riverValley"): (Gate
     // (what the megadam buys, in days of drought, on the settled map's own land and objects)
     // (a megadam whose valley at its water walks round the spur's end to the map's edge buys nothing: the plan is drawn
     // again; 3 of 12 maps at 256² were so before the spur ran to 0.16 of the side)
+    // (no water lies as a straight even reach of more than `GATE_REACH` tiles (planning's ruling on the brooks: a trunk that
+    // still cannot bend is refused and another plan drawn, nothing eased)
+    const reach = ruledLand(map.built.heights, wetOf(map.built.settle.depth), map.built.W, map.built.H).channel;
+    if (reach && reach.tiles > GATE_REACH) {
+      failed.push(`water.straight: a straight even reach of ${reach.tiles} tiles of water at ${reach.x}, ${reach.y} (${GATE_REACH} at most)`);
+      continue;
+    }
     const days = megadamHolds(plan, water, ladder, map.built.waterModel);
     if ("reason" in days) {
       failed.push(days.reason);

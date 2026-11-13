@@ -34,7 +34,7 @@ import { holdDeep } from "../levels";
 import { bodyDist, bodyGap, dist, headingOf, pathDist, pathGap, pathLength, pointAt, subPath } from "../geom";
 import { fail, nameOf, OK, PLAN_CHECKS, reach } from "../planChecks";
 import { GATE_WATER_CHECKS, gateWater } from "../gateWater";
-import { brookGround, brookLegsWrong, brookPlaces, brookWay, meander } from "../gateBrooks";
+import { brookGround, brookLegsWrong, brookPlaces, brookWay, courseReach, meander } from "../gateBrooks";
 import { gateLand } from "../gateLand";
 import { rangeAt, sideOf, spineLocal, type GateRange } from "../gateRange";
 export { rangeAt, sideOf, spineLocal, type GateRange } from "../gateRange";
@@ -83,8 +83,6 @@ export const TARN_HALF = 1.4;
 export const SPURS = { gap: [8, 30], len: [0.3, 1.2], turn: 0.5, fork: 0.85, forkTurn: [0.3, 0.6], least: 2 } as const;
 /** Two southern brooks' middles stand this far apart at the least (the plan's checks refuse under 1.5). */
 export const BROOK_APART = 3;
-/** The lake's swell before the Low River's lip: `wider` tiles wider than the lip, `back` tiles before it. */
-export const LAKE_SWELL = { wider: 8, back: 3 } as const;
 /** How far round the lake its field is read, tiles (past it, the lake is that far). */
 export const LAKE_FIELD = 18;
 /** How far round the paths the brooks keep from their field is read, tiles. */
@@ -93,6 +91,9 @@ export const PATH_FIELD = 16;
 export const BROOK_COVE = [1.5, 12] as const;
 /** Within this many tiles of a cove's head two brooks may come together. */
 export const BROOK_SHARE = 5;
+/** A brook's course laid three or four wide holds no straight even reach over this many tiles (the water's limit, 40,
+ *  less what stage 1's wander and the settle add). */
+export const BROOK_REACH = 32;
 /** A brook's way is sought within this share of the side round the box of its spring and its nearest end. */
 export const BROOK_BOX = 0.15;
 /** A brook's confluence (planning's ruling: land drains as a tree): a brook keeps a meander's `belt` from another or joins
@@ -594,14 +595,6 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     const v = v0 + (vEnd - v0) * f;
     main.push([r2(u + rng.range(-1.5, 1.5)), r2(Math.min(lakeTopV - rs[i], v + rng.range(-2, 2) * m)), r2(rs[i])]);
   }
-  // (and a swell `LAKE_SWELL` tiles wider than the Low River's lip a few tiles before it: as wide as its lip there, the
-  // lake's end and the lip lay as one straight even reach of 160 to 370 tiles of water)
-  {
-    const [pu, pv] = main[main.length - 1];
-    const d = hypot(uE - pu, vEnd - pv);
-    const back = Math.min(LAKE_SWELL.back, d / 2);
-    main.push([r2(uE - ((uE - pu) / d) * back), r2(vEnd - ((vEnd - pv) / d) * back), r2(lowLip / 2 + 0.5 + LAKE_SWELL.wider / 2)]);
-  }
   main.push([r2(uE), r2(vEnd), r2(lowLip / 2 + 0.5)]);
   // (its shore wanders between the lobes: a point every `LAKE_WANDER.every` tiles, off the line by turns and its width
   // drawn afresh; between three lobes alone the arm lay as a straight even channel 300 tiles of water long at 256²)
@@ -1075,7 +1068,9 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
       for (let k = 1; k + 1 < tn.path.length; k++) {
         const p = tn.path[k];
         if (ats[k] < BROOK_JOIN.clear + tn.spine[0][2] || ats[k] > len - BROOK_JOIN.clear || lakeAt(p) < BROOK_JOIN.clear) continue;
-        if (drops.some((d) => Math.abs(d - ats[k]) < BROOK_JOIN.clear) || tn.bed[k] > sill - 1) continue;
+        // (and never on the trunk's last reach, level with the lake's sill: the two flows stood over its banks there, a
+        // level over the bed, and spread across the flat beside it)
+        if (drops.some((d) => Math.abs(d - ats[k]) < BROOK_JOIN.clear) || tn.bed[k] > sill - 1 || tn.bed[k] <= S) continue;
         const dd = dist(tn.path[k - 1], tn.path[k + 1]);
         joinAt.set(p, { j: laidAs[j], at: ats[k], dir: [(tn.path[k + 1][0] - tn.path[k - 1][0]) / dd, (tn.path[k + 1][1] - tn.path[k - 1][1]) / dd], level: tn.bed[k] });
       }
@@ -1198,6 +1193,11 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     }
     // (a point every `BROOK.every` tiles at most, four at the least: its bed's first step needs two past the head)
     const course = resample(channel, Math.min(BROOK.every, pathLength(channel) / 4));
+    // (a course that still lies as a straight even reach, read three and four wide, is no brook's: the layout is drawn
+    // again, nothing eased)
+    if (Math.max(courseReach(course, 1.5).tiles, courseReach(course, 2).tiles) > BROOK_REACH) {
+      return { why: "brook straight" };
+    }
     // (its tarn's width to its bed's first step, two points down, then the rest evenly, at its wider just under the
     // step: narrower over the step or under it, the brook stood its tarn 0.4 over the level the table gives)
     if (course.length < 4) return { why: "brook room" };
@@ -1225,7 +1225,12 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     let s = 0;
     tn.path.forEach((p, k) => {
       if (k) s += dist(tn.path[k - 1], p);
-      if (s >= at) tn.halves[k] += 0.5;
+      if (s >= at) {
+        tn.halves[k] += 0.5;
+        // (and its bed a level lower there, down to the lake's sill: at its own bed the two flows stood over banks a level
+        // over it and spread across the flat beside it, the stray water of most confluences)
+        tn.bed[k] = Math.max(S, tn.bed[k] - 1);
+      }
     });
   }
   // ---- onto the map
