@@ -27,6 +27,7 @@
 // still parts the walk, that leaves a place a start may take short of its bench, or whose hollow is left under five
 // tiles, is undone.
 
+import { hash32 } from "../math/hash";
 import { fbm, valueNoise } from "../math/noise";
 import type { Rng } from "../math/rng";
 import { levelRegions, MinHeap } from "../math/grid";
@@ -72,6 +73,11 @@ export const WASHES = {
   /** Each straight reach of a bed runs at least this many tiles along an axis before it steps aside: a diagonal is
    *  long treads, never a staircase of ones (6825985686). */
   tread: 3,
+  /** And no straight reach of the path runs longer than `reach[2]` tiles (D518, the look round: the single-level steps
+   *  on the broad flats keep no ruler-straight run): a longer reach is cut into an odd number of stretches of
+   *  `reach[0]` to `reach[1]` tiles (two and three for a reach of seven or eight), the middle ones a tile to one side of
+   *  the line (`wanderRuns`), so each bank wanders as a contour does. */
+  reach: [3, 5, 6] as const,
   /** The sideways meander: at most this far off the flow's line, with this wavelength. */
   meander: 3,
   meanderCell: 16,
@@ -407,6 +413,101 @@ export function treadsOf(x: readonly number[], y: readonly number[], W: number, 
   return out;
 }
 
+/** A tread path with no ruler-straight run (D518, the look round; planning's verdict on #236, 6843600971, item 1): a
+ *  straight reach of seven tiles or more is cut into an odd number of stretches of `WASHES.reach` tiles, the first and
+ *  the last on the path's own line and the ones between a tile to one side of it (the side the ground allows, drawn
+ *  from the seed), each joined to the next by one tile across, so the bank's edges jog every few tiles and no run of
+ *  one contour passes `reach[1]` + 1 or so. A reach shorter than that stays as it was. `ok` says which tiles a bed may take.
+ *  Per curve point, the path's tiles, as `treadsOf` gives them. */
+export function wanderRuns(path: readonly (readonly number[])[], W: number, seed: number, ok: (t: number) => boolean): number[][] {
+  const seq: number[] = [];
+  const own: number[] = [];
+  path.forEach((p, s) => {
+    for (const t of p) {
+      seq.push(t);
+      own.push(s);
+    }
+  });
+  const n = seq.length;
+  // (the distinct tiles in order, and each item's place among them)
+  const uniq: number[] = [];
+  const uid = new Int32Array(n);
+  for (let j = 0; j < n; j++) {
+    if (!j || seq[j] !== seq[j - 1]) uniq.push(seq[j]);
+    uid[j] = uniq.length - 1;
+  }
+  // (each distinct tile's offset across its run, in tiles of the map's index)
+  const shift = new Int32Array(uniq.length);
+  const most = WASHES.reach[1];
+  let a = 0;
+  while (a + 1 < uniq.length) {
+    const d = uniq[a + 1] - uniq[a];
+    let b = a + 1;
+    while (b + 1 < uniq.length && uniq[b + 1] - uniq[b] === d) b++;
+    const T = b - a + 1;
+    if (T > WASHES.reach[2]) {
+      // (the cross axis: along x a step is ±1 and the cross unit W; along y the reverse)
+      const alongX = d === 1 || d === -1;
+      const cross = alongX ? W : 1;
+      let m = 3;
+      while (Math.ceil(T / m) > most) m += 2;
+      // (a reach of seven or eight tiles is cut into stretches of two and three, longer ones into stretches of three or more)
+      if (T < 3 * WASHES.reach[0]) m = 3;
+      // (stretch lengths: T split as evenly as it goes, the remainder to stretches the seed picks)
+      const base = Math.floor(T / m);
+      let extra = T - base * m;
+      const lens: number[] = new Array(m).fill(base);
+      for (let k = 0; extra > 0; k++) {
+        const at = hash32(seed, "wander-len", uniq[a], k) % m;
+        if (lens[at] < most) {
+          lens[at]++;
+          extra--;
+        }
+      }
+      let from = a;
+      let side = 0;
+      for (let k = 0; k < m; k++) {
+        const to = from + lens[k];
+        if (k % 2 === 1) {
+          // (a stretch off the line: the side the seed picks if every tile of it may be bed, else the other, else none)
+          const first = hash32(seed, "wander-side", uniq[a], k) & 1 ? 1 : -1;
+          side = 0;
+          for (const sg of [first, -first]) {
+            let all = true;
+            for (let u = from; u < to && all; u++) {
+              const t = uniq[u] + sg * cross;
+              const tx = t % W;
+              const x0 = uniq[u] % W;
+              // (not round the map's edge, and a tile the bed may take)
+              if ((!alongX && Math.abs(tx - x0) !== 1) || !ok(t)) all = false;
+            }
+            if (all) {
+              side = sg;
+              break;
+            }
+          }
+          for (let u = from; u < to; u++) shift[u] = side * cross;
+        }
+        from = to;
+      }
+    }
+    a = b;
+  }
+  // (rebuilt: a tile that starts a stretch off the line is reached through the tile beside the one before it)
+  const out: number[][] = path.map(() => []);
+  for (let j = 0; j < n; j++) {
+    const u = uid[j];
+    const first = !j || uid[j - 1] !== u;
+    if (first && u > 0) {
+      const before = shift[u - 1];
+      // (a step across at the start of an off-line stretch, and back at its end)
+      if (shift[u] !== before) out[own[j]].push(uniq[u - 1] + shift[u]);
+    }
+    out[own[j]].push(seq[j] + shift[u]);
+  }
+  return out;
+}
+
 /** The washes and the old bed (see the file's header), cut into `heights`. */
 export function planWashes(inp: WashInput): Washes {
   const { W, H, heights: h, surface, keepOff, rng } = inp;
@@ -595,12 +696,20 @@ export function planWashes(inp: WashInput): Washes {
   ): { cut: Cut | null; stop: number } => {
     const n = line.length;
     const { x, y } = curveOf(line, W, (inp.seed + salt * 0x9e3779b1) >>> 0, WASHES.smooth);
-    const path = treadsOf(x, y, W, H, WASHES.tread);
-    const at = (s: number) => path[s][path[s].length - 1];
     // (a square brush on the tread path: its offsets each side, a 2-wide one's to one side)
     const wide = opts.join ? width.branch : width.main;
     const lo = -((wide - 1) >> 1);
     const hi = lo + wide - 1;
+    // (the path wanders off its straight reaches onto ground its whole brush may take)
+    const brushOk = (t: number): boolean => {
+      const tx = t % W;
+      const ty = (t - tx) / W;
+      if (tx + lo < 0 || tx + hi >= W || ty + lo < 0 || ty + hi >= H) return false;
+      for (let yy = ty + lo; yy <= ty + hi; yy++) for (let xx = tx + lo; xx <= tx + hi; xx++) if (!allowed[yy * W + xx]) return false;
+      return true;
+    };
+    const path = wanderRuns(treadsOf(x, y, W, H, WASHES.tread), W, (inp.seed + salt * 0x9e3779b1) >>> 0, brushOk);
+    const at = (s: number) => path[s][path[s].length - 1];
     const floor: number[] = [];
     const stamps: number[][] = [];
     let end: Wash["end"] = "hollow";
@@ -1463,15 +1572,15 @@ export function startKeepOff(
   ways: readonly number[],
   out: Uint8Array,
   reach: number = WASHES.startWalk,
+  box: number = WASHES.startBox,
 ): void {
   const N = W * H;
   for (const st of starts) {
     if (st.x < 0 || st.y < 0 || st.x >= W || st.y >= H) continue;
     const walk = walkDistance(h, W, H, null, [], st, reach + 1);
     for (let i = 0; i < N; i++) if (walk[i] <= reach) out[i] = 1;
-    const r = WASHES.startBox;
-    for (let y = Math.max(0, st.y - r); y <= Math.min(H - 1, st.y + r); y++)
-      for (let x = Math.max(0, st.x - r); x <= Math.min(W - 1, st.x + r); x++) out[y * W + x] = 1;
+    for (let y = Math.max(0, st.y - box); y <= Math.min(H - 1, st.y + box); y++)
+      for (let x = Math.max(0, st.x - box); x <= Math.min(W - 1, st.x + box); x++) out[y * W + x] = 1;
   }
   const m = WASHES.wayMargin;
   for (const i of ways) {

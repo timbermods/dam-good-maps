@@ -107,19 +107,24 @@ a premise or one still to come, may carry its own, lower playability floor.
 - **Falls**: a landmark fall of 6 levels or more and wide (loved maps' tallest: median 6.1); lesser falls of about 4.
 - **Ground**: under half the tiles dead flat; 60–80 % of height steps one level; no two or three levels holding most
   of the map. Bold scarps and broad benches, not thin contour bands. Every level's edge follows the land's warped
-  contours, never a lattice or a rectangle, and rises stand in two or three nested one-level rings, as the game's hills
-  do (D518).
+  contours, never a lattice or a rectangle, and no one-level step runs ruler-straight: no run of one row or column
+  past 8 tiles, its edge jogging a tile every few tiles as a contour does (D518, the look round), and rises stand in
+  two or three nested one-level rings, as the game's hills do (D518).
 - **Water and green are a spectrum, set by the premise**, not targets to maximise: a living core, veins toward the
   rim, and dry land that is irrigable by design. What is measured is the ladder (what each work turns green), not a
   bare-ground share.
 - **Wood**: living trees near the official maps' count to about half the Workshop's (roughly 350–700 per 10,000
   tiles), as stands with a purpose; and dead trees on the dry land as the game's maps have them (36 to 124 per 1,000
-  dry tiles; ours about 40, 30 to 34 where the bare land's share holds it, D516, D518), in two to four old woods where forest was: the old water line, dry beds, a mesa top,
+  dry tiles; ours at least 28, 30 to 34 where the bare land's share holds it: the cover limit and the spread that make
+  a stand a wood allow no more, D516's floor, D518), in two to four old woods where forest was: the old water line, dry beds, a mesa top,
   dry hollows; pines on the tops, birches by old water, a few old oaks. The rest of the dry land is bare: at most a
   quarter of it within 6 tiles of a dead tree, the count giving way first. A wood is dense inside its outline. A stand is irregular knots of 3 to 8
   trunks, each its own shape, with gaps, never a filled square, thinning to single trees at its edge, its outline the land's (a rim, a bank, the old
   water line), a third of its trees shorter (died young; D518). A dead tree keeps its logs and grows none back: wood
   travelled for, none in the start's walk.
+- **Ruins**: a field of ruins lies along the land, never in a filled box: a band 2 to 4 tiles wide along a contour, a
+  rise's edge or a shore, ragged, with gaps; the ruins on a natural rise stand on a disc broken at its edge (D518, the
+  look round). Their count, kinds and heights are the official maps' (D488).
 - **Dry washes**: one or two long winding dry beds across the dry land, as each of the game's maps has (D517): 60 to
   150 tiles on a 128² map, 3 wide (a branch 2), a level or two deep, its banks long straight treads (each reach 3 tiles
   at least before it steps aside, no teeth; D518), where rain would run, with side branches and fords every

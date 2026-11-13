@@ -25,6 +25,7 @@ import { pctSorted } from "./num";
 import { clamp, smoothstep } from "../math/clamp";
 import { BED_FLOOR, RISES, VT_HIGH, type Genome, type Grade } from "./genome";
 import { windRoute } from "./wind";
+import { wanderEdges } from "./wander";
 import { edgeSpill } from "./drainage";
 import { landRegions } from "../analysis/regions";
 import { integrityLevel } from "../features/raster/terrain";
@@ -74,6 +75,8 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   // at high Verticality the land stays wild but readable (item 36): no spike, wall or trench one or
   // two tiles wide standing two levels or more over the land round it
   if (g.vt >= VT_HIGH) readable(out, W, H);
+  // no contour runs ruler-straight (D518, the look round): its long one-level runs jog a tile every few tiles
+  wanderEdges(out, W, H, hash32(seed, "wander", g.variation));
   // regions under 4 tiles merge (a 2×2 stack survives, as the build's integrity pass keeps it)
   mergeSmallRegions(out, W, H, 4);
   cleanPitsAndSpikes(out, W, H, null);

@@ -208,6 +208,8 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   syncTaken();
   const ruinPlan = planRuinFields(ground, Math.max(0, budget.scrap - (constraints?.scrapPlaced ?? 0) - easyScrap), {
     rng: ruinRng,
+    // (D518, the look round: a field lies along its level's rim, never in a filled blob)
+    follow: true,
     startDist: g.start ? startDist : null,
     minStart: near.ruinsClear,
     spacing: RUINS.minFieldSpacing,
