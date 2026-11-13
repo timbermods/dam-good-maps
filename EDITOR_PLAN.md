@@ -1297,7 +1297,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   background, as after any edit). A source within 4 tiles of a new edge gets a minimal lip (M9b's idea, `water/edgeLip.ts`; `lipNewEdges`):
   the cropped map's water is settled and only the new-edge tiles its water leaves through are raised, each to the level
   of the water beside it (a floor level with the surface takes none: the game's head difference is zero), never a tile
-  on a side the crop did not cut, so it does not pour off the map and nothing reads as a wall (D151). A cropped map has no "as opened"
+  on a side the crop did not cut, so it does not pour off the map and nothing reads as a wall (D151). An object on a raised tile
+  rises with it (the start, sources and slopes keep their ground); one that would no longer stand level goes, counted with the
+  objects the edge cuts. A cropped map has no "as opened"
   map: its problems are the player's own (the checks list none as existing). A rename is never undone with a crop (D443).
   Not yet in the core: the checks dot's edge-wall warning and its fix, and re-reading the name and "how it plays" line.
   Collaborative editing leaves a crop to the host (D362 (9)).

@@ -6,7 +6,7 @@
 // opens it again.
 
 import { expect, test } from "@playwright/test";
-import { centreOn, generateButton, openDrawer, openEditor, openFileMenu, openYourMaps, pick, topDown } from "./open";
+import { centreOn, generateButton, openDrawer, openEditor, openFileMenu, openYourMaps, pick, topDown, waitForEditor } from "./open";
 
 test("Generate on an edited map makes a new map that no edit touches, and the edited map stays in Your maps (D336)", async ({ page }) => {
   const errors: string[] = [];
@@ -115,4 +115,62 @@ test("with storage writes failing, neither note claims the map is kept: not the 
   const alert = page.getByRole("alert").getByRole("button", { name: "Dismiss" });
   if (await alert.count()) await alert.click();
   await expect(claim).toHaveCount(0);
+});
+
+test("a kept map whose file cannot be written is not replaced: it stays open, and the page says why", async ({ page }) => {
+  await openEditor(page, "s=4244&z=96&d=n&t=riverValley");
+  // (the first-keep note says when the map is kept: the tests' stored state marks it shown)
+  await page.evaluate(() => localStorage.removeItem("dgm.keptNote"));
+  await topDown(page);
+  // one edit keeps the map in Your maps
+  const at: [number, number] = [70, 12];
+  await page.getByRole("button", { name: "Lower brush (3)" }).click();
+  await centreOn(page, at[0], at[1]);
+  const a = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), [at[0] - 3, at[1]] as const);
+  const b = await page.evaluate(([x, y]) => window.dgmEditor!.tileToClient(x, y), [at[0] + 3, at[1]] as const);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 6 });
+  await page.mouse.up();
+  await expect(page.getByRole("status").filter({ hasText: "Kept in Your maps, in this browser" })).toBeVisible();
+  await page.waitForFunction(() => window.dgmEditor!.pendingTerrain() === 0, null, { timeout: 30_000 });
+  await page.evaluate(() => window.dgmEditor!.idle());
+  await page.keyboard.press("Escape");
+  const edited = await page.evaluate(() => window.dgmEditor!.info());
+  expect(edited.edits).toBe(1);
+  // every write of a project file fails (the e2e build's hook, ui/projectWriter.ts): on its worker and on the page
+  await page.evaluate(() => ((window as unknown as { __dgmWriteFails?: boolean }).__dgmWriteFails = true));
+  const errors: string[] = [];
+  page.on("console", (m) => void (m.type() === "error" && errors.push(m.text())));
+  await openDrawer(page);
+  await generateButton(page).click();
+  const said = page.getByText("Your map could not be saved, so it stays open. Download the project before replacing it.");
+  await expect(said).toBeVisible({ timeout: 120_000 });
+  // (the words alone, the dismiss button beside them: no error text)
+  expect((await said.textContent())!.replace(/×$/, "").trim()).toBe("Your map could not be saved, so it stays open. Download the project before replacing it.");
+  // (the error itself goes to the console, never beside the words)
+  expect(errors.some((e) => e.includes("the test's write failure"))).toBe(true);
+  await expect(generateButton(page)).toBeEnabled({ timeout: 120_000 });
+  // the edited map is still the one open, its edit with it
+  const now = await page.evaluate(() => window.dgmEditor!.info());
+  expect(now.W).toBe(96);
+  expect(now.edits).toBe(1);
+  expect(now.spec).toEqual(edited.spec);
+});
+
+test("Cancel while a map is made brings the open map back when its file could not be written beside it", async ({ page }) => {
+  await openEditor(page, "s=4244&z=96&d=n&t=riverValley");
+  const was = await page.evaluate(() => window.dgmEditor!.info());
+  // every write of a project file on the page fails (the e2e build's hook): Cancel takes the map from the old worker
+  await page.evaluate(() => ((window as unknown as { __dgmWriteFails?: boolean }).__dgmWriteFails = true));
+  const drawer = await openDrawer(page);
+  await pick(drawer, "Size", "128");
+  await generateButton(page).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toHaveCount(0, { timeout: 120_000 });
+  await waitForEditor(page);
+  await expect.poll(() => page.evaluate(() => window.dgmEditor?.info().spec?.seed), { timeout: 120_000 }).toBe(was.spec!.seed);
+  expect((await page.evaluate(() => window.dgmEditor!.info())).W).toBe(96);
+  await expect(page.getByText(/could not be brought back/)).toHaveCount(0);
 });

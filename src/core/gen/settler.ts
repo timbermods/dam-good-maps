@@ -112,8 +112,11 @@ export interface SettlerOptions {
   benchMin?: number;
   /** Water kept through the difficulty's worst drought (depth per tile) and the stored water the
    *  start should have within 40 tiles (the colony's need times the Drought reserve, PLAN §11.4):
-   *  places with more are preferred (#67: information the generator prefers, never a guard). */
-  storage?: { kept: ArrayLike<number>; want: number } | null;
+   *  places with more are preferred (#67: information the generator prefers, never a guard). With `dams` (a Drought
+   *  reserve away from the theme's own), a place's stored water is read as the checks read it, the best of the natural
+   *  water kept and the reservoir of the best dam site within 40 tiles (`water.storage_possible`); with `less` (a
+   *  reserve below the theme's own), places holding more than `want` are passed over instead. */
+  storage?: { kept: ArrayLike<number>; want: number; dams?: readonly { x: number; y: number; volume: number }[]; less?: boolean } | null;
   /** The soil's moisture on the water the rule's drought leaves (`plants.drought`'s), where that
    *  drought outlasts a berry bush: places with dry land near them that stays moist, where the
    *  start's berries last the drought, are preferred (the D410 round; never a guard). */
@@ -426,13 +429,16 @@ export function pickStart(
   const D = water.depth;
   const { walk, walkAny, walkKept, dWet, boxSum, regions, benches, dLake, dFall, dJoin, dSpring, medianLevel, margin: edgeMargin, storeSum, foodSum, openingLand } = opts.prepared ?? prepareStart(h, W, H, water, hydro, waterRule, opts);
   const margin = opts.margin ?? edgeMargin;
+  const dams = opts.storage?.dams ?? null;
   const storedNear = (x: number, y: number): number => {
     if (!storeSum) return 0;
     const x0 = Math.max(0, x - 40);
     const y0 = Math.max(0, y - 40);
     const x1 = Math.min(W - 1, x + 40) + 1;
     const y1 = Math.min(H - 1, y + 40) + 1;
-    return storeSum[y1 * (W + 1) + x1] - storeSum[y0 * (W + 1) + x1] - storeSum[y1 * (W + 1) + x0] + storeSum[y0 * (W + 1) + x0];
+    let s = storeSum[y1 * (W + 1) + x1] - storeSum[y0 * (W + 1) + x1] - storeSum[y1 * (W + 1) + x0] + storeSum[y0 * (W + 1) + x0];
+    if (dams) for (const d of dams) if (d.volume > s && Math.abs(d.x - x) <= 40 && Math.abs(d.y - y) <= 40) s = d.volume;
+    return s;
   };
   // (the last resort joins land enough to grow on too, item 47: a pad on a strip cut off by water
   // and cliffs, a few hundred tiles, reaches neither its mine sites nor room for its first
@@ -560,7 +566,8 @@ export function pickStart(
         // (Water without stairs, PLAN §5.6; D59)
         const walkFit = 1 - Math.min(1, Math.abs(w - walkWant) / 5);
         // the stored water the Drought reserve and the difficulty ask for (PLAN §5.3, §11.4)
-        const storeFit = storeSum ? Math.min(1, storedNear(x, y) / opts.storage!.want) : 1;
+        // (a Scarce reserve's start is not handed more stored water than it asks)
+        const storeFit = !storeSum ? 1 : opts.storage!.less ? Math.min(1, opts.storage!.want / Math.max(1, storedNear(x, y))) : Math.min(1, storedNear(x, y) / opts.storage!.want);
         // the start's berries' ground that lasts the drought: 60 tiles of it within 14 is room for them
         let foodFit = 1;
         if (foodSum) {

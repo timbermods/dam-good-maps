@@ -1408,18 +1408,47 @@ export class MapSession {
    *  It carries the map as it stands (`stored`, D367), unless the water is still the preview's: a
    *  file never gets preview water (PLAN §19.7), and such a project opens by rebuilding. */
   project(level?: number): Uint8Array {
+    return encodeProject(this.projectDocument(), level);
+  }
+
+  /** The project file's document before it is written (`encodeProject` makes the file of it): the page has another
+   *  thread write it, so the generator's thread is free sooner. */
+  projectDocument(): MapDocument {
     const doc = this.document;
-    if (this.waterPending) return encodeProject(doc, level);
+    if (this.waterPending) return doc;
     const p = this.pending;
     let stored: StoredState | null = null;
     try {
       // (unchanged since it opened from its stored map: that map again, as decoded)
       const local = this.log.length - this.segStart;
-      stored = p && p.built === this.cur && p.state.edits === local && p.state.nextSeq === this.seqNext ? p.state : storeBuilt(this.cur, local, this.seqNext);
+      stored = p && p.built === this.cur && p.state.edits === local && p.state.nextSeq === this.seqNext ? p.state : this.storedNow(local);
     } catch {
       // a map the stored format cannot carry: saved without it, and reopened by rebuilding
     }
-    return encodeProject(stored ? { ...doc, stored } : doc, level);
+    return stored ? { ...doc, stored } : doc;
+  }
+
+  /** The map as it stands, stored (`storeBuilt`), kept for the map it was stored of (the same build, edits and next
+   *  sequence number, as `pending` is read): Generate's taking of the map it replaces finds it made while the page was
+   *  idle (`warmStored`). */
+  private stored: { built: BuildResult; edits: number; nextSeq: number; state: StoredState } | null = null;
+  private storedNow(local: number): StoredState {
+    const m = this.stored;
+    if (m && m.built === this.cur && m.edits === local && m.nextSeq === this.seqNext) return m.state;
+    const state = storeBuilt(this.cur, local, this.seqNext);
+    this.stored = { built: this.cur, edits: local, nextSeq: this.seqNext, state };
+    return state;
+  }
+
+  /** Stores the map as it stands now, for the project taken of it next (`projectDocument`); nothing while its water is
+   *  the preview's. */
+  warmStored(): void {
+    if (this.waterPending) return;
+    try {
+      this.storedNow(this.log.length - this.segStart);
+    } catch {
+      // (a map the stored format cannot carry: `projectDocument` saves it without)
+    }
   }
 
   /** Every object id the document has used: the objects standing and every object an operation

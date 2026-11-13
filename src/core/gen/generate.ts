@@ -24,6 +24,7 @@
 
 import * as portable from "../math/portable";
 import { walledRun } from "../analysis/signature";
+import { damSites } from "../analysis/damsites";
 import { sourcesInFlow } from "../analysis/sources";
 import { STRAIGHT_LIMITS, straightness, tooStraight } from "../analysis/straight";
 import { damWalls } from "../analysis/ridge";
@@ -77,7 +78,7 @@ import { AVAILABLE_THEMES, EDITOR_LEVEL, generatorSizeRefusal, THEME_PRESETS, th
 import { assertSpec } from "../spec/schema";
 import { ColumnTerrain, plainMask, terrainColumns, terrainData } from "../terrain/runs";
 import { validateMap, type Validation } from "../validate/checks";
-import { bandScale, colonyReach, FLOOR_MARGIN, MINE_LO, MINE_REACH_LO, minesReached, minesWanted, nearestBadwater, rulesFor, startBench, WET, type PlayabilityAnalysis } from "../validate/playability";
+import { bandScale, colonyReach, FLOOR_MARGIN, startFloorScale, MINE_LO, MINE_REACH_LO, minesReached, minesWanted, nearestBadwater, rulesFor, startBench, WET, type PlayabilityAnalysis } from "../validate/playability";
 import { blocks, type ValidationReport } from "../validate/report";
 import { walkRegions } from "../analysis/regions";
 import { planSetPiece } from "../features/setpieces";
@@ -490,6 +491,9 @@ const SPRING_TRIES = 3;
 /** Starts tried on one settled water before the attempt is planned again (each new plan settles
  *  the water again). */
 const START_TRIES = 3;
+/** The starts that pass every floor looked at for Buildable land moved off the theme's own (the least or most walkable land). */
+const REACH_CHOICES = 4;
+const LEVEL3_OF = { tight: -1, normal: 0, generous: 1 } as const;
 /** The widths a stuck basin's way out is worn to, narrowest first (D350 (b); each settles once). */
 const WEAR_WIDTHS = [9, 17];
 /** The most tiles of a sea's planned water on ground at its own spill level (a shelf) before the
@@ -589,6 +593,40 @@ export function formsFor(spec: MapSpec): FormsWanted {
   }
   if (spec.settings.water.sources === "none") delete want["spring-cave"];
   return want;
+}
+
+/** A Drought reserve away from the theme's own (PLAN §5.3, the setting's promise, `tests/contract/settings.test.ts`):
+ *  the settler reads the stored water near a place as the checks do (`water.storage_possible`: the best of the natural
+ *  water kept and the reservoir of the best dam site within 40 tiles), on the planned water's dam sites, and a reserve
+ *  below the theme's own passes over places that hold more than it asks. At the theme's own nothing changes (only the
+ *  natural water kept is read, as before). */
+function reserveAsked(spec: MapSpec, h: Uint8Array, D: ArrayLike<number>, C: ArrayLike<number>, W: number, H: number): { dams?: { x: number; y: number; volume: number }[]; less?: boolean } {
+  const own = THEME_PRESETS[spec.theme].droughtReserve;
+  const asked = spec.settings.water.droughtReserve;
+  if (asked === own) return {};
+  const N = W * H;
+  const clean = new Uint8Array(N);
+  const surface = new Float64Array(N);
+  for (let i = 0; i < N; i++) {
+    clean[i] = D[i] > 0.05 && C[i] < 0.05 ? 1 : 0;
+    surface[i] = h[i] + D[i];
+  }
+  const dams = damSites(h, clean, surface, W, H, null).map((d) => ({ x: d.x, y: d.y, volume: d.volume }));
+  return { dams, ...(RESERVE[asked] < RESERVE[own] ? { less: true } : {}) };
+}
+
+/** Whether a land asked for a Drought reserve above its theme's own holds less stored water than the reserve asks, on
+ *  its planned water (`reserveAsked`'s reading, anywhere on the map: the settler then takes a place by it). */
+function reserveShort(spec: MapSpec, h: Uint8Array, est: Float64Array, W: number, H: number): boolean {
+  const asked = spec.settings.water.droughtReserve;
+  if (RESERVE[asked] <= RESERVE[THEME_PRESETS[spec.theme].droughtReserve]) return false;
+  const want = reservoirNeeded(spec.designedFor) * RESERVE[asked];
+  const kept = droughtStorage(waterModel(W, H, h, []), est, DROUGHT[spec.designedFor].days);
+  let natural = 0;
+  for (let i = 0; i < kept.length; i++) natural += kept[i];
+  if (natural >= want) return false;
+  const { dams } = reserveAsked(spec, h, est, new Float64Array(W * H), W, H);
+  return !(dams ?? []).some((d) => d.volume >= want);
 }
 
 /** The settings a rescue round's land is drawn with (D471): the player's until the fourth round; from
@@ -1909,6 +1947,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const reachMin = REACH_MIN[spec.settings.terrain.buildableLand];
   let minFoot = Math.round(Math.max(Math.min(1200, reachMin), 0.12 * N) * (ease >= 2 ? 0.5 : 1));
   const footWant = 2 * reachMin;
+  const generousReach = spec.settings.terrain.buildableLand === "generous" && THEME_PRESETS[spec.theme].buildableLand !== "generous" ? Math.round(REACH_MIN.generous * startFloorScale(W, H)) : 0;
   // the start's floors (D515): every start the settler gives has its bench, its walkable land and its moist land
   const benchMin = Math.ceil(FLOOR_MARGIN * floors.levelLand);
   const room = { small: 400, normal: 900, large: 1600 }[spec.settings.start.area];
@@ -1950,7 +1989,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     if (!data) {
       const model = waterModel(W, H, h, []);
       const kept = droughtStorage(model, D, FIRST_DROUGHT_DAYS);
-      const storage = { kept: droughtStorage(model, D, DROUGHT[spec.designedFor].days), want: reservoirNeeded(spec.designedFor) * RESERVE[spec.settings.water.droughtReserve] };
+      const storage = { kept: droughtStorage(model, D, DROUGHT[spec.designedFor].days), want: reservoirNeeded(spec.designedFor) * RESERVE[spec.settings.water.droughtReserve], ...reserveAsked(spec, h, D, C, W, H) };
       const view = settlerView(h, W, H, hy, D, C, M);
       // (the D410 round: the soil the rule's drought leaves moist, where the start's berries last it)
       const droughtFood = droughtDays > 0.9 * DAYS_TO_DIE_DRY.BlueberryBush ? gameSoil(W, H, h, storage.kept, new Float64Array(N), []).moisture : null;
@@ -2208,6 +2247,13 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
             return fail("an island to expand to (planned)", null, false);
           }
         }
+      }
+      // (a Drought reserve above the theme's own: the planned water holds the stored water it asks, the best dam site's
+      // reservoir or the natural water a drought keeps, as `water.storage_possible` reads them; a land short of it is
+      // drawn again within the screens, so Plenty is more stored water and not the land's luck)
+      if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && reserveShort(shown, hLand, est, W, H)) {
+        screened.count++;
+        return fail("drought reserve (planned)", null, false);
       }
     }
     let second: StartPick | null = null;
@@ -3035,6 +3081,23 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     if (ready) return ready;
     return settlerOn(b1.water, b1.contamination, b1.moisture, 7, roomy(beyondBad(b1)), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, roomy(avoidOf(bad)), 1, near) ?? dryStart(h, W, H, b1.water, hy, { avoid: roomy(avoidOf(bad)), foot, minFoot, benchMin, near: guess, level: allowLevel }) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, avoidOf(bad), 1, near);
   };
+  // (Buildable land moved off the theme's own, not in a rescue round: among the starts that pass every floor, Tight
+  // takes the one walking to the least land and Generous the most, `REACH_CHOICES` looked at; at the theme's own the
+  // first that passes is the start, as before)
+  const lean = ease === 0 && !lastAttempt && !easy ? Math.sign(LEVEL3_OF[spec.settings.terrain.buildableLand] - LEVEL3_OF[THEME_PRESETS[spec.theme].buildableLand]) : 0;
+  let chosen: { cur: StartPick; base: BuildResult; layout: Feature[]; provedObjects: MapObjectFeature[] | null; h: Uint8Array; fixes: string[]; contains: string[]; reach: number } | null = null;
+  let looked = 0;
+  const takeChosen = (): void => {
+    const c = chosen!;
+    cur = c.cur;
+    base = c.base;
+    layout = c.layout;
+    provedObjects = c.provedObjects;
+    h.set(c.h);
+    fixes.splice(0, fixes.length, ...c.fixes);
+    contains.clear();
+    for (const id of c.contains) contains.add(id);
+  };
   for (let tryN = 0; ; tryN++) {
     const hBefore = h.slice();
     levelStart(cur);
@@ -3128,6 +3191,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       const got = startFloorsOf(b);
       if (got.bench < benchMin) why = "start.level_land";
       else if (got.reach < FLOOR_MARGIN * floors.reachMin) why = "start.reach";
+      // (Buildable land Generous where the theme's own is less, and not in a rescue round: the start walks to the land
+      // the setting promises, at least 2,500 tiles at 128², by area below it as the floors are (PLAN §5.2))
+      else if (ease === 0 && generousReach > 0 && got.reach < generousReach) why = "start.reach";
       else if (got.moist < FLOOR_MARGIN * (floors.farmland + floors.forester)) why = "start.forester";
     }
     if (!why && N <= 96 * 96) {
@@ -3139,15 +3205,41 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       else provedObjects = objects;
     }
     base = b;
+    if (!why && lean !== 0) {
+      const reach = startFloorsOf(b).reach;
+      if (!chosen || (lean < 0 ? reach < chosen.reach : reach > chosen.reach)) chosen = { cur, base: b, layout: layout.slice(), provedObjects, h: h.slice(), fixes: fixes.slice(), contains: [...contains], reach };
+      looked++;
+      const levelled = h.slice();
+      h.set(hBefore);
+      const again = looked < REACH_CHOICES ? nextStart(cur) : null;
+      if (!again) {
+        h.set(levelled);
+        takeChosen();
+        break;
+      }
+      for (const f of layout) if (f.kind === "river" && f.role === "river/startSpring") contains.delete(f.id);
+      provedObjects = null;
+      cur = again;
+      continue;
+    }
     if (!why) break;
     // (another start on the same settled water, off this one and the ground round it; the last
-    // attempt keeps what it has)
-    if (!(tryN + 1 < START_TRIES) || lastAttempt) return fail(why, b, true);
+    // attempt keeps what it has, and a start already chosen among those that passed stands)
+    if (chosen && (!(tryN + 1 < START_TRIES + REACH_CHOICES) || lastAttempt)) {
+      takeChosen();
+      break;
+    }
+    if (!(tryN + 1 < START_TRIES) && !chosen) return fail(why, b, true);
+    if (lastAttempt) return fail(why, b, true);
     const levelled = h.slice();
     h.set(hBefore);
     const again = nextStart(cur);
     if (!again) {
       h.set(levelled);
+      if (chosen) {
+        takeChosen();
+        break;
+      }
       return fail(why, b, true);
     }
     if (why === "start.badwater" && !fixes.includes("start moved off badwater")) fixes.push("start moved off badwater");
