@@ -33,6 +33,8 @@ function failingPage(extra: Record<string, unknown> = {}) {
     discardAllowed: { current: false },
     switching: { current: false },
     pendingEdits: { current: null },
+    // (the file `holdBack` writes beside the next map's making, which `replacing` waits for: none here)
+    backReady: { current: null },
     // (a kept map leaving says where it went, once the new one is in)
     kept: { current: true }, nameRef: { current: "Old map" }, sayBriefly() {},
     saver: { flush: async () => void (env.keeping.current = false), changed() {} },
@@ -63,11 +65,12 @@ test("Generate makes no map over a kept map whose save just failed", async () =>
   const env = failingPage({
     runId: { current: 0 },
     back: { current: null },
-    backReady: { current: null },
+    backKept: { current: false },
     session: { kind: "generated" },
     entry: { current: { id: "a" } },
     kept: { current: true },
-    snapshot: async () => ({ entry: { id: "a" }, project: new Uint8Array([1]) }),
+    // (the open map taken in two steps since the click's lag round, D148: its document, then its file)
+    snapshotTaken: async () => ({ kept: true, written: Promise.resolve({ entry: { id: "a" }, project: new Uint8Array([1]), kept: true }) }),
     generator: { generate: async () => void generated++ },
     stopBackground() {},
     setBusy() {},
@@ -85,6 +88,28 @@ test("Generate makes no map over a kept map whose save just failed", async () =>
   expect(await env.run({ seed: 2 })).toBe(null);
   expect(generated).toBe(0);
   expect(making).toEqual({ failed: expect.stringContaining("Your map was not saved") });
+});
+
+test("Generate makes no map over a kept map whose file could not be written, and says so in the ruled words", async () => {
+  let generated = 0;
+  let making: unknown = null;
+  const env = failingPage({
+    runId: { current: 0 }, back: { current: null }, backReady: { current: null }, backKept: { current: false },
+    session: { kind: "generated" }, entry: { current: { id: "a" } }, kept: { current: true },
+    // (the map handed over, its file failing on the writer and on the page)
+    snapshotTaken: async () => ({ kept: true, written: Promise.reject(new Error("the write failed")) }),
+    generator: { generate: async () => void generated++ },
+    stopBackground() {}, setBusy() {}, setError() {}, setProgress() {},
+    setMaking: (v: unknown) => void (making = v),
+    // (an Error made in the page's context: its message, as the page's `words` gives it)
+    words: (e: unknown) => String(e && typeof e === "object" && "message" in e ? (e as { message: string }).message : e),
+    performance: { mark() {} }, seedText: "", proxy: (v: unknown) => v, setMakingWords() {},
+    console: { error() {} },
+  });
+  runInContext(compile(functions(["run", "holdBack"])), env);
+  expect(await env.run({ seed: 2 })).toBe(null);
+  expect(generated).toBe(0);
+  expect(making).toEqual({ failed: "Your map could not be saved, so it stays open. Download the project before replacing it." });
 });
 
 test("a deleted map's waiting save is dropped before it is removed, so nothing brings it back", async () => {
