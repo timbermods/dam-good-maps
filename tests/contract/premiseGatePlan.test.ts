@@ -125,7 +125,10 @@ describe("Broken wall-with-one-gate plans fail their invariants", () => {
       plan.frame.start.orientation = (["Cw180", "Cw270", "Cw0", "Cw90"] as const)[g(plan).turn];
     }],
     ["valley.brooks", "a brook drawn as a sawtooth, six tiles a leg, left and right by turns", (plan) => {
-      const l = link(plan, "brook1");
+      // (the longest southern brook: a short tributary has too few bends to read)
+      const brooks = plan.links.filter((k) => /^brook\d/.test(k.id));
+      const span = (k: (typeof brooks)[number]) => Math.hypot(k.path![k.path!.length - 1][0] - k.path![0][0], k.path![k.path!.length - 1][1] - k.path![0][1]);
+      const l = brooks.reduce((x, y) => (span(y) > span(x) ? y : x));
       const [a, b] = [l.path![0], l.path![l.path!.length - 1]];
       const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
       const n = Math.round(L / 6);
