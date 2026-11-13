@@ -1060,7 +1060,7 @@ Stage 0's second pass now keeps it off the start's walk on the skeleton (`lakeSt
 only grounds a ramp can reach, 4 levels at most (`frame.ts` `WAYS_OUT`; the four largest grounds of the map were all out
 of reach at 256²).
 
-The second round: `spectrum`'s moist floor falls with the map's side (D???, §4.4's table), and the start's lake has a
+The second round: `spectrum`'s moist floor falls with the map's side (D519, §4.4's table), and the start's lake has a
 landing (`lakeStair.ts` `LANDING`, the premise's own stage 1 seam): its shelf, the bed at the sill that rings every lake
 (`raster/bodies.ts`), cut a level on a one-tile line found from the land (§2.2, "Ringed lakes"), marked as the
 drowned river's ribbon (the pump's water, which the frame lets stand deeper). In a drought the start's lake drains to
@@ -1084,6 +1084,16 @@ on threads of the page's water budget), beside the map's life, second build and 
 days' water, so the map is the same byte for byte (`premiseThreads.heavy.test.ts`: four threads and the run apart
 against one thread), and nothing is shown before it has passed. Node and the tools run it all on one thread
 (`generatePremise`). Times are in this round's report; the stage that is left largest is the first build's settle.
+
+**The click's lag (before the generator starts).** It was the map Generate replaces being written: the page asked
+the generator's worker for the old map's project file (its stored map, `storeBuilt`, about 0.3 s at 256², and the file
+itself, about 0.3 s) and sent the new map's request only once it came, 0.6 to 0.9 s at 256² and 0.17 to 0.25 s at
+128². Now the worker hands over the old map's document unwritten (`MapSession.projectDocument`), its stored map made
+while the page was idle after the map opened (`warmStored`), and the file is written on a worker of the page's own
+(`ui/projectWriter.ts`, the same bytes). A kept or edited map is still stored in Your maps before the next map is
+asked for (D455, `keepsMap`), so it pays the file's time; a map neither kept nor edited goes on at once, its file
+written beside the new map's making, and Cancel waits for it. For such a map the request now goes 0.08 to 0.44 s after
+the click at 128² and 0.16 to 0.30 s at 256², on a loaded machine (`tests/e2e/generateLag.spec.ts`).
 
 ### 3.4 Deferred to after the map opens
 
@@ -1273,7 +1283,7 @@ outlines, wander, crags, stands, the pieces' places, the names.
 | `springs.side` | plan | A body with its own spring drains to a map edge without meeting a lake, unless it is a notch's, whose `tradeoff` says its water runs red |
 | `drought.lakes` | settled (storage) | Through the difficulty's longest drought each lake keeps half its water or more at its worst day (it drops a level, it does not empty); the lowest lake, when the start's, 28 % or more (section 9). Held by `premiseMap.test.ts` on seed 1; not yet a stage check |
 | `drought.start` | settled (storage), proof | The start's water lasts the difficulty's longest drought by the editor's rule; 60 % of the bench within 12 tiles stays moist every day of it; the falls stop from the top |
-| `spectrum` | settled | Water 15 to 25 % of tiles; moist ground 30 to 42 % (the floor by the map's side since D???: 30 % at 128², 25 % at 192², 20 % at 256², a straight line between, `ladder.ts` `moistFloor`); small irrigation works (`notch`, `damToPond`, `levee`) 6 to 8, each 250 to 1,100 tiles and at most 3 % of the map; all works together 10 to 20 %; dry for good 12 to 25 %, on one side |
+| `spectrum` | settled | Water 15 to 25 % of tiles; moist ground 30 to 42 % (the floor by the map's side since D519: 30 % at 128², 25 % at 192², 20 % at 256², a straight line between, `ladder.ts` `moistFloor`); small irrigation works (`notch`, `damToPond`, `levee`) 6 to 8, each 250 to 1,100 tiles and at most 3 % of the map; all works together 10 to 20 %; dry for good 12 to 25 %, on one side |
 | `ladder.kinds` | land | Each of the three small irrigation kinds (`notch`, `damToPond`, `levee`) is on the map at least once; the first and small works together have all four kinds (`breach`, `levee`, `notch`, `damToPond`); three small irrigation works within 40 tiles' walk of the bench; one first work inside the first frame |
 | `ground` | land | Flat under 50 %; one-level steps 60 to 80 %; the three commonest levels under 35 % |
 | `wood` | settled | Living trees 450 to 700 per 10,000 tiles; at most 16 % of level moist ground under a tree; 250 logs or more grown within 20 tiles' walk of the start |
@@ -1324,8 +1334,10 @@ Built by hand as The Gate (`tools/showcase/the-gate.ts`, eight rounds judged in 
 playability floor of its own: the start's numbers are the shared gate's (`START_FLOORS`).
 
 **The line:** "A mountain range runs across the map, a green valley on your side and a dry lake's basin beyond; the
-river rises in a cleft of the range and pours over the Veil into the lake at your door. Carry the water through the
-Gate or round by the Pass, and before the first badtide shut the pool by your door."
+river rises in a cleft of the range, pours over the Veil and runs down to the lake at your door. Carry the water
+through the Gate or round by the Pass, and before the first badtide close the Still Pool's inlet." (Planning's wording
+of 2026-11-16; "your door" is said once, in the line, so the card's landmark is the fall into the plunge pool alone.)
+Closing the Gate is the premise's choice: hold the valley's water behind the wall, or send it through to the basin.
 
 **Land first, story second** (planning's ruling of 2026-11-11, after Kyler called the laid wall "an artificial wall
 laid to make gameplay, rigid, mechanical and fake"): every landform is one geology makes, shaped by noise and distance

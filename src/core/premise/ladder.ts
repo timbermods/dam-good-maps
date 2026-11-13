@@ -72,10 +72,10 @@ export interface Ladder {
 
 /** Day 1's shares by `spectrum` (§4.4): water 15 to 25 % of the map's tiles, moist ground 30 to 42 %. The moist
  *  ceiling by number stands `SPECTRUM_MARGIN` under 42, since the settle's share differs from the number's by up to a
- *  point (§2.2, "As built (step 5)"). The moist floor falls as the map grows (`moistFloor`, D???). */
+ *  point (§2.2, "As built (step 5)"). The moist floor falls as the map grows (`moistFloor`, D519). */
 export const SPECTRUM = { water: [0.15, 0.25], moist: [0.3, 0.42] } as const;
 export const SPECTRUM_MARGIN = 0.01;
-/** `spectrum`'s moist floor by the map's side (D???): 30 % at 128², 25 % at 192², 20 % at 256², on a straight line
+/** `spectrum`'s moist floor by the map's side (D519): 30 % at 128², 25 % at 192², 20 % at 256², on a straight line
  *  between, held at its ends below 128 and above 256. A share is the wrong measure as the map grows: the soil's reach
  *  round the water does not grow with the map, so the moist ground grows with the side while the map grows with its
  *  square (at 20 % a 256² map still holds more than twice a 128² map's moist ground at 30 %). */

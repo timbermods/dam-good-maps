@@ -93,10 +93,13 @@ describe("the edit queue against the worker: pinned scenarios", () => {
   it("#873 (step 4): the page completes a Naturalize stroke itself: the session adds nothing, and it lands as it was shown", async () => {
     // (step 4's composer completes the operation on the page, strokeComposer.ts `completeStroke`, so the operation logged
     // deep-equals the operation sent and the oracle's I6 covers every stroke; until step 4 this test pinned the gap: the
-    // session added `hold` and `keep`, and the hold's tiles came back protected, one wrong guess in `protect`, D148)
+    // session added `hold` and `keep`, and the hold's tiles came back protected, one wrong guess in `protect`, D148;
+    // from (20, 40) since generator 0.10.20's contour edges, D518, D148: on River Valley 11's new land water stands on
+    // the ring round (20, 26)'s working rectangle; from (20, 32) since generator 0.10.21's look round, D518, D148: the land's
+    // long straight steps jog, so the ring round (20, 40) holds no water; (20, 32) holds the ground and has objects under it)
     const h = new Harness(P1);
     const id = h.press("naturalize", 5, { seed: 3 });
-    await h.drag(line(20, 26, 12));
+    await h.drag(line(20, 32, 12));
     await h.letGo();
     await h.settle();
     const sent = ((h.queue.ticket(id)!.call as { args: unknown[] }).args[0] as Extract<EditOp, { op: "brush" }>).params;
@@ -384,7 +387,7 @@ describe("the edit queue against the worker: pinned scenarios", () => {
 
 describe("the edit queue against the worker: random interleavings (I1–I10)", () => {
   // (seeded: a failure reports its seed and the actions that led to it, D341)
-  for (const seed of [1, 2, 3]) {
+  for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
     it(`seed ${seed}: ~250 actions, every invariant after each, the oracle at every map's end`, async () => {
       const next = seeded(seed);
       const h = new Harness(P1);

@@ -21,7 +21,10 @@ async function stopIfRunning(page: Page) {
 test("Unleash: a selected source carves its own course, kept as one step when it ends; Ctrl+Z takes it back; dragged, it aims; Try another re-rolls it", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
+  // (seed 1 since D518's contour edges, D148: seed 4242's land now has an overhang whose holding ground lay on the line the
+  // drag aimed along, and a force leaves that ground as it is, so the aimed carve was refused; seed 1's has no cave or
+  // overhang)
+  await openEditor(page, "s=1&z=96&d=n&t=highlands");
   await topDown(page);
   await setWaterSpeed(page, "faster");
 

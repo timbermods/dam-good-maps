@@ -47,11 +47,19 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // for the start's landing (D148, `lakeStair.ts` `LANDING`): the same plan, start, bench and card, a one-tile strip of
 // the start's lake's shelf a level deeper from the shore by the start to the lake's floor; and for the landing found
 // from the land, D148: along the shore's own line from where the start meets the lake to where its floor comes
-// nearest the bank, then down the bed's fall; the same plan, start, bench and card)
-const SHA = "7eb23f524a57f4032f9fb8ff17617c54ce78e207c0e7c04b6ec3d841ac202ab2";
+// nearest the bank, then down the bed's fall; the same plan, start, bench and card; and for generator 0.10.20's contour
+// edges, D518: its plates on a turned scatter and its bench-width steps bent, a new ground; and for D518's mends: its
+// wash's banks in long treads, its dead stands in knots in their woods (a stand its ground holds short of 15 trees none),
+// a third of their trees young, its rolling and rises reweighed and its bend kept off the start, a new ground, D148; and
+// for the dead stands dense in their woods, each knot its own shape: its resources, D148; and for generator 0.10.21's
+// look round, D518: its ruin fields along their level's rim, a wash's banks jogging, the dead stands reading the dry land as the checks do, the version in its description, D148; and generator 0.10.22's version alone, the map otherwise 0.10.21's, D148)
+const SHA = "2350df0a01cf7cea30084f2b2e202b5ae7a01e2fa2f2415c8721c4b24f7b7a7a";
 
-// (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040)
-const HARD_SEED = 7;
+// (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
+// seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now
+// (the start's water gone on day 14), and of Hard seeds 1-14, 4, 5, 10, 11 and 13 hold (dev: 4, 5, 7, 10, 11); seed 5's
+// start lake parts into three pieces of 10 tiles or more by the drought's end)
+const HARD_SEED = 5;
 
 describe("The premise mode (§2.2, build step 4)", () => {
   const made = makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "any", premise: "lakeStair" });
@@ -127,7 +135,7 @@ describe("The premise mode (§2.2, build step 4)", () => {
     expect(ed.openTimber(r.bytes, "lake-stair.timber").info.card).toBeNull();
   });
 
-  it("holds day 1's moist ground to a floor that falls as the map grows (D???)", () => {
+  it("holds day 1's moist ground to a floor that falls as the map grows (D519)", () => {
     // (30 % at 128², 25 % at 192², 20 % at 256², a straight line between, held at its ends)
     expect(moistFloor(96)).toBe(0.3);
     expect(moistFloor(128)).toBe(0.3);

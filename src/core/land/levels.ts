@@ -18,13 +18,14 @@
 // 1's helpers from proto/levels.ts).
 
 import { hash32 } from "../math/hash";
-import { fbm } from "../math/noise";
+import { fbm, warpedFbm } from "../math/noise";
 import { levelRegions, MinHeap, N4, N8 } from "../math/grid";
 import { stream, type Rng } from "../math/rng";
 import { pctSorted } from "./num";
 import { clamp, smoothstep } from "../math/clamp";
-import { BED_FLOOR, VT_HIGH, type Genome, type Grade } from "./genome";
+import { BED_FLOOR, RISES, VT_HIGH, type Genome, type Grade } from "./genome";
 import { windRoute } from "./wind";
+import { wanderEdges } from "./wander";
 import { edgeSpill } from "./drainage";
 import { landRegions } from "../analysis/regions";
 import { integrityLevel } from "../features/raster/terrain";
@@ -60,13 +61,13 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
       let t = (1 - g.hyps.eq) * lin + g.hyps.eq * rk[i];
       // the lean: t / (t + lean (1 − t)) on [0, 1], continued straight beyond it
       if (t > 0 && t < 1) t = t / (t + g.hyps.lean * (1 - t));
-      let L = g.base + t * (top - g.base) + g.terrace.jitter * fbm(js, x, y, 7, 2);
+      let L = g.base + t * (top - g.base) + g.terrace.jitter * warpedFbm(js, x, y, 14, 2, 7);
       // near the top the land bends toward it instead of being cut flat there
       if (L > top - 1) {
         const over = L - (top - 1);
         L = top - 1 + over / (over + 1) + 0.49 * smoothstep(over / 2);
       }
-      const benched = st > 1 && g.terrace.share > 0 && smoothstep((fbm(ts, x, y, g.terrace.cell, 2) + 1) / 2 - (1 - g.terrace.share) + 0.5) > 0.5;
+      const benched = st > 1 && g.terrace.share > 0 && smoothstep((warpedFbm(ts, x, y, g.terrace.cell, 2, g.terrace.cell / 2) + 1) / 2 - (1 - g.terrace.share) + 0.5) > 0.5;
       L = grade(L, x, y, benched ? st : 1, phase);
       // (the land stands a level above the beds' floor, item 47)
       out[i] = clamp(Math.round(L), BED_FLOOR + 1, maxLv);
@@ -74,10 +75,71 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   // at high Verticality the land stays wild but readable (item 36): no spike, wall or trench one or
   // two tiles wide standing two levels or more over the land round it
   if (g.vt >= VT_HIGH) readable(out, W, H);
+  // no contour runs ruler-straight (D518, the look round): its long one-level runs jog a tile every few tiles
+  wanderEdges(out, W, H, hash32(seed, "wander", g.variation));
   // regions under 4 tiles merge (a 2×2 stack survives, as the build's integrity pass keeps it)
   mergeSmallRegions(out, W, H, 4);
   cleanPitsAndSpikes(out, W, H, null);
   return out;
+}
+
+/** The contour field (D518): the land's field softened over a tile each way, so no level line has a one-tile jag, and
+ *  read through a slow warp (`CONTOUR.warp` tiles over `CONTOUR.cell`), so the straight runs the erosion's grid leaves
+ *  in it bend as a land's contours do. The water is planned on this field and the levels snapped from it. */
+export function contourField(E: Float64Array, W: number, H: number, seed: number, variation = 0): Float64Array {
+  const S = softened(E, W, H, CONTOUR.soften);
+  const out = new Float64Array(W * H);
+  const ws = hash32(seed, "contour-warp", variation);
+  const a = CONTOUR.warp;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      // (the warp fades to nothing at the map's edge, so the edge's land and the inflows' mouths stay where they were)
+      const d = Math.min(x, y, W - 1 - x, H - 1 - y);
+      const k = d >= CONTOUR.cell ? a : (a * d) / CONTOUR.cell;
+      const px = clamp(x + k * fbm(ws, x, y, CONTOUR.cell, 2), 0, W - 1);
+      const py = clamp(y + k * fbm((ws ^ 0x5bd1e995) >>> 0, x, y, CONTOUR.cell, 2), 0, H - 1);
+      const x0 = Math.min(W - 2, Math.floor(px));
+      const y0 = Math.min(H - 2, Math.floor(py));
+      const fx = px - x0;
+      const fy = py - y0;
+      const i = y0 * W + x0;
+      out[y * W + x] = (S[i] * (1 - fx) + S[i + 1] * fx) * (1 - fy) + (S[i + W] * (1 - fx) + S[i + W + 1] * fx) * fy;
+    }
+  return out;
+}
+
+/** The contour field's numbers (D518): its softening, tiles each way, and its warp's reach and cell, tiles. */
+export const CONTOUR = { soften: 1, warp: 5, cell: 20 } as const;
+
+/** A field softened over `r` tiles each way (a box blur, rows then columns). */
+export function softened(f: ArrayLike<number>, W: number, H: number, r: number): Float64Array {
+  const a = new Float64Array(W * H);
+  const b = new Float64Array(W * H);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      let s = 0;
+      let n = 0;
+      for (let k = -r; k <= r; k++) {
+        const xx = x + k;
+        if (xx < 0 || xx >= W) continue;
+        s += f[y * W + xx];
+        n++;
+      }
+      a[y * W + x] = s / n;
+    }
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      let s = 0;
+      let n = 0;
+      for (let k = -r; k <= r; k++) {
+        const yy = y + k;
+        if (yy < 0 || yy >= H) continue;
+        s += a[yy * W + x];
+        n++;
+      }
+      b[y * W + x] = s / n;
+    }
+  return b;
 }
 
 /** Ground with grade (#929) as a function of any land's levels, so a theme's field (`snapLevels`) and a
@@ -87,8 +149,9 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
  *  bench levels wandering by `gr.drift` steps; swells and hollows of `gr.roll` levels over `gr.rollCell`
  *  tiles). The returned function takes a level `L` at a tile and the benches it stands on (`st` levels apart
  *  from `phase`; `st` 1 for none) and gives the graded level, unrounded. The same seed and variation give the
- *  same land. */
-export function grader(gr: Grade, seed: number, variation: number, W: number, H: number): (L: number, x: number, y: number, st: number, phase: number) => number {
+ *  same land. `lattice` keeps the grade as it was before D518 (its noise on the tile grid, no rises): a premise's relief
+ *  on a map over 128², whose plans and fallback are the premise's own. */
+export function grader(gr: Grade, seed: number, variation: number, W: number, H: number, lattice = false): (L: number, x: number, y: number, st: number, phase: number) => number {
   const gs = hash32(seed, "grade", variation);
   // (the benches' levels drift over a third of the map; the land's character, tableland or rolling ground,
   // changes over a quarter of it, the share above `table` tableland)
@@ -96,11 +159,17 @@ export function grader(gr: Grade, seed: number, variation: number, W: number, H:
   const table = 0.6 * (0.5 - gr.mesa);
   return (L, x, y, st, phase) => {
     // rolling ground (0) or tableland (1)
-    const mesa = smoothstep((fbm(gs + 1, x, y, wide / 4, 2) - table) / 0.1 + 0.5);
-    if (st > 1) L = bench(L, phase + gr.drift * st * fbm(gs, x, y, wide / 3, 2), st, gr.riser * (1 - mesa));
+    const mesa = smoothstep(((lattice ? fbm(gs + 1, x, y, wide / 4, 2) : warpedFbm(gs + 1, x, y, wide / 4, 2, wide / 8)) - table) / 0.1 + 0.5);
+    if (st > 1) L = bench(L, phase + gr.drift * st * (lattice ? fbm(gs, x, y, wide / 3, 2) : warpedFbm(gs, x, y, wide / 3, 2, wide / 6)), st, gr.riser * (1 - mesa));
     // the rolling ground: swells and hollows of a level or two between the features (gentler on the
-    // tableland's tops, which keep broad level ground)
-    if (gr.roll > 0) L += gr.roll * (1 - gr.calm * mesa) * fbm(gs + 3, x, y, gr.rollCell, 3);
+    // tableland's tops, which keep broad level ground); the turned noise's two octaves weighed as the lattice's first
+    // two were (1 and 1/2 over 1.75), so the swells stand no higher and the flats between them keep their size
+    if (gr.roll > 0) L += gr.roll * (1 - gr.calm * mesa) * (lattice ? fbm(gs + 3, x, y, gr.rollCell, 3) : (1.5 / 1.75) * warpedFbm(gs + 3, x, y, gr.rollCell, 2, 0.5 * gr.rollCell));
+    // the rises: hills over the land round them, a level a ring, gentler on the tableland's tops (D518)
+    if (!lattice && gr.roll > 0 && gr.rise > 0) {
+      const n = warpedFbm(gs + 5, x, y, RISES.cell, 2, RISES.cell / 2);
+      if (n > RISES.from) L += (gr.roll * gr.rise * (1 - 0.5 * gr.calm * mesa) * (n - RISES.from)) / RISES.span;
+    }
     return L;
   };
 }

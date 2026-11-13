@@ -4,7 +4,8 @@
 // and answer arrives is the scheduler's. Faults: either worker goes silent (a message it never takes), a stroke is
 // refused (a ramped Flatten, which the worker refuses as it refuses ground that would fall), another map is opened.
 // The page's part is played as step 2 and step 3 will play it: a hard stroke's preview paints `queue.shown` on
-// `queue.terrain()`, a Naturalize stroke goes through `StrokeFeed`, a press behind a landing stroke waits its turn.
+// `queue.terrain()`, a Naturalize stroke goes through `StrokeFeed`, a press behind a landing stroke waits its turn, and a
+// stroke let go carries the pieces that ride it whole (`rigid`, D249) as the page's brush lists them (`strokeRigid`).
 //
 // The oracle: a second `MapSession`, given the same intents one at a time in the order made, with no delay: a refused
 // intent skipped, a move resolved by the same rule (`target`) on its own history.
@@ -17,7 +18,10 @@ import type { EditOp } from "../../src/core/doc/ops";
 import { withSpringPools } from "../../src/core/doc/placing";
 import { MapSession, STEP_GONE, type HistoryItem } from "../../src/core/doc/session";
 import { newRampedStroke } from "../../src/core/doc/strokes";
-import type { BrushParams } from "../../src/core/features/raster/brush";
+import { strokeRigid, type BrushParams } from "../../src/core/features/raster/brush";
+import { ridingPieces } from "../../src/core/features/edits";
+import { footprintTiles } from "../../src/core/format/footprints";
+import { isSource } from "../../src/editor/sourceSpots";
 import { answerBound, WEATHER_SILENT, WeatherHost } from "../../src/core/features/raster/remoteStroke";
 import { groundUnderObjects } from "../../src/core/features/raster/objectGround";
 import { StrokePreview, type TerrainState } from "../../src/core/features/raster/strokePreview";
@@ -91,6 +95,22 @@ const EDITS: Record<string, (...a: never[]) => ed.SessionUpdate> = {
 
 /** The objects standing on the worker's map, as the page's mirror holds them. */
 const entities = () => ed.collabSession()!.built.entities.map((e) => ({ template: e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation, flipped: e.flipped }));
+
+/** The pieces that may ride a stroke whole, as the page lists them (editor/view/useReady.ts `rides`, with Sources: Ride,
+ *  its default): every source of several tiles, and `ridingPieces` of every other object on the ground `start`. */
+function rides(start: ArrayLike<number>, W: number, H: number): [number, number, number, number][] {
+  const list = entities();
+  const sources: [number, number, number, number][] = [];
+  for (const e of list) {
+    if (!isSource(e.template)) continue;
+    const tl = footprintTiles(e.template, { ...e, z: 0, flipped: false }).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H);
+    if (tl.length < 2) continue;
+    const xs = tl.map(([x]) => x);
+    const ys = tl.map(([, y]) => y);
+    sources.push([Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]);
+  }
+  return [...sources, ...ridingPieces(list.filter((e) => !isSource(e.template)), W, H, start)];
+}
 
 /** A stroke the harness's pointer drew: held, or let go and waiting its turn to compose. */
 interface PageStroke {
@@ -395,6 +415,10 @@ export class Harness {
       }
     }
     if (!s.letGo) return;
+    // (the pieces that ride it whole, levelled now and on its settings, as the page's brush does, brushes.ts `rideWhole`)
+    const rigid = this.rigidFor(s, p.start, p.bounds);
+    const r = rigid.length ? p.finish(rigid) : null;
+    if (r) q.painted(s.id, r);
     // (the one composer, as the page composes it: the operation complete, and its land before and after)
     const c = composeStroke({ ...s.settings, dabs: s.dabs } as BrushParams, s.settings.tool, { start: p.start, shown: q.shown, pre: p.pre, protect: p.protect, bounds: p.bounds, finished: p.finished, before: s.before! }, { W: q.W, H: q.H, heights: p.start, terrain: s.before!, entities: entities() });
     if (!c.tiles) return q.cancel(s.id);
@@ -415,7 +439,17 @@ export class Harness {
       s.dabs.push(...dabs);
       s.feed.add(dabs);
     }
-    if (s.letGo) void s.feed.end({ entities: entities() });
+    // (its riding pieces go with its last call, once its dabs' land is in, as the page's brush sends them)
+    const feed = s.feed;
+    if (s.letGo) void feed.end({ rigid: () => this.rigidFor(s, feed.start, feed.bounds), entities: entities() });
+  }
+
+  /** The pieces that ride a stroke whole when it is let go (D249), as the page's brush lists them (brushes.ts
+   *  `rigidFor`): on its settings, so its operation carries them. */
+  private rigidFor(s: PageStroke, start: Uint8Array, bounds: Rect | null): [number, number, number, number][] {
+    const rigid = strokeRigid(rides(start, this.queue.W, this.queue.H), bounds, start, this.queue.shown, this.queue.W);
+    if (rigid.length) s.settings = { ...s.settings, rigid };
+    return rigid;
   }
 
   /** How many messages wait in each channel. */
@@ -484,7 +518,10 @@ export function checkGuesses(h: Harness, epoch: number): string[] {
     const e = log.find((o) => o.seq === t.step);
     if (!e) continue;
     const sent = (t.call as { args: unknown[] }).args[0];
-    if (stable({ op: e.op, params: e.params }) !== stable(sent)) out.push(`stroke ${t.id}: the session logged another operation than the page sent`);
+    // (only a stroke `alone`: one composed while an edit of another kind was in flight is completed by the session with what that edit
+    // changed, a new object's ground in its `keep`, as the queue's design has it; I6's own words, "nothing else between its start and its
+    // answer", D148: seed 5 of the random run, on generator 0.10.21's land, placed an object in that gap)
+    if (t.alone && stable({ op: e.op, params: e.params }) !== stable(sent)) out.push(`stroke ${t.id}: the session logged another operation than the page sent`);
     if (t.alone && t.mispredicted) out.push(`stroke ${t.id} was alone and guessed wrong`);
   }
   return out;

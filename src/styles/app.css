@@ -76,7 +76,7 @@
 }
 
 html {
-  /* a scroll never chains to the page behind the editor; touch devices keep their pull to refresh */
+  /* a scroll never chains to the page behind the editor; touch devices keep their pull to refresh outside it */
   overscroll-behavior-y: none;
   /* only faces that are loaded: no fake bold or italic */
   font-synthesis: none;
@@ -86,6 +86,11 @@ html {
   html {
     overscroll-behavior-y: auto;
   }
+}
+
+/* but never over the editor: a drag on the map is the map's, never a pull to refresh (#1074) */
+html:has(.editor) {
+  overscroll-behavior: none;
 }
 
 /* interactive elements: no grey flash on a tap, no double-tap zoom delay (a control that takes the gesture itself,

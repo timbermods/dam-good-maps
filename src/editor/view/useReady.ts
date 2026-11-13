@@ -271,6 +271,8 @@ export function useReady(ed: Ed): ReadySlice {
       setPicked(null);
       setPickedObject(null);
     };
+    // a two-finger tap undoes and a three-finger tap redoes, as Z and C do (render3d/touch.ts, #1074)
+    r.onFingers = (n) => void (n === 2 ? ed.undo() : ed.redo());
     const onView = r.onView;
     let pending = false;
     r.onView = (v: ViewState) => {

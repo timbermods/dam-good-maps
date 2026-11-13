@@ -65,8 +65,9 @@ describe("the deploy's checks on a first-visit map", () => {
   });
 
   it("judges the file under its own theme's thresholds: an Islands sea over 35% of the map is no flood, as a first-visit file and opened again as an import (D369)", () => {
-    // (seed 2 at 96²: 60% sea, and quick to make)
-    const isl = generate(makeSpec({ seed: 2, theme: "islands", size: { x: 96, y: 96 } }));
+    // (seed 2 at 96²: 60% sea, and quick to make; seed 1 since generator 0.10.20's contour edges, D518, D148: seed 2's sea is 9% of the map now,
+    // and of seeds 1–20 all but 2 hold over 35% (seed 1's is 50%))
+    const isl = generate(makeSpec({ seed: 1, theme: "islands", size: { x: 96, y: 96 } }));
     const flood = isl.report.checks.find((c) => c.id === "water.no_flood");
     // (the sea is more than the other themes' 0.35 cap, and within Islands' 0.70)
     expect(flood?.ok).toBe(true);
@@ -74,7 +75,7 @@ describe("the deploy's checks on a first-visit map", () => {
     expect(firstVisitProblems(isl).join("; ")).not.toMatch(/water\.no_flood/);
     // the player's path: the exported file opened in the editor, with no spec, reads its theme from its description
     expect(generatedThemeOf(String(readTimber(isl.bytes).metadata?.MapDescription))).toBe("islands");
-    const opened = MapSession.importMap(isl.bytes, "dgm-islands-2.timber").validate().report.checks.find((c) => c.id === "water.no_flood");
+    const opened = MapSession.importMap(isl.bytes, "dgm-islands-1.timber").validate().report.checks.find((c) => c.id === "water.no_flood");
     expect(opened?.ok).toBe(true);
     expect(opened?.limit).toBe(0.7);
   });

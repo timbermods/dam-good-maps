@@ -12,6 +12,7 @@ const GAP = 8;
 
 /** How far the page's controls reach into the view from each edge, in CSS pixels. */
 export function measureInsets(view: HTMLElement): FrameInsets {
+  if (view.closest(".editor[data-phone]")) return phoneInsets(view);
   const v = view.getBoundingClientRect();
   const box = (s: string) => view.querySelector(s)?.getBoundingClientRect() ?? null;
   const reach = (n: number | null) => (n === null ? 0 : Math.max(0, Math.ceil(n + GAP)));
@@ -24,6 +25,40 @@ export function measureInsets(view: HTMLElement): FrameInsets {
     left: reach(lefts.length ? Math.max(...lefts.map((b) => b.right)) - v.left : null),
     bottom: reach(dock ? v.bottom - dock.top : null),
     right: reach(rights.length ? v.right - Math.min(...rights.map((b) => b.left)) : null),
+  };
+}
+
+/** A phone's layout (#1074): each piece over the view by where it stands: the tool row and a sheet over the foot (as
+ *  wide as half the view, low in it), the rail at the left, the panel at the right, Show's button at the top's corner.
+ *  The notes and the first steps' hints float over the map and take no room; a piece not shown takes none. */
+export function phoneInsets(view: HTMLElement): FrameInsets {
+  const v = view.getBoundingClientRect();
+  const out = { top: 0, left: 0, bottom: 0, right: 0 };
+  const reach = (n: number) => Math.max(0, Math.ceil(n + GAP));
+  const pieces = view.querySelectorAll<HTMLElement>(".tool-dock > .tool-bar, .tool-dock > .tool-settings, .objects-dock > *, .phone-show, .phone-show-button");
+  for (const el of pieces) {
+    const b = el.getBoundingClientRect();
+    if (!b.width || !b.height || el.closest("[hidden]") || getComputedStyle(el).visibility === "hidden") continue;
+    if (el.classList.contains("phone-show-button")) {
+      // (at the top it keeps the map under it; at the foot's corner, on its side, it takes no room of its own)
+      if (b.top <= v.top + 16) out.top = Math.max(out.top, reach(b.bottom - v.top));
+      continue;
+    }
+    if (b.width >= v.width / 2 && b.top + b.height / 2 > v.top + v.height / 2) out.bottom = Math.max(out.bottom, reach(v.bottom - b.top));
+    else if (b.left <= v.left + 1) out.left = Math.max(out.left, reach(b.right - v.left));
+    else if (b.right >= v.right - 1) out.right = Math.max(out.right, reach(v.right - b.left));
+  }
+  return out;
+}
+
+/** The middle of the room the controls leave in a view `v` (client px); a side they leave under a quarter of it is the
+ *  whole view's, as the renderer frames (`frameMap`). */
+export function roomCentre(v: { left: number; top: number; width: number; height: number }, ins: FrameInsets): { x: number; y: number } {
+  const across = v.width - ins.left - ins.right >= v.width / 4;
+  const down = v.height - ins.top - ins.bottom >= v.height / 4;
+  return {
+    x: v.left + (across ? ins.left + (v.width - ins.left - ins.right) / 2 : v.width / 2),
+    y: v.top + (down ? ins.top + (v.height - ins.top - ins.bottom) / 2 : v.height / 2),
   };
 }
 

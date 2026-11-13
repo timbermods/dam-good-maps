@@ -36,7 +36,7 @@ import { fbm } from "../../math/noise";
 import { smoothstep } from "../../math/clamp";
 import { hypot, sqrt } from "../../math/portable";
 import { BED_FLOOR } from "../../land/genome";
-import { widenBenches } from "../../land/benches";
+import { bendLevels, widenBenches } from "../../land/benches";
 import { THIN } from "../../analysis/ground";
 import { openingCamera } from "../../analysis/opening";
 import { grader } from "../../land/levels";
@@ -89,6 +89,13 @@ const STAIR_CELL = 8;
  *  outlands' mean over it, rounded after a lift of its own, up to `lift` levels either way, so neighbours meet in a
  *  step of none to three. */
 const PLATE = { from: 5, wander: 3, start: 16, lift: 1.2 };
+/** The plates' scatter's turn off the tile grid (cos, sin: 3-4-5, exact), and the bend of their benches' sides, on maps
+ *  of this many tiles at most (D518 is 128²'s; a bigger map's plates stay as they were, its stair's fallback the
+ *  premise's own). */
+const PLATE_TURN = [4 / 5, 3 / 5] as const;
+const PLATE_TURN_MOST = 128 * 128;
+/** The bend keeps off the start's own ground, this many tiles round it (its walk out to the reach floor's). */
+const BEND_START = 24;
 /** Highlands' peaks: `share` of the plates' points a cone, its summit `low` to 1 of the form's span and level for
  *  `flat` tiles round its point (a summit narrower than the bench-width floor's 5 tiles is worn down by it), falling a
  *  span's height over `reach` plates' widths; between them rolling heights at `base` of the span, `roll` either way
@@ -524,10 +531,13 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   }
 
   // the plates: every tile belongs to one, the tiles nearest one point of a scatter read through the land's wander,
-  // so whatever is set a plate at a time meets its neighbours along ragged lines that run every way
+  // so whatever is set a plate at a time meets its neighbours along ragged lines that run every way. The scatter's
+  // lattice is turned off the tile grid (by 3-4-5, `PLATE_TURN`), so the plates' sides never run along its rows and
+  // columns and meet in no square corner (D518: the scatter on the grid met in rectangles)
   const P = 8 + Math.round(W / 16);
-  const pw = Math.ceil(W / P) + 3;
-  const ph = Math.ceil(H / P) + 3;
+  const [tc, ts] = W * H <= PLATE_TURN_MOST ? PLATE_TURN : ([1, 0] as const);
+  const pw = Math.ceil((tc * W + ts * H) / P) + 3;
+  const ph = Math.ceil((ts * W + tc * H) / P) + 3;
   const px = new Float64Array(pw * ph);
   const py = new Float64Array(pw * ph);
   const plift = new Float64Array(pw * ph);
@@ -550,8 +560,10 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
-      const qx = x + 0.5 + 7 * wxF[i] + 2 * wobF[i];
-      const qy = y + 0.5 + 7 * wyF[i] - 2 * wobF[i];
+      const ux = x + 0.5 + 7 * wxF[i] + 2 * wobF[i];
+      const uy = y + 0.5 + 7 * wyF[i] - 2 * wobF[i];
+      const qx = tc * ux - ts * uy + ts * H;
+      const qy = ts * ux + tc * uy;
       const gx = Math.floor(qx / P) + 1;
       const gy = Math.floor(qy / P) + 1;
       let best = 0;
@@ -711,7 +723,8 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   for (let k = 0; k < pw * ph; k++) if (pcnt[k]) plevel[k] = Math.max(BED_FLOOR + 1, Math.min(top, Math.round(psum[k] / pcnt[k] + plift[k])));
   // with a style the uplands are its form, graded by the theme's grade (#956): benched `step` levels apart over
   // Terracing's share, rolling elsewhere
-  const grade = style ? grader(style.grade, plan.seed, 0, W, H) : null;
+  // (on a map over 128² the grade is as it was before D518, the premise's plans and fallback its own)
+  const grade = style ? grader(style.grade, plan.seed, 0, W, H, W * H > PLATE_TURN_MOST) : null;
   const terraceF = style && style.step > 1 ? field(S("terrace"), W, H, 24, 2, 2) : null;
   const benched = style ? Math.min(1, style.benched * (style.form === "terraces" ? TERRACE.benched : 1)) : 0;
   const phase = style ? hash32(S("terrace"), 1) % style.step : 0;
@@ -799,6 +812,10 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   for (let i = 0; i < N; i++) where[i] = !keep[i] && nearAll[i] > 3 && !narrow[i] && Math.max(Math.abs((i % W) - stx), Math.abs(Math.floor(i / W) - sty)) >= PLATE.start ? 1 : 0;
   tidy(h, r, base);
   widenBenches(h, W, H, where);
+  // (its benches' sides bent, so they meet in no straight side or square corner, D518; not within `BEND_START` of the
+  // start, whose walk the bend would narrow)
+  if (W * H <= PLATE_TURN_MOST)
+    bendLevels(h, W, H, Uint8Array.from(where, (v, i) => (v && Math.max(Math.abs((i % W) - stx), Math.abs(Math.floor(i / W) - sty)) >= BEND_START ? 1 : 0)), S("bend"));
   for (let i = 0; i < N; i++) if (!keep[i] && h[i] < base[i]) h[i] = base[i];
   tidy(h, r, base);
   return h;

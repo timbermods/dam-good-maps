@@ -173,8 +173,10 @@ test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   // (seed 2 since generator 0.10.7, D502, D148: seed 1's start, leaning toward a landmark in view, reshapes the map so it has
-  // no level, dry, empty ground 9 wide away from its start; seed 1 since M9a, as 0.7.0's 4242 had none 7 and 9 wide)
-  await openTopDown(page, "s=2&z=96&d=n&t=riverValley");
+  // no level, dry, empty ground 9 wide away from its start; seed 1 since M9a, as 0.7.0's 4242 had none 7 and 9 wide.
+  // Seed 3 since generator 0.10.20's contour edges and its mends (D518), D148: seed 2 has none again, and seed 3 has
+  // fifty, the nearest the middle at (50, 78))
+  await openTopDown(page, "s=3&z=96&d=n&t=riverValley");
   const start = ((await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
   const [gx, gy] = (await openGround(page, 4))[0];
   const bar = page.getByRole("toolbar", { name: "Tools" });
@@ -292,6 +294,9 @@ test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the 
   const at = await client(page, start[0], start[1]);
   await page.mouse.move(at.x + 3, at.y);
   await page.mouse.move(at.x, at.y);
+  // (the start's indicators, which show while the pointer is on the start, never take the pointer from the map: on CI their panel lay
+  // under the pointer, the map saw the pointer leave and Delete took nothing, three runs in a row, D341)
+  await expect.poll(() => page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.tagName, [at.x, at.y] as const)).toBe("CANVAS");
   const kept = (await labels(page)).length;
   await page.keyboard.press("Delete");
   await idle(page);

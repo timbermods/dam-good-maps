@@ -9,6 +9,7 @@ const PHRASES: Record<string, string> = {
   "water story (planned)": "the rivers and lakes were too plain",
   "a drained sea (planned)": "the sea drained away",
   "an island to expand to (planned)": "no island to expand to",
+  "drought reserve (planned)": "too little water stored for the drought",
   "a river's water leaves its course": "a river left its course",
   "a river's head under a lake": "a river began under a lake",
   "a sea over its shelf": "a sea stood over a wide shelf",

@@ -12,7 +12,9 @@ describe("Islands on a long map", () => {
     const [W, H] = [80, 250];
     const N = W * H;
     let shown = 0;
-    const r = generate(makeSpec({ seed: 3, theme: "islands", size: { x: W, y: H } }), { onLand: () => shown++ });
+    // (seed 1 for 3 since generator 0.10.20's contour edges, D518, D148: seed 3's largest island to settle is 32 tiles
+    // now, where seeds 1, 2 and 4–7 keep one of 208 to 867, seed 1's 502)
+    const r = generate(makeSpec({ seed: 1, theme: "islands", size: { x: W, y: H } }), { onLand: () => shown++ });
     expect(r.report.passed).toBe(true);
     expect(shown).toBe(1);
     let wet = 0;

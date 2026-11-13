@@ -130,8 +130,9 @@ test("Clear everything, a map without a start, and Z and C (items 44 and 16)", a
   await expect(page.getByText(/Place a start first/)).toBeVisible({ timeout: 60_000 });
   // the shelf's Start places one: the label says "Place here", and the click puts it there
   await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Start", exact: true }).click();
-  // (at (24, 52), dry level ground, since generator 0.10.16's ground with grade, D148: (30, 60) is under water now)
-  const p = await client(page, 24, 52);
+  // (at (30, 56), on a broad dry plateau, since D518's contour edges, D148: (24, 52) is a tile from water now and the
+  // start there is under water; (24, 52) since generator 0.10.16's ground with grade: (30, 60) was under water)
+  const p = await client(page, 30, 56);
   await page.mouse.move(p.x + 4, p.y);
   await page.mouse.move(p.x, p.y);
   await expect(page.locator(".shape-note")).toHaveText("Place here");

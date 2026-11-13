@@ -16,8 +16,9 @@ import { makeSpec } from "../../src/core/spec/mapspec";
 import { caveSession, dig, hillsides } from "./caveMap";
 
 // (seed 2 for seed 3 on generator 0.10.11, the D410 round's ramps and shores, D148: seed 3's hillsides all stand within three tiles of an object now;
-// seed 3 again since generator 0.10.18's dead stands on the dry land, D516, D148: seed 2 has no hillside clear of objects now, seed 3 has five)
-const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 64, y: 64 } }));
+// seed 3 again since generator 0.10.18's dead stands on the dry land, D516, D148: seed 2 has no hillside clear of objects now, seed 3 has five;
+// seed 6 for seed 3 since generator 0.10.20's warped contour edges and compact rises, D518, D148: seed 3 has no hillside clear of objects now, seed 6 has seven)
+const r = generate(makeSpec({ seed: 6, theme: "riverValley", size: { x: 64, y: 64 } }));
 
 /** The canonical settle of the map's water from cold. */
 function cold(s: MapSession): CanonicalWater {

@@ -674,7 +674,7 @@ refinements and what the mockups left open:
 - **The mouse with Select in hand (Kyler, 2026-10-02):** as on dev: a left-drag on the land marks an area, the middle
   button turns the view, the right button pans; the keys turn and move it. This replaces v4-01's "the right button
   turns the view".
-- **Phones** stay view-only (D185).
+- **Phones** edit maps (#1074, amending D185): the phone layouts are EDITOR_PLAN §3's "Phones".
 
 **The rule.** Wherever Kyler hasn't asked for a change, the current editor on dev wins: layout, spacing, sizes,
 colours and states. Where this document's v4 system conflicts with the current editor's look, the current editor

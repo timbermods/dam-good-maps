@@ -162,11 +162,12 @@ describe("claims", () => {
     const rig = makeRig(bytes);
     rig.connect();
     rig.settle();
-    // the guest claims ground the water reaches when the host puts a strong spring outside it
+    // the guest claims ground the water reaches when the host puts a strong spring outside it (at (28, 24) since generator
+    // 0.10.20's contour edges, D518, D148: from (22, 24) the water no longer reaches the claim; from (28, 28) it floods 12 of its tiles)
     const claim = rig.guest.claim({ kind: "claim", runs: square(30, 21, 46, 28) });
     rig.drain();
     expect((await claim).ok).toBe(true);
-    const spring: Command = { kind: "edit", label: "Place WaterSource", ops: [{ op: "placeEntity", params: { id: GUID(9001), template: "WaterSource", x: 22, y: 24, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 8, CurrentStrength: 8 } } } } as EditOp] };
+    const spring: Command = { kind: "edit", label: "Place WaterSource", ops: [{ op: "placeEntity", params: { id: GUID(9001), template: "WaterSource", x: 28, y: 28, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 8, CurrentStrength: 8 } } } } as EditOp] };
     const r = rig.host.submit(spring);
     rig.drain();
     expect(await r).toMatchObject({ ok: true });

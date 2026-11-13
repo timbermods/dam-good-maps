@@ -16,7 +16,10 @@ text this document condensed (at D390) and the deferred Claude integration's des
 
 A studio for creating maps. Start from a generated map or a real place, shape it like a painter, and the water
 responds to everything you do. It is deliberately different from the game's own editor, which is a precision
-workshop; players can still fine-tune in the game's editor if they want. The editor is desktop-first (D185).
+workshop; players can still fine-tune in the game's editor if they want. The editor was desktop-first (D185); phones and
+tablets now edit maps too, first class (#1074, amending D185): touch in the 3D view (§7, "Touch") and the phone layouts
+(§3, "Phones") are built; seeing a press before it applies, the rest of the page on a phone and the passes on real
+phones come in its later slices.
 
 ## 2. The principles
 
@@ -167,7 +170,7 @@ place of its bottom rule.
   whatever its kind, and stays kept even if every edit is undone (the first time a save is stored in a browser a quiet note says so, going by itself after 8 s: "Kept in Your maps,
   in this browser", remembered in `dgm.keptNote`; never shown for a save that failed, nor while another message holds its place, Showcase's among them: the next stored save says it); camera bookmarks alone don't keep it, and an
   unedited map is never written (Cancel during a Generate brings it back from memory), except the one a found version's **Open it** replaces: its seed now makes the version, so it is kept as it stood and a quiet note says so ("The map before it is in Your maps."). The note that offers the version says only what the check measured it to add ("A version with a longer canyon is ready"; where the check measures several things, "A version that keeps its theme's promise is ready"). Kept maps are saved quietly
-  after their edits settle (`core/library/saver.ts`) and before anything replaces them; **Your maps** in the header opens them in the generator's place (one of the two panels at a time), four to a row,
+  after their edits settle (`core/library/saver.ts`) and before anything replaces them: Generate, opening another map or a real place stores an edited map, and waits for the write, before it asks for the next map, a stroke still on its way to the worker when the button is pressed counting as an edit (`keepsMap`), so no edit is lost to Generate, a reload or a closed page (D455; the lag this adds to an edited map's click is the accepted price); **Your maps** in the header opens them in the generator's place (one of the two panels at a time), four to a row,
   scrolling inside the panel when there are more than it holds, each the map's whole picture in a square box (the core's 256px top-down
   thumbnail, made in a worker of its own when the page is idle, never cropped), its name and size under it, newest first, the open map marked, a click opening one (a click on the open
   map's own tile selects it, so the heading row's Rename and Delete reach it). A
@@ -179,7 +182,43 @@ place of its bottom rule.
   version selected, the same size as the open map; below under Versions), **Rename** (one selected) and **Delete** (any), always shown,
   greyed otherwise with the reason in Compare's tooltip; Delete asks once ("Delete 7 maps?"), focus on
   Delete so Enter confirms, Esc cancels. The Delete key deletes the selected maps, or the one under the pointer, while
-  the pointer is over Your maps or a tile has the keyboard's focus. Phones stay view-only (D185).
+  the pointer is over Your maps or a tile has the keyboard's focus. On a touch screen the view takes fingers (§7, "Touch");
+  Your maps' selection by touch comes with the rest of the page on a phone (#1074, slice 4).
+- **Phones** (#1074, slice 2; amends D185; `editor/view/phoneLayout.ts`, `usePhone.ts`, `src/styles/phone.css`;
+  `tests/e2e/layout.spec.ts` at 393×852 and 852×393). The layout goes by the room, never by the device: under 600 CSS px
+  wide the phone held upright, under 500 tall the phone on its side; anything else (a tablet, a laptop) keeps the layout
+  above. One editor: the same controls and operations (D342), only placed for a finger. **Upright:** one slim bar at the
+  top: a menu (**Map Generator**, **Real places**, **Your maps**, **History**, **Help and keys**, then File's entries),
+  the map's name (two lines at most), Undo, Redo, the checks' dot (a tap opens the checks under the bar) and **Save**
+  (Save to Timberborn's or Download .timber's call). The view fills the rest. At the foot the tools in one row that
+  scrolls sideways, icon over name, 56px tall: Select, **Objects**, the brushes, Block, the forces. The tool in hand's
+  settings stand in a sheet above the row with a grab handle: one row by default (Size and the tool's main choice, the
+  first two settings of its first row), every setting in up to half the screen when the handle is tapped or pulled up,
+  one row again when pulled down; a pulled-up sheet too short for every setting ends after a whole one (the rest scroll
+  up into view). Tapping the tool in hand puts it down. Select rests in hand with its sheet closed; a tap on it opens
+  Select's settings, a tap again puts them and any selection down. **Show**, a button at the view's top right, opens a
+  sheet of what the map shows, at most 40 % of the view so the map changes above it: under small headings, each an
+  even grid of chips, **What to show** (the Show row's toggles, Legend and its key), **Camera** (Top-down, Reset view,
+  First view, the compass, **Layers shown**: the slice, ∞ for every layer, and Look and the minimap), **Weather** (the
+  weather days) and **Forces and sound** (Slow forces, the sound and its volume, always shown: a phone has no hover).
+  **Objects** opens a sheet of large tiles, half the view at the most; a tile picked closes it to one row saying what
+  is in hand (its picture, its name, **Put it down**), its settings under it when the sheet is pulled up. A picked
+  source's or object's window stands above the row as a tool's settings do. One sheet at a time: a tool taken up
+  closes Show and the objects. **The map keeps to the room left** (planning, #1074; on a phone only, the desktop's
+  view never moves for a panel, D265): a sheet or the panel opening or closing slides the view, its zoom and angle
+  kept, so the ground in the middle of the room the controls leave stays in its middle, and Reset view frames the map
+  in that room (`view/usePhone.ts`, `view/insets.ts`). The tapped tile's readout sits at the view's top left. The
+  first steps' hints say what a finger does and stand above the sheet, never over a control or the map's middle (they
+  step aside while a sheet is pulled up), and their × puts them away for good. The menu's panels lie over the view at
+  the screen's width and scroll inside (their own phone layouts are slice 4). **On its side:** the same bar; the tools
+  in a rail down the left edge; a tool's settings, Show and the objects in a panel at the right, at most 40 % of the
+  width (320px), clear of Show's button at the bottom right; the menu in columns, the panels and Help in the first,
+  all of it in view; the hints in the room's left half at rest, stepping aside while a sheet or the panel is open.
+  **Everywhere on a phone:** every control at least 44px, none off the screen, the page never zoomed or scrolled (the
+  editor is the dynamic viewport's height and clips what would spill), the notch and the home bar kept clear (safe
+  areas, `viewport-fit=cover`), fields 16px so the browser never zooms on focus. A long press on a control shows its
+  tooltip (D351) and is not a tap. With a tool's one-row sheet open the view keeps 66 % of the screen upright and 63 %
+  on its side (the spec holds 60 %).
 - **Together** (D362, D431, D486; `docs/COLLAB-BRIEF.md`; part 6a): two players edit one map through a relay and a
   room-code function, in the page's own panel style. One quiet button in the header's right group, before **File**
   (a small people icon and "Together", the icon alone, 40px square like Undo and Redo, below about 1,400px wide; tooltip
@@ -1058,11 +1097,13 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   most of it pressed on moist soil (an island in a lake is all moist), else "Nothing here to weather" (showcase-craft gap 23). It
   weathers dab by dab: each dab weathers the land the dabs before it left, only round where it presses harder
   (and edges wander only there), so a dab costs its own footprint, and the replay does exactly the same. Its edges
-  also wander only where it presses harder than the weathering strokes before it did on the land as they left it (rule
-  6: the build keeps how hard they pressed, the session's terrain hands it to the page, and the stroke records what it
-  read, `worn`), so the same stroke painted again only sheds and settles what the last one left and comes to rest;
-  before, each repeat drew its edges again along the noise and the shed wore them back, and the land kept changing,
-  most at Terracing 100 (River Valley 2: 164, 147, 77, 126, … tiles a stroke; now 164, 3, then nothing). It is
+  also wander, and its cliffs shed, only where it presses harder than the weathering strokes before it did on the land
+  as they left it (a cliff on either of its sides) (rule 6: the build keeps how hard they pressed, the session's terrain hands it to the page, and the
+  stroke records what it read, `worn`), so the same stroke painted again only settles what the last one left and comes
+  to rest; before, each repeat drew its edges again along the noise and the shed wore them back, and the land kept
+  changing, most at Terracing 100 (River Valley 2: 164, 147, 77, 126, … tiles a stroke; then 164, 3, then nothing). A
+  repeat's shed also found the ground that holds a shed slope on the slope the last stroke cut, and cut it a level or two
+  deeper each time, for four strokes or more on D518's land (Canyon 4: 529, 290, 42, 4); now 529, then nothing. It is
   weathered off the page in a worker of its own (D422, #868: `worker/naturalize.worker.ts`, `raster/remoteStroke.ts`),
   on the terrain and land the page shows, one call out at a time and the dabs meanwhile as one batch, the land a frame
   or two behind the cursor; the page sends that land to the map's worker for its water, as for the other brushes. Every
@@ -1244,7 +1285,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   background, as after any edit). A source within 4 tiles of a new edge gets a minimal lip (M9b's idea, `water/edgeLip.ts`; `lipNewEdges`):
   the cropped map's water is settled and only the new-edge tiles its water leaves through are raised, each to the level
   of the water beside it (a floor level with the surface takes none: the game's head difference is zero), never a tile
-  on a side the crop did not cut, so it does not pour off the map and nothing reads as a wall (D151). A cropped map has no "as opened"
+  on a side the crop did not cut, so it does not pour off the map and nothing reads as a wall (D151). An object on a raised tile
+  rises with it (the start, sources and slopes keep their ground); one that would no longer stand level goes, counted with the
+  objects the edge cuts. A cropped map has no "as opened"
   map: its problems are the player's own (the checks list none as existing). A rename is never undone with a crop (D443).
   Not yet in the core: the checks dot's edge-wall warning and its fix, and re-reading the name and "how it plays" line.
   Collaborative editing leaves a crop to the host (D362 (9)).
@@ -1564,7 +1607,7 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   freehand with the mouse (D321). Slow forces is a view-bar toggle with no key.
 - **When the window loses focus** (D361, item 5) the editor lets go of everything held: every camera key and
   Shift's speed, F's sizing (kept), and any stroke or gesture in progress ends as a released mouse button would
-  end it, at the pointer's last place (`render3d/focusLost.ts`).
+  end it, at the pointer's last place (`render3d/focusLost.ts`); a finger on the view is forgotten the same way.
 - **One key habit for every tool** (D368 (1), (11); `keyHabit` in `forceSize.ts`): F with the mouse, and { and },
   set the Size; F held with the wheel, and [ and ], set the strength (a force's Power, Smooth and Naturalize's
   strength; nothing on Raise, Lower and Flatten, which have a target level instead); the number shows beside the
@@ -1572,6 +1615,24 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   zooms; Shift+scroll sets Raise, Lower and Flatten's target level (D322) and Smooth and Naturalize's strength,
   Ctrl+scroll a hovered source's strength, Esc backs out (a target set by hand first). Quake has no Size. U
   unleashes a selected source (D239).
+- **Touch** (#1074, slice 1; amends D185; `render3d/touch.ts`, `tests/e2e/touch.spec.ts` at both phone sizes and a
+  desktop's). A finger is a pointer of its own type, so the mouse, the pen (its pressure) and the keys keep everything
+  above. **Two fingers** move the camera in one gesture: dragged they pan, pinched they zoom about the ground under their
+  middle (it stays under it, as the wheel's does), twisted they turn the view about that ground, and two fingers side by
+  side dragged up or down together tilt it (in the top-down view that drag pans); let go moving, the view glides on and
+  slows to a stop (none with reduced motion). **One finger with nothing in hand** (the resting Select with nothing
+  selected) pans; a **tap** reads the tile (the readout stays once the finger is gone) and is a click (a source is
+  picked as by the mouse); a **double tap** glides in to half the distance about the spot. **One finger with a brush**
+  paints, the ring under it while it is down. A press on a source or the start, an object, a force, the Block tool, a
+  shape or the shelf's object, and with a selection open, is the mouse's press for now (press, drag, lift); seeing it
+  before it applies comes in slice 3. **A second finger** down during a stroke or a press cancels it, nothing applied and
+  no step (the tool's own cancel, as Esc), and the rest of that touch is the camera's: the finger left after a pinch pans.
+  **A two-finger tap is Undo, a three-finger tap Redo** (Z and C's calls; the buttons stay). The browser's own gestures
+  are off over the editor: the view's canvas takes every finger (`touch-action: none`, no callout, no selection), the
+  editor allows only panning a panel (`touch-action: pan-x pan-y`: no pinch or double-tap zoom of the page), iOS
+  Safari's own pinch (`gesturestart`) is prevented while the view is there, no pull to refresh over the editor, and on a
+  touch screen no text selection but in a field. Measured on Chrome's touch emulation; real iOS Safari and Android
+  Chrome are checked with the phone layouts (#1074, slice 5).
 - Ctrl+Shift+1 to 9 saves a camera bookmark (position, angle, zoom), and Alt+1 to 9 glides back to it (Shift and a
   number pick a force); bookmarks
   are saved with the project. Every tool is reachable by keyboard, with labels for screen readers. (D180, D184,
