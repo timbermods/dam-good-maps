@@ -16,7 +16,9 @@ text this document condensed (at D390) and the deferred Claude integration's des
 
 A studio for creating maps. Start from a generated map or a real place, shape it like a painter, and the water
 responds to everything you do. It is deliberately different from the game's own editor, which is a precision
-workshop; players can still fine-tune in the game's editor if they want. The editor is desktop-first (D185).
+workshop; players can still fine-tune in the game's editor if they want. The editor was desktop-first (D185); phones and
+tablets now edit maps too, first class (#1074, amending D185): touch in the 3D view is built (§7, "Touch"), the phone
+layouts and the rest come in its later slices.
 
 ## 2. The principles
 
@@ -179,7 +181,8 @@ place of its bottom rule.
   version selected, the same size as the open map; below under Versions), **Rename** (one selected) and **Delete** (any), always shown,
   greyed otherwise with the reason in Compare's tooltip; Delete asks once ("Delete 7 maps?"), focus on
   Delete so Enter confirms, Esc cancels. The Delete key deletes the selected maps, or the one under the pointer, while
-  the pointer is over Your maps or a tile has the keyboard's focus. Phones stay view-only (D185).
+  the pointer is over Your maps or a tile has the keyboard's focus. On a touch screen the view takes fingers (§7, "Touch");
+  Your maps' selection by touch comes with the phone layouts (#1074).
 - **Together** (D362, D431, D486; `docs/COLLAB-BRIEF.md`; part 6a): two players edit one map through a relay and a
   room-code function, in the page's own panel style. One quiet button in the header's right group, before **File**
   (a small people icon and "Together", the icon alone, 40px square like Undo and Redo, below about 1,400px wide; tooltip
@@ -1566,7 +1569,7 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   freehand with the mouse (D321). Slow forces is a view-bar toggle with no key.
 - **When the window loses focus** (D361, item 5) the editor lets go of everything held: every camera key and
   Shift's speed, F's sizing (kept), and any stroke or gesture in progress ends as a released mouse button would
-  end it, at the pointer's last place (`render3d/focusLost.ts`).
+  end it, at the pointer's last place (`render3d/focusLost.ts`); a finger on the view is forgotten the same way.
 - **One key habit for every tool** (D368 (1), (11); `keyHabit` in `forceSize.ts`): F with the mouse, and { and },
   set the Size; F held with the wheel, and [ and ], set the strength (a force's Power, Smooth and Naturalize's
   strength; nothing on Raise, Lower and Flatten, which have a target level instead); the number shows beside the
@@ -1574,6 +1577,24 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   zooms; Shift+scroll sets Raise, Lower and Flatten's target level (D322) and Smooth and Naturalize's strength,
   Ctrl+scroll a hovered source's strength, Esc backs out (a target set by hand first). Quake has no Size. U
   unleashes a selected source (D239).
+- **Touch** (#1074, slice 1; amends D185; `render3d/touch.ts`, `tests/e2e/touch.spec.ts` at both phone sizes and a
+  desktop's). A finger is a pointer of its own type, so the mouse, the pen (its pressure) and the keys keep everything
+  above. **Two fingers** move the camera in one gesture: dragged they pan, pinched they zoom about the ground under their
+  middle (it stays under it, as the wheel's does), twisted they turn the view about that ground, and two fingers side by
+  side dragged up or down together tilt it (in the top-down view that drag pans); let go moving, the view glides on and
+  slows to a stop (none with reduced motion). **One finger with nothing in hand** (the resting Select with nothing
+  selected) pans; a **tap** reads the tile (the readout stays once the finger is gone) and is a click (a source is
+  picked as by the mouse); a **double tap** glides in to half the distance about the spot. **One finger with a brush**
+  paints, the ring under it while it is down. A press on a source or the start, an object, a force, the Block tool, a
+  shape or the shelf's object, and with a selection open, is the mouse's press for now (press, drag, lift); seeing it
+  before it applies comes in slice 3. **A second finger** down during a stroke or a press cancels it, nothing applied and
+  no step (the tool's own cancel, as Esc), and the rest of that touch is the camera's: the finger left after a pinch pans.
+  **A two-finger tap is Undo, a three-finger tap Redo** (Z and C's calls; the buttons stay). The browser's own gestures
+  are off over the editor: the view's canvas takes every finger (`touch-action: none`, no callout, no selection), the
+  editor allows only panning a panel (`touch-action: pan-x pan-y`: no pinch or double-tap zoom of the page), iOS
+  Safari's own pinch (`gesturestart`) is prevented while the view is there, no pull to refresh over the editor, and on a
+  touch screen no text selection but in a field. Measured on Chrome's touch emulation; real iOS Safari and Android
+  Chrome are checked with the phone layouts (#1074, slice 5).
 - Ctrl+Shift+1 to 9 saves a camera bookmark (position, angle, zoom), and Alt+1 to 9 glides back to it (Shift and a
   number pick a force); bookmarks
   are saved with the project. Every tool is reachable by keyboard, with labels for screen readers. (D180, D184,

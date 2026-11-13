@@ -1159,7 +1159,9 @@ pays off) is not part of M9b's five outcomes. It needs a design step of its own,
 
 **Versioned deploys and mobile layouts** (Kyler, 2026-09-27; D285 (1), moved out of M13): versioned
 deploys at `/v/<version>/`, so an old-version link reproduces its file; and a mobile layout for the
-generator page and the Real places gallery (the editor stays desktop-first, D185).
+generator page and the Real places gallery. The editor itself becomes a first-class phone and tablet editor (#1074,
+amending D185), in five slices: touch in the 3D view (built), the phone layouts, seeing before applying by touch, the
+rest of the page on a phone, and a pass on tablets and real phones.
 
 **A companion mod for one-click play** (Kyler, 2026-09-25; D163; built in `mods/companion/`, its README is the
 player text). A small mod: the main menu gets "Play latest Dam Good Maps map" (the newest `dgm-*` map in the Maps folder,
@@ -1181,6 +1183,5 @@ Each item below stays behind a feature flag until its own in-game check passes:
 - flood challenges: 4 workshop maps start flooded or in a badwater sea; they need a challenge
   profile that relaxes `start.dry` and `water.no_flood`, with a warning.
 
-No longer planned: touch support (the editor is desktop-first, D185; pen pressure on drawing
-tablets came with Live editing); "make editable" detection for imported maps (the brushes edit
-any map as it is, D182); and a shared online stamp gallery (D253 removed stamps).
+No longer planned: "make editable" detection for imported maps (the brushes edit any map as it is, D182); and a shared
+online stamp gallery (D253 removed stamps). Touch support, once here, came back with #1074 (amending D185).

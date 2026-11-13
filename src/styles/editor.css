@@ -104,7 +104,11 @@ button[aria-pressed="true"] {
   display: block;
   width: 100%;
   height: 100%;
+  /* every finger is the view's own (render3d/touch.ts): no browser pan, zoom, text selection or long-press callout */
   touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .view3d > canvas:focus-visible:not([data-mouse]) {
@@ -218,11 +222,29 @@ button[aria-pressed="true"] {
 
 /* the editor */
 
+/* the browser's own gestures stay off the editor (#1074): no pinch or double-tap zoom of the page (iOS Safari's pinch is
+   prevented by the view, render3d/touch.ts), no long-press callout, and on a touch screen no text selection but in a
+   field; a panel still scrolls */
 .editor {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   height: 100vh;
   background: var(--bg);
+  touch-action: manipulation;
+  touch-action: pan-x pan-y;
+  -webkit-touch-callout: none;
+}
+
+@media (pointer: coarse) {
+  .editor {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .editor :where(input, textarea, [contenteditable="true"]) {
+    -webkit-user-select: text;
+    user-select: text;
+  }
 }
 
 .editor-bar {
