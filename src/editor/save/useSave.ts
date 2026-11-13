@@ -123,8 +123,8 @@ export function useSave(ed: Ed): SaveSlice {
 
   /** The file for Timberborn out of the page: to the share sheet on a phone that has one (a tap again if the browser
    *  wants a fresh one, the file kept meanwhile), else downloaded. */
-  async function deliver(bytes: Uint8Array, fileName: string) {
-    const r = await shareOrDownload(bytes, fileName, liveShareDeps(saveFile));
+  async function deliver(bytes: Uint8Array, fileName: string, freshTap = false) {
+    const r = await shareOrDownload(bytes, fileName, liveShareDeps(saveFile), freshTap);
     if (r === "downloaded") setMessage({ kind: "info", text: `Saved ${fileName}. ${MOVE_IT}` });
     else if (r === "shared") setMessage({ kind: "info", text: `Sent ${fileName}. ${MOVE_IT}` });
     else
@@ -132,7 +132,7 @@ export function useSave(ed: Ed): SaveSlice {
         kind: "info",
         text: r === "closed" ? `${fileName} is ready, not sent yet.` : `${fileName} is ready to send.`,
         keep: true,
-        action: { label: "Send it", tip: "Open the share sheet for the map's file", run: () => void deliver(bytes, fileName) },
+        action: { label: "Send it", tip: "Open the share sheet for the map's file", run: () => void deliver(bytes, fileName, true) },
       });
   }
 

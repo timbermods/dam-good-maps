@@ -50,4 +50,14 @@ describe("shareOrDownload", () => {
     expect(await shareOrDownload(BYTES, "a.timber", other.d)).toBe("downloaded");
     expect(other.downloaded).toEqual([[BYTES, "a.timber"]]);
   });
+
+  it("downloads when the share is still refused on a tap made for it, so the file always leaves the page", async () => {
+    const again = deps({ fail: "NotAllowedError" });
+    expect(await shareOrDownload(BYTES, "a.timber", again.d, true)).toBe("downloaded");
+    expect(again.downloaded).toEqual([[BYTES, "a.timber"]]);
+    // a sheet closed on that tap is still only closed
+    const closed = deps({ fail: "AbortError" });
+    expect(await shareOrDownload(BYTES, "a.timber", closed.d, true)).toBe("closed");
+    expect(closed.downloaded).toEqual([]);
+  });
 });

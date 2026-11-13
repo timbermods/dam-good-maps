@@ -31,8 +31,9 @@ export function canShareFile(file: File, deps: ShareDeps): boolean {
   }
 }
 
-/** Hand the map to the share sheet where there is one, else download it. */
-export async function shareOrDownload(bytes: Uint8Array, name: string, deps: ShareDeps): Promise<ShareResult> {
+/** Hand the map to the share sheet where there is one, else download it. `freshTap`: this call comes straight from
+ *  a tap made for it ("Send it"), so a browser that still refuses the share will never allow it: the file downloads. */
+export async function shareOrDownload(bytes: Uint8Array, name: string, deps: ShareDeps, freshTap = false): Promise<ShareResult> {
   const file = mapFile(bytes, name);
   if (!canShareFile(file, deps)) {
     deps.download(bytes, name);
@@ -45,7 +46,7 @@ export async function shareOrDownload(bytes: Uint8Array, name: string, deps: Sha
     const kind = e instanceof Error || (typeof e === "object" && e && "name" in e) ? (e as { name: string }).name : "";
     if (kind === "AbortError") return "closed";
     // (the tap that asked has lapsed while the file was built: the share waits for another)
-    if (kind === "NotAllowedError") return "needs-tap";
+    if (kind === "NotAllowedError" && !freshTap) return "needs-tap";
     deps.download(bytes, name);
     return "downloaded";
   }
