@@ -38,19 +38,18 @@ export const PLACES_WATER_WITHOUT_OUTLET = new Set([
 /** Water sources start rivers (D171): the places whose conversion puts a source inside a flow
  *  another source already feeds (`water.source_in_flow`, a design check: it fails the generate
  *  profile; in the export profile it does not apply, since sources go anywhere in the editor,
- *  D184). Real places 2 places sources only at heads and empties this list. */
+ *  D184). The mend (tools/lib/placeSources.ts) merges a flagged source into its head where it can; what stays is here:
+ *  rows of sources along a map edge, sources with no head within 20 tiles and merges that move the depth below too far.
+ *  The list only shrinks. */
 export const PLACES_SOURCES_IN_FLOW = new Set([
-  "near-alaknanda-and-bhagirathi", "near-altiplano", "near-atacama-fan", "near-bandiagara",
   "near-blyde-river-canyon", "near-brahmaputra-near-majuli", "near-capitol-reef",
-  "near-chilean-aysen-fjord", "near-chocolate-hills", "near-death-valley",
-  "near-ennedi-plateau", "near-ethiopian-highlands", "near-finnish-saimaa", "near-geirangerfjord",
-  "near-glencoe", "near-goosenecks-san-juan", "near-gullfoss", "near-iguazu-falls",
-  "near-ilulissat-icefjord", "near-kenai-aialik-bay", "near-lena-delta", "near-lofoten",
-  "near-mamore-river", "near-milford-sound", "near-monument-valley", "near-mount-fuji",
+  "near-chilean-aysen-fjord", "near-chocolate-hills", "near-death-valley", "near-ethiopian-highlands",
+  "near-finnish-saimaa", "near-geirangerfjord", "near-glencoe", "near-goosenecks-san-juan",
+  "near-gullfoss", "near-iguazu-falls", "near-ilulissat-icefjord", "near-kenai-aialik-bay",
+  "near-lofoten", "near-mamore-river", "near-milford-sound", "near-monument-valley", "near-mount-fuji",
   "near-mount-mayon", "near-niagara-falls", "near-painted-desert", "near-phong-nha",
   "near-rhine-and-moselle", "near-roaring-river-fan", "near-sete-cidades", "near-skeidara-outwash",
-  "near-taklimakan-kunlun-fan", "near-tara-gorge", "near-tiger-leaping-gorge", "near-todgha-gorge",
-  "near-toklat-river", "near-tsingy-bemaraha", "near-twelve-apostles",
+  "near-taklimakan-kunlun-fan", "near-tara-gorge", "near-toklat-river", "near-twelve-apostles",
 ]);
 
 /** A mine site on every map (Kyler, 2026-09-25): the places as converted for real-places-done have
