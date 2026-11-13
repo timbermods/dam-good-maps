@@ -53,7 +53,7 @@ export interface View3DProps {
   cornerBelow?: ComponentChildren;
   /** A phone's layout (#1074): the Show row, the legend and the corner gathered in one sheet, with `extra` (the weather
    *  days, the minimap, Look) after them, shown while `open`; absent, the desktop's places. */
-  phoneShow?: { open: boolean; extra: ComponentChildren } | null;
+  phoneShow?: { open: boolean; weather?: ComponentChildren; minimap?: ComponentChildren; look?: ComponentChildren } | null;
   /** **Height colours** and **Markers** among the view buttons, not in the legend (the editor's
    *  layout, D184). */
   togglesInButtons?: boolean;
@@ -557,7 +557,35 @@ export function View3D(props: View3DProps) {
         <span class="label">First view</span>
       </button>
     );
-  // the Show row, the key under Legend and the corner (a phone's Show sheet gathers them, #1074)
+  // the pieces the desktop's places and a phone's Show sheet share (#1074)
+  const legendToggle = (
+    <ShowRow on={legendOpen} onToggle={() => fold(!legendOpen)} tip={tip("What the map's colours mean")} controls={legendId}>
+      Legend
+    </ShowRow>
+  );
+  // the key under Legend: the legend while it is ticked, an overlay's caption at its top (the legend holds Heights' own
+  // line); or, with Legend off, the overlays' captions alone
+  const legendKey = legendOpen ? (
+    <aside class="legend-panel in-column" id={legendId} aria-label="Legend">
+      {props.caption ? <div class="key-caption">{props.caption}</div> : null}
+      {legendBody}
+    </aside>
+  ) : (ground === "height" && range) || props.caption ? (
+    <div class="show-key" role="note" aria-label="Key">
+      {ground === "height" && range ? (
+        <div class="overlay-legend">
+          <p class="ol-head">Ground height</p>
+          <div class="ol-ramp" style={{ background: heightSwatch }} />
+          <div class="ol-ends">
+            <span>Low {range[0]}</span>
+            <span>High {range[1]}</span>
+          </div>
+        </div>
+      ) : null}
+      {props.caption}
+    </div>
+  ) : null;
+  // the desktop's: the Show row, the key under Legend and the corner
   const viewChrome = (
     <>
       <div ref={controls} class="view3d-controls show-bar" role="group" aria-label="Show">
@@ -567,32 +595,9 @@ export function View3D(props: View3DProps) {
       <div class="legend-stack">
         <div class="legend-row" role="group" aria-label="Legend and overlays">
           {props.besideLegend}
-          <ShowRow on={legendOpen} onToggle={() => fold(!legendOpen)} tip={tip("What the map's colours mean")} controls={legendId}>
-            Legend
-          </ShowRow>
+          {legendToggle}
         </div>
-        {/* the key under Legend: the legend while it is ticked, an overlay's caption at its top (the legend holds
-            Heights' own line); or, with Legend off, the overlays' captions alone */}
-        {legendOpen ? (
-          <aside class="legend-panel in-column" id={legendId} aria-label="Legend">
-            {props.caption ? <div class="key-caption">{props.caption}</div> : null}
-            {legendBody}
-          </aside>
-        ) : (ground === "height" && range) || props.caption ? (
-          <div class="show-key" role="note" aria-label="Key">
-            {ground === "height" && range ? (
-              <div class="overlay-legend">
-                <p class="ol-head">Ground height</p>
-                <div class="ol-ramp" style={{ background: heightSwatch }} />
-                <div class="ol-ends">
-                  <span>Low {range[0]}</span>
-                  <span>High {range[1]}</span>
-                </div>
-              </div>
-            ) : null}
-            {props.caption}
-          </div>
-        ) : null}
+        {legendKey}
       </div>
       <div class="view3d-corner" role="group" aria-label="Camera and switches">
         <div class={`camera-group${firstView ? " with-first-view" : ""}`} role="group" aria-label="Camera">
@@ -606,6 +611,52 @@ export function View3D(props: View3DProps) {
       </div>
     </>
   );
+  // a phone's Show sheet (#1074): the same controls under small headings, each group an even grid of chips
+  const ps = props.phoneShow;
+  const phoneSheet = ps ? (
+    <div class="phone-show" role="region" aria-label="Show" hidden={!ps.open}>
+      <section class="ps-group" aria-labelledby="ps-what">
+        <h3 class="ps-head" id="ps-what">What to show</h3>
+        <div ref={controls} class="ps-grid" role="group" aria-label="Show">
+          {toggles}
+          {props.viewButtons}
+          {props.besideLegend}
+          {legendToggle}
+        </div>
+        {legendKey}
+      </section>
+      <section class="ps-group" aria-labelledby="ps-camera">
+        <h3 class="ps-head" id="ps-camera">Camera</h3>
+        <div class="ps-grid" role="group" aria-label="Camera">
+          {topDown}
+          {reset}
+          {firstView}
+          {compassDial}
+        </div>
+        {/* (the slice: which layers show, cut from the top; ∞ is every layer) */}
+        <div class="ps-line">
+          <span class="ps-label">Layers shown</span>
+          {props.cornerLevel}
+        </div>
+        {ps.look || ps.minimap ? (
+          <div class="ps-line">
+            {ps.look}
+            {ps.minimap}
+          </div>
+        ) : null}
+      </section>
+      {ps.weather ? (
+        <section class="ps-group" aria-labelledby="ps-weather">
+          <h3 class="ps-head" id="ps-weather">Weather</h3>
+          {ps.weather}
+        </section>
+      ) : null}
+      <section class="ps-group" aria-labelledby="ps-sound">
+        <h3 class="ps-head" id="ps-sound">Forces and sound</h3>
+        <div class="ps-grid">{props.cornerBelow}</div>
+      </section>
+    </div>
+  ) : null;
   if (column)
     // Layout 2 (Kyler, 2026-10-03): the Show toggles as one column of checkbox rows at the map's top left, Legend
     // last, its legend under them while ticked; the camera group at the top right, the slice, Slow forces and the
@@ -617,14 +668,7 @@ export function View3D(props: View3DProps) {
           {error ? <p class="view3d-error">{error}</p> : null}
           {/* (Kyler, 2026-10-04) the Show toggles in one row at the top left, below the header; Legend on its own at
               the top right, just left of Top-down, the legend under it while ticked */}
-          {props.phoneShow ? (
-            <div class="phone-show" role="region" aria-label="Show" hidden={!props.phoneShow.open}>
-              {viewChrome}
-              {props.phoneShow.extra}
-            </div>
-          ) : (
-            viewChrome
-          )}
+          {phoneSheet ?? viewChrome}
           {/* the coordinates over the readout, directly above the minimap (Kyler, 2026-10-04) */}
           <div class="bottom-left-stack">
             <div ref={coordsEl} class="coords" aria-label="Coordinates" hidden />

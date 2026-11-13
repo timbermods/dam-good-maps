@@ -255,8 +255,30 @@ export interface PhoneBar {
   objectsOpen: boolean;
   holding: boolean;
   onObjects(): void;
-  /** The object in hand's window (or a picked source's): it takes the settings' sheet, as a tool's settings do. */
+  /** What is in hand from the objects (or a picked source's window): it takes the settings' sheet, as a tool's settings
+   *  do; `objectMore`: it has settings to pull up. */
   object?: ComponentChildren;
+  objectMore?: boolean;
+}
+
+/** A pulled-up sheet too short for every setting ends after a whole one, never on a name with its control cut off
+ *  below it: its settings' height stops at the first one the room would cut (the rest scroll up into view). */
+function endOnWhole(sheet: HTMLElement | null, tall: boolean): void {
+  const grid = sheet?.querySelector<HTMLElement>(":scope > .settings-grid");
+  if (!grid) return;
+  grid.style.maxHeight = "";
+  if (!tall) return;
+  const room = grid.clientHeight;
+  if (grid.scrollHeight <= room + 1) return;
+  const top = grid.getBoundingClientRect().top - grid.scrollTop;
+  let cut = room;
+  for (const g of grid.children) {
+    const r = g.getBoundingClientRect();
+    if (!r.height) continue;
+    if (r.bottom - top > room + 0.5) cut = Math.min(cut, r.top - top);
+  }
+  // (less the gap between two settings)
+  grid.style.maxHeight = `${Math.max(44, Math.floor(cut - 6))}px`;
 }
 
 /** How far a drag on the grab handle goes before it pulls the sheet up or down, in CSS px. */
@@ -586,14 +608,17 @@ export function TopBar(p: TopBarProps) {
   ) : (
     (p.phone?.object ?? p.selectRow ?? null)
   );
-  // (an object's window has no rows to pull up: no handle)
-  const handle = !!p.phone && grid !== p.phone.object;
+  // (what is in hand pulls up its settings when it has some; a picked object's window has no rows to pull up)
+  const handle = !!p.phone && (grid !== p.phone.object || !!p.phone.objectMore);
   const button = (tool: BrushTool | "select" | "block" | Verb, name: string, label: string, pressed: boolean, title: ReturnType<typeof tip>, disabled: boolean | undefined, onClick: () => void) => (
     <button type="button" key={tool} class="icon-button" aria-pressed={pressed} aria-label={label} {...title} disabled={disabled} onClick={onClick}>
       <Icon tool={tool} />
       <span class="icon-word">{name}</span>
     </button>
   );
+  // (a phone's pulled-up sheet ends on a whole setting; laid out again whenever the editor draws)
+  const sheet = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => endOnWhole(sheet.current, !!p.phone?.tall));
   // the hints' and the messages' one width: the hints' own with all three lines, in whole pixels, once the fonts are in
   const dock = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -611,7 +636,7 @@ export function TopBar(p: TopBarProps) {
       {p.hints ?? null}
       {p.selectChip ? <div class="working-note">{p.selectChip}</div> : null}
       {grid ? (
-        <div class={`map-bar tool-settings${p.phone ? (p.phone.tall ? " sheet tall" : " sheet") : ""}`}>
+        <div ref={sheet} class={`map-bar tool-settings${p.phone ? (p.phone.tall ? " sheet tall" : " sheet") : ""}`}>
           {p.phone && handle ? <SheetHandle tall={p.phone.tall} onTall={p.phone.onTall} /> : null}
           {grid}
         </div>

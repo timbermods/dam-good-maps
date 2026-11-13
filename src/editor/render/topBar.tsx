@@ -18,6 +18,24 @@ export function topBar(ed: Ed, props: EditorProps) {
   } = ed;
   // (a phone: the object in hand's window takes the settings' sheet above the tool row)
   const objectPanel = phone && !unleashRow() ? (ed.shelfRow() ?? ed.pickedRow()) : null;
+  // the object in hand from the objects' sheet: one row saying what it is (its picture, its name, Put it down), its
+  // settings under it when the sheet is pulled up; a picked source or object on the map: its window as it is
+  const heldItem = phone && shelf ? shelf : null;
+  const heldPicture = heldItem ? (ed.icons[heldItem.picture ? heldItem.id : heldItem.template] ?? null) : null;
+  const objectSheet = heldItem ? (
+    <div class="phone-held" role="group" aria-label={`${heldItem.name} in hand`}>
+      <div class="held-line">
+        {heldPicture ? <img src={heldPicture} alt="" width={36} height={36} draggable={false} /> : null}
+        <span class="held-name">{heldItem.name}</span>
+        <button type="button" class="held-close" aria-label="Put it down" {...tip("Put it down", "X", "Esc")} onClick={() => ed.pickShelf(null)}>
+          ×
+        </button>
+      </div>
+      {objectPanel && ed.sheetTall ? <ObjectWindow panel={{ ...objectPanel, onClose: undefined }} /> : null}
+    </div>
+  ) : objectPanel ? (
+    <ObjectWindow panel={objectPanel} />
+  ) : null;
   const notes =
     message || props.notice || props.compare ? (
       <>
@@ -101,7 +119,8 @@ export function topBar(ed: Ed, props: EditorProps) {
               objectsOpen: phoneSheet === "objects",
               holding: !!shelf,
               onObjects: () => setPhoneSheet(phoneSheet === "objects" ? null : "objects"),
-              object: objectPanel ? <ObjectWindow panel={objectPanel} /> : null,
+              object: objectSheet,
+              objectMore: !!heldItem && !!objectPanel?.groups.length,
             }
           : null
       }

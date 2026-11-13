@@ -194,16 +194,26 @@ place of its bottom rule.
   scrolls sideways, icon over name, 56px tall: Select, **Objects**, the brushes, Block, the forces. The tool in hand's
   settings stand in a sheet above the row with a grab handle: one row by default (Size and the tool's main choice, the
   first two settings of its first row), every setting in up to half the screen when the handle is tapped or pulled up,
-  one row again when pulled down. Tapping the tool in hand puts it down. Select rests in hand with its sheet closed; a
-  tap on it opens Select's settings, a tap again puts them and any selection down. **Show**, a button at the view's top
-  right, opens a sheet of what the map shows: the Show row's toggles, Legend and its key, the camera's buttons, the
-  slice, Slow forces and the sound, the weather days, the minimap and Look. **Objects** opens a sheet of large tiles; a
-  tile picked closes it, and the object in hand's window stands above the row as a tool's settings do. One sheet at a
-  time: a tool taken up closes Show and the objects. The tapped tile's readout sits at the view's top left. The first
-  steps' hints say what a finger does and stand above the sheet, never over a control, and their × puts them away for
-  good. The menu's panels lie over the view at the screen's width and scroll inside (their own phone layouts are
-  slice 4). **On its side:** the same bar; the tools in a rail down the left edge; a tool's settings, Show and the
-  objects in a panel at the right, at most 40 % of the width (320px), clear of Show's button at the bottom right.
+  one row again when pulled down; a pulled-up sheet too short for every setting ends after a whole one (the rest scroll
+  up into view). Tapping the tool in hand puts it down. Select rests in hand with its sheet closed; a tap on it opens
+  Select's settings, a tap again puts them and any selection down. **Show**, a button at the view's top right, opens a
+  sheet of what the map shows, at most 40 % of the view so the map changes above it: under small headings, each an
+  even grid of chips, **What to show** (the Show row's toggles, Legend and its key), **Camera** (Top-down, Reset view,
+  First view, the compass, **Layers shown**: the slice, ∞ for every layer, and Look and the minimap), **Weather** (the
+  weather days) and **Forces and sound** (Slow forces, the sound and its volume, always shown: a phone has no hover).
+  **Objects** opens a sheet of large tiles, half the view at the most; a tile picked closes it to one row saying what
+  is in hand (its picture, its name, **Put it down**), its settings under it when the sheet is pulled up. A picked
+  source's or object's window stands above the row as a tool's settings do. One sheet at a time: a tool taken up
+  closes Show and the objects. **The map keeps to the room left** (planning, #1074; on a phone only, the desktop's
+  view never moves for a panel, D265): a sheet or the panel opening or closing slides the view, its zoom and angle
+  kept, so the ground in the middle of the room the controls leave stays in its middle, and Reset view frames the map
+  in that room (`view/usePhone.ts`, `view/insets.ts`). The tapped tile's readout sits at the view's top left. The
+  first steps' hints say what a finger does and stand above the sheet, never over a control or the map's middle (they
+  step aside while a sheet is pulled up), and their × puts them away for good. The menu's panels lie over the view at
+  the screen's width and scroll inside (their own phone layouts are slice 4). **On its side:** the same bar; the tools
+  in a rail down the left edge; a tool's settings, Show and the objects in a panel at the right, at most 40 % of the
+  width (320px), clear of Show's button at the bottom right; the menu in columns, the panels and Help in the first,
+  all of it in view; the hints in the room's left half at rest, stepping aside while a sheet or the panel is open.
   **Everywhere on a phone:** every control at least 44px, none off the screen, the page never zoomed or scrolled (the
   editor is the dynamic viewport's height and clips what would spill), the notch and the home bar kept clear (safe
   areas, `viewport-fit=cover`), fields 16px so the browser never zooms on focus. A long press on a control shows its

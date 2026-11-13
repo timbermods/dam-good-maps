@@ -48,23 +48,12 @@ export function editorView(ed: Ed, props: EditorProps) {
       stamp={`${info.version}:${waterTick}:${weather ?? ""}:${heldTick}:${ed.compareFlipped ? "other" : ""}`}
     />
   );
-  // a phone's Show sheet (#1074): the Show row, the key and the corner, then the weather days, the minimap and Look
-  const phoneShow = phone
-    ? {
-        open: phoneSheet === "show",
-        extra: (
-          <div class="phone-show-more">
-            {waterBar}
-            {minimap}
-            <LookMenu renderer={renderer.current} buttonClass="ghost" />
-          </div>
-        ),
-      }
-    : null;
+  // a phone's Show sheet (#1074): what to show and the camera, with Look and the minimap, the weather days, the sound
+  const phoneShow = phone ? { open: phoneSheet === "show", weather: waterBar, minimap, look: <LookMenu renderer={renderer.current} buttonClass="ghost" /> } : null;
 
   return (
     <ForceFloor.Provider value={floorContext}>
-    <div class={`editor${drawerOpen || props.mapsOpen || props.placesOpen ? " drawer-open" : ""}${drawerOpen ? " gen-open" : ""}`} data-phone={phone ?? undefined} data-sheet={phone ? (phoneSheet ?? undefined) : undefined} aria-busy={busy > 0} inert={props.replacing}>
+    <div class={`editor${drawerOpen || props.mapsOpen || props.placesOpen ? " drawer-open" : ""}${drawerOpen ? " gen-open" : ""}`} data-phone={phone ?? undefined} data-sheet={phone ? (phoneSheet ?? undefined) : undefined} data-tall={phone && ed.sheetTall ? "" : undefined} aria-busy={busy > 0} inert={props.replacing}>
       {header(ed, props)}
       <div class="editor-main">
         {drawerOpen ? <GeneratorPanel model={props.drawer} icon={(t) => icons[t] ?? null} counts={mapCounts(mirror.current.entities)} onClose={() => props.onDrawer(false)} /> : null}

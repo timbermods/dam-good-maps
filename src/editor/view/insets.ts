@@ -28,26 +28,38 @@ export function measureInsets(view: HTMLElement): FrameInsets {
   };
 }
 
-/** A phone's layout (#1074): each piece over the view by the edge it stands on: the tool row and its sheet at the foot,
- *  the rail at the left, the panel at the right, Show's button at its corner. A piece not shown takes no room. */
-function phoneInsets(view: HTMLElement): FrameInsets {
+/** A phone's layout (#1074): each piece over the view by where it stands: the tool row and a sheet over the foot (as
+ *  wide as half the view, low in it), the rail at the left, the panel at the right, Show's button at the top's corner.
+ *  The notes and the first steps' hints float over the map and take no room; a piece not shown takes none. */
+export function phoneInsets(view: HTMLElement): FrameInsets {
   const v = view.getBoundingClientRect();
   const out = { top: 0, left: 0, bottom: 0, right: 0 };
   const reach = (n: number) => Math.max(0, Math.ceil(n + GAP));
-  for (const el of view.querySelectorAll<HTMLElement>(".tool-dock > *, .objects-dock > *, .phone-show-button")) {
+  const pieces = view.querySelectorAll<HTMLElement>(".tool-dock > .tool-bar, .tool-dock > .tool-settings, .objects-dock > *, .phone-show, .phone-show-button");
+  for (const el of pieces) {
     const b = el.getBoundingClientRect();
-    if (!b.width || !b.height || getComputedStyle(el).visibility === "hidden") continue;
-    // (Show's button: at the top it keeps the map under it; at the foot's corner, on its side, it takes no room of its own)
+    if (!b.width || !b.height || el.closest("[hidden]") || getComputedStyle(el).visibility === "hidden") continue;
     if (el.classList.contains("phone-show-button")) {
+      // (at the top it keeps the map under it; at the foot's corner, on its side, it takes no room of its own)
       if (b.top <= v.top + 16) out.top = Math.max(out.top, reach(b.bottom - v.top));
       continue;
     }
-    if (b.bottom >= v.bottom - 1 && b.width >= v.width / 2) out.bottom = Math.max(out.bottom, reach(v.bottom - b.top));
-    else if (b.left <= v.left + 1 && b.height >= v.height / 2) out.left = Math.max(out.left, reach(b.right - v.left));
+    if (b.width >= v.width / 2 && b.top + b.height / 2 > v.top + v.height / 2) out.bottom = Math.max(out.bottom, reach(v.bottom - b.top));
+    else if (b.left <= v.left + 1) out.left = Math.max(out.left, reach(b.right - v.left));
     else if (b.right >= v.right - 1) out.right = Math.max(out.right, reach(v.right - b.left));
-    else if (b.bottom >= v.bottom - 1) out.bottom = Math.max(out.bottom, reach(v.bottom - b.top));
   }
   return out;
+}
+
+/** The middle of the room the controls leave in a view `v` (client px); a side they leave under a quarter of it is the
+ *  whole view's, as the renderer frames (`frameMap`). */
+export function roomCentre(v: { left: number; top: number; width: number; height: number }, ins: FrameInsets): { x: number; y: number } {
+  const across = v.width - ins.left - ins.right >= v.width / 4;
+  const down = v.height - ins.top - ins.bottom >= v.height / 4;
+  return {
+    x: v.left + (across ? ins.left + (v.width - ins.left - ins.right) / 2 : v.width / 2),
+    y: v.top + (down ? ins.top + (v.height - ins.top - ins.bottom) / 2 : v.height / 2),
+  };
 }
 
 /** Keep the renderer's insets up to date as the controls change size (a tool's settings opening, the panel). */
