@@ -523,9 +523,11 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
 
 test("every basin source's highlight reads, under its own water too, in High as in Standard (D378, D249; Kyler, 2026-10-03), and the water over one the pointer's water comes from glows (D196), clean and bad alike", async ({ page }) => {
   const errors: string[] = [];
-  // (River Valley seed 2 since generator 0.10.17, D515, D148: seed 4242's map now has a spring in a cave, D488, whose source
-  // the land's roof hides from above; seed 2's has no caves, and its badwater source stands 1.4 under its own water)
-  await open(page, errors, "s=2&z=96&d=n&t=riverValley");
+  // (River Valley seed 3 since generator 0.10.20's contour edges, D518, D148: seed 2's map now has caves, its source at
+  // X 33 · Y 35 under a roof, and seeds 1 and 7 have the river's first source behind a cliff from the framed view; seed 3's
+  // has no caves, and its badwater source stands 1.9 under its own water. Seed 2 since 0.10.17, D515: seed 4242's map has
+  // a spring in a cave, D488, whose source the land's roof hides from above)
+  await open(page, errors, "s=3&z=96&d=n&t=riverValley");
   // (the drought line comes in by itself once the worker has worked it out, and where its strips overlap over water
   // the GPU blends it once or twice between redraws of one still frame (the Standard-after-High test above): wait for
   // it, then put it away, so the frames before and after the highlight compare only what this test is about)
@@ -694,10 +696,11 @@ test("High's visible seasons follow the game's timers: no plant dies of dryness 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 900 });
-  // (seed 6 since generator 0.10.16's ground with grade, D148: on seed 5's new land no plant dies between days 20 and 24;
-  // seed 5 since generator 0.10.13, D507, D148: the start frames the map, and on seed 4242's the plants stand on ground
-  // that stays moist past the normal drought's 9 days, so none is surely dead even by day 24)
-  await openEditor(page, "s=6&z=96&d=n&t=riverValley&bw=0");
+  // (seed 3 since generator 0.10.20's contour edges, D518, D148: seed 6's map now has caves, where no plant withers yet
+  // (worker/session.ts `stackedMap`), so none was dead on day 20; seed 6 since generator 0.10.16's ground with grade: on
+  // seed 5's land then no plant died between days 20 and 24; seed 5 since generator 0.10.13, D507: the start frames the
+  // map, and on seed 4242's the plants stood on ground that stays moist past the normal drought's 9 days)
+  await openEditor(page, "s=3&z=96&d=n&t=riverValley&bw=0");
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
   await opensHigh(page);
   const withered = () => page.evaluate(() => window.dgm3d!.renderer.witheredPlants);

@@ -21,9 +21,10 @@ test("Keep this version and Branch from here, the parent in Your maps, and Compa
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
   const name = (await info(page)).name;
 
-  // two steps on the map
+  // two steps on the map (the wall on row 50 at x 38 to 42, dry ground at level 10, since D518's contour edges, D148: row
+  // 60 at x 60 to 64 stands at level 15 now, so raising it there changed nothing and the two steps' land was the same)
   await edit(page, [[40, 40, 44]], "Raise a tile");
-  await edit(page, [[60, 60, 64]], "Raise a wall");
+  await edit(page, [[50, 38, 42]], "Raise a wall");
   await idle(page);
   const landTwo = await drawn(page);
   expect((await info(page)).history.map((h) => h.label)).toEqual(["Raise a tile", "Raise a wall"]);
