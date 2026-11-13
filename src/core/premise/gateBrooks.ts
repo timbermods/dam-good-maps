@@ -68,8 +68,9 @@ export function brookPlaces(N: number, draw: () => number): Point[] {
 
 /** The cheapest way from `head` through the `places` `open` allows to one `into` takes (the lake), over `ground`; a way
  *  nearer the lake (`toLake`) by less than `BROOK_GROUND.descent` of its length costs `BROOK_GROUND.fall` a tile more;
- *  its last way meets the water (`wet`, under 0 in it) square enough. Its places, head first, or null. */
-export function brookWay(ground: BrookGround, places: readonly Point[], head: Point, open: (p: Point) => boolean, into: (p: Point) => boolean, toLake: (p: Point) => number, wet: (p: Point) => number = toLake): Point[] | null {
+ *  its last way meets the water (`wet`, under 0 in it) square enough, or as `enters` says where given. Its places, head
+ *  first, or null. */
+export function brookWay(ground: BrookGround, places: readonly Point[], head: Point, open: (p: Point) => boolean, into: (p: Point) => boolean, toLake: (p: Point) => number, wet: (p: Point) => number = toLake, enters?: (from: Point, to: Point) => boolean): Point[] | null {
   const d = BROOK_PLACES.spacing;
   const most = BROOK_PLACES.reach * d;
   const n = Math.ceil(ground.N / d);
@@ -149,7 +150,7 @@ export function brookWay(ground: BrookGround, places: readonly Point[], head: Po
           // angle its last leg ran along inside the lake)
           // (out of its tarn: the head stands in it, so the way's first middle may too)
           if (!lakeward[q] && k !== 0 && !open(mid)) continue;
-          if (lakeward[q] && (L < 3 || wet([o[0] + ((p[0] - o[0]) * 2.5) / L, o[1] + ((p[1] - o[1]) * 2.5) / L]) <= 0.5)) continue;
+          if (lakeward[q] && (enters ? !enters(p, o) : L < 3 || wet([o[0] + ((p[0] - o[0]) * 2.5) / L, o[1] + ((p[1] - o[1]) * 2.5) / L]) <= 0.5)) continue;
           const w = best[k] + (L * (groundAt(ground, p) + 2 * groundAt(ground, mid) + groundAt(ground, o))) / 4 + BROOK_GROUND.fall * Math.max(0, lake[q] - lake[k] + BROOK_GROUND.descent * L);
           if (w < best[q]) {
             best[q] = w;
