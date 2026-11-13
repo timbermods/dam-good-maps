@@ -57,14 +57,15 @@ class Fingers {
     private readonly cdp: CDPSession,
   ) {}
 
+  /** Sends the fingers as they are now (all of it before the first await: sends not awaited one by one go in order). */
   private async send(): Promise<void> {
     const pts = [...this.on].map(([id, p]) => ({ id, x: (p.x - this.offset.x) * this.scale, y: (p.y - this.offset.y) * this.scale, radiusX: 4, radiusY: 4, force: 1 }));
     // (the protocol's points are every finger still down: one gone is a finger lifted)
     this.clock += 0.016;
     const timestamp = this.clock;
-    if (!pts.length) await this.cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [], timestamp });
-    else await this.cdp.send("Input.dispatchTouchEvent", { type: this.fresh ? "touchStart" : "touchMove", touchPoints: pts, timestamp });
+    const type = !pts.length ? "touchEnd" : this.fresh ? "touchStart" : "touchMove";
     this.fresh = false;
+    await this.cdp.send("Input.dispatchTouchEvent", { type, touchPoints: pts, timestamp });
   }
   private fresh = false;
 
@@ -84,18 +85,23 @@ class Fingers {
     await this.send();
   }
 
-  /** Move fingers from where they are to `to` in `steps` even steps, a frame apart. */
+  /** Move fingers from where they are to `to` in `steps` even steps, a frame apart on the fingers' clock, as a finger
+   *  sends them: it doesn't wait for the page to take each one (where a frame takes a second, as on a slow runner
+   *  drawing in software, the page reads the moves that came meanwhile together, as it does a phone's), and the page has
+   *  them all when this returns (a frame begins with its input). */
   async drag(to: Record<number, P>, steps = 10): Promise<void> {
     const from = new Map([...this.on]);
+    const sent: Promise<void>[] = [];
     for (let k = 1; k <= steps; k++) {
       const at: Record<number, P> = {};
       for (const [id, q] of Object.entries(to)) {
         const p = from.get(Number(id))!;
         at[Number(id)] = { x: p.x + ((q.x - p.x) * k) / steps, y: p.y + ((q.y - p.y) * k) / steps };
       }
-      await this.move(at);
-      await this.page.evaluate(() => new Promise((r) => requestAnimationFrame(r)));
+      sent.push(this.move(at));
     }
+    await Promise.all(sent);
+    await this.page.evaluate(() => new Promise((r) => requestAnimationFrame(r)));
   }
 
   /** Lift every finger and wait `ms`, on the fingers' clock and the page's. */
