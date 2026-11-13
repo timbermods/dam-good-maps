@@ -72,30 +72,30 @@ export const PLACES_LACK_BADWATER = true;
  *  both, in varied, natural ways (D229), and empties the lists. */
 export const PLACES_SHORT_OF_WOOD = new Set([
   "near-alaknanda-and-bhagirathi", "near-altiplano", "near-aoraki-hooker-valley", "near-atacama-fan",
-  "near-bandiagara", "near-bardenas-reales", "near-blue-mountains-jamison", "near-blyde-river-canyon",
+  "near-bandiagara", "near-bardenas-reales", "near-blue-mountains-jamison",
   "near-brahmaputra-near-majuli", "near-capitol-reef", "near-chilean-aysen-fjord", "near-chocolate-hills",
   "near-cliffs-of-moher", "near-colca-canyon", "near-colorado-plateau", "near-copper-canyon",
-  "near-danube-delta", "near-death-valley",
+  "near-death-valley",
   "near-drakensberg-amphitheatre", "near-english-lake-district", "near-ennedi-plateau",
   "near-ethiopian-highlands", "near-finnish-saimaa", "near-geirangerfjord", "near-glencoe",
   "near-godavari-delta", "near-goosenecks-san-juan", "near-grand-canyon-colorado",
   "near-ilulissat-icefjord", "near-kaieteur-falls", "near-katherine-gorge", "near-kenai-aialik-bay",
   "near-kinabatangan-river", "near-lauterbrunnen", "near-lena-delta",
-  "near-li-river-yangshuo", "near-lofoten", "near-lower-mississippi-oxbows", "near-milford-sound",
+  "near-li-river-yangshuo", "near-lower-mississippi-oxbows", "near-milford-sound",
   "near-monument-valley", "near-mount-etna", "near-mount-fuji", "near-mount-mayon", "near-mount-roraima",
   "near-na-pali-coast", "near-niagara-escarpment-hamilton", "near-painted-desert",
   "near-paricutin", "near-phong-nha", "near-roaring-river-fan", "near-sete-cidades",
-  "near-skeidara-outwash", "near-tagliamento-river", "near-taklimakan-kunlun-fan", "near-tara-gorge",
-  "near-thousand-islands-saint-lawrence", "near-tibetan-plateau", "near-tiger-leaping-gorge",
-  "near-todgha-gorge", "near-toklat-river", "near-torres-del-paine", "near-tsingy-bemaraha",
-  "near-verdon-gorge", "near-waimakariri-river", "near-western-ghats-mahabaleshwar",
+  "near-skeidara-outwash", "near-tagliamento-river", "near-tara-gorge",
+  "near-thousand-islands-saint-lawrence", "near-tiger-leaping-gorge",
+  "near-todgha-gorge", "near-toklat-river",
+  "near-verdon-gorge", "near-western-ghats-mahabaleshwar",
   "near-yosemite-valley",
 ]);
 export const PLACES_BELOW_THE_FLOOR = new Set([
   "near-alaknanda-and-bhagirathi", "near-altiplano", "near-aoraki-hooker-valley", "near-bandiagara",
-  "near-blyde-river-canyon", "near-brahmaputra-near-majuli", "near-colorado-plateau", "near-death-valley",
+  "near-brahmaputra-near-majuli", "near-colorado-plateau", "near-death-valley",
   "near-glencoe", "near-godavari-delta", "near-kenai-aialik-bay", "near-lauterbrunnen", "near-lena-delta",
-  "near-paricutin", "near-sete-cidades", "near-skeidara-outwash", "near-waimakariri-river",
+  "near-paricutin", "near-sete-cidades", "near-skeidara-outwash",
 ]);
 
 /** The start's water is never a sealed puddle (Kyler's D302, M9a), and a start has water a pump
@@ -112,8 +112,8 @@ export const PLACES_START_WITHOUT_FED_WATER = new Set([
   "near-death-valley", "near-deccan-plateau", "near-drumheller",
   "near-english-lake-district", "near-fish-river-canyon", "near-iguazu-falls", "near-kaieteur-falls",
   "near-kinabatangan-river", "near-mount-mayon",
-  "near-ngorongoro", "near-niagara-falls", "near-phong-nha", "near-tibetan-plateau",
-  "near-tsingy-bemaraha", "near-twelve-apostles", "near-uvac-river", "near-yosemite-valley",
+  "near-ngorongoro", "near-niagara-falls", "near-phong-nha",
+  "near-twelve-apostles", "near-uvac-river", "near-yosemite-valley",
 ]);
 
 /** Plants that die (D385): the conversion planted these places' trees and bushes on ground the
