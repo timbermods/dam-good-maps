@@ -4943,9 +4943,9 @@ export class MapRenderer {
       },
       tap: () => {
         const up = this.pressLast ?? ev;
-        // (a picked object's press that was a tap: a click, or half a double tap, where the finger is, as with nothing
-        // in hand)
-        if (mode === "move") return this.touchTap(ev, up);
+        // (a picked object's press that was a tap, or a held one lifted before its hold by its events' times: a click, or
+        // half a double tap, where the finger is, as with nothing in hand)
+        if (mode === "move" || held) return this.touchTap(ev, up);
         if (this.doubleTapped(up)) {
           if (showsAtOnce(mode) && this.tool === t) t.hover?.(null, at("pointermove", { x: up.clientX, y: up.clientY }));
           return;

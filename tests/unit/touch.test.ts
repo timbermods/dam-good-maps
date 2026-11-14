@@ -4,7 +4,7 @@
 // seen a little above the finger and applied only on its lift (slice 3). touch.spec drives real touch events.
 
 import { describe, expect, it } from "vitest";
-import { aimAt, decide, DECIDE_PX, FINGER_LIFT, FingerPress, flingFrom, flingStep, FLING_TAU, NO_MOTION, Speed, TAP_MS, TAP_SLOP, TILT_PER_PX, Touches, twoStep, type Motion, type Point, type PressHost, type PressMode } from "../../src/render3d/touch";
+import { aimAt, decide, DECIDE_PX, FINGER_LIFT, FingerPress, flingFrom, HOLD_MS, flingStep, FLING_TAU, NO_MOTION, Speed, TAP_MS, TAP_SLOP, TILT_PER_PX, Touches, twoStep, type Motion, type Point, type PressHost, type PressMode } from "../../src/render3d/touch";
 
 const P = (x: number, y: number): Point => ({ x, y });
 
@@ -378,14 +378,21 @@ describe("a finger's line, and a press held still (slice 3b)", () => {
     expect(refused.log.at(-1)).toBe("drop");
   });
 
-  it("a press begun by a finger held still begins at once, and is never a tap", () => {
+  it("a press begun by a finger held still begins at once, and is no tap once held by its events' times", () => {
     const { f, log } = press("draw", { held: true });
     expect(log).toEqual([`begin ${above(200, 400)}`, `show ${above(200, 400)}`]);
     f.move(P(260, 450));
     f.up(P(260, 450), 1000 + 600);
     expect(log.slice(-2)).toEqual([`show ${above(260, 450)}`, `apply ${above(260, 450)}`]);
     const still = press("draw", { held: true });
-    still.f.up(P(200, 400), 1000 + 600);
+    still.f.up(P(200, 400), 1000 + HOLD_MS + 100);
     expect(still.log.at(-1)).toBe(`apply ${above(200, 400)}`);
+    // (a busy page ran the hold's timer late: lifted at a tap's time by its events, it is the tap; between, nothing)
+    const quick = press("draw", { held: true });
+    quick.f.up(P(201, 400), 1000 + TAP_MS - 20);
+    expect(quick.log.slice(-2)).toEqual(["drop begun", "tap"]);
+    const between = press("draw", { held: true });
+    between.f.up(P(201, 400), 1000 + HOLD_MS - 50);
+    expect(between.log.at(-1)).toBe("drop begun");
   });
 });

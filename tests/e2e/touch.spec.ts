@@ -340,7 +340,7 @@ async function onFlat(page: Page, c: P) {
   expect("none" in t, "a dry, level patch").toBe(false);
   await still(page);
   expect(await tileAt(page, c)).toMatchObject(t!);
-  return t!;
+  return t as { x: number; y: number };
 }
 
 /** Pick an object from the shelf (on a phone, from the objects' sheet, which closes to one row). */
@@ -654,6 +654,7 @@ for (const size of SIZES) {
       await onFlat(page, c);
       await page.keyboard.press("Shift+Digit2");
       await toolInHand(page);
+      await still(page);
       const a = { x: c.x - R / 3, y: c.y + FINGER_LIFT + R / 3 };
       const b = { x: c.x + R / 4, y: c.y + FINGER_LIFT };
       await fingers.down({ 1: a });
@@ -733,13 +734,16 @@ for (const size of SIZES) {
 
       // a force's line (Carve): the drag draws its line from where the press aimed, the band showing, and the lift carves
       // along it, one step
-      await onFlat(page, c);
+      const plain = await onFlat(page, c);
       await page.keyboard.press("Shift+Digit1");
       await toolInHand(page);
+      // (after the slide for Carve's sheet: drawn 6 tiles across the level patch, on the map whatever the view's scale)
+      await still(page);
+      const [k0, k1] = await page.evaluate(({ x, y }) => [window.dgmEditor!.tileToClient(x - 3, y + 1), window.dgmEditor!.tileToClient(x + 3, y - 1)], plain);
       await fingers.pause(400);
       const sc = await steps(page);
-      await fingers.down({ 1: { x: c.x - R / 2, y: c.y + FINGER_LIFT + R / 3 } });
-      await fingers.drag({ 1: { x: c.x + R / 2, y: c.y + FINGER_LIFT - R / 3 } });
+      await fingers.down({ 1: { x: k0.x, y: k0.y + FINGER_LIFT } });
+      await fingers.drag({ 1: { x: k1.x, y: k1.y + FINGER_LIFT } });
       expect(await pressing(page)).toBe(true);
       await expect.poll(async () => (await page.evaluate(() => window.dgmEditor!.gesture())).stroke ?? 0).toBeGreaterThan(1);
       await idle(page);
@@ -763,6 +767,10 @@ for (const size of SIZES) {
       const [r0, r1] = await page.evaluate(({ x, y }) => [window.dgmEditor!.tileToClient(x - 2, y), window.dgmEditor!.tileToClient(x + 2, y)], level);
       await fingers.pause(400);
       await pressDragLift({ x: r0.x, y: r0.y + FINGER_LIFT }, { x: r1.x, y: r1.y + FINGER_LIFT }, /Ridge/i);
+      // (the ridge's land drawn first: a tap the browser holds behind a busy page past its long press is no click)
+      await settled(page);
+      await idle(page);
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
       if (sheet) await handle.tap();
       await page.getByRole("group", { name: "Brush" }).getByRole("button", { name: "Round", exact: true }).click();
       if (sheet) await handle.tap();
@@ -771,12 +779,15 @@ for (const size of SIZES) {
       // nothing in hand: a finger held still draws a selection a little above it (no selection open first), on its lift
       await fingers.pause(400);
       expect(await page.evaluate(() => window.dgmEditor!.selection().length)).toBe(0);
-      await fingers.down({ 1: { x: c.x - R / 2, y: c.y + FINGER_LIFT + R / 3 } });
+      // (corner to corner of 5 by 5 tiles of a level patch, whatever a tile's size and the grid's turn on the screen)
+      const mid = await onFlat(page, c);
+      const [q0, q1] = await page.evaluate(({ x, y }) => [window.dgmEditor!.tileToClient(x - 2, y - 2), window.dgmEditor!.tileToClient(x + 2, y + 2)], { x: mid.x, y: mid.y });
+      await fingers.down({ 1: { x: q0.x, y: q0.y + FINGER_LIFT } });
       await fingers.pause(TAP_HOLD);
       expect(await pressing(page)).toBe(true);
-      await fingers.drag({ 1: { x: c.x + R / 2, y: c.y + FINGER_LIFT - R / 3 } });
+      await fingers.drag({ 1: { x: q1.x, y: q1.y + FINGER_LIFT } });
       await fingers.up(1);
-      await expect.poll(() => page.evaluate(() => window.dgmEditor!.selection().length)).toBeGreaterThan(4);
+      await expect.poll(() => page.evaluate(() => window.dgmEditor!.selection().length)).toBeGreaterThan(8);
       await putAway(page);
 
       expect(await zoomed()).toEqual(page0);

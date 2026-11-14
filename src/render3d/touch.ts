@@ -426,6 +426,9 @@ export class FingerPress {
   private over = false;
   private live = true;
   private timer = 0;
+  /** It began after the finger was held still `HOLD_MS` by the page's clock: the events' own times still decide whether
+   *  it was held (a busy page runs that timer late, the lift's event still queued). */
+  private readonly held: boolean;
 
   constructor(
     readonly mode: PressMode,
@@ -438,6 +441,7 @@ export class FingerPress {
     held = false,
   ) {
     this.now = { ...from };
+    this.held = held;
     // (an aim or a line shows at once; a draw or a move once it is no tap: held a tap's time, or moved past the slop)
     if (showsAtOnce(mode)) this.showNow();
     else if (held) this.start();
@@ -486,6 +490,13 @@ export class FingerPress {
     const tap = (!this.begun || this.byTime) && this.moved < TAP_SLOP && t - this.t0 <= TAP_MS;
     this.end();
     if (this.over) return this.host.drop(this.begun);
+    // (begun as held on a busy page, lifted before `HOLD_MS` by its events' times and hardly moved: no hold. What it began
+    // is dropped, and the lift is what the finger's would have been with nothing in hand: a tap, or nothing)
+    if (this.held && this.moved < TAP_SLOP && t - this.t0 < HOLD_MS) {
+      this.host.drop(true);
+      if (t - this.t0 <= TAP_MS) this.host.tap();
+      return;
+    }
     if (tap) {
       if (this.begun) this.host.drop(true);
       return this.host.tap();
