@@ -58,7 +58,7 @@ import { shapeCanyon } from "../land/canyon";
 import { shapeHighlands } from "../land/highlands";
 import { BED_FLOOR, drawGenome, leanGenome, type Genome } from "../land/genome";
 import { joinReach, mainWater, planBadwater, standingTheme, type Hazards } from "../land/hazards";
-import { blockedCourses, closeBackEdges, closeSideEdges, drownedHeads, sealedMouths } from "../land/courses";
+import { besideCourses, blockedCourses, closeBackEdges, closeSideEdges, drownedHeads, sealedMouths } from "../land/courses";
 import { mouthTilesOf } from "../features/raster/terrain";
 import { edgeLip, LIP_REACH } from "../water/edgeLip";
 import { springCandidates } from "../water/springSites";
@@ -1588,7 +1588,10 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   const hy = planHydro(land.E, h, g, seed, W, H, attempt);
   // (M9b: the banks beside an inflow's mouth stay as the land has them: lowered to its channel, the
   // water would run out along the edge beside the mouth instead of down its course)
-  relaxEdges(h, W, H, mouthBanks(hy, W, H));
+  // (and no tile beside a planned channel is lowered below that channel's water, here or by the
+  // basins' outlets below: either would give the course's water a second way out, lower than its own)
+  const beside = besideCourses(h, W, H, hy.water, hy.rivers);
+  relaxEdges(h, W, H, mouthBanks(hy, W, H), beside);
   const keep = new Uint8Array(N);
   for (let i = 0; i < N; i++) keep[i] = hy.water[i] === 1 || hy.water[i] === 2 ? 1 : 0;
   mergeSmallRegions(h, W, H, 4, keep);
@@ -1632,7 +1635,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
       const y = (i - x) / W;
       if (Math.min(x, y, W - 1 - x, H - 1 - y) < 2) channels[i] = 1;
     }
-  carveOutlets(h, W, H, channels, hash32(seed, "outlets", attempt), Math.max(3, Math.min(9, Math.round(0.35 * hy.flowTotal)) | 1));
+  carveOutlets(h, W, H, channels, hash32(seed, "outlets", attempt), Math.max(3, Math.min(9, Math.round(0.35 * hy.flowTotal)) | 1), 300, 120, null, beside);
   // (and a small basin the planned water reaches whose spill level is a broad flat: its water would
   // stand a few hundredths over the flat as a sheet, a knife-edge under the game's spill threshold
   // that a drought leaves dry or not by millimetres (the probe's refill, D333, M9b): a stream a level
@@ -1640,7 +1643,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   {
     const wet = new Uint8Array(N);
     for (let i = 0; i < N; i++) wet[i] = hy.water[i] === 1 || hy.water[i] === 2 ? 1 : 0;
-    carveOutlets(h, W, H, channels, hash32(seed, "outlets-small", attempt), 3, 4, 60, wet);
+    carveOutlets(h, W, H, channels, hash32(seed, "outlets-small", attempt), 3, 4, 60, wet, beside);
   }
   // a sea's way out as wide as its water needs, so it settles within the four days (the rivers'
   // heads, the kept lakes and the locks stay as they are)
