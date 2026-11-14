@@ -1,0 +1,16 @@
+{
+  "examinedLocalMerge": "e14f0374bdb007862f127cde52c5195c13b51add",
+  "featurePage": "32e07fe955ab0f759b5d9d61d9b0b37b83cb4344",
+  "dev": "f24ca403b13344659993280744647d7912a31996",
+  "localMergeClean": true,
+  "unmodifiedHandlerTests": { "passed": 0, "failed": 2 },
+  "candidateHandlerTests": { "passed": 2, "failed": 0 },
+  "productTypecheck": "passed on examined merge",
+  "candidateAndPlaywrightTypecheck": "passed",
+  "adoptionPatchCheck": "passed on examined merge",
+  "playwrightDiscovery": "2 tests discovered",
+  "headedChromeExecution": "blocked: spawn EPERM; explicit Chrome exits with Mojo platform_channel access denied",
+  "gpuRenderer": "unknown: no live 3D context obtained",
+  "playerRoundTrips": "unverified",
+  "timberbornLaunched": false
+}
