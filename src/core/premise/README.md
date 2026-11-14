@@ -73,7 +73,11 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   (`Link.halves`, `BROOK`, `STEPS`), the lake at the valley's low end (one broad body falling across the valley from its head to the Low River's end, sagging toward the valley's far edge, its width varying, a bay or two, coves along its shore by turns,
   `LAKE_SHAPE`, `LAKE_WANDER`; its main arm's lobes on one arc whose middle is a quarter of its length off the line,
   `LAKE_BEND`, a main arm with no bend of 0.5 rad over 40 % of its length or an arm within 6 tiles of the map's edge
-  laid again; a layout whose lake reads as a canal lake is laid again, and `valley.lake` holds it on stage 1's water), the Still
+  laid again; over 128² the lake leaves the wall, `LAKE_LEAVES`: its main arm heads away from the range's line by 52
+  to 63°, its far end only as far along the range as that takes it, two or three side arms a third of its length or
+  so, bent twice, and the Low River's gorge swinging on along the valley to the spur and past it to the edge, 7 wide
+  there, not 5 (`LOW_WIDER`: 5 wide on its flat bed, its water backed up over its banks); a
+  layout whose lake reads as a canal lake is laid again, and `valley.lake` holds it on stage 1's water), the Still
   Pool and its inlet off the plunge pool; the playa past the range; the leat along the crest and the Pass Bed; the basin's pan and the beds' outlet;
   the Low River through its spur; the southern brooks, 3 or 4 wide by turns, each a way the land finds (`gateBrooks.ts`
   `brookWay`) with a channel meandering about it (`meander`: each bend's wavelength 6 to 14 widths and its swing 1.0 to
@@ -90,7 +94,9 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   of 2026-11-14 on round 2): `gateCrest` (the crest over the lake's sill by the gap and along the range, the gap's
   width), `lakeStraight` (the lake's longest straight stretch of shore against its main arm), `drySheet` (the dry side's
   share within a level of its ground 8 tiles off), `dryValley` (the Gate Bed's valley's depth along it) and
-  `trunkBends` (each trunk's straight reach in wavelengths and its tightest bend against the next).
+  `trunkBends` (each trunk's straight reach in wavelengths and its tightest bend against the next); and round 4's
+  (planning's look verdict of 2026-11-14 on round 3): `lakeLeaves` (the angle between the lake's main arm and the
+  foot's fitted line, its side arms a quarter of the main arm long or longer, its shore within 8 tiles of the foot).
   `gateRange.ts` reads the range along u (`rangeAt`, `sideOf`, `spineLocal`). Not offered: `premises/dev.ts`
   `DEV_PREMISES` lists it for the tools and tests; joining `spec/mapspec.ts` `PREMISE_IDS` offers it. No playability
   floor of its own: the shared gate holds the start.
@@ -107,10 +113,13 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   hard, spurs and gullies, ribs down both flanks (`RANGE_RIB`), a spur toward the valley a ridge falling to its talus,
   the Veil's shoulders (`VEIL_SHOULDER`), the crest by the gap 6 over the lake's sill (8 at 256²) falling to the plan's
   along the range (`GATE_HEIGHT`), ledges and terraces 4 tiles wide at most once the ribs draw them out (`LEDGE_MOST`);
-  the basin a dried lake's floor at the lake's sill with broad swells, the dry beds in valleys of two benches that
+  the basin a dried lake's floor at the lake's sill with broad swells (over 128² rolling from 3 under the sill to 4
+  over in swells some 20 to 25 tiles apart, `BASIN_ROLL`, its edge's hills narrower), the dry beds in valleys of two benches that
   step down to them, the Gate Bed's first stretch past the crest 3 deep in the fan the old river laid (`DRY_VALLEY`),
-  the playa a hollow where they meet sized from the floor it leaves (`PLAYA_FIT`), two mesas 5 and 6 high and a rise
-  for a ruin group, placed first and as wide as the room the beds leave (`BASIN_LAND`, `BASIN_MARKS`; `PremiseLand.ruinsAt`, `life.ts` `RISE_RUINS`), hills toward the edge;
+  the playa a hollow where they meet sized from the floor it leaves (`PLAYA_FIT`, `basin.playa`'s share by size,
+  `playaShare`: 55 % at 128², 45 % at 192², 35 % at 256²), two mesas 5 and 6 high and a rise
+  for a ruin group, placed first and as wide as the room the beds leave, standing a level over the ground round it
+  where its top would have no rim (`riseRim`, `RISE_STANDS`) (`BASIN_LAND`, `BASIN_MARKS`; `PremiseLand.ruinsAt`, `life.ts` `RISE_RUINS`), hills toward the edge;
   then the flood check at the megadam's water and its least mend, `mendFlood`: a knoll on a saddle,
   one swell across a stretch of the edge), `gateZones`, `basinBeds`, `gateLand` (`premiseLand`'s parts for this land,
   the mend again round the badwater's niche, no columns, and a flat on the range domed till none is wider than four

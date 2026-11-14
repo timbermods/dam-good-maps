@@ -447,3 +447,68 @@ export function trunkBends(plan: PremisePlan): TrunkBends[] {
   }
   return out;
 }
+
+/** The lake leaves the wall (planning's verdict of 2026-11-14 on round 3: at 256² one long lake lay along the range's
+ *  foot): the angle between its main arm (its head to its end) and the range's foot over the same stretch of u (the
+ *  foot from `wallFoot`, its least-squares line over `LAKE_FOOT_SPAN` tiles at the least; in degrees); how many of its
+ *  other arms (the bays, side arms and coves the plan laid) reach a quarter of the main arm's length (an arm's length
+ *  its line's plus its tip's radius; the main arm's its line's); and the share of its shore (its tiles beside dry
+ *  ground) within `LAKE_FOOT` tiles of the foot. */
+export const LAKE_FOOT = 8;
+export const LAKE_FOOT_SPAN = 48;
+
+export function lakeLeaves(plan: PremisePlan, water: StageWater, heights: ArrayLike<number>): { angle: number; arms: number; longest: number; byFoot: number } {
+  const g = gateOf(plan)!;
+  const T = turnOf(plan, g);
+  const { W, H } = plan;
+  const r = water.raster;
+  const li = plan.bodies.findIndex((b) => b.id === g.lake) + 1;
+  const arms = plan.bodies[li - 1].arms;
+  const lineOf = (a: readonly (readonly number[])[]) => {
+    let s = 0;
+    for (let k = 1; k < a.length; k++) s += hypot(a[k][0] - a[k - 1][0], a[k][1] - a[k - 1][1]);
+    return s;
+  };
+  const main = arms[0];
+  const mainLen = lineOf(main);
+  const reaches = arms.slice(1).map((a) => (lineOf(a) + a[a.length - 1][2]) / Math.max(1, mainLen));
+  const { foot } = wallFoot(plan, heights, water);
+  const [hu, hv] = onLocal(T, [main[0][0], main[0][1]]);
+  const [eu, ev] = onLocal(T, [main[main.length - 1][0], main[main.length - 1][1]]);
+  const fAt = (u: number) => foot[Math.max(0, Math.min(foot.length - 1, Math.floor(u)))];
+  const armA = atan2(ev - hv, eu - hu);
+  // (the foot's line over the arm's stretch of u, `LAKE_FOOT_SPAN` tiles at the least: its least-squares slope, so a
+  // gully or the Gate's bay does not turn it)
+  const mid = (hu + eu) / 2;
+  const half = Math.max(Math.abs(eu - hu), LAKE_FOOT_SPAN) / 2;
+  const [ua, ub] = [Math.floor(mid - half), Math.ceil(mid + half)];
+  let [n, su, sf, suu, suf] = [0, 0, 0, 0, 0];
+  for (let u = Math.max(0, ua); u <= Math.min(foot.length - 1, ub); u++) {
+    n++;
+    su += u;
+    sf += foot[u];
+    suu += u * u;
+    suf += u * foot[u];
+  }
+  const slope = n > 1 && n * suu - su * su > 0 ? (n * suf - su * sf) / (n * suu - su * su) : 0;
+  const footA = atan2(slope * (eu - hu), eu - hu);
+  let d = Math.abs(armA - footA) % Math.PI;
+  if (d > Math.PI / 2) d = Math.PI - d;
+  let shore = 0;
+  let near = 0;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (r.lake[i] !== li) continue;
+      let edge = false;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        const [xx, yy] = [x + dx, y + dy];
+        if (xx >= 0 && yy >= 0 && xx < W && yy < H && !r.lake[yy * W + xx] && !r.channel[yy * W + xx] && !r.pool[yy * W + xx]) edge = true;
+      }
+      if (!edge) continue;
+      shore++;
+      const [u, v] = onLocal(T, [x + 0.5, y + 0.5]);
+      if (fAt(u) - v <= LAKE_FOOT) near++;
+    }
+  return { angle: (d * 180) / Math.PI, arms: reaches.filter((q) => q >= 0.25).length, longest: Math.max(0, ...reaches), byFoot: shore ? near / shore : 0 };
+}

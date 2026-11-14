@@ -24,7 +24,7 @@ import { ORIENTATIONS } from "../../format/footprints";
 import { BED_FLOOR } from "../../land/genome";
 import { smoothstep } from "../../math/clamp";
 import { fbm } from "../../math/noise";
-import { cos, hypot, pow, sin, sqrt } from "../../math/portable";
+import { cos, hypot, pow, sin, sqrt, tan } from "../../math/portable";
 import { hazardDays } from "../../sim/weather";
 import { MAX_SILL_WIDTH, sillWidthFor } from "../../sim/sill";
 import { EDITOR_LEVEL, type MapSpec } from "../../spec/mapspec";
@@ -161,6 +161,13 @@ export const OUTFLOW_AWAY = 16;
  *  `LAKE_CANAL`: over a third of its shore along the range, or under two-fold in width) is laid again, read `tighter`
  *  than `valley.lake` reads the laid water (its shore wanders by a tile there, and the brooks' mouths notch it). */
 export const LAKE_SHAPE = { tighter: 0.02, wide: [7, 10.5], span: 36, least: 22, offBench: 16, meadow: 10, widest: 10, varies: 2, across: [0.6, 1], brooks: 0.1, sag: [0.12, 0.3], bay: 6, throat: [1.25, 1.6], throatR: [0.42, 0.55], endPool: 1.25, bayEvery: 12, lump: 8, lumpAt: 0.85, lumpR: 0.45 } as const;
+/** The lake leaves the wall over 128² (planning's look verdict of 2026-11-14 on round 3: at 256² one long lake lay
+ *  along the range's foot): its main arm heads away from the range's line by `angle` radians drawn, its far end only
+ *  as far along the range as that takes it (`LAKE_SHAPE.least` at the least); the Low River's gorge winds on from
+ *  there to the spur and past it to the edge, swinging side to side by `GORGE_WANDER` every three tiles on a broad bow
+ *  of up to `river[1]` tiles (× side ÷ 128) every `2 × river[0]`; and `bays` side arms, each `bay` of the main arm's
+ *  length, square to it by up to `lean` along, bent twice, drawn from `tries` places. */
+export const LAKE_LEAVES = { angle: [0.9, 1.1], river: [10, 3], bays: [2, 3], bay: [0.3, 0.42], lean: 0.6, tries: 60 } as const;
 /** The Veil: a fall of 6 or 7 from the cleft's lip into the plunge pool at the start's door. */
 /** The lake bends (planning's look verdict of 2026-11-14 on round 2: one straight-sided arm running to the map's edge
  *  read as a canal): the main arm's middle is laid `off` of its length off the line between its ends (the side it
@@ -254,6 +261,10 @@ export const BROOK_SPRING = [2.0, 2.6] as const;
 export const GATE_MEADOW = { tight: 15, normal: 18, generous: 21 } as const;
 /** The Low River's gorge: 5 wide, 6 at lush, through a spur ridge `SPUR` thick and the megadam's level + 3 high. */
 export const GORGE = { normal: 5, lush: 6 } as const;
+/** Over 128², where the lake leaves the wall and the Low River runs the valley's length to the spur (`LAKE_LEAVES`), its
+ *  gorge is this much wider: 5 wide over a flat bed, 147 tiles of it backed its water up a third of a level over its
+ *  banks (256² seed 1, 204 tiles of stray water); 7 wide, it stands 0.6 under them. */
+export const LOW_WIDER = 2;
 export const SPUR_HALF = 4.5;
 /** The megadam holds the valley `MEGADAM_RISE` over its lake's sill (the round's 9 over 7). */
 export const MEGADAM_RISE = 2;
@@ -465,6 +476,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const lowSide = "gate" as GateNumbers["lowSide"];
   const flow = flowOf(spec);
   const gorge = gorgeOf(spec);
+  const lowW = N > 128 ? gorge + LOW_WIDER : gorge;
 
   // ---- the range, land first (planning, 2026-11-11): its crest along it and its spine's wander are noise; the Veil
   // stands where its crest is highest near the map's middle (the springs rise high in the range), the gap where it is
@@ -716,19 +728,29 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   // was: as wide as its lip, the lake's last rows and the lip's square approach lay as one straight even reach of 170
   // to 250 tiles, a plan in four at 256²)
   const rEnd = LAKE_SHAPE.endPool * (lowLip / 2 + 0.5);
-  const uEnd = uE + lowLip / 2 + 0.5 - rEnd;
   const lowest = lakeLow + rEnd + 0.5;
   const fallAcross = rng.range(LAKE_SHAPE.across[0], LAKE_SHAPE.across[1]) * (uE - uL);
   let vEnd = Math.max(lowest + LAKE_SHAPE.brooks * N, Math.min(lakeTopV - rEnd, cv, v0 - fallAcross));
   // (where the valley is short along the range, as far down it as the lake's least length asks)
   if (hypot(uE - uL, v0 - vEnd) < LAKE_SHAPE.least) vEnd = Math.max(lowest, v0 - sqrt(Math.max(0, (LAKE_SHAPE.least + 0.5) * (LAKE_SHAPE.least + 0.5) - (uE - uL) * (uE - uL))));
   if (hypot(uE - uL, v0 - vEnd) < LAKE_SHAPE.least) return { why: "lake span" };
+  // (over 128², the lake leaves the wall, `LAKE_LEAVES`: its far end only as far along the range as its arm heads
+  // away from the foot by the angle drawn, and the Low River on from there along the valley to the spur)
+  let uX = uE;
+  if (N > 128) {
+    const drop = v0 - vEnd;
+    // (against the range's own line, u: read against the foot's slope, the Gate's bay and bench cut the foot seen)
+    const th = rng.range(LAKE_LEAVES.angle[0], LAKE_LEAVES.angle[1]);
+    const du = drop / tan(th);
+    uX = Math.min(uE, Math.max(uL + LAKE_SHAPE.least, uL + du + lowLip / 4));
+  }
   const fw = rng.range(0.4, 0.62);
-  const bow = -rng.range(LAKE_SHAPE.sag[0], LAKE_SHAPE.sag[1]) * hypot(uE - uL, v0 - vEnd);
+  const bow = -rng.range(LAKE_SHAPE.sag[0], LAKE_SHAPE.sag[1]) * hypot(uX - uL, v0 - vEnd);
   const lobes: [number, number][] = [[0, rHead], [fw * rng.range(0.45, 0.6), Math.max(2.8, rHead * rng.range(0.5, 0.65))], [fw, rWide * rng.range(1, 1.2)], [fw + (1 - fw) * rng.range(0.45, 0.6), rNeck]];
+  const uEnd = uX + lowLip / 2 + 0.5 - rEnd;
   const main: Spine = [];
   {
-    const [du, dv] = [uE - uL - lowLip / 4, vEnd - v0];
+    const [du, dv] = [uX - uL - lowLip / 4, vEnd - v0];
     const dl = hypot(du, dv);
     // (and its middle `LAKE_BEND.off` of its length off the line, on the side it sags to, every lobe on the one arc: bowed
     // alone, a long arm swung so gently its shore ran straight, 256² seed 5; its middle alone off the line, the half
@@ -974,12 +996,42 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const out = lowSide === "pass" ? -1 : 1;
   const lowV = lowEnd[1] + rng.range(-3, 3);
   const lipAt: Point = [lowEnd[0] + out * (lowEnd[2] + 1), lowEnd[1]];
-  const low: Point[] = [
-    lipAt,
-    [lowEnd[0] + out * (lowEnd[2] + 4), lowEnd[1]],
-    [spurU, lowV],
-    [lowSide === "pass" ? 0 : N, lowV + rng.range(-3, 3)],
-  ];
+  const lowFrom: Point = [lowEnd[0] + out * (lowEnd[2] + 4), lowEnd[1]];
+  // (over 128², where the lake ends short of the spur, the Low River winds along the valley to it, `LAKE_LEAVES.river`)
+  // (a gorge runs true in the raster, so its plan swings: a point every three tiles, side to side of its line by
+  // `GORGE_WANDER` as the Gate's, on a broad bow of up to `river[1]` tiles × side ÷ 128 every `river[0]`)
+  const lowOn: Point[] = [];
+  if (N > 128 && spurU - lowFrom[0] > LAKE_LEAVES.river[0]) {
+    const to: Point = [spurU, lowV];
+    const L = dist(lowFrom, to);
+    const n = Math.max(2, Math.round(L / 3));
+    const bows = Math.max(1, Math.round(L / (2 * LAKE_LEAVES.river[0])));
+    const bowBy = (rng.float() < 0.5 ? -1 : 1) * rng.range(0.5, 1) * LAKE_LEAVES.river[1] * m;
+    let sw = rng.float() < 0.5 ? -1 : 1;
+    for (let i = 1; i < n; i++) {
+      const f = i / n;
+      const o = bowBy * sin(Math.PI * bows * f) + sw * rng.range(GORGE_WANDER[0], GORGE_WANDER[1]);
+      sw = -sw;
+      lowOn.push([lowFrom[0] + (to[0] - lowFrom[0]) * f - ((to[1] - lowFrom[1]) / L) * o, lowFrom[1] + (to[1] - lowFrom[1]) * f + ((to[0] - lowFrom[0]) / L) * o]);
+    }
+  }
+  lowOn.push([spurU, lowV]);
+  const lowOut: Point = [lowSide === "pass" ? 0 : N, lowV + rng.range(-3, 3)];
+  // (and on past the spur to the edge the same way: met by a wound reach from the lake, the stretch past the spur
+  // lay on as one straight even reach of 60 tiles of water)
+  if (N > 128) {
+    const from = lowOn[lowOn.length - 1];
+    const L = dist(from, lowOut);
+    const n = Math.max(2, Math.round(L / 3));
+    let sw = rng.float() < 0.5 ? -1 : 1;
+    for (let i = 1; i < n; i++) {
+      const f = i / n;
+      const o = sw * rng.range(GORGE_WANDER[0], GORGE_WANDER[1]);
+      sw = -sw;
+      lowOn.push([from[0] + (lowOut[0] - from[0]) * f - ((lowOut[1] - from[1]) / L) * o, from[1] + (lowOut[1] - from[1]) * f + ((lowOut[0] - from[0]) / L) * o]);
+    }
+  }
+  const low: Point[] = [lipAt, lowFrom, ...lowOn, lowOut];
   // (the spur runs from the range's foot to past the Low River by 14 rows: a lake stood off the range for the start's
   // bench left the gorge near the spur's end, and the valley at the megadam's water walked round it; and to 0.16 of the
   // side at least: to a quarter, the valley at the megadam's water walked round its end on 3 to 5 of 12 maps at 256²)
@@ -1225,7 +1277,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
           breach: 0,
         },
         path: pathOnMap(T, low).map(rp),
-        half: gorge / 2,
+        half: lowW / 2,
         bed: low.map(() => BED_FLOOR),
         wet: true,
         gates: [],
@@ -1266,10 +1318,10 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     const works: Work[] = [
       { id: "neck", rung: "first", kind: "levee", on: "inlet", at: at([(inletPath[0][0] + inletPath[1][0]) / 2, (inletPath[0][1] + inletPath[1][1]) / 2]), tiles: NECK.levee, needs: [], gives: { green: [0, 0] }, tradeoff: "Before the first badtide: it keeps the pool clean while the trench runs red", region: "home" },
       { id: "gateOpen", rung: "medium", kind: "canal", on: "gate", at: at([gu, gShore + 1]), tiles: slotW * (BAR_LENGTH + 2), needs: [], gives: { green: gives(GIVES.gateOpen) }, tradeoff: "The river splits: the lake keeps less", region: "wet" },
-      { id: "gateWhole", rung: "medium", kind: "levee", on: "low", at: at(low[1]), tiles: gorge * 2 + slotW, needs: ["gateOpen"], gives: { green: gives(GIVES.gateWhole, "gateWhole") }, tradeoff: "The lake sinks half a level and the Low River runs dry", region: "wet" },
+      { id: "gateWhole", rung: "medium", kind: "levee", on: "low", at: at(low[1]), tiles: lowW * 2 + slotW, needs: ["gateOpen"], gives: { green: gives(GIVES.gateWhole, "gateWhole") }, tradeoff: "The lake sinks half a level and the Low River runs dry", region: "wet" },
       { id: "leatOpen", rung: "medium", kind: "leat", on: "leat", at: at(leat[0]), tiles: 3, needs: [], gives: { green: gives(GIVES.leatOpen) }, region: "top" },
       { id: "leatWhole", rung: "large", kind: "leat", on: "leat", at: at(leat[0]), tiles: 2, needs: ["leatOpen"], gives: { green: gives(GIVES.leatWhole, "leatWhole") }, tradeoff: `${veilName[0].toUpperCase()}${veilName.slice(1)} dwindles`, region: "top" },
-      { id: "megadam", rung: "large", kind: "megadam", on: "low", at: at([spurU, lowV]), tiles: gorge + slotW, needs: [], gives: { green: [0, 0], reservoir: gives(GIVES.megadam) }, tradeoff: "It floods the lake's low meadows, and the Gate is dammed with it", region: "low" },
+      { id: "megadam", rung: "large", kind: "megadam", on: "low", at: at([spurU, lowV]), tiles: lowW + slotW, needs: [], gives: { green: [0, 0], reservoir: gives(GIVES.megadam) }, tradeoff: "It floods the lake's low meadows, and the Gate is dammed with it", region: "low" },
     ];
     plan.works.push(...works);
 
@@ -1428,7 +1480,48 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
 
   // the lake's bays: one or two arms off the main arm into the valley, clear of the springs, the start's bench and the
   // Low River (`clear`), before the brooks, which find their way round them
-  const want = rng.int(1, 3);
+  // (over 128², `LAKE_LEAVES.bays` of them, each `bay` of the main arm's length, bent along it: a lake that leaves the
+  // wall branches)
+  if (N > 128) {
+    let armLen = 0;
+    for (let k = 1; k < main.length; k++) armLen += hypot(main[k][0] - main[k - 1][0], main[k][1] - main[k - 1][1]);
+    const wantL = rng.int(LAKE_LEAVES.bays[0], LAKE_LEAVES.bays[1] + 1);
+    let got = 0;
+    for (let tries = 0; tries < LAKE_LEAVES.tries && got < wantL; tries++) {
+      const j = rng.int(1, main.length - 1);
+      const base = main[j];
+      const [a, b] = [main[j - 1], main[Math.min(main.length - 1, j + 1)]];
+      const al = hypot(b[0] - a[0], b[1] - a[1]) || 1;
+      // (square to the arm there, to either side, leaning along it by up to `lean`)
+      const sd = rng.float() < 0.5 ? -1 : 1;
+      const lean = rng.range(-LAKE_LEAVES.lean, LAKE_LEAVES.lean);
+      const [tu, tv] = [(b[0] - a[0]) / al, (b[1] - a[1]) / al];
+      let [du, dv] = [-tv * sd + tu * lean, tu * sd + tv * lean];
+      const dl = hypot(du, dv);
+      [du, dv] = [du / dl, dv / dl];
+      const len = rng.range(LAKE_LEAVES.bay[0], LAKE_LEAVES.bay[1]) * armLen;
+      const r0 = Math.min(base[2], 6);
+      const tip = rng.range(3, 4.5);
+      const pts: Spine[number][] = [[base[0], base[1], r2(r0)]];
+      let alt = rng.float() < 0.5 ? -1 : 1;
+      let ok = true;
+      for (const f of [0.35, 0.7, 1]) {
+        const off = f < 1 ? alt * rng.range(0.1, 0.18) * len : 0;
+        alt = -alt;
+        const rr = Math.max(LAKE_WANDER.least, (r0 + (tip - r0) * f) * (f < 1 ? rng.range(0.75, 1.15) : 1));
+        const q: Point = [base[0] + du * len * f - dv * off, base[1] + dv * len * f + du * off];
+        if (q[1] + rr > lakeTopV - 0.5 || q[1] - rr < lakeLow - 1 || !clear(q, rr)) {
+          ok = false;
+          break;
+        }
+        pts.push([r2(q[0]), r2(q[1]), r2(rr)]);
+      }
+      if (!ok) continue;
+      lakeArms.push(pts);
+      got++;
+    }
+  }
+  const want = N > 128 ? 0 : rng.int(1, 3);
   for (let tries = 0, bays = lakeArms.length; tries < 24 && lakeArms.length < bays + want; tries++) {
     const j = rng.int(0, main.length - 1);
     const base = main[j];

@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { failing, PLAN_TRIES } from "../../src/core/premise/draw";
 import { gateWater } from "../../src/core/premise/gateWater";
 import { firstWater } from "../../src/core/premise/draw";
-import { GATE_FACE_RUN, GATE_LAND_CHECKS, gateLand, gateLandFailures, gateRelief, gateZones, gorgeFaces, rangeBand, rangeBandParts } from "../../src/core/premise/gateLand";
+import { GATE_FACE_RUN, GATE_LAND_CHECKS, gateLand, gateLandFailures, gateRelief, gateZones, gorgeFaces, playaShare, rangeBand, rangeBandParts } from "../../src/core/premise/gateLand";
 import { gateOf, onLocal, rangeAt, turnOf, wallGate } from "../../src/core/premise/premises/wallGate";
 import { makeSpec, type MapSpec } from "../../src/core/spec/mapspec";
 import { gateWetPast } from "../../src/core/premise/gateMap";
@@ -143,6 +143,14 @@ describe("Broken gate land fails its invariants", () => {
       for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) h[(st.y + dy) * W + st.x + dx] = st.z + ((st.x + dx + st.y + dy) & 1);
     }],
   ];
+
+  // (a design change, planning's look verdict of 2026-11-14 on round 3, not eased to pass anything: the larger maps'
+  // floor rolls round one clear playa, and asked for 55 % at every size it lay as one sheet)
+  it("basin.playa asks for a share of the basin by the map's size: 55 % at 128², 45 % at 192², 35 % at 256²", () => {
+    expect(playaShare(128)).toBeCloseTo(0.55, 9);
+    expect(playaShare(192)).toBeCloseTo(0.45, 9);
+    expect(playaShare(256)).toBeCloseTo(0.35, 9);
+  });
 
   it("has one broken ground for every land invariant", () => {
     expect([...broken.map(([id]) => id), "bench.shore"].sort()).toEqual(GATE_LAND_CHECKS.map((x) => x.id).sort());

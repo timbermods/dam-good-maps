@@ -1703,6 +1703,56 @@ a trunk's straight reach shows as 2 waves or more on 14 of 43 (13 of the 23 trun
 trunk's reach is cut by its tail and loop; at 192² the chain of three makes Strahler's order two; at 128² seed 6 and
 192² seed 11 the rise's ground ends level with a broad flat round it, so its top has no rim for its ruins.
 
+**The gate's fourth round, 192² and 256²** (planning's look verdict of 2026-11-14 on round 3: 128² passes; at 256²
+one long lake lay along the range and half the map past it was one sheet). 128² is as it was, but for the rise at seed 6:
+- **The lake leaves the wall** (`wallGate.ts` `LAKE_LEAVES`). Its main arm heads away from the range's line by 52 to
+  63° drawn, and its far end lies only as far along the range as that takes it (22 tiles at the least); the Low
+  River's gorge winds on from there along the valley to the spur and past it to the edge, a point every three tiles
+  side to side as the Gate's gorge, on a broad bow (a gorge runs true in the raster: drawn straight, it was refused as
+  a straight reach of 60 to 90 tiles of water). It is 7 wide over 128², not 5 (`LOW_WIDER`): 5 wide on its flat bed,
+  147 tiles of it backed its water a third of a level over its banks (256² seed 1, 204 tiles of stray water; the heavy
+  test's settle caught it), and 7 wide it stands half a level under them. Two or three side arms, each 0.3 to 0.42 of
+  the main arm's length, leave it square to it, leaning along it, bent twice. `lakeLeaves` (`gateMeasures.ts`) reads
+  the angle between the main arm and the foot's least-squares line over 48 tiles at the least (over the arm's own
+  stretch alone, the Gate's bay and bench turned it), the arms a quarter of the main arm long, and the share of the
+  lake's shore within 8 tiles of the foot.
+- **The dry side rolls round one clear playa** (`gateLand.ts` `BASIN_ROLL`, `playaShare`). `basin.playa` asks for 55 %
+  of the basin within two levels of its pan at 128², 45 % at 192² and 35 % at 256², straight between them by the side:
+  a design change, not eased to pass anything. Past the playa's benches (fading in over 6 tiles) the floor stands from
+  3 under the lake's sill to 4 over in swells some 20 to 25 tiles apart, over half of it at the sill or under; the
+  playa starts at 0.4 of its oval (0.7 at 128²) and grows only where the floor leaves too little; the hills toward the
+  edge are as wide as 128²'s grown with the map, not a tenth of the side; and the beds' first bench is 4.5 tiles at
+  every size (grown, it and the bed lay as one sheet 16 wide).
+- **The rise carries its ruins.** Where the rise's top, read as the life stage reads it (`riseRim`), has a rim under
+  5 tiles, its top stands a level over the ground 3 tiles round it and its first step a level under that
+  (`RISE_STANDS`).
+
+**Measured, round 4** (seeds 1 to 12 at 192² and 256², 2026-11-14): 24 of 24 hold, every start check passing; 128² is
+as round 3 on every seed but 6 (its wood floor 308 to 325, its sheet 34 to 29 %, the rise stood up). The start's
+numbers, mean and least: level land 862 and 651 (192²), 983 and 653 (256²); wood 389 and 273, 357 and 242; the wood
+floor 510 and 281, 522 and 258; food 48 and 40 the least; water 2.3 and 2.6 tiles off on the mean, 3 at the furthest.
+Before is round 3 on the same seeds:
+
+| | Before (192², 256²) | After | Asked |
+|---|---|---|---|
+| The main arm against the range's foot | 12 to 51°, 31 to 53° | 42 to 73°, 40 to 72° | 30° or more |
+| Side arms a quarter of the main arm or longer | 0 to 4, 0 to 1 | 5 to 11, 2 to 9 | 2 |
+| The lake's shore within 8 tiles of the foot | 0 %, 0 % | 0 %, 0 % | 20 % or less |
+| The flat sheet | 34 to 41 %, 41 to 48 % | 20 to 29 %, 23 to 30 % | 35 %; 30 % at 256² |
+| The dry side within 3 levels under the sill | 50 to 55 %, 51 to 55 % | 46 to 49 %, 47 to 55 % | 45 % |
+| The playa's share, asked; got | 55 %; 57 to 61 % | 45 %, 35 %; 49 to 58 % | by size |
+| Rises with their ruin group (all three sizes) | 34 of 36 | 36 of 36 | all |
+| Maps with stray water in the settle; tiles at the most | 7 of 24; 344 | 1 of 24; 8 | none |
+
+A map took 6.7 s at 192² and 20.8 s at 256² on the mean, measured with the tests running beside it (4.1 and 9.4 s
+alone, before the Low River was widened). **Short:** the lake's shore was already off the foot before (the round-3
+lake lay along the range, but more than 8 tiles out from its foot, so that measure did not see it; the angle did); the
+playa's share stays 49 to 58 % where 45 and 35 are asked, since `basin.playa` is a least and the playa grows where the
+rolling floor leaves too little land within two levels; 256² seeds 4 and 12 have a sheet of 30 %, at the limit; the
+longest straight stretch of the lake's shore, of its main arm, rose from 0.16 to 0.33 to 0.22 to 0.52 (the main arm is
+shorter, the side arms bend at their two points); 256² seed 9 keeps 8 tiles of a brook's film (0.07 deep) on its
+meadow, as round 3's brooks did on 7 maps of 24.
+
 **Measured, the brooks' round** (seeds 1 to 12 at 128², 192² and 256², 2026-11-14, before the look round): 36 of 36 make a map, every start check passing.
 The start's numbers over the 36, mean and least: level land 989 and 667 tiles (192² seed 5), wood 398 and 253 (192²
 seed 7), the wood floor 553 and 301 (256² seed 10), food 52 and 48; water 2.4 tiles off on the mean, 3.8 at the
