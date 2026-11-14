@@ -160,7 +160,7 @@ export function startGenerate(input: GenerateInput): Job {
       }
       try {
         const g = openGenerated(afterCrossing(m.r), m.ms, seedWord, handle);
-        resolve({ handle: g.handle, intentions: g.intentions, ms: g.ms });
+        resolve({ handle: g.handle, intentions: g.intentions, ms: g.ms, ...(g.premise ? { premise: g.premise } : {}) });
       } catch (e) {
         reject(e);
       }

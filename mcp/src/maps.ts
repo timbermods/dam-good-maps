@@ -31,7 +31,7 @@ import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
 import { RIFT_DEFAULTS } from "../../src/core/forces/rift";
 import type { ForceRequest } from "../../src/core/forces/start";
 import { generate, type GenerateResult } from "../../src/core/gen/generate";
-import { INTENTIONS } from "../../src/core/land/intentions";
+import { intentionRefusal } from "../../src/core/land/intentionTable";
 import { canonicalRun, type CanonicalWater } from "../../src/core/sim/prefill";
 import { worldWaterModel } from "../../src/core/sim/stackWater";
 import type { WaterModel } from "../../src/core/sim/water";
@@ -40,6 +40,9 @@ import {
   generatorSizeRefusal,
   highestTerrainDefault,
   makeSpec,
+  PREMISE_CHOICES,
+  PREMISE_NAMES,
+  type PremiseChoice,
   seedFromText,
   SIZE_PRESETS,
   THEMES,
@@ -97,6 +100,11 @@ export function mapOf(handle: string): MapSession {
   );
 }
 
+/** Keep a map opened elsewhere (a real place, places.ts) under a new handle. */
+export function keepMap(s: MapSession): string {
+  return keep(s);
+}
+
 /** Forget every open map (the tests). */
 export function closeAll(): void {
   open.clear();
@@ -113,6 +121,8 @@ export interface GenerateInput {
   designedFor?: string;
   settings?: Record<string, unknown>;
   intentions?: string[];
+  /** "none", "any", or a premise by its id or its name (the page's list, PREMISE_CHOICES). */
+  premise?: string;
 }
 
 export interface Generated {
@@ -121,6 +131,8 @@ export interface Generated {
   /** The intentions the map was steered toward, and whether each emerged (D138, D139: said honestly). */
   intentions: { id: string; ok: boolean; note: string }[];
   ms: number;
+  /** A map whose spec named a premise: the premise it was made from, or why the themes made it instead, in words. */
+  premise?: string;
 }
 
 /** What a finished job keeps of its map: the handle, the intentions and the time, never the session. The session
@@ -140,6 +152,26 @@ function sizeOf(v: GenerateInput["size"]): { x: number; y: number } {
   }
   if (typeof v === "number") return { x: v, y: v };
   return { x: v.x, y: v.y };
+}
+
+/** A premise as generate takes it: none (undefined), Any, or one of the page's premises by its id or its name. */
+export function premiseOf(v: string | undefined): PremiseChoice | undefined {
+  if (v === undefined) return undefined;
+  const key = v.trim().toLowerCase();
+  if (key === "none") return undefined;
+  const found = PREMISE_CHOICES.find((p) => p.toLowerCase() === key || PREMISE_NAMES[p].toLowerCase() === key);
+  if (!found) refuse(`The premise is none, ${PREMISE_CHOICES.map((p) => PREMISE_NAMES[p]).join(", ")}`);
+  return found;
+}
+
+/** What a premise map was made from, in words: the card's (the page's map card), or why the themes made it. */
+function premiseWords(r: GenerateResult): string | undefined {
+  const p = r.info.premise;
+  if (!p) return undefined;
+  if (p.fellBack) return `${p.fellBack}.`;
+  const card = p.card;
+  if (!card) return `${PREMISE_NAMES[p.id as PremiseChoice] ?? p.id}.`;
+  return [`${card.name}, in the ${card.style} style. ${card.line}`, `Landmark: ${card.landmark}.`, ...(card.first ? [`First: ${card.first}`] : [])].join(" ");
 }
 
 /** The spec that a generate call asks for, as the page's Generate makes it (src/ui/App.tsx), or the refusal of its
@@ -166,7 +198,8 @@ export function specOf(input: GenerateInput): { spec: MapSpec; seedWord?: string
     seed = seedFromText(word);
     if (!/^\d+$/.test(word)) seedWord = word;
   }
-  const spec = makeSpec({ seed, size, theme, designedFor });
+  const premise = premiseOf(input.premise);
+  const spec = makeSpec({ seed, size, theme, designedFor, ...(premise ? { premise } : {}) });
   if (input.settings) {
     const patched = applyMergePatch(spec.settings, input.settings);
     // (the highest the land may rise follows Verticality unless it is given, as the page's row keeps them together)
@@ -175,7 +208,11 @@ export function specOf(input: GenerateInput): { spec: MapSpec; seedWord?: string
     spec.settings = patched;
   }
   if (input.intentions?.length) {
-    for (const id of input.intentions) if (!(INTENTIONS as readonly string[]).includes(id)) refuse(`"${id}" is not an intention: they are ${INTENTIONS.join(", ")}`);
+    // (offered by theme, as the table every surface reads says: core/land/intentionTable.ts)
+    for (const id of input.intentions) {
+      const why = intentionRefusal(id, theme);
+      if (why) refuse(why);
+    }
     spec.intentions = [...input.intentions];
   }
   const errors = validateSpec(spec);
@@ -192,7 +229,8 @@ export function openGenerated(r: GenerateResult, ms: number, seedWord?: string, 
     refuse(`This map did not pass its checks${failed.length ? ` (${failed.slice(0, 3).join("; ")})` : ""}: try another seed or other settings`);
   }
   const session = MapSession.fromGenerated(r, r.file, seedWord);
-  return { handle: keep(session, handle), session, intentions: r.intentions.map((x) => ({ id: x.id, ok: x.ok, note: x.note })), ms };
+  const premise = premiseWords(r);
+  return { handle: keep(session, handle), session, intentions: r.intentions.map((x) => ({ id: x.id, ok: x.ok, note: x.note })), ms, ...(premise ? { premise } : {}) };
 }
 
 /** Generate a map on this thread and open it, as the page's Generate does (src/worker/api.ts `runGenerate`). The
@@ -252,10 +290,36 @@ interface Before {
   start: [number, number, number] | null;
 }
 
-const startOf = (s: MapSession): [number, number, number] | null => (s.built.start ? [s.built.start.x, s.built.start.y, s.built.start.z] : null);
+const startOf = (s: MapSession): [number, number, number] | null => {
+  const st = startTile(s);
+  return st ? [st.x, st.y, st.z] : null;
+};
+
+/** The water a map shows, one depth and one contamination a tile: an unedited import's own water (a .timber opened, a
+ *  real place) while it keeps it (`showsStoredWater`), else the build's. */
+export function shownWater(s: MapSession): { depth: ArrayLike<number>; contamination: ArrayLike<number> } {
+  if (!s.showsStoredWater) return { depth: s.built.water, contamination: s.built.contamination };
+  const w = s.waterShown();
+  return { depth: w.depth, contamination: w.contamination };
+}
+
+/** The soil a map shows, one moisture and one contamination a tile: an unedited import's own (the file's soil on each
+ *  tile's top) while it keeps its water, else the build's. */
+export function shownSoil(s: MapSession): { moisture: ArrayLike<number>; contamination: ArrayLike<number> } {
+  if (!s.showsStoredWater) return { moisture: s.built.moisture, contamination: s.built.soilContamination };
+  return s.storedSoil();
+}
+
+/** The start's tile: the build's, or an imported map's StartingLocation object. */
+export function startTile(s: MapSession): { x: number; y: number; z: number } | null {
+  const b = s.built;
+  if (b.start) return { x: b.start.x, y: b.start.y, z: b.start.z };
+  const e = b.entities.find((x) => x.template === "StartingLocation");
+  return e ? { x: e.x, y: e.y, z: e.z } : null;
+}
 
 function wetMask(s: MapSession): Uint8Array {
-  const w = s.built.water;
+  const w = shownWater(s).depth;
   const m = new Uint8Array(w.length);
   for (let i = 0; i < w.length; i++) m[i] = w[i] > 0.05 ? 1 : 0;
   return m;
