@@ -395,6 +395,9 @@ export function App() {
     [],
   );
 
+  // (the end-to-end build: whether a save of Your maps is waiting or being written, hiddenSave.spec.ts)
+  if (import.meta.env.MODE === "e2e") (window as unknown as { __dgmSaving?: () => boolean }).__dgmSaving = () => saver.busy();
+
   // the editor's chunk loads with the page, beside the first map being made
   useEffect(() => {
     void import("../editor/Editor").then((m) => setEditorMod(() => m.default as ComponentType<EditorProps>));
@@ -898,14 +901,20 @@ export function App() {
   }
 
   // Leaving the page (investigation/saving-review): the browser asks first while an edit of a kept map isn't saved yet
-  // or its save failed (a write can't be waited for as the page closes); hidden, the page saves what is waiting.
+  // or its save failed (a write can't be waited for as the page closes); hidden, the page saves what is waiting. A phone
+  // may discard a page it has hidden (iOS does, #1074): an edit made the moment before the page was hidden, still on its
+  // way to the worker, is waited for and saved too, never left to the quiet save's timer.
   useEffect(() => {
     const leaving = (e: BeforeUnloadEvent) => {
       if (!kept.current || (!saver.busy() && keeping.current)) return;
       e.preventDefault();
       e.returnValue = "";
     };
-    const flush = () => void saver.flush();
+    const flush = () =>
+      void (async () => {
+        await pendingEdits.current?.().catch(() => undefined);
+        await saver.flush();
+      })();
     const hidden = () => {
       if (document.visibilityState === "hidden") flush();
     };

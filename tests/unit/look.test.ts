@@ -396,8 +396,8 @@ describe("the models", () => {
     };
     expect(greenish("Oak")).toBeGreaterThan(0);
     expect(greenish("Oak.dead")).toBe(0);
-    // a ruin three high is three storeys of scaffold, one per level
-    const storeys = [...byName.entries()].filter(([k]) => k.startsWith("scaffold")).reduce((s, [, m]) => s + m.count, 0);
+    // a ruin three high is three storeys of scaffold, one per level (its ivy a batch of its own)
+    const storeys = [...byName.entries()].filter(([k]) => k.startsWith("scaffold") && !k.startsWith("scaffold.ivy")).reduce((s, [, m]) => s + m.count, 0);
     expect(storeys).toBe(3);
     expect(byName.get("start")!.count).toBe(1);
     expect(byName.get("start.entrance")!.count).toBe(1);
