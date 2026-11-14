@@ -596,6 +596,8 @@ export class MapRenderer {
     fingers: (n) => this.onFingers?.(n),
     canTilt: () => this.view.mode === "orbit",
     still: () => this.reducedMotion,
+    later: (fn, ms) => window.setTimeout(fn, ms),
+    clear: (id) => clearTimeout(id),
   });
   /** The last tap of a finger (its place and time), for a double tap; whether the readout shows the tile it read. */
   private lastTap: { x: number; y: number; t: number } | null = null;
@@ -5146,8 +5148,10 @@ export class MapRenderer {
         if (showsAtOnce(mode)) this.keepAim = true;
       },
       pan: () => {
+        // (only while this press is the finger's own, still down: a press already lifted or replaced leaves no pan)
+        if (this.press !== press) return;
         // (the pan the hold took over, from the press: the move that ended the hold moves the map the whole way from there)
-        if (this.press?.id === ev.pointerId) this.press = null;
+        this.press = null;
         this.drag = { kind: "pan", x: ev.clientX, y: ev.clientY, id: ev.pointerId, moved: 0, button: 0, touch: ev };
       },
       overCancel: (p) => !!document.elementFromPoint(p.x, p.y)?.closest("[data-press-cancel]"),
@@ -5163,7 +5167,8 @@ export class MapRenderer {
       later: (fn, ms) => window.setTimeout(fn, ms),
       clear: (id) => clearTimeout(id),
     };
-    this.press = new FingerPress(mode, ev.pointerId, { x: ev.clientX, y: ev.clientY }, ev.timeStamp, this.canvas.getBoundingClientRect().top, host, held);
+    const press = new FingerPress(mode, ev.pointerId, { x: ev.clientX, y: ev.clientY }, ev.timeStamp, this.canvas.getBoundingClientRect().top, host, held);
+    this.press = press;
   }
 
   /** Drop a finger's press with something in hand, nothing applied (a Cancel control, the window losing focus); the

@@ -225,17 +225,17 @@ test("an unknown place says so and opens a generated map instead", async ({ page
   // wait on CI, where Any 128²'s p90 is 27 s headless and a browser is slower (dev's run 40885738448): the page's random
   // number is held at 5, which passes in 2.5 s with no 3D form, D341)
   await holdRandomSeed(page, 5);
-  await page.goto("./#place=near-nowhere");
+  await page.goto("./#place=nowhere");
   // (the words come at once, with the editor's frame showing, while the map made instead is on its way: the page once
   // set them only after that map was made, which took longer than the wait on a busy machine, D341)
-  await expect(page.getByRole("alert").filter({ hasText: 'there is no real place called "near-nowhere"' })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("alert").filter({ hasText: 'there is no real place called "nowhere"' })).toBeVisible({ timeout: 15_000 });
   await waitForEditor(page);
   // (and they are still there once the map is)
-  await expect(page.getByRole("alert").filter({ hasText: 'there is no real place called "near-nowhere"' })).toBeVisible();
+  await expect(page.getByRole("alert").filter({ hasText: 'there is no real place called "nowhere"' })).toBeVisible();
   const made = await page.evaluate(() => window.dgmEditor!.info());
   expect(made.kind).toBe("generated");
   expect(made.spec?.seed).toBe(5);
-  expect(entry("near-nowhere")).toBeUndefined();
+  expect(entry("nowhere")).toBeUndefined();
 });
 
 test("Real places in the header: the places three across in the generator's box; a click opens one in the editor (Kyler, 2026-10-04)", async ({ page }) => {

@@ -145,7 +145,7 @@ const PREMISE_TEXT = [
 const PLACE_TEXT = [
   "A real place by its name or id, from the places tool: the page's Real places.",
   "A place is a map of its own, made from real land: give it alone, without theme, size, seed, designedFor, settings, premise or intentions.",
-  'Example: {"place": "Near Aso caldera"}.',
+  'Example: {"place": "Aso caldera"}.',
 ].join(" ");
 
 /** An intention's themes, from the table every surface reads (core/land/intentionTable.ts). */

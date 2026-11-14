@@ -3,7 +3,8 @@
 // the start's five check numbers (planning, #236), then its checks, its land invariants and its water settled on the
 // land (the lake and the Still Pool against the sill, the Veil's curtain, the Gate and the leat dry, stray water, water
 // on the edge but the Low River's); it writes a `.timber` the game loads, a project the page opens and a top-down
-// picture (the ground shaded by height, settled water blue, moist ground green, trees dark dots, bushes red).
+// picture (the ground shaded by height, settled water blue, water in a straight even reach orange, moist ground green,
+// trees dark dots, bushes red).
 //
 //   npx tsx tools/premise-gate-map.ts [--seed 1 | --seeds 1-12] [--size 128] [--theme riverValley] [--out .scratch/premise-gate]
 
@@ -13,7 +14,8 @@ import { encodeProject, generatedDocument } from "../src/core/doc/document";
 import type { BuildResult } from "../src/core/features/build";
 import { writeTimber } from "../src/core/format/timber";
 import type { StyleTheme } from "../src/core/premise/choice";
-import { gateMap, startNumbers } from "../src/core/premise/gateMap";
+import { gateMap, startNumbers, valleyByWater } from "../src/core/premise/gateMap";
+import { waterReaches, wetOf } from "../src/core/validate/ruledLand";
 import { makeSpec } from "../src/core/spec/mapspec";
 import { readGateSettle } from "../tests/contract/gateSettle";
 import { encodePng } from "./png";
@@ -39,6 +41,8 @@ function picture(b: BuildResult, top: number): { rgb: Uint8Array; width: number;
     const c: [number, number, number] | null = e.template === "BlueberryBush" ? [200, 30, 60] : ["Pine", "Birch", "Oak"].includes(e.template) ? [10, 70, 20] : null;
     if (c) plant.set(e.y * W + e.x, c);
   }
+  // (water lying as a straight even reach, `terrain.ruled_land`'s channels: orange)
+  const ruled = waterReaches(wetOf(b.settle.depth), W, H).mark;
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
@@ -48,7 +52,7 @@ function picture(b: BuildResult, top: number): { rgb: Uint8Array; width: number;
       let c: [number, number, number] = [g * 0.8 + shade, g * 0.82 + shade, g * 0.62 + shade];
       if (b.settle.depth[i] > 0.05) {
         const k = Math.min(1, b.settle.depth[i] / 3);
-        c = [70 - 50 * k, 150 - 60 * k, 220 - 40 * k];
+        c = ruled[i] ? [255, 150, 0] : [70 - 50 * k, 150 - 60 * k, 220 - 40 * k];
       } else if (b.moisture[i] > 0) c = [c[0] * 0.55, c[1] * 0.95 + 10, c[2] * 0.45];
       const pc = plant.get(i);
       for (let a = 0; a < S; a++)
@@ -84,6 +88,9 @@ for (const seed of seeds) {
   if (r.failed.length) console.log(`  ${r.held ? `plan ${r.attempt}; refused before it` : "NO PLAN HELD; the last built"}: ${r.failed.join(" | ")}`);
   if (r.landFails.length) console.log(`  land FAILS ${r.landFails.map((f) => `${f.id}: ${f.reason}`).join("; ")}`);
   if (r.worksFails.length) console.log(`  works FAIL ${r.worksFails.map((f) => `${f.id}: ${f.reason}`).join("; ")}`);
+  const vw = valleyByWater(r.plan, m.built);
+  const reach = waterReaches(wetOf(m.built.settle.depth), m.built.W, m.built.H);
+  console.log(`  held ${r.held}; valley within 3 tiles of water ${(100 * vw.valley).toFixed(0)} %, its floor ${(100 * vw.floor).toFixed(0)} % (${vw.floorTiles} tiles); water in straight even reaches ${(100 * reach.share).toFixed(1)} %${reach.worst ? `, the largest ${reach.worst.tiles} tiles at ${reach.worst.x}, ${reach.worst.y}` : ""}`);
   console.log(`  ${r.card.first}`);
   for (const w of r.ladder.works) console.log(`  ${w.id} (${w.rung}) ${w.does} ${w.tiles.length} tiles to ${w.level}: green ${w.green}${w.reservoir ? `, holds ${w.reservoir}` : ""}${w.paid ? "" : " SHORT"}${w.note ? ` (${w.note})` : ""}`);
   const s = readGateSettle(r.plan, r.water, m.built.heights, m.built.settle, 0, r.land.niches);

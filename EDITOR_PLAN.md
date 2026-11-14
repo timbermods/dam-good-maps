@@ -156,11 +156,11 @@ place of its bottom rule.
   an island's contour rings one after another (the lowest in the water's colour; 0.5 s apart, 1.8 s each, then they hold
   and fade together on a 6 s cycle); both move only while waiting and not under reduced motion (`FirstLook.tsx`);
   **Cancel (or Esc) while a map is made** brings the open map back as it was and leaves the panel's name and settings as
-  they were picked, for the next try; **a real place opened over a map** shows the same dialog, "Opening Near Crater Lake…", with Cancel, which brings the
+  they were picked, for the next try; **a real place opened over a map** shows the same dialog, "Opening Crater Lake…", with Cancel, which brings the
   open map back as it was; in a Together session, once the new map is built and being put into the session's worker (the last step before it opens), Cancel is off ("The map is opening"), Esc does nothing and the words read "Opening the map…". **A long wait counts itself** (a 256² map can take minutes): under the words the dialog says
   the attempt under way and the time so far ("Attempt 3 · 2 min 14 s"), from the fourth second or the second attempt, in a
   quiet line whose room is kept so the card never changes height (`FirstLook.tsx` `MakingCount`). The shelf's pictures are kept from one map to the next (`shelf/iconCache.ts`), never grey.
-  A real place has one name everywhere, the one in its file ("Near Crater Lake"). Every map is made for Normal until the core drops difficulty
+  A real place has one name everywhere, the one in its file ("Crater Lake"). Every map is made for Normal until the core drops difficulty
   after M9b's release. Every Generate makes a new map named for its theme ("River Valley") and replaces the open one
   without asking: edits never replay onto new land (D336), and the map it replaces, if kept, is in Your maps, which a quiet note says
   ("<name> is in Your maps", also when Another like this or opening another map replaces it; only when it was really stored, and a note that goes by itself after 8 s).
@@ -1675,7 +1675,9 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   desktop's). A finger is a pointer of its own type, so the mouse, the pen (its pressure) and the keys keep everything
   above. **Two fingers** move the camera in one gesture: dragged they pan, pinched they zoom about the ground under their
   middle (it stays under it, as the wheel's does), twisted they turn the view about that ground, and two fingers side by
-  side dragged up or down together tilt it (in the top-down view that drag pans); let go moving, the view glides on and
+  side dragged up or down together tilt it (in the top-down view that drag pans). A browser tells one touch a finger at
+  a time, so the gesture takes a touch's move whole: one step once both fingers' moves are in (`Touches`), never a
+  step aside and back that a view held at the map's edge could not undo. Let go moving, the view glides on and
   slows to a stop (none with reduced motion). **One finger with nothing in hand** (the resting Select with nothing
   selected) pans; a **tap** reads the tile (the readout stays once the finger is gone) and is a click (an object, a
   source or the start is picked as by the mouse); a **double tap** glides in to half the distance about the spot,

@@ -62,7 +62,7 @@ describe("the website's link", () => {
   });
 
   it("is the place's own link for an unedited real place", async () => {
-    expect(textOf(await callTool("generate", { place: "near-aso-caldera" }))).toContain(`On the website: ${SITE}#place=near-aso-caldera`);
+    expect(textOf(await callTool("generate", { place: "aso-caldera" }))).toContain(`On the website: ${SITE}#place=aso-caldera`);
   });
 });
 
