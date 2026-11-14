@@ -4,7 +4,7 @@
 
 import { CustomBlending, GreaterDepth, Group, LessEqualDepth, Scene } from "three";
 import { describe, expect, it } from "vitest";
-import { caveChunksOf, caveFaces, CaveGhost, STEP, type Quads } from "../../src/render3d/caveGhost";
+import { CaveBook, caveChunksOf, caveFaces, CaveGhost, STEP, type Quads } from "../../src/render3d/caveGhost";
 
 const mask = (...solid: number[]): number => solid.reduce((m, z) => m | (1 << z), 0);
 const span = (lo: number, hi: number): number[] => Array.from({ length: hi - lo }, (_, k) => lo + k);
@@ -119,6 +119,16 @@ describe("caveFaces: a stepped tunnel is one passage", () => {
     expect(tunnel(1, 7, STEP + 1, 7).steps).toBe(0);
     // a rise of STEP layers is a step, its riser STEP faces high
     expect(tunnel(1, 7, STEP, 7).steps).toBe(STEP);
+    // a slab one layer thick with air under it, beside a cell's floor, is a wall: the rock must rise from the floor
+    const open = (...air: number[]) => mask(...span(0, 8).filter((z) => !air.includes(z)));
+    const slab = map(7, 5, 8, [
+      [1, 2, open(2, 3, 4)],
+      [2, 2, open(2, 3, 4)],
+      [3, 2, open(2, 4, 5)],
+      [4, 2, open(2, 4, 5)],
+      [5, 2, open(2, 4, 5)],
+    ]);
+    expect(slab.steps).toBe(0);
   });
 });
 
@@ -190,5 +200,41 @@ describe("CaveGhost", () => {
     for (const m of seen) expect(m.material).toMatchObject({ transparent: true, depthWrite: false });
     ghost.clear();
     expect(scene.children).toHaveLength(0);
+  });
+});
+
+describe("CaveBook", () => {
+  const src = (heights: Uint8Array, extra: object = {}) => ({ W: 64, H: 64, heights, columns: new Map(), masks: new Uint32Array(64 * 64), ...extra });
+
+  it("keeps a stroke's rect after a cutout-only change earlier in the frame, its heights changed in place", () => {
+    const book = new CaveBook();
+    const map = {};
+    const heights = new Uint8Array(64 * 64);
+    const s0 = src(heights);
+    expect(book.due(map, s0, null)).toBeNull();
+    // a pit's cutout changes the source (nothing the caves read), then a stroke changes the heights in place
+    const s1 = { ...s0, cutout: new Map([[5, 3]]) };
+    heights[40 * 64 + 40] = 9;
+    const s2 = { ...s1, heights };
+    const rect = { x0: 38, y0: 38, x1: 42, y1: 42 };
+    book.edited(s1, s2, rect);
+    expect(book.due(map, s2, null)).toEqual(rect);
+    expect(caveChunksOf(64, 64, rect)).toEqual([1 * 2 + 1]);
+    // (nothing since: nothing to build)
+    expect(book.due(map, s2, null)).toBeUndefined();
+  });
+
+  it("builds every chunk when the ground changed in a way no edit accounted for, the cut moved or the map is new", () => {
+    const book = new CaveBook();
+    const map = {};
+    const s0 = src(new Uint8Array(64 * 64));
+    book.due(map, s0, null);
+    expect(book.due(map, { ...s0, heights: new Uint8Array(64 * 64) }, null)).toBeNull();
+    expect(book.due(map, s0, 4)).toBeNull();
+    expect(book.due({}, s0, 4)).toBeNull();
+    // (layer off: nothing kept)
+    book.clear();
+    book.edited(s0, s0, { x0: 1, y0: 1, x1: 2, y1: 2 });
+    expect(book.drawn).toBe(false);
   });
 });
