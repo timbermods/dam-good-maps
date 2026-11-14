@@ -6,7 +6,7 @@
 // A search by turns over the sources, strongest first: each may keep its place and strength, run weaker (three
 // quarters or half of today's, never under the official maps' 0.5 a second), go, or stand at the head of the largest
 // body of real water (a feed in a real lake the land holds no river into). Never stronger than today. A change is kept
-// when it raises the measure by `GAIN` tiles or more and the caller's `keep` passes (the checks that may not get worse:
+// when it raises the measure by `GAIN` tiles or more, holds the real water (`REAL_HELD`) and the caller's `keep` passes (the checks that may not get worse:
 // the start's water and the rest of its checks, sources at heads, no film above floor 0). Pure but for `settle`.
 
 import { bodies } from "./placeWater";
@@ -18,6 +18,9 @@ export const FEED_MIN = 0.5;
 export const FEED_SHARES = [0.75, 0.5] as const;
 /** The least gain in the measure a change must bring, in tiles (less is the settle's noise). */
 export const GAIN = 20;
+/** The real water a change may cost, as a share of what the place had (planning: the water over real water is held, the
+ *  rest brought down); never less than `GAIN` tiles, the settle's noise. */
+export const REAL_HELD = 0.02;
 /** Turns over the sources. */
 const TURNS = 2;
 
@@ -51,10 +54,22 @@ export function realHead(W: number, H: number, real: Uint8Array): number | null 
   let best = big[0];
   let bd = Infinity;
   for (const i of big) {
-    const d = (i % W - cx) ** 2 + (Math.floor(i / W) - cy) ** 2;
+    const dx = (i % W) - cx;
+    const dy = Math.floor(i / W) - cy;
+    const d = dx * dx + dy * dy;
     if (d < bd) (bd = d), (best = i);
   }
   return best;
+}
+
+/** A candidate that raised the measure by `GAIN` or more but that `keep` refused, and why. */
+export interface FeedRefusal {
+  source: number;
+  from: [number, number, number];
+  to: [number, number, number] | null;
+  real: number;
+  dry: number;
+  why: string;
 }
 
 export interface FeedStep {
@@ -67,15 +82,17 @@ export interface FeedStep {
 
 /**
  * The place with its sources searched by D271's measure. `settle` gives a candidate's settled depth under the game's
- * rules; `keep` says whether a candidate that scores better may be kept (the checks that may not get worse).
+ * rules; `keep` says why a candidate that scores better may not be kept (the checks that may not get worse), or null.
  */
-export function searchFeeds(place: PlaceData, real: Uint8Array, settle: (p: PlaceData) => ArrayLike<number>, keep: (p: PlaceData) => boolean): { place: PlaceData; before: { real: number; dry: number }; after: { real: number; dry: number }; steps: FeedStep[] } {
+export function searchFeeds(place: PlaceData, real: Uint8Array, settle: (p: PlaceData) => ArrayLike<number>, keep: (p: PlaceData) => string | null): { place: PlaceData; before: { real: number; dry: number }; after: { real: number; dry: number }; steps: FeedStep[]; refused: FeedRefusal[] } {
   const { W, H } = place;
   const head = realHead(W, H, real);
   let cur = place;
   let m = realMeasure(settle(cur), real);
   const before = { real: m.real, dry: m.dry };
+  const realFloor = before.real - Math.max(GAIN, Math.floor(before.real * REAL_HELD));
   const steps: FeedStep[] = [];
+  const refused: FeedRefusal[] = [];
   // sources by identity: a removed one is null, so the turns keep their order
   let srcs: ([number, number, number] | null)[] = place.sources.map((s) => [...s] as [number, number, number]);
   const order = srcs.map((_, i) => i).sort((a, b) => srcs[b]![2] - srcs[a]![2] || a - b);
@@ -85,14 +102,15 @@ export function searchFeeds(place: PlaceData, real: Uint8Array, settle: (p: Plac
     for (const i of order) {
       const was = srcs[i];
       if (!was) continue;
+      // the strengths it may run at: today's, or a share of today's (never of a strength an earlier turn gave it), never
+      // under FEED_MIN unless today's is
+      const today = place.sources[i][2];
+      const strengths = [today, ...FEED_SHARES.map((sh) => Math.round(Math.min(today, Math.max(FEED_MIN, today * sh)) * 1e6) / 1e6)].filter((s, k, all) => all.indexOf(s) === k);
       const options: ([number, number, number] | null)[] = [];
-      for (const share of FEED_SHARES) {
-        const s = Math.round(Math.max(FEED_MIN, was[2] * share) * 1e6) / 1e6;
-        if (s < was[2]) options.push([was[0], was[1], s]);
-      }
+      for (const s of strengths) if (s < was[2]) options.push([was[0], was[1], s]);
       options.push(null);
       if (head !== null && (was[0] !== head % W || was[1] !== Math.floor(head / W)) && !srcs.some((o) => o && o[0] === head % W && o[1] === Math.floor(head / W)))
-        for (const s of [was[2], ...FEED_SHARES.map((sh) => Math.max(FEED_MIN, was[2] * sh))]) options.push([head % W, Math.floor(head / W), Math.round(s * 1e6) / 1e6]);
+        for (const s of strengths) options.push([head % W, Math.floor(head / W), s]);
       let best: { s: typeof srcs; m: ReturnType<typeof realMeasure>; to: [number, number, number] | null } | null = null;
       for (const to of options) {
         const s = srcs.slice();
@@ -100,8 +118,12 @@ export function searchFeeds(place: PlaceData, real: Uint8Array, settle: (p: Plac
         if (!s.some((x) => x)) continue;
         const cand = withSources(s);
         const mm = realMeasure(settle(cand), real);
-        if (mm.score < (best?.m.score ?? m.score) + GAIN) continue;
-        if (!keep(cand)) continue;
+        if (mm.real < realFloor || mm.score < (best?.m.score ?? m.score) + GAIN) continue;
+        const why = keep(cand);
+        if (why) {
+          refused.push({ source: i, from: was, to, real: mm.real, dry: mm.dry, why });
+          continue;
+        }
         best = { s, m: mm, to };
       }
       if (best) {
@@ -114,5 +136,5 @@ export function searchFeeds(place: PlaceData, real: Uint8Array, settle: (p: Plac
     }
     if (!changed) break;
   }
-  return { place: cur, before, after: { real: m.real, dry: m.dry }, steps };
+  return { place: cur, before, after: { real: m.real, dry: m.dry }, steps, refused };
 }

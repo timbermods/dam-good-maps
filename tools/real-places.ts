@@ -4,6 +4,8 @@
 //   npm run places                         (writes public/real-places/)
 //   npm run places -- --check              (writes nothing; fails when the committed files differ)
 //   npm run places -- --only near-glencoe  (builds and checks the places named, writes nothing)
+//   npm run places -- --only a,b --write   (writes only the places named: their files and index entries)
+//   npm run places -- --feeds all          (searches every place's springs, not only FEED_SEARCH's: a trial)
 //   npm run places -- --water --out <dir>  (each place's water measure too, written to <dir>; `--rules port` builds
 //                                          them under the port's water rules, as before D311's conversion)
 //   npm run places -- --shards 1           (one place after another on this process: the places run on one
@@ -458,9 +460,9 @@ const hashString = (s: string) => {
   return h >>> 0;
 };
 
-/** The places whose springs are searched under the game's rules (D(new)), planning's first six; `--feeds all` searches
+/** The places whose springs are searched under the game's rules (D(new)), planning's seven; `--feeds all` searches
  *  every place's (a trial). */
-const FEED_SEARCH = ["near-ngorongoro", "near-phong-nha", "near-geirangerfjord", "near-tagliamento-river", "near-english-lake-district", "near-torres-del-paine"];
+const FEED_SEARCH = ["near-mount-fuji", "near-ngorongoro", "near-phong-nha", "near-geirangerfjord", "near-tagliamento-river", "near-english-lake-district", "near-torres-del-paine"];
 const feedAll = arg("feeds") === "all";
 
 /** The place with its springs searched (tools/lib/placeFeeds.ts), and its log note. */
@@ -468,21 +470,23 @@ function feedsFor(libraryId: string, place: PlaceData): { place: PlaceData; note
   const real = realOf(libraryId, place.W, place.H);
   const base = buildChecked(place);
   const baseFlow = flaggedSources(place).flagged.length;
-  const conflicts: string[] = [];
   const keep = (p: PlaceData) => {
     const r = buildChecked(p);
     const worse = r.strictFails.filter((id) => !base.strictFails.includes(id));
     const filmed = films(r.built.settle.depth, r.built.model.floor, p.W, p.H).some((f) => f.floor0 * 2 <= f.tiles.length);
-    const flow = flaggedSources(p).flagged.length > baseFlow;
-    if (!filmed && (flow || worse.length === 1) && worse.every((id) => id === "water.source_in_flow")) conflicts.push(p.sources.map((s) => `${s[0]},${s[1]}:${s[2].toFixed(2)}`).join(" "));
-    return !worse.length && !filmed && !flow;
+    const flow = flaggedSources(p).flagged.length;
+    const why = [...worse, ...(flow > baseFlow ? [`sources in a flow ${baseFlow} → ${flow}`] : []), ...(filmed ? ["film above floor 0"] : [])];
+    return why.length ? why.join(", ") : null;
   };
   const r = searchFeeds(place, real, (p) => buildPlace(p, settles).settle.depth, keep);
+  const at = (s: [number, number, number] | null) => (s ? `${s[0]},${s[1]}:${s[2].toFixed(2)}` : "gone");
+  // the refusals that only a source in another's flow stood in the way of: the best of each move, by the measure
+  const flowOnly = r.refused.filter((x) => x.why.split(", ").every((w) => w === "water.source_in_flow" || w.startsWith("sources in a flow")));
   const fmt = (ss: readonly [number, number, number][]) => `${ss.length} (${ss.map((s) => s[2].toFixed(2)).join(" ")})`;
   const note =
     `  springs searched: real water ${r.before.real} → ${r.after.real}, real dry land ${r.before.dry} → ${r.after.dry}; sources ${fmt(place.sources)} → ${fmt(r.place.sources)}` +
-    (r.steps.length ? ` [${r.steps.map((s) => `${s.from[0]},${s.from[1]}:${s.from[2].toFixed(2)} → ${s.to ? `${s.to[0]},${s.to[1]}:${s.to[2].toFixed(2)}` : "gone"}`).join("; ")}]` : "") +
-    (conflicts.length ? ` (${conflicts.length} better by the measure but for a source in another's flow)` : "");
+    (r.steps.length ? ` [${r.steps.map((s) => `${at(s.from)} → ${at(s.to)}`).join("; ")}]` : "") +
+    (flowOnly.length ? `; better by the measure but for a source in another's flow: ${flowOnly.map((x) => `${at(x.from)} → ${at(x.to)} (real water ${x.real}, real dry land ${x.dry}; ${x.why})`).join("; ")}` : "");
   return { place: r.place, note };
 }
 
@@ -558,15 +562,6 @@ function runPlace(item: LibraryItem): Outcome | null {
   const mend = mendSources(place);
   place = mend.place;
   const mendNote = mend.merges.length || mend.left.length ? `  sources: ${mend.merges.length} merged${mend.left.length ? `, ${mend.left.length} left in a flow (${mend.left.map((l) => `${l.at.join(",")} ${l.why}`).join("; ")})` : ""}` : "";
-  // The springs searched under the game's rules (D(new), tools/lib/placeFeeds.ts): by D271's measure, the settled water
-  // over the real water as high as it goes and over real dry land as low as it goes, by where each spring stands and how
-  // strong it is; kept only where no check the place passed then fails and no film above floor 0 stands
-  let feedNote = "";
-  if (feedAll || FEED_SEARCH.includes(place.id)) {
-    const f = feedsFor(item.id, place);
-    place = f.place;
-    feedNote = f.note;
-  }
   let { built, v, strict, blocking, strictFails } = buildChecked(place);
   // A start the opened rivers flood, or that reaches no water a source feeds, moves (D245: the best
   // spot its own land offers; moving it toward water is fine): the spots that stay dry and have a shore
@@ -680,6 +675,20 @@ function runPlace(item: LibraryItem): Outcome | null {
       ({ built, v, strict, blocking, strictFails } = best.r);
     }
     everySpot = `  every spot tried for water (${all.length}): ${watered} pass start.water with the room floor${best ? "" : watered ? ", none without failing more" : ""}`;
+  }
+  // The springs searched under the game's rules (D(new), tools/lib/placeFeeds.ts): by D271's measure, the settled water
+  // over the real water as high as it goes and over real dry land as low as it goes, by where each spring stands and how
+  // strong it is; kept only where no check the place passed then fails and no film above floor 0 stands. After the start
+  // has found its water (a move, a spring by it, every spot), so a spring the start drinks from is never the one taken
+  // away; before the berries and plants, which settle on the water the springs leave
+  let feedNote = "";
+  if (feedAll || FEED_SEARCH.includes(place.id)) {
+    const f = feedsFor(item.id, place);
+    if (f.place !== place) {
+      place = f.place;
+      ({ built, v, strict, blocking, strictFails } = buildChecked(place));
+    }
+    feedNote = f.note;
   }
   // A start short of berries (after a move or a spring, or on its own land) gets the bushes the
   // `start.food` check's own fix plants (the editor's one-click fix: moist tiles within 20 tiles'
@@ -903,9 +912,9 @@ function claimOrder(): number[] {
   return items.map((_, i) => i).sort((a, b) => items[b].size - items[a].size || a - b);
 }
 
-/** Every place's outcome, in the library's order: on `SHARDS` processes, or on this one for `--only` or a machine of one core. */
+/** Every place's outcome, in the library's order: on `SHARDS` processes (no more than `--only` names), or on this one for a single place or a machine of one core. */
 async function runShards(): Promise<(Outcome | null)[]> {
-  const n = only ? 1 : Math.min(SHARDS, items.length);
+  const n = Math.min(SHARDS, only ? only.length : items.length);
   if (n <= 1) return items.map((item) => runPlace(item));
   const dir = mkdtempSync(join(tmpdir(), "real-places-"));
   try {
@@ -948,7 +957,21 @@ console.log(
 );
 
 if (only) {
-  console.log("--only: nothing written");
+  // --write: the places named, their data and card files and their index entries, the rest of the library as it is
+  if (!process.argv.includes("--write")) {
+    console.log("--only: nothing written");
+    process.exit(0);
+  }
+  const was = JSON.parse(readFileSync(join(OUT, "index.json"), "utf8")) as PlaceIndex;
+  for (const e of entries) {
+    const k = was.places.findIndex((p) => p.id === e.id);
+    if (k < 0) throw new Error(`--only --write: ${e.id} is not in ${OUT}/index.json (a new place needs the full run)`);
+    was.places[k] = e;
+  }
+  for (const id of withheld) if (was.places.some((p) => p.name === id)) throw new Error(`--only --write: ${id} would be withheld (the full run withholds it)`);
+  for (const [k, b] of files) if (k !== "index.json") writeFileSync(join(OUT, k), b);
+  writeFileSync(join(OUT, "index.json"), JSON.stringify(was, null, 1) + "\n");
+  console.log(`--only --write: ${entries.length} place(s) written to ${OUT}`);
   process.exit(0);
 }
 if (check) {

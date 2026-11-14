@@ -285,8 +285,8 @@
    "metres": 30,
    "data": "data/near-geirangerfjord.json.gz",
    "image": "cards/near-geirangerfjord.jpg",
-   "bytes": 223472,
-   "sha256": "47a57f248a2719f449e058466ba7987232e3fd94cbabad42863ddb4fe92412c4",
+   "bytes": 219970,
+   "sha256": "f6047c8e0a6b7eaa09c961972d2046ed0290aba80df2c48b291903835f3b9d5a",
    "faults": [
     "water.source_in_flow"
    ]
@@ -301,8 +301,8 @@
    "metres": 60,
    "data": "data/near-torres-del-paine.json.gz",
    "image": "cards/near-torres-del-paine.jpg",
-   "bytes": 253010,
-   "sha256": "8fcaf15e0796212e96119080ee5b6183f8b3c48226c2e05c3389965e3cabeccc",
+   "bytes": 228283,
+   "sha256": "b724227fac634aeafd94cc0807a04077909c09d88090762f6847c03858da301e",
    "faults": []
   },
   {
@@ -329,8 +329,8 @@
    "metres": 120,
    "data": "data/near-phong-nha.json.gz",
    "image": "cards/near-phong-nha.jpg",
-   "bytes": 242900,
-   "sha256": "401379e323e63d9dc1766d4922159b60bd9af96f0d9b4aa2b8198e9ace1c3fb3",
+   "bytes": 206752,
+   "sha256": "c9c73838baca0721d6fb44e8a3ac094da14b600189814bd2f486ef6e64545a6e",
    "faults": [
     "water.source_in_flow",
     "start.water"
@@ -346,8 +346,8 @@
    "metres": 60,
    "data": "data/near-english-lake-district.json.gz",
    "image": "cards/near-english-lake-district.jpg",
-   "bytes": 229386,
-   "sha256": "0d8050cdf4409454fc1f879fd9f1a3861a92c0161dfa6b2999232035da037c56",
+   "bytes": 206156,
+   "sha256": "81014efa0e4e8ad42991f5aff01249afcaef2d404f7c1bceb826a4626bcfd449",
    "faults": [
     "start.water"
    ]
@@ -442,8 +442,8 @@
    "metres": 60,
    "data": "data/near-tagliamento-river.json.gz",
    "image": "cards/near-tagliamento-river.jpg",
-   "bytes": 175464,
-   "sha256": "bb531c018d41fbcc209860a9eb89e3ca56ea2d4a9d119bbb9583c48ef22dc17d",
+   "bytes": 168796,
+   "sha256": "97ac2f07c3946411e8810b466104496c58cf6a42e774d4fe8c32ab8fc497aaa7",
    "faults": []
   },
   {
@@ -992,8 +992,8 @@
    "metres": 30,
    "data": "data/near-ngorongoro.json.gz",
    "image": "cards/near-ngorongoro.jpg",
-   "bytes": 661195,
-   "sha256": "d87eefd4ced376adb8f9ba0b7ab2a990dcdb72262957da5505e002178d57d201",
+   "bytes": 550478,
+   "sha256": "bb569dc4a38cb8d49a770c05c89848fdad93eb1dd523c044cd25ebef8afd961a",
    "faults": [
     "start.water"
    ]
@@ -1024,8 +1024,8 @@
    "metres": 120,
    "data": "data/near-mount-fuji.json.gz",
    "image": "cards/near-mount-fuji.jpg",
-   "bytes": 260425,
-   "sha256": "1df19115a0e2937221d46c4843c99998f5aa8146f5671d100cb46b294c9fba14",
+   "bytes": 215123,
+   "sha256": "ac397d8d4023ea8f78a76cfc7a2ddb9b702e452b6cb312963c7b8a30d5d9e540",
    "faults": [
     "water.source_in_flow"
    ]
