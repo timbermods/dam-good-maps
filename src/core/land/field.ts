@@ -43,10 +43,50 @@ function partLine(p: Part, W: number, H: number, seed: number, k: number): [numb
   ];
 }
 
-function blob(x: number, y: number, cx: number, cy: number, r: number, s: number, soft: number): number {
-  const d = dist(x, y, cx, cy) / r;
-  const n = fbm(s, x, y, Math.max(6, r * 0.8), 3);
-  return smoothstep((1 - d + 0.45 * n) * (r / Math.max(0.5, soft)) + 0.5);
+/** A round form's outline (a mesa, a plateau, a butte of a mesa field, a cone, a knoll), drawn once per form from its
+ *  own seed: the two waves that lobe its edge (two or three bays round it, and five to seven smaller), each with its
+ *  phase and its depth as a share of the radius. */
+export interface Outline {
+  k1: number;
+  p1: number;
+  a1: number;
+  k2: number;
+  p2: number;
+  a2: number;
+}
+
+export function outlineOf(s: number): Outline {
+  const r = stream(s, "outline");
+  return { k1: 2 + Math.floor(2 * r.float()), p1: r.float(), a1: 0.15 + 0.15 * r.float(), k2: 5 + Math.floor(3 * r.float()), p2: r.float(), a2: 0.06 + 0.06 * r.float() };
+}
+
+/** How far a round form reaches from its middle, in radii, at the most `FORM_ROUGH` roughness: `formDistance` is 1 or
+ *  more past it (the roughness and the warp at their extremes, the lobes at none). */
+export const FORM_REACH = 2;
+/** The most roughness a form's radius takes (a share of it, by noise). */
+export const FORM_ROUGH = 0.6;
+
+/** The distance of a tile from a round form's middle, in the form's radii, so that no form is a circle (the look round,
+ *  Lake Basin seed 2's south-east mesa: a disc of a few tiles' radius rasterizes with four flat sides along the rows and
+ *  columns, and the one-level rings the grade and the erosion draw round it repeat them, square corners and all). The
+ *  point is read through a slow warp of up to a quarter of the radius, and the radius is lobed by the outline's two
+ *  waves and roughened by noise (`rough` of it at the most, down to two tiles), so the edge and every ring parallel to
+ *  it swing in bays and points, their corners rounded and uneven, and no two forms share a shape. */
+function formDistance(x: number, y: number, cx: number, cy: number, r: number, s: number, o: Outline, rough: number): number {
+  const cell = Math.max(6, r * 0.9);
+  const dx = x - cx + 0.25 * r * fbm(s + 11, x, y, cell, 2);
+  const dy = y - cy + 0.25 * r * fbm(s + 12, x, y, cell, 2);
+  const t = pseudoAngle(dx, dy);
+  const lobes = 1 - o.a1 * (0.5 + 0.5 * sinDet(TWO_PI * (o.k1 * t + o.p1))) - o.a2 * (0.5 + 0.5 * sinDet(TWO_PI * (o.k2 * t + o.p2)));
+  const n = fbm(s + 13, x, y, Math.max(4, r * 0.55), 3);
+  return portable.sqrt(dx * dx + dy * dy) / (r * lobes * (1 + rough * n));
+}
+
+/** A flat-topped form's footprint: 1 inside, 0 outside, its edge crossed over `soft` tiles, its outline
+ *  `formDistance`'s. */
+function blob(x: number, y: number, cx: number, cy: number, r: number, s: number, soft: number, o: Outline): number {
+  const d = formDistance(x, y, cx, cy, r, s, o, FORM_ROUGH);
+  return smoothstep((1 - d) * (r / Math.max(0.5, soft)) + 0.5);
 }
 
 function pseudoAngle(dx: number, dy: number): number {
@@ -229,13 +269,14 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         if (dist(x, y, cx, cy) < p.size * 0.5) top = Math.max(top, U[i]);
       }, round(0.5 * p.size));
       top += p.height;
-      // (the blob is 0 from 1.45 of its radius and half its softness out)
+      // (the blob is 0 from `FORM_REACH` radii and half its softness out)
+      const o = outlineOf(s);
       each((x, y, i) => {
-        const m = blob(x, y, cx, cy, p.size, s, p.soft);
+        const m = blob(x, y, cx, cy, p.size, s, p.soft, o);
         if (m <= 0) return;
         const lifted = Math.max(U[i], top - p.extra * 0.5 * (1 + fbm(s + 2, x, y, 10, 2)));
         U[i] = U[i] * (1 - m) + lifted * m;
-      }, round(1.45 * p.size + 0.5 * Math.max(0.5, p.soft)));
+      }, round(FORM_REACH * p.size + 0.5 * Math.max(0.5, p.soft)));
       return;
     }
     case "mesaField": {
@@ -254,9 +295,11 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         for (let y = Math.max(0, Math.floor(my - rad)); y <= Math.min(H - 1, Math.ceil(my + rad)); y++)
           for (let x = Math.max(0, Math.floor(mx - rad)); x <= Math.min(W - 1, Math.ceil(mx + rad)); x++) top = Math.max(top, U[y * W + x]);
         top += h;
-        for (let y = Math.max(0, Math.floor(my - 2 * rad)); y <= Math.min(H - 1, Math.ceil(my + 2 * rad)); y++)
-          for (let x = Math.max(0, Math.floor(mx - 2 * rad)); x <= Math.min(W - 1, Math.ceil(mx + 2 * rad)); x++) {
-            const m = blob(x, y, mx, my, rad, ms, p.soft);
+        const o = outlineOf(ms);
+        const reach = FORM_REACH * rad + 0.5 * Math.max(0.5, p.soft);
+        for (let y = Math.max(0, Math.floor(my - reach)); y <= Math.min(H - 1, Math.ceil(my + reach)); y++)
+          for (let x = Math.max(0, Math.floor(mx - reach)); x <= Math.min(W - 1, Math.ceil(mx + reach)); x++) {
+            const m = blob(x, y, mx, my, rad, ms, p.soft, o);
             const i = y * W + x;
             if (m > 0) U[i] = U[i] * (1 - m) + Math.max(U[i], top) * m;
           }
@@ -351,11 +394,13 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
       return;
     }
     case "cone": {
+      // (its rings are its outline's, never a circle's: a cone's rings read as drawn, the look round)
+      const o = outlineOf(s);
       each((x, y, i) => {
-        const d = dist(x, y, cx, cy) / (p.size * (1 + 0.15 * fbm(s, x, y, 10, 2)));
+        const d = formDistance(x, y, cx, cy, p.size, s, o, 0.3);
         if (d < 1) U[i] += p.height * (1 - d);
         if (p.extra > 0) U[i] -= p.height * 0.55 * bump(dist(x, y, cx, cy) / (p.extra * (1 + 0.3 * fbm(s + 7, x, y, 5, 2))));
-      }, round(Math.max(1.15 * p.size, 1.3 * p.extra)));
+      }, round(Math.max(FORM_REACH * p.size, 1.3 * p.extra)));
       return;
     }
     case "knolls": {
@@ -366,8 +411,12 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         const ky = 4 + (H - 8) * rng.float();
         const rad = 2.5 + 5 * rng.float();
         const h = p.height * (0.5 + rng.float());
-        for (let y = Math.max(0, Math.floor(ky - rad)); y <= Math.min(H - 1, Math.ceil(ky + rad)); y++)
-          for (let x = Math.max(0, Math.floor(kx - rad)); x <= Math.min(W - 1, Math.ceil(kx + rad)); x++) U[y * W + x] += h * bump(dist(x, y, kx, ky) / rad);
+        // (each knoll its own outline, the look round: a round knoll's ring or two drew a small square)
+        const ks = hash32(s, "knoll", j);
+        const o = outlineOf(ks);
+        const reach = FORM_REACH * rad;
+        for (let y = Math.max(0, Math.floor(ky - reach)); y <= Math.min(H - 1, Math.ceil(ky + reach)); y++)
+          for (let x = Math.max(0, Math.floor(kx - reach)); x <= Math.min(W - 1, Math.ceil(kx + reach)); x++) U[y * W + x] += h * bump(formDistance(x, y, kx, ky, rad, ks, o, 0.5));
       }
       return;
     }
@@ -515,25 +564,41 @@ export function erodeHard(U: Float64Array, hard: Float64Array, W: number, H: num
   return h;
 }
 
-/** A square min filter of radius r (separable, exact). */
+/** The least value within `r` tiles of each tile: a disc, not a square (the look round: the square's corners drew a
+ *  square ring on every butte's shoulder, where the weathering's reach ran out). The least over each row within each
+ *  half-width the disc needs, then the least of those down the column, exact. */
 function minFilter(v: Float64Array, W: number, H: number, r: number): Float64Array {
-  const tmp = new Float64Array(W * H);
-  const out = new Float64Array(W * H);
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
-      let m = Infinity;
-      for (let dx = -r; dx <= r; dx++) {
-        const xx = x + dx;
-        if (xx >= 0 && xx < W && v[y * W + xx] < m) m = v[y * W + xx];
+  const N = W * H;
+  // (the disc's half-width at each row offset: the widest run of whole tiles within the radius)
+  const half: number[] = [];
+  for (let dy = 0; dy <= r; dy++) {
+    let w = 0;
+    while ((w + 1) * (w + 1) + dy * dy <= r * r) w++;
+    half.push(w);
+  }
+  const rows: Float64Array[] = [];
+  for (let w = 0; w <= r; w++) {
+    const tmp = new Float64Array(N);
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        let m = Infinity;
+        for (let dx = -w; dx <= w; dx++) {
+          const xx = x + dx;
+          if (xx >= 0 && xx < W && v[y * W + xx] < m) m = v[y * W + xx];
+        }
+        tmp[y * W + x] = m;
       }
-      tmp[y * W + x] = m;
-    }
+    rows.push(tmp);
+  }
+  const out = new Float64Array(N);
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       let m = Infinity;
       for (let dy = -r; dy <= r; dy++) {
         const yy = y + dy;
-        if (yy >= 0 && yy < H && tmp[yy * W + x] < m) m = tmp[yy * W + x];
+        if (yy < 0 || yy >= H) continue;
+        const u = rows[half[dy < 0 ? -dy : dy]][yy * W + x];
+        if (u < m) m = u;
       }
       out[y * W + x] = m;
     }
