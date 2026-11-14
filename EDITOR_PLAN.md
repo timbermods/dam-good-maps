@@ -1080,8 +1080,10 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   rise or sink with it). The refusal note and the Size's "size N" word are kept apart, so neither clears the other, and a refusal stays
   while its preview is drawn. The level slice cuts the preview as it cuts the map, so a cave can be worked from inside. *Settings* (on the bar's 14 cells, two rows): **Size** 1 to 8
   (F and the mouse, or { and }; kept), **Shape** Square or Round, **Action** Add or Remove; remembered between visits. Its
-  land's answer is the brushes' (dust and the stone's thud, `juice`); the blocks' own pop-in and crumble are the
-  renderer's, to come. Once an edit lands, what it changed glows a moment (D488, `render3d/editGlow.ts`): the faces it
+  land's answer is the brushes' (dust and the stone's thud, `juice`); the blocks themselves grow and crumble (D240,
+  `render3d/blockPop.ts`): a block added grows out of the rock it stands on with a tiny overshoot, a block taken sinks
+  and shrinks into the ground with a puff of its stone's dust, a moment of the edit already drawn, off with reduced
+  motion. Once an edit lands, what it changed glows a moment (D488, `render3d/editGlow.ts`): the faces it
   opened, outlined, white for blocks added, red for the hollow a removal left, fading in about a second (still, then
   gone, with reduced motion).
 
@@ -2067,7 +2069,8 @@ checks dot counts; every other row is information under Good to know, worded as 
     (below, "Remove unfed water and Fill"; `sim/stackWater.ts` `cavesOf` decides which maps).
     The **Caves and overhangs** view button, there from the start on such a map, marks the tiles the tools
     leave as they are (D40): what lies under a roof is never edited, the brushes shaping only a column's top
-    run (D280 (3), D487). Ground the Block tool digs and Erode hollows counts with them, on any map; once
+    run (D280 (3), D487). It also draws the air under the roofs through the rock, its floors, walls and mouths
+    (docs/progress/3d-view.md, "The caves through the rock"). Ground the Block tool digs and Erode hollows counts with them, on any map; once
     the last hollow is undone the map is a heightfield again, its water and file as before.
   - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps start off and stop
     above 0.8 deep (back on below 0.72; a pit only a seep feeds starts filled to 0.8), aquifers give no water (a drill starts unpowered), and a negative strength

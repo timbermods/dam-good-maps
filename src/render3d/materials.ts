@@ -43,6 +43,7 @@
 //   just outside it, a few pixels wide from any distance (entities3d.ts `mineOutline`).
 // Colours are display values: the renderer outputs them without conversion.
 
+import { POP_GLSL, POP_UNIFORMS_GLSL, popUniforms, type PopUniforms } from "./blockPop";
 import {
   Color,
   Data3DTexture,
@@ -1236,6 +1237,11 @@ export interface TerrainUniforms {
   /** The ground's heights when that heat came (R a tile; G 255 where known): what rose above them since is
    *  its fresh rock (#367). */
   eruptionBase: { value: DataTexture };
+  /** The Block tool's blocks growing (blockPop.ts): their faces on the grid are left out while the pop draws them. */
+  popCells: PopUniforms["popCells"];
+  popCount: PopUniforms["popCount"];
+  popLo: PopUniforms["popLo"];
+  popHi: PopUniforms["popHi"];
   eruptionAge: { value: number };
   coolingAge: { value: number };
 }
@@ -1251,6 +1257,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
     eruptionBase: { value: overlayTexture(1, 1) },
     eruptionAge: { value: -1 },
     coolingAge: { value: 0 },
+    ...popUniforms(),
   };
   return new ShaderMaterial({
     // CUTAWAY (the renderer's `setCutaway`): 1 on a map with terrain above terrain, where the layer cut opens
@@ -1282,7 +1289,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
       uniform sampler2D eruptionBase;
       uniform float eruptionAge;
       uniform float coolingAge;
-      /** y: 1 while the frame's water overlays what shows behind it itself, from its copy of the screen (refraction.ts). */
+${POP_UNIFORMS_GLSL}      /** y: 1 while the frame's water overlays what shows behind it itself, from its copy of the screen (refraction.ts). */
       uniform vec4 refractView;
       centroid varying vec3 vWorld;
       varying vec3 vNormal;
@@ -1659,7 +1666,7 @@ export function terrainMaterial(scene: SceneUniforms, lo: number, hi: number, li
 ${hook(h, "groundEnd")}        return mix(c, ${glColor(GROUND.underwater)} * (0.9 + 0.15 * n2), bed);
       }
       void main() {
-        ${SUN_PX_GLSL}
+${POP_GLSL}        ${SUN_PX_GLSL}
         vec3 n = normalize(vNormal);
         vec3 p = vWorld - n * 0.01;
         vec2 g = vec2(p.x, -p.z);
