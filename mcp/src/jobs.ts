@@ -6,15 +6,23 @@
 //
 // The worker is this same module, started again with WORKER in its workerData: in the bundle (tools/mcp-build.ts) that
 // is the one file server/index.mjs, from the source it is this file under tsx.
+//
+// Its water runs on several threads as the page's generator worker's does (src/core/sim/parallel.ts): the same
+// policy, the same bytes, with helper threads that are this module again (STRIP), and one budget of the machine's
+// water threads shared by every map being made (`waterThreadBudget`, as the page's workers share theirs).
 
+import { availableParallelism } from "node:os";
 import { isMainThread, parentPort, Worker, workerData } from "node:worker_threads";
 import { generate, type GenerateResult, type GenProgressStage } from "../../src/core/gen/generate";
 import { JsonFloat } from "../../src/core/format/json";
+import { installParallelWater, shareWaterBudget, stripHelper } from "../../src/core/sim/parallel";
+import { newWaterBudget, waterThreadBudget } from "../../src/core/sim/parallelPolicy";
 import type { MapSpec } from "../../src/core/spec/mapspec";
 import { ColumnTerrain } from "../../src/core/terrain/runs";
 import { openGenerated, Refused, releaseHandle, reserveHandle, specOf, type GenerateInput, type Made } from "./maps";
 
 const WORKER = "dam-good-maps generator";
+const STRIP = "dam-good-maps water strip";
 
 type FromWorker = { kind: "stage"; p: GenProgressStage } | { kind: "done"; r: GenerateResult; ms: number };
 
@@ -72,9 +80,26 @@ export function afterCrossing(r: GenerateResult): GenerateResult {
 
 // ------------------------------------------------------------------------------------------------ the worker
 
-if (!isMainThread && (workerData as { role?: string } | null)?.role === WORKER) {
-  const { spec } = workerData as { spec: MapSpec };
+const role = isMainThread ? null : (workerData as { role?: string } | null)?.role;
+
+if (role === STRIP) {
+  const handle = stripHelper();
+  parentPort!.on("message", handle);
+  process.on("uncaughtException", () => handle.died());
+}
+
+if (role === WORKER) {
+  const { spec, budget } = workerData as { spec: MapSpec; budget: SharedArrayBuffer };
   const port = parentPort!;
+  shareWaterBudget(budget);
+  installParallelWater({
+    node: true,
+    spawn: () => {
+      const w = new Worker(new URL(import.meta.url), workerOptions({ role: STRIP }));
+      w.unref();
+      return { postMessage: (m) => w.postMessage(m), terminate: () => void w.terminate() };
+    },
+  });
   const t0 = performance.now();
   const r = generate(spec, { onProgress: (p) => port.postMessage({ kind: "stage", p } satisfies FromWorker) });
   const ms = Math.round(performance.now() - t0);
@@ -134,11 +159,15 @@ export function setMostJobs(n: number): void {
   mostJobs = n;
 }
 
-/** The source runs under tsx, and its worker needs tsx too; the bundle is plain JavaScript. */
-function workerOptions(spec: MapSpec): ConstructorParameters<typeof Worker>[1] {
+/** The source runs under tsx, and its workers need tsx too; the bundle is plain JavaScript. A strip prints to its
+ *  generator's stdout, which goes to stderr. */
+function workerOptions(data: Record<string, unknown>): ConstructorParameters<typeof Worker>[1] {
   const fromSource = /\.ts$/.test(new URL(import.meta.url).pathname);
-  return { workerData: { role: WORKER, spec }, stdout: true, ...(fromSource ? { execArgv: ["--import", "tsx"] } : {}) };
+  return { workerData: data, ...(data.role === WORKER ? { stdout: true } : {}), ...(fromSource ? { execArgv: ["--import", "tsx"] } : {}) };
 }
+
+/** The machine's water threads, shared by every map being made (made at the first). */
+let budget: SharedArrayBuffer | null = null;
 
 /** Start to make a map. The input is checked here, and a refusal is thrown at once. */
 export function startGenerate(input: GenerateInput): Job {
@@ -146,7 +175,8 @@ export function startGenerate(input: GenerateInput): Job {
   const handle = reserveHandle();
   const job: Job = { handle, started: performance.now(), now: "Attempt 1: starting the generator.", done: null!, finished: false, listeners: new Set() };
   job.done = new Promise<Made>((resolve, reject) => {
-    const worker = new Worker(new URL(import.meta.url), workerOptions(spec));
+    budget ??= newWaterBudget(waterThreadBudget(availableParallelism()));
+    const worker = new Worker(new URL(import.meta.url), workerOptions({ role: WORKER, spec, budget }));
     // (an unref'd worker never keeps the server alive: a client that closes stdin ends the process at once, while a
     // connected client's stdin keeps it running)
     worker.unref();
