@@ -304,15 +304,20 @@ const objectsOf = (page: Page, template: string) =>
   }, template);
 
 /** Bring the dry, level patch with no object on it (7 tiles across) nearest the map's middle under `c`, at a distance
- *  of 48: what a finger puts there is never refused for the ground, so a step that doesn't come is the gesture's. */
-async function onFlat(page: Page, c: P) {
+ *  of 48: what a finger puts there is never refused for the ground, so a step that doesn't come is the gesture's.
+ *  `clear`: no water source within that many tiles of its middle either (a wide ridge refuses one in its way). */
+async function onFlat(page: Page, c: P, clear = 0) {
   // (after any glide: a phone's view slides when a sheet or a tool changes, usePhone.ts)
   await still(page);
-  const t = await page.evaluate((c) => {
+  const t = await page.evaluate(([c, clear]) => {
     const r = window.dgm3d!.renderer;
     const { W, H, heights, surface, entities: e } = r.mapState()!;
     const taken = new Set<number>();
-    for (let k = 0; k < e.count; k++) taken.add(e.y[k] * W + e.x[k]);
+    const sources: [number, number][] = [];
+    for (let k = 0; k < e.count; k++) {
+      taken.add(e.y[k] * W + e.x[k]);
+      if (/Source$/.test(e.templates[e.template[k]])) sources.push([e.x[k], e.y[k]]);
+    }
     let best: { x: number; y: number } | null = null;
     let far = Infinity;
     for (let y = 6; y < H - 6; y++)
@@ -324,6 +329,7 @@ async function onFlat(page: Page, c: P) {
             const i = (y + dy) * W + x + dx;
             if (heights[i] !== h || surface.depth[i] > 0 || taken.has(i)) ok = false;
           }
+        if (ok && clear) ok = sources.every(([sx, sy]) => Math.max(Math.abs(sx - x), Math.abs(sy - y)) > clear);
         const d = (x - W / 2) ** 2 + (y - H / 2) ** 2;
         if (ok && d < far) [far, best] = [d, { x, y }];
       }
@@ -336,7 +342,7 @@ async function onFlat(page: Page, c: P) {
       r.panPixels(c.x - at.x, c.y - at.y);
     }
     return best;
-  }, c);
+  }, [c, clear] as const);
   expect("none" in t, "a dry, level patch").toBe(false);
   await still(page);
   expect(await tileAt(page, c)).toMatchObject(t!);
@@ -703,6 +709,22 @@ for (const size of SIZES) {
       expect(await steps(page)).toBe(s1);
       await putAway(page);
 
+      // nothing in hand: a finger held still draws a selection a little above it (no selection open first), on its lift
+      await fingers.pause(400);
+      expect(await page.evaluate(() => window.dgmEditor!.selection().length)).toBe(0);
+      // (corner to corner of 5 by 5 tiles of a level patch, whatever a tile's size and the grid's turn on the screen)
+      const mid = await onFlat(page, c);
+      const [q0, q1] = await page.evaluate(({ x, y }) => [window.dgmEditor!.tileToClient(x - 2, y - 2), window.dgmEditor!.tileToClient(x + 2, y + 2)], { x: mid.x, y: mid.y });
+      await fingers.down({ 1: { x: q0.x, y: q0.y + FINGER_LIFT } });
+      await fingers.pause(TAP_HOLD);
+      expect(await pressing(page)).toBe(true);
+      await fingers.drag({ 1: { x: q1.x, y: q1.y + FINGER_LIFT } });
+      await fingers.up(1);
+      await expect.poll(() => page.evaluate(() => window.dgmEditor!.selection().length)).toBeGreaterThan(8);
+      // (Esc lets it go: the edits below are the whole map's)
+      await putAway(page);
+      expect(await page.evaluate(() => window.dgmEditor!.selection().length)).toBe(0);
+
       // the Block tool (slice 3b): dragged, a sweep of blocks from where the press aimed to where the lift is, one step;
       // held still and lifted, one block where it showed
       const flat = await onFlat(page, c);
@@ -762,7 +784,7 @@ for (const size of SIZES) {
       if (sheet) await handle.tap();
       await page.getByRole("group", { name: "Brush" }).getByRole("button", { name: "Ridge", exact: true }).click();
       if (sheet) await handle.tap();
-      const level = await onFlat(page, c);
+      const level = await onFlat(page, c, 10);
       // (a ridge needs a line 3 tiles long at least: drawn 4 across the level patch, whatever a tile's size on the screen)
       const [r0, r1] = await page.evaluate(({ x, y }) => [window.dgmEditor!.tileToClient(x - 2, y), window.dgmEditor!.tileToClient(x + 2, y)], level);
       await fingers.pause(400);
@@ -774,20 +796,6 @@ for (const size of SIZES) {
       if (sheet) await handle.tap();
       await page.getByRole("group", { name: "Brush" }).getByRole("button", { name: "Round", exact: true }).click();
       if (sheet) await handle.tap();
-      await putAway(page);
-
-      // nothing in hand: a finger held still draws a selection a little above it (no selection open first), on its lift
-      await fingers.pause(400);
-      expect(await page.evaluate(() => window.dgmEditor!.selection().length)).toBe(0);
-      // (corner to corner of 5 by 5 tiles of a level patch, whatever a tile's size and the grid's turn on the screen)
-      const mid = await onFlat(page, c);
-      const [q0, q1] = await page.evaluate(({ x, y }) => [window.dgmEditor!.tileToClient(x - 2, y - 2), window.dgmEditor!.tileToClient(x + 2, y + 2)], { x: mid.x, y: mid.y });
-      await fingers.down({ 1: { x: q0.x, y: q0.y + FINGER_LIFT } });
-      await fingers.pause(TAP_HOLD);
-      expect(await pressing(page)).toBe(true);
-      await fingers.drag({ 1: { x: q1.x, y: q1.y + FINGER_LIFT } });
-      await fingers.up(1);
-      await expect.poll(() => page.evaluate(() => window.dgmEditor!.selection().length)).toBeGreaterThan(8);
       await putAway(page);
 
       expect(await zoomed()).toEqual(page0);
