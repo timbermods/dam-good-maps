@@ -1,7 +1,6 @@
 // The intention table's count (planning, 2026-11-14; src/core/land/intentionTable.ts): each intention asked of each
 // theme on seeds 1–12 at 128², counted where it emerged, on worker threads (one a core). The tool
-// (tools/intention-table.ts) writes the table; the heavy test (mcp/tests/intentionTable.heavy.test.ts) computes it again
-// and holds it to the committed one.
+// (tools/intention-table.ts) writes the table, and checks it, a theme a job, in Nightly only.
 
 import { cpus } from "node:os";
 import { isMainThread, parentPort, Worker, workerData } from "node:worker_threads";
@@ -34,9 +33,9 @@ if (!isMainThread && (workerData as { role?: string } | null)?.role === ROLE) {
 }
 
 /** Count every intention on every theme, `threads` maps at once; `progress` hears each map. */
-export async function computeTable(threads = Math.max(1, cpus().length), progress?: (done: number, of: number) => void): Promise<IntentionTable> {
+export async function computeTable(threads = Math.max(1, cpus().length), progress?: (done: number, of: number) => void, themes: readonly StyleTheme[] = STYLE_THEMES): Promise<IntentionTable> {
   const tasks: Task[] = [];
-  for (const id of INTENTIONS) for (const theme of STYLE_THEMES) for (const seed of INTENTION_SEEDS) tasks.push({ id, theme, seed });
+  for (const id of INTENTIONS) for (const theme of themes) for (const seed of INTENTION_SEEDS) tasks.push({ id, theme, seed });
   const counts = Object.fromEntries(INTENTIONS.map((id) => [id, Object.fromEntries(STYLE_THEMES.map((t) => [t, 0]))])) as IntentionTable["counts"];
   let next = 0;
   let done = 0;
