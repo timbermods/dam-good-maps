@@ -488,7 +488,12 @@ function feedsFor(libraryId: string, place: PlaceData): { place: PlaceData; note
     const why = [...worse, ...(flow > baseFlow ? [`sources in a flow ${baseFlow} → ${flow}`] : []), ...(filmed ? ["film above floor 0"] : [])];
     return why.length ? why.join(", ") : null;
   };
-  const r = searchFeeds(place, real, (p) => buildPlace(p, settles).settle.depth, keep);
+  const settle = (p: PlaceData) => buildPlace(p, settles).settle.depth;
+  let r = searchFeeds(place, real, settle, keep);
+  // no place ends with more water over real dry land (planning): one whose search did is searched again with no step
+  // raising it
+  const again = r.after.dry > r.before.dry ? ` (searched again: real dry land ${r.before.dry} → ${r.after.dry} the first time)` : "";
+  if (again) r = searchFeeds(place, real, settle, keep, { dryNotUp: true });
   // the floor-0 sheet is information (planning), but a search whose sheet over real dry land grew while the water over
   // real dry land did not fall keeps the springs the place had
   const sheetDry = (p: PlaceData) => {
@@ -507,6 +512,7 @@ function feedsFor(libraryId: string, place: PlaceData): { place: PlaceData; note
   const note =
     `  springs searched: real water ${r.before.real} → ${r.after.real}, real dry land ${r.before.dry} → ${r.after.dry}; sources ${fmt(place.sources)} → ${fmt(r.place.sources)}` +
     (r.steps.length ? ` [${r.steps.map((s) => `${at(s.from)} → ${at(s.to)}`).join("; ")}]` : "") +
+    again +
     (flowOnly.length ? `; better by the measure but for a source in another's flow: ${flowOnly.map((x) => `${at(x.from)} → ${at(x.to)} (real water ${x.real}, real dry land ${x.dry}; ${x.why})`).join("; ")}` : "");
   return { place: r.place, note };
 }

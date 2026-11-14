@@ -83,8 +83,9 @@ export interface FeedStep {
 /**
  * The place with its sources searched by D271's measure. `settle` gives a candidate's settled depth under the game's
  * rules; `keep` says why a candidate that scores better may not be kept (the checks that may not get worse), or null.
+ * `dryNotUp`: no step may raise the water over real dry land (for a place whose search ended with more of it).
  */
-export function searchFeeds(place: PlaceData, real: Uint8Array, settle: (p: PlaceData) => ArrayLike<number>, keep: (p: PlaceData) => string | null): { place: PlaceData; before: { real: number; dry: number }; after: { real: number; dry: number }; steps: FeedStep[]; refused: FeedRefusal[] } {
+export function searchFeeds(place: PlaceData, real: Uint8Array, settle: (p: PlaceData) => ArrayLike<number>, keep: (p: PlaceData) => string | null, opts: { dryNotUp?: boolean } = {}): { place: PlaceData; before: { real: number; dry: number }; after: { real: number; dry: number }; steps: FeedStep[]; refused: FeedRefusal[] } {
   const { W, H } = place;
   const head = realHead(W, H, real);
   let cur = place;
@@ -118,7 +119,7 @@ export function searchFeeds(place: PlaceData, real: Uint8Array, settle: (p: Plac
         if (!s.some((x) => x)) continue;
         const cand = withSources(s);
         const mm = realMeasure(settle(cand), real);
-        if (mm.real < realFloor || mm.score < (best?.m.score ?? m.score) + GAIN) continue;
+        if (mm.real < realFloor || (opts.dryNotUp && mm.dry > m.dry) || mm.score < (best?.m.score ?? m.score) + GAIN) continue;
         const why = keep(cand);
         if (why) {
           refused.push({ source: i, from: was, to, real: mm.real, dry: mm.dry, why });
