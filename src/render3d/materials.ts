@@ -2197,6 +2197,11 @@ ${hook(h, "waterDecl")}${CAVE_POINT}
           return waterShareFrom(flowTex, mapSize, g, vnoise((g + ${f(WATER_SHARE_BLEND.noiseSpeed)} * time) * ${f(WATER_SHARE_BLEND.noiseScale)}));
         #endif
       }
+      /** The gloss at g (0–1, its middle 0.5), as the game's two samples of its gloss map (Q9 P8): two of our noises
+       *  about a tile across, each drifting over the water at its sample's speed (WATER_SURFACE.glossPan). */
+      float waterGloss(vec2 g, float t) {
+        return (vnoise((g - t * vec2(${f(WS.glossPan[0][0])}, ${f(WS.glossPan[0][1])})) * 0.5) + vnoise((g - t * vec2(${f(WS.glossPan[1][0])}, ${f(WS.glossPan[1][1])})) * 0.37)) * 0.5;
+      }
 ${WATER_SOURCE_GLSL}${VIEW_DEPTH_GLSL}
       void main() {
         ${SUN_PX_GLSL}
@@ -2273,7 +2278,7 @@ ${WATER_SOURCE_GLSL}${VIEW_DEPTH_GLSL}
         // waterOpacity; no film, D154 as amended 2026-11-09)
         float alpha = cleanWaterAlpha(d);
         float foam = 0.0;
-        // the gloss's slow variation, as the game's two panned samples of its gloss map (WATER_SURFACE.smoothness)
+        // the gloss's drift, as the game's two panned samples of its gloss map (WATER_SURFACE.glossPan, smoothness)
         float gloss = 0.5;
         // badwater's pattern the flow carries (Q9 P9: R its base colour's, G its emissive detail's; the light look, as the
         // game's Low quality, flat at its mean)
@@ -2305,7 +2310,7 @@ ${WATER_SOURCE_GLSL}${VIEW_DEPTH_GLSL}
           #if !LITE
             N = waterFlowNormal(surf, cont, 1.0);
             Nh = waterFlowNormal(surf, cont, WATER_NORMAL_BOOST);
-            gloss = (vnoise(g * 0.5 + vec2(t * 0.010, t * 0.007)) + vnoise(g * 0.37 - vec2(t * 0.008, t * 0.012))) * 0.5;
+            gloss = waterGloss(g, t);
           #endif
           #if LITE
             // (the light look follows the game's Low quality: no ground behind the water)
@@ -2327,7 +2332,7 @@ ${WATER_SOURCE_GLSL}${VIEW_DEPTH_GLSL}
             #if !LITE
               N = waterFlowNormal(surf, cont, 1.0);
               Nh = waterFlowNormal(surf, cont, WATER_NORMAL_BOOST);
-              gloss = (vnoise(g * 0.5 + vec2(t * 0.010, t * 0.007)) + vnoise(g * 0.37 - vec2(t * 0.008, t * 0.012))) * 0.5;
+              gloss = waterGloss(g, t);
             #endif
             #if LITE
               // (the light look follows the game's Low quality: no ground behind the water)
@@ -2390,7 +2395,7 @@ ${WATER_SOURCE_GLSL}${VIEW_DEPTH_GLSL}
         // (the game's URP lighting at the water's smoothness, clean water's about 0.25 to badwater's 0.15: the sky
         // added on top, as URP's environment term)
         // (badwater's toward its own by the tint × the pattern's R, as the game's)
-        float smoothness = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, bad * bpat.x);
+        float smoothness = mix(waterSmoothness(gloss), BADWATER_SMOOTHNESS, bad * bpat.x);
         // (the game's, WATER_LIGHT.game: its probe by the reflected direction, the head-on part where WATER_LIGHT.held,
         // and the glint in its sun's colour)
         #if WATER_GAME_LIGHT
