@@ -59,7 +59,6 @@ where the job is written down, scripts where it's only waiting.
 
 | Work | Definition | Model, effort |
 |---|---|---|
-| M9b (Kyler's setting, D262) | `m9b-build` | Opus 5.5, xhigh |
 | Anything touching the water simulation, the generator's processes or the forces; the editor-core items; editor changes; Rust ports; adopting Codex's work | `build` | Opus 5.5, high |
 | The document prune; mechanical work touching layout or other work's tests; building from a written spec; review sets and contact sheets; mechanical merges and CI fix-ups without real conflicts | `build-light` | Sonnet 5.5, high |
 | Self-contained mechanical work with a clear spec: docs, routine fixes, re-pins, test updates within one area (D341) | `build-light-medium` | Sonnet 5.5, medium |
@@ -73,7 +72,7 @@ where the job is written down, scripts where it's only waiting.
 
 Haiku runs at high effort through the `build-light` definition (its effort) with `model: haiku`; prefer it to Sonnet whenever the brief is specific enough to check (Kyler, 2026-10-15). Haiku never decides wording or layout: a task that changes what a player reads or where things sit goes to Sonnet, since a Haiku fix once renamed a History step and undid a layout a review had settled.
 
-`m9a-build` and `m9-build` stay defined, unused. **Never Fable unless Kyler explicitly asks** (he has, for the page session
+**Never Fable unless Kyler explicitly asks** (he has, for the page session
 and D386's review). **Never raise a model's effort on your own, never start sub-agents at max.** A hand-back from
 `build-light` or `build-light-medium` for anything needing judgment goes to `build`.
 
