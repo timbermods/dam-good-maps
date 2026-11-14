@@ -3740,6 +3740,65 @@ curtains, the cave open.
 - **Falls short:** where a tile holds water in two gaps above a column's level, which one the game links is not read;
   ours takes the lower.
 
+## The ruins and the start as the game draws them (D135, D178 as amended 2026-11-10, D496, D497; `fix/ruins-start`)
+
+The Four Lakes captures showed two placeholders: our ruins stood as pale tan columns where the game's are dark rusted
+frames, and the start was still the white map-editor marker.
+
+- **The ruins' pale columns** were our far version: from about nine pixels a storey up, each storey turned into a
+  block in the scaffold's mean with a lattice cut through it (D305). The game draws one alpha-cut model at every
+  distance, so ours does too: the far block, its lattice and the shader's near/far switch for ruins are gone
+  (`materials.ts` keeps the size on screen as `LOD_NEAR_PX` for the aquifer drill's parts).
+- **Read from the game's models** (numbers only): `RuinModelFactory` builds a column from the variant's storey nodes
+  (`#RuinColumn{V}{h}`) and the ivy's (`#IvyWet{h}A` with `#IvyWet0A`, or the dry ivy's), adding no turn of its own;
+  the column stands as its file turns it (its orientation, which our generator writes at random), and ours does too. Each storey is a frame of four rebar posts 0.08 square at the tile's corners; its faces
+  are quads cut out of an atlas whose rows are anchored at the column's top, so a variant's storeys differ counted from
+  the top: on each face a band of cracked slab over the storey's upper 0.47 (whole, broken, or none) or two rebar
+  rails, floors in B and D from the second storey from the top downward (B's first half there) and in C from the
+  third. The top storey's posts are broken off at the variant's heights, one of them bent in A and E.
+- **Built** (`entities3d.ts` `RUIN_FACES`, `storey`, `band`, `rails`, `drape`): each storey from that table, the slab
+  bands boxes 0.03 thick with a broken edge, the rails thin rods; the ivy flat leaves on the faces' outsides placed as
+  the game's cover: seen from a side, wet (h = 4) the game's 0.74 / 0.63 / 0.38 / 0.28 of each storey from the foot up
+  and ours 0.71 / 0.63 / 0.33 / 0.31–0.32; dry the foot 0.66 and ours 0.63 (held within 0.07, look-mine-ruins.test.ts). The game shows the dry model on dry or
+  contaminated ground (`RuinModelUpdater`), as before. A storey is at most 284 triangles with its densest ivy (was 288 near, 24 far), in the
+  game's colours, untinted (`palette.ts` `RUIN`: the means of the texels its cut-out keeps, rust #5d2f17, slab #6c5a39,
+  ivy #2a2f1a, its brighter leaves #3c461f). Each storey's frame is a batch by its variant and place, its ivy a batch
+  of its own by its amount (by variant too on the top storey, up to its broken posts), as the game's ivy is its own
+  model. The light look's storey is the four posts and two bands a face.
+- **The start in play** is what the game builds where the map's start stands: the faction's district center. Ours is
+  the Folktails' (`DistrictCenter.Folktails.Model`, the probe's faction; `entities3d.ts` `districtCenter`): plank walls
+  between pale posts, an arched door toward the entrance and round windows, a thatched roof to a collar at 1.48, a dark
+  round tower with four ribs, an emblem on each face and a band, a platform with points and a railing, the fire bowl,
+  and the lantern's posts under a thatched hood, 4.33 high and 3.1 across (its posts overhang the 3 × 3 by 0.05, as
+  the game's do); 1428 triangles (was 268). Its silhouette against the game's from 16 cameras and from above is 1.01–1.03
+  times the game's area, IoU 0.97–0.99, the bounds within 0.01. Colours the game's (`palette.ts` `START`). The game
+  draws nothing on the entrance tile in play, so the entrance post is an editing aid shown with Markers only (D497);
+  High copies Standard's models for both.
+- **Standard's shadow:** the ruins' post refit to the new frames' own shadow over the five variants 1 to 8 high, at 8
+  headings of the sun 45° up: 0.56 across before the inset (was 0.86) and 0.15 short of the column's top (was 0.85 of
+  its height). It covers 0.64–0.99 of the model's shadow, IoU 0.39–0.74 (mean 0.56), and is 1.50 times its area (the
+  old post: 0.38–0.74, 1.47). The model's shadow is a lattice, the slab bands' with the sun through the open storeys
+  between them; no solid post at two samples a tile follows it closer (a disc over each storey's band did worse, IoU
+  0.25–0.73), and one the model's area drops to IoU 0.11. Held with `expectWhereItFalls` (landmarksGame.test.ts). The
+  start's unchanged (its base 1.4 and the tower's 4.33).
+- **Judged:** river valley 2's ruin fields and forty more columns, and its start, close up and from 40 away in
+  Standard and High: rusted frames with tan slabs and dark ivy, the district center's thatch and dark tower, as the
+  Four Lakes captures show the game's. (A missing parenthesis in the object shader left every object undrawn on the
+  first run; the unit suites compile no shader, so only the page showed it.)
+- **Cost:** `benchOrbit` on river valley 2 at 128 with forty columns more by its weir (1600 × 900, headed Chrome, RTX
+  2070 Super; the GPU's median a frame, one run each, base → branch): Standard whole map 2.94 → 2.86 ms, the ruins 14
+  away 3.41 → 3.40; High 2.66 → 2.35 and 3.98 → 4.22: within the runs' spread. Draw calls 104 → 103. Triangles
+  Standard 183 k → 193 k; High 297 k → 182 k (High's own scaffold augment is gone). Every frame 7.0 ms at 144 Hz.
+- **Falls short:** (1) The game lights a fire in the bowl (its particles); left out. (2) The Iron Teeth's district
+  center differs; ours is the Folktails' for both factions. (3) The ruins' slab bands are clean boxes with a broken
+  edge where the game's are cracked cut-outs, and our leaves are larger and fewer than the game's. (4) The ivy's brown
+  roots at the foot (`IvyWet0A`) are left out. (5) The ruins' shadow in Standard is a solid post, half again the
+  area of the model's latticed one.
+- **Revived on dev** (`look/ruins-start`, 2026-11-14, 522 commits on; no conflict): dev still drew the start as the grey
+  placeholder house with its entrance post, and the ruins as the scaffold towers. Sheet: `docs/sheets/ruins-start.jpg`,
+  made by `tools/capture-ruins-start.ts --soft` (High, River Valley 4242 at 256², dev against this checkout, close and
+  90 away, the same cameras).
+
 ## Falls that pour, against the game's Four Lakes frames (PERFECT Water 3; D154, D496; `fix/falls-pour-2`)
 
 Judged on the in-game capture kit's Four Lakes r14 `falls` and `cave` start frames (day light; local only), ours posed
