@@ -17,9 +17,8 @@ text this document condensed (at D390) and the deferred Claude integration's des
 A studio for creating maps. Start from a generated map or a real place, shape it like a painter, and the water
 responds to everything you do. It is deliberately different from the game's own editor, which is a precision
 workshop; players can still fine-tune in the game's editor if they want. The editor was desktop-first (D185); phones and
-tablets now edit maps too, first class (#1074, amending D185): touch in the 3D view (§7, "Touch"), the phone layouts
-the rest of the page on a phone (§3, "Phones") and tablets (§3, "Tablets") are built; seeing a press before it
-applies comes in its later slices.
+tablets now edit maps too, first class (#1074, amending D185): touch in the 3D view (§7, "Touch"), the phone layouts,
+the rest of the page on a phone (§3, "Phones") and tablets (§3, "Tablets") are built.
 
 ## 2. The principles
 

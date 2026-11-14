@@ -53,10 +53,14 @@ function touchDesktop(view: HTMLElement): boolean {
   return typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches && !view.closest(".editor[data-phone]");
 }
 
-/** The height of the bar and the held tool's settings over it (not the notes and hints above them), from the dock's
- *  foot: a tablet's objects and minimap stand above it. */
-function dockHeight(dock: DOMRect | null, bar: DOMRect | null, settings: DOMRect | null): Record<string, string> {
-  const top = Math.min(...[bar, settings].filter((r): r is DOMRect => !!r && r.height > 0).map((r) => r.top));
+/** The dock's parts the objects and the minimap stand above on a tablet: the bar, the held tool's settings and their
+ *  Put it down plate over the settings' left end. */
+const DOCK_PARTS = [".tool-dock > .tool-bar", ".tool-dock > .tool-settings", ".tool-dock > .tool-settings > .put-down"];
+
+/** The height of the bar and the held tool's settings over it with their Put it down plate (not the notes and hints
+ *  above them), from the dock's foot: a tablet's objects and minimap stand above it. */
+function dockHeight(dock: DOMRect | null, ...parts: (DOMRect | null)[]): Record<string, string> {
+  const top = Math.min(...parts.filter((r): r is DOMRect => !!r && r.height > 0).map((r) => r.top));
   return { "--dock-h": `${dock && Number.isFinite(top) ? Math.ceil(dock.bottom - top) : 0}px` };
 }
 
@@ -166,7 +170,7 @@ export function useBandLayout(ready: boolean): void {
       const dock = box(".tool-dock");
       const readoutW = dock ? Math.min(500, dock.left - v.left - 22 - TOP) : 500;
       const pieces = [
-        ...[".tool-dock > .tool-settings", ".tool-dock > .tool-bar", ".tool-dock > .working-note", ".tool-dock > .dock-notes > *:not(.first-run)"].map((s) => ({ b: box(s), over: 0 })),
+        ...[".tool-dock > .tool-settings", ".tool-dock > .tool-settings > .put-down", ".tool-dock > .tool-bar", ".tool-dock > .working-note", ".tool-dock > .dock-notes > *:not(.first-run)"].map((s) => ({ b: box(s), over: 0 })),
         { b: box(".objects-dock"), over: 0, aside: "objects" as const },
         { b: box(".minimap"), over: 6 + 32 + 6 + (readoutW < 300 ? 52 : 32), aside: "minimap" as const },
       ].filter((u): u is Piece => !!u.b);
@@ -185,7 +189,7 @@ export function useBandLayout(ready: boolean): void {
       // (the objects' dock: from its foot up to the corner's buttons; its foot is the view's, or above the dock on a tablet)
       const dockRoom = dockMax(objects ? objects.bottom - v.top + TOP : v.height, corner.bottom - v.top);
       if (finger && shown.height > BAND + 1) {
-        const vars = flowBand({ v, m, show: shown, water, legend, corner, roomAbove, pieces, dockRoom, dock, objects, dockH: dockHeight(dock, box(".tool-dock > .tool-bar"), box(".tool-dock > .tool-settings")) });
+        const vars = flowBand({ v, m, show: shown, water, legend, corner, roomAbove, pieces, dockRoom, dock, objects, dockH: dockHeight(dock, ...DOCK_PARTS.map(box)) });
         for (const [k, val] of Object.entries(vars)) if (main.style.getPropertyValue(k) !== val) main.style.setProperty(k, val);
         return;
       }
@@ -268,7 +272,7 @@ export function useBandLayout(ready: boolean): void {
         // (the objects' dock, the list and the picked object's window: as tall as the room under the corner's buttons, the
         // list scrolling inside when a short window can't hold both)
         "--dock-max": dockRoom,
-        ...dockHeight(dock, box(".tool-dock > .tool-bar"), box(".tool-dock > .tool-settings")),
+        ...dockHeight(dock, ...DOCK_PARTS.map(box)),
       };
       for (const [k, val] of Object.entries(vars)) if (main.style.getPropertyValue(k) !== val) main.style.setProperty(k, val);
     };
