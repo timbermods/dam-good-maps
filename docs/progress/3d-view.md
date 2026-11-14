@@ -4077,6 +4077,42 @@ row's luma less its 3-pixel mean. `.scratch` measures, not kept.
 - **Falls short:** (1) to (3) stand, unexplained. A frame of the game's falls in motion would settle (4) beyond its
   formula.
 
+## The pine's boughs as the game draws them (D135, D178, D496; `fix/close-objects`)
+
+At the Four Lakes r14 cave camera the game's pines are five whorls of drooping boughs, each whorl a star; ours were
+three smooth cones in Standard and four scalloped cones in High, which read as one spire.
+
+- **Read from the game's model** (`PineMature`, `tools/game-model-albedo.py --parts`; numbers only): 135 triangles,
+  3.01 high. Its crown is five whorls, each a shallow cone of 5 to 18 triangles from an apex (1.86, 2.21, 2.48, 2.78,
+  3.01) out and down, its texture a white star of 7 to 12 broad, grooved boughs that the vertex colours tint
+  (VegetationURP, cut at alpha 0.5). Measured over the model where the texture's alpha keeps it, by the model's middle:
+  each whorl's boughs' tips reach 0.50, 0.50, 0.41, 0.28 and 0.13 (the lowest two 0.43–0.55) and droop 0.36–0.49 below
+  their apex, about 45°; the notches between them reach 0.31, 0.31, 0.23, 0.15 and 0.07 (the edge's 5th percentile);
+  12, 11, 10, 9 and 7 boughs (`pineCrown.ts` `PINE_WHORLS`). The vertex colours darken toward each apex and lighten
+  toward the tips (the lowest whorl's 0.13/0.23/0.10 at its apex, 0.17/0.27/0.15 past its tips), and lighten whorl by
+  whorl up the tree, as `crownShade` already does.
+- **Built** (`pineCrown.ts` `whorlTriangles`): each whorl's star as geometry, an inner cone from the apex to the notches
+  and one triangle a bough out and down to its tip, each tip's reach within ±10 % of its whorl's; the inner cone at 0.92
+  of the pine's colour, the tips at 1.08 (`WHORL_SHADE`); each whorl turned from the last by the golden angle. Standard's
+  pine (`entities3d.ts`) and High's close pine (`high/models.ts`) are both built from it; High's far pine keeps its three
+  cones. The top whorl's apex is 3.0, not the game's 3.009, so the tallest pine keeps within the air a pine needs.
+- **High's close pines at the frame's foot:** the forest drew a plant close up only when its root was in view, so the
+  tallest trees whose foot lay below the frame showed their far cones up close; a plant now counts as on screen by its
+  root or its top (`high/forest.ts`).
+- **Cost:** Standard's pine is 108 triangles (was 31; the game's 135), High's close pine 122 (was 144), its far pine
+  30 as before; the test of a living pine's triangles now holds it under the game's 135, the other trees under 64.
+  `benchOrbit` (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame, two runs of dev and of the branch,
+  interleaved): Highlands 1 at 256, the whole map, Standard 3.06–3.58 ms on both, High 2.92–3.24 and 3.03–3.31, the
+  frame's triangles 393 k → 436 k in Standard (High's far pines unchanged); Four Lakes r14 from the game's opening
+  camera, where every pine in view is close, Standard 3.53–4.41 and 3.60–4.55, High 5.30–5.50 and 5.29–5.45, the
+  triangles 533 k → 610 k in Standard, the same in High. Draw calls unchanged. Within the runs' spread.
+- **Sheet** (local only): `C:/dgm-showcase/objects/close/pines-sheet.png`, the game's cave frame against dev and this
+  branch in both looks, with a crop of the pines.
+- **Falls short:** (1) The game's boughs are grooved by their texture and its normal map, a lit and a shaded side to
+  each; ours are flat facets, two to a bough. (2) Each whorl is a little rounder in the game's (its boughs broad lobes);
+  ours are triangles to their tips. (3) Standard's pine shadows are still the fitted discs (`light.ts`
+  `PLANT_SHAPES`).
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:
