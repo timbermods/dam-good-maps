@@ -14,12 +14,17 @@ describe("step runs on the default maps", () => {
     it(`${theme}, 128², seeds 1 to 12: none past the known list`, () => {
       const over: string[] = [];
       for (let seed = 1; seed <= 12; seed++) {
-        const b = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme })).built;
+        const b = generate(
+          makeSpec({ seed, size: { x: 128, y: 128 }, theme }),
+        ).built;
         const wet = wetOf(b.settle.depth);
         const r = stepRuns(b.heights, wet, b.W, b.H);
         const e = stairEdges(b.heights, wet, b.W, b.H);
         const n = r.count + e.count;
-        if (n > allowedRuns(theme, seed)) over.push(`${theme} ${seed}: ${r.count} + ${e.count} (allowed ${allowedRuns(theme, seed)}), the first at ${JSON.stringify(r.runs[0] ?? e.edges[0])}`);
+        if (n > allowedRuns(theme, seed))
+          over.push(
+            `${theme} ${seed}: ${r.count} + ${e.count} (allowed ${allowedRuns(theme, seed)}), the first at ${JSON.stringify(r.runs[0] ?? e.edges[0])}`,
+          );
       }
       expect(over).toEqual([]);
     });

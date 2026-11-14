@@ -165,9 +165,12 @@ a premise or one still to come, may carry its own, lower playability floor.
   column or a diagonal, each of five or more dry tiles a level above the one before, the tile next across from each of
   a step's two tiles standing at its level on one side). The snap moves each riser's rounding threshold by its own
   noise where the land climbs about a level a tile, and breaks a flight left even with a ledge two tiles deep
-  (`land/levels.ts` `FLIGHT`, `breakFlights`). Themes at 128², seeds 1–12 (84 maps): 1,225 runs on 66 maps before
-  (generator 0.10.22; River Valley 385, Delta 348, Any 175, Highlands 117, Lake Basin 104, Canyon 87, Islands 9), 25 on 9
-  after (0.10.23); a known list holds them and may only shrink.
+  (`land/levels.ts` `FLIGHT`, `breakFlights`). Nor does a level's edge run at 45° in even one-tile steps for six tiles
+  or more along the diagonal (`stairEdges`, whatever the drop: a cliff's zigzag reads as ruled too); the wander cuts it
+  as it cuts a straight run, a bump of 2 or 3 tiles every 2 to 4 (`land/wander.ts`). Themes at 128², seeds 1–12 (84
+  maps): 1,179 runs on 64 maps and 452 stair edges on 79 before (generator 0.10.23; runs: Delta 403, River Valley 370,
+  Any 126, Canyon 103, Highlands 87, Lake Basin 69, Islands 21), 36 runs and 22 stair edges, 58 on 26 maps, after
+  (0.10.24); a known list holds them and may only shrink.
 
 **Land first, story second** (planning's ruling of 2026-11-11, for every path: themes, premises, hand maps). Every
 landform is one geology makes, shaped by the shared natural relief. A premise is found in or cut into natural land by a

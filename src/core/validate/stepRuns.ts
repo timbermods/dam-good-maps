@@ -55,7 +55,13 @@ const DIRS: readonly (readonly [number, number])[] = [
 
 /** Step runs of a map from its top surface `h` (levels) and its settled water (`wet`: nonzero on a wet tile; null for
  *  none). */
-export function stepRuns(h: ArrayLike<number>, wet: ArrayLike<number> | null, W: number, H: number, min = STEP_RUN): StepRuns {
+export function stepRuns(
+  h: ArrayLike<number>,
+  wet: ArrayLike<number> | null,
+  W: number,
+  H: number,
+  min = STEP_RUN,
+): StepRuns {
   const runs: StepRun[] = [];
   // the level of a dry tile on the map, else -1 (levels are never negative)
   const lv = (x: number, y: number): number => {
@@ -75,8 +81,10 @@ export function stepRuns(h: ArrayLike<number>, wet: ArrayLike<number> | null, W:
       if (a < 0 || b < 0) return 0;
       const d = b - a;
       if (d !== 1 && d !== -1) return 0;
-      if (lv(x + px, y + py) === a && lv(x + dx + px, y + dy + py) === b) return d;
-      if (lv(x - px, y - py) === a && lv(x + dx - px, y + dy - py) === b) return d;
+      if (lv(x + px, y + py) === a && lv(x + dx + px, y + dy + py) === b)
+        return d;
+      if (lv(x - px, y - py) === a && lv(x + dx - px, y + dy - py) === b)
+        return d;
       return 0;
     };
     for (let y0 = 0; y0 < H; y0++)
@@ -93,10 +101,20 @@ export function stepRuns(h: ArrayLike<number>, wet: ArrayLike<number> | null, W:
         const close = () => {
           if (n + 1 >= min) {
             const up = sgn > 0;
-            runs.push({ length: n + 1, x: up ? sx : sx + n * dx, y: up ? sy : sy + n * dy, dx: up ? dx : -dx, dy: up ? dy : -dy });
+            runs.push({
+              length: n + 1,
+              x: up ? sx : sx + n * dx,
+              y: up ? sy : sy + n * dy,
+              dx: up ? dx : -dx,
+              dy: up ? dy : -dy,
+            });
           }
         };
-        for (let x = x0, y = y0; x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H; x += dx, y += dy) {
+        for (
+          let x = x0, y = y0;
+          x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H;
+          x += dx, y += dy
+        ) {
           const d = step(x, y);
           if (d !== 0 && (n === 0 || d === sgn)) {
             n++;
@@ -117,8 +135,19 @@ export function stepRuns(h: ArrayLike<number>, wet: ArrayLike<number> | null, W:
         close();
       }
   }
-  runs.sort((a, b) => b.length - a.length || a.y - b.y || a.x - b.x || a.dy - b.dy || a.dx - b.dx);
-  return { count: runs.length, longest: runs.length ? runs[0].length : 0, runs };
+  runs.sort(
+    (a, b) =>
+      b.length - a.length ||
+      a.y - b.y ||
+      a.x - b.x ||
+      a.dy - b.dy ||
+      a.dx - b.dx,
+  );
+  return {
+    count: runs.length,
+    longest: runs.length ? runs[0].length : 0,
+    runs,
+  };
 }
 
 /** A stair edge counts from this many tiles along the diagonal (about 8.5 tiles long, as a straight edge over 8 sides
@@ -137,7 +166,13 @@ export interface StairEdge {
 }
 
 /** Stair edges of a map (see the file's header), longest first. */
-export function stairEdges(h: ArrayLike<number>, wet: ArrayLike<number> | null, W: number, H: number, min = STAIR_EDGE): { count: number; longest: number; edges: StairEdge[] } {
+export function stairEdges(
+  h: ArrayLike<number>,
+  wet: ArrayLike<number> | null,
+  W: number,
+  H: number,
+  min = STAIR_EDGE,
+): { count: number; longest: number; edges: StairEdge[] } {
   const edges: StairEdge[] = [];
   const lv = (x: number, y: number): number => {
     if (x < 0 || y < 0 || x >= W || y >= H) return -1;
@@ -153,11 +188,27 @@ export function stairEdges(h: ArrayLike<number>, wet: ArrayLike<number> | null, 
         // (only from the edge's first tile)
         if (lv(x0 - dx, y0 - dy) === v && lv(x0, y0 - dy) === u) continue;
         let n = 0;
-        while (lv(x0 + n * dx, y0 + n * dy) === v && lv(x0 + (n + 1) * dx, y0 + n * dy) === u) n++;
-        if (n >= min) edges.push({ length: n, x: x0, y: y0, dx, dy, rise: u - v });
+        while (
+          lv(x0 + n * dx, y0 + n * dy) === v &&
+          lv(x0 + (n + 1) * dx, y0 + n * dy) === u
+        )
+          n++;
+        if (n >= min)
+          edges.push({ length: n, x: x0, y: y0, dx, dy, rise: u - v });
       }
-  edges.sort((a, b) => b.length - a.length || a.y - b.y || a.x - b.x || a.dy - b.dy || a.dx - b.dx);
-  return { count: edges.length, longest: edges.length ? edges[0].length : 0, edges };
+  edges.sort(
+    (a, b) =>
+      b.length - a.length ||
+      a.y - b.y ||
+      a.x - b.x ||
+      a.dy - b.dy ||
+      a.dx - b.dx,
+  );
+  return {
+    count: edges.length,
+    longest: edges.length ? edges[0].length : 0,
+    edges,
+  };
 }
 
 const DIAGONALS: readonly (readonly [number, number])[] = [

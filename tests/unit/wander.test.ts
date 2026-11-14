@@ -56,7 +56,9 @@ describe("wandering edges", () => {
     expect(moved).toBeGreaterThan(0);
     expect(longest(h)).toBeLessThanOrEqual(WANDER.run);
     // (each move takes a tile's level to the other side's: the total level moves by no more than the tiles moved)
-    expect(Math.abs(h.reduce((a, v) => a + v, 0) - before)).toBeLessThanOrEqual(moved);
+    expect(Math.abs(h.reduce((a, v) => a + v, 0) - before)).toBeLessThanOrEqual(
+      moved,
+    );
   });
 
   it("never makes a step of two levels, and moves nothing at the map's edge", () => {
@@ -68,13 +70,15 @@ describe("wandering edges", () => {
         const i = y * W + x;
         if (x + 1 < W) expect(Math.abs(h[i] - h[i + 1])).toBeLessThanOrEqual(1);
         if (y + 1 < H) expect(Math.abs(h[i] - h[i + W])).toBeLessThanOrEqual(1);
-        if (Math.min(x, y, W - 1 - x, H - 1 - y) < WANDER.margin) expect(h[i]).toBe(was[i]);
+        if (Math.min(x, y, W - 1 - x, H - 1 - y) < WANDER.margin)
+          expect(h[i]).toBe(was[i]);
       }
   });
 
   it("moves nothing where the caller keeps it, and is deterministic per seed", () => {
     const where = new Uint8Array(W * H).fill(1);
-    for (let y = 0; y < H; y++) for (let x = 20; x < 28; x++) where[y * W + x] = 0;
+    for (let y = 0; y < H; y++)
+      for (let x = 20; x < 28; x++) where[y * W + x] = 0;
     const h = flats();
     const was = h.slice();
     wanderEdges(h, W, H, 3, where);
@@ -93,7 +97,9 @@ describe("wandering edges", () => {
     const h = new Uint8Array(W * H);
     // (a chequer of 3-tile squares: its edges run 3 tiles and its corners meet. Diagonal bands stood here until the look
     // round of 2026-11-14 made an edge at 45° in even steps a run the wander cuts, D148)
-    for (let i = 0; i < W * H; i++) h[i] = 4 + ((Math.floor((i % W) / 3) + Math.floor(Math.floor(i / W) / 3)) % 2);
+    for (let i = 0; i < W * H; i++)
+      h[i] =
+        4 + ((Math.floor((i % W) / 3) + Math.floor(Math.floor(i / W) / 3)) % 2);
     const was = h.slice();
     expect(wanderEdges(h, W, H, 1)).toBe(0);
     expect(Array.from(h)).toEqual(Array.from(was));
@@ -112,7 +118,8 @@ describe("a bed's path wanders off its straight reaches", () => {
     let best = 1;
     let run = 1;
     for (let i = 2; i < tiles.length; i++) {
-      run = tiles[i] - tiles[i - 1] === tiles[i - 1] - tiles[i - 2] ? run + 1 : 1;
+      run =
+        tiles[i] - tiles[i - 1] === tiles[i - 1] - tiles[i - 2] ? run + 1 : 1;
       best = Math.max(best, run + 1);
     }
     return best;
@@ -122,7 +129,10 @@ describe("a bed's path wanders off its straight reaches", () => {
     expect(longestRun(straight())).toBeGreaterThan(20);
     expect(longestRun(out)).toBeLessThanOrEqual(6);
     const tiles = out.flat();
-    for (let i = 1; i < tiles.length; i++) expect(Math.abs(tiles[i] - tiles[i - 1])).toSatisfy((d: number) => d === 0 || d === 1 || d === Wp);
+    for (let i = 1; i < tiles.length; i++)
+      expect(Math.abs(tiles[i] - tiles[i - 1])).toSatisfy(
+        (d: number) => d === 0 || d === 1 || d === Wp,
+      );
     expect(out[0][0]).toBe(30 * Wp + 20);
     expect(out[out.length - 1].at(-1)).toBe(5 * Wp + 20);
   });

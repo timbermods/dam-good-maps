@@ -36,7 +36,12 @@ interface Run {
 }
 
 /** The one-level runs of `h` longer than `limit` sides. */
-function longRuns(h: ArrayLike<number>, W: number, H: number, limit: number): Run[] {
+function longRuns(
+  h: ArrayLike<number>,
+  W: number,
+  H: number,
+  limit: number,
+): Run[] {
   const out: Run[] = [];
   const key = (a: number, b: number): number => {
     const d = h[b] - h[a];
@@ -50,7 +55,8 @@ function longRuns(h: ArrayLike<number>, W: number, H: number, limit: number): Ru
       const k = y < H ? key(y * W + x, y * W + x + 1) : 0;
       if (k !== 0 && k === run) len++;
       else {
-        if (len > limit) out.push({ vertical: true, at: x, from: y - len, len });
+        if (len > limit)
+          out.push({ vertical: true, at: x, from: y - len, len });
         len = k !== 0 ? 1 : 0;
       }
       run = k;
@@ -63,7 +69,8 @@ function longRuns(h: ArrayLike<number>, W: number, H: number, limit: number): Ru
       const k = x < W ? key(y * W + x, (y + 1) * W + x) : 0;
       if (k !== 0 && k === run) len++;
       else {
-        if (len > limit) out.push({ vertical: false, at: y, from: x - len, len });
+        if (len > limit)
+          out.push({ vertical: false, at: y, from: x - len, len });
         len = k !== 0 ? 1 : 0;
       }
       run = k;
@@ -74,7 +81,13 @@ function longRuns(h: ArrayLike<number>, W: number, H: number, limit: number): Ru
 
 /** Break the long one-level runs of `h` (see the file's header), in place; the number of tiles moved. `where` (optional)
  *  marks the tiles that may move. */
-export function wanderEdges(h: Uint8Array, W: number, H: number, seed: number, where: Uint8Array | null = null): number {
+export function wanderEdges(
+  h: Uint8Array,
+  W: number,
+  H: number,
+  seed: number,
+  where: Uint8Array | null = null,
+): number {
   let moved = 0;
   const margin = WANDER.margin;
   /** Whether tile `t` may take level `lv`: no side neighbour more than one from the level it takes (a step stays one
@@ -82,7 +95,8 @@ export function wanderEdges(h: Uint8Array, W: number, H: number, seed: number, w
   const takes = (t: number, lv: number, drop = 1): boolean => {
     const x = t % W;
     const y = (t - x) / W;
-    if (x < margin || y < margin || x >= W - margin || y >= H - margin) return false;
+    if (x < margin || y < margin || x >= W - margin || y >= H - margin)
+      return false;
     if (where && !where[t]) return false;
     for (let dy = -1; dy <= 1; dy++)
       for (let dx = -1; dx <= 1; dx++) {
@@ -98,12 +112,15 @@ export function wanderEdges(h: Uint8Array, W: number, H: number, seed: number, w
     for (let r = 0; r < runs.length; r++) {
       const { vertical, at, from, len } = runs[r];
       // (the tiles each side of the edge, along the run)
-      const left = (k: number) => (vertical ? (from + k) * W + at : at * W + from + k);
-      const right = (k: number) => (vertical ? (from + k) * W + at + 1 : (at + 1) * W + from + k);
+      const left = (k: number) =>
+        vertical ? (from + k) * W + at : at * W + from + k;
+      const right = (k: number) =>
+        vertical ? (from + k) * W + at + 1 : (at + 1) * W + from + k;
       // (an earlier run's move may have changed this one: it is cut only where it still runs)
       const d0 = h[right(0)] - h[left(0)];
       let still = 0;
-      for (let k = 0; k < len; k++) if (h[right(k)] - h[left(k)] === d0) still++;
+      for (let k = 0; k < len; k++)
+        if (h[right(k)] - h[left(k)] === d0) still++;
       if (still < len) continue;
       // (a bump from the plain piece's end, each plain piece `least`..`most` + 2 tiles and each bump `least`..`most` (two
       // where the ground is narrow): the first fit, tried from the piece's middle outward, that its neighbours let move)
@@ -113,7 +130,8 @@ export function wanderEdges(h: Uint8Array, W: number, H: number, seed: number, w
         for (const plain of [4, 3, 5, 6, 7]) {
           if (placed || c + plain >= len) continue;
           const k0 = c + plain;
-          const first = hash32(seed, "wander-side", vertical ? 1 : 0, at, from, k0) & 1;
+          const first =
+            hash32(seed, "wander-side", vertical ? 1 : 0, at, from, k0) & 1;
           for (const bump of [4, 3, 5, 2]) {
             const k1 = Math.min(len, k0 + bump);
             if (placed || k1 - k0 < 2) continue;
@@ -153,7 +171,8 @@ export function wanderEdges(h: Uint8Array, W: number, H: number, seed: number, w
       const high = (k: number) => low(k) + dx;
       const lo = h[low(0)];
       let still = true;
-      for (let k = 0; k < len && still; k++) if (h[low(k)] !== lo || h[high(k)] !== lo + rise) still = false;
+      for (let k = 0; k < len && still; k++)
+        if (h[low(k)] !== lo || h[high(k)] !== lo + rise) still = false;
       if (!still) continue;
       let c = 0;
       while (len - c >= STAIR_EDGE) {
