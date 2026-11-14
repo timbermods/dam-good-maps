@@ -305,7 +305,8 @@ const objectsOf = (page: Page, template: string) =>
 
 /** Bring the dry, level patch with no object on it (7 tiles across) nearest the map's middle under `c`, at a distance
  *  of 48: what a finger puts there is never refused for the ground, so a step that doesn't come is the gesture's.
- *  `clear`: no water source within that many tiles of its middle either (a wide ridge refuses one in its way). */
+ *  `clear`: no water source's footprint (a few tiles from where it stands) within that many tiles of its middle either:
+ *  a ridge 10 wide reaches about 10 out from its line, and refuses a source in its way. */
 async function onFlat(page: Page, c: P, clear = 0) {
   // (after any glide: a phone's view slides when a sheet or a tool changes, usePhone.ts)
   await still(page);
@@ -329,7 +330,7 @@ async function onFlat(page: Page, c: P, clear = 0) {
             const i = (y + dy) * W + x + dx;
             if (heights[i] !== h || surface.depth[i] > 0 || taken.has(i)) ok = false;
           }
-        if (ok && clear) ok = sources.every(([sx, sy]) => Math.max(Math.abs(sx - x), Math.abs(sy - y)) > clear);
+        if (ok && clear) ok = sources.every(([sx, sy]) => Math.max(Math.abs(sx - x), Math.abs(sy - y)) - 2 > clear);
         const d = (x - W / 2) ** 2 + (y - H / 2) ** 2;
         if (ok && d < far) [far, best] = [d, { x, y }];
       }
@@ -784,7 +785,7 @@ for (const size of SIZES) {
       if (sheet) await handle.tap();
       await page.getByRole("group", { name: "Brush" }).getByRole("button", { name: "Ridge", exact: true }).click();
       if (sheet) await handle.tap();
-      const level = await onFlat(page, c, 10);
+      const level = await onFlat(page, c, 13);
       // (a ridge needs a line 3 tiles long at least: drawn 4 across the level patch, whatever a tile's size on the screen)
       const [r0, r1] = await page.evaluate(({ x, y }) => [window.dgmEditor!.tileToClient(x - 2, y), window.dgmEditor!.tileToClient(x + 2, y)], level);
       await fingers.pause(400);
