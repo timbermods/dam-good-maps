@@ -186,10 +186,15 @@ export function useBandLayout(ready: boolean): void {
         return Math.max(0, Math.floor(floor - from));
       };
       const objects = box(".objects-dock");
-      // (the objects' dock: from its foot up to the corner's buttons; its foot is the view's, or above the dock on a tablet)
-      const dockRoom = dockMax(objects ? objects.bottom - v.top + TOP : v.height, corner.bottom - v.top);
+      const dockH = dockHeight(dock, ...DOCK_PARTS.map(box));
+      // (the objects' dock: from its foot up to the corner's buttons; its foot is the view's, or on a tablet whose bar
+      // takes the view's width the one this layout gives it, above the bar, the settings and their plate, tablet.css:
+      // where it stands now may be a step behind)
+      const above = finger && matchMedia("(max-width: 1279px)").matches;
+      const foot = above ? v.height - (TOP + parseFloat(dockH["--dock-h"]) + 6) : objects ? objects.bottom - v.top : v.height - TOP;
+      const dockRoom = dockMax(foot + TOP, corner.bottom - v.top);
       if (finger && shown.height > BAND + 1) {
-        const vars = flowBand({ v, m, show: shown, water, legend, corner, roomAbove, pieces, dockRoom, dock, objects, dockH: dockHeight(dock, ...DOCK_PARTS.map(box)) });
+        const vars = flowBand({ v, m, show: shown, water, legend, corner, roomAbove, pieces, dockRoom, dock, objects, dockH });
         for (const [k, val] of Object.entries(vars)) if (main.style.getPropertyValue(k) !== val) main.style.setProperty(k, val);
         return;
       }
@@ -272,7 +277,7 @@ export function useBandLayout(ready: boolean): void {
         // (the objects' dock, the list and the picked object's window: as tall as the room under the corner's buttons, the
         // list scrolling inside when a short window can't hold both)
         "--dock-max": dockRoom,
-        ...dockHeight(dock, ...DOCK_PARTS.map(box)),
+        ...dockH,
       };
       for (const [k, val] of Object.entries(vars)) if (main.style.getPropertyValue(k) !== val) main.style.setProperty(k, val);
     };
@@ -285,9 +290,14 @@ export function useBandLayout(ready: boolean): void {
       const el = view.querySelector(s);
       if (el) watch.observe(el);
     }
+    // (Put it down's plate comes and goes over the settings without resizing the dock: laid out again when it does)
+    const plate = new MutationObserver(soon);
+    const dockEl = view.querySelector(".tool-dock");
+    if (dockEl) plate.observe(dockEl, { childList: true, subtree: true });
     lay();
     return () => {
       watch.disconnect();
+      plate.disconnect();
       cancelAnimationFrame(frame);
     };
   }, [ready]);

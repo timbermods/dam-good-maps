@@ -248,11 +248,12 @@ place of its bottom rule.
   above, sized for a finger: every control at least 44px, fields 16px, the same gestures (§7, "Touch"), no iOS callout
   on a long press but in a field or a link (any coarse pointer, phones too). Gated on the pointer and the room, never a
   device's name, so no phone rule reaches a tablet and no tablet rule a desktop with a mouse. Under 1,280 wide the tool
-  dock takes the view's whole width (its cells shrink to 44px before they overflow) and the editor is the dynamic
+  dock takes the view's whole width (its cells shrink to 44px before they overflow), the objects and the minimap stand above
+  it (above Put it down's plate too), the first steps' hints and the notes between them, and the editor is the dynamic
   viewport's height; under 1,100 the header takes two lines, the name at the left of its first; the Show row wraps
   and the band below it is laid in lines (Legend under the Show row, the water's row beside it or on the next line, the
-  panel under the band); under 900, while a panel is open the objects, the minimap and the stack at the bottom left step
-  aside so the panel keeps its height. A tool's settings keep their rows at 44px (Auto a 44px target around its small
+  panel under the band); while a panel is open the minimap and the stack at the bottom left step aside so the panel keeps its
+  height, and under 900 the objects too. A tool's settings keep their rows at 44px (Auto a 44px target around its small
   pill); the Map Generator's settings stack name over value over control. Nothing is under 44px or off the screen at
   rest, with a brush or a force in hand, the legend, the Map Generator, Your maps and the File menu open.
 - **Together** (D362, D431, D486; `docs/COLLAB-BRIEF.md`; part 6a): two players edit one map through a relay and a
@@ -1685,8 +1686,13 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   are off over the editor: the view's canvas takes every finger (`touch-action: none`, no callout, no selection), the
   editor allows only panning a panel (`touch-action: pan-x pan-y`: no pinch or double-tap zoom of the page), iOS
   Safari's own pinch (`gesturestart`) is prevented while the view is there, no pull to refresh over the editor, and on a
-  touch screen no text selection but in a field. Measured on Chrome's touch emulation; Playwright's WebKit (the nearest
-  to iOS Safari a spec can run) is not installed on the machines that run the specs, so iOS is not run here.
+  touch screen no text selection but in a field. Measured on Chrome's touch emulation. Playwright's WebKit (the nearest
+  to iOS Safari a spec can run; #1074 slice 5, at both phone sizes) lays the phone layouts out as Chrome does, every
+  control 44px and on the screen, but for one slide: Show opened upright leaves the ground in the room's middle 3 tiles
+  off it (Chrome keeps it under 1.5); the specs' long presses and touches are sent through Chrome's own protocol, so
+  they run in Chrome only, and on the specs' server, which sends the isolation headers itself, WebKit refuses the
+  editor's workers on a reload (served as GitHub Pages serves the site, without them, a kept map reopens with its
+  edits).
 - Ctrl+Shift+1 to 9 saves a camera bookmark (position, angle, zoom), and Alt+1 to 9 glides back to it (Shift and a
   number pick a force); bookmarks
   are saved with the project. Every tool is reachable by keyboard, with labels for screen readers. (D180, D184,
