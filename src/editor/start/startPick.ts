@@ -5,9 +5,9 @@
 import { LAYERS } from "../../render3d/model";
 import { pickTerrain, type Ray, type TileHit } from "../../render3d/pick";
 
-/** The heights the press takes the house to, in levels: the tower as drawn (render3d/entities3d.ts `startTower`, the
- *  game's StartingLocation model, D496): its walls and roof over the 3×3 to about two levels, the lantern tower on the
- *  middle tile to 4.37. Not the game's footprint (five levels over the whole 3×3), which would take presses on the
+/** The heights the press takes the house to, in levels: the house as drawn (render3d/entities3d.ts `districtCenter`,
+ *  the game's district center, D496): its walls and roof over the 3×3 to 1.53 (two whole levels), the tower and lantern on the
+ *  middle tile to 4.33. Not the game's footprint (five levels over the whole 3×3), which would take presses on the
  *  ground seen above the walls. */
 const HOUSE_LEVELS = 2;
 const TOWER_LEVELS = 4;

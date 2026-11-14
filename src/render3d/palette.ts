@@ -356,30 +356,23 @@ export const LANDMARK = {
   badSeepGap: [0.24, 0.13, 0.05] as Rgb,
 } as const;
 
-/** Ruins (Kyler's rounds, D178; D334: orange with cream, near and far, as Timberborn's references), in the game's own
- *  colours (D496): RuinColumnA..E's albedo (texture × vertex colour over their area, `tools/game-model-albedo.py`), which
- *  falls in five clusters: a pale cream (10 % of the area), a tan (11 %), a rust orange (20 %), a mid brown (37 %) and a
- *  dark brown (23 %). Ruined scaffold towers, one storey per level: thin posts, beams and braces in the rust, cream sacks
- *  and slab panels and, on moist ground, ivy (the game's: UndergroundRuins' Ivy_Wet) draped over about the lower half of
- *  the storeys, the sacks' middles showing through. From afar each storey is a block in the ruins' mean colour (what
- *  makes ruins read from afar), a cream panel set in where it has one. Until 2026-11-09 colours of our own at about
- *  twice the game's (#D4781F, #E3CF96, #405634; D334), drawn in a light of our own. Both stand apart from contaminated
- *  ground (`look-water-slopes.test.ts`). */
+/** Ruins as the game colours them (RuinColumnA..E.Model, D178 as amended 2026-11-10, D496): the means of the texels its
+ *  cut-out keeps (alpha over its `_Cutoff` 0.312) in each part of the atlas the columns use, straight in the game's light
+ *  (its material not metallic, no vertex colour): the rebar posts and rails a dark rust, the cracked concrete slabs and
+ *  floors a tan, the ivy (`Ivy_Wet`, `Ivy_Dry`) a dark olive. (Until 2026-11-10 the means of five clusters over the whole
+ *  texture, its cut-away texels too: a brighter rust #6c3519, a pale cream #816e45 for sacks and panels of our own, and
+ *  a far block in their mean; before 2026-11-09 colours of our own, D334.) Both stand apart from contaminated ground
+ *  (`look-water-slopes.test.ts`). */
 export const RUIN = {
-  /** The posts, beams and braces: the game's rust cluster. */
-  rust: [0.424, 0.209, 0.099] as Rgb,
-  /** The cream sacks and slab panels: the game's ruins' lightest colour (the brightest tenth of their area). Until
-   *  2026-11-08 #E3CF96, half again the game's, its lit faces over the bloom's knee. */
-  panel: [0.507, 0.43, 0.272] as Rgb,
-  /** The ivy: the game's (UndergroundRuins' Ivy_Wet). */
-  ivy: [0.157, 0.158, 0.087] as Rgb,
-  /** The ivy's brighter leaves, on its clusters' edges: the ivy as much lighter and yellower as ours was (#5C7F3D over
-   *  #405634). */
-  leaf: [0.225, 0.234, 0.103] as Rgb,
-  /** The far block's own colour (D305): the game's ruins' mean over their area, as they read from afar. Both the far
-   *  block's four faces and its top use it; the lattice pattern (materials.ts, `RUIN_LATTICE_SCALE`) is what tells it
-   *  apart from a solid box. */
-  far: [0.332, 0.225, 0.129] as Rgb,
+  /** The rebar posts and rails: the atlas's rebar strips. */
+  rust: [0.364, 0.185, 0.09] as Rgb,
+  /** The slabs and floors: the atlas's cracked concrete. */
+  slab: [0.425, 0.352, 0.222] as Rgb,
+  /** The ivy: the game's (the ruins' `Ivy_Wet`, the texels its leaves keep). */
+  ivy: [0.163, 0.186, 0.102] as Rgb,
+  /** The ivy's brighter leaves, on its clusters' edges: as much lighter and yellower than the ivy as Kyler's were
+   *  (#5C7F3D over #405634). */
+  leaf: [0.234, 0.275, 0.121] as Rgb,
 } as const;
 
 /** Slopes: a stone ramp; with **Markers** on, a pale arrow rimmed dark points uphill. */
@@ -732,18 +725,23 @@ export const LIGHT = {
   haze: [0.4470589, 0.7607844, 0.8235295] as Rgb,
 } as const;
 
-/** The start: the game's map-editor marker (StartingLocation.Model, D496), a lantern tower of pale grey stone. Its
- *  texture is a neutral grey that shades its parts, and its material (EnvironmentURP, `StartingLocationMaterial`)
- *  multiplies it by `_Color` 0.5, so the game's albedo is half the texture's grey: area-weighted means read from its model
- *  (`tools/game-model-albedo.py`: the texture walls and shaft 0.79, cornice, gallery and cap 0.84, the roof the lightest at
- *  0.96, the lantern's inside and the openings about 0.36; the whole model 0.265), straight (D178, D496), as the trees take
- *  the game's own colour in every look. (Until 2026-11-08 the texture's greys stood in for the
- *  albedo, twice the game's: a near-white tower that outshone everything round it.) */
+/** The start as the game draws it in play: the faction's district center, built where the map's StartingLocation stands
+ *  (DistrictCenter.Folktails.Model, D178 as amended 2026-11-10, D496; the Iron Teeth's is their own). Each part's
+ *  albedo, its texture's mean over the part (`tools/game-model-albedo.py`'s way), the metal's folded for our light: the
+ *  pale wood of its frame, posts, ribs and railings, the dark planks of its walls and tower, the brown of its tower's cap
+ *  and lantern's brackets, the thatch of its roofs, its round windows, the teal of the tower's emblems, the dark door and
+ *  the fire bowl's iron. (Until 2026-11-10 the game's map-editor marker, StartingLocation.Model, a lantern tower of pale
+ *  grey stone, the game's own in its editor only.) */
 export const START = {
-  stone: [0.395, 0.395, 0.395] as Rgb,
-  trim: [0.42, 0.42, 0.42] as Rgb,
-  roof: [0.4815, 0.4815, 0.4815] as Rgb,
-  dark: [0.18, 0.18, 0.18] as Rgb,
+  wood: [0.402, 0.32, 0.22] as Rgb,
+  planks: [0.191, 0.146, 0.102] as Rgb,
+  brown: [0.208, 0.162, 0.116] as Rgb,
+  thatch: [0.501, 0.405, 0.227] as Rgb,
+  window: [0.349, 0.283, 0.197] as Rgb,
+  emblem: [0.361, 0.416, 0.335] as Rgb,
+  door: [0.077, 0.058, 0.044] as Rgb,
+  iron: [0.08, 0.076, 0.062] as Rgb,
+  crown: [0.162, 0.16, 0.138] as Rgb,
 } as const;
 
 /** The game's altitude colour ramps (D497; `tools/altitude-ramp.ts` reads them from the game's `resources.assets`,
@@ -1035,11 +1033,11 @@ export function objectLegend(): LegendEntry[] {
     },
     {
       swatch: icon(
-        // the lantern tower: its walled base, the roof, the shaft, the lantern and the cap
-        `<rect x="5" y="11" width="14" height="5" fill="${o(START.stone)}"/><rect x="4" y="10" width="16" height="1.3" fill="${o(START.trim)}"/>` +
-          `<path d="M4.5 10 L8.5 7.5 L15.5 7.5 L19.5 10Z" fill="${o(START.roof)}"/><path d="M9 7.5 L10 3.6 L14 3.6 L15 7.5Z" fill="${o(START.stone)}"/>` +
-          `<rect x="9" y="3" width="6" height="0.9" fill="${o(START.trim)}"/><rect x="10.6" y="1.4" width="2.8" height="1.6" fill="${o(START.dark)}"/><path d="M9.6 1.4 L12 0 L14.4 1.4Z" fill="${o(START.trim)}"/>` +
-          `<rect x="11" y="13" width="2" height="3" fill="${o(START.dark)}"/>`,
+        // the district center: its walls between pale posts, the thatched roof, the dark tower, its platform and lantern
+        `<rect x="4" y="11" width="16" height="5" fill="${o(START.planks)}"/><rect x="3.4" y="10.6" width="1.6" height="5.4" fill="${o(START.wood)}"/><rect x="19" y="10.6" width="1.6" height="5.4" fill="${o(START.wood)}"/>` +
+          `<path d="M3 11 L6.5 8 L17.5 8 L21 11Z" fill="${o(START.thatch)}"/><path d="M8 8 L10.3 3.6 L13.7 3.6 L16 8Z" fill="${o(START.planks)}"/>` +
+          `<rect x="9.6" y="3" width="4.8" height="0.8" fill="${o(START.brown)}"/><rect x="10.2" y="1.2" width="0.6" height="1.8" fill="${o(START.wood)}"/><rect x="13.2" y="1.2" width="0.6" height="1.8" fill="${o(START.wood)}"/><path d="M9.4 1.4 L12 0 L14.6 1.4Z" fill="${o(START.thatch)}"/>` +
+          `<rect x="11" y="13" width="2" height="3" fill="${o(START.door)}"/>`,
         dry,
       ),
       label: "Start",
@@ -1049,11 +1047,11 @@ export function objectLegend(): LegendEntry[] {
       label: "Slope",
     },
     {
-      // a rusty skeleton with beige panels, one askew, its top storey partly there
+      // rebar posts at its corners, bands of cracked slab across its storeys, its top storey's posts broken off
       swatch: icon(
-        `<rect x="8.3" y="9.6" width="7.4" height="5.6" fill="${o(RUIN.panel)}"/><rect x="9" y="4.4" width="5" height="4.2" fill="${o(RUIN.panel)}" transform="rotate(-9 11.5 6.5)"/>` +
-          `<rect x="7" y="3" width="1.3" height="13" fill="${o(RUIN.rust)}"/><rect x="15.7" y="0.5" width="1.3" height="15.5" fill="${o(RUIN.rust)}"/><rect x="7" y="8.6" width="10" height="1.1" fill="${o(RUIN.rust)}"/>` +
-          `<path d="M8 8.6 L16 1.5" stroke="${o(RUIN.rust)}" stroke-width="0.9"/>`,
+        `<rect x="7.5" y="10.5" width="9" height="2.6" fill="${o(RUIN.slab)}"/><rect x="7.5" y="5" width="5.5" height="2.6" fill="${o(RUIN.slab)}"/>` +
+          `<rect x="7" y="3" width="1.3" height="13" fill="${o(RUIN.rust)}"/><rect x="15.7" y="0.5" width="1.3" height="15.5" fill="${o(RUIN.rust)}"/><rect x="8.3" y="14.2" width="7.4" height="0.8" fill="${o(RUIN.rust)}"/>` +
+          `<path d="M16.4 0.8 L13.8 2.6" stroke="${o(RUIN.rust)}" stroke-width="0.9"/>`,
         dry,
       ),
       label: "Ruins",

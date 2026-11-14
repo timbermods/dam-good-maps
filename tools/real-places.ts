@@ -4,6 +4,8 @@
 //   npm run places                         (writes public/real-places/)
 //   npm run places -- --check              (writes nothing; fails when the committed files differ)
 //   npm run places -- --only near-glencoe  (builds and checks the places named, writes nothing)
+//   npm run places -- --shards 1           (one place after another on this process: the places run on one
+//                                          process a core by default, the same log, files and verdicts)
 //
 // For every named place in the library (the three random-land controls are survey controls, not
 // places, and stay out) it writes:
@@ -29,7 +31,9 @@
 // library's data files at run time, as tools may.
 
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { availableParallelism, tmpdir } from "node:os";
 import { join } from "node:path";
 import { gunzipSync, gzipSync, strToU8 } from "fflate";
 import encodeJpeg from "../src/core/format/vendor/jpeg-encoder.js";
@@ -55,6 +59,7 @@ import { mendSources } from "./lib/placeSources";
 import { DEAD_TREES_KEEP_LOGS, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../src/core/data/logFloor";
 import { startWalkField } from "../src/core/resources/baseline";
 import { writeTimber } from "../src/core/format/timber";
+import { SettleCache } from "../src/core/features/build";
 import { namedFile } from "../src/core/gen/pack";
 import { relaxEdges } from "../src/core/land/levels";
 import { EDITOR_LEVEL } from "../src/core/spec/mapspec";
@@ -66,6 +71,8 @@ import { validateMap } from "../src/core/validate/checks";
 import type { CheckResult } from "../src/core/validate/report";
 
 const LIBRARY = "investigation/landscapes/library";
+/** The processes the places run on at once (`--shards n` sets it; one a core by default; 1 runs them here, in turn). */
+const SHARDS = Math.max(1, Number(process.argv.includes("--shards") ? process.argv[process.argv.indexOf("--shards") + 1] : availableParallelism()));
 const OUT = "public/real-places";
 /** The card picture's side in pixels. */
 const CARD = 240;
@@ -317,8 +324,12 @@ const counts = (c: CheckResult) => !c.ok && !c.advisory && c.applicable !== fals
 
 /** A place built and checked: the export profile (`v`, what the editor's export asks) and every
  *  check of the generate profile (`strict`), with the failures of each that count. */
+/** The settles of the place being run (`runPlace`): its candidates (a start moved, plants moved or planted, a spring
+ *  added) are each built and checked, and those whose objects alone differ leave the water as it was, so its settle is
+ *  made once, not once a candidate (Katherine Gorge: 44 builds of 7.6 s each). */
+let settles = new SettleCache();
 function buildChecked(place: PlaceData) {
-  const built = buildPlace(place);
+  const built = buildPlace(place, settles);
   const v = validatePlace(built);
   const strict = validateMap(built.file, { profile: "generate", designedFor: "normal", features: [], water: { model: built.model, settled: built.settle } });
   return { built, v, strict, blocking: v.report.checks.filter(counts), strictFails: strict.report.checks.filter(counts).map((c) => c.id) };
@@ -365,16 +376,34 @@ let failures = 0;
 /** Places whose start fails the floors, or named in WITHHELD_UNTIL: not offered (no map, card or index entry), printed by every run. */
 const withheld: string[] = [];
 const t0 = performance.now();
-for (const item of items) {
+/** What one place's run gives: its lines of the log, in order; the place withheld (its name), or its files and its
+ *  index entry; whether it failed a check. Each place stands alone, so the places run on several processes at once
+ *  (`--claim`) and are put back in the library's order. */
+interface Outcome {
+  id: string;
+  lines: string[];
+  withheld: string[];
+  entries: PlaceIndexEntry[];
+  files: [string, Uint8Array][];
+  failed: boolean;
+}
+
+/** One place, built, mended and checked (null: not among `--only`'s). */
+function runPlace(item: LibraryItem): Outcome | null {
   const fx = JSON.parse(new TextDecoder().decode(gunzipSync(new Uint8Array(readFileSync(join(LIBRARY, item.fixture)))))) as Fixture;
+  const out: Outcome = { id: "", lines: [], withheld: [], entries: [], files: [], failed: false };
+  settles = new SettleCache();
+  const say = (line: string) => void out.lines.push(line);
+  const { withheld, entries } = out;
+  const files = { set: (k: string, b: Uint8Array) => void out.files.push([k, b]) };
   let place = toPlace(item, fx);
-  if (only && !only.includes(place.id)) continue;
+  if (only && !only.includes(place.id)) return null;
+  out.id = place.id;
   if (WITHHELD_UNTIL[place.id]) {
     withheld.push(place.name);
-    console.log(`WITHHELD ${place.W}² ${place.name}: ${WITHHELD_UNTIL[place.id]}`);
-    continue;
+    say(`WITHHELD ${place.W}² ${place.name}: ${WITHHELD_UNTIL[place.id]}`);
+    return out;
   }
-  if (entries.some((e) => e.id === place.id)) throw new Error(`two places are called ${place.name}`);
   const t = performance.now();
   // Sources only at heads (D171, tools/lib/placeSources.ts): a source in another's flow merges into the upstream source
   // where that file's rules allow it; the rest stay, and the place keeps the fault until none is left. (The sealed-land
@@ -583,8 +612,8 @@ for (const item of items) {
   if (floorsFail) {
     // (a start that cannot keep its wood once its plants stand on ground they live on: never forgotten, never offered)
     withheld.push(place.name);
-    console.log(`WITHHELD ${place.W}² ${place.name}: start fails the floors${plants.replace(/^ +plants on dry soil kept/, " - plants on dry soil kept")}`);
-    continue;
+    say(`WITHHELD ${place.W}² ${place.name}: start fails the floors${plants.replace(/^ +plants on dry soil kept/, " - plants on dry soil kept")}`);
+    return out;
   }
   const bytes = writeTimber(built.file);
   const ms = Math.round(performance.now() - t);
@@ -594,10 +623,10 @@ for (const item of items) {
   const known = new Set<string>([...CONVERSION_FAULT_CHECKS, ...PLACE_FAULT_CHECKS, ...START_LAND]);
   const unknown = [...blocking.map((c) => c.id), ...strictFails].filter((id) => !known.has(id));
   const loads = v.report.checks.every((c) => c.class !== "load" || !counts(c));
-  if (unknown.length) for (const c of [...blocking, ...strict.report.checks.filter(counts)]) if (unknown.includes(c.id)) console.log(`   ${place.name}: ${c.id}: ${c.message}${c.where?.tiles ? ` at ${JSON.stringify(c.where.tiles.slice(0, 4))}` : ""}`);
-  if (unknown.length || !loads) failures++;
+  if (unknown.length) for (const c of [...blocking, ...strict.report.checks.filter(counts)]) if (unknown.includes(c.id)) say(`   ${place.name}: ${c.id}: ${c.message}${c.where?.tiles ? ` at ${JSON.stringify(c.where.tiles.slice(0, 4))}` : ""}`);
+  if (unknown.length || !loads) out.failed = true;
   const faults = PLACE_FAULT_CHECKS.filter((id) => strictFails.includes(id));
-  console.log(
+  say(
     `${unknown.length || !loads ? "FAIL" : "ok  "} ${place.W}² ${String(ms).padStart(6)} ms  ticks ${String(built.settle.ticks).padStart(5)}${built.settle.settled ? "" : " (not settled)"}  ${place.name}` +
       (blocking.length ? `  export: ${blocking.map((c) => c.id).join(", ")}` : "") +
       (strictFails.length ? `  generate profile: ${strictFails.join(", ")}` : "") +
@@ -625,7 +654,70 @@ for (const item of items) {
     faults: [...faults],
   });
   if (placeFileName(place) !== namedFile(place.name)) throw new Error(`${place.name}: file name ${placeFileName(place)}`);
+  return out;
 }
+
+// the places on several processes at once, each taking the next place no process has claimed (the biggest maps first,
+// so the longest are never left to the end), each place's outcome written to a file and put back in the library's
+// order: the same log, files and verdicts as one process gives, which ran one place after another
+const claimDir = arg("claim");
+if (claimDir) {
+  for (const i of claimOrder()) {
+    try {
+      closeSync(openSync(join(claimDir, `claim-${i}`), "wx"));
+    } catch {
+      continue;
+    }
+    const o = runPlace(items[i]);
+    writeFileSync(join(claimDir, `out-${i}.json`), JSON.stringify(o ? { ...o, files: o.files.map(([f, b]) => [f, Buffer.from(b).toString("base64")]) } : null));
+  }
+  process.exit(0);
+}
+const outcomes: (Outcome | null)[] = await runShards();
+for (const o of outcomes) {
+  if (!o) continue;
+  for (const line of o.lines) console.log(line);
+  withheld.push(...o.withheld);
+  if (o.failed) failures++;
+  for (const e of o.entries) {
+    if (entries.some((x) => x.id === e.id)) throw new Error(`two places are called ${e.name}`);
+    entries.push(e);
+  }
+  for (const [k, b] of o.files) files.set(k, b);
+}
+
+/** The order the processes claim the places in: the biggest maps first (their settles are the longest), the library's
+ *  order among equals. */
+function claimOrder(): number[] {
+  return items.map((_, i) => i).sort((a, b) => items[b].size - items[a].size || a - b);
+}
+
+/** Every place's outcome, in the library's order: on `SHARDS` processes, or on this one for `--only` or a machine of one core. */
+async function runShards(): Promise<(Outcome | null)[]> {
+  const n = only ? 1 : Math.min(SHARDS, items.length);
+  if (n <= 1) return items.map((item) => runPlace(item));
+  const dir = mkdtempSync(join(tmpdir(), "real-places-"));
+  try {
+    await Promise.all(
+      Array.from(
+        { length: n },
+        (_, k) =>
+          new Promise<void>((done, fail) => {
+            const child = spawn(process.execPath, [...process.execArgv, process.argv[1], "--claim", dir], { stdio: ["ignore", "inherit", "inherit"] });
+            child.on("error", fail);
+            child.on("exit", (code) => (code === 0 ? done() : fail(new Error(`places process ${k + 1} of ${n} stopped (exit ${code})`))));
+          }),
+      ),
+    );
+    return items.map((_, i) => {
+      const raw = JSON.parse(readFileSync(join(dir, `out-${i}.json`), "utf8")) as (Omit<Outcome, "files"> & { files: [string, string][] }) | null;
+      return raw ? { ...raw, files: raw.files.map(([f, b]): [string, Uint8Array] => [f, new Uint8Array(Buffer.from(b, "base64"))]) } : null;
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 if (failures) {
   console.error(`${failures} place(s) failed a check: nothing written`);
   process.exit(1);

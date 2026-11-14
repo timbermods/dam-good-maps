@@ -846,6 +846,57 @@ for (const phone of PHONES) {
       await expect(page.getByRole("menuitem", { name: "Map Generator" })).toBeVisible();
       await check("the menu open");
     });
+
+    // (#1074: Kyler on his phone, "if I select Craterize how do I deselect it?")
+    test(`at ${phone.viewport.width}×${phone.viewport.height}: what is in hand has Put it down (×) on its sheet's first row, and the tool row keeps it in view`, async ({ page }) => {
+      test.setTimeout(300_000);
+      await openEditor(page);
+      const row = page.locator(".tool-dock > .tool-bar");
+      const putDown = page.locator(".tool-settings.sheet > button.put-down");
+      /** The control whole inside the tool row's box (it scrolls). */
+      const inRow = (name: string) =>
+        row.evaluate((bar, name) => {
+          const b = bar.getBoundingClientRect();
+          const r = bar.querySelector(`button[aria-label^='${name}']`)!.getBoundingClientRect();
+          return r.left >= b.left - 0.5 && r.right <= b.right + 0.5 && r.top >= b.top - 0.5 && r.bottom <= b.bottom + 0.5;
+        }, name);
+      /** The × at the right end of the sheet's first row, the size of the object in hand's. */
+      const onFirstRow = () =>
+        putDown.evaluate((x) => {
+          const s = x.parentElement!.getBoundingClientRect();
+          const r = x.getBoundingClientRect();
+          const first = x.parentElement!.querySelector(".settings-grid")!.getBoundingClientRect();
+          return { top: Math.round(r.top - s.top), right: Math.round(s.right - r.right) <= 12, above: r.bottom <= first.top + 0.5, w: r.width, h: r.height };
+        });
+
+      // Craterize picked by its key with the row scrolled to its start: the row scrolls it into view, lit
+      await row.evaluate((bar) => bar.scrollTo({ left: 0, top: 0 }));
+      expect(await inRow("Craterize"), "Craterize out of view before it is picked").toBe(false);
+      await page.keyboard.press("Shift+Digit2");
+      const crater = page.locator(".tool-bar button[aria-label^='Craterize']");
+      await expect(crater).toHaveAttribute("aria-pressed", "true");
+      await expect.poll(() => inRow("Craterize"), { message: "Craterize scrolled into the tool row" }).toBe(true);
+
+      // its sheet's first row ends with Put it down, a tooltip with its keys; one tap puts the force down
+      await expect(putDown).toBeVisible();
+      await expect(putDown).toHaveAttribute("aria-label", "Put it down");
+      await expect(putDown).toHaveAttribute("data-keys", /X/);
+      expect(await onFirstRow()).toEqual({ top: 0, right: true, above: true, w: 44, h: 44 });
+      await putDown.tap();
+      await expect(crater).toHaveAttribute("aria-pressed", "false");
+      await expect(page.locator(".tool-settings.sheet")).toHaveCount(0);
+      await expect(row.locator("button[aria-pressed='true']:not(.objects-button, [aria-label^='Select'])"), "nothing in hand").toHaveCount(0);
+
+      // a brush picked by a tap: the same ×, the same tap
+      await row.evaluate((bar) => bar.scrollTo({ left: 0, top: 0 }));
+      const raise = page.locator(".tool-bar button[aria-label^='Raise']");
+      await raise.tap();
+      await expect(putDown).toBeVisible();
+      expect(await inRow("Raise")).toBe(true);
+      await putDown.tap();
+      await expect(raise).toHaveAttribute("aria-pressed", "false");
+      await expect(page.locator(".tool-settings.sheet")).toHaveCount(0);
+    });
   });
 }
 
