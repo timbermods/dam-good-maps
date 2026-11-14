@@ -516,8 +516,10 @@ for (const size of SIZES) {
 
       // a relic from the shelf: the press shows it above the finger (the tile it aims at lit, not the finger's), the drag
       // moves it, nothing is placed before the lift, and the lift places it where it showed, one step
-      await onFlat(page, c);
+      // (picked first, the level patch brought under the place after: on a tablet the object in hand's row at the right
+      // slides the view to keep the map in the room left, #1074 slice 6, and a patch brought before it would move away)
       await pickObject(page, "Relic");
+      await onFlat(page, c);
       const before = await steps(page);
       const relics0 = await objectsOf(page, "SmallRelic");
       const a = { x: c.x - R / 3, y: c.y + FINGER_LIFT + R / 3 };

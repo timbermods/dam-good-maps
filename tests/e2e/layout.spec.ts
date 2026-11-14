@@ -841,6 +841,16 @@ for (const phone of PHONES) {
       await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
       await page.waitForTimeout(200);
       await expect(lower).toHaveAttribute("aria-pressed", "false");
+      // a tap whose lift came in time but reached a page busy past the long press (its timer ran first) is still a tap,
+      // by its own events' times (#1074 slice 6: touch.spec's sheet handle, on a loaded machine): the tool comes up
+      const t0 = Date.now() / 1000;
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: r.x + r.width / 2, y: r.y + r.height / 2 }], timestamp: t0 });
+      await expect(page.locator(".tip")).toContainText("Lower");
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [], timestamp: t0 + 0.12 });
+      await expect(lower).toHaveAttribute("aria-pressed", "true");
+      await expect(page.locator(".tip")).toHaveCount(0);
+      await tap(".tool-bar button[aria-label^='Lower']");
+      await expect(lower).toHaveAttribute("aria-pressed", "false");
 
       await tap(".phone-menu-button");
       await expect(page.getByRole("menuitem", { name: "Map Generator" })).toBeVisible();

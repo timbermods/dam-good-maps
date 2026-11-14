@@ -6,7 +6,9 @@
 // shows beside it, and a control named only by its title keeps that name as its `aria-label`.
 //
 // A finger has no hover: a long press on a control shows its tooltip instead, and that press is not a tap (#1074); a
-// control whose long press does something of its own (`OWN_LONG_PRESS`) keeps it.
+// control whose long press does something of its own (`OWN_LONG_PRESS`) keeps it. The press's own events' times
+// decide whether it was long: a page busy past `LONG_PRESS` runs the timer before a tap's lift that came sooner, and
+// that tap stays a tap (as `render3d/touch.ts`'s hold, #1074 slice 6).
 //
 // tests/e2e/tooltips.spec.ts checks every control on the page has one, in the form; tests/unit/tooltipForm.test.ts
 // checks the tools', forces' and shelf's, where they are written.
@@ -150,6 +152,8 @@ export function Tooltips() {
     // a long press (a finger, #1074): the control's tooltip, the press then no tap
     let long = 0;
     let longAt: { x: number; y: number; id: number } | null = null;
+    /** When the finger came down, by its event's clock (the lift's is compared with it, not the timer's). */
+    let downAt = 0;
     /** A long press's tooltip is up: the lift keeps it a moment, and the tap that would follow is swallowed. */
     let longShown = false;
     let linger = 0;
@@ -166,6 +170,7 @@ export function Tooltips() {
       if (!(e instanceof PointerEvent) || e.pointerType !== "touch" || !held || held.closest(`[${OWN_LONG_PRESS}]`)) return;
       const el = held;
       longAt = { x: e.clientX, y: e.clientY, id: e.pointerId };
+      downAt = e.timeStamp;
       long = window.setTimeout(() => {
         longAt = null;
         if (held !== el) return;
@@ -180,6 +185,13 @@ export function Tooltips() {
       if (e.pointerType !== "touch") return;
       endLong();
       if (!longShown) return;
+      // (lifted before a long press by its own events' times: the timer ran late behind a busy page; a tap, its tooltip
+      // gone and its click let through)
+      if (e.timeStamp - downAt < LONG_PRESS) {
+        longShown = false;
+        away();
+        return;
+      }
       clearTimeout(linger);
       linger = window.setTimeout(() => {
         longShown = false;
