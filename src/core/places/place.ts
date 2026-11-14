@@ -230,14 +230,23 @@ export function buildFileFromHeights(W: number, H: number, heights: Uint8Array, 
 
 /** Build the place's map: its terrain and objects, the canonical settle, soil, and the file. `settles` keeps the settles
  *  of builds of the same place whose objects alone differ (a start moved, plants), which leave the water as it was. */
-export function buildPlace(p: PlaceData, settles?: SettleCache): BuiltPlace {
+export function buildPlace(p: PlaceData, settles?: SettleCache, rules: HeightsRules = placeRules): BuiltPlace {
   if (p.format !== PLACE_FORMAT) throw new Error(`real place format ${String(p.format)} is not ${PLACE_FORMAT}`);
   const { W, H } = p;
   const heights = decodeHeights(p.heights);
   if (heights.length !== W * H) throw new Error(`${p.id}: ${heights.length} heights for ${W}×${H}`);
   // (the places were converted under the port's water rules and are settled with them, so the
   // gallery's files stay as they were until Real places 2 converts them under the game's, D311)
-  return buildFileFromHeights(W, H, heights, placeEntities(p, heights), placeDescription(p), "port", settles);
+  return buildFileFromHeights(W, H, heights, placeEntities(p, heights), placeDescription(p), rules, settles);
+}
+
+/** The rules `buildPlace` settles with when its caller does not say: the port's (see above). */
+let placeRules: HeightsRules = "port";
+
+/** Sets the rules every `buildPlace` in this process settles with when its caller does not say (a Node tool's trial
+ *  of Real places 2's conversion under the game's rules, D311: `npm run places -- --rules game`). */
+export function setPlaceRules(rules: HeightsRules): void {
+  placeRules = rules;
 }
 
 /** Validate a built place as the editor validates a file it exports (the export profile), on its

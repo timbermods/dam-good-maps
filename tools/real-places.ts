@@ -4,6 +4,8 @@
 //   npm run places                         (writes public/real-places/)
 //   npm run places -- --check              (writes nothing; fails when the committed files differ)
 //   npm run places -- --only near-glencoe  (builds and checks the places named, writes nothing)
+//   npm run places -- --rules game --water --out <dir>  (a trial: built under the game's water rules, D311, with
+//                                          each place's water measure, written to <dir>)
 //   npm run places -- --shards 1           (one place after another on this process: the places run on one
 //                                          process a core by default, the same log, files and verdicts)
 //
@@ -42,6 +44,7 @@ import { stringify } from "../src/core/format/json";
 import {
   buildPlace,
   decodeHeights,
+  setPlaceRules,
   decodeTiles,
   placeEntities,
   placeFileName,
@@ -54,7 +57,7 @@ import {
   type PlaceIndexEntry,
 } from "../src/core/places/place";
 import { encodeHeights, encodeTiles } from "./lib/placeData";
-import { BODY, compareWater, settleFile, startFails } from "./lib/placeWater";
+import { BODY, WET, compareWater, settleFile, startFails } from "./lib/placeWater";
 import { keepNearest, settlePlants, startWood, startWoodSpecies } from "./lib/placePlants";
 import { mendSources } from "./lib/placeSources";
 import { DEAD_TREES_KEEP_LOGS, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../src/core/data/logFloor";
@@ -74,7 +77,8 @@ import type { CheckResult } from "../src/core/validate/report";
 const LIBRARY = "investigation/landscapes/library";
 /** The processes the places run on at once (`--shards n` sets it; one a core by default; 1 runs them here, in turn). */
 const SHARDS = Math.max(1, Number(process.argv.includes("--shards") ? process.argv[process.argv.indexOf("--shards") + 1] : availableParallelism()));
-const OUT = "public/real-places";
+/** Where the run writes (`--out dir` writes a trial elsewhere; `--check` compares with it). */
+const OUT = process.argv.includes("--out") ? process.argv[process.argv.indexOf("--out") + 1] : "public/real-places";
 /** The card picture's side in pixels. */
 const CARD = 240;
 const CARD_QUALITY = 60;
@@ -369,12 +373,22 @@ const check = process.argv.includes("--check");
 /** `--water`: each place's line of tools/lib/placeWater.ts's measure (its water as built against its water model
  *  settled again by the game's rules, as the first edit settles it), a withheld place's too. Information only. */
 const waterMeasure = process.argv.includes("--water");
-function waterLine(b: ReturnType<typeof buildPlace>): string {
+/** `--rules game`: every place built under the game's water rules (Real places 2's conversion, D311), a trial. */
+const rules = arg("rules") === "game" ? "game" : "port";
+setPlaceRules(rules);
+function waterLine(b: ReturnType<typeof buildPlace>, place: PlaceData): string {
   const s = settleFile(b.file);
-  const c = compareWater(b.settle.depth, s.water.depth, b.model.W, b.model.H);
+  const { W, H } = b.model;
+  const c = compareWater(b.settle.depth, s.water.depth, W, H);
   const before = startFails(b.file, b.model, b.settle);
   const after = startFails(b.file, s.model, s.water);
-  return `   water: wet ${c.wetOpened} → ${c.wetSettled} (${(c.change * 100).toFixed(1)} %), ${c.lost.length} of ${c.bodies} bodies of ${BODY}+ lost${c.lost.length ? ` (${c.lost.map((l) => `${l.size}→${l.wet}`).join(", ")})` : ""}, start ${before.join(",") || "-"} → ${after.join(",") || "-"}`;
+  // under the game's rules (`--rules game`): the bodies the port's build of the same place showed and this one does not,
+  // and the sheets on floor 0 (water 0.1 deep or less where the edge's spill threshold holds it, D303)
+  const port = rules === "game" ? compareWater(buildPlace(place, undefined, "port").settle.depth, b.settle.depth, W, H) : null;
+  let floor0 = 0;
+  for (let i = 0; i < W * H; i++) if (b.model.floor[i] === 0 && b.settle.depth[i] > WET && b.settle.depth[i] <= 0.105) floor0++;
+  const json = { id: place.id, size: W, start: place.start, wet: c.wetOpened, resettled: c.wetSettled, lost: c.lost, startFails: before, startFailsResettled: after, floor0, port: port && { wet: port.wetOpened, bodies: port.bodies, lost: port.lost } };
+  return `   water: wet ${c.wetOpened} → ${c.wetSettled} (${(c.change * 100).toFixed(1)} %), ${c.lost.length} of ${c.bodies} bodies of ${BODY}+ lost${c.lost.length ? ` (${c.lost.map((l) => `${l.size}→${l.wet}`).join(", ")})` : ""}, start ${before.join(",") || "-"} → ${after.join(",") || "-"}` + (port ? `; port ${port.wetOpened} wet, ${port.lost.length} of its ${port.bodies} bodies gone; floor-0 sheet ${floor0}` : "") + `\n   water-json ${JSON.stringify(json)}`;
 }
 const only = arg("only")?.split(",") ?? null;
 const library = JSON.parse(readFileSync(join(LIBRARY, "index.json"), "utf8")) as { items: LibraryItem[] };
@@ -413,7 +427,10 @@ function runPlace(item: LibraryItem): Outcome | null {
   if (WITHHELD_UNTIL[place.id]) {
     withheld.push(place.name);
     say(`WITHHELD ${place.W}² ${place.name}: ${WITHHELD_UNTIL[place.id]}`);
-    if (waterMeasure) say(waterLine(buildPlace(mendSources(place).place)));
+    if (waterMeasure) {
+      const m = mendSources(place).place;
+      say(waterLine(buildPlace(m), m));
+    }
     return out;
   }
   const t = performance.now();
@@ -666,7 +683,7 @@ function runPlace(item: LibraryItem): Outcome | null {
     faults: [...faults],
   });
   if (placeFileName(place) !== namedFile(place.name)) throw new Error(`${place.name}: file name ${placeFileName(place)}`);
-  if (waterMeasure) say(waterLine(built));
+  if (waterMeasure) say(waterLine(built, place));
   return out;
 }
 
@@ -716,7 +733,7 @@ async function runShards(): Promise<(Outcome | null)[]> {
         { length: n },
         (_, k) =>
           new Promise<void>((done, fail) => {
-            const child = spawn(process.execPath, [...process.execArgv, process.argv[1], "--claim", dir], { stdio: ["ignore", "inherit", "inherit"] });
+            const child = spawn(process.execPath, [...process.execArgv, process.argv[1], ...process.argv.slice(2), "--claim", dir], { stdio: ["ignore", "inherit", "inherit"] });
             child.on("error", fail);
             child.on("exit", (code) => (code === 0 ? done() : fail(new Error(`places process ${k + 1} of ${n} stopped (exit ${code})`))));
           }),
@@ -764,10 +781,10 @@ if (check) {
     for (const f of readdirSync(join(OUT, dir))) if (!files.has(`${dir}/${f}`)) differ.push(`${dir}/${f} (not made any more)`);
   }
   if (differ.length) {
-    console.error(`public/real-places differs from a fresh run: ${differ.join(", ")}. Run npm run places.`);
+    console.error(`${OUT} differs from a fresh run: ${differ.join(", ")}. Run npm run places.`);
     process.exit(1);
   }
-  console.log("public/real-places matches a fresh run");
+  console.log(`${OUT} matches a fresh run`);
   process.exit(0);
 }
 rmSync(OUT, { recursive: true, force: true });
