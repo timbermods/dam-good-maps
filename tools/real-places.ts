@@ -5,6 +5,8 @@
 //   npm run places -- --check              (writes nothing; fails when the committed files differ)
 //   npm run places -- --only glencoe       (builds and checks the places named, writes nothing)
 //   npm run places -- --only a,b --write   (writes only the places named: their files and index entries)
+//   npm run places -- --resume <dir>       (keeps each place's outcome in <dir> as it ends; run again with the same
+//                                          <dir> after a stop to do only the places left)
 //   npm run places -- --water --out <dir>  (each place's water measure too, written to <dir>; `--rules port` builds
 //                                          them under the port's water rules, as before D311's conversion)
 //   npm run places -- --shards 1           (one place after another on this process: the places run on one
@@ -35,7 +37,7 @@
 
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
-import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { availableParallelism, tmpdir } from "node:os";
 import { join } from "node:path";
 import { gunzipSync, gzipSync, strToU8 } from "fflate";
@@ -897,6 +899,7 @@ function runPlace(item: LibraryItem): Outcome | null {
 // so the longest are never left to the end), each place's outcome written to a file and put back in the library's
 // order: the same log, files and verdicts as one process gives, which ran one place after another
 const claimDir = arg("claim");
+const resume = arg("resume");
 if (claimDir) {
   for (const i of claimOrder()) {
     try {
@@ -904,8 +907,12 @@ if (claimDir) {
     } catch {
       continue;
     }
+    const t = performance.now();
     const o = runPlace(items[i]);
-    writeFileSync(join(claimDir, `out-${i}.json`), JSON.stringify(o ? { ...o, files: o.files.map(([f, b]) => [f, Buffer.from(b).toString("base64")]) } : null));
+    // written whole, then renamed, so a run stopped part-way never leaves half an outcome for `--resume`
+    writeFileSync(join(claimDir, `out-${i}.json.part`), JSON.stringify(o ? { ...o, files: o.files.map(([f, b]) => [f, Buffer.from(b).toString("base64")]) } : null));
+    renameSync(join(claimDir, `out-${i}.json.part`), join(claimDir, `out-${i}.json`));
+    if (o) console.error(`done ${items[i].id} (${o.id}) in ${Math.round((performance.now() - t) / 1000)} s; ${readdirSync(claimDir).filter((f) => /^out-\d+\.json$/.test(f)).length} of ${items.length} places`);
   }
   process.exit(0);
 }
@@ -932,7 +939,20 @@ function claimOrder(): number[] {
 async function runShards(): Promise<(Outcome | null)[]> {
   const n = Math.min(SHARDS, only ? only.length : items.length);
   if (n <= 1) return items.map((item) => runPlace(item));
-  const dir = mkdtempSync(join(tmpdir(), "real-places-"));
+  // `--resume <dir>`: the places' outcomes are kept in <dir> (one file each, as each place ends), and a run started again
+  // with the same <dir> and the same code skips the places already done there; a place claimed but never finished (the
+  // run stopped) is claimed again
+  const dir = resume ?? mkdtempSync(join(tmpdir(), "real-places-"));
+  if (resume) {
+    mkdirSync(dir, { recursive: true });
+    for (const f of readdirSync(dir)) {
+      const m = /^claim-(\d+)$/.exec(f);
+      if (m && !existsSync(join(dir, `out-${m[1]}.json`))) rmSync(join(dir, f));
+      if (f.endsWith(".part")) rmSync(join(dir, f));
+    }
+    const kept = readdirSync(dir).filter((f) => /^out-\d+\.json$/.test(f)).length;
+    if (kept) console.error(`--resume: ${kept} place(s) already done in ${dir}`);
+  }
   try {
     await Promise.all(
       Array.from(
@@ -950,7 +970,7 @@ async function runShards(): Promise<(Outcome | null)[]> {
       return raw ? { ...raw, files: raw.files.map(([f, b]): [string, Uint8Array] => [f, new Uint8Array(Buffer.from(b, "base64"))]) } : null;
     });
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    if (!resume) rmSync(dir, { recursive: true, force: true });
   }
 }
 
