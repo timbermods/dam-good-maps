@@ -75,11 +75,12 @@ import { fogOf } from "./high/seasons";
 import type { DroughtLine } from "../core/sim/droughtLine";
 import { dyingCause, waterAboveBase, WITHERING_SPECIES } from "../core/sim/withering";
 import { markSourceTiles, sourceMiddle } from "./sourceMarks";
-import { buildEntities, cutoutUnder, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead, ruinsOvergrown } from "./entities3d";
+import { buildEntities, cutoutUnder, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead, ruinsOvergrown, type Faction } from "./entities3d";
+import { fireDrawn, StartFire, startCentres } from "./startFire";
 import { whenIdle } from "./idle";
 import { casterLevelsOf, castersChangedRects, DEFAULT_SUN, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, sunOfYaw, sunVector, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type Sun, type TileSpan } from "./light";
 import { CaveLight } from "./caveLight";
-import { casterPlaces, FADE_COVERAGE, FADE_DITHER, FADE_OFF, markEditingAid, OBJECT_FADE_EDGE, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
+import { casterPlaces, FADE_COVERAGE, FADE_DITHER, FADE_OFF, markEditingAid, OBJECT_FADE_EDGE, objectFadeAt, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
 import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fillAlbedoTexture, fillDetailTexture, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
 import { AID_LAYER, onAidLayer } from "./aidLayer";
@@ -93,7 +94,7 @@ import { cutawayOn } from "./cutaway";
 import { ringLevelAt, waterLevelAt } from "./cutWater";
 import { OverlayRuns } from "./overlayRuns";
 import { columnMap, columnMasks, DEAD, LAYERS, DYING, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
-import { GAME_FINISH, GAME_SKY, gamePostRgb, type GroundMode, type Rgb } from "./palette";
+import { GAME_FINISH, GAME_SKY, gamePostRgb, START_FIRE, type GroundMode, type Rgb } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
 import { drawnWater, drewChunk, exactWaterChunks, heldSurfaceOf, holdLand, meshWaterChunk, MOVED_WATER, ownSurface, waterChangedRect, rideLand, waterMovedChunk, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
 import { changedColumnChunks, followLand, LAYER_REACH, needsLayers, plainLayers, rideLayers, waterLayers, type WaterLayer } from "./waterLayers";
@@ -322,6 +323,10 @@ function sunApart(a: Sun, b: Sun): number {
   return Math.acos(Math.max(-1, Math.min(1, a.x * b.x + a.y * b.y)));
 }
 export const DEFAULT_PITCH = (70 * Math.PI) / 180;
+/** The start's flame's width (m, about a particle's at its brightest) and the fewest pixels across it must show for its
+ *  motion to ask for frames (`fireShows`). */
+const FIRE_WIDTH = 0.3;
+const FIRE_SHOWN_PX = 2;
 /** Frames a second of the water's movement when nothing else asks for a frame. */
 const WATER_FPS = 30;
 /** Frames this long, this many in a row, are slow (`requestRender`): a GPU's frame takes a few milliseconds of the main
@@ -738,6 +743,9 @@ export class MapRenderer {
     // the geothermal fields' steam, on the objects' clock (never in software drawing: geothermalSteam.ts)
     this.steam = this.software ? null : new GeothermalSteam(this.uniforms);
     if (this.steam) this.scene.add(this.steam.mesh);
+    // the fire in the start's bowl, on the objects' clock (never in software drawing: startFire.ts)
+    this.fire = this.software ? null : new StartFire(this.uniforms);
+    if (this.fire) this.scene.add(this.fire.mesh);
     this.lookNow = this.software ? "light" : "standard";
     // the Flow view from the address (?flow=on) until the page has its switch (D353)
     try {
@@ -909,6 +917,8 @@ export class MapRenderer {
       list.push([this.glowMat, { ...(this.glowMat.defines as Defines) }]);
       // (the Block tool's blocks' dust, blockPop.ts)
       list.push([this.popDust, { ...((this.popDust.defines ?? {}) as Defines) }]);
+      // (the start's fire, drawn when a start is first placed: startFire.ts)
+      if (this.fire) list.push([this.fire.shader, { ...((this.fire.shader.defines ?? {}) as Defines) }]);
       // (the Flow view's foam and streaks, hidden until it is switched on: motion.ts)
       for (const m of this.waterMotion?.materials() ?? []) list.push([m, { ...((m.defines ?? {}) as Defines) }]);
       // (the forces' moments', drawn when a force first plays: Erode's dust and stones, Glaciate's ice, forces.ts)
@@ -1164,7 +1174,7 @@ export class MapRenderer {
   /** Whether the water moves on screen now (a recording's caller draws its own frames). */
   get animated(): boolean {
     const m = this.map;
-    return !!m && (m.water.count > 0 || !!this.high?.animates || (this.steam?.count ?? 0) > 0) && this.clock === null && !this.benching && !this.recording && !this.reducedMotion && !this.software && this.inView && !document.hidden;
+    return !!m && (m.water.count > 0 || !!this.high?.animates || (this.steam?.count ?? 0) > 0 || this.fireShows()) && this.clock === null && !this.benching && !this.recording && !this.reducedMotion && !this.software && this.inView && !document.hidden;
   }
 
   // -------------------------------------------------------------------------------------- the look
@@ -2156,7 +2166,7 @@ export class MapRenderer {
     // (the plants a held day has withered drawn dead, in every look, as the game does: D242 as amended; High's own plants
     // follow in applyWithered)
     const drawn = this.witheredView(e).view;
-    const { group, instances } = buildEntities(drawn, this.objectMat, soil, this.map?.W ?? 0, this.software, this.entityModels, before && this.objectsFrom ? { group: before, entities: this.objectsFrom } : undefined);
+    const { group, instances } = buildEntities(drawn, this.objectMat, soil, this.map?.W ?? 0, this.software, this.entityModels, before && this.objectsFrom ? { group: before, entities: this.objectsFrom } : undefined, this.faction);
     this.objectsFrom = drawn;
     this.ruinsDrawn = ruinsOvergrown(e, soil, this.map?.W ?? 0);
     if (before) {
@@ -2733,6 +2743,7 @@ export class MapRenderer {
     if (!m) return;
     // (the geothermal fields' steam: over the fields no water stands on the middle of, as the game's stops while flooded)
     if (this.steam?.set(steamFields(m.entities, m.W, m.H, m.surface, m.surface?.lower.length ? lowerWater(m.water, m.W * m.H) : null))) this.requestRender();
+    this.lightStarts(m.entities);
     const w = this.witheredView(m.entities);
     const flags = w.view.flags;
     const count = w.count;
@@ -3250,6 +3261,77 @@ export class MapRenderer {
   private forceFx: ForceEffects | null = null;
   /** The geothermal fields' steam (geothermalSteam.ts); none in software drawing. */
   private steam: GeothermalSteam | null = null;
+  /** The fire in the starts' bowls (startFire.ts); none in software drawing. */
+  private fire: StartFire | null = null;
+  /** How many starts' fires light the land and the objects (materials.ts `startLight`; none while the objects are
+   *  hidden, as the fire is). */
+  private startLightsOn = 0;
+  /** The faction whose district center stands at the start (`setFaction`). */
+  private faction: Faction = "Folktails";
+
+  /** Which faction's district center the start is drawn as: the Folktails' (the default) or the Iron Teeth's. The map
+   *  names none (the player picks one when starting it in the game); the fire and its light are the same for both. */
+  setFaction(faction: Faction): void {
+    if (faction === this.faction) return;
+    this.faction = faction;
+    if (this.map) this.updateEntities(this.map.entities);
+  }
+
+  /** The fire in each start's bowl and its light (startFire.ts; materials.ts `startLight`), where the starts are now. */
+  private lightStarts(e: EntityView): void {
+    const centres = this.software ? [] : startCentres(e);
+    this.fireCentres = centres;
+    if (this.fire?.set(centres)) this.requestRender();
+    const lights = this.uniforms.startLights.value;
+    const [lx, ly, lz] = START_FIRE.light.at;
+    const n = Math.min(centres.length, lights.length);
+    for (let k = 0; k < n; k++) lights[k].set(centres[k][0] + lx - 1.5, centres[k][1] + ly, centres[k][2] - (lz - 1.5), 1);
+    this.startLightsOn = n;
+  }
+
+  /** Where the starts' fires stand (`startCentres`), for `fireShows` and `dimStartLights`. */
+  private fireCentres: [number, number, number][] = [];
+  private readonly fireAt = new Vector3();
+
+  /** Whether a start's flame shows moving in the view: its fire drawn (`fireDrawn`: not hidden, not cut away), its bowl
+   *  inside the frame and its flame at least
+   *  `FIRE_SHOWN_PX` across. The fire asks for frames only then (`animated`), so a map at rest with its start out of
+   *  view or too far off to see the flame (a blank map, a dry one) draws nothing (D453); the water's and the steam's
+   *  own rules are unchanged. */
+  private fireShows(): boolean {
+    if (!this.fire?.count) return false;
+    const cam = this.camera();
+    const h = this.canvas.clientHeight;
+    const [, ey] = START_FIRE.emitter;
+    const slice = this.uniforms.slice.value;
+    const hide = this.uniforms.objectHide.value;
+    for (const c of this.fireCentres) {
+      // (a start hidden with the objects or cut away draws no fire: nothing moves)
+      if (!fireDrawn(c, slice, hide)) continue;
+      const p = this.fireAt.set(c[0], c[1] + ey, c[2]).project(cam);
+      if (p.z < -1 || p.z > 1 || Math.abs(p.x) > 1.05 || Math.abs(p.y) > 1.05) continue;
+      // (the flame's width on screen: by its depth in the perspective view, by the frame's height from the top)
+      const across =
+        cam instanceof PerspectiveCamera
+          ? (FIRE_WIDTH * h) / (2 * Math.max(1e-3, -this.fireAt.set(c[0], c[1] + ey, c[2]).applyMatrix4(cam.matrixWorldInverse).z) * Math.tan((cam.fov * Math.PI) / 360))
+          : (FIRE_WIDTH * h * cam.zoom) / (cam.top - cam.bottom);
+      if (across >= FIRE_SHOWN_PX) return true;
+    }
+    return false;
+  }
+
+  /** Each start's light as its fire shows (`startLight`'s fourth number): none where the layer cut takes the fire (its
+   *  emitter above the slice, as the fire's particles are cut), the objects' fade where the pointer fades the start. */
+  private dimStartLights(): void {
+    const lights = this.uniforms.startLights.value;
+    const slice = this.uniforms.slice.value;
+    const fading = this.uniforms.objectFade.value.w > 0.5;
+    const hide = this.uniforms.objectHide.value;
+    for (let k = 0; k < this.startLightsOn; k++) {
+      const c = this.fireCentres[k];
+      lights[k].w = !fireDrawn(c, slice, hide) ? 0 : fading ? objectFadeAt(this.fadeRegion, c[0], -c[2]) : 1;
+    }
+  }
 
   /** A force's moment (D202, D203, D206, D281): an impact, a fault's crack, an eruption's plume, rock wearing away; the
    *  effects play on their own clocks. A new force's first moment, a carve's included, skips the last
@@ -4417,6 +4499,9 @@ export class MapRenderer {
     if (this.recording) this.advance();
     this.followSun();
     this.uniforms.time.value = this.clock ?? (this.now() - this.t0) / 1000;
+    // (the starts' fires light nothing while the objects, the fire among them, are hidden)
+    this.uniforms.startLightCount.value = this.uniforms.objectHide.value > 0.5 ? 0 : this.startLightsOn;
+    this.dimStartLights();
     const t0 = performance.now();
     // a force's heat on the ground (the camera never shakes, D265)
     const fx = this.forceFx;
@@ -5418,6 +5503,7 @@ export class MapRenderer {
     this.surge?.dispose();
     this.forceFx?.dispose();
     this.steam?.dispose();
+    this.fire?.dispose();
     this.pops?.clear();
     this.high?.dispose();
     this.high = null;

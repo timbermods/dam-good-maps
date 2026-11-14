@@ -69,7 +69,7 @@ import {
   type Texture,
   type WebGLRenderer,
 } from "three";
-import { ALTITUDE_RAMP, BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, gameAmbient, GAME_FINISH, GAME_GROUND_MEAN, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LANDMARK, LIGHT, MINE, NOISE_NODES, GAME_SKY, ownAlbedo, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
+import { ALTITUDE_RAMP, BLEND, CONTAMINATION as CT, CONTAMINATION_OUTLINE as OUTLINE, CUT_CAP, DESERT, GAME_AMBIENT_SH, GAME_ENV, gameAmbient, GAME_FINISH, GAME_GROUND_MEAN, GAME_LIGHT, GROUND, HATCH, HEIGHT_RAMP, JUICE, LANDMARK, LIGHT, MINE, NOISE_NODES, GAME_SKY, ownAlbedo, START_FIRE, WALL, WATER_SURFACE as WS, type Rgb } from "./palette";
 import { GAME_BADWATER, GAME_WATER_SOURCE, WATER_GLSL, WATER_LIGHT, WATER_SHARE_BLEND, WATER_UI } from "./waterPalette";
 import { BADWATER_TEXTURE_SIZE, DETAIL_FLAT, GAME_SOURCE_SHAPE, WATER_ALBEDO, WATER_FLOW_GLSL, WATER_TEXTURE_SIZE } from "./waterTextures";
 import { GAME_SOIL_TEXTURE, SOIL_TEXTURE_SIZE } from "./soilTexture";
@@ -192,7 +192,14 @@ export interface SceneUniforms extends RefractionUniforms {
   objectFade: { value: Vector4 };
   /** 1 while the objects are hidden (objectFade.ts; all but the land's own shape), 0 otherwise. */
   objectHide: { value: number };
+  /** The starts' fires' lights (`START_LIGHT_GLSL`): each one's place (xyz) and how much of it shows (w: none where the
+   *  layer cut takes the fire, the objects' fade round the pointer), up to `START_LIGHTS`, and how many. */
+  startLights: { value: Vector4[] };
+  startLightCount: { value: number };
 }
+
+/** The most starts whose fire lights the land and the objects (a map has one; the rest burn unlit). */
+export const START_LIGHTS = 4;
 
 export function sceneUniforms(W: number, H: number, tile: DataTexture, light: DataTexture, overlay: DataTexture, marks: DataTexture, edges: DataTexture = overlayTexture(1, 1), sites: DataTexture = overlayTexture(1, 1)): SceneUniforms {
   const noCave = caveTexture(null);
@@ -240,6 +247,8 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     overlayRest: { value: new Vector4(0, 0, 0, 0) },
     objectFade: { value: new Vector4(0, 0, 0, FADE_OFF) },
     objectHide: { value: 0 },
+    startLights: { value: Array.from({ length: START_LIGHTS }, () => new Vector4()) },
+    startLightCount: { value: 0 },
     bloomSource: BLOOM_SOURCE,
     ...refractionUniforms(),
   };
@@ -879,6 +888,35 @@ export interface ShaderHooks {
 
 const hook = (h: ShaderHooks | undefined, k: keyof ShaderHooks, standard = ""): string => h?.[k] ?? standard;
 
+/** The start's fire's light (palette.ts `START_FIRE.light`, the prefab's "Point Light", a spot in fact): URP's
+ *  additional light as its forward pass works it out, in display values as the game works in Gamma colour space. From
+ *  1.24 above the fire's attachment, pointing straight down: its colour × its intensity × the distance's attenuation
+ *  (1 / d² × the smooth fall to nothing at its range: (1 − (d² / range²)²)²) × the spot's (saturate((cos − cos outer) /
+ *  (cos inner − cos outer))², the outer and inner angles halved) × max(n·L, 0). No shadow: it lights through the
+ *  hood, the platform and the roofs below it as the game's does. Uses `vWorld`. */
+const START_LIGHT_GLSL = (() => {
+  const L = START_FIRE.light;
+  const cosOuter = Math.cos(((L.spotAngle / 2) * Math.PI) / 180);
+  const cosInner = Math.cos(((L.innerAngle / 2) * Math.PI) / 180);
+  const inv = 1 / (cosInner - cosOuter);
+  return /* glsl */ `uniform vec4 startLights[${START_LIGHTS}];
+      uniform float startLightCount;
+      vec3 startLight(vec3 n) {
+        vec3 sum = vec3(0.0);
+        for (int i = 0; i < ${START_LIGHTS}; i++) {
+          if (float(i) >= startLightCount) break;
+          vec3 d = startLights[i].xyz - vWorld;
+          float d2 = max(dot(d, d), 1e-4);
+          vec3 l = d * inversesqrt(d2);
+          float r = d2 * ${f(1 / (L.range * L.range))};
+          float fall = clamp(1.0 - r * r, 0.0, 1.0);
+          float spot = clamp(l.y * ${f(inv)} - ${f(cosOuter * inv)}, 0.0, 1.0);
+          sum += startLights[i].w * fall * fall / d2 * spot * spot * max(dot(n, l), 0.0);
+        }
+        return ${glColor(L.colour)} * ${f(L.intensity)} * sum;
+      }`;
+})();
+
 /** The game's light (D497; D135 as amended 2026-11-09: the objects' too), shared by the terrain's program and the
  *  objects': in display values, as the game works in Gamma colour space. Uses \`sunDir\`, \`cameraPosition\` and the
  *  program's \`vWorld\`. */
@@ -888,13 +926,14 @@ const GAME_LIT = /* glsl */ `      /** The game's light on a face (palette.ts GA
       vec3 toDisplay(vec3 c) { return mix(c * 12.92, 1.055 * pow(max(c, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c)); }
       /** The sun the last face lit took (gameLight's \`sun\`), for its specular. */
       float gameSunNow = 0.0;
+      ${START_LIGHT_GLSL}
       vec3 gameLight(vec3 n, float sun) {
         gameSunNow = sun;
         // (the terrain's faces face up, down or sideways: there the SH's display values are constants; any other normal
         // works them out)
         vec3 ambient = n.y > 0.999 ? ${glColor3(gameAmbient(1))} : n.y < -0.999 ? ${glColor3(gameAmbient(-1))} : abs(n.y) < 0.001 ? ${glColor3(gameAmbient(0))}
           : toDisplay(max(${glColor3(GAME_AMBIENT_SH.c0)} + ${glColor3(GAME_AMBIENT_SH.c1)} * n.y + ${glColor3(GAME_AMBIENT_SH.c2)} * (3.0 * n.y * n.y - 1.0), vec3(0.0)));
-        return ${f(GAME_LIGHT.diffuse)} * (ambient + ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * sun);
+        return ${f(GAME_LIGHT.diffuse)} * (ambient + ${glColor(GAME_LIGHT.sun)} * max(dot(n, sunDir), 0.0) * sun + startLight(n));
       }
       /** What URP's lit shader adds to the diffuse light (the terrain's materials: _Metallic 0.05, smoothness 0 on the
        *  ground and 0.05 on its cliffs): the environment's reflection (the game's probe at its roughest mip,
