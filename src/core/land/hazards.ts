@@ -16,7 +16,10 @@
 // drawn line on every third map): its way down is the eroded field's own drainage from the pit's
 // rim, else the cheapest way that keeps off what it must with the field's fall in its cost, then
 // smoothed and bent by the rivers' meander (hydro.ts `meanderPath`, a swing and a wavelength noise
-// varies); it never runs ruler-straight nor in a regular wave (D209, analysis/straight.ts).
+// varies), or walked tile by tile as a creek where the land gives the meander no room; it never
+// runs straight over 4 tiles nor in a regular wave (D209, analysis/straight.ts), and its banks step
+// down to its bed a level a tile, a wash wider at the top, never a one-tile slot cut two or three
+// deep (the look round, 2026-11-14). A pit whose ditch can't keep to that goes elsewhere.
 //
 // Ported from the design version 2 prototype (investigation/generative/v2/hazards.ts).
 
@@ -466,10 +469,18 @@ function ditchRoute(h: Uint8Array, E: Float64Array | null, valleyOf: Float64Arra
 
 /** The longest straight stretch a ditch may run, in tiles (D209: a one-tile ditch's banks are a
  *  canal as long as the stretch; real terrain's and the official maps' longest are 34 and 44, for
- *  rivers). 9 since #330: with most maps' badwater routed into the main water, a one-tile course 12 or
- *  more tiles straight read as dug, not a stream; a draw that can't keep to it is drawn again, else
- *  the pit goes elsewhere (about 7 in 100 fewer pits fit, their badwater shared by the rest, D200). */
-const DITCH_STRAIGHT = 9;
+ *  rivers). 9 from #330 to the look round of 2026-11-14 (item (c)): a ditch 5 to 9 tiles straight,
+ *  most often a pit's short way off the map's edge, read as a dark dug slot (Lake Basin 2 at 128²,
+ *  7 tiles dead straight), as five or more equal steps in a line read as ruled. Now 4: a ditch winds
+ *  every few tiles, the meander's draws first and a creek's walk where the land gives them no room
+ *  (`creekWalk`); a route too short to bend (under `DITCH_LONG`) is never bent nor used, and one that
+ *  runs straighter than this is not used: the pit goes elsewhere. */
+const DITCH_STRAIGHT = 4;
+
+/** The fewest tiles a ditch runs, its route as traced too: one shorter has no room to wind (the look
+ *  round of 2026-11-14, item (c): Lake Basin 2's second pit drained by a 3-tile stub off the map's
+ *  edge), and its pit goes elsewhere. */
+const DITCH_LONG = 8;
 
 /** The most tiles in a row of `tiles` whose middles all lie within 0.75 of one straight line (the
  *  line through the stretch's two ends): how far a ditch runs ruler-straight. With `above`, the first
@@ -504,26 +515,30 @@ function wavy(tiles: readonly number[], W: number): boolean {
 /** A ditch's route bent as a river's course is: its line smoothed, then the rivers' meander on it
  *  (a swing up to 3.2 tiles, a wavelength of 13–20 tiles, both varied by noise as it goes), drawn
  *  again as side-to-side steps that end at the first tile `isEnd` names. A draw whose steps would
- *  still cross ground the ditch keeps off, or that comes out ruler-straight or in a regular wave (D209),
- *  is drawn again from the next seed, four times; then with a smaller swing; the route as traced
- *  is the last resort. Null where even that fails. */
+ *  still cross ground the ditch keeps off, or that runs straight over `DITCH_STRAIGHT` or in a
+ *  regular wave (D209), or that is shorter than `DITCH_LONG`, is drawn again from the next seed,
+ *  four times; then with a smaller swing; then the route as traced; then a creek's walk along it
+ *  (`creekWalk`, `CREEK_DRAWS` draws). Null where even that fails, and the pit goes elsewhere; null
+ *  at once for a route too short to wind (under `DITCH_LONG`): no bend is laid where there is no
+ *  room for one. */
 function windDitch(tiles: readonly number[], h: Uint8Array, W: number, H: number, allowed: (i: number) => boolean, isEnd: (i: number) => boolean, seed: number, rng: Rng): number[] | null {
   const n = tiles.length;
+  if (n < DITCH_LONG) return null;
   const pts: Point[] = tiles.map((i) => [i % W, (i - (i % W)) / W]);
   const tries: Point[][] = [];
-  if (n >= 8) {
-    // (its corners rounded first: the route thinned to a point every few tiles, then cut as a
-    // river's course is, so a turn bends over several tiles, never at a right angle, #330)
-    const sparse = pts.filter((_, k) => k % 4 === 0 || k === n - 1);
-    const path = smoothPath(sparse, 3, 1);
-    const amp = Math.min(3.2, n / 7);
-    for (const f of [1, 1, 1, 1, 0.6, 0.6]) {
-      const a = f * amp;
-      tries.push(meanderPath(path, h, W, H, { amp: a, minAmp: 0.6 * a, cell: 13 + 7 * rng.float(), widthVar: 0 }, hash32(seed, "draw", tries.length)));
-    }
-    tries.push(path, smoothPath(pts, 3, 1));
+  // (its corners rounded first: the route thinned to a point every few tiles, then cut as a
+  // river's course is, so a turn bends over several tiles, never at a right angle, #330)
+  const sparse = pts.filter((_, k) => k % 4 === 0 || k === n - 1);
+  const path = smoothPath(sparse, 3, 1);
+  const amp = Math.min(3.2, n / 7);
+  for (const f of [1, 1, 1, 1, 0.6, 0.6]) {
+    const a = f * amp;
+    tries.push(meanderPath(path, h, W, H, { amp: a, minAmp: 0.6 * a, cell: 13 + 7 * rng.float(), widthVar: 0 }, hash32(seed, "draw", tries.length)));
   }
-  tries.push(pts);
+  tries.push(path, smoothPath(pts, 3, 1), pts);
+  // (long enough to wind, no straight stretch over `DITCH_STRAIGHT`, no regular wave; the outlet
+  // stored drops the tile on the water it joins, and the map's check reads that line)
+  const fits = (walked: number[]): boolean => walked.length >= DITCH_LONG && straightStretch(walked, W, DITCH_STRAIGHT) <= DITCH_STRAIGHT && !wavy(walked, W) && !wavy(walked.slice(0, -1), W);
   for (const t of tries) {
     // (a bend's point on ground the ditch keeps off is left out, not the whole draw: a ditch beside
     // the start's water would otherwise fall back to its traced line)
@@ -534,12 +549,163 @@ function windDitch(tiles: readonly number[], h: Uint8Array, W: number, H: number
     });
     const walked = walkRoute(tiles[0], along, W, H, allowed, isEnd);
     if (!walked || walked.length < 3) continue;
-    if (straightStretch(walked, W, DITCH_STRAIGHT) > DITCH_STRAIGHT) continue;
-    // (the outlet stored drops the tile on the water it joins; the map's check reads that line)
-    if (wavy(walked, W) || wavy(walked.slice(0, -1), W)) continue;
-    return walked;
+    if (fits(walked)) return walked;
+  }
+  // (then a creek's way along the route, as a gully winds tile by tile where the land gives the
+  // meander no room to swing: on a slope the bends above keep to their line and run straight)
+  for (let k = 0; k < CREEK_DRAWS; k++) {
+    const walked = creekWalk(tiles, h, W, H, allowed, isEnd, rng);
+    if (walked && fits(walked)) return walked;
   }
   return null;
+}
+
+/** How many creek walks a ditch draws before its pit goes elsewhere (`windDitch`). */
+const CREEK_DRAWS = 8;
+
+/** A ditch walked tile by tile along `tiles` (its route as traced), as a creek finds its way: each
+ *  step to the side tile that stays near the route ahead and cuts least (lower ground is cheaper), a
+ *  little chance in the choice, and never one that would leave its last five tiles in a straight
+ *  line (`straightStretch`), so it turns every few tiles as the land and the draw lead. It stays one
+ *  tile wide (no step beside a tile it already took but the last), within 3 of the route and no more
+ *  than half as long again. Where it walks into a corner it steps back and takes its next choice;
+ *  null where it runs out of steps. */
+function creekWalk(tiles: readonly number[], h: Uint8Array, W: number, H: number, allowed: (i: number) => boolean, isEnd: (i: number) => boolean, rng: Rng): number[] | null {
+  const n = tiles.length;
+  const bx = tiles.map((i) => i % W);
+  const by = tiles.map((i) => (i - (i % W)) / W);
+  const path = [tiles[0]];
+  const taken = new Set(path);
+  // (each tile on the path, how far along the route it stands, and its choices not yet tried)
+  const along = [0];
+  const choices: number[][] = [];
+  const options = (cur: number, from: number): { g: number; next: number[] } => {
+    const cx = cur % W;
+    const cy = (cur - cx) / W;
+    // (how far along the route it has come: the nearest of the next few route tiles)
+    let g = from;
+    let gd = Infinity;
+    for (let k = from; k < Math.min(n, from + 8); k++) {
+      const d = (bx[k] - cx) * (bx[k] - cx) + (by[k] - cy) * (by[k] - cy);
+      if (d <= gd) {
+        gd = d;
+        g = k;
+      }
+    }
+    const t = Math.min(n - 1, g + 3);
+    const scored: [number, number][] = [];
+    for (const [dx, dy] of N4) {
+      const x = cx + dx;
+      const y = cy + dy;
+      if (x < 0 || y < 0 || x >= W || y >= H) continue;
+      const c = y * W + x;
+      if (taken.has(c) || !allowed(c)) continue;
+      // (one tile wide: no tile beside one already taken, but the last, unless it ends there)
+      if (!isEnd(c) && N4.some(([ex, ey]) => {
+        const xx = x + ex;
+        const yy = y + ey;
+        const j = yy * W + xx;
+        return xx >= 0 && yy >= 0 && xx < W && yy < H && j !== cur && taken.has(j);
+      })) continue;
+      // (near the route: within 3 of one of its tiles about here)
+      let near = Infinity;
+      for (let k = Math.max(0, g - 4); k < Math.min(n, g + 8); k++) near = Math.min(near, Math.max(Math.abs(bx[k] - x), Math.abs(by[k] - y)));
+      if (near > 3) continue;
+      if (path.length >= 4 && straightStretch([...path.slice(-4), c], W, 4) > 4) continue;
+      const ahead = portable.sqrt((bx[t] - x) * (bx[t] - x) + (by[t] - y) * (by[t] - y));
+      scored.push([ahead + 0.6 * (h[c] - h[cur]) + 0.4 * near + 1.4 * rng.float(), c]);
+    }
+    scored.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+    return { g, next: scored.map(([, c]) => c) };
+  };
+  choices.push(options(tiles[0], 0).next);
+  // (no longer than half as long again as the route: a creek winds, it does not wander)
+  const most = n + (n >> 1) + 6;
+  for (let step = 0; step < 12 * n + 40; step++) {
+    const cur = path[path.length - 1];
+    if (isEnd(cur)) return path;
+    const next = path.length < most ? choices[choices.length - 1].shift() : undefined;
+    if (next === undefined) {
+      // (a corner: step back)
+      if (path.length === 1) return null;
+      taken.delete(path.pop()!);
+      along.pop();
+      choices.pop();
+      continue;
+    }
+    path.push(next);
+    taken.add(next);
+    const o = options(next, along[along.length - 1]);
+    along.push(o.g);
+    choices.push(o.next);
+  }
+  return null;
+}
+
+/** The banks' widest step, in tiles either side of the bed (a cut of 4 below the ground beside). */
+const STEP_REACH = 3;
+
+/** A ditch's banks stepped down to its bed in `h` (a copy, changed in place): the ground within
+ *  `STEP_REACH` of the bed (`tiles`, at `levels`) lowered to at most its level plus how far it lies
+ *  from it (the most of the two ways along the grid), so every bank falls a level a tile to the bed.
+ *  A tile beside the bed stays at least a level over it, where the bed winds past it lower down too.
+ *  Ground `keep` names (the bed, ground the ditch keeps off) and ground `stays` names (the pit and its
+ *  rim, water and the ground beside it) is not lowered. The tiles lowered; null where a tile beside
+ *  the bed that `keep` names still stands two or more over it (a bank it cannot step). */
+function stepBanks(h: Uint8Array, tiles: readonly number[], levels: readonly number[], W: number, H: number, keep: (i: number) => boolean, stays: (i: number) => boolean): number[] | null {
+  const want = new Map<number, number>();
+  for (let k = 0; k < tiles.length; k++) {
+    const x0 = tiles[k] % W;
+    const y0 = (tiles[k] - x0) / W;
+    for (let dy = -STEP_REACH; dy <= STEP_REACH; dy++)
+      for (let dx = -STEP_REACH; dx <= STEP_REACH; dx++) {
+        const x = x0 + dx;
+        const y = y0 + dy;
+        if ((!dx && !dy) || x < 0 || y < 0 || x >= W || y >= H) continue;
+        const i = y * W + x;
+        const lv = levels[k] + Math.max(Math.abs(dx), Math.abs(dy));
+        const w = want.get(i);
+        if (w === undefined || lv < w) want.set(i, lv);
+      }
+  }
+  // (never below a level over the bed tile it lies beside, where the bed winds past it lower down:
+  // the water keeps to its bed)
+  const bed = new Set(tiles);
+  const least = new Map<number, number>();
+  for (let k = 0; k < tiles.length; k++) {
+    const x = tiles[k] % W;
+    const y = (tiles[k] - x) / W;
+    for (const [dx, dy] of N4) {
+      if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H) continue;
+      const n = (y + dy) * W + x + dx;
+      if (!bed.has(n)) least.set(n, Math.max(least.get(n) ?? 0, levels[k] + 1));
+    }
+  }
+  const lowered: number[] = [];
+  for (const [i, w] of [...want].sort((a, b) => a[0] - b[0])) {
+    const lv = Math.max(w, least.get(i) ?? 0);
+    if (h[i] <= lv || keep(i) || stays(i)) continue;
+    h[i] = lv;
+    lowered.push(i);
+  }
+  for (let k = 0; k < tiles.length; k++) {
+    const x = tiles[k] % W;
+    const y = (tiles[k] - x) / W;
+    for (const [dx, dy] of N4) {
+      if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H) continue;
+      const n = (y + dy) * W + x + dx;
+      if (!bed.has(n) && h[n] >= levels[k] + 2 && h[n] > (least.get(n) ?? 0) && !stays(n)) return null;
+    }
+  }
+  return lowered;
+}
+
+/** Whether `i` or a tile beside it (side or corner) is one `is` names. */
+function nearOfAt(i: number, W: number, H: number, is: (j: number) => boolean): boolean {
+  const x = i % W;
+  const y = (i - x) / W;
+  for (let yy = Math.max(0, y - 1); yy <= Math.min(H - 1, y + 1); yy++) for (let xx = Math.max(0, x - 1); xx <= Math.min(W - 1, x + 1); xx++) if (is(yy * W + xx)) return true;
+  return false;
 }
 
 /** Where the ditches of one floor on one ground may end and what they keep off, with what their
@@ -777,14 +943,15 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
       if (++way.searches === LED_FROM) way.lower = ditchLower(hh, E, valleys, groundOf(hh), W, H, way);
       return way;
     };
-    // (60 pits tried at most; one too near a hollow already placed is passed over, not tried: the
-    // pits by the nearest low water lie close together, and a second hollow was left unplaced)
+    // (60 pits tried at most; one too near a hollow already placed, or on ground the caller keeps off,
+    // is passed over, not tried: the pits by the nearest low water lie close together, and a second
+    // hollow was left unplaced; and with the ditches winding, the tries spent on kept-off ground
+    // left a map a pit short, the look round of 2026-11-14)
     for (let c = 0, tried = 0; c < cands.length && tried < 60 && out.count < want; c++) {
       const i = cands[c][1];
       const cx = i % W;
       const cy = (i - cx) / W;
       if (placed.some(([px, py]) => Math.max(Math.abs(px - cx), Math.abs(py - cy)) < 24)) continue;
-      tried++;
       // where water on each tile goes (side to side, as the game's water moves), and where a ditch
       // may end: the same until a pit is dug (reused across candidates)
       if (cached.hh !== hh) {
@@ -871,6 +1038,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
         for (let y = Math.max(0, cy - 5); y <= Math.min(H - 1, cy + 5) && clear; y++)
           for (let x = Math.max(0, cx - 5); x <= Math.min(W - 1, cx + 5) && clear; x++) if (ask.keepOff[y * W + x]) clear = false;
       if (!clear) continue;
+      tried++;
       const onBorder = (i: number) => {
         const x = i % W;
         const y = (i - x) / W;
@@ -923,6 +1091,12 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
       for (let j = 0; j < N; j++) if (pit[j]) next[j] = floor;
       for (let k = 0; k < tiles.length; k++) next[tiles[k]] = Math.min(next[tiles[k]], levels[k]);
       const bedKeys = channelTiles({ tiles: outlet, levels, width: 1, to: "" }, W, H).bed;
+      // its banks stepped down to the bed a level a tile, a wash wider at the top: a one-tile bed cut
+      // two or three below the ground beside it read as a dug slot (the look round, item (c)). Never
+      // the pit and its rim, water or the ground beside it, nor ground the ditch keeps off; a bed with
+      // a bank it cannot step is refused, and the pit goes elsewhere
+      const stepped = stepBanks(next, tiles, levels, W, H, (i) => keepOff[i] === 1 || bedKeys.has(i), (i) => nearOfAt(i, W, H, (j) => pit[j] === 1 || hy.water[j] === 1 || hy.water[j] === 2));
+      if (!stepped) continue;
       let flat = true;
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (next[(cy + dy) * W + cx + dx] !== floor) flat = false;
       if (!flat || basinLeak(plan, next, W, H)) continue;
@@ -944,6 +1118,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
       for (let j = 0; j < N; j++) if (pit[j]) avoid[j] = 1;
       for (let y = cy - 6; y <= cy + 6; y++) for (let x = cx - 6; x <= cx + 6; x++) if (x >= 0 && y >= 0 && x < W && y < H) avoid[y * W + x] = 1;
       for (const j of bedKeys.keys()) avoid[j] = 1;
+      for (const j of stepped) avoid[j] = 1;
       const role = `setpiece/badwaterBasin/${out.count}`;
       const f: SetPieceFeature = {
         id: featureId(seed, "setPiece", role),
