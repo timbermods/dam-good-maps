@@ -30,7 +30,7 @@ export function RealPlaces(p: { onOpen(id: string, name?: string): void }) {
         ) : null}
         <ul>
           {(places ?? []).map((e) => (
-            // (the name the map, its file and the gallery page all carry: "Near Crater Lake")
+            // (the name the map, its file and the gallery page all carry: "Crater Lake")
             <li key={e.id}>
               <button type="button" class="ym-tile" title={`Open ${e.name}`} onClick={() => p.onOpen(e.id, e.name)}>
                 <img class="ym-pic" src={PLACES_URL + e.image} alt="" width={240} height={240} loading="lazy" decoding="async" draggable={false} />

@@ -105,7 +105,7 @@ describe("real places", () => {
   it("refuses an unknown place, a place with other choices, and a landform or size no place has", async () => {
     const cases: [string, Record<string, unknown>, string][] = [
       ["generate", { place: "Atlantis" }, 'There is no real place called "Atlantis": the places tool lists them'],
-      ["generate", { place: "near-aso-caldera", size: 128, premise: "Any" }, "A real place is a map of its own: give place alone, without size, premise"],
+      ["generate", { place: "aso-caldera", size: 128, premise: "Any" }, "A real place is a map of its own: give place alone, without size, premise"],
       ["places", { landform: "moon" }, `The landform is one of ${index.families.map((f: { id: string }) => f.id).join(", ")}`],
       ["places", { size: 64 }, `The places' sizes are ${index.sizes.join(", ")}`],
     ];

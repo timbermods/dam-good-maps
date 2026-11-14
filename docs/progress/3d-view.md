@@ -832,6 +832,67 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   of violet (all of it ground the force leaves as it is, D487). Under water on a roof the marks lie on the ground,
   seen through the water as the brush's own disc is.
 
+## The caves through the rock (D488, D497; `feature/caves-through-rock`, `feature/caves-through-rock-2`)
+
+- **Why:** an audit of D488 (3) on dev in real Chrome (Canyon 128 seed 1, Highlands 128 seed 12, the generator's spring
+  cave, cliff overhangs and gorge arch, 50° pitch at distance 34, both looks) found the caves the hardest thing to
+  read while editing. Without the layer the spring cave's tunnel and the overhangs are invisible at that pitch; with
+  the Caves and overhangs layer on, the roofs' tops (and the faces of their columns) are flat violet, which says where
+  but not the air's shape, how far it runs under the rock, how high it is or where it opens. The hollow under the
+  cursor (above) answers that only under the cursor.
+- **What:** `src/render3d/caveGhost.ts`. With the layer on (`renderer.showCaves`, from the page's overlay effect,
+  `useView.ts`), the air under every roof is drawn through the rock in the layer's violet: each cell of air under a
+  roof (a layer clear below its column's top) gives its floor a pale fill (0.8 0.64 1.0, alpha 0.36) outlined where the
+  floor ends (at a wall, a drop or the open: hollow.ts's light line, 0.07 wide, over the brush ring's dark edge, 0.11),
+  its sides against rock a fainter violet wall (alpha 0.22), and its sides against the open air (a neighbour's layer at
+  or above that neighbour's top) a mouth, filled pale (0.3) and framed where the opening ends. A side against rock
+  that rises solid from the cell's floor at most two layers (`STEP`) to a floor of air under a roof (a slab with air
+  under it is a wall), with the cell's own air
+  reaching that floor's level, is a step of the floor, not a wall: its riser is filled as the floor is, the floor's
+  outline runs up its ends (where the step's run ends, joining the outlines along the walls), and the floors' outlines
+  across it are left out, so a stepped tunnel reads as one passage from mouth to mouth; no air is drawn that isn't
+  there (a rise the cell's air does not reach, or a higher one, stays a wall). The fills are drawn only where the
+  terrain hides them (depth test reversed); the lines twice, plainly where in sight and at 0.65 where hidden, so an
+  overhang's reach and a tunnel's mouth read over the real rock too. The fills and the hidden lines are drawn in the
+  opaque pass, blended (three.js draws it by group order, then render order: after the terrain's chunks, before the
+  objects' group, order 1), so a tree or anything else standing in front of them, on a roof or not, draws over
+  them; the lines in sight are drawn with the other aids after the water. An editing aid on its own channel
+  (`aidLayer.ts`, D497): the look is unchanged and none of it blooms. Under a layer cut it reads the masks the cut
+  leaves (a roof cut away leaves no cave). The map's edge is a wall nobody sees and is not drawn; ceilings are not
+  drawn (from above they would hide the floor).
+- **Tried:** the hollow under the cursor tried an x-ray at the ceiling and kept the footprint on the roof, because a
+  stroke changes the roof's tiles (above). The layer asks a different question, the whole cave's shape and its
+  openings, which only the cave's own floor, walls and mouths answer; the parallax that misplaced the cursor's marks
+  is what gives the depth here.
+- **Cost:** nothing on a map without terrain above terrain, nor while the layer is off (one test a frame). With it on,
+  the caves are built in the terrain's 32² chunks (three draws a chunk with a cave: fills, hidden lines, lines in
+  sight): all of them when the layer turns on, the map opens or the cut moves, and after an edit only the chunks its
+  changed rect reaches, a tile round it (`updateTerrain`'s and a stroke's `updateTerrainRect`'s rect, kept by
+  `CaveBook` whenever caves are drawn, even after another change earlier in the frame; a source changed some other
+  way builds all again unless only a pit's cutout changed). Never per frame. Measured once in real Chrome (information; Raise, size 5, a 60-move stroke across the
+  caves with the layer on, Standard, 1600×900, the caves' share of each frame): Canyon 128 seed 1 over its spring cave
+  (124 cells), p90 0.54–0.58 ms and max 2.4–3.2 ms on dev, p90 0.25–0.36 ms and max 0.7–1.0 ms now; a 128² with a
+  tenth of its tiles single-tile caves four layers deep (5992 cells, put straight into the renderer's ground), p90
+  8.3–10.6 ms and max 13.6–27.7 ms on dev, p90 1.2–1.3 ms and max 3.0–4.1 ms now (the whole frame's p90 13–17 ms then,
+  6.2–6.6 ms now). In Node, that case's whole build is 12 ms (once, the layer turned on), a stroke's frame 0.75 ms in one
+  chunk and 2.2 ms on the corner of four.
+- **Tests:** `tests/unit/caveGhost.test.ts` (no cave on a plain map; a closed pocket's floor and walls, no mouth; an
+  overhang's mouths and their frames and the floor's outline, counted; a cut that takes the roof leaves no cave; a
+  stepped tunnel's riser drawn as the floor with its ends outlined and no outline across it, a rise its air does not
+  reach, higher than `STEP` or a slab with air under it a wall; after an edit only the chunks it reaches built again,
+  the same as a whole build; a stroke's rect kept after a cutout-only change in the same frame; the hidden marks in the
+  opaque pass outside any group).
+- **Captures:** local only, `C:\dgm-showcase\d488\caves-through-rock\sheet.png` (12 frames, real Chrome with the GPU,
+  1600×900 dark, 50° at distance 26): Canyon 128 seed 1's spring cave and a cliff overhang, Highlands 128 seed
+  12's overhang, Standard and High, the layer as dev draws it beside the same frame with the caves through the rock.
+- **Captures, round 2:** local only, `C:\dgm-showcase\d488\caves-through-rock-2\sheet.png` (12 frames, real Chrome
+  with the GPU, 1920×1200 dark cropped, 50° at distance 22): Canyon 128 seed 1's spring cave (its floor steps one and
+  two layers) and pines placed on its roof, Standard and High, the layer off, as dev draws it and as now.
+- **Falls short:** the walls under a roof the page paints violet are violet on violet, so the floor and its outline
+  carry the shape. Under water standing on a roof the hidden fills are seen through the water (drawn before it), so
+  fainter there. A map whose caves fill every chunk draws three more meshes a chunk (48 at 128²) while the layer is
+  on.
+
 ## What an edit changed (D488; `feature/3d-edits-show`)
 
 - **Why:** two usability audits agreed that a 3D edit is hard to see once it lands: a block added to a cliff or dug into
@@ -888,6 +949,82 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   dig, the Block tool's next preview (white) over the red glow reads pink for a moment. The first hollow dug on a plain
   map held the page for seconds in a cold browser (the cave light and shaders, before this change and dev's shader
   warm-up); the glow waits for it.
+
+## The Block tool's blocks grow and crumble (D240, D488, D342; `feature/block-pop`, `feature/block-pop-2`)
+
+- **Why:** D240 asks for "raised blocks grow up with a tiny overshoot, lowered ones sink and crumble with a puff of
+  dust". An audit of D488 (3) on dev found that the Block tool had its preview, aim and edit glow, but its blocks
+  appeared and vanished in one frame (EDITOR_PLAN: "the blocks' own pop-in and crumble are the renderer's, to come").
+- **What:** `src/render3d/blockPop.ts`. Only the Block tool's edits play it: the renderer already knows them
+  (`blockEditSent`, "What an edit changed"). Both ways its land comes play it: `updateTerrain` (columns) and
+  `flushTerrain` (plain heights). It is a moment of an edit already applied (D342). The map's land is the new land
+  from the first frame, and the pick, the water, the support check and the file see nothing else. Nothing waits on it.
+  - **A block added** grows out of the rock it stands on. That is the first way that is rock and not growing: down,
+    then the sides (a block jutting from a wall), then up. It grows in 260 ms by an ease-out curve that
+    peaks 5 % past its size, about two thirds of the way through, and settles (`growScale`).
+  - **Drawn with the look's own terrain material** (D497; Timberborn's editor sets a block at once, so the motion is
+    ours and the look is the game's). While a block grows, the terrain shader leaves out the terrain's own faces of the
+    block (`popCells`: up to 64 cells by key, four to a vec4, with a box round them, tested only while any grow). The
+    test covers fragments on the grid whose voxel is a growing cell. The pop draws the growing box a hair off the grid,
+    so the test never leaves it out. Each side of a growing block is drawn one way or the other. Toward air or another
+    growing block, its own face is drawn. Toward rock that is not growing, the face it covers is drawn as it stands:
+    the ground's top under it, the wall it juts from, or a block of the same edit past the cap, drawn at once. So
+    neither the ground nor a cap's edge ever shows a hole or a slit. When a block finishes growing, those still growing
+    beside it are reshaped at that frame, so its side becomes their cover (`feature/block-pop-3`).
+  - **A block taken** sinks a level into the ground below it in 420 ms, shrinking to 0.65 across, again in the terrain
+    material, so it disappears into the rock under it. It draws its sides that face air now, the blocks taken with it
+    included, so blocks shrinking apart show their sides. Five puffs of its own wall's stone, ground fine and a little
+    lighter (Erode's dust, the same drawing, never white smoke), rise from the top of where it was and fade in 0.9 s.
+  - **The edit glow** plays over both. Its faces, colours and clock are its own. Its white for a block added comes in
+    as the block grows (`glowRiseAt`, the glow's `rise`): none in the newest growth's first quarter, full from three
+    quarters on, so it frames the block once it has a size and never veils it small. The hollow's red frames the block
+    sinking.
+  - **Stopped by what contradicts it** (`reconcile`, on every other change of the land drawn). An undo, a redo, a
+    brush or a version flipped to stops at once a growing block that is air again, and a sinking one that is rock
+    again with its dust. The rest are reshaped to the new land. The same covers the page's own prediction of the land
+    followed by the core's answer: a block added to a wall is first painted as a column down to the ground, then
+    answered as the overhang it is, and only the block itself grows.
+  - **Off with reduced motion and in the light look** (software drawing; the renderer's `juicy`): the land is simply
+    there (D240). It is also off for blocks at or above the layer cut. At most 64 blocks grow at once and 64 sink;
+    past that, a block is simply there.
+- **Cost:** fixed buffers made once (768 quads, a 96-puff pool). The dust's program is compiled ahead with the
+  others, on an instanced stand-in without three.js's instance colour, which would be another program. Measured on
+  `feature/block-pop-2`: the dust material keeps one program through the first crumble in both looks (#1134's head
+  compiled a second one there, a hitch), and the warm-up compiles one program fewer. Each frame while it plays, the boxes and puffs are
+  written into them, with no allocation. Once it ends nothing is drawn or asked for, and the shader's test is one
+  uniform compare. GPU time a frame by timer queries while orbiting (`benchOrbit`, the median over 6 s, two runs each,
+  real Chrome with the GPU, 1280 × 800, Highlands 256² seed 1, dev at ef43fb04 → this branch): idle,
+  Standard 2.85 / 3.18 ms → 2.76 / 2.98 ms and High 3.01 / 2.92 ms → 2.93 / 2.63 ms; with 64 blocks growing (an 8 × 8
+  add held at 130 ms, 160 quads), Standard 2.85 / 3.18 ms and High 2.82 / 2.69 ms. All within the runs' own spread:
+  nothing measurable.
+- **Tests:** `tests/unit/blockPop.test.ts` covers:
+  - the growth curve and the sink;
+  - which rock a block grows from (flat ground, a wall with air under the block);
+  - the faces a taken block shows, and those of two taken together;
+  - the caps, and every side of every growing block drawn past them (no slit);
+  - a side toward a neighbour that finishes growing first becoming a cover;
+  - the pops an undo contradicts dropped and the rest reshaped, and `BlockPops` stopping a sink, its dust and a growth
+    at an undo;
+  - the glow's white coming in as the blocks grow;
+  - every face drawn wound to face its normal, the covered top on the grid and the growing faces off it;
+  - nothing once over;
+  - the shader's cell keys and box.
+- **Captures:** local only, `C:\dgm-showcase\d488\block-pop\sheet.png` (12 frames, real Chrome with the GPU,
+  1280 × 800 dark, the renderer's clock held at each time). On Lake Basin 96 seed 77, a 3 × 3 block of ground four
+  levels up gets a block added on top and one out of its east wall (an overhang) at 25, 60 and 130 ms. Then two
+  blocks are taken off its top at 105, 231 and 378 ms. Standard and High. `C:\dgm-showcase\d488\block-pop-2\sheet.png`
+  (8 frames): the same pops with the glow's white coming in (Standard 25, 60 and 130 ms; High 25 and 130 ms), 81
+  blocks added at once at 60 ms (64 growing, the rest drawn at once, no slit between), and a dig at 150 ms undone at
+  160 ms (the block back, nothing sinking).
+- **Falls short:**
+  - A growing block's top, partway up, is lit and coloured as a wall by the terrain shader's rules (it is not on a
+    tile's top level) for the quarter second it moves. It also lies in the tile's own baked sun shadow, so it reads
+    dark until it is most of the way up (its first 40 ms or so).
+  - The growing and sinking blocks cast no shadow of their own; the High look's shadow keeps the block's full shape
+    meanwhile.
+  - The undo of a Block edit plays nothing (the page's undo does not say which operation it takes back, as for the
+    glow). On plain ground the glow of the edit undone fades out over the land as it was (the glow's own rule:
+    plain land glows only for the Block tool's edits).
 
 ## Software frames (`perf/software-frames`)
 
@@ -3824,6 +3961,82 @@ frames, and the start was still the white map-editor marker.
   placeholder house with its entrance post, and the ruins as the scaffold towers. Sheet: `docs/sheets/ruins-start.jpg`,
   made by `tools/capture-ruins-start.ts --soft` (High, River Valley 4242 at 256², dev against this checkout, close and
   90 away, the same cameras).
+
+### The Iron Teeth's start and the fire, read (D178 as amended 2026-11-10, D496; `fix/iron-teeth-figures`)
+
+Falls short (1) and (2) above, read from the game's files (Timberborn 1.1.2.8, `resources.assets`; read-only, the game
+not started; numbers only, no mesh or texture kept) so they can be drawn. Nothing draws them yet. The colours are in
+`palette.ts` `START_IRON_TEETH` and `START_FIRE`, with each material's raw albedo, metallic, smoothness and occlusion.
+Lengths are metres (a tile), in the model's own frame: y up, the origin the footprint's corner (the models span
+−0.049 to 3.049), the door on the z = 0 face, as the Folktails' is (ours turns that face to +Z).
+
+- **Read with:** `tools/game-model-albedo.py DistrictCenter.IronTeeth.Model --parts` (each material's albedo, its
+  metallic, smoothness and occlusion, and its parts' bounds; `--parts` and the albedo × (1 − metallic) line are new) and
+  `tools/game-particles.py DistrictCenterFire` (new: a prefab's transforms, particle systems, their renderers' materials
+  and textures, and its lights, Unity 6000.5's layout read by structure, each curve checking its own end). The fire's
+  shader was disassembled with `tools/game-water-shader.py --shader "Shader Graphs/FireParticles"` and its pass "Unlit"
+  (a local one-line change to the pass it picks, not kept). Where the fire stands is in both factions' blueprints
+  (`buildings/districtmanagement/districtcenter/districtcenter.{folktails,ironteeth}.blueprint`, which differ only in
+  their model, their template name and their flavour text): `TemplateAttachmentsSpec` puts `DistrictCenterFire` under
+  `#Finished` at (1.5, 3.0, 1.5), unturned, scale 1.
+- **The Iron Teeth's district center** (DistrictCenter.IronTeeth.Model; one node, 1923 vertices, 1280 triangles; the
+  Folktails' 1788): 3.10 across (its corner posts overhang the 3 × 3 by 0.049, as the Folktails' do) and 4.37 high
+  (the Folktails' 4.33). From the ground up, centred on (1.5, 1.5) unless said:
+  - a floor of indigo wood 3 × 3, 0 to 0.10;
+  - walls of pale grey planks, four planes 0.07 inside the edges (2.86 across), 0 to 1.00 (the Folktails' planes, in
+    other planks);
+  - four indigo corner posts 0.247 square, −0.049 to 0.198 at each corner, 0 to 1.11 (the Folktails' 1.21);
+  - on the z = 0 face, centred, a square-topped door: an indigo frame 0.87 wide to 0.695, 0.073 deep, a lintel 0.86
+    wide from 0.64 to 0.75, the dark door leaf 0.74 wide to 0.70 at z 0.059 (the Folktails' is arched);
+  - round windows 0.47 across (a 12-cornered disc in a frame 0.08 deep), centred 0.50 up: two on the door's face centred at
+    x 0.5 and 2.5, one on each side face (x = 0 and x = 3) centred at z 1.5, none at the back (the Folktails' layout);
+  - a square hip roof of dark olive planks in two tiers, by its half-width (from the centre to a side) at each height:
+    1.42 at its eaves at 0.97, out to 1.50 at 1.09, in to 1.21 at 1.36, a step to 1.20 at 1.46, up to 0.83 at 1.83
+    (192 triangles; its edges a little ragged, 1.38–1.43 at the eaves);
+  - a band of the roof's planks round the tower's foot, four boards 1.68 across, 1.80 to 1.93;
+  - the tower: square, of pale grey planks, four planes leaning in 17° from upright, 1.61 across at 1.93 to 1.03 at
+    2.87; at its corners four dark brown posts about 0.11 thick, along the diagonals from 0.79 out of the centre (each
+    axis) at 1.79 to 0.48 at 2.89;
+  - on each of the tower's faces an emblem, a 12-sided blue-violet plate 0.45 across centred at 2.45 high, tilted with
+    the face, in an indigo ring 0.60 wide, 0.62 tall (2.11 to 2.74) and 0.155 deep;
+  - the platform: a dark brown deck, a square frame 1.82 across with a square hole 0.83 across, 2.83 to 2.93; an indigo
+    rim 1.31 across, 2.81 to 3.01; sixteen indigo spindles 0.046 square, 2.91 to 3.085, four on each side 0.505 out of
+    the centre at −0.35, −0.115, 0.115 and 0.35 along it; an indigo rail round them 1.07 across, 3.07 to 3.125;
+  - the fire bowl: an indigo stand 0.52 across, 3.03 to 3.24, four indigo blocks 0.21 square at ±0.244 (each axis) from
+    2.90 to 3.16, and the iron bowl 0.42 across, 3.08 to 3.23, the same piece and place as the Folktails';
+  - the lantern: eight dark brown beams about 0.09 thick, two on each side, each from a corner of the platform (±0.53,
+    ±0.53) at 2.95 up to the middle of that side, 0.51 out, at 3.95: an inverted V on each side;
+  - the hood: a dark brown frame, a square ring 1.37 across with a hole 0.63 across, 3.80 to 3.85; dark brown planks
+    under it 1.40 across, 3.80 to 3.89; a square roof of the dark olive planks, by its half-width 0.70 at 3.89, 0.60 at
+    3.96, 0.62 at 4.04, 0.46 at 4.22 and 0.445 at 4.33; a pale grey collar from 0.445 at 4.33 to 0.36 at 4.37; and an
+    iron flue, a square tube 0.63 across from 3.85 to 4.32 flaring to 0.72 at 4.37, open at the top over the fire.
+- **The fire** (both factions'): a particle system, `Flames`, its emitter at (1.5, 3.16, 1.5), in the bowl, and a light.
+  - Emission: 50 particles a second, steady, from a disc 0.09 in radius, all straight up; each lives 2 to 3 s and rises
+    at 0.2 to 0.5 m/s the whole of its life (no gravity, force, noise or velocity over lifetime; the limit-velocity
+    module is on with dampen 0, which takes nothing off), so it dies 0.4 to 1.5 above the emitter; about 125 alive at
+    once (at most 200). Simulated in world space, looping, from the start.
+  - Size: a camera-facing square, its start side 0.5 to 1, × a curve over its life: 0.36 at birth, 0.42 at 0.29 of its
+    life, 0.03 at 0.98 (keys with slopes in `START_FIRE.sizeOverLife`). Turned at random at birth and spinning 45° a
+    second.
+  - Colour over its life (white at birth × this gradient, in Gamma colour space, linear between keys): dark grey
+    0.14/0.14/0.13 at 0, yellow 1/0.80/0 at 0.078, orange 1/0.44/0 at 0.185, red 0.74/0/0 at 0.263, grey
+    0.24/0.24/0.24 at 0.400, a lighter grey 0.36/0.36/0.36 at 0.988; alpha 0 at 0, 1 from 0.035 to 0.271, 0.345 at
+    0.604, 0 at 1. So the flame's colours last the first quarter of a particle's life, up to about 0.23 above the
+    emitter on average (0.4 at most), and the rest is a grey smoke thinning as it rises through the lantern and the flue.
+  - Drawing: unlit, alpha-blended, no depth write, no shadow. The FireParticles shader's Unlit pass: colour = 2 × texel ×
+    particle colour × `_Tint` (1, 1, 1, 0.349), alpha = saturate(2 × texel alpha × particle alpha × 0.349). The texture
+    `Fire` (512²) is white; its alpha is a soft round puff, 0.43 out to 0.2 of the texture's width from its middle, 0.38
+    at 0.25–0.3, 0.23 at 0.3–0.35, 0.06 at 0.35–0.4 and none past 0.45 (peak 0.678; its centre of mass 0.04 off the
+    middle). So a particle in full colour is about 0.30 opaque over its middle (0.47 at the texture's peak), and its
+    colour doubled: the yellow draws 2/1.6/0, which the game's HDR frame keeps and its bloom takes where particles stack
+    ("Bloom" above).
+  - Its light: the child "Point Light", a spot in fact, 1.24 above the attachment (4.24, inside the flue) pointing
+    straight down: colour 0.991/0.789/0.453, intensity 5, range 8, spot angle 120°, inner 75°, no shadows. Nothing on it
+    but URP's `UniversalAdditionalLightData`, so it does not flicker.
+- **Not read:** whether the game's code dims or stops the fire or its light by time of day, or when the district center
+  is paused or unstaffed (the prefab has no script of its own; the decompiled code wasn't searched); what URP's
+  intensity 5 makes of the ground and the platform under our light, which has no point or spot lights yet. The map
+  names no faction (the player picks one when starting it), so which center stands there is the renderer's choice.
 
 ## Falls that pour, against the game's Four Lakes frames (PERFECT Water 3; D154, D496; `fix/falls-pour-2`)
 

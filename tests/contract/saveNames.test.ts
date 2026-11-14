@@ -34,7 +34,7 @@ describe("the name a map is saved under (D345, B10)", () => {
     expect(saved.ok).toBe(true);
     for (const [file, saveAs] of [
       ["My Island.timber", "dgm-my-island.timber"],
-      ["Near Drumheller (Alberta).timber", "dgm-near-drumheller-alberta.timber"],
+      ["Drumheller (Alberta).timber", "dgm-drumheller-alberta.timber"],
       ["Ünïcode Map?.timber", "dgm-unicode-map.timber"],
       ["dgm-river-valley-5.timber", "dgm-river-valley-5.timber"],
     ]) {

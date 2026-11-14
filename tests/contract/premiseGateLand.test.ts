@@ -8,10 +8,11 @@ import { describe, expect, it } from "vitest";
 import { failing, PLAN_TRIES } from "../../src/core/premise/draw";
 import { gateWater } from "../../src/core/premise/gateWater";
 import { firstWater } from "../../src/core/premise/draw";
-import { GATE_FACE_RUN, GATE_LAND_CHECKS, gateLand, gateLandFailures, gateRelief, gateZones, gorgeFaces, rangeBand, rangeBandParts } from "../../src/core/premise/gateLand";
+import { GATE_FACE_RUN, GATE_LAND_CHECKS, gateLand, gateLandFailures, gateRelief, gateZones, gorgeFaces, playaShare, rangeBand, rangeBandParts } from "../../src/core/premise/gateLand";
 import { gateOf, onLocal, rangeAt, turnOf, wallGate } from "../../src/core/premise/premises/wallGate";
 import { makeSpec, type MapSpec } from "../../src/core/spec/mapspec";
 import { gateWetPast } from "../../src/core/premise/gateMap";
+import { STAIR_LONGEST, stairsOf } from "../../src/core/premise/gateMeasures";
 
 const spec = (seed: number, side: number): MapSpec => makeSpec({ seed, size: { x: side, y: side }, theme: "any", premise: "any" });
 
@@ -92,6 +93,14 @@ describe("Broken gate land fails its invariants", () => {
       const band = rangeBand(base.plan, base.water);
       for (let i = 0; i < W * H; i++) if (band[i] && !water(i)) h[i] = 9 + 3 * Math.floor(Math.abs(local(i)[1] - rangeAt(g.range, local(i)[0]).v) / 8);
     }],
+    ["range.straight", "the range's foot laid along one row, the valley before it levelled", (h) => {
+      for (let i = 0; i < W * H; i++) {
+        const [u, v] = local(i);
+        if (water(i)) continue;
+        if (v >= g.face && v <= rangeAt(g.range, u).v) h[i] = g.sill + 8;
+        else if (v < g.face && v > g.face - 40) h[i] = g.sill + 2;
+      }
+    }],
     ["range.valleys", "the range worn down to its feet, the cleft's ground with it: no valley falls from it", (h) => {
       for (let i = 0; i < W * H; i++) if (zone[i] === 1 && !r.channel[i] && !r.lake[i]) h[i] = g.sill + 2;
     }],
@@ -135,6 +144,28 @@ describe("Broken gate land fails its invariants", () => {
       for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) h[(st.y + dy) * W + st.x + dx] = st.z + ((st.x + dx + st.y + dy) & 1);
     }],
   ];
+
+  // (a design change, planning's look verdict of 2026-11-14 on round 3, not eased to pass anything: the larger maps'
+  // floor rolls round one clear playa, and asked for 55 % at every size it lay as one sheet)
+  it("basin.playa asks for a share of the basin by the map's size: 55 % at 128², 45 % at 192², 35 % at 256²", () => {
+    expect(playaShare(128)).toBeCloseTo(0.55, 9);
+    expect(playaShare(192)).toBeCloseTo(0.45, 9);
+    expect(playaShare(256)).toBeCloseTo(0.35, 9);
+  });
+
+  // (planning's look verdict of 2026-11-14 on round 4: the rim's long straight stairs; `stairRun` reads them)
+  it("reads a straight stair of one-level steps by how long it runs along its contour", () => {
+    const [W, H] = [20, 20];
+    // (rows 5 to 16, three treads of 3 climbing along x from x 4; the rest flat)
+    const h = new Uint8Array(W * H).fill(5);
+    for (let y = 5; y <= 16; y++) for (let x = 4; x < W; x++) h[y * W + x] = 5 + Math.min(3, Math.floor((x - 1) / 3));
+    const dry = () => false;
+    expect(Math.max(...stairsOf(W, H, h, dry, 0).map((s) => s.n))).toBe(12);
+    expect(stairsOf(W, H, h, dry, STAIR_LONGEST).length).toBeGreaterThan(0);
+    // (a riser stepped back a tile at its middle breaks it in two)
+    for (const y of [10, 11]) h[y * W + 6] = h[y * W + 7];
+    expect(Math.max(...stairsOf(W, H, h, dry, 0).map((s) => s.n))).toBeLessThanOrEqual(STAIR_LONGEST);
+  });
 
   it("has one broken ground for every land invariant", () => {
     expect([...broken.map(([id]) => id), "bench.shore"].sort()).toEqual(GATE_LAND_CHECKS.map((x) => x.id).sort());
