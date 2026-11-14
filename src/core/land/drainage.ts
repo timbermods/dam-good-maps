@@ -7,7 +7,6 @@
 //
 // Ported from the M9 design prototype (investigation/generative/proto/erode.ts).
 
-import { drainageInRust } from "../analysis/rust/bridge";
 import { MinHeap } from "../math/grid";
 
 /** The eight directions, sides first (the order the flood takes them in, which breaks its ties). */
@@ -47,7 +46,7 @@ export function drainage(h: ArrayLike<number>, W: number, H: number, opts: { out
   }
   const hit = recentFlood(h, W, H, eight, eps, outlets);
   if (hit) return copyOf(hit.out);
-  const out = drainageInRust(h, W, H, eight, eps, outlets);
+  const out = flood(h, W, H, eight, eps, outlets);
   remember({ h: Float64Array.from(h), W, H, eight, eps, outlets, out: copyOf(out) });
   return out;
 }
@@ -105,9 +104,8 @@ function remember(f: Flood): void {
   }
 }
 
-/** The flood itself (`drainage`), in TypeScript: the oracle of the Rust the land runs (rust/analysis/src/land.rs
- *  `drainage`, src/core/analysis/rust/bridge.ts `drainageInRust`; tests/unit/drainageRust.test.ts). */
-export function floodInTs(h: ArrayLike<number>, W: number, H: number, eight: boolean, eps: number, outlets: Uint8Array | null): Drainage {
+/** The flood itself (`drainage`). */
+function flood(h: ArrayLike<number>, W: number, H: number, eight: boolean, eps: number, outlets: Uint8Array | null): Drainage {
   const N = W * H;
   const filled = new Float64Array(N);
   const rcv = new Int32Array(N).fill(-2);
