@@ -236,6 +236,10 @@ export function describeMap(s: MapSession, opts: { tiles?: [number, number][]; c
     if (PLANTS.has(e.template) || e.template.startsWith("RuinColumn") || e.template === "Slope") {
       const k = e.template.startsWith("RuinColumn") ? "ruin column" : e.template;
       counts[k] = (counts[k] ?? 0) + 1;
+    } else if (e.template === "StartingLocation") {
+      // (the start by its middle tile, the x, y a move takes; the object stands at its 3×3's corner)
+      const st = startTile(s);
+      objects.push({ id: e.id, kind: e.template, x: st?.x ?? e.x, y: st?.y ?? e.y, z: e.z, orientation: e.orientation, footprint: "3×3 round x, y" });
     } else objects.push({ id: e.id, kind: OBJECT_NAMES[e.template] ?? e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation });
   }
   const landmarks = standingForms(b.heights, W, H, 12)
@@ -257,6 +261,7 @@ export function describeMap(s: MapSession, opts: { tiles?: [number, number][]; c
     sources,
     rivers,
     features,
+    ...(s.mode === "import" ? { featuresNote: "An opened map or a real place has no generator's features: its lakes and rivers are not listed; its waterfalls are read from its water." } : {}),
     landmarks,
     objects,
     counts,

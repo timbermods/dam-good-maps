@@ -38,7 +38,7 @@ describe("the MCP server's words", () => {
     expect(force.properties.settings.description).toContain("craterize: mode strike, power 55, size 20,");
     expect(force.properties.settings.properties.sources.description).toMatch(/"clear" \(the default\): the force removes them/);
     expect(force.properties.where.description).toContain("Y south to north");
-    expect(apply.description).toContain("A crater is a dry bowl");
+    expect(apply.description).toContain("a crater is a dry bowl");
     // every operation of the page's schema is still there
     expect(Object.keys(schema.$defs).sort()).toEqual(Object.keys((opsSchema as Record<string, any>).$defs).sort());
     expect(TOOLS.find((t) => t.name === "generate")!.description).toContain('"intentions": ["under-cliff"]');

@@ -14,10 +14,10 @@ import { INTENTIONS, INTENTION_TEXT } from "../../src/core/land/intentions";
 import { INTENTION_LEAST, INTENTION_SEEDS, INTENTION_SIDE, offeredThemes } from "../../src/core/land/intentionTable";
 import { naturalSize as craterAcross } from "../../src/core/forces/craterize";
 import { naturalSize as eruptAcross } from "../../src/core/forces/erupt";
-import { MAX_SIDE, MIN_SIDE, PREMISE_CHOICES, PREMISE_IDS, PREMISE_NAMES, shareLink, SIZE_PRESETS, THEME_NAMES, THEMES } from "../../src/core/spec/mapspec";
+import { DEFAULT_THEME, MAX_SIDE, MIN_SIDE, PREMISE_CHOICES, PREMISE_IDS, PREMISE_NAMES, shareLink, SIZE_PRESETS, THEME_NAMES, THEMES } from "../../src/core/spec/mapspec";
 import { PREMISE_THEMES } from "../../src/core/premise/choice";
 import { openPlaceSession, placeOf, placesIndex } from "./places";
-import { describeMap, summaryOf } from "./describe";
+import { describeMap, lakesOf, summaryOf, waterfallsOf } from "./describe";
 import { jobOf, secondsOf, startGenerate, waitFor, WAIT_MS, type Job } from "./jobs";
 import { applyOps, checksOf, FORCE_DEFAULTS, forceDefaults, keepMap, mapOf, mapsFolder, MOST_OPEN, openMap, redoStep, Refused, rowOf, saveMap, undoStep, type Made } from "./maps";
 import { LAYERS, picture, type Layer, type Region } from "./picture";
@@ -79,6 +79,8 @@ const SETTINGS_TEXT = [
 
 const SETTING_WORDS: Record<string, string> = {
   power: "How strong the force is, 0 to 100.",
+  seed: "The force's personality. Unless given, each verb's own (as on the page), so the same call makes the same land; another seed gives another shape.",
+  floor: "No force cuts below this level; 1 unless given. A crater on ground near it cannot dig a bowl.",
   size: `How wide the force is, in tiles across. A craterize is ${forceDefaults("craterize").size} across unless size is given: a bowl whose rim stands about 5 levels over its middle. null: it follows power; at the default power a craterize is then ${craterAcross(CRATER_POWER)} tiles across and an erupt about ${Math.round(eruptAcross(ERUPT_POWER))} (an erupt's default). Its rim and debris change the ground out to about size tiles from the middle, so about twice size across (size 16: about 30 tiles), and the start moves if its ground breaks. For a crater in one part of a 96-tile map, give a size such as 12. A shallow form shows best in the picture's heights layer.`,
   sources:
     'What happens to water sources, badwater sources and seeps on the tiles the force changes. "clear" (the default): the force removes them. "ride": they stay and move with the ground.',
@@ -113,6 +115,8 @@ function applySchema(): Tool["inputSchema"] {
   defs.setLakeLevel.description = `A lake set to a level: give a tile of the lake (or of the hollow its river fills) and the level; the engine cuts or raises its sill and checks the water stands there. ${defs.setLakeLevel.description}`;
   defs.removeUnfedWater.required = [];
   defs.placeEntity.required = ["template", "x", "y"];
+  defs.placeEntity.description = `${defs.placeEntity.description ?? ""} A WaterSource or BadwaterSource gives 1 water a second unless components {"WaterSource": {"SpecifiedStrength": n}} sets it, up to 8. A StartingLocation's x, y is the middle of its 3×3.`.trim();
+  defs.moveEntity.description = `${defs.moveEntity.description ?? ""} The start's x, y is the middle of its 3×3 (describe's start and its StartingLocation object give that tile); all nine tiles must be dry and clear of other objects.`.trim();
   defs.paintObjects.required = ["kind", "area", "density"];
   const { $defs, $schema: _s, $id: _i, title: _t, ...op } = s;
   return {
@@ -179,7 +183,7 @@ export const TOOLS: Tool[] = [
       type: "object",
       additionalProperties: false,
       properties: {
-        theme: { enum: [...THEMES], description: "The kind of land. The default is any." },
+        theme: { enum: [...THEMES], description: `The kind of land. The default is ${DEFAULT_THEME}, with no premise: the map the website makes when nothing is chosen.` },
         size: {
           anyOf: [{ type: "integer", minimum: MIN_SIDE, maximum: MAX_SIDE }, { type: "string" }],
           description: `Tiles a side (a number), "width x height", or ${Object.entries(SIZE_PRESETS).map(([k, v]) => `${k} (${v})`).join(", ")}, up to ${MAX_SIDE} a side; each theme has its own least. The default is 128. Timberborn's own map editor can't open maps over 256 a side.`,
@@ -251,15 +255,15 @@ export const TOOLS: Tool[] = [
   {
     name: "apply",
     description: [
-      "Change a map with operations.",
+      "Change a map with operations. Brushes, sculpts and placements are for precise edits.",
       "Use a force (op forceResult) to shape land: Carve a river or canyon, Craterize, Erupt a volcano, Quake a cliff, Glaciate a valley, Rift, Deposit, Erode a cave or arch.",
-      "Only Carve and Glaciate make water. A crater is a dry bowl: for a crater lake, place a WaterSource in it.",
+      "Only Carve and Glaciate make water; a crater is a dry bowl.",
       "A force removes the sources on the ground it changes, unless settings.sources is \"ride\", and moves the start if it breaks its ground.",
-      "Move the start with moveEntity and the id of describe's StartingLocation object; the start checks that then fail come first in the result.",
-      "Use brush, sculpt, placeEntity, moveEntity, deleteEntities and paintObjects for precise edits.",
-      "Use fillHollow and removeUnfedWater for standing water, setLakeLevel to hold a fed lake at a level, canal to lead water, lake to dig a lake in an outline, ridge to raise high ground along a line. Place a WaterSource or a BadwaterSource with placeEntity.",
+      "Move the start with moveEntity and describe's StartingLocation id: x, y is the middle of its 3×3, all nine dry and clear. Start checks that then fail come first in the result.",
+      "Every edit settles the whole map's water again. A placed WaterSource gives 1 water a second; components.WaterSource.SpecifiedStrength sets up to 8.",
+      "fillHollow, removeUnfedWater, setLakeLevel, canal and lake shape standing water; ridge raises high ground along a line; placeEntity places a WaterSource or BadwaterSource.",
       "Each operation is one undo step.",
-      "A refused operation changes nothing; the tool returns the reason.",
+      "A refused operation changes nothing and says why.",
       "Tiles are [x, y]: X runs west to east, Y south to north. Runs are [y, x0, x1]. A brush's dabs are quarter tiles: the middle of tile (x, y) is (4x + 2, 4y + 2).",
     ].join(" "),
     inputSchema: applySchema(),
@@ -344,6 +348,12 @@ function around(area: { x0: number; y0: number; x1: number; y1: number }, W: num
   return { x, y, w: Math.min(W, area.x1 + pad + 1) - x, h: Math.min(H, area.y1 + pad + 1) - y };
 }
 
+/** How many lakes the generator made that hold water now (its lake features; describe gives each one's place). */
+function lakesLine(s: MapSession): string {
+  const lakes = lakesOf(s).filter((l) => l.wet.length > 0);
+  return `Lakes: ${lakes.length}${lakes.length ? ` (${lakes.map((l) => l.wet.length).sort((a, b) => b - a).join(", ")} wet tiles)` : ""}; waterfalls: ${waterfallsOf(s).length}.`;
+}
+
 /** The website, as the extension's manifest names it (its homepage). */
 export const SITE = manifest.homepage as string;
 
@@ -376,7 +386,7 @@ function generated(g: Made): CallToolResult {
     : "";
   const pic = picture(s);
   return {
-    content: [text(`Map ${g.handle} (generated in ${(g.ms / 1000).toFixed(1)} s).\n${summaryOf(s, checksOf(s))}\n${s.description().text}\n${g.premise ? `Premise: ${g.premise}\n` : ""}${emerged}${retry}\n${siteLine(s)}\n${pic.legend}`), image(pic.png)],
+    content: [text(`Map ${g.handle} (generated in ${(g.ms / 1000).toFixed(1)} s).\n${summaryOf(s, checksOf(s))}\n${lakesLine(s)}\n${s.description().text}\n${g.premise ? `Premise: ${g.premise}\n` : ""}${emerged}${retry}\n${siteLine(s)}\n${pic.legend}`), image(pic.png)],
   };
 }
 
@@ -451,8 +461,10 @@ export async function callTool(name: string, args: Record<string, unknown>, call
         const c = applyOps(s, ops);
         const content: CallToolResult["content"] = [text(JSON.stringify(c))];
         if (args.picture) {
-          // the ground that changed, else the water that came or went
-          const area = c.ground.area ?? c.water.area;
+          // the ground that changed and the water that came or went, together (the water settles across the whole map)
+          const g = c.ground.area;
+          const w = c.water.area;
+          const area = g && w ? { x0: Math.min(g.x0, w.x0), y0: Math.min(g.y0, w.y0), x1: Math.max(g.x1, w.x1), y1: Math.max(g.y1, w.y1) } : (g ?? w);
           if (area) {
             const pic = picture(s, { region: around(area, s.size.x, s.size.y) });
             content.push(text(pic.legend), image(pic.png));

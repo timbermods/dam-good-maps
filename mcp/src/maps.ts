@@ -14,6 +14,7 @@ import { planEntity, planMoveEntity, withSpringPools } from "../../src/core/doc/
 import { MapSession } from "../../src/core/doc/session";
 import { newRampedStroke } from "../../src/core/doc/strokes";
 import { planStart } from "../../src/core/doc/tools";
+import { startMiddle } from "../../src/core/doc/start";
 import { planFill, unfedWater } from "../../src/core/doc/waterEdits";
 import { applyLakeLevel } from "../../src/core/doc/lakeLevel";
 import { applyCanal } from "../../src/core/doc/canal";
@@ -37,6 +38,7 @@ import { worldWaterModel } from "../../src/core/sim/stackWater";
 import type { WaterModel } from "../../src/core/sim/water";
 import { applyMergePatch } from "../../src/core/spec/mergepatch";
 import {
+  DEFAULT_THEME,
   generatorSizeRefusal,
   highestTerrainDefault,
   makeSpec,
@@ -178,7 +180,7 @@ function premiseWords(r: GenerateResult): string | undefined {
 /** The spec that a generate call asks for, as the page's Generate makes it (src/ui/App.tsx), or the refusal of its
  *  input. `seedWord`: a seed given in words, which names the file. */
 export function specOf(input: GenerateInput): { spec: MapSpec; seedWord?: string } {
-  const theme = (input.theme ?? "any") as ThemeId;
+  const theme = (input.theme ?? DEFAULT_THEME) as ThemeId;
   if (!THEMES.includes(theme)) refuse(`The theme is one of ${THEMES.join(", ")}`);
   const size = sizeOf(input.size);
   if (!Number.isInteger(size.x) || !Number.isInteger(size.y) || size.x < MIN_SIDE || size.y < MIN_SIDE || size.x > MAX_SIDE || size.y > MAX_SIDE) refuse(`A side is a whole number of tiles from ${MIN_SIDE} to ${MAX_SIDE}`);
@@ -291,6 +293,8 @@ interface Before {
   ents: Map<string, string>;
   wet: Uint8Array;
   start: [number, number, number] | null;
+  /** The map showed its file's own water (an unedited import, `showsStoredWater`). */
+  stored: boolean;
 }
 
 const startOf = (s: MapSession): [number, number, number] | null => {
@@ -313,12 +317,14 @@ export function shownSoil(s: MapSession): { moisture: ArrayLike<number>; contami
   return s.storedSoil();
 }
 
-/** The start's tile: the build's, or an imported map's StartingLocation object. */
+/** The start's tile: the middle of its 3×3 (core/doc/start.ts `startMiddle`, the tile a start move takes), at its level.
+ *  An opened map's StartingLocation object stands at its footprint's corner; this is its middle. */
 export function startTile(s: MapSession): { x: number; y: number; z: number } | null {
   const b = s.built;
   if (b.start) return { x: b.start.x, y: b.start.y, z: b.start.z };
+  const m = startMiddle(s);
   const e = b.entities.find((x) => x.template === "StartingLocation");
-  return e ? { x: e.x, y: e.y, z: e.z } : null;
+  return m && e ? { x: m[0], y: m[1], z: e.z } : null;
 }
 
 function wetMask(s: MapSession): Uint8Array {
@@ -350,7 +356,7 @@ function wetChange(before: Uint8Array, now: Uint8Array, W: number): { x0: number
 }
 
 function snapshot(s: MapSession): Before {
-  return { size: { ...s.size }, heights: s.built.heights.slice(), ents: new Map(s.built.entities.map((e) => [e.id, e.template])), wet: wetMask(s), start: startOf(s) };
+  return { size: { ...s.size }, heights: s.built.heights.slice(), ents: new Map(s.built.entities.map((e) => [e.id, e.template])), wet: wetMask(s), start: startOf(s), stored: s.showsStoredWater };
 }
 
 function changeSince(s: MapSession, b: Before, steps: string[], held: number): Change {
@@ -403,8 +409,17 @@ const xy = (p: [number, number, number] | null) => (p ? `X ${p[0]} · Y ${p[1]},
 
 /** The notes a change gets: the start moved, sources a force cleared, a crater with no water. `verbs`: the forces among
  *  the operations; `movedStart`: an operation that moved the start on purpose. */
-function notesOf(c: Change, b: Before, now: [number, number, number] | null, verbs: string[], movedStart: boolean): Change {
+/** A drop in wet tiles worth a note: more than this share of them. */
+export const WATER_DROP_NOTE = 0.1;
+
+function notesOf(c: Change, b: Before, now: [number, number, number] | null, verbs: string[], movedStart: boolean, storedNow: boolean): Change {
   const notes: string[] = [];
+  // the water of the whole map settles again after an edit: a file's own water gives way to what its sources keep
+  const { wetBefore, wetAfter } = c.water;
+  if (b.stored && !storedNow && wetAfter !== wetBefore)
+    notes.push(`This map showed its file's own water; after an edit it shows the water its sources keep once it settles: ${wetBefore} wet tiles before, ${wetAfter} after, across the whole map. Undo brings the file's water back.`);
+  else if (wetAfter < wetBefore * (1 - WATER_DROP_NOTE))
+    notes.push(`The water changed beyond the edit: the whole map's water settles again after each edit, ${wetBefore} wet tiles before, ${wetAfter} after.`);
   const same = b.start && now && b.start[0] === now[0] && b.start[1] === now[1] && b.start[2] === now[2];
   if (!same && (b.start || now)) {
     c.start = { from: b.start, to: now };
@@ -417,7 +432,11 @@ function notesOf(c: Change, b: Before, now: [number, number, number] | null, ver
     if (water + bad)
       notes.push(`The force cleared ${[water ? `${water} water source${water > 1 ? "s" : ""}` : "", bad ? `${bad} badwater source${bad > 1 ? "s" : ""}` : ""].filter(Boolean).join(" and ")} on the ground it changed. To keep sources, give settings.sources "ride".`);
   }
-  if (verbs.includes("craterize")) notes.push("A crater is a dry bowl. For a crater lake, place a WaterSource in the bowl with placeEntity.");
+  if (verbs.includes("craterize")) {
+    if (c.ground.lowered === 0 && c.ground.tiles > 0)
+      notes.push("No bowl formed: the ground there is too low for the crater to dig (a force never cuts below its floor, level 1 unless settings.floor is given), so only its rim rose. Craterize higher ground for a bowl.");
+    notes.push("A crater is a dry bowl. For a crater lake, place a WaterSource in the bowl with placeEntity.");
+  }
   if (notes.length) c.notes = notes;
   return c;
 }
@@ -451,7 +470,9 @@ function forceRequestOf(s: MapSession, p: Record<string, unknown>): ForceRequest
   if (!(verb in FORCE_DEFAULTS)) refuse(`A force's verb is one of ${Object.keys(FORCE_DEFAULTS).join(", ")}`);
   const where = (p.where ?? {}) as { origin?: Pair; end?: Pair; path?: Pair[]; side?: 1 | -1; source?: string };
   const given = (p.settings ?? {}) as Record<string, unknown>;
-  const seed = typeof given.seed === "number" ? given.seed : (Math.imul(s.nextSeq + 1, 0x9e3779b1) >>> 0);
+  // (a new force starts at its row's seed, as the page's worker starts one, `req.settings.seed ?? 0`: the same call makes
+  // the same land; another seed is the page's Try another)
+  const seed = typeof given.seed === "number" ? given.seed : ((FORCE_DEFAULTS[verb].seed as number | undefined) ?? 0);
   // a Carve or a Craterize given an end is aimed, as a drag aims the editor's (CarveRow.tsx, ForceRows.tsx): a carve
   // aimed cuts through rises to get there (D289)
   const aimed = where.end && (verb === "carve" || verb === "craterize") ? { mode: "aim", ...(verb === "carve" ? { defyGravity: true } : {}) } : {};
@@ -668,7 +689,7 @@ export function applyOps(s: MapSession, ops: unknown[]): Change {
     if (made) s.forgetRedo();
     throw e;
   }
-  const c = notesOf(changeSince(s, before, steps, held), before, startOf(s), verbs, movedStart);
+  const c = notesOf(changeSince(s, before, steps, held), before, startOf(s), verbs, movedStart, s.showsStoredWater);
   // a start that moved is never silent (planning, 2026-11-14): the start checks that now fail come first
   const failing = c.start ? startChecksFailing(s) : [];
   return failing.length ? { startChecks: failing, ...c } : c;
@@ -758,8 +779,19 @@ export function checksOf(s: MapSession): CheckGroups {
 /** A check's row in plain data: its words, where, and its one-click fix when it has one. */
 export function rowOf(c: CheckItem): { id: string; message: string; where?: unknown; fix?: unknown[] } {
   const fix = c.fix?.length && JSON.stringify(c.fix).length <= 4000 ? c.fix : undefined;
-  return { id: c.id, message: c.id === "start.count" && c.message === NO_START ? NO_START_REFUSAL : c.message, ...(c.where ? { where: whereOf(c.where) } : {}), ...(fix ? { fix } : {}) };
+  return {
+    id: c.id,
+    message: c.id === "start.count" && c.message === NO_START ? NO_START_REFUSAL : c.message,
+    ...(c.id === "start.water" ? { counts: START_WATER_COUNTS } : {}),
+    ...(c.where ? { where: whereOf(c.where) } : {}),
+    ...(fix ? { fix } : {}),
+  };
 }
+
+/** What the start's water check counts (rust/checks/src/water.rs: PUMP_DEPTH, PUMP_CLEAN, PUMP_REACH, WALK_LIMIT), in words:
+ *  the check's own line names no reason a near water does not count. */
+export const START_WATER_COUNTS =
+  "Water counts when it is at least 0.3 deep, under 5% badwater, a source feeds it or it lasts the drought, and its surface is at most 2 levels below a tile beside it that beavers walk to from the start without building (within 64 tiles' walk).";
 
 /** The most of each list a check's `where` gives (its objects' ids, its tiles): the rest are counted. */
 export const WHERE_MOST = 8;
