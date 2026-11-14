@@ -139,6 +139,11 @@ function TouchLines(p: { phone: boolean; tablet: boolean }) {
           The tools are in the bar at the foot. <strong>Show</strong> and <strong>Objects</strong>, at the top right, open their own sheets.
         </li>
       ) : null}
+      {p.phone || p.tablet ? (
+        <li>
+          In <strong>Show</strong>, under <strong>Saved views</strong>, tap a number to go back to that view, or an empty one to save the view there. To save over one, tap <strong>Save</strong>, then its number.
+        </li>
+      ) : null}
     </>
   );
 }

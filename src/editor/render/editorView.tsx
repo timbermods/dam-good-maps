@@ -26,6 +26,7 @@ import { hazardDays } from "../../core/sim/weather";
 import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
 import { DropTarget } from "./DropTarget";
+import { SavedViews } from "../view/savedViews";
 import { fingerPress } from "../view/fingerPress";
 import { header } from "./header";
 import { heldLine, topBar } from "./topBar";
@@ -74,7 +75,8 @@ export function editorView(ed: Ed, props: EditorProps) {
     );
   // a phone's Show sheet (#1074): what to show and the camera, with Look and the minimap, the weather days, the sound; a
   // tablet's the same, its minimap staying on the map and Look in its header
-  const phoneShow = sheets ? { open: phoneSheet === "show", weather: waterBar, minimap: phone ? minimap : null, look: phone ? <LookMenu renderer={renderer.current} buttonClass="ghost" /> : null } : null;
+  // (and the camera bookmarks for a finger, #1074 slice 7: the keys' nine slots)
+  const phoneShow = sheets ? { open: phoneSheet === "show", weather: waterBar, minimap: phone ? minimap : null, look: phone ? <LookMenu renderer={renderer.current} buttonClass="ghost" /> : null, views: <SavedViews ed={ed} props={props} /> } : null;
 
   return (
     <ForceFloor.Provider value={floorContext}>

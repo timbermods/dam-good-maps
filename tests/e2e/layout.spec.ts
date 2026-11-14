@@ -1235,3 +1235,96 @@ for (const phone of PHONES) {
     });
   });
 }
+
+// ---- the camera bookmarks by finger (#1074 slice 7): Show's Camera section on a phone or a tablet holds the keys' nine
+// slots and Save; a saved slot's tap glides to its view, an empty one's keeps the view there, Save armed keeps it over a
+// saved one; each closes Show first, so a view is kept and shown with the map at rest; the keys see the same views.
+
+const BOOKMARK_ROOMS = [
+  { viewport: { width: 393, height: 852 }, deviceScaleFactor: 3 },
+  { viewport: { width: 852, height: 393 }, deviceScaleFactor: 3 },
+  { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2 },
+  { viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2 },
+  { viewport: { width: 900, height: 1440 }, deviceScaleFactor: 2 },
+];
+
+for (const room of BOOKMARK_ROOMS) {
+  const { width: W, height: H } = room.viewport;
+  test.describe(`the saved views at ${W}×${H}`, () => {
+    test.use({ ...room, isMobile: true, hasTouch: true });
+
+    test(`at ${W}×${H}: a finger saves the view in a slot, goes back to it with one tap and saves over it; the keys see the same slots`, async ({ page }) => {
+      test.setTimeout(300_000);
+      await openEditor(page);
+      const show = page.locator(".phone-show");
+      const slot = (n: number) => page.locator(".ps-views .view-slot").nth(n - 1);
+      const save = page.locator(".ps-views .view-save");
+      const view = () => page.evaluate(() => window.dgm3d!.renderer.getView());
+      const kept = () => page.evaluate(() => window.dgmEditor!.info().views);
+      const atRest = () => page.waitForFunction(() => window.dgmEditor!.roomSettled(), null, { timeout: 10_000 });
+      const near = (a: { target: number[]; yaw: number; distance: number }, b: { target: number[]; yaw: number; distance: number }) =>
+        Math.hypot(a.target[0] - b.target[0], a.target[2] - b.target[2]) < 0.05 && Math.abs(a.yaw - b.yaw) < 1e-3 && Math.abs(a.distance / b.distance - 1) < 1e-3;
+      const openShow = async () => {
+        await page.locator(".phone-show-button").tap();
+        await expect(show).toBeVisible();
+        await page.locator(".ps-views").scrollIntoViewIfNeeded();
+      };
+
+      // Show's Camera section: the nine slots and Save, each a finger's 44px and on the screen, its tooltip's key cap
+      await openShow();
+      await expect(page.locator(".ps-views .view-slot")).toHaveText(["1", "2", "3", "4", "5", "6", "7", "8", "9"]);
+      const boxes = await page.locator(".ps-views button").evaluateAll((els) =>
+        els.map((e) => {
+          const r = e.getBoundingClientRect();
+          return { w: r.width >= 44 - 0.5, h: r.height >= 44 - 0.5, on: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight };
+        }),
+      );
+      expect(boxes).toEqual(Array(10).fill({ w: true, h: true, on: true }));
+      await expect(slot(3)).toHaveAttribute("aria-label", "Save this view as view 3");
+      await expect(slot(3)).toHaveAttribute("data-keys", "Ctrl+Shift+3");
+      await expect(save).toHaveAttribute("data-keys", /Ctrl\+Shift\+1–9/);
+
+      // an empty slot's tap: Show closes, and the view at rest is kept there, with the project
+      await slot(3).tap();
+      await expect(show).toBeHidden();
+      await expect.poll(async () => (await kept()).map((v) => v.slot)).toEqual([3]);
+      await atRest();
+      const v3 = (await kept())[0];
+      expect(near(v3, await view()), "view 3 is the view at rest").toBe(true);
+
+      // the view moved away; a saved slot's tap glides back to its view
+      await page.evaluate(() => {
+        const r = window.dgm3d!.renderer;
+        const v = r.getView();
+        r.setView({ target: [v.target[0] + 12, v.target[1], v.target[2] - 9], yaw: v.yaw + 1, distance: v.distance * 0.6 });
+      });
+      await openShow();
+      await expect(slot(3)).toHaveClass(/saved/);
+      await expect(slot(3)).toHaveAttribute("aria-label", "Go to view 3");
+      await expect(slot(3)).toHaveAttribute("data-keys", "Alt+3");
+      await slot(3).tap();
+      await expect(show).toBeHidden();
+      await expect.poll(async () => near(await view(), v3), { message: "back at view 3", timeout: 10_000 }).toBe(true);
+
+      // the keys see the same slot: Alt+3 from elsewhere glides to it too
+      await page.evaluate(() => window.dgm3d!.renderer.setView({ target: [30, 5, -30], yaw: 2, distance: 50 }));
+      await page.keyboard.press("Alt+Digit3");
+      await expect.poll(async () => near(await view(), v3), { message: "Alt+3 at view 3", timeout: 10_000 }).toBe(true);
+
+      // Save armed: the next slot tapped keeps the view, over the saved one
+      await page.evaluate(() => window.dgm3d!.renderer.setView({ target: [40, 5, -50], yaw: -1, distance: 70 }));
+      await openShow();
+      await save.tap();
+      await expect(save).toHaveAttribute("aria-pressed", "true");
+      await expect(slot(3)).toHaveAttribute("aria-label", "Save this view over view 3");
+      await slot(3).tap();
+      await expect(show).toBeHidden();
+      await expect.poll(async () => !near((await kept())[0], v3), { message: "view 3 saved over" }).toBe(true);
+      await atRest();
+      expect((await kept()).map((v) => v.slot)).toEqual([3]);
+      expect(near((await kept())[0], await view()), "the new view 3 is the view at rest").toBe(true);
+      await openShow();
+      await expect(save).toHaveAttribute("aria-pressed", "false");
+    });
+  });
+}

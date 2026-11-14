@@ -449,6 +449,42 @@
   font-size: 14px;
 }
 
+/* the saved views (the camera bookmarks, #1074 slice 7): the nine slots and Save, five to a row; a saved slot a solid
+   chip, an empty one dashed and dim; Save armed, every slot outlined in the accent, a tap keeping the view there */
+.editor:is([data-phone], [data-tablet]) .phone-show .ps-grid.ps-views {
+  grid-template-columns: repeat(5, minmax(44px, 1fr));
+}
+
+.editor:is([data-phone], [data-tablet]) .ps-views button {
+  justify-content: center;
+  padding: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.editor:is([data-phone], [data-tablet]) .ps-views .view-slot {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.editor:is([data-phone], [data-tablet]) .ps-views .view-slot:not(.saved) {
+  border-style: dashed;
+  background: transparent;
+  box-shadow: none;
+  font-weight: 400;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+
+.editor:is([data-phone], [data-tablet]) .ps-views.arming .view-slot {
+  border: 2px solid var(--accent);
+  color: var(--ink);
+}
+
+.editor:is([data-phone], [data-tablet]) .ps-views .view-save[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
 .editor:is([data-phone], [data-tablet]) .ps-line .layer-widget {
   flex: none;
 }

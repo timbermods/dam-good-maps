@@ -200,7 +200,7 @@ place of its bottom rule.
   Select's settings, a tap again puts them and any selection down. **Show**, a button at the view's top right, opens a
   sheet of what the map shows, at most 40 % of the view so the map changes above it, ending after a whole row (the rest
   scroll up into view): under small headings, each an even grid of chips, **What to show** (the Show row's toggles,
-  Legend and its key), **Camera** (Top-down, Reset view, First view, the compass, **Layers shown**: the slice, ∞ for
+  Legend and its key), **Camera** (Top-down, Reset view, First view, the compass, **Saved views** (§7), **Layers shown**: the slice, ∞ for
   every layer, and Look), **Minimap**, **Weather** (the weather days) and **Forces and sound** (Slow forces, the sound
   and its volume, always shown: a phone has no hover).
   **Objects** opens a sheet of large tiles, half the view at the most; a tile picked closes it to one row saying what
@@ -1707,8 +1707,11 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   it was picked, so its second tap is in reach too. **The keys a finger reaches another way** (slice 3b): Tab and
   Shift+Tab's rolls, the rolls button ("2 of 4", a tap the next, round to the first); Ctrl+A, Select's Whole map;
   Ctrl+click's level, the Level number in Select's row (set by hand, not taken from the ground); Shift's add and Alt's
-  take-away, Select's **Add / Take away** toggle beside Whole map (slice 6). **Known shortfall:** the camera bookmarks
-  (Ctrl+Shift+1 to 9, Alt+1 to 9) have no way by finger yet; they want a control in the phone layouts.
+  take-away, Select's **Add / Take away** toggle beside Whole map (slice 6); the camera bookmarks (Ctrl+Shift+1 to 9,
+  Alt+1 to 9), **Saved views** in Show's Camera section on a phone or a tablet (slice 7, `view/savedViews.tsx`): the
+  same nine slots and the same kept views, five to a row with **Save**; a saved slot's tap glides to its view, an empty
+  one's keeps the view there, and Save armed makes the next slot tapped keep it, over a saved one too. Each closes Show
+  first and waits for the view to slide into the room it leaves, so a view is kept and shown with the map at rest.
   **A two-finger tap is Undo, a three-finger tap Redo** (Z and C's calls; the buttons stay). The browser's own gestures
   are off over the editor: the view's canvas takes every finger (`touch-action: none`, no callout, no selection), the
   editor allows only panning a panel (`touch-action: pan-x pan-y`: no pinch or double-tap zoom of the page), iOS
@@ -1721,7 +1724,7 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   editor's workers on a reload (served as GitHub Pages serves the site, without them, a kept map reopens with its
   edits).
 - Ctrl+Shift+1 to 9 saves a camera bookmark (position, angle, zoom), and Alt+1 to 9 glides back to it (Shift and a
-  number pick a force); bookmarks
+  number pick a force; a finger's are Show's **Saved views**, above); bookmarks
   are saved with the project. Every tool is reachable by keyboard, with labels for screen readers. (D180, D184,
   D196, D205, D212, D219.)
 
