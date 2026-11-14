@@ -66,6 +66,8 @@ export function useRidge(ed: Ed): RidgeSlice {
         .catch(() => undefined);
     };
     tool.current = {
+      // (a finger draws the line a little above itself, where it is seen; render3d/touch.ts)
+      finger: "draw",
       down(hit: TileHit | null, ev: PointerEvent) {
         if (ev.button !== 0 || !hit) return false;
         points = [[hit.x, hit.y]];
