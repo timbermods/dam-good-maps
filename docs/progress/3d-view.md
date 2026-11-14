@@ -3907,8 +3907,9 @@ frames, and the start was still the white map-editor marker.
   2070 Super; the GPU's median a frame, one run each, base → branch): Standard whole map 2.94 → 2.86 ms, the ruins 14
   away 3.41 → 3.40; High 2.66 → 2.35 and 3.98 → 4.22: within the runs' spread. Draw calls 104 → 103. Triangles
   Standard 183 k → 193 k; High 297 k → 182 k (High's own scaffold augment is gone). Every frame 7.0 ms at 144 Hz.
-- **Falls short:** (1) The game lights a fire in the bowl (its particles); left out. (2) The Iron Teeth's district
-  center differs; ours is the Folktails' for both factions. (3) The ruins' slab bands are clean boxes with a broken
+- **Falls short:** (1) The game lights a fire in the bowl (its particles); left out (drawn since "The fire and the
+  Iron Teeth's start", below). (2) The Iron Teeth's district center differs; ours is the Folktails' for both factions
+  (drawn since the same). (3) The ruins' slab bands are clean boxes with a broken
   edge where the game's are cracked cut-outs, and our leaves are larger and fewer than the game's. (4) The ivy's brown
   roots at the foot (`IvyWet0A`) are left out. (5) The ruins' shadow in Standard is a solid post, half again the
   area of the model's latticed one.
@@ -3920,7 +3921,7 @@ frames, and the start was still the white map-editor marker.
 ### The Iron Teeth's start and the fire, read (D178 as amended 2026-11-10, D496; `fix/iron-teeth-figures`)
 
 Falls short (1) and (2) above, read from the game's files (Timberborn 1.1.2.8, `resources.assets`; read-only, the game
-not started; numbers only, no mesh or texture kept) so they can be drawn. Nothing draws them yet. The colours are in
+not started; numbers only, no mesh or texture kept) so they can be drawn; drawn since the next section. The colours are in
 `palette.ts` `START_IRON_TEETH` and `START_FIRE`, with each material's raw albedo, metallic, smoothness and occlusion.
 Lengths are metres (a tile), in the model's own frame: y up, the origin the footprint's corner (the models span
 −0.049 to 3.049), the door on the z = 0 face, as the Folktails' is (ours turns that face to +Z).
@@ -3992,6 +3993,49 @@ Lengths are metres (a tile), in the model's own frame: y up, the origin the foot
   is paused or unstaffed (the prefab has no script of its own; the decompiled code wasn't searched); what URP's
   intensity 5 makes of the ground and the platform under our light, which has no point or spot lights yet. The map
   names no faction (the player picks one when starting it), so which center stands there is the renderer's choice.
+
+## The fire and the Iron Teeth's start as the game draws them (D178 as amended 2026-11-10, D496, D497; `feature/start-fire-ironteeth`)
+
+The start is the faction's district center with the game's fire in its bowl, drawn from the figures read above
+(`START_IRON_TEETH`, `START_FIRE`), in Standard and High alike.
+
+- **The faction:** one renderer input, `setFaction("Folktails" | "IronTeeth")`, Folktails by default; the map names
+  none (the player picks one when starting it). It changes only the start's model (entities3d.ts `startModel`, batch
+  `start` or `start.IronTeeth`; the model key stays `start`, so picking, tooltips and the High look's landmark copy
+  follow it). The page's control comes later; nothing on the page sets it yet.
+- **The Iron Teeth's district center** (entities3d.ts `ironTeethCenter`): built part by part from the measures above,
+  each part in its material's colour from `START_IRON_TEETH` (floor, walls, posts, square-topped door, round windows,
+  the two-tier hip roof as an eight-sided lathe, the band, the leaning tower and its corner posts, the four emblems
+  tilted with the faces, the platform with its spindles and rail, the bowl, the lantern's eight beams, the hood, collar
+  and iron flue). Drawn in the game's light like the other objects (D135 as amended 2026-11-09).
+- **The fire** (startFire.ts): the game's `Flames`, 125 camera-facing particles a start (50 a second × 2.5 s), each
+  placed and timed on the GPU from its seed and born again with new draws as it dies; its size curve (Hermite between
+  the game's keys), colour and alpha gradients, texture alpha (the `Fire` texture's radial means) and the FireParticles
+  shader's Unlit pass (colour 2 × texel × colour, alpha saturate(2 × texel alpha × alpha × 0.349)) as read. Through the
+  game's finish (`gamePost`) and into the bloom like the other bright things. An object's: hidden with the objects,
+  faded round the pointer with them and cut away above the layer. On the objects' clock, so still with reduced motion,
+  as the geothermal steam is (D240 covers the editor's own animations; the fire is the game's look, frozen, not
+  removed). Never in the light look. Its program is compiled ahead with the others (renderer.ts `scheduleWarm`), so a
+  start placed later does not hitch.
+- **Its light** (materials.ts `START_LIGHT_GLSL`): URP's additional spot light as the game sets it, 1.24 above the
+  attachment pointing down: colour × intensity 5 × URP's distance attenuation (1/d² × (1 − (d²/range²)²)², range 8) ×
+  its spot attenuation (outer 120°, inner 75°, squared) × n·L, no shadows, added in `gameLight`, which lights the land
+  and the objects in both looks. Up to four starts lit (`START_LIGHTS`); none while the objects are hidden. At the
+  game's close camera on Four Lakes r14 it brings the thatch under the bowl from 138/116/77 to 154/128/82 (the game's
+  145/122/80) and the grass before the door from 116 to 125 (the game's 126); High measures the same.
+- **Cost:** `benchOrbit` on Highlands 1 at 256 (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a
+  frame, dev → branch, Folktails): Standard 3.41 and 3.75 → 3.18 and 3.28 ms; High, six runs of dev 2.60–2.97 against
+  four of the branch 2.97–3.46 (interleaved, 2.97/2.76 → 2.97/3.02): about 0.1–0.2 ms in High, within Standard's spread.
+  +1 draw call (the fire, one batch for every start); the Iron Teeth's center is 1404 triangles, the Folktails' 1428.
+  Nothing is allocated a frame: the fire's buffers and the lights' places are set when the starts change, the frame
+  sets one number (how many lights).
+- **Sheet** (local only, `C:/dgm-showcase/start/fire-ironteeth/sheet.png`): the game's own day-1 captures of the
+  Folktails start (Four Lakes r14, the opening and close cameras) beside dev's and ours, Standard and High, both
+  factions, at the same cameras.
+- **Falls short:** (1) Our flame reads a little shorter than the game's: it doesn't fill the lantern up to the hood as
+  the game's does in the close capture. (2) Day only: our view has no night, where the game's fire light shows most.
+  (3) The water doesn't take the start's light (whether the game's does is not read). (4) No game capture of the Iron
+  Teeth start to set ours beside.
 
 ## Falls that pour, against the game's Four Lakes frames (PERFECT Water 3; D154, D496; `fix/falls-pour-2`)
 
