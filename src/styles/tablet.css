@@ -116,6 +116,20 @@
     display: none;
   }
 
+  /* (Select's shapes the same: each cell at least its name's longest word, page.css; where the row can't hold them, it
+     scrolls sideways rather than cut a name) */
+  .editor:not([data-phone]) .set-group > .segmented.shapes {
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    touch-action: pan-x;
+  }
+
+  .editor:not([data-phone]) .set-group > .segmented.shapes::-webkit-scrollbar {
+    display: none;
+  }
+
   .editor:not([data-phone]) .tool-dock > .tool-settings {
     /* (two rows of 66px, 4px apart, and the plate's padding: a name over a 44px control; never a third row. A name that
        needs a second line has it, the plate a little taller: no name is ever cut short, #1074 slice 6) */
