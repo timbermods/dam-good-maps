@@ -621,7 +621,11 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     // (D357: down a long map a head may stand a level under the rise ahead of it, which its channel cuts through:
     // the land falls the length of the map a level in a few dozen tiles, and a level's bump a few tiles in
     // stopped every inflow at its edge, so the long map had no long river)
-    const rise = lengthwise ? 1 : 0;
+    // (and River Valley's default trunk, which must enter by an edge and cross half the map: without the
+    // rise most edge heads that crossed it stood under the spill of their own way down, and the theme
+    // had no rivers, attempts-256)
+    const trunk = natural && g.theme === "riverValley" && !g.hydro.exactInflows && !g.hydro.noInflows && !g.intentions.includes("upper-lower") && heads.length === 0 && hd.kind === "edge";
+    const rise = lengthwise || trunk ? 1 : 0;
     if (drH && (dr.filled[hd.cell] - Er[hd.cell] > 0.5 + rise || drH.filled[hd.cell] > h[hd.cell] + rise)) return false;
     // (a hollow on the way fills to its spill: above the head, its water would stand over the head)
     if (spillAll) for (const c of cells) if (spillAll[c] > h[hd.cell] + rise) return false;
