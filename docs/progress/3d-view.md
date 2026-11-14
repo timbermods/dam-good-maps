@@ -969,7 +969,8 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
     so the test never leaves it out. Each side of a growing block is drawn one way or the other. Toward air or another
     growing block, its own face is drawn. Toward rock that is not growing, the face it covers is drawn as it stands:
     the ground's top under it, the wall it juts from, or a block of the same edit past the cap, drawn at once. So
-    neither the ground nor a cap's edge ever shows a hole or a slit.
+    neither the ground nor a cap's edge ever shows a hole or a slit. When a block finishes growing, those still growing
+    beside it are reshaped at that frame, so its side becomes their cover (`feature/block-pop-3`).
   - **A block taken** sinks a level into the ground below it in 420 ms, shrinking to 0.65 across, again in the terrain
     material, so it disappears into the rock under it. It draws its sides that face air now, the blocks taken with it
     included, so blocks shrinking apart show their sides. Five puffs of its own wall's stone, ground fine and a little
@@ -1001,6 +1002,7 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   - which rock a block grows from (flat ground, a wall with air under the block);
   - the faces a taken block shows, and those of two taken together;
   - the caps, and every side of every growing block drawn past them (no slit);
+  - a side toward a neighbour that finishes growing first becoming a cover;
   - the pops an undo contradicts dropped and the rest reshaped, and `BlockPops` stopping a sink, its dust and a growth
     at an undo;
   - the glow's white coming in as the blocks grow;
