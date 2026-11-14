@@ -96,7 +96,9 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   share within a level of its ground 8 tiles off), `dryValley` (the Gate Bed's valley's depth along it) and
   `trunkBends` (each trunk's straight reach in wavelengths and its tightest bend against the next); and round 4's
   (planning's look verdict of 2026-11-14 on round 3): `lakeLeaves` (the angle between the lake's main arm and the
-  foot's fitted line, its side arms a quarter of the main arm long or longer, its shore within 8 tiles of the foot).
+  foot's fitted line, its side arms a quarter of the main arm long or longer, its shore within 8 tiles of the foot);
+  and round 5's: `stairRun` (the longest straight stair of one-level steps, `stairsOf`, 8 tiles at most,
+  `STAIR_LONGEST`).
   `gateRange.ts` reads the range along u (`rangeAt`, `sideOf`, `spineLocal`). Not offered: `premises/dev.ts`
   `DEV_PREMISES` lists it for the tools and tests; joining `spec/mapspec.ts` `PREMISE_IDS` offers it. No playability
   floor of its own: the shared gate holds the start.
@@ -119,11 +121,14 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   the playa a hollow where they meet sized from the floor it leaves (`PLAYA_FIT`, `basin.playa`'s share by size,
   `playaShare`: 55 % at 128², 45 % at 192², 35 % at 256²), two mesas 5 and 6 high and a rise
   for a ruin group, placed first and as wide as the room the beds leave, standing a level over the ground round it
-  where its top would have no rim (`riseRim`, `RISE_STANDS`) (`BASIN_LAND`, `BASIN_MARKS`; `PremiseLand.ruinsAt`, `life.ts` `RISE_RUINS`), hills toward the edge;
+  where its top would have no rim (`riseRim`, `RISE_STANDS`) (`BASIN_LAND`, `BASIN_MARKS`; `PremiseLand.ruinsAt`, `life.ts` `RISE_RUINS`), hills toward the edge
+  terraced along warped contours, their treads 1 to 6 tiles and two or three steps one riser here and there
+  (`RIM_TERRACE`);
   then the flood check at the megadam's water and its least mend, `mendFlood`: a knoll on a saddle,
   one swell across a stretch of the edge), `gateZones`, `basinBeds`, `gateLand` (`premiseLand`'s parts for this land,
-  the mend again round the badwater's niche, no columns, and a flat on the range domed till none is wider than four
-  tiles, `FLAT_DOME`) and `GATE_LAND_CHECKS` / `gateLandFailures` (its land invariants, on the
+  the mend again round the badwater's niche, no straight stair longer than 8 tiles (`breakStairs`: a riser stepped
+  back a tile here and there along it, `STAIR_JOG`), no columns, a flat on the range domed till none is wider than four
+  tiles, `FLAT_DOME`, and no hollow the water reaches, `fillPits`, raised to its brim) and `GATE_LAND_CHECKS` / `gateLandFailures` (its land invariants, on the
   ground: `range.crest`, `range.straight`, `gate.lowest`, `wall.camera`, `basin.bowl`, `basin.playa`, `bench.shore`, `valley.enclosed`,
   `terrain.ruled_land`, `frame.lip`). `gateMap.ts` `gateMap` makes the whole map as the mode's loop does (a plan at a time: stages 0 to 4,
   one `premiseMap` build and its checks, the Veil's drop on the settle, `veil.settled`, the Gate dry past its rows, `gate.settled`, and every work sited; at most three settles; `held`

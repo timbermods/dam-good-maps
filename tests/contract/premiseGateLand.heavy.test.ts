@@ -8,11 +8,12 @@
 // 2026-11-15: 128² seed 2 had one of 242). And the look's four measures hold (planning's verdict of 2026-11-14), and
 // round 3's (planning's verdict on round 2): the crest by the gate, no flat on the range, the lake's arm bent, the
 // dry valley from the gate, a trunk's straight reach and loop, the 192² tree, the ruin group on the rise; and round 4's
-// over 128² (planning's look verdict on round 3): the lake leaves the wall, the dry side rolls.
+// over 128² (planning's look verdict on round 3): the lake leaves the wall, the dry side rolls; and round 5's at every
+// size (planning's look verdict on round 4): no long straight stair.
 
 import { describe, expect, it } from "vitest";
 import { gateMap, startNumbers } from "../../src/core/premise/gateMap";
-import { brookTree, drySheet, drySide, dryValley, gateCrest, lakeCanal, lakeLeaves, lakeShape, wallFoot } from "../../src/core/premise/gateMeasures";
+import { brookTree, drySheet, drySide, dryValley, gateCrest, lakeCanal, lakeLeaves, lakeShape, STAIR_LONGEST, stairRun, wallFoot } from "../../src/core/premise/gateMeasures";
 import { GATE_HEIGHT, rangeFlatShare } from "../../src/core/premise/gateLand";
 import { armBend, gateOf, LAKE_BEND } from "../../src/core/premise/premises/wallGate";
 import { MEGADAM_HOLDS, megadamHolds } from "../../src/core/premise/gateWorks";
@@ -90,6 +91,10 @@ describe("The wall with one gate's maps", () => {
         expect(drySheet(r.plan, m.built.heights)).toBeLessThanOrEqual(side >= 256 ? 0.3 : 0.35);
         expect(drySide(r.plan, m.built.heights).share).toBeGreaterThanOrEqual(0.45);
       }
+      // (round 5, planning's look verdict on round 4: no straight stair of one-level steps longer than 8 tiles, at
+      // every size)
+      const stair = stairRun(r.plan, r.water, m.built.heights);
+      expect(stair.run, `a straight stair of ${stair.run} tiles at ${stair.at}`).toBeLessThanOrEqual(STAIR_LONGEST);
       // (the card says what the megadam buys, in days of drought on the settled map: more than the lake alone)
       // (the megadam is two walls, and the card names both places)
       expect(r.card.dam).toMatch(/two walls, across .* in the spur and across .* in the range/);

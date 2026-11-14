@@ -12,6 +12,7 @@ import { GATE_FACE_RUN, GATE_LAND_CHECKS, gateLand, gateLandFailures, gateRelief
 import { gateOf, onLocal, rangeAt, turnOf, wallGate } from "../../src/core/premise/premises/wallGate";
 import { makeSpec, type MapSpec } from "../../src/core/spec/mapspec";
 import { gateWetPast } from "../../src/core/premise/gateMap";
+import { STAIR_LONGEST, stairsOf } from "../../src/core/premise/gateMeasures";
 
 const spec = (seed: number, side: number): MapSpec => makeSpec({ seed, size: { x: side, y: side }, theme: "any", premise: "any" });
 
@@ -150,6 +151,20 @@ describe("Broken gate land fails its invariants", () => {
     expect(playaShare(128)).toBeCloseTo(0.55, 9);
     expect(playaShare(192)).toBeCloseTo(0.45, 9);
     expect(playaShare(256)).toBeCloseTo(0.35, 9);
+  });
+
+  // (planning's look verdict of 2026-11-14 on round 4: the rim's long straight stairs; `stairRun` reads them)
+  it("reads a straight stair of one-level steps by how long it runs along its contour", () => {
+    const [W, H] = [20, 20];
+    // (rows 5 to 16, three treads of 3 climbing along x from x 4; the rest flat)
+    const h = new Uint8Array(W * H).fill(5);
+    for (let y = 5; y <= 16; y++) for (let x = 4; x < W; x++) h[y * W + x] = 5 + Math.min(3, Math.floor((x - 1) / 3));
+    const dry = () => false;
+    expect(Math.max(...stairsOf(W, H, h, dry, 0).map((s) => s.n))).toBe(12);
+    expect(stairsOf(W, H, h, dry, STAIR_LONGEST).length).toBeGreaterThan(0);
+    // (a riser stepped back a tile at its middle breaks it in two)
+    for (const y of [10, 11]) h[y * W + 6] = h[y * W + 7];
+    expect(Math.max(...stairsOf(W, H, h, dry, 0).map((s) => s.n))).toBeLessThanOrEqual(STAIR_LONGEST);
   });
 
   it("has one broken ground for every land invariant", () => {

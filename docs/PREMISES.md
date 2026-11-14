@@ -1753,6 +1753,36 @@ longest straight stretch of the lake's shore, of its main arm, rose from 0.16 to
 shorter, the side arms bend at their two points); 256² seed 9 keeps 8 tiles of a brook's film (0.07 deep) on its
 meadow, as round 3's brooks did on 7 maps of 24.
 
+**The gate's fifth round** (planning's look verdict of 2026-11-14 on round 4: the widest views pass at all three sizes;
+the edge hills read as long straight stairs of equal one-level steps):
+- **The rim's terraces wander** (`gateLand.ts` `RIM_TERRACE`). The hills toward the edge rise along contours warped 5
+  tiles off the edge's line, their rise a tile scaled by up to 2^±1.1 so their treads run 1 to 6 tiles, their steps'
+  edges wandering a tile, and where a noise of 13 tiles passes 0.18 two steps (0.36: three) rise as one riser.
+- **No straight stair longer than 8 tiles, anywhere** (`breakStairs`, `STAIR_JOG`). Most of the long ones were on the
+  range's flanks and top (the flat-dome pass drew some), not the rim: after the mends, and again with each dome pass, a
+  stair's riser steps back a tile (its lower tread's tiles rise onto it) for 2 or 3 tiles each 3 to 6 along it; by the
+  water, where the lower tread is its bank, its tread's first tiles rise a level instead. Only raised, never on stage
+  1's ground nor within 2.5 tiles of the water or a crest. `stairRun` (`gateMeasures.ts`) reads the longest: across a
+  row or column a tread between two one-level steps up, and how many neighbours along its contour have the same tread
+  at the same level.
+- **No hollow by the water fills** (`fillPits`, `PIT_FILL`). The ground's closed hollows, read by the least brim they
+  spill over to the edge or a water's bed, each reached by wet water over ground no higher than its planned surface +
+  0.5 (settled water stands up to a third of a level over its plan: 256² seed 9's brook, planned at 7.68, settled at
+  8.01 over its meadow at 8 and into a hollow a level under it), are raised to the brim.
+
+**Measured, round 5** (seeds 1 to 12 at each size, 2026-11-14): 36 of 36 hold, every start check passing. The start's
+numbers, mean and least: level land 1056 and 807 (128²), 884 and 651 (192²), 1001 and 653 (256²); wood 371, 380 and 388,
+225 the least (256²); the wood floor 500, 489 and 608, 283 the least; food 33 the least (192² seed 1, 256² seed 8; 40
+before, its floor 30); water 2.1, 2.3 and 2.6 tiles off on the mean, 3 at the furthest. The longest straight stair: 5 to
+8 tiles at every size (before, over 8 on 5 maps of 12 at 128², 9 at 192² and 11 at 256², up to 12, 14 and 15 tiles,
+most on the range); stray water in
+the settle on none of 36 (256² seed 9's 8 tiles gone); round 4's measures hold (angle 40 to 73° and 2 to 11 side arms
+over 128², sheet 20 to 30 %, the dry side 45 to 55 %, ruins on 36 of 36). 256² seeds 1 to 3, measured alone: 19.6, 8.4
+and 4.5 s, 10.8 on the mean (16.5, 7.7 and 4.4 at round 4; seed 1 holds on its sixth plan, and the stairs and hollows
+cost 0.4 s of its 17), under the 12 s asked, so the wider Low River stays as it is. **Short:** food's
+least fell from 40 to 33; a 2 × 2 knob two levels over the ground stands on 128² seed 5's far edge, as it did before
+this round.
+
 **Measured, the brooks' round** (seeds 1 to 12 at 128², 192² and 256², 2026-11-14, before the look round): 36 of 36 make a map, every start check passing.
 The start's numbers over the 36, mean and least: level land 989 and 667 tiles (192² seed 5), wood 398 and 253 (192²
 seed 7), the wood floor 553 and 301 (256² seed 10), food 52 and 48; water 2.4 tiles off on the mean, 3.8 at the

@@ -42,7 +42,7 @@ import type { Point, PremisePlan } from "./types";
 import type { StageWater } from "./water";
 import { CREST_VARIES, gateOf, onLocal, onMap, rangeAt, sideOf, spineLocal, turnOf, type GateNumbers } from "./premises/wallGate";
 import { ruledLand } from "../validate/ruledLand";
-import { wallFoot } from "./gateMeasures";
+import { STAIR_LONGEST, stairsOf, wallFoot } from "./gateMeasures";
 import { RISE_RUINS } from "./life";
 
 /** The range's shape across it: the spine read through a warp of `warp` tiles (noise `warpCell` across), its half-widths
@@ -308,6 +308,11 @@ export const BASIN_MARKS = { mesas: 2, mesaR: [4, 6.5], mesaTop: [5, 6], shoulde
  *  tiles levels over its level, rounded and within `range` (`fade` and `cell` × 0.75 + 0.25 × side ÷ 128): swells a few
  *  levels from trough to crest some 20 to 25 tiles apart, over half the floor at its level or under, where a canal
  *  from the Gate runs (and the hills toward the edge as wide as at 128² × that growth, not the side's tenth). */
+/** The rim's terraces (planning's look verdict of 2026-11-14 on round 4): its contours warped `warp` tiles off the
+ *  edge's line (noise of `warpCell`), its rise per tile scaled by up to 2^±`tread`/2 (noise of `treadCell`) so its treads
+ *  run 1 to 6 tiles, its steps' edges wandering by `jitter` of a level (noise of `jitterCell`), and where noise of
+ *  `joinCell` passes `join` two or three steps rise as one. */
+export const RIM_TERRACE = { warp: 5, warpCell: 11, tread: 2.2, treadCell: 9, jitter: 1.1, jitterCell: 5, join: [0.18, 0.36], joinCell: 13 } as const;
 export const BASIN_ROLL = { cell: 10, amp: 12, lift: -1.8, range: [-3, 4], fade: 6 } as const;
 
 /** The rise over the ground round it (`gateRelief`): its top `top` of its radius, the ground `ring` tiles round it. */
@@ -454,12 +459,20 @@ function basinAt(g: GateNumbers, pu: number, pv: number, x: number, y: number, u
   }
   // the rim: hills toward the map's edge, their tops uneven under the gap's saddle + 1
   {
-    const e = Math.min(u, N - u, N - v);
+    // (their contours warped off the edge's line, `RIM_TERRACE`: read square to the edge, they ran as long straight
+    // stairs of equal treads, planning's look verdict of 2026-11-14 on round 4)
+    const e = Math.min(u, N - u, N - v) + RIM_TERRACE.warp * fbm(s.hill + 11, x, y, RIM_TERRACE.warpCell, 2);
     // (over 128², where the floor rolls, as wide as 128² × the map's growth, not the side's)
     const rim = BASIN_LAND.rim * (N > 128 ? 128 * m : N) * (1 + 0.6 * fbm(s.hill + 1, x, y, 27, 2));
     if (e < rim) {
       const cap = g.saddle + 1 + BASIN_LAND.cap * fbm(s.hill + 3, x, y, 6, 2);
-      L = Math.max(L, Math.min(cap, floor + 0.6 + (rim - e) * BASIN_LAND.rise + BASIN_LAND.hills * (0.2 + fbm(s.hill, x, y, 17, 3))));
+      // (its treads 1 to 6 tiles by turns, its steps' edges wandering a tile, and two or three steps one riser here
+      // and there)
+      const rise = BASIN_LAND.rise * pow(2, RIM_TERRACE.tread * fbm(s.hill + 12, x, y, RIM_TERRACE.treadCell, 2));
+      const z = (rim - e) * rise + BASIN_LAND.hills * (0.2 + fbm(s.hill, x, y, 17, 3)) + RIM_TERRACE.jitter * fbm(s.hill + 13, x, y, RIM_TERRACE.jitterCell, 2);
+      const j = fbm(s.hill + 14, x, y, RIM_TERRACE.joinCell, 2);
+      const k = j > RIM_TERRACE.join[1] ? 3 : j > RIM_TERRACE.join[0] ? 2 : 1;
+      L = Math.max(L, Math.min(cap, floor + 0.6 + k * Math.floor(z / k + 0.5)));
     }
   }
   // the landmarks
@@ -1066,7 +1079,9 @@ export function gateLand(plan: PremisePlan, water: StageWater, style?: ReliefSty
   // `COLUMN.size` tiles standing two or more over every neighbour is lowered into them (`range.columns`'s ground); and
   // no flat wider than four tiles on the range (`range.flat`; planning's verdict of 2026-11-14 on round 2: it cannot
   // fail): a flat's middle, two tiles or more in from its edge, rises a level (the crest domes; at the map's top it
-  // sinks one instead), by turns till neither is left
+  // sinks one instead), by turns till neither is left; and no straight stair longer than 8 tiles (`breakStairs`: the
+  // domes drew some on the range's top)
+  let jogs = breakStairs(plan, water, heights);
   {
     const own = columnGround(plan, water);
     for (let pass = 0; pass < 4; pass++) if (!lowerColumns(heights, plan.W, plan.H, own)) break;
@@ -1081,10 +1096,161 @@ export function gateLand(plan: PremisePlan, water: StageWater, style?: ReliefSty
         heights[i] = heights[i] < top ? heights[i] + 1 : heights[i] - 1;
         any = true;
       }
-      if (!lowerColumns(heights, plan.W, plan.H, own) && !any) break;
+      const more = breakStairs(plan, water, heights);
+      jogs += more;
+      if (!lowerColumns(heights, plan.W, plan.H, own) && !any && !more) break;
     }
   }
+  if (jogs) notes.push(`${jogs} tile${jogs === 1 ? "" : "s"} raised where a stair ran straight`);
+  const pits = fillPits(plan, water, heights);
+  if (pits) notes.push(`${pits} tile${pits === 1 ? "" : "s"} of hollow by the water raised to its brim`);
   return { water, heights, niches, laid, notes, ...(marks.rise ? { ruinsAt: [Math.floor(marks.rise[0]), Math.floor(marks.rise[1])] as [number, number] } : {}) };
+}
+
+/** A straight stair's break (`breakStairs`): each `every` tiles along it (seeded, from the last break, on the first
+ *  tiles that can take one), `len` tiles of its lower tread rise a level, its riser stepping back a tile there (or, by the water, its
+ *  tread's first tiles, the riser stepping forward); never on stage 1's ground nor within `clear` of the water or a
+ *  crest. */
+export const STAIR_JOG = { every: [3, 6], len: [2, 3], clear: 2.5, passes: 4 } as const;
+
+/** No straight stair longer than `STAIR_LONGEST` (planning's look verdict of 2026-11-14 on round 4: long straight stairs
+ *  of equal one-level steps on the range's flanks and the rim, read as drawn with a ruler): each one's riser steps back
+ *  a tile here and there along it (`STAIR_JOG`), its ground only raised (no way out of the valley opens). The tiles
+ *  raised. */
+export function breakStairs(plan: PremisePlan, water: StageWater, h: Uint8Array): number {
+  const { W, H } = plan;
+  const r = water.raster;
+  const N = W * H;
+  const planned = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (r.lake[i] || r.channel[i] || r.pool[i] || r.crest[i]) planned[i] = 1;
+  const dist = distanceFrom(planned, W, H);
+  // (stage 1's own ground stands as it is; the land beside it may rise)
+  const near = Float64Array.from(dist, (d, i) => (r.fixed[i] ? 0 : d));
+  const wet = (i: number) => !!(r.lake[i] || r.channel[i] || r.pool[i]);
+  const sd = seedOf(plan, "gate", "stairs");
+  let raised = 0;
+  for (let pass = 0; pass < STAIR_JOG.passes; pass++) {
+    const stairs = stairsOf(W, H, h, wet, STAIR_LONGEST);
+    if (!stairs.length) break;
+    for (const st of stairs) {
+      const [px, py] = [st.dy === 0 ? 0 : 1, st.dy === 0 ? 1 : 0];
+      const pick = (k: number, [a, b]: readonly [number, number]) => a + (((sd >>> 0) + 7919 * (st.x + 31 * st.y) + 104729 * k) % (b - a + 1));
+      // (its lower tread's tile by the riser rises onto the tread; by the water, the tread's first tile rises a level
+      // instead, the riser stepping forward)
+      const jog = (q: number): boolean => {
+        const t0 = (st.y + py * q) * W + st.x + px * q;
+        const [x, y] = [st.x + px * q - st.dx, st.y + py * q - st.dy];
+        const i = x < 0 || y < 0 || x >= W || y >= H ? -1 : y * W + x;
+        if (i >= 0 && near[i] > STAIR_JOG.clear && h[i] === h[t0] - 1) h[i] = h[t0];
+        else if (near[t0] > STAIR_JOG.clear && (i < 0 || h[i] === h[t0] - 1)) h[t0]++;
+        else return false;
+        raised++;
+        return true;
+      };
+      // (a jog wherever the stair has run its seeded stretch since the last, on the first tiles that can take one)
+      let since = 0;
+      let k = 0;
+      let want = pick(k, STAIR_JOG.every);
+      for (let q = 0; q < st.n; q++) {
+        if (++since < want) continue;
+        const len = pick(++k, STAIR_JOG.len);
+        let did = false;
+        for (let qq = q; qq < Math.min(st.n, q + len); qq++) did = jog(qq) || did;
+        if (!did) continue;
+        since = 0;
+        want = pick(k + 50, STAIR_JOG.every);
+        q += len - 1;
+      }
+    }
+  }
+  return raised;
+}
+
+/** How far over a water's planned surface the ground it reaches may stand, in levels (its settled water stands over
+ *  its plan by up to a third of a level: 256² seed 9's brook, planned at 7.68, settled at 8.01 over its meadow at 8). */
+export const PIT_FILL = { over: 0.5 } as const;
+
+/** No hollow by the water fills with it (planning's look verdict of 2026-11-14 on round 4: 256² seed 9 held 8 tiles of
+ *  a brook's water a level deep in a hollow beside it, over a bank at the water's level): the ground's closed hollows
+ *  off the water, read by the least brim they spill over (to the map's edge or any water's bed), each one wet water
+ *  reaches (over ground no higher than its planned surface + `PIT_FILL.over`) raised to its brim. The tiles raised. */
+export function fillPits(plan: PremisePlan, water: StageWater, h: Uint8Array): number {
+  const { W, H } = plan;
+  const r = water.raster;
+  const N = W * H;
+  const onWater = (i: number) => !!(r.lake[i] || r.channel[i] || r.pool[i]);
+  const wetAt = (i: number): number => {
+    if (r.pool[i]) return r.surface[i];
+    if (r.lake[i]) return plan.bodies[r.lake[i] - 1].dry ? NaN : r.surface[i];
+    if (r.channel[i]) {
+      const l = plan.links[r.channel[i] - 1];
+      return l.wet && !(water.table.links[l.id]?.shut ?? false) ? r.surface[i] : NaN;
+    }
+    return NaN;
+  };
+  const near = (i: number) => {
+    const x = i % W;
+    return [i - W, i + W, x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1].filter((j) => j >= 0 && j < N);
+  };
+  const top = Math.max(...h) + 1;
+  // the highest ground each tile's water reaches it over (wet water's, highest first), -1 where none does
+  const reach = new Int16Array(N).fill(-1);
+  {
+    const buckets: number[][] = Array.from({ length: top + 1 }, () => []);
+    for (let i = 0; i < N; i++) {
+      const s = wetAt(i);
+      if (!(s >= 0)) continue;
+      const lim = Math.min(top, Math.floor(s + PIT_FILL.over));
+      reach[i] = lim;
+      buckets[lim].push(i);
+    }
+    for (let lv = top; lv >= 0; lv--)
+      for (let k = 0; k < buckets[lv].length; k++) {
+        const i = buckets[lv][k];
+        if (reach[i] > lv) continue;
+        for (const j of near(i))
+          if (reach[j] < lv && !onWater(j) && h[j] <= lv) {
+            reach[j] = lv;
+            buckets[lv].push(j);
+          }
+      }
+  }
+  // the brim each tile drains over (a flood from the edge and the water's beds, lowest first)
+  const brim = new Float64Array(N).fill(Infinity);
+  const buckets: number[][] = Array.from({ length: top + 1 }, () => []);
+  for (let i = 0; i < N; i++) {
+    const x = i % W;
+    const y = (i - x) / W;
+    if (onWater(i) || x === 0 || y === 0 || x === W - 1 || y === H - 1) {
+      brim[i] = h[i];
+      buckets[h[i]].push(i);
+    }
+  }
+  for (let lv = 0; lv <= top; lv++)
+    for (let k = 0; k < buckets[lv].length; k++)
+      for (const j of near(buckets[lv][k])) {
+        if (brim[j] !== Infinity) continue;
+        brim[j] = Math.max(h[j], lv);
+        buckets[brim[j]].push(j);
+      }
+  // each hollow (its tiles under their brim, joined), raised where wet water reaches it
+  const seen = new Uint8Array(N);
+  let raised = 0;
+  for (let i0 = 0; i0 < N; i0++) {
+    if (seen[i0] || !(brim[i0] > h[i0])) continue;
+    const pit: number[] = [i0];
+    seen[i0] = 1;
+    for (let k = 0; k < pit.length; k++)
+      for (const j of near(pit[k]))
+        if (!seen[j] && brim[j] > h[j] && brim[j] === brim[i0]) {
+          seen[j] = 1;
+          pit.push(j);
+        }
+    if (!pit.some((i) => reach[i] >= brim[i0])) continue;
+    for (const i of pit) h[i] = brim[i0];
+    raised += pit.length;
+  }
+  return raised;
 }
 
 // ------------------------------------------------------------------------------------------------- the land's invariants

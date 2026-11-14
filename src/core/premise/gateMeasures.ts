@@ -512,3 +512,58 @@ export function lakeLeaves(plan: PremisePlan, water: StageWater, heights: ArrayL
     }
   return { angle: (d * 180) / Math.PI, arms: reaches.filter((q) => q >= 0.25).length, longest: Math.max(0, ...reaches), byFoot: shore ? near / shore : 0 };
 }
+
+/** The longest straight stair on the Gate's land a look may show (planning's look verdict of 2026-11-14 on round 4). */
+export const STAIR_LONGEST = 8;
+
+/** A straight stair: `n` tiles from (`x`, `y`) along the line square to (`dx`, `dy`), each the first tile of a tread `t`
+ *  long across it, a one-level step of sign `s` before it and after it. */
+export type Stair = { n: number; x: number; y: number; dx: number; dy: number; t: number; s: number };
+
+/** The straight stairs longer than `longer` tiles on ground `heights` (`stairRun`), its water's tiles (`wet`) none. */
+export function stairsOf(W: number, H: number, heights: ArrayLike<number>, wet: (i: number) => boolean, longer: number): Stair[] {
+  const h = (x: number, y: number) => heights[y * W + x];
+  const off = (x: number, y: number) => x < 0 || y < 0 || x >= W || y >= H || wet(y * W + x);
+  // the stair code at (x, y) across (dx, dy): its tread's length × its steps' sign, or 0
+  const code = (x: number, y: number, dx: number, dy: number): number => {
+    if (off(x - dx, y - dy) || off(x, y)) return 0;
+    const s = h(x, y) - h(x - dx, y - dy);
+    if (s !== 1 && s !== -1) return 0;
+    let t = 0;
+    let [xx, yy] = [x, y];
+    while (!off(xx, yy) && h(xx, yy) === h(x, y)) {
+      t++;
+      [xx, yy] = [xx + dx, yy + dy];
+    }
+    return off(xx, yy) || h(xx, yy) - h(x, y) !== s ? 0 : s * t;
+  };
+  const out: Stair[] = [];
+  // (each stair read from its lower side: across +x and +y climbing, and -x and -y)
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+    const [px, py] = [dy === 0 ? 0 : 1, dy === 0 ? 1 : 0];
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const c = code(x, y, dx, dy);
+        if (c <= 0) continue;
+        // (only from a run's first tile)
+        if (x - px >= 0 && y - py >= 0 && code(x - px, y - py, dx, dy) === c && h(x - px, y - py) === h(x, y)) continue;
+        let n = 1;
+        while (x + px * n < W && y + py * n < H && code(x + px * n, y + py * n, dx, dy) === c && h(x + px * n, y + py * n) === h(x, y)) n++;
+        if (n > longer) out.push({ n, x, y, dx, dy, t: c, s: 1 });
+      }
+  }
+  return out;
+}
+
+/** The longest straight stair on the Gate's land (planning's look verdict of 2026-11-14 on round 4: the edge hills
+ *  read as long straight stairs of equal one-level steps): across a row or column, a tread that starts at a one-level
+ *  step up and runs `t` tiles to the next one-level step up, read at each tile along the line square to it; the longest
+ *  run of neighbours there with the same stair (its tread and level), in tiles, and where it starts. Water's tiles are
+ *  no stair. */
+export function stairRun(plan: PremisePlan, water: StageWater, heights: ArrayLike<number>): { run: number; at: Point } {
+  const r = water.raster;
+  const all = stairsOf(plan.W, plan.H, heights, (i) => !!(r.lake[i] || r.channel[i] || r.pool[i]), 0);
+  let best: Stair | null = null;
+  for (const st of all) if (!best || st.n > best.n) best = st;
+  return best ? { run: best.n, at: [best.x, best.y] } : { run: 0, at: [0, 0] };
+}
