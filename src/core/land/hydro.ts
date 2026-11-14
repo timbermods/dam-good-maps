@@ -1414,13 +1414,76 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     // pools: below a drop the water scours its bed a level deeper for a few tiles, where the reach
     // below is long enough to keep a lip (pools and riffles: standing water deep enough to pump)
     const bedOf = prof.slice();
+    const poolAt: number[] = [];
     for (let j = 1; j <= n; j++) {
       if (!(prof[j - 1] - prof[j] >= 1) || prof[j] < BED_FLOOR + 1) continue;
       let level = 0;
       for (let q = j; q <= n && prof[q] === prof[j]; q++) level++;
-      if (level >= 8) for (let q = j; q < j + 3; q++) bedOf[q] = prof[j] - 1;
+      if (level >= 8) poolAt.push(j);
     }
     carve(st, bedOf, L, n, half, floorHalf);
+    // (a pool is cut only inside banks that hold it: every tile beside it but its outflow, the
+    // channel below it, stands at the pool's water, its bed above it, or higher; else its water finds
+    // a lower way out, back by an inflow's own edge or over a low bank to another, and the course
+    // check refuses the land (investigation attempts-256, cause A). Never a raised lip: where the
+    // banks don't hold, the bed stays as it is)
+    if (poolAt.length) {
+      const poolTiles = new Map<number, number[]>();
+      const inChannel = new Map<number, number>();
+      for (const i of st.tiles) {
+        if (mouthBank[i] || water[i] === 2 || !(st.d[i] < half(st.s[i], L))) continue;
+        inChannel.set(i, Math.min(n, Math.max(0, Math.round((st.s[i] / L) * n))));
+      }
+      for (const j of poolAt) poolTiles.set(j, []);
+      // (an inflow's pool holds only below the level its own edge lets water out at, beside its
+      // mouth: the spill level with that edge draining, every inflow's mouth row sealed, on the land
+      // as carved so far; at that level or over it, the pool's standing water runs back out there)
+      let backFill: Float64Array | null = null;
+      if (natural && hd.kind === "edge") {
+        const e = hd.edge!;
+        const vertical = e === "west" || e === "east";
+        const mouths = new Set<number>();
+        for (const m of mouthRows.values()) if (m.edge === e) for (const a of m.along) mouths.add(a);
+        backFill = drainage(h, W, H, { eight: false, outlet: (i) => edgeOf(i, W, H) === e && !mouths.has(vertical ? (i - (i % W)) / W : i % W) }).filled;
+      }
+      for (const [i, k] of inChannel)
+        for (const j of poolAt)
+          if (k >= j && k < j + 3 && h[i] === prof[j]) poolTiles.get(j)!.push(i);
+      for (const j of poolAt) {
+        const tiles = poolTiles.get(j)!;
+        if (!tiles.length) continue;
+        const inPool = new Set(tiles);
+        let holds = true;
+        for (const i of tiles) {
+          if (backFill && !(backFill[i] > prof[j])) {
+            holds = false;
+            break;
+          }
+          const x = i % W;
+          const y = (i - x) / W;
+          for (const [dx, dy] of N4) {
+            const xx = x + dx;
+            const yy = y + dy;
+            if (xx < 0 || yy < 0 || xx >= W || yy >= H) {
+              holds = false;
+              break;
+            }
+            const q = yy * W + xx;
+            if (inPool.has(q)) continue;
+            const k = inChannel.get(q);
+            if (k !== undefined && k >= j + 3) continue;
+            if (h[q] < prof[j]) {
+              holds = false;
+              break;
+            }
+          }
+          if (!holds) break;
+        }
+        if (!holds) continue;
+        for (const i of tiles) h[i] = prof[j] - 1;
+        for (let q = j; q < j + 3 && q <= n; q++) bedOf[q] = prof[j] - 1;
+      }
+    }
     // (M9b: an inflow's mouth, the rule's row (D314), stays level for its first three rows, its
     // bed there: the edge's banks beside it are kept, and its sources stand on one level)
     const mr = mouthRows.get(tr.k);
