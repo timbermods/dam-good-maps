@@ -2,6 +2,7 @@
 // thumbnail colours) with tile coordinates in the margins, so a picture can be read back as tiles. North (higher Y)
 // is up, as in the map's thumbnail. Layers draw one field of the map instead of its look.
 
+import { shownWater, startTile } from "./maps";
 import type { MapSession } from "../../src/core/doc/session";
 import { shadeTiles } from "../../src/core/render/shade";
 import { encodePng } from "../../tools/png";
@@ -40,6 +41,7 @@ function tileColours(s: MapSession, layer: Layer): Uint8Array {
   const b = s.built;
   const { W, H } = b;
   const N = W * H;
+  const { depth: water, contamination } = shownWater(s);
   const out = new Uint8Array(N * 3);
   const put = (i: number, c: RGB) => {
     out[i * 3] = c[0];
@@ -47,10 +49,10 @@ function tileColours(s: MapSession, layer: Layer): Uint8Array {
     out[i * 3 + 2] = c[2];
   };
   if (layer === "map") {
-    const rgb = shadeTiles(b.heights, W, H, b.water);
+    const rgb = shadeTiles(b.heights, W, H, water);
     out.set(rgb);
     // badwater shows purple, as the tools' pictures show it
-    for (let i = 0; i < N; i++) if (b.water[i] > 0.05 && b.contamination[i] >= 0.05) put(i, [150, 60, 170]);
+    for (let i = 0; i < N; i++) if (water[i] > 0.05 && contamination[i] >= 0.05) put(i, [150, 60, 170]);
     return out;
   }
   let hi = 0;
@@ -68,14 +70,14 @@ function tileColours(s: MapSession, layer: Layer): Uint8Array {
       const k = b.heights[i] % 2 ? 1.08 : 0.94;
       put(i, [Math.min(255, c[0] * k), Math.min(255, c[1] * k), Math.min(255, c[2] * k)]);
     } else if (layer === "depth") {
-      const d = b.water[i];
+      const d = water[i];
       put(i, d > 0.05 ? ramp([[170, 220, 250], [60, 130, 210], [10, 30, 110]], d / 4) : ground);
     } else if (layer === "moisture") {
       const m = b.moisture[i];
-      put(i, b.water[i] > 0.05 ? [60, 110, 200] : m > 0 ? ramp([[150, 200, 90], [30, 120, 40]], m / 4) : ground);
+      put(i, water[i] > 0.05 ? [60, 110, 200] : m > 0 ? ramp([[150, 200, 90], [30, 120, 40]], m / 4) : ground);
     } else {
-      const wet = b.water[i] > 0.05;
-      const c = wet ? b.contamination[i] : 0;
+      const wet = water[i] > 0.05;
+      const c = wet ? contamination[i] : 0;
       const soil = b.soilContamination[i];
       put(i, wet ? (c >= 0.05 ? ramp([[200, 130, 220], [110, 20, 140]], c) : [60, 110, 200]) : soil > 0 ? [190, 120, 160] : ground);
     }
@@ -155,7 +157,7 @@ export function picture(s: MapSession, opts: { layer?: Layer; region?: Region } 
     if (e.template === "WaterSource") dot(e.x, e.y, [255, 255, 255], false);
     else if (e.template === "BadwaterSource") dot(e.x, e.y, [255, 60, 220], false);
   }
-  const st = s.built.start;
+  const st = startTile(s);
   if (st) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) dot(st.x + dx, st.y + dy, [230, 20, 20], true);
   const legend = {
     map: "The map's look: land shaded by height, water blue, badwater purple.",

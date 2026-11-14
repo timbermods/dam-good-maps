@@ -9,7 +9,7 @@ import { polygonMask } from "../../src/core/features/geometry";
 import { waterStory } from "../../src/core/analysis/story";
 import { standingForms } from "../../src/core/analysis/vertical";
 import { THEME_NAMES } from "../../src/core/spec/mapspec";
-import { rowOf } from "./maps";
+import { rowOf, shownWater, startTile } from "./maps";
 
 type Rect = { x0: number; y0: number; x1: number; y1: number };
 
@@ -49,16 +49,17 @@ export function summaryOf(s: MapSession, checks: CheckGroups | null): string {
   const spec = s.spec;
   const lines: string[] = [];
   lines.push(`${s.meta.name}: ${b.W}×${b.H} tiles${spec ? `, ${THEME_NAMES[spec.theme]}, seed ${spec.seed}, designed for ${spec.designedFor}` : ", an opened map"}.`);
-  const st = b.start;
+  const st = startTile(s);
+  const { depth, contamination } = shownWater(s);
   lines.push(st ? `Start: X ${st.x} · Y ${st.y}, level ${st.z}.` : "Start: none. Place one before saving.");
   let wet = 0;
   let bad = 0;
   let deepest = 0;
-  for (let i = 0; i < b.water.length; i++)
-    if (b.water[i] > 0.05) {
+  for (let i = 0; i < depth.length; i++)
+    if (depth[i] > 0.05) {
       wet++;
-      if (b.contamination[i] >= 0.05) bad++;
-      deepest = Math.max(deepest, b.water[i]);
+      if (contamination[i] >= 0.05) bad++;
+      deepest = Math.max(deepest, depth[i]);
     }
   const sources = b.entities.filter((e) => e.template === "WaterSource").length;
   const badSources = b.entities.filter((e) => e.template === "BadwaterSource").length;
@@ -108,7 +109,8 @@ export function describeMap(s: MapSession, opts: { tiles?: [number, number][]; c
   const { W, H } = b;
   const N = W * H;
   const wet = new Uint8Array(N);
-  for (let i = 0; i < N; i++) wet[i] = b.water[i] > 0.05 ? 1 : 0;
+  const { depth, contamination } = shownWater(s);
+  for (let i = 0; i < N; i++) wet[i] = depth[i] > 0.05 ? 1 : 0;
   const { labels, sizes } = components(wet, W, H);
   const bodies = sizes.map((size, k) => ({ k, size, tiles: [] as number[], bad: 0, deepest: 0, volume: 0 }));
   for (let i = 0; i < N; i++) {
@@ -116,9 +118,9 @@ export function describeMap(s: MapSession, opts: { tiles?: [number, number][]; c
     if (k < 0) continue;
     const body = bodies[k];
     body.tiles.push(i);
-    if (b.contamination[i] >= 0.05) body.bad++;
-    body.deepest = Math.max(body.deepest, b.water[i]);
-    body.volume += b.water[i];
+    if (contamination[i] >= 0.05) body.bad++;
+    body.deepest = Math.max(body.deepest, depth[i]);
+    body.volume += depth[i];
   }
   const sourceList = b.entities.filter((e) => e.template === "WaterSource" || e.template === "BadwaterSource");
   const water = bodies
@@ -208,12 +210,12 @@ export function describeMap(s: MapSession, opts: { tiles?: [number, number][]; c
       const y = (f.peak - x) / W;
       return { peak: [x, y], level: b.heights[f.peak], rises: f.prominence, tiles: f.tiles.length, area: boundsOf(f.tiles, W) };
     });
-  const story = waterStory(W, H, b.water, s.features, b.contamination);
+  const story = waterStory(W, H, depth, s.features, contamination);
   const out: Record<string, unknown> = {
     name: s.meta.name,
     size: { x: W, y: H },
     coordinates: "Tiles: X 0 to width−1 from west to east, Y 0 to height−1 from south to north. A tile's index is y·width + x. Levels count up from 0.",
-    start: b.start ? { x: b.start.x, y: b.start.y, z: b.start.z } : null,
+    start: startTile(s),
     description: s.description().text,
     water: { bodies: water, story: { mainShare: story.mainShare, otherSystems: story.systems, ponds: story.ponds, readable: story.readable } },
     sources,

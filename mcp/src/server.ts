@@ -10,10 +10,12 @@ import specSchema from "../../src/core/spec/mapspec.schema.json" with { type: "j
 import { INTENTIONS, INTENTION_TEXT } from "../../src/core/land/intentions";
 import { naturalSize as craterAcross } from "../../src/core/forces/craterize";
 import { naturalSize as eruptAcross } from "../../src/core/forces/erupt";
-import { SIZE_PRESETS, THEMES } from "../../src/core/spec/mapspec";
+import { PREMISE_CHOICES, PREMISE_IDS, PREMISE_NAMES, SIZE_PRESETS, THEME_NAMES, THEMES } from "../../src/core/spec/mapspec";
+import { PREMISE_THEMES } from "../../src/core/premise/choice";
+import { openPlaceSession, placeOf, placesIndex } from "./places";
 import { describeMap, summaryOf } from "./describe";
 import { jobOf, secondsOf, startGenerate, waitFor, WAIT_MS, type Job } from "./jobs";
-import { applyOps, checksOf, FORCE_DEFAULTS, mapOf, mapsFolder, MOST_OPEN, openMap, Refused, rowOf, saveMap, undoStep, type Made } from "./maps";
+import { applyOps, checksOf, FORCE_DEFAULTS, keepMap, mapOf, mapsFolder, MOST_OPEN, openMap, Refused, rowOf, saveMap, undoStep, type Made } from "./maps";
 import { LAYERS, picture, type Layer, type Region } from "./picture";
 
 export const SERVER_VERSION = "0.2.0";
@@ -23,7 +25,7 @@ const WAIT_WORDS = `about ${Math.round(WAIT_MS / 1000)} seconds`;
 
 const INSTRUCTIONS = `Dam Good Maps makes and edits maps for the game Timberborn.
 Follow these rules:
-1. To get a map with a character, steer the generator. Use generate with a theme, settings and intentions. Do not build a map by hand.
+1. To get a map with a character, steer the generator. Use generate with a theme, a premise, settings and intentions. Do not build a map by hand. For a real place, call places, then generate with that place alone.
 2. After each map, tell the player what emerged and what did not. Use the summary and describe. Do not claim a feature that the map does not have. If an intention the player wants did not emerge, generate again with another seed.
 3. To change the shape of the land in one area, use a force (an apply operation "forceResult" with a verb).
 4. Use brushes, sculpts and placements only for precise edits: move the start, widen a river by two tiles, delete a forest, add one source.
@@ -122,6 +124,22 @@ function applySchema(): Tool["inputSchema"] {
   } as Tool["inputSchema"];
 }
 
+/** The premises, from the page's own list (spec/mapspec.ts PREMISE_CHOICES, premise/choice.ts PREMISE_THEMES). */
+const PREMISE_TEXT = [
+  "The idea the map is built around, as the page's Premise list offers it. none (the default): the theme makes the map.",
+  "Any: the seed picks a premise.",
+  ...PREMISE_IDS.map((p) => `${PREMISE_NAMES[p]}: takes the ${PREMISE_THEMES[p].map((t) => THEME_NAMES[t]).join(", ")} styles (theme any picks one).`),
+  "If the premise cannot make this map (its theme, size or settings), the theme makes it and the result says why.",
+  'Example: {"premise": "Lake stair", "theme": "riverValley", "size": 128, "seed": 1}.',
+].join(" ");
+
+/** The real places, from the page's own gallery list (public/real-places/index.json). */
+const PLACE_TEXT = [
+  "A real place by its name or id, from the places tool: the page's Real places.",
+  "A place is a map of its own, made from real land: give it alone, without theme, size, seed, designedFor, settings, premise or intentions.",
+  'Example: {"place": "Near Aso caldera"}.',
+].join(" ");
+
 /** How often an intention emerges, where a count found it rare (generate through this server, 2026-11-14; the seed
  *  named is pinned by mcp/tests/words.test.ts). */
 const ODDS: Partial<Record<(typeof INTENTIONS)[number], string>> = {
@@ -144,8 +162,8 @@ export const TOOLS: Tool[] = [
     name: "generate",
     description: [
       "Make a new Timberborn map with the Dam Good Maps generator.",
-      "Steer the map with the theme, the settings and the intentions. Do not try to build a map by hand.",
-      "The tool returns a handle for the map, a summary and a top-down picture.",
+      "Steer the map with the theme, the premise, the settings and the intentions. Do not build a map by hand. For real land, give a place from the places tool alone.",
+      "It returns a handle, a summary and a top-down picture.",
       "Choose the intentions whose words match the player's wish. Example: for \"two waterfalls side by side\", {\"theme\": \"highlands\", \"size\": \"small\", \"seed\": 4, \"intentions\": [\"twin-falls\"]} gives them.",
       "The summary tells which intentions emerged and which did not. Tell the player honestly what emerged.",
       "An intention that did not emerge leaves a map that is made and saves. To try again for it, call generate with the same input and another seed. Some intentions are rare (see intentions): after about five misses, tell the player it did not come out.",
@@ -169,12 +187,32 @@ export const TOOLS: Tool[] = [
           ...(optional((specSchema as Record<string, any>).properties.settings) as object),
           description: "Changes to the generator's settings, as the page's settings panel sets them. Give only the values to change. The other values stay at the theme's defaults.",
         },
+        premise: {
+          enum: ["none", ...PREMISE_CHOICES.map((p) => PREMISE_NAMES[p])],
+          description: PREMISE_TEXT,
+        },
+        place: { type: "string", description: PLACE_TEXT },
         intentions: {
           type: "array",
           maxItems: 2,
           items: { enum: [...INTENTIONS] },
           description: `Outcomes to steer toward, at most two. The generator tries for each one, but some do not emerge. ${INTENTIONS.map((id) => `${id}: ${INTENTION_TEXT[id]}${ODDS[id] ? ` ${ODDS[id]}` : ""}`).join(" ")}`,
         },
+      },
+    },
+  },
+  {
+    name: "places",
+    description: [
+      "List the real places that generate can open: the page's Real places, maps made from real land.",
+      "Each has its id, name, landform, size in tiles a side and a line on how it plays. Give a landform or a size to list fewer.",
+    ].join(" "),
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        landform: { type: "string", description: "A landform's id or name, such as canyon or Caldera." },
+        size: { type: "integer", description: "Tiles a side: one of the places' sizes." },
       },
     },
   },
@@ -316,7 +354,27 @@ function generated(g: Made): CallToolResult {
     : "";
   const pic = picture(s);
   return {
-    content: [text(`Map ${g.handle} (generated in ${(g.ms / 1000).toFixed(1)} s).\n${summaryOf(s, checksOf(s))}\n${s.description().text}\n${emerged}${retry}\n${pic.legend}`), image(pic.png)],
+    content: [text(`Map ${g.handle} (generated in ${(g.ms / 1000).toFixed(1)} s).\n${summaryOf(s, checksOf(s))}\n${s.description().text}\n${g.premise ? `Premise: ${g.premise}\n` : ""}${emerged}${retry}\n${pic.legend}`), image(pic.png)],
+  };
+}
+
+/** generate with a place: the place opened as the page opens it, alone (a place is a map of its own). */
+async function placeResult(args: Record<string, unknown>, call: CallContext): Promise<CallToolResult> {
+  const others = ["theme", "size", "seed", "designedFor", "settings", "premise", "intentions"].filter((k) => args[k] !== undefined);
+  if (others.length) throw new Refused(`A real place is a map of its own: give place alone, without ${others.join(", ")}`);
+  const name = String(args.place);
+  const p = placeOf(name);
+  if (!p) throw new Refused(`There is no real place called "${name}": the places tool lists them`);
+  await starting(call, `Opening ${p.name}, ${p.size} tiles a side.`);
+  const t0 = performance.now();
+  const s = openPlaceSession(p);
+  const handle = keepMap(s);
+  const pic = picture(s);
+  return {
+    content: [
+      text(`Map ${handle} (a real place, opened in ${((performance.now() - t0) / 1000).toFixed(1)} s).\n${summaryOf(s, checksOf(s))}\n${s.description().text}\n${pic.legend}`),
+      image(pic.png),
+    ],
   };
 }
 
@@ -345,7 +403,18 @@ export async function callTool(name: string, args: Record<string, unknown>, call
   try {
     switch (name) {
       case "generate":
+        if (args.place !== undefined) return await placeResult(args, call);
         return await waitResult(startGenerate(args), call);
+      case "places": {
+        const idx = placesIndex();
+        const fam = args.landform === undefined ? null : String(args.landform).trim().toLowerCase();
+        if (fam !== null && !idx.families.some((f) => f.id === fam || f.name.toLowerCase() === fam)) throw new Refused(`The landform is one of ${idx.families.map((f) => f.id).join(", ")}`);
+        if (args.size !== undefined && !idx.sizes.includes(args.size as number)) throw new Refused(`The places' sizes are ${idx.sizes.join(", ")}`);
+        const list = idx.places
+          .filter((p) => (fam === null || p.family === fam || p.familyName.toLowerCase() === fam) && (args.size === undefined || p.size === args.size))
+          .map((p) => ({ id: p.id, name: p.name, landform: p.familyName, size: p.size, plays: p.plays }));
+        return { content: [text(JSON.stringify({ count: list.length, places: list }))] };
+      }
       case "wait":
         return await waitResult(jobOf(String(args.map)), call);
       case "describe": {
