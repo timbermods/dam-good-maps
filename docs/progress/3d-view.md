@@ -414,10 +414,10 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
 Kyler's notes at the approval of `investigation/3d-view` (item 7, the terrain side; moving water waits for item 4) and
 Standard's shadow before a cave (item 8).
 - **The stone on ceilings:** a run's underside (a cave's ceiling, an overhang's roof seen from below) was a flat mortar
-  colour. It is now the walls' cobbled stone laid on the level plane, its stones along x and its courses along y, at
-  the walls' scale (`materials.ts`, the wall branch with `ceiling`), so it keeps its scale and orientation on ceilings,
-  walls and their corners in both looks (High's strata hook reads the same `along` and `y`); the level lines, the seams
-  between levels and the top's lip stay the walls' alone. Only maps with terrain above terrain have undersides.
+  colour. It is now the walls' stone (since `fix/cliff-face` their rock, "The cliff face as the game draws it") laid on
+  the level plane, along x and up y, at the walls' scale (`materials.ts`, the wall branch with `ceiling`), so it keeps
+  its scale and orientation on ceilings, walls and their corners in every look; the level lines and the top's lip
+  stay the walls' alone (the seams between levels went with `fix/cliff-face`). Only maps with terrain above terrain have undersides.
 - **Interiors that read** (*superseded by D497*: a cave is lit as open ground, "The game's light" below): a cave's least sky rose from 0.30 to 0.55 (`caveLight.ts` `CAVE_SKY_FLOOR`, the volume's
   least byte too) and the walk in from an opening loses 16 a cell instead of 26, so light carries about six cells in
   before the least; deeper in, the sky's light comes bounced off the rock, so walls and ceilings take nearly a floor's
@@ -4174,6 +4174,45 @@ L* here are read over our regions, so they differ from the list above by up to 1
   (+2.0 to +2.5; its pools within ±2), so about 2 of it is the cliffs' own residual ("The land's tone" above); the
   last 1–1.5 is unexplained. (3) The middle curtain's streaks reach 0.69 of the game's at best (2.96 against 4.29),
   whatever the gloss; the gloss is not their cause, and what is has not been found.
+
+## The cliff face as the game draws it (D497, D135 as amended 2026-11-14; `fix/cliff-face`)
+
+Judged on the in-game capture kit's Four Lakes r14 frames (day 1; local only), the close `cave` camera and the
+opening `first` one, ours posed from their cameras (tools/capture-ingame.ts), real Chrome on the RTX 2070 SUPER.
+
+- **The finding:** in the game's `cave` frame the rock is fine-grained and low in contrast; ours was a cobble four to
+  six times too large with thick black mortar, a dark seam at every level and faint vertical cracks, and High drew its
+  own strata over it (#65's). None of it is the game's.
+- **The game's material** (TerrainURP's `Cliff` variant, its pixel program disassembled locally, the `Cliff` material's
+  values; `tools/game-cliff-texture.py`): albedo `CliffDetail` triplanar at world × `_Albedo_Triplanar_Tile` 0.45 (a
+  repeat every 2.2 tiles) × the height gradient, no detail texture; normal `Cliff_N` triplanar at ×
+  `_Normal_Triplanar_Tile` 0.125 (8 tiles), whiteout blend, `_Normalmap_Strength` 1. `CliffDetail`: mean 67.3 / 61.8
+  / 51.7, its luma's spread 0.152 of its mean (0.66 / 0.99 / 1.36 at its 1st, 50th and 99th percentiles), rounded
+  translucent patches with darker bands round them, most of its power at 0.06–0.5 tiles; a blue–red hue spread of
+  0.035. `Cliff_N`: faceted stones in rough courses about half a tile wide and a third tall, slopes spread 0.36 a
+  component at full size and 0.28 at 16 texels a tile. No mortar, no seam at a level, no cracks.
+- **Ours now** (`materials.ts` `ROCK`): our own texture at those statistics, a second layer of the pattern texture (now
+  a two-layer array, one sampler as before), 4 tiles across: R the albedo's lightness, G its hue, B and A the stones'
+  normal. Measured from Chrome (`tools/rock-texture.ts`): spread 0.150 (0.67 / 1.00 / 1.33), hue 0.034; slopes 0.34 /
+  0.36 at full size, 0.28 / 0.29 at 16 texels a tile. A wall's albedo is the game's mean × it × the gradient; its light
+  takes the stones' normal (`litN`: the ambient by it, the sun by n·L and its shadow, the specular); a face turned from
+  the sun takes none through a tilted stone (`faceSun`, as the block shades it in the game). The light look draws the
+  mean, flat. Every look draws the same rock: High's "Rock strata" switch goes (D135 as amended 2026-11-14).
+- **Against the game** (rock pixels, L* by CIE; game / dev Standard / branch, Standard and High the same within 0.1):
+  - `cave` (in shade): mean 15.5 / 17.9 / 14.8; 10th–90th percentile 12.5–18.7 / 14.4–21.2 / 11.2–18.5; on the left
+    face the spread 2.4 / 6.3 / 2.8, its fine part (under 4 px) 1.53 / 3.09 / 1.48, its middle (2–10 px) 1.41 / 3.79 /
+    1.61.
+  - `first` (part in sun): mean 18.6 / 20.6 / 18.1; 10th–90th 15.2–22.8 / 16.4–25.9 / 13.9–22.6; fine 2.21 / 2.45 /
+    2.19. The sunlit faces show the stones' courses as the game's do.
+- **Cost:** none measured. benchOrbit at both cameras, the GPU's median a frame, two runs each, dev → branch: Standard
+  `first` 3.73, 3.63 → 3.52, 3.66 ms, `cave` 3.62, 3.77 → 3.60, 3.64; High `first` 4.43, 4.06 → 4.08, 4.28, `cave`
+  3.18, 3.58 → 3.13, 3.49. One texture read a wall where the cobbles took five.
+- **The sheet:** `C:\dgm-showcase\cliff\face\sheet.png` (local only): both cameras, game | dev | branch in both looks,
+  and the rock at the close camera, game against branch.
+- **Falls short:** (1) Our albedo's power sits a little broader than the game's (0.27 of it at 0.25–0.5 tiles against
+  0.19, 0.11 at 0.06–0.125 against 0.18), and the game's darker bands read longer and wider at the close camera. (2)
+  The `cave` face reads 0.7 L* darker than the game's and its middle scales 1.1 times; the rock is a texture of our
+  own, so it matches the game's statistics, not its texels.
 
 ## The rest of the step (next parts)
 
