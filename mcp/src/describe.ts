@@ -5,6 +5,7 @@ import type { CheckGroups } from "../../src/core/doc/checkItems";
 import { describeTileOf } from "../../src/core/doc/describeTile";
 import type { MapSession } from "../../src/core/doc/session";
 import { components } from "../../src/core/analysis/regions";
+import { polygonMask } from "../../src/core/features/geometry";
 import { waterStory } from "../../src/core/analysis/story";
 import { standingForms } from "../../src/core/analysis/vertical";
 import { THEME_NAMES } from "../../src/core/spec/mapspec";
@@ -155,9 +156,40 @@ export function describeMap(s: MapSession, opts: { tiles?: [number, number][]; c
       const at = place?.x !== undefined ? [place.x, place.y] : place?.at;
       features.push({ id: f.id, kind, ...(at ? { at } : {}), ...(place?.area?.length ? { area: boundsOf(place.area.flatMap(([y, x0, x1]) => Array.from({ length: x1 - x0 + 1 }, (_, k) => y * W + x0 + k)), W) } : {}) });
     } else if (f.kind === "lake") {
-      features.push({ id: f.id, kind: "lake", ...(p.at ? { at: p.at } : {}) });
+      // the basin's tiles (the outline is a polygon in tile coordinates), and the water standing in it now
+      const outline = (p.outline as [number, number][] | undefined) ?? [];
+      const mask = outline.length >= 3 ? polygonMask(outline, W, H) : null;
+      const basin: number[] = [];
+      const wetIn: number[] = [];
+      if (mask) for (let i = 0; i < N; i++) if (mask[i]) (wet[i] ? wetIn : basin).push(i);
+      const outlet = p.outlet as { at?: [number, number]; sill?: number } | undefined;
+      features.push({
+        id: f.id,
+        kind: "lake",
+        ...(p.at ? { at: p.at } : {}),
+        ...(mask ? { basinTiles: basin.length + wetIn.length, wetTiles: wetIn.length, area: boundsOf(wetIn.length ? wetIn : basin, W) } : {}),
+        ...(outlet?.at ? { outlet: { at: [Math.round(outlet.at[0]), Math.round(outlet.at[1])], ...(outlet.sill !== undefined ? { level: outlet.sill } : {}) } } : {}),
+      });
     }
   }
+  // the rivers Carve cut on this map since it was made or last cropped (each a force kept in the history, not a feature)
+  let carved: Record<string, unknown>[] = [];
+  for (const o of s.logOps) {
+    if (o.op === "crop") carved = [];
+    if (o.op !== "forceResult") continue;
+    const p = o.params as unknown as { verb: string; where?: { origin?: [number, number]; end?: [number, number] }; settings?: { dry?: boolean }; tiles?: number[]; source?: { x: number; y: number; strength: number } };
+    if (p.verb !== "carve") continue;
+    const from = p.source ? [p.source.x, p.source.y] : p.where?.origin;
+    carved.push({
+      carved: true,
+      ...(p.settings?.dry ? { dry: true } : {}),
+      ...(from ? { from } : {}),
+      ...(p.where?.end ? { aimedAt: p.where.end } : {}),
+      ...(p.source ? { sourceStrength: p.source.strength } : {}),
+      ...(p.tiles?.length ? { changedTiles: p.tiles.length, area: boundsOf(p.tiles, W) } : {}),
+    });
+  }
+  rivers.push(...carved);
   // the counts of plants and ruins, and where each other object stands
   const counts: Record<string, number> = {};
   const objects: Record<string, unknown>[] = [];
