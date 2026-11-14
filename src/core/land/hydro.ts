@@ -149,6 +149,39 @@ function edgeOf(i: number, W: number, H: number): Edge | null {
   return null;
 }
 
+/** The spill levels with only `edge` draining, but for the positions along it in `sealed` (the
+ *  inflows' mouth rows, which hold their sources): the level at which standing water anywhere leaves
+ *  by that edge. `poolHolds` reads it for an inflow's pool. */
+export function edgeBackFill(h: ArrayLike<number>, W: number, H: number, edge: Edge, sealed: ReadonlySet<number>): Float64Array {
+  const vertical = edge === "west" || edge === "east";
+  return drainage(h, W, H, { eight: false, outlet: (i) => edgeOf(i, W, H) === edge && !sealed.has(vertical ? (i - (i % W)) / W : i % W) }).filled;
+}
+
+/** Whether a pool cut a level or more under `level` (its water, the bed of the reach below) on
+ *  `tiles` is held by its banks (attempts-256, cause A): every tile beside it but its outflow
+ *  (`outflow`, the channel it leaves by) stands at `level` or higher, none lies past the map's
+ *  edge, and with `backFill` (an inflow's `edgeBackFill`, read before the pool is cut) the water
+ *  at `level` cannot run back out by the inflow's own edge. Nothing is raised to make it hold: where
+ *  it doesn't, the pool is not cut. The planned pools below drops use it; so may any later cut below
+ *  a bed (a plunge pool at a fall's foot) once every river is carved. */
+export function poolHolds(h: ArrayLike<number>, W: number, H: number, tiles: readonly number[], level: number, outflow: (i: number) => boolean, backFill: ArrayLike<number> | null = null): boolean {
+  const inPool = new Set(tiles);
+  for (const i of tiles) {
+    if (backFill && !(backFill[i] > level)) return false;
+    const x = i % W;
+    const y = (i - x) / W;
+    for (const [dx, dy] of N4) {
+      const xx = x + dx;
+      const yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H) return false;
+      const q = yy * W + xx;
+      if (inPool.has(q) || outflow(q)) continue;
+      if (h[q] < level) return false;
+    }
+  }
+  return true;
+}
+
 /** The edges on the outlet side of a flow direction (two for a diagonal). */
 function downstreamEdges(dir: number): Edge[] {
   const [fx, fy] = DIRS8[dir];
@@ -1443,10 +1476,9 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       let backFill: Float64Array | null = null;
       if (natural && hd.kind === "edge") {
         const e = hd.edge!;
-        const vertical = e === "west" || e === "east";
         const mouths = new Set<number>();
         for (const m of mouthRows.values()) if (m.edge === e) for (const a of m.along) mouths.add(a);
-        backFill = drainage(h, W, H, { eight: false, outlet: (i) => edgeOf(i, W, H) === e && !mouths.has(vertical ? (i - (i % W)) / W : i % W) }).filled;
+        backFill = edgeBackFill(h, W, H, e, mouths);
       }
       for (const [i, k] of inChannel)
         for (const j of poolAt)
@@ -1454,34 +1486,11 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       for (const j of poolAt) {
         const tiles = poolTiles.get(j)!;
         if (!tiles.length) continue;
-        const inPool = new Set(tiles);
-        let holds = true;
-        for (const i of tiles) {
-          if (backFill && !(backFill[i] > prof[j])) {
-            holds = false;
-            break;
-          }
-          const x = i % W;
-          const y = (i - x) / W;
-          for (const [dx, dy] of N4) {
-            const xx = x + dx;
-            const yy = y + dy;
-            if (xx < 0 || yy < 0 || xx >= W || yy >= H) {
-              holds = false;
-              break;
-            }
-            const q = yy * W + xx;
-            if (inPool.has(q)) continue;
-            const k = inChannel.get(q);
-            if (k !== undefined && k >= j + 3) continue;
-            if (h[q] < prof[j]) {
-              holds = false;
-              break;
-            }
-          }
-          if (!holds) break;
-        }
-        if (!holds) continue;
+        const outflow = (q: number) => {
+          const k = inChannel.get(q);
+          return k !== undefined && k >= j + 3;
+        };
+        if (!poolHolds(h, W, H, tiles, prof[j], outflow, backFill)) continue;
         for (const i of tiles) h[i] = prof[j] - 1;
         for (let q = j; q < j + 3 && q <= n; q++) bedOf[q] = prof[j] - 1;
       }
