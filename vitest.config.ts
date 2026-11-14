@@ -32,6 +32,7 @@ const HEAVY = [
   "tests/contract/premiseGateLand.heavy.test.ts", // the wall with one gate's maps built and checked on four seeds (PREMISES §5.1)
   "tests/contract/premiseStair256.heavy.test.ts", // the lake stair at 256², seeds 1 to 3 in two themes, none falling back (PREMISES §3.3)
   "tests/contract/premiseThreads.heavy.test.ts", // the premise mode on four threads, its drought beside the map, is the one-thread map (D455)
+  "tests/contract/stepRunsMaps.heavy.test.ts", // flights of even one-tile steps on the 84 default maps at 128², against the known list (the look round, item (b))
 ];
 
 export default defineConfig({

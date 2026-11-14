@@ -67,7 +67,7 @@ import { mapShape, startAlong } from "../land/shape";
 import { planHydro, type Hydro } from "../land/hydro";
 import { ACTIVE, checkIntention, INTENTION_TEXT, type IntentionId } from "../land/intentions";
 import type { FormPlan, FormsWanted } from "../land/forms3d";
-import { carveOutlets, widenOutlets, unreachedLakes, cleanPitsAndSpikes, contourField, fillDryHollows, footComponents, mergeSmallRegions, naturalRamps, relaxEdges, snapLevels } from "../land/levels";
+import { breakFlights, carveOutlets, widenOutlets, unreachedLakes, cleanPitsAndSpikes, contourField, fillDryHollows, footComponents, mergeSmallRegions, naturalRamps, relaxEdges, snapLevels } from "../land/levels";
 import { distanceFrom, levelRegions, N4 } from "../math/grid";
 import { hash32 } from "../math/hash";
 import { stream } from "../math/rng";
@@ -2565,6 +2565,14 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           unmove(st[1], 2);
         }
         wanderEdges(h, W, H, hash32(seed, "wander-banks", attempt), movable);
+        // (and no flight of even one-tile steps is left on the dry land, the look round's item (b): the snapped levels'
+        // are broken as they are snapped, `snapLevels`; these are the ones the stages since laid, in the same ground the
+        // wander may move, its pits and spikes taken back there)
+        if (breakFlights(h, W, H, hash32(seed, "flight-break-late", attempt), movable, wetNow)) {
+          const held = new Uint8Array(N);
+          for (let i = 0; i < N; i++) held[i] = movable[i] ? 0 : 1;
+          cleanPitsAndSpikes(h, W, H, held);
+        }
       }
       hLand.set(h);
       // (no dam wall on the pre-fill's water either, the water the settle starts from: a wall the

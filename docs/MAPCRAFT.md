@@ -160,6 +160,14 @@ a premise or one still to come, may carry its own, lower playability floor.
   lake stair failed on its corners alone (rectangular plates of one level, 6 to 15 tiles, half of them on the outlands'
   rim) until D518 turned its plates' scatter off the grid and bent its benches' sides; at 128² it passes now. The real places (`places/`) are warned only. The game's maps are run on the
   machine that holds them: `npx tsx tools/ruled-land.ts <folder>/*.timber`.
+- **No flight of even steps** (the look round's item (b), D518): five or more equal one-tile steps in a straight line,
+  each riser running straight across it, read as a staircase drawn with a ruler (`validate/stepRuns.ts`: along a row, a
+  column or a diagonal, each of five or more dry tiles a level above the one before, the tile next across from each of
+  a step's two tiles standing at its level on one side). The snap moves each riser's rounding threshold by its own
+  noise where the land climbs about a level a tile, and breaks a flight left even with a ledge two tiles deep
+  (`land/levels.ts` `FLIGHT`, `breakFlights`). Themes at 128², seeds 1–12 (84 maps): 1,225 runs on 66 maps before
+  (generator 0.10.22; River Valley 385, Delta 348, Any 175, Highlands 117, Lake Basin 104, Canyon 87, Islands 9), 25 on 9
+  after (0.10.23); a known list holds them and may only shrink.
 
 **Land first, story second** (planning's ruling of 2026-11-11, for every path: themes, premises, hand maps). Every
 landform is one geology makes, shaped by the shared natural relief. A premise is found in or cut into natural land by a

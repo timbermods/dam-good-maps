@@ -29,6 +29,7 @@ import { wanderEdges } from "./wander";
 import { edgeSpill } from "./drainage";
 import { landRegions } from "../analysis/regions";
 import { integrityLevel } from "../features/raster/terrain";
+import { STEP_RUN, stepRuns } from "../validate/stepRuns";
 
 /** The rank of every value in [0, 1] (ties broken by index, so it is exact and stable). */
 function ranks(v: Float64Array): Float64Array {
@@ -54,6 +55,8 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   const st = g.terrace.step;
   const phase = g.benchPhase * st;
   const grade = grader(g.grade, seed, g.variation, W, H);
+  // the graded level of every tile, unrounded
+  const Lg = new Float64Array(N);
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
@@ -68,10 +71,46 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
         L = top - 1 + over / (over + 1) + 0.49 * smoothstep(over / 2);
       }
       const benched = st > 1 && g.terrace.share > 0 && smoothstep((warpedFbm(ts, x, y, g.terrace.cell, 2, g.terrace.cell / 2) + 1) / 2 - (1 - g.terrace.share) + 0.5) > 0.5;
-      L = grade(L, x, y, benched ? st : 1, phase);
-      // (the land stands a level above the beds' floor, item 47)
-      out[i] = clamp(Math.round(L), BED_FLOOR + 1, maxLv);
+      Lg[i] = grade(L, x, y, benched ? st : 1, phase);
     }
+  // a flight of steps (the look round, item (b)): where the graded land climbs about a level a tile, rounding its
+  // smooth ramp would lay even one-tile treads whose risers run straight and parallel, a staircase drawn with a ruler;
+  // there each riser's rounding threshold is moved by its own noise, as much as the land is steep, so the treads run
+  // from none (a two-level step) to two tiles and the risers wander. Gentler ground rounds as it did.
+  const F = FLIGHT;
+  const fs = hash32(seed, "flight", g.variation);
+  // each tile's steepness: the climb a tile through it along the row plus along the column, each the gentler side's
+  // where the land climbs on through it (a cliff's foot or crest is no flight)
+  const steep = new Float64Array(N);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const L = Lg[i];
+      steep[i] = through(x > 0 ? L - Lg[i - 1] : Lg[i + 1] - L, x + 1 < W ? Lg[i + 1] - L : L - Lg[i - 1]) + through(y > 0 ? L - Lg[i - W] : Lg[i + W] - L, y + 1 < H ? Lg[i + W] - L : L - Lg[i - W]);
+    }
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const L = Lg[i];
+      // (the steepest within F.reach tiles, so a flight's ends, where the land eases, are moved as its middle is)
+      let s = 0;
+      for (let yy = Math.max(0, y - F.reach); yy <= Math.min(H - 1, y + F.reach); yy++)
+        for (let xx = Math.max(0, x - F.reach); xx <= Math.min(W - 1, x + F.reach); xx++) s = Math.max(s, steep[yy * W + xx]);
+      const a = F.amp * clamp((s - F.from) / (F.full - F.from), 0, 1);
+      // each riser's threshold (between level k and k + 1, at k + 1/2) moved by its own noise, so neighbouring risers
+      // move apart and together: a tread runs from none (a two-level step) to two tiles where the land climbs a level
+      // a tile, and each riser wanders on its own
+      let k = Math.round(L);
+      if (a > 0) {
+        const up = (j: number) => j + 0.5 + a * clamp(F.sharp * warpedFbm((fs + j * 0x9e3779b1) >>> 0, x, y, F.cell, 2, F.cell / 2), -1, 1);
+        if (L >= up(k)) k++;
+        else if (L < up(k - 1)) k--;
+      }
+      // (the land stands a level above the beds' floor, item 47)
+      out[i] = clamp(k, BED_FLOOR + 1, maxLv);
+    }
+  // and a flight the noise left even is broken where it stands
+  breakFlights(out, W, H, hash32(seed, "flight-break", g.variation));
   // at high Verticality the land stays wild but readable (item 36): no spike, wall or trench one or
   // two tiles wide standing two levels or more over the land round it
   if (g.vt >= VT_HIGH) readable(out, W, H);
@@ -80,8 +119,127 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   // regions under 4 tiles merge (a 2×2 stack survives, as the build's integrity pass keeps it)
   mergeSmallRegions(out, W, H, 4);
   cleanPitsAndSpikes(out, W, H, null);
+  // (and once more on the land as the passes above leave it, which may even a flight out again)
+  for (let r = 0; r < 3 && breakFlights(out, W, H, hash32(seed, "flight-break-2", g.variation, r)); r++) cleanPitsAndSpikes(out, W, H, null);
   return out;
 }
+
+/**
+ * Break every flight of even one-tile steps (`validate/stepRuns.ts`, the look round's measure, on the dry land: `wet`
+ * nonzero on water, or null) in `h`, so that it has a ledge two tiles deep. Where the flight stands on level ground two
+ * tiles deep or more, that ground's last tile and the treads up to an inner one (drawn from `seed`) rise a level, the
+ * ledge standing where that tread meets the next one; where it runs onto level ground two tiles deep, that ground's
+ * first tile and the treads down to an inner one sink a level likewise. Either way the steps stay one level, so the
+ * colony walks the flight as before, and the tread is drawn so that fewer than `STEP_RUN` treads are left on each side
+ * of the ledge where it can be. Where neither holds, an inner tread (drawn) rises alone to the tread above it, the ledge
+ * standing over a two-level step. The same is done across the flight on each line beside it that holds the same
+ * levels, up to `FLIGHT.across` lines each way. Only tiles `movable` allows move (null: all); a flight with no tread
+ * that may move stays. Repeated until none is left (a few rounds at most). Returns the tiles moved.
+ */
+export function breakFlights(h: Uint8Array, W: number, H: number, seed: number, movable: Uint8Array | null = null, wet: ArrayLike<number> | null = null): number {
+  let moved = 0;
+  const on = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H;
+  const may = (x: number, y: number) => on(x, y) && (!movable || movable[y * W + x] === 1) && !(wet && wet[y * W + x]);
+  for (let round = 0; round < 4; round++) {
+    const { runs } = stepRuns(h, wet, W, H);
+    if (!runs.length) break;
+    let any = false;
+    for (const q of runs) {
+      const L = q.length;
+      const draw = hash32(seed, q.x, q.y, q.dx + 3 * q.dy);
+      // the flight read from its foot (sign 1: up, each tile a level higher) or from its head (sign -1: down, each
+      // tile a level lower; levels read negated, so both climb along k): k along it from 0, o across it
+      const view = (sign: 1 | -1) => {
+        const dx = sign * q.dx;
+        const dy = sign * q.dy;
+        const x0 = sign > 0 ? q.x : q.x + (L - 1) * q.dx;
+        const y0 = sign > 0 ? q.y : q.y + (L - 1) * q.dy;
+        const at = (k: number, o: number) => [x0 + k * dx + o * dy, y0 + k * dy - o * dx] as const;
+        const lv = (k: number, o: number) => {
+          const [x, y] = at(k, o);
+          return on(x, y) ? sign * h[y * W + x] : Number.NaN;
+        };
+        return { sign, dx, dy, at, lv };
+      };
+      const up = view(1);
+      // (an earlier break may have broken it already)
+      let whole = true;
+      for (let k = 1; k < L && whole; k++) if (up.lv(k, 0) !== up.lv(k - 1, 0) + 1) whole = false;
+      if (!whole) continue;
+      // the tread m within [first, last], drawn, whose tiles from `below` to it may all move
+      const pick = (v: ReturnType<typeof view>, first: number, last: number, below: number | null) => {
+        const n = last - first + 1;
+        for (let k = 0; k < n; k++) {
+          const c = first + ((draw + k) % n);
+          let ok = true;
+          for (let j = below ?? c; j <= c && ok; j++) ok = may(...v.at(j, 0));
+          if (ok) return c;
+        }
+        return -1;
+      };
+      let v = up;
+      let from = -1;
+      let m = -1;
+      for (const w of [up, view(-1)]) {
+        const flat = w.lv(-1, 0) === w.lv(0, 0) && w.lv(-2, 0) === w.lv(0, 0);
+        if (!flat || m >= 0) continue;
+        // fewer than STEP_RUN treads below the ledge (m + 1) and above it (L - 1 - m), where the flight is short enough
+        const top = Math.min(STEP_RUN - 2, L - 2);
+        const low = Math.max(1, L - STEP_RUN);
+        m = low <= top ? pick(w, low, top, -1) : -1;
+        if (m < 0) m = pick(w, 1, top, -1);
+        if (m >= 0) v = w;
+      }
+      if (m < 0) {
+        from = m = pick(up, 1, L - 2, null);
+        if (m < 0) continue;
+      }
+      // the lines across that hold the same levels from the ground below the first tile moved to the tread above m
+      const lines = [0];
+      for (const sgn of [1, -1])
+        for (let t = 1; t <= FLIGHT.across; t++) {
+          let same = true;
+          for (let k = from < 0 ? -2 : from; k <= m + 1 && same; k++)
+            if (v.lv(k, sgn * t) !== v.lv(k, 0) || (k >= from && k <= m && !may(...v.at(k, sgn * t)))) same = false;
+          if (!same) break;
+          lines.push(sgn * t);
+        }
+      // each tile a level up (or down, from the head); on a diagonal the two tiles between it and the next along the
+      // line too, where they stood at its level and may move, so the moved ground is one piece (a tile joined only at
+      // a corner is a spike or a pit, which the integrity pass mends back)
+      for (const o of lines)
+        for (let k = from; k <= m; k++) {
+          const [x, y] = v.at(k, o);
+          const was = h[y * W + x];
+          h[y * W + x] = was + v.sign;
+          moved++;
+          if (v.dx !== 0 && v.dy !== 0)
+            for (const [ux, uy] of [[x + v.dx, y], [x, y + v.dy]] as const)
+              if (may(ux, uy) && h[uy * W + ux] === was) {
+                h[uy * W + ux] = was + v.sign;
+                moved++;
+              }
+        }
+      any = true;
+    }
+    if (!any) break;
+  }
+  return moved;
+}
+
+/** The climb a tile through a tile with climbs `a` and `b` on its two sides along a line: the gentler, where both go
+ *  the same way; else 0. */
+function through(a: number, b: number): number {
+  if (a > 0 && b > 0) return Math.min(a, b);
+  if (a < 0 && b < 0) return -Math.max(a, b);
+  return 0;
+}
+
+/** A flight's rounding (the look round, item (b)): each riser's threshold moved by its own noise, `amp` levels at most
+ *  over `cell` tiles (the noise multiplied by `sharp` and clamped, so most risers move far), in full where the graded
+ *  land climbs `full` levels a tile through a tile (along its row plus along its column, the steepest within `reach`
+ *  tiles) and none under `from`; `breakFlights` moves a flight's tread on up to `across` lines each side of its own. */
+export const FLIGHT = { amp: 0.49, sharp: 2, cell: 6, from: 0.7, full: 0.95, reach: 1, across: 2 } as const;
 
 /** The contour field (D518): the land's field softened over a tile each way, so no level line has a one-tile jag, and
  *  read through a slow warp (`CONTOUR.warp` tiles over `CONTOUR.cell`), so the straight runs the erosion's grid leaves
