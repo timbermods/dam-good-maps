@@ -235,15 +235,17 @@ describe("one pump settles a peer's water (D486)", () => {
   // 11's map has no terrain above terrain now, and of seeds 1–40 only 28's stream makes the case; seed 58 since the rescue
   // round's pines (D515 with D471), D148: an earlier rescue round's land makes seed 28's map, with no terrain above
   // terrain, and of seeds 1–60 only 58's stream makes the case; seed 10 since generator 0.10.20's contour edges, D518, D148:
-  // seed 58's settle no longer hands back between phases, and of seeds 1–10 seed 10's stream is the first that makes the case; a map with caves: an edit among the first eight leaves water
+  // seed 58's settle no longer hands back between phases, and of seeds 1–10 seed 10's stream is the first that makes the case; seed 21
+  // since generator 0.10.23's round forms, the look round, D148: seed 10's map has no terrain above terrain now, and of seeds 1–30
+  // the streams of 21, 22 and 26 make the case, 21 the first; a map with caves: an edit among the first eight leaves water
   // no source feeds, so the canonical settle takes it and settles on from there, a second phase it hands back between; a
   // background settle run to its end goes on through it, so the host's announcement and the replica's own settle each
   // take one pump, never two)
-  test("Highlands 48², seed 10: after the stream's first eight edits the host announces and the replica settles in one pump each, on the same map", () => {
-    const t = sit(mapProject(10, "highlands", SIZE), {}, [GUEST]);
+  test("Highlands 48², seed 21: after the stream's first eight edits the host announces and the replica settles in one pump each, on the same map", () => {
+    const t = sit(mapProject(21, "highlands", SIZE), {}, [GUEST]);
     const s = t.host.session;
     expect(s.built.waterModel.stacked).toBeTruthy();
-    const stream = new Stream(10, SIZE);
+    const stream = new Stream(21, SIZE);
     for (let k = 0; k < 8; k++) {
       const c = stream.command(stream.pick(CHEAP_KINDS), s);
       if (c) act(t, stream.pick([HOST, GUEST]), c);

@@ -441,12 +441,16 @@ describe("Crop map to selection: the lip at the new edge (M9b's rule, water/edge
   // the first whose crop leaves the start whole, raises the edge beside the head (2 tiles at 0 behind, 1 at 1) and leaves no water beside it, at both distances; its spring is at (23, 20);
   // seed 5 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 4's springs at (23, 29) and (23, 30) have a berry patch on the edge tile beside them, which the lip never raises (the ground under an object stays), so
   // water pours past it; of seeds 1–60 only 4, 5, 7, 39, 41 and 60 have a spring 23 tiles in from the west edge, and of those seed 5, whose spring is at (23, 0), passes at both distances);
-  // seed 4 again besides seed 5 since the lip lifts the objects on the ground it raises (planning's ruling, 2026-11-13): its berry patch beside the springs rises with the edge
+  // seed 4 again besides seed 5 since the lip lifts the objects on the ground it raises (planning's ruling, 2026-11-13): its berry patch beside the springs rises with the edge;
+  // seeds 12 and 107 for 4 and 5 since generator 0.10.23's round forms (the look round), D148: seeds 4 and 5 have no spring 23 tiles in from the
+  // west edge now; of seeds 1–110 seeds 1, 2, 12, 16, 18, 20, 38, 65, 72, 79, 103, 106 and 107 have one, and of those 12, 16, 18, 38, 65, 106 and 107
+  // pass at both distances (1, 2, 72 and 79 cut the start; 20 and 103 leave water beside the new edge at 1 behind); seed 12, whose spring is at (23, 33),
+  // is the first, and seed 107, whose springs are at (23, 27), is the one whose lip lifts an object beside them: a pine at (23, 30), at 0 behind
   it.each([
-    [4, 0],
-    [4, 1],
-    [5, 0],
-    [5, 1],
+    [12, 0],
+    [12, 1],
+    [107, 0],
+    [107, 1],
   ])("seed %i: a source %i tile(s) behind the new edge does not pour its water off the map", (seed, behind) => {
     const original = session(seed);
     const spring = original.built.entities.filter((e) => e.template === "WaterSource" && e.x === 23);

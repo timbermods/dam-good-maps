@@ -40,8 +40,9 @@ const plantTiles = () => {
 beforeEach(async () => {
   caves = false;
   events = [];
-  // (seed 2 on 0.10.6's maps, D148: seed 1's River Valley now has caves, which the withering leaves out, `stackedMap`)
-  await runGenerate(makeSpec({ seed: 2, theme: "riverValley", size: { x: 64, y: 64 } }));
+  // (seed 2 on 0.10.6's maps, D148: seed 1's River Valley now has caves, which the withering leaves out, `stackedMap`; seed 3
+  // since generator 0.10.23's round forms, the look round, D148: seed 2's map has caves now, and of seeds 1–12, 3 is the first without)
+  await runGenerate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 64, y: 64 } }));
   ed.refine();
   ed.setSoilRunner(null);
   ed.listen((e) => events.push(e));

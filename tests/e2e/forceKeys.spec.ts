@@ -222,7 +222,10 @@ test("A3, A4: every drawn gesture is a band of its width along the line with no 
 });
 
 test("D361 (1): Power acts on every mode: ] while a Lift is painted lifts it higher at once, and Try another takes the row's Power as it is now", async ({ page }) => {
-  await openTopDown(page);
+  // (Highlands seed 4246 since generator 0.10.23's round forms, D148: seed 4242's map now has caves and overhangs, and its
+  // spot, (26, 62), stands on one, where the crater is refused, "A force leaves caves and overhangs as they are", so no
+  // crater is kept for Try another to take; of seeds 4242–4247, 4246's and 4247's maps have none)
+  await openTopDown(page, "s=4246&z=96&d=n&t=highlands");
   const at = await spot(page);
   const before = await heights(page);
   await page.keyboard.press("Shift+Digit5");

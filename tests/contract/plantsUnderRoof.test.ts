@@ -111,7 +111,9 @@ describe("plants under a roof: their run top's soil, for the warning and the che
     // seed 8 since D518's later mends of the land (the rolling ground's noise reweighed, the rises compact hills), D148: seed 36 has none now, and of seeds 1 to 80 seeds 8, 19, 35, 42, 43, 46, 51, 56, 62, 73, 74 and 80 have three or more, seed 8 the first with five)
     // (seed 20 since generator 0.10.21's look round (D518: the land's long straight steps jog), D148: seed 8 has none now, and of seeds 1 to 80
     // seeds 20, 35, 42, 43, 51, 53, 62, 63, 71, 73, 74 and 79 have three or more (3, 6, 5, 3, 6, 4, 3, 3, 5, 4, 6, 3), and seed 20 is the first)
-    const r = generate(makeSpec({ seed: 20, theme: "riverValley", size: { x: 64, y: 64 } }), { forms: false });
+    // (seed 6 since generator 0.10.23's round forms (the look round), D148: seed 20 has none now, and of seeds 1 to 80 seeds 6, 11, 13, 33, 35, 38, 40,
+    // 48, 50, 56, 58, 62, 63, 65 and 68 have three or more, and seed 6 is the first, with five)
+    const r = generate(makeSpec({ seed: 6, theme: "riverValley", size: { x: 64, y: 64 } }), { forms: false });
     const s = MapSession.fromGenerated(r, r.file);
     const M = s.size.x;
     // hollows dug at the feet of hillsides on moist ground, each a roof over it, the hillside's top dry

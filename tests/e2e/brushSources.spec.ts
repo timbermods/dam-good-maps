@@ -53,8 +53,10 @@ test("brushes and sources (D249, D322): they ride the ground; Keep holds them; C
   // apart far from the start; 4244 has one at (16, 56). Seed 3 since generator 0.10.20's contour edges and its mends
   // (D518), D148: seed 4244 has none now, and 4249's, at (30, 16), stands on uneven ground (levels 10 to 11 round A),
   // so after the Ride stroke the tile beside the source is a level under its raised ground and the Keep stroke's
-  // raise of it, to 12, no longer passes that; seed 3's is at (56, 66), on ground of levels 3 and 4)
-  await openEditor(page, "s=3&z=96&d=n&t=highlands");
+  // raise of it, to 12, no longer passes that; seed 3's is at (56, 66), on ground of levels 3 and 4. Seed 1 since generator
+  // 0.10.23's round forms, D148: seed 3 has none now, nor have 2, 4 or 6–10; seed 1's is at (16, 76), on ground of levels
+  // 6 to 8)
+  await openEditor(page, "s=1&z=96&d=n&t=highlands");
   await topDown(page);
   await setWaterSpeed(page, "instant");
 

@@ -491,10 +491,13 @@ test("Quake: a painted Lift follows the stroke and is kept when let go; V flips 
 });
 
 test("Craterize is click-only (D368 (7)): a drag draws no line and makes one crater, centred where the press began", async ({ page }) => {
-  // (seed 4244 since 0.8.8's maps, the Canyon and Highlands height round, D148: on 4242 the far tile stands on
-  // the top bench beside a fall of nine levels to the west, and the ground that gives way down it makes the
-  // lowered tiles 41 wide for 28 tall, though still centred on the press)
-  await openTopDown(page, "s=4244&z=96&d=n&t=highlands");
+  // (seed 1 since generator 0.10.23's round forms, D148: on 4244 the press now lands at the map's west edge beside a
+  // fall, and the ground that gives way down it pulls the lowered tiles' middle 2.4 tiles west of the press (dev's run
+  // 43562178770), as on 4243 (2.4) and 4245 (2.3); on seed 1 the press lands on open ground, the crater's middle 0.02
+  // tiles from it. Seed 4244 since 0.8.8's maps, the Canyon and Highlands height round, D148: on 4242 the far tile stands
+  // on the top bench beside a fall of nine levels to the west, and the ground that gives way down it makes the lowered
+  // tiles 41 wide for 28 tall, though still centred on the press)
+  await openTopDown(page, "s=1&z=96&d=n&t=highlands");
   await page.keyboard.press("Shift+Digit2");
   const row = page.getByRole("group", { name: "Craterize options" });
   await row.getByRole("slider", { name: "Power" }).fill("50");

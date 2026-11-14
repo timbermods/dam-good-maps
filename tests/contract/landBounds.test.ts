@@ -45,14 +45,16 @@ const spec = (theme: ThemeId, size: number, seed: number, badwaterDistance?: num
 
 describe("the shown land's bounds (#236)", () => {
   it("above 128², a shown land failing the same way three times in a row ends its round, and is never dropped within it", () => {
-    // (Highlands 136², badwater distance 60, seed 6 since the D518 mends (the rolling ground's reweighed noise, compact rises,
+    // (Highlands 136², badwater distance 60, seed 1 since generator 0.10.23's round forms, the look round, D148: seed 6 passes now
+    // with no round ended by the bound; of seeds 1–8, 10–14, 18, 27, 28, 34, 36, 48, 56 and 59 only 1, 2, 8 and 10 end a round now, and none breaks
+    // the shown land's rules; seed 6 since the D518 mends (the rolling ground's reweighed noise, compact rises,
     // wash treads and dead-stand knots), D148: seed 15's attempts no longer fail three alike on a shown land, it passes on land 5; of
     // seeds 1–60 only 6, 13, 18, 27, 28, 34, 36, 48, 56 and 59 end a round now (6, 27 and 56 twice), and none of the 60 breaks the shown land's rules;
     // before that: seed 15: a shown land fails the same way three times and its round
     // ends; seed 4 for generator 0.10.7, whose first shown land's start was within 60 tiles of its badwater on every
     // attempt, until D504's springs toward the far land changed its land: its shown land now fails once and passes, D148; of
     // seeds 1–8, 1 and 5 end a round; seed 15 for 1 since generator 0.10.20's contour edges, D518, D148: seed 1's attempts now fail as drawn lands, never three alike on a shown one, so no round ends by the bound, and of seeds 1–60 only 15, 19, 26, 30, 32, 43, 51, 54 and 57 end one)
-    const { steps, passed } = traced(spec("highlands", 136, 6, 60));
+    const { steps, passed } = traced(spec("highlands", 136, 1, 60));
     expect(passed).toBe(true);
     const at = JSON.stringify(steps);
     let ended = 0;
@@ -71,8 +73,10 @@ describe("the shown land's bounds (#236)", () => {
   }, 600000);
 
   it("each stage's progress says how many attempts failed before it and why the last did, in a short plain phrase", () => {
-    // (seed 2: it fails six attempts before its map, with several reasons; seed 1 makes its map at the first since generator 0.10.7, D502)
-    const { progress, failures } = traced(spec("riverValley", 64, 2));
+    // (seed 2: it fails six attempts before its map, with several reasons; seed 1 makes its map at the first since generator 0.10.7, D502;
+    // seed 1 since generator 0.10.23's round forms, the look round, D148: seed 2 fails one attempt now, and seed 1 fails four, each
+    // for its own reason)
+    const { progress, failures } = traced(spec("riverValley", 64, 1));
     expect(failures.length).toBeGreaterThan(1);
     expect(progress[0].failed).toBeUndefined();
     expect(progress[0].tried).toBe(0);

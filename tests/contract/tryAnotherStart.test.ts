@@ -35,16 +35,19 @@ describe("Try another after a force that carried the start (D257, D220)", () => 
   // seed 2 again later, its start at (49, 43), the Slide clicked seven tiles north of it;
   // seed 3 for generator 0.10.20's maps, the D518 mends, D148: seed 2's start moved to (36, 15), and the Slide clicked seven
   // tiles north of it, with or without a tile east, leaves it where it stands; of Highlands seeds 1-7 only seed 3 both has the
-  // Slide carry its start and keeps Try another's fault off its ground: its start stands at (20, 21), the Slide clicked at (20, 14))
-  it("Highlands 64², seed 3: a Quake Slide clicked at (20, 14) carries the start; Try another leaves the start's ground alone, so the start stays at (20, 21) and the objects the first carry cleared stand, as a fresh run of that try leaves them", async () => {
+  // Slide carry its start and keeps Try another's fault off its ground: its start stands at (20, 21), the Slide clicked at (20, 14);
+  // seed 2 since generator 0.10.23's round forms, the look round, D148: seed 3's start stands at (55, 19), and every Slide seven
+  // tiles north or south of it that carries it has Try another's fault cross its ground; of seeds 1–3 and 8–9, seeds 2 and 9 have
+  // the Slide seven tiles north carry the start and keep Try another off it; seed 2's start stands at (52, 40), the Slide clicked at (52, 33))
+  it("Highlands 64², seed 2: a Quake Slide clicked at (52, 33) carries the start; Try another leaves the start's ground alone, so the start stays at (52, 40) and the objects the first carry cleared stand, as a fresh run of that try leaves them", async () => {
     const W = 64;
-    await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
+    await runGenerate(makeSpec({ seed: 2, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
     const orig = startMiddle(open())!;
-    expect(orig).toEqual([20, 21]);
+    expect(orig).toEqual([52, 40]);
 
-    // the first try: a Slide clicked at (20, 14), Power 40, the editor's way; it breaks the start's ground
-    expect(ed.forceStart({ verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power: 40, seed: 0 }, path: [{ x: 20, y: 14 }, { x: 20, y: 14 }], side: 1, cut: null, natural: true }).errors).toEqual([]);
+    // the first try: a Slide clicked at (52, 33), Power 40, the editor's way; it breaks the start's ground
+    expect(ed.forceStart({ verb: "quake", settings: { ...QUAKE_DEFAULTS, mode: "slide", power: 40, seed: 0 }, path: [{ x: 52, y: 33 }, { x: 52, y: 33 }], side: 1, cut: null, natural: true }).errors).toEqual([]);
     expect(play()).toBe(true);
     expect(startMiddle(open())).not.toEqual(orig);
 

@@ -214,8 +214,10 @@ describe("Fill water and Remove unfed water on a generated map with a Block dig"
   // seed 18 since the D518 mends (wash treads and dead-stand knots), D148: seed 1 has none now, and of seeds 1–120 only seeds 8, 9, 18 and 104 keep one; seeds 8 and 9 hold level 6 only; seed 18 is the first at level 14 or more, its patch at (36, 30), level 16;
   // seed 8 since the D518 mends' compact hills and wash flats (D148): seed 18 has none now, and of seeds 1–150 only 8, 11, 15, 22, 24, 29, 30, 36, 43, 85, 96, 129, 139, 146, 148 and 150 keep one; seed 8 is the first at level 14 or more, its patch at (25, 52), level 16;
   // seed 29 since generator 0.10.21's look round (D518: the land's long straight steps jog), D148: seed 8 keeps none now, and of seeds 1–76
-  // only 22, 29, 51, 73 and 76 keep one (levels 8, 15, 14, 7 and 11); seed 29 is the first at level 14 or more, its patch at (48, 33), level 15)
-  const r = generate(makeSpec({ seed: 29, theme: "riverValley", size: { x: 64, y: 64 } }));
+  // only 22, 29, 51, 73 and 76 keep one (levels 8, 15, 14, 7 and 11); seed 29 is the first at level 14 or more, its patch at (48, 33), level 15;
+  // seed 12 since generator 0.10.23's round forms (the look round), D148: seed 29 keeps none now, and of seeds 1–150 only 11, 12, 37, 40, 52, 61,
+  // 68, 78, 139, 143, 144 and 145 keep one (levels 8, 15, 14, 16, 11, 10, 14, 6, 11, 11, 16 and 11); seed 12 is the first at level 14 or more, its patch at (10, 36), level 15)
+  const r = generate(makeSpec({ seed: 12, theme: "riverValley", size: { x: 64, y: 64 } }));
 
   it("a pit and the hollow under its edge fill to the pit's rim, the hollow full under pressure; removed, both are dry; undo, redo and reopen are byte-exact", () => {
     const s = MapSession.fromGenerated(r, r.file);

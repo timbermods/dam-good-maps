@@ -786,8 +786,10 @@ describe("the Block tool on a generated map", () => {
   // seed 15 since D518's later mends (the rolling and rises reweighed, the dead stands dense in their woods), D148: seed
   // 174 holds none now, and of seeds 1–200 only seeds 15 and 148 hold one; seed 15 is the first, its spot at (20, 12), level 8;
   // seed 29 since generator 0.10.21's look round (D518: the land's long straight steps jog, so its edges moved), D148: seed 15 holds none now, and
-  // seed 29 is the first of seeds 1–200 with one, its spot at (48, 33), level 15)
-  const spec = makeSpec({ seed: 29, theme: "riverValley", size: { x: 64, y: 64 } });
+  // seed 29 is the first of seeds 1–200 with one, its spot at (48, 33), level 15;
+  // seed 11 since generator 0.10.23's round forms (the look round), D148: seed 29 holds none now, and seed 11 is the only one of seeds 1–150
+  // with one, its spot at (51, 49), level 8)
+  const spec = makeSpec({ seed: 11, theme: "riverValley", size: { x: 64, y: 64 } });
   const r = generate(spec, { forms: false });
 
   /** A dry tile with dry neighbours, no object near, on high enough ground, level out to the build-up 5 tiles east. */

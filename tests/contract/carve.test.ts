@@ -437,7 +437,10 @@ const ids = (s: MapSession) => s.built.entities.map((e) => e.id).sort();
 
 describe("a carve in the document (breakage rule)", () => {
   it("one operation, one undo step: it builds its levels exactly, keeps its source, clears its objects, and replays to the same file", () => {
-    const r = generate(makeSpec({ seed: 3, theme: "highlands", size: { x: 96, y: 96 } }));
+    // (seed 1 for 3 since generator 0.10.23's round forms (the look round), D148: from seed 3's tile far from the start, (68, 12),
+    // the carve now runs into a cave at X 67 · Y 15, which a force leaves as it is, so it is refused; seed 1's, (80, 80), carves
+    // 402 tiles with no cave on its way)
+    const r = generate(makeSpec({ seed: 1, theme: "highlands", size: { x: 96, y: 96 } }));
     const s = MapSession.fromGenerated(r, r.file);
     s.setWaterMode("defer");
     const before = s.built.heights.slice();
@@ -578,10 +581,14 @@ describe("a carve in the document (breakage rule)", () => {
     // 261 with seed 1 carves no lake over 70 tiles now; of Highlands seeds 1–110 and Canyon seeds 1–90 with the carve's seeds 1–6 only a few seal one
     // over 70 tiles, and of those Highlands 12 with seed 3, Highlands 30 with seeds 4 and 5, Highlands 57 with seed 6 and Canyon 24 with seed 1
     // settle whole; Highlands 57 with seed 2 seals 95 tiles that keep evaporating)
-    const r = generate(makeSpec({ seed: 57, theme: "highlands", size: { x: 96, y: 96 } }), { forms: false });
+    // (Highlands 96² seed 28 with the carve's seed 6 since generator 0.10.23's round forms (the look round), D148: seed 57 with seed 2
+    // carves no lake now; of Highlands seeds 1–80 and Canyon seeds 1–30 with the carve's seeds 1–6, Highlands 7, 11, 30 and 71 seal
+    // lakes over 70 tiles that settle whole, and Highlands 28 with seed 6 (74 tiles) and Canyon 25 with seed 3 (127) ones that keep
+    // evaporating; Highlands 28 is the first)
+    const r = generate(makeSpec({ seed: 28, theme: "highlands", size: { x: 96, y: 96 } }), { forms: false });
     const s = MapSession.fromGenerated(r, r.file);
     const before = Array.from(s.built.water);
-    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 2, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
+    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 6, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
     const lake = op.params.lake!;
     expect(lake.tiles.length).toBeGreaterThan(70);
     expect(checkSchema(opsSchema as Record<string, unknown>, op)).toEqual([]);
