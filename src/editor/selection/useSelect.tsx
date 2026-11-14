@@ -7,6 +7,7 @@ import { footprintTiles, type Orientation } from "../../core/format/footprints";
 import { FLIPPED, ORIENTATION_NAMES, surfaceWater } from "../../render3d/model";
 import { deleteGroupOf, DELETE_GROUPS, DELETE_KINDS, depthLevels, SELECT_MODES, selectTool, sizeWords, waterTiles, type DeleteGroup, type SelectCombine, type SelectMode } from "../select";
 import { CombineIcon, ModeIcon, WholeMapIcon } from "../SelectIcons";
+import { useFinger } from "../view/usePhone";
 import { tilesToRuns } from "../../core/math/grid";
 import { isSource } from "../sourceSpots";
 import { BRUSH_MAX_LEVEL } from "../../core/features/raster/brush";
@@ -60,6 +61,8 @@ export function useSelect(ed: Ed): SelectSlice {
   });
   /** Select's Add / Take away toggle (#1074 slice 6): what a selection made without Shift or Alt does to the one open. */
   const [combine, setCombineNow] = useState<SelectCombine>("set");
+  /** The toggle shows to a finger (a coarse pointer) only (#1074 slice 7). */
+  const finger = useFinger();
   const combineRef = useRef<SelectCombine>("set");
   const setCombine = (c: SelectCombine) => {
     combineRef.current = c;
@@ -731,18 +734,20 @@ export function useSelect(ed: Ed): SelectSlice {
           <span class="icon-word">Whole map</span>
         </button>
         {/* (a finger's Shift and Alt, #1074 slice 6: a tap steps from replacing the selection open to adding to it, to
-            taking away from it, and back) */}
-        <button
-          type="button"
-          class="icon-button combine"
-          aria-label={`Add or take away: ${COMBINE_WORDS[combine]}`}
-          aria-pressed={combine !== "set"}
-          {...tip("Replace, add to or take away from the selection", "Shift adds", "Alt takes away")}
-          onClick={() => setCombine(combine === "set" ? "add" : combine === "add" ? "subtract" : "set")}
-        >
-          <CombineIcon how={combine} />
-          <span class="icon-word">{COMBINE_WORDS[combine]}</span>
-        </button>
+            taking away from it, and back; to a finger only, slice 7: a mouse has the keys, and Whole map its two cells) */}
+        {finger ? (
+          <button
+            type="button"
+            class="icon-button combine"
+            aria-label={`Add or take away: ${COMBINE_WORDS[combine]}`}
+            aria-pressed={combine !== "set"}
+            {...tip("Replace, add to or take away from the selection", "Shift adds", "Alt takes away")}
+            onClick={() => setCombine(combine === "set" ? "add" : combine === "add" ? "subtract" : "set")}
+          >
+            <CombineIcon how={combine} />
+            <span class="icon-word">{COMBINE_WORDS[combine]}</span>
+          </button>
+        ) : null}
       </span>
     );
     // One layout with or without a selection (Kyler, 2026-10-04): row 1 the shapes and the size; row 2 Level, the

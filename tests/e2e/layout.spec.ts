@@ -731,6 +731,23 @@ for (const [w, h] of [[1280, 800], [1920, 1080]] as [number, number][]) {
 
 // The narrowest the bar is drawn for: every tool's settings on the bar's cells and none cut off, as at the larger sizes
 // (Glaciate's Benches "Some" was cut by 2px here once the bar grew past thirteen cells).
+// (#1074 slice 7: the Add / Take away toggle is a finger's Shift and Alt; a mouse has the keys, and Whole map keeps the
+// last two cells, as Kyler's option B laid it out)
+for (const [w, h] of [[1280, 800], [1920, 1080]] as const)
+  test(`at ${w}×${h}: Select's row to a mouse has no Add / Take away, and Whole map spans the last two cells`, async ({ page }) => {
+    test.setTimeout(300_000);
+    await page.setViewportSize({ width: w, height: h });
+    await openEditor(page);
+    const shapes = page.getByRole("group", { name: "How to select" });
+    await expect(shapes.getByRole("button", { name: "Whole map" })).toBeVisible();
+    await expect(shapes.locator(".combine")).toHaveCount(0);
+    const cell = (await shapes.getByRole("button", { name: "Rectangle" }).boundingBox())!;
+    const whole = (await shapes.getByRole("button", { name: "Whole map" }).boundingBox())!;
+    const group = (await shapes.boundingBox())!;
+    expect(whole.width, "Whole map across two cells").toBeGreaterThan(cell.width * 1.9);
+    expect(Math.abs(whole.x + whole.width - (group.x + group.width)), "Whole map ends the row").toBeLessThan(2);
+  });
+
 test("at 1280×800: every tool's settings sit on the bar's cells and nothing in them is cut off", async ({ page }) => {
   test.setTimeout(300_000);
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -998,6 +1015,8 @@ for (const [W, H] of TABLETS) {
         under.push(...hits.filter((t) => Math.min(t.w, t.h) < 40).map((t) => `${tool}: ${t.name} ${t.w}×${t.h}`));
       };
       await tap(page.locator(".tool-bar button[aria-label^='Select']"));
+      // (a finger's Shift and Alt, Add / Take away, beside Whole map: a finger's only, slice 7)
+      await expect(page.locator(".segmented.shapes > .combine")).toBeVisible();
       await measure("Select");
       for (const [, name] of EVERY_TOOL) {
         await tap(page.locator(`.tool-bar button[aria-label^='${name}']`));

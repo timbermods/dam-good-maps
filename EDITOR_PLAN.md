@@ -1291,7 +1291,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   level; on water, that river's or lake's visible water tiles, badwater included, never a bank tile; a snapshot at
   the click), **Circle** (drag from the centre) and **Brush** (paint the selection at the brushes' size); Shift adds
   and Alt subtracts; **Add / Take away** beside Whole map does it without a key (a tap steps Replace, Add, Take away,
-  for a finger; #1074 slice 6; closing Select sets it back to Replace). A click lands on the first ground the ray meets (a cave's floor through its mouth, a ledge
+  for a finger; #1074 slice 6; closing Select sets it back to Replace). It shows only to a finger (a coarse pointer;
+  slice 7): a mouse has Shift and Alt, and its row keeps Whole map across the last two cells. A click lands on the first ground the ray meets (a cave's floor through its mouth, a ledge
   under an overhang); the Wand and Ctrl+click read that run's level, and a selection is still a set of tiles. A
   Wand selection on land also names that level in each tile, and is drawn there: its tint and outline on that run
   (a cave's floor), the roof over it dimmed as the land outside, and outside a brush's working area too; the actions still take
