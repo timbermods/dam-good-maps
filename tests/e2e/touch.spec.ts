@@ -34,9 +34,11 @@ const settled = (page: Page) => page.waitForFunction(() => window.dgmEditor!.pen
 const tileAt = (page: Page, p: P) => page.evaluate(([x, y]) => window.dgm3d!.renderer.pick(x, y), [p.x, p.y] as const);
 /** How far apart two points of the ground are, in tiles (across the map: east and south). */
 const tiles = (a: { point: [number, number, number] } | null, b: { point: [number, number, number] } | null) => (a && b ? Math.hypot(a.point[0] - b.point[0], a.point[2] - b.point[2]) : Infinity);
-/** The view has stopped: no glide after a flick or a double tap is still moving it. */
+/** The view has stopped: no glide after a flick or a double tap is still moving it, and on a phone the slide for a sheet
+ *  that opened or closed has come and gone (it starts a few frames after the sheet changes, usePhone.ts: a view read
+ *  before it starts is moved by it after). */
 async function still(page: Page) {
-  await expect.poll(() => page.evaluate(() => !window.dgm3d!.renderer.touchGliding), { timeout: 10_000 }).toBe(true);
+  await expect.poll(() => page.evaluate(() => !window.dgm3d!.renderer.touchGliding && window.dgmEditor!.roomSettled()), { timeout: 10_000 }).toBe(true);
   let last = JSON.stringify(await view(page));
   await expect
     .poll(async () => {
