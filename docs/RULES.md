@@ -183,8 +183,8 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
     exports them, on the current game version. Never replay a map already played unless what the game reads changed in a
     way that could change play; hand-made test maps only for a rule that has never been played. Ask for a batch when it is
     worth it, with its maps named.
-  - **Exception, on the dedicated machine only** (D218; `docs/HANDOFF.md`, "The machine"): a batch may run whenever the plan
-    calls for one, without asking. The machine is the two sessions' own (D484): no holding back for other heavy work, only
+  - **Exception, on the dedicated machine only** (D218; `docs/HANDOFF.md`, "The machine"): a batch runs without asking, but only
+    where an implementation looks wrong in the game, never as routine or for a release (Kyler, 2026-10-29). The machine is the two sessions' own (D484): no holding back for other heavy work, only
     a line on #236 while a batch holds the game. The other rules above still apply, and every batch and its results go
     into `docs/STATUS.md`.
 - **Progress log (D221):** add a short, plain comment to the "Progress log" issue
