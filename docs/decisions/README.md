@@ -214,11 +214,12 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [Real places and Pick a place](real-places.md)
 
-- D136: Real places gallery
+- D136: Real places gallery (amended: names without "Near", D(new-names))
 - D245: Real places kept on their land
 - D420: No map keeps unfed water
 - D421: Gallery hides unfed starts (amended)
 - D445: Gallery shows every place
+- D(new-names): Real places' names without "Near", in the id and link too (amends D136)
 - D166: Pick a place
 
 ## [3D terrain](3d-terrain.md)

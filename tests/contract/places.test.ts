@@ -23,7 +23,7 @@ describe("the gallery's data", () => {
     expect(INDEX.count).toBe(INDEX.places.length);
     // 85 places in the library; every start meets the floors since the start-moving step ranks a lake's shore
     // plate by the start's land floors and grows its wood (tools/real-places.ts), and one is withheld by name
-    // until its land's sources are mended (Near Dinaric karst Plitvice, `WITHHELD_UNTIL`)
+    // until its land's sources are mended (Dinaric karst Plitvice, `WITHHELD_UNTIL`)
     expect(INDEX.count).toBe(84);
     expect(INDEX.places.filter((p) => p.family === "random" || /random/i.test(p.name))).toEqual([]);
     expect(new Set(INDEX.places.map((p) => p.id)).size).toBe(INDEX.count);
@@ -32,7 +32,10 @@ describe("the gallery's data", () => {
     expect(INDEX.families.map((f) => f.id).sort()).toEqual([...new Set(INDEX.places.map((p) => p.family))].sort());
     for (const p of INDEX.places) {
       expect(p.id, p.name).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
-      expect(p.name, p.id).toMatch(/^Near \S/);
+      // the place's own name, no "Near", and its id the name's slug (D(new-names); D148: this held "Near <place>")
+      expect(p.name, p.id).toMatch(/^[A-Z]/);
+      expect(p.name, p.id).not.toMatch(/^Near /i);
+      expect(p.id, p.name).toBe(p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
       expect(p.name, p.id).not.toMatch(/sample|m per tile|badwater/i);
       expect(p.plays.length, p.id).toBeLessThan(100);
       expect(existsSync(join(PLACES_DIR, p.data)), p.data).toBe(true);
@@ -50,7 +53,8 @@ describe("the gallery's data", () => {
       const p = placeData(entry);
       expect([p.id, p.name, p.family, p.familyName, p.plays, p.W, p.H, p.metres], entry.id).toEqual([entry.id, entry.name, entry.family, entry.familyName, entry.plays, entry.size, entry.size, entry.metres]);
       expect(p.heights.length).toBe(p.W * p.H);
-      expect(p.place).toBe(p.name.replace(/^Near /, ""));
+      // one name: D(new-names) retired the `place` field that held the name without its "Near" (D148)
+      expect(p).not.toHaveProperty("place");
     }
   });
 
@@ -109,7 +113,7 @@ describe("credits and the in-game description (investigation/landscapes/ATTRIBUT
     for (const entry of INDEX.places) {
       const p = placeData(entry);
       const d = placeDescription(p);
-      expect(d).toContain(`Inspired by the land near ${p.place}, at Timberborn's scale; not a replica.`);
+      expect(d).toContain(`Inspired by the land near ${p.name}, at Timberborn's scale; not a replica.`);
       expect(d).toContain("public elevation data");
       expect(d).toContain("Terrain Tiles");
       expect(d).toContain("do not endorse");

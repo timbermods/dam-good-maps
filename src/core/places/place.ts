@@ -32,12 +32,11 @@ export const PLACE_FORMAT = 1;
 /** One real place as the site stores it (public/real-places/data/<id>.json.gz). */
 export interface PlaceData {
   format: 1;
-  /** A slug of the name: "near-yosemite-valley". */
+  /** A slug of the name: "yosemite-valley" (the link's `#place=yosemite-valley`). */
   id: string;
-  /** "Near Yosemite Valley": the one name the map, its file, the gallery and the editor's Real places panel all carry. */
+  /** "Yosemite Valley": the one name the map, its file, the gallery and the editor's Real places panel all carry
+   *  (D(new-names): no "Near"). */
   name: string;
-  /** The place it is named after: "Yosemite Valley". */
-  place: string;
   /** The landform family the survey sampled it for, and its name on the page. */
   family: string;
   familyName: string;
@@ -164,7 +163,7 @@ export function placeFileName(p: Pick<PlaceData, "name">): string {
 export function placeDescription(p: PlaceData): string {
   return [
     `${p.familyName} · ${p.W}×${p.H} · ${p.metres} m per tile. ${p.plays}`,
-    `Inspired by the land near ${p.place}, at Timberborn's scale; not a replica.`,
+    `Inspired by the land near ${p.name}, at Timberborn's scale; not a replica.`,
     `Made with Dam Good Maps from public elevation data: ${ELEVATION_SOURCE}. ${CHANGES} The data providers do not endorse this map.`,
     `Elevation data: ${PROVIDER_NOTICES.join("; ")}.`,
     `Water data: ${WATER_SOURCE} (${WATER_SOURCE_URL}), ${WATER_LICENCE} (${WATER_LICENCE_URL}): ${WATER_NOTICE}.`,
