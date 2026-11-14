@@ -14,6 +14,9 @@ export const CHANGES =
 /** Where the real water comes from (D192, D271): the basins are cut only where it lies. CC BY 4.0. */
 export const WATER_SOURCE = "ESA WorldCover 2021";
 export const WATER_SOURCE_URL = "https://esa-worldcover.org/";
+/** Its licence, named and linked as its terms ask. */
+export const WATER_LICENCE = "CC BY 4.0";
+export const WATER_LICENCE_URL = "https://creativecommons.org/licenses/by/4.0/";
 /** Its required notice, verbatim (tools/lib/worldCover.ts `WORLDCOVER_NOTICE`). */
 export const WATER_NOTICE = "© ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium";
 

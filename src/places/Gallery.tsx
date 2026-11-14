@@ -6,7 +6,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { wrap, type Remote } from "comlink";
-import { CHANGES, ELEVATION_SOURCE, ELEVATION_SOURCE_URL, PROVIDER_NOTICES, WATER_NOTICE, WATER_SOURCE, WATER_SOURCE_URL } from "../core/places/attribution";
+import { CHANGES, ELEVATION_SOURCE, ELEVATION_SOURCE_URL, PROVIDER_NOTICES, WATER_LICENCE, WATER_LICENCE_URL, WATER_NOTICE, WATER_SOURCE, WATER_SOURCE_URL } from "../core/places/attribution";
 import { placeNote, type PlaceIndex, type PlaceIndexEntry } from "../core/places/place";
 import { chooseSaveFolder, saveFile, saveIntoFolder, wrongFolderNote, type SaveToTimberbornResult } from "../platform";
 import { fetchGalleryIndex, fetchPlace, PLACES_URL } from "./data";
@@ -283,7 +283,7 @@ export function Gallery() {
           ))}
         </ul>
         <p>
-          Where the real water lies comes from <a href={WATER_SOURCE_URL}>{WATER_SOURCE}</a>: {WATER_NOTICE}.
+          Where the real water lies comes from <a href={WATER_SOURCE_URL}>{WATER_SOURCE}</a>, under <a href={WATER_LICENCE_URL}>{WATER_LICENCE}</a>: {WATER_NOTICE}.
         </p>
       </section>
 

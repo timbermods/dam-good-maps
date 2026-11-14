@@ -25,7 +25,7 @@ import type { SettleCache } from "../features/build";
 import type { WaterModel } from "../sim/water";
 import { validateMap, type Validation } from "../validate/checks";
 import { failing } from "../validate/report";
-import { CHANGES, ELEVATION_SOURCE, PROVIDER_NOTICES, WATER_NOTICE, WATER_SOURCE } from "./attribution";
+import { CHANGES, ELEVATION_SOURCE, PROVIDER_NOTICES, WATER_LICENCE, WATER_LICENCE_URL, WATER_NOTICE, WATER_SOURCE, WATER_SOURCE_URL } from "./attribution";
 
 export const PLACE_FORMAT = 1;
 
@@ -167,7 +167,7 @@ export function placeDescription(p: PlaceData): string {
     `Inspired by the land near ${p.place}, at Timberborn's scale; not a replica.`,
     `Made with Dam Good Maps from public elevation data: ${ELEVATION_SOURCE}. ${CHANGES} The data providers do not endorse this map.`,
     `Elevation data: ${PROVIDER_NOTICES.join("; ")}.`,
-    `Water data: ${WATER_SOURCE}, ${WATER_NOTICE}.`,
+    `Water data: ${WATER_SOURCE} (${WATER_SOURCE_URL}), ${WATER_LICENCE} (${WATER_LICENCE_URL}): ${WATER_NOTICE}.`,
   ].join("\n\n");
 }
 

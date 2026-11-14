@@ -94,6 +94,8 @@ const EDGE_LIP_REACH = 6;
 /** The longer walk to a shore a start's spot may have when no nearer spot gives it water (tiles; the
  *  check allows Normal's 20 from the start's middle). */
 const LONG_SHORE_WALK = 22;
+/** The walk to a shore every spot is tried within when no nearer spot gives the start water (tiles). */
+const WIDE_SHORE_WALK = 40;
 /** The start's land: item 47's farmland and the start's floors (D515: its bench, walkable land, fast wood and
  *  forester's plot), information for a real place (D331): a place whose start falls short warns, never drops (D245). */
 const START_LAND = ["start.farmland", "start.level_land", "start.reach", "start.forester", "start.wood_fast"];
@@ -608,6 +610,39 @@ function runPlace(item: LibraryItem): Outcome | null {
       ({ built, v, strict, blocking, strictFails } = best.r);
     }
   }
+  // A start that still reaches no water tries every spot its land offers (planning's ruling on #236): each spot with a
+  // shore within `WIDE_SHORE_WALK`, a few tiles apart, that passes `start.water` with the room floor (`start.level_land`)
+  // on the settled water, its wood grown where it falls short (objects only), and nothing else it passed then failing;
+  // the best wins. Where none does, `start.water` stands: the place keeps D445's note.
+  let everySpot = "";
+  if (strictFails.includes("start.water")) {
+    const had = new Set(strictFails);
+    let best: { at: [number, number]; place: PlaceData; r: Checked; score: number } | null = null;
+    const all = placeStartSpots(place, built.heights, built.settle.depth, built.settle.contamination, { limit: Infinity, walk: WIDE_SHORE_WALK });
+    let watered = 0;
+    for (const at of all) {
+      let cand = withStart(place, at);
+      let r = buildChecked(cand);
+      if (r.strictFails.includes("start.water") || r.strictFails.includes("start.level_land")) continue;
+      watered++;
+      if (r.strictFails.some((id) => WOOD_CHECKS.includes(id) && !had.has(id))) {
+        const walkField = startWalkField(r.built.heights, cand.W, cand.H, placeEntities(cand, r.built.heights), { x: at[0] + 1, y: at[1] + 1 });
+        const g = growFastWood(cand, r, walkField, { wood: checkLimit(r.strict, "start.wood"), floor: checkLimit(r.strict, "start.wood_floor") }, (c) => c.strictFails.includes("start.wood_fast"));
+        cand = g.place;
+        r = g.r;
+      }
+      if (r.strictFails.some((id) => !had.has(id) && !free.has(id))) continue;
+      const sc = score(r.strictFails);
+      if (best && sc >= best.score) continue;
+      best = { at, place: cand, r, score: sc };
+    }
+    if (best) {
+      moved ??= place.start;
+      place = best.place;
+      ({ built, v, strict, blocking, strictFails } = best.r);
+    }
+    everySpot = `  every spot tried for water (${all.length}): ${watered} pass start.water with the room floor${best ? "" : watered ? ", none without failing more" : ""}`;
+  }
   // A start short of berries (after a move or a spring, or on its own land) gets the bushes the
   // `start.food` check's own fix plants (the editor's one-click fix: moist tiles within 20 tiles'
   // walk of the start, nearest first; objects only, never land, D331). Where the fix finds too few
@@ -724,6 +759,18 @@ function runPlace(item: LibraryItem): Outcome | null {
       ({ built, v, strict, blocking, strictFails } = r);
     }
   }
+  // The starting-logs floor met by groves (D245): a start still short of `start.wood` or `start.wood_floor` gets fast
+  // trees on the moist ground nearest it (`growFastWood`, objects only), kept only where nothing it passed then fails
+  let groves = "";
+  if (!floorsFail && strict.analysis && (strictFails.includes("start.wood") || strictFails.includes("start.wood_floor"))) {
+    const walk = startWalkField(built.heights, place.W, place.H, placeEntities(place, built.heights), { x: place.start[0] + 1, y: place.start[1] + 1 });
+    const g = growFastWood(place, { built, v, strict, blocking, strictFails }, walk, { wood: checkLimit(strict, "start.wood"), floor: checkLimit(strict, "start.wood_floor") }, () => false);
+    if (g.planted && !g.r.strictFails.some((id) => !strictFails.includes(id)) && g.r.strictFails.length < strictFails.length) {
+      place = g.place;
+      ({ built, v, strict, blocking, strictFails } = g.r);
+      groves = `  ${g.planted} ${g.kind} planted for the start's wood`;
+    }
+  }
   if (floorsFail) {
     // (a start that cannot keep its wood once its plants stand on ground they live on: never forgotten, never offered)
     withheld.push(place.name);
@@ -750,7 +797,9 @@ function runPlace(item: LibraryItem): Outcome | null {
       mendNote +
       (spring ? `  spring by the start at ${spring.map((s) => `${s[0]},${s[1]}`).join(" ")}` : "") +
       (planted ? `  ${planted} berry bushes planted by the start` : "") +
-      plants,
+      plants +
+      groves +
+      everySpot,
   );
   const data = gzipSync(strToU8(JSON.stringify(place)), { level: 9, mtime: 0 });
   files.set(`data/${place.id}.json.gz`, data);

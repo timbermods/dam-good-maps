@@ -11,7 +11,7 @@ import { MapSession } from "../../src/core/doc/session";
 import { namedFile } from "../../src/core/gen/pack";
 import { jpegSize } from "../../src/core/validate/checks";
 import { readTimber } from "../../src/core/format/timber";
-import { PROVIDER_NOTICES, WATER_NOTICE } from "../../src/core/places/attribution";
+import { PROVIDER_NOTICES, WATER_LICENCE, WATER_LICENCE_URL, WATER_NOTICE } from "../../src/core/places/attribution";
 import { CONVERSION_FAULT_CHECKS, galleryIndex, MOVING_WATER_FAULT, MOVING_WATER_NOTE, NO_WATER_FAULT, NO_WATER_NOTE, PLACE_FAULT_CHECKS, placeDescription, placeNote, placeTimber } from "../../src/core/places/place";
 import { validateMap } from "../../src/core/validate/checks";
 import type { CheckResult } from "../../src/core/validate/report";
@@ -94,7 +94,7 @@ describe("the gallery shows every place, with a note on those whose start reache
     expect(moving.map((p) => p.id).sort()).toEqual([...PLACES_WATER_KEEPS_MOVING].sort());
     // the same places the checks flag on the real builds (tests/contract/placesCommon.ts checkShard)
     expect(noWater.map((p) => p.id).sort()).toEqual([...PLACES_START_WITHOUT_FED_WATER].sort());
-    expect(noWater.length).toBe(21);
+    expect(noWater.length).toBe(19);
     // no other fault gets a note
     for (const p of INDEX.places) if (!p.faults.includes("start.water") && !p.faults.includes("water.settles")) expect(placeNote(p), p.id).toBeNull();
     expect(placeNote({ faults: ["start.water", "water.settles"] })).toBe(`${NO_WATER_NOTE} · ${MOVING_WATER_NOTE}`);
@@ -116,6 +116,7 @@ describe("credits and the in-game description (investigation/landscapes/ATTRIBUT
       for (const n of PROVIDER_NOTICES) expect(d).toContain(n);
       // the real water the basins follow (D271, CC BY 4.0)
       expect(d).toContain(WATER_NOTICE);
+      expect(d).toContain(`${WATER_LICENCE} (${WATER_LICENCE_URL})`);
       expect(d.startsWith(`${p.familyName} · ${p.W}×${p.H} · ${p.metres} m per tile. ${p.plays}`)).toBe(true);
     }
   });
