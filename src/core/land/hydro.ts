@@ -663,18 +663,6 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     for (let q = 10; q < cells.length - 10; q++) if ((alongUp ? drainDist(cells[q]) : borderDist(cells[q])) < 4) return false;
     // (M9b: an inflow heads inland from its mouth, never along its edge first)
     if (natural && hd.kind === "edge") for (let q = 1; q <= Math.min(8, cells.length - 1); q++) if (borderDist(cells[q]) < q >> 1) return false;
-    // (an inflow that ends in the sea: the sea stands below the level its own edge lets water out at
-    // beside its mouth, else the sea's water, and the river's with it, runs back out there; the course
-    // is turned down here, before the attempt is spent, attempts-256)
-    if (natural && hd.kind === "edge" && toSea && spillAll) {
-      const e = hd.edge!;
-      const vertical = e === "west" || e === "east";
-      const along = (i: number) => (vertical ? (i - (i % W)) / W : i % W);
-      const a0 = along(hd.cell);
-      const back = drainage(h, W, H, { eight: false, outlet: (i) => edgeOf(i, W, H) === e && Math.abs(along(i) - a0) > 6 }).filled;
-      const end = cells[cells.length - 1];
-      if (!(back[end] > spillAll[end])) return false;
-    }
     heads.push(hd);
     for (const i of cells) if (owner[i] < 0) owner[i] = k;
     traced.push({ k, head: hd, cells, joins, toSea });
