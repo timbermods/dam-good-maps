@@ -1,6 +1,6 @@
 // The MCP server offers intentions by the committed table (src/core/land/intentionTable.ts): the table's shape and
 // rule, the descriptions built from it, and the refusal of an intention on a theme it is not offered for. The table
-// itself is held to the generator by the heavy test (intentionTable.heavy.test.ts).
+// itself is held to the generator by Nightly alone (tools/intention-table.ts --check --theme, a theme a job).
 
 import { describe, expect, it } from "vitest";
 import { INTENTION_LEAST, INTENTION_SEEDS, INTENTION_SIDE, INTENTION_TABLE, intentionRefusal, offeredThemes, STYLE_THEMES } from "../../src/core/land/intentionTable";

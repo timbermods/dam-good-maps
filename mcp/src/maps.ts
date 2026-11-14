@@ -40,6 +40,8 @@ import {
   generatorSizeRefusal,
   highestTerrainDefault,
   makeSpec,
+  MAX_SIDE,
+  MIN_SIDE,
   PREMISE_CHOICES,
   PREMISE_NAMES,
   type PremiseChoice,
@@ -139,7 +141,6 @@ export interface Generated {
  *  lives in the open maps alone, so the bound on them (MOST_OPEN) is the bound on the maps held. */
 export type Made = Omit<Generated, "session">;
 
-const SIDE_MAX = 256;
 
 function sizeOf(v: GenerateInput["size"]): { x: number; y: number } {
   if (v === undefined) return { x: 128, y: 128 };
@@ -180,7 +181,7 @@ export function specOf(input: GenerateInput): { spec: MapSpec; seedWord?: string
   const theme = (input.theme ?? "any") as ThemeId;
   if (!THEMES.includes(theme)) refuse(`The theme is one of ${THEMES.join(", ")}`);
   const size = sizeOf(input.size);
-  if (!Number.isInteger(size.x) || !Number.isInteger(size.y) || size.x < 1 || size.y < 1 || size.x > SIDE_MAX || size.y > SIDE_MAX) refuse(`A side is a whole number of tiles up to ${SIDE_MAX}`);
+  if (!Number.isInteger(size.x) || !Number.isInteger(size.y) || size.x < MIN_SIDE || size.y < MIN_SIDE || size.x > MAX_SIDE || size.y > MAX_SIDE) refuse(`A side is a whole number of tiles from ${MIN_SIDE} to ${MAX_SIDE}`);
   const small = generatorSizeRefusal(size.x, size.y, theme);
   if (small) refuse(small);
   const designedFor = (input.designedFor ?? "normal") as Difficulty;
@@ -280,6 +281,8 @@ export interface Change {
   start?: { from: [number, number, number] | null; to: [number, number, number] | null };
   /** What the operations did that a caller would not expect, in words for the player. */
   notes?: string[];
+  /** After the start moved: the start checks that now fail, each with what to do (first in the result). */
+  startChecks?: string[];
 }
 
 interface Before {
@@ -628,7 +631,34 @@ export function applyOps(s: MapSession, ops: unknown[]): Change {
     s.forgetRedo();
     throw e;
   }
-  return notesOf(changeSince(s, before, steps, held), before, startOf(s), verbs, movedStart);
+  const c = notesOf(changeSince(s, before, steps, held), before, startOf(s), verbs, movedStart);
+  // a start that moved is never silent (planning, 2026-11-14): the start checks that now fail come first
+  const failing = c.start ? startChecksFailing(s) : [];
+  return failing.length ? { startChecks: failing, ...c } : c;
+}
+
+/** What to do about a start check that fails, by its id: one short clause. */
+const START_MENDS: Record<string, string> = {
+  "start.water": "move the start to ground that walks to clean water, or lead water to it (canal, or a WaterSource with placeEntity)",
+  "start.reach": "move the start to ground that walks further without building, or add slopes",
+  "start.dry": "move the start off the water",
+  "start.badwater": "move the start away from badwater",
+  "start.flat": "move the start to flatter ground",
+  "start.level_land": "move the start to a wider level bench",
+  "start.farmland": "move the start nearer moist ground",
+  "start.forester": "move the start nearer moist ground",
+  "start.food": "use the check's fix, or move the start nearer berries",
+  "start.wood": "use the check's fix, or move the start nearer trees",
+  "start.wood_fast": "use the check's fix, or move the start nearer trees",
+  "start.wood_floor": "use the check's fix, or move the start nearer trees",
+};
+
+/** The start checks that fail now (the export's checks, as check runs them), one line each with what to do. */
+export function startChecksFailing(s: MapSession): string[] {
+  const c = checksOf(s);
+  return [...c.blocking, ...c.warnings]
+    .filter((x) => x.id.startsWith("start."))
+    .map((x) => `${rowOf(x).message}: ${START_MENDS[x.id] ?? "move the start, or change the land round it"}.`);
 }
 
 /** Undo the last step: its label, or the core's reason it can't (D455's save point). */
