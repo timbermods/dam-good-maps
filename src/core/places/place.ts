@@ -21,6 +21,7 @@ import { moistureBarrier, waterModel, type MapObject } from "../sim/model";
 import { moisture } from "../sim/moisture";
 import { gameSoil } from "../sim/soil";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
+import type { SettleCache } from "../features/build";
 import type { WaterModel } from "../sim/water";
 import { validateMap, type Validation } from "../validate/checks";
 import { failing } from "../validate/report";
@@ -202,14 +203,17 @@ export type HeightsRules = "game" | "port";
  *  singletons and outflows (gen/pack.ts `worldOf`) and the file around it (`timberFileOf`). Real
  *  places (`buildPlace`) and the probe's test maps (tools/probe-maps/assemble.ts) are built with it;
  *  under the game's rules it writes what a generated map with the same ground and objects stores. */
-export function buildFileFromHeights(W: number, H: number, heights: Uint8Array, entities: readonly EntitySpec[], description: string, rules: HeightsRules = "game"): BuiltPlace {
+export function buildFileFromHeights(W: number, H: number, heights: Uint8Array, entities: readonly EntitySpec[], description: string, rules: HeightsRules = "game", settles?: SettleCache): BuiltPlace {
   const objects = entities.map(mapObject);
   const model = waterModel(W, H, heights, objects);
   let settle: CanonicalWater;
   let moist: Float64Array;
   let soil: Float64Array;
   if (rules === "port") {
-    settle = canonicalSettle(model, { rules: "port" });
+    // (a settle already made for the same water model, `settles`: the same water, as the build's own cache gives it)
+    const had = settles?.get(model);
+    settle = had ?? canonicalSettle(model, { rules: "port" });
+    if (!had) settles?.set(model, settle);
     const barrier = moistureBarrier(W, H, objects);
     moist = moisture(heights, settle.depth, settle.contamination, W, H, barrier);
     soil = soilContamination(heights, settle.depth, settle.contamination, W, H, barrier);
@@ -224,15 +228,16 @@ export function buildFileFromHeights(W: number, H: number, heights: Uint8Array, 
   return { file, heights, model, settle };
 }
 
-/** Build the place's map: its terrain and objects, the canonical settle, soil, and the file. */
-export function buildPlace(p: PlaceData): BuiltPlace {
+/** Build the place's map: its terrain and objects, the canonical settle, soil, and the file. `settles` keeps the settles
+ *  of builds of the same place whose objects alone differ (a start moved, plants), which leave the water as it was. */
+export function buildPlace(p: PlaceData, settles?: SettleCache): BuiltPlace {
   if (p.format !== PLACE_FORMAT) throw new Error(`real place format ${String(p.format)} is not ${PLACE_FORMAT}`);
   const { W, H } = p;
   const heights = decodeHeights(p.heights);
   if (heights.length !== W * H) throw new Error(`${p.id}: ${heights.length} heights for ${W}×${H}`);
   // (the places were converted under the port's water rules and are settled with them, so the
   // gallery's files stay as they were until Real places 2 converts them under the game's, D311)
-  return buildFileFromHeights(W, H, heights, placeEntities(p, heights), placeDescription(p), "port");
+  return buildFileFromHeights(W, H, heights, placeEntities(p, heights), placeDescription(p), "port", settles);
 }
 
 /** Validate a built place as the editor validates a file it exports (the export profile), on its

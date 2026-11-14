@@ -15,6 +15,9 @@ import { compareProblem, nameTip, parentFull, parentStep, splitVersionName } fro
 import { limitName } from "../nameFit";
 import { COMPARE_KEY } from "../compare/useCompare";
 
+/** How long after a finger lifts from a tile the click or the menu its long press brings may still come, ms. */
+const AFTER_LIFT = 600;
+
 export function YourMaps({ model: m }: { model: GeneratorModel }) {
   // the right-click menu, and the map whose name is being renamed in place
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -32,9 +35,13 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
   /** The long press under way on a tile, and whether one just ended in a selection (the tap that follows it is no tap). */
   const hold = useRef<{ id: number; x: number; y: number; timer: number } | null>(null);
   const holdDone = useRef(false);
-  /** The last press on a tile was a finger's: the browser's own long-press menu (Android's contextmenu) is not the
-   *  right-click's. */
+  /** A finger is on a tile, or left one a moment ago: the browser's own long-press menu (Android's contextmenu, Windows'
+   *  after the finger lifts) is not the right-click's. */
   const fingerDown = useRef(false);
+  /** When the last finger on a tile lifted: the click and the menu a long press brings come within `AFTER_LIFT` of it,
+   *  and a key pressed after that (Enter, Shift+F10) is the keyboard's own. */
+  const liftedAt = useRef(-Infinity);
+  const justLifted = () => performance.now() - liftedAt.current < AFTER_LIFT;
   const panel = useRef<HTMLElement>(null);
   const list = useRef<HTMLUListElement>(null);
   /** The maps whose name is longer than the two lines a tile keeps for it: a kept version then shows its map's name cut and
@@ -68,10 +75,10 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
     });
   }, [ids]);
   const click = (ev: MouseEvent, id: string, here: boolean) => {
-    if (holdDone.current) {
-      holdDone.current = false;
-      return;
-    }
+    // (the click a long press's lift brings is no tap; a key's click, `detail` 0, is always the key's)
+    const afterHold = holdDone.current;
+    holdDone.current = false;
+    if (afterHold && ev.detail !== 0 && (fingerDown.current || justLifted())) return;
     if (ev.ctrlKey || ev.metaKey || (pickingNow.current && !ev.shiftKey)) {
       const next = new Set(selected);
       if (!next.delete(id)) next.add(id);
@@ -94,11 +101,28 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
     if (hold.current) clearTimeout(hold.current.timer);
     hold.current = null;
   };
+  // (the finger lifted: what it brings comes now or in a moment; after that, nothing on the tile is the finger's)
+  const lift = () => {
+    endHold();
+    if (!fingerDown.current) return;
+    fingerDown.current = false;
+    liftedAt.current = performance.now();
+  };
   const startHold = (ev: PointerEvent, id: string) => {
     fingerDown.current = ev.pointerType === "touch";
     holdDone.current = false;
     endHold();
     if (!fingerDown.current) return;
+    // (the finger may lift off the tile: the page hears it wherever it lifts)
+    const finger = ev.pointerId;
+    const up = (e: PointerEvent) => {
+      if (e.pointerId !== finger) return;
+      window.removeEventListener("pointerup", up, true);
+      window.removeEventListener("pointercancel", up, true);
+      lift();
+    };
+    window.addEventListener("pointerup", up, true);
+    window.addEventListener("pointercancel", up, true);
     const timer = window.setTimeout(() => {
       hold.current = null;
       holdDone.current = true;
@@ -260,7 +284,7 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
                 data-id={e.id}
                 onContextMenu={(ev) => {
                   // (a finger's long press is the selection's, not the right-click's menu: ⋯ gives that)
-                  if (fingerDown.current) return void ev.preventDefault();
+                  if (fingerDown.current || justLifted()) return void ev.preventDefault();
                   openMenu(ev, e.id);
                 }}
               >
