@@ -154,7 +154,7 @@ export class HighLook {
   shareTerrainUniforms(standard: ShaderMaterial): void {
     const t = this.materials.terrain.uniforms;
     for (const k of ["eruptionMask", "eruptionBase"]) if (t[k] && t[k] !== standard.uniforms[k]) (t[k].value as { dispose(): void }).dispose();
-    for (const k of ["heightRange", "hover", "groundMode", "eruptionMask", "eruptionBase", "eruptionAge", "coolingAge"]) t[k] = standard.uniforms[k];
+    for (const k of ["heightRange", "hover", "groundMode", "eruptionMask", "eruptionBase", "eruptionAge", "coolingAge", "popCells", "popCount", "popLo", "popHi"]) t[k] = standard.uniforms[k];
   }
 
   // ------------------------------------------------------------------------------------ effects

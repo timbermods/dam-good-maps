@@ -66,6 +66,7 @@ import { ForceEffects, type ForceMoment } from "./forces";
 import { GeothermalSteam, steamFields } from "./geothermalSteam";
 import { WALL_CLOCK, type Clock } from "./clock";
 import { Pops, type PopItem } from "./pops";
+import { BlockPops, popDustMaterial, type PopUniforms } from "./blockPop";
 import type { Voxels } from "./wear";
 import { BlockCells, BlockGhost, type BlockPreview, type GhostTile } from "./blockGhost";
 import { EditGlow, editedCells, editGlowMaterial, type EditCells } from "./editGlow";
@@ -91,7 +92,7 @@ import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, typ
 import { cutawayOn } from "./cutaway";
 import { ringLevelAt, waterLevelAt } from "./cutWater";
 import { OverlayRuns } from "./overlayRuns";
-import { columnMap, columnMasks, DEAD, DYING, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
+import { columnMap, columnMasks, DEAD, LAYERS, DYING, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
 import { GAME_FINISH, GAME_SKY, gamePostRgb, type GroundMode, type Rgb } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
 import { drawnWater, drewChunk, exactWaterChunks, heldSurfaceOf, holdLand, meshWaterChunk, MOVED_WATER, ownSurface, waterChangedRect, rideLand, waterMovedChunk, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
@@ -835,6 +836,7 @@ export class MapRenderer {
     if (this.map) this.cutTerrain(this.map.entities, level === null ? null : v);
     // (what an edit just changed was drawn under the cut it had)
     this.editGlow?.clear();
+    this.blockPops?.clear();
     this.hollowStale = true;
     this.requestRender();
     this.onSlice?.(level === null ? null : v);
@@ -903,6 +905,8 @@ export class MapRenderer {
       for (const m of this.lineCopy) list.push([m, { ...(m.defines as Defines) }]);
       // (the edit glow's, drawn when an edit first lands: one program in every look and state, editGlow.ts)
       list.push([this.glowMat, { ...(this.glowMat.defines as Defines) }]);
+      // (the Block tool's blocks' dust, blockPop.ts)
+      list.push([this.popDust, { ...((this.popDust.defines ?? {}) as Defines) }]);
       // (the Flow view's foam and streaks, hidden until it is switched on: motion.ts)
       for (const m of this.waterMotion?.materials() ?? []) list.push([m, { ...((m.defines ?? {}) as Defines) }]);
       // (the forces' moments', drawn when a force first plays: Erode's dust and stones, Glaciate's ice, forces.ts)
@@ -1734,6 +1738,7 @@ export class MapRenderer {
     this.applySeason();
     this.droughtLayer?.clear();
     this.editGlow?.clear();
+    this.blockPops?.clear();
     clearTimeout(this.casterTimer);
     clearTimeout(this.lifeTimer);
     this.casterTimer = this.lifeTimer = 0;
@@ -2199,7 +2204,8 @@ export class MapRenderer {
     if (columns) rect = grownRect(rect, columnsChanged(m.source.columns, columnMap(columns), m.W));
     // (what the edit changed in 3D, from the columns drawn before and the update's: editGlow.ts)
     const masks = columns ? columnMasks(m.W * m.H, columns) : m.source.masks;
-    const edited = rect && opts.glow !== false ? editedCells(m.W, m.H, { heights: m.heights, masks: m.source.masks }, { heights, masks }, this.blockEdit(), rect) : null;
+    const block = rect && opts.glow !== false ? this.blockEdit() : false;
+    const edited = rect && opts.glow !== false ? editedCells(m.W, m.H, { heights: m.heights, masks: m.source.masks }, { heights, masks }, block, rect) : null;
     if (rect) this.droughtLayer?.retire();
     // (the water on the land that changed rides it, whichever came first: `rideLand`)
     if (rect && this.drawnLand) {
@@ -2222,6 +2228,8 @@ export class MapRenderer {
     this.settleObjects();
     this.hollowStale = true;
     if (edited) this.glowEdits(edited);
+    // (the Block tool's blocks grow and crumble, on the land as it now is: blockPop.ts)
+    if (edited && block) this.popBlocks(edited);
     // (the game's rule: a layer above everything the map could hide shows the whole world)
     if (this.slice !== null && this.slice > this.topHiding()) this.setSlice(null);
     if (!rect) return 0;
@@ -2835,7 +2843,11 @@ export class MapRenderer {
     // tool's land, `updateTerrainRect`)
     const block = this.blockLand;
     this.blockLand = false;
-    if (this.eroding || block) this.glowEdits(editedCells(m.W, m.H, { heights: drawn, masks: m.source.masks }, { heights, masks: m.source.masks }, true, c.rect));
+    if (this.eroding || block) {
+      const cells = editedCells(m.W, m.H, { heights: drawn, masks: m.source.masks }, { heights, masks: m.source.masks }, true, c.rect);
+      this.glowEdits(cells);
+      if (block) this.popBlocks(cells);
+    }
     if (m.water.count && this.landUnder(drawn, heights, c.rect)) {
       this.rodeLand(c.rect);
       this.flowChanged(heights, m.surface);
@@ -3398,6 +3410,7 @@ export class MapRenderer {
     this.surge?.advance();
     this.editGlow?.advance();
     this.pops?.advance();
+    this.blockPops?.advance();
   }
 
   /** Plants and ruins on the tiles of `rect` stand on the ground shown there: each moves by as
@@ -3553,6 +3566,31 @@ export class MapRenderer {
     if (!m || (!cells.added.length && !cells.removed.length)) return;
     const src = m.source;
     (this.editGlow ??= new EditGlow(this.scene, () => this.requestRender(), this.glowMat, () => this.programs.ready([[this.glowMat, { ...(this.glowMat.defines as Defines) }]]), this.time)).show(cells, m.W, m.H, (x, y) => columnMask(src, y * m.W + x), this.slice, this.reducedMotion || this.software);
+  }
+
+  private blockPops: BlockPops | null = null;
+  /** The blocks' dust's material, made with the renderer so its program is compiled ahead (`scheduleWarm`). */
+  private readonly popDust = popDustMaterial();
+
+  /** The Block tool's blocks grow and crumble (blockPop.ts; D240): a moment of the edit already drawn, off with reduced
+   *  motion and in the light look; blocks at or above the layer cut are not played. */
+  private popBlocks(cells: EditCells): void {
+    const m = this.map;
+    if (!m || !this.juicy || (!cells.added.length && !cells.removed.length)) return;
+    const src = m.source;
+    const cut = this.slice ?? LAYERS;
+    const solid = (x: number, y: number, z: number) => {
+      if (z < 0) return true;
+      if (x < 0 || y < 0 || x >= m.W || y >= m.H || z >= cut) return false;
+      return ((columnMask(src, y * m.W + x) >>> z) & 1) === 1;
+    };
+    const below = (c: readonly number[]) => c[2] < cut;
+    (this.blockPops ??= new BlockPops(this.scene, () => this.terrainMat, this.std.terrain.uniforms as unknown as PopUniforms, this.popDust, () => this.requestRender(), this.time)).add(cells.added.filter(below), cells.removed.filter(below), solid);
+  }
+
+  /** The Block tool's blocks playing now (tests): growing, sinking, the quads drawn and the dust's puffs. */
+  get blockPopsDrawn(): { grows: number; sinks: number; quads: number; puffs: number } {
+    return this.blockPops?.drawn ?? { grows: 0, sinks: 0, quads: 0, puffs: 0 };
   }
 
   /** What the edit glow shows now (tests): its faces of each kind and its strength, 0 once faded. */
@@ -5335,6 +5373,8 @@ export class MapRenderer {
     this.blockCells?.dispose();
     this.editGlow?.dispose();
     this.glowMat.dispose();
+    this.blockPops?.dispose();
+    this.popDust.dispose();
     this.droughtLayer?.dispose();
     this.surge?.dispose();
     this.forceFx?.dispose();

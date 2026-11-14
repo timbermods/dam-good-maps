@@ -926,6 +926,61 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   map held the page for seconds in a cold browser (the cave light and shaders, before this change and dev's shader
   warm-up); the glow waits for it.
 
+## The Block tool's blocks grow and crumble (D240, D488, D342; `feature/block-pop`)
+
+- **Why:** D240 asks for "raised blocks grow up with a tiny overshoot, lowered ones sink and crumble with a puff of
+  dust". An audit of D488 (3) on dev found that the Block tool had its preview, aim and edit glow, but its blocks
+  appeared and vanished in one frame (EDITOR_PLAN: "the blocks' own pop-in and crumble are the renderer's, to come").
+- **What:** `src/render3d/blockPop.ts`. Only the Block tool's edits play it: the renderer already knows them
+  (`blockEditSent`, "What an edit changed"). Both ways its land comes play it: `updateTerrain` (columns) and
+  `flushTerrain` (plain heights). It is a moment of an edit already applied (D342). The map's land is the new land
+  from the first frame, and the pick, the water, the support check and the file see nothing else. Nothing waits on it.
+  - **A block added** grows out of the rock it stands on. That is the first way that is rock and was rock before the
+    edit: down, then the sides (a block jutting from a wall), then up. It grows in 260 ms by an ease-out curve that
+    peaks 5 % past its size, about two thirds of the way through, and settles (`growScale`).
+  - **Drawn with the look's own terrain material** (D497; Timberborn's editor sets a block at once, so the motion is
+    ours and the look is the game's). While a block grows, the terrain shader leaves out the terrain's own faces of the
+    block (`popCells`: up to 64 cells by key, four to a vec4, with a box round them, tested only while any grow). The
+    test covers fragments on the grid whose voxel is a growing cell. The pop draws the growing box a hair off the grid,
+    so the test never leaves it out. It also draws the faces the block covers as they stood (the ground's top under
+    it, the wall it juts from), so the ground never shows a hole.
+  - **A block taken** sinks a level into the ground below it in 420 ms, shrinking to 0.65 across, again in the terrain
+    material, so it disappears into the rock under it. Five puffs of its own wall's stone, ground fine and a little
+    lighter (Erode's dust, the same drawing, never white smoke), rise from the top of where it was and fade in 0.9 s.
+  - **The edit glow** plays over both as before: the white outline of the block added frames it as it grows, and the
+    hollow's red frames the block sinking.
+  - **Off with reduced motion and in the light look** (software drawing; the renderer's `juicy`): the land is simply
+    there (D240). It is also off for blocks at or above the layer cut. At most 64 blocks grow at once and 64 sink;
+    past that, a block is simply there.
+- **Cost:** fixed buffers made once (1,152 quads, a 96-puff pool). Each frame while it plays, the boxes and puffs are
+  written into them, with no allocation. Once it ends nothing is drawn or asked for, and the shader's test is one
+  uniform compare. GPU time a frame by timer queries while orbiting (`benchOrbit`, the median over 6 s, two runs each,
+  real Chrome with the GPU, 1280 × 800, Highlands 256² seed 1, dev at ef43fb04 → this branch): idle,
+  Standard 2.85 / 3.18 ms → 2.76 / 2.98 ms and High 3.01 / 2.92 ms → 2.93 / 2.63 ms; with 64 blocks growing (an 8 × 8
+  add held at 130 ms, 160 quads), Standard 2.85 / 3.18 ms and High 2.82 / 2.69 ms. All within the runs' own spread:
+  nothing measurable.
+- **Tests:** `tests/unit/blockPop.test.ts` covers:
+  - the growth curve and the sink;
+  - which rock a block grows from (flat ground, a wall with air under the block);
+  - the faces a taken block shows;
+  - the caps;
+  - every face drawn wound to face its normal, the covered top on the grid and the growing faces off it;
+  - nothing once over;
+  - the shader's cell keys and box.
+- **Captures:** local only, `C:\dgm-showcase\d488\block-pop\sheet.png` (12 frames, real Chrome with the GPU,
+  1280 × 800 dark, the renderer's clock held at each time). On Lake Basin 96 seed 77, a 3 × 3 block of ground four
+  levels up gets a block added on top and one out of its east wall (the core fills that one down to the ground, three
+  blocks) at 25, 60 and 130 ms. Then two blocks are taken off its top at 105, 231 and 378 ms. Standard and High.
+- **Falls short:**
+  - A growing block's top, partway up, is lit and coloured as a wall by the terrain shader's rules (it is not on a
+    tile's top level) for the quarter second it moves.
+  - The growing and sinking blocks cast no shadow of their own; the High look's shadow keeps the block's full shape
+    meanwhile.
+  - Blocks added beside each other but growing from different rock (a column filled down to the ground beside a wall)
+    meet at their seams only once grown.
+  - The undo of a Block edit plays nothing (the page's undo does not say which operation it takes back, as for the
+    glow).
+
 ## Software frames (`perf/software-frames`)
 
 - **Why:** dev's CI (software drawing, SwiftShader) took 21–29 s a Block tool click in `blockTool.spec.ts`. Measured
