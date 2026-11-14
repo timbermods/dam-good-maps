@@ -35,14 +35,14 @@ claude mcp add dam-good-maps -- npx -y --package=https://github.com/timbermods/d
 
 ## What to ask
 
-- "Make me a canyon map with two waterfalls side by side."
+- "Make me a highlands map with two waterfalls side by side."
 - "Make it harder: less flat land near the start."
 - "Carve a river from the hills in the north-east down to the lake."
 - "Put an eruption where the badwater is, and show me."
 - "Move the start next to the river, then save it."
 - "Open my map from yesterday and add a crater lake."
 
-Claude tells you what the generator made and what it didn't. If a wish didn't come out, ask for another seed.
+Claude tells you what the generator made and what it didn't. If a wish didn't come out, ask for another seed. Some wishes are rare, so Claude says when to stop trying.
 
 A large map (256 tiles a side) can take a few minutes to make. Claude checks on it until it is ready.
 

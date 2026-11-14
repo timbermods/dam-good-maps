@@ -85,7 +85,7 @@ import { GameBloom, GAME_BLOOM_LOOKS, LAVA_BLOOM_ENDS } from "./bloom";
 import { Refraction, WATER_REFRACTION } from "./refraction";
 import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
 import { BROWSER_ZOOM_EVENTS, DOUBLE_TAP_MS, DOUBLE_TAP_PX, FingerPress, HOLD_MS, showsAtOnce, TAP_MS, TAP_SLOP, Touches, type Motion, type Point, type PressHost, type PressMode } from "./touch";
-import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
+import { DEFAULT_YAW, distanceForMode, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { cutawayOn } from "./cutaway";
 import { ringLevelAt, waterLevelAt } from "./cutWater";
@@ -150,6 +150,9 @@ function onIdle(fn: (deadline?: IdleDeadline) => void): void {
 }
 
 export type ViewMode = "orbit" | "top";
+
+/** The height the top-down view's camera looks down from (orthographic: it sets no scale, only what lies below it). */
+const TOP_EYE = 200;
 
 /** The look drawn: High, High's lower-cost tier, Standard, or the light look (software). */
 export type Look = Tier | "light";
@@ -1127,7 +1130,8 @@ export class MapRenderer {
   }
 
   private showMarkerObjects(): void {
-    for (const c of this.objects?.children ?? []) if (c.name === "Slope.mark" || c.name === "Slope.mark.lite") c.visible = this.markersOn;
+    // (the slopes' arrows and the start's entrance, Markers' editing aids: the game draws neither, D497)
+    for (const c of this.objects?.children ?? []) if (c.name === "Slope.mark" || c.name === "Slope.mark.lite" || c.name === "start.entrance") c.visible = this.markersOn;
   }
 
   /** Hold the water's movement at a moment (seconds), or let it move again (null). */
@@ -2161,8 +2165,8 @@ export class MapRenderer {
     this.litTiles = null;
     this.sourcesLit.clear();
     group.renderOrder = 1;
-    // (the slopes' arrows, Markers' editing aid, left out of the bloom's source: bloom.ts)
-    for (const c of group.children) if (c.name.startsWith("Slope.mark")) onAidLayer(c);
+    // (the slopes' arrows and the start's entrance, Markers' editing aids, left out of the bloom's source: bloom.ts)
+    for (const c of group.children) if (c.name.startsWith("Slope.mark") || c.name === "start.entrance") onAidLayer(c);
     this.objects = group;
     this.scene.add(group);
     this.showMarkerObjects();
@@ -4107,7 +4111,7 @@ export class MapRenderer {
       this.ortho.right = half * aspect;
       this.ortho.top = half;
       this.ortho.bottom = -half;
-      this.ortho.position.set(tx, 200, tz);
+      this.ortho.position.set(tx, TOP_EYE, tz);
       // (the screen's up is the way the view faces along the ground: north at yaw 0)
       this.ortho.up.set(-Math.sin(v.yaw), 0, -Math.cos(v.yaw));
       this.ortho.lookAt(tx, 0, tz);
@@ -4131,13 +4135,19 @@ export class MapRenderer {
   }
 
   /** The game's fog (palette.ts GAME_FINISH), as the game draws it up to its farthest default zoom; from farther out,
-   *  an editing view the game doesn't have, held at what that zoom shows, so a whole map stays readable (D497). None
-   *  looking straight down, where the game never looks (the camera sits at 200), nor with High's Fog switched off. */
+   *  an editing view the game doesn't have, held at what that zoom shows, so a whole map stays readable (D497). Looking
+   *  straight down, where the game never looks, the fog the angled view has at the same zoom (`distanceForMode`): its
+   *  depth at the spot looked at, held as the angled view's is, in place of the top camera's own 200 units, so the two
+   *  views read alike (without it the deep sea, which the game's ramp and grade take to black, read pure black there,
+   *  #236 11-10). None with High's Fog switched off. */
   private applyFog(): void {
     const u = this.uniforms;
     const v = this.view;
-    u.fogDensity.value = v.mode === "top" || (this.high && !this.high.effects.fog) ? 0 : GAME_FINISH.fogParam;
-    u.fogShift.value = Math.max(0, v.distance - GAME_FINISH.fogFarthest);
+    u.fogDensity.value = this.high && !this.high.effects.fog ? 0 : GAME_FINISH.fogParam;
+    u.fogShift.value =
+      v.mode === "top"
+        ? TOP_EYE - v.target[1] - Math.min(distanceForMode(v.distance, "orbit"), GAME_FINISH.fogFarthest)
+        : Math.max(0, v.distance - GAME_FINISH.fogFarthest);
     u.fogNear.value = this.persp.near;
   }
 

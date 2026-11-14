@@ -61,7 +61,7 @@ const refuse = (why: string): never => {
 // ------------------------------------------------------------------------------------------- the open maps
 
 /** The maps open in this server, by handle. Each holds a whole map and its history, so only the latest few stay. */
-const MOST_OPEN = 6;
+export const MOST_OPEN = 6;
 const open = new Map<string, MapSession>();
 /** Handles of maps the generator is still making (jobs.ts). */
 const making = new Set<string>();
@@ -92,7 +92,9 @@ export function mapOf(handle: string): MapSession {
   if (s) return s;
   if (making.has(handle)) refuse(`Map ${handle} is not ready yet: call wait with it`);
   const have = [...open.keys()];
-  return refuse(`There is no open map "${handle}"${have.length ? `: the open maps are ${have.join(", ")}` : ": generate or open a map first"}`);
+  return refuse(
+    `There is no open map "${handle}"${have.length ? `: the open maps are ${have.join(", ")}` : ""}. Only the newest ${MOST_OPEN} maps stay open: open its saved project, or generate it again with the same input and seed`,
+  );
 }
 
 /** Forget every open map (the tests). */
@@ -230,29 +232,58 @@ export interface Change {
   steps: string[];
   ground: { tiles: number; raised: number; lowered: number; most: number; area: { x0: number; y0: number; x1: number; y1: number } | null };
   objects: { added: Record<string, number>; removed: Record<string, number> };
-  water: { wetBefore: number; wetAfter: number };
+  /** `area`: the tiles that turned wet or dry, when any did. */
+  water: { wetBefore: number; wetAfter: number; area?: { x0: number; y0: number; x1: number; y1: number } };
   /** Tiles a stroke kept from where it would have gone, to hold up rock or an object under a roof. */
   held: number;
   /** The map's new size, after a crop. */
   size?: { x: number; y: number };
+  /** Where the start was and is, when the operations moved it (a force that breaks the start's ground carries it, D257). */
+  start?: { from: [number, number, number] | null; to: [number, number, number] | null };
+  /** What the operations did that a caller would not expect, in words for the player. */
+  notes?: string[];
 }
 
 interface Before {
   size: { x: number; y: number };
   heights: Uint8Array;
   ents: Map<string, string>;
-  wet: number;
+  wet: Uint8Array;
+  start: [number, number, number] | null;
 }
 
-function wetTiles(s: MapSession): number {
+const startOf = (s: MapSession): [number, number, number] | null => (s.built.start ? [s.built.start.x, s.built.start.y, s.built.start.z] : null);
+
+function wetMask(s: MapSession): Uint8Array {
   const w = s.built.water;
-  let n = 0;
-  for (let i = 0; i < w.length; i++) if (w[i] > 0.05) n++;
-  return n;
+  const m = new Uint8Array(w.length);
+  for (let i = 0; i < w.length; i++) m[i] = w[i] > 0.05 ? 1 : 0;
+  return m;
+}
+
+const countOf = (m: Uint8Array) => m.reduce((n, v) => n + v, 0);
+
+/** The rectangle round the tiles that turned wet or dry (null when none did, or the map's size changed). */
+function wetChange(before: Uint8Array, now: Uint8Array, W: number): { x0: number; y0: number; x1: number; y1: number } | null {
+  if (before.length !== now.length) return null;
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -1;
+  let y1 = -1;
+  for (let i = 0; i < now.length; i++) {
+    if (now[i] === before[i]) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    x0 = Math.min(x0, x);
+    y0 = Math.min(y0, y);
+    x1 = Math.max(x1, x);
+    y1 = Math.max(y1, y);
+  }
+  return x1 < 0 ? null : { x0, y0, x1, y1 };
 }
 
 function snapshot(s: MapSession): Before {
-  return { size: { ...s.size }, heights: s.built.heights.slice(), ents: new Map(s.built.entities.map((e) => [e.id, e.template])), wet: wetTiles(s) };
+  return { size: { ...s.size }, heights: s.built.heights.slice(), ents: new Map(s.built.entities.map((e) => [e.id, e.template])), wet: wetMask(s), start: startOf(s) };
 }
 
 function changeSince(s: MapSession, b: Before, steps: string[], held: number): Change {
@@ -291,13 +322,40 @@ function changeSince(s: MapSession, b: Before, steps: string[], held: number): C
     steps,
     ground: { tiles, raised, lowered, most, area: tiles ? { x0, y0, x1, y1 } : null },
     objects: { added, removed },
-    water: { wetBefore: b.wet, wetAfter: wetTiles(s) },
+    water: (() => {
+      const now = wetMask(s);
+      const area = wetChange(b.wet, now, W);
+      return { wetBefore: countOf(b.wet), wetAfter: countOf(now), ...(area ? { area } : {}) };
+    })(),
     held,
     ...(s.size.x !== b.size.x || s.size.y !== b.size.y ? { size: { ...s.size } } : {}),
   };
 }
 
-const FORCE_DEFAULTS: Record<string, Record<string, unknown>> = {
+const xy = (p: [number, number, number] | null) => (p ? `X ${p[0]} · Y ${p[1]}, level ${p[2]}` : "nowhere");
+
+/** The notes a change gets: the start moved, sources a force cleared, a crater with no water. `verbs`: the forces among
+ *  the operations; `movedStart`: an operation that moved the start on purpose. */
+function notesOf(c: Change, b: Before, now: [number, number, number] | null, verbs: string[], movedStart: boolean): Change {
+  const notes: string[] = [];
+  const same = b.start && now && b.start[0] === now[0] && b.start[1] === now[1] && b.start[2] === now[2];
+  if (!same && (b.start || now)) {
+    c.start = { from: b.start, to: now };
+    if (!movedStart && verbs.length)
+      notes.push(`The force broke the ground under the start, so the start moved from ${xy(b.start)} to ${xy(now)}. Undo, or give the force a smaller size or another place, to keep the start where it was.`);
+  }
+  if (verbs.length) {
+    const water = c.objects.removed.WaterSource ?? 0;
+    const bad = c.objects.removed.BadwaterSource ?? 0;
+    if (water + bad)
+      notes.push(`The force cleared ${[water ? `${water} water source${water > 1 ? "s" : ""}` : "", bad ? `${bad} badwater source${bad > 1 ? "s" : ""}` : ""].filter(Boolean).join(" and ")} on the ground it changed. To keep sources, give settings.sources "ride".`);
+  }
+  if (verbs.includes("craterize")) notes.push("A crater is a dry bowl. For a crater lake, place a WaterSource in the bowl with placeEntity.");
+  if (notes.length) c.notes = notes;
+  return c;
+}
+
+export const FORCE_DEFAULTS: Record<string, Record<string, unknown>> = {
   carve: CARVE_DEFAULTS as unknown as Record<string, unknown>,
   craterize: CRATER_DEFAULTS as unknown as Record<string, unknown>,
   erupt: ERUPT_DEFAULTS as unknown as Record<string, unknown>,
@@ -484,6 +542,15 @@ export function applyOps(s: MapSession, ops: unknown[]): Change {
   const at = depth();
   const steps: string[] = [];
   let held = 0;
+  // (the forces among the operations, and whether one moved the start on purpose: for the change's notes)
+  const verbs: string[] = [];
+  let movedStart = false;
+  const startId = s.built.entities.find((e) => e.template === "StartingLocation")?.id;
+  for (const op of ops) {
+    const { op: name, params } = (op ?? {}) as { op?: string; params?: Record<string, unknown> };
+    if (name === "forceResult" && typeof params?.verb === "string") verbs.push(params.verb);
+    if ((name === "placeEntity" && params?.template === "StartingLocation") || (name === "moveEntity" && startId !== undefined && params?.id === startId)) movedStart = true;
+  }
   try {
     for (const op of ops) {
       const r = applyOne(s, op);
@@ -497,7 +564,7 @@ export function applyOps(s: MapSession, ops: unknown[]): Change {
     s.forgetRedo();
     throw e;
   }
-  return changeSince(s, before, steps, held);
+  return notesOf(changeSince(s, before, steps, held), before, startOf(s), verbs, movedStart);
 }
 
 /** Undo the last step: its label, or the core's reason it can't (D455's save point). */
@@ -552,7 +619,22 @@ export function checksOf(s: MapSession): CheckGroups {
 /** A check's row in plain data: its words, where, and its one-click fix when it has one. */
 export function rowOf(c: CheckItem): { id: string; message: string; where?: unknown; fix?: unknown[] } {
   const fix = c.fix?.length && JSON.stringify(c.fix).length <= 4000 ? c.fix : undefined;
-  return { id: c.id, message: c.id === "start.count" && c.message === NO_START ? NO_START_REFUSAL : c.message, ...(c.where ? { where: c.where } : {}), ...(fix ? { fix } : {}) };
+  return { id: c.id, message: c.id === "start.count" && c.message === NO_START ? NO_START_REFUSAL : c.message, ...(c.where ? { where: whereOf(c.where) } : {}), ...(fix ? { fix } : {}) };
+}
+
+/** The most of each list a check's `where` gives (its objects' ids, its tiles): the rest are counted. */
+export const WHERE_MOST = 8;
+
+/** A check's `where` with each long list cut to its first WHERE_MOST, and `<list>Total` saying how many there are. */
+function whereOf(where: object): object {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(where)) {
+    if (Array.isArray(v) && v.length > WHERE_MOST) {
+      out[k] = v.slice(0, WHERE_MOST);
+      out[`${k}Total`] = v.length;
+    } else out[k] = v;
+  }
+  return out;
 }
 
 // ----------------------------------------------------------------------------------------------------- save
