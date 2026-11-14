@@ -73,6 +73,7 @@ import { unstableCoreParts } from "./unstableCore";
 import { largeRelicParts } from "./largeRelic";
 import { mediumRelicParts, smallRelicParts } from "./smallRelics";
 import { LAND, LAND_GROW } from "./objectFade";
+import { PINE_WHORLS, WHORL_SHADE, whorlTriangles } from "./pineCrown";
 
 type Rgb = readonly [number, number, number];
 
@@ -216,6 +217,10 @@ function heightTo(m: Model, h: number): Model {
 }
 
 const cone = (r: number, h: number, sides: number) => new ConeGeometry(r, h, sides, 1, true);
+/** Each whorl of a tree turned from the last by the golden angle, so no two line up. */
+const GOLDEN_TURN = Math.PI * (3 - Math.sqrt(5));
+/** A colour times a shade. */
+const shaded = (c: Rgb, k: number): Rgb => [c[0] * k, c[1] * k, c[2] * k];
 const cyl = (r0: number, r1: number, h: number, sides: number) => new CylinderGeometry(r1, r0, h, sides, 1, true);
 /** A cylinder with its ends closed (a trunk seen from above). */
 const post = (r0: number, r1: number, h: number, sides: number) => new CylinderGeometry(r1, r0, h, sides, 1, false);
@@ -280,17 +285,18 @@ function rotateTail(m: Model, vertices: number, angle: number, y: number): void 
 }
 
 const MODELS: Record<string, () => Model> = {
-  // the game's grown pine (plantSize.ts): a bare trunk to 1.25, then three broad whorls of needles to 3.0, each about as
-  // wide as the last, the top one narrower; 1.0 across, as much as the game's needles cover (its cards cut by their
-  // texture's alpha: 1.05 across from above, its whole model 1.2; until 2026-11-09 ours were 1.24 across and covered 45 %
-  // more than the game's, `tools/game-crowns.py`); lighter higher up, as the game's (`graded`)
-  Pine: () =>
-    new Model()
-      .add(cyl(0.11, 0.06, 1.75, 5), BARK, { y: 0.875 })
-      .add(cone(0.51, 0.8, 7), TREE_COLOURS.pine, { y: 1.22 + 0.4 })
-      .add(cone(0.475, 0.72, 7), TREE_COLOURS.pine, { y: 1.84 + 0.36, ry: 0.45 })
-      .add(cone(0.33, 0.6, 7), TREE_COLOURS.pine, { y: 2.4 + 0.3, ry: 0.9 })
-      .graded("Pine"),
+  // the game's grown pine (plantSize.ts): a bare trunk to 1.3, then five whorls of drooping boughs to 3.0, each a star
+  // of 7 to 12 boughs as the game's texture cuts its whorls (pineCrown.ts `PINE_WHORLS`; until 2026-11-14 three smooth
+  // cones), 1.0 across as the game's needles cover; its boughs' tips lighter than their whorl's middle, and the whole
+  // lighter higher up, as the game's (`graded`)
+  Pine: () => {
+    const m = new Model().add(cyl(0.11, 0.06, 1.75, 5), BARK, { y: 0.875 });
+    PINE_WHORLS.forEach((w, k) => {
+      const { inner, tips } = whorlTriangles(w, k * GOLDEN_TURN);
+      m.tris(inner, shaded(TREE_COLOURS.pine, WHORL_SHADE.inner)).tris(tips, shaded(TREE_COLOURS.pine, WHORL_SHADE.tips));
+    });
+    return m.graded("Pine");
+  },
   // (each dead tree the game's at its size: dying.ts DEAD_LIMBS)
   "Pine.dead": () => deadTree("Pine", { wood: DEAD_WOOD, dark: DEAD_DARK }),
   // the game's grown birch: a warm grey trunk forking low into two stems, under a round crown from 0.95 to 1.92, 1.0 across

@@ -370,8 +370,10 @@ describe("the models", () => {
     // (a blockage is its own model since it became the game's heap, D178 as amended 2026-11-10, D148: it was a block)
     expect(modelKeyOf("Blockage", 0)).toBe("Blockage");
     expect(modelKeyOf("SomethingNew", 0)).toBe("block");
-    // small enough for tens of thousands of trees
-    for (const k of ["Pine", "Birch", "Oak", "BlueberryBush", "Pine.dead", "Birch.dead", "Oak.dead"]) expect(modelTriangles(k)).toBeLessThanOrEqual(64);
+    // small enough for tens of thousands of trees; the living pine its five whorls of boughs, still under the game's own
+    // 135 (PineMature; D496, 2026-11-14: its cost measured in docs/progress/3d-view.md, "The pine's boughs")
+    for (const k of ["Birch", "Oak", "BlueberryBush", "Pine.dead", "Birch.dead", "Oak.dead"]) expect(modelTriangles(k)).toBeLessThanOrEqual(64);
+    expect(modelTriangles("Pine")).toBeLessThanOrEqual(135);
   });
 
   it("builds living and dead trees apart: a dead tree has no green crown", () => {

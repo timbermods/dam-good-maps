@@ -9,6 +9,7 @@
 import { DEAD_FORM, DEAD_LIMBS, type DeadPart, deadLeaves, deadWood, DRYING, dryColour } from '../dying';
 import { plantScale, RANDOMIZER } from '../plantSize';
 import { crownShade, ownAlbedo, TREE_COLOURS } from '../palette';
+import { PINE_WHORLS, WHORL_SHADE, whorlTriangles } from '../pineCrown';
 import { BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, OctahedronGeometry, TetrahedronGeometry, Matrix4, Quaternion, Vector3 } from 'three';
 
 export const species = ['Pine', 'Birch', 'Oak', 'BlueberryBush'] as const;
@@ -108,23 +109,25 @@ class Shape {
   }
 }
 
-/** Shallow scallops retain one pointed conical outline, including from above. */
-function tier(m: Shape, radius: number, base: number, height: number, seed: number, detailed: boolean) {
-  const points: number[] = [], n = detailed ? 12 : 6;
+/** Each whorl of a pine turned from the last by the golden angle, so no two line up. */
+const GOLDEN_TURN = Math.PI * (3 - Math.sqrt(5));
+/** A geometry of triangles given by their corners. */
+function triangles(points: number[]): BufferGeometry {
+  const g = new BufferGeometry(); g.setAttribute('position', new Float32BufferAttribute(points, 3)); return g;
+}
+
+/** A far pine's tier: a pointed six-sided cone. */
+function tier(m: Shape, radius: number, base: number, height: number, seed: number) {
+  const points: number[] = [], n = 6;
   const ring: V[] = Array.from({ length: n }, (_, i) => {
     const a = i / n * Math.PI * 2 + seed * 0.57;
-    const r = radius * (i % 2 && detailed ? 0.86 : 0.94 + noise(i, seed, 13) * 0.06);
-    return [Math.cos(a) * r, base + (detailed ? noise(i, seed) * 0.035 : 0), Math.sin(a) * r];
+    const r = radius * (0.94 + noise(i, seed, 13) * 0.06);
+    return [Math.cos(a) * r, base, Math.sin(a) * r];
   });
   const tip: V = [0.015 * Math.sin(seed), base + height, 0.015 * Math.cos(seed)];
-  for (let i = 0; i < n; i++) {
-    const a = ring[i], b = ring[(i + 1) % n];
-    points.push(...a, ...tip, ...b);
-    if (detailed) points.push(...b, ...[0, base + 0.06, 0], ...a);
-  }
-  const g = new BufferGeometry(); g.setAttribute('position', new Float32BufferAttribute(points, 3));
+  for (let i = 0; i < n; i++) points.push(...ring[i], ...tip, ...ring[(i + 1) % n]);
   // (lighter higher up as the game's, by each vertex's height: `model`)
-  m.add(g, 'pine');
+  m.add(triangles(points), 'pine');
 }
 
 /** A dead tree's wood, the game's at its size (dying.ts `DEAD_LIMBS`): near, each part with its own sides; far, with
@@ -155,12 +158,19 @@ export const registry: Record<Species, SpeciesDefinition> = {
     const near = detail === 'near', h = 2.9 + v * 0.04;
     if (dead) return deadLimbs(m, 'Pine', near, 'dead');
     m.branch([0, 0, 0], [0.015, h, 0], near ? 0.1 : 0.08, 'bark', near ? 6 : 3, 0.35);
-    const n = near ? 4 : 3;
-    for (let i = 0; i < n; i++) {
-      const f = i / n;
-      tier(m, 0.56 * (1 - f * 0.42), 1.2 + f * (h - 1.85), 0.8 - f * 0.12, v * 4 + i, near);
+    // close up, the game's five whorls of drooping boughs (pineCrown.ts; until 2026-11-14 four scalloped cones); from
+    // afar three cones, as many pixels as a whorl's boughs would take
+    if (near) {
+      PINE_WHORLS.forEach((w, k) => {
+        const { inner, tips } = whorlTriangles(w, v * 1.3 + k * GOLDEN_TURN, v);
+        m.add(triangles(inner), 'pine', WHORL_SHADE.inner).add(triangles(tips), 'pine', WHORL_SHADE.tips);
+      });
+      return;
     }
-    if (near) tier(m, 0.16, h - 0.5, 0.5, v + 19, true);
+    for (let i = 0; i < 3; i++) {
+      const f = i / 3;
+      tier(m, 0.56 * (1 - f * 0.42), 1.2 + f * (h - 1.85), 0.8 - f * 0.12, v * 4 + i);
+    }
   } },
   // the game's grown birch: a warm grey trunk forking low into two stems, a round crown from 0.95 to 1.92, 1.0 across
   Birch: { height: 1.92, wind: 0.049, build(m, v, detail, dead) {
