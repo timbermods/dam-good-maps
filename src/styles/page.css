@@ -1683,11 +1683,13 @@ input.set-typed:disabled {
   white-space: nowrap;
 }
 
-/* Select's shapes: one cell each (the bar's cells 1-7), icon above its name, the group's full height; Whole map takes
-   the last two, its word being the longest */
+/* Select's shapes: one cell each (the bar's cells 1-7), icon above its name, the group's full height; Whole map and the
+   Add / Take away toggle (a finger's Shift and Alt, #1074 slice 6) the last two, their words on two lines where a cell is
+   too narrow for them; to a mouse, with no toggle, Whole map takes both (slice 7). A cell is never narrower than its
+   name's longest word, whatever font sets it: a wider word takes the spare room of the short ones */
 .set-group > .segmented.shapes {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(min-content, 1fr));
   gap: 2px;
   height: 100%;
 }
@@ -1695,7 +1697,6 @@ input.set-typed:disabled {
 .set-group > .segmented.shapes > button {
   display: flex;
   flex-direction: column;
-  /* (centred, not safe: at 1280 "Rectangle" is 4px wider than its cell, and safe would pin it to the cell's left edge) */
   align-items: center;
   justify-content: safe center;
   gap: 4px;
@@ -1705,8 +1706,14 @@ input.set-typed:disabled {
   border-radius: 6px;
 }
 
-.set-group > .segmented.shapes > button.whole-map {
+.set-group > .segmented.shapes > button.whole-map:last-child {
   grid-column: span 2;
+}
+
+.set-group > .segmented.shapes > button:is(.whole-map, .combine) .icon-word {
+  white-space: normal;
+  text-align: center;
+  line-height: 1.05;
 }
 
 .set-group > .segmented.shapes > button .icon-word {

@@ -13,6 +13,7 @@ import { RIDGE_MAX_HEIGHT, RIDGE_MAX_WIDTH, RIDGE_MIN_HEIGHT, RIDGE_MIN_WIDTH, t
 import { createContext, type ComponentChildren } from "preact";
 import { useContext, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { FirstRunSizer } from "./FirstRun";
+import { useFinger } from "./view/usePhone";
 import { FLOOR_MIN } from "../core/forces/floor";
 import { CEILING } from "../core/format/world";
 import { BRUSHES, hasTarget, type BrushMode, type BrushSettings, type BrushTool, type SourcesChoice } from "./brushes";
@@ -249,21 +250,7 @@ export interface TopBarProps {
   putDown?: { run(): void; select: boolean } | null;
 }
 
-/** The pointer is a finger (`(pointer: coarse)`), kept up as it changes. */
-function useFinger(): boolean {
-  const query = () => typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
-  const [finger, setFinger] = useState(query);
-  useEffect(() => {
-    if (typeof matchMedia !== "function") return;
-    const m = matchMedia("(pointer: coarse)");
-    const look = () => setFinger(m.matches);
-    m.addEventListener("change", look);
-    return () => m.removeEventListener("change", look);
-  }, []);
-  return finger;
-}
-
-/** The tool in hand scrolled into the phone's tool row (or rail), so its second tap is in view too (#1074). */
+/** The tool in hand scrolled into the phone's tool row (or rail), or a finger's row that scrolls, so its second tap is in view too (#1074). */
 function showHeld(bar: HTMLElement | null): void {
   const on = bar?.querySelector<HTMLElement>("button.icon-button[aria-pressed='true']:not(.objects-button)");
   if (!bar || !on) return;
@@ -277,6 +264,19 @@ function showHeld(bar: HTMLElement | null): void {
   if (!left && !top) return;
   const still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   bar.scrollBy({ left, top, behavior: still ? "auto" : "smooth" });
+}
+
+/** Objects: opens the objects' sheet (#1074); in a phone's tool row, and at a tablet's top corner beside Show. */
+export function ObjectsButton(p: { open: boolean; holding: boolean; onClick(): void; class?: string }) {
+  return (
+    <button type="button" class={`icon-button objects-button${p.class ? ` ${p.class}` : ""}`} aria-pressed={p.holding || p.open} aria-expanded={p.open} aria-label="Objects" {...tip(p.open ? "Close the objects" : "Place the start, water, trees and more")} onClick={p.onClick}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 3l-5 8h3l-4 6h12l-4-6h3z" />
+        <path d="M12 17v4" />
+      </svg>
+      <span class="icon-word">Objects</span>
+    </button>
+  );
 }
 
 /** The tool row's phone parts (#1074). */
@@ -654,11 +654,11 @@ export function TopBar(p: TopBarProps) {
         ×
       </button>
     ) : null;
-  // (a phone's tool row shows what is in hand, however it was picked)
+  // (a phone's tool row, or a finger's that scrolls, shows what is in hand, however it was picked)
   const bar = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (p.phone && held) showHeld(bar.current);
-  }, [held, p.phone]);
+    if ((p.phone || finger) && held) showHeld(bar.current);
+  }, [held, p.phone, finger]);
   const button = (tool: BrushTool | "select" | "block" | Verb, name: string, label: string, pressed: boolean, title: ReturnType<typeof tip>, disabled: boolean | undefined, onClick: () => void) => (
     <button type="button" key={tool} class="icon-button" aria-pressed={pressed} aria-label={label} {...title} disabled={disabled} onClick={onClick}>
       <Icon tool={tool} />
@@ -693,15 +693,7 @@ export function TopBar(p: TopBarProps) {
       ) : null}
       <div ref={bar} class="map-bar tool-bar" role="toolbar" aria-label="Tools">
         {p.onSelect ? button("select", "Select", "Select (1)", !!p.selecting, off ? why : SELECT_TIP, off, p.onSelect) : null}
-        {p.phone ? (
-          <button type="button" key="objects" class="icon-button objects-button" aria-pressed={p.phone.holding || p.phone.objectsOpen} aria-expanded={p.phone.objectsOpen} aria-label="Objects" {...tip(p.phone.objectsOpen ? "Close the objects" : "Place the start, water, trees and more")} onClick={p.phone.onObjects}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M12 3l-5 8h3l-4 6h12l-4-6h3z" />
-              <path d="M12 17v4" />
-            </svg>
-            <span class="icon-word">Objects</span>
-          </button>
-        ) : null}
+        {p.phone ? <ObjectsButton key="objects" open={p.phone.objectsOpen} holding={p.phone.holding} onClick={p.phone.onObjects} /> : null}
         {BRUSHES.map((b) => button(b.tool, b.name, `${b.name} brush (${b.key})`, p.active === b.tool, off ? why : brushTip(b), off, () => p.onPick(p.active === b.tool ? null : b.tool)))}
         {p.blockSettings ? button("block", "Block", "Block tool (7)", !!p.block, off ? why : BLOCK_TIP, off, () => p.onPick(p.block ? null : "block")) : null}
         {SHOWN_FORCES.length ? <span class="tool-sep" aria-hidden="true" /> : null}

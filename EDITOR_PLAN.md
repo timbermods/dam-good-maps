@@ -187,8 +187,8 @@ place of its bottom rule.
   with **Done** to clear them. Delete asks once, as above.
 - **Phones** (#1074, slice 2; amends D185; `editor/view/phoneLayout.ts`, `usePhone.ts`, `src/styles/phone.css`;
   `tests/e2e/layout.spec.ts` at 393×852 and 852×393). The layout goes by the room, never by the device: under 600 CSS px
-  wide the phone held upright, under 500 tall the phone on its side; anything else (a tablet, a laptop) keeps the layout
-  above. One editor: the same controls and operations (D342), only placed for a finger. **Upright:** one slim bar at the
+  wide the phone held upright, under 500 tall the phone on its side; anything else keeps the layout
+  above (a tablet takes this layout's Show, objects and pages, below). One editor: the same controls and operations (D342), only placed for a finger. **Upright:** one slim bar at the
   top: a menu (**Map Generator**, **Real places**, **Your maps**, **History**, **Help and keys**, then File's entries),
   the map's name (two lines at most), Undo, Redo, the checks' dot (a tap opens the checks under the bar) and **Save**
   (Save to Timberborn's or Download .timber's call). The view fills the rest. At the foot the tools in one row that
@@ -200,13 +200,13 @@ place of its bottom rule.
   Select's settings, a tap again puts them and any selection down. **Show**, a button at the view's top right, opens a
   sheet of what the map shows, at most 40 % of the view so the map changes above it, ending after a whole row (the rest
   scroll up into view): under small headings, each an even grid of chips, **What to show** (the Show row's toggles,
-  Legend and its key), **Camera** (Top-down, Reset view, First view, the compass, **Layers shown**: the slice, ∞ for
+  Legend and its key), **Camera** (Top-down, Reset view, First view, the compass, **Saved views** (§7), **Layers shown**: the slice, ∞ for
   every layer, and Look), **Minimap**, **Weather** (the weather days) and **Forces and sound** (Slow forces, the sound
   and its volume, always shown: a phone has no hover).
   **Objects** opens a sheet of large tiles, half the view at the most; a tile picked closes it to one row saying what
   is in hand (its picture, its name, **Put it down**), its settings under it when the sheet is pulled up. A picked
   source's or object's window stands above the row as a tool's settings do. One sheet at a time: a tool taken up
-  closes Show and the objects. **The map keeps to the room left** (planning, #1074; on a phone only, the desktop's
+  closes Show and the objects. **The map keeps to the room left** (planning, #1074; on a phone or a tablet only, the desktop's
   view never moves for a panel, D265): a sheet or the panel opening or closing slides the view, its zoom and angle
   kept, so the ground in the middle of the room the controls leave stays in its middle, and Reset view frames the map
   in that room (`view/usePhone.ts`, `view/insets.ts`). The tapped tile's readout sits at the view's top left. The
@@ -243,19 +243,33 @@ place of its bottom rule.
   areas, `viewport-fit=cover`), fields 16px so the browser never zooms on focus. A long press on a control shows its
   tooltip (D351) and is not a tap. With a tool's one-row sheet open the view keeps 66 % of the screen upright and 63 %
   on its side (the spec holds 60 %).
-- **Tablets** (#1074, slice 5; `src/styles/tablet.css`, `view/useBandLayout.ts`; `tests/e2e/layout.spec.ts` at 820×1180,
-  1180×820 and 1024×1366). A touch screen with room (a coarse pointer, not the phone layout's sizes) keeps the layout
-  above, sized for a finger: every control at least 44px, fields 16px, the same gestures (§7, "Touch"), no iOS callout
-  on a long press but in a field or a link (any coarse pointer, phones too). Gated on the pointer and the room, never a
-  device's name, so no phone rule reaches a tablet and no tablet rule a desktop with a mouse. Under 1,280 wide the tool
-  dock takes the view's whole width (its cells shrink to 44px before they overflow), the objects and the minimap stand above
-  it (above Put it down's plate too), the first steps' hints and the notes between them, and the editor is the dynamic
-  viewport's height; under 1,100 the header takes two lines, the name at the left of its first; the Show row wraps
-  and the band below it is laid in lines (Legend under the Show row, the water's row beside it or on the next line, the
-  panel under the band); while a panel is open the minimap and the stack at the bottom left step aside so the panel keeps its
-  height, and under 900 the objects too. A tool's settings keep their rows at 44px (Auto a 44px target around its small
-  pill); the Map Generator's settings stack name over value over control. Nothing is under 44px or off the screen at
-  rest, with a brush or a force in hand, the legend, the Map Generator, Your maps and the File menu open.
+- **Tablets** (#1074, slices 5 to 7; `src/styles/tablet.css`, `view/usePhone.ts`, `view/phoneLayout.ts`;
+  `tests/e2e/layout.spec.ts` at 820×1180, 1180×820, 1024×768, 1024×1366 and 900×1440). **A tablet is a big phone, not a
+  small desktop** (planning, 2026-11-14): a finger (a coarse pointer) in a room that is not a phone's and whose longer
+  side is under 1,400 CSS px, or that is narrower than the desktop's 1,280 however tall (slice 7: a big Android tablet
+  upright, 900×1440; `tabletRoomFor`; the editor marks it `data-tablet`). Gated on the pointer and the room, never a
+  device's name: no phone rule reaches a tablet, no tablet rule a desktop with a mouse, and a touch screen with a
+  desktop's room (1,400 or more on its longer side and 1,280 or more wide, as 1400×900) keeps the desktop layout sized
+  for a finger. The tablet keeps the header and the dock of
+  tools in its one row, a held tool's settings on the bar's cells above it, and the minimap at the bottom left; the rest
+  is the phone's. **Show** and **Objects** are the phone's buttons at the view's top right, each opening a side sheet
+  under them at the right (at most 380px or 46 % of the view's width, down to the dock): Show's sheet is the phone's
+  (What to show, Camera, Weather, Forces and sound; Look stays in the header, the minimap on the map), the objects' is
+  the phone's large tiles, and a pick closes it to the phone's row saying what is in hand (its picture, its name, **Put
+  it down**) over its window, at the right above the dock. **Select** rests in hand with its settings closed, as on a
+  phone. **At rest the map has the screen:** nothing but the header, the dock's row, the minimap and the two buttons lies
+  over it (the view keeps over 68 %). **The menu's pages** (Map Generator, Real places, Your maps, History) are the
+  phone's: the whole view under the header, over the dock, **Map** at their top, the page scrolling as one (the
+  generator's settings in two or three columns, name over value over control). The map keeps to the room left as on a
+  phone (a sheet opening slides the view). A tool's settings keep their rows, every target drawn and hit at least 40px a
+  side (slice 7, measured by what the page hands a tap, `hitTargets`): **Auto** is the phone's pill, 44px on the name
+  line, and a choice's options are each at least 44px wide, wrapping to a second line where a cell can't hold them all
+  (Glaciate's Benches at 820), never cut off; in the dock's narrow cells a setting's name keeps its whole words, wrapping between them, its value and
+  Auto going under it where the line has no room, so no name is ever cut short. Under 1,280 wide the dock takes the view's
+  whole width (its cells shrink to 44px, never narrower than a tool's word whatever the font; where the row can't hold
+  them it scrolls sideways, as a phone's does, the tool in hand scrolled into view; Select's shapes alike) and the editor is the dynamic viewport's height; under
+  1,100 the header takes two lines. Every control at least 44px, fields 16px, no iOS callout on a long press but in a
+  field or a link, the same gestures (§7, "Touch").
 - **Together** (D362, D431, D486; `docs/COLLAB-BRIEF.md`; part 6a): two players edit one map through a relay and a
   room-code function, in the page's own panel style. One quiet button in the header's right group, before **File**
   (a small people icon and "Together", the icon alone, 40px square like Undo and Redo, below about 1,400px wide; tooltip
@@ -1277,7 +1291,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 - **Select** (D259): Rectangle, Freehand, **Wand** (D261: a click on land selects the ground joined to it at that
   level; on water, that river's or lake's visible water tiles, badwater included, never a bank tile; a snapshot at
   the click), **Circle** (drag from the centre) and **Brush** (paint the selection at the brushes' size); Shift adds
-  and Alt subtracts. A click lands on the first ground the ray meets (a cave's floor through its mouth, a ledge
+  and Alt subtracts; **Add / Take away** beside Whole map does it without a key (a tap steps Replace, Add, Take away,
+  for a finger; #1074 slice 6; closing Select sets it back to Replace). It shows only to a finger (a coarse pointer;
+  slice 7): a mouse has Shift and Alt, and its row keeps Whole map across the last two cells. A click lands on the first ground the ray meets (a cave's floor through its mouth, a ledge
   under an overhang); the Wand and Ctrl+click read that run's level, and a selection is still a set of tiles. A
   Wand selection on land also names that level in each tile, and is drawn there: its tint and outline on that run
   (a cave's floor), the roof over it dimmed as the land outside, and outside a brush's working area too; the actions still take
@@ -1674,39 +1690,43 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   a finger aims a force, its ring is filled faintly: the whole reach shows even where the ring is wider than a phone's
   view (Craterize at Size 54); Quake shows only its marker (D368 (2)). A refused one shows its reason beside the preview, never under the
   finger, and its lift applies nothing. A tap applies nothing: it leaves the preview where it aimed. Lake, Ridge and
-  Canal draw their line above the finger from the press's aim; with a selection open (or, on a phone, Select's sheet
+  Canal draw their line above the finger from the press's aim; with a selection open (or, on a phone or a tablet, Select's settings
   open) the finger draws the selection, and a tap there is a click; with nothing in hand, a finger held still half a
   second (`HOLD_MS`) draws one without (slice 3b; moved sooner, it pans; lifted sooner by its own events' times, it is a
   tap, however late a busy page ran the timer). With an object or source picked and nothing
   else in hand, a press anywhere moves it to where the finger aims (`FingerPress`, modes aim, line, draw and move);
   where it can't go, the core's reason shows beside it before the lift (`moveProblem`, as a placement's), its footprint
-  red, and the lift there moves nothing. **Cancel** shows at
+  red, and the lift there moves nothing, the reason going with it (slice 6: nothing in hand, nothing
+  said beside it). **Cancel** shows at
   the view's top while a press is on: a second finger taps it, or the finger slides onto it (it turns red) and lifts,
   and nothing is applied. **A second finger** down during a stroke or a press cancels it, nothing applied and no step
   (the tool's own cancel, as Esc), and the rest of that touch is the camera's: the finger left after a pinch pans. A
   press the browser takes back (`pointercancel`, as iOS does for its own gestures) or a window that loses focus lets it
   go the same way. **Skip** on a working force's row finishes it at once (Esc's call), for a phone. **Put it down** (×, X's
   call, `TopBar.tsx`) is on the first row of what is in hand's sheet on a phone or to a finger, as the object in hand's
-  row has it: a brush or a shape, Block, a force, and Select holding a selection (on a phone, its sheet open); one tap
+  row has it: a brush or a shape, Block, a force, and Select holding a selection (on a phone or a tablet, its settings open); one tap
   puts it down and one finger pans again. A phone's tool row (or rail) scrolls the tool in hand into view, lit, however
   it was picked, so its second tap is in reach too. **The keys a finger reaches another way** (slice 3b): Tab and
   Shift+Tab's rolls, the rolls button ("2 of 4", a tap the next, round to the first); Ctrl+A, Select's Whole map;
-  Ctrl+click's level, the Level number in Select's row (set by hand, not taken from the ground). **Known shortfall:**
-  Shift's add and Alt's take-away to a selection (a finger's selection replaces the one open) and the camera bookmarks
-  (Ctrl+Shift+1 to 9, Alt+1 to 9) have no way by finger yet; each wants a control in the phone layouts.
+  Ctrl+click's level, the Level number in Select's row (set by hand, not taken from the ground); Shift's add and Alt's
+  take-away, Select's **Add / Take away** toggle beside Whole map (slice 6); the camera bookmarks (Ctrl+Shift+1 to 9,
+  Alt+1 to 9), **Saved views** in Show's Camera section on a phone or a tablet (slice 7, `view/savedViews.tsx`): the
+  same nine slots and the same kept views, five to a row with **Save**; a saved slot's tap glides to its view, an empty
+  one's keeps the view there, and Save armed makes the next slot tapped keep it, over a saved one too. Each closes Show
+  first and waits for the view to slide into the room it leaves, so a view is kept and shown with the map at rest.
   **A two-finger tap is Undo, a three-finger tap Redo** (Z and C's calls; the buttons stay). The browser's own gestures
   are off over the editor: the view's canvas takes every finger (`touch-action: none`, no callout, no selection), the
   editor allows only panning a panel (`touch-action: pan-x pan-y`: no pinch or double-tap zoom of the page), iOS
   Safari's own pinch (`gesturestart`) is prevented while the view is there, no pull to refresh over the editor, and on a
   touch screen no text selection but in a field. Measured on Chrome's touch emulation. Playwright's WebKit (the nearest
-  to iOS Safari a spec can run; #1074 slice 5, at both phone sizes) lays the phone layouts out as Chrome does, every
-  control 44px and on the screen, but for one slide: Show opened upright leaves the ground in the room's middle 3 tiles
-  off it (Chrome keeps it under 1.5); the specs' long presses and touches are sent through Chrome's own protocol, so
+  to iOS Safari; #1074 slices 5 and 6, at both phone sizes) lays the phone layouts out as Chrome does, every control
+  44px and on the screen, and Show opened upright keeps the ground in the room's middle (the room is measured with Show's
+  sheet already cut to its whole rows, `usePhone.ts`; measured before the cut, WebKit left it 3.3 tiles off); the specs' long presses and touches are sent through Chrome's own protocol, so
   they run in Chrome only, and on the specs' server, which sends the isolation headers itself, WebKit refuses the
   editor's workers on a reload (served as GitHub Pages serves the site, without them, a kept map reopens with its
   edits).
 - Ctrl+Shift+1 to 9 saves a camera bookmark (position, angle, zoom), and Alt+1 to 9 glides back to it (Shift and a
-  number pick a force); bookmarks
+  number pick a force; a finger's are Show's **Saved views**, above); bookmarks
   are saved with the project. Every tool is reachable by keyboard, with labels for screen readers. (D180, D184,
   D196, D205, D212, D219.)
 
@@ -1741,8 +1761,10 @@ them, ROADMAP "The 20-second tour"):
 - **Help**. A dialog of a few lines for a player: what the editor is for, how to make a map, how to save it into
   Timberborn (with a link to the README's "Install a map"), the pointer controls and where to report a problem. To a
   finger (a coarse pointer, #1074) it speaks touch first: the gestures lead (tap, drag, pinch, a two-finger turn, the
-  double tap as slice 3 makes it, two- and three-finger taps for Undo and Redo, a long press), every step says tap; on a
-  phone nothing names a mouse or a key, and a tablet keeps the mouse and Keyboard shortcuts after the gestures. It reads
+  double tap as slice 3 makes it, two- and three-finger taps for Undo and Redo, a long press; slice 6: a force's line or
+  a Block sweep drawn by a drag, a selection begun by holding a finger still, each saying a second finger cancels it, since
+  no Cancel lies under a drawing finger), every step says tap; on a
+  phone nothing names a mouse or a key, and a tablet names Show and Objects at the top right and keeps the mouse and Keyboard shortcuts after the gestures. It reads
   which once, when it opens, from the page's layout and the pointer (`helpPanels.tsx`).
 - **Report a problem** opens https://github.com/timbermods/dam-good-maps/issues/new/choose in a new tab (the issue
   chooser; `REPORT_URL` in `src/editor/help/helpPanels.tsx`). There is no form and no rating (D145).
