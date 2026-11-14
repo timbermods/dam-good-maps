@@ -77,7 +77,7 @@ export interface ViewSlice {
 export function useView(ed: Ed): ViewSlice {
   const {
     info, mirror, renderer, ready, forceStroke, forceCursor, forceRing, painted, startDrag, layer, waterLayers,
-    selection, selectionTick, selectDraw, selectPreview, sourceDrag, hoverObject, instant, fit, picked, pickedObject,
+    selection, selectionTick, selectDraw, selectPreview, sourceDrag, sourceDragBad, hoverObject, instant, fit, picked, pickedObject,
     indexed, infoRef, rockHeld
   } = ed;
 
@@ -221,7 +221,8 @@ export function useView(ed: Ed): ViewSlice {
     // the source being changed is clearly marked: the one the pointer is on, the one picked (D361, item 6)
     if (targeted !== null && targetSpot.current && !sourceDrag) layers.push({ tiles: targetSpot.current.tiles, color: HOVERED, outline: true });
     if (picked) for (const e of picked.list) layers.push({ tiles: footprintTiles(e.template, { template: e.template, x: e.x, y: e.y, z: 0, orientation: e.orientation, flipped: e.flipped }).filter(([x, y]) => x >= 0 && y >= 0 && x < info.W && y < info.H).map(([x, y]) => y * info.W + x), color: SELECTED, outline: true });
-    if (sourceDrag) layers.push({ tiles: sourceDrag, color: MOVING });
+    // (red with its edge where a finger's drag would be refused: the reason is beside it, #1074 slice 3b)
+    if (sourceDrag) layers.push(sourceDragBad ? { tiles: sourceDrag, color: BAD, edge: true } : { tiles: sourceDrag, color: MOVING });
     if (selection.current.count) {
       // the working area (D254): the land outside it is locked, and dimmed
       const out: number[] = [];
@@ -245,7 +246,7 @@ export function useView(ed: Ed): ViewSlice {
     // (a selection taken on a run, a cave's floor, is drawn on that ground; the rest of its columns as the land outside it)
     r.setOverlayRuns(selection.current.count ? selection.current.levels : null, LOCKED);
     r.commitOverlay();
-  }, [fit, picked, targeted, pickedObject, hoverObject, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, selectPreview, painted, forceStroke, rockHeld, info.version]);
+  }, [fit, picked, targeted, pickedObject, hoverObject, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, selectPreview, painted, forceStroke, rockHeld, info.version, sourceDragBad]);
   // the force's one ring (D312, D321 item 13): its size round the cursor, drawn once where the cursor
   // is (the water's surface over water); a click's small reach still shows a ring round the cursor. A
   // force with no size to show (Quake) shows only a small marker, never a circle (D368 (2))
