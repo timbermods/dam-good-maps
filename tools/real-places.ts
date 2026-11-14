@@ -61,7 +61,7 @@ import { BODY, FILM_DEPTH, FILM_TILES, WET, compareWater, films, settleFile, sta
 import { cutBasins, cutBed, floor0Sheet, realMask } from "./lib/placeBasins";
 import { decodeTiles as decodeGaps } from "../src/core/places/place";
 import { keepNearest, settlePlants, startWood, startWoodSpecies } from "./lib/placePlants";
-import { mendSources } from "./lib/placeSources";
+import { flaggedSources, mendSources } from "./lib/placeSources";
 import { DEAD_TREES_KEEP_LOGS, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../src/core/data/logFloor";
 import { startWalkField } from "../src/core/resources/baseline";
 import { writeTimber } from "../src/core/format/timber";
@@ -415,15 +415,29 @@ function basinsFor(libraryId: string, place: PlaceData): { place: PlaceData; not
     place = { ...place, heights: encodeHeights(heights) };
     game = buildPlace(place, undefined, "game");
   }
-  // a film above floor 0 the real water does not lie under gets a bed to where its water leaves it (D(new))
+  // a film above floor 0 the real water does not lie under gets a bed to where its water leaves it (D(new)); a bed that
+  // would put a source in another's flow (`water.source_in_flow`, whose list never grows) goes out onto dry ground
+  // instead, and where none is left the film stays (the check refuses it)
+  const inFlow = (p: PlaceData) => flaggedSources(p).flagged.length;
+  const flowed = inFlow(place);
   for (let round = 0; round < BED_ROUNDS; round++) {
     const left = films(game.settle.depth, game.model.floor, place.W, place.H).filter((f) => f.floor0 * 2 <= f.tiles.length);
     if (!left.length) break;
     let any = false;
     for (const f of left) {
-      const bed = cutBed(heights, place.W, place.H, f.tiles, game.settle.depth, place.sources, hashString(`${place.id}:${round}`));
-      notes.push(`film ${f.tiles.length} at ${f.at.join(",")} ${bed.length ? `bed of ${bed.length} tiles` : "has no source or way out for a bed"}`);
-      if (bed.length) any = true;
+      const seed = hashString(`${place.id}:${round}`);
+      let tried = Uint8Array.from(heights);
+      let bed = cutBed(tried, place.W, place.H, f.tiles, game.settle.depth, place.sources, seed);
+      if (bed.length && inFlow({ ...place, heights: encodeHeights(tried) }) > flowed) {
+        tried = Uint8Array.from(heights);
+        bed = cutBed(tried, place.W, place.H, f.tiles, game.settle.depth, place.sources, seed, true);
+        if (bed.length && inFlow({ ...place, heights: encodeHeights(tried) }) > flowed) bed = [];
+      }
+      notes.push(`film ${f.tiles.length} at ${f.at.join(",")} ${bed.length ? `bed of ${bed.length} tiles` : "has no bed that keeps the sources at their heads"}`);
+      if (bed.length) {
+        heights.set(tried);
+        any = true;
+      }
     }
     if (!any) break;
     place = { ...place, heights: encodeHeights(heights) };

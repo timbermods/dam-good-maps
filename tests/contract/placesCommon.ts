@@ -32,13 +32,13 @@ export const PLACES_HAVE_EDGE_WALLS = false;
  *  these places a source's water spreads over flat land and dries before it reaches the edge or a
  *  lake. Information for a real place (D245): its own land, recorded in `faults` with no note. */
 export const PLACES_WATER_WITHOUT_OUTLET = new Set([
-  "near-tibetan-plateau", "near-waimakariri-river",
+  "near-tibetan-plateau",
 ]);
 
 /** Water that keeps moving (D245, `water.settles`): under the game's water rules (D311) these places' water has not
  *  settled within the settle's days; each keeps its own land and water with the card note "Water keeps moving". */
 export const PLACES_WATER_KEEPS_MOVING = new Set([
-  "near-niagara-falls", "near-waimakariri-river",
+  "near-niagara-falls", "near-twelve-apostles",
 ]);
 
 /** Water sources start rivers (D171): the places whose conversion puts a source inside a flow
@@ -48,11 +48,10 @@ export const PLACES_WATER_KEEPS_MOVING = new Set([
  *  sources with no head within 20 tiles and merges that move the depth below too far.
  *  The list only shrinks. */
 export const PLACES_SOURCES_IN_FLOW = new Set([
-  "near-blyde-river-canyon", "near-brahmaputra-near-majuli",
-  "near-chilean-aysen-fjord", "near-chocolate-hills", "near-death-valley", "near-ethiopian-highlands",
-  "near-finnish-saimaa", "near-geirangerfjord", "near-glencoe", "near-iguazu-falls", "near-kenai-aialik-bay",
-  "near-lofoten", "near-mamore-river", "near-milford-sound", "near-monument-valley", "near-mount-fuji",
-  "near-niagara-falls", "near-painted-desert", "near-phong-nha",
+  "near-blyde-river-canyon", "near-brahmaputra-near-majuli", "near-chilean-aysen-fjord", "near-chocolate-hills",
+  "near-death-valley", "near-ethiopian-highlands", "near-finnish-saimaa", "near-geirangerfjord", "near-glencoe",
+  "near-iguazu-falls", "near-kenai-aialik-bay", "near-lofoten", "near-mamore-river", "near-milford-sound",
+  "near-monument-valley", "near-mount-fuji", "near-niagara-falls", "near-painted-desert", "near-phong-nha",
   "near-rhine-and-moselle", "near-roaring-river-fan", "near-sete-cidades", "near-skeidara-outwash",
   "near-taklimakan-kunlun-fan", "near-tara-gorge", "near-toklat-river", "near-twelve-apostles",
 ]);
@@ -75,31 +74,27 @@ export const PLACES_LACK_BADWATER = true;
  *  works), and these fall below the floor (`start.wood_floor`, the same). Real places 2 plants for
  *  both, in varied, natural ways (D229), and empties the lists. */
 export const PLACES_SHORT_OF_WOOD = new Set([
-  "near-alaknanda-and-bhagirathi", "near-altiplano", "near-aoraki-hooker-valley", "near-atacama-fan",
-  "near-bandiagara", "near-bardenas-reales", "near-blue-mountains-jamison",
+  "near-alaknanda-and-bhagirathi", "near-altiplano", "near-aoraki-hooker-valley", "near-aso-caldera",
+  "near-atacama-fan", "near-bandiagara", "near-bardenas-reales", "near-blue-mountains-jamison",
   "near-brahmaputra-near-majuli", "near-capitol-reef", "near-chilean-aysen-fjord", "near-chocolate-hills",
-  "near-cliffs-of-moher", "near-colca-canyon", "near-colorado-plateau", "near-copper-canyon",
-  "near-death-valley",
-  "near-drakensberg-amphitheatre", "near-english-lake-district", "near-ennedi-plateau",
-  "near-ethiopian-highlands", "near-finnish-saimaa", "near-geirangerfjord", "near-glencoe",
-  "near-godavari-delta", "near-goosenecks-san-juan", "near-grand-canyon-colorado",
-  "near-ilulissat-icefjord", "near-kaieteur-falls", "near-katherine-gorge", "near-kenai-aialik-bay",
-  "near-kinabatangan-river", "near-lauterbrunnen", "near-lena-delta",
-  "near-li-river-yangshuo", "near-lower-mississippi-oxbows", "near-milford-sound",
-  "near-monument-valley", "near-mount-etna", "near-mount-fuji", "near-mount-mayon", "near-mount-roraima",
-  "near-na-pali-coast", "near-niagara-escarpment-hamilton", "near-painted-desert",
-  "near-paricutin", "near-phong-nha", "near-roaring-river-fan", "near-sete-cidades",
-  "near-skeidara-outwash", "near-tagliamento-river", "near-tara-gorge",
-  "near-thousand-islands-saint-lawrence", "near-tiger-leaping-gorge",
-  "near-todgha-gorge", "near-toklat-river",
-  "near-verdon-gorge", "near-western-ghats-mahabaleshwar",
+  "near-cliffs-of-moher", "near-colca-canyon", "near-colorado-plateau", "near-copper-canyon", "near-death-valley",
+  "near-drakensberg-amphitheatre", "near-english-lake-district", "near-ennedi-plateau", "near-ethiopian-highlands",
+  "near-finnish-saimaa", "near-geirangerfjord", "near-glencoe", "near-godavari-delta", "near-goosenecks-san-juan",
+  "near-grand-canyon-colorado", "near-ilulissat-icefjord", "near-kaieteur-falls", "near-katherine-gorge",
+  "near-kenai-aialik-bay", "near-kinabatangan-river", "near-lauterbrunnen", "near-lena-delta",
+  "near-li-river-yangshuo", "near-lower-mississippi-oxbows", "near-milford-sound", "near-monument-valley",
+  "near-mount-etna", "near-mount-fuji", "near-mount-mayon", "near-mount-roraima", "near-na-pali-coast",
+  "near-niagara-escarpment-hamilton", "near-painted-desert", "near-paricutin", "near-phong-nha",
+  "near-roaring-river-fan", "near-sete-cidades", "near-skeidara-outwash", "near-tagliamento-river",
+  "near-tara-gorge", "near-thousand-islands-saint-lawrence", "near-tiger-leaping-gorge", "near-todgha-gorge",
+  "near-toklat-river", "near-torres-del-paine", "near-verdon-gorge", "near-western-ghats-mahabaleshwar",
   "near-yosemite-valley",
 ]);
 export const PLACES_BELOW_THE_FLOOR = new Set([
-  "near-alaknanda-and-bhagirathi", "near-altiplano", "near-aoraki-hooker-valley", "near-bandiagara",
-  "near-brahmaputra-near-majuli", "near-colorado-plateau", "near-death-valley",
-  "near-glencoe", "near-godavari-delta", "near-kenai-aialik-bay", "near-lauterbrunnen", "near-lena-delta",
-  "near-paricutin", "near-sete-cidades", "near-skeidara-outwash",
+  "near-alaknanda-and-bhagirathi", "near-altiplano", "near-aoraki-hooker-valley", "near-aso-caldera",
+  "near-bandiagara", "near-brahmaputra-near-majuli", "near-colorado-plateau", "near-death-valley", "near-glencoe",
+  "near-godavari-delta", "near-kenai-aialik-bay", "near-lauterbrunnen", "near-lena-delta", "near-paricutin",
+  "near-sete-cidades", "near-skeidara-outwash",
 ]);
 
 /** The start's water is never a sealed puddle (Kyler's D302, M9a), and a start has water a pump
@@ -112,12 +107,11 @@ export const PLACES_BELOW_THE_FLOOR = new Set([
  *  and one that had water on the sealed land got a spring by it (tools/real-places.ts). Real places
  *  2 gives the rest their water (D300) and empties the list. */
 export const PLACES_START_WITHOUT_FED_WATER = new Set([
-  "near-capitol-reef", "near-cliffs-of-moher", "near-colca-canyon",
-  "near-death-valley", "near-deccan-plateau", "near-drumheller",
-  "near-english-lake-district", "near-fish-river-canyon", "near-iguazu-falls", "near-kaieteur-falls",
-  "near-kinabatangan-river", "near-mount-mayon",
-  "near-ngorongoro", "near-niagara-falls", "near-phong-nha",
-  "near-twelve-apostles", "near-uvac-river", "near-yosemite-valley",
+  "near-capitol-reef", "near-chilean-aysen-fjord", "near-cliffs-of-moher", "near-colca-canyon", "near-death-valley",
+  "near-deccan-plateau", "near-drumheller", "near-english-lake-district", "near-fish-river-canyon", "near-glencoe",
+  "near-iguazu-falls", "near-kaieteur-falls", "near-kinabatangan-river", "near-mount-etna", "near-mount-mayon",
+  "near-ngorongoro", "near-niagara-falls", "near-phong-nha", "near-twelve-apostles", "near-uvac-river",
+  "near-yosemite-valley",
 ]);
 
 /** Plants that die (D385): the conversion planted these places' trees and bushes on ground the
@@ -139,8 +133,7 @@ export const PLACES_PLANTS_ON_DRY_SOIL = new Set<string>();
  *  start, or a spring's thin sheet over the land round it). Real places 2 plants them by the
  *  settled water and empties the list. */
 export const PLACES_SHORT_OF_BERRIES = new Set([
-  "near-alaknanda-and-bhagirathi", "near-colorado-plateau", "near-phong-nha",
-  "near-rhine-and-moselle",
+  "near-alaknanda-and-bhagirathi", "near-colorado-plateau", "near-rhine-and-moselle",
 ]);
 
 /** The failing checks of a place, its known faults apart (the conversion's edge wall and sources in

@@ -103,10 +103,11 @@ export function floor0Sheet(depth: ArrayLike<number>, floor: ArrayLike<number>, 
  * A bed through a film above floor 0 that no real water lies under (planning's ruling: a fed film on a terrace gets a
  * bed): from each place its water comes in (a source in it, or water on higher ground beside it), the cheapest way through the film's tiles to where its water leaves it (the
  * map's edge, or a tile beside lower ground outside it), the ground along it one level down. The way follows the land
- * (each step up costs more, and a little by a hash of the tile so no line is ruled). Cuts `heights` in place and returns
+ * (each step up costs more, and a little by a hash of the tile so no line is ruled). `avoidWet`: not out onto ground
+ * another water already runs on (where the bed's water would join a river another source feeds). Cuts `heights` in place and returns
  * the tiles cut (none when the film has no source or no way out: its water stands, and the caller reports it).
  */
-export function cutBed(heights: Uint8Array, W: number, H: number, film: Int32Array, depth: ArrayLike<number>, sources: readonly [number, number, number][], seed: number): number[] {
+export function cutBed(heights: Uint8Array, W: number, H: number, film: Int32Array, depth: ArrayLike<number>, sources: readonly [number, number, number][], seed: number, avoidWet = false): number[] {
   const N = W * H;
   const inFilm = new Uint8Array(N);
   for (const i of film) inFilm[i] = 1;
@@ -121,7 +122,7 @@ export function cutBed(heights: Uint8Array, W: number, H: number, film: Int32Arr
       const yy = y + dy;
       if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
       const j = yy * W + xx;
-      if (!inFilm[j] && heights[j] < heights[i]) return true;
+      if (!inFilm[j] && heights[j] < heights[i] && !(avoidWet && depth[j] > 0)) return true;
     }
     return false;
   };
