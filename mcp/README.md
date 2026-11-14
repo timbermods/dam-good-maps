@@ -51,6 +51,9 @@ website's **Real places**.
 
 A large map (256 tiles a side) can take a few minutes to make. Claude checks on it until it is ready.
 
+Claude also gives the website address of each map. A map you have not edited opens there from the link. An edited map
+opens there from its saved project file.
+
 ## Play the map
 
 Start Timberborn, choose **New game** and pick the map from the custom maps.
