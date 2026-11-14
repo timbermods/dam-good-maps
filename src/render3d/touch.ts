@@ -6,8 +6,9 @@
 // - a second finger down during a one-finger press (a brush's stroke, a drag) cancels that press, nothing applied and
 //   no step in the history, and becomes the camera's gesture; the rest of that touch is the camera's;
 // - a two-finger tap is Undo, a three-finger tap Redo.
-// One finger is the renderer's own path (it pans with nothing in hand, presses the tool in hand otherwise); this
-// module only notes its pan for the glide after it. The step's arithmetic is pure and checked exactly
+// One finger is the renderer's own path (it pans with nothing in hand, paints with a brush); this module notes its pan
+// for the glide after it, and runs a press with something in hand that shows before it applies (`FingerPress`, slice 3,
+// at the end of this file). The step's arithmetic is pure and checked exactly
 // (tests/unit/touch.test.ts); the browser's own gestures are kept off the editor by CSS and `BROWSER_ZOOM_EVENTS`.
 
 export interface Point {
@@ -357,6 +358,156 @@ export class Touches {
     const [a, b] = [...this.fingers.entries()];
     if (!a || !b) return;
     this.pair = { ids: [a[0], b[0]], start: [{ ...a[1] }, { ...b[1] }], last: [{ ...a[1] }, { ...b[1] }], mode: null, seen: [-Infinity, -Infinity], waited: false };
+  }
+}
+
+// ------------------------------------------------------------------------------------------- a press, seen first
+// (#1074, slice 3) One finger with something in hand that shows before it applies (an object, a force, the Block tool, a
+// shape, an object or source picked on the map) aims a little above itself, where the finger does not hide what shows:
+// the press shows it there, a drag moves it, and the lift applies it; nothing is applied before the lift. A tap applies
+// nothing (too short to have been seen), a second finger or a Cancel control drops it, and the browser taking the touch
+// (`pointercancel`, as iOS Safari may) drops it too.
+
+/** How far above the finger (CSS px) a press with something in hand aims: about a fingertip's breadth and a margin. */
+export const FINGER_LIFT = 64;
+
+/** How a finger's press works what is in hand:
+ *  - "aim": the press shows the tool's preview above the finger (its hover there), a drag moves it, the lift applies it
+ *    there (its click). An object from the shelf, a force, the Block tool.
+ *  - "draw": the tool's own press, drag and release, above the finger, begun once the press is no tap. A shape's line,
+ *    a selection's outline, a Slope's stair.
+ *  - "move": the object or source picked goes where the finger aims, begun once the press is no tap; the lift moves it. */
+export type PressMode = "aim" | "draw" | "move";
+
+/** The point a finger at `p` aims at: `FINGER_LIFT` above it, never above the view's top edge (`top`). */
+export function aimAt(p: Point, top: number): Point {
+  return { x: p.x, y: Math.max(top + 1, p.y - FINGER_LIFT) };
+}
+
+/** What a finger's press asks of the view. Points are client coordinates, the aim's (above the finger). */
+export interface PressHost {
+  /** Show what the press would do aimed at `at`: an aim's preview, a begun draw's or move's stroke. */
+  show(at: Point): void;
+  /** A draw or a move begins, aimed at `at` (where the press first aimed): false when nothing takes it there. */
+  begin(at: Point): boolean;
+  /** Lifted, no tap: it applies, aimed at `at`. */
+  apply(at: Point): void;
+  /** Dropped, nothing applied: what shows goes (`begun`: a draw or a move had begun). */
+  drop(begun: boolean): void;
+  /** A tap: a short press that hardly moved (the view's own: a double tap zooms). */
+  tap(): void;
+  /** Whether a finger at `p` is over a Cancel control (a lift there drops the press). */
+  overCancel(p: Point): boolean;
+  /** Where the press aims now, and whether the finger is over a Cancel control; null when the press is over. */
+  mark(at: Point | null, over: boolean): void;
+  /** A timer: run `fn` after `ms`; its id, for `clear`. */
+  later(fn: () => void, ms: number): number;
+  clear(id: number): void;
+}
+
+/** One finger's press with something in hand, from its down to its lift (or its drop). */
+export class FingerPress {
+  private now: Point;
+  private moved = 0;
+  private begun = false;
+  /** It began on the timer, by the page's clock: the events' own times still decide whether it was a tap. */
+  private byTime = false;
+  private over = false;
+  private live = true;
+  private timer = 0;
+
+  constructor(
+    readonly mode: PressMode,
+    readonly id: number,
+    private readonly from: Point,
+    private readonly t0: number,
+    private readonly top: number,
+    private readonly host: PressHost,
+  ) {
+    this.now = { ...from };
+    // (an aim shows at once; a draw or a move once it is no tap: held a tap's time, or moved past the slop)
+    if (mode === "aim") this.showNow();
+    else this.timer = host.later(() => this.start(true), TAP_MS);
+  }
+
+  /** Where the press aims now. */
+  get aim(): Point {
+    return aimAt(this.now, this.top);
+  }
+
+  /** Whether a draw or a move has begun (an aim shows from its press). */
+  get started(): boolean {
+    return this.mode === "aim" || this.begun;
+  }
+
+  /** The finger moved to `p`. */
+  move(p: Point): void {
+    if (!this.live) return;
+    this.moved += Math.hypot(p.x - this.now.x, p.y - this.now.y);
+    this.now = { ...p };
+    this.over = this.host.overCancel(p);
+    // (over Cancel: what shows stays where it was, and the lift there drops it)
+    if (this.over) return this.host.mark(this.aim, true);
+    if (!this.started) {
+      if (this.moved >= TAP_SLOP) this.start();
+      return;
+    }
+    this.showNow();
+  }
+
+  /** The finger lifted at `p`, time `t` (ms, the event's own). */
+  up(p: Point, t: number): void {
+    if (!this.live) return;
+    if (p.x !== this.now.x || p.y !== this.now.y) this.move(p);
+    if (!this.live) return;
+    // (a press the timer began on a busy page, its lift coming late, is still a tap by its events' times: what it began
+    // is dropped first)
+    const tap = (!this.begun || this.byTime) && this.moved < TAP_SLOP && t - this.t0 <= TAP_MS;
+    this.end();
+    if (this.over) return this.host.drop(this.begun);
+    if (tap) {
+      if (this.begun) this.host.drop(true);
+      return this.host.tap();
+    }
+    // (held past a tap's time on a page too busy to have run the timer: it begins now)
+    if (!this.started) {
+      if (!this.host.begin(aimAt(this.from, this.top))) return;
+      this.begun = true;
+    }
+    this.host.apply(this.aim);
+  }
+
+  /** Dropped (a second finger, Cancel, the browser took the touch, the window lost focus): nothing applied. */
+  cancel(): void {
+    if (!this.live) return;
+    this.end();
+    this.host.drop(this.begun);
+  }
+
+  private start(byTime = false): void {
+    this.timer = 0;
+    if (!this.live || this.begun || this.over) return;
+    this.byTime = byTime;
+    if (!this.host.begin(aimAt(this.from, this.top))) {
+      // (nothing takes it there: the press is over, nothing shown and nothing applied)
+      this.end();
+      return;
+    }
+    this.begun = true;
+    this.showNow();
+  }
+
+  private showNow(): void {
+    const at = this.aim;
+    this.host.show(at);
+    this.host.mark(at, false);
+  }
+
+  private end(): void {
+    this.live = false;
+    if (this.timer) this.host.clear(this.timer);
+    this.timer = 0;
+    this.host.mark(null, false);
   }
 }
 

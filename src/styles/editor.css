@@ -622,6 +622,52 @@ button[aria-pressed="true"] {
   pointer-events: none;
 }
 
+/* a finger's press with something in hand (#1074 slice 3, view/fingerPress.tsx): a small ring where it aims, a little
+   above the finger; the finger's own place, which the notes keep clear of (nothing drawn); and Cancel at the view's top,
+   lit while the finger is over it */
+.finger-aim {
+  position: absolute;
+  z-index: 6;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.55), inset 0 0 0 1.5px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+.finger-reach {
+  position: absolute;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.press-cancel {
+  position: absolute;
+  z-index: 7;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 112px;
+  min-height: 48px;
+  padding: 0 20px;
+  border: 1px solid var(--rule);
+  border-radius: 24px;
+  background: var(--panel);
+  box-shadow: var(--edge-lit), var(--shadow-2);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  touch-action: none;
+}
+
+.press-cancel.over {
+  background: var(--bad);
+  border-color: var(--bad);
+  color: var(--panel);
+}
+
 /* the start's reach while the pointer is on it: it fades when the pointer leaves (D184) */
 .start-reach {
   transition: opacity var(--dur-fade) var(--ease-out);

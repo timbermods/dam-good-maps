@@ -29,6 +29,9 @@ export interface SourcePointerSlice {
   objectUnder: (x: number, y: number) => number | undefined;
   objectTiles: (k: number) => number[];
   grabObject: (hit: TileHit | null, pick?: boolean) => PointerTool | null;
+  /** The object or source picked, as something a finger's press anywhere moves (#1074 slice 3, render3d/touch.ts): whether
+   *  there is one, and it taken up as a press on it takes it, to go where the finger aims. */
+  heldCalls: { current: { holding: () => boolean; grabHeld: () => PointerTool | null } };
   strengthTick: number;
   strengthOfEntity: (k: number) => number;
   liveStrength: (e: { x: number; y: number }, v: number | null) => void;
@@ -117,7 +120,6 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
     // (a force picked takes the map's clicks, a source's too: D257)
     if (!hit || brushToolRef.current || (shelfRef.current && !shelfRef.current.source) || ed.toolRef.current || ed.blockRef.current) return null;
     const W = infoRef.current.W;
-    const H = infoRef.current.H;
     // with nothing picked, a source within about two tiles is the one pressed (D249); with the
     // shelf's source, a press on a placed one (a new one can go right beside it); with the Select
     // tool open, only a press on the source itself, so a box started beside one selects (showcase-craft
@@ -126,7 +128,12 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
     const spot = free ? targetAt(hit.x, hit.y) : null;
     const src = spot ? { x: spot.x, y: spot.y, bad: spot.bad, tiles: spot.tiles.map((i): [number, number] => [i % W, Math.floor(i / W)]) } : sourceOnScreen(hit, ev?.clientX ?? -1e6, ev?.clientY ?? -1e6);
     if (!src) return null;
-    const from: [number, number] = [hit.x, hit.y];
+    return takeSource(src, [hit.x, hit.y]);
+  }
+  /** A source taken up from tile `from`: its footprint follows the tile the pointer is on, offset as it was from `from`. */
+  function takeSource(src: { x: number; y: number; bad: boolean; tiles: [number, number][] }, from: [number, number]): PointerTool {
+    const W = infoRef.current.W;
+    const H = infoRef.current.H;
     let to = from;
     /** The level aimed at where it goes (D491: a cave's floor; undefined, the tile's top). */
     let level: number | undefined;
@@ -173,6 +180,41 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
       voxel: true,
     };
   }
+  /** Whether something picked on the map is what a finger's press moves: a source or an object picked, with nothing
+   *  else in hand and the objects shown (render3d/touch.ts, #1074 slice 3). */
+  function holding(): boolean {
+    if (!pickedRef.current && !ed.pickedObjectRef.current) return false;
+    return !brushToolRef.current && !shelfRef.current && !ed.toolRef.current && !ed.blockRef.current && !selection.current.count && !renderer.current?.objectsHidden;
+  }
+  /** The source or object picked, taken up as a press on its middle would take it, so it goes where a finger aims: its
+   *  footprint shows there, and the lift moves it (one step), as a mouse's drag does. Null when nothing is held. */
+  function grabHeld(): PointerTool | null {
+    if (!holding()) return null;
+    const W = infoRef.current.W;
+    const H = infoRef.current.H;
+    const p = pickedRef.current;
+    if (p) {
+      const spot = targetAt(p.x, p.y);
+      if (!spot) return null;
+      return takeSource({ x: spot.x, y: spot.y, bad: spot.bad, tiles: spot.tiles.map((i): [number, number] => [i % W, Math.floor(i / W)]) }, [spot.x, spot.y]);
+    }
+    const o = ed.pickedObjectRef.current;
+    if (!o) return null;
+    const k = entityIndexOf(o);
+    if (k < 0) return null;
+    // (the footprint's middle tile: the object is held by its middle, so that is what goes where the finger aims)
+    const tiles = objectTiles(k);
+    if (!tiles.length) return null;
+    const cx = tiles.reduce((s, i) => s + (i % W), 0) / tiles.length;
+    const cy = tiles.reduce((s, i) => s + Math.floor(i / W), 0) / tiles.length;
+    const mid = tiles.reduce((best, i) => (Math.hypot((i % W) - cx, Math.floor(i / W) - cy) < Math.hypot((best % W) - cx, Math.floor(best / W) - cy) ? i : best));
+    const x = mid % W;
+    const y = Math.floor(mid / W);
+    if (x < 0 || y < 0 || x >= W || y >= H) return null;
+    return grabObject({ x, y, point: [x + 0.5, mirror.current.heights[mid] ?? 0, -(y + 0.5)], face: "top", t: 0 }, true);
+  }
+  const heldCalls = useRef({ holding, grabHeld });
+  heldCalls.current = { holding, grabHeld };
   /** The level a drag aims at (D491): a cave's floor, the ground under a ledge; undefined on the tile's top. */
   const aimAt = (h: TileHit) => aimOf(h, infoRef.current.W, mirror.current.heights, ed.columnsRef.current);
 
@@ -373,6 +415,6 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
 
   return {
     pointerAt, notePointer, sourceAtTile, placeSource, sourceInfo, entitiesOn, sourceGrab, grabSource, objectUnder, objectTiles,
-    grabObject, strengthTick, strengthOfEntity, liveStrength, entityIndexOf, wheelSource
+    grabObject, heldCalls, strengthTick, strengthOfEntity, liveStrength, entityIndexOf, wheelSource
   };
 }

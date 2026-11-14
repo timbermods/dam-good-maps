@@ -155,16 +155,29 @@ export const depositSettingsOf = (u: DepositUi): DepositSettings => ({ ...DEPOSI
 /** Erode's settings (the wear is one rule; a drawn sweep or a click is its gesture, a band for the one, a point for the other). */
 export const erodeSettingsOf = (u: ErodeUi): ErodeSettings => ({ ...ERODE_DEFAULTS, power: u.power, size: u.size });
 
-/** A force at work: what it is doing, the keys (Esc skips it to its end, Ctrl+Z takes it back; a painted
- *  Lift still drawn: Esc cancels it), and Revert. */
-export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): void }) {
+/** A force at work: what it is doing, Skip (Esc: to its end, kept) and Revert (Ctrl+Z takes it back; a painted Lift still
+ *  drawn: Esc cancels it). Skip is Esc's control, for a finger (#1074 slice 3). */
+export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): void; onSkip(): void }) {
   const st = p.status;
   const doing = p.force.id === "craterize" ? "Striking…" : p.force.id === "erupt" ? "Erupting…" : p.force.id === "glaciate" ? "The ice is moving…" : p.force.id === "deposit" ? "Sediment is settling…" : p.force.id === "erode" ? "The rock is wearing…" : st.painting ? "Paint the fault, then let go to keep it" : "The ground is moving…";
   return (
     <SettingsGrid
       label={`${p.force.name} at work`}
       groups={[
-        { key: "status", row: 1, at: 1, span: 11, rows: 2, centre: true, node: <Words status>{st.stopping ? "Settling…" : doing}</Words> },
+        { key: "status", row: 1, at: 1, span: 9, rows: 2, centre: true, node: <Words status>{st.stopping ? "Settling…" : doing}</Words> },
+        {
+          key: "skip",
+          row: 1,
+          at: 10,
+          span: 2,
+          rows: 2,
+          centre: true,
+          node: (
+            <button type="button" class="set-button" disabled={st.stopping || st.painting} onClick={p.onSkip} {...tip("Finish it now", "Esc")}>
+              Skip
+            </button>
+          ),
+        },
         {
           key: "revert",
           row: 1,
@@ -173,7 +186,7 @@ export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): 
           rows: 2,
           centre: true,
           node: (
-            <button type="button" class="set-button" onClick={p.onRevert} {...(st.painting && !st.stopping ? tip("Take the fault back", "Esc") : tip("Take all of it back", "Ctrl+Z", "Esc skips to its end"))}>
+            <button type="button" class="set-button" onClick={p.onRevert} {...(st.painting && !st.stopping ? tip("Take the fault back", "Esc") : tip("Take all of it back", "Ctrl+Z"))}>
               Revert
             </button>
           ),
