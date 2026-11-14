@@ -26,6 +26,12 @@ describe("tabletRoomFor", () => {
     for (const [w, h] of [[820, 1180], [1180, 820], [1024, 768], [1024, 1366], [600, 900]]) expect(tabletRoomFor(w, h), `${w}×${h}`).toBe(true);
     for (const [w, h] of [[393, 852], [852, 393], [1400, 900], [1920, 1080]]) expect(tabletRoomFor(w, h), `${w}×${h}`).toBe(false);
   });
+
+  it("gives a tablet's room to a finger's window narrower than the desktop's however tall: a big Android tablet upright (slice 7)", () => {
+    for (const [w, h] of [[900, 1440], [1200, 1920], [1279, 1600]]) expect(tabletRoomFor(w, h), `${w}×${h}`).toBe(true);
+    // (on its side, as wide as a desktop: the desktop's layout)
+    for (const [w, h] of [[1440, 900], [1280, 1600], [1920, 1200]]) expect(tabletRoomFor(w, h), `${w}×${h}`).toBe(false);
+  });
 });
 
 describe("roomNow", () => {

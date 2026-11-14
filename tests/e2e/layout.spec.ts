@@ -916,7 +916,8 @@ for (const phone of PHONES) {
 // open as side sheets; the minimap stays; at rest nothing but the header, the dock and the minimap covers the map; the
 // menu's pages cover the dock and scroll as one; and no setting's name is cut short.
 
-const TABLETS: [number, number][] = [[820, 1180], [1180, 820], [1024, 768], [1024, 1366]];
+// (900×1440: a big Android tablet upright, narrower than the desktop's room however tall, slice 7)
+const TABLETS: [number, number][] = [[820, 1180], [1180, 820], [1024, 768], [1024, 1366], [900, 1440]];
 
 /** The editor's chrome over the view, shown now: each piece by its class. */
 async function chromeShown(page: Page): Promise<string[]> {
@@ -1074,11 +1075,16 @@ for (const [W, H] of TABLETS) {
         const p = document.querySelector(".phone-page")!.getBoundingClientRect();
         const d = document.querySelector(".tool-dock > .tool-bar")!.getBoundingClientRect();
         const hit = document.elementFromPoint((d.left + d.right) / 2, (d.top + d.bottom) / 2);
+        // (the minimap and the objects' buttons under the page too: slice 5's hiding of them while a panel is open)
+        const under = [".editor-view .minimap", ".tablet-objects-button", ".phone-show-button"].filter((sel) => {
+          const m = document.querySelector(sel)?.getBoundingClientRect();
+          return !!m && m.width > 0 && !document.elementFromPoint((m.left + m.right) / 2, (m.top + m.bottom) / 2)?.closest(".phone-page");
+        });
         const body = document.querySelector<HTMLElement>(".phone-page-body")!;
         const inner = [...body.querySelectorAll<HTMLElement>("*")].filter((e) => /auto|scroll/.test(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight + 1).map((e) => e.className);
-        return { over: p.left <= d.left && p.right >= d.right && p.top <= d.top && p.bottom >= d.bottom, onTop: !!hit?.closest(".phone-page"), inner, scrolls: body.scrollHeight > body.clientHeight };
+        return { over: p.left <= d.left && p.right >= d.right && p.top <= d.top && p.bottom >= d.bottom, onTop: !!hit?.closest(".phone-page"), shown: under, inner, scrolls: body.scrollHeight > body.clientHeight };
       });
-      expect(covered, "the Map Generator covers the dock and scrolls as one page").toEqual({ over: true, onTop: true, inner: [], scrolls: true });
+      expect(covered, "the Map Generator covers the dock, the minimap and the buttons, and scrolls as one page").toEqual({ over: true, onTop: true, shown: [], inner: [], scrolls: true });
       expect(await phoneClipped(page), "the Map Generator: names cut short").toEqual([]);
       await tap(page.locator(".phone-back"));
       await expect(page.locator(".phone-page")).toHaveCount(0);

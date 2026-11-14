@@ -243,12 +243,14 @@ place of its bottom rule.
   areas, `viewport-fit=cover`), fields 16px so the browser never zooms on focus. A long press on a control shows its
   tooltip (D351) and is not a tap. With a tool's one-row sheet open the view keeps 66 % of the screen upright and 63 %
   on its side (the spec holds 60 %).
-- **Tablets** (#1074, slices 5 and 6; `src/styles/tablet.css`, `view/usePhone.ts`, `view/phoneLayout.ts`;
-  `tests/e2e/layout.spec.ts` at 820×1180, 1180×820, 1024×768 and 1024×1366). **A tablet is a big phone, not a small
-  desktop** (planning, 2026-11-14): a finger (a coarse pointer) in a room that is not a phone's and whose longer side is
-  under 1,400 CSS px (`tabletRoomFor`; the editor marks it `data-tablet`). Gated on the pointer and the room, never a
+- **Tablets** (#1074, slices 5 to 7; `src/styles/tablet.css`, `view/usePhone.ts`, `view/phoneLayout.ts`;
+  `tests/e2e/layout.spec.ts` at 820×1180, 1180×820, 1024×768, 1024×1366 and 900×1440). **A tablet is a big phone, not a
+  small desktop** (planning, 2026-11-14): a finger (a coarse pointer) in a room that is not a phone's and whose longer
+  side is under 1,400 CSS px, or that is narrower than the desktop's 1,280 however tall (slice 7: a big Android tablet
+  upright, 900×1440; `tabletRoomFor`; the editor marks it `data-tablet`). Gated on the pointer and the room, never a
   device's name: no phone rule reaches a tablet, no tablet rule a desktop with a mouse, and a touch screen with a
-  desktop's room (1,400 or more) keeps the desktop layout sized for a finger. The tablet keeps the header and the dock of
+  desktop's room (1,400 or more on its longer side and 1,280 or more wide, as 1400×900) keeps the desktop layout sized
+  for a finger. The tablet keeps the header and the dock of
   tools in its one row, a held tool's settings on the bar's cells above it, and the minimap at the bottom left; the rest
   is the phone's. **Show** and **Objects** are the phone's buttons at the view's top right, each opening a side sheet
   under them at the right (at most 380px or 46 % of the view's width, down to the dock): Show's sheet is the phone's
@@ -261,7 +263,7 @@ place of its bottom rule.
   generator's settings in two or three columns, name over value over control). The map keeps to the room left as on a
   phone (a sheet opening slides the view). A tool's settings keep their rows, every target drawn and hit at least 40px a
   side (slice 7, measured by what the page hands a tap, `hitTargets`): **Auto** is the phone's pill, 44px on the name
-  line, and a choice's options are each at least 42px wide, wrapping to a second line where a cell can't hold them all
+  line, and a choice's options are each at least 44px wide, wrapping to a second line where a cell can't hold them all
   (Glaciate's Benches at 820), never cut off; in the dock's narrow cells a setting's name keeps its whole words, wrapping between them, its value and
   Auto going under it where the line has no room, so no name is ever cut short. Under 1,280 wide the dock takes the view's
   whole width (its cells shrink to 44px before they overflow) and the editor is the dynamic viewport's height; under
