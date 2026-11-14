@@ -1558,20 +1558,24 @@ head's width (`levels.ts`); three springs in one bed stood 1.03 deep by it, 0.67
 raster parts waters half a level apart where they meet. Short of ruling 1's tree: a depth by reach in the table would
 let a trunk gather more.
 
-**The reach rule** (ruling 2; `validate/ruledLand.ts` `ruledReach`, the decision note in
-`docs/decisions/generator.md`). In `terrain.ruled_land`'s channels, water under 5 wide is a ruled reach when its
-chained straight rows are more than five times its width, never fewer than 12 (3 wide: over 15 rows; 4 wide: over
-20); water 5 wide and more, and lakes, at 12 rows as before. The unit changed from tiles to widths because a
-meander's crossing between two bends is 3 to 4 widths long: counted in tiles, a wider brook was called ruled for the
-same rows a narrower one passed with, and a run past 5 widths with no bend is a canal. `gateMap` reads the plan's own
+**The reach rule** (ruling 2 and planning's ruling of 2026-11-14; D520; `validate/ruledLand.ts` `ruledReach` and
+`bendsBoth`, the decision note in `docs/decisions/generator.md`). In `terrain.ruled_land`'s channels, water under 5
+wide whose straight stretch is a crossing between two bends is a ruled reach only when its chained straight rows are
+more than five times its width (3 wide: over 15 rows; 4 wide: over 20); every other stretch, water 5 wide and more,
+and lakes, at 12 rows. A stretch bends at an end when the water beyond it, followed out to 6 widths, lies 0.5 rad or
+more off its line 4 to 6 widths out; a dead end (a spring's head, a course's end) or water opening wide (a lake) is
+no bend. The widths are for a crossing because a meander's crossing leg between two bends is 3 to 4 widths long and
+is not a canal; a link straight from end to end, or bending at one end only (lake to lake, a spring straight into a
+lake), is one whatever its width. `gateMap` reads the plan's own
 water (`planWet`: a channel that runs off the map counts its first 6 tiles only; past its lip the Low River's gorge
 is laid five wide and straight, 60 to 86 tiles of it at 192² and 256², and the settled map shows no reach there) for a reach over `GATE_REACH` (40 tiles) before it shapes any land
 (stage 1's raster foretells the settled map's: the lake's end before the Low River's lip, as wide as the lip, lies as one straight block of 150 to 220 tiles
 on about one plan in four, and is refused there at no settle's cost), and the settled map's again. The plan's reading
-is the stricter by a little: at 192² seed 12 it refused a plan whose settled map showed no reach. The rule changes
-other maps' numbers: on the lake stair, seeds 1 to 12, the mean share of water in straight even reaches went from 4.7
-to 4.4 % at 128², 3.5 to 2.9 % at 192² and 3.7 to 3.3 % at 256²; 15 straight links between lakes, 3 to 5 wide and 12
-to 20 rows long, are newly let through, none newly called ruled.
+is the stricter by a little: at 192² seed 12 it refused a plan whose settled map showed no reach. The rule's first reading (five widths for all narrow water) let 15 straight links between the lake stair's lakes
+through (3 to 5 wide, 12 to 20 rows; seeds 1 to 12, 1, 7 and 7 by size); they read as ruled, so the ruling of
+2026-11-14 kept the widths for crossings, and the lake stair measures as before the rule: the mean share of water in
+straight even reaches 4.7 % at 128², 3.5 % at 192² and 3.7 % at 256², every reach the same. A brook's straight head
+or tail, ending dead, is a reach at 12 rows.
 
 **Measured** (seeds 1 to 12 at 128², 192² and 256², 2026-11-14): 36 of 36 make a map, every start check passing.
 The start's numbers over the 36, mean and least: level land 989 and 667 tiles (192² seed 5), wood 398 and 253 (192²

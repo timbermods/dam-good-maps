@@ -100,8 +100,10 @@ describe("ruled land", () => {
     }
   });
 
-  it("the reach rule: narrow water is ruled past five times its width, never under 12 rows; water 5 wide and more at 12 rows", () => {
-    // (planning's ruling of 2026-11-13: a meander's crossing between two bends is 3 to 4 widths, so the unit is the width)
+  it("the reach rule: a straight stretch with no bend at its ends is a reach at 12 rows, whatever its width", () => {
+    // (D520, planning's ruling of 2026-11-14: the five-widths allowance is for a crossing between bends only; an
+    // isolated straight brook, its two ends dead, is a canal at 12 rows. Until that ruling this test let water under 5
+    // wide run to five times its width here: 3 wide to 15 rows, 4 wide to 20)
     const W = 64;
     const flat = new Uint8Array(W * W).fill(4);
     // a straight brook `wide` tiles wide and `rows` rows long, along the grid
@@ -110,35 +112,112 @@ describe("ruled land", () => {
       for (let y = 10; y < 10 + rows; y++) for (let x = 20; x < 20 + wide; x++) wet[y * W + x] = 1;
       return ruledLand(flat, wet, W, W).channel;
     };
-    for (const [wide, most] of [[2, 11], [3, 15], [4, 20], [5, 11], [8, 11]] as const) {
-      expect(brook(wide, most), `${wide} wide, ${most} rows`).toBeNull();
-      expect(brook(wide, most + 1)?.tiles, `${wide} wide, ${most + 1} rows`).toBe(wide * (most + 1));
+    for (const wide of [2, 3, 4, 5, 8]) {
+      expect(brook(wide, 11), `${wide} wide, 11 rows`).toBeNull();
+      expect(brook(wide, 12)?.tiles, `${wide} wide, 12 rows`).toBe(wide * 12);
     }
-    // (the same reach read down the columns: 4 wide and 21 long along x)
+    // (the same reach read down the columns: 4 wide and 12 long along x)
     const across = new Uint8Array(W * W);
-    for (let x = 10; x < 31; x++) for (let y = 20; y < 24; y++) across[y * W + x] = 1;
-    expect(ruledLand(flat, across, W, W).channel?.tiles).toBe(84);
-    // at 45° a row's slice is √2 wider than the water and a row √2 longer: slices 5 wide are water 3.5 wide, ruled
-    // past 17.7 tiles of length, 13 rows (12 rows are 17 tiles: let through)
+    for (let x = 10; x < 22; x++) for (let y = 20; y < 24; y++) across[y * W + x] = 1;
+    expect(ruledLand(flat, across, W, W).channel?.tiles).toBe(48);
+    // at 45° too: slices 5 wide (water 3.5 wide), 12 rows
     const diagonal = (rows: number) => {
       const wet = new Uint8Array(W * W);
       for (let y = 10; y < 10 + rows; y++) for (let x = y; x < y + 5; x++) wet[y * W + x] = 1;
       return ruledLand(flat, wet, W, W).channel;
     };
-    expect(diagonal(12)).toBeNull();
-    expect(diagonal(13)?.tiles).toBe(65);
-    // a brook 3 and 4 wide by turns is read by its mean width: 16 rows of 3.5 are let through, 18 are ruled
-    const mixed = (rows: number) => {
-      const wet = new Uint8Array(W * W);
-      for (let y = 10; y < 10 + rows; y++) for (let x = 20; x < 23 + (((y - 10) >> 1) & 1); x++) wet[y * W + x] = 1;
-      return ruledLand(flat, wet, W, W).channel;
-    };
-    expect(mixed(16)).toBeNull();
-    expect(mixed(18)).not.toBeNull();
+    expect(diagonal(11)).toBeNull();
+    expect(diagonal(12)?.tiles).toBe(60);
+    // the widths, as a crossing between bends is read: past five times its mean width (3 wide: over 15 rows; 3.5:
+    // over 17.5; at 45° a row's slice is √2 wider than the water and a row √2 longer); 5 wide and more at 12 rows
     expect(ruledReach(15, 45, false)).toBe(false);
     expect(ruledReach(16, 48, false)).toBe(true);
+    expect(ruledReach(16, 56, false)).toBe(false);
+    expect(ruledReach(18, 63, false)).toBe(true);
+    expect(ruledReach(12, 60, true)).toBe(false);
+    expect(ruledReach(13, 65, true)).toBe(true);
     expect(ruledReach(12, 60, false)).toBe(true);
     expect(ruledReach(11, 55, false)).toBe(false);
+  });
+
+  it("the reach rule's bends: a crossing between two bends of 0.5 rad or more runs five widths; a link from a lake, or bending at one end only, is a reach at 12 rows", () => {
+    const W = 128;
+    const flat = new Uint8Array(W * W).fill(4);
+    type P = [number, number];
+    const brush = (wet: Uint8Array, a: P, b: P, half: number) => {
+      const dx = b[0] - a[0];
+      const dy = b[1] - a[1];
+      for (let y = 1; y < W - 1; y++)
+        for (let x = 1; x < W - 1; x++) {
+          const t = Math.max(0, Math.min(1, ((x + 0.5 - a[0]) * dx + (y + 0.5 - a[1]) * dy) / (dx * dx + dy * dy)));
+          if (Math.hypot(x + 0.5 - a[0] - t * dx, y + 0.5 - a[1] - t * dy) <= half) wet[y * W + x] = 1;
+        }
+    };
+    // a straight leg `wide` tiles wide down rows 50 to 50 + rows - 1; beyond each end an arm 30 tiles long turning
+    // `turn` off the leg's line (the two arms to opposite sides, a meander's S), a lake, or nothing
+    type End = "bend" | "lake" | "none";
+    const leg = (wide: number, rows: number, top: End, bottom: End, turn = Math.PI / 3) => {
+      const wet = new Uint8Array(W * W);
+      const x0 = 64;
+      const y0 = 50;
+      const cx = x0 + wide / 2;
+      for (let y = y0; y < y0 + rows; y++) for (let x = x0; x < x0 + wide; x++) wet[y * W + x] = 1;
+      if (top === "bend") brush(wet, [cx, y0], [cx - 30 * Math.sin(turn), y0 - 30 * Math.cos(turn)], wide / 2);
+      if (bottom === "bend") brush(wet, [cx, y0 + rows], [cx + 30 * Math.sin(turn), y0 + rows + 30 * Math.cos(turn)], wide / 2);
+      // a lake 32 across, its shore at the leg's end (the lake below is the one above mirrored)
+      const u = new Uint8Array(W * W);
+      for (let y = 1; y < W - 1; y++)
+        for (let x = 1; x < W - 1; x++) {
+          const dx = x + 0.5 - cx;
+          const dy = y + 0.5 - (y0 - 22);
+          const a = Math.atan2(-dy, dx);
+          if (dx * dx + dy * dy <= (16 + 4 * Math.sin(3 * a) + 2 * Math.cos(5 * a + 1)) ** 2) u[y * W + x] = 1;
+        }
+      let shore = 0;
+      for (let y = 0; y < W; y++) for (let x = x0; x < x0 + wide; x++) if (u[y * W + x]) shore = Math.max(shore, y);
+      const sh = y0 - 1 - shore;
+      for (let y = 0; y < W; y++)
+        for (let x = 0; x < W; x++) {
+          if (!u[y * W + x]) continue;
+          if (top === "lake" && y + sh >= 1) wet[(y + sh) * W + x] = 1;
+          const yy = y0 + rows + (y0 - 1 - (y + sh));
+          if (bottom === "lake" && yy < W - 1) wet[yy * W + x] = 1;
+        }
+      return ruledLand(flat, wet, W, W).channel;
+    };
+    // a link 3 wide straight from lake to lake: a canal (13 rows between the shores, and the lakes' narrow tips
+    // with it: 15 rows, which the widths would have let through; 9 rows and the tips, 11: no reach)
+    expect(leg(3, 9, "lake", "lake")).toBeNull();
+    expect(leg(3, 13, "lake", "lake")?.tiles).toBe(45);
+    // bending at one end only: into a lake, or to a dead end, is a reach at 12 rows
+    expect(leg(3, 13, "bend", "lake")?.tiles).toBe(45);
+    expect(leg(3, 11, "bend", "none")?.tiles).toBe(39);
+    // a crossing between two bends of 60°: 3 wide, let through to 15 rows (the leg of 14 reads as 15 with its
+    // joins), a reach over five widths (16 rows read as 17); 4 wide, let through to 20 rows, a reach at 21
+    expect(leg(3, 14, "bend", "bend")).toBeNull();
+    expect(leg(3, 16, "bend", "bend")?.tiles).toBe(51);
+    expect(leg(4, 20, "bend", "bend")).toBeNull();
+    expect(leg(4, 21, "bend", "bend")?.tiles).toBe(86);
+    // bends under 0.5 rad are no bends: the same crossing between turns of 0.4 rad is a reach
+    expect(leg(3, 14, "bend", "bend", 0.4)).not.toBeNull();
+    // at 45°: slices 5 wide (water 3.5 wide) between two bends of 60° are let through to 12 rows (17 tiles long),
+    // a reach at 13 (18.4 tiles, over five widths); the same 12 rows alone are a reach
+    const diagonal = (rows: number, bends: boolean) => {
+      const wet = new Uint8Array(W * W);
+      for (let y = 40; y < 40 + rows; y++) for (let x = y; x < y + 5; x++) wet[y * W + x] = 1;
+      if (bends) {
+        const top: P = [42.5, 40.5];
+        const end: P = [rows + 41.5, rows + 39.5];
+        const a = (285 * Math.PI) / 180;
+        const b = (105 * Math.PI) / 180;
+        brush(wet, top, [top[0] + 30 * Math.cos(a), top[1] + 30 * Math.sin(a)], 1.75);
+        brush(wet, end, [end[0] + 30 * Math.cos(b), end[1] + 30 * Math.sin(b)], 1.75);
+      }
+      return ruledLand(flat, wet, W, W).channel;
+    };
+    expect(diagonal(12, true)).toBeNull();
+    expect(diagonal(13, true)?.tiles).toBe(65);
+    expect(diagonal(12, false)?.tiles).toBe(60);
   });
 
   it("the Gate's seeds 1 to 3 pass at 128²", () => {
