@@ -76,7 +76,7 @@ import type { DroughtLine } from "../core/sim/droughtLine";
 import { dyingCause, waterAboveBase, WITHERING_SPECIES } from "../core/sim/withering";
 import { markSourceTiles, sourceMiddle } from "./sourceMarks";
 import { buildEntities, cutoutUnder, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead, ruinsOvergrown, type Faction } from "./entities3d";
-import { StartFire, startCentres } from "./startFire";
+import { fireDrawn, StartFire, startCentres } from "./startFire";
 import { whenIdle } from "./idle";
 import { casterLevelsOf, castersChangedRects, DEFAULT_SUN, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, sunOfYaw, sunVector, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type Sun, type TileSpan } from "./light";
 import { CaveLight } from "./caveLight";
@@ -3293,7 +3293,8 @@ export class MapRenderer {
   private fireCentres: [number, number, number][] = [];
   private readonly fireAt = new Vector3();
 
-  /** Whether a start's flame shows moving in the view: its bowl inside the frame and its flame at least
+  /** Whether a start's flame shows moving in the view: its fire drawn (`fireDrawn`: not hidden, not cut away), its bowl
+   *  inside the frame and its flame at least
    *  `FIRE_SHOWN_PX` across. The fire asks for frames only then (`animated`), so a map at rest with its start out of
    *  view or too far off to see the flame (a blank map, a dry one) draws nothing (D453); the water's and the steam's
    *  own rules are unchanged. */
@@ -3302,7 +3303,11 @@ export class MapRenderer {
     const cam = this.camera();
     const h = this.canvas.clientHeight;
     const [, ey] = START_FIRE.emitter;
+    const slice = this.uniforms.slice.value;
+    const hide = this.uniforms.objectHide.value;
     for (const c of this.fireCentres) {
+      // (a start hidden with the objects or cut away draws no fire: nothing moves)
+      if (!fireDrawn(c, slice, hide)) continue;
       const p = this.fireAt.set(c[0], c[1] + ey, c[2]).project(cam);
       if (p.z < -1 || p.z > 1 || Math.abs(p.x) > 1.05 || Math.abs(p.y) > 1.05) continue;
       // (the flame's width on screen: by its depth in the perspective view, by the frame's height from the top)
@@ -3321,10 +3326,10 @@ export class MapRenderer {
     const lights = this.uniforms.startLights.value;
     const slice = this.uniforms.slice.value;
     const fading = this.uniforms.objectFade.value.w > 0.5;
-    const [, ey] = START_FIRE.emitter;
+    const hide = this.uniforms.objectHide.value;
     for (let k = 0; k < this.startLightsOn; k++) {
       const c = this.fireCentres[k];
-      lights[k].w = c[1] + ey > slice + 0.02 ? 0 : fading ? objectFadeAt(this.fadeRegion, c[0], -c[2]) : 1;
+      lights[k].w = !fireDrawn(c, slice, hide) ? 0 : fading ? objectFadeAt(this.fadeRegion, c[0], -c[2]) : 1;
     }
   }
 

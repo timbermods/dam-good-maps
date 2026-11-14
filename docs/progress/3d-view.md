@@ -4060,7 +4060,8 @@ The start is the faction's district center with the game's fire in its bowl, dra
   faded round the pointer with them and cut away above the layer. On the objects' clock, so still with reduced motion,
   as the geothermal steam is (D240 covers the editor's own animations; the fire is the game's look, frozen, not
   removed). Never in the light look. It asks for frames (`animated`, 30 a second as the water's) only while a start's
-  bowl is inside the frame and its flame at least 2 pixels across (renderer.ts `fireShows`): a map at rest whose start
+  fire is drawn (not hidden with the objects or cut away, `fireDrawn`), its bowl inside the frame and its flame at least
+  2 pixels across (renderer.ts `fireShows`): a map at rest whose start
   is out of view or too far off to see the flame draws nothing, as dev did before the fire (a blank map, a dry one;
   D453). A map with water draws its water's 30 frames a second anyway, as on dev. Its program is compiled ahead with the others (renderer.ts `scheduleWarm`), so a
   start placed later does not hitch.

@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import { ShaderMaterial, Vector4 } from "three";
-import { FIRE_PARTICLES, StartFire, startCentres } from "../../src/render3d/startFire";
+import { FIRE_PARTICLES, fireDrawn, StartFire, startCentres } from "../../src/render3d/startFire";
 import { buildEntities, modelKeyOf, modelTriangles, startBatch } from "../../src/render3d/entities3d";
 import { entityView } from "../../src/render3d/model";
 
@@ -35,6 +35,16 @@ describe("the start's fire", () => {
     expect(fire.set([])).toBe(true);
     expect(fire.mesh.visible).toBe(false);
     fire.dispose();
+  });
+
+  it("is not drawn, so asks for no frames and lights nothing, while the objects are hidden or the cut is below its bowl", () => {
+    const c = startCentres(starts)[0];
+    // (the bowl's emitter 3.16 above the start's level, 3)
+    expect(fireDrawn(c, 99, 0)).toBe(true);
+    expect(fireDrawn(c, 6.16, 0)).toBe(true);
+    expect(fireDrawn(c, 6, 0)).toBe(false);
+    expect(fireDrawn(c, 3, 0)).toBe(false);
+    expect(fireDrawn(c, 99, 1)).toBe(false);
   });
 
   it("hides and fades with the objects and is cut away above the layer, by the scene's own uniforms", () => {

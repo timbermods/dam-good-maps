@@ -32,6 +32,13 @@ export const FIRE_PARTICLES = 125;
 /** A number as GLSL writes a float. */
 const g = (v: number) => (Number.isInteger(v) ? `${v}.0` : String(v));
 
+/** Whether the fire over this start's middle (`startCentres`) is drawn at all: not while the objects are hidden
+ *  (`objectHide`), nor where the layer cut (`slice`) takes it, its emitter above the cut as its particles are cut. Its
+ *  motion asks for frames (renderer.ts `fireShows`) and its light shines (`dimStartLights`) only then. */
+export function fireDrawn(centre: readonly [number, number, number], slice: number, objectHide: number): boolean {
+  return objectHide <= 0.5 && centre[1] + F.emitter[1] <= slice + 0.02;
+}
+
 /** Each start's district center's middle (x east, its level, z south, as the objects are placed): where its fire and
  *  its light stand, `START_FIRE.emitter` and `.light` above it (the fire's attachment is the footprint's middle in both
  *  factions' blueprints). */
