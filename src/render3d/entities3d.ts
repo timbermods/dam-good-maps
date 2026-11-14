@@ -73,6 +73,7 @@ import { unstableCoreParts } from "./unstableCore";
 import { largeRelicParts } from "./largeRelic";
 import { mediumRelicParts, smallRelicParts } from "./smallRelics";
 import { LAND, LAND_GROW } from "./objectFade";
+import { IVY_ROOT, IVY_RUN, IVY_TRAILS, PATTERN, type Region } from "./objectPatterns";
 
 type Rgb = readonly [number, number, number];
 
@@ -84,12 +85,17 @@ export const LOD_ALL = 0;
 export const LOD_NEAR = 1;
 export const LOD_FAR = 2;
 
-/** A model under construction: flat-shaded triangles with a colour per vertex. */
+/** A model under construction: flat-shaded triangles with a colour per vertex, and where a part has a pattern
+ *  (`card`), its place in it and which. */
 class Model {
   pos: number[] = [];
   nrm: number[] = [];
   col: number[] = [];
   lod: number[] = [];
+  /** Each vertex's place in its pattern (u, v) and the pattern (objectPatterns.ts PATTERN, 0 none): only once a part
+   *  has one. */
+  uv: number[] | null = null;
+  pat: number[] | null = null;
   /** The view the parts added now belong to (LOD_ALL, LOD_NEAR or LOD_FAR). */
   level = LOD_ALL;
 
@@ -122,9 +128,38 @@ class Model {
       const c = per ? per[k] : (color as Rgb);
       this.col.push(c[0], c[1], c[2]);
       this.lod.push(this.level);
+      this.uv?.push(0, 0);
+      this.pat?.push(0);
     }
     if (flat !== g) flat.dispose();
     g.dispose();
+    return this;
+  }
+
+  /** A flat card with a pattern seen from both sides, as the game's cut-out cards are: the corners `p` (counter-clockwise
+   *  seen from its front) at the corners `uv` of the pattern `pattern` (objectPatterns.ts PATTERN), its albedo the
+   *  pattern's times `color`. */
+  card(p: readonly (readonly number[])[], uv: readonly (readonly number[])[], pattern: number, color: Rgb = [1, 1, 1]): this {
+    if (!this.uv || !this.pat) {
+      this.uv = new Array<number>((this.pos.length / 3) * 2).fill(0);
+      this.pat = new Array<number>(this.pos.length / 3).fill(0);
+    }
+    const a = p[0];
+    const n = [0, 1, 2].map((i) => {
+      const j = (i + 1) % 3;
+      const k = (i + 2) % 3;
+      return (p[1][j] - a[j]) * (p[2][k] - a[k]) - (p[1][k] - a[k]) * (p[2][j] - a[j]);
+    });
+    const len = Math.hypot(n[0], n[1], n[2]) || 1;
+    for (const [side, order] of [[1, [0, 1, 2, 0, 2, 3]], [-1, [0, 2, 1, 0, 3, 2]]] as const)
+      for (const v of order) {
+        this.pos.push(p[v][0], p[v][1], p[v][2]);
+        this.nrm.push((side * n[0]) / len, (side * n[1]) / len, (side * n[2]) / len);
+        this.col.push(color[0], color[1], color[2]);
+        this.lod.push(this.level);
+        this.uv.push(uv[v][0], uv[v][1]);
+        this.pat.push(pattern);
+      }
     return this;
   }
 
@@ -156,7 +191,10 @@ class Model {
     g.setAttribute("position", new Float32BufferAttribute(this.pos, 3));
     g.setAttribute("normal", new Float32BufferAttribute(this.nrm, 3));
     g.setAttribute("pcolor", new Float32BufferAttribute(this.col, 3));
-    g.setAttribute("lod", new Float32BufferAttribute(this.lod, 1));
+    // (a part with a pattern: its view plus 4 × the pattern, which the program reads back, and its place in it)
+    const pat = this.pat;
+    g.setAttribute("lod", new Float32BufferAttribute(pat ? this.lod.map((l, k) => l + 4 * pat[k]) : this.lod, 1));
+    if (this.uv) g.setAttribute("puv", new Float32BufferAttribute(this.uv, 2));
     g.computeBoundingSphere();
     return g;
   }
@@ -1267,7 +1305,7 @@ function faceTops(variant: number, k: number): number[] {
  *  variant (`variant` unused there), on the top storey up to its broken posts. */
 function ivyOver(m: Model, variant: number, k: number, ivy: number): void {
   const tops = faceTops(variant, k);
-  for (let f = 0; f < 4; f++) onFace(m, f, () => drape(m, f, k === 0 ? variant : 5, ivy, tops[f]));
+  for (let f = 0; f < 4; f++) onFace(m, f, () => drape(m, f, k === 0 ? variant : 5, ivy, tops[f], k === 0));
 }
 
 /** The batch a storey's ivy is drawn in: one for each amount below the top storey, one for each variant and amount on
@@ -1327,33 +1365,53 @@ function frame(variant: number, k: number): Model {
   return m;
 }
 
-/** Leaves of ivy on each face of a storey, by how much ivy it carries: what covers as much of a column seen from a side
- *  as the game's ivy does (with the face behind showing through, about 0.74 of its foot, 0.63 of the storey above and a
- *  third of each higher one on a wet column).  */
-const IVY_LEAVES = [0, 4, 11, 16];
+/** The ivy's cards on each face of a storey, by how much ivy it carries (objectPatterns.ts `IVY_TRAILS`), as much of a
+ *  column seen from a side as the game's ivy covers (with the face behind showing through, about 0.74 of its foot,
+ *  0.63 of the storey above and a third of each higher one on a wet column): below the column's top storey, the strip
+ *  of trails running through it and each card's middle across the face (the trails run on from the storey above); on
+ *  the top storey, the middle and how far down (metres, at most to its foot) each card of trails hanging from its top
+ *  reaches. */
+const IVY_RUNNING: readonly (readonly [number, number])[][] = [[], [[2, -0.25], [2, 0.25]], [[1, -0.25], [1, 0.25]], [[0, -0.25], [0, 0.25]]];
+const IVY_HANGING: readonly (readonly [number, number])[][] = [
+  [],
+  [[-0.22, 0.55]],
+  [[-0.25, 0.85], [0.25, 0.75]],
+  [[-0.27, 0.92], [0.02, 0.82], [0.27, 0.9]],
+];
 
-/** Ivy over a storey's north face (−Z; `onFace` turns it), as the game's clings: flat leaves lying against the face
- *  over its whole height, the most low down, larger there, spread across it from post to post. Most the game's ivy,
- *  about a third the brighter green, so the ivy reads against the rust and the slab. `top`: how high the face's posts
- *  stand. */
-function drape(m: Model, f: number, variant: number, ivy: number, top: number): void {
-  const n = IVY_LEAVES[ivy];
-  const z = RUIN_FACE_Z - RUIN_SLAB / 2 - 0.007;
-  const roof = Math.min(top, 1) - 0.06;
+/** Ivy over a storey's north face (−Z; `onFace` turns it), as the game's clings: cards at the tile's edge, its stems
+ *  climbing it from the foot (a root on the storey with the most, stems running on where it has clearly some) and
+ *  trails of leaves over them, running on from the storey above or, on the column's top storey (`hangs`), hanging from
+ *  its top, each card cut by the pattern's alpha. `top`: how high the face's posts stand. */
+function drape(m: Model, f: number, variant: number, ivy: number, top: number, hangs: boolean): void {
+  // (at the tile's edge, over the posts, as the game's cards lie)
+  const z = -0.49;
+  const roof = Math.min(top, 1) - 0.04;
   const seed = variant * 4 + f;
-  for (let k = 0; k < n; k++) {
-    const t = (k + 0.5) / n;
-    // (low down more of them: the height a power of the leaf's place in the face's order)
-    const ly0 = 0.1 + (roof - 0.16) * t ** 1.25;
-    const size = 0.27 - 0.08 * ly0;
-    const half = size * 0.72;
-    const x = (jitter(seed, k, 70 + ivy) - 0.5) * 0.84;
-    const lx = Math.max(-0.49 + half, Math.min(0.49 - half, x));
-    const ly = Math.max(half + 0.01, Math.min(1 - half - 0.01, ly0 + (jitter(seed, k, 74) - 0.5) * 0.08));
-    const bright = jitter(seed, k, 75) < 0.33;
-    const a = jitter(seed, k, 76) * 6.28;
-    m.add(plane(size, size), bright ? RUIN.leaf : RUIN.ivy, { rz: Math.PI / 4 + 0.35 * Math.sin(a * 3), rx: -0.02 + 0.01 * Math.sin(a * 5), ry: Math.PI, x: lx, y: ly, z: z - 0.002 * (k % 3) });
+  const card = (x0: number, x1: number, y0: number, y1: number, at: number, r: Region, mirror: boolean, cropV = 1) => {
+    const [u0, u1] = mirror ? [r[0] + r[2], r[0]] : [r[0], r[0] + r[2]];
+    const [v0, v1] = [r[1] + r[3] * (1 - cropV), r[1] + r[3]];
+    // (seen from outside the face, −Z, +x is to the left)
+    m.card([[x1, y0, at], [x0, y0, at], [x0, y1, at], [x1, y1, at]], [[u0, v0], [u1, v0], [u1, v1], [u0, v1]], PATTERN.ivy);
+  };
+  // the stems, the face's whole width up to the top (the root's cropped from its foot, the running ones from theirs)
+  if (ivy >= IVY_MEDIUM) {
+    const h = Math.min(1, roof + 0.04);
+    const flip = jitter(seed, 0, 77) < 0.5;
+    if (ivy === IVY_DENSE) card(-0.48, 0.48, 0, h, z, [IVY_ROOT[0], IVY_ROOT[1], IVY_ROOT[2], IVY_ROOT[3] * h], flip);
+    else card(-0.48, 0.48, 0, h, z, IVY_RUN, flip, h);
   }
+  if (!hangs) {
+    // (the storey's whole height: a metre of the strip, which runs on into the storeys above and below)
+    IVY_RUNNING[ivy].forEach(([strip, x], k) => card(x - 0.25, x + 0.25, 0, 1, z - 0.0025 * (k + 1), IVY_TRAILS[strip], jitter(seed, k, 81) < 0.5));
+    return;
+  }
+  IVY_HANGING[ivy].forEach(([x, hang], k) => {
+    const w = 0.5 * (0.88 + 0.12 * jitter(seed, k, 78));
+    const cx = Math.max(-0.5 + w / 2, Math.min(0.5 - w / 2, x + (jitter(seed, k, 79) - 0.5) * 0.08));
+    const h = Math.min(roof, hang * (0.94 + 0.08 * jitter(seed, k, 80)));
+    card(cx - w / 2, cx + w / 2, roof - h, roof, z - 0.0025 * (k + 1), IVY_TRAILS[3], jitter(seed, k, 81) < 0.5);
+  });
 }
 
 /** Whether a ruin at (x, y, level z) shows its overgrown model, as the game's: its wet model on soil that is neither
@@ -1421,10 +1479,10 @@ export function ruinTriangles(): number {
 }
 
 /** A model's vertices, colours and view levels (the tests read the models' shapes). */
-export function modelOf(key: string, kind = 0, ivy: number | boolean = IVY_NONE): { pos: readonly number[]; col: readonly number[]; lod: readonly number[] } {
+export function modelOf(key: string, kind = 0, ivy: number | boolean = IVY_NONE): { pos: readonly number[]; col: readonly number[]; lod: readonly number[]; uv: readonly number[] | null; pat: readonly number[] | null } {
   const level = ivy === true ? IVY_DENSE : ivy === false ? IVY_NONE : ivy;
   const m = key === "start" ? districtCenter() : key === "start.IronTeeth" ? ironTeethCenter() : /^scaffold\.[A-E]$/.test(key) ? storey(RUIN_VARIANT_IDS.indexOf(key.slice(-1) as "A"), kind, level) : MODELS[key]();
-  return { pos: m.pos, col: m.col, lod: m.lod };
+  return { pos: m.pos, col: m.col, lod: m.lod, uv: m.uv, pat: m.pat };
 }
 
 const PLANTS = new Set(["Pine", "Birch", "Oak", "Succulent", "BlueberryBush"]);

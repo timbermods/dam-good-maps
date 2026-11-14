@@ -3921,7 +3921,7 @@ frames, and the start was still the white map-editor marker.
   third. The top storey's posts are broken off at the variant's heights, one of them bent in A and E.
 - **Built** (`entities3d.ts` `RUIN_FACES`, `storey`, `band`, `rails`, `drape`): each storey from that table, the slab
   bands boxes 0.03 thick with a broken edge, the rails thin rods; the ivy flat leaves on the faces' outsides placed as
-  the game's cover: seen from a side, wet (h = 4) the game's 0.74 / 0.63 / 0.38 / 0.28 of each storey from the foot up
+  the game's cover (cut-out cards since "The ruins' ivy as the game draws it", below): seen from a side, wet (h = 4) the game's 0.74 / 0.63 / 0.38 / 0.28 of each storey from the foot up
   and ours 0.71 / 0.63 / 0.33 / 0.31–0.32; dry the foot 0.66 and ours 0.63 (held within 0.07, look-mine-ruins.test.ts). The game shows the dry model on dry or
   contaminated ground (`RuinModelUpdater`), as before. A storey is at most 284 triangles with its densest ivy (was 288 near, 24 far), in the
   game's colours, untinted (`palette.ts` `RUIN`: the means of the texels its cut-out keeps, rust #5d2f17, slab #6c5a39,
@@ -3955,8 +3955,9 @@ frames, and the start was still the white map-editor marker.
 - **Falls short:** (1) The game lights a fire in the bowl (its particles); left out (drawn since "The fire and the
   Iron Teeth's start", below). (2) The Iron Teeth's district center differs; ours is the Folktails' for both factions
   (drawn since the same). (3) The ruins' slab bands are clean boxes with a broken
-  edge where the game's are cracked cut-outs, and our leaves are larger and fewer than the game's. (4) The ivy's brown
-  roots at the foot (`IvyWet0A`) are left out. (5) The ruins' shadow in Standard is a solid post, half again the
+  edge where the game's are cracked cut-outs, and our leaves are larger and fewer than the game's (the leaves drawn
+  since "The ruins' ivy as the game draws it", below). (4) The ivy's brown roots at the foot (`IvyWet0A`) are left out
+  (its stems drawn since the same). (5) The ruins' shadow in Standard is a solid post, half again the
   area of the model's latticed one.
 - **Revived on dev** (`look/ruins-start`, 2026-11-14, 522 commits on; no conflict): dev still drew the start as the grey
   placeholder house with its entrance post, and the ruins as the scaffold towers. Sheet: `docs/sheets/ruins-start.jpg`,
@@ -4174,6 +4175,42 @@ L* here are read over our regions, so they differ from the list above by up to 1
   (+2.0 to +2.5; its pools within ±2), so about 2 of it is the cliffs' own residual ("The land's tone" above); the
   last 1–1.5 is unexplained. (3) The middle curtain's streaks reach 0.69 of the game's at best (2.96 against 4.29),
   whatever the gloss; the gloss is not their cause, and what is has not been found.
+
+## The ruins' ivy as the game draws it (D135, D178 as amended 2026-11-10, D496, D497; `fix/close-ivy`)
+
+Judged on the in-game capture kit's Four Lakes r14 `cave` start frame (day light; local only), ours posed from its
+camera with the map opened from its file. The game's ivy hangs over its ruins in trails of five-lobed leaves with light
+brown stems climbing from the foot; ours was large flat squares set diagonally on the faces.
+
+- **Read from the game's models and atlas** (numbers only, `tools/game-model-albedo.py`; no texture in git): `Ivy_Wet`
+  and `Ivy_Dry` are one material (EnvironmentURP5, cut at alpha 0.312), each model a few dozen double-sided cards at the
+  tile's edges, 72–292 triangles, 6.4 m of card a unit of UV in a 2048² atlas: cards of stems branching up from a
+  column's foot and cards of leaf trails hanging from its top, the leaves about 0.16 m across. The texels the cut keeps:
+  the leaves (0.148, 0.180, 0.095), from 0.56 to 1.31 times that in lightness (its normal map's light), the stems
+  (0.236, 0.203, 0.124), 0.035 m wide.
+- **Built** (`objectPatterns.ts`, D135: drawn in code): one 256² layer at 128 texels a metre, made once a page in the
+  textures' worker (about 0.1 s; the ivy is cut away until it lands): three strips of trails 0.5 × 1 m that run on from
+  storey to storey (the same at their foot as their top), one strip hanging from a column's top, a root of stems and
+  stems running on, each part's mean over the cut the game's (`palette.ts` `RUIN.ivy`, `RUIN.ivyStem`). A model's part
+  takes a pattern by `Model.card` (`entities3d.ts`): double-sided, its UV in a `puv` attribute and its pattern packed
+  into `lod` (its view plus 4 × the pattern), so no other model carries anything more. The object program samples the
+  pattern's layer and cuts at the game's 0.312 (not in the light look, whose ruins have no ivy); High's sun-depth pass
+  cuts the same, so the cards cast the leaves' shadow. `drape` lays the cards at the tile's edge over the posts: stems
+  on the storeys with clearly some (a root on the foot of a wet column), running trails on every storey below the
+  column's top, trails hanging from the top storey.
+- **Coverage held** (look-mine-ruins.test.ts, now through the pattern's alpha at each point): seen from a side, wet
+  (h = 4) the game's 0.74 / 0.63 / 0.38 / 0.28 of each storey from the foot up and ours 0.76 / 0.67 / 0.35 /
+  0.32–0.34; dry the foot 0.66 and ours 0.67. A storey with the most ivy is 16 cards, 64 triangles (was 128).
+- **Cost:** `benchOrbit` at the `cave` camera (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame,
+  two runs of two, dev → branch): Standard 2.73–3.76 → 2.72–2.88 ms, High 3.41–4.35 → 3.39–3.97 ms:
+  within the runs' spread. Draw calls 93 and 102, unchanged; triangles Standard 526 k → 519 k, High 513 k → 507 k. The
+  pattern is 0.33 MB with its mips. The light look is untouched (its ruins have no ivy; its program samples nothing).
+- **Falls short:** (1) Each storey's ivy is its own batch, as before, so a column's trails change density at each
+  storey's top rather than hanging as one from the column's top as the game's do. (2) The game's normal map lights each
+  leaf by its own tilt; ours carry that light drawn into the pattern, the same under every sun. (3) The game's ivy
+  spills past the tile at the foot (`IvyWet0A`, a skirt on the ground); ours stays within the tile.
+- **Sheet** (local only): `C:\dgm-showcase\objects\close\ivy-sheet.png`, the game | dev | branch at the `cave`
+  camera in both looks, the pattern, and the ruins cropped.
 
 ## The rest of the step (next parts)
 

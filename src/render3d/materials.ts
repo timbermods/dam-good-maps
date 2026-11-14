@@ -47,6 +47,7 @@ import { POP_GLSL, POP_UNIFORMS_GLSL, popUniforms, type PopUniforms } from "./bl
 import {
   Color,
   Data3DTexture,
+  DataArrayTexture,
   DataTexture,
   DoubleSide,
   LinearFilter,
@@ -77,6 +78,7 @@ import { SHORE_FILM, SHORE_FILM_TERRAIN_GLSL, SHORE_FILM_VERTEX_GLSL } from "./s
 import { EDGE_BAND, SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
 import { LIGHT_LEVELS, SUN_MARCH_STEP, SUN_MARCH_STEPS, type CaveLight } from "./caveLight";
 import { CUT_SLACK, VIEW_TAN } from "./cutWater";
+import { PATTERN_CUT, PATTERN_LAYERS, PATTERN_SIZE as OBJECT_PATTERN_SIZE } from "./objectPatterns";
 import { FALL } from "./waterMesh";
 import { RUN_LEVELS, type RunSoil } from "./runSoil";
 import { DITHER_GLSL, FADE_OFF, OBJECT_FADE_GLSL } from "./objectFade";
@@ -129,6 +131,8 @@ export interface SceneUniforms extends RefractionUniforms {
   mapSize: { value: Vector2 };
   /** The tiling patterns (drawPatterns). */
   patternTex: { value: Texture | null };
+  /** The objects' patterns (objectPatterns.ts: the ruins' ivy), a layer each. */
+  objectAtlas: { value: DataArrayTexture };
   /** The view's height in CSS pixels (objects' minimum sizes). */
   viewHeight: { value: number };
   /** Clear water (D196, D212): 1 makes all the water see-through (T; the bed, ledges and sources
@@ -224,6 +228,7 @@ export function sceneUniforms(W: number, H: number, tile: DataTexture, light: Da
     siteEdges: { value: sites },
     mapSize: { value: new Vector2(W, H) },
     patternTex: { value: null },
+    objectAtlas: { value: objectAtlasTexture() },
     viewHeight: { value: 800 },
     clearWater: { value: 0 },
     clearAround: { value: new Vector4(0, 0, 0, 0) },
@@ -426,6 +431,31 @@ export function fillDetailTexture(detail: Uint8Array, size: number, shape?: Uint
   const data = b.image.data as Uint8Array;
   for (let i = 0; i < shape.length; i++) data[i * 4 + 3] = shape[i];
   b.needsUpdate = true;
+}
+
+let objectAtlas: DataArrayTexture | null = null;
+/** The objects' patterns (objectPatterns.ts) as one texture array, the object program's `objectAtlas`: 256² RGBA a
+ *  layer with its mips (about 0.33 MB each), clear (every pattern cut away) until `fillObjectAtlas` writes them, made in
+ *  the textures' worker (renderer.ts `objectPatternsBaked`). */
+export function objectAtlasTexture(): DataArrayTexture {
+  if (objectAtlas) return objectAtlas;
+  const t = new DataArrayTexture(new Uint8Array(OBJECT_PATTERN_SIZE * OBJECT_PATTERN_SIZE * 4 * PATTERN_LAYERS), OBJECT_PATTERN_SIZE, OBJECT_PATTERN_SIZE, PATTERN_LAYERS);
+  t.format = RGBAFormat;
+  t.type = UnsignedByteType;
+  t.minFilter = LinearMipmapLinearFilter;
+  t.magFilter = LinearFilter;
+  t.wrapS = t.wrapT = RepeatWrapping;
+  t.anisotropy = 4;
+  t.generateMipmaps = true;
+  t.needsUpdate = true;
+  return (objectAtlas = t);
+}
+
+/** The objects' patterns (objectPatterns.ts `patternTexels`, from the worker) into the page's texture. */
+export function fillObjectAtlas(data: Uint8Array): void {
+  const t = objectAtlasTexture();
+  (t.image.data as Uint8Array).set(data);
+  t.needsUpdate = true;
 }
 
 /** The flow's albedo (high/bake.ts `albedoTexture`, `size` square) into the page's texture, which grows from its one
@@ -2676,7 +2706,10 @@ export const LOD_NEAR_PX = 9;
  *  it rises for each time it grows, and the most it grows) is drawn larger when it would be
  *  smaller. A vertex's `lod` says which view its part belongs to: 0 any, 1 close up (a unit of the
  *  model takes LOD_NEAR_PX pixels or more), 2 from afar; the others are dropped (the light look draws every part it
- *  has: its models have none for afar). Faded round the pointer, an object is drawn as alpha to coverage. */
+ *  has: its models have none for afar). A part with a pattern (`lod` over 3: its view plus 4 × the pattern's layer,
+ *  entities3d.ts `Model.card`, at its `puv`) takes its albedo from the pattern (objectPatterns.ts), cut away where its
+ *  alpha is under the game's cut (not in the light look, which draws no part with one). Faded round the pointer, an
+ *  object is drawn as alpha to coverage. */
 export function objectMaterial(scene: SceneUniforms, lite = false, h?: ShaderHooks): ShaderMaterial {
   return new ShaderMaterial({
     alphaToCoverage: !lite,
@@ -2689,18 +2722,27 @@ export function objectMaterial(scene: SceneUniforms, lite = false, h?: ShaderHoo
       #if LITE
         // (the light look's batches are baked into one mesh: each vertex carries its object's place)
         attribute vec2 origin;
+      #else
+        // (a part with a pattern: where in it, and which)
+        attribute vec2 puv;
+        varying vec3 vPattern;
       #endif
       uniform float viewHeight;
       uniform float markers;
       uniform vec3 aidTint;
       uniform vec3 sourceTint;${OBJECT_FADE_GLSL}${hook(h, "objectVertexDecl")}
       varying vec3 vAid;
-      varying vec3 vColor;
+      varying vec3 vAlbedo;
       varying float vFade;
       varying vec3 vNormal;
       varying vec3 vWorld;
       void main() {
         mat4 m = modelMatrix * instanceMatrix;
+        #if !LITE
+          float layer = floor(lod / 4.0 + 0.01);
+          float view = lod - 4.0 * layer;
+          vPattern = vec3(layer > 0.5 ? puv : vec2(0.0), layer);
+        #endif
         // seeing the land behind objects (objectFade.ts): the whole object by its place, in tiles (never the land's own
         // shape)
         vFade = 1.0;
@@ -2713,7 +2755,7 @@ export function objectMaterial(scene: SceneUniforms, lite = false, h?: ShaderHoo
           vFade = objectShowsAt(vec2(at.x, -at.z), grow);
         }
 ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objectNormal", "normal")});
-        vColor = ${hook(h, "objectColor", "pcolor")};
+        vAlbedo = ${hook(h, "objectColor", "pcolor")};
         vAid = vec3(1.0);
         #ifdef USE_INSTANCING_COLOR
           // (an object an editing aid tints comes negative, less 10 times its tint's index (materials.ts AID_TINT), and
@@ -2724,15 +2766,15 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
             ic = -ic - 10.0 * k;
             vAid = k < 0.5 ? aidTint : k < 1.5 ? sourceTint : k < 2.5 ? ${glColor(AID_TINT.fits)} : k < 3.5 ? ${glColor(AID_TINT.warns)} : k < 4.5 ? ${glColor(AID_TINT.refused)} : k < 5.5 ? ${glColor(AID_TINT.waterGlow)} : ${glColor(AID_TINT.badwaterGlow)};
           }
-          vColor *= ic;
+          vAlbedo *= ic;
         #endif
         vec3 p = ${hook(h, "objectPosition", "position")};
         #if !LITE
-        if (lod > 0.5 || (grow.x > 0.0 && markers > 0.5)) {
+        if (view > 0.5 || (grow.x > 0.0 && markers > 0.5)) {
           vec4 o = projectionMatrix * viewMatrix * m * vec4(0.0, 0.0, 0.0, 1.0);
           float perUnit = 0.5 * viewHeight * projectionMatrix[1][1] / max(o.w, 0.001);
           // a part for the other view: out of the clip volume (dropped)
-          if (lod > 0.5 && (lod < 1.5) != (perUnit >= ${f(LOD_NEAR_PX)})) {
+          if (view > 0.5 && (view < 1.5) != (perUnit >= ${f(LOD_NEAR_PX)})) {
             vWorld = vec3(0.0);
             gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
             return;
@@ -2749,17 +2791,30 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
       }
     `,
     fragmentShader: /* glsl */ `
-      varying vec3 vColor;
+      varying vec3 vAlbedo;
       varying vec3 vAid;
       varying vec3 vNormal;
       varying vec3 vWorld;
       varying float vFade;
       uniform vec4 objectFade;
+      #if !LITE
+        varying vec3 vPattern;
+        uniform sampler2DArray objectAtlas;
+      #endif
       ${common(h)}${CAVE_POINT}${DITHER_GLSL}${GAME_LIT}
       void main() {
         ${SUN_PX_GLSL}
         // the game's layers: what stands above the slice is cut away
         if (vWorld.y > slice + 0.02) discard;
+        vec3 vColor = vAlbedo;
+        #if !LITE
+          // a part with a pattern: its albedo, cut away where the game's cut takes it
+          if (vPattern.z > 0.5) {
+            vec4 t = texture(objectAtlas, vec3(vPattern.xy, vPattern.z - 1.0));
+            if (t.a < ${f(PATTERN_CUT)}) discard;
+            vColor *= t.rgb;
+          }
+        #endif
         // hidden, or faded round the pointer where it is drawn by a dither (objectFade.ts)
         if (vFade <= 0.0 || (vFade < 1.0 && objectFade.w > 1.5 && vFade <= ditherAt(gl_FragCoord.xy))) discard;
         // (the bloom's source has no coverage to fade by: a faded object there by the dither, as much of it as shows)

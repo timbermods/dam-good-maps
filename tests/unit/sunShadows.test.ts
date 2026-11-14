@@ -8,7 +8,7 @@ import { Color, DataTexture, Group, Matrix4, PerspectiveCamera, Scene, Vector3, 
 import { SunShadows } from "../../src/render3d/high/shadows";
 import { HighLook, type HighHost } from "../../src/render3d/high/highLook";
 import type { Baker } from "../../src/render3d/high/fields";
-import { sceneUniforms } from "../../src/render3d/materials";
+import { objectAtlasTexture, sceneUniforms } from "../../src/render3d/materials";
 import { DEAD, DYING, entityView, surfaceWater, waterFromDepth } from "../../src/render3d/model";
 
 /** Just what the depth pass asks of a renderer. */
@@ -27,7 +27,7 @@ function fakeRenderer(): WebGLRenderer {
 
 describe("High's sun shadows", () => {
   it("move their matrix with the depth map drawn, never before it", () => {
-    const s = new SunShadows({ objectFade: { value: new Vector4() }, objectHide: { value: 0 }, slice: { value: 99 } });
+    const s = new SunShadows({ objectFade: { value: new Vector4() }, objectHide: { value: 0 }, slice: { value: 99 }, objectAtlas: { value: objectAtlasTexture() } });
     const gl = fakeRenderer();
     const scene = new Scene();
     s.fit(64, 48);

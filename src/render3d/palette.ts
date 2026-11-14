@@ -368,11 +368,12 @@ export const RUIN = {
   rust: [0.364, 0.185, 0.09] as Rgb,
   /** The slabs and floors: the atlas's cracked concrete. */
   slab: [0.425, 0.352, 0.222] as Rgb,
-  /** The ivy: the game's (the ruins' `Ivy_Wet`, the texels its leaves keep). */
-  ivy: [0.163, 0.186, 0.102] as Rgb,
-  /** The ivy's brighter leaves, on its clusters' edges: as much lighter and yellower than the ivy as Kyler's were
-   *  (#5C7F3D over #405634). */
-  leaf: [0.234, 0.275, 0.121] as Rgb,
+  /** The ivy's leaves: the game's (the ruins' `Ivy_Wet` and `Ivy_Dry`, one atlas: the texels its leaves keep), the mean
+   *  of our pattern's (objectPatterns.ts). (Until 2026-11-14 the mean of all it keeps, its stems too, #2a2f1a, on flat
+   *  square leaves, a third of them a brighter green of Kyler's, #3c461f.) */
+  ivy: [0.148, 0.18, 0.095] as Rgb,
+  /** The ivy's stems: the texels its stems keep. */
+  ivyStem: [0.236, 0.203, 0.124] as Rgb,
 } as const;
 
 /** Slopes: a stone ramp; with **Markers** on, a pale arrow rimmed dark points uphill. */
