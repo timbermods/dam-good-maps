@@ -1,0 +1,67 @@
+diff --git a/src/core/premise/gateBrooks.ts b/src/core/premise/gateBrooks.ts
+index b32abc453..ed77b333d 100644
+--- a/src/core/premise/gateBrooks.ts
++++ b/src/core/premise/gateBrooks.ts
+@@ -228,12 +228,20 @@ export function meander(course: readonly Point[], width: number, draw: () => num
+     was.push({ L, w });
+     let bend: Point[] = [];
+     let at = { u, y };
++    let dg = { k: 0, fe: 1, thMax: 0, pullMax: 0, y0: Infinity, y1: -Infinity, fits: true };
+     for (const k of M.tries) {
+       bend = [];
+       let [bu, by] = [u, y];
+       let fits = true;
++      dg = { k, fe: 1, thMax: 0, pullMax: 0, y0: Infinity, y1: -Infinity, fits: true };
+       for (let s = 0; s < L && bu < Lc; s += M.step) {
+-        const th = side * k * w * sin((Math.PI * s) / L) * flat(bu) * ease(bu) - M.pull * by;
++        const fe = flat(bu) * ease(bu);
++        const th = side * k * w * sin((Math.PI * s) / L) * fe - M.pull * by;
++        if (Math.abs(sin((Math.PI * s) / L)) > 0.7) dg.fe = Math.min(dg.fe, fe);
++        dg.thMax = Math.max(dg.thMax, Math.abs(th));
++        dg.pullMax = Math.max(dg.pullMax, Math.abs(M.pull * by));
++        dg.y0 = Math.min(dg.y0, by * ease(bu));
++        dg.y1 = Math.max(dg.y1, by * ease(bu));
+         bu += cos(th) * M.step;
+         by += sin(th) * M.step;
+         const { p, dir } = pointAt(course, Math.min(bu, Lc));
+@@ -246,8 +254,11 @@ export function meander(course: readonly Point[], width: number, draw: () => num
+         bend.push(q);
+       }
+       at = { u: bu, y: by };
++      dg.fits = fits;
+       if (fits || k === 0) break;
+     }
++    const log = (globalThis as { __mlog?: unknown[] }).__mlog;
++    if (log) log.push({ i0: out.length, i1: out.length + bend.length, L, w, ...dg, drops: drops.filter((d) => d * Lc >= u && d * Lc <= at.u).length });
+     out.push(...bend);
+     ({ u, y } = at);
+     side = -side;
+diff --git a/src/core/premise/premises/wallGate.ts b/src/core/premise/premises/wallGate.ts
+index 62209a6ec..81f28c4cb 100644
+--- a/src/core/premise/premises/wallGate.ts
++++ b/src/core/premise/premises/wallGate.ts
+@@ -1175,6 +1175,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
+     const drops: number[] = [];
+     for (let j = 1; j <= sill - 1 - S; j++) drops.push(j / (sill - 1 - S + 0.999));
+     const Lc = pathLength(courseLine);
++    (globalThis as { __mlog?: unknown[] }).__mlog = (globalThis as { __rep?: unknown }).__rep ? [] : undefined;
+     const channel = meander(
+       courseLine,
+       (BROOK.valley[0] + BROOK.valley[1]) / 2,
+@@ -1196,6 +1197,16 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
+     // (a course that still lies as a straight even reach, read three and four wide, is no brook's: the layout is drawn
+     // again, nothing eased)
+     if (Math.max(courseReach(course, 1.5).tiles, courseReach(course, 2).tiles) > BROOK_REACH) {
++      const G = globalThis as { __mlog?: any[]; __rep?: (x: unknown) => void };
++      if (G.__rep) {
++        const r3 = courseReach(course, 1.5);
++        const r4 = courseReach(course, 2);
++        const rr = r4.tiles >= r3.tiles ? r4 : r3;
++        // (the channel's points within the reach's rows: its middle ± half its length)
++        let ci = 0;
++        for (let q = 0; q < channel.length; q++) if (dist(channel[q], rr.at) < dist(channel[ci], rr.at)) ci = q;
++        G.__rep({ tiles: rr.tiles, half: r4.tiles >= r3.tiles ? 2 : 1.5, ci, n: channel.length, Lc: pathLength(courseLine), drops: drops.length, bends: (G.__mlog ?? []).filter((b: any) => b.i1 >= ci - 30 && b.i0 <= ci + 30) });
++      }
+       return { why: "brook straight" };
+     }
+     // (its tarn's width to its bed's first step, two points down, then the rest evenly, at its wider just under the
