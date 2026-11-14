@@ -250,7 +250,7 @@ export interface TopBarProps {
   putDown?: { run(): void; select: boolean } | null;
 }
 
-/** The tool in hand scrolled into the phone's tool row (or rail), so its second tap is in view too (#1074). */
+/** The tool in hand scrolled into the phone's tool row (or rail), or a finger's row that scrolls, so its second tap is in view too (#1074). */
 function showHeld(bar: HTMLElement | null): void {
   const on = bar?.querySelector<HTMLElement>("button.icon-button[aria-pressed='true']:not(.objects-button)");
   if (!bar || !on) return;
@@ -654,11 +654,11 @@ export function TopBar(p: TopBarProps) {
         ×
       </button>
     ) : null;
-  // (a phone's tool row shows what is in hand, however it was picked)
+  // (a phone's tool row, or a finger's that scrolls, shows what is in hand, however it was picked)
   const bar = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (p.phone && held) showHeld(bar.current);
-  }, [held, p.phone]);
+    if ((p.phone || finger) && held) showHeld(bar.current);
+  }, [held, p.phone, finger]);
   const button = (tool: BrushTool | "select" | "block" | Verb, name: string, label: string, pressed: boolean, title: ReturnType<typeof tip>, disabled: boolean | undefined, onClick: () => void) => (
     <button type="button" key={tool} class="icon-button" aria-pressed={pressed} aria-label={label} {...title} disabled={disabled} onClick={onClick}>
       <Icon tool={tool} />

@@ -262,7 +262,8 @@ place of its bottom rule.
   phone (a sheet opening slides the view). A tool's settings keep their rows at 44px (Auto a 44px target around its
   small pill); in the dock's narrow cells a setting's name keeps its whole words, wrapping between them, its value and
   Auto going under it where the line has no room, so no name is ever cut short. Under 1,280 wide the dock takes the view's
-  whole width (its cells shrink to 44px before they overflow) and the editor is the dynamic viewport's height; under
+  whole width (its cells shrink to 44px, never narrower than a tool's word whatever the font; where the row can't hold
+  them it scrolls sideways, as a phone's does, the tool in hand scrolled into view) and the editor is the dynamic viewport's height; under
   1,100 the header takes two lines. Every control at least 44px, fields 16px, no iOS callout on a long press but in a
   field or a link, the same gestures (§7, "Touch").
 - **Together** (D362, D431, D486; `docs/COLLAB-BRIEF.md`; part 6a): two players edit one map through a relay and a

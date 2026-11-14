@@ -101,6 +101,21 @@
     height: 60px;
   }
 
+  /* (a tool's word is never cut, whatever font sets it: a cell is never narrower than its word, and where the row can't
+     hold every cell at that width it scrolls sideways, as a phone's row does; the tool in hand is scrolled into view) */
+  .editor:not([data-phone]) .tool-dock > .tool-bar {
+    grid-template-columns: repeat(var(--tools), minmax(max-content, var(--cell))) 14px repeat(var(--forces), minmax(max-content, var(--cell)));
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    touch-action: pan-x;
+  }
+
+  .editor:not([data-phone]) .tool-dock > .tool-bar::-webkit-scrollbar {
+    display: none;
+  }
+
   .editor:not([data-phone]) .tool-dock > .tool-settings {
     /* (two rows of 66px, 4px apart, and the plate's padding: a name over a 44px control; never a third row. A name that
        needs a second line has it, the plate a little taller: no name is ever cut short, #1074 slice 6) */
