@@ -8,6 +8,7 @@
 // imported map's own problems (those it already had when it was opened) are listed but never
 // blamed on the player's edits, so an unedited import always exports unchanged (PLAN §20, D43).
 
+import { placeSession } from "../core/places/open";
 import { decodeProject, documentFileName, type MapDocument, type NameResult, type SavedView, type VersionParent } from "../core/doc/document";
 import { STALE, type Envelope } from "../core/doc/editQueue";
 import { MapSession, STEP_GONE, type BlockFalls, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
@@ -1970,6 +1971,14 @@ export function openTimber(bytes: Uint8Array, fileName: string, place?: string):
   const blocked = gated(true);
   if (blocked) throw new Error(blocked);
   return opened(MapSession.importMap(bytes, fileName, place));
+}
+
+/** A real place (its data file), opened as the core opens one (core/places/open.ts): its .timber built and imported,
+ *  marked as the place, so its checks follow the place's rules (D245, D331). */
+export function openPlace(data: Uint8Array): SessionOpen {
+  const blocked = gated(true);
+  if (blocked) throw new Error(blocked);
+  return opened(placeSession(data));
 }
 
 /** A new blank map (core/doc/blank.ts): flat, dry ground `size` tiles a side at `level`, the start at its middle. A

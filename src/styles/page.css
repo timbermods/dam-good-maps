@@ -3625,6 +3625,14 @@ input.set-typed:disabled {
   background: color-mix(in srgb, var(--accent) 16%, var(--panel));
 }
 
+/* (a finger's selection: the tint a little deeper than the mouse's, so a selected card never reads as the open map's
+   outline or as greyed; planning, #1101) */
+@media (pointer: coarse) {
+  .your-maps li.selected .ym-tile {
+    background: color-mix(in srgb, var(--accent) 26%, var(--panel));
+  }
+}
+
 .your-maps li.selected::after {
   content: "✓";
   position: absolute;

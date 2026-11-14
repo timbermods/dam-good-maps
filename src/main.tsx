@@ -8,6 +8,7 @@ import "./styles/editor.css";
 import "./styles/components.css";
 import "./styles/page.css";
 import "./styles/phone.css";
+import "./styles/tablet.css";
 
 fitFonts();
 // (the phone layouts by the room, for what lies outside the editor too: #1074)

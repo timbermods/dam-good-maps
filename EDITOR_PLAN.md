@@ -17,9 +17,8 @@ text this document condensed (at D390) and the deferred Claude integration's des
 A studio for creating maps. Start from a generated map or a real place, shape it like a painter, and the water
 responds to everything you do. It is deliberately different from the game's own editor, which is a precision
 workshop; players can still fine-tune in the game's editor if they want. The editor was desktop-first (D185); phones and
-tablets now edit maps too, first class (#1074, amending D185): touch in the 3D view (§7, "Touch"), the phone layouts
-and the rest of the page on a phone (§3, "Phones") are built; seeing a press before it applies and the passes on real
-phones come in its later slices.
+tablets now edit maps too, first class (#1074, amending D185): touch in the 3D view (§7, "Touch"), the phone layouts,
+the rest of the page on a phone (§3, "Phones") and tablets (§3, "Tablets") are built.
 
 ## 2. The principles
 
@@ -170,7 +169,7 @@ place of its bottom rule.
   whatever its kind, and stays kept even if every edit is undone (the first time a save is stored in a browser a quiet note says so, going by itself after 8 s: "Kept in Your maps,
   in this browser", remembered in `dgm.keptNote`; never shown for a save that failed, nor while another message holds its place, Showcase's among them: the next stored save says it); camera bookmarks alone don't keep it, and an
   unedited map is never written (Cancel during a Generate brings it back from memory), except the one a found version's **Open it** replaces: its seed now makes the version, so it is kept as it stood and a quiet note says so ("The map before it is in Your maps."). The note that offers the version says only what the check measured it to add ("A version with a longer canyon is ready"; where the check measures several things, "A version that keeps its theme's promise is ready"). Kept maps are saved quietly
-  after their edits settle (`core/library/saver.ts`) and before anything replaces them: Generate, opening another map or a real place stores an edited map, and waits for the write, before it asks for the next map, a stroke still on its way to the worker when the button is pressed counting as an edit (`keepsMap`), so no edit is lost to Generate, a reload or a closed page (D455; the lag this adds to an edited map's click is the accepted price); **Your maps** in the header opens them in the generator's place (one of the two panels at a time), four to a row,
+  after their edits settle (`core/library/saver.ts`) and before anything replaces them: Generate, opening another map or a real place stores an edited map, and waits for the write, before it asks for the next map, a stroke still on its way to the worker when the button is pressed counting as an edit (`keepsMap`), so no edit is lost to Generate, a reload or a closed page (D455; the lag this adds to an edited map's click is the accepted price); the page hidden (`visibilitychange` to hidden, `pagehide`: switching apps or tabs, which on a phone may discard the page unannounced) stores it too, a stroke still on its way first (`ui/App.tsx`, `tests/e2e/hiddenSave.spec.ts`); **Your maps** in the header opens them in the generator's place (one of the two panels at a time), four to a row,
   scrolling inside the panel when there are more than it holds, each the map's whole picture in a square box (the core's 256px top-down
   thumbnail, made in a worker of its own when the page is idle, never cropped), its name and size under it, newest first, the open map marked, a click opening one (a click on the open
   map's own tile selects it, so the heading row's Rename and Delete reach it). A
@@ -178,7 +177,7 @@ place of its bottom rule.
   lines) and **Delete** (asked
   once; the open map gives way to the next one, or a new map when none is left). Several are selected as on a
   desktop (Kyler, 2026-10-05): Ctrl-click toggles one, Shift-click a range from the last clicked, neither opening a
-  map; a selected tile is tinted with a check at its corner, nothing moving. The heading row holds **Compare** (another
+  map; a selected tile is tinted with a check at its corner, nothing moving (to a finger the tint is deeper, so it reads apart from the open map's outline at a glance; the open map counts in "N selected" only when ticked). The heading row holds **Compare** (another
   version selected, the same size as the open map; below under Versions), **Rename** (one selected) and **Delete** (any), always shown,
   greyed otherwise with the reason in Compare's tooltip; Delete asks once ("Delete 7 maps?"), focus on
   Delete so Enter confirms, Esc cancels. The Delete key deletes the selected maps, or the one under the pointer, while
@@ -216,7 +215,8 @@ place of its bottom rule.
   `tests/e2e/phonePages.spec.ts`): each of the menu's panels (Map Generator, Real places, Your maps, History) is a page
   the whole screen under the bar, **Map** at its top going back to the map, the page scrolling inside itself; Map
   Generator in one column (two on its side), each setting its name and value on a line and its slider or choices the
-  whole width under them, Showcase taking the page while it is open; **Generate** the page's one green button, fixed
+  whole width under them, Showcase taking the page while it is open; on its side Name and the seed share the first row, the seed and Keep at their own width, so the theme shows
+  above Generate; **Generate** the page's one green button, fixed
   at its foot clear of the home bar with the settings scrolling above it, and **Keep** quiet beside the seed (a check in it
   while it holds, never green). **No word is cut short** at a phone's size: no ellipsis, no clipped label (the spec reads
   every page and dialog for it). History's steps are rows the page's width, each label whole, **Keep this version** and
@@ -231,7 +231,10 @@ place of its bottom rule.
   share sheet (`platform/share.ts`) where the browser can share a file and the pointer is a finger, else it downloads;
   the same bytes either way (D455). When building the file took long enough that the browser wants a fresh tap, or the
   sheet was closed unsent, a note keeps the file with **Send it**. The page's root carries the layout
-  (`<html data-phone>`, `ui/phoneRoot.ts`), so what lies outside the editor takes it too. **On its side:** the same bar; the tools
+  (`<html data-phone>`, `ui/phoneRoot.ts`), so what lies outside the editor takes it too. The room is read from the
+  layout viewport's own size (`documentElement.clientWidth`, `roomNow`), never `innerWidth`, which grows to fit
+  anything wider than the screen (a desktop bar drawn at a phone's size made it 1,047 and the page lost the phone layout
+  for a moment); the editor's loading frame takes the phone layout too, so nothing desktop-wide is drawn first. **On its side:** the same bar; the tools
   in a rail down the left edge; a tool's settings, Show and the objects in a panel at the right, at most 40 % of the
   width (320px), clear of Show's button at the bottom right; the menu in columns, the panels and Help in the first,
   all of it in view; the hints in the room's left half at rest, stepping aside while a sheet or the panel is open.
@@ -240,6 +243,19 @@ place of its bottom rule.
   areas, `viewport-fit=cover`), fields 16px so the browser never zooms on focus. A long press on a control shows its
   tooltip (D351) and is not a tap. With a tool's one-row sheet open the view keeps 66 % of the screen upright and 63 %
   on its side (the spec holds 60 %).
+- **Tablets** (#1074, slice 5; `src/styles/tablet.css`, `view/useBandLayout.ts`; `tests/e2e/layout.spec.ts` at 820×1180,
+  1180×820 and 1024×1366). A touch screen with room (a coarse pointer, not the phone layout's sizes) keeps the layout
+  above, sized for a finger: every control at least 44px, fields 16px, the same gestures (§7, "Touch"), no iOS callout
+  on a long press but in a field or a link (any coarse pointer, phones too). Gated on the pointer and the room, never a
+  device's name, so no phone rule reaches a tablet and no tablet rule a desktop with a mouse. Under 1,280 wide the tool
+  dock takes the view's whole width (its cells shrink to 44px before they overflow), the objects and the minimap stand above
+  it (above Put it down's plate too), the first steps' hints and the notes between them, and the editor is the dynamic
+  viewport's height; under 1,100 the header takes two lines, the name at the left of its first; the Show row wraps
+  and the band below it is laid in lines (Legend under the Show row, the water's row beside it or on the next line, the
+  panel under the band); while a panel is open the minimap and the stack at the bottom left step aside so the panel keeps its
+  height, and under 900 the objects too. A tool's settings keep their rows at 44px (Auto a 44px target around its small
+  pill); the Map Generator's settings stack name over value over control. Nothing is under 44px or off the screen at
+  rest, with a brush or a force in hand, the legend, the Map Generator, Your maps and the File menu open.
 - **Together** (D362, D431, D486; `docs/COLLAB-BRIEF.md`; part 6a): two players edit one map through a relay and a
   room-code function, in the page's own panel style. One quiet button in the header's right group, before **File**
   (a small people icon and "Together", the icon alone, 40px square like Undo and Redo, below about 1,400px wide; tooltip
@@ -1682,8 +1698,13 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   are off over the editor: the view's canvas takes every finger (`touch-action: none`, no callout, no selection), the
   editor allows only panning a panel (`touch-action: pan-x pan-y`: no pinch or double-tap zoom of the page), iOS
   Safari's own pinch (`gesturestart`) is prevented while the view is there, no pull to refresh over the editor, and on a
-  touch screen no text selection but in a field. Measured on Chrome's touch emulation; real iOS Safari and Android
-  Chrome are checked with the phone layouts (#1074, slice 5).
+  touch screen no text selection but in a field. Measured on Chrome's touch emulation. Playwright's WebKit (the nearest
+  to iOS Safari a spec can run; #1074 slice 5, at both phone sizes) lays the phone layouts out as Chrome does, every
+  control 44px and on the screen, but for one slide: Show opened upright leaves the ground in the room's middle 3 tiles
+  off it (Chrome keeps it under 1.5); the specs' long presses and touches are sent through Chrome's own protocol, so
+  they run in Chrome only, and on the specs' server, which sends the isolation headers itself, WebKit refuses the
+  editor's workers on a reload (served as GitHub Pages serves the site, without them, a kept map reopens with its
+  edits).
 - Ctrl+Shift+1 to 9 saves a camera bookmark (position, angle, zoom), and Alt+1 to 9 glides back to it (Shift and a
   number pick a force); bookmarks
   are saved with the project. Every tool is reachable by keyboard, with labels for screen readers. (D180, D184,
@@ -1721,7 +1742,8 @@ them, ROADMAP "The 20-second tour"):
   Timberborn (with a link to the README's "Install a map"), the pointer controls and where to report a problem. To a
   finger (a coarse pointer, #1074) it speaks touch first: the gestures lead (tap, drag, pinch, a two-finger turn, the
   double tap as slice 3 makes it, two- and three-finger taps for Undo and Redo, a long press), every step says tap; on a
-  phone nothing names a mouse or a key, and a tablet keeps the mouse and Keyboard shortcuts after the gestures.
+  phone nothing names a mouse or a key, and a tablet keeps the mouse and Keyboard shortcuts after the gestures. It reads
+  which once, when it opens, from the page's layout and the pointer (`helpPanels.tsx`).
 - **Report a problem** opens https://github.com/timbermods/dam-good-maps/issues/new/choose in a new tab (the issue
   chooser; `REPORT_URL` in `src/editor/help/helpPanels.tsx`). There is no form and no rating (D145).
 

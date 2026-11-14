@@ -39,7 +39,7 @@ describe("the MCP server's words", () => {
     expect(apply.description).toContain("A crater is a dry bowl");
     // every operation of the page's schema is still there
     expect(Object.keys(schema.$defs).sort()).toEqual(Object.keys((opsSchema as Record<string, any>).$defs).sort());
-    expect(TOOLS.find((t) => t.name === "generate")!.description).toContain('"intentions": ["twin-falls"]');
+    expect(TOOLS.find((t) => t.name === "generate")!.description).toContain('"intentions": ["under-cliff"]');
   });
 
   it("notes a start a force moved, the sources it cleared and a crater's missing water; lists a carved river until it is undone", async () => {
@@ -98,25 +98,17 @@ describe("the MCP server's words", () => {
       expect(r.isError, textOf(r)).toBeFalsy();
       return textOf(r);
     };
-    // the example in generate's description, as it stands there, gives the twin falls (re-pin its seed if the generator moves, D148)
-    const example = JSON.parse(/(\{"theme": "highlands"[^}]*\})/.exec(TOOLS.find((t) => t.name === "generate")!.description!)![1]);
-    // canyon 96, seed 1: no twin falls; seed 11: the generator sets the asked intention aside to make a map
-    const [hit, miss, aside] = await Promise.all([
-      made(example),
-      made({ theme: "canyon", size: "small", seed: 1, intentions: ["twin-falls"] }),
-      made({ theme: "canyon", size: "small", seed: 11, intentions: ["twin-falls"] }),
-    ]);
-    expect(hit).toMatch(/^- twin-falls \(asked for\): emerged/m);
+    // the example in generate's description, as it stands there, gives its intention (under-cliff on River Valley: 12 of
+    // 12 in the intention table); Canyon 128, seed 1 is offered it (4 of 12) and misses (re-pin both if the generator
+    // moves, D148)
+    const example = JSON.parse(/(\{"theme": "riverValley"[^}]*\})/.exec(TOOLS.find((t) => t.name === "generate")!.description!)![1]);
+    const [hit, miss] = await Promise.all([made(example), made({ theme: "canyon", size: 128, seed: 1, intentions: ["under-cliff"] })]);
+    expect(hit).toMatch(/^- under-cliff \(asked for\): emerged/m);
     expect(hit).not.toContain("did not emerge. The map is made");
     // drawn intentions are not marked
-    expect(miss).not.toMatch(/^- (?!twin-falls)[a-z-]+ \(asked for\)/m);
-    for (const t of [miss, aside]) {
-      expect(t).toContain("twin-falls did not emerge. The map is made and saves as it is. To try again, call generate with the same input and another seed");
-      expect(t).toContain("It is rare. On 96-tile maps");
-      expect(t).toContain("After about five misses, tell the player it did not come out.");
-    }
-    expect(miss).toMatch(/^- twin-falls \(asked for\): did not emerge \(\d+ falls? of 3\+ levels/m);
-    expect(aside).toContain("- twin-falls (asked for): did not emerge (the generator set it aside to make a map that passes its checks)");
+    expect(miss).not.toMatch(/^- (?!under-cliff)[a-z-]+ \(asked for\)/m);
+    expect(miss).toMatch(/^- under-cliff \(asked for\): did not emerge \(/m);
+    expect(miss).toContain("under-cliff did not emerge. The map is made and saves as it is. To try again, call generate with the same input and another seed: each seed gives another map. After about five misses, tell the player it did not come out.");
   });
 
   it("pictures a change of water alone, caps a check's lists, names save's files by its rule, and says what to do for a closed map", async () => {

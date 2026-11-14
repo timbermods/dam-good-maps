@@ -135,27 +135,11 @@ function TouchLines(p: { phone: boolean }) {
   );
 }
 
-/** Who Help speaks to, kept up as the page's layout (`<html data-phone>`) or the pointer changes while it shows. */
-function useReader(): Reader {
-  const [who, setWho] = useState(reader);
-  useEffect(() => {
-    const look = () => setWho(reader());
-    const root = new MutationObserver(look);
-    root.observe(document.documentElement, { attributes: true, attributeFilter: ["data-phone"] });
-    const coarse = typeof matchMedia === "function" ? matchMedia("(pointer: coarse)") : null;
-    coarse?.addEventListener("change", look);
-    look();
-    return () => {
-      root.disconnect();
-      coarse?.removeEventListener("change", look);
-    };
-  }, []);
-  return who;
-}
-
 function Help(p: { onClose(): void }) {
   useHeld(p.onClose);
-  const who = useReader();
+  // (read once, as it opens: the page's layout comes from the screen's own size, which nothing on the page changes,
+  // ui/phoneRoot.ts)
+  const [who] = useState(reader);
   if (who !== "mouse") return <TouchHelp onClose={p.onClose} phone={who === "phone"} />;
   return (
     <div class="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && p.onClose()}>

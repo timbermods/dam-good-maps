@@ -59,9 +59,9 @@ afterAll(async () => {
 });
 
 describe("the Dam Good Maps MCP server", () => {
-  it("lists its nine tools", async () => {
+  it("lists its ten tools", async () => {
     const { tools } = await client.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(["apply", "check", "describe", "generate", "open", "picture", "save", "undo", "wait"]);
+    expect(tools.map((t) => t.name).sort()).toEqual(["apply", "check", "describe", "generate", "open", "picture", "places", "save", "undo", "wait"]);
     expect(TOOLS.every((t) => t.description && t.description.length < 1200)).toBe(true);
   });
 
