@@ -638,13 +638,14 @@ export function View3D(props: View3DProps) {
           <span class="ps-label">Layers shown</span>
           {props.cornerLevel}
         </div>
-        {ps.look || ps.minimap ? (
-          <div class="ps-line">
-            {ps.look}
-            {ps.minimap}
-          </div>
-        ) : null}
+        {ps.look ? <div class="ps-grid">{ps.look}</div> : null}
       </section>
+      {ps.minimap ? (
+        <section class="ps-group" aria-labelledby="ps-minimap">
+          <h3 class="ps-head" id="ps-minimap">Minimap</h3>
+          {ps.minimap}
+        </section>
+      ) : null}
       {ps.weather ? (
         <section class="ps-group" aria-labelledby="ps-weather">
           <h3 class="ps-head" id="ps-weather">Weather</h3>

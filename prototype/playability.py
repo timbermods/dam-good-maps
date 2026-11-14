@@ -899,6 +899,8 @@ def _contained(rep, h, features, X, Y):
 
 
 SOURCE_TEMPLATES = ("WaterSource", "BadwaterSource")
+# sources of one template within this many tiles of each other can stand in one row, one head (see below)
+ROW_REACH = 6
 
 
 def sources_in_flow(floor, sources, dam, D):
@@ -908,7 +910,18 @@ def sources_in_flow(floor, sources, dam, D):
     flat toward the flat's way out, and all through a pool (spill above the floor); a group's water
     goes from its tiles over the settled water (any depth), each step one way water runs. A group
     is inside a flow when a running group's water reaches one of its sources and its own water does
-    not reach that group back. Returns (sources, [indices into `sources` flagged])."""
+    not reach that group back. Returns (sources, [indices into `sources` flagged]).
+
+    A row is one head (src/core/analysis/sources.ts has the definition): two sources of one template
+    are one head only when (a) they stand in the same connected water at the same surface level, with
+    no fall between them (both tiles hold settled water, and a path of settled-water tiles of one spill
+    level joins them within ROW_REACH tiles of the first), (b) they are within ROW_REACH tiles of each
+    other, and (c) neither lies down the other's flow by more than the channel's width there (the steps
+    to the flat's way out differ by no more than the narrower channel width, a channel's width at a tile
+    being the shorter of its wet runs of that spill level along x and along y). A row is the transitive
+    group of such pairs, kept only when (c) holds for every pair in it (a row cannot drift downstream
+    link by link; a group that fails is no row, its sources are judged as without this rule), and the
+    check treats it as one source."""
     Y, X = floor.shape
     N = X * Y
     units = []
@@ -945,10 +958,6 @@ def sources_in_flow(floor, sources, dam, D):
                     ra, rb = find(o), find(k)
                     if ra != rb:
                         parent[max(ra, rb)] = min(ra, rb)
-    by_root = {}
-    for k in range(len(units)):
-        by_root.setdefault(find(k), []).append(k)
-    groups = list(by_root.values())
     spill_a = spill_levels(floor, sources, dam).ravel()
     level = floor.astype(float).ravel() if dam is None else np.where(dam >= 0, floor + dam, floor).astype(float).ravel()
     pool = (spill_a > level).tolist()
@@ -987,6 +996,90 @@ def sources_in_flow(floor, sources, dam, D):
 
     def runs(c, n):
         return spill[n] < spill[c] or (spill[n] == spill[c] and ((pool[c] and pool[n]) or exit_dist[n] <= exit_dist[c]))
+
+    # rows: sources across a river's mouth are one head (see the definition above)
+    def wet_run(c, ddx, ddy):
+        y, x = divmod(c, X)
+        run = 1
+        for sgn in (1, -1):
+            xx, yy = x + sgn * ddx, y + sgn * ddy
+            while 0 <= xx < X and 0 <= yy < Y and depth[yy * X + xx] > 0 and spill[yy * X + xx] == spill[c]:
+                run += 1
+                xx += sgn * ddx
+                yy += sgn * ddy
+        return run
+
+    def channel_width(c):
+        return min(wet_run(c, 1, 0), wet_run(c, 0, 1))
+
+    def same_water(ca, cb):
+        if not depth[ca] > 0 or not depth[cb] > 0 or spill[ca] != spill[cb]:
+            return False
+        ay, ax = divmod(ca, X)
+        seen_row = {ca}
+        queue = [ca]
+        head = 0
+        while head < len(queue):
+            c = queue[head]
+            head += 1
+            if c == cb:
+                return True
+            y, x = divmod(c, X)
+            for dx, dy in ((0, -1), (-1, 0), (0, 1), (1, 0)):
+                xx, yy = x + dx, y + dy
+                if not (0 <= xx < X and 0 <= yy < Y) or abs(xx - ax) > ROW_REACH or abs(yy - ay) > ROW_REACH:
+                    continue
+                n = yy * X + xx
+                if n in seen_row or not depth[n] > 0 or spill[n] != spill[ca]:
+                    continue
+                seen_row.add(n)
+                queue.append(n)
+        return False
+
+    # (the links are found first, apart from the touching groups; a row is kept only when every pair in it holds)
+    def down(ca, cb):
+        fall = abs(exit_dist[ca] - exit_dist[cb]) if exit_dist[ca] >= 0 and exit_dist[cb] >= 0 else 0
+        return fall <= min(channel_width(ca), channel_width(cb))
+
+    heads = [k for k in range(len(units)) if units[k][3]]
+    row_parent = list(range(len(units)))
+
+    def row_find(a):
+        while row_parent[a] != a:
+            row_parent[a] = row_parent[row_parent[a]]
+            a = row_parent[a]
+        return a
+
+    for i, ka in enumerate(heads):
+        for kb in heads[i + 1:]:
+            if sources[units[ka][0]].get("template") != sources[units[kb][0]].get("template"):
+                continue
+            ca, cb = units[ka][1][0], units[kb][1][0]
+            if max(abs(ca % X - cb % X), abs(ca // X - cb // X)) > ROW_REACH:
+                continue
+            if not same_water(ca, cb) or not down(ca, cb):
+                continue
+            ra, rb = row_find(ka), row_find(kb)
+            if ra != rb:
+                row_parent[max(ra, rb)] = min(ra, rb)
+    rows = {}
+    for k in heads:
+        rows.setdefault(row_find(k), []).append(k)
+    for row in rows.values():
+        if len(row) < 2:
+            continue
+        # a row that drifts down the flow link by link is not a head: its sources stay as they are, each judged alone
+        if not all(down(units[p][1][0], units[q][1][0]) for i, p in enumerate(row) for q in row[i + 1:]):
+            continue
+        for k in row[1:]:
+            ra, rb = find(row[0]), find(k)
+            if ra != rb:
+                parent[max(ra, rb)] = min(ra, rb)
+
+    by_root = {}
+    for k in range(len(units)):
+        by_root.setdefault(find(k), []).append(k)
+    groups = list(by_root.values())
 
     reach = []
     for g in groups:

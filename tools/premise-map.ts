@@ -6,10 +6,14 @@
 // without the mode's loop.
 //
 //   npx tsx tools/premise-map.ts [--seed 1 | --seeds 1-3] [--size 128] [--premise lakeStair|any] [--theme any|canyon …]
-//     [--plan file.json] [--out .scratch/premise-map] [--drought] [--plain]
+//     [--plan file.json] [--out .scratch/premise-map] [--drought] [--plain] [--one-thread]
 //
 // `--theme` is the land's style (PREMISES §1.5; Any, the default, resolved from the seed); `--plain` leaves the works
 // off the picture, so the land reads.
+// A seed's map is made as the page's generator makes it (tools/rust/page-path.ts): the water on the threads the page
+// gives it on this machine, the start's drought run beside the map in a worker of its own, so its time is the wait a
+// player has; `--one-thread` makes it all on this thread (`generatePremise`), as WebKit's page would but for the
+// drought beside it. The same map either way, byte for byte (D455).
 // Prints each map's time, its checks that fail or wait for a later step, its ground measures and its files. With
 // `--drought`, the difficulty's longest drought is run on the settled water (`HazardRun`, as the editor's Drought
 // view runs it): each lake's volume kept at its worst day, and the day the start's water goes (D133's rule).
@@ -20,7 +24,7 @@ import { measureGround } from "../src/core/analysis/ground";
 import { encodeProject, generatedDocument } from "../src/core/doc/document";
 import type { BuildResult } from "../src/core/features/build";
 import { writeTimber } from "../src/core/format/timber";
-import { generatePremise } from "../src/core/premise/generate";
+import { generatePremise, generatePremiseAsync } from "../src/core/premise/generate";
 import type { LifeReport } from "../src/core/premise/life";
 import { premiseMap } from "../src/core/premise/map";
 import type { PremisePlan } from "../src/core/premise/types";
@@ -31,6 +35,7 @@ import { runsToTiles } from "../src/core/math/grid";
 import type { Ladder } from "../src/core/premise/ladder";
 import { droughtHold } from "../src/core/premise/hold";
 import { waterByNumber, type StageWater } from "../src/core/premise/water";
+import { pagePath } from "./rust/page-path";
 
 const args = process.argv.slice(2);
 const opt = (name: string) => {
@@ -48,6 +53,7 @@ const seeds = range ? (([a, b]) => Array.from({ length: b - a + 1 }, (_, k) => a
 /** The page the share links open (the local dev server's port). */
 const PAGE = opt("page") ?? "http://localhost:5191/";
 const drought = args.includes("--drought");
+const oneThread = args.includes("--one-thread");
 
 /** The difficulty's longest drought on the settled water: each lake's volume (its stage 1 tiles) kept at its worst
  *  day, and the day the start's water goes. */
@@ -177,11 +183,13 @@ if (file) {
   const m = premiseMap(spec, plan);
   write({ spec, features: m.features, built: m.built, file: m.file, field: m.field, report: m.report, name: m.name, description: plan.line }, plan.top, basename(file).replace(/\.(plan\.)?json$/, ""), performance.now() - t0, m.notes, undefined, m.life);
   if (drought) droughtReadout(spec, plan, m.built, m.water);
-} else
+} else {
+  const page = oneThread ? null : await pagePath();
+  console.log(page ? `made as the page makes it: the water on ${page.threads} threads, the start's drought beside the map` : "made on one thread");
   for (const seed of seeds) {
     const spec = specFor(seed);
     const t0 = performance.now();
-    const r = generatePremise(spec);
+    const r = page ? await generatePremiseAsync(spec, {}, page.runner) : generatePremise(spec);
     const ms = performance.now() - t0;
     if ("reason" in r) {
       console.log(`seed ${seed}: ${r.reason}`);
@@ -193,3 +201,5 @@ if (file) {
     write(r.result, spec.settings.terrain.highestTerrain, `${pi.id}-${pi.theme}-${side}-${seed}`, ms, pi.notes ?? [], pi.ladder, pi.life);
     if (drought && pi.plan) droughtReadout(r.result.spec, pi.plan, r.result.built, waterByNumber(pi.plan));
   }
+  await page?.close();
+}

@@ -1,6 +1,7 @@
 // The editor's markup. The parts that are long are plain functions of the bag (header.tsx,
 // topBar.tsx, viewControls.tsx), called inline here, so the vnode tree is one.
 
+import type { JSX } from "preact";
 import { View3D } from "../../ui/View3D";
 import { LookMenu } from "../../ui/LookMenu";
 import { tip } from "../../ui/Tooltip";
@@ -48,6 +49,25 @@ export function editorView(ed: Ed, props: EditorProps) {
       stamp={`${info.version}:${waterTick}:${weather ?? ""}:${heldTick}:${ed.compareFlipped ? "other" : ""}`}
     />
   );
+  // a phone's pages (#1074): each of the menu's panels the whole screen under the bar, a plain way back to the map at
+  // its top; the desktop's panels as they are
+  const phonePage = (title: string, close: () => void, panel: JSX.Element) =>
+    phone ? (
+      <div class="phone-page" role="region" aria-label={title}>
+        <div class="phone-page-head">
+          <button type="button" class="phone-back" {...tip("Back to the map")} onClick={close}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M15 5l-7 7 7 7" />
+            </svg>
+            <span>Map</span>
+          </button>
+          <h2 class="phone-page-title">{title}</h2>
+        </div>
+        <div class="phone-page-body">{panel}</div>
+      </div>
+    ) : (
+      panel
+    );
   // a phone's Show sheet (#1074): what to show and the camera, with Look and the minimap, the weather days, the sound
   const phoneShow = phone ? { open: phoneSheet === "show", weather: waterBar, minimap, look: <LookMenu renderer={renderer.current} buttonClass="ghost" /> } : null;
 
@@ -56,11 +76,11 @@ export function editorView(ed: Ed, props: EditorProps) {
     <div class={`editor${drawerOpen || props.mapsOpen || props.placesOpen ? " drawer-open" : ""}${drawerOpen ? " gen-open" : ""}`} data-phone={phone ?? undefined} data-sheet={phone ? (phoneSheet ?? undefined) : undefined} data-tall={phone && ed.sheetTall ? "" : undefined} aria-busy={busy > 0} inert={props.replacing}>
       {header(ed, props)}
       <div class="editor-main">
-        {drawerOpen ? <GeneratorPanel model={props.drawer} icon={(t) => icons[t] ?? null} counts={mapCounts(mirror.current.entities)} onClose={() => props.onDrawer(false)} /> : null}
-        {props.placesOpen ? <RealPlaces onOpen={props.drawer.onOpenPlace} /> : null}
-        {props.mapsOpen ? <YourMaps model={props.drawer} /> : null}
+        {drawerOpen ? phonePage("Map Generator", () => props.onDrawer(false), <GeneratorPanel model={props.drawer} icon={(t) => icons[t] ?? null} counts={mapCounts(mirror.current.entities)} onClose={() => props.onDrawer(false)} />) : null}
+        {props.placesOpen ? phonePage("Real places", () => props.onPlaces(false), <RealPlaces onOpen={props.drawer.onOpenPlace} />) : null}
+        {props.mapsOpen ? phonePage("Your maps", () => props.onMaps(false), <YourMaps model={props.drawer} />) : null}
         {/* History in the left panel's place, over the map, one panel at a time (Kyler, 2026-10-06) */}
-        {showHistory ? <HistoryPanel info={info} onJump={(k, step) => void ed.jump(k, step)} onKeep={props.onKeepStep} onClose={() => setShowHistory(false)} /> : null}
+        {showHistory ? phonePage("History", () => setShowHistory(false), <HistoryPanel info={info} onJump={(k, step) => void ed.jump(k, step)} onKeep={props.onKeepStep} onClose={() => setShowHistory(false)} />) : null}
         <section class="editor-map" aria-label="Map">
           <div class="editor-map-area">
             <View3D

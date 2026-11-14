@@ -197,10 +197,11 @@ place of its bottom rule.
   one row again when pulled down; a pulled-up sheet too short for every setting ends after a whole one (the rest scroll
   up into view). Tapping the tool in hand puts it down. Select rests in hand with its sheet closed; a tap on it opens
   Select's settings, a tap again puts them and any selection down. **Show**, a button at the view's top right, opens a
-  sheet of what the map shows, at most 40 % of the view so the map changes above it: under small headings, each an
-  even grid of chips, **What to show** (the Show row's toggles, Legend and its key), **Camera** (Top-down, Reset view,
-  First view, the compass, **Layers shown**: the slice, ∞ for every layer, and Look and the minimap), **Weather** (the
-  weather days) and **Forces and sound** (Slow forces, the sound and its volume, always shown: a phone has no hover).
+  sheet of what the map shows, at most 40 % of the view so the map changes above it, ending after a whole row (the rest
+  scroll up into view): under small headings, each an even grid of chips, **What to show** (the Show row's toggles,
+  Legend and its key), **Camera** (Top-down, Reset view, First view, the compass, **Layers shown**: the slice, ∞ for
+  every layer, and Look), **Minimap**, **Weather** (the weather days) and **Forces and sound** (Slow forces, the sound
+  and its volume, always shown: a phone has no hover).
   **Objects** opens a sheet of large tiles, half the view at the most; a tile picked closes it to one row saying what
   is in hand (its picture, its name, **Put it down**), its settings under it when the sheet is pulled up. A picked
   source's or object's window stands above the row as a tool's settings do. One sheet at a time: a tool taken up
@@ -209,8 +210,19 @@ place of its bottom rule.
   kept, so the ground in the middle of the room the controls leave stays in its middle, and Reset view frames the map
   in that room (`view/usePhone.ts`, `view/insets.ts`). The tapped tile's readout sits at the view's top left. The
   first steps' hints say what a finger does and stand above the sheet, never over a control or the map's middle (they
-  step aside while a sheet is pulled up), and their × puts them away for good. The menu's panels lie over the view at
-  the screen's width and scroll inside (their own phone layouts are slice 4). **On its side:** the same bar; the tools
+  step aside while a sheet is pulled up), and their × puts them away for good. **The rest of the page** (#1074, slice 4;
+  `tests/e2e/phonePages.spec.ts`): each of the menu's panels (Map Generator, Real places, Your maps, History) is a page
+  the whole screen under the bar, **Map** at its top going back to the map, the page scrolling inside itself; Map
+  Generator in one column (two on its side), each setting its name and value on a line and its slider or choices the
+  whole width under them, Showcase taking the page while it is open; each of Your maps' tiles has a **⋯** (Compare,
+  Download .timber, Rename, Delete: what the right-click gives). The dialogs (Help and keys, About, New blank map,
+  Description, the time-lapse, a question before a map is replaced, the map being made) are sheets the screen's width,
+  scrolling inside with their buttons kept in sight at their foot; Together opens from the menu as a sheet under the
+  bar with its own ×; a link in a dialog's words takes a finger's 44px. **Save** hands the map's file to the phone's
+  share sheet (`platform/share.ts`) where the browser can share a file and the pointer is a finger, else it downloads;
+  the same bytes either way (D455). When building the file took long enough that the browser wants a fresh tap, or the
+  sheet was closed unsent, a note keeps the file with **Send it**. The page's root carries the layout
+  (`<html data-phone>`, `ui/phoneRoot.ts`), so what lies outside the editor takes it too. **On its side:** the same bar; the tools
   in a rail down the left edge; a tool's settings, Show and the objects in a panel at the right, at most 40 % of the
   width (320px), clear of Show's button at the bottom right; the menu in columns, the panels and Help in the first,
   all of it in view; the hints in the room's left half at rest, stepping aside while a sheet or the panel is open.

@@ -146,7 +146,8 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
 - `map.ts`: `premiseLand` (stage 2, the badwater's niche and `layWorks`) and `premiseMap` (the start where stage 3 put it, the
   sources and rows as features, a build stopped before the resources and settled, stage 6's life on it, the build
   again with the settle reused (`SettleCache`) and the checks). `tools/premise-map.ts` writes the mode's maps (or a
-  plan file's) as a `.timber`, a project, a picture and a share link.
+  plan file's) as a `.timber`, a project, a picture and a share link, each made and timed as the page's generator makes
+  it (`tools/rust/page-path.ts`: the water's threads, the drought beside the map; `--one-thread` on one thread).
 - `waterChecks.ts`: the `land` invariants, `flowThrough` on stage 1's heights alone (`stageFlow`, once per stage 1),
   and each weir whole (`water.weirs`).
 - `tools/premise-plan.ts` prints a seed's plan and writes its diagram; `--plan` checks and draws a plan file.
