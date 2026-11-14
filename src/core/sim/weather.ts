@@ -77,6 +77,8 @@ export class HazardRun {
   /** Ticks run so far. */
   ticks = 0;
   private readonly clean: Emitter[] = [];
+  /** The heightfield's own sources (copies), by the model's order. */
+  private readonly own: Emitter[] = [];
 
   constructor(
     model: WaterModel,
@@ -91,6 +93,7 @@ export class HazardRun {
       this.sim = null;
     } else {
       const own: WaterModel = { ...model, emitters: model.emitters.map((e) => ({ ...e })) };
+      this.own = own.emitters;
       this.clean = own.emitters.filter((e) => e.contamination === 0);
       this.sim = new WaterSim(own, water);
       this.stack = null;
@@ -126,6 +129,29 @@ export class HazardRun {
       this.sim!.run(ticks, 1);
     }
     this.ticks += ticks;
+  }
+
+  /** Every source's strength as the run holds it now, in the engine's order (`runWith` takes them so): at first the
+   *  map's own, a source that is off at the map's start 0. */
+  strengths(): Float64Array {
+    if (this.stack) return this.stack.strengths();
+    return Float64Array.from(this.own, (e) => e.strength);
+  }
+
+  /** `ticks` more with each source at `strengths` (the engine's order, `strengths()`) and the clean ones giving water of
+   *  contamination `cleanContamination` (0: clean): the game's calendar, a source easing off before a drought and back
+   *  after it (the first ten cycles, cycles.ts). */
+  runWith(ticks: number, strengths: ArrayLike<number>, cleanContamination: number): void {
+    if (this.stack) {
+      this.stack.setStrengths(strengths);
+      this.stack.run(ticks, 1, cleanContamination);
+    } else {
+      if (strengths.length !== this.own.length) throw new Error("A strength for every source, in the model's order.");
+      this.own.forEach((e, k) => (e.strength = strengths[k]));
+      for (const e of this.clean) e.contamination = cleanContamination;
+      this.sim!.run(ticks, 1);
+    }
+    this.ticks += Math.max(0, Math.ceil(ticks));
   }
 
   /** The water as the run has left it (copies). */
