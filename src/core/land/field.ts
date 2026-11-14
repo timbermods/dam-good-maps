@@ -8,7 +8,9 @@
 // - Weathering: soft high ground wastes down toward the ground round it, so caprock stands up as
 //   stacks, buttes and mesas, and a mesa with a soft middle keeps a rim round a hollow.
 // Nothing is placed: stacks stand where the caprock lies, and the caprock lies where the noise put
-// it. Exact arithmetic throughout (integer-hash noise, square roots, the deterministic sine).
+// it. No round part is a circle (`formDistance`, the look round): a disc of a few tiles' radius
+// rasterizes as a block with four flat sides, and the rings round it repeat them. Exact arithmetic
+// throughout (integer-hash noise, square roots, the deterministic sine).
 //
 // Ported from the design version 2 prototype (investigation/generative/v2/field.ts).
 
