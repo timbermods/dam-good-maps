@@ -47,6 +47,9 @@ Command-line scripts for generating, checking, measuring and releasing. They run
   VegetationURP shades them (vertex colours, alpha cut, bump, the yield's detail, self-shadowing) on lit grass from the
   game's camera; each crown's middle, side across the sun, birch bark, area and drawn width compared through sixteen
   turns. `crown-models.ts` writes our Standard and High triangles for it. Needs the installed game's models; prints numbers.
+- `game-cliff-texture.py` with `rock-texture.ts`: the cliffs' rock, ours (materials.ts `ROCK`, read back from Chrome)
+  against the game's `CliffDetail` and `Cliff_N` (its `Cliff` material's tiling and strength, the albedo's spread,
+  percentiles, scales and hue, the normal's slopes by mip). Needs the installed game; prints numbers.
 - `object-shadows.ts` with `object-shadow-check.py`: the shadows objects cast in both looks, measured on a flat meadow from above (each object's area, darkness, reach and width) and set beside the game's probe frames (each plant species' darkening of the ground round it, the game's against ours); `--sheet` makes `docs/sheets/object-shadows.jpg` (docs/progress/3d-view.md, "Objects' shadows").
 
 **Data the game supplies**
