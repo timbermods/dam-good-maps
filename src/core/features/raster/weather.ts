@@ -48,7 +48,12 @@
 //   too (`shed`): a shed slope is held by the ground round it, and a repeat found that ground on the
 //   slope the last stroke cut (its dabs pressing less at first, its shortened cliffs reaching less
 //   far), so each repeat cut the slope a level or two deeper, for four strokes or more. With both, a
-//   stroke painted again only settles what the last one left, and comes to rest.
+//   stroke painted again only settles what the last one left, and comes to rest. And a cliff whose foot
+//   may not rise (farmland, a stream) pulls back whole, a tread, its height kept (`shed`): cut into
+//   steps above a foot that stays, it gained a terrace a step and left a step one level tall at its
+//   foot that nothing could join, so an older map had more terraces (D479); nor does an edge wander
+//   down into ground the water holds (`lo`), which the limits put back after the shed and the settle
+//   had worked on it.
 // - It reads and writes only inside its rectangle (the stroke's bounds), so a rebuild gives the same land.
 //
 // Exact arithmetic only (+ − × ÷ and floor; PLAN §2.1, D366): the same stroke gives the same land on every
@@ -256,7 +261,9 @@ export function weather(inp: WeatherInput, out: Uint8Array): Rect | null {
           if (I[k] > inp.was[g] && (!earlier || pressedOf(I[k]) > earlier[g])) fresh[k] = 1;
         }
     }
-    h = wander(h0, I, bw, bh, box, inp.size, inp.strength, cache, hi, still, fresh);
+    // (rule 6: nor lowered below what the water holds, `lo`: moist ground and the shore stay where they
+    // are, and the shed and the settle work on the land the limits will leave)
+    h = wander(h0, I, bw, bh, box, inp.size, inp.strength, cache, hi, still, fresh, (inp.rule ?? 0) >= 6 ? lo : null);
     // (rule 6: a cliff sheds only where this stroke presses harder than the strokes before it did, on
     // the land as they left it, on either of its sides; where both its sides are worn the ground holds
     // the slope as ground the stroke doesn't reach does. A shed slope is held by the ground round it,
@@ -273,7 +280,7 @@ export function weather(inp: WeatherInput, out: Uint8Array): Rect | null {
           if (I[k] > 0 && pressedOf(I[k]) > earlier[(box.y0 + y) * W + box.x0 + x]) pressed[k] = 1;
         }
     }
-    shed(h, I, bw, bh, box, inp.strength, cache, lo, shedHi, (inp.rule ?? 0) >= 4, (inp.rule ?? 0) >= 5 ? water : null, pressed);
+    shed(h, I, bw, bh, box, inp.strength, cache, lo, shedHi, (inp.rule ?? 0) >= 4, (inp.rule ?? 0) >= 5 ? water : null, pressed, (inp.rule ?? 0) >= 6);
     settle(h, I, bw, bh, box, inp.strength, cache, lo, wet);
     tidy(h, h0, I, bw, bh);
     // the limits: the working area's feather, the banks, the ceiling, the water
@@ -466,7 +473,7 @@ function blur(v: Float64Array, bw: number, x0: number, y0: number, x1: number, y
  *  edge wanders by up to about twice the softness; a knob or a spur narrower than that wears away,
  *  and nothing small grows). A tile's new height is its old one plus the levels whose new region newly
  *  holds it, less those that no longer do. */
-function wander(h0: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect, size: number, strength: number, cache: WeatherCache, cap: Uint8Array, still: Uint8Array, fresh: Uint8Array | null = null): Uint8Array {
+function wander(h0: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect, size: number, strength: number, cache: WeatherCache, cap: Uint8Array, still: Uint8Array, fresh: Uint8Array | null = null, floor: Uint8Array | null = null): Uint8Array {
   const n = bw * bh;
   const W = cache.W;
   // (rule 3, `boxed`: a box r each way, three times, reaching 3r)
@@ -527,6 +534,8 @@ function wander(h0: Uint8Array, I: Float32Array, bw: number, bh: number, box: Re
         const inside = h0[k] >= lv;
         // a cliff (three levels or more above the tile) only wears back, never spreads out over it
         if (!inside && (lv - h0[k] >= 3 || lv > cap[k])) continue;
+        // (rule 6: and never wears away ground below `floor`)
+        if (inside && floor && lv <= floor[k]) continue;
         const s = shares[lv].at(g);
         // far from this level's edge nothing can change
         if (inside ? s >= 1 - 1e-9 : s <= 1e-9) continue;
@@ -626,7 +635,7 @@ const SHED_CELL = 12;
  *  what a cliff's top loses its foot gains, and a cliff standing in water keeps its top. `pressed`
  *  (rule 6): the tiles this stroke presses harder than the strokes before it; a cliff with neither
  *  side among them does not shed. */
-function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect, strength: number, cache: WeatherCache, lo: Uint8Array, hi: Uint8Array, every = false, water: Uint8Array | null = null, pressed: Uint8Array | null = null): void {
+function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect, strength: number, cache: WeatherCache, lo: Uint8Array, hi: Uint8Array, every = false, water: Uint8Array | null = null, pressed: Uint8Array | null = null, whole = false): void {
   const n = bw * bh;
   // (rule 5: each cliff's tops and feet, joined into one cliff where they touch, so what its top
   // loses its foot gains)
@@ -860,6 +869,8 @@ function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect,
     fromFoot = i32("shed.fromFoot", n).fill(-1);
     fromTop = i32("shed.fromTop", n).fill(-1);
     for (let k = 0; k < n; k++) {
+      // (rule 6: a foot that may not rise, as -2 less its tile)
+      if (whole && pull![k] && cut[k] < INF) fromFoot[k] = -2 - k;
       if (part[k] < 0) continue;
       if (cut[k] < INF && !pull![k]) fromFoot[k] = find(part, k);
       if (fill[k] < INF) fromTop[k] = find(part, k);
@@ -881,6 +892,22 @@ function shed(h: Uint8Array, I: Float32Array, bw: number, bh: number, box: Rect,
     if (!cost[k] || cut[k] >= INF) continue;
     let t = ceilAt(k);
     if (t >= h[k]) continue;
+    if (fromFoot && fromFoot[k] <= -2) {
+      // rule 6: a cliff whose foot may not rise (farmland, a stream) pulls back whole, its height kept:
+      // the ground within a tread of its foot (as the map's noise sets the treads) comes down to the
+      // foot's level, and the ground behind stays. Cut into steps above a foot that stays, it would
+      // add a terrace at every step and leave a step one level tall at its foot that nothing could
+      // join (D479). Ground under higher ground beside it stays, so no taller cliff is left.
+      const F = h[-2 - fromFoot[k]];
+      if (level(cut[k]) > F + 1) continue;
+      const x = k % bw;
+      let under = false;
+      for (let dy = -bw; dy <= bw && !under; dy += bw) for (let dx = -1; dx <= 1; dx++) if (x + dx >= 0 && x + dx < bw && h[k + dy + dx] > h[k]) under = true;
+      if (under) continue;
+      t = Math.min(h[k], Math.max(F, lo[k]));
+      if (t < h[k]) (v[k] = t), (moved[k] = 1);
+      continue;
+    }
     if (held[k] < INF) t = Math.max(t, -level(held[k]));
     t = Math.min(h[k], Math.max(t, lo[k]));
     if (t < h[k]) (v[k] = t), (moved[k] = 1);

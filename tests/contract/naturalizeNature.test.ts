@@ -308,6 +308,10 @@ describe("an older map has fewer terraces, not more (D399, Kyler's round 2 verdi
   // three pass and come off the list, ordinary tests now: Lake Basin 3 (3,001 →
   // 2,930), Lake Basin 4 (2,806 → 2,700) and River Valley 8 (2,594 → 2,536). The gap shows on none of the seeds that
   // showed it before either (River Valley 1, 2, 5, 9, 10, 11 and 12, Lake Basin 2, 5, 6, 10, 11 and 12 all end with fewer).
+  // On generator 0.10.23's maps (#1102, round forms) Lake Basin 3 (2,969 → 2,979) and 4 (2,420 → 2,543) showed it again,
+  // every cliff the stroke shed there standing on farmland: cut into steps above a foot that stays, each gained a terrace
+  // a step. Rule 6 now pulls such a cliff back whole, a tread (D514 amended): 2,953 and 2,360; of Lake Basin and River
+  // Valley 1–12 only Lake Basin 5 still ends with more (2,821 → 2,826).
   for (const [theme, seed] of [
     ["riverValley", 3],
     ["riverValley", 6],
