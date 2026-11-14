@@ -11,6 +11,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { cosDet } from "../src/core/math/detmath";
 import { encodeTiles } from "./lib/placeData";
 import { classAt, WATER_CLASS, WORLDCOVER_NOTICE } from "./lib/worldCover";
 
@@ -48,7 +49,7 @@ for (const it of items) {
   const W = it.size;
   const m = it.metres;
   const k = Math.max(1, Math.round(m / 10));
-  const cos = Math.cos((it.lat * Math.PI) / 180);
+  const cos = cosDet((it.lat * Math.PI) / 180);
   const tiles: number[] = [];
   for (let y = 0; y < W; y++)
     for (let x = 0; x < W; x++) {
