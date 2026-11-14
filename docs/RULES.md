@@ -34,6 +34,8 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
     iterations with clear acceptance, documents, reviews, repeated agent tasks, design polish). Opus 5.5 for complex
     judgment and long-horizon work (the generator's character, the water and 3D engines, the forces' feel and new
     forces, redesigns, orchestration). Nothing on Opus moves. Haiku for mechanical work, never wording or layout.
+    Fable is the planning session's own model, for what it alone does: designs, rulings and look verdicts. Opus
+    builds from its designs; a long build is never given to a Fable sub-agent (Kyler, 2026-11-10).
   - **Real checks:** when you change code that can be run, built or type-checked, run a real check that exercises
     the change before reporting it done. If none can run, say which and why.
   - Downscale screenshots and captures before a model reads them, unless the detail is what's being judged.
@@ -41,15 +43,16 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
 ## Coordination (D470, D484, D489, D490)
 
 - **Kyler is done testing and giving feedback (D484, 2026-10-14).** Claude completes the whole order without him (D349 as
-  amended by D481 and D485). Nothing waits on him: every verdict that waited for his eye or his hands is the milestone session's
+  amended by D481 and D485). Nothing waits on him: every verdict that waited for his eye or his hands is the planning session's
   (or the owning session's), decided against his recorded decisions and the project's identity, recorded when it is a real
   choice, merged on its review and quick checks. Every such decision is reversible; he may reverse any later.
 - **His hands are replaced, not dropped.** Forces and editor behaviour: use the page yourself in a real browser
   (Playwright), on generated maps and imports, light and dark, at 1920×1080, 2560×1440 and 1280; a force always has a
-  visible effect. Look and feel: before a look or interaction change merges, a separate reviewer agent that hasn't seen the
-  work judges its captures against the page rules (nothing cut off or overlapping, lined up to the pixel, every control
-  named, keys only in tooltips, short text). The game: probe batches on the dedicated machine when they decide something
-  (D218, D483). Collaborative editing: complete, between real peers over the real relay, reconnects, conflicts and a dropped peer tested (D486).
+  visible effect. Look and feel: a look or interaction change is labelled `hold` until the planning session has judged its
+  sheet, at most twelve frames with the widest view first, against the page rules (nothing cut off or overlapping, lined
+  up to the pixel, every control named, keys only in tooltips, short text); a map's sheet opens with the start's numbers
+  and is asked "drawn with a ruler?". No separate look agent (Kyler, 2026-11-11: less testing, more product). The game:
+  a probe on the dedicated machine only where an implementation looks wrong in the game (Kyler, 2026-10-29; D218, D483). Collaborative editing: complete, between real peers over the real relay, reconnects, conflicts and a dropped peer tested (D486).
 - **Design questions go to the planning session first,** on #236: it answers those Kyler's recorded decisions settle,
   citing them, and puts only the rest to him.
 - **The only questions for Kyler are design direction:** the answer changes what the product is, or how it looks, feels or
@@ -59,8 +62,9 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
   build on the default, change course if he answers otherwise. At most one new batch a day, with one "To Kyler" line on #236.
 - **Merging (D484, D489, D490):** a PR merges once a fresh reviewer agent that didn't write it has approved
   it, its owner's verdict and captures are on the PR, and its quick checks (typecheck, quick suite, build) are green. Code
-  gets a fresh sub-agent's review; a look or interaction change gets a fresh Opus reviewer in a real browser, judging its
-  captures against the page rules. The reviewer ends with one PR comment whose first line is exactly
+  gets a fresh sub-agent's review (Opus where the code needs judgment; Sonnet reads documents and a renderer diff); a look
+  or interaction change also waits, labelled `hold` by its owner or by planning, for the planning session's verdict on its
+  sheet, and the merge loop counts only the code review's line. The reviewer ends with one PR comment whose first line is exactly
   `Review (fresh agent): APPROVED at <head sha, 8 chars>` or `Review (fresh agent): CHANGES NEEDED at <sha>`. The
   planning session's merge loop merges any PR into dev whose latest such line says APPROVED at its current head, once its
   quick checks are green and nothing is failing or running, unless it is labelled `hold` or conflicts; a push after the
@@ -96,17 +100,19 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
 - **Releases:** at the end of each step in the order, from dev to main once the full run and the nightly are green; the
   planning session cuts them and posts on #236. No probe batch for a release (Kyler, 2026-10-29: the export is proven; a
   probe runs only where an implementation looks wrong in the game).
-- **The machine is the sessions' own (D484):** nobody else uses it. Test and probe without asking or holding back, within the
-  worker caps under "Going faster", Timberborn whenever it helps, within D483 for what a probe plays. Split the threads with the other session as
+- **The machine is the sessions' own (D484):** nobody else uses it. Test without asking, within the
+  worker caps under "Going faster"; Timberborn runs only where an implementation looks wrong in the game (Kyler,
+  2026-10-29), within D483 for what a probe plays. Split the threads with the other session as
   the work needs; say on #236 when a probe batch holds the game.
 - **Never idle (D484):** nobody types to you. Never end your turn while work is left in the order: while waiting on CI, a
-  probe or a #236 post, keep a background monitor or poll running (#236 and the PR's checks every few minutes), act when
-  it fires, and do other work meanwhile. End the turn only when the order is finished, at the full stop, or when only
+  probe or a #236 post, keep one background script watching (#236, your PRs' checks, and for planning dev's runs and
+  the nightly). It prints and exits only when there is something to act on, so every wake is work (Kyler, 2026-11-09:
+  cut wakes, not builders); restart it after acting, and never have an agent poll. Do other work meanwhile. End the turn only when the order is finished, at the full stop, or when only
   Kyler can unblock every piece of work (said on #236).
 - **Going faster (D484):** work in parallel through sub-agents, each in its own worktree, branch and PR, with a complete
   brief: Sonnet for well-specified building, Haiku for mechanical work (watching CI and #236, logs, searches, clean dev
-  merges, regenerated files, status lines), Opus (the milestone session) for the order, decisions and verdicts, the
-  planning session for releases and dev's health, and a fresh Opus agent as the look and interaction reviewer. Haiku
+  merges, regenerated files, status lines), Opus for building that needs judgment and for code reviews, and the planning
+  session (Fable) for the order, designs, rulings, look verdicts, releases and dev's health. Haiku
   never decides wording or layout: a task that changes what a player reads or where things sit goes to Sonnet. Work ahead
   on steps that need nothing else; the split is posted on #236. Merges come first: a PR ready to merge is merged before
   anything new starts. About three heavy local runs at once across both sessions (builds, Playwright, Rust), each said
@@ -127,7 +133,7 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
   task, before you push and when you finish; answer there, each comment starting "To milestone:", "To page:", "To renderer:" or
   "To <session name>:". Codex doesn't use it.
 - **The line:** sessions settle merge order, holds, rebases, re-pins, CI failures (whoever broke it fixes it) and ordering on
-  overlapping files; the milestone session decides the rest (D484), except design direction. A new Claude session or Codex
+  overlapping files; the planning session decides the rest (D484; Kyler, 2026-10-29), except design direction. A new Claude session or Codex
   task that would speed things up: post its full prompt on #236 and tell Kyler in one line; he sends it. Never two
   sessions in one folder.
 - **Reports** are at most about eight lines plus the sheet or link; post the same on your PR (or the issue) as in chat.

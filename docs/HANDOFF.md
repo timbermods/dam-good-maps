@@ -64,16 +64,18 @@ where the job is written down, scripts where it's only waiting.
 | Self-contained mechanical work with a clear spec: docs, routine fixes, re-pins, test updates within one area (D341) | `build-light-medium` | Sonnet 5.5, medium |
 | Recording decisions, STATUS and the Progress log, consistency sweeps, housekeeping | `routine` | Sonnet 5.5, medium |
 | The milestone session: orchestrating, probe batches | (the session) | Opus 5.5, high |
-| The planning session: coordination, dev's health after merges, releasing | (the session) | Opus 5.5, high |
+| The planning session: the order, designs, rulings, look verdicts, the merge loop, dev's health after merges, releasing | (the session) | Fable, high (Kyler, 2026-11-10) |
 | The page and its design (D388); the coherence review (D386) | (sessions Kyler starts) | Fable 5.1, high |
 | Trivial and simple work, as much as possible (Kyler, 2026-10-15): watching CI and #236, reading logs, locating failing lines, searches, clean dev merges, regenerating the Wasm and other generated files, status lines, small well-specified fixes and test updates that change nothing a player reads or where things sit | `build-light` with `model: haiku` (high effort) | Haiku 4.5, high |
-| The independent reviewer of a look or interaction change (D484) | a fresh agent | Opus 5.5, high |
+| The verdict on a look or interaction change (D484; Kyler, 2026-11-11) | the planning session, from a sheet of at most twelve frames; no look agent | (the session) |
+| The fresh review of a PR's code (D490) | a fresh agent that didn't write it | Opus 5.5, high; Sonnet 5.5 for documents and a renderer diff |
 | Waiting on CI, batches and probe runs | background scripts that report when done, never an agent polling | none |
 
 Haiku runs at high effort through the `build-light` definition (its effort) with `model: haiku`; prefer it to Sonnet whenever the brief is specific enough to check (Kyler, 2026-10-15). Haiku never decides wording or layout: a task that changes what a player reads or where things sit goes to Sonnet, since a Haiku fix once renamed a History step and undid a layout a review had settled.
 
-**Never Fable unless Kyler explicitly asks** (he has, for the page session
-and D386's review). **Never raise a model's effort on your own, never start sub-agents at max.** A hand-back from
+**Fable only where Kyler has asked for it:** the planning session (its designs, rulings and look verdicts; 2026-11-10),
+the page session and D386's review. Opus builds from the planning session's designs, and a long build is never given
+to a Fable sub-agent. **Never raise a model's effort on your own, never start sub-agents at max.** A hand-back from
 `build-light` or `build-light-medium` for anything needing judgment goes to `build`.
 
 ## 4. The order of work and the Codex adoptions

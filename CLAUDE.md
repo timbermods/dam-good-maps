@@ -29,8 +29,8 @@ task touches. [docs/README.md](docs/README.md) maps the documents.
 - **Never weaken a test to make it pass.** A test a decision made stale is updated to the decision (D148). No test stays
   known-flaky: find the cause (D341).
 - **Timberborn and Kyler's things:** Claude launches the game only through the DGM Probe runner (D117): on the dedicated
-  machine a batch runs whenever the plan calls for one, without asking (D218), playing only what players get (D483); the
-  full rules are in docs/RULES.md. Never touch Kyler's installed mods, saves or settings. Secrets are his, set with
+  machine a batch runs without asking (D218), but only where an implementation looks wrong in the game, never as routine
+  or for a release (Kyler, 2026-10-29), playing only what players get (D483); the full rules are in docs/RULES.md. Never touch Kyler's installed mods, saves or settings. Secrets are his, set with
   `gh secret set`; never ask for one in chat.
 - **Never route around a refusal.** A permission check that says no is surfaced to Kyler, never worked around by another
   tool, another session or a sub-agent.
@@ -47,10 +47,15 @@ task touches. [docs/README.md](docs/README.md) maps the documents.
   labelled `hold`. A review blocks only
   for real bugs. The browser specs and the heavy suites run on dev after the merge, and whoever's merge breaks dev fixes it
   forward at once. Releases to main keep the full gate. Detail: docs/RULES.md, "Merging".
+- **Looks are judged from a sheet:** a change to what players see is labelled `hold` until the planning session has
+  judged its sheet of at most twelve frames, the widest view first; no separate look agent (Kyler, 2026-11-11).
 - **Work in parallel:** sub-agents in their own worktrees and branches. Haiku for mechanical work (never wording or
-  layout), Sonnet for specified building, Opus for judgment, reviews and new forces; the cheapest model that does the job.
+  layout), Sonnet for specified building, Opus for building that needs judgment and for code reviews. The planning
+  session (Fable) designs, rules and judges looks, and Opus builds from its designs (Kyler, 2026-11-10). The cheapest
+  model that does the job.
 - **Kyler is done testing (D484):** decide against his recorded decisions; only design direction his decisions don't
   settle goes to him, as a `needs-kyler` issue with a recommended default you build on meanwhile.
-- **Never idle:** while waiting, keep a watcher on #236 and your PRs running and do other work.
+- **Never idle, never polling:** while waiting, one background script watches #236 and your PRs and wakes you only when
+  there is something to act on (Kyler, 2026-11-09); do other work meanwhile.
 - **Reports are short:** what changed, what falls short, the numbers a decision needs.
 - **The rules evolve:** a rule that slows good work, or a better way, is proposed on #236 or to Kyler.
