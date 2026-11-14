@@ -1,6 +1,6 @@
 // The Select row's marking modes as small icons (D323 item 6): drawn in the page's own line style.
 
-import type { SelectMode } from "./select";
+import type { SelectCombine, SelectMode } from "./select";
 
 const ICON = { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": true } as const;
 
@@ -10,6 +10,16 @@ export function WholeMapIcon() {
     <svg {...ICON}>
       <rect x="4" y="4" width="16" height="16" />
       <path d="M4 12h16M12 4v16" stroke-dasharray="2 3" />
+    </svg>
+  );
+}
+
+/** Add / Take away (#1074 slice 6): the marked square alone (a new selection replaces), with a plus, or with a minus. */
+export function CombineIcon(p: { how: SelectCombine }) {
+  return (
+    <svg {...ICON}>
+      <rect x="3" y="3" width="12" height="12" stroke-dasharray="3 3" />
+      {p.how === "set" ? null : <path d={p.how === "add" ? "M14 18h7M17.5 14.5v7" : "M14 18h7"} />}
     </svg>
   );
 }
