@@ -3207,6 +3207,10 @@ birch bark 1.13, the crowns' sides 3–21 % under their middles, Standard's berr
   near black, as the game's own deep water up close). Standard and High the same. `tests/e2e/look-high.spec.ts` holds
   it ("deep water seen from the top-down view").
 - **Falls short:** the top-down view's fog is even across it, where the angled view's grows toward its far side.
+- **Revived on dev** (`look/topdown-deep-water`, 2026-11-14): dev still drew it black from the top (SwiftShader, High,
+  Islands 7 framed whole: 7,565 of 7,649 deep tiles black, against (35, 66, 72) here and (39, 73, 80) angled in both;
+  Lake Basin 5: 2,013 of 2,218 black, against (36, 68, 76)). Sheet: `docs/sheets/topdown-deep-water.jpg`, made by
+  `tools/capture-topdown-deep-water.ts --soft` (dev against this checkout, the same cameras).
 
 ## The large relic as the game draws it (D135, D178 as amended 2026-11-10, D496, D497; `fix/relic-look`)
 
