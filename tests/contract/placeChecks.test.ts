@@ -27,8 +27,10 @@ function opened(id: string, asPlace: boolean) {
 
 describe("a real place's check summary", () => {
   it("a place under the starting-logs floor is not 'all pass': the floor is a warning", () => {
-    const { s, groups } = opened("near-glencoe", true);
-    expect(s.meta.place).toBe("near-glencoe");
+    // (Near Godavari delta: under the starting-logs floor after D311's conversion, D(new); Near Glencoe, the place
+    // here before, now meets it with the groves planted by its start)
+    const { s, groups } = opened("near-godavari-delta", true);
+    expect(s.meta.place).toBe("near-godavari-delta");
     expect(groups.warnings.map((c) => c.id)).toContain("start.wood_floor");
     expect(groups.existing).toEqual([]);
     // (the difficulty's own wood target is information on a place)
@@ -76,7 +78,7 @@ describe("a real place's check summary", () => {
   });
 
   it("the same file opened as a plain import lists its own problems apart (D3)", () => {
-    const { groups } = opened("near-glencoe", false);
+    const { groups } = opened("near-godavari-delta", false);
     expect(groups.existing.map((c) => c.id)).toContain("start.wood_floor");
     expect(groups.warnings).toEqual([]);
   });

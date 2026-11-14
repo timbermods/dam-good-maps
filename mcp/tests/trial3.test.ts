@@ -19,19 +19,20 @@ beforeAll(() => closeAll());
 afterAll(() => closeAll());
 
 describe("a real place after the trial", () => {
-  it("says its file's water gives way to its sources' after an edit, names the start by its middle, and legends only what it draws", async () => {
+  it("keeps its water after an edit, names the start by its middle, and legends only what it draws", async () => {
     const handle = /^Map (map-\d+) /.exec(textOf(await callTool("generate", { place: "near-mount-fuji" })))![1];
     const d = await json("describe", { map: handle, checks: false });
     const start = d.objects.find((o: { kind: string }) => o.kind === "StartingLocation");
     expect([start.x, start.y]).toEqual([d.start.x, d.start.y]);
     expect(d.featuresNote).toMatch(/^An opened map or a real place has no generator's features/);
-    // a one-tile raise in the far corner: the whole map's water settles (core: the place's stored water is not what its
-    // sources keep; run-3's README), and the result says so with the numbers; undo brings the file's water back
+    // a one-tile raise in the far corner: the place's stored water is the water its sources keep (the places are built
+    // under the game's rules; D148: this test held the old difference, 2852 wet before and 2371 after), so the edit
+    // moves no water elsewhere and no note says the file's water gave way
     const b = await json("apply", { map: handle, ops: [{ op: "brush", params: { tool: "raise", size: 1, strength: 1, dabs: [10, 500] } }] });
-    expect(b.water).toMatchObject({ wetBefore: 2852, wetAfter: 2371 });
-    expect(b.notes[0]).toBe("This map showed its file's own water; after an edit it shows the water its sources keep once it settles: 2852 wet tiles before, 2371 after, across the whole map. Undo brings the file's water back.");
+    expect(b.water.wetAfter).toBe(b.water.wetBefore);
+    expect((b.notes ?? []).join(" ")).not.toMatch(/file's own water|water changed beyond the edit/);
     await callTool("undo", { map: handle });
-    expect((await json("describe", { map: handle, checks: false })).water.bodies.reduce((n: number, w: { tiles: number }) => n + w.tiles, 0)).toBeGreaterThanOrEqual(2371);
+    expect((await json("describe", { map: handle, checks: false })).water.bodies.reduce((n: number, w: { tiles: number }) => n + w.tiles, 0)).toBe(b.water.wetBefore);
     // the start moved a tile east: the result's to is the tile asked for (its middle)
     const m = await json("apply", { map: handle, ops: [{ op: "moveEntity", params: { id: start.id, x: d.start.x + 1, y: d.start.y } }] });
     expect(m.start.to.slice(0, 2)).toEqual([d.start.x + 1, d.start.y]);

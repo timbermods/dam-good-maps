@@ -4,6 +4,8 @@
 //   npm run places                         (writes public/real-places/)
 //   npm run places -- --check              (writes nothing; fails when the committed files differ)
 //   npm run places -- --only near-glencoe  (builds and checks the places named, writes nothing)
+//   npm run places -- --water --out <dir>  (each place's water measure too, written to <dir>; `--rules port` builds
+//                                          them under the port's water rules, as before D311's conversion)
 //   npm run places -- --shards 1           (one place after another on this process: the places run on one
 //                                          process a core by default, the same log, files and verdicts)
 //
@@ -42,6 +44,7 @@ import { stringify } from "../src/core/format/json";
 import {
   buildPlace,
   decodeHeights,
+  setPlaceRules,
   decodeTiles,
   placeEntities,
   placeFileName,
@@ -54,8 +57,11 @@ import {
   type PlaceIndexEntry,
 } from "../src/core/places/place";
 import { encodeHeights, encodeTiles } from "./lib/placeData";
+import { BODY, FILM_DEPTH, FILM_TILES, WET, compareWater, films, settleFile, startFails } from "./lib/placeWater";
+import { cutBasins, cutBed, floor0Sheet, realMask } from "./lib/placeBasins";
+import { decodeTiles as decodeGaps } from "../src/core/places/place";
 import { keepNearest, settlePlants, startWood, startWoodSpecies } from "./lib/placePlants";
-import { mendSources } from "./lib/placeSources";
+import { flaggedSources, mendSources } from "./lib/placeSources";
 import { DEAD_TREES_KEEP_LOGS, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../src/core/data/logFloor";
 import { startWalkField } from "../src/core/resources/baseline";
 import { writeTimber } from "../src/core/format/timber";
@@ -73,7 +79,8 @@ import type { CheckResult } from "../src/core/validate/report";
 const LIBRARY = "investigation/landscapes/library";
 /** The processes the places run on at once (`--shards n` sets it; one a core by default; 1 runs them here, in turn). */
 const SHARDS = Math.max(1, Number(process.argv.includes("--shards") ? process.argv[process.argv.indexOf("--shards") + 1] : availableParallelism()));
-const OUT = "public/real-places";
+/** Where the run writes (`--out dir` writes a trial elsewhere; `--check` compares with it). */
+const OUT = process.argv.includes("--out") ? process.argv[process.argv.indexOf("--out") + 1] : "public/real-places";
 /** The card picture's side in pixels. */
 const CARD = 240;
 const CARD_QUALITY = 60;
@@ -87,6 +94,8 @@ const EDGE_LIP_REACH = 6;
 /** The longer walk to a shore a start's spot may have when no nearer spot gives it water (tiles; the
  *  check allows Normal's 20 from the start's middle). */
 const LONG_SHORE_WALK = 22;
+/** The walk to a shore every spot is tried within when no nearer spot gives the start water (tiles). */
+const WIDE_SHORE_WALK = 40;
 /** The start's land: item 47's farmland and the start's floors (D515: its bench, walkable land, fast wood and
  *  forester's plot), information for a real place (D331): a place whose start falls short warns, never drops (D245). */
 const START_LAND = ["start.farmland", "start.level_land", "start.reach", "start.forester", "start.wood_fast"];
@@ -365,6 +374,105 @@ function growFastWood(p: PlaceData, r: Checked, walk: ArrayLike<number>, bar: { 
 // ------------------------------------------------------------------------------------------ run
 
 const check = process.argv.includes("--check");
+/** `--water`: each place's line of tools/lib/placeWater.ts's measure (its water as built against its water model
+ *  settled again by the game's rules, as the first edit settles it), a withheld place's too. Information only. */
+const waterMeasure = process.argv.includes("--water");
+/** The water rules the places are built under: the game's (D311); `--rules port` builds them as before the conversion,
+ *  for a comparison. */
+const rules = arg("rules") === "port" ? "port" : "game";
+setPlaceRules(rules);
+function waterLine(b: ReturnType<typeof buildPlace>, place: PlaceData): string {
+  const s = settleFile(b.file);
+  const { W, H } = b.model;
+  const c = compareWater(b.settle.depth, s.water.depth, W, H);
+  const before = startFails(b.file, b.model, b.settle);
+  const after = startFails(b.file, s.model, s.water);
+  // under the game's rules (`--rules game`): the bodies the port's build of the same place showed and this one does not,
+  // and the sheets on floor 0 (water 0.1 deep or less where the edge's spill threshold holds it, D303)
+  const port = rules === "game" ? compareWater(buildPlace(place, undefined, "port").settle.depth, b.settle.depth, W, H) : null;
+  let floor0 = 0;
+  for (let i = 0; i < W * H; i++) if (b.model.floor[i] === 0 && b.settle.depth[i] > WET && b.settle.depth[i] <= 0.105) floor0++;
+  const json = { id: place.id, size: W, start: place.start, wet: c.wetOpened, resettled: c.wetSettled, lost: c.lost, startFails: before, startFailsResettled: after, floor0, port: port && { wet: port.wetOpened, bodies: port.bodies, lost: port.lost } };
+  return `   water: wet ${c.wetOpened} → ${c.wetSettled} (${(c.change * 100).toFixed(1)} %), ${c.lost.length} of ${c.bodies} bodies of ${BODY}+ lost${c.lost.length ? ` (${c.lost.map((l) => `${l.size}→${l.wet}`).join(", ")})` : ""}, start ${before.join(",") || "-"} → ${after.join(",") || "-"}` + (port ? `; port ${port.wetOpened} wet, ${port.lost.length} of its ${port.bodies} bodies gone; floor-0 sheet ${floor0}` : "") + `\n   water-json ${JSON.stringify(json)}`;
+}
+/** The places' observed water (D271; tools/places-real-water.ts): by library id, the tiles over real water. */
+const REAL_WATER = JSON.parse(readFileSync(join(LIBRARY, "real-water.json"), "utf8")) as { places: Record<string, { W: number; tiles: number[] }> };
+function realOf(libraryId: string, W: number, H: number): Uint8Array {
+  const r = REAL_WATER.places[libraryId];
+  if (!r || r.W !== W) throw new Error(`${libraryId}: no observed water in ${join(LIBRARY, "real-water.json")} (run tools/places-real-water.ts)`);
+  return realMask(W, H, decodeGaps(r.tiles));
+}
+
+/** The place with its basins cut where the real water lies, and a bed through each film above floor 0 that no real
+ *  water lies under (tools/lib/placeBasins.ts), and its log note. */
+function basinsFor(libraryId: string, place: PlaceData): { place: PlaceData; note: string } {
+  const real = realOf(libraryId, place.W, place.H);
+  const port = buildPlace(place, undefined, "port").settle.depth;
+  let game = buildPlace(place, undefined, "game");
+  const r = cutBasins(decodeHeights(place.heights), place.W, place.H, port, game.settle.depth, game.model.floor, real);
+  const notes: string[] = [];
+  for (const b of r.basins) notes.push(`${b.kind} ${b.size} at ${b.at.join(",")} over ${b.real} real-water tiles ${b.cut ? `cut ${b.cut} tiles` : b.kind === "lost" ? "goes" : "not cut"}`);
+  const heights = r.heights;
+  if (r.basins.some((b) => b.cut)) {
+    place = { ...place, heights: encodeHeights(heights) };
+    game = buildPlace(place, undefined, "game");
+  }
+  // a film above floor 0 the real water does not lie under gets a bed to where its water leaves it (D(new)); a bed that
+  // would put a source in another's flow (`water.source_in_flow`, whose list never grows) goes out onto dry ground
+  // instead, and where none is left the film stays (the check refuses it)
+  const inFlow = (p: PlaceData) => flaggedSources(p).flagged.length;
+  const flowed = inFlow(place);
+  for (let round = 0; round < BED_ROUNDS; round++) {
+    const left = films(game.settle.depth, game.model.floor, place.W, place.H).filter((f) => f.floor0 * 2 <= f.tiles.length);
+    if (!left.length) break;
+    let any = false;
+    for (const f of left) {
+      const seed = hashString(`${place.id}:${round}`);
+      let tried = Uint8Array.from(heights);
+      let bed = cutBed(tried, place.W, place.H, f.tiles, game.settle.depth, place.sources, seed);
+      if (bed.length && inFlow({ ...place, heights: encodeHeights(tried) }) > flowed) {
+        tried = Uint8Array.from(heights);
+        bed = cutBed(tried, place.W, place.H, f.tiles, game.settle.depth, place.sources, seed, true);
+        if (bed.length && inFlow({ ...place, heights: encodeHeights(tried) }) > flowed) bed = [];
+      }
+      notes.push(`film ${f.tiles.length} at ${f.at.join(",")} ${bed.length ? `bed of ${bed.length} tiles` : "has no bed that keeps the sources at their heads"}`);
+      if (bed.length) {
+        heights.set(tried);
+        any = true;
+      }
+    }
+    if (!any) break;
+    place = { ...place, heights: encodeHeights(heights) };
+    game = buildPlace(place, undefined, "game");
+  }
+  return { place, note: notes.length ? `  water mends: ${notes.join("; ")}` : "" };
+}
+
+/** The rounds of beds a place gets: a bed can carry its water on to a flat below, where the next round's bed runs on. */
+const BED_ROUNDS = 8;
+
+const hashString = (s: string) => {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+};
+
+/** The water checks every offered place passes, and its floor-0 sheet: one log line. */
+function waterVerdict(libraryId: string, b: ReturnType<typeof buildPlace>): { line: string; failed: boolean } {
+  const { W, H } = b.model;
+  const again = settleFile(b.file);
+  const c = compareWater(b.settle.depth, again.water.depth, W, H);
+  const unequal = Math.abs(c.change) > 0.01 || c.lost.length > 0;
+  const fs = films(b.settle.depth, b.model.floor, W, H);
+  const above = fs.filter((f) => f.floor0 * 2 <= f.tiles.length);
+  const sheet = floor0Sheet(b.settle.depth, b.model.floor, W, H, realOf(libraryId, W, H), FILM_DEPTH, FILM_TILES);
+  const line =
+    `   water: opened ${c.wetOpened} wet, settled again ${c.wetSettled}${c.lost.length ? `, ${c.lost.length} bodies of ${BODY}+ lost` : ""}${unequal ? " (FAILS: opened is not settled)" : ""}` +
+    (above.length ? `; FAILS: film above floor 0 (${above.map((f) => `${f.tiles.length} tiles at ${f.at.join(",")}`).join("; ")})` : "") +
+    `; floor-0 sheet ${sheet.tiles} tiles (${sheet.real} over real water, ${sheet.dry} over real dry land)`;
+  return { line, failed: unequal || above.length > 0 };
+}
+
 const only = arg("only")?.split(",") ?? null;
 const library = JSON.parse(readFileSync(join(LIBRARY, "index.json"), "utf8")) as { items: LibraryItem[] };
 const items = library.items.filter((it) => it.family !== "random");
@@ -402,6 +510,10 @@ function runPlace(item: LibraryItem): Outcome | null {
   if (WITHHELD_UNTIL[place.id]) {
     withheld.push(place.name);
     say(`WITHHELD ${place.W}² ${place.name}: ${WITHHELD_UNTIL[place.id]}`);
+    if (waterMeasure) {
+      const m = mendSources(place).place;
+      say(waterLine(buildPlace(m), m));
+    }
     return out;
   }
   const t = performance.now();
@@ -409,6 +521,11 @@ function runPlace(item: LibraryItem): Outcome | null {
   // where that file's rules allow it; the rest stay, and the place keeps the fault until none is left. (The sealed-land
   // comparison for the start's water below is the survey's own, so it keeps the unmended sources.)
   const surveyed = place;
+  // Basins where the real water lies (D(new), tools/lib/placeBasins.ts): a body the port's rules showed and the game's
+  // lose is cut one level inside its own flat's rim where the observed water lies, so the place's rivers fill it; where
+  // none lies it goes. Before the sources' mend, so a source the new lake takes in merges as any other.
+  const basin = basinsFor(item.id, place);
+  place = basin.place;
   const mend = mendSources(place);
   place = mend.place;
   const mendNote = mend.merges.length || mend.left.length ? `  sources: ${mend.merges.length} merged${mend.left.length ? `, ${mend.left.length} left in a flow (${mend.left.map((l) => `${l.at.join(",")} ${l.why}`).join("; ")})` : ""}` : "";
@@ -492,6 +609,39 @@ function runPlace(item: LibraryItem): Outcome | null {
       place = { ...place, sources: [...place.sources, ...best.add] };
       ({ built, v, strict, blocking, strictFails } = best.r);
     }
+  }
+  // A start that still reaches no water tries every spot its land offers (planning's ruling on #236): each spot with a
+  // shore within `WIDE_SHORE_WALK`, a few tiles apart, that passes `start.water` with the room floor (`start.level_land`)
+  // on the settled water, its wood grown where it falls short (objects only), and nothing else it passed then failing;
+  // the best wins. Where none does, `start.water` stands: the place keeps D445's note.
+  let everySpot = "";
+  if (strictFails.includes("start.water")) {
+    const had = new Set(strictFails);
+    let best: { at: [number, number]; place: PlaceData; r: Checked; score: number } | null = null;
+    const all = placeStartSpots(place, built.heights, built.settle.depth, built.settle.contamination, { limit: Infinity, walk: WIDE_SHORE_WALK });
+    let watered = 0;
+    for (const at of all) {
+      let cand = withStart(place, at);
+      let r = buildChecked(cand);
+      if (r.strictFails.includes("start.water") || r.strictFails.includes("start.level_land")) continue;
+      watered++;
+      if (r.strictFails.some((id) => WOOD_CHECKS.includes(id) && !had.has(id))) {
+        const walkField = startWalkField(r.built.heights, cand.W, cand.H, placeEntities(cand, r.built.heights), { x: at[0] + 1, y: at[1] + 1 });
+        const g = growFastWood(cand, r, walkField, { wood: checkLimit(r.strict, "start.wood"), floor: checkLimit(r.strict, "start.wood_floor") }, (c) => c.strictFails.includes("start.wood_fast"));
+        cand = g.place;
+        r = g.r;
+      }
+      if (r.strictFails.some((id) => !had.has(id) && !free.has(id))) continue;
+      const sc = score(r.strictFails);
+      if (best && sc >= best.score) continue;
+      best = { at, place: cand, r, score: sc };
+    }
+    if (best) {
+      moved ??= place.start;
+      place = best.place;
+      ({ built, v, strict, blocking, strictFails } = best.r);
+    }
+    everySpot = `  every spot tried for water (${all.length}): ${watered} pass start.water with the room floor${best ? "" : watered ? ", none without failing more" : ""}`;
   }
   // A start short of berries (after a move or a spring, or on its own land) gets the bushes the
   // `start.food` check's own fix plants (the editor's one-click fix: moist tiles within 20 tiles'
@@ -609,6 +759,18 @@ function runPlace(item: LibraryItem): Outcome | null {
       ({ built, v, strict, blocking, strictFails } = r);
     }
   }
+  // The starting-logs floor met by groves (D245): a start still short of `start.wood` or `start.wood_floor` gets fast
+  // trees on the moist ground nearest it (`growFastWood`, objects only), kept only where nothing it passed then fails
+  let groves = "";
+  if (!floorsFail && strict.analysis && (strictFails.includes("start.wood") || strictFails.includes("start.wood_floor"))) {
+    const walk = startWalkField(built.heights, place.W, place.H, placeEntities(place, built.heights), { x: place.start[0] + 1, y: place.start[1] + 1 });
+    const g = growFastWood(place, { built, v, strict, blocking, strictFails }, walk, { wood: checkLimit(strict, "start.wood"), floor: checkLimit(strict, "start.wood_floor") }, () => false);
+    if (g.planted && !g.r.strictFails.some((id) => !strictFails.includes(id)) && g.r.strictFails.length < strictFails.length) {
+      place = g.place;
+      ({ built, v, strict, blocking, strictFails } = g.r);
+      groves = `  ${g.planted} ${g.kind} planted for the start's wood`;
+    }
+  }
   if (floorsFail) {
     // (a start that cannot keep its wood once its plants stand on ground they live on: never forgotten, never offered)
     withheld.push(place.name);
@@ -631,10 +793,13 @@ function runPlace(item: LibraryItem): Outcome | null {
       (blocking.length ? `  export: ${blocking.map((c) => c.id).join(", ")}` : "") +
       (strictFails.length ? `  generate profile: ${strictFails.join(", ")}` : "") +
       (moved ? `  start moved from ${moved.join(",")} to ${place.start.join(",")}${movedWood}` : "") +
+      basin.note +
       mendNote +
       (spring ? `  spring by the start at ${spring.map((s) => `${s[0]},${s[1]}`).join(" ")}` : "") +
       (planted ? `  ${planted} berry bushes planted by the start` : "") +
-      plants,
+      plants +
+      groves +
+      everySpot,
   );
   const data = gzipSync(strToU8(JSON.stringify(place)), { level: 9, mtime: 0 });
   files.set(`data/${place.id}.json.gz`, data);
@@ -654,6 +819,13 @@ function runPlace(item: LibraryItem): Outcome | null {
     faults: [...faults],
   });
   if (placeFileName(place) !== namedFile(place.name)) throw new Error(`${place.name}: file name ${placeFileName(place)}`);
+  if (waterMeasure) say(waterLine(built, place));
+  // what opens is what the game keeps (planning's rule, #236: no known list): the file's water model settled again,
+  // as the first edit settles it, keeps the wet tiles within 1 % and every body of 30 tiles or more; and no film above
+  // floor 0. A floor-0 sheet the edge's spill holds (D303) is allowed and counted, over real water and real dry land.
+  const w = waterVerdict(item.id, built);
+  say(w.line);
+  if (w.failed) out.failed = true;
   return out;
 }
 
@@ -703,7 +875,7 @@ async function runShards(): Promise<(Outcome | null)[]> {
         { length: n },
         (_, k) =>
           new Promise<void>((done, fail) => {
-            const child = spawn(process.execPath, [...process.execArgv, process.argv[1], "--claim", dir], { stdio: ["ignore", "inherit", "inherit"] });
+            const child = spawn(process.execPath, [...process.execArgv, process.argv[1], ...process.argv.slice(2), "--claim", dir], { stdio: ["ignore", "inherit", "inherit"] });
             child.on("error", fail);
             child.on("exit", (code) => (code === 0 ? done() : fail(new Error(`places process ${k + 1} of ${n} stopped (exit ${code})`))));
           }),
@@ -751,10 +923,10 @@ if (check) {
     for (const f of readdirSync(join(OUT, dir))) if (!files.has(`${dir}/${f}`)) differ.push(`${dir}/${f} (not made any more)`);
   }
   if (differ.length) {
-    console.error(`public/real-places differs from a fresh run: ${differ.join(", ")}. Run npm run places.`);
+    console.error(`${OUT} differs from a fresh run: ${differ.join(", ")}. Run npm run places.`);
     process.exit(1);
   }
-  console.log("public/real-places matches a fresh run");
+  console.log(`${OUT} matches a fresh run`);
   process.exit(0);
 }
 rmSync(OUT, { recursive: true, force: true });
