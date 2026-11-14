@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bloomLevels, bloomLift, GAME_BLOOM, GAME_BLOOM_LOOKS, inverseTable, LAVA_BLOOM_ENDS, lavaSourceMax } from "../../src/render3d/bloom";
+import { bloomLevels, bloomLift, FIRE_SOURCE_MAX, GAME_BLOOM, GAME_BLOOM_LOOKS, inverseTable, LAVA_BLOOM_ENDS, lavaSourceMax } from "../../src/render3d/bloom";
 import { LAVA } from "../../src/render3d/materials";
 import { paletteDefaults } from "../../src/render3d/high/models";
 import { GAME_LIGHT, GAME_SKY, gameAmbient, gamePostRgb, LIGHT, MINE, ownAlbedo, RUIN, START, TREE_COLOURS, type Rgb } from "../../src/render3d/palette";
@@ -134,5 +134,14 @@ describe("the game's bloom (D497 as amended 2026-11-08)", () => {
     expect(lavaSourceMax(0)).toBeGreaterThan(GAME_BLOOM.clamp);
     // the bound is the shader's own sum: the lava at its most share at the hottest, red channel
     expect(lavaSourceMax(0, 0)).toBeCloseTo(LAVA.hot[0] * LAVA.most, 6);
+  });
+
+  it("draws a start's fire's bloom: where its particles stack, their doubled yellow passes the knee (renderer.ts `blooms` while a flame shows)", () => {
+    // (the FireParticles colour, 2 × the gradient's yellow, 1 / 0.80 / 0: what the game's HDR frame keeps where they stack)
+    expect(FIRE_SOURCE_MAX).toBeCloseTo(2, 6);
+    expect(bloomLift(FIRE_SOURCE_MAX)).toBeGreaterThan(0);
+    // its orange, the next brightest, passes too; its red, 1.47, only just
+    expect(bloomLift(2 * 0.996)).toBeGreaterThan(0);
+    expect(bloomLift(2 * 0.7358)).toBeLessThan(bloomLift(FIRE_SOURCE_MAX) / 10);
   });
 });

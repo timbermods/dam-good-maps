@@ -55,7 +55,7 @@ import {
 } from "three";
 import { AID_LAYER } from "./aidLayer";
 import { BLOOM_SOURCE, GAME_POST_GLSL, LAVA } from "./materials";
-import { gamePostRgb } from "./palette";
+import { gamePostRgb, START_FIRE } from "./palette";
 
 /** The game's bloom (`Rendering/Volume` Bloom, Timberborn 1.1.2.8; `tools/game-bloom.py`). */
 export const GAME_BLOOM = {
@@ -116,6 +116,12 @@ export const LAVA_BLOOM_ENDS = (() => {
   for (let t = 0; t <= LAVA.fade[1]; t += 0.001) if (lavaSourceMax(t) > knee) last = t;
   return Math.ceil((last + 0.001) * 100) / 100;
 })();
+
+/** The brightest the start's fire makes a pixel of the bloom's source (display, its brightest channel): where its
+ *  particles stack thick, their FireParticles colour itself, 2 × the gradient's brightest (its yellow, 2 / 1.6 / 0),
+ *  which passes the knee as the game's HDR frame keeps it (palette.ts `START_FIRE`; renderer.ts `blooms` draws the
+ *  bloom while a flame shows). */
+export const FIRE_SOURCE_MAX = 2 * Math.max(...START_FIRE.colourOverLife.map((k) => Math.max(k[1], k[2], k[3])));
 
 /** The canvas's code (0–255) → the linear colour before the grade that the post chain turns into it, for a grey (the
  *  post chain's saturation, +3 %, left out: `apply` puts on only what the bloom changes). The last code is the least
@@ -299,12 +305,16 @@ export class GameBloom {
   }
 
   /** Draw the frame before the grade (every look material's colour before the post chain, no editing aid) into the
-   *  bloom's half-resolution target, for the canvas's present size. */
-  drawSource(gl: WebGLRenderer, scene: Scene, camera: Camera): void {
+   *  bloom's half-resolution target, for the canvas's present size. Only inside `rect` (the drawing buffer's pixels, x
+   *  and y from its lower left, z and w across and up) when only what stands there can pass the knee (renderer.ts
+   *  `bloomRect`: a start's fire and the lantern its light lights): the rest of the source is black, which the
+   *  prefilter takes nothing from, as it would take nothing from what is drawn there. */
+  drawSource(gl: WebGLRenderer, scene: Scene, camera: Camera, rect: Vector4 | null = null): void {
     gl.getDrawingBufferSize(this.size);
     const w = Math.max(1, Math.floor(this.size.x) >> 1);
     const h = Math.max(1, Math.floor(this.size.y) >> 1);
     this.fit(w, h);
+    const src = this.source!;
     const before = gl.getRenderTarget();
     const clear = gl.getClearAlpha();
     const was = gl.getClearColor(this.clearWas);
@@ -312,14 +322,26 @@ export class GameBloom {
     const aids = camera.layers.isEnabled(AID_LAYER);
     camera.layers.disable(AID_LAYER);
     try {
-      gl.setRenderTarget(this.source);
+      src.scissorTest = false;
+      gl.setRenderTarget(src);
       gl.setClearColor(0x000000, 1);
       gl.clear(true, true, false);
+      if (rect) {
+        // (in the source's texels, out to whole ones and a texel more, the prefilter's taps reaching half of one)
+        const x0 = Math.max(0, Math.floor(rect.x / 2) - 1);
+        const y0 = Math.max(0, Math.floor(rect.y / 2) - 1);
+        const x1 = Math.min(w, Math.ceil((rect.x + rect.z) / 2) + 1);
+        const y1 = Math.min(h, Math.ceil((rect.y + rect.w) / 2) + 1);
+        src.scissor.set(x0, y0, Math.max(0, x1 - x0), Math.max(0, y1 - y0));
+        src.scissorTest = true;
+        gl.setRenderTarget(src);
+      }
       const auto = gl.autoClear;
       gl.autoClear = false;
-      gl.render(scene, camera);
+      if (!rect || src.scissor.z * src.scissor.w > 0) gl.render(scene, camera);
       gl.autoClear = auto;
     } finally {
+      src.scissorTest = false;
       BLOOM_SOURCE.value = 0;
       if (aids) camera.layers.enable(AID_LAYER);
       gl.setRenderTarget(before);

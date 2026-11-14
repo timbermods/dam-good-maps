@@ -326,6 +326,9 @@ export const DEFAULT_PITCH = (70 * Math.PI) / 180;
 /** The start's flame's width (m, about a particle's at its brightest) and the fewest pixels across it must show for its
  *  motion to ask for frames (`fireShows`). */
 const FIRE_WIDTH = 0.3;
+/** The box round a start that its fire's bloom is drawn from (`bloomRect`): its district center's half width with its
+ *  overhang (1.55) and its height with the light's reach above the lantern (4.5). */
+const BLOOM_START_BOX = [1.6, 4.5] as const;
 const FIRE_SHOWN_PX = 2;
 /** Frames a second of the water's movement when nothing else asks for a frame. */
 const WATER_FPS = 30;
@@ -4529,7 +4532,7 @@ export class MapRenderer {
     this.motionRows.flush();
     // the game's bloom: the frame before the grade drawn for it first, then the view, then the bloom put on it (bloom.ts)
     const bloom = this.blooms() ? (this.bloom ??= new GameBloom()) : null;
-    bloom?.drawSource(this.gl, this.scene, cam);
+    bloom?.drawSource(this.gl, this.scene, cam, this.bloomRect(cam));
     // (the copies only where the view's frame draws to the screen: the terrain overlays the ground under water itself
     // otherwise, refraction.ts)
     this.refraction.begin(this.refracts() && this.gl.getRenderTarget() === null);
@@ -4565,15 +4568,61 @@ export class MapRenderer {
   /** Whether this frame draws the game's bloom (bloom.ts): Standard and High, as the game's default preset; never the
    *  light look. And only while something in the frame can pass its knee (D453: by day nothing does, so its passes,
    *  about 1.4 ms of a GPU's in High, would change no pixel; `tests/unit/bloom.test.ts` holds the day's brightest under
-   *  it, `tests/e2e/look-high.spec.ts` the frame alike with it and without): today an eruption's lava, until its crust
-   *  has put out its light (`LAVA_BLOOM_ENDS`). */
+   *  it, `tests/e2e/look-high.spec.ts` the frame alike with it and without): an eruption's lava, until its crust has
+   *  put out its light (`LAVA_BLOOM_ENDS`), and a start's fire while its flame shows (`fireShows`: its doubled colour
+   *  passes the knee where its particles stack, bloom.ts `FIRE_SOURCE_MAX`), as the game's HDR frame blooms both. */
   private blooms(): boolean {
     if (this.software || !this.map) return false;
     const look = this.lookNow;
     if (look === "light" || !GAME_BLOOM_LOOKS[look === "standard" ? "standard" : "high"]) return false;
+    return this.lavaBlooms() || this.fireShows();
+  }
+
+  /** An eruption's lava can pass the bloom's knee (`LAVA_BLOOM_ENDS`). */
+  private lavaBlooms(): boolean {
     const u = this.terrainMat.uniforms;
     return !!u.eruptionAge && u.eruptionAge.value >= 0 && u.coolingAge.value < LAVA_BLOOM_ENDS;
   }
+
+  /** Where the bloom's source need be drawn (bloom.ts `drawSource`), in the drawing buffer's pixels from its lower left:
+   *  with no lava glowing, only the starts' fires and the lanterns their lights light can pass the knee (by day nothing
+   *  else does, tests/unit/bloom.test.ts), so the box on screen round each start whose fire is drawn (its district
+   *  center, `BLOOM_START_BOX`), which spares the source the rest of the frame (D453); the whole frame (null) while
+   *  lava glows or a start's box reaches behind the camera. */
+  private bloomRect(cam: PerspectiveCamera | OrthographicCamera): Vector4 | null {
+    if (this.lavaBlooms()) return null;
+    const size = this.gl.getDrawingBufferSize(this.bloomSize);
+    const slice = this.uniforms.slice.value;
+    const hide = this.uniforms.objectHide.value;
+    const [half, high] = BLOOM_START_BOX;
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const c of this.fireCentres) {
+      if (!fireDrawn(c, slice, hide)) continue;
+      for (let k = 0; k < 8; k++) {
+        const p = this.fireAt.set(c[0] + (k & 1 ? half : -half), c[1] + (k & 2 ? high : 0), c[2] + (k & 4 ? half : -half));
+        // (a corner at or behind the camera's near plane projects wrong: the whole frame then)
+        if (cam instanceof PerspectiveCamera && -this.bloomEye.copy(p).applyMatrix4(cam.matrixWorldInverse).z <= cam.near) return null;
+        p.project(cam);
+        x0 = Math.min(x0, p.x);
+        x1 = Math.max(x1, p.x);
+        y0 = Math.min(y0, p.y);
+        y1 = Math.max(y1, p.y);
+      }
+    }
+    if (!(x1 > x0)) return null;
+    const px = (v: number, n: number) => (Math.min(1, Math.max(-1, v)) + 1) * 0.5 * n;
+    const r = this.bloomRectOut;
+    r.set(Math.floor(px(x0, size.x)), Math.floor(px(y0, size.y)), 0, 0);
+    r.z = Math.ceil(px(x1, size.x)) - r.x;
+    r.w = Math.ceil(px(y1, size.y)) - r.y;
+    return r;
+  }
+  private readonly bloomSize = new Vector2();
+  private readonly bloomRectOut = new Vector4();
+  private readonly bloomEye = new Vector3();
 
   /** Whether this frame wants the copies of the screen behind the water (refraction.ts): a look that draws the game's
    *  high-quality water, with water on the map. From any distance: the ground behind the game's water always shows

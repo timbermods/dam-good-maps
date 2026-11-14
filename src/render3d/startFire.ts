@@ -6,9 +6,11 @@
 // spinning 45° a second, its colour over its life a dark grey, yellow, orange and red flame turning to a grey smoke,
 // drawn unlit and alpha-blended as its FireParticles shader draws it: colour 2 × texel × particle colour, alpha 2 ×
 // texel alpha × particle alpha × 0.349, its texture white with a soft round alpha (`textureAlpha`). The game's frame is
-// HDR and keeps the doubled colour for its bloom where particles stack; ours keeps it for the bloom pass (bloom.ts), which
-// runs only while something can pass its knee (renderer.ts `blooms`: today lava), so the fire does not bloom yet. Its light, a
-// spot in the flue pointing down, is the terrain's and the objects' (materials.ts `START_LIGHT_GLSL`).
+// HDR and keeps the doubled colour, which its bloom takes where particles stack; ours keeps it for the bloom pass
+// (bloom.ts), which runs while a flame shows (renderer.ts `blooms`, its source drawn round the starts: `bloomRect`). Its
+// light, a spot in the flue pointing down, is the terrain's and the objects' (materials.ts `START_LIGHT_GLSL`). The
+// probe's in-game shots are drawn into an 8-bit target, which clamps each particle's doubled colour at 1 and shows no
+// bloom: they are not the player's HDR screen (docs/progress/3d-view.md, "The fire's bloom, and the game's shots").
 //
 // Placed and timed on the GPU from each particle's seed: 125 particles a start (the game's 50 a second × its mean life
 // of 2.5 s), each born again as it dies with new draws of its speed, size, turn and place on the disc, so the stream is

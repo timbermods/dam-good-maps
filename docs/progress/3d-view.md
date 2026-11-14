@@ -608,7 +608,8 @@ Standard's shadow before a cave (item 8).
     densest clouds 1.271, which move no code. The birch's bark is held there too, at its upright bound (near-white, 1.37
     on a trunk square to the sun in Standard and 1.42 in High; in the game's warm grey 1.23 and 1.155, below).
     `tests/e2e/look-high.spec.ts` checks the frame by day is skipped and the same to the byte with the passes and
-    without, and that an eruption's lava draws them.
+    without, and that an eruption's lava draws them. Since `fix/start-fire-2` a start's fire draws them too, while its
+    flame shows, its source drawn round the start alone ("The fire's bloom, and the game's shots", below).
   - **The colours bloom found** (D178, D496's rule: the game's albedo at our lightness; `tools/game-model-albedo.py`
     reads a model's Timbermesh and its material, EnvironmentURP's 2 × detail × vertex colour × `_MainTex` × `_Color`,
     VegetationURP's vertex colour × `_MainTex`, area-weighted over each triangle): the start's marker
@@ -4090,7 +4091,67 @@ The start is the faction's district center with the game's fire in its bowl, dra
   the game's does in the close capture. (2) Day only: our view has no night, where the game's fire light shows most.
   (3) The water doesn't take the start's light (whether the game's does is not read). (4) No game capture of the Iron
   Teeth start to set ours beside. (5) The fire does not bloom: our bloom runs only for lava, so the game's glow where
-  its flame's particles stack is missing.
+  its flame's particles stack is missing. (1) and (5) were taken up in `fix/start-fire-2` (next section): (1) is not
+  borne out over three of the game's frames, and the fire blooms.
+
+## The fire's bloom, and the game's shots (D178 as amended 2026-11-10, D496, D497; `fix/start-fire-2`)
+
+Planning's shortfalls of the fire (#1139): the Standard flame redder than the game's orange-yellow, short of the
+lantern's hood, and no bloom. Judged at the game's close (`cave`) and opening (`first`) cameras on Four Lakes r14,
+against all three of the game's frames of the close camera (day 1, the drought, the Badtide: the fire is the same in
+each), ours over 40 moments of the fire's clock, in the flame's column between the lantern's posts, rows 3 pixels high
+(`.scratch` measures, not kept).
+
+- **The game's shots are not the player's screen.** The probe's `ShotTaker` draws the game's camera into an 8-bit
+  `RenderTexture` (ARGB32), and URP takes a camera's colour buffer from its target texture's format, so the shot's
+  frame holds no value over 1; the player's is HDR (the URP asset's `m_SupportsHDR` 1, B10G11R11, and the camera's
+  `m_HDR` 1: `tools/game-bloom.py`). Each draw clamps there: the fire's doubled colour is kept at 1 / 1 / 0, and nothing
+  reaches the bloom's knee. Across all 21 r14 shots no 7 × 7 patch is brighter than 234 (the post chain's most from
+  values up to 1 is 230); ours at the same cameras has 3,066 pixels over it, round the lantern its light lights. The
+  FireParticles shader, read again (`tools/game-water-shader.py --shader "Shader Graphs/FireParticles"`, pass "Unlit",
+  a local one-line change to the pass it picks), is as read before: colour 2 × texel × particle colour × tint, alpha
+  saturate(2 × texel alpha × particle alpha × 0.349); the renderer billboards, sorted by distance, at most half the
+  screen (none of which changes the stream's colours).
+- **(1) Redder: the shot's clamp.** The game's three frames: the flame's core R 222–226 and its G ours within 15 (our
+  frame-to-frame spread 16–28); ours R 240–250. A model of the stream drawn both ways (`START_FIRE`'s figures at the
+  game's camera; drawn our way it matches our frames within 5) gives the core R 227 with the clamp, as the shots, and
+  254 without it, as the player's HDR frame. So the flame's colour is unchanged; the bloom (3) lifts its core to 253 /
+  243 / 59 and its yellow (G over 150) up to row 115 ± 3 (dev 122 ± 4).
+- **(2) Short of the hood: not borne out.** Over the three frames the flame's colour ends (R − B over 50) at rows 98–104,
+  dev's at 97 ± 3; its yellow ends at 116–129 (mean 121.7), dev's at 121.7 ± 4.4. One frame of the game's wanders as
+  much as that.
+- **(3) The bloom:** the game's HDR frame keeps the flame's doubled colour where its particles stack, and the bloom's
+  prefilter takes it (2 / 1.6 / 0: `bloom.ts` `FIRE_SOURCE_MAX`, `bloomLift` 5.3, at the clamp as lava's hottest),
+  as it takes lava. So `renderer.ts` `blooms` draws the bloom while a start's flame shows (`fireShows`, the rule its motion
+  asks for frames by), in Standard and High, never the light look. Our bloom's source already held the fire's colour
+  before the post chain (startFire.ts writes `gpSource`), blended as the game's frame blends it, so the glow is the
+  game's pass for pass. The lantern's posts and bowl, which the fire's spot light lights over the knee, glow with it.
+- **Its source drawn round the start alone** (`bloomRect`, D453): with no lava glowing nothing else in a frame passes
+  the knee by day (`bloom.test.ts`), so the source is drawn only inside the screen box round each start whose fire is
+  drawn (its district center, 1.6 out from its middle and 4.5 up: `BLOOM_START_BOX`), the rest black; the whole frame
+  while lava glows or the box reaches behind the camera. The frame is the whole source's: they differ by no more than
+  two redraws of the same frame do (High: 1 to 33 bytes of 4.3 million by 2 levels or more; the bloom lifts some
+  530,000). `tests/e2e/look-high.spec.ts` holds both: by day without the fire and its light nothing blooms and the
+  frame is the same to the byte; with them the bloom is drawn, from the box, as from the whole frame.
+- **The hood's mouth** (entities3d.ts `districtCenter`): the dark disc standing for the Folktails' open hood seen from
+  above sat at 4.18, 0.06 under the fire's light (4.24), which lit it white (255 / 255 / 255 at the opening camera, and
+  the bloom would have haloed it); the game's top is open, where its shot shows the lantern's warm inside (182 / 154 /
+  95). It now stands in the ring's throat at 4.26, above the light, as the Iron Teeth's cap at 4.3 does, so the light
+  never lights a face the game has not there.
+- **Cost:** `benchOrbit(6000)` round the start at the game's close camera, Four Lakes r14, 1600 × 900, headed Chrome,
+  RTX 2070 SUPER, seven runs each, interleaved (the GPU's median a frame): Standard 3.30 ms without the bloom, 4.11
+  with it (4.46 with the whole frame's source); High 4.10, 4.21 (4.68). Only while a flame shows; a map at rest with no
+  flame in view draws nothing, as before. Nothing allocated a frame.
+- **Sheet** (local only, `C:/dgm-showcase/start/fire-2/sheet.png`): the game's close and opening frames beside dev's
+  (Standard) and ours (Standard and High) at the same cameras and the same moment of the fire.
+- **Falls short:** (1) Our flame is graded particle by particle and blended on the graded canvas, where the game blends
+  in its HDR frame and grades the whole: by the model the player's flame is brighter in its orange (R 231 against our
+  214 at its middle) and a little less yellow above it (G 83 against 90); the core is the same. Drawing the fire into a
+  frame of its own and grading it whole would close it. (2) The probe's shots should be drawn into an HDR target
+  (`RenderTextureFormat.DefaultHDR`), so the game's own frames show the bloom and the lights as players see them; until
+  then a shot is no yardstick for anything over 1 (the fire, its light, lava). (3) The game's open hood shows the
+  lantern's lit inside from above; ours a dark disc. (4) Day only, as before.
+
 
 ## Falls that pour, against the game's Four Lakes frames (PERFECT Water 3; D154, D496; `fix/falls-pour-2`)
 
