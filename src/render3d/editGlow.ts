@@ -185,7 +185,8 @@ export function editGlowMaterial(): ShaderMaterial {
     polygonOffset: true,
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -2,
-    uniforms: { fade: { value: 1 } },
+    // (rise: the added faces' strength while the Block tool's blocks grow, blockPop.ts `glowRiseAt`; 1 otherwise)
+    uniforms: { fade: { value: 1 }, rise: { value: 1 } },
     vertexShader: /* glsl */ `
       attribute vec2 face;
       attribute float kind;
@@ -198,6 +199,7 @@ export function editGlowMaterial(): ShaderMaterial {
       }`,
     fragmentShader: /* glsl */ `
       uniform float fade;
+      uniform float rise;
       varying vec2 vFace;
       varying float vKind;
       void main() {
@@ -207,7 +209,7 @@ export function editGlowMaterial(): ShaderMaterial {
         // added: the Block tool's white; removed: its red (D335)
         vec3 fill = mix(vec3(0.93, 0.96, 1.0), vec3(0.95, 0.3, 0.24), vKind);
         vec3 line = mix(vec3(1.0), vec3(1.0, 0.5, 0.42), vKind);
-        float a = mix(mix(0.34, 0.4, vKind), 0.9, edge) * fade;
+        float a = mix(mix(0.34, 0.4, vKind), 0.9, edge) * fade * mix(rise, 1.0, vKind);
         gl_FragColor = vec4(mix(fill, line, edge), a);
       }`,
   });
