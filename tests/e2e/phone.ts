@@ -83,3 +83,49 @@ export async function phoneClipped(page: Page) {
     return found.filter((f) => !found.some((g) => g !== f && f.el.contains(g.el))).map((f) => f.line);
   });
 }
+
+/** What a finger must hit of each control inside `scope` (a tool's settings, #1074 slice 7), the smallest side first:
+ *  what is drawn of it (a finger aims at what it sees: a chip drawn small in a clear 44px box is a small chip; a slider is
+ *  its whole bar, which takes a press anywhere), and of that what the page's own answer, `elementFromPoint`, sampled every
+ *  2px, gives to this control and no other (a neighbour's box laid over it, or a clip, takes the rest): the longest run
+ *  across and the longest run down. Each as `{ name, w, h }`. */
+export async function hitTargets(page: Page, scope: string) {
+  return page.evaluate((scope) => {
+    const sel = "button, select, textarea, input:not([type=hidden]):not([type=file]), [role=checkbox], [role=slider], [role=menuitem]";
+    const out: { name: string; w: number; h: number }[] = [];
+    for (const root of document.querySelectorAll<HTMLElement>(scope))
+      for (const el of root.querySelectorAll<HTMLElement>(sel)) {
+        if (el.closest("[hidden], .visually-hidden, [aria-hidden=true]") || !el.checkVisibility({ checkVisibilityCSS: true } as never)) continue;
+        if ((el as HTMLButtonElement).disabled) continue;
+        const box = el.getBoundingClientRect();
+        if (!box.width || !box.height) continue;
+        // what is drawn: the box, or a clear box's ::before plate (Auto's pill), inset as it is
+        const cs = getComputedStyle(el);
+        const clear = (s: CSSStyleDeclaration) => (s.backgroundColor === "rgba(0, 0, 0, 0)" || s.backgroundColor === "transparent") && s.backgroundImage === "none" && !(parseFloat(s.borderTopWidth) > 0 && s.borderTopStyle !== "none");
+        let r = { left: box.left, top: box.top, right: box.right, bottom: box.bottom };
+        const before = getComputedStyle(el, "::before");
+        if (el.tagName !== "INPUT" && clear(cs) && before.content !== "none" && !clear(before) && before.position === "absolute") {
+          const px = (v: string) => parseFloat(v) || 0;
+          r = { left: box.left + px(before.left), top: box.top + px(before.top), right: box.right - px(before.right), bottom: box.bottom - px(before.bottom) };
+        }
+        const step = 2;
+        const xs: number[] = [];
+        const ys: number[] = [];
+        for (let x = Math.ceil(r.left) + 0.5; x < r.right; x += step) xs.push(x);
+        for (let y = Math.ceil(r.top) + 0.5; y < r.bottom; y += step) ys.push(y);
+        // (a control inside another, a field in a button's cell: the innermost interactive one under the point)
+        const hits = ys.map((y) => xs.map((x) => document.elementFromPoint(x, y)?.closest(sel) === el));
+        const run = (line: boolean[]) => {
+          let best = 0;
+          let now = 0;
+          for (const h of line) best = Math.max(best, (now = h ? now + 1 : 0));
+          return best * step;
+        };
+        const w = Math.max(0, ...hits.map(run));
+        const h = Math.max(0, ...xs.map((_, k) => run(hits.map((row) => row[k]))));
+        const name = (el.getAttribute("aria-label") || el.textContent || el.className || el.tagName).trim().replace(/\s+/g, " ").slice(0, 32);
+        out.push({ name, w, h });
+      }
+    return out.sort((a, b) => Math.min(a.w, a.h) - Math.min(b.w, b.h));
+  }, scope);
+}
