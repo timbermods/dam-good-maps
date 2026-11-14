@@ -60,7 +60,7 @@ import {
 } from "three";
 import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
 import { blockReach, hollowFootprint, HollowMarks, roofOf, type HollowReach } from "./hollow";
-import { CaveGhost, type Rect } from "./caveGhost";
+import { CaveBook, CaveGhost, type Rect } from "./caveGhost";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
 import { GeothermalSteam, steamFields } from "./geothermalSteam";
@@ -3661,10 +3661,8 @@ export class MapRenderer {
   private caveGhost: CaveGhost | null = null;
   /** The Caves and overhangs layer is on (`showCaves`). */
   private cavesShown = false;
-  /** What the caves drawn were built from: the map, its ground as last accounted for (`caveEdited`) and the cut. */
-  private caveGhostOf: { map: MapState; source: TerrainSource; slice: number | null } | null = null;
-  /** The tiles edits changed since the caves were drawn, built again there only (`layCaveGhost`). */
-  private caveDirty: Rect | null = null;
+  /** What the caves drawn were built from and what edits changed since (caveGhost.ts `CaveBook`). */
+  private readonly caveBook = new CaveBook();
 
   /** The Caves and overhangs layer turned on or off (D488): with it on, the air under every roof is drawn through the
    *  rock (caveGhost.ts), its floor, its steps, its walls and its mouths, so a cave reads from the editing pitch. */
@@ -3674,14 +3672,10 @@ export class MapRenderer {
     this.requestRender();
   }
 
-  /** The ground changed from `was` to the map's source now over `rect` (an edit, a stroke's frame): with the caves
-   *  drawn from `was`, only the chunks round `rect` are built again. A change the caves were not told of (the source
-   *  changed some other way) is found by `layCaveGhost`. */
+  /** The ground changed from `was` to the map's source now over `rect` (an edit, a stroke's frame): with caves drawn,
+   *  only the chunks round `rect` are built again (`CaveBook`). */
   private caveEdited(was: TerrainSource, rect: Rect | null): void {
-    const of = this.caveGhostOf;
-    if (!of || of.source !== was) return;
-    of.source = this.map!.source;
-    if (rect) this.caveDirty = grownRect(this.caveDirty, rect);
+    this.caveBook.edited(was, this.map!.source, rect);
   }
 
   /** The caves through the rock, laid by renderNow before it draws: built when the layer turns on, the map opens or the
@@ -3690,19 +3684,12 @@ export class MapRenderer {
     const m = this.map;
     const src = m?.source;
     if (!m || !src || !this.cavesShown || src.columns.size === 0) {
-      if (this.caveGhostOf) this.caveGhost?.clear();
-      this.caveGhostOf = null;
-      this.caveDirty = null;
+      if (this.caveBook.drawn) this.caveGhost?.clear();
+      this.caveBook.clear();
       return;
     }
-    const of = this.caveGhostOf;
-    // (null: every chunk; a change of the source the edits did not account for builds them all, unless only what the
-    // caves never read changed, a pit's cutout)
-    const all = !of || of.map !== m || of.slice !== this.slice || (of.source !== src && (of.source.heights !== src.heights || of.source.masks !== src.masks || of.source.columns !== src.columns));
-    const rect = all ? null : this.caveDirty;
-    this.caveGhostOf = { map: m, source: src, slice: this.slice };
-    this.caveDirty = null;
-    if (!all && !rect) return;
+    const rect = this.caveBook.due(m, src, this.slice);
+    if (rect === undefined) return;
     const keep = cutKeep(this.slice);
     const masks = src.masks;
     const listed = masks ? (i: number) => masks[i] !== 0 : (i: number) => src.columns.has(i);

@@ -23,7 +23,7 @@ import { BufferAttribute, BufferGeometry, CustomBlending, DoubleSide, GreaterDep
 import { LAYERS } from "./model";
 import { WATER_UI } from "./palette";
 import { onAidLayer } from "./aidLayer";
-import { CHUNK } from "./mesh";
+import { CHUNK, type TerrainSource } from "./mesh";
 
 /** The Caves layer's violet (`LAYER_COLORS.roofed`, 170 90 220): the walls' fill. */
 const VIOLET: readonly [number, number, number] = [170 / 255, 90 / 255, 220 / 255];
@@ -167,15 +167,16 @@ export function caveFaces(W: number, H: number, listed: (i: number) => boolean, 
   const mouthAt = (x: number, y: number, z: number, dx: number, dy: number) => roofed(x, y, z) && open(x + dx, y + dy, z);
   /** A cell has a floor at its own layer. */
   const floored = (x: number, y: number, z: number) => roofed(x, y, z) && solid(x, y, z - 1);
-  /** A cell's side toward (dx, dy) is a step of its floor: the rock there rises at most `STEP` layers from the cell's
-   *  floor to a floor of air under a roof, and the cell's own air reaches that floor's level (the passage goes on up
-   *  it; no air is made that isn't there). */
+  /** A cell's side toward (dx, dy) is a step of its floor: the rock there rises from the cell's floor (solid all the way
+   *  up from it: a slab with air under it is a wall) at most `STEP` layers to a floor of air under a roof, and the
+   *  cell's own air reaches that floor's level (the passage goes on up it; no air is made that isn't there). */
   const riser = (x: number, y: number, z: number, dx: number, dy: number) => {
     const nx = x + dx;
     const ny = y + dy;
     if (!roofed(x, y, z) || !inMap(nx, ny) || !solid(nx, ny, z)) return false;
     let f = z;
     while (f > 0 && !solid(x, y, f - 1)) f--;
+    for (let k = f; k < z; k++) if (!solid(nx, ny, k)) return false;
     let t = z + 1;
     while (t - f <= STEP && solid(nx, ny, t)) t++;
     if (t - f > STEP || !roofed(nx, ny, t)) return false;
@@ -304,6 +305,48 @@ export function caveChunksOf(W: number, H: number, rect: Rect | null): number[] 
   const out: number[] = [];
   for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) out.push(cy * nx + cx);
   return out;
+}
+
+/** What the caves drawn were built from, and what has changed since (the renderer's): the map, its ground as last
+ *  accounted for, the cut, and the tiles edits changed. Pure. */
+export class CaveBook {
+  private of: { map: object; source: TerrainSource; slice: number | null } | null = null;
+  private dirty: Rect | null = null;
+
+  /** The ground changed from `was` to `now` over `rect` (an edit, a stroke's frame). The rect is kept whenever caves are
+   *  drawn, even when `was` is not the ground they were built from (another change came first in the frame, a pit's
+   *  cutout, or the heights changed in place): `due` then decides whether that change needs every chunk. */
+  edited(was: TerrainSource, now: TerrainSource, rect: Rect | null): void {
+    const of = this.of;
+    if (!of) return;
+    if (of.source === was) of.source = now;
+    if (rect) this.dirty = this.dirty ? { x0: Math.min(this.dirty.x0, rect.x0), y0: Math.min(this.dirty.y0, rect.y0), x1: Math.max(this.dirty.x1, rect.x1), y1: Math.max(this.dirty.y1, rect.y1) } : { ...rect };
+  }
+
+  /** What to build now for `map`'s ground `src` under the cut `slice`: null every chunk (the caves new, the map, the cut
+   *  or a part of the ground the caves read changed in a way no edit accounted for), a rect the chunks it reaches,
+   *  undefined nothing. Marks the caves built. */
+  due(map: object, src: TerrainSource, slice: number | null): Rect | null | undefined {
+    const of = this.of;
+    // (a change of the source no edit accounted for builds every chunk, unless only what the caves never read changed,
+    // a pit's cutout)
+    const all = !of || of.map !== map || of.slice !== slice || (of.source !== src && (of.source.heights !== src.heights || of.source.masks !== src.masks || of.source.columns !== src.columns));
+    const rect = all ? null : this.dirty ?? undefined;
+    this.of = { map, source: src, slice };
+    this.dirty = null;
+    return rect;
+  }
+
+  /** No caves drawn (the layer off). */
+  clear(): void {
+    this.of = null;
+    this.dirty = null;
+  }
+
+  /** Caves are drawn. */
+  get drawn(): boolean {
+    return this.of !== null;
+  }
 }
 
 /** One chunk's caves as drawn: what `caveFaces` found there, and its meshes (its fills, its lines hidden and in
