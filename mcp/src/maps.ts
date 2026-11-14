@@ -235,6 +235,10 @@ export interface Change {
   held: number;
   /** The map's new size, after a crop. */
   size?: { x: number; y: number };
+  /** Where the start was and is, when the operations moved it (a force that breaks the start's ground carries it, D257). */
+  start?: { from: [number, number, number] | null; to: [number, number, number] | null };
+  /** What the operations did that a caller would not expect, in words for the player. */
+  notes?: string[];
 }
 
 interface Before {
@@ -242,7 +246,10 @@ interface Before {
   heights: Uint8Array;
   ents: Map<string, string>;
   wet: number;
+  start: [number, number, number] | null;
 }
+
+const startOf = (s: MapSession): [number, number, number] | null => (s.built.start ? [s.built.start.x, s.built.start.y, s.built.start.z] : null);
 
 function wetTiles(s: MapSession): number {
   const w = s.built.water;
@@ -252,7 +259,7 @@ function wetTiles(s: MapSession): number {
 }
 
 function snapshot(s: MapSession): Before {
-  return { size: { ...s.size }, heights: s.built.heights.slice(), ents: new Map(s.built.entities.map((e) => [e.id, e.template])), wet: wetTiles(s) };
+  return { size: { ...s.size }, heights: s.built.heights.slice(), ents: new Map(s.built.entities.map((e) => [e.id, e.template])), wet: wetTiles(s), start: startOf(s) };
 }
 
 function changeSince(s: MapSession, b: Before, steps: string[], held: number): Change {
@@ -297,7 +304,30 @@ function changeSince(s: MapSession, b: Before, steps: string[], held: number): C
   };
 }
 
-const FORCE_DEFAULTS: Record<string, Record<string, unknown>> = {
+const xy = (p: [number, number, number] | null) => (p ? `X ${p[0]} · Y ${p[1]}, level ${p[2]}` : "nowhere");
+
+/** The notes a change gets: the start moved, sources a force cleared, a crater with no water. `verbs`: the forces among
+ *  the operations; `movedStart`: an operation that moved the start on purpose. */
+function notesOf(c: Change, b: Before, now: [number, number, number] | null, verbs: string[], movedStart: boolean): Change {
+  const notes: string[] = [];
+  const same = b.start && now && b.start[0] === now[0] && b.start[1] === now[1] && b.start[2] === now[2];
+  if (!same && (b.start || now)) {
+    c.start = { from: b.start, to: now };
+    if (!movedStart && verbs.length)
+      notes.push(`The force broke the ground under the start, so the start moved from ${xy(b.start)} to ${xy(now)}. Undo, or give the force a smaller size or another place, to keep the start where it was.`);
+  }
+  if (verbs.length) {
+    const water = c.objects.removed.WaterSource ?? 0;
+    const bad = c.objects.removed.BadwaterSource ?? 0;
+    if (water + bad)
+      notes.push(`The force cleared ${[water ? `${water} water source${water > 1 ? "s" : ""}` : "", bad ? `${bad} badwater source${bad > 1 ? "s" : ""}` : ""].filter(Boolean).join(" and ")} on the ground it changed. To keep sources, give settings.sources "ride".`);
+  }
+  if (verbs.includes("craterize")) notes.push("A crater is a dry bowl. For a crater lake, place a WaterSource in the bowl with placeEntity.");
+  if (notes.length) c.notes = notes;
+  return c;
+}
+
+export const FORCE_DEFAULTS: Record<string, Record<string, unknown>> = {
   carve: CARVE_DEFAULTS as unknown as Record<string, unknown>,
   craterize: CRATER_DEFAULTS as unknown as Record<string, unknown>,
   erupt: ERUPT_DEFAULTS as unknown as Record<string, unknown>,
@@ -484,6 +514,15 @@ export function applyOps(s: MapSession, ops: unknown[]): Change {
   const at = depth();
   const steps: string[] = [];
   let held = 0;
+  // (the forces among the operations, and whether one moved the start on purpose: for the change's notes)
+  const verbs: string[] = [];
+  let movedStart = false;
+  const startId = s.built.entities.find((e) => e.template === "StartingLocation")?.id;
+  for (const op of ops) {
+    const { op: name, params } = (op ?? {}) as { op?: string; params?: Record<string, unknown> };
+    if (name === "forceResult" && typeof params?.verb === "string") verbs.push(params.verb);
+    if ((name === "placeEntity" && params?.template === "StartingLocation") || (name === "moveEntity" && startId !== undefined && params?.id === startId)) movedStart = true;
+  }
   try {
     for (const op of ops) {
       const r = applyOne(s, op);
@@ -497,7 +536,7 @@ export function applyOps(s: MapSession, ops: unknown[]): Change {
     s.forgetRedo();
     throw e;
   }
-  return changeSince(s, before, steps, held);
+  return notesOf(changeSince(s, before, steps, held), before, startOf(s), verbs, movedStart);
 }
 
 /** Undo the last step: its label, or the core's reason it can't (D455's save point). */
