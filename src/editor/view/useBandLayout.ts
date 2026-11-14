@@ -48,6 +48,83 @@ export function useFrameDockRoom(): void {
   }, []);
 }
 
+/** The desktop's layout under a finger (a tablet, #1074): a coarse pointer, and the room not a phone's. */
+function touchDesktop(view: HTMLElement): boolean {
+  return typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches && !view.closest(".editor[data-phone]");
+}
+
+/** The height of the bar and the held tool's settings over it (not the notes and hints above them), from the dock's
+ *  foot: a tablet's objects and minimap stand above it. */
+function dockHeight(dock: DOMRect | null, bar: DOMRect | null, settings: DOMRect | null): Record<string, string> {
+  const top = Math.min(...[bar, settings].filter((r): r is DOMRect => !!r && r.height > 0).map((r) => r.top));
+  return { "--dock-h": `${dock && Number.isFinite(top) ? Math.ceil(dock.bottom - top) : 0}px` };
+}
+
+interface Band {
+  v: DOMRect;
+  m: DOMRect;
+  show: DOMRect;
+  water: DOMRect;
+  legend: DOMRect;
+  corner: DOMRect;
+  roomAbove: (x0: number, x1: number, from: number, among?: { b: DOMRect; over: number }[]) => number;
+  /** `aside`: the objects and the minimap, which step aside for a panel on an upright tablet (tablet.css). */
+  pieces: { b: DOMRect; over: number; aside?: boolean }[];
+  dockRoom: string;
+  dock: DOMRect | null;
+  dockH: Record<string, string>;
+  objects: DOMRect | null;
+}
+
+/** The band as lines, where a tablet's Show row wraps (#1074): the Show row at the top left, short of the corner; under
+ *  it Legend's row, then the water row beside it when the line has room (beside the corner while the line is level with
+ *  it, the view's width under it), else on a line of its own. The open legend hangs under Legend's row, below the water
+ *  row where that row lies under it; the panels start under the band's last line. Whole pixels. */
+function flowBand(b: Band): Record<string, string> {
+  const { v, m, corner } = b;
+  const C = corner.left - v.left;
+  const cornerBottom = corner.bottom - v.top;
+  const lineEnd = (y: number) => (y < cornerBottom + UNDER ? C - GAP : v.width - TOP);
+  const L = b.legend.width;
+  const w = b.water.width;
+  const rowH = Math.max(b.legend.height, b.water.height, BAND);
+  // (Legend's row first, on the line under the Show row; the water row after it on that line, or on the next)
+  const legendTop = Math.round(b.show.bottom - v.top + UNDER);
+  let waterTop = legendTop;
+  let waterLeft = TOP + L + GAP;
+  if (waterLeft + w > lineEnd(legendTop)) {
+    waterTop = legendTop + rowH + UNDER;
+    waterLeft = TOP;
+  }
+  const bandBottom = waterTop + rowH;
+  // (the open legend under Legend's row, or under the water row where the water row lies under it)
+  const legendPanelTop = (waterTop > legendTop ? waterTop + rowH : legendTop + rowH) + 6;
+  const drop = waterTop > legendTop ? waterTop + rowH - (legendTop + rowH) : 0;
+  const panelTop = bandBottom + 10;
+  const widest = (panelTop < cornerBottom + UNDER ? C - GAP : v.width - TOP) - TOP;
+  // (an upright tablet's objects and minimap step aside while a panel is open, tablet.css: the panel's room is the rest's)
+  const aside = !!b.objects && b.objects.left - v.left < TOP + PANEL_W + GAP;
+  const under = aside ? b.pieces.filter((p) => !p.aside) : b.pieces;
+  const shape = chooseShape((width) => b.roomAbove(TOP, TOP + width, panelTop, under), widest);
+  setPanelShape(shape);
+  return {
+    "--water-left": `${Math.round(waterLeft)}px`,
+    "--water-top": `${waterTop}px`,
+    "--legend-left": `${TOP}px`,
+    "--legend-panel-left": `${TOP}px`,
+    "--legend-drop": `${drop}px`,
+    "--legend-row-top": `${legendTop - TOP}px`,
+    "--legend-max": `${b.roomAbove(TOP, TOP + LEGEND_W, legendPanelTop)}px`,
+    "--panel-top": `${Math.round(v.top - m.top + panelTop)}px`,
+    "--panel-max": `${b.roomAbove(TOP, TOP + PANEL_W, panelTop, under)}px`,
+    "--gen-max": `${b.roomAbove(TOP, TOP + shape.width, panelTop, under)}px`,
+    "--gen-w": `${shape.width}px`,
+    "--idea-room": `${Math.floor((b.dock ? b.dock.right - v.left : v.width) - (TOP + shape.width + GAP))}px`,
+    "--dock-max": b.dockRoom,
+    ...b.dockH,
+  };
+}
+
 export function useBandLayout(ready: boolean): void {
   useEffect(() => {
     const main = document.querySelector<HTMLElement>(".editor-main");
@@ -64,8 +141,17 @@ export function useBandLayout(ready: boolean): void {
       const legend = box(".legend-row");
       const corner = box(".view3d-corner");
       if (!show || !water || !legend || !corner) return;
-      const S = show.right - v.left;
       const C = corner.left - v.left;
+      // a tablet (a finger, the desktop's layout, #1074): the Show row wraps short of the corner, and where it takes more
+      // than one line the band is laid out as lines (`flowBand`)
+      const finger = touchDesktop(view);
+      const showMax = finger ? `${Math.max(0, Math.floor(C - GAP - TOP))}px` : "";
+      if (main.style.getPropertyValue("--show-max") !== showMax) {
+        if (showMax) main.style.setProperty("--show-max", showMax);
+        else main.style.removeProperty("--show-max");
+      }
+      const shown = view.querySelector(".show-bar")!.getBoundingClientRect();
+      const S = shown.right - v.left;
       const w = water.width;
       const L = legend.width;
       // (the controls under a panel or the legend: as tall as the room above the first of them it would meet; over the
@@ -76,9 +162,9 @@ export function useBandLayout(ready: boolean): void {
       const readoutW = dock ? Math.min(500, dock.left - v.left - 22 - TOP) : 500;
       const pieces = [
         ...[".tool-dock > .tool-settings", ".tool-dock > .tool-bar", ".tool-dock > .working-note", ".tool-dock > .dock-notes > *:not(.first-run)"].map((s) => ({ b: box(s), over: 0 })),
-        { b: box(".objects-dock"), over: 0 },
-        { b: box(".minimap"), over: 6 + 32 + 6 + (readoutW < 300 ? 52 : 32) },
-      ].filter((u): u is { b: DOMRect; over: number } => !!u.b);
+        { b: box(".objects-dock"), over: 0, aside: true },
+        { b: box(".minimap"), over: 6 + 32 + 6 + (readoutW < 300 ? 52 : 32), aside: true },
+      ].filter((u): u is { b: DOMRect; over: number; aside?: boolean } => !!u.b);
       const hints = box(".tool-dock .first-run");
       const under = hints ? [...pieces, { b: hints, over: 0 }] : pieces;
       const roomAbove = (x0: number, x1: number, from: number, among = under) => {
@@ -90,6 +176,14 @@ export function useBandLayout(ready: boolean): void {
         }
         return Math.max(0, Math.floor(floor - from));
       };
+      const objects = box(".objects-dock");
+      // (the objects' dock: from its foot up to the corner's buttons; its foot is the view's, or above the dock on a tablet)
+      const dockRoom = dockMax(objects ? objects.bottom - v.top + TOP : v.height, corner.bottom - v.top);
+      if (finger && shown.height > BAND + 1) {
+        const vars = flowBand({ v, m, show: shown, water, legend, corner, roomAbove, pieces, dockRoom, dock, objects, dockH: dockHeight(dock, box(".tool-dock > .tool-bar"), box(".tool-dock > .tool-settings")) });
+        for (const [k, val] of Object.entries(vars)) if (main.style.getPropertyValue(k) !== val) main.style.setProperty(k, val);
+        return;
+      }
       let left: number;
       let top = TOP;
       let legendLeft: number;
@@ -168,7 +262,8 @@ export function useBandLayout(ready: boolean): void {
         "--idea-room": `${Math.floor((dock ? dock.right - v.left : v.width) - (TOP + panelW + GAP))}px`,
         // (the objects' dock, the list and the picked object's window: as tall as the room under the corner's buttons, the
         // list scrolling inside when a short window can't hold both)
-        "--dock-max": dockMax(v.height, corner.bottom - v.top),
+        "--dock-max": dockRoom,
+        ...dockHeight(dock, box(".tool-dock > .tool-bar"), box(".tool-dock > .tool-settings")),
       };
       for (const [k, val] of Object.entries(vars)) if (main.style.getPropertyValue(k) !== val) main.style.setProperty(k, val);
     };

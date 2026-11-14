@@ -204,8 +204,27 @@ for (const phone of PHONES) {
       await expect(page.locator("[role=tooltip]")).toHaveCount(0);
       await expect(page.locator(".your-maps .ym-title")).toHaveText("1 selected");
       await expect(page.getByRole("menu", { name: "Map" })).toBeHidden();
-      // a tap now adds a map (as Ctrl+click), opening none; a second tap takes it out again
+      // the open map keeps its outline and is not counted until it is ticked; the selected card is told by its tick and tint
       const here = page.locator(".your-maps li[data-id]:has(.ym-tile[aria-current=true])");
+      await expect(here).not.toHaveClass(/selected/);
+      const looks = await page.evaluate(() => {
+        const look = (li: Element) => {
+          const t = getComputedStyle(li.querySelector(".ym-tile")!);
+          return { border: t.borderTopColor, background: t.backgroundColor, tick: getComputedStyle(li, "::after").content };
+        };
+        return { open: look(document.querySelector(".your-maps li[data-id]:has(.ym-tile[aria-current=true])")!), picked: look(document.querySelector(".your-maps li.selected")!) };
+      });
+      expect(looks.picked.tick, "the selected card's tick").toContain("✓");
+      expect(looks.open.tick, "the open map has no tick").toBe("none");
+      expect(looks.picked.border, "the selected card wears no outline of the open map's").not.toBe(looks.open.border);
+      expect(looks.picked.background, "the selected card's tint").not.toBe(looks.open.background);
+      // a key right after the long press is the key's: Enter on the open map's card adds it (#1101's review)
+      await here.locator(".ym-tile").focus();
+      await page.keyboard.press("Enter");
+      await expect(page.locator(".your-maps .ym-title")).toHaveText("2 selected");
+      // a tap takes it out again (as Ctrl+click), opening none; a second tap adds it back
+      await here.locator(".ym-tile").tap();
+      await expect(page.locator(".your-maps .ym-title")).toHaveText("1 selected");
       await here.locator(".ym-tile").tap();
       await expect(page.locator(".your-maps li.selected")).toHaveCount(2);
       await expect(page.locator(".your-maps .ym-title")).toHaveText("2 selected");
