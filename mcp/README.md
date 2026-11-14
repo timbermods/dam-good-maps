@@ -35,7 +35,7 @@ claude mcp add dam-good-maps -- npx -y --package=https://github.com/timbermods/d
 
 ## What to ask
 
-- "Make me a highlands map with two waterfalls side by side."
+- "Make me a river valley map with the start under a cliff, water below."
 - "Make me a Lake stair map, 128 tiles."
 - "Which real places have a volcano? Open one."
 - "Make it harder: less flat land near the start."
@@ -44,7 +44,7 @@ claude mcp add dam-good-maps -- npx -y --package=https://github.com/timbermods/d
 - "Move the start next to the river, then save it."
 - "Open my map from yesterday and add a crater lake."
 
-Claude tells you what the generator made and what it didn't. If a wish didn't come out, ask for another seed. Some wishes are rare, so Claude says when to stop trying.
+Claude tells you what the generator made and what it didn't. If a wish didn't come out, ask for another seed. Claude offers each wish only on the themes where it comes out often, and says when to stop trying.
 
 A premise is the idea a map is built around, as on the website. A real place is a map made from real land, from the
 website's **Real places**.

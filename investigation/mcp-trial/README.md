@@ -79,7 +79,7 @@ Highlands, and `waterfalls: many` has no effect on it.
 
 - Open maps: the limit (6) is in the instructions and generate; the refusal says to open the saved project or
   generate again with the same input and seed. Edits stay in the server until save; open reads only the saved file.
-- save: the default folder is refused when Timberborn's folder is missing (then give `folder`). A generated map that
+- save: the default Maps folder is made when missing, but save refuses when the folder that holds it (Documents\Timberborn) is missing (then give `folder`). A generated map that
   keeps its own name saves as `dgm-<theme>-<seed>`; another name names the files. Run 2 gave the generated name
   "Hollow Gorge", so its files kept the seed: the rule, not a fault.
 - Craterize `size`: the ground changes out to about `size` tiles from the middle (about twice `size` across; measured

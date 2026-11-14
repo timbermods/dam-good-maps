@@ -10,6 +10,7 @@ import { waterStory } from "../../src/core/analysis/story";
 import { standingForms } from "../../src/core/analysis/vertical";
 import { THEME_NAMES } from "../../src/core/spec/mapspec";
 import { rowOf, shownWater, startTile } from "./maps";
+import { placeOf } from "./places";
 
 type Rect = { x0: number; y0: number; x1: number; y1: number };
 
@@ -48,7 +49,8 @@ export function summaryOf(s: MapSession, checks: CheckGroups | null): string {
   const b = s.built;
   const spec = s.spec;
   const lines: string[] = [];
-  lines.push(`${s.meta.name}: ${b.W}×${b.H} tiles${spec ? `, ${THEME_NAMES[spec.theme]}, seed ${spec.seed}, designed for ${spec.designedFor}` : ", an opened map"}.`);
+  const place = s.meta.place ? placeOf(s.meta.place) : null;
+  lines.push(`${s.meta.name}: ${b.W}×${b.H} tiles${spec ? `, ${THEME_NAMES[spec.theme]}, seed ${spec.seed}, designed for ${spec.designedFor}` : place ? `, a real place (${place.familyName})` : ", an opened map"}.`);
   const st = startTile(s);
   const { depth, contamination } = shownWater(s);
   lines.push(st ? `Start: X ${st.x} · Y ${st.y}, level ${st.z}.` : "Start: none. Place one before saving.");

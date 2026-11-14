@@ -18,6 +18,7 @@
     "test:e2e": "playwright test",
     "gen": "tsx tools/gen.ts",
     "places": "tsx tools/real-places.ts",
+    "intentions": "tsx tools/intention-table.ts",
     "oracle": "tsx tools/oracle.ts",
     "bench": "tsx tools/bench.ts",
     "bench:water": "tsx tools/bench.ts --water",

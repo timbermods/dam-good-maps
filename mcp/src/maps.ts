@@ -31,7 +31,7 @@ import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
 import { RIFT_DEFAULTS } from "../../src/core/forces/rift";
 import type { ForceRequest } from "../../src/core/forces/start";
 import { generate, type GenerateResult } from "../../src/core/gen/generate";
-import { INTENTIONS } from "../../src/core/land/intentions";
+import { intentionRefusal } from "../../src/core/land/intentionTable";
 import { canonicalRun, type CanonicalWater } from "../../src/core/sim/prefill";
 import { worldWaterModel } from "../../src/core/sim/stackWater";
 import type { WaterModel } from "../../src/core/sim/water";
@@ -208,7 +208,11 @@ export function specOf(input: GenerateInput): { spec: MapSpec; seedWord?: string
     spec.settings = patched;
   }
   if (input.intentions?.length) {
-    for (const id of input.intentions) if (!(INTENTIONS as readonly string[]).includes(id)) refuse(`"${id}" is not an intention: they are ${INTENTIONS.join(", ")}`);
+    // (offered by theme, as the table every surface reads says: core/land/intentionTable.ts)
+    for (const id of input.intentions) {
+      const why = intentionRefusal(id, theme);
+      if (why) refuse(why);
+    }
     spec.intentions = [...input.intentions];
   }
   const errors = validateSpec(spec);
@@ -297,6 +301,13 @@ export function shownWater(s: MapSession): { depth: ArrayLike<number>; contamina
   if (!s.showsStoredWater) return { depth: s.built.water, contamination: s.built.contamination };
   const w = s.waterShown();
   return { depth: w.depth, contamination: w.contamination };
+}
+
+/** The soil a map shows, one moisture and one contamination a tile: an unedited import's own (the file's soil on each
+ *  tile's top) while it keeps its water, else the build's. */
+export function shownSoil(s: MapSession): { moisture: ArrayLike<number>; contamination: ArrayLike<number> } {
+  if (!s.showsStoredWater) return { moisture: s.built.moisture, contamination: s.built.soilContamination };
+  return s.storedSoil();
 }
 
 /** The start's tile: the build's, or an imported map's StartingLocation object. */

@@ -2,7 +2,7 @@
 // thumbnail colours) with tile coordinates in the margins, so a picture can be read back as tiles. North (higher Y)
 // is up, as in the map's thumbnail. Layers draw one field of the map instead of its look.
 
-import { shownWater, startTile } from "./maps";
+import { shownSoil, shownWater, startTile } from "./maps";
 import type { MapSession } from "../../src/core/doc/session";
 import { shadeTiles } from "../../src/core/render/shade";
 import { encodePng } from "../../tools/png";
@@ -42,6 +42,7 @@ function tileColours(s: MapSession, layer: Layer): Uint8Array {
   const { W, H } = b;
   const N = W * H;
   const { depth: water, contamination } = shownWater(s);
+  const soil = shownSoil(s);
   const out = new Uint8Array(N * 3);
   const put = (i: number, c: RGB) => {
     out[i * 3] = c[0];
@@ -73,13 +74,13 @@ function tileColours(s: MapSession, layer: Layer): Uint8Array {
       const d = water[i];
       put(i, d > 0.05 ? ramp([[170, 220, 250], [60, 130, 210], [10, 30, 110]], d / 4) : ground);
     } else if (layer === "moisture") {
-      const m = b.moisture[i];
+      const m = soil.moisture[i];
       put(i, water[i] > 0.05 ? [60, 110, 200] : m > 0 ? ramp([[150, 200, 90], [30, 120, 40]], m / 4) : ground);
     } else {
       const wet = water[i] > 0.05;
       const c = wet ? contamination[i] : 0;
-      const soil = b.soilContamination[i];
-      put(i, wet ? (c >= 0.05 ? ramp([[200, 130, 220], [110, 20, 140]], c) : [60, 110, 200]) : soil > 0 ? [190, 120, 160] : ground);
+      const killed = soil.contamination[i];
+      put(i, wet ? (c >= 0.05 ? ramp([[200, 130, 220], [110, 20, 140]], c) : [60, 110, 200]) : killed > 0 ? [190, 120, 160] : ground);
     }
   }
   return out;

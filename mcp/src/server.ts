@@ -4,10 +4,12 @@
 // brushes and placements. The words follow docs/RULES.md and controlled English (one meaning a word, short sentences).
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { dirname } from "node:path";
 import { CallToolRequestSchema, ListToolsRequestSchema, type CallToolResult, type Tool } from "@modelcontextprotocol/sdk/types.js";
 import opsSchema from "../../src/core/doc/ops.schema.json" with { type: "json" };
 import specSchema from "../../src/core/spec/mapspec.schema.json" with { type: "json" };
 import { INTENTIONS, INTENTION_TEXT } from "../../src/core/land/intentions";
+import { INTENTION_LEAST, INTENTION_SEEDS, INTENTION_SIDE, offeredThemes } from "../../src/core/land/intentionTable";
 import { naturalSize as craterAcross } from "../../src/core/forces/craterize";
 import { naturalSize as eruptAcross } from "../../src/core/forces/erupt";
 import { PREMISE_CHOICES, PREMISE_IDS, PREMISE_NAMES, SIZE_PRESETS, THEME_NAMES, THEMES } from "../../src/core/spec/mapspec";
@@ -140,12 +142,11 @@ const PLACE_TEXT = [
   'Example: {"place": "Near Aso caldera"}.',
 ].join(" ");
 
-/** How often an intention emerges, where a count found it rare (generate through this server, 2026-11-14; the seed
- *  named is pinned by mcp/tests/words.test.ts). */
-const ODDS: Partial<Record<(typeof INTENTIONS)[number], string>> = {
-  "twin-falls":
-    "It is rare. On 96-tile maps it emerged for 4 of 15 Highlands seeds (4, 11, 12, 15), 1 of 30 Canyon seeds (12) and none of 15 River Valley seeds; none of 10 Canyon seeds at 128. Waterfalls: many did not change that.",
-};
+/** An intention's themes, from the table every surface reads (core/land/intentionTable.ts). */
+function offeredWords(id: (typeof INTENTIONS)[number]): string {
+  const themes = offeredThemes(id);
+  return themes.length ? `Offered for ${themes.map((t) => THEME_NAMES[t]).join(", ")}.` : "Not offered now.";
+}
 
 const MAP = { type: "string", description: "The map's handle, from generate or open." };
 
@@ -164,9 +165,9 @@ export const TOOLS: Tool[] = [
       "Make a new Timberborn map with the Dam Good Maps generator.",
       "Steer the map with the theme, the premise, the settings and the intentions. Do not build a map by hand. For real land, give a place from the places tool alone.",
       "It returns a handle, a summary and a top-down picture.",
-      "Choose the intentions whose words match the player's wish. Example: for \"two waterfalls side by side\", {\"theme\": \"highlands\", \"size\": \"small\", \"seed\": 4, \"intentions\": [\"twin-falls\"]} gives them.",
+      "Choose the intentions whose words match the player's wish, on a theme they are offered for. Example: for \"the start under a cliff with water below\", {\"theme\": \"riverValley\", \"size\": 128, \"seed\": 1, \"intentions\": [\"under-cliff\"]} gives it.",
       "The summary tells which intentions emerged and which did not. Tell the player honestly what emerged.",
-      "An intention that did not emerge leaves a map that is made and saves. To try again for it, call generate with the same input and another seed. Some intentions are rare (see intentions): after about five misses, tell the player it did not come out.",
+      "An intention that did not emerge leaves a map that is made and saves. To try again for it, call generate with the same input and another seed. After about five misses, tell the player it did not come out.",
       "The generator refuses a map that does not pass its checks. Then try another seed or other settings.",
       "A 128 map takes some seconds. A 256 map can take some minutes.",
       `Only the newest ${MOST_OPEN} maps stay open. The same input and seed make the same map again.`,
@@ -196,7 +197,7 @@ export const TOOLS: Tool[] = [
           type: "array",
           maxItems: 2,
           items: { enum: [...INTENTIONS] },
-          description: `Outcomes to steer toward, at most two. The generator tries for each one, but some do not emerge. ${INTENTIONS.map((id) => `${id}: ${INTENTION_TEXT[id]}${ODDS[id] ? ` ${ODDS[id]}` : ""}`).join(" ")}`,
+          description: `Outcomes to steer toward, at most two. Each is offered only for the themes where it emerged on at least ${INTENTION_LEAST} of ${INTENTION_SEEDS.length} test maps (${INTENTION_SIDE} tiles); even there some maps miss it, and another theme is refused. ${INTENTIONS.map((id) => `${id}: ${INTENTION_TEXT[id]} ${offeredWords(id)}`).join(" ")}`,
         },
       },
     },
@@ -293,7 +294,7 @@ export const TOOLS: Tool[] = [
     name: "save",
     description: [
       "Save the map for Timberborn: the .timber map and its .damgoodmaps.json project, side by side.",
-      `The default folder is Timberborn's Maps folder (${mapsFolder()}); if Timberborn's folder is not there, save refuses: then give folder. A folder that you give is used as it is.`,
+      `The default folder is Timberborn's Maps folder (${mapsFolder()}). Save makes the Maps folder if it is missing, but refuses if the folder that holds it (${dirname(mapsFolder())}) is missing: then give folder. A folder that you give is used as it is and must exist.`,
       "A generated map that keeps its own name is saved as dgm-<theme>-<seed>. A map with another name is saved as dgm- and its name in lower case with hyphens. Save never writes over a file: if the name is taken, it adds -2, -3 and so on.",
       "Save refuses a map with a problem that stops saving. Run check first.",
     ].join(" "),
@@ -350,7 +351,7 @@ function generated(g: Made): CallToolResult {
   ];
   const emerged = rows.length ? `Intentions:\n${rows.join("\n")}` : "Intentions: none.";
   const retry = missed.length
-    ? `\n${missed.join(" and ")} did not emerge. The map is made and saves as it is. To try again, call generate with the same input and another seed: each seed gives another map. ${missed.map((id) => ODDS[id as keyof typeof ODDS]).filter(Boolean).join(" ")} After about five misses, tell the player it did not come out.`.replace("  ", " ")
+    ? `\n${missed.join(" and ")} did not emerge. The map is made and saves as it is. To try again, call generate with the same input and another seed: each seed gives another map. After about five misses, tell the player it did not come out.`
     : "";
   const pic = picture(s);
   return {
