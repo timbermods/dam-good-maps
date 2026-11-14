@@ -510,7 +510,11 @@ for (const size of SIZES) {
 
       // a relic from the shelf: the press shows it above the finger (the tile it aims at lit, not the finger's), the drag
       // moves it, nothing is placed before the lift, and the lift places it where it showed, one step
-      await onFlat(page, c);
+      // (clear of the water sources, 8 tiles: with the relic picked a tap aims FINGER_LIFT above the finger, 64 px, five or six
+      // tiles on this view, and takes what stands there; on generator 0.10.23's land (the round forms, #1102, D148) the flat
+      // nearest the middle of this River Valley had a source four tiles from where the relic went, so the second double tap
+      // below picked that source, not the relic, and the press that followed moved it into a lake, not the relic)
+      await onFlat(page, c, 8);
       await pickObject(page, "Relic");
       const before = await steps(page);
       const relics0 = await objectsOf(page, "SmallRelic");

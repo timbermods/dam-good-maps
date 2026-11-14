@@ -494,15 +494,16 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
-  // (Highlands seed 2 since generator 0.10.23's round forms (the look round), D148: the spot found below on seed 31's land
-  // is now a level-6 knoll in a lake at X 41 · Y 55, its flows running into the water: 1,381 lava pixels on CI, 1,390 here.
-  // Of the 32 seeds read here (1 to 33 but 3 and 28, and 4242) only seeds 2, 12, 10 and 22 draw more than 2,000 (the rest
-  // 340 to 1,960, as dev's spanned 700 to 2,300); seed 2's flows, from X 71 · Y 71, draw 2,265. Highlands seed 31 since
-  // generator 0.10.20's contour edges, D518: the spot found below on seed 4242's land is now a valley floor at X 33 · Y 63 beside its river and lake, whose flows run into the water, where lava is not drawn,
-  // and through woods: 1,013 lava pixels on CI, 1,400 to 1,600 here. Same camera, same scale; dev's frames span 700 to
-  // 2,300 across seeds too, so the glow per lava tile is unchanged. Seed 31's flows stay on dry rock: 2,463 here, dev's
-  // seed 4242 2,273)
-  await openEditor(page, "s=2&z=96&d=n&t=highlands");
+  // (Highlands seed 47 since generator 0.10.23's round forms (the look round, #1102), D148. The spot found below on the land
+  // before them (seed 31) became a level-6 knoll in a lake at X 41 · Y 55, its flows running into the water (1,381 lava
+  // pixels on CI); seed 2, the choice here until now, finds X 71 · Y 71 and drew 1,799 on CI (hot - cold, #1102 at
+  // b0cf92cc) against 2,350 to 2,610 in software drawing here: 136 of the 625 tiles within 12 of that spot are water and
+  // 19 are trees, and lava is not drawn on water. Of the 95 Highlands seeds read here (1 to 100 but a few that found no spot,
+  // the same camera and scale) only seeds 47, 91, 67, 82, 2 and 12 draw 2,300 or more; seed 47's spot, X 20 · Y 76,
+  // has no water and no tree within 12 tiles (its lava lies on dry rock alone, where CI and software drawing here agree
+  // closely) and draws 2,576, the same on every run (seed 91, 2,450 to 2,490, has 31 trees within 12; seed 12, 2,306, 71 water
+  // tiles). The earlier lands drew 700 to 2,300 across seeds, so the glow per lava tile is unchanged)
+  await openEditor(page, "s=47&z=96&d=n&t=highlands");
   await topDown(page);
   await opensHigh(page);
   await page.keyboard.press("Shift+Digit3");
