@@ -60,6 +60,7 @@ import {
 } from "three";
 import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
 import { blockReach, hollowFootprint, HollowMarks, roofOf, type HollowReach } from "./hollow";
+import { caveFaces, CaveGhost } from "./caveGhost";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
 import { GeothermalSteam, steamFields } from "./geothermalSteam";
@@ -3615,6 +3616,42 @@ export class MapRenderer {
     });
   }
 
+  private caveGhost: CaveGhost | null = null;
+  /** The Caves and overhangs layer is on (`showCaves`). */
+  private cavesShown = false;
+  /** The ground and the cut the caves were last drawn for. */
+  private caveGhostOf: { source: TerrainSource; slice: number | null } | null = null;
+
+  /** The Caves and overhangs layer turned on or off (D488): with it on, the air under every roof is drawn through the
+   *  rock (caveGhost.ts), its floor, its walls and its mouths, so a cave reads from the editing pitch. */
+  showCaves(on: boolean): void {
+    if (on === this.cavesShown) return;
+    this.cavesShown = on;
+    this.requestRender();
+  }
+
+  /** The caves through the rock, laid by renderNow before it draws: again only when the ground or the cut changed. */
+  private layCaveGhost(): void {
+    const m = this.map;
+    const src = m?.source;
+    if (!m || !src || !this.cavesShown || src.columns.size === 0) {
+      if (this.caveGhostOf) this.caveGhost?.set(null);
+      this.caveGhostOf = null;
+      return;
+    }
+    if (this.caveGhostOf?.source === src && this.caveGhostOf.slice === this.slice) return;
+    this.caveGhostOf = { source: src, slice: this.slice };
+    const keep = cutKeep(this.slice);
+    const masks = src.masks;
+    const listed = masks ? (i: number) => masks[i] !== 0 : (i: number) => src.columns.has(i);
+    (this.caveGhost ??= new CaveGhost(this.scene)).set(caveFaces(m.W, m.H, listed, (i) => columnMask(src, i) & keep));
+  }
+
+  /** The caves drawn through the rock now (tests): the cells of air under a roof, and the mouths' faces. */
+  get caveGhostDrawn(): { cells: number; mouths: number } {
+    return this.caveGhost?.drawn ?? { cells: 0, mouths: 0 };
+  }
+
   /** The hollow drawn under the cursor now (tests): the tiles filled and the outline's pieces. */
   get hollowDrawn(): { tiles: number; edges: number } {
     return this.hollow?.drawn ?? { tiles: 0, edges: 0 };
@@ -4291,6 +4328,7 @@ export class MapRenderer {
       this.cursor.set(this.brushCursorState, this.cursorHeights(), this.map.W, this.map.H);
     }
     if (this.hollowStale) this.layHollow();
+    if (this.cavesShown || this.caveGhost) this.layCaveGhost();
     // (the baked shadows round the fade, once a frame however often it moved)
     if (this.fadeShadowsStale) {
       this.fadeShadowsStale = false;
@@ -5285,6 +5323,7 @@ export class MapRenderer {
     this.cursor?.dispose();
     this.ring?.dispose();
     this.hollow?.dispose();
+    this.caveGhost?.dispose();
     this.effects?.dispose();
     this.blockGhost?.dispose();
     this.blockCells?.dispose();
