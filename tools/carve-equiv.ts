@@ -60,7 +60,7 @@ function highOrigin(m: CarveMap): number {
   return origin;
 }
 function place(): CarveMap {
-  const p = decodePlaceFile(gunzipSync(readFileSync("public/real-places/data/near-grand-canyon-colorado.json.gz")));
+  const p = decodePlaceFile(gunzipSync(readFileSync("public/real-places/data/grand-canyon-colorado.json.gz")));
   const h = decodeHeights(p.heights);
   const N = h.length;
   return fromBuilt(p.name, p.W, p.H, h, placeEntities(p, h), new Float64Array(N), new Float64Array(N));
@@ -86,7 +86,7 @@ const SCENARIOS: Scenario[] = [
   { name: "oxbow, stopped early", map: () => fixture("oxbow", 96), settings: oxbow, intent: { origin: 80 * 96 + 48, end: 96 + 48 }, steps: 150 },
   { name: "generated Highlands 18, 128²", map: highlands, settings: { power: 80 }, intent: { origin: -1 } },
   { name: "generated Highlands 18, Wander 100", map: highlands, settings: { power: 90, wander: 100, seed: 3 }, intent: { origin: -1 } },
-  { name: "real place, Near Grand Canyon", map: place, settings: {}, intent: { origin: -2 } },
+  { name: "real place, Grand Canyon Colorado", map: place, settings: {}, intent: { origin: -2 } },
 ];
 
 const same = (a: ArrayLike<number>, b: ArrayLike<number>) => {

@@ -832,7 +832,7 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   of violet (all of it ground the force leaves as it is, D487). Under water on a roof the marks lie on the ground,
   seen through the water as the brush's own disc is.
 
-## The caves through the rock (D488, D497; `feature/caves-through-rock`)
+## The caves through the rock (D488, D497; `feature/caves-through-rock`, `feature/caves-through-rock-2`)
 
 - **Why:** an audit of D488 (3) on dev in real Chrome (Canyon 128 seed 1, Highlands 128 seed 12, the generator's spring
   cave, cliff overhangs and gorge arch, 50° pitch at distance 34, both looks) found the caves the hardest thing to
@@ -845,9 +845,18 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   roof (a layer clear below its column's top) gives its floor a pale fill (0.8 0.64 1.0, alpha 0.36) outlined where the
   floor ends (at a wall, a drop or the open: hollow.ts's light line, 0.07 wide, over the brush ring's dark edge, 0.11),
   its sides against rock a fainter violet wall (alpha 0.22), and its sides against the open air (a neighbour's layer at
-  or above that neighbour's top) a mouth, filled pale (0.3) and framed where the opening ends. The fills are drawn
-  only where the terrain hides them (depth test reversed); the lines twice, plainly where in sight and at 0.65 where
-  hidden, so an overhang's reach and a tunnel's mouth read over the real rock too. An editing aid on its own channel
+  or above that neighbour's top) a mouth, filled pale (0.3) and framed where the opening ends. A side against rock
+  that rises solid from the cell's floor at most two layers (`STEP`) to a floor of air under a roof (a slab with air
+  under it is a wall), with the cell's own air
+  reaching that floor's level, is a step of the floor, not a wall: its riser is filled as the floor is, the floor's
+  outline runs up its ends (where the step's run ends, joining the outlines along the walls), and the floors' outlines
+  across it are left out, so a stepped tunnel reads as one passage from mouth to mouth; no air is drawn that isn't
+  there (a rise the cell's air does not reach, or a higher one, stays a wall). The fills are drawn only where the
+  terrain hides them (depth test reversed); the lines twice, plainly where in sight and at 0.65 where hidden, so an
+  overhang's reach and a tunnel's mouth read over the real rock too. The fills and the hidden lines are drawn in the
+  opaque pass, blended (three.js draws it by group order, then render order: after the terrain's chunks, before the
+  objects' group, order 1), so a tree or anything else standing in front of them, on a roof or not, draws over
+  them; the lines in sight are drawn with the other aids after the water. An editing aid on its own channel
   (`aidLayer.ts`, D497): the look is unchanged and none of it blooms. Under a layer cut it reads the masks the cut
   leaves (a roof cut away leaves no cave). The map's edge is a wall nobody sees and is not drawn; ceilings are not
   drawn (from above they would hide the floor).
@@ -856,18 +865,33 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   openings, which only the cave's own floor, walls and mouths answer; the parallax that misplaced the cursor's marks
   is what gives the depth here.
 - **Cost:** nothing on a map without terrain above terrain, nor while the layer is off (one test a frame). With it on,
-  the cave is built once when the layer turns on and after each terrain update or cut (the ground's source or the cut
-  changed), not per frame. Measured once in Node (information): 128² with a tenth of its tiles scattered single-tile
-  caves (6556 cells, 40 657 quads) 27 ms; 256² all roofs 82 ms. The generator's caves are a hundred-odd cells.
+  the caves are built in the terrain's 32² chunks (three draws a chunk with a cave: fills, hidden lines, lines in
+  sight): all of them when the layer turns on, the map opens or the cut moves, and after an edit only the chunks its
+  changed rect reaches, a tile round it (`updateTerrain`'s and a stroke's `updateTerrainRect`'s rect, kept by
+  `CaveBook` whenever caves are drawn, even after another change earlier in the frame; a source changed some other
+  way builds all again unless only a pit's cutout changed). Never per frame. Measured once in real Chrome (information; Raise, size 5, a 60-move stroke across the
+  caves with the layer on, Standard, 1600×900, the caves' share of each frame): Canyon 128 seed 1 over its spring cave
+  (124 cells), p90 0.54–0.58 ms and max 2.4–3.2 ms on dev, p90 0.25–0.36 ms and max 0.7–1.0 ms now; a 128² with a
+  tenth of its tiles single-tile caves four layers deep (5992 cells, put straight into the renderer's ground), p90
+  8.3–10.6 ms and max 13.6–27.7 ms on dev, p90 1.2–1.3 ms and max 3.0–4.1 ms now (the whole frame's p90 13–17 ms then,
+  6.2–6.6 ms now). In Node, that case's whole build is 12 ms (once, the layer turned on), a stroke's frame 0.75 ms in one
+  chunk and 2.2 ms on the corner of four.
 - **Tests:** `tests/unit/caveGhost.test.ts` (no cave on a plain map; a closed pocket's floor and walls, no mouth; an
-  overhang's mouths and their frames and the floor's outline, counted; a cut that takes the roof leaves no cave).
+  overhang's mouths and their frames and the floor's outline, counted; a cut that takes the roof leaves no cave; a
+  stepped tunnel's riser drawn as the floor with its ends outlined and no outline across it, a rise its air does not
+  reach, higher than `STEP` or a slab with air under it a wall; after an edit only the chunks it reaches built again,
+  the same as a whole build; a stroke's rect kept after a cutout-only change in the same frame; the hidden marks in the
+  opaque pass outside any group).
 - **Captures:** local only, `C:\dgm-showcase\d488\caves-through-rock\sheet.png` (12 frames, real Chrome with the GPU,
   1600×900 dark, 50° at distance 26): Canyon 128 seed 1's spring cave and a cliff overhang, Highlands 128 seed
   12's overhang, Standard and High, the layer as dev draws it beside the same frame with the caves through the rock.
-- **Falls short:** a stepped tunnel reads as a few floor pieces at their own depths rather than one passage; trees
-  standing on a roof are drawn over by the hidden fills; the walls under a roof the page paints violet are violet on
-  violet, so the floor and its outline carry the shape. A terrain update while the layer is on rebuilds the whole
-  map's caves, not only the changed part.
+- **Captures, round 2:** local only, `C:\dgm-showcase\d488\caves-through-rock-2\sheet.png` (12 frames, real Chrome
+  with the GPU, 1920×1200 dark cropped, 50° at distance 22): Canyon 128 seed 1's spring cave (its floor steps one and
+  two layers) and pines placed on its roof, Standard and High, the layer off, as dev draws it and as now.
+- **Falls short:** the walls under a roof the page paints violet are violet on violet, so the floor and its outline
+  carry the shape. Under water standing on a roof the hidden fills are seen through the water (drawn before it), so
+  fainter there. A map whose caves fill every chunk draws three more meshes a chunk (48 at 128²) while the layer is
+  on.
 
 ## What an edit changed (D488; `feature/3d-edits-show`)
 
@@ -926,7 +950,7 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   map held the page for seconds in a cold browser (the cave light and shaders, before this change and dev's shader
   warm-up); the glow waits for it.
 
-## The Block tool's blocks grow and crumble (D240, D488, D342; `feature/block-pop`)
+## The Block tool's blocks grow and crumble (D240, D488, D342; `feature/block-pop`, `feature/block-pop-2`)
 
 - **Why:** D240 asks for "raised blocks grow up with a tiny overshoot, lowered ones sink and crumble with a puff of
   dust". An audit of D488 (3) on dev found that the Block tool had its preview, aim and edit glow, but its blocks
@@ -935,24 +959,37 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   (`blockEditSent`, "What an edit changed"). Both ways its land comes play it: `updateTerrain` (columns) and
   `flushTerrain` (plain heights). It is a moment of an edit already applied (D342). The map's land is the new land
   from the first frame, and the pick, the water, the support check and the file see nothing else. Nothing waits on it.
-  - **A block added** grows out of the rock it stands on. That is the first way that is rock and was rock before the
-    edit: down, then the sides (a block jutting from a wall), then up. It grows in 260 ms by an ease-out curve that
+  - **A block added** grows out of the rock it stands on. That is the first way that is rock and not growing: down,
+    then the sides (a block jutting from a wall), then up. It grows in 260 ms by an ease-out curve that
     peaks 5 % past its size, about two thirds of the way through, and settles (`growScale`).
   - **Drawn with the look's own terrain material** (D497; Timberborn's editor sets a block at once, so the motion is
     ours and the look is the game's). While a block grows, the terrain shader leaves out the terrain's own faces of the
     block (`popCells`: up to 64 cells by key, four to a vec4, with a box round them, tested only while any grow). The
     test covers fragments on the grid whose voxel is a growing cell. The pop draws the growing box a hair off the grid,
-    so the test never leaves it out. It also draws the faces the block covers as they stood (the ground's top under
-    it, the wall it juts from), so the ground never shows a hole.
+    so the test never leaves it out. Each side of a growing block is drawn one way or the other. Toward air or another
+    growing block, its own face is drawn. Toward rock that is not growing, the face it covers is drawn as it stands:
+    the ground's top under it, the wall it juts from, or a block of the same edit past the cap, drawn at once. So
+    neither the ground nor a cap's edge ever shows a hole or a slit.
   - **A block taken** sinks a level into the ground below it in 420 ms, shrinking to 0.65 across, again in the terrain
-    material, so it disappears into the rock under it. Five puffs of its own wall's stone, ground fine and a little
+    material, so it disappears into the rock under it. It draws its sides that face air now, the blocks taken with it
+    included, so blocks shrinking apart show their sides. Five puffs of its own wall's stone, ground fine and a little
     lighter (Erode's dust, the same drawing, never white smoke), rise from the top of where it was and fade in 0.9 s.
-  - **The edit glow** plays over both as before: the white outline of the block added frames it as it grows, and the
-    hollow's red frames the block sinking.
+  - **The edit glow** plays over both. Its faces, colours and clock are its own. Its white for a block added comes in
+    as the block grows (`glowRiseAt`, the glow's `rise`): none in the newest growth's first quarter, full from three
+    quarters on, so it frames the block once it has a size and never veils it small. The hollow's red frames the block
+    sinking.
+  - **Stopped by what contradicts it** (`reconcile`, on every other change of the land drawn). An undo, a redo, a
+    brush or a version flipped to stops at once a growing block that is air again, and a sinking one that is rock
+    again with its dust. The rest are reshaped to the new land. The same covers the page's own prediction of the land
+    followed by the core's answer: a block added to a wall is first painted as a column down to the ground, then
+    answered as the overhang it is, and only the block itself grows.
   - **Off with reduced motion and in the light look** (software drawing; the renderer's `juicy`): the land is simply
     there (D240). It is also off for blocks at or above the layer cut. At most 64 blocks grow at once and 64 sink;
     past that, a block is simply there.
-- **Cost:** fixed buffers made once (1,152 quads, a 96-puff pool). Each frame while it plays, the boxes and puffs are
+- **Cost:** fixed buffers made once (768 quads, a 96-puff pool). The dust's program is compiled ahead with the
+  others, on an instanced stand-in without three.js's instance colour, which would be another program. Measured on
+  `feature/block-pop-2`: the dust material keeps one program through the first crumble in both looks (#1134's head
+  compiled a second one there, a hitch), and the warm-up compiles one program fewer. Each frame while it plays, the boxes and puffs are
   written into them, with no allocation. Once it ends nothing is drawn or asked for, and the shader's test is one
   uniform compare. GPU time a frame by timer queries while orbiting (`benchOrbit`, the median over 6 s, two runs each,
   real Chrome with the GPU, 1280 × 800, Highlands 256² seed 1, dev at ef43fb04 → this branch): idle,
@@ -962,24 +999,30 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
 - **Tests:** `tests/unit/blockPop.test.ts` covers:
   - the growth curve and the sink;
   - which rock a block grows from (flat ground, a wall with air under the block);
-  - the faces a taken block shows;
-  - the caps;
+  - the faces a taken block shows, and those of two taken together;
+  - the caps, and every side of every growing block drawn past them (no slit);
+  - the pops an undo contradicts dropped and the rest reshaped, and `BlockPops` stopping a sink, its dust and a growth
+    at an undo;
+  - the glow's white coming in as the blocks grow;
   - every face drawn wound to face its normal, the covered top on the grid and the growing faces off it;
   - nothing once over;
   - the shader's cell keys and box.
 - **Captures:** local only, `C:\dgm-showcase\d488\block-pop\sheet.png` (12 frames, real Chrome with the GPU,
   1280 × 800 dark, the renderer's clock held at each time). On Lake Basin 96 seed 77, a 3 × 3 block of ground four
-  levels up gets a block added on top and one out of its east wall (the core fills that one down to the ground, three
-  blocks) at 25, 60 and 130 ms. Then two blocks are taken off its top at 105, 231 and 378 ms. Standard and High.
+  levels up gets a block added on top and one out of its east wall (an overhang) at 25, 60 and 130 ms. Then two
+  blocks are taken off its top at 105, 231 and 378 ms. Standard and High. `C:\dgm-showcase\d488\block-pop-2\sheet.png`
+  (8 frames): the same pops with the glow's white coming in (Standard 25, 60 and 130 ms; High 25 and 130 ms), 81
+  blocks added at once at 60 ms (64 growing, the rest drawn at once, no slit between), and a dig at 150 ms undone at
+  160 ms (the block back, nothing sinking).
 - **Falls short:**
   - A growing block's top, partway up, is lit and coloured as a wall by the terrain shader's rules (it is not on a
-    tile's top level) for the quarter second it moves.
+    tile's top level) for the quarter second it moves. It also lies in the tile's own baked sun shadow, so it reads
+    dark until it is most of the way up (its first 40 ms or so).
   - The growing and sinking blocks cast no shadow of their own; the High look's shadow keeps the block's full shape
     meanwhile.
-  - Blocks added beside each other but growing from different rock (a column filled down to the ground beside a wall)
-    meet at their seams only once grown.
   - The undo of a Block edit plays nothing (the page's undo does not say which operation it takes back, as for the
-    glow).
+    glow). On plain ground the glow of the edit undone fades out over the land as it was (the glow's own rule:
+    plain land glows only for the Block tool's edits).
 
 ## Software frames (`perf/software-frames`)
 

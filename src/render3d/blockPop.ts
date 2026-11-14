@@ -77,8 +77,9 @@ export const WAYS: readonly (readonly [number, number, number])[] = [
 const WAY_AXIS = [0, 0, 2, 2, 1, 1];
 const WAY_SIGN = [1, -1, -1, 1, 1, -1];
 
-/** A growing block: its cell, the way to the rock it grows out of, its faces to draw (bit per way: open in the land as
- *  it is now) and the faces it covers (bit per way: rock before the edit, drawn as they stood while it grows). */
+/** A growing block: its cell, the way to the rock it grows out of, its faces to draw (bit per way: air now, or a block
+ *  growing too) and the faces it covers (bit per way: rock that is not growing, drawn on the grid as it stands while
+ *  the block grows: the ground under it, the wall it juts from, a block of the same edit past the cap). */
 export interface Grow {
   x: number;
   y: number;
@@ -89,7 +90,8 @@ export interface Grow {
   t0: number;
 }
 
-/** A sinking block: its cell and its faces to draw (bit per way: open before the edit). */
+/** A sinking block: its cell and its faces to draw (bit per way: air now, so the blocks taken with it show their sides
+ *  as they shrink apart). */
 export interface Sink {
   x: number;
   y: number;
@@ -98,51 +100,73 @@ export interface Sink {
   t0: number;
 }
 
-/** The pops an edit's cells make, against the land as it is now (`solid(x, y, z)`, false off the map and above the
- *  cut). A block added grows from the first way that is rock and was rock before the edit: down, then the sides, then
- *  up. Pure. */
-export function popsOf(added: readonly Cell[], removed: readonly Cell[], solid: (x: number, y: number, z: number) => boolean, t0: number): { grows: Grow[]; sinks: Sink[] } {
-  const key = (x: number, y: number, z: number) => `${x},${y},${z}`;
-  const addedSet = new Set(added.map(([x, y, z]) => key(x, y, z)));
-  const removedSet = new Set(removed.map(([x, y, z]) => key(x, y, z)));
-  const grows: Grow[] = [];
+const NONE: { grows: Grow[]; sinks: Sink[] } = { grows: [], sinks: [] };
+const cellKey = (x: number, y: number, z: number) => `${x},${y},${z}`;
+
+/** The pops playing after an edit's cells land, against the land as it is now (`solid(x, y, z)`, false off the map and
+ *  above the cut). `live`, the pops still playing: those the land now contradicts are dropped (a growing block that is
+ *  air again, a sinking one that is rock again: an undo, a redo, other land), and the rest are reshaped in place. The
+ *  edit's cells join them under the caps (`POP_CELLS` growing, as many sinking); past the caps a cell is simply there,
+ *  drawn by the terrain at once, so a growing block's faces toward it are covers like any rock's, never a slit. A new
+ *  block grows from the first way that is rock and not growing: down, then the sides, then up (none: up from its
+ *  floor). */
+export function popsOf(
+  added: readonly Cell[],
+  removed: readonly Cell[],
+  solid: (x: number, y: number, z: number) => boolean,
+  t0: number,
+  live: { grows: Grow[]; sinks: Sink[] } = NONE,
+): { grows: Grow[]; sinks: Sink[] } {
+  const grows = live.grows.filter((g) => solid(g.x, g.y, g.z));
+  const sinks = live.sinks.filter((b) => !solid(b.x, b.y, b.z));
+  const growing = new Set(grows.map((g) => cellKey(g.x, g.y, g.z)));
+  const fresh = grows.length;
   for (const [x, y, z] of added) {
     if (grows.length >= POP_CELLS) break;
-    let faces = 0;
-    let covers = 0;
-    let base = -1;
-    for (let w = 0; w < 6; w++) {
-      const [dx, dy, dz] = WAYS[w];
-      const nx = x + dx;
-      const ny = y + dy;
-      const nz = z + dz;
-      if (!solid(nx, ny, nz)) faces |= 1 << w;
-      else if (!addedSet.has(key(nx, ny, nz))) covers |= 1 << w;
-    }
-    for (const w of [5, 0, 1, 2, 3, 4])
-      if (covers & (1 << w)) {
-        base = w;
-        break;
-      }
-    // (nothing old to grow from, a block added beside blocks added with it: it grows up from its own floor)
-    grows.push({ x, y, z, base: base < 0 ? 5 : base, faces: faces & ~(1 << (base < 0 ? 5 : base)), covers, t0 });
+    const k = cellKey(x, y, z);
+    if (growing.has(k) || !solid(x, y, z)) continue;
+    growing.add(k);
+    grows.push({ x, y, z, base: -1, faces: 0, covers: 0, t0 });
   }
-  const sinks: Sink[] = [];
+  const sinking = new Set(sinks.map((b) => cellKey(b.x, b.y, b.z)));
   for (const [x, y, z] of removed) {
     if (sinks.length >= SINK_CELLS) break;
+    const k = cellKey(x, y, z);
+    if (sinking.has(k) || solid(x, y, z)) continue;
+    sinking.add(k);
+    sinks.push({ x, y, z, faces: 0, t0 });
+  }
+  for (let n = 0; n < grows.length; n++) {
+    const g = grows[n];
     let faces = 0;
+    let covers = 0;
     for (let w = 0; w < 6; w++) {
       const [dx, dy, dz] = WAYS[w];
-      const nx = x + dx;
-      const ny = y + dy;
-      const nz = z + dz;
-      // (open before the edit: air now and not one of the blocks taken with it)
-      if (!solid(nx, ny, nz) && !removedSet.has(key(nx, ny, nz))) faces |= 1 << w;
+      const nx = g.x + dx;
+      const ny = g.y + dy;
+      const nz = g.z + dz;
+      if (!solid(nx, ny, nz) || growing.has(cellKey(nx, ny, nz))) faces |= 1 << w;
+      else covers |= 1 << w;
     }
-    sinks.push({ x, y, z, faces, t0 });
+    g.faces = faces;
+    g.covers = covers;
+    if (n < fresh) continue;
+    g.base = 5;
+    for (const w of BASE_ORDER)
+      if (covers & (1 << w)) {
+        g.base = w;
+        break;
+      }
+  }
+  for (const b of sinks) {
+    let faces = 0;
+    for (let w = 0; w < 6; w++) if (!solid(b.x + WAYS[w][0], b.y + WAYS[w][1], b.z + WAYS[w][2])) faces |= 1 << w;
+    b.faces = faces;
   }
   return { grows, sinks };
 }
+/** The ways a block grows from, first found first: down, the sides, up. */
+const BASE_ORDER = [5, 0, 1, 2, 3, 4];
 
 /** Writes quads (position and normal, world) into fixed buffers. */
 export class QuadWriter {
@@ -309,8 +333,9 @@ export const POP_UNIFORMS_GLSL = /* glsl */ `
       uniform vec4 popHi;
 `;
 
-/** A dust puff's floats: origin (x, y, z), drift (x, y, z), born (ms), colour (r, g, b), size, alive (0 free). */
-const PUFF_F = 12;
+/** A dust puff's floats: origin (x, y, z), drift (x, y, z), born (ms), colour (r, g, b), size, alive (0 free), and the
+ *  cell it rose from (x, y, z). */
+const PUFF_F = 15;
 
 /** The dust's material: a soft disc facing the eye, its own colour and alpha (forces.ts Erode's dust, the same drawing). */
 export function popDustMaterial(): ShaderMaterial {
@@ -347,8 +372,19 @@ const hash = (k: number) => {
   return s - Math.floor(s);
 };
 
+/** The edit glow's added faces' strength while blocks grow (editGlow.ts `rise`): nothing in the newest growth's first
+ *  quarter, coming in over its middle, full from three quarters on and when nothing grows, so the white outline frames
+ *  the block once it has a size to frame and never veils it small. The glow's own faces, colours and clock are its
+ *  own. */
+export function glowRiseAt(grows: readonly Grow[], now: number): number {
+  let t = 1;
+  for (let n = 0; n < grows.length; n++) t = Math.min(t, Math.max(0, (now - grows[n].t0) / GROW_MS));
+  const u = Math.min(1, Math.max(0, (t - 0.25) / 0.5));
+  return u * u * (3 - 2 * u);
+}
+
 export class BlockPops {
-  private readonly writer = new QuadWriter(POP_CELLS * 12 + SINK_CELLS * 6);
+  private readonly writer = new QuadWriter((POP_CELLS + SINK_CELLS) * 6);
   private readonly geo = new BufferGeometry();
   private readonly mesh: Mesh;
   private grows: Grow[] = [];
@@ -364,7 +400,8 @@ export class BlockPops {
   private frame = 0;
   private live = false;
 
-  /** `terrain()`: the look's terrain material now; `uniforms`: the terrain materials' pop uniforms, shared. */
+  /** `terrain()`: the look's terrain material now; `uniforms`: the terrain materials' pop uniforms, shared;
+   *  `glowRise`: the edit glow's `rise` (its added faces come in as the blocks grow: `glowRiseAt`). */
   constructor(
     scene: Scene,
     private readonly terrain: () => Material,
@@ -372,6 +409,7 @@ export class BlockPops {
     dustMaterial: ShaderMaterial,
     private readonly render: () => void,
     private readonly clock: Clock = WALL_CLOCK,
+    private readonly glowRise: { value: number } = { value: 1 },
   ) {
     this.geo.setAttribute("position", new BufferAttribute(this.writer.pos, 3));
     this.geo.setAttribute("normal", new BufferAttribute(this.writer.nrm, 3));
@@ -407,18 +445,42 @@ export class BlockPops {
    *  cut: false). */
   add(added: readonly Cell[], removed: readonly Cell[], solid: (x: number, y: number, z: number) => boolean): void {
     const now = this.clock.now();
-    // (blocks still growing or sinking from the last edit go on, under the caps)
-    this.grows = this.grows.filter((g) => now - g.t0 < GROW_MS);
-    this.sinks = this.sinks.filter((s) => now - s.t0 < SINK_MS);
-    const p = popsOf(added, removed, solid, now);
-    for (const g of p.grows) if (this.grows.length < POP_CELLS) this.grows.push(g);
-    for (const s of p.sinks) if (this.sinks.length < SINK_CELLS) this.sinks.push(s);
-    for (const s of p.sinks) this.puff(s, now);
-    if (!p.grows.length && !p.sinks.length) return;
+    // (blocks still growing or sinking from the last edits go on, reshaped to this land, under the caps)
+    const was = new Set(this.sinks);
+    const p = popsOf(added, removed, solid, now, this.playingAt(now));
+    this.grows = p.grows;
+    this.sinks = p.sinks;
+    for (const s of p.sinks) if (!was.has(s)) this.puff(s, now);
+    if (!this.live && !p.grows.length && !p.sinks.length) return;
     this.live = true;
     this.advance();
     this.render();
     if (!this.clock.driven && !this.frame) this.frame = requestAnimationFrame(this.tick);
+  }
+
+  /** The land changed by anything but a Block edit (an undo, a redo, a brush, a version flipped to): the pops it
+   *  contradicts stop at once, a growing block that is air again and a sinking one that is rock again with its dust,
+   *  and the rest are reshaped to it (`popsOf`). */
+  reconcile(solid: (x: number, y: number, z: number) => boolean): void {
+    if (!this.live) return;
+    const now = this.clock.now();
+    const p = popsOf([], [], solid, now, this.playingAt(now));
+    this.grows = p.grows;
+    this.sinks = p.sinks;
+    const f = this.puffs;
+    for (let o = 0; o < f.length; o += PUFF_F) if (f[o + 11] && solid(f[o + 12], f[o + 13], f[o + 14])) f[o + 11] = 0;
+    this.advance();
+    this.render();
+  }
+
+  /** Whether anything plays (the pops or their dust). */
+  get playing(): boolean {
+    return this.live;
+  }
+
+  /** The pops still playing at `now`. */
+  private playingAt(now: number): { grows: Grow[]; sinks: Sink[] } {
+    return { grows: this.grows.filter((g) => now - g.t0 < GROW_MS), sinks: this.sinks.filter((s) => now - s.t0 < SINK_MS) };
   }
 
   /** A block taken's dust: a few puffs of its own wall's stone from where it was. */
@@ -445,6 +507,9 @@ export class BlockPops {
       f[o + 9] = b;
       f[o + 10] = 0.6 + 0.25 * hash(h + 3);
       f[o + 11] = 1;
+      f[o + 12] = s.x;
+      f[o + 13] = s.y;
+      f[o + 14] = s.z;
     }
   }
 
@@ -456,6 +521,7 @@ export class BlockPops {
     if (this.mesh.material !== mat) this.mesh.material = mat;
     const any = writePops(this.writer, this.grows, this.sinks, now);
     setPopCells(this.uniforms, this.grows, now);
+    this.glowRise.value = glowRiseAt(this.grows, now);
     const n = this.writer.n;
     this.geo.setDrawRange(0, n * 6);
     for (let a = 0; a < 2; a++) {
@@ -501,6 +567,7 @@ export class BlockPops {
       this.grows = [];
       this.sinks = [];
       this.uniforms.popCount.value = 0;
+      this.glowRise.value = 1;
       this.mesh.visible = false;
     }
     return this.live;
@@ -528,6 +595,7 @@ export class BlockPops {
     this.sinks = [];
     this.puffs.fill(0);
     this.uniforms.popCount.value = 0;
+    this.glowRise.value = 1;
     this.mesh.visible = false;
     this.dust.visible = false;
     this.dust.count = 0;

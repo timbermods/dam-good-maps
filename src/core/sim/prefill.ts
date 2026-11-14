@@ -494,5 +494,5 @@ function levelInto(m: WaterModel, seeds: readonly number[], volume: number): [nu
 /** The most game days the canonical settle runs on after taking away its unfed water
  *  (`canonicalRun`): the first settle's own limit. The water round it had settled, so it is mostly
  *  steady again within a check or two; a map whose water passed the settle's test while a slow surge
- *  still moved (Near Bardenas Reales) takes longer. */
+ *  still moved (Bardenas Reales) takes longer. */
 export const DRAIN_DAYS = 4;

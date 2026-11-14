@@ -64,7 +64,7 @@ export interface DocMeta {
   card?: PremiseCard;
   /** An imported map: its file name and what normalization changed (PLAN §19.6). */
   source?: { fileName: string; report: ImportReport };
-  /** A real place (its id, "near-colca-canyon"), opened from Real places: its checks follow the place's
+  /** A real place (its id, "colca-canyon"), opened from Real places: its checks follow the place's
    *  rules (D245, D331; core/doc/checkItems.ts `groupChecks`), not an imported map's. */
   place?: string;
   /** Set by the app when it saves (ISO 8601); never part of a build. */

@@ -35,16 +35,20 @@ official maps (`investigation/extract_builtin_maps.py`), Real places' land cache
 - **This session, the milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the
   water, the generator, the Rust order (D381), the Codex adoptions and the documents. It owns the decisions' numbering,
   STATUS and HANDOFF.
-- **The planning session** (Opus 5.5, high; the dedicated machine, worktree `DamGoodMaps-planning`; since 2026-10-14,
-  replacing the claude.ai planning chat; `docs/CHAT-HANDOFF.md`) coordinates: it watches dev's runs after merges and sends
-  each failure to its owner, releases to `main`, settles cross-session questions on #236, and answers design questions Kyler's decisions settle, sending only
-  the rest to him. Its own PRs are merged by this session after a fresh sub-agent's review.
+- **The planning session** (Fable, high, since 2026-11-10; the dedicated machine, worktree `DamGoodMaps-planning`; since
+  2026-10-14, replacing the claude.ai planning chat; `docs/CHAT-HANDOFF.md`) leads the work since 2026-10-29 (Kyler): it
+  sets the order for this session, forces play and the cloud builder, designs the premises and themes, answers design
+  questions Kyler's decisions settle (sending only the rest to him), judges every look from its sheet, runs the merge
+  loop, watches dev's runs and the nightly and sends each failure to its owner, releases to `main`, and settles
+  cross-session questions on #236. Its own PRs merge like any other, on a fresh sub-agent's review and green quick
+  checks (D490).
 - **The page session** (Opus 5.5, high, D468; worktree `-page`, branch `feature/page`; stopped since 2026-10-07) does only
   the page and its design (D384). It owns the page, the editor's interface, Editor.tsx and its split, and records its decisions in its own
-  `DESIGN.md` and `docs/progress/page.md`; this session folds them into `docs/decisions/` when its work merges.
+  `DESIGN.md` and `docs/progress/page.md`; this session folds them into `docs/decisions/` when its work merges. While it
+  is stopped, the page's files are the planning session's, which says on #236 who builds each page change.
 - **The renderer session "forces play"** (the dedicated machine, worktree `DamGoodMaps-forces-play`, its own usage) gives
-  every force Carve's smooth play (#311) and owns `src/render3d/`. Its PRs merge on green CI (D453) once Kyler has played
-  them.
+  every force Carve's smooth play (#311) and owns `src/render3d/`. Its PRs merge like any other (D490); one that changes
+  what players see is labelled `hold` until the planning session has judged its sheet.
 - **Codex** runs each task in its own clone, never in a session's worktree. It delivers investigations
   with an adoption patch split by owner (page, milestone, renderer) and an eight-line report; Kyler decides each adoption.
 - **Other Claude Code sessions** Kyler starts (the theme critique, the Canyon session, the analysis session) open real PRs into
@@ -64,16 +68,18 @@ where the job is written down, scripts where it's only waiting.
 | Self-contained mechanical work with a clear spec: docs, routine fixes, re-pins, test updates within one area (D341) | `build-light-medium` | Sonnet 5.5, medium |
 | Recording decisions, STATUS and the Progress log, consistency sweeps, housekeeping | `routine` | Sonnet 5.5, medium |
 | The milestone session: orchestrating, probe batches | (the session) | Opus 5.5, high |
-| The planning session: coordination, dev's health after merges, releasing | (the session) | Opus 5.5, high |
+| The planning session: the order, designs, rulings, look verdicts, the merge loop, dev's health after merges, releasing | (the session) | Fable, high (Kyler, 2026-11-10) |
 | The page and its design (D388); the coherence review (D386) | (sessions Kyler starts) | Fable 5.1, high |
 | Trivial and simple work, as much as possible (Kyler, 2026-10-15): watching CI and #236, reading logs, locating failing lines, searches, clean dev merges, regenerating the Wasm and other generated files, status lines, small well-specified fixes and test updates that change nothing a player reads or where things sit | `build-light` with `model: haiku` (high effort) | Haiku 4.5, high |
-| The independent reviewer of a look or interaction change (D484) | a fresh agent | Opus 5.5, high |
+| The verdict on a look or interaction change (D484; Kyler, 2026-11-11) | the planning session, from a sheet of at most twelve frames; no look agent | (the session) |
+| The fresh review of a PR's code (D490) | a fresh agent that didn't write it | Opus 5.5, high; Sonnet 5.5 for documents and a renderer diff |
 | Waiting on CI, batches and probe runs | background scripts that report when done, never an agent polling | none |
 
 Haiku runs at high effort through the `build-light` definition (its effort) with `model: haiku`; prefer it to Sonnet whenever the brief is specific enough to check (Kyler, 2026-10-15). Haiku never decides wording or layout: a task that changes what a player reads or where things sit goes to Sonnet, since a Haiku fix once renamed a History step and undid a layout a review had settled.
 
-**Never Fable unless Kyler explicitly asks** (he has, for the page session
-and D386's review). **Never raise a model's effort on your own, never start sub-agents at max.** A hand-back from
+**Fable only where Kyler has asked for it:** the planning session (its designs, rulings and look verdicts; 2026-11-10),
+the page session and D386's review. Opus builds from the planning session's designs, and a long build is never given
+to a Fable sub-agent. **Never raise a model's effort on your own, never start sub-agents at max.** A hand-back from
 `build-light` or `build-light-medium` for anything needing judgment goes to `build`.
 
 ## 4. The order of work and the Codex adoptions
@@ -91,16 +97,17 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
 ## 5. How things are run here
 
 - **Kyler is done testing and giving feedback (D484, 2026-10-14):** this session completes the whole order without him;
-  only design-direction questions and account-only items reach him (docs/RULES.md, "Coordination", has the rules). Sub-agents run in parallel, each in its own worktree (D484, "Going faster": Sonnet builds, Haiku does mechanical work,
-  a fresh Opus agent reviews looks); merges come first; about three heavy local runs at once across both sessions. This
+  only design-direction questions and account-only items reach him (docs/RULES.md, "Coordination", has the rules). Sub-agents run in parallel, each in its own worktree (D484, "Going faster": Sonnet builds from a spec, Haiku does mechanical work,
+  Opus builds what needs judgment and reviews code, the planning session judges looks); merges come first; about three heavy local runs at once across both sessions. This
   session never ends its turn while work is left (D484, "Never idle"): it keeps
   a background watch on #236 and the PRs' checks and works on meanwhile. Where the
   points below still name Kyler's verdict, `approved` or his yes, D484 replaces them with this session's.
 - **Coordination (D470):** only what needs Kyler reaches him.
   - *Review:* Kyler reviews nothing (D484). Every PR gets a review from a fresh sub-agent that didn't write it
     (correctness, scope, ownership of files) before its owner merges it (D490). What a player sees, hears
-    or feels is judged by the owning session (the page used in a real browser; a separate reviewer agent on a look or
-    interaction change's captures).
+    or feels is judged by the owning session (the page used in a real browser). A look or interaction change is labelled
+    `hold` until the planning session has judged its sheet of at most twelve frames; no separate look agent (Kyler,
+    2026-11-11).
   - *Merging:* labels `hold` (never merge) and `needs-kyler` (only design questions and account-only items, D484). A
     PR merges once a fresh reviewer agent that didn't write it has approved it and its quick checks (typecheck, quick
     suite, build) are green; the owning session may merge it itself and posts on #236 what merged (D489, D490). The browser specs and the suites run on dev after the merge; the planning session watches those runs
@@ -180,8 +187,8 @@ M9b's release. No timing gates (D441, D453); Firefox's speed is never measured (
   Hand-made test maps are only for a rule that has never been played.
   A batch is asked for when it is worth it, with its maps named (for example: whether the current generator's maps and an exported edited map play right on a new game version).
   On a new game version the runner asks for a smoke run before a batch (`--smoke`, then `--allow-new-version`): that is
-  two launches, so the ask names both. **On this machine D218 lifts the ask:** run a batch whenever the plan
-  calls for one and record it in STATUS and on #57 (Steam running, Timberborn closed; D484: no need for a quiet machine, only a line on #236 while the batch holds the game).
+  two launches, so the ask names both. **On this machine D218 lifts the ask,** but a batch runs only where an
+  implementation looks wrong in the game, never as routine or for a release (Kyler, 2026-10-29); record it in STATUS and on #57 (Steam running, Timberborn closed; D484: no need for a quiet machine, only a line on #236 while the batch holds the game).
   Every probe runs from the dedicated worktree `C:\Users\krams\code\DamGoodMaps-probe`, checked out detached at the branch to
   probe (`git checkout --detach origin/<branch>`), with `npm ci` at the root and in `investigation/probe` if the lockfiles
   changed. Build the mod with `run build-mod -- --no-install`; make a settings backup first (`--backup-settings`) and pass it
@@ -250,8 +257,8 @@ on, nobody plays on it. Windows 10 Pro 22H2, Ryzen 5 3600 (12 threads), 32 GB. U
 
 Each worktree has its own `node_modules`: run `npm ci` in one only if its `package-lock.json` changed. Every folder that
 isn't the milestone session's belongs to another session or to Codex: never touch it, and check no session is working in a
-folder before installing or checking out there. The machine is the two sessions' own (D484): nobody else uses it, so test and probe without asking or holding back (all
-12 threads, Timberborn whenever it helps), within D483 for what a probe plays; split the threads with forces play as the
+folder before installing or checking out there. The machine is the two sessions' own (D484): nobody else uses it, so test without asking or holding back (all
+12 threads); Timberborn runs only where an implementation looks wrong in the game (Kyler, 2026-10-29), within D483 for what a probe plays; split the threads with forces play as the
 work needs, and say on #236 when a probe batch holds the game.
 
 - **Tools** (per user, no administrator rights; on the user PATH and in `~/.bashrc`): Node 22.23.3; Rust 1.90 with

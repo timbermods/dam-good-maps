@@ -60,7 +60,7 @@ import {
 } from "three";
 import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
 import { blockReach, hollowFootprint, HollowMarks, roofOf, type HollowReach } from "./hollow";
-import { caveFaces, CaveGhost } from "./caveGhost";
+import { CaveBook, CaveGhost, type Rect } from "./caveGhost";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
 import { GeothermalSteam, steamFields } from "./geothermalSteam";
@@ -524,7 +524,7 @@ export class MapRenderer {
   /** A copy of the drought line's materials. */
   private lineCopy: ShaderMaterial[] | null = null;
   /** Objects to compile a program with when nothing draws its material (`standIn`). */
-  private standIns: Record<"mesh" | "instanced" | "bare", Object3D> | null = null;
+  private standIns: Record<"mesh" | "instanced" | "instancedPlain" | "bare", Object3D> | null = null;
   /** The tier asked for while the High look's programs compile (the look drawn stays meanwhile), or null. */
   private lookWaiting: Tier | null = null;
   private lookWarming = false;
@@ -591,6 +591,8 @@ export class MapRenderer {
     fingers: (n) => this.onFingers?.(n),
     canTilt: () => this.view.mode === "orbit",
     still: () => this.reducedMotion,
+    later: (fn, ms) => window.setTimeout(fn, ms),
+    clear: (id) => clearTimeout(id),
   });
   /** The last tap of a finger (its place and time), for a double tap; whether the readout shows the tile it read. */
   private lastTap: { x: number; y: number; t: number } | null = null;
@@ -976,9 +978,11 @@ export class MapRenderer {
       };
       const instanced = new InstancedMeshObject(geometry(true), undefined, 1);
       instanced.instanceColor = new InstancedBufferAttribute(new Float32Array(3), 3);
-      this.standIns = { mesh: new Mesh(geometry(true)), instanced, bare: new Mesh(geometry(false)) };
+      this.standIns = { mesh: new Mesh(geometry(true)), instanced, instancedPlain: new InstancedMeshObject(geometry(true), undefined, 1), bare: new Mesh(geometry(false)) };
     }
     if (this.lineCopy?.includes(mat) || mat === this.glowMat) return this.standIns.bare;
+    // (the blocks' dust: instanced, its colour its own attribute, not three.js's instance colour, which is another program)
+    if (mat === this.popDust) return this.standIns.instancedPlain;
     const plain = mat === this.depthCopy?.[0] || [this.std, this.high?.materials, this.highCopy].some((l) => l && [l.terrain, l.water, l.sky].includes(mat));
     return plain ? this.standIns.mesh : this.standIns.instanced;
   }
@@ -2199,6 +2203,7 @@ export class MapRenderer {
     this.flushTerrain();
     const m = this.map;
     if (!m) return 0;
+    const was = m.source;
     let rect = changedRect(m.W, m.H, m.heights, heights);
     // (a roof the page's own stroke already drew the heights of: its columns changed all the same)
     if (columns) rect = grownRect(rect, columnsChanged(m.source.columns, columnMap(columns), m.W));
@@ -2227,9 +2232,12 @@ export class MapRenderer {
     this.drawnLand = heights.slice();
     this.settleObjects();
     this.hollowStale = true;
+    this.caveEdited(was, rect);
     if (edited) this.glowEdits(edited);
     // (the Block tool's blocks grow and crumble, on the land as it now is: blockPop.ts)
     if (edited && block) this.popBlocks(edited);
+    // (any other land, an undo or a redo among it, stops the pops it contradicts)
+    else if (rect && this.blockPops?.playing) this.blockPops.reconcile(this.landSolid(m));
     // (the game's rule: a layer above everything the map could hide shows the whole world)
     if (this.slice !== null && this.slice > this.topHiding()) this.setSlice(null);
     if (!rect) return 0;
@@ -2805,9 +2813,11 @@ export class MapRenderer {
     if (!m) return 0;
     m.heights = heights;
     this.heightStats = null;
+    const was = m.source;
     m.source = { ...m.source, heights };
-    // (the hollow under the cursor follows the roof's new top)
+    // (the hollow under the cursor follows the roof's new top, the caves drawn through the rock round the rect)
     this.hollowStale = true;
+    this.caveEdited(was, rect);
     // (the Block tool's land, come with its answer through the page's edit queue: it glows when it is drawn, on plain
     // ground too; taken now, as its answer ends the edit before the next frame draws it)
     if (this.blockEdit()) this.blockLand = true;
@@ -2848,6 +2858,7 @@ export class MapRenderer {
       this.glowEdits(cells);
       if (block) this.popBlocks(cells);
     }
+    if (!block && this.blockPops?.playing) this.blockPops.reconcile(this.landSolid(m));
     if (m.water.count && this.landUnder(drawn, heights, c.rect)) {
       this.rodeLand(c.rect);
       this.flowChanged(heights, m.surface);
@@ -3577,15 +3588,29 @@ export class MapRenderer {
   private popBlocks(cells: EditCells): void {
     const m = this.map;
     if (!m || !this.juicy || (!cells.added.length && !cells.removed.length)) return;
+    const cut = this.slice ?? LAYERS;
+    const below = (c: readonly number[]) => c[2] < cut;
+    (this.blockPops ??= new BlockPops(
+      this.scene,
+      () => this.terrainMat,
+      this.std.terrain.uniforms as unknown as PopUniforms,
+      this.popDust,
+      () => this.requestRender(),
+      this.time,
+      this.glowMat.uniforms.rise as { value: number },
+    )).add(cells.added.filter(below), cells.removed.filter(below), this.landSolid(m));
+  }
+
+  /** The land drawn now, a cell at a time, as the blocks' pops read it: rock below the floor, air off the map and at or
+   *  above the layer cut. */
+  private landSolid(m: MapState): (x: number, y: number, z: number) => boolean {
     const src = m.source;
     const cut = this.slice ?? LAYERS;
-    const solid = (x: number, y: number, z: number) => {
+    return (x, y, z) => {
       if (z < 0) return true;
       if (x < 0 || y < 0 || x >= m.W || y >= m.H || z >= cut) return false;
       return ((columnMask(src, y * m.W + x) >>> z) & 1) === 1;
     };
-    const below = (c: readonly number[]) => c[2] < cut;
-    (this.blockPops ??= new BlockPops(this.scene, () => this.terrainMat, this.std.terrain.uniforms as unknown as PopUniforms, this.popDust, () => this.requestRender(), this.time)).add(cells.added.filter(below), cells.removed.filter(below), solid);
   }
 
   /** The Block tool's blocks playing now (tests): growing, sinking, the quads drawn and the dust's puffs. */
@@ -3657,37 +3682,45 @@ export class MapRenderer {
   private caveGhost: CaveGhost | null = null;
   /** The Caves and overhangs layer is on (`showCaves`). */
   private cavesShown = false;
-  /** The ground and the cut the caves were last drawn for. */
-  private caveGhostOf: { source: TerrainSource; slice: number | null } | null = null;
+  /** What the caves drawn were built from and what edits changed since (caveGhost.ts `CaveBook`). */
+  private readonly caveBook = new CaveBook();
 
   /** The Caves and overhangs layer turned on or off (D488): with it on, the air under every roof is drawn through the
-   *  rock (caveGhost.ts), its floor, its walls and its mouths, so a cave reads from the editing pitch. */
+   *  rock (caveGhost.ts), its floor, its steps, its walls and its mouths, so a cave reads from the editing pitch. */
   showCaves(on: boolean): void {
     if (on === this.cavesShown) return;
     this.cavesShown = on;
     this.requestRender();
   }
 
-  /** The caves through the rock, laid by renderNow before it draws: again only when the ground or the cut changed. */
+  /** The ground changed from `was` to the map's source now over `rect` (an edit, a stroke's frame): with caves drawn,
+   *  only the chunks round `rect` are built again (`CaveBook`). */
+  private caveEdited(was: TerrainSource, rect: Rect | null): void {
+    this.caveBook.edited(was, this.map!.source, rect);
+  }
+
+  /** The caves through the rock, laid by renderNow before it draws: built when the layer turns on, the map opens or the
+   *  cut moves, and again after an edit only in the chunks it reached (a stroke's frame builds a chunk or two). */
   private layCaveGhost(): void {
     const m = this.map;
     const src = m?.source;
     if (!m || !src || !this.cavesShown || src.columns.size === 0) {
-      if (this.caveGhostOf) this.caveGhost?.set(null);
-      this.caveGhostOf = null;
+      if (this.caveBook.drawn) this.caveGhost?.clear();
+      this.caveBook.clear();
       return;
     }
-    if (this.caveGhostOf?.source === src && this.caveGhostOf.slice === this.slice) return;
-    this.caveGhostOf = { source: src, slice: this.slice };
+    const rect = this.caveBook.due(m, src, this.slice);
+    if (rect === undefined) return;
     const keep = cutKeep(this.slice);
     const masks = src.masks;
     const listed = masks ? (i: number) => masks[i] !== 0 : (i: number) => src.columns.has(i);
-    (this.caveGhost ??= new CaveGhost(this.scene)).set(caveFaces(m.W, m.H, listed, (i) => columnMask(src, i) & keep));
+    (this.caveGhost ??= new CaveGhost(this.scene)).update(m.W, m.H, listed, (i) => columnMask(src, i) & keep, rect);
   }
 
-  /** The caves drawn through the rock now (tests): the cells of air under a roof, and the mouths' faces. */
-  get caveGhostDrawn(): { cells: number; mouths: number } {
-    return this.caveGhost?.drawn ?? { cells: 0, mouths: 0 };
+  /** The caves drawn through the rock now (tests): the cells of air under a roof, the mouths' and steps' faces, and the
+   *  chunks built at the last update. */
+  get caveGhostDrawn(): { cells: number; mouths: number; steps: number; built: number } {
+    return this.caveGhost?.drawn ?? { cells: 0, mouths: 0, steps: 0, built: 0 };
   }
 
   /** The hollow drawn under the cursor now (tests): the tiles filled and the outline's pieces. */
@@ -5035,8 +5068,10 @@ export class MapRenderer {
         if (showsAtOnce(mode)) this.keepAim = true;
       },
       pan: () => {
+        // (only while this press is the finger's own, still down: a press already lifted or replaced leaves no pan)
+        if (this.press !== press) return;
         // (the pan the hold took over, from the press: the move that ended the hold moves the map the whole way from there)
-        if (this.press?.id === ev.pointerId) this.press = null;
+        this.press = null;
         this.drag = { kind: "pan", x: ev.clientX, y: ev.clientY, id: ev.pointerId, moved: 0, button: 0, touch: ev };
       },
       overCancel: (p) => !!document.elementFromPoint(p.x, p.y)?.closest("[data-press-cancel]"),
@@ -5052,7 +5087,8 @@ export class MapRenderer {
       later: (fn, ms) => window.setTimeout(fn, ms),
       clear: (id) => clearTimeout(id),
     };
-    this.press = new FingerPress(mode, ev.pointerId, { x: ev.clientX, y: ev.clientY }, ev.timeStamp, this.canvas.getBoundingClientRect().top, host, held);
+    const press = new FingerPress(mode, ev.pointerId, { x: ev.clientX, y: ev.clientY }, ev.timeStamp, this.canvas.getBoundingClientRect().top, host, held);
+    this.press = press;
   }
 
   /** Drop a finger's press with something in hand, nothing applied (a Cancel control, the window losing focus); the
@@ -5340,6 +5376,9 @@ export class MapRenderer {
 
   dispose(): void {
     this.disposed = true;
+    // (a finger's gesture or press waiting on a timer ends with the view)
+    this.touches.reset();
+    this.cancelPress();
     // (a wait on `whenDrawn` ends with the view)
     this.checkDrawn();
     if (this.frame) cancelAnimationFrame(this.frame);
