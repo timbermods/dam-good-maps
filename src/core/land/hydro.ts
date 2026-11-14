@@ -643,8 +643,10 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   if (lengthwise && !g.seaLayout && !g.hydro.exactInflows && !g.hydro.noInflows) g.hydro.inflows = Math.max(1, g.hydro.inflows);
   if (g.hydro.inflows > 0) {
     // (Canyon from 128² up prefers the mouth with the longest way across, so the main river crosses
-    // the map and its gorge is a real stretch, not a corner's; Kyler's look at #261, seed 27)
-    const lengthWeight = g.theme === "canyon" && side >= 128 ? 0.06 : 0.012;
+    // the map and its gorge is a real stretch, not a corner's; Kyler's look at #261, seed 27. From 256²
+    // up the way across is long anyway, and a longer one left the walled stretch too small a share of
+    // the course for the theme's promise: there it weighs as on smaller maps, attempts-256)
+    const lengthWeight = g.theme === "canyon" && side >= 128 && side < 256 ? 0.06 : 0.012;
     const search = (minLen: number, apart: number, r: Rng, n0: number, relaxed: boolean, separate = false): number => {
       const cands: [number, number][] = [];
       for (let i = 0; i < N; i++) {
