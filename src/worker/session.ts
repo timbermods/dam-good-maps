@@ -23,7 +23,7 @@ export type { RemoveKind };
 import { paintDying, paintLevels, planPaintObjects } from "../core/doc/paint";
 import { planRuinLine, type RuinLineParams, type RuinPier } from "../core/doc/ruinLine";
 import type { PaintParams } from "../core/doc/paintParams";
-import { footprintCheck as checkFootprint, planEntity, planMoveEntity, planPlant, withSpringPools, type EntityRequest, type PlannedOps } from "../core/doc/placing";
+import { footprintCheck as checkFootprint, moveProblem, planEntity, planMoveEntity, planPlant, withSpringPools, type EntityRequest, type PlannedOps } from "../core/doc/placing";
 import { planStair, type StairStep } from "../core/doc/stair";
 import { newRampedStroke, planStrokeClearing } from "../core/doc/strokes";
 import { groupChecks, instantChecks, NO_START, NO_START_REFUSAL, type CheckGroups, type CheckItem, type TileRect } from "../core/doc/checkItems";
@@ -2803,6 +2803,12 @@ export function moveObjectBy(id: string, dx: number, dy: number, z?: number): Se
   if (!p.ok) return changed(s, false, p.errors, t0);
   const r = s.applyAll(p.ops, "user", p.label);
   return changed(s, r.ok, r.errors, t0);
+}
+
+/** Why moving the object or source `id` by (dx, dy) would be refused, or null: a drag's preview, before the drop
+ *  (core/doc/placing.ts `moveProblem`). */
+export function moveCheck(id: string, dx: number, dy: number, z?: number): string | null {
+  return moveProblem(need(), id, dx, dy, z);
 }
 
 /** Whether a stroke of trees, bushes or succulents would plant on soil that kills them (D235's amber ring, "dry ground:

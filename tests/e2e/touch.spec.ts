@@ -8,12 +8,15 @@
 // an object, a force, the Block tool, a shape, an object picked on the map), a press shows it a little above the finger,
 // a drag moves it, the lift applies it, and nothing before; a refusal's reason shows beside it and the lift applies
 // nothing; a second finger, or the finger lifted on Cancel, lets it go; and a double tap on an object picks it with the
-// first tap and still zooms with the second. The arithmetic is touch.test's.
+// first tap and still zooms with the second. Slice 3b: a force's line and the Block tool's sweep are drawn by the drag (held
+// still, the lift is their click), a force's ring is filled while a finger aims it, a picked object dragged where it can't
+// go shows the reason before the lift, and a finger held still with nothing in hand draws a selection. The arithmetic is
+// touch.test's.
 
 import { expect, test, type CDPSession, type Page } from "@playwright/test";
 import { openEditor } from "./open";
 import { toolInHand, toolPutAway } from "./helpers";
-import { FINGER_LIFT } from "../../src/render3d/touch";
+import { FINGER_LIFT, HOLD_MS } from "../../src/render3d/touch";
 
 interface P {
   x: number;
@@ -273,6 +276,8 @@ async function setUp(page: Page, size: Size, hide: boolean) {
   return { fingers, R, errors, zoomed, page0 };
 }
 
+/** A finger held still long enough to be no tap, and to start a selection with nothing in hand (render3d/touch.ts). */
+const TAP_HOLD = HOLD_MS + 200;
 /** Where a finger at `p` aims with something in hand: a little above it (render3d/touch.ts). */
 const aimOf = (p: P): P => ({ x: p.x, y: p.y - FINGER_LIFT });
 /** The editor's history's length, and its last step's label. */
@@ -590,6 +595,31 @@ for (const size of SIZES) {
       expect(await lastLabel(page)).toMatch(/^Move /);
       await expect.poll(async () => (await objectsOf(page, "SmallRelic")).some((r) => Math.abs(r.x - to!.x) <= 1 && Math.abs(r.y - to!.y) <= 1)).toBe(true);
 
+      // still picked, dragged onto the start: the core's reason beside it before the lift, clear of the finger, and the
+      // lift moves nothing (slice 3b, as a placement's refusal)
+      const relics1 = await objectsOf(page, "SmallRelic");
+      const start = (await objectsOf(page, "StartingLocation"))[0];
+      await still(page);
+      await page.evaluate(([x, y, cx, cy]) => {
+        const r = window.dgm3d!.renderer;
+        for (let k = 0; k < 6; k++) {
+          const at = window.dgmEditor!.tileToClient(x, y);
+          r.panPixels(cx - at.x, cy - at.y);
+        }
+      }, [start.x, start.y, c.x, c.y] as const);
+      await fingers.pause(400);
+      const onStart = { x: c.x, y: c.y + FINGER_LIFT };
+      await fingers.down({ 1: { x: c.x + R / 2, y: onStart.y + R / 2 } });
+      await fingers.drag({ 1: onStart });
+      const why = page.locator(".shape-note.warn");
+      await expect(why).toBeVisible();
+      const wb = (await why.boundingBox())!;
+      expect(onStart.x >= wb.x && onStart.x <= wb.x + wb.width && onStart.y >= wb.y && onStart.y <= wb.y + wb.height, `the reason ${JSON.stringify(wb)} is under the finger`).toBe(false);
+      await fingers.up(1);
+      await idle(page);
+      expect(await steps(page)).toBe(before + 2);
+      expect(await objectsOf(page, "SmallRelic")).toEqual(relics1);
+
       expect(await zoomed()).toEqual(page0);
       expect(errors).toEqual([]);
     });
@@ -617,7 +647,8 @@ for (const size of SIZES) {
         expect(await lastLabel(page)).toMatch(label);
       };
 
-      // a force (Craterize): its marker above the finger, struck where it showed on the lift
+      // a force (Craterize): its marker above the finger, its reach filled round it (slice 3b), struck where it showed on
+      // the lift
       await onFlat(page, c);
       await page.keyboard.press("Shift+Digit2");
       await toolInHand(page);
@@ -625,6 +656,10 @@ for (const size of SIZES) {
       const b = { x: c.x + R / 4, y: c.y + FINGER_LIFT };
       await fingers.down({ 1: a });
       expect(await lit(page)).toEqual(await tileAt2(aimOf(a)));
+      await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.ringFill)).toBe(true);
+      const ring = (await page.evaluate(() => window.dgm3d!.renderer.forceRingState))!;
+      expect(ring.r).toBeGreaterThan(5);
+      expect(Math.hypot(ring.x - 0.5 - (await tileAt2(aimOf(a)))!.x, ring.y - 0.5 - (await tileAt2(aimOf(a)))!.y)).toBeLessThanOrEqual(1);
       await fingers.up(1);
       // (that was a tap: nothing struck, the marker left where it would strike)
       await idle(page);
@@ -633,14 +668,7 @@ for (const size of SIZES) {
       await fingers.pause(400);
       await pressDragLift(a, b, /Crater/);
       expect(await steps(page)).toBe(s0 + 1);
-      await putAway(page);
-
-      // the Block tool: the block shows above the finger, added where it showed
-      await onFlat(page, c);
-      await page.keyboard.press("Digit7");
-      await toolInHand(page);
-      await fingers.pause(400);
-      await pressDragLift(a, b, /block/i);
+      expect(await page.evaluate(() => window.dgm3d!.renderer.ringFill)).toBe(false);
 
       // Cancel: the finger slid onto it lights it, and lifted there nothing is applied
       const cancel = page.locator(".press-cancel");
@@ -672,6 +700,51 @@ for (const size of SIZES) {
       expect(await steps(page)).toBe(s1);
       await putAway(page);
 
+      // the Block tool (slice 3b): held still and lifted, one block where it showed; dragged, a sweep of blocks from where
+      // the press aimed to where the lift is, one step
+      await onFlat(page, c);
+      await page.keyboard.press("Digit7");
+      await toolInHand(page);
+      await fingers.pause(400);
+      let h0 = await heights(page);
+      let sb = await steps(page);
+      await fingers.down({ 1: a });
+      await fingers.pause(TAP_HOLD);
+      await fingers.up(1);
+      await expect.poll(() => steps(page), { timeout: 60_000 }).toBe(sb + 1);
+      expect(await lastLabel(page)).toMatch(/block/i);
+      await settled(page);
+      const one = (await heights(page)).filter((v, i) => v !== h0[i]).length;
+      expect(one).toBeGreaterThan(0);
+      await page.keyboard.press("Control+z");
+      await settled(page);
+      await fingers.pause(400);
+      h0 = await heights(page);
+      sb = await steps(page);
+      await pressDragLift({ x: c.x - R / 2, y: c.y + FINGER_LIFT + R / 3 }, { x: c.x + R / 2, y: c.y + FINGER_LIFT + R / 3 }, /block/i);
+      await settled(page);
+      expect((await heights(page)).filter((v, i) => v !== h0[i]).length).toBeGreaterThan(one);
+      await putAway(page);
+
+      // a force's line (Carve): the drag draws its line from where the press aimed, the band showing, and the lift carves
+      // along it, one step
+      await onFlat(page, c);
+      await page.keyboard.press("Shift+Digit1");
+      await toolInHand(page);
+      await fingers.pause(400);
+      const sc = await steps(page);
+      await fingers.down({ 1: { x: c.x - R / 2, y: c.y + FINGER_LIFT + R / 3 } });
+      await fingers.drag({ 1: { x: c.x + R / 2, y: c.y + FINGER_LIFT - R / 3 } });
+      expect(await pressing(page)).toBe(true);
+      await expect.poll(async () => (await page.evaluate(() => window.dgmEditor!.gesture())).stroke ?? 0).toBeGreaterThan(1);
+      await idle(page);
+      expect(await steps(page)).toBe(sc);
+      await fingers.up(1);
+      await expect.poll(() => steps(page), { timeout: 60_000 }).toBe(sc + 1);
+      await expect.poll(() => page.evaluate(() => window.dgmEditor!.force()), { timeout: 60_000 }).toBeNull();
+      expect(await lastLabel(page)).toMatch(/^Carve/);
+      await putAway(page);
+
       // a shape (Raise's Ridge): its line drawn a little above the finger, raised on the lift
       await page.keyboard.press("Digit2");
       await toolInHand(page);
@@ -686,6 +759,17 @@ for (const size of SIZES) {
       if (sheet) await handle.tap();
       await page.getByRole("group", { name: "Brush" }).getByRole("button", { name: "Round", exact: true }).click();
       if (sheet) await handle.tap();
+      await putAway(page);
+
+      // nothing in hand: a finger held still draws a selection a little above it (no selection open first), on its lift
+      await fingers.pause(400);
+      expect(await page.evaluate(() => window.dgmEditor!.selection().length)).toBe(0);
+      await fingers.down({ 1: { x: c.x - R / 2, y: c.y + FINGER_LIFT + R / 3 } });
+      await fingers.pause(TAP_HOLD);
+      expect(await pressing(page)).toBe(true);
+      await fingers.drag({ 1: { x: c.x + R / 2, y: c.y + FINGER_LIFT - R / 3 } });
+      await fingers.up(1);
+      await expect.poll(() => page.evaluate(() => window.dgmEditor!.selection().length)).toBeGreaterThan(4);
       await putAway(page);
 
       expect(await zoomed()).toEqual(page0);

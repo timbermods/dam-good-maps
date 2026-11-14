@@ -1626,7 +1626,7 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   at work, until Space again), Ctrl+Z (or Z) takes it back, and Esc skips it to its end (a painted Lift
   still drawn: Esc cancels it; D344, A4); the other keys wait, C among them. Right after Try another, **Tab** and
   **Shift+Tab** show the force's next and previous rolls (§4, D488), with the focus on the map or the bar. A river's or a fault's line is drawn
-  freehand with the mouse (D321). Slow forces is a view-bar toggle with no key.
+  freehand with the mouse or a finger (D321; a finger's below, "Touch"). Slow forces is a view-bar toggle with no key.
 - **When the window loses focus** (D361, item 5) the editor lets go of everything held: every camera key and
   Shift's speed, F's sizing (kept), and any stroke or gesture in progress ends as a released mouse button would
   end it, at the pointer's last place (`render3d/focusLost.ts`); a finger on the view is forgotten the same way.
@@ -1637,7 +1637,7 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   zooms; Shift+scroll sets Raise, Lower and Flatten's target level (D322) and Smooth and Naturalize's strength,
   Ctrl+scroll a hovered source's strength, Esc backs out (a target set by hand first). Quake has no Size. U
   unleashes a selected source (D239).
-- **Touch** (#1074, slices 1 and 3; amends D185; `render3d/touch.ts`, `tests/e2e/touch.spec.ts` at both phone sizes and a
+- **Touch** (#1074, slices 1, 3 and 3b; amends D185; `render3d/touch.ts`, `tests/e2e/touch.spec.ts` at both phone sizes and a
   desktop's). A finger is a pointer of its own type, so the mouse, the pen (its pressure) and the keys keep everything
   above. **Two fingers** move the camera in one gesture: dragged they pan, pinched they zoom about the ground under their
   middle (it stays under it, as the wheel's does), twisted they turn the view about that ground, and two fingers side by
@@ -1650,18 +1650,30 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   brush** paints, the ring under it while it is down (the shelf's plants too). **One finger with something that shows
   before it applies** (slice 3: a force, the Block tool, an object from the shelf, a shape, an object or source picked on
   the map) is **press, drag, lift**: the press shows it a little above the finger (`FINGER_LIFT`, 64 CSS px, a small
-  ring where it aims), so the finger never hides the spot; dragging moves it; the lift applies it, as one operation and
-  one step, and nothing is applied before the lift. A refused one shows its reason beside the preview, never under the
+  ring where it aims), so the finger never hides the spot; dragging moves it (an object, Craterize's one impact), or for
+  a force drawn as a line (Carve, Erupt's fissure, Quake's fault, Glaciate, Rift, Deposit, Erode) and the Block tool
+  draws the line or the sweep from where the press aimed, the preview following (slice 3b, `FingerPress` mode line; held
+  still, the lift is their click at the aim); the lift applies it, as one operation and one step, and nothing is applied
+  before the lift (a painted Lift shows its result as it is drawn, as with the mouse; a second finger or Cancel takes it back). While
+  a finger aims a force, its ring is filled faintly: the whole reach shows even where the ring is wider than a phone's
+  view (Craterize at Size 54); Quake shows only its marker (D368 (2)). A refused one shows its reason beside the preview, never under the
   finger, and its lift applies nothing. A tap applies nothing: it leaves the preview where it aimed. Lake, Ridge and
   Canal draw their line above the finger from the press's aim; with a selection open (or, on a phone, Select's sheet
-  open) the finger draws the selection, and a tap there is a click. With an object or source picked and nothing else in
-  hand, a press anywhere moves it to where the finger aims (`FingerPress`, modes aim, draw and move). **Cancel** shows at
+  open) the finger draws the selection, and a tap there is a click; with nothing in hand, a finger held still half a
+  second (`HOLD_MS`) draws one without (slice 3b; moved sooner, it pans). With an object or source picked and nothing
+  else in hand, a press anywhere moves it to where the finger aims (`FingerPress`, modes aim, line, draw and move);
+  where it can't go, the core's reason shows beside it before the lift (`moveProblem`, as a placement's), its footprint
+  red, and the lift there moves nothing. **Cancel** shows at
   the view's top while a press is on: a second finger taps it, or the finger slides onto it (it turns red) and lifts,
   and nothing is applied. **A second finger** down during a stroke or a press cancels it, nothing applied and no step
   (the tool's own cancel, as Esc), and the rest of that touch is the camera's: the finger left after a pinch pans. A
   press the browser takes back (`pointercancel`, as iOS does for its own gestures) or a window that loses focus lets it
-  go the same way. A force's line drawn with a finger, and a sweep of blocks, are still the mouse's: a finger places one
-  at a time. **Skip** on a working force's row finishes it at once (Esc's call), for a phone.
+  go the same way. **Skip** on a working force's row finishes it at once (Esc's call), for a phone. **The keys a finger
+  reaches another way** (slice 3b): Tab and Shift+Tab's rolls, the rolls button ("2 of 4", a tap the next, round to the
+  first); Ctrl+A, Select's Whole map; Ctrl+click's level, the Level number in Select's row (set by hand, not taken from
+  the ground). **Known shortfall:** Shift's add and Alt's take-away to a selection (a finger's selection replaces the one
+  open) and the camera bookmarks (Ctrl+Shift+1 to 9, Alt+1 to 9) have no way by finger yet; each wants a control in the
+  phone layouts (slice 5).
   **A two-finger tap is Undo, a three-finger tap Redo** (Z and C's calls; the buttons stay). The browser's own gestures
   are off over the editor: the view's canvas takes every finger (`touch-action: none`, no callout, no selection), the
   editor allows only panning a panel (`touch-action: pan-x pan-y`: no pinch or double-tap zoom of the page), iOS

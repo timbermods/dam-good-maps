@@ -253,6 +253,7 @@ const api = {
   moveStartTo: routed((x: number, y: number, orientation?: Orientation, z?: number) => sendUpdate(ed.moveStartTo(x, y, orientation, z)), (...a) => collabEditApi.moveStartTo(...a).then(sendUpdate)),
   entitiesAt: (x: number, y: number) => ed.entitiesAt(x, y),
   footprintCheck: (req: ed.ToolRequest) => ed.footprintCheck(req),
+  moveCheck: (id: string, dx: number, dy: number, z?: number) => ed.moveCheck(id, dx, dy, z),
   plantAt: routed((template: string, tiles: number[]) => sendUpdate(ed.plantAt(template, tiles)), (...a) => collabEditApi.plantAt(...a).then(sendUpdate)),
   stairAt: (from: [number, number], to: [number, number]) => ed.stairAt(from, to),
   layStair: routed((from: [number, number], to: [number, number]) => sendUpdate(ed.layStair(from, to)), (...a) => collabEditApi.layStair(...a).then(sendUpdate)),
