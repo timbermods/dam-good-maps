@@ -157,12 +157,47 @@ export function drownedHeads(h: ArrayLike<number>, W: number, H: number, rivers:
   return out;
 }
 
-/** The rivers whose water leaves the map somewhere other than where their system does: some way
- *  out is strictly lower (a level or more) than the best way out by the stretch of edge the system
- *  leaves by. A way out at the same level is a tie, not a leak (the water leaves the lower way); the
- *  exit's stretch is 35% of the side either way along its edge (a river on a coastal plain spreads
- *  before it leaves). `mouths` are the main river's other ways out (a delta's arms). */
-export function blockedCourses(h: ArrayLike<number>, W: number, H: number, rivers: readonly RiverFeature[], mouths: readonly (readonly Point[])[] = []): Blocked[] {
+/** The level no tile of an inflow's own edge is lowered below by the later steps (the second edge relax and the
+ *  basins' outlets): a level over the highest water standing on its course, read when its
+ *  course is planned (D(sea-steps)). A sea or lake a course from an edge ends in stands below every tile of that
+ *  edge that drained it no lower then; lowered under it, the sea's water would leave beside the mouth instead,
+ *  a tie with its own way out at best. Only the edge's two rows the edge relax reshapes, never a mouth's own
+ *  tiles; no tile is raised. */
+export function inflowEdges(h: ArrayLike<number>, W: number, H: number, rivers: readonly RiverFeature[], mouths: readonly (readonly Point[])[] = []): Uint8Array {
+  const floor = new Uint8Array(W * H);
+  const { sealed, exitsOf, onStretch } = systemWays(h, W, H, rivers, mouths);
+  const byExits = new Map<string, Float64Array>();
+  for (const r of rivers) {
+    if (r.params.badwater || !("edge" in r.params.entry)) continue;
+    const exits = exitsOf(r);
+    if (!exits.length) continue;
+    const key = exits.join(",");
+    let viaExit = byExits.get(key);
+    if (!viaExit) {
+      viaExit = drainage(h, W, H, { eight: false, outlet: (i) => !sealed[i] && onStretch(i, exits) }).filled;
+      byExits.set(key, viaExit);
+    }
+    let top = -1;
+    for (const c of courseCells(r.params.path, W, H)) if (viaExit[c] > h[c]) top = Math.max(top, Math.ceil(viaExit[c]));
+    if (top < 0) continue;
+    const level = Math.min(255, top + 1);
+    const e = r.params.entry.edge;
+    const vertical = e === "east" || e === "west";
+    const len = vertical ? H : W;
+    for (let k = 0; k < len; k++)
+      for (let t = 0; t < 2; t++) {
+        const i = vertical ? k * W + (e === "west" ? t : W - 1 - t) : (e === "south" ? t : H - 1 - t) * W + k;
+        if (!sealed[i] && floor[i] < level) floor[i] = level;
+      }
+  }
+  return floor;
+}
+
+/** The map's ways out as `blockedCourses` reads them: the edge tiles every tile drains to (`all`, `out`; an
+ *  inflow's mouth row is sealed), each river system's exit tiles (a tributary's are those of the river it
+ *  joins, a river ending in a basin leaves where that basin's water does, a main river also by a delta's
+ *  `mouths`) and whether an edge tile lies on an exit's stretch (35% of the side either way along its edge). */
+function systemWays(h: ArrayLike<number>, W: number, H: number, rivers: readonly RiverFeature[], mouths: readonly (readonly Point[])[]) {
   const N = W * H;
   const sealed = sealedMouths(rivers, W, H);
   const all = drainage(h, W, H, { eight: false, outlet: (i) => !sealed[i] });
@@ -172,7 +207,6 @@ export function blockedCourses(h: ArrayLike<number>, W: number, H: number, river
     const r = all.rcv[i];
     out[i] = r < 0 ? i : out[r];
   }
-  // each river's system's ways out: follow joins to a river that leaves by an edge
   const byId = new Map(rivers.map((r) => [r.id, r]));
   const exitsOf = (r: RiverFeature, seen = new Set<string>()): number[] => {
     const e = r.params.exit;
@@ -206,6 +240,16 @@ export function blockedCourses(h: ArrayLike<number>, W: number, H: number, river
       return false;
     });
   };
+  return { sealed, all, out, exitsOf, onStretch };
+}
+
+/** The rivers whose water leaves the map somewhere other than where their system does: some way
+ *  out is strictly lower (a level or more) than the best way out by the stretch of edge the system
+ *  leaves by. A way out at the same level is a tie, not a leak (the water leaves the lower way); the
+ *  exit's stretch is 35% of the side either way along its edge (a river on a coastal plain spreads
+ *  before it leaves). `mouths` are the main river's other ways out (a delta's arms). */
+export function blockedCourses(h: ArrayLike<number>, W: number, H: number, rivers: readonly RiverFeature[], mouths: readonly (readonly Point[])[] = []): Blocked[] {
+  const { sealed, all, out, exitsOf, onStretch } = systemWays(h, W, H, rivers, mouths);
   // the spill levels with only the system's exit stretch draining, once per system
   const byExits = new Map<string, Float64Array>();
   const blocked: Blocked[] = [];
@@ -257,45 +301,7 @@ export function blockedCourses(h: ArrayLike<number>, W: number, H: number, river
  *  tiles at or under it round where the water leaves, two rows deep, never a mouth's own tiles, never
  *  more than a quarter of the edge or a rise of `maxRise`. Returns whether any lip was raised. */
 export function closeSideEdges(h: Uint8Array, W: number, H: number, rivers: readonly RiverFeature[], mouths: readonly (readonly Point[])[] = [], maxRise = 2): boolean {
-  const N = W * H;
-  const sealed = sealedMouths(rivers, W, H);
-  const all = drainage(h, W, H, { eight: false, outlet: (i) => !sealed[i] });
-  const out = new Int32Array(N).fill(-1);
-  for (let q = 0; q < all.order.length; q++) {
-    const i = all.order[q];
-    const r = all.rcv[i];
-    out[i] = r < 0 ? i : out[r];
-  }
-  const byId = new Map(rivers.map((r) => [r.id, r]));
-  const exitsOf = (r: RiverFeature, seen = new Set<string>()): number[] => {
-    const e = r.params.exit;
-    if ("river" in e) {
-      const to = byId.get(e.river);
-      if (!to || seen.has(to.id)) return [];
-      seen.add(r.id);
-      return exitsOf(to, seen);
-    }
-    if ("basin" in e) {
-      const x = Math.min(W - 1, Math.max(0, Math.round(e.basin[0])));
-      const y = Math.min(H - 1, Math.max(0, Math.round(e.basin[1])));
-      return out[y * W + x] >= 0 ? [out[y * W + x]] : [];
-    }
-    const tiles = [edgeTile(r.params.path[r.params.path.length - 1], W, H)];
-    if (r.role === "river/main") for (const m of mouths) if (m.length) tiles.push(edgeTile(m[m.length - 1], W, H));
-    return tiles;
-  };
-  const tol = Math.max(12, Math.round(0.35 * Math.min(W, H)));
-  const onStretch = (i: number, exits: readonly number[]) => {
-    const x = i % W;
-    const y = (i - x) / W;
-    return exits.some((e) => {
-      const ex = e % W;
-      const ey = (e - ex) / W;
-      if ((ex === 0 || ex === W - 1) && x === ex && Math.abs(y - ey) <= tol) return true;
-      if ((ey === 0 || ey === H - 1) && y === ey && Math.abs(x - ex) <= tol) return true;
-      return false;
-    });
-  };
+  const { sealed, all, out, exitsOf, onStretch } = systemWays(h, W, H, rivers, mouths);
   let changed = false;
   const done = new Set<number>();
   for (const r of rivers) {
