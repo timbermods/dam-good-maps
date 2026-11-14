@@ -121,7 +121,9 @@ function TouchLines(p: { phone: boolean; tablet: boolean }) {
       <li>Pinch to zoom. Turn two fingers to turn the view, and move them up or down together to tilt it.</li>
       <li>Double tap to zoom in where you tap. On an object, the first tap also selects it.</li>
       <li>Tap with two fingers to undo, with three to redo.</li>
-      <li>A second finger stops a stroke, and nothing is changed.</li>
+      <li>With a force or Block in hand, drag to draw its line or sweep. It shows above your finger, and lifting applies it. A second finger cancels it.</li>
+      <li>With nothing in hand, hold a finger still for a moment, then drag to select land. A second finger cancels it.</li>
+      <li>A second finger stops any stroke, and nothing is changed.</li>
       <li>
         Tap <strong>×</strong> on a tool's settings to put it down. One finger moves the view again.
       </li>

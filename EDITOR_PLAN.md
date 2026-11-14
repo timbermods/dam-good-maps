@@ -1286,7 +1286,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 - **Select** (D259): Rectangle, Freehand, **Wand** (D261: a click on land selects the ground joined to it at that
   level; on water, that river's or lake's visible water tiles, badwater included, never a bank tile; a snapshot at
   the click), **Circle** (drag from the centre) and **Brush** (paint the selection at the brushes' size); Shift adds
-  and Alt subtracts. A click lands on the first ground the ray meets (a cave's floor through its mouth, a ledge
+  and Alt subtracts; **Add / Take away** beside Whole map does it without a key (a tap steps Replace, Add, Take away,
+  for a finger; #1074 slice 6; closing Select sets it back to Replace). A click lands on the first ground the ray meets (a cave's floor through its mouth, a ledge
   under an overhang); the Wand and Ctrl+click read that run's level, and a selection is still a set of tiles. A
   Wand selection on land also names that level in each tile, and is drawn there: its tint and outline on that run
   (a cave's floor), the roof over it dimmed as the land outside, and outside a brush's working area too; the actions still take
@@ -1738,7 +1739,9 @@ them, ROADMAP "The 20-second tour"):
 - **Help**. A dialog of a few lines for a player: what the editor is for, how to make a map, how to save it into
   Timberborn (with a link to the README's "Install a map"), the pointer controls and where to report a problem. To a
   finger (a coarse pointer, #1074) it speaks touch first: the gestures lead (tap, drag, pinch, a two-finger turn, the
-  double tap as slice 3 makes it, two- and three-finger taps for Undo and Redo, a long press), every step says tap; on a
+  double tap as slice 3 makes it, two- and three-finger taps for Undo and Redo, a long press; slice 6: a force's line or
+  a Block sweep drawn by a drag, a selection begun by holding a finger still, each saying a second finger cancels it, since
+  no Cancel lies under a drawing finger), every step says tap; on a
   phone nothing names a mouse or a key, and a tablet names Show and Objects at the top right and keeps the mouse and Keyboard shortcuts after the gestures. It reads
   which once, when it opens, from the page's layout and the pointer (`helpPanels.tsx`).
 - **Report a problem** opens https://github.com/timbermods/dam-good-maps/issues/new/choose in a new tab (the issue

@@ -737,7 +737,7 @@ export function useSelect(ed: Ed): SelectSlice {
           class="icon-button combine"
           aria-label={`Add or take away: ${COMBINE_WORDS[combine]}`}
           aria-pressed={combine !== "set"}
-          {...tip("Add to the selection or take away from it", "Shift adds", "Alt takes away")}
+          {...tip("Replace, add to or take away from the selection", "Shift adds", "Alt takes away")}
           onClick={() => setCombine(combine === "set" ? "add" : combine === "add" ? "subtract" : "set")}
         >
           <CombineIcon how={combine} />
