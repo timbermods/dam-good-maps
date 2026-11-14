@@ -702,14 +702,24 @@ for (const size of SIZES) {
       expect(await steps(page)).toBe(s1);
       await putAway(page);
 
-      // the Block tool (slice 3b): held still and lifted, one block where it showed; dragged, a sweep of blocks from where
-      // the press aimed to where the lift is, one step
-      await onFlat(page, c);
+      // the Block tool (slice 3b): dragged, a sweep of blocks from where the press aimed to where the lift is, one step;
+      // held still and lifted, one block where it showed
+      const flat = await onFlat(page, c);
       await page.keyboard.press("Digit7");
       await toolInHand(page);
+      await still(page);
+      // (the sweep across the level patch, a size-3 block's edge inside it at each end: past it the ground may be lower,
+      // and blocks over air are refused, as with the mouse)
+      const [w0, w1] = await page.evaluate(({ x, y }) => [window.dgmEditor!.tileToClient(x - 2, y), window.dgmEditor!.tileToClient(x + 2, y)], flat);
       await fingers.pause(400);
       let h0 = await heights(page);
-      let sb = await steps(page);
+      await pressDragLift({ x: w0.x, y: w0.y + FINGER_LIFT }, { x: w1.x, y: w1.y + FINGER_LIFT }, /block/i);
+      await settled(page);
+      const swept = (await heights(page)).filter((v, i) => v !== h0[i]).length;
+      expect(swept).toBeGreaterThan(9);
+      await fingers.pause(400);
+      h0 = await heights(page);
+      const sb = await steps(page);
       await fingers.down({ 1: a });
       await fingers.pause(TAP_HOLD);
       await fingers.up(1);
@@ -718,14 +728,7 @@ for (const size of SIZES) {
       await settled(page);
       const one = (await heights(page)).filter((v, i) => v !== h0[i]).length;
       expect(one).toBeGreaterThan(0);
-      await page.keyboard.press("Control+z");
-      await settled(page);
-      await fingers.pause(400);
-      h0 = await heights(page);
-      sb = await steps(page);
-      await pressDragLift({ x: c.x - R / 2, y: c.y + FINGER_LIFT + R / 3 }, { x: c.x + R / 2, y: c.y + FINGER_LIFT + R / 3 }, /block/i);
-      await settled(page);
-      expect((await heights(page)).filter((v, i) => v !== h0[i]).length).toBeGreaterThan(one);
+      expect(one).toBeLessThan(swept);
       await putAway(page);
 
       // a force's line (Carve): the drag draws its line from where the press aimed, the band showing, and the lift carves
@@ -755,9 +758,11 @@ for (const size of SIZES) {
       if (sheet) await handle.tap();
       await page.getByRole("group", { name: "Brush" }).getByRole("button", { name: "Ridge", exact: true }).click();
       if (sheet) await handle.tap();
-      await onFlat(page, c);
+      const level = await onFlat(page, c);
+      // (a ridge needs a line 3 tiles long at least: drawn 4 across the level patch, whatever a tile's size on the screen)
+      const [r0, r1] = await page.evaluate(({ x, y }) => [window.dgmEditor!.tileToClient(x - 2, y), window.dgmEditor!.tileToClient(x + 2, y)], level);
       await fingers.pause(400);
-      await pressDragLift({ x: c.x - R / 2, y: c.y + FINGER_LIFT + R / 4 }, { x: c.x + R / 2, y: c.y + FINGER_LIFT - R / 4 }, /Ridge/i);
+      await pressDragLift({ x: r0.x, y: r0.y + FINGER_LIFT }, { x: r1.x, y: r1.y + FINGER_LIFT }, /Ridge/i);
       if (sheet) await handle.tap();
       await page.getByRole("group", { name: "Brush" }).getByRole("button", { name: "Round", exact: true }).click();
       if (sheet) await handle.tap();

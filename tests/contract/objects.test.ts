@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
-import { footprintCheck, planEntity } from "../../src/core/doc/placing";
+import { footprintCheck, moveProblem, planEntity, planMoveEntity } from "../../src/core/doc/placing";
 import { generate } from "../../src/core/gen/generate";
 import { decodeSpecFragment, makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
 import { validateFile } from "../../src/core/validate/checks";
@@ -70,6 +70,28 @@ describe("objects placed from the shelf (ROADMAP M7)", () => {
     expect(p.ok, JSON.stringify(p)).toBe(true);
     if (p.ok) expect(s.applyAll(p.ops, "user", p.label).errors).toEqual([]);
     expect(loadChecks(s).find((c) => c.id === "entities.placement")!.ok).toBe(true);
+  });
+
+  it("a drag's preview reads the refusal its drop would meet (#1074 slice 3b)", () => {
+    const relic = uuid(61);
+    const at = spotFor(s, "MediumRelic", 3);
+    const placed = planEntity(s, { template: "MediumRelic", x: at[0], y: at[1], orientation: "Cw0" }, relic);
+    expect(placed.ok).toBe(true);
+    if (placed.ok) expect(s.applyAll(placed.ops, "user", placed.label).errors).toEqual([]);
+    const start = s.built.entities.find((e) => e.template === "StartingLocation")!;
+    const e = s.built.entities.find((g) => g.id === relic)!;
+    const onStart: [number, number] = [start.x - e.x, start.y - e.y];
+    const plan = planMoveEntity(s, relic, ...onStart);
+    expect(plan.ok).toBe(false);
+    expect(moveProblem(s, relic, ...onStart)).toBe(plan.ok ? null : plan.errors[0]);
+    const step = [[1, 0], [0, 1], [-1, 0], [0, -1], [2, 0], [0, 2]].find(([dx, dy]) => planMoveEntity(s, relic, dx, dy).ok)!;
+    expect(moveProblem(s, relic, step[0], step[1])).toBeNull();
+    // a source: its operation's own check, the drop's refusal
+    const src = s.built.entities.find((g) => g.template === "WaterSource")!;
+    const off = moveProblem(s, src.id, W, 0);
+    expect(off).toBeTruthy();
+    expect(off).toBe(s.check({ op: "moveEntity", params: { id: src.id, x: src.x + W, y: src.y } })[0]);
+    expect(moveProblem(s, "gone", 1, 0)).toBe("that object is gone");
   });
 });
 
