@@ -744,6 +744,91 @@ export const START = {
   crown: [0.162, 0.16, 0.138] as Rgb,
 } as const;
 
+/** The Iron Teeth's start as the game draws it in play: their district center (DistrictCenter.IronTeeth.Model,
+ *  Timberborn 1.1.2.8, D178 as amended 2026-11-10, D496), read so it can be drawn; nothing draws it yet (the view draws
+ *  the Folktails' `START` for both factions). Its measures, part by part, are in docs/progress/3d-view.md, "The Iron
+ *  Teeth's start and the fire, read". Each colour is a material's albedo read as `START`'s were
+ *  (`tools/game-model-albedo.py`: texture × vertex colour × `_Color`, the mean over the material's triangles weighted by
+ *  area, display values, as the game renders in Gamma colour space), × (1 − its metallic) sample by sample: URP's
+ *  diffuse share at its metallic folded in, as the objects' light has metallic 0 (`GAME_LIGHT.objectDiffuse`). The
+ *  environment's reflection, by the smoothness, is not folded in; `START`'s Folktails colours read 0–0.05 above this
+ *  measure on their smoother parts (pale wood, windows) and within 0.01 elsewhere. Each material, raw (albedo, metallic,
+ *  smoothness, its `_AmbientOcclusion` map's mean weighted by albedo; area in m²):
+ *  - `planks` IrregularPlanks_Grey.IronTeeth: 0.392/0.359/0.296, 0.118, 0.189, 0.938; 16.6 (the walls and the tower);
+ *  - `indigo` BaseWood_Indigo.IronTeeth: 0.160/0.188/0.161, 0.093, 0.329, 0.982; 13.1 (the floor, the corner posts, the
+ *    door's frame, the emblems' frames, the platform's rim, its spindles and rail, the bowl's stand and its blocks);
+ *  - `roof` RoofPlanks.IronTeeth: 0.150/0.155/0.119, 0.057, 0.359, 0.933; 13.6 (the roof, the band round the tower's foot
+ *    and the hood);
+ *  - `darkWood` BaseWood_DarkBrown.IronTeeth: 0.187/0.155/0.113, 0.093, 0.332, 0.988; 9.8 (the tower's corner posts, the
+ *    platform's deck, the lantern's eight beams, the hood's frame);
+ *  - `soffit` IrregularPlanks_DarkBrown.IronTeeth: 0.177/0.151/0.108, 0.118, 0.246, 0.896; 0.36 (under the hood);
+ *  - `collar` BaseWood_Grey.IronTeeth: 0.397/0.354/0.302, 0.098, 0.311, 0.985; 0.17 (round the flue's top);
+ *  - `window` and `door` WindowsAtlas.IronTeeth: 0.170/0.144/0.113, 0.101, 0.228, 0.710; 1.36, split by part: the four
+ *    round windows 0.196/0.174/0.137 (metallic 0.158), the door's leaf 0.124/0.091/0.070 (metallic 0);
+ *  - `emblem` Details.IronTeeth: 0.256/0.241/0.330, 0.086, 0.055, 0.948; 0.65 (the four emblems, blue-violet);
+ *  - `iron` BaseMetal.IronTeeth: 0.129/0.122/0.122, 0.502, 0.286, 0.979; 1.15 (the fire bowl, the same piece as the
+ *    Folktails', and the flue), its vertex colours 0.14–0.72, 0.38 over 72 % of it. */
+export const START_IRON_TEETH = {
+  planks: [0.346, 0.317, 0.261] as Rgb,
+  indigo: [0.141, 0.168, 0.145] as Rgb,
+  roof: [0.143, 0.149, 0.115] as Rgb,
+  darkWood: [0.168, 0.139, 0.101] as Rgb,
+  soffit: [0.156, 0.133, 0.095] as Rgb,
+  collar: [0.355, 0.316, 0.27] as Rgb,
+  window: [0.149, 0.127, 0.092] as Rgb,
+  door: [0.124, 0.091, 0.07] as Rgb,
+  emblem: [0.233, 0.22, 0.301] as Rgb,
+  iron: [0.064, 0.061, 0.061] as Rgb,
+} as const;
+
+/** The fire the game lights in the district center's bowl, the same for both factions (the prefab DistrictCenterFire,
+ *  Timberborn 1.1.2.8; D178 as amended 2026-11-10, D496), read with `tools/game-particles.py` so it can be drawn; nothing
+ *  draws it yet. Both DistrictCenter blueprints (`TemplateAttachmentsSpec`, attachment "Fire") put it under `#Finished`
+ *  at (1.5, 3.0, 1.5), unturned, scale 1. Lengths are metres (one tile), times seconds, in the model's own frame: y up,
+ *  the origin the footprint's corner, the door on the z = 0 face. Colours are display values (Gamma colour space).
+ *  Full figures and what they make: docs/progress/3d-view.md, "The Iron Teeth's start and the fire, read". */
+export const START_FIRE = {
+  /** The emitter: its child `Flames` 0.16 above the attachment, inside the iron bowl (3.08–3.23 high). */
+  emitter: [1.5, 3.16, 1.5] as const,
+  /** It emits from a disc this wide in radius (the cone shape's radius 0.03 × its scale 3), the whole disc, all round,
+   *  every particle straight up (the cone's angle 0, turned −90° about x). */
+  discRadius: 0.09,
+  /** Particles a second, steady (no bursts); the system's duration 1 s, looping, playing from the start, simulated in
+   *  world space; at most 200 alive (50 × 3 s is 150, so never reached). */
+  rate: 50,
+  /** Each particle's life, uniform between these (s). */
+  lifetime: [2, 3] as const,
+  /** Its speed up, uniform between these (m/s), kept all its life: no gravity, force, noise or velocity over lifetime;
+   *  its limit-velocity module is on but with dampen 0, which takes nothing off. So it dies 0.4 to 1.5 above the
+   *  emitter (speed × life). */
+  speed: [0.2, 0.5] as const,
+  /** Its start size, uniform between these (m), the billboard's side. */
+  size: [0.5, 1] as const,
+  /** × the start size over its life: Unity curve keys (time 0–1 of the life, value, slope in = out), Hermite between
+   *  them, the last key held to the end of the life: 0.36 at birth, 0.42 at 0.29 of its life, 0.03 at 0.98. */
+  sizeOverLife: [[0, 0.3602, 1.731], [0.2921, 0.4202, -0.8607], [0.9778, 0.03095, -0.3407]] as const,
+  /** Its start turn, uniform between these (rad), and its steady spin (rad/s, about the view axis). */
+  rotation: [-2 * Math.PI, 2 * Math.PI] as const,
+  spin: 0.7854,
+  /** Its colour over its life (the start colour is white): the gradient's colour keys (time, r, g, b) and alpha keys
+   *  (time, a), blended linearly between keys in Gamma colour space: dark grey, yellow, orange, red, then grey smoke. */
+  colourOverLife: [[0, 0.1415, 0.1369, 0.1302], [0.078, 1, 0.8021, 0], [0.1848, 0.996, 0.4378, 0.0048], [0.2628, 0.7358, 0, 0], [0.4004, 0.2358, 0.2358, 0.2358], [0.9882, 0.3585, 0.3585, 0.3585]] as const,
+  alphaOverLife: [[0, 0], [0.0353, 1], [0.271, 1], [0.6037, 0.3451], [1, 0]] as const,
+  /** How a particle is drawn: a camera-facing billboard, unlit, alpha-blended (src alpha, 1 − src alpha), no depth
+   *  write, no shadow, material `Fire` on "Shader Graphs/FireParticles" (its Unlit pass, disassembled): colour = 2 ×
+   *  texel × particle colour × `tint`, alpha = saturate(2 × texel alpha × particle alpha × `tint`'s alpha). Its texture
+   *  `Fire` (512²) is white with a soft round alpha: the mean alpha in rings out from its middle (texture widths 0–0.05,
+   *  …, 0.45–0.5) in `textureAlpha`, peak 0.678. So a particle in full colour is at most about 0.30 opaque over its
+   *  middle and its colour is doubled (the yellow key draws 2/1.6/0): the game's frame is HDR, so it keeps the excess,
+   *  which the bloom takes where particles stack (3d-view.md, "Bloom"). */
+  tint: [1, 1, 1, 0.349] as const,
+  textureAlpha: [0.43, 0.432, 0.433, 0.433, 0.427, 0.382, 0.228, 0.064, 0.005, 0] as const,
+  /** Its light (the child "Point Light", in fact a spot): 1.24 above the attachment (4.24), pointing straight down,
+   *  colour 0.991/0.789/0.453, intensity 5, range 8 m, spot angle 120°, inner 75°, no shadows; with only URP's own
+   *  light data on it (no script that flickers or dims it). */
+  light: { at: [1.5, 4.24, 1.5] as const, colour: [0.9906, 0.7894, 0.4532] as Rgb, intensity: 5, range: 8, spotAngle: 120, innerAngle: 75 },
+} as const;
+
 /** The game's altitude colour ramps (D497; `tools/altitude-ramp.ts` reads them from the game's `resources.assets`,
  *  Timberborn 1.1.2.8): TerrainURP multiplies the ground's colour (grass and dry ground, before contamination is laid
  *  over it; not fields, not cliffs) by twice the ramp's texel (texel / 255, read raw in Gamma colour space) at the

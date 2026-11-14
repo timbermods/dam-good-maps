@@ -18,7 +18,10 @@ are green (a bush's berries), with each part's share of the area. `--above 0.3,0
 albedo over only its texels lighter than each luminance (Rec. 709, of the texel): a bark's light part without the dark
 marks a model of ours draws as geometry of its own (the birch's).
 
-    python tools/game-model-albedo.py StartingLocation.Model BlueberryBushMature RuinColumnH3 [--above 0.3] [--game ...]
+`--parts` also prints the model's measures: its bounds and each material's parts (triangles that share corners) with
+their bounds.
+
+    python tools/game-model-albedo.py StartingLocation.Model BlueberryBushMature RuinColumnH3 [--above 0.3] [--parts] [--game ...]
 """
 import argparse
 import os
@@ -276,6 +279,9 @@ def report(model, parts, above=()):
         lum = alb @ np.array([0.2126, 0.7152, 0.0722])
         print(f"    occlusion {(ao * area).sum() / tot:.3f} (albedo-weighted {(ao * lum * area).sum() / max((lum * area).sum(), 1e-9):.3f}),"
               f" metallic {(metal * area).sum() / tot:.3f}, smoothness {(smooth * area).sum() / tot:.3f}")
+        # URP's diffuse share at each sample's metallic, folded into the albedo (the objects' light has metallic 0;
+        # the environment's reflection, by the smoothness, is not in it)
+        print(f"    albedo × (1 − metallic) {fmt((alb * (1 - metal)[:, None] * area[:, None]).sum(0) / tot)}")
         keys = np.round(vc / 0.02) * 0.02
         groups = {}
         for i, k in enumerate(map(tuple, keys)):
@@ -295,6 +301,51 @@ def report(model, parts, above=()):
             print(f"    bluer texels: {a.sum() / tot * 100:5.1f} % of the area, albedo {fmt((alb[blue] * a[:, None]).sum(0) / a.sum())}")
 
 
+def parts(assets, model):
+    """The model's measures (metres = tiles, y up, in the model's own frame: a building's origin is its footprint's
+    corner): its bounds, then each material's parts, a part being triangles that share corners, with its triangle
+    count and its bounds, largest first."""
+    nodes = assets.timbermesh(assets.named(1, model))
+    found, every = [], []
+    for k, node in enumerate(nodes):
+        pos = node["props"].get("position")
+        if pos is None or not node["meshes"]:
+            continue
+        scale = np.array(node["scale"])
+        p = k
+        while nodes[p]["parent"] >= 0:
+            p = nodes[p]["parent"]
+            scale = scale * np.array(nodes[p]["scale"])
+        pos = pos * scale
+        # corners at the same place (to a millimetre) are one, however the mesh splits them for its normals
+        _, same = np.unique(np.round(pos * 1000).astype(np.int64), axis=0, return_inverse=True)
+        same = same.reshape(-1)
+        for mat, idx in node["meshes"]:
+            tri = same[idx.reshape(-1, 3)]
+            up = list(range(same.max() + 1))
+
+            def root(a):
+                while up[a] != a:
+                    up[a] = up[up[a]]
+                    a = up[a]
+                return a
+            for a, b, c in tri:
+                up[root(b)] = root(a)
+                up[root(c)] = root(a)
+            groups = {}
+            for t, corners in enumerate(idx.reshape(-1, 3)):
+                groups.setdefault(root(tri[t][0]), []).append(corners)
+            for corners in groups.values():
+                v = pos[np.unique(np.array(corners))]
+                found.append((mat, len(corners), v.min(0), v.max(0)))
+                every.append(v)
+    v = np.concatenate(every)
+    print(f"\n{model}: {sum(n for _, n, _, _ in found)} triangles, x {v[:, 0].min():.3f}..{v[:, 0].max():.3f},"
+          f" y {v[:, 1].min():.3f}..{v[:, 1].max():.3f}, z {v[:, 2].min():.3f}..{v[:, 2].max():.3f}")
+    for mat, n, lo, hi in sorted(found, key=lambda f: (f[0], -float(np.prod(f[3] - f[2] + 0.01)))):
+        print(f"  {mat:36s} {n:4d} triangles  x {lo[0]:6.3f}..{hi[0]:6.3f}  y {lo[1]:6.3f}..{hi[1]:6.3f}  z {lo[2]:6.3f}..{hi[2]:6.3f}")
+
+
 def fmt(v):
     return "(" + ", ".join(f"{x:.3f}" for x in v) + ")"
 
@@ -303,11 +354,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("models", nargs="+", help="the models' GameObject names")
     ap.add_argument("--above", default="", help="luminances: each part's albedo over its texels lighter than each")
+    ap.add_argument("--parts", action="store_true", help="also each material's parts, with their measures")
     ap.add_argument("--game", default="C:/Program Files (x86)/Steam/steamapps/common/Timberborn")
     args = ap.parse_args()
     assets = Assets(args.game)
     for m in args.models:
         report(m, albedo(assets, m), [float(t) for t in args.above.split(",") if t])
+        if args.parts:
+            parts(assets, m)
 
 
 if __name__ == "__main__":
