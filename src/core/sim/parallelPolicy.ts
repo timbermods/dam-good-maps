@@ -5,7 +5,8 @@ const MAX_THREADS = 16;
 
 /** The most threads a map of `n` tiles uses: none below 256², about 8 at 256², up to 16 at 512² (#130). */
 export function threadsFor(n: number): number {
-  if (n < 256 * 256) return 1;
+  if (n < 128 * 128) return 1;
+  if (n < 256 * 256) return 4;
   // 8·√(n / 256²), in integers
   let t = 8;
   while (t < MAX_THREADS && (t + 1) * (t + 1) * 1024 <= n) t++;
