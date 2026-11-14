@@ -174,6 +174,9 @@ export interface TouchHost {
   canTilt(): boolean;
   /** The viewer prefers reduced motion: no glide. */
   still(): boolean;
+  /** A timer: run `fn` after `ms`; its id, for `clear`. */
+  later(fn: () => void, ms: number): number;
+  clear(id: number): void;
 }
 
 interface Pair {
@@ -198,6 +201,9 @@ export class Touches {
   private lone: number | null = null;
   private speed = new Speed();
   private at: Point = { x: 0, y: 0 };
+  /** The pair's step waiting for the rest of its touch (`step`): its timer, and the touch's time. */
+  private waiting = 0;
+  private waitingT = 0;
   private flingFrame = 0;
 
   constructor(private readonly host: TouchHost) {}
@@ -262,9 +268,12 @@ export class Touches {
         }
         pr.mode = mode;
       }
-      const { motion, at } = twoStep(pr.last[0], pr.last[1], cur[0], cur[1], pr.mode);
-      pr.last = cur;
-      this.apply(motion, at, ev.timeStamp);
+      // (one touch moves both fingers, told a finger at a time: the first finger's move waits for the other's of the
+      // same touch, so the fingers' middle never steps aside and back between them, which a view held at the map's edge
+      // could not undo; the other finger still, the step goes once the touch's events are all in)
+      this.waitingT = ev.timeStamp;
+      if (theirs) this.step();
+      else if (!this.waiting) this.waiting = this.host.later(() => this.step(), 0);
       return true;
     }
     if (this.lone === ev.pointerId) this.apply({ ...NO_MOTION, dx: now.x - was.x, dy: now.y - was.y }, now, ev.timeStamp);
@@ -273,6 +282,8 @@ export class Touches {
 
   /** A finger came up (or the browser took it: `pointercancel`): true when the camera's gesture had it. */
   up(ev: PointerEvent): boolean {
+    // (the pair's step waiting for its touch goes first: the last move counts)
+    if (this.waiting && this.fingers.has(ev.pointerId)) this.step();
     if (!this.fingers.delete(ev.pointerId)) return false;
     const s = this.seq;
     if (!s) return false;
@@ -340,6 +351,8 @@ export class Touches {
   /** Forget every finger (the window lost focus: their releases go elsewhere). */
   reset(): void {
     this.stop();
+    if (this.waiting) this.host.clear(this.waiting);
+    this.waiting = 0;
     this.fingers.clear();
     this.seq = null;
     this.pair = null;
@@ -351,6 +364,19 @@ export class Touches {
     this.at = at;
     this.speed.add(t, m);
     this.host.move(m, at);
+  }
+
+  /** The pair's step from where its fingers last were to where they are now (the whole of a touch's move). */
+  private step(): void {
+    if (this.waiting) this.host.clear(this.waiting);
+    this.waiting = 0;
+    const pr = this.pair;
+    const a = pr && this.fingers.get(pr.ids[0]);
+    const b = pr && this.fingers.get(pr.ids[1]);
+    if (!pr?.mode || !a || !b) return;
+    const { motion, at } = twoStep(pr.last[0], pr.last[1], a, b, pr.mode);
+    pr.last = [a, b];
+    this.apply(motion, at, this.waitingT);
   }
 
   /** The first two fingers down make the gesture. */

@@ -589,6 +589,8 @@ export class MapRenderer {
     fingers: (n) => this.onFingers?.(n),
     canTilt: () => this.view.mode === "orbit",
     still: () => this.reducedMotion,
+    later: (fn, ms) => window.setTimeout(fn, ms),
+    clear: (id) => clearTimeout(id),
   });
   /** The last tap of a finger (its place and time), for a double tap; whether the readout shows the tile it read. */
   private lastTap: { x: number; y: number; t: number } | null = null;

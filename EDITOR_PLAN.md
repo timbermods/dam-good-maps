@@ -1673,7 +1673,9 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   desktop's). A finger is a pointer of its own type, so the mouse, the pen (its pressure) and the keys keep everything
   above. **Two fingers** move the camera in one gesture: dragged they pan, pinched they zoom about the ground under their
   middle (it stays under it, as the wheel's does), twisted they turn the view about that ground, and two fingers side by
-  side dragged up or down together tilt it (in the top-down view that drag pans); let go moving, the view glides on and
+  side dragged up or down together tilt it (in the top-down view that drag pans). A browser tells one touch a finger at
+  a time, so the gesture takes a touch's move whole: one step once both fingers' moves are in (`Touches`), never a
+  step aside and back that a view held at the map's edge could not undo. Let go moving, the view glides on and
   slows to a stop (none with reduced motion). **One finger with nothing in hand** (the resting Select with nothing
   selected) pans; a **tap** reads the tile (the readout stays once the finger is gone) and is a click (an object, a
   source or the start is picked as by the mouse); a **double tap** glides in to half the distance about the spot,
