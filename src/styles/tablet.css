@@ -1,0 +1,363 @@
+/* Tablets (#1074 slice 5; EDITOR_PLAN §3, "Tablets"): a finger with a desktop's room. The pointer decides (a coarse
+   pointer, never a device's name) and the room (not a phone's: no `data-phone`), so no rule here reaches a phone, which
+   phone.css lays out, or a desktop with a mouse. The desktop's layout, every control a finger's 44px at the least, the
+   same gestures (render3d/touch.ts). Narrower than the desktop's designed room (1280px), the bar of tools spans the map's
+   foot with the objects and the minimap standing above it, the header takes a second line where its controls need it,
+   and the top band runs in lines (view/useBandLayout.ts). */
+
+@media (pointer: coarse) {
+  /* ---- every control a finger can press: 44px at the least; fields 16px, so the browser never zooms on focus */
+  .editor:not([data-phone]) :is(button, select, input:not([type="hidden"]):not([type="file"]), [role="checkbox"], [role="menuitem"]),
+  html:not([data-phone]) :is(.dialog, .menu) :is(button, select, input:not([type="hidden"]):not([type="file"]), [role="checkbox"], [role="menuitem"], a[href]) {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .editor:not([data-phone]) :is(input, select, textarea),
+  html:not([data-phone]) .dialog :is(input, select, textarea) {
+    font-size: 16px;
+  }
+
+  .editor:not([data-phone]) input[type="range"],
+  html:not([data-phone]) .dialog input[type="range"] {
+    height: 44px;
+    margin: 0;
+  }
+
+  /* ---- the header: its controls 44px, as on a big screen */
+  html:not([data-phone]) {
+    --head: 73px;
+  }
+
+  .editor:not([data-phone]) .editor-bar {
+    min-height: var(--head);
+  }
+
+  .editor:not([data-phone]) :is(.editor-actions > button, .editor-actions .checks-dot, .editor-actions > .menu-wrap > button, .editor-actions > .together-wrap > button) {
+    height: 44px;
+  }
+
+  .editor:not([data-phone]) .editor-actions > .icon-button {
+    width: 44px;
+  }
+
+  .editor:not([data-phone]) .editor-bar .new-map {
+    min-height: 44px;
+  }
+
+  /* ---- the top band: the Show row's toggles, Legend's row, the water row and the corner, 44px; the Show row wraps short
+     of the corner (--show-max, useBandLayout.ts) */
+  .editor:not([data-phone]) .editor-view .view3d-controls.show-bar {
+    flex-wrap: wrap;
+    max-width: var(--show-max, none);
+  }
+
+  .editor:not([data-phone]) :is(.editor-view .show-bar .show-row, .legend-stack .show-row) {
+    height: 44px;
+  }
+
+  .editor:not([data-phone]) .editor-view .water-bar > * {
+    height: 44px;
+  }
+
+  .editor:not([data-phone]) .editor-view .view3d-corner {
+    --corner-h: 44px;
+  }
+
+  /* (the height slice's three 44px buttons in the first column: 136px, Reset view and First view as wide as they were) */
+  .editor:not([data-phone]) .editor-view .view3d-corner:has(.camera-group.with-first-view) {
+    grid-template-columns: 136px 92px 92px var(--corner-h);
+  }
+
+  .editor:not([data-phone]) .view3d-corner .layer-widget button {
+    min-width: 44px;
+  }
+
+  /* (the desktop's narrow windows drop a button's word for its icon; the water row's buttons have no icon: a tablet
+     keeps the word) */
+  .editor:not([data-phone]) .icon-button .icon-word {
+    display: block;
+  }
+
+  .editor:not([data-phone]) .day-stepper .day-step {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* ---- the objects: rows a finger's 44px */
+  .editor:not([data-phone]) .objects-menu .shelf-item {
+    height: 46px;
+  }
+
+  /* ---- the bar and the held tool's settings: cells at least 44px, two rows of 62px (a name over a 44px slider) */
+  .editor:not([data-phone]) .editor-view {
+    --cell-min: 44px;
+  }
+
+  .editor:not([data-phone]) .tool-bar button.icon-button {
+    height: 60px;
+  }
+
+  .editor:not([data-phone]) .tool-dock > .tool-settings {
+    /* (two rows of 66px, 4px apart, and the plate's padding: a name over a 44px control; never a third row) */
+    height: 144px;
+  }
+
+  .editor:not([data-phone]) .set-head {
+    height: 17px;
+    line-height: 17px;
+  }
+
+  .editor:not([data-phone]) .set-seg {
+    height: 44px;
+  }
+
+  /* Auto: drawn as small as on the desktop, beside the setting's name, and a finger's 44px to take (the pill is its
+     ::before; the box round it is clear and takes no room) */
+  .editor:not([data-phone]) .set-auto {
+    position: relative;
+    isolation: isolate;
+    min-width: 44px;
+    min-height: 44px;
+    margin: -14px -6px;
+    padding: 0 calc(6px + 6px / var(--wide-font));
+    border: 0;
+    background: transparent;
+  }
+
+  .editor:not([data-phone]) .set-auto::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: 14px 6px;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+  }
+
+  .editor:not([data-phone]) .set-auto[aria-pressed="true"] {
+    background: transparent;
+  }
+
+  .editor:not([data-phone]) .set-auto[aria-pressed="true"]::before {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+}
+
+@media (pointer: coarse) {
+  /* ---- the species mix's handles: a finger's 44px to take, the same thin bar to see (as on a phone) */
+  .editor:not([data-phone]) .set.plate.line.species-mix {
+    grid-template-rows: auto;
+    height: auto;
+    row-gap: 18px;
+    padding-bottom: 8px;
+  }
+
+  .editor:not([data-phone]) .species-mix .mix-bar {
+    margin: 12px 0 0;
+  }
+
+  .editor:not([data-phone]) .mix-edge {
+    top: -17px;
+    width: 44px;
+    height: 44px;
+    margin-left: -22px;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .editor:not([data-phone]) .mix-edge::before {
+    inset: 13px 20px;
+    border-radius: 2px;
+    background: var(--ink);
+    box-shadow: 0 0 0 2px var(--panel);
+  }
+
+  /* ---- a link in a dialog's words: a finger's 44px to take, the lines where they were */
+  html:not([data-phone]) .dialog :is(p, li) a[href] {
+    display: inline-block;
+    min-height: 0;
+    padding: 14px 0;
+    margin: -14px 0;
+  }
+}
+
+/* ---- Map Generator under a finger: the settings in their two columns (three where the panel is wide), each its name and
+   value on a line and its slider or its choices a finger's height under them, as on a phone; the title block's rows one
+   under another; the panel scrolls inside where the room is short (D330's every-setting-at-once is the mouse's) */
+@media (pointer: coarse) {
+  .editor:not([data-phone]) .gen-panel .sheet {
+    --line: auto;
+    gap: 12px;
+  }
+
+  .editor:not([data-phone]) .gen-panel :is(.sheet-top, .sheet-pair) {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: auto;
+    --lab: 0px;
+  }
+
+  .editor:not([data-phone]) .gen-panel .sheet-col {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: auto;
+    --lab: 0px;
+  }
+
+  .editor:not([data-phone]) .gen-panel .sheet-top > .sheet-act {
+    height: 44px;
+  }
+
+  .editor:not([data-phone]) .gen-panel .gen-group {
+    gap: 6px;
+  }
+
+  .editor:not([data-phone]) .gen-panel .gen-group h3 {
+    height: auto;
+    margin-top: 4px;
+  }
+
+  /* (Name and Seed keep their one row: the name's box, then the seed's and Keep) */
+  .editor:not([data-phone]) .gen-panel .sheet-row1 .set.plate.line {
+    height: auto;
+    min-height: 44px;
+  }
+
+  .editor:not([data-phone]) .gen-panel .set.plate.line:not(.sheet-row1 *) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-auto-rows: auto;
+    row-gap: 6px;
+    height: auto;
+    padding: 8px;
+  }
+
+  .editor:not([data-phone]) .gen-panel .set.plate.line:not(.sheet-row1 *) > :not(.set-label, .set-value) {
+    grid-column: 1 / -1;
+  }
+
+  .editor:not([data-phone]) .gen-panel .set.plate.line:not(.sheet-row1 *) > .set-value {
+    grid-row: 1;
+    grid-column: 2;
+  }
+
+  .editor:not([data-phone]) .gen-panel .set.line .set-label {
+    white-space: normal;
+  }
+
+  .editor:not([data-phone]) .gen-panel .set.line :is(.set-range, .set-seg) {
+    height: auto;
+    min-height: 44px;
+  }
+
+  .editor:not([data-phone]) .gen-panel .set.line .set-seg {
+    flex-wrap: wrap;
+  }
+
+  .editor:not([data-phone]) .gen-panel .set.line .set-seg button {
+    flex: 1 1 auto;
+  }
+
+  .editor:not([data-phone]) .gen-panel .gen-otm-head > .sheet-act,
+  .editor:not([data-phone]) .gen-panel :is(.showcase-head, .showcase-run) > .sheet-act {
+    height: 44px;
+  }
+
+  .editor:not([data-phone]) .gen-panel .showcase-head {
+    height: auto;
+  }
+}
+
+/* ---- a tablet narrower than the desktop's room: the bar across the map's foot, cells of the whole width */
+@media (pointer: coarse) and (max-width: 1279px) {
+  /* the editor the screen's height, the map filling what the bars leave (the desktop's narrow-window rules let the page
+     grow under a 70vh map) */
+  .editor:not([data-phone]) {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: clip;
+  }
+
+  .editor:not([data-phone]) .editor-main > .editor-map {
+    height: auto;
+  }
+
+  /* (the settings' names in cells under 56px: a point smaller, as the desktop's narrowest) */
+  .editor:not([data-phone]) .tool-settings :is(.set-head, .set-words) {
+    font-size: max(min(12px, var(--text-floor)), calc(12px / var(--wide-font)));
+  }
+
+  .editor:not([data-phone]) .editor-view {
+    --dock-w: calc(100cqw - 20px);
+  }
+
+  .editor:not([data-phone]) .tool-dock {
+    left: 10px;
+    width: calc(100% - 20px);
+  }
+
+  /* the first steps' hints and the dock's notes, centred between the minimap and the objects that now stand beside them
+     (each under 188px with its gap), their × never under the objects; --note-w is the hints' own width (TopBar.tsx) */
+  .editor:not([data-phone]) .tool-dock {
+    --note-cap: calc(100% - 2 * 196px);
+    --note-left: calc((100% - min(var(--note-w), var(--note-cap))) / 2);
+  }
+
+  .editor:not([data-phone]) :is(.tool-dock > .first-run, .dock-notes > .error.floating, .dock-notes > .editor-message),
+  .editor:not([data-phone], .drawer-open) .dock-notes > .idea-card {
+    width: min(var(--note-w), var(--note-cap));
+  }
+
+  /* the objects, the minimap and what stands over it, above the bar and the settings (--dock-h, useBandLayout.ts) */
+  .editor:not([data-phone]) .objects-dock,
+  .editor:not([data-phone]) .editor-view .minimap {
+    bottom: calc(10px + var(--dock-h, 196px) + 6px);
+  }
+
+  .editor:not([data-phone]) .bottom-left-stack {
+    bottom: calc(10px + var(--dock-h, 196px) + 6px + var(--minimap-h, 168px) + 6px);
+  }
+
+  .editor:not([data-phone]) .editor-view .bottom-left-stack .readout {
+    max-width: min(500px, calc(100cqw - 20px));
+  }
+}
+
+/* ---- narrower still (a tablet held upright): the header's controls no longer fit one line beside the map's name. The
+   name follows the panels' buttons; the rest go to a second line. */
+@media (pointer: coarse) and (max-width: 1099px) {
+  .editor:not([data-phone]) .editor-bar {
+    flex-wrap: wrap;
+  }
+
+  .editor:not([data-phone]) .editor-bar .editor-title {
+    position: static;
+    transform: none;
+    flex: 1 1 160px;
+    max-width: none;
+    text-align: left;
+  }
+
+  .editor:not([data-phone]) .editor-actions {
+    flex-wrap: wrap;
+  }
+}
+
+/* ---- a panel open on a tablet whose bar takes the view's width (Map Generator, Real places or Your maps): the minimap
+   and what stands over it step aside, and where the panel (640px) has no room beside the objects, they too
+   (useBandLayout.ts gives the panel their room) */
+@media (pointer: coarse) and (max-width: 1279px) {
+  .editor:not([data-phone]).drawer-open :is(.editor-view .minimap, .bottom-left-stack) {
+    visibility: hidden;
+  }
+}
+
+@media (pointer: coarse) and (max-width: 899px) {
+  .editor:not([data-phone]).drawer-open .objects-dock {
+    visibility: hidden;
+  }
+}

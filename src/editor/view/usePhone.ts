@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { measureInsets, roomCentre } from "./insets";
 import type { Ed } from "../ed";
-import { phoneLayoutFor, type PhoneLayout } from "./phoneLayout";
+import { roomNow, type PhoneLayout } from "./phoneLayout";
 
 /** The sheet open besides a tool's settings: Show, the objects, or none. */
 export type PhoneSheet = "show" | "objects" | null;
@@ -22,20 +22,17 @@ export interface PhoneSlice {
   /** Select's settings shown on a phone (Select rests in hand; its sheet opens when its button is tapped). */
   phoneSelect: boolean;
   setPhoneSelect: (open: boolean) => void;
+  /** Whether the view has been slid for the room it has now and no slide is moving (tests wait on it: a sheet that opens
+   *  or closes slides the view a few frames later, once the page has drawn it). Always true off a phone. */
+  roomSettled: () => boolean;
 }
 
 /** How long the view takes to slide into the room a sheet leaves, ms. */
 const SLIDE_MS = 250;
 
-const roomNow = (): PhoneLayout => (typeof window === "undefined" ? null : phoneLayoutFor(window.innerWidth, window.innerHeight));
-
-export function usePhone(ed: Ed): PhoneSlice {
-  const { brushTool, tool, shelf, block } = ed;
+/** The phone layout the room gives, kept up as the room changes (a phone turned on its side, a window resized). */
+export function useRoom(): PhoneLayout {
   const [phone, setPhone] = useState<PhoneLayout>(roomNow);
-  const [phoneSheet, setPhoneSheet] = useState<PhoneSheet>(null);
-  const [sheetTall, setSheetTall] = useState(false);
-  const [phoneSelect, setPhoneSelect] = useState(false);
-
   useEffect(() => {
     const note = () => setPhone(roomNow());
     window.addEventListener("resize", note);
@@ -45,6 +42,15 @@ export function usePhone(ed: Ed): PhoneSlice {
       window.visualViewport?.removeEventListener("resize", note);
     };
   }, []);
+  return phone;
+}
+
+export function usePhone(ed: Ed): PhoneSlice {
+  const { brushTool, tool, shelf, block } = ed;
+  const phone = useRoom();
+  const [phoneSheet, setPhoneSheet] = useState<PhoneSheet>(null);
+  const [sheetTall, setSheetTall] = useState(false);
+  const [phoneSelect, setPhoneSelect] = useState(false);
 
   // a tool taken up closes Show and the objects (its settings take the sheet's place), one row high again
   useEffect(() => {
@@ -66,12 +72,29 @@ export function usePhone(ed: Ed): PhoneSlice {
   const room = useRef<{ x: number; y: number; phone: PhoneLayout } | null>(null);
   const aim = useRef<{ target: [number, number, number]; until: number } | null>(null);
   const selected = !!ed.selection.current.count;
+  const slideOn = [phone, phoneSheet, sheetTall, phoneSelect, brushTool, tool, block, shelf, selected, ed.ready];
+  // (whether a slide is still to come: the page has drawn a change the effect below has not yet measured, or its frame
+  // is waiting; tests wait on it, `roomSettled`)
+  const slideWanted = useRef(slideOn);
+  slideWanted.current = slideOn;
+  const slideMeasured = useRef<unknown[] | null>(null);
+  const slideFrame = useRef(0);
+  const phoneRef = useRef(phone);
+  phoneRef.current = phone;
+  const roomSettled = useRef(() => {
+    if (!phoneRef.current) return true;
+    const ran = slideMeasured.current;
+    const want = slideWanted.current;
+    return !slideFrame.current && !!ran && ran.length === want.length && ran.every((v, k) => v === want[k]) && !ed.renderer.current?.touchGliding;
+  }).current;
   useEffect(() => {
+    slideMeasured.current = slideOn;
     if (!phone) {
       room.current = null;
       return;
     }
-    const id = requestAnimationFrame(() => {
+    const id = (slideFrame.current = requestAnimationFrame(() => {
+      slideFrame.current = 0;
       const r = ed.renderer.current;
       const view = r?.canvas.parentElement;
       if (!r || !view || !ed.ready) return;
@@ -91,9 +114,12 @@ export function usePhone(ed: Ed): PhoneSlice {
       const target: [number, number, number] = [from[0] + a.point[0] - b.point[0], from[1], from[2] + a.point[2] - b.point[2]];
       aim.current = { target, until: performance.now() + SLIDE_MS };
       r.glideTo({ ...v, target }, SLIDE_MS);
-    });
-    return () => cancelAnimationFrame(id);
-  }, [phone, phoneSheet, sheetTall, phoneSelect, brushTool, tool, block, shelf, selected, ed.ready]);
+    }));
+    return () => {
+      cancelAnimationFrame(id);
+      if (slideFrame.current === id) slideFrame.current = 0;
+    };
+  }, slideOn);
 
   // Show ends after a whole row of its chips (or a whole line), never on a heading with nothing under it, as a pulled-up
   // sheet ends on a whole setting; the rest scroll up into view
@@ -110,7 +136,7 @@ export function usePhone(ed: Ed): PhoneSlice {
     };
   }, [phone, phoneSheet]);
 
-  return { phone, phoneSheet, setPhoneSheet, sheetTall, setSheetTall, phoneSelect, setPhoneSelect };
+  return { phone, phoneSheet, setPhoneSheet, sheetTall, setSheetTall, phoneSelect, setPhoneSelect, roomSettled };
 }
 
 /** The Show sheet's height stops where the room would cut a row of chips or a line: at that row's top, or at the top of

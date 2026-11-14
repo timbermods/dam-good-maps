@@ -846,6 +846,108 @@ for (const phone of PHONES) {
       await expect(page.getByRole("menuitem", { name: "Map Generator" })).toBeVisible();
       await check("the menu open");
     });
+
+    // (#1074: Kyler on his phone, "if I select Craterize how do I deselect it?")
+    test(`at ${phone.viewport.width}×${phone.viewport.height}: what is in hand has Put it down (×) on its sheet's first row, and the tool row keeps it in view`, async ({ page }) => {
+      test.setTimeout(300_000);
+      await openEditor(page);
+      const row = page.locator(".tool-dock > .tool-bar");
+      const putDown = page.locator(".tool-settings.sheet > button.put-down");
+      /** The control whole inside the tool row's box (it scrolls). */
+      const inRow = (name: string) =>
+        row.evaluate((bar, name) => {
+          const b = bar.getBoundingClientRect();
+          const r = bar.querySelector(`button[aria-label^='${name}']`)!.getBoundingClientRect();
+          return r.left >= b.left - 0.5 && r.right <= b.right + 0.5 && r.top >= b.top - 0.5 && r.bottom <= b.bottom + 0.5;
+        }, name);
+      /** The × at the right end of the sheet's first row, the size of the object in hand's. */
+      const onFirstRow = () =>
+        putDown.evaluate((x) => {
+          const s = x.parentElement!.getBoundingClientRect();
+          const r = x.getBoundingClientRect();
+          const first = x.parentElement!.querySelector(".settings-grid")!.getBoundingClientRect();
+          return { top: Math.round(r.top - s.top), right: Math.round(s.right - r.right) <= 12, above: r.bottom <= first.top + 0.5, w: r.width, h: r.height };
+        });
+
+      // Craterize picked by its key with the row scrolled to its start: the row scrolls it into view, lit
+      await row.evaluate((bar) => bar.scrollTo({ left: 0, top: 0 }));
+      expect(await inRow("Craterize"), "Craterize out of view before it is picked").toBe(false);
+      await page.keyboard.press("Shift+Digit2");
+      const crater = page.locator(".tool-bar button[aria-label^='Craterize']");
+      await expect(crater).toHaveAttribute("aria-pressed", "true");
+      await expect.poll(() => inRow("Craterize"), { message: "Craterize scrolled into the tool row" }).toBe(true);
+
+      // its sheet's first row ends with Put it down, a tooltip with its keys; one tap puts the force down
+      await expect(putDown).toBeVisible();
+      await expect(putDown).toHaveAttribute("aria-label", "Put it down");
+      await expect(putDown).toHaveAttribute("data-keys", /X/);
+      expect(await onFirstRow()).toEqual({ top: 0, right: true, above: true, w: 44, h: 44 });
+      await putDown.tap();
+      await expect(crater).toHaveAttribute("aria-pressed", "false");
+      await expect(page.locator(".tool-settings.sheet")).toHaveCount(0);
+      await expect(row.locator("button[aria-pressed='true']:not(.objects-button, [aria-label^='Select'])"), "nothing in hand").toHaveCount(0);
+
+      // a brush picked by a tap: the same ×, the same tap
+      await row.evaluate((bar) => bar.scrollTo({ left: 0, top: 0 }));
+      const raise = page.locator(".tool-bar button[aria-label^='Raise']");
+      await raise.tap();
+      await expect(putDown).toBeVisible();
+      expect(await inRow("Raise")).toBe(true);
+      await putDown.tap();
+      await expect(raise).toHaveAttribute("aria-pressed", "false");
+      await expect(page.locator(".tool-settings.sheet")).toHaveCount(0);
+    });
+  });
+}
+
+// ---- tablets (#1074 slice 5): a touch screen with room keeps the desktop layout, finger-sized. At an iPad's sizes
+// upright and on its side (DPR 2), at rest, a brush and a force in hand, the legend, the Map Generator, Your maps and the
+// File menu: no control under 44px and none off the screen, the page neither scrolled nor wider than the screen, and no
+// phone layout.
+
+const TABLETS: [number, number][] = [[820, 1180], [1180, 820], [1024, 1366]];
+
+for (const [W, H] of TABLETS) {
+  test.describe(`a tablet at ${W}×${H}`, () => {
+    test.use({ viewport: { width: W, height: H }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+
+    test(`at ${W}×${H}: the desktop layout, every control at least 44px and on the screen in every state`, async ({ page }) => {
+      test.setTimeout(300_000);
+      await openEditor(page);
+      // the first steps' hints were put away by their own ×, never under the objects beside them
+      await expect(page.locator(".first-run")).toHaveCount(0);
+      await expect(page.locator(".editor")).not.toHaveAttribute("data-phone");
+      const check = async (state: string) => {
+        await page.waitForTimeout(400);
+        const page_ = await page.evaluate(() => ({ w: document.documentElement.scrollWidth, iw: window.innerWidth, x: window.scrollX, y: window.scrollY }));
+        expect(page_, `${state}: the page is laid out at the screen's width, not scrolled`).toEqual({ w: W, iw: W, x: 0, y: 0 });
+        const controls = await phoneControls(page);
+        expect(controls.length, `${state}: controls found`).toBeGreaterThan(5);
+        const small = controls.filter((c) => Math.min(c.w, c.h) < 44 - 0.5).map((c) => `${c.name} ${Math.round(c.w)}×${Math.round(c.h)}`);
+        expect(small, `${state}: controls under 44px`).toEqual([]);
+        expect(controls.filter((c) => c.off).map((c) => c.name), `${state}: controls off the screen`).toEqual([]);
+        expect(controls.filter((c) => c.font !== null && c.font < 16).map((c) => c.name), `${state}: fields under 16px`).toEqual([]);
+      };
+      const tap = (l: ReturnType<Page["locator"]>) => l.first().tap();
+
+      await check("at rest");
+      await tap(page.locator(".tool-bar button[aria-label^='Raise']"));
+      await expect(page.locator(".tool-settings")).toBeVisible();
+      await check("Raise in hand");
+      await tap(page.locator(".tool-bar button[aria-label^='Carve']"));
+      await check("Carve in hand");
+      await tap(page.locator(".show-row", { hasText: "Legend" }));
+      await check("the legend open");
+      await tap(page.locator(".show-row", { hasText: "Legend" }));
+      await tap(page.getByRole("button", { name: /^Map Generator/ }));
+      await expect(page.locator(".gen-panel")).toBeVisible();
+      await check("the Map Generator open");
+      await tap(page.getByRole("button", { name: /^Your maps/ }));
+      await check("Your maps open");
+      await tap(page.getByRole("button", { name: /^Your maps/ }));
+      await tap(page.getByRole("button", { name: "File", exact: true }));
+      await check("the File menu open");
+    });
   });
 }
 

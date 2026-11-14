@@ -2614,33 +2614,18 @@ export function skyMaterial(h?: ShaderHooks): ShaderMaterial {
   });
 }
 
-/** Where a model's parts for close up give way to its parts for afar (`lod`, entities3d.ts): at this
- *  many pixels a unit of the model takes on screen (a ruin's storey from afar is a lattice of open
- *  cells in the near skeleton's own colour, D305, not a solid painted block). */
-export const RUIN_NEAR_PX = 9;
-
-/** The far ruin block's lattice (D305): cells this many to a world unit, on whichever two axes
- *  aren't the face's normal (so it reads consistently on every face, without UVs). */
-export const RUIN_LATTICE_SCALE = 3.2;
-/** The share of a lattice cell's width its struts take, on each axis (the cells' middles take (1 − this)²). */
-export const RUIN_LATTICE_STRUT = 0.28;
-/** A far ruin's cells show the column's inside: the skeleton's back faces, braces and sacks in its own shade,
- *  this dark, covering this much of what lies behind (the near skeleton seen from afar lets little through). */
-export const RUIN_INSIDE_SHADE = 0.68;
-export const RUIN_INSIDE_COVER = 0.75;
+/** Where a model's parts for close up give way to its parts for afar (`lod`, entities3d.ts): at this many pixels a unit
+ *  of the model takes on screen. (Until 2026-11-10 a ruin's storey turned from afar into a block, a lattice in the
+ *  ruins' mean, D305; the game draws its ruins as one model at every distance, and so do we, D178 as amended.) */
+export const LOD_NEAR_PX = 9;
 
 /** Instanced objects: each vertex's own colour (its albedo) times the instance's tint, lit as the game lights them
  *  (the terrain's light, `GAME_LIT`'s `gameObjectLight`), in the terrain's shadow where it stands in one. An
  *  instance with a minimum size (`grow`: pixels a unit of the model must take at least, how far
  *  it rises for each time it grows, and the most it grows) is drawn larger when it would be
  *  smaller. A vertex's `lod` says which view its part belongs to: 0 any, 1 close up (a unit of the
- *  model takes RUIN_NEAR_PX pixels or more), 2 from afar, 3 from afar as a lattice (a far ruin
- *  block's frame); the others are dropped (the light look draws every part it has: its models have
- *  none for afar). The lattice is filtered to the pixel: each pixel takes the share of it the struts
- *  cover (box-filtered over the pixel's footprint, as a mipmap would) as alpha to coverage, so a far
- *  ruin never breaks into noise however small its cells are on screen; it settles to an even veil of
- *  its colour (D305, D334; the game's ruins are one textured model whatever the distance, its
- *  textures mipmapped). */
+ *  model takes LOD_NEAR_PX pixels or more), 2 from afar; the others are dropped (the light look draws every part it
+ *  has: its models have none for afar). Faded round the pointer, an object is drawn as alpha to coverage. */
 export function objectMaterial(scene: SceneUniforms, lite = false, h?: ShaderHooks): ShaderMaterial {
   return new ShaderMaterial({
     alphaToCoverage: !lite,
@@ -2663,10 +2648,8 @@ export function objectMaterial(scene: SceneUniforms, lite = false, h?: ShaderHoo
       varying float vFade;
       varying vec3 vNormal;
       varying vec3 vWorld;
-      varying float vLod;
       void main() {
         mat4 m = modelMatrix * instanceMatrix;
-        vLod = lod;
         // seeing the land behind objects (objectFade.ts): the whole object by its place, in tiles (never the land's own
         // shape)
         vFade = 1.0;
@@ -2698,7 +2681,7 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
           vec4 o = projectionMatrix * viewMatrix * m * vec4(0.0, 0.0, 0.0, 1.0);
           float perUnit = 0.5 * viewHeight * projectionMatrix[1][1] / max(o.w, 0.001);
           // a part for the other view: out of the clip volume (dropped)
-          if (lod > 0.5 && (lod < 1.5) != (perUnit >= ${f(RUIN_NEAR_PX)})) {
+          if (lod > 0.5 && (lod < 1.5) != (perUnit >= ${f(LOD_NEAR_PX)})) {
             vWorld = vec3(0.0);
             gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
             return;
@@ -2719,7 +2702,6 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
       varying vec3 vAid;
       varying vec3 vNormal;
       varying vec3 vWorld;
-      varying float vLod;
       varying float vFade;
       uniform vec4 objectFade;
       ${common(h)}${CAVE_POINT}${DITHER_GLSL}${GAME_LIT}
@@ -2731,28 +2713,7 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
         if (vFade <= 0.0 || (vFade < 1.0 && objectFade.w > 1.5 && vFade <= ditherAt(gl_FragCoord.xy))) discard;
         // (the bloom's source has no coverage to fade by: a faded object there by the dither, as much of it as shows)
         if (bloomSource > 0.5 && vFade < 1.0 && vFade <= ditherAt(gl_FragCoord.xy)) discard;
-        // a ruin's far block's frame (D305): a lattice of open cells so it reads as a framework, not a
-        // solid box, from any face (the two world axes across the face, whichever the normal isn't
-        // closest to; no extra geometry or UVs), filtered to the pixel: the struts' share of the
-        // pixel's footprint on each axis (the integral of the strut pulses over it), as coverage
-        // (its cells are a few pixels at most wherever it is drawn: thresholded, they broke into
-        // orange noise). (The derivatives before any branch.)
         float coverage = 1.0;
-        float inside = 1.0;
-        #if !LITE
-        vec3 an = abs(normalize(vNormal));
-        vec2 cells = (an.x >= an.y && an.x >= an.z ? vWorld.yz : (an.y >= an.z ? vWorld.xz : vWorld.xy)) * ${f(RUIN_LATTICE_SCALE)};
-        vec2 foot = max(fwidth(cells), vec2(1e-3));
-        if (vLod > 2.5) {
-          vec2 hi = cells + 0.5 * foot;
-          vec2 lo = cells - 0.5 * foot;
-          vec2 struts = (floor(hi) * ${f(RUIN_LATTICE_STRUT)} + min(fract(hi), vec2(${f(RUIN_LATTICE_STRUT)})) - floor(lo) * ${f(RUIN_LATTICE_STRUT)} - min(fract(lo), vec2(${f(RUIN_LATTICE_STRUT)}))) / foot;
-          float strut = 1.0 - (1.0 - clamp(struts.x, 0.0, 1.0)) * (1.0 - clamp(struts.y, 0.0, 1.0));
-          // a cell shows the column's inside, darker and letting a little through
-          coverage = strut + (1.0 - strut) * ${f(RUIN_INSIDE_COVER)};
-          inside = mix(${f(RUIN_INSIDE_SHADE)}, 1.0, strut / coverage);
-        }
-        #endif
         vec3 n = normalize(vNormal);
         float lit = sunLit(vec2(vWorld.x, -vWorld.z), vWorld.y);
         // the game's light, as the terrain's (D135 as amended 2026-11-09): the ambient probe by the normal, unoccluded,
@@ -2768,7 +2729,7 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
         // (faded round the pointer, as coverage: that share of the pixel's samples)
         if (objectFade.w > 0.5 && objectFade.w < 1.5) coverage *= vFade;
         // (the object as the game draws it, fogged and graded; a highlight, an editing aid, tints it after: D497)
-        vec3 graded = finish((${hook(h, "objectFinal", "vColor * light")} + gameObjectSpecular(n)) * inside, vWorld);
+        vec3 graded = finish(${hook(h, "objectFinal", "vColor * light")} + gameObjectSpecular(n), vWorld);
         gl_FragColor = bloomSource > 0.5 ? vec4(gpSource, coverage) : vec4(min(graded * vAid, 1.0), coverage);
       }
     `,

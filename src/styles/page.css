@@ -1362,6 +1362,25 @@
   padding: 4px;
 }
 
+/* to a finger with this layout (a tablet, #1074): Put it down (×) on a plate of its own just above the panel's first
+   row, at its left end (the map's side groups take the room beside the panel, and the objects can reach over its right) */
+.tool-dock > .tool-settings:not(.sheet):has(> .put-down) {
+  position: relative;
+}
+
+.tool-dock > .tool-settings:not(.sheet) > .put-down {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 6px);
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 8px;
+  font-size: 22px;
+  line-height: 1;
+  box-shadow: var(--edge-lit), var(--shadow-2);
+}
+
 .settings-grid {
   display: grid;
   grid-template-columns: var(--cells);
@@ -3604,6 +3623,14 @@ input.set-typed:disabled {
 
 .your-maps li.selected .ym-tile {
   background: color-mix(in srgb, var(--accent) 16%, var(--panel));
+}
+
+/* (a finger's selection: the tint a little deeper than the mouse's, so a selected card never reads as the open map's
+   outline or as greyed; planning, #1101) */
+@media (pointer: coarse) {
+  .your-maps li.selected .ym-tile {
+    background: color-mix(in srgb, var(--accent) 26%, var(--panel));
+  }
 }
 
 .your-maps li.selected::after {

@@ -121,39 +121,25 @@ function TouchLines(p: { phone: boolean }) {
       <li>Tap with two fingers to undo, with three to redo.</li>
       <li>A second finger stops a stroke, and nothing is changed.</li>
       <li>
+        Tap <strong>×</strong> on a tool's settings to put it down. One finger moves the view again.
+      </li>
+      <li>
         Hold a finger on a button to see what it does. In <strong>Your maps</strong>, hold a map to select several.
       </li>
       {p.phone ? (
         <li>
-          The tools are in a row at the foot, or down the left side when the phone is on its side. Tap a tool again to put it
-          down. <strong>Show</strong> and <strong>Objects</strong> open their own sheets.
+          The tools are in a row at the foot, or down the left side when the phone is on its side. <strong>Show</strong> and <strong>Objects</strong> open their own sheets.
         </li>
       ) : null}
     </>
   );
 }
 
-/** Who Help speaks to, kept up as the page's layout (`<html data-phone>`) or the pointer changes while it shows. */
-function useReader(): Reader {
-  const [who, setWho] = useState(reader);
-  useEffect(() => {
-    const look = () => setWho(reader());
-    const root = new MutationObserver(look);
-    root.observe(document.documentElement, { attributes: true, attributeFilter: ["data-phone"] });
-    const coarse = typeof matchMedia === "function" ? matchMedia("(pointer: coarse)") : null;
-    coarse?.addEventListener("change", look);
-    look();
-    return () => {
-      root.disconnect();
-      coarse?.removeEventListener("change", look);
-    };
-  }, []);
-  return who;
-}
-
 function Help(p: { onClose(): void }) {
   useHeld(p.onClose);
-  const who = useReader();
+  // (read once, as it opens: the page's layout comes from the screen's own size, which nothing on the page changes,
+  // ui/phoneRoot.ts)
+  const [who] = useState(reader);
   if (who !== "mouse") return <TouchHelp onClose={p.onClose} phone={who === "phone"} />;
   return (
     <div class="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && p.onClose()}>
