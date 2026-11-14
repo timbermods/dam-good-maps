@@ -34,7 +34,7 @@ function rustAnalysis(): Exports {
 }
 
 /** Each kernel's number in the frame (rust/analysis/src/lib.rs). */
-export const KERNELS = { distanceFrom: 1, walkDistance: 2, landRegions: 4, spillLevels: 7, damSites: 8, roomMap: 9, hollow: 10 } as const;
+export const KERNELS = { distanceFrom: 1, walkDistance: 2, landRegions: 4, spillLevels: 7, damSites: 8, roomMap: 9, hollow: 10, drainage: 11 } as const;
 export type Kernel = keyof typeof KERNELS;
 
 /** A kernel's frame: [kernel, W, H, number of parameters, parameters…, number of arrays, (length, values…)
@@ -128,4 +128,40 @@ export function hollowInRust(h: Uint8Array, W: number, H: number, seed: number, 
   // (fresh views: the call may have grown the memory)
   const n = new Uint32Array(x.memory.buffer, b.len, 1)[0];
   return { tiles: Array.from(new Uint32Array(x.memory.buffer, b.out, n)), sill: s };
+}
+
+/** The drainage's buffers in the module's memory, kept between calls: the ground, the outlets, and the four results,
+ *  for maps of `cells` tiles. */
+let drainBuffers: { cells: number; ground: number; outlets: number; filled: number; rcv: number; order: number; area: number } | null = null;
+
+/** The land's priority flood in Rust (rust/analysis/src/land.rs `drainage`): the same filled levels, receivers, order
+ *  and area as land/drainage.ts `floodInTs`, its oracle. */
+export function drainageInRust(h: ArrayLike<number>, W: number, H: number, eight: boolean, eps: number, outlets: Uint8Array | null): { filled: Float64Array; rcv: Int32Array; order: Int32Array; area: Float64Array } {
+  const x = rustAnalysis() as Exports & { land_drainage(ground: number, w: number, h: number, eight: number, eps: number, outlets: number, filled: number, rcv: number, order: number, area: number): number };
+  const N = W * H;
+  if (!drainBuffers || drainBuffers.cells !== N) {
+    if (drainBuffers) {
+      const c = drainBuffers.cells;
+      x.analysis_free(drainBuffers.ground, c);
+      x.analysis_free(drainBuffers.outlets, Math.ceil(c / 8));
+      x.analysis_free(drainBuffers.filled, c);
+      x.analysis_free(drainBuffers.rcv, Math.ceil(c / 2));
+      x.analysis_free(drainBuffers.order, Math.ceil(c / 2));
+      x.analysis_free(drainBuffers.area, c);
+    }
+    // (analysis_alloc counts binary64 values)
+    drainBuffers = { cells: N, ground: x.analysis_alloc(N), outlets: x.analysis_alloc(Math.ceil(N / 8)), filled: x.analysis_alloc(N), rcv: x.analysis_alloc(Math.ceil(N / 2)), order: x.analysis_alloc(Math.ceil(N / 2)), area: x.analysis_alloc(N) };
+  }
+  const b = drainBuffers;
+  new Float64Array(x.memory.buffer, b.ground, N).set(h);
+  if (outlets) new Uint8Array(x.memory.buffer, b.outlets, N).set(outlets);
+  const n = x.land_drainage(b.ground, W, H, eight ? 1 : 0, eps, outlets ? b.outlets : 0, b.filled, b.rcv, b.order, b.area);
+  // (fresh views: the call may have grown the memory)
+  const mem = x.memory.buffer;
+  return {
+    filled: new Float64Array(mem, b.filled, N).slice(),
+    rcv: new Int32Array(mem, b.rcv, N).slice(),
+    order: new Int32Array(mem, b.order, n).slice(),
+    area: new Float64Array(mem, b.area, N).slice(),
+  };
 }

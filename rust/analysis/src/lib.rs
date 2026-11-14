@@ -8,6 +8,7 @@
 //!  8 `damSites` (analysis/damsites.ts)    the best dam per sampled channel tile
 //!  9 `roomMap` (land/minePads.ts)         where a start has room for its mine sites
 //! 10 `hollow` (land/hydro.ts, land.rs)    a hollow's lake: the hydrology's flood, its outlet cut to its budget
+//! 11 `drainage` (land/drainage.ts, land.rs) the land's priority flood: filled levels, receivers, order, area
 //!
 //! One call is one kernel: `analysis_execute` reads a frame of binary64 values (the kernel, W, H, its
 //! numbers, its arrays; src/core/analysis/rust/bridge.ts `encode`) and returns the result as binary64.
@@ -717,6 +718,7 @@ pub fn execute(input: &[f64]) -> Vec<f64> {
         8 => (4, 5, 3),
         9 => (3, 3, 3),
         10 => (5, 1, 1),
+        11 => (2, 2, 1),
         _ => panic!("unknown kernel"),
     };
     assert_eq!(p.len(), params, "parameter shape");
@@ -745,8 +747,26 @@ pub fn execute(input: &[f64]) -> Vec<f64> {
         8 => dams(&a, p, w, h),
         9 => room(&a, p, w, h),
         10 => hollow_frame(a[0], p, w, h),
+        11 => drainage_frame(&a, p, w, h),
         _ => unreachable!(),
     }
+}
+
+/// Kernel 11's frame: parameters (eight 0 or 1, epsilon), the ground and the outlets (empty for every border
+/// tile); the result is the count reached, then the filled levels, the receivers, the order (that count) and the area.
+fn drainage_frame(a: &[&[f64]], p: &[f64], w: usize, h: usize) -> Vec<f64> {
+    let n = w * h;
+    assert!(a[1].is_empty() || a[1].len() == n, "outlets shape");
+    let outlets: Vec<u8> = a[1].iter().map(|&v| u8::from(v != 0.0)).collect();
+    let (mut filled, mut rcv, mut order, mut area) = (vec![0.0; n], vec![0; n], vec![0; n], vec![0.0; n]);
+    let count = land::drainage(a[0], w, h, p[0] != 0.0, p[1], if a[1].is_empty() { None } else { Some(&outlets) }, &mut filled, &mut rcv, &mut order, &mut area);
+    let mut out = Vec::with_capacity(1 + 3 * n + count);
+    out.push(count as f64);
+    out.extend_from_slice(&filled);
+    out.extend(rcv.iter().map(|&v| v as f64));
+    out.extend(order[..count].iter().map(|&v| v as f64));
+    out.extend_from_slice(&area);
+    out
 }
 
 /// Kernel 10's frame: parameters (seed tile, sill, budget, highest sill, sea 0 or 1), the ground's levels; the
@@ -965,4 +985,30 @@ pub unsafe extern "C" fn land_hollow(ground: *const u8, w: usize, h: usize, seed
 }
 thread_local! {
     static LAND_QUEUE: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// The land's priority flood called straight from the generator (land/drainage.ts, through
+/// src/core/analysis/rust/bridge.ts `drainageInRust`): the ground's `w`·`h` levels at `ground`, the outlets at
+/// `outlets` (null for every border tile); writes the filled levels, receivers, order and area (`w`·`h` each) and
+/// returns how many tiles the flood reached.
+///
+/// # Safety
+/// `ground`, `filled`, `rcv`, `order` and `area` hold `w`·`h` values each, `outlets` `w`·`h` bytes or is null.
+#[cfg_attr(feature = "exports", no_mangle)]
+#[allow(clippy::too_many_arguments)]
+pub unsafe extern "C" fn land_drainage(ground: *const f64, w: usize, h: usize, eight: u32, eps: f64, outlets: *const u8, filled: *mut f64, rcv: *mut i32, order: *mut i32, area: *mut f64) -> usize {
+    let n = w * h;
+    let outlets = if outlets.is_null() { None } else { Some(std::slice::from_raw_parts(outlets, n)) };
+    land::drainage(
+        std::slice::from_raw_parts(ground, n),
+        w,
+        h,
+        eight != 0,
+        eps,
+        outlets,
+        std::slice::from_raw_parts_mut(filled, n),
+        std::slice::from_raw_parts_mut(rcv, n),
+        std::slice::from_raw_parts_mut(order, n),
+        std::slice::from_raw_parts_mut(area, n),
+    )
 }

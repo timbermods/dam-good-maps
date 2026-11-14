@@ -140,6 +140,12 @@ export function analysisFixtures(): AnalysisJob[] {
     for (const [at, where] of [[wettest, "wettest"], [middle, "middle"]] as const)
       for (const [rise, budget, top, sea] of [[1, Infinity, Infinity, 0], [3, 0.05 * N, Infinity, 0], [4, 12, levels[at] + 2, 0], [3, 12, Infinity, 1]])
         add(`hollow at the ${where} tile, ${rise} up, budget ${budget}, top ${top}, sea ${sea}`, frame("hollow", W, H, [at, levels[at] + rise, budget, top, sea], [levels]));
+    // (the land's priority flood, kernel 11, on the ground as given and on its whole levels, side to side and eight
+    // ways, every border tile an outlet or every third; land/drainage.ts `floodInTs` gave the same)
+    const third = Uint8Array.from({ length: N }, (_, i) => (i % 3 === 0 ? 1 : 0));
+    for (const [ground, which] of [[h, "ground"], [levels, "levels"]] as const)
+      for (const [eight, eps, outlets, named] of [[1, 0, [], "all"], [0, 0, [], "all"], [1, 1e-6, third, "every third"], [0, 0.01, third, "every third"]] as const)
+        add(`drainage on the ${which}, ${eight ? "eight ways" : "side to side"}, epsilon ${eps}, outlets ${named}`, frame("drainage", W, H, [eight, eps], [ground, outlets]));
   }
   return jobs;
 }
