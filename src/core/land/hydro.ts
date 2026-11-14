@@ -41,6 +41,7 @@ import { drainage } from "./drainage";
 import { BED_FLOOR, type Genome } from "./genome";
 import { sinDet, TWO_PI } from "../math/detmath";
 import { distanceFrom, MinHeap, N4 } from "../math/grid";
+import { hollowInRust } from "../analysis/rust/bridge";
 import { DIRS8 } from "./num";
 import { mapShape } from "./shape";
 import { clamp } from "../math/clamp";
@@ -1056,43 +1057,14 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   };
   const fs = hash32(seed, "floor", attempt);
 
-  const flood = (from: number, below: number): number[] => {
-    const seen = new Uint8Array(N);
-    const q = [from];
-    seen[from] = 1;
-    for (let k = 0; k < q.length; k++) {
-      const i = q[k];
-      const x = i % W;
-      const y = (i - x) / W;
-      for (const [dx, dy] of N4) {
-        const xx = x + dx;
-        const yy = y + dy;
-        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-        const j = yy * W + xx;
-        if (seen[j] || h[j] >= below) continue;
-        seen[j] = 1;
-        q.push(j);
-      }
-    }
-    return q;
-  };
+  // (a hollow's lake, in Rust: land/hollow.ts `hollowInTs` is its oracle)
   const hollow = (seedCell: number, maxSill = Infinity): { tiles: number[]; sill: number } | null => {
     if (!(depth[seedCell] > 0)) return null;
-    let sill = lv.filled[seedCell];
-    let tiles = flood(seedCell, sill);
     // cut the outlet down until the lake fits the budget, and (M9b) until it stands below where its
     // river begins (`maxSill`)
     // (round 6, D432: an island sea is the map's water, not a lake of the budget: cut to it, a sea a
     // setting's lean had put over the budget drained to its floor)
-    const sea = !!seaAt?.[seedCell];
-    while (((tiles.length > budget && !sea) || sill > maxSill) && sill > 1) {
-      sill--;
-      const lowest = tiles.reduce((m, i) => (h[i] < h[m] ? i : m), tiles[0]);
-      if (h[lowest] >= sill) return null;
-      tiles = flood(lowest, sill);
-    }
-    if (sill > maxSill || tiles.length < 6) return null;
-    return { tiles, sill };
+    return hollowInRust(h, W, H, seedCell, lv.filled[seedCell], budget, maxSill, !!seaAt?.[seedCell]);
   };
 
   /** The bed along a path, sampled every tile of arc: never rising, `cut` levels below the lowest

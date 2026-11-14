@@ -34,7 +34,7 @@ function rustAnalysis(): Exports {
 }
 
 /** Each kernel's number in the frame (rust/analysis/src/lib.rs). */
-export const KERNELS = { distanceFrom: 1, walkDistance: 2, landRegions: 4, spillLevels: 7, damSites: 8, roomMap: 9 } as const;
+export const KERNELS = { distanceFrom: 1, walkDistance: 2, landRegions: 4, spillLevels: 7, damSites: 8, roomMap: 9, hollow: 10 } as const;
 export type Kernel = keyof typeof KERNELS;
 
 /** A kernel's frame: [kernel, W, H, number of parameters, parameters…, number of arrays, (length, values…)
@@ -101,4 +101,31 @@ export function executeInRust(input: Float64Array): Float64Array {
     x.analysis_free(lenPtr, 1);
     x.analysis_free(ptr, input.length);
   }
+}
+
+/** The land's buffers in the module's memory, kept between calls (the hydrology floods its hollows thousands of
+ *  times a plan): the ground's levels and the hollow's tiles, for maps of `cells` tiles. */
+let landBuffers: { cells: number; ground: number; out: number; len: number } | null = null;
+
+/** A hollow's lake in Rust (rust/analysis/src/land.rs `hollow`): the same tiles in the same order as
+ *  land/hollow.ts `hollowInTs`, its oracle. */
+export function hollowInRust(h: Uint8Array, W: number, H: number, seed: number, sill: number, budget: number, maxSill: number, sea: boolean): { tiles: number[]; sill: number } | null {
+  const x = rustAnalysis() as Exports & { land_hollow(ground: number, w: number, h: number, seed: number, sill: number, budget: number, maxSill: number, sea: number, out: number, outLen: number): number };
+  const N = W * H;
+  if (!landBuffers || landBuffers.cells !== N) {
+    if (landBuffers) {
+      x.analysis_free(landBuffers.ground, Math.ceil(landBuffers.cells / 8));
+      x.analysis_free(landBuffers.out, Math.ceil(landBuffers.cells / 2));
+      x.analysis_free(landBuffers.len, 1);
+    }
+    // (analysis_alloc counts binary64 values: N bytes of ground, N four-byte tiles, one length)
+    landBuffers = { cells: N, ground: x.analysis_alloc(Math.ceil(N / 8)), out: x.analysis_alloc(Math.ceil(N / 2)), len: x.analysis_alloc(1) };
+  }
+  const b = landBuffers;
+  new Uint8Array(x.memory.buffer, b.ground, N).set(h);
+  const s = x.land_hollow(b.ground, W, H, seed, sill, budget, maxSill, sea ? 1 : 0, b.out, b.len);
+  if (Number.isNaN(s)) return null;
+  // (fresh views: the call may have grown the memory)
+  const n = new Uint32Array(x.memory.buffer, b.len, 1)[0];
+  return { tiles: Array.from(new Uint32Array(x.memory.buffer, b.out, n)), sill: s };
 }
