@@ -65,12 +65,22 @@ describe("the land decides the form (D281)", () => {
       expect(solid(m, i, 3), `power ${power}`).toBe(false);
       expect(solid(m, i, 11)).toBe(true);
       expect(solid(m, i, 2), "the floor stays").toBe(true);
-      // deeper and taller with Power
+      // deeper and taller with Power: the opening a third of the nine-level face at Power 55, more than half at
+      // 100, 3 to 8 wide along it (D148, the force audit's 11: the wear no longer runs along the whole Size of the
+      // face, so its count of voxels, once over 300 at Power 100, is no longer what grows; its height is)
+      let high = 0;
+      for (let z = 3; z < 12; z++) if (!solid(m, i, z)) high = z - 2;
+      let wide = 0;
+      for (let y = 0; y < W; y++) if (!solid(m, y * W + 20, 3)) wide++;
+      expect(wide, `power ${power}: wide`).toBeGreaterThanOrEqual(3);
+      expect(wide, `power ${power}: wide`).toBeLessThanOrEqual(8);
+      if (power === 55) expect(high).toBeGreaterThanOrEqual(3);
       if (power === 100) {
         let deep = 0;
         for (let x = 20; x < W; x++) if (!solid(m, 20 * W + x, 3)) deep = x - 19;
         expect(deep).toBeGreaterThanOrEqual(5);
-        expect(run.plan0.stats.worn).toBeGreaterThan(300);
+        expect(high).toBeGreaterThanOrEqual(5);
+        expect(run.plan0.stats.worn).toBeGreaterThan(100);
       }
     }
   });
@@ -267,10 +277,10 @@ describe("on generated maps (D281)", () => {
     }
   });
 
-  /** Highlands 2's map with a fin raised on it, as a player raises one: six levels over a dry, level strip three tiles
+  /** Highlands 4's map with a fin raised on it, as a player raises one: six levels over a dry, level strip three tiles
    *  thick and nine long, nothing standing on or beside it. */
   const finMap = () => {
-    const r = generate(makeSpec({ seed: 2, theme: "highlands", size: { x: 128, y: 128 } }));
+    const r = generate(makeSpec({ seed: 4, theme: "highlands", size: { x: 128, y: 128 } }));
     const s = MapSession.fromGenerated(r);
     const { W, H, heights: h, water } = s.built;
     const near = new Set<number>();
@@ -294,7 +304,9 @@ describe("on generated maps (D281)", () => {
     // (Highlands seed 2 since generator 0.10.5, D148: Canyon seed 3's ridge is gone with its map; of Canyon seeds
     // 1–18 and Highlands seeds 1–14, only Highlands 2 has a fin now, as only Canyon 3 had one before; a fin raised on
     // Highlands 2 since generator 0.10.11, the D410 round, D148: its fin was a natural ramp's causeway, which ramps no
-    // longer build, and no Canyon or Highlands map of seeds 1–40 has a fin of its own)
+    // longer build, and no Canyon or Highlands map of seeds 1–40 has a fin of its own; Highlands seed 4 since generator 0.10.20's mends
+    // (wash treads and dead-stand knots, D518), D148: Highlands 2 has no dry, level strip for the fin now, nor have Highlands 1, 3 and 5, while
+    // Highlands 4 and 6 and Canyon 2 and 6 do, and the fin opens into an arch on each)
     for (const [theme, m] of [finMap()]) {
       const { W, H, heights: h } = m;
       // a dry fin two to four tiles thick, at least 5 over the ground on both sides, five tiles long

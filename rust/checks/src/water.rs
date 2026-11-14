@@ -210,7 +210,12 @@ struct Unit {
     cells: Vec<usize>,
     strength: f64,
     source: bool,
+    template: String,
 }
+
+/// Sources of one template within this many tiles of each other can stand in one row, one head (`sourcesInFlow`
+/// in src/core/analysis/sources.ts has the definition).
+pub const ROW_REACH: i64 = 6;
 
 /// `sourcesInFlow`.
 pub fn sources_in_flow(m: &Model, objects: &[&Entity], depth: &[f64]) -> SourcesInFlow {
@@ -231,7 +236,7 @@ pub fn sources_in_flow(m: &Model, objects: &[&Entity], depth: &[f64]) -> Sources
             continue;
         }
         let strength = running_strength(o, rule.tiles.len(), rule.runs);
-        units.push(Unit { object: k, cells, strength, source: o.template == "WaterSource" || o.template == "BadwaterSource" });
+        units.push(Unit { object: k, cells, strength, source: o.template == "WaterSource" || o.template == "BadwaterSource", template: o.template.clone() });
     }
     let sources = units.iter().filter(|u| u.source).count();
     if sources == 0 {
@@ -275,18 +280,6 @@ pub fn sources_in_flow(m: &Model, objects: &[&Entity], depth: &[f64]) -> Sources
                         parent[ra.max(rb)] = ra.min(rb);
                     }
                 }
-            }
-        }
-    }
-    let mut roots: Vec<usize> = vec![];
-    let mut groups: Vec<Vec<usize>> = vec![];
-    for k in 0..units.len() {
-        let r = find(&mut parent, k);
-        match roots.iter().position(|&q| q == r) {
-            Some(g) => groups[g].push(k),
-            None => {
-                roots.push(r);
-                groups.push(vec![k]);
             }
         }
     }
@@ -339,6 +332,123 @@ pub fn sources_in_flow(m: &Model, objects: &[&Entity], depth: &[f64]) -> Sources
         }
     }
     let runs = |c: usize, nb: usize| spill[nb] < spill[c] || (spill[nb] == spill[c] && ((pool[c] == 1 && pool[nb] == 1) || exit_dist[nb] <= exit_dist[c]));
+    // rows: sources across a river's mouth are one head (the definition in src/core/analysis/sources.ts)
+    let wet_run = |c: usize, ddx: i64, ddy: i64| -> i64 {
+        let x = (c % w) as i64;
+        let y = (c / w) as i64;
+        let mut run = 1;
+        for sgn in [1i64, -1] {
+            let mut xx = x + sgn * ddx;
+            let mut yy = y + sgn * ddy;
+            while xx >= 0 && yy >= 0 && xx < w as i64 && yy < h as i64 && depth[yy as usize * w + xx as usize] > 0.0 && spill[yy as usize * w + xx as usize] == spill[c] {
+                run += 1;
+                xx += sgn * ddx;
+                yy += sgn * ddy;
+            }
+        }
+        run
+    };
+    let channel_width = |c: usize| wet_run(c, 1, 0).min(wet_run(c, 0, 1));
+    let same_water = |ca: usize, cb: usize| -> bool {
+        if !(depth[ca] > 0.0) || !(depth[cb] > 0.0) || spill[ca] != spill[cb] {
+            return false;
+        }
+        let ax = (ca % w) as i64;
+        let ay = (ca / w) as i64;
+        let mut seen_row: HashSet<usize> = HashSet::new();
+        seen_row.insert(ca);
+        let mut queue = vec![ca];
+        let mut head = 0;
+        while head < queue.len() {
+            let c = queue[head];
+            head += 1;
+            if c == cb {
+                return true;
+            }
+            let x = (c % w) as i64;
+            let y = (c / w) as i64;
+            for (dx, dy) in [(0i64, -1i64), (-1, 0), (0, 1), (1, 0)] {
+                let xx = x + dx;
+                let yy = y + dy;
+                if xx < 0 || yy < 0 || xx >= w as i64 || yy >= h as i64 || (xx - ax).abs() > ROW_REACH || (yy - ay).abs() > ROW_REACH {
+                    continue;
+                }
+                let nb = yy as usize * w + xx as usize;
+                if seen_row.contains(&nb) || !(depth[nb] > 0.0) || spill[nb] != spill[ca] {
+                    continue;
+                }
+                seen_row.insert(nb);
+                queue.push(nb);
+            }
+        }
+        false
+    };
+    // (the links are found first, apart from the touching groups; a row is kept only when every pair in it holds)
+    let down = |ca: usize, cb: usize| -> bool {
+        let fall = if exit_dist[ca] >= 0 && exit_dist[cb] >= 0 { (exit_dist[ca] - exit_dist[cb]).abs() } else { 0 };
+        fall <= channel_width(ca).min(channel_width(cb))
+    };
+    let heads: Vec<usize> = (0..units.len()).filter(|&k| units[k].source).collect();
+    let mut row_parent: Vec<usize> = (0..units.len()).collect();
+    for i in 0..heads.len() {
+        for j in (i + 1)..heads.len() {
+            let (ua, ub) = (&units[heads[i]], &units[heads[j]]);
+            if ua.template != ub.template {
+                continue;
+            }
+            let (ca, cb) = (ua.cells[0], ub.cells[0]);
+            let apart = ((ca % w) as i64 - (cb % w) as i64).abs().max(((ca / w) as i64 - (cb / w) as i64).abs());
+            if apart > ROW_REACH || !same_water(ca, cb) || !down(ca, cb) {
+                continue;
+            }
+            let ra = find(&mut row_parent, heads[i]);
+            let rb = find(&mut row_parent, heads[j]);
+            if ra != rb {
+                row_parent[ra.max(rb)] = ra.min(rb);
+            }
+        }
+    }
+    let mut row_roots: Vec<usize> = vec![];
+    let mut rows: Vec<Vec<usize>> = vec![];
+    for &k in &heads {
+        let r = find(&mut row_parent, k);
+        match row_roots.iter().position(|&q| q == r) {
+            Some(g) => rows[g].push(k),
+            None => {
+                row_roots.push(r);
+                rows.push(vec![k]);
+            }
+        }
+    }
+    for row in &rows {
+        if row.len() < 2 {
+            continue;
+        }
+        // a row that drifts down the flow link by link is not a head: its sources stay as they are, each judged alone
+        let whole = (0..row.len()).all(|i| ((i + 1)..row.len()).all(|j| down(units[row[i]].cells[0], units[row[j]].cells[0])));
+        if !whole {
+            continue;
+        }
+        for &k in &row[1..] {
+            let ra = find(&mut parent, row[0]);
+            let rb = find(&mut parent, k);
+            if ra != rb {
+                parent[ra.max(rb)] = ra.min(rb);
+            }
+        }
+    }
+    let mut roots: Vec<usize> = vec![];
+    let mut groups: Vec<Vec<usize>> = vec![];
+    for k in 0..units.len() {
+        let r = find(&mut parent, k);
+        match roots.iter().position(|&q| q == r) {
+            Some(g) => groups[g].push(k),
+            None => {
+                roots.push(r);
+                groups.push(vec![k]);
+            }
+        }
+    }
     let reach: Vec<Vec<u8>> = groups
         .iter()
         .map(|g| {

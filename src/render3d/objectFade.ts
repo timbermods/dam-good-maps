@@ -12,9 +12,9 @@
 //   region without them (`shadowDropped` per tile), once a frame, only where the dropped tiles changed.
 // - **Hide all:** while held, no object is drawn (the same program discards it, `objectHide`), casts a shadow or shades
 //   the ground.
-// Neither ever takes the land's own shape: a mine site and a seep stand in tiles whose tops the terrain leaves out
-// (`mineCutout`), their models drawing the pit and its rim, so they are never faded or hidden (`LAND`), or the sky would
-// show through the hole.
+// Neither ever takes the land's own shape: a mine site, a seep and a geothermal field stand in tiles whose tops the
+// terrain leaves out (`mineCutout`), their models drawing the pit and its rim (the field's crust and vent), so they are
+// never faded or hidden (`LAND`), or the sky would show through the hole.
 // Pictures (the map's picture, a sized one, the shelf's icons) never show either: they are drawn on a renderer of their
 // own (hero.ts) or with the fade put off for the picture (`MapRenderer.thumbnail`).
 
@@ -35,7 +35,7 @@ export const OBJECT_FADE_EDGE = 1;
 
 /** The objects that are the land's own shape (their tiles' tops are left out of the terrain, entities3d.ts `mineCutout`,
  *  and their models draw the pit): never faded or hidden. */
-export const LAND = new Set(["UndergroundRuins", "WaterSeep", "BadwaterSeep"]);
+export const LAND = new Set(["UndergroundRuins", "WaterSeep", "BadwaterSeep", "GeothermalField"]);
 /** Their instances' `grow` (entities3d.ts: a minimum size on screen, pixels a unit at least; none here): a negative
  *  first value marks the land's own shape to the objects' program and the sun's depth pass. */
 export const LAND_GROW: readonly [number, number, number] = [-1, 0, 1];
@@ -79,15 +79,16 @@ export function objectShows(region: FadeRegion | null, hidden: boolean, x: numbe
   return hidden ? 0 : objectFadeAt(region, x, y);
 }
 
-/** The places of the baked shadows' casters whose model does not stand on its Coordinates tile: the start, whose 3 × 3
- *  model stands round the middle of its footprint, where light.ts `objectCasters` casts its tower from, its walls from
- *  the tiles round it; by each of those tiles (y·W + x), the model's middle. A caster's shadow is dropped by its
- *  model's place, as its fade is. */
+/** The places of the baked shadows' casters whose model does not stand on its Coordinates tile: the start and the large
+ *  relic, whose 3 × 3 models stand round the middle of their footprints, light.ts `objectCasters` casting them from each
+ *  of its tiles; by each of those tiles (y·W + x), the model's middle. A caster's shadow is dropped by its model's place,
+ *  as its fade is. */
 export function casterPlaces(e: EntityView | null, W: number): Map<number, [number, number]> {
   const out = new Map<number, [number, number]>();
   if (!e) return out;
   for (let k = 0; k < e.count; k++) {
-    if (e.templates[e.template[k]] !== "StartingLocation") continue;
+    const t = e.templates[e.template[k]];
+    if (t !== "StartingLocation" && t !== "LargeRelic") continue;
     const [dx, dy] = rotate(ORIENTATION_NAMES[e.orientation[k]] as Orientation, 1, 1);
     const x = e.x[k] + dx;
     const y = e.y[k] + dy;

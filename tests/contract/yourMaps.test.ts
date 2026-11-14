@@ -10,7 +10,7 @@ import { gzipSync, strToU8 } from "fflate";
 import { describe, expect, it } from "vitest";
 import { YourMapsSaver } from "../../src/core/library/saver";
 import { whenText } from "../../src/core/library/when";
-import { storeProblem, type YourMapEntry, type YourMapsStore } from "../../src/core/library/yourMaps";
+import { keepsMap, storeProblem, type YourMapEntry, type YourMapsStore } from "../../src/core/library/yourMaps";
 import { openYourMaps } from "../../src/platform/yourMaps";
 
 const at = (min: number) => new Date(Date.UTC(2026, 8, 29, 12, 0) + min * 60_000).toISOString();
@@ -117,6 +117,17 @@ function clock() {
 }
 
 const settle = () => new Promise((r) => setTimeout(r, 0));
+
+describe("which map Your maps keeps (D455)", () => {
+  it("keeps a map from its first edit or rename, and after every edit is undone; never an unedited one", () => {
+    // (unedited: the worker at the version it opened at)
+    expect(keepsMap({ kept: false, openedVersion: 4, version: 4 })).toBe(false);
+    // (an edit the page has not heard of yet: the worker past its opening version)
+    expect(keepsMap({ kept: false, openedVersion: 4, version: 5 })).toBe(true);
+    // (renamed, or edited and undone back to where it opened)
+    expect(keepsMap({ kept: true, openedVersion: 4, version: 4 })).toBe(true);
+  });
+});
 
 describe("saving in the background", () => {
   it("saves once the edits settle, one snapshot for a burst of edits", async () => {

@@ -208,8 +208,14 @@ describe("Fill water and Remove unfed water on a cave import", () => {
 
 describe("Fill water and Remove unfed water on a generated map with a Block dig", () => {
   // (seed 12 since generator 0.10.6, D498, D148: seed 3's River Valley has no level, dry patch for the pit any more
-  // (`levelPatch`), nor seeds 2, 4, 5, 8–10 and 13–14; seed 12's is at (17, 18), level 11; seed 6 for generator 0.10.7, D502, D148: seed 12 has none now, nor has any of seeds 1–5, 7–27, 29–31, 33–37 and 39–40 but 28, 32 and 38; seed 6's is at (33, 20), level 16)
-  const r = generate(makeSpec({ seed: 6, theme: "riverValley", size: { x: 64, y: 64 } }));
+  // (`levelPatch`), nor seeds 2, 4, 5, 8–10 and 13–14; seed 12's is at (17, 18), level 11; seed 6 for generator 0.10.7, D502, D148: seed 12 has none now, nor has any of seeds 1–5, 7–27, 29–31, 33–37 and 39–40 but 28, 32 and 38; seed 6's is at (33, 20), level 16;
+  // seed 10 for seed 6 since generator 0.10.16's ground with grade, D148: the land rolls in one-level steps, and of seeds 1–60
+  // only 10, 11, 13, 23, 34 and 49 keep a level patch; seed 10's is at (54, 36), level 16; seed 1 since generator 0.10.20's contour edges, D518, D148: seed 10 has none now, and of seeds 1–60 only 1, 8, 9, 11, 18, 37, 43 and 48 keep one; seed 1 is the first, its patch at (48, 52), level 14;
+  // seed 18 since the D518 mends (wash treads and dead-stand knots), D148: seed 1 has none now, and of seeds 1–120 only seeds 8, 9, 18 and 104 keep one; seeds 8 and 9 hold level 6 only; seed 18 is the first at level 14 or more, its patch at (36, 30), level 16;
+  // seed 8 since the D518 mends' compact hills and wash flats (D148): seed 18 has none now, and of seeds 1–150 only 8, 11, 15, 22, 24, 29, 30, 36, 43, 85, 96, 129, 139, 146, 148 and 150 keep one; seed 8 is the first at level 14 or more, its patch at (25, 52), level 16;
+  // seed 29 since generator 0.10.21's look round (D518: the land's long straight steps jog), D148: seed 8 keeps none now, and of seeds 1–76
+  // only 22, 29, 51, 73 and 76 keep one (levels 8, 15, 14, 7 and 11); seed 29 is the first at level 14 or more, its patch at (48, 33), level 15)
+  const r = generate(makeSpec({ seed: 29, theme: "riverValley", size: { x: 64, y: 64 } }));
 
   it("a pit and the hollow under its edge fill to the pit's rim, the hollow full under pressure; removed, both are dry; undo, redo and reopen are byte-exact", () => {
     const s = MapSession.fromGenerated(r, r.file);

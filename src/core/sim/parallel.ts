@@ -13,14 +13,16 @@
 // Where it runs (#130's approved shape): only where it helps, in a worker that installed a pool
 // (`installParallelWater`: the editor's generator worker, with helpers the page starts, and the checks' worker for its
 // canonical settle, with helpers it starts; both take from one budget the page shares, `shareWaterBudget`, D402's
-// amendment) on a cross-origin isolated page (the service worker,
-// public/sw.js) in Chromium and Firefox, for maps of 256² and more (about 8 threads at 256², up to 16 at 512²)
+// amendment; and the premise mode's drought run beside its map, worker/drought.worker.ts, with helpers it starts, on the
+// generator's budget, `sharedWaterBudget`) on a cross-origin isolated page (the service worker,
+// public/sw.js) in Chromium and Firefox, for maps of 256² and more (about 8 threads at 256², up to 16 at 512²; the
+// premise mode's settle from 128², about 4, `withSmallMapThreads`)
 // with enough water to share, within the machine's budget (`waterThreadBudget`: the page's thread, the water mesh
 // workers and the flow bake keep a core each, 7 threads of 12; a machine of 4 to 6 threads keeps 3). Everywhere else, and whenever it can't, WaterSim runs the single thread, and the
 // two hand over to each other between runs at any time with the same result. Node and the tools stay
 // single-threaded (the identity check installs a pool to compare).
 
-import { machineThreads, parallelWaterSupported, threadsFor, waterThreadBudget } from "./parallelPolicy";
+import { machineThreads, parallelWaterSupported, stackThreadsFor, threadsFor, waterThreadBudget } from "./parallelPolicy";
 import { RustStrip, rustWater, sameBits, type RustModel, type RustRules } from "./rustWater";
 import { stackStripHelper, type StackMessage } from "./stackParallel";
 
@@ -457,6 +459,12 @@ export function shareWaterBudget(sab: SharedArrayBuffer): void {
   budget = new Int32Array(sab);
 }
 
+/** The budget this thread shares (`shareWaterBudget`), for a worker it starts that runs water of its own (the premise
+ *  mode's drought beside its map, worker/drought.worker.ts), or null. */
+export function sharedWaterBudget(): SharedArrayBuffer | null {
+  return budget ? (budget.buffer as SharedArrayBuffer) : null;
+}
+
 /** Gives this thread a pool of helper threads for the water (once; again is a no-op). Returns whether the
  *  water may now run on several threads here. */
 export function installParallelWater(opts: ParallelOptions): boolean {
@@ -516,6 +524,21 @@ export function parallelWaterThreads(): number {
  *  ran). */
 export const parallelWaterStats = { ticks: 0, runs: 0 };
 
+/** Whether a plain map from 128² on takes threads as a stacked one does (`withSmallMapThreads`). */
+let smallFrom = false;
+
+/** Runs `fn` with a plain map's water on threads from 128² (`stackThreadsFor`: about 4 at 128²) instead of from 256²:
+ *  the premise mode's canonical settle, the one the player waits on (D453); the same bytes on any count. */
+export function withSmallMapThreads<T>(fn: () => T): T {
+  const was = smallFrom;
+  smallFrom = true;
+  try {
+    return fn();
+  } finally {
+    smallFrom = was;
+  }
+}
+
 /** Runs `fn` with the water on one thread whatever the pool (the identity checks' single side). */
 export function withoutParallelWater<T>(fn: () => T): T {
   const was = paused;
@@ -534,7 +557,7 @@ const finalizer = new FinalizationRegistry<WaterThreads>((t) => t.free());
 export function waterThreads(owner: object, info: { W: number; H: number; dam: Float64Array | null; emitters: readonly EmitterShape[] }, rules: RustRules): WaterThreads | null {
   if (!pool || pool.broken) return null;
   const n = info.W * info.H;
-  const most = pool.forced ?? threadsFor(n);
+  const most = pool.forced ?? (smallFrom ? stackThreadsFor(n) : threadsFor(n));
   const minRows = pool.forced !== null ? HALO : MIN_ROWS;
   const cap = Math.min(most, Math.floor(info.H / minRows));
   if (cap < 2) return null;

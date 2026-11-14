@@ -778,8 +778,16 @@ describe("the Block tool on a generated map", () => {
   // must run from 3 tiles west of it to 5 east, at level 7 or more, away from every object; seed 3's River Valley holds
   // none any more, nor does any other of seeds 1–40 but seed 6, whose spot is at (46, 15), level 14; seed 43 since generator 0.10.7, D502, D148: seed 6 has none now, nor has any of seeds 1–42; seed 43 is the first with one;
   // seed 91 since generator 0.10.11, the D410 round, D148: seed 43's spot has a grove on it now, and of seeds 40–100 only seed 91 holds one,
-  // at (48, 38); the map without its 3D forms, as the test asks for a map with no cave of its own, and seed 91 grows one)
-  const spec = makeSpec({ seed: 91, theme: "riverValley", size: { x: 64, y: 64 } });
+  // at (48, 38); the map without its 3D forms, as the test asks for a map with no cave of its own, and seed 91 grows one;
+  // seed 11 since generator 0.10.16's ground with grade, D148: seed 91's graded land has no such spot, and of seeds 1–120
+  // seeds 11, 23, 63, 76 and 92 hold one; seed 11's is at (55, 8), level 9; seed 76 since generator 0.10.18's dead
+  // stands on the dry land, D516, D148: of seeds 1–60, 63, 76 and 92 only seed 76 holds one now, at (52, 8), level 14; seed 37 since generator 0.10.20's contour edges, D518, D148: seed 76 holds none now, and of seeds 1–200 only seeds 37, 174 and 187 hold one; seed 37 is the first, its spot at (16, 9), level 16;
+  // seed 174 since the D518 mends (wash treads and dead-stand knots), D148: seed 37 holds none now, and of seeds 1–200 only seeds 174, 178 and 187 hold one; seed 174 is the first, its spot at (35, 50), level 16;
+  // seed 15 since D518's later mends (the rolling and rises reweighed, the dead stands dense in their woods), D148: seed
+  // 174 holds none now, and of seeds 1–200 only seeds 15 and 148 hold one; seed 15 is the first, its spot at (20, 12), level 8;
+  // seed 29 since generator 0.10.21's look round (D518: the land's long straight steps jog, so its edges moved), D148: seed 15 holds none now, and
+  // seed 29 is the first of seeds 1–200 with one, its spot at (48, 33), level 15)
+  const spec = makeSpec({ seed: 29, theme: "riverValley", size: { x: 64, y: 64 } });
   const r = generate(spec, { forms: false });
 
   /** A dry tile with dry neighbours, no object near, on high enough ground, level out to the build-up 5 tiles east. */

@@ -248,6 +248,26 @@ export function fallInView(land: Pick<OpeningLand, "falls">, start: OpeningStart
   return best;
 }
 
+/** The least drop of a fall that stands as a landmark in the colony's view (the landmark intention's, land/intentions.ts). */
+export const LANDMARK_FALL = 6;
+
+/** The map's sight from its start, as the landmark intention reads it (land/intentions.ts, D488, D493): the standing
+ *  form the opening frame holds (`landmarkInView`), else the tallest fall of `LANDMARK_FALL` or more in it
+ *  (`fallInView`); a premise's landmark fall is placed in that frame (premise/frame.ts), so this finds it too. Its top
+ *  (tile x, tile y, height) and how tall it stands over the ground or water below; null when the frame holds none. */
+export function openingSight(land: OpeningLand, start: OpeningStart): { x: number; y: number; z: number; stand: number; kind: "form" | "fall" } | null {
+  const cam = openingCamera(start, VISTA_ZOOM);
+  const lm = landmarkInView(land, start, cam);
+  if (lm) {
+    const x = lm.tile % land.W;
+    return { x, y: (lm.tile - x) / land.W, z: land.h[lm.tile], stand: lm.stand, kind: "form" };
+  }
+  const fall = fallInView(land, start, LANDMARK_FALL, cam);
+  if (!fall) return null;
+  const top = land.falls.find((f) => f.x === fall.x && f.y === fall.y)!;
+  return { x: fall.x, y: fall.y, z: top.z, stand: fall.drop, kind: "fall" };
+}
+
 /** The best turn for a start among `turns` (its level-door orientations): the best opening shot,
  *  shots within a twentieth of each other tied, then the door nearest the water (`dWet`), then the
  *  orientations' order. */

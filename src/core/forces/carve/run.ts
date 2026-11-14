@@ -63,6 +63,13 @@ export interface CarveSettings {
   /** Banks (item 18, river.ts): about how many tiles of flat land at the waterline on each side before
    *  the walls, 0 (none) to 10; absent, none. */
   banks?: number | null;
+  /** Fall (showcase craft gaps 1, 2 and 20): this many levels from the lip of the fall its course runs over to where
+   *  its water lands, 4–12 (a landmark: lower is a rapid); the reach below is cut down to it and held there. Where the land has no edge that tall, the
+   *  fall is where the ground the course starts on ends; where it never ends, or the land falls farther or less far
+   *  than this, the carve is refused. Null or absent: the land's
+   *  own falls only (where the ground drops 3 levels or more). Either way the stream above a fall keeps its bed two
+   *  levels under the top and a lip one level under it at the edge. */
+  fall?: number | null;
 }
 
 /** The most tiles of banks a carve leaves (item 18; settings.ts). */
@@ -176,6 +183,9 @@ export interface CarveOptions {
   unleashed?: string;
   /** Its water is badwater: the preview's ribbon is too. */
   bad?: boolean;
+  /** The working area (D254): how many levels each tile may change (`CarveRun.ease`); the Rust measures the seats it
+   *  levels under Ride on the land this eases (lib.rs `level_seat`). */
+  ease?: Uint8Array | null;
 }
 
 /** A carve: planned whole when it starts (in Rust, every step of it recorded), then run a step at a time
@@ -190,7 +200,7 @@ export class CarveRun {
   /** The map just before a cut-off bend's mouths silted shut (its sediment taken out), once the carve
    *  has run to its end: the oxbow lake keeps the water the game settles on it. */
   /** The working area (D254): how many levels each tile may change, the area's depth there, or null
-   *  for none. Set by `planForce` (start.ts); its showing eases each tile by it, as its keep does. */
+   *  for none. Set by `planForce` (start.ts, `CarveOptions.ease`); its showing eases each tile by it, as its keep does. */
   ease: Uint8Array | null = null;
   closure: ForceMap | null = null;
   /** The lake its sealed oxbow keeps (null: none), once it has run to its end: the water the game
@@ -245,7 +255,8 @@ export class CarveRun {
     this.unleashedId = options.unleashed ?? null;
     this.badwater = !!options.bad;
     const map: FullForceMap = { ...input, rockLayers: input.rockLayers ?? [], lava: input.lava ?? new Uint32Array(N), fallen: input.fallen ?? [] };
-    const r = planInRust({ verb: "carve", map, settings, intent: this.intent, keep: this.keep, options: { sourceId: options.sourceId, unleashed: this.unleashedId, bad: this.badwater } });
+    this.ease = options.ease ?? null;
+    const r = planInRust({ verb: "carve", map, settings, intent: this.intent, keep: this.keep, ...(this.ease ? { areaDepth: this.ease } : {}), options: { sourceId: options.sourceId, unleashed: this.unleashedId, bad: this.badwater } });
     // (D500, D342: a river carved with a Depth keeps falling, or the carve is refused: past a rise taller than the
     // Depth its cut climbs with the land, and its spring floods back over the ground behind)
     // (an Unleash runs dry, its source's own water the river)

@@ -360,6 +360,11 @@ export class HighLook {
     this.shadows.dirty = true;
   }
 
+  /** The layer cut moved (`MapRenderer.setSlice`): what it takes away casts no shadow (shadows.ts). */
+  sliceChanged(): void {
+    this.shadows.dirty = true;
+  }
+
   /** The water changed: its flow's timing is read a moment later (the flow: motion.ts). */
   waterChanged(surface: SurfaceWater): void {
     if (!this.map) return;

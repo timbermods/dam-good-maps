@@ -66,6 +66,8 @@ describe("every theme's project file reopens and rebuilds the same .timber (PLAN
     expect(ajvFeatures(r.features), JSON.stringify(ajvFeatures.errors?.slice(0, 3))).toBe(true);
     const bytes = encodeProject(generatedDocument(r));
     const doc = decodeProject(bytes);
+    // (a theme's map has no idea, so no card: D508)
+    expect(doc.meta.card).toBeUndefined();
     const s = MapSession.open(doc);
     expect(s.mode).toBe("live");
     expect(sha(s.exportTimber().bytes)).toBe(sha(r.bytes));
@@ -112,8 +114,10 @@ describe("generated outlines past the map edge are edited and locked (decisions-
     // more often, seed 8 since batch 5's edge lip, seed 3 since D333's maps, seed 5 since M9b's small starts
     // and speed rounds, whose seed 3 keeps its lakes off the edges, D148; River Valley 1 since Lake Basin
     // round 2, D453, whose one central basin keeps every Lake Basin lake off the edges; Canyon 7 since River
-    // Valley round 2, 0.8.5, whose River Valley 96² lakes, seeds 1 to 24, keep off the edges)
-    const r = gen("canyon", 96, 7);
+    // Valley round 2, 0.8.5, whose River Valley 96² lakes, seeds 1 to 24, keep off the edges; Canyon 11 since generator
+    // 0.10.16's ground with grade, D148, whose Canyon 7 keeps its lakes off the edges: of Canyon 96² seeds 1 to 12 only 11 has one; Canyon 16 since generator 0.10.20's
+    // contour edges, D518, D148: of Canyon 96² seeds 1 to 24 only 16 and 19 have one, and of River Valley's 1 to 12 none; Canyon 13 since the later D518 mends moved the land, D148: seed 16 has none now, and of Canyon 96² seeds 1 to 30 only 13 and 19 have one, and of River Valley's 1 to 30 only 6)
+    const r = gen("canyon", 96, 13);
     const s = MapSession.fromGenerated(r, r.file);
     const W = s.size.x;
     const past = ([x, y]: [number, number]) => x < 0 || y < 0 || x > W - 1 || y > W - 1;

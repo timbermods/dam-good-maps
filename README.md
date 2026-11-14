@@ -21,6 +21,9 @@ The generator:
 - A map opens ready to edit. **Map Generator**, top left, opens every setting at once.
 - Pick **Any**, or a theme to lean toward: **River Valley**, **Canyon**, **Highlands**, **Lake
   Basin**, **Delta** or **Islands**. Then pick the size.
+- **Idea** builds the map around one problem; **None** leaves it to the theme. **Lake stair**
+  makes a chain of lakes that step down the map. The map's card names its landmark and what to
+  do first.
 - The land and its rivers grow from uplift, erosion and flowing water. **Terrain → Verticality**
   makes it taller and sheerer. From 70 it can rise above level 16, which the game's map editor
   can't edit.
@@ -55,6 +58,8 @@ The editor:
   either end, **Free** raises or digs softly.
 - The held tool's settings sit just above the bar: **Size**, **Level** (or **Strength**), **Mode**,
   **Sources** and **Brush** (**Round**, **Square** or **Lines**). **Flatten** adds **Steps**.
+- To draw high ground, pick **Raise**, set its **Brush** to **Ridge**, and drag a line. A ridge rises along it, steep
+  on one side and in broad benches on the other. **Height**, **Width** and **Steep** are in its row.
 - **Mode**: **Ground** leaves water alone, **Water** changes only the ground under it, **Both**
   changes everything.
 - **Sources**: **Ride** moves them with the ground, **Keep** leaves them where they are, **Clear**
@@ -71,6 +76,8 @@ The editor:
 - The objects at the bottom right place things: **Start**, **Water source**, **Badwater source**, trees,
   bushes, ruins and more. Pick one, then click the map. Green means it fits; red says why not.
 - R turns the object, and Esc puts it back. Drag with a tree or bush to plant a grove.
+- Drag with **Ruin** to lay a line of ruined piers. Their tops are level, so they stand tall across low ground.
+  **Spacing** and **Break** set how far apart they are and how many are missing.
 - A new source's water flows at once. The window above the objects sets its strength.
 - Over a placed source, Ctrl+scroll sets its strength. Drag it to move it. Click it to change or
   remove it.
@@ -78,6 +85,12 @@ The editor:
 - **Select** is in hand whenever nothing else is: drag on the land to mark an area (Ctrl+drag with a
   brush too). Raise it, lower it, level it or dig it out. **Delete** clears everything standing in
   it. Esc or X puts anything down and goes back to Select.
+- To lead water, pick **Lower**, set its **Brush** to **Canal**, and drag from the water to where it must go. The
+  canal's bed falls all the way and its banks hold the water. **Width**, **Depth** and **Starts** are in its row.
+- To make a new lake, pick **Lower**, set its **Brush** to **Lake**, and drag an outline on the land. Set **Level** and
+  **Depth** in its row. The lake gets a rim and one spill point. Add a source or lead water in to fill it.
+- To set a lake's level, take the lake with Select's **Wand**, then type the level in **Lake level** (or scroll over
+  it). The lake's outlet is cut down or raised so the water holds there.
 - Drag the start to move it. Point at it to see its water, wood and berries.
 - The water flows into place after each edit. Undo and redo show a change again.
 - **Drought** and **Badtide** hold their last day on the map. **◀** and **▶** step through the days; double-click the
@@ -85,7 +98,8 @@ The editor:
 - A brush over water clears the water around it, so you see the bed. **See-through** (T) clears all
   of it.
 - Tick what to show at the top left: **Heights**, **Lines**, **Markers**, **Flow**, **See-through**,
-  **Badwater** and **Legend**. **Top-down**, **Reset view** and **Sound** are at the top right.
+  **Badwater**, **Land** and **Legend**. **Land** shows how much of the map is water, moist ground, dry ground and spoiled ground,
+  and its living trees and logs. **Top-down**, **Reset view** and **Sound** are at the top right.
 - Alt+scroll hides the levels above a layer, as in the game. Alt+click jumps to a tile's layer.
 - Ctrl+Shift+1 to 9 keeps the view; Alt+1 to 9 goes back to it.
 - **File → Keyboard shortcuts**, or ?, lists every key.
@@ -93,7 +107,7 @@ The editor:
 - The dot at the top is green when the map is ready to play. Amber means something to look at:
   click it for the list and the fixes.
 - **Save to Timberborn** saves the map into the game (**Download .timber** in other browsers). **File**
-  has **Open…**, **Download project**, **Download .timber**, **Choose Maps folder…** (Chrome and Edge), **Clear everything**, **About**, **Keyboard shortcuts**,
+  has **Open…**, **New blank map…**, **Description…**, **Download project**, **Download .timber**, **Choose Maps folder…** (Chrome and Edge), **Clear everything**, **About**, **Keyboard shortcuts**,
   **Help** and **Report a problem**.
   **History** beside Undo lists every step: click one to go back to it.
 - Click the map's name at the top to rename it. The saved file takes the name.
@@ -101,6 +115,10 @@ The editor:
 - **Real places** in the header opens maps made from real land: click one to edit it.
 - The map you were on stays in **Your maps**, in the header: click it to go back.
 - Right-click a map in **Your maps** to download its `.timber`, rename it or delete it.
+- **File → New blank map…** starts a map on flat, dry ground: pick its size and its ground level. The start is at its
+  middle. Shape it, then add water sources.
+- **File → Description…** holds the map's name and the words the game shows with it. A generated map starts with
+  the generator's words. After you change the map, keep them or write your own.
 - **File → Open…**, or a file dropped on the page, opens any `.timber` from Timberborn 0.6 to 1.1.
 
 Your maps are saved in this browser as you work.

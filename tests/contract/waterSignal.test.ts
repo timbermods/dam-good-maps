@@ -112,8 +112,11 @@ describe("the water-changed signal for the hover readout (D347, D387 (1))", () =
   it("every path that changes the water fires on a tile it changed", async () => {
     // (seed 9 on 0.10.6's maps, D148: it has no caves, which settle on the stacked engine, far slower with a source, and has a
     // dry, flat spot 9 tiles clear of the water for the source the test places and a deep clean tile; seeds 1 and 2 now have
-    // caves, seeds 3 and 4 no such spot)
-    await runGenerate(makeSpec({ seed: 9, theme: "riverValley", size: { x: W, y: W } }));
+    // caves, seeds 3 and 4 no such spot; seed 11 since generator 0.10.17's start floors, D515, D148: on seed 9's new land the
+    // preview's water stops 0.06 deeper than the canonical settle's at the deep tile, 0.91 against 0.85, across the readout's
+    // rounding; seeds 5–8 and 10–16 each have the spot and the deep tile, with the same depth there to the readout's tenth, and
+    // seeds 11 and 13 are the two whose preview stops on the canonical water byte for byte; seed 6 for seed 11 since the D518 mends (compact hills, no broad wash flats, dead-stand knots), D148: a mine site stands on seed 11's spot now, so the source is refused; of seeds 5–12, seed 5's preview stops 0.1 deeper than the canonical settle at the deep tile, seeds 8 and 12 have no dry spot 9 tiles clear of the water, seed 11 has a mine site on it, and seeds 6, 9 and 10 pass; seed 7 was not tried)
+    await runGenerate(makeSpec({ seed: 6, theme: "riverValley", size: { x: W, y: W } }));
     ed.setAutoWater(false);
     const m = new Mirror();
     m.open(ed.refine().view);

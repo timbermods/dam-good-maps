@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { makeSpec } from "../../src/core/spec/mapspec";
+import { heightsAfter } from "../../src/core/doc/landPatch";
 import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
 import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
 import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
@@ -116,6 +117,7 @@ describe("a force's packed rows (#312) show every frame the whole snapshots do, 
         tick = 0;
         uuid = 0;
         const m = { heights: ed.terrainNow().heights };
+        const opened = m.heights.slice();
         const start = ed.forceStart(request);
         expect(start.errors).toEqual([]);
         expect(start.frame).not.toBeNull();
@@ -148,7 +150,8 @@ describe("a force's packed rows (#312) show every frame the whole snapshots do, 
         expect(frames.at(-1)?.cue.phase).toBe("done");
         const kept = ed.forceStop();
         expect(kept.ok).toBe(true);
-        expect(Array.from(kept.view.heights!)).toEqual(Array.from(m.heights));
+        // (the answer carries the land it changed, laid on the land the page was sent, #922 step 4)
+        expect(Array.from(heightsAfter(opened, kept.view, 48))).toEqual(Array.from(m.heights));
         return { frames, patchCount };
       };
       const full = play(false),

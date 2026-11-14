@@ -10,6 +10,7 @@
 // melt-back an effect on the page. What is kept is always the plan's final map (the stages only show it), so the result never depends on the
 // pace, the machine or the effects.
 
+import { sqrt } from "../../math/portable";
 import { prefill } from "../../sim/prefill";
 import type { RetainedWater } from "../../sim/water";
 import { snapshotMap, type FullForceMap } from "../force";
@@ -93,6 +94,8 @@ export class GlaciateRun extends Staged implements StagedRun {
   private readonly made: GlaciatePlan;
   /** The plan being given its last touches (its footprint is protected while they are made). */
   private pending: GlaciatePlan | null = null;
+  /** When each tile takes its final level as shown (`shownArrival`), once planned. */
+  private arrival: Float32Array | null = null;
 
   constructor(
     before: FullForceMap,
@@ -121,6 +124,11 @@ export class GlaciateRun extends Staged implements StagedRun {
     return this.plan0;
   }
 
+  /** The width Size's Auto took from the valley (showcase craft's gap 14), or null when Size was set. */
+  get autoSize(): number | null {
+    return this.settings.size === null ? this.made.metrics.requestedWidth : null;
+  }
+
   /** The plan's last touches: the ground a force leaves as it is (the layer showing, caves, outside
    *  the working area), the build's own (its integrity pass), and the water on what is kept. */
   protected settle(): void {
@@ -136,6 +144,7 @@ export class GlaciateRun extends Staged implements StagedRun {
     const keepAt = r.tiles.map((i, k) => m.heights[i] === r.floor[k]);
     if (keepAt.some((k) => !k)) p.retained = { tiles: r.tiles.filter((_, k) => keepAt[k]), floor: r.floor.filter((_, k) => keepAt[k]), depth: r.depth.filter((_, k) => keepAt[k]), contamination: r.contamination.filter((_, k) => keepAt[k]) };
     m.water = prefill({ ...modelOf(m), ...(p.retained.tiles.length ? { retained: [p.retained] } : {}) });
+    this.arrival = shownArrival(p, this.before);
     this.plan0 = p;
   }
 
@@ -144,7 +153,7 @@ export class GlaciateRun extends Staged implements StagedRun {
   }
 
   /** The land at `stage` of the two acts (the investigation's reveal): under the advancing ice each
-   *  tile takes its final level as the front passes it, and the objects there go; the water stays as
+   *  tile takes its final level as the front passes it (`shownArrival`), and the objects there go; the water stays as
    *  it was (D321, item 30). The last stage is the plan's map itself, with the valley's water. */
   protected show(stage: number): void {
     const p = this.plan0!;
@@ -157,11 +166,12 @@ export class GlaciateRun extends Staged implements StagedRun {
     if (stage > ADVANCE_STEPS + 1) return;
     const b = this.before;
     const f = p.map;
+    const arrival = this.arrival!;
     const m = snapshotMap<FullForceMap>({ ...b, fallen: [] });
     const advance = clamp(stage / ADVANCE_STEPS, 0, 1);
     const retreating = stage > ADVANCE_STEPS;
     for (let i = 0; i < m.heights.length; i++) {
-      if (p.arrival[i] > advance) continue;
+      if (arrival[i] > advance) continue;
       m.heights[i] = f.heights[i];
       m.lava[i] = f.lava[i];
     }
@@ -169,7 +179,7 @@ export class GlaciateRun extends Staged implements StagedRun {
     const final = new Map(f.entities.map((e) => [e.id, e]));
     m.entities = m.entities.flatMap((e) => {
       const i = e.y * W + e.x;
-      if (p.arrival[i] > advance) return [e];
+      if (arrival[i] > advance) return [e];
       return final.has(e.id) ? [structuredClone(final.get(e.id)!)] : [];
     });
     if (retreating) {
@@ -198,7 +208,7 @@ export class GlaciateRun extends Staged implements StagedRun {
       x,
       y,
       z: this.before.heights[clamp(Math.round(y), 0, this.before.H - 1) * W + clamp(Math.round(x), 0, W - 1)],
-      size: sizeOf(this.settings),
+      size: p ? p.metrics.requestedWidth : sizeOf(this.settings, W, this.before.H),
       power: this.settings.power,
       glaciate: {
         seconds: p ? this.stage / 10 : 0,
@@ -206,4 +216,34 @@ export class GlaciateRun extends Staged implements StagedRun {
       },
     };
   }
+}
+
+/** When each tile takes its final level as the glacier is shown (0–1 along its advance). The plan's arrival is the
+ *  station nearest each tile, so every tile past the last station's (the snout's lobe: its trough beyond the last
+ *  station, its terminal moraine and outwash fan, and what the last touches changed with no station of its own)
+ *  would take its level in the last frame at once, a jump where the land should settle gently (D344). The lobe forms
+ *  instead as the ice enters it: from the station whose front, a snout's radius ahead, first reaches the snout's
+ *  centre, outward from that centre to the lobe's farthest changed tile, the fan last. Only the showing: the land
+ *  kept is the plan's. */
+export function shownArrival(p: GlaciatePlan, before: FullForceMap): Float32Array {
+  const out = p.arrival.slice();
+  const path = p.path;
+  if (path.length < 2) return out;
+  const snout = path[path.length - 1];
+  const last = snout.s;
+  const near = (q: Point) => (q.x - snout.x) * (q.x - snout.x) + (q.y - snout.y) * (q.y - snout.y) <= snout.r * snout.r;
+  const enter = path.find(near)?.s ?? last;
+  if (!(enter < last)) return out;
+  const W = before.W;
+  const after = p.map.heights;
+  const at = (i: number) => {
+    const dx = (i % W) + 0.5 - snout.x;
+    const dy = Math.floor(i / W) + 0.5 - snout.y;
+    return sqrt(dx * dx + dy * dy);
+  };
+  let far = 0;
+  for (let i = 0; i < out.length; i++) if (out[i] >= last && after[i] !== before.heights[i]) far = Math.max(far, at(i));
+  if (!(far > 0)) return out;
+  for (let i = 0; i < out.length; i++) if (out[i] >= last) out[i] = Math.min(last, enter + (last - enter) * Math.min(1, at(i) / far));
+  return out;
 }

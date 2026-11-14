@@ -123,9 +123,10 @@ describe("strokes hold a cave's or an overhang's rock (D280 (3), amended)", () =
 
 describe("strokes over a generated map's 3D form (D488)", () => {
   // (Highlands 96² seed 4242 grew a spring cave at the default Verticality, at (33–38, 37–41); seed 4245 since generator
-  // 0.10.11, the D410 round, D148: seed 4242 has no 3D form now, and seed 4245's stands at (20–25, 46–49))
+  // 0.10.11, the D410 round, D148: seed 4242 has no 3D form now, and seed 4245's stands at (20–25, 46–49); at (42–45,
+  // 77–83) since generator 0.10.16's ground with grade, D148)
   const G = 96;
-  const r = generate(makeSpec({ seed: 4245, theme: "highlands", size: { x: G, y: G } }));
+  const r = generate(makeSpec({ seed: 4249, theme: "highlands", size: { x: G, y: G } }));
 
   it("a Flatten brush's square across the form's edge holds what holds its rock and flattens the rest", () => {
     const s = MapSession.fromGenerated(r, r.file);
@@ -134,8 +135,10 @@ describe("strokes over a generated map's 3D form (D488)", () => {
     expect(rock.length).toBeGreaterThan(0);
     const low = new Map(rock.map(([i, lo]) => [i, lo]));
     const caves = new Set(s.columns.keys());
-    // (a 7 × 7 square centred on a tile that holds the roof, four levels below it)
-    const [c] = rock[0];
+    // (a 7 × 7 square centred on a tile that holds the roof, four levels below it; the seventh holder, (42, 79), since
+    // generator 0.10.16's ground with grade, D148: the first, (43, 76), stands at 12 and holds the rock from 8, so four
+    // below it the square takes no holder lower than its hold, nor does any of the next five's; the seventh's holds one)
+    const [c] = rock[6];
     const cx = c % G;
     const cy = Math.floor(c / G);
     const L = Math.max(0, s.built.heights[c] - 4);

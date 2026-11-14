@@ -19,8 +19,6 @@ export interface CollabSlice {
   collab: TogetherState | null;
   /** The other player's cursor, with their name and tool, over the map. */
   presenceMarkers: () => JSX.Element | null;
-  /** The map changed under a stale page: the other player's terrain came while this player's strokes were on their way. */
-  collabStale: { current: boolean };
 }
 
 /** The name of what this player holds, for the other's marker ("Raise", "Carve", "Select"). */
@@ -36,7 +34,6 @@ export function useCollab(ed: Ed, props: EditorProps): CollabSlice {
   const together = props.together;
   const [, setTick] = useState(0);
   const state = together?.state ?? null;
-  const collabStale = useRef(false);
   const latest = useRef(ed);
   latest.current = ed;
   /** Updates that came before the 3D view was ready: the view draws the map as opened, then these in order. */
@@ -58,14 +55,15 @@ export function useCollab(ed: Ed, props: EditorProps): CollabSlice {
     };
   }, [together]);
 
-  /** An update the session ordered: taken as an edit's answer, after the edits already on their way. */
+  /** An update the session ordered: its land is the session's, and this player's edits still on their way are laid on
+   *  it again (the edit queue's `resync`, D362). */
   const take = (u: SessionUpdate) => {
     const e = latest.current;
     void e.enqueue(async () => {
       if (!e.mounted.current) return;
+      const q = e.edits.current;
+      if (u.view.heights || u.view.terrain || u.view.land || u.view.wet) q.resyncView(u.view as Parameters<typeof q.resyncView>[0], u.info?.history);
       e.applyUpdate(u);
-      // (this player's strokes are still on their way: the terrain waits for them, and is taken again when the last is in)
-      if (u.view.heights && e.pendingTerrain.current > 0) e.collabStale.current = true;
     });
   };
 
@@ -147,5 +145,5 @@ export function useCollab(ed: Ed, props: EditorProps): CollabSlice {
     );
   }
 
-  return { together, collab: state, presenceMarkers, collabStale };
+  return { together, collab: state, presenceMarkers };
 }

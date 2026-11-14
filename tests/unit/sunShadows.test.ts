@@ -27,7 +27,7 @@ function fakeRenderer(): WebGLRenderer {
 
 describe("High's sun shadows", () => {
   it("move their matrix with the depth map drawn, never before it", () => {
-    const s = new SunShadows({ objectFade: { value: new Vector4() }, objectHide: { value: 0 } });
+    const s = new SunShadows({ objectFade: { value: new Vector4() }, objectHide: { value: 0 }, slice: { value: 99 } });
     const gl = fakeRenderer();
     const scene = new Scene();
     s.fit(64, 48);

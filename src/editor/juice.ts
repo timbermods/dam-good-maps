@@ -217,7 +217,7 @@ export class Juice {
   /** A force's moment (its frame's cue): its sounds as it goes, each phase once. */
   forceMoment(cue: ForceCue, head?: { x: number; y: number; width: number; cut: number }): void {
     if (!this.force || this.force.verb !== cue.verb) {
-      this.force = { run: ++this.runs, verb: cue.verb, ids: [], played: new Set(), puffAt: 0 };
+      this.force = { run: ++this.runs, verb: cue.verb, ids: [], played: new Set(), puffAt: -Infinity };
       this.kept = null;
     }
     const f = this.force;

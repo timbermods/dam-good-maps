@@ -16,8 +16,14 @@ import { surfaceWater, waterFromDepth } from "../../src/render3d/model";
 // whose starts frame the map (D507): seed 7's map still has flat columns but no film left on its bank, which the third
 // test needs, and of River Valley's seeds 1–30 only seeds 7, 20, 24 and 29 have flat columns now, and of those only seed 20 has films, D148; seed 25 for seed 20 since generator 0.10.14, the opening camera's target on height
 // 0 (D493): seed 20's start moved (43,83 to 30,70) and its map now has terrain above terrain; of seeds 1–30 only 7, 24
-// and 25 have flat columns now, and only seed 25 has films, D148)
-const r = generate(decodeSpecFragment("s=25&t=riverValley&z=128&d=n")!.spec);
+// and 25 have flat columns now, and only seed 25 has films, D148; seed 20 for seed 25 since generator 0.10.16's ground
+// with grade: seed 25's map now has terrain above terrain; of seeds 1–30 only 7, 9, 20 and 26 have flat columns now, and
+// only seeds 20 and 26 have films, D148; seed 26 for seed 20 since generator 0.10.17's start floors (D515): seed 20's map
+// now has terrain above terrain, so its water has no flat columns' outflows; of seeds 1–12, 20, 24–26 and 29 only 7, 9
+// and 26 have flat columns now, and only seed 26 has films, D148; seed 7 for seed 26 since the D518 mends (compact hills, no broad wash flats, dead-stand knots), D148: seed 26's map has no film on its banks now; of seeds 1–34 only 4, 7, 9, 24, 26 and 31 have flat columns, and only seeds 7 and 24 have films (1 and 2 tiles), seed 7 the first)
+// (seed 4 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148:
+// seed 7's map has no film on its banks now; of seeds 1–12, 24, 26 and 29 only 4 and 24 pass every rule below, and seed 4 is the first)
+const r = generate(decodeSpecFragment("s=4&t=riverValley&z=128&d=n")!.spec);
 const { W, H } = r.built;
 const S = r.built.settle;
 const view = waterFromDepth(r.built.heights, S.depth, S.contamination);
@@ -27,7 +33,7 @@ const sw0 = surfaceWater(W, H, view);
 const c0 = surfaceCurrent(W, H, sw0);
 const cur = Float32Array.from({ length: view.count * 2 }, (_, n) => c0[view.tile[n >> 1] * 2 + (n & 1)]);
 
-describe("the current of River Valley seed 25 at 128 squared", () => {
+describe("the current of River Valley seed 4 at 128 squared", () => {
   it("the river moves: a quarter of the wet columns are quicker than 0.5, none beyond 10", () => {
     let fast = 0;
     for (let k = 0; k < view.count; k++) {
@@ -72,7 +78,7 @@ describe("the current of River Valley seed 25 at 128 squared", () => {
     const stored = storedOutflows(singletons, W, H)!;
     expect(stored).not.toBeNull();
     // (the reader reads the water deeper than a film, 0.001, as `storedWater` does; a film's outflows are read from its
-    // own token: this map has films on the bank at 31,85 · 31,86)
+    // own token: this map has films on its bank)
     const tokens = String(((singletons.WaterMapNew as Record<string, unknown>).ColumnOutflows as { Array: string }).Array).split(" ");
     const out = S.out!;
     let films = 0;

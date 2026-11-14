@@ -11,9 +11,10 @@ import { readTimber, writeTimber } from "../../src/core/format/timber";
 import { DENSITY, OFFICIAL_LAYOUT, officialRange, RUIN_HEIGHT_SHARES, SPREAD } from "../../src/core/gen/calibrated";
 import { generate } from "../../src/core/gen/generate";
 import { toTimberFile } from "../../src/core/gen/pack";
-import { distanceFrom } from "../../src/core/math/grid";
+import type { ForestFeature } from "../../src/core/features/schema";
+import { distanceFrom, runsToTiles } from "../../src/core/math/grid";
 import { stream } from "../../src/core/math/rng";
-import { meanStoreys, pickMineSite, planGroves, planPatches, planRuinFields, resourceBudget, ruinColumns, storeyMix, type BaselineGround } from "../../src/core/resources/baseline";
+import { meanStoreys, pickMineSite, planGroves, planPatches, planRuinFields, resourceBudget, RUIN_BAND, rimDistance, ruinColumns, ruinRagged, startWalkField, storeyMix, type BaselineGround } from "../../src/core/resources/baseline";
 import { isSapling, treeLogs } from "../../src/core/analysis/wood";
 import { startingLocation } from "../../src/core/format/entities";
 import { groundOfFile, measureResources, startCentreOf, TOWER } from "../../tools/lib/resources";
@@ -206,6 +207,67 @@ describe("the resource baseline (Kyler, 2026-09-25)", () => {
       }
   });
 
+  it("the dead stands' cover limit holds by construction on the maps that came nearest it: at most 24.5 % of the dry land within 6 tiles of a dead tree (D516, D518)", () => {
+    // (the placer reads the dry land as the checks do, no water and no moisture, contaminated or not: Delta 4 stood at 25.1 % while it
+    // took the contaminated moist tiles for dry; Delta 4 and the maps at the limit since, themes × seeds, 128²)
+    for (const [theme, seed] of [["delta", 4], ["riverValley", 4], ["lakeBasin", 3], ["lakeBasin", 1], ["highlands", 4], ["riverValley", 3]] as const) {
+      const r = generate(makeSpec({ seed, theme, size: { x: 128, y: 128 } }));
+      const side = 128;
+      const b = r.built;
+      const tiles = r.features.filter((f): f is ForestFeature => f.kind === "forest" && (f.role ?? "").startsWith("forest/dead/")).flatMap((f) => runsToTiles(f.params.area, side));
+      const near = new Uint8Array(side * side);
+      for (const t of tiles)
+        for (let dy = -6; dy <= 6; dy++)
+          for (let dx = -6; dx <= 6; dx++) {
+            const x = (t % side) + dx;
+            const y = Math.floor(t / side) + dy;
+            if (x >= 0 && y >= 0 && x < side && y < side && dx * dx + dy * dy <= 36) near[y * side + x] = 1;
+          }
+      let dry = 0;
+      let cover = 0;
+      for (let i = 0; i < side * side; i++)
+        if (!(b.water[i] > 0) && !(b.moisture[i] > 0)) {
+          dry++;
+          if (near[i]) cover++;
+        }
+      expect(cover / dry, `${theme} ${seed}: dry land within 6 tiles of a dead tree`).toBeLessThanOrEqual(0.245);
+    }
+  });
+
+  it("ruin fields that follow the land lie along the rim of their level, in bands with gaps (D518, the look round)", () => {
+    const g = flatGround();
+    const W = g.W;
+    const H = g.H;
+    // two broad plates a level apart, so each has a long rim in dry land
+    for (let y = 0; y < H; y++) for (let x = 60; x < W; x++) (g.heights as Uint8Array)[y * W + x] = 5;
+    for (let y = 70; y < H; y++) for (let x = 24; x < 60; x++) (g.heights as Uint8Array)[y * W + x] = 3;
+    const rim = rimDistance(g, 5);
+    const rngOf = (tiles: number[]) => stream(9, "field", tiles[0]);
+    const r = planRuinFields(g, 9000, { rng: stream(9, "ruins"), minStart: 0, fieldMedian: 32, follow: true, scrapOf: (tiles, t) => ruinColumns(tiles, W, rngOf(tiles), t).scrap });
+    expect(r.fields.length).toBeGreaterThanOrEqual(2);
+    expect(r.scrap).toBeGreaterThan(0.8 * 9000);
+    for (const f of r.fields) {
+      // one level, every column within four tiles of the level's rim and none on the rim itself
+      expect(new Set(f.tiles.map((i) => g.heights[i])).size).toBe(1);
+      for (const i of f.tiles) {
+        expect(rim[i]).toBeGreaterThanOrEqual(1);
+        expect(rim[i]).toBeLessThanOrEqual(RUIN_BAND.width[1]);
+      }
+      // with gaps: not a filled box (the columns fill under 85 % of their bounding box)
+      const xs = f.tiles.map((i) => i % W);
+      const ys = f.tiles.map((i) => Math.floor(i / W));
+      const box = (Math.max(...xs) - Math.min(...xs) + 1) * (Math.max(...ys) - Math.min(...ys) + 1);
+      expect(f.tiles.length / box).toBeLessThan(0.85);
+    }
+    // a broken disc on a rise: nearly half its outer ring gone, never the whole disc
+    const disc: number[] = [];
+    for (let y = -4; y <= 4; y++) for (let x = -4; x <= 4; x++) if (x * x + y * y <= 20) disc.push((50 + y) * W + 50 + x);
+    const ragged = ruinRagged(disc, W, 77);
+    expect(ragged.length).toBeLessThan(0.85 * disc.length);
+    expect(ragged.length).toBeGreaterThan(0.5 * disc.length);
+    expect(ruinRagged(disc, W, 77)).toEqual(ragged);
+  });
+
   it("a mine site goes on flat dry ground in its band, on ground the colony walks to first", () => {
     const W = 96;
     const H = 96;
@@ -310,13 +372,45 @@ describe("the resource baseline (Kyler, 2026-09-25)", () => {
       const sc = officialRange("scrap", area);
       expect(m.ruins.scrap, `${theme} scrap`).toBeGreaterThan(0.85 * sc.low * (s.ruins / 100));
       expect(m.ruins.scrap, `${theme} scrap`).toBeLessThan(1.15 * sc.high * (s.ruins / 100));
-      // dead trees rare and deliberate (item 26: the official maps store two thirds dead; ours, the
-      // start's fallback and a drought-killed grove); the map's own groves as full as the official
-      // ones. (D148: item 26 counts living trees only, so where the start's walk holds little moist
-      // ground its planting fills that ground to make the starting wood (D85, D252), with no dead
-      // grove on dry land to share it: Canyon 96² seed 5's start packs 308 trees at 0.76, its map's
-      // own groves 0.36. The groves beyond the start's 25 tiles are the map's own.)
-      expect(m.trees.deadShare, `${theme} dead share`).toBeLessThan(0.1);
+      // dead trees: the dead stands on the dry land (D516, amending item 26's "rare and deliberate", D148), at least 28
+      // per 1,000 dry tiles at Forests 100 % (D516's floor since planning's ruling on #236, 6844141498: the cover limit
+      // and the spread that make a stand a wood hold about 0.13 trees a covered tile, so 28 is the measured limit, not 30), in stands, none within 24 tiles' walk of the start, on dry ground (a
+      // spring a 3D form opens after the planting may green a few of their tiles); any other dead tree rare and
+      // deliberate as item 26 has it (the start's fallback, the floor's dry-ground wood). The map's own groves as
+      // full as the official ones. (D148: item 26 counts living trees only, so where the start's walk holds little
+      // moist ground its planting fills that ground to make the starting wood (D85, D252), with no dead grove on dry
+      // land to share it: Canyon 96² seed 5's start packs 308 trees at 0.76, its map's own groves 0.36. The groves
+      // beyond the start's 25 tiles are the map's own.)
+      const b = r.built;
+      const stands = r.features.filter((f): f is ForestFeature => f.kind === "forest" && (f.role ?? "").startsWith("forest/dead/"));
+      const standTiles = stands.flatMap((f) => runsToTiles(f.params.area, side));
+      const dryAt = (i: number) => !(b.water[i] > 0) && !(b.moisture[i] > 0);
+      let dry = 0;
+      for (let i = 0; i < area; i++) if (dryAt(i)) dry++;
+      const per1000 = (1000 * standTiles.length) / dry / (s.forestDensity / 100);
+      // (the rest of the dry land bare: at most a quarter of the dry tiles within 6 tiles of a dead tree, D518; the
+      // woods dense enough inside their outlines that the count still holds)
+      const near = new Uint8Array(area);
+      for (const t of standTiles)
+        for (let dy = -6; dy <= 6; dy++)
+          for (let dx = -6; dx <= 6; dx++) {
+            const x = (t % side) + dx;
+            const y = Math.floor(t / side) + dy;
+            if (x >= 0 && y >= 0 && x < side && y < side && dx * dx + dy * dy <= 36) near[y * side + x] = 1;
+          }
+      let cover = 0;
+      for (let i = 0; i < area; i++) if (near[i] && dryAt(i)) cover++;
+      expect(cover / dry, `${theme} dry land within 6 tiles of a dead tree`).toBeLessThanOrEqual(0.245);
+      expect(per1000, `${theme} dead stands per 1,000 dry tiles`).toBeGreaterThan(28);
+      expect(per1000, `${theme} dead stands per 1,000 dry tiles`).toBeLessThan(50);
+      // (D148: a stand's third that died young is its own feature since D518, so a stand's size is its grown trees')
+      const sizes = stands.filter((f) => !/\/(giants|young)/.test(f.role ?? "")).map((f) => f.params.groveSize ?? 0).sort((a, c) => a - c);
+      expect(sizes[Math.floor(sizes.length / 2)], `${theme} median stand`).toBeGreaterThanOrEqual(8);
+      expect(standTiles.filter(dryAt).length, `${theme} stands on dry ground`).toBeGreaterThanOrEqual(0.9 * standTiles.length);
+      const walk = startWalkField(b.heights, side, side, b.entities, b.start!);
+      expect(standTiles.filter((i) => walk[i] <= 24), `${theme} stands in the start's walk`).toEqual([]);
+      const deadAll = Object.values(m.trees.bySpecies).reduce((a, v) => a + v.dead, 0);
+      expect((deadAll - standTiles.length) / m.trees.total, `${theme} other dead trees`).toBeLessThan(0.1);
       const ground = groundOfFile(r.file);
       const st = startCentreOf(ground.objects.find((o) => o.template === "StartingLocation")!);
       const own = measureResources({ ...ground, objects: ground.objects.filter((o) => Math.max(Math.abs(o.x - st.x), Math.abs(o.y - st.y)) > 25) });

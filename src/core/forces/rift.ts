@@ -14,8 +14,9 @@ export const RIFT_DEFAULTS: RiftSettings = { mode: "drop", power: 70, size: null
 /** Its Size's range, tiles across (core/forces/settings.ts). */
 export const RIFT_SIZE_MIN = 4;
 export const RIFT_SIZE_MAX = 64;
-/** A rift's width across, tiles, on Auto: what Power gives (rust/forces/src/rift.rs). */
-export const riftWidth = (power: number): number => 10 + power * 0.18;
+/** A rift's width across, tiles, on Auto: what Power gives (rust/forces/src/rift.rs `auto_width`, which also holds it
+ *  to 0.16 of the map's short side, at least 6). A click's rift is 3.2 times as long (at most 0.62 of the short side). */
+export const riftWidth = (power: number): number => 8 + power * 0.12;
 export function validateRift(s: RiftSettings): void { const why = forceSettingsProblem("rift", s as unknown as Record<string, unknown>); if (why) throw new Error(why); }
 /** One Rust call, then the ordinary staged playback/keep/history path; no UI dependencies. */
 export class RiftRun extends Staged implements StagedRun {

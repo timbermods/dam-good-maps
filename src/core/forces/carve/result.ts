@@ -62,6 +62,7 @@ export function carveForceParams(before: ForceMap, run: CarveRun, rec: CarveReco
       ...(set.floor != null && set.floor !== FLOOR_DEFAULT ? { floor: set.floor } : {}),
       ...(set.riverDepth !== undefined ? { riverDepth: set.riverDepth } : {}),
       ...(set.banks != null ? { banks: set.banks } : {}),
+      ...(set.fall != null ? { fall: set.fall } : {}),
     },
     where: { origin: rec.origin, ...(rec.end && set.mode === "aim" ? { end: rec.end } : {}) },
     ...(rec.cut !== null ? { cut: rec.cut } : {}),

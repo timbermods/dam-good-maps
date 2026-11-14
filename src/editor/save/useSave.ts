@@ -8,6 +8,7 @@ import { NO_START, NO_START_REFUSAL } from "../../core/doc/checkItems";
 import type { ImportFlag } from "../../core/format/normalize";
 import type { Ed } from "../ed";
 import { heroPicture } from "./hero";
+import { liveShareDeps, shareOrDownload } from "../../platform/share";
 
 /** File → Save a picture's size (pixels): full HD, sharp on any screen and small to share. */
 const PICTURE_W = 1920;
@@ -66,7 +67,7 @@ export function useSave(ed: Ed): SaveSlice {
 
   /** Save the map for Timberborn (D184): the canonical settle and every check, with progress on the
    *  button; problems that would stop the map loading open the quiet dot's list instead; warnings
-   *  go into the map's description (never a confirmation). Into the game's Maps folder where the
+   *  are confirmed without a question (never written into the map's description). Into the game's Maps folder where the
    *  browser can, else a download. The folder is found first, straight from the click: the picker needs the
    *  click's fresh user activation, which lapses within seconds, long before a big map is built. */
   async function saveMap(kind: "timberborn" | "download") {
@@ -105,8 +106,8 @@ export function useSave(ed: Ed): SaveSlice {
       // the map's 3D picture as its thumbnail (D488), or the core's top-down one
       const bytes = await hero.finish(r);
       if (kind === "download") {
-        saveFile(bytes, fileName);
-        setMessage({ kind: "info", text: `Saved ${fileName}. ${MOVE_IT}` });
+        // (a phone's share sheet where there is one, else the download: the same file, #1074)
+        await deliver(bytes, fileName);
         return;
       }
       const v = await saveIntoFolder(choice!, bytes, fileName);
@@ -118,6 +119,21 @@ export function useSave(ed: Ed): SaveSlice {
     } finally {
       setSaving(null);
     }
+  }
+
+  /** The file for Timberborn out of the page: to the share sheet on a phone that has one (a tap again if the browser
+   *  wants a fresh one, the file kept meanwhile), else downloaded. */
+  async function deliver(bytes: Uint8Array, fileName: string, freshTap = false) {
+    const r = await shareOrDownload(bytes, fileName, liveShareDeps(saveFile), freshTap);
+    if (r === "downloaded") setMessage({ kind: "info", text: `Saved ${fileName}. ${MOVE_IT}` });
+    else if (r === "shared") setMessage({ kind: "info", text: `Sent ${fileName}. ${MOVE_IT}` });
+    else
+      setMessage({
+        kind: "info",
+        text: r === "closed" ? `${fileName} is ready, not sent yet.` : `${fileName} is ready to send.`,
+        keep: true,
+        action: { label: "Send it", tip: "Open the share sheet for the map's file", run: () => void deliver(bytes, fileName, true) },
+      });
   }
 
   async function chooseFolder() {

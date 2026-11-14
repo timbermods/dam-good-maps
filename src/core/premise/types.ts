@@ -1,0 +1,320 @@
+// The premise model (docs/PREMISES.md §1): a premise is a problem the player solves, with the water that makes it
+// true; its plan is the map before any terrain (MAPCRAFT's steps 1 to 5 as data). Every later stage reads the plan
+// and nothing else decides where things go. Plain data only: a plan is JSON (the fixture
+// tests/fixtures/four-lakes.plan.json is one).
+//
+// Coordinates are tiles: x east, y north (the game's grid), a tile (i, j) covering [i, i + 1) × [j, j + 1). A body's
+// outline and a path are in the same units; the camera reads a tile at its middle (i + 0.5, j + 0.5).
+
+import type { Orientation } from "../format/footprints";
+import type { MapSpec, PremiseId } from "../spec/mapspec";
+import type { StageWater } from "./water";
+import type { PremiseLand } from "./map";
+import type { PremiseStyle } from "./style";
+
+export type { PremiseId };
+
+/** A point in tiles. */
+export type Point = [number, number];
+/** A chain of capsules: each entry [x, y, radius], the radius running linearly between entries (four-lakes-design's
+ *  `Sp[]`). A tile is inside when its distance to the chain is under the radius there. */
+export type Spine = [number, number, number][];
+/** The eight headings a fall may face (the way its water falls), x east, y north. */
+export type Heading = "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW";
+export type Edge = "N" | "E" | "S" | "W";
+
+/** A source of water: every source runs bad in a badtide; `bad` marks the permanent badwater source (D200). */
+export interface Source {
+  id: string;
+  at: Point;
+  strength: number;
+  /** The body (or, for the badwater source in the gorge, the link) it stands in. */
+  into: string;
+  bad?: boolean;
+}
+
+export type BodyKind = "lake" | "tarn" | "pool" | "basin" | "kettle";
+
+export interface Body {
+  id: string;
+  kind: BodyKind;
+  /** Its sill's crest: the water stands 0.1 to 0.6 over it. */
+  sill: number;
+  /** Its outline: chains of capsules. The first is the main arm. */
+  arms: Spine[];
+  /** Land inside the outline, a level over the water. */
+  islands?: Spine[];
+  /** The width of its level meadow, in tiles. */
+  meadow: number;
+  /** A lake's floor below its sill (its drowned river's line a level deeper where the floor leaves room); a pool's,
+   *  a tarn's or a basin's deepest. */
+  deep: number;
+  /** An empty basin on day 1: a work fills it. */
+  dry: boolean;
+  region: string;
+  /** A backwater (a seam, PREMISES §2.2 "Seams"): a side body with no way out, fed by one wet link from a body at its
+   *  own sill. It stands at that sill (`waterChecks.ts` `levelsOf`) and its link takes no share of the feeder's flow
+   *  (`levels.ts` `route`): it fills, then carries nothing. Absent, a body is read as before. */
+  backwater?: boolean;
+}
+
+export type LinkKind = "fall" | "channel" | "leat" | "brook" | "gorge" | "bypass";
+
+/** A fall over the sill of its link's `from` (four-lakes-design's `Fall`, generalised: any of eight headings, the lip
+ *  a line at any angle, built later as unequal runs about it). */
+export interface Fall {
+  /** Crest over the water below: a stair fall's `f`, the landmark's `H`, the lowest sill's own over the gorge. */
+  height: number;
+  /** The crest's level (the upper body's sill; the hanging valley's bed at its lip). */
+  crest: number;
+  /** The lip's length in tiles. */
+  width: number;
+  face: Heading;
+  /** The crest line, end to end. */
+  lip: [Point, Point];
+  /** Tiles of the notch a level deep (where the upper body drains in a drought): 1 on every sill but the lowest. */
+  notch: number;
+  /** The ruined weir's piers. */
+  piers: number;
+  /** Tiles of the weir's breach, a level deep (the first reservoir, once mended). */
+  breach: number;
+}
+
+export interface Link {
+  id: string;
+  /** Body ids, or an exit id for `to`. */
+  from: string;
+  to: string;
+  kind: LinkKind;
+  /** A fall: over the sill of `from` (a landmark's crest is the end of its `path`, the hanging valley). */
+  fall?: Fall;
+  /** A channel: along a path, `from` first. */
+  path?: Point[];
+  /** Half the bed's width, in tiles: the width the water table reads (`levels.ts`), and the bed's where `halves` is
+   *  absent. */
+  half?: number;
+  /** Half the bed's width at each point of `path` (a seam, PREMISES §2.2 "Seams"): stage 1 lays the bed between the
+   *  points at the width read between them (`raster/channels.ts` `halfAt`), so a brook narrows and widens along its
+   *  course; the table still reads `half`. Absent, the bed is `half` wide the whole way. */
+  halves?: number[];
+  /** A wet link into a dry link's bed (a seam, PREMISES §2.2 "Seams"): this link's water joins link `link` `at` tiles
+   *  along its path and runs down its bed to that link's end (an exit), so the bed is wet from there down and dry above
+   *  (`levels.ts` `route` gives it `LinkFlow.wetFrom`; `raster/channels.ts` lays the wet reach with its water's depth and
+   *  the dry one with its wadi). `to` names where the water leaves: the joined link's end. Absent, a link is read as
+   *  before. */
+  joins?: { link: string; at: number };
+  /** The mouth's full width where it differs from 2 × `half` (the bypass's 10). */
+  mouth?: number;
+  /** The bed's level at each point of `path`, or following the land `under` levels beneath it. */
+  bed?: number[] | { under: number };
+  /** Carries water on day 1. */
+  wet: boolean;
+  /** Tiles along `path` where a dam of its width shuts it (the player's). */
+  gates: number[];
+  /** Tiles along `path` where a row of Blockages spans it (the generator's). */
+  rows: number[];
+}
+
+/** Where water leaves the map. */
+export interface Exit {
+  id: string;
+  edge: Edge;
+  at: Point;
+}
+
+export type RegionRole = "home" | "low" | "wet" | "top" | "dry";
+
+export interface Region {
+  id: string;
+  role: RegionRole;
+  problem: string;
+  prize: string;
+  dayOne: "green" | "dry" | "dryForGood";
+  /** Where its name stands on the diagram. */
+  at: Point;
+}
+
+export type RidgeRole = "skyline" | "spur" | "wall";
+
+/** Rock along a line (four-lakes-design's `Ridge`): `top` high within `half` tiles of it, one ledge `drop` below
+ *  the crest and `ledge` wide, the crest going up and down by `rough`. */
+export interface Ridge {
+  id: string;
+  role: RidgeRole;
+  path: Point[];
+  top: number;
+  half: number;
+  drop: number;
+  ledge: number;
+  rough: number;
+}
+
+/** The start and its first frame, placed together before any land exists (PREMISES §4.3). */
+export interface FrameGroup {
+  /** The start's middle tile, its level and its turn. */
+  start: { x: number; y: number; z: number; orientation: Orientation };
+  /** The landmark: a link of kind `fall`. */
+  landmark: string;
+  /** How far the lip stands in front of the start's middle along the camera's look, in tiles. */
+  lipAhead: number;
+  /** The level tiles the start's bench should hold. */
+  bench: number;
+  /** Where the bench's spine ends (D515, `raster/relief.ts` `BENCH`): the bench is level ground round the line from
+   *  the start's tile to here, leaning away from the lip and the bay; the start's tile where absent. */
+  benchTo?: Point;
+}
+
+export type WorkRung = "first" | "small" | "medium" | "large";
+export type WorkKind = "breach" | "notch" | "damToPond" | "levee" | "leat" | "raisedSill" | "bypass" | "megadam" | "canal";
+
+export interface Work {
+  id: string;
+  rung: WorkRung;
+  kind: WorkKind;
+  /** The link or body it is built on. */
+  on: string;
+  /** Where it stands, for the diagram and the start's walk. */
+  at: Point;
+  /** What the player builds or clears, in tiles. */
+  tiles: number;
+  /** Works that must come first. */
+  needs: string[];
+  /** What it buys: tiles turned green or wet, and water held (tile-levels), each as its floor and the most the plan
+   *  expects of it. The floor is what the later stages must reach (§4.2: a work must buy at least its floor; paying
+   *  more is fine); the most is what the siting aims under. */
+  gives: { green: [number, number]; reservoir?: [number, number] };
+  /** One line, when the work has a cost (a notch from a spring tarn runs red). */
+  tradeoff?: string;
+  /** The green stage 0's second pass estimated for it on the skeleton's land (`siting.ts`), where it sited it. */
+  estimate?: number;
+  region: string;
+}
+
+export type SetPieceKind = "ruinedWeir" | "stillPool" | "cave" | "relic" | "aquifer" | "drill" | "geothermal" | "aqueduct";
+
+export interface SetPiece {
+  id: string;
+  kind: SetPieceKind;
+  /** The body, link or work it is tied to. */
+  on: string;
+}
+
+/** The lake stair's own numbers (PREMISES §4.1), kept so the invariants and the diagram read them directly. */
+export interface StairPlan {
+  /** Lakes `n`, and their ids from the lowest up. */
+  n: number;
+  lakes: string[];
+  /** Levels between sills. */
+  f: number;
+  /** The start's lake and the landmark's height and source (the springs' pool or a lake `H` or more above). */
+  startLake: string;
+  H: number;
+  landmarkSource: string;
+  /** The valley's line, exit to springs, its shape and the turn (0–7: four rotations, mirrored from 4) it was laid
+   *  out with. */
+  valley: Point[];
+  shape: "diagonal" | "S" | "hook";
+  turn: number;
+  /** The springs' pool, the neck, the bypass and the gorge. */
+  pool: string;
+  neck: string;
+  bypass: string;
+  gorge: string;
+  /** The springs' total strength (River flow) and the meadow's base width (Buildable land). */
+  flow: number;
+  meadow: number;
+  /** The rim tarns: side bodies stage 0 places before the works are sited, so the skeleton keeps them. */
+  rims?: string[];
+}
+
+export interface PremisePlan {
+  premise: PremiseId;
+  seed: number;
+  W: number;
+  H: number;
+  /** The highest ground the stair, its water and its works are drawn under: Highest terrain, at most 16 (PREMISES
+   *  §1.3, the lake stair's `stairTop`). */
+  top: number;
+  /** The highest the land away from the water may rise (settings.terrain.highestTerrain: 22 from Verticality 70, D132);
+   *  absent, `top`. Only stage 2's uplands read it (PREMISES §1.5). */
+  sky?: number;
+  /** The one-line problem, in this map's own names. */
+  line: string;
+  // the water story
+  sources: Source[];
+  bodies: Body[];
+  links: Link[];
+  exits: Exit[];
+  // the skeleton
+  regions: Region[];
+  ridges: Ridge[];
+  edges: Record<Edge, "falls away" | "ridge" | "water leaves">;
+  // the start and its first frame
+  frame: FrameGroup;
+  // the ladder
+  works: Work[];
+  // set pieces and secrets
+  setPieces: SetPiece[];
+  names: Record<string, string>;
+  /** The lake stair's numbers (other premises add their own). */
+  stair?: StairPlan;
+  /** What stage 0 could not place as the premise asks (a work no site pays for, dropped), one line each (D342). */
+  notes?: string[];
+}
+
+/** What a stage hands an invariant: stage 1 its water; later stages add the heights, the settle and the proofs. */
+export interface StageContext {
+  spec: MapSpec;
+  plan: PremisePlan;
+  /** Stage 1's water by number (water.ts), for the `land` invariants. */
+  water?: StageWater;
+  /** Stage 2's ground (a seam, PREMISES §2.2 "Seams"), for the `ground` invariants. */
+  heights?: Uint8Array;
+}
+
+/** The repair to try before a re-roll (stages 3 to 5 define them). */
+export interface Repair {
+  kind: string;
+  detail?: string;
+}
+
+export type InvariantResult = { ok: true } | { ok: false; reason: string; repair?: Repair };
+
+export type Stage = "plan" | "land" | "ground" | "settled" | "proof" | "game";
+
+export interface Invariant {
+  /** "stair.levels", "frame.lip", "premise.open" … */
+  id: string;
+  at: Stage;
+  /** Passed, or a one-line reason and, where one exists, the repair to try before a re-roll. */
+  test(ctx: StageContext): InvariantResult;
+}
+
+/** The land stage 0's second pass sites the works on (`siting.ts`): the skeleton's ground (stages 1 and 2) and day 1's
+ *  soil on it (2 water, 1 moist, 0 dry). */
+export interface SiteLand {
+  W: number;
+  H: number;
+  heights: Uint8Array;
+  soil: Uint8Array;
+}
+export interface PremiseDef {
+  id: PremiseId;
+  /** Why a spec can't have this premise, in one line, or null (size, lakes: none, waterfalls: off …). */
+  eligible(spec: MapSpec): string | null;
+  /** The plan for this seed and these settings; `attempt` draws the next one. Pure arithmetic, no terrain. */
+  draw(spec: MapSpec, attempt: number): PremisePlan | { reason: string };
+  /** Every rule a map of this premise must pass, each with the stage that can judge it. */
+  invariants: Invariant[];
+  /** The plan without the side network its works stand on: the water that is there on day 1 whatever the works. */
+  skeleton?(plan: PremisePlan): PremisePlan;
+  /** The plan with its side network drawn again on the skeleton's land, each work where its water reaches ground day 1
+   *  leaves dry (`siting.ts`); or why none could be. */
+  site?(spec: MapSpec, plan: PremisePlan, attempt: number, land: SiteLand): PremisePlan | { reason: string };
+  /** The premise's own stage 1 (a seam, PREMISES §2.2 "Seams"): its water by number, where the shared stage's
+   *  (`water.ts` `waterByNumber`) needs more of its own. Absent, the shared stage's. */
+  water?(plan: PremisePlan): StageWater;
+  /** The premise's own stage 2 (a seam): its land round its water, where the shared relief (`map.ts` `premiseLand`)
+   *  needs more of its own. Absent, the shared stage's. */
+  land?(plan: PremisePlan, water: StageWater, style?: PremiseStyle, bench?: number, reach?: number): PremiseLand;
+}

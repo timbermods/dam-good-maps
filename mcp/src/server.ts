@@ -51,6 +51,12 @@ function applySchema(): Tool["inputSchema"] {
   defs.forceResult.properties.where.description =
     "Where the force acts, in tiles. origin [x, y]: where Carve, Craterize, Erupt and Glaciate start. end [x, y]: where an aimed one goes. path [[x, y], ...]: the line for Quake, Rift, Deposit and Erode (one point is a click). side: which side of a Quake's fault rises, 1 or -1. source: a Carve from an existing source's id.";
   defs.fillHollow.required = ["at", "level"];
+  defs.canal.required = ["path"];
+  defs.ridge.required = ["path"];
+  defs.ridge.description = `High ground along a line: give the path, and the height (5 unless given), width (10), steep ("auto") and seed (1); the engine plans its tiles. ${defs.ridge.description}`;
+  defs.canal.description = `A channel that leads water: give the path, and the width (2 unless given), depth (1) and open (true); the engine plans the bed and its banks. ${defs.canal.description}`;
+  defs.lake.required = ["outline", "level"];
+  defs.lake.description = `A lake where there is none: give the outline and the level, and the depth (2 unless given) and spill if wanted; the engine digs the basin, makes its rim whole and cuts the notch. ${defs.lake.description}`;
   defs.setLakeLevel.required = ["at", "level"];
   defs.setLakeLevel.description = `A lake set to a level: give a tile of the lake (or of the hollow its river fills) and the level; the engine cuts or raises its sill and checks the water stands there. ${defs.setLakeLevel.description}`;
   defs.removeUnfedWater.required = [];
@@ -148,7 +154,7 @@ export const TOOLS: Tool[] = [
       "Change a map with operations from the Dam Good Maps operation schema.",
       "Use a force (op forceResult) to shape land: Carve a river or a canyon, Craterize, Erupt a volcano, Quake a cliff, Glaciate a valley, Rift, Deposit, Erode a cave or an arch.",
       "Use brush, sculpt, placeEntity, moveEntity, deleteEntities and paintObjects only for precise edits.",
-      "Use fillHollow and removeUnfedWater for standing water, and setLakeLevel to make a lake a source feeds hold at a level. Place a WaterSource or a BadwaterSource with placeEntity.",
+      "Use fillHollow and removeUnfedWater for standing water, setLakeLevel to make a lake a source feeds hold at a level, canal to lead water along a path in a channel whose banks hold, and lake to dig a lake inside an outline. Use ridge to raise high ground along a line, steep on one side and benched on the other. Place a WaterSource or a BadwaterSource with placeEntity.",
       "Each operation is one undo step. The tool returns what changed.",
       "If the engine refuses an operation, nothing changes and the tool returns the engine's reason.",
       "Tiles are [x, y]. Runs are [y, x0, x1]. A brush's dabs are quarter tiles: the middle of tile (x, y) is (4x + 2, 4y + 2).",

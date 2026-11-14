@@ -21,6 +21,7 @@ import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
 import { DepositRun, DEPOSIT_DEFAULTS } from "../../src/core/forces/deposit";
 import { RiftRun, RIFT_DEFAULTS } from "../../src/core/forces/rift";
 import { ErodeRun, ERODE_DEFAULTS } from "../../src/core/forces/erode";
+import { RollRun, ROLL_DEFAULTS } from "../../src/core/forces/roll";
 import { keptForceParams } from "../../src/core/forces/keep";
 import type { ForceRequest } from "../../src/core/forces/start";
 import { VERBS } from "../../src/core/forces/op";
@@ -139,7 +140,7 @@ function brush(n: number, tool: string, strength: number, size: number, k: numbe
   return { tool, strength, size, seed: 927 + k, ...(!target ? { level: 9 } : {}), dabs, ...(k % 2 ? { shape: "square" } : {}), ...(target ? { target: tool === "lower" ? 3 : 15 } : {}) } as any;
 }
 
-const verbs = ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit", "erode"];
+const verbs = ["carve", "craterize", "erupt", "quake", "glaciate", "rift", "deposit", "erode", "roll"];
 
 function force(m: any, verb: string, power: number, size: number | null, seed: number, mode: number) {
   const n = m.W;
@@ -147,12 +148,13 @@ function force(m: any, verb: string, power: number, size: number | null, seed: n
   const y = Math.floor(n * 0.38);
   const origin = y * n + x;
   const end = Math.floor(n * 0.82) * n + Math.floor(n * 0.65);
-  // (Erode wears rock faces: the cliff `cliffX` makes in its ground, a click at its foot and a drag along it)
+  // (Erode wears rock faces and Roll grades them: the cliff `cliffX` makes in its ground, a click at its foot and a
+  // drag along it)
   const wall = cliffX(n) - 1;
   const path =
     verb === "quake" && mode === 2
       ? clickFault(m.heights, n, n, { x, y }, power, seed)
-      : verb === "erode"
+      : verb === "erode" || verb === "roll"
       ? (mode ? [{ x: wall + 0.5, y: y - 9.5 }, { x: wall + 1.25, y }, { x: wall + 0.75, y: y + 10.25 }] : [{ x: wall + 0.5, y: y }])
       : [{ x: x - 22.25, y: y - 8.5 }, { x: x + 2.5, y: y + 3.75 }, { x: x + 27.75, y: y - 6.25 }];
   const ground = { W: n, H: n, heights: m.heights, at: origin };
@@ -187,6 +189,10 @@ function force(m: any, verb: string, power: number, size: number | null, seed: n
     settings = { ...ERODE_DEFAULTS, power, size, seed };
     intent = { path };
     run = new ErodeRun(m, settings, intent, null, null) as any;
+  } else if (verb === "roll") {
+    settings = { ...ROLL_DEFAULTS, power, size, seed };
+    intent = { path };
+    run = new RollRun(m, settings, intent, null, null);
   } else if (verb === "rift") {
     settings = { ...RIFT_DEFAULTS, power, size, seed };
     intent = { path: mode ? path : [{ x, y }] };
@@ -207,7 +213,7 @@ function force(m: any, verb: string, power: number, size: number | null, seed: n
   }
   // (its record as the editor keeps it, from the request it would have sent: forces/keep.ts)
   const request = (
-    (verb === "quake" || verb === "rift" || verb === "deposit" || verb === "erode")
+    (verb === "quake" || verb === "rift" || verb === "deposit" || verb === "erode" || verb === "roll")
       ? { verb, settings, path: intent.path, ...(verb === "quake" ? {side: intent.side} : {}), cut: null }
       : { verb, settings, origin: [x, y], ...(intent.end ? { end: [end % n, Math.floor(end / n)] } : {}), ...(intent.path ? { path } : {}), cut: null }
   ) as ForceRequest;
@@ -259,7 +265,7 @@ export function cases(smoke = false): Case[] {
     const grid = !smoke || n === 128;
     for (const theme of grid ? THEMES : ["any"]) for (const seed of smoke ? [1] : [1, 37, 20260930]) out.push({ id: `generate/${n}/${theme}/${seed}`, kind: "generate", n, theme, seed });
     if (grid) for (const tool of BRUSH_TOOLS) for (const strength of [1, 5, 10]) for (const size of [0.5, 6.25, 24]) out.push({ id: `brush/${n}/${tool}/${strength}/${size}`, kind: "brush", n, tool, strength, size });
-    for (const verb of verbs.filter(v => v !== "rift" && v !== "deposit" && v !== "erode"))
+    for (const verb of verbs.filter(v => v !== "rift" && v !== "deposit" && v !== "erode" && v !== "roll"))
       for (const power of grid ? [10, 55, 100] : [55])
         for (const size of grid ? [null, 12, 48] : [null]) for (const mode of [0, 1]) out.push({ id: `force/${n}/${verb}/${power}/${size}/${mode}`, kind: "force", n, verb, power, size, mode });
     out.push({ id: `mixed/${n}`, kind: "mixed", n, count: smoke ? (n === 128 ? 12 : 6) : 120 });
@@ -280,6 +286,9 @@ export function cases(smoke = false): Case[] {
   // Erode wears rock faces and writes voxel runs (its hollows): Power 0 and 100 at 64², a click and a drag; Power 55 at 256²
   for (const power of [0, 100]) for (const mode of [0, 1]) out.push({ id: `force/64/erode/${power}/${mode}`, kind: "force", n: 64, verb: "erode", power, size: 22, mode });
   for (const mode of [0, 1]) out.push({ id: `force/256/erode/55/${mode}`, kind: "force", n: 256, verb: "erode", power: 55, size: null, mode });
+  // Roll grades the same cliff: Power 0 and 100 at 64², a click and a drag; Power 55 at 256²
+  for (const power of [0, 100]) for (const mode of [0, 1]) out.push({ id: `force/64/roll/${power}/${mode}`, kind: "force", n: 64, verb: "roll", power, size: 22, mode });
+  for (const mode of [0, 1]) out.push({ id: `force/256/roll/55/${mode}`, kind: "force", n: 256, verb: "roll", power: 55, size: null, mode });
   return out;
 }
 
@@ -393,7 +402,7 @@ export async function runCase(c: Case, progress: (s: string) => void = () => {})
     await add(`${c.id}/reopen`, opened.built, null, { project: await sha(enc.encode(json(s.document))) });
     if ((await digest(s.built)).hash !== (await digest(opened.built)).hash) throw Error("the session reopens differently");
   } else {
-    let m: any = fixture(c.n, c.verb === "erode");
+    let m: any = fixture(c.n, c.verb === "erode" || c.verb === "roll");
     const steps = c.kind === "mixed" ? c.count : 1;
     for (let k = 0; k < steps; k++) {
       let record: any;

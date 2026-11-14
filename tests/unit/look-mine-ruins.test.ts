@@ -11,7 +11,7 @@
 import { describe, expect, it } from "vitest";
 import { ShaderMaterial } from "three";
 import { FOOTPRINTS, footprintTiles, ORIENTATIONS, type Orientation } from "../../src/core/format/footprints";
-import { buildEntities, IVY_DENSE, IVY_LIGHT, IVY_MEDIUM, IVY_NONE, LOD_ALL, LOD_FAR, LOD_FAR_FRAME, LOD_NEAR, MINE_PIT, mineCutout, mineOutline, modelOf, modelTriangles, RUIN_LAYOUTS, ruinIvy, ruinOvergrown, ruinsOvergrown, ruinStoreys, ruinTriangles, ruinTurn } from "../../src/render3d/entities3d";
+import { buildEntities, cutoutUnder, IVY_DENSE, IVY_LIGHT, IVY_MEDIUM, IVY_NONE, LOD_ALL, LOD_FAR, LOD_FAR_FRAME, LOD_NEAR, MINE_PIT, mineCutout, mineOutline, modelOf, modelTriangles, RUIN_LAYOUTS, ruinIvy, ruinOvergrown, ruinsOvergrown, ruinStoreys, ruinTriangles, ruinTurn } from "../../src/render3d/entities3d";
 import { objectMaterial, RUIN_INSIDE_COVER, RUIN_LATTICE_SCALE, RUIN_LATTICE_STRUT, RUIN_NEAR_PX, sceneUniforms, terrainMaterial, overlayTexture } from "../../src/render3d/materials";
 import { chunkCount, meshChunk, type TerrainSource } from "../../src/render3d/mesh";
 import { LAND_GROW } from "../../src/render3d/objectFade";
@@ -119,6 +119,27 @@ describe("mine sites", () => {
       if (Math.max(Math.abs(x), Math.abs(z)) > 2.5 - 1e-6 && y > 0) frameTop = Math.max(frameTop, y);
     }
     expect(frameTop).toBeGreaterThan(0.1);
+  });
+
+  // (the game's layers: a pit's model cut away over the cut, its hole showed the sky round what was left of it)
+  it("under a layer cut at their level or below take their tiles' tops again, never a hole; a geothermal field's middle too", () => {
+    const W = 24;
+    const H = 24;
+    const heights = new Uint8Array(W * H).fill(4);
+    const e = entityView([site("Cw0", 2, 2), { template: "GeothermalField", x: 12, y: 12, z: 4, orientation: "Cw0", owner: "g" }]);
+    const all = mineCutout(e, W, H);
+    expect(all.size).toBe(26);
+    // (no cut, or a cut over them: the tops stay left out, the objects whole over their pits)
+    for (const slice of [null, 5, 9]) expect(cutoutUnder(all, slice)).toEqual(all);
+    // (cut at their level or below: every tile has its top, folded down to the cut as every top there is)
+    for (const slice of [4, 3, 0]) {
+      const cut = cutoutUnder(all, slice);
+      expect(cut.size).toBe(0);
+      expect(faces({ W, H, heights, columns: new Map(), cutout: cut }).top).toBe(W * H);
+    }
+    // (each object by its own level: one cut over the lower, the higher's tops come back)
+    const two = mineCutout(entityView([site("Cw0", 2, 2), { template: "GeothermalField", x: 12, y: 12, z: 6, orientation: "Cw0", owner: "g" }]), W, H);
+    expect([...cutoutUnder(two, 6).values()]).toEqual(Array(25).fill(4));
   });
 
   it("have Kyler's colours: the pit's earth shows about #2F312C (D324's option (a): #373A34 darkened a little to keep its margin under the darker badwater), a dull rusty frame, pale wood", () => {

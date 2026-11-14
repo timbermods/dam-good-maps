@@ -36,7 +36,7 @@ import type { Point } from "../features/schema";
 import type { Drainage } from "./drainage";
 import { basinLeak } from "../validate/playability";
 import { drainage } from "./drainage";
-import type { Hydro } from "./hydro";
+import type { Hydro, Lake } from "./hydro";
 import { BED_FLOOR } from "./genome";
 import { mouthTilesOf } from "../features/raster/terrain";
 import { LIP_REACH } from "../water/edgeLip";
@@ -79,6 +79,11 @@ export interface BadwaterAsk {
    *  all of it where the badwater drains on its own, and on Lake Basin and Islands all their standing water
    *  with the water joined to it. */
   spare?: Uint8Array | null;
+  /** Islands' sea (D498 (3)): `spare` reaches as far as the sea's own level, and its lakes', over the low ground beside
+   *  them (`atStandingLevel`). The sea is the low water every stream on the land runs down to, so a stream that keeps out
+   *  of it in the plan can still reach its level beside it; Lake Basin's lakes stand in their basins above the land
+   *  around their outlets (its sea of badwater measured 0 without this). */
+  sea?: boolean;
 }
 
 /** The theme's main water, which badwater joins on most maps (D476), from the hydrology's own plan:
@@ -547,11 +552,46 @@ interface Ends {
   ways: [DitchWay | null, DitchWay | null];
 }
 
-export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayLike<number>, hy: Pick<Hydro, "water" | "rivers">, ask: BadwaterAsk, seed: number, attempt: number, start: { x: number; y: number }): Hazards {
+/** The spare water (`BadwaterAsk.spare`) and the ground at its standing water's own level beside it (D498 (3)): from each
+ *  lake's tiles in `spare`, the land 4-joined to them standing no higher than the lake's outlet bed, which the lake stands
+ *  just above (`Lake.outletBed`), and from its other water (channels joined to it), the land no higher than their beds. Water
+ *  there stands at the sea's level along the sea and becomes part of it as the map settles: Islands 96² seed 7's ditch joined
+ *  a stream that ran down to the sea's level beside the sea and out by the edge, never joined to it in the plan, and its
+ *  badwater spread through the low ground into the sea. */
+export function atStandingLevel(spare: Uint8Array, h: ArrayLike<number>, lakes: readonly Pick<Lake, "tiles" | "outletBed">[], W: number, H: number): Uint8Array {
+  const N = W * H;
+  const zone = spare.slice();
+  const level = new Int32Array(N).fill(-1);
+  for (let i = 0; i < N; i++) if (spare[i]) level[i] = h[i];
+  for (const l of lakes) for (const i of l.tiles) if (spare[i]) level[i] = Math.max(level[i], l.outletBed);
+  const q: number[] = [];
+  for (let i = 0; i < N; i++) if (spare[i]) q.push(i);
+  for (let k = 0; k < q.length; k++) {
+    const c = q[k];
+    const x = c % W;
+    const y = (c - x) / W;
+    for (const [dx, dy] of N4) {
+      const xx = x + dx;
+      const yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+      const n = yy * W + xx;
+      if (h[n] > level[c] || level[n] >= level[c]) continue;
+      level[n] = level[c];
+      zone[n] = 1;
+      q.push(n);
+    }
+  }
+  return zone;
+}
+
+export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayLike<number>, hy: Pick<Hydro, "water" | "rivers" | "lakes">, ask: BadwaterAsk, seed: number, attempt: number, start: { x: number; y: number }): Hazards {
   const N = W * H;
   const avoid = new Uint8Array(N);
   const out: Hazards = { count: 0, features: [], avoid, heights: h };
   if (!(ask.count > 0)) return out;
+  // (D498 (3): on Islands the spare water reaches the sea's own level over the low ground beside it; no ditch runs
+  // there, nor ends in water that drains there)
+  const spare = ask.spare && ask.sea ? atStandingLevel(ask.spare, h, hy.lakes, W, H) : (ask.spare ?? null);
   const rng = stream(seed, "badwater", attempt);
   // the field's drainage, side to side as the game's water moves (a ditch is traced on it as a
   // river's course is; a little noise so it wanders where the field is flat, as the rivers' does;
@@ -600,7 +640,6 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
     const reachesStart = new Uint8Array(N);
     const reachesOnly = new Uint8Array(N);
     const reachesSpare = new Uint8Array(N);
-    const spare = ask.spare ?? null;
     for (let q = 0; q < dn.order.length; q++) {
       const j = dn.order[q];
       const r = dn.rcv[j];
@@ -611,7 +650,8 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
     const goal = new Uint8Array(N);
     for (let j = 0; j < N; j++) if ((hy.water[j] === 1 || hy.water[j] === 2) && (loose || (!startWater[j] && !reachesStart[j])) && sd[j] > D + 6 && (!only || reachesOnly[j]) && !(spare && !(only && only[j]) && reachesSpare[j])) goal[j] = 1;
     const keepOff = new Uint8Array(N);
-    for (let j = 0; j < N; j++) if (sd[j] < D + 6 || startWater[j] || avoid[j] || ask.keepOff?.[j] || byMouth[j]) keepOff[j] = 1;
+    // (and the ground at the standing water's level beside it, D498 (3): a ditch there runs along the sea at its level)
+    for (let j = 0; j < N; j++) if (sd[j] < D + 6 || startWater[j] || avoid[j] || ask.keepOff?.[j] || byMouth[j] || (ask.sea && spare?.[j] && !(only && only[j]))) keepOff[j] = 1;
     // (water it may not join, and the ring beside it, it never crosses on its way: that water
     // passes the start, D85, and a ditch through a sea or lake on its way to the edge raised the
     // whole of it, which then rose for days, water.settles)

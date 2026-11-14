@@ -12,6 +12,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { legendEntries, objectLegend } from "../../src/render3d/palette";
 import { openLayoutMap as openEditor, settle } from "./helpers";
+import { phoneControls } from "./phone";
 
 // (its tests stand alone: they run in parallel, so the browser shards and their two workers share them; one worker
 // running them all in a row took a shard past its 30 minutes)
@@ -22,7 +23,7 @@ const EVERY_TOOL = [["2", "Raise"], ["3", "Lower"], ["4", "Flatten"], ["5", "Smo
 
 const SIZES: [number, number][] = [[1920, 1080], [2560, 1440]];
 /** The Show toggles: each on, nothing moves. */
-const TOGGLES = ["Heights", "Lines", "Markers", "Flow", "See-through", "Badwater"];
+const TOGGLES = ["Heights", "Lines", "Markers", "Flow", "See-through", "Badwater", "Irrigation"];
 /** The map generator's one width at both sizes (Kyler, 2026-10-04). */
 const PANEL = 640;
 /** The page's margin round the map's edges. */
@@ -142,7 +143,7 @@ async function onTheCells(page: Page, state: string) {
   // nothing cut off (Kyler, 2026-10-04): every name in full beside its longest value and its Auto, every option and
   // button its whole word (the values put back as they were afterwards)
   const cut = await page.evaluate(() => {
-    const LONGEST: Record<string, string> = { Wander: "Meandering", Level: "Ground", "River depth": "Off", Banks: "None", Size: "180", Power: "100" };
+    const LONGEST: Record<string, string> = { Wander: "Meandering", Level: "Ground", "River depth": "Off", Banks: "10", Fall: "Edges", Size: "180", Power: "100" };
     const out: string[] = [];
     for (const set of document.querySelectorAll(".tool-settings .set")) {
       const label = set.querySelector(".set-label");
@@ -743,3 +744,251 @@ test("at 1280×800: every tool's settings sit on the bar's cells and nothing in 
     await page.keyboard.press("Escape");
   }
 });
+
+// ---- the phone layouts (#1074 slice 2, amends D185; EDITOR_PLAN §3, "Phones"): upright at 393×852 and on its side at
+// 852×393, three device pixels to a CSS pixel and a touch screen, as a phone shows the page. In every state a player
+// meets (at rest, a brush in hand with its one-row sheet, the sheet pulled up, Show, the objects, the menu): no control
+// under 44px, none off the screen, the page itself neither zoomed nor scrolled, every field 16px (no zoom on focus); with
+// a tool's one-row sheet open the view keeps at least 60 % of the screen uncovered; a tool tapped again is put down, and
+// a long press shows a control's tooltip without pressing it.
+
+const PHONES = [
+  { name: "upright", viewport: { width: 393, height: 852 } },
+  { name: "on its side", viewport: { width: 852, height: 393 } },
+];
+
+/** The share of the screen where the view shows, under none of the controls laid over it (counted on a 4px grid). */
+async function viewShare(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const v = window.dgm3d!.renderer.canvas.getBoundingClientRect();
+    const over: DOMRect[] = [];
+    for (const el of document.querySelectorAll<HTMLElement>(".tool-dock > *, .objects-dock > *, .phone-show, .phone-show-button, .bottom-left-stack > *, .gen, .editor-bar, .menu, .checks-list")) {
+      if (el.closest("[hidden]") || getComputedStyle(el).display === "none" || getComputedStyle(el).visibility === "hidden") continue;
+      const r = el.getBoundingClientRect();
+      if (r.width && r.height) over.push(r);
+    }
+    let seen = 0;
+    const step = 4;
+    for (let y = step / 2; y < H; y += step)
+      for (let x = step / 2; x < W; x += step) {
+        if (x < v.left || x > v.right || y < v.top || y > v.bottom) continue;
+        if (!over.some((r) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom)) seen++;
+      }
+    return (seen * step * step) / (W * H);
+  });
+}
+
+for (const phone of PHONES) {
+  test.describe(`a phone ${phone.name}`, () => {
+    test.use({ viewport: phone.viewport, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+
+    test(`at ${phone.viewport.width}×${phone.viewport.height}: every control at least 44px and on the screen in every state, the page never zoomed or scrolled, the view at least 60 % with a tool's one-row sheet`, async ({ page }) => {
+      test.setTimeout(300_000);
+      await openEditor(page);
+      const W = phone.viewport.width;
+      const H = phone.viewport.height;
+      const check = async (state: string) => {
+        await page.waitForTimeout(300);
+        const page_ = await page.evaluate(() => ({ w: document.documentElement.scrollWidth, h: document.documentElement.scrollHeight, iw: window.innerWidth, ih: window.innerHeight, x: window.scrollX, y: window.scrollY, scale: window.visualViewport?.scale ?? 1 }));
+        expect(page_, `${state}: the page is laid out at the screen's size, neither zoomed nor scrolled`).toEqual({ w: W, h: H, iw: W, ih: H, x: 0, y: 0, scale: 1 });
+        const controls = await phoneControls(page);
+        expect(controls.length, `${state}: controls found`).toBeGreaterThan(5);
+        const small = controls.filter((c) => Math.min(c.w, c.h) < 44 - 0.5).map((c) => `${c.name} ${Math.round(c.w)}×${Math.round(c.h)}`);
+        expect(small, `${state}: controls under 44px`).toEqual([]);
+        expect(controls.filter((c) => c.off).map((c) => c.name), `${state}: controls off the screen`).toEqual([]);
+        expect(controls.filter((c) => c.font !== null && c.font < 16).map((c) => c.name), `${state}: fields under 16px`).toEqual([]);
+        return controls;
+      };
+      const tap = (selector: string) => page.locator(selector).first().tap();
+
+      await check("at rest");
+      expect(await viewShare(page), "at rest: the view's share").toBeGreaterThanOrEqual(0.6);
+
+      // a brush in hand: its one-row sheet (Size and the main choice)
+      await tap(".tool-bar button[aria-label^='Raise']");
+      await expect(page.locator(".tool-settings.sheet:not(.tall)")).toBeVisible();
+      await check("Raise in hand");
+      expect(await viewShare(page), "Raise in hand, its one-row sheet: the view's share").toBeGreaterThanOrEqual(0.6);
+      // pulled up: every setting
+      await tap(".sheet-handle");
+      await expect(page.locator(".tool-settings.sheet.tall")).toBeVisible();
+      await check("the sheet pulled up");
+      // tapped again, the brush is put down
+      await tap(".tool-bar button[aria-label^='Raise']");
+      await expect(page.locator(".tool-settings.sheet")).toHaveCount(0);
+
+      await tap(".phone-show-button");
+      await expect(page.locator(".phone-show")).toBeVisible();
+      await check("Show open");
+      await tap(".phone-show-button");
+      await expect(page.locator(".phone-show")).toBeHidden();
+
+      await tap(".objects-button");
+      await expect(page.locator(".objects-menu")).toBeVisible();
+      await check("the objects open");
+      await tap(".objects-button");
+      await expect(page.locator(".objects-menu")).toBeHidden();
+
+      // a long press shows a control's tooltip (D351) and is not a tap: the tool stays down
+      const cdp = await page.context().newCDPSession(page);
+      const lower = page.locator(".tool-bar button[aria-label^='Lower']");
+      await lower.scrollIntoViewIfNeeded();
+      const r = (await lower.boundingBox())!;
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: r.x + r.width / 2, y: r.y + r.height / 2 }] });
+      await expect(page.locator(".tip")).toContainText("Lower");
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await page.waitForTimeout(200);
+      await expect(lower).toHaveAttribute("aria-pressed", "false");
+
+      await tap(".phone-menu-button");
+      await expect(page.getByRole("menuitem", { name: "Map Generator" })).toBeVisible();
+      await check("the menu open");
+    });
+  });
+}
+
+// ---- the phone layouts' polish (#1074): Show at most 40 % of the view (upright its height, on its side its width), so
+// the map changes above it as its toggles are tapped; a picked object closes the objects' sheet to one row saying what
+// is in hand; a sheet or the panel opening or closing slides the view so the ground in the middle of the room left
+// stays in its middle, and no sheet lies in that room; a pulled-up sheet ends on a whole setting; the menu ends whole on
+// the screen, with nothing to scroll; and the first steps' hints never cover the map's middle.
+
+/** The room the controls leave (the renderer's insets for its framing) and the ground in its middle. */
+async function roomNow(page: Page) {
+  return page.evaluate(() => {
+    const r = window.dgm3d!.renderer;
+    const c = r.canvas.getBoundingClientRect();
+    const i = r.frameInsets;
+    const room = { left: c.left + i.left, top: c.top + i.top, right: c.right - i.right, bottom: c.bottom - i.bottom };
+    const x = (room.left + room.right) / 2;
+    const y = (room.top + room.bottom) / 2;
+    const at = r.pickAtLevel(x, y, r.getView().target[1]);
+    return { room, x, y, ground: at ? [at.point[0], at.point[2]] : null };
+  });
+}
+
+/** The boxes of the sheets, the panel and the tool row shown now. */
+async function sheetBoxes(page: Page) {
+  return page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>(".tool-dock > .tool-bar, .tool-dock > .tool-settings, .objects-dock > *, .phone-show")]
+      .filter((e) => !e.closest("[hidden]") && getComputedStyle(e).display !== "none" && e.getBoundingClientRect().height > 0)
+      .map((e) => {
+        const r = e.getBoundingClientRect();
+        return { name: e.className, left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+      }),
+  );
+}
+
+for (const phone of PHONES) {
+  test.describe(`a phone ${phone.name}, polished`, () => {
+    test.use({ viewport: phone.viewport, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+
+    test(`at ${phone.viewport.width}×${phone.viewport.height}: Show at most 40 % of the view, a picked object one row, the map kept in the room left, a pulled-up sheet ending on a whole setting, the menu whole`, async ({ page }) => {
+      test.setTimeout(300_000);
+      await openEditor(page);
+      const upright = phone.viewport.width < phone.viewport.height;
+      const tap = (selector: string) => page.locator(selector).first().tap();
+      let before = await roomNow(page);
+      expect(before.ground, "ground in the room's middle at rest").not.toBeNull();
+      /** After a change, once the view has settled: no sheet lies in the room left, and the ground in the room's middle
+       *  is the ground that was there. */
+      const kept = async (state: string) => {
+        const measure = async () => {
+          const now = await roomNow(page);
+          const inRoom = (await sheetBoxes(page)).filter((b) => b.left < now.room.right - 1 && b.right > now.room.left + 1 && b.top < now.room.bottom - 1 && b.bottom > now.room.top + 1).map((b) => b.name);
+          const moved = now.ground ? Math.hypot(now.ground[0] - before.ground![0], now.ground[1] - before.ground![1]) : Infinity;
+          return { now, inRoom, moved };
+        };
+        await page.waitForTimeout(300);
+        await expect.poll(async () => (await measure()).inRoom, { message: `${state}: sheets in the room left`, timeout: 10_000 }).toEqual([]);
+        await expect.poll(async () => (await measure()).moved, { message: `${state}: the ground in the room's middle stays there (tiles)`, timeout: 10_000 }).toBeLessThan(1.5);
+        before = (await measure()).now;
+      };
+
+      await tap(".tool-bar button[aria-label^='Raise']");
+      await kept("Raise in hand, one row");
+      await tap(".sheet-handle");
+      await kept("the sheet pulled up");
+      // pulled up and too short for every setting, it ends after a whole one
+      const cut = await page.evaluate(() => {
+        const g = document.querySelector<HTMLElement>(".tool-settings.sheet.tall .settings-grid")!;
+        const r = g.getBoundingClientRect();
+        return [...g.children].map((c) => c.getBoundingClientRect()).filter((b) => b.height && b.top < r.bottom - 1 && b.bottom > r.bottom + 1).length;
+      });
+      expect(cut, "settings cut by the pulled-up sheet's end").toBe(0);
+      await tap(".tool-bar button[aria-label^='Raise']");
+      await kept("Raise put down");
+
+      // Show: at most 40 % of the view, the map kept in the room above it (or beside it)
+      await tap(".phone-show-button");
+      await expect(page.locator(".phone-show")).toBeVisible();
+      const share = await page.evaluate(() => {
+        const s = document.querySelector(".phone-show")!.getBoundingClientRect();
+        const v = window.dgm3d!.renderer.canvas.getBoundingClientRect();
+        return { h: s.height / v.height, w: s.width / v.width };
+      });
+      expect(upright ? share.h : share.w, "Show's share of the view").toBeLessThanOrEqual(0.4);
+      await kept("Show open");
+      // its groups under headings, the layers' control named
+      await expect(page.locator(".phone-show .ps-head")).toHaveText(["What to show", "Camera", "Minimap", "Weather", "Forces and sound"]);
+      await expect(page.locator(".phone-show .ps-line", { has: page.locator(".layer-widget") })).toContainText("Layers shown");
+      await tap(".phone-show-button");
+      await kept("Show closed");
+
+      // a picked object: the objects' sheet closes to one row saying what is in hand
+      await tap(".objects-button");
+      await kept("the objects open");
+      await tap(".shelf-item[aria-label='Water source']");
+      await expect(page.locator(".objects-menu")).toBeHidden();
+      await expect(page.locator(".phone-held .held-name")).toHaveText("Water source");
+      const held = await page.evaluate(() => {
+        const s = document.querySelector<HTMLElement>(".tool-settings.sheet")!;
+        return { groups: s.querySelectorAll(".ow-group").length, rowsOfLine: s.querySelector(".held-line")!.getBoundingClientRect().height };
+      });
+      expect(held.groups, "settings shown under what is in hand before the sheet is pulled up").toBe(0);
+      expect(held.rowsOfLine, "what is in hand: one row").toBeLessThanOrEqual(56);
+      expect(await viewShare(page), "an object in hand: the view's share").toBeGreaterThanOrEqual(0.6);
+      await kept("Water source in hand");
+      await tap(".held-close");
+      await expect(page.locator(".phone-held")).toHaveCount(0);
+
+      // the menu: whole on the screen, nothing in it to scroll
+      await tap(".phone-menu-button");
+      const menu = await page.evaluate(() => {
+        const m = document.querySelector<HTMLElement>(".menu.phone-menu")!;
+        const r = m.getBoundingClientRect();
+        return { bottom: r.bottom, right: r.right, scrolls: m.scrollHeight > m.clientHeight + 1 };
+      });
+      if (!upright) {
+        expect(menu.scrolls, "on its side the menu needs no scrolling").toBe(false);
+        expect(menu.bottom, "the menu ends on the screen").toBeLessThanOrEqual(phone.viewport.height);
+      }
+      expect(menu.right, "the menu ends on the screen").toBeLessThanOrEqual(phone.viewport.width);
+    });
+
+    test(`at ${phone.viewport.width}×${phone.viewport.height}: the first steps' hints never cover the map's middle`, async ({ page }) => {
+      test.setTimeout(300_000);
+      await page.goto("./#s=4242&z=96&d=n&t=riverValley");
+      await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 120_000 });
+      await expect(page.locator(".first-run")).toBeVisible();
+      const clear = async (state: string) => {
+        await page.waitForTimeout(400);
+        const { x, y } = await roomNow(page);
+        const card = await page.evaluate(() => {
+          const e = document.querySelector<HTMLElement>(".first-run");
+          if (!e || getComputedStyle(e).display === "none") return null;
+          const r = e.getBoundingClientRect();
+          return r.height ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null;
+        });
+        if (card) expect(x > card.left - 24 && x < card.right + 24 && y > card.top - 24 && y < card.bottom + 24, `${state}: the hints cover the map's middle`).toBe(false);
+      };
+      await clear("at rest");
+      await page.locator(".tool-bar button[aria-label^='Raise']").tap();
+      await clear("Raise in hand");
+      await page.locator(".sheet-handle").tap();
+      await clear("the sheet pulled up");
+    });
+  });
+}

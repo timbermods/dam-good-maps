@@ -104,7 +104,11 @@ button[aria-pressed="true"] {
   display: block;
   width: 100%;
   height: 100%;
+  /* every finger is the view's own (render3d/touch.ts): no browser pan, zoom, text selection or long-press callout */
   touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .view3d > canvas:focus-visible:not([data-mouse]) {
@@ -218,11 +222,29 @@ button[aria-pressed="true"] {
 
 /* the editor */
 
+/* the browser's own gestures stay off the editor (#1074): no pinch or double-tap zoom of the page (iOS Safari's pinch is
+   prevented by the view, render3d/touch.ts), no long-press callout, and on a touch screen no text selection but in a
+   field; a panel still scrolls */
 .editor {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   height: 100vh;
   background: var(--bg);
+  touch-action: manipulation;
+  touch-action: pan-x pan-y;
+  -webkit-touch-callout: none;
+}
+
+@media (pointer: coarse) {
+  .editor {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .editor :where(input, textarea, [contenteditable="true"]) {
+    -webkit-user-select: text;
+    user-select: text;
+  }
 }
 
 .editor-bar {
@@ -394,6 +416,8 @@ button[aria-pressed="true"] {
 /* M5: the tool preview, the problems an edit made, the start's indicators, map layers */
 
 .start-indicators {
+  /* (a readout: it never takes the pointer from the map under it, so the map keeps its hover and a Delete pressed on the start finds it) */
+  pointer-events: none;
   position: absolute;
   left: 10px;
   top: 96px;
@@ -596,6 +620,52 @@ button[aria-pressed="true"] {
   position: absolute;
   max-width: 320px;
   pointer-events: none;
+}
+
+/* a finger's press with something in hand (#1074 slice 3, view/fingerPress.tsx): a small ring where it aims, a little
+   above the finger; the finger's own place, which the notes keep clear of (nothing drawn); and Cancel at the view's top,
+   lit while the finger is over it */
+.finger-aim {
+  position: absolute;
+  z-index: 6;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.55), inset 0 0 0 1.5px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+.finger-reach {
+  position: absolute;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.press-cancel {
+  position: absolute;
+  z-index: 7;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 112px;
+  min-height: 48px;
+  padding: 0 20px;
+  border: 1px solid var(--rule);
+  border-radius: 24px;
+  background: var(--panel);
+  box-shadow: var(--edge-lit), var(--shadow-2);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  touch-action: none;
+}
+
+.press-cancel.over {
+  background: var(--bad);
+  border-color: var(--bad);
+  color: var(--panel);
 }
 
 /* the start's reach while the pointer is on it: it fades when the pointer leaves (D184) */

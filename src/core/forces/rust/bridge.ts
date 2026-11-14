@@ -35,6 +35,7 @@ interface Exports {
   forces_plan(job: number): number;
   forces_free(job: number): void;
   forces_execute(ptr: number, len: number, outLen: number): number;
+  forces_levels(input: number, w: number, h: number, ceiling: number, seed: number, grain: number, out: number): void;
 }
 
 let module: Exports | null = null;
@@ -93,9 +94,28 @@ const FORCE_ERRORS = [
   "Nothing here can wear away without leaving ground to fall",
   "There is no rock here that Erode may wear",
   "Erode leaves water and the ground that holds it as they are",
+  "A fall needs high ground to fall from: draw the stroke from it over an edge or down a slope",
+  "Invalid Roll settings",
+  "Draw Roll on the map",
+  "the Floor and the working area leave nothing here to roll",
+  "Roll leaves water and the ground beside it as they are",
 ];
 
-export type RustVerb = "craterize" | "erupt" | "quake" | "carve" | "glaciate" | "rift" | "deposit" | "erode";
+/** A set Fall the land can't give (codes 100 and 140 plus the most it can, rust/forces `FALL_SHORT`; 180, `FALL_UNDRAINED`: its water below can't drain; 181, `FALL_NONE`: no Fall fits; 200 plus the least it can, `FALL_STEEP`; 300 plus the most the water standing below lets it, `FALL_SHORT_WATER`), in one line. */
+function fallShort(error: number, settings: object): string | null {
+  const asked = (settings as { fall?: number }).fall;
+  if (error >= 300 && error <= 360) return `No drop of ${asked} here: the water standing below lets it fall at most ${error - 300}`;
+  if (error < 100 || error > 260) return null;
+  if (error >= 200) return `No drop of ${asked} here: the land falls at least ${error - 200} below the edge`;
+  if (error === 181) return `No drop of ${asked} here, nor any other: water stands below the edge and the land falls on past it; leave Fall on Edges`;
+  if (error > 180) return null;
+  if (error === 180) return `No drop of ${asked} here: the stroke ends before the water below can drain; draw it on to lower ground`;
+  const most = error >= 140 ? error - 140 : error - 100;
+  const why = error >= 140 ? `above the Floor the land falls at most ${most}` : `the land falls at most ${most}`;
+  return `No drop of ${asked} here: ${why}`;
+}
+
+export type RustVerb = "craterize" | "erupt" | "quake" | "carve" | "glaciate" | "rift" | "deposit" | "erode" | "roll";
 
 /** A force to plan: which, the map it starts from, its settings and where (each verb's intent), the
  *  ground it leaves alone (`keep`, null for none), and a carve's own options (its source's id, the
@@ -232,12 +252,16 @@ export interface ErodeRecords {
   stats: { worn: number; held: number; scoured: number; x: number; y: number; z: number; size: number; depth: number };
 }
 
+/** A roll as planned (rust/forces/src/roll.rs): its map, when each tile moves (0–1 of the showing, 2 never), and what it did. */
+export interface RollRecords { raw: RustMap; arrival: Float32Array; stats: { changed: number; raised: number; lowered: number; rise: number; drop: number; width: number; graded: number } }
+
 export interface DepositRecords { raw: RustMap; arrival: Float32Array; channel: Uint8Array; channelStages: Uint8Array[]; mouth: Point; direction: Point; reach: number; width: number; placement: "fan" | "slope" | "sheet" | "delta" | "hollow"; branches: Point[][]; stats: { changed: number; eroded: number; deposited: number; balance: number; maximumCut: number; maximumDeposit: number; channels: number; wet: number; buried: number; carried: number; donorRadius: number }; }
 
 export type RustPlan =
   | ({ verb: "erode" } & ErodeRecords)
   | ({ verb: "deposit" } & DepositRecords)
   | ({ verb: "rift" } & RiftRecords)
+  | ({ verb: "roll" } & RollRecords)
   | ({ verb: "craterize" } & CraterRecords)
   | ({ verb: "erupt" } & EruptRecords)
   | ({ verb: "quake" } & QuakeRecords)
@@ -285,7 +309,7 @@ export function planInRust<V extends RustVerb>(job: RustJob & { verb: V }): Extr
     if (m.wet) view(69, Uint32Array).set(m.wet);
     x.forces_checkpoint(task);
     const error = x.forces_plan(task);
-    if (error) throw new Error(FORCE_ERRORS[error] ?? `the Rust forces refused (${error})`);
+    if (error) throw new Error(fallShort(error, job.settings) ?? FORCE_ERRORS[error] ?? `the Rust forces refused (${error})`);
     return readPlan(job, plain, view) as Extract<RustPlan, { verb: V }>;
   } finally {
     x.forces_free(task);
@@ -307,6 +331,28 @@ export function executeInRust(job: Uint8Array): Uint8Array {
   } finally {
     x.forces_dealloc(lenPtr, 4);
     x.forces_dealloc(p, job.length);
+  }
+}
+
+/** Whole levels from a surface the core worked out itself (rust/forces/src/levels.rs `whole`, the forces' one last step:
+ *  slopes as uneven plates, no band narrower than two tiles, no one-tile pillar or pit, a jump in the surface kept as a
+ *  cliff). `surface`: levels at each tile, NaN where the ground is left alone; `ground`: what it stands on; `before`: the
+ *  land. The land it gives, `w·h` bytes. Used by the Ridge (core/doc/ridge.ts). */
+export function levelsInRust(surface: Float64Array, ground: Float64Array, before: Uint8Array, w: number, h: number, ceiling: number, seed: number, grain: number): Uint8Array {
+  const n = w * h;
+  const x = rustForces();
+  const input = x.forces_alloc(17 * n);
+  const out = x.forces_alloc(n);
+  try {
+    const bytes = new Uint8Array(x.memory.buffer, input, 17 * n);
+    bytes.set(new Uint8Array(surface.buffer, surface.byteOffset, 8 * n), 0);
+    bytes.set(new Uint8Array(ground.buffer, ground.byteOffset, 8 * n), 8 * n);
+    bytes.set(before.subarray(0, n), 16 * n);
+    x.forces_levels(input, w, h, ceiling, seed, grain, out);
+    return new Uint8Array(x.memory.buffer, out, n).slice();
+  } finally {
+    x.forces_dealloc(out, n);
+    x.forces_dealloc(input, 17 * n);
   }
 }
 
@@ -451,7 +497,7 @@ function readPlan(job: RustJob, plain: EntitySpec[], view: View): RustPlan {
       break;
     }
     case "erupt": {
-      const anatomy = { x: n(), y: n(), datum: n(), radius: n(), height: n(), summit: (["auto", "peak", "crater", "caldera"] as const)[n()], phase: n(), length: n(), scale: n(), ceiling: n() } as EruptRecords["anatomy"];
+      const anatomy = { x: n(), y: n(), datum: n(), radius: n(), height: n(), summit: (["auto", "peak", "crater", "caldera"] as const)[n()], phase: n(), length: n(), scale: n(), ceiling: n(), breach: n() } as EruptRecords["anatomy"];
       const vents = n();
       const segments = n();
       const lobes = n();
@@ -468,6 +514,10 @@ function readPlan(job: RustJob, plain: EntitySpec[], view: View): RustPlan {
         return { length, strength, points: counted(points, () => ({ ...point(), width: n() })) };
       });
       plan = { verb: "erupt", raw, anatomy, strength, stats: named(view(12, Float64Array), ["raised", "changed", "flattened", "erased", "hard"]) as EruptRecords["stats"], keep: view(11, Uint8Array).slice(), flows: view(10, Float32Array).slice(), heat: view(13, Uint8Array).slice() };
+      break;
+    }
+    case "roll": {
+      plan = { verb: "roll", raw, arrival: view(10, Float32Array).slice(), stats: named(view(12, Float64Array), ["changed", "raised", "lowered", "rise", "drop", "width", "graded"]) as RollRecords["stats"] };
       break;
     }
     case "rift":

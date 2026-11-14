@@ -84,13 +84,13 @@ async function highGround(page: Page, drag = false): Promise<[number, number]> {
 test("Carve: its row is Power, Size and its one choice; a click unleashes a river that keeps itself as one step, Ctrl+Z takes it back, Esc skips it to its end, Try another path makes another roll, Shift+Tab shows the first again", async ({ page }) => {
   await openTopDown(page, "s=4242&z=96&d=n&t=highlands");
   // its settings, every one always shown (Kyler's option B: no More): Power, Size, What it leaves (River or Canyon,
-  // D289), Wander, Walls, Canyon depth, River depth, Banks, the Floor and Try another; a mode is the gesture
+  // D289), Wander, Walls, Canyon depth, River depth, Fall, Banks, the Floor and Try another; a mode is the gesture
   const carve = page.getByRole("button", { name: "Carve (Shift+1)" });
   await expect(carve).toBeVisible();
   await carve.click();
   const row = page.getByRole("group", { name: "Carve options" });
   await expect(row).toBeVisible();
-  expect(await row.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Power", "Size", "Wander", "Canyon depth", "River depth", "Banks", "Floor"]);
+  expect(await row.getByRole("slider").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))).toEqual(["Power", "Size", "Wander", "Canyon depth", "River depth", "Fall", "Banks", "Floor"]);
   await expect(row.getByRole("group", { name: "What it leaves" }).getByRole("button")).toHaveText(["River", "Canyon"]);
   await expect(row.getByRole("button", { name: "More" })).toHaveCount(0);
   await expect(row.getByRole("combobox")).toHaveCount(0);
@@ -116,19 +116,20 @@ test("Carve: its row is Power, Size and its one choice; a click unleashes a rive
         if (!st || st.steps < 12) return false;
         const cut = window.dgm3d!.renderer.mapState()!.heights.some((h, i) => h !== was[i]);
         const row = document.querySelector('[aria-label="Carve at work"]');
-        // (the keys in Revert's tooltip: Ctrl+Z takes it back, Esc skips to its end; none written in the panel)
-        const revert = [...(row?.querySelectorAll("button") ?? [])].find((b) => b.textContent?.trim() === "Revert");
-        const hint = revert?.getAttribute("data-keys") ?? null;
+        // (the keys in the tooltips: Revert's Ctrl+Z takes it back, Skip's Esc goes to its end; none written in the panel)
+        const button = (name: string) => [...(row?.querySelectorAll("button") ?? [])].find((b) => b.textContent?.trim() === name);
+        const hint = button("Revert")?.getAttribute("data-keys") ?? null;
+        const skip = button("Skip")?.getAttribute("data-keys") ?? null;
         window.dispatchEvent(new KeyboardEvent("keydown", { ...k, bubbles: true, cancelable: true }));
-        return { cut, row: !!row, hint };
+        return { cut, row: !!row, hint, skip };
       },
       [before, key] as const,
       { timeout: 20_000 },
     );
-    const got = (await seen.jsonValue()) as { cut: boolean; row: boolean; hint: string | null };
+    const got = (await seen.jsonValue()) as { cut: boolean; row: boolean; hint: string | null; skip: string | null };
     expect({ cut: got.cut, row: got.row }).toEqual({ cut: true, row: true });
     expect(got.hint).toMatch(/Ctrl\+Z/);
-    expect(got.hint).toMatch(/Esc skips to its end/);
+    expect(got.skip).toMatch(/Esc/);
     await expect.poll(() => status(page)).toBeNull();
     await idle(page);
   };

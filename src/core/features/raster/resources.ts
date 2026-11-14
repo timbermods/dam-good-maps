@@ -140,7 +140,8 @@ function rasterizeForest(f: ForestFeature, g: ResourceGround, kept: KeptTiles | 
     else dead = !moist || poisoned; // auto: official maps store trees on dry soil dead
     if (!take(g, f, i, out, kept)) continue;
     let growth = 1;
-    if (!dead && sap.young(x, y)) growth = sap.growth(x, y);
+    // (a living tree a sapling by the feature's share; a dead stand's young trees, died growing, keep their growth)
+    if ((!dead || f.params.life === "dead") && sap.young(x, y)) growth = sap.growth(x, y);
     out.entities.push(tree({ id: entityId(f.id, sp, i), owner: f.id, x, y, z: g.heights[i], species: sp, dead, growth }));
   }
   return out;

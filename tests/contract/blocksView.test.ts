@@ -23,8 +23,12 @@ describe("a hollow's view update", () => {
     const tiles = Array.from(v.columns!.tiles);
     expect(tiles.length).toBe(before + 3);
     for (const y of [16, 17, 18]) expect(tiles).toContain(y * W + 14);
-    expect(v.heights).toBeDefined();
-    expect(v.terrainRect).toEqual({ x0: 14, y0: 16, x1: 14, y1: 18 });
+    // (the land goes with its columns over the hollow, so its tiles are drawn again: as the rectangle the edit changed,
+    // since #922 step 4, not the whole land)
+    expect(v.land?.heights).toBeDefined();
+    const r = v.land!.rect;
+    expect(r.x0 <= 14 && r.x1 >= 14 && r.y0 <= 16 && r.y1 >= 18).toBe(true);
+    expect((r.x1 - r.x0 + 1) * (r.y1 - r.y0 + 1)).toBeLessThan(W * W);
     const k = tiles.indexOf(17 * W + 14);
     for (const z of [3, 4, 5]) expect(v.columns!.voxels[k * 23 + z]).toBe(0);
     expect(v.columns!.voxels[k * 23 + 2]).toBe(1);

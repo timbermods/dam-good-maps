@@ -321,6 +321,8 @@ export interface Genome {
   ramps: number;
   /** Where terraces sit: a phase for the bench grid, in levels. */
   benchPhase: number;
+  /** Ground with grade (`levels.ts` `snapLevels`): the land between the features rolls in one-level steps. */
+  grade: Grade;
   /** Valley lakes: stretches of a river's valley deepened in their middle (hydro.ts), the mean count. */
   troughs: number;
   /** An island sea in the map's middle, with islands scattered through it (Islands; one of the
@@ -665,6 +667,57 @@ export function tallTop(vt: number): number {
  *  then ran dry over its upper course (Delta 128² seed 4, against D447). */
 const BACKDROP_THEMES = new Set<ThemeId>(["riverValley", "lakeBasin", "any"]);
 
+/** Ground with grade (the showcase round, 2026-11-10): loved Workshop maps are 44% dead flat with 81% of their
+ *  height steps one level; ours stood 52–66% flat, Highlands and Canyon on tabletops four levels apart with a
+ *  third of their steps one level. The land is two characters, region by region: tableland (benches ending in
+ *  cliffs, level on top: the plateaus and mesas) and rolling ground (benches graded into one-level flanks, swells
+ *  and hollows over them). `levels.ts` `snapLevels` reads these. */
+export interface Grade {
+  /** The share of the land that stays tableland. */
+  mesa: number;
+  /** On the rolling ground, the share of each bench's step that is a graded flank of one-level steps: 0 a
+   *  cliff, 1 no bench. */
+  riser: number;
+  /** How far the benches' levels wander over the map, in steps: benches at many levels, not on one grid. */
+  drift: number;
+  /** The rolling ground's height, in levels, and its size, in tiles: hills, swells and hollows. */
+  roll: number;
+  rollCell: number;
+  /** How much gentler the rolling is on the tableland's tops (0 as rolling as elsewhere, 1 level): they
+   *  keep broad level ground and their rims stay cliffs. */
+  calm: number;
+  /** The rises (D518): scattered hills standing over the land round them, each two or three one-level rings nested
+   *  round its top as the game's own maps' ring mesas and lobes are, the broad flats between them as they were; their
+   *  height a share of `roll` (so whatever stills the rolling stills them), with `RISES`' size and spread. */
+  rise: number;
+}
+
+/** The rises' noise (D518): its cell, tiles, and the share of the land under them (where the noise passes `from`, its
+ *  highest few hundredths, so a rise is a compact hill and the broad flats keep their size; each `span` more, a rise
+ *  stands `roll × rise` higher over the land round it, so its rings nest close). */
+export const RISES = { cell: 24, from: 0.6, span: 0.15 } as const;
+
+/** Each theme's grade, about the middle of its draw: Highlands and Canyon keep the most tableland (their
+ *  promises' cliffs and plateaus), the low themes roll gently so their floors stay broad. */
+export const GRADE: Record<ThemeId, Grade> = {
+  highlands: { mesa: 0.85, riser: 0.6, drift: 0.5, roll: 3.5, rollCell: 18, calm: 1, rise: 1 },
+  canyon: { mesa: 0.35, riser: 0.6, drift: 0.5, roll: 2.2, rollCell: 18, calm: 0.65, rise: 0.9 },
+  riverValley: { mesa: 0.15, riser: 0.7, drift: 0.4, roll: 2.2, rollCell: 20, calm: 0.65, rise: 0.9 },
+  lakeBasin: { mesa: 0.15, riser: 0.7, drift: 0.4, roll: 1.8, rollCell: 20, calm: 0.65, rise: 1 },
+  delta: { mesa: 0.1, riser: 0.7, drift: 0.3, roll: 1.4, rollCell: 22, calm: 0.65, rise: 1 },
+  islands: { mesa: 0.2, riser: 0.6, drift: 0.4, roll: 1.8, rollCell: 18, calm: 0.65, rise: 1 },
+  any: { mesa: 0.25, riser: 0.6, drift: 0.5, roll: 2, rollCell: 20, calm: 0.65, rise: 1 },
+};
+
+/** A map's grade: its theme's, each value drawn within a fifth either way, from a stream of its own so the
+ *  rest of the genome keeps its draws. */
+export function drawGrade(theme: ThemeId, seed: number, attempt: number, variation: number): Grade {
+  const rng = stream(seed, "grade", theme, attempt, variation);
+  const t = GRADE[theme];
+  const j = (v: number) => v * (0.8 + 0.4 * rng.float());
+  return { mesa: clamp(j(t.mesa), 0, 1), riser: clamp(j(t.riser), 0, 1), drift: j(t.drift), roll: j(t.roll), rollCell: j(t.rollCell), calm: t.calm, rise: j(t.rise) };
+}
+
 export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, attempt: number, o: DrawOptions = {}): Genome {
   const variation = o.variation ?? 0;
   // a variation draws from the same stream as the map (so its settings and intentions match) and
@@ -760,6 +813,7 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
     wanderCell: 14,
     ramps: clamp(1 - 0.75 * v * v, 0.2, 1),
     benchPhase: rng.float(),
+    grade: drawGrade(theme, seed, attempt, variation),
     troughs: p.troughs,
     sea,
     falls: 1,
@@ -1502,6 +1556,9 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
     g.top = Math.max(g.base + 5, Math.min(g.top + 11 * dr, g.base + 7 + 0.08 * s.terrain.relief + 1.5));
     g.hyps.eq = clamp(g.hyps.eq + 0.5 * dr, 0, 0.9);
     g.noise.amp *= 1 + 0.6 * dr;
+    // (and the rolling ground's swells, part of the land's spread, flatten with it, gone by a relief 25 under the
+    // theme's: at relief 20 they spread a River Valley's p5–p95 to 10 levels, where Relief asks 8.6 and 0.10.15 gave 9.5)
+    g.grade.roll *= clamp(1 + 4 * dr, 0, 1);
   } else if (dr > 0) {
     g.hyps.eq = clamp(g.hyps.eq + 0.6 * dr, 0, 0.9);
     g.base = Math.max(0.2, g.base - 2.5 * dr);
@@ -1509,16 +1566,25 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
   }
   // buildable land (flat share 0.40 / 0.52 / 0.60 and walkable land from the start, PLAN §5.2):
   // Generous asks for quieter, a little lower land with more benches and ramps; Tight for rougher
-  // land whose benches end in cliffs, with fewer ramps
+  // land whose benches end in cliffs, with fewer ramps. With ground with grade (generator 0.10.16), Generous
+  // keeps its benches level, ending in cliffs its ramps climb, at the levels the benches stand on (no drift), and
+  // the rolling all but stops; Tight is more tableland. (Before, Generous's rolling ground cut its flats and walks
+  // into one-level steps and Tight's graded flanks joined its benches: River Valley 96², seeds 1–16, flat share
+  // moved 0.034 and walkable land fell 348 tiles from Tight to Generous; now 0.08 and up about 580)
   const bl = LEVEL3[s.terrain.buildableLand] - LEVEL3[p.buildableLand];
   if (bl > 0) {
     g.noise.amp *= 1 - 0.2 * bl;
+    g.grade.roll *= Math.max(0, 1 - 0.9 * bl);
+    g.grade.riser *= Math.max(0, 1 - bl);
+    g.grade.drift *= Math.max(0, 1 - bl);
     g.regional.amp *= 1 - 0.15 * bl;
     g.ramps = clamp(g.ramps + 0.3 * bl, 0.1, 1);
     g.terrace.share = clamp(g.terrace.share + 0.2 * bl, 0, 1);
     g.top = Math.max(g.base + 4, g.top - 1.5 * bl);
   } else if (bl < 0) {
     g.terrace.step = Math.max(g.terrace.step, 2);
+    g.grade.roll *= 1 - 0.15 * bl;
+    g.grade.mesa = clamp(g.grade.mesa - 0.4 * bl, 0, 1);
     g.noise.amp *= 1 - 0.15 * bl;
     g.regional.amp *= 1 - 0.1 * bl;
     g.ramps = clamp(g.ramps + 0.2 * bl, 0.1, 1);
@@ -1529,7 +1595,11 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
   if (s.start.area === "large") {
     g.terrace.share = clamp(g.terrace.share + 0.15, 0, 1);
     g.noise.amp *= 0.85;
+    g.grade.roll *= 0.85;
   } else if (s.start.area === "small") g.noise.amp *= 1.1;
+  // water within a few tiles of the start (a rule under 8): the land rolls less, half as much at 4, so the
+  // grade's swells do not move the start's shore from one attempt's land to the next (D471's starved start)
+  g.grade.roll *= clamp(s.start.rules.waterWithin / 8, 0.5, 1);
   // the highest terrain (item 36): a ceiling on every map that no Variety goes past (Kyler,
   // 2026-10-03; the release-gate generator hunt's finding 3: a land drawn tall by Variety kept the
   // default cap's 22 under a Highest terrain of 16); a tall land under a cap of 16 or lower is not tall
@@ -1550,6 +1620,18 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
   const dt = (s.terrain.terracing - p.terracing) / 100;
   g.terrace.share = clamp(g.terrace.share + 0.9 * dt, 0, 1);
   if (dt >= 0.25 && g.terrace.step < 2) g.terrace.step = 2;
+  // (and more of the land is tableland, its benches ending in cliffs, the rest's flanks steeper)
+  g.grade.mesa = clamp(g.grade.mesa + 0.5 * dt, 0, 1);
+  g.grade.riser = clamp(g.grade.riser - 0.6 * dt, 0, 1);
+  // verticality away from the theme's own: the benches' flanks sheerer (cliffs) and more of the land tableland as it
+  // rises, gentler (graded flanks of one-level steps) as it falls. (Ground with grade, 0.10.16, graded every flank into
+  // one-level steps whatever the Verticality, and its benches' taller steps no longer stood as cliffs: Any 96²,
+  // seeds 1–8, the cliff share moved 0.023 from 10 to 90, now 0.044. At the theme's own nothing changes.)
+  const dv = (s.terrain.verticality - VT_DEFAULT[g.theme]) / 100;
+  if (dv > 0) {
+    g.grade.riser *= Math.max(0, 1 - 1.5 * dv);
+    g.grade.mesa = clamp(g.grade.mesa + 0.5 * dv, 0, 1);
+  } else if (dv < 0) g.grade.riser = clamp(g.grade.riser - 2 * dv, 0, 1);
   // (D333 (3): no springs added toward far land where the player asked for Generous buildable land,
   // which keeps its flats, or moved the Drought reserve from the theme's own, which plans the water
   // near the start itself: the added tributaries drew starts to water a Scarce reserve should lack

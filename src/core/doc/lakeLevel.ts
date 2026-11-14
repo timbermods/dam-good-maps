@@ -115,6 +115,18 @@ export function applyLakeLevel(s: MapSession, x: number, y: number, level: numbe
   return { ...s.withSettled(settled.model, settled.water, () => applySelection(s, [op], lakeLevelLabel(op.params), plan.tiles)), plan };
 }
 
+/** The level the lake at (x, y) is held at now: its sill's, the spill level of its tile as a whole level (what
+ *  `planLakeLevel` measures a new level against), whatever head its river stands over it. Null off the map or where no
+ *  water stands. Reads the map only; no settle. */
+export function lakeHeldLevel(s: MapSession, x: number, y: number): number | null {
+  const now = s.waterNow();
+  const { W, H } = now.model;
+  if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= W || y >= H) return null;
+  const at = y * W + x;
+  if (!(now.depth[at] > WATER)) return null;
+  return Math.floor(spillLevels(now.model)[at] + 1e-9);
+}
+
 /** The history's words for a `setLakeLevel` operation. */
 export function lakeLevelLabel(p: OpParams["setLakeLevel"]): string {
   return `${p.sill === "cut" ? "Cut" : "Raise"} a lake's sill to level ${p.level}`;

@@ -21,7 +21,7 @@ export function placeSprings(p: PlaceData, heights: Uint8Array, depth: ArrayLike
   const { W, H } = p;
   const occupied = new Uint8Array(W * H);
   for (const [x, y] of p.sources) occupied[y * W + x] = 1;
-  for (const gaps of [p.bushes, p.pines, p.birches, p.oaks, p.deadPines, p.ruins]) for (const i of decodeTiles(gaps)) occupied[i] = 1;
+  for (const gaps of [p.bushes, p.pines, p.birches, p.oaks, p.deadPines, p.deadBirches, p.deadOaks, p.ruins]) for (const i of decodeTiles(gaps)) occupied[i] = 1;
   const start = { x: p.start[0] + 1, y: p.start[1] + 1 };
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) occupied[(start.y + dy) * W + start.x + dx] = 1;
   const walk = walkDistance(heights, W, H, null, [], start);

@@ -1,5 +1,6 @@
 // The top bar's rows: the source picked, the shelf item's options and the force's rows.
 
+import { RUIN_LINE_BREAK, RUIN_LINE_SPACING } from "../../core/doc/ruinLineLimits";
 import type { ComponentChildren } from "preact";
 import type { EditOp } from "../../core/doc/ops";
 import type { EntityInfo } from "../../worker/session";
@@ -65,7 +66,7 @@ export function useRows(ed: Ed): RowsSlice {
     for (const [k, v] of Object.entries(patch)) components[k] = { ...((o.components[k] as object | undefined) ?? {}), ...(v as object) };
     setPickedObject({ ...o, components });
     const op = setOptionsOp(o.id, o.template, o.components, c);
-    void run(() => api.applyStep(op, describeChange(o.template, before, { ...before, ...c }), `options:${o.id}`));
+    void run((w) => w.applyStep(op, describeChange(o.template, before, { ...before, ...c }), `options:${o.id}`));
   }
   /** A picked source's water (clean or bad) or strength changed. */
   function changeSource(e: EntityInfo, c: { kind?: "clean" | "bad"; strength?: number }) {
@@ -80,7 +81,7 @@ export function useRows(ed: Ed): RowsSlice {
       const req = sourceRequest({ ...optionsRef.current, sourceBad: bad, sourceStrength: Math.min(8, s0), badwaterStrength: s0 }, cx, cy);
       const place: EditOp = { op: "placeEntity", params: { id: newId(), template: req.template, x: req.x, y: req.y, orientation: req.orientation, ...(req.components ? { components: req.components } : {}) } };
       void run(
-        () => api.applyAll([{ op: "deleteEntities", params: { entities: [e.id] } }, place], bad ? "Make a source badwater" : "Make a source clean"),
+        (w) => w.applyAll([{ op: "deleteEntities", params: { entities: [e.id] } }, place], bad ? "Make a source badwater" : "Make a source clean"),
         (u) => {
           if (!u.ok) return;
           pickTile(cx, cy);
@@ -96,7 +97,7 @@ export function useRows(ed: Ed): RowsSlice {
     const name = e.template === "BadwaterSource" ? "Badwater source" : "Water source";
     liveStrength(e, v);
     void run(
-      () => api.applyStep(op, `${name}: ${v} water/s`, `strength:${e.id}`),
+      (w) => w.applyStep(op, `${name}: ${v} water/s`, `strength:${e.id}`),
       (u) => {
         if (u.ok) pickTile(at[0], at[1]);
       },
@@ -134,7 +135,7 @@ export function useRows(ed: Ed): RowsSlice {
                 {...tip("Delete it", "Delete")}
                 onClick={() => {
                   setPickedObject(null);
-                  void run(() => api.applyAll([{ op: "deleteEntities", params: { entities: [o.id] } }], `Remove ${withArticle(itemName(o.template))}`));
+                  void run((w) => w.applyAll([{ op: "deleteEntities", params: { entities: [o.id] } }], `Remove ${withArticle(itemName(o.template))}`));
                 }}
               >
                 Delete
@@ -285,6 +286,41 @@ export function useRows(ed: Ed): RowsSlice {
               />
             ),
           },
+          // a drag lays a ruin line (core/doc/ruinLine.ts): its piers' spacing and how much of it is missing
+          {
+            key: "spacing",
+            label: "Spacing",
+            value: `${shelfOptions.ruinSpacing} ${shelfOptions.ruinSpacing === 1 ? "tile" : "tiles"}`,
+            node: (
+              <ObjectSlider
+                label="Spacing"
+                min={RUIN_LINE_SPACING.min}
+                max={RUIN_LINE_SPACING.max}
+                step={1}
+                value={shelfOptions.ruinSpacing}
+                words={`${shelfOptions.ruinSpacing} ${shelfOptions.ruinSpacing === 1 ? "tile" : "tiles"}`}
+                tipText="How far apart a dragged line's piers stand"
+                onInput={(v) => setShelfOptions({ ...shelfOptions, ruinSpacing: v })}
+              />
+            ),
+          },
+          {
+            key: "break",
+            label: "Break",
+            value: `${Math.round(shelfOptions.ruinBreak * 100)}%`,
+            node: (
+              <ObjectSlider
+                label="Break"
+                min={0}
+                max={RUIN_LINE_BREAK.max * 100}
+                step={10}
+                value={Math.round(shelfOptions.ruinBreak * 100)}
+                words={`${Math.round(shelfOptions.ruinBreak * 100)}%`}
+                tipText="How much of a dragged line is missing"
+                onInput={(v) => setShelfOptions({ ...shelfOptions, ruinBreak: v / 100 })}
+              />
+            ),
+          },
         ],
       };
     if (shelf.id === "relic")
@@ -388,15 +424,16 @@ export function useRows(ed: Ed): RowsSlice {
           onAgain={() => void forceAgain()}
           {...roll}
           onPause={() => forcer.current?.pause(!forcer.current.status?.paused)}
+          onSkip={() => void forcer.current?.escape()}
           onRevert={() => forcer.current?.cancel()}
           drawn={forcer.current?.lastSettings.carve as ReturnType<typeof carveSettingsOf> | undefined ?? null}
         />
       );
-    if (st) return <ForceAtWork force={force} status={st} onRevert={() => forcer.current?.cancel()} />;
+    if (st) return <ForceAtWork force={force} status={st} onRevert={() => forcer.current?.cancel()} onSkip={() => void forcer.current?.escape()} />;
     const again = () => void forceAgain();
     if (tool === "craterize") return <CraterizeRow {...roll} force={force} ui={craterUi} onUi={setCraterUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.craterize as ReturnType<typeof craterSettingsOf> | undefined) ?? null} />;
-    if (tool === "erupt") return <EruptRow {...roll} force={force} ui={eruptUi} onUi={setEruptUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.erupt as ReturnType<typeof eruptSettingsOf> | undefined) ?? null} />;
-    if (tool === "glaciate") return <GlaciateRow {...roll} force={force} ui={glaciateUi} onUi={setGlaciateUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.glaciate as GlaciateSettings | undefined) ?? null} />;
+    if (tool === "erupt") return <EruptRow {...roll} force={force} map={info} ui={eruptUi} onUi={setEruptUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.erupt as ReturnType<typeof eruptSettingsOf> | undefined) ?? null} />;
+    if (tool === "glaciate") return <GlaciateRow {...roll} force={force} ui={glaciateUi} onUi={setGlaciateUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.glaciate as GlaciateSettings | undefined) ?? null} side={{ W: info.W, H: info.H }} />;
     if (tool === "rift") return <RiftRow {...roll} force={force} ui={riftUi} onUi={setRiftUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.rift as RiftSettings | undefined) ?? null} />;
     if (tool === "deposit") return <DepositRow {...roll} force={force} ui={depositUi} onUi={setDepositUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.deposit as DepositSettings | undefined) ?? null} />;
     if (tool === "erode") return <ErodeRow {...roll} force={force} ui={erodeUi} onUi={setErodeUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.erode as ErodeSettings | undefined) ?? null} />;

@@ -75,6 +75,19 @@ test("the brushes paint under the cursor, undo at once, and keep their strokes",
   expect(await heights(page)).toEqual(before);
   await settled(page);
   expect((await info(page)).history.at(-1)!.applied).toBe(false);
+  // (at idle the page's copy of the water and moisture is the session's: an undo puts its step's water back with no
+  // settle after it, and the water's news follows once the queue is idle, #922 step 4)
+  expect(
+    await page.evaluate(async () => {
+      const same = (a: Float64Array | null | undefined, b: Float64Array | null | undefined) => !!a && !!b && a.length === b.length && a.every((v, i) => v === b[i] || (v !== v && b[i] !== b[i]));
+      for (const t0 = performance.now(); performance.now() - t0 < 20_000; await new Promise((r) => setTimeout(r, 50))) {
+        const mine = window.dgmEditor!.edits().base.terrain;
+        const theirs = (await window.dgmEditor!.worker.terrainNow()).terrain;
+        if (same(mine.water, theirs.water) && same(mine.moisture, theirs.moisture)) return true;
+      }
+      return false;
+    }),
+  ).toBe(true);
   await page.keyboard.press("Control+y");
   expect(await heights(page)).toEqual(painted);
   await settled(page);

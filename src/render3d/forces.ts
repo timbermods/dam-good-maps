@@ -45,7 +45,7 @@ import { STONE_REACH, WEAR_STRIDE, wearCount, wearSamples, type Voxels } from ".
 
 /** A force's moment, as its worker sends it (core/forces/runs.ts `ForceCue`). */
 export interface ForceMoment {
-  verb: "carve" | "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit" | "erode";
+  verb: "carve" | "craterize" | "erupt" | "quake" | "glaciate" | "rift" | "deposit" | "erode" | "roll";
   phase: string;
   progress: number;
   x: number;

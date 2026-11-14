@@ -7,9 +7,28 @@ import { ShowRow } from "../../ui/View3D";
 import { LAYER_NAMES, LayerLegend, type LayerKind } from "../panels";
 import type { Ed } from "../ed";
 import { HIDE_OBJECTS_KEY } from "../view/useHideObjects";
+import { gameFirstView } from "../../render3d/framing";
 
 /** The overlays' words on their view buttons. */
-const OVERLAY_WORDS: Record<LayerKind, string> = { none: "None", badwater: "Badwater", roofed: "Caves and overhangs" };
+const OVERLAY_WORDS: Record<LayerKind, string> = { none: "None", badwater: "Badwater", roofed: "Caves and overhangs", irrigation: "Irrigation" };
+
+/** First view's key: the camera as the game opens the map. */
+export const FIRST_VIEW_KEY = "O";
+
+/** The game's first view of the map from its start (render3d/framing.ts `gameFirstView`), or null while it has none. */
+export function firstViewOf(ed: Ed): (() => ReturnType<typeof gameFirstView> | null) | null {
+  if (!ed.startHere) return null;
+  return () => {
+    const s = ed.startHereRef.current;
+    if (!s) return null;
+    const { W } = ed.infoRef.current;
+    const z = s.z ?? ed.mirror.current.heights[s.y * W + s.x];
+    return gameFirstView({ x: s.x, y: s.y, z, orientation: s.orientation });
+  };
+}
+
+/** The Irrigation view's key. */
+export const IRRIGATION_KEY = "I";
 
 export function levelLinesButton(ed: Ed) {
   const { brush, brushRef, setBrush } = ed;
@@ -23,17 +42,17 @@ export function levelLinesButton(ed: Ed) {
 }
 
 /** An overlay's toggle (its caption shows in the key under Legend, `layerCaption`). */
-function overlayRow(ed: Ed, k: LayerKind) {
+function overlayRow(ed: Ed, k: LayerKind, tipText = `Show ${LAYER_NAMES[k].toLowerCase()}`, key?: string) {
   const { layer, setLayer } = ed;
   return (
-    <ShowRow key={k} on={layer === k} onToggle={() => setLayer(layer === k ? "none" : k)} tip={tip(`Show ${LAYER_NAMES[k].toLowerCase()}`)}>
+    <ShowRow key={k} on={layer === k} onToggle={() => setLayer(layer === k ? "none" : k)} tip={tip(tipText, key)}>
       {OVERLAY_WORDS[k]}
     </ShowRow>
   );
 }
 
-/** The Show row's toggles after Flow: See-through, Badwater and, on a map that has them, Caves and overhangs, right
- *  after Badwater at every width (the band's layout moves the water row to a second line when the row needs the room). */
+/** The Show row's toggles after Flow: See-through, Badwater, Irrigation and, on a map that has them, Caves and
+ *  overhangs, right after Irrigation at every width (the band's layout moves the water row to a second line when the row needs the room). */
 export function viewButtons(ed: Ed) {
   const { clearWater, setClearWater } = ed;
   return (
@@ -42,6 +61,7 @@ export function viewButtons(ed: Ed) {
         See-through
       </ShowRow>
       {overlayRow(ed, "badwater")}
+      {overlayRow(ed, "irrigation", "Show where more water would wet dry ground", IRRIGATION_KEY)}
       {ed.info.caves ? overlayRow(ed, "roofed") : null}
     </>
   );
@@ -52,16 +72,30 @@ export function viewButtons(ed: Ed) {
  *  it did; where the water row takes a second line, the two join the Show row as its last toggles (useBandLayout.ts). */
 export function hideObjectsButton(ed: Ed) {
   return (
-    <ShowRow on={ed.objectsHidden} onToggle={ed.toggleObjectsHidden} tip={tip("See the land behind objects", HIDE_OBJECTS_KEY)}>
-      Hide objects
-    </ShowRow>
+    <>
+      <ShowRow on={ed.objectsHidden} onToggle={ed.toggleObjectsHidden} tip={tip("See the land behind objects", HIDE_OBJECTS_KEY)}>
+        Hide objects
+      </ShowRow>
+      {/* the land's shares (view/useLandShares.tsx): its numbers sit in the key under Legend while it is on */}
+      <ShowRow on={ed.landOn} onToggle={ed.toggleLand} tip={tip("How much is water, moist and dry, and its wood")}>
+        Land
+      </ShowRow>
+    </>
   );
 }
 
-/** The water overlay's caption while one is on (Badwater, Caves and overhangs), for the key under the Show column. */
+/** The water overlay's caption while one is on (Badwater, Irrigation, Caves and overhangs), for the key under the Show column. */
 export function layerCaption(ed: Ed) {
   const { waterLayers, layer } = ed;
-  return layer !== "none" && waterLayers ? <LayerLegend kind={layer} layers={waterLayers} /> : null;
+  const overlay = layer !== "none" && waterLayers ? <LayerLegend kind={layer} layers={waterLayers} why={ed.dryWhy} /> : null;
+  const land = ed.landReadout();
+  if (!overlay && !land) return null;
+  return (
+    <>
+      {land}
+      {overlay}
+    </>
+  );
 }
 
 export function cornerButtons(ed: Ed) {
@@ -101,6 +135,7 @@ export function hoverHandler(ed: Ed) {
     const read = seen ?? hit;
     ed.lastHover.current = read ? { x: read.x, y: read.y, level: seen?.level } : null;
     setHover(read ? ed.hoverWordsAt(read.x, read.y, seen?.level) : null);
+    ed.setDryWhy(read ? ed.dryWhyAt(read.x, read.y, seen?.level) : null);
     // (the sources by the ground seen too: a cave's water under the cut lights its sources, a roof over it none)
     hoverSources(read);
     // the source the pointer targets, whatever tool is picked (D249)

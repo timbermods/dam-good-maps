@@ -58,6 +58,10 @@ export interface TerrainState {
   water?: Float64Array | null;
   /** The settled water's moisture on every tile (rule 3: moist ground keeps its height). */
   moisture?: Float64Array | null;
+  /** How hard the weathering strokes pressed on every tile, in sixteenths, where the land stands as
+   *  the last of them left it (0 elsewhere; build.ts `wornOf`): a rule 6 stroke's edges wander only
+   *  where it presses harder (brush.ts `worn`). */
+  worn?: Uint8Array | null;
 }
 
 /** The tiles the build's integrity pass (step 7) may wear, as it chooses them: on an imported map only
@@ -103,6 +107,8 @@ export class StrokePreview {
   /** The tiles the integrity pass leaves alone: the map's, and a precise stroke's own (the build
    *  leaves them out too). */
   readonly protect: Uint8Array;
+  /** A precise stroke's `protect` before its first dab. */
+  private readonly protect0: Uint8Array | null;
   private readonly precise: boolean;
 
   /** `heights` are the map's heights as shown (changed in place as the stroke goes on). */
@@ -111,12 +117,13 @@ export class StrokePreview {
     // hands in, so the operation it records keeps exactly what this preview used (D399; the session
     // adds them itself to a stroke that comes without)
     const record = settings as Omit<BrushParams, "dabs">;
-    const fresh = settings.tool === "naturalize" && settings.weathers && (settings.weathering === undefined || (byDabRule(settings.weathering) && (record.shore !== undefined || record.pools !== undefined || record.moist !== undefined)));
+    const fresh = settings.tool === "naturalize" && settings.weathers && (settings.weathering === undefined || (byDabRule(settings.weathering) && (record.shore !== undefined || record.pools !== undefined || record.moist !== undefined || record.worn !== undefined)));
     if (fresh) {
       record.weathering = WEATHERING;
       delete record.shore;
       delete record.pools;
       delete record.moist;
+      delete record.worn;
     }
     // a weathering Naturalize stroke leaves the ground under sources and objects as it is: the core
     // adds those runs itself when the operation applies (session.ts, `weatherKeep`); the page, whose
@@ -147,6 +154,8 @@ export class StrokePreview {
     // kept sources' ground stays exactly as it is shown (D322, item 31): the integrity pass leaves it
     // too, as the build's step 6 does
     if (settings.sources === "keep") keepShownGround(settings.keep ?? [], this.pre, W, H, this.protect, state.channel, this.candidate, state.top);
+    // (a precise stroke's own marks come and go with its tiles: what was protected before it, kept)
+    this.protect0 = this.precise ? this.protect.slice() : null;
     // Naturalize weathers all but the start's pad, as build step 6 does (D368 (8))
     // (a stroke from before D368 leaves every protected tile, as the build does)
     const pads = settings.tool === "naturalize" && settings.weathers && state.starts?.length ? state.starts : null;
@@ -160,7 +169,8 @@ export class StrokePreview {
     this.stroke = new BrushStroke(hold?.length && !settings.hold ? { ...settings, hold } : { ...settings }, this.pre, W, H, (i) => !(prot && prot[i]) && !(pads && padTile(pads, i % W, Math.floor(i / W))), {
       water,
       floor: state.floor ?? null,
-      ...(depth ? { depth, shown, moisture: state.moisture ?? null, record: (shore, pools, moist) => Object.assign(record, { shore, pools, ...(moist ? { moist } : {}) }) } : {}),
+      worn: state.worn ?? null,
+      ...(depth ? { depth, shown, moisture: state.moisture ?? null, record: (shore, pools, moist, worn) => Object.assign(record, { shore, pools, ...(moist ? { moist } : {}), ...(worn ? { worn } : {}) }) } : {}),
     });
   }
 
@@ -195,12 +205,14 @@ export class StrokePreview {
    *  shows that changed. */
   private settle(r: Rect): Rect | null {
     const { W, H, heights, last } = this;
-    // a precise stroke's tiles stay as it leaves them (build step 6 marks them the same way)
-    if (this.precise)
+    // a precise stroke's tiles stay as it leaves them (build step 6 marks them the same way: a tile whose height the
+    // stroke changed; one a later dab or `finish` put back is unmarked again, as the build never marks it)
+    const p0 = this.protect0;
+    if (p0)
       for (let y = r.y0; y <= r.y1; y++)
         for (let x = r.x0; x <= r.x1; x++) {
           const i = y * W + x;
-          if (this.pre[i] !== this.state.pre[i]) this.protect[i] = 1;
+          this.protect[i] = this.pre[i] !== this.state.pre[i] ? 1 : p0[i];
         }
     // the integrity pass reads each tile's neighbours: one tile round what changed
     const x0 = Math.max(0, r.x0 - 1);

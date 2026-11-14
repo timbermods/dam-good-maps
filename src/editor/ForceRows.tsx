@@ -10,7 +10,7 @@
 // row is its status, the hint "Esc to skip · Ctrl+Z to undo" (D344, A4) and Revert. Built from the shared bar styles (D176).
 
 import { autoCentre, CRATER_DEFAULTS, naturalSize as craterSize, type CraterSettings } from "../core/forces/craterize";
-import { autoSummit, ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, naturalBreadth, type EruptSettings } from "../core/forces/erupt";
+import { autoSummit, ERUPT_DEFAULTS, ERUPT_SIZE_MAX, ERUPT_SIZE_MIN, shownBreadth, type EruptSettings } from "../core/forces/erupt";
 import { QUAKE_DEFAULTS, slideTiles, type QuakeSettings } from "../core/forces/quake";
 import { GLACIATE_DEFAULTS, GLACIATE_SIZE_MAX, GLACIATE_SIZE_MIN, sizeOf as glacierSize, type GlaciateSettings } from "../core/forces/glaciate/model";
 import { RIFT_DEFAULTS, RIFT_SIZE_MAX, RIFT_SIZE_MIN, riftWidth, type RiftSettings } from "../core/forces/rift";
@@ -35,7 +35,7 @@ export function SourcesSetting(p: { value: ForceSources; onChange(v: ForceSource
       value={p.value}
       options={[
         ["ride", "Ride", "Sources move with the ground"],
-        ["clear", "Clear", "The force removes sources it reaches"],
+        ["clear", "Clear", "The force removes sources whose ground it destroys"],
       ]}
       onChange={p.onChange}
     />
@@ -90,7 +90,7 @@ export const quakeDetails = (u: QuakeUi): Record<string, unknown> => ({ scarp: u
 
 export interface GlaciateUi {
   power: number;
-  /** The trough's width in tiles, or null: it follows Power (D226). */
+  /** The trough's width in tiles, or null: the width of the valley it follows (showcase craft's gap 14). */
   size: number | null;
   meltwater: boolean;
   /** Its details (D309), each null while drawn from the land and the seed. */
@@ -155,16 +155,29 @@ export const depositSettingsOf = (u: DepositUi): DepositSettings => ({ ...DEPOSI
 /** Erode's settings (the wear is one rule; a drawn sweep or a click is its gesture, a band for the one, a point for the other). */
 export const erodeSettingsOf = (u: ErodeUi): ErodeSettings => ({ ...ERODE_DEFAULTS, power: u.power, size: u.size });
 
-/** A force at work: what it is doing, the keys (Esc skips it to its end, Ctrl+Z takes it back; a painted
- *  Lift still drawn: Esc cancels it), and Revert. */
-export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): void }) {
+/** A force at work: what it is doing, Skip (Esc: to its end, kept) and Revert (Ctrl+Z takes it back; a painted Lift still
+ *  drawn: Esc cancels it). Skip is Esc's control, for a finger (#1074 slice 3). */
+export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): void; onSkip(): void }) {
   const st = p.status;
   const doing = p.force.id === "craterize" ? "Striking…" : p.force.id === "erupt" ? "Erupting…" : p.force.id === "glaciate" ? "The ice is moving…" : p.force.id === "deposit" ? "Sediment is settling…" : p.force.id === "erode" ? "The rock is wearing…" : st.painting ? "Paint the fault, then let go to keep it" : "The ground is moving…";
   return (
     <SettingsGrid
       label={`${p.force.name} at work`}
       groups={[
-        { key: "status", row: 1, at: 1, span: 11, rows: 2, centre: true, node: <Words status>{st.stopping ? "Settling…" : doing}</Words> },
+        { key: "status", row: 1, at: 1, span: 9, rows: 2, centre: true, node: <Words status>{st.stopping ? "Settling…" : doing}</Words> },
+        {
+          key: "skip",
+          row: 1,
+          at: 10,
+          span: 2,
+          rows: 2,
+          centre: true,
+          node: (
+            <button type="button" class="set-button" disabled={st.stopping || st.painting} onClick={p.onSkip} {...tip("Finish it now", "Esc")}>
+              Skip
+            </button>
+          ),
+        },
         {
           key: "revert",
           row: 1,
@@ -173,7 +186,7 @@ export function ForceAtWork(p: { force: Force; status: ForceStatus; onRevert(): 
           rows: 2,
           centre: true,
           node: (
-            <button type="button" class="set-button" onClick={p.onRevert} {...(st.painting && !st.stopping ? tip("Take the fault back", "Esc") : tip("Take all of it back", "Ctrl+Z", "Esc skips to its end"))}>
+            <button type="button" class="set-button" onClick={p.onRevert} {...(st.painting && !st.stopping ? tip("Take the fault back", "Esc") : tip("Take all of it back", "Ctrl+Z"))}>
               Revert
             </button>
           ),
@@ -215,8 +228,8 @@ export function RollsButton(p: { rolls: { shown: number; count: number }; onRoll
 }
 
 /** A force's Size: following Power (Auto) until the player sets it. */
-function size(label: string, title: string, value: number, words: string, min: number, max: number, step: number, auto: boolean, onSize: (v: number | null) => void) {
-  return <NumberSetting label={label} title={title} keys={SIZE_KEYS} value={value} words={words} min={min} max={max} step={step} onChange={(v) => onSize(v)} auto={{ on: auto, onAuto: (on) => onSize(on ? null : value), title: auto ? `${label} follows Power` : `Let the ${label.toLowerCase()} follow Power`, follows: "Power" }} />;
+function size(label: string, title: string, value: number, words: string, min: number, max: number, step: number, auto: boolean, onSize: (v: number | null) => void, follows = "Power") {
+  return <NumberSetting label={label} title={title} keys={SIZE_KEYS} value={value} words={words} min={min} max={max} step={step} onChange={(v) => onSize(v)} auto={{ on: auto, onAuto: (on) => onSize(on ? null : value), title: auto ? `${label} follows ${follows}` : `Let the ${label.toLowerCase()} follow ${follows}`, follows }} />;
 }
 
 export interface RowProps<U, S> {
@@ -231,6 +244,8 @@ export interface RowProps<U, S> {
   onRoll?(): void;
   /** The settings the last run actually ran with (D309): what an Auto detail shows until pinned. */
   drawn: S | null;
+  /** The map's size (Glaciate's Size on Auto guesses from it before a glacier has found its valley). */
+  side?: { W: number; H: number };
 }
 
 export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
@@ -284,7 +299,7 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
                 ["flat", "Flat", "A flat floor"],
               ]}
               onChange={(v) => set({ centre: v as CraterUi["centre"] })}
-              auto={{ on: u.centre === null, onAuto: (on) => set({ centre: on ? null : centre }) }}
+              auto={{ on: u.centre === null, onAuto: (on) => set({ centre: on ? null : centre }), title: u.centre === null ? "Centre: a bowl, or a floor with low mounds" : "Let the size choose a bowl or a floor with low mounds" }}
             />
           ),
         },
@@ -315,7 +330,8 @@ export function CraterizeRow(p: RowProps<CraterUi, CraterSettings>) {
   );
 }
 
-export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
+/** `map`: the map's size, which caps Auto's breadth (core/forces/erupt.ts `shownBreadth`). */
+export function EruptRow(p: RowProps<EruptUi, EruptSettings> & { map: { W: number; H: number } }) {
   const u = p.ui;
   const set = (patch: Partial<EruptUi>) => p.onUi({ ...u, ...patch });
   const drawn = p.drawn;
@@ -326,7 +342,7 @@ export function EruptRow(p: RowProps<EruptUi, EruptSettings>) {
   const flows = u.flows ?? drawn?.flows ?? "heavy";
   const ridges = u.ridges ?? drawn?.ridges ?? true;
   // (the preview breadth needs a concrete shape and summit, same as before D289: naturalBreadth branches on them, D226)
-  const breadth = u.size ?? Math.max(ERUPT_SIZE_MIN, Math.min(ERUPT_SIZE_MAX, Math.round(naturalBreadth({ ...eruptSettingsOf(u), shape, summit }) / 2) * 2));
+  const breadth = shownBreadth({ ...eruptSettingsOf(u), shape, summit }, p.map);
   return (
     <SettingsGrid
       label="Erupt options"
@@ -474,7 +490,8 @@ export function QuakeRow(p: RowProps<QuakeUi, QuakeSettings> & { slide?: { power
 export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
   const u = p.ui;
   const set = (patch: Partial<GlaciateUi>) => p.onUi({ ...u, ...patch });
-  const sz = u.size ?? glacierSize(u);
+  // (Auto shows the width the last glacier took from its valley, or its guess before one has run)
+  const sz = u.size ?? p.drawn?.size ?? glacierSize(u, p.side?.W ?? 128, p.side?.H ?? 128);
   const drawn = p.drawn;
   const benches = u.benches ?? drawn?.benches ?? "some";
   const steps = u.steps ?? drawn?.steps ?? "some";
@@ -485,7 +502,7 @@ export function GlaciateRow(p: RowProps<GlaciateUi, GlaciateSettings>) {
       label="Glaciate options"
       groups={[
         { key: "power", row: 1, at: 1, span: 3, node: power("glaciate", u.power, (v) => set({ power: v }), "How deep the ice carves") },
-        { key: "size", row: 1, at: 4, span: 3, node: size("Size", "How wide the valley is", Math.round(sz / 2) * 2, String(Math.round(sz / 2) * 2), GLACIATE_SIZE_MIN, GLACIATE_SIZE_MAX, 2, u.size === null, (v) => set({ size: v })) },
+        { key: "size", row: 1, at: 4, span: 3, node: size("Size", "How wide the valley is", Math.round(sz / 2) * 2, String(Math.round(sz / 2) * 2), GLACIATE_SIZE_MIN, GLACIATE_SIZE_MAX, 2, u.size === null, (v) => set({ size: v }), "the valley") },
         { key: "melt", row: 1, at: 7, span: 3, node: <OnOffSetting label="Meltwater" title="Springs, falls and lakes" off="No springs, falls or lakes" on={u.meltwater} onChange={(v) => set({ meltwater: v })} /> },
         {
           key: "benches",

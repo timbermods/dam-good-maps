@@ -72,7 +72,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
   const {
     api, mirror, renderer, tool, repaintRef, setForceStroke, setForceCursor, setForceRing, gestureRef, setBusy,
     setMessage, player, mounted, juice, weatherRef, setWeather, journey, firstDoneRef, setPicked, setShapeNote,
-    infoRef, enqueue, applyUpdate, applyView, brushRef, brushToolRef, setBrush, localUndo, localRedo, painter,
+    infoRef, enqueue, applyUpdate, applyView, brushRef, brushToolRef, setBrush, painter,
     notePointer, sourcesChanged, pointerWords, flashNote, carveUi, setCarveUi, carveUiRef, craterUi, setCraterUi,
     craterUiRef, eruptUi, setEruptUi, eruptUiRef, quakeUi, quakeUiRef, setQuakeUi, glaciateUi, setGlaciateUi,
     glaciateUiRef, riftUi, setRiftUi, riftUiRef, depositUi, setDepositUi, depositUiRef, erodeUi, setErodeUi, erodeUiRef, watchRef, floorRef, setForceTick
@@ -158,17 +158,18 @@ export function useForceRun(ed: Ed): ForceRunSlice {
           // (the kept map's own view replaces the force's last frames)
           flushForceView(true);
           flushDeferred();
-          localUndo.current = [];
-          localRedo.current = [];
           applyUpdate(u);
+          ed.landAgain();
           // (a kept view with no voxel runs of its own leaves the frames' hollows drawn: put the map's columns back)
           endShownColumns(!u.view?.columns);
           renderer.current?.refreshShadows();
           if (!u.ok && u.errors.length) setMessage({ kind: "info", text: plain(u.errors[0]) });
           else if (u.ok) {
             // (a force that cleared sources says so, and offers to take it back: nothing it does goes unsaid, D474)
+            // (and one that let badwater into clean water says where, first: the force audit's S3)
             const n = u.sourcesRemoved;
-            setMessage(n ? { kind: "info", text: `Cleared ${n} ${n === 1 ? "source" : "sources"}. Set Sources to Ride to keep them.`, action: { label: "Undo", tip: "Take the force back", step: u.info.history.filter((h) => h.applied).length, run: () => void ed.undo() } } : null);
+            const said = [u.badwater?.note ?? "", n ? `Cleared ${n} ${n === 1 ? "source" : "sources"}. Set Sources to Ride to keep them.` : ""].filter(Boolean).join(" ");
+            setMessage(said ? { kind: "info", text: said, action: { label: "Undo", tip: "Take the force back", step: u.info.history.filter((h) => h.applied).length, run: () => void ed.undo() } } : null);
             // (its rolls are on offer: Tab shows another, D488)
             offerRolls(u.info.version);
             // (the first-run hint points at Carve: a force kept is shaping the land too, D352)
@@ -186,10 +187,10 @@ export function useForceRun(ed: Ed): ForceRunSlice {
         flushDeferred();
         if (v.info) {
           // (kept already, and taken back as if never kept: the history changed too)
-          localUndo.current = [];
-          localRedo.current = [];
           applyUpdate({ ok: true, errors: [], info: v.info, view: v, ms: 0, ...(v.waterSettled !== undefined ? { waterSettled: v.waterSettled } : {}) });
         } else applyView(v);
+        // (the force's frames drew past the queue: its land again, whole)
+        ed.landAgain();
         endShownColumns(true);
         renderer.current?.refreshShadows();
       }),
@@ -371,17 +372,30 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     return {
       label: "Unleash at work",
       groups: [
-        { key: "status", row: 1, at: 1, span: 9, rows: 2, centre: true, node: <Words status>{st.stopping ? "Keeping the river…" : st.paused ? "Paused" : "The source carves its way…"}</Words> },
+        { key: "status", row: 1, at: 1, span: 7, rows: 2, centre: true, node: <Words status>{st.stopping ? "Keeping the river…" : st.paused ? "Paused" : "The source carves its way…"}</Words> },
         {
           key: "pause",
           row: 1,
-          at: 10,
+          at: 8,
           span: 2,
           rows: 2,
           centre: true,
           node: (
             <button type="button" class="set-button" disabled={st.stopping} onClick={() => forcer.current?.pause(!forcer.current.status?.paused)} {...tip(st.paused ? "Carry on" : "Hold it here", "Space")}>
               {st.paused ? "Resume" : "Pause"}
+            </button>
+          ),
+        },
+        {
+          key: "skip",
+          row: 1,
+          at: 10,
+          span: 2,
+          rows: 2,
+          centre: true,
+          node: (
+            <button type="button" class="set-button" disabled={st.stopping} onClick={() => forcer.current?.escape()} {...tip("Finish it now", "Esc")}>
+              Skip
             </button>
           ),
         },
@@ -393,7 +407,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
           rows: 2,
           centre: true,
           node: (
-            <button type="button" class="set-button" onClick={() => forcer.current?.cancel()} {...tip("Take all of it back", "Ctrl+Z", "Esc skips to its end")}>
+            <button type="button" class="set-button" onClick={() => forcer.current?.cancel()} {...tip("Take all of it back", "Ctrl+Z")}>
               Revert
             </button>
           ),
@@ -535,9 +549,8 @@ export function useForceRun(ed: Ed): ForceRunSlice {
       try {
         const u = await api.forceRoll({ step: dir });
         if (!mounted.current) return;
-        localUndo.current = [];
-        localRedo.current = [];
         applyUpdate(u);
+        ed.landAgain();
         renderer.current?.refreshShadows();
         const r = u.info.forceRolls;
         if (!u.ok || !r) {
@@ -560,14 +573,14 @@ export function useForceRun(ed: Ed): ForceRunSlice {
   function reachNow(): number | null {
     switch (ed.toolRef.current) {
       case "carve":
-        return forceReach({ verb: "carve", settings: carveSettingsOf(carveUiRef.current) });
+        return forceReach({ verb: "carve", settings: carveSettingsOf(carveUiRef.current) }, infoRef.current);
       case "craterize":
-        return forceReach({ verb: "craterize", settings: craterSettingsOf(craterUiRef.current) });
+        return forceReach({ verb: "craterize", settings: craterSettingsOf(craterUiRef.current) }, infoRef.current);
       case "erupt":
-        return forceReach({ verb: "erupt", settings: eruptSettingsOf(eruptUiRef.current) });
+        return forceReach({ verb: "erupt", settings: eruptSettingsOf(eruptUiRef.current) }, infoRef.current);
       case "glaciate":
         // (its width: where it goes depends on the land)
-        return glacierSize(glaciateUiRef.current) / 2;
+        return glacierSize(glaciateUiRef.current, infoRef.current.W, infoRef.current.H) / 2;
       case "rift":
         return (riftUiRef.current.size ?? Math.round(riftWidth(riftUiRef.current.power) / 2) * 2) / 2;
       case "deposit":

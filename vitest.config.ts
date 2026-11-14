@@ -24,7 +24,14 @@ const HEAVY = [
   "tests/contract/collabUndoSoak.heavy.test.ts", // collaborative editing: a few hundred mixed edits with undo and redo asked at random
   "mcp/tests/long.heavy.test.ts", // a 256² map through the MCP server, past the client's time limit (D501)
   "tests/unit/waterSkirts.heavy.test.ts", // no window between two waters on generated maps at 256² (D154)
+  "tests/contract/carveFallSweep.heavy.test.ts", // a fall from one stroke from every start near the reviewed ones (gaps 1, 2, 20)
   "tests/contract/islandsCleanSea.heavy.test.ts", // Islands' sea clean at 128² and 256², settled and played on (D498, #446)
+  "tests/contract/premisePlan.heavy.test.ts", // the lake stair's plans on seeds 1 to 200 at three sizes (PREMISES §7 step 1)
+  "tests/contract/premiseWater.heavy.test.ts", // stage 1's water settled on three plans and Four Lakes (PREMISES §7 step 2)
+  "tests/contract/premiseGateWater.heavy.test.ts", // the wall with one gate's water settled on five plans (PREMISES §5.1)
+  "tests/contract/premiseGateLand.heavy.test.ts", // the wall with one gate's maps built and checked on four seeds (PREMISES §5.1)
+  "tests/contract/premiseStair256.heavy.test.ts", // the lake stair at 256², seeds 1 to 3 in two themes, none falling back (PREMISES §3.3)
+  "tests/contract/premiseThreads.heavy.test.ts", // the premise mode on four threads, its drought beside the map, is the one-thread map (D455)
 ];
 
 export default defineConfig({
