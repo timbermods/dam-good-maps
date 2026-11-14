@@ -832,7 +832,7 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   of violet (all of it ground the force leaves as it is, D487). Under water on a roof the marks lie on the ground,
   seen through the water as the brush's own disc is.
 
-## The caves through the rock (D488, D497; `feature/caves-through-rock`)
+## The caves through the rock (D488, D497; `feature/caves-through-rock`, `feature/caves-through-rock-2`)
 
 - **Why:** an audit of D488 (3) on dev in real Chrome (Canyon 128 seed 1, Highlands 128 seed 12, the generator's spring
   cave, cliff overhangs and gorge arch, 50° pitch at distance 34, both looks) found the caves the hardest thing to
@@ -845,9 +845,18 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   roof (a layer clear below its column's top) gives its floor a pale fill (0.8 0.64 1.0, alpha 0.36) outlined where the
   floor ends (at a wall, a drop or the open: hollow.ts's light line, 0.07 wide, over the brush ring's dark edge, 0.11),
   its sides against rock a fainter violet wall (alpha 0.22), and its sides against the open air (a neighbour's layer at
-  or above that neighbour's top) a mouth, filled pale (0.3) and framed where the opening ends. The fills are drawn
-  only where the terrain hides them (depth test reversed); the lines twice, plainly where in sight and at 0.65 where
-  hidden, so an overhang's reach and a tunnel's mouth read over the real rock too. An editing aid on its own channel
+  or above that neighbour's top) a mouth, filled pale (0.3) and framed where the opening ends. A side against rock
+  that rises solid from the cell's floor at most two layers (`STEP`) to a floor of air under a roof (a slab with air
+  under it is a wall), with the cell's own air
+  reaching that floor's level, is a step of the floor, not a wall: its riser is filled as the floor is, the floor's
+  outline runs up its ends (where the step's run ends, joining the outlines along the walls), and the floors' outlines
+  across it are left out, so a stepped tunnel reads as one passage from mouth to mouth; no air is drawn that isn't
+  there (a rise the cell's air does not reach, or a higher one, stays a wall). The fills are drawn only where the
+  terrain hides them (depth test reversed); the lines twice, plainly where in sight and at 0.65 where hidden, so an
+  overhang's reach and a tunnel's mouth read over the real rock too. The fills and the hidden lines are drawn in the
+  opaque pass, blended (three.js draws it by group order, then render order: after the terrain's chunks, before the
+  objects' group, order 1), so a tree or anything else standing in front of them, on a roof or not, draws over
+  them; the lines in sight are drawn with the other aids after the water. An editing aid on its own channel
   (`aidLayer.ts`, D497): the look is unchanged and none of it blooms. Under a layer cut it reads the masks the cut
   leaves (a roof cut away leaves no cave). The map's edge is a wall nobody sees and is not drawn; ceilings are not
   drawn (from above they would hide the floor).
@@ -856,18 +865,33 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   openings, which only the cave's own floor, walls and mouths answer; the parallax that misplaced the cursor's marks
   is what gives the depth here.
 - **Cost:** nothing on a map without terrain above terrain, nor while the layer is off (one test a frame). With it on,
-  the cave is built once when the layer turns on and after each terrain update or cut (the ground's source or the cut
-  changed), not per frame. Measured once in Node (information): 128² with a tenth of its tiles scattered single-tile
-  caves (6556 cells, 40 657 quads) 27 ms; 256² all roofs 82 ms. The generator's caves are a hundred-odd cells.
+  the caves are built in the terrain's 32² chunks (three draws a chunk with a cave: fills, hidden lines, lines in
+  sight): all of them when the layer turns on, the map opens or the cut moves, and after an edit only the chunks its
+  changed rect reaches, a tile round it (`updateTerrain`'s and a stroke's `updateTerrainRect`'s rect, kept by
+  `CaveBook` whenever caves are drawn, even after another change earlier in the frame; a source changed some other
+  way builds all again unless only a pit's cutout changed). Never per frame. Measured once in real Chrome (information; Raise, size 5, a 60-move stroke across the
+  caves with the layer on, Standard, 1600×900, the caves' share of each frame): Canyon 128 seed 1 over its spring cave
+  (124 cells), p90 0.54–0.58 ms and max 2.4–3.2 ms on dev, p90 0.25–0.36 ms and max 0.7–1.0 ms now; a 128² with a
+  tenth of its tiles single-tile caves four layers deep (5992 cells, put straight into the renderer's ground), p90
+  8.3–10.6 ms and max 13.6–27.7 ms on dev, p90 1.2–1.3 ms and max 3.0–4.1 ms now (the whole frame's p90 13–17 ms then,
+  6.2–6.6 ms now). In Node, that case's whole build is 12 ms (once, the layer turned on), a stroke's frame 0.75 ms in one
+  chunk and 2.2 ms on the corner of four.
 - **Tests:** `tests/unit/caveGhost.test.ts` (no cave on a plain map; a closed pocket's floor and walls, no mouth; an
-  overhang's mouths and their frames and the floor's outline, counted; a cut that takes the roof leaves no cave).
+  overhang's mouths and their frames and the floor's outline, counted; a cut that takes the roof leaves no cave; a
+  stepped tunnel's riser drawn as the floor with its ends outlined and no outline across it, a rise its air does not
+  reach, higher than `STEP` or a slab with air under it a wall; after an edit only the chunks it reaches built again,
+  the same as a whole build; a stroke's rect kept after a cutout-only change in the same frame; the hidden marks in the
+  opaque pass outside any group).
 - **Captures:** local only, `C:\dgm-showcase\d488\caves-through-rock\sheet.png` (12 frames, real Chrome with the GPU,
   1600×900 dark, 50° at distance 26): Canyon 128 seed 1's spring cave and a cliff overhang, Highlands 128 seed
   12's overhang, Standard and High, the layer as dev draws it beside the same frame with the caves through the rock.
-- **Falls short:** a stepped tunnel reads as a few floor pieces at their own depths rather than one passage; trees
-  standing on a roof are drawn over by the hidden fills; the walls under a roof the page paints violet are violet on
-  violet, so the floor and its outline carry the shape. A terrain update while the layer is on rebuilds the whole
-  map's caves, not only the changed part.
+- **Captures, round 2:** local only, `C:\dgm-showcase\d488\caves-through-rock-2\sheet.png` (12 frames, real Chrome
+  with the GPU, 1920×1200 dark cropped, 50° at distance 22): Canyon 128 seed 1's spring cave (its floor steps one and
+  two layers) and pines placed on its roof, Standard and High, the layer off, as dev draws it and as now.
+- **Falls short:** the walls under a roof the page paints violet are violet on violet, so the floor and its outline
+  carry the shape. Under water standing on a roof the hidden fills are seen through the water (drawn before it), so
+  fainter there. A map whose caves fill every chunk draws three more meshes a chunk (48 at 128²) while the layer is
+  on.
 
 ## What an edit changed (D488; `feature/3d-edits-show`)
 

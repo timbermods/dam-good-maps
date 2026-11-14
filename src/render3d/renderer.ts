@@ -60,7 +60,7 @@ import {
 } from "three";
 import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
 import { blockReach, hollowFootprint, HollowMarks, roofOf, type HollowReach } from "./hollow";
-import { caveFaces, CaveGhost } from "./caveGhost";
+import { CaveBook, CaveGhost, type Rect } from "./caveGhost";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
 import { GeothermalSteam, steamFields } from "./geothermalSteam";
@@ -2201,6 +2201,7 @@ export class MapRenderer {
     this.flushTerrain();
     const m = this.map;
     if (!m) return 0;
+    const was = m.source;
     let rect = changedRect(m.W, m.H, m.heights, heights);
     // (a roof the page's own stroke already drew the heights of: its columns changed all the same)
     if (columns) rect = grownRect(rect, columnsChanged(m.source.columns, columnMap(columns), m.W));
@@ -2229,6 +2230,7 @@ export class MapRenderer {
     this.drawnLand = heights.slice();
     this.settleObjects();
     this.hollowStale = true;
+    this.caveEdited(was, rect);
     if (edited) this.glowEdits(edited);
     // (the Block tool's blocks grow and crumble, on the land as it now is: blockPop.ts)
     if (edited && block) this.popBlocks(edited);
@@ -2809,9 +2811,11 @@ export class MapRenderer {
     if (!m) return 0;
     m.heights = heights;
     this.heightStats = null;
+    const was = m.source;
     m.source = { ...m.source, heights };
-    // (the hollow under the cursor follows the roof's new top)
+    // (the hollow under the cursor follows the roof's new top, the caves drawn through the rock round the rect)
     this.hollowStale = true;
+    this.caveEdited(was, rect);
     // (the Block tool's land, come with its answer through the page's edit queue: it glows when it is drawn, on plain
     // ground too; taken now, as its answer ends the edit before the next frame draws it)
     if (this.blockEdit()) this.blockLand = true;
@@ -3676,37 +3680,45 @@ export class MapRenderer {
   private caveGhost: CaveGhost | null = null;
   /** The Caves and overhangs layer is on (`showCaves`). */
   private cavesShown = false;
-  /** The ground and the cut the caves were last drawn for. */
-  private caveGhostOf: { source: TerrainSource; slice: number | null } | null = null;
+  /** What the caves drawn were built from and what edits changed since (caveGhost.ts `CaveBook`). */
+  private readonly caveBook = new CaveBook();
 
   /** The Caves and overhangs layer turned on or off (D488): with it on, the air under every roof is drawn through the
-   *  rock (caveGhost.ts), its floor, its walls and its mouths, so a cave reads from the editing pitch. */
+   *  rock (caveGhost.ts), its floor, its steps, its walls and its mouths, so a cave reads from the editing pitch. */
   showCaves(on: boolean): void {
     if (on === this.cavesShown) return;
     this.cavesShown = on;
     this.requestRender();
   }
 
-  /** The caves through the rock, laid by renderNow before it draws: again only when the ground or the cut changed. */
+  /** The ground changed from `was` to the map's source now over `rect` (an edit, a stroke's frame): with caves drawn,
+   *  only the chunks round `rect` are built again (`CaveBook`). */
+  private caveEdited(was: TerrainSource, rect: Rect | null): void {
+    this.caveBook.edited(was, this.map!.source, rect);
+  }
+
+  /** The caves through the rock, laid by renderNow before it draws: built when the layer turns on, the map opens or the
+   *  cut moves, and again after an edit only in the chunks it reached (a stroke's frame builds a chunk or two). */
   private layCaveGhost(): void {
     const m = this.map;
     const src = m?.source;
     if (!m || !src || !this.cavesShown || src.columns.size === 0) {
-      if (this.caveGhostOf) this.caveGhost?.set(null);
-      this.caveGhostOf = null;
+      if (this.caveBook.drawn) this.caveGhost?.clear();
+      this.caveBook.clear();
       return;
     }
-    if (this.caveGhostOf?.source === src && this.caveGhostOf.slice === this.slice) return;
-    this.caveGhostOf = { source: src, slice: this.slice };
+    const rect = this.caveBook.due(m, src, this.slice);
+    if (rect === undefined) return;
     const keep = cutKeep(this.slice);
     const masks = src.masks;
     const listed = masks ? (i: number) => masks[i] !== 0 : (i: number) => src.columns.has(i);
-    (this.caveGhost ??= new CaveGhost(this.scene)).set(caveFaces(m.W, m.H, listed, (i) => columnMask(src, i) & keep));
+    (this.caveGhost ??= new CaveGhost(this.scene)).update(m.W, m.H, listed, (i) => columnMask(src, i) & keep, rect);
   }
 
-  /** The caves drawn through the rock now (tests): the cells of air under a roof, and the mouths' faces. */
-  get caveGhostDrawn(): { cells: number; mouths: number } {
-    return this.caveGhost?.drawn ?? { cells: 0, mouths: 0 };
+  /** The caves drawn through the rock now (tests): the cells of air under a roof, the mouths' and steps' faces, and the
+   *  chunks built at the last update. */
+  get caveGhostDrawn(): { cells: number; mouths: number; steps: number; built: number } {
+    return this.caveGhost?.drawn ?? { cells: 0, mouths: 0, steps: 0, built: 0 };
   }
 
   /** The hollow drawn under the cursor now (tests): the tiles filled and the outline's pieces. */
@@ -5359,6 +5371,9 @@ export class MapRenderer {
 
   dispose(): void {
     this.disposed = true;
+    // (a finger's gesture or press waiting on a timer ends with the view)
+    this.touches.reset();
+    this.cancelPress();
     // (a wait on `whenDrawn` ends with the view)
     this.checkDrawn();
     if (this.frame) cancelAnimationFrame(this.frame);
