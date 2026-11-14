@@ -6,7 +6,7 @@
 // light, so the soils keep their order of lightness in shadow too (D114). Under a roof (a cave, an overhang, an
 // arch) a terrain face takes the light of its own air instead, from the light volume (caveLight.ts): the sky
 // walked in from the openings, never below 0.30, and the sun where a ray reaches it. Every texture is made by a shader:
-// the patterns (value noise, the cracks of dry earth, the cobbles of the walls) are drawn once
+// the patterns (value noise, the cracks of dry earth, the cliffs' rock) are drawn once
 // into a small tiling texture when the view starts (`drawPatterns`), so the view needs no image
 // files, and reading them costs far less than computing them per pixel.
 //
@@ -16,7 +16,7 @@
 //   the same at any level over a fifth, no glow; a dark bed under water; or by height, with the
 //   toggle. Soil blends between tiles of one height, never over a cliff, and every tile's middle
 //   shows its own soil.
-// - Walls are cobbled stone tinted by height as the game's cliffs (D497), and with Markers a pale
+// - Walls are the game's cliff rock tinted by height as its cliffs (D497), and with Markers a pale
 //   ledge over a dark groove between levels, at least a pixel wide at any zoom, so levels can be
 //   counted; a lip of the top's ground.
 // - Clean water is the game's colour by depth (its formula: waterPalette.ts GAME_WATER), its surface the game's
@@ -65,6 +65,7 @@ import {
   Vector2,
   Vector3,
   Vector4,
+  WebGLArrayRenderTarget,
   WebGLRenderTarget,
   type Texture,
   type WebGLRenderer,
@@ -595,20 +596,58 @@ const GRASS_BROAD = 0.15;
 const PATTERN_SIZE = 1024;
 const NOISE_CELLS = 64;
 const CRACK_CELLS = 16;
-const COBBLE_CELLS: [number, number] = [16, 24];
 
-/** Draw the patterns the shaders read into a tiling texture, once (the same shader always draws
+/** The cliffs' rock, as the game's Cliff material draws it (TerrainURP's `Cliff` variant, read from
+ *  `resources.assets`): its `CliffDetail` albedo triplanar at world × `_Albedo_Triplanar_Tile` 0.45 (a repeat every
+ *  2.2 tiles), × the height gradient, and its `Cliff_N` normal triplanar at × `_Normal_Triplanar_Tile` 0.125 (8
+ *  tiles), whiteout-blended at full strength. Ours is our own texture at their statistics (the game's measured by
+ *  tools/game-cliff-texture.py, ours by tools/rock-texture.ts; numbers only), one layer of the pattern texture `tiles`
+ *  across. Its albedo: rounded patches overlapping at five scales, each lighter toward its middle with a dark band
+ *  round it, over a fine grain; spread 0.150 of its mean (the game's 0.152), 0.67 / 1.00 / 1.33 of it at its 1st,
+ *  50th and 99th percentiles (0.66 / 0.99 / 1.36). Its stones: faceted, in rough courses, half a tile wide and a third
+ *  tall (`stones` across and up the layer), their normal's slopes spread 0.34 / 0.36 across and up (0.36 / 0.36), 0.28
+ *  / 0.29 at 16 texels a tile (0.28 / 0.29). */
+export const ROCK = {
+  tiles: 4,
+  stones: [8, 12] as const,
+  /** The game's `CliffDetail` mean, display values 0–1 (67.3/61.8/51.7 of 255). */
+  albedo: [0.264, 0.242, 0.203] as Rgb,
+  /** Its colour's one axis of variation (the albedo over its luma, round its mean: blue against red, spread 0.035). */
+  hue: [-0.361, 0.003, 0.933] as const,
+} as const;
+
+/** The rock's drawing, set against the game's statistics (`ROCK`): its patches' scales (`C0` a tile at the first, ×
+ *  `CK` each next), the warp of their outlines, their lightness (`A`), dark bands (`V`, `W` wide), and how much
+ *  lighter toward their middles (`DOME`); the fine grain (`G`); the offset that keeps its mean the game's (`LUM0`);
+ *  the stones' depth in tiles, their steps, tilts, edges and courses; the hue's scale. */
+const ROCK_TUNE: Record<string, string> = {
+  ROCK_LAYERS: "5", ROCK_C0: "4.5", ROCK_CK: "1.3", ROCK_WARP: "2.0",
+  ROCK_A: "0.089", ROCK_V: "0.113", ROCK_W: "0.09", ROCK_DOME: "3.0",
+  ROCK_G: "0.065",
+  ROCK_LUM0: "-0.313",
+  ROCK_DEPTH: "0.21",
+  ROCK_STEP: "0.6",
+  ROCK_TILT: "2.4",
+  ROCK_EDGE: "0.08",
+  ROCK_COURSE: "0.35",
+  ROCK_HUE: "0.9",
+};
+
+/** Draw the patterns the shaders read into a tiling texture of two layers, once (the same shader always draws
  *  the same texture):
- *  - R: value noise, a hash on a 64-cell lattice that wraps, smoothly interpolated;
- *  - G: cracks, the edges between the plates of a warped Voronoi pattern, 16 plates across;
- *  - B: cobbles, stones in a stretched Voronoi pattern (16 × 24 across) with dark mortar between
- *    them: 0 on the mortar, 0.5–1 on a stone by its shade;
- *  - A: each crack plate's own shade. */
-export function drawPatterns(gl: WebGLRenderer): WebGLRenderTarget {
+ *  - layer 0, R: value noise, a hash on a 64-cell lattice that wraps, smoothly interpolated;
+ *  - layer 0, G: cracks, the edges between the plates of a warped Voronoi pattern, 16 plates across;
+ *  - layer 0, A: each crack plate's own shade;
+ *  - layer 1, the cliffs' rock (`ROCK`), `ROCK.tiles` across: R its albedo's lightness over its mean, halved (0.5 the
+ *    mean); G its hue along `ROCK.hue`, 0.5 + 4 × its share; B and A its stones' normal across and up, 0.5 + half
+ *    of each. */
+export function drawPatterns(gl: WebGLRenderer): WebGLArrayRenderTarget {
   // anisotropic filtering at the renderer's maximum (at most 16×, at least 8× where it has that): ground and
   // rock seen at a slant stay detailed instead of settling on a blurrier mip level
-  const rt = new WebGLRenderTarget(PATTERN_SIZE, PATTERN_SIZE, { wrapS: RepeatWrapping, wrapT: RepeatWrapping, magFilter: LinearFilter, minFilter: LinearMipmapLinearFilter, generateMipmaps: true, depthBuffer: false, anisotropy: Math.min(16, gl.capabilities.getMaxAnisotropy()) });
+  const rt = new WebGLArrayRenderTarget(PATTERN_SIZE, PATTERN_SIZE, 2, { wrapS: RepeatWrapping, wrapT: RepeatWrapping, magFilter: LinearFilter, minFilter: LinearMipmapLinearFilter, generateMipmaps: true, depthBuffer: false, anisotropy: Math.min(16, gl.capabilities.getMaxAnisotropy()) });
   const mat = new ShaderMaterial({
+    uniforms: { layer: { value: 0 } },
+    defines: ROCK_TUNE,
     vertexShader: /* glsl */ `
       varying vec2 vUv;
       void main() {
@@ -617,6 +656,7 @@ export function drawPatterns(gl: WebGLRenderer): WebGLRenderTarget {
       }
     `,
     fragmentShader: /* glsl */ `
+      uniform float layer;
       varying vec2 vUv;
       float hash12(vec2 p, vec2 period) {
         p = mod(p, period);
@@ -658,37 +698,77 @@ export function drawPatterns(gl: WebGLRenderer): WebGLRenderTarget {
           }
         return vec3(sqrt(f1), sqrt(f2), id);
       }
+      /** Three octaves of value noise, c0 cells across the layer at the first (whole, so it tiles). */
+      float fbm(vec2 x, float c0) {
+        return 0.5 * valueNoise(x, vec2(c0)) + 0.3 * valueNoise(x * 2.0 + 11.0, vec2(c0 * 2.0)) + 0.2 * valueNoise(x * 4.0 + 23.0, vec2(c0 * 4.0));
+      }
+      /** One scale of the rock, c cells a tile (c × ROCK.tiles whole), at q (tiles): a warped noise's rounded
+       *  patches (x: 1 inside, a sharp edge) and the dark band round each (y: 1 at its edge, fading over w outward). */
+      vec2 rockLayer(vec2 q, float c, float seed, float w) {
+        float p = ${f(ROCK.tiles)} * c;
+        vec2 x = q * c + seed;
+        vec2 warp = vec2(valueNoise(x * 0.5, vec2(p * 0.5)), valueNoise(x * 0.5 + 37.0, vec2(p * 0.5))) - 0.5;
+        float n = 0.7 * valueNoise(x + warp * ROCK_WARP, vec2(p)) + 0.3 * valueNoise(x * 2.0 + warp * ROCK_WARP * 2.0 + 11.0, vec2(p * 2.0));
+        return vec2(smoothstep(0.5, 0.515, n) * (1.0 + (n - 0.5) * ROCK_DOME), n < 0.5 ? 1.0 - smoothstep(0.0, w, 0.5 - n) : 0.0);
+      }
+      /** A faceted relief: cells of a Voronoi pattern (period: cells across the layer, x in cells; metric: a cell's
+       *  size across and up, so distances and tilts are the same each way), each a plane at its own height, tilted its
+       *  own way, meeting its neighbour in a short step; laid in rough courses (their middles jittered less up than
+       *  across). */
+      float facets(vec2 x, vec2 period, vec2 metric, float step, float tilt, float edge) {
+        x += vec2(valueNoise(x * 0.5, period * 0.5), valueNoise(x * 0.5 + 31.0, period * 0.5)) * 0.5;
+        vec2 n = floor(x), fr = fract(x);
+        float f1 = 9.0, f2 = 9.0, h1 = 0.0, h2 = 0.0;
+        for (int j = -1; j <= 1; j++)
+          for (int i = -1; i <= 1; i++) {
+            vec2 g = vec2(float(i), float(j));
+            vec2 r = (g + 0.5 + (hash22(n + g, period) - 0.5) * vec2(0.9, ROCK_COURSE) - fr) * metric;
+            float d = length(r);
+            float h = hash12(n + g + 5.0, period) * step - dot(hash22(n + g + 47.0, period) - 0.5, r) * tilt;
+            if (d < f1) {
+              f2 = f1; h2 = h1; f1 = d; h1 = h;
+            } else if (d < f2) {
+              f2 = d; h2 = h;
+            }
+          }
+        return mix(0.5 * (h1 + h2), h1, smoothstep(0.0, edge, f2 - f1));
+      }
+      /** The stones' relief at q (tiles). */
+      float stoneHeight(vec2 q) {
+        vec2 period = vec2(${f(ROCK.stones[0])}, ${f(ROCK.stones[1])});
+        vec2 x = q * period / ${f(ROCK.tiles)};
+        return facets(x, period, vec2(1.0, ${f(ROCK.stones[0] / ROCK.stones[1])}), ROCK_STEP, ROCK_TILT, ROCK_EDGE);
+      }
       void main() {
-        // value noise, half a texel in so its lattice lies on texel centres
-        vec2 np = vec2(${f(NOISE_CELLS)});
-        float noise = valueNoise(vUv * np - 0.5 * np / ${f(PATTERN_SIZE)}, np);
-        // cracks: a warped Voronoi's edges, thinner and fainter here and there
-        vec2 cp = vec2(${f(CRACK_CELLS)});
-        vec2 c = vUv * cp;
-        vec2 warp = vec2(valueNoise(c * 0.5, cp * 0.5), valueNoise(c * 0.5 + 19.0, cp * 0.5)) - 0.5;
-        vec3 v = voronoi(c + warp * 0.7, cp, vec2(1.0), 0.9);
-        float width = 0.04 + 0.05 * valueNoise(c * 2.0 + 7.0, cp * 2.0);
-        float crack = 1.0 - smoothstep(width * 0.4, width, v.y - v.x);
-        // cobbles: wider than tall, mortar between them
-        vec2 kp = vec2(${f(COBBLE_CELLS[0])}, ${f(COBBLE_CELLS[1])});
-        vec2 stoneP = vUv * kp;
-        stoneP += vec2(valueNoise(stoneP * 0.25, kp * 0.25), valueNoise(stoneP * 0.5 + 31.0, kp * 0.5)) * 0.65;
-        vec2 stoneCell = floor(stoneP), stoneFr = fract(stoneP);
-        float first = 9.0, second = 9.0, stoneId = 0.0, face = 0.0;
-        for (int sy = -1; sy <= 1; sy++) for (int sx = -1; sx <= 1; sx++) {
-          vec2 off = vec2(float(sx), float(sy)), id = stoneCell + off;
-          float seed = hash12(id + 11.0, kp);
-          vec2 delta = (off + 0.5 + (hash22(id, kp) - 0.5) * 0.96 - stoneFr) * vec2(1.0, 1.28);
-          float distance = length(delta) + (seed < 0.16 ? 3.0 : 0.0);
-          if (distance < first) {
-            second = first; first = distance; stoneId = seed;
-            face = dot(delta, normalize(hash22(id + 47.0, kp) - 0.5)) * 0.42;
-          } else second = min(second, distance);
+        if (layer < 0.5) {
+          // value noise, half a texel in so its lattice lies on texel centres
+          vec2 np = vec2(${f(NOISE_CELLS)});
+          float noise = valueNoise(vUv * np - 0.5 * np / ${f(PATTERN_SIZE)}, np);
+          // cracks: a warped Voronoi's edges, thinner and fainter here and there
+          vec2 cp = vec2(${f(CRACK_CELLS)});
+          vec2 c = vUv * cp;
+          vec2 warp = vec2(valueNoise(c * 0.5, cp * 0.5), valueNoise(c * 0.5 + 19.0, cp * 0.5)) - 0.5;
+          vec3 v = voronoi(c + warp * 0.7, cp, vec2(1.0), 0.9);
+          float width = 0.04 + 0.05 * valueNoise(c * 2.0 + 7.0, cp * 2.0);
+          float crack = 1.0 - smoothstep(width * 0.4, width, v.y - v.x);
+          gl_FragColor = vec4(noise, crack, 0.0, v.z);
+          return;
         }
-        vec3 k = vec3(first, second, stoneId);
-        float mortar = smoothstep(0.012, 0.19, k.y - k.x);
-        float stone = mortar * clamp(0.70 + 0.25 * k.z + face - k.x * 0.07, 0.38, 1.0);
-        gl_FragColor = vec4(noise, crack, clamp(stone, 0.0, 1.0), v.z);
+        vec2 q = vUv * ${f(ROCK.tiles)};
+        // the albedo: rounded patches, each a little lighter with a dark rim, overlapping at four scales, over a grain
+        float lum = 0.0;
+        for (int k = 0; k < ROCK_LAYERS; k++) {
+          float c = ROCK_C0 * pow(ROCK_CK, float(k));
+          vec2 l = rockLayer(q, floor(c * ${f(ROCK.tiles)} + 0.5) / ${f(ROCK.tiles)}, float(k) * 7.0, ROCK_W / c);
+          lum += ROCK_A * l.x - ROCK_V * l.y;
+        }
+        lum += ROCK_G * (valueNoise(q * 40.0, vec2(${f(ROCK.tiles)} * 40.0)) - 0.5);
+        float hue = 0.6 * (valueNoise(q + 5.0, vec2(${f(ROCK.tiles)})) - 0.5) + 0.4 * (valueNoise(q * 30.0 + 9.0, vec2(${f(ROCK.tiles)} * 30.0)) - 0.5);
+        // the stones' normal from their relief, a texel either way
+        float dt = ${f(ROCK.tiles / PATTERN_SIZE)};
+        vec2 slope = vec2(stoneHeight(q + vec2(dt, 0.0)) - stoneHeight(q - vec2(dt, 0.0)), stoneHeight(q + vec2(0.0, dt)) - stoneHeight(q - vec2(0.0, dt))) * ROCK_DEPTH / (2.0 * dt);
+        vec3 nrm = normalize(vec3(-slope, 1.0));
+        gl_FragColor = vec4(clamp(0.5 * (1.0 + lum + ROCK_LUM0), 0.0, 1.0), clamp(0.5 + ROCK_HUE * hue, 0.0, 1.0), nrm.xy * 0.5 + 0.5);
       }
     `,
     depthTest: false,
@@ -698,8 +778,12 @@ export function drawPatterns(gl: WebGLRenderer): WebGLRenderTarget {
   const scene = new Scene();
   scene.add(quad);
   const before = gl.getRenderTarget();
-  gl.setRenderTarget(rt);
-  gl.render(scene, new OrthographicCamera(-1, 1, 1, -1, 0, 1));
+  const camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  for (let layer = 0; layer < 2; layer++) {
+    mat.uniforms.layer.value = layer;
+    gl.setRenderTarget(rt, layer);
+    gl.render(scene, camera);
+  }
   gl.setRenderTarget(before);
   quad.geometry.dispose();
   mat.dispose();
@@ -926,8 +1010,12 @@ const GAME_LIT = /* glsl */ `      /** The game's light on a face (palette.ts GA
       vec3 toDisplay(vec3 c) { return mix(c * 12.92, 1.055 * pow(max(c, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c)); }
       /** The sun the last face lit took (gameLight's \`sun\`), for its specular. */
       float gameSunNow = 0.0;
+      /** 0 on a face turned from the sun (its block shades it, as the game's shadow map does), whatever its lit
+       *  normal: a cliff's stones tilt the normal it is lit by (\`litN\`), never the face itself. */
+      float faceSun = 1.0;
       ${START_LIGHT_GLSL}
       vec3 gameLight(vec3 n, float sun) {
+        sun *= faceSun;
         gameSunNow = sun;
         // (the terrain's faces face up, down or sideways: there the SH's display values are constants; any other normal
         // works them out)
@@ -1097,7 +1185,7 @@ const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
   uniform sampler2D soilTex;
   uniform sampler2D siteEdges;
   uniform vec2 mapSize;
-  uniform sampler2D patternTex;
+  uniform sampler2DArray patternTex;
   uniform float clearWater;
   uniform vec4 clearAround;
   uniform float slice;
@@ -1119,15 +1207,23 @@ const common = (h?: ShaderHooks) => /* glsl */ `${GAME_POST_GLSL}
 
   /** Value noise, one cell per unit of p. */
   float vnoise(vec2 p) {
-    return texture2D(patternTex, p * ${f(1 / NOISE_CELLS)}).r;
+    return texture(patternTex, vec3(p * ${f(1 / NOISE_CELLS)}, 0.0)).r;
   }
   /** Cracks (g: 1 on a crack) and the plate's shade (a), one plate per unit of p. */
   vec2 cracks(vec2 p) {
-    return texture2D(patternTex, p * ${f(1 / CRACK_CELLS)}).ga;
+    return texture(patternTex, vec3(p * ${f(1 / CRACK_CELLS)}, 0.0)).ga;
   }
-  /** Cobbles: 0 on the mortar, 0.5–1 on a stone; p in stones along and courses up. */
-  float cobble(vec2 p) {
-    return texture2D(patternTex, p / vec2(${f(COBBLE_CELLS[0])}, ${f(COBBLE_CELLS[1])})).b;
+  /** The cliffs' rock at p (tiles along the face and up it; materials.ts \`ROCK\`): its texel, its albedo (the game's
+   *  mean × its lightness and hue) and its stones' normal (x across, y up, z out of the face). */
+  vec4 rock(vec2 p) {
+    return texture(patternTex, vec3(p * ${f(1 / ROCK.tiles)}, 1.0));
+  }
+  vec3 rockAlbedo(vec4 r) {
+    return ${glColor3(ROCK.albedo)} * (2.0 * r.r) * (1.0 + vec3(${ROCK.hue.map(f).join(", ")}) * ((r.g - 0.5) * 0.25));
+  }
+  vec3 rockNormal(vec4 r) {
+    vec2 s = r.ba * 2.0 - 1.0;
+    return vec3(s, sqrt(max(0.0, 1.0 - dot(s, s))));
   }
   /** How far a point's height above its shadow's top changes across this pixel (levels): set at the top of each main
    *  that shades the sun (\`SUN_PX_GLSL\`), 0 where none does. */
@@ -1725,6 +1821,8 @@ ${POP_GLSL}        ${SUN_PX_GLSL}
         vec3 c;
         vec3 light;
         float sunHere = 0.0;
+        // (the normal the light takes: a wall's, tilted by its rock's stones)
+        vec3 litN = n;
         // (Markers' ledge and groove on a wall, an editing aid: put on after the grade)
         float ledge = 0.0;
         float groove = 0.0;
@@ -1891,12 +1989,13 @@ ${POP_GLSL}        ${SUN_PX_GLSL}
             light = gameLight(n, 0.0);
           }
         } else {
-          // a wall: cobbled stone (D334), tinted by height as the game's cliffs (D497); with Markers, a pale ledge
-          // at the top of each level over a dark groove at the foot of the next (each at least a
-          // pixel wide, and gone where a level is under three pixels); a lip of the top's ground.
-          // A ceiling (a run's underside, only on a map with terrain above terrain) is the same stone laid on the
-          // level plane, at the same scale: its stones along x, its courses along y, so it never stretches; the
-          // level lines, the seams between levels and the lip are the walls' alone.
+          // a wall: the game's cliff (TerrainURP's Cliff, D497): its rock (our texture at the game's statistics,
+          // \`ROCK\`) laid on the face as the game's triplanar lays its own, tinted by height by the game's gradient, lit
+          // through its stones' normal; with Markers, a pale ledge at the top of each level over a dark groove at the
+          // foot of the next (each at least a pixel wide, and gone where a level is under three pixels); a lip of the
+          // top's ground. A ceiling (a run's underside, only on a map with terrain above terrain) is the same rock laid
+          // on the level plane, as the game's projection from below lays it; the level lines and the lip are the
+          // walls' alone.
           bool ceiling = n.y < -0.5;
           vec2 out2 = vec2(n.x, -n.z);
           float y = ceiling ? g.y : vWorld.y;
@@ -1904,13 +2003,20 @@ ${POP_GLSL}        ${SUN_PX_GLSL}
           float fy = y - level;
           float along = abs(n.x) > 0.5 ? g.y : g.x;
           #if LITE
-            float k = 0.75;
+            // (the light look draws no pattern, D135: the rock's mean, its face flat)
+            vec4 rk = vec4(0.5, 0.5, 0.5, 0.5);
           #else
-            float k = cobble(vec2(along * 1.5 + (vnoise(vec2(along * 0.7, y)) - 0.5) * 0.35, y * 1.6));
+            vec4 rk = rock(vec2(along, y));
+            // (the stones' normal on the face: across along the face's own axis, up the world's (a ceiling's: g.y))
+            vec3 rn = rockNormal(rk);
+            vec3 across = abs(n.x) > 0.5 ? vec3(0.0, 0.0, -1.0) : vec3(1.0, 0.0, 0.0);
+            vec3 up = ceiling ? vec3(0.0, 0.0, -1.0) : vec3(0.0, 1.0, 0.0);
+            litN = normalize(across * rn.x + up * rn.y + n * rn.z);
+            faceSun = step(0.0, dot(n, sunDir));
           #endif
-          // (the game's cliff gradient: its stone tinted from _SplatGradientMin at level 0 to _SplatGradientMax at 22)
+          // (the game's cliff gradient: its rock tinted from _SplatGradientMin at level 0 to _SplatGradientMax at 22)
           vec3 cliffTint = mix(${glColor(WALL.gradient.min)}, ${glColor(WALL.gradient.max)}, vWorld.y / ${f(ALTITUDE_RAMP.ceiling)});
-          vec3 wc = mix(${glColor(WALL.mortar)}, ${glColor(WALL.stone)} * (0.78 + 0.44 * (k - 0.5)), smoothstep(0.1, 0.4, k)) * cliffTint;
+          vec3 wc = rockAlbedo(rk) * cliffTint;
 ${hook(h, "wall")}          float py = fwidth(y);
           float lines = ceiling ? 0.0 : (1.0 - smoothstep(0.22, 0.34, py)) * ${hook(h, "wallLines", "markers")};
           float lw = max(0.09, 1.2 * py);
@@ -1922,24 +2028,8 @@ ${hook(h, "wall")}          float py = fwidth(y);
           vec3 top = groundMode > 0.5 ? heightColor(h0) : mix(${glColor(GROUND.dry)} * 0.85, ${glColor(GROUND.grass)}, grassAt(s0));
           // (an eruption's fresh rock: its cliffs dark basalt, its lip ash)
           float freshWall = freshRock(tile, vWorld.y);
-          wc = mix(wc, ${glColor(JUICE.ashDark)} * (0.62 + 0.5 * k), freshWall * 0.7);
+          wc = mix(wc, ${glColor(JUICE.ashDark)} * (0.62 + rk.r), freshWall * 0.7);
           if (groundMode < 0.5) top = mix(top, ${glColor(JUICE.ashPale)} * 0.85, freshRock(tile, h0));
-          vec2 stoneUV = vec2(along * 1.5 + (vnoise(vec2(along * 0.7, y)) - 0.5) * 0.35, y * 1.6);
-          #if LITE
-            // (the light look draws no stone pattern, D135: no bevel or cracks either)
-            float bevel = 0.0;
-          #else
-            float bevel = cobble(stoneUV + vec2(0.055, 0.075)) - cobble(stoneUV - vec2(0.055, 0.075));
-          #endif
-          wc *= 1.0 + clamp(bevel * 0.62, -0.10, 0.13);
-          float seamAA = max(0.012, fwidth(y));
-          float seam = ceiling ? 0.0 : (1.0 - smoothstep(0.025, 0.025 + seamAA, min(fy, 1.0 - fy))) * (1.0 - smoothstep(0.25, 0.6, seamAA));
-          #if LITE
-            float vertical = 0.0;
-          #else
-            float vertical = cracks(vec2(along * 0.43, y * 0.11)).x;
-          #endif
-          wc *= (1.0 - 0.18 * seam) * (1.0 - 0.10 * vertical);
           c = mix(wc, top * 0.58, lip * 0.55);
           #if !LITE
             // a wall under the water in front of it (a bank's foot, a step in the bed) shows through the water as the
@@ -1961,21 +2051,21 @@ ${hook(h, "wall")}          float py = fwidth(y);
               }
             }
           #endif
-          if (ceiling) light = gameLight(n, 0.0);
+          if (ceiling) light = gameLight(litN, 0.0);
           else {
             sunHere = sunLit(g + out2 * 0.26, y);
-            light = gameLight(n, sunHere);
+            light = gameLight(litN, sunHere);
           }
         }
         // a face whose air is under a roof (a cave's floor, walls and ceiling, under an overhang or
         // an arch) takes that air's own light, not its tile top's
         vec3 cave = caveAt(vWorld, n);
-        if (cave.z > 0.5) light = caveLightOf(n, cave, sunHere);
+        if (cave.z > 0.5) light = caveLightOf(litN, cave, sunHere);
         vec3 albedo = c;
         c *= light;
         // (the light look, drawn in software, leaves out the specular: a few hundredths of the light, a third of its frame)
         #if LITE == 0
-        c += gameSpecular(n, albedo, n.y > 0.5 ? 0.0 : 0.05);
+        c += gameSpecular(litN, albedo, n.y > 0.5 ? 0.0 : 0.05);
         #endif
 ${hook(h, "lit")}
         // the slice's cut (D207): the tops of columns taller than the layer (with terrain above terrain, only the cap
