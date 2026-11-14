@@ -433,6 +433,15 @@ export const FORCE_DEFAULTS: Record<string, Record<string, unknown>> = {
   erode: ERODE_DEFAULTS as unknown as Record<string, unknown>,
 };
 
+/** Where the server's default differs from the page's row: a Craterize the page sizes by Power (54 across at its default
+ *  55: the trial's crater took 4,015 tiles of a 96 map and moved the start) is 20 across here unless size is given (its
+ *  rim stands 5 to 6 levels over its middle, about 900 tiles changed, on River Valley 128 seed 3); null still follows
+ *  Power. */
+export const MCP_DEFAULTS: Record<string, Record<string, unknown>> = { craterize: { size: 20 } };
+
+/** A force's defaults as this server applies them: the page's row's, with the server's own over them. */
+export const forceDefaults = (verb: string): Record<string, unknown> => ({ ...FORCE_DEFAULTS[verb], ...(MCP_DEFAULTS[verb] ?? {}) });
+
 type Pair = [number, number];
 
 /** A force as the editor's row starts it (src/editor/forces/useForceRun.tsx `startForce`): the verb, its settings over
@@ -446,7 +455,7 @@ function forceRequestOf(s: MapSession, p: Record<string, unknown>): ForceRequest
   // a Carve or a Craterize given an end is aimed, as a drag aims the editor's (CarveRow.tsx, ForceRows.tsx): a carve
   // aimed cuts through rises to get there (D289)
   const aimed = where.end && (verb === "carve" || verb === "craterize") ? { mode: "aim", ...(verb === "carve" ? { defyGravity: true } : {}) } : {};
-  const settings = { ...FORCE_DEFAULTS[verb], ...aimed, ...given, seed };
+  const settings = { ...FORCE_DEFAULTS[verb], ...(MCP_DEFAULTS[verb] ?? {}), ...aimed, ...given, seed };
   const path = where.path?.map(([x, y]) => ({ x, y }));
   const point = (k: "origin" | "end"): Pair | undefined => (where[k] ? [where[k]![0], where[k]![1]] : undefined);
   const base = { settings, cut: null, natural: true } as const;
@@ -477,6 +486,30 @@ function runTiles(runs: readonly (readonly number[])[], W: number): number[] {
   const out: number[] = [];
   for (const [y, a, b] of runs) for (let x = a; x <= b; x++) out.push(y * W + x);
   return out;
+}
+
+/** How far round a refused placement the nearest tile it could take is looked for. */
+export const NEAREST_MOST = 10;
+
+/** A placement's refusal, with the nearest tile where the core's own planner (`fits`) would take it, nearest first
+ *  within NEAREST_MOST tiles, when there is one: the core's reason stands first, word for word. */
+function withNearest(why: string, x: unknown, y: unknown, fits: (x: number, y: number) => boolean): string {
+  if (typeof x !== "number" || typeof y !== "number") return why;
+  const near: [number, number, number][] = [];
+  for (let dy = -NEAREST_MOST; dy <= NEAREST_MOST; dy++)
+    for (let dx = -NEAREST_MOST; dx <= NEAREST_MOST; dx++) if (dx || dy) near.push([dx * dx + dy * dy, x + dx, y + dy]);
+  near.sort((a, b) => a[0] - b[0] || a[2] - b[2] || a[1] - b[1]);
+  for (const [d2, tx, ty] of near) {
+    if (d2 > NEAREST_MOST * NEAREST_MOST) break;
+    let ok = false;
+    try {
+      ok = fits(tx, ty);
+    } catch {
+      ok = false;
+    }
+    if (ok) return `${why}. The nearest tile where it can go is X ${tx} · Y ${ty}`;
+  }
+  return `${why}. No tile within ${NEAREST_MOST} of it can take it`;
 }
 
 /** One request, made into the step the page would take for it: its operations, or a force kept whole. */
@@ -562,12 +595,13 @@ function applyOne(s: MapSession, raw: unknown): { label: string; held: number } 
       // the start moves (or is placed) by its own rule (core/doc/tools.ts `planStart`)
       if (p.template === "StartingLocation") {
         const plan = planStart(s, p.x as number, p.y as number, p.orientation as never, () => id, p.z as number | undefined);
-        if (!plan.ok) refuse(plan.errors[0]);
+        if (!plan.ok) refuse(withNearest(plan.errors[0], p.x, p.y, (x, y) => planStart(s, x, y, p.orientation as never, () => id).ok));
         const ok = plan as { ops: EditOp[]; label: string };
         return done(s.applyAll(ok.ops, "user", label ?? ok.label), label ?? ok.label);
       }
       const plan = planEntity(s, { template: p.template as string, x: p.x as number, y: p.y as number, orientation: (p.orientation as never) ?? "Cw0", ...(p.flipped ? { flipped: true } : {}), ...(p.z !== undefined ? { z: p.z as number } : {}), ...(p.components ? { components: p.components as Record<string, unknown> } : {}) }, id);
-      if (!plan.ok) refuse(plan.errors[0]);
+      if (!plan.ok)
+        refuse(withNearest(plan.errors[0], p.x, p.y, (x, y) => planEntity(s, { template: p.template as string, x, y, orientation: (p.orientation as never) ?? "Cw0", ...(p.flipped ? { flipped: true } : {}), ...(p.components ? { components: p.components as Record<string, unknown> } : {}) }, id).ok));
       // (the planner levels the footprint itself, a badwater source's spring pool included: the shelf's `applyTool`)
       const ok = plan as { ops: EditOp[]; label: string };
       return done(s.applyAll(ok.ops, "user", label ?? ok.label), label ?? ok.label);
@@ -576,7 +610,7 @@ function applyOne(s: MapSession, raw: unknown): { label: string; held: number } 
       const e = s.built.entities.find((g) => g.id === p.id);
       if (e?.template === "StartingLocation") {
         const plan = planStart(s, p.x as number, p.y as number, p.orientation as never, () => randomUUID(), p.z as number | undefined);
-        if (!plan.ok) refuse(plan.errors[0]);
+        if (!plan.ok) refuse(withNearest(plan.errors[0], p.x, p.y, (x, y) => planStart(s, x, y, p.orientation as never, () => "probe").ok));
         const ok = plan as { ops: EditOp[]; label: string };
         return done(s.applyAll(ok.ops, "user", label ?? ok.label), label ?? ok.label);
       }
@@ -625,10 +659,13 @@ export function applyOps(s: MapSession, ops: unknown[]): Change {
       held += r.held;
     }
   } catch (e) {
+    // (the steps this call made are taken back and never come back by redo; a refusal before any step leaves the
+    // history, its redo too, as it was, as the page's refused edit does)
+    const made = depth() > at;
     while (depth() > at && s.undo()) {
       // (taken back to where the call found the map)
     }
-    s.forgetRedo();
+    if (made) s.forgetRedo();
     throw e;
   }
   const c = notesOf(changeSince(s, before, steps, held), before, startOf(s), verbs, movedStart);
@@ -667,6 +704,14 @@ export function undoStep(s: MapSession): { undone: string } {
   if (!last) refuse("There is nothing to undo");
   if (!s.undo()) refuse(s.undoStopped ?? "There is nothing to undo");
   return { undone: last!.label };
+}
+
+/** Redo the step undo took back last: its label, or the refusal that there is nothing to redo. A new edit after an undo
+ *  clears what redo would bring back, in the core's history as on the page. */
+export function redoStep(s: MapSession): { redone: string } {
+  const next = s.history().find((h) => !h.applied);
+  if (!next || !s.canRedo || !s.redo()) refuse("There is nothing to redo");
+  return { redone: next!.label };
 }
 
 // --------------------------------------------------------------------------------------------------- checks

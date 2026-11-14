@@ -761,9 +761,15 @@ function shapeOf(tiles: readonly number[], W: number): { axes: number } {
 /** The falls of the settled water, grouped (tiles within 2 of each other): each group's tallest
  *  drop, the surface at its top, and its middle. */
 function fallGroups(c: FinalCtx): { drop: number; top: number; x: number; y: number }[] {
-  const { W, h, D } = c;
-  const out: { drop: number; top: number; x: number; y: number; n: number }[] = [];
-  for (const f of c.falls) {
+  return fallGroupsOf(c.W, c.h, c.D, c.falls).map(({ drop, top, x, y }) => ({ drop, top, x, y }));
+}
+
+/** The falls (`analysis/vertical.ts` `fallsOf`) grouped as the intentions read them: tiles within 2 of each other, each
+ *  group's tallest drop, the surface at its top, its middle, and its tiles. The MCP server's describe and picture show
+ *  them (mcp/src/describe.ts). */
+export function fallGroupsOf(W: number, h: ArrayLike<number>, D: ArrayLike<number>, falls: readonly { i: number; drop: number }[]): { drop: number; top: number; x: number; y: number; tiles: number[] }[] {
+  const out: { drop: number; top: number; x: number; y: number; n: number; tiles: number[] }[] = [];
+  for (const f of falls) {
     const x = f.i % W;
     const y = (f.i - x) / W;
     const g = out.find((q) => Math.abs(q.x / q.n - x) <= 2.5 + q.n / 4 && Math.abs(q.y / q.n - y) <= 2.5 + q.n / 4);
@@ -774,9 +780,10 @@ function fallGroups(c: FinalCtx): { drop: number; top: number; x: number; y: num
       g.n++;
       g.drop = Math.max(g.drop, f.drop);
       g.top = Math.max(g.top, top);
-    } else out.push({ drop: f.drop, top, x, y, n: 1 });
+      g.tiles.push(f.i);
+    } else out.push({ drop: f.drop, top, x, y, n: 1, tiles: [f.i] });
   }
-  return out.map((g) => ({ drop: g.drop, top: g.top, x: g.x / g.n, y: g.y / g.n }));
+  return out.map((g) => ({ drop: g.drop, top: g.top, x: g.x / g.n, y: g.y / g.n, tiles: g.tiles }));
 }
 
 /** The median width of the low ground across a course (within a level of its water). */

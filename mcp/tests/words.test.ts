@@ -32,8 +32,10 @@ describe("the MCP server's words", () => {
     const stored = Object.keys((opsSchema as Record<string, any>).$defs.forceResult.properties).filter((k) => !["verb", "settings", "where"].includes(k));
     for (const k of stored) expect(force.properties[k], k).toEqual({ description: "The engine fills this. Leave it out." });
     // the craterize's size at its default power, as the code makes it
-    expect(force.properties.settings.properties.size.description).toContain(`a craterize is ${naturalSize(55)} tiles across`);
-    expect(force.properties.settings.description).toContain("craterize: mode strike, power 55, size null");
+    // the server's own default size (20, MCP_DEFAULTS), and the page's by Power when null, as the code makes it
+    expect(force.properties.settings.properties.size.description).toContain("A craterize is 20 across unless size is given");
+    expect(force.properties.settings.properties.size.description).toContain(`a craterize is then ${naturalSize(55)} tiles across`);
+    expect(force.properties.settings.description).toContain("craterize: mode strike, power 55, size 20,");
     expect(force.properties.settings.properties.sources.description).toMatch(/"clear" \(the default\): the force removes them/);
     expect(force.properties.where.description).toContain("Y south to north");
     expect(apply.description).toContain("A crater is a dry bowl");

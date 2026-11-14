@@ -2,7 +2,11 @@
 // thumbnail colours) with tile coordinates in the margins, so a picture can be read back as tiles. North (higher Y)
 // is up, as in the map's thumbnail. Layers draw one field of the map instead of its look.
 
+import { FALL_LEAST, lakesOf, waterfallsOf } from "./describe";
 import { shownSoil, shownWater, startTile } from "./maps";
+
+const FALL: [number, number, number] = [255, 150, 30];
+const LAKE: [number, number, number] = [60, 230, 240];
 import type { MapSession } from "../../src/core/doc/session";
 import { shadeTiles } from "../../src/core/render/shade";
 import { encodePng } from "../../tools/png";
@@ -154,6 +158,27 @@ export function picture(s: MapSession, opts: { layer?: Layer; region?: Region } 
     const m = full ? 0 : Math.floor(S / 4);
     for (let dy = m; dy < S - m; dy++) for (let dx = m; dx < S - m; dx++) set(px(x) + dx, py(y) + dy, c);
   };
+  // the lakes outlined in cyan (the side of each lake tile that faces out of the lake), the falls' tiles in orange
+  for (const l of lakesOf(s)) {
+    const inLake = new Set(l.wet);
+    for (const i of l.wet) {
+      const x = i % W;
+      const y = (i - x) / W;
+      if (!inR(x, y)) continue;
+      const out = (xx: number, yy: number) => xx < 0 || yy < 0 || xx >= W || yy >= H || !inLake.has(yy * W + xx);
+      const k = Math.max(1, Math.floor(S / 6));
+      for (let t = 0; t < S; t++)
+        for (let w = 0; w < k; w++) {
+          if (out(x - 1, y)) set(px(x) + w, py(y) + t, LAKE);
+          if (out(x + 1, y)) set(px(x) + S - 1 - w, py(y) + t, LAKE);
+          if (out(x, y + 1)) set(px(x) + t, py(y) + w, LAKE);
+          if (out(x, y - 1)) set(px(x) + t, py(y) + S - 1 - w, LAKE);
+        }
+    }
+  }
+  // (a fall's tiles and the four round each, so a one-tile fall reads at any scale)
+  for (const f of waterfallsOf(s))
+    for (const i of f.tiles) for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) dot((i % W) + dx, (i - (i % W)) / W + dy, FALL, true);
   for (const e of s.built.entities) {
     if (e.template === "WaterSource") dot(e.x, e.y, [255, 255, 255], false);
     else if (e.template === "BadwaterSource") dot(e.x, e.y, [255, 60, 220], false);
@@ -167,5 +192,5 @@ export function picture(s: MapSession, opts: { layer?: Layer; region?: Region } 
     badwater: "Badwater: purple water, darker more contaminated; pink soil that badwater kills plants on; clean water blue.",
     heights: "Heights: one colour a level, from green low ground through sand and brown to white at level 22.",
   }[layer];
-  return { png: encodePng(img, IW, IH), region, scale: S, legend: `${legend} North (higher Y) is up. Grid lines every ${G} tiles, numbered in the margins. Red: the start. White dots: water sources. Magenta dots: badwater sources.` };
+  return { png: encodePng(img, IW, IH), region, scale: S, legend: `${legend} North (higher Y) is up. Grid lines every ${G} tiles, numbered in the margins. Red: the start. White dots: water sources. Magenta dots: badwater sources. Orange: waterfalls (a drop of ${FALL_LEAST} levels or more). Cyan outlines: lakes.` };
 }

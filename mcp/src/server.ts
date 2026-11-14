@@ -19,7 +19,7 @@ import { PREMISE_THEMES } from "../../src/core/premise/choice";
 import { openPlaceSession, placeOf, placesIndex } from "./places";
 import { describeMap, summaryOf } from "./describe";
 import { jobOf, secondsOf, startGenerate, waitFor, WAIT_MS, type Job } from "./jobs";
-import { applyOps, checksOf, FORCE_DEFAULTS, keepMap, mapOf, mapsFolder, MOST_OPEN, openMap, Refused, rowOf, saveMap, undoStep, type Made } from "./maps";
+import { applyOps, checksOf, FORCE_DEFAULTS, forceDefaults, keepMap, mapOf, mapsFolder, MOST_OPEN, openMap, redoStep, Refused, rowOf, saveMap, undoStep, type Made } from "./maps";
 import { LAYERS, picture, type Layer, type Region } from "./picture";
 
 export const SERVER_VERSION = "0.2.0";
@@ -55,7 +55,7 @@ const STORED = "The engine fills this. Leave it out.";
 
 /** A force's settings with their defaults, in words: "mode strike, power 55, size null". */
 function defaultsOf(verb: string): string {
-  return Object.entries(FORCE_DEFAULTS[verb])
+  return Object.entries(forceDefaults(verb))
     .filter(([k]) => k !== "seed" && k !== "layers")
     .map(([k, v]) => `${k} ${v}`)
     .join(", ");
@@ -79,7 +79,7 @@ const SETTINGS_TEXT = [
 
 const SETTING_WORDS: Record<string, string> = {
   power: "How strong the force is, 0 to 100.",
-  size: `How wide the force is, in tiles across. null (the default): it follows power. At the default power, a craterize is ${craterAcross(CRATER_POWER)} tiles across and an erupt about ${Math.round(eruptAcross(ERUPT_POWER))}; its rim and debris change the ground out to about size tiles from the middle, so about twice size across (size 16: about 30 tiles), and the start moves if its ground breaks. For a crater in one part of a 96-tile map, give a size such as 12. A shallow form shows best in the picture's heights layer.`,
+  size: `How wide the force is, in tiles across. A craterize is ${forceDefaults("craterize").size} across unless size is given: a bowl whose rim stands about 5 levels over its middle. null: it follows power; at the default power a craterize is then ${craterAcross(CRATER_POWER)} tiles across and an erupt about ${Math.round(eruptAcross(ERUPT_POWER))} (an erupt's default). Its rim and debris change the ground out to about size tiles from the middle, so about twice size across (size 16: about 30 tiles), and the start moves if its ground breaks. For a crater in one part of a 96-tile map, give a size such as 12. A shallow form shows best in the picture's heights layer.`,
   sources:
     'What happens to water sources, badwater sources and seeps on the tiles the force changes. "clear" (the default): the force removes them. "ride": they stay and move with the ground.',
   dry: "Carve only. false (the default): the carve keeps a water source at its head, so its river runs. true: a dry canyon with no source.",
@@ -188,7 +188,8 @@ export const TOOLS: Tool[] = [
         designedFor: { enum: ["easy", "normal", "hard"], description: "The difficulty the map is made for. The default is normal." },
         settings: {
           ...(optional((specSchema as Record<string, any>).properties.settings) as object),
-          description: "Changes to the generator's settings, as the page's settings panel sets them. Give only the values to change. The other values stay at the theme's defaults.",
+          description:
+            'Changes to the generator\'s settings, as the page\'s settings panel sets them. Give only the values to change. The other values stay at the theme\'s defaults. For more lakes: {"water": {"lakes": "many"}} (the page\'s Lakes and basins: none, few, some or many), or the Lake Basin theme; the generator aims for that many, and a map can still have fewer.',
         },
         premise: {
           enum: ["none", ...PREMISE_CHOICES.map((p) => PREMISE_NAMES[p])],
@@ -265,7 +266,12 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "undo",
-    description: "Undo the last step on a map. The tool returns the name of the step it took back.",
+    description: "Undo the last step on a map. The tool returns the name of the step it took back; redo brings it back.",
+    inputSchema: { type: "object", additionalProperties: false, required: ["map"], properties: { map: MAP } },
+  },
+  {
+    name: "redo",
+    description: "Redo the last step undo took back. The tool returns the name of the step. A new edit after undo clears what redo can bring back.",
     inputSchema: { type: "object", additionalProperties: false, required: ["map"], properties: { map: MAP } },
   },
   {
@@ -455,6 +461,10 @@ export async function callTool(name: string, args: Record<string, unknown>, call
       case "undo": {
         const s = mapOf(String(args.map));
         return { content: [text(`Undone: ${undoStep(s).undone}.`)] };
+      }
+      case "redo": {
+        const s = mapOf(String(args.map));
+        return { content: [text(`Redone: ${redoStep(s).redone}.`)] };
       }
       case "picture": {
         const s = mapOf(String(args.map));
