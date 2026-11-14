@@ -60,7 +60,7 @@ import { FOOTPRINTS, rotate, startEntranceTile, worldBlocks, type Orientation } 
 import { DEAD, DYING, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
 import { plantScale, RANDOMIZER } from "./plantSize";
 import { DEAD_FORM, DEAD_LIMBS, type DeadPart, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
-import { crownShade, LANDMARK, MINE, OWN_LIGHTNESS, ownAlbedo, RUIN, SLOPE, START, TREE_COLOURS, WATER } from "./palette";
+import { crownShade, LANDMARK, MINE, OWN_LIGHTNESS, ownAlbedo, RUIN, SLOPE, START, START_IRON_TEETH, TREE_COLOURS, WATER } from "./palette";
 import { objectSoilAt } from "./runSoil";
 import { badtideDrainParts } from "./badtideDrain";
 import { reserveParts, stockOf } from "./reserves";
@@ -1015,7 +1015,7 @@ const round = (r: number, cx = 0, cy = 0, n = 8): [number, number][] => Array.fr
  *  face in a pale frame and a pale band round it at 2; a brown platform 1.02 across at 2.8 to 2.93 with four pale
  *  points out from it, pale railing posts and spindles to 3.16 and a pale frame; the fire bowl of iron on a pale stand;
  *  the lantern's four pale posts to 4.33 with brown brackets under a thatched hood 1.22 across from 3.78 to 4.21, open
- *  at the top round a brown ring. (The fire the game lights in it, its own particles, is left out.) */
+ *  at the top round a brown ring. (The fire the game lights in it is its own: startFire.ts.) */
 function districtCenter(): Model {
   const m = new Model();
   const W = START.wood;
@@ -1062,6 +1062,75 @@ function districtCenter(): Model {
   lathe(m, [[0.34, 4.18], [0, 4.18]], 12, START.crown);
   return m;
 }
+
+/** The Iron Teeth's start as the game draws it in play: their district center (DistrictCenter.IronTeeth.Model, its
+ *  measures, docs/progress/3d-view.md "The Iron Teeth's start and the fire, read"; D178 as amended 2026-11-10, D496),
+ *  placed as the Folktails' is: centred on its 3 × 3 footprint, its door toward +Z. An indigo floor 3 across; walls of
+ *  pale grey planks 2.86 across to 1.0 between four indigo corner posts 0.25 square to 1.11; a square-topped door in an
+ *  indigo frame 0.87 wide to 0.75 on the front, round windows 0.47 across either side of it and one on each side; a square
+ *  hip roof of dark olive planks in two tiers from its eaves at 0.97 up to 1.83, a band of them round the tower's foot;
+ *  the tower of pale planks, square, 1.61 across its foot leaning in to 1.03 at 2.87, dark brown posts up its corners,
+ *  a blue-violet emblem in an indigo ring on each face; a dark brown platform 1.82 across at 2.83 to 2.93, an indigo rim,
+ *  spindles and rail; the fire bowl of iron on an indigo stand; the lantern's eight dark brown beams, an inverted V on
+ *  each side up to the hood at 3.8: its frame and soffit, a square roof of the olive planks to 4.33, a pale collar and an
+ *  iron flue open at the top. */
+function ironTeethCenter(): Model {
+  const m = new Model();
+  const T = START_IRON_TEETH;
+  m.add(box(3, 0.1, 3), T.indigo, { y: 0.05 });
+  m.add(box(2.86, 1, 2.86), T.planks, { y: 0.5 });
+  for (const x of [-1.4255, 1.4255]) for (const z of [-1.4255, 1.4255]) m.add(box(0.247, 1.11, 0.247), T.indigo, { x, y: 0.555, z });
+  // the door: its dark leaf in an indigo frame and lintel on the front; round windows either side and one on each side
+  m.add(box(0.74, 0.7, 0.012), T.door, { y: 0.35, z: 1.436 });
+  for (const x of [-0.4025, 0.4025]) m.add(box(0.065, 0.695, 0.073), T.indigo, { x, y: 0.3475, z: 1.4635 });
+  m.add(box(0.86, 0.11, 0.073), T.indigo, { y: 0.695, z: 1.4635 });
+  for (const x of [-1, 1]) plate(m, round(0.235, x, 0.5, 12), 1.42, 1.5, T.window);
+  for (const f of [1, 3]) onFace(m, f, () => plate(m, round(0.235, 0, 0.5, 12), -1.5, -1.42, T.window));
+  // the roof in two tiers, and the band round the tower's foot
+  lathe(m, [[[1.42], 0.97], [[1.5], 1.09], [[1.21], 1.36], [[1.2], 1.46], [[0.83], 1.83]], 8, T.roof);
+  m.add(box(1.68, 0.13, 1.68), T.roof, { y: 1.865 });
+  // the tower, the posts up its corners, its emblems
+  lathe(m, [[[0.805], 1.93], [[0.515], 2.87]], 8, T.planks);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) beam(m, [0.79 * sx, 1.79, 0.79 * sz], [0.48 * sx, 2.89, 0.48 * sz], 0.055, T.darkWood);
+  for (let f = 0; f < 4; f++)
+    onFace(m, f, () => {
+      // (tilted with the face, which leans in 17°)
+      m.add(new CylinderGeometry(0.3, 0.3, 0.155, 12), T.indigo, { rx: Math.PI / 2 + 0.2985, y: 2.425, z: -0.652 });
+      m.add(new CylinderGeometry(0.225, 0.225, 0.03, 12), T.emblem, { rx: Math.PI / 2 + 0.2985, y: 2.45, z: -0.73 });
+    });
+  // the platform: its deck, its rim, spindles and rail
+  m.add(box(1.82, 0.1, 1.82), T.darkWood, { y: 2.88 });
+  m.add(box(1.31, 0.2, 1.31), T.indigo, { y: 2.91 });
+  for (let f = 0; f < 4; f++)
+    onFace(m, f, () => {
+      for (const x of [-0.35, -0.115, 0.115, 0.35]) m.add(box(0.046, 0.175, 0.046), T.indigo, { x, y: 2.9975, z: -0.505 });
+      m.add(box(1.07, 0.055, 0.03), T.indigo, { y: 3.0975, z: -0.52 });
+    });
+  // the fire bowl: the stand's four blocks, the stand, the iron bowl (the Folktails' piece and place)
+  for (const x of [-0.244, 0.244]) for (const z of [-0.244, 0.244]) m.add(box(0.21, 0.26, 0.21), T.indigo, { x, y: 3.03, z });
+  lathe(m, [[[0.26], 3.03], [[0.26], 3.24], [[0.21], 3.24]], 8, T.indigo);
+  lathe(m, [[0.22, 3.2], [0, 3.2]], 8, T.iron);
+  // the lantern: two beams up each side from the platform's corners to the side's middle
+  for (let f = 0; f < 4; f++)
+    onFace(m, f, () => {
+      for (const sx of [-1, 1]) beam(m, [0.53 * sx, 2.95, -0.53], [0, 3.95, -0.51], 0.045, T.darkWood);
+    });
+  // the hood: its frame and soffit, its roof, the collar and the iron flue open at the top
+  lathe(m, [[[0.685], 3.8], [[0.315], 3.8]], 8, T.darkWood);
+  lathe(m, [[[0.7], 3.8], [[0.7], 3.89]], 8, T.soffit);
+  lathe(m, [[[0.7], 3.89], [[0.6], 3.96], [[0.62], 4.04], [[0.46], 4.22], [[0.445], 4.33]], 8, T.roof);
+  lathe(m, [[[0.445], 4.33], [[0.36], 4.37]], 8, T.collar);
+  lathe(m, [[[0.315], 3.85], [[0.315], 4.32], [[0.36], 4.37]], 8, T.iron);
+  lathe(m, [[[0.315], 4.3], [0, 4.3]], 8, T.iron);
+  return m;
+}
+
+/** The start's model for the faction: the Folktails' district center (the view's default) or the Iron Teeth's. The map
+ *  names no faction (the player picks one when starting it), so the view is told which (`MapRenderer.setFaction`). */
+export type Faction = "Folktails" | "IronTeeth";
+export const startModel = (faction: Faction): (() => Model) => (faction === "IronTeeth" ? ironTeethCenter : districtCenter);
+/** The start's batch for the faction. */
+export const startBatch = (faction: Faction): string => (faction === "IronTeeth" ? "start.IronTeeth" : "start");
 
 /** The entrance tile's marker, an editing aid shown with Markers (renderer.ts; the game draws nothing there, D497): a flat
  *  stone and a lit post. */
@@ -1339,6 +1408,7 @@ export function modelKeyOf(template: string, flags: number): string {
 /** Triangles of a model (tests and the benchmark's budget). */
 export function modelTriangles(key: string): number {
   if (key === "start") return districtCenter().triangles;
+  if (key === "start.IronTeeth") return ironTeethCenter().triangles;
   if (key === "ruin") return storey(0, 0, IVY_DENSE).triangles;
   return MODELS[key] ? MODELS[key]().triangles : 12;
 }
@@ -1353,7 +1423,7 @@ export function ruinTriangles(): number {
 /** A model's vertices, colours and view levels (the tests read the models' shapes). */
 export function modelOf(key: string, kind = 0, ivy: number | boolean = IVY_NONE): { pos: readonly number[]; col: readonly number[]; lod: readonly number[] } {
   const level = ivy === true ? IVY_DENSE : ivy === false ? IVY_NONE : ivy;
-  const m = key === "start" ? districtCenter() : /^scaffold\.[A-E]$/.test(key) ? storey(RUIN_VARIANT_IDS.indexOf(key.slice(-1) as "A"), kind, level) : MODELS[key]();
+  const m = key === "start" ? districtCenter() : key === "start.IronTeeth" ? ironTeethCenter() : /^scaffold\.[A-E]$/.test(key) ? storey(RUIN_VARIANT_IDS.indexOf(key.slice(-1) as "A"), kind, level) : MODELS[key]();
   return { pos: m.pos, col: m.col, lod: m.lod };
 }
 
@@ -1424,7 +1494,7 @@ const TREES = new Set(["Pine", "Birch", "Oak"]);
 /** Build the objects of a map view as a group of instanced meshes; with the soil (and the map's
  *  width), ruins on moist ground are overgrown (a ruin under a roof by its own run top's soil). `lite`: the light look's models (software
  *  rendering). */
-export function buildEntities(v: EntityView, material: ShaderMaterial, soil: SoilView | null = null, W = 0, lite = false, models?: EntityGeometryCache, reuse?: { group: Group; entities: EntityView }): { group: Group; instances: number } {
+export function buildEntities(v: EntityView, material: ShaderMaterial, soil: SoilView | null = null, W = 0, lite = false, models?: EntityGeometryCache, reuse?: { group: Group; entities: EntityView }, faction: Faction = "Folktails"): { group: Group; instances: number } {
   const batches = new Map<string, Batch>();
   const batch = (key: string, model: () => Model): Batch => {
     let b = batches.get(key);
@@ -1482,7 +1552,7 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
       const o = ORIENTATION_NAMES[v.orientation[k]] as Orientation;
       // the 3×3 footprint's centre: Coordinates plus the rotated local (1, 1)
       const [dx, dy] = rotate(o, 1, 1);
-      put(batch("start", districtCenter), x + dx + 0.5, z, -(y + dy + 0.5), turn, 1, 1, 1, GROW_START);
+      put(batch(startBatch(faction), startModel(faction)), x + dx + 0.5, z, -(y + dy + 0.5), turn, 1, 1, 1, GROW_START);
       const [ex, ey] = startEntranceTile(x, y, o);
       put(batch("start.entrance", entrance), ex + 0.5, z, -(ey + 0.5), turn, 1);
       continue;

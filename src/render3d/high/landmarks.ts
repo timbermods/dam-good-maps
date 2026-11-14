@@ -117,7 +117,8 @@ const models = new Map<string, BufferGeometry>();
 /** A landmark's geometry, made once (the ones built on today's models, per model: today's batch, whatever object it
  *  draws first). */
 function geometryFor(name: string, batch: string, base: BufferGeometry): BufferGeometry {
-  const key = name === "StartingLocation" || name.endsWith("Relic") || ["Thorns", "GeothermalField", "WaterSource", "BadwaterSource", "Blockage", "NaturalDam"].includes(name) ? name : `|${batch}`;
+  // (the start's model is the faction's, its batch says which: entities3d.ts `startBatch`)
+  const key = name === "StartingLocation" ? `${name}|${batch}` : name.endsWith("Relic") || ["Thorns", "GeothermalField", "WaterSource", "BadwaterSource", "Blockage", "NaturalDam"].includes(name) ? name : `|${batch}`;
   let g = models.get(key);
   if (!g) {
     // (the ruins, the start, the sources, the relics, the blockage, the natural dam, the thorns and the geothermal field

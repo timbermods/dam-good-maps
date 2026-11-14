@@ -745,8 +745,8 @@ export const START = {
 } as const;
 
 /** The Iron Teeth's start as the game draws it in play: their district center (DistrictCenter.IronTeeth.Model,
- *  Timberborn 1.1.2.8, D178 as amended 2026-11-10, D496), read so it can be drawn; nothing draws it yet (the view draws
- *  the Folktails' `START` for both factions). Its measures, part by part, are in docs/progress/3d-view.md, "The Iron
+ *  Timberborn 1.1.2.8, D178 as amended 2026-11-10, D496), drawn when the renderer is given that faction
+ *  (entities3d.ts `ironTeethCenter`; `START`, the Folktails', by default). Its measures, part by part, are in docs/progress/3d-view.md, "The Iron
  *  Teeth's start and the fire, read". Each colour is a material's albedo read as `START`'s were
  *  (`tools/game-model-albedo.py`: texture × vertex colour × `_Color`, the mean over the material's triangles weighted by
  *  area, display values, as the game renders in Gamma colour space), × (1 − its metallic) sample by sample: URP's
@@ -782,8 +782,8 @@ export const START_IRON_TEETH = {
 } as const;
 
 /** The fire the game lights in the district center's bowl, the same for both factions (the prefab DistrictCenterFire,
- *  Timberborn 1.1.2.8; D178 as amended 2026-11-10, D496), read with `tools/game-particles.py` so it can be drawn; nothing
- *  draws it yet. Both DistrictCenter blueprints (`TemplateAttachmentsSpec`, attachment "Fire") put it under `#Finished`
+ *  Timberborn 1.1.2.8; D178 as amended 2026-11-10, D496), read with `tools/game-particles.py` and drawn by startFire.ts
+ *  (its light by materials.ts `START_LIGHT_GLSL`). Both DistrictCenter blueprints (`TemplateAttachmentsSpec`, attachment "Fire") put it under `#Finished`
  *  at (1.5, 3.0, 1.5), unturned, scale 1. Lengths are metres (one tile), times seconds, in the model's own frame: y up,
  *  the origin the footprint's corner, the door on the z = 0 face. Colours are display values (Gamma colour space).
  *  Full figures and what they make: docs/progress/3d-view.md, "The Iron Teeth's start and the fire, read". */
