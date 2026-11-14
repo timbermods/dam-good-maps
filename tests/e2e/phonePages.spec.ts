@@ -3,11 +3,14 @@
 // Together, the time-lapse, the checks), upright at 393×852 and on its side at 852×393, three device pixels to a CSS
 // pixel and a touch screen. Each: no control under 44px, none off the screen (a page scrolls inside itself, read at its
 // top and its foot), fields 16px, the page itself neither zoomed nor scrolled, and a plain close on the screen that
-// closes it. Save to Timberborn hands the map's file to the share sheet where the browser has one for files.
+// closes it, and no word cut short (no ellipsis, no clipped label). Save to Timberborn hands the map's file to the share
+// sheet where the browser has one for files. The second pass: Generate the page's one green button at its foot, Keep quiet
+// beside the seed; History's rows the page's width; two cards a row upright; Help to a finger, the gestures first; the map
+// being made centred; a long press in Your maps selecting as Ctrl+click does.
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openLayoutMap as openEditor } from "./helpers";
-import { phoneControls } from "./phone";
+import { phoneClipped, phoneControls } from "./phone";
 
 test.describe.configure({ mode: "parallel" });
 
@@ -45,6 +48,32 @@ async function check(page: Page, W: number, H: number, state: string) {
   expect(controls.filter((c) => Math.min(c.w, c.h) < 43.5).map((c) => `${c.name} ${Math.round(c.w)}×${Math.round(c.h)}`), `${state}: controls under 44px`).toEqual([]);
   expect(controls.filter((c) => c.off).map((c) => c.name), `${state}: controls off the screen`).toEqual([]);
   expect(controls.filter((c) => c.font !== null && c.font < 16).map((c) => c.name), `${state}: fields under 16px`).toEqual([]);
+  expect(await phoneClipped(page), `${state}: words cut short`).toEqual([]);
+}
+
+/** A finger held on `target` past a long press (Playwright has no long press for touch: the browser's own touch events). */
+async function longPress(page: Page, target: Locator) {
+  const b = (await target.boundingBox())!;
+  const at = { x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height * 0.6) };
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [at] });
+  await page.waitForTimeout(800);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await cdp.detach();
+}
+
+/** The buttons under `within` filled in the accent (a primary button's green), not counting a pressed choice, by their words. */
+async function greenButtons(page: Page, within: string) {
+  return page.locator(within).evaluate((root) => {
+    const probe = document.createElement("span");
+    probe.style.color = "var(--accent)";
+    document.body.appendChild(probe);
+    const accent = getComputedStyle(probe).color;
+    probe.remove();
+    return [...root.querySelectorAll("button")]
+      .filter((b) => b.checkVisibility() && getComputedStyle(b).backgroundColor === accent && b.getAttribute("aria-pressed") === null)
+      .map((b) => b.textContent!.trim());
+  });
 }
 
 for (const phone of PHONES) {
@@ -83,6 +112,117 @@ for (const phone of PHONES) {
         await close.tap();
         await expect(root, `${o.name} closes`).toBeHidden();
       }
+    });
+
+    test(`at ${W}×${H}: Generate at the page's foot, the lists the page's width, Help to a finger, the map being made centred`, async ({ page }) => {
+      test.setTimeout(400_000);
+      await openEditor(page);
+      // Generate: the one green button, fixed at the page's foot whatever is scrolled; Keep quiet beside the seed
+      await fromMenu(page, "Map Generator");
+      const gen = page.locator(".phone-page .gen button[type=submit]");
+      const body = page.locator(".phone-page-body");
+      const atFoot = async () => {
+        const b = (await gen.boundingBox())!;
+        expect(Math.abs(b.y + b.height - (H - 10)), "Generate stands 10px above the screen's foot").toBeLessThan(1.5);
+        expect(b.width, "Generate is the page's width").toBeGreaterThan(W - 30);
+        const bb = (await body.boundingBox())!;
+        expect(bb.y + bb.height, "the settings end above it").toBeLessThanOrEqual(b.y - 9);
+      };
+      await atFoot();
+      await body.evaluate((e) => (e.scrollTop = e.scrollHeight));
+      await atFoot();
+      await body.evaluate((e) => (e.scrollTop = 0));
+      const keep = page.locator(".phone-page .seed .set-toggle");
+      for (const pressed of ["false", "true"]) {
+        if ((await keep.getAttribute("aria-pressed")) !== pressed) await keep.tap();
+        await expect(keep).toHaveAttribute("aria-pressed", pressed);
+        expect(await greenButtons(page, ".phone-page"), `Keep ${pressed === "true" ? "held" : "free"}: the one green button`).toEqual(["Generate"]);
+        const k = (await keep.boundingBox())!;
+        const s = (await page.locator(".phone-page .seed .set-text").boundingBox())!;
+        expect(Math.abs(k.y + k.height / 2 - (s.y + s.height / 2)), "Keep beside the seed").toBeLessThan(1.5);
+        expect(k.x).toBeGreaterThan(s.x + s.width);
+      }
+      // the map being made: centred on the screen, all of it in view
+      await gen.tap();
+      const making = page.locator(".making-dialog");
+      await expect(making).toBeVisible();
+      const m = (await making.boundingBox())!;
+      expect(Math.abs(m.x + m.width / 2 - W / 2), "the map being made: centred across").toBeLessThan(1.5);
+      expect(Math.abs(m.y + m.height / 2 - H / 2), "the map being made: centred up and down").toBeLessThan(1.5);
+      expect(m.y >= 0 && m.y + m.height <= H && m.x >= 0 && m.x + m.width <= W).toBe(true);
+      expect(await phoneClipped(page), "the map being made: words cut short").toEqual([]);
+      await expect(making).toBeHidden({ timeout: 120_000 });
+      // History: each step a row the page's width, its whole label; Keep this version (a second map in Your maps)
+      await fromMenu(page, "Clear everything");
+      await expect.poll(() => page.evaluate(() => window.dgmEditor!.info().history.length), { timeout: 30_000 }).toBeGreaterThan(0);
+      await fromMenu(page, "History");
+      const rows = page.locator(".history-panel .hist-row");
+      await expect(rows).toHaveCount(2);
+      const width = await page.locator(".history-panel .hist-steps").evaluate((e) => e.getBoundingClientRect().width);
+      for (const r of await rows.all()) expect(Math.abs((await r.boundingBox())!.width - width), "a step's row is the list's width").toBeLessThan(1);
+      await page.locator(".history-panel .hist-act:visible", { hasText: "Keep this version" }).tap();
+      await page.locator(".phone-back").tap();
+      // Real places and Your maps: two cards a row upright, four on its side
+      const perRow = W < 600 ? 2 : 4;
+      for (const [entry, tile] of [["Real places", ".real-places li"], ["Your maps", ".your-maps li[data-id]"]] as const) {
+        await fromMenu(page, entry);
+        const tiles = page.locator(tile);
+        await expect.poll(() => tiles.count(), { timeout: 30_000 }).toBeGreaterThanOrEqual(2);
+        const boxes = await tiles.evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ y: r.y, w: r.width })));
+        const first = boxes.filter((b) => Math.abs(b.y - boxes[0].y) < 1);
+        const room = await page.locator(".phone-page-body").evaluate((e) => e.clientWidth);
+        expect(first.length, `${entry}: cards in the first row`).toBe(Math.min(perRow, boxes.length));
+        expect(boxes[0].w, `${entry}: a card's share of the row`).toBeGreaterThan(room / perRow - 20);
+        await page.locator(".phone-back").tap();
+      }
+      // Help to a finger: the gestures first; on a phone, no mouse and no key
+      await fromMenu(page, "Help and keys");
+      const help = page.locator(".help-dialog");
+      await expect(help.locator("h3").first()).toHaveText("Controls");
+      for (const words of ["Pinch to zoom", "Double tap to zoom in where you tap. On an object, the first tap also selects it.", "Tap with two fingers to undo, with three to redo.", "hold a map to select several"]) await expect(help).toContainText(words);
+      await expect(help).not.toContainText(/mouse|Middle-drag|scroll zooms|Keyboard shortcuts|click/i);
+      await help.locator("footer").getByRole("button", { name: "Close" }).tap();
+    });
+
+    test(`at ${W}×${H}: a long press in Your maps selects as Ctrl+click does, and Delete still asks`, async ({ page }) => {
+      test.setTimeout(400_000);
+      await openEditor(page);
+      await fromMenu(page, "Clear everything");
+      await expect.poll(() => page.evaluate(() => window.dgmEditor!.info().history.length), { timeout: 30_000 }).toBeGreaterThan(0);
+      await fromMenu(page, "History");
+      await page.locator(".history-panel .hist-act:visible", { hasText: "Keep this version" }).tap();
+      await page.locator(".phone-back").tap();
+      await fromMenu(page, "Your maps");
+      const tiles = page.locator(".your-maps li[data-id]");
+      await expect(tiles).toHaveCount(2, { timeout: 30_000 });
+      const open = await page.evaluate(() => window.dgmEditor!.info().name);
+      // the other map (not the open one) held: it alone selected, no tooltip, no menu, nothing opened
+      const other = page.locator(".your-maps li[data-id]:not(:has(.ym-tile[aria-current=true]))");
+      await longPress(page, other.locator(".ym-tile"));
+      await expect(other).toHaveClass(/selected/);
+      await expect(page.locator(".your-maps li.selected")).toHaveCount(1);
+      await expect(page.locator("[role=tooltip]")).toHaveCount(0);
+      await expect(page.locator(".your-maps .ym-title")).toHaveText("1 selected");
+      await expect(page.getByRole("menu", { name: "Map" })).toBeHidden();
+      // a tap now adds a map (as Ctrl+click), opening none; a second tap takes it out again
+      const here = page.locator(".your-maps li[data-id]:has(.ym-tile[aria-current=true])");
+      await here.locator(".ym-tile").tap();
+      await expect(page.locator(".your-maps li.selected")).toHaveCount(2);
+      await expect(page.locator(".your-maps .ym-title")).toHaveText("2 selected");
+      expect(await page.evaluate(() => window.dgmEditor!.info().name)).toBe(open);
+      await check(page, W, H, "Your maps, two selected");
+      // Delete asks first, as on a desktop; Cancel keeps both
+      await page.locator(".maps-panel .ym-act", { hasText: "Delete" }).tap();
+      const ask = page.getByRole("alertdialog");
+      await expect(ask).toContainText("Delete 2 maps?");
+      await ask.getByRole("button", { name: "Cancel" }).tap();
+      await expect(tiles).toHaveCount(2);
+      await here.locator(".ym-tile").tap();
+      await expect(page.locator(".your-maps li.selected")).toHaveCount(1);
+      // Done ends it: nothing selected, and a tap opens a map again
+      await page.locator(".maps-panel .ym-done").tap();
+      await expect(page.locator(".your-maps li.selected")).toHaveCount(0);
+      await expect(page.locator(".maps-panel .ym-done")).toHaveCount(0);
     });
 
     test(`at ${W}×${H}: Save to Timberborn hands the map's file to the share sheet`, async ({ page }) => {

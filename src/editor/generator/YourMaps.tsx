@@ -4,11 +4,13 @@
 // .timber file, Rename (in place) and Delete (asked once). More maps than the panel holds scroll inside it.
 // Several maps are selected as on a desktop (Kyler, 2026-10-05): Ctrl-click toggles one, Shift-click a range from the
 // last one clicked, neither opening a map; Compare, Rename and Delete on the heading row act on the selection, and the Delete
-// key deletes it (or the map under the pointer) while the pointer is over the panel or a tile has the focus.
+// key deletes it (or the map under the pointer) while the pointer is over the panel or a tile has the focus. A finger
+// (#1074) selects as Ctrl-click does: a long press on a tile selects it, and until the selection is empty again each tap
+// selects or clears a tile; Done clears it.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { GeneratorModel } from "./model";
-import { tip } from "../../ui/Tooltip";
+import { LONG_PRESS, LONG_SLOP, OWN_LONG_PRESS, tip } from "../../ui/Tooltip";
 import { compareProblem, nameTip, parentFull, parentStep, splitVersionName } from "../../core/library/keptVersions";
 import { limitName } from "../nameFit";
 import { COMPARE_KEY } from "../compare/useCompare";
@@ -21,6 +23,18 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
   /** The maps selected, and the last tile clicked (a Shift-click's range runs from it). */
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const anchor = useRef<string | null>(null);
+  /** A finger's selection (#1074): started by a long press on a tile, it lasts while anything is selected, and meanwhile a
+   *  tap is a Ctrl-click. */
+  const [fingerPick, setFingerPick] = useState(false);
+  const picking = fingerPick && selected.size > 0;
+  const pickingNow = useRef(picking);
+  pickingNow.current = picking;
+  /** The long press under way on a tile, and whether one just ended in a selection (the tap that follows it is no tap). */
+  const hold = useRef<{ id: number; x: number; y: number; timer: number } | null>(null);
+  const holdDone = useRef(false);
+  /** The last press on a tile was a finger's: the browser's own long-press menu (Android's contextmenu) is not the
+   *  right-click's. */
+  const fingerDown = useRef(false);
   const panel = useRef<HTMLElement>(null);
   const list = useRef<HTMLUListElement>(null);
   /** The maps whose name is longer than the two lines a tile keeps for it: a kept version then shows its map's name cut and
@@ -54,7 +68,11 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
     });
   }, [ids]);
   const click = (ev: MouseEvent, id: string, here: boolean) => {
-    if (ev.ctrlKey || ev.metaKey) {
+    if (holdDone.current) {
+      holdDone.current = false;
+      return;
+    }
+    if (ev.ctrlKey || ev.metaKey || (pickingNow.current && !ev.shiftKey)) {
       const next = new Set(selected);
       if (!next.delete(id)) next.add(id);
       anchor.current = id;
@@ -71,6 +89,34 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
     setSelected(here ? new Set([id]) : new Set());
     if (!here) m.onOpenMap(id);
   };
+  // a long press: the tile selected, as Ctrl-click selects it; a selection a finger did not start starts again from it
+  const endHold = () => {
+    if (hold.current) clearTimeout(hold.current.timer);
+    hold.current = null;
+  };
+  const startHold = (ev: PointerEvent, id: string) => {
+    fingerDown.current = ev.pointerType === "touch";
+    holdDone.current = false;
+    endHold();
+    if (!fingerDown.current) return;
+    const timer = window.setTimeout(() => {
+      hold.current = null;
+      holdDone.current = true;
+      anchor.current = id;
+      const adding = pickingNow.current;
+      setSelected((was) => (adding ? new Set([...was, id]) : new Set([id])));
+      setFingerPick(true);
+    }, LONG_PRESS);
+    hold.current = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, timer };
+  };
+  const moveHold = (ev: PointerEvent) => {
+    const h = hold.current;
+    if (h && ev.pointerId === h.id && Math.hypot(ev.clientX - h.x, ev.clientY - h.y) > LONG_SLOP) endHold();
+  };
+  useEffect(() => endHold, []);
+  useEffect(() => {
+    if (!selected.size) setFingerPick(false);
+  }, [selected.size]);
   const chosen = m.maps.filter((e) => selected.has(e.id)).map((e) => e.id);
   const rename = () => {
     if (chosen.length !== 1) return;
@@ -154,11 +200,17 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
     setRenaming(null);
   };
   return (
-    <aside ref={panel} class="gen maps-panel" aria-label="Your maps panel">
+    <aside ref={panel} class="gen maps-panel" aria-label="Your maps panel" data-picking={picking ? "" : undefined}>
       <section class="your-maps" aria-label="Your maps">
-        {/* the heading row: Rename and Delete at the tiles' right edge, always there, greyed until a selection fits */}
+        {/* the heading row: Rename and Delete at the tiles' right edge, always there, greyed until a selection fits; while a
+            finger selects, how many are selected and Done */}
         <div class="ym-head">
-          <h2 class="ym-title">Your maps</h2>
+          <h2 class="ym-title">{picking ? `${chosen.length} selected` : "Your maps"}</h2>
+          {picking ? (
+            <button type="button" class="ghost ym-act ym-done" {...tip("Stop selecting maps")} onClick={() => setSelected(new Set())}>
+              Done
+            </button>
+          ) : null}
           <span class="ym-acts">
             <button
               type="button"
@@ -202,7 +254,16 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
               </>
             );
             return (
-              <li key={e.id} class={picked ? "selected" : undefined} data-id={e.id} onContextMenu={(ev) => openMenu(ev, e.id)}>
+              <li
+                key={e.id}
+                class={picked ? "selected" : undefined}
+                data-id={e.id}
+                onContextMenu={(ev) => {
+                  // (a finger's long press is the selection's, not the right-click's menu: ⋯ gives that)
+                  if (fingerDown.current) return void ev.preventDefault();
+                  openMenu(ev, e.id);
+                }}
+              >
                 {renaming === e.id ? (
                   // (an input can't sit in a button: the tile is drawn the same without one while it is renamed)
                   <div class="ym-tile" aria-current={here ? "true" : undefined}>
@@ -213,7 +274,12 @@ export function YourMaps({ model: m }: { model: GeneratorModel }) {
                     type="button"
                     class="ym-tile"
                     aria-current={here ? "true" : undefined}
-                    {...tip(here ? "Select the map open now" : "Open this map", "Ctrl+click selects it", "Shift+click a range")}
+                    {...(picking ? tip(picked ? "Take this map out of the selection" : "Add this map to the selection") : tip(here ? "Select the map open now" : "Open this map", "Ctrl+click selects it", "Shift+click a range"))}
+                    {...{ [OWN_LONG_PRESS]: "" }}
+                    onPointerDown={(ev) => startHold(ev, e.id)}
+                    onPointerMove={moveHold}
+                    onPointerUp={endHold}
+                    onPointerCancel={endHold}
                     onClick={(ev) => click(ev, e.id, here)}
                   >
                     {inside}
