@@ -552,7 +552,7 @@ function riseRuins(spec: MapSpec, W: number, H: number, built: BuildResult, prot
     const x = top[k] % W;
     const y = (top[k] - x) / W;
     for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]] as const) {
-      if (nx < 0 || ny < 0 || nx >= W || ny >= H || (nx - at[0]) ** 2 + (ny - at[1]) ** 2 > RISE_RUINS.reach ** 2) continue;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H || (nx - at[0]) * (nx - at[0]) + (ny - at[1]) * (ny - at[1]) > RISE_RUINS.reach * RISE_RUINS.reach) continue;
       const n = ny * W + nx;
       if (seen.has(n) || h[n] !== h[s0] || !ok(n)) continue;
       seen.add(n);

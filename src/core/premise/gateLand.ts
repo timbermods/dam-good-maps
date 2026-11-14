@@ -1173,7 +1173,8 @@ export const PIT_FILL = { over: 0.5 } as const;
 /** No hollow by the water fills with it (planning's look verdict of 2026-11-14 on round 4: 256² seed 9 held 8 tiles of
  *  a brook's water a level deep in a hollow beside it, over a bank at the water's level): the ground's closed hollows
  *  off the water, read by the least brim they spill over (to the map's edge or any water's bed), each one wet water
- *  reaches (over ground no higher than its planned surface + `PIT_FILL.over`) raised to its brim. The tiles raised. */
+ *  reaches (over ground no higher than its planned surface + `PIT_FILL.over`) raised to its brim, stage 1's own
+ *  ground aside. The tiles raised. */
 export function fillPits(plan: PremisePlan, water: StageWater, h: Uint8Array): number {
   const { W, H } = plan;
   const r = water.raster;
@@ -1247,8 +1248,12 @@ export function fillPits(plan: PremisePlan, water: StageWater, h: Uint8Array): n
           pit.push(j);
         }
     if (!pit.some((i) => reach[i] >= brim[i0])) continue;
-    for (const i of pit) h[i] = brim[i0];
-    raised += pit.length;
+    // (stage 1's own ground stands as it laid it)
+    for (const i of pit)
+      if (!r.fixed[i]) {
+        h[i] = brim[i0];
+        raised++;
+      }
   }
   return raised;
 }

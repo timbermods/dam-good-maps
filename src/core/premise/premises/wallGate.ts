@@ -24,7 +24,7 @@ import { ORIENTATIONS } from "../../format/footprints";
 import { BED_FLOOR } from "../../land/genome";
 import { smoothstep } from "../../math/clamp";
 import { fbm } from "../../math/noise";
-import { cos, hypot, pow, sin, sqrt, tan } from "../../math/portable";
+import { acos, cos, hypot, pow, sin, sqrt, tan } from "../../math/portable";
 import { hazardDays } from "../../sim/weather";
 import { MAX_SILL_WIDTH, sillWidthFor } from "../../sim/sill";
 import { EDITOR_LEVEL, type MapSpec } from "../../spec/mapspec";
@@ -193,7 +193,7 @@ export function armBend(arm: Spine, within: number = LAKE_BEND.within): number {
     const l1 = hypot(x1, y1);
     const l2 = hypot(x2, y2);
     if (!(l1 > 0 && l2 > 0)) continue;
-    most = Math.max(most, Math.acos(Math.max(-1, Math.min(1, (x1 * x2 + y1 * y2) / (l1 * l2)))));
+    most = Math.max(most, acos(Math.max(-1, Math.min(1, (x1 * x2 + y1 * y2) / (l1 * l2)))));
   }
   return most;
 }

@@ -229,7 +229,8 @@ export function drySide(plan: PremisePlan, heights: ArrayLike<number>): { share:
  *  over the lake's sill within `GATE_CREST.near` columns either side of the gap, `peak` the highest there, `least`
  *  the least crest over the sill along the whole range (the gap and the map's last two columns at each end aside),
  *  `gap` the gap's columns, and `notch` those of them whose crest stands under the least beside it (the gate as the
- *  crest line shows it: where the gorge winds along the range, its walls stand as high as the crest beside it). */
+ *  crest line shows it: where the gorge winds along the range, its walls stand as high as the crest beside it). With
+ *  no tile of the gorge in the range's band there is no gate: `gate` and `peak` are -Infinity, failing any floor. */
 export const GATE_CREST = { near: 12 } as const;
 
 export function gateCrest(plan: PremisePlan, water: StageWater, heights: ArrayLike<number>): { gate: number; peak: number; least: number; gap: number; notch: number } {
@@ -253,6 +254,7 @@ export function gateCrest(plan: PremisePlan, water: StageWater, heights: ArrayLi
   let g0 = W;
   let g1 = -1;
   for (let k = 0; k < W; k++) if (gorge[k]) [g0, g1] = [Math.min(g0, k), Math.max(g1, k)];
+  if (g1 < 0) return { gate: -Infinity, peak: -Infinity, least: -Infinity, gap: 0, notch: 0 };
   let lo = Infinity;
   let hi = -Infinity;
   let least = Infinity;
