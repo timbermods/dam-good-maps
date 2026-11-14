@@ -4055,15 +4055,20 @@ The start is the faction's district center with the game's fire in its bowl, dra
   placed and timed on the GPU from its seed and born again with new draws as it dies; its size curve (Hermite between
   the game's keys), colour and alpha gradients, texture alpha (the `Fire` texture's radial means) and the FireParticles
   shader's Unlit pass (colour 2 × texel × colour, alpha saturate(2 × texel alpha × alpha × 0.349)) as read. Through the
-  game's finish (`gamePost`) and into the bloom like the other bright things. An object's: hidden with the objects,
+  game's finish (`gamePost`), its doubled colour kept for the bloom, which runs only while lava burns (`blooms`), so
+  the fire does not bloom yet. An object's: hidden with the objects,
   faded round the pointer with them and cut away above the layer. On the objects' clock, so still with reduced motion,
   as the geothermal steam is (D240 covers the editor's own animations; the fire is the game's look, frozen, not
-  removed). Never in the light look. Its program is compiled ahead with the others (renderer.ts `scheduleWarm`), so a
+  removed). Never in the light look. It asks for frames (`animated`, 30 a second as the water's) only while a start's
+  bowl is inside the frame and its flame at least 2 pixels across (renderer.ts `fireShows`): a map at rest whose start
+  is out of view or too far off to see the flame draws nothing, as dev did before the fire (a blank map, a dry one;
+  D453). A map with water draws its water's 30 frames a second anyway, as on dev. Its program is compiled ahead with the others (renderer.ts `scheduleWarm`), so a
   start placed later does not hitch.
 - **Its light** (materials.ts `START_LIGHT_GLSL`): URP's additional spot light as the game sets it, 1.24 above the
   attachment pointing down: colour × intensity 5 × URP's distance attenuation (1/d² × (1 − (d²/range²)²)², range 8) ×
   its spot attenuation (outer 120°, inner 75°, squared) × n·L, no shadows, added in `gameLight`, which lights the land
-  and the objects in both looks. Up to four starts lit (`START_LIGHTS`); none while the objects are hidden. At the
+  and the objects in both looks. Up to four starts lit (`START_LIGHTS`); none while the objects are hidden, none where
+  the layer cut takes the fire, and faded with the start round the pointer (`dimStartLights`). At the
   game's close camera on Four Lakes r14 it brings the thatch under the bowl from 138/116/77 to 154/128/82 (the game's
   145/122/80) and the grass before the door from 116 to 125 (the game's 126); High measures the same.
 - **Cost:** `benchOrbit` on Highlands 1 at 256 (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a
@@ -4071,14 +4076,18 @@ The start is the faction's district center with the game's fire in its bowl, dra
   four of the branch 2.97–3.46 (interleaved, 2.97/2.76 → 2.97/3.02): about 0.1–0.2 ms in High, within Standard's spread.
   +1 draw call (the fire, one batch for every start); the Iron Teeth's center is 1404 triangles, the Folktails' 1428.
   Nothing is allocated a frame: the fire's buffers and the lights' places are set when the starts change, the frame
-  sets one number (how many lights).
+  sets how many lights and how much each shows. At rest on a blank map (128², dry, the start in its middle; frames
+  drawn a second, the page's main thread a second): dev draws none anywhere (3.7–7.5 ms/s); the branch draws 26 a
+  second with the start close in view (28 ms/s, the GPU about 0.9 ms a frame) and none with the whole map in view
+  (the flame under 2 pixels) or the start out of view (0.1–4.5 ms/s).
 - **Sheet** (local only, `C:/dgm-showcase/start/fire-ironteeth/sheet.png`): the game's own day-1 captures of the
   Folktails start (Four Lakes r14, the opening and close cameras) beside dev's and ours, Standard and High, both
   factions, at the same cameras.
 - **Falls short:** (1) Our flame reads a little shorter than the game's: it doesn't fill the lantern up to the hood as
   the game's does in the close capture. (2) Day only: our view has no night, where the game's fire light shows most.
   (3) The water doesn't take the start's light (whether the game's does is not read). (4) No game capture of the Iron
-  Teeth start to set ours beside.
+  Teeth start to set ours beside. (5) The fire does not bloom: our bloom runs only for lava, so the game's glow where
+  its flame's particles stack is missing.
 
 ## Falls that pour, against the game's Four Lakes frames (PERFECT Water 3; D154, D496; `fix/falls-pour-2`)
 

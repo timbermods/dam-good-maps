@@ -192,7 +192,8 @@ export interface SceneUniforms extends RefractionUniforms {
   objectFade: { value: Vector4 };
   /** 1 while the objects are hidden (objectFade.ts; all but the land's own shape), 0 otherwise. */
   objectHide: { value: number };
-  /** The starts' fires' lights (`START_LIGHT_GLSL`): each one's place (xyz), up to `START_LIGHTS`, and how many. */
+  /** The starts' fires' lights (`START_LIGHT_GLSL`): each one's place (xyz) and how much of it shows (w: none where the
+   *  layer cut takes the fire, the objects' fade round the pointer), up to `START_LIGHTS`, and how many. */
   startLights: { value: Vector4[] };
   startLightCount: { value: number };
 }
@@ -910,7 +911,7 @@ const START_LIGHT_GLSL = (() => {
           float r = d2 * ${f(1 / (L.range * L.range))};
           float fall = clamp(1.0 - r * r, 0.0, 1.0);
           float spot = clamp(l.y * ${f(inv)} - ${f(cosOuter * inv)}, 0.0, 1.0);
-          sum += fall * fall / d2 * spot * spot * max(dot(n, l), 0.0);
+          sum += startLights[i].w * fall * fall / d2 * spot * spot * max(dot(n, l), 0.0);
         }
         return ${glColor(L.colour)} * ${f(L.intensity)} * sum;
       }`;

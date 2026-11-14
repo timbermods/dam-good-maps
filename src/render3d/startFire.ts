@@ -6,7 +6,8 @@
 // spinning 45° a second, its colour over its life a dark grey, yellow, orange and red flame turning to a grey smoke,
 // drawn unlit and alpha-blended as its FireParticles shader draws it: colour 2 × texel × particle colour, alpha 2 ×
 // texel alpha × particle alpha × 0.349, its texture white with a soft round alpha (`textureAlpha`). The game's frame is
-// HDR and keeps the doubled colour, which feeds the bloom (bloom.ts) where particles stack, as ours does. Its light, a
+// HDR and keeps the doubled colour for its bloom where particles stack; ours keeps it for the bloom pass (bloom.ts), which
+// runs only while something can pass its knee (renderer.ts `blooms`: today lava), so the fire does not bloom yet. Its light, a
 // spot in the flue pointing down, is the terrain's and the objects' (materials.ts `START_LIGHT_GLSL`).
 //
 // Placed and timed on the GPU from each particle's seed: 125 particles a start (the game's 50 a second × its mean life
@@ -14,7 +15,9 @@
 // the game's; nothing is done a frame. Drawn in Standard and High, never in the light look (software drawing, no
 // motion), on the objects' clock: still with reduced motion, as the geothermal steam is. An object's: hidden with the
 // objects and faded round the pointer with them (objectFade.ts, by the start's middle), and cut away above the game's
-// layer (the slice), each particle by where it is.
+// layer (the slice), each particle by where it is. Its motion asks for frames only while its flame shows in the view
+// (renderer.ts `fireShows`), so a map at rest with no flame to see draws nothing; its light follows the cut and the fade
+// with it (`dimStartLights`).
 
 import { DoubleSide, InstancedBufferAttribute, InstancedMesh, Matrix4, PlaneGeometry, ShaderMaterial, type IUniform, type Vector4 } from "three";
 import { rotate, type Orientation } from "../core/format/footprints";
