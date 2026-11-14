@@ -741,10 +741,11 @@ for (const [w, h] of [[1280, 800], [1920, 1080]] as const)
     const shapes = page.getByRole("group", { name: "How to select" });
     await expect(shapes.getByRole("button", { name: "Whole map" })).toBeVisible();
     await expect(shapes.locator(".combine")).toHaveCount(0);
-    const cell = (await shapes.getByRole("button", { name: "Rectangle" }).boundingBox())!;
+    // (a plain cell: the narrowest shape's, since a name wider than its share, as "Rectangle" under some fonts, widens its own)
+    const cell = Math.min(...(await shapes.locator("button:not(.whole-map)").evaluateAll((bs) => bs.map((b) => b.getBoundingClientRect().width))));
     const whole = (await shapes.getByRole("button", { name: "Whole map" }).boundingBox())!;
     const group = (await shapes.boundingBox())!;
-    expect(whole.width, "Whole map across two cells").toBeGreaterThan(cell.width * 1.9);
+    expect(whole.width, "Whole map across two cells").toBeGreaterThan(cell * 1.9);
     expect(Math.abs(whole.x + whole.width - (group.x + group.width)), "Whole map ends the row").toBeLessThan(2);
   });
 
