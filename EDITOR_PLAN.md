@@ -374,7 +374,7 @@ place of its bottom rule.
     depth, River depth with Off at its far end, Banks; Craterize's Walls, Centre, Debris, Rays; Erupt's Shape, Summit,
     Flows, Ridges; Quake's Mode, Scarp and Side (V); Glaciate's Meltwater, Benches, Steps, Tarn, Scree) · the Floor ·
     Try another, always in its place, ready once a run is kept; while its rolls are on offer "2 of 4" stands in its
-    own space just above the panel over it, never on Try another's cells (§4, D488; a click shows the next). A force at work: its status, Pause (Carve) and Revert.
+    own space just above the panel over it, never on Try another's cells (§4, D488; a click shows the next). A force at work: its status, Pause (Carve), Skip and Revert.
   An object's settings are not on the bar (below).
   The first-run hints sit above it and point at Carve below and the objects on the right. Every force's row is §4's.
 - **The objects** at the bottom right, a menu always shown with no headings (the right edge on the page's 10px
@@ -648,7 +648,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   value Auto gives where the row can tell (Craterize's centre by its size, Erupt's summit by Power and the seed) or the usual one;
   a rift's walls and a fan's channels are picked in the run (`autoPicked`), every detail outlined the same way. Try another re-rolls
   only the details still on Auto; pins are remembered with the editor preferences. While a force works its row is
-  its status (Carve's with Pause) and Revert; it keeps itself when it ends (no Stop); the other tools wait.
+  its status (Carve's with Pause), Skip and Revert; it keeps itself when it ends (no Stop); the other tools wait.
 - **Fast, with a choice to watch** (D321, item 29): a force is worked out first (its gathering shows meanwhile),
   then shown. **Fast**, the default: its land is final within about two seconds of the gesture, however long or
   large the result, and the player can act again at once (an impact keeps its own, quicker pace); a glacier is shown
@@ -670,9 +670,10 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   level round it, to where the force put it, or where the force's rounding would leave that one tile wide to where it
   stood, never down its cliff and never leaving ground one tile wide. Craterize, Erupt, Rift and Deposit end with it, and Glaciate's walls; Quake adopts it next.
 - **Esc skips, undo takes it back** (D344, A4): while a gesture is still being drawn, Esc cancels it and nothing of
-  it lands; once a force plays, Esc skips it to its end, its final land kept as one step; Ctrl+Z (or Z, or Revert)
-  takes all of it back at any moment, and nothing lands afterwards (D341). The row's tooltip carries the keys (**Esc** skips,
-  **Ctrl+Z** undoes; a painted Lift still drawn: **Esc** cancels), none written in the panel.
+  it lands; once a force plays, Esc (or Skip, for a finger: #1074 slice 3) skips it to its end, its final land kept as
+  one step; Ctrl+Z (or Z, or Revert) takes all of it back at any moment, and nothing lands afterwards (D341). The row's
+  tooltips carry the keys (Skip's **Esc**, Revert's **Ctrl+Z**; a painted Lift still drawn: Revert's **Esc** cancels),
+  none written in the panel.
 - **A force changes things only when it reaches them** (item 30): objects, trees and sources go as the carve's head,
   the ice front or the lava reaches them; an impact changes everything at once; under a quake they ride the
   ground. **The land and its water change together** (D371): while a force is shown, the map's water flows on the land
@@ -1652,18 +1653,31 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   zooms; Shift+scroll sets Raise, Lower and Flatten's target level (D322) and Smooth and Naturalize's strength,
   Ctrl+scroll a hovered source's strength, Esc backs out (a target set by hand first). Quake has no Size. U
   unleashes a selected source (D239).
-- **Touch** (#1074, slice 1; amends D185; `render3d/touch.ts`, `tests/e2e/touch.spec.ts` at both phone sizes and a
+- **Touch** (#1074, slices 1 and 3; amends D185; `render3d/touch.ts`, `tests/e2e/touch.spec.ts` at both phone sizes and a
   desktop's). A finger is a pointer of its own type, so the mouse, the pen (its pressure) and the keys keep everything
   above. **Two fingers** move the camera in one gesture: dragged they pan, pinched they zoom about the ground under their
   middle (it stays under it, as the wheel's does), twisted they turn the view about that ground, and two fingers side by
   side dragged up or down together tilt it (in the top-down view that drag pans); let go moving, the view glides on and
   slows to a stop (none with reduced motion). **One finger with nothing in hand** (the resting Select with nothing
-  selected) pans; a **tap** reads the tile (the readout stays once the finger is gone) and is a click (a source is
-  picked as by the mouse); a **double tap** glides in to half the distance about the spot. **One finger with a brush**
-  paints, the ring under it while it is down. A press on a source or the start, an object, a force, the Block tool, a
-  shape or the shelf's object, and with a selection open, is the mouse's press for now (press, drag, lift); seeing it
-  before it applies comes in slice 3. **A second finger** down during a stroke or a press cancels it, nothing applied and
-  no step (the tool's own cancel, as Esc), and the rest of that touch is the camera's: the finger left after a pinch pans.
+  selected) pans; a **tap** reads the tile (the readout stays once the finger is gone) and is a click (an object, a
+  source or the start is picked as by the mouse); a **double tap** glides in to half the distance about the spot,
+  whatever is under it: on an object its first tap picks it and the pick stands (a gesture's meaning never depends on
+  what is under the finger, Kyler). A finger never takes what is under it as the mouse's press does. **One finger with a
+  brush** paints, the ring under it while it is down (the shelf's plants too). **One finger with something that shows
+  before it applies** (slice 3: a force, the Block tool, an object from the shelf, a shape, an object or source picked on
+  the map) is **press, drag, lift**: the press shows it a little above the finger (`FINGER_LIFT`, 64 CSS px, a small
+  ring where it aims), so the finger never hides the spot; dragging moves it; the lift applies it, as one operation and
+  one step, and nothing is applied before the lift. A refused one shows its reason beside the preview, never under the
+  finger, and its lift applies nothing. A tap applies nothing: it leaves the preview where it aimed. Lake, Ridge and
+  Canal draw their line above the finger from the press's aim; with a selection open (or, on a phone, Select's sheet
+  open) the finger draws the selection, and a tap there is a click. With an object or source picked and nothing else in
+  hand, a press anywhere moves it to where the finger aims (`FingerPress`, modes aim, draw and move). **Cancel** shows at
+  the view's top while a press is on: a second finger taps it, or the finger slides onto it (it turns red) and lifts,
+  and nothing is applied. **A second finger** down during a stroke or a press cancels it, nothing applied and no step
+  (the tool's own cancel, as Esc), and the rest of that touch is the camera's: the finger left after a pinch pans. A
+  press the browser takes back (`pointercancel`, as iOS does for its own gestures) or a window that loses focus lets it
+  go the same way. A force's line drawn with a finger, and a sweep of blocks, are still the mouse's: a finger places one
+  at a time. **Skip** on a working force's row finishes it at once (Esc's call), for a phone.
   **A two-finger tap is Undo, a three-finger tap Redo** (Z and C's calls; the buttons stay). The browser's own gestures
   are off over the editor: the view's canvas takes every finger (`touch-action: none`, no callout, no selection), the
   editor allows only panning a panel (`touch-action: pan-x pan-y`: no pinch or double-tap zoom of the page), iOS

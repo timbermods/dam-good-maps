@@ -96,6 +96,8 @@ export interface CarveRowProps {
   rolls?: { shown: number; count: number } | null;
   onRoll?(): void;
   onPause(): void;
+  /** Skip: to its end, kept (Esc's control). */
+  onSkip(): void;
   onRevert(): void;
   /** The settings the last carve actually ran with (D309): what an Auto detail shows until pinned. */
   drawn: CarveSettings | null;
@@ -114,7 +116,7 @@ export function CarveRow(p: CarveRowProps) {
             key: "status",
             row: 1,
             at: 1,
-            span: 9,
+            span: 7,
             rows: 2,
             centre: true,
             node: <Words status>{st.stopping ? "Keeping the carve…" : st.paused ? "Paused" : "Carving…"}</Words>,
@@ -122,13 +124,26 @@ export function CarveRow(p: CarveRowProps) {
           {
             key: "pause",
             row: 1,
-            at: 10,
+            at: 8,
             span: 2,
             rows: 2,
             centre: true,
             node: (
               <button type="button" class="set-button" disabled={st.stopping} onClick={p.onPause} {...tip(st.paused ? "Carry on" : "Hold it here", "Space")}>
                 {st.paused ? "Resume" : "Pause"}
+              </button>
+            ),
+          },
+          {
+            key: "skip",
+            row: 1,
+            at: 10,
+            span: 2,
+            rows: 2,
+            centre: true,
+            node: (
+              <button type="button" class="set-button" disabled={st.stopping} onClick={p.onSkip} {...tip("Finish it now", "Esc")}>
+                Skip
               </button>
             ),
           },
@@ -140,7 +155,7 @@ export function CarveRow(p: CarveRowProps) {
             rows: 2,
             centre: true,
             node: (
-              <button type="button" class="set-button" onClick={p.onRevert} {...tip("Take all of it back", "Ctrl+Z", "Esc skips to its end")}>
+              <button type="button" class="set-button" onClick={p.onRevert} {...tip("Take all of it back", "Ctrl+Z")}>
                 Revert
               </button>
             ),

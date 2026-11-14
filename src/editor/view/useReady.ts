@@ -1,13 +1,13 @@
 // Sources: Clear's glow, and the renderer becoming ready (the painter and the pointer tools).
 
 import { transfer } from "comlink";
-import { useRef } from "preact/hooks";
+import { useRef, useState } from "preact/hooks";
 import type { EditOp } from "../../core/doc/ops";
 import type { Orientation } from "../../core/format/footprints";
 import { ridingPieces } from "../../core/features/edits";
 import { groundUnderObjects } from "../../core/features/raster/objectGround";
 import { FLIPPED, ORIENTATION_NAMES, surfaceWater } from "../../render3d/model";
-import type { MapRenderer, ViewState } from "../../render3d";
+import type { FingerAim, MapRenderer, ViewState } from "../../render3d";
 import { Juice, type StrokeSound } from "../juice";
 import { selectTool } from "../select";
 import { BRUSH_NAMES, BrushPainter, hasTarget, sizeMax, targetWords } from "../brushes";
@@ -22,6 +22,9 @@ export interface ReadySlice {
   glowCorners: { current: number[] };
   reglow: () => void;
   onReady: (r: MapRenderer) => void;
+  /** A finger's press with something in hand: where it aims (the view's pixels: client coordinates), and whether the
+   *  finger is over its Cancel; null with none (render3d/touch.ts `FingerPress`, #1074 slice 3). */
+  fingerAim: FingerAim | null;
 }
 
 export function useReady(ed: Ed): ReadySlice {
@@ -32,6 +35,7 @@ export function useReady(ed: Ed): ReadySlice {
     grabSource, wheelSource, markerRef, setStartHint, hintRef, hintJob, lookForStartRef, pointerWords, flashNote,
     wheelHabit, pickTile
   } = ed;
+  const [fingerAim, setFingerAim] = useState<FingerAim | null>(null);
 
   /** Why a Naturalize stroke weathered nothing (showcase-craft gap 23): moist ground keeps its height (weather.ts,
    *  rule 3: farmland is never lost), so a stroke over moist soil, an island in a lake, changes nothing. */
@@ -273,6 +277,11 @@ export function useReady(ed: Ed): ReadySlice {
     };
     // a two-finger tap undoes and a three-finger tap redoes, as Z and C do (render3d/touch.ts, #1074)
     r.onFingers = (n) => void (n === 2 ? ed.undo() : ed.redo());
+    // a finger's press with an object or a source picked moves it, wherever the press lands; the press's aim shows, with
+    // its Cancel (render3d/touch.ts, #1074 slice 3)
+    r.holdsPicked = () => ed.heldCalls.current.holding();
+    r.grabHeld = () => ed.heldCalls.current.grabHeld();
+    r.onPress = (p) => setFingerAim(p);
     const onView = r.onView;
     let pending = false;
     r.onView = (v: ViewState) => {
@@ -289,5 +298,5 @@ export function useReady(ed: Ed): ReadySlice {
     setViewTick((n) => n + 1);
   }
 
-  return { glowCorners, reglow, onReady };
+  return { glowCorners, reglow, onReady, fingerAim };
 }
