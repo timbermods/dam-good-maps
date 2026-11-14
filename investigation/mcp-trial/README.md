@@ -90,3 +90,15 @@ Highlands, and `waterfalls: many` has no effect on it.
 
 Left for later (core): a refused start move naming the nearest free tile; a start move onto trees felling them in one
 place and refused in another.
+
+## Run 3 (against e64fa962e, after PRs 1–4)
+
+Another fresh agent. Files: `run-3/findings.md` (its hand-back and the cause of each finding), `run-3/transcript.jsonl`
+(8 PNG pictures replaced by a note of their length), `run-3/placeWater.ts` (the reproduction of the place water finding).
+
+| Ask | Calls (least needed) | Outcome |
+| --- | --- | --- |
+| 1. A generated map (River Valley, under-cliff) | 2 (2) | Fulfilled. |
+| 2. A crater on a real place, then undo and redo | 7 (6), and 12 more diagnosing | Fulfilled, but the edit drained the place's central lake: the place's stored water is not what its sources keep (core). |
+| 3. Move the start by water, save | 14 (4) | Fulfilled after a strength-8 WaterSource; the start's 3×3 and its water were not explained (now they are). |
+

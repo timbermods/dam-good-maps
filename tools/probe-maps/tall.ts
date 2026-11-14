@@ -268,9 +268,9 @@ function canyonSummit(): TallMap {
   };
 }
 
-/** Near Yosemite Valley (the Real places data), its relief stretched from 16 to 22 levels. */
+/** Yosemite Valley (the Real places data), its relief stretched from 16 to 22 levels. */
 function yosemiteStretched(): TallMap {
-  const path = repoFile("public", "real-places", "data", "near-yosemite-valley.json.gz");
+  const path = repoFile("public", "real-places", "data", "yosemite-valley.json.gz");
   const p = decodePlaceFile(new Uint8Array(readFileSync(path)));
   const h = decodeHeights(p.heights);
   let max = 0;
@@ -284,7 +284,7 @@ function yosemiteStretched(): TallMap {
   const { flow, pool } = waterTiles(built);
   return {
     id: "tall-yosemite",
-    title: "Tall · Near Yosemite Valley 96², relief stretched to 22",
+    title: "Tall · Yosemite Valley 96², relief stretched to 22",
     tests: `A real place through the Real places build (buildPlace: the canonical settle, soil, validation) with its heights × ${scale.toFixed(3)}: valley walls up to 22, its start, plants and ruins on the stretched ground.`,
     built,
     removed: {},

@@ -142,6 +142,9 @@ export interface SessionSlice {
   deleteCounts: { counts: Record<string, number> } | null;
   sourceDrag: number[] | null;
   setSourceDrag: Dispatch<StateUpdater<number[] | null>>;
+  /** A finger's drag of a picked object or source would be refused where it is now (#1074 slice 3b): its footprint red. */
+  sourceDragBad: boolean;
+  setSourceDragBad: Dispatch<StateUpdater<boolean>>;
   hoverObject: number[] | null;
   setHoverObject: Dispatch<StateUpdater<number[] | null>>;
   player: { current: WaterPlayer | null };
@@ -438,6 +441,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const [deleteCounts, setDeleteCounts] = useState<{ counts: Record<string, number> } | null>(null);
   /** A water source being dragged to a new place: its footprint there (D184). */
   const [sourceDrag, setSourceDrag] = useState<number[] | null>(null);
+  const [sourceDragBad, setSourceDragBad] = useState(false);
   /** The tiles of the object the plain pointer would pick where it is (D360 a): a quiet highlight. */
   const [hoverObject, setHoverObject] = useState<number[] | null>(null);
   /** The water's journey, played at a pace the eye can follow; its controls; a drought to watch. */
@@ -956,7 +960,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     flowing, markersOn, setMarkersOn, markersToggle, firstViewCall, setNearSources, nearSources, setFeeding, feeding, clearWater, setClearWater,
     setSliceLevel, sliceLevel, setSelecting, selecting, selectingRef, selection, selectionTick, setSelectionTick,
     selectDraw, setSelectDraw, selectPreview, setSelectPreview, rockHeld, setRockHeld, deleteMenu, setDeleteMenu, setDeleteCounts,
-    deleteCounts, sourceDrag, setSourceDrag, hoverObject, setHoverObject, player, mounted, sound, juice, setSound,
+    deleteCounts, sourceDrag, setSourceDrag, sourceDragBad, setSourceDragBad, hoverObject, setHoverObject, player, mounted, sound, juice, setSound,
     feel, weather, weatherRef, comparing, endFlip, flipEnd, setWeather, weatherDay, weatherDays, weatherCounting, weatherTarget, setWeatherDay, setWeatherDays, startWater, setStartWater,
     setWeatherCounting, heldDay, stepWeather, holdWeatherDay, requestHeldDay, lastHover, rehover, hoverWordsAt, dryWhy, setDryWhy, dryWhyAt, firstNews, idlePrep, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
     firstDoneRef, minimap, setMinimap, minimapRef, resizing, setDotOpen, dotOpen, saving, setSaving,

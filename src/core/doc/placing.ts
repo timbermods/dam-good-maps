@@ -254,6 +254,17 @@ export function planMoveEntity(s: MapSession, id: string, dx: number, dy: number
   return { ok: true, ops: [...level, op], report: [`a ${name} moved to X ${req.x} · Y ${req.y}`], label: placeLabel("Move", e.template), tiles: [...new Set(tiles)] };
 }
 
+/** Why moving the object or source `id` by (dx, dy) tiles would be refused, or null when it would move: an object's own
+ *  plan (`planMoveEntity`), a source's operation's check (D342: the same refusal the drop would meet). A drag's preview
+ *  asks it before the drop, as a placement's does (#1074 slice 3b). `z`: the level it lands on under a roof (D491). */
+export function moveProblem(s: MapSession, id: string, dx: number, dy: number, z?: number): string | null {
+  const e = s.built.entities.find((g) => g.id === id);
+  if (!e) return "that object is gone";
+  if (e.template === "WaterSource" || e.template === "BadwaterSource") return s.check({ op: "moveEntity", params: { id, x: e.x + dx, y: e.y + dy, ...(z !== undefined ? { z } : {}) } })[0] ?? null;
+  const p = planMoveEntity(s, id, dx, dy, z);
+  return p.ok ? null : (p.errors[0] ?? null);
+}
+
 /** The most distance a placement's natural edge reaches past its footprint, in tiles. */
 const EDGE_REACH = 6;
 

@@ -17,7 +17,7 @@ import { DEFAULT_BRUSH } from "./brushes";
 import { TogetherFace } from "./collab/Together";
 import { DEFAULT_BLOCK } from "./block/blockTool";
 import { useFrameDockRoom } from "./view/useBandLayout";
-import { useRoom } from "./view/usePhone";
+import { useRoom, useTablet } from "./view/usePhone";
 
 const nothing = () => undefined;
 const NO_ACTIONS: ItemActions = { onFix: nothing, onShow: nothing, canShow: () => false };
@@ -40,8 +40,10 @@ export function LoadingFrame(p: LoadingFrameProps) {
   // (a phone's frame is the phone's layout, as the editor will be: the desktop's bar, wider than the screen, would make the
   // browser zoom the page out while the first map is made, #1074)
   const phone = useRoom();
+  // (a tablet's too: its objects folded to their button, as the editor's are)
+  const tablet = useTablet();
   return (
-    <div class="editor loading-frame" data-phone={phone ?? undefined} inert aria-busy="true">
+    <div class="editor loading-frame" data-phone={phone ?? undefined} data-tablet={tablet ? "" : undefined} inert aria-busy="true">
       <Header
         phone={phone}
         info={{ kind: "import", W: 0, H: 0 } as SessionInfo}

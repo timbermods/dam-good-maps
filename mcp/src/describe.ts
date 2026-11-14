@@ -6,8 +6,9 @@ import { describeTileOf } from "../../src/core/doc/describeTile";
 import type { MapSession } from "../../src/core/doc/session";
 import { components } from "../../src/core/analysis/regions";
 import { polygonMask } from "../../src/core/features/geometry";
+import { fallGroupsOf } from "../../src/core/land/intentions";
 import { waterStory } from "../../src/core/analysis/story";
-import { standingForms } from "../../src/core/analysis/vertical";
+import { fallsOf, standingForms } from "../../src/core/analysis/vertical";
 import { THEME_NAMES } from "../../src/core/spec/mapspec";
 import { rowOf, shownWater, startTile } from "./maps";
 import { placeOf } from "./places";
@@ -42,6 +43,39 @@ function boundsOf(tiles: Iterable<number>, W: number): Rect {
     y1 = Math.max(y1, y);
   }
   return { x0, y0, x1, y1 };
+}
+
+/** A waterfall: a drop of FALL_LEAST levels or more where water meets lower water, as the intentions group falls. */
+export const FALL_LEAST = 2;
+
+/** The map's waterfalls (core: `fallsOf` grouped by `fallGroupsOf`, on the water the map shows), tallest first. */
+export function waterfallsOf(s: MapSession): { x: number; y: number; drop: number; top: number; tiles: number[] }[] {
+  const b = s.built;
+  const { depth } = shownWater(s);
+  return fallGroupsOf(b.W, b.heights, depth, fallsOf(b.heights, depth, b.W, b.H, 1.5))
+    .filter((g) => g.drop >= FALL_LEAST)
+    .map((g) => ({ ...g, x: Math.round(g.x), y: Math.round(g.y), drop: Math.round(g.drop * 10) / 10 }))
+    .sort((a, c) => c.drop - a.drop);
+}
+
+/** The map's lakes (its lake features): each basin's tiles inside its outline, and the wet ones among them now. */
+export function lakesOf(s: MapSession): { id: string; params: Record<string, unknown>; basin: number[]; wet: number[] }[] {
+  const b = s.built;
+  const { depth } = shownWater(s);
+  const out: { id: string; params: Record<string, unknown>; basin: number[]; wet: number[] }[] = [];
+  for (const f of s.features) {
+    if (f.kind !== "lake") continue;
+    const p = f.params as unknown as Record<string, unknown>;
+    const outline = (p.outline as [number, number][] | undefined) ?? [];
+    const basin: number[] = [];
+    const wet: number[] = [];
+    if (outline.length >= 3) {
+      const mask = polygonMask(outline, b.W, b.H);
+      for (let i = 0; i < mask.length; i++) if (mask[i]) (depth[i] > 0.05 ? wet : basin).push(i);
+    }
+    out.push({ id: f.id, params: p, basin, wet });
+  }
+  return out;
 }
 
 /** The map in a few lines: its name, size, start, water and checks. */
@@ -159,23 +193,23 @@ export function describeMap(s: MapSession, opts: { tiles?: [number, number][]; c
       const place = (p.placement ?? p.plan ?? p.request) as { x?: number; y?: number; at?: [number, number]; area?: [number, number, number][] } | undefined;
       const at = place?.x !== undefined ? [place.x, place.y] : place?.at;
       features.push({ id: f.id, kind, ...(at ? { at } : {}), ...(place?.area?.length ? { area: boundsOf(place.area.flatMap(([y, x0, x1]) => Array.from({ length: x1 - x0 + 1 }, (_, k) => y * W + x0 + k)), W) } : {}) });
-    } else if (f.kind === "lake") {
-      // the basin's tiles (the outline is a polygon in tile coordinates), and the water standing in it now
-      const outline = (p.outline as [number, number][] | undefined) ?? [];
-      const mask = outline.length >= 3 ? polygonMask(outline, W, H) : null;
-      const basin: number[] = [];
-      const wetIn: number[] = [];
-      if (mask) for (let i = 0; i < N; i++) if (mask[i]) (wet[i] ? wetIn : basin).push(i);
-      const outlet = p.outlet as { at?: [number, number]; sill?: number } | undefined;
-      features.push({
-        id: f.id,
-        kind: "lake",
-        ...(p.at ? { at: p.at } : {}),
-        ...(mask ? { basinTiles: basin.length + wetIn.length, wetTiles: wetIn.length, area: boundsOf(wetIn.length ? wetIn : basin, W) } : {}),
-        ...(outlet?.at ? { outlet: { at: [Math.round(outlet.at[0]), Math.round(outlet.at[1])], ...(outlet.sill !== undefined ? { level: outlet.sill } : {}) } } : {}),
-      });
     }
   }
+  for (const l of lakesOf(s)) {
+    const p = l.params;
+    const outlet = p.outlet as { at?: [number, number]; sill?: number } | undefined;
+    const has = l.basin.length + l.wet.length > 0;
+    features.push({
+      id: l.id,
+      kind: "lake",
+      ...(p.at ? { at: p.at } : {}),
+      ...(has ? { basinTiles: l.basin.length + l.wet.length, wetTiles: l.wet.length, area: boundsOf(l.wet.length ? l.wet : l.basin, W) } : {}),
+      ...(outlet?.at ? { outlet: { at: [Math.round(outlet.at[0]), Math.round(outlet.at[1])], ...(outlet.sill !== undefined ? { level: outlet.sill } : {}) } } : {}),
+    });
+  }
+  // the waterfalls, read from the water the map shows (each a group of falling tiles; the tallest first)
+  for (const f of waterfallsOf(s).slice(0, 16))
+    features.push({ kind: "waterfall", at: [f.x, f.y], drop: f.drop, tiles: f.tiles.slice(0, 12).map((i) => [i % W, (i - (i % W)) / W]), ...(f.tiles.length > 12 ? { tilesTotal: f.tiles.length } : {}) });
   // the rivers Carve cut on this map since it was made or last cropped (each a force kept in the history, not a feature)
   let carved: Record<string, unknown>[] = [];
   for (const o of s.logOps) {
@@ -202,6 +236,10 @@ export function describeMap(s: MapSession, opts: { tiles?: [number, number][]; c
     if (PLANTS.has(e.template) || e.template.startsWith("RuinColumn") || e.template === "Slope") {
       const k = e.template.startsWith("RuinColumn") ? "ruin column" : e.template;
       counts[k] = (counts[k] ?? 0) + 1;
+    } else if (e.template === "StartingLocation") {
+      // (the start by its middle tile, the x, y a move takes; the object stands at its 3×3's corner)
+      const st = startTile(s);
+      objects.push({ id: e.id, kind: e.template, x: st?.x ?? e.x, y: st?.y ?? e.y, z: e.z, orientation: e.orientation, footprint: "3×3 round x, y" });
     } else objects.push({ id: e.id, kind: OBJECT_NAMES[e.template] ?? e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation });
   }
   const landmarks = standingForms(b.heights, W, H, 12)
@@ -223,6 +261,7 @@ export function describeMap(s: MapSession, opts: { tiles?: [number, number][]; c
     sources,
     rivers,
     features,
+    ...(s.mode === "import" ? { featuresNote: "An opened map or a real place has no generator's features: its lakes and rivers are not listed; its waterfalls are read from its water." } : {}),
     landmarks,
     objects,
     counts,

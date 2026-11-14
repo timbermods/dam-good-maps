@@ -22,6 +22,7 @@ import { surfaceWater, type MapView } from "../render3d/model";
 import { YourMapsSaver } from "../core/library/saver";
 import {
   decodeSpecFragment,
+  DEFAULT_THEME,
   defaultSettings,
   encodeSpecFragment,
   GENERATOR_MIN_SIDE,
@@ -122,7 +123,7 @@ function initialSpec(): { spec: MapSpec; fromLink: boolean; note?: string } {
     return { spec: d.spec.designedFor === "normal" ? d.spec : { ...makeSpec({ seed: d.spec.seed, size: d.spec.size, theme: d.spec.theme, premise: d.spec.premise }), settings: defaultSettings(d.spec.theme, "normal", d.spec.size, d.spec.premise) }, fromLink: true, note: d.problems.length ? d.problems.join("; ") : note };
   }
   // Any (Surprise me) is the default (D209), with Easy start as this browser last set it (D495)
-  const spec = makeSpec({ seed: randomSeed(), theme: "any" });
+  const spec = makeSpec({ seed: randomSeed(), theme: DEFAULT_THEME });
   return { spec: { ...spec, settings: withEasy(spec.settings, easyRemembered()) }, fromLink: false };
 }
 

@@ -23,7 +23,6 @@ const HEAVY = [
   "tests/contract/collabSoak.heavy.test.ts", // collaborative editing: a few hundred mixed edits, checkpoints and a rejoin
   "tests/contract/collabUndoSoak.heavy.test.ts", // collaborative editing: a few hundred mixed edits with undo and redo asked at random
   "mcp/tests/long.heavy.test.ts", // a 256² map through the MCP server, past the client's time limit (D501)
-  "mcp/tests/intentionTable.heavy.test.ts", // every intention on every theme, seeds 1 to 12 at 128²: the committed table
   "tests/unit/waterSkirts.heavy.test.ts", // no window between two waters on generated maps at 256² (D154)
   "tests/contract/carveFallSweep.heavy.test.ts", // a fall from one stroke from every start near the reviewed ones (gaps 1, 2, 20)
   "tests/contract/islandsCleanSea.heavy.test.ts", // Islands' sea clean at 128² and 256², settled and played on (D498, #446)

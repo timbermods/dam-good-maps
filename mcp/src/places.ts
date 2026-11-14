@@ -25,7 +25,7 @@ export function placesIndex(): PlaceIndex {
   return index;
 }
 
-/** The place a name gives: its id ("near-glencoe") or its name ("Near Glencoe"), in any case; null when none. */
+/** The place a name gives: its id ("glencoe") or its name ("Glencoe"), in any case; null when none. */
 export function placeOf(name: string): PlaceIndexEntry | null {
   const key = name.trim().toLowerCase();
   return placesIndex().places.find((p) => p.id === key || p.name.toLowerCase() === key) ?? null;

@@ -214,6 +214,10 @@ const WARN_RING: readonly number[] = [1.0, 0.72, 0.15];
 
 /** Most dashes a force's ring takes (a crater's, 90 tiles round at most). */
 const RING_DASHES = 720;
+/** Most quads a force's filled reach takes: a 24-tile radius a tile at a time, past it a few tiles at a time. */
+const RING_FILL = 49 * 49;
+/** The filled reach's white, faint enough that the land under it reads. */
+const RING_FILL_ALPHA = 0.16;
 
 /** A force's size at the cursor (D312; one ring, never two, D321 item 13): one calm ring, white with
  *  the brush ring's thin dark edge, drawn once where the cursor is: on the water's surface over water,
@@ -222,12 +226,12 @@ const RING_DASHES = 720;
  *  there, a white dot with the same dark edge, never a circle. */
 export class ForceRing {
   readonly mesh: Mesh;
-  private readonly pos = new Float32Array(RING_DASHES * 2 * 12);
-  private readonly col = new Float32Array(RING_DASHES * 2 * 16);
+  private readonly pos = new Float32Array((RING_DASHES * 2 + RING_FILL) * 12);
+  private readonly col = new Float32Array((RING_DASHES * 2 + RING_FILL) * 16);
   private readonly geo = new BufferGeometry();
 
   constructor(scene: Scene) {
-    const n = RING_DASHES * 2;
+    const n = RING_DASHES * 2 + RING_FILL;
     const idx = new Uint32Array(n * 6);
     for (let q = 0; q < n; q++) {
       const v = q * 4;
@@ -250,8 +254,10 @@ export class ForceRing {
 
   /** Show the ring round (x, y), `r` tiles across its radius, each dash at `level(tx, ty)` (the water's
    *  surface where there is water, else the ground), or, with `marker`, only the small dot at (x, y);
-   *  `warn` draws the ring amber (the plants painted inside it would die, D235); null hides it. */
-  set(s: { x: number; y: number; r: number; marker?: boolean; warn?: boolean } | null, level: (tx: number, ty: number) => number, W: number, H: number): void {
+   *  `warn` draws the ring amber (the plants painted inside it would die, D235); null hides it. `fill`: the reach inside
+   *  the ring faintly white as well, even, a finger's aim (#1074 slice 3b: a big force's ring is often wider than a
+   *  phone's view; the fill still shows how far it reaches). */
+  set(s: { x: number; y: number; r: number; marker?: boolean; warn?: boolean } | null, level: (tx: number, ty: number) => number, W: number, H: number, fill = false): void {
     if (!s) {
       this.mesh.visible = false;
       return;
@@ -281,6 +287,19 @@ export class ForceRing {
       return;
     }
     const r = Math.max(0.75, s.r);
+    if (fill) {
+      // (each tile's top inside the ring, or past a 24-tile radius a block of tiles at a time, laid under the ring)
+      const cell = Math.max(1, Math.ceil(r / 24));
+      const R2 = r * r;
+      for (let ty = Math.max(0, Math.floor(s.y - r)); ty <= Math.min(H - 1, Math.floor(s.y + r)); ty += cell)
+        for (let tx = Math.max(0, Math.floor(s.x - r)); tx <= Math.min(W - 1, Math.floor(s.x + r)); tx += cell) {
+          const cx = Math.min(W, tx + cell / 2);
+          const cy = Math.min(H, ty + cell / 2);
+          if ((cx - s.x) ** 2 + (cy - s.y) ** 2 >= R2 || q >= RING_FILL) continue;
+          const h = level(Math.min(W - 1, tx + (cell >> 1)), Math.min(H - 1, ty + (cell >> 1))) + 0.03;
+          quad(cx, cy, h, cell / 2, RING_FILL_ALPHA, s.warn ? WARN_RING : [1, 1, 1]);
+        }
+    }
     const n = Math.max(24, Math.min(RING_DASHES, Math.round(r * 8)));
     const w = 0.08 + Math.min(r, 40) * 0.003;
     const o = w + 0.035;

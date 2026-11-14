@@ -1,8 +1,10 @@
 // Which themes each intention is offered for (planning, 2026-11-14): "an intention that emerges once in thirty seeds is a
 // promise we do not keep". Each intention is offered only for the themes where it emerged on at least 4 of seeds 1–12
-// asked alone at 128² (intentionTable.json, counted by tools/intention-table.ts, `npm run intentions`; a heavy test
-// counts it again and holds it to the committed one, so it stays true as the generator changes). The MCP server offers
-// and refuses intentions by it; the page offers none by name (it only keeps a map's own for Another like this).
+// asked alone at 128² (intentionTable.json, counted by tools/intention-table.ts, `npm run intentions`). Nightly counts it
+// again, a theme a job (`--check --theme`), and only Nightly: not pull requests, not the release gate (planning). A red
+// Nightly on it means the list moved: the table is regenerated in a pull request that says which intention moved, on
+// which theme, and why. The MCP server offers and refuses intentions by it ("Not offered now." for one offered nowhere);
+// the page offers none by name (it only keeps a map's own for Another like this).
 
 import TABLE from "./intentionTable.json" with { type: "json" };
 import { THEME_NAMES, type ThemeId } from "../spec/mapspec";

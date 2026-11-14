@@ -3,9 +3,8 @@
 //
 //   npm run places                         (writes public/real-places/)
 //   npm run places -- --check              (writes nothing; fails when the committed files differ)
-//   npm run places -- --only near-glencoe  (builds and checks the places named, writes nothing)
+//   npm run places -- --only glencoe       (builds and checks the places named, writes nothing)
 //   npm run places -- --only a,b --write   (writes only the places named: their files and index entries)
-//   npm run places -- --feeds all          (searches every place's springs, not only FEED_SEARCH's: a trial)
 //   npm run places -- --water --out <dir>  (each place's water measure too, written to <dir>; `--rules port` builds
 //                                          them under the port's water rules, as before D311's conversion)
 //   npm run places -- --shards 1           (one place after another on this process: the places run on one
@@ -60,7 +59,7 @@ import {
 } from "../src/core/places/place";
 import { encodeHeights, encodeTiles } from "./lib/placeData";
 import { BODY, FILM_DEPTH, FILM_TILES, WET, compareWater, films, settleFile, startFails } from "./lib/placeWater";
-import { cutBasins, cutBed, floor0Sheet, realMask } from "./lib/placeBasins";
+import { cutBasins, cutBed, floor0Sheet, realFilms, realMask } from "./lib/placeBasins";
 import { decodeTiles as decodeGaps } from "../src/core/places/place";
 import { keepNearest, settlePlants, startWood, startWoodSpecies } from "./lib/placePlants";
 import { flaggedSources, mendSources } from "./lib/placeSources";
@@ -122,13 +121,13 @@ const LAND_FLOORS = ["start.level_land", "start.reach", "start.farmland", "start
 /** The start's wood checks, which fast trees planted by it can meet: its logs, the starting-logs floor and the
  *  fast species' share (D85, D224, D515). */
 const WOOD_CHECKS = ["start.wood", "start.wood_floor", "start.wood_fast"];
-/** Places withheld by name until a fault of their land is mended, with the reason every run prints. Near Dinaric
+/** Places withheld by name until a fault of their land is mended, with the reason every run prints. Dinaric
  *  karst Plitvice's start meets every floor since the start's move ranks by the land floors, but its conversion puts
  *  a source in another's flow (`water.source_in_flow`); it left `PLACES_SOURCES_IN_FLOW` (tests/contract/placesCommon.ts,
  *  whose note says Real places 2 places sources only at heads) when #1094 withheld it, and that list never grows:
  *  planning's ruling on #1096. */
 const WITHHELD_UNTIL: Record<string, string> = {
-  "near-dinaric-karst-plitvice": "withheld until water.source_in_flow is mended (sources at heads only)",
+  "dinaric-karst-plitvice": "withheld until water.source_in_flow is mended (sources at heads only)",
 };
 /** How many logs under `start.wood`'s limit a place's start may be and still be topped up to it (a twentieth of Normal's 200). */
 const WOOD_NEAR_MISS = 10;
@@ -162,7 +161,7 @@ const FAMILIES: Record<string, { name: string; plays: string }> = {
 /** Survey names a player could misread, by library id. "Badwater" is a place name in Death Valley,
  *  and a hazard in Timberborn: this map has none. */
 const RENAME: Record<string, string> = {
-  "n101-128-120-normalised-16": "Near Death Valley",
+  "n101-128-120-normalised-16": "Death Valley",
 };
 
 interface LibraryItem {
@@ -233,8 +232,11 @@ function toPlace(item: LibraryItem, fx: Fixture): PlaceData {
     edgeLip(heights, W, H, { row: [s.y * W + s.x], surface: heights[s.y * W + s.x] + 1, keep: heads, reach: EDGE_LIP_REACH });
   }
   if (heights.some((v) => v > EDITOR_LEVEL)) throw new Error(`${item.id}: land above level ${EDITOR_LEVEL}`);
-  const name = (RENAME[item.id] ?? item.name.replace(/, \d+ m per tile$/, "").replace(/ \((north|south|east|west|northeast|northwest|southeast|southwest) sample\)$/, "")).trim();
-  if (!/^Near /.test(name)) throw new Error(`${item.id}: unexpected name ${name}`);
+  // the place's one name (D(new-names), Kyler: "Mount Fuji", not "Near Mount Fuji"): the survey's name without its "Near",
+  // its scale and its sample's direction
+  const survey = item.name.replace(/, \d+ m per tile$/, "").replace(/ \((north|south|east|west|northeast|northwest|southeast|southwest) sample\)$/, "").trim();
+  if (!/^Near /.test(survey)) throw new Error(`${item.id}: unexpected survey name ${survey}`);
+  const name = RENAME[item.id] ?? survey.replace(/^Near /, "");
   const fam = FAMILIES[item.family];
   if (!fam) throw new Error(`${item.id}: no family text for ${item.family}`);
   const kinds: Record<"bushes" | "pines" | "birches" | "oaks" | "deadPines" | "ruins", number[]> = { bushes: [], pines: [], birches: [], oaks: [], deadPines: [], ruins: [] };
@@ -278,7 +280,6 @@ function toPlace(item: LibraryItem, fx: Fixture): PlaceData {
     format: PLACE_FORMAT,
     id: slug(name),
     name,
-    place: name.replace(/^Near /, ""),
     family: item.family,
     familyName: fam.name,
     plays: fam.plays,
@@ -415,8 +416,16 @@ function basinsFor(libraryId: string, place: PlaceData): { place: PlaceData; not
   const r = cutBasins(decodeHeights(place.heights), place.W, place.H, port, game.settle.depth, game.model.floor, real);
   const notes: string[] = [];
   for (const b of r.basins) notes.push(`${b.kind} ${b.size} at ${b.at.join(",")} over ${b.real} real-water tiles ${b.cut ? `cut ${b.cut} tiles` : b.kind === "lost" ? "goes" : "not cut"}`);
-  const heights = r.heights;
+  let heights = r.heights;
   if (r.basins.some((b) => b.cut)) {
+    place = { ...place, heights: encodeHeights(heights) };
+    game = buildPlace(place, undefined, "game");
+  }
+  // a body of real water the game's water covers only as a film gets the same basin (planning, #236: Yamanaka)
+  const rf = realFilms(heights, place.W, place.H, game.settle.depth, real);
+  for (const b of rf.basins) notes.push(`real water ${b.size} at ${b.at.join(",")} under a film ${b.cut ? `cut ${b.cut} tiles` : "not cut (floor 0 or no flat inside its rim)"}`);
+  if (rf.basins.some((b) => b.cut)) {
+    heights = rf.heights;
     place = { ...place, heights: encodeHeights(heights) };
     game = buildPlace(place, undefined, "game");
   }
@@ -430,7 +439,7 @@ function basinsFor(libraryId: string, place: PlaceData): { place: PlaceData; not
     if (!left.length) break;
     let any = false;
     for (const f of left) {
-      const seed = hashString(`${place.id}:${round}`);
+      const seed = hashString(`${seedKey(place)}:${round}`);
       let tried = Uint8Array.from(heights);
       let bed = cutBed(tried, place.W, place.H, f.tiles, game.settle.depth, place.sources, seed);
       if (bed.length && inFlow({ ...place, heights: encodeHeights(tried) }) > flowed) {
@@ -454,16 +463,15 @@ function basinsFor(libraryId: string, place: PlaceData): { place: PlaceData; not
 /** The rounds of beds a place gets: a bed can carry its water on to a flat below, where the next round's bed runs on. */
 const BED_ROUNDS = 8;
 
+/** What a place's beds and springs are seeded from: the id it had before D(new-names) took "Near" out of its name
+ *  ("near-glencoe"), so the rename moves no land or water. */
+const seedKey = (p: PlaceData) => `near-${p.id}`;
+
 const hashString = (s: string) => {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
   return h >>> 0;
 };
-
-/** The places whose springs are searched under the game's rules (D(new)), planning's seven; `--feeds all` searches
- *  every place's (a trial). */
-const FEED_SEARCH = ["near-mount-fuji", "near-ngorongoro", "near-phong-nha", "near-geirangerfjord", "near-tagliamento-river", "near-english-lake-district", "near-torres-del-paine"];
-const feedAll = arg("feeds") === "all";
 
 /** The place with its springs searched (tools/lib/placeFeeds.ts), and its log note. */
 function feedsFor(libraryId: string, place: PlaceData): { place: PlaceData; note: string } {
@@ -479,6 +487,17 @@ function feedsFor(libraryId: string, place: PlaceData): { place: PlaceData; note
     return why.length ? why.join(", ") : null;
   };
   const r = searchFeeds(place, real, (p) => buildPlace(p, settles).settle.depth, keep);
+  // the floor-0 sheet is information (planning), but a search whose sheet over real dry land grew while the water over
+  // real dry land did not fall keeps the springs the place had
+  const sheetDry = (p: PlaceData) => {
+    const b = buildPlace(p, settles);
+    return floor0Sheet(b.settle.depth, b.model.floor, p.W, p.H, real, FILM_DEPTH, FILM_TILES).dry;
+  };
+  if (r.steps.length && r.after.dry >= r.before.dry) {
+    const was = sheetDry(place);
+    const now = sheetDry(r.place);
+    if (now > was) return { place, note: `  springs kept: the search's sheet over real dry land ${was} → ${now} with no fall over real dry land (${r.before.dry} → ${r.after.dry})` };
+  }
   const at = (s: [number, number, number] | null) => (s ? `${s[0]},${s[1]}:${s[2].toFixed(2)}` : "gone");
   // the refusals that only a source in another's flow stood in the way of: the best of each move, by the measure
   const flowOnly = r.refused.filter((x) => x.why.split(", ").every((w) => w === "water.source_in_flow" || w.startsWith("sources in a flow")));
@@ -627,7 +646,7 @@ function runPlace(item: LibraryItem): Outcome | null {
     const had = new Set(strictFails);
     let best: { add: [number, number, number][]; r: ReturnType<typeof buildChecked>; score: number } | null = null;
     for (const [rule, tries] of SPRING_TRIES) {
-      for (const add of placeSprings(place, built.heights, built.settle.depth, { rule, tries })) {
+      for (const add of placeSprings(place, built.heights, built.settle.depth, { rule, tries, key: seedKey(place) })) {
         const r = buildChecked({ ...place, sources: [...place.sources, ...add] });
         if (r.strictFails.includes("start.water") || r.strictFails.some((id) => !had.has(id) && !free.has(id))) continue;
         const sc = score(r.strictFails);
@@ -681,15 +700,12 @@ function runPlace(item: LibraryItem): Outcome | null {
   // strong it is; kept only where no check the place passed then fails and no film above floor 0 stands. After the start
   // has found its water (a move, a spring by it, every spot), so a spring the start drinks from is never the one taken
   // away; before the berries and plants, which settle on the water the springs leave
-  let feedNote = "";
-  if (feedAll || FEED_SEARCH.includes(place.id)) {
-    const f = feedsFor(item.id, place);
-    if (f.place !== place) {
-      place = f.place;
-      ({ built, v, strict, blocking, strictFails } = buildChecked(place));
-    }
-    feedNote = f.note;
+  const feeds = feedsFor(item.id, place);
+  if (feeds.place !== place) {
+    place = feeds.place;
+    ({ built, v, strict, blocking, strictFails } = buildChecked(place));
   }
+  const feedNote = feeds.note;
   // A start short of berries (after a move or a spring, or on its own land) gets the bushes the
   // `start.food` check's own fix plants (the editor's one-click fix: moist tiles within 20 tiles'
   // walk of the start, nearest first; objects only, never land, D331). Where the fix finds too few
