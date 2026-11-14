@@ -523,7 +523,7 @@ export class MapRenderer {
   /** A copy of the drought line's materials. */
   private lineCopy: ShaderMaterial[] | null = null;
   /** Objects to compile a program with when nothing draws its material (`standIn`). */
-  private standIns: Record<"mesh" | "instanced" | "bare", Object3D> | null = null;
+  private standIns: Record<"mesh" | "instanced" | "instancedPlain" | "bare", Object3D> | null = null;
   /** The tier asked for while the High look's programs compile (the look drawn stays meanwhile), or null. */
   private lookWaiting: Tier | null = null;
   private lookWarming = false;
@@ -975,9 +975,11 @@ export class MapRenderer {
       };
       const instanced = new InstancedMeshObject(geometry(true), undefined, 1);
       instanced.instanceColor = new InstancedBufferAttribute(new Float32Array(3), 3);
-      this.standIns = { mesh: new Mesh(geometry(true)), instanced, bare: new Mesh(geometry(false)) };
+      this.standIns = { mesh: new Mesh(geometry(true)), instanced, instancedPlain: new InstancedMeshObject(geometry(true), undefined, 1), bare: new Mesh(geometry(false)) };
     }
     if (this.lineCopy?.includes(mat) || mat === this.glowMat) return this.standIns.bare;
+    // (the blocks' dust: instanced, its colour its own attribute, not three.js's instance colour, which is another program)
+    if (mat === this.popDust) return this.standIns.instancedPlain;
     const plain = mat === this.depthCopy?.[0] || [this.std, this.high?.materials, this.highCopy].some((l) => l && [l.terrain, l.water, l.sky].includes(mat));
     return plain ? this.standIns.mesh : this.standIns.instanced;
   }
@@ -2229,6 +2231,8 @@ export class MapRenderer {
     if (edited) this.glowEdits(edited);
     // (the Block tool's blocks grow and crumble, on the land as it now is: blockPop.ts)
     if (edited && block) this.popBlocks(edited);
+    // (any other land, an undo or a redo among it, stops the pops it contradicts)
+    else if (rect && this.blockPops?.playing) this.blockPops.reconcile(this.landSolid(m));
     // (the game's rule: a layer above everything the map could hide shows the whole world)
     if (this.slice !== null && this.slice > this.topHiding()) this.setSlice(null);
     if (!rect) return 0;
@@ -2847,6 +2851,7 @@ export class MapRenderer {
       this.glowEdits(cells);
       if (block) this.popBlocks(cells);
     }
+    if (!block && this.blockPops?.playing) this.blockPops.reconcile(this.landSolid(m));
     if (m.water.count && this.landUnder(drawn, heights, c.rect)) {
       this.rodeLand(c.rect);
       this.flowChanged(heights, m.surface);
@@ -3576,15 +3581,29 @@ export class MapRenderer {
   private popBlocks(cells: EditCells): void {
     const m = this.map;
     if (!m || !this.juicy || (!cells.added.length && !cells.removed.length)) return;
+    const cut = this.slice ?? LAYERS;
+    const below = (c: readonly number[]) => c[2] < cut;
+    (this.blockPops ??= new BlockPops(
+      this.scene,
+      () => this.terrainMat,
+      this.std.terrain.uniforms as unknown as PopUniforms,
+      this.popDust,
+      () => this.requestRender(),
+      this.time,
+      this.glowMat.uniforms.rise as { value: number },
+    )).add(cells.added.filter(below), cells.removed.filter(below), this.landSolid(m));
+  }
+
+  /** The land drawn now, a cell at a time, as the blocks' pops read it: rock below the floor, air off the map and at or
+   *  above the layer cut. */
+  private landSolid(m: MapState): (x: number, y: number, z: number) => boolean {
     const src = m.source;
     const cut = this.slice ?? LAYERS;
-    const solid = (x: number, y: number, z: number) => {
+    return (x, y, z) => {
       if (z < 0) return true;
       if (x < 0 || y < 0 || x >= m.W || y >= m.H || z >= cut) return false;
       return ((columnMask(src, y * m.W + x) >>> z) & 1) === 1;
     };
-    const below = (c: readonly number[]) => c[2] < cut;
-    (this.blockPops ??= new BlockPops(this.scene, () => this.terrainMat, this.std.terrain.uniforms as unknown as PopUniforms, this.popDust, () => this.requestRender(), this.time)).add(cells.added.filter(below), cells.removed.filter(below), solid);
   }
 
   /** The Block tool's blocks playing now (tests): growing, sinking, the quads drawn and the dust's puffs. */

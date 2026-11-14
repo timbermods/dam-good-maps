@@ -889,7 +889,7 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   map held the page for seconds in a cold browser (the cave light and shaders, before this change and dev's shader
   warm-up); the glow waits for it.
 
-## The Block tool's blocks grow and crumble (D240, D488, D342; `feature/block-pop`)
+## The Block tool's blocks grow and crumble (D240, D488, D342; `feature/block-pop`, `feature/block-pop-2`)
 
 - **Why:** D240 asks for "raised blocks grow up with a tiny overshoot, lowered ones sink and crumble with a puff of
   dust". An audit of D488 (3) on dev found that the Block tool had its preview, aim and edit glow, but its blocks
@@ -898,24 +898,37 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   (`blockEditSent`, "What an edit changed"). Both ways its land comes play it: `updateTerrain` (columns) and
   `flushTerrain` (plain heights). It is a moment of an edit already applied (D342). The map's land is the new land
   from the first frame, and the pick, the water, the support check and the file see nothing else. Nothing waits on it.
-  - **A block added** grows out of the rock it stands on. That is the first way that is rock and was rock before the
-    edit: down, then the sides (a block jutting from a wall), then up. It grows in 260 ms by an ease-out curve that
+  - **A block added** grows out of the rock it stands on. That is the first way that is rock and not growing: down,
+    then the sides (a block jutting from a wall), then up. It grows in 260 ms by an ease-out curve that
     peaks 5 % past its size, about two thirds of the way through, and settles (`growScale`).
   - **Drawn with the look's own terrain material** (D497; Timberborn's editor sets a block at once, so the motion is
     ours and the look is the game's). While a block grows, the terrain shader leaves out the terrain's own faces of the
     block (`popCells`: up to 64 cells by key, four to a vec4, with a box round them, tested only while any grow). The
     test covers fragments on the grid whose voxel is a growing cell. The pop draws the growing box a hair off the grid,
-    so the test never leaves it out. It also draws the faces the block covers as they stood (the ground's top under
-    it, the wall it juts from), so the ground never shows a hole.
+    so the test never leaves it out. Each side of a growing block is drawn one way or the other. Toward air or another
+    growing block, its own face is drawn. Toward rock that is not growing, the face it covers is drawn as it stands:
+    the ground's top under it, the wall it juts from, or a block of the same edit past the cap, drawn at once. So
+    neither the ground nor a cap's edge ever shows a hole or a slit.
   - **A block taken** sinks a level into the ground below it in 420 ms, shrinking to 0.65 across, again in the terrain
-    material, so it disappears into the rock under it. Five puffs of its own wall's stone, ground fine and a little
+    material, so it disappears into the rock under it. It draws its sides that face air now, the blocks taken with it
+    included, so blocks shrinking apart show their sides. Five puffs of its own wall's stone, ground fine and a little
     lighter (Erode's dust, the same drawing, never white smoke), rise from the top of where it was and fade in 0.9 s.
-  - **The edit glow** plays over both as before: the white outline of the block added frames it as it grows, and the
-    hollow's red frames the block sinking.
+  - **The edit glow** plays over both. Its faces, colours and clock are its own. Its white for a block added comes in
+    as the block grows (`glowRiseAt`, the glow's `rise`): none in the newest growth's first quarter, full from three
+    quarters on, so it frames the block once it has a size and never veils it small. The hollow's red frames the block
+    sinking.
+  - **Stopped by what contradicts it** (`reconcile`, on every other change of the land drawn). An undo, a redo, a
+    brush or a version flipped to stops at once a growing block that is air again, and a sinking one that is rock
+    again with its dust. The rest are reshaped to the new land. The same covers the page's own prediction of the land
+    followed by the core's answer: a block added to a wall is first painted as a column down to the ground, then
+    answered as the overhang it is, and only the block itself grows.
   - **Off with reduced motion and in the light look** (software drawing; the renderer's `juicy`): the land is simply
     there (D240). It is also off for blocks at or above the layer cut. At most 64 blocks grow at once and 64 sink;
     past that, a block is simply there.
-- **Cost:** fixed buffers made once (1,152 quads, a 96-puff pool). Each frame while it plays, the boxes and puffs are
+- **Cost:** fixed buffers made once (768 quads, a 96-puff pool). The dust's program is compiled ahead with the
+  others, on an instanced stand-in without three.js's instance colour, which would be another program. Measured on
+  `feature/block-pop-2`: the dust material keeps one program through the first crumble in both looks (#1134's head
+  compiled a second one there, a hitch), and the warm-up compiles one program fewer. Each frame while it plays, the boxes and puffs are
   written into them, with no allocation. Once it ends nothing is drawn or asked for, and the shader's test is one
   uniform compare. GPU time a frame by timer queries while orbiting (`benchOrbit`, the median over 6 s, two runs each,
   real Chrome with the GPU, 1280 × 800, Highlands 256² seed 1, dev at ef43fb04 → this branch): idle,
@@ -925,24 +938,30 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
 - **Tests:** `tests/unit/blockPop.test.ts` covers:
   - the growth curve and the sink;
   - which rock a block grows from (flat ground, a wall with air under the block);
-  - the faces a taken block shows;
-  - the caps;
+  - the faces a taken block shows, and those of two taken together;
+  - the caps, and every side of every growing block drawn past them (no slit);
+  - the pops an undo contradicts dropped and the rest reshaped, and `BlockPops` stopping a sink, its dust and a growth
+    at an undo;
+  - the glow's white coming in as the blocks grow;
   - every face drawn wound to face its normal, the covered top on the grid and the growing faces off it;
   - nothing once over;
   - the shader's cell keys and box.
 - **Captures:** local only, `C:\dgm-showcase\d488\block-pop\sheet.png` (12 frames, real Chrome with the GPU,
   1280 × 800 dark, the renderer's clock held at each time). On Lake Basin 96 seed 77, a 3 × 3 block of ground four
-  levels up gets a block added on top and one out of its east wall (the core fills that one down to the ground, three
-  blocks) at 25, 60 and 130 ms. Then two blocks are taken off its top at 105, 231 and 378 ms. Standard and High.
+  levels up gets a block added on top and one out of its east wall (an overhang) at 25, 60 and 130 ms. Then two
+  blocks are taken off its top at 105, 231 and 378 ms. Standard and High. `C:\dgm-showcase\d488\block-pop-2\sheet.png`
+  (8 frames): the same pops with the glow's white coming in (Standard 25, 60 and 130 ms; High 25 and 130 ms), 81
+  blocks added at once at 60 ms (64 growing, the rest drawn at once, no slit between), and a dig at 150 ms undone at
+  160 ms (the block back, nothing sinking).
 - **Falls short:**
   - A growing block's top, partway up, is lit and coloured as a wall by the terrain shader's rules (it is not on a
-    tile's top level) for the quarter second it moves.
+    tile's top level) for the quarter second it moves. It also lies in the tile's own baked sun shadow, so it reads
+    dark until it is most of the way up (its first 40 ms or so).
   - The growing and sinking blocks cast no shadow of their own; the High look's shadow keeps the block's full shape
     meanwhile.
-  - Blocks added beside each other but growing from different rock (a column filled down to the ground beside a wall)
-    meet at their seams only once grown.
   - The undo of a Block edit plays nothing (the page's undo does not say which operation it takes back, as for the
-    glow).
+    glow). On plain ground the glow of the edit undone fades out over the land as it was (the glow's own rule:
+    plain land glows only for the Block tool's edits).
 
 ## Software frames (`perf/software-frames`)
 
