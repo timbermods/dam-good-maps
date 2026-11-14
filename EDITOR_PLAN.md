@@ -1661,7 +1661,11 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   (the tool's own cancel, as Esc), and the rest of that touch is the camera's: the finger left after a pinch pans. A
   press the browser takes back (`pointercancel`, as iOS does for its own gestures) or a window that loses focus lets it
   go the same way. A force's line drawn with a finger, and a sweep of blocks, are still the mouse's: a finger places one
-  at a time. **Skip** on a working force's row finishes it at once (Esc's call), for a phone.
+  at a time. **Skip** on a working force's row finishes it at once (Esc's call), for a phone. **Put it down** (×, X's
+  call, `TopBar.tsx`) is on the first row of what is in hand's sheet on a phone or to a finger, as the object in hand's
+  row has it: a brush or a shape, Block, a force, and Select holding a selection (on a phone, its sheet open); one tap
+  puts it down and one finger pans again. A phone's tool row (or rail) scrolls the tool in hand into view, lit, however
+  it was picked, so its second tap is in reach too.
   **A two-finger tap is Undo, a three-finger tap Redo** (Z and C's calls; the buttons stay). The browser's own gestures
   are off over the editor: the view's canvas takes every finger (`touch-action: none`, no callout, no selection), the
   editor allows only panning a panel (`touch-action: pan-x pan-y`: no pinch or double-tap zoom of the page), iOS
