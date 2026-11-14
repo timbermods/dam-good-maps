@@ -6,8 +6,8 @@ using UnityEngine;
 namespace DGMCompanion
 {
     // Where the companion reads and writes, and whether the automatic in-game test is on. Normal play never
-    // has the test argument; the test (mods/companion/scripts/ingame-test.ts) passes it with a scratch folder
-    // that is not inside Documents\Timberborn.
+    // has the test argument; the probe runner's companion mode (investigation/probe/runner/companion.ts)
+    // passes it with a scratch folder that is not inside Documents\Timberborn.
     public static class CompanionEnv
     {
         public const string Tag = "[DGMCompanion] ";

@@ -100,9 +100,11 @@ namespace DGMCompanion
                 CompanionEnv.Warn("the main menu has no new-game button to put the entry beside.");
                 return;
             }
-            // The entry copies the look of the menu's own buttons (their classes), so it is theirs in every
-            // theme and size, and it sits right under New game.
-            _button = new Button { name = ButtonName, text = Title };
+            // The entry is a button of the menu's own kind with their classes, so it draws as they do (the game's
+            // frame is drawn by its button type, not by the classes alone), and it sits right under New game.
+            _button = SameKindAs(anchor);
+            _button.name = ButtonName;
+            _button.text = Title;
             foreach (string c in anchor.GetClasses())
             {
                 _button.AddToClassList(c);
@@ -118,10 +120,29 @@ namespace DGMCompanion
             _caption.style.opacity = 0.75f;
             _caption.style.marginTop = -2;
             _caption.style.marginBottom = 6;
+            // (a label alone takes Unity's default dark text: the caption takes the menu buttons' text colour)
+            _caption.RegisterCallback<GeometryChangedEvent>(_ => _caption.style.color = anchor.resolvedStyle.color);
             parent.Insert(at + 1, _caption);
             Refresh(map);
             ShownButton = _button;
             Options = "factions: " + string.Join(", ", _factionSpecService.Factions.OrderBy(f => f.Order).Select(f => f.Id + (_factionUnlockingService.IsLocked(f) ? " (locked)" : ""))) + "; modes: " + string.Join(", ", _gameModeSpecService.GetSpecsOrdered().Select(m => ModeSnapshot.NamedMode(m) ?? "?"));
+        }
+
+        // A new button of the anchor's own type (the game's LocalizableButton); a plain Button if that cannot be made.
+        private static Button SameKindAs(Button anchor)
+        {
+            try
+            {
+                if (Activator.CreateInstance(anchor.GetType()) is Button same)
+                {
+                    return same;
+                }
+            }
+            catch (Exception e)
+            {
+                CompanionEnv.Warn("the entry is a plain button: " + e.Message);
+            }
+            return new Button();
         }
 
         private void Refresh(MapCandidate map)
