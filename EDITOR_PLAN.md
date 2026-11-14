@@ -668,7 +668,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   it changed nothing round a tile by more than a level the tidying never moves that tile more than two: the land's
   own one-tile ledge goes back to where it stood, and the corner of its own two-tile ridge, with the ground of its
   level round it, to where the force put it, or where the force's rounding would leave that one tile wide to where it
-  stood, never down its cliff and never leaving ground one tile wide. Craterize, Erupt, Rift and Deposit end with it, and Glaciate's walls; Quake adopts it next.
+  stood, never down its cliff and never leaving ground one tile wide (the land's own ground that was one tile wide
+  before the force, where it still stands, holds no corner down: the tidying may not widen such a ledge by dropping
+  the ridge above it). Craterize, Erupt, Rift and Deposit end with it, and Glaciate's walls; Quake adopts it next.
 - **Esc skips, undo takes it back** (D344, A4): while a gesture is still being drawn, Esc cancels it and nothing of
   it lands; once a force plays, Esc (or Skip, for a finger: #1074 slice 3) skips it to its end, its final land kept as
   one step; Ctrl+Z (or Z, or Revert) takes all of it back at any moment, and nothing lands afterwards (D341). The row's
@@ -1118,7 +1120,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   with Strength, varying along the cliff where the noise says), its edges wandering: the top pulls back and
   the foot becomes an apron that runs out in lobes, the scree building up at the foot from what the top
   loses, so the top comes down no more than its foot rises (a cliff standing in water keeps its top, the
-  water taking what it sheds; above a stream the whole cliff pulls back); it sheds only so far round the cliff (taller cliffs farther, unevenly), only where the stroke
+  water taking what it sheds; above farmland or a stream, where its foot may not rise, the whole cliff pulls back a
+  tread, its height kept, the ground behind left as it is, so it adds no terrace); it sheds only so far round the cliff (taller cliffs farther, unevenly), only where the stroke
   presses, narrowing into the cliff beside it, and a slope once shed is left as it is; old land has fewer
   terraces: a narrow stretch of a terrace joins the level it borders most, whole, where that takes away more
   edges than it adds (a Size 64, Strength 10 stroke leaves no more level edges than there were); flat tops

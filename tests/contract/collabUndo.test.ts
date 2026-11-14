@@ -385,8 +385,10 @@ describe("a place in words", () => {
     // (Highlands 13 for 51 since generator 0.10.17's start floors, D515, D148: seed 51's map has a spring river beside its
     // main one now; of Highlands seeds 1–100 at 48² only seed 13 has one lake and one river besides a spring cave's stream; Highlands 23 for
     // 13 since generator 0.10.20's contour edges, D518, D148: seed 13 has two lakes now, and of seeds 1–50 seeds 23, 27 and 35
-    // have one lake and one river)
-    const one = open(23, "highlands");
+    // have one lake and one river; Highlands 9 for 23 since generator 0.10.23's round forms, the look round, D148: seed 23 has
+    // three lakes and three rivers now, and of seeds 1–60 seeds 9, 20 and 54 have one lake and one river, 20's lake named as the
+    // river; seed 9 the first)
+    const one = open(9, "highlands");
     const lakes = one.features.filter((f) => f.kind === "lake");
     expect(lakes.length, "the map has a single lake").toBe(1);
     const [lx, ly] = centre((lakes[0].params as { outline: number[][] }).outline);
@@ -419,8 +421,9 @@ describe("a place in words", () => {
     // contour edges, D518, D148: seed 10 has no lake now, and of seeds 1–20 only seed 2 has two; Canyon 4 since the later D518 mends moved the land, D148:
     // seed 2 has one lake now, and of seeds 1–20 seeds 4 and 14 have two, seed 4 the first; Canyon 31 since generator 0.10.21's look round (D518: the land's long
     // straight steps jog, the dead stands read the dry land as the checks do), D148: seed 4 has one lake now, and of seeds 1–40 seeds 31 and 39 have two, of which only
-    // 31 names both by their compass words)
-    const two = open(31, "canyon");
+    // 31 names both by their compass words; Canyon 3 since generator 0.10.23's round forms, the look round, D148: seed 31 has no
+    // lake now, and of seeds 1–27 seeds 3, 6, 13, 14, 17 and 19 have two, each named by its compass word, seed 3 the first)
+    const two = open(3, "canyon");
     const both = two.features.filter((f) => f.kind === "lake");
     expect(both.length).toBe(2);
     for (const lake of both) {

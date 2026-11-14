@@ -14,8 +14,10 @@ test("Open it keeps the map it replaces in Your maps, and the note names what th
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1600, height: 900 });
-  // (a Canyon whose first map misses its canyon: 96², seed 4 since 0.10.5's maps, where seed 2's first map keeps it, D148)
-  await openEditor(page, "s=4&z=96&d=n&t=canyon", { versionSearch: true });
+  // (a Canyon whose first map misses its canyon: 96², seed 3 since generator 0.10.23's round forms, D148: seed 4's first map
+  // keeps its canyon now; of seeds 1–12 only 3 and 8 miss it, and seed 3's search finds its version on the second try.
+  // Seed 4 since 0.10.5's maps, where seed 2's first map keeps it, D148)
+  await openEditor(page, "s=3&z=96&d=n&t=canyon", { versionSearch: true });
   const first = await info(page);
   const firstLand = await drawn(page);
   expect(first.edits).toBe(0);

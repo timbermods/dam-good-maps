@@ -139,9 +139,11 @@ test("the checks' Show marks the tiles the problem names, and Esc takes the mark
 test("Markers labels the seeps, aquifers, drains and reserves, with a warning on the aquifer that gives no water", async ({ page }) => {
   test.setTimeout(300_000);
   await page.setViewportSize({ width: 1600, height: 900 });
-  // (seed 2 since generator 0.10.17, D515, D148: seed 1's seep now lands where the view closing in on the three leaves it no
-  // label, at the view's edge, as labels do there; seeds 2, 3 and 4 make the case)
-  await openEditor(page, "s=2&z=96&d=n&t=riverValley");
+  // (seed 3 since generator 0.10.23's round forms, D148: on seed 2's new land the seep is placed on a flat spot the view
+  // closing in on the three shows without its label (none of one, dev's run 43562178770); seed 3's three all get theirs.
+  // Seed 2 since generator 0.10.17, D515, D148: seed 1's seep now lands where the view closing in on the three leaves it
+  // no label, at the view's edge, as labels do there; seeds 2, 3 and 4 made the case)
+  await openEditor(page, "s=3&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   // (north up, as the compass turns it: Top-down keeps the opening's turn (D492), and that follows the start's camera)
   await page.evaluate(() => window.dgm3d!.renderer.setView({ yaw: 0 }));

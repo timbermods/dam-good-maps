@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
-import { moveStartNear, startGroundOf, startMiddle, startProblem } from "../../src/core/doc/start";
+import { cornerFor, moveStartNear, startGroundOf, startMiddle, startProblem } from "../../src/core/doc/start";
 import type { Feature } from "../../src/core/features/schema";
 import { makesRoomForStart, standingFeatures, standingOf, startFitExtras, startFitProblem, startFitWarnings, takenTiles, type StartFitGround } from "../../src/core/doc/startFit";
 import { EVERY_KIND, planRemove } from "../../src/core/doc/remove";
@@ -116,7 +116,10 @@ describe("an imported map's start", () => {
     if (ops) {
       const move = ops.find((o) => o.op === "moveEntity") as { params: { x: number; y: number } };
       const ground = startGroundOf(s.built, s.features, null);
-      expect(startProblem(s.built, move.params.x + 1, move.params.y + 1, start.orientation, true, null, null, ground)).toBeNull();
+      // (the spot's middle, from the corner the move gives and the start's orientation: (x + 1, y + 1) holds only for Cw0;
+      // since generator 0.10.23's round forms, the look round, D148, seed 3's start stands turned (Cw180), so the move's corner (33, 59) stands one past its middle (32, 58) on both axes)
+      const [mx, my] = [[1, 1], [1, -1], [-1, -1], [-1, 1]].map(([dx, dy]) => [move.params.x + dx, move.params.y + dy]).find(([x, y]) => cornerFor(x, y, start.orientation).join() === `${move.params.x},${move.params.y}`)!;
+      expect(startProblem(s.built, mx, my, start.orientation, true, null, null, ground)).toBeNull();
     }
   });
 });
@@ -256,7 +259,9 @@ describe("a map object measured where it stands, by the checks and the start's p
   // from the relic has only the relic out of its band; of Highlands seeds 1–13, 2, 6, 7 and 11 serve all four tests, and 2 is the first)
   // (seed 7 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 2's relic, once
   // flagged, finds no spot that the move allows and its band clears; of Highlands seeds 6, 7 and 11 only 7 serves all four tests here)
-  const r = generate(makeSpec({ seed: 7, theme: "highlands", size: { x: 128, y: 128 } }));
+  // (seed 5 since generator 0.10.23's round forms, the look round, D148: on seed 7 no spot 5 to 12 tiles from the relic, where a
+  // start fits, has only the relic out of its band; of Highlands seeds 1–16, 5, 6, 8 and 14 serve all four tests here, and 5 is the first)
+  const r = generate(makeSpec({ seed: 5, theme: "highlands", size: { x: 128, y: 128 } }));
   const fresh = () => MapSession.fromGenerated(r, r.file);
   const W = 128;
   const startOf = (s: MapSession) => s.features.find((g): g is StartFeature => g.kind === "start")!;

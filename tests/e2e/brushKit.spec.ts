@@ -79,8 +79,11 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   // that crosses it, so that Flatten's rim no longer finds the footprint level, and its `keep` is empty;
   // seed 21's mine site, at (52, 41), is 26 tiles from all four stretches. Seed 60 since D518's later mends (the rolling
   // and rises reweighed), D148: seed 21's third stretch, 4 wide with no water within 10, now lies only at the map's east
-  // edge, out of the view; seed 60's four lie in the map's north half, its mine site at (71, 88) 70 tiles from them)
-  await openEditor(page, "s=60&z=96&d=n&t=riverValley");
+  // edge, out of the view; seed 60's four lie in the map's north half, its mine site at (71, 88) 70 tiles from them. Seed
+  // 44 since generator 0.10.23's round forms, D148: seed 60 has no third stretch, 4 wide with no water within 10, at all
+  // now, nor have 21, 34, 61, 62 or 64; seed 44's four lie round (18–30, 15–31), its mine sites at (72, 14) and (32, 75)
+  // 40 tiles and more from them)
+  await openEditor(page, "s=44&z=96&d=n&t=riverValley");
   await topDown(page);
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;

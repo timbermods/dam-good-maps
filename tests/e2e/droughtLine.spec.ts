@@ -50,11 +50,13 @@ test("a river that dries out completely gets the dry tint as well as the line, d
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 800 });
-  // (Islands seed 2 since generator 0.10.11, #726, D148: seed 1's water no longer dries out completely; seed 3 since
+  // (Islands seed 1 since generator 0.10.23's round forms, D148: no water of seed 3 dries out completely now; of Islands
+  // 96² seeds 1–14 a body of water dries out completely in 1, 10, 11 and 12, and seed 1 is the first, 48 bed tiles gone.
+  // Islands seed 2 since generator 0.10.11, #726, D148: seed 1's water no longer dries out completely; seed 3 since
   // generator 0.10.20's contour edges and their mends, D518, D148: no water of seed 2 dries out completely now; of Islands
   // 96² seeds 1–30 a stream dries out completely in 3, 9, 13, 18, 19, 20, 25, 26 and 27, and seed 3 is the first, 52 bed
   // tiles gone, 43 of them flowing on Day 0)
-  await openEditor(page, "s=3&z=96&d=n&t=islands");
+  await openEditor(page, "s=1&z=96&d=n&t=islands");
   const drawn = () => page.evaluate(() => window.dgm3d!.renderer.droughtDrawn);
   await expect.poll(async () => (await drawn()).tint, { timeout: 60_000 }).toBeGreaterThan(0);
   expect((await drawn()).line).toBeGreaterThan(0);

@@ -23,7 +23,9 @@ import { surfaceWater, waterFromDepth } from "../../src/render3d/model";
 // and 26 have flat columns now, and only seed 26 has films, D148; seed 7 for seed 26 since the D518 mends (compact hills, no broad wash flats, dead-stand knots), D148: seed 26's map has no film on its banks now; of seeds 1–34 only 4, 7, 9, 24, 26 and 31 have flat columns, and only seeds 7 and 24 have films (1 and 2 tiles), seed 7 the first)
 // (seed 4 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148:
 // seed 7's map has no film on its banks now; of seeds 1–12, 24, 26 and 29 only 4 and 24 pass every rule below, and seed 4 is the first)
-const r = generate(decodeSpecFragment("s=4&t=riverValley&z=128&d=n")!.spec);
+// (seed 9 since generator 0.10.23's round forms, the look round, D148: seed 4's map has terrain above terrain now, so its water has no
+// flat columns' outflows; of seeds 1–12, 24, 26 and 29 only 9 and 24 have flat columns, and only seed 9 has films, 2 tiles)
+const r = generate(decodeSpecFragment("s=9&t=riverValley&z=128&d=n")!.spec);
 const { W, H } = r.built;
 const S = r.built.settle;
 const view = waterFromDepth(r.built.heights, S.depth, S.contamination);
@@ -33,7 +35,7 @@ const sw0 = surfaceWater(W, H, view);
 const c0 = surfaceCurrent(W, H, sw0);
 const cur = Float32Array.from({ length: view.count * 2 }, (_, n) => c0[view.tile[n >> 1] * 2 + (n & 1)]);
 
-describe("the current of River Valley seed 4 at 128 squared", () => {
+describe("the current of River Valley seed 9 at 128 squared", () => {
   it("the river moves: a quarter of the wet columns are quicker than 0.5, none beyond 10", () => {
     let fast = 0;
     for (let k = 0; k < view.count; k++) {

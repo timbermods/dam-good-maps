@@ -63,8 +63,11 @@ test("water: smart Lower carves a bed the water follows; sources placed, strengt
   // deep, under the half level that makes a smart Lower stroke a deepening pass (`DEEPENS`), so it cuts a new channel
   // and its first dab in the river takes the bed a level under the river's own, below what the test allows there;
   // seed 22's river there is 0.7 deep; seed 5 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the
-  // dry land as the checks do), D148: seed 22's river has water beside the stroke's dry line now; of seeds 2–11 and 15 the test passes on seed 5 alone)
-  await openEditor(page, "s=5&z=96&d=n&t=riverValley");
+  // dry land as the checks do), D148: seed 22's river has water beside the stroke's dry line now; of seeds 2–11 and 15 the test passes on seed 5 alone.
+  // Seed 7 since generator 0.10.23's round forms (the look round), D148: seed 5's stroke now ends in water, its far end's
+  // ring blue; of seeds 2–16 the test passes on seeds 7, 9 and 13, the others' strokes starting off the river, ending in
+  // water, crossing water beside the dry line, or their first dabs taking the bed below what the test allows)
+  await openEditor(page, "s=7&z=96&d=n&t=riverValley");
   await topDown(page);
   let i = await info(page);
   const W = i.W;

@@ -11,7 +11,9 @@ const W = 64;
 // seed 1 for 4 since generator 0.10.20's contour edges, D518, D148: seed 4's Lake Basin has no level spot now (no 3×3 of
 // dry ground at one level with room to rise six); of seeds 1–30, seeds 1, 2, 7, 8, 9, 11, 14 and others have one, and
 // seed 1 is the first.
-const r = generate(makeSpec({ seed: 1, theme: "lakeBasin", size: { x: W, y: W } }));
+// seed 2 for 1 since generator 0.10.23's round forms (the look round), D148: seed 1's Lake Basin has no level spot now;
+// of seeds 1 to 14, seeds 2, 4, 7, 8, 11, 12 and 14 have one, and seed 2 is the first.
+const r = generate(makeSpec({ seed: 2, theme: "lakeBasin", size: { x: W, y: W } }));
 
 /** A dry tile on level ground, low enough to rise six: the 3Ã—3 round it and the tiles either side of the row at its
  *  level and dry, and nothing standing on the row of three the test shapes. */

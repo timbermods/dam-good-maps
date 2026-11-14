@@ -216,9 +216,11 @@ describe("painting the same spot again settles (D399)", () => {
   // Valley 3 its most terraced dry ground is at (22, 78) now, where a known fault shows (below); River Valley 4's, at
   // (48, 48), changes 218, 23, 2, 4 and then nothing; Size 5 on River Valley 4 since D518's mends moved the land, D148: on River
   // Valley 3 its most terraced dry ground, at (48, 48), is no longer weathered at all by a Size 5 stroke (0 tiles, ten times);
-  // River Valley 4's, at (36, 18), changes 46, 5 and then nothing)
+  // River Valley 4's, at (36, 18), changes 46, 5 and then nothing; Size 5 on River Valley 1 since generator 0.10.23's round forms (the
+  // look round), D148: River Valley 4's most terraced dry ground, at (48, 48) now, is no longer weathered at
+  // all by a Size 5 stroke (0 tiles, ten times); River Valley 1's, at (44, 16), changes 35 and then nothing)
   for (const [size, strength, theme, seed] of [
-    [5, 5, "riverValley", 4],
+    [5, 5, "riverValley", 1],
     [12, 10, "riverValley", 4],
   ] as const)
     it(`ten strokes at Size ${size}, Strength ${strength} change less each time`, () => settles(theme, seed, size, strength));
@@ -306,6 +308,10 @@ describe("an older map has fewer terraces, not more (D399, Kyler's round 2 verdi
   // three pass and come off the list, ordinary tests now: Lake Basin 3 (3,001 →
   // 2,930), Lake Basin 4 (2,806 → 2,700) and River Valley 8 (2,594 → 2,536). The gap shows on none of the seeds that
   // showed it before either (River Valley 1, 2, 5, 9, 10, 11 and 12, Lake Basin 2, 5, 6, 10, 11 and 12 all end with fewer).
+  // On generator 0.10.23's maps (#1102, round forms) Lake Basin 3 (2,969 → 2,979) and 4 (2,420 → 2,543) showed it again,
+  // every cliff the stroke shed there standing on farmland: cut into steps above a foot that stays, each gained a terrace
+  // a step. Rule 6 now pulls such a cliff back whole, a tread (D514 amended): 2,953 and 2,360; of Lake Basin and River
+  // Valley 1–12 only Lake Basin 5 still ends with more (2,821 → 2,826).
   for (const [theme, seed] of [
     ["riverValley", 3],
     ["riverValley", 6],

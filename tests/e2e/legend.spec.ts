@@ -34,9 +34,11 @@ test("Legend, ticked, shows a panel under it, which lists what is on it with the
   page.on("pageerror", (e) => errors.push(String(e)));
   // (a designed size: in a narrower window the band puts Legend on the Show row and its legend under the second line)
   await page.setViewportSize({ width: 1920, height: 1080 });
-  // (seed 1 since D518's contour edges, D148: seed 2's map now has terrain above terrain, so its Show row adds Caves and
-  // overhangs; seed 1's has none. Seed 2 since generator 0.10.17, D515, D148: seed 4242's had them)
-  await openEditor(page, "s=1&z=96&d=n&t=riverValley");
+  // (seed 3 since generator 0.10.23's round forms, D148: seed 1's map now has caves and overhangs too; of seeds 1–12 at
+  // 96², 3, 4, 5, 8, 9, 11 and 12 have none, and seed 3 is the first. Seed 1 since D518's contour edges, D148: seed 2's
+  // map now has terrain above terrain, so its Show row adds Caves and overhangs; seed 1's has none. Seed 2 since generator
+  // 0.10.17, D515, D148: seed 4242's had them)
+  await openEditor(page, "s=3&z=96&d=n&t=riverValley");
 
   // off to start with: Legend on its own at the top right, unticked, and no panel (Kyler, 2026-10-04)
   const button = page.getByRole("checkbox", { name: "Legend", exact: true });

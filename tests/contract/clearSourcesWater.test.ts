@@ -98,8 +98,10 @@ describe("Clear sources and the water (item 15)", () => {
     // seed 2 since generator 0.10.13, whose starts frame the map (D507), D148: seed 1's map now has stacked columns, so
     // its settle no longer runs on the heightfield's engine; seed 2's spot is at (77, 81), level 6, on a heightfield map;
     // seed 15 since generator 0.10.18's dead stands on the dry land, D516, D148: a stand stands within five tiles of seed 2's
-    // spot, and seed 15's is at (77, 12), level 12, on a heightfield map)
-    expect(await clearedPit(15)).toBe(false);
+    // spot, and seed 15's is at (77, 12), level 12, on a heightfield map; seed 59 since generator 0.10.23's round forms, the look
+    // round, D148: seed 15 has no dry flat spot now; of seeds 1–20, 33, 44, 59 and 68 only 11, 13, 16, 44 and 59 have one, and of those
+    // 11, 16 and 59 settle on the heightfield's engine; seed 59's spot is at (13, 17), level 5)
+    expect(await clearedPit(59)).toBe(false);
   }, 120_000);
 
   it("and on a map with terrain above terrain: the pit drains there too (#814)", async () => {
@@ -111,7 +113,9 @@ describe("Clear sources and the water (item 15)", () => {
     // map settles on the heightfield's engine now; of seeds 1–80 with a dry flat spot, seeds 6, 33, 44, 59 and 68 have stacked columns
     // and seeds 6, 33 and 44 pass (59 and 68 were not tried); seed 6's spot is at (60, 17), level 16; seed 33 since generator 0.10.21's look round
     // (D518: the land's long straight steps jog), D148: seed 6's map settles on the heightfield's engine now, and of seeds 6, 33, 44, 59, 68 and 2–5, 7 and 8
-    // only seed 33 holds a pit that drains on stacked columns)
-    expect(await clearedPit(33)).toBe(true);
+    // only seed 33 holds a pit that drains on stacked columns; seed 44 since generator 0.10.23's round forms, the look round, D148:
+    // seed 33 has no dry flat spot now; of seeds 1–20, 33, 44, 59 and 68 with one, seeds 13 and 44 have stacked columns, and seed
+    // 44's spot is at (35, 15), level 11, its pit draining there)
+    expect(await clearedPit(44)).toBe(true);
   }, 120_000);
 });

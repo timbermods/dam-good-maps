@@ -11,7 +11,10 @@ test("the title renames the map in place: Enter saves with no undo step, a blank
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  // (seed 13 since generator 0.10.23's round forms (the look round), D148: the land moved and seed 4242's map is named by
+  // its standout "Shelf Above Valley" now, too wide for one line in the header's room at 1400 (147px there), so its title
+  // stands on two lines and the field, one line, sits lower; seed 13's "Lee Valley" stands on one line, as 4242's name did)
+  await openEditor(page, "s=13&z=96&d=n&t=riverValley");
 
   const title = page.locator(".editor-title");
   const h1 = title.locator("h1");
@@ -31,7 +34,7 @@ test("the title renames the map in place: Enter saves with no undo step, a blank
   const name = (await info()).name;
   await expect(button).toHaveText(name);
   await expect(button).toHaveAttribute("title", "Rename and describe the map");
-  await expect(facts).toHaveText("Seed 4242 · 96×96");
+  await expect(facts).toHaveText("Seed 13 · 96×96");
   await expectReady(page);
   const was = await info();
   const steps = was.history.length;
@@ -63,7 +66,7 @@ test("the title renames the map in place: Enter saves with no undo step, a blank
   expect((await info()).history.length).toBe(steps);
   expect((await info()).edits).toBe(was.edits);
   await expect(page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "Undo (Ctrl+Z)" })).toBeDisabled();
-  await expect(facts).toHaveText("Seed 4242 · 96×96");
+  await expect(facts).toHaveText("Seed 13 · 96×96");
 
   // the renamed map downloads as dgm-<name>.timber
   await expectReady(page);
@@ -85,7 +88,7 @@ test("the title renames the map in place: Enter saves with no undo step, a blank
   await page.keyboard.press("Escape");
   await expect(field).toHaveCount(0);
   await expect(h1).toHaveText("Beaver Bend");
-  await expect(facts).toHaveText("Seed 4242 · 96×96");
+  await expect(facts).toHaveText("Seed 13 · 96×96");
   expect((await info()).history.length).toBe(steps);
   expect(errors).toEqual([]);
 });
