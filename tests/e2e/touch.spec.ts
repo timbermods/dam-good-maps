@@ -605,7 +605,7 @@ for (const size of SIZES) {
       await expect.poll(async () => (await objectsOf(page, "SmallRelic")).some((r) => Math.abs(r.x - to!.x) <= 1 && Math.abs(r.y - to!.y) <= 1)).toBe(true);
 
       // still picked, dragged onto the start: the core's reason beside it before the lift, clear of the finger, and the
-      // lift moves nothing (slice 3b, as a placement's refusal)
+      // lift moves nothing (slice 3b, as a placement's refusal), the reason going with it (slice 6)
       const relics1 = await objectsOf(page, "SmallRelic");
       const start = (await objectsOf(page, "StartingLocation"))[0];
       await still(page);
@@ -625,6 +625,7 @@ for (const size of SIZES) {
       const wb = (await why.boundingBox())!;
       expect(onStart.x >= wb.x && onStart.x <= wb.x + wb.width && onStart.y >= wb.y && onStart.y <= wb.y + wb.height, `the reason ${JSON.stringify(wb)} is under the finger`).toBe(false);
       await fingers.up(1);
+      await expect(page.locator(".shape-note"), "the reason goes with the lift").toHaveCount(0);
       await idle(page);
       expect(await steps(page)).toBe(before + 2);
       expect(await objectsOf(page, "SmallRelic")).toEqual(relics1);
