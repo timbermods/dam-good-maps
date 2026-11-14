@@ -3794,6 +3794,10 @@ frames, and the start was still the white map-editor marker.
   edge where the game's are cracked cut-outs, and our leaves are larger and fewer than the game's. (4) The ivy's brown
   roots at the foot (`IvyWet0A`) are left out. (5) The ruins' shadow in Standard is a solid post, half again the
   area of the model's latticed one.
+- **Revived on dev** (`look/ruins-start`, 2026-11-14, 522 commits on; no conflict): dev still drew the start as the grey
+  placeholder house with its entrance post, and the ruins as the scaffold towers. Sheet: `docs/sheets/ruins-start.jpg`,
+  made by `tools/capture-ruins-start.ts --soft` (High, River Valley 4242 at 256², dev against this checkout, close and
+  90 away, the same cameras).
 
 ## Falls that pour, against the game's Four Lakes frames (PERFECT Water 3; D154, D496; `fix/falls-pour-2`)
 
