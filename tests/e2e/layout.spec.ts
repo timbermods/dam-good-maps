@@ -981,20 +981,19 @@ for (const [W, H] of TABLETS) {
       await check("the File menu open");
     });
 
-    // (#1074 slice 7: a tool's settings were the desktop's rows, chips and steppers made for a mouse, their boxes 44px but
-    // their neighbours' laid over them; what a finger can hit of each, by the page's own answer, is 40px a side at least)
+    // (#1074 slice 7: a tool's settings were the desktop's rows, made for a mouse: Auto drawn 36×16 in a clear 44px box,
+    // Glaciate's Benches cut to two of its three options at 820; what is drawn of each target and a tap reaches of it, by
+    // the page's own answer, is 40px a side at the least)
     test(`at ${W}×${H}: every target in every tool's settings, Select's row among them, takes a finger: 40px a side at the least`, async ({ page }) => {
       test.setTimeout(300_000);
       await openEditor(page);
       const tap = (l: ReturnType<Page["locator"]>) => l.first().tap();
-      const smallest: string[] = [];
       const under: string[] = [];
       const measure = async (tool: string) => {
         await expect(page.locator(".tool-settings")).toBeVisible();
         await page.waitForTimeout(150);
         const hits = await hitTargets(page, ".tool-dock > .tool-settings");
         expect(hits.length, `${tool}: targets found`).toBeGreaterThan(0);
-        smallest.push(`${tool}: ${hits[0].name} ${hits[0].w}×${hits[0].h}`);
         under.push(...hits.filter((t) => Math.min(t.w, t.h) < 40).map((t) => `${tool}: ${t.name} ${t.w}×${t.h}`));
       };
       await tap(page.locator(".tool-bar button[aria-label^='Select']"));
@@ -1003,7 +1002,6 @@ for (const [W, H] of TABLETS) {
         await tap(page.locator(`.tool-bar button[aria-label^='${name}']`));
         await measure(name);
       }
-      console.log(`${W}×${H} smallest targets:\n${smallest.join("\n")}\nunder 40:\n${under.join("\n")}`);
       expect(under, "settings targets a finger can hit less than 40px of").toEqual([]);
     });
 
