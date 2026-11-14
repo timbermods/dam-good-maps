@@ -112,27 +112,38 @@ describe("the glide after a flick", () => {
 
 /** A touch layer with a host that records what it is asked. */
 function layer(canTilt = true) {
-  const log = { dropped: 0, moves: [] as Motion[], fingers: [] as number[] };
+  const log = { dropped: 0, moves: [] as Motion[], at: [] as Point[], fingers: [] as number[] };
+  const timers = new Map<number, () => void>();
+  let id = 0;
   const t = new Touches({
     drop: () => void log.dropped++,
-    move: (m) => void log.moves.push(m),
+    move: (m, at) => void (log.moves.push(m), log.at.push(at)),
     fingers: (n) => void log.fingers.push(n),
     canTilt: () => canTilt,
     still: () => true,
+    later: (fn) => (timers.set(++id, fn), id),
+    clear: (k) => void timers.delete(k),
   });
   const ev = (type: string, id: number, x: number, y: number, timeStamp: number) => ({ type, pointerId: id, clientX: x, clientY: y, timeStamp }) as unknown as PointerEvent;
-  return { t, log, ev };
+  /** The page's next task: what waited for the rest of its touch runs. */
+  const next = () => {
+    const due = [...timers.values()];
+    timers.clear();
+    for (const fn of due) fn();
+  };
+  return { t, log, ev, next };
 }
 
 describe("Touches", () => {
   it("leaves one finger to the view, and takes the camera at a second, dropping the press", () => {
-    const { t, log, ev } = layer();
+    const { t, log, ev, next } = layer();
     expect(t.down(ev("pointerdown", 1, 100, 300, 0))).toBe(false);
     expect(t.move(ev("pointermove", 1, 140, 300, 16))).toBe(false);
     expect(t.down(ev("pointerdown", 2, 300, 300, 400))).toBe(true);
     expect(log.dropped).toBe(1);
-    // a pinch apart: a zoom in, once decided
+    // a pinch apart: a zoom in, once decided (and the touch's events all in)
     expect(t.move(ev("pointermove", 2, 330, 300, 420))).toBe(true);
+    next();
     expect(log.moves.length).toBe(1);
     expect(log.moves[0].zoom).toBeLessThan(0);
     // the first finger up: the second, alone now, pans; the press is never the view's again
@@ -176,13 +187,15 @@ describe("Touches", () => {
   });
 
   it("moves nothing until the gesture has decided, then carries the whole move so far", () => {
-    const { t, log, ev } = layer();
+    const { t, log, ev, next } = layer();
     t.down(ev("pointerdown", 1, 100, 300, 0));
     t.down(ev("pointerdown", 2, 220, 300, 5));
     t.move(ev("pointermove", 1, 100, 294, 20));
     t.move(ev("pointermove", 2, 220, 294, 21));
+    next();
     expect(log.moves).toEqual([]);
     t.move(ev("pointermove", 1, 100, 290, 40));
+    next();
     expect(log.moves.length).toBe(1);
     // decided a tilt: finger 1's 10 px and finger 2's 6 px, the middle up 8 px
     expect(log.moves[0].tilt).toBeCloseTo(-8 * TILT_PER_PX, 9);
@@ -207,17 +220,39 @@ describe("Touches", () => {
     p.t.move(p.ev("pointermove", 1, 100, 260, 100));
     expect(p.log.moves).toEqual([]);
     p.t.move(p.ev("pointermove", 1, 100, 250, 116));
+    p.next();
     expect(p.log.moves.length).toBe(1);
     expect(p.log.moves[0]).toMatchObject({ dx: 0, dy: -25, tilt: 0 });
     expect(p.log.moves[0].turn).not.toBe(0);
   });
 
   it("in the top-down view the same drag pans", () => {
-    const { t, log, ev } = layer(false);
+    const { t, log, ev, next } = layer(false);
     t.down(ev("pointerdown", 1, 100, 300, 0));
     t.down(ev("pointerdown", 2, 220, 300, 5));
     t.move(ev("pointermove", 1, 100, 280, 20));
+    next();
     expect(log.moves[0]).toMatchObject({ dy: -10, tilt: 0 });
+  });
+
+  it("a pinch told a finger at a time is one step per touch: the fingers' middle never steps aside and back", () => {
+    const { t, log, ev, next } = layer();
+    t.down(ev("pointerdown", 1, 200, 300, 0));
+    t.down(ev("pointerdown", 2, 260, 300, 0));
+    // one touch, both fingers apart 30 px: finger 1's move, then finger 2's, at the touch's time
+    for (let k = 1; k <= 3; k++) {
+      t.move(ev("pointermove", 1, 200 - 10 * k, 300, 16 * k));
+      t.move(ev("pointermove", 2, 260 + 10 * k, 300, 16 * k));
+    }
+    expect(log.moves.length).toBeGreaterThan(0);
+    for (const m of log.moves) expect(m).toMatchObject({ dx: 0, dy: 0, turn: 0 });
+    expect(log.at.every((a) => a.x === 230 && a.y === 300)).toBe(true);
+    expect(log.moves.reduce((z, m) => z + m.zoom, 0)).toBeCloseTo(Math.log(60 / 120), 9);
+    // a finger lifted while its touch's step waits: the step goes first
+    t.move(ev("pointermove", 1, 160, 300, 64));
+    t.up(ev("pointerup", 1, 160, 300, 70));
+    expect(log.moves.at(-1)!.zoom).toBeLessThan(0);
+    next();
   });
 });
 
@@ -411,5 +446,17 @@ describe("a finger's line, and a press held still (slice 3b)", () => {
     late.f.move(P(203, 400), 1016);
     late.f.move(P(260, 450), 1000 + HOLD_MS + 10);
     expect(late.log.at(-1)).toBe(`show ${above(260, 450)}`);
+  });
+
+  it("a press begun as held whose lift is its first move past the slop, before the hold by its events' times, leaves nothing", () => {
+    // (no move delivered before the lift: the finger is up, so what it began goes and no pan is left for it; as a pan with
+    // no move before its lift, it moves nothing, and having moved past the slop it is no tap)
+    const { f, log, marks } = press("draw", { held: true });
+    f.up(P(200 + TAP_SLOP + 5, 400), 1100);
+    expect(log.slice(2)).toEqual(["drop begun"]);
+    expect(marks.at(-1)).toBeNull();
+    f.move(P(260, 450), 1120);
+    f.up(P(260, 450), 1140);
+    expect(log.length).toBe(3);
   });
 });
