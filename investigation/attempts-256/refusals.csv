@@ -1,0 +1,211 @@
+theme,seed,attempts,timber_sha256_16,attempt,reason,stage,land
+any,1,8,ac9bc2fb5d8a654c,0,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+any,1,8,ac9bc2fb5d8a654c,1,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+any,1,8,ac9bc2fb5d8a654c,2,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+any,1,8,ac9bc2fb5d8a654c,3,terrain.dam_wall,"land checks (before the first look, no settle)",fresh
+any,1,8,ac9bc2fb5d8a654c,4,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+any,1,8,ac9bc2fb5d8a654c,5,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+any,1,8,ac9bc2fb5d8a654c,6,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+any,2,2,483d289f1cee094f,0,start water moved,start (after the settle),fresh
+any,3,5,3fca40b997dabac1,0,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+any,3,5,3fca40b997dabac1,1,start water moved,start (after the settle),fresh
+any,3,5,3fca40b997dabac1,2,start water moved,start (after the settle),shown
+any,3,5,3fca40b997dabac1,3,start water moved,start (after the settle),shown
+any,4,20,892e9aa24a4b29a4,0,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+any,4,20,892e9aa24a4b29a4,1,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+any,4,20,892e9aa24a4b29a4,2,no place for badwater,"land checks (before the first look, no settle)",fresh
+any,4,20,892e9aa24a4b29a4,3,no place for badwater,"land checks (before the first look, no settle)",fresh
+any,4,20,892e9aa24a4b29a4,4,one place for a start,"land checks (before the first look, no settle)",fresh
+any,4,20,892e9aa24a4b29a4,5,no place for badwater,"land checks (before the first look, no settle)",fresh
+any,4,20,892e9aa24a4b29a4,6,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+any,4,20,892e9aa24a4b29a4,7,source in a flow,"land checks (before the first look, no settle)",fresh
+any,4,20,892e9aa24a4b29a4,8,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+any,4,20,892e9aa24a4b29a4,9,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+any,4,20,892e9aa24a4b29a4,10,one place for a start,"land checks (before the first look, no settle)",fresh
+any,4,20,892e9aa24a4b29a4,11,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+any,4,20,892e9aa24a4b29a4,12,no place for badwater,"land checks (before the first look, no settle)",fresh
+any,4,20,892e9aa24a4b29a4,13,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+any,4,20,892e9aa24a4b29a4,14,no place for badwater,"land checks (before the first look, no settle)",fresh
+any,4,20,892e9aa24a4b29a4,15,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+any,4,20,892e9aa24a4b29a4,16,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+any,4,20,892e9aa24a4b29a4,17,no start,"land checks (before the first look, no settle)",fresh
+any,4,20,892e9aa24a4b29a4,18,start.reach,start (after the settle),fresh
+any,5,14,1af6b9af0d0eeec8,0,no start,"land checks (before the first look, no settle)",fresh
+any,5,14,1af6b9af0d0eeec8,1,water story (planned),"land checks (before the first look, no settle)",fresh
+any,5,14,1af6b9af0d0eeec8,2,water story (planned),"land checks (before the first look, no settle)",fresh
+any,5,14,1af6b9af0d0eeec8,3,one place for a start,"land checks (before the first look, no settle)",fresh
+any,5,14,1af6b9af0d0eeec8,4,no place for badwater,"land checks (before the first look, no settle)",fresh
+any,5,14,1af6b9af0d0eeec8,5,no start,"land checks (before the first look, no settle)",fresh
+any,5,14,1af6b9af0d0eeec8,6,water story (planned),"land checks (before the first look, no settle)",fresh
+any,5,14,1af6b9af0d0eeec8,7,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+any,5,14,1af6b9af0d0eeec8,8,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+any,5,14,1af6b9af0d0eeec8,9,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+any,5,14,1af6b9af0d0eeec8,10,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+any,5,14,1af6b9af0d0eeec8,11,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+any,5,14,1af6b9af0d0eeec8,12,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+any,6,2,bfc58bbe8238b759,0,water story (planned),"land checks (before the first look, no settle)",fresh
+riverValley,1,4,85dca2f4dbc6fe13,0,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+riverValley,1,4,85dca2f4dbc6fe13,1,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+riverValley,1,4,85dca2f4dbc6fe13,2,no rivers,"land checks (before the first look, no settle)",fresh
+riverValley,2,11,b2979f00308ce7ea,0,no rivers,"land checks (before the first look, no settle)",fresh
+riverValley,2,11,b2979f00308ce7ea,1,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+riverValley,2,11,b2979f00308ce7ea,2,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+riverValley,2,11,b2979f00308ce7ea,3,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+riverValley,2,11,b2979f00308ce7ea,4,no place for badwater,"land checks (before the first look, no settle)",fresh
+riverValley,2,11,b2979f00308ce7ea,5,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+riverValley,2,11,b2979f00308ce7ea,6,no rivers,"land checks (before the first look, no settle)",fresh
+riverValley,2,11,b2979f00308ce7ea,7,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+riverValley,2,11,b2979f00308ce7ea,8,no rivers,"land checks (before the first look, no settle)",fresh
+riverValley,2,11,b2979f00308ce7ea,9,no rivers,"land checks (before the first look, no settle)",fresh
+riverValley,3,6,4ac130d857a9ba3a,0,no rivers,"land checks (before the first look, no settle)",fresh
+riverValley,3,6,4ac130d857a9ba3a,1,no place for badwater,"land checks (before the first look, no settle)",fresh
+riverValley,3,6,4ac130d857a9ba3a,2,no place for badwater,"land checks (before the first look, no settle)",fresh
+riverValley,3,6,4ac130d857a9ba3a,3,no rivers,"land checks (before the first look, no settle)",fresh
+riverValley,3,6,4ac130d857a9ba3a,4,no place for badwater,"land checks (before the first look, no settle)",fresh
+riverValley,4,1,c1631e1d38ad7edf,,,,
+riverValley,5,2,f4a230a1176126a3,0,no place for badwater,"land checks (before the first look, no settle)",fresh
+riverValley,6,6,02b73c440087e650,0,water story (planned),"land checks (before the first look, no settle)",fresh
+riverValley,6,6,02b73c440087e650,1,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+riverValley,6,6,02b73c440087e650,2,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+riverValley,6,6,02b73c440087e650,3,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+riverValley,6,6,02b73c440087e650,4,no place for badwater,"land checks (before the first look, no settle)",fresh
+canyon,1,9,b852820b1a3eb917,0,water story (planned),"land checks (before the first look, no settle)",fresh
+canyon,1,9,b852820b1a3eb917,1,water story (planned),"land checks (before the first look, no settle)",fresh
+canyon,1,9,b852820b1a3eb917,2,no place for badwater,"land checks (before the first look, no settle)",fresh
+canyon,1,9,b852820b1a3eb917,3,no rivers,"land checks (before the first look, no settle)",fresh
+canyon,1,9,b852820b1a3eb917,4,promise (planned),"land checks (before the first look, no settle)",fresh
+canyon,1,9,b852820b1a3eb917,5,one place for a start,"land checks (before the first look, no settle)",fresh
+canyon,1,9,b852820b1a3eb917,6,no place for badwater,"land checks (before the first look, no settle)",fresh
+canyon,1,9,b852820b1a3eb917,7,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+canyon,2,4,30c4d5a82f1e3246,0,promise (planned),"land checks (before the first look, no settle)",fresh
+canyon,2,4,30c4d5a82f1e3246,1,water story (planned),"land checks (before the first look, no settle)",fresh
+canyon,2,4,30c4d5a82f1e3246,2,promise (planned),"land checks (before the first look, no settle)",fresh
+canyon,3,9,766bf33b84028d0e,0,no place for badwater,"land checks (before the first look, no settle)",fresh
+canyon,3,9,766bf33b84028d0e,1,promise (planned),"land checks (before the first look, no settle)",fresh
+canyon,3,9,766bf33b84028d0e,2,promise (planned),"land checks (before the first look, no settle)",fresh
+canyon,3,9,766bf33b84028d0e,3,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+canyon,3,9,766bf33b84028d0e,4,no place for badwater,"land checks (before the first look, no settle)",fresh
+canyon,3,9,766bf33b84028d0e,5,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+canyon,3,9,766bf33b84028d0e,6,promise (planned),"land checks (before the first look, no settle)",fresh
+canyon,3,9,766bf33b84028d0e,7,no place for badwater,"land checks (before the first look, no settle)",fresh
+canyon,4,5,54bacaba064e470c,0,source in a flow,"land checks (before the first look, no settle)",fresh
+canyon,4,5,54bacaba064e470c,1,water story (planned),"land checks (before the first look, no settle)",fresh
+canyon,4,5,54bacaba064e470c,2,promise (planned),"land checks (before the first look, no settle)",fresh
+canyon,4,5,54bacaba064e470c,3,promise (planned),"land checks (before the first look, no settle)",fresh
+canyon,5,4,e1b9e5b994d59135,0,promise (planned),"land checks (before the first look, no settle)",fresh
+canyon,5,4,e1b9e5b994d59135,1,promise (planned),"land checks (before the first look, no settle)",fresh
+canyon,5,4,e1b9e5b994d59135,2,promise (planned),"land checks (before the first look, no settle)",fresh
+canyon,6,6,95c4053ab590e633,0,ruler-straight channel,"land checks (before the first look, no settle)",fresh
+canyon,6,6,95c4053ab590e633,1,promise (planned),"land checks (before the first look, no settle)",fresh
+canyon,6,6,95c4053ab590e633,2,water story (planned),"land checks (before the first look, no settle)",fresh
+canyon,6,6,95c4053ab590e633,3,promise (planned),"land checks (before the first look, no settle)",fresh
+highlands,1,24,c6ee13a6c51c767a,0,promise (planned),"land checks (before the first look, no settle)",fresh
+highlands,1,24,c6ee13a6c51c767a,1,promise (planned),"land checks (before the first look, no settle)",fresh
+highlands,1,24,c6ee13a6c51c767a,2,promise (planned),"land checks (before the first look, no settle)",fresh
+highlands,1,24,c6ee13a6c51c767a,3,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+highlands,1,24,c6ee13a6c51c767a,4,one place for a start,"land checks (before the first look, no settle)",fresh
+highlands,1,24,c6ee13a6c51c767a,5,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+highlands,1,24,c6ee13a6c51c767a,6,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+highlands,1,24,c6ee13a6c51c767a,7,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+highlands,1,24,c6ee13a6c51c767a,8,one place for a start,"land checks (before the first look, no settle)",fresh
+highlands,1,24,c6ee13a6c51c767a,9,one place for a start,"land checks (before the first look, no settle)",fresh
+highlands,1,24,c6ee13a6c51c767a,10,one place for a start,"land checks (before the first look, no settle)",fresh
+highlands,1,24,c6ee13a6c51c767a,11,one place for a start,"land checks (before the first look, no settle)",fresh
+highlands,1,24,c6ee13a6c51c767a,12,terrain.dam_wall,"land checks (before the first look, no settle)",fresh
+highlands,1,24,c6ee13a6c51c767a,13,no start,"land checks (before the first look, no settle)",fresh
+highlands,1,24,c6ee13a6c51c767a,14,ruler-straight channel,"land checks (before the first look, no settle)",fresh
+highlands,1,24,c6ee13a6c51c767a,15,terrain.dam_wall,"land checks (before the first look, no settle)",fresh
+highlands,1,24,c6ee13a6c51c767a,16,terrain.dam_wall,"land checks (before the first look, no settle)",fresh
+highlands,1,24,c6ee13a6c51c767a,17,no start,"land checks (before the first look, no settle)",fresh
+highlands,1,24,c6ee13a6c51c767a,18,start water moved,start (after the settle),fresh
+highlands,1,24,c6ee13a6c51c767a,19,start water moved,start (after the settle),shown
+highlands,1,24,c6ee13a6c51c767a,20,start water moved,start (after the settle),shown
+highlands,1,24,c6ee13a6c51c767a,0,no start,"land checks (before the first look, no settle)",fresh
+highlands,1,24,c6ee13a6c51c767a,1,ruler-straight channel,"land checks (before the first look, no settle)",fresh
+highlands,2,11,4e2c9094bdbd6993,0,terrain.dam_wall,"land checks (before the first look, no settle)",fresh
+highlands,2,11,4e2c9094bdbd6993,1,water story (planned),"land checks (before the first look, no settle)",fresh
+highlands,2,11,4e2c9094bdbd6993,2,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+highlands,2,11,4e2c9094bdbd6993,3,terrain.dam_wall,"land checks (before the first look, no settle)",fresh
+highlands,2,11,4e2c9094bdbd6993,4,promise (planned),"land checks (before the first look, no settle)",fresh
+highlands,2,11,4e2c9094bdbd6993,5,promise (planned),"land checks (before the first look, no settle)",fresh
+highlands,2,11,4e2c9094bdbd6993,6,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+highlands,2,11,4e2c9094bdbd6993,7,terrain.dam_wall,"land checks (before the first look, no settle)",fresh
+highlands,2,11,4e2c9094bdbd6993,8,terrain.dam_wall,"land checks (before the first look, no settle)",fresh
+highlands,2,11,4e2c9094bdbd6993,9,one place for a start,"land checks (before the first look, no settle)",fresh
+highlands,3,12,25d48640e4170146,0,promise (planned),"land checks (before the first look, no settle)",fresh
+highlands,3,12,25d48640e4170146,1,promise (planned),"land checks (before the first look, no settle)",fresh
+highlands,3,12,25d48640e4170146,2,terrain.dam_wall,"land checks (before the first look, no settle)",fresh
+highlands,3,12,25d48640e4170146,3,no start,"land checks (before the first look, no settle)",fresh
+highlands,3,12,25d48640e4170146,4,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+highlands,3,12,25d48640e4170146,5,promise (planned),"land checks (before the first look, no settle)",fresh
+highlands,3,12,25d48640e4170146,6,source in a flow,"land checks (before the first look, no settle)",fresh
+highlands,3,12,25d48640e4170146,7,source in a flow,"land checks (before the first look, no settle)",fresh
+highlands,3,12,25d48640e4170146,8,source in a flow,"land checks (before the first look, no settle)",fresh
+highlands,3,12,25d48640e4170146,9,start water a sealed puddle,start (after the settle),fresh
+highlands,3,12,25d48640e4170146,10,start water moved,start (after the settle),shown
+highlands,4,7,5e3d586a021c8878,0,promise (planned),"land checks (before the first look, no settle)",fresh
+highlands,4,7,5e3d586a021c8878,1,promise (planned),"land checks (before the first look, no settle)",fresh
+highlands,4,7,5e3d586a021c8878,2,promise (planned),"land checks (before the first look, no settle)",fresh
+highlands,4,7,5e3d586a021c8878,3,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+highlands,4,7,5e3d586a021c8878,4,no start,"land checks (before the first look, no settle)",fresh
+highlands,4,7,5e3d586a021c8878,5,no start,"land checks (before the first look, no settle)",fresh
+highlands,5,10,699b6e7ee29cf664,0,water story (planned),"land checks (before the first look, no settle)",fresh
+highlands,5,10,699b6e7ee29cf664,1,a river's head under a lake,"land checks (before the first look, no settle)",fresh
+highlands,5,10,699b6e7ee29cf664,2,promise (planned),"land checks (before the first look, no settle)",fresh
+highlands,5,10,699b6e7ee29cf664,3,promise (planned),"land checks (before the first look, no settle)",fresh
+highlands,5,10,699b6e7ee29cf664,4,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+highlands,5,10,699b6e7ee29cf664,5,no place for badwater,"land checks (before the first look, no settle)",fresh
+highlands,5,10,699b6e7ee29cf664,6,no place for badwater,"land checks (before the first look, no settle)",fresh
+highlands,5,10,699b6e7ee29cf664,7,no start,"land checks (before the first look, no settle)",fresh
+highlands,5,10,699b6e7ee29cf664,8,no place for badwater,"land checks (before the first look, no settle)",fresh
+highlands,6,7,9678ebe5d1432af7,0,promise (planned),"land checks (before the first look, no settle)",fresh
+highlands,6,7,9678ebe5d1432af7,1,promise (planned),"land checks (before the first look, no settle)",fresh
+highlands,6,7,9678ebe5d1432af7,2,promise (planned),"land checks (before the first look, no settle)",fresh
+highlands,6,7,9678ebe5d1432af7,3,no place for badwater,"land checks (before the first look, no settle)",fresh
+highlands,6,7,9678ebe5d1432af7,4,no place for badwater,"land checks (before the first look, no settle)",fresh
+highlands,6,7,9678ebe5d1432af7,5,no start,"land checks (before the first look, no settle)",fresh
+lakeBasin,1,1,b172674b745ca6d5,,,,
+lakeBasin,2,1,625c7de7d0f37543,,,,
+lakeBasin,3,1,2234daa045b40528,,,,
+lakeBasin,4,1,6f4dac906d55aac5,,,,
+lakeBasin,5,4,62110c8c060d0db6,0,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+lakeBasin,5,4,62110c8c060d0db6,1,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+lakeBasin,5,4,62110c8c060d0db6,2,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+lakeBasin,6,1,4c02e57b074be2c3,,,,
+delta,1,4,34dd83e756f45167,0,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+delta,1,4,34dd83e756f45167,1,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+delta,1,4,34dd83e756f45167,2,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+delta,2,2,8b405d9148235cb0,0,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+delta,3,4,15634e62c3eaa32a,0,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+delta,3,4,15634e62c3eaa32a,1,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+delta,3,4,15634e62c3eaa32a,2,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+delta,4,5,96f9954aaa5a7539,0,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+delta,4,5,96f9954aaa5a7539,1,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+delta,4,5,96f9954aaa5a7539,2,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+delta,4,5,96f9954aaa5a7539,3,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+delta,5,4,4568d6d9c1e76258,0,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+delta,5,4,4568d6d9c1e76258,1,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+delta,5,4,4568d6d9c1e76258,2,a river's water leaves its course,"land checks (before the first look, no settle)",fresh
+delta,6,1,c548df3e6ddf5fad,,,,
+islands,1,2,923f5ff9a5e64be5,0,one place for a start,"land checks (before the first look, no settle)",fresh
+islands,2,11,5fe6b5db641ba7bf,0,an island to expand to (planned),"land checks (before the first look, no settle)",fresh
+islands,2,11,5fe6b5db641ba7bf,1,no place for badwater,"land checks (before the first look, no settle)",fresh
+islands,2,11,5fe6b5db641ba7bf,2,no place for badwater,"land checks (before the first look, no settle)",fresh
+islands,2,11,5fe6b5db641ba7bf,3,no place for badwater,"land checks (before the first look, no settle)",fresh
+islands,2,11,5fe6b5db641ba7bf,4,promise (planned),"land checks (before the first look, no settle)",fresh
+islands,2,11,5fe6b5db641ba7bf,5,one place for a start,"land checks (before the first look, no settle)",fresh
+islands,2,11,5fe6b5db641ba7bf,6,no place for badwater,"land checks (before the first look, no settle)",fresh
+islands,2,11,5fe6b5db641ba7bf,7,one place for a start,"land checks (before the first look, no settle)",fresh
+islands,2,11,5fe6b5db641ba7bf,8,an island to expand to (planned),"land checks (before the first look, no settle)",fresh
+islands,2,11,5fe6b5db641ba7bf,9,no place for badwater,"land checks (before the first look, no settle)",fresh
+islands,3,5,1e72e792c1c749ca,0,no place for badwater,"land checks (before the first look, no settle)",fresh
+islands,3,5,1e72e792c1c749ca,1,no place for badwater,"land checks (before the first look, no settle)",fresh
+islands,3,5,1e72e792c1c749ca,2,no place for badwater,"land checks (before the first look, no settle)",fresh
+islands,3,5,1e72e792c1c749ca,3,no start,"land checks (before the first look, no settle)",fresh
+islands,4,4,6a9e927664f041ce,0,no place for badwater,"land checks (before the first look, no settle)",fresh
+islands,4,4,6a9e927664f041ce,1,water story (planned),"land checks (before the first look, no settle)",fresh
+islands,4,4,6a9e927664f041ce,2,no place for badwater,"land checks (before the first look, no settle)",fresh
+islands,5,1,600fbf41e40ddaca,,,,
+islands,6,4,4b456038d0a61b2b,0,no place for badwater,"land checks (before the first look, no settle)",fresh
+islands,6,4,4b456038d0a61b2b,1,no place for badwater,"land checks (before the first look, no settle)",fresh
+islands,6,4,4b456038d0a61b2b,2,an island to expand to (planned),"land checks (before the first look, no settle)",fresh
