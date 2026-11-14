@@ -114,8 +114,9 @@ export const WATER_SURFACE = {
   /** The sky's reflection and the sun's glint, as the game lights its water (URP, GGX, in Gamma colour space). Its
    *  smoothness is not the material's `_Smoothness` (0.672, a leftover the BRDF never reads) but the soft-light of
    *  its `WaterMetalAndGloss` texture's alpha at two panned samples: about `smoothness` (median 0.25; 0.15 to 0.44
-   *  between the 5th and 95th percentiles). We draw our own slow noise with that spread (`smoothnessSpread` × the
-   *  noise's swing round its middle), panned the same way, not the game's texture. Its metallic is 0 (the texture's
+   *  between the 5th and 95th percentiles), its patches about a tile across. We draw our own noise with that spread
+   *  and size (`smoothnessSpread` and `smoothnessCurve`), drifting as the game's two samples drift (`glossPan`), not
+   *  the game's texture. Its metallic is 0 (the texture's
    *  red), so `f0` 0.04. The sky's reflection is added on top (URP's environment term), by the game's probe in the
    *  reflected direction with its head-on part where the look draws the game's light (`WATER_LIGHT`,
    *  `waterEnvironment`, `WATER_PROBE`); otherwise `reflection` × sky × (saturate(smoothness + f0) − f0) × (1 − N·V)^4
@@ -123,7 +124,25 @@ export const WATER_SURFACE = {
    *  `GAME_FINISH.reflectionIntensity`, kept here as a number: palette.ts imports this file) and `WATER.sky` its probe
    *  toward 60° up. The sun's glint is URP's GGX specular term × f0 (`waterSunGlint`), a faint sheen at this roughness. */
   smoothness: 0.25,
-  smoothnessSpread: 0.6,
+  /** The smoothness by our gloss's swing k round its middle (the mean of two noises, 0.25 to 0.75 between its 5th and
+   *  95th percentiles): `smoothness` + `smoothnessSpread` k + `smoothnessCurve` k², which draws the game's
+   *  (WaterMetalAndGloss's alpha soft-lit with itself, measured over its places and times: mean 0.263, spread 0.088,
+   *  0.149 / 0.248 / 0.432 at its 5th, 50th and 95th percentiles; ours mean 0.264, spread 0.088, 0.149 / 0.248 /
+   *  0.433). Until 2026-11-14 a straight 0.6 k: 0.10 to 0.40, so the glossiest sheen the game's water shows, and its
+   *  dullest floor, were missing. */
+  smoothnessSpread: 0.566,
+  smoothnessCurve: 0.68,
+  /** How fast the gloss drifts over the water (tiles a second, x east and y north), each of its two samples: the
+   *  game's `_MetallicGlossMapSpeed` (−0.008, −0.002) and `_MetallicGlossMapSpeed2` (0.01, 0.004) are in its
+   *  texture's units, which its tiling 0.01 spreads over 100 tiles, so its patches drift 0.8 and 1.1 tiles a second
+   *  and the gloss at a point turns over in about a second (half its likeness gone in 1.1 s). A curtain's sheen
+   *  comes and goes with it: a fall's face, seen near level, lightens and darkens by about 10 L* in a few seconds
+   *  (docs/progress/3d-view.md, "The falls' sheen"). Until 2026-11-14 ours took the speeds as tiles, a fiftieth of the
+   *  game's drift. */
+  glossPan: [
+    [0.8, 0.2],
+    [-1.0, -0.4],
+  ] as readonly (readonly [number, number])[],
   f0: 0.04,
   reflection: 1,
   /** The game's own highlight (its PhysicalWaterURP, p036 791–835): a light tied to the camera, along its forward
@@ -750,6 +769,11 @@ export const WATER_GLSL = /* glsl */ `
   #define WATER_SMOOTHNESS ${f(WATER_SURFACE.smoothness)}
   #define WATER_SMOOTHNESS_SPREAD ${f(WATER_SURFACE.smoothnessSpread)}
   #define BADWATER_SMOOTHNESS ${f(BADWATER.smoothness)}
+  /** Clean water's smoothness at a gloss (0–1, its middle 0.5), spread as the game's (WATER_SURFACE.smoothnessCurve). */
+  float waterSmoothness(float gloss) {
+    float k = gloss - 0.5;
+    return clamp(WATER_SMOOTHNESS + k * WATER_SMOOTHNESS_SPREAD + k * k * ${f(WATER_SURFACE.smoothnessCurve)}, 0.0, 1.0);
+  }
   /** The sky's reflection's weight at a smoothness, as the game's URP environment term (waterPalette.ts
    *  WATER_SURFACE.smoothness): the part that rises toward the grazing angle. */
   float waterSkyReflect(float NoV, float smoothness) {

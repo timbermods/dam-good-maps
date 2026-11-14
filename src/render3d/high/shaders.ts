@@ -319,9 +319,9 @@ export function waterHooks(): ShaderHooks {
             float hlBad = cont;
             // (the depth as the game reads it, the Standard surface's: along the view to the ground behind, viewDepth.ts)
             float hlDepth = max(0.0, d);
-            // (its smoothness as the Standard surface's, by this look's badwater share: the gloss's slow variation, toward
+            // (its smoothness as the Standard surface's, by this look's badwater share: the gloss's drift, toward
             // badwater's by the tint × the pattern's R)
-            float hlSmooth = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, waterTint(hlBad) * bpat.x);
+            float hlSmooth = mix(waterSmoothness(gloss), BADWATER_SMOOTHNESS, waterTint(hlBad) * bpat.x);
             vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, N, Nh, V, lit, albedo, bpat, hlSmooth);
             // the same water at any depth, as the game's and the Standard look's (waterPalette.ts waterOpacity: no film,
             // D154 as amended 2026-11-09); no foam, no froth, as the game draws none
@@ -364,7 +364,7 @@ export function waterHooks(): ShaderHooks {
               // the Standard surface's: viewDepth.ts from just inside its column), with the Standard side's normal, albedo
               // and patterns (the surface's, facing up, carried by its current: stretched down it as on the fall's slope
               // beside it, as the game's are)
-              float stepSmooth = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, waterTint(cont) * bpat.x);
+              float stepSmooth = mix(waterSmoothness(gloss), BADWATER_SMOOTHNESS, waterTint(cont) * bpat.x);
               vec4 stepSurface = measuredSurfaceWater(g, max(0.0, d), 1.0, cont, N, Nh, V, lit, albedo, bpat, stepSmooth);
               c = stepSurface.rgb;
               // (what the clear water's veil keeps of its badwater: the side's own, at its depth)
