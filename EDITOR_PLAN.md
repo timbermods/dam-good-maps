@@ -17,8 +17,8 @@ text this document condensed (at D390) and the deferred Claude integration's des
 A studio for creating maps. Start from a generated map or a real place, shape it like a painter, and the water
 responds to everything you do. It is deliberately different from the game's own editor, which is a precision
 workshop; players can still fine-tune in the game's editor if they want. The editor was desktop-first (D185); phones and
-tablets now edit maps too, first class (#1074, amending D185): touch in the 3D view (§7, "Touch") and the phone layouts
-(§3, "Phones") are built; seeing a press before it applies, the rest of the page on a phone and the passes on real
+tablets now edit maps too, first class (#1074, amending D185): touch in the 3D view (§7, "Touch"), the phone layouts
+and the rest of the page on a phone (§3, "Phones") are built; seeing a press before it applies and the passes on real
 phones come in its later slices.
 
 ## 2. The principles
@@ -182,8 +182,10 @@ place of its bottom rule.
   version selected, the same size as the open map; below under Versions), **Rename** (one selected) and **Delete** (any), always shown,
   greyed otherwise with the reason in Compare's tooltip; Delete asks once ("Delete 7 maps?"), focus on
   Delete so Enter confirms, Esc cancels. The Delete key deletes the selected maps, or the one under the pointer, while
-  the pointer is over Your maps or a tile has the keyboard's focus. On a touch screen the view takes fingers (§7, "Touch");
-  Your maps' selection by touch comes with the rest of the page on a phone (#1074, slice 4).
+  the pointer is over Your maps or a tile has the keyboard's focus. On a touch screen the view takes fingers (§7, "Touch").
+  **A finger selects as Ctrl-click does** (#1074, slice 4): a long press on a tile selects it (no tooltip, no menu), and
+  while anything is selected each tap selects or clears a tile, opening none; the heading row says how many are selected,
+  with **Done** to clear them. Delete asks once, as above.
 - **Phones** (#1074, slice 2; amends D185; `editor/view/phoneLayout.ts`, `usePhone.ts`, `src/styles/phone.css`;
   `tests/e2e/layout.spec.ts` at 393×852 and 852×393). The layout goes by the room, never by the device: under 600 CSS px
   wide the phone held upright, under 500 tall the phone on its side; anything else (a tablet, a laptop) keeps the layout
@@ -214,10 +216,17 @@ place of its bottom rule.
   `tests/e2e/phonePages.spec.ts`): each of the menu's panels (Map Generator, Real places, Your maps, History) is a page
   the whole screen under the bar, **Map** at its top going back to the map, the page scrolling inside itself; Map
   Generator in one column (two on its side), each setting its name and value on a line and its slider or choices the
-  whole width under them, Showcase taking the page while it is open; each of Your maps' tiles has a **⋯** (Compare,
+  whole width under them, Showcase taking the page while it is open; **Generate** the page's one green button, fixed
+  at its foot clear of the home bar with the settings scrolling above it, and **Keep** quiet beside the seed (a check in it
+  while it holds, never green). **No word is cut short** at a phone's size: no ellipsis, no clipped label (the spec reads
+  every page and dialog for it). History's steps are rows the page's width, each label whole, **Keep this version** and
+  **Branch from here** under the step the map is at; Real places and Your maps show two cards a row upright (four on its
+  side), each picture whole and every name in full; the page's own head names History and Your maps, so their panels'
+  headings step aside (Your maps keeps its row of actions). Each of Your maps' tiles has a **⋯** (Compare,
   Download .timber, Rename, Delete: what the right-click gives). The dialogs (Help and keys, About, New blank map,
   Description, the time-lapse, a question before a map is replaced, the map being made) are sheets the screen's width,
-  scrolling inside with their buttons kept in sight at their foot; Together opens from the menu as a sheet under the
+  scrolling inside with their buttons kept in sight at their foot, the map being made centred on the screen with its whole
+  line; Together opens from the menu as a sheet under the
   bar with its own ×; a link in a dialog's words takes a finger's 44px. **Save** hands the map's file to the phone's
   share sheet (`platform/share.ts`) where the browser can share a file and the pointer is a finger, else it downloads;
   the same bytes either way (D455). When building the file took long enough that the browser wants a fresh tap, or the
@@ -1693,7 +1702,10 @@ them, ROADMAP "The 20-second tour"):
   `FORCES`, so a new tool or force appears by itself; the other keys are listed once there, beside the handlers in
   `keyboard/useKeyboard.ts` and the camera. Esc, ? and Close end it; while it shows the editor's other keys wait.
 - **Help**. A dialog of a few lines for a player: what the editor is for, how to make a map, how to save it into
-  Timberborn (with a link to the README's "Install a map"), the pointer controls and where to report a problem.
+  Timberborn (with a link to the README's "Install a map"), the pointer controls and where to report a problem. To a
+  finger (a coarse pointer, #1074) it speaks touch first: the gestures lead (tap, drag, pinch, a two-finger turn, the
+  double tap as slice 3 makes it, two- and three-finger taps for Undo and Redo, a long press), every step says tap; on a
+  phone nothing names a mouse or a key, and a tablet keeps the mouse and Keyboard shortcuts after the gestures.
 - **Report a problem** opens https://github.com/timbermods/dam-good-maps/issues/new/choose in a new tab (the issue
   chooser; `REPORT_URL` in `src/editor/help/helpPanels.tsx`). There is no form and no rating (D145).
 

@@ -5,7 +5,8 @@
 // hovered. While it shows, the control's `title` waits in `data-tip-held`, so the browser's own tooltip never
 // shows beside it, and a control named only by its title keeps that name as its `aria-label`.
 //
-// A finger has no hover: a long press on a control shows its tooltip instead, and that press is not a tap (#1074).
+// A finger has no hover: a long press on a control shows its tooltip instead, and that press is not a tap (#1074); a
+// control whose long press does something of its own (`OWN_LONG_PRESS`) keeps it.
 //
 // tests/e2e/tooltips.spec.ts checks every control on the page has one, in the form; tests/unit/tooltipForm.test.ts
 // checks the tools', forces' and shelf's, where they are written.
@@ -21,9 +22,11 @@ const NAMED = "data-tip-named";
 /** How long the pointer rests on a control before its tooltip shows, in ms (about the browser's own). */
 const DELAY = 450;
 /** A finger has no hover (#1074): held this long on a control, its tooltip shows, and the press is not a tap. */
-const LONG_PRESS = 500;
+export const LONG_PRESS = 500;
 /** How far a long press may wander before it is a drag, in CSS px. */
-const LONG_SLOP = 10;
+export const LONG_SLOP = 10;
+/** On a control whose long press is its own (Your maps' tiles: it selects the map), a long press shows no tooltip. */
+export const OWN_LONG_PRESS = "data-long-press";
 /** How long a long press's tooltip stays once the finger lifts, in ms. */
 const LONG_LINGER = 1500;
 
@@ -160,7 +163,7 @@ export function Tooltips() {
       clearTimeout(linger);
       longShown = false;
       endLong();
-      if (!(e instanceof PointerEvent) || e.pointerType !== "touch" || !held) return;
+      if (!(e instanceof PointerEvent) || e.pointerType !== "touch" || !held || held.closest(`[${OWN_LONG_PRESS}]`)) return;
       const el = held;
       longAt = { x: e.clientX, y: e.clientY, id: e.pointerId };
       long = window.setTimeout(() => {

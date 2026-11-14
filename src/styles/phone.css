@@ -1189,3 +1189,279 @@ html[data-phone] .dialog:has(> footer) {
 html[data-phone] .dialog > footer {
   padding-bottom: 12px;
 }
+
+/* ================= the pages on a phone, second pass (#1074 slice 4): one green button, no word cut short ================= */
+
+/* ---- Map Generator: Generate is the page's one green button, fixed at its foot clear of the home bar; the settings
+   scroll above it, ending at the band it stands in. Keep sits quiet beside the seed, a check in it while it holds */
+.editor[data-phone] .phone-page:has(.gen-panel):not(:has(.sheet-cols.covered)) {
+  --gen-foot: calc(48px + 20px + var(--safe-b));
+  padding-bottom: var(--gen-foot);
+}
+
+.editor[data-phone] .phone-page:has(.gen-panel):not(:has(.sheet-cols.covered)) > .phone-page-body {
+  padding-bottom: 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.editor[data-phone] .phone-page .sheet-top > button[type="submit"] {
+  position: fixed;
+  z-index: 3;
+  left: max(10px, var(--safe-l));
+  right: max(10px, var(--safe-r));
+  bottom: calc(10px + var(--safe-b));
+  width: auto;
+  height: 48px;
+  font-size: 16px;
+}
+
+.editor[data-phone] .phone-page .sheet-top .set.plate.line.seed {
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 8px;
+}
+
+.editor[data-phone] .phone-page .sheet-top .set.plate.line.seed.with-variation {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.editor[data-phone] .phone-page .sheet-top .set.plate.line.seed > .set-label {
+  grid-column: 1 / -1;
+}
+
+.editor[data-phone] .phone-page .sheet-top .set.plate.line.seed > :is(.set-text, .seed-variation, .set-toggle) {
+  grid-row: 2;
+  grid-column: auto;
+}
+
+.editor[data-phone] .phone-page .sheet-top .set.plate.line.seed > .seed-variation {
+  align-self: center;
+  font-size: 14px;
+}
+
+.editor[data-phone] .phone-page .sheet-top .set.plate.line.seed > .set-toggle {
+  gap: 6px;
+  height: 44px;
+  min-width: 76px;
+  padding: 0 14px;
+  font-size: 15px;
+  background: var(--panel);
+  border-color: var(--rule);
+  color: var(--ink);
+}
+
+.editor[data-phone] .phone-page .sheet-top .set.plate.line.seed > .set-toggle[aria-pressed="true"] {
+  background: var(--code);
+  border-color: var(--ink);
+  font-weight: 600;
+}
+
+.editor[data-phone] .phone-page .sheet-top .set.plate.line.seed > .set-toggle[aria-pressed="true"]::before {
+  content: "✓";
+}
+
+/* ---- History: each step a row the page's width, its whole label on as many lines as it needs; Keep this version and
+   Branch from here under the step the map is at (a finger has no hover). The page's own head names it and goes back */
+.editor[data-phone] .history-panel > .ym-head {
+  display: none;
+}
+
+.editor[data-phone] .history-panel {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.editor[data-phone] .history-panel .hist-steps {
+  gap: 6px;
+}
+
+.editor[data-phone] .history-panel .hist-item {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.editor[data-phone] .history-panel .hist-row {
+  height: auto;
+  min-height: 44px;
+  padding: 11px 12px;
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 15px;
+  line-height: 20px;
+}
+
+.editor[data-phone] .history-panel .hist-item:not(:has(> .hist-row[aria-current="true"])) .hist-acts {
+  display: none;
+}
+
+.editor[data-phone] .history-panel .hist-acts {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.editor[data-phone] .history-panel .hist-act {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 44px;
+  white-space: normal;
+  font-size: 14px;
+}
+
+.editor[data-phone] .history-panel .orphan {
+  margin-left: 12px;
+}
+
+/* ---- Real places and Your maps: two cards a row upright (four on its side), each picture square and whole, every name
+   in full on as many lines as it needs */
+.editor[data-phone] :is(.real-places, .maps-panel .your-maps) ul {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: auto;
+  gap: 10px;
+}
+
+.editor[data-phone="side"] :is(.real-places, .maps-panel .your-maps) ul {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.editor[data-phone] .phone-page-body > .places-panel {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  scrollbar-gutter: auto;
+}
+
+.editor[data-phone] :is(.real-places, .your-maps) .ym-tile {
+  height: 100%;
+  gap: 6px;
+  padding: 6px;
+  font-size: 15px;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+.editor[data-phone] .real-places .ym-pic {
+  flex: none;
+  aspect-ratio: 1;
+  height: auto;
+}
+
+.editor[data-phone] .real-places .rp-name {
+  height: auto;
+  overflow: visible;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+.editor[data-phone] :is(.real-places, .your-maps) .ym-size {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* (a place's size at its card's foot, level along the row whatever the names) */
+.editor[data-phone] .real-places .ym-size {
+  margin-top: auto;
+}
+
+.editor[data-phone] .your-maps .ym-line {
+  flex: 1;
+}
+
+.editor[data-phone] .your-maps .ym-name,
+.editor[data-phone] .your-maps .ym-name.split {
+  display: block;
+  height: auto;
+  -webkit-line-clamp: none;
+  overflow: visible;
+  line-height: 20px;
+}
+
+.editor[data-phone] .your-maps .ym-name.split > * {
+  display: inline;
+  overflow: visible;
+  white-space: normal;
+}
+
+.editor[data-phone] .your-maps .ym-from {
+  display: block;
+  overflow: visible;
+  white-space: normal;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.editor[data-phone] .your-maps .ym-from > * {
+  overflow: visible;
+  white-space: normal;
+}
+
+/* Your maps' heading row: the page's head names it, so the row holds the actions alone, the page's width; while a finger
+   selects, how many are selected and Done above them */
+.editor[data-phone] .maps-panel .ym-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  height: auto;
+  margin: 0 0 10px;
+  padding-top: 10px;
+}
+
+.editor[data-phone] .maps-panel:not([data-picking]) .ym-title {
+  display: none;
+}
+
+.editor[data-phone] .maps-panel .ym-title {
+  font-size: 16px;
+}
+
+.editor[data-phone] .maps-panel .ym-acts {
+  grid-column: 1 / -1;
+  display: flex;
+}
+
+.editor[data-phone] .maps-panel .ym-acts > .ym-act {
+  flex: 1 1 0;
+}
+
+.editor[data-phone] .maps-panel .ym-act {
+  height: 44px;
+  font-size: 15px;
+}
+
+/* (on its side, one row: how many are selected, the actions, Done) */
+.editor[data-phone="side"] .maps-panel .ym-head {
+  display: flex;
+}
+
+.editor[data-phone="side"] .maps-panel .ym-acts {
+  flex: 1;
+  order: 1;
+}
+
+.editor[data-phone="side"] .maps-panel .ym-head > .ym-done {
+  order: 2;
+  margin: 0;
+}
+
+/* (the ⋯ at the picture's corner, the selection's check at the other) */
+.editor[data-phone] .your-maps li.selected::after {
+  top: 14px;
+  left: 14px;
+  width: 26px;
+  height: 26px;
+  font-size: 15px;
+}
+
+/* ---- the map being made: centred on the screen upright and on its side, every word of its line kept */
+html[data-phone] .dialog-backdrop.making-backdrop {
+  place-items: center;
+  padding-top: max(8px, env(safe-area-inset-top, 0px));
+}
+
+html[data-phone] .making-dialog {
+  width: min(400px, 100%);
+}
+
+html[data-phone] .making-dialog p {
+  white-space: normal;
+  overflow: visible;
+}
