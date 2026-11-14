@@ -149,6 +149,13 @@ export function useBandLayout(ready: boolean): void {
       const water = box(".water-bar");
       const legend = box(".legend-row");
       const corner = box(".view3d-corner");
+      // a tablet (a big phone, #1074 slice 6): Show is a sheet, so no band; only the dock's height, which the minimap, the
+      // picked object's window and the side sheets stand above (tablet.css)
+      if (view.closest(".editor[data-tablet]")) {
+        const h = dockHeight(box(".tool-dock"), ...DOCK_PARTS.map(box))["--dock-h"];
+        if (main.style.getPropertyValue("--dock-h") !== h) main.style.setProperty("--dock-h", h);
+        return;
+      }
       if (!show || !water || !legend || !corner) return;
       const C = corner.left - v.left;
       // a tablet (a finger, the desktop's layout, #1074): the Show row wraps short of the corner, and where it takes more

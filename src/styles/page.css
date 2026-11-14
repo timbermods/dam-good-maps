@@ -1683,8 +1683,9 @@ input.set-typed:disabled {
   white-space: nowrap;
 }
 
-/* Select's shapes: one cell each (the bar's cells 1-7), icon above its name, the group's full height; Whole map takes
-   the last two, its word being the longest */
+/* Select's shapes: one cell each (the bar's cells 1-7), icon above its name, the group's full height; Whole map and the
+   Add / Take away toggle (a finger's Shift and Alt, #1074 slice 6) the last two, their words on two lines where a cell is
+   too narrow for them */
 .set-group > .segmented.shapes {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -1705,8 +1706,10 @@ input.set-typed:disabled {
   border-radius: 6px;
 }
 
-.set-group > .segmented.shapes > button.whole-map {
-  grid-column: span 2;
+.set-group > .segmented.shapes > button:is(.whole-map, .combine) .icon-word {
+  white-space: normal;
+  text-align: center;
+  line-height: 1.05;
 }
 
 .set-group > .segmented.shapes > button .icon-word {

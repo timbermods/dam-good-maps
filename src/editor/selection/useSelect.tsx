@@ -5,8 +5,8 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { EditOp } from "../../core/doc/ops";
 import { footprintTiles, type Orientation } from "../../core/format/footprints";
 import { FLIPPED, ORIENTATION_NAMES, surfaceWater } from "../../render3d/model";
-import { deleteGroupOf, DELETE_GROUPS, DELETE_KINDS, depthLevels, SELECT_MODES, selectTool, sizeWords, waterTiles, type DeleteGroup, type SelectMode } from "../select";
-import { ModeIcon, WholeMapIcon } from "../SelectIcons";
+import { deleteGroupOf, DELETE_GROUPS, DELETE_KINDS, depthLevels, SELECT_MODES, selectTool, sizeWords, waterTiles, type DeleteGroup, type SelectCombine, type SelectMode } from "../select";
+import { CombineIcon, ModeIcon, WholeMapIcon } from "../SelectIcons";
 import { tilesToRuns } from "../../core/math/grid";
 import { isSource } from "../sourceSpots";
 import { BRUSH_MAX_LEVEL } from "../../core/features/raster/brush";
@@ -21,7 +21,7 @@ import { caveLeftWords } from "../caveWords";
 import { seenUnderCut } from "../shelf/aim";
 
 export interface SelectSlice {
-  selectHost: () => { W: number; H: number; heights: () => Uint8Array<ArrayBufferLike>; mode: () => SelectMode; changed: () => void; drawing: (tiles: number[] | null, words: string | null, ev: PointerEvent | null) => void; lake: (at: [number, number]) => void; wet: (i: number) => boolean; hasTop: (i: number, level: number) => boolean; brushSize: () => number; ring: (at: [number, number] | null, radius: number) => void; sample: (level: number) => void; dial: (step: 1 | -1, ev: WheelEvent) => void };
+  selectHost: () => { W: number; H: number; heights: () => Uint8Array<ArrayBufferLike>; mode: () => SelectMode; changed: () => void; drawing: (tiles: number[] | null, words: string | null, ev: PointerEvent | null) => void; lake: (at: [number, number]) => void; wet: (i: number) => boolean; hasTop: (i: number, level: number) => boolean; brushSize: () => number; ring: (at: [number, number] | null, radius: number) => void; sample: (level: number) => void; dial: (step: 1 | -1, ev: WheelEvent) => void; combine: () => SelectCombine };
   openSelect: () => void;
   closeSelect: () => void;
   selectAll: () => void;
@@ -42,6 +42,8 @@ export interface SelectSlice {
   refusedOnCave: (tiles: readonly number[]) => boolean;
 }
 
+/** The Add / Take away toggle's word for what a new selection does now. */
+const COMBINE_WORDS: Record<SelectCombine, string> = { set: "Replace", add: "Add", subtract: "Take away" };
 export function useSelect(ed: Ed): SelectSlice {
   const {
     api, info, mirror, renderer, ready, tool, setMessage, selecting, setSelecting, selectingRef, selection,
@@ -54,8 +56,15 @@ export function useSelect(ed: Ed): SelectSlice {
    *  phone's slice runs after this one, so it is copied after each render. */
   const phoneSelectRef = useRef(false);
   useEffect(() => {
-    phoneSelectRef.current = !!ed.phone && ed.phoneSelect;
+    phoneSelectRef.current = (!!ed.phone || ed.tablet) && ed.phoneSelect;
   });
+  /** Select's Add / Take away toggle (#1074 slice 6): what a selection made without Shift or Alt does to the one open. */
+  const [combine, setCombineNow] = useState<SelectCombine>("set");
+  const combineRef = useRef<SelectCombine>("set");
+  const setCombine = (c: SelectCombine) => {
+    combineRef.current = c;
+    setCombineNow(c);
+  };
 
   // ------------------------------------------------------------------------------ the Select tool
 
@@ -65,6 +74,7 @@ export function useSelect(ed: Ed): SelectSlice {
       H: infoRef.current.H,
       heights: () => mirror.current.heights,
       mode: () => selectingRef.current ?? "rect",
+      combine: () => combineRef.current,
       changed: () => {
         setFlattenTo(null);
         setLake(null);
@@ -188,6 +198,7 @@ export function useSelect(ed: Ed): SelectSlice {
   /** Esc, X: the selection goes; Select stays in hand. */
   function closeSelect() {
     setDeleteMenu(false);
+    setCombine("set");
     setSelectPreview(null);
     setFlattenTo(null);
     setLake(null);
@@ -718,6 +729,19 @@ export function useSelect(ed: Ed): SelectSlice {
         <button type="button" class="icon-button whole-map" aria-label="Whole map" {...tip("Select the whole map", "Ctrl+A")} onClick={selectAll}>
           <WholeMapIcon />
           <span class="icon-word">Whole map</span>
+        </button>
+        {/* (a finger's Shift and Alt, #1074 slice 6: a tap steps from replacing the selection open to adding to it, to
+            taking away from it, and back) */}
+        <button
+          type="button"
+          class="icon-button combine"
+          aria-label={`Add or take away: ${COMBINE_WORDS[combine]}`}
+          aria-pressed={combine !== "set"}
+          {...tip("Add to the selection or take away from it", "Shift adds", "Alt takes away")}
+          onClick={() => setCombine(combine === "set" ? "add" : combine === "add" ? "subtract" : "set")}
+        >
+          <CombineIcon how={combine} />
+          <span class="icon-word">{COMBINE_WORDS[combine]}</span>
         </button>
       </span>
     );

@@ -13,6 +13,7 @@ const GAP = 8;
 /** How far the page's controls reach into the view from each edge, in CSS pixels. */
 export function measureInsets(view: HTMLElement): FrameInsets {
   if (view.closest(".editor[data-phone]")) return phoneInsets(view);
+  if (view.closest(".editor[data-tablet]")) return tabletInsets(view);
   const v = view.getBoundingClientRect();
   const box = (s: string) => view.querySelector(s)?.getBoundingClientRect() ?? null;
   const reach = (n: number | null) => (n === null ? 0 : Math.max(0, Math.ceil(n + GAP)));
@@ -49,6 +50,29 @@ export function phoneInsets(view: HTMLElement): FrameInsets {
     else if (b.right >= v.right - 1) out.right = Math.max(out.right, reach(v.right - b.left));
   }
   return out;
+}
+
+/** A tablet's layout (a big phone, #1074 slice 6): the dock (its bar and a held tool's settings) over the foot, the
+ *  minimap at the left as on the desktop, a side sheet (Show or the objects) or a picked object's window at the right,
+ *  and the corner's Show and Objects buttons at the top. The notes and the hints float over the map and take no room. */
+export function tabletInsets(view: HTMLElement): FrameInsets {
+  const v = view.getBoundingClientRect();
+  const reach = (n: number) => Math.max(0, Math.ceil(n + GAP));
+  const shown = (s: string) =>
+    [...view.querySelectorAll<HTMLElement>(s)]
+      .filter((el) => !el.closest("[hidden]") && getComputedStyle(el).display !== "none" && getComputedStyle(el).visibility !== "hidden")
+      .map((el) => el.getBoundingClientRect())
+      .filter((b) => b.width > 0 && b.height > 0);
+  const dock = shown(".tool-dock > .tool-bar, .tool-dock > .tool-settings");
+  const lefts = shown(".minimap");
+  const rights = shown(".phone-show, .objects-dock > *");
+  const tops = shown(".phone-show-button, .tablet-objects-button");
+  return {
+    top: tops.length ? reach(Math.max(...tops.map((b) => b.bottom)) - v.top) : 0,
+    left: lefts.length ? reach(Math.max(...lefts.map((b) => b.right)) - v.left) : 0,
+    bottom: dock.length ? reach(v.bottom - Math.min(...dock.map((b) => b.top))) : 0,
+    right: rights.length ? reach(v.right - Math.min(...rights.map((b) => b.left))) : 0,
+  };
 }
 
 /** The middle of the room the controls leave in a view `v` (client px); a side they leave under a quarter of it is the

@@ -12,7 +12,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { legendEntries, objectLegend } from "../../src/render3d/palette";
 import { openLayoutMap as openEditor, settle } from "./helpers";
-import { phoneControls } from "./phone";
+import { phoneClipped, phoneControls } from "./phone";
 
 // (its tests stand alone: they run in parallel, so the browser shards and their two workers share them; one worker
 // running them all in a row took a shard past its 30 minutes)
@@ -900,23 +900,34 @@ for (const phone of PHONES) {
   });
 }
 
-// ---- tablets (#1074 slice 5): a touch screen with room keeps the desktop layout, finger-sized. At an iPad's sizes
-// upright and on its side (DPR 2), at rest, a brush and a force in hand, the legend, the Map Generator, Your maps and the
-// File menu: no control under 44px and none off the screen, the page neither scrolled nor wider than the screen, and no
-// phone layout.
+// ---- tablets (#1074 slices 5 and 6): a tablet is a big phone, not a small desktop (planning, 2026-11-14). At an iPad's
+// sizes upright and on its side (DPR 2): the header and the dock of tools stay, every control at least 44px and none off
+// the screen, the page neither scrolled nor wider than the screen; Show and the objects fold to the phone's buttons and
+// open as side sheets; the minimap stays; at rest nothing but the header, the dock and the minimap covers the map; the
+// menu's pages cover the dock and scroll as one; and no setting's name is cut short.
 
-const TABLETS: [number, number][] = [[820, 1180], [1180, 820], [1024, 1366]];
+const TABLETS: [number, number][] = [[820, 1180], [1180, 820], [1024, 768], [1024, 1366]];
+
+/** The editor's chrome over the view, shown now: each piece by its class. */
+async function chromeShown(page: Page): Promise<string[]> {
+  return page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>(".editor-view :is(.show-bar, .legend-stack, .water-bar, .view3d-corner, .bottom-left-stack > *, .objects-dock > *, .tool-dock > *, .minimap, .phone-show, .phone-show-button, .tablet-objects-button)")]
+      .filter((el) => !el.closest("[hidden]") && el.checkVisibility({ checkVisibilityCSS: true } as never) && el.getBoundingClientRect().height > 0)
+      .map((el) => [...el.classList].find((c) => !["map-bar", "icon-button", "shelf", "in-column", "objects-button"].includes(c)) ?? el.tagName),
+  );
+}
 
 for (const [W, H] of TABLETS) {
   test.describe(`a tablet at ${W}×${H}`, () => {
     test.use({ viewport: { width: W, height: H }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 
-    test(`at ${W}×${H}: the desktop layout, every control at least 44px and on the screen in every state`, async ({ page }) => {
+    test(`at ${W}×${H}: a big phone, every control at least 44px and on the screen in every state`, async ({ page }) => {
       test.setTimeout(300_000);
       await openEditor(page);
-      // the first steps' hints were put away by their own ×, never under the objects beside them
+      // the first steps' hints were put away by their own ×
       await expect(page.locator(".first-run")).toHaveCount(0);
       await expect(page.locator(".editor")).not.toHaveAttribute("data-phone");
+      await expect(page.locator(".editor")).toHaveAttribute("data-tablet", "");
       const check = async (state: string) => {
         await page.waitForTimeout(400);
         const page_ = await page.evaluate(() => ({ w: document.documentElement.scrollWidth, iw: window.innerWidth, x: window.scrollX, y: window.scrollY }));
@@ -936,9 +947,20 @@ for (const [W, H] of TABLETS) {
       await check("Raise in hand");
       await tap(page.locator(".tool-bar button[aria-label^='Carve']"));
       await check("Carve in hand");
-      await tap(page.locator(".show-row", { hasText: "Legend" }));
-      await check("the legend open");
-      await tap(page.locator(".show-row", { hasText: "Legend" }));
+      await tap(page.locator(".tool-bar button[aria-label^='Carve']"));
+      await tap(page.locator(".tool-bar button[aria-label^='Select']"));
+      await expect(page.locator(".tool-settings")).toBeVisible();
+      await check("Select's settings open");
+      await tap(page.locator(".tool-bar button[aria-label^='Select']"));
+      await tap(page.locator(".phone-show-button"));
+      await tap(page.locator(".phone-show .show-row", { hasText: "Legend" }));
+      await check("Show open, the legend in it");
+      await tap(page.locator(".phone-show .show-row", { hasText: "Legend" }));
+      await tap(page.locator(".tablet-objects-button"));
+      await check("the objects open");
+      await tap(page.locator(".shelf-item[aria-label='Water source']"));
+      await check("a water source in hand");
+      await tap(page.locator(".held-close"));
       await tap(page.getByRole("button", { name: /^Map Generator/ }));
       await expect(page.locator(".gen-panel")).toBeVisible();
       await check("the Map Generator open");
@@ -947,6 +969,85 @@ for (const [W, H] of TABLETS) {
       await tap(page.getByRole("button", { name: /^Your maps/ }));
       await tap(page.getByRole("button", { name: "File", exact: true }));
       await check("the File menu open");
+    });
+
+    test(`at ${W}×${H}: Show and the objects fold to side sheets, the minimap and the dock stay, at rest the map has the screen, the pages cover the dock and scroll as one, no name cut`, async ({ page }) => {
+      test.setTimeout(300_000);
+      await openEditor(page);
+      const tap = (l: ReturnType<Page["locator"]>) => l.first().tap();
+
+      // (4) at rest: nothing but the header, the dock's row and the minimap over the map (and Show's and Objects' buttons)
+      expect((await chromeShown(page)).sort(), "at rest: the chrome over the map").toEqual(["minimap", "phone-show-button", "tablet-objects-button", "tool-bar"]);
+      expect(await viewShare(page), "at rest: the view's share").toBeGreaterThanOrEqual(0.68);
+      // (3) the minimap stays on the map, and the dock keeps its one row of tools
+      const rows = await page.evaluate(() => new Set([...document.querySelectorAll(".tool-bar button.icon-button")].map((b) => Math.round(b.getBoundingClientRect().top))).size);
+      expect(rows, "the tools in one row").toBe(1);
+
+      // (1) Show: the phone's button and sheet, at the right under the button, clear of the dock; the map kept in the room
+      const before = await roomNow(page);
+      expect(before.ground, "ground in the room's middle at rest").not.toBeNull();
+      await tap(page.locator(".phone-show-button"));
+      await expect(page.locator(".phone-show")).toBeVisible();
+      await expect(page.locator(".phone-show .ps-head")).toHaveText(["What to show", "Camera", "Weather", "Forces and sound"]);
+      const side = async (selector: string) =>
+        page.evaluate((selector) => {
+          const s = document.querySelector(selector)!.getBoundingClientRect();
+          const v = window.dgm3d!.renderer.canvas.getBoundingClientRect();
+          const b = document.querySelector(".phone-show-button")!.getBoundingClientRect();
+          const dock = document.querySelector(".tool-dock > .tool-bar")!.getBoundingClientRect();
+          return { right: v.right - s.right <= 12, under: s.top >= b.bottom, aboveDock: s.bottom <= dock.top, half: s.width / v.width <= 0.5 };
+        }, selector);
+      expect(await side(".phone-show"), "Show: a side sheet").toEqual({ right: true, under: true, aboveDock: true, half: true });
+      expect(await page.locator(".editor-view :is(.show-bar, .water-bar, .view3d-corner):not(.phone-show *)").count(), "no Show row, water row or corner on the map").toBe(0);
+      await expect
+        .poll(
+          async () => {
+            const now = await roomNow(page);
+            return now.ground ? Math.hypot(now.ground[0] - before.ground![0], now.ground[1] - before.ground![1]) : Infinity;
+          },
+          { message: "Show open: the ground in the room's middle stays there (tiles)", timeout: 10_000 },
+        )
+        .toBeLessThan(1.5);
+      await tap(page.locator(".phone-show-button"));
+      await expect(page.locator(".phone-show")).toBeHidden();
+
+      // (2) the objects: a button, a side sheet; a pick closes it, the object in hand in a row over the dock, put down by ×
+      await expect(page.locator(".objects-menu")).toBeHidden();
+      await tap(page.locator(".tablet-objects-button"));
+      await expect(page.locator(".objects-menu")).toBeVisible();
+      expect(await side(".objects-dock"), "the objects: a side sheet").toEqual({ right: true, under: true, aboveDock: true, half: true });
+      await tap(page.locator(".shelf-item[aria-label='Water source']"));
+      await expect(page.locator(".objects-menu")).toBeHidden();
+      await expect(page.locator(".objects-dock .held-name")).toHaveText("Water source");
+      await tap(page.locator(".held-close"));
+      await expect(page.locator(".objects-dock .held-name")).toHaveCount(0);
+
+      // (7) no setting's name, value or words cut short in any tool's settings, Select's too
+      await tap(page.locator(".tool-bar button[aria-label^='Select']"));
+      await expect(page.locator(".tool-settings")).toBeVisible();
+      expect(await phoneClipped(page), "Select's settings: names cut short").toEqual([]);
+      for (const [, name] of EVERY_TOOL) {
+        await tap(page.locator(`.tool-bar button[aria-label^='${name}']`));
+        await expect(page.locator(".tool-settings")).toBeVisible();
+        expect(await phoneClipped(page), `${name}'s settings: names cut short`).toEqual([]);
+      }
+      await tap(page.locator(".tool-bar button[aria-label^='Erode']"));
+
+      // (5) the Map Generator: a page over the whole view, the dock under it; it scrolls as one page
+      await tap(page.getByRole("button", { name: /^Map Generator/ }));
+      await expect(page.locator(".phone-page .gen-panel")).toBeVisible();
+      const covered = await page.evaluate(() => {
+        const p = document.querySelector(".phone-page")!.getBoundingClientRect();
+        const d = document.querySelector(".tool-dock > .tool-bar")!.getBoundingClientRect();
+        const hit = document.elementFromPoint((d.left + d.right) / 2, (d.top + d.bottom) / 2);
+        const body = document.querySelector<HTMLElement>(".phone-page-body")!;
+        const inner = [...body.querySelectorAll<HTMLElement>("*")].filter((e) => /auto|scroll/.test(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight + 1).map((e) => e.className);
+        return { over: p.left <= d.left && p.right >= d.right && p.top <= d.top && p.bottom >= d.bottom, onTop: !!hit?.closest(".phone-page"), inner, scrolls: body.scrollHeight > body.clientHeight };
+      });
+      expect(covered, "the Map Generator covers the dock and scrolls as one page").toEqual({ over: true, onTop: true, inner: [], scrolls: true });
+      expect(await phoneClipped(page), "the Map Generator: names cut short").toEqual([]);
+      await tap(page.locator(".phone-back"));
+      await expect(page.locator(".phone-page")).toHaveCount(0);
     });
   });
 }

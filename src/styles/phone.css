@@ -293,7 +293,8 @@
 }
 
 /* ---- Show: a button at the view's corner opens a sheet of what the map shows */
-.editor[data-phone] .phone-show-button {
+.editor:is([data-phone], [data-tablet]) .phone-show-button,
+.editor[data-tablet] .tablet-objects-button {
   position: absolute;
   z-index: 5;
   top: var(--phone-gap);
@@ -314,18 +315,18 @@
   font-size: 12px;
 }
 
-.editor[data-phone] .phone-show-button svg {
+.editor:is([data-phone], [data-tablet]) .phone-show-button svg {
   width: 22px;
   height: 22px;
 }
 
-.editor[data-phone] .phone-show-button[aria-expanded="true"] {
+.editor:is([data-phone], [data-tablet]) .phone-show-button[aria-expanded="true"] {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-ink);
 }
 
-.editor[data-phone] .phone-show {
+.editor:is([data-phone], [data-tablet]) .phone-show {
   position: absolute;
   z-index: 4;
   left: 0;
@@ -345,19 +346,19 @@
   box-shadow: var(--edge-lit), var(--shadow-3);
 }
 
-.editor[data-phone] .phone-show[hidden] {
+.editor:is([data-phone], [data-tablet]) .phone-show[hidden] {
   display: none;
 }
 
 /* its groups under small headings, as a tool's settings are: what to show, the camera, the weather, forces and sound;
    each group's chips in an even grid */
-.editor[data-phone] .ps-group {
+.editor:is([data-phone], [data-tablet]) .ps-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.editor[data-phone] .ps-head {
+.editor:is([data-phone], [data-tablet]) .ps-head {
   margin: 0;
   font-size: 13px;
   font-weight: 600;
@@ -365,27 +366,27 @@
   color: color-mix(in srgb, var(--ink) 72%, transparent);
 }
 
-.editor[data-phone] .ps-grid {
+.editor:is([data-phone], [data-tablet]) .ps-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
   gap: 6px;
 }
 
-.editor[data-phone] .ps-grid > * {
+.editor:is([data-phone], [data-tablet]) .ps-grid > * {
   min-width: 0;
 }
 
-.editor[data-phone] .ps-grid :is(.show-item, .show-row, button, .menu-wrap, .reveal-group) {
+.editor:is([data-phone], [data-tablet]) .ps-grid :is(.show-item, .show-row, button, .menu-wrap, .reveal-group) {
   width: 100%;
   box-sizing: border-box;
 }
 
-.editor[data-phone] .ps-grid :is(.show-row, button) {
+.editor:is([data-phone], [data-tablet]) .ps-grid :is(.show-row, button) {
   min-height: 44px;
   justify-content: flex-start;
 }
 
-.editor[data-phone] .ps-grid .show-row {
+.editor:is([data-phone], [data-tablet]) .ps-grid .show-row {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -395,68 +396,68 @@
   font-size: 14px;
 }
 
-.editor[data-phone] .ps-grid .show-row .cb {
+.editor:is([data-phone], [data-tablet]) .ps-grid .show-row .cb {
   width: 18px;
   height: 18px;
 }
 
-.editor[data-phone] .ps-grid button {
+.editor:is([data-phone], [data-tablet]) .ps-grid button {
   font-size: 14px;
 }
 
-.editor[data-phone] .ps-grid .compass {
+.editor:is([data-phone], [data-tablet]) .ps-grid .compass {
   position: static;
   width: 44px;
   height: 44px;
   justify-self: start;
 }
 
-.editor[data-phone] .ps-grid .sound-cell input[type="range"] {
+.editor:is([data-phone], [data-tablet]) .ps-grid .sound-cell input[type="range"] {
   accent-color: var(--accent);
 }
 
 /* (the sound: its speaker and, with no hover on a phone, its volume always there) */
-.editor[data-phone] .ps-grid .sound-cell {
+.editor:is([data-phone], [data-tablet]) .ps-grid .sound-cell {
   display: flex;
   grid-column: span 2;
   gap: 6px;
 }
 
-.editor[data-phone] .ps-grid .sound-cell .reveal {
+.editor:is([data-phone], [data-tablet]) .ps-grid .sound-cell .reveal {
   display: inline-flex;
   flex: 1 1 auto;
   order: 2;
 }
 
-.editor[data-phone] .ps-grid .sound-cell .reveal input {
+.editor:is([data-phone], [data-tablet]) .ps-grid .sound-cell .reveal input {
   width: 100%;
 }
 
-.editor[data-phone] .ps-grid .sound-cell .speaker {
+.editor:is([data-phone], [data-tablet]) .ps-grid .sound-cell .speaker {
   flex: none;
   width: 44px;
   order: 1;
 }
 
-.editor[data-phone] .ps-line {
+.editor:is([data-phone], [data-tablet]) .ps-line {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.editor[data-phone] .ps-label {
+.editor:is([data-phone], [data-tablet]) .ps-label {
   font-size: 14px;
 }
 
-.editor[data-phone] .ps-line .layer-widget {
+.editor:is([data-phone], [data-tablet]) .ps-line .layer-widget {
   flex: none;
 }
 
-.editor[data-phone] .ps-line .layer-widget button {
+.editor:is([data-phone], [data-tablet]) .ps-line .layer-widget button {
   width: 44px;
 }
 
-.editor[data-phone] .phone-show :is(.water-bar, .minimap, .legend-panel, .show-key) {
+.editor:is([data-phone], [data-tablet]) .phone-show :is(.water-bar, .minimap, .legend-panel, .show-key) {
   position: static;
   inset: auto;
   transform: none;
@@ -466,12 +467,12 @@
   margin: 0;
 }
 
-.editor[data-phone] .phone-show .legend-panel {
+.editor:is([data-phone], [data-tablet]) .phone-show .legend-panel {
   overflow: visible;
 }
 
 /* (the minimap's own size is written on it for the desktop's corner: a phone's sheet keeps it small) */
-.editor[data-phone] .phone-show .minimap {
+.editor:is([data-phone], [data-tablet]) .phone-show .minimap {
   width: 120px !important;
   height: auto !important;
 }
@@ -507,14 +508,14 @@
   overscroll-behavior: contain;
 }
 
-.editor[data-phone] .objects-menu .shelf-grid {
+.editor:is([data-phone], [data-tablet]) .objects-menu .shelf-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
   gap: 6px;
   margin: 0;
 }
 
-.editor[data-phone] .objects-menu .shelf-item {
+.editor:is([data-phone], [data-tablet]) .objects-menu .shelf-item {
   flex-direction: column;
   justify-content: center;
   gap: 4px;
@@ -528,12 +529,12 @@
   text-align: center;
 }
 
-.editor[data-phone] .objects-menu .shelf-item :is(img, .shelf-blank) {
+.editor:is([data-phone], [data-tablet]) .objects-menu .shelf-item :is(img, .shelf-blank) {
   width: 40px;
   height: 40px;
 }
 
-.editor[data-phone] .objects-menu .shelf-word {
+.editor:is([data-phone], [data-tablet]) .objects-menu .shelf-word {
   white-space: normal;
   overflow-wrap: anywhere;
 }
@@ -660,7 +661,7 @@
 }
 
 /* (the desktop's narrow windows drop a button's word for its icon: a phone keeps both, the word under the icon) */
-.editor[data-phone] .icon-button .icon-word {
+.editor:is([data-phone], [data-tablet]) .icon-button .icon-word {
   display: block;
 }
 
@@ -669,7 +670,7 @@
 }
 
 /* the weather days in Show: its row as the other rows, the core's moments under it */
-.editor[data-phone] .phone-show .water-bar {
+.editor:is([data-phone], [data-tablet]) .phone-show .water-bar {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
@@ -677,22 +678,22 @@
   white-space: normal;
 }
 
-.editor[data-phone] .phone-show .water-bar > .day-stepper {
+.editor:is([data-phone], [data-tablet]) .phone-show .water-bar > .day-stepper {
   grid-column: 1 / -1;
   justify-content: space-between;
 }
 
-.editor[data-phone] .phone-show .water-bar > * {
+.editor:is([data-phone], [data-tablet]) .phone-show .water-bar > * {
   height: auto;
   min-height: 44px;
 }
 
-.editor[data-phone] .phone-show .water-bar > .core-moment {
+.editor:is([data-phone], [data-tablet]) .phone-show .water-bar > .core-moment {
   position: static;
   flex-basis: 100%;
 }
 
-.editor[data-phone] .day-stepper .day-step {
+.editor:is([data-phone], [data-tablet]) .day-stepper .day-step {
   width: 44px;
   height: 44px;
 }
@@ -716,7 +717,7 @@
 }
 
 /* (the tiles' group rules are the desktop list's: a sheet of tiles needs none) */
-.editor[data-phone] .objects-menu .shelf-item.shelf-first::before {
+.editor:is([data-phone], [data-tablet]) .objects-menu .shelf-item.shelf-first::before {
   display: none;
 }
 
@@ -737,33 +738,33 @@
 }
 
 /* ---- what is in hand from the objects: one row (its picture, its name, Put it down); its settings pulled up */
-.editor[data-phone] .phone-held {
+.editor:is([data-phone], [data-tablet]) .phone-held {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.editor[data-phone] .held-line {
+.editor:is([data-phone], [data-tablet]) .held-line {
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 44px;
 }
 
-.editor[data-phone] .held-line img {
+.editor:is([data-phone], [data-tablet]) .held-line img {
   flex: none;
   width: 36px;
   height: 36px;
 }
 
-.editor[data-phone] .held-name {
+.editor:is([data-phone], [data-tablet]) .held-name {
   flex: 1 1 auto;
   min-width: 0;
   font-size: 15px;
   font-weight: 600;
 }
 
-.editor[data-phone] .held-close {
+.editor:is([data-phone], [data-tablet]) .held-close {
   flex: none;
   width: 44px;
   height: 44px;
@@ -852,7 +853,7 @@ html[data-phone] :is(.dialog, .phone-page) :is(input, select, textarea) {
 
 /* ---- the menu's pages (Map Generator, Real places, Your maps, History): the whole screen under the bar, Map (back to
    the map) at their top, the page scrolling inside itself */
-.editor[data-phone] .phone-page {
+.editor:is([data-phone], [data-tablet]) .phone-page {
   position: absolute;
   z-index: 8;
   inset: 0;
@@ -861,7 +862,7 @@ html[data-phone] :is(.dialog, .phone-page) :is(input, select, textarea) {
   background: var(--panel);
 }
 
-.editor[data-phone] .phone-page-head {
+.editor:is([data-phone], [data-tablet]) .phone-page-head {
   flex: none;
   display: flex;
   align-items: center;
@@ -870,7 +871,7 @@ html[data-phone] :is(.dialog, .phone-page) :is(input, select, textarea) {
   border-bottom: 1px solid var(--rule);
 }
 
-.editor[data-phone] .phone-back {
+.editor:is([data-phone], [data-tablet]) .phone-back {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -879,17 +880,17 @@ html[data-phone] :is(.dialog, .phone-page) :is(input, select, textarea) {
   font-weight: 600;
 }
 
-.editor[data-phone] .phone-back svg {
+.editor:is([data-phone], [data-tablet]) .phone-back svg {
   width: 20px;
   height: 20px;
 }
 
-.editor[data-phone] .phone-page-title {
+.editor:is([data-phone], [data-tablet]) .phone-page-title {
   margin: 0;
   font-size: 17px;
 }
 
-.editor[data-phone] .phone-page-body {
+.editor:is([data-phone], [data-tablet]) .phone-page-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -898,7 +899,7 @@ html[data-phone] :is(.dialog, .phone-page) :is(input, select, textarea) {
   padding-bottom: var(--safe-b);
 }
 
-.editor[data-phone] .phone-page-body > .gen {
+.editor:is([data-phone], [data-tablet]) .phone-page-body > .gen {
   position: static;
   inset: auto;
   width: auto;
@@ -1283,25 +1284,25 @@ html[data-phone] .dialog > footer {
 
 /* ---- History: each step a row the page's width, its whole label on as many lines as it needs; Keep this version and
    Branch from here under the step the map is at (a finger has no hover). The page's own head names it and goes back */
-.editor[data-phone] .history-panel > .ym-head {
+.editor:is([data-phone], [data-tablet]) .history-panel > .ym-head {
   display: none;
 }
 
-.editor[data-phone] .history-panel {
+.editor:is([data-phone], [data-tablet]) .history-panel {
   padding-top: 10px;
   padding-bottom: 10px;
 }
 
-.editor[data-phone] .history-panel .hist-steps {
+.editor:is([data-phone], [data-tablet]) .history-panel .hist-steps {
   gap: 6px;
 }
 
-.editor[data-phone] .history-panel .hist-item {
+.editor:is([data-phone], [data-tablet]) .history-panel .hist-item {
   flex-direction: column;
   align-items: stretch;
 }
 
-.editor[data-phone] .history-panel .hist-row {
+.editor:is([data-phone], [data-tablet]) .history-panel .hist-row {
   height: auto;
   min-height: 44px;
   padding: 11px 12px;
@@ -1312,16 +1313,16 @@ html[data-phone] .dialog > footer {
   line-height: 20px;
 }
 
-.editor[data-phone] .history-panel .hist-item:not(:has(> .hist-row[aria-current="true"])) .hist-acts {
+.editor:is([data-phone], [data-tablet]) .history-panel .hist-item:not(:has(> .hist-row[aria-current="true"])) .hist-acts {
   display: none;
 }
 
-.editor[data-phone] .history-panel .hist-acts {
+.editor:is([data-phone], [data-tablet]) .history-panel .hist-acts {
   opacity: 1;
   pointer-events: auto;
 }
 
-.editor[data-phone] .history-panel .hist-act {
+.editor:is([data-phone], [data-tablet]) .history-panel .hist-act {
   flex: 1 1 0;
   height: auto;
   min-height: 44px;
@@ -1329,7 +1330,7 @@ html[data-phone] .dialog > footer {
   font-size: 14px;
 }
 
-.editor[data-phone] .history-panel .orphan {
+.editor:is([data-phone], [data-tablet]) .history-panel .orphan {
   margin-left: 12px;
 }
 

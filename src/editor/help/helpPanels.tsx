@@ -102,16 +102,18 @@ function Shortcuts(p: { onClose(): void }) {
   );
 }
 
-/** How Help speaks: to a mouse, to a finger with the desktop's layout (a tablet), or to a finger on a phone. */
-type Reader = "mouse" | "touch" | "phone";
+/** How Help speaks: to a mouse, to a finger with the desktop's layout (a touch screen with a desktop's room), to a finger
+ *  on a tablet (a big phone: Show and Objects at the top right), or to a finger on a phone. */
+type Reader = "mouse" | "touch" | "tablet" | "phone";
 
 function reader(): Reader {
   if (typeof document !== "undefined" && document.documentElement.dataset.phone) return "phone";
+  if (typeof document !== "undefined" && document.querySelector(".editor[data-tablet]")) return "tablet";
   return typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches ? "touch" : "mouse";
 }
 
 /** What a finger does, first on a touch screen (EDITOR_PLAN §7, "Touch"; the double tap as #1074's ruling has it). */
-function TouchLines(p: { phone: boolean }) {
+function TouchLines(p: { phone: boolean; tablet: boolean }) {
   return (
     <>
       <li>Tap the map to read a tile. With a tool in hand, tap or drag on the map to use it.</li>
@@ -130,6 +132,10 @@ function TouchLines(p: { phone: boolean }) {
         <li>
           The tools are in a row at the foot, or down the left side when the phone is on its side. <strong>Show</strong> and <strong>Objects</strong> open their own sheets.
         </li>
+      ) : p.tablet ? (
+        <li>
+          The tools are in the bar at the foot. <strong>Show</strong> and <strong>Objects</strong>, at the top right, open their own sheets.
+        </li>
       ) : null}
     </>
   );
@@ -140,7 +146,7 @@ function Help(p: { onClose(): void }) {
   // (read once, as it opens: the page's layout comes from the screen's own size, which nothing on the page changes,
   // ui/phoneRoot.ts)
   const [who] = useState(reader);
-  if (who !== "mouse") return <TouchHelp onClose={p.onClose} phone={who === "phone"} />;
+  if (who !== "mouse") return <TouchHelp onClose={p.onClose} phone={who === "phone"} tablet={who === "tablet"} />;
   return (
     <div class="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && p.onClose()}>
       <div class="dialog help-dialog help" role="dialog" aria-modal="true" aria-labelledby="help-head">
@@ -198,7 +204,7 @@ function Help(p: { onClose(): void }) {
 
 /** Help to a finger (#1074): the gestures first (Controls), then making a map and saving it, every step a tap. On a phone the
  *  steps follow the phone's layout and nothing names a mouse or a key; a tablet keeps the mouse and the keys after them. */
-function TouchHelp(p: { onClose(): void; phone: boolean }) {
+function TouchHelp(p: { onClose(): void; phone: boolean; tablet: boolean }) {
   return (
     <div class="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && p.onClose()}>
       <div class="dialog help-dialog help" role="dialog" aria-modal="true" aria-labelledby="help-head">
@@ -206,7 +212,7 @@ function TouchHelp(p: { onClose(): void; phone: boolean }) {
         <p>Dam Good Maps makes Timberborn maps. Generate one, shape it in your browser, then save it as a map the game loads.</p>
         <h3>Controls</h3>
         <ul>
-          <TouchLines phone={p.phone} />
+          <TouchLines phone={p.phone} tablet={p.tablet} />
           <li>Select an area first, and the brushes and forces stay inside it. A brush in hand can mark one too.</li>
           {p.phone ? (
             <li>
@@ -233,6 +239,10 @@ function TouchHelp(p: { onClose(): void; phone: boolean }) {
           {p.phone ? (
             <li>
               Shape it. The tools are in the row at the foot, the trees, sources and ruins under <strong>Objects</strong>. Pick one, then tap or drag on the map.
+            </li>
+          ) : p.tablet ? (
+            <li>
+              Shape it. The brushes and forces are in the bar at the bottom, the trees, sources and ruins under <strong>Objects</strong>. Pick one, then tap or drag on the map.
             </li>
           ) : (
             <li>Shape it. The brushes and forces are in the bar at the bottom, the trees, sources and ruins on the right. Pick one, then tap or drag on the map.</li>
