@@ -13,7 +13,7 @@ import { naturalSize as eruptAcross } from "../../src/core/forces/erupt";
 import { SIZE_PRESETS, THEMES } from "../../src/core/spec/mapspec";
 import { describeMap, summaryOf } from "./describe";
 import { jobOf, secondsOf, startGenerate, waitFor, WAIT_MS, type Job } from "./jobs";
-import { applyOps, checksOf, FORCE_DEFAULTS, mapOf, mapsFolder, openMap, Refused, rowOf, saveMap, undoStep, type Made } from "./maps";
+import { applyOps, checksOf, FORCE_DEFAULTS, mapOf, mapsFolder, MOST_OPEN, openMap, Refused, rowOf, saveMap, undoStep, type Made } from "./maps";
 import { LAYERS, picture, type Layer, type Region } from "./picture";
 
 export const SERVER_VERSION = "0.2.0";
@@ -29,8 +29,9 @@ Follow these rules:
 4. Use brushes, sculpts and placements only for precise edits: move the start, widen a river by two tiles, delete a forest, add one source.
 5. Use picture to see the map after edits. Use check before save, and tell the player what its verdict says.
 6. Tiles are [x, y]. X runs from west (0) to east. Y runs from south (0) to north: higher Y is north, and up in a picture.
-7. save writes the .timber map and its .damgoodmaps.json project. Timberborn shows the map in its custom maps.
-8. A large map can take some minutes to make. If generate says that the map is not ready, call wait with its handle until the map is ready.`;
+7. save writes the .timber map and its .damgoodmaps.json project. Timberborn shows the map in its custom maps. Edits are kept only in this server until save: open reads the saved file, without later edits.
+8. Only the newest ${MOST_OPEN} maps stay open; an older handle stops working. Save a map to keep it. The same input and seed make the same map again.
+9. A large map can take some minutes to make. If generate says that the map is not ready, call wait with its handle until the map is ready.`;
 
 /** A copy of a JSON value with every "required" list removed (a merge patch gives only what changes). */
 function optional(v: unknown): unknown {
@@ -72,7 +73,7 @@ const SETTINGS_TEXT = [
 
 const SETTING_WORDS: Record<string, string> = {
   power: "How strong the force is, 0 to 100.",
-  size: `How wide the force is, in tiles across. null (the default): it follows power. At the default power, a craterize is ${craterAcross(CRATER_POWER)} tiles across and an erupt about ${Math.round(eruptAcross(ERUPT_POWER))}; the land round it changes too, and the start moves if its ground breaks. For a crater in one part of a 96-tile map, give a size such as 16.`,
+  size: `How wide the force is, in tiles across. null (the default): it follows power. At the default power, a craterize is ${craterAcross(CRATER_POWER)} tiles across and an erupt about ${Math.round(eruptAcross(ERUPT_POWER))}; its rim and debris change the ground out to about size tiles from the middle, so about twice size across (size 16: about 30 tiles), and the start moves if its ground breaks. For a crater in one part of a 96-tile map, give a size such as 12. A shallow form shows best in the picture's heights layer.`,
   sources:
     'What happens to water sources, badwater sources and seeps on the tiles the force changes. "clear" (the default): the force removes them. "ride": they stay and move with the ground.',
   dry: "Carve only. false (the default): the carve keeps a water source at its head, so its river runs. true: a dry canyon with no source.",
@@ -116,10 +117,17 @@ function applySchema(): Tool["inputSchema"] {
     properties: {
       map: { type: "string", description: "The map's handle." },
       ops: { type: "array", minItems: 1, items: op, description: "The operations, in order. Each one is one undo step." },
-      picture: { type: "boolean", description: "Also return a picture of the area that changed. The default is false." },
+      picture: { type: "boolean", description: "Also return a picture of the area where the ground or the water changed. The default is false." },
     },
   } as Tool["inputSchema"];
 }
+
+/** How often an intention emerges, where a count found it rare (generate through this server, 2026-11-14; the seed
+ *  named is pinned by mcp/tests/words.test.ts). */
+const ODDS: Partial<Record<(typeof INTENTIONS)[number], string>> = {
+  "twin-falls":
+    "It is rare. On 96-tile maps it emerged for 4 of 15 Highlands seeds (4, 11, 12, 15), 1 of 30 Canyon seeds (12) and none of 15 River Valley seeds; none of 10 Canyon seeds at 128. Waterfalls: many did not change that.",
+};
 
 const MAP = { type: "string", description: "The map's handle, from generate or open." };
 
@@ -138,12 +146,13 @@ export const TOOLS: Tool[] = [
       "Make a new Timberborn map with the Dam Good Maps generator.",
       "Steer the map with the theme, the settings and the intentions. Do not try to build a map by hand.",
       "The tool returns a handle for the map, a summary and a top-down picture.",
-      "Choose the intentions whose words match the player's wish. Example: for \"a canyon with two waterfalls side by side\", give {\"theme\": \"canyon\", \"intentions\": [\"twin-falls\"]}.",
+      "Choose the intentions whose words match the player's wish. Example: for \"two waterfalls side by side\", {\"theme\": \"highlands\", \"size\": \"small\", \"seed\": 4, \"intentions\": [\"twin-falls\"]} gives them.",
       "The summary tells which intentions emerged and which did not. Tell the player honestly what emerged.",
-      "An intention that did not emerge leaves a map that is made and saves. To try again for it, call generate with the same input and another seed.",
+      "An intention that did not emerge leaves a map that is made and saves. To try again for it, call generate with the same input and another seed. Some intentions are rare (see intentions): after about five misses, tell the player it did not come out.",
       "The generator refuses a map that does not pass its checks. Then try another seed or other settings.",
       "A 128 map takes some seconds. A 256 map can take some minutes.",
-      `If the map is not ready after ${WAIT_WORDS}, the tool returns the map's handle and says that the map is not ready. Then call wait with the handle until the map is ready.`,
+      `Only the newest ${MOST_OPEN} maps stay open. The same input and seed make the same map again.`,
+      `If the map is not ready after ${WAIT_WORDS}, the tool says so: then call wait with the handle until it is.`,
     ].join(" "),
     inputSchema: {
       type: "object",
@@ -164,7 +173,7 @@ export const TOOLS: Tool[] = [
           type: "array",
           maxItems: 2,
           items: { enum: [...INTENTIONS] },
-          description: `Outcomes to steer toward, at most two. The generator tries for each one, but some do not emerge. ${INTENTIONS.map((id) => `${id}: ${INTENTION_TEXT[id]}`).join(" ")}`,
+          description: `Outcomes to steer toward, at most two. The generator tries for each one, but some do not emerge. ${INTENTIONS.map((id) => `${id}: ${INTENTION_TEXT[id]}${ODDS[id] ? ` ${ODDS[id]}` : ""}`).join(" ")}`,
         },
       },
     },
@@ -201,13 +210,14 @@ export const TOOLS: Tool[] = [
     name: "apply",
     description: [
       "Change a map with operations.",
-      "Use a force (op forceResult) to shape land: Carve a river or a canyon, Craterize, Erupt a volcano, Quake a cliff, Glaciate a valley, Rift, Deposit, Erode a cave or an arch.",
+      "Use a force (op forceResult) to shape land: Carve a river or canyon, Craterize, Erupt a volcano, Quake a cliff, Glaciate a valley, Rift, Deposit, Erode a cave or arch.",
       "Only Carve and Glaciate make water. A crater is a dry bowl: for a crater lake, place a WaterSource in it.",
       "A force removes the sources on the ground it changes, unless settings.sources is \"ride\". If it breaks the ground under the start, the start moves; the result says so.",
-      "Use brush, sculpt, placeEntity, moveEntity, deleteEntities and paintObjects only for precise edits.",
-      "Use fillHollow and removeUnfedWater for standing water, setLakeLevel to hold a fed lake at a level, canal to lead water in a channel, lake to dig a lake inside an outline, and ridge to raise high ground along a line. Place a WaterSource or a BadwaterSource with placeEntity.",
-      "Each operation is one undo step. The tool returns what changed.",
-      "If the engine refuses an operation, nothing changes and the tool returns its reason.",
+      "Move the start with moveEntity and the id of describe's StartingLocation object.",
+      "Use brush, sculpt, placeEntity, moveEntity, deleteEntities and paintObjects for precise edits.",
+      "Use fillHollow and removeUnfedWater for standing water, setLakeLevel to hold a fed lake at a level, canal to lead water, lake to dig a lake in an outline, ridge to raise high ground along a line. Place a WaterSource or a BadwaterSource with placeEntity.",
+      "Each operation is one undo step. The result says what changed.",
+      "A refused operation changes nothing; the tool returns the reason.",
       "Tiles are [x, y]: X runs west to east, Y south to north. Runs are [y, x0, x1]. A brush's dabs are quarter tiles: the middle of tile (x, y) is (4x + 2, 4y + 2).",
     ].join(" "),
     inputSchema: applySchema(),
@@ -245,8 +255,8 @@ export const TOOLS: Tool[] = [
     name: "save",
     description: [
       "Save the map for Timberborn: the .timber map and its .damgoodmaps.json project, side by side.",
-      `The default folder is Timberborn's Maps folder (${mapsFolder()}). A folder that you give is used as it is.`,
-      "The files are named dgm- and the map's name in lower case with hyphens. Save never writes over a file. If the name is taken, it adds -2, -3 and so on.",
+      `The default folder is Timberborn's Maps folder (${mapsFolder()}); if Timberborn's folder is not there, save refuses: then give folder. A folder that you give is used as it is.`,
+      "A generated map that keeps its own name is saved as dgm-<theme>-<seed>. A map with another name is saved as dgm- and its name in lower case with hyphens. Save never writes over a file: if the name is taken, it adds -2, -3 and so on.",
       "Save refuses a map with a problem that stops saving. Run check first.",
     ].join(" "),
     inputSchema: {
@@ -256,13 +266,14 @@ export const TOOLS: Tool[] = [
       properties: {
         map: MAP,
         folder: { type: "string", description: "The folder to save in." },
-        name: { type: "string", description: "A new name for the map, as Timberborn lists it. It stays the map's name for later saves, and names the files." },
+        name: { type: "string", description: "A new name for the map, as Timberborn lists it. It stays the map's name for later saves. A name other than the generated one also names the files." },
       },
     },
   },
   {
     name: "open",
-    description: "Open a saved .damgoodmaps.json project to edit it again. A .timber map opens too, as an imported map. The tool returns a handle and a summary.",
+    description:
+      "Open a saved .damgoodmaps.json project to edit it again. It opens as the file was saved: edits made after that save are not in it. A .timber map opens too, as an imported map. The tool returns a new handle and a summary.",
     inputSchema: { type: "object", additionalProperties: false, required: ["path"], properties: { path: { type: "string", description: "The file's full path." } } },
   },
 ];
@@ -292,12 +303,16 @@ function generated(g: Made): CallToolResult {
   const s = mapOf(g.handle);
   // (the intentions asked for are the spec's; the generator draws the others itself)
   const asked = new Set(s.spec?.intentions ?? []);
-  const missed = g.intentions.filter((x) => asked.has(x.id) && !x.ok).map((x) => x.id);
-  const emerged = g.intentions.length
-    ? `Intentions:\n${g.intentions.map((x) => `- ${x.id}${asked.has(x.id) ? " (asked for)" : ""}: ${x.ok ? "emerged" : "did not emerge"} (${x.note})`).join("\n")}`
-    : "Intentions: none.";
+  // (an intention asked for and not checked: the generator set it aside, in a round that makes a map with none)
+  const aside = [...asked].filter((id) => !g.intentions.some((x) => x.id === id));
+  const missed = [...g.intentions.filter((x) => asked.has(x.id) && !x.ok).map((x) => x.id), ...aside];
+  const rows = [
+    ...g.intentions.map((x) => `- ${x.id}${asked.has(x.id) ? " (asked for)" : ""}: ${x.ok ? "emerged" : "did not emerge"} (${x.note})`),
+    ...aside.map((id) => `- ${id} (asked for): did not emerge (the generator set it aside to make a map that passes its checks)`),
+  ];
+  const emerged = rows.length ? `Intentions:\n${rows.join("\n")}` : "Intentions: none.";
   const retry = missed.length
-    ? `\n${missed.join(" and ")} did not emerge. The map is made and saves as it is. To try again, call generate with the same input and another seed: each seed gives another map.`
+    ? `\n${missed.join(" and ")} did not emerge. The map is made and saves as it is. To try again, call generate with the same input and another seed: each seed gives another map. ${missed.map((id) => ODDS[id as keyof typeof ODDS]).filter(Boolean).join(" ")} After about five misses, tell the player it did not come out.`.replace("  ", " ")
     : "";
   const pic = picture(s);
   return {
@@ -344,9 +359,13 @@ export async function callTool(name: string, args: Record<string, unknown>, call
         await starting(call, `Applying ${ops?.length ?? 0} operation${ops?.length === 1 ? "" : "s"} to ${s.size.x} x ${s.size.y} tiles.`);
         const c = applyOps(s, ops);
         const content: CallToolResult["content"] = [text(JSON.stringify(c))];
-        if (args.picture && c.ground.area) {
-          const pic = picture(s, { region: around(c.ground.area, s.size.x, s.size.y) });
-          content.push(text(pic.legend), image(pic.png));
+        if (args.picture) {
+          // the ground that changed, else the water that came or went
+          const area = c.ground.area ?? c.water.area;
+          if (area) {
+            const pic = picture(s, { region: around(area, s.size.x, s.size.y) });
+            content.push(text(pic.legend), image(pic.png));
+          } else content.push(text("No ground or water changed, so there is no picture. Call picture to see the map."));
         }
         return { content };
       }

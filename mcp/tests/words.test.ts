@@ -3,10 +3,13 @@
 // result, and states units, defaults and directions read from the code; apply's result notes a start a force moved,
 // sources it cleared and a crater's missing water; describe places lakes and lists carved rivers; check gives a verdict.
 
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import opsSchema from "../../src/core/doc/ops.schema.json" with { type: "json" };
 import { naturalSize } from "../../src/core/forces/craterize";
-import { closeAll, generateMap, mapOf } from "../src/maps";
+import { closeAll, generateMap, mapOf, MOST_OPEN, WHERE_MOST } from "../src/maps";
 import { callTool, TOOLS } from "../src/server";
 
 const textOf = (r: { content: { type: string; text?: string }[] }) => r.content.filter((c) => c.type === "text").map((c) => c.text).join("\n");
@@ -88,17 +91,76 @@ describe("the MCP server's words", () => {
     }
   });
 
-  it("marks the intentions asked for, and says what to do when one did not emerge", async () => {
-    // (canyon 96, seed 7 with many waterfalls: the trial's map, whose twin falls did not emerge)
-    let r = await callTool("generate", { theme: "canyon", size: "small", seed: 7, intentions: ["twin-falls"], settings: { water: { waterfalls: "many" } } });
-    for (let m = /^Map (map-\d+) is not ready yet/.exec(textOf(r)); m; m = /^Map (map-\d+) is not ready yet/.exec(textOf(r))) r = await callTool("wait", { map: m[1] });
-    const t = textOf(r);
-    const line = /^- twin-falls \(asked for\): (emerged|did not emerge)/m.exec(t);
-    expect(line, t).toBeTruthy();
+  it("gives an example that works, marks the intentions asked for, and says what to do when one did not emerge", async () => {
+    const made = async (args: Record<string, unknown>) => {
+      let r = await callTool("generate", args);
+      for (let m = /^Map (map-\d+) is not ready yet/.exec(textOf(r)); m; m = /^Map (map-\d+) is not ready yet/.exec(textOf(r))) r = await callTool("wait", { map: m[1] });
+      expect(r.isError, textOf(r)).toBeFalsy();
+      return textOf(r);
+    };
+    // the example in generate's description, as it stands there, gives the twin falls (re-pin its seed if the generator moves, D148)
+    const example = JSON.parse(/(\{"theme": "highlands"[^}]*\})/.exec(TOOLS.find((t) => t.name === "generate")!.description!)![1]);
+    // canyon 96, seed 1: no twin falls; seed 11: the generator sets the asked intention aside to make a map
+    const [hit, miss, aside] = await Promise.all([
+      made(example),
+      made({ theme: "canyon", size: "small", seed: 1, intentions: ["twin-falls"] }),
+      made({ theme: "canyon", size: "small", seed: 11, intentions: ["twin-falls"] }),
+    ]);
+    expect(hit).toMatch(/^- twin-falls \(asked for\): emerged/m);
+    expect(hit).not.toContain("did not emerge. The map is made");
     // drawn intentions are not marked
-    expect(t).not.toMatch(/^- (?!twin-falls)[a-z-]+ \(asked for\)/m);
-    const retry = "twin-falls did not emerge. The map is made and saves as it is. To try again, call generate with the same input and another seed";
-    if (line![1] === "emerged") expect(t).not.toContain(retry);
-    else expect(t).toContain(retry);
+    expect(miss).not.toMatch(/^- (?!twin-falls)[a-z-]+ \(asked for\)/m);
+    for (const t of [miss, aside]) {
+      expect(t).toContain("twin-falls did not emerge. The map is made and saves as it is. To try again, call generate with the same input and another seed");
+      expect(t).toContain("It is rare. On 96-tile maps");
+      expect(t).toContain("After about five misses, tell the player it did not come out.");
+    }
+    expect(miss).toMatch(/^- twin-falls \(asked for\): did not emerge \(\d+ falls? of 3\+ levels/m);
+    expect(aside).toContain("- twin-falls (asked for): did not emerge (the generator set it aside to make a map that passes its checks)");
+  });
+
+  it("pictures a change of water alone, caps a check's lists, names save's files by its rule, and says what to do for a closed map", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "dgm-mcp-words-"));
+    try {
+      const { handle, session: s } = generateMap({ theme: "riverValley", size: 96, seed: 2 });
+      // a water source on dry ground: no ground changes, the water does, and the picture shows where
+      const wet = (x: number, y: number) => s.built.water[y * s.size.x + x] > 0.05;
+      let at: [number, number] | null = null;
+      for (let y = 20; y < 76 && !at; y += 4) for (let x = 20; x < 76 && !at; x += 4) if (!wet(x, y) && !s.built.entities.some((e) => Math.abs(e.x - x) < 3 && Math.abs(e.y - y) < 3)) at = [x, y];
+      const r = await callTool("apply", { map: handle, ops: [{ op: "placeEntity", params: { template: "WaterSource", x: at![0], y: at![1] } }], picture: true });
+      expect(r.isError, textOf(r)).toBeFalsy();
+      const c = JSON.parse(textOf({ content: [r.content[0]] }));
+      expect(c.ground.area).toBeNull();
+      expect(c.water.wetAfter).toBeGreaterThan(c.water.wetBefore);
+      expect(c.water.area).toBeDefined();
+      expect(r.content.some((x) => x.type === "image")).toBe(true);
+      await callTool("undo", { map: handle });
+      // nothing changed on the ground or in the water: the result says why there is no picture
+      const tree = s.built.entities.find((e) => e.template === "Pine" || e.template === "Birch" || e.template === "Oak")!;
+      const d = await callTool("apply", { map: handle, ops: [{ op: "deleteEntities", params: { entities: [tree.id] } }], picture: true });
+      expect(d.isError, textOf(d)).toBeFalsy();
+      expect(textOf(d)).toContain("No ground or water changed, so there is no picture.");
+      // a check's lists of objects and tiles are cut, with their totals
+      const k = await json("check", { map: handle });
+      for (const row of [...k.stopSaving, ...k.warnings, ...k.advice])
+        for (const [key, v] of Object.entries((row.where ?? {}) as Record<string, unknown>))
+          if (Array.isArray(v)) {
+            expect(v.length, `${row.id} ${key}`).toBeLessThanOrEqual(WHERE_MOST);
+            if (v.length === WHERE_MOST) expect(row.where[`${key}Total`] ?? WHERE_MOST).toBeGreaterThanOrEqual(WHERE_MOST);
+          }
+      // save: a generated map with its own name keeps the seed's file name; another name names the files
+      const own = s.meta.name;
+      expect((await callTool("save", { map: handle, folder: dir, name: own })).isError).toBeFalsy();
+      expect(readdirSync(dir)).toContain("dgm-river-valley-2.timber");
+      await callTool("save", { map: handle, folder: dir, name: "Hollow Test" });
+      expect(readdirSync(dir)).toContain("dgm-hollow-test.timber");
+      // a map no longer open: the refusal says why and what to do
+      for (let k2 = 0; k2 < MOST_OPEN; k2++) generateMap({ theme: "riverValley", size: 48, seed: k2 + 1 });
+      const gone = await callTool("describe", { map: handle });
+      expect(gone.isError).toBe(true);
+      expect(textOf(gone)).toContain(`Only the newest ${MOST_OPEN} maps stay open: open its saved project, or generate it again with the same input and seed`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
