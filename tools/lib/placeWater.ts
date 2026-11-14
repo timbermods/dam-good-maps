@@ -70,6 +70,52 @@ export function compareWater(opened: ArrayLike<number>, settled: ArrayLike<numbe
   return { wetOpened, wetSettled, change: wetOpened ? (wetSettled - wetOpened) / wetOpened : 0, bodies: bs.length, lost };
 }
 
+/** A film (D(new), planning's rule on #236: a place's water runs in a bed to an exit or stands in a basin its feed
+ *  holds; no films, no sheets): a body of water of `FILM_TILES` tiles or more, `FILM_DEPTH` deep or less on every tile,
+ *  of which less than `FILM_BED_SHARE` lies in a bed. Named so one ruling moves them. */
+export const FILM_TILES = 100;
+export const FILM_DEPTH = 0.11;
+export const FILM_BED_SHARE = 0.5;
+
+/** Whether tile i's water lies in a bed: the ground rises on both sides across it (west and east, or south and north;
+ *  the map's edge counts as neither). */
+export function inBed(floor: ArrayLike<number>, W: number, H: number, i: number): boolean {
+  const x = i % W;
+  const y = (i - x) / W;
+  const f = floor[i];
+  const ew = x > 0 && x < W - 1 && floor[i - 1] > f && floor[i + 1] > f;
+  const ns = y > 0 && y < H - 1 && floor[i - W] > f && floor[i + W] > f;
+  return ew || ns;
+}
+
+export interface Film {
+  tiles: Int32Array;
+  at: [number, number];
+  /** Of its tiles, those on floor 0 (a sheet the map's edge holds, D303). */
+  floor0: number;
+}
+
+/** The films of a settled water (`FILM_*`), each as its tiles. */
+export function films(depth: ArrayLike<number>, floor: ArrayLike<number>, W: number, H: number): Film[] {
+  const out: Film[] = [];
+  for (const b of bodies(depth, W, H)) {
+    if (b.length < FILM_TILES) continue;
+    let bed = 0;
+    let thin = true;
+    let floor0 = 0;
+    for (const i of b) {
+      if (depth[i] > FILM_DEPTH) {
+        thin = false;
+        break;
+      }
+      if (inBed(floor, W, H, i)) bed++;
+      if (floor[i] === 0) floor0++;
+    }
+    if (thin && bed < FILM_BED_SHARE * b.length) out.push({ tiles: b, at: [b[0] % W, Math.floor(b[0] / W)], floor0 });
+  }
+  return out;
+}
+
 /** The file's water model settled with no edit, as the editor settles it after the first edit (the game's rules). */
 export function settleFile(file: TimberFile): { model: WaterModel; water: CanonicalWater } {
   const model = worldWaterModel(file.world);

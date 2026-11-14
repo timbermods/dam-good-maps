@@ -35,6 +35,12 @@ export const PLACES_WATER_WITHOUT_OUTLET = new Set([
   "near-tibetan-plateau", "near-waimakariri-river",
 ]);
 
+/** Water that keeps moving (D245, `water.settles`): under the game's water rules (D311) these places' water has not
+ *  settled within the settle's days; each keeps its own land and water with the card note "Water keeps moving". */
+export const PLACES_WATER_KEEPS_MOVING = new Set([
+  "near-niagara-falls", "near-waimakariri-river",
+]);
+
 /** Water sources start rivers (D171): the places whose conversion puts a source inside a flow
  *  another source already feeds (`water.source_in_flow`, a design check: it fails the generate
  *  profile; in the export profile it does not apply, since sources go anywhere in the editor,
@@ -138,14 +144,15 @@ export const PLACES_SHORT_OF_BERRIES = new Set([
 ]);
 
 /** The failing checks of a place, its known faults apart (the conversion's edge wall and sources in
- *  flow, water without an outlet, the missing mine site and badwater source, the starting wood, the start's water and
+ *  flow, water without an outlet, water that keeps moving, the missing mine site and badwater source, the starting wood, the start's water and
  *  berries, and plants on dry soil), and which of them fail. */
-export function placeFailures(checks: readonly CheckResult[]): { other: string[]; edgeWall: boolean; sourceInFlow: boolean; outflow: boolean; mineSite: boolean; badwater: boolean; wood: boolean; floor: boolean; startWater: boolean; food: boolean; plants: boolean } {
+export function placeFailures(checks: readonly CheckResult[]): { other: string[]; edgeWall: boolean; sourceInFlow: boolean; outflow: boolean; settles: boolean; mineSite: boolean; badwater: boolean; wood: boolean; floor: boolean; startWater: boolean; food: boolean; plants: boolean } {
   const all = failing(checks);
   const known = (f: string) =>
     f.startsWith("terrain.edge_wall:") ||
     f.startsWith("water.source_in_flow:") ||
     f.startsWith("water.outflow:") ||
+    f.startsWith("water.settles:") ||
     f.startsWith("resources.mine_site:") ||
     f.startsWith("resources.badwater_source:") ||
     f.startsWith("start.wood:") ||
@@ -166,6 +173,7 @@ export function placeFailures(checks: readonly CheckResult[]): { other: string[]
     edgeWall: all.some((f) => f.startsWith("terrain.edge_wall:")),
     sourceInFlow: all.some((f) => f.startsWith("water.source_in_flow:")),
     outflow: all.some((f) => f.startsWith("water.outflow:")),
+    settles: all.some((f) => f.startsWith("water.settles:")),
     mineSite: all.some((f) => f.startsWith("resources.mine_site:")),
     badwater: all.some((f) => f.startsWith("resources.badwater_source:")),
     wood: all.some((f) => f.startsWith("start.wood:")),
@@ -200,6 +208,7 @@ export function checkShard(k: number, n: number): void {
       expect(f.edgeWall).toBe(PLACES_HAVE_EDGE_WALLS);
       expect(f.sourceInFlow).toBe(PLACES_SOURCES_IN_FLOW.has(entry.id));
       expect(f.outflow).toBe(PLACES_WATER_WITHOUT_OUTLET.has(entry.id));
+      expect(f.settles).toBe(PLACES_WATER_KEEPS_MOVING.has(entry.id));
       expect(f.mineSite).toBe(PLACES_LACK_MINE_SITES);
       expect(f.badwater).toBe(PLACES_LACK_BADWATER);
       expect(f.wood).toBe(PLACES_SHORT_OF_WOOD.has(entry.id));
@@ -208,7 +217,7 @@ export function checkShard(k: number, n: number): void {
       expect(f.food).toBe(PLACES_SHORT_OF_BERRIES.has(entry.id));
       expect(f.plants).toBe(PLACES_PLANTS_ON_DRY_SOIL.has(entry.id));
       // the faults the index records are the ones this build has: the gallery hides by them (D421)
-      const has: Record<(typeof PLACE_FAULT_CHECKS)[number], boolean> = { "water.source_in_flow": f.sourceInFlow, "water.outflow": f.outflow, "start.wood": f.wood, "start.wood_floor": f.floor, "start.water": f.startWater, "start.food": f.food, "plants.survive": f.plants };
+      const has: Record<(typeof PLACE_FAULT_CHECKS)[number], boolean> = { "water.source_in_flow": f.sourceInFlow, "water.outflow": f.outflow, "water.settles": f.settles, "start.wood": f.wood, "start.wood_floor": f.floor, "start.water": f.startWater, "start.food": f.food, "plants.survive": f.plants };
       expect(entry.faults).toEqual(PLACE_FAULT_CHECKS.filter((id) => has[id]));
       expect(v.report.passed).toBe(!PLACES_HAVE_EDGE_WALLS && !PLACES_LACK_MINE_SITES && !PLACES_LACK_BADWATER);
       expect(r.validation.report.checks.find((c) => c.id === "terrain.edge_wall")!.severity).toBe(PLACES_HAVE_EDGE_WALLS ? "warning" : "info");

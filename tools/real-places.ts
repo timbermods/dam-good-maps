@@ -4,8 +4,8 @@
 //   npm run places                         (writes public/real-places/)
 //   npm run places -- --check              (writes nothing; fails when the committed files differ)
 //   npm run places -- --only near-glencoe  (builds and checks the places named, writes nothing)
-//   npm run places -- --rules game --water --out <dir>  (a trial: built under the game's water rules, D311, with
-//                                          each place's water measure, written to <dir>)
+//   npm run places -- --water --out <dir>  (each place's water measure too, written to <dir>; `--rules port` builds
+//                                          them under the port's water rules, as before D311's conversion)
 //   npm run places -- --shards 1           (one place after another on this process: the places run on one
 //                                          process a core by default, the same log, files and verdicts)
 //
@@ -57,7 +57,9 @@ import {
   type PlaceIndexEntry,
 } from "../src/core/places/place";
 import { encodeHeights, encodeTiles } from "./lib/placeData";
-import { BODY, WET, compareWater, settleFile, startFails } from "./lib/placeWater";
+import { BODY, FILM_DEPTH, FILM_TILES, WET, compareWater, films, settleFile, startFails } from "./lib/placeWater";
+import { cutBasins, cutBed, floor0Sheet, realMask } from "./lib/placeBasins";
+import { decodeTiles as decodeGaps } from "../src/core/places/place";
 import { keepNearest, settlePlants, startWood, startWoodSpecies } from "./lib/placePlants";
 import { mendSources } from "./lib/placeSources";
 import { DEAD_TREES_KEEP_LOGS, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../src/core/data/logFloor";
@@ -373,8 +375,9 @@ const check = process.argv.includes("--check");
 /** `--water`: each place's line of tools/lib/placeWater.ts's measure (its water as built against its water model
  *  settled again by the game's rules, as the first edit settles it), a withheld place's too. Information only. */
 const waterMeasure = process.argv.includes("--water");
-/** `--rules game`: every place built under the game's water rules (Real places 2's conversion, D311), a trial. */
-const rules = arg("rules") === "game" ? "game" : "port";
+/** The water rules the places are built under: the game's (D311); `--rules port` builds them as before the conversion,
+ *  for a comparison. */
+const rules = arg("rules") === "port" ? "port" : "game";
 setPlaceRules(rules);
 function waterLine(b: ReturnType<typeof buildPlace>, place: PlaceData): string {
   const s = settleFile(b.file);
@@ -390,6 +393,70 @@ function waterLine(b: ReturnType<typeof buildPlace>, place: PlaceData): string {
   const json = { id: place.id, size: W, start: place.start, wet: c.wetOpened, resettled: c.wetSettled, lost: c.lost, startFails: before, startFailsResettled: after, floor0, port: port && { wet: port.wetOpened, bodies: port.bodies, lost: port.lost } };
   return `   water: wet ${c.wetOpened} → ${c.wetSettled} (${(c.change * 100).toFixed(1)} %), ${c.lost.length} of ${c.bodies} bodies of ${BODY}+ lost${c.lost.length ? ` (${c.lost.map((l) => `${l.size}→${l.wet}`).join(", ")})` : ""}, start ${before.join(",") || "-"} → ${after.join(",") || "-"}` + (port ? `; port ${port.wetOpened} wet, ${port.lost.length} of its ${port.bodies} bodies gone; floor-0 sheet ${floor0}` : "") + `\n   water-json ${JSON.stringify(json)}`;
 }
+/** The places' observed water (D271; tools/places-real-water.ts): by library id, the tiles over real water. */
+const REAL_WATER = JSON.parse(readFileSync(join(LIBRARY, "real-water.json"), "utf8")) as { places: Record<string, { W: number; tiles: number[] }> };
+function realOf(libraryId: string, W: number, H: number): Uint8Array {
+  const r = REAL_WATER.places[libraryId];
+  if (!r || r.W !== W) throw new Error(`${libraryId}: no observed water in ${join(LIBRARY, "real-water.json")} (run tools/places-real-water.ts)`);
+  return realMask(W, H, decodeGaps(r.tiles));
+}
+
+/** The place with its basins cut where the real water lies, and a bed through each film above floor 0 that no real
+ *  water lies under (tools/lib/placeBasins.ts), and its log note. */
+function basinsFor(libraryId: string, place: PlaceData): { place: PlaceData; note: string } {
+  const real = realOf(libraryId, place.W, place.H);
+  const port = buildPlace(place, undefined, "port").settle.depth;
+  let game = buildPlace(place, undefined, "game");
+  const r = cutBasins(decodeHeights(place.heights), place.W, place.H, port, game.settle.depth, game.model.floor, real);
+  const notes: string[] = [];
+  for (const b of r.basins) notes.push(`${b.kind} ${b.size} at ${b.at.join(",")} over ${b.real} real-water tiles ${b.cut ? `cut ${b.cut} tiles` : b.kind === "lost" ? "goes" : "not cut"}`);
+  const heights = r.heights;
+  if (r.basins.some((b) => b.cut)) {
+    place = { ...place, heights: encodeHeights(heights) };
+    game = buildPlace(place, undefined, "game");
+  }
+  // a film above floor 0 the real water does not lie under gets a bed to where its water leaves it (D(new))
+  for (let round = 0; round < BED_ROUNDS; round++) {
+    const left = films(game.settle.depth, game.model.floor, place.W, place.H).filter((f) => f.floor0 * 2 <= f.tiles.length);
+    if (!left.length) break;
+    let any = false;
+    for (const f of left) {
+      const bed = cutBed(heights, place.W, place.H, f.tiles, game.settle.depth, place.sources, hashString(`${place.id}:${round}`));
+      notes.push(`film ${f.tiles.length} at ${f.at.join(",")} ${bed.length ? `bed of ${bed.length} tiles` : "has no source or way out for a bed"}`);
+      if (bed.length) any = true;
+    }
+    if (!any) break;
+    place = { ...place, heights: encodeHeights(heights) };
+    game = buildPlace(place, undefined, "game");
+  }
+  return { place, note: notes.length ? `  water mends: ${notes.join("; ")}` : "" };
+}
+
+/** The rounds of beds a place gets: a bed can carry its water on to a flat below, where the next round's bed runs on. */
+const BED_ROUNDS = 8;
+
+const hashString = (s: string) => {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+};
+
+/** The water checks every offered place passes, and its floor-0 sheet: one log line. */
+function waterVerdict(libraryId: string, b: ReturnType<typeof buildPlace>): { line: string; failed: boolean } {
+  const { W, H } = b.model;
+  const again = settleFile(b.file);
+  const c = compareWater(b.settle.depth, again.water.depth, W, H);
+  const unequal = Math.abs(c.change) > 0.01 || c.lost.length > 0;
+  const fs = films(b.settle.depth, b.model.floor, W, H);
+  const above = fs.filter((f) => f.floor0 * 2 <= f.tiles.length);
+  const sheet = floor0Sheet(b.settle.depth, b.model.floor, W, H, realOf(libraryId, W, H), FILM_DEPTH, FILM_TILES);
+  const line =
+    `   water: opened ${c.wetOpened} wet, settled again ${c.wetSettled}${c.lost.length ? `, ${c.lost.length} bodies of ${BODY}+ lost` : ""}${unequal ? " (FAILS: opened is not settled)" : ""}` +
+    (above.length ? `; FAILS: film above floor 0 (${above.map((f) => `${f.tiles.length} tiles at ${f.at.join(",")}`).join("; ")})` : "") +
+    `; floor-0 sheet ${sheet.tiles} tiles (${sheet.real} over real water, ${sheet.dry} over real dry land)`;
+  return { line, failed: unequal || above.length > 0 };
+}
+
 const only = arg("only")?.split(",") ?? null;
 const library = JSON.parse(readFileSync(join(LIBRARY, "index.json"), "utf8")) as { items: LibraryItem[] };
 const items = library.items.filter((it) => it.family !== "random");
@@ -438,6 +505,11 @@ function runPlace(item: LibraryItem): Outcome | null {
   // where that file's rules allow it; the rest stay, and the place keeps the fault until none is left. (The sealed-land
   // comparison for the start's water below is the survey's own, so it keeps the unmended sources.)
   const surveyed = place;
+  // Basins where the real water lies (D(new), tools/lib/placeBasins.ts): a body the port's rules showed and the game's
+  // lose is cut one level inside its own flat's rim where the observed water lies, so the place's rivers fill it; where
+  // none lies it goes. Before the sources' mend, so a source the new lake takes in merges as any other.
+  const basin = basinsFor(item.id, place);
+  place = basin.place;
   const mend = mendSources(place);
   place = mend.place;
   const mendNote = mend.merges.length || mend.left.length ? `  sources: ${mend.merges.length} merged${mend.left.length ? `, ${mend.left.length} left in a flow (${mend.left.map((l) => `${l.at.join(",")} ${l.why}`).join("; ")})` : ""}` : "";
@@ -660,6 +732,7 @@ function runPlace(item: LibraryItem): Outcome | null {
       (blocking.length ? `  export: ${blocking.map((c) => c.id).join(", ")}` : "") +
       (strictFails.length ? `  generate profile: ${strictFails.join(", ")}` : "") +
       (moved ? `  start moved from ${moved.join(",")} to ${place.start.join(",")}${movedWood}` : "") +
+      basin.note +
       mendNote +
       (spring ? `  spring by the start at ${spring.map((s) => `${s[0]},${s[1]}`).join(" ")}` : "") +
       (planted ? `  ${planted} berry bushes planted by the start` : "") +
@@ -684,6 +757,12 @@ function runPlace(item: LibraryItem): Outcome | null {
   });
   if (placeFileName(place) !== namedFile(place.name)) throw new Error(`${place.name}: file name ${placeFileName(place)}`);
   if (waterMeasure) say(waterLine(built, place));
+  // what opens is what the game keeps (planning's rule, #236: no known list): the file's water model settled again,
+  // as the first edit settles it, keeps the wet tiles within 1 % and every body of 30 tiles or more; and no film above
+  // floor 0. A floor-0 sheet the edge's spill holds (D303) is allowed and counted, over real water and real dry land.
+  const w = waterVerdict(item.id, built);
+  say(w.line);
+  if (w.failed) out.failed = true;
   return out;
 }
 
