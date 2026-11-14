@@ -3921,7 +3921,7 @@ frames, and the start was still the white map-editor marker.
   third. The top storey's posts are broken off at the variant's heights, one of them bent in A and E.
 - **Built** (`entities3d.ts` `RUIN_FACES`, `storey`, `band`, `rails`, `drape`): each storey from that table, the slab
   bands boxes 0.03 thick with a broken edge, the rails thin rods; the ivy flat leaves on the faces' outsides placed as
-  the game's cover: seen from a side, wet (h = 4) the game's 0.74 / 0.63 / 0.38 / 0.28 of each storey from the foot up
+  the game's cover (cut-out cards since "The ruins' ivy as the game draws it", below): seen from a side, wet (h = 4) the game's 0.74 / 0.63 / 0.38 / 0.28 of each storey from the foot up
   and ours 0.71 / 0.63 / 0.33 / 0.31–0.32; dry the foot 0.66 and ours 0.63 (held within 0.07, look-mine-ruins.test.ts). The game shows the dry model on dry or
   contaminated ground (`RuinModelUpdater`), as before. A storey is at most 284 triangles with its densest ivy (was 288 near, 24 far), in the
   game's colours, untinted (`palette.ts` `RUIN`: the means of the texels its cut-out keeps, rust #5d2f17, slab #6c5a39,
@@ -3955,8 +3955,9 @@ frames, and the start was still the white map-editor marker.
 - **Falls short:** (1) The game lights a fire in the bowl (its particles); left out (drawn since "The fire and the
   Iron Teeth's start", below). (2) The Iron Teeth's district center differs; ours is the Folktails' for both factions
   (drawn since the same). (3) The ruins' slab bands are clean boxes with a broken
-  edge where the game's are cracked cut-outs, and our leaves are larger and fewer than the game's. (4) The ivy's brown
-  roots at the foot (`IvyWet0A`) are left out. (5) The ruins' shadow in Standard is a solid post, half again the
+  edge where the game's are cracked cut-outs, and our leaves are larger and fewer than the game's (the leaves drawn
+  since "The ruins' ivy as the game draws it", below). (4) The ivy's brown roots at the foot (`IvyWet0A`) are left out
+  (its stems drawn since the same). (5) The ruins' shadow in Standard is a solid post, half again the
   area of the model's latticed one.
 - **Revived on dev** (`look/ruins-start`, 2026-11-14, 522 commits on; no conflict): dev still drew the start as the grey
   placeholder house with its entrance post, and the ruins as the scaffold towers. Sheet: `docs/sheets/ruins-start.jpg`,
@@ -4249,6 +4250,80 @@ three smooth cones in Standard and four scalloped cones in High, which read as o
   each; ours are flat facets, two to a bough. (2) Each whorl is a little rounder in the game's (its boughs broad lobes);
   ours are triangles to their tips. (3) Standard's pine shadows are still the fitted discs (`light.ts`
   `PLANT_SHAPES`).
+
+## The ruins' ivy as the game draws it (D135, D178 as amended 2026-11-10, D496, D497; `fix/close-ivy`)
+
+Judged on the in-game capture kit's Four Lakes r14 `cave` start frame (day light; local only), ours posed from its
+camera with the map opened from its file. The game's ivy hangs over its ruins in trails of five-lobed leaves with light
+brown stems climbing from the foot; ours was large flat squares set diagonally on the faces.
+
+- **Read from the game's models and atlas** (numbers only, `tools/game-model-albedo.py`; no texture in git): `Ivy_Wet`
+  and `Ivy_Dry` are one material (EnvironmentURP5, cut at alpha 0.312), each model a few dozen double-sided cards at the
+  tile's edges, 72–292 triangles, 6.4 m of card a unit of UV in a 2048² atlas: cards of stems branching up from a
+  column's foot and cards of leaf trails hanging from its top, the leaves about 0.16 m across. The texels the cut keeps:
+  the leaves (0.148, 0.180, 0.095), from 0.56 to 1.31 times that in lightness (its normal map's light), the stems
+  (0.236, 0.203, 0.124), 0.035 m wide.
+- **Built** (`objectPatterns.ts`, D135: drawn in code): one 256² layer at 128 texels a metre, made once a page in the
+  textures' worker (about 0.1 s; the ivy is cut away until it lands): three strips of trails 0.5 × 1 m that run on from
+  storey to storey (the same at their foot as their top), one strip hanging from a column's top, a root of stems and
+  stems running on, each part's mean over the cut the game's (`palette.ts` `RUIN.ivy`, `RUIN.ivyStem`). A model's part
+  takes a pattern by `Model.card` (`entities3d.ts`): double-sided, its UV in a `puv` attribute and its pattern packed
+  into `lod` (its view plus 4 × the pattern), so no other model carries anything more. The object program samples the
+  pattern's layer and cuts at the game's 0.312 (not in the light look, whose ruins have no ivy); High's sun-depth pass
+  cuts the same, so the cards cast the leaves' shadow. `drape` lays the cards at the tile's edge over the posts: stems
+  on the storeys with clearly some (a root on the foot of a wet column), running trails on every storey below the
+  column's top, trails hanging from the top storey.
+- **Coverage held** (look-mine-ruins.test.ts, now through the pattern's alpha at each point): seen from a side, wet
+  (h = 4) the game's 0.74 / 0.63 / 0.38 / 0.28 of each storey from the foot up and ours 0.76 / 0.67 / 0.35 /
+  0.32–0.34; dry the foot 0.66 and ours 0.67. A storey with the most ivy is 16 cards, 64 triangles (was 128).
+- **Cost:** `benchOrbit` at the `cave` camera (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame,
+  two runs of two, dev → branch): Standard 2.73–3.76 → 2.72–2.88 ms, High 3.41–4.35 → 3.39–3.97 ms:
+  within the runs' spread. Draw calls 93 and 102, unchanged; triangles Standard 526 k → 519 k, High 513 k → 507 k. The
+  pattern is 0.33 MB with its mips. The light look is untouched (its ruins have no ivy; its program samples nothing).
+- **Falls short:** (1) Each storey's ivy is its own batch, as before, so a column's trails change density at each
+  storey's top rather than hanging as one from the column's top as the game's do. (2) The game's normal map lights each
+  leaf by its own tilt; ours carry that light drawn into the pattern, the same under every sun. (3) The game's ivy
+  spills past the tile at the foot (`IvyWet0A`, a skirt on the ground); ours stays within the tile.
+- **Sheet** (local only): `C:\dgm-showcase\objects\close\ivy-sheet.png`, the game | dev | branch at the `cave`
+  camera in both looks, the pattern, and the ruins cropped.
+
+## The district center's thatch and wood as the game draws them (D135, D178 as amended 2026-11-10, D496, D497; `fix/close-thatch`)
+
+Judged on the same `cave` frame as the ivy, close up. The game's Folktails district center wears its materials'
+pictures: a thatch of straw in courses, walls and a tower of wavering dark planks laid level with light edges, pale
+grained wood on its posts, frames and railings. Ours drew each part in its flat mean.
+
+- **Read from the game's model and textures** (`DistrictCenter.Folktails`; numbers only, `tools/game-model-albedo.py`
+  and a measure of each material's UVs against its triangles): every material EnvironmentURP5, uncut; the thatch
+  (`ThatchedRoof`) 2.49 m of roof a unit of UV, v up the slope, four courses a unit, each pale blades pointing up into a
+  dark row of cut stalk ends; its texels 0.56 / 1.03 / 1.38 of its mean (5th / 50th / 95th percentile), the dark rows
+  0.58 and redder, the blades' tips 1.31 and paler. The planks (`IrregularPlanks_Brown`, the walls and the tower) 1.61 m
+  a unit, the boards along v of the texture laid level by the UVs: eight a unit, 0.2 m, a fifth of it their light edges
+  (0.348, 0.294, 0.201), three quarters the grained body (0.173, 0.121, 0.084), the rest the dark between; 0.55 / 0.85 /
+  1.96. The pale wood (`BaseWood_LightBrown`, and `BaseWood_Brown`, the same picture darker) 1.45 m a unit, boards
+  0.09 m wide, near white between them.
+- **Built** (`objectPatterns.ts`, D135: drawn in code from those figures): three more 256² layers in the objects'
+  texture array, tiling every way, ours 0.52 / 1.06 / 1.36 (thatch), 0.57 / 0.81 / 2.01 (planks). Every layer is now the
+  part's albedo over its colour, a third of it (`PATTERN_GAIN`; the ivy's cards take the leaves' colour), so each
+  tiling layer averages to its part's colour and the light look, which samples nothing, is unchanged. `lathe` takes a
+  pattern (u round it a whole number of units, v along its profile: the roof's and the hood's thatch);
+  `Model.patternBy` lays the wood's on the rest by colour, a face's UV its run across and its height (its x and z when
+  it looks up), so the planks lie level and the pale wood's grain stands. The atlas starts with the tiling layers at
+  their mean (the ivy cut away) until the worker's job lands (about 0.2 s in node for all four).
+- **Bloom:** the thatch's brightest straw passes the knee in the game's light, as the game's own does (its texture's
+  brightest texel (1.45, 1.63, 2.27) of its mean); ours is held under the game's (bloom.test.ts). The planks and the
+  pale wood stay under the knee.
+- **Cost:** `benchOrbit` at the `cave` camera (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame,
+  two runs of two, interleaved, the ivy's branch → this one): Standard 3.16–3.56 → 3.25–3.69 ms, High 3.95–4.07 →
+  4.10–4.17 ms, about 0.1 ms more, at the edge of the runs' spread. Draw calls 93 and 102 and the triangles unchanged
+  (the parts only take UVs). The objects' texture 0.35 → 1.4 MB with its mips (four 256² layers). The light look is
+  untouched: it makes no object patterns and samples none, its parts in the same colours.
+- **Falls short:** (1) The game's normal maps give each blade and board its own light; ours carry it drawn in. (2) The
+  windows are still plain octagons where the game's are spoked wheels (`WindowsAtlas`) and the emblems plain discs. (3)
+  The Iron Teeth's district center keeps its flat colours (its own planks and roof pictures are not drawn yet). (4) The
+  roof's eave is a smooth bulge where the game's is ragged.
+- **Sheet** (local only): `C:\dgm-showcase\objects\close\thatch-logs-sheet.png`, the game's cave frame and the branch
+  in both looks, the district center cropped (game | before | branch, both looks), and the three layers.
 
 ## The rest of the step (next parts)
 
