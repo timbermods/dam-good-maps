@@ -11,15 +11,18 @@ import type { SessionInfo } from "../worker/session";
 import type { ItemActions } from "./panels";
 import { ChecksDot, Header } from "./Header";
 import { Shelf } from "./Shelf";
-import { TopBar } from "./TopBar";
+import { TopBar, type PhoneBar } from "./TopBar";
 import { shelfIcons } from "./shelf/iconCache";
 import { DEFAULT_BRUSH } from "./brushes";
 import { TogetherFace } from "./collab/Together";
 import { DEFAULT_BLOCK } from "./block/blockTool";
 import { useFrameDockRoom } from "./view/useBandLayout";
+import { useRoom } from "./view/usePhone";
 
 const nothing = () => undefined;
 const NO_ACTIONS: ItemActions = { onFix: nothing, onShow: nothing, canShow: () => false };
+/** A phone's tool row while the map is made: no sheet open, nothing in hand. */
+const PHONE_BAR: PhoneBar = { tall: false, onTall: nothing, objectsOpen: false, holding: false, onObjects: nothing };
 
 export interface LoadingFrameProps {
   /** The title while the map is made. */
@@ -34,9 +37,13 @@ export function LoadingFrame(p: LoadingFrameProps) {
   // (the editor's Look button is there unless the browser draws in software, where the view has only the light look)
   useFrameDockRoom();
   const [look] = useState(() => !(softwareRendering() && !window.dgmLookTest?.gpu));
+  // (a phone's frame is the phone's layout, as the editor will be: the desktop's bar, wider than the screen, would make the
+  // browser zoom the page out while the first map is made, #1074)
+  const phone = useRoom();
   return (
-    <div class="editor loading-frame" inert aria-busy="true">
+    <div class="editor loading-frame" data-phone={phone ?? undefined} inert aria-busy="true">
       <Header
+        phone={phone}
         info={{ kind: "import", W: 0, H: 0 } as SessionInfo}
         name={p.name}
         onRename={() => Promise.resolve(null)}
@@ -87,10 +94,12 @@ export function LoadingFrame(p: LoadingFrameProps) {
           <div class="editor-map-area">
             <div class="view3d-frame legend-none editor-view">
               <div class="view3d loading-view">{p.children}</div>
-              <TopBar active={null} settings={DEFAULT_BRUSH} onPick={nothing} onSettings={nothing} onSelect={nothing} blockSettings={DEFAULT_BLOCK} loading />
-              <div class="objects-dock">
-                <Shelf picked={null} onPick={nothing} onDragStart={nothing} onDrop={nothing} icon={(t) => shelfIcons()[t] ?? null} loading />
-              </div>
+              <TopBar active={null} settings={DEFAULT_BRUSH} onPick={nothing} onSettings={nothing} onSelect={nothing} blockSettings={DEFAULT_BLOCK} loading phone={phone ? PHONE_BAR : null} />
+              {phone ? null : (
+                <div class="objects-dock">
+                  <Shelf picked={null} onPick={nothing} onDragStart={nothing} onDrop={nothing} icon={(t) => shelfIcons()[t] ?? null} loading />
+                </div>
+              )}
             </div>
           </div>
         </section>
