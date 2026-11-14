@@ -41,10 +41,15 @@ import { drainage } from "./drainage";
 import { BED_FLOOR, type Genome } from "./genome";
 import { sinDet, TWO_PI } from "../math/detmath";
 import { distanceFrom, MinHeap, N4 } from "../math/grid";
+
 import { DIRS8 } from "./num";
 import { mapShape } from "./shape";
 import { clamp } from "../math/clamp";
 import { REACH as STORY_REACH } from "../analysis/story";
+
+/** `N4`'s directions as two arrays, in its order. */
+const N4X = N4.map(([dx]) => dx);
+const N4Y = N4.map(([, dy]) => dy);
 
 export interface Lake {
   tiles: number[];
@@ -1056,21 +1061,27 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   };
   const fs = hash32(seed, "floor", attempt);
 
+  // (one mark array for every flood, each flood's mark its own number, and the directions read by index,
+  // not destructured pairs: a hollow is flooded again at each sample of each course through it, some
+  // seventeen thousand floods in a 256² Canyon's plans; the same tiles in the same order)
+  const floodSeen = new Int32Array(N);
+  let floodMark = 0;
   const flood = (from: number, below: number): number[] => {
-    const seen = new Uint8Array(N);
+    const seen = floodSeen;
+    const mark = ++floodMark;
     const q = [from];
-    seen[from] = 1;
+    seen[from] = mark;
     for (let k = 0; k < q.length; k++) {
       const i = q[k];
       const x = i % W;
       const y = (i - x) / W;
-      for (const [dx, dy] of N4) {
-        const xx = x + dx;
-        const yy = y + dy;
+      for (let d = 0; d < 4; d++) {
+        const xx = x + N4X[d];
+        const yy = y + N4Y[d];
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
         const j = yy * W + xx;
-        if (seen[j] || h[j] >= below) continue;
-        seen[j] = 1;
+        if (seen[j] === mark || h[j] >= below) continue;
+        seen[j] = mark;
         q.push(j);
       }
     }
