@@ -446,7 +446,7 @@ export class FingerPress {
     this.moved += Math.hypot(p.x - this.now.x, p.y - this.now.y);
     this.now = { ...p };
     this.over = this.host.overCancel(p);
-    // (over Cancel: what shows stays where it was, and the lift there drops it)
+    // (over Cancel: the lift there drops it; an aim's preview goes meanwhile, the renderer's `mark`)
     if (this.over) return this.host.mark(this.aim, true);
     if (!this.started) {
       if (this.moved >= TAP_SLOP) this.start();

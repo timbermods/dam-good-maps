@@ -4856,6 +4856,13 @@ export class MapRenderer {
     let driven: PointerTool | null = null;
     this.pressLast = ev;
     const at = (type: string, p: Point) => this.aimEvent(type, p, ev);
+    /** An aim's preview goes, and the tile it lit. */
+    const unaim = () => {
+      this.hoverHit = null;
+      this.setHoverTile(null);
+      t.hover?.(null, at("pointermove", { x: ev.clientX, y: ev.clientY }));
+      this.onHover?.(null);
+    };
     const host: PressHost = {
       show: (p) => {
         if (mode === "aim") return this.hoverAt(at("pointermove", p));
@@ -4887,12 +4894,7 @@ export class MapRenderer {
         const g = driven;
         driven = null;
         if (begun) g?.cancel?.();
-        if (mode !== "aim" || this.tool !== t) return;
-        // (an aim's preview goes, and the tile it lit)
-        this.hoverHit = null;
-        this.setHoverTile(null);
-        t.hover?.(null, at("pointermove", { x: ev.clientX, y: ev.clientY }));
-        this.onHover?.(null);
+        if (mode === "aim" && this.tool === t) unaim();
       },
       tap: () => {
         const up = this.pressLast ?? ev;
@@ -4912,6 +4914,8 @@ export class MapRenderer {
       },
       overCancel: (p) => !!document.elementFromPoint(p.x, p.y)?.closest("[data-press-cancel]"),
       mark: (p, over) => {
+        // (over Cancel an aim's preview goes: nothing would be applied there; off it again, it shows)
+        if (over && mode === "aim" && this.tool === t) unaim();
         const f = this.pressLast ?? ev;
         this.onPress?.(p ? { aim: { x: p.x, y: p.y }, finger: { x: f.clientX, y: f.clientY }, over } : null);
       },

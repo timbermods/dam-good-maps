@@ -652,6 +652,8 @@ for (const size of SIZES) {
       const onCancel = { x: cb.x + cb.width / 2, y: cb.y + cb.height / 2 };
       await fingers.drag({ 1: onCancel });
       await expect(cancel).toHaveClass(/\bover\b/);
+      // (and the block it would have added goes: nothing shows where nothing would go)
+      expect(await lit(page)).toBeNull();
       await fingers.up(1);
       await expect(cancel).toHaveCount(0);
       await idle(page);
