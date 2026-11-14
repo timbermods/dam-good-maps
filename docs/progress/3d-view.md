@@ -3952,8 +3952,9 @@ frames, and the start was still the white map-editor marker.
   2070 Super; the GPU's median a frame, one run each, base → branch): Standard whole map 2.94 → 2.86 ms, the ruins 14
   away 3.41 → 3.40; High 2.66 → 2.35 and 3.98 → 4.22: within the runs' spread. Draw calls 104 → 103. Triangles
   Standard 183 k → 193 k; High 297 k → 182 k (High's own scaffold augment is gone). Every frame 7.0 ms at 144 Hz.
-- **Falls short:** (1) The game lights a fire in the bowl (its particles); left out. (2) The Iron Teeth's district
-  center differs; ours is the Folktails' for both factions. (3) The ruins' slab bands are clean boxes with a broken
+- **Falls short:** (1) The game lights a fire in the bowl (its particles); left out (drawn since "The fire and the
+  Iron Teeth's start", below). (2) The Iron Teeth's district center differs; ours is the Folktails' for both factions
+  (drawn since the same). (3) The ruins' slab bands are clean boxes with a broken
   edge where the game's are cracked cut-outs, and our leaves are larger and fewer than the game's. (4) The ivy's brown
   roots at the foot (`IvyWet0A`) are left out. (5) The ruins' shadow in Standard is a solid post, half again the
   area of the model's latticed one.
@@ -3965,7 +3966,7 @@ frames, and the start was still the white map-editor marker.
 ### The Iron Teeth's start and the fire, read (D178 as amended 2026-11-10, D496; `fix/iron-teeth-figures`)
 
 Falls short (1) and (2) above, read from the game's files (Timberborn 1.1.2.8, `resources.assets`; read-only, the game
-not started; numbers only, no mesh or texture kept) so they can be drawn. Nothing draws them yet. The colours are in
+not started; numbers only, no mesh or texture kept) so they can be drawn; drawn since the next section. The colours are in
 `palette.ts` `START_IRON_TEETH` and `START_FIRE`, with each material's raw albedo, metallic, smoothness and occlusion.
 Lengths are metres (a tile), in the model's own frame: y up, the origin the footprint's corner (the models span
 −0.049 to 3.049), the door on the z = 0 face, as the Folktails' is (ours turns that face to +Z).
@@ -4038,6 +4039,59 @@ Lengths are metres (a tile), in the model's own frame: y up, the origin the foot
   intensity 5 makes of the ground and the platform under our light, which has no point or spot lights yet. The map
   names no faction (the player picks one when starting it), so which center stands there is the renderer's choice.
 
+## The fire and the Iron Teeth's start as the game draws them (D178 as amended 2026-11-10, D496, D497; `feature/start-fire-ironteeth`)
+
+The start is the faction's district center with the game's fire in its bowl, drawn from the figures read above
+(`START_IRON_TEETH`, `START_FIRE`), in Standard and High alike.
+
+- **The faction:** one renderer input, `setFaction("Folktails" | "IronTeeth")`, Folktails by default; the map names
+  none (the player picks one when starting it). It changes only the start's model (entities3d.ts `startModel`, batch
+  `start` or `start.IronTeeth`; the model key stays `start`, so picking, tooltips and the High look's landmark copy
+  follow it). The page's control comes later; nothing on the page sets it yet.
+- **The Iron Teeth's district center** (entities3d.ts `ironTeethCenter`): built part by part from the measures above,
+  each part in its material's colour from `START_IRON_TEETH` (floor, walls, posts, square-topped door, round windows,
+  the two-tier hip roof as an eight-sided lathe, the band, the leaning tower and its corner posts, the four emblems
+  tilted with the faces, the platform with its spindles and rail, the bowl, the lantern's eight beams, the hood, collar
+  and iron flue). Drawn in the game's light like the other objects (D135 as amended 2026-11-09).
+- **The fire** (startFire.ts): the game's `Flames`, 125 camera-facing particles a start (50 a second × 2.5 s), each
+  placed and timed on the GPU from its seed and born again with new draws as it dies; its size curve (Hermite between
+  the game's keys), colour and alpha gradients, texture alpha (the `Fire` texture's radial means) and the FireParticles
+  shader's Unlit pass (colour 2 × texel × colour, alpha saturate(2 × texel alpha × alpha × 0.349)) as read. Through the
+  game's finish (`gamePost`), its doubled colour kept for the bloom, which runs only while lava burns (`blooms`), so
+  the fire does not bloom yet. An object's: hidden with the objects,
+  faded round the pointer with them and cut away above the layer. On the objects' clock, so still with reduced motion,
+  as the geothermal steam is (D240 covers the editor's own animations; the fire is the game's look, frozen, not
+  removed). Never in the light look. It asks for frames (`animated`, 30 a second as the water's) only while a start's
+  fire is drawn (not hidden with the objects or cut away, `fireDrawn`), its bowl inside the frame and its flame at least
+  2 pixels across (renderer.ts `fireShows`): a map at rest whose start
+  is out of view or too far off to see the flame draws nothing, as dev did before the fire (a blank map, a dry one;
+  D453). A map with water draws its water's 30 frames a second anyway, as on dev. Its program is compiled ahead with the others (renderer.ts `scheduleWarm`), so a
+  start placed later does not hitch.
+- **Its light** (materials.ts `START_LIGHT_GLSL`): URP's additional spot light as the game sets it, 1.24 above the
+  attachment pointing down: colour × intensity 5 × URP's distance attenuation (1/d² × (1 − (d²/range²)²)², range 8) ×
+  its spot attenuation (outer 120°, inner 75°, squared) × n·L, no shadows, added in `gameLight`, which lights the land
+  and the objects in both looks. Up to four starts lit (`START_LIGHTS`); none while the objects are hidden, none where
+  the layer cut takes the fire, and faded with the start round the pointer (`dimStartLights`). At the
+  game's close camera on Four Lakes r14 it brings the thatch under the bowl from 138/116/77 to 154/128/82 (the game's
+  145/122/80) and the grass before the door from 116 to 125 (the game's 126); High measures the same.
+- **Cost:** `benchOrbit` on Highlands 1 at 256 (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a
+  frame, dev → branch, Folktails): Standard 3.41 and 3.75 → 3.18 and 3.28 ms; High, six runs of dev 2.60–2.97 against
+  four of the branch 2.97–3.46 (interleaved, 2.97/2.76 → 2.97/3.02): about 0.1–0.2 ms in High, within Standard's spread.
+  +1 draw call (the fire, one batch for every start); the Iron Teeth's center is 1404 triangles, the Folktails' 1428.
+  Nothing is allocated a frame: the fire's buffers and the lights' places are set when the starts change, the frame
+  sets how many lights and how much each shows. At rest on a blank map (128², dry, the start in its middle; frames
+  drawn a second, the page's main thread a second): dev draws none anywhere (3.7–7.5 ms/s); the branch draws 26 a
+  second with the start close in view (28 ms/s, the GPU about 0.9 ms a frame) and none with the whole map in view
+  (the flame under 2 pixels) or the start out of view (0.1–4.5 ms/s).
+- **Sheet** (local only, `C:/dgm-showcase/start/fire-ironteeth/sheet.png`): the game's own day-1 captures of the
+  Folktails start (Four Lakes r14, the opening and close cameras) beside dev's and ours, Standard and High, both
+  factions, at the same cameras.
+- **Falls short:** (1) Our flame reads a little shorter than the game's: it doesn't fill the lantern up to the hood as
+  the game's does in the close capture. (2) Day only: our view has no night, where the game's fire light shows most.
+  (3) The water doesn't take the start's light (whether the game's does is not read). (4) No game capture of the Iron
+  Teeth start to set ours beside. (5) The fire does not bloom: our bloom runs only for lava, so the game's glow where
+  its flame's particles stack is missing.
+
 ## Falls that pour, against the game's Four Lakes frames (PERFECT Water 3; D154, D496; `fix/falls-pour-2`)
 
 Judged on the in-game capture kit's Four Lakes r14 `falls` and `cave` start frames (day light; local only), ours posed
@@ -4074,8 +4128,52 @@ row's luma less its 3-pixel mean. `.scratch` measures, not kept.
   Every term is the game's (P4, P5, P11 to P15 above), so no change is made: the gaps change sign from curtain to
   curtain, and none follows one term. What is left to read is how the game lights the face's pixels at these two
   views (its sun's direction there against ours among them).
-- **Falls short:** (1) to (3) stand, unexplained. A frame of the game's falls in motion would settle (4) beyond its
-  formula.
+- **Falls short:** (1) to (3): their gloss followed, what stands of them in "The falls' sheen" below. A frame of the
+  game's falls in motion would settle (4) beyond its formula.
+
+### The falls' sheen (Q9 P8; D154, D496; `fix/falls-pour-3`)
+
+(1) to (3) above, read again from how the game lights the face. The same frames, regions and measures; the game's
+L* here are read over our regions, so they differ from the list above by up to 1.
+
+- **The sun and the day's light are ours.** The game's sun is Euler(45, the camera's yaw + 40) (its `SunXAngle` and
+  the yaw the capture kit poses), full day at hour 4.03 (the sunrise's turn ends by hour 2, the turn to sunset starts
+  at 15); `sunOfYaw` gives the same at both cameras. The land beside the curtains agrees: the cave's pillar 25.1
+  against the game's 25.6, the grass alike. The probe played Medium with High-quality water, so the waterfall mask is
+  whole on the faces (the falls' section above).
+- **What drives a curtain's L* is its gloss.** Seen near level, the face's light is URP's environment term, (f0 +
+  (s + 0.04 − f0)(1 − N·V)⁴) / (1 + r²), and the smoothness s moves it most. Held at one gloss, in Standard at 12.5 s:
+  - s 0.15: the left curtain (`cave`) 27.3 / 22.7 / 20.5, streaks 1.42; the right (`falls`) 32.7 / 29.0 / 27.4; the
+    cave mouth's streaks 0.75; the middle's 2.85.
+  - s 0.44: the left curtain 37.9 / 31.1 / 25.7, streaks 1.84; the right 40.9 / 35.3 / 30.7; the cave mouth's
+    streaks 1.45; the middle's 2.96.
+  - The game's: the left 39.9 / 33.5 / 26.0, streaks 2.05; the right 29.0 / 25.5 / 23.8; the cave mouth's streaks
+    0.61; the middle's 4.29.
+- **The cause found: our gloss drifted about 40 times slower than the game's, and spread too narrow.** The game
+  samples `WaterMetalAndGloss` twice at xz × 0.01, panned by T × (−0.008, −0.002) and (0.01, 0.004) in its texture's
+  units, so its patches (about a tile across) drift 0.8 and 1.1 tiles a second and the gloss at a point keeps half its
+  likeness 1.1 s. Ours took the speeds as tiles. Its smoothness, read from the texture soft-lit with itself over 10
+  minutes at the curtains, has mean 0.263, spread 0.088, 0.149 / 0.248 / 0.432 at its 5th, 50th and 95th
+  percentiles (1st 0.12–0.14, 99th 0.51–0.54); ours ran straight from 0.10 to 0.40. Now ours drifts at the game's
+  speeds (`WATER_SURFACE.glossPan`, `waterGloss`) and is curved to the game's spread (`smoothnessSpread` 0.566,
+  `smoothnessCurve` 0.68, `waterSmoothness`): mean 0.264, spread 0.088, 0.149 / 0.248 / 0.433. A curtain's sheen now
+  comes and goes in seconds, as the game's does: over 12 clocks in Standard (L* of the middle third, least / median /
+  most, dev then branch):
+  - `falls` middle: 30.0 / 30.7 / 32.2, then 30.2 / 32.5 / 35.9 (the game's 32.4, at its median);
+  - `falls` right: 33.8 / 34.3 / 36.3, then 32.5 / 34.2 / 38.3 (the game's 29.0);
+  - `cave` left: 26.8 / 29.0 / 34.3, then 26.7 / 30.9 / 36.0 (the game's 39.9);
+  - `cave` mouth: 31.5 / 34.0 / 35.3, then 31.7 / 36.2 / 45.6 (the game's 32.8, a third of the way up).
+  The streaks' median is unchanged; High reads within 0.3 L* of Standard.
+- **Cost:** none measured. benchOrbit at the `falls` camera, the GPU's median a frame, two runs each: Standard 4.24 /
+  4.03 ms on dev, 4.32 / 4.10 on the branch; High 4.98 / 4.92, then 4.95 / 4.85.
+- **Falls short:** (1) The left curtain's game frame needs s ≈ 0.495 at that spot, a gloss the game's own texture
+  reaches there about 2 % of the time: the capture caught a bright moment, which ours now reaches too, just as seldom.
+  Since `_NonlinearTime` counts from the scene's load, the game's T at the capture can't be read, so the same moment
+  can't be posed. (2) The right curtain reads 3.5 L* over the game's even at the game's dullest gloss (s 0.15:
+  32.7 against 29.0). Its cliffs read 2–2.5 light too, and so does every south-facing cliff in the `falls` frame
+  (+2.0 to +2.5; its pools within ±2), so about 2 of it is the cliffs' own residual ("The land's tone" above); the
+  last 1–1.5 is unexplained. (3) The middle curtain's streaks reach 0.69 of the game's at best (2.96 against 4.29),
+  whatever the gloss; the gloss is not their cause, and what is has not been found.
 
 ## The rest of the step (next parts)
 
