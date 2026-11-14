@@ -1,0 +1,11 @@
+import ts from 'typescript';
+import {readFileSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {adopt,root,files} from './proposal.mjs';
+const phase=process.argv[2]??'after';
+const config=ts.readConfigFile(resolve(root,'tsconfig.json'),ts.sys.readFile);
+const parsed=ts.parseJsonConfigFileContent(config.config,ts.sys,root);
+const options={...parsed.options,noEmit:true},host=ts.createCompilerHost(options),read=host.readFile.bind(host);
+host.readFile=path=>{const file=path.replaceAll('\\','/').slice(root.replaceAll('\\','/').length+1),s=read(path);return s&&phase==='after'&&files.includes(file)?adopt(file,s):s;};
+const program=ts.createProgram(parsed.fileNames,options,host),errors=ts.getPreEmitDiagnostics(program);
+if(errors.length){console.error(ts.formatDiagnosticsWithColorAndContext(errors,{getCurrentDirectory:()=>root,getCanonicalFileName:p=>p,getNewLine:()=> '\n'}));process.exitCode=1;}else console.log(phase,'typecheck passed');
