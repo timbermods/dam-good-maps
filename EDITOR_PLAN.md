@@ -2065,8 +2065,8 @@ checks dot counts; every other row is information under Good to know, worded as 
     (below, "Remove unfed water and Fill"; `sim/stackWater.ts` `cavesOf` decides which maps).
     The **Caves and overhangs** view button, there from the start on such a map, marks the tiles the tools
     leave as they are (D40): what lies under a roof is never edited, the brushes shaping only a column's top
-    run (D280 (3), D487). It also draws the air under the roofs through the rock, its floors, walls and mouths
-    (docs/progress/3d-view.md, "The caves through the rock"). Ground the Block tool digs and Erode hollows counts with them, on any map; once
+    run (D280 (3), D487). It also draws the air under the roofs through the rock, its floors (a tunnel's step drawn
+    as the floor's own), walls and mouths (docs/progress/3d-view.md, "The caves through the rock"). Ground the Block tool digs and Erode hollows counts with them, on any map; once
     the last hollow is undone the map is a heightfield again, its water and file as before.
   - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps start off and stop
     above 0.8 deep (back on below 0.72; a pit only a seep feeds starts filled to 0.8), aquifers give no water (a drill starts unpowered), and a negative strength
