@@ -14,7 +14,7 @@ import { INTENTIONS, INTENTION_TEXT } from "../../src/core/land/intentions";
 import { INTENTION_LEAST, INTENTION_SEEDS, INTENTION_SIDE, offeredThemes } from "../../src/core/land/intentionTable";
 import { naturalSize as craterAcross } from "../../src/core/forces/craterize";
 import { naturalSize as eruptAcross } from "../../src/core/forces/erupt";
-import { MAX_SIDE, MIN_SIDE, PREMISE_CHOICES, PREMISE_IDS, PREMISE_NAMES, shareLink, SIZE_PRESETS, THEME_NAMES, THEMES } from "../../src/core/spec/mapspec";
+import { DEFAULT_THEME, MAX_SIDE, MIN_SIDE, PREMISE_CHOICES, PREMISE_IDS, PREMISE_NAMES, shareLink, SIZE_PRESETS, THEME_NAMES, THEMES } from "../../src/core/spec/mapspec";
 import { PREMISE_THEMES } from "../../src/core/premise/choice";
 import { openPlaceSession, placeOf, placesIndex } from "./places";
 import { describeMap, lakesOf, summaryOf, waterfallsOf } from "./describe";
@@ -183,7 +183,7 @@ export const TOOLS: Tool[] = [
       type: "object",
       additionalProperties: false,
       properties: {
-        theme: { enum: [...THEMES], description: "The kind of land. The default is any." },
+        theme: { enum: [...THEMES], description: `The kind of land. The default is ${DEFAULT_THEME}, with no premise: the map the website makes when nothing is chosen.` },
         size: {
           anyOf: [{ type: "integer", minimum: MIN_SIDE, maximum: MAX_SIDE }, { type: "string" }],
           description: `Tiles a side (a number), "width x height", or ${Object.entries(SIZE_PRESETS).map(([k, v]) => `${k} (${v})`).join(", ")}, up to ${MAX_SIDE} a side; each theme has its own least. The default is 128. Timberborn's own map editor can't open maps over 256 a side.`,

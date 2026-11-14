@@ -13,6 +13,9 @@ export type SizePreset = "small" | "medium" | "large" | "max";
 /** The themes the settings panel offers, in its order: Any first (the app's default, D209), then
  *  the six leanings. */
 export const THEMES: readonly ThemeId[] = ["any", "riverValley", "canyon", "highlands", "lakeBasin", "delta", "islands"];
+/** What a new map is made with when nothing is chosen, on the page and in the MCP server: Any (Surprise me, D209), with
+ *  no premise (the page's Idea list starts at none). */
+export const DEFAULT_THEME: ThemeId = "any";
 /** Themes the generator can build (all of them since M9a). */
 export const AVAILABLE_THEMES: readonly ThemeId[] = THEMES;
 export const THEME_NAMES: Record<ThemeId, string> = {
