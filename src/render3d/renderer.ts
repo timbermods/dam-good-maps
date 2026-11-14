@@ -497,8 +497,11 @@ export class MapRenderer {
   private readonly still: boolean;
   /** Device pixels to a CSS pixel when the constructor sets them, else null (the display's). */
   private readonly pixels: number | null;
+  /** The display's device pixels to a CSS pixel, at most 2; a browser drawing in software (the light look) draws one
+   *  to a CSS pixel: its processor draws every pixel, and a tablet's dense screen had it drawing four times as many,
+   *  every frame of a gesture a few times slower than a phone's. */
   private pixelRatio(): number {
-    return this.pixels ?? Math.min(2, window.devicePixelRatio || 1);
+    return this.pixels ?? (this.software ? 1 : Math.min(2, window.devicePixelRatio || 1));
   }
   /** The last map's moving water, off the scene, its programs kept until the next map's first frame. */
   private retiredMotion: WaterMotion | null = null;
@@ -688,7 +691,8 @@ export class MapRenderer {
     this.t0 = this.now();
     this.pixels = opts.pixels ?? null;
     if (opts.fov !== undefined) this.persp.fov = opts.fov;
-    // a browser that draws in software gets the light look, without multisampling (D110)
+    // a browser that draws in software gets the light look, without multisampling (D110), at one device pixel to a CSS
+    // pixel (`pixelRatio`)
     this.drawsInSoftware = softwareRendering();
     this.software = this.drawsInSoftware && !window.dgmLookTest?.gpu;
     this.gl = new WebGLRenderer({ canvas, antialias: !this.software, powerPreference: "high-performance" });
