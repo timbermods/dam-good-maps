@@ -262,8 +262,8 @@ no build); click adds, Shift removes, a drag paints the plane of its first face 
 operation and one undo step on release; Size 1–8 (F, { }), Shape, Action. EDITOR_PLAN "The block tool" says how it behaves;
 `tests/e2e/blockTool.spec.ts` (add, remove, drag, undo, Esc, the fall preview and its note, a cave map) and
 `tests/unit/blockTool.test.ts` check it; captures `docs/design/block-tool-*.jpg`. The worker sends `ViewUpdate.columns` whenever
-the session's columns changed (a hollow under the surface included), not only when a roof's top moved. Not done: the blocks'
-own pop-in and crumble (renderer), the Block sounds of D335 (the brushes' thud and dust stand in), Shift-hold digging.
+the session's columns changed (a hollow under the surface included), not only when a roof's top moved. The blocks' own
+pop-in and crumble are built (`docs/progress/3d-view.md`, "The Block tool's blocks grow and crumble"). Not done: the Block sounds of D335 (the brushes' thud and dust stand in), Shift-hold digging.
 
 **Review fixes (2026-10-15).** The tool is registered with `voxel: true` and aims with `blockAim(hit, cut, mode)`; falls are
 drawn solid red and, while any fall, the added and removed ghosts are muted grey (forces play's `showBlocks`, D335); the
