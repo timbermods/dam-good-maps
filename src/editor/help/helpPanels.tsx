@@ -121,12 +121,14 @@ function TouchLines(p: { phone: boolean }) {
       <li>Tap with two fingers to undo, with three to redo.</li>
       <li>A second finger stops a stroke, and nothing is changed.</li>
       <li>
+        Tap <strong>×</strong> on a tool's settings to put it down. One finger moves the view again.
+      </li>
+      <li>
         Hold a finger on a button to see what it does. In <strong>Your maps</strong>, hold a map to select several.
       </li>
       {p.phone ? (
         <li>
-          The tools are in a row at the foot, or down the left side when the phone is on its side. Tap a tool again to put it
-          down. <strong>Show</strong> and <strong>Objects</strong> open their own sheets.
+          The tools are in a row at the foot, or down the left side when the phone is on its side. <strong>Show</strong> and <strong>Objects</strong> open their own sheets.
         </li>
       ) : null}
     </>
