@@ -143,6 +143,20 @@ describe("BlockPops", () => {
     pops.reconcile(land([[5, 5, 4]]));
     expect(pops.drawn).toEqual({ grows: 0, sinks: 0, quads: 0, puffs: 0 });
   });
+  it("covers a growing block's side toward a neighbour once that neighbour has finished growing", () => {
+    const { pops, clock } = make();
+    const shape = () => (pops as unknown as { grows: { x: number; faces: number; covers: number }[] }).grows.find((g) => g.x === 6)!;
+    pops.add([[5, 5, 4]], [], land([[5, 5, 4]]));
+    // the next block, 200 ms later, beside the first, which is still growing: its side there is its own face
+    clock.t += 200;
+    pops.add([[6, 5, 4]], [], land([[5, 5, 4], [6, 5, 4]]));
+    expect(shape().faces & 0b000010).toBe(0b000010);
+    // the first finishes (260 ms) while the second still grows: that side is now covered, on the grid
+    clock.t += 70;
+    pops.advance();
+    expect(shape().faces & 0b000010).toBe(0);
+    expect(shape().covers & 0b000010).toBe(0b000010);
+  });
   it("stops a growing block when an undo takes it, and the edit glow's added faces are full again", () => {
     const { pops, clock, glow } = make();
     pops.add([[5, 5, 4]], [], land([[5, 5, 4]]));

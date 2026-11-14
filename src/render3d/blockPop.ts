@@ -399,6 +399,8 @@ export class BlockPops {
   private seq = 0;
   private frame = 0;
   private live = false;
+  /** The land as the last edit or change left it (`add`, `reconcile`: every change of the land comes through one). */
+  private solid: ((x: number, y: number, z: number) => boolean) | null = null;
 
   /** `terrain()`: the look's terrain material now; `uniforms`: the terrain materials' pop uniforms, shared;
    *  `glowRise`: the edit glow's `rise` (its added faces come in as the blocks grow: `glowRiseAt`). */
@@ -449,6 +451,7 @@ export class BlockPops {
     const was = new Set(this.sinks);
     const p = popsOf(added, removed, solid, now, this.playingAt(now));
     this.grows = p.grows;
+    this.solid = solid;
     this.sinks = p.sinks;
     for (const s of p.sinks) if (!was.has(s)) this.puff(s, now);
     if (!this.live && !p.grows.length && !p.sinks.length) return;
@@ -466,6 +469,7 @@ export class BlockPops {
     const now = this.clock.now();
     const p = popsOf([], [], solid, now, this.playingAt(now));
     this.grows = p.grows;
+    this.solid = solid;
     this.sinks = p.sinks;
     const f = this.puffs;
     for (let o = 0; o < f.length; o += PUFF_F) if (f[o + 11] && solid(f[o + 12], f[o + 13], f[o + 14])) f[o + 11] = 0;
@@ -519,6 +523,15 @@ export class BlockPops {
     const now = this.clock.now();
     const mat = this.terrain();
     if (this.mesh.material !== mat) this.mesh.material = mat;
+    // (a block that has finished growing is rock like any other: the blocks still growing beside it take its side as a
+    // cover, drawn on the grid, not their own face, which would leave a slit in its wall until they finish)
+    let growing = 0;
+    for (let n = 0; n < this.grows.length; n++) if (now - this.grows[n].t0 < GROW_MS) growing++;
+    if (growing && growing < this.grows.length && this.solid) {
+      const p = popsOf([], [], this.solid, now, this.playingAt(now));
+      this.grows = p.grows;
+      this.sinks = p.sinks;
+    }
     const any = writePops(this.writer, this.grows, this.sinks, now);
     setPopCells(this.uniforms, this.grows, now);
     this.glowRise.value = glowRiseAt(this.grows, now);
@@ -594,6 +607,7 @@ export class BlockPops {
     this.grows = [];
     this.sinks = [];
     this.puffs.fill(0);
+    this.solid = null;
     this.uniforms.popCount.value = 0;
     this.glowRise.value = 1;
     this.mesh.visible = false;
