@@ -258,7 +258,8 @@ water must be planned together, and the result must reverse D498 on that map. Th
 makes it true (D508): "the best land is poisoned; turn the stream and it is yours". As a nudge inside
 `land/hazards.ts` it would fight the hazard planner on every map and put the start's clean water (D85) at risk.
 
-**Verdict: remove from the themes; add one line to PREMISES §5 as a candidate ("the poisoned floodplain").**
+**Verdict: remove from the themes. The premise is sketched as [PREMISES](../PREMISES.md) §5.4, "the poisoned
+floodplain", built next after the wall with one gate (planning, 2026-11-14, with Kyler's agreement).**
 What goes: the id in `INTENTIONS`, `INTENTION_TEXT`, `WEIGHT6` and `START_SIDE`; its cases in `nudgeFor`,
 `startPreference` and `checkIntention` (`land/intentions.ts`); `SettlerView.dBad` and `blocks.lowBad` if nothing else
 reads them (`gen/intentions.ts` `settlerView`); its entries in `gen/names.ts` and `gen/showcase.ts`; its value in
