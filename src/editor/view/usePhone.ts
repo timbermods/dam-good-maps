@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { measureInsets, roomCentre } from "./insets";
 import type { Ed } from "../ed";
-import { phoneLayoutFor, type PhoneLayout } from "./phoneLayout";
+import { roomNow, type PhoneLayout } from "./phoneLayout";
 
 /** The sheet open besides a tool's settings: Show, the objects, or none. */
 export type PhoneSheet = "show" | "objects" | null;
@@ -30,15 +30,9 @@ export interface PhoneSlice {
 /** How long the view takes to slide into the room a sheet leaves, ms. */
 const SLIDE_MS = 250;
 
-const roomNow = (): PhoneLayout => (typeof window === "undefined" ? null : phoneLayoutFor(window.innerWidth, window.innerHeight));
-
-export function usePhone(ed: Ed): PhoneSlice {
-  const { brushTool, tool, shelf, block } = ed;
+/** The phone layout the room gives, kept up as the room changes (a phone turned on its side, a window resized). */
+export function useRoom(): PhoneLayout {
   const [phone, setPhone] = useState<PhoneLayout>(roomNow);
-  const [phoneSheet, setPhoneSheet] = useState<PhoneSheet>(null);
-  const [sheetTall, setSheetTall] = useState(false);
-  const [phoneSelect, setPhoneSelect] = useState(false);
-
   useEffect(() => {
     const note = () => setPhone(roomNow());
     window.addEventListener("resize", note);
@@ -48,6 +42,15 @@ export function usePhone(ed: Ed): PhoneSlice {
       window.visualViewport?.removeEventListener("resize", note);
     };
   }, []);
+  return phone;
+}
+
+export function usePhone(ed: Ed): PhoneSlice {
+  const { brushTool, tool, shelf, block } = ed;
+  const phone = useRoom();
+  const [phoneSheet, setPhoneSheet] = useState<PhoneSheet>(null);
+  const [sheetTall, setSheetTall] = useState(false);
+  const [phoneSelect, setPhoneSelect] = useState(false);
 
   // a tool taken up closes Show and the objects (its settings take the sheet's place), one row high again
   useEffect(() => {

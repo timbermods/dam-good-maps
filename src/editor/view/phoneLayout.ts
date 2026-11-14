@@ -16,3 +16,14 @@ export function phoneLayoutFor(w: number, h: number): PhoneLayout {
   if (narrow && short) return w > h ? "side" : "upright";
   return narrow ? "upright" : short ? "side" : null;
 }
+
+/** The room the page lays out in: the layout viewport's own size (`<html>`'s client box), not `innerWidth`. A phone's
+ *  browser widens what `innerWidth` reports to fit anything that spills past the screen (Chrome measured 1047 px on a
+ *  393 px phone while the editor's frame drew the desktop's bar), and iOS shrinks it under a keyboard or a pinch; the
+ *  layout read from it then flipped to the desktop's, which spilled wider still and stayed (the Help flake of #1101).
+ *  The client box is the screen's CSS size whatever the page holds or the browser zooms. */
+export function roomNow(): PhoneLayout {
+  if (typeof document === "undefined" || !document.documentElement) return null;
+  const root = document.documentElement;
+  return phoneLayoutFor(root.clientWidth || window.innerWidth, root.clientHeight || window.innerHeight);
+}

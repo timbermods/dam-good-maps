@@ -1487,3 +1487,32 @@ html[data-phone] .making-dialog p {
   white-space: normal;
   overflow: visible;
 }
+
+/* ---- Map Generator on its side: Name and Seed share one row, each name beside its box; the seed's box and Keep keep their
+   width and the name's box takes the rest, so the settings under them keep their room above Generate (planning, #1101) */
+.editor[data-phone="side"] .phone-page .sheet-row1 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  column-gap: 8px;
+}
+
+.editor[data-phone="side"] .phone-page .sheet-top .sheet-row1 .set.plate.line {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 8px;
+}
+
+.editor[data-phone="side"] .phone-page .sheet-top .sheet-row1 .set.plate.line.seed {
+  grid-template-columns: auto 150px auto;
+}
+
+.editor[data-phone="side"] .phone-page .sheet-top .sheet-row1 .set.plate.line.seed.with-variation {
+  grid-template-columns: auto 150px auto auto;
+}
+
+.editor[data-phone="side"] .phone-page .sheet-top .sheet-row1 .set.plate.line > *,
+.editor[data-phone="side"] .phone-page .sheet-top .sheet-row1 .set.plate.line.seed > * {
+  grid-row: 1;
+  grid-column: auto;
+}

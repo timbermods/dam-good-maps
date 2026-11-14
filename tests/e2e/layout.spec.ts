@@ -900,6 +900,57 @@ for (const phone of PHONES) {
   });
 }
 
+// ---- tablets (#1074 slice 5): a touch screen with room keeps the desktop layout, finger-sized. At an iPad's sizes
+// upright and on its side (DPR 2), at rest, a brush and a force in hand, the legend, the Map Generator, Your maps and the
+// File menu: no control under 44px and none off the screen, the page neither scrolled nor wider than the screen, and no
+// phone layout.
+
+const TABLETS: [number, number][] = [[820, 1180], [1180, 820], [1024, 1366]];
+
+for (const [W, H] of TABLETS) {
+  test.describe(`a tablet at ${W}×${H}`, () => {
+    test.use({ viewport: { width: W, height: H }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+
+    test(`at ${W}×${H}: the desktop layout, every control at least 44px and on the screen in every state`, async ({ page }) => {
+      test.setTimeout(300_000);
+      await openEditor(page);
+      // the first steps' hints were put away by their own ×, never under the objects beside them
+      await expect(page.locator(".first-run")).toHaveCount(0);
+      await expect(page.locator(".editor")).not.toHaveAttribute("data-phone");
+      const check = async (state: string) => {
+        await page.waitForTimeout(400);
+        const page_ = await page.evaluate(() => ({ w: document.documentElement.scrollWidth, iw: window.innerWidth, x: window.scrollX, y: window.scrollY }));
+        expect(page_, `${state}: the page is laid out at the screen's width, not scrolled`).toEqual({ w: W, iw: W, x: 0, y: 0 });
+        const controls = await phoneControls(page);
+        expect(controls.length, `${state}: controls found`).toBeGreaterThan(5);
+        const small = controls.filter((c) => Math.min(c.w, c.h) < 44 - 0.5).map((c) => `${c.name} ${Math.round(c.w)}×${Math.round(c.h)}`);
+        expect(small, `${state}: controls under 44px`).toEqual([]);
+        expect(controls.filter((c) => c.off).map((c) => c.name), `${state}: controls off the screen`).toEqual([]);
+        expect(controls.filter((c) => c.font !== null && c.font < 16).map((c) => c.name), `${state}: fields under 16px`).toEqual([]);
+      };
+      const tap = (l: ReturnType<Page["locator"]>) => l.first().tap();
+
+      await check("at rest");
+      await tap(page.locator(".tool-bar button[aria-label^='Raise']"));
+      await expect(page.locator(".tool-settings")).toBeVisible();
+      await check("Raise in hand");
+      await tap(page.locator(".tool-bar button[aria-label^='Carve']"));
+      await check("Carve in hand");
+      await tap(page.locator(".show-row", { hasText: "Legend" }));
+      await check("the legend open");
+      await tap(page.locator(".show-row", { hasText: "Legend" }));
+      await tap(page.getByRole("button", { name: /^Map Generator/ }));
+      await expect(page.locator(".gen-panel")).toBeVisible();
+      await check("the Map Generator open");
+      await tap(page.getByRole("button", { name: /^Your maps/ }));
+      await check("Your maps open");
+      await tap(page.getByRole("button", { name: /^Your maps/ }));
+      await tap(page.getByRole("button", { name: "File", exact: true }));
+      await check("the File menu open");
+    });
+  });
+}
+
 // ---- the phone layouts' polish (#1074): Show at most 40 % of the view (upright its height, on its side its width), so
 // the map changes above it as its toggles are tapped; a picked object closes the objects' sheet to one row saying what
 // is in hand; a sheet or the panel opening or closing slides the view so the ground in the middle of the room left
