@@ -42,11 +42,11 @@ async function fitAt(page: Page, x: number, y: number, W: number): Promise<{ til
 /** Level, dry tiles with nothing standing round them, away from the start and the water, nearest
  *  the middle first: `r` tiles round each across, `ry` (r unless given) up and down, and no water within `dry` tiles
  *  (of the level ground unless given). */
-async function openGround(page: Page, r: number, o: { ry?: number; dry?: number } = {}): Promise<[number, number][]> {
+async function openGround(page: Page, r: number, o: { ry?: number; dry?: number; arid?: boolean } = {}): Promise<[number, number][]> {
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
   return page.evaluate(
-    ([s0, s1, rx, ry, dry]) => {
+    ([s0, s1, rx, ry, dry, arid]) => {
       const m = window.dgm3d!.renderer.mapState()!;
       const W = m.W;
       const e = m.entities;
@@ -61,12 +61,14 @@ async function openGround(page: Page, r: number, o: { ry?: number; dry?: number 
           for (let dy = -ry; dy <= ry && ok; dy++) for (let dx = -rx; dx <= rx && ok; dx++) if (m.heights[(y + dy) * W + x + dx] !== h0) ok = false;
           for (let dy = -by; dy <= by && ok; dy++) for (let dx = -bx; dx <= bx && ok; dx++) if (m.surface.depth[(y + dy) * W + x + dx] > 0) ok = false;
           for (let k = 0; k < e.count && ok; k++) if (Math.abs(e.x[k] - x) <= rx + 1 && Math.abs(e.y[k] - y) <= ry + 1) ok = false;
+          // (arid: no moisture under it either, for plants that die on moist ground)
+          for (let dy = -ry; dy <= ry && ok && arid; dy++) for (let dx = -rx; dx <= rx && ok; dx++) if ((m.soil?.moisture[(y + dy) * W + x + dx] ?? 0) > 0) ok = false;
           if (ok) out.push([x, y, Math.abs(x - W / 2) + Math.abs(y - m.H / 2)]);
         }
       out.sort((a, b) => a[2] - b[2]);
       return out.map(([x, y]) => [x, y] as [number, number]);
     },
-    [start[0], start[1], r, o.ry ?? r, o.dry ?? 0] as const,
+    [start[0], start[1], r, o.ry ?? r, o.dry ?? 0, o.arid ?? false] as const,
   );
 }
 
@@ -171,8 +173,10 @@ test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   // (seed 2 since generator 0.10.7, D502, D148: seed 1's start, leaning toward a landmark in view, reshapes the map so it has
-  // no level, dry, empty ground 9 wide away from its start; seed 1 since M9a, as 0.7.0's 4242 had none 7 and 9 wide)
-  await openTopDown(page, "s=2&z=96&d=n&t=riverValley");
+  // no level, dry, empty ground 9 wide away from its start; seed 1 since M9a, as 0.7.0's 4242 had none 7 and 9 wide.
+  // Seed 3 since generator 0.10.20's contour edges and its mends (D518), D148: seed 2 has none again, and seed 3 has
+  // fifty, the nearest the middle at (50, 78))
+  await openTopDown(page, "s=3&z=96&d=n&t=riverValley");
   const start = ((await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
   const [gx, gy] = (await openGround(page, 4))[0];
   const bar = page.getByRole("toolbar", { name: "Tools" });
@@ -290,6 +294,9 @@ test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the 
   const at = await client(page, start[0], start[1]);
   await page.mouse.move(at.x + 3, at.y);
   await page.mouse.move(at.x, at.y);
+  // (the start's indicators, which show while the pointer is on the start, never take the pointer from the map: on CI their panel lay
+  // under the pointer, the map saw the pointer leave and Delete took nothing, three runs in a row, D341)
+  await expect.poll(() => page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.tagName, [at.x, at.y] as const)).toBe("CANVAS");
   const kept = (await labels(page)).length;
   await page.keyboard.press("Delete");
   await idle(page);
@@ -541,7 +548,9 @@ test("every 1.x object is on the shelf and placed with its window's settings: th
   // level, empty ground away from the water, and the plants go in first, the objects well away: on 0.10.2's map the
   // seeps' water spread over the plot's level ground, and a tile it reaches is rightly refused, "no free ground under
   // the stroke: it is water")
-  const plot = (await openGround(page, 4, { ry: 2, dry: 3 }))[0];
+  // (and arid, since generator 0.10.16's ground with grade, D148: the first level plot is on moist soil, where a succulent is
+  // rightly refused, "succulents die on moist ground")
+  const plot = (await openGround(page, 4, { ry: 2, dry: 3, arid: true }))[0];
   expect(plot).toBeDefined();
   const at = await apart(page, 8, [plot]);
   const options = (name: string) => page.getByRole("group", { name: `${name} options` });
@@ -738,9 +747,9 @@ test("Fill water where nothing holds water says the real reason on the first try
   await openTopDown(page, "s=1&z=128&d=n&t=canyon");
   const row = page.getByRole("group", { name: "Selection" });
   // (a gully running down to the river, the river's bed its lowest ground: no level holds water there, so no Level
-  // would help)
-  const a = await client(page, 26, 70);
-  const b = await client(page, 38, 80);
+  // would help; from (30, 57) since generator 0.10.16's ground with grade, D148: the box from (26, 70) holds water now)
+  const a = await client(page, 30, 57);
+  const b = await client(page, 42, 67);
   await page.mouse.move(a.x, a.y);
   await page.mouse.down();
   await page.mouse.move(b.x, b.y, { steps: 6 });

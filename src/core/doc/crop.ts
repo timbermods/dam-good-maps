@@ -277,15 +277,16 @@ function settledDepth(world: WorldModel, heights: Uint8Array): Float64Array {
  *  zero). So the cropped map's water is settled, and only the new-edge tiles that settle leaves the water of such a
  *  source through are raised, each to the level of the water beside it rounded up to a whole level: no more than a
  *  level above the generator's lip (a level above the water) would give, and nothing that reads as a wall. The settle
- *  runs again on the lipped ground (up to three times) until nothing leaves. Never a tile on a side the crop did not
- *  cut, ground under an object or the step a slope joins, or a column with a cave or an overhang. Changes `world` in
- *  place; returns the tiles
- *  raised. */
-export function lipNewEdges(world: WorldModel, r: CropParams, from: { W: number; H: number }): number {
+ *  runs again on the lipped ground (up to six times) until nothing leaves. Never a tile on a side the crop did not
+ *  cut, ground under the start, a source or a slope, the step a slope joins, or a column with a cave or an overhang.
+ *  Any other object rises with the ground under it; one that would no longer stand level (a footprint only partly on
+ *  the lip) goes, as an object the edge cuts goes. Changes `world` in place; returns the tiles raised and the ids of
+ *  the objects that went. */
+export function lipNewEdges(world: WorldModel, r: CropParams, from: { W: number; H: number }): { raised: number; removed: string[] } {
   const { sizeX: W, sizeY: H, layers, voxels } = world;
   const N = W * H;
   const west = r.x > 0, east = r.x + r.w < from.W, south = r.y > 0, north = r.y + r.h < from.H;
-  if (!west && !east && !south && !north) return 0;
+  if (!west && !east && !south && !north) return { raised: 0, removed: [] };
   const near = (x: number, y: number) => (west && x <= LIP_NEAR) || (east && W - 1 - x <= LIP_NEAR) || (south && y <= LIP_NEAR) || (north && H - 1 - y <= LIP_NEAR);
   const onNew = (x: number, y: number) => (west && x === 0) || (east && x === W - 1) || (south && y === 0) || (north && y === H - 1);
   const onOld = (x: number, y: number) => (!west && x === 0) || (!east && x === W - 1) || (!south && y === 0) || (!north && y === H - 1);
@@ -296,19 +297,23 @@ export function lipNewEdges(world: WorldModel, r: CropParams, from: { W: number;
     for (let z = 0; z < h0[i]; z++) if (!voxels[z * N + i]) { keep[i] = 1; break; }
   }
   const sources: number[] = [];
-  for (const e of world.entities) {
+  // (the objects that rise with their ground: [index in `world.entities`, id, footprint])
+  const riders: [number, string, number[]][] = [];
+  world.entities.forEach((e, k) => {
     const spec = rawEntity(e, "import");
     const on = ([x, y]: [number, number]) => x >= 0 && y >= 0 && x < W && y < H;
     const tiles = (tilesOf(spec) ?? []).filter(on).map(([x, y]) => y * W + x);
-    for (const i of tiles) keep[i] = 1;
+    const source = spec.template === "WaterSource" || spec.template === "BadwaterSource";
+    if (source || spec.template === "StartingLocation" || spec.template === "Slope") for (const i of tiles) keep[i] = 1;
+    else if (tiles.length) riders.push([k, spec.id, tiles]);
     // (and the step a slope joins: raised, it would join none)
     for (const [x, y] of stepTiles(spec).filter(on)) keep[y * W + x] = 1;
-    if ((spec.template === "WaterSource" || spec.template === "BadwaterSource") && tiles.some((i) => near(i % W, Math.floor(i / W)))) sources.push(...tiles);
-  }
-  if (!sources.length) return 0;
+    if (source && tiles.some((i) => near(i % W, Math.floor(i / W)))) sources.push(...tiles);
+  });
+  if (!sources.length) return { raised: 0, removed: [] };
   let total = 0;
   const top = layers - 1;
-  for (let pass = 0; pass < 3; pass++) {
+  for (let pass = 0; pass < 6; pass++) {
     const h = surfaceOf(world);
     const depth = settledDepth(world, h);
     // the water joined to those sources, within the lip's reach of one
@@ -344,14 +349,42 @@ export function lipNewEdges(world: WorldModel, r: CropParams, from: { W: number;
     for (const [i, to] of raise) for (let z = h[i]; z < to; z++) voxels[z * N + i] = 1;
     total += raise.length;
   }
-  return total;
+  if (!total) return { raised: 0, removed: [] };
+  // the objects on raised ground: lifted by the rise where their whole footprint rose alike, gone where it did not
+  const h1 = surfaceOf(world);
+  const gone = new Set<number>();
+  const removed: string[] = [];
+  for (const [k, id, tiles] of riders) {
+    const rise = h1[tiles[0]] - h0[tiles[0]];
+    if (tiles.every((i) => h1[i] === h0[i])) continue;
+    if (tiles.some((i) => h1[i] - h0[i] !== rise)) {
+      gone.add(k);
+      removed.push(id);
+      continue;
+    }
+    const e = world.entities[k];
+    const comps = e.Components as JsonObject;
+    const bo = comps.BlockObject as JsonObject;
+    const c = bo.Coordinates as JsonObject;
+    world.entities[k] = { ...e, Components: { ...comps, BlockObject: { ...bo, Coordinates: { ...c, Z: num(c.Z) + rise } } } };
+  }
+  if (gone.size) world.entities = world.entities.filter((_, k) => !gone.has(k));
+  return { raised: total, removed };
 }
 
 /** A file on the rectangle (`cropWorld`), with the lip at its new edges (`lipNewEdges`; `lip: false` leaves it out)
  *  and a thumbnail of the land that is left. */
 export function cropFile(file: TimberFile, r: CropParams, opts: { lip?: boolean } = {}): { file: TimberFile; objects: CropObjects } {
   const { world, objects } = cropWorld(file.world, r);
-  if (opts.lip !== false) lipNewEdges(world, r, { W: file.world.sizeX, H: file.world.sizeY });
+  if (opts.lip !== false) {
+    // (the objects the lip could not lift level go as the edge's cut ones go, and are counted with them)
+    const { removed } = lipNewEdges(world, r, { W: file.world.sizeX, H: file.world.sizeY });
+    if (removed.length) {
+      const out = new Set(removed);
+      objects.kept = objects.kept.filter((id) => !out.has(id));
+      objects.crossing.push(...removed);
+    }
+  }
   const heights = surfaceOf(world);
   const wet = new Float64Array(r.w * r.h);
   const stored = storedWater(world.singletons, r.w, r.h);

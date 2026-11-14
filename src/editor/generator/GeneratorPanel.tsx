@@ -1,7 +1,7 @@
 // The map generator (Kyler's pick, A, the sheet, 2026-10-04): one panel over the map at the left, opened and closed by
 // Map Generator in the header; opening it never resizes the map. It ends above the bar and its settings and shows every
-// setting at once, nothing scrolling: a title block (the next map's Name and Seed, Generate; Theme and Surprise me; Size
-// and Another like this), then the five groups in columns (Terrain, Water and Hazards; Resources, Difficulty and what is
+// setting at once, nothing scrolling: a title block (the next map's Name and Seed, Generate; Theme and Surprise me; Idea;
+// Size and Another like this), then the five groups in columns (Terrain, Water and Hazards; Resources, Difficulty and what is
 // on the map), each setting on one line. Showcase… at the foot of the last column opens Showcase mode's sheet over the
 // columns (Showcase.tsx). Two columns 640px wide where the window is tall; three wider, and tighter in a short window,
 // where it is not (panelFit.ts). Enter anywhere in it generates; Esc closes it.
@@ -199,7 +199,20 @@ export function GeneratorPanel({ model: m, counts: held, icon, onClose }: Genera
           <button type="button" class="ghost sheet-act" disabled={m.busy} {...tip("Make a map of any kind")} onClick={m.onSurprise}>
             Surprise me
           </button>
-          <div>{f.size}</div>
+          {/* Idea (D508, PREMISES §1.5) directly under Theme: the problem the map is built around, none by default (D509).
+              Three columns wide, it shares its line with Size (the block no taller); two columns wide it has a line of its own
+              and the rows are a pixel tighter (panelFit.ts) */}
+          {shape.cols === 3 ? (
+            <div class="sheet-pair">
+              <div class="gen-item gen-idea">{f.idea}</div>
+              {f.size}
+            </div>
+          ) : (
+            <>
+              <div class="gen-item gen-idea">{f.idea}</div>
+              <div>{f.size}</div>
+            </>
+          )}
           {/* Another like this in Reset settings' place (Kyler, 2026-10-06): generated maps only, greyed on an opened one */}
           <button type="button" class="ghost sheet-act" disabled={m.busy || !m.canAnother} {...tip(m.canAnother ? "The open map's own settings, on new land" : "Only for a generated map")} onClick={m.onAnother}>
             Another like this

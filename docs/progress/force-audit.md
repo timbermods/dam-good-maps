@@ -36,6 +36,20 @@ Ride, 7,807 stay); Erupt in the Canyon river, 2,104 to 430; a Quake Lift over th
 every plant dead, at instant and at normal water speed. The player sees a small note. *Fix:* (a) cap Auto reach by the
 map (below, per force); (b) under Clear, a source goes only where its own ground is destroyed (buried 3 levels or more,
 cut away, or in a fault's crush zone); a source that only rides an intact block, or sits under a thin apron, rides.
+**(b) done** (`feature/force-sources-clear`, 2026-11-11): Clear takes a source only where its ground is buried 3 or more, cut 2 or more away, or in a crush zone: within 2.5 tiles of a Quake's crack, or a Rift's
+wall, where a tile's 3 × 3 moves differ by 2 or more (`clear.ts` `destroyedGround`; Carve's cut in Rust the same). A multi-tile source (a badwater source's 3 × 3, a seep's 2 × 2) whose tiles moved by different amounts goes too: it
+rides only as one level piece (D249), and on torn ground it stood inside the ground, a map export refused (dev's
+force-save spec, 2026-11-11; `clear.ts` `clearable`; Carve's cut in Rust the same, `clear_destroys`, as its head reaches it, so its operation is the
+same whichever way it is shown). Under Ride (planning's ruling of 2026-11-11) such a source keeps riding and its seat is
+levelled to the lowest of its tiles as D290 levels a placed one, the cut part of the force's result (`clear.ts`
+`levelSeats` for every staged force, Rust's Carve `level_seat` as its cut reaches it); where that cut cannot stand (a
+seat across a working area's edge or past its feather, which the Rust measures on the job's `areaDepth`, or Erode's
+voxels) the whole footprint is left as it was and the source keeps its old seat, for every force, Carve included.
+Highlands 4242's crater under Ride now exports (`tests/contract/rideSeat.test.ts`; a Carve across a source on an
+area's edge, `carveSeatArea.test.ts`).
+A Lift by River Valley 1's hillside spring now carries it up 4 levels, still flowing (sheet
+`docs/sheets/force-sources-clear.jpg`). Glaciate's ice still takes what it reaches (item 10). (a), Auto reach capped
+by the map, comes with each force.
 
 **S3. No force plans with the water it will meet.** Results drain neighbours, drown valleys in thin sheets, or let
 badwater into clean water (Rift Size 60: badwater 432 to 1,404 tiles; Unleash at its default: 432 to 1,349; Quake Lift
@@ -44,6 +58,20 @@ donor pit, Erode's scour on the River Valley plain), which hides the landform; o
 the same pits stay dry. I did not establish whether the game itself would fill them: the editor's settle does. *Fix:*
 each plan runs the forces' own water model on its result before it is kept and adjusts the shape, never refuses: keep a
 sill between a badwater channel and clean water; give a pit an outlet at its low end; size a channel to its source.
+**The check done** (`feature/badwater-check`, 2026-11-11): `core/water/badwaterLetIn.ts` says whether a change let
+badwater into water that was clean: tiles of the water shown before (0.05 deep or more, under 0.05 contamination)
+that the canonical settle's flow walk (`prefill.ts` `flowThrough`) reaches with badwater after the change and did not
+before, 4 or more. Every force's keep calls it (worker `forceStop`) and the page puts it first in the kept force's
+note with Undo, naming the start's water when a tile lies within 20 tiles of the start. Two walks, about 28 ms on
+256² on the first keep, half that on Try another (the walk before is kept). On its own ground (a blank 96² map: a clean
+channel through a pool by the start, a badwater trench behind a ridge), a Rift through the ridge is caught with the
+start's water named (608 tiles; the settled water fouls 283), one elsewhere is not; a second Rift over water the
+first already mixed is not blamed, while the same Rift on the first ground is (`tests/contract/badwaterLetIn.test.ts`).
+The sheet `docs/sheets/badwater-check.jpg` was taken on Highlands 4242 before generator #1015; its numbers are that
+map's. Still open: the plans
+do not yet adjust their shape (a sill, an outlet, a channel sized to its source); a pool the walk already reached
+with badwater before (it spreads level over flat ground) is never counted, though the settled water may be clean
+there until the change; a collaborative session's keep does not say it.
 
 ## Ranked findings
 
@@ -103,6 +131,16 @@ Never a volcano to the eye: a ziggurat, a bullseye or an arena. At large setting
 The Canyon flat case shows the scale is right when it stays small.
 1. The cone: benching, lobes, a breach, a real crater, height tied to radius (2).
 2. Caps on reach, a caldera that is a caldera, a steady footprint across rolls, sources that survive an apron (3, S2).
+   **1 and 2 done** (`feature/force-erupt`, 2026-11-11): height at most 0.6 of the radius (0.4 broad); Auto's radius at
+   most 18 % of the map's short side, broad 1.12 times steep; the outline lobed by up to 28 % at seeded bearings; one
+   breach toward the lowest ground; a crater 6 or more across inside a 2-wide rim; a caldera 0.29 of the cone, its rim
+   scalloped by a fifth, a small cone off its floor's centre, Auto's 1 in 3 above Power 70; the flanks benches on a
+   seeded ladder of 2 to 4-level faces with warped edges, then `levels::whole` (a fissure's rampart through
+   `levels::whole` as it is). The default click changes 1,040 to 1,600 tiles across 12 rolls at Power 62 on 128²
+   (about ±20 %), at most about 1,650 at Power 100 (was 3,200 to 14,500 broad or caldera); sheet
+   `docs/sheets/force-erupt.jpg`. Still open: the benches still read roughly concentric on a broad shield; near the
+   ceiling it still grows broader (19); Power 100 with a peak on 256² reaches 3,900 tiles; the cursor ring and the
+   row's Auto Size still show Power's breadth, not the map's cap (the page's `forceReach`).
 3. Lava flows routed down the land; an island when it erupts in water; cones along a fissure (13, 10, 20).
 
 ### Rift: no
@@ -111,11 +149,26 @@ amphitheatre. The 100-tile drag on 256² (a ribbon lake) is the nearest to the r
 1. Drain it: a tilted floor, an outlet, a fall at the head, a shallow lake at most; half the default throw (6).
 2. Build it from two en-echelon faults with pointed tips and an asymmetric cross-section (7).
 3. Objects ride down; no pillars; no badwater let in (23, S3).
+   **1, 2 and the first two of 3 done** (`feature/force-rift`, 2026-11-11): two border faults of 12 to 20-tile segments
+   offset 2 to 4 tiles with relay ramps, pointed tips, the throw greatest mid-length (about 5 at the default, 8 at
+   Power 100); Walls on Auto one sheer and one stepped in benches of about 2 levels, 3 to 5 wide; the floor in two or
+   three pieces tilted to the sheer wall and down the axis to its low end, notched out to lower ground that drains;
+   on a wet map the floor stands at or above its drain level in long treads, a lake at most 2 deep at the low end
+   (deeper only where water already stood); then `levels::whole`. A click is 3.2 times as long as wide (Auto's width
+   8 + 0.12 × Power, at most 0.16 of the map), running on past an edge (29). A multi-tile object rides down whole.
+   The default click changes about 600 tiles on 128²; sheet `docs/sheets/force-rift.jpg`. Still open: on low wet
+   ground (a river's own plain) it is only 1 to 2 levels deep, by the drainage rule; badwater it lets in is said (S3's check) but not prevented; the
+   floor's pieces read as plates of a level more than as blocks; Try another re-rolls the walls' side and offsets
+   but the click's bearing only by the seed (28); the cursor ring shows Power's width, not the map's cap.
 
 ### Quake: no
 The wall of a sheer Lift is the most convincing single feature any of these forces makes. The trouble is everything
 else: the rigid block re-levels half the map, and Slide tears it.
-1. Lift decays from the fault and dies at its tips; nothing moves 20 tiles away (1, 12).
+1. Lift decays from the fault and dies at its tips; nothing moves 20 tiles away (1, 12). **Done** (`feature/force-quake-lift`,
+   2026-11-11): lift × an elliptical taper × exp(−distance/λ), λ 8 to 14 by Power, windowed to nothing at 20 tiles; the
+   down side a trough at the foot, at most 2 levels and 6 tiles. A 44-tile fault at Power 60 changes 784 tiles (was 6,600
+   to 7,700), the default click about 275 on 128²; sheet `docs/sheets/force-quake-lift.jpg`. Still open: its fade is
+   whole-level stripes until S1, a lift across a river dams it (S3), and the tips read rounded rather than pointed.
 2. Slide moves rigid blocks and rebuilds a narrow crush zone (9).
 3. Stepped scarps and straight drags get splays, stepovers and uneven benches (21).
 
@@ -125,12 +178,31 @@ nothing visible; a click on flat ground needs Undo and a guess.
 1. Feed it from a gully behind the apex, or from the water on flat ground; never a pit or an arc (4).
 2. Lay a true low cone with arc contours and a feathered toe (5).
 3. Visible distributaries, and a flat-topped delta where it meets water (14, 15).
+   **1, 2, the channels of 3 and Try another (28) done** (`feature/force-deposit`, 2026-11-11): a cone segment 60 to
+   120° wide from an apex a few tiles behind the click, a level per 4 to 8 tiles, 3 to 5 thick at the default, laid
+   only where it stands above the ground and never above its apex; drawn to a seeded 1 to 2-level ladder with warped
+   edges, then `levels::whole`; a toe a level thick. Fed by a gully up the steepest ascent behind it, a V-notch 2 to 4
+   wide at its floor, graded down to the fan and on through its head as a trench; on level ground it takes nothing
+   (the sediment is no longer conserved). 2 to 5 channels a level deep, each with one avulsion; Try another turns it on
+   level ground. Placed on dry ground it leaves water's beds alone and its gully keeps two tiles from any water (S3: a
+   first click beside River Valley 1's hillside badwater pocket once cut its rim and ran badwater into the lake). The
+   default click changes about 190 to 470 tiles on 128²; sheet `docs/sheets/force-deposit.jpg`. Still open: the delta
+   where it meets water (15); a gully on a gentle slope is short or absent, since its bed is graded a level over the
+   ground at the click; Auto Size is not yet capped by the map.
 
 ### Erode: no
 Right close up, invisible from where a player judges; no arch seen; on open ground it makes a pond.
 1. Scale the opening to the cliff (11).
 2. Cut through fins for arches, and make separate alcoves along a sweep (11).
 3. No dish ponds, no speckle: rills on slopes, the nearest face on flats (24).
+
+**Done** (`feature/force-erode`, 2026-11-11): 1 to 3. A click wears one opening at the nearest face within twice its
+Size, a sweep one every 6 to 10 tiles of unequal size; 40 % of the face high at Power 55, 70 % at 100, 3 to 8 wide, 2 to
+6 deep; a fin under 4 tiles is cut through. Without a face in reach: 2 to 4 rills down a slope's fall line, or one scour
+toward lower ground on the level, kept only where it drains (no pond). On generated maps a face is nearly always within
+reach, so a click there makes an opening. A run costs about 130 to 180 ms at 256², 60 to 70 ms at 128². Sheet
+`docs/sheets/force-erode.jpg` (Highlands 4242, Power 100: an alcove under an overhang at the cliff's foot). Still open:
+Auto Size is not capped by the map (it needs none: 6 to 20 tiles); badwater is S3's (#1025).
 
 ### Naturalize: yes as a small brush, no as the forces' finisher
 It never changes the water in any case, and at Size 14 to 20 on cliffs it does what it says (Highlands). At Size 40,

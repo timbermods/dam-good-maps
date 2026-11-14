@@ -8,6 +8,8 @@
 // force is at work the other tools wait.
 
 import { CANAL_MAX_DEPTH, CANAL_MAX_WIDTH } from "../core/doc/canalLimits";
+import { LAKE_MAX_DEPTH } from "../core/doc/lakeLimits";
+import { RIDGE_MAX_HEIGHT, RIDGE_MAX_WIDTH, RIDGE_MIN_HEIGHT, RIDGE_MIN_WIDTH, type RidgeSteep } from "../core/doc/ridgeLimits";
 import { createContext, type ComponentChildren } from "preact";
 import { useContext, useLayoutEffect, useRef } from "preact/hooks";
 import { FirstRunSizer } from "./FirstRun";
@@ -17,7 +19,7 @@ import { BRUSHES, hasTarget, type BrushMode, type BrushSettings, type BrushTool,
 import { BRUSH_MAX_LEVEL, BRUSH_SIZE_MIN } from "../core/features/raster/brush";
 import { forcesShownIn } from "./release";
 import { tip } from "../ui/Tooltip";
-import { ChoiceSetting, NumberSetting, SettingsGrid, type Group } from "./settings";
+import { ChoiceSetting, HeldNumberSetting, NumberSetting, SettingsGrid, Words, type Group } from "./settings";
 import type { Verb } from "../core/forces/op";
 import { BLOCK_SIZE_MAX, BLOCK_SIZE_MIN } from "../core/doc/blockTool";
 import type { BlockSettings } from "./block/blockTool";
@@ -237,6 +239,83 @@ export interface TopBarProps {
   hints?: ComponentChildren;
   /** The messages (the editor's and the page's), centred above the hints and the settings: never over the bar. */
   notes?: ComponentChildren;
+  /** The Lake's outline drawn last touches water, which fills it (its row says so). */
+  lakeFed?: boolean;
+  /** A phone's layout (#1074): the settings' sheet and its grab handle (one row, or all of them pulled up), and the
+   *  Objects button that opens the objects' sheet. */
+  phone?: PhoneBar | null;
+}
+
+/** The tool row's phone parts (#1074). */
+export interface PhoneBar {
+  /** The settings' sheet pulled up: every setting (else Size and the main choice). */
+  tall: boolean;
+  onTall(tall: boolean): void;
+  /** The objects' sheet is open, an object is in hand, and Objects' tap. */
+  objectsOpen: boolean;
+  holding: boolean;
+  onObjects(): void;
+  /** What is in hand from the objects (or a picked source's window): it takes the settings' sheet, as a tool's settings
+   *  do; `objectMore`: it has settings to pull up. */
+  object?: ComponentChildren;
+  objectMore?: boolean;
+}
+
+/** A pulled-up sheet too short for every setting ends after a whole one, never on a name with its control cut off
+ *  below it: its settings' height stops at the first one the room would cut (the rest scroll up into view). */
+function endOnWhole(sheet: HTMLElement | null, tall: boolean): void {
+  const grid = sheet?.querySelector<HTMLElement>(":scope > .settings-grid");
+  if (!grid) return;
+  grid.style.maxHeight = "";
+  if (!tall) return;
+  const room = grid.clientHeight;
+  if (grid.scrollHeight <= room + 1) return;
+  const top = grid.getBoundingClientRect().top - grid.scrollTop;
+  let cut = room;
+  for (const g of grid.children) {
+    const r = g.getBoundingClientRect();
+    if (!r.height) continue;
+    if (r.bottom - top > room + 0.5) cut = Math.min(cut, r.top - top);
+  }
+  // (less the gap between two settings)
+  grid.style.maxHeight = `${Math.max(44, Math.floor(cut - 6))}px`;
+}
+
+/** How far a drag on the grab handle goes before it pulls the sheet up or down, in CSS px. */
+const PULL_PX = 24;
+
+/** The settings' sheet's grab handle (#1074): a tap or a drag up shows every setting, a tap or a drag down one row. */
+function SheetHandle(p: { tall: boolean; onTall(tall: boolean): void }) {
+  const from = useRef<{ y: number; id: number; moved: boolean } | null>(null);
+  return (
+    <button
+      type="button"
+      class="sheet-handle"
+      aria-expanded={p.tall}
+      aria-label={p.tall ? "Fewer settings" : "All settings"}
+      {...tip(p.tall ? "Show only the main settings" : "Show every setting")}
+      onPointerDown={(e) => {
+        from.current = { y: e.clientY, id: e.pointerId, moved: false };
+        (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+      }}
+      onPointerMove={(e) => {
+        const f = from.current;
+        if (!f || f.id !== e.pointerId || f.moved) return;
+        const dy = e.clientY - f.y;
+        if (Math.abs(dy) < PULL_PX) return;
+        f.moved = true;
+        p.onTall(dy < 0);
+      }}
+      onPointerUp={() => void setTimeout(() => (from.current = null))}
+      onPointerCancel={() => (from.current = null)}
+      onClick={() => {
+        if (from.current?.moved) return;
+        p.onTall(!p.tall);
+      }}
+    >
+      <span class="grip" aria-hidden="true" />
+    </button>
+  );
 }
 
 /** The forces' Floor (D321, item 40): one level every force that digs keeps to, set in any force's settings and
@@ -266,7 +345,7 @@ const FOLLOWS: Record<"raise" | "lower" | "flatten", string> = { raise: "+1", lo
 
 /** The brushes' settings on the bar's cells: Size, Level (Raise, Lower, Flatten) or Strength (Smooth, Naturalize),
  *  Mode; Sources, Brush, and Flatten's Steps. */
-function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushSettings>) => void, sizeMax: number, lastLevel: { current: number }): Group[] {
+function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushSettings>) => void, sizeMax: number, lastLevel: { current: number }, lakeFed: boolean): Group[] {
   const size: Group = {
     key: "size",
     row: 1,
@@ -344,24 +423,37 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
   };
   // Lower's fourth Brush choice, Canal (planning, 2026-11-11): a drag draws a line and the core cuts a bed that leads
   // water along it; its row is Width, Depth and how it starts, with the Brush choice across the second row
+  // Lower's fifth, Lake: a drag draws an outline and the core digs a basin inside it; its row is Level, Depth and what
+  // fills it
+  // Raise's fourth, Ridge (planning, 2026-11-11): a drag draws a line and the core raises high ground along it; its row
+  // is Height, Width and the steep side, the same way
   const canal = t === "lower" && s.canal;
-  const shape = canal ? "canal" : s.square ? "square" : s.straight ? "straight" : "round";
+  const lake = t === "lower" && s.lake && !canal;
+  const ridge = t === "raise" && s.ridge;
+  const wide = canal || lake || ridge;
+  const shape = canal ? "canal" : lake ? "lake" : ridge ? "ridge" : s.square ? "square" : s.straight ? "straight" : "round";
   const brush: Group = {
     key: "brush",
     row: 2,
-    at: canal ? 1 : 5,
-    span: canal ? 13 : flatten ? 5 : 9,
+    at: wide ? 1 : 5,
+    span: wide ? 13 : flatten ? 5 : 9,
     node: (
-      <ChoiceSetting<"round" | "square" | "straight" | "canal">
+      <ChoiceSetting<"round" | "square" | "straight" | "canal" | "lake" | "ridge">
         label="Brush"
         value={shape}
         options={[
           ["round", "Round", "A round brush"],
           ["square", "Square", "A square brush"],
           ["straight", "Lines", "Draw straight lines"],
-          ...(t === "lower" ? [["canal", "Canal", "Draw a channel that leads water"] as const] : []),
+          ...(t === "lower"
+            ? ([
+                ["canal", "Canal", "Draw a channel that leads water"],
+                ["lake", "Lake", "Draw a lake's outline to dig its basin"],
+              ] as const)
+            : []),
+          ...(t === "raise" ? [["ridge", "Ridge", "Draw a ridge of high ground"] as const] : []),
         ]}
-        onChange={(v) => set({ square: v === "square", straight: v === "straight", canal: v === "canal" })}
+        onChange={(v) => set({ square: v === "square", straight: v === "straight", ...(t === "lower" ? { canal: v === "canal", lake: v === "lake" } : {}), ...(t === "raise" ? { ridge: v === "ridge" } : {}) })}
       />
     ),
   };
@@ -383,6 +475,37 @@ function brushGroups(t: BrushTool, s: BrushSettings, set: (patch: Partial<BrushS
               ["dry", "Dry", "Its first tile stays, to open later"],
             ]}
             onChange={(v) => set({ canalOpen: v === "open" })}
+          />
+        ),
+      },
+      brush,
+    ];
+  if (lake)
+    return [
+      { key: "level", row: 1, at: 1, span: 4, node: <HeldNumberSetting label="Level" title="The level the lake's water stands at" keys={["Scroll"]} value={s.lakeLevel} min={2} max={CEILING - 1} step={1} onChange={(lakeLevel) => set({ lakeLevel })} onCommit={(lakeLevel) => set({ lakeLevel })} /> },
+      { key: "depth", row: 1, at: 5, span: 4, node: <NumberSetting label="Depth" title="How deep its channel lies under the water" value={s.lakeDepth} min={1} max={LAKE_MAX_DEPTH} step={1} onChange={(lakeDepth) => set({ lakeDepth })} /> },
+      { key: "fills", row: 1, at: 9, span: 5, centre: true, node: <Words status>{lakeFed ? "The water here fills it" : "Add a source or lead water in"}</Words> },
+      brush,
+    ];
+  if (ridge)
+    return [
+      { key: "height", row: 1, at: 1, span: 4, node: <NumberSetting label="Height" title="How high the crest stands over the land" value={s.ridgeHeight} min={RIDGE_MIN_HEIGHT} max={RIDGE_MAX_HEIGHT} step={1} onChange={(ridgeHeight) => set({ ridgeHeight })} /> },
+      { key: "width", row: 1, at: 5, span: 5, node: <NumberSetting label="Width" title="How wide the ridge is" value={s.ridgeWidth} min={RIDGE_MIN_WIDTH} max={RIDGE_MAX_WIDTH} step={1} onChange={(ridgeWidth) => set({ ridgeWidth })} /> },
+      {
+        key: "steep",
+        row: 1,
+        at: 10,
+        span: 4,
+        node: (
+          <ChoiceSetting<RidgeSteep>
+            label="Steep"
+            value={s.ridgeSteep}
+            options={[
+              ["auto", "Auto", "Steep on the side the drag curves away from"],
+              ["left", "Left", "Steep on the left of the drag"],
+              ["right", "Right", "Steep on the right of the drag"],
+            ]}
+            onChange={(ridgeSteep) => set({ ridgeSteep })}
           />
         ),
       },
@@ -477,20 +600,25 @@ export function TopBar(p: TopBarProps) {
   const grid = p.block && p.blockSettings ? (
     <SettingsGrid label="Block options" groups={blockGroups(p.blockSettings, setBlock, !!p.blockFlip)} fresh />
   ) : t ? (
-    <SettingsGrid label={`${BRUSHES.find((b) => b.tool === t)!.name} options`} groups={brushGroups(t, s, set, p.sizeMax ?? 24, lastLevel)} />
+    <SettingsGrid label={`${BRUSHES.find((b) => b.tool === t)!.name} options`} groups={brushGroups(t, s, set, p.sizeMax ?? 24, lastLevel, !!p.lakeFed)} />
   ) : p.force && p.forceRow ? (
     p.forceRow
   ) : p.row ? (
     <SettingsGrid label={p.row.label} groups={p.row.groups} />
   ) : (
-    (p.selectRow ?? null)
+    (p.phone?.object ?? p.selectRow ?? null)
   );
+  // (what is in hand pulls up its settings when it has some; a picked object's window has no rows to pull up)
+  const handle = !!p.phone && (grid !== p.phone.object || !!p.phone.objectMore);
   const button = (tool: BrushTool | "select" | "block" | Verb, name: string, label: string, pressed: boolean, title: ReturnType<typeof tip>, disabled: boolean | undefined, onClick: () => void) => (
     <button type="button" key={tool} class="icon-button" aria-pressed={pressed} aria-label={label} {...title} disabled={disabled} onClick={onClick}>
       <Icon tool={tool} />
       <span class="icon-word">{name}</span>
     </button>
   );
+  // (a phone's pulled-up sheet ends on a whole setting; laid out again whenever the editor draws)
+  const sheet = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => endOnWhole(sheet.current, !!p.phone?.tall));
   // the hints' and the messages' one width: the hints' own with all three lines, in whole pixels, once the fonts are in
   const dock = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -507,9 +635,23 @@ export function TopBar(p: TopBarProps) {
       {p.notes ? <div class="dock-notes">{p.notes}</div> : null}
       {p.hints ?? null}
       {p.selectChip ? <div class="working-note">{p.selectChip}</div> : null}
-      {grid ? <div class="map-bar tool-settings">{grid}</div> : null}
+      {grid ? (
+        <div ref={sheet} class={`map-bar tool-settings${p.phone ? (p.phone.tall ? " sheet tall" : " sheet") : ""}`}>
+          {p.phone && handle ? <SheetHandle tall={p.phone.tall} onTall={p.phone.onTall} /> : null}
+          {grid}
+        </div>
+      ) : null}
       <div class="map-bar tool-bar" role="toolbar" aria-label="Tools">
         {p.onSelect ? button("select", "Select", "Select (1)", !!p.selecting, off ? why : SELECT_TIP, off, p.onSelect) : null}
+        {p.phone ? (
+          <button type="button" key="objects" class="icon-button objects-button" aria-pressed={p.phone.holding || p.phone.objectsOpen} aria-expanded={p.phone.objectsOpen} aria-label="Objects" {...tip(p.phone.objectsOpen ? "Close the objects" : "Place the start, water, trees and more")} onClick={p.phone.onObjects}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3l-5 8h3l-4 6h12l-4-6h3z" />
+              <path d="M12 17v4" />
+            </svg>
+            <span class="icon-word">Objects</span>
+          </button>
+        ) : null}
         {BRUSHES.map((b) => button(b.tool, b.name, `${b.name} brush (${b.key})`, p.active === b.tool, off ? why : brushTip(b), off, () => p.onPick(p.active === b.tool ? null : b.tool)))}
         {p.blockSettings ? button("block", "Block", "Block tool (7)", !!p.block, off ? why : BLOCK_TIP, off, () => p.onPick(p.block ? null : "block")) : null}
         {SHOWN_FORCES.length ? <span class="tool-sep" aria-hidden="true" /> : null}

@@ -58,8 +58,10 @@ describe("a stroke's water after a force (D244's measurements)", () => {
   // lake is still filling at the editor's four-day preview cap, so the background settle never ends
   // settled, while the generator settles up to six days (D358). For the milestone session; when it
   // passes, `fails` comes off. On 0.8.1's maps (D148) seed 1's lake fills in 3.1 days and settles, so the
-  // problem is gone there; it still shows on seed 7 (still filling at the four-day cap), where it is kept.
-  it.fails("Lake Basin seed 7: its lake still fills at the four-day preview cap, so it never ends settled", () => fillsFromDry(7));
+  // problem is gone there; it still shows on seed 7 (still filling at the four-day cap), where it is kept. On generator
+  // 0.10.16's ground with grade (D148) seed 7's lake fills in 3.67 days and settles; it shows again on seed 1 (and on 6, 10,
+  // 13, 17, 19 and 20 of seeds 1–20), where it is kept.
+  it.fails("Lake Basin seed 1: its lake still fills at the four-day preview cap, so it never ends settled", () => fillsFromDry(1));
 
   it("the warm start keeps water the old ground's canonical start didn't reach either; water that lost its feed still drains (D260)", () => {
     const { m, depth } = model();

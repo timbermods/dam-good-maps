@@ -296,8 +296,7 @@ export function planForce(input: ForcePlanInput): ForcePlan {
           const via = aimed && req.via?.length ? req.via.map(at) : [];
           const intent: CarveIntent = { origin: from.origin, ...(aimed ? { end: at(aimed) } : {}), ...(via.length ? { via } : {}) };
           try {
-            carve = new CarveRun(base, settings, intent, { keep, sourceId: input.newId(), unleashed: e.id, bad: e.template === "BadwaterSource" });
-            carve.ease = inside;
+            carve = new CarveRun(base, settings, intent, { keep, sourceId: input.newId(), unleashed: e.id, bad: e.template === "BadwaterSource", ease: inside });
           } catch (err) {
             // (a source's own water runs downhill: an unleashed source never cuts uphill)
             throw /uphill/.test(String(err instanceof Error ? err.message : err)) ? new Error("That point is uphill of the source: water runs downhill, aim it lower") : err;
@@ -307,8 +306,7 @@ export function planForce(input: ForcePlanInput): ForcePlan {
         // (its drawn path, D321 item 41: a smooth curve through its points to the end)
         const via = aimed && req.via?.length ? req.via.map(at) : [];
         const intent: CarveIntent = { origin: at(req.origin), ...(aimed ? { end: at(aimed) } : {}), ...(via.length ? { via } : {}) };
-        carve = new CarveRun(base, req.settings, intent, { keep, sourceId: input.newId() });
-        carve.ease = inside;
+        carve = new CarveRun(base, req.settings, intent, { keep, sourceId: input.newId(), ease: inside });
         break;
       }
       case "craterize": {
@@ -454,9 +452,14 @@ export function fallsBeforePlay(
 }
 
 /** What a force's Auto picked where it is decided in the run itself rather than by nature.ts (D309: an Auto detail
- *  shows its pick): a rift's walls, sheer or stepped by which most of them are (Auto steps them where the rock is
- *  hard); a fan's channels, Few for two or three, Many for four or five. Empty for the others. */
-export function autoPicked(staged: StagedRun | null): Record<string, string> {
+ *  shows its pick): a rift's walls, sheer or stepped by which most of its ground lies beside (Auto makes one wall sheer
+ *  and steps the other down in benches); a fan's channels, Few for two or three, Many for four or five; a glacier's Size, the width of the valley it
+ *  follows. Empty for the others. */
+export function autoPicked(staged: StagedRun | null): Record<string, string | number> {
+  if (staged instanceof GlaciateRun) {
+    const size = staged.autoSize;
+    return size === null ? {} : { size };
+  }
   if (staged instanceof RiftRun) {
     const { stepped, sheer } = staged.plan0.stats;
     return staged.settings.walls === "auto" ? { walls: stepped > sheer ? "stepped" : "sheer" } : {};

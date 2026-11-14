@@ -96,14 +96,22 @@ describe("Clear sources and the water (item 15)", () => {
     // seed 11 since River Valley's main river stays clean, #265, and seed 9 has no such spot;
     // seed 1 for 0.10.7's maps, D502, D148: seed 11 has none now, and seed 1's is at (53, 24), level 7;
     // seed 2 since generator 0.10.13, whose starts frame the map (D507), D148: seed 1's map now has stacked columns, so
-    // its settle no longer runs on the heightfield's engine; seed 2's spot is at (77, 81), level 6, on a heightfield map)
-    expect(await clearedPit(2)).toBe(false);
+    // its settle no longer runs on the heightfield's engine; seed 2's spot is at (77, 81), level 6, on a heightfield map;
+    // seed 15 since generator 0.10.18's dead stands on the dry land, D516, D148: a stand stands within five tiles of seed 2's
+    // spot, and seed 15's is at (77, 12), level 12, on a heightfield map)
+    expect(await clearedPit(15)).toBe(false);
   }, 120_000);
 
   it("and on a map with terrain above terrain: the pit drains there too (#814)", async () => {
     // (seed 10's map has stacked columns, so its settle runs on the stacked engine: its spot is at (31, 19), level 8,
     // and its pit kept 68.55 of the pre-fill's water, 1.85 deep, with no source near, until that settle took the
-    // water nothing feeds as the heightfield's does, D385)
-    expect(await clearedPit(10)).toBe(true);
+    // water nothing feeds as the heightfield's does, D385; seed 1 for seed 10 since generator 0.10.16's ground with grade,
+    // D148: seed 10's map now settles on the heightfield's engine; seed 1's has stacked columns and its spot is at
+    // (43, 16), level 8; seed 6 for seed 1 since the D518 mends (compact hills, no broad wash flats, dead-stand knots), D148: seed 1's
+    // map settles on the heightfield's engine now; of seeds 1–80 with a dry flat spot, seeds 6, 33, 44, 59 and 68 have stacked columns
+    // and seeds 6, 33 and 44 pass (59 and 68 were not tried); seed 6's spot is at (60, 17), level 16; seed 33 since generator 0.10.21's look round
+    // (D518: the land's long straight steps jog), D148: seed 6's map settles on the heightfield's engine now, and of seeds 6, 33, 44, 59, 68 and 2–5, 7 and 8
+    // only seed 33 holds a pit that drains on stacked columns)
+    expect(await clearedPit(33)).toBe(true);
   }, 120_000);
 });

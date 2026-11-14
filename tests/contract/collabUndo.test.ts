@@ -382,7 +382,11 @@ describe("a place in words", () => {
     );
 
   test("a lake, the start and a river are named; a compass word only when there are several of the kind", () => {
-    const one = open(51, "highlands");
+    // (Highlands 13 for 51 since generator 0.10.17's start floors, D515, D148: seed 51's map has a spring river beside its
+    // main one now; of Highlands seeds 1–100 at 48² only seed 13 has one lake and one river besides a spring cave's stream; Highlands 23 for
+    // 13 since generator 0.10.20's contour edges, D518, D148: seed 13 has two lakes now, and of seeds 1–50 seeds 23, 27 and 35
+    // have one lake and one river)
+    const one = open(23, "highlands");
     const lakes = one.features.filter((f) => f.kind === "lake");
     expect(lakes.length, "the map has a single lake").toBe(1);
     const [lx, ly] = centre((lakes[0].params as { outline: number[][] }).outline);
@@ -400,15 +404,23 @@ describe("a place in words", () => {
       const [cx, cy] = (caves[0].params as { path: number[][] }).path[0];
       expect(placeOf(one, tilesAt([Math.floor(cx), Math.floor(cy)]))).toBe("at the cave");
     }
-    const three = open(2, "highlands");
+    // (Highlands 1 for 2 since the later D518 mends moved the land, D148: seed 2's first river's middle lies in a lake now, "at the lake"; of seeds 1–20
+    // those with several rivers and a first river named by its compass word are 1, 4, 6, 8, 9, 13–16 and 18–20, seed 1 the first)
+    const three = open(1, "highlands");
     const rivers = three.features.filter((f) => f.kind === "river");
     expect(rivers.length).toBeGreaterThan(1);
     const path = (rivers[0].params as { path: number[][] }).path;
     const [rx, ry] = path[Math.floor(path.length / 2)];
     expect(placeOf(three, tilesAt([Math.floor(rx), Math.floor(ry)]))).toMatch(/^at the (north|south|east|west|north-east|north-west|south-east|south-west|middle) river$/);
     // two lakes: the one that holds the tiles, with where it lies (Canyon 7 for 4 since generator 0.10.11, the D410 round, D148:
-    // seed 4 has no lake now, and of Canyon seeds 1–12 at 48² only seed 7 has two)
-    const two = open(7, "canyon");
+    // seed 4 has no lake now, and of Canyon seeds 1–12 at 48² only seed 7 has two; Canyon 2 for 7 since generator 0.10.16's
+    // ground with grade, D148: seed 7 has no lake now, and of seeds 1–12 seeds 2, 10 and 12 have two; Canyon 10 for 2 since
+    // generator 0.10.17's start floors (D515), D148: seed 2 has one lake now, and of seeds 1–20 seeds 7, 10 and 12 have two; Canyon 2 for 10 since generator 0.10.20's
+    // contour edges, D518, D148: seed 10 has no lake now, and of seeds 1–20 only seed 2 has two; Canyon 4 since the later D518 mends moved the land, D148:
+    // seed 2 has one lake now, and of seeds 1–20 seeds 4 and 14 have two, seed 4 the first; Canyon 31 since generator 0.10.21's look round (D518: the land's long
+    // straight steps jog, the dead stands read the dry land as the checks do), D148: seed 4 has one lake now, and of seeds 1–40 seeds 31 and 39 have two, of which only
+    // 31 names both by their compass words)
+    const two = open(31, "canyon");
     const both = two.features.filter((f) => f.kind === "lake");
     expect(both.length).toBe(2);
     for (const lake of both) {

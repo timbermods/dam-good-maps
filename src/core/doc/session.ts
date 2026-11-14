@@ -20,14 +20,13 @@
 import { generatedTallSentence, isTall, surfaceOf, TALL_NOTE, withTallNote } from "../format/world";
 import { mapObjects } from "../sim/model";
 import { mineSitesCutAt } from "../validate/playability";
-import { buildMap, groundDropped, masksOf, previewBuild, previewTerrain, rebuild, SettleCache, modelOf, toMapObject, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer } from "../features/build";
+import { buildMap, groundDropped, masksOf, previewBuild, previewTerrain, rebuild, SettleCache, modelOf, toMapObject, type BaseLayer, type BuildInput, type BuildResult, type DirtyInfo, type GeneratedField, type KeptSource, type LockedLayer, wornOf } from "../features/build";
 import { heldOf, type TerrainState } from "../features/raster/strokePreview";
 import { isResource } from "../features/raster/resources";
-import { weatherKeep } from "../features/raster/objectGround";
+import { heldIn, recordStroke, type StrokeFacts } from "../features/raster/strokeComposer";
 import { placedEntity, entityTiles, ridingPieces } from "../features/edits";
 import { objectHolds, rasterizeObjects, standProblem, type StandGround } from "../features/objects";
-import { applyBrush, brushBounds, byDabRule, limitRuns, markBrushTiles, MAX_DABS, strokeParts, tiltedPieces, WEATHERING, waterLimits, weatherBox, weatherRim, type BrushParams } from "../features/raster/brush";
-import { shoreOf, waterLevels } from "../features/raster/weather";
+import { applyBrush, brushBounds, markBrushTiles, MAX_DABS, strokeParts, tiltedPieces, type BrushParams } from "../features/raster/brush";
 import { MAX_TERRAIN, padTile } from "../features/raster/terrain";
 import { bottomRunTop, ColumnTerrain, isPlainMask, surfaceOfMask, terrainColumns } from "../terrain/runs";
 import { blockEffect, blockGround, cellPairs, layeredMasks, terrainUnder, withBlocks, type BlockGround } from "../terrain/blocks";
@@ -61,13 +60,16 @@ import { validateMap, type Validation } from "../validate/checks";
 import type { Profile } from "../validate/report";
 import { baseFromFile, baseTerrain, fileFromBase, type BaseMap, type BaseTerrain } from "./base";
 import { cropFalls, cropFile, cropObjects, START_CUT, type CropParams } from "./crop";
+import { blankDocument } from "./blank";
 import { lakeLevelLabel, lakeLevelProblem } from "./lakeLevel";
 import { canalLabel, canalProblem } from "./canal";
+import { drawnLakeLabel, drawnLakeProblem } from "./lake";
+import { ridgeLabel, ridgeProblem } from "./ridge";
 import { entityProblem, objectCells, resourceOwners } from "./placing";
 import { applyPaintObjects } from "./paint";
 import { forceLabel } from "../forces/op";
 import { versionName } from "../library/keptVersions";
-import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView, type VersionParent } from "./document";
+import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, keepGeneratedWords, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView, type VersionParent } from "./document";
 import { itemName, placeLabel, withArticle } from "./labels";
 import { restoreBuilt, sameMap, storeBuilt, storedFits, type StoredState } from "./stored";
 import { standingFeatures, standingOf } from "./startFit";
@@ -657,11 +659,8 @@ export class MapSession {
   /** The session of a map the generator just made: its own build is the starting map. */
   static fromGenerated(r: GenerateResult, file?: TimberFile, seedWord?: string): MapSession {
     const doc = toDocument(r.spec, r.features, r.built, file, r.field, seedWord);
-    // (M9b, D278 (1b): the map's own name and how it plays)
-    if (r.name) doc.meta.name = doc.meta.generatedName = r.name;
-    if (r.description) doc.meta.premise = r.description;
-    if (r.says?.length) doc.meta.says = [...r.says];
-    if (r.easyShort) doc.meta.easyShort = r.easyShort;
+    // (M9b, D278 (1b): the map's own name and how it plays; an idea map's card, D508)
+    keepGeneratedWords(doc, r);
     return new MapSession(doc, r.built);
   }
 
@@ -669,6 +668,12 @@ export class MapSession {
    *  ImportError for saves. */
   static importMap(bytes: Uint8Array, fileName: string, place?: string): MapSession {
     return new MapSession(importDocument(bytes, fileName, place));
+  }
+
+  /** A new blank map (doc/blank.ts): flat, dry ground at `level`, `size` tiles a side, the start at its middle. Throws
+   *  the one-line reason a size or a level is refused. */
+  static blank(size: number, level: number): MapSession {
+    return new MapSession(blankDocument(size, level));
   }
 
   // --------------------------------------------------------------------------------- reading
@@ -859,14 +864,9 @@ export class MapSession {
     else
       for (const [y, a, b] of op.params.cells)
         box = box ? { x0: Math.min(box.x0, a), y0: Math.min(box.y0, y), x1: Math.max(box.x1, b), y1: Math.max(box.y1, y) } : { x0: a, y0: y, x1: b, y1: y };
-    if (!box) return op;
-    const hold = all.filter(([i]) => {
-      const x = i % W;
-      const y = Math.floor(i / W);
-      return x >= box.x0 - 1 && x <= box.x1 + 1 && y >= box.y0 - 1 && y <= box.y1 + 1;
-    });
+    const hold = heldIn(box, all, W);
     if (!hold.length) return op;
-    return { ...op, params: { ...op.params, hold: hold.map((h) => [...h] as [number, number, number]) } } as EditOp;
+    return { ...op, params: { ...op.params, hold } } as EditOp;
   }
 
   /** Why a held stroke or sculpt is refused (D491; D280 (3), amended by #623): only when holding
@@ -980,7 +980,7 @@ export class MapSession {
    *  none, on a heightfield, or for an operation that reshapes no ground (the full build's check after
    *  it covers the rest, D280 (3)). */
   private fallsAhead(op: EditOp): number[] {
-    if (op.op !== "brush" && op.op !== "sculpt" && op.op !== "setLakeLevel" && op.op !== "canal" && op.op !== "forceResult") return [];
+    if (op.op !== "brush" && op.op !== "sculpt" && op.op !== "setLakeLevel" && op.op !== "canal" && op.op !== "lake" && op.op !== "ridge" && op.op !== "forceResult") return [];
     if (!this.layered(this.cur)) return [];
     const { x: W, y: H } = this.size;
     const { heights } = previewTerrain(this.cur, this.input());
@@ -1247,6 +1247,8 @@ export class MapSession {
       starts: this.st.features.filter((f): f is StartFeature => f.kind === "start"),
       water: this.cur.water.slice(),
       moisture: this.cur.moisture.slice(),
+      // (how hard the weathering strokes pressed, where the land stands as they left it: rule 6)
+      worn: wornOf(t),
     };
   }
 
@@ -1406,18 +1408,47 @@ export class MapSession {
    *  It carries the map as it stands (`stored`, D367), unless the water is still the preview's: a
    *  file never gets preview water (PLAN §19.7), and such a project opens by rebuilding. */
   project(level?: number): Uint8Array {
+    return encodeProject(this.projectDocument(), level);
+  }
+
+  /** The project file's document before it is written (`encodeProject` makes the file of it): the page has another
+   *  thread write it, so the generator's thread is free sooner. */
+  projectDocument(): MapDocument {
     const doc = this.document;
-    if (this.waterPending) return encodeProject(doc, level);
+    if (this.waterPending) return doc;
     const p = this.pending;
     let stored: StoredState | null = null;
     try {
       // (unchanged since it opened from its stored map: that map again, as decoded)
       const local = this.log.length - this.segStart;
-      stored = p && p.built === this.cur && p.state.edits === local && p.state.nextSeq === this.seqNext ? p.state : storeBuilt(this.cur, local, this.seqNext);
+      stored = p && p.built === this.cur && p.state.edits === local && p.state.nextSeq === this.seqNext ? p.state : this.storedNow(local);
     } catch {
       // a map the stored format cannot carry: saved without it, and reopened by rebuilding
     }
-    return encodeProject(stored ? { ...doc, stored } : doc, level);
+    return stored ? { ...doc, stored } : doc;
+  }
+
+  /** The map as it stands, stored (`storeBuilt`), kept for the map it was stored of (the same build, edits and next
+   *  sequence number, as `pending` is read): Generate's taking of the map it replaces finds it made while the page was
+   *  idle (`warmStored`). */
+  private stored: { built: BuildResult; edits: number; nextSeq: number; state: StoredState } | null = null;
+  private storedNow(local: number): StoredState {
+    const m = this.stored;
+    if (m && m.built === this.cur && m.edits === local && m.nextSeq === this.seqNext) return m.state;
+    const state = storeBuilt(this.cur, local, this.seqNext);
+    this.stored = { built: this.cur, edits: local, nextSeq: this.seqNext, state };
+    return state;
+  }
+
+  /** Stores the map as it stands now, for the project taken of it next (`projectDocument`); nothing while its water is
+   *  the preview's. */
+  warmStored(): void {
+    if (this.waterPending) return;
+    try {
+      this.storedNow(this.log.length - this.segStart);
+    } catch {
+      // (a map the stored format cannot carry: `projectDocument` saves it without)
+    }
   }
 
   /** Every object id the document has used: the objects standing and every object an operation
@@ -1519,6 +1550,8 @@ export class MapSession {
       startObjects,
       lakeLevel: (p) => lakeLevelProblem(this, p),
       canal: (p) => canalProblem(this, p),
+      lake: (p) => drawnLakeProblem(this, p),
+      ridge: (p) => ridgeProblem(this, p),
       cropObjects: (r) => {
         const o = cropObjects(this.cur.entities, r);
         if (o.cutStart) return START_CUT;
@@ -1809,34 +1842,30 @@ export class MapSession {
    *  after a reopen (which deletes and re-adds `undo`): a project saves byte for byte the same. */
   /** What the session records in a stroke as it applies (`applyChecked`), worked out on the map as it stands. */
   private strokeRecord(params: BrushParams): BrushParams {
+    return recordStroke(params, this.strokeFacts());
+  }
+
+  /** The map as a stroke finds it (strokeComposer.ts), read lazily: the page completes its strokes with the same code on
+   *  its own copy of these, so a stroke it sent complete gains nothing here (#922 step 4). */
+  private strokeFacts(): StrokeFacts {
+    const cur = this.cur;
     const { x: W, y: H } = this.size;
-    // a new weathering Naturalize stroke weathers like nature, dab by dab (D399, rule 5): its rule is
-    // recorded in it, so it replays the same, and strokes saved before keep their rule (rule 4, the
-    // top cut back whatever its foot took; rule 3, dab by dab with some scree slopes lost; rule 2,
-    // the whole stroke at once, saved with where water would stand round it, `rim`)
-    // (a rule painted on the page comes with its rule but never its ring: added here)
-    let p = params;
-    if (p.tool === "naturalize" && p.weathers && (p.weathering === undefined || (byDabRule(p.weathering) && p.rim === undefined))) {
-      const pre = this.cur.cache.terrain.pre7;
-      const rim = weatherRim(p, pre, waterLevels(pre, W, H), W, H);
-      p = { ...p, weathering: p.weathering ?? WEATHERING, ...(rim.length ? { rim } : {}) };
-    }
-    // and where the settled water stood round it (rule 3: and the moist ground), unless the page
-    // recorded the water it showed
-    if ((p.weathering === 2 || byDabRule(p.weathering)) && p.shore === undefined && p.pools === undefined && p.moist === undefined) {
-      const box = weatherBox(p, W, H);
-      if (box) {
-        if (p.weathering === 2) {
-          const { shore, pools } = shoreOf(box, this.cur.heights, this.cur.water, W);
-          p = { ...p, shore, pools };
-        } else p = { ...p, ...limitRuns(waterLimits(this.cur.heights, this.cur.water, this.cur.moisture, W, H), box, W) };
-      }
-    }
-    // a weathering Naturalize stroke leaves the ground under the sources and objects standing now: the
-    // runs are recorded in it, so it replays the same whatever moves later (D368 (8), D342)
-    const runs = weatherKeep(p, this.cur.entities, W, H);
-    if (runs.length) p = { ...p, keep: [...(p.keep ?? []), ...runs] };
-    return p;
+    return {
+      W,
+      H,
+      heights: cur.heights,
+      terrain: {
+        get pre() {
+          return cur.cache.terrain.pre7;
+        },
+        water: cur.water,
+        moisture: cur.moisture,
+        get worn() {
+          return wornOf(cur.cache.terrain);
+        },
+      },
+      entities: cur.entities,
+    };
   }
 
   private applyChecked(op: EditOp, origin: OpOrigin, label?: string, step?: number, recorded = false): AppliedOp {
@@ -2428,7 +2457,7 @@ export class MapSession {
     return validateMap(this.exportFile(this.cur, opts.loadOnly ? { thumbnail: false } : {}), {
       profile: profile ?? (this.gen.spec ? "export" : "import"),
       external: !live,
-      // (the map is being edited: an edge wall warns, D323)
+      // (the map is being edited: an edge wall offers its fix, D323)
       editing: true,
       mineCutAtOpen: this.mineCutAtOpen(),
       // (what the build's support pass removed: a generated map's row, D121; an import has none)
@@ -2648,6 +2677,10 @@ export function labelOf(op: AppliedOp): string {
       return lakeLevelLabel(op.params);
     case "canal":
       return canalLabel(op.params);
+    case "lake":
+      return drawnLakeLabel(op.params);
+    case "ridge":
+      return ridgeLabel(op.params);
     case "setDescription":
       return op.params.text === "" ? "Clear the description" : "Write the description";
     case "crop":

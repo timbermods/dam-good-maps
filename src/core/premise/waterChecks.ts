@@ -52,7 +52,8 @@ export function levelsOf(plan: PremisePlan, w: StageWater): { id: string; sill: 
       if (spill[i] < low) low = spill[i];
       if (spill[i] > high) high = spill[i];
     }
-    const want = plan.links.some((l) => l.from === b.id) ? b.sill : b.sill + 1;
+    // (a backwater stands at its feeder's sill, its own: `Body.backwater`)
+    const want = b.backwater || plan.links.some((l) => l.from === b.id) ? b.sill : b.sill + 1;
     return { id: b.id, sill: b.sill, want, low, high, tiles };
   });
 }
@@ -115,7 +116,10 @@ const waterWet: Invariant = {
     const wetLink = new Uint8Array(ctx.plan.links.length);
     // (a link is wet where water comes down it: at its head, or just past its first row when one shuts it; its mouth
     // holds the water it runs into either way)
+    // (a dry bed a wet link joins (`Link.joins`) is read where its water comes in, `LinkFlow.wetFrom`)
     const head = ctx.plan.links.map((l) => {
+      const from = w.table.links[l.id]?.wetFrom;
+      if (from !== undefined) return from - 1;
       const row = r.rows[l.id]?.[0];
       return row ? Math.max(...row.map((i) => r.along[i])) : -Infinity;
     });

@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { gunzipSync, strFromU8 } from "fflate";
 import { describe, expect, it } from "vitest";
 import { snapshotMap, type FullForceMap } from "../../src/core/forces/force";
-import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
+import { GLACIATE_DEFAULTS, glaciateAutoMost } from "../../src/core/forces/glaciate/model";
 import { GlaciateRun } from "../../src/core/forces/glaciate/run";
 import { modelOf } from "../../src/core/forces/runs";
 import { canonicalSettle } from "../../src/core/sim/prefill";
@@ -48,11 +48,16 @@ export interface FloorWater {
   /** The deepest any tile was cut, and the levels cut in all. */
   deepest: number;
   cut: number;
+  /** The width it took (Size, or what Auto measured). */
+  width: number;
 }
 
-/** A glacier from `origin` at `power`, run to its end, its water settled. */
-export function floorWater(m: FullForceMap, origin: number, power: number): FloorWater {
-  const r = new GlaciateRun(snapshotMap(m), { ...GLACIATE_DEFAULTS, power }, { origin }).finishAll();
+/** A glacier from `origin` at `power`, run to its end, its water settled. At Size 30, the Auto these
+ *  were written for. Auto now measures the valley (showcase craft's gap 14); narrower on river-128, its
+ *  sections take in the river plain the glacier crosses there, wall-less at every Size, which at 30 lie
+ *  past the map's edge and are left out (dev's glacier at Size 14 fails them alike). */
+export function floorWater(m: FullForceMap, origin: number, power: number, size: number | null = 30): FloorWater {
+  const r = new GlaciateRun(snapshotMap(m), { ...GLACIATE_DEFAULTS, power, size }, { origin }).finishAll();
   const p = r.plan!;
   const map = r.final()!;
   const w = canonicalSettle({ ...modelOf(map), ...(p.retained.tiles.length ? { retained: [p.retained] } : {}) });
@@ -106,7 +111,7 @@ export function floorWater(m: FullForceMap, origin: number, power: number): Floo
     const right = Math.max(...levels.slice(hi));
     if (hi - lo + 1 >= 3 && left >= base + 2 && right >= base + 2) u++;
   }
-  return { floor, sheet, deep, sections, u, deepest, cut };
+  return { floor, sheet, deep, sections, u, deepest, cut, width: p.metrics.requestedWidth };
 }
 
 const CASES: { id: string; origin: (m: FullForceMap) => number }[] = [
@@ -134,5 +139,18 @@ describe("Glaciate's floor at every Power (D368 (3), amended)", () => {
       expect(runs[1].deepest, where).toBeLessThanOrEqual(runs[2].deepest);
       expect(runs[0].cut, where).toBeLessThan(runs[1].cut);
       expect(runs[1].cut, where).toBeLessThan(runs[2].cut);
+    }, 600_000);
+  // Auto (showcase craft's gap 14): the width of the valley it follows, from 8 tiles to a sixth of the map's
+  // shorter side, at the default Power a U-shaped valley whose water lies in a channel or a tarn
+  for (const c of CASES.filter((c) => c.id !== "river-128"))
+    it(`${c.id}: Auto takes its valley's width, at most a sixth of the map, and cuts it U-shaped with its water in a channel`, () => {
+      const m = fixture(c.id);
+      const r = floorWater(m, c.origin(m), GLACIATE_DEFAULTS.power, null);
+      const where = `${c.id}: ${JSON.stringify(r)}`;
+      expect(r.width, where).toBeGreaterThanOrEqual(8);
+      expect(r.width, where).toBeLessThanOrEqual(glaciateAutoMost(m.W, m.H));
+      expect(r.sections, where).toBeGreaterThanOrEqual(5);
+      expect(r.u / r.sections, where).toBeGreaterThanOrEqual(0.6);
+      expect(r.sheet / r.floor, where).toBeLessThanOrEqual(0.05);
     }, 600_000);
 });

@@ -525,7 +525,9 @@ describe("a carve in the document (breakage rule)", () => {
   });
 
   it("a carve's Fall is kept with it: the saved project records it and reopens byte for byte with the same ground (D455)", () => {
-    const r = generate(makeSpec({ seed: 18, theme: "highlands", size: { x: 96, y: 96 } }), { forms: false });
+    // (Highlands seed 3 for 18 since generator 0.10.20's contour edges, D518, D148: on seed 18 the water standing below
+    // lets the stroke fall 3 at most; of seeds 1–10 seeds 3 and 10 give the drop of 4)
+    const r = generate(makeSpec({ seed: 3, theme: "highlands", size: { x: 96, y: 96 } }), { forms: false });
     const s = MapSession.fromGenerated(r, r.file);
     s.setWaterMode("defer");
     const op = carveOp(s, { mode: "aim", power: 65, fall: 4, seed: 1, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
@@ -557,10 +559,26 @@ describe("a carve in the document (breakage rule)", () => {
     // seed 2 once the high ground beside a fall's stream is kept (D148): Highlands 26 with seed 3's course falls, and the
     // ground its fall keeps beside the stream (cut to the bed before) no longer lets its bend seal, by decision, not a
     // change in how Carve meanders; Highlands 26, 23 and 8 and Canyon 4 and 12 with seeds 1–6 seal none now, Highlands 18
-    // with seed 2 seals 104)
+    // with seed 2 seals 104; Highlands 18 with the carve's seed 6 since generator 0.10.16's ground with grade, D148: with
+    // seed 2 its bend seals no lake on the graded land, with seed 6 it seals 76 tiles that keep evaporating; Canyon 96² seed 8
+    // with the carve's seed 1 since generator 0.10.17's start floors (D515), D148: Highlands 18 with seeds 1–6 seals none now;
+    // of Highlands and Canyon seeds 1–30 with the carve's seeds 1–6 only Canyon 8 with seed 1 seals a lake that keeps
+    // evaporating, 90 tiles, while Highlands 3 with seed 2 and Canyon 28 with seed 4 seal ones that settle whole; Highlands
+    // 96² seed 38 with the carve's seed 1 since generator 0.10.19's dry washes, D517, D148: of Highlands and Canyon seeds
+    // 1–30 with the carve's seeds 1–6 none seals a lake over 70 tiles that keeps evaporating now (Highlands 3, 15, Canyon
+    // 13 and 28 seal ones that settle whole); of seeds 31–60 Highlands 38 with seed 1 does, 94 tiles; with the carve's
+    // seed 6 since the washes run long with fords, D517, D148: with seed 1 its bend seals none, with seed 6 it seals 117;
+    // Highlands 96² seed 30 with the carve's seed 3 since generator 0.10.20's contour edges, D518, D148: Highlands 38 with
+    // seeds 1–6 seals none now; of Highlands and Canyon seeds 1–40 with the carve's seeds 1–6, Highlands 30 with seeds 3
+    // and 5 seal lakes that keep evaporating, 105 and 138 tiles, and Highlands 13 and Canyon 10 ones that settle whole;
+    // Highlands 96² seed 261 with the carve's seed 1 since the D518 mends (wash treads and dead-stand knots), D148: Highlands 30 with seeds 1–6 carves no lake now; of Highlands and Canyon seeds 1–250 with the carve's seeds 1–6 about thirty seal a lake over 70 tiles but every one settles whole (the lake fed or open to the water round it, none closed), and of seeds 251–400 the first that keeps evaporating is Highlands 261 with seed 1, 90 tiles (then Canyon 269 with seed 2, 81; Canyon 360, 134; Canyon 384, 124))
     // (without its 3D forms, D488: since they grow at the default Verticality this map has a cave on the
     // carve's way, which a force leaves as it is; the oxbow is the carve's, not the caves')
-    const r = generate(makeSpec({ seed: 18, theme: "highlands", size: { x: 96, y: 96 } }), { forms: false });
+    // (Highlands 96² seed 57 with the carve's seed 2 since generator 0.10.21's look round (D518: the land's long straight steps jog), D148: seed
+    // 261 with seed 1 carves no lake over 70 tiles now; of Highlands seeds 1–110 and Canyon seeds 1–90 with the carve's seeds 1–6 only a few seal one
+    // over 70 tiles, and of those Highlands 12 with seed 3, Highlands 30 with seeds 4 and 5, Highlands 57 with seed 6 and Canyon 24 with seed 1
+    // settle whole; Highlands 57 with seed 2 seals 95 tiles that keep evaporating)
+    const r = generate(makeSpec({ seed: 57, theme: "highlands", size: { x: 96, y: 96 } }), { forms: false });
     const s = MapSession.fromGenerated(r, r.file);
     const before = Array.from(s.built.water);
     const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 2, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
@@ -664,8 +682,12 @@ describe("a carve at work in the editor's worker", () => {
   it("worked out first, then shown a frame at a time (D321, item 29); Esc drops all of it; kept part way it keeps its whole result, as one step; Try another path replaces it", async () => {
     const W = 96;
     // (seed 22 on 0.8.1's maps, D148: on seed 21 the carve is finished within the four seconds that
-    // stand for "part way", so keeping it there keeps the whole of it; seeds 23 and 26 do the same)
-    await runGenerate(makeSpec({ seed: 22, theme: "highlands", size: { x: W, y: W } }));
+    // stand for "part way", so keeping it there keeps the whole of it; seeds 23 and 26 do the same; seed 25 since
+    // generator 0.10.16's ground with grade, D148: seeds 21, 22, 23 and 26 now finish within those four seconds, seed 25's
+    // carve runs 102 steps and its whole result differs from part way on 258 tiles)
+    // (seed 26 since generator 0.10.21's look round, D518, D148: seeds 21 to 24 carve less than 3 s of work or finish within those four
+    // seconds on the new land, and seed 25's carve plans 27 steps; seed 26's passes every rule below)
+    await runGenerate(makeSpec({ seed: 26, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
     const open = ed.sessionView();
     const ground = open.view.heights.slice();

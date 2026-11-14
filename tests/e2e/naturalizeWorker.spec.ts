@@ -5,6 +5,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 import { openEditor, topDown } from "./open";
+import { rememberPointer, strokeMoves } from "./helpers";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const heights = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.renderer.mapState()!.heights));
@@ -55,7 +56,7 @@ test("a Naturalize stroke is weathered in the worker: shown while painted, built
   expect(i.history.at(-1)!.label).toMatch(/^Naturalize \d+ tiles?$/);
   const last = (await page.evaluate(() => window.dgmEditor!.lastStroke())) as { tool: string; weathering?: number; size: number; strength: number } | null;
   expect(last?.tool).toBe("naturalize");
-  expect(last?.weathering).toBe(5);
+  expect(last?.weathering).toBe(6);
   // the worker's map is the one painted, byte for byte
   expect(await page.evaluate(() => window.dgmEditor!.strokeMismatches())).toBe(0);
   const painted = await heights(page);
@@ -141,6 +142,70 @@ test("an undo or a redo pressed while a Naturalize stroke is finishing waits for
   const built = await page.evaluate(async () => Array.from((await window.dgmEditor!.worker.sessionView()).view.heights));
   expect(built).toEqual(painted);
   expect(errors).toEqual([]);
+});
+
+test("a press the moment a Naturalize stroke lets go paints, and goes on the history after it (#922 U6)", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await openEditor(page, "s=3&z=96&d=n&t=riverValley&tr=100", { timeout: 180_000 });
+  await topDown(page);
+  await settled(page);
+  await rememberPointer(page);
+  await page.keyboard.press("6");
+  for (let k = 0; k < 6; k++) await page.keyboard.press("}");
+  for (let k = 0; k < 5; k++) await page.keyboard.press("]");
+  const before = await heights(page);
+  const steps = (await info(page)).history.length;
+  // a Naturalize stroke across the terraces, the button still down at its end
+  const a = await client(page, 30, 48);
+  const b = await client(page, 66, 48);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  for (let k = 1; k <= 30; k++) {
+    await page.mouse.move(a.x + ((b.x - a.x) * k) / 30, a.y + ((b.y - a.y) * k) / 30);
+    await page.waitForTimeout(16);
+  }
+  // let go, Raise picked and pressed again across it, in one task of the page's: the stroke is surely still landing
+  const p = await client(page, 40, 38);
+  const q = await client(page, 56, 58);
+  const landed = await page.evaluate(
+    ([ux, uy, px, py, n]) => {
+      const r = window.dgm3d!.renderer as unknown as { canvas: HTMLCanvasElement; drag: { id: number } | null };
+      const id = r.drag!.id;
+      const at = (type: string, x: number, y: number, buttons: number) => new PointerEvent(type, { pointerId: id, pointerType: "mouse", isPrimary: true, button: 0, buttons, clientX: x, clientY: y, bubbles: true });
+      r.canvas.dispatchEvent(at("pointerup", ux, uy, 0));
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "2", code: "Digit2", bubbles: true }));
+      r.canvas.dispatchEvent(at("pointerdown", px, py, 1));
+      return window.dgmEditor!.info().history.length > n;
+    },
+    [b.x, b.y, p.x, p.y, steps] as const,
+  );
+  expect(landed, "the Naturalize stroke still on its way when the press went down").toBe(false);
+  await strokeMoves(page, p, q, 16);
+  await page.mouse.move(q.x, q.y);
+  await page.mouse.up();
+  await page.waitForFunction((n) => window.dgmEditor!.info().history.length >= n + 2, steps, { timeout: 60_000 });
+  await settled(page);
+  await page.evaluate(() => window.dgmEditor!.idle());
+  const i = await info(page);
+  // (both strokes, in the order painted: the press was neither lost nor put before the stroke it followed)
+  expect(i.history.length).toBe(steps + 2);
+  expect(i.history.at(-2)!.label).toMatch(/^Naturalize [\d,]+ tiles?$/);
+  expect(i.history.at(-1)!.label).toMatch(/^Raise [\d,]+ tiles?$/);
+  expect(i.history.slice(-2).every((h) => h.applied)).toBe(true);
+  // the worker's map is the one painted, byte for byte
+  expect(await page.evaluate(() => window.dgmEditor!.strokeMismatches())).toBe(0);
+  const painted = await heights(page);
+  expect(painted.some((h, k) => h !== before[k])).toBe(true);
+  const built = await page.evaluate(async () => Array.from((await window.dgmEditor!.worker.sessionView()).view.heights));
+  expect(built).toEqual(painted);
+  expect(errors).toEqual([]);
+  // (the sheet: the two strokes on the map, and History with both steps)
+  await page.locator(".history-button").click();
+  await page.mouse.move(5, 450);
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: test.info().outputPath("edit-queue-3.jpg"), type: "jpeg", quality: 82 });
 });
 
 test("a Naturalize stroke over moist soil changes nothing and says why beside the pointer (showcase-craft gap 23)", async ({ page }) => {

@@ -10,11 +10,12 @@
 import type { ComponentType } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { proxy } from "comlink";
+import { writeProject } from "./projectWriter";
 import { createBackground, createGeneratorWorker, readFile, saveFile, storage } from "../platform";
 import { sameLand } from "../core/analysis/story";
 import { cleanMapName } from "../core/doc/document";
 import { openYourMaps } from "../platform/yourMaps";
-import { storeProblem, type YourMapEntry } from "../core/library/yourMaps";
+import { keepsMap, storeProblem, type YourMapEntry } from "../core/library/yourMaps";
 import { compareProblem } from "../core/library/keptVersions";
 import { numberedName } from "./versionName";
 import { surfaceWater, type MapView } from "../render3d/model";
@@ -30,9 +31,12 @@ import {
   seedFromText,
   shareLink,
   type MapSpec,
+  type PremiseChoice,
   type Settings,
   type ThemeId,
 } from "../core/spec/mapspec";
+import { premiseRefusal } from "../core/premise/choice";
+import type { PremiseCard } from "../core/premise/card";
 import type { GenerateResponse, GenProgress } from "../worker/api";
 import type { SessionInfo, SessionOpen } from "../worker/session";
 import type { EditorProps, MapPicture, ResizeCarry } from "../editor/Editor";
@@ -43,6 +47,7 @@ import type { GeneratorModel, YourMapRow } from "../editor/generator/model";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
 import { FirstLook, MakingCount, MakingWater, progressText, sayStage, stageText, type Progress } from "./FirstLook";
 import { tip } from "./Tooltip";
+import { IdeaCard } from "../editor/generator/IdeaCard";
 import { Together, type Keep } from "../collab/together";
 import { useShowcase } from "./useShowcase";
 
@@ -95,7 +100,7 @@ window.dgm = {
       }
     : {}),
   current() {
-    return shown ? { made, ms: shown.ms, attempts: shown.attempts, sha256: shown.sha256, link: shareLink(location.href, shown.spec), passed: shown.passed, checks: shown.checks.map((c) => ({ id: c.id, ok: c.ok, value: c.value, limit: c.limit, ...(c.where?.tiles ? { where: { tiles: c.where.tiles } } : {}) })) } : null;
+    return shown ? { made, ms: shown.ms, ...(shown.stages ? { stages: shown.stages } : {}), attempts: shown.attempts, sha256: shown.sha256, link: shareLink(location.href, shown.spec), passed: shown.passed, checks: shown.checks.map((c) => ({ id: c.id, ok: c.ok, value: c.value, limit: c.limit, ...(c.where?.tiles ? { where: { tiles: c.where.tiles } } : {}) })) } : null;
   },
 };
 
@@ -114,7 +119,7 @@ function initialSpec(): { spec: MapSpec; fromLink: boolean; note?: string } {
   if (d) {
     const note = d.version !== GENERATOR_VERSION ? `This link was made with generator ${d.version}; this is ${GENERATOR_VERSION}, so the map may differ.` : undefined;
     // every map is made for Normal until the core drops difficulty after M9b's release (Kyler, 2026-10-03)
-    return { spec: d.spec.designedFor === "normal" ? d.spec : { ...makeSpec({ seed: d.spec.seed, size: d.spec.size, theme: d.spec.theme }), settings: defaultSettings(d.spec.theme, "normal", d.spec.size) }, fromLink: true, note: d.problems.length ? d.problems.join("; ") : note };
+    return { spec: d.spec.designedFor === "normal" ? d.spec : { ...makeSpec({ seed: d.spec.seed, size: d.spec.size, theme: d.spec.theme, premise: d.spec.premise }), settings: defaultSettings(d.spec.theme, "normal", d.spec.size, d.spec.premise) }, fromLink: true, note: d.problems.length ? d.problems.join("; ") : note };
   }
   // Any (Surprise me) is the default (D209), with Easy start as this browser last set it (D495)
   const spec = makeSpec({ seed: randomSeed(), theme: "any" });
@@ -182,6 +187,10 @@ const rowOf = (e: YourMapEntry): YourMapRow => ({ id: e.id, name: e.name, size: 
  *  (`thumbnail.worker.ts`), or null when the worker can't make it in time (`thumbnails.ts`). */
 const thumbnailUrl = thumbnailMaker(() => new Worker(new URL("./thumbnail.worker.ts", import.meta.url), { type: "module", name: "thumbnail" }));
 
+/** How long Cancel waits for the old worker to write the map it brings back when its file could not be written beside
+ *  the new map, ms (a worker gone never answers). */
+const CANCEL_WAIT = 30_000;
+
 /** When the page is next idle (or `ms` from now at the latest). */
 const whenIdle = (ms: number) =>
   new Promise<void>((go) => (typeof window.requestIdleCallback === "function" ? window.requestIdleCallback(() => go(), { timeout: ms }) : setTimeout(go, 0)));
@@ -216,6 +225,11 @@ export function App() {
   /** Every map is made for Normal (Kyler, 2026-10-03: Difficulty's start rules replace "Designed for"). */
   const difficulty = "normal" as const;
   const [theme, setTheme] = useState<ThemeId>(init.spec.theme);
+  /** The idea the next map is built around (D508, PREMISES §1.5), or none: the themes' map, the default (D509). */
+  const [premise, setPremise] = useState<PremiseChoice | undefined>(init.spec.premise);
+  /** The open map's card when it was made from an idea (`SessionInfo.card`, kept with its project): what it is, its
+   *  landmark, what to do first. */
+  const [card, setCard] = useState<PremiseCard | null>(null);
   const [settings, setSettings] = useState<Settings>(init.spec.settings);
   /** Another like this (D278 (1c)): the sibling shown, which joins the spec until a setting changes. */
   const [sibling, setSibling] = useState<{ variation: number; intentions: string[] } | null>(init.spec.variation ? { variation: init.spec.variation, intentions: init.spec.intentions ?? [] } : null);
@@ -240,6 +254,8 @@ export function App() {
   const back = useRef<{ entry: YourMapEntry; bytes: Uint8Array; kept: boolean } | null>(null);
   /** That project while it is still being taken (Cancel waits for it before ending the worker it comes from), and a
    *  Cancel already under way (a second one does nothing). */
+  /** Whether the map `backReady` is written of is kept in Your maps (or edited). */
+  const backKept = useRef(false);
   const backReady = useRef<Promise<{ entry: YourMapEntry; bytes: Uint8Array; kept: boolean }> | null>(null);
   const cancelling = useRef(false);
   /** A real place or a saved map being opened before any map is on show: what the page says meanwhile. */
@@ -362,6 +378,8 @@ export function App() {
   const saver = useMemo(
     () =>
       new YourMapsSaver(yourMaps, {
+        // (the end-to-end build lets a test hold the quiet save after an edit: generateReload.spec.ts)
+        ...(import.meta.env.MODE === "e2e" ? { setTimer: (fn: () => void, ms: number) => ((window as unknown as { __dgmHoldAutosave?: boolean }).__dgmHoldAutosave ? null : setTimeout(fn, ms)) } : {}),
         onResult: (r, id) => {
           // (the open map's entry takes its new storage token: its next save is over this one, investigation/saving-review)
           if (r.ok && r.storageVersion && entry.current?.id === id) entry.current = { ...entry.current, storageVersion: r.storageVersion };
@@ -384,12 +402,25 @@ export function App() {
 
   const spec = useMemo(
     (): MapSpec => ({
-      ...makeSpec({ seed: seedFromText(seedText || "0"), size, designedFor: difficulty, theme }),
+      ...makeSpec({ seed: seedFromText(seedText || "0"), size, designedFor: difficulty, theme, premise }),
       settings,
       ...(sibling ? { variation: sibling.variation, ...(sibling.intentions.length ? { intentions: sibling.intentions } : {}) } : {}),
     }),
-    [seedText, size, difficulty, theme, settings, sibling],
+    [seedText, size, difficulty, theme, premise, settings, sibling],
   );
+  // an idea that can't make its map says why in one line before Generate, where the page shows every refusal (the pair
+  // first, then the settings: the core's `premiseRefusal`); Generate then has the themes make the map, and says so
+  const refusal = useMemo(() => (premise !== undefined && !blank ? premiseRefusal(spec) : null), [premise, blank, spec]);
+  const saidRefusal = useRef<string | null>(null);
+  useEffect(() => {
+    const was = saidRefusal.current;
+    saidRefusal.current = refusal;
+    // (none before a map is open: the first map's own Generate says it, as `fellBack`, and a note there would stop the
+    // loading frame)
+    if (refusal === was || !opened) return;
+    if (refusal) setError(refusal);
+    else if (was) setError((e) => (e === was ? null : e));
+  }, [refusal, opened]);
   // the settings differ from the open map's (a fresh seed alone is not a change: Generate rolls one anyway)
   const changed = useMemo(() => {
     const of = session?.kind === "generated" ? session.spec : null;
@@ -415,6 +446,7 @@ export function App() {
     setSeedPinned(false);
     setSibling(null);
     setTheme("any");
+    setPremise(undefined);
     setSize(z);
     setSettings(withEasy(defaultSettings("any", difficulty, z), easyRemembered()));
   }
@@ -424,6 +456,7 @@ export function App() {
     setSeedText(String(s.seed));
     setSize(s.size);
     setTheme(s.theme);
+    setPremise(s.premise);
     setSettings(s.settings);
     setSibling(s.variation ? { variation: s.variation, intentions: s.intentions ?? [] } : null);
   }
@@ -433,7 +466,14 @@ export function App() {
     unblank();
     setSibling(null);
     setTheme(t);
-    setSettings((s) => withEasy(defaultSettings(t, difficulty, size), s.start.easyStart === true));
+    setSettings((s) => withEasy(defaultSettings(t, difficulty, size, premise), s.start.easyStart === true));
+  }
+  // an idea resets the settings as a theme does: the theme's give the land's style, the idea's what its plan reads
+  function choosePremise(p: PremiseChoice | undefined) {
+    unblank();
+    setSibling(null);
+    setPremise(p);
+    setSettings((s) => withEasy(defaultSettings(theme, difficulty, size, p), s.start.easyStart === true));
   }
   function chooseSize(z: { x: number; y: number }) {
     unblank();
@@ -448,28 +488,39 @@ export function App() {
 
   /** The open map, as Your maps keeps it: its project file now. */
   async function snapshot() {
+    return (await snapshotTaken()).written;
+  }
+
+  /** `snapshot` in two steps: `kept` once the generator's worker has handed over the open map's document (it is free
+   *  for the next map from then; whether Your maps keeps it is known then), `written` once its file is written (on a
+   *  worker of its own, `writeProject`). */
+  async function snapshotTaken() {
     // (the map it is taken of, fixed before anything waits: a capture queued as the map changes stays its map's; its
     // edits already made go in first, and its version is the worker's)
     const of = entry.current!;
     await pendingEdits.current?.();
     // (the picture when the page is idle, never stacked on the edit or the water that just went in, while the worker
     // writes the project)
-    const [p, made] = await Promise.all([
-      generator.project(6),
-      whenIdle(250).then(() => {
-        const pic = picture.current?.();
-        return pic ? thumbnailUrl(pic) : null;
-      }),
-    ]);
-    const thumbnail = made ?? of.thumbnail;
-    // (what the page changed on the entry while this waited, an edited-since mark among it, is kept: the entry as it is now)
-    const now = entry.current?.id === of.id ? entry.current : of;
-    // (its name and size from the worker and the page, so the save never unzips the project to read them)
-    const info = infoRef.current;
-    const size = now.size ?? (info ? { w: info.W, h: info.H } : undefined);
-    const e = { ...now, name: p.name || nameRef.current || of.name, revision: p.version, bytes: p.bytes.length, editedAt: new Date().toISOString(), thumbnail, ...(size ? { size } : {}) };
-    if (entry.current?.id === of.id) entry.current = e;
-    return { entry: e, project: p.bytes, name: p.name };
+    const picture_ = whenIdle(250).then(() => {
+      const pic = picture.current?.();
+      return pic ? thumbnailUrl(pic) : null;
+    });
+    const p = await generator.projectDocument();
+    // (`kept`: Your maps keeps the map as taken, every edit made answered: a first edit still on its way when the snapshot
+    // was asked for keeps it, D455)
+    const keeps = keepsMap({ kept: kept.current, openedVersion: openedVersion.current, version: p.version });
+    const written = Promise.all([writeProject(p.doc, 6), picture_]).then(([bytes, made]) => {
+      const thumbnail = made ?? of.thumbnail;
+      // (what the page changed on the entry while this waited, an edited-since mark among it, is kept: the entry as it is now)
+      const now = entry.current?.id === of.id ? entry.current : of;
+      // (its name and size from the worker and the page, so the save never unzips the project to read them)
+      const info = infoRef.current;
+      const size = now.size ?? (info ? { w: info.W, h: info.H } : undefined);
+      const e = { ...now, name: p.name || nameRef.current || of.name, revision: p.version, bytes: bytes.length, editedAt: new Date().toISOString(), thumbnail, ...(size ? { size } : {}) };
+      if (entry.current?.id === of.id) entry.current = e;
+      return { entry: e, project: bytes, name: p.name, kept: keeps };
+    });
+    return { kept: keeps, written };
   }
 
   /** Replace the open map: what is waiting to be saved of it (a kept map's) is saved first. In a shared session this is the
@@ -481,6 +532,8 @@ export function App() {
       if (hosting && !announced) together.announce("a new map");
       // (the edits already made finish on the map leaving, and its save is registered before it is flushed)
       await pendingEdits.current?.();
+      // (the file `holdBack` writes beside the new map's making: a kept map's was stored before the request)
+      await backReady.current?.catch(() => null);
       await saver.flush();
       if (!keeping.current && !discardAllowed.current) throw new Error("Your map was not saved. Download the project before replacing it.");
       // (a kept map leaving, and really stored: where it went is said once the new one is in)
@@ -514,8 +567,12 @@ export function App() {
     nameRef.current = e.name;
     // (a name typed for the next map belongs to a generated one; a cancelled Generate keeps it for the next try)
     if (!keepView) setNextName(null);
-    // (a version found for the map that was open is no version of this one)
-    if (!keepView) stopBackground();
+    // (a version found for the map that was open is no version of this one; the card is the opened map's own, kept with
+    // its project, so a reload or a reopen shows it again; its × hides it until the map is next opened)
+    if (!keepView) {
+      stopBackground();
+      setCard(data.info.card);
+    }
     infoRef.current = data.info;
     lastKey.current = `${data.info.version}|${JSON.stringify(data.info.views ?? [])}|${!!data.info.waterPending}`;
     setName(e.name);
@@ -591,7 +648,7 @@ export function App() {
     lastKey.current = key;
     // (not kept yet: only an operation applied makes it so; camera bookmarks alone don't)
     if (!kept.current) {
-      if (info.version === openedVersion.current) return;
+      if (!keepsMap({ kept: false, openedVersion: openedVersion.current, version: info.version })) return;
       keepNow();
     }
     // a kept version opened and edited: the kept copy itself changes, so it says so, once, and its card says it was edited
@@ -912,11 +969,18 @@ export function App() {
     made++;
     try {
       enterEditor(await replacing(() => generator.openProject(r.project)), { kind: "generated" });
+      showIdea(r);
     } catch (e) {
       // (it stays on screen, and stays kept: the save is done)
       return void setError(words(e));
     }
     if (keepsOld) setNote("The map before it is in Your maps.");
+  }
+
+  /** A map made from an idea that the themes made instead: the line saying so (never silent, D471). Its card, when it
+   *  has one, comes with the opened map (`SessionInfo.card`). */
+  function showIdea(r: GenerateResponse) {
+    if (r.idea?.fellBack) setError(r.idea.fellBack);
   }
 
   /** The latest run: a result from an older one is never shown over it. */
@@ -925,18 +989,49 @@ export function App() {
   /** The open map's project, which Cancel opens again while a map is made or opened over it: kept in memory, and saved
    *  first when Your maps keeps it. False when a later run has taken over meanwhile. */
   async function holdBack(id: number, before: string): Promise<boolean> {
-    const was = kept.current;
     back.current = null;
-    backReady.current = snapshot().then((s) => ({ entry: s.entry, bytes: s.project, kept: was }));
-    const b = await backReady.current;
-    if (was) {
+    // (whether it is kept is asked of the map as the worker handed it over, every edit made answered: a first edit still
+    // on its way when Generate was pressed keeps it, D455)
+    // (`backReady` is set before anything is awaited: Cancel pressed while the map is still being taken waits for it, and
+    // the old worker lives until it has come, investigation/page-hunt)
+    // (`backKept` is this map's from the start: Cancel's fallback reads it, never the map before)
+    backKept.current = kept.current;
+    const taken = snapshotTaken();
+    const ready = (backReady.current = taken.then((t) => t.written.then((s) => ({ entry: s.entry, bytes: s.project, kept: kept.current || t.kept }))));
+    // (its outcome heard at once: a failure is the caller's below, or Cancel's)
+    void ready.then(
+      (b) => {
+        performance.mark("dgm:written");
+        if (backReady.current === ready) back.current = b;
+      },
+      () => {},
+    );
+    let t: Awaited<typeof taken>;
+    try {
+      t = await taken;
+    } catch (e) {
+      // (the worker could not hand the map over: it stays open, nothing replaces it)
+      console.error("the map being replaced could not be taken:", e);
+      throw new Error("Your map could not be saved, so it stays open. Download the project before replacing it.");
+    }
+    const keeps = kept.current || t.kept;
+    kept.current = keeps;
+    backKept.current = keeps;
+    // a kept or edited map is in Your maps before the next one is asked for (D455): its file written and stored; a map
+    // neither kept nor edited goes on at once, its file written beside the next map's making (Cancel waits for it)
+    if (keeps) {
+      let b: Awaited<typeof ready>;
+      try {
+        b = await ready;
+      } catch (e) {
+        console.error("the map being replaced could not be written:", e);
+        throw new Error("Your map could not be saved, so it stays open. Download the project before replacing it.");
+      }
       saver.changed(b.entry.id, () => ({ entry: b.entry, project: b.bytes }));
       await saver.flush();
       if (!keeping.current && !discardAllowed.current) throw new Error(`Your map was not saved. Download the project before ${before}.`);
     }
-    if (id !== runId.current) return false;
-    back.current = b;
-    return true;
+    return id === runId.current;
   }
 
   async function run(s: MapSpec, tries = 0, keepError = false): Promise<GenerateResponse | null> {
@@ -967,6 +1062,8 @@ export function App() {
       // (a seed typed as a word names the saved file, D345 B10)
       const word = seedText.trim();
       const seedWord = word && !/^\d+$/.test(word) && seedFromText(word) === s.seed ? word : undefined;
+      // (the map is asked for: the click's lag ends here, generateLag.spec.ts)
+      performance.mark("dgm:sent");
       const r = await (maker?.api ?? generator).generate(
         s,
         proxy((p: GenProgress) =>
@@ -1025,6 +1122,11 @@ export function App() {
         return { ...opened, info };
       }, shared);
       enterEditor(fresh, { kind: "generated" });
+      showIdea(r);
+      // (the map stored while the page is idle: the next Generate takes it at once, `holdBack`)
+      void whenIdle(3000)
+        .then(() => (id === runId.current ? generator.warmProject().then(() => void performance.mark("dgm:warmed")) : undefined))
+        .catch(() => {});
       // (a name given keeps the map in Your maps, as a rename does)
       if (named) {
         keepNow();
@@ -1079,7 +1181,18 @@ export function App() {
     try {
       // (the old worker lives until the open map's project has come from it: ended sooner, the call never answers and
       // the editor is left on a worker that is gone; investigation/page-hunt)
-      const b = back.current ?? (backReady.current ? await backReady.current : null);
+      // (its file failing to be written beside the new map, the old worker writes it once its work is done, never waited on
+      // past `CANCEL_WAIT`: a worker gone never answers)
+      const b =
+        back.current ??
+        (backReady.current
+          ? await backReady.current.catch(async (e) => {
+              console.error("the open map's file could not be written beside the new map:", e);
+              const p = await Promise.race([generator.project(6), new Promise<null>((done) => setTimeout(() => done(null), CANCEL_WAIT))]);
+              if (!p) throw new Error("Your map could not be brought back. It is in Your maps as it was last saved.");
+              return { entry: entry.current!, bytes: p.bytes, kept: backKept.current };
+            })
+          : null);
       // (a map being opened in the old worker never answers: the swap it began is over, and the editor takes edits again)
       switching.current = false;
       setReplacingMap(false);
@@ -1133,12 +1246,12 @@ export function App() {
     setSeedText(String(seed));
     setSeedPinned(false);
     const t = over?.theme ?? theme;
-    const s = over ? withEasy(defaultSettings(t, difficulty, size), settings.start.easyStart === true) : settings;
+    const s = over ? withEasy(defaultSettings(t, difficulty, size, premise), settings.start.easyStart === true) : settings;
     if (over) {
       setTheme(t);
       setSettings(s);
     }
-    void run({ ...makeSpec({ seed, size, designedFor: difficulty, theme: t }), settings: s });
+    void run({ ...makeSpec({ seed, size, designedFor: difficulty, theme: t, premise }), settings: s });
   }
 
   useEffect(() => {
@@ -1271,6 +1384,18 @@ export function App() {
     }
   }
 
+  /** File → New blank map…: flat, dry ground of that size at that level, opened as a file is (core/doc/blank.ts). */
+  function newBlank(size: number, level: number) {
+    guard(() => {
+      setError(null);
+      setBusy(true);
+      void replacing(() => generator.newBlank(size, level))
+        .then((data) => enterEditor(data, { kind: "import" }))
+        .catch((e) => setError(`The blank map could not be made: ${words(e)}`))
+        .finally(() => setBusy(false));
+    }, "A new blank map");
+  }
+
   function openFile(file: File) {
     guard(() => void readFile(file).then((b) => openBytes(b, file.name)), `Opening ${file.name}`);
   }
@@ -1322,6 +1447,7 @@ export function App() {
     },
     onSize: chooseSize,
     onTheme: chooseTheme,
+    onPremise: choosePremise,
     onSettings: (s) => {
       unblank();
       setSettings(s);
@@ -1329,7 +1455,7 @@ export function App() {
     },
     onReset: () => {
       unblank();
-      setSettings((s) => withEasy(defaultSettings(theme, difficulty, size), s.start.easyStart === true));
+      setSettings((s) => withEasy(defaultSettings(theme, difficulty, size, premise), s.start.easyStart === true));
     },
     busy,
     changed,
@@ -1537,6 +1663,7 @@ export function App() {
         replacing={replacingMap}
         onPendingEdits={(wait) => (pendingEdits.current = wait)}
         onOpenFile={openFile}
+        onNewBlank={newBlank}
         saveState={saveState}
         name={name}
         onRename={rename}
@@ -1553,7 +1680,12 @@ export function App() {
         compare={compare}
         onStopCompare={() => setCompare(null)}
         onKeepStep={(k, branch) => void keepStep(k, branch)}
-        notice={message}
+        notice={message || card ? (
+          <>
+            {message}
+            {card ? <IdeaCard card={card} onClose={() => setCard(null)} /> : null}
+          </>
+        ) : null}
         together={together}
       />
       {confirmDialog}

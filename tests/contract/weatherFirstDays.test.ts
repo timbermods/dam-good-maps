@@ -106,9 +106,11 @@ function expectedBad(days: WaterView[]): Int16Array {
 }
 
 // (a lake basin: water going on several days and water that lasts the drought; in a badtide its water turns bad on
-// days 1 to 3, the lake last)
+// days 1 to 3, the lake last; seed 2 for seed 4 since the D518 mends (compact hills, no broad wash flats, dead-stand knots),
+// D148: seed 4's water turns bad on day 1 only now, and of seeds 1–30 the water turns bad on more than one day in all but 4
+// and 11; seed 2's turns bad on days 1 to 3 as seed 4's did, with 434 tiles of water going before the last day and 900 that last)
 beforeAll(async () => {
-  await runGenerate(makeSpec({ seed: 4, theme: "lakeBasin", size: { x: W, y: W } }));
+  await runGenerate(makeSpec({ seed: 2, theme: "lakeBasin", size: { x: W, y: W } }));
   ed.setAutoWater(false);
   ed.refine();
   const v = ed.sessionView().view;

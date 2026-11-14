@@ -65,6 +65,40 @@ describe("water sources start rivers (D171)", () => {
     expect(r.inFlow).toEqual([4]);
   });
 
+  it("sources a step or two in from a river's mouth, in the same water at the same level, are one head with it", () => {
+    const h = river();
+    // the survey's inflows: not touching the sealed mouth, a tile or two further in (the channel is 4 wide)
+    const objects = [...mouth(h), source(2, 11, 6, 0.5), source(3, 12, 6, 0.5)];
+    expect(flagged(h, objects).inFlow).toEqual([]);
+  });
+
+  it("a source down the flow by more than the channel is wide, across a fall, or in other water is not a row member", () => {
+    const h = river();
+    // 6 tiles on is within reach, but 6 steps down the flow is more than the channel's 4 width; 8 is out of reach
+    expect(flagged(h, [...mouth(h), source(6, 12, 6, 1)]).inFlow).toEqual([4]);
+    expect(flagged(h, [...mouth(h), source(8, 12, 6, 1)]).inFlow).toEqual([4]);
+    // across a fall: the bed steps from 6 to 5 at x 4, so the source there is not at the mouth's surface level
+    const f = river();
+    for (let y = 10; y <= 13; y++) for (let x = 4; x <= 11; x++) f[y * W + x] = 5;
+    expect(flagged(f, [...mouth(f), source(4, 11, 5, 1)]).inFlow).toEqual([4]);
+    // a badwater source beside the water sources is another head
+    expect(flagged(h, [...mouth(h), source(2, 11, 6, 1, "BadwaterSource")]).inFlow).toEqual([4]);
+  });
+
+  it("a chain of sources, each within the channel's width of the next, that drifts further down the flow end to end is not a row", () => {
+    const h = river();
+    // the mouth, a source 3 steps in, and one 6 steps in: neighbours are within the width of 4, the mouth and the last are not
+    expect(flagged(h, [...mouth(h), source(3, 11, 6, 0.5), source(6, 11, 6, 0.5)]).inFlow).toEqual([4, 5]);
+    // without the last, the other is one head with the mouth
+    expect(flagged(h, [...mouth(h), source(3, 11, 6, 0.5)]).inFlow).toEqual([]);
+  });
+
+  it("a source down the flow by exactly the channel's width is a row member; one step more is not", () => {
+    const h = river();
+    expect(flagged(h, [...mouth(h), source(4, 11, 6, 1)]).inFlow).toEqual([]);
+    expect(flagged(h, [...mouth(h), source(5, 11, 6, 1)]).inFlow).toEqual([4]);
+  });
+
   it("a cluster of sources side by side at a spring-fed river's head is where it begins; more flow comes from the cluster or its strength", () => {
     const h = river();
     // no mouth: the channel's west end is walled, and a 2 × 2 cluster feeds the river from there
@@ -142,8 +176,10 @@ describe("water sources start rivers (D171)", () => {
 
 describe("a source placed by hand in the editor (D184: sources go anywhere)", () => {
   it("a source dropped in a river exports with no issue", () => {
-    // (seed 2 since batch 5, D148: on seed 3's map the extra water fills a lake past the settle's days)
-    const r = generate(makeSpec({ seed: 2, theme: "riverValley", size: { x: 96, y: 96 } }));
+    // (seed 2 since batch 5, D148: on seed 3's map the extra water fills a lake past the settle's days; seed 1 since
+    // generator 0.10.16's ground with grade, D148: on seed 2's map, as on seed 3's, the extra water now leaves no storage
+    // near the start that the storage check finds)
+    const r = generate(makeSpec({ seed: 1, theme: "riverValley", size: { x: 96, y: 96 } }));
     const s = MapSession.fromGenerated(r, r.file);
     s.setWaterMode("defer");
     const before = s.validate("export").report.checks.filter((c) => !c.ok).map((c) => c.id);

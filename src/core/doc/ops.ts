@@ -28,6 +28,7 @@ import { REQUIRED } from "../validate/checks";
 import type { Feature, FeatureKind, StartFeature } from "../features/schema";
 import { makesRoomForStart, START_OPEN_GROUND, startOverRoof, startRoofProblem } from "./startFit";
 import { runsToTiles, type Runs } from "../math/grid";
+import type { RidgeSteep } from "./ridgeLimits";
 import { checkSchema, validateFeatures } from "../spec/schema";
 import { brushProblems, type BrushParams } from "../features/raster/brush";
 import { forceProblems, type ForceResultParams } from "../forces/op";
@@ -95,6 +96,12 @@ export interface OpParams {
   /** A canal (doc/canal.ts `planCanal`): a channel that leads water along a path, its bed falling steadily and its banks
    *  raised where the land beside it is lower than its water; its tiles stored literally, each with its level. */
   canal: CanalParams;
+  /** A drawn lake (doc/lake.ts `planDrawnLake`): a basin dug inside an outline, its rim made whole a level over the lake
+   *  and one notch at its level; its tiles stored literally, each with its level. */
+  lake: DrawnLakeParams;
+  /** A ridge (doc/ridge.ts `planRidge`): high ground raised along a path, steep on one side and benched on the other;
+   *  its tiles stored literally, each with its level. */
+  ridge: RidgeParams;
   /** The map's description, written by its player (doc/description.ts): the text the game shows with the
    *  map. Empty text takes it away and the generated one is used again. It changes nothing on the map, so
    *  it builds nothing. */
@@ -115,6 +122,22 @@ export interface RemoveUnfedWaterParams {
   pools?: number;
 }
 
+export interface RidgeParams {
+  /** The points it was drawn through, [x, y], the drag's way. */
+  path: [number, number][];
+  /** How high its crest stands over the land (2 to 10) and how wide it is (4 to 20). */
+  height: number;
+  width: number;
+  /** The steep side: the side the line curves away from (auto), or left or right of its way. */
+  steep: RidgeSteep;
+  /** The wander of its crest, its benches and its crags. */
+  seed: number;
+  /** The tiles it changes as runs [y, x0, x1]; the integrity pass leaves them. */
+  cells: Runs;
+  /** The level each tile of `cells` is set to, in the order of y·W + x. */
+  levels: number[];
+}
+
 export interface CanalParams {
   /** The points it was drawn through, [x, y], the start first. */
   path: [number, number][];
@@ -124,6 +147,21 @@ export interface CanalParams {
   /** Open: it starts in the water at its start. Dry (false): the line's first tile is left standing. */
   open: boolean;
   /** The tiles it changes as runs [y, x0, x1] (the bed and the raised banks); the integrity pass leaves them. */
+  cells: Runs;
+  /** The level each tile of `cells` is set to, in the order of y·W + x. */
+  levels: number[];
+}
+
+export interface DrawnLakeParams {
+  /** The outline it was drawn along, [x, y] (tile middles). */
+  outline: [number, number][];
+  /** The level the lake stands at (its notch's) and its channel's depth under it (1 to 5). */
+  level: number;
+  depth: number;
+  /** Where the player dragged out of the outline: the notch is the rim's tile nearest it that can spill. Absent: where the
+   *  ground beyond the rim is lowest. */
+  spill?: [number, number];
+  /** The tiles it changes as runs [y, x0, x1] (the bed, the rim and the notch); the integrity pass leaves them. */
   cells: Runs;
   /** The level each tile of `cells` is set to, in the order of y·W + x. */
   levels: number[];
@@ -192,7 +230,7 @@ interface Applied {
 export type AppliedOp = EditOp & Applied;
 export type AppliedOpOf<K extends OpName> = OpOf<K> & Applied;
 
-export type SculptOp = AppliedOpOf<"sculpt"> | AppliedOpOf<"brush"> | AppliedOpOf<"forceResult"> | AppliedOpOf<"blocks"> | AppliedOpOf<"setLakeLevel"> | AppliedOpOf<"canal">;
+export type SculptOp = AppliedOpOf<"sculpt"> | AppliedOpOf<"brush"> | AppliedOpOf<"forceResult"> | AppliedOpOf<"blocks"> | AppliedOpOf<"setLakeLevel"> | AppliedOpOf<"canal"> | AppliedOpOf<"lake"> | AppliedOpOf<"ridge">;
 /** A force's operation. */
 export type ForceOp = AppliedOpOf<"forceResult">;
 export const isForceOp = (op: { op: string }): op is ForceOp => op.op === "forceResult";
@@ -346,6 +384,8 @@ export function applyOp(state: DocState, op: AppliedOp): void {
     case "brush":
     case "setLakeLevel":
     case "canal":
+    case "lake":
+    case "ridge":
       state.sculpts.push(op);
       return;
     case "blocks":
@@ -446,6 +486,8 @@ export function invertOp(state: DocState, op: AppliedOp): void {
     case "brush":
     case "setLakeLevel":
     case "canal":
+    case "lake":
+    case "ridge":
       removeFromList(state.sculpts, op.seq);
       return;
     case "blocks":
@@ -552,6 +594,12 @@ export interface OpContext {
   /** Why a canal no longer fits the map (doc/canal.ts `canalProblem`: planned on the map now, it must be the one stored),
    *  or null. */
   canal?: (p: CanalParams) => string | null;
+  /** Why a drawn lake no longer fits the map (doc/lake.ts `drawnLakeProblem`: planned on the map now, it must be the one
+   *  stored), or null. */
+  lake?: (p: DrawnLakeParams) => string | null;
+  /** Why a ridge no longer fits the map (doc/ridge.ts `ridgeProblem`: planned on the map now, it must be the one stored),
+   *  or null. */
+  ridge?: (p: RidgeParams) => string | null;
 }
 
 /** Why an object's components would not load or build: a source's strength must be a number, 0 or
@@ -783,6 +831,15 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
     }
     case "brush":
       return brushProblems(op.params, W, H);
+    case "ridge": {
+      const p = op.params;
+      for (const [x, y] of p.path) if (!inMap(x, y)) return [`X ${x} · Y ${y} is off the map`];
+      const errors = runsProblems(p.cells, W, H, "the ridge's cells");
+      if (errors.length) return errors;
+      if (new Set(runsToTiles(p.cells, W)).size !== p.levels.length) return ["the ridge needs one level for each of its cells"];
+      const why = ctx.ridge?.(p);
+      return why ? [why] : [];
+    }
     case "canal": {
       const p = op.params;
       for (const [x, y] of p.path) if (!inMap(x, y)) return [`X ${x} · Y ${y} is off the map`];
@@ -790,6 +847,15 @@ export function validateOp(op: EditOp, ctx: OpContext): string[] {
       if (errors.length) return errors;
       if (new Set(runsToTiles(p.cells, W)).size !== p.levels.length) return ["the canal needs one level for each of its cells"];
       const why = ctx.canal?.(p);
+      return why ? [why] : [];
+    }
+    case "lake": {
+      const p = op.params;
+      for (const [x, y] of [...p.outline, ...(p.spill ? [p.spill] : [])]) if (!inMap(x, y)) return [`X ${x} · Y ${y} is off the map`];
+      const errors = runsProblems(p.cells, W, H, "the lake's cells");
+      if (errors.length) return errors;
+      if (new Set(runsToTiles(p.cells, W)).size !== p.levels.length) return ["the lake needs one level for each of its cells"];
+      const why = ctx.lake?.(p);
       return why ? [why] : [];
     }
     case "setLakeLevel": {

@@ -33,6 +33,7 @@ import type { TerrainData } from "../terrain/runs";
 import { forceOfCarve, type SavedCarve } from "../forces/op";
 import { replay, type AppliedOp } from "./ops";
 import type { StoredState } from "./stored";
+import type { PremiseCard } from "../premise/card";
 
 export { fromBase64, toBase64 } from "../format/base64";
 
@@ -56,6 +57,11 @@ export interface DocMeta {
   /** Easy start (D495): on a map a late rescue round made, what it left short of the full targets, as the page says
    *  it by the Easy start label (`GenerateResult.easyShort`); absent when it met them all. */
   easyShort?: string;
+  /** A map made from an idea (D508): its card's words as the page showed them when it was made (`info.premise.card`),
+   *  kept so a reopened project shows the same card (what the player saw is what they get back). They describe the map
+   *  as generated and stay through hand edits; never part of a build. Absent on any other map, and on idea maps saved
+   *  before they were kept (no upgrade, D475). */
+  card?: PremiseCard;
   /** An imported map: its file name and what normalization changed (PLAN §19.6). */
   source?: { fileName: string; report: ImportReport };
   /** A real place (its id, "near-colca-canyon"), opened from Real places: its checks follow the place's
@@ -174,14 +180,30 @@ export function toDocument(spec: MapSpec, features: Feature[], built: BuildResul
 }
 
 /** The document of a map the generator just made, with its field (format 3). */
-export function generatedDocument(r: { spec: MapSpec; features: Feature[]; built: BuildResult; file?: TimberFile; field?: FieldData | null; seedWord?: string; name?: string; description?: string; says?: readonly string[]; easyShort?: string }): MapDocument {
+export function generatedDocument(r: GeneratedWords & { spec: MapSpec; features: Feature[]; built: BuildResult; file?: TimberFile; field?: FieldData | null; seedWord?: string }): MapDocument {
   const doc = toDocument(r.spec, r.features, r.built, r.file ?? toTimberFile(r.spec, r.built, r.says?.length ? { says: r.says } : {}), r.field ?? null, r.seedWord);
-  // (M9b, D278 (1b): a generated map keeps its own name and how it plays)
+  keepGeneratedWords(doc, r);
+  return doc;
+}
+
+/** What a generation says of its map, beyond its spec (a `GenerateResult`'s part of it). */
+export interface GeneratedWords {
+  name?: string;
+  description?: string;
+  says?: readonly string[];
+  easyShort?: string;
+  info?: { premise?: { card?: PremiseCard } };
+}
+
+/** A generated map's own words into its document's meta: its name and how it plays (M9b, D278 (1b)), Easy start's
+ *  shortfall (D495) and an idea map's card (D508), the card's five strings and nothing else. */
+export function keepGeneratedWords(doc: MapDocument, r: GeneratedWords): void {
   if (r.name) doc.meta.name = doc.meta.generatedName = r.name;
   if (r.description) doc.meta.premise = r.description;
   if (r.says?.length) doc.meta.says = [...r.says];
   if (r.easyShort) doc.meta.easyShort = r.easyShort;
-  return doc;
+  const c = r.info?.premise?.card;
+  if (c) doc.meta.card = { name: c.name, style: c.style, landmark: c.landmark, first: c.first, line: c.line };
 }
 
 /** The document of an imported map: normalized once, with the changes listed (PLAN §19.6);

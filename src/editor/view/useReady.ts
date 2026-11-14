@@ -1,27 +1,30 @@
 // Sources: Clear's glow, and the renderer becoming ready (the painter and the pointer tools).
 
 import { transfer } from "comlink";
-import { useRef } from "preact/hooks";
+import { useRef, useState } from "preact/hooks";
 import type { EditOp } from "../../core/doc/ops";
 import type { Orientation } from "../../core/format/footprints";
 import { ridingPieces } from "../../core/features/edits";
 import { groundUnderObjects } from "../../core/features/raster/objectGround";
 import { FLIPPED, ORIENTATION_NAMES, surfaceWater } from "../../render3d/model";
-import type { MapRenderer, ViewState } from "../../render3d";
+import type { FingerAim, MapRenderer, ViewState } from "../../render3d";
 import { Juice, type StrokeSound } from "../juice";
 import { selectTool } from "../select";
-import { BRUSH_NAMES, BrushPainter, cut, hasTarget, sizeMax, targetWords } from "../brushes";
+import { BRUSH_NAMES, BrushPainter, hasTarget, sizeMax, targetWords } from "../brushes";
 import { heldWords } from "../caveWords";
 import { tilesToRuns } from "../../core/math/grid";
 import { isSource, sourcesPressed } from "../sourceSpots";
 import { WET_DEPTH, type BrushParams } from "../../core/features/raster/brush";
-import { naturalizer, restartNaturalizer } from "../../platform";
+import { naturalizer } from "../../platform";
 import type { Ed } from "../ed";
 
 export interface ReadySlice {
   glowCorners: { current: number[] };
   reglow: () => void;
   onReady: (r: MapRenderer) => void;
+  /** A finger's press with something in hand: where it aims (the view's pixels: client coordinates), and whether the
+   *  finger is over its Cancel; null with none (render3d/touch.ts `FingerPress`, #1074 slice 3). */
+  fingerAim: FingerAim | null;
 }
 
 export function useReady(ed: Ed): ReadySlice {
@@ -32,6 +35,7 @@ export function useReady(ed: Ed): ReadySlice {
     grabSource, wheelSource, markerRef, setStartHint, hintRef, hintJob, lookForStartRef, pointerWords, flashNote,
     wheelHabit, pickTile
   } = ed;
+  const [fingerAim, setFingerAim] = useState<FingerAim | null>(null);
 
   /** Why a Naturalize stroke weathered nothing (showcase-craft gap 23): moist ground keeps its height (weather.ts,
    *  rule 3: farmland is never lost), so a stroke over moist soil, an island in a lake, changes nothing. */
@@ -108,16 +112,6 @@ export function useReady(ed: Ed): ReadySlice {
     if (glowAt.current && !painter.current?.painting) clearGlow(glowAt.current, null);
   }
 
-  /** The stroke being painted (or a Naturalize stroke landing): its ticket in the edit queue, made at pointer-down so
-   *  whatever the player does next waits behind it (I3, I8). */
-  const strokeTicket = useRef<number | null>(null);
-  /** The stroke ended without an operation (Esc, nothing changed, its worker never answered): its ticket goes. */
-  function dropStroke() {
-    const id = strokeTicket.current;
-    strokeTicket.current = null;
-    if (id !== null) edits.current.cancel(id);
-  }
-
   function onReady(r: MapRenderer) {
     renderer.current = r;
     setReady(r);
@@ -126,6 +120,9 @@ export function useReady(ed: Ed): ReadySlice {
     // (each call asks for it again: a worker that never answered is started again, #884)
     naturalizer();
     const nature = () => naturalizer();
+    // (a stroke's name in the Naturalize worker: its ticket, and the map's epoch, so a call left over from an editor
+    // that closed never names a stroke of the next one's)
+    const named = (id: number) => edits.current.epoch * 1_000_000 + id;
     painter.current = new BrushPainter({
       renderer: r,
       W: infoRef.current.W,
@@ -133,11 +130,10 @@ export function useReady(ed: Ed): ReadySlice {
       // (the queue's shown land, and the terrain it paints on: the worker's with the unanswered tickets laid on, I2)
       heights: () => edits.current.shown,
       terrain: () => edits.current.terrain(),
+      // (every stroke a ticket from pointer-down, I3, I8)
+      edits: () => edits.current,
       settings: () => ({ ...brushRef.current, tool: brushToolRef.current ?? "raise" }),
-      commit: (stroke, pre, protect) => {
-        const id = strokeTicket.current;
-        strokeTicket.current = null;
-        if (id === null) return;
+      commit: (stroke, id) => {
         lastStroke.current = stroke.params;
         juice.current?.edited();
         firstDoneRef.current("paint");
@@ -147,17 +143,9 @@ export function useReady(ed: Ed): ReadySlice {
         const clear = clears() ? sourcesPressed(spots(), stroke.params, stroke.params.dabs, infoRef.current.W).filter((c) => ed.inArea(c.tiles)) : [];
         endClearGlow();
         const op: EditOp = { op: "brush", params: stroke.params };
-        // (the stroke's ticket is ready: its operation, and the land it changed before and after, laid on what the page
-        // shows until the worker answers; the terrain under the stroke is still the queue's as it began, its refresh
-        // held while the stroke was drawn)
-        const q = edits.current;
-        const W = q.W;
-        const t = q.terrain();
-        q.ready(id, clear.length ? { kind: "edit", name: "strokeClearing", args: [op, stroke.label, clear.flatMap((c) => c.tiles)] } : { kind: "edit", name: "apply", args: [op, "user", stroke.label] }, {
-          rect: stroke.rect,
-          before: { heights: stroke.before.shown, pre: stroke.before.pre, protect: cut(t.protect, stroke.rect, W) },
-          after: { heights: stroke.after.shown, pre: cut(pre, stroke.rect, W), protect: cut(protect, stroke.rect, W) },
-        });
+        // (the stroke's ticket is ready: its operation, complete, and the land it changes before and after, laid on what
+        // the page shows until the worker answers, as the composer worked them out, strokeComposer.ts)
+        edits.current.ready(id, clear.length ? { kind: "edit", name: "strokeClearing", args: [op, stroke.label, clear.flatMap((c) => c.tiles)] } : { kind: "edit", name: "apply", args: [op, "user", stroke.label] }, stroke.overlay);
         void track(id, (u) => {
           if (!u.ok) return;
           // (a stroke that kept ground holding up a cave's or an overhang's rock, or an object under a roof, says how much
@@ -175,7 +163,6 @@ export function useReady(ed: Ed): ReadySlice {
       // (item 15: a Flatten at the ground's own level or a Smooth over flat land left them), one step;
       // a Naturalize stroke that weathered nothing says why beside the pointer (showcase-craft gap 23)
       unchanged: (params) => {
-        dropStroke();
         const clear = clears() ? sourcesPressed(spots(), params, params.dabs, infoRef.current.W).filter((c) => ed.inArea(c.tiles)) : [];
         endClearGlow();
         if (!clear.length) {
@@ -210,6 +197,8 @@ export function useReady(ed: Ed): ReadySlice {
       sourceGround: () => tilesToRuns([...new Set(spots().flatMap((c) => c.tiles))].sort((a, b) => a - b), infoRef.current.W),
       // Naturalize leaves the ground under every source and object as it is (D368 (8))
       objectGround: () => groundUnderObjects(objectList()),
+      // (and a stroke's operation records that ground, completed on the page as the session would, #922 step 4)
+      objects: () => objectList(),
       maxSize: () => sizeMax(infoRef.current.W, infoRef.current.H),
       // a mode's water (D322): the map's own, never a drought's or a badtide's shown now
       water: () => (weatherRef.current ? surfaceWater(infoRef.current.W, infoRef.current.H, mirror.current.mapWater).surface : (mirror.current.water?.surface ?? null)),
@@ -245,23 +234,7 @@ export function useReady(ed: Ed): ReadySlice {
       },
       // a new stroke puts away the last one's start hint (its water flows while it is painted, D197)
       painting: (on) => {
-        if (!on) {
-          juice.current?.strokeEnd();
-          // (a stroke that ends without an operation, Esc or a Naturalize stroke its worker never answered, takes its
-          // ticket with it; one that ends with one is committed right after this, in the same turn)
-          const id = strokeTicket.current;
-          queueMicrotask(() => {
-            if (strokeTicket.current === id) dropStroke();
-          });
-          return;
-        }
-        // (its ticket from pointer-down; the whole map is its until it lets go, so the worker's answers that come
-        // meanwhile are laid once it does, never under the brush, #410)
-        dropStroke();
-        const q = edits.current;
-        const id = q.stroke(BRUSH_NAMES[brushToolRef.current ?? "raise"]);
-        q.painted(id, { x0: 0, y0: 0, x1: q.W - 1, y1: q.H - 1 });
-        strokeTicket.current = id;
+        if (!on) return juice.current?.strokeEnd();
         hintJob.current++;
         setStartHint(null);
       },
@@ -271,26 +244,16 @@ export function useReady(ed: Ed): ReadySlice {
       },
       wet: (x, y) => (mirror.current.water?.depth[y * infoRef.current.W + x] ?? 0) > 0.05,
       depth: (x, y) => mirror.current.water?.depth[y * infoRef.current.W + x] ?? 0,
-      // the water flows on the stroke while it is painted (D197)
-      draft: (rect, heights) => void api.draftStroke(rect, transfer(heights, [heights.buffer as ArrayBuffer])),
-      cancelDraft: () => void api.cancelDraft(),
       // a Naturalize stroke's land, worked out in its own worker (D422, #868) on the terrain and the land the page
-      // shows, as the other brushes' are on the page (its water from the map's worker, as theirs is)
+      // shows, as the other brushes' are on the page (its water from the map's worker, through the queue, as theirs
+      // is); a worker that never answers in time is started again by the queue's watchdog (useSession.ts, #884)
       weather: {
-        begin: (settings, ground) => {
-          const shown = mirror.current.heights.slice();
-          const { W, H } = infoRef.current;
-          return nature().weatherBegin(settings, ground.map((r) => [r[0], r[1], r[2]] as [number, number, number]), edits.current.terrain(), transfer(shown, [shown.buffer]), W, H);
-        },
-        add: (dabs, pressure) => nature().weatherAdd(dabs, pressure),
-        finish: (rigid) => nature().weatherFinish(rigid),
-        end: () => nature().weatherEnd(),
-        cancel: () => void nature().weatherCancel(),
-        // (it never answered a stroke in time: a fresh one for the next, #884)
-        restart: () => restartNaturalizer(),
+        begin: (id, settings, ground, state, heights, W, H) => nature().weatherBegin(settings, ground, state, transfer(heights, [heights.buffer as ArrayBuffer]), W, H, named(id)),
+        add: (id, dabs, pressure) => nature().weatherAdd(dabs, pressure, named(id)),
+        finish: (id, rigid) => nature().weatherFinish(rigid, named(id)),
+        end: (id) => nature().weatherEnd(named(id)),
+        cancel: (id) => void nature().weatherCancel(named(id)),
       },
-      // (a stroke its worker never answered in time, taken back: the one line says why, #884)
-      refuse: (text) => ed.setMessage({ kind: "error", text }),
     });
     r.onSlice = (level) => setSliceLevel(level);
     r.onMarkers = (on) => setMarkersOn(on);
@@ -312,6 +275,13 @@ export function useReady(ed: Ed): ReadySlice {
       setPicked(null);
       setPickedObject(null);
     };
+    // a two-finger tap undoes and a three-finger tap redoes, as Z and C do (render3d/touch.ts, #1074)
+    r.onFingers = (n) => void (n === 2 ? ed.undo() : ed.redo());
+    // a finger's press with an object or a source picked moves it, wherever the press lands; the press's aim shows, with
+    // its Cancel (render3d/touch.ts, #1074 slice 3)
+    r.holdsPicked = () => ed.heldCalls.current.holding();
+    r.grabHeld = () => ed.heldCalls.current.grabHeld();
+    r.onPress = (p) => setFingerAim(p);
     const onView = r.onView;
     let pending = false;
     r.onView = (v: ViewState) => {
@@ -328,5 +298,5 @@ export function useReady(ed: Ed): ReadySlice {
     setViewTick((n) => n + 1);
   }
 
-  return { glowCorners, reglow, onReady };
+  return { glowCorners, reglow, onReady, fingerAim };
 }

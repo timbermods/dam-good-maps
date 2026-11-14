@@ -18,6 +18,8 @@ import { openTogether } from "./collab/togetherOpen";
 import { fitsHeaderTwoLines, limitName, linesIn } from "./nameFit";
 import { HelpPanels, REPORT_TIP, reportProblem, showHelpPanel } from "./help/helpPanels";
 import { GENERATOR_VERSION } from "../core/spec/mapspec";
+import { BLANK_LEVEL, BLANK_MAX_LEVEL, BLANK_SIZES } from "../core/doc/blankLimits";
+import { ChoiceSetting, NumberSetting } from "./settings";
 
 const ICON = { width: 18, height: 18, viewBox: "0 0 20 20", "aria-hidden": "true" as const, fill: "none", stroke: "currentColor", "stroke-width": 1.8, "stroke-linecap": "round" as const, "stroke-linejoin": "round" as const };
 
@@ -380,6 +382,8 @@ export interface HeaderProps {
   /** Pick or change the folder Save to Timberborn writes to. */
   onChooseFolder(): void;
   onOpenFile(file: File): void;
+  /** File → New blank map…: flat, dry ground of this size at this level. */
+  onNewBlank(size: number, level: number): void;
   onSaveProject(): void;
   /** File → Save a picture (the map from the game's opening view, large, as a JPEG), where this browser draws in 3D. */
   onSavePicture?: () => void;
@@ -404,12 +408,16 @@ export interface HeaderProps {
   /** File → Record a time-lapse… (D205, D285 (4)), where this browser can make a video: the map's project and its
    *  history's steps (src/editor/timelapse). */
   timelapse?: { project(): Promise<{ bytes: Uint8Array; fileName: string }>; steps: number };
+  /** A phone's layout (#1074): one slim bar, a menu holding the panels, History, Help and File's entries, then the
+   *  map's name, Undo, Redo, the checks' dot and Save. */
+  phone?: "upright" | "side" | null;
 }
 
 export function Header(p: HeaderProps) {
   const [menu, setMenu] = useState(false);
   const fileMenu = useMenuPresence(menu);
   const [about, setAbout] = useState(false);
+  const [newBlank, setNewBlank] = useState(false);
   const [describing, setDescribing] = useState(false);
   // (the time-lapse's dialog, loaded the first time it is asked for)
   const [lapse, setLapse] = useState<typeof import("./timelapse/TimelapseDialog").TimelapseDialog | null>(null);
@@ -426,11 +434,15 @@ export function Header(p: HeaderProps) {
   // the name ellipsizes, down to about 80px
   const bar = useRef<HTMLElement>(null);
   const fit = useRef<() => void>(() => undefined);
+  const phoneRef = useRef(p.phone);
+  phoneRef.current = p.phone;
   // (laid out in the commit itself, before the browser draws: the title is never drawn at a fit that is a draw behind)
   useLayoutEffect(() => {
     const el = bar.current;
     if (!el || typeof ResizeObserver === "undefined") return;
     const note = () => {
+      // (a phone's bar lays its name out by CSS alone: one or two lines in the room between the menu and Undo)
+      if (phoneRef.current) return;
       const h = el.getBoundingClientRect();
       // (the left group: Map Generator and Your maps)
       const ls = [...el.querySelectorAll(".new-map")].map((e) => e.getBoundingClientRect().right);
@@ -476,7 +488,7 @@ export function Header(p: HeaderProps) {
     el.querySelectorAll(".new-map, .editor-actions").forEach((g) => watch.observe(g));
     return () => watch.disconnect();
   }, []);
-  useLayoutEffect(() => fit.current(), [p.name, p.saveState, p.info.spec?.seed, p.info.W, p.info.H]);
+  useLayoutEffect(() => fit.current(), [p.name, p.saveState, p.info.spec?.seed, p.info.W, p.info.H, p.phone]);
   useEffect(() => {
     if (!menu) return;
     const off = (e: PointerEvent) => {
@@ -497,31 +509,202 @@ export function Header(p: HeaderProps) {
   const saving = p.saving;
   const primary = p.canFolder ? "timberborn" : "download";
   const savingWords = saving ? `Saving…${saving.progress ? ` ${Math.round(saving.progress.done * 100)}%` : ""}` : null;
+  const fileItems = (
+    <>
+      <li role="none">
+        <button type="button" role="menuitem" title="Open a map or a project" onClick={pick(() => file.current?.click())}>
+          Open…
+        </button>
+      </li>
+      <li role="none">
+        <button type="button" role="menuitem" {...tip("Start a map on flat, empty ground")} onClick={pick(() => setNewBlank(true))}>
+          New blank map…
+        </button>
+      </li>
+      <li role="none">
+        <button type="button" role="menuitem" {...tip("The map's name and the words the game shows with it")} onClick={pick(() => setDescribing(true))}>
+          Description…
+        </button>
+      </li>
+      {p.togetherEntry ? (
+        <li role="none" class="menu-together">
+          <button type="button" role="menuitem" {...tip("Edit this map with someone else")} onClick={pick(openTogether)}>
+            Together…
+          </button>
+        </li>
+      ) : null}
+      <li role="none">
+        <button type="button" role="menuitem" title="Download the map and its edits as a project" onClick={pick(p.onSaveProject)}>
+          Download project
+        </button>
+      </li>
+      {p.canFolder ? (
+        <li role="none">
+          <button type="button" role="menuitem" disabled={!!saving} title="Download the .timber file" onClick={pick(() => p.onSave("download"))}>
+            {saving?.kind === "download" ? savingWords : "Download .timber"}
+          </button>
+        </li>
+      ) : null}
+      {p.canFolder ? (
+        <li role="none">
+          <button type="button" role="menuitem" disabled={!!saving} title="Pick Timberborn's Maps folder" onClick={pick(p.onChooseFolder)}>
+            Choose Maps folder…
+          </button>
+        </li>
+      ) : null}
+      {p.timelapse ? (
+        <li role="none">
+          <button type="button" role="menuitem" {...tip("Save a video of how the map was built")} onClick={pick(openLapse)}>
+            Record a time-lapse…
+          </button>
+        </li>
+      ) : null}
+      {p.onSavePicture ? (
+        <li role="none">
+          <button type="button" role="menuitem" {...tip("Save a picture of the map to share")} onClick={pick(p.onSavePicture)}>
+            Save a picture
+          </button>
+        </li>
+      ) : null}
+      <li role="none">
+        <button type="button" role="menuitem" title="Take away every object; the land stays" onClick={pick(p.onClearEverything)}>
+          Clear everything
+        </button>
+      </li>
+      <li role="none">
+        <button type="button" role="menuitem" title="About Dam Good Maps: the version, the credits, the licences" onClick={pick(() => setAbout(true))}>
+          About
+        </button>
+      </li>
+    </>
+  );
+  const helpItems = (
+    <>
+      <li role="none" class="menu-rule">
+        <button type="button" role="menuitem" {...tip("Every shortcut in the editor", "?")} onClick={pick(() => showHelpPanel("shortcuts"))}>
+          Keyboard shortcuts
+        </button>
+      </li>
+      <li role="none">
+        <button type="button" role="menuitem" {...tip("How to make a map and save it")} onClick={pick(() => showHelpPanel("help"))}>
+          Help
+        </button>
+      </li>
+    </>
+  );
+  const reportItem = (
+    <>
+      <li role="none">
+        <button type="button" role="menuitem" {...tip(REPORT_TIP)} onClick={pick(reportProblem)}>
+          Report a problem
+        </button>
+      </li>
+    </>
+  );
+  // (a phone's menu: the panels and History, which its slim bar has no room for, then Help with the keys in it)
+  const phoneItems = (
+    <>
+      <li role="none">
+        <button type="button" role="menuitem" aria-pressed={p.drawerOpen} {...tip(p.drawerOpen ? "Close the map generator" : "Make a new map and change its settings")} onClick={pick(p.onDrawer)}>
+          Map Generator
+        </button>
+      </li>
+      <li role="none">
+        <button type="button" role="menuitem" aria-pressed={p.placesOpen} {...tip(p.placesOpen ? "Close Real places" : "Open a map made from real land")} onClick={pick(p.onPlaces)}>
+          Real places
+        </button>
+      </li>
+      <li role="none">
+        <button type="button" role="menuitem" aria-pressed={p.mapsOpen} {...tip(p.mapsOpen ? "Close Your maps" : "Open a map you made")} onClick={pick(p.onMaps)}>
+          Your maps
+        </button>
+      </li>
+      <li role="none">
+        <button type="button" role="menuitem" aria-pressed={p.historyOpen} {...tip("Every step of the map's history")} onClick={pick(p.onHistory)}>
+          History
+        </button>
+      </li>
+      <li role="none">
+        <button type="button" role="menuitem" {...tip("How to make a map, and every shortcut", "?")} onClick={pick(() => showHelpPanel("help"))}>
+          Help and keys
+        </button>
+      </li>
+      <li role="none" class="menu-rule" aria-hidden="true" />
+    </>
+  );
+  const menuWrap = (
+    <div class="menu-wrap" ref={wrap}>
+      <button type="button" class={`ghost file-button${p.phone ? " phone-menu-button" : ""}${p.togetherEntry?.other ? " with-dot" : ""}`} aria-haspopup="menu" aria-expanded={menu} aria-label={p.phone ? "Menu" : undefined} title={p.phone ? "Make, open and save maps, and find Help" : "Open and download maps, and find Help"} onClick={() => setMenu(!menu)}>
+        {p.phone ? (
+          <svg {...ICON}>
+            <path d="M3 5h14M3 10h14M3 15h14" />
+          </svg>
+        ) : (
+          <span class="label">File</span>
+        )}
+        {/* (the dot says who in File's name while it shows: under 1,340px, where Together's own button is not there) */}
+        {p.togetherEntry?.other ? (
+          <span class={`together-dot file-together-dot who-${p.togetherEntry.role}${p.togetherEntry.paused ? " paused" : ""}`}>
+            <span class="visually-hidden">(together with {p.togetherEntry.name})</span>
+          </span>
+        ) : null}
+      </button>
+      {fileMenu.mounted ? (
+        <ul class={`menu${p.phone ? " phone-menu" : ""}`} role="menu" aria-label={p.phone ? "Menu" : "File"} data-closing={fileMenu.closing ? "" : undefined}>
+          {p.phone ? phoneItems : null}
+          {fileItems}
+          {p.phone ? null : helpItems}
+          {reportItem}
+        </ul>
+      ) : null}
+      <input
+        ref={file}
+        type="file"
+        class="visually-hidden"
+        tabIndex={-1}
+        accept=".timber,.json,.gz,application/json"
+        aria-label="Open a map or a project"
+        onChange={(e) => {
+          const input = e.target as HTMLInputElement;
+          const f = input.files?.[0];
+          input.value = "";
+          if (f) p.onOpenFile(f);
+        }}
+      />
+    </div>
+  );
   return (
-    <header class="editor-bar" ref={bar}>
-      <button type="button" class="ghost new-map" aria-pressed={p.drawerOpen} {...tip(p.drawerOpen ? "Close the map generator" : "Make a new map and change its settings", p.drawerOpen && "Esc")} onClick={p.onDrawer}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z" />
-          <path d="M9 3v15M15 6v15" />
-        </svg>
-        <span class="label">Map Generator</span>
-      </button>
-      <button type="button" class="ghost new-map" aria-pressed={p.placesOpen} title={p.placesOpen ? "Close Real places" : "Open a map made from real land"} onClick={p.onPlaces}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z" />
-        </svg>
-        <span class="label">Real places</span>
-      </button>
-      <button type="button" class="ghost new-map your-maps-button" aria-pressed={p.mapsOpen} title={p.mapsOpen ? "Close Your maps" : "Open a map you made"} onClick={p.onMaps}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="3" y="3" width="7.5" height="7.5" rx="1" />
-          <rect x="13.5" y="3" width="7.5" height="7.5" rx="1" />
-          <rect x="3" y="13.5" width="7.5" height="7.5" rx="1" />
-          <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1" />
-        </svg>
-        <span class="label">Your maps</span>
-      </button>
+    <header class={`editor-bar${p.phone ? " phone-bar" : ""}`} ref={bar}>
+      {p.phone ? menuWrap : null}
+      {/* (a phone's Together: its panel, opened from the menu's Together…; its own button is the desktop's) */}
+      {p.phone ? p.together : null}
+      {p.phone ? null : (
+        <>
+          <button type="button" class="ghost new-map" aria-pressed={p.drawerOpen} {...tip(p.drawerOpen ? "Close the map generator" : "Make a new map and change its settings", p.drawerOpen && "Esc")} onClick={p.onDrawer}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z" />
+              <path d="M9 3v15M15 6v15" />
+            </svg>
+            <span class="label">Map Generator</span>
+          </button>
+          <button type="button" class="ghost new-map" aria-pressed={p.placesOpen} title={p.placesOpen ? "Close Real places" : "Open a map made from real land"} onClick={p.onPlaces}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z" />
+            </svg>
+            <span class="label">Real places</span>
+          </button>
+          <button type="button" class="ghost new-map your-maps-button" aria-pressed={p.mapsOpen} title={p.mapsOpen ? "Close Your maps" : "Open a map you made"} onClick={p.onMaps}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="7.5" height="7.5" rx="1" />
+              <rect x="13.5" y="3" width="7.5" height="7.5" rx="1" />
+              <rect x="3" y="13.5" width="7.5" height="7.5" rx="1" />
+              <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1" />
+            </svg>
+            <span class="label">Your maps</span>
+          </button>
+        </>
+      )}
       <div class="editor-title">
         <TitleName name={p.name} described={p.info.descriptionWritten ? p.info.description : ""} kept={p.info.descriptionKept} onDescribe={p.onDescribe} clipped={clipped} onShown={() => fit.current()} onRename={p.onRename} onProblem={setProblem} locked={p.renameLocked} />
         <span class={`muted${problem ? " title-problem" : ""}`} role={problem ? "alert" : undefined}>
@@ -548,9 +731,11 @@ export function Header(p: HeaderProps) {
       </div>
       <div class="editor-actions" role="toolbar" aria-label="Edit">
         {/* History, a button of its own left of Undo (Kyler, 2026-10-06): pressed while its panel is open */}
-        <button type="button" class="ghost history-button" aria-pressed={p.historyOpen} {...tip("Every step of the map's history")} onClick={p.onHistory}>
-          <span class="label">History</span>
-        </button>
+        {p.phone ? null : (
+          <button type="button" class="ghost history-button" aria-pressed={p.historyOpen} {...tip("Every step of the map's history")} onClick={p.onHistory}>
+            <span class="label">History</span>
+          </button>
+        )}
         <button type="button" class="ghost icon-button" onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo (Ctrl+Z)" {...tip("Undo", "Z", "Ctrl+Z")}>
           <svg {...ICON}>
             <path d="M7 5L3 9l4 4M3 9h9a5 5 0 0 1 0 10h-2" />
@@ -562,123 +747,75 @@ export function Header(p: HeaderProps) {
           </svg>
         </button>
         {p.dot}
-        <button type="button" class="primary" disabled={!!saving} onClick={() => p.onSave(primary)} title={p.canFolder ? "Save it into Timberborn's Maps folder" : "Download it for Timberborn's Maps folder"}>
-          <span class="label">{saving?.kind === primary ? savingWords : p.canFolder ? "Save to Timberborn" : "Download .timber"}</span>
+        <button type="button" class="primary save-button" disabled={!!saving} onClick={() => p.onSave(primary)} aria-label={p.phone ? (p.canFolder ? "Save to Timberborn" : "Download .timber") : undefined} title={p.canFolder ? "Save it into Timberborn's Maps folder" : "Download it for Timberborn's Maps folder"}>
+          {/* (a phone's slim bar: the one word; its name and tooltip say the rest) */}
+          <span class="label">{saving?.kind === primary ? savingWords : p.phone ? "Save" : p.canFolder ? "Save to Timberborn" : "Download .timber"}</span>
         </button>
-        {p.look}
-        {p.together}
-        <div class="menu-wrap" ref={wrap}>
-          <button type="button" class={`ghost file-button${p.togetherEntry?.other ? " with-dot" : ""}`} aria-haspopup="menu" aria-expanded={menu} title="Open and download maps, and find Help" onClick={() => setMenu(!menu)}>
-            <span class="label">File</span>
-            {/* (the dot says who in File's name while it shows: under 1,340px, where Together's own button is not there) */}
-            {p.togetherEntry?.other ? (
-              <span class={`together-dot file-together-dot who-${p.togetherEntry.role}${p.togetherEntry.paused ? " paused" : ""}`}>
-                <span class="visually-hidden">(together with {p.togetherEntry.name})</span>
-              </span>
-            ) : null}
-          </button>
-          {fileMenu.mounted ? (
-            <ul class="menu" role="menu" aria-label="File" data-closing={fileMenu.closing ? "" : undefined}>
-              <li role="none">
-                <button type="button" role="menuitem" title="Open a map or a project" onClick={pick(() => file.current?.click())}>
-                  Open…
-                </button>
-              </li>
-              <li role="none">
-                <button type="button" role="menuitem" {...tip("The map's name and the words the game shows with it")} onClick={pick(() => setDescribing(true))}>
-                  Description…
-                </button>
-              </li>
-              {p.togetherEntry ? (
-                <li role="none" class="menu-together">
-                  <button type="button" role="menuitem" {...tip("Edit this map with someone else")} onClick={pick(openTogether)}>
-                    Together…
-                  </button>
-                </li>
-              ) : null}
-              <li role="none">
-                <button type="button" role="menuitem" title="Download the map and its edits as a project" onClick={pick(p.onSaveProject)}>
-                  Download project
-                </button>
-              </li>
-              {p.canFolder ? (
-                <li role="none">
-                  <button type="button" role="menuitem" disabled={!!saving} title="Download the .timber file" onClick={pick(() => p.onSave("download"))}>
-                    {saving?.kind === "download" ? savingWords : "Download .timber"}
-                  </button>
-                </li>
-              ) : null}
-              {p.canFolder ? (
-                <li role="none">
-                  <button type="button" role="menuitem" disabled={!!saving} title="Pick Timberborn's Maps folder" onClick={pick(p.onChooseFolder)}>
-                    Choose Maps folder…
-                  </button>
-                </li>
-              ) : null}
-              {p.timelapse ? (
-                <li role="none">
-                  <button type="button" role="menuitem" {...tip("Save a video of how the map was built")} onClick={pick(openLapse)}>
-                    Record a time-lapse…
-                  </button>
-                </li>
-              ) : null}
-              {p.onSavePicture ? (
-                <li role="none">
-                  <button type="button" role="menuitem" {...tip("Save a picture of the map to share")} onClick={pick(p.onSavePicture)}>
-                    Save a picture
-                  </button>
-                </li>
-              ) : null}
-              <li role="none">
-                <button type="button" role="menuitem" title="Take away every object; the land stays" onClick={pick(p.onClearEverything)}>
-                  Clear everything
-                </button>
-              </li>
-              <li role="none">
-                <button type="button" role="menuitem" title="About Dam Good Maps: the version, the credits, the licences" onClick={pick(() => setAbout(true))}>
-                  About
-                </button>
-              </li>
-              <li role="none" class="menu-rule">
-                <button type="button" role="menuitem" {...tip("Every shortcut in the editor", "?")} onClick={pick(() => showHelpPanel("shortcuts"))}>
-                  Keyboard shortcuts
-                </button>
-              </li>
-              <li role="none">
-                <button type="button" role="menuitem" {...tip("How to make a map and save it")} onClick={pick(() => showHelpPanel("help"))}>
-                  Help
-                </button>
-              </li>
-              <li role="none">
-                <button type="button" role="menuitem" {...tip(REPORT_TIP)} onClick={pick(reportProblem)}>
-                  Report a problem
-                </button>
-              </li>
-            </ul>
-          ) : null}
-          <input
-            ref={file}
-            type="file"
-            class="visually-hidden"
-            tabIndex={-1}
-            accept=".timber,.json,.gz,application/json"
-            aria-label="Open a map or a project"
-            onChange={(e) => {
-              const input = e.target as HTMLInputElement;
-              const f = input.files?.[0];
-              input.value = "";
-              if (f) p.onOpenFile(f);
-            }}
-          />
-        </div>
+        {p.phone ? null : (
+          <>
+            {p.look}
+            {p.together}
+            {menuWrap}
+          </>
+        )}
       </div>
       {about ? <About onClose={() => setAbout(false)} /> : null}
+      {newBlank ? (
+        <NewBlank
+          onClose={() => setNewBlank(false)}
+          onMake={(size, level) => {
+            setNewBlank(false);
+            p.onNewBlank(size, level);
+          }}
+        />
+      ) : null}
       {describing ? (
         <Describe name={p.name} text={p.info.description} written={p.info.descriptionWritten} stale={p.info.descriptionStale} kept={p.info.descriptionKept} locked={p.renameLocked} onRename={p.onRename} onDescribe={p.onDescribe} onClose={() => setDescribing(false)} />
       ) : null}
       {lapse && p.timelapse ? h(lapse, { project: p.timelapse.project, steps: p.timelapse.steps, onClose: () => setLapse(null) }) : null}
       <HelpPanels />
     </header>
+  );
+}
+
+/** New blank map (File → New blank map…): its size (the generator's own) and its ground level, then flat, dry ground
+ *  with the start at its middle (core/doc/blank.ts). */
+function NewBlank(p: { onClose(): void; onMake(size: number, level: number): void }) {
+  const [size, setSize] = useState(128);
+  const [level, setLevel] = useState(BLANK_LEVEL);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") p.onClose();
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, []);
+  return (
+    <div class="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && p.onClose()}>
+      <form
+        class="dialog new-blank"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-blank-head"
+        onSubmit={(e) => {
+          e.preventDefault();
+          p.onMake(size, level);
+        }}
+      >
+        <h2 id="new-blank-head">New blank map</h2>
+        <p>Flat, dry ground with the start at its middle.</p>
+        <ChoiceSetting<number> line label="Size" title="How many tiles a side" value={size} options={BLANK_SIZES.map((v) => [v, String(v), `Size: ${v} × ${v}`] as const)} onChange={setSize} />
+        <NumberSetting line label="Ground level" title="The level the whole map starts at" value={level} min={1} max={BLANK_MAX_LEVEL} step={1} onChange={setLevel} />
+        <footer>
+          <button type="button" class="ghost" title="Keep the open map" onClick={p.onClose}>
+            Cancel
+          </button>
+          <button type="submit" class="primary" title="Make the blank map and open it" autoFocus>
+            Make the map
+          </button>
+        </footer>
+      </form>
+    </div>
   );
 }
 

@@ -103,7 +103,8 @@ describe("an edit never waits on the water (live editing)", () => {
     }
     const u = ed.apply({ op: "sculpt", params: { mode: "lower", cells: box(at![0] - 2, at![1] - 2, at![0] + 2, at![1] + 2), amount: 1 } });
     expect(u.ok).toBe(true);
-    expect(u.view.heights).toBeDefined();
+    // (the land it changed, over its rectangle, #922 step 4)
+    expect(u.view.land?.heights).toBeDefined();
     expect(ed.waterSettling()).toBe(true);
     ed.settleWater();
     expect(ed.waterSettling()).toBe(false);

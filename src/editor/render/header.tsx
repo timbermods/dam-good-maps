@@ -47,6 +47,7 @@ export function header(ed: Ed, props: EditorProps) {
       onSave={(kind) => void saveMap(kind)}
       onChooseFolder={() => void ed.chooseFolder()}
       onOpenFile={props.onOpenFile}
+      onNewBlank={props.onNewBlank}
       onSaveProject={() => void exportProject()}
       onSavePicture={canDrawPicture() ? () => void exportPicture() : undefined}
       onClearEverything={() => void run((w) => w.clearEverything(), (u) => u.ok && flashNote("Cleared: undo brings it all back"))}
@@ -66,6 +67,7 @@ export function header(ed: Ed, props: EditorProps) {
       onMaps={() => props.onMaps(!props.mapsOpen)}
       placesOpen={props.placesOpen}
       onPlaces={() => props.onPlaces(!props.placesOpen)}
+      phone={ed.phone}
       look={<LookMenu renderer={renderer.current} buttonClass="ghost" />}
       together={together && collab ? <Together controller={together} state={collab} /> : null}
       timelapse={

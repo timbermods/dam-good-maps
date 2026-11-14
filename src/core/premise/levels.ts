@@ -26,6 +26,29 @@ export const WATER = {
   designDepth: 0.3,
 } as const;
 
+/** A lake through a drought (PREMISES §4.4 `drought.lakes`): every source stops, a lake whose sill has a notch or a
+ *  breach a level deep sinks to it, and the sun takes the rest off its surface. The lake keeps `keep` of its water at
+ *  the drought's worst day when its floor stands `holdDeep` under its sill. */
+export const HOLD = {
+  /** The share of its day-1 water a lake keeps at the worst day of the difficulty's longest drought: most of it. */
+  keep: 0.55,
+  /** What the sun takes off a lake's open water a day (`sim/drought.ts`: 1e-4 a second × the saturation modifier,
+   *  about 1.16 there, × `SECONDS_PER_DAY`). */
+  sun: 0.0535,
+  /** The head a lake stands over its sill on day 1 (0.1 to 0.35 by the table), as the drought counts it. */
+  head: 0.2,
+  /** The deepest a lake's floor goes under its sill. */
+  most: 5,
+} as const;
+
+/** How deep under its sill a lake's floor stands to keep `HOLD.keep` of its water through `days` of drought, when its
+ *  sill drops a level (a notch or a breach) or not: the least whole depth `d` with (d − drop − sun × days) ÷ (d + head)
+ *  at least `keep`; 2 at least, `HOLD.most` at most. */
+export function holdDeep(drops: boolean, days: number): number {
+  const lost = (drops ? 1 : 0) + HOLD.sun * days + HOLD.keep * HOLD.head;
+  return Math.max(2, Math.min(HOLD.most, Math.ceil(lost / (1 - HOLD.keep) - 1e-9)));
+}
+
 /** A lip's width for the flow over it: `sillWidthFor`, never over `MAX_SILL_WIDTH` (16), and never under 8 plus its
  *  piers, notch and breach (`stair.settled` asks 8 tiles that pour; a pier pours nothing, and at a step of 3 a notch
  *  or breach a level deeper drops 2 and some, a rapid, not the curtain). */
@@ -62,6 +85,9 @@ export interface LinkFlow {
   wet: boolean;
   /** A row of Blockages shuts it on day 1. */
   shut: boolean;
+  /** Where a link carries only water that joins it (`Link.joins`): its water from this far along its path down; dry
+   *  above. Absent, its water runs its whole length. */
+  wetFrom?: number;
 }
 
 export interface WaterTable {
@@ -188,9 +214,17 @@ function route(plan: PremisePlan, bodies: Map<string, Body>, widths: Map<string,
     const b = bodies.get(id)!;
     const q = inflow.get(id) ?? 0;
     const bad = badIn.get(id) ?? 0;
-    const outs = plan.links.filter((l) => l.from === id && open(l)).map((l) => ({ l, w: widths.get(l.id) ?? 1, weir: weir.has(l.id) }));
+    // (a link into a backwater takes no share: the backwater fills from it, then it carries nothing, `Body.backwater`)
+    const back = plan.links.filter((l) => l.from === id && open(l) && bodies.get(l.to)?.backwater);
+    const outs = plan.links.filter((l) => l.from === id && open(l) && !bodies.get(l.to)?.backwater).map((l) => ({ l, w: widths.get(l.id) ?? 1, weir: weir.has(l.id) }));
     const level = q > 0 && outs.length ? levelFor(q, outs, b) : b.sill;
     out.bodies[id] = { id, sill: b.sill, level, inflow: q, bad, dry: !(q > 0), outlets: outs.map((o) => o.l.id) };
+    // (a backwater stands at its feeder's level, filled; its link is wet and carries nothing)
+    if (b.backwater && !(q > 0)) {
+      const feeder = plan.links.find((l) => l.to === id && open(l) && out.bodies[l.from] && !out.bodies[l.from].dry);
+      if (feeder) out.bodies[id] = { ...out.bodies[id], level: out.bodies[feeder.from].level, dry: false };
+    }
+    for (const l of back) if (q > 0) out.links[l.id].wet = true;
     if (!(q > 0)) continue;
     let total = 0;
     for (const o of outs) total += carried(o.l, b, o.w, level, o.weir);
@@ -210,6 +244,17 @@ function route(plan: PremisePlan, bodies: Map<string, Body>, widths: Map<string,
     lf.flow += s.strength;
     if (s.bad) lf.bad += s.strength;
     lf.wet = true;
+  }
+  // a wet link into a dry link's bed (`Link.joins`): the bed carries its water from where it joins down to its end
+  for (const l of plan.links) {
+    const lf = out.links[l.id];
+    const into = l.joins ? out.links[l.joins.link] : undefined;
+    if (!l.joins || !into || !lf.wet) continue;
+    const dry = !into.wet;
+    into.flow += lf.flow;
+    into.bad += lf.bad;
+    into.wet = true;
+    if (dry || into.wetFrom !== undefined) into.wetFrom = Math.min(into.wetFrom ?? Infinity, l.joins.at);
   }
   for (const l of plan.links) {
     const lf = out.links[l.id];

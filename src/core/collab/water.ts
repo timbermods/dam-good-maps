@@ -38,7 +38,10 @@ export class WaterBarrier {
   pump(ticks = Infinity): boolean {
     if (this.settled) return true;
     this.run ??= this.session.canonicalRun();
-    const water = this.run.advance(ticks);
+    let water = this.run.advance(ticks);
+    // (a run may hand back between its phases with budget left: after it takes the unfed water and settles on, or
+    // when a map with a seep starts again on one thread; a slice to the end goes on to the water, as `canonicalSettle` does)
+    while (!water && ticks === Infinity) water = this.run.advance(Infinity);
     if (!water) return false;
     const run = this.run;
     this.run = null;

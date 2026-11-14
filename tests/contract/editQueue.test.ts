@@ -3,9 +3,9 @@
 // oracle, and one pinned scenario per issue of the family (#410, #873, #880, #884, #868, #829) and per failure nobody
 // had filed (U1–U10, #922).
 //
-// The page does not use the queue yet. The harness plays the page as steps 2 and 3 make it play (strokes, moves and
-// edits as tickets; Naturalize through `StrokeFeed`; a map switch awaiting `idle()`), so each scenario passes here now
-// and is the acceptance test the page's step must meet: its title says which step ("step 2", "step 3", "step 4").
+// The harness plays the page as steps 2 to 4 make it play (strokes, moves and edits as tickets; Naturalize through
+// `StrokeFeed`; a map switch awaiting `idle()`; every stroke composed complete by the one composer, and answers' land
+// laid from their patches), so each scenario is the acceptance test of the step its title names ("step 2" to "step 4").
 // Where today's page still behaves otherwise, its own tests (tests/unit/remoteStroke.test.ts) keep asserting today's
 // behaviour until that step changes it (D148): planning's three rulings on #922's behaviours are asserted here, on the
 // queue, already.
@@ -25,6 +25,9 @@ const W = 48;
 let P1: Uint8Array;
 let P2: Uint8Array;
 
+// (the Naturalize strokes at (20, 26) and (30, 10) since generator 0.10.16's ground with grade, D148: on River Valley
+// 48² seed 11's graded slopes a stroke at (20, 30) or (10, 35) weathers nothing, so the stroke is let go as one that
+// changed nothing and never lands)
 beforeAll(() => {
   P1 = mapProject(11, "riverValley", W);
   P2 = mapProject(12, "riverValley", W);
@@ -73,7 +76,7 @@ describe("the edit queue against the worker: pinned scenarios", () => {
   it("#873 (step 3): a Naturalize stroke's operation is built once, from its worker's whole record", async () => {
     const h = new Harness(P1);
     const id = h.press("naturalize", 5, { seed: 3 });
-    await h.drag(line(20, 30, 12));
+    await h.drag(line(20, 26, 12));
     await h.letGo();
     await h.settle();
     const t = h.queue.ticket(id)!;
@@ -82,28 +85,32 @@ describe("the edit queue against the worker: pinned scenarios", () => {
     const logged = (lastOp() as Extract<EditOp, { op: "brush" }>).params;
     // (the record the worker's preview grew is the one the session replays)
     for (const k of ["weathering", "shore", "pools", "moist", "dabs", "seed"] as const) expect(logged[k], k).toEqual(sent[k]);
-    // (whether it lands as it was shown is step 4's: below)
+    // (and it lands as it was shown: step 4's, below)
     checkConverged(h, "#873");
     checkOracle(h, h.queue.epoch, "#873");
   });
 
-  it("#873 (step 4's acceptance, today's gap): the session still completes a Naturalize stroke with what only it works out", async () => {
-    // (step 4's composer completes the operation on the page, `completeStroke`, so the session adds nothing and the
-    // operation logged deep-equals the operation sent; step 4 changes this list to [] and the oracle's I6 then covers
-    // every stroke)
+  it("#873 (step 4): the page completes a Naturalize stroke itself: the session adds nothing, and it lands as it was shown", async () => {
+    // (step 4's composer completes the operation on the page, strokeComposer.ts `completeStroke`, so the operation logged
+    // deep-equals the operation sent and the oracle's I6 covers every stroke; until step 4 this test pinned the gap: the
+    // session added `hold` and `keep`, and the hold's tiles came back protected, one wrong guess in `protect`, D148;
+    // from (20, 40) since generator 0.10.20's contour edges, D518, D148: on River Valley 11's new land water stands on
+    // the ring round (20, 26)'s working rectangle; from (20, 32) since generator 0.10.21's look round, D518, D148: the land's
+    // long straight steps jog, so the ring round (20, 40) holds no water; (20, 32) holds the ground and has objects under it)
     const h = new Harness(P1);
     const id = h.press("naturalize", 5, { seed: 3 });
-    await h.drag(line(20, 30, 12));
+    await h.drag(line(20, 32, 12));
     await h.letGo();
     await h.settle();
     const sent = ((h.queue.ticket(id)!.call as { args: unknown[] }).args[0] as Extract<EditOp, { op: "brush" }>).params;
     const logged = (lastOp() as Extract<EditOp, { op: "brush" }>).params;
-    const added = Object.keys(logged).filter((k) => !(k in sent)).sort();
-    expect(added).toEqual(["hold", "keep"]);
-    // (and so it does not land quite as it was shown: the hold's tiles come back protected, which the page's guess did
-    // not know; step 4 changes this to 0)
-    expect(h.queue.mispredictions).toBe(1);
-    expect(h.queue.ticket(id)!.mispredicted).toBe(true);
+    // (it holds the ground this map holds, and leaves the ground under its objects: the page found both)
+    expect(sent.hold?.length).toBeGreaterThan(0);
+    expect(sent.keep?.length).toBeGreaterThan(0);
+    expect(logged).toEqual(sent);
+    expect(h.queue.mispredictions).toBe(0);
+    expect(h.queue.ticket(id)!.mispredicted).toBe(false);
+    expect(h.queue.landMispredictions).toBe(0);
   });
 
   it("#880 (1) (step 3): Ctrl+Z while a Naturalize stroke lands takes back that stroke, the step before stands, and redo brings it back", async () => {
@@ -111,7 +118,7 @@ describe("the edit queue against the worker: pinned scenarios", () => {
     await stroke(h, "raise", 30, 30);
     await h.settle();
     const before = head();
-    const id = await stroke(h, "naturalize", 20, 30, { n: 10 });
+    const id = await stroke(h, "naturalize", 20, 26, { n: 10 });
     expect(h.queue.ticket(id)!.state).toBe("closing");
     h.undo();
     await h.settle();
@@ -129,7 +136,7 @@ describe("the edit queue against the worker: pinned scenarios", () => {
   it("#880 (2), U5 (step 3; planning's ruling 3): a map opened while a Naturalize stroke lands waits for it; nothing of the first map reaches the second", async () => {
     const h = new Harness(P1);
     const first = h.queue.epoch;
-    await stroke(h, "naturalize", 20, 30, { n: 10 });
+    await stroke(h, "naturalize", 20, 26, { n: 10 });
     const leaving = await h.switchMap(P2);
     const edits = decodeProject(leaving).edits;
     const last = edits.at(-1) as Extract<EditOp, { op: "brush" }>;
@@ -194,14 +201,14 @@ describe("the edit queue against the worker: pinned scenarios", () => {
     h.undo();
     await h.settle();
     // (b is the redo row; a stroke lands while the player clicks it, and replaces it)
-    const landing = await stroke(h, "naturalize", 20, 30, { n: 10 });
+    const landing = await stroke(h, "naturalize", 20, 26, { n: 10 });
     const gone = h.jump({ seq: b })!;
     await h.settle();
     expect(h.queue.ticket(gone)!.state).toBe("refused");
     expect(h.queue.ticket(gone)!.line).toBe(STEP_GONE);
     expect(head()).toBe(h.queue.ticket(landing)!.step);
     // (a row still there: the history stands at it)
-    const landing2 = await stroke(h, "naturalize", 10, 35, { n: 10 });
+    const landing2 = await stroke(h, "naturalize", 30, 10, { n: 10 });
     const there = h.jump({ seq: a })!;
     await h.settle();
     expect(h.queue.ticket(there)!.state).toBe("done");
@@ -317,7 +324,7 @@ describe("the edit queue against the worker: pinned scenarios", () => {
 
   it("U6 (step 3; planning's ruling 2): a press while a Naturalize stroke lands paints: its stroke goes on the history after the landing one", async () => {
     const h = new Harness(P1);
-    const landing = await stroke(h, "naturalize", 20, 30, { n: 10 });
+    const landing = await stroke(h, "naturalize", 20, 26, { n: 10 });
     const pressed = await stroke(h, "raise", 30, 20);
     expect(h.queue.composable(pressed)).toBe(false);
     await h.settle();
@@ -341,7 +348,7 @@ describe("the edit queue against the worker: pinned scenarios", () => {
 
   it("U9 (step 3): an edit made while a Naturalize stroke lands goes on the history after it", async () => {
     const h = new Harness(P1);
-    const landing = await stroke(h, "naturalize", 20, 30, { n: 10 });
+    const landing = await stroke(h, "naturalize", 20, 26, { n: 10 });
     const stream = new Stream(6, W);
     const c = stream.command("place", ed.collabSession()!) as Extract<Command, { kind: "edit" }>;
     const placed = h.edit("applyAll", [c.ops, c.label], c.label);
@@ -380,7 +387,7 @@ describe("the edit queue against the worker: pinned scenarios", () => {
 
 describe("the edit queue against the worker: random interleavings (I1–I10)", () => {
   // (seeded: a failure reports its seed and the actions that led to it, D341)
-  for (const seed of [1, 2, 3]) {
+  for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
     it(`seed ${seed}: ~250 actions, every invariant after each, the oracle at every map's end`, async () => {
       const next = seeded(seed);
       const h = new Harness(P1);

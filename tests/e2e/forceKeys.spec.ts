@@ -42,9 +42,14 @@ async function spot(page: Page): Promise<[number, number]> {
         return document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
       };
       const out: string[] = [];
-      for (let y = 20; y < m.H - 20; y += 2)
-        for (let x = 20; x < m.W - 20; x += 2) {
+      // (26 tiles in from the edge, so the drawn gesture's ends stay 14 in, since generator 0.10.16's ground with grade, D148:
+      // the best spot became (20, 20), where a painted Lift drawn from 8 tiles in shows no marker)
+      for (let y = 26; y < m.H - 26; y += 2)
+        for (let x = 26; x < m.W - 26; x += 2) {
           if (m.surface.depth[y * m.W + x] > 0) continue;
+          // (the drawn gesture's three points dry too, since generator 0.10.16's ground with grade, D148: on the new land the
+          // first spot's stroke began over water, where a force shows no ring)
+          if ([[-12, -4], [0, 6], [12, -2]].some(([dx, dy]) => m.surface.depth[(y + dy) * m.W + x + dx] > 0)) continue;
           if (![[0, 0], [-14, 0], [14, 0], [0, -14], [0, 14], [14, 14], [-14, -14]].every(([dx, dy]) => onMap(x + dx, y + dy))) continue;
           out.push(`${x},${y}`);
         }
@@ -344,11 +349,13 @@ test("D368 (1): one key habit for every tool: F with the mouse and { } set Size;
     const power = row.getByRole("slider", { name: "Power" });
     await power.fill("50");
     const hasSize = name !== "Quake";
+    // (a glacier's Size on Auto is its valley's width)
+    const auto = name === "Glaciate" ? "Size follows the valley" : "Size follows Power";
     const size = row.locator('.set:has(input[aria-label="Size"]) .set-value');
     await point(false);
     if (hasSize) {
       // F with the mouse: its Size, off Auto
-      await expect(row.getByRole("button", { name: "Size follows Power" })).toHaveAttribute("aria-pressed", "true");
+      await expect(row.getByRole("button", { name: auto })).toHaveAttribute("aria-pressed", "true");
       await fSize(false);
       await expect(size, `${name}: F sizes it`).toHaveText(/^[\d.]+$/);
       const s0 = Number(await size.textContent());
@@ -359,7 +366,7 @@ test("D368 (1): one key habit for every tool: F with the mouse and { } set Size;
       await page.keyboard.press("{");
       await expect.poll(async () => Number(await size.textContent())).toBe(s0);
       await expect(power, `${name}: { } leave its Power`).toHaveValue("50");
-      await row.getByRole("button", { name: "Size follows Power" }).click();
+      await row.getByRole("button", { name: auto }).click();
     } else {
       // (Quake has no Size: F and { } leave it as it is)
       await page.keyboard.press("}");
@@ -374,7 +381,7 @@ test("D368 (1): one key habit for every tool: F with the mouse and { } set Size;
     await page.keyboard.press("[");
     await page.keyboard.press("[");
     await expect(power).toHaveValue("45");
-    if (hasSize) await expect(row.getByRole("button", { name: "Size follows Power" }), `${name}: [ ] leave its Size`).toHaveAttribute("aria-pressed", "true");
+    if (hasSize) await expect(row.getByRole("button", { name: auto }), `${name}: [ ] leave its Size`).toHaveAttribute("aria-pressed", "true");
     await page.keyboard.press(key);
   }
 });

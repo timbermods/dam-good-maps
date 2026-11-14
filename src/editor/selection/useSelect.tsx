@@ -50,6 +50,13 @@ export function useSelect(ed: Ed): SelectSlice {
     notePointer, flashNote, coverAt, deleteOn, deleteGround, shelf
   } = ed;
 
+  /** Select's sheet open on a phone (its button tapped: Select in hand, view/usePhone.ts), read by a finger's press; the
+   *  phone's slice runs after this one, so it is copied after each render. */
+  const phoneSelectRef = useRef(false);
+  useEffect(() => {
+    phoneSelectRef.current = !!ed.phone && ed.phoneSelect;
+  });
+
   // ------------------------------------------------------------------------------ the Select tool
 
   function selectHost() {
@@ -135,6 +142,12 @@ export function useSelect(ed: Ed): SelectSlice {
     const t = selectTool(selection.current, selectHost());
     // Alt takes tiles away only from a selection; with none, Alt+click picks the tile's layer, as everywhere (D207)
     Object.defineProperty(t, "wantsAlt", { get: () => selection.current.count > 0, configurable: true });
+    // with nothing selected Select is nothing in hand to the player: a finger moves the map, and a tap is its click
+    // (render3d/touch.ts, #1074); on a phone with Select's sheet open (its button tapped), Select is in hand, and a finger
+    // draws the selection as it does with one open: a little above the finger, a tap its click where the finger is
+    Object.defineProperty(t, "touchPans", { get: () => selection.current.count === 0 && !phoneSelectRef.current, configurable: true });
+    t.finger = "draw";
+    t.tapClicks = true;
     // Select is the resting tool. A press on a source or the start is left to the pointer, as before Select was
     // always in hand (a click picks a source, Ctrl+click adds one to a row; their drags move them); a drag that
     // starts on an object marks an area, and a plain click picks the object (a drag then moves it). With a

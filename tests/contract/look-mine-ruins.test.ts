@@ -70,8 +70,22 @@ import * as ed from "../../src/worker/session";
  *  map); `a4c34743…` before the game version stamped became 1.1.2.8-ffc2de0-sw (the same map, D148: re-stamped
  *  with 1.1.2.4-52e959e-sw the file is that one byte for byte); `30543f1d…` before generator 0.10.5's version
  *  string (the same map: its first land fails the course check, not the start or the trunk's search); `c1aa22cd…` before
- *  generator 0.10.12's version string (the same map: its stacked settle takes no unfed water, #814). */
-const LIVE_SHA = "963db7ee59955e15756616e29c01d04b9c7b04ccf625ac6e8f6609d77fe44a2c";
+ *  generator 0.10.12's version string (the same map: its stacked settle takes no unfed water, #814); `963db7ee…` before
+ *  generator 0.10.16's ground with grade (its land rolls in one-level steps: a new map, D148); `d89bc166…` before
+ *  generator 0.10.17's start floors (D515: the settler's places need the bench and the start's wood a fast species, a
+ *  new map, D148); `662d8789…` before generator 0.10.18's dead stands on the dry land (D516: the same land, water and
+ *  start, dead stands among its resources, D148); `3661b9d3…` before generator 0.10.19's dry washes (D517: two washes
+ *  cut into its land, a new map, D148); `277fb85d…` before the washes ran long with fords (D517: its dry land
+ *  gives no line long enough, so its land is uncut again; a new map's version, D148); `46c38b8e…` before generator
+ *  0.10.20's contour edges (D518: the levels' edges on warped contours, a new map, D148); `cfe7ab14…` before D518's
+ *  mends (wash banks in long treads, dead stands in knots with a third of their trees young: its washes and dead trees
+ *  moved, D148); `cfdfd381…` before D518's later mends (dead stands kept to two to four woods, a stand its ground holds
+ *  short of 15 trees none, the rolling and rises reweighed and a dry wash never leaving a broad flat in parts all smaller:
+ *  a new map, D148); `45998c3e…` before the dead stands grew dense in their woods, each knot its own shape (its dead
+ *  trees moved, D148); `32c11aba…` before generator 0.10.21's look round (D518: no one-level step runs straight over 8
+ *  tiles, so its land's edges jog; its ruin fields lie along their level's rim, and the dead stands read the dry land as the checks do: a new map, D148); `46455017…` before the dead stands' dry reading. */
+// (generator 0.10.22, the settings keeping their promises: the version in the file alone, the map otherwise byte for byte 0.10.21's, D148)
+const LIVE_SHA = "52341eabd72a4b0b8fc7f47700f9bfd0ffc3b4647170c7a4e4947f2bc62bdd9b";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

@@ -2,7 +2,8 @@
 // renderer, the tools picked, the panels' state, the sounds, the water's player) and the queue that
 // sends every edit to the worker and shows what comes back.
 
-import { proxy, type Remote } from "comlink";
+import { proxy, transfer, type Remote } from "comlink";
+import { restartNaturalizer } from "../../platform";
 import { useEffect, useMemo, useRef, useState, type Dispatch, type StateUpdater } from "preact/hooks";
 import { rulesFor, type Rules } from "../../core/validate/playability";
 import { surfaceWater, type MapView, type SoilView, type WaterView } from "../../render3d/model";
@@ -185,6 +186,12 @@ export interface SessionSlice {
   /** The hover readout's words for a tile: what is on it, and while the Drought or Badtide view is on, when its water
    *  dries or turns bad. */
   hoverWordsAt: (x: number, y: number, level?: number) => string;
+  /** While the Irrigation view is on, why the dry ground under the pointer is dry (the view's key says it, under
+   *  Legend, so the readout and the coordinates keep their boxes), else null. */
+  dryWhy: string | null;
+  setDryWhy: Dispatch<StateUpdater<string | null>>;
+  /** Why a tile's top is dry, while the Irrigation view is on (`dryWords`), else null. */
+  dryWhyAt: (x: number, y: number, level?: number) => string | null;
   /** A held hazard day's first dry or first bad days per tile (core/sim/firstDays.ts, from the worker), or null. */
   firstNews: { current: HeldFirstDays | null };
   /** Work out both weather hazards' days once Kyler has been idle a moment with the water settled (the worker stops
@@ -267,12 +274,22 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
         const send = api.ticket as unknown as (e: typeof env, name: string, ...a: unknown[]) => Promise<MapAnswer>;
         return send(env, call.name, ...call.args);
       },
+      // (a stroke's water flows on its ground while it is painted, D197: sent once every ticket before it has gone, U7)
+      draft: (env, rect, heights) => void api.draftStroke(rect, transfer(heights, [heights.buffer as ArrayBuffer]), env),
+      cancelDraft: () => void api.cancelDraft(),
     };
     const clock = { now: () => performance.now(), after: (ms: number, fn: () => void) => { const t = setTimeout(fn, ms); return () => clearTimeout(t); } };
     edits.current = new EditQueue(props.opened as unknown as QueueOpen, port, clock, {
       shown: (r) => queueHost.current.shown?.(r),
       line: (t, id) => queueHost.current.line?.(t, id),
+      // (a Naturalize stroke let go whose worker never answered in time: taken back with its line; a fresh worker for
+      // the next stroke, #884)
+      expired: () => restartNaturalizer(),
       answer: (a, t) => queueHost.current.answer?.(a, t),
+      // (a patch of the land that did not lay on the land the queue holds: the worker's whole land, as an event)
+      // (nothing on its way: the water's news for water the page lacks, which an undo or a redo leaves unsettled)
+      idle: () => void api.idleWater(),
+      stale: () => void api.landNow().then((l) => edits.current.event({ ok: true, errors: [], epoch: l.epoch, view: l.view as MapAnswer["view"] })),
     });
     view.heights = edits.current.shown;
   }
@@ -328,14 +345,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   const hoverWordsAt = (x: number, y: number, level?: number): string => {
     // (objects hidden, H or Hide objects: the readout names only the land, as the pointer finds it)
     const facts = ed.pageTileFacts();
-    let words = tileWords(describeTileFacts(renderer.current?.objectsHidden ? { ...facts, objects: () => [] } : facts, x, y, level));
-    // (the Irrigation view: why a dry tile's top is dry, on the ground seen from above)
-    const irr = shownLayers.current;
-    if (irr && x >= 0 && y >= 0 && x < irr.W && y < irr.H && irr.irrigation && (level === undefined || level >= mirror.current.heights[y * irr.W + x])) {
-      const i = y * irr.W + x;
-      const why = irr.irrigation.tone[i] > IRRIGATION_MOIST ? dryWords(irr.irrigation, i) : null;
-      if (why) words = `${words} · ${why}`;
-    }
+    const words = tileWords(describeTileFacts(renderer.current?.objectsHidden ? { ...facts, objects: () => [] } : facts, x, y, level));
     const n = firstNews.current;
     if (!n || x < 0 || y < 0 || x >= infoRef.current.W || y >= infoRef.current.H) return words;
     const i = y * infoRef.current.W + x;
@@ -345,9 +355,19 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     const when = heldWords(n, weatherRef.current, infoRef.current.version, i);
     return when ? `${words} · ${when}` : words;
   };
+  const [dryWhy, setDryWhy] = useState<string | null>(null);
+  // (the Irrigation view: why a dry tile's top is dry, on the ground seen from above)
+  const dryWhyAt = (x: number, y: number, level?: number): string | null => {
+    const irr = shownLayers.current;
+    if (!irr || !irr.irrigation || x < 0 || y < 0 || x >= irr.W || y >= irr.H) return null;
+    const i = y * irr.W + x;
+    if (level !== undefined && level < mirror.current.heights[i]) return null;
+    return irr.irrigation.tone[i] > IRRIGATION_MOIST ? dryWords(irr.irrigation, i) : null;
+  };
   const rehover = () => {
     const h = lastHover.current;
     if (h) setHover(hoverWordsAt(h.x, h.y, h.level));
+    setDryWhy(h ? dryWhyAt(h.x, h.y, h.level) : null);
   };
   // A refusal's note goes with the next thing the player does (a press, a key, a tool picked, the layer or the view
   // changed); only a save that failed stays until it is dismissed or the map is saved. An edit's own note
@@ -592,9 +612,10 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
 
   // the start requirements and targets of this map: its settings, or its difficulty's defaults
   const needs = useMemo(() => {
-    const r = rulesFor(info.spec, info.designedFor);
+    // (a map without its spec: its floors at its own size, as the gate scales them)
+    const r = rulesFor(info.spec, info.designedFor, "", { x: info.W, y: info.H });
     return { rules: r, reachMin: r.reachMin };
-  }, [info.spec, info.designedFor]);
+  }, [info.spec, info.designedFor, info.W, info.H]);
   // ------------------------------------------------------------------------------ worker calls
 
   /** Queue a worker call after the ones before it (edits and plans stay in order). */
@@ -606,10 +627,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
 
   /** What the page does once a ticket is answered (by ticket id), and how many tickets are on their way (`busy`). */
   const onAnswers = useRef(new Map<number, (u: SessionUpdate) => void>());
-  /** The last ticket the page tracked: the tickets end in the order made (I3), so it ends last. */
-  const lastTicket = useRef(0);
   function track(id: number, onAnswer?: (u: SessionUpdate) => void): Promise<void> {
-    lastTicket.current = Math.max(lastTicket.current, id);
     setBusy((b) => b + 1);
     if (onAnswer) onAnswers.current.set(id, onAnswer);
     return edits.current.settled(id).then(() => {
@@ -626,8 +644,10 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     renderer.current?.updateTerrain(q.shown, columnsRef.current);
   }
 
+  /** Every edit made has its answer: the queue idle, a Naturalize stroke let go landed on the map it was painted on
+   *  and answered (U5; a save or a map switch waits for this, `onPendingEdits`). */
   function whenEdited(): Promise<void> {
-    return Promise.all([queue.current, edits.current.settled(lastTicket.current)]).then(() => undefined);
+    return Promise.all([queue.current, edits.current.idle()]).then(() => undefined);
   }
 
   /** An edit: a ticket in the edit queue, sent once the tickets before it are answered; what it changed goes to the
@@ -851,6 +871,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
    *  already, by the same arrays). */
   function newLand(v: ViewUpdate | undefined): boolean {
     const base = edits.current.base;
+    if (v?.land || v?.wet) return (!!v.land && !edits.current.took(v.land)) || (!!v.wet && !edits.current.took(v.wet));
     return !!v && ((!!v.heights && v.heights !== base.heights) || (!!v.terrain && v.terrain !== base.terrain));
   }
 
@@ -884,7 +905,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
   function applyView(v: ViewUpdate): void {
     // (new land ends the flip; water, soil and objects arriving while the other version is on show wait in the page's
     // copy, and are drawn when the key lets go)
-    if (v.heights) endFlip();
+    if (v.heights || v.land) endFlip();
     const flipped = comparing.current;
     const r = flipped ? null : renderer.current;
     const m = mirror.current;
@@ -937,7 +958,7 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     selectDraw, setSelectDraw, selectPreview, setSelectPreview, rockHeld, setRockHeld, deleteMenu, setDeleteMenu, setDeleteCounts,
     deleteCounts, sourceDrag, setSourceDrag, hoverObject, setHoverObject, player, mounted, sound, juice, setSound,
     feel, weather, weatherRef, comparing, endFlip, flipEnd, setWeather, weatherDay, weatherDays, weatherCounting, weatherTarget, setWeatherDay, setWeatherDays, startWater, setStartWater,
-    setWeatherCounting, heldDay, stepWeather, holdWeatherDay, requestHeldDay, lastHover, rehover, hoverWordsAt, firstNews, idlePrep, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
+    setWeatherCounting, heldDay, stepWeather, holdWeatherDay, requestHeldDay, lastHover, rehover, hoverWordsAt, dryWhy, setDryWhy, dryWhyAt, firstNews, idlePrep, journey, setInstant, instant, firstRun, setFirstRun, firstDone,
     firstDoneRef, minimap, setMinimap, minimapRef, resizing, setDotOpen, dotOpen, saving, setSaving,
     viewTick, setViewTick, setFit, fit, setPicked, picked, setPickedObject, pickedObject,
     pickedObjectRef, pickedRef, setShapeNote, shapeNote, queue, indexed, infoRef, shelfRef, shelfOptionsRef, turnRef,

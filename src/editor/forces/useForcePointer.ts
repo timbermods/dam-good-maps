@@ -42,6 +42,8 @@ export function useForcePointer(ed: Ed): ForcePointerSlice {
     const g = new FreehandPath(infoRef.current.W, infoRef.current.H);
     const t: PointerTool = {
       surface: true,
+      // (a finger: the marker shows above it, a drag moves it, the lift strikes there; render3d/touch.ts)
+      finger: "aim",
       down: (hit, ev) => {
         if (ev.button !== 0 || !hit || forcer.current?.running) return false;
         g.down({ x: hit.x, y: hit.y }, ev.clientX, ev.clientY);
@@ -192,6 +194,8 @@ export function useForcePointer(ed: Ed): ForcePointerSlice {
     };
     const t: PointerTool = {
       surface: true,
+      // (a finger: the marker shows above it, a drag moves it, the lift strikes there; render3d/touch.ts)
+      finger: "aim",
       down: (hit, ev) => {
         if (ev.button !== 0 || !hit || forcer.current?.running) return false;
         cancelAnimationFrame(wordFrame);
@@ -327,10 +331,12 @@ export function useForcePointer(ed: Ed): ForcePointerSlice {
       if (!at) return renderer.current?.clearForce();
       const u = glaciateUiRef.current;
       const z = mirror.current.heights[at[1] * W + at[0]] ?? 0;
-      renderer.current?.setForceMoment({ verb: "glaciate", phase: "gather", progress: 0, x: at[0], y: at[1], z, size: glacierSize(u), power: u.power, glaciate: { seconds: 0 } });
+      renderer.current?.setForceMoment({ verb: "glaciate", phase: "gather", progress: 0, x: at[0], y: at[1], z, size: glacierSize(u, W, H), power: u.power, glaciate: { seconds: 0 } });
     };
     const t: PointerTool = {
       surface: true,
+      // (a finger: the marker shows above it, a drag moves it, the lift strikes there; render3d/touch.ts)
+      finger: "aim",
       down: (hit, ev) => {
         if (ev.button !== 0 || !hit || forcer.current?.running) return false;
         const at = point(hit);
@@ -404,6 +410,8 @@ export function useForcePointer(ed: Ed): ForcePointerSlice {
       startForce(verb === "rift" ? { verb, settings: riftSettingsOf(riftUiRef.current), path, cut: renderer.current?.slice ?? null } : verb === "erode" ? { verb, settings: erodeSettingsOf(erodeUiRef.current), path, cut: renderer.current?.slice ?? null } : { verb, settings: depositSettingsOf(depositUiRef.current), path, cut: renderer.current?.slice ?? null });
     const t: PointerTool = {
       surface: true,
+      // (a finger: the marker shows above it, a drag moves it, the lift strikes there; render3d/touch.ts)
+      finger: "aim",
       down: (hit, ev) => {
         if (ev.button !== 0 || !hit || forcer.current?.running) return false;
         g.down(point(hit), ev.clientX, ev.clientY);

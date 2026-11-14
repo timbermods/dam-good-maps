@@ -19,12 +19,12 @@ export const PY = (() => {
   return null;
 })();
 
-/** The export's blocking checks (load and principle, D3) that fail, in the TypeScript validator and in
+/** The export's blocking checks (the load class, D3) that fail, in the TypeScript validator and in
  *  prototype/validate.py, by id. */
 export function exportProblems(bytes: Uint8Array, name: string): { ts: string[]; py: string[] | null } {
   const v = validateMap(readTimber(bytes), { profile: "export" });
   const ts = v.report.checks.filter((c) => blocks("export", c)).map((c) => `${c.id}: ${c.message}`);
-  const blocking = new Set(v.report.checks.filter((c) => c.class === "load" || c.class === "principle").map((c) => c.id));
+  const blocking = new Set(v.report.checks.filter((c) => c.class === "load").map((c) => c.id));
   if (!PY) return { ts, py: null };
   const dir = mkdtempSync(join(tmpdir(), "caves-save-"));
   try {

@@ -36,3 +36,37 @@ export function fbm(seed: number, x: number, y: number, cell: number, octaves = 
   }
   return out / total;
 }
+
+/** Turns of the plane by Pythagorean angles (cos, sin exact: 3-4-5, 5-12-13, 8-15-17, 7-24-25, 20-21-29), so a
+ *  turned lattice is read with + − × ÷ only. */
+const TURNS: readonly (readonly [number, number])[] = [
+  [4 / 5, 3 / 5],
+  [12 / 13, 5 / 13],
+  [15 / 17, 8 / 17],
+  [3 / 5, 4 / 5],
+  [24 / 25, 7 / 25],
+  [21 / 29, 20 / 29],
+  [5 / 13, 12 / 13],
+  [8 / 17, 15 / 17],
+];
+
+/** Fractal value noise read on turned and warped planes (the land's contour edges, D518): each octave's lattice
+ *  turned off the tile grid by its own one of `TURNS` and the point pushed by a slow noise of `warp` tiles' reach over
+ *  `cell` tiles, so the noise's level lines bend and lobe as the land's contours do instead of following the lattice's
+ *  rows, which rounded to levels read as rectangles of the cell's size. In [-1, 1]. */
+export function warpedFbm(seed: number, x: number, y: number, cell: number, octaves: number, warp: number): number {
+  const s = seed >>> 0;
+  const wx = x + warp * valueNoise((s ^ 0x68e31da4) >>> 0, x, y, cell);
+  const wy = y + warp * valueNoise((s ^ 0x1b873593) >>> 0, x, y, cell);
+  let out = 0;
+  let amp = 1;
+  let total = 0;
+  for (let o = 0; o < octaves; o++) {
+    const [c, n] = TURNS[(s + 3 * o) % TURNS.length];
+    const k = Math.max(2, Math.floor(cell / (1 << o)));
+    out += amp * valueNoise((s + o * 0x9e3779b1) >>> 0, c * wx - n * wy, n * wx + c * wy, k);
+    total += amp;
+    amp *= 0.5;
+  }
+  return out / total;
+}

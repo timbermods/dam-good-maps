@@ -88,6 +88,12 @@ test("a Flatten stroke across a form's edge flattens the rest and holds what hol
   expect(info.history.at(-1)!.label).toMatch(/^Flatten \d+ tiles?$/);
   await expect(page.getByText(/\d+ tiles? left high enough to hold up a cave or overhang/)).toBeVisible({ timeout: 15_000 });
   expect(await page.evaluate(() => window.dgmEditor!.strokeMismatches())).toBe(0);
+  // (#922 step 4: the page sent the stroke complete, the ground it holds in it, so it landed as shown in every channel,
+  // its protected tiles too; and the answer's land was its rectangle, laid on the land the page held)
+  const last = (await page.evaluate(() => window.dgmEditor!.lastStroke())) as { hold?: unknown[] } | null;
+  expect(last?.hold?.length, "the page completed the stroke with the ground it holds").toBeGreaterThan(0);
+  expect(await page.evaluate(() => ({ wrong: window.dgmEditor!.edits().mispredictions, resent: window.dgmEditor!.edits().landResends }))).toEqual({ wrong: 0, resent: 0 });
+  await page.screenshot({ path: test.info().outputPath("edit-queue-4.jpg"), type: "jpeg", quality: 82 });
   const h1 = await heights(page);
   const built = await page.evaluate(async () => Array.from((await window.dgmEditor!.worker.sessionView()).view.heights));
   expect(built).toEqual(h1);

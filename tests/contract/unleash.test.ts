@@ -166,7 +166,8 @@ describe("Unleash, on a source (D239)", () => {
     // as it was until the land is final, D321 item 30)
     const bad = "1b1c2d3e-4f50-4617-8899-aabbccddeeff";
     expect(ed.apply({ op: "deleteEntities", params: { entities: [id] } }).errors).toEqual([]);
-    // (its 3 x 3 on level, dry ground, away from the start)
+    // (its 3 x 3 on level, dry ground, away from the start; and clear of objects, D148: D518's mends moved the land and the
+    // first such spot had a thorn on it, which the placement rightly refuses)
     const s3 = open();
     let spot: [number, number] | null = null;
     for (let y = 10; y < W - 10 && !spot; y += 2)
@@ -175,7 +176,7 @@ describe("Unleash, on a source (D239)", () => {
         const h = s3.built.heights[y * W + x];
         let level = true;
         for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 3; dx++) if (s3.built.heights[(y + dy) * W + x + dx] !== h || s3.built.water[(y + dy) * W + x + dx] > 0) level = false;
-        if (level && h >= 4) spot = [x, y];
+        if (level && h >= 4 && !s3.built.entities.some((e) => Math.abs(e.x - x - 1) <= 2 && Math.abs(e.y - y - 1) <= 2)) spot = [x, y];
       }
     expect(spot).not.toBeNull();
     expect(ed.apply({ op: "placeEntity", params: { id: bad, template: "BadwaterSource", x: spot![0], y: spot![1], orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 2, CurrentStrength: 2 } } } }).errors).toEqual([]);

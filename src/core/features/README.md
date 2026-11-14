@@ -6,7 +6,7 @@ The one build pipeline (PLAN §19.8): parametric features in, terrain and entiti
 - `build` is a pure function of its input; rebuilding a saved document reproduces the map exactly.
 - Steps run in a fixed order. Each rasteriser writes only its own region, so an edit rebuilds only the area it touches (PLAN §19.7).
 - Each feature draws from its own random stream, so changing one leaves the rest alone.
-- The brush code (`raster/brush.ts`) is shared by the build and the page, so the map under the cursor is the map the stroke builds.
+- The brush code (`raster/brush.ts`) is shared by the build and the page, so the map under the cursor is the map the stroke builds; one composer (`raster/strokeComposer.ts`) builds a stroke's operation, complete, for the page and the session alike (#922 step 4).
 - Ids are hashed from the owner, never random (`ids.ts`, PLAN §19.4).
 
 **Start from**

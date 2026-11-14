@@ -27,7 +27,7 @@ export function useTestHook(ed: Ed): TestHookSlice {
       edit: (op, label) => run((w) => w.apply(op, "user", label)),
       startCheck: () => startDragRef.current?.check ?? null,
       worker: api,
-      strokeMismatches: () => edits.current.mispredictions,
+      strokeMismatches: () => edits.current.landMispredictions,
       lastStroke: () => lastStroke.current,
       pendingTerrain: () => edits.current.pending(),
       edits: () => edits.current,

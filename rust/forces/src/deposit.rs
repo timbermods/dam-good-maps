@@ -1,4 +1,16 @@
 // Built directly in Rust (D438/D444). Behaviour/look reference: Deposit round 2, approved #114/D364.
+//
+// The landform (the force audit's findings 4, 5, 14 and 28): an alluvial fan, a low cone segment from its apex (a
+// few tiles behind where it is clicked or drawn from), 60 to 120 degrees wide, a level per 4 to 8 tiles, 3 to 5
+// levels thick at the default, arc-shaped contours and a feathered toe. It lays only where that cone stands above the
+// ground, never above its apex; its surface is drawn to a seeded ladder of 1 to 2-level rungs, the edges warped, then
+// made whole levels by `levels::whole`, so it reads as benches of uneven width, never even stairs or contour rings.
+// Its distributaries are a level deep, each with one avulsion. What feeds it is a gully: a V-notch 2 to 4 wide at its
+// floor up the steepest ascent behind it, inside the outline, graded down to it and on through the fan's head as a
+// trench; where the ground behind is level it takes nothing (the water brought it). The sediment is not conserved.
+// Placed on dry ground it leaves water's beds as they are, and its gully keeps a sill of two tiles from any water,
+// so it never dams a stream, spills a pond or lets badwater into clean water (the audit's S3). Nothing changes
+// outside the outline (#341).
 use super::*;
 use super::rift::{keep_footprints, noise, result, ride, rides_whole};
 
@@ -33,17 +45,20 @@ fn receiving(m:&Map,origin:Point)->(Point,u32) {
     for y in (-5..=5).step_by(2) {for x in (-5..=5).step_by(2) {let v=m.heights[m.at(origin.x+x as f64,origin.y+y as f64)];lo=lo.min(v);hi=hi.max(v);}}
     (origin,if m.depth[m.at(origin.x,origin.y)]>0.08{3}else if hi-lo<2{2}else{0})
 }
-fn heading(m:&Map,mouth:Point,last:Point,drawn:bool,reach:f64)->Point {
-    let base=if drawn{portable_math::atan2(last.y-mouth.y,last.x-mouth.x)}else{0.0};let mut best=f64::INFINITY;let mut angle=base;
+// Which way the fan runs: down the land, the high ground behind it; on level ground the seed picks (Try another
+// turns it, the audit's finding 28).
+fn heading(m:&Map,mouth:Point,last:Point,drawn:bool,reach:f64,seed:f64)->Point {
+    let base=if drawn{atan2(last.y-mouth.y,last.x-mouth.x)}else{0.0};let mut best=f64::INFINITY;let mut angle=base;
     for k in 0..if drawn{9}else{32} {
-        let a=if drawn{base+(k as f64-4.0)*0.075}else{k as f64*std::f64::consts::PI/16.0};let mut score=0.0;
+        let a=if drawn{base+(k as f64-4.0)*0.075}else{k as f64*PI/16.0};let mut score=0.0;
         for d in [6.0,12.0,20.0] {for side in [-0.22,0.0,0.22] {
             let x=mouth.x+cos(a+side)*min(d,reach);let y=mouth.y+sin(a+side)*min(d,reach);
             let i=m.at(x,y);let b=m.at(mouth.x-cos(a)*d,mouth.y-sin(a)*d);
             score+=m.heights[i] as f64*1.4-m.heights[b] as f64*0.35;
             if x<0.0||y<0.0||x>=m.w as f64||y>=m.h as f64{score+=8.0;}
         }}
-        if drawn{score+=(a-base).abs()*80.0;}if score<best{best=score;angle=a;}
+        if drawn{score+=(a-base).abs()*80.0;}else{score+=hash(seed,3100.0+k as f64)*2.0;}
+        if score<best{best=score;angle=a;}
     }
     Point{x:cos(angle),y:sin(angle)}
 }
@@ -72,272 +87,254 @@ fn paint(m:&Map,mask:&mut[u8],p:Point,r:f64) {
         if x>=0&&y>=0&&x<m.w as i32&&y<m.h as i32&&hypot(x as f64-p.x,y as f64-p.y)<=r {mask[y as usize*m.w+x as usize]=1;}
     }}
 }
-struct Offer {i:usize,target:u8,rank:f64,u:f64}
-struct Donor {i:usize,target:u8,rank:f64}
-// Keep the original funded cone and its separate lobes. Every receiving tile
-// belongs to a two-dimensional body, never a path connecting other lobes.
-fn body(m:&Map,add:&[u8],i:usize)->bool {
-    let x=i%m.w;let y=i/m.w;
-    for oy in 0..=1{for ox in 0..=1{
-        if x<ox||y<oy{continue;}let x0=x-ox;let y0=y-oy;
-        if x0+1<m.w&&y0+1<m.h{let j=y0*m.w+x0;
-            if [j,j+1,j+m.w,j+m.w+1].iter().all(|&k|add[k]>0){return true;}
-        }
-    }}false
+/// How far a tile lies from the outline's line (Kyler, #341): a click's point, a drag's drawn line; the outline is
+/// every tile within the fan's half-width of it, as the page draws it.
+fn away(path:&[Point],drawn:bool,x:f64,y:f64)->f64 {
+    if drawn&&path.len()>1{path.windows(2).map(|s|{let (a,b)=(s[0],s[1]);let (ux,uy)=(b.x-a.x,b.y-a.y);let l=ux*ux+uy*uy;
+        let t=if l>0.0{clamp(((x-a.x)*ux+(y-a.y)*uy)/l,0.0,1.0)}else{0.0};hypot(x-a.x-t*ux,y-a.y-t*uy)}).fold(f64::INFINITY,min)}
+    else{hypot(x-path[0].x,y-path[0].y)}
 }
-fn supported(m:&Map,bed:&[u8],add:&[u8],i:usize,height:u8)->bool {
-    height<=neighbours(m,i).into_iter().flatten().map(|j|bed[j]+add[j]).max().unwrap_or(0).saturating_add(2)
-}
-fn shape(m:&Map,offers:&[Offer],bed:&[u8],room:&[u8],outlet:&[u8],budget:usize,mouth:Point)->Vec<u8> {
-    let n=bed.len();let mut add=vec![0;n];if budget==0{return add;}let mut remaining=budget;let mut target=m.heights.clone();let mut rank=vec![10.0;n];
-    for o in offers{target[o.i]=o.target;rank[o.i]=o.rank;let amount=remaining.min((o.target-m.heights[o.i]) as usize);add[o.i]=amount as u8;remaining-=amount;}
-    // Reclaim unsupported columns and one-tile fragments. Removing a fragment
-    // can expose a neighbour, so settle both constraints together.
-    loop{let mut changed=false;let bodies:Vec<_>=(0..n).map(|i|add[i]>0&&body(m,&add,i)).collect();
-        for i in 0..n{if add[i]==0{continue;}let cap=neighbours(m,i).into_iter().flatten().map(|j|bed[j]+add[j]).max().unwrap_or(0).saturating_add(2);
-            let next=if bodies[i]{cap.saturating_sub(bed[i]).min(add[i])}else{0};
-            if next!=add[i]{add[i]=next;changed=true;}
-        }if !changed{break;}
-    }
-    let bounds=offers.iter().fold((m.w,0,m.h,0),|(x0,x1,y0,y1),o|(x0.min(o.i%m.w),x1.max(o.i%m.w),y0.min(o.i/m.w),y1.max(o.i/m.w)));
-    let legal:Vec<bool>=(0..n).map(|i|room[i]>0&&outlet[i]==0&&bed[i]==m.heights[i]&&(m.heights[i] as f64)<m.ceiling
-        &&i%m.w>=bounds.0.saturating_sub(8)&&i%m.w<=bounds.1.saturating_add(8)&&i/m.w>=bounds.2.saturating_sub(8)&&i/m.w<=bounds.3.saturating_add(8)).collect();
-    if budget<18{add.fill(0);}
-    let mut volume:usize=add.iter().map(|&v|v as usize).sum();
-    while volume<budget{
-        let mut best=None;let mut score=f64::INFINITY;
-        // Relief only grows on existing sediment bodies.
-        for i in 0..n{if add[i]==0||!legal[i]||add[i]>=room[i]||bed[i] as f64+add[i] as f64>=m.ceiling||!supported(m,bed,&add,i,bed[i]+add[i]+1){continue;}
-            let value=if bed[i]+add[i]<target[i]{rank[i]+add[i] as f64*0.25}else{20.0+add[i] as f64*4.0};
-            if value<score{score=value;best=Some(vec![i]);}
-        }
-        // Grow whole patches at lobe edges. There is no inter-lobe path search.
-        // A sparse budget first builds an apron instead of stacking a column.
-        for y in 0..m.h-1{for x in 0..m.w-1{let i=y*m.w+x;let square=[i,i+1,i+m.w,i+m.w+1];
-            if square.iter().any(|&j|!legal[j]){continue;}
-            let missing:Vec<_>=square.iter().copied().filter(|&j|add[j]==0).collect();
-            if missing.is_empty()||missing.len()>budget-volume{continue;}
-            let adjacent=square.iter().any(|&j|add[j]>0||neighbours(m,j).into_iter().flatten().any(|k|add[k]>0));
-            if volume>0&&!adjacent{continue;}
-            for &j in &missing{add[j]=1;}
-            let safe=missing.iter().all(|&j|supported(m,bed,&add,j,bed[j]+1));
-            for &j in &missing{add[j]=0;}
-            if !safe{continue;}
-            let value=if volume==0||budget<18&&volume<9{
-                hypot(x as f64+0.5-mouth.x,y as f64+0.5-mouth.y)-20.0
-            }else{missing.iter().map(|&j|if target[j]>bed[j]{rank[j]+0.25}else{24.0}).sum::<f64>()/missing.len() as f64};
-            if value<score{score=value;best=Some(missing);}
-        }}
-        match best{Some(cells)=>{volume+=cells.len();for i in cells{add[i]+=1;}},None=>break}
-    }
-    add
-}
-// Brings the ground's sum back to `target` (what the fan laid less what it cut) after kept footprints took some
-// back, only on tiles no object holds together, so no footprint moves unevenly again. Too little laid: the donors
-// give less (the last first), then the lowest sediment or the free ground nearest the mouth takes a level where it
-// stays supported, arriving last. Too much laid: the donors give more (the first first), then the highest sediment
-// gives a level.
-fn rebalance(before:&Map,map:&mut Map,arrival:&mut[f32],donors:&[Donor],cuts:&[u8],room:&[u8],outlet:&[u8],mouth:Point,target:i64) {
-    let n=map.heights.len();let mut held=vec![false;n];
-    for e in &map.entities{if rides_whole(e){for i in map.footprint(e,0){held[i]=true;}}}
-    let mut cuts=cuts.to_vec();
-    let mut balance=(0..n).map(|i|map.heights[i] as i64-before.heights[i] as i64).sum::<i64>()-target;
-    for d in donors.iter().rev(){while balance<0&&!held[d.i]&&cuts[d.i]>0{cuts[d.i]-=1;map.heights[d.i]+=1;balance+=1;}}
-    for d in donors{let spare=(before.heights[d.i]-d.target).saturating_sub(cuts[d.i]);
-        if balance>0&&!held[d.i]&&spare>0&&map.heights[d.i]<=before.heights[d.i]{let take=spare.min(balance.min(255) as u8);cuts[d.i]+=take;map.heights[d.i]-=take;balance-=take as i64;arrival[d.i]=min(arrival[d.i] as f64,min(0.85,0.02+d.rank*0.055)) as f32;}
-    }
-    while balance<0{
-        let mut best=None;let mut score=f64::INFINITY;
-        for i in 0..n{let (h,h0)=(map.heights[i],before.heights[i]);
-            if held[i]||outlet[i]!=0||h<h0||h-h0>=room[i]||(h as f64)+1.0>map.ceiling{continue;}
-            let top=neighbours(map,i).into_iter().flatten().map(|j|map.heights[j]).max().unwrap_or(0);if h+1>top.saturating_add(2){continue;}
-            let value=if h>h0{h as f64}else{1000.0+hypot((i%map.w) as f64-mouth.x,(i/map.w) as f64-mouth.y)};
-            if value<score{score=value;best=Some(i);}
-        }
-        match best{Some(i)=>{map.heights[i]+=1;balance+=1;arrival[i]=min(arrival[i] as f64,0.88) as f32;},None=>break}
-    }
-    while balance>0{
-        let mut best=None;let mut top=0;
-        for i in 0..n{if !held[i]&&map.heights[i]>before.heights[i]&&map.heights[i]>top{top=map.heights[i];best=Some(i);}}
-        match best{Some(i)=>{map.heights[i]-=1;balance-=1;},None=>break}
-    }
-}
-/// Where a deposit may change the ground (Kyler, #341): a click's circle (`radius` round the click), a drag's
-/// band (every tile within `radius` of the drawn line), as the page draws them.
-fn outline(m:&Map,path:&[Point],drawn:bool,radius:f64)->Vec<u8> {
-    let n=m.heights.len();let mut out=vec![0u8;n];
-    for i in 0..n{let x=(i%m.w) as f64;let y=(i/m.w) as f64;
-        let d=if drawn&&path.len()>1{path.windows(2).map(|s|{let (a,b)=(s[0],s[1]);let (ux,uy)=(b.x-a.x,b.y-a.y);let l=ux*ux+uy*uy;
-            let t=if l>0.0{clamp(((x-a.x)*ux+(y-a.y)*uy)/l,0.0,1.0)}else{0.0};hypot(x-a.x-t*ux,y-a.y-t*uy)}).fold(f64::INFINITY,|a,b|min(a,b))}
-            else{hypot(x-path[0].x,y-path[0].y)};
-        if d<=radius{out[i]=1;}
-    }
-    out
+/// The fan's apex thickness, levels: 3 to 5 at the default and above (1.5 at Power 0), a level per 4 to 8 tiles of
+/// its reach, never under 1.2 nor over 6.
+fn apex_thickness(power:f64,reach:f64)->f64 {
+    min(6.0,clamp(1.5+3.5*power,max(1.2,reach/9.0),max(1.2,reach/4.0)))
 }
 pub(super) fn plan(before:&Map,mut map:Map,s:&Settings,intent:&Intent,keep:&[u8],area:&[u8],channels:u32)->Plan {
-    let n=map.heights.len();let power=max(0.025,s.power/100.0);let floor=s.floor.unwrap_or(1.0) as u8;
+    let (w,h)=(map.w,map.h);let n=w*h;let power=clamp(s.power/100.0,0.0,1.0);let floor=s.floor.unwrap_or(1.0) as u8;let seed=s.seed;
     let origin=intent.path[0];let last=*intent.path.last().unwrap();let drawn=intent.path.len()>1&&hypot(last.x-origin.x,last.y-origin.y)>1.0;
-    let (mut mouth,mut placement)=receiving(before,origin);
+    let (mouth,placement)=receiving(before,origin);
     let drawn=drawn&&hypot(last.x-mouth.x,last.y-mouth.y)>1.0;
     // Size is the fan's width, a click's and a drag's (the page's ring and band, its Auto size rounded as the page
     // shows it); Power changes the material/relief within it (D361). Nothing changes outside its outline (Kyler,
     // #341): a click's circle, a drag's band (Size wide along the drawn line). The fan runs from where it is placed,
-    // and what it takes lies behind it, inside the same outline.
+    // and its gully lies behind it, inside the same outline.
     let width=s.size.unwrap_or(round((14.0+s.power*0.34)/2.0)*2.0);
     let radius=max(4.0,width/2.0);
     let reach=if drawn{clamp(hypot(last.x-mouth.x,last.y-mouth.y),4.0,112.0)}else{max(2.0,radius-0.5)};
-    let dir=heading(before,mouth,last,drawn,reach);
-    let mouth_h=before.heights[map.at(mouth.x,mouth.y)];let wet=(-3..=3).any(|y|(-3..=3).any(|x|before.depth[map.at(mouth.x+x as f64,mouth.y+y as f64)]>0.08));
-    let datum_h=max(mouth_h as f64,if wet{(mouth_h as f64+before.depth[map.at(mouth.x,mouth.y)]).ceil()}else{mouth_h as f64});
+    let dir=heading(before,mouth,last,drawn,reach,seed);
+    let ceiling=min(255.0,map.ceiling);
+    // (how far inside the outline each tile lies, and how many levels it may move: Keep and the working area's depth)
+    let inside:Vec<f64>=(0..n).map(|i|radius-away(&intent.path,drawn,(i%w) as f64,(i/w) as f64)).collect();
+    let g0=before.heights[map.at(mouth.x,mouth.y)] as f64;
+    // (placed in water: on its tile or most of the ground round it)
+    let wet=before.depth[map.at(mouth.x,mouth.y)]>0.08||(-3..=3).flat_map(|y|(-3..=3).map(move|x|(x,y))).filter(|&(x,y)|before.depth[map.at(mouth.x+x as f64,mouth.y+y as f64)]>0.08).count()>=25;
+    // (a fan placed on dry ground leaves the water's beds as they are: a stream it reaches runs on through it, never
+    // dammed into a lake behind it, the force audit's S3)
+    let room:Vec<u8>=(0..n).map(|i|if keep.get(i).copied().unwrap_or(0)!=0||inside[i]<0.0||!wet&&before.depth[i]>0.02{0}else{area.get(i).copied().unwrap_or(255)}).collect();
     let outlet=if wet{outlet(before,mouth,dir)}else{vec![0;n]};
-    let spine:Vec<(Point,f64)>=outlet.iter().enumerate().filter(|(_,v)|**v!=0).filter_map(|(i,_)|{let p=Point{x:(i%map.w) as f64,y:(i/map.w) as f64};let d=(p.x-mouth.x)*dir.x+(p.y-mouth.y)*dir.y;if d>=-1.0{Some((p,d))}else{None}}).collect();
-    let count=if channels==1{2}else if channels==2{5}else if width>38.0{4}else{3};
-    let mut branches=vec![];let mut channel=vec![0;n];
-    for b in 0..count {let mut branch=vec![];let steps=(reach*2.0).ceil() as usize;
-        for k in 0..=steps {let u=k as f64/steps as f64;let d=u*reach;let mut spread=(b as f64/(count-1) as f64-0.5)*width*0.85*smooth((u-0.1)/0.9);
-            let wander=(noise(s.seed,d/10.0,400.0+b as f64*51.0)-0.5)*3.0*smooth(u*8.0);let mut p=Point{x:mouth.x+dir.x*d,y:mouth.y+dir.y*d};
-            if wet&&!spine.is_empty(){let base=p;let mut best=f64::INFINITY;for &(q,along) in &spine{let score=(along-d).abs()*4.0+hypot(q.x-base.x,q.y-base.y)*0.1;if score<best{best=score;p=q;}}
-                let mut left=0.0;let mut right=0.0;
-                for side in [-1.0,1.0]{let mut v=0.5;while v<=width*0.48{let x=p.x-dir.y*v*side;let y=p.y+dir.x*v*side;if x<0.0||y<0.0||x>=map.w as f64||y>=map.h as f64||before.heights[map.at(x,y)]>mouth_h{break;}if side<0.0{left=-v;}else{right=v;}v+=0.5;}}
-                spread=(left+(right-left)*b as f64/(count-1) as f64)*0.8*smooth((u-0.04)/0.25);spread=clamp(spread+wander*0.18,left*0.8,right*0.8);
-            }
-            let off=spread+if wet&&!spine.is_empty(){0.0}else{wander};p.x-=dir.y*off;p.y+=dir.x*off;
-            paint(&map,&mut channel,p,if wet{0.85}else{1.15});branch.push(p);
-        }branches.push(branch);
-    }
-    let mut stages=vec![0;n*3];
-    for stage in 0..2{for (b,branch) in branches.iter().enumerate(){for(k,p)in branch.iter().enumerate(){let u=k as f64/(branch.len()-1) as f64;
-        if u>0.16&&if stage==0{b>=(count+1)/2}else{b<count/2}{continue;}
-        let shift=if wet{0.0}else{(noise(s.seed,u*5.0,2500.0+stage as f64*100.0+b as f64*17.0)-0.5)*4.0*smooth(u*5.0)};
-        for d in [-0.5,0.0,0.5]{stages[stage*n+map.at(p.x-dir.y*(shift+d),p.y+dir.x*(shift+d))]=1;}
-    }}}stages[2*n..].copy_from_slice(&channel);
-    let mut distance=vec![u16::MAX;n];let mut queue=vec![];for i in 0..n{if channel[i]!=0{distance[i]=0;queue.push(i);}}
-    let mut at=0;while at<queue.len(){let i=queue[at];at+=1;for j in neighbours(&map,i).into_iter().flatten(){if distance[j]>distance[i]+1{distance[j]=distance[i]+1;queue.push(j);}}}
-    let mut offers=vec![];let mut donors=vec![];let mut expected=0.0;
-    let outline=outline(&map,&intent.path,drawn,radius);
-    let room_at=|i:usize|if keep.get(i).copied().unwrap_or(0)!=0||outline[i]==0{0}else{area.get(i).copied().unwrap_or(255)};
-    // A fan's height, its least material and how deep it takes follow its length: one shorter than 12 tiles is in
-    // proportion, never a column by a pit (a Size 8 click at a cliff's foot stood seven levels high, 4 deep behind).
-    let lift=min(1.0,reach/12.0);
+    // The cone (finding 5): its apex `thick` over the ground where it is placed, falling to its toe at `reach` (lobed)
+    // within its sector, more steeply off it, steepest behind the apex; its thickness the cone over the ground, at most
+    // a feathered envelope that thins to nothing at the toe and toward the outline's edge. Under water a level at most,
+    // and a wet outlet keeps its bed.
+    let thick=apex_thickness(power,reach);let apex=g0+thick;
+    // (its apex a few tiles back from where it is placed, in the gully's mouth, so the fan is broad where it is
+    // placed rather than a point)
+    let set_back=clamp(reach*0.15,1.5,5.0);let (px,py)=(mouth.x-dir.x*set_back,mouth.y-dir.y*set_back);
+    let half=0.55+0.5*hash(seed,3200.0);let back=max(2.0,thick/0.6);
+    let mut fan=vec![0.0f64;n];let mut along_of=vec![0.0f64;n];
     for i in 0..n {
-        if room_at(i)==0{continue;}let h=before.heights[i];let dx=(i%map.w) as f64-mouth.x;let dy=(i/map.w) as f64-mouth.y;
-        let along=dx*dir.x+dy*dir.y;let cross=-dx*dir.y+dy*dir.x;let u=along/reach;
-        let lobe=0.72+0.38*noise(s.seed,cross/8.0,900.0)+0.12*noise(s.seed,along/12.0,700.0);
-        let half=3.0+power*6.0+width*0.5*pow(clamp(u,0.0,1.0),0.78)*lobe;
-        let offset=(noise(s.seed,along/12.0,2100.0)-0.5)*width*0.18*smooth(u*4.0);let toe=reach*(0.73+0.31*noise(s.seed,cross/7.0,1100.0));
-        // (the fan runs from where it is placed, what it takes lies behind it in the same outline)
-        if along>=0.0&&along<=toe&&(cross-offset).abs()<half{
-            // (a small fan tapers over its own size: a fixed six tiles would leave it nothing)
-            let taper=clamp(reach*0.4,1.0,6.0);
-            let edge=smooth((half-(cross-offset).abs())/taper)*smooth((toe-along)/taper);
-            let datum=datum_h+lift*(1.7+power*if placement==2{3.0}else{7.0}-clamp(u,0.0,1.0)*(1.2+power*if placement==2{2.0}else{5.0}));
-            let relief=(noise(s.seed,along/17.0+cross/10.0,1400.0)-0.5)*1.35;
-            let mut target=max(h as f64,min(map.ceiling,round(h as f64+max(0.0,datum+relief-h as f64)*edge))) as u8;
-            if channel[i]!=0{target=if wet{target.min(h.max(mouth_h))}else{h.max(target.saturating_sub(1))};}
-            if wet&&channel[i]==0{target=target.min(h.max(mouth_h.saturating_add(1).saturating_add((distance[i] as f64*0.8).floor() as u8)));}
-            if outlet[i]!=0||wet&&before.depth[i]>0.08&&along<3.0{target=h;}
-            if wet&&before.depth[i]>0.08&&(before.depth[i]<0.8||channel[i]!=0){target=target.min(h+1);}
-            target=target.min(h.saturating_add(room_at(i)));
-            if target>h{offers.push(Offer{i,target,rank:u+cross.abs()/max(1.0,half)*0.08+hash(s.seed,i as f64)*0.045,u});}
+        if room[i]==0||outlet[i]!=0{continue;}
+        let dx=(i%w) as f64-px;let dy=(i/w) as f64-py;let r=hypot(dx,dy);
+        if r>(reach+set_back)*1.2+2.0{continue;}
+        let along=dx*dir.x+dy*dir.y;let cross=-dx*dir.y+dy*dir.x;
+        let theta=if r>0.0{atan2(cross,along)}else{0.0};
+        let lobe=0.6*noise(seed,(theta+PI)*1.9,3300.0)+0.4*noise(seed,(theta+PI)*4.3,3350.0);
+        let toe=(reach+set_back)*(0.8+0.2*lobe);
+        let off=smooth((theta.abs()-half)/(PI-half));
+        let big=toe*(1.0-off)+back*off;let u=r/big;
+        if u>=1.0{continue;}
+        let hb=before.heights[i] as f64;
+        let cone=apex-thick*if u>0.0{pow(u,1.1)}else{0.0};
+        let envelope=thick*pow(1.0-u,0.75);
+        let mut t=min(cone-hb,min(envelope,0.4*(inside[i]+0.5)));
+        if before.depth[i]>0.08{t=min(t,1.0);}
+        if t<0.4{continue;}
+        fan[i]=t;along_of[i]=u;
+    }
+    // Its surface drawn to the nearest of a ladder of rungs a level or two apart (the seed choosing each) under the
+    // apex, the edges warped so they are neither concentric nor even; a thin edge as it is.
+    let top=round(thick);let face=|k:f64|1.0+(hash(seed,3400.0+k)*1.3).floor();
+    let mut ladder=vec![];let mut rung=top;let mut k=0.0;
+    while rung>-24.0{ladder.push(rung);rung-=face(k);k+=1.0;}
+    let mut surface=vec![f64::NAN;n];
+    for i in 0..n {
+        if fan[i]<=0.0{continue;}
+        let hb=before.heights[i] as f64;let (x,y)=((i%w) as f64,(i/w) as f64);
+        surface[i]=if fan[i]>1.5{
+            let z=hb+fan[i]-g0;
+            let warp=((lumps(seed,4510,x,y,max(6.0,reach*0.4))-0.5)*1.3+(lumps(seed,4520,x,y,3.0)-0.5)*0.5)*min(1.0,(fan[i]-1.5)/1.5);
+            let at=z+warp;let bench=ladder.iter().copied().fold(-24.0,|b,r|if (r-at).abs()<(b-at).abs(){r}else{b});
+            min(g0+top,max(hb+1.0,g0+bench))
+        }else{hb+fan[i]};
+    }
+    // Its distributaries (finding 14): Few 2, Many 5, Auto 3 (4 on a broad fan), spread across the sector from the
+    // apex, wandering, each with one avulsion where it swings aside; a level deep where the fan is 2 or more thick.
+    let count=if channels==1{2}else if channels==2{5}else if width>38.0{4}else{3};
+    let mut branches=vec![];let mut channel=vec![0u8;n];
+    for b in 0..count {
+        let a0=(b as f64/(count-1) as f64-0.5)*2.0*half*0.7+(hash(seed,3500.0+b as f64)-0.5)*0.2;
+        let swing=(if hash(seed,3600.0+b as f64)<0.5{-1.0}else{1.0})*(0.12+0.14*hash(seed,3650.0+b as f64));
+        let at=0.35+0.3*hash(seed,3700.0+b as f64);
+        let steps=(reach*2.0).ceil() as usize;let mut branch=vec![];
+        for k in 0..=steps {
+            let u=k as f64/steps as f64;let d=u*reach*0.9;
+            let a=a0+swing*smooth((u-at)/0.12);let wander=(noise(seed,d/9.0,400.0+b as f64*51.0)-0.5)*2.4*smooth(u*4.0);
+            let (ca,sa)=(cos(a),sin(a));let ax=dir.x*ca-dir.y*sa;let ay=dir.x*sa+dir.y*ca;
+            let p=Point{x:mouth.x+ax*d-ay*wander,y:mouth.y+ay*d+ax*wander};
+            if u>0.08&&u<0.92{paint(&map,&mut channel,p,if wet{0.85}else{1.15});}
+            branch.push(p);
         }
-        let back=-along;let upstream=reach*1.5+12.0;let dw=4.0+min(15.0,width*0.27)*smooth(back/12.0);
-        if back>2.0&&back<upstream&&cross.abs()<dw&&h>floor&&h>=mouth_h&&before.depth[i]<=0.05{
-            let want=0.6+power*4.4*(0.65+0.35*smooth((upstream-back)/15.0));let cut=(h-floor).min(max(1.0,(want*lift).ceil()) as u8).min(room_at(i));
-            expected+=min(cut as f64,want);if cut>0{donors.push(Donor{i,target:h-cut,rank:back/upstream+cross.abs()/dw*0.18+hash(s.seed,i as f64+70000.0)*0.05});}
+        branches.push(branch);
+    }
+    for i in 0..n{if channel[i]!=0&&!surface[i].is_nan()&&surface[i]-before.heights[i] as f64>=2.0{surface[i]-=1.0;}}
+    // The feeder gully (finding 4): from where the fan is placed up the steepest ascent behind it, a tile a step,
+    // inside the outline; its bed graded down to a level over the ground where the fan is placed, a V-notch 2 to 4
+    // wide at its floor, cut where the ground stands over that bed, shallowing to its head. On through the fan's head
+    // it runs as a trench, as deep as the fan less a level where it is placed and shallowing down the fan's axis to
+    // nothing by nearly half its reach: the gully's water runs out over the fan, never into a hollow behind its apex.
+    // Level ground behind gives nothing (the water brought the fan), and then no trench either.
+    let mean=|x:f64,y:f64|->f64{let mut t=0.0;for oy in -1..=1{for ox in -1..=1{t+=before.heights[map.at(x+ox as f64,y+oy as f64)] as f64;}}t/9.0};
+    let mut gully=vec![mouth];let (mut hx,mut hy)=(-dir.x,-dir.y);let mut p=mouth;
+    for _ in 0..(radius*2.0).ceil() as usize {
+        let mut best=(f64::NEG_INFINITY,hx,hy);
+        for k in -2i32..=2 {
+            let a=k as f64*0.24;let (ca,sa)=(cos(a),sin(a));let (qx,qy)=(hx*ca-hy*sa,hx*sa+hy*ca);
+            let (x,y)=(p.x+qx*2.5,p.y+qy*2.5);
+            if x<0.0||y<0.0||x>(w-1) as f64||y>(h-1) as f64{continue;}
+            let score=mean(x,y)-k.abs() as f64*0.05;
+            if score>best.0{best=(score,qx,qy);}
+        }
+        if best.0==f64::NEG_INFINITY{break;}
+        let l=hypot(best.1,best.2);hx=best.1/l;hy=best.2/l;
+        let q=Point{x:p.x+hx,y:p.y+hy};
+        if q.x<0.0||q.y<0.0||q.x>(w-1) as f64||q.y>(h-1) as f64||radius-away(&intent.path,drawn,q.x,q.y)<1.5{break;}
+        // (never back toward the fan)
+        if (q.x-mouth.x)*dir.x+(q.y-mouth.y)*dir.y>0.0{break;}
+        p=q;gully.push(p);
+    }
+    let length=(gully.len()-1) as f64;
+    let deepest=round(1.5+2.5*power);let grade=0.18;let bottom=0.75+0.5*power;let wall=2.5;
+    let bed=|d:f64|g0+1.0+grade*d;
+    let most=|d:f64|deepest*smooth((length-d+1.0)/4.0);
+    let ahead=(reach*0.45).ceil() as usize;
+    let line:Vec<(Point,f64)>=(1..=ahead).rev().map(|k|(Point{x:mouth.x+dir.x*k as f64,y:mouth.y+dir.y*k as f64},-(k as f64)))
+        .chain(gully.iter().enumerate().map(|(k,&q)|(q,k as f64))).collect();
+    let mut cut_d=vec![f64::NAN;n];let mut trench=vec![false;n];
+    // (never within two tiles of standing or running water: a sill stays between the gully and any pond or stream, so it
+    // never spills a pond, nor lets badwater into clean water, the force audit's S3)
+    let near_water:Vec<bool>=(0..n).map(|i|{let (x,y)=((i%w) as i64,(i/w) as i64);
+        (-2i64..=2).any(|oy|(-2i64..=2).any(|ox|{let (u,v)=(x+ox,y+oy);u>=0&&v>=0&&u<w as i64&&v<h as i64&&before.depth[v as usize*w+u as usize]>0.05}))}).collect();
+    let mut planned:Vec<(usize,f64,f64)>=vec![];let mut feeds=false;
+    if length>=2.0 {
+        let (x0,x1,y0,y1)=line.iter().fold((f64::INFINITY,f64::NEG_INFINITY,f64::INFINITY,f64::NEG_INFINITY),|b,(q,_)|(min(b.0,q.x),max(b.1,q.x),min(b.2,q.y),max(b.3,q.y)));
+        let pad=bottom+deepest/wall+1.0;
+        for y in max(0.0,(y0-pad).floor()) as usize..=min((h-1) as f64,(y1+pad).ceil()) as usize {
+            for x in max(0.0,(x0-pad).floor()) as usize..=min((w-1) as f64,(x1+pad).ceil()) as usize {
+                let i=y*w+x;
+                if room[i]==0||outlet[i]!=0||inside[i]<0.5||near_water[i]{continue;}
+                let (mut c,mut d)=(f64::INFINITY,0.0);
+                for &(q,k) in &line{let e=hypot(x as f64-q.x,y as f64-q.y);if e<c{c=e;d=k;}}
+                let hb=before.heights[i] as f64;let base=if fan[i]>0.0{surface[i]}else{hb};let side=max(0.0,c-bottom)*wall;
+                let next=if d>=0.0{
+                    // (its V: at most `most` into the ground and never under its bed or the Floor at its middle, less toward its sides)
+                    let ground=hb-max(0.0,min(min(most(d),hb-bed(d))-side,min(room[i] as f64,max(0.0,hb-floor as f64))));
+                    // (and through the fan's own back, down to its bed)
+                    if base>hb{min(base,max(bed(d)+side,ground))}else{ground}
+                }else{max(hb+min(1.0,max(0.0,base-hb-0.5)),base-max(0.0,(thick-1.0)*(1.0+d/(0.45*reach))-side))};
+                if base-next>=0.6{planned.push((i,next,d));if d>=1.0&&next<hb-0.5{feeds=true;}}
+            }
         }
     }
-    let mut offered=vec![false;n];for o in &offers{offered[o.i]=true;}donors.retain(|d|!offered[d.i]);
-    let mut used=vec![false;n];for d in &donors{used[d.i]=true;}
-    // Only higher shoulders supplement upstream material; a flat still cuts its upstream banks.
-    for i in 0..n{let h=before.heights[i];let d=hypot((i%map.w) as f64-mouth.x,(i/map.w) as f64-mouth.y);
-        if room_at(i)==0||used[i]||offered[i]||h<=floor.max(mouth_h)||d>max(48.0,width)||before.depth[i]>0.05{continue;}
-        let cut=(h-floor).min(max(1.0,((0.6+power*4.4)*lift).ceil()) as u8).min(room_at(i));if cut==0{continue;}
-        donors.push(Donor{i,target:h-cut,rank:1.5+d/max(48.0,width)+hash(s.seed,i as f64)*0.03});used[i]=true;expected+=cut as f64;
+    // (no gully behind it, no trench through it: what it cuts it cuts only where something feeds the fan)
+    if feeds{for &(i,next,d) in &planned{surface[i]=next;trench[i]=true;if next<before.heights[i] as f64{cut_d[i]=max(0.0,d);}}}
+    // (the ground right round what it shapes, inside its outline: its own level, so the last step may tidy it too)
+    let rim:Vec<usize>=(0..n).filter(|&i|{let (x,y)=(i%w,i/w);
+        surface[i].is_nan()&&room[i]>0&&outlet[i]==0&&[(x>0,i.wrapping_sub(1)),(x+1<w,i+1),(y>0,i.wrapping_sub(w)),(y+1<h,i+w)].iter().any(|&(on,j)|on&&!surface[j].is_nan())}).collect();
+    for &i in &rim{surface[i]=before.heights[i] as f64;}
+    let ground:Vec<f64>=before.heights.iter().map(|&v|v as f64).collect();
+    let mut land=levels::whole(&surface,&ground,&before.heights,w,h,ceiling,seed,max(6.0,reach*0.33));
+    let peak=min(g0+top,ceiling) as u8;
+    for i in 0..n {
+        let b=before.heights[i];
+        land[i]=if surface[i].is_nan()||room[i]==0||outlet[i]!=0{b}
+        else if !cut_d[i].is_nan(){let lo=b.saturating_sub(room[i]).max(b.min(floor)).max(b.saturating_sub(deepest as u8+1));land[i].max(lo).min(b)}
+        else if fan[i]>0.0{let hi=b.saturating_add(room[i]).min(clamp(surface[i].ceil()+if trench[i]{0.0}else{1.0},0.0,ceiling) as u8).min(peak.max(b));land[i].min(hi).max(b)}
+        else{land[i].max(b).min(b.saturating_add(1).min(ceiling as u8).min(peak).max(b))};
     }
-    // Fully submerged terrain still has upstream sediment; prefer dry donors when available.
-    if donors.is_empty(){for i in 0..n{
-        let h=before.heights[i];let dx=(i%map.w) as f64-mouth.x;let dy=(i/map.w) as f64-mouth.y;
-        let back=-(dx*dir.x+dy*dir.y);let cross=(-dx*dir.y+dy*dir.x).abs();let upstream=reach*1.5+12.0;
-        if room_at(i)==0||offered[i]||outlet[i]!=0||h<=floor||h<mouth_h||back<=2.0||back>=upstream||cross>4.0+min(15.0,width*0.27){continue;}
-        let cut=(h-floor).min(max(1.0,((0.6+power*4.4)*lift).ceil()) as u8).min(room_at(i));
-        if cut>0{donors.push(Donor{i,target:h-cut,rank:back/upstream+cross/max(1.0,width)*0.18});used[i]=true;expected+=cut as f64;}
-    }}
-    // At a map edge or capped sector, put the same sediment into the nearest lower hollow.
-    if offers.is_empty()&&!donors.is_empty(){let mut best=f64::INFINITY;let mut center=None;
-        for i in 0..n{let h=before.heights[i];if room_at(i)==0||h>=mouth_h||h as f64>=map.ceiling{continue;}let d=hypot((i%map.w) as f64-origin.x,(i/map.w) as f64-origin.y);let score=d+h as f64*2.0;if score<best{best=score;center=Some(i);}}
-        if let Some(i)=center{mouth=Point{x:(i%map.w) as f64,y:(i/map.w) as f64};placement=4;let radius=4.0+power*10.0;let datum=before.heights[i] as f64+1.0+power*4.0;
-            for j in 0..n{if used[j]||room_at(j)==0||outlet[j]!=0{continue;}let d=hypot((j%map.w) as f64-mouth.x,(j/map.w) as f64-mouth.y);let h=before.heights[j];let target=max(h as f64,min(map.ceiling,round(datum-d/radius*(1.0+power*3.0)))) as u8;let target=target.min(h.saturating_add(room_at(j)));if d<radius&&target>h{offers.push(Offer{i:j,target,rank:d/radius,u:d/radius});offered[j]=true;}}
+    // Every raised tile belongs to a raised 2 × 2 body and never stands 3 over all round it; an object of several
+    // tiles rides whole (D368 (10)); both settled together (each pass only takes back).
+    map.heights=land;
+    // (an object of several tiles the fan buries or cuts unevenly rides it whole by the least its tiles moved, so no
+    // footprint is left a pit in the fan that the water then fills)
+    for e in &before.entities{if !rides_whole(e){continue;}let tiles=before.footprint(e,0);
+        let dz:Vec<i32>=tiles.iter().map(|&i|map.heights[i] as i32-before.heights[i] as i32).collect();
+        let by=if dz.iter().all(|&v|v>=0){dz.iter().copied().min().unwrap_or(0)}else if dz.iter().all(|&v|v<=0){dz.iter().copied().max().unwrap_or(0)}else{continue};
+        for &i in &tiles{map.heights[i]=(before.heights[i] as i32+by) as u8;}
+    }
+    for _ in 0..64 {
+        let mut changed=false;
+        for i in 0..n {
+            let b=before.heights[i];let v=map.heights[i];if v<=b{continue;}
+            let (x,y)=(i%w,i/w);
+            let body=(0..=1).any(|oy|(0..=1).any(|ox|{if x<ox||y<oy||x-ox+1>=w||y-oy+1>=h{return false;}let j=(y-oy)*w+x-ox;
+                [j,j+1,j+w,j+w+1].iter().all(|&k|map.heights[k]>before.heights[k])}));
+            let near=[(x>0,i.wrapping_sub(1)),(x+1<w,i+1),(y>0,i.wrapping_sub(w)),(y+1<h,i+w)].iter().filter(|&&(on,_)|on).map(|&(_,j)|map.heights[j]).max().unwrap_or(v);
+            let next=if !body{b}else if v>=near.saturating_add(3){near.saturating_add(2).max(b)}else{v};
+            if next!=v{map.heights[i]=next;changed=true;}
+        }
+        if keep_footprints(before,&mut map){changed=true;}
+        if !changed{break;}
+    }
+    // A force never refuses a click (D356): where the fan left fewer than nine tiles changed, the nearest free 2 × 2
+    // squares ahead of the apex, inside the outline, take a level.
+    let mut count_changed=(0..n).filter(|&i|map.heights[i]!=before.heights[i]).count();
+    if count_changed<9 {
+        let mut squares:Vec<(f64,usize)>=vec![];
+        for y in 0..h.saturating_sub(1){for x in 0..w.saturating_sub(1){let j=y*w+x;let sq=[j,j+1,j+w,j+w+1];
+            if sq.iter().any(|&k|room[k]==0||outlet[k]!=0||map.heights[k]!=before.heights[k]||before.heights[k] as f64+1.0>ceiling){continue;}
+            let (dx,dy)=(x as f64+0.5-mouth.x,y as f64+0.5-mouth.y);
+            squares.push((hypot(dx,dy)+if dx*dir.x+dy*dir.y<0.0{6.0}else{0.0},j));
+        }}
+        squares.sort_by(|a,b|a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
+        for (_,j) in squares{if count_changed>=9{break;}let sq=[j,j+1,j+w,j+w+1];
+            if sq.iter().any(|&k|map.heights[k]!=before.heights[k]){continue;}
+            for k in sq{map.heights[k]+=1;}count_changed+=4;
+        }
+        if keep_footprints(before,&mut map){
+            // (a footprint took a square back: what it left of it goes too)
+            for i in 0..n{if map.heights[i]>before.heights[i]{let (x,y)=(i%w,i/w);
+                let body=(0..=1).any(|oy|(0..=1).any(|ox|{if x<ox||y<oy||x-ox+1>=w||y-oy+1>=h{return false;}let j=(y-oy)*w+x-ox;
+                    [j,j+1,j+w,j+w+1].iter().all(|&k|map.heights[k]>before.heights[k])}));
+                if !body{map.heights[i]=before.heights[i];}}}
         }
     }
-    let minimum=round((48.0+power*160.0)*lift) as usize;let mut room:usize=offers.iter().map(|o|(o.target-before.heights[o.i]) as usize).sum();let min_area=16+round(power*16.0) as usize;
-    if room<minimum||offers.len()<min_area{
-        let mut candidates:Vec<(usize,f64)>=(0..n).filter(|&i|!offered[i]&&room_at(i)!=0&&outlet[i]==0&&channel[i]==0
-            &&{let dx=(i%map.w) as f64-mouth.x;let dy=(i/map.w) as f64-mouth.y;dx*dir.x+dy*dir.y>=0.0}).map(|i|(i,hypot((i%map.w) as f64-mouth.x,(i/map.w) as f64-mouth.y))).collect();
-        candidates.sort_by(|a,b|a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
-        for (i,d) in candidates{let h=before.heights[i];if d>max(16.0,width*0.6)||h as f64>=map.ceiling||h as f64>mouth_h as f64+3.0+power*2.0||wet&&before.depth[i]>0.05{continue;}
-            if used[i]{donors.retain(|v|v.i!=i);used[i]=false;}
-            let base=max(mouth_h as f64+2.0,(h as f64+before.depth[i]).ceil()+1.0);let target=min(map.ceiling,max(h as f64+1.0,base+round(power*2.0-d*0.1))) as u8;let target=target.min(h.saturating_add(room_at(i)));
-            offers.push(Offer{i,target,rank:d/max(12.0,reach),u:d/max(12.0,reach)});offered[i]=true;room+=(target-h) as usize;if room>=minimum&&offers.len()>=min_area{break;}
-        }
-    }
-    while room<minimum{let mut grew=false;for o in &mut offers{let h=before.heights[o.i];let cap=min(map.ceiling,min(h as f64+max(1.0,round(lift*(3.0+power*5.0))),h as f64+room_at(o.i) as f64)) as u8;
-        if o.target>=cap||channel[o.i]!=0||outlet[o.i]!=0{continue;}o.target+=1;room+=1;grew=true;if room>=minimum{break;}}
-        if !grew{break;}
-    }
-    let available:usize=donors.iter().map(|d|(before.heights[d.i]-d.target) as usize).sum();
-    if available<9{let mut candidates:Vec<_>=(0..n).filter(|&i|room_at(i)>0&&!offered[i]&&!used[i]&&outlet[i]==0&&before.heights[i]>floor
-        )
-        // (inside the outline: behind where it is placed first, then its sides, so the fan's ground stays whole)
-        .map(|i|{let dx=(i%map.w) as f64-mouth.x;let dy=(i/map.w) as f64-mouth.y;let ahead=dx*dir.x+dy*dir.y>=0.0;
-            (i,hypot(dx,dy)+if before.depth[i]>0.05{48.0}else{0.0}+if ahead{100.0}else{0.0})}).collect();
-        candidates.sort_by(|a,b|a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));let mut missing=9-available;
-        // (spread as its other donors are: shallow, over more ground)
-        let most=max(1.0,((0.6+power*4.4)*lift).ceil()) as u8;
-        for (i,_) in candidates{if missing==0{break;}let cut=(before.heights[i]-floor).min(room_at(i)).min(missing as u8).min(most);
-            donors.push(Donor{i,target:before.heights[i]-cut,rank:3.0+hypot((i%map.w) as f64-mouth.x,(i/map.w) as f64-mouth.y)/max(48.0,width)});missing-=cut as usize;
-        }
-    }
-    offers.sort_by(|a,b|a.rank.total_cmp(&b.rank).then(a.i.cmp(&b.i)));donors.sort_by(|a,b|a.rank.total_cmp(&b.rank).then(a.i.cmp(&b.i)));
-    let capacity:usize=offers.iter().map(|o|(o.target-before.heights[o.i]) as usize).sum();let supply=(round(expected) as usize).max(minimum);let donor_capacity:usize=donors.iter().map(|d|(before.heights[d.i]-d.target) as usize).sum();
-    // (where the outline's donors (its free ground beside the fan's own tiles: a fan never digs under itself) fall short
-    // of the least fan, a lake's bed, the map's lowest ground or a working area the fan fills, the water makes up the
-    // rest, so it is never refused for want of ground (D356) and nothing outside the outline changes, #341; conserved
-    // whenever those donors have ground enough to give)
-    let mut brought=donor_capacity<9;
-    let budget=if brought{capacity.max(9).min(minimum)}else{capacity.max(9).min(supply).min(donor_capacity)};
-    let mut bed=before.heights.clone();let mut remaining=budget;
-    for d in &donors{let cut=remaining.min((before.heights[d.i]-d.target) as usize);bed[d.i]-=cut as u8;remaining-=cut;}
-    let room:Vec<u8>=(0..n).map(room_at).collect();let mut add=shape(before,&offers,&bed,&room,&outlet,budget,mouth);
-    // A force never refuses a click (D356): where no fan body fits in its outline, the material it took lies a
-    // level deep on the free ground nearest where it is placed.
-    if budget>0&&add.iter().all(|&v|v==0){
-        let free_of=|bed:&[u8]|->Vec<(usize,f64)>{(0..n).filter(|&i|room[i]>0&&outlet[i]==0&&bed[i]==before.heights[i]&&(before.heights[i] as f64)<map.ceiling)
-            .map(|i|(i,hypot((i%map.w) as f64-mouth.x,(i/map.w) as f64-mouth.y))).collect()};
-        let mut free=free_of(&bed);
-        // (the outline's only free ground all given: the water brings it all instead, takes nothing, and lays it there)
-        if free.is_empty(){bed=before.heights.clone();donors.clear();brought=true;free=free_of(&bed);}
-        free.sort_by(|a,b|a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
-        for (i,_) in free.into_iter().take(budget){add[i]=1;}
-    }
-    let deposited:usize=add.iter().map(|&v|v as usize).sum();
-    let mut progress=vec![f64::NAN;n];for o in &offers{progress[o.i]=o.u;}
-    let mut arrival=vec![2.0f32;n];let mut stats=[0.0;11];stats[6]=count as f64;stats[7]=wet as u8 as f64;
-    for i in 0..n{if add[i]>0{map.heights[i]+=add[i];let x=(i%map.w) as f64-mouth.x;let y=(i/map.w) as f64-mouth.y;let u=if progress[i].is_nan(){(x*dir.x+y*dir.y)/reach}else{progress[i]};let side=(-x*dir.y+y*dir.x)/max(1.0,width);
-        arrival[i]=clamp(0.08+u*0.66+0.16*smooth(side*sin(u*std::f64::consts::PI*3.0)*4.0+0.5)+noise(s.seed,(i%map.w) as f64/9.0,1800.0)*0.035,0.04,0.88) as f32;
-    }}
-    let mut cuts=vec![0u8;n];
-    remaining=deposited;for d in &donors{let cut=remaining.min((before.heights[d.i]-d.target) as usize);map.heights[d.i]-=cut as u8;cuts[d.i]+=cut as u8;remaining-=cut;
-        if cut>0{arrival[d.i]=min(0.85,0.02+d.rank*0.055) as f32;stats[10]=max(stats[10],hypot((d.i%map.w) as f64-mouth.x,(d.i/map.w) as f64-mouth.y));}
-    }
+    let deposited:i64=(0..n).map(|i|(map.heights[i] as i64-before.heights[i] as i64).max(0)).sum();
     // (nothing laid: the player's Keep or working area holds the whole outline, or the map has no room there)
-    if deposited==0{map.error=if (0..n).any(|i|outline[i]!=0&&(keep.get(i).copied().unwrap_or(0)!=0||area.get(i).copied()==Some(0))){32}else{34};}
-    let laid:i64=(0..n).map(|i|map.heights[i] as i64-before.heights[i] as i64).sum();
-    // An object's footprint kept as it was (D368 (10)) takes back what was laid or cut there; the fan then keeps
-    // its material elsewhere, so it is conserved whatever is on the ground (D356, #714)
-    if keep_footprints(before,&mut map){rebalance(before,&mut map,&mut arrival,&donors,&cuts,&room,&outlet,mouth,laid);}
+    if deposited==0{
+        map.heights.copy_from_slice(&before.heights);
+        map.error=if (0..n).any(|i|inside[i]>=0.0&&(keep.get(i).copied().unwrap_or(0)!=0||area.get(i).copied()==Some(0))){32}else{34};
+    }
+    // The playback's stages: the channels as they open, first one side's, then the other's, then all.
+    let mut stages=vec![0u8;n*3];
+    for stage in 0..2{for (b,branch) in branches.iter().enumerate(){for (k,p) in branch.iter().enumerate(){let u=k as f64/(branch.len()-1) as f64;
+        if u>0.16&&if stage==0{b>=(count+1)/2}else{b<count/2}{continue;}
+        let shift=if wet{0.0}else{(noise(seed,u*5.0,2500.0+stage as f64*100.0+b as f64*17.0)-0.5)*4.0*smooth(u*5.0)};
+        for d in [-0.5,0.0,0.5]{stages[stage*n+map.at(p.x-dir.y*(shift+d),p.y+dir.x*(shift+d))]=1;}
+    }}}
+    stages[2*n..].copy_from_slice(&channel);
+    // When each tile arrives: the gully from its head down first, then the fan from its apex out to its toe.
+    let mut arrival=vec![2.0f32;n];let mut stats=[0.0;11];stats[6]=count as f64;stats[7]=wet as u8 as f64;
+    for i in 0..n{
+        if map.heights[i]==before.heights[i]{continue;}
+        let x=(i%w) as f64-mouth.x;let y=(i/w) as f64-mouth.y;
+        arrival[i]=if !cut_d[i].is_nan()&&map.heights[i]<before.heights[i]{clamp(0.02+0.24*(1.0-cut_d[i]/max(1.0,length)),0.02,0.3)}
+        else{let u=if fan[i]>0.0{along_of[i]}else{clamp(hypot(x,y)/reach,0.0,1.0)};let side=(-x*dir.y+y*dir.x)/max(1.0,width);
+            clamp(0.3+u*0.5+0.06*smooth(side*sin(u*PI*3.0)*4.0+0.5)+noise(seed,(i%w) as f64/9.0,1800.0)*0.035,0.04,0.88)} as f32;
+    }
     // what it changed, counted on the ground as it is left
-    for i in 0..n{let dz=map.heights[i] as i32-before.heights[i] as i32;if dz!=0{stats[0]+=1.0;}if dz>0{stats[2]+=dz as f64;stats[5]=max(stats[5],dz as f64);}if dz<0{stats[1]-=dz as f64;stats[4]=max(stats[4],-dz as f64);}map.lava[i]&=mask(map.heights[i]);}
-    stats[3]=stats[2]-stats[1];debug_assert!(brought||stats[3]==0.0);
+    for i in 0..n{let dz=map.heights[i] as i32-before.heights[i] as i32;if dz!=0{stats[0]+=1.0;}if dz>0{stats[2]+=dz as f64;stats[5]=max(stats[5],dz as f64);}
+        if dz<0{stats[1]-=dz as f64;stats[4]=max(stats[4],-dz as f64);stats[10]=max(stats[10],hypot((i%w) as f64-mouth.x,(i/w) as f64-mouth.y));}map.lava[i]&=mask(map.heights[i]);}
+    stats[3]=stats[2]-stats[1];
     map.entities.retain(|e|{let i=e.y as usize*map.w+e.x as usize;let dz=map.heights[i] as i32-before.heights[i] as i32;
         let held=matches!(e.template.as_ref(),"WaterSource"|"BadwaterSource"|"WaterSeep"|"StartingLocation");
         let threshold=if e.template.as_ref()=="BlueberryBush"{2}else if plant(&e.template){3}else{4};

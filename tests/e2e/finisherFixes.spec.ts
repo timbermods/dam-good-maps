@@ -68,8 +68,11 @@ test("the checks' Show marks the tiles the problem names, and Esc takes the mark
   await page.setViewportSize({ width: 1600, height: 900 });
   await openEditor(page, "s=1&z=96&d=n&t=riverValley");
   await idle(page);
-  // oaks on dry ground: "N living plants on soil that kills them"
-  const dry = await page.evaluate(() => {
+  // oaks on dry ground: "N living plants on soil that kills them"; beyond the start's wood (more than 25 tiles from it either
+  // way, so past its 20 tiles' walk: since generator 0.10.17, D515, D148, oaks among the start's wood lower its fast share,
+  // `start.wood_fast`, a second thing to look at)
+  const st = ((await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
+  const dry = await page.evaluate(([sx, sy]) => {
     const m = window.dgm3d!.renderer.mapState()!;
     const soil = m.soil!;
     let best: [number, number, number] | null = null;
@@ -81,12 +84,12 @@ test("the checks' Show marks the tiles the problem names, and Esc takes the mark
             const i = (y + dy) * m.W + x + dx;
             if (m.surface.depth[i] > 0 || soil.moisture[i] > 0 || soil.contamination[i] > 0) ok = false;
           }
-        if (!ok) continue;
+        if (!ok || Math.max(Math.abs(x - sx), Math.abs(y - sy)) <= 25) continue;
         const d = Math.abs(x - m.W / 2) + Math.abs(y - m.H / 2);
         if (!best || d < best[2]) best = [x, y, d];
       }
     return best!;
-  });
+  }, st);
   await page.getByRole("navigation", { name: "Place" }).getByRole("button", { name: "Oak", exact: true }).click();
   const a = await client(page, dry[0] - 2, dry[1]);
   const b = await client(page, dry[0] + 2, dry[1]);
@@ -136,7 +139,9 @@ test("the checks' Show marks the tiles the problem names, and Esc takes the mark
 test("Markers labels the seeps, aquifers, drains and reserves, with a warning on the aquifer that gives no water", async ({ page }) => {
   test.setTimeout(300_000);
   await page.setViewportSize({ width: 1600, height: 900 });
-  await openEditor(page, "s=1&z=96&d=n&t=riverValley");
+  // (seed 2 since generator 0.10.17, D515, D148: seed 1's seep now lands where the view closing in on the three leaves it no
+  // label, at the view's edge, as labels do there; seeds 2, 3 and 4 make the case)
+  await openEditor(page, "s=2&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   // (north up, as the compass turns it: Top-down keeps the opening's turn (D492), and that follows the start's camera)
   await page.evaluate(() => window.dgm3d!.renderer.setView({ yaw: 0 }));

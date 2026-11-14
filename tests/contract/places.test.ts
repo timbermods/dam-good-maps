@@ -21,7 +21,10 @@ describe("the gallery's data", () => {
   it("holds the survey's real places: no random-land controls, one entry and two files each", () => {
     expect(INDEX.format).toBe(1);
     expect(INDEX.count).toBe(INDEX.places.length);
-    expect(INDEX.count).toBe(85);
+    // 85 places in the library; every start meets the floors since the start-moving step ranks a lake's shore
+    // plate by the start's land floors and grows its wood (tools/real-places.ts), and one is withheld by name
+    // until its land's sources are mended (Near Dinaric karst Plitvice, `WITHHELD_UNTIL`)
+    expect(INDEX.count).toBe(84);
     expect(INDEX.places.filter((p) => p.family === "random" || /random/i.test(p.name))).toEqual([]);
     expect(new Set(INDEX.places.map((p) => p.id)).size).toBe(INDEX.count);
     expect(new Set(INDEX.places.map((p) => p.name)).size).toBe(INDEX.count);
@@ -86,7 +89,7 @@ describe("the gallery shows every place, with a note on those whose start reache
     expect(noWater.map((p) => p.id).sort()).toEqual(INDEX.places.filter((p) => p.faults.includes("start.water")).map((p) => p.id).sort());
     // the same places the checks flag on the real builds (tests/contract/placesCommon.ts checkShard)
     expect(noWater.map((p) => p.id).sort()).toEqual([...PLACES_START_WITHOUT_FED_WATER].sort());
-    expect(noWater.length).toBe(24);
+    expect(noWater.length).toBe(18);
     // no other fault gets a note
     for (const p of INDEX.places) if (!p.faults.includes("start.water")) expect(placeNote(p), p.id).toBeNull();
     expect(placeNote({ faults: ["start.wood", "plants.survive"] })).toBeNull();
@@ -172,9 +175,9 @@ describe.skipIf(!PY)("both validators agree on the sample (prototype/validate.py
     // (the places are settled under the port's water rules until Real places 2 converts them, D311)
     const r = spawnSync(PY!, ["-B", "prototype/validate.py", "--json", "--water-rules", "port", ...paths], { encoding: "utf8", maxBuffer: 256 << 20 });
     expect(r.error).toBeUndefined();
-    const reports = new Map<string, { passed: boolean; checks: { id: string; ok: boolean; na: boolean; approx?: string }[] }>();
+    const reports = new Map<string, { passed: boolean; checks: { id: string; ok: boolean; na: boolean; approx?: string; information?: boolean }[] }>();
     for (const line of (r.stdout ?? "").split(/\r?\n/)) if (line.startsWith("{")) {
-      const j = JSON.parse(line) as { path: string; passed: boolean; checks: { id: string; ok: boolean; na: boolean; approx?: string }[] };
+      const j = JSON.parse(line) as { path: string; passed: boolean; checks: { id: string; ok: boolean; na: boolean; approx?: string; information?: boolean }[] };
       reports.set(relative(".", j.path).split(sep).join("/"), j);
     }
     const ts = (c: CheckResult) => (c.applicable === false ? "na" : c.approximate ? "approx" : c.ok ? "pass" : "fail");
@@ -184,15 +187,19 @@ describe.skipIf(!PY)("both validators agree on the sample (prototype/validate.py
       expect(rep, `${e.id}: no Python report. ${r.stderr ?? ""}`).toBeDefined();
       const b0 = built(e.id);
       const v0 = validateMap(readTimber(b0.bytes), { profile: "generate", designedFor: "normal", features: [], water: { model: b0.validation.model!, settled: b0.validation.water! } });
-      // (item 47's start land is a preference for real places, D331: known where it falls short)
-      const startLand = v0.report.checks.filter((c) => (c.id === "start.farmland" || c.id === "start.level_land") && !c.ok && c.applicable !== false).map((c) => c.id);
+      // (item 47's start land and the start's floors are a preference for real places, D331, D515: known where
+      // they fall short, D245)
+      const startLand = v0.report.checks.filter((c) => ["start.farmland", "start.level_land", "start.reach", "start.forester", "start.wood_fast"].includes(c.id) && !c.ok && c.applicable !== false).map((c) => c.id);
       const known = [...startLand, ...(PLACES_HAVE_EDGE_WALLS ? ["terrain.edge_wall"] : []), ...(PLACES_SOURCES_IN_FLOW.has(e.id) ? ["water.source_in_flow"] : []), ...(PLACES_WATER_WITHOUT_OUTLET.has(e.id) ? ["water.outflow"] : []), ...(PLACES_LACK_MINE_SITES ? ["resources.mine_site"] : []), ...(PLACES_LACK_BADWATER ? ["resources.badwater_source"] : []), ...(PLACES_SHORT_OF_WOOD.has(e.id) ? ["start.wood"] : []), ...(PLACES_BELOW_THE_FLOOR.has(e.id) ? ["start.wood_floor"] : []), ...(PLACES_START_WITHOUT_FED_WATER.has(e.id) ? ["start.water"] : []), ...(PLACES_SHORT_OF_BERRIES.has(e.id) ? ["start.food"] : []), ...(PLACES_PLANTS_ON_DRY_SOIL.has(e.id) ? ["plants.survive"] : [])];
       expect(rep!.passed, e.id).toBe(known.length === 0);
       expect(rep!.checks.filter((c) => !c.ok && !c.na && !c.approx && !(c as { advisory?: boolean }).advisory).map((c) => c.id).sort(), e.id).toEqual(known.sort());
       const b = built(e.id);
       const v = validateMap(readTimber(b.bytes), { profile: "generate", designedFor: "normal", features: [], water: { model: b.validation.model!, settled: b.validation.water! } });
-      const a = Object.fromEntries(v.report.checks.map((c) => [c.id, ts(c)]));
-      const p = Object.fromEntries(rep!.checks.map((c) => [c.id, py(c)]));
+      // (terrain.ruled_land is the one row the Python validator reports without computing it, so it alone is not compared)
+      const uncomputed = "terrain.ruled_land";
+      expect(rep!.checks.find((c) => c.id === uncomputed)?.information, e.id).toBe(true);
+      const a = Object.fromEntries(v.report.checks.filter((c) => c.id !== uncomputed).map((c) => [c.id, ts(c)]));
+      const p = Object.fromEntries(rep!.checks.filter((c) => c.id !== uncomputed).map((c) => [c.id, py(c)]));
       expect(p, e.id).toEqual(a);
     }
     expect(r.status).toBe(PLACES_HAVE_EDGE_WALLS || PLACES_LACK_MINE_SITES || PLACES_LACK_BADWATER || SAMPLE.some((e) => PLACES_SOURCES_IN_FLOW.has(e.id) || PLACES_WATER_WITHOUT_OUTLET.has(e.id) || PLACES_SHORT_OF_WOOD.has(e.id) || PLACES_BELOW_THE_FLOOR.has(e.id) || PLACES_START_WITHOUT_FED_WATER.has(e.id) || PLACES_SHORT_OF_BERRIES.has(e.id) || PLACES_PLANTS_ON_DRY_SOIL.has(e.id)) ? 1 : 0);
@@ -216,8 +223,9 @@ describe("real places stay out of the generator (D108)", () => {
       .map((f) => f.split(sep).join("/"))
       .filter((f) => !f.startsWith("src/places/") && !f.startsWith("src/core/places/"))
       .sort();
-    // (the gallery is the page's Real places panel)
-    expect(users).toEqual(["src/editor/generator/RealPlaces.tsx", "src/ui/App.tsx", "src/worker/generator.worker.ts"]);
+    // (the gallery is the page's Real places panel; core/doc/blank.ts is on the worker's side, reached only through
+    // core/doc/session.ts, and builds the blank map's file the way a place's is built: the page reads blankLimits.ts only)
+    expect(users).toEqual(["src/core/doc/blank.ts", "src/editor/generator/RealPlaces.tsx", "src/ui/App.tsx", "src/worker/generator.worker.ts"]);
     // the page's real-place link and its gallery load only the fetch helpers (and the gallery a type), never the
     // place builder
     expect(readFileSync("src/ui/App.tsx", "utf8")).not.toMatch(/core\/places/);

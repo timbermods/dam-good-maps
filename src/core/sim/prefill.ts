@@ -115,9 +115,14 @@ export function flowThrough(m: WaterModel): { q: Float64Array; qBad: Float64Arra
 
 /** The deterministic starting state of the canonical settle (see the file comment). */
 export function prefill(m: WaterModel): WaterState {
+  return prefillFrom(m, flowThrough(m));
+}
+
+/** `prefill` from a `flowThrough` already run on the same model (a premise's ladder reads both). */
+export function prefillFrom(m: WaterModel, flow: ReturnType<typeof flowThrough>): WaterState {
   const { W, H } = m;
   const N = W * H;
-  const { q, qBad, path, level } = flowThrough(m);
+  const { q, qBad, path, level } = flow;
   // open-channel tiles (on the path, not in a depression): local width = the shorter of the row
   // and column runs of such tiles through the tile
   const open = new Uint8Array(N);

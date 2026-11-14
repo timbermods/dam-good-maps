@@ -4,7 +4,7 @@
 // its checks in profile "generate". The generator's mode (`generate.ts` `generatePremise`) runs it.
 
 import type { BuildResult, GeneratedField } from "../features/build";
-import { buildMap } from "../features/build";
+import { buildMap, SettleCache } from "../features/build";
 import { featureId } from "../features/ids";
 import type { Feature, LakeFeature, MapObjectFeature, SetPieceFeature, StartFeature } from "../features/schema";
 import type { TimberFile } from "../format/timber";
@@ -15,8 +15,13 @@ import { tilesToRuns } from "../math/grid";
 import type { MapSpec } from "../spec/mapspec";
 import type { PlayabilityAnalysis } from "../validate/playability";
 import type { ValidationReport } from "../validate/report";
+import { ladderOf, layWorks, type LaidWorks, type Ladder } from "./ladder";
+import { premiseLife, type LifeReport } from "./life";
+import { buildBench, cutWaysOut } from "./frame";
 import { badwaterNiches, reliefBetween } from "./raster/relief";
+import type { PremiseStyle } from "./style";
 import type { PremisePlan } from "./types";
+import { bedMask, type Wash } from "../land/washes";
 import { waterByNumber, type StageWater } from "./water";
 
 export interface PremiseMap {
@@ -31,8 +36,12 @@ export interface PremiseMap {
   report: ValidationReport;
   analysis: PlayabilityAnalysis | null;
   name: string;
+  /** What stage 6 planted, against its budget. */
+  life: LifeReport;
   /** What could not stand as the plan has it, one line each (never silent, D342). */
   notes: string[];
+  /** Its parts' time, ms: the first build with its settle, life and the second build, the file and the checks. */
+  ms: { build: number; life: number; checks: number };
 }
 
 /** The map's name: its start's lake and the landmark, from the plan's own names. */
@@ -123,37 +132,71 @@ function badwaterOf(plan: PremisePlan, heights: Uint8Array, niches: Record<strin
   return out;
 }
 
-/** Each link's rows of Blockages as stage 1 laid them. */
-function rowsOf(plan: PremisePlan, w: StageWater): MapObjectFeature[] {
+/** Each link's rows of Blockages as stage 1 laid them (a notch shut by a rock plug instead has none: `layWorks`). */
+function rowsOf(plan: PremisePlan, w: StageWater, laid: LaidWorks): MapObjectFeature[] {
   const out: MapObjectFeature[] = [];
   for (const l of plan.links)
     (w.raster.rows[l.id] ?? []).forEach((row, k) => {
-      if (!row.length) return;
+      if (!row.length || (k === 0 && laid.plugs[l.id])) return;
       const role = `premise/row/${l.id}/${k}`;
       out.push({ id: featureId(plan.seed, "mapObject", role), kind: "mapObject", origin: "generated", role, locked: false, params: { kind: "plug", placement: { area: tilesToRuns([...row].sort((a, b) => a - b), plan.W) } } });
     });
   return out;
 }
 
-/** A plan's land: its water by number (stage 1, or the one given), the relief between (stage 2) and the permanent
- *  badwater's niche cut into it. */
+/** A plan's land: its water by number (stage 1, or the one given), the relief between (stage 2, in the theme's style
+ *  when one is given), the permanent badwater's niche cut into it and the works' own ground (stage 4's `layWorks`). */
 export interface PremiseLand {
   water: StageWater;
   heights: Uint8Array;
   niches: Record<string, [number, number]>;
+  laid: LaidWorks;
   notes: string[];
+  /** The start's ways out, natural ramps' steps as (low tile, high tile) pairs (`frame.ts` `cutWaysOut`). */
+  ramps?: [number, number][];
+  /** The dry washes and the old bed cut into it once the start was put (`washes.ts`). */
+  washes?: Wash[];
 }
 
-export function premiseLand(plan: PremisePlan, water: StageWater = waterByNumber(plan)): PremiseLand {
+export function premiseLand(plan: PremisePlan, water: StageWater = waterByNumber(plan), style?: PremiseStyle, bench = 0, reach = 0): PremiseLand {
   const notes: string[] = [];
-  const heights = reliefBetween(plan, water);
+  const heights = reliefBetween(plan, water, style?.relief);
+  // the start's bench, made where the relief left it short of `bench` (D515, `buildBench`), and its ways out where
+  // the ground it walks is walled in short of `reach` (`cutWaysOut`)
+  buildBench(plan, water, heights, bench);
+  const ramps = cutWaysOut(plan, water, heights, reach);
   const niches = badwaterNiches(plan, water, heights, notes);
-  return { water, heights, niches, notes };
+  const laid = layWorks(plan, water, heights);
+  return { water, heights, niches, laid, notes, ...(ramps.length ? { ramps } : {}) };
 }
 
-/** The map of a plan through stage 2, built and checked as the generator builds its maps; the start where stage 3
- *  put it (`start`), else where the plan's frame does. */
-export function premiseMap(spec: MapSpec, plan: PremisePlan, land: PremiseLand = premiseLand(plan), at: PremisePlan["frame"]["start"] = plan.frame.start): PremiseMap {
+/** A premise map's first build (stage 5): its land, sources and start built and settled, before its life. Its water is
+ *  the map's: stage 6's plants and mine sites move none (`premiseFinish` reuses the settle). */
+export interface PremiseBase {
+  spec: MapSpec;
+  plan: PremisePlan;
+  land: PremiseLand;
+  ladder: Ladder;
+  style?: PremiseStyle;
+  features: Feature[];
+  field: GeneratedField;
+  settleCache: SettleCache;
+  base: BuildResult;
+  notes: string[];
+  ms: number;
+}
+
+/** The map of a plan, built and checked as the generator builds its maps; the start where stage 3 put it (`start`),
+ *  else where the plan's frame does. One settle (stage 5) on the land and its sources, then stage 6's life planted on
+ *  the settled ground (`life.ts`, its ground kept off the works' by `ladder`, laid again if not given) and the map
+ *  built once more with that settle reused: plants and mine sites move no water. The style's woods are the plants'
+ *  palette when it has them. (`premiseBase`, then `premiseFinish`: the generator runs the start's drought on the
+ *  first build's water beside the second, `generate.ts`.) */
+export function premiseMap(spec: MapSpec, plan: PremisePlan, land: PremiseLand = premiseLand(plan), at: PremisePlan["frame"]["start"] = plan.frame.start, ladder: Ladder = ladderOf(plan, land.water, land.heights, land.laid), style?: PremiseStyle): PremiseMap {
+  return premiseFinish(premiseBase(spec, plan, land, at, ladder, style));
+}
+
+export function premiseBase(spec: MapSpec, plan: PremisePlan, land: PremiseLand = premiseLand(plan), at: PremisePlan["frame"]["start"] = plan.frame.start, ladder: Ladder = ladderOf(plan, land.water, land.heights, land.laid), style?: PremiseStyle): PremiseBase {
   const { water, heights, niches } = land;
   const notes = [...land.notes];
   const { x, y, z, orientation } = at;
@@ -167,10 +210,27 @@ export function premiseMap(spec: MapSpec, plan: PremisePlan, land: PremiseLand =
   };
   const springs = springsOf(plan, water, notes);
   const bad = badwaterOf(plan, heights, niches);
-  const features: Feature[] = [start, ...springs, ...bad, ...rowsOf(plan, water)];
-  const field: GeneratedField = { heights, contains: new Set([...springs, ...bad].map((f) => f.id)), top: plan.top };
-  const built = buildMap({ W: plan.W, H: plan.H, seed: spec.seed, features, field });
+  const features: Feature[] = [start, ...springs, ...bad, ...rowsOf(plan, water, land.laid)];
+  const field: GeneratedField = { heights, contains: new Set([...springs, ...bad].map((f) => f.id)), top: plan.top, ...(land.ramps?.length ? { ramps: land.ramps } : {}) };
+  const settleCache = new SettleCache();
+  const t5 = performance.now();
+  const base = buildMap({ W: plan.W, H: plan.H, seed: spec.seed, features, field }, { settleCache, stopBeforeResources: true });
+  return { spec, plan, land, ladder, ...(style ? { style } : {}), features, field, settleCache, base, notes, ms: Math.round(performance.now() - t5) };
+}
+
+/** A premise map's life, its second build (the settle reused), its file and its checks, on its first build. */
+export function premiseFinish(p: PremiseBase): PremiseMap {
+  const { spec, plan, land, ladder, style, features, field, settleCache, base, notes } = p;
+  const { water, heights } = land;
+  const t6 = performance.now();
+  const life = premiseLife(spec, plan, water, ladder, base, features, spec.accepted?.attempt ?? 0, style?.woods ?? null, land.washes ? bedMask(land.washes, plan.W * plan.H) : null);
+  notes.push(...life.notes);
+  features.push(...life.features);
+  const built = buildMap({ W: plan.W, H: plan.H, seed: spec.seed, features, field }, { settleCache });
+  life.report.ms = Math.round(performance.now() - t6);
+  const t8 = performance.now();
   const file = toTimberFile(spec, built);
   const v = validateBuilt(spec, features, built, file);
-  return { plan, water, heights, features, field: fieldData(field, plan.W), built, file, report: v.report, analysis: v.analysis, name: nameOf(plan), notes };
+  const ms = { build: p.ms, life: life.report.ms, checks: Math.round(performance.now() - t8) };
+  return { plan, water, heights, features, field: fieldData(field, plan.W), built, file, report: v.report, analysis: v.analysis, name: nameOf(plan), life: life.report, notes, ms };
 }

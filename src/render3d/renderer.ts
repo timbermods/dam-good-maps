@@ -84,6 +84,7 @@ import { AID_LAYER, onAidLayer } from "./aidLayer";
 import { GameBloom, GAME_BLOOM_LOOKS, LAVA_BLOOM_ENDS } from "./bloom";
 import { Refraction, WATER_REFRACTION } from "./refraction";
 import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
+import { BROWSER_ZOOM_EVENTS, DOUBLE_TAP_MS, DOUBLE_TAP_PX, FingerPress, TAP_MS, TAP_SLOP, Touches, type Motion, type Point, type PressHost, type PressMode } from "./touch";
 import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { cutawayOn } from "./cutaway";
@@ -239,6 +240,23 @@ export interface PointerTool {
   /** It points at the water's surface over water, where the cursor is seen (the forces, D321 item
    *  13), not at the bed under it. */
   surface?: boolean;
+  /** A finger with this tool in hand moves the camera instead, and a tap is its click (touch.ts: the resting Select
+   *  with nothing selected, which is nothing in hand to the player). */
+  touchPans?: boolean;
+  /** How a finger's press works it (touch.ts `PressMode`, #1074 slice 3): "aim" shows its preview a little above the
+   *  finger and the lift is its click there; "draw" is its own press, drag and release a little above the finger. Unset:
+   *  the press is the mouse's, under the finger (a brush paints there). */
+  finger?: PressMode;
+  /** A finger's tap on the view is this tool's click where the finger is (Select). */
+  tapClicks?: boolean;
+}
+
+/** A finger's press with something in hand, as the page shows it (`MapRenderer.onPress`): where it aims, where the finger
+ *  is (client coordinates), and whether the finger is over a Cancel control. */
+export interface FingerAim {
+  aim: Point;
+  finger: Point;
+  over: boolean;
 }
 
 interface MapState {
@@ -558,7 +576,25 @@ export class MapRenderer {
   private frameEnd = 0;
   private resize: ResizeObserver;
   private disposed = false;
-  private drag: { kind: "orbit" | "pan" | "tool"; x: number; y: number; id: number; moved: number; button: number } | null = null;
+  /** The press being dragged; a finger's (touch.ts) carries its press, a tap with the resting tool replaying it. */
+  private drag: { kind: "orbit" | "pan" | "tool"; x: number; y: number; id: number; moved: number; button: number; touch?: PointerEvent } | null = null;
+  /** The fingers on the view and the camera's gesture (touch.ts, #1074). */
+  private touches = new Touches({
+    drop: () => this.dropPress(),
+    move: (m, at) => this.touchMove(m, at),
+    fingers: (n) => this.onFingers?.(n),
+    canTilt: () => this.view.mode === "orbit",
+    still: () => this.reducedMotion,
+  });
+  /** The last tap of a finger (its place and time), for a double tap; whether the readout shows the tile it read. */
+  private lastTap: { x: number; y: number; t: number } | null = null;
+  private tapRead = false;
+  /** A finger's press with something in hand, seen before it applies (touch.ts `FingerPress`, #1074 slice 3), and the
+   *  finger's last event. */
+  private press: FingerPress | null = null;
+  private pressLast: PointerEvent | null = null;
+  /** An aim's tap left its preview where it showed: the finger's going does not clear it. */
+  private keepAim = false;
   private listeners: [EventTarget, string, EventListener, AddEventListenerOptions?][] = [];
   /** The camera keys held (Timberborn's: WASD and the arrows move, Q and E turn, Shift is faster),
    *  and the camera's speed now: it moves every frame while they are held, easing in and gliding to
@@ -576,8 +612,17 @@ export class MapRenderer {
   /** The pointer moved: the editing pick, and on a tile with a cave or an overhang the ground seen (the voxel pick: a
    *  cave's floor through its mouth), which the hover readout names. */
   onHover: ((hit: TileHit | null, seen?: TileHit | null) => void) | null = null;
-  /** A left click (a press and release without dragging) on the map. */
+  /** A left click (a press and release without dragging) on the map; a finger's tap too. */
   onClick: ((hit: TileHit | null, ev: PointerEvent) => void) | null = null;
+  /** A two-finger tap (2: Undo) or a three-finger tap (3: Redo) on the view (touch.ts). */
+  onFingers: ((n: 2 | 3) => void) | null = null;
+  /** A finger's press with something in hand (touch.ts `FingerPress`): where it aims now and where the finger is (client
+   *  coordinates), and whether the finger is over a Cancel control (`data-press-cancel`); null when the press is over. */
+  onPress: ((p: FingerAim | null) => void) | null = null;
+  /** Something picked on the map that a finger's press moves, wherever it lands (an object, a source; #1074 slice 3). */
+  holdsPicked: (() => boolean) | null = null;
+  /** That object or source taken up, as a press on it takes it, to move where a finger aims; null when none. */
+  grabHeld: (() => PointerTool | null) | null = null;
   /** Before the tool and the camera: something under the pointer that a left-drag moves (a water
    *  source, D184), as a pointer tool for that drag, or null. */
   grab: ((hit: TileHit | null, ev: PointerEvent) => PointerTool | null) | null = null;
@@ -2750,6 +2795,9 @@ export class MapRenderer {
     m.source = { ...m.source, heights };
     // (the hollow under the cursor follows the roof's new top)
     this.hollowStale = true;
+    // (the Block tool's land, come with its answer through the page's edit queue: it glows when it is drawn, on plain
+    // ground too; taken now, as its answer ends the edit before the next frame draws it)
+    if (this.blockEdit()) this.blockLand = true;
     // (drawn at the next frame, with every other change before it: flushTerrain)
     const p = this.pendingLand;
     this.pendingLand = p ? { x0: Math.min(p.x0, rect.x0), y0: Math.min(p.y0, rect.y0), x1: Math.max(p.x1, rect.x1), y1: Math.max(p.y1, rect.y1) } : { ...rect };
@@ -2778,8 +2826,11 @@ export class MapRenderer {
     const drawn = this.drawnLand;
     for (let y = c.rect.y0; y <= c.rect.y1; y++)
       for (let i = y * m.W + c.rect.x0, end = y * m.W + c.rect.x1; i <= end; i++) if (heights[i] !== drawn[i]) landBefore[i] = drawn[i];
-    // (Erode's frames paint its plain ground here, its hollows under roofs in updateTerrain: both glow)
-    if (this.eroding) this.glowEdits(editedCells(m.W, m.H, { heights: drawn, masks: m.source.masks }, { heights, masks: m.source.masks }, true, c.rect));
+    // (Erode's frames paint its plain ground here, its hollows under roofs in updateTerrain: both glow; and the Block
+    // tool's land, `updateTerrainRect`)
+    const block = this.blockLand;
+    this.blockLand = false;
+    if (this.eroding || block) this.glowEdits(editedCells(m.W, m.H, { heights: drawn, masks: m.source.masks }, { heights, masks: m.source.masks }, true, c.rect));
     if (m.water.count && this.landUnder(drawn, heights, c.rect)) {
       this.rodeLand(c.rect);
       this.flowChanged(heights, m.surface);
@@ -3474,6 +3525,9 @@ export class MapRenderer {
     this.blockSent = sent;
   }
 
+  /** The Block tool's land is waiting for the next frame (`updateTerrainRect`): it glows when `flushTerrain` draws it. */
+  private blockLand = false;
+
   /** The land coming now is the Block tool's edit (sent, its land not come yet): taken once. */
   private blockEdit(): boolean {
     const yes = this.blockSent;
@@ -3825,7 +3879,7 @@ export class MapRenderer {
    *  than it. At once, as a mode always switches. */
   switchMode(mode: ViewMode): void {
     if (mode === this.view.mode) return;
-    cancelAnimationFrame(this.glideFrameTo);
+    this.stopGlideTo();
     this.leaveFirstView();
     let v = this.view;
     const box = this.canvas.getBoundingClientRect();
@@ -3842,10 +3896,15 @@ export class MapRenderer {
   }
 
   private glideFrameTo = 0;
+  /** A glide to a view stops where it is (a new glide, a mode switch, a finger). */
+  private stopGlideTo(): void {
+    cancelAnimationFrame(this.glideFrameTo);
+    this.glideFrameTo = 0;
+  }
   /** Glide smoothly to a view (a camera bookmark, D205): target, turn, tilt and zoom eased there in
    *  about half a second (at once with reduced motion); a top-down or orbit view switches at once. */
   glideTo(to: ViewState, ms = 600): void {
-    cancelAnimationFrame(this.glideFrameTo);
+    this.stopGlideTo();
     this.leaveFirstView();
     const from = this.getView();
     if (this.reducedMotion || ms <= 0) {
@@ -3867,7 +3926,7 @@ export class MapRenderer {
         distance: Math.exp(Math.log(from.distance) + (Math.log(to.distance) - Math.log(from.distance)) * e),
         target: [0, 1, 2].map((k) => from.target[k] + (to.target[k] - from.target[k]) * e) as [number, number, number],
       });
-      if (t < 1 && !this.disposed) this.glideFrameTo = requestAnimationFrame(step);
+      this.glideFrameTo = t < 1 && !this.disposed ? requestAnimationFrame(step) : 0;
     };
     step();
   }
@@ -3876,7 +3935,7 @@ export class MapRenderer {
    *  35°): the lens stays while the view does; any move away from it (a drag, a pan, a zoom, Top-down, a glide)
    *  puts ours back first (`leaveFirstView`), and Reset view and a new map do too. */
   poseCamera(v: ViewState, fov: number): void {
-    cancelAnimationFrame(this.glideFrameTo);
+    this.stopGlideTo();
     this.setView(v);
     this.setFov(fov);
     this.posed = fov !== PERSP_FOV_DEG;
@@ -4532,9 +4591,32 @@ export class MapRenderer {
         /* no such pointer */
       }
     };
+    // (the browser's own pinch zoom stays off the page while the view is here: touch.ts)
+    for (const type of BROWSER_ZOOM_EVENTS) this.on(document, type, (e) => e.preventDefault(), { passive: false });
     this.on(c, "pointerdown", (e) => {
       const ev = e as PointerEvent;
+      const finger = ev.pointerType === "touch";
+      // (a press stops a flick's glide; a finger, a double tap's too)
+      this.touches.stop();
+      if (finger) this.stopGlideTo();
+      this.keepAim = false;
+      // a second finger: the press in progress is dropped and the fingers move the camera (touch.ts)
+      if (finger && this.touches.down(ev)) return;
       c.focus({ preventScroll: true });
+      // one finger with something in hand that shows before it applies: seen a little above the finger, applied on the
+      // lift (touch.ts `FingerPress`); what is under the finger never changes what the press does (Kyler on #1074)
+      const mode = finger && ev.button === 0 ? this.pressModeFor(this.tool) : null;
+      if (mode) {
+        this.tapRead = false;
+        this.startPress(mode, ev);
+        capture(ev.pointerId);
+        return;
+      }
+      if (finger) {
+        // (no hover before a finger: the press is the hover, so a brush's ring and its level are under it, D322)
+        this.tapRead = false;
+        this.hoverAt(ev);
+      }
       // Alt+middle-click (the game's), or Alt+click: the clicked tile's layer (again: the whole world)
       if ((ev.button === 1 || (ev.button === 0 && !this.tool?.wantsAlt)) && ev.altKey && this.map) {
         ev.preventDefault();
@@ -4542,14 +4624,17 @@ export class MapRenderer {
         if (hit) this.pickSlice(hit);
         return;
       }
-      const grab = ev.button === 0 && this.grab ? this.grab(this.pick(ev.clientX, ev.clientY), ev) : null;
+      // (a finger never takes what is under it: with nothing in hand it pans, and an object or a source picked goes
+      // where a press aims, `pressModeFor`)
+      const grab = ev.button === 0 && this.grab && !finger ? this.grab(this.pick(ev.clientX, ev.clientY), ev) : null;
       if (grab) {
         this.grabbed = grab;
         this.drag = { kind: "tool", x: ev.clientX, y: ev.clientY, id: ev.pointerId, moved: 0, button: 0 };
         capture(ev.pointerId);
         return;
       }
-      if (ev.button === 0 && this.tool) {
+      // (a finger with the resting tool pans; its tap is the tool's click: `touchTap`)
+      if (ev.button === 0 && this.tool && !(finger && this.tool.touchPans)) {
         const hit = this.pickFor(this.tool, ev.clientX, ev.clientY);
         if (this.tool.down(hit, ev)) {
           this.drag = { kind: "tool", x: ev.clientX, y: ev.clientY, id: ev.pointerId, moved: 0, button: 0 };
@@ -4557,12 +4642,25 @@ export class MapRenderer {
           return;
         }
       }
+      if (finger) {
+        // one finger with nothing in hand moves the map
+        this.drag = { kind: "pan", x: ev.clientX, y: ev.clientY, id: ev.pointerId, moved: 0, button: 0, touch: ev };
+        capture(ev.pointerId);
+        return;
+      }
       const kind = ev.button === 2 || ev.button === 1 || ev.shiftKey || this.view.mode === "top" ? "pan" : "orbit";
       this.drag = { kind: ev.button === 1 && this.view.mode === "orbit" ? "orbit" : kind, x: ev.clientX, y: ev.clientY, id: ev.pointerId, moved: 0, button: ev.button };
       capture(ev.pointerId);
     });
     this.on(c, "pointermove", (e) => {
       const ev = e as PointerEvent;
+      const finger = ev.pointerType === "touch";
+      if (finger && this.touches.move(ev)) return;
+      if (finger && this.press?.id === ev.pointerId) {
+        this.pressLast = ev;
+        this.press.move({ x: ev.clientX, y: ev.clientY });
+        return;
+      }
       const d = this.drag;
       if (d && d.id === ev.pointerId) {
         const dx = ev.clientX - d.x;
@@ -4570,28 +4668,37 @@ export class MapRenderer {
         d.x = ev.clientX;
         d.y = ev.clientY;
         d.moved += Math.abs(dx) + Math.abs(dy);
-        if (d.kind !== "tool" && d.moved < 4) return;
+        if (d.kind !== "tool" && d.moved < (d.touch ? TAP_SLOP : 4)) return;
         if (d.kind === "tool") {
           const t = this.grabbed ?? this.tool;
           t?.move(this.pickFor(t, ev.clientX, ev.clientY), ev);
         }
         else if (d.kind === "orbit") this.setView({ yaw: this.view.yaw - dx * 0.006, pitch: this.view.pitch + dy * 0.005 });
-        else this.panPixels(dx, dy);
+        else {
+          // (a finger's first move past the slop carries the whole way from its press)
+          const [px, py] = d.touch && d.moved - Math.abs(dx) - Math.abs(dy) < TAP_SLOP ? [ev.clientX - d.touch.clientX, ev.clientY - d.touch.clientY] : [dx, dy];
+          this.panPixels(px, py);
+          if (d.touch) this.touches.panned(px, py, { x: ev.clientX, y: ev.clientY }, ev.timeStamp);
+        }
         return;
       }
-      const hit = this.pick(ev.clientX, ev.clientY);
-      this.hoverHit = hit;
-      // (the highlight and the Select tool show the ground seen; everything else, the tile's top)
-      const m = this.map;
-      const seen = this.pickSeen(ev.clientX, ev.clientY);
-      const seenCave = seen && m?.source.columns.has(seen.y * m.W + seen.x) ? seen : null;
-      this.setHoverTile(seen ? seen.x : null, seen?.y ?? 0, seenCave ? (seen!.level ?? -1) : -1);
-      const t = this.tool;
-      t?.hover?.(t.voxel ? seen : t.surface ? this.pickSurface(ev.clientX, ev.clientY, hit) : hit, ev);
-      this.onHover?.(hit, seenCave);
+      // (a finger hovers nothing: it is down or gone)
+      if (finger) return;
+      this.hoverAt(ev);
     });
     const end = (e: Event) => {
       const ev = e as PointerEvent;
+      if (ev.pointerType === "touch" && this.touches.up(ev)) return;
+      const p = this.press;
+      if (p && p.id === ev.pointerId) {
+        this.press = null;
+        this.pressLast = ev;
+        if (c.hasPointerCapture(ev.pointerId)) c.releasePointerCapture(ev.pointerId);
+        // (the browser took the touch, as iOS Safari may: nothing is applied)
+        if (ev.type === "pointerup") p.up({ x: ev.clientX, y: ev.clientY }, ev.timeStamp);
+        else p.cancel();
+        return;
+      }
       const d = this.drag;
       if (!d || d.id !== ev.pointerId) return;
       this.drag = null;
@@ -4601,12 +4708,23 @@ export class MapRenderer {
         this.grabbed = null;
         if (ev.type === "pointercancel" && t?.cancel) t.cancel();
         else t?.up(this.pickFor(t ?? null, ev.clientX, ev.clientY), ev);
+      } else if (d.touch) {
+        if (ev.type !== "pointerup") return;
+        if (d.moved < TAP_SLOP && ev.timeStamp - d.touch.timeStamp <= TAP_MS) this.touchTap(d.touch, ev);
+        else this.touches.release(ev.timeStamp);
       } else if (d.button === 0 && d.moved < 4 && ev.type === "pointerup") this.onClick?.(this.pick(ev.clientX, ev.clientY), ev);
     };
     this.on(c, "pointerup", end);
     this.on(c, "pointercancel", end);
     this.on(c, "pointerleave", (e) => {
-      if (this.drag) return;
+      if (this.drag || this.press) return;
+      // (a tap with an object, a force or the Block tool in hand left its preview showing where it would go)
+      if ((e as PointerEvent).pointerType === "touch" && this.keepAim) return;
+      // (a finger lifted: the ring under it goes; a tile a tap read stays read, its readout and its light)
+      if ((e as PointerEvent).pointerType === "touch" && this.tapRead) {
+        this.tool?.hover?.(null, e as PointerEvent);
+        return;
+      }
       this.hoverHit = null;
       this.aim = null;
       this.setHoverTile(null);
@@ -4619,6 +4737,7 @@ export class MapRenderer {
       (e) => {
         const ev = e as WheelEvent;
         ev.preventDefault();
+        this.touches.stop();
         if (this.onWheel?.(ev, this.pick(ev.clientX, ev.clientY))) return;
         if (this.tool?.wheel?.(ev)) return;
         // Alt+scroll: the game's layers, the world cut away from the top down
@@ -4669,8 +4788,228 @@ export class MapRenderer {
     // the window loses focus: no key, Shift or mouse button is held any more, and a stroke or gesture
     // in progress ends as a released button ends it (D361, item 5)
     this.on(window, "blur", () => {
+      this.touches.reset();
+      // (a finger's press with something in hand is dropped, nothing applied: only its lift applies it)
+      this.cancelPress();
       focusLost(this.held, this.glide, this.drag, (d) => end({ type: d.kind === "tool" ? "pointerup" : "pointercancel", pointerId: d.id, clientX: d.x, clientY: d.y, button: 0, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false } as unknown as Event));
     });
+  }
+
+  /** The pointer is over the map with no button down (and a finger's press, which is its hover): the tile it is on
+   *  lights, the tool in hand follows it, and the readout reads it. */
+  private hoverAt(ev: PointerEvent): void {
+    const hit = this.pick(ev.clientX, ev.clientY);
+    this.hoverHit = hit;
+    // (the highlight and the Select tool show the ground seen; everything else, the tile's top)
+    const m = this.map;
+    const seen = this.pickSeen(ev.clientX, ev.clientY);
+    const seenCave = seen && m?.source.columns.has(seen.y * m.W + seen.x) ? seen : null;
+    this.setHoverTile(seen ? seen.x : null, seen?.y ?? 0, seenCave ? (seen!.level ?? -1) : -1);
+    const t = this.tool;
+    t?.hover?.(t.voxel ? seen : t.surface ? this.pickSurface(ev.clientX, ev.clientY, hit) : hit, ev);
+    this.onHover?.(hit, seenCave);
+  }
+
+  /** A finger's tap (touch.ts): the readout reads the tile, and the tap is a click, the resting tool's own where it
+   *  has one; a second tap on the spot soon after zooms in on it instead, whatever is under it (Kyler on #1074: a tap on
+   *  an object picks it, and that stands; the second still zooms). */
+  private touchTap(down: PointerEvent, up: PointerEvent): void {
+    if (this.doubleTapped(up)) return;
+    this.hoverAt(up);
+    this.tapRead = true;
+    const t = this.tool;
+    if ((t?.touchPans || t?.tapClicks) && t.down(this.pickFor(t, down.clientX, down.clientY), down)) {
+      t.up(this.pickFor(t, up.clientX, up.clientY), up);
+      return;
+    }
+    this.onClick?.(this.pick(up.clientX, up.clientY), up);
+  }
+
+  /** A finger's tap: when it is the second on the spot soon after one, the view glides in on it (true); else it is
+   *  noted, for the next. */
+  private doubleTapped(up: PointerEvent): boolean {
+    const last = this.lastTap;
+    if (last && up.timeStamp - last.t <= DOUBLE_TAP_MS && Math.hypot(up.clientX - last.x, up.clientY - last.y) <= DOUBLE_TAP_PX) {
+      this.lastTap = null;
+      this.zoomInAt(up.clientX, up.clientY);
+      return true;
+    }
+    this.lastTap = { x: up.clientX, y: up.clientY, t: up.timeStamp };
+    return false;
+  }
+
+  /** How a finger's press works what is in hand (touch.ts `PressMode`), or null for the view's own one-finger path (a
+   *  pan with nothing in hand, a brush's stroke under the finger). The resting Select with an object or a source picked
+   *  holds that: the press moves it. */
+  private pressModeFor(t: PointerTool | null): PressMode | null {
+    if (!t) return null;
+    if (t.touchPans) return this.holdsPicked?.() ? "move" : null;
+    return t.finger ?? null;
+  }
+
+  /** A finger's press with something in hand begins (touch.ts `FingerPress`): it aims `FINGER_LIFT` above the finger;
+   *  "aim" shows the tool's hover there, "draw" and "move" drive the tool's (or the picked object's grab's) own press
+   *  there once the press is no tap; the lift applies it, a tap or a drop applies nothing. */
+  private startPress(mode: PressMode, ev: PointerEvent): void {
+    this.cancelPress();
+    const t = this.tool!;
+    /** The tool or grab a draw or a move drives, once begun. */
+    let driven: PointerTool | null = null;
+    this.pressLast = ev;
+    const at = (type: string, p: Point) => this.aimEvent(type, p, ev);
+    /** An aim's preview goes, and the tile it lit. */
+    const unaim = () => {
+      this.hoverHit = null;
+      this.setHoverTile(null);
+      t.hover?.(null, at("pointermove", { x: ev.clientX, y: ev.clientY }));
+      this.onHover?.(null);
+    };
+    const host: PressHost = {
+      show: (p) => {
+        if (mode === "aim") return this.hoverAt(at("pointermove", p));
+        driven?.move(this.pickFor(driven, p.x, p.y), at("pointermove", p));
+      },
+      begin: (p) => {
+        const g = mode === "move" ? (this.grabHeld?.() ?? null) : this.tool === t ? t : null;
+        if (!g) return false;
+        if (!g.down(this.pickFor(g, p.x, p.y), at("pointerdown", p))) {
+          if (mode === "move") g.cancel?.();
+          return false;
+        }
+        driven = g;
+        return true;
+      },
+      apply: (p) => {
+        const up = at("pointerup", p);
+        if (mode !== "aim") {
+          const g = driven;
+          driven = null;
+          return g?.up(this.pickFor(g, p.x, p.y), up);
+        }
+        // (the tool put away meanwhile: nothing to apply)
+        if (this.tool !== t) return;
+        const hit = this.pickFor(t, p.x, p.y);
+        if (t.down(hit, at("pointerdown", p))) t.up(hit, up);
+      },
+      drop: (begun) => {
+        const g = driven;
+        driven = null;
+        if (begun) g?.cancel?.();
+        if (mode === "aim" && this.tool === t) unaim();
+      },
+      tap: () => {
+        const up = this.pressLast ?? ev;
+        // (a picked object's press that was a tap: a click, or half a double tap, where the finger is, as with nothing
+        // in hand)
+        if (mode === "move") return this.touchTap(ev, up);
+        if (this.doubleTapped(up)) {
+          if (mode === "aim" && this.tool === t) t.hover?.(null, at("pointermove", { x: up.clientX, y: up.clientY }));
+          return;
+        }
+        if (mode === "draw" && t.tapClicks) {
+          this.lastTap = null;
+          return this.touchTap(ev, up);
+        }
+        // (an aim's tap applies nothing: its preview stays where it would go)
+        if (mode === "aim") this.keepAim = true;
+      },
+      overCancel: (p) => !!document.elementFromPoint(p.x, p.y)?.closest("[data-press-cancel]"),
+      mark: (p, over) => {
+        // (over Cancel an aim's preview goes: nothing would be applied there; off it again, it shows)
+        if (over && mode === "aim" && this.tool === t) unaim();
+        const f = this.pressLast ?? ev;
+        this.onPress?.(p ? { aim: { x: p.x, y: p.y }, finger: { x: f.clientX, y: f.clientY }, over } : null);
+      },
+      later: (fn, ms) => window.setTimeout(fn, ms),
+      clear: (id) => clearTimeout(id),
+    };
+    this.press = new FingerPress(mode, ev.pointerId, { x: ev.clientX, y: ev.clientY }, ev.timeStamp, this.canvas.getBoundingClientRect().top, host);
+  }
+
+  /** Drop a finger's press with something in hand, nothing applied (a Cancel control, the window losing focus); the
+   *  finger, still down, then does nothing until it lifts. True when there was one. */
+  cancelPress(): boolean {
+    const p = this.press;
+    if (!p) return false;
+    this.press = null;
+    p.cancel();
+    return true;
+  }
+
+  /** Whether a finger's press with something in hand is on (tests). */
+  get pressing(): boolean {
+    return this.press !== null;
+  }
+
+  /** A finger's event moved to where its press aims (`at`): what the tools read of a press, a drag and a release. */
+  private aimEvent(type: string, at: Point, from: PointerEvent): PointerEvent {
+    return new PointerEvent(type, {
+      clientX: at.x,
+      clientY: at.y,
+      pointerId: from.pointerId,
+      pointerType: "touch",
+      isPrimary: from.isPrimary,
+      button: type === "pointermove" ? -1 : 0,
+      buttons: type === "pointerup" ? 0 : 1,
+      pressure: type === "pointerup" ? 0 : 0.5,
+    });
+  }
+
+  /** A second finger came down during a one-finger press: the press is dropped, a stroke or a drag cancelled with
+   *  nothing applied (its tool's `cancel`, as Esc), a pan just stopped, a press with something in hand dropped. The
+   *  finger keeps its capture: the gesture follows it. */
+  private dropPress(): void {
+    this.cancelPress();
+    const d = this.drag;
+    if (!d) return;
+    this.drag = null;
+    if (d.kind !== "tool") return;
+    const t = this.grabbed ?? this.tool;
+    this.grabbed = null;
+    t?.cancel?.();
+  }
+
+  /** The fingers' step (touch.ts): pan, tilt, then zoom and turn about the ground under `at`, which stays under it. */
+  private touchMove(m: Motion, at: Point): void {
+    if (m.dx || m.dy) this.panPixels(m.dx, m.dy);
+    if (m.tilt && this.view.mode === "orbit") this.setView({ pitch: this.view.pitch + m.tilt });
+    if (!m.zoom && !m.turn) return;
+    const ground = this.map ? this.zoomPoint(at.x, at.y) : null;
+    if (m.zoom) {
+      const step = this.zoomStepAt(Math.exp(m.zoom), ground);
+      if (step) this.setView(step);
+    }
+    if (m.turn) this.turnAbout(m.turn, ground?.point ?? this.view.target);
+  }
+
+  /** Turn the view by `angle` (radians, clockwise on the screen) about the vertical line through `p`, so the ground
+   *  there stays where it is on the screen: the camera's target goes round it as the camera does. */
+  private turnAbout(angle: number, p: readonly [number, number, number]): void {
+    const v = this.view;
+    const ox = v.target[0] - p[0];
+    const oz = v.target[2] - p[2];
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    const m = this.map;
+    let x = p[0] + ox * c + oz * s;
+    let z = p[2] - ox * s + oz * c;
+    if (m) {
+      x = Math.min(m.W, Math.max(0, x));
+      z = Math.min(0, Math.max(-m.H, z));
+    }
+    this.setView({ yaw: v.yaw + angle, target: [x, v.target[1], z] });
+  }
+
+  /** A double tap: the view glides in to half its distance about the ground under the tap, which stays under it. */
+  private zoomInAt(x: number, y: number): void {
+    const step = this.zoomStepAt(0.5, this.map ? this.zoomPoint(x, y) : null);
+    if (step) this.glideTo({ ...this.getView(), ...step }, 250);
+  }
+
+  /** Whether the view is still moving on its own after the fingers: a flick's glide, or a double tap's (or any other)
+   *  glide to a view (tests wait on it, not on a clock). */
+  get touchGliding(): boolean {
+    return this.touches.gliding || this.glideFrameTo !== 0;
   }
 
   /** The camera keys' glide now (tests): its speed on each axis, Shift, and whether it is still
@@ -4713,17 +5052,24 @@ export class MapRenderer {
    *  In, the camera stops short of the ground under the pointer (`zoomStopShort`), so a zoom into a cave's mouth ends in
    *  its air; a camera the rock holds nearer than its distance (cameraClamp.ts) zooms from where it is drawn. */
   zoom(factor: number, clientX?: number, clientY?: number): void {
+    const m = this.map;
+    const step = this.zoomStepAt(factor, () => (m && clientX !== undefined && clientY !== undefined ? this.zoomPoint(clientX, clientY) : null));
+    if (step) this.setView(step);
+  }
+
+  /** The view's distance and target after a zoom by `factor` about `ground` (`zoomPoint`'s, or a call to it; null: the
+   *  screen's centre), or null where nothing moves: `zoom`'s step, which a finger's pinch and double tap take too. */
+  private zoomStepAt(factor: number, ground: ReturnType<MapRenderer["zoomPoint"]> | (() => ReturnType<MapRenderer["zoomPoint"]>)): { distance: number; target: [number, number, number] } | null {
     this.leaveFirstView();
     const m = this.map;
-    const step = zoomStep(
+    return zoomStep(
       this.view,
       factor,
       this.reach().reach,
-      () => (m && clientX !== undefined && clientY !== undefined ? this.zoomPoint(clientX, clientY) : null),
+      typeof ground === "function" ? ground : () => ground,
       m ? zoomLimits(m.W, m.H) : { min: 6, max: 768 },
       { W: m?.W ?? 0, H: m?.H ?? 0 },
     );
-    if (step) this.setView(step);
   }
 
   /** The ground point to zoom about under a point on the screen: what the pointer sees (the terrain or the cut, the

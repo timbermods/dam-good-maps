@@ -82,8 +82,8 @@ describe("generated maps: every new object passes the placement emulation (ROADM
   // and Highlands height round, 0.8.8, D148: on its seed 3 the two belts planned would cut the start's
   // walkable land from 2,274 tiles to 1,134, so the walk rule leaves both out; seed 3 itself stays below;
   // Islands seed 6 since the opening shot, 0.10.2, D493, D148: its seeds 1–5 leave the thorn belt out; Islands seed 2
-  // since generator 0.10.6 (D498, badwater left the sea alone), D148: its seeds 1 and 6 leave the belt out, seeds 2–5 and 7–11 place it; Islands seed 5 since generator 0.10.11 (#726's shores, ramps and berries), D148: its seeds 2–4 leave the belt out, 5 and 7 place it)
-  const everyObject = (theme: ThemeId, seed = theme === "islands" ? 5 : theme === "canyon" ? 1 : 3, thorns = true) => {
+  // since generator 0.10.6 (D498, badwater left the sea alone), D148: its seeds 1 and 6 leave the belt out, seeds 2–5 and 7–11 place it; Islands seed 5 since generator 0.10.11 (#726's shores, ramps and berries), D148: its seeds 2–4 leave the belt out, 5 and 7 place it; Islands seed 7 since generator 0.10.17's start floors, D515, D148: its seeds 5, 6, 8 and 9 leave the belt out, 7 and 10–12 place it)
+  const everyObject = (theme: ThemeId, seed = theme === "islands" ? 7 : theme === "canyon" ? 1 : 3, thorns = true) => {
     const spec = makeSpec({ seed, size: { x: 96, y: 96 }, theme });
     spec.settings.hazards.thornBelts = "some";
     spec.settings.hazards.unstableCores = "on";
@@ -138,8 +138,25 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // has no site now, and of Islands seeds 17, 21 and 23 (the rest of the earlier list) 17 and 21 have one; canyon 13 and 17 for canyon 5
     // and river valley 4 since generator 0.10.11, the D410 round, D148: neither has a site now, and of Canyon seeds 1, 5, 9, 12, 13 and 17
     // only 13 and 17 have one that keeps every rule; canyon 11 for canyon 13 since generator 0.10.13, whose starts frame the map,
-    // D507, D148: canyon 13 has no site now, and of Canyon seeds 1–20 only 1, 11 and 17 have one, of which 11 and 17 keep every rule)
-    for (const [theme, seed] of [["islands", 17], ["riverValley", 3], ["canyon", 11], ["canyon", 17]] as [ThemeId, number][]) {
+    // D507, D148: canyon 13 has no site now, and of Canyon seeds 1–20 only 1, 11 and 17 have one, of which 11 and 17 keep every rule;
+    // canyon 5 and 9 for canyon 11 and 17 since generator 0.10.16's ground with grade, D148: neither has a site now, and of Canyon
+    // seeds 1–20 only 5 and 9 have one, both keeping every rule; no fewer sites over all: of Islands, River Valley and Canyon
+    // seeds 1–20, 21 keep every rule against 23 on 0.10.15; Islands 8 for Islands 17 since generator 0.10.17 (D515's start
+    // floors move the starts), D148: Islands 17 has no site now, and of Islands, River Valley and Canyon seeds 1–20, 23 keep
+    // every rule (Islands 8, 12, 14, 16, 19; Canyon 4, 5, 9, 14; River Valley 14 of 20); Islands 11 and 15 and River Valley 10
+    // place item 47's close site behind its debris, 40–70 tiles out by design, so they are not this rule's sites; Islands 12 and
+    // Canyon 3 and 7 for Islands 8 and Canyon 5 and 9 since generator 0.10.20's contour edges, D518, D148: those three have no
+    // site now, and of Islands, River Valley and Canyon seeds 1–20, 16 keep every rule (Islands 12; Canyon 3, 7; River Valley 1–8,
+    // 12–16), Islands 9's lying 44 tiles out; Islands 16 for Canyon 3 since the D518 mends (wash treads and dead-stand knots), D148:
+    // Canyon 3 has no site now, and of Islands, River Valley and Canyon seeds 1–20, 17 keep every rule (Islands 12, 16, 18; Canyon 7;
+    // River Valley 1–8, 13–16, 20), Islands 9's still lying 44 tiles out and not joined to the start by the walk; Islands 3 and Canyon 9
+    // for Islands 16 and Canyon 7 since the D518 mends (the rolling ground's reweighed noise, compact rises, a dry wash's broad flat
+    // broken up, the lake stair's bench bend 24 tiles off the start), D148: Canyon 7 and Islands 16 have no site now, and of Islands,
+    // River Valley and Canyon seeds 1–20, 15 keep every rule (Islands 1, 3, 4, 8, 12, 19; Canyon 9; River Valley 1–3, 5, 6, 13, 14, 16);
+    // Islands 6 and 9 hold sites 41 tiles out that the walk does not join to the start; River Valley 1 for Canyon 9 since generator
+    // 0.10.21's look round (the land's long straight steps jog), D148: Canyon 9 has no site now, nor has any of Canyon seeds 1–19 that keeps every
+    // rule, while Islands 3 and 12 and River Valley 1–3, 5, 6, 13, 14 and 16 do)
+    for (const [theme, seed] of [["islands", 12], ["riverValley", 3], ["islands", 3], ["riverValley", 1]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       expect(r.report.passed).toBe(true);
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "secondDistrict");
@@ -182,9 +199,24 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // canyon 1 and river valley 11 for river valley 9 since generator 0.10.7 (D502, every start leans toward a
     // landmark and River Valley grows landmark forms), D148: canyon 1's rise lies in a pocket of land the colony cannot
     // walk to from its start (as do river valley 5's and 10's), so no flight of stairs reaches it; of Canyon's seeds to 20
-    // only 1, 3 and 19 hold a rise, and of River Valley's seeds 1–16 only 4, 5, 8, 10, 11 and 13; river valley 13 for river valley 11 since generator 0.10.11 (#726's shores, ramps and berries), D148: river valley 11, 4 and 9 hold none now)
+    // only 1, 3 and 19 hold a rise, and of River Valley's seeds 1–16 only 4, 5, 8, 10, 11 and 13; river valley 13 for river valley 11 since generator 0.10.11 (#726's shores, ramps and berries), D148: river valley 11, 4 and 9 hold none now; canyon 2, canyon 14 and river valley 7 for river valley 13, river valley 8
+    // and canyon 3 since generator 0.10.16's ground with grade, D148: the rolling ground's graded flanks join more tops
+    // to the start by slopes, so over seeds 1–20 of Islands, River Valley and Canyon the rises that keep every rule
+    // fell from 13 to 8 (Canyon 3 to 5, River Valley 7 to 2, Islands 3 to 1); of those, these four are the first;
+    // canyon 4, canyon 10 and river valley 5 for canyon 19, canyon 2 and river valley 7 since generator 0.10.17 (D515's start
+    // floors move the starts), D148: those three hold no rise that keeps every rule now, and over seeds 1–20 of Islands, River
+    // Valley and Canyon 13 do (Canyon 4, 10, 11, 12, 14, 15; Islands 12, 14, 18; River Valley 5, 12, 17, 20); canyon 1, canyon 7
+    // and river valley 1 for canyon 4, canyon 14 and river valley 5 since generator 0.10.20's contour edges, D518, D148: those
+    // three hold no rise that keeps every rule now, and over seeds 1–20 of Islands, River Valley and Canyon 15 do (Canyon 1, 7,
+    // 8, 10, 12, 15; Islands 3, 4, 20; River Valley 1, 4, 7, 14, 18, 20); canyon 15 for canyon 10 since the D518 mends (wash treads and
+    // dead-stand knots), D148: canyon 10 holds no rise now, and over seeds 1–20 of Islands, River Valley and Canyon 17 do (Canyon 1, 5,
+    // 7, 8, 14, 15, 18; Islands 3, 4, 20; River Valley 1, 4, 7, 9, 14, 18, 20), canyon 15's of two levels))
     let seen = 0;
-    for (const [theme, seed] of [["canyon", 19], ["riverValley", 13], ["riverValley", 8], ["canyon", 3]] as [ThemeId, number][]) {
+    // canyon 2, canyon 8 and river valley 4 for canyon 1, canyon 15 and river valley 1 since the D518 mends (the rolling ground's
+    // reweighed noise, compact rises, a dry wash's broad flat broken up, the lake stair's bench bend 24 tiles off the start), D148:
+    // those three hold no rise now, and over seeds 1–20 of Canyon and River Valley 15 hold one that keeps every rule (Canyon 2, 3, 7, 8,
+    // 11, 12, 17, 20; River Valley 4, 5, 7, 11, 15, 18, 20))
+    for (const [theme, seed] of [["canyon", 2], ["canyon", 7], ["canyon", 8], ["riverValley", 4]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;
@@ -222,8 +254,18 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // 0.8.1's maps left without one; canyon 19 for canyon 16 since the start's badwater distance became
     // a rule, Kyler, 2026-10-05; canyon 10 for canyon 19 and highlands 4 for highlands 1 since the Canyon and
     // Highlands height round, 0.8.8, D148: neither map's river takes a weir now (highlands 2 has one, holding 0.65,
-    // on a spring river a second channel runs beside, which this reading would count with it))
-    for (const [theme, seed] of [["canyon", 6], ["canyon", 7], ["canyon", 4], ["canyon", 10], ["highlands", 4]] as [ThemeId, number][]) {
+    // on a spring river a second channel runs beside, which this reading would count with it); canyon 1 for canyon 4 and
+    // highlands 6 for highlands 4 since generator 0.10.16's ground with grade, D148: neither river takes a weir now; no fewer weirs
+    // over all: of Canyon and Highlands 96² seeds 1–20, 12 hold 0.6 or more against 14 on 0.10.15, and one holds less, as one did;
+    // canyon 2, canyon 4 and highlands 2 for canyon 6, canyon 1 and highlands 6 since generator 0.10.20's contour edges, D518,
+    // D148: those rivers take no weir now; of Canyon and Highlands 96² seeds 1–20, 15 hold 0.6 or more and none holds less;
+    // canyon 14 for canyon 4 since the D518 mends (wash treads and dead-stand knots), D148: canyon 4's river takes no weir now; of Canyon
+    // and Highlands 96² seeds 1–20, 13 hold 0.6 or more (Canyon 2, 7, 10, 14, 16, 17; Highlands 2, 4, 5, 8, 9, 13, 15) and none holds less)
+    // canyon 3 and canyon 17 for canyon 2 and canyon 14 since the D518 mends of the land (the rolling ground's reweighed noise,
+    // compact rises, a dry wash's broad flat broken up, the lake stair's bench bend 24 tiles off the start), D148: those two rivers
+    // take no weir now; of Canyon and Highlands 96² seeds 1–20, 10 hold 0.6 or more (Canyon 3, 7, 10, 17; Highlands 2, 4, 9, 10, 12,
+    // 13) and none holds less)
+    for (const [theme, seed] of [["canyon", 7], ["canyon", 10], ["canyon", 3], ["canyon", 17], ["highlands", 2]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 96, y: 96 }, theme }));
       const w = r.features.find((g) => g.kind === "mapObject" && g.params.kind === "weir");
       if (!w || w.kind !== "mapObject") continue;

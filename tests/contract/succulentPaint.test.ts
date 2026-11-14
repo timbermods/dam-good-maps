@@ -1,7 +1,10 @@
 // Painting succulents plants them only where they live (PLAN §20 D235): a succulent dies on moist ground, so a stroke
 // leaves moist tiles empty, by the rule `plants.survive` applies (plantSoil.ts `diesOnSoil`), as trees and bushes
 // avoid water. On River Valley 64×256 seed 740973 a stroke there put 6 on moist tiles, where the check said they die (the
-// strip below holds moist ground on generator 0.10.7's map, D502, D148).
+// strip below holds moist ground on generator 0.10.7's map, D502, D148; moved from 57,13–63,39 to 57,78–63,104 since
+// generator 0.10.16's ground with grade, D148: the old strip has no moist dry ground left, and the new one, the same
+// columns further south, holds 20 moist dry tiles; moved to 57,143–63,169 since generator 0.10.20's contour edges, D518,
+// D148: the old strip has no moist dry ground left, and the new one holds 41 moist dry tiles where a stroke plants 20).
 
 import { describe, expect, it } from "vitest";
 import { applyPaintObjects, paintDying, planPaintObjects } from "../../src/core/doc/paint";
@@ -30,7 +33,7 @@ describe("painted succulents stand only on ground where they survive (D235)", ()
   it("none lands where plants.survive would flag it, and moist tiles are left empty", () => {
     const s = session();
     const W = s.size.x;
-    const tiles = rect(57, 13, 63, 39, W);
+    const tiles = rect(57, 143, 63, 169, W);
     const params: PaintParams = { kind: "succulents", template: "Succulent", area: tilesToRuns(tiles, W), density: 0.3, seed: 11 };
     const ground = { moisture: s.built.moisture, contamination: s.built.soilContamination, depth: s.built.water };
     // (the region holds moist ground, or this proves nothing)
@@ -52,7 +55,7 @@ describe("painted succulents stand only on ground where they survive (D235)", ()
     const W = s.size.x;
     const b = s.built;
     const taken = new Set(b.entities.map((e) => e.y * W + e.x));
-    const moist = rect(57, 13, 63, 39, W).filter((i) => b.moisture[i] > 0 && !(b.water[i] > 0.05) && !taken.has(i));
+    const moist = rect(57, 143, 63, 169, W).filter((i) => b.moisture[i] > 0 && !(b.water[i] > 0.05) && !taken.has(i));
     expect(moist.length).toBeGreaterThan(0);
     const p = planPaintObjects(s, { kind: "succulents", template: "Succulent", area: tilesToRuns([moist[0]], W), density: 1, seed: 1 });
     expect(p.ok).toBe(false);

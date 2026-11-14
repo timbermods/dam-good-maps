@@ -11,8 +11,9 @@ const sourceRoot = process.env.DGM_PAGE_SOURCE_ROOT ?? process.cwd();
 const source = (p: string) => readFileSync(join(sourceRoot, p), "utf8");
 function deferred<T>() {
   let resolve!: (v: T) => void;
-  const promise = new Promise<T>((r) => { resolve = r; });
-  return { promise, resolve };
+  let reject!: (e: unknown) => void;
+  const promise = new Promise<T>((r, f) => { resolve = r; reject = f; });
+  return { promise, resolve, reject };
 }
 const compile = (code: string) => ts.transpileModule(code, {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
@@ -45,7 +46,10 @@ test("Cancel while the recovery snapshot is pending restores a live editor worke
     cancelling: { current: false }, session: { kind: "import" }, entry: { current: { id: "old" } }, kept: { current: true },
     gen: old, generator: { generate: async () => { generated++; throw new Error("stale generation"); } },
     createGeneratorWorker: () => ({ api: { deferChecks: async () => {}, openProject: async (b: Uint8Array) => { opened.push([...b]); return {}; } } }),
-    snapshot: () => recovery.promise, saver: { changed() {}, flush: async () => {} },
+    // (the page takes the open map in two steps since the click's lag round, D148: the worker hands over its document
+    // (`snapshotTaken`), then its file is written; the recovery project pending is the first step pending)
+    snapshotTaken: () => recovery.promise.then((s) => ({ kept: true, written: Promise.resolve(s) })), backKept: { current: false }, CANCEL_WAIT: 30_000,
+    saver: { changed() {}, flush: async () => {} },
     stopBackground() {}, setBusy() {}, setError() {}, setProgress() {}, setSeedText() {},
     setMaking: (v: unknown) => { making = v; }, performance: { mark() {} },
     enterEditor() {}, words: (e: unknown) => String(e), seedText: "4242", proxy: (v: unknown) => v,
@@ -70,6 +74,40 @@ test("Cancel while the recovery snapshot is pending restores a live editor worke
   expect(making).toBe(null);
 });
 
+test("Cancel while the map cannot be taken brings this map back, never claiming the map before's keeping", async () => {
+  const taking = deferred<never>();
+  const old = { api: {}, stopped: false, stop() { this.stopped = true; } };
+  const opened: { bytes: number[]; kept: unknown }[] = [];
+  let making: unknown;
+  let generated = 0;
+  const env = createContext({
+    runId: { current: 0 }, back: { current: null }, backReady: { current: null },
+    // (the map before was kept: its keeping is left in `backKept`; this one is neither kept nor edited)
+    backKept: { current: true },
+    cancelling: { current: false }, session: { kind: "generated" }, entry: { current: { id: "now" } }, kept: { current: false },
+    gen: old, generator: { generate: async () => { generated++; }, project: async () => ({ bytes: new Uint8Array([7]) }) },
+    createGeneratorWorker: () => ({ api: { deferChecks: async () => {}, openProject: async (b: Uint8Array) => { opened.push({ bytes: [...b], kept: null }); return {}; } } }),
+    snapshotTaken: () => taking.promise, CANCEL_WAIT: 30_000, console: { error() {} }, setTimeout, clearTimeout,
+    saver: { changed() {}, flush: async () => {} },
+    stopBackground() {}, setBusy() {}, setError() {}, setProgress() {}, setSeedText() {},
+    setMaking: (v: unknown) => { making = v; }, performance: { mark() {} },
+    enterEditor: (_d: unknown, origin: { entry: { id: string }; kept: unknown }) => { opened[opened.length - 1].kept = origin.kept; opened[opened.length - 1].bytes.push(origin.entry.id === "now" ? 1 : 0); },
+    words: (e: unknown) => String(e && typeof e === "object" && "message" in e ? (e as { message: string }).message : e), seedText: "", proxy: (v: unknown) => v,
+    keeping: { current: true }, discardAllowed: { current: false }, saveState: "", setSaveState() {},
+    switching: { current: false }, setReplacingMap() {}, setMakingWords() {},
+    together: { isHost: false, isGuest: false, announce() {}, cancelAnnounce() {}, newMap: async () => {} }, sharedGen: { current: null }, committing: { current: false },
+  });
+  runInContext(compile(functions("src/ui/App.tsx", ["run", "holdBack", "cancelMaking"])), env);
+  const run = env.run({ seed: 4242 });
+  const cancelled = env.cancelMaking();
+  taking.reject(new Error("the worker could not hand it over"));
+  await Promise.all([run, cancelled]);
+  // this map, from the old worker (its file written there), brought back as not kept; no map made
+  expect(opened).toEqual([{ bytes: [7, 1], kept: false }]);
+  expect(generated).toBe(0);
+  expect(making).toBe(null);
+});
+
 test("Download project captures the map after already queued edits", async () => {
   const pendingEdit = deferred<void>();
   let revision = 0;
@@ -82,6 +120,8 @@ test("Download project captures the map after already queued edits", async () =>
     require: (id: string) => {
       if (id === "comlink") return { proxy: (v: unknown) => v };
       if (id === "../../platform") return { saveFile: (b: Uint8Array) => downloads.push([...b]) };
+      // the share sheet is the map file's way out on a phone (#1074); a project only downloads
+      if (id === "../../platform/share") return { liveShareDeps: () => ({}), shareOrDownload: async () => { throw new Error("Download project never shares"); } };
       if (id === "../panels") return { plain: (v: unknown) => v };
       if (id === "../../core/doc/checkItems") return { NO_START: "No start", NO_START_REFUSAL: "" };
       if (id === "./hero") return { heroPicture: () => ({ onPicture: () => undefined, finish: async (r: { bytes: Uint8Array }) => r.bytes }) };

@@ -8,6 +8,7 @@ import type { EditOp, OpOrigin } from "../core/doc/ops";
 import type { PaintParams } from "../core/doc/paintParams";
 import type { RuinLineParams } from "../core/doc/ruinLine";
 import type { BlocksParams } from "../core/doc/blockTool";
+import type { RidgeSteep } from "../core/doc/ridgeLimits";
 import { decodePlaceFile, placeTimber } from "../core/places/place";
 import { replaceThumbnail } from "../core/format/timber";
 import type { MapSpec } from "../core/spec/mapspec";
@@ -146,6 +147,7 @@ const api = {
   refine: () => sendOpen(ed.refine()),
   openTimber: (bytes: Uint8Array, fileName: string) => sendOpen(ed.openTimber(bytes, fileName)),
   openProject: (bytes: Uint8Array) => sendOpen(ed.openProject(bytes)),
+  newBlank: (size: number, level: number) => sendOpen(ed.newBlank(size, level)),
   /** A real place (its data file): built into its .timber, then opened as any .timber is. */
   openPlace(data: Uint8Array) {
     const place = decodePlaceFile(data);
@@ -157,6 +159,14 @@ const api = {
   sessionView: () => sendOpen(ed.sessionView()),
   /** The Block tool's preview: what a click or a drag would add, take and drop (no build). */
   blockFalls: (params: BlocksParams) => ed.blockFalls(params),
+  /** The land and terrain whole, numbered (the page asks when an answer's patch did not lay on the land it holds,
+   *  core/doc/landPatch.ts). */
+  /** The page's edits all answered: the water's news for the water the page lacks, if any (`idleWater`). */
+  idleWater: () => ed.idleWater(),
+  landNow() {
+    const l = ed.landNow();
+    return transfer(l, viewBuffers(l.view) as Transferable[]);
+  },
   terrainNow() {
     const t = ed.terrainNow();
     return transfer(t, viewBuffers({ heights: t.heights, terrain: t.terrain }) as Transferable[]);
@@ -269,8 +279,12 @@ const api = {
   /** Lakes by number: what setting a lake's level would do (or why not), then doing it, one undo step. */
   lakeLevelPlanAt: (x: number, y: number, level: number, width?: number) => ed.lakeLevelPlanAt(x, y, level, width),
   lakeHeldAt: (x: number, y: number) => ed.lakeHeldAt(x, y),
+  ridgePlanAt: (path: [number, number][], height: number, width: number, steep: RidgeSteep, seed: number) => ed.ridgePlanAt(path, height, width, steep, seed),
+  ridgeAt: routed((path: [number, number][], height: number, width: number, steep: RidgeSteep, seed: number) => sendUpdate(ed.ridgeAt(path, height, width, steep, seed)), (...a) => collabEditApi.ridgeAt(...a).then(sendUpdate)),
   lakeLevelAt: routed((x: number, y: number, level: number, width?: number) => sendUpdate(ed.lakeLevelAt(x, y, level, width)), (...a) => collabEditApi.lakeLevelAt(...a).then(sendUpdate)),
   canalPlanAt: (path: [number, number][], width: number, depth: number, open: boolean) => ed.canalPlanAt(path, width, depth, open),
+  lakePlanAt: (outline: [number, number][], level: number, depth: number, spill: [number, number] | null) => ed.lakePlanAt(outline, level, depth, spill),
+  lakeAt: routed((outline: [number, number][], level: number, depth: number, spill: [number, number] | null) => sendUpdate(ed.lakeAt(outline, level, depth, spill)), (...a) => collabEditApi.lakeAt(...a).then(sendUpdate)),
   canalAt: routed((path: [number, number][], width: number, depth: number, open: boolean) => sendUpdate(ed.canalAt(path, width, depth, open)), (...a) => collabEditApi.canalAt(...a).then(sendUpdate)),
   moveObjectBy: routed((id: string, dx: number, dy: number, z?: number) => sendUpdate(ed.moveObjectBy(id, dx, dy, z)), (...a) => collabEditApi.moveObjectBy(...a).then(sendUpdate)),
   clearEverything: routed(() => sendUpdate(ed.clearEverything()), () => collabEditApi.clearEverything().then(sendUpdate)),
@@ -341,6 +355,10 @@ const api = {
     const r = ed.project(level);
     return transfer(r, [r.bytes.buffer as Transferable]);
   },
+  /** The open map's project, unwritten: the page writes the file on a thread of its own (ui/projectWriter.ts). */
+  projectDocument: () => ed.projectDocument(),
+  /** The open map stored while the page is idle, so Generate takes it at once. */
+  warmProject: () => ed.warmProject(),
 };
 
 /** The calls that change the map or its history, which the edit queue sends by name (core/doc/editQueue.ts). */

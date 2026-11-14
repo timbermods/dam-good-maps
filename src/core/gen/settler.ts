@@ -107,10 +107,16 @@ export interface SettlerOptions {
   /** The start's bench: tiles at its level within 8 tiles it should have (Start area: radius 5 /
    *  6 / 8, PLAN §5.7). */
   bench?: number;
+  /** The least bench a place may have (D515, `start.level_land`'s floor with a margin): its dry ground at its level
+   *  joined to it without a slope (`benchRegions`), in tiles. */
+  benchMin?: number;
   /** Water kept through the difficulty's worst drought (depth per tile) and the stored water the
    *  start should have within 40 tiles (the colony's need times the Drought reserve, PLAN §11.4):
-   *  places with more are preferred (#67: information the generator prefers, never a guard). */
-  storage?: { kept: ArrayLike<number>; want: number } | null;
+   *  places with more are preferred (#67: information the generator prefers, never a guard). With `dams` (a Drought
+   *  reserve away from the theme's own), a place's stored water is read as the checks read it, the best of the natural
+   *  water kept and the reservoir of the best dam site within 40 tiles (`water.storage_possible`); with `less` (a
+   *  reserve below the theme's own), places holding more than `want` are passed over instead. */
+  storage?: { kept: ArrayLike<number>; want: number; dams?: readonly { x: number; y: number; volume: number }[]; less?: boolean } | null;
   /** The soil's moisture on the water the rule's drought leaves (`plants.drought`'s), where that
    *  drought outlasts a berry bush: places with dry land near them that stays moist, where the
    *  start's berries last the drought, are preferred (the D410 round; never a guard). */
@@ -308,6 +314,7 @@ export function prepareStart(h: Uint8Array, W: number, H: number,
     return s2[(y1 + 1) * (W + 1) + x1 + 1] - s2[y0 * (W + 1) + x1 + 1] - s2[(y1 + 1) * (W + 1) + x0] + s2[y0 * (W + 1) + x0];
   };
   const regions = levelRegions(h, W, H);
+  const benches = benchRegions(h, W, H, D, hydro.water);
   // what each place is near
   const lakeT = new Uint8Array(N);
   for (const lk of hydro.lakes) for (const i of lk.tiles) lakeT[i] = 1;
@@ -365,7 +372,43 @@ export function prepareStart(h: Uint8Array, W: number, H: number,
   // what the opening camera would show from each place (D493), read once; for the chosen place's turn
   let opening: OpeningLand | null = null;
   const openingLand = (): OpeningLand => (opening ??= prepareOpening(h, W, H, D, fallsOf(h, D, W, H, 1.5)));
-  return { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin, storeSum, foodSum, openingLand };
+  return { walk, walkAny, walkKept, dWet, boxSum, regions, benches, dLake, dFall, dJoin, dSpring, medianLevel, margin, storeSum, foodSum, openingLand };
+}
+
+/** The dry level regions a start's bench is read from (D515, `startBench`): dry ground (no water on it, off the
+ *  hydrology's channels and lakes) joined at one level, 4-connected, with each region's size; water is -1. */
+export function benchRegions(h: Uint8Array, W: number, H: number, D: ArrayLike<number>, water: ArrayLike<number>): { labels: Int32Array; size: number[] } {
+  const N = W * H;
+  const labels = new Int32Array(N).fill(-1);
+  const size: number[] = [];
+  const dry = (i: number) => !(D[i] > 0.001) && water[i] !== 1 && water[i] !== 2;
+  const queue = new Int32Array(N);
+  for (let s0 = 0; s0 < N; s0++) {
+    if (labels[s0] >= 0 || !dry(s0)) continue;
+    const lab = size.length;
+    const lv = h[s0];
+    labels[s0] = lab;
+    let head = 0;
+    let tail = 0;
+    queue[tail++] = s0;
+    while (head < tail) {
+      const i = queue[head++];
+      const x = i % W;
+      const y = (i - x) / W;
+      if (x + 1 < W && labels[i + 1] < 0 && h[i + 1] === lv && dry(i + 1)) { labels[i + 1] = lab; queue[tail++] = i + 1; }
+      if (x > 0 && labels[i - 1] < 0 && h[i - 1] === lv && dry(i - 1)) { labels[i - 1] = lab; queue[tail++] = i - 1; }
+      if (y + 1 < H && labels[i + W] < 0 && h[i + W] === lv && dry(i + W)) { labels[i + W] = lab; queue[tail++] = i + W; }
+      if (y > 0 && labels[i - W] < 0 && h[i - W] === lv && dry(i - W)) { labels[i - W] = lab; queue[tail++] = i - W; }
+    }
+    size.push(tail);
+  }
+  return { labels, size };
+}
+
+/** The bench a start at tile i stands on (`benchRegions`), in tiles: 0 on water. */
+export function benchAt(benches: { labels: Int32Array; size: number[] }, i: number): number {
+  const k = benches.labels[i];
+  return k >= 0 ? benches.size[k] : 0;
 }
 
 export type StartPreparation = ReturnType<typeof prepareStart>;
@@ -384,15 +427,18 @@ export function pickStart(
   const avoid = opts.avoid ?? null;
   const N = W * H;
   const D = water.depth;
-  const { walk, walkAny, walkKept, dWet, boxSum, regions, dLake, dFall, dJoin, dSpring, medianLevel, margin: edgeMargin, storeSum, foodSum, openingLand } = opts.prepared ?? prepareStart(h, W, H, water, hydro, waterRule, opts);
+  const { walk, walkAny, walkKept, dWet, boxSum, regions, benches, dLake, dFall, dJoin, dSpring, medianLevel, margin: edgeMargin, storeSum, foodSum, openingLand } = opts.prepared ?? prepareStart(h, W, H, water, hydro, waterRule, opts);
   const margin = opts.margin ?? edgeMargin;
+  const dams = opts.storage?.dams ?? null;
   const storedNear = (x: number, y: number): number => {
     if (!storeSum) return 0;
     const x0 = Math.max(0, x - 40);
     const y0 = Math.max(0, y - 40);
     const x1 = Math.min(W - 1, x + 40) + 1;
     const y1 = Math.min(H - 1, y + 40) + 1;
-    return storeSum[y1 * (W + 1) + x1] - storeSum[y0 * (W + 1) + x1] - storeSum[y1 * (W + 1) + x0] + storeSum[y0 * (W + 1) + x0];
+    let s = storeSum[y1 * (W + 1) + x1] - storeSum[y0 * (W + 1) + x1] - storeSum[y1 * (W + 1) + x0] + storeSum[y0 * (W + 1) + x0];
+    if (dams) for (const d of dams) if (d.volume > s && Math.abs(d.x - x) <= 40 && Math.abs(d.y - y) <= 40) s = d.volume;
+    return s;
   };
   // (the last resort joins land enough to grow on too, item 47: a pad on a strip cut off by water
   // and cliffs, a few hundred tiles, reaches neither its mine sites nor room for its first
@@ -447,6 +493,9 @@ export function pickStart(
             }
           }
         if (!ok || dWet[i] < 3.5 || padFloods(h, W, H, D, x, y, L)) continue;
+        // the start's bench (D515): room to build at its level, joined to it without a slope (a levelled pad joins
+        // the ground at its middle's level)
+        if (opts.benchMin && benchAt(benches, i) < opts.benchMin) continue;
         // the walk from the 3×3 to a shore on its own level, or to one on another level over steps
         // of one level; the second is checked over the derived slopes below
         let w = Infinity;
@@ -517,7 +566,8 @@ export function pickStart(
         // (Water without stairs, PLAN §5.6; D59)
         const walkFit = 1 - Math.min(1, Math.abs(w - walkWant) / 5);
         // the stored water the Drought reserve and the difficulty ask for (PLAN §5.3, §11.4)
-        const storeFit = storeSum ? Math.min(1, storedNear(x, y) / opts.storage!.want) : 1;
+        // (a Scarce reserve's start is not handed more stored water than it asks)
+        const storeFit = !storeSum ? 1 : opts.storage!.less ? Math.min(1, opts.storage!.want / Math.max(1, storedNear(x, y))) : Math.min(1, storedNear(x, y) / opts.storage!.want);
         // the start's berries' ground that lasts the drought: 60 tiles of it within 14 is room for them
         let foodFit = 1;
         if (foodSum) {
@@ -625,12 +675,14 @@ export function padFloods(h: Uint8Array, W: number, H: number, D: ArrayLike<numb
  *  ground, off `avoid`, with no water asked for: a spring by it gives it water afterwards (D330's
  *  fix). Among such places, the most level ground at the start's own level within 8 tiles and the
  *  most land joined by one-level steps (`foot`), nearest the water, then nearest `near`. */
-export function dryStart(h: Uint8Array, W: number, H: number, D: ArrayLike<number>, hydro: Pick<Hydro, "water">, opts: { avoid?: Uint8Array | null; foot?: { lab: Int32Array; size: number[] } | null; minFoot?: number; near?: { x: number; y: number } | null; level?: boolean } = {}): StartPick | null {
+export function dryStart(h: Uint8Array, W: number, H: number, D: ArrayLike<number>, hydro: Pick<Hydro, "water">, opts: { avoid?: Uint8Array | null; foot?: { lab: Int32Array; size: number[] } | null; minFoot?: number; benchMin?: number; near?: { x: number; y: number } | null; level?: boolean } = {}): StartPick | null {
   const N = W * H;
   const wet = new Uint8Array(N);
   for (let i = 0; i < N; i++) if (D[i] > 0.02 || hydro.water[i] === 1 || hydro.water[i] === 2) wet[i] = 1;
   const dWet = distanceFrom(wet, W, H);
   const margin = Math.max(8, Math.round(Math.min(W, H) * 0.08));
+  // (the start's bench, D515)
+  const benches = opts.benchMin ? benchRegions(h, W, H, D, hydro.water) : null;
   let best: StartPick | null = null;
   let bestScore = -Infinity;
   for (let pass = 0; pass < (opts.level === false ? 1 : 2) && !best; pass++)
@@ -641,6 +693,7 @@ export function dryStart(h: Uint8Array, W: number, H: number, D: ArrayLike<numbe
         if (opts.avoid?.[i] || dWet[i] < 3.5 || padFloods(h, W, H, D, x, y, L)) continue;
         const foot = opts.foot ? (opts.foot.size[opts.foot.lab[i]] ?? 0) : 0;
         if (opts.minFoot && foot < opts.minFoot) continue;
+        if (benches && benchAt(benches, i) < opts.benchMin!) continue;
         let ok = true;
         let uneven = false;
         for (let dy = -2; dy <= 2 && ok; dy++)
