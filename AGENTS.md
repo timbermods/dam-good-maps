@@ -42,6 +42,7 @@ Claude Code loads it through CLAUDE.md). Kyler Ramsey owns the project. The map 
 
 ## How to work
 
-- Reports are short: at most about eight lines plus a sheet, capture or link; detail goes in the files.
+- Reports are short: what changed, what falls short and the numbers a decision needs, with a sheet, capture or link;
+  detail goes in the files.
 - No excess checks, timings or validation (D454). Before pushing, run the typecheck and the tests that touch the change;
   CI runs the rest.

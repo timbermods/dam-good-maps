@@ -407,6 +407,10 @@ export interface PressHost {
   drop(begun: boolean): void;
   /** A tap: a short press that hardly moved (the view's own: a double tap zooms). */
   tap(): void;
+  /** A held press moved past the slop sooner than `HOLD_MS` by its events' times (a busy page ran the hold's timer
+   *  before the move came): it was no hold. What it began is dropped, and the finger pans from where it pressed, now at
+   *  `p`, as it would have with nothing in hand. */
+  pan(p: Point): void;
   /** Whether a finger at `p` is over a Cancel control (a lift there drops the press). */
   overCancel(p: Point): boolean;
   /** Where the press aims now, and whether the finger is over a Cancel control; null when the press is over. */
@@ -427,7 +431,7 @@ export class FingerPress {
   private live = true;
   private timer = 0;
   /** It began after the finger was held still `HOLD_MS` by the page's clock: the events' own times still decide whether
-   *  it was held (a busy page runs that timer late, the lift's event still queued). */
+   *  it was held (a busy page runs that timer late, the lift's or a move's event still queued). */
   private readonly held: boolean;
 
   constructor(
@@ -463,11 +467,17 @@ export class FingerPress {
     return this.begun;
   }
 
-  /** The finger moved to `p`. */
-  move(p: Point): void {
+  /** The finger moved to `p`, time `t` (ms, the event's own). */
+  move(p: Point, t: number): void {
     if (!this.live) return;
     this.moved += Math.hypot(p.x - this.now.x, p.y - this.now.y);
     this.now = { ...p };
+    // (begun as held on a busy page, moved past the slop before `HOLD_MS` by its events' times: no hold, a pan)
+    if (this.held && this.moved >= TAP_SLOP && t - this.t0 < HOLD_MS) {
+      this.end();
+      this.host.drop(true);
+      return this.host.pan(p);
+    }
     this.over = this.host.overCancel(p);
     // (over Cancel: the lift there drops it; an aim's preview goes meanwhile, the renderer's `mark`)
     if (this.over) return this.host.mark(this.aim, true);
@@ -483,7 +493,7 @@ export class FingerPress {
   /** The finger lifted at `p`, time `t` (ms, the event's own). */
   up(p: Point, t: number): void {
     if (!this.live) return;
-    if (p.x !== this.now.x || p.y !== this.now.y) this.move(p);
+    if (p.x !== this.now.x || p.y !== this.now.y) this.move(p, t);
     if (!this.live) return;
     // (a press the timer began on a busy page, its lift coming late, is still a tap by its events' times: what it began
     // is dropped first)

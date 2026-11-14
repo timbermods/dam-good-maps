@@ -1694,8 +1694,8 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   finger, and its lift applies nothing. A tap applies nothing: it leaves the preview where it aimed. Lake, Ridge and
   Canal draw their line above the finger from the press's aim; with a selection open (or, on a phone or a tablet, Select's settings
   open) the finger draws the selection, and a tap there is a click; with nothing in hand, a finger held still half a
-  second (`HOLD_MS`) draws one without (slice 3b; moved sooner, it pans; lifted sooner by its own events' times, it is a
-  tap, however late a busy page ran the timer). With an object or source picked and nothing
+  second (`HOLD_MS`) draws one without (slice 3b; moved sooner, it pans; held or not is told by the events' own times,
+  however late a busy page ran the timer: lifted sooner, it is a tap, and moved sooner, it pans). With an object or source picked and nothing
   else in hand, a press anywhere moves it to where the finger aims (`FingerPress`, modes aim, line, draw and move);
   where it can't go, the core's reason shows beside it before the lift (`moveProblem`, as a placement's), its footprint
   red, and the lift there moves nothing, the reason going with it (slice 6: nothing in hand, nothing
@@ -2067,7 +2067,8 @@ checks dot counts; every other row is information under Good to know, worded as 
     (below, "Remove unfed water and Fill"; `sim/stackWater.ts` `cavesOf` decides which maps).
     The **Caves and overhangs** view button, there from the start on such a map, marks the tiles the tools
     leave as they are (D40): what lies under a roof is never edited, the brushes shaping only a column's top
-    run (D280 (3), D487). Ground the Block tool digs and Erode hollows counts with them, on any map; once
+    run (D280 (3), D487). It also draws the air under the roofs through the rock, its floors, walls and mouths
+    (docs/progress/3d-view.md, "The caves through the rock"). Ground the Block tool digs and Erode hollows counts with them, on any map; once
     the last hollow is undone the map is a heightfield again, its water and file as before.
   - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps start off and stop
     above 0.8 deep (back on below 0.72; a pit only a seep feeds starts filled to 0.8), aquifers give no water (a drill starts unpowered), and a negative strength

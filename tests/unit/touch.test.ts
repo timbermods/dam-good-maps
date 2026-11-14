@@ -232,6 +232,7 @@ function press(mode: PressMode, opts: { top?: number; begins?: boolean; cancelAt
     apply: (p) => log.push(`apply ${p.x},${p.y}`),
     drop: (begun) => log.push(`drop${begun ? " begun" : ""}`),
     tap: () => log.push("tap"),
+    pan: (p) => log.push(`pan ${p.x},${p.y}`),
     overCancel: (p) => opts.cancelAt?.(p) ?? false,
     mark: (p, over) => marks.push(p ? { at: p, over } : null),
     later: (fn) => ((timer = fn), 1),
@@ -252,8 +253,8 @@ describe("a finger's press with something in hand (slice 3)", () => {
   it("an aim shows at the press, follows the drag and applies once, on the lift, where it last showed", () => {
     const { f, log, marks } = press("aim");
     expect(log).toEqual([`show ${above(200, 400)}`]);
-    f.move(P(230, 380));
-    f.move(P(260, 360));
+    f.move(P(230, 380), 1050);
+    f.move(P(260, 360), 1050);
     expect(log.filter((l) => l.startsWith("apply"))).toEqual([]);
     f.up(P(260, 360), 1600);
     expect(log).toEqual([`show ${above(200, 400)}`, `show ${above(230, 380)}`, `show ${above(260, 360)}`, `apply ${above(260, 360)}`]);
@@ -274,11 +275,11 @@ describe("a finger's press with something in hand (slice 3)", () => {
   it("a draw begins where the press first aimed, once it moves past the slop, and draws on to the lift", () => {
     const { f, log } = press("draw");
     expect(log).toEqual([]);
-    f.move(P(204, 400));
+    f.move(P(204, 400), 1050);
     expect(log).toEqual([]);
-    f.move(P(200 + TAP_SLOP + 2, 400));
+    f.move(P(200 + TAP_SLOP + 2, 400), 1050);
     expect(log).toEqual([`begin ${above(200, 400)}`, `show ${above(212, 400)}`]);
-    f.move(P(260, 420));
+    f.move(P(260, 420), 1050);
     f.up(P(260, 420), 1200);
     expect(log.slice(2)).toEqual([`show ${above(260, 420)}`, `apply ${above(260, 420)}`]);
   });
@@ -298,9 +299,9 @@ describe("a finger's press with something in hand (slice 3)", () => {
 
   it("a draw or a move nothing takes is over: nothing shows, nothing applies, its lift does nothing", () => {
     const { f, log, marks } = press("move", { begins: false });
-    f.move(P(240, 400));
+    f.move(P(240, 400), 1050);
     expect(log).toEqual([`begin ${above(200, 400)}`]);
-    f.move(P(260, 400));
+    f.move(P(260, 400), 1050);
     f.up(P(260, 400), 1500);
     expect(log).toEqual([`begin ${above(200, 400)}`]);
     expect(marks).toEqual([null]);
@@ -308,13 +309,13 @@ describe("a finger's press with something in hand (slice 3)", () => {
 
   it("dropped (a second finger, Cancel, the browser taking the touch): nothing applied, and nothing after", () => {
     const aim = press("aim");
-    aim.f.move(P(240, 380));
+    aim.f.move(P(240, 380), 1050);
     aim.f.cancel();
     aim.f.up(P(240, 380), 1500);
     expect(aim.log.at(-1)).toBe("drop");
     expect(aim.log.some((l) => l.startsWith("apply"))).toBe(false);
     const draw = press("draw");
-    draw.f.move(P(240, 380));
+    draw.f.move(P(240, 380), 1050);
     draw.f.cancel();
     expect(draw.log.at(-1)).toBe("drop begun");
     expect(draw.marks.at(-1)).toBeNull();
@@ -323,16 +324,16 @@ describe("a finger's press with something in hand (slice 3)", () => {
   it("lifted over Cancel, nothing is applied; over it, what shows stays where it was and the mark says so", () => {
     const cancelAt = (p: Point) => p.y < 100;
     const { f, log, marks } = press("aim", { cancelAt });
-    f.move(P(220, 300));
-    f.move(P(200, 50));
+    f.move(P(220, 300), 1050);
+    f.move(P(200, 50), 1050);
     expect(log.at(-1)).toBe(`show ${above(220, 300)}`);
     expect(marks.at(-1)).toEqual({ at: P(200, 1), over: true });
     f.up(P(200, 50), 1600);
     expect(log.at(-1)).toBe("drop");
     // (off it again before the lift: it applies)
     const back = press("aim", { cancelAt });
-    back.f.move(P(200, 50));
-    back.f.move(P(210, 300));
+    back.f.move(P(200, 50), 1050);
+    back.f.move(P(210, 300), 1050);
     back.f.up(P(210, 300), 1600);
     expect(back.log.at(-1)).toBe(`apply ${above(210, 300)}`);
   });
@@ -345,12 +346,12 @@ describe("a finger's line, and a press held still (slice 3b)", () => {
     const { f, log } = press("line");
     expect(log).toEqual([`show ${above(200, 400)}`]);
     expect(f.drawing).toBe(false);
-    f.move(P(205, 400));
+    f.move(P(205, 400), 1050);
     expect(log.at(-1)).toBe(`show ${above(205, 400)}`);
-    f.move(P(200 + TAP_SLOP + 2, 400));
+    f.move(P(200 + TAP_SLOP + 2, 400), 1050);
     expect(log.slice(2)).toEqual([`begin ${above(200, 400)}`, `show ${above(212, 400)}`]);
     expect(f.drawing).toBe(true);
-    f.move(P(280, 430));
+    f.move(P(280, 430), 1050);
     expect(log.filter((l) => l.startsWith("apply"))).toEqual([]);
     f.up(P(280, 430), 1300);
     expect(log.slice(-2)).toEqual([`show ${above(280, 430)}`, `apply ${above(280, 430)}`]);
@@ -368,11 +369,11 @@ describe("a finger's line, and a press held still (slice 3b)", () => {
 
   it("a line dropped once drawn says so (its stroke goes); one nothing takes is over, its preview gone", () => {
     const drawn = press("line");
-    drawn.f.move(P(240, 400));
+    drawn.f.move(P(240, 400), 1050);
     drawn.f.cancel();
     expect(drawn.log.at(-1)).toBe("drop begun");
     const refused = press("line", { begins: false });
-    refused.f.move(P(240, 400));
+    refused.f.move(P(240, 400), 1050);
     expect(refused.log.slice(-2)).toEqual([`begin ${above(200, 400)}`, "drop"]);
     refused.f.up(P(240, 400), 1500);
     expect(refused.log.at(-1)).toBe("drop");
@@ -381,7 +382,7 @@ describe("a finger's line, and a press held still (slice 3b)", () => {
   it("a press begun by a finger held still begins at once, and is no tap once held by its events' times", () => {
     const { f, log } = press("draw", { held: true });
     expect(log).toEqual([`begin ${above(200, 400)}`, `show ${above(200, 400)}`]);
-    f.move(P(260, 450));
+    f.move(P(260, 450), 1000 + HOLD_MS + 20);
     f.up(P(260, 450), 1000 + 600);
     expect(log.slice(-2)).toEqual([`show ${above(260, 450)}`, `apply ${above(260, 450)}`]);
     const still = press("draw", { held: true });
@@ -394,5 +395,21 @@ describe("a finger's line, and a press held still (slice 3b)", () => {
     const between = press("draw", { held: true });
     between.f.up(P(201, 400), 1000 + HOLD_MS - 50);
     expect(between.log.at(-1)).toBe("drop begun");
+  });
+
+  it("a press begun as held, moved past the slop before the hold by its events' times, was a pan: what it began goes", () => {
+    // (a busy page ran the hold's timer before the drag's first move, sent 16 ms after the press)
+    const { f, log, marks } = press("draw", { held: true });
+    f.move(P(200 + TAP_SLOP + 2, 400), 1016);
+    expect(log.slice(2)).toEqual(["drop begun", `pan ${200 + TAP_SLOP + 2},400`]);
+    expect(marks.at(-1)).toBeNull();
+    f.move(P(260, 450), 1032);
+    f.up(P(260, 450), 1048);
+    expect(log.length).toBe(4);
+    // (moved within the slop first, then past it after the hold: it draws)
+    const late = press("draw", { held: true });
+    late.f.move(P(203, 400), 1016);
+    late.f.move(P(260, 450), 1000 + HOLD_MS + 10);
+    expect(late.log.at(-1)).toBe(`show ${above(260, 450)}`);
   });
 });
