@@ -863,6 +863,8 @@ for (const [W, H] of TABLETS) {
     test(`at ${W}×${H}: the desktop layout, every control at least 44px and on the screen in every state`, async ({ page }) => {
       test.setTimeout(300_000);
       await openEditor(page);
+      // the first steps' hints were put away by their own ×, never under the objects beside them
+      await expect(page.locator(".first-run")).toHaveCount(0);
       await expect(page.locator(".editor")).not.toHaveAttribute("data-phone");
       const check = async (state: string) => {
         await page.waitForTimeout(400);

@@ -60,6 +60,9 @@ function dockHeight(dock: DOMRect | null, bar: DOMRect | null, settings: DOMRect
   return { "--dock-h": `${dock && Number.isFinite(top) ? Math.ceil(dock.bottom - top) : 0}px` };
 }
 
+/** A control a panel or the legend must stop above, and the room over it to keep (the minimap's readout). */
+type Piece = { b: DOMRect; over: number; aside?: "objects" | "minimap" };
+
 interface Band {
   v: DOMRect;
   m: DOMRect;
@@ -68,8 +71,8 @@ interface Band {
   legend: DOMRect;
   corner: DOMRect;
   roomAbove: (x0: number, x1: number, from: number, among?: { b: DOMRect; over: number }[]) => number;
-  /** `aside`: the objects and the minimap, which step aside for a panel on an upright tablet (tablet.css). */
-  pieces: { b: DOMRect; over: number; aside?: boolean }[];
+  /** `aside`: the objects and the minimap, which step aside for a panel on a tablet (tablet.css). */
+  pieces: Piece[];
   dockRoom: string;
   dock: DOMRect | null;
   dockH: Record<string, string>;
@@ -102,9 +105,11 @@ function flowBand(b: Band): Record<string, string> {
   const drop = waterTop > legendTop ? waterTop + rowH - (legendTop + rowH) : 0;
   const panelTop = bandBottom + 10;
   const widest = (panelTop < cornerBottom + UNDER ? C - GAP : v.width - TOP) - TOP;
-  // (an upright tablet's objects and minimap step aside while a panel is open, tablet.css: the panel's room is the rest's)
-  const aside = !!b.objects && b.objects.left - v.left < TOP + PANEL_W + GAP;
-  const under = aside ? b.pieces.filter((p) => !p.aside) : b.pieces;
+  // (on a tablet whose bar takes the view's width the minimap, standing above the bar, steps aside while a panel is
+  // open, and the objects too where they leave a panel no room beside them, tablet.css: the panel's room is the rest's)
+  const full = typeof matchMedia === "function" && matchMedia("(max-width: 1279px)").matches;
+  const objectsAside = !!b.objects && b.objects.left - v.left < TOP + PANEL_W + GAP;
+  const under = b.pieces.filter((p) => !(p.aside === "minimap" && full) && !(p.aside === "objects" && objectsAside));
   const shape = chooseShape((width) => b.roomAbove(TOP, TOP + width, panelTop, under), widest);
   setPanelShape(shape);
   return {
@@ -162,9 +167,9 @@ export function useBandLayout(ready: boolean): void {
       const readoutW = dock ? Math.min(500, dock.left - v.left - 22 - TOP) : 500;
       const pieces = [
         ...[".tool-dock > .tool-settings", ".tool-dock > .tool-bar", ".tool-dock > .working-note", ".tool-dock > .dock-notes > *:not(.first-run)"].map((s) => ({ b: box(s), over: 0 })),
-        { b: box(".objects-dock"), over: 0, aside: true },
-        { b: box(".minimap"), over: 6 + 32 + 6 + (readoutW < 300 ? 52 : 32), aside: true },
-      ].filter((u): u is { b: DOMRect; over: number; aside?: boolean } => !!u.b);
+        { b: box(".objects-dock"), over: 0, aside: "objects" as const },
+        { b: box(".minimap"), over: 6 + 32 + 6 + (readoutW < 300 ? 52 : 32), aside: "minimap" as const },
+      ].filter((u): u is Piece => !!u.b);
       const hints = box(".tool-dock .first-run");
       const under = hints ? [...pieces, { b: hints, over: 0 }] : pieces;
       const roomAbove = (x0: number, x1: number, from: number, among = under) => {

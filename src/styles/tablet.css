@@ -300,6 +300,18 @@
     width: calc(100% - 20px);
   }
 
+  /* the first steps' hints and the dock's notes, centred between the minimap and the objects that now stand beside them
+     (each under 188px with its gap), their × never under the objects; --note-w is the hints' own width (TopBar.tsx) */
+  .editor:not([data-phone]) .tool-dock {
+    --note-cap: calc(100% - 2 * 196px);
+    --note-left: calc((100% - min(var(--note-w), var(--note-cap))) / 2);
+  }
+
+  .editor:not([data-phone]) :is(.tool-dock > .first-run, .dock-notes > .error.floating, .dock-notes > .editor-message),
+  .editor:not([data-phone], .drawer-open) .dock-notes > .idea-card {
+    width: min(var(--note-w), var(--note-cap));
+  }
+
   /* the objects, the minimap and what stands over it, above the bar and the settings (--dock-h, useBandLayout.ts) */
   .editor:not([data-phone]) .objects-dock,
   .editor:not([data-phone]) .editor-view .minimap {
@@ -335,10 +347,17 @@
   }
 }
 
-/* ---- a tablet too narrow for a panel (640px) beside the objects: they and the minimap step aside while Map Generator, Real
-   places or Your maps is open (useBandLayout.ts gives the panel their room) */
+/* ---- a panel open on a tablet whose bar takes the view's width (Map Generator, Real places or Your maps): the minimap
+   and what stands over it step aside, and where the panel (640px) has no room beside the objects, they too
+   (useBandLayout.ts gives the panel their room) */
+@media (pointer: coarse) and (max-width: 1279px) {
+  .editor:not([data-phone]).drawer-open :is(.editor-view .minimap, .bottom-left-stack) {
+    visibility: hidden;
+  }
+}
+
 @media (pointer: coarse) and (max-width: 899px) {
-  .editor:not([data-phone]).drawer-open :is(.objects-dock, .editor-view .minimap, .bottom-left-stack) {
+  .editor:not([data-phone]).drawer-open .objects-dock {
     visibility: hidden;
   }
 }
