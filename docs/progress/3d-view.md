@@ -3825,6 +3825,82 @@ frames, and the start was still the white map-editor marker.
   made by `tools/capture-ruins-start.ts --soft` (High, River Valley 4242 at 256², dev against this checkout, close and
   90 away, the same cameras).
 
+### The Iron Teeth's start and the fire, read (D178 as amended 2026-11-10, D496; `fix/iron-teeth-figures`)
+
+Falls short (1) and (2) above, read from the game's files (Timberborn 1.1.2.8, `resources.assets`; read-only, the game
+not started; numbers only, no mesh or texture kept) so they can be drawn. Nothing draws them yet. The colours are in
+`palette.ts` `START_IRON_TEETH` and `START_FIRE`, with each material's raw albedo, metallic, smoothness and occlusion.
+Lengths are metres (a tile), in the model's own frame: y up, the origin the footprint's corner (the models span
+−0.049 to 3.049), the door on the z = 0 face, as the Folktails' is (ours turns that face to +Z).
+
+- **Read with:** `tools/game-model-albedo.py DistrictCenter.IronTeeth.Model --parts` (each material's albedo, its
+  metallic, smoothness and occlusion, and its parts' bounds; `--parts` and the albedo × (1 − metallic) line are new) and
+  `tools/game-particles.py DistrictCenterFire` (new: a prefab's transforms, particle systems, their renderers' materials
+  and textures, and its lights, Unity 6000.5's layout read by structure, each curve checking its own end). The fire's
+  shader was disassembled with `tools/game-water-shader.py --shader "Shader Graphs/FireParticles"` and its pass "Unlit"
+  (a local one-line change to the pass it picks, not kept). Where the fire stands is in both factions' blueprints
+  (`buildings/districtmanagement/districtcenter/districtcenter.{folktails,ironteeth}.blueprint`, which differ only in
+  their model, their template name and their flavour text): `TemplateAttachmentsSpec` puts `DistrictCenterFire` under
+  `#Finished` at (1.5, 3.0, 1.5), unturned, scale 1.
+- **The Iron Teeth's district center** (DistrictCenter.IronTeeth.Model; one node, 1923 vertices, 1280 triangles; the
+  Folktails' 1788): 3.10 across (its corner posts overhang the 3 × 3 by 0.049, as the Folktails' do) and 4.37 high
+  (the Folktails' 4.33). From the ground up, centred on (1.5, 1.5) unless said:
+  - a floor of indigo wood 3 × 3, 0 to 0.10;
+  - walls of pale grey planks, four planes 0.07 inside the edges (2.86 across), 0 to 1.00 (the Folktails' planes, in
+    other planks);
+  - four indigo corner posts 0.247 square, −0.049 to 0.198 at each corner, 0 to 1.11 (the Folktails' 1.21);
+  - on the z = 0 face, centred, a square-topped door: an indigo frame 0.87 wide to 0.695, 0.073 deep, a lintel 0.86
+    wide from 0.64 to 0.75, the dark door leaf 0.74 wide to 0.70 at z 0.059 (the Folktails' is arched);
+  - round windows 0.47 across (a 12-cornered disc in a frame 0.08 deep), centred 0.50 up: two on the door's face centred at
+    x 0.5 and 2.5, one on each side face (x = 0 and x = 3) centred at z 1.5, none at the back (the Folktails' layout);
+  - a square hip roof of dark olive planks in two tiers, by its half-width (from the centre to a side) at each height:
+    1.42 at its eaves at 0.97, out to 1.50 at 1.09, in to 1.21 at 1.36, a step to 1.20 at 1.46, up to 0.83 at 1.83
+    (192 triangles; its edges a little ragged, 1.38–1.43 at the eaves);
+  - a band of the roof's planks round the tower's foot, four boards 1.68 across, 1.80 to 1.93;
+  - the tower: square, of pale grey planks, four planes leaning in 17° from upright, 1.61 across at 1.93 to 1.03 at
+    2.87; at its corners four dark brown posts about 0.11 thick, along the diagonals from 0.79 out of the centre (each
+    axis) at 1.79 to 0.48 at 2.89;
+  - on each of the tower's faces an emblem, a 12-sided blue-violet plate 0.45 across centred at 2.45 high, tilted with
+    the face, in an indigo ring 0.60 wide, 0.62 tall (2.11 to 2.74) and 0.155 deep;
+  - the platform: a dark brown deck, a square frame 1.82 across with a square hole 0.83 across, 2.83 to 2.93; an indigo
+    rim 1.31 across, 2.81 to 3.01; sixteen indigo spindles 0.046 square, 2.91 to 3.085, four on each side 0.505 out of
+    the centre at −0.35, −0.115, 0.115 and 0.35 along it; an indigo rail round them 1.07 across, 3.07 to 3.125;
+  - the fire bowl: an indigo stand 0.52 across, 3.03 to 3.24, four indigo blocks 0.21 square at ±0.244 (each axis) from
+    2.90 to 3.16, and the iron bowl 0.42 across, 3.08 to 3.23, the same piece and place as the Folktails';
+  - the lantern: eight dark brown beams about 0.09 thick, two on each side, each from a corner of the platform (±0.53,
+    ±0.53) at 2.95 up to the middle of that side, 0.51 out, at 3.95: an inverted V on each side;
+  - the hood: a dark brown frame, a square ring 1.37 across with a hole 0.63 across, 3.80 to 3.85; dark brown planks
+    under it 1.40 across, 3.80 to 3.89; a square roof of the dark olive planks, by its half-width 0.70 at 3.89, 0.60 at
+    3.96, 0.62 at 4.04, 0.46 at 4.22 and 0.445 at 4.33; a pale grey collar from 0.445 at 4.33 to 0.36 at 4.37; and an
+    iron flue, a square tube 0.63 across from 3.85 to 4.32 flaring to 0.72 at 4.37, open at the top over the fire.
+- **The fire** (both factions'): a particle system, `Flames`, its emitter at (1.5, 3.16, 1.5), in the bowl, and a light.
+  - Emission: 50 particles a second, steady, from a disc 0.09 in radius, all straight up; each lives 2 to 3 s and rises
+    at 0.2 to 0.5 m/s the whole of its life (no gravity, force, noise or velocity over lifetime; the limit-velocity
+    module is on with dampen 0, which takes nothing off), so it dies 0.4 to 1.5 above the emitter; about 125 alive at
+    once (at most 200). Simulated in world space, looping, from the start.
+  - Size: a camera-facing square, its start side 0.5 to 1, × a curve over its life: 0.36 at birth, 0.42 at 0.29 of its
+    life, 0.03 at 0.98 (keys with slopes in `START_FIRE.sizeOverLife`). Turned at random at birth and spinning 45° a
+    second.
+  - Colour over its life (white at birth × this gradient, in Gamma colour space, linear between keys): dark grey
+    0.14/0.14/0.13 at 0, yellow 1/0.80/0 at 0.078, orange 1/0.44/0 at 0.185, red 0.74/0/0 at 0.263, grey
+    0.24/0.24/0.24 at 0.400, a lighter grey 0.36/0.36/0.36 at 0.988; alpha 0 at 0, 1 from 0.035 to 0.271, 0.345 at
+    0.604, 0 at 1. So the flame's colours last the first quarter of a particle's life, up to about 0.23 above the
+    emitter on average (0.4 at most), and the rest is a grey smoke thinning as it rises through the lantern and the flue.
+  - Drawing: unlit, alpha-blended, no depth write, no shadow. The FireParticles shader's Unlit pass: colour = 2 × texel ×
+    particle colour × `_Tint` (1, 1, 1, 0.349), alpha = saturate(2 × texel alpha × particle alpha × 0.349). The texture
+    `Fire` (512²) is white; its alpha is a soft round puff, 0.43 out to 0.2 of the texture's width from its middle, 0.38
+    at 0.25–0.3, 0.23 at 0.3–0.35, 0.06 at 0.35–0.4 and none past 0.45 (peak 0.678; its centre of mass 0.04 off the
+    middle). So a particle in full colour is about 0.30 opaque over its middle (0.47 at the texture's peak), and its
+    colour doubled: the yellow draws 2/1.6/0, which the game's HDR frame keeps and its bloom takes where particles stack
+    ("Bloom" above).
+  - Its light: the child "Point Light", a spot in fact, 1.24 above the attachment (4.24, inside the flue) pointing
+    straight down: colour 0.991/0.789/0.453, intensity 5, range 8, spot angle 120°, inner 75°, no shadows. Nothing on it
+    but URP's `UniversalAdditionalLightData`, so it does not flicker.
+- **Not read:** whether the game's code dims or stops the fire or its light by time of day, or when the district center
+  is paused or unstaffed (the prefab has no script of its own; the decompiled code wasn't searched); what URP's
+  intensity 5 makes of the ground and the platform under our light, which has no point or spot lights yet. The map
+  names no faction (the player picks one when starting it), so which center stands there is the renderer's choice.
+
 ## Falls that pour, against the game's Four Lakes frames (PERFECT Water 3; D154, D496; `fix/falls-pour-2`)
 
 Judged on the in-game capture kit's Four Lakes r14 `falls` and `cave` start frames (day light; local only), ours posed
