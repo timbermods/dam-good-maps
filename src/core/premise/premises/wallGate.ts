@@ -112,13 +112,24 @@ export const BROOK_BOX = 0.15;
  *  in; the trunk's bed steps down `above` tiles above the join and the tributary's before its last `clear` tiles, so the
  *  two meet at one level. */
 export const BROOK_JOIN = { belt: 13, angle: [0.5236, 1.0472], clear: 6, near: 1.5, straight: 7, above: 10, most: 2, gather: 5, reach: 1.6 } as const;
-/** The brooks as a tree (planning's verdict of 2026-11-14): with `brooks` brooks or more (256² and up) the beds gather
- *  in `orders` orders (Strahler's: springs, branches, a trunk); and no brook runs beside another (`gateBrooks.ts`
- *  `besideRun`: within 12 tiles of it and heading as it does) for more than `run` tiles of its length. The tree's springs (`springs`: its trunk, the one that joins it high, its
- *  branch and the branch's own) stand `sill` over the lake's sill and are `spring` of a spring's strength; a tributary
- *  joins within `upTo` of the bed's length from its head (the high one, the others), and the trunk's and the branch's
- *  beds keep their first level over `level` of their length, so no step of theirs lies where one joins. */
-export const BROOK_TREE = { brooks: 6, orders: 3, run: 30, sill: 5, upTo: [0.3, 0.45], level: 0.5, springs: [4, 0, 3, 1], spring: 0.72 } as const;
+/** The brooks as a tree (planning's verdicts of 2026-11-14): with `brooks` brooks or more (192² and up) the western
+ *  springs gather, a twig into a branch and the branch into a trunk; with `four` brooks or more (256² and up) a fourth
+ *  joins the trunk high, and the beds gather in `orders` orders (Strahler's: springs, branches, a trunk; three springs
+ *  in a chain are three ranks but two of Strahler's orders). No brook runs beside another (`gateBrooks.ts`
+ *  `besideRun`: within 12 tiles of it and heading as it does) for more than `run` tiles of its length. The tree's
+ *  springs (`springs`: its trunk, the one that joins it high, its branch and the branch's own; `three`: the trunk, the
+ *  branch and its twig) stand `sill` over the lake's sill and are `spring` of a spring's strength; a tributary joins
+ *  within `upTo` of the bed's length from its head (the high one, the others), and the trunk's and the branch's beds
+ *  keep their first level over `level` of their length, so no step of theirs lies where one joins. */
+export const BROOK_TREE = { brooks: 5, four: 6, orders: 3, run: 30, sill: 5, upTo: [0.3, 0.45], level: 0.5, springs: [4, 0, 3, 1], three: [4, 0, 3], spring: 0.72 } as const;
+
+/** The tree's springs for a valley of `brooks` brooks (`BROOK_TREE`), or null: the trunk, the one that joins it high
+ *  (-1 for none), the branch and the branch's twig. */
+export function treeOf(brooks: number): { trunk: number; high: number; branch: number; twig: number } | null {
+  if (brooks >= BROOK_TREE.four) return { trunk: BROOK_TREE.springs[0], high: BROOK_TREE.springs[1], branch: BROOK_TREE.springs[2], twig: BROOK_TREE.springs[3] };
+  if (brooks >= BROOK_TREE.brooks) return { trunk: BROOK_TREE.three[0], high: -1, branch: BROOK_TREE.three[1], twig: BROOK_TREE.three[2] };
+  return null;
+}
 /** The lake's main arm between its lobes: a point every `every` tiles, `off` tiles off its line by turns, its width
  *  `width` of the lobes' between them, `least` at the least; where the arm is wider than `wide` tiles from its middle
  *  to its shore, the points further apart and further off its line by as much (the wider arm of the lake that falls
@@ -151,6 +162,35 @@ export const OUTFLOW_AWAY = 16;
  *  than `valley.lake` reads the laid water (its shore wanders by a tile there, and the brooks' mouths notch it). */
 export const LAKE_SHAPE = { tighter: 0.02, wide: [7, 10.5], span: 36, least: 22, offBench: 16, meadow: 10, widest: 10, varies: 2, across: [0.6, 1], brooks: 0.1, sag: [0.12, 0.3], bay: 6, throat: [1.25, 1.6], throatR: [0.42, 0.55], endPool: 1.25, bayEvery: 12, lump: 8, lumpAt: 0.85, lumpR: 0.45 } as const;
 /** The Veil: a fall of 6 or 7 from the cleft's lip into the plunge pool at the start's door. */
+/** The lake bends (planning's look verdict of 2026-11-14 on round 2: one straight-sided arm running to the map's edge
+ *  read as a canal): the main arm's middle is laid `off` of its length off the line between its ends (the side it
+ *  sags to), and a lake whose main arm turns less than `least` radians within every `within` of its length is drawn
+ *  again (`armBend`); no arm's shore within `edge` tiles of the map's edge. A lobe or a point of its shore held under
+ *  the bench (or over the valley's low edge) stands back from that line 0 to `back` tiles by draw: held on the line,
+ *  their edges lay as one straight shore 80 tiles long, 256² seed 3. */
+export const LAKE_BEND = { off: 0.25, least: 0.5, within: 0.4, edge: 6, back: 3 } as const;
+
+/** How much a chain of capsules turns: over every stretch `within` of its length long, the angle between the chords of
+ *  its two halves; the most of them, radians. */
+export function armBend(arm: Spine, within: number = LAKE_BEND.within): number {
+  const pts: Point[] = arm.map((q) => [q[0], q[1]]);
+  const L = pathLength(pts);
+  if (!(L > 0)) return 0;
+  const w = within * L;
+  let most = 0;
+  for (let s = 0; s + w <= L + 1e-9; s += Math.max(0.5, L / 200)) {
+    const a = pointAt(pts, s).p;
+    const m = pointAt(pts, s + w / 2).p;
+    const b = pointAt(pts, s + w).p;
+    const [x1, y1, x2, y2] = [m[0] - a[0], m[1] - a[1], b[0] - m[0], b[1] - m[1]];
+    const l1 = hypot(x1, y1);
+    const l2 = hypot(x2, y2);
+    if (!(l1 > 0 && l2 > 0)) continue;
+    most = Math.max(most, Math.acos(Math.max(-1, Math.min(1, (x1 * x2 + y1 * y2) / (l1 * l2)))));
+  }
+  return most;
+}
+
 export const VEIL = [6, 7] as const;
 /** The range's highest peak: 17 to 22, under the highest ground (its crest falls from there to the gap's saddle): 17 or
  *  18 at 128², a level more each 64 tiles of side (planning's ruling of 2026-11-14: height follows breadth; the back
@@ -690,11 +730,19 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   {
     const [du, dv] = [uE - uL - lowLip / 4, vEnd - v0];
     const dl = hypot(du, dv);
-    for (const [f, r] of lobes) {
-      const off = bow * sin(Math.PI * f);
+    // (and its middle `LAKE_BEND.off` of its length off the line, on the side it sags to, every lobe on the one arc: bowed
+    // alone, a long arm swung so gently its shore ran straight, 256² seed 5; its middle alone off the line, the half
+    // past it lay straight, 62 tiles)
+    const midR = Math.max(LAKE_WANDER.least, ((rHead + rWide) / 2) * rng.range(0.7, 0.9));
+    const withMid = [...lobes.map(([f, r]) => ({ f, r })), { f: 0.5, r: midR }].sort((a, b) => a.f - b.f);
+    const sag = Math.sign(bow || -1) * Math.max(Math.abs(bow), LAKE_BEND.off * dl);
+    for (const { f, r } of withMid) {
+      const off = sag * sin(Math.PI * f);
       const u = uL + du * f - (dv / dl) * off + (f ? rng.range(-1.5, 1.5) : 3);
       const v = v0 + dv * f + (du / dl) * off + (f ? rng.range(-2, 2) * m : 0);
-      main.push([r2(u), r2(Math.max(lakeLow + 1 + r, Math.min(lakeTopV - r, v))), r2(r)]);
+      // (held under the bench or over the valley's low edge, back from the line by `LAKE_BEND.back` drawn)
+      const back = rng.range(0, LAKE_BEND.back);
+      main.push([r2(u), r2(Math.max(lakeLow + 1 + r + back, Math.min(lakeTopV - r - back, v))), r2(r)]);
     }
   }
   // (a last narrows before its end's pool, `LAKE_SHAPE.throat` of the pool's radius back from its middle and `throatR`
@@ -726,7 +774,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
         const rr = (a[2] + (b[2] - a[2]) * f) * (1 + rng.range(LAKE_WANDER.width[0], LAKE_WANDER.width[1]));
         const pu = a[0] + (b[0] - a[0]) * f - ((b[1] - a[1]) / len) * off;
         const pv = a[1] + (b[1] - a[1]) * f + ((b[0] - a[0]) / len) * off;
-        out.push([r2(pu), r2(Math.min(lakeTopV - rr, pv)), r2(Math.max(LAKE_WANDER.least, rr))]);
+        out.push([r2(pu), r2(Math.min(lakeTopV - rr - rng.range(0, LAKE_BEND.back), pv)), r2(Math.max(LAKE_WANDER.least, rr))]);
       }
       out.push(b);
     }
@@ -1011,7 +1059,9 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const brookWords = Array.from({ length: brooks }, (_, k) => BROOK_WORDS[(word0 + k) % BROOK_WORDS.length]);
   // (the tree's four springs `BROOK_TREE.spring` of a spring's: the trunk carries all four below its second join, a width
   // wider than a brook's, under a level deep)
-  const brookSprings = Array.from({ length: brooks }, (_, k) => r2(((brooks >= BROOK_TREE.brooks && BROOK_TREE.springs.includes(k as 0) ? BROOK_TREE.spring : 1) * rng.range(BROOK_SPRING[0], BROOK_SPRING[1]) * flow) / GATE_FLOW.normal));
+  const treeAt = treeOf(brooks);
+  const inTree = (k: number) => !!treeAt && [treeAt.trunk, treeAt.high, treeAt.branch, treeAt.twig].includes(k);
+  const brookSprings = Array.from({ length: brooks }, (_, k) => r2(((inTree(k) ? BROOK_TREE.spring : 1) * rng.range(BROOK_SPRING[0], BROOK_SPRING[1]) * flow) / GATE_FLOW.normal));
   // (a bed from `hi` at its head down to `lo` at its end, a level at a time, evenly along the path)
   const bedAlong = (path: readonly Point[], hi: number, lo: number, from = 0): number[] => {
     const len = pathLength(path.slice(from));
@@ -1285,9 +1335,9 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const tarns: Tarn[] = [];
   // what the lake's coves and bays keep clear of: the springs, the brooks, the start's bench and the Low River
   const clear = (p: Point, r: number) =>
-    p[1] - r > 4 &&
-    p[0] - r > 4 &&
-    p[0] + r < N - 4 &&
+    p[1] - r > LAKE_BEND.edge &&
+    p[0] - r > LAKE_BEND.edge &&
+    p[0] + r < N - LAKE_BEND.edge &&
     p[1] + r < lakeTopV &&
     pathDist(p[0], p[1], outflow).d > r + 4 &&
     tarnAt.every((t) => dist(p, t) > r + 3.2 + 5) &&
@@ -1406,8 +1456,8 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   // brook is the trunk, the long way along the valley to the lake's head; the far corner's joins it high; the next
   // spring along the far edge joins it lower, and takes the one past it. Each of the four `BROOK_TREE.sill` over the
   // lake's sill: a trunk's bed steps down a level at each join and its tributaries stand over where they meet it)
-  const tree = brooks >= BROOK_TREE.brooks ? { trunk: BROOK_TREE.springs[0], high: BROOK_TREE.springs[1], branch: BROOK_TREE.springs[2], twig: BROOK_TREE.springs[3] } : null;
-  if (tree) for (const k of [tree.trunk, tree.high, tree.branch, tree.twig]) sills[k] = S + BROOK_TREE.sill;
+  const tree = treeAt;
+  if (tree) for (const k of [tree.trunk, tree.high, tree.branch, tree.twig]) if (k >= 0) sills[k] = S + BROOK_TREE.sill;
   // (the lake's water, its main arm's with its coves' and bays': under 0 in it)
   // (read a tile at a time from a field laid once, each arm over its own box and `LAKE_FIELD` tiles round it, and again
   // for each mouth's notch: read afresh from every arm, it was most of a plan's time at 256²)
@@ -1420,6 +1470,10 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) lakeField[y * N + x] = Math.min(lakeField[y * N + x], edgeOf(arm, x + 0.5, y + 0.5));
   };
   for (const arm of lakeArms) layArm(arm);
+  // (the lake bends, `LAKE_BEND`: a main arm that turns too little anywhere is drawn again, and so is a lake whose shore
+  // comes within `edge` tiles of the map's edge)
+  if (armBend(main) < LAKE_BEND.least) return { why: "lake straight" };
+  for (const arm of lakeArms) for (const [u, v, rr] of arm) if (Math.min(u - rr, v - rr, N - u - rr, N - v - rr) < LAKE_BEND.edge) return { why: "lake edge" };
   // (no canal lake, planning's verdict of 2026-11-14: read here on the layout's own field, a little tighter than
   // `valley.lake` reads the laid water, so a layout it would refuse costs no brooks and no attempt)
   {
@@ -1476,7 +1530,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   // (nearest the lake first: a far spring's brook, laid first, passed in front of a nearer spring)
   const byLake = tarnAt.map((t, k) => ({ k, d: edgeOf(main, t[0], t[1]) })).sort((x, y) => x.d - y.d || x.k - y.k).map((x) => x.k);
   // (the tree's four after the rest, trunk first)
-  const treeOrder: number[] = tree ? [tree.trunk, tree.high, tree.branch, tree.twig] : [];
+  const treeOrder: number[] = tree ? [tree.trunk, tree.high, tree.branch, tree.twig].filter((k) => k >= 0) : [];
   const laying = [...byLake.filter((k) => !treeOrder.includes(k)), ...treeOrder];
   // (two brooks may share a cove, meeting at its head: a confluence at the water's edge; planning's ruling on room)
   const uses = coves.map(() => 0);
@@ -1668,9 +1722,11 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
             // are the levels left, past `BROOK_TREE.level` of their length. Told all its levels there, the trunk's
             // lower course was drawn as a steep reach, no swing and a step aside at each drop, and where the joins
             // had taken two of its levels it lay 50 tiles straight, 256² seed 2)
-            { levels: Math.max(0, sill - 1 - lo - (tree && tk === tree.trunk ? BROOK_JOIN.most : tree && tk === tree.branch ? 1 : 0)), from: tree && (tk === tree.trunk || tk === tree.branch) ? Math.max(BROOK_HEAD, BROOK_TREE.level * pathLength(courseLine)) : BROOK_HEAD, to: joined ? BROOK_JOIN.clear : 0 },
+            { levels: Math.max(0, sill - 1 - lo - (tree && tk === tree.trunk ? (tree.high >= 0 ? BROOK_JOIN.most : 1) : tree && tk === tree.branch ? 1 : 0)), from: tree && (tk === tree.trunk || tk === tree.branch) ? Math.max(BROOK_HEAD, BROOK_TREE.level * pathLength(courseLine)) : BROOK_HEAD, to: joined ? BROOK_JOIN.clear : 0 },
             (p, u, toEnd) => near(p, 2) && (u < 2 || dist(p, [tu, tv]) > r + Math.min(BROOK_OUT, u - 1) - 0.3) && (toEnd < 5 || lakeAt(p) > 1.5) && (toEnd < BROOK_JOIN.clear || fieldAt(nearBrooks, p) > BROOK_APART + 2),
             joined ? BROOK_JOIN.straight : 2,
+            // (a trunk's bends vary, `TRUNK_VARY`: the tree's trunk and its branch, the twig's trunk)
+            !!tree && (tk === tree.trunk || tk === tree.branch),
           );
           // (a point every `BROOK.every` tiles at most, four at the least: its bed's first step needs two past the head)
           const { path: course, along } = sampled(mm, BROOK.every);
@@ -1785,7 +1841,9 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
       }
       return o;
     };
-    if (tarns.length >= BROOK_TREE.brooks && Math.max(...tarns.map(order)) < BROOK_TREE.orders) return { why: "brook tree" };
+    // (three springs in a chain: the twig joins the branch and the branch the trunk)
+    if (tree && Math.max(...tarns.map(order)) < (tree.high >= 0 ? BROOK_TREE.orders : 2)) return { why: "brook tree" };
+    if (tree && (laid[tree.twig]?.joins?.k !== tree.branch || laid[tree.branch]?.joins?.k !== tree.trunk)) return { why: "brook tree" };
     for (const a of tarns) for (const b of tarns) if (a !== b && besideRun(a.path, b.path) > BROOK_TREE.run) return { why: "brooks side by side" };
   }
   return { plan: planOf(tarns) };

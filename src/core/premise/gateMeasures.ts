@@ -6,7 +6,7 @@
 
 import { atan2, cos, hypot, sin } from "../math/portable";
 import { rangeAt, type GateRange } from "./gateRange";
-import { besideRun } from "./gateBrooks";
+import { besideRun, BROOK_MEANDER, brookBends } from "./gateBrooks";
 import { gateOf, onLocal, onMap, turnOf } from "./premises/wallGate";
 import type { Point, PremisePlan } from "./types";
 import type { StageWater } from "./water";
@@ -170,9 +170,9 @@ export function lakeShapeOn(W: number, H: number, lake: (i: number) => boolean, 
 }
 
 /** The southern brooks as a tree: its highest order (Strahler's: a spring's brook is 1; where two of one order meet,
- *  the bed below is one more), and the longest stretch of any brook that runs beside another (`gateBrooks.ts`
+ *  the bed below is one more), its ranks (the most brooks in one chain of joins), and the longest stretch of any brook that runs beside another (`gateBrooks.ts`
  *  `besideRun`: within 12 tiles of it and heading as it does), in tiles along it. */
-export function brookTree(plan: PremisePlan): { orders: number; beside: number; brooks: number; joins: number } {
+export function brookTree(plan: PremisePlan): { orders: number; ranks: number; beside: number; brooks: number; joins: number } {
   const brooks = plan.links.filter((l) => /^brook\d/.test(l.id) && l.path);
   const order = new Map<string, number>();
   const orderOf = (id: string): number => {
@@ -190,9 +190,12 @@ export function brookTree(plan: PremisePlan): { orders: number; beside: number; 
   };
   let orders = 0;
   for (const b of brooks) orders = Math.max(orders, orderOf(b.id));
+  // (its ranks: the most brooks in a chain of joins, a twig into a branch into a trunk is three)
+  const rankOf = (id: string, seen = 0): number => (seen > brooks.length ? 0 : 1 + Math.max(0, ...brooks.filter((b) => b.joins?.link === id).map((b) => rankOf(b.id, seen + 1))));
+  const ranks = Math.max(0, ...brooks.map((b) => rankOf(b.id)));
   let beside = 0;
   for (const a of brooks) for (const b of brooks) if (a !== b) beside = Math.max(beside, besideRun(a.path!, b.path!));
-  return { orders, beside, brooks: brooks.length, joins: brooks.filter((b) => b.joins).length };
+  return { orders, ranks, beside, brooks: brooks.length, joins: brooks.filter((b) => b.joins).length };
 }
 
 /** The dry side within reach of a canal: of the tiles past the range's crest line, the share standing at the lake's
@@ -216,4 +219,231 @@ export function drySide(plan: PremisePlan, heights: ArrayLike<number>): { share:
       if (h <= g.sill && h >= g.sill - DRY_UNDER) low++;
     }
   return { share: all ? low / all : 0, tiles: all, levels: seen.size };
+}
+
+// ------------------------------------------------- round 3 (planning's look verdict of 2026-11-14 on round 2, 1c351722)
+
+/** The range's crest by the gate (planning's look verdict of 2026-11-14 on round 2: nothing towered over the gate):
+ *  each column of local u, the highest dry ground of the range there; the gap is the columns the Gate's gorge crosses
+ *  the range in (its channel's tiles within half the range's widths of its spine). `gate` is the least crest
+ *  over the lake's sill within `GATE_CREST.near` columns either side of the gap, `peak` the highest there, `least`
+ *  the least crest over the sill along the whole range (the gap and the map's last two columns at each end aside),
+ *  `gap` the gap's columns, and `notch` those of them whose crest stands under the least beside it (the gate as the
+ *  crest line shows it: where the gorge winds along the range, its walls stand as high as the crest beside it). */
+export const GATE_CREST = { near: 12 } as const;
+
+export function gateCrest(plan: PremisePlan, water: StageWater, heights: ArrayLike<number>): { gate: number; peak: number; least: number; gap: number; notch: number } {
+  const g = gateOf(plan)!;
+  const { W, H } = plan;
+  const r = water.raster;
+  const T = turnOf(plan, g);
+  const gi = plan.links.findIndex((l) => l.id === g.gate) + 1;
+  const best = new Array<number>(W).fill(-1);
+  const gorge = new Uint8Array(W);
+  for (let i = 0; i < W * H; i++) {
+    const [u, v] = onLocal(T, [(i % W) + 0.5, Math.floor(i / W) + 0.5]);
+    const k = Math.floor(u);
+    if (k < 0 || k >= W) continue;
+    const ra = rangeAt(g.range, u);
+    if (v < ra.v - ra.front || v > ra.v + ra.back) continue;
+    if (r.channel[i] === gi && v >= ra.v - ra.front / 2 && v <= ra.v + ra.back / 2) gorge[k] = 1;
+    if (r.lake[i] || r.channel[i] || r.pool[i]) continue;
+    if (heights[i] > best[k]) best[k] = heights[i];
+  }
+  let g0 = W;
+  let g1 = -1;
+  for (let k = 0; k < W; k++) if (gorge[k]) [g0, g1] = [Math.min(g0, k), Math.max(g1, k)];
+  let lo = Infinity;
+  let hi = -Infinity;
+  let least = Infinity;
+  for (let k = 2; k < W - 2; k++) {
+    if (best[k] < 0 || (k >= g0 && k <= g1)) continue;
+    least = Math.min(least, best[k]);
+    if (k >= g0 - GATE_CREST.near && k <= g1 + GATE_CREST.near) [lo, hi] = [Math.min(lo, best[k]), Math.max(hi, best[k])];
+  }
+  let notch = 0;
+  for (let k = g0; k <= g1; k++) if (best[k] < lo) notch++;
+  return { gate: lo - g.sill, peak: hi - g.sill, least: least - g.sill, gap: g1 - g0 + 1, notch };
+}
+
+/** The lake's shore traced round (its tiles 8-connected, the outer edge), and the longest stretch of it that keeps within
+ *  `SHORE_STRAIGHT` tiles of the line between its ends: its length (the line's), and that as a share of the main arm's
+ *  length (its spine's). */
+export const SHORE_STRAIGHT = 1.5;
+
+export function lakeStraight(plan: PremisePlan, water: StageWater): { run: number; share: number; arm: number } {
+  const g = gateOf(plan)!;
+  const { W, H } = plan;
+  const r = water.raster;
+  const li = plan.bodies.findIndex((b) => b.id === g.lake) + 1;
+  const main = plan.bodies[li - 1].arms[0];
+  let arm = 0;
+  for (let k = 1; k < main.length; k++) arm += hypot(main[k][0] - main[k - 1][0], main[k][1] - main[k - 1][1]);
+  const on = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && r.lake[y * W + x] === li;
+  // the outer edge, by Moore's neighbour tracing from the first tile in reading order
+  let s = -1;
+  for (let i = 0; i < W * H && s < 0; i++) if (r.lake[i] === li) s = i;
+  if (s < 0) return { run: 0, share: 0, arm };
+  const dirs: Point[] = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
+  const loop: Point[] = [];
+  const [sx, sy] = [s % W, Math.floor(s / W)];
+  let [x, y] = [sx, sy];
+  let d = 0;
+  // (round until it leaves the first tile again the way it first left it: Jacob's stopping criterion)
+  let first = -1;
+  for (let steps = 0; steps < 8 * W * H; steps++) {
+    let next = -1;
+    for (let k = 0; k < 8 && next < 0; k++) if (on(x + dirs[(d + 5 + k) % 8][0], y + dirs[(d + 5 + k) % 8][1])) next = (d + 5 + k) % 8;
+    if (x === sx && y === sy && next === first && loop.length) break;
+    loop.push([x + 0.5, y + 0.5]);
+    if (next < 0) break;
+    if (first < 0) first = next;
+    [x, y, d] = [x + dirs[next][0], y + dirs[next][1], next];
+  }
+  const n = loop.length;
+  let run = 0;
+  for (let a = 0; a < n; a++) {
+    for (let m = 2; m < n; m++) {
+      const p = loop[a];
+      const q = loop[(a + m) % n];
+      const len = hypot(q[0] - p[0], q[1] - p[1]);
+      let ok = len > 0;
+      for (let k = 1; k < m && ok; k++) {
+        const c = loop[(a + k) % n];
+        if (Math.abs((q[0] - p[0]) * (p[1] - c[1]) - (p[0] - c[0]) * (q[1] - p[1])) / len > SHORE_STRAIGHT) ok = false;
+      }
+      if (!ok) break;
+      run = Math.max(run, len);
+    }
+  }
+  return { run, share: arm > 0 ? run / arm : 0, arm };
+}
+
+/** The dry side as a sheet: of the tiles past the range's spine, the share standing within a level of every tile
+ *  `SHEET_REACH` tiles off along the map's rows and columns (those past the spine too). */
+export const SHEET_REACH = 8;
+
+export function drySheet(plan: PremisePlan, heights: ArrayLike<number>): number {
+  const g = gateOf(plan)!;
+  const T = turnOf(plan, g);
+  const { W, H } = plan;
+  const past = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const [u, v] = onLocal(T, [x + 0.5, y + 0.5]);
+      if (v > rangeAt(g.range, u).v) past[y * W + x] = 1;
+    }
+  let all = 0;
+  let flat = 0;
+  const R = SHEET_REACH;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (!past[i]) continue;
+      all++;
+      let ok = true;
+      for (const [dx, dy] of [[R, 0], [-R, 0], [0, R], [0, -R]] as const) {
+        const [xx, yy] = [x + dx, y + dy];
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H || !past[yy * W + xx]) continue;
+        if (Math.abs(heights[yy * W + xx] - heights[i]) > 1) ok = false;
+      }
+      if (ok) flat++;
+    }
+  return all ? flat / all : 0;
+}
+
+/** The Gate's dry valley across the basin: its bed past the range's back foot cut in `VALLEY_SPANS` pieces along it,
+ *  and each piece's depth, the lower quartile of the ground `VALLEY_RING` tiles off the bed (nearest this bed of all
+ *  the plan's channels) over the median of the bed's own level there. */
+export const VALLEY_SPANS = 5;
+export const VALLEY_RING = [8, 12] as const;
+
+export function dryValley(plan: PremisePlan, water: StageWater, heights: ArrayLike<number>): number[] {
+  const g = gateOf(plan)!;
+  const T = turnOf(plan, g);
+  const { W, H } = plan;
+  const r = water.raster;
+  const gi = plan.links.findIndex((l) => l.id === g.gate) + 1;
+  const N = W * H;
+  const dist = new Float32Array(N).fill(Infinity);
+  const from = new Int32Array(N).fill(-1);
+  const queue: number[] = [];
+  let a0 = Infinity;
+  let a1 = -Infinity;
+  for (let i = 0; i < N; i++) {
+    if (!r.channel[i]) continue;
+    const [u, v] = onLocal(T, [(i % W) + 0.5, Math.floor(i / W) + 0.5]);
+    const ra = rangeAt(g.range, u);
+    // (every channel seeds the field, so the ring is this bed's alone; only the Gate Bed past the back foot is read)
+    dist[i] = 0;
+    from[i] = r.channel[i] === gi && v > ra.v + ra.back ? i : -2;
+    queue.push(i);
+    if (from[i] >= 0) [a0, a1] = [Math.min(a0, r.along[i]), Math.max(a1, r.along[i])];
+  }
+  for (let k = 0; k < queue.length; k++) {
+    const i = queue[k];
+    const x = i % W;
+    const y = (i - x) / W;
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const [xx, yy] = [x + dx, y + dy];
+        if ((!dx && !dy) || xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        const dd = dist[i] + (dx && dy ? 1.4142 : 1);
+        if (dd < dist[j] - 1e-6) {
+          dist[j] = dd;
+          from[j] = from[i];
+          queue.push(j);
+        }
+      }
+  }
+  if (!(a1 > a0)) return [];
+  const span = (i: number) => Math.min(VALLEY_SPANS - 1, Math.floor(((r.along[i] - a0) / (a1 - a0)) * VALLEY_SPANS));
+  const ring: number[][] = Array.from({ length: VALLEY_SPANS }, () => []);
+  const bed: number[][] = Array.from({ length: VALLEY_SPANS }, () => []);
+  for (let i = 0; i < N; i++) {
+    if (from[i] < 0) continue;
+    if (dist[i] === 0) bed[span(i)].push(heights[i]);
+    else if (dist[i] >= VALLEY_RING[0] && dist[i] <= VALLEY_RING[1]) ring[span(from[i])].push(heights[i]);
+  }
+  // (the ring's lower quartile: the valley is as deep as its lower wall, and a ring that reaches the range's back slope
+  // or a mesa on one side is not the deeper for it)
+  const at = (a: number[], q: number) => {
+    const s = [...a].sort((p, q2) => p - q2);
+    return s[Math.floor(q * (s.length - 1))];
+  };
+  return ring.map((rg, k) => (rg.length && bed[k].length ? at(rg, 0.25) - at(bed[k], 0.5) : NaN));
+}
+
+/** A trunk's bends (planning's verdict of 2026-11-14: a real course has a straight reach, then a tight loop): for each
+ *  brook another joins, `TRUNK_LEAST` tiles long or more, its bends (`gateBrooks.ts` `brookBends`) read for its
+ *  straightest reach (the longest run of bends turning under twice the ruling's least swing, its heading swung under
+ *  the least to each side; in tiles, and in its own mean wavelengths) and its tightest bend (the most turn a tile)
+ *  against the next tightest; its first and last bends (out of its head, into its end) aside. */
+export const TRUNK_LEAST = 60;
+
+export type TrunkBends = { id: string; length: number; straight: number; waves: number; tight: number; next: number };
+
+export function trunkBends(plan: PremisePlan): TrunkBends[] {
+  const brooks = plan.links.filter((l) => /^brook\d/.test(l.id) && l.path);
+  const out: TrunkBends[] = [];
+  for (const b of brooks) {
+    if (!brooks.some((t) => t.joins?.link === b.id)) continue;
+    const p = b.path!;
+    let length = 0;
+    for (let k = 1; k < p.length; k++) length += hypot(p[k][0] - p[k - 1][0], p[k][1] - p[k - 1][1]);
+    if (length < TRUNK_LEAST) continue;
+    const bends = brookBends(p);
+    const wave = (2 * bends.reduce((s, x) => s + x.length, 0)) / Math.max(1, bends.length);
+    let straight = 0;
+    let runAt = 0;
+    const inner = bends.slice(1, -1);
+    for (const x of inner) {
+      runAt = x.swing < 2 * BROOK_MEANDER.swing[0] ? runAt + x.length : 0;
+      straight = Math.max(straight, runAt);
+    }
+    const tight = inner.map((x) => x.swing / Math.max(1, x.length)).sort((p2, q) => q - p2);
+    out.push({ id: b.id, length, straight, waves: straight / Math.max(1, wave), tight: tight[0] ?? 0, next: tight[1] ?? 0 });
+  }
+  return out;
 }

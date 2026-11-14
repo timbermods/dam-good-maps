@@ -218,6 +218,15 @@ export function courseReach(course: readonly Point[], half = 2): { tiles: number
  *  its axis, radians a tile off it, so lobes of unequal swing do not carry it away. Integrated a `step` at a time. */
 export const BROOK_MEANDER = { wave: [6, 14], swing: [1.0, 1.8], drift: [1.6, 0.14], spread: [2.6, 0.26], couple: 0.125, pivot: 10, alike: 0.13, lead: 3, head: 4, tail: 6, axis: 6, sidestep: [0.8, 1.3], stepRun: 4, steep: [0.5, 0.8], pull: 0.02, step: 0.5, soft: 4, round: 0.2 } as const;
 
+/** A trunk's bends vary (planning's look verdict of 2026-11-14 on round 2: the trunk's bends were all one size, a drawn
+ *  wave; a real course has a straight reach, then a tight loop): on a channel `least` tiles of axis or longer, a
+ *  straight reach `reach` of its mean wavelength long (drawn; as far as the room before the loop and its end allow),
+ *  starting `at` of the way along its axis, its lobes swinging `swing` radians and `wave` widths long (its lower and
+ *  upper thirds), short and long and low and high by turns (alike, they were a ruler's rhythm), their apexes unrounded (round and long, an apex lay as
+ *  a straight even reach); and the loop right after it, `tight` of the ruling's least wavelength long and swinging the
+ *  ruling's most. The ruling (`wave`, `swing`) holds for every other bend. */
+export const TRUNK_VARY = { least: 60, reach: [2.5, 3.3], at: [0.06, 0.14], swing: [0.65, 0.9], wave: [6, 10.5], tight: 0.6 } as const;
+
 /** A running mean of a path sampled a tile apart, `half` tiles each way (fewer toward each end, so the ends stay, and
  *  none over its first `lead` tiles: they stay as they are). */
 function softened(path: readonly Point[], half: number, lead = 0): Point[] {
@@ -256,16 +265,17 @@ export interface Meander {
  *  drops `falls.levels` levels, evenly along its axis past its first `falls.from` tiles and before its last `falls.to`;
  *  `room` whether a point of the
  *  channel may stand there (`u` its place along the axis, `toEnd` how far its end is); `straight` the tiles at its end
- *  it keeps to its course. */
-export function meander(course: readonly Point[], width: number, draw: () => number, falls: { levels: number; from: number; to?: number }, room: (p: Point, u: number, toEnd: number) => boolean, straight = 2): Meander {
+ *  it keeps to its course; `vary` a trunk's: its bends vary by `TRUNK_VARY`. */
+export function meander(course: readonly Point[], width: number, draw: () => number, falls: { levels: number; from: number; to?: number }, room: (p: Point, u: number, toEnd: number) => boolean, straight = 2, vary = false): Meander {
   const M = BROOK_MEANDER;
   const axis = softened(course, M.axis, M.lead);
   const La = pathLength(axis);
   // (the mean of cos of a + b cos(π t) over a lobe: its advance along the axis, a tile of its length)
-  const shape = (x: number): number => (cos(x) + M.round * cos(3 * x)) / (1 + M.round);
-  const advance = (a: number, b: number): number => {
+  // (`rd` its roundness: a reach's lobes are none, round lobes flat at their apex read as straight even reaches)
+  const shape = (x: number, rd: number = M.round): number => (cos(x) + rd * cos(3 * x)) / (1 + rd);
+  const advance = (a: number, b: number, rd: number = M.round): number => {
     let c = 0;
-    for (let k = 0; k < 16; k++) c += cos(a + b * shape((Math.PI * (k + 0.5)) / 16));
+    for (let k = 0; k < 16; k++) c += cos(a + b * shape((Math.PI * (k + 0.5)) / 16, rd));
     return c / 16;
   };
   const within = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
@@ -282,6 +292,15 @@ export function meander(course: readonly Point[], width: number, draw: () => num
     waveMean = within(waveMean + (2 * draw() - 1) * M.drift[0], M.wave[0] + 1.5, M.wave[1] - 1.5);
     swingMean = within(swingMean + (2 * draw() - 1) * M.drift[1], M.swing[0] + 0.15, M.swing[1] - 0.15);
   };
+  // (a trunk's straight reach and its tight loop, `TRUNK_VARY`: where along the axis)
+  const V = TRUNK_VARY;
+  const varied = vary && La >= V.least;
+  const reachFrom = varied ? La * (V.at[0] + (V.at[1] - V.at[0]) * draw()) : Infinity;
+  // (the loop's room past the reach: itself, and a bend of the ruling's before the course's tail)
+  const loopEnd = La - M.tail - width * M.wave[0] * (1 + V.tight);
+  const reachTo = varied ? Math.min(loopEnd, reachFrom + width * waveMean * (V.reach[0] + (V.reach[1] - V.reach[0]) * draw())) : -Infinity;
+  let looped = false;
+  let reachLobes = 0;
   // ---- the free meander: its offset from the axis at each step along it
   const us: number[] = [0];
   const ms: number[] = [0];
@@ -294,16 +313,29 @@ export function meander(course: readonly Point[], width: number, draw: () => num
     // (a lobe unlike the one before in length: a row of equal lobes is a ruler with a rhythm)
     driftOn();
     let b1 = bend();
+    // (a trunk's straight reach: its lobes swing little; its tight loop: the ruling's shortest bend, swinging its most)
+    const kind = u >= reachFrom && u < reachTo ? "reach" : varied && !looped && u >= reachTo && u < loopEnd + width * M.wave[0] ? "loop" : "";
+    if (kind === "reach") {
+      // (long and short by turns; its swing low, low, high, high: a bend reads as the swings at its two ends together)
+      const k = reachLobes++;
+      const x = draw() / 3;
+      b1 = { half: (width * (V.wave[0] + (V.wave[1] - V.wave[0]) * ((k & 1) === 1 ? 2 / 3 + x : x))) / 2, swing: V.swing[0] + (V.swing[1] - V.swing[0]) * ((k & 2) === 2 ? 0.5 + 0.5 * draw() : 0.5 * draw()) };
+    }
+    if (kind === "loop") {
+      b1 = { half: (width * M.wave[0] * V.tight) / 2, swing: M.swing[1] };
+      looped = true;
+    }
     let w1 = b1.swing;
-    let L = b1.half / advance((w0 - w1) / 2, (w0 + w1) / 2);
-    for (let t = 0; t < 12 && last > 0 && Math.abs(L - last) <= M.alike * Math.max(L, last); t++) {
+    const rd = kind === "reach" ? 0 : M.round;
+    let L = b1.half / advance((w0 - w1) / 2, (w0 + w1) / 2, rd);
+    for (let t = 0; t < 12 && !kind && last > 0 && Math.abs(L - last) <= M.alike * Math.max(L, last); t++) {
       b1 = bend();
       w1 = b1.swing;
       L = b1.half / advance((w0 - w1) / 2, (w0 + w1) / 2);
     }
     const [a, b] = [(w0 - w1) / 2, (w0 + w1) / 2];
     for (let sAt = M.step / 2; sAt < L && u < La; sAt += M.step) {
-      const th = within(side * (a + b * shape((Math.PI * sAt) / L)) - M.pull * y, -M.swing[1] - 0.05, M.swing[1] + 0.05);
+      const th = within(side * (a + b * shape((Math.PI * sAt) / L, rd)) - M.pull * y, -M.swing[1] - 0.05, M.swing[1] + 0.05);
       u += cos(th) * M.step;
       y += sin(th) * M.step;
       us.push(u);

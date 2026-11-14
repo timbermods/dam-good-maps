@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import { splitmix32 } from "../../src/core/math/rng";
-import { BROOK_BESIDE, BROOK_MEANDER, besideRun, courseReach, meander, sampled, selfGap } from "../../src/core/premise/gateBrooks";
+import { BROOK_BESIDE, BROOK_MEANDER, besideRun, brookBends, courseReach, meander, sampled, selfGap } from "../../src/core/premise/gateBrooks";
 import type { Point } from "../../src/core/premise/types";
 
 const WIDTH = 3.5;
@@ -122,6 +122,36 @@ describe("the Gate's brooks: meanders", () => {
     // (the course itself, no meander on it, is a canal: ruled past five times its width)
     expect(courseReach(course(0, 110), 1.5).tiles).toBeGreaterThan(0);
     expect(courseReach(course(45, 110), 2).tiles).toBeGreaterThan(0);
+  });
+
+  it("a trunk's bends vary: a straight reach of two wavelengths or more, then a loop tighter than any other bend", () => {
+    // (planning's verdict of 2026-11-14 on round 2, `TRUNK_VARY`; read as `gateMeasures.ts` `trunkBends` reads a laid
+    // trunk: bends turning under twice the ruling's least swing in a row, in its mean wavelengths, and each bend's turn a
+    // tile, its first and last aside. A draw the layout lays is one of its six; on courses 140 tiles long at any angle
+    // two in three or more show both, and a brook's own course, `vary` off, none of the reach)
+    let both = 0;
+    let n = 0;
+    let plain = 0;
+    for (const deg of [0, 11, 22, 33, 45, 56, 67, 78, 90])
+      for (let seed = 1; seed <= 6; seed++) {
+        const read = (vary: boolean) => {
+          const m = meander(course(deg, 140), WIDTH, draws(seed * 97 + deg), { levels: 0, from: 0 }, anywhere, 2, vary);
+          const b = brookBends(m.path);
+          const inner = b.slice(1, -1);
+          const wave = (2 * b.reduce((s, x) => s + x.length, 0)) / b.length;
+          let straight = 0;
+          let run = 0;
+          for (const x of inner) straight = Math.max(straight, (run = x.swing < 2 * BROOK_MEANDER.swing[0] ? run + x.length : 0));
+          const tight = inner.map((x) => x.swing / Math.max(1, x.length)).sort((p, q) => q - p);
+          return { waves: straight / wave, tight: tight[0] / tight[1] };
+        };
+        const v = read(true);
+        n++;
+        if (v.waves >= 2 && v.tight > 1.15) both++;
+        if (read(false).waves >= 2) plain++;
+      }
+    expect(both / n).toBeGreaterThanOrEqual(2 / 3);
+    expect(plain).toBe(0);
   });
 
   it("two brooks run side by side where one keeps near the other and heads as it does; a tributary coming in does not", () => {

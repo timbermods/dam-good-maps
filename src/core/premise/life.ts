@@ -12,9 +12,9 @@
 
 import type { BuildResult } from "../features/build";
 import { featureId } from "../features/ids";
-import type { Feature, ForestFeature, MapObjectFeature } from "../features/schema";
+import type { Feature, ForestFeature, MapObjectFeature, RuinFieldFeature } from "../features/schema";
 import { pickSeeds } from "../gen/blobs";
-import { FOREST } from "../gen/calibrated";
+import { FOREST, RUIN_HEIGHT_SHARES } from "../gen/calibrated";
 import { planExtras } from "../gen/extras";
 import { entityJson } from "../format/entities";
 import { ORIENTATIONS, type Orientation } from "../format/footprints";
@@ -23,8 +23,9 @@ import { mapObjects } from "../sim/model";
 import { bandScale, colonyReach, FLOOD_MARGIN, MINE_REACH_LO, minesWanted, nearWater, WET } from "../validate/playability";
 import { planResources } from "../gen/resources";
 import { distanceFrom, runsToTiles, tilesToRuns } from "../math/grid";
+import { atan2 } from "../math/portable";
 import { stream } from "../math/rng";
-import { growGroveAt, type BaselineGround } from "../resources/baseline";
+import { growGroveAt, ruinColumns, type BaselineGround } from "../resources/baseline";
 import { between, resourceBudget } from "../resources/budget";
 import type { MapSpec } from "../spec/mapspec";
 import type { Ladder } from "./ladder";
@@ -126,7 +127,7 @@ function keepOff(plan: PremisePlan, w: StageWater, ladder: Ladder, green: boolea
 /** Stage 6 on a settled premise map (`built`, its first build): the generator's planting by the premise's budget, the
  *  dead woods on old shores and beside dry beds, succulents on the dry-for-good side and the mine sites, as features
  *  for one more build (its settle reused: nothing here moves water). */
-export function premiseLife(spec: MapSpec, plan: PremisePlan, w: StageWater, ladder: Ladder, built: BuildResult, features: readonly Feature[], attempt: number, palette: MapSpec["settings"]["resources"]["speciesMix"] | null = null, beds: Uint8Array | null = null): PremiseLife {
+export function premiseLife(spec: MapSpec, plan: PremisePlan, w: StageWater, ladder: Ladder, built: BuildResult, features: readonly Feature[], attempt: number, palette: MapSpec["settings"]["resources"]["speciesMix"] | null = null, beds: Uint8Array | null = null, ruinsAt: [number, number] | null = null): PremiseLife {
   const { W, H } = plan;
   const N = W * H;
   const r = w.raster;
@@ -152,7 +153,11 @@ export function premiseLife(spec: MapSpec, plan: PremisePlan, w: StageWater, lad
     },
   };
   const protect = keepOff(plan, w, ladder, true);
-  const planted = planResources(lifeSpec, built, 0, attempt, { protect, moistCover: LIFE.moistCover, woodLean: true, deadForests: res.forestDensity, ...(beds ? { beds } : {}) });
+  // one ruin group on a rise the land made for it (`ruinsAt`), its scrap counted in the map's
+  const onRise = ruinsAt ? riseRuins(spec, W, H, built, protect, ruinsAt) : null;
+  const held = onRise ? Uint8Array.from(protect) : protect;
+  if (onRise) for (const i of onRise.near) held[i] = 1;
+  const planted = [...(onRise ? [onRise.field] : []), ...planResources(lifeSpec, built, 0, attempt, { protect: held, moistCover: LIFE.moistCover, woodLean: true, deadForests: res.forestDensity, ...(beds ? { beds } : {}), ...(onRise ? { scrapPlaced: onRise.field.params.scrapTarget } : {}) })];
   const rng = stream(spec.seed, "premise.life", attempt);
   groupGroves(planted, built, protect, rng, W, H);
   const out: Feature[] = [...planted];
@@ -522,4 +527,62 @@ function benchesOver(plan: PremisePlan, w: StageWater, built: BuildResult, taken
     out.push({ tiles, at, d: Math.max(Math.abs((at % W) - sx), Math.abs(Math.floor(at / W) - sy)) });
   }
   return out;
+}
+
+/** A ruin group on a rise's top (planning's verdict of 2026-11-14 on the gate's second sheet: the dry side has things to
+ *  walk to): of the top level's tiles within `reach` of the rise's middle, those on its rim (a side's neighbour lower),
+ *  an arc `arc` of the way round it, `most` at the most (a field lies along its level's rim, D518, never in a filled
+ *  blob); `least` or none. */
+export const RISE_RUINS = { reach: 12, arc: 0.5, most: 14, least: 5, tallness: 0.2 } as const;
+
+function riseRuins(spec: MapSpec, W: number, H: number, built: BuildResult, protect: Uint8Array, at: [number, number]): { field: RuinFieldFeature; near: number[] } | null {
+  const h = built.heights;
+  const ok = (i: number) => !protect[i] && !(built.water[i] > 0) && !built.occupied[i];
+  // (its top: the highest free tile within three of the middle, and its level's tiles joined to it)
+  let s0 = -1;
+  for (let y = Math.max(0, at[1] - 3); y <= Math.min(H - 1, at[1] + 3); y++)
+    for (let x = Math.max(0, at[0] - 3); x <= Math.min(W - 1, at[0] + 3); x++) {
+      const i = y * W + x;
+      if (ok(i) && (s0 < 0 || h[i] > h[s0])) s0 = i;
+    }
+  if (s0 < 0) return null;
+  const top: number[] = [s0];
+  const seen = new Set(top);
+  for (let k = 0; k < top.length; k++) {
+    const x = top[k] % W;
+    const y = (top[k] - x) / W;
+    for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]] as const) {
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H || (nx - at[0]) ** 2 + (ny - at[1]) ** 2 > RISE_RUINS.reach ** 2) continue;
+      const n = ny * W + nx;
+      if (seen.has(n) || h[n] !== h[s0] || !ok(n)) continue;
+      seen.add(n);
+      top.push(n);
+    }
+  }
+  const lower = (x: number, y: number) => x < 0 || y < 0 || x >= W || y >= H || h[y * W + x] < h[s0];
+  const rim = top.filter((i) => {
+    const x = i % W;
+    const y = (i - x) / W;
+    return lower(x + 1, y) || lower(x - 1, y) || lower(x, y + 1) || lower(x, y - 1);
+  });
+  if (rim.length < RISE_RUINS.least) return null;
+  let [cx, cy] = [0, 0];
+  for (const i of top) [cx, cy] = [cx + (i % W), cy + Math.floor(i / W)];
+  [cx, cy] = [cx / top.length, cy / top.length];
+  const round = rim.map((i) => ({ i, a: atan2(Math.floor(i / W) - cy, (i % W) - cx) })).sort((p, q) => p.a - q.a || p.i - q.i);
+  const rng = stream(spec.seed, "premise.riseRuins");
+  const n = Math.max(RISE_RUINS.least, Math.min(RISE_RUINS.most, Math.round(RISE_RUINS.arc * round.length)));
+  const from = rng.int(0, round.length);
+  const tiles = Array.from({ length: Math.min(n, round.length) }, (_, k) => round[(from + k) % round.length].i).sort((a, b) => a - b);
+  const role = "ruinField/rise";
+  const id = featureId(spec.seed, "ruinField", role);
+  const scrap = ruinColumns(tiles, W, stream(spec.seed, id, "heights"), RISE_RUINS.tallness).scrap;
+  const field: RuinFieldFeature = { id, kind: "ruinField", origin: "generated", role, locked: false, params: { area: tilesToRuns(tiles, W), scrapTarget: scrap, heightMix: [...RUIN_HEIGHT_SHARES], centerBias: 0, layout: { tallness: RISE_RUINS.tallness } } };
+  const near: number[] = [];
+  for (const i of tiles) {
+    const x = i % W;
+    const y = (i - x) / W;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H) near.push((y + dy) * W + x + dx);
+  }
+  return { field, near };
 }

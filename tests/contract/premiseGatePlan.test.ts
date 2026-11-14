@@ -162,7 +162,10 @@ describe("Broken wall-with-one-gate plans fail their invariants", () => {
       b.halves = b.path!.map(() => 1);
     }],
     ["valley.water", "a southern brook 4 and 5 wide by turns past its head", (plan) => {
-      const b = plan.links.find((l) => l.id === "brook1")!;
+      // (a brook of its own, neither a tributary nor a trunk: at 192² the tree's branch, brook1 since round 3, is a width
+      // wider below its join)
+      const brooks = plan.links.filter((l) => /^brook\d/.test(l.id));
+      const b = brooks.find((l) => !l.joins && !brooks.some((k) => k.joins?.link === l.id))!;
       b.halves = b.path!.map((_, k) => (k < 2 ? 1.4 : k % 2 ? 2 : 2.5));
     }],
     ["valley.water", "a brook joining another a level and more under the other's bed there", (plan) => {
