@@ -3,7 +3,7 @@
 //
 //   npm run places                         (writes public/real-places/)
 //   npm run places -- --check              (writes nothing; fails when the committed files differ)
-//   npm run places -- --only near-glencoe  (builds and checks the places named, writes nothing)
+//   npm run places -- --only glencoe       (builds and checks the places named, writes nothing)
 //   npm run places -- --water --out <dir>  (each place's water measure too, written to <dir>; `--rules port` builds
 //                                          them under the port's water rules, as before D311's conversion)
 //   npm run places -- --shards 1           (one place after another on this process: the places run on one
@@ -119,13 +119,13 @@ const LAND_FLOORS = ["start.level_land", "start.reach", "start.farmland", "start
 /** The start's wood checks, which fast trees planted by it can meet: its logs, the starting-logs floor and the
  *  fast species' share (D85, D224, D515). */
 const WOOD_CHECKS = ["start.wood", "start.wood_floor", "start.wood_fast"];
-/** Places withheld by name until a fault of their land is mended, with the reason every run prints. Near Dinaric
+/** Places withheld by name until a fault of their land is mended, with the reason every run prints. Dinaric
  *  karst Plitvice's start meets every floor since the start's move ranks by the land floors, but its conversion puts
  *  a source in another's flow (`water.source_in_flow`); it left `PLACES_SOURCES_IN_FLOW` (tests/contract/placesCommon.ts,
  *  whose note says Real places 2 places sources only at heads) when #1094 withheld it, and that list never grows:
  *  planning's ruling on #1096. */
 const WITHHELD_UNTIL: Record<string, string> = {
-  "near-dinaric-karst-plitvice": "withheld until water.source_in_flow is mended (sources at heads only)",
+  "dinaric-karst-plitvice": "withheld until water.source_in_flow is mended (sources at heads only)",
 };
 /** How many logs under `start.wood`'s limit a place's start may be and still be topped up to it (a twentieth of Normal's 200). */
 const WOOD_NEAR_MISS = 10;
@@ -159,7 +159,7 @@ const FAMILIES: Record<string, { name: string; plays: string }> = {
 /** Survey names a player could misread, by library id. "Badwater" is a place name in Death Valley,
  *  and a hazard in Timberborn: this map has none. */
 const RENAME: Record<string, string> = {
-  "n101-128-120-normalised-16": "Near Death Valley",
+  "n101-128-120-normalised-16": "Death Valley",
 };
 
 interface LibraryItem {
@@ -230,8 +230,11 @@ function toPlace(item: LibraryItem, fx: Fixture): PlaceData {
     edgeLip(heights, W, H, { row: [s.y * W + s.x], surface: heights[s.y * W + s.x] + 1, keep: heads, reach: EDGE_LIP_REACH });
   }
   if (heights.some((v) => v > EDITOR_LEVEL)) throw new Error(`${item.id}: land above level ${EDITOR_LEVEL}`);
-  const name = (RENAME[item.id] ?? item.name.replace(/, \d+ m per tile$/, "").replace(/ \((north|south|east|west|northeast|northwest|southeast|southwest) sample\)$/, "")).trim();
-  if (!/^Near /.test(name)) throw new Error(`${item.id}: unexpected name ${name}`);
+  // the place's one name (D(new-names), Kyler: "Mount Fuji", not "Near Mount Fuji"): the survey's name without its "Near",
+  // its scale and its sample's direction
+  const survey = item.name.replace(/, \d+ m per tile$/, "").replace(/ \((north|south|east|west|northeast|northwest|southeast|southwest) sample\)$/, "").trim();
+  if (!/^Near /.test(survey)) throw new Error(`${item.id}: unexpected survey name ${survey}`);
+  const name = RENAME[item.id] ?? survey.replace(/^Near /, "");
   const fam = FAMILIES[item.family];
   if (!fam) throw new Error(`${item.id}: no family text for ${item.family}`);
   const kinds: Record<"bushes" | "pines" | "birches" | "oaks" | "deadPines" | "ruins", number[]> = { bushes: [], pines: [], birches: [], oaks: [], deadPines: [], ruins: [] };
@@ -275,7 +278,6 @@ function toPlace(item: LibraryItem, fx: Fixture): PlaceData {
     format: PLACE_FORMAT,
     id: slug(name),
     name,
-    place: name.replace(/^Near /, ""),
     family: item.family,
     familyName: fam.name,
     plays: fam.plays,
@@ -427,7 +429,7 @@ function basinsFor(libraryId: string, place: PlaceData): { place: PlaceData; not
     if (!left.length) break;
     let any = false;
     for (const f of left) {
-      const seed = hashString(`${place.id}:${round}`);
+      const seed = hashString(`${seedKey(place)}:${round}`);
       let tried = Uint8Array.from(heights);
       let bed = cutBed(tried, place.W, place.H, f.tiles, game.settle.depth, place.sources, seed);
       if (bed.length && inFlow({ ...place, heights: encodeHeights(tried) }) > flowed) {
@@ -450,6 +452,10 @@ function basinsFor(libraryId: string, place: PlaceData): { place: PlaceData; not
 
 /** The rounds of beds a place gets: a bed can carry its water on to a flat below, where the next round's bed runs on. */
 const BED_ROUNDS = 8;
+
+/** What a place's beds and springs are seeded from: the id it had before D(new-names) took "Near" out of its name
+ *  ("near-glencoe"), so the rename moves no land or water. */
+const seedKey = (p: PlaceData) => `near-${p.id}`;
 
 const hashString = (s: string) => {
   let h = 2166136261;
@@ -594,7 +600,7 @@ function runPlace(item: LibraryItem): Outcome | null {
     const had = new Set(strictFails);
     let best: { add: [number, number, number][]; r: ReturnType<typeof buildChecked>; score: number } | null = null;
     for (const [rule, tries] of SPRING_TRIES) {
-      for (const add of placeSprings(place, built.heights, built.settle.depth, { rule, tries })) {
+      for (const add of placeSprings(place, built.heights, built.settle.depth, { rule, tries, key: seedKey(place) })) {
         const r = buildChecked({ ...place, sources: [...place.sources, ...add] });
         if (r.strictFails.includes("start.water") || r.strictFails.some((id) => !had.has(id) && !free.has(id))) continue;
         const sc = score(r.strictFails);
