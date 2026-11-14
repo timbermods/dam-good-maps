@@ -98,6 +98,10 @@ export const EXPERIMENTS: Experiment[] = [
     digits: 3,
   },
   {
+    // (generator 0.10.23, D(new-leaks), D148: eight seeds, as the reach's experiment has: once lands a leak used to refuse
+    // are kept, River Valley 96² lands vary more from seed to seed than the setting moves them; on seeds 1-4 Generous seed
+    // 1 became its 2nd attempt's land, flat share 0.41 where its 6th's was 0.62, and the mean moved 0.021)
+    minSeeds: 8,
     setting: "Buildable land",
     target: "flat share 0.40 / 0.52 / 0.60 (tiles whose 8 neighbours share their level)",
     theme: "riverValley",
