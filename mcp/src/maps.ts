@@ -38,6 +38,7 @@ import { worldWaterModel } from "../../src/core/sim/stackWater";
 import type { WaterModel } from "../../src/core/sim/water";
 import { applyMergePatch } from "../../src/core/spec/mergepatch";
 import {
+  DEFAULT_THEME,
   generatorSizeRefusal,
   highestTerrainDefault,
   makeSpec,
@@ -179,7 +180,7 @@ function premiseWords(r: GenerateResult): string | undefined {
 /** The spec that a generate call asks for, as the page's Generate makes it (src/ui/App.tsx), or the refusal of its
  *  input. `seedWord`: a seed given in words, which names the file. */
 export function specOf(input: GenerateInput): { spec: MapSpec; seedWord?: string } {
-  const theme = (input.theme ?? "any") as ThemeId;
+  const theme = (input.theme ?? DEFAULT_THEME) as ThemeId;
   if (!THEMES.includes(theme)) refuse(`The theme is one of ${THEMES.join(", ")}`);
   const size = sizeOf(input.size);
   if (!Number.isInteger(size.x) || !Number.isInteger(size.y) || size.x < MIN_SIDE || size.y < MIN_SIDE || size.x > MAX_SIDE || size.y > MAX_SIDE) refuse(`A side is a whole number of tiles from ${MIN_SIDE} to ${MAX_SIDE}`);

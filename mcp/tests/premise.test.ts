@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
 import { generate } from "../../src/core/gen/generate";
 import { decodePlaceFile, placeTimber } from "../../src/core/places/place";
-import { makeSpec, PREMISE_CHOICES, PREMISE_NAMES } from "../../src/core/spec/mapspec";
+import { DEFAULT_THEME, makeSpec, PREMISE_CHOICES, PREMISE_NAMES } from "../../src/core/spec/mapspec";
 import { closeAll, exportFiles, mapOf, specOf } from "../src/maps";
 import { callTool, TOOLS } from "../src/server";
 
@@ -54,6 +54,23 @@ describe("generate's premise", () => {
     expect(textOf(no)).toBe(`The premise is none, ${PREMISE_CHOICES.map((p) => PREMISE_NAMES[p]).join(", ")}`);
     // none is no premise: the themes' map
     expect(specOf({ premise: "none", size: 96, seed: 1 }).spec.premise).toBeUndefined();
+  });
+});
+
+describe("generate's default", () => {
+  it("with no theme and no premise is the page's default map (src/ui/App.tsx initialSpec), byte for byte", async () => {
+    const page = makeSpec({ seed: 7, theme: DEFAULT_THEME });
+    expect(page.premise).toBeUndefined();
+    expect(specOf({ seed: 7 }).spec).toEqual(page);
+    // a theme alone keeps no premise, as the page's theme choice keeps its Idea at none
+    expect(specOf({ seed: 7, theme: "canyon" }).spec).toEqual(makeSpec({ seed: 7, theme: "canyon" }));
+    const r = await made({ seed: 7 });
+    expect(r.isError, textOf(r)).toBeFalsy();
+    const g = generate(page);
+    const a = exportFiles(MapSession.fromGenerated(g, g.file));
+    const b = exportFiles(mapOf(handleOf(r)));
+    expect(Buffer.compare(Buffer.from(a.timber), Buffer.from(b.timber))).toBe(0);
+    expect(Buffer.compare(Buffer.from(a.project), Buffer.from(b.project))).toBe(0);
   });
 });
 

@@ -50,6 +50,9 @@ Claude tells you what the generator made and what it didn't. If a wish didn't co
 A premise is the idea a map is built around, as on the website. A real place is a map made from real land, from the
 website's **Real places**.
 
+If you do not ask for a theme or a premise, Claude makes the map that the website makes by default: the Any theme, with
+no premise.
+
 A large map (256 tiles a side) can take a few minutes to make. Claude checks on it until it is ready.
 
 Claude's pictures mark waterfalls in orange and outline lakes in cyan.
