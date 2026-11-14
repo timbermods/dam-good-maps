@@ -14,7 +14,8 @@ game launch until he lifts it. The page session is stopped (worktree `DamGoodMap
 
 ## Released
 
-Latest: `naturalize-done` (2026-11-09, PR #896, dev d5d44fd2 into `main` at 8d31cefa): 36 PRs, #851 to #893. Naturalize runs
+Latest: `phone-layouts-done` (2026-11-13): dev 78e71d52 released into `main` at 4d04c0ee.
+Before it: `naturalize-done` (2026-11-09, PR #896, dev d5d44fd2 into `main` at 8d31cefa): 36 PRs, #851 to #893. Naturalize runs
 in its own worker, so the land follows the brush within two frames (p50 702 to 13-15 ms), undo waits for a stroke still
 landing, and forces keep clock time on slow views. It also carries the game's look for grass, dry land, shadow edges, bloom
 and the water's films, fronts, falls and skirts. The deploy and the live check passed (run 42599735525).

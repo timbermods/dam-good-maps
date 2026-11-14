@@ -58,6 +58,9 @@ export interface PlaceData {
   birches: number[];
   oaks: number[];
   deadPines: number[];
+  /** Standing dead birches and oaks: trees a drought killed where they stood, which keep their logs (D516). */
+  deadBirches: number[];
+  deadOaks: number[];
   ruins: number[];
 }
 
@@ -173,6 +176,8 @@ export function placeEntities(p: PlaceData, heights: Uint8Array): EntitySpec[] {
   for (const [species, gaps] of trees) for (const i of decodeTiles(gaps)) out.push(tree({ ...at(i, species), species }));
   for (const i of decodeTiles(p.ruins)) out.push(ruin({ ...at(i, "RuinColumnH2"), height: 2, variant: "A", orientation: "Cw0" }));
   for (const i of decodeTiles(p.deadPines)) out.push(tree({ ...at(i, "DeadPine"), species: "Pine", dead: true }));
+  for (const i of decodeTiles(p.deadBirches)) out.push(tree({ ...at(i, "Birch"), species: "Birch", dead: true }));
+  for (const i of decodeTiles(p.deadOaks)) out.push(tree({ ...at(i, "Oak"), species: "Oak", dead: true }));
   return out;
 }
 

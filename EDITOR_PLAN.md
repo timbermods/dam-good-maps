@@ -17,8 +17,9 @@ text this document condensed (at D390) and the deferred Claude integration's des
 A studio for creating maps. Start from a generated map or a real place, shape it like a painter, and the water
 responds to everything you do. It is deliberately different from the game's own editor, which is a precision
 workshop; players can still fine-tune in the game's editor if they want. The editor was desktop-first (D185); phones and
-tablets now edit maps too, first class (#1074, amending D185): touch in the 3D view is built (§7, "Touch"), the phone
-layouts and the rest come in its later slices.
+tablets now edit maps too, first class (#1074, amending D185): touch in the 3D view (§7, "Touch"), the phone layouts
+and the rest of the page on a phone (§3, "Phones") are built; seeing a press before it applies and the passes on real
+phones come in its later slices.
 
 ## 2. The principles
 
@@ -181,8 +182,64 @@ place of its bottom rule.
   version selected, the same size as the open map; below under Versions), **Rename** (one selected) and **Delete** (any), always shown,
   greyed otherwise with the reason in Compare's tooltip; Delete asks once ("Delete 7 maps?"), focus on
   Delete so Enter confirms, Esc cancels. The Delete key deletes the selected maps, or the one under the pointer, while
-  the pointer is over Your maps or a tile has the keyboard's focus. On a touch screen the view takes fingers (§7, "Touch");
-  Your maps' selection by touch comes with the phone layouts (#1074).
+  the pointer is over Your maps or a tile has the keyboard's focus. On a touch screen the view takes fingers (§7, "Touch").
+  **A finger selects as Ctrl-click does** (#1074, slice 4): a long press on a tile selects it (no tooltip, no menu), and
+  while anything is selected each tap selects or clears a tile, opening none; the heading row says how many are selected,
+  with **Done** to clear them. Delete asks once, as above.
+- **Phones** (#1074, slice 2; amends D185; `editor/view/phoneLayout.ts`, `usePhone.ts`, `src/styles/phone.css`;
+  `tests/e2e/layout.spec.ts` at 393×852 and 852×393). The layout goes by the room, never by the device: under 600 CSS px
+  wide the phone held upright, under 500 tall the phone on its side; anything else (a tablet, a laptop) keeps the layout
+  above. One editor: the same controls and operations (D342), only placed for a finger. **Upright:** one slim bar at the
+  top: a menu (**Map Generator**, **Real places**, **Your maps**, **History**, **Help and keys**, then File's entries),
+  the map's name (two lines at most), Undo, Redo, the checks' dot (a tap opens the checks under the bar) and **Save**
+  (Save to Timberborn's or Download .timber's call). The view fills the rest. At the foot the tools in one row that
+  scrolls sideways, icon over name, 56px tall: Select, **Objects**, the brushes, Block, the forces. The tool in hand's
+  settings stand in a sheet above the row with a grab handle: one row by default (Size and the tool's main choice, the
+  first two settings of its first row), every setting in up to half the screen when the handle is tapped or pulled up,
+  one row again when pulled down; a pulled-up sheet too short for every setting ends after a whole one (the rest scroll
+  up into view). Tapping the tool in hand puts it down. Select rests in hand with its sheet closed; a tap on it opens
+  Select's settings, a tap again puts them and any selection down. **Show**, a button at the view's top right, opens a
+  sheet of what the map shows, at most 40 % of the view so the map changes above it, ending after a whole row (the rest
+  scroll up into view): under small headings, each an even grid of chips, **What to show** (the Show row's toggles,
+  Legend and its key), **Camera** (Top-down, Reset view, First view, the compass, **Layers shown**: the slice, ∞ for
+  every layer, and Look), **Minimap**, **Weather** (the weather days) and **Forces and sound** (Slow forces, the sound
+  and its volume, always shown: a phone has no hover).
+  **Objects** opens a sheet of large tiles, half the view at the most; a tile picked closes it to one row saying what
+  is in hand (its picture, its name, **Put it down**), its settings under it when the sheet is pulled up. A picked
+  source's or object's window stands above the row as a tool's settings do. One sheet at a time: a tool taken up
+  closes Show and the objects. **The map keeps to the room left** (planning, #1074; on a phone only, the desktop's
+  view never moves for a panel, D265): a sheet or the panel opening or closing slides the view, its zoom and angle
+  kept, so the ground in the middle of the room the controls leave stays in its middle, and Reset view frames the map
+  in that room (`view/usePhone.ts`, `view/insets.ts`). The tapped tile's readout sits at the view's top left. The
+  first steps' hints say what a finger does and stand above the sheet, never over a control or the map's middle (they
+  step aside while a sheet is pulled up), and their × puts them away for good. **The rest of the page** (#1074, slice 4;
+  `tests/e2e/phonePages.spec.ts`): each of the menu's panels (Map Generator, Real places, Your maps, History) is a page
+  the whole screen under the bar, **Map** at its top going back to the map, the page scrolling inside itself; Map
+  Generator in one column (two on its side), each setting its name and value on a line and its slider or choices the
+  whole width under them, Showcase taking the page while it is open; **Generate** the page's one green button, fixed
+  at its foot clear of the home bar with the settings scrolling above it, and **Keep** quiet beside the seed (a check in it
+  while it holds, never green). **No word is cut short** at a phone's size: no ellipsis, no clipped label (the spec reads
+  every page and dialog for it). History's steps are rows the page's width, each label whole, **Keep this version** and
+  **Branch from here** under the step the map is at; Real places and Your maps show two cards a row upright (four on its
+  side), each picture whole and every name in full; the page's own head names History and Your maps, so their panels'
+  headings step aside (Your maps keeps its row of actions). Each of Your maps' tiles has a **⋯** (Compare,
+  Download .timber, Rename, Delete: what the right-click gives). The dialogs (Help and keys, About, New blank map,
+  Description, the time-lapse, a question before a map is replaced, the map being made) are sheets the screen's width,
+  scrolling inside with their buttons kept in sight at their foot, the map being made centred on the screen with its whole
+  line; Together opens from the menu as a sheet under the
+  bar with its own ×; a link in a dialog's words takes a finger's 44px. **Save** hands the map's file to the phone's
+  share sheet (`platform/share.ts`) where the browser can share a file and the pointer is a finger, else it downloads;
+  the same bytes either way (D455). When building the file took long enough that the browser wants a fresh tap, or the
+  sheet was closed unsent, a note keeps the file with **Send it**. The page's root carries the layout
+  (`<html data-phone>`, `ui/phoneRoot.ts`), so what lies outside the editor takes it too. **On its side:** the same bar; the tools
+  in a rail down the left edge; a tool's settings, Show and the objects in a panel at the right, at most 40 % of the
+  width (320px), clear of Show's button at the bottom right; the menu in columns, the panels and Help in the first,
+  all of it in view; the hints in the room's left half at rest, stepping aside while a sheet or the panel is open.
+  **Everywhere on a phone:** every control at least 44px, none off the screen, the page never zoomed or scrolled (the
+  editor is the dynamic viewport's height and clips what would spill), the notch and the home bar kept clear (safe
+  areas, `viewport-fit=cover`), fields 16px so the browser never zooms on focus. A long press on a control shows its
+  tooltip (D351) and is not a tap. With a tool's one-row sheet open the view keeps 66 % of the screen upright and 63 %
+  on its side (the spec holds 60 %).
 - **Together** (D362, D431, D486; `docs/COLLAB-BRIEF.md`; part 6a): two players edit one map through a relay and a
   room-code function, in the page's own panel style. One quiet button in the header's right group, before **File**
   (a small people icon and "Together", the icon alone, 40px square like Undo and Redo, below about 1,400px wide; tooltip
@@ -1249,7 +1306,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   background, as after any edit). A source within 4 tiles of a new edge gets a minimal lip (M9b's idea, `water/edgeLip.ts`; `lipNewEdges`):
   the cropped map's water is settled and only the new-edge tiles its water leaves through are raised, each to the level
   of the water beside it (a floor level with the surface takes none: the game's head difference is zero), never a tile
-  on a side the crop did not cut, so it does not pour off the map and nothing reads as a wall (D151). A cropped map has no "as opened"
+  on a side the crop did not cut, so it does not pour off the map and nothing reads as a wall (D151). An object on a raised tile
+  rises with it (the start, sources and slopes keep their ground); one that would no longer stand level goes, counted with the
+  objects the edge cuts. A cropped map has no "as opened"
   map: its problems are the player's own (the checks list none as existing). A rename is never undone with a crop (D443).
   Not yet in the core: the checks dot's edge-wall warning and its fix, and re-reading the name and "how it plays" line.
   Collaborative editing leaves a crop to the host (D362 (9)).
@@ -1629,7 +1688,10 @@ them, ROADMAP "The 20-second tour"):
   `FORCES`, so a new tool or force appears by itself; the other keys are listed once there, beside the handlers in
   `keyboard/useKeyboard.ts` and the camera. Esc, ? and Close end it; while it shows the editor's other keys wait.
 - **Help**. A dialog of a few lines for a player: what the editor is for, how to make a map, how to save it into
-  Timberborn (with a link to the README's "Install a map"), the pointer controls and where to report a problem.
+  Timberborn (with a link to the README's "Install a map"), the pointer controls and where to report a problem. To a
+  finger (a coarse pointer, #1074) it speaks touch first: the gestures lead (tap, drag, pinch, a two-finger turn, the
+  double tap as slice 3 makes it, two- and three-finger taps for Undo and Redo, a long press), every step says tap; on a
+  phone nothing names a mouse or a key, and a tablet keeps the mouse and Keyboard shortcuts after the gestures.
 - **Report a problem** opens https://github.com/timbermods/dam-good-maps/issues/new/choose in a new tab (the issue
   chooser; `REPORT_URL` in `src/editor/help/helpPanels.tsx`). There is no form and no rating (D145).
 

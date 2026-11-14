@@ -1,7 +1,8 @@
 // The editor's help: the keyboard shortcuts and the help (File menu → Keyboard shortcuts, Help; ? opens the
 // shortcuts), each a dialog over the editor like About. One panel shows at a time; Esc and its Close button end it,
 // and while it shows the editor's keys wait. The panels read their words from here and their keys from
-// shortcuts.ts, so a new tool shows up without a change.
+// shortcuts.ts, so a new tool shows up without a change. Help speaks to the pointer in hand (#1074): to a finger, the
+// gestures first (EDITOR_PLAN §7, "Touch"); on a phone, the gestures alone, with no mouse and no keys.
 
 import { useEffect, useState } from "preact/hooks";
 import { tip, keyParts } from "../../ui/Tooltip";
@@ -101,8 +102,59 @@ function Shortcuts(p: { onClose(): void }) {
   );
 }
 
+/** How Help speaks: to a mouse, to a finger with the desktop's layout (a tablet), or to a finger on a phone. */
+type Reader = "mouse" | "touch" | "phone";
+
+function reader(): Reader {
+  if (typeof document !== "undefined" && document.documentElement.dataset.phone) return "phone";
+  return typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches ? "touch" : "mouse";
+}
+
+/** What a finger does, first on a touch screen (EDITOR_PLAN §7, "Touch"; the double tap as #1074's ruling has it). */
+function TouchLines(p: { phone: boolean }) {
+  return (
+    <>
+      <li>Tap the map to read a tile. With a tool in hand, tap or drag on the map to use it.</li>
+      <li>Drag one finger to move the view while nothing is in hand.</li>
+      <li>Pinch to zoom. Turn two fingers to turn the view, and move them up or down together to tilt it.</li>
+      <li>Double tap to zoom in where you tap. On an object, the first tap also selects it.</li>
+      <li>Tap with two fingers to undo, with three to redo.</li>
+      <li>A second finger stops a stroke, and nothing is changed.</li>
+      <li>
+        Hold a finger on a button to see what it does. In <strong>Your maps</strong>, hold a map to select several.
+      </li>
+      {p.phone ? (
+        <li>
+          The tools are in a row at the foot, or down the left side when the phone is on its side. Tap a tool again to put it
+          down. <strong>Show</strong> and <strong>Objects</strong> open their own sheets.
+        </li>
+      ) : null}
+    </>
+  );
+}
+
+/** Who Help speaks to, kept up as the page's layout (`<html data-phone>`) or the pointer changes while it shows. */
+function useReader(): Reader {
+  const [who, setWho] = useState(reader);
+  useEffect(() => {
+    const look = () => setWho(reader());
+    const root = new MutationObserver(look);
+    root.observe(document.documentElement, { attributes: true, attributeFilter: ["data-phone"] });
+    const coarse = typeof matchMedia === "function" ? matchMedia("(pointer: coarse)") : null;
+    coarse?.addEventListener("change", look);
+    look();
+    return () => {
+      root.disconnect();
+      coarse?.removeEventListener("change", look);
+    };
+  }, []);
+  return who;
+}
+
 function Help(p: { onClose(): void }) {
   useHeld(p.onClose);
+  const who = useReader();
+  if (who !== "mouse") return <TouchHelp onClose={p.onClose} phone={who === "phone"} />;
   return (
     <div class="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && p.onClose()}>
       <div class="dialog help-dialog help" role="dialog" aria-modal="true" aria-labelledby="help-head">
@@ -124,6 +176,9 @@ function Help(p: { onClose(): void }) {
             Press <strong>Save to Timberborn</strong>. The first time, pick <code>Documents\Timberborn\Maps</code>. In a browser that can't save to a folder, <strong>Download .timber</strong> instead and move the file there.
           </li>
           <li>
+            On a phone, <strong>Save</strong> opens the share sheet. Send the file to the computer that plays, then move it there.
+          </li>
+          <li>
             In Timberborn, choose <strong>New game</strong> and pick the map. <a href={INSTALL_URL} target="_blank" rel="noopener" {...tip("Install help on GitHub")}>More about installing a map</a>.
           </li>
         </ol>
@@ -142,6 +197,77 @@ function Help(p: { onClose(): void }) {
             Every shortcut is in <strong>File → Keyboard shortcuts</strong>.
           </li>
         </ul>
+        <footer>
+          <button type="button" class="ghost" {...tip(REPORT_TIP)} onClick={reportProblem}>
+            Report a problem
+          </button>
+          <button type="button" class="primary" {...tip("Close the help", "Esc")} onClick={p.onClose} autoFocus>
+            Close
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+/** Help to a finger (#1074): the gestures first (Controls), then making a map and saving it, every step a tap. On a phone the
+ *  steps follow the phone's layout and nothing names a mouse or a key; a tablet keeps the mouse and the keys after them. */
+function TouchHelp(p: { onClose(): void; phone: boolean }) {
+  return (
+    <div class="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && p.onClose()}>
+      <div class="dialog help-dialog help" role="dialog" aria-modal="true" aria-labelledby="help-head">
+        <h2 id="help-head">Help</h2>
+        <p>Dam Good Maps makes Timberborn maps. Generate one, shape it in your browser, then save it as a map the game loads.</p>
+        <h3>Controls</h3>
+        <ul>
+          <TouchLines phone={p.phone} />
+          <li>Select an area first, and the brushes and forces stay inside it. A brush in hand can mark one too.</li>
+          {p.phone ? (
+            <li>
+              <strong>Undo</strong> and <strong>Redo</strong> are in the bar at the top. <strong>History</strong>, in the menu, lists every step.
+            </li>
+          ) : (
+            <>
+              <li>
+                <strong>Undo</strong> and <strong>Redo</strong> are at the top right. <strong>History</strong> lists every step.
+              </li>
+              <li>With a mouse, middle-drag turns the view, right-drag moves it and scroll zooms toward the pointer.</li>
+              <li>
+                Every shortcut is in <strong>File → Keyboard shortcuts</strong>.
+              </li>
+            </>
+          )}
+        </ul>
+        <h3>Make a map</h3>
+        <ol>
+          <li>
+            {p.phone ? "Open the menu, then " : "Open "}
+            <strong>Map Generator</strong>, pick a theme and a size, then tap <strong>Generate</strong>. For a map with a story, tap <strong>Showcase…</strong>: it searches for a few minutes and offers the best three. Or open <strong>Real places</strong> and pick a map made from real land.
+          </li>
+          {p.phone ? (
+            <li>
+              Shape it. The tools are in the row at the foot, the trees, sources and ruins under <strong>Objects</strong>. Pick one, then tap or drag on the map.
+            </li>
+          ) : (
+            <li>Shape it. The brushes and forces are in the bar at the bottom, the trees, sources and ruins on the right. Pick one, then tap or drag on the map.</li>
+          )}
+          <li>The dot at the top is green when the map is ready to play. Amber means something to look at: tap it.</li>
+        </ol>
+        <h3>Save it to Timberborn</h3>
+        <ol>
+          {p.phone ? (
+            <li>
+              Tap <strong>Save</strong>. It opens the share sheet: send the file to the computer that plays, then move it to <code>Documents\Timberborn\Maps</code>.
+            </li>
+          ) : (
+            <li>
+              Tap <strong>Save to Timberborn</strong>. The first time, pick <code>Documents\Timberborn\Maps</code>. In a browser that can't save to a folder, <strong>Download .timber</strong> instead and move the file there.
+            </li>
+          )}
+          <li>
+            In Timberborn, choose <strong>New game</strong> and pick the map. <a href={INSTALL_URL} target="_blank" rel="noopener" {...tip("Install help on GitHub")}>More about installing a map</a>.
+          </li>
+        </ol>
         <footer>
           <button type="button" class="ghost" {...tip(REPORT_TIP)} onClick={reportProblem}>
             Report a problem

@@ -2444,6 +2444,18 @@ export function project(level = 9): { bytes: Uint8Array; fileName: string; name:
   return { bytes: s.project(level), fileName: documentFileName(s.document), name: s.meta.name, version };
 }
 
+/** The open map stored as it stands, while the page is idle (`MapSession.warmStored`): Generate takes it at once. */
+export function warmProject(): void {
+  session?.warmStored();
+}
+
+/** The open map's project file's document, unwritten (`encodeProject` writes it, the page on a thread of its own:
+ *  the same bytes as `project`), its name and the session's version. */
+export function projectDocument(): { doc: MapDocument; name: string; version: number } {
+  const s = need();
+  return { doc: s.projectDocument(), name: s.meta.name, version };
+}
+
 /** File → Save a picture: the open map as it stands, as the page draws its picture (render3d/hero.ts), and the
  *  picture's file name (the project's, ".jpg" in place of its extension). The open map is untouched. */
 export function pictureView(): { view: MapView; fileName: string } {

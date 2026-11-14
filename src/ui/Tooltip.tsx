@@ -5,6 +5,9 @@
 // hovered. While it shows, the control's `title` waits in `data-tip-held`, so the browser's own tooltip never
 // shows beside it, and a control named only by its title keeps that name as its `aria-label`.
 //
+// A finger has no hover: a long press on a control shows its tooltip instead, and that press is not a tap (#1074); a
+// control whose long press does something of its own (`OWN_LONG_PRESS`) keeps it.
+//
 // tests/e2e/tooltips.spec.ts checks every control on the page has one, in the form; tests/unit/tooltipForm.test.ts
 // checks the tools', forces' and shelf's, where they are written.
 
@@ -18,6 +21,14 @@ export const HELD = "data-tip-held";
 const NAMED = "data-tip-named";
 /** How long the pointer rests on a control before its tooltip shows, in ms (about the browser's own). */
 const DELAY = 450;
+/** A finger has no hover (#1074): held this long on a control, its tooltip shows, and the press is not a tap. */
+export const LONG_PRESS = 500;
+/** How far a long press may wander before it is a drag, in CSS px. */
+export const LONG_SLOP = 10;
+/** On a control whose long press is its own (Your maps' tiles: it selects the map), a long press shows no tooltip. */
+export const OWN_LONG_PRESS = "data-long-press";
+/** How long a long press's tooltip stays once the finger lifts, in ms. */
+const LONG_LINGER = 1500;
 
 /** A control's tooltip: `text`, then each key as a small key cap at the end. A key may carry a few words after
  *  it ("V flips it": a cap V, then "flips it"); keys that are null or false are left out. Spread it on the
@@ -131,12 +142,54 @@ export function Tooltips() {
     }
     const over = (e: PointerEvent) => point(e.target);
     const out = (e: PointerEvent) => {
+      // (a finger lifting leaves its control: a long press's tooltip stays its moment)
+      if (longShown && e.pointerType === "touch") return;
       // (off the page, or onto something that sends no events of its own, as a disabled button)
       if (held && !(e.relatedTarget instanceof Node && held.contains(e.relatedTarget))) point(e.relatedTarget);
     };
-    const press = () => {
+    // a long press (a finger, #1074): the control's tooltip, the press then no tap
+    let long = 0;
+    let longAt: { x: number; y: number; id: number } | null = null;
+    /** A long press's tooltip is up: the lift keeps it a moment, and the tap that would follow is swallowed. */
+    let longShown = false;
+    let linger = 0;
+    const endLong = () => {
+      clearTimeout(long);
+      longAt = null;
+    };
+    const press = (e?: Event) => {
       quiet = true;
       hide();
+      clearTimeout(linger);
+      longShown = false;
+      endLong();
+      if (!(e instanceof PointerEvent) || e.pointerType !== "touch" || !held || held.closest(`[${OWN_LONG_PRESS}]`)) return;
+      const el = held;
+      longAt = { x: e.clientX, y: e.clientY, id: e.pointerId };
+      long = window.setTimeout(() => {
+        longAt = null;
+        if (held !== el) return;
+        longShown = true;
+        show(el);
+      }, LONG_PRESS);
+    };
+    const wander = (e: PointerEvent) => {
+      if (longAt && e.pointerId === longAt.id && Math.hypot(e.clientX - longAt.x, e.clientY - longAt.y) > LONG_SLOP) endLong();
+    };
+    const lift = (e: PointerEvent) => {
+      if (e.pointerType !== "touch") return;
+      endLong();
+      if (!longShown) return;
+      clearTimeout(linger);
+      linger = window.setTimeout(() => {
+        longShown = false;
+        away();
+      }, LONG_LINGER);
+    };
+    const swallow = (e: Event) => {
+      if (!longShown) return;
+      e.preventDefault();
+      e.stopPropagation();
     };
     const away = () => {
       if (held) release(held);
@@ -151,8 +204,20 @@ export function Tooltips() {
     document.addEventListener("wheel", press, { capture: true, passive: true });
     window.addEventListener("blur", away);
     window.addEventListener("scroll", press, true);
+    document.addEventListener("pointermove", wander, true);
+    document.addEventListener("pointerup", lift, true);
+    document.addEventListener("pointercancel", lift, true);
+    document.addEventListener("click", swallow, true);
+    document.addEventListener("contextmenu", swallow, true);
     return () => {
       away();
+      endLong();
+      clearTimeout(linger);
+      document.removeEventListener("pointermove", wander, true);
+      document.removeEventListener("pointerup", lift, true);
+      document.removeEventListener("pointercancel", lift, true);
+      document.removeEventListener("click", swallow, true);
+      document.removeEventListener("contextmenu", swallow, true);
       document.removeEventListener("pointerover", over, true);
       document.removeEventListener("pointermove", over, true);
       document.removeEventListener("pointerout", out, true);

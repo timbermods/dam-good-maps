@@ -355,6 +355,10 @@ const api = {
     const r = ed.project(level);
     return transfer(r, [r.bytes.buffer as Transferable]);
   },
+  /** The open map's project, unwritten: the page writes the file on a thread of its own (ui/projectWriter.ts). */
+  projectDocument: () => ed.projectDocument(),
+  /** The open map stored while the page is idle, so Generate takes it at once. */
+  warmProject: () => ed.warmProject(),
 };
 
 /** The calls that change the map or its history, which the edit queue sends by name (core/doc/editQueue.ts). */
