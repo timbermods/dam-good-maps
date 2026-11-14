@@ -46,8 +46,8 @@ function atRest(ed: Ed, then: () => void): void {
   ed.setPhoneSheet(null);
   const started = performance.now();
   const wait = () => {
-    // (a slide that never comes, a renderer gone: a second at the most)
-    if (ed.roomSettled() || performance.now() - started > 1000) then();
+    // (a slide that never comes, a renderer gone: four seconds at the most, a slow device's few frames of the slide)
+    if (ed.roomSettled() || performance.now() - started > 4000) then();
     else requestAnimationFrame(wait);
   };
   // (a frame first: the page draws the closed sheet and the slide is wanted before it is asked whether it is done)

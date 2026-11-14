@@ -1281,6 +1281,10 @@ for (const room of BOOKMARK_ROOMS) {
       const view = () => page.evaluate(() => window.dgm3d!.renderer.getView());
       const kept = () => page.evaluate(() => window.dgmEditor!.info().views);
       const atRest = () => page.waitForFunction(() => window.dgmEditor!.roomSettled(), null, { timeout: 10_000 });
+      // (a glide to a view comes within a hair of it a frame before it ends, and its last frame would undo a move made
+      // then: each glide is waited out before the view is moved again. Drawn in software, as on CI, Show's slide outlasted
+      // the save's first cap of one second and the view was kept mid-slide; the save waits up to four now, savedViews.tsx)
+      const glided = () => page.waitForFunction(() => !window.dgm3d!.renderer.touchGliding, null, { timeout: 10_000 });
       const near = (a: { target: number[]; yaw: number; distance: number }, b: { target: number[]; yaw: number; distance: number }) =>
         Math.hypot(a.target[0] - b.target[0], a.target[2] - b.target[2]) < 0.05 && Math.abs(a.yaw - b.yaw) < 1e-3 && Math.abs(a.distance / b.distance - 1) < 1e-3;
       const openShow = async () => {
@@ -1306,7 +1310,7 @@ for (const room of BOOKMARK_ROOMS) {
       // an empty slot's tap: Show closes, and the view at rest is kept there, with the project
       await slot(3).tap();
       await expect(show).toBeHidden();
-      await expect.poll(async () => (await kept()).map((v) => v.slot)).toEqual([3]);
+      await expect.poll(async () => (await kept()).map((v) => v.slot), { timeout: 15_000 }).toEqual([3]);
       await atRest();
       const v3 = (await kept())[0];
       expect(near(v3, await view()), "view 3 is the view at rest").toBe(true);
@@ -1323,12 +1327,14 @@ for (const room of BOOKMARK_ROOMS) {
       await expect(slot(3)).toHaveAttribute("data-keys", "Alt+3");
       await slot(3).tap();
       await expect(show).toBeHidden();
-      await expect.poll(async () => near(await view(), v3), { message: "back at view 3", timeout: 10_000 }).toBe(true);
+      await expect.poll(async () => near(await view(), v3), { message: "back at view 3", timeout: 15_000 }).toBe(true);
+      await glided();
 
       // the keys see the same slot: Alt+3 from elsewhere glides to it too
       await page.evaluate(() => window.dgm3d!.renderer.setView({ target: [30, 5, -30], yaw: 2, distance: 50 }));
       await page.keyboard.press("Alt+Digit3");
-      await expect.poll(async () => near(await view(), v3), { message: "Alt+3 at view 3", timeout: 10_000 }).toBe(true);
+      await expect.poll(async () => near(await view(), v3), { message: "Alt+3 at view 3", timeout: 15_000 }).toBe(true);
+      await glided();
 
       // Save armed: the next slot tapped keeps the view, over the saved one
       await page.evaluate(() => window.dgm3d!.renderer.setView({ target: [40, 5, -50], yaw: -1, distance: 70 }));
@@ -1338,7 +1344,7 @@ for (const room of BOOKMARK_ROOMS) {
       await expect(slot(3)).toHaveAttribute("aria-label", "Save this view over view 3");
       await slot(3).tap();
       await expect(show).toBeHidden();
-      await expect.poll(async () => !near((await kept())[0], v3), { message: "view 3 saved over" }).toBe(true);
+      await expect.poll(async () => !near((await kept())[0], v3), { message: "view 3 saved over", timeout: 15_000 }).toBe(true);
       await atRest();
       expect((await kept()).map((v) => v.slot)).toEqual([3]);
       expect(near((await kept())[0], await view()), "the new view 3 is the view at rest").toBe(true);
