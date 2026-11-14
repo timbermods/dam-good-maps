@@ -1215,10 +1215,13 @@ html[data-phone] .dialog > footer {
   font-size: 16px;
 }
 
-.editor[data-phone] .phone-page .sheet-top .set.plate.line.seed,
+.editor[data-phone] .phone-page .sheet-top .set.plate.line.seed {
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 8px;
+}
+
 .editor[data-phone] .phone-page .sheet-top .set.plate.line.seed.with-variation {
   grid-template-columns: minmax(0, 1fr) auto auto;
-  column-gap: 8px;
 }
 
 .editor[data-phone] .phone-page .sheet-top .set.plate.line.seed > .set-label {
@@ -1349,9 +1352,13 @@ html[data-phone] .dialog > footer {
 }
 
 .editor[data-phone] :is(.real-places, .your-maps) .ym-size {
-  margin-top: auto;
   font-size: 13px;
   color: var(--muted);
+}
+
+/* (a place's size at its card's foot, level along the row whatever the names) */
+.editor[data-phone] .real-places .ym-size {
+  margin-top: auto;
 }
 
 .editor[data-phone] .your-maps .ym-line {
@@ -1374,15 +1381,16 @@ html[data-phone] .dialog > footer {
 }
 
 .editor[data-phone] .your-maps .ym-from {
-  flex-wrap: wrap;
+  display: block;
   overflow: visible;
   white-space: normal;
   font-size: 13px;
   line-height: 18px;
 }
 
-.editor[data-phone] .your-maps .ym-from-name {
+.editor[data-phone] .your-maps .ym-from > * {
   overflow: visible;
+  white-space: normal;
 }
 
 /* Your maps' heading row: the page's head names it, so the row holds the actions alone, the page's width; while a finger
@@ -1419,6 +1427,21 @@ html[data-phone] .dialog > footer {
   font-size: 15px;
 }
 
+/* (on its side, one row: how many are selected, the actions, Done) */
+.editor[data-phone="side"] .maps-panel .ym-head {
+  display: flex;
+}
+
+.editor[data-phone="side"] .maps-panel .ym-acts {
+  flex: 1;
+  order: 1;
+}
+
+.editor[data-phone="side"] .maps-panel .ym-head > .ym-done {
+  order: 2;
+  margin: 0;
+}
+
 /* (the ⋯ at the picture's corner, the selection's check at the other) */
 .editor[data-phone] .your-maps li.selected::after {
   top: 14px;
@@ -1441,5 +1464,4 @@ html[data-phone] .making-dialog {
 html[data-phone] .making-dialog p {
   white-space: normal;
   overflow: visible;
-  min-height: 2.9em;
 }

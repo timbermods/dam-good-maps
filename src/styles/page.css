@@ -3584,6 +3584,11 @@ input.set-typed:disabled {
   gap: 8px;
 }
 
+/* (a finger's selection, #1074: Done beside the actions) */
+.maps-panel .ym-head > .ym-done {
+  margin: 0 8px 0 auto;
+}
+
 .maps-panel .ym-act,
 .history-panel .ym-act {
   height: 26px;
