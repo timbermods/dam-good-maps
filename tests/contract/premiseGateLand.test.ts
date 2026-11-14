@@ -92,6 +92,14 @@ describe("Broken gate land fails its invariants", () => {
       const band = rangeBand(base.plan, base.water);
       for (let i = 0; i < W * H; i++) if (band[i] && !water(i)) h[i] = 9 + 3 * Math.floor(Math.abs(local(i)[1] - rangeAt(g.range, local(i)[0]).v) / 8);
     }],
+    ["range.straight", "the range's foot laid along one row, the valley before it levelled", (h) => {
+      for (let i = 0; i < W * H; i++) {
+        const [u, v] = local(i);
+        if (water(i)) continue;
+        if (v >= g.face && v <= rangeAt(g.range, u).v) h[i] = g.sill + 8;
+        else if (v < g.face && v > g.face - 40) h[i] = g.sill + 2;
+      }
+    }],
     ["range.valleys", "the range worn down to its feet, the cleft's ground with it: no valley falls from it", (h) => {
       for (let i = 0; i < W * H; i++) if (zone[i] === 1 && !r.channel[i] && !r.lake[i]) h[i] = g.sill + 2;
     }],

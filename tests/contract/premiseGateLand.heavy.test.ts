@@ -5,10 +5,15 @@
 // water settled on the land stands as the plan says: the lake 0.05 to 0.6 over its sill, the Still Pool at the lake's
 // level, the Veil's curtain, the Gate and the leat dry past their bars, no stray water, nothing on the map's edge but
 // the Low River. No water lies as a straight even reach of more than 40 tiles (`terrain.ruled_land`'s channels; planning,
-// 2026-11-15: 128² seed 2 had one of 242).
+// 2026-11-15: 128² seed 2 had one of 242). And the look's four measures hold (planning's verdict of 2026-11-14), and
+// round 3's (planning's verdict on round 2): the crest by the gate, no flat on the range, the lake's arm bent, the
+// dry valley from the gate, a trunk's straight reach and loop, the 192² tree, the ruin group on the rise.
 
 import { describe, expect, it } from "vitest";
 import { gateMap, startNumbers } from "../../src/core/premise/gateMap";
+import { brookTree, drySide, dryValley, gateCrest, lakeCanal, lakeShape, wallFoot } from "../../src/core/premise/gateMeasures";
+import { GATE_HEIGHT, rangeFlatShare } from "../../src/core/premise/gateLand";
+import { armBend, gateOf, LAKE_BEND } from "../../src/core/premise/premises/wallGate";
 import { MEGADAM_HOLDS, megadamHolds } from "../../src/core/premise/gateWorks";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { ruledLand, wetOf } from "../../src/core/validate/ruledLand";
@@ -44,6 +49,34 @@ describe("The wall with one gate's maps", () => {
       // (its water wanders with the land: the lake's coves, the plunge pool's lip off its lobe, the brooks kinked)
       const reach = ruledLand(m.built.heights, wetOf(m.built.settle.depth), m.built.W, m.built.H).channel;
       expect(reach?.tiles ?? 0, `a straight reach of ${reach?.tiles} tiles at ${reach?.x},${reach?.y}`).toBeLessThanOrEqual(LONGEST_REACH);
+      // (the look, planning's verdict of 2026-11-14 (`gateMeasures.ts`): a range, not a band: its foot never straight for
+      // more than a quarter of the side; no canal lake: a third of its shore along the range at most, its width
+      // two-fold or more; the brooks no stripes: none beside another for more than 30 tiles, three orders at 256²; and
+      // the dry side has land a canal from the Gate can water: a third or more of it within three levels under the
+      // lake's sill, 44 to 57 % as measured)
+      const foot = wallFoot(r.plan, m.built.heights, r.water);
+      expect(foot.run, `the range's foot straight for ${foot.run.toFixed(0)} tiles from ${foot.at}`).toBeLessThanOrEqual(side / 4);
+      expect(lakeCanal(lakeShape(r.plan, r.water))).toBeNull();
+      const tree = brookTree(r.plan);
+      expect(tree.beside).toBeLessThanOrEqual(30);
+      if (side >= 256) expect(tree.orders).toBeGreaterThanOrEqual(3);
+      expect(drySide(r.plan, m.built.heights).share).toBeGreaterThanOrEqual(1 / 3);
+      // (round 3: the crest within 12 tiles of the gap 6 levels or more over the lake's sill, 8 at 256², and 3 or more
+      // all along the range; no flat wider than four tiles on it; the lake's main arm bent 0.5 rad over 40 % of it)
+      const crest = gateCrest(r.plan, r.water, m.built.heights);
+      expect(crest.gate, `the crest ${crest.gate} over the lake by the gate`).toBeGreaterThanOrEqual(side >= GATE_HEIGHT.large ? GATE_HEIGHT.overLarge : GATE_HEIGHT.over);
+      expect(crest.least).toBeGreaterThanOrEqual(3);
+      expect(rangeFlatShare(r.plan, r.water, m.built.heights)).toBe(0);
+      const g = gateOf(r.plan)!;
+      expect(armBend(r.plan.bodies.find((b) => b.id === g.lake)!.arms[0])).toBeGreaterThanOrEqual(LAKE_BEND.least);
+      // (the Gate Bed's valley 3 deep at the gate, shallowing across the basin)
+      const valley = dryValley(r.plan, r.water, m.built.heights);
+      expect(valley[0]).toBeGreaterThanOrEqual(3);
+      expect(valley[valley.length - 1]).toBeLessThan(valley[0]);
+      // (at 192², five brooks gather in three ranks: twig, branch, trunk)
+      if (side === 192) expect(tree.ranks).toBeGreaterThanOrEqual(3);
+      // (one ruin group on the rise's top)
+      expect(m.features.some((f) => f.kind === "ruinField" && f.role === "ruinField/rise")).toBe(true);
       // (the card says what the megadam buys, in days of drought on the settled map: more than the lake alone)
       // (the megadam is two walls, and the card names both places)
       expect(r.card.dam).toMatch(/two walls, across .* in the spur and across .* in the range/);

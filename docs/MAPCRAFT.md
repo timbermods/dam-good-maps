@@ -138,7 +138,9 @@ a premise or one still to come, may carry its own, lower playability floor.
 - **Reach**: every region walkable by natural ways or by a crossing the land plainly asks for.
 - **Nothing ruled**: `terrain.ruled_land` (PLAN §11.2) measures land and water drawn with a ruler: edges and shores in
   straight runs, strips of even width, square corners, water in straight reaches of even width (a river of even width
-  that winds is natural; even width in straight reaches meeting at sharp bends is not). Limits 17 % / 3 % / 3, channels reported with no limit,
+  that winds is natural; even width in straight reaches meeting at sharp bends is not; water under 5 wide is a reach
+  only past five times its width where it crosses between two bends, a meander's crossing being 3 to 4 widths, and a
+  straight link from a lake or a spring at 12 rows whatever its width: the reach rule, D520, PLAN §11.2). Limits 17 % / 3 % / 3, channels reported with no limit,
   the straight edges' aim 8 % (the built-in maps' median). Measured (`tools/ruled-land.ts`; straight % / bands % /
   corners per 1,000 edges / channels %):
 
@@ -155,6 +157,11 @@ a premise or one still to come, may carry its own, lower playability floor.
   | Four Lakes plan, 192² | 9.8 | 1.0 | 2.8 | 2.3 |
   | The Gate as laid, 128² seeds 1, 2 | 38.4, 34.4 | 7.6, 4.1 | 9.0, 4.6 | 57.6, 45.1 |
 
+  The channels column was measured before the reach rule (D520), every run of 12 rows a reach whatever its width. The
+  rule's first reading (2026-11-13: five widths for all narrow water) let 15 straight links between the lake stair's
+  lakes through (seeds 1 to 12, its mean 4.7 to 4.4 % at 128², 3.5 to 2.9 % at 192², 3.7 to 3.3 % at 256²); they read
+  as drawn with a ruler, so the widths are for a crossing between two bends only (2026-11-14), and the lake stair
+  measures as before the rule again: 4.7, 3.5 and 3.7 %, every reach the same.
   Channels has no limit: the game's own rivers lie in straight reaches of even width as much as the laid Gate's
   trenches do, so the number tells what a map's water is like and is never failed on. Every theme map passes. The
   lake stair failed on its corners alone (rectangular plates of one level, 6 to 15 tiles, half of them on the outlands'

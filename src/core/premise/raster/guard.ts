@@ -132,7 +132,9 @@ export function partWaters(plan: PremisePlan, r: WaterRaster): number {
 
 /** Water cut off from the rest of its own (a pocket of a plunge pool past a crossing channel, the tail of a bed past
  *  another's): ground. A body keeps its largest piece; a channel each piece that meets a body of its own or the map's
- *  edge. Returns the tiles dropped. */
+ *  edge, or the bed of a link that joins it (`Link.joins`: a tributary's end lies across its trunk's bed, so a trunk
+ *  two join is three pieces, its middle one between their ends; dropped, the trunk's water ran out over the land there,
+ *  256² seeds 1 and 2). Returns the tiles dropped. */
 export function dropPockets(plan: PremisePlan, r: WaterRaster): number {
   const { W, H } = r;
   const N = W * H;
@@ -148,6 +150,7 @@ export function dropPockets(plan: PremisePlan, r: WaterRaster): number {
     let meets = false;
     const link = sys < 0 ? plan.links[-sys - 1] : null;
     const ends = link ? [bodyIdx.get(link.from), bodyIdx.get(link.to)] : [];
+    const tributary = (k: number): boolean => k > 0 && plan.links[k - 1].joins?.link === link!.id;
     comp[i] = id;
     const stack = [i];
     while (stack.length) {
@@ -160,6 +163,7 @@ export function dropPockets(plan: PremisePlan, r: WaterRaster): number {
       for (const j of nb) {
         if (j < 0) continue;
         if (link && r.lake[j] && ends.includes(r.lake[j] - 1)) meets = true;
+        if (link && tributary(r.channel[j])) meets = true;
         if (comp[j] >= 0 || systemOf(r, j) !== sys) continue;
         comp[j] = id;
         stack.push(j);

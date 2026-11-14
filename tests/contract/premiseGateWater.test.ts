@@ -9,7 +9,7 @@ import { failing } from "../../src/core/premise/draw";
 import { FRAME_DEEP, frameShallow, gateWater } from "../../src/core/premise/gateWater";
 import { firstWater } from "../../src/core/premise/draw";
 import { holdDeep } from "../../src/core/premise/levels";
-import { gateOf, wallGate } from "../../src/core/premise/premises/wallGate";
+import { gateOf, onLocal, turnOf, wallGate } from "../../src/core/premise/premises/wallGate";
 import type { PremisePlan } from "../../src/core/premise/types";
 import type { StageWater } from "../../src/core/premise/water";
 import { WATER_CHECKS } from "../../src/core/premise/waterChecks";
@@ -102,6 +102,16 @@ describe("Broken gate water fails its invariants", () => {
       const r = w.raster;
       for (let i = 0; i < r.W * r.H; i++) if (r.channel[i] === li(g.gate) && r.along[i] >= 0 && r.along[i] < 8) r.heights[i] = g.sill - 2;
       r.rows[g.gate] = [];
+    }],
+    ["valley.lake", "the lake laid as a canal along the range's foot, six wide and sixty long", (w) => {
+      const r = w.raster;
+      const lake = plan.bodies.findIndex((b) => b.id === g.lake) + 1;
+      const T = turnOf(plan, g);
+      for (let i = 0; i < r.W * r.H; i++) {
+        const [u, v] = onLocal(T, [(i % r.W) + 0.5, Math.floor(i / r.W) + 0.5]);
+        if (r.lake[i] === lake) r.lake[i] = 0;
+        if (u > 30 && u < 90 && v > g.face - 30 && v < g.face - 24) r.lake[i] = lake;
+      }
     }],
     ["frame.water", "the plunge pool's beds dug four under its sill", (w) => {
       const r = w.raster;

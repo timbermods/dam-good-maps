@@ -124,6 +124,21 @@ describe("Broken wall-with-one-gate plans fail their invariants", () => {
     ["wall.camera", "the start turned away from the wall", (plan) => {
       plan.frame.start.orientation = (["Cw180", "Cw270", "Cw0", "Cw90"] as const)[g(plan).turn];
     }],
+    ["valley.brooks", "a brook drawn as a sawtooth, six tiles a leg, left and right by turns", (plan) => {
+      // (the longest southern brook: a short tributary has too few bends to read)
+      const brooks = plan.links.filter((k) => /^brook\d/.test(k.id));
+      const span = (k: (typeof brooks)[number]) => Math.hypot(k.path![k.path!.length - 1][0] - k.path![0][0], k.path![k.path!.length - 1][1] - k.path![0][1]);
+      const l = brooks.reduce((x, y) => (span(y) > span(x) ? y : x));
+      const [a, b] = [l.path![0], l.path![l.path!.length - 1]];
+      const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const n = Math.round(L / 6);
+      l.path = Array.from({ length: n + 1 }, (_, k) => {
+        const off = k === 0 || k === n ? 0 : k % 2 ? 2.5 : -2.5;
+        return [a[0] + ((b[0] - a[0]) * k) / n - ((b[1] - a[1]) / L) * off, a[1] + ((b[1] - a[1]) * k) / n + ((b[0] - a[0]) / L) * off];
+      });
+      l.halves = l.path.map(() => 1.5);
+      l.bed = l.path.map(() => (l.bed as number[])[0]);
+    }],
     ["valley.water", "the lake drawn one width along its length", (plan) => {
       const lake = body(plan, "lake");
       lake.arms[0] = lake.arms[0].map(([x, y]) => [x, y, 6]);
@@ -147,8 +162,18 @@ describe("Broken wall-with-one-gate plans fail their invariants", () => {
       b.halves = b.path!.map(() => 1);
     }],
     ["valley.water", "a southern brook 4 and 5 wide by turns past its head", (plan) => {
-      const b = plan.links.find((l) => l.id === "brook1")!;
+      // (a brook of its own, neither a tributary nor a trunk: at 192² the tree's branch, brook1 since round 3, is a width
+      // wider below its join)
+      const brooks = plan.links.filter((l) => /^brook\d/.test(l.id));
+      const b = brooks.find((l) => !l.joins && !brooks.some((k) => k.joins?.link === l.id))!;
       b.halves = b.path!.map((_, k) => (k < 2 ? 1.4 : k % 2 ? 2 : 2.5));
+    }],
+    ["valley.water", "a brook joining another a level and more under the other's bed there", (plan) => {
+      // (a brook of its own, neither a tributary nor a trunk, its last reach at the lake's sill, marked as ending on
+      // another 12 tiles down that one's course: a confluence meets at one level, two springs to a bed)
+      const brooks = plan.links.filter((l) => /^brook\d/.test(l.id));
+      const single = brooks.find((l) => !l.joins && !brooks.some((k) => k.joins?.link === l.id))!;
+      single.joins = { link: brooks.find((l) => l !== single)!.id, at: 12 };
     }],
     ["valley.water", "the plunge pool's brook two wide", (plan) => {
       const out = plan.links.find((l) => l.id === "outflow")!;
