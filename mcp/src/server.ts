@@ -352,7 +352,9 @@ export const SITE = manifest.homepage as string;
 export function siteLine(s: MapSession): string {
   if (s.editCount === 0 && s.spec && s.mode !== "import") return `On the website: ${shareLink(SITE, s.spec)}`;
   if (s.editCount === 0 && s.meta.place) return `On the website: ${SITE}#place=${s.meta.place}`;
-  return `On the website: no link carries edits; save, then open the .damgoodmaps.json project at ${SITE} with File → Open… or by dropping it on the page.`;
+  // (an unedited opened file has no generator's spec to link: the same advice, for its own reason)
+  const why = s.editCount === 0 ? "an opened file has no generator's settings to link" : "no link carries edits";
+  return `On the website: ${why}; save, then open the .damgoodmaps.json project at ${SITE} with File → Open… or by dropping it on the page.`;
 }
 
 /** A made map as generate and wait return it: its handle, summary, intentions and picture. */
