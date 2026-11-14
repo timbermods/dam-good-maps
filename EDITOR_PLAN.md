@@ -259,8 +259,10 @@ place of its bottom rule.
   over it (the view keeps over 68 %). **The menu's pages** (Map Generator, Real places, Your maps, History) are the
   phone's: the whole view under the header, over the dock, **Map** at their top, the page scrolling as one (the
   generator's settings in two or three columns, name over value over control). The map keeps to the room left as on a
-  phone (a sheet opening slides the view). A tool's settings keep their rows at 44px (Auto a 44px target around its
-  small pill); in the dock's narrow cells a setting's name keeps its whole words, wrapping between them, its value and
+  phone (a sheet opening slides the view). A tool's settings keep their rows, every target drawn and hit at least 40px a
+  side (slice 7, measured by what the page hands a tap, `hitTargets`): **Auto** is the phone's pill, 44px on the name
+  line, and a choice's options are each at least 42px wide, wrapping to a second line where a cell can't hold them all
+  (Glaciate's Benches at 820), never cut off; in the dock's narrow cells a setting's name keeps its whole words, wrapping between them, its value and
   Auto going under it where the line has no room, so no name is ever cut short. Under 1,280 wide the dock takes the view's
   whole width (its cells shrink to 44px before they overflow) and the editor is the dynamic viewport's height; under
   1,100 the header takes two lines. Every control at least 44px, fields 16px, no iOS callout on a long press but in a

@@ -12,7 +12,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { legendEntries, objectLegend } from "../../src/render3d/palette";
 import { openLayoutMap as openEditor, settle } from "./helpers";
-import { phoneClipped, phoneControls } from "./phone";
+import { hitTargets, phoneClipped, phoneControls } from "./phone";
 
 // (its tests stand alone: they run in parallel, so the browser shards and their two workers share them; one worker
 // running them all in a row took a shard past its 30 minutes)
@@ -979,6 +979,32 @@ for (const [W, H] of TABLETS) {
       await tap(page.getByRole("button", { name: /^Your maps/ }));
       await tap(page.getByRole("button", { name: "File", exact: true }));
       await check("the File menu open");
+    });
+
+    // (#1074 slice 7: a tool's settings were the desktop's rows, chips and steppers made for a mouse, their boxes 44px but
+    // their neighbours' laid over them; what a finger can hit of each, by the page's own answer, is 40px a side at least)
+    test(`at ${W}×${H}: every target in every tool's settings, Select's row among them, takes a finger: 40px a side at the least`, async ({ page }) => {
+      test.setTimeout(300_000);
+      await openEditor(page);
+      const tap = (l: ReturnType<Page["locator"]>) => l.first().tap();
+      const smallest: string[] = [];
+      const under: string[] = [];
+      const measure = async (tool: string) => {
+        await expect(page.locator(".tool-settings")).toBeVisible();
+        await page.waitForTimeout(150);
+        const hits = await hitTargets(page, ".tool-dock > .tool-settings");
+        expect(hits.length, `${tool}: targets found`).toBeGreaterThan(0);
+        smallest.push(`${tool}: ${hits[0].name} ${hits[0].w}×${hits[0].h}`);
+        under.push(...hits.filter((t) => Math.min(t.w, t.h) < 40).map((t) => `${tool}: ${t.name} ${t.w}×${t.h}`));
+      };
+      await tap(page.locator(".tool-bar button[aria-label^='Select']"));
+      await measure("Select");
+      for (const [, name] of EVERY_TOOL) {
+        await tap(page.locator(`.tool-bar button[aria-label^='${name}']`));
+        await measure(name);
+      }
+      console.log(`${W}×${H} smallest targets:\n${smallest.join("\n")}\nunder 40:\n${under.join("\n")}`);
+      expect(under, "settings targets a finger can hit less than 40px of").toEqual([]);
     });
 
     test(`at ${W}×${H}: Show and the objects fold to side sheets, the minimap and the dock stay, at rest the map has the screen, the pages cover the dock and scroll as one, no name cut`, async ({ page }) => {

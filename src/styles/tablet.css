@@ -148,39 +148,28 @@
     justify-content: space-between;
   }
 
+  /* (a choice's options each a finger's 44px wide: where a cell is too narrow for them all, as Glaciate's Benches at 820,
+     they wrap to a second line, never cut off; #1074 slice 7) */
   .editor:not([data-phone]) .set-seg {
-    height: 44px;
-  }
-
-  /* Auto: drawn as small as on the desktop, beside the setting's name, and a finger's 44px to take (the pill is its
-     ::before; the box round it is clear and takes no room) */
-  .editor:not([data-phone]) .set-auto {
-    position: relative;
-    isolation: isolate;
-    min-width: 44px;
+    flex-wrap: wrap;
+    height: auto;
     min-height: 44px;
-    margin: -14px -6px;
-    padding: 0 calc(6px + 6px / var(--wide-font));
-    border: 0;
-    background: transparent;
   }
 
-  .editor:not([data-phone]) .set-auto::before {
-    content: "";
-    position: absolute;
-    z-index: -1;
-    inset: 14px 6px;
-    border: 1px solid var(--rule);
-    border-radius: 8px;
+  .editor:not([data-phone]) .tool-settings .set-seg button {
+    flex: 1 1 0;
+    min-width: 42px;
   }
 
-  .editor:not([data-phone]) .set-auto[aria-pressed="true"] {
-    background: transparent;
-  }
-
-  .editor:not([data-phone]) .set-auto[aria-pressed="true"]::before {
-    background: var(--accent);
-    border-color: var(--accent);
+  /* Auto: the phone's chip, drawn 40px tall on the setting's name line (#1074 slice 7: drawn 16px tall in a clear 44px
+     box, it was a mouse's chip; a finger aims at what it sees). The name line grows to hold it. */
+  .editor:not([data-phone]) .set-auto {
+    height: 40px;
+    min-height: 40px;
+    min-width: 52px;
+    padding: 0 10px;
+    border-radius: 20px;
+    font-size: 13px;
   }
 }
 
