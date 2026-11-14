@@ -1,6 +1,7 @@
 // The landmarks every map has are drawn as the game's (D496, D178 amended): our own models at the game's measures, read
-// from its models (StartingLocation.Model, WaterSource.Model, BadwaterSource.Model, UndergroundRuins.Model,
-// WaterSeep.Model, BadwaterSeep.Model). The start is a lantern tower 4.37 high on its 3 × 3; a water source an outcrop
+// from its models (DistrictCenter.Folktails.Model, WaterSource.Model, BadwaterSource.Model, UndergroundRuins.Model,
+// WaterSeep.Model, BadwaterSeep.Model). The start is the district center the game builds there in play, 4.33 high on
+// its 3 × 3 (until 2026-11-10 the game's map-editor marker, a lantern tower 4.37 high, D148); a water source an outcrop
 // of rock 1.0 high and about 1.15 across; a badwater source a flat crater 2.5 across; a mine site a pit 1.35 deep inside
 // its frame with nothing standing over it (no scaffolding); a seep a slab at the ground round a heap of rocks to 0.57
 // (water) or 0.40 (badwater). The relics are the game's: the small its fallen telescope (SmallRelic.Model), 0.29 high in
@@ -15,7 +16,7 @@
 // Standard's models are High's and the light look's too, and Standard's baked shadows are fitted to them.
 
 import { describe, expect, it } from "vitest";
-import { mineCutout, modelKeyOf, modelOf, modelTriangles } from "../../src/render3d/entities3d";
+import { mineCutout, modelKeyOf, modelOf, modelTriangles, ruinIvy } from "../../src/render3d/entities3d";
 import { LARGE_RELIC_SHADOW } from "../../src/render3d/largeRelic";
 import { litFraction, objectCasters, SHADOW_RES, shadowTops } from "../../src/render3d/light";
 import { AQUIFER, BADTIDE_DRAIN, BLOCKAGE, LARGE_RELIC, LIGHT, MEDIUM_RELIC, GEOTHERMAL, NATURAL_DAM, SMALL_RELIC, THORNS, UNSTABLE_CORE } from "../../src/render3d/palette";
@@ -38,18 +39,18 @@ function bounds(key: string): { x: number; z: number; lo: number; hi: number } {
 }
 
 /** Standard's shadow of one object (its model centred `half` from its Coordinates' corner, or (x, y) apart, turned
- *  Cw0) on flat ground as the shader draws it, bilinear between the bake's samples, against its model's own triangles
+ *  Cw0; a ruin column, `RuinColumnH<n>`, its storeys of `variant` stacked with their dry ivy) on flat ground as the shader draws it, bilinear between the bake's samples, against its model's own triangles
  *  projected along the sun onto the ground, which is what High's depth map casts: tiles² of each at 8 headings of the
  *  sun, 45° up. */
-function shadowAreas(template: string, half: number | [number, number], seen = false): [number, number, number][] {
+function shadowAreas(template: string, half: number | [number, number], seen = false, variant?: string): [number, number, number][] {
   const [hx, hy] = typeof half === "number" ? [half, half] : half;
   const W = 24;
   const H = 24;
   const G = 3;
   const [X0, Y0] = [10, 10];
   const heights = new Uint8Array(W * H).fill(G);
-  const casters = objectCasters(W, H, entityView([{ template, x: X0, y: Y0, z: G, orientation: "Cw0", owner: "s" }]))!;
-  const p = modelOf(template).pos;
+  const casters = objectCasters(W, H, entityView([{ template, x: X0, y: Y0, z: G, orientation: "Cw0", owner: "s", variant }]))!;
+  const p = variant ? ruinColumn(variant, Number(template.slice(-1))) : modelOf(template).pos;
   const tanE = Math.tan(LIGHT.sunElevation);
   const step = 0.05;
   const n = Math.round(14 / step);
@@ -107,6 +108,16 @@ function shadowAreas(template: string, half: number | [number, number], seen = f
   return out;
 }
 
+/** A ruin column `n` high of `variant` as drawn on dry ground: its storeys stacked, each with its ivy. */
+function ruinColumn(variant: string, n: number): number[] {
+  const out: number[] = [];
+  for (let lv = 0; lv < n; lv++) {
+    const p = modelOf(`scaffold.${variant}`, n - 1 - lv, ruinIvy(n, lv, false)).pos;
+    for (let k = 0; k < p.length; k += 3) out.push(p[k], p[k + 1] + lv, p[k + 2]);
+  }
+  return out;
+}
+
 /** Where Standard's shadow falls against its model's (`shadowAreas`), held round the compass: at every heading, at least
  *  `cover` of the model's shadow is under Standard's, and their overlap at least `iou` of the two together. As large is
  *  not enough: a shadow the size of the model's beside it would pass. (Two samples a tile, bilinear, blur a shadow
@@ -119,11 +130,11 @@ function expectWhereItFalls(areas: [number, number, number][], cover: number, io
 }
 
 describe("the landmarks at the game's measures", () => {
-  it("the start is the game's lantern tower: 4.37 high, within its 3 × 3", () => {
+  it("the start is the game's district center: 4.33 high, its corner posts 0.05 out over its 3 × 3 as the game's", () => {
     const b = bounds(modelKeyOf("StartingLocation", 0));
-    expect(b.hi).toBeCloseTo(4.37, 2);
+    expect(b.hi).toBeCloseTo(4.33, 2);
     expect(b.lo).toBeCloseTo(0, 3);
-    expect(Math.max(b.x, b.z)).toBeLessThanOrEqual(3 + 1e-6);
+    expect(Math.max(b.x, b.z)).toBeCloseTo(3.1, 2);
   });
 
   it("a water source is an outcrop of rock 1.0 high, about the game's 1.14 × 1.18 across", () => {
@@ -594,6 +605,27 @@ describe("the large relic's dish casts its shadow", () => {
     expect(all).toBeLessThan(1.1);
     // (where it falls: 0.53–0.71 of the model's shadow under it, IoU 0.43–0.54, the dish's rim a thin shadow)
     expectWhereItFalls(areas, 0.48, 0.38);
+  });
+});
+
+describe("the ruins' shadow in Standard", () => {
+  // (refit 2026-11-10 to the game's frames: a post 0.56 across before the inset, 0.15 short of the column's top. The
+  // model's shadow is a lattice, the slab bands' with the sun through the open storeys between them, which no solid
+  // post at two samples a tile follows closely: it is about half again the model's, and where it falls is held)
+  it("falls where the column's own does, in every variant, 1, 2 and 4 high", () => {
+    const all = { s: 0, m: 0 };
+    for (const v of ["A", "B", "C", "D", "E"])
+      for (const n of [1, 2, 4]) {
+        const areas = shadowAreas(`RuinColumnH${n}`, 0.5, false, v);
+        for (const [s, m] of areas) {
+          all.s += s;
+          all.m += m;
+        }
+        // (0.64–0.99 of the model's shadow under it, IoU 0.39–0.74, over 1 to 8 high)
+        expectWhereItFalls(areas, 0.6, 0.36);
+      }
+    expect(all.s / all.m).toBeGreaterThan(1.2);
+    expect(all.s / all.m).toBeLessThan(1.7);
   });
 });
 

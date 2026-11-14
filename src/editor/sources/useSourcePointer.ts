@@ -15,6 +15,7 @@ import { BADWATER_STRENGTHS, SOURCE_STRENGTHS, sourceRequest } from "../tools";
 import type { EntityRequest } from "../../core/doc/placing";
 import type { Ed } from "../ed";
 import { aimOf } from "../shelf/aim";
+import { quietWord } from "../shelfItems";
 
 export interface SourcePointerSlice {
   pointerAt: { current: { x: number; y: number } };
@@ -29,6 +30,9 @@ export interface SourcePointerSlice {
   objectUnder: (x: number, y: number) => number | undefined;
   objectTiles: (k: number) => number[];
   grabObject: (hit: TileHit | null, pick?: boolean) => PointerTool | null;
+  /** The object or source picked, as something a finger's press anywhere moves (#1074 slice 3, render3d/touch.ts): whether
+   *  there is one, and it taken up as a press on it takes it, to go where the finger aims. */
+  heldCalls: { current: { holding: () => boolean; grabHeld: () => PointerTool | null } };
   strengthTick: number;
   strengthOfEntity: (k: number) => number;
   liveStrength: (e: { x: number; y: number }, v: number | null) => void;
@@ -38,7 +42,7 @@ export interface SourcePointerSlice {
 
 export function useSourcePointer(ed: Ed): SourcePointerSlice {
   const {
-    api, mirror, renderer, selectingRef, selection, setSourceDrag, feel, firstDone, setPicked, setPickedObject,
+    api, mirror, renderer, selectingRef, selection, setSourceDrag, setSourceDragBad, feel, firstDone, setPicked, setPickedObject,
     pickedRef, setShapeNote, infoRef, shelfRef, optionsRef, enqueue, run, brushToolRef, pickShelf, targetAt,
     sourceOnScreen
   } = ed;
@@ -109,6 +113,68 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
     return entitiesOn(x, y).then((list) => list.find((e) => e.template === "WaterSource" || e.template === "BadwaterSource") ?? null);
   }
 
+  /** A finger's drag of an object or source (#1074 slice 3b): whether it would be refused where it is now, asked of the
+   *  core as a placement's preview is (one question on its way at a time, the latest wanted asked next). Refused, the
+   *  reason shows beside the preview and its footprint turns red; the lift there moves nothing. A mouse's drag is as it
+   *  was: the drop meets the core's refusal. */
+  function moveChecker(record: Promise<{ id: string } | null>) {
+    const keyOf = (dx: number, dy: number, z: number | undefined) => `${dx},${dy},${z ?? ""}`;
+    let want = "";
+    let busy = false;
+    let live = true;
+    let next: { key: string; dx: number; dy: number; z: number | undefined } | null = null;
+    let known: { key: string; problem: string | null } | null = null;
+    const show = (problem: string | null) => {
+      setSourceDragBad(!!problem);
+      setShapeNote(problem ? { text: quietWord(problem), ok: true, warn: true, ...pointerAt.current } : null);
+    };
+    const pump = () => {
+      if (busy || !next || !live) return;
+      const q = next;
+      next = null;
+      busy = true;
+      void record
+        .then((rec) => (rec ? api.moveCheck(rec.id, q.dx, q.dy, q.z) : null))
+        .then((problem) => {
+          if (!live || q.key !== want) return;
+          known = { key: q.key, problem };
+          show(problem);
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          busy = false;
+          pump();
+        });
+    };
+    return {
+      /** The drag is at (dx, dy) from where it began, on level `z`. */
+      ask(dx: number, dy: number, z: number | undefined) {
+        const key = keyOf(dx, dy, z);
+        if (key === want) return;
+        want = key;
+        next = null;
+        // (back where it began: nothing to move, nothing to say)
+        if (!dx && !dy) {
+          known = null;
+          return show(null);
+        }
+        next = { key, dx, dy, z };
+        pump();
+      },
+      /** The reason a drop at (dx, dy, z) is refused, when the core has answered so. */
+      refused(dx: number, dy: number, z: number | undefined): string | null {
+        return known && known.key === keyOf(dx, dy, z) ? known.problem : null;
+      },
+      /** The drag is over: what it showed goes. */
+      end() {
+        if (!live) return;
+        live = false;
+        if (known?.problem) show(null);
+        setSourceDragBad(false);
+      },
+    };
+  }
+
   /** A source dragged somewhere else (D184): its footprint follows the pointer, and the drop is one
    *  undo step; a click without a drag selects it; Esc puts it back. Brushes paint over sources;
    *  with a source picked on the shelf, a press on a placed one still grabs it. */
@@ -117,7 +183,6 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
     // (a force picked takes the map's clicks, a source's too: D257)
     if (!hit || brushToolRef.current || (shelfRef.current && !shelfRef.current.source) || ed.toolRef.current || ed.blockRef.current) return null;
     const W = infoRef.current.W;
-    const H = infoRef.current.H;
     // with nothing picked, a source within about two tiles is the one pressed (D249); with the
     // shelf's source, a press on a placed one (a new one can go right beside it); with the Select
     // tool open, only a press on the source itself, so a box started beside one selects (showcase-craft
@@ -126,7 +191,12 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
     const spot = free ? targetAt(hit.x, hit.y) : null;
     const src = spot ? { x: spot.x, y: spot.y, bad: spot.bad, tiles: spot.tiles.map((i): [number, number] => [i % W, Math.floor(i / W)]) } : sourceOnScreen(hit, ev?.clientX ?? -1e6, ev?.clientY ?? -1e6);
     if (!src) return null;
-    const from: [number, number] = [hit.x, hit.y];
+    return takeSource(src, [hit.x, hit.y]);
+  }
+  /** A source taken up from tile `from`: its footprint follows the tile the pointer is on, offset as it was from `from`. */
+  function takeSource(src: { x: number; y: number; bad: boolean; tiles: [number, number][] }, from: [number, number]): PointerTool {
+    const W = infoRef.current.W;
+    const H = infoRef.current.H;
     let to = from;
     /** The level aimed at where it goes (D491: a cave's floor; undefined, the tile's top). */
     let level: number | undefined;
@@ -134,28 +204,38 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
     const record = sourceInfo(src.x, src.y);
     const canvas = renderer.current?.canvas;
     if (canvas) canvas.style.cursor = "grabbing";
+    /** A finger's drag asks whether it would be refused (null until one moves it). */
+    let check: ReturnType<typeof moveChecker> | null = null;
     const end = () => {
       done = true;
       sourceGrab.current = null;
       setSourceDrag(null);
+      check?.end();
       if (canvas) canvas.style.cursor = "";
     };
     sourceGrab.current = { cancel: end };
     return {
       down: () => true,
-      move(h) {
+      move(h, ev) {
         if (!h || done) return;
         to = [h.x, h.y];
         level = aimAt(h);
         const dx = to[0] - from[0];
         const dy = to[1] - from[1];
         setSourceDrag(dx || dy ? src.tiles.map(([x, y]) => [x + dx, y + dy]).filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H).map(([x, y]) => y * W + x) : null);
+        if (ev?.pointerType === "touch") {
+          notePointer(ev);
+          (check ??= moveChecker(record)).ask(dx, dy, level);
+        }
       },
       up() {
         if (done) return;
-        end();
         const dx = to[0] - from[0];
         const dy = to[1] - from[1];
+        const why = check?.refused(dx, dy, level) ?? null;
+        end();
+        // (refused where its preview said why: nothing moves, the reason for a moment)
+        if (why) return ed.flashNote(quietWord(why), undefined, 2500);
         if (!dx && !dy) {
           // a click selects it (its strength in the row); the shelf's source goes back
           if (shelfRef.current?.source) pickShelf(null);
@@ -173,6 +253,41 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
       voxel: true,
     };
   }
+  /** Whether something picked on the map is what a finger's press moves: a source or an object picked, with nothing
+   *  else in hand and the objects shown (render3d/touch.ts, #1074 slice 3). */
+  function holding(): boolean {
+    if (!pickedRef.current && !ed.pickedObjectRef.current) return false;
+    return !brushToolRef.current && !shelfRef.current && !ed.toolRef.current && !ed.blockRef.current && !selection.current.count && !renderer.current?.objectsHidden;
+  }
+  /** The source or object picked, taken up as a press on its middle would take it, so it goes where a finger aims: its
+   *  footprint shows there, and the lift moves it (one step), as a mouse's drag does. Null when nothing is held. */
+  function grabHeld(): PointerTool | null {
+    if (!holding()) return null;
+    const W = infoRef.current.W;
+    const H = infoRef.current.H;
+    const p = pickedRef.current;
+    if (p) {
+      const spot = targetAt(p.x, p.y);
+      if (!spot) return null;
+      return takeSource({ x: spot.x, y: spot.y, bad: spot.bad, tiles: spot.tiles.map((i): [number, number] => [i % W, Math.floor(i / W)]) }, [spot.x, spot.y]);
+    }
+    const o = ed.pickedObjectRef.current;
+    if (!o) return null;
+    const k = entityIndexOf(o);
+    if (k < 0) return null;
+    // (the footprint's middle tile: the object is held by its middle, so that is what goes where the finger aims)
+    const tiles = objectTiles(k);
+    if (!tiles.length) return null;
+    const cx = tiles.reduce((s, i) => s + (i % W), 0) / tiles.length;
+    const cy = tiles.reduce((s, i) => s + Math.floor(i / W), 0) / tiles.length;
+    const mid = tiles.reduce((best, i) => (Math.hypot((i % W) - cx, Math.floor(i / W) - cy) < Math.hypot((best % W) - cx, Math.floor(best / W) - cy) ? i : best));
+    const x = mid % W;
+    const y = Math.floor(mid / W);
+    if (x < 0 || y < 0 || x >= W || y >= H) return null;
+    return grabObject({ x, y, point: [x + 0.5, mirror.current.heights[mid] ?? 0, -(y + 0.5)], face: "top", t: 0 }, true);
+  }
+  const heldCalls = useRef({ holding, grabHeld });
+  heldCalls.current = { holding, grabHeld };
   /** The level a drag aims at (D491): a cave's floor, the ground under a ledge; undefined on the tile's top. */
   const aimAt = (h: TileHit) => aimOf(h, infoRef.current.W, mirror.current.heights, ed.columnsRef.current);
 
@@ -225,28 +340,38 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
     let done = false;
     const canvas = renderer.current?.canvas;
     if (canvas) canvas.style.cursor = "grabbing";
+    /** A finger's drag asks whether it would be refused (null until one moves it). */
+    let check: ReturnType<typeof moveChecker> | null = null;
     const end = () => {
       done = true;
       objectGrab.current = null;
       setSourceDrag(null);
+      check?.end();
       if (canvas) canvas.style.cursor = "";
     };
     objectGrab.current = { cancel: end };
     return {
       down: () => true,
-      move(h) {
+      move(h, ev) {
         if (!h || done) return;
         to = [h.x, h.y];
         level = aimAt(h);
         const dx = to[0] - from[0];
         const dy = to[1] - from[1];
         setSourceDrag(dx || dy ? tilesAt(dx, dy) : null);
+        if (ev?.pointerType === "touch") {
+          notePointer(ev);
+          (check ??= moveChecker(record)).ask(dx, dy, level);
+        }
       },
       up() {
         if (done) return;
-        end();
         const dx = to[0] - from[0];
         const dy = to[1] - from[1];
+        const why = check?.refused(dx, dy, level) ?? null;
+        end();
+        // (refused where its preview said why: nothing moves, the reason for a moment)
+        if (why) return ed.flashNote(quietWord(why), undefined, 2500);
         void record.then((rec) => {
           if (!rec) return;
           // a click picks it; a drag moves it
@@ -373,6 +498,6 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
 
   return {
     pointerAt, notePointer, sourceAtTile, placeSource, sourceInfo, entitiesOn, sourceGrab, grabSource, objectUnder, objectTiles,
-    grabObject, strengthTick, strengthOfEntity, liveStrength, entityIndexOf, wheelSource
+    grabObject, heldCalls, strengthTick, strengthOfEntity, liveStrength, entityIndexOf, wheelSource
   };
 }

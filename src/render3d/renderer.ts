@@ -84,8 +84,8 @@ import { AID_LAYER, onAidLayer } from "./aidLayer";
 import { GameBloom, GAME_BLOOM_LOOKS, LAVA_BLOOM_ENDS } from "./bloom";
 import { Refraction, WATER_REFRACTION } from "./refraction";
 import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
-import { BROWSER_ZOOM_EVENTS, DOUBLE_TAP_MS, DOUBLE_TAP_PX, TAP_MS, TAP_SLOP, Touches, type Motion, type Point } from "./touch";
-import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
+import { BROWSER_ZOOM_EVENTS, DOUBLE_TAP_MS, DOUBLE_TAP_PX, FingerPress, HOLD_MS, showsAtOnce, TAP_MS, TAP_SLOP, Touches, type Motion, type Point, type PressHost, type PressMode } from "./touch";
+import { DEFAULT_YAW, distanceForMode, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { cutawayOn } from "./cutaway";
 import { ringLevelAt, waterLevelAt } from "./cutWater";
@@ -150,6 +150,9 @@ function onIdle(fn: (deadline?: IdleDeadline) => void): void {
 }
 
 export type ViewMode = "orbit" | "top";
+
+/** The height the top-down view's camera looks down from (orthographic: it sets no scale, only what lies below it). */
+const TOP_EYE = 200;
 
 /** The look drawn: High, High's lower-cost tier, Standard, or the light look (software). */
 export type Look = Tier | "light";
@@ -243,6 +246,21 @@ export interface PointerTool {
   /** A finger with this tool in hand moves the camera instead, and a tap is its click (touch.ts: the resting Select
    *  with nothing selected, which is nothing in hand to the player). */
   touchPans?: boolean;
+  /** How a finger's press works it (touch.ts `PressMode`, #1074 slices 3 and 3b): "aim" shows its preview a little above
+   *  the finger and the lift is its click there; "line" shows it so and a drag draws its line from there; "draw" is its
+   *  own press, drag and release a little above the finger. Unset: the press is the mouse's, under the finger (a brush
+   *  paints there). On a tool that `touchPans`, the press a finger held still makes (`HOLD_MS`). */
+  finger?: PressMode;
+  /** A finger's tap on the view is this tool's click where the finger is (Select). */
+  tapClicks?: boolean;
+}
+
+/** A finger's press with something in hand, as the page shows it (`MapRenderer.onPress`): where it aims, where the finger
+ *  is (client coordinates), and whether the finger is over a Cancel control. */
+export interface FingerAim {
+  aim: Point;
+  finger: Point;
+  over: boolean;
 }
 
 interface MapState {
@@ -575,6 +593,12 @@ export class MapRenderer {
   /** The last tap of a finger (its place and time), for a double tap; whether the readout shows the tile it read. */
   private lastTap: { x: number; y: number; t: number } | null = null;
   private tapRead = false;
+  /** A finger's press with something in hand, seen before it applies (touch.ts `FingerPress`, #1074 slice 3), and the
+   *  finger's last event. */
+  private press: FingerPress | null = null;
+  private pressLast: PointerEvent | null = null;
+  /** An aim's tap left its preview where it showed: the finger's going does not clear it. */
+  private keepAim = false;
   private listeners: [EventTarget, string, EventListener, AddEventListenerOptions?][] = [];
   /** The camera keys held (Timberborn's: WASD and the arrows move, Q and E turn, Shift is faster),
    *  and the camera's speed now: it moves every frame while they are held, easing in and gliding to
@@ -596,6 +620,13 @@ export class MapRenderer {
   onClick: ((hit: TileHit | null, ev: PointerEvent) => void) | null = null;
   /** A two-finger tap (2: Undo) or a three-finger tap (3: Redo) on the view (touch.ts). */
   onFingers: ((n: 2 | 3) => void) | null = null;
+  /** A finger's press with something in hand (touch.ts `FingerPress`): where it aims now and where the finger is (client
+   *  coordinates), and whether the finger is over a Cancel control (`data-press-cancel`); null when the press is over. */
+  onPress: ((p: FingerAim | null) => void) | null = null;
+  /** Something picked on the map that a finger's press moves, wherever it lands (an object, a source; #1074 slice 3). */
+  holdsPicked: (() => boolean) | null = null;
+  /** That object or source taken up, as a press on it takes it, to move where a finger aims; null when none. */
+  grabHeld: (() => PointerTool | null) | null = null;
   /** Before the tool and the camera: something under the pointer that a left-drag moves (a water
    *  source, D184), as a pointer tool for that drag, or null. */
   grab: ((hit: TileHit | null, ev: PointerEvent) => PointerTool | null) | null = null;
@@ -1099,7 +1130,8 @@ export class MapRenderer {
   }
 
   private showMarkerObjects(): void {
-    for (const c of this.objects?.children ?? []) if (c.name === "Slope.mark" || c.name === "Slope.mark.lite") c.visible = this.markersOn;
+    // (the slopes' arrows and the start's entrance, Markers' editing aids: the game draws neither, D497)
+    for (const c of this.objects?.children ?? []) if (c.name === "Slope.mark" || c.name === "Slope.mark.lite" || c.name === "start.entrance") c.visible = this.markersOn;
   }
 
   /** Hold the water's movement at a moment (seconds), or let it move again (null). */
@@ -2133,8 +2165,8 @@ export class MapRenderer {
     this.litTiles = null;
     this.sourcesLit.clear();
     group.renderOrder = 1;
-    // (the slopes' arrows, Markers' editing aid, left out of the bloom's source: bloom.ts)
-    for (const c of group.children) if (c.name.startsWith("Slope.mark")) onAidLayer(c);
+    // (the slopes' arrows and the start's entrance, Markers' editing aids, left out of the bloom's source: bloom.ts)
+    for (const c of group.children) if (c.name.startsWith("Slope.mark") || c.name === "start.entrance") onAidLayer(c);
     this.objects = group;
     this.scene.add(group);
     this.showMarkerObjects();
@@ -3606,8 +3638,22 @@ export class MapRenderer {
     }
     // (the water as drawn: under a layer cut through it, at the cut; from the water view, cutWater.ts)
     const level = (tx: number, ty: number) => ringLevelAt(m.heights, m.surface, ty * m.W + tx, this.slice);
-    this.ring.set(s, level, m.W, m.H);
+    this.ring.set(s, level, m.W, m.H, this.ringFilled);
     this.requestRender();
+  }
+
+  /** A force's ring is filled faintly (its whole reach) while a finger's press aims it (#1074 slice 3b): a big force's
+   *  ring is often wider than a phone's view, and the fill still says what it reaches. */
+  private ringFilled = false;
+  private fillRing(on: boolean): void {
+    if (on === this.ringFilled) return;
+    this.ringFilled = on;
+    if (this.forceRingState) this.setForceRing(this.forceRingState);
+  }
+
+  /** Whether a force's ring is filled now (tests). */
+  get ringFill(): boolean {
+    return this.ringFilled && !!this.forceRingState && !this.forceRingState.marker;
   }
 
   /** Where the water is clear round the pointer (D212): the middle and radius, or null (tests). */
@@ -4065,7 +4111,7 @@ export class MapRenderer {
       this.ortho.right = half * aspect;
       this.ortho.top = half;
       this.ortho.bottom = -half;
-      this.ortho.position.set(tx, 200, tz);
+      this.ortho.position.set(tx, TOP_EYE, tz);
       // (the screen's up is the way the view faces along the ground: north at yaw 0)
       this.ortho.up.set(-Math.sin(v.yaw), 0, -Math.cos(v.yaw));
       this.ortho.lookAt(tx, 0, tz);
@@ -4089,13 +4135,19 @@ export class MapRenderer {
   }
 
   /** The game's fog (palette.ts GAME_FINISH), as the game draws it up to its farthest default zoom; from farther out,
-   *  an editing view the game doesn't have, held at what that zoom shows, so a whole map stays readable (D497). None
-   *  looking straight down, where the game never looks (the camera sits at 200), nor with High's Fog switched off. */
+   *  an editing view the game doesn't have, held at what that zoom shows, so a whole map stays readable (D497). Looking
+   *  straight down, where the game never looks, the fog the angled view has at the same zoom (`distanceForMode`): its
+   *  depth at the spot looked at, held as the angled view's is, in place of the top camera's own 200 units, so the two
+   *  views read alike (without it the deep sea, which the game's ramp and grade take to black, read pure black there,
+   *  #236 11-10). None with High's Fog switched off. */
   private applyFog(): void {
     const u = this.uniforms;
     const v = this.view;
-    u.fogDensity.value = v.mode === "top" || (this.high && !this.high.effects.fog) ? 0 : GAME_FINISH.fogParam;
-    u.fogShift.value = Math.max(0, v.distance - GAME_FINISH.fogFarthest);
+    u.fogDensity.value = this.high && !this.high.effects.fog ? 0 : GAME_FINISH.fogParam;
+    u.fogShift.value =
+      v.mode === "top"
+        ? TOP_EYE - v.target[1] - Math.min(distanceForMode(v.distance, "orbit"), GAME_FINISH.fogFarthest)
+        : Math.max(0, v.distance - GAME_FINISH.fogFarthest);
     u.fogNear.value = this.persp.near;
   }
 
@@ -4571,9 +4623,19 @@ export class MapRenderer {
       // (a press stops a flick's glide; a finger, a double tap's too)
       this.touches.stop();
       if (finger) this.stopGlideTo();
+      this.keepAim = false;
       // a second finger: the press in progress is dropped and the fingers move the camera (touch.ts)
       if (finger && this.touches.down(ev)) return;
       c.focus({ preventScroll: true });
+      // one finger with something in hand that shows before it applies: seen a little above the finger, applied on the
+      // lift (touch.ts `FingerPress`); what is under the finger never changes what the press does (Kyler on #1074)
+      const mode = finger && ev.button === 0 ? this.pressModeFor(this.tool) : null;
+      if (mode) {
+        this.tapRead = false;
+        this.startPress(mode, ev);
+        capture(ev.pointerId);
+        return;
+      }
       if (finger) {
         // (no hover before a finger: the press is the hover, so a brush's ring and its level are under it, D322)
         this.tapRead = false;
@@ -4586,7 +4648,9 @@ export class MapRenderer {
         if (hit) this.pickSlice(hit);
         return;
       }
-      const grab = ev.button === 0 && this.grab ? this.grab(this.pick(ev.clientX, ev.clientY), ev) : null;
+      // (a finger never takes what is under it: with nothing in hand it pans, and an object or a source picked goes
+      // where a press aims, `pressModeFor`)
+      const grab = ev.button === 0 && this.grab && !finger ? this.grab(this.pick(ev.clientX, ev.clientY), ev) : null;
       if (grab) {
         this.grabbed = grab;
         this.drag = { kind: "tool", x: ev.clientX, y: ev.clientY, id: ev.pointerId, moved: 0, button: 0 };
@@ -4603,9 +4667,11 @@ export class MapRenderer {
         }
       }
       if (finger) {
-        // one finger with nothing in hand moves the map
-        this.drag = { kind: "pan", x: ev.clientX, y: ev.clientY, id: ev.pointerId, moved: 0, button: 0, touch: ev };
+        // one finger with nothing in hand moves the map; held still, it draws a selection (`holdToPress`)
+        const pan = { kind: "pan" as const, x: ev.clientX, y: ev.clientY, id: ev.pointerId, moved: 0, button: 0, touch: ev };
+        this.drag = pan;
         capture(ev.pointerId);
+        this.holdToPress(pan, ev);
         return;
       }
       const kind = ev.button === 2 || ev.button === 1 || ev.shiftKey || this.view.mode === "top" ? "pan" : "orbit";
@@ -4616,6 +4682,11 @@ export class MapRenderer {
       const ev = e as PointerEvent;
       const finger = ev.pointerType === "touch";
       if (finger && this.touches.move(ev)) return;
+      if (finger && this.press?.id === ev.pointerId) {
+        this.pressLast = ev;
+        this.press.move({ x: ev.clientX, y: ev.clientY });
+        return;
+      }
       const d = this.drag;
       if (d && d.id === ev.pointerId) {
         const dx = ev.clientX - d.x;
@@ -4644,6 +4715,16 @@ export class MapRenderer {
     const end = (e: Event) => {
       const ev = e as PointerEvent;
       if (ev.pointerType === "touch" && this.touches.up(ev)) return;
+      const p = this.press;
+      if (p && p.id === ev.pointerId) {
+        this.press = null;
+        this.pressLast = ev;
+        if (c.hasPointerCapture(ev.pointerId)) c.releasePointerCapture(ev.pointerId);
+        // (the browser took the touch, as iOS Safari may: nothing is applied)
+        if (ev.type === "pointerup") p.up({ x: ev.clientX, y: ev.clientY }, ev.timeStamp);
+        else p.cancel();
+        return;
+      }
       const d = this.drag;
       if (!d || d.id !== ev.pointerId) return;
       this.drag = null;
@@ -4662,7 +4743,9 @@ export class MapRenderer {
     this.on(c, "pointerup", end);
     this.on(c, "pointercancel", end);
     this.on(c, "pointerleave", (e) => {
-      if (this.drag) return;
+      if (this.drag || this.press) return;
+      // (a tap with an object, a force or the Block tool in hand left its preview showing where it would go)
+      if ((e as PointerEvent).pointerType === "touch" && this.keepAim) return;
       // (a finger lifted: the ring under it goes; a tile a tap read stays read, its readout and its light)
       if ((e as PointerEvent).pointerType === "touch" && this.tapRead) {
         this.tool?.hover?.(null, e as PointerEvent);
@@ -4732,6 +4815,8 @@ export class MapRenderer {
     // in progress ends as a released button ends it (D361, item 5)
     this.on(window, "blur", () => {
       this.touches.reset();
+      // (a finger's press with something in hand is dropped, nothing applied: only its lift applies it)
+      this.cancelPress();
       focusLost(this.held, this.glide, this.drag, (d) => end({ type: d.kind === "tool" ? "pointerup" : "pointercancel", pointerId: d.id, clientX: d.x, clientY: d.y, button: 0, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false } as unknown as Event));
     });
   }
@@ -4752,29 +4837,176 @@ export class MapRenderer {
   }
 
   /** A finger's tap (touch.ts): the readout reads the tile, and the tap is a click, the resting tool's own where it
-   *  has one; a second tap on the spot soon after zooms in on it instead. */
+   *  has one; a second tap on the spot soon after zooms in on it instead, whatever is under it (Kyler on #1074: a tap on
+   *  an object picks it, and that stands; the second still zooms). */
   private touchTap(down: PointerEvent, up: PointerEvent): void {
-    const last = this.lastTap;
-    if (last && up.timeStamp - last.t <= DOUBLE_TAP_MS && Math.hypot(up.clientX - last.x, up.clientY - last.y) <= DOUBLE_TAP_PX) {
-      this.lastTap = null;
-      this.zoomInAt(up.clientX, up.clientY);
-      return;
-    }
-    this.lastTap = { x: up.clientX, y: up.clientY, t: up.timeStamp };
+    if (this.doubleTapped(up)) return;
     this.hoverAt(up);
     this.tapRead = true;
     const t = this.tool;
-    if (t?.touchPans && t.down(this.pickFor(t, down.clientX, down.clientY), down)) {
+    if ((t?.touchPans || t?.tapClicks) && t.down(this.pickFor(t, down.clientX, down.clientY), down)) {
       t.up(this.pickFor(t, up.clientX, up.clientY), up);
       return;
     }
     this.onClick?.(this.pick(up.clientX, up.clientY), up);
   }
 
+  /** A finger's tap: when it is the second on the spot soon after one, the view glides in on it (true); else it is
+   *  noted, for the next. */
+  private doubleTapped(up: PointerEvent): boolean {
+    const last = this.lastTap;
+    if (last && up.timeStamp - last.t <= DOUBLE_TAP_MS && Math.hypot(up.clientX - last.x, up.clientY - last.y) <= DOUBLE_TAP_PX) {
+      this.lastTap = null;
+      this.zoomInAt(up.clientX, up.clientY);
+      return true;
+    }
+    this.lastTap = { x: up.clientX, y: up.clientY, t: up.timeStamp };
+    return false;
+  }
+
+  /** A finger with nothing in hand (the resting Select, which `touchPans`) held still `HOLD_MS` without moving past the
+   *  slop: its pan, not yet begun, becomes the tool's own press (Select's: a selection drawn a little above the finger,
+   *  #1074 slice 3b), so a selection starts without one open first. A move past the slop before then pans, as before. */
+  private holdToPress(pan: { moved: number }, ev: PointerEvent): void {
+    const t = this.tool;
+    const mode = t?.touchPans ? t.finger : undefined;
+    if (!mode) return;
+    window.setTimeout(() => {
+      // (lifted, panned, a second finger, or the tool changed meanwhile: nothing)
+      if (this.drag !== pan || pan.moved >= TAP_SLOP || this.tool !== t || this.press) return;
+      this.drag = null;
+      this.tapRead = false;
+      this.startPress(mode, ev, true);
+    }, HOLD_MS);
+  }
+
+  /** How a finger's press works what is in hand (touch.ts `PressMode`), or null for the view's own one-finger path (a
+   *  pan with nothing in hand, a brush's stroke under the finger). The resting Select with an object or a source picked
+   *  holds that: the press moves it. */
+  private pressModeFor(t: PointerTool | null): PressMode | null {
+    if (!t) return null;
+    if (t.touchPans) return this.holdsPicked?.() ? "move" : null;
+    return t.finger ?? null;
+  }
+
+  /** A finger's press with something in hand begins (touch.ts `FingerPress`): it aims `FINGER_LIFT` above the finger;
+   *  "aim" shows the tool's hover there, "draw" and "move" drive the tool's (or the picked object's grab's) own press
+   *  there once the press is no tap; the lift applies it, a tap or a drop applies nothing. */
+  private startPress(mode: PressMode, ev: PointerEvent, held = false): void {
+    this.cancelPress();
+    const t = this.tool!;
+    /** The tool or grab a draw or a move drives, once begun. */
+    let driven: PointerTool | null = null;
+    this.pressLast = ev;
+    const at = (type: string, p: Point) => this.aimEvent(type, p, ev);
+    /** An aim's preview goes, and the tile it lit. */
+    const unaim = () => {
+      this.hoverHit = null;
+      this.setHoverTile(null);
+      t.hover?.(null, at("pointermove", { x: ev.clientX, y: ev.clientY }));
+      this.onHover?.(null);
+    };
+    const host: PressHost = {
+      show: (p) => {
+        // (an aim, and a line not yet begun: the tool's hover there; a begun line, draw or move: its drag)
+        if (driven) return driven.move(this.pickFor(driven, p.x, p.y), at("pointermove", p));
+        if (showsAtOnce(mode)) this.hoverAt(at("pointermove", p));
+      },
+      begin: (p) => {
+        const g = mode === "move" ? (this.grabHeld?.() ?? null) : this.tool === t ? t : null;
+        if (!g) return false;
+        if (!g.down(this.pickFor(g, p.x, p.y), at("pointerdown", p))) {
+          if (mode === "move") g.cancel?.();
+          return false;
+        }
+        driven = g;
+        return true;
+      },
+      apply: (p) => {
+        const up = at("pointerup", p);
+        // (a begun line, draw or move: its release; a line held still and lifted is a click at the aim, as an aim's)
+        if (driven || !showsAtOnce(mode)) {
+          const g = driven;
+          driven = null;
+          return g?.up(this.pickFor(g, p.x, p.y), up);
+        }
+        // (the tool put away meanwhile: nothing to apply)
+        if (this.tool !== t) return;
+        const hit = this.pickFor(t, p.x, p.y);
+        if (t.down(hit, at("pointerdown", p))) t.up(hit, up);
+      },
+      drop: (begun) => {
+        const g = driven;
+        driven = null;
+        if (begun) g?.cancel?.();
+        if (showsAtOnce(mode) && this.tool === t) unaim();
+      },
+      tap: () => {
+        const up = this.pressLast ?? ev;
+        // (a picked object's press that was a tap, or a held one lifted before its hold by its events' times: a click, or
+        // half a double tap, where the finger is, as with nothing in hand)
+        if (mode === "move" || held) return this.touchTap(ev, up);
+        if (this.doubleTapped(up)) {
+          if (showsAtOnce(mode) && this.tool === t) t.hover?.(null, at("pointermove", { x: up.clientX, y: up.clientY }));
+          return;
+        }
+        if (mode === "draw" && t.tapClicks) {
+          this.lastTap = null;
+          return this.touchTap(ev, up);
+        }
+        // (an aim's or a line's tap applies nothing: its preview stays where it would go)
+        if (showsAtOnce(mode)) this.keepAim = true;
+      },
+      overCancel: (p) => !!document.elementFromPoint(p.x, p.y)?.closest("[data-press-cancel]"),
+      mark: (p, over) => {
+        // (over Cancel an aim's preview goes, and a line's not yet drawn: nothing would be applied there; off it again, it
+        // shows)
+        if (over && showsAtOnce(mode) && !this.press?.drawing && this.tool === t) unaim();
+        // (a force's ring is filled while a finger aims it, so its reach shows even where the ring is off the view)
+        this.fillRing(!!p && !over && showsAtOnce(mode));
+        const f = this.pressLast ?? ev;
+        this.onPress?.(p ? { aim: { x: p.x, y: p.y }, finger: { x: f.clientX, y: f.clientY }, over } : null);
+      },
+      later: (fn, ms) => window.setTimeout(fn, ms),
+      clear: (id) => clearTimeout(id),
+    };
+    this.press = new FingerPress(mode, ev.pointerId, { x: ev.clientX, y: ev.clientY }, ev.timeStamp, this.canvas.getBoundingClientRect().top, host, held);
+  }
+
+  /** Drop a finger's press with something in hand, nothing applied (a Cancel control, the window losing focus); the
+   *  finger, still down, then does nothing until it lifts. True when there was one. */
+  cancelPress(): boolean {
+    const p = this.press;
+    if (!p) return false;
+    this.press = null;
+    p.cancel();
+    return true;
+  }
+
+  /** Whether a finger's press with something in hand is on (tests). */
+  get pressing(): boolean {
+    return this.press !== null;
+  }
+
+  /** A finger's event moved to where its press aims (`at`): what the tools read of a press, a drag and a release. */
+  private aimEvent(type: string, at: Point, from: PointerEvent): PointerEvent {
+    return new PointerEvent(type, {
+      clientX: at.x,
+      clientY: at.y,
+      pointerId: from.pointerId,
+      pointerType: "touch",
+      isPrimary: from.isPrimary,
+      button: type === "pointermove" ? -1 : 0,
+      buttons: type === "pointerup" ? 0 : 1,
+      pressure: type === "pointerup" ? 0 : 0.5,
+    });
+  }
+
   /** A second finger came down during a one-finger press: the press is dropped, a stroke or a drag cancelled with
-   *  nothing applied (its tool's `cancel`, as Esc), a pan just stopped. The finger keeps its capture: the gesture
-   *  follows it. */
+   *  nothing applied (its tool's `cancel`, as Esc), a pan just stopped, a press with something in hand dropped. The
+   *  finger keeps its capture: the gesture follows it. */
   private dropPress(): void {
+    this.cancelPress();
     const d = this.drag;
     if (!d) return;
     this.drag = null;

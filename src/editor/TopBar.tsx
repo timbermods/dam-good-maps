@@ -11,7 +11,7 @@ import { CANAL_MAX_DEPTH, CANAL_MAX_WIDTH } from "../core/doc/canalLimits";
 import { LAKE_MAX_DEPTH } from "../core/doc/lakeLimits";
 import { RIDGE_MAX_HEIGHT, RIDGE_MAX_WIDTH, RIDGE_MIN_HEIGHT, RIDGE_MIN_WIDTH, type RidgeSteep } from "../core/doc/ridgeLimits";
 import { createContext, type ComponentChildren } from "preact";
-import { useContext, useLayoutEffect, useRef } from "preact/hooks";
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { FirstRunSizer } from "./FirstRun";
 import { FLOOR_MIN } from "../core/forces/floor";
 import { CEILING } from "../core/format/world";
@@ -244,6 +244,39 @@ export interface TopBarProps {
   /** A phone's layout (#1074): the settings' sheet and its grab handle (one row, or all of them pulled up), and the
    *  Objects button that opens the objects' sheet. */
   phone?: PhoneBar | null;
+  /** What is in hand is put down from its sheet's first row on a phone or to a finger (#1074): X's call, and whether
+   *  Select holds something to put down (a selection, or on a phone its sheet open). */
+  putDown?: { run(): void; select: boolean } | null;
+}
+
+/** The pointer is a finger (`(pointer: coarse)`), kept up as it changes. */
+function useFinger(): boolean {
+  const query = () => typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
+  const [finger, setFinger] = useState(query);
+  useEffect(() => {
+    if (typeof matchMedia !== "function") return;
+    const m = matchMedia("(pointer: coarse)");
+    const look = () => setFinger(m.matches);
+    m.addEventListener("change", look);
+    return () => m.removeEventListener("change", look);
+  }, []);
+  return finger;
+}
+
+/** The tool in hand scrolled into the phone's tool row (or rail), so its second tap is in view too (#1074). */
+function showHeld(bar: HTMLElement | null): void {
+  const on = bar?.querySelector<HTMLElement>("button.icon-button[aria-pressed='true']:not(.objects-button)");
+  if (!bar || !on) return;
+  const b = bar.getBoundingClientRect();
+  const r = on.getBoundingClientRect();
+  // (clear of the row's own padding and the safe areas, a little more)
+  const pad = 12;
+  const along = (lo: number, hi: number, from: number, to: number) => (lo < from + pad ? lo - from - pad : hi > to - pad ? hi - to + pad : 0);
+  const left = bar.scrollWidth > bar.clientWidth + 1 ? along(r.left, r.right, b.left, b.right) : 0;
+  const top = bar.scrollHeight > bar.clientHeight + 1 ? along(r.top, r.bottom, b.top, b.bottom) : 0;
+  if (!left && !top) return;
+  const still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  bar.scrollBy({ left, top, behavior: still ? "auto" : "smooth" });
 }
 
 /** The tool row's phone parts (#1074). */
@@ -610,6 +643,22 @@ export function TopBar(p: TopBarProps) {
   );
   // (what is in hand pulls up its settings when it has some; a picked object's window has no rows to pull up)
   const handle = !!p.phone && (grid !== p.phone.object || !!p.phone.objectMore);
+  // Put it down (×) on a tool's sheet, as the object in hand has it: a brush, Block, a force, or Select holding
+  // something; on a phone, or to a finger (#1074). The mouse keeps the second click on the tool and X.
+  const finger = useFinger();
+  const tool = p.block && p.blockSettings ? "block" : (t ?? (p.force && p.forceRow ? p.force : null));
+  const held = tool ?? (!p.row && !p.phone?.object && p.selectRow && p.putDown?.select ? "select" : null);
+  const putDown =
+    held && p.putDown && (p.phone || finger) ? (
+      <button type="button" class="put-down" aria-label="Put it down" {...(p.forceAtWork ? why : tip("Put it down", "X", "Esc"))} disabled={p.forceAtWork} onClick={p.putDown.run}>
+        ×
+      </button>
+    ) : null;
+  // (a phone's tool row shows what is in hand, however it was picked)
+  const bar = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (p.phone && held) showHeld(bar.current);
+  }, [held, p.phone]);
   const button = (tool: BrushTool | "select" | "block" | Verb, name: string, label: string, pressed: boolean, title: ReturnType<typeof tip>, disabled: boolean | undefined, onClick: () => void) => (
     <button type="button" key={tool} class="icon-button" aria-pressed={pressed} aria-label={label} {...title} disabled={disabled} onClick={onClick}>
       <Icon tool={tool} />
@@ -638,10 +687,11 @@ export function TopBar(p: TopBarProps) {
       {grid ? (
         <div ref={sheet} class={`map-bar tool-settings${p.phone ? (p.phone.tall ? " sheet tall" : " sheet") : ""}`}>
           {p.phone && handle ? <SheetHandle tall={p.phone.tall} onTall={p.phone.onTall} /> : null}
+          {putDown}
           {grid}
         </div>
       ) : null}
-      <div class="map-bar tool-bar" role="toolbar" aria-label="Tools">
+      <div ref={bar} class="map-bar tool-bar" role="toolbar" aria-label="Tools">
         {p.onSelect ? button("select", "Select", "Select (1)", !!p.selecting, off ? why : SELECT_TIP, off, p.onSelect) : null}
         {p.phone ? (
           <button type="button" key="objects" class="icon-button objects-button" aria-pressed={p.phone.holding || p.phone.objectsOpen} aria-expanded={p.phone.objectsOpen} aria-label="Objects" {...tip(p.phone.objectsOpen ? "Close the objects" : "Place the start, water, trees and more")} onClick={p.phone.onObjects}>

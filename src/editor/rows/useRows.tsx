@@ -424,11 +424,12 @@ export function useRows(ed: Ed): RowsSlice {
           onAgain={() => void forceAgain()}
           {...roll}
           onPause={() => forcer.current?.pause(!forcer.current.status?.paused)}
+          onSkip={() => void forcer.current?.escape()}
           onRevert={() => forcer.current?.cancel()}
           drawn={forcer.current?.lastSettings.carve as ReturnType<typeof carveSettingsOf> | undefined ?? null}
         />
       );
-    if (st) return <ForceAtWork force={force} status={st} onRevert={() => forcer.current?.cancel()} />;
+    if (st) return <ForceAtWork force={force} status={st} onRevert={() => forcer.current?.cancel()} onSkip={() => void forcer.current?.escape()} />;
     const again = () => void forceAgain();
     if (tool === "craterize") return <CraterizeRow {...roll} force={force} ui={craterUi} onUi={setCraterUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.craterize as ReturnType<typeof craterSettingsOf> | undefined) ?? null} />;
     if (tool === "erupt") return <EruptRow {...roll} force={force} map={info} ui={eruptUi} onUi={setEruptUi} canAgain={canAgain} onAgain={again} drawn={(forcer.current?.lastSettings.erupt as ReturnType<typeof eruptSettingsOf> | undefined) ?? null} />;

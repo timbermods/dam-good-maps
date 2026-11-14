@@ -26,6 +26,7 @@ import { hazardDays } from "../../core/sim/weather";
 import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
 import { DropTarget } from "./DropTarget";
+import { fingerPress } from "../view/fingerPress";
 import { header } from "./header";
 import { topBar } from "./topBar";
 import { cornerButtons, FIRST_VIEW_KEY, firstViewOf, hideObjectsButton, hoverHandler, layerCaption, levelLinesButton, viewButtons } from "./viewControls";
@@ -144,6 +145,7 @@ export function editorView(ed: Ed, props: EditorProps) {
                   {blockNote.text}
                 </PointerNote>
               ) : null}
+              {fingerPress(ed)}
               {startDrag ? (
                 <StartIndicators check={startDrag.check} rules={needs.rules} />
               ) : startReach ? (

@@ -9,7 +9,6 @@ import type { PaintParams } from "../core/doc/paintParams";
 import type { RuinLineParams } from "../core/doc/ruinLine";
 import type { BlocksParams } from "../core/doc/blockTool";
 import type { RidgeSteep } from "../core/doc/ridgeLimits";
-import { decodePlaceFile, placeTimber } from "../core/places/place";
 import { replaceThumbnail } from "../core/format/timber";
 import type { MapSpec } from "../core/spec/mapspec";
 import type { Orientation } from "../core/format/footprints";
@@ -149,13 +148,7 @@ const api = {
   openProject: (bytes: Uint8Array) => sendOpen(ed.openProject(bytes)),
   newBlank: (size: number, level: number) => sendOpen(ed.newBlank(size, level)),
   /** A real place (its data file): built into its .timber, then opened as any .timber is. */
-  openPlace(data: Uint8Array) {
-    const place = decodePlaceFile(data);
-    const r = placeTimber(place);
-    // (opened under the place's own name; the file it is saved as is named after it, D345 B10)
-    // (marked as the place, so its checks follow the place's rules: D245, D331)
-    return sendOpen(ed.openTimber(r.bytes, `${place.name}.timber`, place.id));
-  },
+  openPlace: (data: Uint8Array) => sendOpen(ed.openPlace(data)),
   sessionView: () => sendOpen(ed.sessionView()),
   /** The Block tool's preview: what a click or a drag would add, take and drop (no build). */
   blockFalls: (params: BlocksParams) => ed.blockFalls(params),
@@ -253,6 +246,7 @@ const api = {
   moveStartTo: routed((x: number, y: number, orientation?: Orientation, z?: number) => sendUpdate(ed.moveStartTo(x, y, orientation, z)), (...a) => collabEditApi.moveStartTo(...a).then(sendUpdate)),
   entitiesAt: (x: number, y: number) => ed.entitiesAt(x, y),
   footprintCheck: (req: ed.ToolRequest) => ed.footprintCheck(req),
+  moveCheck: (id: string, dx: number, dy: number, z?: number) => ed.moveCheck(id, dx, dy, z),
   plantAt: routed((template: string, tiles: number[]) => sendUpdate(ed.plantAt(template, tiles)), (...a) => collabEditApi.plantAt(...a).then(sendUpdate)),
   stairAt: (from: [number, number], to: [number, number]) => ed.stairAt(from, to),
   layStair: routed((from: [number, number], to: [number, number]) => sendUpdate(ed.layStair(from, to)), (...a) => collabEditApi.layStair(...a).then(sendUpdate)),

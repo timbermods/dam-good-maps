@@ -115,7 +115,7 @@ test("a map with a cave, cut through it, draws in Standard and High with the cut
           lite = { LITE: t.defines.LITE, broken: (internals.gl.info.programs ?? []).filter((p) => p.diagnostics && !p.diagnostics.runnable).map((p) => p.name) };
         }
         const slopeSoil = (internals.high?.runSoilMaterials() ?? []).every((m) => m.defines.RUN_SOIL === 1);
-        const ivy = internals.objects.children.some((o) => /^scaffold\..*\.ivy$/.test(o.name));
+        const ivy = internals.objects.children.some((o) => /^scaffold\.ivy\.(.*\.)?dense$/.test(o.name));
         // the hollow under a brush over the roof (hollow.ts), uncut: the cave's 3 × 3 footprint, outlined all round, drawn
         // with no shader error
         const slice = r.slice;

@@ -17,9 +17,8 @@ text this document condensed (at D390) and the deferred Claude integration's des
 A studio for creating maps. Start from a generated map or a real place, shape it like a painter, and the water
 responds to everything you do. It is deliberately different from the game's own editor, which is a precision
 workshop; players can still fine-tune in the game's editor if they want. The editor was desktop-first (D185); phones and
-tablets now edit maps too, first class (#1074, amending D185): touch in the 3D view (§7, "Touch"), the phone layouts
-and the rest of the page on a phone (§3, "Phones") are built; seeing a press before it applies and the passes on real
-phones come in its later slices.
+tablets now edit maps too, first class (#1074, amending D185): touch in the 3D view (§7, "Touch"), the phone layouts,
+the rest of the page on a phone (§3, "Phones") and tablets (§3, "Tablets") are built.
 
 ## 2. The principles
 
@@ -170,7 +169,7 @@ place of its bottom rule.
   whatever its kind, and stays kept even if every edit is undone (the first time a save is stored in a browser a quiet note says so, going by itself after 8 s: "Kept in Your maps,
   in this browser", remembered in `dgm.keptNote`; never shown for a save that failed, nor while another message holds its place, Showcase's among them: the next stored save says it); camera bookmarks alone don't keep it, and an
   unedited map is never written (Cancel during a Generate brings it back from memory), except the one a found version's **Open it** replaces: its seed now makes the version, so it is kept as it stood and a quiet note says so ("The map before it is in Your maps."). The note that offers the version says only what the check measured it to add ("A version with a longer canyon is ready"; where the check measures several things, "A version that keeps its theme's promise is ready"). Kept maps are saved quietly
-  after their edits settle (`core/library/saver.ts`) and before anything replaces them: Generate, opening another map or a real place stores an edited map, and waits for the write, before it asks for the next map, a stroke still on its way to the worker when the button is pressed counting as an edit (`keepsMap`), so no edit is lost to Generate, a reload or a closed page (D455; the lag this adds to an edited map's click is the accepted price); **Your maps** in the header opens them in the generator's place (one of the two panels at a time), four to a row,
+  after their edits settle (`core/library/saver.ts`) and before anything replaces them: Generate, opening another map or a real place stores an edited map, and waits for the write, before it asks for the next map, a stroke still on its way to the worker when the button is pressed counting as an edit (`keepsMap`), so no edit is lost to Generate, a reload or a closed page (D455; the lag this adds to an edited map's click is the accepted price); the page hidden (`visibilitychange` to hidden, `pagehide`: switching apps or tabs, which on a phone may discard the page unannounced) stores it too, a stroke still on its way first (`ui/App.tsx`, `tests/e2e/hiddenSave.spec.ts`); **Your maps** in the header opens them in the generator's place (one of the two panels at a time), four to a row,
   scrolling inside the panel when there are more than it holds, each the map's whole picture in a square box (the core's 256px top-down
   thumbnail, made in a worker of its own when the page is idle, never cropped), its name and size under it, newest first, the open map marked, a click opening one (a click on the open
   map's own tile selects it, so the heading row's Rename and Delete reach it). A
@@ -178,7 +177,7 @@ place of its bottom rule.
   lines) and **Delete** (asked
   once; the open map gives way to the next one, or a new map when none is left). Several are selected as on a
   desktop (Kyler, 2026-10-05): Ctrl-click toggles one, Shift-click a range from the last clicked, neither opening a
-  map; a selected tile is tinted with a check at its corner, nothing moving. The heading row holds **Compare** (another
+  map; a selected tile is tinted with a check at its corner, nothing moving (to a finger the tint is deeper, so it reads apart from the open map's outline at a glance; the open map counts in "N selected" only when ticked). The heading row holds **Compare** (another
   version selected, the same size as the open map; below under Versions), **Rename** (one selected) and **Delete** (any), always shown,
   greyed otherwise with the reason in Compare's tooltip; Delete asks once ("Delete 7 maps?"), focus on
   Delete so Enter confirms, Esc cancels. The Delete key deletes the selected maps, or the one under the pointer, while
@@ -216,7 +215,8 @@ place of its bottom rule.
   `tests/e2e/phonePages.spec.ts`): each of the menu's panels (Map Generator, Real places, Your maps, History) is a page
   the whole screen under the bar, **Map** at its top going back to the map, the page scrolling inside itself; Map
   Generator in one column (two on its side), each setting its name and value on a line and its slider or choices the
-  whole width under them, Showcase taking the page while it is open; **Generate** the page's one green button, fixed
+  whole width under them, Showcase taking the page while it is open; on its side Name and the seed share the first row, the seed and Keep at their own width, so the theme shows
+  above Generate; **Generate** the page's one green button, fixed
   at its foot clear of the home bar with the settings scrolling above it, and **Keep** quiet beside the seed (a check in it
   while it holds, never green). **No word is cut short** at a phone's size: no ellipsis, no clipped label (the spec reads
   every page and dialog for it). History's steps are rows the page's width, each label whole, **Keep this version** and
@@ -231,7 +231,10 @@ place of its bottom rule.
   share sheet (`platform/share.ts`) where the browser can share a file and the pointer is a finger, else it downloads;
   the same bytes either way (D455). When building the file took long enough that the browser wants a fresh tap, or the
   sheet was closed unsent, a note keeps the file with **Send it**. The page's root carries the layout
-  (`<html data-phone>`, `ui/phoneRoot.ts`), so what lies outside the editor takes it too. **On its side:** the same bar; the tools
+  (`<html data-phone>`, `ui/phoneRoot.ts`), so what lies outside the editor takes it too. The room is read from the
+  layout viewport's own size (`documentElement.clientWidth`, `roomNow`), never `innerWidth`, which grows to fit
+  anything wider than the screen (a desktop bar drawn at a phone's size made it 1,047 and the page lost the phone layout
+  for a moment); the editor's loading frame takes the phone layout too, so nothing desktop-wide is drawn first. **On its side:** the same bar; the tools
   in a rail down the left edge; a tool's settings, Show and the objects in a panel at the right, at most 40 % of the
   width (320px), clear of Show's button at the bottom right; the menu in columns, the panels and Help in the first,
   all of it in view; the hints in the room's left half at rest, stepping aside while a sheet or the panel is open.
@@ -240,6 +243,19 @@ place of its bottom rule.
   areas, `viewport-fit=cover`), fields 16px so the browser never zooms on focus. A long press on a control shows its
   tooltip (D351) and is not a tap. With a tool's one-row sheet open the view keeps 66 % of the screen upright and 63 %
   on its side (the spec holds 60 %).
+- **Tablets** (#1074, slice 5; `src/styles/tablet.css`, `view/useBandLayout.ts`; `tests/e2e/layout.spec.ts` at 820×1180,
+  1180×820 and 1024×1366). A touch screen with room (a coarse pointer, not the phone layout's sizes) keeps the layout
+  above, sized for a finger: every control at least 44px, fields 16px, the same gestures (§7, "Touch"), no iOS callout
+  on a long press but in a field or a link (any coarse pointer, phones too). Gated on the pointer and the room, never a
+  device's name, so no phone rule reaches a tablet and no tablet rule a desktop with a mouse. Under 1,280 wide the tool
+  dock takes the view's whole width (its cells shrink to 44px before they overflow), the objects and the minimap stand above
+  it (above Put it down's plate too), the first steps' hints and the notes between them, and the editor is the dynamic
+  viewport's height; under 1,100 the header takes two lines, the name at the left of its first; the Show row wraps
+  and the band below it is laid in lines (Legend under the Show row, the water's row beside it or on the next line, the
+  panel under the band); while a panel is open the minimap and the stack at the bottom left step aside so the panel keeps its
+  height, and under 900 the objects too. A tool's settings keep their rows at 44px (Auto a 44px target around its small
+  pill); the Map Generator's settings stack name over value over control. Nothing is under 44px or off the screen at
+  rest, with a brush or a force in hand, the legend, the Map Generator, Your maps and the File menu open.
 - **Together** (D362, D431, D486; `docs/COLLAB-BRIEF.md`; part 6a): two players edit one map through a relay and a
   room-code function, in the page's own panel style. One quiet button in the header's right group, before **File**
   (a small people icon and "Together", the icon alone, 40px square like Undo and Redo, below about 1,400px wide; tooltip
@@ -358,7 +374,7 @@ place of its bottom rule.
     depth, River depth with Off at its far end, Banks; Craterize's Walls, Centre, Debris, Rays; Erupt's Shape, Summit,
     Flows, Ridges; Quake's Mode, Scarp and Side (V); Glaciate's Meltwater, Benches, Steps, Tarn, Scree) · the Floor ·
     Try another, always in its place, ready once a run is kept; while its rolls are on offer "2 of 4" stands in its
-    own space just above the panel over it, never on Try another's cells (§4, D488; a click shows the next). A force at work: its status, Pause (Carve) and Revert.
+    own space just above the panel over it, never on Try another's cells (§4, D488; a click shows the next). A force at work: its status, Pause (Carve), Skip and Revert.
   An object's settings are not on the bar (below).
   The first-run hints sit above it and point at Carve below and the objects on the right. Every force's row is §4's.
 - **The objects** at the bottom right, a menu always shown with no headings (the right edge on the page's 10px
@@ -632,7 +648,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   value Auto gives where the row can tell (Craterize's centre by its size, Erupt's summit by Power and the seed) or the usual one;
   a rift's walls and a fan's channels are picked in the run (`autoPicked`), every detail outlined the same way. Try another re-rolls
   only the details still on Auto; pins are remembered with the editor preferences. While a force works its row is
-  its status (Carve's with Pause) and Revert; it keeps itself when it ends (no Stop); the other tools wait.
+  its status (Carve's with Pause), Skip and Revert; it keeps itself when it ends (no Stop); the other tools wait.
 - **Fast, with a choice to watch** (D321, item 29): a force is worked out first (its gathering shows meanwhile),
   then shown. **Fast**, the default: its land is final within about two seconds of the gesture, however long or
   large the result, and the player can act again at once (an impact keeps its own, quicker pace); a glacier is shown
@@ -656,9 +672,10 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   before the force, where it still stands, holds no corner down: the tidying may not widen such a ledge by dropping
   the ridge above it). Craterize, Erupt, Rift and Deposit end with it, and Glaciate's walls; Quake adopts it next.
 - **Esc skips, undo takes it back** (D344, A4): while a gesture is still being drawn, Esc cancels it and nothing of
-  it lands; once a force plays, Esc skips it to its end, its final land kept as one step; Ctrl+Z (or Z, or Revert)
-  takes all of it back at any moment, and nothing lands afterwards (D341). The row's tooltip carries the keys (**Esc** skips,
-  **Ctrl+Z** undoes; a painted Lift still drawn: **Esc** cancels), none written in the panel.
+  it lands; once a force plays, Esc (or Skip, for a finger: #1074 slice 3) skips it to its end, its final land kept as
+  one step; Ctrl+Z (or Z, or Revert) takes all of it back at any moment, and nothing lands afterwards (D341). The row's
+  tooltips carry the keys (Skip's **Esc**, Revert's **Ctrl+Z**; a painted Lift still drawn: Revert's **Esc** cancels),
+  none written in the panel.
 - **A force changes things only when it reaches them** (item 30): objects, trees and sources go as the carve's head,
   the ice front or the lava reaches them; an impact changes everything at once; under a quake they ride the
   ground. **The land and its water change together** (D371): while a force is shown, the map's water flows on the land
@@ -1541,8 +1558,8 @@ streaks travelling down those lanes, fast water's longer and brighter, badwater'
 its switch, `?flow=on` in the address turns it on.
 
 Both follow Timberborn's references (D334): dry earth a warm brown drifting to mauve, grass a muted green meeting it
-along the tile's edge with a slight painted wobble and a thin darker rim, olive-grey stone, bright orange ruins with
-cream sacks, contamination as the game's sparse orange-red veins, falls in the water's own colour. Readability is the
+along the tile's edge with a slight painted wobble and a thin darker rim, olive-grey stone, ruins of rusted rebar
+and cracked slab, contamination as the game's sparse orange-red veins, falls in the water's own colour. Readability is the
 game's own: its look and its cues, with no lightness gap or pattern beyond them (D334 (2)).
 
 High is the default where the computer draws it smoothly: it starts in High (or where it settled last time on that
@@ -1628,7 +1645,7 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   at work, until Space again), Ctrl+Z (or Z) takes it back, and Esc skips it to its end (a painted Lift
   still drawn: Esc cancels it; D344, A4); the other keys wait, C among them. Right after Try another, **Tab** and
   **Shift+Tab** show the force's next and previous rolls (§4, D488), with the focus on the map or the bar. A river's or a fault's line is drawn
-  freehand with the mouse (D321). Slow forces is a view-bar toggle with no key.
+  freehand with the mouse or a finger (D321; a finger's below, "Touch"). Slow forces is a view-bar toggle with no key.
 - **When the window loses focus** (D361, item 5) the editor lets go of everything held: every camera key and
   Shift's speed, F's sizing (kept), and any stroke or gesture in progress ends as a released mouse button would
   end it, at the pointer's last place (`render3d/focusLost.ts`); a finger on the view is forgotten the same way.
@@ -1639,24 +1656,58 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   zooms; Shift+scroll sets Raise, Lower and Flatten's target level (D322) and Smooth and Naturalize's strength,
   Ctrl+scroll a hovered source's strength, Esc backs out (a target set by hand first). Quake has no Size. U
   unleashes a selected source (D239).
-- **Touch** (#1074, slice 1; amends D185; `render3d/touch.ts`, `tests/e2e/touch.spec.ts` at both phone sizes and a
+- **Touch** (#1074, slices 1, 3 and 3b; amends D185; `render3d/touch.ts`, `tests/e2e/touch.spec.ts` at both phone sizes and a
   desktop's). A finger is a pointer of its own type, so the mouse, the pen (its pressure) and the keys keep everything
   above. **Two fingers** move the camera in one gesture: dragged they pan, pinched they zoom about the ground under their
   middle (it stays under it, as the wheel's does), twisted they turn the view about that ground, and two fingers side by
   side dragged up or down together tilt it (in the top-down view that drag pans); let go moving, the view glides on and
   slows to a stop (none with reduced motion). **One finger with nothing in hand** (the resting Select with nothing
-  selected) pans; a **tap** reads the tile (the readout stays once the finger is gone) and is a click (a source is
-  picked as by the mouse); a **double tap** glides in to half the distance about the spot. **One finger with a brush**
-  paints, the ring under it while it is down. A press on a source or the start, an object, a force, the Block tool, a
-  shape or the shelf's object, and with a selection open, is the mouse's press for now (press, drag, lift); seeing it
-  before it applies comes in slice 3. **A second finger** down during a stroke or a press cancels it, nothing applied and
-  no step (the tool's own cancel, as Esc), and the rest of that touch is the camera's: the finger left after a pinch pans.
+  selected) pans; a **tap** reads the tile (the readout stays once the finger is gone) and is a click (an object, a
+  source or the start is picked as by the mouse); a **double tap** glides in to half the distance about the spot,
+  whatever is under it: on an object its first tap picks it and the pick stands (a gesture's meaning never depends on
+  what is under the finger, Kyler). A finger never takes what is under it as the mouse's press does. **One finger with a
+  brush** paints, the ring under it while it is down (the shelf's plants too). **One finger with something that shows
+  before it applies** (slice 3: a force, the Block tool, an object from the shelf, a shape, an object or source picked on
+  the map) is **press, drag, lift**: the press shows it a little above the finger (`FINGER_LIFT`, 64 CSS px, a small
+  ring where it aims), so the finger never hides the spot; dragging moves it (an object, Craterize's one impact), or for
+  a force drawn as a line (Carve, Erupt's fissure, Quake's fault, Glaciate, Rift, Deposit, Erode) and the Block tool
+  draws the line or the sweep from where the press aimed, the preview following (slice 3b, `FingerPress` mode line; held
+  still, the lift is their click at the aim); the lift applies it, as one operation and one step, and nothing is applied
+  before the lift (a painted Lift shows its result as it is drawn, as with the mouse; a second finger or Cancel takes it back). While
+  a finger aims a force, its ring is filled faintly: the whole reach shows even where the ring is wider than a phone's
+  view (Craterize at Size 54); Quake shows only its marker (D368 (2)). A refused one shows its reason beside the preview, never under the
+  finger, and its lift applies nothing. A tap applies nothing: it leaves the preview where it aimed. Lake, Ridge and
+  Canal draw their line above the finger from the press's aim; with a selection open (or, on a phone, Select's sheet
+  open) the finger draws the selection, and a tap there is a click; with nothing in hand, a finger held still half a
+  second (`HOLD_MS`) draws one without (slice 3b; moved sooner, it pans; lifted sooner by its own events' times, it is a
+  tap, however late a busy page ran the timer). With an object or source picked and nothing
+  else in hand, a press anywhere moves it to where the finger aims (`FingerPress`, modes aim, line, draw and move);
+  where it can't go, the core's reason shows beside it before the lift (`moveProblem`, as a placement's), its footprint
+  red, and the lift there moves nothing. **Cancel** shows at
+  the view's top while a press is on: a second finger taps it, or the finger slides onto it (it turns red) and lifts,
+  and nothing is applied. **A second finger** down during a stroke or a press cancels it, nothing applied and no step
+  (the tool's own cancel, as Esc), and the rest of that touch is the camera's: the finger left after a pinch pans. A
+  press the browser takes back (`pointercancel`, as iOS does for its own gestures) or a window that loses focus lets it
+  go the same way. **Skip** on a working force's row finishes it at once (Esc's call), for a phone. **Put it down** (×, X's
+  call, `TopBar.tsx`) is on the first row of what is in hand's sheet on a phone or to a finger, as the object in hand's
+  row has it: a brush or a shape, Block, a force, and Select holding a selection (on a phone, its sheet open); one tap
+  puts it down and one finger pans again. A phone's tool row (or rail) scrolls the tool in hand into view, lit, however
+  it was picked, so its second tap is in reach too. **The keys a finger reaches another way** (slice 3b): Tab and
+  Shift+Tab's rolls, the rolls button ("2 of 4", a tap the next, round to the first); Ctrl+A, Select's Whole map;
+  Ctrl+click's level, the Level number in Select's row (set by hand, not taken from the ground). **Known shortfall:**
+  Shift's add and Alt's take-away to a selection (a finger's selection replaces the one open) and the camera bookmarks
+  (Ctrl+Shift+1 to 9, Alt+1 to 9) have no way by finger yet; each wants a control in the phone layouts.
   **A two-finger tap is Undo, a three-finger tap Redo** (Z and C's calls; the buttons stay). The browser's own gestures
   are off over the editor: the view's canvas takes every finger (`touch-action: none`, no callout, no selection), the
   editor allows only panning a panel (`touch-action: pan-x pan-y`: no pinch or double-tap zoom of the page), iOS
   Safari's own pinch (`gesturestart`) is prevented while the view is there, no pull to refresh over the editor, and on a
-  touch screen no text selection but in a field. Measured on Chrome's touch emulation; real iOS Safari and Android
-  Chrome are checked with the phone layouts (#1074, slice 5).
+  touch screen no text selection but in a field. Measured on Chrome's touch emulation. Playwright's WebKit (the nearest
+  to iOS Safari a spec can run; #1074 slice 5, at both phone sizes) lays the phone layouts out as Chrome does, every
+  control 44px and on the screen, but for one slide: Show opened upright leaves the ground in the room's middle 3 tiles
+  off it (Chrome keeps it under 1.5); the specs' long presses and touches are sent through Chrome's own protocol, so
+  they run in Chrome only, and on the specs' server, which sends the isolation headers itself, WebKit refuses the
+  editor's workers on a reload (served as GitHub Pages serves the site, without them, a kept map reopens with its
+  edits).
 - Ctrl+Shift+1 to 9 saves a camera bookmark (position, angle, zoom), and Alt+1 to 9 glides back to it (Shift and a
   number pick a force); bookmarks
   are saved with the project. Every tool is reachable by keyboard, with labels for screen readers. (D180, D184,
@@ -1694,7 +1745,8 @@ them, ROADMAP "The 20-second tour"):
   Timberborn (with a link to the README's "Install a map"), the pointer controls and where to report a problem. To a
   finger (a coarse pointer, #1074) it speaks touch first: the gestures lead (tap, drag, pinch, a two-finger turn, the
   double tap as slice 3 makes it, two- and three-finger taps for Undo and Redo, a long press), every step says tap; on a
-  phone nothing names a mouse or a key, and a tablet keeps the mouse and Keyboard shortcuts after the gestures.
+  phone nothing names a mouse or a key, and a tablet keeps the mouse and Keyboard shortcuts after the gestures. It reads
+  which once, when it opens, from the page's layout and the pointer (`helpPanels.tsx`).
 - **Report a problem** opens https://github.com/timbermods/dam-good-maps/issues/new/choose in a new tab (the issue
   chooser; `REPORT_URL` in `src/editor/help/helpPanels.tsx`). There is no form and no rating (D145).
 
