@@ -1524,7 +1524,7 @@ lobe's apex to −ω′ at the next, as a cosine of the way along the lobe with 
 the curve turns through each crossing more than twice as fast, toward arcs joined end to end. As the plain cosine its
 heading hardly changes about a crossing, and the leg between two bends lay 17 rows straight, three wide, wherever it
 ran 3° to 17° past the grid's rows or columns (a course at 12° to 32° or 58° to 78°): a straight reach by the reach
-rule on every draw. A wavelength is 8 to 10 times the brook's width; ω is 1.3 to 1.42 rad (under π ÷ 2, so
+rule on most draws. A wavelength is 8 to 10 times the brook's width; ω is 1.3 to 1.42 rad (under π ÷ 2, so
 no curve can touch itself); each lobe's length is unlike the last's by 13 % or more. Where its bed drops a level it
 steps aside, 0.8 to 1.3 widths over four tiles, left and right by turns; on a steep reach, two drops closer than 0.6
 of half a wavelength, it does not swing at all. Where a lobe would leave its room (the valley's floor, clear of its

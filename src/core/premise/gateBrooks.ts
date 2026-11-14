@@ -202,7 +202,7 @@ export function courseReach(course: readonly Point[], half = 2): { tiles: number
  *  and `round` of its third harmonic (the curve turns through each crossing more than twice as fast, toward arcs
  *  joined end to end: as the plain cosine, its heading hardly changes about a crossing, and the leg between two bends
  *  lay 17 rows straight three wide wherever it ran 3° to 17° past the grid's rows or columns, a course at 12° to 32°
- *  or 58° to 78°: a straight reach by the reach rule, on every draw).
+ *  or 58° to 78°: a straight reach by the reach rule, on most draws).
  *  A lobe runs half a wavelength along the axis, the wavelength `wave` times the brook's width; ω is `swing` radians
  *  (1.3 at the least on flat ground; under π ÷ 2 a curve cannot touch itself); each lobe's length is unlike the last's by
  *  `alike` or more. It leaves its head along its course, `lead` tiles straight out of its tarn (bent beside it, its bed a
