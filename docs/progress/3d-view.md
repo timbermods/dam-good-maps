@@ -4072,8 +4072,52 @@ row's luma less its 3-pixel mean. `.scratch` measures, not kept.
   Every term is the game's (P4, P5, P11 to P15 above), so no change is made: the gaps change sign from curtain to
   curtain, and none follows one term. What is left to read is how the game lights the face's pixels at these two
   views (its sun's direction there against ours among them).
-- **Falls short:** (1) to (3) stand, unexplained. A frame of the game's falls in motion would settle (4) beyond its
-  formula.
+- **Falls short:** (1) to (3): their gloss followed, what stands of them in "The falls' sheen" below. A frame of the
+  game's falls in motion would settle (4) beyond its formula.
+
+### The falls' sheen (Q9 P8; D154, D496; `fix/falls-pour-3`)
+
+(1) to (3) above, read again from how the game lights the face. The same frames, regions and measures; the game's
+L* here are read over our regions, so they differ from the list above by up to 1.
+
+- **The sun and the day's light are ours.** The game's sun is Euler(45, the camera's yaw + 40) (its `SunXAngle` and
+  the yaw the capture kit poses), full day at hour 4.03 (the sunrise's turn ends by hour 2, the turn to sunset starts
+  at 15); `sunOfYaw` gives the same at both cameras. The land beside the curtains agrees: the cave's pillar 25.1
+  against the game's 25.6, the grass alike. The probe played Medium with High-quality water, so the waterfall mask is
+  whole on the faces (the falls' section above).
+- **What drives a curtain's L* is its gloss.** Seen near level, the face's light is URP's environment term, (f0 +
+  (s + 0.04 − f0)(1 − N·V)⁴) / (1 + r²), and the smoothness s moves it most. Held at one gloss, in Standard at 12.5 s:
+  - s 0.15: the left curtain (`cave`) 27.3 / 22.7 / 20.5, streaks 1.42; the right (`falls`) 32.7 / 29.0 / 27.4; the
+    cave mouth's streaks 0.75; the middle's 2.85.
+  - s 0.44: the left curtain 37.9 / 31.1 / 25.7, streaks 1.84; the right 40.9 / 35.3 / 30.7; the cave mouth's
+    streaks 1.45; the middle's 2.96.
+  - The game's: the left 39.9 / 33.5 / 26.0, streaks 2.05; the right 29.0 / 25.5 / 23.8; the cave mouth's streaks
+    0.61; the middle's 4.29.
+- **The cause found: our gloss drifted about 40 times slower than the game's, and spread too narrow.** The game
+  samples `WaterMetalAndGloss` twice at xz × 0.01, panned by T × (−0.008, −0.002) and (0.01, 0.004) in its texture's
+  units, so its patches (about a tile across) drift 0.8 and 1.1 tiles a second and the gloss at a point keeps half its
+  likeness 1.1 s. Ours took the speeds as tiles. Its smoothness, read from the texture soft-lit with itself over 10
+  minutes at the curtains, has mean 0.263, spread 0.088, 0.149 / 0.248 / 0.432 at its 5th, 50th and 95th
+  percentiles (1st 0.12–0.14, 99th 0.51–0.54); ours ran straight from 0.10 to 0.40. Now ours drifts at the game's
+  speeds (`WATER_SURFACE.glossPan`, `waterGloss`) and is curved to the game's spread (`smoothnessSpread` 0.566,
+  `smoothnessCurve` 0.68, `waterSmoothness`): mean 0.264, spread 0.088, 0.149 / 0.248 / 0.433. A curtain's sheen now
+  comes and goes in seconds, as the game's does: over 12 clocks in Standard (L* of the middle third, least / median /
+  most, dev then branch):
+  - `falls` middle: 30.0 / 30.7 / 32.2, then 30.2 / 32.5 / 35.9 (the game's 32.4, at its median);
+  - `falls` right: 33.8 / 34.3 / 36.3, then 32.5 / 34.2 / 38.3 (the game's 29.0);
+  - `cave` left: 26.8 / 29.0 / 34.3, then 26.7 / 30.9 / 36.0 (the game's 39.9);
+  - `cave` mouth: 31.5 / 34.0 / 35.3, then 31.7 / 36.2 / 45.6 (the game's 32.8, a third of the way up).
+  The streaks' median is unchanged; High reads within 0.3 L* of Standard.
+- **Cost:** none measured. benchOrbit at the `falls` camera, the GPU's median a frame, two runs each: Standard 4.24 /
+  4.03 ms on dev, 4.32 / 4.10 on the branch; High 4.98 / 4.92, then 4.95 / 4.85.
+- **Falls short:** (1) The left curtain's game frame needs s ≈ 0.495 at that spot, a gloss the game's own texture
+  reaches there about 2 % of the time: the capture caught a bright moment, which ours now reaches too, just as seldom.
+  Since `_NonlinearTime` counts from the scene's load, the game's T at the capture can't be read, so the same moment
+  can't be posed. (2) The right curtain reads 3.5 L* over the game's even at the game's dullest gloss (s 0.15:
+  32.7 against 29.0). Its cliffs read 2–2.5 light too, and so does every south-facing cliff in the `falls` frame
+  (+2.0 to +2.5; its pools within ±2), so about 2 of it is the cliffs' own residual ("The land's tone" above); the
+  last 1–1.5 is unexplained. (3) The middle curtain's streaks reach 0.69 of the game's at best (2.96 against 4.29),
+  whatever the gloss; the gloss is not their cause, and what is has not been found.
 
 ## The rest of the step (next parts)
 

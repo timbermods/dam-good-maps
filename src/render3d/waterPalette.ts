@@ -137,8 +137,8 @@ export const WATER_SURFACE = {
    *  texture's units, which its tiling 0.01 spreads over 100 tiles, so its patches drift 0.8 and 1.1 tiles a second
    *  and the gloss at a point turns over in about a second (half its likeness gone in 1.1 s). A curtain's sheen
    *  comes and goes with it: a fall's face, seen near level, lightens and darkens by about 10 L* in a few seconds
-   *  (docs/progress/3d-view.md, "The falls' sheen"). Until 2026-11-14 ours took the speeds as tiles, a fiftieth of the
-   *  game's drift. */
+   *  (docs/progress/3d-view.md, "The falls' sheen"). Until 2026-11-14 ours took the speeds as tiles, about a fortieth
+   *  of the game's drift. */
   glossPan: [
     [0.8, 0.2],
     [-1.0, -0.4],
