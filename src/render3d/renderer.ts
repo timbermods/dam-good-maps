@@ -4684,8 +4684,9 @@ export class MapRenderer {
       if (finger && this.touches.move(ev)) return;
       if (finger && this.press?.id === ev.pointerId) {
         this.pressLast = ev;
-        this.press.move({ x: ev.clientX, y: ev.clientY });
-        return;
+        this.press.move({ x: ev.clientX, y: ev.clientY }, ev.timeStamp);
+        // (a held press that was no hold by its events' times now pans: this move is the pan's first, `host.pan`)
+        if (this.press || this.drag?.id !== ev.pointerId) return;
       }
       const d = this.drag;
       if (d && d.id === ev.pointerId) {
@@ -4956,6 +4957,11 @@ export class MapRenderer {
         }
         // (an aim's or a line's tap applies nothing: its preview stays where it would go)
         if (showsAtOnce(mode)) this.keepAim = true;
+      },
+      pan: () => {
+        // (the pan the hold took over, from the press: the move that ended the hold moves the map the whole way from there)
+        if (this.press?.id === ev.pointerId) this.press = null;
+        this.drag = { kind: "pan", x: ev.clientX, y: ev.clientY, id: ev.pointerId, moved: 0, button: 0, touch: ev };
       },
       overCancel: (p) => !!document.elementFromPoint(p.x, p.y)?.closest("[data-press-cancel]"),
       mark: (p, over) => {
