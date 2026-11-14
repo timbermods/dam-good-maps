@@ -253,10 +253,15 @@ export class Forest {
     for (const e of this.entries) {
       const depth = -(c[2] * e.x + c[6] * e.y + c[10] * e.z + c[14]);
       const perUnit = (pixels * 0.5 * proj[5]) / (ortho ? 1 : Math.max(0.1, depth));
-      const cx = c[0] * e.x + c[4] * e.y + c[8] * e.z + c[12];
-      const cy = c[1] * e.x + c[5] * e.y + c[9] * e.z + c[13];
-      const w = ortho ? 1 : depth;
-      const onScreen = w > 0 && Math.abs(cx * proj[0]) < w * 1.25 && Math.abs(cy * proj[5]) < w * 1.25;
+      // (on screen by its root or its top: a tall tree whose foot is below the frame still shows close up, its crown in
+      // the view)
+      const seen = (y: number) => {
+        const d = ortho ? 1 : -(c[2] * e.x + c[6] * y + c[10] * e.z + c[14]);
+        const cx = c[0] * e.x + c[4] * y + c[8] * e.z + c[12];
+        const cy = c[1] * e.x + c[5] * y + c[9] * e.z + c[13];
+        return d > 0 && Math.abs(cx * proj[0]) < d * 1.25 && Math.abs(cy * proj[5]) < d * 1.25;
+      };
+      const onScreen = seen(e.y) || seen(e.y + e.wind[3]);
       const near = detail && onScreen && perUnit > (e.near ? 18 : 23);
       if (near !== e.near) changed = true;
       e.near = near;
