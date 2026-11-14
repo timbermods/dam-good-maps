@@ -26,15 +26,18 @@ import * as ed from "../../src/worker/session";
 const W = 96;
 const N = W * W;
 
-/** The map (River Valley seed 3; `caves`: seed 9 at verticality 70, with water under the rock), and its river's tile nearest
- *  the middle. (The caves map is seed 9 since generator 0.10.22, the settings keeping their promises, D148: Verticality away
+/** The map (River Valley seed 3; `caves`: seed 2 at verticality 70, with water under the rock), and its river's tile nearest
+ *  the middle. (The caves map is seed 2 since generator 0.10.23's round forms (the look round: no mesa, cone or knoll is a
+ *  circle, and the weathering reaches in a disc), D148: seed 9's map at 70 keeps its stacked water, but its crater draws no
+ *  cave water now; of seeds 1–12 at 70 all but 7 and 12 have stacked water, seed 1's map has none once the editor builds it,
+ *  and seed 2 is the first that passes here. The caves map was seed 9 since generator 0.10.22, the settings keeping their promises, D148: Verticality away
  *  from the theme's own leans the grade, and seed 2's map at 70 has no stacked water now; of seeds 1–12 at 70 seeds 1, 6, 9, 11
  *  and 12 have it; seed 1's glaciate leaves a jump in its water and seed 6's crater draws no cave water; seed 9 is the first that passes here. The caves map was seed 2 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 1's glaciate leaves a jump in the water under its rock; of seeds 2–12 seeds 2, 6, 7, 9, 10 and 12 pass, seed 2 the first. Seed 3 for 4242 since generator 0.10.17's start floors (D515), D148: seed 4242's map has caves now, and the
  *  first dry spot beside its river, (32, 54), is a roof, where the game keeps no source; of seeds 1–12, seeds 3, 5–10 and 12
  *  have no caves and a spot that takes one, seed 3's at (66, 54).) */
 async function open(caves = false): Promise<{ river: [number, number]; ground: Uint8Array }> {
   ed.forceCancel();
-  const spec = makeSpec({ seed: caves ? 9 : 3, theme: "riverValley", size: { x: W, y: W } });
+  const spec = makeSpec({ seed: caves ? 2 : 3, theme: "riverValley", size: { x: W, y: W } });
   if (caves) spec.settings.terrain.verticality = 70;
   await runGenerate(spec);
   ed.refine();
