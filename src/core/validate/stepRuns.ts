@@ -13,6 +13,14 @@
 //   on the map.
 // - A run is maximal: it is counted once, at its full length; a flight wider than one line is a run on each line.
 //
+// Stair edges (the same round, 2026-11-14: Highlands 1's long diagonal stair, Canyon 3's square staircases): a level's
+// edge that runs at 45° in even one-tile steps reads as drawn with a ruler as a straight one does. Exactly:
+//
+// - Along a diagonal, `STAIR_EDGE` or more consecutive tiles of one level v, and beside each, one tile along the row
+//   (the same way for all), a tile of one other level u: the two diagonal lines of tiles meet in a zigzag edge of unit
+//   steps, as long as the run. Any drop counts (a cliff's zigzag reads the same); every tile is dry and on the map.
+// - Counted once an edge, from its lower side (v < u), at its full length.
+//
 // Integers throughout. The generator's tests read it (tests/contract/stepRuns.test.ts).
 
 /** A run counts from this many tiles (planning: five or more). */
@@ -112,3 +120,49 @@ export function stepRuns(h: ArrayLike<number>, wet: ArrayLike<number> | null, W:
   runs.sort((a, b) => b.length - a.length || a.y - b.y || a.x - b.x || a.dy - b.dy || a.dx - b.dx);
   return { count: runs.length, longest: runs.length ? runs[0].length : 0, runs };
 }
+
+/** A stair edge counts from this many tiles along the diagonal (about 8.5 tiles long, as a straight edge over 8 sides
+ *  is cut, D518). */
+export const STAIR_EDGE = 6;
+
+export interface StairEdge {
+  /** Tiles along the diagonal on its lower side. */
+  length: number;
+  /** The lower side's first tile, the way along the diagonal, and the drop up to the higher side. */
+  x: number;
+  y: number;
+  dx: number;
+  dy: number;
+  rise: number;
+}
+
+/** Stair edges of a map (see the file's header), longest first. */
+export function stairEdges(h: ArrayLike<number>, wet: ArrayLike<number> | null, W: number, H: number, min = STAIR_EDGE): { count: number; longest: number; edges: StairEdge[] } {
+  const edges: StairEdge[] = [];
+  const lv = (x: number, y: number): number => {
+    if (x < 0 || y < 0 || x >= W || y >= H) return -1;
+    const i = y * W + x;
+    return wet && wet[i] ? -1 : h[i];
+  };
+  for (const [dx, dy] of DIAGONALS)
+    for (let y0 = 0; y0 < H; y0++)
+      for (let x0 = 0; x0 < W; x0++) {
+        const v = lv(x0, y0);
+        const u = lv(x0 + dx, y0);
+        if (v < 0 || u <= v) continue;
+        // (only from the edge's first tile)
+        if (lv(x0 - dx, y0 - dy) === v && lv(x0, y0 - dy) === u) continue;
+        let n = 0;
+        while (lv(x0 + n * dx, y0 + n * dy) === v && lv(x0 + (n + 1) * dx, y0 + n * dy) === u) n++;
+        if (n >= min) edges.push({ length: n, x: x0, y: y0, dx, dy, rise: u - v });
+      }
+  edges.sort((a, b) => b.length - a.length || a.y - b.y || a.x - b.x || a.dy - b.dy || a.dx - b.dx);
+  return { count: edges.length, longest: edges.length ? edges[0].length : 0, edges };
+}
+
+const DIAGONALS: readonly (readonly [number, number])[] = [
+  [1, 1],
+  [1, -1],
+  [-1, 1],
+  [-1, -1],
+];
