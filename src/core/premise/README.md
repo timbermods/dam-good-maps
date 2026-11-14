@@ -72,8 +72,11 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   (`Link.halves`, `BROOK`, `STEPS`), the lake at the valley's low end (one broad body, its width varying, a bay or two, coves along its shore by turns,
   `LAKE_WANDER`), the Still
   Pool and its inlet off the plunge pool; the playa past the range; the leat along the crest and the Pass Bed; the basin's pan and the beds' outlet;
-  the Low River through its spur; the southern brooks, 2 or 3 wide by turns, wandering, kinked out of their tarns and
-  kept `BROOK_APART` from each other), its numbers in `GatePlan.gate` (`gateOf`) and its `plan` invariants.
+  the Low River through its spur; the southern brooks, 3 or 4 wide by turns, each a way the land finds (`gateBrooks.ts`
+  `brookWay`) with a channel meandering about it (`meander`: a wavelength 8 to 10 widths, a swing of 1.3 rad or more,
+  a step aside at each level its bed drops), square out of its tarn, kept `BROOK_APART` from the others or joining one
+  (`BROOK_JOIN`: two springs to a bed, meeting at one level)), its numbers in `GatePlan.gate` (`gateOf`) and its `plan`
+  invariants.
   `gateRange.ts` reads the range along u (`rangeAt`, `sideOf`, `spineLocal`). Not offered: `premises/dev.ts`
   `DEV_PREMISES` lists it for the tools and tests; joining `spec/mapspec.ts` `PREMISE_IDS` offers it. No playability
   floor of its own: the shared gate holds the start.
@@ -158,7 +161,9 @@ the presets split; a pair refused in one line; the style changes the land past t
 day 1's water; every panel setting's role and the greyed list); `tests/contract/premisePlan.test.ts` (quick: the frame's arithmetic, eligibility, 18 plans, variety,
 a broken plan for every `plan` invariant, the Four Lakes fixture `tests/fixtures/four-lakes.plan.json`);
 `premiseGatePlan.test.ts` (quick: the wall with one gate kept out of the choices, its eligibility, seeds 1 to 24 a size,
-variety, a broken plan for every `plan` invariant);
+variety, a broken plan for every `plan` invariant); `gateBrooks.test.ts` (quick: the brooks' meander: its swing and
+wavelength, no curve touching itself, the straight head, the steps aside on a steep reach, the room, one of six draws
+with no straight reach at any angle);
 `premiseGateWorks.test.ts` (quick: the works invariants on two plans, the rungs and their gains, the card, a broken
 case for each); `premiseGateLand.test.ts` (quick: on six seeds a plan the mode keeps holds every land invariant, a
 broken ground for each) and

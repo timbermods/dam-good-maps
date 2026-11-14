@@ -7,12 +7,12 @@
 
 import type { MapSpec } from "../spec/mapspec";
 import { rulesFor } from "../validate/playability";
-import { ruledLand, wetOf } from "../validate/ruledLand";
+import { ruledLand, waterReaches, wetOf } from "../validate/ruledLand";
 import { checkFrame, type FrameCheck } from "./frame";
 import { gateLand, gateLandFailures } from "./gateLand";
 import { gateWater } from "./gateWater";
 import { failing, PLAN_TRIES } from "./draw";
-import { gateOf } from "./premises/wallGate";
+import { gateOf, onLocal, sideOf, turnOf } from "./premises/wallGate";
 import { gateCard, gateDamWords, megadamHolds, gateLadder, gateWorksFailures, type GateCard } from "./gateWorks";
 import type { Ladder } from "./ladder";
 import { premiseMap, type PremiseLand, type PremiseMap } from "./map";
@@ -40,9 +40,10 @@ export interface GateMap {
 }
 
 /** The start's numbers planning asks every map report to open with (#236, 6800513400; D515's `START_FLOORS`: the bench,
- *  walkable land, wood, the fast wood's share, the forester's plot, farmland), from the map's checks:
- *  each check's value, its limit and whether it passed. */
-export const START_CHECKS = ["start.level_land", "start.reach", "start.wood", "start.wood_fast", "start.forester", "start.farmland"] as const;
+ *  walkable land, wood, the fast wood's share, the forester's plot, farmland; and the wood's floor, the walk to clean
+ *  water and the berries, as the brooks' round's report asks), from the map's checks: each check's value, its limit
+ *  and whether it passed. */
+export const START_CHECKS = ["start.level_land", "start.reach", "start.wood", "start.wood_fast", "start.wood_floor", "start.water", "start.food", "start.forester", "start.farmland"] as const;
 
 export function startNumbers(m: PremiseMap): Record<(typeof START_CHECKS)[number], { value: number; limit: number; ok: boolean }> {
   const out = {} as Record<(typeof START_CHECKS)[number], { value: number; limit: number; ok: boolean }>;
@@ -51,6 +52,46 @@ export function startNumbers(m: PremiseMap): Record<(typeof START_CHECKS)[number
     out[id] = { value: c?.value ?? NaN, limit: c?.limit ?? NaN, ok: !!c?.ok };
   }
   return out;
+}
+
+/** How much of the valley lies by its water (planning's ruling on the brooks: reported with every sheet, so a valley
+ *  the brooks water from end to end is seen): of the dry ground on the valley's side of the range's foot, the share
+ *  within `VALLEY_BY_WATER` tiles of settled water; and the same of its floor alone, the ground no higher than the
+ *  start's bench. */
+export const VALLEY_BY_WATER = 3;
+
+export function valleyByWater(plan: PremisePlan, built: { W: number; H: number; heights: ArrayLike<number>; settle: { depth: ArrayLike<number> } }): { valley: number; floor: number; floorTiles: number } {
+  const g = gateOf(plan)!;
+  const T = turnOf(plan, g);
+  const { W, H } = built;
+  const wet = wetOf(built.settle.depth);
+  const by = new Uint8Array(W * H);
+  const R = VALLEY_BY_WATER;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      if (!wet[y * W + x]) continue;
+      for (let dy = -R; dy <= R; dy++)
+        for (let dx = -R; dx <= R; dx++) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (dx * dx + dy * dy <= R * R && xx >= 0 && yy >= 0 && xx < W && yy < H) by[yy * W + xx] = 1;
+        }
+    }
+  const bench = plan.frame.start.z;
+  const n = [0, 0, 0, 0];
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const [u, v] = onLocal(T, [x + 0.5, y + 0.5]);
+      if (wet[i] || sideOf(g.range, u, v) !== 0) continue;
+      n[0]++;
+      n[1] += by[i];
+      if (built.heights[i] <= bench) {
+        n[2]++;
+        n[3] += by[i];
+      }
+    }
+  return { valley: n[0] ? n[1] / n[0] : 0, floor: n[2] ? n[3] / n[2] : 0, floorTiles: n[2] };
 }
 
 /** How many settles a gate map may cost before it gives up (the mode's `PREMISE_SETTLES`). */
@@ -88,6 +129,29 @@ const GATE_WET_MOST = 0;
 /** The longest straight even reach of water a Gate map may hold, tiles (planning's ruling of the wander round). */
 export const GATE_REACH = 40;
 
+/** Of a channel that runs off the map, stage 1's water counts this many tiles past its head (the Low River's lip). */
+const OFF_LIP = 6;
+
+/** Stage 1's water as tiles: the bodies that hold water and the wet channels between them. A channel that runs off the
+ *  map (the Low River, the bypass) counts its first `OFF_LIP` tiles only, its lip at the lake's end: past it the plan
+ *  lays a gorge five wide and straight, 60 to 86 tiles of it at 192² and 256², and the settled map shows no such reach
+ *  there. */
+export function planWet(plan: PremisePlan, water: StageWater): Uint8Array {
+  const r = water.raster;
+  const wet = new Uint8Array(r.W * r.H);
+  const off = new Set(plan.exits.map((e) => e.id));
+  for (let i = 0; i < wet.length; i++) {
+    if (r.lake[i]) wet[i] = water.table.bodies[plan.bodies[r.lake[i] - 1].id]?.dry ? 0 : 1;
+    else if (r.channel[i]) {
+      const link = plan.links[r.channel[i] - 1];
+      const lf = water.table.links[link.id];
+      // (a dry bed a wet link joins is wet from the join down)
+      wet[i] = lf?.wet && r.along[i] >= (lf.wetFrom ?? -Infinity) && (r.along[i] <= OFF_LIP || !off.has(link.to)) ? 1 : 0;
+    }
+  }
+  return wet;
+}
+
 export function gateMap(spec: MapSpec, theme: StyleTheme = "riverValley"): (GateMap & { failed: string[]; held: boolean }) | { reason: string } {
   const why = wallGate.eligible(spec);
   if (why) return { reason: why };
@@ -110,6 +174,14 @@ export function gateMap(spec: MapSpec, theme: StyleTheme = "riverValley"): (Gate
     const wf = failing(wallGate.invariants, "land", { spec, plan, water });
     if (wf.length) {
       failed.push(`${wf[0].id}: ${wf[0].reason}`);
+      continue;
+    }
+    // (no straight even reach on the plan's own water either, the channels that run off the map past their lips left out: the settled
+    // map's lie where stage 1's do (the lake's end before the Low River's lip, as wide as the lip; a trunk five wide),
+    // so a plan refused here costs no land and no settle. The settled map is read again below)
+    const laid = waterReaches(planWet(plan, water), plan.W, plan.H).worst;
+    if (laid && laid.tiles > GATE_REACH) {
+      failed.push(`water.straight: a straight even reach of ${laid.tiles} tiles of the plan's water at ${laid.x}, ${laid.y} (${GATE_REACH} at most)`);
       continue;
     }
     const style = premiseStyle(theme, spec, attempt);

@@ -8,7 +8,7 @@ import { generate } from "../../src/core/gen/generate";
 import { generatePremise } from "../../src/core/premise/generate";
 import { gateMap } from "../../src/core/premise/gateMap";
 import { makeSpec } from "../../src/core/spec/mapspec";
-import { RULED_LIMITS, ruledLand, ruledLandMessage, wetOf } from "../../src/core/validate/ruledLand";
+import { RULED_LIMITS, ruledLand, ruledLandMessage, ruledReach, wetOf } from "../../src/core/validate/ruledLand";
 import { splitmix32 } from "../../src/core/math/rng";
 
 /** A heightfield of smoothed value noise, quantised to levels: land with no ruler in it. */
@@ -98,6 +98,47 @@ describe("ruled land", () => {
       const r = ruledLand(flat, wet, W, W);
       expect(r.ok).toBe(r.straight <= RULED_LIMITS.straight && r.bands <= RULED_LIMITS.bands && r.corners <= RULED_LIMITS.corners);
     }
+  });
+
+  it("the reach rule: narrow water is ruled past five times its width, never under 12 rows; water 5 wide and more at 12 rows", () => {
+    // (planning's ruling of 2026-11-13: a meander's crossing between two bends is 3 to 4 widths, so the unit is the width)
+    const W = 64;
+    const flat = new Uint8Array(W * W).fill(4);
+    // a straight brook `wide` tiles wide and `rows` rows long, along the grid
+    const brook = (wide: number, rows: number) => {
+      const wet = new Uint8Array(W * W);
+      for (let y = 10; y < 10 + rows; y++) for (let x = 20; x < 20 + wide; x++) wet[y * W + x] = 1;
+      return ruledLand(flat, wet, W, W).channel;
+    };
+    for (const [wide, most] of [[2, 11], [3, 15], [4, 20], [5, 11], [8, 11]] as const) {
+      expect(brook(wide, most), `${wide} wide, ${most} rows`).toBeNull();
+      expect(brook(wide, most + 1)?.tiles, `${wide} wide, ${most + 1} rows`).toBe(wide * (most + 1));
+    }
+    // (the same reach read down the columns: 4 wide and 21 long along x)
+    const across = new Uint8Array(W * W);
+    for (let x = 10; x < 31; x++) for (let y = 20; y < 24; y++) across[y * W + x] = 1;
+    expect(ruledLand(flat, across, W, W).channel?.tiles).toBe(84);
+    // at 45° a row's slice is √2 wider than the water and a row √2 longer: slices 5 wide are water 3.5 wide, ruled
+    // past 17.7 tiles of length, 13 rows (12 rows are 17 tiles: let through)
+    const diagonal = (rows: number) => {
+      const wet = new Uint8Array(W * W);
+      for (let y = 10; y < 10 + rows; y++) for (let x = y; x < y + 5; x++) wet[y * W + x] = 1;
+      return ruledLand(flat, wet, W, W).channel;
+    };
+    expect(diagonal(12)).toBeNull();
+    expect(diagonal(13)?.tiles).toBe(65);
+    // a brook 3 and 4 wide by turns is read by its mean width: 16 rows of 3.5 are let through, 18 are ruled
+    const mixed = (rows: number) => {
+      const wet = new Uint8Array(W * W);
+      for (let y = 10; y < 10 + rows; y++) for (let x = 20; x < 23 + (((y - 10) >> 1) & 1); x++) wet[y * W + x] = 1;
+      return ruledLand(flat, wet, W, W).channel;
+    };
+    expect(mixed(16)).toBeNull();
+    expect(mixed(18)).not.toBeNull();
+    expect(ruledReach(15, 45, false)).toBe(false);
+    expect(ruledReach(16, 48, false)).toBe(true);
+    expect(ruledReach(12, 60, false)).toBe(true);
+    expect(ruledReach(11, 55, false)).toBe(false);
   });
 
   it("the Gate's seeds 1 to 3 pass at 128²", () => {

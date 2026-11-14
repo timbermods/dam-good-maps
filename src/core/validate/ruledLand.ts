@@ -16,11 +16,17 @@
 // - channels: the share of the map's water lying in straight reaches of even width (a trench, a canal, a moat's side).
 //   In each row (and each column) a run of wet tiles bounded by dry ground is a slice; a slice continues the slice in
 //   the row before whose two ends are each within one tile of its own, so a chain follows one body of water. Along a
-//   chain, a reach is a run of `CHANNEL_RUN`+ rows whose width varies by at most `CHANNEL_WIDTH` tiles and whose
-//   centre line keeps to one straight line (along the grid or at 45°) within one tile. A river of even width that
-//   winds passes: its centre line turns within fewer rows (planning on #236, 2026-11-12: what reads as ruled is even
-//   width and straight reaches meeting at sharp bends). The water is all settled water: the settle holds a river as
-//   level pools and a generated map's settle keeps no flow, so a river is told by its shape, not its flow.
+//   chain, a reach is a run of rows whose width varies by at most `CHANNEL_WIDTH` tiles and whose centre line keeps to
+//   one straight line (along the grid or at 45°) within one tile, `CHANNEL_RUN`+ rows long; and, where the water is
+//   under `REACH_NARROW` tiles wide, longer than `REACH_WIDTHS` times its width (planning's ruling of 2026-11-13: 3
+//   wide, over 15 rows; 4 wide, over 20). The unit is the water's width because a meander's crossing between two
+//   bends is 3 to 4 widths long: counted in tiles, a wider brook was called ruled for the rows a narrower one may run,
+//   and a run past 5 widths with no bend is a canal. The width is the reach's mean across its line and the length
+//   along it (at 45° a row's slice is √2 wider than the water and a row √2 longer). Water `REACH_NARROW` wide and
+//   more, and lakes, are read as before: `CHANNEL_RUN` rows. A river of even width that winds passes: its centre line
+//   turns within fewer rows (planning on #236, 2026-11-12: what reads as ruled is even width and straight reaches
+//   meeting at sharp bends). The water is all settled water: the settle holds a river as level pools and a generated
+//   map's settle keeps no flow, so a river is told by its shape, not its flow.
 // Game-forced straightness does not count: sides within `EDGE_MARGIN` tiles of the map's edge and parallel to it, and
 // slices touching the edge, are left out. Integers throughout but the three shares (one division each).
 
@@ -36,6 +42,21 @@ export const CORNER_ARM = 6;
 export const CHANNEL_RUN = 12;
 /** Channels: a reach's widths lie within this many tiles of each other. */
 export const CHANNEL_WIDTH = 2;
+/** Channels: water under this many tiles wide (its mean width over the reach) is ruled only past `REACH_WIDTHS` times
+ *  its width; this wide and more, at `CHANNEL_RUN` rows. */
+export const REACH_NARROW = 5;
+/** Channels: a narrow reach is ruled when it is longer than this many times its width. */
+export const REACH_WIDTHS = 5;
+
+/** Whether `n` chained straight rows holding `tiles` wet tiles are a ruled reach (the reach rule above): `diagonal` for
+ *  a centre line at 45°, where a row's slice is √2 times the water's width and each row √2 tiles of its length.
+ *  Integers only: along the grid the width is tiles ÷ n and the length n; at 45° the width is tiles ÷ (n √2) and the
+ *  length n √2. */
+export function ruledReach(n: number, tiles: number, diagonal: boolean): boolean {
+  if (n < CHANNEL_RUN) return false;
+  if (diagonal) return tiles * tiles < 2 * REACH_NARROW * REACH_NARROW * n * n ? 2 * n * n > REACH_WIDTHS * tiles : true;
+  return tiles < REACH_NARROW * n ? n * n > REACH_WIDTHS * tiles : true;
+}
 /** Sides this close to the map's edge and parallel to it are the game's, not the land's. */
 export const EDGE_MARGIN = 2;
 
@@ -154,7 +175,7 @@ export function ruledLand(h: ArrayLike<number>, wet: ArrayLike<number>, W: numbe
   const straight = edges ? straightSides / edges : 0;
   const bandShare = bandTiles / (W * H);
   const perK = edges ? (corners * 1000) / edges : 0;
-  const ch = channels(wet, W, H);
+  const ch = waterReaches(wet, W, H);
   return { edges, straight, bands: bandShare, corners: perK, longest, channels: ch.share, channel: ch.worst, ok: straight <= limits.straight && bandShare <= limits.bands && perK <= limits.corners };
 }
 
@@ -222,8 +243,9 @@ function sweep(cls: Int16Array, cols: number, rows: number, mark: Uint8Array, rs
   }
 }
 
-/** The share of the water in channels, counted along rows and along columns, each tile once; and the largest. */
-function channels(wet: ArrayLike<number>, W: number, H: number): { share: number; worst: { tiles: number; x: number; y: number } | null } {
+/** The share of the water in channels, counted along rows and along columns, each tile once; the largest; and the
+ *  channels' tiles (`mark`: 1 on a tile of a straight even reach), for the tools' pictures. */
+export function waterReaches(wet: ArrayLike<number>, W: number, H: number): { share: number; worst: { tiles: number; x: number; y: number } | null; mark: Uint8Array } {
   const N = W * H;
   const mark = new Uint8Array(N);
   let worst: { tiles: number; x: number; y: number } | null = null;
@@ -237,7 +259,7 @@ function channels(wet: ArrayLike<number>, W: number, H: number): { share: number
     if (wet[i]) water++;
     inChannels += mark[i];
   }
-  return { share: water ? inChannels / water : 0, worst };
+  return { share: water ? inChannels / water : 0, worst, mark };
 }
 
 /** One direction of the channels: marks the tiles of straight reaches of even width; returns the largest reach's
@@ -285,6 +307,8 @@ function channelSweep(wet: ArrayLike<number>, cols: number, rows: number, rs: nu
   const chainI: number[] = [];
   const centre: number[] = [];
   const width: number[] = [];
+  const upTo: number[] = [];
+  const rowDone: number[] = [];
   for (let r = rows - 1; r >= 0; r--) {
     const s = slices[r];
     for (let i = 0; i < s.length; i += 2) {
@@ -299,18 +323,24 @@ function channelSweep(wet: ArrayLike<number>, cols: number, rows: number, rs: nu
       }
       const n = chainR.length;
       if (n < CHANNEL_RUN) continue;
+      // (the chain's rows already marked, whatever the slope)
+      rowDone.length = 0;
+      for (let t = 0; t < n; t++) rowDone.push(0);
       // each slope (centre moving -1, 0 or +1 tile a row), a window that keeps the centre (doubled, less the slope's
-      // drift) within 2 and the widths within CHANNEL_WIDTH; every window of CHANNEL_RUN+ rows is a straight reach
+      // drift) within 2 and the widths within CHANNEL_WIDTH; within it, the longest run of rows ending at each row
+      // that the reach rule calls ruled (`ruledReach`) is a straight reach
       for (let k = -1; k <= 1; k++) {
         centre.length = 0;
         width.length = 0;
+        upTo.length = 0;
+        upTo.push(0);
         for (let t = 0; t < n; t++) {
           const sl = slices[chainR[t]];
           centre.push(2 * sl[chainI[t]] + sl[chainI[t] + 1] - 2 * k * chainR[t]);
           width.push(sl[chainI[t] + 1]);
+          upTo.push(upTo[t] + sl[chainI[t] + 1]);
         }
         let lo = 0;
-        let marked = -1;
         for (let hi = 0; hi < n; hi++) {
           for (;;) {
             let c0 = centre[hi];
@@ -326,21 +356,34 @@ function channelSweep(wet: ArrayLike<number>, cols: number, rows: number, rs: nu
             if (c1 - c0 <= 2 && w1 - w0 <= CHANNEL_WIDTH) break;
             lo++;
           }
-          if (hi - lo + 1 < CHANNEL_RUN) continue;
-          let tiles = 0;
-          let sr = 0;
-          let sc = 0;
-          for (let t = lo; t <= hi; t++) {
+          let from = -1;
+          for (let t = lo; hi - t + 1 >= CHANNEL_RUN; t++) {
+            if (ruledReach(hi - t + 1, upTo[hi + 1] - upTo[t], k !== 0)) {
+              from = t;
+              break;
+            }
+          }
+          if (from < 0) continue;
+          for (let t = from; t <= hi; t++) {
+            if (rowDone[t]) continue;
+            rowDone[t] = 1;
             const sl = slices[chainR[t]];
             const st = sl[chainI[t]];
-            const wd = sl[chainI[t] + 1];
-            tiles += wd;
-            sr += chainR[t] * wd;
-            sc += st * wd + ((wd * (wd - 1)) >> 1);
-            if (t > marked) for (let c = st; c < st + wd; c++) mark[chainR[t] * rs + c * cs] = 1;
+            for (let c = st; c < st + sl[chainI[t] + 1]; c++) mark[chainR[t] * rs + c * cs] = 1;
           }
-          marked = hi;
-          if (tiles > best.tiles) best = { tiles, row: Math.round(sr / tiles), col: Math.round(sc / tiles) };
+          const tiles = upTo[hi + 1] - upTo[from];
+          if (tiles > best.tiles) {
+            let sr = 0;
+            let sc = 0;
+            for (let t = from; t <= hi; t++) {
+              const sl = slices[chainR[t]];
+              const st = sl[chainI[t]];
+              const wd = sl[chainI[t] + 1];
+              sr += chainR[t] * wd;
+              sc += st * wd + ((wd * (wd - 1)) >> 1);
+            }
+            best = { tiles, row: Math.round(sr / tiles), col: Math.round(sc / tiles) };
+          }
         }
       }
     }

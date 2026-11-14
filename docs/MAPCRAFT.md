@@ -138,7 +138,8 @@ a premise or one still to come, may carry its own, lower playability floor.
 - **Reach**: every region walkable by natural ways or by a crossing the land plainly asks for.
 - **Nothing ruled**: `terrain.ruled_land` (PLAN §11.2) measures land and water drawn with a ruler: edges and shores in
   straight runs, strips of even width, square corners, water in straight reaches of even width (a river of even width
-  that winds is natural; even width in straight reaches meeting at sharp bends is not). Limits 17 % / 3 % / 3, channels reported with no limit,
+  that winds is natural; even width in straight reaches meeting at sharp bends is not; water under 5 wide is a reach
+  only past five times its width, a meander's crossing being 3 to 4 widths: the reach rule, PLAN §11.2). Limits 17 % / 3 % / 3, channels reported with no limit,
   the straight edges' aim 8 % (the built-in maps' median). Measured (`tools/ruled-land.ts`; straight % / bands % /
   corners per 1,000 edges / channels %):
 
@@ -155,6 +156,9 @@ a premise or one still to come, may carry its own, lower playability floor.
   | Four Lakes plan, 192² | 9.8 | 1.0 | 2.8 | 2.3 |
   | The Gate as laid, 128² seeds 1, 2 | 38.4, 34.4 | 7.6, 4.1 | 9.0, 4.6 | 57.6, 45.1 |
 
+  The channels column was measured before the reach rule (2026-11-13), every run of 12 rows a reach whatever its width;
+  by the rule the lake stair's mean on seeds 1 to 12 went from 4.7 to 4.4 % at 128², 3.5 to 2.9 % at 192² and 3.7 to
+  3.3 % at 256², 15 straight links of 12 to 20 rows newly let through and none newly called ruled.
   Channels has no limit: the game's own rivers lie in straight reaches of even width as much as the laid Gate's
   trenches do, so the number tells what a map's water is like and is never failed on. Every theme map passes. The
   lake stair failed on its corners alone (rectangular plates of one level, 6 to 15 tiles, half of them on the outlands'

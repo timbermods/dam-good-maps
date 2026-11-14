@@ -165,6 +165,13 @@ describe("Broken wall-with-one-gate plans fail their invariants", () => {
       const b = plan.links.find((l) => l.id === "brook1")!;
       b.halves = b.path!.map((_, k) => (k < 2 ? 1.4 : k % 2 ? 2 : 2.5));
     }],
+    ["valley.water", "a brook joining another a level and more under the other's bed there", (plan) => {
+      // (a brook of its own, neither a tributary nor a trunk, its last reach at the lake's sill, marked as ending on
+      // another 12 tiles down that one's course: a confluence meets at one level, two springs to a bed)
+      const brooks = plan.links.filter((l) => /^brook\d/.test(l.id));
+      const single = brooks.find((l) => !l.joins && !brooks.some((k) => k.joins?.link === l.id))!;
+      single.joins = { link: brooks.find((l) => l !== single)!.id, at: 12 };
+    }],
     ["valley.water", "the plunge pool's brook two wide", (plan) => {
       const out = plan.links.find((l) => l.id === "outflow")!;
       out.halves = out.path!.map((_, k) => (k % 2 ? 1 : 1.5));
