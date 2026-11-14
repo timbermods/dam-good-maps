@@ -1,7 +1,9 @@
 // The objects' patterns (D496, D497; D135: our own art, drawn in code, no game texture): one small texture array the
 // object program samples where a model's part carries a pattern (materials.ts `objectMaterial`, a vertex's `lod` less
 // its view, entities3d.ts `Model.card`), each layer one material's picture at its measured figures, drawn once a page
-// in the textures' worker (no three.js here) into the page's texture (materials.ts `objectAtlasTexture`).
+// in the textures' worker (no three.js here) into the page's texture (materials.ts `objectAtlasTexture`). A texel is
+// the part's albedo over its colour, a third of it (`PATTERN_GAIN`): each layer averages to the part's colour, so the
+// light look, which samples nothing, draws each part in its mean.
 //
 // Layer 1, the ruins' ivy, as the game's `Ivy_Wet` and `Ivy_Dry` draw it (one atlas, EnvironmentURP5, cut at alpha
 // 0.312): cards of hanging trails of five-lobed leaves about 0.16 m across, and cards of light brown stems climbing from
@@ -12,16 +14,33 @@
 // side: the upper half four strips of trails 0.5 m wide and 1 m long (`IVY_TRAILS`: three running on from storey to
 // storey, one hanging from a column's top), the lower half a root of stems (`IVY_ROOT`) and stems that run on
 // (`IVY_RUN`, tiling up and down), each 1 m square.
+//
+// Layers 2 to 4, the district center's (DistrictCenter.Folktails, EnvironmentURP5, uncut; numbers read from its
+// textures with tools/game-model-albedo.py over the UVs its model gives them), each tiling every way:
+// - the thatch (`ThatchedRoof`, 2.49 m of roof a unit of UV, v up the slope): four courses a unit, each a row of pale
+//   blades pointing up the roof under a dark row of cut stalk ends speckled light; its texels' lightness from 0.56 to
+//   1.38 times its mean (the 5th to the 95th percentile), the dark rows 0.58 of it and redder (0.411, 0.272, 0.120),
+//   the blades' tips 1.31 and paler (0.748, 0.649, 0.407), each blade about 0.036 m across;
+// - the dark planks (`IrregularPlanks_Brown`, the walls and the tower, 1.61 m a unit, v across the boards): eight
+//   boards a unit, 0.2 m each, laid along u, wavering; a fifth of it their light edges (0.348, 0.294, 0.201), three
+//   quarters their dark grained body (0.173, 0.121, 0.084), the rest the grey dark between them (0.095, 0.084, 0.075);
+// - the pale wood (`BaseWood_LightBrown`, the posts, frames, floor and railings, and the brown of the platform, which
+//   draws the same picture darker: 1.45 m a unit): boards 0.09 m wide along v, near white between them (0.83 of
+//   white), their body (0.617, 0.569, 0.504) streaked with darker grain (0.52, 0.47, 0.41), a fifth of it each.
 
 import { RUIN } from "./palette";
 
 /** A layer's side in texels. */
 export const PATTERN_SIZE = 256;
 /** The layers, by the number a model's part gives (0 none). */
-export const PATTERN = { ivy: 1 } as const;
-export const PATTERN_LAYERS = 1;
-/** Where a pattern's alpha cuts the part away: the game's ivy's `_Cutoff`. */
+export const PATTERN = { ivy: 1, thatch: 2, planks: 3, wood: 4 } as const;
+export const PATTERN_LAYERS = 4;
+/** Where a pattern's alpha cuts the part away: the game's ivy's `_Cutoff` (the other layers are never cut). */
 export const PATTERN_CUT = 0.312;
+/** A texel is the part's albedo over its colour divided by this. */
+export const PATTERN_GAIN = 3;
+/** Metres of a part a unit of each tiling layer's UV, as the game's model maps its textures. */
+export const PATTERN_TILE = { thatch: 2.49, planks: 1.61, wood: 1.45 } as const;
 
 /** The ivy's texels a metre. */
 const IVY_PX = 128;
@@ -372,16 +391,180 @@ function drawIvy(): Canvas {
   return cv;
 }
 
+/** A tiling layer being drawn: its colour at each texel, wrapping every way. */
+class Tile {
+  rgb = new Float32Array(S * S * 3);
+  /** Lay (r, g, b) over texel (x, y) (wrapped) with coverage `a`. */
+  set(x: number, y: number, r: number, g: number, b: number, a = 1): void {
+    const k = ((y & (S - 1)) * S + (x & (S - 1))) * 3;
+    const keep = 1 - a;
+    this.rgb[k] = r * a + this.rgb[k] * keep;
+    this.rgb[k + 1] = g * a + this.rgb[k + 1] * keep;
+    this.rgb[k + 2] = b * a + this.rgb[k + 2] * keep;
+  }
+  /** Each channel over the layer's mean of it: the texels as the part's albedo over its colour. */
+  relative(): Float32Array {
+    const mean = [0, 0, 0];
+    for (let k = 0; k < S * S; k++) for (let c = 0; c < 3; c++) mean[c] += this.rgb[k * 3 + c] / (S * S);
+    const out = new Float32Array(S * S * 3);
+    for (let k = 0; k < S * S; k++) for (let c = 0; c < 3; c++) out[k * 3 + c] = this.rgb[k * 3 + c] / mean[c];
+    return out;
+  }
+}
+
+/** The thatch's layer: four courses, each pale blades pointing up the roof into a dark row of cut stalk ends speckled
+ *  light (a quarter of the course), the next course's blades rising from under it. */
+function drawThatch(): Tile {
+  const tl = new Tile();
+  const DARK = [0.36, 0.23, 0.095];
+  const MID = [0.6, 0.465, 0.24];
+  const TIP = [0.71, 0.62, 0.41];
+  const COURSE = S / 4;
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      const k = 0.8 + 0.4 * hash(x, y, 20);
+      tl.set(x, y, DARK[0] * k, DARK[1] * k, DARK[2] * k);
+    }
+  for (let c = 0; c < 4; c++) {
+    const y0 = c * COURSE;
+    // two tiers of blades, the taller behind: each a point from its foot up to its tip, darker at its foot, paler at
+    // its tip
+    for (const [tier, top, count] of [
+      [0, 0.74, 140],
+      [1, 0.5, 120],
+    ] as const)
+      for (let b = 0; b < count; b++) {
+        const seed = c * 1000 + tier * 500 + b;
+        const cx = ((b + hash(seed, 1, 21)) / count) * S;
+        const foot = y0 - 0.06 * COURSE + 0.06 * COURSE * hash(seed, 2, 21);
+        const tip = y0 + (top - 0.12 + 0.24 * hash(seed, 3, 21)) * COURSE;
+        const half = 1.3 + 1.1 * hash(seed, 4, 21);
+        const tone = 0.9 + 0.2 * hash(seed, 5, 21);
+        const lean = (hash(seed, 6, 21) - 0.5) * 3;
+        for (let y = Math.floor(foot); y <= Math.ceil(tip); y++) {
+          const t = (y - foot) / (tip - foot);
+          if (t < 0 || t > 1) continue;
+          const w = half * Math.min(1, (1 - t) * 3);
+          const mx = cx + lean * t;
+          // (from the dark at its foot to the blade's colour, then to the tip's)
+          const f = 0.5 + 0.5 * Math.min(1, t * 2.5);
+          const g = Math.min(1, Math.max(0, t - 0.35) * 1.5);
+          const r0 = (DARK[0] + (MID[0] - DARK[0]) * f) * (1 - g) + TIP[0] * g;
+          const g0 = (DARK[1] + (MID[1] - DARK[1]) * f) * (1 - g) + TIP[1] * g;
+          const b0 = (DARK[2] + (MID[2] - DARK[2]) * f) * (1 - g) + TIP[2] * g;
+          for (let x = Math.floor(mx - w - 1); x <= Math.ceil(mx + w + 1); x++) {
+            const d = Math.abs(x + 0.5 - mx);
+            const a = Math.min(1, Math.max(0, w + 0.5 - d));
+            if (a <= 0) continue;
+            const sh = tone * (0.92 + 0.12 * (1 - d / Math.max(w, 0.5)));
+            tl.set(x, y, r0 * sh, g0 * sh, b0 * sh, a);
+          }
+        }
+      }
+    // the cut stalk ends in the dark row
+    for (let d = 0; d < 150; d++) {
+      const seed = c * 1000 + 900 + d;
+      const cx = hash(seed, 1, 22) * S;
+      const cy = y0 + (0.74 + 0.24 * hash(seed, 2, 22)) * COURSE;
+      const r = 0.8 + 0.7 * hash(seed, 3, 22);
+      const g = 0.4 + 0.6 * hash(seed, 4, 22);
+      for (let y = Math.floor(cy - r - 1); y <= Math.ceil(cy + r + 1); y++)
+        for (let x = Math.floor(cx - r - 1); x <= Math.ceil(cx + r + 1); x++) {
+          const a = Math.min(1, Math.max(0, r + 0.5 - Math.hypot(x + 0.5 - cx, y + 0.5 - cy)));
+          if (a > 0) tl.set(x, y, MID[0] + (TIP[0] - MID[0]) * g, MID[1] + (TIP[1] - MID[1]) * g, MID[2] + (TIP[2] - MID[2]) * g, a);
+        }
+    }
+  }
+  return tl;
+}
+
+/** The dark planks' layer: eight boards along u over the dark between them, wavering, light edged, grained along their
+ *  length, running on without an end (a wall's boards span it, as the game's do). */
+function drawPlanks(): Tile {
+  const tl = new Tile();
+  const GAP = [0.095, 0.084, 0.075];
+  const BODY = [0.173, 0.121, 0.084];
+  const EDGE = [0.348, 0.294, 0.201];
+  const BOARD = S / 8;
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      const k = 0.85 + 0.3 * hash(x >> 1, y, 33);
+      tl.set(x, y, GAP[0] * k, GAP[1] * k, GAP[2] * k);
+    }
+  for (let b = 0; b < 8; b++) {
+    const ph = hash(b, 1, 30) * 6.28;
+    const ph2 = hash(b, 2, 30) * 6.28;
+    // (each board a little lighter or darker than the next)
+    const tone = 0.86 + 0.28 * hash(b, 3, 30);
+    for (let x = 0; x < S; x++) {
+      const s = (x / S) * 2 * Math.PI;
+      // (whole waves a unit: it tiles)
+      const mid = b * BOARD + BOARD / 2 + 2 * Math.sin(s * 2 + ph) + 0.7 * Math.sin(s * 5 + ph2);
+      const half = 14.2 + 0.8 * Math.sin(s * 3 + ph2);
+      const edge = 3.0 + 0.9 * Math.sin(s * 7 + ph) + 0.5 * hash(x, b, 31);
+      for (let y = Math.floor(mid - half); y <= Math.ceil(mid + half); y++) {
+        const d = Math.abs(y + 0.5 - mid);
+        const a = Math.min(1, Math.max(0, half + 0.5 - d));
+        if (a <= 0) continue;
+        if (d > half - edge) {
+          const k = 0.92 + 0.16 * hash(x >> 2, y, 34);
+          tl.set(x, y, EDGE[0] * k, EDGE[1] * k, EDGE[2] * k, a);
+        } else {
+          // (the grain: streaks along the board, lighter and darker by where across it)
+          const k = tone * (0.82 + 0.3 * hash(Math.floor((y + 0.5 - mid) * 1.6 + 40), b, 32) + 0.08 * Math.sin(s * 9 + y * 0.7 + ph));
+          tl.set(x, y, BODY[0] * k, BODY[1] * k, BODY[2] * k, a);
+        }
+      }
+    }
+  }
+  return tl;
+}
+
+/** The pale wood's layer: sixteen boards along v, near white between them, grained darker and lighter along their
+ *  length. */
+function drawWood(): Tile {
+  const tl = new Tile();
+  const LINE = [0.83, 0.81, 0.8];
+  const BODY = [0.617, 0.569, 0.504];
+  const GRAIN = [0.52, 0.47, 0.41];
+  const LIGHT = [0.72, 0.68, 0.62];
+  const BOARD = S / 16;
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      const b = Math.floor(x / BOARD);
+      const across = (x % BOARD) + 0.5;
+      const t = (y / S) * 2 * Math.PI;
+      // (grain streaks, a few to a board, wavering, whole waves a unit)
+      const w = across + 1.2 * Math.sin(t * 2 + b * 1.7) + 0.6 * Math.sin(t * 5 + b * 0.9);
+      const h = hash(Math.floor(w / 2.6) + 7, b, 40);
+      const col = across < 1.5 ? LINE : h < 0.3 ? GRAIN : h > 0.82 ? LIGHT : BODY;
+      const k = 0.95 + 0.1 * hash(x, y >> 2, 41);
+      tl.set(x, y, col[0] * k, col[1] * k, col[2] * k);
+    }
+  return tl;
+}
+
 let made: Uint8Array | null = null;
 /** Every layer's texels, RGBA, layer by layer (made once). */
 export function patternTexels(): Uint8Array {
   if (made) return made;
   const out = new Uint8Array(S * S * 4 * PATTERN_LAYERS);
+  const byte = (v: number) => Math.round(Math.min(1, Math.max(0, v / PATTERN_GAIN)) * 255);
+  // the ivy over its leaves' colour (its cards' colour, entities3d.ts `drape`), cut by its alpha
   const ivy = drawIvy();
   for (let k = 0; k < S * S; k++) {
-    for (let c = 0; c < 3; c++) out[k * 4 + c] = Math.round(Math.min(1, ivy.rgb[k * 3 + c]) * 255);
+    for (let c = 0; c < 3; c++) out[k * 4 + c] = byte(ivy.rgb[k * 3 + c] / IVY_LEAF[c]);
     out[k * 4 + 3] = Math.round(Math.min(1, ivy.a[k]) * 255);
   }
+  // the tiling layers, never cut
+  [drawThatch, drawPlanks, drawWood].forEach((draw, l) => {
+    const rel = draw().relative();
+    const o = (l + 1) * S * S * 4;
+    for (let k = 0; k < S * S; k++) {
+      for (let c = 0; c < 3; c++) out[o + k * 4 + c] = byte(rel[k * 3 + c]);
+      out[o + k * 4 + 3] = 255;
+    }
+  });
   return (made = out);
 }
 

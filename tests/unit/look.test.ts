@@ -6,9 +6,11 @@
 import { describe, expect, it } from "vitest";
 import { storedSoil } from "../../src/core/format/world";
 import { describeTile, entitiesByTile } from "../../src/editor/features";
-import { buildEntities, modelKeyOf, modelTriangles } from "../../src/render3d/entities3d";
+import { buildEntities, modelKeyOf, modelOf, modelTriangles } from "../../src/render3d/entities3d";
+import { PATTERN, PATTERN_GAIN, PATTERN_SIZE, PATTERN_TILE, patternTexels } from "../../src/render3d/objectPatterns";
 import { casterLevelsOf, decodeTop, DEFAULT_SUN, encodeTop, litFraction, objectCasters, PLANT_WIDEST, shadowMap, shadowTops, SHADOW_RES, soilNibbles, tileData, waterByte, withCasterLevels } from "../../src/render3d/light";
 import { DEAD, entityView, soilView, surfaceWater, waterFromDepth, YOUNG } from "../../src/render3d/model";
+import { START, type Rgb } from "../../src/render3d/palette";
 import { cliffTint, objectTop, contaminationByte, contaminationVein, cssColor, DEAD_TREE, GROUND, groundColor, groundKind, legendEntries, LIGHT, moistureByte, sunlitTop, WALL, wallColor, waterBody } from "../../src/render3d/palette";
 import { HIGH_WATER } from "../../src/render3d/waterPalette";
 import { cleanWaterShown } from "./waterShown";
@@ -374,6 +376,56 @@ describe("the models", () => {
     // 135 (PineMature; D496, 2026-11-14: its cost measured in docs/progress/3d-view.md, "The pine's boughs")
     for (const k of ["Birch", "Oak", "BlueberryBush", "Pine.dead", "Birch.dead", "Oak.dead"]) expect(modelTriangles(k)).toBeLessThanOrEqual(64);
     expect(modelTriangles("Pine")).toBeLessThanOrEqual(135);
+  });
+
+  it("draws the start's thatch and wood with the game's pictures at the game's scale, each averaging to its part's colour", () => {
+    // (DistrictCenter.Folktails, D496: its roof and the lantern's hood in the thatch's picture, its walls and tower in
+    // the dark planks', the pale wood and the platform's brown in the pale wood's; the door, windows, emblems, bowl and
+    // crown in their colours alone)
+    const m = modelOf("start");
+    const want = new Map<string, number>([
+      [cssColor(START.thatch), PATTERN.thatch],
+      [cssColor(START.thatch.map((v) => v * 1.03) as unknown as Rgb), PATTERN.thatch],
+      [cssColor(START.planks), PATTERN.planks],
+      [cssColor(START.wood), PATTERN.wood],
+      [cssColor(START.brown), PATTERN.wood],
+    ]);
+    const tile = new Map<number, number>([
+      [PATTERN.thatch, PATTERN_TILE.thatch],
+      [PATTERN.planks, PATTERN_TILE.planks],
+      [PATTERN.wood, PATTERN_TILE.wood],
+    ]);
+    const seen = new Set<number>();
+    for (let t = 0; t < m.pos.length / 9; t++) {
+      const c = cssColor(m.col.slice(t * 9, t * 9 + 3) as unknown as Rgb);
+      const pat = m.pat![t * 3];
+      // (the pale wood's ribs are its colour a little shaded)
+      if (!want.has(c) && pat === PATTERN.wood) continue;
+      expect(pat, c).toBe(want.get(c) ?? 0);
+      if (!pat) continue;
+      seen.add(pat);
+      // a metre of the part is the game's share of the picture: its UV as far apart as its corners over the tile
+      const p = [0, 1, 2].map((k) => m.pos.slice((t * 3 + k) * 3, (t * 3 + k) * 3 + 3));
+      const uv = [0, 1, 2].map((k) => m.uv!.slice((t * 3 + k) * 2, (t * 3 + k) * 2 + 2));
+      const area = (a: number[][], k: number) => {
+        const e1 = a[1].map((v, i) => v - a[0][i]);
+        const e2 = a[2].map((v, i) => v - a[0][i]);
+        return k === 3 ? Math.hypot(e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]) : Math.abs(e1[0] * e2[1] - e1[1] * e2[0]);
+      };
+      if (area(p, 3) < 1e-3) continue;
+      // (the roof's square corners and the tower's slope stretch it some)
+      expect(Math.sqrt(area(p, 3) / area(uv, 2)) / tile.get(pat)!, c).toBeGreaterThan(0.6);
+      expect(Math.sqrt(area(p, 3) / area(uv, 2)) / tile.get(pat)!, c).toBeLessThan(1.6);
+    }
+    expect([...seen].sort()).toEqual([PATTERN.thatch, PATTERN.planks, PATTERN.wood].sort());
+    // each tiling layer's mean is its part's colour (and so the light look's, which draws the colour alone)
+    const tx = patternTexels();
+    for (const layer of [PATTERN.thatch, PATTERN.planks, PATTERN.wood]) {
+      const mean = [0, 0, 0];
+      const n = PATTERN_SIZE * PATTERN_SIZE;
+      for (let k = 0; k < n; k++) for (let c = 0; c < 3; c++) mean[c] += (tx[((layer - 1) * n + k) * 4 + c] / 255) * PATTERN_GAIN / n;
+      for (const v of mean) expect(v, `${layer}`).toBeCloseTo(1, 2);
+    }
   });
 
   it("builds living and dead trees apart: a dead tree has no green crown", () => {
