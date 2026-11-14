@@ -62,6 +62,7 @@ import { cutBasins, cutBed, floor0Sheet, realMask } from "./lib/placeBasins";
 import { decodeTiles as decodeGaps } from "../src/core/places/place";
 import { keepNearest, settlePlants, startWood, startWoodSpecies } from "./lib/placePlants";
 import { flaggedSources, mendSources } from "./lib/placeSources";
+import { searchFeeds } from "./lib/placeFeeds";
 import { DEAD_TREES_KEEP_LOGS, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../src/core/data/logFloor";
 import { startWalkField } from "../src/core/resources/baseline";
 import { writeTimber } from "../src/core/format/timber";
@@ -457,6 +458,34 @@ const hashString = (s: string) => {
   return h >>> 0;
 };
 
+/** The places whose springs are searched under the game's rules (D(new)), planning's first six; `--feeds all` searches
+ *  every place's (a trial). */
+const FEED_SEARCH = ["near-ngorongoro", "near-phong-nha", "near-geirangerfjord", "near-tagliamento-river", "near-english-lake-district", "near-torres-del-paine"];
+const feedAll = arg("feeds") === "all";
+
+/** The place with its springs searched (tools/lib/placeFeeds.ts), and its log note. */
+function feedsFor(libraryId: string, place: PlaceData): { place: PlaceData; note: string } {
+  const real = realOf(libraryId, place.W, place.H);
+  const base = buildChecked(place);
+  const baseFlow = flaggedSources(place).flagged.length;
+  const conflicts: string[] = [];
+  const keep = (p: PlaceData) => {
+    const r = buildChecked(p);
+    const worse = r.strictFails.filter((id) => !base.strictFails.includes(id));
+    const filmed = films(r.built.settle.depth, r.built.model.floor, p.W, p.H).some((f) => f.floor0 * 2 <= f.tiles.length);
+    const flow = flaggedSources(p).flagged.length > baseFlow;
+    if (!filmed && (flow || worse.length === 1) && worse.every((id) => id === "water.source_in_flow")) conflicts.push(p.sources.map((s) => `${s[0]},${s[1]}:${s[2].toFixed(2)}`).join(" "));
+    return !worse.length && !filmed && !flow;
+  };
+  const r = searchFeeds(place, real, (p) => buildPlace(p, settles).settle.depth, keep);
+  const fmt = (ss: readonly [number, number, number][]) => `${ss.length} (${ss.map((s) => s[2].toFixed(2)).join(" ")})`;
+  const note =
+    `  springs searched: real water ${r.before.real} → ${r.after.real}, real dry land ${r.before.dry} → ${r.after.dry}; sources ${fmt(place.sources)} → ${fmt(r.place.sources)}` +
+    (r.steps.length ? ` [${r.steps.map((s) => `${s.from[0]},${s.from[1]}:${s.from[2].toFixed(2)} → ${s.to ? `${s.to[0]},${s.to[1]}:${s.to[2].toFixed(2)}` : "gone"}`).join("; ")}]` : "") +
+    (conflicts.length ? ` (${conflicts.length} better by the measure but for a source in another's flow)` : "");
+  return { place: r.place, note };
+}
+
 /** The water checks every offered place passes, and its floor-0 sheet: one log line. */
 function waterVerdict(libraryId: string, b: ReturnType<typeof buildPlace>): { line: string; failed: boolean } {
   const { W, H } = b.model;
@@ -529,6 +558,15 @@ function runPlace(item: LibraryItem): Outcome | null {
   const mend = mendSources(place);
   place = mend.place;
   const mendNote = mend.merges.length || mend.left.length ? `  sources: ${mend.merges.length} merged${mend.left.length ? `, ${mend.left.length} left in a flow (${mend.left.map((l) => `${l.at.join(",")} ${l.why}`).join("; ")})` : ""}` : "";
+  // The springs searched under the game's rules (D(new), tools/lib/placeFeeds.ts): by D271's measure, the settled water
+  // over the real water as high as it goes and over real dry land as low as it goes, by where each spring stands and how
+  // strong it is; kept only where no check the place passed then fails and no film above floor 0 stands
+  let feedNote = "";
+  if (feedAll || FEED_SEARCH.includes(place.id)) {
+    const f = feedsFor(item.id, place);
+    place = f.place;
+    feedNote = f.note;
+  }
   let { built, v, strict, blocking, strictFails } = buildChecked(place);
   // A start the opened rivers flood, or that reaches no water a source feeds, moves (D245: the best
   // spot its own land offers; moving it toward water is fine): the spots that stay dry and have a shore
@@ -795,6 +833,7 @@ function runPlace(item: LibraryItem): Outcome | null {
       (moved ? `  start moved from ${moved.join(",")} to ${place.start.join(",")}${movedWood}` : "") +
       basin.note +
       mendNote +
+      feedNote +
       (spring ? `  spring by the start at ${spring.map((s) => `${s[0]},${s[1]}`).join(" ")}` : "") +
       (planted ? `  ${planted} berry bushes planted by the start` : "") +
       plants +
