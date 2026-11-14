@@ -54,6 +54,7 @@ import {
   type PlaceIndexEntry,
 } from "../src/core/places/place";
 import { encodeHeights, encodeTiles } from "./lib/placeData";
+import { BODY, compareWater, settleFile, startFails } from "./lib/placeWater";
 import { keepNearest, settlePlants, startWood, startWoodSpecies } from "./lib/placePlants";
 import { mendSources } from "./lib/placeSources";
 import { DEAD_TREES_KEEP_LOGS, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../src/core/data/logFloor";
@@ -365,6 +366,16 @@ function growFastWood(p: PlaceData, r: Checked, walk: ArrayLike<number>, bar: { 
 // ------------------------------------------------------------------------------------------ run
 
 const check = process.argv.includes("--check");
+/** `--water`: each place's line of tools/lib/placeWater.ts's measure (its water as built against its water model
+ *  settled again by the game's rules, as the first edit settles it), a withheld place's too. Information only. */
+const waterMeasure = process.argv.includes("--water");
+function waterLine(b: ReturnType<typeof buildPlace>): string {
+  const s = settleFile(b.file);
+  const c = compareWater(b.settle.depth, s.water.depth, b.model.W, b.model.H);
+  const before = startFails(b.file, b.model, b.settle);
+  const after = startFails(b.file, s.model, s.water);
+  return `   water: wet ${c.wetOpened} → ${c.wetSettled} (${(c.change * 100).toFixed(1)} %), ${c.lost.length} of ${c.bodies} bodies of ${BODY}+ lost${c.lost.length ? ` (${c.lost.map((l) => `${l.size}→${l.wet}`).join(", ")})` : ""}, start ${before.join(",") || "-"} → ${after.join(",") || "-"}`;
+}
 const only = arg("only")?.split(",") ?? null;
 const library = JSON.parse(readFileSync(join(LIBRARY, "index.json"), "utf8")) as { items: LibraryItem[] };
 const items = library.items.filter((it) => it.family !== "random");
@@ -402,6 +413,7 @@ function runPlace(item: LibraryItem): Outcome | null {
   if (WITHHELD_UNTIL[place.id]) {
     withheld.push(place.name);
     say(`WITHHELD ${place.W}² ${place.name}: ${WITHHELD_UNTIL[place.id]}`);
+    if (waterMeasure) say(waterLine(buildPlace(mendSources(place).place)));
     return out;
   }
   const t = performance.now();
@@ -654,6 +666,7 @@ function runPlace(item: LibraryItem): Outcome | null {
     faults: [...faults],
   });
   if (placeFileName(place) !== namedFile(place.name)) throw new Error(`${place.name}: file name ${placeFileName(place)}`);
+  if (waterMeasure) say(waterLine(built));
   return out;
 }
 
