@@ -1,6 +1,6 @@
 // Touch in the 3D view (#1074, slice 1; render3d/touch.ts): real touch events, sent through Chrome's input pipeline
 // (CDP `Input.dispatchTouchEvent`), at a phone's two sizes (three device pixels to a CSS pixel, the page shrunk to fit
-// as a phone shows it) and on a desktop with a touch screen. One finger with nothing in hand pans the map with it; a
+// as a phone shows it), a tablet's three (slice 6) and on a desktop with a touch screen. One finger with nothing in hand pans the map with it; a
 // tap reads the tile; a double tap zooms in on the spot; two fingers pinch about the ground under them (it stays under
 // them), twist the view with them and, side by side, tilt it; one finger with a brush paints, the ring under it; a
 // second finger during the stroke cancels it, nothing applied and no step; a two-finger tap undoes, a three-finger tap
@@ -26,6 +26,10 @@ interface P {
 const SIZES = [
   { name: "phone upright", viewport: { width: 393, height: 852 }, deviceScaleFactor: 3, isMobile: true },
   { name: "phone on its side", viewport: { width: 852, height: 393 }, deviceScaleFactor: 3, isMobile: true },
+  // (a tablet is a big phone, #1074 slice 6: an iPad's sizes either way up and a small one on its side)
+  { name: "tablet upright", viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true },
+  { name: "tablet on its side", viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2, isMobile: true },
+  { name: "small tablet on its side", viewport: { width: 1024, height: 768 }, deviceScaleFactor: 2, isMobile: true },
   { name: "desktop with a touch screen", viewport: { width: 1400, height: 900 }, deviceScaleFactor: 1, isMobile: false },
 ];
 
@@ -194,25 +198,27 @@ class Fingers {
 }
 
 /** A place on the 3D view with room round it: the point and every point `r` away (and the corners between) are the
- *  canvas itself (no control over it) and show the map. */
-async function roomy(page: Page, r: number): Promise<P> {
+ *  canvas itself (no control over it) and show the map. `room`: in the room the controls leave the map now (its frame
+ *  insets), nearest its middle, so a tool's settings opened later on a short tablet (1024×768) leave it uncovered. */
+async function roomy(page: Page, r: number, room = false): Promise<P> {
   // (a phone on its side in today's layout has no such place: the rows over the view cover all of it but slivers, which
   // the phone layouts change, #1074 slice 2; there the controls over the view are hidden, so the fingers reach it)
-  if (!(await spot(page, r)))
+  if (!(await spot(page, r, room)))
     await page.addStyleTag({ content: ".view3d > :not(canvas), .view3d-frame > :not(.view3d) { visibility: hidden !important; }" });
-  const p = await spot(page, r);
+  const p = (await spot(page, r, room)) ?? (room ? await spot(page, r, false) : null);
   expect(p, `room of ${r}px on the view`).not.toBeNull();
   return p!;
 }
 
-async function spot(page: Page, r: number): Promise<P | null> {
-  return page.evaluate((r) => {
+async function spot(page: Page, r: number, room = false): Promise<P | null> {
+  return page.evaluate(([r, room]) => {
     const c = window.dgm3d!.renderer.canvas;
     const box = c.getBoundingClientRect();
-    const x0 = Math.max(box.left, 0);
-    const y0 = Math.max(box.top, 0);
-    const x1 = Math.min(box.right, document.documentElement.clientWidth);
-    const y1 = Math.min(box.bottom, document.documentElement.clientHeight);
+    const ins = room ? window.dgm3d!.renderer.frameInsets : { top: 0, left: 0, bottom: 0, right: 0 };
+    const x0 = Math.max(box.left + ins.left, 0);
+    const y0 = Math.max(box.top + ins.top, 0);
+    const x1 = Math.min(box.right - ins.right, document.documentElement.clientWidth);
+    const y1 = Math.min(box.bottom - ins.bottom, document.documentElement.clientHeight);
     const mid = { x: (x0 + x1) / 2, y: (y0 + y1) / 2 };
     const ok = (x: number, y: number) => document.elementFromPoint(x, y) === c && !!window.dgm3d!.renderer.pick(x, y);
     const around = [-1, 0, 1].flatMap((i) => [-1, 0, 1].map((j) => [i * r, j * r] as const));
@@ -220,7 +226,7 @@ async function spot(page: Page, r: number): Promise<P | null> {
     for (let y = y0 + r + 4; y <= y1 - r - 4; y += 12) for (let x = x0 + r + 4; x <= x1 - r - 4; x += 12) tries.push({ x, y });
     tries.sort((a, b) => Math.hypot(a.x - mid.x, a.y - mid.y) - Math.hypot(b.x - mid.x, b.y - mid.y));
     return tries.find((t) => around.every(([dx, dy]) => ok(t.x + dx, t.y + dy))) ?? null;
-  }, r);
+  }, [r, room] as const);
 }
 
 
@@ -510,8 +516,10 @@ for (const size of SIZES) {
 
       // a relic from the shelf: the press shows it above the finger (the tile it aims at lit, not the finger's), the drag
       // moves it, nothing is placed before the lift, and the lift places it where it showed, one step
-      await onFlat(page, c);
+      // (picked first, the level patch brought under the place after: on a tablet the object in hand's row at the right
+      // slides the view to keep the map in the room left, #1074 slice 6, and a patch brought before it would move away)
       await pickObject(page, "Relic");
+      await onFlat(page, c);
       const before = await steps(page);
       const relics0 = await objectsOf(page, "SmallRelic");
       const a = { x: c.x - R / 3, y: c.y + FINGER_LIFT + R / 3 };
@@ -605,7 +613,7 @@ for (const size of SIZES) {
       await expect.poll(async () => (await objectsOf(page, "SmallRelic")).some((r) => Math.abs(r.x - to!.x) <= 1 && Math.abs(r.y - to!.y) <= 1)).toBe(true);
 
       // still picked, dragged onto the start: the core's reason beside it before the lift, clear of the finger, and the
-      // lift moves nothing (slice 3b, as a placement's refusal)
+      // lift moves nothing (slice 3b, as a placement's refusal), the reason going with it (slice 6)
       const relics1 = await objectsOf(page, "SmallRelic");
       const start = (await objectsOf(page, "StartingLocation"))[0];
       await still(page);
@@ -625,6 +633,7 @@ for (const size of SIZES) {
       const wb = (await why.boundingBox())!;
       expect(onStart.x >= wb.x && onStart.x <= wb.x + wb.width && onStart.y >= wb.y && onStart.y <= wb.y + wb.height, `the reason ${JSON.stringify(wb)} is under the finger`).toBe(false);
       await fingers.up(1);
+      await expect(page.locator(".shape-note"), "the reason goes with the lift").toHaveCount(0);
       await idle(page);
       expect(await steps(page)).toBe(before + 2);
       expect(await objectsOf(page, "SmallRelic")).toEqual(relics1);
@@ -635,7 +644,16 @@ for (const size of SIZES) {
 
     test(`a force, the Block tool and a shape show above the finger and apply on the lift; Cancel lets go (${size.viewport.width}×${size.viewport.height})`, async ({ page }) => {
       const { fingers, R, errors, zoomed, page0 } = await setUp(page, size, true);
-      const c = await roomy(page, R);
+      // (on a tablet, the place the fingers work round is chosen in the room a force's settings leave the map: on a short
+      // one they cover the canvas's lower part, #1074 slice 6; a phone's sheets and rail are hidden by roomy as before)
+      const tablet = (await page.locator(".editor[data-tablet]").count()) > 0;
+      if (tablet) {
+        await page.keyboard.press("Shift+Digit2");
+        await toolInHand(page);
+        await still(page);
+      }
+      const c = await roomy(page, R, tablet);
+      if (tablet) await putAway(page);
       const tileAt2 = async (p: P) => {
         const t = await tileAt(page, p);
         return t ? { x: t.x, y: t.y } : null;

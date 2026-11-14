@@ -52,8 +52,9 @@ export interface View3DProps {
   cornerLevel?: ComponentChildren;
   cornerBelow?: ComponentChildren;
   /** A phone's layout (#1074): the Show row, the legend and the corner gathered in one sheet, with `extra` (the weather
-   *  days, the minimap, Look) after them, shown while `open`; absent, the desktop's places. */
-  phoneShow?: { open: boolean; weather?: ComponentChildren; minimap?: ComponentChildren; look?: ComponentChildren } | null;
+   *  days, the minimap, Look; `views`, the camera bookmarks a finger keeps and goes back to, under the camera's buttons)
+   *  after them, shown while `open`; absent, the desktop's places. */
+  phoneShow?: { open: boolean; weather?: ComponentChildren; minimap?: ComponentChildren; look?: ComponentChildren; views?: ComponentChildren } | null;
   /** **Height colours** and **Markers** among the view buttons, not in the legend (the editor's
    *  layout, D184). */
   togglesInButtons?: boolean;
@@ -633,6 +634,14 @@ export function View3D(props: View3DProps) {
           {firstView}
           {compassDial}
         </div>
+        {ps.views ? (
+          <>
+            <div class="ps-line">
+              <span class="ps-label">Saved views</span>
+            </div>
+            {ps.views}
+          </>
+        ) : null}
         {/* (the slice: which layers show, cut from the top; ∞ is every layer) */}
         <div class="ps-line">
           <span class="ps-label">Layers shown</span>

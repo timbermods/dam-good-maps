@@ -6,6 +6,7 @@ import { keyHabit } from "../forceSize";
 import { BRUSHES } from "../brushes";
 import { showHelpPanel } from "../help/helpPanels";
 import { SHORTCUTS_KEY } from "../help/shortcuts";
+import { keepView, showView } from "../view/savedViews";
 import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
 
@@ -18,10 +19,10 @@ function onMapOrBar(target: HTMLElement | null): boolean {
 
 export function useKeyboard(ed: Ed, props: EditorProps): void {
   const {
-    api, setInfo, renderer, setTool, flipRef, forceEscRef, setTurn, setClearWater, selectingRef, selection,
+    renderer, setTool, flipRef, forceEscRef, setTurn, setClearWater, selectingRef, selection,
     setPicked, setPickedObject, pickedObjectRef, pickedRef, infoRef, shelfRef, turnRef, run, brushRef, brushToolRef,
     setBrush, painter, undo, redo, pickTop, putDown, pickBrush, pickShelf, targetSpot, sourceInfo, sourceGrab,
-    pickedSources, removeSources, flashNote, shelfTile, shelfHover, deleteCalls, quakeUiRef, setQuakeUi, forcer,
+    pickedSources, removeSources, shelfTile, shelfHover, deleteCalls, quakeUiRef, setQuakeUi, forcer,
     unleash, forceSizing, fHeld, stepHabit, startForceSize, endForceSize, openSelect, closeSelect, selectAll,
     selectCalls, toolRef, startGrab
   } = ed;
@@ -90,23 +91,9 @@ export function useKeyboard(ed: Ed, props: EditorProps): void {
       const digit = /^Digit([1-9])$/.exec(ev.code);
       if (digit && ((mod && ev.shiftKey && !ev.altKey) || (ev.altKey && !mod && !ev.shiftKey))) {
         ev.preventDefault();
-        const slot = Number(digit[1]);
-        const r = renderer.current;
-        if (!r) return;
-        if (mod) {
-          const v = r.getView();
-          const views = [...infoRef.current.views.filter((b) => b.slot !== slot), { slot, ...v }].sort((a, b) => a.slot - b.slot);
-          void api.setViews(views).then((i) => {
-            infoRef.current = { ...infoRef.current, views: i.views };
-            setInfo((cur) => ({ ...cur, views: i.views }));
-            props.onChange({ ...infoRef.current, views: i.views });
-          });
-          flashNote(`View ${slot} saved`);
-        } else {
-          const b = infoRef.current.views.find((v) => v.slot === slot);
-          if (b) r.glideTo(b);
-          else flashNote(`No view ${slot} saved yet`);
-        }
+        // (a finger has the same slots in Show's Camera section, view/savedViews.tsx)
+        if (mod) keepView(ed, props, Number(digit[1]));
+        else showView(ed, Number(digit[1]));
         return;
       }
       // the tools by their place in the bar (Kyler, 2026-10-06), on the key's code so any keyboard layout works: 1 Select

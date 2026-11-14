@@ -1,9 +1,11 @@
-/* Tablets (#1074 slice 5; EDITOR_PLAN §3, "Tablets"): a finger with a desktop's room. The pointer decides (a coarse
-   pointer, never a device's name) and the room (not a phone's: no `data-phone`), so no rule here reaches a phone, which
-   phone.css lays out, or a desktop with a mouse. The desktop's layout, every control a finger's 44px at the least, the
-   same gestures (render3d/touch.ts). Narrower than the desktop's designed room (1280px), the bar of tools spans the map's
-   foot with the objects and the minimap standing above it, the header takes a second line where its controls need it,
-   and the top band runs in lines (view/useBandLayout.ts). */
+/* Tablets (#1074 slices 5 and 6; EDITOR_PLAN §3, "Tablets"): a finger with more room than a phone. The pointer decides (a
+   coarse pointer, never a device's name) and the room (not a phone's: no `data-phone`; the editor marks it `data-tablet`,
+   view/usePhone.ts), so no rule here reaches a phone, which phone.css lays out, or a desktop with a mouse. A tablet is a
+   big phone, not a small desktop (planning, 2026-11-14): the header and the dock of tools stay, every control a finger's
+   44px at the least, and the minimap stays on the map; Show and the objects fold to the phone's buttons at the view's top
+   corner and open as side sheets, and the menu's pages cover the view, the dock with it, as on a phone. At rest nothing
+   but the header, the dock and the minimap (and the two buttons) lies over the map. Narrower than the desktop's
+   designed room (1280px) the dock spans the map's foot, and the header takes a second line where its controls need it. */
 
 @media (pointer: coarse) {
   /* ---- every control a finger can press: 44px at the least; fields 16px, so the browser never zooms on focus */
@@ -45,7 +47,8 @@
     min-height: 44px;
   }
 
-  /* ---- the top band: the Show row's toggles, Legend's row, the water row and the corner, 44px; the Show row wraps short
+  /* ---- a touch screen with a desktop's room (a laptop's, wider than a tablet: view/phoneLayout.ts) keeps the desktop's
+     band. The top band: the Show row's toggles, Legend's row, the water row and the corner, 44px; the Show row wraps short
      of the corner (--show-max, useBandLayout.ts) */
   .editor:not([data-phone]) .editor-view .view3d-controls.show-bar {
     flex-wrap: wrap;
@@ -85,7 +88,7 @@
   }
 
   /* ---- the objects: rows a finger's 44px */
-  .editor:not([data-phone]) .objects-menu .shelf-item {
+  .editor:not([data-phone], [data-tablet]) .objects-menu .shelf-item {
     height: 46px;
   }
 
@@ -98,49 +101,105 @@
     height: 60px;
   }
 
+  /* (a tool's word is never cut, whatever font sets it: a cell is never narrower than its word, and where the row can't
+     hold every cell at that width it scrolls sideways, as a phone's row does; the tool in hand is scrolled into view) */
+  .editor:not([data-phone]) .tool-dock > .tool-bar {
+    grid-template-columns: repeat(var(--tools), minmax(max-content, var(--cell))) 14px repeat(var(--forces), minmax(max-content, var(--cell)));
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    touch-action: pan-x;
+  }
+
+  .editor:not([data-phone]) .tool-dock > .tool-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* (Select's shapes the same: each cell at least its name's longest word, page.css; where the row can't hold them, it
+     scrolls sideways rather than cut a name) */
+  .editor:not([data-phone]) .set-group > .segmented.shapes {
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    touch-action: pan-x;
+  }
+
+  .editor:not([data-phone]) .set-group > .segmented.shapes::-webkit-scrollbar {
+    display: none;
+  }
+
   .editor:not([data-phone]) .tool-dock > .tool-settings {
-    /* (two rows of 66px, 4px apart, and the plate's padding: a name over a 44px control; never a third row) */
-    height: 144px;
+    /* (two rows of 66px, 4px apart, and the plate's padding: a name over a 44px control; never a third row. A name that
+       needs a second line has it, the plate a little taller: no name is ever cut short, #1074 slice 6) */
+    height: auto;
+    min-height: 144px;
   }
 
   .editor:not([data-phone]) .set-head {
-    height: 17px;
+    height: auto;
+    min-height: 17px;
     line-height: 17px;
   }
 
-  .editor:not([data-phone]) .set-seg {
-    height: 44px;
+  /* (in the dock's cells, narrow on a tablet held upright: the name keeps its whole words, wrapping between them, and the
+     value and Auto go under it where the line has no room for them) */
+  .editor:not([data-phone]) .tool-settings .set-head {
+    flex-wrap: wrap;
+    row-gap: 2px;
   }
 
-  /* Auto: drawn as small as on the desktop, beside the setting's name, and a finger's 44px to take (the pill is its
-     ::before; the box round it is clear and takes no room) */
-  .editor:not([data-phone]) .set-auto {
-    position: relative;
-    isolation: isolate;
-    min-width: 44px;
-    min-height: 44px;
+  .editor:not([data-phone]) .tool-settings .set-head > .set-label {
+    flex: 1 0 auto;
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .editor:not([data-phone]) .tool-settings .set-head > .set-right {
+    margin-left: auto;
+  }
+
+  /* (a button's words, as Remove unfed water or Cut down, on two lines where its cell is too narrow for one) */
+  .editor:not([data-phone]) .tool-settings :is(.set-button, .set-seg button) {
+    white-space: normal;
+    line-height: 1.15;
+  }
+
+  /* (a value typed in the name line, as Lake level's: a finger's 44px to take, as small as the desktop's to see; it takes
+     no more of the line than its digits) */
+  .editor:not([data-phone]) .tool-settings .set-head input.set-typed {
     margin: -14px -6px;
-    padding: 0 calc(6px + 6px / var(--wide-font));
+  }
+
+  /* (every name on its row's top line, a second line under it where it has one; the control at the foot) */
+  .editor:not([data-phone]) .tool-settings .set:has(> .set-head) {
+    justify-content: space-between;
+  }
+
+  /* (a choice's options each a finger's 44px wide: where a cell is too narrow for them all, as Glaciate's Benches at 820,
+     they wrap to a second line, never cut off; #1074 slice 7. Its outline is drawn inside it and takes none of the room:
+     two options fill a narrow cell's 88px exactly) */
+  .editor:not([data-phone]) .set-seg {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 44px;
     border: 0;
-    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--rule);
   }
 
-  .editor:not([data-phone]) .set-auto::before {
-    content: "";
-    position: absolute;
-    z-index: -1;
-    inset: 14px 6px;
-    border: 1px solid var(--rule);
-    border-radius: 8px;
+  .editor:not([data-phone]) .set-seg button {
+    flex: 1 1 0;
   }
 
-  .editor:not([data-phone]) .set-auto[aria-pressed="true"] {
-    background: transparent;
-  }
-
-  .editor:not([data-phone]) .set-auto[aria-pressed="true"]::before {
-    background: var(--accent);
-    border-color: var(--accent);
+  /* Auto: the phone's chip, drawn a finger's 44px tall on the setting's name line (#1074 slice 7: drawn 16px tall in a
+     clear 44px box, it was a mouse's chip; a finger aims at what it sees). The name line grows to hold it. */
+  .editor:not([data-phone]) .set-auto {
+    height: 44px;
+    min-width: 52px;
+    padding: 0 10px;
+    border-radius: 22px;
+    font-size: 13px;
   }
 }
 
@@ -347,17 +406,131 @@
   }
 }
 
-/* ---- a panel open on a tablet whose bar takes the view's width (Map Generator, Real places or Your maps): the minimap
-   and what stands over it step aside, and where the panel (640px) has no room beside the objects, they too
-   (useBandLayout.ts gives the panel their room) */
-@media (pointer: coarse) and (max-width: 1279px) {
-  .editor:not([data-phone]).drawer-open :is(.editor-view .minimap, .bottom-left-stack) {
-    visibility: hidden;
-  }
+/* ================= a big phone (#1074 slice 6): Show and the objects as side sheets, the pages over the view ================= */
+
+.editor[data-tablet] {
+  --phone-gap: 8px;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  /* the corner's buttons (Show, and Objects left of it) and the side sheets under them, down to the dock */
+  --corner-btn: 56px;
+  --sheet-top: calc(10px + var(--corner-btn) + var(--phone-gap));
+  --sheet-foot: calc(10px + var(--dock-h, 196px) + 6px);
+  --sheet-w: min(380px, 46%);
 }
 
-@media (pointer: coarse) and (max-width: 899px) {
-  .editor:not([data-phone]).drawer-open .objects-dock {
-    visibility: hidden;
-  }
+/* the editor the screen's height at every tablet width, the map filling what the header and the dock leave */
+.editor[data-tablet] {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: clip;
+}
+
+.editor[data-tablet] .editor-main > .editor-map {
+  height: auto;
+}
+
+/* ---- the corner: Show at the top right, Objects left of it (the phone's buttons) */
+.editor[data-tablet] :is(.phone-show-button, .tablet-objects-button) {
+  top: 10px;
+  width: var(--corner-btn);
+  height: var(--corner-btn);
+}
+
+.editor[data-tablet] .phone-show-button {
+  right: max(10px, var(--safe-r));
+}
+
+.editor[data-tablet] .tablet-objects-button {
+  right: calc(max(10px, var(--safe-r)) + var(--corner-btn) + var(--phone-gap));
+}
+
+.editor[data-tablet] .tablet-objects-button svg {
+  width: 22px;
+  height: 22px;
+}
+
+.editor[data-tablet] .tablet-objects-button .icon-word {
+  display: block;
+}
+
+.editor[data-tablet] .tablet-objects-button[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* ---- the side sheets: under the corner's buttons at the right, down to the dock; at most --sheet-w wide */
+.editor[data-tablet] .phone-show,
+.editor[data-tablet][data-sheet="objects"] .objects-dock {
+  position: absolute;
+  top: var(--sheet-top);
+  right: max(10px, var(--safe-r));
+  bottom: auto;
+  left: auto;
+  width: var(--sheet-w);
+  max-height: calc(100% - var(--sheet-top) - var(--sheet-foot));
+  border-radius: 12px;
+}
+
+.editor[data-tablet] .phone-show {
+  padding: 12px;
+}
+
+/* (its chips two to a row, whatever the sheet's width) */
+.editor[data-tablet] .phone-show .ps-grid {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+
+/* the objects: the list hidden until its sheet is open; open, a sheet of the phone's tiles and nothing else (a picked
+   object's window comes back when the pick closes it) */
+.editor[data-tablet]:not([data-sheet="objects"]) .objects-dock > .objects-menu,
+.editor[data-tablet][data-sheet="objects"] .objects-dock > .object-window,
+.editor[data-tablet][data-sheet="show"] .objects-dock {
+  display: none;
+}
+
+.editor[data-tablet][data-sheet="objects"] .objects-dock {
+  z-index: 4;
+}
+
+.editor[data-tablet][data-sheet="objects"] .objects-dock > .objects-menu {
+  flex: 1 1 auto;
+  max-height: none;
+  padding: 12px;
+  border-radius: 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.editor[data-tablet] .objects-menu .shelf-grid {
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+}
+
+/* (the objects' dock, the picked object's window over the dock at the right, a little wider than the desktop's list: the
+   name of the object in hand on one line beside its picture and ×) */
+.editor[data-tablet] .objects-dock {
+  width: 220px;
+}
+
+/* the object in hand's row over its window, the window's plate round both */
+.editor[data-tablet] .objects-dock > .phone-held.object-window {
+  padding: 4px 4px 4px 10px;
+}
+
+/* (the desktop list's heading: the sheet is opened by its button, which names it) */
+.editor[data-tablet] .objects-menu .shelf-title {
+  display: none;
+}
+
+/* ---- the menu's pages (Map Generator, Real places, Your maps, History): the whole view under the header, over the dock;
+   the page scrolls as one, its content the desktop panel's width at the most, centred */
+.editor[data-tablet] .phone-page-body > :is(.gen, *) {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1040px;
+  margin: 0 auto;
 }

@@ -3,7 +3,7 @@
 // radius beside the pointer), Freehand (an outline), Brush (painted in with the brush ring, at the
 // brushes' size) and Wand (a click takes the ground joined to it at its level, or on water that
 // river's or lake's water as the view draws it: a snapshot). Shift adds, Alt takes away (Alt+drag: a
-// plain Alt+click is the game's layer pick), in every mode; Ctrl+click on the land takes its level as
+// plain Alt+click is the game's layer pick), in every mode, as the row's Add / Take away toggle does for a finger; Ctrl+click on the land takes its level as
 // the Level number. While dragging, its size shows beside the pointer ("12 × 8 tiles", D183). What
 // it does to the selection (raise or lower one level, flatten to a level, cut down or fill up to
 // it, water no deeper than a depth; Delete takes what stands there or the ground, D288, D323) is exact, one undo step each; while it
@@ -259,7 +259,13 @@ export interface SelectHost {
   dial?(step: 1 | -1, ev: WheelEvent): void;
   /** The Wand took the water at this tile (after `changed`): the lake the row's Lake level is for. */
   lake?(at: [number, number]): void;
+  /** What a selection made without Shift or Alt does to the one open: Select's Add / Take away toggle in its row, so a
+   *  finger can add and take away too (#1074 slice 6). */
+  combine?(): SelectCombine;
 }
+
+/** What a new selection does to the one open: replaces it, adds to it, or takes away from it. */
+export type SelectCombine = "set" | "add" | "subtract";
 
 /** The Select tool's pointer handling (D184, D259): one drag (or click) at a time. Rectangle and
  *  Circle (from the middle outward, its radius beside the pointer) are dragged; Freehand an outline;
@@ -328,7 +334,7 @@ export function selectTool(sel: Selection, host: SelectHost, forced?: SelectMode
         host.drawing(null, null, null);
         return true;
       }
-      how = ev.shiftKey ? "add" : ev.altKey ? "subtract" : "set";
+      how = ev.shiftKey ? "add" : ev.altKey ? "subtract" : (host.combine?.() ?? "set");
       if (mode() === "wand") {
         // a click on water takes that water; on land, the ground at its level joined to it
         const W = host.W;
