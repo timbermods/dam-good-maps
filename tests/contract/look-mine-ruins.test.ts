@@ -85,7 +85,9 @@ import * as ed from "../../src/worker/session";
  *  trees moved, D148); `32c11aba…` before generator 0.10.21's look round (D518: no one-level step runs straight over 8
  *  tiles, so its land's edges jog; its ruin fields lie along their level's rim, and the dead stands read the dry land as the checks do: a new map, D148); `46455017…` before the dead stands' dry reading. */
 // (generator 0.10.22, the settings keeping their promises: the version in the file alone, the map otherwise byte for byte 0.10.21's, D148)
-const LIVE_SHA = "52341eabd72a4b0b8fc7f47700f9bfd0ffc3b4647170c7a4e4947f2bc62bdd9b";
+// (generator 0.10.23, D(new-leaks): a course's water leaves only by its own way, so its land is new: made in 2 attempts
+// instead of 4, its start's checks all passing, D148; `52341eab…` before)
+const LIVE_SHA = "4959dd4b1d959fd4e6d2df97ee6cb356f4240f0601a9e404d2bf49e823339856";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
