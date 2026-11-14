@@ -9,7 +9,7 @@ import { smoothstep } from "../math/clamp";
 import { fbm } from "../math/noise";
 import { atan2, cos, hypot, sin } from "../math/portable";
 import { waterReaches } from "../validate/ruledLand";
-import { pathLength, pointAt, segDist } from "./geom";
+import { pathDist, pathLength, pointAt, segDist } from "./geom";
 import type { Point } from "./types";
 
 /** A brook's ground: noise of cells `cell` tiles across (`octaves`), a cell's cost 1 + `a` × (the noise + 1)², so its
@@ -203,16 +203,20 @@ export function courseReach(course: readonly Point[], half = 2): { tiles: number
  *  joined end to end: as the plain cosine, its heading hardly changes about a crossing, and the leg between two bends
  *  lay 17 rows straight three wide wherever it ran 3° to 17° past the grid's rows or columns, a course at 12° to 32°
  *  or 58° to 78°: a straight reach by the reach rule, on most draws).
- *  A lobe runs half a wavelength along the axis, the wavelength `wave` times the brook's width; ω is `swing` radians
- *  (1.3 at the least on flat ground; under π ÷ 2 a curve cannot touch itself); each lobe's length is unlike the last's by
- *  `alike` or more. It leaves its head along its course, `lead` tiles straight out of its tarn (bent beside it, its bed a
+ *  A lobe runs half a wavelength along the axis. Each bend's wavelength is drawn from `wave` times the brook's width and
+ *  its ω from `swing` radians, bend by bend (planning's verdict of 2026-11-14: one wavelength for every bend of every
+ *  brook made them stripes with one rhythm): each about a mean that drifts along the course, by up to `drift` a bend
+ *  (widths, radians), the bend within `spread` of it. A short bend swings less and a long one more (ω between
+ *  `swing[0]` + `couple` × (wavelength − 10) and 1.3 + `couple` × (wavelength − 6), inside `swing`): a short bend that
+ *  swings past a right angle touches the next, and a long one that hardly swings is a straight leg. Each lobe's length
+ *  is unlike the last's by `alike` or more. It leaves its head along its course, `lead` tiles straight out of its tarn (bent beside it, its bed a
  *  level down touched the tarn's water and the two were parted), swings out over `head` tiles, and comes back to its course
  *  over `tail` tiles before its end. Where its bed drops a level it steps aside, `sidestep` widths over `stepRun`
  *  tiles, left and right by turns; and on a steep reach, where two drops lie closer than `steep[0]` of half a
  *  wavelength, it does not swing at all (it swings whole where they lie `steep[1]` apart). Where a lobe would leave its
  *  room it swings as far as the room lets it, the room's share softened over `soft` tiles. `pull` turns it back toward
  *  its axis, radians a tile off it, so lobes of unequal swing do not carry it away. Integrated a `step` at a time. */
-export const BROOK_MEANDER = { wave: [8, 10], swing: [1.3, 1.42], alike: 0.13, lead: 3, head: 4, tail: 6, axis: 6, sidestep: [0.8, 1.3], stepRun: 4, steep: [0.6, 1.2], pull: 0.02, step: 0.5, soft: 4, round: 0.2 } as const;
+export const BROOK_MEANDER = { wave: [6, 14], swing: [1.0, 1.8], drift: [1.6, 0.14], spread: [2.6, 0.26], couple: 0.125, pivot: 10, alike: 0.13, lead: 3, head: 4, tail: 6, axis: 6, sidestep: [0.8, 1.3], stepRun: 4, steep: [0.5, 0.8], pull: 0.02, step: 0.5, soft: 4, round: 0.2 } as const;
 
 /** A running mean of a path sampled a tile apart, `half` tiles each way (fewer toward each end, so the ends stay, and
  *  none over its first `lead` tiles: they stay as they are). */
@@ -264,27 +268,42 @@ export function meander(course: readonly Point[], width: number, draw: () => num
     for (let k = 0; k < 16; k++) c += cos(a + b * shape((Math.PI * (k + 0.5)) / 16));
     return c / 16;
   };
-  const swing = () => M.swing[0] + (M.swing[1] - M.swing[0]) * draw();
-  const halfWave = () => (width * (M.wave[0] + (M.wave[1] - M.wave[0]) * draw())) / 2;
+  const within = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
+  // (each bend's wavelength and swing, about means that drift along the course)
+  let waveMean = M.wave[0] + (M.wave[1] - M.wave[0]) * (0.25 + 0.5 * draw());
+  let swingMean = M.swing[0] + (M.swing[1] - M.swing[0]) * (0.25 + 0.5 * draw());
+  const bend = (): { half: number; swing: number } => {
+    const wave = within(waveMean + (2 * draw() - 1) * M.spread[0], M.wave[0], M.wave[1]);
+    const lo = Math.max(M.swing[0], M.swing[0] + M.couple * (wave - M.pivot));
+    const hi = Math.min(M.swing[1], 1.3 + M.couple * (wave - 6));
+    return { half: (width * wave) / 2, swing: within(swingMean + (2 * draw() - 1) * M.spread[1], lo, hi) };
+  };
+  const driftOn = () => {
+    waveMean = within(waveMean + (2 * draw() - 1) * M.drift[0], M.wave[0] + 1.5, M.wave[1] - 1.5);
+    swingMean = within(swingMean + (2 * draw() - 1) * M.drift[1], M.swing[0] + 0.15, M.swing[1] - 0.15);
+  };
   // ---- the free meander: its offset from the axis at each step along it
   const us: number[] = [0];
   const ms: number[] = [0];
   let side = draw() < 0.5 ? -1 : 1;
-  let w0 = swing();
+  let w0 = bend().swing;
   let last = 0;
   let u = 0;
   let y = 0;
   while (u < La) {
     // (a lobe unlike the one before in length: a row of equal lobes is a ruler with a rhythm)
-    let w1 = swing();
-    let L = halfWave() / advance((w0 - w1) / 2, (w0 + w1) / 2);
+    driftOn();
+    let b1 = bend();
+    let w1 = b1.swing;
+    let L = b1.half / advance((w0 - w1) / 2, (w0 + w1) / 2);
     for (let t = 0; t < 12 && last > 0 && Math.abs(L - last) <= M.alike * Math.max(L, last); t++) {
-      w1 = swing();
-      L = halfWave() / advance((w0 - w1) / 2, (w0 + w1) / 2);
+      b1 = bend();
+      w1 = b1.swing;
+      L = b1.half / advance((w0 - w1) / 2, (w0 + w1) / 2);
     }
     const [a, b] = [(w0 - w1) / 2, (w0 + w1) / 2];
     for (let sAt = M.step / 2; sAt < L && u < La; sAt += M.step) {
-      const th = Math.max(-1.5, Math.min(1.5, side * (a + b * shape((Math.PI * sAt) / L)) - M.pull * y));
+      const th = within(side * (a + b * shape((Math.PI * sAt) / L)) - M.pull * y, -M.swing[1] - 0.05, M.swing[1] + 0.05);
       u += cos(th) * M.step;
       y += sin(th) * M.step;
       us.push(u);
@@ -303,7 +322,9 @@ export function meander(course: readonly Point[], width: number, draw: () => num
     return d;
   });
   const half = (width * (M.wave[0] + M.wave[1])) / 4;
-  const ends = [0, ...at, La];
+  // (its first reach from where it has swung out of its head: its lead and its swing out are no room to swing in, and
+  // counted, a steep brook's first reach read as a gentle one and swung nearly whole before its first drop)
+  const ends = [Math.min(at[0] ?? La, M.lead + M.head), ...at, La];
   const mids = ends.slice(1).map((e, k) => (e + ends[k]) / 2);
   const flats = ends.slice(1).map((e, k) => smoothstep((e - ends[k] - M.steep[0] * half) / ((M.steep[1] - M.steep[0]) * half)));
   // (between two reaches' middles, the share of its swing by the way from one to the other)
@@ -466,4 +487,34 @@ export function brookLegsWrong(path: readonly Point[]): string | null {
     if (run >= BROOK_LEGS.equalRun) return `has ${run} bends in a row of one length (fewer than ${BROOK_LEGS.equalRun})`;
   }
   return null;
+}
+
+/** Two brooks run side by side where one keeps within `within` tiles of the other and runs the way it does: their
+ *  courses' headings, each read over `chord` tiles either way (a meander's swing aside), within `alike` radians. A
+ *  tributary coming in to its confluence at `BROOK_JOIN.angle` is near its trunk, not beside it. */
+export const BROOK_BESIDE = { within: 12, alike: 0.44, chord: 12 } as const;
+
+/** The longest stretch of course `a`, in tiles along it, that runs beside course `b` (`BROOK_BESIDE`). */
+export function besideRun(a: readonly Point[], b: readonly Point[]): number {
+  const [La, Lb] = [pathLength(a), pathLength(b)];
+  const way = (path: readonly Point[], L: number, s: number): Point => {
+    const p0 = pointAt(path, Math.max(0, s - BROOK_BESIDE.chord)).p;
+    const p1 = pointAt(path, Math.min(L, s + BROOK_BESIDE.chord)).p;
+    const d = hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1;
+    return [(p1[0] - p0[0]) / d, (p1[1] - p0[1]) / d];
+  };
+  let run = 0;
+  let best = 0;
+  for (let s = 0; s <= La; s += 1) {
+    const p = pointAt(a, s).p;
+    const near = pathDist(p[0], p[1], b);
+    let beside = near.d <= BROOK_BESIDE.within;
+    if (beside) {
+      const [wa, wb] = [way(a, La, s), way(b, Lb, near.s)];
+      beside = wa[0] * wb[0] + wa[1] * wb[1] >= cos(BROOK_BESIDE.alike);
+    }
+    run = beside ? run + 1 : 0;
+    best = Math.max(best, run);
+  }
+  return best;
 }

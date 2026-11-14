@@ -11,6 +11,7 @@
 
 import { MAX_SILL_WIDTH, sillWidthFor } from "../sim/sill";
 import type { Body, Fall, Link, PremisePlan } from "./types";
+import { hypot } from "../math/portable";
 
 export const WATER = {
   /** Flow a lip tile carries for each level of head over its crest (blocks a second). Four Lakes: about 3.3; sim/sill.ts
@@ -88,6 +89,11 @@ export interface LinkFlow {
   /** Where a link carries only water that joins it (`Link.joins`): its water from this far along its path down; dry
    *  above. Absent, its water runs its whole length. */
   wetFrom?: number;
+  /** A bed other links' water joins (`Link.joins`), by reach: from `from` tiles along its path on, its water's depth
+   *  there (the flow it carries below that join over its width there). A link has one depth by its whole flow; a
+   *  trunk that gathers three springs stood 1.03 deep by it from its head, 0.67 over a tributary's, and the raster
+   *  parts waters half a level apart where they meet. Absent where nothing joins it. */
+  reaches?: { from: number; depth: number }[];
 }
 
 export interface WaterTable {
@@ -98,6 +104,17 @@ export interface WaterTable {
 /** A channel's bed width, tiles across (its mouth where that is wider). */
 export function channelWidth(l: Link): number {
   return Math.max(1, 2 * (l.half ?? 0.5));
+}
+
+/** A channel's bed width `s` tiles along its path, tiles across. */
+function widthAlong(l: Link, s: number): number {
+  if (!l.path || !l.halves || l.halves.length !== l.path.length) return channelWidth(l);
+  let at = 0;
+  for (let k = 1; k < l.path.length; k++) {
+    at += hypot(l.path[k][0] - l.path[k - 1][0], l.path[k][1] - l.path[k - 1][1]);
+    if (at >= s) return Math.max(1, 2 * l.halves[k]);
+  }
+  return Math.max(1, 2 * l.halves[l.halves.length - 1]);
 }
 
 /** A link's bed at its head: a fall's crest, a channel's first bed. */
@@ -245,16 +262,34 @@ function route(plan: PremisePlan, bodies: Map<string, Body>, widths: Map<string,
     if (s.bad) lf.bad += s.strength;
     lf.wet = true;
   }
-  // a wet link into a dry link's bed (`Link.joins`): the bed carries its water from where it joins down to its end
-  for (const l of plan.links) {
-    const lf = out.links[l.id];
-    const into = l.joins ? out.links[l.joins.link] : undefined;
-    if (!l.joins || !into || !lf.wet) continue;
-    const dry = !into.wet;
-    into.flow += lf.flow;
-    into.bad += lf.bad;
-    into.wet = true;
-    if (dry || into.wetFrom !== undefined) into.wetFrom = Math.min(into.wetFrom ?? Infinity, l.joins.at);
+  // a wet link into another link's bed (`Link.joins`): the bed carries its water from where it joins down to its end,
+  // a tributary's own tributaries with it (the links that join nothing first, then those that join them)
+  {
+    const own = new Map(plan.links.map((l) => [l.id, { flow: out.links[l.id].flow, bad: out.links[l.id].bad, wet: out.links[l.id].wet }]));
+    const into = (id: string) => plan.links.filter((t) => t.joins?.link === id && out.links[t.id]).sort((a, b) => a.joins!.at - b.joins!.at);
+    const done = new Set<string>();
+    const gather = (l: Link): void => {
+      if (done.has(l.id)) return;
+      done.add(l.id);
+      const lf = out.links[l.id];
+      const mine = own.get(l.id)!;
+      let flow = mine.flow;
+      const reaches: { from: number; depth: number }[] = [{ from: -Infinity, depth: mine.flow / (WATER.channelCarry * widthAlong(l, 0)) }];
+      for (const t of into(l.id)) {
+        gather(t);
+        const tf = out.links[t.id];
+        if (!tf.wet) continue;
+        const dry = !lf.wet;
+        lf.flow += tf.flow;
+        lf.bad += tf.bad;
+        lf.wet = true;
+        if (dry || lf.wetFrom !== undefined) lf.wetFrom = Math.min(lf.wetFrom ?? Infinity, t.joins!.at);
+        flow += tf.flow;
+        reaches.push({ from: t.joins!.at, depth: flow / (WATER.channelCarry * widthAlong(l, t.joins!.at + 2)) });
+      }
+      if (reaches.length > 1 && l.path) lf.reaches = reaches;
+    };
+    for (const l of plan.links) gather(l);
   }
   for (const l of plan.links) {
     const lf = out.links[l.id];
@@ -264,6 +299,12 @@ function route(plan: PremisePlan, bodies: Map<string, Body>, widths: Map<string,
     else if (l.kind === "fall" && l.fall) lf.depth = lf.flow / (WATER.lipCarry * l.fall.width);
     else lf.depth = lf.flow / (WATER.channelCarry * lf.width);
     if (l.path) lf.bedDepth = lf.flow / (WATER.channelCarry * channelWidth(l));
+    // (a bed read by reach: at its head it carries its own water alone)
+    if (lf.reaches && l.kind !== "fall") {
+      const own = lf.reaches[0].depth * WATER.channelCarry * widthAlong(l, 0);
+      lf.depth = own / (WATER.channelCarry * lf.width);
+      lf.bedDepth = own / (WATER.channelCarry * channelWidth(l));
+    }
   }
   return out;
 }

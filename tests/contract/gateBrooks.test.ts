@@ -1,12 +1,13 @@
-// The Gate's brooks (`premise/gateBrooks.ts` `meander`; planning's rulings of 2026-11-13 on the bends): on flat ground
-// with room a brook swings 1.3 rad or more each way of its course, a wavelength 8 to 10 times its width, never so tight
-// that a curve touches itself; on a steep reach it does not swing and steps aside at each level its bed drops, left and
-// right by turns; it leaves its head straight; and on a straight course at any angle one of the layout's six draws
-// lies as no straight even reach, read three and four wide (the reach rule, `validate/ruledLand.ts`).
+// The Gate's brooks (`premise/gateBrooks.ts` `meander`; planning's rulings of 2026-11-13 and 2026-11-14 on the bends): on
+// flat ground with room each bend is drawn for itself, its wavelength 6 to 14 times the brook's width and its swing 1.0
+// to 1.8 rad, about means that drift along the course, so no two bends and no two brooks keep one rhythm; never so
+// tight that a curve touches itself; on a steep reach it does not swing and steps aside at each level its bed drops,
+// left and right by turns; it leaves its head straight; and on a straight course at any angle one of the layout's six
+// draws lies as no straight even reach, read three and four wide (the reach rule, `validate/ruledLand.ts`).
 
 import { describe, expect, it } from "vitest";
 import { splitmix32 } from "../../src/core/math/rng";
-import { BROOK_MEANDER, courseReach, meander, sampled, selfGap } from "../../src/core/premise/gateBrooks";
+import { BROOK_BESIDE, BROOK_MEANDER, besideRun, courseReach, meander, sampled, selfGap } from "../../src/core/premise/gateBrooks";
 import type { Point } from "../../src/core/premise/types";
 
 const WIDTH = 3.5;
@@ -32,33 +33,40 @@ const offsets = (path: readonly Point[], deg: number): { u: number; y: number }[
 };
 
 describe("the Gate's brooks: meanders", () => {
-  it("on flat ground a brook swings 1.3 rad or more each way of its course, a wavelength 8 to 10 widths", () => {
+  it("on flat ground each bend is its own: a swing of 1.0 to 1.8 rad, a wavelength 6 to 14 widths, no two brooks one rhythm", () => {
+    const means: number[] = [];
     for (const [seed, deg] of [[1, 0], [2, 23], [3, 45], [4, 67]] as const) {
       const m = meander(course(deg, 160), WIDTH, draws(seed), { levels: 0, from: 6 }, anywhere);
       const o = offsets(m.path, deg);
-      // (its crossings of its course, clear of its head and its end, and its swing at each: its steepest heading
-      // against the course within three tiles of the crossing, where it turns from one bend into the next)
-      const heading = (k: number): number => Math.abs(Math.atan2(o[k].y - o[k - 1].y, o[k].u - o[k - 1].u));
-      const crossings: { u: number; heading: number }[] = [];
-      for (let k = 1; k < o.length; k++) {
-        if (o[k].u < 12 || o[k].u > 160 - 14) continue;
-        if (o[k - 1].y === 0 || o[k - 1].y * o[k].y > 0) continue;
-        let most = 0;
-        for (let j = 1; j < o.length; j++) if (Math.abs(o[j].u - o[k].u) <= 3) most = Math.max(most, heading(j));
-        crossings.push({ u: o[k].u, heading: most });
+      // (its bends, clear of its head and its end: from one lobe's furthest point off its course to the next one's, and
+      // its swing between them, its steepest heading against the course where it turns from one bend into the next.
+      // Read at its crossings of its course, as when every bend was one size, a short bend after a long one was read
+      // where it had not yet turned)
+      const tops: number[] = [];
+      for (let k = 2; k + 1 < o.length; k++) {
+        if (o[k].u < 10 || o[k].u > 160 - 12) continue;
+        if ((o[k].y - o[k - 1].y) * (o[k + 1].y - o[k].y) < 0) tops.push(k);
       }
-      expect(crossings.length, `${deg}°`).toBeGreaterThanOrEqual(6);
-      for (const c of crossings) expect(c.heading, `${deg}°: its swing at ${c.u.toFixed(0)}`).toBeGreaterThanOrEqual(BROOK_MEANDER.swing[0] - 0.06);
-      // (half a wavelength from one crossing to the next: 4 to 5 widths, a width's slack for lobes of unequal swing)
-      const halves = crossings.slice(1).map((c, k) => c.u - crossings[k].u);
-      const mean = halves.reduce((s, h) => s + h, 0) / halves.length;
-      expect(mean, `${deg}°: half a wavelength`).toBeGreaterThanOrEqual((BROOK_MEANDER.wave[0] * WIDTH) / 2 - 1);
-      expect(mean, `${deg}°: half a wavelength`).toBeLessThanOrEqual((BROOK_MEANDER.wave[1] * WIDTH) / 2 + 1);
-      for (const h of halves) {
-        expect(h, `${deg}°`).toBeGreaterThanOrEqual((BROOK_MEANDER.wave[0] * WIDTH) / 2 - WIDTH);
-        expect(h, `${deg}°`).toBeLessThanOrEqual((BROOK_MEANDER.wave[1] * WIDTH) / 2 + WIDTH);
+      expect(tops.length, `${deg}°`).toBeGreaterThanOrEqual(5);
+      const halves: number[] = [];
+      for (let e = 1; e < tops.length; e++) {
+        let swing = 0;
+        for (let k = tops[e - 1] + 1; k <= tops[e]; k++) swing = Math.max(swing, Math.abs(Math.atan2(o[k].y - o[k - 1].y, o[k].u - o[k - 1].u)));
+        const at = `${deg}°: its bend at ${o[tops[e]].u.toFixed(0)}`;
+        expect(swing, at).toBeGreaterThanOrEqual(BROOK_MEANDER.swing[0] - 0.06);
+        expect(swing, at).toBeLessThanOrEqual(BROOK_MEANDER.swing[1] + 0.06);
+        // (half a wavelength from one lobe's top to the next: 3 to 7 widths, half a width's slack)
+        const half = o[tops[e]].u - o[tops[e - 1]].u;
+        expect(half, at).toBeGreaterThanOrEqual((BROOK_MEANDER.wave[0] * WIDTH) / 2 - WIDTH / 2);
+        expect(half, at).toBeLessThanOrEqual((BROOK_MEANDER.wave[1] * WIDTH) / 2 + WIDTH / 2);
+        halves.push(half);
       }
+      // (its bends unlike one another: its longest 1.3 times its shortest or more)
+      expect(Math.max(...halves) / Math.min(...halves), `${deg}°`).toBeGreaterThanOrEqual(1.3);
+      means.push(halves.reduce((t, h) => t + h, 0) / halves.length);
     }
+    // (and the brooks unlike one another: their mean bends a width apart or more, the longest from the shortest)
+    expect(Math.max(...means) - Math.min(...means)).toBeGreaterThanOrEqual(WIDTH);
   });
 
   it("no curve touches itself: a brook keeps more than its width from itself 12 tiles and more further on", () => {
@@ -79,7 +87,7 @@ describe("the Gate's brooks: meanders", () => {
   });
 
   it("on a steep reach it does not swing, and steps aside at each level its bed drops, left and right by turns", () => {
-    // (five levels down 46 tiles: a drop every 6.7 tiles, under 0.6 of half a wavelength)
+    // (five levels down 46 tiles: a drop every 6.7 tiles, under 0.5 of half a wavelength)
     const m = meander(course(0, 46), WIDTH, draws(11), { levels: 5, from: 6 }, anywhere);
     expect(m.drops.length).toBe(5);
     const o = offsets(m.path, 0);
@@ -114,5 +122,19 @@ describe("the Gate's brooks: meanders", () => {
     // (the course itself, no meander on it, is a canal: ruled past five times its width)
     expect(courseReach(course(0, 110), 1.5).tiles).toBeGreaterThan(0);
     expect(courseReach(course(45, 110), 2).tiles).toBeGreaterThan(0);
+  });
+
+  it("two brooks run side by side where one keeps near the other and heads as it does; a tributary coming in does not", () => {
+    const line = (x0: number, y0: number, x1: number, y1: number): Point[] => Array.from({ length: 41 }, (_, k) => [x0 + ((x1 - x0) * k) / 40, y0 + ((y1 - y0) * k) / 40]);
+    // (two straight courses 8 tiles apart, 80 long: beside each other all the way)
+    expect(besideRun(line(10, 10, 90, 10), line(10, 18, 90, 18))).toBeGreaterThanOrEqual(78);
+    // (the same two a tile further apart than `within`: never)
+    expect(besideRun(line(10, 10, 90, 10), line(10, 11 + BROOK_BESIDE.within, 90, 11 + BROOK_BESIDE.within))).toBe(0);
+    // (a tributary in at 45° to its confluence: near its trunk over its last tiles, never beside it)
+    expect(besideRun(line(20, 60, 60, 20), line(10, 20, 90, 20))).toBe(0);
+    // (and two meandering brooks on parallel courses 9 tiles apart: beside each other past `BROOK_TREE.run`'s 30 tiles)
+    const a = meander(course(0, 120), WIDTH, draws(21), { levels: 0, from: 6 }, (p) => Math.abs(p[1] - 40) <= 4);
+    const b = a.path.map((p): Point => [p[0], p[1] + 9]);
+    expect(besideRun(a.path, b)).toBeGreaterThan(30);
   });
 });
