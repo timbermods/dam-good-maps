@@ -1,15 +1,17 @@
 // Step runs (`validate/stepRuns.ts`, the look round's item (b), 2026-11-13): five or more equal one-tile steps in a
 // straight line, each riser running straight across it, read as a staircase drawn with a ruler. The measure finds a
 // laid flight along a row, a column and a diagonal, and leaves a flight whose risers wander, steps of two levels and
-// water alone; the three maps the look round named carry no more runs than the known list allows (the list may only
-// shrink; every 128² default map, seeds 1 to 12 of each theme, is checked against it in stepRunsMaps.heavy.test.ts).
+// water alone; stair edges (a level's edge at 45° in even one-tile steps) are found and the wander cuts them; the maps the
+// look round named carry no more than the known list allows (the list may only shrink; every 128² default map, seeds 1
+// to 12 of each theme, is checked against it in stepRunsMaps.heavy.test.ts).
 
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
 import { breakFlights } from "../../src/core/land/levels";
+import { wanderEdges } from "../../src/core/land/wander";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { wetOf } from "../../src/core/validate/ruledLand";
-import { STEP_RUN, stepRuns } from "../../src/core/validate/stepRuns";
+import { STAIR_EDGE, STEP_RUN, stairEdges, stepRuns } from "../../src/core/validate/stepRuns";
 import { allowedRuns, STEP_RUNS_KNOWN } from "./stepRunsKnown";
 
 /** A flat land at level 3 with a flight laid on it: `len` tiles climbing a level a tile from (x0, y0) along (dx, dy),
@@ -76,11 +78,37 @@ describe("step runs", () => {
     }
   });
 
-  it("the look round's maps carry no more than the known list allows (Highlands 1, River Valley 3, Delta 2 at 128²)", () => {
-    for (const [theme, seed] of [["highlands", 1], ["riverValley", 3], ["delta", 2]] as const) {
+  it("find a level's edge at 45° in even one-tile steps, once, from its lower side, and the wander cuts it", () => {
+    const W = 40;
+    // level 4 below the diagonal x - y = 0 from (8, 8) to (30, 30), 5 above it (a one-level edge), 9 on a second edge
+    // further on (a cliff of four levels)
+    const h = new Uint8Array(W * W);
+    for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) h[y * W + x] = x - y > 0 ? (x - y > 10 ? 9 : 5) : 4;
+    const e = stairEdges(h, null, W, W);
+    // each edge runs the map's whole diagonal, less the tiles its row neighbour falls off
+    expect(e.count).toBe(2);
+    expect(e.edges.map((q) => q.rise).sort()).toEqual([1, 4]);
+    expect(e.longest).toBeGreaterThanOrEqual(25);
+    // short: none; an edge whose steps are two tiles: none
+    const s = new Uint8Array(W * W).fill(4);
+    for (let k = 0; k < STAIR_EDGE - 1; k++) for (let x = 10 + k + 1; x < 30; x++) s[(10 + k) * W + x] = 5;
+    expect(stairEdges(s, null, W, W).count).toBe(0);
+    const two = new Uint8Array(W * W);
+    for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) two[y * W + x] = x - 2 * Math.floor(y / 2) > 0 ? 5 : 4;
+    expect(stairEdges(two, null, W, W).count).toBe(0);
+    // the wander leaves none past its margin
+    wanderEdges(h, W, W, 3);
+    const left = stairEdges(h, null, W, W).edges.filter((q) => q.x > 2 && q.y > 2 && q.x < W - 3 && q.y < W - 3);
+    expect(left.filter((q) => q.length >= STAIR_EDGE)).toEqual([]);
+  });
+
+  it("the look round's maps carry no more than the known list allows (Highlands 1, River Valley 3, Delta 2, Canyon 3 at 128²)", () => {
+    for (const [theme, seed] of [["highlands", 1], ["riverValley", 3], ["delta", 2], ["canyon", 3]] as const) {
       const b = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme })).built;
-      const r = stepRuns(b.heights, wetOf(b.settle.depth), b.W, b.H);
-      expect(r.count, `${theme} ${seed}: ${JSON.stringify(r.runs.slice(0, 5))}`).toBeLessThanOrEqual(allowedRuns(theme, seed));
+      const wet = wetOf(b.settle.depth);
+      const r = stepRuns(b.heights, wet, b.W, b.H);
+      const e = stairEdges(b.heights, wet, b.W, b.H);
+      expect(r.count + e.count, `${theme} ${seed}: ${JSON.stringify(r.runs.slice(0, 3))} ${JSON.stringify(e.edges.slice(0, 3))}`).toBeLessThanOrEqual(allowedRuns(theme, seed));
     }
   });
 

@@ -91,7 +91,9 @@ describe("wandering edges", () => {
 
   it("leaves a land with no long run as it is", () => {
     const h = new Uint8Array(W * H);
-    for (let i = 0; i < W * H; i++) h[i] = 4 + (((i % W) + Math.floor(i / W)) % 6 < 3 ? 1 : 0);
+    // (a chequer of 3-tile squares: its edges run 3 tiles and its corners meet. Diagonal bands stood here until the look
+    // round of 2026-11-14 made an edge at 45° in even steps a run the wander cuts, D148)
+    for (let i = 0; i < W * H; i++) h[i] = 4 + ((Math.floor((i % W) / 3) + Math.floor(Math.floor(i / W) / 3)) % 2);
     const was = h.slice();
     expect(wanderEdges(h, W, H, 1)).toBe(0);
     expect(Array.from(h)).toEqual(Array.from(was));
