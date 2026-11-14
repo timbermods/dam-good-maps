@@ -1,6 +1,7 @@
 // Refreshed objects and landmarks for the High look (#67 stage 3, investigation/maplook-finish
 // landmarks.ts; PLAN §20 D250): procedural models of our own, in place of today's, on the same
-// transforms, footprints and tints: a few steel gussets and bolts on the ruins' scaffolds and the mine's frame. The start (the game's lantern tower), the water and badwater
+// transforms, footprints and tints: a few steel bolts and slats on the mine's frame. The ruins (the game's rebar posts
+// and slabs, entities3d.ts `storey`), the start (the game's district center), the water and badwater
 // sources (its rock outcrop and crater), the relics (its fallen telescope, crashed satellite and fallen dish antenna,
 // smallRelics.ts, largeRelic.ts), the blockage (its heap of rock, blockage.ts), the natural dam (its heap of brown rock
 // with logs through it, naturalDam.ts), the thorns (its spikes and twigs, thorns.ts) and the geothermal field (its crust
@@ -13,7 +14,7 @@ import { BoxGeometry, BufferGeometry, CylinderGeometry, Float32BufferAttribute, 
 import type { EntityView } from "../model";
 import { whenIdle } from "../idle";
 import { disposeSharedBatch } from "./sharedBatch";
-import { MINE, OWN_LIGHTNESS, ownAlbedo, RUIN, type Rgb } from "../palette";
+import { MINE, OWN_LIGHTNESS, ownAlbedo, type Rgb } from "../palette";
 
 const shade = (c: Rgb, k: number): Rgb => [c[0] * k, c[1] * k, c[2] * k];
 
@@ -80,18 +81,11 @@ class Parts {
   }
 }
 
-/** Today's model with a little more: steel gussets and bolts on a ruin's scaffold, bolts and slats on the mine's
- *  frame. The approved shapes stay. (The gussets in the ruins' rust, the game's; the rest colours of our own,
- *  `ownAlbedo`, as the models they are added to: entities3d.ts `Model.own`.) */
+/** Today's model with a little more: bolts and slats on the mine's frame. The approved shapes stay. (Colours of our
+ *  own, `ownAlbedo`, as the model they are added to: entities3d.ts `Model.own`.) */
 function augment(key: string, base: BufferGeometry): BufferGeometry {
   const m = new Parts().copy(base);
-  if (key.startsWith("scaffold.")) {
-    for (const x of [-0.42, 0.42])
-      for (const z of [-0.42, 0.42]) {
-        m.box(0.14, 0.08, 0.14, shade(RUIN.rust, 0.77), x, 0.06, z, 0, 0, 0, 1);
-        m.add(new CylinderGeometry(0.025, 0.025, 0.012, 6), ownAlbedo([0.61, 0.47, 0.31]), x, 0.11, z, 0, 0, 0, 1);
-      }
-  } else if (key === "UndergroundRuins") {
+  if (key === "UndergroundRuins") {
     for (const x of [-2.37, 2.37]) for (const z of [-2.37, 2.37]) m.add(new CylinderGeometry(0.065, 0.065, 0.025, 6), ownAlbedo([0.62, 0.52, 0.35]), x, 0.185, z, 0, 0, 0, 1);
     for (const z of [-2.25, 2.25]) for (let k = 0; k < 11; k++) m.box(0.026, 0.014, 0.18, ownAlbedo(shade(MINE.wood, 0.7)), -2 + k * 0.4, 0.2, z, 0, 0, 0, 1);
   }
@@ -126,9 +120,9 @@ function geometryFor(name: string, batch: string, base: BufferGeometry): BufferG
   const key = name === "StartingLocation" || name.endsWith("Relic") || ["Thorns", "GeothermalField", "WaterSource", "BadwaterSource", "Blockage", "NaturalDam"].includes(name) ? name : `|${batch}`;
   let g = models.get(key);
   if (!g) {
-    // (the start, the sources, the relics, the blockage, the natural dam, the thorns and the geothermal field are the
-    // game's models, D496: Standard's own, in High's materials and light)
-    if (name === "StartingLocation" || name === "WaterSource" || name === "BadwaterSource" || name.endsWith("Relic") || ["Blockage", "NaturalDam", "Thorns", "GeothermalField"].includes(name)) g = new Parts().copy(base).geometry();
+    // (the ruins, the start, the sources, the relics, the blockage, the natural dam, the thorns and the geothermal field
+    // are the game's models, D496: Standard's own, in High's materials and light)
+    if (batch.startsWith("scaffold.") || name === "StartingLocation" || name === "WaterSource" || name === "BadwaterSource" || name.endsWith("Relic") || ["Blockage", "NaturalDam", "Thorns", "GeothermalField"].includes(name)) g = new Parts().copy(base).geometry();
     else g = augment(batch, base);
     models.set(key, g);
   }

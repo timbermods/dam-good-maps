@@ -120,5 +120,10 @@ export function shelfTool(host: ShelfHost): PointerTool {
       host.hover(hit, ev);
     },
     voxel: true,
+    // a finger (render3d/touch.ts, #1074 slice 3): trees and bushes paint under it, as a brush does; the Slope and the
+    // Ruin draw their line a little above it; anything else shows its ghost above it, and the lift places it there
+    get finger() {
+      return host.paintAround(0.5, 0.5) ? undefined : host.stairs?.() ? "draw" : "aim";
+    },
   };
 }

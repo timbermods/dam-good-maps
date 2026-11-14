@@ -111,6 +111,15 @@ export function topBar(ed: Ed, props: EditorProps) {
         if (resting) closeSelect();
         else openSelect();
       }}
+      // Put it down (×) on what is in hand's sheet (#1074): X's call; on a phone Select's sheet closes with it, as its
+      // second tap does
+      putDown={{
+        run: () => {
+          ed.putDown();
+          if (phone) setPhoneSelect(false);
+        },
+        select: !!ed.selection.current.count || (!!phone && phoneSelect),
+      }}
       phone={
         phone
           ? {

@@ -1,9 +1,10 @@
 // Touch in the 3D view (render3d/touch.ts, #1074): the two-finger step's arithmetic, how a gesture decides to tilt,
 // the glide after a flick, and the touch layer's own bookkeeping (a second finger drops the press and takes the
-// camera; a two- or three-finger tap is Undo or Redo; a lone finger left pans). touch.spec drives real touch events.
+// camera; a two- or three-finger tap is Undo or Redo; a lone finger left pans), and a press with something in hand,
+// seen a little above the finger and applied only on its lift (slice 3). touch.spec drives real touch events.
 
 import { describe, expect, it } from "vitest";
-import { decide, DECIDE_PX, flingFrom, flingStep, FLING_TAU, NO_MOTION, Speed, TAP_MS, TILT_PER_PX, Touches, twoStep, type Motion, type Point } from "../../src/render3d/touch";
+import { aimAt, decide, DECIDE_PX, FINGER_LIFT, FingerPress, flingFrom, flingStep, FLING_TAU, NO_MOTION, Speed, TAP_MS, TAP_SLOP, TILT_PER_PX, Touches, twoStep, type Motion, type Point, type PressHost, type PressMode } from "../../src/render3d/touch";
 
 const P = (x: number, y: number): Point => ({ x, y });
 
@@ -217,5 +218,122 @@ describe("Touches", () => {
     t.down(ev("pointerdown", 2, 220, 300, 5));
     t.move(ev("pointermove", 1, 100, 280, 20));
     expect(log.moves[0]).toMatchObject({ dy: -10, tilt: 0 });
+  });
+});
+
+/** A finger's press on a host that writes down what it was asked: shows, begins, applies, drops, taps and marks. */
+function press(mode: PressMode, opts: { top?: number; begins?: boolean; cancelAt?: (p: Point) => boolean } = {}) {
+  const log: string[] = [];
+  const marks: ({ at: Point; over: boolean } | null)[] = [];
+  let timer: (() => void) | null = null;
+  const host: PressHost = {
+    show: (p) => log.push(`show ${p.x},${p.y}`),
+    begin: (p) => (log.push(`begin ${p.x},${p.y}`), opts.begins ?? true),
+    apply: (p) => log.push(`apply ${p.x},${p.y}`),
+    drop: (begun) => log.push(`drop${begun ? " begun" : ""}`),
+    tap: () => log.push("tap"),
+    overCancel: (p) => opts.cancelAt?.(p) ?? false,
+    mark: (p, over) => marks.push(p ? { at: p, over } : null),
+    later: (fn) => ((timer = fn), 1),
+    clear: () => (timer = null),
+  };
+  const f = new FingerPress(mode, 7, P(200, 400), 1000, opts.top ?? 0, host);
+  return { f, log, marks, fire: () => timer?.() };
+}
+
+describe("a finger's press with something in hand (slice 3)", () => {
+  const above = (x: number, y: number) => `${x},${y - FINGER_LIFT}`;
+
+  it("aims a little above the finger, never above the view's top", () => {
+    expect(aimAt(P(50, 300), 0)).toEqual(P(50, 300 - FINGER_LIFT));
+    expect(aimAt(P(50, 90), 60)).toEqual(P(50, 61));
+  });
+
+  it("an aim shows at the press, follows the drag and applies once, on the lift, where it last showed", () => {
+    const { f, log, marks } = press("aim");
+    expect(log).toEqual([`show ${above(200, 400)}`]);
+    f.move(P(230, 380));
+    f.move(P(260, 360));
+    expect(log.filter((l) => l.startsWith("apply"))).toEqual([]);
+    f.up(P(260, 360), 1600);
+    expect(log).toEqual([`show ${above(200, 400)}`, `show ${above(230, 380)}`, `show ${above(260, 360)}`, `apply ${above(260, 360)}`]);
+    expect(marks.at(-1)).toBeNull();
+    expect(marks[0]).toEqual({ at: P(200, 400 - FINGER_LIFT), over: false });
+  });
+
+  it("an aim held still past a tap's time applies on the lift; a tap applies nothing", () => {
+    const held = press("aim");
+    held.f.up(P(202, 401), 1000 + TAP_MS + 50);
+    expect(held.log.at(-1)).toBe(`apply ${above(202, 401)}`);
+    const tap = press("aim");
+    tap.f.up(P(203, 402), 1120);
+    expect(tap.log.at(-1)).toBe("tap");
+    expect(tap.log.some((l) => l.startsWith("apply"))).toBe(false);
+  });
+
+  it("a draw begins where the press first aimed, once it moves past the slop, and draws on to the lift", () => {
+    const { f, log } = press("draw");
+    expect(log).toEqual([]);
+    f.move(P(204, 400));
+    expect(log).toEqual([]);
+    f.move(P(200 + TAP_SLOP + 2, 400));
+    expect(log).toEqual([`begin ${above(200, 400)}`, `show ${above(212, 400)}`]);
+    f.move(P(260, 420));
+    f.up(P(260, 420), 1200);
+    expect(log.slice(2)).toEqual([`show ${above(260, 420)}`, `apply ${above(260, 420)}`]);
+  });
+
+  it("a draw or a move held still begins on the timer, and is still a tap by its events' times when the lift was quick", () => {
+    const held = press("move");
+    held.fire();
+    expect(held.log).toEqual([`begin ${above(200, 400)}`, `show ${above(200, 400)}`]);
+    held.f.up(P(200, 400), 1000 + TAP_MS + 100);
+    expect(held.log.at(-1)).toBe(`apply ${above(200, 400)}`);
+    // (a busy page ran the timer before the lift it had already been sent: the events say it was a tap)
+    const busy = press("move");
+    busy.fire();
+    busy.f.up(P(200, 400), 1090);
+    expect(busy.log.slice(2)).toEqual(["drop begun", "tap"]);
+  });
+
+  it("a draw or a move nothing takes is over: nothing shows, nothing applies, its lift does nothing", () => {
+    const { f, log, marks } = press("move", { begins: false });
+    f.move(P(240, 400));
+    expect(log).toEqual([`begin ${above(200, 400)}`]);
+    f.move(P(260, 400));
+    f.up(P(260, 400), 1500);
+    expect(log).toEqual([`begin ${above(200, 400)}`]);
+    expect(marks).toEqual([null]);
+  });
+
+  it("dropped (a second finger, Cancel, the browser taking the touch): nothing applied, and nothing after", () => {
+    const aim = press("aim");
+    aim.f.move(P(240, 380));
+    aim.f.cancel();
+    aim.f.up(P(240, 380), 1500);
+    expect(aim.log.at(-1)).toBe("drop");
+    expect(aim.log.some((l) => l.startsWith("apply"))).toBe(false);
+    const draw = press("draw");
+    draw.f.move(P(240, 380));
+    draw.f.cancel();
+    expect(draw.log.at(-1)).toBe("drop begun");
+    expect(draw.marks.at(-1)).toBeNull();
+  });
+
+  it("lifted over Cancel, nothing is applied; over it, what shows stays where it was and the mark says so", () => {
+    const cancelAt = (p: Point) => p.y < 100;
+    const { f, log, marks } = press("aim", { cancelAt });
+    f.move(P(220, 300));
+    f.move(P(200, 50));
+    expect(log.at(-1)).toBe(`show ${above(220, 300)}`);
+    expect(marks.at(-1)).toEqual({ at: P(200, 1), over: true });
+    f.up(P(200, 50), 1600);
+    expect(log.at(-1)).toBe("drop");
+    // (off it again before the lift: it applies)
+    const back = press("aim", { cancelAt });
+    back.f.move(P(200, 50));
+    back.f.move(P(210, 300));
+    back.f.up(P(210, 300), 1600);
+    expect(back.log.at(-1)).toBe(`apply ${above(210, 300)}`);
   });
 });
