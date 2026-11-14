@@ -35,16 +35,24 @@ claude mcp add dam-good-maps -- npx -y --package=https://github.com/timbermods/d
 
 ## What to ask
 
-- "Make me a canyon map with two waterfalls side by side."
+- "Make me a river valley map with the start under a cliff, water below."
+- "Make me a Lake stair map, 128 tiles."
+- "Which real places have a volcano? Open one."
 - "Make it harder: less flat land near the start."
 - "Carve a river from the hills in the north-east down to the lake."
 - "Put an eruption where the badwater is, and show me."
 - "Move the start next to the river, then save it."
 - "Open my map from yesterday and add a crater lake."
 
-Claude tells you what the generator made and what it didn't. If a wish didn't come out, ask for another seed.
+Claude tells you what the generator made and what it didn't. If a wish didn't come out, ask for another seed. Claude offers each wish only on the themes where it comes out often, and says when to stop trying.
+
+A premise is the idea a map is built around, as on the website. A real place is a map made from real land, from the
+website's **Real places**.
 
 A large map (256 tiles a side) can take a few minutes to make. Claude checks on it until it is ready.
+
+Claude also gives the website address of each map. A map you have not edited opens there from the link. An edited map
+opens there from its saved project file.
 
 ## Play the map
 

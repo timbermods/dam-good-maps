@@ -8,7 +8,7 @@
 // Both go on a GitHub release under these names, so the README's "latest" links stay right.
 
 import { spawnSync } from "node:child_process";
-import { copyFileSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { build } from "esbuild";
 import { zipSync } from "fflate";
@@ -32,6 +32,15 @@ await build({
   logLevel: "warning",
 });
 
+// the real places' list and data, beside the server (mcp/src/places.ts reads them there)
+const PLACES = join("public", "real-places");
+const placeFiles: Record<string, Uint8Array> = { "server/real-places/index.json": new Uint8Array(readFileSync(join(PLACES, "index.json"))) };
+for (const f of readdirSync(join(PLACES, "data"))) placeFiles[`server/real-places/data/${f}`] = new Uint8Array(readFileSync(join(PLACES, "data", f)));
+for (const [k, v] of Object.entries(placeFiles)) {
+  mkdirSync(join(OUT, k, ".."), { recursive: true });
+  writeFileSync(join(OUT, k), v);
+}
+
 const firstSentence = (s: string) => s.slice(0, s.indexOf(". ") + 1 || s.length);
 const manifest = JSON.parse(readFileSync(join("mcp", "manifest.json"), "utf8"));
 manifest.version = SERVER_VERSION;
@@ -41,12 +50,13 @@ const license = new Uint8Array(readFileSync("LICENSE"));
 
 // the Claude Desktop extension
 const mcpb = join(OUT, "dam-good-maps.mcpb");
-writeFileSync(mcpb, zipSync({ "manifest.json": new TextEncoder().encode(`${JSON.stringify(manifest, null, 2)}\n`), "server/index.mjs": server, LICENSE: license }, { level: 9 }));
+writeFileSync(mcpb, zipSync({ "manifest.json": new TextEncoder().encode(`${JSON.stringify(manifest, null, 2)}\n`), "server/index.mjs": server, ...placeFiles, LICENSE: license }, { level: 9 }));
 
 // the npm package
 const pkgDir = join(OUT, "npm");
 mkdirSync(join(pkgDir, "server"), { recursive: true });
 copyFileSync(SERVER, join(pkgDir, "server", "index.mjs"));
+cpSync(join(OUT, "server", "real-places"), join(pkgDir, "server", "real-places"), { recursive: true });
 copyFileSync("LICENSE", join(pkgDir, "LICENSE"));
 copyFileSync(join("mcp", "README.md"), join(pkgDir, "README.md"));
 writeFileSync(
