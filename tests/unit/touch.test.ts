@@ -412,4 +412,16 @@ describe("a finger's line, and a press held still (slice 3b)", () => {
     late.f.move(P(260, 450), 1000 + HOLD_MS + 10);
     expect(late.log.at(-1)).toBe(`show ${above(260, 450)}`);
   });
+
+  it("a press begun as held whose lift is its first move past the slop, before the hold by its events' times, leaves nothing", () => {
+    // (no move delivered before the lift: the finger is up, so what it began goes and no pan is left for it; as a pan with
+    // no move before its lift, it moves nothing, and having moved past the slop it is no tap)
+    const { f, log, marks } = press("draw", { held: true });
+    f.up(P(200 + TAP_SLOP + 5, 400), 1100);
+    expect(log.slice(2)).toEqual(["drop begun"]);
+    expect(marks.at(-1)).toBeNull();
+    f.move(P(260, 450), 1120);
+    f.up(P(260, 450), 1140);
+    expect(log.length).toBe(3);
+  });
 });

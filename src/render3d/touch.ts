@@ -469,14 +469,22 @@ export class FingerPress {
 
   /** The finger moved to `p`, time `t` (ms, the event's own). */
   move(p: Point, t: number): void {
+    this.step(p, t, false);
+  }
+
+  /** The finger moved to `p` at `t`; `lifting`: the lift's own move, the finger already up (no pan outlives it). */
+  private step(p: Point, t: number, lifting: boolean): void {
     if (!this.live) return;
     this.moved += Math.hypot(p.x - this.now.x, p.y - this.now.y);
     this.now = { ...p };
-    // (begun as held on a busy page, moved past the slop before `HOLD_MS` by its events' times: no hold, a pan)
+    // (begun as held on a busy page, moved past the slop before `HOLD_MS` by its events' times: no hold, a pan; moved
+    // so by the lift itself, the finger is up: what it began goes, and nothing pans, as a pan with no move before its
+    // lift moves nothing)
     if (this.held && this.moved >= TAP_SLOP && t - this.t0 < HOLD_MS) {
       this.end();
       this.host.drop(true);
-      return this.host.pan(p);
+      if (!lifting) this.host.pan(p);
+      return;
     }
     this.over = this.host.overCancel(p);
     // (over Cancel: the lift there drops it; an aim's preview goes meanwhile, the renderer's `mark`)
@@ -493,7 +501,7 @@ export class FingerPress {
   /** The finger lifted at `p`, time `t` (ms, the event's own). */
   up(p: Point, t: number): void {
     if (!this.live) return;
-    if (p.x !== this.now.x || p.y !== this.now.y) this.move(p, t);
+    if (p.x !== this.now.x || p.y !== this.now.y) this.step(p, t, true);
     if (!this.live) return;
     // (a press the timer began on a busy page, its lift coming late, is still a tap by its events' times: what it began
     // is dropped first)
