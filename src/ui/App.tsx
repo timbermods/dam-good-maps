@@ -671,7 +671,15 @@ export function App() {
         entry.current = rest;
       }
     }
-    saver.changed(entry.current.id, snapshot);
+    keepChange(entry.current.id);
+  }
+
+  /** Your maps takes a change once its edits settle; a hidden page saves it at once. A phone may discard a page it has
+   *  hidden before the quiet save's timer runs (#1074 slice 5), and a change can come after the hide's own save: an edit
+   *  made the moment before, answered once the page was hidden. */
+  function keepChange(id: string): void {
+    saver.changed(id, snapshot);
+    if (document.visibilityState === "hidden") void saver.flush(id);
   }
 
   /** Rename the map from the header's title (D443): the core stores the name (never an operation, never an undo
@@ -685,7 +693,7 @@ export function App() {
     setSession(info);
     // (a rename keeps the map in Your maps, as an edit does)
     keepNow();
-    if (entry.current) saver.changed(entry.current.id, snapshot);
+    if (entry.current) keepChange(entry.current.id);
     return null;
   }
 

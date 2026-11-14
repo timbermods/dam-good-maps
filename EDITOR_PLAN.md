@@ -1583,7 +1583,8 @@ GPU at about that window size), watches what each frame costs the GPU, steps dow
 frames stay too slow, and never back up in a session. The **Look** menu (on the 3D view; in the editor's header)
 chooses **Automatic**, **High** or **Standard** (a segmented choice, the page's own), and switches High's four parts
 (checkbox rows as the Show column's, a long name hanging under its own first letter); every effect is switchable too
-(`setHighEffect`). A browser drawing in software keeps the light look, with no choice. The camera never moves by
+(`setHighEffect`). A browser drawing in software keeps the light look, with no choice, drawn at one device pixel
+to a CSS pixel (its processor draws every pixel: a tablet's dense screen made each frame four times the work). The camera never moves by
 itself in either look (D265).
 
 ## 6a. Alive, not mechanical (D240)
