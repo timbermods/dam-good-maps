@@ -155,7 +155,8 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D27: The canonical settle
 - D120: One water model, stacked columns
 - D350: Water that won't settle
-- D99: The editor's water
+- D99: The editor's water (its warm start amended by D(new-preview))
+- D(new-preview): A wet tile beside an edit keeps its water and momentum in the preview's warm start (amends D99)
 - D98: Approximate water on imports
 - D133: Weather: Drought and Badtide
 
