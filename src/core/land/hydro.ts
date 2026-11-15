@@ -98,8 +98,16 @@ const REACH_HEADS = 2;
  *  - `width`: a course is as wide as `widthFor` makes it, to `width·√flow` past about 6.75 (a large river's width
  *    grows as the root of its water), at least `MIN_WIDTH`;
  *  - `grow`: below each join a course is this many tiles wider at least than the wider of the two that meet, as its
- *    water is wider, to `MAX_WIDTH·√(area / 128²)` (a tile is lost to the banks' rounding). */
-export const TREE = { heads: [3, 1.5], seat: [0.0015, 4], apart: 0.15, floor: 0.4, grow: 3, width: 3 } as const;
+ *    water is wider, to `MAX_WIDTH·√(area / 128²)` (a tile is lost to the banks' rounding; the carve reaches as far
+ *    from the course as its head's width sets, so a trunk is cut about 9 to 13 tiles wide at most at 256²);
+ *  - `bank`: a course keeps this many tiles of the land between its channel or floor and the map's edge, but where it
+ *    comes in or leaves by that edge (round 2: trunks along the edge cut the edge row and their water left the map);
+ *  - `reach`, `pick`: each head is the one of the first `pick` candidates that trace whose course serves the most bench
+ *    land no course serves yet, dry ground within `reach` tiles' walk of it and no more than a level over the ground it
+ *    runs on, past the moist band beside it (round 2, planning's rule 5);
+ *  - `rough`, `bays`: a channel wider than `MAX_WIDTH` has banks that come and go by `rough` of its half-width, bays
+ *    and points about `bays` tiles long (round 2: its smooth banks read as ruled shore). */
+export const TREE = { heads: [3, 1.5], seat: [0.0015, 4], apart: 0.15, floor: 0.4, grow: 3, width: 3, bank: 3, reach: 24, pick: 6, rough: 0.3, bays: 6 } as const;
 /** Ruled water (planning's ruling of 2026-11-15): a course within `near` tiles of one already traced for `run` cells
  *  joins it there, never running side by side with it (`planHydroSingle`'s trace). */
 export const BESIDE = { near: 12, run: 16 } as const;
@@ -672,7 +680,66 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     }
     return undefined;
   };
-  const trace = (hd: Head, alongUp = false, mustJoin = natural && heads.length > 0): boolean => {
+  let tried: number[] = [];
+  // (the water tree, D(water-tree): the land a course would water that no course waters yet, dry ground within an
+  // irrigator's reach of it, `TREE.reach` tiles' walk from its course and no more than a level over the ground it runs
+  // on, past the moist band beside it; a course is chosen among `TREE.pick` that can be traced by that land)
+  let servedFor = -1;
+  const served = new Uint8Array(N);
+  const benchWalk = (from: readonly number[], mark: Uint8Array | null): number => {
+    const dist = new Int32Array(N).fill(-1);
+    const top = new Float64Array(N);
+    const q: number[] = [];
+    for (const c of from) if (dist[c] < 0) { dist[c] = 0; top[c] = h[c] + 1; q.push(c); }
+    let n = 0;
+    for (let k = 0; k < q.length; k++) {
+      const i = q[k];
+      if (dist[i] >= TREE.reach) continue;
+      const x = i % W, y = (i - x) / W;
+      for (const [dx, dy] of N4) {
+        const xx = x + dx, yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        if (dist[j] >= 0 || owner[j] >= 0 || seaAt?.[j]) continue;
+        dist[j] = dist[i] + 1;
+        top[j] = top[i];
+        q.push(j);
+        if (dist[j] < 4 || h[j] > top[j]) continue;
+        if (mark) mark[j] = 1;
+        else if (!served[j]) n++;
+      }
+    }
+    return n;
+  };
+  const benchOf = (cells: readonly number[]): number => {
+    if (servedFor !== heads.length) {
+      servedFor = heads.length;
+      served.fill(0);
+      const own: number[] = [];
+      for (let i = 0; i < N; i++) if (owner[i] >= 0) own.push(i);
+      benchWalk(own, served);
+    }
+    return benchWalk(cells.filter((c) => owner[c] < 0), null);
+  };
+  /** The first of `list` that traces, or on the water tree the one of the first `TREE.pick` that do whose course
+   *  serves the most bench land (its trace kept). */
+  const pickTrace = (list: readonly number[], head: (i: number) => Head, alongUp?: boolean, mustJoin?: boolean): boolean => {
+    if (!tree) {
+      for (const i of list) if (trace(head(i), alongUp, mustJoin)) return true;
+      return false;
+    }
+    let best = -1;
+    let most = -1;
+    let n = 0;
+    for (const i of list) {
+      if (!trace(head(i), alongUp, mustJoin, true)) continue;
+      const b = benchOf(tried);
+      if (b > most) { most = b; best = i; }
+      if (++n >= TREE.pick) break;
+    }
+    return best >= 0 && trace(head(best), alongUp, mustJoin);
+  };
+  const trace = (hd: Head, alongUp = false, mustJoin = natural && heads.length > 0, dry = false): boolean => {
     if (heads.length >= maxHeads) return false;
     const k = heads.length;
     let cells: number[] = [];
@@ -732,6 +799,10 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     for (let q = 10; q < cells.length - 10; q++) if ((alongUp ? drainDist(cells[q]) : borderDist(cells[q])) < 4) return false;
     // (M9b: an inflow heads inland from its mouth, never along its edge first)
     if (natural && hd.kind === "edge") for (let q = 1; q <= Math.min(8, cells.length - 1); q++) if (borderDist(cells[q]) < q >> 1) return false;
+    if (dry) {
+      tried = cells;
+      return true;
+    }
     heads.push(hd);
     for (const i of cells) if (owner[i] < 0) owner[i] = k;
     traced.push({ k, head: hd, cells, joins, toSea });
@@ -762,11 +833,19 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       }
       cands.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
       let n = n0;
-      for (const [, i] of cands) {
-        if (n >= g.hydro.inflows) break;
+      const far = (i: number) => {
         const x = i % W;
         const y = (i - x) / W;
-        if (heads.some((hd) => Math.abs((hd.cell % W) - x) + Math.abs(Math.floor(hd.cell / W) - y) < apart * side)) continue;
+        return !heads.some((hd) => Math.abs((hd.cell % W) - x) + Math.abs(Math.floor(hd.cell / W) - y) < apart * side);
+      };
+      if (tree) {
+        // (the water tree: each inflow the one of the first that trace whose course serves the most bench land)
+        while (n < g.hydro.inflows && pickTrace(cands.map(([, i]) => i).filter(far), (i) => ({ cell: i, kind: "edge", edge: edgeOf(i, W, H)!, flow: 0 }), relaxed, natural && heads.length > 0 && !separate)) n++;
+        return n;
+      }
+      for (const [, i] of cands) {
+        if (n >= g.hydro.inflows) break;
+        if (!far(i)) continue;
         if (trace({ cell: i, kind: "edge", edge: edgeOf(i, W, H)!, flow: 0 }, relaxed, natural && heads.length > 0 && !separate)) n++;
       }
       return n;
@@ -828,12 +907,22 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     let n = 0;
     // (room is kept for a spring lake when the genome may make one)
     const room = natural && g.lakeSprings > 0.3 && heads.length > 0 ? maxHeads - 1 : maxHeads;
-    for (const [, i] of cands) {
-      if (n >= wantSprings || heads.length >= room) break;
-      const x = i % W;
-      const y = (i - x) / W;
-      if (heads.some((hd) => Math.abs((hd.cell % W) - x) + Math.abs(Math.floor(hd.cell / W) - y) < headGap)) continue;
-      if (trace({ cell: i, kind: "spring", flow: 0 })) n++;
+    if (!tree)
+      for (const [, i] of cands) {
+        if (n >= wantSprings || heads.length >= room) break;
+        const x = i % W;
+        const y = (i - x) / W;
+        if (heads.some((hd) => Math.abs((hd.cell % W) - x) + Math.abs(Math.floor(hd.cell / W) - y) < headGap)) continue;
+        if (trace({ cell: i, kind: "spring", flow: 0 })) n++;
+      }
+    else while (n < wantSprings && heads.length < room) {
+      const open = cands.map(([, i]) => i).filter((i) => {
+        const x = i % W;
+        const y = (i - x) / W;
+        return owner[i] < 0 && !heads.some((hd) => Math.abs((hd.cell % W) - x) + Math.abs(Math.floor(hd.cell / W) - y) < headGap);
+      });
+      if (!pickTrace(open, (i) => ({ cell: i, kind: "spring", flow: 0 }))) break;
+      n++;
     }
   }
   // D333 (3): the water reaches the land (a readable story, D294: water in one corner leaves most of
@@ -881,19 +970,15 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       const separateOk =
         separateMore < (tree ? Math.max(0, Math.floor(portable.sqrt(wide)) - 1) : Math.floor(wide)) && g.theme !== "riverValley";
       const separate = () => {
-        for (const [, i] of apart.slice(0, tree ? 160 : 40)) if (trace({ cell: i, kind: "spring", flow: 0 }, false, false)) {
+        if (pickTrace(apart.slice(0, tree ? 160 : 40).map(([, i]) => i), (i) => ({ cell: i, kind: "spring", flow: 0 }), false, false)) {
           added = true;
           separateMore++;
-          break;
         }
       };
       const apartFirst = wide > 1 && separateOk && apart.length > 0 && (far.length === 0 || apart[0][0] > far[0][0]);
       if (apartFirst) separate();
       if (!added)
-        for (const [, i] of far.slice(0, tree ? 160 : 40)) if (trace({ cell: i, kind: "spring", flow: 0 })) {
-          added = true;
-          break;
-        }
+        if (pickTrace(far.slice(0, tree ? 160 : 40).map(([, i]) => i), (i) => ({ cell: i, kind: "spring", flow: 0 }))) added = true;
       if (!added && separateOk && !apartFirst) separate();
       if (!added) break;
     }
@@ -1369,15 +1454,20 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
           mouthBank[y * W + x] = 1;
         }
     }
-  const carve = (st: Stamp, prof: Float64Array, L: number, n: number, half: (s: number, L: number) => number, floorHalf: number): void => {
+  const carve = (st: Stamp, prof: Float64Array, L: number, n: number, half: (s: number, L: number) => number, floorHalf: number, bank?: (x: number, y: number, s: number) => boolean, rough = 0): void => {
     for (const i of st.tiles) {
       if (mouthBank[i]) continue;
       const d = st.d[i];
       const x = i % W;
       const y = (i - x) / W;
+      if (bank?.(x, y, st.s[i])) continue;
       const j = Math.min(n, Math.max(0, Math.round((st.s[i] / L) * n)));
       const b = prof[j];
-      const r = half(st.s[i], L);
+      const r0 = half(st.s[i], L);
+      // (the water tree, D(water-tree): a channel wider than `MAX_WIDTH` has banks that come and go by `rough` of its
+      // half-width, each its own way, bays and points a few tiles long: wide water's banks drawn smooth along the
+      // course read as ruled)
+      const r = rough > 0 && r0 > MAX_WIDTH / 2 ? r0 * (1 + rough * fbm(fs ^ 0x5bd1e995, x, y, TREE.bays, 2)) : r0;
       // (a planned lake's tile on the course keeps the lake's floor where it is lower, but never
       // stands above the course's bed: where the lake settles smaller than planned, the river runs
       // on across its dry part in a channel, never spreading or standing over it; Codex's River
@@ -1591,7 +1681,12 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       for (let q = j; q <= n && prof[q] === prof[j]; q++) level++;
       if (level >= 8) for (let q = j; q < j + 3; q++) bedOf[q] = prof[j] - 1;
     }
-    carve(st, bedOf, L, n, half, floorHalf);
+    // (the water tree, D(water-tree): a course along the map's edge keeps a bank of `TREE.bank` tiles between its
+    // channel or floor and the edge, but where it comes in or leaves by that edge; a trunk as wide as its water
+    // cut the edge row there and its water left the map beside its own mouth)
+    const ends = (bankEnd: number) => (x: number, y: number, s: number) =>
+      Math.min(x, y, W - 1 - x, H - 1 - y) < TREE.bank && !((hd.kind === "edge" && s < bankEnd) || (exitEdge && s > L - bankEnd));
+    carve(st, bedOf, L, n, half, floorHalf, tree ? ends(Math.ceil(treeCap / 2 + floorHalf * 2 + 8)) : undefined, tree ? TREE.rough : 0);
     // (M9b: an inflow's mouth, the rule's row (D314), stays level for its first three rows, its
     // bed there: the edge's banks beside it are kept, and its sources stand on one level)
     const mr = mouthRows.get(tr.k);

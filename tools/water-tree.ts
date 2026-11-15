@@ -61,6 +61,7 @@ import { fileURLToPath } from "node:url";
 import { readTimber } from "../src/core/format/timber";
 import { storedWater, surfaceOf } from "../src/core/format/world";
 import * as portable from "../src/core/math/portable";
+import { startOfObjects } from "../src/core/analysis/easyStart";
 import { mapObjects, specifiedStrength, type MapObject } from "../src/core/sim/model";
 import { gameMoistureReach } from "../src/core/sim/soil";
 import { MOIST_MIN } from "../src/core/sim/soil3d";
@@ -85,6 +86,8 @@ export const MIN_LINE = 8;
 export const NEAR = [4, 20] as const;
 /** Irrigable dry (b'): a short canal's walk from a course's water, and the levels above its surface it may lift. */
 export const IRR_CANAL = 24;
+/** How far from the start's middle tile its own water is looked for (d). */
+export const START_REACH = 40;
 export const IRR_LIFT = 2;
 
 const N8: readonly [number, number][] = [
@@ -132,6 +135,10 @@ export interface WaterTree {
   wider: number;
   /** The heads' paths in all, each from its head down to its join or way out (tiles). */
   courseLen: number;
+  /** The start's own water (d): the nearest water to the start's middle tile, on a trunk (a path that joins none), a
+   *  tributary (one that joins another), a lake, the sea, other water (a pond, a stretch no head's path takes), or none
+   *  within `START_REACH`. */
+  startOn: "trunk" | "tributary" | "lake" | "sea" | "other" | "none";
   /** For a picture: 1 the centre line kept, 2 a join, 3 a join wider below. */
   marks: Uint8Array;
 }
@@ -506,6 +513,7 @@ export function waterTree(W: number, H: number, heights: ArrayLike<number>, dept
     return best;
   };
   const firstJoin: number[] = [];
+  const ended: boolean[] = [];
   let joins = 0,
     wider = 0,
     pathLen = 0;
@@ -525,6 +533,7 @@ export function waterTree(W: number, H: number, heights: ArrayLike<number>, dept
     }
     pathOf.push(path);
     firstJoin.push(path.length);
+    ended.push(met < 0);
     pathLen += path.length;
     if (met < 0) return;
     const into = pathOf[by[met]];
@@ -545,6 +554,60 @@ export function waterTree(W: number, H: number, heights: ArrayLike<number>, dept
     if (grew) wider++;
     marks[met] = grew ? 3 : 2;
   });
+  // (a join through a lake: the paths that end in one lake, not the sea, are joined there, and the lake's outlet is
+  // the stretch below them: two or more coming in are read as that many joins less one, wider when the outlet's
+  // stretch, its line tiles `NEAR` down from the lake, is a tile or more wider (medians) than each path coming in (its
+  // last `NEAR` tiles). The outlet: the line tile by the lake, on no path that comes in, farthest along the way down
+  // from a way out. A lake with no outlet on the line, or under `NEAR[0]` tiles of it, is not read.)
+  const lakeMask = new Uint8Array(N);
+  for (let i = 0; i < N; i++) lakeMask[i] = wide[i] && !sea[i] ? 1 : 0;
+  const lakeParts = parts(lakeMask, W, H);
+  const lakeAt = (t: number): number => {
+    const R = Math.ceil(half(t)) + 2;
+    const x = t % W,
+      y = (t - x) / W;
+    let best = -1,
+      bd = Infinity;
+    for (let dy = -R; dy <= R; dy++)
+      for (let dx = -R; dx <= R; dx++) {
+        const xx = x + dx,
+          yy = y + dy;
+        const d = dx * dx + dy * dy;
+        if (d > R * R || xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        if (lakeParts.of[j] >= 0 && (d < bd || (d === bd && lakeParts.of[j] < best))) {
+          bd = d;
+          best = lakeParts.of[j];
+        }
+      }
+    return best;
+  };
+  const into = new Map<number, number[]>();
+  pathOf.forEach((path, p) => {
+    if (!ended[p] || path.length < NEAR[0]) return;
+    const L = lakeAt(path[path.length - 1]);
+    if (L < 0) return;
+    const list = into.get(L) ?? [];
+    list.push(p);
+    into.set(L, list);
+  });
+  for (const [L, ps] of [...into].sort((a, b) => a[0] - b[0])) {
+    if (ps.length < 2) continue;
+    const onIn = new Set<number>();
+    for (const p of ps) for (const t of pathOf[p]) onIn.add(t);
+    let out = -1;
+    for (const [t] of lineKind)
+      if (!onIn.has(t) && toOut[t] > 0 && below(t) >= 0 && lakeAt(t) === L && (out < 0 || toOut[t] > toOut[out] || (toOut[t] === toOut[out] && t < out))) out = t;
+    if (out < 0) continue;
+    const down: number[] = [];
+    for (let d = out, n = 0; d >= 0 && n <= NEAR[1]; d = below(d), n++) down.push(d);
+    if (down.length < NEAR[0]) continue;
+    joins += ps.length - 1;
+    const wBelow = midWidth(down);
+    const grew = ps.every((p) => wBelow >= midWidth(pathOf[p].slice().reverse()) + 1);
+    if (grew) wider += ps.length - 1;
+    marks[out] = grew ? 3 : 2;
+  }
   // (first order: each path above the first join onto it; the rest is below a join)
   const w1: number[] = [],
     w2: number[] = [];
@@ -586,6 +649,47 @@ export function waterTree(W: number, H: number, heights: ArrayLike<number>, dept
       if (!(reach.value[j] >= MOIST_MIN) && heights[j] <= surf[j] + IRR_LIFT) irr++;
     }
   }
+  // ---- (d) the start's own water: the water nearest its middle tile, and the line tile nearest that water's
+  let startOn: WaterTree["startOn"] = "none";
+  const st = startOfObjects(objects, heights, W);
+  if (st) {
+    let bw = -1,
+      bd = Infinity;
+    for (let dy = -START_REACH; dy <= START_REACH; dy++)
+      for (let dx = -START_REACH; dx <= START_REACH; dx++) {
+        const xx = st.x + dx,
+          yy = st.y + dy;
+        const d = dx * dx + dy * dy;
+        if (d > START_REACH * START_REACH || xx < 0 || yy < 0 || xx >= W || yy >= H || !wet[yy * W + xx]) continue;
+        if (d < bd || (d === bd && yy * W + xx < bw)) {
+          bd = d;
+          bw = yy * W + xx;
+        }
+      }
+    if (bw >= 0) {
+      if (sea[bw]) startOn = "sea";
+      else if (wide[bw]) startOn = "lake";
+      else {
+        // (the line tile nearest that water, on a path: the path's own kind; on none, a stretch no head's path takes)
+        const bx = bw % W,
+          by0 = (bw - bx) / W;
+        let bt = -1,
+          btd = Infinity;
+        for (let dy = -12; dy <= 12; dy++)
+          for (let dx = -12; dx <= 12; dx++) {
+            const xx = bx + dx,
+              yy = by0 + dy;
+            const d = dx * dx + dy * dy;
+            if (xx < 0 || yy < 0 || xx >= W || yy >= H || !line[yy * W + xx] || by[yy * W + xx] < 0) continue;
+            if (d < btd || (d === btd && yy * W + xx < bt)) {
+              btd = d;
+              bt = yy * W + xx;
+            }
+          }
+        startOn = bt < 0 ? "other" : ended[by[bt]] ? "trunk" : "tributary";
+      }
+    }
+  }
   const n = (f: Head["fate"]) => heads.filter((h) => h.fate === f).length;
   return {
     heads,
@@ -611,6 +715,7 @@ export function waterTree(W: number, H: number, heights: ArrayLike<number>, dept
     joins,
     wider,
     courseLen: pathLen,
+    startOn,
     marks,
   };
 }
@@ -641,7 +746,7 @@ const pct = (x: number) => `${(100 * x).toFixed(1)} %`;
 function row(name: string, m: WaterTree): string {
   return (
     `${name.padEnd(16)} courses ${String(m.courses).padStart(3)} (in ${m.inflows}, springs ${String(m.springs).padStart(2)}) joined ${String(m.joined).padStart(2)} alone ${String(m.alone).padStart(2)} (edge ${m.edge}, sea ${m.sea}) lost ${m.lost}  systems ${String(m.systems).padStart(2)}` +
-    `  spacing ${m.spacing.toFixed(1).padStart(5)}  wet ${pct(m.wetShare).padStart(7)}  irrigable ${pct(m.irrigable).padStart(7)}  width ${m.width.toFixed(1)} one ${pct(m.oneWidth)} thin ${pct(m.thin)} w1 ${m.w1.toFixed(1)} w2 ${m.w2.toFixed(1)}  joins ${m.joins} wider ${m.wider}  course ${m.courses ? Math.round(m.courseLen / m.courses) : 0}`
+    `  spacing ${m.spacing.toFixed(1).padStart(5)}  wet ${pct(m.wetShare).padStart(7)}  irrigable ${pct(m.irrigable).padStart(7)}  width ${m.width.toFixed(1)} one ${pct(m.oneWidth)} thin ${pct(m.thin)} w1 ${m.w1.toFixed(1)} w2 ${m.w2.toFixed(1)}  joins ${m.joins} wider ${m.wider}  course ${m.courses ? Math.round(m.courseLen / m.courses) : 0}  start ${m.startOn}`
   );
 }
 
@@ -656,7 +761,8 @@ export function total(name: string, ms: WaterTree[]): string {
     `${name} (${ms.length} maps): courses ${(courses / ms.length).toFixed(1)} a map (inflows ${s((m) => m.inflows)}, springs ${s((m) => m.springs)}), joined ${pct(s((m) => m.joined) / Math.max(1, courses))}, alone ${pct(s((m) => m.alone) / Math.max(1, courses))} (edge ${s((m) => m.edge)}, sea ${s((m) => m.sea)}), lost ${s((m) => m.lost)};` +
     ` heads/system ${(courses / Math.max(1, s((m) => m.systems))).toFixed(2)}; spacing ${(land / Math.max(1, centre)).toFixed(1)}; wet ${pct(s((m) => m.wetShare * m.land) / Math.max(1, land))}; irrigable ${pct(s((m) => m.irrigable * m.land) / Math.max(1, land))};` +
     ` width ${wmean((m) => m.width).toFixed(1)}, one width ${pct(wmean((m) => m.oneWidth))}, thin ${pct(wmean((m) => m.thin))}, w1 ${wmean((m) => m.w1).toFixed(1)}, w2 ${wmean((m) => m.w2).toFixed(1)};` +
-    ` joins ${joins}, wider below ${s((m) => m.wider)} (${pct(s((m) => m.wider) / Math.max(1, joins))}); course length ${(s((m) => m.courseLen) / Math.max(1, courses)).toFixed(0)}`
+    ` joins ${joins}, wider below ${s((m) => m.wider)} (${pct(s((m) => m.wider) / Math.max(1, joins))}); course length ${(s((m) => m.courseLen) / Math.max(1, courses)).toFixed(0)};` +
+    ` start on ${(["trunk", "tributary", "lake", "sea", "other", "none"] as const).map((k) => `${k} ${ms.filter((m) => m.startOn === k).length}`).join(", ")}`
   );
 }
 
