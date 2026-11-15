@@ -163,6 +163,14 @@ describe("Broken poisoned-floodplain plans fail their invariants", () => {
     ["plain.width", "a corridor: the valley turned onto the grid", (plan) => {
       p(plan).angle = 0;
     }],
+    ["wall.wanders", "a straight far wall: its foot ruled from end to end", (plan) => {
+      const far = p(plan).far;
+      const n = far.length - 1;
+      p(plan).far = far.map((_, k) => far[0] + ((far[n] - far[0]) * k) / n);
+    }],
+    ["wall.wanders", "a straight near wall: its foot laid on the valley's axis", (plan) => {
+      p(plan).near = [...p(plan).axis];
+    }],
     ["plain.width", "a plain of 25", (plan) => {
       p(plan).P = 25;
     }],

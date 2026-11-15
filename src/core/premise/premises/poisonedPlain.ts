@@ -62,7 +62,14 @@ export const swampMost = (N: number): number => Math.max(SWAMP.most, Math.floor(
  *  levee foot stands) to the far wall's foot, the backswamp in it; its length `long` of the side along the axis; the
  *  floor (the plain and the backswamp) `floor` of the map; its width along its length `vary` of `P`, narrower at the
  *  plain's head (`head`) and wider at its foot. */
-export const PLAIN = { dead: 9, share: [0.28, 0.36], long: [0.7, 0.85], floor: [0.2, 0.3], vary: [0.8, 1.3], head: [0.82, 0.95], foot: [1.05, 1.22], wobble: 0.05 } as const;
+export const PLAIN = { dead: 9, share: [0.28, 0.36], long: [0.7, 0.85], floor: [0.2, 0.3], vary: [0.8, 1.3], head: [0.9, 0.97], foot: [1.03, 1.12] } as const;
+/** Each wall wanders by its own line (the design's §1, planning's ruling of 2026-11-15, round 3): spurs out onto the
+ *  floor and re-entrants back, `out` of `P` either way, a spur and its re-entrant `len` of `P` long together (each alone
+ *  that long, a sine's flank ran within `near` tiles of straight for longer than `longest`), with a little noise
+ *  (`rough` tiles over `roughCell` of `P`); the floor's width in the mean over any `P` of its length `PLAIN.vary` of `P`
+ *  (drawn inside `mean`, a wall drawn again up to `draws` times); no wall's foot within `near` tiles of one straight
+ *  line for longer than `longest` of `P` (`wall.wanders`). */
+export const WALL = { out: [0.15, 0.3], len: [1.5, 3], rough: 1.5, roughCell: 0.5, mean: [0.83, 1.27], draws: 8, near: 2, longest: 1.2 } as const;
 /** The least width the design's §2 asks of the plain. */
 export const plainLeast = (M: number = M_REACH): number => Math.ceil((M + PLAIN.dead) / (1 - DRY_LEAST));
 /** The plain's mean width's range on a side. */
@@ -70,7 +77,7 @@ export const plainRange = (N: number, M: number = M_REACH): [number, number] => 
 /** The valley is not a corridor (the design's §1, planning's ruling of 2026-11-15): its axis off the grid by `angle`
  *  degrees, with 1 or 2 gentle bends of `turn` degrees each, eased over `ease` of the side; drawn `margin` degrees
  *  inside the angle's range so the walls' noise keeps it there. `chord`: the run, tiles, its heading is read over. */
-export const VALLEY = { angle: [10, 35], bends: [1, 2], turn: [6, 13], ease: [0.12, 0.2], margin: 2, chord: 24, step: 4, nearWander: 1.5 } as const;
+export const VALLEY = { angle: [10, 35], bends: [1, 2], turn: [6, 13], ease: [0.12, 0.2], margin: 2, chord: 24, step: 4 } as const;
 /** The river's room off the near wall's foot: from the levee's width past its bank, `width` tiles (or `share` of `P`)
  *  across: the near third of the floor. */
 export const RIVER_ROOM = { width: 8, share: 0.12 } as const;
@@ -416,6 +423,55 @@ const smooth = (x: number) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
 /** The valley's axis's heading off its local u (degrees) at u: each bend eased in over `ease` tiles about its place. */
 export const axisHeading = (bends: readonly { at: number; turn: number }[], ease: number, u: number): number => bends.reduce((h, b) => h + b.turn * smooth((u - b.at + ease / 2) / ease), 0);
 
+/** The floor's width (far wall's foot to near wall's foot, less the river's room and levee) at each whole u of the
+ *  plain. */
+export function floorWidths(near: readonly number[], far: readonly number[], step: number, toFoot: number, from: number, to: number): number[] {
+  const out: number[] = [];
+  for (let u = Math.ceil(from); u <= to; u++) out.push(lineAt(far, step, u) - lineAt(near, step, u) - toFoot);
+  return out;
+}
+
+/** The floor's mean width over each run of `P` tiles of its length (one a tile). */
+export function widthMeans(widths: readonly number[], P: number): number[] {
+  const n = Math.max(1, Math.min(widths.length, Math.round(P)));
+  const out: number[] = [];
+  let sum = 0;
+  for (let k = 0; k < widths.length; k++) {
+    sum += widths[k];
+    if (k >= n) sum -= widths[k - n];
+    if (k >= n - 1) out.push(sum / n);
+  }
+  return out;
+}
+
+/** The longest run, tiles, of a wall's foot (a line sampled every `step` of u, from `from` to `to`, where it stands on
+ *  the map) that stays within `WALL.near` tiles of one straight line. */
+function wallStraight(T: Turn, line: readonly number[], step: number, from: number, to: number): number {
+  const pts: (Point | null)[] = [];
+  for (let k = Math.max(0, Math.ceil(from / step)); k < line.length && k * step <= to; k++) {
+    const q: Point = [k * step, line[k]];
+    pts.push(onMap(T, q) ? q : null);
+  }
+  let best = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i];
+    if (!a) continue;
+    for (let j = i + 1; j < pts.length; j++) {
+      const b = pts[j];
+      if (!b) break;
+      const len = dist(a, b);
+      let ok = true;
+      for (let m = i + 1; m < j && ok; m++) {
+        const q = pts[m]!;
+        if (Math.abs((b[0] - a[0]) * (a[1] - q[1]) - (a[0] - q[0]) * (b[1] - a[1])) / len > WALL.near) ok = false;
+      }
+      if (!ok) break;
+      best = Math.max(best, len);
+    }
+  }
+  return best;
+}
+
 // ------------------------------------------------------------------------------------------------- the layout
 
 const RIVER_NAMES = ["the Alder River", "the Sedge River", "the Long River", "the Willow River", "the Grey River"];
@@ -478,13 +534,32 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   // river's springs, the terrace and the plain; the far wall's gulches fit beyond the floor on all but the largest P)
   const nearGround = 14;
   const shift = U / 2 - (mid + toFoot + P / 2) / 2 - axisRaw[Math.round(U / 2)];
-  const nearW = { seed: seedOf(), cell: N * 0.4 };
+  // a wall's own line off the axis: spurs and re-entrants by turns, a sine's arch each, and a little noise
+  const wallLine = (): number[] => {
+    const arches: { a: number; len: number; h: number }[] = [];
+    let sg = draw() < 0.5 ? 1 : -1;
+    for (let a = -rng.range(0, WALL.len[1]) * P; a < K * step; sg = -sg) {
+      const len = (rng.range(WALL.len[0], WALL.len[1]) * P) / 2;
+      arches.push({ a, len, h: sg * rng.range(WALL.out[0], WALL.out[1]) * P });
+      a += len;
+    }
+    const seed = seedOf();
+    const out: number[] = [];
+    for (let k = 0; k <= K; k++) {
+      const u = k * step;
+      const arch = arches.find((x) => u >= x.a && u < x.a + x.len);
+      out.push((arch ? arch.h * sin((Math.PI * (u - arch.a)) / arch.len) : 0) + WALL.rough * fbm(seed, u, 0, WALL.roughCell * P, 2));
+    }
+    return out;
+  };
   const axis: number[] = [];
-  const near: number[] = [];
-  for (let k = 0; k <= K; k++) {
-    const c = axisRaw[k * step] + shift;
-    axis.push(r2(c));
-    near.push(r2(c + VALLEY.nearWander * fbm(nearW.seed, k * step, 0, nearW.cell, 2)));
+  for (let k = 0; k <= K; k++) axis.push(r2(axisRaw[k * step] + shift));
+  let near: number[] = [];
+  for (let d = 0; d <= WALL.draws; d++) {
+    if (d === WALL.draws) return { why: "the near wall runs straight" };
+    const off = wallLine();
+    near = axis.map((c, k) => r2(c + off[k]));
+    if (wallStraight(T, near, step, 0, K * step) <= WALL.longest * P) break;
   }
   const vN = (u: number) => lineAt(near, step, u);
   // where the floor's middle leaves the map: the plain's foot; its head `Lp` up the valley; the terrace above it
@@ -507,28 +582,25 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     }
   // (the springs up the valley from the brook's join below the terrace's head: the river may come in beside it)
   if (riverIn + 2 * POOL_R.springs + 2 > terrace[0] + TERRACE.brookAt - 4) return { why: "no room up the valley for the river's springs above the terrace's brook" };
-  // the walls are not parallel: the floor narrower at the plain's head, wider at its foot, a little noise, mean P
-  const wW = { head: rng.range(PLAIN.head[0], PLAIN.head[1]), foot: rng.range(PLAIN.foot[0], PLAIN.foot[1]), seed: seedOf() };
-  const wRaw = (u: number) => {
-    const x = Math.max(0, Math.min(1, (u - plainFrom) / Lp));
-    return wW.head + (wW.foot - wW.head) * smooth(x) + PLAIN.wobble * fbm(wW.seed, u, 0, 30, 2);
-  };
-  let wSum = 0;
-  let wN = 0;
-  for (let u = Math.ceil(plainFrom); u <= plainTo; u++) {
-    wSum += wRaw(u);
-    wN++;
+  // the far wall by its own line: the floor narrower at the plain's head and wider at its foot, the wall's spurs and
+  // re-entrants on that, set so the floor's mean width is P and its mean over any P of its length stays in bounds
+  const head = rng.range(PLAIN.head[0], PLAIN.head[1]);
+  const footW = rng.range(PLAIN.foot[0], PLAIN.foot[1]);
+  const ramp = (u: number) => head + (footW - head) * smooth(Math.max(0, Math.min(1, (u - plainFrom) / Lp)));
+  let far: number[] = [];
+  for (let d = 0; d <= WALL.draws; d++) {
+    if (d === WALL.draws) return { why: "the far wall cannot wander and keep the floor's width" };
+    const off = wallLine();
+    const raw = axis.map((c, k) => c + toFoot + P * ramp(k * step) + off[k]);
+    const w0 = floorWidths(near, raw, step, toFoot, plainFrom, plainTo);
+    const lift = P - w0.reduce((a, b) => a + b, 0) / w0.length;
+    far = raw.map((v) => r2(v + lift));
+    const means = widthMeans(floorWidths(near, far, step, toFoot, plainFrom, plainTo), P);
+    if (Math.min(...means) >= WALL.mean[0] * P && Math.max(...means) <= WALL.mean[1] * P && wallStraight(T, far, step, terrace[0], plainTo) <= WALL.longest * P) break;
   }
-  const wMean = wSum / wN;
-  const far: number[] = [];
   const swamp: number[] = [];
   const swampW = { seed: seedOf() };
-  for (let k = 0; k <= K; k++) {
-    const u = k * step;
-    const w = Math.max(PLAIN.vary[0] + 0.01, Math.min(PLAIN.vary[1] - 0.01, wRaw(u) / wMean));
-    far.push(r2(vN(u) + toFoot + P * w));
-    swamp.push(r2(Math.max(SWAMP.least, Math.min(swampMost(N), swampMean + SWAMP.wander * fbm(swampW.seed, u, 0, SWAMP.cell, 2)))));
-  }
+  for (let k = 0; k <= K; k++) swamp.push(r2(Math.max(SWAMP.least, Math.min(swampMost(N), swampMean + SWAMP.wander * fbm(swampW.seed, k * step, 0, SWAMP.cell, 2)))));
   const vF = (u: number) => lineAt(far, step, u);
   const vB = (u: number) => vF(u) - lineAt(swamp, step, u);
 
@@ -1221,7 +1293,8 @@ const plainWidth: Invariant = {
     // the valley's shape on the map
     if (p.bends.length < VALLEY.bends[0] || p.bends.length > VALLEY.bends[1]) return fail(`The valley bends ${p.bends.length} times (${VALLEY.bends.join(" or ")})`);
     for (const b of p.bends) if (Math.abs(b.turn) < VALLEY.turn[0] - 0.01 || Math.abs(b.turn) > VALLEY.turn[1] + 0.01) return fail(`A bend of the valley turns ${Math.abs(b.turn)}° (${VALLEY.turn.join(" to ")}°, gentle)`);
-    for (let k = 0; k < p.near.length; k++) if (Math.abs(p.near[k] - p.axis[k]) > VALLEY.nearWander + 0.02) return fail(`The near wall's foot strays ${Math.abs(p.near[k] - p.axis[k]).toFixed(1)} tiles off the valley's axis`);
+    const stray = WALL.out[1] * p.P + WALL.rough + 0.02;
+    for (let k = 0; k < p.near.length; k++) if (Math.abs(p.near[k] - p.axis[k]) > stray) return fail(`The near wall's foot strays ${Math.abs(p.near[k] - p.axis[k]).toFixed(1)} tiles off the valley's axis (${stray.toFixed(1)} at most)`);
     const ax = (u: number): Point => toMap(T, [u, lineAt(p.axis, p.step, u)]);
     for (let u = p.terrace[0]; u + VALLEY.chord <= p.plainTo; u += VALLEY.step) {
       const a = ax(u);
@@ -1244,18 +1317,19 @@ const plainWidth: Invariant = {
     for (const w of p.swamp) if (w < SWAMP.least - 0.01 || w > most + 0.01) return fail(`The backswamp is ${w} wide (${SWAMP.least} to ${most})`);
     const loc = riverLocal(T, river.path);
     const foot = leveeFoot(p, T.U, half, loc);
-    let sum = 0;
-    let n = 0;
+    const widths = floorWidths(p.near, p.far, p.step, toFoot, p.plainFrom, p.plainTo);
+    const meanW = widths.reduce((a, b) => a + b, 0) / widths.length / p.P;
+    if (Math.abs(meanW - 1) > 0.03) return fail(`The floor's mean width is ${meanW.toFixed(2)} of P`);
+    const means = widthMeans(widths, p.P);
+    for (let k = 0; k < means.length; k++) {
+      const w = means[k] / p.P;
+      if (w < PLAIN.vary[0] - 0.005 || w > PLAIN.vary[1] + 0.005) return fail(`The floor is ${w.toFixed(2)} of P wide in the mean over P from ${(Math.ceil(p.plainFrom) + k).toFixed(0)} tiles down the valley (${PLAIN.vary.join(" to ")})`);
+    }
     for (let u = Math.ceil(p.plainFrom); u <= p.plainTo; u++) {
       const vf = lineAt(p.far, p.step, u);
-      const w = (vf - lineAt(p.near, p.step, u) - toFoot) / p.P;
-      sum += w;
-      n++;
-      if (w < PLAIN.vary[0] - 0.01 || w > PLAIN.vary[1] + 0.01) return fail(`The floor is ${w.toFixed(2)} of P wide at ${u.toFixed(0)} tiles down the valley (${PLAIN.vary.join(" to ")})`);
       const b = lineAt(p.swamp, p.step, u);
       if (Number.isFinite(foot[u]) && vf - foot[u] < (p.M + b) / (1 - DRY_LEAST) - 0.01) return fail(`The plain is ${(vf - foot[u]).toFixed(1)} wide at ${u} tiles down the valley, too narrow for a dry band of 30 % beside the backswamp (${b.toFixed(1)})`);
     }
-    if (Math.abs(sum / n - 1) > 0.03) return fail(`The floor's mean width is ${(sum / n).toFixed(2)} of P`);
     for (const q of loc) {
       const vn = lineAt(p.near, p.step, q.p[0]);
       const floor = lineAt(p.far, p.step, q.p[0]) - vn;
@@ -1266,6 +1340,25 @@ const plainWidth: Invariant = {
     if (sh.floor < PLAIN.floor[0] || sh.floor > PLAIN.floor[1]) return fail(`The floor is ${pct(sh.floor)} of the map (${PLAIN.floor.map(pct).join(" to ")})`);
     if (sh.dead < DEAD_SHARE[0] || sh.dead > DEAD_SHARE[1]) return fail(`Day 1's dead band is ${pct(sh.dead)} of the floor (${DEAD_SHARE.map(pct).join(" to ")})`);
     if (sh.dry < DRY_LEAST) return fail(`Day 1's dry band is ${pct(sh.dry)} of the floor, under ${pct(DRY_LEAST)}`);
+    return OK;
+  },
+};
+
+/** `wall.wanders` (the design's §1, planning's ruling of 2026-11-15, round 3): each wall wanders by its own line, not
+ *  an offset of the axis: no wall's foot stays within `WALL.near` tiles of one straight line for longer than
+ *  `WALL.longest` of `P`, along the valley from the terrace's head to the plain's foot, where it stands on the map. */
+const wallWanders: Invariant = {
+  id: "wall.wanders",
+  at: "plan",
+  test({ plan }) {
+    const p = plainOf(plan);
+    if (!p) return fail(NO_PLAIN);
+    const T = turnOf(plan, p);
+    const most = WALL.longest * p.P;
+    for (const [side, line] of [["near", p.near], ["far", p.far]] as const) {
+      const run = wallStraight(T, line, p.step, side === "near" ? 0 : p.terrace[0], side === "near" ? T.U : p.plainTo);
+      if (run > most + 0.01) return fail(`The ${side} wall's foot runs within ${WALL.near} tiles of one straight line for ${run.toFixed(0)} tiles (${most.toFixed(0)} at most: drawn with a ruler)`);
+    }
     return OK;
   },
 };
@@ -1451,7 +1544,7 @@ const poisonedLadder: Invariant = {
   },
 };
 
-const PLAIN_PLAN_CHECKS: Invariant[] = [plainLevels, plainWidth, streamJoin, startBadwater, frameFall, poisonedLadder];
+const PLAIN_PLAN_CHECKS: Invariant[] = [plainLevels, plainWidth, wallWanders, streamJoin, startBadwater, frameFall, poisonedLadder];
 const invariants: Invariant[] = [...PLAN_CHECKS, ...PLAIN_PLAN_CHECKS];
 
 // ------------------------------------------------------------------------------------------------- the def
