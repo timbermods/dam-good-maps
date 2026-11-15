@@ -4362,6 +4362,41 @@ with blue points, the larger gap of the two (the birch's crown is next).
 - **Sheet** (local only): `C:\dgm-showcase\objects\close\bushes-sheet.png`, the game's cave frame and the branch in
   both looks, the bushes cropped (game | before | branch, both looks), and the pattern.
 
+## The ruins' concrete as the game draws it (D135, D178 as amended 2026-11-10, D496, D497; `fix/close-ruin-wall`)
+
+With the ivy, thatch and bushes done, the ruins' own wall was the close frame's next gap: the game's slabs are weathered
+pale stone, cracked, shaded where its ivy hangs over them; ours were flat beige boxes in one colour.
+
+- **Read from the game's atlas** (`Ruins`, EnvironmentURP5; numbers only, its bands of slab over their cut, 512 texels a
+  metre, one row a storey, v up the storey): its mean is our `RUIN.slab` already (#6c5939); what it has that ours had
+  not is its spread. Over a band's upper part (to 0.69 of the storey) cells of pale-edged stone about 0.11 m across
+  between dark cracks, a tenth to a seventh of it crack (0.148, 0.131, 0.103), its lightness 0.42 / 0.78 / 0.94 / 1.11 /
+  1.28 of the mean (5th / 25th / 50th / 75th / 95th percentile); under it, to the band's foot, the stone weathered pale
+  and almost uncracked, 0.87 / 1.08 / 1.19 / 1.31 / 1.47, a few paler streaks rising from its foot; its cells
+  (0.447, 0.363, 0.224), its palest (0.547, 0.482, 0.314). In the game's `cave` frame its stone seen through the ivy is
+  about 0.9 of the bare stone's, its brightest 0.7.
+- **Built:** the concrete's pattern (`objectPatterns.ts` layer 6, D135: drawn in code), tiling across, a storey a unit up
+  it: wavering cracks of uneven width between cells lit at their rims, some cells split by fainter cracks, the line to
+  the pale lower part wandering (ours 0.40 / 0.84 / 0.93 / 1.04 / 1.21 above, 0.96 / 1.13 / 1.20 / 1.26 / 1.33 below;
+  look-mine-ruins.test.ts holds its mean to the slabs' tan and its two parts' lightness). Every band takes it as the
+  game's atlas lays it, across the face from its own place, its v its height in the storey (`concrete`); the floors take
+  its cracked part from above. A storey's frame is shaded by the ivy over it (`RUIN_IVY_SHADE`: 0.9, 0.78, 0.66 from a
+  little ivy to the most), the ivy itself untinted. The top storey's bands end raggedly at their top as the game's stubs
+  do (humps up to 0.11 m), as their foot already did. Both looks draw it; the light look draws the slabs in their
+  colour, as before. The patterns are drawn in the worker in about 0.4 s now, all six layers.
+- **Cost:** the GPU a frame (median of two runs, #1151's branch → this one) on `cave` Standard 3.23–3.26 → 3.30–3.76 ms,
+  High 4.15–4.25 → 3.99–4.07 ms; on `start` Standard 4.39–4.74 → 4.38–4.64 ms, High 5.07–5.15 → 5.04–5.11 ms; draw calls
+  the same in High (102, 125) and at `start` (107), at `cave` in Standard 91 → 93 (the base carries a newer dev; the
+  wall adds no batch: its frames keep their batches, the shade is each storey's tint); triangles at `cave` 579.7k →
+  584.9k in Standard (the stubs' ragged tops), 500.7k → 501.0k in High; the pattern atlas 1.75 → 2.1 MB (a sixth layer);
+  the light look unchanged.
+- **Falls short:** (1) The game's top-storey stubs are larger and puffier, broken into rounded humps; ours are the
+  storey's band cut short. (2) Its normal map raises each cell; ours carry that light drawn in. (3) Our cells are more
+  even in size than the game's, a few of whose are large.
+- **Sheet** (local only): `C:\dgm-showcase\objects\close\ruin-wall-sheet.png`, the game's cave frame and the branch in
+  both looks, the ruins cropped (game | before | branch, both looks), the game's band beside our layer, and the shade
+  under the ivy.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:

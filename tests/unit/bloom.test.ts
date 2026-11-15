@@ -105,6 +105,7 @@ describe("the game's bloom (D497 as amended 2026-11-08)", () => {
       ["the ivy's brightest texel", brightestKept(PATTERN.ivy, RUIN.ivy)],
       ["the planks' brightest texel", brightestKept(PATTERN.planks, START.planks)],
       ["the pale wood's brightest texel", brightestKept(PATTERN.wood, START.wood)],
+      ["the concrete's brightest texel", brightestKept(PATTERN.concrete, RUIN.slab.map((v) => v * 1.02))],
       ["the bush's brightest leaf", brightestKept(PATTERN.bush, TREE_COLOURS.bush, [BUSH_MOUND, ...BUSH_ROSETTES])],
       ["the bush's brightest berry", brightestKept(PATTERN.bush, TREE_COLOURS.berry, BUSH_BERRIES)],
       ...MINE.rubble.map((c, k) => [`MINE.rubble.${k}`, own(c)] as [string, readonly number[]]),
