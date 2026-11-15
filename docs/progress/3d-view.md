@@ -4295,6 +4295,9 @@ opening `first` one, ours posed from their cameras (tools/capture-ingame.ts), re
 - **Cost:** none measured. benchOrbit at both cameras, the GPU's median a frame, two runs each, dev → branch: Standard
   `first` 3.73, 3.63 → 3.52, 3.66 ms, `cave` 3.62, 3.77 → 3.60, 3.64; High `first` 4.43, 4.06 → 4.08, 4.28, `cave`
   3.18, 3.58 → 3.13, 3.49. One texture read a wall where the cobbles took five.
+  Where the browser draws in software the rock's layer is not drawn at all (`drawPatterns`' `rock`: the light look
+  it gets reads only the mean; `fix/start-fire-2`): the editor's start on SwiftShader (headless Chrome, 1280 × 720,
+  two runs each) draws its patterns in 292, 351 ms against 573, 539 with the rock, about a quarter second sooner.
 - **The sheet:** `C:\dgm-showcase\cliff\face\sheet.png` (local only): both cameras, game | dev | branch in both looks,
   and the rock at the close camera, game against branch.
 - **Falls short:** (1) Our albedo's power sits a little broader than the game's (0.27 of it at 0.25–0.5 tiles against
