@@ -478,6 +478,7 @@
 
 .editor[data-tablet] .phone-show {
   padding: 12px;
+  border-bottom: 0;
 }
 
 /* (its chips two to a row, whatever the sheet's width) */
