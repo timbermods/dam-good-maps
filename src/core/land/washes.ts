@@ -508,6 +508,32 @@ export function wanderRuns(path: readonly (readonly number[])[], W: number, seed
   return out;
 }
 
+/** How the brush cuts at each tile of a tread path (per curve point, as `wanderRuns` gives it): 1 where the path runs
+ *  along x (a cut down the column), 2 along y (a cut along the row), 0 at a turn (the whole square). Read over the
+ *  path two tiles each way, so a reach's one-tile jogs stay in its reach. A square brush on a straight reach reached a
+ *  tile or two up and down it, past the jog's ends, so the stretches' cuts overlapped and the closed teeth filled what
+ *  was left: a bed 4 wide stood ruler-straight however its path wandered (Canyon 3 at 256², a side canyon's 59 tiles
+ *  down one column; the look round of #1186). */
+export function brushAcross(path: readonly (readonly number[])[], W: number): number[][] {
+  const seq: number[] = [];
+  for (const p of path) for (const t of p) seq.push(t);
+  const n = seq.length;
+  const out: number[][] = [];
+  let j = 0;
+  for (const p of path) {
+    const row: number[] = [];
+    for (let q = 0; q < p.length; q++, j++) {
+      const a = seq[Math.max(0, j - 2)];
+      const b = seq[Math.min(n - 1, j + 2)];
+      const dx = Math.abs((b % W) - (a % W));
+      const dy = Math.abs(Math.floor(b / W) - Math.floor(a / W));
+      row.push(dx >= 2 * dy && dx > 0 ? 1 : dy >= 2 * dx && dy > 0 ? 2 : 0);
+    }
+    out.push(row);
+  }
+  return out;
+}
+
 /** The washes and the old bed (see the file's header), cut into `heights`. */
 export function planWashes(inp: WashInput): Washes {
   const { W, H, heights: h, surface, keepOff, rng } = inp;
@@ -710,6 +736,7 @@ export function planWashes(inp: WashInput): Washes {
     };
     const path = wanderRuns(treadsOf(x, y, W, H, WASHES.tread), W, (inp.seed + salt * 0x9e3779b1) >>> 0, brushOk);
     const at = (s: number) => path[s][path[s].length - 1];
+    const across = brushAcross(path, W);
     const floor: number[] = [];
     const stamps: number[][] = [];
     let end: Wash["end"] = "hollow";
@@ -749,18 +776,22 @@ export function planWashes(inp: WashInput): Washes {
       }
       const tiles: number[] = [];
       let low = Infinity;
-      for (const p of path[s]) {
+      path[s].forEach((p, q) => {
         const px = p % W;
         const py = (p - px) / W;
-        for (let yy = py + lo; yy <= py + hi; yy++)
-          for (let xx = px + lo; xx <= px + hi; xx++) {
+        // (along a straight reach the brush cuts across it only, so the reach's jogs stand in both its banks)
+        const ax = across[s][q];
+        const [y0, y1] = ax === 2 ? [0, 0] : [lo, hi];
+        const [x0, x1] = ax === 1 ? [0, 0] : [lo, hi];
+        for (let yy = py + y0; yy <= py + y1; yy++)
+          for (let xx = px + x0; xx <= px + x1; xx++) {
             if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
             const t = yy * W + xx;
             if (!allowed[t] || tiles.includes(t)) continue;
             tiles.push(t);
             if (h0[t] < low) low = h0[t];
           }
-      }
+      });
       if (!tiles.length) {
         last = s;
         break;
