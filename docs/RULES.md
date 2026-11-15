@@ -210,6 +210,9 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
   go in git, so scenarios share a map where they can.
   A water test on a generated map opens one too (`previewWarmStream`'s River Valley 96² seeds 8 and 9): a preview test must
   not hang on the generator's land.
+  A case found on a land the list does not keep is run on that land, saved once from the commit it was found on by the
+  tool's own steps under a name of its own (`<test>-<theme>-<size>-<seed>-<why>.damgoodmaps`, opened by `namedProject`,
+  `namedSession`, `namedInEditor`); a refresh of the list leaves it (`previewWarmStream`'s Ruins at 34,34, #1145's 0.10.23 land).
 - **Dependency updates:** merge GitHub Actions updates and minor or patch npm updates when CI is green (CI's byte checks
   catch anything that changes a map). Hold major upgrades (TypeScript 7.0, @types/node 26, and any future major) for a
   deliberate upgrade step at a quiet time, such as housekeeping (ROADMAP.md, "Housekeeping"; D283), with the full nightly

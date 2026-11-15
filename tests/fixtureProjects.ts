@@ -45,7 +45,12 @@ function fileBytes(name: string): Uint8Array {
  *  no stored map (it would double its bytes, and belongs to one generator version, D367); the map is built from it once in a process
  *  and saved again, so its later opens take the stored map as every project does. */
 export function fixtureProject(theme: ThemeId, size: number, seed: number, variant?: FixtureVariant): Uint8Array {
-  const name = fixtureName(theme, size, seed, variant);
+  return namedProject(fixtureName(theme, size, seed, variant));
+}
+
+/** A fixture saved under a name of its own (not the scenario list's: a land kept for one case, such as
+ *  `preview-riverValley-96-9-leaks.damgoodmaps`, the land a preview case was found on), as `fixtureProject` opens it. */
+export function namedProject(name: string): Uint8Array {
   let b = relabelled.get(name);
   if (!b) {
     b = MapSession.open({ ...decodeProject(fileBytes(name)), generatorVersion: GENERATOR_VERSION }).project(1);
@@ -59,3 +64,6 @@ export const fixtureDoc = (theme: ThemeId, size: number, seed: number, variant?:
 
 /** The fixture's map, opened as a session. */
 export const fixtureSession = (theme: ThemeId, size: number, seed: number, variant?: FixtureVariant): MapSession => MapSession.open(fixtureDoc(theme, size, seed, variant));
+
+/** A fixture saved under a name of its own, opened as a session. */
+export const namedSession = (name: string): MapSession => MapSession.open(decodeProject(namedProject(name)));
