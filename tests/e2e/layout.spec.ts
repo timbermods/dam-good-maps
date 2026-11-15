@@ -12,7 +12,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { legendEntries, objectLegend } from "../../src/render3d/palette";
 import { openLayoutMap as openEditor, settle } from "./helpers";
-import { hitTargets, phoneClipped, phoneControls } from "./phone";
+import { applyInsets, hitTargets, phoneClipped, phoneControls, phoneFaults } from "./phone";
 
 // (its tests stand alone: they run in parallel, so the browser shards and their two workers share them; one worker
 // running them all in a row took a shard past its 30 minutes)
@@ -928,6 +928,127 @@ for (const phone of PHONES) {
   });
 }
 
+// ---- a real phone's insets (#1074; Kyler's iPhone 16 Pro Max on its side, 2026-11-14: the Size card cut at the notch's
+// inset, the rail's first and last tools cut at rest). The specs above run with no safe areas; here the browser gives the
+// page a phone's own (`env(safe-area-inset-*)`, phone.ts `applyInsets`), and every tool is taken up in turn, its settings
+// in one row and pulled up: no control or setting's card cut, covered or under an inset at rest, none past its plate, no
+// word cut short or laid over another (phone.ts `phoneFaults`).
+
+const INSET_ROOMS = [
+  { name: "a big phone on its side", viewport: { width: 956, height: 440 }, insets: { top: 0, right: 62, bottom: 21, left: 62 } },
+  { name: "a phone on its side", viewport: { width: 844, height: 390 }, insets: { top: 0, right: 47, bottom: 21, left: 47 } },
+  { name: "a phone upright", viewport: { width: 390, height: 844 }, insets: { top: 59, right: 0, bottom: 34, left: 0 } },
+];
+
+for (const room of INSET_ROOMS) {
+  test.describe(`${room.name} with its insets`, () => {
+    test.use({ viewport: room.viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion: "reduce" });
+
+    test(`at ${room.viewport.width}×${room.viewport.height}: every tool's settings, in one row and pulled up, whole and clear of the insets`, async ({ page }) => {
+      test.setTimeout(240_000);
+      await applyInsets(page, room.insets);
+      await openEditor(page);
+      const found: string[] = [];
+      const measure = async (state: string) => {
+        await page.waitForFunction(() => window.dgmEditor!.roomSettled(), null, { timeout: 10_000 });
+        await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+        for (const f of await phoneFaults(page, room.insets)) found.push(`${state}: ${f}`);
+      };
+      await measure("at rest");
+      const tools = await page.locator(".tool-dock > .tool-bar button.icon-button:not(.objects-button)").evaluateAll((bs) => bs.map((b) => b.getAttribute("aria-label")!));
+      expect(tools.length, "the tools found").toBeGreaterThan(10);
+      // (each picked as a tap picks it, from wherever the row was left: the row brings it whole into view)
+      const pick = (label: string) => page.locator(`.tool-dock > .tool-bar button[aria-label="${label}"]`).evaluate((b: HTMLElement) => b.click());
+      for (const tool of tools) {
+        const name = tool.replace(/ \(.*/, "");
+        await pick(tool);
+        await expect(page.locator(".tool-dock > .tool-settings.sheet")).toBeVisible();
+        await measure(`${name} in hand`);
+        const handle = page.locator(".sheet-handle");
+        if (await handle.count()) {
+          await handle.evaluate((b: HTMLElement) => b.click());
+          await expect(page.locator(".tool-settings.sheet.tall")).toBeVisible();
+          await measure(`${name} pulled up`);
+        }
+        await pick(tool);
+        if (name === "Select") await page.keyboard.press("Escape");
+      }
+      expect(found).toEqual([]);
+    });
+  });
+}
+
+// ---- the tool row under a finger (#1074): it moves only with the finger and comes to rest on a whole tool by itself only
+// once no finger is on it; once scrolled away from the tool in hand it stays there until the tool or the room changes.
+
+for (const phone of PHONES) {
+  test.describe(`a phone ${phone.name}, its tool row`, () => {
+    test.use({ viewport: phone.viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+
+    test(`at ${phone.viewport.width}×${phone.viewport.height}: a finger paused mid-pan keeps the row where it put it, and a re-render leaves a row scrolled away from the tool in hand`, async ({ page }) => {
+      test.setTimeout(120_000);
+      await openEditor(page);
+      const bar = page.locator(".tool-dock > .tool-bar");
+      await page.locator('.tool-dock > .tool-bar button[aria-label^="Raise"]').evaluate((b: HTMLElement) => b.click());
+      await expect(page.locator(".tool-dock > .tool-settings.sheet")).toBeVisible();
+      const side = phone.viewport.width > phone.viewport.height;
+      const pos = () => bar.evaluate((b) => (b.scrollWidth > b.clientWidth + 1 ? b.scrollLeft : b.scrollTop));
+      const idle = () => page.evaluate(() => new Promise((r) => setTimeout(r, 500)));
+      await idle();
+
+      // a pan that pauses: the row stays under the finger, however long it rests there
+      const box = (await bar.boundingBox())!;
+      const from = side ? { x: box.x + box.width / 2, y: box.y + box.height - 40 } : { x: box.x + box.width - 40, y: box.y + box.height / 2 };
+      const cdp = await page.context().newCDPSession(page);
+      // (each event a frame after the one before on its own clock, as a finger sends them: without times Chrome takes no pan)
+      let clock = Date.now() / 1000;
+      const touch = (type: "touchStart" | "touchMove" | "touchEnd", p?: { x: number; y: number }) =>
+        cdp.send("Input.dispatchTouchEvent", { type, touchPoints: p ? [{ x: p.x, y: p.y, id: 1, radiusX: 4, radiusY: 4, force: 1 }] : [], timestamp: (clock += 0.016) });
+      const was = await pos();
+      await touch("touchStart", from);
+      for (let k = 1; k <= 12; k++) {
+        await touch("touchMove", side ? { x: from.x, y: from.y - 6 * k } : { x: from.x - 6 * k, y: from.y });
+        await page.evaluate(() => new Promise((r) => requestAnimationFrame(r)));
+      }
+      await page.evaluate(() => new Promise((r) => setTimeout(r, 60)));
+      const put = await pos();
+      expect(Math.abs(put - was), "the finger moved the row").toBeGreaterThan(10);
+      await page.evaluate(() => new Promise((r) => setTimeout(r, 400)));
+      expect(Math.abs((await pos()) - put), "the row moved under a finger at rest on it").toBeLessThan(1);
+      await touch("touchEnd");
+      await idle();
+
+      // scrolled away from the tool in hand: a change that is neither the tool nor the room leaves it there
+      const end = await bar.evaluate((b) => {
+        const across = b.scrollWidth > b.clientWidth + 1;
+        const max = across ? b.scrollWidth - b.clientWidth : b.scrollHeight - b.clientHeight;
+        b.scrollTo({ [across ? "left" : "top"]: max, behavior: "instant" });
+        return max;
+      });
+      await idle();
+      expect(Math.abs((await pos()) - end)).toBeLessThan(1);
+      const inView = () =>
+        bar.evaluate((b) => {
+          const r = b.querySelector('button[aria-label^="Raise"]')!.getBoundingClientRect();
+          const q = b.getBoundingClientRect();
+          return r.right > q.left && r.left < q.right && r.bottom > q.top && r.top < q.bottom;
+        });
+      expect(await inView(), "Raise scrolled out of the row").toBe(false);
+      const size = page.locator(".tool-settings input.set-range").first();
+      const before = await size.inputValue();
+      await size.evaluate((el: HTMLInputElement) => {
+        const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+        set.call(el, String(Number(el.value) === Number(el.min) ? Number(el.value) + 1 : Number(el.value) - 1));
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      await expect(size).not.toHaveValue(before);
+      await idle();
+      expect(Math.abs((await pos()) - end), "a setting moved pulled the row back to the tool in hand").toBeLessThan(1);
+    });
+  });
+}
+
 // ---- tablets (#1074 slices 5 and 6): a tablet is a big phone, not a small desktop (planning, 2026-11-14). At an iPad's
 // sizes upright and on its side (DPR 2): the header and the dock of tools stay, every control at least 44px and none off
 // the screen, the page neither scrolled nor wider than the screen; Show and the objects fold to the phone's buttons and
@@ -1238,6 +1359,9 @@ for (const phone of PHONES) {
       await expect(page.locator(".first-run")).toBeVisible();
       const clear = async (state: string) => {
         await page.waitForTimeout(400);
+        // (the room measured once the editor has taken in the sheet: on a loaded machine 400 ms came before it, and the
+        // room's middle was still the whole screen's)
+        await page.waitForFunction(() => window.dgmEditor!.roomSettled(), null, { timeout: 10_000 });
         const { x, y } = await roomNow(page);
         const card = await page.evaluate(() => {
           const e = document.querySelector<HTMLElement>(".first-run");
