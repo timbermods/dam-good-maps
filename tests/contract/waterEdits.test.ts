@@ -2,22 +2,24 @@
 // questions report what each will do before it acts, each is one operation and one undo step, the
 // water after it is what the game's rules make of the map, and project files rebuild it byte for
 // byte. The engine's own rules are in tests/unit/fedFill.test.ts.
+//
+// The generated maps are fixtures (tests/fixtures/projects: Lake Basin 96² seed 2, River Valley 96² seed 1; `fixtureSession`): the subject is the water edits, not the
+// generator, so a land change moves nothing here (D148).
 
 import { beforeAll, describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import type { EditOp, OpOf } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
 import { fillLevel, planFill, unfedWater } from "../../src/core/doc/waterEdits";
-import { generate } from "../../src/core/gen/generate";
 import { fedTiles, WATER } from "../../src/core/sim/fed";
 import { fillDays } from "../../src/core/sim/fill";
 import { TICKS_PER_DAY, waterSteady, WaterSim } from "../../src/core/sim/water";
-import { makeSpec } from "../../src/core/spec/mapspec";
+import { fixtureSession } from "../fixtureProjects";
 
 const N = 96;
 
 function session(theme: "lakeBasin" | "riverValley", seed: number): MapSession {
-  return MapSession.fromGenerated(generate(makeSpec({ seed, theme, size: { x: N, y: N } })));
+  return fixtureSession(theme, N, seed);
 }
 
 /** The water the game's rules make of the map's stored water after `days`. */

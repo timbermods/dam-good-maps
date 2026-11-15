@@ -5,6 +5,9 @@
 // generation; an edited map keeps those that still stand and loses those an edit took away. An edit
 // that leaves something unreachable shows in the checks (the mine site's walk,
 // `resources.mine_site`, advisory in the editor), for the player to fix; nothing is placed silently.
+//
+// The maps are fixtures (tests/fixtures/projects: Highlands 128² seeds 1 and 3, 96² seeds 4 and 5; `fixtureInEditor`): the subject is
+// what an edit does to the objects, not the generator, so a land change moves nothing here (D148).
 
 import { describe, expect, it } from "vitest";
 import { decodeProject, encodeProject } from "../../src/core/doc/document";
@@ -22,8 +25,8 @@ import { entityTiles } from "../../src/core/features/edits";
 import { writeTimber } from "../../src/core/format/timber";
 import { toTimberFile } from "../../src/core/gen/pack";
 import { makeSpec } from "../../src/core/spec/mapspec";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 const W = 128;
 
@@ -38,8 +41,7 @@ function added(before: ReturnType<typeof entities>, after: ReturnType<typeof ent
 }
 
 async function open(seed: number, side = W) {
-  await runGenerate(makeSpec({ seed, theme: "highlands", size: { x: side, y: side } }));
-  ed.refine();
+  fixtureInEditor("highlands", side, seed);
   const b = MapSession.open(decodeProject(ed.project().bytes)).built;
   const st = b.start!;
   // dry ground well away from the start, and a fault across the far half
@@ -215,8 +217,7 @@ describe("a spring the build derives again after an edit keeps its id (PLAN §19
   // contour edges, D518, D148: seed 3's three-spring row stands up the map now, (43, 16–18), and of seeds 1–6 seed 4's is
   // the first that runs across it, its start beside it at (32, 79).)
   it("a Quake Lift leaves a generated spring's two-spring head row as it was: the same sources, count and ids", async () => {
-    await runGenerate(makeSpec({ seed: 4, theme: "highlands", size: { x: 96, y: 96 } }));
-    ed.refine();
+    fixtureInEditor("highlands", 96, 4);
     const doc = decodeProject(ed.project().bytes);
     const row = (es: ReturnType<typeof entities>) => es.filter((e) => e.template === "WaterSource" && e.owner === "f-ieizb3y6dpgpk").map((e) => `${e.id}@${e.x},${e.y}`);
     const third = MapSession.open(doc).built.entities.find((e) => e.template === "WaterSource" && e.x === 22 && e.y === 78)!;
@@ -248,7 +249,8 @@ describe("an edit that leaves the mine site out of reach shows in the checks, an
     // next to the site, so the checks rightly counted it reached)
     let middle: [number, number] = [0, 0];
     // (7 to 12 since the start's badwater distance became a rule, Kyler, 2026-10-05, D148: none of 4, 2, 5, 6 has one now)
-    for (const seed of [4, 2, 5, 6, 7, 8, 9, 10, 11, 12]) {
+    // (seed 5, the first of 4, 2, 5, 6 and 7–12 whose map has a reachable mine site standing clear of the edge, as the scan found it when the fixture was saved)
+    for (const seed of [5]) {
       await open(seed, 96);
       const found = entities().find((e) => e.template === "UndergroundRuins");
       if (!found) continue;

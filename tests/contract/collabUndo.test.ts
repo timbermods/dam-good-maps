@@ -3,6 +3,9 @@
 // skipped, naming the action in the way, and it comes back to life when that action is taken back. An undo restores
 // the stored values: the map after it is the map without the action, never an edit replayed onto changed land. Every
 // peer decides the same from the same records, a rejoined one too.
+//
+// The maps are fixtures (tests/fixtures/projects, `mapProject` in collabFixtures.ts: Highlands 48² seeds 1, 5 and 23, Canyon 48² seeds 3 and 31): the subject is undo with two players and the words for a place, not the generator, so a land change
+// moves nothing here (D148).
 
 import { beforeAll, describe, expect, test } from "vitest";
 import { blockLine, boxOf, captureState, CollabReplica, Mask, placeOf, recordToJson, stateHash, type Command, type Reject } from "../../src/core/collab";
