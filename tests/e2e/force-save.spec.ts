@@ -31,8 +31,12 @@ async function watchFiles(page: Page) {
 
 test("Download project and Download .timber keep a paused force, and the file reopens on the land shown", async ({ page }) => {
   test.setTimeout(300_000);
+  // (DGM_E2E_CPU_THROTTLE=4 runs it as CI's software drawing does: the page held a second and more a frame)
+  const throttle = Number(process.env.DGM_E2E_CPU_THROTTLE ?? 0);
+  const cdp = throttle > 1 ? await page.context().newCDPSession(page) : null;
   for (const choice of ["Download project", "Download .timber"]) {
     await openEditor(page, "s=4242&z=256&d=n&t=highlands");
+    await cdp?.send("Emulation.setCPUThrottlingRate", { rate: throttle });
     await watchFiles(page);
     await topDown(page);
     // (Slow forces: a Fast force ends as soon as its land is final, sooner than a slow machine's Space can pause it)
@@ -54,7 +58,9 @@ test("Download project and Download .timber keep a paused force, and the file re
     await page.mouse.click(p.x, p.y);
     // Space the moment the land is seen changing, in the same turn: on CI's software drawing the page's thread is held for
     // seconds at a time (the traces of dev's failures), and a Slow crater could end between a poll that saw it at work and
-    // a key pressed after it. The keydown goes to the page's own key handler, as a pressed key's does.
+    // a key pressed after it. (A Slow showing moves on a stride a frame however long the page is held, so its land is at
+    // work for several frames: forceDriver's WATCH_STRIDE_MS; before it, the bowl and the end came in one frame, dev's run
+    // 43660448151.) The keydown goes to the page's own key handler, as a pressed key's does.
     await page.waitForFunction(
       (b) => {
         const f = window.dgmEditor!.force();
