@@ -8,10 +8,9 @@ import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
 import type { ForceRequest } from "../../src/core/forces/start";
 import { MapSession } from "../../src/core/doc/session";
 import { decodeProject } from "../../src/core/doc/document";
-import { makeSpec } from "../../src/core/spec/mapspec";
 import { waterFromDepth } from "../../src/render3d/model";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 const W = 96;
 
@@ -28,8 +27,10 @@ it("a force started while the page still plays the water's journey starts from t
   // 0.10.19's dry washes, D517, D148: seed 25's middle holds no dry spot clear of objects now; seed 25 again since D518's
   // mends moved the land, D148: seed 27's dry spot, (55, 40), now pools on only 10 tiles, where seed 25's, (70, 40), pools
   // on 1472, and its map is still roofless, so the force's first water is the water on screen)
-  await runGenerate(makeSpec({ seed: 25, theme: "highlands", size: { x: W, y: W } }));
-  ed.refine();
+  // (the map is a fixture, tests/fixtures/projects/scenario-highlands-96-25, saved at generator 0.10.24: the subject is
+  // the force's first water, not the generator, so a land change moves nothing here, D148; 0.10.26's ruin fields
+  // moved what stands at seed 25's spot, so the source no longer pooled ahead on more than 20 tiles)
+  fixtureInEditor("highlands", W, 25);
   const b = MapSession.open(decodeProject(ed.project().bytes)).built;
   // the page shows the map's water as it was before the edit below (its journey has only begun)
   const shown = waterFromDepth(b.heights, b.water, b.contamination);

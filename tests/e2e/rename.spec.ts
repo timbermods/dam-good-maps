@@ -2,9 +2,10 @@
 // field at exactly the same place and size; Enter or leaving saves through the core, with no undo step; Esc puts the
 // old name back; a blank name is refused in the core's own words, said in the title's second line, and the field
 // stays. The renamed map downloads as dgm-<name>.timber.
+// Its maps are saved (`openSaved`): the page's own map of each fragment, as generator 0.10.26 made it.
 
 import { expect, test, type Locator } from "@playwright/test";
-import { expectReady, openEditor, openFileMenu, openYourMaps } from "./open";
+import { expectReady, openSaved, openFileMenu, openYourMaps } from "./open";
 
 test("the title renames the map in place: Enter saves with no undo step, a blank name is refused, Esc cancels, nothing moves", async ({ page }) => {
   test.setTimeout(240_000);
@@ -14,7 +15,7 @@ test("the title renames the map in place: Enter saves with no undo step, a blank
   // (seed 13 since generator 0.10.24's round forms (the look round), D148: the land moved and seed 4242's map is named by
   // its standout "Shelf Above Valley" now, too wide for one line in the header's room at 1400 (147px there), so its title
   // stands on two lines and the field, one line, sits lower; seed 13's "Lee Valley" stands on one line, as 4242's name did)
-  await openEditor(page, "s=13&z=96&d=n&t=riverValley");
+  await openSaved(page, "s=13&z=96&d=n&t=riverValley");
 
   const title = page.locator(".editor-title");
   const h1 = title.locator("h1");
@@ -95,7 +96,7 @@ test("the title renames the map in place: Enter saves with no undo step, a blank
 
 test("keys typed straight after the click on the title all reach the field", async ({ page }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  await openSaved(page, "s=4242&z=96&d=n&t=riverValley");
   await page.locator(".editor-title h1 button.title-button").click();
   await page.keyboard.type("Beaver Bend");
   await expect(page.getByLabel("Map name")).toHaveValue("Beaver Bend");
@@ -105,7 +106,7 @@ test("keys typed straight after the click on the title all reach the field", asy
 test("Rename in Your maps acts on the open map: its tile is selected by a click, and the title and the tile both take the new name", async ({ page }) => {
   test.setTimeout(240_000);
   await page.setViewportSize({ width: 1400, height: 900 });
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  await openSaved(page, "s=4242&z=96&d=n&t=riverValley");
   await page.evaluate(() => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[40, 40, 44]], level: 15 } } as never, "Raise a tile"));
   await page.waitForFunction((v) => window.dgm!.kept!(v), (await page.evaluate(() => window.dgmEditor!.info())).version, { timeout: 60_000, polling: 200 });
 
@@ -131,7 +132,7 @@ test("Rename in Your maps acts on the open map: its tile is selected by a click,
 test("the description is written under the name where it is renamed: saved through the core with its own undo step, refused in the core's words, cleared by emptying it", async ({ page }) => {
   test.setTimeout(240_000);
   await page.setViewportSize({ width: 1400, height: 900 });
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  await openSaved(page, "s=4242&z=96&d=n&t=riverValley");
   const info = () => page.evaluate(() => window.dgmEditor!.info());
   const desc = page.getByLabel("Map description");
   const open = () => page.locator(".editor-title h1 button.title-button").click();
@@ -175,7 +176,7 @@ test("the description is written under the name where it is renamed: saved throu
 
 test("a description the core refuses is kept in its card with the reason when focus leaves the title; the card hangs under the header bar and covers no button", async ({ page }) => {
   test.setTimeout(300_000);
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  await openSaved(page, "s=4242&z=96&d=n&t=riverValley");
   const info = () => page.evaluate(() => window.dgmEditor!.info());
   const desc = page.getByLabel("Map description");
   for (const [w, h] of [[1280, 800], [1366, 768], [1920, 1080]] as const) {
@@ -206,7 +207,7 @@ test("a description the core refuses is kept in its card with the reason when fo
 test("a click on the card's padding then on the map saves the description and closes the card", async ({ page }) => {
   test.setTimeout(240_000);
   await page.setViewportSize({ width: 1400, height: 900 });
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  await openSaved(page, "s=4242&z=96&d=n&t=riverValley");
   const desc = page.getByLabel("Map description");
   await page.locator(".editor-title h1 button.title-button").click();
   await desc.fill("A quiet valley.");

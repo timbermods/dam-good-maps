@@ -4,11 +4,12 @@
 // it moves nothing else; Height colours and Markers are view-bar toggles, not part of it. The header names the
 // open map, and another map open in the editor shows there, with the replaced one kept in Your maps once edited (only
 // edited maps are kept, D330).
+// Its maps are saved (`openSaved`): the page's own map of each fragment, as generator 0.10.26 made it; the header's test generates, its subject the map the page makes.
 
 import { expect, test, type Page } from "@playwright/test";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
-import { openEditor, openLegend, openYourMaps, waitForEditor } from "./open";
+import { openEditor, openLegend, openSaved, openYourMaps, waitForEditor } from "./open";
 
 /** Tiles the renderer's overlay draws in the highlight's colour. */
 const highlighted = (page: Page) =>
@@ -38,7 +39,7 @@ test("Legend, ticked, shows a panel under it, which lists what is on it with the
   // 96², 3, 4, 5, 8, 9, 11 and 12 have none, and seed 3 is the first. Seed 1 since D518's contour edges, D148: seed 2's
   // map now has terrain above terrain, so its Show row adds Caves and overhangs; seed 1's has none. Seed 2 since generator
   // 0.10.17, D515, D148: seed 4242's had them)
-  await openEditor(page, "s=3&z=96&d=n&t=riverValley");
+  await openSaved(page, "s=3&z=96&d=n&t=riverValley");
 
   // off to start with: Legend on its own at the top right, unticked, and no panel (Kyler, 2026-10-04)
   const button = page.getByRole("checkbox", { name: "Legend", exact: true });
@@ -147,7 +148,7 @@ test("the header names the open map: a generated map, then an opened file, the r
 });
 
 test("the open legend's Low and High follow the heights when the whole map is raised a level, and back on undo", async ({ page }) => {
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  await openSaved(page, "s=4242&z=96&d=n&t=riverValley");
   await page.getByRole("checkbox", { name: "Heights" }).click();
   const legend = await openLegend(page);
   const ends = legend.locator(".height-ends");
