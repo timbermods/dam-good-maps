@@ -56,8 +56,9 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // and generator 0.10.23's version alone, its shown land kept for a rescue round moving only maps above 128², D148;
 // and generator 0.10.24's round forms (the look round: its outlands' knolls, mesas and cones never circles, the weathering
 // reaching in a disc), a new ground, D148;
-// and generator 0.10.25's version alone, its Lake Basin water settings moving no Canyon map, D148)
-const SHA = "89752145be65d058c8433761eaadb986477f661bcacebb1fb68a4864e0296071";
+// and generator 0.10.25's version alone, its Lake Basin water settings moving no Canyon map, D148;
+// and generator 0.10.26's ruins to within a column, D527: its ruin fields hold the scrap asked to a column, D148)
+const SHA = "ef100eb25a9848fa27839d0bc6e7cb21536a1bcf29ff659c23eec3eee59a01d9";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now

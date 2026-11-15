@@ -54,7 +54,7 @@ export const HINT: Record<string, string> = {
   "mix-succulent": "How many of the trees are succulents",
   "berries-start": "Berry bushes near the start",
   berries: "Berry bushes elsewhere",
-  ruins: "Ruins and scrap metal",
+  ruins: "How much scrap lies in ruins",
   relics: "How many relics are placed",
   geothermal: "Whether geothermal fields are placed, and how many",
   mines: "How many mine sites the map has",
