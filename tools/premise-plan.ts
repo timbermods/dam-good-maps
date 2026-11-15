@@ -66,7 +66,7 @@ function describe(plan: PremisePlan): string[] {
   const pl = plainOf(plan);
   if (pl) {
     lines.push(`  plain: L ${pl.L}, P ${pl.P}, M ${pl.M}, terrace ${pl.terrace.map((u) => u.toFixed(0)).join("–")} on ${pl.terraceLevel}, ${pl.risers.length} risers, ${pl.levee.low.length} low places, ${pl.sloughs.length} sloughs; turned ${pl.turn}${pl.mirror ? " mirrored" : ""}`);
-    lines.push(`  window ${pl.window.from.toFixed(0)}–${pl.window.to.toFixed(0)} (framed ${pl.window.framed.join("–")}), the gulch's mouth at ${pl.gulch.mouth.toFixed(0)}: fall ${pl.gulch.h} over the backswamp, crest ${pl.gulch.crest}, narrows ${pl.gulch.narrows.width} on ${pl.gulch.narrows.floor}, col ${pl.col.level} (${pl.col.side}), the red stream ${pl.red.end}`);
+    lines.push(`  window ${pl.window.from.toFixed(0)}–${pl.window.to.toFixed(0)} (framed ${pl.window.framed.map((r) => r.join("–")).join(", ")}), the valley ${pl.angle}° off the grid, bends ${pl.bends.map((b) => b.turn).join(", ")}°, the gulch's mouth at ${pl.gulch.mouth.toFixed(0)}: fall ${pl.gulch.h} over the backswamp, crest ${pl.gulch.crest}, narrows ${pl.gulch.narrows.width} on ${pl.gulch.narrows.floor}, col ${pl.col.level} (${pl.col.side}), the red stream ${pl.red.end}`);
   }
   for (const b of plan.bodies) lines.push(`  body ${b.id.padEnd(8)} ${b.kind.padEnd(5)} sill ${String(b.sill).padStart(2)} deep ${b.deep} arms ${b.arms.length}${b.dry ? " dry" : ""}  ${plan.names[b.id] ?? ""}`);
   for (const l of plan.links) {

@@ -13,6 +13,7 @@ import { PREMISES } from "../../src/core/premise/premises";
 import { DEV_PREMISES } from "../../src/core/premise/premises/dev";
 import { PLAIN_ID, plainOf, plainOverlays, plainShares, poisonedPlain, poisonedPlainEligible } from "../../src/core/premise/premises/poisonedPlain";
 import type { PremisePlan } from "../../src/core/premise/types";
+import { BED_FLOOR } from "../../src/core/land/genome";
 import { makeSpec, PREMISE_CHOICES, PREMISE_IDS, type MapSpec } from "../../src/core/spec/mapspec";
 
 // a premise map's spec takes the premises' preset (Highest terrain 22)
@@ -58,16 +59,19 @@ describe("The poisoned floodplain's eligibility", () => {
 });
 
 describe("The poisoned floodplain's plans", () => {
-  it("hold every plan invariant on seeds 1 to 12 at 128², 192² and 256², with day 1's bands inside the design's", () => {
+  it("hold every plan invariant on seeds 1 to 12 at 128², 192² and 256², with the floor and day 1's bands inside the design's", () => {
     for (const side of [128, 192, 256])
       for (let seed = 1; seed <= 12; seed++) {
         const s = spec(seed, side);
         const plan = planOf(s);
         expect(fails(s, plan), `seed ${seed} at ${side}²`).toEqual([]);
         expect(plan.premise as string).toBe(PLAIN_ID);
-        // the design's §2 by the plan's arithmetic: dead 10 to 25 %, dry 30 % or more of the plain and the backswamp
+        // the design's §2 by the plan's arithmetic: dead 8 to 25 %, dry 30 % or more of the plain and the backswamp,
+        // the floor 20 to 30 % of the map at every size
         const sh = plainShares(plan)!;
-        expect(sh.dead, `dead, seed ${seed} at ${side}²`).toBeGreaterThanOrEqual(0.1);
+        expect(sh.floor, `floor, seed ${seed} at ${side}²`).toBeGreaterThanOrEqual(0.2);
+        expect(sh.floor, `floor, seed ${seed} at ${side}²`).toBeLessThanOrEqual(0.3);
+        expect(sh.dead, `dead, seed ${seed} at ${side}²`).toBeGreaterThanOrEqual(0.08);
         expect(sh.dead, `dead, seed ${seed} at ${side}²`).toBeLessThanOrEqual(0.25);
         expect(sh.dry, `dry, seed ${seed} at ${side}²`).toBeGreaterThanOrEqual(0.3);
       }
@@ -124,7 +128,9 @@ describe("Broken poisoned-floodplain plans fail their invariants", () => {
       bed[bed.length - 1] = bed[0] + 1;
     }],
     ["plan.floor", "the Red Fall's pool dug under the floor", (plan) => {
-      body(plan, "redPool").deep = 5;
+      // (its bed dug a level under the floor, wherever the backswamp stands)
+      const pool = body(plan, "redPool");
+      pool.deep = pool.sill - BED_FLOOR + 1;
     }],
     ["plan.overlap", "the Red Fall's pool on the Red Spring", (plan) => {
       body(plan, "redPool").arms = JSON.parse(JSON.stringify(body(plan, "redSpring").arms));
@@ -151,8 +157,11 @@ describe("Broken poisoned-floodplain plans fail their invariants", () => {
     ["plain.levels", "a straight step for a riser", (plan) => {
       p(plan).risers[0].amp = 0;
     }],
-    ["plain.width", "the far wall's foot drawn 10 tiles nearer", (plan) => {
-      p(plan).far = p(plan).far.map((v) => v - 10);
+    ["plain.width", "the far wall's foot drawn in by 0.4 of P", (plan) => {
+      p(plan).far = p(plan).far.map((v) => v - 0.4 * p(plan).P);
+    }],
+    ["plain.width", "a corridor: the valley turned onto the grid", (plan) => {
+      p(plan).angle = 0;
     }],
     ["plain.width", "a plain of 25", (plan) => {
       p(plan).P = 25;

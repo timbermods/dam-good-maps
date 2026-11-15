@@ -104,17 +104,22 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   floor of its own: the shared gate holds the start.
 - `premises/poisonedPlain.ts`: the poisoned floodplain (`docs/design/poisoned-floodplain.md`), stage 0 only (its §9
   row 1), not offered: `poisonedPlainEligible` (a side under 128, Badwater Off, Rivers 0 each refused in one line), the
-  layout in a local frame turned and mirrored onto the map (the river meandering in the plain's near third, its width by
-  flow; the levees as noise along it with 2 to 4 low places, not rasterised, `LEVEE`; the plain at level L with its
-  risers 40 to 60 tiles apart, `RISER`; its width P by §2, `plainLeast`, with the river's reach `M_REACH` a named guess
-  step 2 measures; the backswamp band and the slough or two from low places, `SWAMP`, `SLOUGH`; the far wall's search
-  window downstream of the start by the badwater distance, `WINDOW`, with targets for the gulch, the col and the old
-  valley, `GULCH`; the Red Spring's stream to its join in the river's last 30 % or its own exit by seed, `JOIN`; the
-  start's terrace two levels over the plain, `TERRACE`; the Red Fall framed from the start at the vista zoom; five
-  regions; the ladder's rungs at their sites), its numbers in `PlainPlan.plain` (`plainOf`), the day-1 shares by
-  arithmetic (`plainShares`), the diagram's own pieces (`plainOverlays`) and its `plan` invariants (`plain.levels`,
-  `plain.width`, `stream.join`, `start.badwater`, `frame.fall`, `poisoned.ladder`). `plainLayoutTry` gives one try as
-  far as it got. `premises/dev.ts` lists it.
+  layout in a local frame turned onto the map by an angle and mirrored (`boxOf`, `toMap`; planning's ruling of
+  2026-11-15: the valley is not a corridor): its axis 10° to 35° off the grid with 1 or 2 gentle bends (`VALLEY`,
+  `axisHeading`), the walls not parallel (the floor 0.8 to 1.3 of `P`, narrower at the plain's head, `PLAIN`); the
+  plain by the map (`P` the larger of (M + 9) / 0.7 and 0.28 to 0.36 of the side, `plainRange`; its length 0.7 to 0.85
+  of the side, its foot where its middle leaves the map; the floor 20 to 30 % of the map), at level L with its risers
+  40 to 60 tiles apart (`RISER`), with the river's reach `M_REACH` a named guess step 2 measures; the river meandering
+  in the near third, its width by flow; the levees as noise with 2 to 4 low places, not rasterised (`LEVEE`); the
+  backswamp 7 to 10 wide (up to 0.06 of the side, `SWAMP`, `swampMost`) and the slough or two (`SLOUGH`: the first
+  from the middle third, a second a third of the plain away); the start's terrace at the plain's head a third to a half
+  of the way across (`TERRACE`); the far wall's search window from the badwater distance, searched nearest-first in
+  the runs the vista frame shows, with targets for the gulch, the col and the old valley (`WINDOW`, `GULCH`); the Red
+  Spring's stream a fifth, a quarter or a third of the river (`RED_SHARE`) to its join in the river's last 30 % or its
+  own exit (`JOIN`); five regions; the ladder's rungs at their sites. Its numbers in `PlainPlan.plain` (`plainOf`), the
+  day-1 shares by arithmetic on the map's tiles (`plainShares`), the diagram's own pieces (`plainOverlays`) and its
+  `plan` invariants (`plain.levels`, `plain.width`, `stream.join`, `start.badwater`, `frame.fall`, `poisoned.ladder`).
+  `plainLayoutTry` gives one try as far as it got. `premises/dev.ts` lists it.
 - `gateWater.ts`: the wall with one gate's stage 1 (§5.1 "As built (water)"): `gateWater` (the shared `waterByNumber`,
   then the leat's bar, the Veil's foot a level under the sill with its outer row the ribbon, the first frame's beds under
   two), `GATE_WATER_CHECKS` (the shared ones, the Still Pool a `Body.backwater`; `gate.dry`, `frame.water`) and `gateSettleModel` (the undrawn ground over every

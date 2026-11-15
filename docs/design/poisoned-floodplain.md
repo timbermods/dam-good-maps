@@ -14,6 +14,9 @@ Id `poisonedPlain`. The card's names: the Red Fall, the Stain (the gulch), the D
 A river valley with one broad floor. Everything below is a landform a river makes; nothing is laid along a line
 (PREMISES §5.1, "Land first, story second"). The plan says where; stage 2 shapes it by noise and distance.
 
+The valley is not a corridor. Its axis is a wandering line, off the grid by 10° to 35° with one or two gentle bends,
+and its walls are not parallel: the floor's width varies along its length between 0.8 and 1.3 of its mean `P`.
+
 Across the valley, from the near wall to the far wall:
 
 | Landform | What it is in life | How it is made | Numbers |
@@ -21,8 +24,8 @@ Across the valley, from the near wall to the far wall:
 | The near wall | The valley's side the river hugs | The shared relief | As the theme's |
 | The river | The trunk stream, clean, the map's strong springs at its head | Stage 1's course, meandering by flow; it stays in the near third of the floor and leaves by an edge | Width by flow as the lake stair's channels; bed two under the plain |
 | The levees | The banks a river builds from its own floods: highest at the channel, uneven, with low places where old floods broke out | A bank along both sides of the river whose height is noise along the course: one level over the plain for most of its length, level with the plain at 2 to 4 low places (each 4 to 8 tiles long). Its width is noise too, 3 to 6 tiles. It follows the meanders, so it is never straight | No stretch of crest at one height longer than a fifth of the river's length on the plain |
-| The plain | The floodplain: the largest level land on the map | One level, `L`, falling one level down the valley every 40 to 60 tiles as the river's own profile falls (a riser that wanders across the floor, never a straight step) | Width `P` across the valley (§2); 35 to 45 % of the map's land at 128², 30 to 40 % at 192² and 256² |
-| The backswamp | The floor's lowest strip, under the far wall, where the plain's water gathers | A strip one level under the plain, `L − 1`, 7 to 10 tiles wide, its edge with the plain a wandering riser | It carries the red stream |
+| The plain | The floodplain: the largest level land on the map | One level, `L`, falling one level down the valley every 40 to 60 tiles as the river's own profile falls (a riser that wanders across the floor, never a straight step) | Mean width `P` across the valley (§2); its length 0.7 to 0.85 of the side along the axis; the floor (plain and backswamp) 20 to 30 % of the map at every size |
+| The backswamp | The floor's lowest strip, under the far wall, where the plain's water gathers | A strip one level under the plain, `L − 1`, 7 to 10 tiles wide at 128² and up to 0.06 of the side on larger maps, its edge with the plain a wandering riser | It carries the red stream, which wanders within it |
 | The slough | An old channel a flood cut from a low place in the levee across the plain to the backswamp | A dry bed one level under the plain, 2 or 3 wide, winding (a bend every 6 to 10 widths), from the lowest low place on the plain's side to the backswamp. One at 128², two at 192² and 256² | Dry on day 1; it is the river-in's way, already in the land |
 | The far wall | The valley's other side | The shared relief, higher than the near wall; hard rock at the gulch's mouth | Sheer only at the Red Fall |
 | The gulch (the Stain) | A hanging side valley: its stream never cut down to the main floor | A side valley of the far wall found by search (§3), its floor 3 to 5 levels over the backswamp at its mouth, narrow (4 to 7 wide), with a narrows 3 or fewer wide within its lower half | The red source at its head |
@@ -45,9 +48,12 @@ The numbers come from the core's own soil model (`sim/contamination.ts`, `sim/so
   and no further.
 - **The dry band.** What lies between: at least 30 % of the plain and the backswamp together on day 1.
 
-So the plain's width is `P ≥ (M + 9) / 0.7`: about 28 to 34 tiles. The premise needs a side of 128 or more.
+So the plain's width is at least `(M + 9) / 0.7`, about 28 to 34 tiles, which is why the premise needs a side of 128
+or more. Above that floor it grows with the map: `P` is 0.28 to 0.36 of the side (planning's ruling of 2026-11-15 on
+the first plans, whose floor was 6 to 11 % of the larger maps). The dead and green bands are set by the soil's reach,
+so on a larger map it is the dry band that grows: more land to win.
 
-**Day 1's shares of the valley floor** (plain and backswamp): dead 10 to 25 %, dry 30 % or more, green the rest.
+**Day 1's shares of the valley floor** (plain and backswamp): dead 8 to 25 %, dry 30 % or more, green the rest.
 Dead trees stand on the dead band (the file's dead state) at the wood budget's density for the land it was; the
 green band carries the map's wood by budget; the dry band is open ground with the dry land's dress.
 
@@ -80,10 +86,10 @@ valley in the land the shared relief made:
 ## 4. The water story
 
 - **Sources.** The river's springs at its head (the map's strong sources). The start's brook: one small spring. The
-  red source: one badwater source at the gulch's head, its strength a fifth to a third of the river's, enough for a
+  red source: one badwater source at the gulch's head, its strength a fifth (Badwater low), a quarter (medium) or a third (high) of the river's, enough for a
   stream 2 wide the length of the backswamp.
 - **Courses.** The river: in at one edge, out at another, between its levees. The red stream: down the gulch, over the
-  Red Fall (3 to 5 levels, the landmark), along the backswamp, then by the seed either into the river in the river's
+  Red Fall (a fall of 3 to 5 levels, the landmark: the gulch's mouth stands that far over the backswamp), along the backswamp, then by the seed either into the river in the river's
   last 30 % (D476, D498: the river is never red above the join) or out by the edge on its own. The start's brook: down
   the terrace into the river.
 - **Hazards.** The premise plans the map's badwater. `land/hazards.ts` places none of its own on a map of this
@@ -95,7 +101,10 @@ valley in the land the shared relief made:
 
 ## 5. The start and the first frame
 
-The start stands on the terrace's lip, looking down the valley across the plain. By the frame's arithmetic
+The terrace sits at the plain's head, between a third and a half of the way across from the river, and the gulch is
+searched for nearest-first from the badwater distance on, so that the Red Fall stays within the vista camera's 60
+tiles; a plan that cannot frame it is drawn again. The start stands on the terrace's lip, looking down the valley
+across the plain. By the frame's arithmetic
 (`frame.ts`): the terrace's meadow and the river's shine in the near third; the plain's green and dry bands across the
 middle; the grey band of dead trees and the red thread beyond; the Red Fall under the far wall, inside the frame and
 no smaller than 3 tiles tall on the screen at the opening distance. The fall is the landmark link (`frame.landmark`).
@@ -132,7 +141,7 @@ Stage as PREMISES §1.4; each with a hand-broken case in its test.
 - **land:** `gulch.found` (the pair within the mend's budget); `col.over` (2 or more over the narrows' floor, and the
   lowest way out of the gulch other than its mouth); `fork.own` (the Dry Fork reaches its edge and no tile of the
   plain by `flowThrough` from the col); `levee.wanders` (§1's crest rule, and no straight run of bank over 8 tiles);
-  `plain.bands` by the soil's reach on stage 2's ground (dead 10 to 25 %, dry 30 % or more); `terrain.ruled_land`
+  `plain.bands` by the soil's reach on stage 2's ground (dead 8 to 25 %, dry 30 % or more); `terrain.ruled_land`
   (the shared look check).
 - **settled:** `river.clean` (no tile of the river above the join at contamination over 0); `plain.bands` again on
   the settled water; `levee.holds` (in a badtide's water, soil contamination on the plain only within 7 tiles of a
