@@ -401,6 +401,14 @@ export interface RuinFieldOptions {
   /** Fields follow the land (D518, the look round): each lies in a band along its level's rim (a contour, a rise's
    *  edge or a shore), 2 to 4 tiles wide, ragged, with gaps, never an ellipse's filled blob. */
   follow?: boolean;
+  /** When the dry ground has no room for the scrap asked, lay the rest on the moist ground too (D(new-ruins): a real
+   *  place keeps the scrap it had, and its own land decides where its dry ground lies). The generator's fields never
+   *  do: its land is made with room for them. */
+  moistWhenShort?: boolean;
+  /** The levels a field keeps to and whose rims it follows (the ground's own heights when not given): a real place's
+   *  land with its tile-scale speckle taken out (places/ruins.ts `fieldLevels`), whose contours its fields follow. Each
+   *  column still stands on its own tile's ground. */
+  levels?: ArrayLike<number>;
 }
 
 /** The ruin bands' widths, tiles (least, most), and the share of a band's tiles left as gaps (least, most). */
@@ -502,59 +510,116 @@ export function planRuinFields(g: BaselineGround, scrap: number, o: RuinFieldOpt
   if (allowedCount < 0.05 * N) for (let i = 0; i < N; i++) ruinFree[i] = freeAt(g, i) && !nearWater[i] && far(i) ? 1 : 0;
   const fields: RuinField[] = [];
   const centres: [number, number][] = [];
-  const rim = o.follow ? rimDistance(g, RUIN_BAND.width[1] + 1) : null;
+  const lv = o.levels ?? g.heights;
+  const rim = o.follow ? rimDistance(o.levels ? { ...g, heights: o.levels } : g, RUIN_BAND.width[1] + 1) : null;
+  // (the tiles round the fields laid, which no later field takes: a second pass on the moist ground keeps them)
+  const moat = new Uint8Array(N);
   let left = scrap;
-  for (let tries = 0; left > 0 && tries < 200 && fields.length < (o.maxFields ?? 64); tries++) {
-    // (to a thousandth: the feature stores it, and its build draws the same heights)
-    const tallness = Math.round(o.rng.range(-1, 1) * 1000) / 1000;
-    const perColumn = 15 * meanStoreys(tallness);
-    let size = Math.floor(o.rng.logNormal(o.fieldMedian, 0.35));
-    size = Math.max(12, Math.min(Math.round(2.2 * o.fieldMedian), size));
-    size = Math.min(size, Math.ceil(left / perColumn));
-    if (size < 10) break;
-    const cands: number[] = [];
-    // (a field that follows the land starts on its level's rim band, a tile or more in from the edge)
-    for (let i = 0; i < N; i++) if (ruinFree[i] && (!rim || (rim[i] >= 1 && rim[i] <= RUIN_BAND.width[1]))) cands.push(i);
-    if (!cands.length) break;
-    const s = o.rng.pick(cands);
-    const sx = s % W;
-    const sy = (s - sx) / W;
-    if (centres.some(([cx, cy]) => (sx - cx) * (sx - cx) + (sy - cy) * (sy - cy) < spacing * spacing)) continue;
-    if (rim) {
-      // a band along the rim: the tiles of the seed's level within `width` tiles of it, as far round as the field needs
-      const width = RUIN_BAND.width[0] + o.rng.int(0, RUIN_BAND.width[1] - RUIN_BAND.width[0] + 1);
-      const gaps = RUIN_BAND.gaps[0] + (RUIN_BAND.gaps[1] - RUIN_BAND.gaps[0]) * o.rng.float();
-      const want = Math.floor(size / (1 - gaps));
-      const level0 = g.heights[s];
-      const band = new Uint8Array(N);
-      let reach = 6;
-      let have = 0;
-      for (; reach <= RUIN_BAND.reach; reach += 2) {
-        have = 0;
-        band.fill(0);
-        for (let y = Math.max(0, sy - reach); y <= Math.min(H - 1, sy + reach); y++)
-          for (let x = Math.max(0, sx - reach); x <= Math.min(W - 1, sx + reach); x++) {
-            const i = y * W + x;
-            if (ruinFree[i] && g.heights[i] === level0 && rim[i] >= 1 && rim[i] <= width) {
-              band[i] = 1;
-              have++;
+  for (let pass = 0; pass < (o.moistWhenShort ? 2 : 1) && left > 0; pass++) {
+    if (pass) for (let i = 0; i < N; i++) ruinFree[i] = freeAt(g, i) && !nearWater[i] && far(i) && !moat[i] ? 1 : 0;
+    planFields();
+  }
+  return { fields, scrap: scrap - left };
+
+  function planFields() {
+    for (let tries = 0; left > 0 && tries < 200 && fields.length < (o.maxFields ?? 64); tries++) {
+      // (to a thousandth: the feature stores it, and its build draws the same heights)
+      const tallness = Math.round(o.rng.range(-1, 1) * 1000) / 1000;
+      const perColumn = 15 * meanStoreys(tallness);
+      let size = Math.floor(o.rng.logNormal(o.fieldMedian, 0.35));
+      size = Math.max(12, Math.min(Math.round(2.2 * o.fieldMedian), size));
+      size = Math.min(size, Math.ceil(left / perColumn));
+      if (size < 10) break;
+      const cands: number[] = [];
+      // (a field that follows the land starts on its level's rim band, a tile or more in from the edge)
+      for (let i = 0; i < N; i++) if (ruinFree[i] && (!rim || (rim[i] >= 1 && rim[i] <= RUIN_BAND.width[1]))) cands.push(i);
+      if (!cands.length) break;
+      const s = o.rng.pick(cands);
+      const sx = s % W;
+      const sy = (s - sx) / W;
+      if (centres.some(([cx, cy]) => (sx - cx) * (sx - cx) + (sy - cy) * (sy - cy) < spacing * spacing)) continue;
+      if (rim) {
+        // a band along the rim: the tiles of the seed's level within `width` tiles of it, as far round as the field needs
+        const width = RUIN_BAND.width[0] + o.rng.int(0, RUIN_BAND.width[1] - RUIN_BAND.width[0] + 1);
+        const gaps = RUIN_BAND.gaps[0] + (RUIN_BAND.gaps[1] - RUIN_BAND.gaps[0]) * o.rng.float();
+        const want = Math.floor(size / (1 - gaps));
+        const level0 = lv[s];
+        const band = new Uint8Array(N);
+        let reach = 6;
+        let have = 0;
+        for (; reach <= RUIN_BAND.reach; reach += 2) {
+          have = 0;
+          band.fill(0);
+          for (let y = Math.max(0, sy - reach); y <= Math.min(H - 1, sy + reach); y++)
+            for (let x = Math.max(0, sx - reach); x <= Math.min(W - 1, sx + reach); x++) {
+              const i = y * W + x;
+              if (ruinFree[i] && lv[i] === level0 && rim[i] >= 1 && rim[i] <= width) {
+                band[i] = 1;
+                have++;
+              }
             }
-          }
-        if (have >= 1.6 * want) break;
-      }
-      if (have < 1.15 * want) {
-        ruinFree[s] = 0;
+          if (have >= 1.6 * want) break;
+        }
+        if (have < 1.15 * want) {
+          ruinFree[s] = 0;
+          continue;
+        }
+        let tiles = growBlob(o.rng, band, W, H, s, want, 1.5);
+        if (tiles.length < Math.max(10, Math.floor(size / 2))) {
+          ruinFree[s] = 0;
+          continue;
+        }
+        tiles = punchHoles(o.rng, tiles, W, gaps);
+        const got = o.scrapOf ? o.scrapOf(tiles, tallness) : Math.round(tiles.length * perColumn);
+        fields.push({ tiles, tallness });
+        left -= got;
+        for (const i of tiles) {
+          const x = i % W;
+          const y = (i - x) / W;
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++) {
+              const xx = x + dx;
+              const yy = y + dy;
+              if (xx >= 0 && xx < W && yy >= 0 && yy < H) {
+              ruinFree[yy * W + xx] = 0;
+              moat[yy * W + xx] = 1;
+            }
+            }
+          g.taken[i] = 1;
+        }
+        centres.push(centreOf(tiles, W));
         continue;
       }
-      let tiles = growBlob(o.rng, band, W, H, s, want, 1.5);
+      // an ellipse of the field's ground: its area about the field's columns over the official fill
+      const aspect = 1 + o.rng.float();
+      const [ax, ay] = AXES[o.rng.int(0, 4)];
+      const areaTiles = size / L.fieldFill / 0.85;
+      const major = portable.sqrt((areaTiles * aspect) / Math.PI);
+      const minor = portable.sqrt(areaTiles / (aspect * Math.PI));
+      const level = lv[s];
+      const allowed = new Uint8Array(N);
+      const r = Math.ceil(major) + 1;
+      for (let y = Math.max(0, sy - r); y <= Math.min(H - 1, sy + r); y++)
+        for (let x = Math.max(0, sx - r); x <= Math.min(W - 1, sx + r); x++) {
+          const i = y * W + x;
+          if (!ruinFree[i] || lv[i] !== level) continue;
+          const dx = x - sx;
+          const dy = y - sy;
+          const u = (dx * ax + dy * ay) / major;
+          const v = (-dx * ay + dy * ax) / minor;
+          if (u * u + v * v <= 1) allowed[i] = 1;
+        }
+      const holes = 0.04 + 0.06 * o.rng.float();
+      let tiles = growBlob(o.rng, allowed, W, H, s, Math.floor(size / (1 - holes)), 2);
       if (tiles.length < Math.max(10, Math.floor(size / 2))) {
         ruinFree[s] = 0;
         continue;
       }
-      tiles = punchHoles(o.rng, tiles, W, gaps);
+      tiles = punchHoles(o.rng, tiles, W, holes);
       const got = o.scrapOf ? o.scrapOf(tiles, tallness) : Math.round(tiles.length * perColumn);
       fields.push({ tiles, tallness });
       left -= got;
+      // take the field and a one-tile moat so fields never touch
       for (const i of tiles) {
         const x = i % W;
         const y = (i - x) / W;
@@ -562,57 +627,16 @@ export function planRuinFields(g: BaselineGround, scrap: number, o: RuinFieldOpt
           for (let dx = -1; dx <= 1; dx++) {
             const xx = x + dx;
             const yy = y + dy;
-            if (xx >= 0 && xx < W && yy >= 0 && yy < H) ruinFree[yy * W + xx] = 0;
+            if (xx >= 0 && xx < W && yy >= 0 && yy < H) {
+              ruinFree[yy * W + xx] = 0;
+              moat[yy * W + xx] = 1;
+            }
           }
         g.taken[i] = 1;
       }
       centres.push(centreOf(tiles, W));
-      continue;
     }
-    // an ellipse of the field's ground: its area about the field's columns over the official fill
-    const aspect = 1 + o.rng.float();
-    const [ax, ay] = AXES[o.rng.int(0, 4)];
-    const areaTiles = size / L.fieldFill / 0.85;
-    const major = portable.sqrt((areaTiles * aspect) / Math.PI);
-    const minor = portable.sqrt(areaTiles / (aspect * Math.PI));
-    const level = g.heights[s];
-    const allowed = new Uint8Array(N);
-    const r = Math.ceil(major) + 1;
-    for (let y = Math.max(0, sy - r); y <= Math.min(H - 1, sy + r); y++)
-      for (let x = Math.max(0, sx - r); x <= Math.min(W - 1, sx + r); x++) {
-        const i = y * W + x;
-        if (!ruinFree[i] || g.heights[i] !== level) continue;
-        const dx = x - sx;
-        const dy = y - sy;
-        const u = (dx * ax + dy * ay) / major;
-        const v = (-dx * ay + dy * ax) / minor;
-        if (u * u + v * v <= 1) allowed[i] = 1;
-      }
-    const holes = 0.04 + 0.06 * o.rng.float();
-    let tiles = growBlob(o.rng, allowed, W, H, s, Math.floor(size / (1 - holes)), 2);
-    if (tiles.length < Math.max(10, Math.floor(size / 2))) {
-      ruinFree[s] = 0;
-      continue;
-    }
-    tiles = punchHoles(o.rng, tiles, W, holes);
-    const got = o.scrapOf ? o.scrapOf(tiles, tallness) : Math.round(tiles.length * perColumn);
-    fields.push({ tiles, tallness });
-    left -= got;
-    // take the field and a one-tile moat so fields never touch
-    for (const i of tiles) {
-      const x = i % W;
-      const y = (i - x) / W;
-      for (let dy = -1; dy <= 1; dy++)
-        for (let dx = -1; dx <= 1; dx++) {
-          const xx = x + dx;
-          const yy = y + dy;
-          if (xx >= 0 && xx < W && yy >= 0 && yy < H) ruinFree[yy * W + xx] = 0;
-        }
-      g.taken[i] = 1;
-    }
-    centres.push(centreOf(tiles, W));
   }
-  return { fields, scrap: scrap - left };
 }
 
 // -------------------------------------------------------------------------------------- mine sites

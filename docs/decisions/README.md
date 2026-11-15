@@ -219,6 +219,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D421: Gallery hides unfed starts (amended)
 - D445: Gallery shows every place
 - D(new-names): Real places' names without "Near", in the id and link too (amends D136)
+- D(new-ruins): Real places' ruins lie along the land, laid as the generator lays its own (with D518)
 - D166: Pick a place
 
 ## [3D terrain](3d-terrain.md)
