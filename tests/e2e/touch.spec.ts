@@ -19,6 +19,7 @@ import { toolInHand, toolPutAway } from "./helpers";
 import { FINGER_LIFT, HOLD_MS } from "../../src/render3d/touch";
 import { FLIPPED, ORIENTATION_NAMES } from "../../src/render3d/model";
 import { footprint } from "../../src/core/forces/objects";
+import { GAME_MAX_HEIGHT } from "../../src/core/format/world";
 
 interface P {
   x: number;
@@ -332,8 +333,11 @@ const objectsOf = (page: Page, template: string) =>
  *  free is ground the view sees, with no roof or overhang over it: 0.10.23's (69, 69), on a tablet's Carve, stood behind
  *  a hill 16 high at (65, 65), the pan landing exactly on its aim and the finger finding the hill.)
  *  `make`: with none left, the nearest patch otherwise free is made level first (one step): 0.10.23's map has few level
- *  patches, and a test's own edits before can take them all. */
-async function onFlat(page: Page, c: P, clear = 0, make = false): Promise<{ x: number; y: number }> {
+ *  patches, and a test's own edits before can take them all.
+ *  `room`: the levels kept free under the ceiling over all the ground within 12 tiles (a ridge's reach), so what is raised
+ *  there is never refused for the ceiling (D148, generator 0.10.25: on a tablet held upright the first patch was at level
+ *  19, and a ridge 6 high, refused above the ceiling at 22, made no step). */
+async function onFlat(page: Page, c: P, clear = 0, make = false, room = 0): Promise<{ x: number; y: number }> {
   // (after any glide: a phone's view slides when a sheet or a tool changes, usePhone.ts)
   await still(page);
   // (every object's tiles, from the core's footprints: what stands on a tile refuses another object there)
@@ -344,7 +348,7 @@ async function onFlat(page: Page, c: P, clear = 0, make = false): Promise<{ x: n
     return { W, H, out };
   });
   const taken = objects.out.flatMap((o) => footprint(objects, { template: o.template, x: o.x, y: o.y, orientation: ORIENTATION_NAMES[o.orientation], flipped: (o.flags & FLIPPED) !== 0 }));
-  const t = await page.evaluate(async ([c, clear, taken, make]) => {
+  const t = await page.evaluate(async ([c, clear, taken, make, top]) => {
     const r = window.dgm3d!.renderer;
     const { W, H, heights, surface, entities: e } = r.mapState()!;
     const held = new Set(taken);
@@ -366,6 +370,11 @@ async function onFlat(page: Page, c: P, clear = 0, make = false): Promise<{ x: n
               if (Math.max(Math.abs(dx), Math.abs(dy)) > 3) continue;
               if ((level && heights[i] !== h) || held.has(i)) ok = false;
               for (let l = 0; l < heights[i] && ok; l++) if (r.hasTop(i, l)) ok = false;
+            }
+          for (let dy = -12; dy <= 12 && ok && top < 255; dy++)
+            for (let dx = -12; dx <= 12 && ok; dx++) {
+              const j = (y + dy) * W + x + dx;
+              if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H && heights[j] > top) ok = false;
             }
           if (ok && clear) ok = sources.every(([sx, sy]) => Math.max(Math.abs(sx - x), Math.abs(sy - y)) - 2 > clear);
           if (ok) out.push({ x, y, d: (x - W / 2) ** 2 + (y - H / 2) ** 2 });
@@ -396,11 +405,11 @@ async function onFlat(page: Page, c: P, clear = 0, make = false): Promise<{ x: n
       if (hit && hit.x === best.x && hit.y === best.y) return { x: best.x, y: best.y, off };
     }
     return { none: true, free: free.length, off };
-  }, [c, clear, taken, make] as const);
+  }, [c, clear, taken, make, room ? GAME_MAX_HEIGHT - room : 255] as const);
   if ("made" in t) {
     await settled(page);
     await idle(page);
-    return onFlat(page, c, clear);
+    return onFlat(page, c, clear, false, room);
   }
   expect("none" in t, `a dry, level patch the view sees (${JSON.stringify(t)})`).toBe(false);
   const { x, y, off } = t as { x: number; y: number; off: number };
@@ -868,7 +877,7 @@ for (const size of SIZES) {
       if (sheet) await handle.tap();
       // (D148, generator 0.10.23: the crater and the blocks take the map's first level patch, the carve its last, and
       // the water the carve brings out stands within a ridge's reach of it: the ridge's patch is made level if none is left)
-      const level = await onFlat(page, c, 13, true);
+      const level = await onFlat(page, c, 13, true, 9);
       // (a ridge needs a line 3 tiles long at least: drawn 4 across the level patch, whatever a tile's size on the screen)
       const [r0, r1] = await page.evaluate(({ x, y }) => [window.dgmEditor!.tileToClient(x - 2, y), window.dgmEditor!.tileToClient(x + 2, y)], level);
       await fingers.pause(400);
