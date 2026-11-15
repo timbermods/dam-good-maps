@@ -125,7 +125,7 @@ function check(s: Scene, rules: Partial<Rules> = {}, profile: "generate" | "expo
       hazards: { badwaterDistance: r.badwaterWithin, badwater: "normal" },
       terrain: { buildableLand: "normal" },
       water: { sources: "normal", droughtReserve: "normal" },
-      // (Berries near start is the start's least berries, D527)
+      // (the floor, or Berries near start where it is fewer, D527)
       resources: { ruins: 100, forestDensity: 100, berryBushes: 100, berriesNearStart: r.bushesWithin20 },
     },
   } as unknown as MapSpec;
@@ -160,11 +160,13 @@ describe("the three start requirements (PLAN §5.6, D85, D164)", () => {
     const spec = makeSpec({ seed: 1, designedFor: "easy" });
     spec.settings.start.rules.waterWithin = 33;
     expect(rulesFor(spec).waterWithin).toBe(33);
-    // D527: a generated map's least berries is its Berries near start, the bushes placed (40 / 48 / 60 by preset);
-    // the 40 / 30 / 30 above are an opened file's, which has no settings
-    expect((["easy", "normal", "hard"] as const).map((d) => rulesFor(makeSpec({ seed: 1, designedFor: d })).bushesWithin20)).toEqual([40, 48, 60]);
+    // D527 (as amended on #236): the floor is the difficulty's, 40 / 30 / 30, whatever Berries near start places (40 / 48
+    // / 60 by preset); raising it never raises the bar, and asking fewer than the floor lowers it
+    expect((["easy", "normal", "hard"] as const).map((d) => rulesFor(makeSpec({ seed: 1, designedFor: d })).bushesWithin20)).toEqual([40, 30, 30]);
     spec.settings.resources.berriesNearStart = 77;
-    expect(rulesFor(spec).bushesWithin20).toBe(77);
+    expect(rulesFor(spec).bushesWithin20).toBe(40);
+    spec.settings.resources.berriesNearStart = 25;
+    expect(rulesFor(spec).bushesWithin20).toBe(25);
     expect(rulesFor(null, "normal").bushesWithin20).toBe(30);
   });
 

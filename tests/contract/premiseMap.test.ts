@@ -55,17 +55,15 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // look round, D518: its ruin fields along their level's rim, a wash's banks jogging, the dead stands reading the dry land as the checks do, the version in its description, D148; and generator 0.10.22's version alone, the map otherwise 0.10.21's, D148;
 // and generator 0.10.23's version alone, its shown land kept for a rescue round moving only maps above 128², D148;
 // and generator 0.10.24's round forms (the look round: its outlands' knolls, mesas and cones never circles, the weathering
-// reaching in a disc), a new ground, D148; and generator 0.10.26's berries near the start, a tenth over Berries near
-// start and its rescue planting at that, and its dead stands held under their cover limit, D527, D148)
-const SHA = "41ccfeb389074859d6dce757d22a2812734fed4ee39066c236de1e6de5efe634";
+// reaching in a disc), a new ground, D148; and generator 0.10.28's version alone (D527's berries leave a Normal map as it
+// was: re-stamped 0.10.28, dev's file is this byte for byte), D148)
+const SHA = "e3f9e2982436d67b74da2f7fd8a069631da7397ff37e10fbbb2cd7d3df37e919";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now
 // (the start's water gone on day 14), and of Hard seeds 1-14, 4, 5, 10, 11 and 13 hold (dev: 4, 5, 7, 10, 11); seed 5's
-// start lake parts into three pieces of 10 tiles or more by the drought's end; seed 4 since generator 0.10.24's berries
-// near the start, D527, D148: seed 5's Hard lake stair holds no plan now (the start's water gone on day 15), and of
-// Hard seeds 4, 5, 10, 11 and 13 only 4 and 11 hold)
-const HARD_SEED = 4;
+// start lake parts into three pieces of 10 tiles or more by the drought's end)
+const HARD_SEED = 5;
 
 describe("The premise mode (§2.2, build step 4)", () => {
   const made = makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "any", premise: "lakeStair" });

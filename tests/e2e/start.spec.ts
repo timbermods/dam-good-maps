@@ -24,9 +24,9 @@ test("the start requirements follow the settings, and the editor's start follows
   await openEditor(page, "s=77&z=96&d=n&t=riverValley");
 
   // each requirement, met, with the validator's number and Normal's defaults (D227: Starting wood 200,
-  // 80 before; D527: the berries' least is Berries near start, 48), and the starting-logs floor (178 within 40 tiles' walk)
+  // 80 before), and the starting-logs floor (178 within 40 tiles' walk)
   let c = await checks(page);
-  expect([c["start.water"].limit, c["start.wood"].limit, c["start.food"].limit, c["start.wood_floor"].limit]).toEqual([20, 200, 48, 178]);
+  expect([c["start.water"].limit, c["start.wood"].limit, c["start.food"].limit, c["start.wood_floor"].limit]).toEqual([20, 200, 30, 178]);
   for (const id of ["start.water", "start.wood", "start.food", "start.wood_floor"]) expect(c[id].ok, id).toBe(true);
 
   // the settings are the thresholds: Starting wood 75 moves the check's limit (set in the map generator's Difficulty section)
@@ -62,8 +62,7 @@ test("the start requirements follow the settings, and the editor's start follows
   const box = page.locator(".start-indicators");
   await expect(box).toContainText(/Water without stairs: [\d.]+ tiles' walk \(at most 20\)/);
   await expect(box).toContainText(new RegExp(`Starting wood: \\d+ logs${WOOD_WORDS} \\(at least 75\\)`));
-  // (the least berries is Berries near start, D527)
-  await expect(box).toContainText(/Starting bushes: \d+ \(at least 48\)/);
+  await expect(box).toContainText(/Starting bushes: \d+ \(at least 30\)/);
   await expect(box).toContainText(/Logs for a Forester: \d+ within 40 tiles' walk \(at least 178\)/);
   const near = await page.evaluate(() => window.dgmEditor!.startCheck());
   expect(near!.problem).toBeNull();

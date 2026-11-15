@@ -1,7 +1,7 @@
 // MapSpec v1 (PLAN §19.1): everything that determines a generated map. The settings panel and the
 // URL codec produce one. Complete, never a diff.
 
-export const GENERATOR_VERSION = "0.10.26";
+export const GENERATOR_VERSION = "0.10.28";
 
 /** "any" (Surprise me, the default, D208, D209) draws from all six themes' ranges at once; a named
  *  theme only leans the generator toward that kind of land. */
@@ -107,10 +107,10 @@ export interface Settings {
     forestDensity: number; // 50–200 (%)
     groveSize: "scattered" | "normal" | "bigWoods";
     speciesMix: { pine: number; birch: number; oak: number; succulent: number }; // weights 0–100
-    /** Berries near start (D527): the least living berry bushes within 20 tiles' walk of the start, which the start is
-     *  checked against (`start.food`) and the generator places with a tenth more (gen/resources.ts
-     *  `nearBerries`), 20–200. Starting berries, the minimum alone, folded into it: a minimum the placing
-     *  already beat changed nothing. */
+    /** Berries near start (D527): the berry bushes the generator places within 20 tiles' walk of the start, exactly
+     *  that many where the start's ground holds them, 20–200. The start is checked against its difficulty's floor
+     *  (`startBerriesLeast`), or against this where the player asks for fewer. Starting berries, the minimum
+     *  alone, folded into it: a minimum the placing already beat changed nothing. */
     berriesNearStart: number;
     berryBushes: number; // 50–300 (%)
     ruins: number; // 25–300 (%)
@@ -227,10 +227,10 @@ export const LOGS_PER_TREE = 2;
  *  nearby beyond the starting-logs floor, which every map meets within 40 tiles' walk,
  *  `start.wood_floor`), badwater distance 30 / 15 / 8 (`badwaterWithin`, the preset's Badwater
  *  distance, `hazards.badwaterDistance`), and Berries near start 40 / 48 / 60 (`berriesTarget`), the
- *  least the start is checked against, placed with a tenth more (D527: Starting berries, the minimum
- *  alone, and the start's badwater rule folded into those settings, each preset at the larger of the
- *  two). `bushesWithin20` is the least living berry bushes the start of a map without settings (an
- *  opened file) is checked against, 40 / 30 / 30: Hard's 30 (20 before; item 47: enough berries for
+ *  bushes placed near the start (D527: Starting berries, the minimum alone, and the start's badwater
+ *  rule folded into those settings, each preset at the larger of the two). `bushesWithin20` is the
+ *  floor, the least living berry bushes within 20 tiles' walk the start is checked against, 40 / 30 /
+ *  30 (`startBerriesLeast`: lower where the player asks for fewer berries): Hard's 30 (20 before; item 47: enough berries for
  *  an Iron Teeth start): its 13 beavers eat 2.67 food a day each (the game's NeedModificationService)
  *  and start with 90 food; Iron Teeth's first harvest, Kohlrabi 3 days after a FarmHouse of 20 logs
  *  is planted, comes about day 6, so the berries ripe near the start (3 a bush) bridge 13 × 2.67 × 5
@@ -241,6 +241,13 @@ export const DIFFICULTY_RULES: Record<Difficulty, Settings["start"]["rules"] & {
   normal: { waterWithin: 20, woodWithin20: 200, bushesWithin20: 30, badwaterWithin: 15, ruinsWithin: 15, berriesTarget: 48 },
   hard: { waterWithin: 28, woodWithin20: 0, bushesWithin20: 30, badwaterWithin: 8, ruinsWithin: 12, berriesTarget: 60 },
 };
+
+/** The least living berry bushes within 20 tiles' walk a map's start is checked against (`start.food`; D85 (3), D527 as
+ *  amended on #236, 6894653541): its difficulty's floor, or Berries near start where the player asks for fewer.
+ *  Raising Berries near start places more bushes; it never raises the bar a map must clear. */
+export function startBerriesLeast(spec: Pick<MapSpec, "designedFor" | "settings">): number {
+  return Math.min(DIFFICULTY_RULES[spec.designedFor].bushesWithin20, spec.settings.resources.berriesNearStart);
+}
 
 /** The wood a tree count of before D164 stands for: `LOGS_PER_TREE` logs a tree, within the
  *  setting's range. */

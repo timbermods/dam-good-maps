@@ -189,7 +189,7 @@ export function band(key: string, spec: MapSpec): string {
     case "groveSize":
       return "Official groves: most about 40 trees.";
     case "berriesNearStart":
-      return "At least this many living berry bushes within 20 tiles' walk; the generator places a tenth more. Official maps: most 57 within 20 tiles' walk.";
+      return "The berry bushes placed within 20 tiles' walk of the start. Official maps: most 57 within 20 tiles' walk.";
     case "berryBushes":
       return `About ${budget().bushes.toLocaleString()} bushes, in a few large patches. Official maps this size: ${range("bushes")}.`;
     case "ruins":

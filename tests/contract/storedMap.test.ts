@@ -9,7 +9,6 @@ import { describe, expect, it } from "vitest";
 import { decodeProject, encodeProject, type MapDocument } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
 import { fromBase64, toBase64 } from "../../src/core/format/base64";
-import { entityTiles } from "../../src/core/features/edits";
 import { tilesToRuns } from "../../src/core/math/grid";
 import * as ed from "../../src/worker/session";
 import { guid, map, session, sha, timber } from "./gateHelpers";
@@ -30,14 +29,12 @@ function edited(): { s: MapSession; exports: string[] } {
   // the export's checks refuse; the first such spot from the map's corner, since generator 0.10.7, D502, D148; west of
   // the lowered box's column, x 40, since generator 0.10.11, the D410 round, D148: the map's west half has none west of 36;
   // anywhere clear of the lowered box since generator 0.10.16's ground with grade, D148: its graded land has none west
-  // of 40, the first now at 40,4, well north of the lowered box; each object by every tile it stands on since
-  // generator 0.10.24, D527, D148: a mine site's 5×5 whose corner stood 4 tiles west of the first spot reached into it)
-  const tiles = s.built.entities.flatMap((e) => entityTiles(e));
+  // of 40, the first now at 40,4, well north of the lowered box)
   let at: [number, number] | null = null;
   for (let y = 4; y + 5 < W - 4 && !at; y += 2)
     for (let x = 4; x + 6 < W - 4 && !at; x += 2) {
       if (x <= 46 && x + 5 >= 40 && y <= 45 && y + 4 >= 40) continue; // (not on the lowered box)
-      const near = tiles.some(([tx, ty]) => tx >= x - 3 && tx <= x + 8 && ty >= y - 3 && ty <= y + 7);
+      const near = s.built.entities.some((e) => e.x >= x - 3 && e.x <= x + 9 && e.y >= y - 3 && e.y <= y + 8);
       let wet = false;
       for (let yy = y; yy < y + 5 && !wet; yy++) for (let xx = x; xx < x + 6 && !wet; xx++) if (s.built.water[yy * W + xx] > 0) wet = true;
       if (!near && !wet) at = [x, y];

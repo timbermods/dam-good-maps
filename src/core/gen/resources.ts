@@ -14,7 +14,7 @@ import { TREE_LOGS, type EntitySpec } from "../format/entities";
 import { distanceFrom, runsToTiles, tilesToRuns } from "../math/grid";
 import { cosDet, expDet, sinDet } from "../math/detmath";
 import { stream, type Rng } from "../math/rng";
-import type { MapSpec } from "../spec/mapspec";
+import { startBerriesLeast, type MapSpec } from "../spec/mapspec";
 import { pickSeeds } from "./blobs";
 import { BUSHES, density, FOREST, OFFICIAL_LAYOUT, RUIN_HEIGHT_SHARES, RUINS } from "./calibrated";
 import { START_FLOORS } from "../validate/playability";
@@ -68,25 +68,20 @@ export interface ResourceConstraints {
   deadForests?: number;
   /** The dry washes' beds and hollows (`land/washes.ts`): the dead stands' dry beds. */
   beds?: Uint8Array;
+  /** The least living berry bushes the start must hold within 20 tiles' walk, where the caller asks more than the
+   *  spec's own floor (`startBerriesLeast`; Easy start's berries, D495). */
+  berriesLeast?: number;
   /** Retired (D253, D270, D336: no locks); always null. Kept only so the frozen investigation
    *  prototypes that still pass it type-check (investigation/generative/proto). */
   lockedMask?: null;
 }
 
-/** The berry bushes placed within the start's walk for Berries near start, the least the start is checked against
- *  (D527): a tenth more, rounded up, so a start the player moves a tile still holds its berries (placed at the least
- *  itself, a start moved a tile lost two of 48). Whole numbers throughout (D366: `Math.ceil(1.1 * 40)` is 45, the
- *  product a hair over 44): 40 places 44, 48 places 53, 60 places 66. Each step of the setting moves the planting by a
- *  bush or two. */
-export function nearBerries(least: number): number {
-  return Math.floor((11 * least + 9) / 10);
-}
-
-/** The start rules' targets for what the generator places near the start (PLAN §5.6): a little above each minimum
- *  the validator enforces, so a map meets its requirements on the first attempt and keeps them when the start moves a
- *  tile. The generator never aims below a minimum (D85): starting wood aims at 1.35 × Minimum starting wood in grown
- *  logs (D164), and never below 40 trees' worth (`trees` is the trees that takes with the species mix); the berries
- *  at `nearBerries` of Berries near start, a tenth more (D527). */
+/** The start rules' targets for what the generator places near the start (PLAN §5.6): a little
+ *  above each minimum the validator enforces, so a map meets its requirements on the first
+ *  attempt. The generator never aims below a minimum (D85): starting wood aims at 1.35 × Minimum
+ *  starting wood in grown logs (D164), and never below 40 trees' worth; `trees` is the trees that
+ *  takes with the species mix. The berries are Berries near start, exactly (D527): the start's
+ *  floor is at most that many (`startBerriesLeast`). */
 export function nearStartTargets(spec: MapSpec): { wood: number; trees: number; bushes: number; ruinsClear: number } {
   const r = spec.settings.start.rules;
   const perTree = woodPerTree(spec.settings.resources.speciesMix);
@@ -94,7 +89,7 @@ export function nearStartTargets(spec: MapSpec): { wood: number; trees: number; 
   return {
     wood,
     trees: Math.ceil(wood / perTree),
-    bushes: nearBerries(spec.settings.resources.berriesNearStart),
+    bushes: spec.settings.resources.berriesNearStart,
     // official nearest ruin to the start: p10 22; Normal's rule is 15
     ruinsClear: r.ruinsWithin + 7,
   };
@@ -110,6 +105,10 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   const area = N;
   const seed = spec.seed;
   const near = nearStartTargets(spec);
+  // the least berries the start must hold (D85 (3), D527): what the planting below never falls under where it can
+  // help it, and never more than Berries near start places
+  const berriesLeast = constraints?.berriesLeast ?? startBerriesLeast(spec);
+  const berriesFloor = Math.min(near.bushes, Math.ceil(1.1 * berriesLeast));
   const free = new Uint8Array(N);
   const moist = new Uint8Array(N);
   const wet = new Uint8Array(N);
@@ -464,10 +463,10 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       for (const f of out) if (f.kind === "berryPatch") for (const i of runsToTiles(f.params.area, W)) if (nearWalk[i]) gotBushes++;
       for (const p of planted) gotWood += grownLogs(seed, W, p.id, p.tiles, p.species, p.living, moist, nearWalk);
     }
-    // where the walk holds little moist land (a narrow floodplain), the start's groves shrink to their minimum
-    // beside the berries (the berries' target is already their least with its margin, D527), fill all of it, and
-    // draw their species by the wood they give as well as by the mix (D164)
-    const nearBushes = near.bushes;
+    // where the walk holds little moist land (a narrow floodplain), the start's berries and groves
+    // share it by their minimums instead of the berries taking theirs first (D85), fill all of it,
+    // and draw their species by the wood they give as well as by the mix (D164)
+    let nearBushes = near.bushes;
     let nearWood = near.wood;
     let tight = false;
     let dense = false;
@@ -494,7 +493,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       }
       if (room < need) {
         tight = true;
-        // (the berries keep their target, Berries near start with its margin, D527; the wood shares what is left)
+        nearBushes = Math.max(berriesFloor, gotBushes + Math.floor((shortBushes * room) / need));
         nearWood = Math.max(Math.ceil(1.2 * r.woodWithin20), gotWood + Math.floor((shortWood * room) / need));
       }
     }
@@ -545,8 +544,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     if (dries && nearWalk) {
       let have = 0;
       for (const f of out) if (f.kind === "berryPatch") for (const i of runsToTiles(f.params.area, W)) if (nearWalk[i]) have++;
-      const least = near.bushes;
-      if (have < least) {
+      if (have < berriesFloor) {
         dries = null;
         plantBerries(nearBushes - have);
       }
@@ -662,7 +660,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       const rules = spec.settings.start.rules;
       let bushesNow = 0;
       for (const f of out) if (f.kind === "berryPatch") for (const i of runsToTiles(f.params.area, W)) if (nearWalk[i] && moist[i]) bushesNow++;
-      const bushesWant = near.bushes;
+      const bushesWant = berriesFloor;
       const woodWant = Math.ceil(1.15 * rules.woodWithin20);
       for (const within of [plantWalk!, nearWalk]) {
         for (let k = 0; k < 12 && bushesNow < bushesWant; k++) {

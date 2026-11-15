@@ -106,7 +106,7 @@ import { dryStart, padFloods, pickStart, prepareStart, waterAim, type DroughtPol
 import { failurePhrase } from "./failWords";
 import { EASY_LAND, easyStartMeasures, easyTargets } from "../analysis/easyStart";
 import { pondWater, POND_WATER, shapeEasyStart } from "../land/easyStart";
-import { DIFFICULTY_RULES } from "../spec/mapspec";
+import { DIFFICULTY_RULES, startBerriesLeast } from "../spec/mapspec";
 import { generatePremise, generatePremiseAsync, type DroughtRunner, type PremiseInfo } from "../premise/generate";
 
 /** Easy start's badwater distance (D495): Easy's (D85), the start's badwater and its soil kept 30 tiles off. */
@@ -1762,11 +1762,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     r.woodWithin20 = Math.max(r.woodWithin20, easyT.wood);
     r.ruinsWithin = Math.min(r.ruinsWithin, 10);
     spec.settings.hazards.badwaterDistance = Math.max(spec.settings.hazards.badwaterDistance, EASY_BADWATER);
-    // (Berries near start is the start's least, D527, and the generator places a tenth more: the least at 1.5 × Easy
-    // start's berries over 1.1, rounded up in whole numbers (D366), so about 1.5 × them are placed, as ever: 40 gives
-    // 55, which places 61)
-    spec.settings.resources.berriesNearStart = Math.max(spec.settings.resources.berriesNearStart, Math.floor((15 * easyT.bushes + 10) / 11));
+    spec.settings.resources.berriesNearStart = Math.max(spec.settings.resources.berriesNearStart, Math.ceil(1.5 * easyT.bushes));
   }
+  // the least berries the start is made for (D85 (3), D527): its floor, and Easy start's berries where it asks more
+  const berriesLeast = Math.max(startBerriesLeast(spec), easyT ? easyT.bushes : 0);
   // (a long Islands map's sea is proved settled before its land is shown, DRAINED_SEA)
   const seaProved = specIn.theme === "islands" && !!g.seaLayout && mapShape(W, H).long;
   const seed = spec.seed;
@@ -1791,7 +1790,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const startRules = spec.settings.start.rules;
   const floors = rulesFor(spec);
   const moistWalk = Math.max(MOIST_WALK.least, Math.round(MOIST_WALK.share * (floors.farmland + floors.forester)));
-  const moistWant = ease >= 1 ? Math.max(moistWalk, Math.round(1.3 * (spec.settings.resources.berriesNearStart + startRules.woodWithin20 / OAK_LOGS))) : moistWalk;
+  const moistWant = ease >= 1 ? Math.max(moistWalk, Math.round(1.3 * (berriesLeast + startRules.woodWithin20 / OAK_LOGS))) : moistWalk;
   // the rule's drought, which a start's unfed water must last (D302; `start.water`)
   const droughtDays = DROUGHT[spec.designedFor].days;
   // the drought-aware start (#59): Easy requires water that lasts the first drought, Normal and Hard prefer it
@@ -3442,7 +3441,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const md = gameSoil(W, H, b.heights, kept, cd, mapObjects({ entities: b.entities.map(entityJson) })).moisture;
     return { easy: { safe: Uint8Array.from(md, (v) => (v > 0 ? 1 : 0)), bushes: Math.ceil(1.3 * easyT.bushes), within: easyT.bushesWithin, ruins: easyT.ruins } };
   };
-  const resources = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, droughtGround(base), 0, attempt, { protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1, ...(info.washes ? { beds: bedMask(info.washes, N) } : {}), ...easyFood(base) }, sites)];
+  const resources = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, droughtGround(base), 0, attempt, { protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1, berriesLeast, ...(info.washes ? { beds: bedMask(info.washes, N) } : {}), ...easyFood(base) }, sites)];
   let features = [...layout, ...resources];
   let built = build(features, null);
   opts.onProgress?.({ attempt, stage: "check" });
@@ -3463,7 +3462,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         if (d < 60 || d > 120 || !walkableFromStart(b3, st.x, st.y)) return null;
       }
       if (risePlan && !riseStands(b3, risePlan.x, risePlan.y, risePlan.radius, risePlan.top, risePlan.rise)) return null;
-      const r3 = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, droughtGround(b3), 0, attempt, { protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1, ...(info.washes ? { beds: bedMask(info.washes, N) } : {}), ...easyFood(b3) }, sites)];
+      const r3 = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, droughtGround(b3), 0, attempt, { protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1, berriesLeast, ...(info.washes ? { beds: bedMask(info.washes, N) } : {}), ...easyFood(b3) }, sites)];
       const f3 = [...lay3, ...r3];
       const bb = build(f3, null);
       const file3 = toTimberFile(spec, bb);

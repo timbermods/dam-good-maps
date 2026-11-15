@@ -123,8 +123,8 @@ export function rulesFor(spec: MapSpec | null, designedFor: Difficulty = "normal
     difficulty,
     waterWithin: r.waterWithin,
     woodWithin20: r.woodWithin20,
-    // (Berries near start is the start's least berries, D527)
-    bushesWithin20: s ? s.resources.berriesNearStart : d.bushesWithin20,
+    // (the difficulty's floor, or Berries near start where the player asks for fewer, D527)
+    bushesWithin20: s ? Math.min(d.bushesWithin20, s.resources.berriesNearStart) : d.bushesWithin20,
     // (Badwater distance, the start's badwater rule folded into it, D527; a map without settings, its difficulty's)
     badwaterWithin: s ? s.hazards.badwaterDistance : d.badwaterWithin,
     ruinsWithin: r.ruinsWithin,

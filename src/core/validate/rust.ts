@@ -23,6 +23,7 @@ import type { Feature, MapObjectFeature } from "../features/schema";
 import { objectTiles } from "../features/objects";
 import { storedWetMask, type Mechanics } from "../analysis/mechanics";
 import { growthOf } from "../analysis/wood";
+import { DIFFICULTY_RULES, type Difficulty } from "../spec/mapspec";
 import { generatedThemeOf } from "../gen/pack";
 import { isDelayed, mapObjects, specifiedStrength } from "../sim/model";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
@@ -259,9 +260,10 @@ export function checksInput(file: TimberFile, opts: ValidateOptions): ChecksInpu
       if (st) {
         const r = st.start.rules;
         m.bool(!!r);
-        // (the checks' third and fourth start rules, the least berries and the badwater distance, are Berries near
-        // start and Badwater distance, D527)
-        if (r) for (const v of [r.waterWithin, r.woodWithin20, st.resources.berriesNearStart, st.hazards.badwaterDistance, r.ruinsWithin]) m.f64(numeric(v));
+        // (the checks' third and fourth start rules, D527: the least berries, the difficulty's floor or Berries near
+        // start where the player asks for fewer, and Badwater distance)
+        const floor = DIFFICULTY_RULES[spec.designedFor as Difficulty]?.bushesWithin20 ?? DIFFICULTY_RULES.normal.bushesWithin20;
+        if (r) for (const v of [r.waterWithin, r.woodWithin20, Math.min(floor, numeric(st.resources.berriesNearStart)), st.hazards.badwaterDistance, r.ruinsWithin]) m.f64(numeric(v));
         m.f64(numeric(st.hazards.badwaterDistance));
         m.optStr(st.terrain.buildableLand);
         m.optStr(st.start.area);

@@ -112,7 +112,7 @@ export const PREMISE_SETTINGS: Record<PremiseId, readonly PremiseSetting[]> = {
     { key: "fd", path: "resources.forestDensity", role: "life", does: "How many trees, inside the stair's wood budget" },
     { key: "gs", path: "resources.groveSize", role: "life", does: "How big the stands of trees are" },
     { key: "sm", path: "resources.speciesMix", role: "life", does: "Which trees grow; left as it is, the theme's woods" },
-    { key: "bn", path: "resources.berriesNearStart", role: "life", does: "The berry bushes placed near the start, and the least it needs" },
+    { key: "bn", path: "resources.berriesNearStart", role: "life", does: "The berry bushes placed near the start" },
     { key: "bb", path: "resources.berryBushes", role: "life", does: "How many berry bushes, inside the stair's budget" },
     { key: "ru", path: "resources.ruins", role: "life", does: "How much scrap lies in ruins" },
     { key: "rc", path: "resources.relics", role: "none", does: "Not on a lake stair yet" },
