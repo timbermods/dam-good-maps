@@ -75,6 +75,7 @@ import { mediumRelicParts, smallRelicParts } from "./smallRelics";
 import { LAND, LAND_GROW } from "./objectFade";
 import { PINE_WHORLS, WHORL_SHADE, whorlTriangles } from "./pineCrown";
 import { IVY_ROOT, IVY_RUN, IVY_TRAILS, PATTERN, PATTERN_TILE, type Region } from "./objectPatterns";
+import { bushTriangles } from "./bushCards";
 
 type Rgb = readonly [number, number, number];
 
@@ -248,12 +249,26 @@ class Model {
   }
 }
 
+/** The blueberry bush (bushCards.ts): its leaves in `leaves`, its berries with it or not, each triangle at its place in
+ *  the bush's pattern. */
+function bush(leaves: Rgb, berries: boolean): Model {
+  const m = new Model();
+  for (const t of bushTriangles(berries)) {
+    const from = m.pos.length / 3;
+    m.tris(t.p.flat(), t.berries ? BERRY : leaves);
+    m.pattern(from, PATTERN.bush, t.uv.flat());
+  }
+  return m;
+}
+
 /** A plant's dying form (dying.ts): its foliage in the game's dry colour, drawn in toward the trunk and sunk as much as the
  *  game's is; each triangle's normal made again where it moved. */
 function dyingOf(species: string, m: Model): Model {
   const d = DRYING[species];
   const out = new Model();
   out.lod = m.lod.slice();
+  out.uv = m.uv?.slice() ?? null;
+  out.pat = m.pat?.slice() ?? null;
   for (let v = 0; v < m.pos.length; v += 9) {
     const tri = m.pos.slice(v, v + 9);
     let moved = false;
@@ -404,17 +419,12 @@ const MODELS: Record<string, () => Model> = {
   "Oak.dead": () => deadTree("Oak", { wood: DEAD_BARK, break: DEAD_BREAK }),
   Succulent: () => succulent(false),
   "Succulent.dead": () => succulent(true),
-  // the game's grown blueberry bush: a low mound 0.4 tall, its berries on top; 0.94 across, as much as the game's leaves
-  // cover (its cards cut by their texture's alpha: 0.93 across from above, its whole model 1.1; until 2026-11-09 ours was
-  // 1.1 across and covered 44 % more than the game's, `tools/game-crowns.py`)
-  BlueberryBush: () => {
-    const m = new Model().add(ico(0.47), BUSH_LEAVES, { y: 0.13, sy: 0.57 });
-    const flowers: [number, number, number][] = [[0.24, 0.3, 0.17], [-0.13, 0.32, 0.22], [0.07, 0.32, -0.24], [0.34, 0.2, -0.17], [-0.3, 0.24, -0.1]];
-    for (const [x, y, z] of flowers) m.add(new OctahedronGeometry(0.07, 0), BERRY, { x, y, z });
-    return m;
-  },
+  // the game's grown blueberry bush as it builds it (bushCards.ts): a low dome its mound of leaf rosettes covers and
+  // rosette cards round its shoulders and top, cut by their pattern, its berries on top (until 2026-11-15 a faceted
+  // mound 0.94 across with five blue points)
+  BlueberryBush: () => bush(BUSH_LEAVES, true),
   // the game's dead bush keeps its leaves, gone brown, and loses its berries (dying.ts `DEAD_FORM`)
-  "BlueberryBush.dead": () => new Model().add(ico(0.47), deadLeaves("BlueberryBush", BUSH_LEAVES), { y: 0.13, sy: 0.57 }),
+  "BlueberryBush.dead": () => bush(deadLeaves("BlueberryBush", BUSH_LEAVES), false),
   Slope: () => {
     // a ramp over the tile, low on the north (−Z) edge and high on the south (+Z), as a Cw0
     // slope's high side is south (its arrows are "Slope.mark")

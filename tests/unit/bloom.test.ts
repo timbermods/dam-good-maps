@@ -3,16 +3,20 @@ import { bloomLevels, bloomLift, GAME_BLOOM, GAME_BLOOM_LOOKS, inverseTable, LAV
 import { LAVA } from "../../src/render3d/materials";
 import { paletteDefaults } from "../../src/render3d/high/models";
 import { GAME_LIGHT, GAME_SKY, gameAmbient, gamePostRgb, LIGHT, MINE, ownAlbedo, RUIN, START, TREE_COLOURS, type Rgb } from "../../src/render3d/palette";
-import { PATTERN, PATTERN_CUT, PATTERN_GAIN, PATTERN_SIZE, patternTexels } from "../../src/render3d/objectPatterns";
+import { BUSH_BERRIES, BUSH_MOUND, BUSH_ROSETTES, PATTERN, PATTERN_CUT, PATTERN_GAIN, PATTERN_SIZE, patternTexels } from "../../src/render3d/objectPatterns";
 
 const display = (v: number) => (v <= 0.0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055);
 
 /** The brightest albedo a pattern gives a part of colour `colour` where its cut keeps it (by its sum; objectPatterns.ts
- *  `PATTERN`). */
-function brightestKept(layer: number, colour: readonly number[]): readonly number[] {
+ *  `PATTERN`; within the parts `regions` of it if given). */
+function brightestKept(layer: number, colour: readonly number[], regions?: readonly (readonly number[])[]): readonly number[] {
   const t = patternTexels();
   let best = [0, 0, 0];
   for (let k = (layer - 1) * PATTERN_SIZE * PATTERN_SIZE * 4; k < layer * PATTERN_SIZE * PATTERN_SIZE * 4; k += 4) {
+    // (within `regions` of the layer, in UV, if given)
+    const x = ((k / 4) % PATTERN_SIZE) / PATTERN_SIZE;
+    const y = Math.floor((k / 4 / PATTERN_SIZE) % PATTERN_SIZE) / PATTERN_SIZE;
+    if (regions && !regions.some((r) => x >= r[0] && x < r[0] + r[2] && y >= r[1] && y < r[1] + r[3])) continue;
     const c = [0, 1, 2].map((i) => (t[k + i] / 255) * PATTERN_GAIN * colour[i]);
     if (t[k + 3] / 255 >= PATTERN_CUT && c[0] + c[1] + c[2] > best[0] + best[1] + best[2]) best = c;
   }
@@ -101,6 +105,8 @@ describe("the game's bloom (D497 as amended 2026-11-08)", () => {
       ["the ivy's brightest texel", brightestKept(PATTERN.ivy, RUIN.ivy)],
       ["the planks' brightest texel", brightestKept(PATTERN.planks, START.planks)],
       ["the pale wood's brightest texel", brightestKept(PATTERN.wood, START.wood)],
+      ["the bush's brightest leaf", brightestKept(PATTERN.bush, TREE_COLOURS.bush, [BUSH_MOUND, ...BUSH_ROSETTES])],
+      ["the bush's brightest berry", brightestKept(PATTERN.bush, TREE_COLOURS.berry, BUSH_BERRIES)],
       ...MINE.rubble.map((c, k) => [`MINE.rubble.${k}`, own(c)] as [string, readonly number[]]),
       ...(["wood", "earthTop", "seam", "ladder", "frame", "earth", "rootPale"] as const).map((k) => [`MINE.${k}`, own(MINE[k])] as [string, readonly number[]]),
       // High's models
