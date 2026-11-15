@@ -44,7 +44,7 @@ import { previewSettle } from "../sim/preview";
 import type { FieldCache } from "../features/target";
 import { featureId } from "../features/ids";
 import { objectTiles } from "../features/objects";
-import type { Feature, MapObjectFeature, RiverFeature, StartFeature } from "../features/schema";
+import type { Feature, ForestFeature, MapObjectFeature, RiverFeature, StartFeature } from "../features/schema";
 import { writeTimber, type TimberFile } from "../format/timber";
 import { drainage } from "../land/drainage";
 import { bedMask, planWashes, startKeepOff, type Wash } from "../land/washes";
@@ -90,6 +90,7 @@ import { planPlug } from "./plug";
 import { badwaterBudget } from "../resources/badwater";
 import { finalChecks, finalCtx, foundIntention, settlerView, type IntentionResult } from "./intentions";
 import { caveStream, checkForm, formsWanted, growOn } from "./forms3d";
+import { bareShare, DEAD_STANDS } from "./deadStands";
 import { description, toTimberFile } from "./pack";
 import { outcomesOf, PROMISES, promiseSides, type Outcomes } from "./outcomes";
 import { mapSays, mapWords, type PlayFacts } from "./names";
@@ -99,7 +100,7 @@ import { DROUGHT, REACH_MIN, RESERVE, reservoirNeeded, RUIN_HEIGHT_SHARES } from
 import { gameSoil } from "../sim/soil";
 import { DAYS_TO_DIE_DRY } from "../sim/withering";
 import { resourceBudget, ruinColumns, ruinRagged } from "../resources/baseline";
-import { tilesToRuns } from "../math/grid";
+import { runsToTiles, tilesToRuns } from "../math/grid";
 import { obstacleTiles, type ObstaclePlan } from "../features/setpieces/obstaclePayoff";
 import type { SetPieceFeature } from "../features/schema";
 import { dryStart, padFloods, pickStart, prepareStart, waterAim, type DroughtPolicy, type StartPick } from "./settler";
@@ -3534,6 +3535,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       const failing = new Set(v.report.checks.filter((c) => !c.ok).map((c) => c.id));
       const records: IntentionResult[] = grown.missed.map((m) => ({ id: m.id, ok: false, note: m.why, outcome: "dropped" as const }));
       let plans = grown.forms.slice();
+      // (the dead stands' bare land, D516, D518: the resource pass kept it to its share on the land it planted; a form that
+      // moistens dry land under the same trees, a spring cave's water, shrinks the dry land, so the forms keep it too)
+      const deadTrees = features.filter((f) => f.kind === "forest" && (f.role ?? "").startsWith("forest/dead/")).flatMap((f) => runsToTiles((f as ForestFeature).params.area, W));
+      const bareMost = Math.max(DEAD_STANDS.bare.most, bareShare(deadTrees, built.water, built.moisture, W, H));
       for (let tries = 0; plans.length && tries < 2; tries++) {
         const mask = new Uint32Array(N);
         for (let i = 0; i < N; i++) mask[i] = plainMask(h[i]);
@@ -3553,7 +3558,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         const file3 = own ? toTimberFile(spec, b3) : null;
         const v3 = file3 ? validateMap(file3, { profile: "generate", spec, features: f3, water: { model: b3.waterModel, settled: b3.settle }, dropped: b3.dropped ?? 0, ...(easyCheck ? { easyStart: { ...easyCheck, badtideDay: easyBadtide } } : {}) }) : null;
         const ctx3 = finalCtx(b3, hy);
+        const bare = bareShare(deadTrees, b3.water, b3.moisture, W, H) <= bareMost;
         const holds =
+          bare &&
           !!v3 &&
           v3.report.passed &&
           v3.report.checks.every((c) => c.ok || failing.has(c.id)) &&
@@ -3578,10 +3585,12 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         for (const f of streams) contains.delete(f.id);
         // (the forms whose own check failed go; when the map's checks failed, the forms near where
         // they failed, else the boldest kind there is: the arches, then an overhang, then the caves)
-        const failed = !own ? plans.filter((_, q) => !checks[q].ok) : culprits(plans, v3!, failing, b3.entities, W);
+        // (the bare land passed: the forms that bring water, the spring caves, else the boldest kind)
+        const springs = plans.filter((p) => p.id === "spring-cave");
+        const failed = !own ? plans.filter((_, q) => !checks[q].ok) : !bare && v3?.report.passed ? (springs.length ? springs : culprits(plans, v3, failing, b3.entities, W)) : culprits(plans, v3!, failing, b3.entities, W);
         for (const p of failed) {
           const c = checks[plans.indexOf(p)];
-          records.push({ id: p.id, ok: false, note: `${p.note}; ${c.ok ? "the map's checks did not hold with it" : c.note}`, outcome: "dropped" });
+          records.push({ id: p.id, ok: false, note: `${p.note}; ${!c.ok ? c.note : !bare ? "the dead stands' bare land did not hold with it" : "the map's checks did not hold with it"}`, outcome: "dropped" });
         }
         plans = plans.filter((p) => !failed.includes(p));
       }
