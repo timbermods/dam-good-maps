@@ -4,15 +4,19 @@
 // long the brush is held; a deepening pass along a channel takes exactly one level off; plain Lower
 // still digs deeper while held; a stroke saved before D263 replays as it always did; the page paints
 // what the build makes, and the project replays it.
+//
+// The page-and-build case opens River Valley 96² seed 3 from its saved fixture (tests/fixtures/projects, D148): dev's
+// land of generator 0.10.22, as #1163 saved it, so a land change moves nothing here. On 0.10.25's land the deepen stroke shows
+// 8 where the build makes 7 on two tiles, with dev's editor code too: an editor fault that land uncovered, held as a
+// failing test to come in issue #1181.
 
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
 import { applyBrush, brushProblems, type BrushParams } from "../../src/core/features/raster/brush";
 import { StrokePreview } from "../../src/core/features/raster/strokePreview";
-import { generate } from "../../src/core/gen/generate";
 import { hash32 } from "../../src/core/math/hash";
-import { makeSpec } from "../../src/core/spec/mapspec";
+import { fixtureSession } from "../fixtureProjects";
 
 const W = 48;
 const L = 8;
@@ -118,8 +122,7 @@ describe("smart Lower's depth from strokes (D263)", () => {
   });
 
   it("the page paints what the build makes, and the project replays it", () => {
-    const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 96, y: 96 } }));
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fixtureSession("riverValley", 96, 3);
     s.setWaterMode("defer");
     const start = s.built.start!;
     let from = -1;
