@@ -17,7 +17,8 @@ A river valley with one broad floor. Everything below is a landform a river make
 The valley is not a corridor. Its axis is a wandering line, off the grid by 10° to 35° with one or two gentle bends,
 and its walls are not parallel: the floor's width varies along its length between 0.8 and 1.3 of its mean `P`.
 Each wall wanders by its own line, as the river does and not as an offset of the axis: spurs that step out onto the
-floor and re-entrants that step back, 0.15 to 0.3 of `P` either way over a length of 1.5 to 3 `P`. No wall's foot stays
+floor and re-entrants that step back, 0.15 to 0.3 of `P` either way, a spur and its re-entrant together 1.5 to 3 `P` long (a spur that long by itself
+has a flank straight for more than the rule below allows). No wall's foot stays
 within 2 tiles of one straight line for longer than 1.2 `P` (`wall.wanders`, a plan invariant; stage 2 holds the same
 of the ground). The backswamp and the red stream follow the far wall's foot, so they wander as it does.
 
