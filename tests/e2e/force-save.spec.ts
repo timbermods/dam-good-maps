@@ -31,10 +31,12 @@ async function watchFiles(page: Page) {
 
 test("Download project and Download .timber keep a paused force, and the file reopens on the land shown", async ({ page }) => {
   test.setTimeout(300_000);
-  // (DGM_E2E_CPU_THROTTLE=4 runs it as CI's software drawing does: the page held a second and more a frame)
+  // (DGM_E2E_CPU_THROTTLE=4 runs the force and the save as CI's software drawing does: the page held a second and more
+  // a frame; the map is made unthrottled, as making it is not what this checks)
   const throttle = Number(process.env.DGM_E2E_CPU_THROTTLE ?? 0);
   const cdp = throttle > 1 ? await page.context().newCDPSession(page) : null;
   for (const choice of ["Download project", "Download .timber"]) {
+    await cdp?.send("Emulation.setCPUThrottlingRate", { rate: 1 });
     await openEditor(page, "s=4242&z=256&d=n&t=highlands");
     await cdp?.send("Emulation.setCPUThrottlingRate", { rate: throttle });
     await watchFiles(page);
