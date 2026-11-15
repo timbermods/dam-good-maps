@@ -50,6 +50,12 @@ const LIST: Entry[] = [
   ["canyon", 96, 4, "noforms"],
   ["delta", 96, 2, "noforms"],
   ["islands", 96, 5, "noforms"],
+  // generator 0.10.25's land, the land the scenario tests the weathering's reach (0.10.29) moved were written on
+  ...[2, 7].map((seed): Entry => ["highlands", 64, seed]),
+  ...[22, 24, 4249].map((seed): Entry => ["highlands", 96, seed]),
+  ["riverValley", 64, 6],
+  ["riverValley", 96, 5],
+  ["canyon", 128, 2],
 ];
 
 const args = process.argv.slice(2);

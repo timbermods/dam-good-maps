@@ -12,13 +12,14 @@ import { generate } from "../../src/core/gen/generate";
 import { canonicalRun, type CanonicalWater } from "../../src/core/sim/prefill";
 import type { WaterModel } from "../../src/core/sim/water";
 import { canonicalStackRun, REACH_MARGIN, settledAgain, type StackSettle } from "../../src/core/sim/stackWater";
-import { makeSpec } from "../../src/core/spec/mapspec";
 import { caveSession, dig, hillsides } from "./caveMap";
+import { fixtureSession } from "../fixtureProjects";
 
 // (seed 2 for seed 3 on generator 0.10.11, the D410 round's ramps and shores, D148: seed 3's hillsides all stand within three tiles of an object now;
 // seed 3 again since generator 0.10.18's dead stands on the dry land, D516, D148: seed 2 has no hillside clear of objects now, seed 3 has five;
 // seed 6 for seed 3 since generator 0.10.20's warped contour edges and compact rises, D518, D148: seed 3 has no hillside clear of objects now, seed 6 has seven)
-const r = generate(makeSpec({ seed: 6, theme: "riverValley", size: { x: 64, y: 64 } }));
+// (a fixture since generator 0.10.29, D148: the land these cases were written on, tests/fixtures/projects, so the weathering's reach moving the generator's land moves nothing here)
+const open = () => fixtureSession("riverValley", 64, 6);
 
 /** The canonical settle of the map's water from cold. */
 function cold(s: MapSession): CanonicalWater {
@@ -50,7 +51,7 @@ function fromReach(st: StackSettle, x: number, y: number): number {
 
 describe("a map with caves settles again at once when an edit leaves its water as it was (D453)", () => {
   it("an edit away from the water: the last settle, the same bytes as from cold; an edit by the water settles in full", () => {
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = open();
     const h = hillsides(s)[0];
     expect(s.apply(dig(h.x, h.y, h.z, "-x")).errors).toEqual([]);
     const st = s.built.settle.stack!;
@@ -84,7 +85,7 @@ describe("a map with caves settles again at once when an edit leaves its water a
   }, 60000);
 
   it("a project saved while a hollowed map's water settles reopens to the same file as one saved settled", () => {
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = open();
     s.setWaterMode("defer");
     const { x, y, z } = hillsides(s)[0];
     expect(s.apply(dig(x, y, z, "-x")).errors).toEqual([]);
