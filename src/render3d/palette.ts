@@ -7,7 +7,7 @@
 // with no glow), clean water a deep teal body darkening with depth, clear in
 // the shallows (the water's own palette is waterPalette.ts, D177), and ground under water a dark
 // wet bed; a toggle switches the ground to height colours.
-// Walls are cobbled stone, lighter higher up as the game's cliffs. Colours are display values (the
+// Walls are the game's cliff rock, lighter higher up as its cliffs. Colours are display values (the
 // renderer outputs them without conversion).
 //
 // Readability follows the game's own (D334): its look and its cues, with no lightness gap or pattern
@@ -223,14 +223,14 @@ export const JUICE = {
 /** Height colours (the toggle): the low and high ends of the ramp, as before Map look. */
 export const HEIGHT_RAMP = { low: [0.478, 0.588, 0.329] as Rgb, high: [0.769, 0.698, 0.549] as Rgb } as const;
 
-/** The block walls: cobbled stone, as the game's cliffs (D497): the stone and mortar calibrated so their pattern's
- *  mean albedo (`tools/albedo-means.ts`) is the game's `CliffDetail` texture's mean, 68/62/52, and tinted by height as
- *  the game's Cliff, CliffEdge and SlopeCliff materials tint it: `_SplatGradientMin` at level 0 to `_SplatGradientMax`
- *  at `ALTITUDE_RAMP.ceiling` (22), unclamped. With **Markers** on, a pale ledge over a dark groove between levels, so
- *  levels can be counted (an editing aid, untinted). */
+/** The block walls, as the game's cliffs (D497): their rock is materials.ts `ROCK` (our texture at the game's
+ *  `CliffDetail` and `Cliff_N` statistics), tinted by height as the game's Cliff, CliffEdge and SlopeCliff materials
+ *  tint it: `_SplatGradientMin` at level 0 to `_SplatGradientMax` at `ALTITUDE_RAMP.ceiling` (22), unclamped. `stone`
+ *  is a loose stone's colour off a wall (a force's falling rock, a block's dust; `wallColor`), lighter than the rock's
+ *  mean. With **Markers** on, a pale ledge over a dark groove between levels, so levels can be counted (an editing
+ *  aid, untinted). */
 export const WALL = {
   stone: [0.347, 0.317, 0.267] as Rgb,
-  mortar: [0.112, 0.1, 0.088] as Rgb,
   ledge: [0.8, 0.78, 0.68] as Rgb,
   groove: [0.08, 0.08, 0.07] as Rgb,
   gradient: { min: [0.4157, 0.4314, 0.4745] as Rgb, max: [0.9412, 0.9255, 0.8941] as Rgb },
@@ -368,11 +368,12 @@ export const RUIN = {
   rust: [0.364, 0.185, 0.09] as Rgb,
   /** The slabs and floors: the atlas's cracked concrete. */
   slab: [0.425, 0.352, 0.222] as Rgb,
-  /** The ivy: the game's (the ruins' `Ivy_Wet`, the texels its leaves keep). */
-  ivy: [0.163, 0.186, 0.102] as Rgb,
-  /** The ivy's brighter leaves, on its clusters' edges: as much lighter and yellower than the ivy as Kyler's were
-   *  (#5C7F3D over #405634). */
-  leaf: [0.234, 0.275, 0.121] as Rgb,
+  /** The ivy's leaves: the game's (the ruins' `Ivy_Wet` and `Ivy_Dry`, one atlas: the texels its leaves keep), the mean
+   *  of our pattern's (objectPatterns.ts). (Until 2026-11-14 the mean of all it keeps, its stems too, #2a2f1a, on flat
+   *  square leaves, a third of them a brighter green of Kyler's, #3c461f.) */
+  ivy: [0.148, 0.18, 0.095] as Rgb,
+  /** The ivy's stems: the texels its stems keep. */
+  ivyStem: [0.236, 0.203, 0.124] as Rgb,
 } as const;
 
 /** Slopes: a stone ramp; with **Markers** on, a pale arrow rimmed dark points uphill. */
@@ -827,6 +828,12 @@ export const START_FIRE = {
    *  colour 0.991/0.789/0.453, intensity 5, range 8 m, spot angle 120°, inner 75°, no shadows; with only URP's own
    *  light data on it (no script that flickers or dims it). */
   light: { at: [1.5, 4.24, 1.5] as const, colour: [0.9906, 0.7894, 0.4532] as Rgb, intensity: 5, range: 8, spotAngle: 120, innerAngle: 75 },
+  /** The lantern's hood round the light, as the sun sees it: a cap this far (m) under the light and this wide in radius
+   *  over the light's axis (the Folktails' thatch at its widest, 0.61 at 3.84, its mouth closed by the crown's disc,
+   *  entities3d.ts `districtCenter`; inside the Iron Teeth's, 0.7 across its soffit at 3.8). The game's shadow map, and
+   *  High's, shade the lantern's inside under it; Standard, with no shadows of objects, takes it from this
+   *  (materials.ts `startHoodSun`), so the posts it shades pass no more of the bloom's knee than High's do. */
+  hood: { drop: 0.4, radius: 0.61 },
 } as const;
 
 /** The game's altitude colour ramps (D497; `tools/altitude-ramp.ts` reads them from the game's `resources.assets`,
@@ -1081,8 +1088,8 @@ export function legendEntries(mode: GroundMode): LegendEntry[] {
           },
         ]
       : [{ swatch: `linear-gradient(90deg, ${c(HEIGHT_RAMP.low)}, ${c(HEIGHT_RAMP.high)})`, label: "Ground height" }];
-  // walls: two levels of cobbled stone, the upper lighter (the game's cliff gradient)
-  const cobbles = (y: number) => [2, 9, 16].map((x, k) => `<rect x="${x + (y % 2) * 3}" y="${y + 1 + (k % 2)}" width="5" height="3" rx="1" fill="${l(WALL.mortar)}" opacity="0.5"/>`).join("");
+  // walls: two levels of stone, the upper lighter (the game's cliff gradient)
+  const cobbles = (y: number) => [2, 9, 16].map((x, k) => `<rect x="${x + (y % 2) * 3}" y="${y + 1 + (k % 2)}" width="5" height="3" rx="1" fill="${l(wallColor(0))}" opacity="0.5"/>`).join("");
   const walls = icon(`<rect width="24" height="8" fill="${l(wallColor(14))}"/><rect y="8" width="24" height="8" fill="${l(wallColor(6))}"/>` + cobbles(0) + cobbles(9));
   return [
     ...ground,

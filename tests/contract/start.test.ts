@@ -121,8 +121,8 @@ function check(s: Scene, rules: Partial<Rules> = {}, profile: "generate" | "expo
     designedFor: difficulty,
     theme: "riverValley",
     settings: {
-      start: { rules: { waterWithin: r.waterWithin, woodWithin20: r.woodWithin20, bushesWithin20: r.bushesWithin20, badwaterWithin: r.badwaterWithin, ruinsWithin: r.ruinsWithin }, area: "normal" },
-      hazards: { badwaterDistance: 0, badwater: "normal" },
+      start: { rules: { waterWithin: r.waterWithin, woodWithin20: r.woodWithin20, bushesWithin20: r.bushesWithin20, ruinsWithin: r.ruinsWithin }, area: "normal" },
+      hazards: { badwaterDistance: r.badwaterWithin, badwater: "normal" },
       terrain: { buildableLand: "normal" },
       water: { sources: "normal", droughtReserve: "normal" },
       resources: { ruins: 100, forestDensity: 100, berryBushes: 100 },

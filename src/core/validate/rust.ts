@@ -259,7 +259,8 @@ export function checksInput(file: TimberFile, opts: ValidateOptions): ChecksInpu
       if (st) {
         const r = st.start.rules;
         m.bool(!!r);
-        if (r) for (const v of [r.waterWithin, r.woodWithin20, r.bushesWithin20, r.badwaterWithin, r.ruinsWithin]) m.f64(numeric(v));
+        // (the checks' fourth start rule, the badwater distance, is Badwater distance, D527)
+        if (r) for (const v of [r.waterWithin, r.woodWithin20, r.bushesWithin20, st.hazards.badwaterDistance, r.ruinsWithin]) m.f64(numeric(v));
         m.f64(numeric(st.hazards.badwaterDistance));
         m.optStr(st.terrain.buildableLand);
         m.optStr(st.start.area);

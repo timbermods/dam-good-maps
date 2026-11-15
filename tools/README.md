@@ -11,6 +11,7 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 
 **Generate and check**
 - `gen.ts` (`npm run gen`) makes maps from the command line; `try.ts` (`npm run try`) builds and serves the site locally.
+- `fixture-projects.ts` (`npm run fixtures:projects`) writes the scenario tests' fixture projects (`tests/fixtures/projects/scenario-*.damgoodmaps`, opened by `tests/fixtureProjects.ts`; docs/RULES.md, "Standing rules"): the maps a test of an edit, a force or the session stands on, saved once so a land change moves none of them. It writes what is missing; `--all` rewrites every fixture from the generator now current, a name rewrites that one.
 - `first-visit-maps.ts` makes and checks the ready-made 128² maps a first visit opens (`public/first-visit/`, gitignored); the deploy runs it before each build and stops on a failed check (D343).
 - `mcp-build.ts` (`npm run mcp:build`) bundles the MCP server (`mcp/`, D141, D501) into one file and packs it as the Claude Desktop extension and the `npx` package in `mcp/dist/`; a release attaches both.
 - `premise-plan.ts` prints a premise's plan for a seed (stage 0, docs/PREMISES.md) and writes its water-story diagram as SVG (`--png` a pixel a tile too); `--seeds 1-12` draws several, `--try t` one layout try as far as it got, `--plan file.json` checks and draws a plan file such as `tests/fixtures/four-lakes.plan.json`.
@@ -47,6 +48,9 @@ Command-line scripts for generating, checking, measuring and releasing. They run
   VegetationURP shades them (vertex colours, alpha cut, bump, the yield's detail, self-shadowing) on lit grass from the
   game's camera; each crown's middle, side across the sun, birch bark, area and drawn width compared through sixteen
   turns. `crown-models.ts` writes our Standard and High triangles for it. Needs the installed game's models; prints numbers.
+- `game-cliff-texture.py` with `rock-texture.ts`: the cliffs' rock, ours (materials.ts `ROCK`, read back from Chrome)
+  against the game's `CliffDetail` and `Cliff_N` (its `Cliff` material's tiling and strength, the albedo's spread,
+  percentiles, scales and hue, the normal's slopes by mip). Needs the installed game; prints numbers.
 - `object-shadows.ts` with `object-shadow-check.py`: the shadows objects cast in both looks, measured on a flat meadow from above (each object's area, darkness, reach and width) and set beside the game's probe frames (each plant species' darkening of the ground round it, the game's against ours); `--sheet` makes `docs/sheets/object-shadows.jpg` (docs/progress/3d-view.md, "Objects' shadows").
 
 **Data the game supplies**

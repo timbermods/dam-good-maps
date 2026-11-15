@@ -3,7 +3,8 @@
 // surge at its origin, an impactor falling, the ground stirring, the ice gathering), then shows it at
 // the pace the player chose. **Fast** (the default): the land is final within about two seconds of
 // the gesture, however long or large the result; a force whose own pace is quicker keeps it. **Slow forces**:
-// about four times as long, to be watched; a click or a new gesture jumps it to its final land.
+// about four times as long, to be watched; a click or a new gesture jumps it to its final land. A page held between
+// two frames (a slow machine's drawing) moves a Slow showing on by a quarter second at most, so none of it goes unseen.
 // Each frame shows the ground that changed (only its chunks) and the objects, and its moment goes to
 // the effects and the sounds (a carve's surge; an impact, a fault's crack, an eruption's plume); the
 // map's water flows on the land as each frame has it, drawn with it (D371), and on from there once
@@ -33,6 +34,10 @@ export type ForceSpeed = "fast" | "watch";
 export const FAST_MS = 2000;
 /** Slow forces play a force out about this many times as long as Fast. */
 export const WATCH_FACTOR = 4;
+/** Slow forces' longest stride (ms): the most of its showing one frame moves on, however long the page was held
+ *  since the frame before (a slow machine's software drawing holds it for a second or more), so every moment of a
+ *  force played out to be watched is shown; Fast keeps to its two seconds. */
+export const WATCH_STRIDE_MS = 250;
 /** The shortest a Fast showing takes, however long the force took to work out (ms). */
 export const MIN_SHOW_MS = 450;
 /** A frame of the showing (ms). */
@@ -370,6 +375,8 @@ export class ForceDriver {
     let from = -1;
     let length = 0;
     let held = 0;
+    /** When the showing last moved on (Slow forces count at most WATCH_STRIDE_MS from there). */
+    let last = -1;
     for (;;) {
       const st = this.status;
       if (token !== this.token || !st) return;
@@ -377,6 +384,7 @@ export class ForceDriver {
         const p0 = this.clock.now();
         await this.clock.sleep(80);
         held += this.clock.now() - p0;
+        if (last >= 0) last = this.clock.now();
         continue;
       }
       const t = this.clock.now();
@@ -388,6 +396,10 @@ export class ForceDriver {
           length = showMs(st.verb, f.total, st.speed, worked);
           this.timing = { worked: Math.round(worked), due: Math.round(dueMs(st.verb, f.total, st.speed, worked)), final: 0, kept: 0, total: f.total, show: Math.round(length), speed: st.speed };
         }
+        // (Slow forces, played out to be watched: a page held longer than a stride since its last frame, as a slow
+        // machine's drawing holds it, moves the showing on by one stride, never straight to its end unseen)
+        else if (st.speed === "watch" && t - last > WATCH_STRIDE_MS) held += t - last - WATCH_STRIDE_MS;
+        last = t;
         const target = shownAt(st.verb, f.total, (t - from - held) / Math.max(1, length));
         n = Math.max(0, Math.ceil(target - f.shown));
       }

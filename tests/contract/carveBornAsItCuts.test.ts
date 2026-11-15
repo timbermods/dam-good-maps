@@ -136,9 +136,12 @@ describe("Carve's river is born as it cuts (D371)", () => {
     ed.settleWater();
   });
 
-  it.each([21, 22])("undo stops it and puts the map's own water back; Esc skips to the end and hands on the water flowing then; a dry canyon flows none (seed %i)", async (seed) => {
+  // (seed 23 for 22 since generator 0.10.25, D(new-leaks): a course's water leaves only by its own way, so the land moved,
+  // D148: seed 22's cave pool at (84–86, 58–59), 52 tiles from any tile the carve cuts, falls 0.004 in the carve's three
+  // seconds, its water not at rest under its roof; seed 23 has 17 tiles of water under a roof, and they keep it)
+  it.each([21, 23])("undo stops it and puts the map's own water back; Esc skips to the end and hands on the water flowing then; a dry canyon flows none (seed %i)", async (seed) => {
     const { origin, ground, water, roofed } = await open(seed);
-    if (seed === 22) expect(roofed.size, "seed 22's water under a roof").toBeGreaterThan(0);
+    if (seed === 23) expect(roofed.size, "seed 23's water under a roof").toBeGreaterThan(0);
     /** A carve part way through its showing, its water flowing. */
     const partWay = (gesture: number) => {
       ed.forceStart({ verb: "carve", settings: { ...DEFAULTS, power: 70 }, origin, cut: null, gesture });

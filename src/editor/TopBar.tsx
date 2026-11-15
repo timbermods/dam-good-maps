@@ -250,20 +250,89 @@ export interface TopBarProps {
   putDown?: { run(): void; select: boolean } | null;
 }
 
-/** The tool in hand scrolled into the phone's tool row (or rail), or a finger's row that scrolls, so its second tap is in view too (#1074). */
+/** How far a row's fade reaches in from an end where more tools lie, in CSS px (phone.css). */
+const ROW_FADE = 16;
+
+/** The tool in hand scrolled into the phone's tool row (or rail), or a finger's row that scrolls, so its second tap is in
+ *  view too (#1074): whole, clear of the fade at an end where more tools lie, and with the row standing on a tool's start
+ *  (a place it snaps to), the nearest such place to where it is. */
 function showHeld(bar: HTMLElement | null): void {
   const on = bar?.querySelector<HTMLElement>("button.icon-button[aria-pressed='true']:not(.objects-button)");
   if (!bar || !on) return;
+  const across = bar.scrollWidth > bar.clientWidth + 1;
+  if (!across && !(bar.scrollHeight > bar.clientHeight + 1)) return;
+  const cs = getComputedStyle(bar);
+  const pad0 = parseFloat(across ? cs.paddingLeft : cs.paddingTop) || 0;
+  const pad1 = parseFloat(across ? cs.paddingRight : cs.paddingBottom) || 0;
+  const now = across ? bar.scrollLeft : bar.scrollTop;
+  const room = across ? bar.clientWidth : bar.clientHeight;
+  const max = (across ? bar.scrollWidth : bar.scrollHeight) - room;
   const b = bar.getBoundingClientRect();
-  const r = on.getBoundingClientRect();
-  // (clear of the row's own padding and the safe areas, a little more)
-  const pad = 12;
-  const along = (lo: number, hi: number, from: number, to: number) => (lo < from + pad ? lo - from - pad : hi > to - pad ? hi - to + pad : 0);
-  const left = bar.scrollWidth > bar.clientWidth + 1 ? along(r.left, r.right, b.left, b.right) : 0;
-  const top = bar.scrollHeight > bar.clientHeight + 1 ? along(r.top, r.bottom, b.top, b.bottom) : 0;
-  if (!left && !top) return;
+  /** Where a tool lies along the row's content, from its start to its end. */
+  const at = (el: Element) => {
+    const r = el.getBoundingClientRect();
+    return across ? [r.left - b.left - bar.clientLeft + now, r.right - b.left - bar.clientLeft + now] : [r.top - b.top - bar.clientTop + now, r.bottom - b.top - bar.clientTop + now];
+  };
+  const [lo, hi] = at(on);
+  const stops = [0, max, ...[...bar.querySelectorAll("button.icon-button")].map((t) => Math.min(max, Math.max(0, at(t)[0] - pad0)))];
+  const fits = (s: number, clear: number) => lo >= s + pad0 + (s > 0.5 ? clear : 0) - 0.5 && hi <= s + room - pad1 - (s < max - 0.5 ? clear : 0) + 0.5;
+  const nearest = (clear: number) => stops.filter((s) => fits(s, clear)).sort((x, y) => Math.abs(x - now) - Math.abs(y - now))[0];
+  const to = nearest(ROW_FADE) ?? nearest(0);
+  if (to === undefined || Math.abs(to - now) < 0.5) return;
+  glide(bar, across, to);
+}
+
+function glide(bar: HTMLElement, across: boolean, to: number): void {
   const still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-  bar.scrollBy({ left, top, behavior: still ? "auto" : "smooth" });
+  bar.scrollTo({ [across ? "left" : "top"]: to, behavior: still ? "auto" : "smooth" });
+}
+
+/** A phone's tool row come to rest between two tools (a glide cut short as the room changed under it, about one pick in
+ *  a hundred on its side): it goes on to the nearest tool's start, so it stands on whole tools. */
+function restOnWhole(bar: HTMLElement): void {
+  const across = bar.scrollWidth > bar.clientWidth + 1;
+  if (!across && !(bar.scrollHeight > bar.clientHeight + 1)) return;
+  const cs = getComputedStyle(bar);
+  const pad0 = parseFloat(across ? cs.paddingLeft : cs.paddingTop) || 0;
+  const now = across ? bar.scrollLeft : bar.scrollTop;
+  const max = across ? bar.scrollWidth - bar.clientWidth : bar.scrollHeight - bar.clientHeight;
+  const b = bar.getBoundingClientRect();
+  const stops = [0, max, ...[...bar.querySelectorAll("button.icon-button")].map((t) => {
+    const r = t.getBoundingClientRect();
+    return Math.min(max, Math.max(0, (across ? r.left - b.left - bar.clientLeft : r.top - b.top - bar.clientTop) + now - pad0));
+  })];
+  const to = stops.sort((x, y) => Math.abs(x - now) - Math.abs(y - now))[0];
+  if (Math.abs(to - now) > 1) glide(bar, across, to);
+}
+
+/** The least a phone's tool may be along its row, CSS px: upright its width (a tool's name at 12px), on its side its
+ *  height. */
+const TOOL_LEAST = { upright: 64, side: 52 } as const;
+
+/** A phone's tool row (or rail) holds whole tools (#1074; Kyler's phone on its side cut the rail's first and last tools):
+ *  as many as fit at their least size, each grown to fill the row exactly, so a row resting on a tool's start (it snaps
+ *  to each, phone.css) shows no tool cut. `--tool-along` is a tool's size along the row. */
+function fitToolRow(bar: HTMLElement): void {
+  const side = bar.closest(".editor")?.getAttribute("data-phone") === "side";
+  const cs = getComputedStyle(bar);
+  const gap = parseFloat(side ? cs.rowGap : cs.columnGap) || 0;
+  const room = side ? bar.clientHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0) : bar.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+  const least = side ? TOOL_LEAST.side : TOOL_LEAST.upright;
+  const tools = bar.querySelectorAll("button.icon-button").length;
+  const k = Math.max(1, Math.floor((room + gap) / (least + gap)));
+  const along = k >= tools || room <= 0 ? least : (room - (k - 1) * gap) / k;
+  bar.style.setProperty("--tool-along", `${along}px`);
+}
+
+/** The ends of a phone's tool row where more tools lie (`data-more`: "start", "end" or both), each drawn fading out; a
+ *  pulled-up sheet's settings the same, where more settings lie. */
+function markRowEnds(bar: HTMLElement): void {
+  const across = bar.scrollWidth > bar.clientWidth + 1;
+  const pos = across ? bar.scrollLeft : bar.scrollTop;
+  const max = across ? bar.scrollWidth - bar.clientWidth : bar.scrollHeight - bar.clientHeight;
+  const more = [pos > 1 ? "start" : "", pos < max - 1 ? "end" : ""].filter(Boolean).join(" ");
+  if (more) bar.setAttribute("data-more", more);
+  else bar.removeAttribute("data-more");
 }
 
 /** Objects: opens the objects' sheet (#1074); in a phone's tool row, and at a tablet's top corner beside Show. */
@@ -300,24 +369,31 @@ function endOnWhole(sheet: HTMLElement | null, tall: boolean): void {
   const grid = sheet?.querySelector<HTMLElement>(":scope > .settings-grid");
   if (!grid) return;
   grid.style.maxHeight = "";
+  grid.removeAttribute("data-more");
   if (!tall) return;
   const room = grid.clientHeight;
   if (grid.scrollHeight <= room + 1) return;
   const top = grid.getBoundingClientRect().top - grid.scrollTop;
-  let cut = room;
+  let cut = Infinity;
   for (const g of grid.children) {
     const r = g.getBoundingClientRect();
     if (!r.height) continue;
     if (r.bottom - top > room + 0.5) cut = Math.min(cut, r.top - top);
   }
-  // (less the gap between two settings)
-  grid.style.maxHeight = `${Math.max(44, Math.floor(cut - 6))}px`;
+  if (!Number.isFinite(cut)) return;
+  // (less the gap between two settings; never taller than the room, nor cutting the one above when the room ends in
+  // that gap)
+  grid.style.maxHeight = `${Math.max(44, Math.floor(Math.min(room, cut - 6)))}px`;
+  markRowEnds(grid);
 }
 
 /** How far a drag on the grab handle goes before it pulls the sheet up or down, in CSS px. */
 const PULL_PX = 24;
 
-/** The settings' sheet's grab handle (#1074): a tap or a drag up shows every setting, a tap or a drag down one row. */
+/** The settings' sheet's grab handle (#1074): a tap shows every setting, or the main ones again. A drag pulls the sheet
+ *  out from the edge it stands on: upright the sheet stands on the tool row, so a drag up shows every setting and a drag
+ *  down one row; on its side the panel hangs from the bar, so a drag down shows every setting and a drag up the main
+ *  two. */
 function SheetHandle(p: { tall: boolean; onTall(tall: boolean): void }) {
   const from = useRef<{ y: number; id: number; moved: boolean } | null>(null);
   return (
@@ -337,7 +413,8 @@ function SheetHandle(p: { tall: boolean; onTall(tall: boolean): void }) {
         const dy = e.clientY - f.y;
         if (Math.abs(dy) < PULL_PX) return;
         f.moved = true;
-        p.onTall(dy < 0);
+        const hangs = (e.currentTarget as HTMLElement).closest(".editor")?.getAttribute("data-phone") === "side";
+        p.onTall(hangs ? dy > 0 : dy < 0);
       }}
       onPointerUp={() => void setTimeout(() => (from.current = null))}
       onPointerCancel={() => (from.current = null)}
@@ -656,9 +733,71 @@ export function TopBar(p: TopBarProps) {
     ) : null;
   // (a phone's tool row, or a finger's that scrolls, shows what is in hand, however it was picked)
   const bar = useRef<HTMLDivElement>(null);
+  // (a phone's row holds whole tools, fitted again as the room changes, its ends marked where more tools lie)
+  const phoneRow = !!p.phone;
+  useLayoutEffect(() => {
+    const b = bar.current;
+    if (!b || !phoneRow) return;
+    // (the room changed, turned or resized: fitted again, and the tool in hand brought into view in it)
+    const fit = () => {
+      fitToolRow(b);
+      markRowEnds(b);
+      showHeld(b);
+    };
+    // (still for a moment and nothing on it: it rests on a tool's start; never while a finger or the mouse is on it)
+    let idle = 0;
+    let touching = false;
+    const rest = () => {
+      clearTimeout(idle);
+      idle = window.setTimeout(() => touching || restOnWhole(b), 200);
+    };
+    const ends = () => {
+      markRowEnds(b);
+      rest();
+    };
+    const on = () => {
+      touching = true;
+      clearTimeout(idle);
+    };
+    const off = () => {
+      if (!touching) return;
+      touching = false;
+      rest();
+    };
+    // (a finger is followed by its touches: the browser cancels its pointer as soon as the pan starts, while it is still
+    // down)
+    const fingerUp = (e: TouchEvent) => e.touches.length === 0 && off();
+    const mouseDown = (e: PointerEvent) => e.pointerType !== "touch" && on();
+    const mouseUp = (e: PointerEvent) => e.pointerType !== "touch" && off();
+    fit();
+    const watch = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(fit);
+    watch?.observe(b);
+    b.addEventListener("scroll", ends, { passive: true });
+    b.addEventListener("touchstart", on, { passive: true });
+    window.addEventListener("touchend", fingerUp, true);
+    window.addEventListener("touchcancel", fingerUp, true);
+    b.addEventListener("pointerdown", mouseDown, { passive: true });
+    window.addEventListener("pointerup", mouseUp, true);
+    window.addEventListener("pointercancel", mouseUp, true);
+    return () => {
+      clearTimeout(idle);
+      watch?.disconnect();
+      b.removeEventListener("scroll", ends);
+      b.removeEventListener("touchstart", on);
+      window.removeEventListener("touchend", fingerUp, true);
+      window.removeEventListener("touchcancel", fingerUp, true);
+      b.removeEventListener("pointerdown", mouseDown);
+      window.removeEventListener("pointerup", mouseUp, true);
+      window.removeEventListener("pointercancel", mouseUp, true);
+      b.style.removeProperty("--tool-along");
+      b.removeAttribute("data-more");
+    };
+  }, [phoneRow, SHOWN_FORCES.length, !!p.blockSettings, !!p.onSelect]);
+  // (on the tool in hand changing only: `p.phone` is a new object each time the editor draws, and a row the player
+  // scrolled away was pulled back by any change at all; the room changing is the row's own fit's, above)
   useEffect(() => {
-    if ((p.phone || finger) && held) showHeld(bar.current);
-  }, [held, p.phone, finger]);
+    if ((phoneRow || finger) && held) showHeld(bar.current);
+  }, [held, phoneRow, finger]);
   const button = (tool: BrushTool | "select" | "block" | Verb, name: string, label: string, pressed: boolean, title: ReturnType<typeof tip>, disabled: boolean | undefined, onClick: () => void) => (
     <button type="button" key={tool} class="icon-button" aria-pressed={pressed} aria-label={label} {...title} disabled={disabled} onClick={onClick}>
       <Icon tool={tool} />
@@ -668,6 +807,15 @@ export function TopBar(p: TopBarProps) {
   // (a phone's pulled-up sheet ends on a whole setting; laid out again whenever the editor draws)
   const sheet = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => endOnWhole(sheet.current, !!p.phone?.tall));
+  // (its foot fades while more settings lie under it, its top while some lie above)
+  const tall = !!p.phone?.tall;
+  useEffect(() => {
+    const grid = sheet.current?.querySelector<HTMLElement>(":scope > .settings-grid");
+    if (!grid || !tall) return;
+    const ends = () => markRowEnds(grid);
+    grid.addEventListener("scroll", ends, { passive: true });
+    return () => grid.removeEventListener("scroll", ends);
+  }, [held, tall, phoneRow]);
   // the hints' and the messages' one width: the hints' own with all three lines, in whole pixels, once the fonts are in
   const dock = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {

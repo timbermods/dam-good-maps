@@ -197,5 +197,7 @@ export function endShowOnWhole(sheet: HTMLElement): void {
   // (a heading whose first row is cut goes with it)
   for (const p of pieces) if (p.head && p.b <= cut + 0.5 && !pieces.some((q) => !q.head && q.t >= p.b - 0.5 && q.b <= cut + 0.5)) cut = Math.min(cut, p.t);
   // (the scrolling box shows its content through its padding too: the box ends a gap above the row it leaves out)
-  sheet.style.maxHeight = `${Math.max(88, Math.floor(cut - 6))}px`;
+  // (and below that the home bar's inset, a border under what scrolls)
+  const foot = parseFloat(getComputedStyle(sheet).borderBottomWidth) || 0;
+  sheet.style.maxHeight = `${Math.max(88, Math.floor(Math.min(sheet.offsetHeight, cut - 6 + foot)))}px`;
 }

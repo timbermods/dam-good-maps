@@ -3,6 +3,8 @@
 // smaller than planned, the river's course across the lake's dry part had no channel, its ground
 // left above the river's bed, and the water spread or stood there instead of running on (River
 // Valley 96² seed 5: 107 tiles of its courses above the bed, 84 of them dry once settled).
+//
+// Generates live, not from a fixture: its subject is what the generator makes (a river's course through a planned lake), D148.
 import { describe, expect, it } from "vitest";
 import { bedAt, pointAtArc } from "../../src/core/features/geometry";
 import type { RiverFeature } from "../../src/core/features/schema";
@@ -50,8 +52,11 @@ describe("a river through a planned lake", () => {
     for (const [theme, seed] of [
       // (seed 7 for 0.8.5's maps, D148: River Valley round 2's trunk no longer crosses a planned lake on seed 5; seed 4 for
       // seed 7 since generator 0.10.16's ground with grade, D148: seed 7's courses no longer cross a planned lake, seed 4's
-      // cross 41 of its tiles)
-      ["riverValley", 4],
+      // cross 41 of its tiles; seed 1 for seed 4 since generator 0.10.24's round forms (the look round), D148: seed 4's courses
+      // no longer cross a planned lake, seed 1's cross 11 of its tiles, the first of seeds 1–12 that does; seed 10 for seed 1
+      // since generator 0.10.25, D(new-leaks), D148: seed 1's courses no longer cross a planned lake; seed 10's cross 13 of
+      // its tiles, the seed whose spring cave once ran its stream across one, now dropped by the forms stage)
+      ["riverValley", 10],
       ["riverValley", 8],
       ["lakeBasin", 1],
     ] as const) {

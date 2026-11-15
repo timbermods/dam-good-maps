@@ -15,7 +15,6 @@ export type HighEffectKey =
   | "shadows"
   | "sunlight"
   | "fog"
-  | "strata"
   | "variation"
   | "vegetation"
   | "sway"
@@ -31,7 +30,6 @@ export const HIGH_EFFECTS: readonly HighEffect[] = [
   { key: "sunlight", label: "Warm sunlight", from: "#65" },
   // (an editing aid, not a look: the game's fog, every look's since D497, off to see far ground plainly)
   { key: "fog", label: "Fog", from: "#65" },
-  { key: "strata", label: "Rock strata", from: "#65" },
   { key: "variation", label: "Colour variation", from: "#65" },
   { key: "vegetation", label: "Trees and bushes", from: "#66" },
   { key: "sway", label: "Wind in the trees", from: "#66" },

@@ -4,6 +4,9 @@
 // files were refused as damaged on open. Points may now lie one map side past each edge (the largest side is 512: −512…1023);
 // outlines are never clamped, so every map keeps its bytes. Project files written before the fix
 // open too (tests/fixtures/projects, written by d3b08d5).
+//
+// Generated live: the tests of what the generator saves (every theme and size, the features past the edge, the tall river). The one scenario test, an edit of a lake
+// at the edge, opens a fixture (tests/fixtures/projects/scenario-canyon-96-13; `fixtureSession`), so a land change moves nothing there (D148).
 
 import Ajv2020 from "ajv/dist/2020";
 import { createHash } from "node:crypto";
@@ -16,6 +19,7 @@ import { generate, type GenerateResult } from "../../src/core/gen/generate";
 import { decodeSpecFragment } from "../../src/core/spec/codec";
 import { makeSpec, SIZE_PRESETS, THEMES, type ThemeId } from "../../src/core/spec/mapspec";
 import { FEATURES_SCHEMA, validateFeatures } from "../../src/core/spec/schema";
+import { fixtureSession } from "../fixtureProjects";
 
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 const ajvFeatures = new Ajv2020({ allErrors: true, strict: false }).compile(FEATURES_SCHEMA);
@@ -117,8 +121,10 @@ describe("generated outlines past the map edge are edited and locked (decisions-
     // Valley round 2, 0.8.5, whose River Valley 96² lakes, seeds 1 to 24, keep off the edges; Canyon 11 since generator
     // 0.10.16's ground with grade, D148, whose Canyon 7 keeps its lakes off the edges: of Canyon 96² seeds 1 to 12 only 11 has one; Canyon 16 since generator 0.10.20's
     // contour edges, D518, D148: of Canyon 96² seeds 1 to 24 only 16 and 19 have one, and of River Valley's 1 to 12 none; Canyon 13 since the later D518 mends moved the land, D148: seed 16 has none now, and of Canyon 96² seeds 1 to 30 only 13 and 19 have one, and of River Valley's 1 to 30 only 6)
-    const r = gen("canyon", 96, 13);
-    const s = MapSession.fromGenerated(r, r.file);
+    // (the map is a fixture, tests/fixtures/projects/scenario-canyon-96-13: the subject is editing a lake at the edge, not the generator, so a land change moves
+    // nothing here, D148; the other tests here generate live, being about what the generator saves)
+    const s = fixtureSession("canyon", 96, 13);
+    const was = sha(s.exportTimber().bytes);
     const W = s.size.x;
     const past = ([x, y]: [number, number]) => x < 0 || y < 0 || x > W - 1 || y > W - 1;
     const lake = s.features.find((f) => f.kind === "lake" && f.origin === "generated" && f.params.natural === true && f.params.outline.some(past));
@@ -127,7 +133,7 @@ describe("generated outlines past the map edge are edited and locked (decisions-
     // locking it changes nothing on the map
     const lock = s.apply({ op: "updateFeature", params: { id: lake.id, patch: { locked: true } } });
     expect(lock.errors).toEqual([]);
-    expect(sha(s.exportTimber().bytes)).toBe(sha(r.bytes));
+    expect(sha(s.exportTimber().bytes)).toBe(was);
     // its floor changes, and it moves along the edge, its outline still past it
     expect(s.apply({ op: "updateFeature", params: { id: lake.id, patch: { params: { floorDepth: 2 } } } }).errors).toEqual([]);
     const alongX = lake.params.outline.some(([, y]) => y < 0 || y > W - 1);
@@ -136,7 +142,7 @@ describe("generated outlines past the map edge are edited and locked (decisions-
     expect(s.apply({ op: "updateFeature", params: { id: lake.id, patch: { params: { outline: moved } } } }).errors).toEqual([]);
     // the edits undo to the generator's own file
     while (s.undo());
-    expect(sha(s.exportTimber().bytes)).toBe(sha(r.bytes));
+    expect(sha(s.exportTimber().bytes)).toBe(was);
     // an outline the player draws stays on the map's tiles
     const mine = { id: "8b8b8b8b-2222-4222-8333-444455556666", kind: "landform", origin: "user", locked: false, params: { kind: "plateau", edgeStyle: "cliff", outline: [[-3, 10], [10, 10], [10, 20], [-3, 20]], height: 9 } } as unknown as Feature;
     expect(s.check({ op: "addFeature", params: { feature: mine } })[0]).toMatch(/leaves the map/);
@@ -165,7 +171,9 @@ describe("project files saved before the fix (tests/fixtures/projects, written b
   it("River Valley 96², seed 11 (every point on the map; the page's download) opens and rebuilds its .timber", () => {
     const doc = decodeProject(fixture("river-valley-96-11.damgoodmaps.json"));
     // saved before D164: its 50 starting trees open as 100 logs of starting wood
-    expect(doc.spec!.settings.start.rules).toEqual({ waterWithin: 16, woodWithin20: 100, bushesWithin20: 40, badwaterWithin: 30, ruinsWithin: 15 });
+    expect(doc.spec!.settings.start.rules).toEqual({ waterWithin: 16, woodWithin20: 100, bushesWithin20: 40, ruinsWithin: 15 });
+    // saved before D527: its start badwater rule (30) and Badwater distance (30) open as one
+    expect(doc.spec!.settings.hazards.badwaterDistance).toBe(30);
     expect(pastOldBounds(doc.features)).toBe(false);
     const s = MapSession.open(doc);
     expect(s.history()).toEqual([]);
