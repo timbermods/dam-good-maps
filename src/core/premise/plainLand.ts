@@ -110,6 +110,14 @@ export const TERRACE_LAND = { lip: 1, bulge: [2, 6], wander: 2, cell: 11, strip:
 /** The levees' width on the land: the plan's width, drawn in toward its middle (`keep`), with a quicker wander of its
  *  own (`wander` tiles, noise `cell` along the river) so no bank's foot runs straight; 3 to 6 tiles still. */
 export const LEVEE_LAND = { mid: 4.5, keep: 0.4, wander: 2.5, cell: 5 } as const;
+/** The levees' core (the design's §2, a badtide): within `core` tiles of the river's water a bank stands at least a
+ *  level over the land wherever its crest does, whatever its edge's noise. The game's soil gives the bank's first tile
+ *  2/7 of a red river's poison (a level climbed) and takes 1/7 a tile, so 3 tiles of bank leave none for the plain. Its
+ *  crest stands `crest` over its river's bed (the water runs at most two deep, so a level over it) where the land beside lies
+ *  lower, past a riser. The core runs the river's whole length (`lead`: from its springs, before the levees begin), and
+ *  round the springs the ground stands a level over the plain `rim` tiles out: the river runs two deep at its head,
+ *  its water there at the plain's level or a little over, a river perched between its banks as a floodplain's is. */
+export const LEVEE_CORE = { core: 3, lead: Infinity, crest: 3, rim: 2 } as const;
 /** Day 1's dead band laid on the ground to the plan's share (the design's §2: the plan counts the backswamp below the
  *  Red Fall and 7 tiles either side of the red stream's way across the plain; the game's soil carries its poison two
  *  tiles up a bank a level high, a good way across ground at its water's level): along the red stretch the backswamp
@@ -961,9 +969,43 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
     }
   }
   // the levees: the banks over the land where they stand
-  const levee = leveeOf(plan, p);
+  const riverK = plan.links.findIndex((l) => l.id === I.river) + 1;
+  const riverWater = new Uint8Array(N);
+  for (let i = 0; i < N; i++) riverWater[i] = r.channel[i] === riverK ? 1 : 0;
+  const levee: LeveeForm = { ...leveeOf(plan, p), water: riverWater, core: LEVEE_CORE.core, lead: LEVEE_CORE.lead };
   const banks = leveeBanks(W, H, levee);
   for (let i = 0; i < N; i++) if (banks.over[i] && floor[i]) h[i] = Math.min(sky, h[i] + banks.over[i]);
+  // (the core's crest a level over the river's water wherever the floor beside it lies low, past a riser: the river
+  // runs at most two over its bed, so three over the highest bed within the core)
+  const bedNear = new Int16Array(N).fill(-1);
+  const c = Math.ceil(LEVEE_CORE.core);
+  for (let i = 0; i < N; i++) {
+    if (!riverWater[i]) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    for (let dy = -c; dy <= c; dy++)
+      for (let dx = -c; dx <= c; dx++) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx >= 0 && yy >= 0 && xx < W && yy < H && dx * dx + dy * dy <= LEVEE_CORE.core * LEVEE_CORE.core) bedNear[yy * W + xx] = Math.max(bedNear[yy * W + xx], r.heights[i]);
+      }
+  }
+  for (let i = 0; i < N; i++) if (banks.over[i] && floor[i] && bedNear[i] >= 0) h[i] = Math.min(sky, Math.max(h[i], bedNear[i] + LEVEE_CORE.crest));
+  // (the springs' rim: the river stands two deep at its head, its springs' water at the plain's level, so the ground
+  // round them stands a level over the plain's head, `LEVEE_CORE.rim` tiles out)
+  const springsK = plan.bodies.findIndex((b) => b.id === I.springs) + 1;
+  const rim = LEVEE_CORE.rim;
+  for (let i = 0; i < N; i++) {
+    if (r.lake[i] !== springsK) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    for (let dy = -rim; dy <= rim; dy++)
+      for (let dx = -rim; dx <= rim; dx++) {
+        const j = (y + dy) * W + x + dx;
+        if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H || !floor[j] || r.channel[j] || r.lake[j] || r.pool[j] || r.fixed[j]) continue;
+        if (dx * dx + dy * dy <= rim * rim + 0.5) h[j] = Math.min(sky, Math.max(h[j], p.L + 1));
+      }
+  }
   // stage 1's ground as it is, every other tile at least at its guard
   for (let i = 0; i < N; i++) h[i] = r.fixed[i] ? r.heights[i] : Math.max(h[i], r.heights[i]);
   // (no bank's foot runs straight along the grid past `levee.wanders`' measure: it steps out a tile where it would)
@@ -974,7 +1016,111 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
     beside[i] = floor[i] && !r.channel[i] && !r.lake[i] && !r.pool[i] ? 1 : 0;
   }
   breakBankRuns(W, H, h, banks.over, beside, keep, BANK_STRAIGHT - 2);
+  // the courses' gaps: a course runs on from the body it leaves and into the river it joins, through the land between
+  for (const m of courseGaps(plan, w))
+    for (const i of m.tiles) {
+      h[i] = Math.min(h[i], m.bed);
+      banks.over[i] = 0;
+    }
   return { heights: h, floor, valleys, bank: banks.over, levee };
+}
+
+/** Where a course runs on through land stage 1 left between its own tiles and the water it leaves or joins: stage 1
+ *  lays each body and channel apart and leaves the tiles between them to the land, and ground there dams the water
+ *  behind it (the Red Pool brimming over its rim, the start's brook behind the levee). Its two ends, each the tiles from
+ *  its own channel to the other water (a diagonal step through the tile beside it, so the water's way runs side to side)
+ *  and the bed they are cut to: at its head, from the body it leaves (its tile nearest the path's first point) to its
+ *  first own tile, as wide as its channel, at that tile's bed (the Red Pool's water stands at its stream's head, a
+ *  level under the backswamp, and the Red Fall drops its whole height onto it); at its mouth, where it joins the river, from its last own tile into the river's
+ *  water, at that tile's bed. A fall's link is left as stage 1 lays it. */
+export function courseGaps(plan: PremisePlan, w: StageWater): { link: string; tiles: number[]; bed: number }[] {
+  const r = w.raster;
+  const { W, H } = plan;
+  const riverK = plan.links.findIndex((l) => l.id === I.river) + 1;
+  const out: { link: string; tiles: number[]; bed: number }[] = [];
+  const cellsOf = (pts: readonly Point[]): number[] => {
+    const cells: number[] = [];
+    for (const q of pts.length > 1 ? walk(pts, 0.25) : []) {
+      const x = Math.floor(q.p[0]);
+      const y = Math.floor(q.p[1]);
+      if (x < 0 || y < 0 || x >= W || y >= H) continue;
+      const i = y * W + x;
+      if (cells[cells.length - 1] !== i) cells.push(i);
+    }
+    return cells;
+  };
+  // (the tiles between: from a cell to the first that `stop` takes, each diagonal step through the tile beside it;
+  // null where the way crosses other water)
+  const between = (cells: number[], from: number, stop: (i: number) => boolean, mine: (i: number) => boolean): number[] | null => {
+    const tiles: number[] = [];
+    let prev = cells[from];
+    for (let n = from + 1; n < cells.length; n++) {
+      const i = cells[n];
+      const end = stop(i);
+      if (!end && !mine(i) && (r.channel[i] || r.lake[i] || r.pool[i])) return null;
+      if (i % W !== prev % W && Math.floor(i / W) !== Math.floor(prev / W)) {
+        const j = Math.floor(prev / W) * W + (i % W);
+        if (!r.channel[j] && !r.lake[j] && !r.pool[j]) tiles.push(j);
+      }
+      if (end) return tiles;
+      if (!mine(i)) tiles.push(i);
+      prev = i;
+    }
+    return null;
+  };
+  plan.links.forEach((l, k) => {
+    if (!l.path || l.path.length < 2 || l.fall || l.id === I.river) return;
+    const own = k + 1;
+    const mine = (i: number) => r.channel[i] === own;
+    const cells = cellsOf(l.path);
+    const first = cells.findIndex(mine);
+    let last = -1;
+    for (let n = 0; n < cells.length; n++) if (mine(cells[n])) last = n;
+    if (first < 0) return;
+    // its head: from the body it leaves
+    const bk = plan.bodies.findIndex((b) => b.id === l.from) + 1;
+    if (bk > 0) {
+      const body = (i: number) => r.lake[i] === bk;
+      let near = -1;
+      let nd = Infinity;
+      const [px, py] = l.path[0];
+      for (let i = 0; i < W * H; i++) {
+        if (r.lake[i] !== bk) continue;
+        const dx = (i % W) + 0.5 - px;
+        const dy = Math.floor(i / W) + 0.5 - py;
+        const d = dx * dx + dy * dy;
+        if (d < nd) {
+          nd = d;
+          near = i;
+        }
+      }
+      if (near >= 0 && !(cells.slice(0, first).some(body) || first === 0 && [1, -1, W, -W].some((o) => body(cells[0] + o)))) {
+        const head = cellsOf([[(near % W) + 0.5, Math.floor(near / W) + 0.5], ...l.path]);
+        const f2 = head.findIndex(mine);
+        const way = f2 > 0 ? between(head.slice(0, f2 + 1), 0, (i) => i === head[f2], (i) => mine(i) || body(i)) : null;
+        if (way?.length) {
+          // (as wide as its channel: a narrower way holds the body's water a level up behind it)
+          const R = Math.floor(l.half ?? 1);
+          const wide = new Set<number>();
+          for (const i of way)
+            for (let dy = -R; dy <= R; dy++)
+              for (let dx = -R; dx <= R; dx++) {
+                const x = (i % W) + dx;
+                const y = Math.floor(i / W) + dy;
+                const j = y * W + x;
+                if (x >= 0 && y >= 0 && x < W && y < H && !r.channel[j] && !r.lake[j] && !r.pool[j] && !r.crest[j]) wide.add(j);
+              }
+          out.push({ link: l.id, tiles: [...wide], bed: Math.min(plan.bodies[bk - 1].sill ?? Infinity, r.heights[head[f2]]) });
+        }
+      }
+    }
+    // its mouth: into the river
+    if (l.joins?.link === I.river) {
+      const way = between(cells, last, (i) => r.channel[i] === riverK, mine);
+      if (way?.length) out.push({ link: l.id, tiles: way, bed: r.heights[cells[last]] });
+    }
+  });
+  return out;
 }
 
 /** The plan's skeleton for the search: the plan without the gulch's water (the Red Fall, the Red Spring and its
@@ -1908,45 +2054,42 @@ export function plainLandOf(spec: MapSpec, plan: PremisePlan, style: ReliefStyle
   return { plan: plan2, water, heights, relief: { ...rl, heights }, found: { ...found, changed }, notes, ms };
 }
 
+/** One attempt's land (`plainLand`'s loop, one turn of it): the plan drawn for `attempt`, its land, the land
+ *  invariants and stage 3's start judged on it, `held` when all pass; or why no land was made (no plan, no gulch). */
+export function plainAttempt(spec: MapSpec, attempt: number, theme: StyleTheme = "riverValley", failed: string[] = []): (PlainLand & { held: boolean }) | { reason: string } {
+  const rules = rulesFor(spec);
+  const ta = performance.now();
+  const plan = poisonedPlain.draw(spec, attempt);
+  if ("reason" in plan) return { reason: plan.reason };
+  const style = premiseStyle(theme, spec, attempt);
+  const land = plainLandOf(spec, plan, style.relief, Math.ceil(FLOOR_MARGIN * rules.levelLand));
+  if ("reason" in land) return land;
+  const t0 = performance.now();
+  const landFails = plainLandFailures({ spec, plan: land.plan, water: land.water, heights: land.heights, relief: land.relief });
+  const frame = checkFrame(land.plan, land.water, land.heights, { bench: rules.levelLand, moist: rules.farmland + rules.forester, reach: rules.reachMin, zoom: VISTA_ZOOM, shallow: false });
+  land.ms.checks = Math.round(performance.now() - t0);
+  // (the attempt's whole time: the plan's drawing, the land and its checks)
+  land.ms.total = Math.round(performance.now() - ta);
+  return { ...land, frame, landFails, attempt, failed, held: !landFails.length && !frame.reason };
+}
+
 /** The poisoned floodplain's land for a spec in a theme's style (River Valley by default): the first plan whose land
  *  holds (the search finds a gulch, the land invariants pass and stage 3 finds the start), within `PLAN_TRIES`; or the
  *  last land with its failures, or why none was made. `failed` lists each refused plan's reason. */
 export function plainLand(spec: MapSpec, theme: StyleTheme = "riverValley"): (PlainLand & { held: boolean }) | { reason: string; failed?: string[] } {
   const why = poisonedPlain.eligible(spec);
   if (why) return { reason: why };
-  const rules = rulesFor(spec);
   const failed: string[] = [];
   let last: (PlainLand & { held: boolean }) | null = null;
   for (let attempt = 0; attempt < PLAN_TRIES; attempt++) {
-    const ta = performance.now();
-    const plan = poisonedPlain.draw(spec, attempt);
-    if ("reason" in plan) {
-      failed.push(plan.reason);
+    const out = plainAttempt(spec, attempt, theme, failed);
+    if ("reason" in out) {
+      failed.push(out.reason);
       continue;
     }
-    const style = premiseStyle(theme, spec, attempt);
-    const land = plainLandOf(spec, plan, style.relief, Math.ceil(FLOOR_MARGIN * rules.levelLand));
-    if ("reason" in land) {
-      failed.push(land.reason);
-      continue;
-    }
-    const t0 = performance.now();
-    const landFails = plainLandFailures({ spec, plan: land.plan, water: land.water, heights: land.heights, relief: land.relief });
-    const frame = checkFrame(land.plan, land.water, land.heights, { bench: rules.levelLand, moist: rules.farmland + rules.forester, reach: rules.reachMin, zoom: VISTA_ZOOM, shallow: false });
-    land.ms.checks = Math.round(performance.now() - t0);
-    // (the attempt's whole time: the plan's drawing, the land and its checks)
-    land.ms.total = Math.round(performance.now() - ta);
-    const out = { ...land, frame, landFails, attempt, failed, held: false };
     last = out;
-    if (landFails.length) {
-      failed.push(`${landFails[0].id}: ${landFails[0].reason}`);
-      continue;
-    }
-    if (frame.reason) {
-      failed.push(`frame.start: ${frame.reason}`);
-      continue;
-    }
-    return { ...out, held: true };
+    if (out.held) return out;
+    failed.push(out.landFails.length ? `${out.landFails[0].id}: ${out.landFails[0].reason}` : `frame.start: ${out.frame.reason}`);
   }
   return last ?? { reason: `No poisoned floodplain's land held in ${failed.length} plans (the last: ${failed[failed.length - 1] ?? ""})`, failed };
 }

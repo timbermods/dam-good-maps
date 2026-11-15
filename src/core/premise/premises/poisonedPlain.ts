@@ -129,6 +129,14 @@ export const GULCH = { h: [6, 7], width: [4, 7], len: [18, 30], slant: 0.4, narr
 /** The red source's strength as a share of the river's by the Badwater setting (the design's §4, planning's ruling of
  *  2026-11-15: a fifth, a quarter, a third). */
 export const RED_SHARE = { low: 1 / 5, normal: 1 / 4, high: 1 / 3 } as const;
+/** The red stream's bed (the design's §4, step 3): a level under the backswamp, as wide as its flow needs for its water
+ *  to stand under the backswamp's floor (`depth` deep at most), so the stream keeps to its bed and its water's ceiled
+ *  surface is the backswamp's level, which poisons the whole strip (§2). `carry`: the flow a tile of its width carries
+ *  for each level of depth on its gently falling bed, measured on the settle (step 3: a bed 2 wide ran 1.07 deep with
+ *  3.5 a second and flooded the backswamp, 3 wide 0.65; the table's `WATER.channelCarry` is a steeper brook's). */
+export const RED_BED = { carry: 1.8, depth: 0.7, least: 3 } as const;
+/** The red stream's half-width for its flow (`RED_BED`). */
+export const redHalf = (flow: number): number => Math.max(RED_BED.least, Math.ceil(flow / (RED_BED.carry * RED_BED.depth))) / 2;
 /** The start's brook: one small spring (under the Gate's brook springs, 2.0 to 2.6, for a brook 2 wide). */
 export const BROOK_SPRING = [1.5, 2.0] as const;
 /** The red stream's join, as a share of the river's length (the design's §4: in its last 30 %, D476, D498); how far
@@ -1043,7 +1051,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
       rows: [],
       fall: { height: crest - swampLevel, crest, width: lipW, face: headingOf(faceDir[0], faceDir[1]), lip, notch: 0, piers: 0, breach: 0 },
     },
-    { id: I.red, from: I.redPool, to: endJoin ? I.out : I.redOut, kind: "channel", path: redM2, half: 1, bed: redBed, wet: true, gates: [], rows: [], wander: 0, ...(endJoin ? { joins: { link: I.river, at: r2(joinS) } } : {}) },
+    { id: I.red, from: I.redPool, to: endJoin ? I.out : I.redOut, kind: "channel", path: redM2, half: redHalf(redFlow), bed: redBed, wet: true, gates: [], rows: [], wander: 0, ...(endJoin ? { joins: { link: I.river, at: r2(joinS) } } : {}) },
   ];
 
   // ---- the ladder (the design's §6): each rung where the land offers its site

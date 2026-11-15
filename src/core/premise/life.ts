@@ -127,7 +127,7 @@ function keepOff(plan: PremisePlan, w: StageWater, ladder: Ladder, green: boolea
 /** Stage 6 on a settled premise map (`built`, its first build): the generator's planting by the premise's budget, the
  *  dead woods on old shores and beside dry beds, succulents on the dry-for-good side and the mine sites, as features
  *  for one more build (its settle reused: nothing here moves water). */
-export function premiseLife(spec: MapSpec, plan: PremisePlan, w: StageWater, ladder: Ladder, built: BuildResult, features: readonly Feature[], attempt: number, palette: MapSpec["settings"]["resources"]["speciesMix"] | null = null, beds: Uint8Array | null = null, ruinsAt: [number, number] | null = null): PremiseLife {
+export function premiseLife(spec: MapSpec, plan: PremisePlan, w: StageWater, ladder: Ladder, built: BuildResult, features: readonly Feature[], attempt: number, palette: MapSpec["settings"]["resources"]["speciesMix"] | null = null, beds: Uint8Array | null = null, ruinsAt: [number, number] | null = null, offStart = 0): PremiseLife {
   const { W, H } = plan;
   const N = W * H;
   const r = w.raster;
@@ -159,7 +159,10 @@ export function premiseLife(spec: MapSpec, plan: PremisePlan, w: StageWater, lad
   if (onRise) for (const i of onRise.near) held[i] = 1;
   const planted = [...(onRise ? [onRise.field] : []), ...planResources(lifeSpec, built, 0, attempt, { protect: held, moistCover: LIFE.moistCover, woodLean: true, deadForests: res.forestDensity, ...(beds ? { beds } : {}), ...(onRise ? { scrapPlaced: onRise.field.params.scrapTarget } : {}) })];
   const rng = stream(spec.seed, "premise.life", attempt);
-  groupGroves(planted, built, protect, rng, W, H);
+  // (where the premise keeps the start's wood the planting's, `offStart`: the groves within it stay as laid)
+  const startAt = offStart > 0 ? features.find((f) => f.kind === "start") : undefined;
+  const offAt: [number, number] | null = startAt && startAt.kind === "start" ? [startAt.params.position[0], startAt.params.position[1]] : null;
+  groupGroves(planted, built, protect, rng, W, H, offAt ? { at: offAt, r: offStart } : null);
   const out: Feature[] = [...planted];
 
   // what the planting took, so the premise's own dress keeps off it
@@ -302,6 +305,16 @@ export function premiseLife(spec: MapSpec, plan: PremisePlan, w: StageWater, lad
     const dWet = distanceFrom(wetMask, W, H);
     const open = new Uint8Array(N);
     for (let i = 0; i < N; i++) if (moistFree(i) && !taken[i] && !protect[i]) open[i] = 1;
+    // (kept `offStart` tiles from the start where the premise asks: the start's wood stays the planting's, its fast
+    // share as the planting held it)
+    if (offAt) {
+      const [sx, sy] = offAt;
+      for (let i = 0; i < N; i++) {
+        const dx = (i % W) + 0.5 - sx;
+        const dy = Math.floor(i / W) + 0.5 - sy;
+        if (dx * dx + dy * dy < offStart * offStart) open[i] = 0;
+      }
+    }
     const size = LIFE.stand;
     let got = 0;
     let k = 0;
@@ -434,9 +447,9 @@ function reachedMines(spec: MapSpec, b: BuildResult, mines: MapObjectFeature[], 
 
 /** The generator's groves drawn together (`LIFE.groupFrom`, `groupFill`): each living grove of enough trees regrown
  *  from its tile nearest its middle as a close stand of its own count, on its own ground and the open ground of its
- *  kind (moist or dry) round it that nothing else holds; the start's own groves stay as the start rules laid them. A
- *  grove the ground cuts short keeps its own tiles. */
-function groupGroves(planted: Feature[], built: BuildResult, protect: Uint8Array, rng: ReturnType<typeof stream>, W: number, H: number): void {
+ *  kind (moist or dry) round it that nothing else holds; the start's own groves stay as the start rules laid them, and
+ *  with `off` every grove within `r` of the start. A grove the ground cuts short keeps its own tiles. */
+function groupGroves(planted: Feature[], built: BuildResult, protect: Uint8Array, rng: ReturnType<typeof stream>, W: number, H: number, off: { at: [number, number]; r: number } | null = null): void {
   const N = W * H;
   const held = new Uint8Array(N);
   for (let i = 0; i < N; i++) if (built.occupied[i] || built.water[i] > 0 || protect[i]) held[i] = 1;
@@ -447,6 +460,7 @@ function groupGroves(planted: Feature[], built: BuildResult, protect: Uint8Array
     if (f.kind !== "forest" || f.params.life === "dead" || (f.role ?? "").startsWith("forest/start/")) continue;
     const own = runsToTiles(f.params.area, W);
     if (own.length < LIFE.groupFrom) continue;
+    if (off && own.some((i) => ((i % W) + 0.5 - off.at[0]) * ((i % W) + 0.5 - off.at[0]) + (Math.floor(i / W) + 0.5 - off.at[1]) * (Math.floor(i / W) + 0.5 - off.at[1]) < off.r * off.r)) continue;
     const at = middleOf(own, W);
     const moist = built.moisture[at] > 0;
     for (const i of own) held[i] = 0;

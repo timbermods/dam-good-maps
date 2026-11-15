@@ -76,6 +76,15 @@ reaches up to 7 tiles onto the plain: a red tongue at each low place for the bad
 coming in the Weather view and can close with a levee of their own (the first rung). The green band dries for the
 badtide and is not poisoned behind a whole levee.
 
+*As built (step 3):* the river stands up to two deep on its bed (two under the plain) and at its head, where the
+longest level reach ends at its springs, at the plain's level or a little over: a river perched between its banks, as
+a floodplain's is. So every bank has a core: within 3 tiles of the river's water it stands at least a level over the
+land wherever its crest does, whatever its edge's noise (the noise alone left gaps a tile wide), its crest three over
+the river's highest bed within those 3 tiles where the land past a riser lies low; the core runs the river's whole
+length, and round the springs the ground stands a level over the plain 2 tiles out (`LEVEE_CORE`). In a badtide the
+poison stays on the banks and reaches the plain at the low places only, up to 7 tiles from the river there
+(`levee.holds`).
+
 **A drought.** The river's springs stop; the red source does not. The only water that runs in a drought is the red
 stream. Nothing is designed around this beyond saying it on the card's second line when the map's hazards include
 droughts; it is the game's own behaviour.
@@ -112,12 +121,16 @@ valley in the land the shared relief made:
 ## 4. The water story
 
 - **Sources.** The river's springs at its head (the map's strong sources). The start's brook: one small spring. The
-  red source: one badwater source at the gulch's head, its strength a fifth (Badwater low), a quarter (medium) or a third (high) of the river's, enough for a
-  stream 2 wide the length of the backswamp.
+  red source: one badwater source at the gulch's head, its strength a fifth (Badwater low), a quarter (medium) or a third (high) of the river's; its stream's bed
+  as wide as its flow asks, 3 tiles or more, so it runs about 0.7 deep in a bed a level under the backswamp (a bed 2
+  wide ran it over 1 deep, its water over the backswamp's floor and into the sloughs: `RED_BED`).
 - **Courses.** The river: in at one edge, out at another, between its levees. The red stream: down the gulch, over the
   Red Fall (a fall of 6 or 7 levels, the landmark, D510: the gulch's mouth stands that far over the backswamp), along the backswamp, then by the seed either into the river in the river's
   last 30 % (D476, D498: the river is never red above the join) or out by the edge on its own. The start's brook: down
-  the terrace into the river.
+  the terrace into the river. Stage 1 lays each body and channel apart; where a course leaves a body or joins the river
+  through ground left between them, that ground is cut to its bed (`courseGaps`): the Red Pool's outlet as wide as
+  its stream and at the stream's bed, so the pool's water stands at the stream's head, a level under the backswamp,
+  and the Red Fall drops its whole height onto it; the brook's mouth through the river's bank.
 - **Hazards.** The premise plans the map's badwater. `land/hazards.ts` places none of its own on a map of this
   premise. The start keeps its badwater distance and its clean water (D469, D85).
 - **Settings.** Badwater off, Rivers 0 or a side under 128 make the premise ineligible, each with its one-line
@@ -172,9 +185,14 @@ Stage as PREMISES §1.4; each with a hand-broken case in its test.
   plain by `flowThrough` from the col); `levee.wanders` (§1's crest rule, and no straight run of bank over 8 tiles);
   `plain.bands` by the soil's reach on stage 2's ground (dead 8 to 25 %, dry 30 % or more); `terrain.ruled_land`
   (the shared look check, and each wall's side valleys never a comb: `combOf`).
-- **settled:** `river.clean` (no tile of the river above the join at contamination over 0); `plain.bands` again on
-  the settled water; `levee.holds` (in a badtide's water, soil contamination on the plain only within 7 tiles of a
-  low place); every blocking check of the shared gate.
+- **settled** (`plainMap.ts`, on the map built and settled once, its life and dead trees in): `river.clean` (no tile
+  of the clean water, the river above the join, the brook, the springs and the terrace's pool, at contamination over
+  0); `water.leaks` (no settled water off its courses: stage 1's bodies and channels, the gaps cut between them and
+  the gulch's floor); `plain.bands` again on the settled water and the game's soil; `fall.settled` (the Red Fall
+  drops its height less the veil's half level, lip to the Red Pool's water, as settled); `levee.holds` (the river's
+  water made red as settled, the game's soil: no tile of the plain past the banks poisoned farther than 7 tiles from the
+  river along a low place, its half-width and a tile added); every blocking check of the shared gate, the start's
+  among them. A map that fails one is drawn again, within 3 settles.
 - **works, by number at generate time** (`hold.ts` and `flowThrough`, no settle: speed is a feature): `turn.byNumber`
   (with the dam's tiles raised, water behind it stands at the col or over and the col's flow reaches the Dry Fork's
   edge; no path to the plain); `riverIn.byNumber` (with the weir's tiles raised, the river stands at the low
@@ -209,8 +227,15 @@ frames, judged by planning.
 
 ## 10. Open, and what closes it
 
-- How fast the game clears poisoned soil once the stream is turned: read from the core's soil rules in step 3. A
-  probe batch only if the core's rule and a settled map disagree.
+- *Answered (step 3)*: how fast the game clears poisoned soil once the stream is turned. The core's soil rule
+  (`sim/soil3d.ts`, the game's): only water at contamination 0.5 or more poisons, and soil with no such water beside
+  it loses 0.033 a second, so soil at full contamination clears in about 50 ticks, some 30 game seconds (0.07 of a
+  day). What holds it is the water: the red stream's bed drains once the source stops. Measured on the settled maps of
+  seeds 1 and 2 at 128² with the red source shut (`WaterSim` on, the game's soil each day): the red water fell from
+  about 370 tiles to 9 in a quarter of a day, and the floor's dead tiles (500 to 750 as the bed drained) to none by
+  then (the 9, puddles off the floor in the gulch, dried by day 12). So the dead band clears within the first day after
+  the turn; the player sees the plain green as soon as the river in waters it. No probe batch: the rule and
+  the settled maps agree.
 - Whether moisture from the old red bed climbs the backswamp's riser far enough for 70 %: step 4's table decides
   (§7, `riverIn.proved`).
 - Pairing beyond River Valley and Delta: after step 5, on the judged maps.

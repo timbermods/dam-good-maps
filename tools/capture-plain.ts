@@ -11,8 +11,13 @@
 // the tiles the mend changed, then each wall's longest straight run on the ground (`wall.wanders`' measure) and the
 // held attempt's time; the single frames are written beside it. Real Chrome, the site
 // built from this checkout into its own folder with its own Vite cache, served on its own port.
+// With `--water` (§9 row 3), each map is the premise's whole map (`plainMap.ts`: built, its life and dead band in,
+// settled), its file opened as it is, the whole frame without the plan's lines (the water drawn is the settled water);
+// the captions give the start's numbers first, then the bands on the settled water, the three sources' strengths, the
+// water off its courses (0), the Red Fall's settled drop, the badtide's tiles past the low places (0) and the time.
 //
-//   npx tsx tools/capture-plain.ts [--seeds 1,2] [--sizes 128,192,256] [--out C:/dgm-showcase/poisoned-plain/land]
+//   npx tsx tools/capture-plain.ts [--water] [--seeds 1,2] [--sizes 128,192,256]
+//                                  [--out C:/dgm-showcase/poisoned-plain/land, or .../water with --water]
 //                                  [--port 4491] [--dist .scratch/capture-plain-dist] [--quality 80]
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -26,6 +31,7 @@ import { startMiddleTile } from "../src/core/format/footprints";
 import { writeTimber } from "../src/core/format/timber";
 import { toTimberFile } from "../src/core/gen/pack";
 import { fallDrop, groundFoot, plainBands, plainLand, plainStart, wallHeights, type PlainLand } from "../src/core/premise/plainLand";
+import { plainMap } from "../src/core/premise/plainMap";
 import { longestStraight } from "../src/core/premise/raster/levee";
 import { PLAIN_IDS, plainOf, WALL } from "../src/core/premise/premises/poisonedPlain";
 import type { Point } from "../src/core/premise/types";
@@ -38,7 +44,8 @@ const arg = (name: string, f: string) => {
 };
 const SEEDS = arg("seeds", "1,2").split(",").map(Number);
 const SIZES = arg("sizes", "128,192,256").split(",").map(Number);
-const OUT = arg("out", "C:/dgm-showcase/poisoned-plain/land");
+const WATER = process.argv.includes("--water");
+const OUT = arg("out", WATER ? "C:/dgm-showcase/poisoned-plain/water" : "C:/dgm-showcase/poisoned-plain/land");
 const PORT = Number(arg("port", "4491"));
 const DIST = arg("dist", ".scratch/capture-plain-dist");
 const CACHE = `${DIST}-vite-cache`;
@@ -73,7 +80,39 @@ function courses(land: PlainLand): { pts: Point[]; colour: string }[] {
   return out;
 }
 
-async function shoot(browser: Browser, seed: number, size: number): Promise<{ shots: Shot[]; caption: string } | null> {
+/** A map to capture: its land, its file on disk and its caption (lines). */
+type Made = { land: PlainLand; timber: string; caption: string; lines: boolean };
+
+/** The premise's whole map, settled (`--water`): its file and the caption the sheet asks for, the start first. */
+function waterMap(seed: number, size: number): Made | null {
+  const spec = makeSpec({ seed, size: { x: size, y: size }, theme: "any", premise: "any" });
+  const t0 = performance.now();
+  const m = plainMap(spec);
+  const ms = Math.round(performance.now() - t0);
+  if ("reason" in m) {
+    console.log(`seed ${seed} at ${size}²: no map: ${m.reason}`);
+    return null;
+  }
+  const st = m.start;
+  const n = (k: keyof typeof st) => `${st[k].value}${st[k].ok ? "" : " (short of " + st[k].limit + ")"}`;
+  const s = m.settled;
+  const pct = (v: number) => `${Math.round(100 * v)} %`;
+  const caption = [
+    `seed ${seed} at ${size}²${m.held ? "" : " (did not hold: " + m.settledFails.map((f) => f.id).join(", ") + ")"}`,
+    `start: level land ${n("start.level_land")}, reach ${n("start.reach")}, wood ${n("start.wood")} (fast ${n("start.wood_fast")}), water within ${n("start.water")}, food ${n("start.food")}, farmland ${n("start.farmland")}`,
+    `settled: dead ${pct(s.bands.dead)}, green ${pct(s.bands.green)}, dry ${pct(s.bands.dry)} of the floor; ${s.deadTrees} dead trees on the dead band`,
+    `sources: river ${s.sources.river}, brook ${s.sources.brook}, red ${s.sources.red}; leaks ${s.leaks.tiles}; clean water red ${s.river.tiles}; the Red Fall drops ${s.fall.drop.toFixed(1)}; a badtide past the low places ${s.badtide.beyond}`,
+    `attempt ${m.attempt + 1} took ${m.ms.total} ms (land ${m.ms.land}, settle ${m.ms.settle}, life ${m.ms.life}, checks ${m.ms.checks}); all attempts ${ms} ms`,
+  ].join("<br>");
+  console.log(`seed ${seed} at ${size}²: ${caption.replace(/<br>/g, "; ")}`);
+  const timber = resolve(`.scratch/capture-plain/water-${size}-${seed}.timber`);
+  mkdirSync(resolve(".scratch/capture-plain"), { recursive: true });
+  writeFileSync(timber, writeTimber(m.map.file));
+  return { land: m.land, timber, caption, lines: false };
+}
+
+/** The land alone, dry with its start (stage 2). */
+function landMap(seed: number, size: number): Made | null {
   const spec = makeSpec({ seed, size: { x: size, y: size }, theme: "any", premise: "any" });
   const t0 = performance.now();
   const land = plainLand(spec);
@@ -111,7 +150,14 @@ async function shoot(browser: Browser, seed: number, size: number): Promise<{ sh
   const timber = resolve(`.scratch/capture-plain/plain-${size}-${seed}.timber`);
   mkdirSync(resolve(".scratch/capture-plain"), { recursive: true });
   writeFileSync(timber, writeTimber(toTimberFile(spec, built)));
+  return { land, timber, caption, lines: true };
+}
 
+async function shoot(browser: Browser, made: Made): Promise<{ shots: Shot[]; caption: string }> {
+  const { land, timber, caption } = made;
+  const size = land.plan.W;
+  const seed = land.plan.seed;
+  const st = land.frame.start;
   const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: "light" });
   await context.addInitScript("window.__name = (f) => f");
   const page = await context.newPage();
@@ -169,7 +215,7 @@ async function shoot(browser: Browser, seed: number, size: number): Promise<{ sh
     if (frame === "whole") {
       // the plan's courses, projected through the renderer's own camera onto the frame (a tile's world point is
       // (x, level, −y)), drawn as thin lines
-      const lines = courses(land).map((c) => ({ colour: c.colour, pts: c.pts.map(([x, y]) => [x, (land.heights[Math.min(size - 1, Math.max(0, Math.floor(y))) * size + Math.min(size - 1, Math.max(0, Math.floor(x)))] ?? 8) + 0.4, -y]) }));
+      const lines = (made.lines ? courses(land) : []).map((c) => ({ colour: c.colour, pts: c.pts.map(([x, y]) => [x, (land.heights[Math.min(size - 1, Math.max(0, Math.floor(y))) * size + Math.min(size - 1, Math.max(0, Math.floor(x)))] ?? 8) + 0.4, -y]) }));
       // (north up: the map's north edge, y = its side, above its south edge on the frame)
       lines.push({ colour: "none", pts: [[size / 2, 8, 0], [size / 2, 8, -size]] });
       const proj = await page.evaluate(
@@ -219,8 +265,8 @@ async function main(): Promise<void> {
     const maps: { shots: Shot[]; caption: string }[] = [];
     for (const size of SIZES)
       for (const seed of SEEDS) {
-        const m = await shoot(browser, seed, size);
-        if (m) maps.push(m);
+        const made = WATER ? waterMap(seed, size) : landMap(seed, size);
+        if (made) maps.push(await shoot(browser, made));
       }
     // the sheet: two maps a row, each its two frames side by side with its numbers under them
     const pw = 480;
