@@ -186,17 +186,25 @@ place of its bottom rule.
   while anything is selected each tap selects or clears a tile, opening none; the heading row says how many are selected,
   with **Done** to clear them. Delete asks once, as above.
 - **Phones** (#1074, slice 2; amends D185; `editor/view/phoneLayout.ts`, `usePhone.ts`, `src/styles/phone.css`;
-  `tests/e2e/layout.spec.ts` at 393×852 and 852×393). The layout goes by the room, never by the device: under 600 CSS px
+  `tests/e2e/layout.spec.ts` at 393×852 and 852×393, and with a phone's own safe-area insets at 956×440, 844×390 and
+  390×844). The layout goes by the room, never by the device: under 600 CSS px
   wide the phone held upright, under 500 tall the phone on its side; anything else keeps the layout
   above (a tablet takes this layout's Show, objects and pages, below). One editor: the same controls and operations (D342), only placed for a finger. **Upright:** one slim bar at the
   top: a menu (**Map Generator**, **Real places**, **Your maps**, **History**, **Help and keys**, then File's entries),
   the map's name (two lines at most), Undo, Redo, the checks' dot (a tap opens the checks under the bar) and **Save**
   (Save to Timberborn's or Download .timber's call). The view fills the rest. At the foot the tools in one row that
-  scrolls sideways, icon over name, 56px tall: Select, **Objects**, the brushes, Block, the forces. The tool in hand's
+  scrolls sideways, icon over name, 56px tall: Select, **Objects**, the brushes, Block, the forces. **At rest the row
+  stands on whole tools** (Kyler's phone, 2026-11-14): as many as it holds at 64px, each grown to fill it exactly
+  (`TopBar.tsx` `fitToolRow`), the row snapping to each, a fade at an end where more tools lie; the tool in hand is
+  brought whole into view, clear of that fade. The tool in hand's
   settings stand in a sheet above the row with a grab handle: one row by default (Size and the tool's main choice, the
-  first two settings of its first row), every setting in up to half the screen when the handle is tapped or pulled up,
+  first two settings of its first row; where the sheet is too narrow for both, the second under the first, never a row
+  that scrolls sideways unannounced), every setting in up to half the screen when the handle is tapped or pulled up,
   one row again when pulled down; a pulled-up sheet too short for every setting ends after a whole one (the rest scroll
-  up into view). Tapping the tool in hand puts it down. Select rests in hand with its sheet closed; a tap on it opens
+  up into view), its foot fading while more lie under it. **Every setting's card has one layout:** its name and value on one line at its top, its control (the
+  slider or the choices, each option 44px, wrapping rather than cut) under them the card's width, and Auto at the end
+  of that control's line, so the names and the sliders of two cards side by side stand level; Select's shapes four to
+  a line (Whole map two cells), its words under them. Tapping the tool in hand puts it down. Select rests in hand with its sheet closed; a tap on it opens
   Select's settings, a tap again puts them and any selection down. **Show**, a button at the view's top right, opens a
   sheet of what the map shows, at most 40 % of the view so the map changes above it, ending after a whole row (the rest
   scroll up into view): under small headings, each an even grid of chips, **What to show** (the Show row's toggles,
@@ -235,12 +243,22 @@ place of its bottom rule.
   layout viewport's own size (`documentElement.clientWidth`, `roomNow`), never `innerWidth`, which grows to fit
   anything wider than the screen (a desktop bar drawn at a phone's size made it 1,047 and the page lost the phone layout
   for a moment); the editor's loading frame takes the phone layout too, so nothing desktop-wide is drawn first. **On its side:** the same bar; the tools
-  in a rail down the left edge; a tool's settings, Show and the objects in a panel at the right, at most 40 % of the
-  width (320px), clear of Show's button at the bottom right; the menu in columns, the panels and Help in the first,
+  in a rail down the left edge, ending at the home bar's inset, standing on whole tools as the row does; a tool's
+  settings, Show and the objects in a panel at the right hanging from the bar, at most 40 % of the width (320px; a
+  tool's settings 264px and the right inset), clear of Show's button at the bottom right, the panel's room starting at
+  its own edge (the far side's inset is the rail's). A tool's settings stand **in one column the panel's width**, each
+  card as above (a button setting shares its line with the next: Up 1 beside Down 1): the main two at rest, every one
+  when the handle is tapped or pulled down (the panel hangs from the bar, so it is pulled out downwards; pushed up, the
+  main two again), the panel as tall as they need up to the room and scrolling inside past it; the menu in columns, the panels and Help in the first,
   all of it in view; the hints in the room's left half at rest, stepping aside while a sheet or the panel is open.
   **Everywhere on a phone:** every control at least 44px, none off the screen, the page never zoomed or scrolled (the
   editor is the dynamic viewport's height and clips what would spill), the notch and the home bar kept clear (safe
-  areas, `viewport-fit=cover`), fields 16px so the browser never zooms on focus. A long press on a control shows its
+  areas, `viewport-fit=cover`), fields 16px so the browser never zooms on focus. A long press's tooltip shows its phrase without the key caps, which name keys a
+  finger has none of, until a key is pressed on the page (a tablet with a keyboard). **Nothing cut at rest:** every control
+  and card whole inside the room less its insets and inside its panel; a row or page that scrolls may show its next item
+  in part only at an end where more lies and that is not a safe-area edge, or where it fades (a page of cards fades out
+  over the home bar and a little above it); a row of tools stands on whole tools (`tests/e2e/phone.ts` `phoneFaults`,
+  measured with Chrome's own safe-area insets in `layout.spec.ts` for every tool, one row and pulled up). A long press on a control shows its
   tooltip (D351) and is not a tap. With a tool's one-row sheet open the view keeps 66 % of the screen upright and 63 %
   on its side (the spec holds 60 %).
 - **Tablets** (#1074, slices 5 to 7; `src/styles/tablet.css`, `view/usePhone.ts`, `view/phoneLayout.ts`;
