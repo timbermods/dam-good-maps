@@ -728,10 +728,10 @@ function drawBirch(): Canvas {
   const box = [2, 2, 174, 174];
   for (let k = 0; k < 6; k++) {
     const a = (k / 6) * 2 * Math.PI + 0.4 + (hash(k, 3, 64) - 0.5) * 0.3;
-    const d = 40 + 6 * hash(k, 4, 64);
-    birchRosette(cv, 88 + Math.cos(a) * d, 88 + Math.sin(a) * d, 30 + 5 * hash(k, 5, 64), 300 + k, box);
+    const d = 42 + 5 * hash(k, 4, 64);
+    birchRosette(cv, 88 + Math.cos(a) * d, 88 + Math.sin(a) * d, 34 + 4 * hash(k, 5, 64), 300 + k, box);
   }
-  birchRosette(cv, 88, 88, 34, 310, box);
+  birchRosette(cv, 88, 88, 37, 310, box);
   BIRCH_ROSETTES.forEach((r, k) => {
     const [x, y] = [r[0] * S, r[1] * S];
     birchRosette(cv, x + 40, y + 40, 37, 320 + k, [x + 2, y + 2, x + 78, y + 78]);

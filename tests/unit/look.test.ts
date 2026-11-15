@@ -8,6 +8,8 @@ import { storedSoil } from "../../src/core/format/world";
 import { describeTile, entitiesByTile } from "../../src/editor/features";
 import { buildEntities, modelKeyOf, modelOf, modelTriangles } from "../../src/render3d/entities3d";
 import { BERRY_OFF, bushTriangles, domeAt } from "../../src/render3d/bushCards";
+import { BIRCH_TIERS, birchCrownTriangles } from "../../src/render3d/birchCrown";
+import { model as highModel } from "../../src/render3d/high/models";
 import { BUSH_BERRIES, PATTERN, PATTERN_CUT, PATTERN_GAIN, PATTERN_SIZE, PATTERN_TILE, patternAlpha, patternTexels } from "../../src/render3d/objectPatterns";
 import { casterLevelsOf, decodeTop, DEFAULT_SUN, encodeTop, litFraction, objectCasters, PLANT_WIDEST, shadowMap, shadowTops, SHADOW_RES, soilNibbles, tileData, waterByte, withCasterLevels } from "../../src/render3d/light";
 import { DEAD, entityView, soilView, surfaceWater, waterFromDepth, YOUNG } from "../../src/render3d/model";
@@ -386,10 +388,12 @@ describe("the models", () => {
     // (a blockage is its own model since it became the game's heap, D178 as amended 2026-11-10, D148: it was a block)
     expect(modelKeyOf("Blockage", 0)).toBe("Blockage");
     expect(modelKeyOf("SomethingNew", 0)).toBe("block");
-    // small enough for tens of thousands of trees; the living pine its five whorls of boughs, still under the game's own
-    // 135 (PineMature; D496, 2026-11-14: its cost measured in docs/progress/3d-view.md, "The pine's boughs")
-    for (const k of ["Birch", "Oak", "BlueberryBush", "Pine.dead", "Birch.dead", "Oak.dead"]) expect(modelTriangles(k)).toBeLessThanOrEqual(64);
+    // small enough for tens of thousands of trees; the living pine its five whorls of boughs and the birch its six tiers of
+    // leaves, each still under the game's own (PineMature 135, BirchMature 129; D496, 2026-11-14 and 2026-11-15: their
+    // cost measured in docs/progress/3d-view.md, "The pine's boughs", "The birch's tiers")
+    for (const k of ["Oak", "BlueberryBush", "Pine.dead", "Birch.dead", "Oak.dead"]) expect(modelTriangles(k)).toBeLessThanOrEqual(64);
     expect(modelTriangles("Pine")).toBeLessThanOrEqual(135);
+    expect(modelTriangles("Birch")).toBeLessThanOrEqual(129);
   });
 
   it("draws the start's thatch and wood with the game's pictures at the game's scale, each averaging to its part's colour", () => {
@@ -505,6 +509,84 @@ describe("the models", () => {
         expect(on.n[1]).toBeGreaterThan(0.5);
       }
     }
+  });
+
+  it("builds the birch's crown as the game does: six tiers cut by its pattern, as wide from above as the game's, lighter up the crown", () => {
+    // (BirchMature, D496: its cut leaves 0.88 across from above, plantSize.test.ts; tools/game-crowns.py)
+    type Tri = { p: number[][]; uv: number[][] };
+    const across = (tris: Tri[]) => {
+      const kept = (x: number, z: number) =>
+        tris.some(({ p, uv }) => {
+          const [a, b, c] = p.map((q) => [q[0], q[2]]);
+          const d = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+          if (Math.abs(d) < 1e-9) return false;
+          const w1 = ((b[0] - x) * (c[1] - z) - (b[1] - z) * (c[0] - x)) / d;
+          const w2 = ((c[0] - x) * (a[1] - z) - (c[1] - z) * (a[0] - x)) / d;
+          if (w1 < 0 || w2 < 0 || w1 + w2 > 1) return false;
+          const w0 = 1 - w1 - w2;
+          return patternAlpha(PATTERN.birch, w1 * uv[0][0] + w2 * uv[1][0] + w0 * uv[2][0], w1 * uv[0][1] + w2 * uv[1][1] + w0 * uv[2][1]) >= PATTERN_CUT;
+        });
+      let [x0, x1, z0, z1] = [Infinity, -Infinity, Infinity, -Infinity];
+      for (let x = -0.6; x <= 0.6; x += 0.01)
+        for (let z = -0.6; z <= 0.6; z += 0.01)
+          if (kept(x, z)) [x0, x1, z0, z1] = [Math.min(x0, x), Math.max(x1, x), Math.min(z0, z), Math.max(z1, z)];
+      return Math.max(x1 - x0, z1 - z0);
+    };
+    const inside = (tris: Tri[]) => tris.filter(({ p }) => p.every((q) => q[1] > 0.95));
+    // Standard's: its crown's triangles all in the birch's pattern, facing up, at the game's width
+    const m = modelOf("Birch");
+    const crown: Tri[] = [];
+    for (let t = 0; t < m.pos.length / 9; t++) {
+      if (m.pat![t * 3] !== PATTERN.birch) continue;
+      crown.push({ p: [0, 1, 2].map((k) => m.pos.slice((t * 3 + k) * 3, (t * 3 + k) * 3 + 3)), uv: [0, 1, 2].map((k) => m.uv!.slice((t * 3 + k) * 2, (t * 3 + k) * 2 + 2)) });
+      for (let k = 0; k < 3; k++) expect(m.nrm[(t * 3 + k) * 3 + 1]).toBeGreaterThan(0.6);
+    }
+    expect(crown.length).toBe(birchCrownTriangles().length);
+    expect(inside(crown).length).toBe(crown.length);
+    expect(across(crown) / 0.88).toBeGreaterThan(0.9);
+    expect(across(crown) / 0.88).toBeLessThan(1.1);
+    // High's close one, every variant, the same crown
+    for (let v = 0; v < 3; v++) {
+      const g = highModel("Birch", v, "near");
+      const pos = g.getAttribute("position").array;
+      const uv = g.getAttribute("puv").array;
+      const lod = g.getAttribute("lod").array;
+      const tris: Tri[] = [];
+      for (let t = 0; t < pos.length / 9; t++)
+        if (lod[t * 3] === 4 * PATTERN.birch)
+          tris.push({ p: [0, 1, 2].map((k) => Array.from(pos.slice((t * 3 + k) * 3, (t * 3 + k) * 3 + 3))), uv: [0, 1, 2].map((k) => Array.from(uv.slice((t * 3 + k) * 2, (t * 3 + k) * 2 + 2))) });
+      expect(tris.length, `variant ${v}`).toBe(birchCrownTriangles(v).length);
+      expect(across(tris) / 0.88, `variant ${v}`).toBeGreaterThan(0.9);
+      expect(across(tris) / 0.88, `variant ${v}`).toBeLessThan(1.1);
+    }
+    // each tier's tip over its rim, each tier darker at its tip than its rim, and the higher tiers' rims lighter
+    const luma = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    BIRCH_TIERS.forEach((t, i) => {
+      expect(t.tip).toBeGreaterThan(t.rim[1]);
+      expect(luma(t.col[0])).toBeLessThan(luma(t.col[2]));
+      if (i) expect(luma(t.col[2])).toBeGreaterThanOrEqual(luma(BIRCH_TIERS[i - 1].col[2]));
+    });
+    // its rims' albedo the game's foliage as the camera sees it (palette.ts TREE_COLOURS.birch), within a tenth
+    const rims = birchCrownTriangles().flatMap((t) => t.c.filter((_, k) => t.p[k][1] < 1.6 && t.p[k][1] > 1.1 && Math.hypot(t.p[k][0], t.p[k][2]) > 0.42));
+    const mean = rims.reduce((s, c) => s + luma(c), 0) / rims.length;
+    expect(mean / luma(TREE_COLOURS.birch)).toBeGreaterThan(0.9);
+    expect(mean / luma(TREE_COLOURS.birch)).toBeLessThan(1.1);
+    // its layer's mean over its cut 1 (its parts' colours carry the leaves' mean), spread as the game's leaves are
+    const tx = patternTexels();
+    const n = PATTERN_SIZE * PATTERN_SIZE;
+    const ls: number[] = [];
+    for (let k = 0; k < n; k++) {
+      const o = ((PATTERN.birch - 1) * n + k) * 4;
+      if (tx[o + 3] / 255 >= PATTERN_CUT) ls.push((tx[o] / 255) * PATTERN_GAIN);
+    }
+    ls.sort((a, b) => a - b);
+    const avg = ls.reduce((s, x) => s + x, 0) / ls.length;
+    expect(avg).toBeCloseTo(1, 1);
+    // (the game's 5th and 95th percentiles 0.62 and 1.36 of its mean)
+    expect(ls[Math.floor(ls.length * 0.05)] / avg).toBeGreaterThan(0.55);
+    expect(ls[Math.floor(ls.length * 0.05)] / avg).toBeLessThan(0.75);
+    expect(ls[Math.floor(ls.length * 0.95)] / avg).toBeGreaterThan(1.25);
+    expect(ls[Math.floor(ls.length * 0.95)] / avg).toBeLessThan(1.45);
   });
 
   it("builds living and dead trees apart: a dead tree has no green crown", () => {

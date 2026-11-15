@@ -1601,10 +1601,10 @@ export function ruinTriangles(): number {
 }
 
 /** A model's vertices, colours and view levels (the tests read the models' shapes). */
-export function modelOf(key: string, kind = 0, ivy: number | boolean = IVY_NONE): { pos: readonly number[]; col: readonly number[]; lod: readonly number[]; uv: readonly number[] | null; pat: readonly number[] | null } {
+export function modelOf(key: string, kind = 0, ivy: number | boolean = IVY_NONE): { pos: readonly number[]; nrm: readonly number[]; col: readonly number[]; lod: readonly number[]; uv: readonly number[] | null; pat: readonly number[] | null } {
   const level = ivy === true ? IVY_DENSE : ivy === false ? IVY_NONE : ivy;
   const m = key === "start" ? districtCenter() : key === "start.IronTeeth" ? ironTeethCenter() : /^scaffold\.[A-E]$/.test(key) ? storey(RUIN_VARIANT_IDS.indexOf(key.slice(-1) as "A"), kind, level) : MODELS[key]();
-  return { pos: m.pos, col: m.col, lod: m.lod, uv: m.uv, pat: m.pat };
+  return { pos: m.pos, nrm: m.nrm, col: m.col, lod: m.lod, uv: m.uv, pat: m.pat };
 }
 
 const PLANTS = new Set(["Pine", "Birch", "Oak", "Succulent", "BlueberryBush"]);
