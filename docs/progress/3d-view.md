@@ -4356,6 +4356,10 @@ with blue points, the larger gap of the two (the birch's crown is next).
   unchanged; triangles at `cave` Standard 591–596k → 580k, High 501–507k → 495–501k, at `start` Standard 604–609k →
   597k, High 559k → 540k; the pattern atlas 1.4 → 1.75 MB (a fifth layer); its drawing about 0.25 s in the worker; the
   light look unchanged (no pattern, each part in its colour).
+- **Bare bushes** (`fix/bare-bushes`): a bush whose `Yielder:Gatherable` holds no berries (picked, growing again) is
+  drawn without them in both looks, as the game draws it (its `_EnableDetail` 0 while no yield stands): the flag BARE
+  (render3d/model.ts, read by worker/api.ts `lifeOf`), Standard's `BlueberryBush.bare`, High's `bare` state. Until
+  2026-11-15 every living bush showed berries; the Four Lakes r14 capture holds none on 400 of its 839 (wood.test.ts).
 - **Falls short:** (1) The twigs under the bush are left out. (2) The game's berries sit on the leaves by a second UV
   set; ours are cards on the dome under them. (3) The game's normal map lights each leaf; ours carry that light drawn in. (4) High's
   far bush is still the faceted mound.

@@ -164,7 +164,7 @@ function deadLimbs(m: Shape, spec: 'Pine' | 'Birch' | 'Oak', near: boolean, slot
   }
 }
 
-export interface SpeciesDefinition { height: number; wind: number; build: (m: Shape, variant: number, detail: Detail, dead: boolean) => void }
+export interface SpeciesDefinition { height: number; wind: number; build: (m: Shape, variant: number, detail: Detail, dead: boolean, bare?: boolean) => void }
 /** Add species here; batching, icons, ghosts and palette binding use this same registry. */
 export const registry: Record<Species, SpeciesDefinition> = {
   // the game's grown pine (plantSize.ts): a bare trunk to about 1.25, then broad whorls of needles to 3.0, 1.1 across, as
@@ -251,29 +251,30 @@ export const registry: Record<Species, SpeciesDefinition> = {
   // the game's grown blueberry bush: close up as the game builds it (bushCards.ts: a dome its leaf rosettes cover, rosette
   // cards and berries, cut by their pattern; until 2026-11-15 five crowns and blue points); from afar a low mound 0.4
   // tall, 0.97 across, as much as the game's leaves cover (0.93 across from above, its whole model 1.1)
-  BlueberryBush: { height: 0.4, wind: 0.008, build(m, v, detail, dead) {
+  BlueberryBush: { height: 0.4, wind: 0.008, build(m, v, detail, dead, bare = false) {
     const near = detail === 'near';
     // (dead: the game's keeps its leaves, gone brown, without its berries: its crowns alone, in their dead slot)
     const leaves = dead ? 'bushDead' : 'bush';
     const k = 0.78;
     if (!near) {
       for (const side of [-1, 1]) m.add(new OctahedronGeometry(1), leaves, side === 1 ? 1 : 0.96, [side * 0.24 * k, 0.15, 0], [0.4 * k, 0.22, 0.46]);
-      if (dead) return;
+      if (dead || bare) return;
       for (let i = 0; i < 3; i++) m.add(new OctahedronGeometry(0.085), 'berry', 1.04, [Math.cos(i * 2.4 + v) * 0.26 * k, 0.33, Math.sin(i * 2.4 + v) * 0.26 * k]);
       m.add(new OctahedronGeometry(0.085), 'berry', 1, [0.46 * k, 0.18, 0.2 * k]);
       return;
     }
-    m.patterned(bushTriangles(!dead, v), PATTERN.bush, (t) => (t.berries ? 'berry' : leaves));
+    m.patterned(bushTriangles(!dead && !bare, v), PATTERN.bush, (t) => (t.berries ? 'berry' : leaves));
   } },
 };
 
-/** A plant's state: alive, dying (a cause of death runs: its dying form) or dead. */
-export type PlantState = 'alive' | 'dying' | 'dead';
+/** A plant's state: alive, alive without its yield standing (a bush's berries picked: model.ts BARE), dying (a cause of
+ *  death runs: its dying form) or dead. */
+export type PlantState = 'alive' | 'bare' | 'dying' | 'dead';
 export function model(spec: Species, variant = 0, detail: Detail = 'near', state: PlantState | boolean = 'alive'): BufferGeometry {
   const st = state === true ? 'dead' : state === false ? 'alive' : state;
   const shape = new Shape(); shape.dying = st === 'dying';
   if (st === 'dead') shape.upright = DEAD_FORM[spec].height * heightOf(spec, variant, detail, false) / heightOf(spec, variant, detail, true);
-  registry[spec].build(shape, variant, detail, st === 'dead');
+  registry[spec].build(shape, variant, detail, st === 'dead', st === 'bare');
   // the foliage lighter higher up, as the game's (palette.ts `crownShade`), by each vertex's height
   for (let i = 0; i < shape.regions.length; i++) if (FOLIAGE_SLOTS.has(shape.regions[i])) {
     const s = crownShade(spec, shape.positions[i * 3 + 1]);

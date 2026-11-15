@@ -10,19 +10,19 @@
 import { BufferGeometry, Color, InstancedBufferAttribute, InstancedMesh, Matrix4, Vector3, type Camera, type Object3D, type ShaderMaterial } from "three";
 import { whenIdle } from "../idle";
 import { disposeSharedBatch } from "./sharedBatch";
-import { DEAD, DYING, YOUNG, type EntityView } from "../model";
+import { BARE, DEAD, DYING, YOUNG, type EntityView } from "../model";
 import { model, noise, placement, registry, species, type Detail, type PlantState, type Species } from "./models";
 
 export const isPlant = (name: string): name is Species => (species as readonly string[]).includes(name);
 
 /** The renderer's batch names of the models the forest replaces (entities3d.ts `modelKeyOf`). */
 export function replacedBatch(name: string): boolean {
-  const base = name.replace(/\.(dead|dying)$/, "");
+  const base = name.replace(/\.(dead|dying|bare)$/, "");
   return isPlant(base);
 }
 
-/** A plant's state from its flags: dead over dying. */
-const stateOf = (flags: number): PlantState => (flags & DEAD ? "dead" : flags & DYING ? "dying" : "alive");
+/** A plant's state from its flags: dead over dying, dying over bare (only a bush is drawn bare). */
+const stateOf = (flags: number, name: string): PlantState => (flags & DEAD ? "dead" : flags & DYING ? "dying" : flags & BARE && name === "BlueberryBush" ? "bare" : "alive");
 
 /** Dead trees grow on screen when far off, with **Markers** (entities3d.ts GROW_DEAD). */
 const GROW_DEAD = [14, 0, 2.5] as const;
@@ -130,7 +130,7 @@ export class Forest {
       const x = view.x[i];
       const y = view.y[i];
       const z = view.z[i];
-      const state = stateOf(view.flags[i]);
+      const state = stateOf(view.flags[i], name);
       const dead = state === "dead";
       const p = placement(x, y, view.flags[i] & YOUNG ? 0.35 : 1, name);
       m.makeRotationY(p.turn).scale(new Vector3(p.scale, p.scaleY, p.scale));
@@ -217,7 +217,7 @@ export class Forest {
   setState(flags: ArrayLike<number>): number {
     let changed = 0;
     for (const e of this.entries) {
-      const state = stateOf(flags[e.index]);
+      const state = stateOf(flags[e.index], e.species);
       if (state === e.state) continue;
       changed++;
       e.state = state;

@@ -57,7 +57,7 @@
 import { EntityGeometryCache } from "./entityGeometry";
 import { BoxGeometry, BufferGeometry, CircleGeometry, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, OctahedronGeometry, PlaneGeometry, Quaternion, Vector3, type ShaderMaterial } from "three";
 import { FOOTPRINTS, rotate, startEntranceTile, worldBlocks, type Orientation } from "../core/format/footprints";
-import { DEAD, DYING, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
+import { BARE, DEAD, DYING, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
 import { plantScale, RANDOMIZER } from "./plantSize";
 import { DEAD_FORM, DEAD_LIMBS, type DeadPart, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
 import { crownShade, LANDMARK, MINE, OWN_LIGHTNESS, ownAlbedo, RUIN, SLOPE, START, START_IRON_TEETH, TREE_COLOURS, WATER } from "./palette";
@@ -425,6 +425,8 @@ const MODELS: Record<string, () => Model> = {
   BlueberryBush: () => bush(BUSH_LEAVES, true),
   // the game's dead bush keeps its leaves, gone brown, and loses its berries (dying.ts `DEAD_FORM`)
   "BlueberryBush.dead": () => bush(deadLeaves("BlueberryBush", BUSH_LEAVES), false),
+  // (its berries picked, growing again: its leaves alone, model.ts BARE)
+  "BlueberryBush.bare": () => bush(BUSH_LEAVES, false),
   Slope: () => {
     // a ramp over the tile, low on the north (−Z) edge and high on the south (+Z), as a Cw0
     // slope's high side is south (its arrows are "Slope.mark")
@@ -1535,7 +1537,9 @@ export function modelKeyOf(template: string, flags: number): string {
   if (flags & DEAD) return `${template}.dead` in MODELS ? `${template}.dead` : template;
   // (a reserve flipped as the game flips it: its own model, mirrored)
   if (flags & FLIPPED && `${template}.flipped` in MODELS) return `${template}.flipped`;
-  return flags & DYING && `${template}.dying` in MODELS ? `${template}.dying` : template;
+  if (flags & DYING && `${template}.dying` in MODELS) return `${template}.dying`;
+  // (a plant without its yield standing: its model without it)
+  return flags & BARE && `${template}.bare` in MODELS ? `${template}.bare` : template;
 }
 
 /** Triangles of a model (tests and the benchmark's budget). */

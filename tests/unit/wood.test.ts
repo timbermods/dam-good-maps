@@ -6,9 +6,12 @@
 import { describe, expect, it } from "vitest";
 import { growthOf, isSapling, treeLogs, woodDetail, woodWords } from "../../src/core/analysis/wood";
 import { F, parse, type JsonObject } from "../../src/core/format/json";
-import { tree } from "../../src/core/format/entities";
+import { bush, tree } from "../../src/core/format/entities";
+import { modelKeyOf, modelOf } from "../../src/render3d/entities3d";
+import { model as highModel } from "../../src/render3d/high/models";
+import { cssColor, TREE_COLOURS, type Rgb } from "../../src/render3d/palette";
 import { lifeOf } from "../../src/worker/api";
-import { entityView, YOUNG } from "../../src/render3d/model";
+import { BARE, DEAD, entityView, YOUNG } from "../../src/render3d/model";
 
 describe("a tree's growth (Growable.GrowthProgress)", () => {
   it("a sapling reads as a sapling, in every form the value takes", () => {
@@ -45,6 +48,36 @@ describe("a tree's growth (Growable.GrowthProgress)", () => {
     ]);
     expect(v.flags[0] & YOUNG).toBe(YOUNG);
     expect(v.flags[1] & YOUNG).toBe(0);
+  });
+});
+
+describe("a bush's berries (Yielder:Gatherable)", () => {
+  it("a bush whose berries were picked is drawn bare, as the game draws it; a ripe one, a pine's resin or no yield is not", () => {
+    // (the Four Lakes r14 capture's bush at 76, 96 holds none and the game shows none: 400 of its 839 bushes)
+    const picked = bush({ id: "b", owner: "o", x: 1, y: 1, z: 3, ripe: false, regrowth: 0.384 });
+    const ripe = bush({ id: "c", owner: "o", x: 2, y: 1, z: 3, ripe: true });
+    const read = parse(JSON.stringify(picked.components)) as JsonObject;
+    for (const c of [picked.components, read]) expect(lifeOf(c as Record<string, unknown>).bare).toBe(true);
+    for (const c of [ripe.components, {}, tree({ id: "t", owner: "o", x: 1, y: 1, z: 3, species: "Pine" }).components])
+      expect(lifeOf(c as Record<string, unknown>).bare, JSON.stringify(c)).toBeUndefined();
+    const v = entityView([
+      { template: "BlueberryBush", x: 1, y: 1, z: 3, orientation: "Cw0", owner: "o", ...lifeOf(picked.components as Record<string, unknown>) },
+      { template: "BlueberryBush", x: 2, y: 1, z: 3, orientation: "Cw0", owner: "o", ...lifeOf(ripe.components as Record<string, unknown>) },
+    ]);
+    expect(v.flags[0] & BARE).toBe(BARE);
+    expect(v.flags[1] & BARE).toBe(0);
+    // drawn without its berries in both looks (Standard's model, High's near and far)
+    expect(modelKeyOf("BlueberryBush", BARE)).toBe("BlueberryBush.bare");
+    expect(modelKeyOf("BlueberryBush", BARE | DEAD)).toBe("BlueberryBush.dead");
+    const berry = cssColor(TREE_COLOURS.berry);
+    const cols = (m: { col: readonly number[] }) => new Set(Array.from({ length: m.col.length / 9 }, (_, t) => cssColor(m.col.slice(t * 9, t * 9 + 3) as unknown as Rgb)));
+    expect(cols(modelOf("BlueberryBush")).has(berry)).toBe(true);
+    expect(cols(modelOf("BlueberryBush.bare")).has(berry)).toBe(false);
+    for (const detail of ["near", "far"] as const) {
+      const near = highModel("BlueberryBush", 0, detail, "alive").getAttribute("position").count;
+      const bare = highModel("BlueberryBush", 0, detail, "bare").getAttribute("position").count;
+      expect(bare, detail).toBeLessThan(near);
+    }
   });
 });
 
