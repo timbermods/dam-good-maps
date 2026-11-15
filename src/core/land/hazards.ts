@@ -16,8 +16,8 @@
 // drawn line on every third map): its way down is the eroded field's own drainage from the pit's
 // rim, else the cheapest way that keeps off what it must with the field's fall in its cost, then
 // smoothed and bent by the rivers' meander (hydro.ts `meanderPath`, a swing and a wavelength noise
-// varies), or walked tile by tile as a creek where the land gives the meander no room; it never
-// runs straight over 4 tiles nor in a regular wave (D209, analysis/straight.ts), and its banks step
+// varies); it never runs straight over 9 tiles at any angle, nor over 4 along a row or a column, nor
+// in an even 45° stair of 6 steps or a regular wave (D209, analysis/straight.ts), and its banks step
 // down to its bed a level a tile, a wash wider at the top, never a one-tile slot cut two or three
 // deep (the look round, 2026-11-14). A pit whose ditch can't keep to that goes elsewhere.
 //
@@ -467,20 +467,50 @@ function ditchRoute(h: Uint8Array, E: Float64Array | null, valleyOf: Float64Arra
   return null;
 }
 
-/** The longest straight stretch a ditch may run, in tiles (D209: a one-tile ditch's banks are a
- *  canal as long as the stretch; real terrain's and the official maps' longest are 34 and 44, for
- *  rivers). 9 from #330 to the look round of 2026-11-14 (item (c)): a ditch 5 to 9 tiles straight,
- *  most often a pit's short way off the map's edge, read as a dark dug slot (Lake Basin 2 at 128²,
- *  7 tiles dead straight), as five or more equal steps in a line read as ruled. Now 4: a ditch winds
- *  every few tiles, the meander's draws first and a creek's walk where the land gives them no room
- *  (`creekWalk`); a route too short to bend (under `DITCH_LONG`) is never bent nor used, and one that
- *  runs straighter than this is not used: the pit goes elsewhere. */
-const DITCH_STRAIGHT = 4;
+/** The longest straight stretch a ditch may run at any angle, in tiles (D209: a one-tile ditch's
+ *  banks are a canal as long as the stretch; real terrain's and the official maps' longest are 34 and
+ *  44, for rivers). 9 since #330: with most maps' badwater routed into the main water, a one-tile
+ *  course 12 or more tiles straight read as dug, not a stream; a draw that can't keep to it is drawn
+ *  again, else the pit goes elsewhere (D200). */
+const DITCH_STRAIGHT = 9;
+
+/** The longest run a ditch may make along one row or column, in tiles, and the most even one-tile
+ *  steps at 45° (the tiles of one diagonal line, as item (b) counts a level's stair edge,
+ *  validate/stepRuns.ts `STAIR_EDGE`) less one: the look round of 2026-11-14, item (c). Lake Basin 2's
+ *  first pit drained by a ditch 7 tiles dead straight down a column off the map's edge, one tile wide
+ *  and cut 2 to 3 deep: a dark dug slot, as five or more equal steps in a line read as ruled. The
+ *  any-angle limit stays 9: held to 4 at every angle, a ditch had to turn square every few tiles and
+ *  read as a ruled square wave. A draw that runs straighter is drawn again, else the pit goes
+ *  elsewhere. */
+const DITCH_RUN = 4;
+const DITCH_STAIR = 6;
 
 /** The fewest tiles a ditch runs, its route as traced too: one shorter has no room to wind (the look
  *  round of 2026-11-14, item (c): Lake Basin 2's second pit drained by a 3-tile stub off the map's
  *  edge), and its pit goes elsewhere. */
 const DITCH_LONG = 8;
+
+/** A ditch's longest run along one row or column (tiles), and its longest flight of even one-tile
+ *  steps at 45° (the tiles on one diagonal line: the moves alternate two square ways, the one-tile
+ *  zigzag item (b) reads on a level's edge). `tiles` join side to side. */
+export function ditchRuns(tiles: readonly number[], W: number): { axis: number; stair: number } {
+  const n = tiles.length;
+  let axis = Math.min(n, 1);
+  let stair = Math.min(n, 1);
+  let same = 1;
+  let alt = 0;
+  for (let k = 1; k < n; k++) {
+    const m = tiles[k] - tiles[k - 1];
+    const p = k > 1 ? tiles[k - 1] - tiles[k - 2] : 0;
+    const q = k > 2 ? tiles[k - 2] - tiles[k - 3] : 0;
+    same = k > 1 && m === p ? same + 1 : 1;
+    axis = Math.max(axis, same + 1);
+    // (moves alternating two square ways: a, b, a, b: the tiles at every other step lie on a diagonal)
+    alt = k > 1 && m !== p && m !== -p ? (k > 2 && m === q ? alt + 1 : 2) : 1;
+    stair = Math.max(stair, (alt + 2) >> 1);
+  }
+  return { axis, stair };
+}
 
 /** The most tiles in a row of `tiles` whose middles all lie within 0.75 of one straight line (the
  *  line through the stretch's two ends): how far a ditch runs ruler-straight. With `above`, the first
@@ -515,12 +545,12 @@ function wavy(tiles: readonly number[], W: number): boolean {
 /** A ditch's route bent as a river's course is: its line smoothed, then the rivers' meander on it
  *  (a swing up to 3.2 tiles, a wavelength of 13–20 tiles, both varied by noise as it goes), drawn
  *  again as side-to-side steps that end at the first tile `isEnd` names. A draw whose steps would
- *  still cross ground the ditch keeps off, or that runs straight over `DITCH_STRAIGHT` or in a
- *  regular wave (D209), or that is shorter than `DITCH_LONG`, is drawn again from the next seed,
- *  four times; then with a smaller swing; then the route as traced; then a creek's walk along it
- *  (`creekWalk`, `CREEK_DRAWS` draws). Null where even that fails, and the pit goes elsewhere; null
- *  at once for a route too short to wind (under `DITCH_LONG`): no bend is laid where there is no
- *  room for one. */
+ *  still cross ground the ditch keeps off, that runs straight over `DITCH_STRAIGHT`, along a row or
+ *  column over `DITCH_RUN`, in a 45° stair of `DITCH_STAIR` or in a regular wave (D209), or that is
+ *  shorter than `DITCH_LONG`, is drawn again from the next seed, four times; then with a smaller
+ *  swing; then the route as traced. Null where even that fails, and the pit goes elsewhere; null at
+ *  once for a route too short to wind (under `DITCH_LONG`): no bend is laid where there is no room
+ *  for one. */
 function windDitch(tiles: readonly number[], h: Uint8Array, W: number, H: number, allowed: (i: number) => boolean, isEnd: (i: number) => boolean, seed: number, rng: Rng): number[] | null {
   const n = tiles.length;
   if (n < DITCH_LONG) return null;
@@ -536,9 +566,14 @@ function windDitch(tiles: readonly number[], h: Uint8Array, W: number, H: number
     tries.push(meanderPath(path, h, W, H, { amp: a, minAmp: 0.6 * a, cell: 13 + 7 * rng.float(), widthVar: 0 }, hash32(seed, "draw", tries.length)));
   }
   tries.push(path, smoothPath(pts, 3, 1), pts);
-  // (long enough to wind, no straight stretch over `DITCH_STRAIGHT`, no regular wave; the outlet
-  // stored drops the tile on the water it joins, and the map's check reads that line)
-  const fits = (walked: number[]): boolean => walked.length >= DITCH_LONG && straightStretch(walked, W, DITCH_STRAIGHT) <= DITCH_STRAIGHT && !wavy(walked, W) && !wavy(walked.slice(0, -1), W);
+  // (long enough to wind, no straight stretch over `DITCH_STRAIGHT`, no run along a row or column
+  // over `DITCH_RUN` nor a 45° stair of `DITCH_STAIR`, no regular wave; the outlet stored drops the
+  // tile on the water it joins, and the map's check reads that line)
+  const fits = (walked: number[]): boolean => {
+    if (walked.length < DITCH_LONG) return false;
+    const r = ditchRuns(walked, W);
+    return r.axis <= DITCH_RUN && r.stair < DITCH_STAIR && straightStretch(walked, W, DITCH_STRAIGHT) <= DITCH_STRAIGHT && !wavy(walked, W) && !wavy(walked.slice(0, -1), W);
+  };
   for (const t of tries) {
     // (a bend's point on ground the ditch keeps off is left out, not the whole draw: a ditch beside
     // the start's water would otherwise fall back to its traced line)
@@ -550,94 +585,6 @@ function windDitch(tiles: readonly number[], h: Uint8Array, W: number, H: number
     const walked = walkRoute(tiles[0], along, W, H, allowed, isEnd);
     if (!walked || walked.length < 3) continue;
     if (fits(walked)) return walked;
-  }
-  // (then a creek's way along the route, as a gully winds tile by tile where the land gives the
-  // meander no room to swing: on a slope the bends above keep to their line and run straight)
-  for (let k = 0; k < CREEK_DRAWS; k++) {
-    const walked = creekWalk(tiles, h, W, H, allowed, isEnd, rng);
-    if (walked && fits(walked)) return walked;
-  }
-  return null;
-}
-
-/** How many creek walks a ditch draws before its pit goes elsewhere (`windDitch`). */
-const CREEK_DRAWS = 8;
-
-/** A ditch walked tile by tile along `tiles` (its route as traced), as a creek finds its way: each
- *  step to the side tile that stays near the route ahead and cuts least (lower ground is cheaper), a
- *  little chance in the choice, and never one that would leave its last five tiles in a straight
- *  line (`straightStretch`), so it turns every few tiles as the land and the draw lead. It stays one
- *  tile wide (no step beside a tile it already took but the last), within 3 of the route and no more
- *  than half as long again. Where it walks into a corner it steps back and takes its next choice;
- *  null where it runs out of steps. */
-function creekWalk(tiles: readonly number[], h: Uint8Array, W: number, H: number, allowed: (i: number) => boolean, isEnd: (i: number) => boolean, rng: Rng): number[] | null {
-  const n = tiles.length;
-  const bx = tiles.map((i) => i % W);
-  const by = tiles.map((i) => (i - (i % W)) / W);
-  const path = [tiles[0]];
-  const taken = new Set(path);
-  // (each tile on the path, how far along the route it stands, and its choices not yet tried)
-  const along = [0];
-  const choices: number[][] = [];
-  const options = (cur: number, from: number): { g: number; next: number[] } => {
-    const cx = cur % W;
-    const cy = (cur - cx) / W;
-    // (how far along the route it has come: the nearest of the next few route tiles)
-    let g = from;
-    let gd = Infinity;
-    for (let k = from; k < Math.min(n, from + 8); k++) {
-      const d = (bx[k] - cx) * (bx[k] - cx) + (by[k] - cy) * (by[k] - cy);
-      if (d <= gd) {
-        gd = d;
-        g = k;
-      }
-    }
-    const t = Math.min(n - 1, g + 3);
-    const scored: [number, number][] = [];
-    for (const [dx, dy] of N4) {
-      const x = cx + dx;
-      const y = cy + dy;
-      if (x < 0 || y < 0 || x >= W || y >= H) continue;
-      const c = y * W + x;
-      if (taken.has(c) || !allowed(c)) continue;
-      // (one tile wide: no tile beside one already taken, but the last, unless it ends there)
-      if (!isEnd(c) && N4.some(([ex, ey]) => {
-        const xx = x + ex;
-        const yy = y + ey;
-        const j = yy * W + xx;
-        return xx >= 0 && yy >= 0 && xx < W && yy < H && j !== cur && taken.has(j);
-      })) continue;
-      // (near the route: within 3 of one of its tiles about here)
-      let near = Infinity;
-      for (let k = Math.max(0, g - 4); k < Math.min(n, g + 8); k++) near = Math.min(near, Math.max(Math.abs(bx[k] - x), Math.abs(by[k] - y)));
-      if (near > 3) continue;
-      if (path.length >= 4 && straightStretch([...path.slice(-4), c], W, 4) > 4) continue;
-      const ahead = portable.sqrt((bx[t] - x) * (bx[t] - x) + (by[t] - y) * (by[t] - y));
-      scored.push([ahead + 0.6 * (h[c] - h[cur]) + 0.4 * near + 1.4 * rng.float(), c]);
-    }
-    scored.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
-    return { g, next: scored.map(([, c]) => c) };
-  };
-  choices.push(options(tiles[0], 0).next);
-  // (no longer than half as long again as the route: a creek winds, it does not wander)
-  const most = n + (n >> 1) + 6;
-  for (let step = 0; step < 12 * n + 40; step++) {
-    const cur = path[path.length - 1];
-    if (isEnd(cur)) return path;
-    const next = path.length < most ? choices[choices.length - 1].shift() : undefined;
-    if (next === undefined) {
-      // (a corner: step back)
-      if (path.length === 1) return null;
-      taken.delete(path.pop()!);
-      along.pop();
-      choices.pop();
-      continue;
-    }
-    path.push(next);
-    taken.add(next);
-    const o = options(next, along[along.length - 1]);
-    along.push(o.g);
-    choices.push(o.next);
   }
   return null;
 }
