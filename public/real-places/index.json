@@ -708,8 +708,8 @@
    "metres": 60,
    "data": "data/bardenas-reales.json.gz",
    "image": "cards/bardenas-reales.jpg",
-   "bytes": 548623,
-   "sha256": "989978abd95bb2b4347c2ba6212bccaa5b50f84c846b0d24e932e433cda13775",
+   "bytes": 454165,
+   "sha256": "14cdd4770d8483d72c0a281fe3b85c4ddc91251ee220b438f781515e7af24ccf",
    "faults": []
   },
   {
