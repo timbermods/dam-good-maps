@@ -1,12 +1,12 @@
-// Shores that wander (src/core/land/shores.ts; planning's ruling of 2026-11-15, ruled water): a planned lake's straight
-// shore is notched by taking ground only, its steps stay one level, and a shore that already wanders is left alone.
+// Shores that wander (src/core/land/shores.ts; planning's rulings of 2026-11-15, ruled water): a planned lake's shore
+// follows a noised contour into the bank a level over its surface, by taking ground only, every step one level.
 
 import { describe, expect, it } from "vitest";
-import { bendShores, inStrip, outlines, straightRuns, SHORES } from "../../src/core/land/shores";
+import { inStrip, wanderShores, outlines, straightRuns, SHORES } from "../../src/core/land/shores";
 import type { Lake } from "../../src/core/land/hydro";
 
-/** A 40 × 40 land: a lake (level 3, its water 2) west of a straight north–south shore at x = 15, a bank of level 4
- *  from there, and level 5 from x = 22 on. */
+/** A 40 × 40 land: a lake (level 6, its water 2) west of a straight north–south shore at x = 15, a bank of level 7
+ *  from there, and level 8 from x = 22 on; the lake spills at its own level by a cut to the west edge. */
 function boxLake(): {
   h: Uint8Array;
   water: Uint8Array;
@@ -23,7 +23,7 @@ function boxLake(): {
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
       const inLake = x >= 4 && x < 16 && y >= 6 && y < 34;
-      h[i] = inLake ? 3 : x < 22 ? 4 : 5;
+      h[i] = inLake || (y === 20 && x < 4) ? 6 : x < 22 ? 7 : 8;
       if (inLake) {
         water[i] = 2;
         tiles.push(i);
@@ -66,13 +66,13 @@ describe("shores", () => {
     expect(straightRuns(loops[0], W, SHORES.run).length).toBeGreaterThan(0);
   });
 
-  it("notches a straight shore by taking ground only, every step one level", () => {
+  it("bends a straight shore into the bank by taking ground only, every step one level", () => {
     const { h, water, lakes, W, H } = boxLake();
     const before = h.slice();
-    const cut = bendShores(h, W, H, water, lakes, 7);
+    const cut = wanderShores(h, W, H, water, lakes, 7);
     expect(cut).toBeGreaterThan(0);
     for (let i = 0; i < W * H; i++) expect(h[i]).toBeLessThanOrEqual(before[i]);
-    // the east shore now steps aside: its water reaches into the bank in places, and not in others
+    // the east shore now wanders: its water reaches into the bank in places, and not in others
     const east = [];
     for (let y = 8; y < 32; y++) east.push(water[y * W + 16] === 2 ? 1 : 0);
     expect(east).toContain(1);
@@ -82,7 +82,7 @@ describe("shores", () => {
       for (let x = 0; x + 1 < W; x++) {
         const a = y * W + x,
           b = a + 1;
-        if (!water[a] && !water[b]) expect(Math.abs(h[a] - h[b])).toBeLessThanOrEqual(1);
+        if (water[a] !== 2 && water[b] !== 2) expect(Math.abs(h[a] - h[b])).toBeLessThanOrEqual(1);
       }
     // the tiles the water took joined the lake
     expect(lakes[0].tiles.length).toBeGreaterThan(12 * 28);

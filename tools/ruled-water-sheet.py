@@ -3,7 +3,8 @@ start's numbers first (D515's floors from the map's own checks), then the ruled-
 
     python tools/ruled-water-sheet.py <before frames> <after frames> <out.png> riverValley-9 delta-3 … [--cell 512]
 
-Two maps a row, each as before | after. Straight lake shore is marked orange, channels side by side yellow.
+Two maps a row, each as before | after. Straight lake shore is marked orange, channels side by side within 6 tiles
+water to water yellow.
 """
 import json
 import os
@@ -41,7 +42,7 @@ def labels(rec, side):
     start = start.replace("  food", "\n       food", 1)
     head = f"{NAMES.get(name, name)} {rec.get('seed', '?')} · {side}"
     water = (f"straight shore {100 * rec['straightShare']:.1f} % (longest {rec['longestShore']})  ·  side by side "
-             f"{rec['beside']} tiles  ·  attempts {rec.get('attempts', '?')}, leaks {rec.get('leaks', '?')}")
+             f"{rec['beside6']} (12: {rec['beside']}) tiles  ·  attempts {rec.get('attempts', '?')}, leaks {rec.get('leaks', '?')}")
     return head, "start: " + start, water
 
 

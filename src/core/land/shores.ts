@@ -1,29 +1,36 @@
-// Shores that wander (planning's ruling on #236 of 2026-11-15, ruled water: "shores that wander with the land, bent as
-// every bank is"). A lake's shore lies where its water meets the land's next level, so on land whose contour runs
-// straight (a tilted plain's bands, a shelf cut to the lake's floor along them: Delta 256² seed 3's box-sided lakes) the
-// shore runs ruler-straight. Along every straight stretch of a planned lake's shore (`SHORES.run` shore tiles or more
-// whose centres lie within half a tile of one line, at any angle: `straightRuns`), the bank is notched: plain pieces of
-// 2 to 5 tiles, then a notch of 2 to 4 tiles where the bank is taken down to the lake's floor, so the water reaches a
-// tile into it and the shore steps aside as a worn one does. A notch takes ground only (D111): on a bank a level over
-// the lake each tile of it goes down one level, on into the land while the ground behind climbs a level a tile (so no
-// step grows), stopping at the first flat (up to `SHORES.depth` tiles); a cliff's bank only its first tile. It is left
-// out where it would open the lake to lower ground, meet other water, leave a step beside it higher than the bank it cut
-// (a diagonal one more), or reach the map's last `SHORES.margin` tiles. Integers only, deterministic per seed.
+// Shores that wander (planning's rulings on #236 of 2026-11-15, ruled water: "shores that wander with the land", made
+// where the shore is made). A lake's shore lies where its water meets the land's next level, so on land whose contour
+// runs straight (a tilted plain's bands: Delta 256² seed 3's box-sided lakes) the shore runs ruler-straight. Once the
+// shelves are cut, every planned lake's shore (and any water the land holds in a hollow) is laid on a noised contour
+// (`SHORES.cell`): from the bank a level over the surface into the land, climbing a level a tile at most and up to
+// `SHORES.rise` levels over the surface, a tile `d` in is a bay's where the noise stands over
+// `SHORES.from + SHORES.step · d`, up to `SHORES.depth` tiles. Each bay is cut to the lake's floor, a level under the
+// surface, so it holds water and not a sheet, and the ground round it is graded down a level a tile (up to
+// `SHORES.grade` tiles), so no step grows. Ground is only taken (D111); a bay is left out where its grading would touch a
+// channel, other water or the map's last `SHORES.margin` tiles, or leave ground at or under the surface beside lower
+// ground the lake would spill to. Deterministic per seed. `straightRuns` and `inStrip` read straight stretches for the
+// ruled-water measure (tools/ruled-water.ts).
 
-import { stream } from "../math/rng";
+import { hash32 } from "../math/hash";
+import { fbm } from "../math/noise";
+import { BED_FLOOR } from "./genome";
 import { drainage } from "./drainage";
 import type { Lake } from "./hydro";
 
 export const SHORES = {
-  /** A straight stretch of this many shore tiles or more is notched (the ruled-water measure's run). */
+  /** The straight-run length `straightRuns` reads (the ruled-water measure's run). */
   run: 8,
-  /** Plain shore between notches, and a notch's length along the shore, tiles. */
-  plain: [2, 5] as const,
-  notch: [2, 4] as const,
-  /** How far a notch reaches into the land at most, tiles. */
-  depth: 3,
+  /** The noised contour: its cell (tiles), the noise a bay's first tile needs, and how much more each tile further in. */
+  cell: 6,
+  from: -0.1,
+  step: 0.12,
+  /** How far a bay reaches into the land at most, tiles, and how far round it the ground may be graded down. */
+  depth: 6,
+  grade: 4,
+  /** How high over the surface the ground a bay is cut into may stand, levels. */
+  rise: 3,
   /** Tiles from the map's edge nothing is cut in. */
-  margin: 2,
+  margin: 3,
 } as const;
 
 // (this order settles a tie when a notch picks its way into the land, so it stays as the maps were made with)
@@ -163,10 +170,10 @@ export function straightRuns(seq: readonly number[], W: number, min: number): [n
   return out;
 }
 
-/** Notch the straight stretches of the planned lakes' shores (see the file's header), in place: `water` is the plan's
- *  (`Hydro.water`: lakes 2, channels 1, floors 3) and the lakes' tiles, which gain the tiles the water now reaches.
- *  Returns the tiles taken down. */
-export function bendShores(
+/** The planned lakes' shores on a noised contour (see the file's header), in place: `water` is the plan's (`Hydro.water`:
+ *  lakes 2, channels 1, floors 3) and the lakes' tiles, which gain the tiles the water now reaches. Returns the tiles
+ *  taken down. */
+export function wanderShores(
   h: Uint8Array,
   W: number,
   H: number,
@@ -175,169 +182,205 @@ export function bendShores(
   seed: number,
 ): number {
   const N = W * H;
-  const lake = new Uint8Array(N);
-  const lakeAt = new Int32Array(N).fill(-1);
-  // (the planned lakes, and any water the land holds standing in a hollow, as the settle will find it)
   const filled = drainage(h, W, H, { eight: false }).filled;
+  // (the planned lakes, and any water the land holds standing in a hollow, as the settle will find it; each tile's
+  // surface the level its water spills at)
+  const lake = new Uint8Array(N);
   for (let i = 0; i < N; i++) if (water[i] === 2 || (water[i] !== 1 && filled[i] > h[i])) lake[i] = 1;
+  // (each body of water by itself, so no bay joins two)
+  const body = new Int32Array(N).fill(-1);
+  for (let s0 = 0, id = 0; s0 < N; s0++) {
+    if (!lake[s0] || body[s0] >= 0) continue;
+    body[s0] = id;
+    const st = [s0];
+    while (st.length) {
+      const i = st.pop()!;
+      const x = i % W;
+      const y = (i - x) / W;
+      for (const [dx, dy] of N4) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        if (lake[j] && body[j] < 0) {
+          body[j] = id;
+          st.push(j);
+        }
+      }
+    }
+    id++;
+  }
+  const lakeAt = new Int32Array(N).fill(-1);
   lakes.forEach((lk, k) => {
     for (const i of lk.tiles) if (water[i] === 2) lakeAt[i] = k;
   });
   const m = SHORES.margin;
-  const inside = (x: number, y: number) => x >= m && y >= m && x < W - m && y < H - m;
-  const rng = stream(seed, "shores");
-  /** Land a notch may take: no lake, no channel (a channel's cleared floor is land). */
-  const land = (i: number) => !lake[i] && water[i] !== 1;
-  const lowered = new Uint8Array(N);
+  const inside = (i: number) => {
+    const x = i % W;
+    const y = (i - x) / W;
+    return x >= m && y >= m && x < W - m && y < H - m;
+  };
+  const dry = (i: number) => !lake[i] && water[i] !== 1;
+  // the bays: from every bank a level over its lake's surface, into the ground at that level, as far as the noised
+  // contour lets (the deeper in, the higher the noise must stand)
+  const bay = new Uint8Array(N);
+  const surf = new Int32Array(N).fill(-1);
+  const from = new Int32Array(N).fill(-1);
+  const dist = new Int32Array(N).fill(-1);
+  const q: number[] = [];
+  for (let i = 0; i < N; i++) {
+    if (!lake[i]) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    for (const [dx, dy] of N4) {
+      const xx = x + dx;
+      const yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+      const t = yy * W + xx;
+      if (!dry(t) || dist[t] >= 0 || h[t] !== filled[i] + 1 || !inside(t)) continue;
+      dist[t] = 1;
+      surf[t] = filled[i];
+      from[t] = body[i];
+      q.push(t);
+    }
+  }
+  const noise = (t: number) => {
+    const x = t % W;
+    return fbm(hash32(seed, "shores"), x, (t - x) / W, SHORES.cell, 3);
+  };
+  for (let k = 0; k < q.length; k++) {
+    const t = q[k];
+    if (noise(t) <= SHORES.from + SHORES.step * dist[t]) continue;
+    bay[t] = 1;
+    if (dist[t] >= SHORES.depth) continue;
+    const x = t % W;
+    const y = (t - x) / W;
+    for (const [dx, dy] of N4) {
+      const xx = x + dx;
+      const yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+      const j = yy * W + xx;
+      // (on into the land while it climbs no more than a level a tile, up to `SHORES.rise` over the surface)
+      if (dist[j] >= 0 || !dry(j) || h[j] < h[t] || h[j] > h[t] + 1 || h[j] > surf[t] + SHORES.rise || !inside(j)) continue;
+      dist[j] = dist[t] + 1;
+      surf[j] = surf[t];
+      from[j] = from[t];
+      q.push(j);
+    }
+  }
+  // each bay (a connected piece of it) is cut to the lake's floor, a level under the surface, so it holds water and not a
+  // sheet, and the ground round it is taken down so no step beside it grows over one level: a cove graded into the land.
+  // A bay is left out when that grading would reach further than `SHORES.grade` tiles, touch a channel, other water or the
+  // map's last tiles, or leave ground at or under the surface beside lower ground the lake would spill to.
+  const target = new Int32Array(N).fill(-1);
+  const seenBay = new Uint8Array(N);
   let cut = 0;
-  for (const loop of outlines(lake, W, H)) {
-    const n = loop.length;
-    if (n < SHORES.run) continue;
-    const dryNext = (t: number): boolean => {
+  for (let s0 = 0; s0 < N; s0++) {
+    if (!bay[s0] || seenBay[s0]) continue;
+    const comp: number[] = [s0];
+    seenBay[s0] = 1;
+    for (let k = 0; k < comp.length; k++) {
+      const t = comp[k];
       const x = t % W;
       const y = (t - x) / W;
       for (const [dx, dy] of N4) {
         const xx = x + dx;
         const yy = y + dy;
-        if (inside(xx, yy) && land(yy * W + xx)) return true;
-      }
-      return false;
-    };
-    const flags = loop.map(dryNext);
-    const start = flags.every(Boolean) ? 0 : flags.findIndex((f, k) => f && !flags[(k + n - 1) % n]);
-    if (start < 0) continue;
-    const seqs: number[][] = [];
-    let cur: number[] = [];
-    for (let s = 0; s < n; s++) {
-      const k = (start + s) % n;
-      if (flags[k]) cur.push(loop[k]);
-      else if (cur.length) {
-        seqs.push(cur);
-        cur = [];
-      }
-    }
-    if (cur.length) seqs.push(cur);
-    for (const seq of seqs) {
-      for (const [i0, i1] of straightRuns(seq, W, SHORES.run)) {
-        const ax = seq[i0] % W,
-          ay = (seq[i0] - ax) / W;
-        const bx = seq[i1] % W,
-          by = (seq[i1] - bx) / W;
-        const tx = bx - ax,
-          ty = by - ay;
-
-        // plain, notch, plain, … along the stretch, from a drawn offset
-        let k = i0 + rng.int(SHORES.plain[0], SHORES.plain[1] + 1);
-        while (k <= i1) {
-          const len = rng.int(SHORES.notch[0], SHORES.notch[1] + 1);
-          const tiles = seq.slice(k, Math.min(i1 + 1, k + len));
-          k += len + rng.int(SHORES.plain[0], SHORES.plain[1] + 1);
-          cut += notch(tiles, tx, ty);
-        }
-      }
-    }
-  }
-  return cut;
-
-  /** One notch behind these shore tiles (the stretch heading tx, ty): every column or none. */
-  function notch(shore: readonly number[], tx: number, ty: number): number {
-    const cols: { s: number; tiles: number[]; k: number }[] = [];
-    for (const s of shore) {
-      if (lowered[s]) continue;
-      const sx = s % W,
-        sy = (s - sx) / W;
-      // the way into the land: the dry side across the stretch
-      let best: [number, number] | null = null;
-      let score = 0;
-      for (const [dx, dy] of N4) {
-        const xx = sx + dx,
-          yy = sy + dy;
-        if (!inside(xx, yy) || !land(yy * W + xx)) continue;
-        const c = tx * dy - ty * dx;
-        const a = c < 0 ? -c : c;
-        if (a > score) {
-          score = a;
-          best = [dx, dy];
-        }
-      }
-      if (!best) continue;
-      const [dx, dy] = best;
-      const tiles: number[] = [];
-      let x = sx + dx,
-        y = sy + dy;
-      // the first tile takes the lake tile's level and its water: a bank a level over the lake is notched on into the
-      // land while it climbs a level a tile (each tile a level down, so no step grows); a cliff's bank only its first
-      // tile, its sides as high as the cliff was
-      const k = h[y * W + x] - h[s];
-      if (k < 1) continue;
-      for (;;) {
-        const c = y * W + x;
-        if (!inside(x, y) || !land(c) || lowered[c]) return 0;
-        tiles.push(c);
-        const nx = x + dx,
-          ny = y + dy;
-        if (!inside(nx, ny)) return 0;
-        const b = ny * W + nx;
-        if (!land(b)) return 0;
-        if (h[b] === h[c]) break;
-        if (k > 1 && h[b] > h[c]) break;
-        if (k > 1 || h[b] !== h[c] + 1 || tiles.length >= SHORES.depth) return 0;
-        x = nx;
-        y = ny;
-      }
-      cols.push({ s, tiles, k });
-    }
-    if (!cols.length) return 0;
-    const drop = new Map<number, number>();
-    const lim = new Map<number, number>();
-    for (const c of cols)
-      c.tiles.forEach((t, q) => {
-        drop.set(t, q === 0 ? c.k : 1);
-        lim.set(t, c.k);
-      });
-    for (const [t, d] of drop) h[t] -= d;
-    const front = new Set(cols.map((c) => c.tiles[0]));
-    let ok = true;
-    for (const t of drop.keys()) {
-      const x = t % W,
-        y = (t - x) / W;
-      const L = lim.get(t)!;
-      for (const [dx, dy] of N8) {
-        const xx = x + dx,
-          yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
         const j = yy * W + xx;
-        if (drop.has(j)) continue;
-        const d = h[j] - h[t];
-        const side = dx === 0 || dy === 0;
+        if (bay[j] && !seenBay[j]) {
+          seenBay[j] = 1;
+          comp.push(j);
+        }
+      }
+    }
+    const S = surf[s0];
+    const own = from[s0];
+    if (!(S - 1 > BED_FLOOR)) continue;
+    const touched: number[] = [];
+    const ring = new Map<number, number>();
+    let ok = true;
+    for (const t of comp) {
+      target[t] = S - 1;
+      touched.push(t);
+      ring.set(t, 0);
+    }
+    const q2 = comp.slice();
+    for (let k = 0; k < q2.length && ok; k++) {
+      const i = q2[k];
+      const x = i % W;
+      const y = (i - x) / W;
+      for (const [dx, dy] of N8) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
         if (lake[j]) {
-          if (d > 0 && side) ok = false;
+          if (body[j] !== own) ok = false;
           continue;
         }
-        // (no step higher beside it than the bank it cut, and a diagonal one more; a tile the water now takes opens
-        // onto no lower ground)
-        if (d > (side ? L : L + 1) || d < -(side ? L : L + 1)) ok = false;
-        if (front.has(t) && d <= 0) ok = false;
-      }
-      if (!ok) break;
-    }
-    if (!ok) {
-      for (const [t, d] of drop) h[t] += d;
-      return 0;
-    }
-
-    for (const c of cols) {
-      for (const t of c.tiles) lowered[t] = 1;
-      const f = c.tiles[0];
-      lake[f] = 1;
-      // (a planned lake's notch joins the lake; water the land merely holds stays the settle's)
-      const k = lakeAt[c.s];
-      if (k >= 0) {
-        water[f] = 2;
-        lakes[k].tiles.push(f);
-        lakeAt[f] = k;
+        const cur = target[j] >= 0 ? target[j] : h[j];
+        const want = target[i] + 1;
+        // (ground under the surface beside the bay or its shore, not the bay's own: the lake would spill there)
+        if (target[i] <= S && ring.get(j) !== 0 && cur < S) ok = false;
+        if (cur <= want) continue;
+        if (!dry(j) || !inside(j) || ring.get(i)! + 1 > SHORES.grade) {
+          ok = false;
+          break;
+        }
+        if (target[j] < 0) touched.push(j);
+        target[j] = want;
+        ring.set(j, ring.get(i)! + 1);
+        q2.push(j);
       }
     }
-    return drop.size;
+    if (ok)
+      for (const t of touched) {
+        if (target[t] < h[t]) {
+          h[t] = target[t];
+          cut++;
+        }
+      }
+    else for (const t of comp) bay[t] = 0;
+    for (const t of touched) target[t] = -1;
   }
+  for (let t = 0; t < N; t++) {
+    if (!bay[t]) continue;
+    // (a planned lake's bay joins the lake; water the land merely holds stays the settle's)
+    const x = t % W;
+    const y = (t - x) / W;
+    for (const [dx, dy] of N4) {
+      const xx = x + dx;
+      const yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+      const j = yy * W + xx;
+      if (lakeAt[j] >= 0) {
+        lakeAt[t] = lakeAt[j];
+        break;
+      }
+    }
+  }
+  // (the bays joined to a planned lake through other bay tiles join it too)
+  for (let pass = 0; pass < SHORES.depth; pass++)
+    for (let t = 0; t < N; t++) {
+      if (!bay[t] || lakeAt[t] >= 0) continue;
+      const x = t % W;
+      const y = (t - x) / W;
+      for (const [dx, dy] of N4) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        if (bay[j] && lakeAt[j] >= 0) {
+          lakeAt[t] = lakeAt[j];
+          break;
+        }
+      }
+    }
+  for (let t = 0; t < N; t++)
+    if (bay[t] && lakeAt[t] >= 0) {
+      water[t] = 2;
+      lakes[lakeAt[t]].tiles.push(t);
+    }
+  return cut;
 }

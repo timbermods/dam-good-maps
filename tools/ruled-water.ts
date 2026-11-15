@@ -18,15 +18,16 @@
 // - **Straight shore.** The wide water's shore is its tiles beside dry land (four sides; not at the map's edge), in the
 //   order its outline runs. A run of shore tiles is straight when all their centres lie within 0.5 tile of one line, at
 //   any angle (the points fit a strip under one tile wide: a digital straight line, whose tiles step aside at most once
-//   a row). The measure: the share of shore tiles in a straight run of 8 tiles or more; and the longest run.
-// - **Side by side.** The channels' centre lines (the channel water thinned to one tile, Zhang–Suen). A centre-line
-//   tile runs beside another channel when a centre-line tile within 12 tiles of it (centre to centre), heading the same
-//   way (within about 25°), is no nearer by the water than 8 tiles more than straight across: dry land lies between
-//   them for a good way, so it is a different channel or arm (or a far bend of the same one), not the other bank of
-//   its own water, nor a tributary at its confluence. The measure: the length of centre line (tiles) in runs of such
-//   tiles 20 tiles or more long, and its share of all the channels' centre line; and the same within 6 tiles
-//   (`beside6`). (Planning's brief asked for 6; River Valley 256² seed 9's three channels, the case it named, stand
-//   10 to 18 tiles apart centre to centre, banks 9 to 11 apart, so 6 finds none of them.)
+//   a row). The measure: the share of shore tiles in a straight run of 8 tiles or more; and the longest run; and the
+//   share with the shore within 4 tiles of the map's edge left out (`straightInner`: the sea's lip, Kyler's round 6).
+// - **Side by side.** On the water as it is seen (any depth: a stream's shallow fringe is its water), its channels'
+//   centre lines (the channel water thinned to one tile, Zhang–Suen). A centre-line tile runs beside another channel when
+//   a centre-line tile of it, heading the same way (within about 25°), is no nearer by the water than 8 tiles more than
+//   straight across (dry land lies between them for a good way: a different channel or arm, or a far bend of the same
+//   one, not the other bank of its own water nor a tributary at its confluence), and lies within 6 tiles of it water to
+//   water (`beside6`, planning's reach: the dry ground between the two waters, read from the two centre lines less each
+//   one's half width, its distance to its own dry bank); the measure is the length of such centre line in runs of 20
+//   tiles or more. The same within 12 tiles centre to centre (`beside`) is reported beside it, round 1's reading.
 
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -57,10 +58,16 @@ export const PARALLEL = 0.9;
 export const BESIDE_RUN = 20;
 /** How much farther by the water than straight across another channel's tile must be for it to count as another. */
 export const DETOUR = 8;
+/** Shore this near the map's edge is the sea's lip (`straightInner` leaves it out). */
+export const LIP = 4;
 
 export interface RuledWater {
   shore: number;
   straightShore: number;
+  /** The same, the shore within `LIP` tiles of the map's edge left out (the sea's lip there, Kyler's round 6: the sea
+   *  going on past the map). */
+  shoreInner: number;
+  straightInner: number;
   /** Straight shore tiles / shore tiles. */
   straightShare: number;
   longestShore: number;
@@ -252,74 +259,29 @@ export function thin(mask: Uint8Array, W: number, H: number): Uint8Array {
   return m;
 }
 
-/** The two measures of one map's settled water (`depth`, 0.1 deep or more is water). */
-export function ruledWater(depth: ArrayLike<number>, W: number, H: number): RuledWater {
+/** The side-by-side measure on one water mask: the centre line within `BESIDE` of another (centre to centre), and
+ *  within `BESIDE_NEAR` water to water (the dry ground between them). */
+function sideBySide(wet: Uint8Array, wide: Uint8Array, W: number, H: number, marks: Uint8Array): { centre: number; beside: number; beside6: number } {
   const N = W * H;
-  const wet = wetOf(depth);
-  const wide = wideWater(wet, W, H);
-  const marks = new Uint8Array(N);
-  // ---- straight shore
-  const isShore = (t: number) => {
-    const x = t % W,
-      y = (t - x) / W;
-    if (x === 0 || y === 0 || x === W - 1 || y === H - 1) return false;
-    return !wet[t - 1] || !wet[t + 1] || !wet[t - W] || !wet[t + W];
-  };
-  let shore = 0;
-  let longestShore = 0;
-  const shoreSeen = new Uint8Array(N);
-  for (const loop of outlines(wide, W, H)) {
-    const n = loop.length;
-    const flags = loop.map(isShore);
-    for (let k = 0; k < n; k++)
-      if (flags[k] && !shoreSeen[loop[k]]) {
-        shoreSeen[loop[k]] = 1;
-        shore++;
-      }
-    if (n < STRAIGHT_RUN) continue;
-    // runs of shore tiles round the loop (a loop all shore is cut where it starts)
-    const start = flags.every(Boolean) ? 0 : flags.findIndex((f, k) => f && !flags[(k + n - 1) % n]);
-    if (start < 0) continue;
-    const seq: number[][] = [];
-    let cur: number[] = [];
-    for (let s = 0; s < n; s++) {
-      const k = (start + s) % n;
-      if (flags[k]) cur.push(loop[k]);
-      else if (cur.length) {
-        seq.push(cur);
-        cur = [];
-      }
-    }
-    if (cur.length) seq.push(cur);
-    for (const run of seq) {
-      if (run.length < STRAIGHT_RUN) continue;
-      const pt = (t: number): [number, number] => [t % W, Math.floor(t / W)];
-      for (let i = 0; i + STRAIGHT_RUN <= run.length; i++) {
-        let j = i + 1;
-        const pts: [number, number][] = [pt(run[i]), pt(run[i + 1])];
-        while (j + 1 < run.length) {
-          pts.push(pt(run[j + 1]));
-          if (stripWidth(pts) >= 1 - 1e-9) {
-            pts.pop();
-            break;
-          }
-          j++;
-        }
-        // distinct tiles in the run (an outline may pass a tile twice at a pinch)
-        const len = new Set(run.slice(i, j + 1)).size;
-        if (len >= STRAIGHT_RUN) {
-          for (let k = i; k <= j; k++) marks[run[k]] = 1;
-          longestShore = Math.max(longestShore, len);
-        }
-      }
-    }
-  }
-  let straightShore = 0;
-  for (let i = 0; i < N; i++) if (marks[i] === 1 && shoreSeen[i]) straightShore++;
-  // ---- side by side
   const channel = new Uint8Array(N);
   for (let i = 0; i < N; i++) channel[i] = wet[i] && !wide[i] ? 1 : 0;
+
   const line = thin(channel, W, H);
+  // (each centre-line tile's half width: how far its nearest dry tile is, up to 6)
+  const half = new Float64Array(N);
+  for (let p = 0; p < N; p++) {
+    if (!line[p]) continue;
+    const px = p % W, py = (p - px) / W;
+    let best = 36;
+    for (let dy = -6; dy <= 6; dy++)
+      for (let dx = -6; dx <= 6; dx++) {
+        const xx = px + dx, yy = py + dy;
+        const d2 = dx * dx + dy * dy;
+        if (d2 >= best || xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        if (!wet[yy * W + xx]) best = d2;
+      }
+    half[p] = portable.sqrt(best);
+  }
   let centre = 0;
   for (let i = 0; i < N; i++) if (line[i]) centre++;
   const cost = new Float64Array(N).fill(Infinity);
@@ -384,23 +346,26 @@ export function ruledWater(depth: ArrayLike<number>, W: number, H: number): Rule
     hx[p] = portable.cos(a);
     hy[p] = portable.sin(a);
   }
-  const besideWithin = (reach: number, mark: boolean): number => {
+  const besideWithin = (reach: number, mark: boolean, banks: boolean): number => {
+    // (banks: `reach` is the dry ground between the two waters, read from their centre lines and half widths)
+    const R = banks ? reach + 12 : reach;
     const flagged = new Uint8Array(N);
     for (let p = 0; p < N; p++) {
       if (!line[p]) continue;
       const px = p % W,
         py = (p - px) / W;
-      flow(p, reach + DETOUR + 1);
+      flow(p, R + DETOUR + 1);
       let other = false;
-      for (let dy = -reach; dy <= reach && !other; dy++)
-        for (let dx = -reach; dx <= reach; dx++) {
+      for (let dy = -R; dy <= R && !other; dy++)
+        for (let dx = -R; dx <= R; dx++) {
           const d2 = dx * dx + dy * dy;
-          if (d2 > reach * reach) continue;
+          if (d2 > R * R) continue;
           const xx = px + dx,
             yy = py + dy;
           if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
           const q = yy * W + xx;
           if (!line[q] || !(cost[q] > portable.sqrt(d2) + DETOUR)) continue;
+          if (banks && portable.sqrt(d2) - half[p] - half[q] + 1 > reach) continue;
           // (running alongside: its heading within about 25° of this one's)
           if (Math.abs(hx[p] * hx[q] + hy[p] * hy[q]) < PARALLEL) continue;
           other = true;
@@ -436,11 +401,92 @@ export function ruledWater(depth: ArrayLike<number>, W: number, H: number): Rule
     }
     return total;
   };
-  const beside6 = besideWithin(BESIDE_NEAR, false);
-  const beside = besideWithin(BESIDE, true);
+  return { centre, beside: besideWithin(BESIDE, false, false), beside6: besideWithin(BESIDE_NEAR, true, true) };
+}
+
+/** The two measures of one map's settled water (`depth`, 0.1 deep or more is water). */
+export function ruledWater(depth: ArrayLike<number>, W: number, H: number): RuledWater {
+  const N = W * H;
+  const wet = wetOf(depth);
+  const wide = wideWater(wet, W, H);
+  const marks = new Uint8Array(N);
+  // ---- straight shore
+  const isShore = (t: number) => {
+    const x = t % W,
+      y = (t - x) / W;
+    if (x === 0 || y === 0 || x === W - 1 || y === H - 1) return false;
+    return !wet[t - 1] || !wet[t + 1] || !wet[t - W] || !wet[t + W];
+  };
+  let shore = 0;
+  let longestShore = 0;
+  const shoreSeen = new Uint8Array(N);
+  for (const loop of outlines(wide, W, H)) {
+    const n = loop.length;
+    const flags = loop.map(isShore);
+    for (let k = 0; k < n; k++)
+      if (flags[k] && !shoreSeen[loop[k]]) {
+        shoreSeen[loop[k]] = 1;
+        shore++;
+      }
+    if (n < STRAIGHT_RUN) continue;
+    // runs of shore tiles round the loop (a loop all shore is cut where it starts)
+    const start = flags.every(Boolean) ? 0 : flags.findIndex((f, k) => f && !flags[(k + n - 1) % n]);
+    if (start < 0) continue;
+    const seq: number[][] = [];
+    let cur: number[] = [];
+    for (let s = 0; s < n; s++) {
+      const k = (start + s) % n;
+      if (flags[k]) cur.push(loop[k]);
+      else if (cur.length) {
+        seq.push(cur);
+        cur = [];
+      }
+    }
+    if (cur.length) seq.push(cur);
+    for (const run of seq) {
+      if (run.length < STRAIGHT_RUN) continue;
+      const pt = (t: number): [number, number] => [t % W, Math.floor(t / W)];
+      for (let i = 0; i + STRAIGHT_RUN <= run.length; i++) {
+        let j = i + 1;
+        const pts: [number, number][] = [pt(run[i]), pt(run[i + 1])];
+        while (j + 1 < run.length) {
+          pts.push(pt(run[j + 1]));
+          if (stripWidth(pts) >= 1 - 1e-9) {
+            pts.pop();
+            break;
+          }
+          j++;
+        }
+        // distinct tiles in the run (an outline may pass a tile twice at a pinch)
+        const len = new Set(run.slice(i, j + 1)).size;
+        if (len >= STRAIGHT_RUN) {
+          for (let k = i; k <= j; k++) marks[run[k]] = 1;
+          longestShore = Math.max(longestShore, len);
+        }
+      }
+    }
+  }
+  let straightShore = 0;
+  for (let i = 0; i < N; i++) if (marks[i] === 1 && shoreSeen[i]) straightShore++;
+  let shoreInner = 0;
+  let straightInner = 0;
+  for (let i = 0; i < N; i++) {
+    if (!shoreSeen[i]) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    if (Math.min(x, y, W - 1 - x, H - 1 - y) <= LIP) continue;
+    shoreInner++;
+    if (marks[i] === 1) straightInner++;
+  }
+  // (the side by side on the water as it is seen, any depth: a stream's shallow fringe is its water)
+  const seen = new Uint8Array(N);
+  for (let i = 0; i < N; i++) seen[i] = depth[i] > 0 ? 1 : 0;
+  const { centre, beside, beside6 } = sideBySide(seen, wideWater(seen, W, H), W, H, marks);
   return {
     shore,
     straightShore,
+    shoreInner,
+    straightInner,
     straightShare: shore ? straightShore / shore : 0,
     longestShore,
     centre,
@@ -556,6 +602,8 @@ function measureFile(path: string): { rec: MapRecord | null; m: RuledWater } {
 function report(paths: string[]): void {
   let shore = 0,
     straight = 0,
+    shoreIn = 0,
+    straightIn = 0,
     centre = 0,
     beside = 0,
     beside6 = 0,
@@ -566,6 +614,8 @@ function report(paths: string[]): void {
     const { rec, m } = measureFile(f);
     shore += m.shore;
     straight += m.straightShore;
+    shoreIn += m.shoreInner;
+    straightIn += m.straightInner;
     centre += m.centre;
     beside += m.beside;
     beside6 += m.beside6;
@@ -576,13 +626,13 @@ function report(paths: string[]): void {
         .replace(/\.timber$/, "")
         .padEnd(
           16,
-        )} shore ${String(m.shore).padStart(5)}  straight ${(100 * m.straightShare).toFixed(1).padStart(5)} %  longest ${String(m.longestShore).padStart(3)}  centre ${String(m.centre).padStart(5)}  beside ${String(m.beside).padStart(4)} (${(100 * m.besideShare).toFixed(1)} %) within 6 ${String(m.beside6).padStart(4)}` +
+        )} shore ${String(m.shore).padStart(5)}  straight ${(100 * m.straightShare).toFixed(1).padStart(5)} %  longest ${String(m.longestShore).padStart(3)}  centre ${String(m.centre).padStart(5)}  beside ${String(m.beside).padStart(4)} (${(100 * m.besideShare).toFixed(1)} %) within 6 ${String(m.beside6).padStart(4)}  inner ${(100 * m.straightInner / Math.max(1, m.shoreInner)).toFixed(1).padStart(5)} %` +
         (rec ? `  attempts ${rec.attempts} leaks ${rec.leaks}` : ""),
     );
   }
   for (const r of rows) console.log(r);
   console.log(
-    `ALL ${paths.length} maps: straight shore ${((100 * straight) / Math.max(1, shore)).toFixed(2)} % (${straight}/${shore}); beside ${beside} tiles of ${centre} (${((100 * beside) / Math.max(1, centre)).toFixed(2)} %), within 6: ${beside6}; attempts ${attempts}, leaks ${leaks}`,
+    `ALL ${paths.length} maps: straight shore ${((100 * straight) / Math.max(1, shore)).toFixed(2)} % (${straight}/${shore}), inner ${((100 * straightIn) / Math.max(1, shoreIn)).toFixed(2)} % (${straightIn}/${shoreIn}); beside ${beside} tiles of ${centre} (${((100 * beside) / Math.max(1, centre)).toFixed(2)} %), within 6: ${beside6}; attempts ${attempts}, leaks ${leaks}`,
   );
 }
 

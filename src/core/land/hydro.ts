@@ -89,7 +89,7 @@ const REACH_WANT = 0.45;
 const REACH_HEADS = 2;
 /** Ruled water (planning's ruling of 2026-11-15): a course within `near` tiles of one already traced for `run` cells
  *  joins it there, never running side by side with it (`planHydroSingle`'s trace). */
-export const BESIDE = { near: 12, run: 24 } as const;
+export const BESIDE = { near: 12, run: 16 } as const;
 const MOIST_REACH = 10;
 const WIDE_WANT = 0.5;
 
