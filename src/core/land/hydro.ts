@@ -1674,57 +1674,85 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   // ---- a river splits round an island: a second arm leaves it and rejoins it downstream
   const main = rivers[0];
   if (main && rng.float() < g.hydro.split && (g.theme !== "riverValley" || g.hydro.bigSplit || g.hydro.splitAtFall)) {
-    const m = exits.get(main.id)!;
-    for (let tries = 0; tries < 6; tries++) {
-      // (M9b, "the river splits around a big island", D274: wider and longer)
-      const len = (g.hydro.bigSplit ? 42 : 26) + (g.hydro.bigSplit ? 24 : 20) * rng.float();
-      let s0 = m.L * (0.2 + 0.45 * rng.float());
-      // (M9b, two falls side by side: round the main river's biggest drop, so both arms fall over it)
-      if (g.hydro.splitAtFall && tries < 3) {
-        let bestDrop = 0;
-        let at = -1;
-        for (let j = 1; j <= m.n; j++) {
-          const d = m.prof[j - 1] - m.prof[j];
-          if (d > bestDrop) {
-            bestDrop = d;
-            at = j;
+    // (D527: a braided Lake Basin tries its other rivers too, the longest first, where the main one has no room for an
+    // arm: its rivers are short ways into the lake, and Braided made no braid on most seeds). There the arm is drawn
+    // within the river's longest reach clear of lakes and the edge, as long as that reach allows (16 tiles at least).
+    const braidLake = g.theme === "lakeBasin" && g.hydro.braided;
+    const more = braidLake ? rivers.slice(1).filter((r) => exits.has(r.id)).sort((a, c) => exits.get(c.id)!.L - exits.get(a.id)!.L || (a.id < c.id ? -1 : 1)) : [];
+    arm: for (const river of [main, ...more]) {
+      const m = exits.get(river.id)!;
+      // (the longest clear reach, from s `dry0` to `dry1`, ending 6 tiles before the river's end)
+      let dry0 = 0;
+      let dry1 = m.L - 6;
+      if (braidLake) {
+        let run0 = -1;
+        let best = 0;
+        for (let j = 0; j <= m.n; j++) {
+          const s = (j * m.L) / m.n;
+          const { p } = pointAt(m.path, s);
+          const ci = Math.round(p[1]) * W + Math.round(p[0]);
+          const clear = s <= m.L - 6 && p[0] >= 4 && p[1] >= 4 && p[0] <= W - 5 && p[1] <= H - 5 && lakeOf[ci] < 0;
+          if (!clear) run0 = -1;
+          else {
+            if (run0 < 0) run0 = s;
+            if (s - run0 > best) [best, dry0, dry1] = [s - run0, run0, s];
           }
         }
-        if (at >= 0 && bestDrop >= 2) s0 = Math.max(4, ((at / m.n) * m.L) - len * (0.35 + 0.3 * rng.float()));
+        if (best < 18) continue;
       }
-      const s1 = s0 + len;
-      if (s1 > m.L - 6) continue;
-      const j0 = Math.round((s0 / m.L) * m.n);
-      const j1 = Math.round((s1 / m.L) * m.n);
-      // no lake on the stretch, and the arm's ends inside the map
-      let ok = true;
-      for (let j = j0; j <= j1 && ok; j++) {
-        const { p } = pointAt(m.path, (j * m.L) / m.n);
-        const ci = Math.round(p[1]) * W + Math.round(p[0]);
-        if (p[0] < 4 || p[1] < 4 || p[0] > W - 5 || p[1] > H - 5 || lakeOf[ci] >= 0) ok = false;
+      for (let tries = 0; tries < 6; tries++) {
+        // (M9b, "the river splits around a big island", D274: wider and longer)
+        const drawn = (g.hydro.bigSplit ? 42 : 26) + (g.hydro.bigSplit ? 24 : 20) * rng.float();
+        const len = braidLake ? Math.min(drawn, dry1 - dry0 - 2) : drawn;
+        const at0 = rng.float();
+        let s0 = braidLake ? dry0 + 1 + (dry1 - dry0 - 2 - len) * at0 : m.L * (0.2 + 0.45 * at0);
+        // (M9b, two falls side by side: round the main river's biggest drop, so both arms fall over it)
+        if (g.hydro.splitAtFall && tries < 3) {
+          let bestDrop = 0;
+          let at = -1;
+          for (let j = 1; j <= m.n; j++) {
+            const d = m.prof[j - 1] - m.prof[j];
+            if (d > bestDrop) {
+              bestDrop = d;
+              at = j;
+            }
+          }
+          if (at >= 0 && bestDrop >= 2) s0 = Math.max(4, ((at / m.n) * m.L) - len * (0.35 + 0.3 * rng.float()));
+        }
+        const s1 = s0 + len;
+        if (s1 > m.L - 6) continue;
+        const j0 = Math.round((s0 / m.L) * m.n);
+        const j1 = Math.round((s1 / m.L) * m.n);
+        // no lake on the stretch, and the arm's ends inside the map
+        let ok = true;
+        for (let j = j0; j <= j1 && ok; j++) {
+          const { p } = pointAt(m.path, (j * m.L) / m.n);
+          const ci = Math.round(p[1]) * W + Math.round(p[0]);
+          if (p[0] < 4 || p[1] < 4 || p[0] > W - 5 || p[1] > H - 5 || lakeOf[ci] >= 0) ok = false;
+        }
+        if (!ok) continue;
+        const sideSign = rng.float() < 0.5 ? 1 : -1;
+        const off = sideSign * (m.width / 2 + (g.hydro.bigSplit ? 9 : 5) + (g.hydro.bigSplit ? 6 : 7) * rng.float());
+        const pts: Point[] = [];
+        for (let k = 0; k <= 12; k++) {
+          const t = k / 12;
+          const { p, n: nn } = pointAt(m.path, s0 + t * len);
+          const o = off * 4 * t * (1 - t) * (1 + 0.25 * (rng.float() - 0.5));
+          pts.push([p[0] + nn[0] * o, p[1] + nn[1] * o]);
+        }
+        const armPath = smoothPath(pts, 2, 1);
+        if (armPath.some(([x, y]) => x < 2 || y < 2 || x > W - 3 || y > H - 3)) continue;
+        const aw = Math.max(MIN_WIDTH, Math.round(0.6 * m.width * 10) / 10);
+        const awv = natural ? { ...wanderOf(g, aw), amp: 1.2, minAmp: 0.8 } : null;
+        const armCourse = awv ? meanderPath(armPath, h, W, H, awv, hash32(seed, "arm", attempt, 0)) : armPath;
+        const aws = hash32(seed, "arm-width", attempt, 0);
+        const ahalf = (s: number, L: number) => halfWidthAt(aw, awv, aws, s, L);
+        const pa = profileOf(armCourse, aw, 1, false, river.id, ahalf, m.prof[j0], m.prof[j1]);
+        carve(pa.st, pa.prof, pa.L, pa.n, ahalf, 0);
+        markArm(pa.st, pa.L, ahalf);
+        arms.push({ kind: "split", river: river.id, path: armCourse });
+        break arm;
       }
-      if (!ok) continue;
-      const sideSign = rng.float() < 0.5 ? 1 : -1;
-      const off = sideSign * (m.width / 2 + (g.hydro.bigSplit ? 9 : 5) + (g.hydro.bigSplit ? 6 : 7) * rng.float());
-      const pts: Point[] = [];
-      for (let k = 0; k <= 12; k++) {
-        const t = k / 12;
-        const { p, n: nn } = pointAt(m.path, s0 + t * len);
-        const o = off * 4 * t * (1 - t) * (1 + 0.25 * (rng.float() - 0.5));
-        pts.push([p[0] + nn[0] * o, p[1] + nn[1] * o]);
-      }
-      const armPath = smoothPath(pts, 2, 1);
-      if (armPath.some(([x, y]) => x < 2 || y < 2 || x > W - 3 || y > H - 3)) continue;
-      const aw = Math.max(MIN_WIDTH, Math.round(0.6 * m.width * 10) / 10);
-      const awv = natural ? { ...wanderOf(g, aw), amp: 1.2, minAmp: 0.8 } : null;
-      const armCourse = awv ? meanderPath(armPath, h, W, H, awv, hash32(seed, "arm", attempt, 0)) : armPath;
-      const aws = hash32(seed, "arm-width", attempt, 0);
-      const ahalf = (s: number, L: number) => halfWidthAt(aw, awv, aws, s, L);
-      const pa = profileOf(armCourse, aw, 1, false, main.id, ahalf, m.prof[j0], m.prof[j1]);
-      carve(pa.st, pa.prof, pa.L, pa.n, ahalf, 0);
-      markArm(pa.st, pa.L, ahalf);
-      arms.push({ kind: "split", river: main.id, path: armCourse });
-      break;
     }
   }
 

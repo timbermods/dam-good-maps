@@ -1,6 +1,6 @@
 // Showcase mode (D488 (2)): the search makes the asked map's siblings in order, measures each one's arc,
 // keeps the best three that pass, and each pick's share spec regenerates its file byte for byte. The beats
-// asserted here were read off these three maps by hand (Lake Basin 96², seed 2, variations 0–2) and re-read off the new maps for generator 0.10.13 (D507, D148), 0.10.16 (ground with grade, D148), 0.10.17 (the start's floors, D515, D148) 0.10.20 (contour edges, D518, D148), 0.10.21 (the look round, D518, D148), 0.10.24 (round forms, D148) and 0.10.25 (D(new-leaks), D148).
+// asserted here were read off these three maps by hand (Lake Basin 96², seed 2, variations 0–2) and re-read off the new maps for generator 0.10.13 (D507, D148), 0.10.16 (ground with grade, D148), 0.10.17 (the start's floors, D515, D148) 0.10.20 (contour edges, D518, D148), 0.10.21 (the look round, D518, D148), 0.10.24 (round forms, D148) and 0.10.27 (D(new-leaks), D148).
 
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
@@ -57,7 +57,7 @@ describe("Showcase mode (D488 (2))", () => {
     // `arcOf` and `showcaseSearch` at tries: 3; before it the asked map had its 8-level mesa 44 tiles east, a dam 53 tiles
     // south-east holding 6,500 and a drowned village but no drought choice, the first sibling every beat but the vista, and
     // the second every beat but the vista with an 11-level mesa 40 tiles south)
-    // (generator 0.10.25, D(new-leaks): a course's water leaves only by its own way, D148: all three lands moved and the beats
+    // (generator 0.10.27, D(new-leaks): a course's water leaves only by its own way, D148: all three lands moved and the beats
     // below were read off the new maps by hand with `arcOf` and `showcaseSearch` at tries: 3; before it the asked map's dam was a
     // 4-tile one 57 tiles north-east, the first sibling's partial drought choice 0.25 and its dam 38 tiles north-east, and the
     // second sibling had every beat, its nearest water running low in the first drought with water 21 tiles' walk away holding,

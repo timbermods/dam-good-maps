@@ -3,9 +3,10 @@
 // ends exactly at the water the map has (the worker's, the export's); a drought drains the map and
 // brings the water back, and a badtide turns the clean water to badwater and washes out, each ending
 // at the map's water again.
+// Its maps are saved (`openSaved`): the page's own map of each fragment, as generator 0.10.26 made it.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, topDown } from "./open";
+import { openSaved, topDown } from "./open";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const wet = (page: Page) =>
@@ -48,7 +49,7 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   await page.setViewportSize({ width: 1400, height: 900 });
   // (seed 2 since generator 0.10.17, D515, D148: on seed 4242's map the source's water now spreads over some 40 tiles, too few
   // for four frames on a slow machine; on seed 2's over some 320)
-  await openEditor(page, "s=2&z=96&d=n&t=riverValley");
+  await openSaved(page, "s=2&z=96&d=n&t=riverValley");
   await topDown(page);
   const bar = page.getByRole("toolbar", { name: "Water time" });
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 30_000 }).toBe(true);
@@ -215,7 +216,7 @@ test("an Unstable Core's moment shows under the water row while a hazard is held
   // (seed 7 since generator 0.10.24's round forms (the look round), D148: the land moved the cores' draws, and seed 4242's
   // map now holds one core, in cycle 8, so its note stands alone; of seeds 1 to 8, seed 7's alone holds exactly two, each
   // with a moment of its own, cycles 7 and 6 (seeds 5 and 8 one, the others three or four))
-  await openEditor(page, "s=7&z=96&d=n&t=riverValley&bw=0&uc=1");
+  await openSaved(page, "s=7&z=96&d=n&t=riverValley&bw=0&uc=1");
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 30_000 }).toBe(true);
   const bar = page.getByRole("toolbar", { name: "Water time" });
   const notes = bar.getByRole("note").locator("span");

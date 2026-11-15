@@ -11,6 +11,10 @@
 // A fixture opens exactly as saved: its heights, water and objects are the file's, whatever the generator is now. It opens
 // as the current generator's own map (its version relabelled, as carveFallSweep does): a project of an older generator
 // opens frozen (session.mode), with its own water and objects, and edits it differently from a live map.
+//
+// The browser specs (tests/e2e) that test the editor on some land open theirs the same way, through the page's own Open
+// (`openSaved`, tests/e2e/open.ts): `page-<theme>-<size>-<seed>[-<setting><value>…].damgoodmaps`, the map the page makes
+// of a spec fragment ("s=44&z=96&d=n&t=riverValley"), saved once, so a land change moves none of their tiles either.
 
 import { readFileSync } from "node:fs";
 import { decodeProject, type MapDocument } from "../src/core/doc/document";
@@ -44,8 +48,27 @@ function fileBytes(name: string): Uint8Array {
 /** The fixture's project file, as the generator now current would have saved it: the same map, labelled as made by it. The file in git holds
  *  no stored map (it would double its bytes, and belongs to one generator version, D367); the map is built from it once in a process
  *  and saved again, so its later opens take the stored map as every project does. */
-export function fixtureProject(theme: ThemeId, size: number, seed: number, variant?: FixtureVariant): Uint8Array {
-  const name = fixtureName(theme, size, seed, variant);
+export const fixtureProject = (theme: ThemeId, size: number, seed: number, variant?: FixtureVariant): Uint8Array => relabel(fixtureName(theme, size, seed, variant));
+
+/** A browser spec's fixture's name: `page-<theme>-<size>-<seed>`, then each other setting of the fragment as its key and value
+ *  ("s=7&z=96&d=n&t=riverValley&bw=0&uc=1": `page-riverValley-96-7-bw0-uc1.damgoodmaps`). The fragment names its theme, size and
+ *  seed, and makes the map for Normal (`d=n`), as every map is made. */
+export function pageFixtureName(fragment: string): string {
+  const params = new URLSearchParams(fragment.replace(/^#/, ""));
+  const [t, z, s, d] = ["t", "z", "s", "d"].map((k) => params.get(k));
+  if (!t || !z || !s || (d !== null && d !== "n")) throw new Error(`a page fixture's fragment names its theme, size and seed, made for Normal: ${fragment}`);
+  const rest = [...params].filter(([k]) => !["t", "z", "s", "d", "v"].includes(k)).map(([k, v]) => `-${k}${v}`);
+  return `page-${t}-${z}-${s}${rest.join("")}.damgoodmaps`;
+}
+
+/** A browser spec's fixture's project file (the map the page makes of `fragment`, saved), as `fixtureProject` gives a scenario's. */
+export const pageFixtureProject = (fragment: string): Uint8Array => relabel(pageFixtureName(fragment));
+
+/** A fixture saved under a name of its own (not the scenario list's: a land kept for one case, such as
+ *  `preview-riverValley-96-9-leaks.damgoodmaps`, the land a preview case was found on), as `fixtureProject` opens it. */
+export const namedProject = (name: string): Uint8Array => relabel(name);
+
+function relabel(name: string): Uint8Array {
   let b = relabelled.get(name);
   if (!b) {
     b = MapSession.open({ ...decodeProject(fileBytes(name)), generatorVersion: GENERATOR_VERSION }).project(1);
@@ -59,3 +82,6 @@ export const fixtureDoc = (theme: ThemeId, size: number, seed: number, variant?:
 
 /** The fixture's map, opened as a session. */
 export const fixtureSession = (theme: ThemeId, size: number, seed: number, variant?: FixtureVariant): MapSession => MapSession.open(fixtureDoc(theme, size, seed, variant));
+
+/** A fixture saved under a name of its own, opened as a session. */
+export const namedSession = (name: string): MapSession => MapSession.open(decodeProject(namedProject(name)));

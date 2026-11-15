@@ -14,7 +14,7 @@ import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
 
 describe("a brush stroke over a badwater source leaves it level, never floating (D249)", () => {
-  // ((20, 4) on M9b's map, D148: dev's (27, 5) is not level there; (27, 4) since generator 0.10.25, D(new-leaks): a course's
+  // ((20, 4) on M9b's map, D148: dev's (27, 5) is not level there; (27, 4) since generator 0.10.27, D(new-leaks): a course's
   // water leaves only by its own way, so the land moved, D148: a relic stands on (20, 4) now, and (27, 4), at level 12, is the
   // first spot near it where the source stands under the stroke's target of 15)
   it("Highlands 64², seed 3: a BadwaterSource at (27, 4); a Raise (target 15, Size 1.5) over its corner; the stroke is refused, or the source rides level, and the map has no load error", () => {

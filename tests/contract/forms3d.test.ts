@@ -17,7 +17,7 @@ import { bottomRunTop, ColumnTerrain, isPlainMask, terrainColumns } from "../../
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 
 let made: ReturnType<typeof generate> | null = null;
-/** Canyon 96² seed 2 at Verticality 80, made once. (Seed 2 since generator 0.10.25, D(new-leaks): a course's water leaves only
+/** Canyon 96² seed 2 at Verticality 80, made once. (Seed 2 since generator 0.10.27, D(new-leaks): a course's water leaves only
  *  by its own way, so the land moved, D148: seed 9 keeps its spring caves but no arch; of seeds 1–16 seeds 2, 8 and 11 keep spring
  *  caves and an arch and pass the whole file, seed 2 the first.) (Seed 9 since generator 0.10.22, the settings keeping their promises, D148:
  *  Verticality away from the theme's own leans the grade, sheerer at 80, and seed 2 keeps its spring caves but no arch; of
