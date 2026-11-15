@@ -108,8 +108,8 @@ export function channelTiles(c: ChannelPlan, W: number, H: number): { bed: Map<n
 
 /** Carve a stored channel into the target: beds exactly, banks raised where lower. Tiles in `keep`
  *  (the piece's own body, written after) and the last route tile's goal water are left to their
- *  owners. */
-export function carveChannel(c: ChannelPlan, t: BuildTarget, f: Feature, keep?: (i: number) => boolean): void {
+ *  owners; tiles in `bankKeep` get no bank (a badwater gully's join, the bed it joins). */
+export function carveChannel(c: ChannelPlan, t: BuildTarget, f: Feature, keep?: (i: number) => boolean, bankKeep?: (i: number) => boolean): void {
   const { bed, bank } = channelTiles(c, t.W, t.H);
   const h = t.heights;
   for (const [i, lv] of bed) {
@@ -120,7 +120,7 @@ export function carveChannel(c: ChannelPlan, t: BuildTarget, f: Feature, keep?: 
     t.protect(i);
   }
   for (const [i, lv] of bank) {
-    if (!t.inRegion(i) || !t.writable(i, f) || keep?.(i) || t.channel[i]) continue;
+    if (!t.inRegion(i) || !t.writable(i, f) || keep?.(i) || t.channel[i] || bankKeep?.(i)) continue;
     if (h[i] < lv) h[i] = lv;
   }
 }

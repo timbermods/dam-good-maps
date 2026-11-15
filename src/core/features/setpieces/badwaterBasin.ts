@@ -83,7 +83,9 @@ export const badwaterBasin: SetPieceBuilder = {
       if (h[i] < p.floor + RIM) h[i] = p.floor + RIM;
       t.protect(i);
     }
-    carveChannel(outletOf(p), t, feature, (i) => own.has(i));
+    // (a gully that joins another's bed raises no bank over the ground another piece carved: the bed it joins,
+    // D(new-ditch) (2))
+    carveChannel(outletOf(p), t, feature, (i) => own.has(i), p.outletTo === "ditch" ? (i) => t.protectedMask[i] === 1 : undefined);
     for (const i of floor) {
       if (!t.inRegion(i) || !t.writable(i, feature)) continue;
       h[i] = p.floor;
