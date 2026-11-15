@@ -2,6 +2,9 @@
 // effect where it is used). It leaves only what must not change for the map to stay correct: the start's
 // pad, and the ground under water sources and objects. A force's result, a Raise stroke (exact since
 // item 37), a river and a set piece are all fair game.
+//
+// The map is a fixture (tests/fixtures/projects/scenario-riverValley-96-9; `fixtureSession`): the subject is what Naturalize weathers, not the generator, so a land
+// change moves nothing here (D148).
 
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
@@ -14,8 +17,7 @@ import { inBench } from "../../src/core/features/raster/terrain";
 import type { BrushParams } from "../../src/core/features/raster/brush";
 import { groundUnderObjects } from "../../src/core/features/raster/objectGround";
 import { tilesToRuns } from "../../src/core/math/grid";
-import { generate } from "../../src/core/gen/generate";
-import { makeSpec } from "../../src/core/spec/mapspec";
+import { fixtureSession } from "../fixtureProjects";
 
 const W = 96;
 const PLANT = /^(Pine|Birch|Oak|Maple|ChestnutTree|Mangrove|Succulent|BlueberryBush|Slope|RuinColumnH\d+)$/;
@@ -29,8 +31,7 @@ const PLANT = /^(Pine|Birch|Oak|Maple|ChestnutTree|Mangrove|Succulent|BlueberryB
 // of the six, seeds 3 and 6 pass all six)
 // (seed 9 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: of seeds 1–11 only seed 9 passes all six)
 function session(seed = 9): MapSession {
-  const r = generate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
-  const s = MapSession.fromGenerated(r, r.file);
+  const s = fixtureSession("riverValley", W, seed);
   s.setWaterMode("defer");
   return s;
 }

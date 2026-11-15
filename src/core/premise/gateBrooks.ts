@@ -9,7 +9,7 @@ import { smoothstep } from "../math/clamp";
 import { fbm } from "../math/noise";
 import { atan2, cos, hypot, sin } from "../math/portable";
 import { waterReaches } from "../validate/ruledLand";
-import { pathDist, pathLength, pointAt, segDist } from "./geom";
+import { pathDist, pathLength, pointAt, pointsAt, segDist } from "./geom";
 import type { Point } from "./types";
 
 /** A brook's ground: noise of cells `cell` tiles across (`octaves`), a cell's cost 1 + `a` × (the noise + 1)², so its
@@ -233,7 +233,8 @@ function softened(path: readonly Point[], half: number, lead = 0): Point[] {
   const L = pathLength(path);
   const n = Math.max(2, Math.round(L));
   let pts: Point[] = [];
-  for (let k = 0; k <= n; k++) pts.push(pointAt(path, (L * k) / n).p);
+  const at = pointsAt(path);
+  for (let k = 0; k <= n; k++) pts.push(at((L * k) / n).p);
   for (let round = 0; round < 2; round++) {
     const out: Point[] = [];
     for (let k = 0; k <= n; k++) {
@@ -372,13 +373,14 @@ export function meander(course: readonly Point[], width: number, draw: () => num
   };
   // ---- its offset at each step: out of its head, back to its course at its end, and no further than its room
   const n = us.length;
+  const onAxis = pointsAt(axis);
   const want: number[] = [];
   const keep: number[] = [];
   const base: Point[] = [];
   const norm: Point[] = [];
   for (let j = 0; j < n; j++) {
     const v = Math.min(us[j], La);
-    const { p, dir } = pointAt(axis, v);
+    const { p, dir } = onAxis(v);
     base.push(p);
     norm.push([-dir[1], dir[0]]);
     const o = smoothstep((La - straight - v) / M.tail) * (smoothstep((v - M.lead) / M.head) * flat(v) * ms[j] + stepped(v));

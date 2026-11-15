@@ -25,21 +25,20 @@ import { brushBounds, markBrushTiles, type BrushParams } from "../../src/core/fe
 import { StrokePreview } from "../../src/core/features/raster/strokePreview";
 import { drainage } from "../../src/core/land/drainage";
 import { groundUnderObjects } from "../../src/core/features/raster/objectGround";
-import { generate } from "../../src/core/gen/generate";
-import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
+import type { ThemeId } from "../../src/core/spec/mapspec";
 import { toMapObject } from "../../src/core/features/build";
 import { gameSoil } from "../../src/core/sim/soil";
 import { mulberry } from "./brushRandom";
+import { fixtureSession } from "../fixtureProjects";
 
 const W = 96;
 
 function session(theme: ThemeId, seed: number, terracing?: number): MapSession {
-  const spec = makeSpec({ seed, theme, size: { x: W, y: W } });
-  if (terracing !== undefined) spec.settings.terrain.terracing = terracing;
   // (the maps of Kyler's verdicts as they were judged, without 3D forms: a stroke over a form's ground holds what
   // holds its rock, D280 (3) amended, D488, which is the caves' rule, not Naturalize's)
-  const r = generate(spec, { forms: false });
-  const s = MapSession.fromGenerated(r, r.file);
+  // (the fixtures tests/fixtures/projects/scenario-<theme>-96-<seed>-noforms[-terr<N>]: the subject is the brush, not the generator, so a land change
+  // moves nothing here, D148)
+  const s = fixtureSession(theme, W, seed, terracing === undefined ? "noforms" : `noforms-terr${terracing}`);
   s.setWaterMode("defer");
   return s;
 }

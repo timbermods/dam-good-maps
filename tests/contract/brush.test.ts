@@ -3,6 +3,10 @@
 // paints under the cursor is exactly what the operation builds; undo and redo are always correct,
 // and an incremental rebuild equals a full one; a stroke replays exactly onto its own land through
 // the project file (edits never replay onto new land, D336).
+//
+// The generated maps are fixtures (tests/fixtures/projects: River Valley 96² seeds 1–4, 13 and 21, Canyon 96² seeds 1–6, Highlands 2, Lake Basin 4,
+// Delta 1 and Islands 5; `fixtureSession`): the
+// subject is the brush, not the generator, so a land change moves nothing here (D148).
 
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
@@ -12,8 +16,8 @@ import { applyBrush, brushProblems, BrushStroke, type BrushParams, type BrushToo
 import { StrokePreview } from "../../src/core/features/raster/strokePreview";
 import { padTile } from "../../src/core/features/raster/terrain";
 import { writeTimber } from "../../src/core/format/timber";
-import { generate } from "../../src/core/gen/generate";
-import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
+import type { ThemeId } from "../../src/core/spec/mapspec";
+import { fixtureSession } from "../fixtureProjects";
 import { mulberry } from "./brushRandom";
 
 const TOOLS: BrushTool[] = ["raise", "lower", "flatten", "smooth", "naturalize"];
@@ -87,8 +91,7 @@ describe("a brush stroke is exact", () => {
     ["islands", 96, 5],
   ] as [ThemeId, number, number][])
     it(`${theme} ${size}²: what the page paints is what the operation builds, byte for byte, and replays to the same file`, () => {
-    const r = generate(makeSpec({ seed, theme, size: { x: size, y: size } }));
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fixtureSession(theme, size, seed);
     s.setWaterMode("defer");
     const rand = mulberry(seed * 31);
     const W = size;
@@ -197,8 +200,7 @@ describe("the brush kit (D182) and smart Lower (D184)", () => {
   });
 
   it("smart Lower through a session: the page's stroke is the operation's, and it replays from the project", () => {
-    const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 96, y: 96 } }));
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fixtureSession("riverValley", 96, 3);
     s.setWaterMode("defer");
     const W2 = 96;
     // from a river's channel, away from the start
@@ -280,8 +282,7 @@ describe("hold to dig, terraces and walkable ground (D184, D193)", () => {
     for (let y = 12; y <= 18; y++) for (let x = 16; x < 24; x++) expect(Math.abs(walk[y * W + x] - walk[y * W + x + 1]), `(${x}, ${y})`).toBeLessThanOrEqual(1);
     // on a map: a walkable stroke over a cliff near the start gets slopes on its steps
     // (seed 4 since 0.8.0, D148: seed 3 has no cliff near the start where this stroke goes)
-    const r = generate(makeSpec({ seed: 4, theme: "riverValley", size: { x: 96, y: 96 } }));
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fixtureSession("riverValley", 96, 4);
     s.setWaterMode("defer");
     const st = s.built.start!;
     const path: number[] = [];
@@ -302,8 +303,7 @@ describe("hold to dig, terraces and walkable ground (D184, D193)", () => {
   });
 
   it("a precise one-tile pit stays a pit through the build, and the page paints what the build makes", () => {
-    const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 96, y: 96 } }));
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fixtureSession("riverValley", 96, 3);
     s.setWaterMode("defer");
     const st = s.built.start!;
     // (the spot is 14 tiles from the start, on whichever side stays on the map: M9b's small starts moved the start
@@ -381,9 +381,8 @@ describe("Flatten: cut and fill, cliff or ramped edges, objects ride the ground 
     // (seed 2 since generator 0.10.16's ground with grade, D148: seeds 1, 3, 4 and 5 have no dry ground 50 tiles from the
     // start with three plants on it, seed 2 has it at (10, 37), its start at (64, 41); seed 3 since D502's narrowed maps, D148: seeds 1, 2, 5, 6, 8, 9, 11, 12 and 13 have no dry ground 50 tiles from the start with three plants on it, seed 3 has it at (83, 12), its start at (40, 71); seed 2 since generator 0.10.6, D498, D148: seeds 1, 3, 5, 6, 9 and 11 had none, seed 2 had it at (68, 10), its start at (11, 82); seed 3 before; seed 1 since D333, D148: seed 4 has no open dry ground far from the start where this flatten goes on D333's maps; seed 3 before 0.8.0; seed 2 since M9b's small starts and speed rounds, where seed 1 has no such ground: D148; seed 3 since 0.8.3's courses follow the land, D476, where seeds 1, 2 and 4–8 have none;
     // seed 1 since the later D518 mends moved the land, D148: seeds 2 and 3 have no dry ground 50 tiles from the start with three plants on it now, seed 1 has it at (12, 80), its start at (42, 18))
-    const r = generate(makeSpec({ seed: 1, theme: "riverValley", size: { x: 96, y: 96 } }));
     const make = () => {
-      const s = MapSession.fromGenerated(r, r.file);
+      const s = fixtureSession("riverValley", 96, 1);
       s.setWaterMode("defer");
       return s;
     };
@@ -421,7 +420,7 @@ describe("Flatten: cut and fill, cliff or ramped edges, objects ride the ground 
     const again = MapSession.open(decodeProject(ramped.project()));
     expect(again.built.entities.map((e) => `${e.id}@${e.x},${e.y},${e.z}`)).toEqual(ramped.built.entities.map((e) => `${e.id}@${e.x},${e.y},${e.z}`));
     // an imported map's own objects ride the ground too
-    const imp = MapSession.importMap(writeTimber(r.file), "valley.timber");
+    const imp = MapSession.importMap(make().exportTimber().bytes, "valley.timber");
     const before = new Map(imp.built.entities.map((e) => [e.id, e]));
     expect(imp.apply({ op: "brush", params: p }, "user", "Flatten").errors).toEqual([]);
     let rode = 0;
@@ -438,12 +437,13 @@ describe("Flatten: cut and fill, cliff or ramped edges, objects ride the ground 
 
 describe("undo and redo of strokes", () => {
   it("random strokes, undone and redone: undo all gives back the map exactly, and each state equals a full build", () => {
-    const r = generate(makeSpec({ seed: 13, size: { x: 96, y: 96 } }));
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fixtureSession("riverValley", 96, 13);
     s.setWaterMode("defer");
     const W = 96;
     const rand = mulberry(99);
     const start = { heights: Array.from(s.built.heights), entities: s.built.entities.map((e) => `${e.id}@${e.x},${e.y},${e.z}`) };
+    // (the file the map opened with: undoing every stroke gives it back byte for byte)
+    const openedFile = writeTimber(s.exportFile(s.fullBuild()));
     const ops: EditOp[] = [];
     for (let k = 0; k < 14; k++) ops.push({ op: "brush", params: randomStroke(rand, W, W, TOOLS[Math.floor(rand() * TOOLS.length)], s.built.start ?? null) });
     const states: number[][] = [];
@@ -468,7 +468,7 @@ describe("undo and redo of strokes", () => {
     expect(Array.from(s.built.heights)).toEqual(start.heights);
     expect(s.built.entities.map((e) => `${e.id}@${e.x},${e.y},${e.z}`)).toEqual(start.entities);
     const cleanFile = writeTimber(s.exportFile(s.fullBuild()));
-    expect(Buffer.from(cleanFile).equals(Buffer.from(r.bytes))).toBe(true);
+    expect(Buffer.from(cleanFile).equals(Buffer.from(openedFile))).toBe(true);
   });
 });
 
@@ -502,8 +502,7 @@ describe("Naturalize keeps slopes.connect and the start's pad (D253, D368 (8))",
 
   it("a Naturalize stroke over or beside a slope never breaks slopes.connect", () => {
     for (const [theme, seed] of THEMES) {
-      const r = generate(makeSpec({ seed, theme, size: { x: 96, y: 96 } }));
-      const s = MapSession.fromGenerated(r, r.file);
+      const s = fixtureSession(theme, 96, seed);
       s.setWaterMode("defer");
       const before = s.validate(undefined, { loadOnly: true }).report.checks.find((c) => c.id === "slopes.connect")!;
       expect(before.ok, `${theme} ${seed}: the generated map's own slopes join a 1-level step`).toBe(true);
@@ -531,8 +530,7 @@ describe("Naturalize keeps slopes.connect and the start's pad (D253, D368 (8))",
 
   it("a Naturalize stroke over or beside the start's pad never changes it (D368 (8))", () => {
     for (const [theme, seed] of THEMES) {
-      const r = generate(makeSpec({ seed, theme, size: { x: 96, y: 96 } }));
-      const s = MapSession.fromGenerated(r, r.file);
+      const s = fixtureSession(theme, 96, seed);
       s.setWaterMode("defer");
       const protect = s.terrainState().protect;
       const protectedTiles: number[] = [];
@@ -570,14 +568,13 @@ describe("Naturalize keeps slopes.connect and the start's pad (D253, D368 (8))",
     // the chain's first slope stands on open ground in front of the stair: a stroke that changes
     // that ground drops the slopes above it too, never leaving one chained onto nothing
     for (const seed of [1, 2, 3, 4, 5, 6]) {
-      const r = generate(makeSpec({ seed, theme: "canyon", size: { x: 96, y: 96 } }));
-      const chain = MapSession.fromGenerated(r, r.file).built.entities.filter((e) => e.template === "Slope" && !e.owner.startsWith("derived") && !e.owner.startsWith("pinned"));
+      const chain = fixtureSession("canyon", 96, seed).built.entities.filter((e) => e.template === "Slope" && !e.owner.startsWith("derived") && !e.owner.startsWith("pinned"));
       if (!chain.length) continue;
       const foot = chain.reduce((a, b) => (b.z < a.z ? b : a));
       const rand = mulberry(seed * 67);
       for (const tool of TOOLS) {
         for (let k = 0; k < 3; k++) {
-          const s = MapSession.fromGenerated(r, r.file);
+          const s = fixtureSession("canyon", 96, seed);
           s.setWaterMode("defer");
           const p = strokeAt(rand, 96, 96, foot.x + Math.floor((rand() - 0.5) * 4), foot.y + Math.floor((rand() - 0.5) * 4));
           const { seed: noise, weathers, ...rest } = p;
@@ -593,8 +590,7 @@ describe("Naturalize keeps slopes.connect and the start's pad (D253, D368 (8))",
 
 describe("a stroke replays exactly onto its own land (D158, D336)", () => {
   it("reopening the project file gives the same map", () => {
-    const r = generate(makeSpec({ seed: 21, size: { x: 96, y: 96 } }));
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fixtureSession("riverValley", 96, 21);
     const dabs: number[] = [];
     for (let k = 0; k < 30; k++) dabs.push(4 * 70 + 2, 4 * 20 + 2 + Math.round((4 * k) / 3));
     const stroke: BrushParams = { tool: "raise", size: 4, strength: 6, dabs };
