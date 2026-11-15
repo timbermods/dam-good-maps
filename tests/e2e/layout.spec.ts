@@ -978,6 +978,77 @@ for (const room of INSET_ROOMS) {
   });
 }
 
+// ---- the tool row under a finger (#1074): it moves only with the finger and comes to rest on a whole tool by itself only
+// once no finger is on it; once scrolled away from the tool in hand it stays there until the tool or the room changes.
+
+for (const phone of PHONES) {
+  test.describe(`a phone ${phone.name}, its tool row`, () => {
+    test.use({ viewport: phone.viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+
+    test(`at ${phone.viewport.width}×${phone.viewport.height}: a finger paused mid-pan keeps the row where it put it, and a re-render leaves a row scrolled away from the tool in hand`, async ({ page }) => {
+      test.setTimeout(120_000);
+      await openEditor(page);
+      const bar = page.locator(".tool-dock > .tool-bar");
+      await page.locator('.tool-dock > .tool-bar button[aria-label^="Raise"]').evaluate((b: HTMLElement) => b.click());
+      await expect(page.locator(".tool-dock > .tool-settings.sheet")).toBeVisible();
+      const side = phone.viewport.width > phone.viewport.height;
+      const pos = () => bar.evaluate((b) => (b.scrollWidth > b.clientWidth + 1 ? b.scrollLeft : b.scrollTop));
+      const idle = () => page.evaluate(() => new Promise((r) => setTimeout(r, 500)));
+      await idle();
+
+      // a pan that pauses: the row stays under the finger, however long it rests there
+      const box = (await bar.boundingBox())!;
+      const from = side ? { x: box.x + box.width / 2, y: box.y + box.height - 40 } : { x: box.x + box.width - 40, y: box.y + box.height / 2 };
+      const cdp = await page.context().newCDPSession(page);
+      // (each event a frame after the one before on its own clock, as a finger sends them: without times Chrome takes no pan)
+      let clock = Date.now() / 1000;
+      const touch = (type: "touchStart" | "touchMove" | "touchEnd", p?: { x: number; y: number }) =>
+        cdp.send("Input.dispatchTouchEvent", { type, touchPoints: p ? [{ x: p.x, y: p.y, id: 1, radiusX: 4, radiusY: 4, force: 1 }] : [], timestamp: (clock += 0.016) });
+      const was = await pos();
+      await touch("touchStart", from);
+      for (let k = 1; k <= 12; k++) {
+        await touch("touchMove", side ? { x: from.x, y: from.y - 6 * k } : { x: from.x - 6 * k, y: from.y });
+        await page.evaluate(() => new Promise((r) => requestAnimationFrame(r)));
+      }
+      await page.evaluate(() => new Promise((r) => setTimeout(r, 60)));
+      const put = await pos();
+      expect(Math.abs(put - was), "the finger moved the row").toBeGreaterThan(10);
+      await page.evaluate(() => new Promise((r) => setTimeout(r, 400)));
+      expect(Math.abs((await pos()) - put), "the row moved under a finger at rest on it").toBeLessThan(1);
+      await touch("touchEnd");
+      await idle();
+
+      // scrolled away from the tool in hand: a change that is neither the tool nor the room leaves it there
+      const end = await bar.evaluate((b) => {
+        const across = b.scrollWidth > b.clientWidth + 1;
+        const max = across ? b.scrollWidth - b.clientWidth : b.scrollHeight - b.clientHeight;
+        b.scrollTo({ [across ? "left" : "top"]: max, behavior: "instant" });
+        return max;
+      });
+      await idle();
+      expect(Math.abs((await pos()) - end)).toBeLessThan(1);
+      const inView = () =>
+        bar.evaluate((b) => {
+          const r = b.querySelector('button[aria-label^="Raise"]')!.getBoundingClientRect();
+          const q = b.getBoundingClientRect();
+          return r.right > q.left && r.left < q.right && r.bottom > q.top && r.top < q.bottom;
+        });
+      expect(await inView(), "Raise scrolled out of the row").toBe(false);
+      const size = page.locator(".tool-settings input.set-range").first();
+      const before = await size.inputValue();
+      await size.evaluate((el: HTMLInputElement) => {
+        const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+        set.call(el, String(Number(el.value) === Number(el.min) ? Number(el.value) + 1 : Number(el.value) - 1));
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      await expect(size).not.toHaveValue(before);
+      await idle();
+      expect(Math.abs((await pos()) - end), "a setting moved pulled the row back to the tool in hand").toBeLessThan(1);
+    });
+  });
+}
+
 // ---- tablets (#1074 slices 5 and 6): a tablet is a big phone, not a small desktop (planning, 2026-11-14). At an iPad's
 // sizes upright and on its side (DPR 2): the header and the dock of tools stay, every control at least 44px and none off
 // the screen, the page neither scrolled nor wider than the screen; Show and the objects fold to the phone's buttons and

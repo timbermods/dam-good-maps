@@ -738,51 +738,66 @@ export function TopBar(p: TopBarProps) {
   useLayoutEffect(() => {
     const b = bar.current;
     if (!b || !phoneRow) return;
+    // (the room changed, turned or resized: fitted again, and the tool in hand brought into view in it)
     const fit = () => {
       fitToolRow(b);
       markRowEnds(b);
+      showHeld(b);
     };
-    // (still for a moment and no finger on it: it rests on a tool's start)
+    // (still for a moment and nothing on it: it rests on a tool's start; never while a finger or the mouse is on it)
     let idle = 0;
-    let held = false;
+    let touching = false;
     const rest = () => {
       clearTimeout(idle);
-      idle = window.setTimeout(() => held || restOnWhole(b), 200);
+      idle = window.setTimeout(() => touching || restOnWhole(b), 200);
     };
     const ends = () => {
       markRowEnds(b);
       rest();
     };
-    const down = () => {
-      held = true;
+    const on = () => {
+      touching = true;
       clearTimeout(idle);
     };
-    const up = () => {
-      if (!held) return;
-      held = false;
+    const off = () => {
+      if (!touching) return;
+      touching = false;
       rest();
     };
+    // (a finger is followed by its touches: the browser cancels its pointer as soon as the pan starts, while it is still
+    // down)
+    const fingerUp = (e: TouchEvent) => e.touches.length === 0 && off();
+    const mouseDown = (e: PointerEvent) => e.pointerType !== "touch" && on();
+    const mouseUp = (e: PointerEvent) => e.pointerType !== "touch" && off();
     fit();
     const watch = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(fit);
     watch?.observe(b);
     b.addEventListener("scroll", ends, { passive: true });
-    b.addEventListener("pointerdown", down, { passive: true });
-    window.addEventListener("pointerup", up, true);
-    window.addEventListener("pointercancel", up, true);
+    b.addEventListener("touchstart", on, { passive: true });
+    window.addEventListener("touchend", fingerUp, true);
+    window.addEventListener("touchcancel", fingerUp, true);
+    b.addEventListener("pointerdown", mouseDown, { passive: true });
+    window.addEventListener("pointerup", mouseUp, true);
+    window.addEventListener("pointercancel", mouseUp, true);
     return () => {
       clearTimeout(idle);
       watch?.disconnect();
       b.removeEventListener("scroll", ends);
-      b.removeEventListener("pointerdown", down);
-      window.removeEventListener("pointerup", up, true);
-      window.removeEventListener("pointercancel", up, true);
+      b.removeEventListener("touchstart", on);
+      window.removeEventListener("touchend", fingerUp, true);
+      window.removeEventListener("touchcancel", fingerUp, true);
+      b.removeEventListener("pointerdown", mouseDown);
+      window.removeEventListener("pointerup", mouseUp, true);
+      window.removeEventListener("pointercancel", mouseUp, true);
       b.style.removeProperty("--tool-along");
       b.removeAttribute("data-more");
     };
   }, [phoneRow, SHOWN_FORCES.length, !!p.blockSettings, !!p.onSelect]);
+  // (on the tool in hand changing only: `p.phone` is a new object each time the editor draws, and a row the player
+  // scrolled away was pulled back by any change at all; the room changing is the row's own fit's, above)
   useEffect(() => {
-    if ((p.phone || finger) && held) showHeld(bar.current);
-  }, [held, p.phone, finger]);
+    if ((phoneRow || finger) && held) showHeld(bar.current);
+  }, [held, phoneRow, finger]);
   const button = (tool: BrushTool | "select" | "block" | Verb, name: string, label: string, pressed: boolean, title: ReturnType<typeof tip>, disabled: boolean | undefined, onClick: () => void) => (
     <button type="button" key={tool} class="icon-button" aria-pressed={pressed} aria-label={label} {...title} disabled={disabled} onClick={onClick}>
       <Icon tool={tool} />
