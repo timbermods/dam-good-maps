@@ -8,7 +8,8 @@
 // `VISTA_OVER` levels over the plain (over the far wall's crest, so the horizon shows over it) and at least `VISTA_BACK`
 // tiles behind the start: the plain lies below, the far wall and the fall stand behind it, the horizon in the frame. The sheet sets the maps out two to a row, the start's numbers first under each,
 // then the walls' heights where the first frame sees them, the Red Fall's drop, the floor's share, day 1's bands and
-// the tiles the mend changed; the single frames are written beside it. Real Chrome, the site
+// the tiles the mend changed, then each wall's longest straight run on the ground (`wall.wanders`' measure) and the
+// held attempt's time; the single frames are written beside it. Real Chrome, the site
 // built from this checkout into its own folder with its own Vite cache, served on its own port.
 //
 //   npx tsx tools/capture-plain.ts [--seeds 1,2] [--sizes 128,192,256] [--out C:/dgm-showcase/poisoned-plain/land]
@@ -24,8 +25,9 @@ import type { StartFeature } from "../src/core/features/schema";
 import { startMiddleTile } from "../src/core/format/footprints";
 import { writeTimber } from "../src/core/format/timber";
 import { toTimberFile } from "../src/core/gen/pack";
-import { fallDrop, plainBands, plainLand, plainStart, wallHeights, type PlainLand } from "../src/core/premise/plainLand";
-import { PLAIN_IDS, plainOf } from "../src/core/premise/premises/poisonedPlain";
+import { fallDrop, groundFoot, plainBands, plainLand, plainStart, wallHeights, type PlainLand } from "../src/core/premise/plainLand";
+import { longestStraight } from "../src/core/premise/raster/levee";
+import { PLAIN_IDS, plainOf, WALL } from "../src/core/premise/premises/poisonedPlain";
 import type { Point } from "../src/core/premise/types";
 import { makeSpec } from "../src/core/spec/mapspec";
 import { waitForEditor } from "./wait-editor";
@@ -86,11 +88,15 @@ async function shoot(browser: Browser, seed: number, size: number): Promise<{ sh
   const wh = wallHeights(land.plan, land.heights, land.relief.floor);
   const fd = fallDrop(land.plan, land.heights, land.relief.floor, land.relief.valleys);
   const pct = (v: number) => `${Math.round(100 * v)} %`;
+  // (each wall's foot on the ground: its longest run within WALL.near tiles of one straight line, against 1.2 P)
+  const P = plainOf(land.plan)!.P;
+  const run = (wall: "far" | "near") => Math.round(longestStraight(groundFoot(land.plan, land.relief.floor, wall), WALL.near));
   const caption = [
     `seed ${seed} at ${size}²${land.held ? "" : " (did not hold: " + [...land.landFails.map((f) => f.id), ...(land.frame.reason ? ["frame.start"] : [])].join(", ") + ")"}`,
     `start: level land ${n.bench}, reach ${n.reach}, to its own water ${n.own}, to the plain ${n.plain}, to the river ${n.river}, to red water ${n.red}`,
     `in the frame: far wall ${wh.far.least} to ${wh.far.most} over the plain, near wall ${wh.near.least} to ${wh.near.most}; the Red Fall drops ${fd ? fd.drop : "?"}`,
     `floor ${pct(b.floor)} of the map; dead ${pct(b.dead)}, green ${pct(b.green)}, dry ${pct(b.dry)}; M ${b.M.toFixed(1)}; the mend changed ${land.found.changed} tiles`,
+    `straight runs of the walls' feet: far ${run("far")}, near ${run("near")} (at most ${Math.round(WALL.longest * P)}); attempt ${land.attempt + 1} took ${land.ms.total} ms (all attempts ${ms} ms)`,
   ].join("<br>");
   console.log(`seed ${seed} at ${size}²: ${caption.replace(/<br>/g, "; ")}; stage ${ms} ms ${JSON.stringify(land.ms)}`);
   const start: StartFeature = {

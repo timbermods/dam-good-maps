@@ -70,8 +70,9 @@ export const PLAIN = { dead: 9, share: [0.28, 0.36], long: [0.7, 0.85], floor: [
  *  that long, a sine's flank ran within `near` tiles of straight for longer than `longest`), with a little noise
  *  (`rough` tiles over `roughCell` of `P`); the floor's width in the mean over any `P` of its length `PLAIN.vary` of `P`
  *  (drawn inside `mean`, a wall drawn again up to `draws` times); no wall's foot within `near` tiles of one straight
- *  line for longer than `longest` of `P` (`wall.wanders`). */
-export const WALL = { out: [0.15, 0.3], len: [1.5, 3], rough: 1.5, roughCell: 0.5, mean: [0.83, 1.27], draws: 8, near: 2, longest: 1.2 } as const;
+ *  line for longer than `longest` of `P` (`wall.wanders`), nor, where its draws allow, within `near` + `slack` (the
+ *  land's warp, against a bend, reads it straighter on the ground), the straightest of them by that measure else. */
+export const WALL = { out: [0.15, 0.3], len: [1.5, 3], rough: 3, roughCell: 0.3, mean: [0.83, 1.27], draws: 32, near: 2, longest: 1.2, slack: 1.5 } as const;
 /** The least width the design's §2 asks of the plain. */
 export const plainLeast = (M: number = M_REACH): number => Math.ceil((M + PLAIN.dead) / (1 - DRY_LEAST));
 /** The plain's mean width's range on a side. */
@@ -89,11 +90,14 @@ export const RIVER_ROOM = { width: 8, share: 0.12 } as const;
  *  least every fifth of the river's length on the plain, which 2 to 4 low places alone cannot give). */
 export const LEVEE = { width: [3, 6], cell: [10, 16], low: [4, 8], lows: { small: [2, 3], large: [3, 4] }, apart: 12, crestCell: 11, hump: 0.4, humpLen: [4, 7], most: 0.2, mostAt1: 0.5 } as const;
 /** The plain falls a level down the valley every 40 to 60 tiles, at a riser that wanders across the floor: its wander
- *  `amp` tiles by noise over `cell` tiles across. None within `end` tiles of the plain's foot. The water's ceiling
+ *  `amp` tiles by noise over `cell` tiles across. A riser is the scar the river's old bends cut into the higher plain
+ *  (planning's verdict on round 2: steps follow the river's old lines, never a ruled line across the plain): a chain of
+ *  arcs `scar.len` tiles across each (wandering a third of that), each bowed `scar.bow` tiles up the valley at its middle,
+ *  meeting the next in a cusp. None within `end` tiles of the plain's foot. The water's ceiling
  *  (`plainTop`) holds the Red Fall's 6 or 7 levels (D510) over the backswamp only with the plain's head low: so the
  *  plain has as many risers as leave its head at `L` that room (`mostRisersUnder`), and on a longer plain they stand
  *  farther apart (`riserEvery`). */
-export const RISER = { every: [40, 60], amp: [3, 6], cell: [8, 14], end: 20 } as const;
+export const RISER = { every: [40, 60], amp: [3, 6], cell: [8, 14], end: 20, scar: { len: [16, 30], bow: [3, 8] } } as const;
 /** The far wall stands this many levels or more over the plain wherever the first frame sees it (planning's verdict on
  *  round 1 of the land, 2026-11-15); the near wall `NEAR_OVER` (its crest along the valley). */
 export const FAR_OVER = 8;
@@ -234,9 +238,9 @@ export interface PlainNumbers {
   badwater: number;
   /** Stage 2's search (`plainLand.ts`): the side valley found for the gulch (its index among the relief's), the tiles the
    *  mend changed, how far over the narrows the col stood before the mend, and where the plan as drawn looked for the
-   *  gulch (the far wall's side valleys are drawn from there, before and after the re-siting). Absent on the plan as
-   *  drawn. */
-  found?: { valley: number; changed: number; over: number; anchor: number };
+   *  gulch and how long it drew it (the far wall's side valleys are drawn from there, the gulch's that long, before and
+   *  after the re-siting). Absent on the plan as drawn. */
+  found?: { valley: number; changed: number; over: number; anchor: number; anchorLen: number };
 }
 
 export type PlainPlan = Omit<PremisePlan, "premise"> & { premise: typeof PLAIN_ID; plain: PlainNumbers };
@@ -362,8 +366,17 @@ export function lineAt(line: readonly number[], step: number, u: number): number
   return line[k] + (line[k + 1] - line[k]) * (f - k);
 }
 
-/** Where a riser crosses the floor at v (u). */
-export const riserAt = (r: Riser, v: number): number => r.at + r.amp * fbm(r.seed, 0, v, r.cell, 2);
+/** Where a riser crosses the floor at v (u): its wander, less its scar's arc there (`RISER.scar`; each arc's length
+ *  and bow by noise of the riser's own seed, so the plan's draws are untouched). */
+export const riserAt = (r: Riser, v: number): number => r.at + r.amp * fbm(r.seed, 0, v, r.cell, 2) - scarAt(r, v);
+function scarAt(r: Riser, v: number): number {
+  const { len, bow } = RISER.scar;
+  const mean = (len[0] + len[1]) / 2;
+  const t = (v + (mean / 3) * fbm(r.seed ^ 0x2c1b3c6d, 0, v, mean, 1)) / mean;
+  const k = Math.floor(t);
+  const b = bow[0] + (bow[1] - bow[0]) * (0.5 + 0.5 * fbm(r.seed ^ 0x51ed270b, k * 7.31 + 0.37, 0.53, 1, 1));
+  return b * Math.sin(Math.PI * (t - k));
+}
 
 /** The plain's level at a local point: L, a level less past each riser. */
 export function plainLevel(p: Pick<PlainNumbers, "L" | "risers">, u: number, v: number): number {
@@ -469,13 +482,13 @@ export function widthMeans(widths: readonly number[], P: number): number[] {
 /** The longest run, tiles, of a wall's foot (a line sampled every `step` of u, from `from` to `to`, where it stands on
  *  the map) that stays within `WALL.near` tiles of one straight line: every start, the longest chord the foot stays
  *  within `WALL.near` of (`longestStraight`: a chord that strays does not end the search from its start). */
-export function wallStraight(T: Turn, line: readonly number[], step: number, from: number, to: number): number {
+export function wallStraight(T: Turn, line: readonly number[], step: number, from: number, to: number, near: number = WALL.near): number {
   const pts: Point[] = [];
   for (let k = Math.max(0, Math.ceil(from / step)); k < line.length && k * step <= to; k++) {
     const q: Point = [k * step, line[k]];
     pts.push(onMap(T, q) ? q : [NaN, NaN]);
   }
-  return longestStraight(pts, WALL.near);
+  return longestStraight(pts, near);
 }
 
 /** The runs of the far wall's foot (whole u from `w0` to `w1`) that the vista frame from `start` shows: each u whose
@@ -588,13 +601,21 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   };
   const axis: number[] = [];
   for (let k = 0; k <= K; k++) axis.push(r2(axisRaw[k * step] + shift));
+  // (each wall drawn, where a draw allows, with no run of `longest` of P within `near` + `slack` tiles of a line, the
+  // straightest of its draws by that measure else: the land's warp moves the foot a tile or two either way, and where
+  // it moves against the line's bend it reads straighter on the ground than drawn)
+  const most = WALL.longest * P;
   let near: number[] = [];
-  for (let d = 0; d <= WALL.draws; d++) {
-    if (d === WALL.draws) return { why: "the near wall runs straight" };
+  let nearRun = Infinity;
+  for (let d = 0; d < WALL.draws; d++) {
     const off = wallLine();
-    near = axis.map((c, k) => r2(c + off[k]));
-    if (wallStraight(T, near, step, 0, K * step) <= WALL.longest * P) break;
+    const line = axis.map((c, k) => r2(c + off[k]));
+    if (wallStraight(T, line, step, 0, K * step) > most) continue;
+    const run = wallStraight(T, line, step, 0, K * step, WALL.near + WALL.slack);
+    if (run < nearRun) [near, nearRun] = [line, run];
+    if (run <= most) break;
   }
+  if (!near.length) return { why: "the near wall runs straight" };
   const vN = (u: number) => lineAt(near, step, u);
   // where the floor's middle leaves the map: the plain's foot; its head `Lp` up the valley; the terrace above it
   const midLine = (u: number): Point => [u, vN(u) + toFoot + P / 2];
@@ -622,16 +643,20 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const footW = rng.range(PLAIN.foot[0], PLAIN.foot[1]);
   const ramp = (u: number) => head + (footW - head) * smooth(Math.max(0, Math.min(1, (u - plainFrom) / Lp)));
   let far: number[] = [];
-  for (let d = 0; d <= WALL.draws; d++) {
-    if (d === WALL.draws) return { why: "the far wall cannot wander and keep the floor's width" };
+  let farRun = Infinity;
+  for (let d = 0; d < WALL.draws; d++) {
     const off = wallLine();
     const raw = axis.map((c, k) => c + toFoot + P * ramp(k * step) + off[k]);
     const w0 = floorWidths(near, raw, step, toFoot, plainFrom, plainTo);
     const lift = P - w0.reduce((a, b) => a + b, 0) / w0.length;
-    far = raw.map((v) => r2(v + lift));
-    const means = widthMeans(floorWidths(near, far, step, toFoot, plainFrom, plainTo), P);
-    if (Math.min(...means) >= WALL.mean[0] * P && Math.max(...means) <= WALL.mean[1] * P && wallStraight(T, far, step, terrace[0], plainTo) <= WALL.longest * P) break;
+    const line = raw.map((v) => r2(v + lift));
+    const means = widthMeans(floorWidths(near, line, step, toFoot, plainFrom, plainTo), P);
+    if (Math.min(...means) < WALL.mean[0] * P || Math.max(...means) > WALL.mean[1] * P || wallStraight(T, line, step, terrace[0], plainTo) > most) continue;
+    const run = wallStraight(T, line, step, terrace[0], plainTo, WALL.near + WALL.slack);
+    if (run < farRun) [far, farRun] = [line, run];
+    if (run <= most) break;
   }
+  if (!far.length) return { why: "the far wall cannot wander and keep the floor's width" };
   const swamp: number[] = [];
   const swampW = { seed: seedOf() };
   for (let k = 0; k <= K; k++) swamp.push(r2(Math.max(SWAMP.least, Math.min(swampMost(N), swampMean + SWAMP.wander * fbm(swampW.seed, k * step, 0, SWAMP.cell, 2)))));

@@ -36,13 +36,14 @@ import { flowThrough } from "../sim/prefill";
 import { sillWidthFor } from "../sim/sill";
 import { gameSoil } from "../sim/soil";
 import type { MapSpec } from "../spec/mapspec";
-import { rulesFor } from "../validate/playability";
+import { FLOOR_MARGIN, rulesFor } from "../validate/playability";
 import { ruledLand } from "../validate/ruledLand";
 import type { StyleTheme } from "./choice";
 import { failing, PLAN_TRIES } from "./draw";
 import { checkFrame, dayOneWater, type FrameCheck } from "./frame";
 import { dist, headingOf, pathDist } from "./geom";
-import { bankRun, leveeBanks, longestStraight, type LeveeForm } from "./raster/levee";
+import { VALLEY_BACK } from "./raster/falls";
+import { bankRun, breakBankRuns, leveeBanks, longestStraight, type LeveeForm } from "./raster/levee";
 import { seedOf } from "./raster/field";
 import { reliefBetween, rise } from "./raster/relief";
 import { premiseStyle, type ReliefStyle } from "./style";
@@ -86,8 +87,10 @@ const FORK_FALL_MIN = 3;
 /** How far the Dry Fork's way keeps clear of the land that drains onto the floor at the col's level (tiles): its bed
  *  and the tile either side cut, and a tile of the old ground past them. */
 const FORK_CLEAR = 3;
-/** The Dry Fork's way tile its first point stands on (`resiteGulch` keeps every fourth: its second is the fifth). */
+/** The Dry Fork's way tile its second point stands on (`resiteGulch`), where `fork.own` pours. */
 const FORK_POUR = 4;
+/** How many of the Dry Fork's way tiles either side each point of its drawn course is the mean of. */
+const FORK_EASE = 3;
 /** The noise the lowest way out breaks its ties by (tiles across): the Dry Fork's way over level land wanders. */
 const WAY_TIE_CELL = 7;
 
@@ -102,10 +105,17 @@ export const FLOOR_WARP = { amp: 2.2, cell: 13, swamp: 1.2, swampCell: 9, riser:
  *  tiles by noise `cell` across; its side toward the river `strip` tiles past the levee's foot (the river's own strip
  *  of plain); its edge steps down a level to a bench `step` tiles wide, then to the plain (a bench wide enough to be a
  *  region of its own: the slopes join the terrace, the bench and the plain, `features/slopes.ts`). */
-export const TERRACE_LAND = { lip: 1, bulge: [2, 6], wander: 2, cell: 11, strip: [3, 7], step: [2.5, 6] } as const;
+export const TERRACE_LAND = { lip: 1, bulge: [2, 6], wander: 2, cell: 11, strip: [3, 7], step: [2.5, 6], grow: 2, growMost: 30 } as const;
 /** The levees' width on the land: the plan's width, drawn in toward its middle (`keep`), with a quicker wander of its
  *  own (`wander` tiles, noise `cell` along the river) so no bank's foot runs straight; 3 to 6 tiles still. */
 export const LEVEE_LAND = { mid: 4.5, keep: 0.4, wander: 2.5, cell: 5 } as const;
+/** Day 1's dead band laid on the ground to the plan's share (the design's §2: the plan counts the backswamp below the
+ *  Red Fall and 7 tiles either side of the red stream's way across the plain; the game's soil carries its poison two
+ *  tiles up a bank a level high, a good way across ground at its water's level): along the red stretch the backswamp
+ *  `widen` of itself wider (the plan's floor counts from the river's levee foot, the ground's from the near wall's), and
+ *  where the red stream crosses the plain to its join, its wash, the ground within `reach` tiles of its course (noise
+ *  `cell`), at its water's level, a level under the plain. */
+export const RED_WASH = { widen: 0.25, reach: [5, 7], cell: 9 } as const;
 /** The walls, each in its own style: crags of `c1` and `c2`, benches `bench` wide, later crags `cn` (the shared
  *  relief's `rise`, each drawn in its range by noise `cell`), each bench's width wandering by up to `benchVary` of
  *  itself across the wall (noise `benchCell`); ribs that bring the contours out and back `rib` tiles (noise `ribCell`
@@ -135,9 +145,9 @@ export const WALL_LAND = {
  *  floors for `collar` tiles past their half-widths (a hanging valley's walls stand over its floor: water in it leaves by
  *  its mouth or over a col, never over its side onto the wall's face). */
 export const SIDE_VALLEY = {
-  apart: 19, gap: [0.55, 2.1], gapSpread: 0.5, gapTries: 8, alcove: 0.22, alcoveLen: [4, 9], alcoveHalf: [2.6, 4.5], alcoveHang: [2, 5],
+  apart: 19, gap: [0.55, 2.1], gapSpread: 0.5, gapTries: 8, combTries: 12, alcove: 0.22, alcoveLen: [4, 9], alcoveHalf: [2.6, 4.5], alcoveHang: [2, 5],
   len: [12, 34], angle: 26, differ: 14, bend: 24, turnCell: [9, 16], off: 33, hang: [6, 7], lowHang: [6, 7], tallShare: 1,
-  rise: [1, 3], half: [1.6, 3.8], widthVary: 0.3, taper: 0.35, pinch: [0.8, 1.2], pinchAt: [0.3, 0.45], pinchLen: [3, 5],
+  rise: [1, 3], half: [1.6, 3.8], widthVary: 0.3, taper: 0.35, pinch: [0.8, 1.2], pinchPlanned: [0.6, 0.9], pinchAt: [0.3, 0.45], pinchLen: [3, 5],
   branchShare: 0.35, branchFrom: 16, branchAt: [0.4, 0.65], branchAngle: [30, 55], branchLen: [6, 12], branchHalf: [1.2, 2],
   jag: 1.4, jagCell: 5, hard: 4, sides: [4, 6], collar: 5,
 } as const;
@@ -150,7 +160,18 @@ export const NEAR_VALLEY = { apart: 27, alcove: 0.35, len: [8, 20], hang: [2, 4]
  *  across at the bed and wandering `widthVary` of that, their banks' contours jagged `jag` tiles (noise `jagCell`). Few,
  *  and meandering: side by side and straight, their troughs
  *  ruled the plateau in bands. */
-export const OLD_VALLEY = { share: 0.35, at: [0.5, 0.75], gap: [2, 3.5], over: [1, 2], turn: 0.7, half: [1.5, 2.5], wander: 0.9, wanderCell: 13, widthVary: 0.35, jag: 2.5, jagCell: 7 } as const;
+export const OLD_VALLEY = { share: 0.35, at: [0.5, 0.75], gap: [2, 3.5], over: [1, 2], turn: 0.7, half: [1.5, 2.5], wander: 0.9, wanderCell: 13, widthVary: 0.35, jag: 2.5, jagCell: 7, away: 1, part: [0.45, 0.9], plannedWander: 0.6 } as const;
+/** The gulch's rock (planning's verdict on round 2: the gulch cut where the search would find none). Round the planned
+ *  side valley (`SideValley.planned`) out to `out` tiles past its widest half-width, and round its Dry Fork's first
+ *  `oldLen` tiles out to `oldOut` past its half-width, the ground stands a level over the col (`GULCH.colOver` over the
+ *  narrows' floor) before the valleys are cut into it, falling back to the wall beyond in crags; between the gulch and
+ *  the Dry Fork's head, the col, the ground stands at the col's level at least; no other side valley is cut within
+ *  `clear` tiles of the Dry Fork's course nor into the rock; the gulch's head stands `edge` tiles in from the map's
+ *  edge, and its course `brook` tiles or more from the terrace brook's spring. A hanging valley's walls hold its water: what stands in it
+ *  leaves by its mouth or over its col, and the Dry Fork carries what the col spills to its own edge. Its narrows stands
+ *  `narrows` tiles or more up it, past the Red Fall's hanging valley (stage 1 lays that as wide as the lip for
+ *  `VALLEY_BACK` rows behind it), and the gulch is `least` tiles long or more, so its narrows lies in its lower half. */
+export const MASSIF = { out: 5, oldLen: 24, oldOut: 7, clear: 8, keep: 2, edge: 12, brook: 18, narrows: VALLEY_BACK + 2, least: 2 * VALLEY_BACK + 6 } as const;
 /** The mend's budget (§3): at most `share` of the map's tiles changed. */
 export const MEND = { share: 0.04 } as const;
 
@@ -172,6 +193,8 @@ export interface SideValley {
   pinch: number;
   /** A valley, or an alcove: a short broad cove in the wall. */
   kind?: "valley" | "alcove";
+  /** The gulch's: drawn at the plan's gulch, its Dry Fork beside it, in the rock `MASSIF` sets round them. */
+  planned?: boolean;
   /** Its branch, if it has one: a side valley of its own joining it `at` tiles from its mouth (local line from the
    *  junction, a point a tile; its half-width). */
   branch?: { line: Point[]; at: number; half: number };
@@ -210,19 +233,27 @@ function landRng(seed: number) {
   return { f: next, r: (a: number, b: number) => a + (b - a) * next() };
 }
 
-/** The side valleys of both walls, drawn by the land's own seed along the whole of each wall (never at the plan's
- *  gulch: the search finds the gulch among them). Each is a wander, never a line laid on the grid: its mouths stand a
- *  spacing apart that is noise round its mean (0.45 to 2.3 of it); each runs into its wall at its own heading off the
- *  wall's normal (none within `SIDE_VALLEY.differ` of its neighbour's), turning as it goes by noise along it (within
- *  `SIDE_VALLEY.off` of the normal); its length and width drawn from wide ranges, its width wandering and narrowing to
- *  its head; some are alcoves (short broad coves), some branch. */
+/** The side valleys of both walls, drawn by the land's own seed along the whole of each wall. Each is a wander, never a
+ *  line laid on the grid: its mouths stand a spacing apart that is noise round its mean; each runs into its wall at its
+ *  own heading off the wall's normal (none within `SIDE_VALLEY.differ` of its neighbour's), turning as it goes by noise
+ *  along it (within `SIDE_VALLEY.off` of the normal); its length and width drawn from wide ranges, its width wandering
+ *  and narrowing to its head; some are alcoves (short broad coves), some branch. A wall's valleys are drawn again (up
+ *  to `SIDE_VALLEY.combTries` times) until the comb measure (`combOf`) reads them as no comb, and a wall none of whose
+ *  draws holds keeps the fewest the measure allows: the maker never makes what its own check refuses (planning's
+ *  verdict on round 2).
+ *
+ *  One of the far wall's is the gulch's (`planned`): at the plan's gulch, its length, its mouth's hang and its narrows
+ *  the plan's, never an alcove or branched, with its beheaded neighbour (the Dry Fork) always beside it, heading away
+ *  from the floor; no other side valley comes near that neighbour. The search (§3) still finds the gulch among the
+ *  wall's side valleys, nearest first; this one is made so that one is there to find. */
 export function sideValleys(plan: PremisePlan, p: PlainNumbers = plainOf(plan)!): SideValley[] {
   const T = turnOf(plan, p);
   const out: SideValley[] = [];
-  const brookU = (() => {
+  const brookAt: Point = (() => {
     const b = plan.links.find((l) => l.id === I.brook)?.path;
-    return b ? toLocal(T, b[0])[0] : -Infinity;
+    return b ? toLocal(T, b[0]) : [-Infinity, -Infinity];
   })();
+  const brookU = brookAt[0];
   const rad = (d: number) => (d * Math.PI) / 180;
   for (const wall of ["far", "near"] as const) {
     const g = landRng(S(plan, `valleys.${wall}`));
@@ -231,136 +262,210 @@ export function sideValleys(plan: PremisePlan, p: PlainNumbers = plainOf(plan)!)
     const sg = wall === "far" ? 1 : -1;
     const cfg = wall === "far" ? SIDE_VALLEY : { ...SIDE_VALLEY, ...NEAR_VALLEY };
     const wSeed = S(plan, `wander.${wall}`);
-    let prev: number[] | null = null;
-    let prevAngle = NaN;
     const gapOf = () => cfg.apart * Math.max(SIDE_VALLEY.gap[0], Math.min(SIDE_VALLEY.gap[1], Math.exp(SIDE_VALLEY.gapSpread * gauss())));
-    // (the mouths: on the far wall from one in the run of the search window the first frame shows, where the plan
-    // looks for the gulch, both ways along the wall; on the near wall from the terrace's head down)
-    const anchor = wall === "far" ? (p.found?.anchor ?? p.gulch.mouth) + g.r(0, 2) : NaN;
-    // (drawn again while their gaps are near even: a few gaps can draw alike, and the comb measure reads them so)
-    let mouths: number[] = [];
-    for (let t = 0; t < SIDE_VALLEY.gapTries; t++) {
-      mouths = [];
-      if (wall === "far") {
-        for (let a = anchor - gapOf(); a > p.terrace[0]; a -= gapOf()) mouths.unshift(a);
-        for (let a = anchor; a < T.U; a += gapOf()) mouths.push(a);
-      } else for (let a = p.terrace[0] + g.r(0.3, 1) * cfg.apart; a < T.U; a += gapOf()) mouths.push(a);
-      // (none over the terrace's brook: its spring stands in the far wall's slope there; a mouth by it stands aside,
-      // or is left out where that brings it too near the next)
-      if (wall === "far")
-        for (let k = 0; k < mouths.length; k++) if (Math.abs(mouths[k] - brookU) < 10) mouths[k] = brookU + (mouths[k] < brookU ? -10 : 10);
-      mouths = mouths.filter((a, k) => k === 0 || a - mouths[k - 1] >= SIDE_VALLEY.gap[0] * cfg.apart);
-      const gaps = mouths.slice(1).map((a, k) => a - mouths[k]);
-      const mean = gaps.reduce((x, y) => x + y, 0) / Math.max(1, gaps.length);
-      if (spreadOf(gaps) >= COMB.spread.gap + 0.08 && gaps.every((x) => x >= (COMB.gap[0] + 0.03) * mean && x <= (COMB.gap[1] - 0.1) * mean)) break;
+    // (the mouths: on the far wall from the plan's gulch, where the plan looks for it, both ways along the wall; on the
+    // near wall from the terrace's head down)
+    const anchor = wall === "far" ? (p.found?.anchor ?? p.gulch.mouth) : NaN;
+    const drawWall = (): SideValley[] => {
+      const vs: SideValley[] = [];
+      let prev: number[] | null = null;
+      let prevAngle = NaN;
+      // (drawn again while their gaps are near even: a few gaps can draw alike, and the comb measure reads them so)
+      let mouths: number[] = [];
+      for (let t = 0; t < SIDE_VALLEY.gapTries; t++) {
+        mouths = [];
+        if (wall === "far") {
+          for (let a = anchor - gapOf(); a > p.terrace[0]; a -= gapOf()) mouths.unshift(a);
+          for (let a = anchor; a < T.U; a += gapOf()) mouths.push(a);
+        } else for (let a = p.terrace[0] + g.r(0.3, 1) * cfg.apart; a < T.U; a += gapOf()) mouths.push(a);
+        // (none over the terrace's brook: its spring stands in the far wall's slope there; a mouth by it stands aside,
+        // or is left out where that brings it too near the next; the gulch's never moves)
+        if (wall === "far")
+          for (let k = 0; k < mouths.length; k++) if (mouths[k] !== anchor && Math.abs(mouths[k] - brookU) < 10) mouths[k] = brookU + (mouths[k] < brookU ? -10 : 10);
+        mouths.sort((a, b) => a - b);
+        const kept: number[] = [];
+        for (const a of mouths) {
+          const near = kept.length > 0 && a - kept[kept.length - 1] < SIDE_VALLEY.gap[0] * cfg.apart;
+          if (near && a !== anchor) continue;
+          if (near) kept.pop();
+          kept.push(a);
+        }
+        mouths = kept;
+        const gaps = mouths.slice(1).map((a, k) => a - mouths[k]);
+        const mean = gaps.reduce((x, y) => x + y, 0) / Math.max(1, gaps.length);
+        if (spreadOf(gaps) >= COMB.spread.gap + 0.08 && gaps.every((x) => x >= (COMB.gap[0] + 0.03) * mean && x <= (COMB.gap[1] - 0.1) * mean)) break;
+      }
+      for (let m = 0; m < mouths.length; m++) {
+        const a = mouths[m];
+        const planned = a === anchor;
+        const vf = lineAt(line, p.step, a);
+        const k = out.length + vs.length;
+        const alcove = !planned && g.f() < cfg.alcove;
+        const len = planned ? Math.max(cfg.len[0], MASSIF.least, p.found?.anchorLen ?? p.gulch.length) : alcove ? g.r(SIDE_VALLEY.alcoveLen[0], SIDE_VALLEY.alcoveLen[1]) : g.r(cfg.len[0], cfg.len[1]);
+        const n = wallNormal(p, wall, a);
+        const cell = g.r(SIDE_VALLEY.turnCell[0], SIDE_VALLEY.turnCell[1]);
+        const most = rad(SIDE_VALLEY.off);
+        // (its course: a heading off the normal that turns by noise along it, held inside the normal's cone softly; the
+        // gulch's leaves the wall the way the Red Fall's hanging valley runs behind its lip, along the grid (stage 1 lays
+        // the lip as a stair along one axis and its rows behind along the other: `raster/falls.ts`), easing into its own
+        // heading over its narrows' distance)
+        let back = 0;
+        if (planned) {
+          const f0 = toMap(T, [a, vf]);
+          const along = toMap(T, [a + 1, vf]);
+          const into = toMap(T, [a, vf + 1]);
+          const lipX = Math.abs(along[0] - f0[0]) >= Math.abs(along[1] - f0[1]);
+          const gd: Point = lipX ? [0, Math.sign(into[1] - f0[1])] : [Math.sign(into[0] - f0[0]), 0];
+          const l0 = toLocal(T, f0);
+          const l1 = toLocal(T, [f0[0] + gd[0], f0[1] + gd[1]]);
+          const gl: Point = [l1[0] - l0[0], l1[1] - l0[1]];
+          back = Math.atan2(n[0] * gl[1] - n[1] * gl[0], n[0] * gl[0] + n[1] * gl[1]);
+        }
+        const course = (a0: number, seed: number, from: Point, n0: Point, steps: number, bend: number): { pts: Point[]; heads: number[] } => {
+          const pts: Point[] = [from];
+          const heads: number[] = [];
+          for (let s = 0; s < steps; s++) {
+            const ease = planned ? smoothstep(Math.min(1, s / MASSIF.narrows)) : 1;
+            const th = ease * most * Math.tanh((a0 + bend * fbm(seed, s, 0, cell, 2)) / most) + (1 - ease) * back;
+            heads.push(th);
+            const d: Point = [n0[0] * Math.cos(th) - n0[1] * Math.sin(th), n0[0] * Math.sin(th) + n0[1] * Math.cos(th)];
+            const q = pts[pts.length - 1];
+            pts.push([q[0] + d[0], q[1] + d[1]]);
+          }
+          return { pts, heads };
+        };
+        // (its heading: none within `differ` of its neighbour's, nor running beside it within `COMB.parallel` for more
+        // than `COMB.run` tiles)
+        let best: { pts: Point[]; heads: number[]; angle: number } | null = null;
+        for (let t = 0; t < 8; t++) {
+          const angle = rad(g.r(-SIDE_VALLEY.angle, SIDE_VALLEY.angle));
+          if (Number.isFinite(prevAngle) && Math.abs(angle - prevAngle) < rad(SIDE_VALLEY.differ) && t < 7) continue;
+          const c = course(angle, wSeed + k * 7919, [a, vf], n, Math.round(len), rad(alcove ? 8 : SIDE_VALLEY.bend));
+          // (the gulch's rock keeps clear of the terrace's brook, whose spring stands in the far wall)
+          if (planned && t < 7 && c.pts.some((q) => Math.hypot(q[0] - brookAt[0], q[1] - brookAt[1]) < MASSIF.brook)) continue;
+          // (read as the comb measure reads it)
+          c.heads = c.heads.map((_, s) => headingAt(c.pts, s, n));
+          let run = 0;
+          let longest = 0;
+          if (prev) for (let s = 0; s < Math.min(prev.length, c.heads.length); s++) longest = Math.max(longest, (run = Math.abs(c.heads[s] - prev[s]) < rad(COMB.parallel) ? run + 1 : 0));
+          best = { ...c, angle };
+          if (longest <= COMB.run - 2) break;
+        }
+        let { pts, heads } = best!;
+        const { angle } = best!;
+        // (the gulch's head and its rock stand on the map: its course ends short of the edge, if it must)
+        if (planned)
+          while (pts.length > MASSIF.least + 1 && !onMap(T, pts[pts.length - 1], MASSIF.edge)) {
+            pts = pts.slice(0, -1);
+            heads = heads.slice(0, pts.length - 1);
+          }
+        if (!onMap(T, pts[0], 2) || !onMap(T, pts[pts.length - 1], 1)) continue;
+        prev = heads;
+        prevAngle = angle;
+        const hangR = alcove ? cfg.alcoveHang : wall === "far" || g.f() < cfg.tallShare ? cfg.hang : cfg.lowHang;
+        const foot = wall === "far" ? (a < p.plainFrom ? p.L + TERRACE.rise : plainLevel(p, a, vf) - 1) : levelAt(p, a, vf);
+        // (a far valley's floor rises a level or more to its head, under the map's top less two, where its spring's
+        // water may stand; the gulch's mouth hangs the plan's Red Fall over the backswamp)
+        const drawnHang = Math.round(g.r(hangR[0], hangR[1] + 0.99) - 0.49);
+        const hang = wall === "far" ? Math.min(planned ? p.gulch.h : drawnHang, plan.top - 3 - foot) : drawnHang;
+        const riseK = Math.round(g.r(SIDE_VALLEY.rise[0], SIDE_VALLEY.rise[1] + 0.99) - 0.49);
+        const h0 = alcove ? g.r(SIDE_VALLEY.alcoveHalf[0], SIDE_VALLEY.alcoveHalf[1]) : g.r(cfg.half[0], cfg.half[1]);
+        const pinched = !alcove && wall === "far";
+        const L = pts.length - 1;
+        const pAt0 = Math.round(L * g.r(SIDE_VALLEY.pinchAt[0], SIDE_VALLEY.pinchAt[1]));
+        // (the gulch's narrows stands up the gulch past the Red Fall's hanging valley, which stage 1 lays as wide as
+        // its lip for `VALLEY_BACK` rows behind it: there the narrows would be the lip's width)
+        const pAt = planned ? Math.max(pAt0, MASSIF.narrows) : pAt0;
+        const pLen = g.r(SIDE_VALLEY.pinchLen[0], SIDE_VALLEY.pinchLen[1]);
+        const pR = planned ? SIDE_VALLEY.pinchPlanned : SIDE_VALLEY.pinch;
+        const pHalf = g.r(pR[0], pR[1]);
+        const half = pts.map((_, s) => {
+          // (an alcove rounds off at its head; a valley wanders in width and narrows toward its head)
+          if (alcove) return Math.max(1.4, h0 * Math.sqrt(Math.max(0, 1 - (s / (L + 1.5)) ** 2)));
+          const base = Math.max(1.6, h0 * (1 + SIDE_VALLEY.widthVary * fbm(wSeed, s, k * 97 + 50, 6, 2)) * (1 - SIDE_VALLEY.taper * smoothstep(s / L)));
+          if (!pinched) return base;
+          const t = Math.abs(s - pAt) / (pLen / 2);
+          return t >= 1 ? base : pHalf + (base - pHalf) * smoothstep(t);
+        });
+        const rises = wall === "far" ? Math.max(0, Math.min(riseK, plan.top - 2 - foot - hang)) : riseK;
+        const v: SideValley = { wall, foot, mouth: a, line: pts, hang, rise: rises, half, pinch: pinched ? pAt : -1, kind: alcove ? "alcove" : "valley", box: boxOf(pts, 14) };
+        if (planned) v.planned = true;
+        // its branch: a side valley of its own joining it partway up, off at a wide angle
+        if (!alcove && !planned && L >= SIDE_VALLEY.branchFrom && g.f() < SIDE_VALLEY.branchShare) {
+          const at = Math.round(L * g.r(SIDE_VALLEY.branchAt[0], SIDE_VALLEY.branchAt[1]));
+          const side = g.f() < 0.5 ? 1 : -1;
+          const th = heads[Math.min(heads.length - 1, at)] + side * rad(g.r(SIDE_VALLEY.branchAngle[0], SIDE_VALLEY.branchAngle[1]));
+          const bn: Point = [n[0] * Math.cos(th) - n[1] * Math.sin(th), n[0] * Math.sin(th) + n[1] * Math.cos(th)];
+          const bl = course(0, wSeed + k * 7919 + 4111, pts[at], bn, Math.round(g.r(SIDE_VALLEY.branchLen[0], SIDE_VALLEY.branchLen[1])), rad(SIDE_VALLEY.bend)).pts;
+          if (onMap(T, bl[bl.length - 1], 1)) {
+            v.branch = { line: bl, at, half: g.r(SIDE_VALLEY.branchHalf[0], SIDE_VALLEY.branchHalf[1]) };
+            v.box = boxOf([...pts, ...bl], 14);
+          }
+        }
+        if (!alcove && wall === "far" && (g.f() < OLD_VALLEY.share || planned)) {
+          // the beheaded valley: heads beside the side valley's wall and falls away from the floor to an edge (the
+          // gulch's, the Dry Fork, never turning back toward the floor: its heading held within `OLD_VALLEY.away`)
+          const at = Math.round(L * g.r(OLD_VALLEY.at[0], OLD_VALLEY.at[1]));
+          const side0 = g.f() < 0.5 ? 1 : -1;
+          const c = pts[Math.min(L, at)];
+          const dn = pts[Math.min(L, at + 1)];
+          const dl = Math.hypot(dn[0] - c[0], dn[1] - c[1]) || 1;
+          const nrm: Point = [(dn[1] - c[1]) / dl, -(dn[0] - c[0]) / dl];
+          const off = half[Math.min(L, at)] + g.r(OLD_VALLEY.gap[0], OLD_VALLEY.gap[1]) + g.r(OLD_VALLEY.half[0], OLD_VALLEY.half[1]);
+          const turn0 = g.r(0.15, OLD_VALLEY.turn);
+          const spread = g.r(OLD_VALLEY.part[0], OLD_VALLEY.part[1]);
+          const oSeed = S(plan, `old.${k}`);
+          const wide = Math.max(...half) + 3;
+          // (the Dry Fork heads on the gulch's side away from the floor, and parts from the gulch: it turns away from
+          // the gulch's own heading, and is drawn again, turning harder (or on the other side, where the gulch runs
+          // straight into the wall), while it comes back within the gulch's rock)
+          const awaySide = nrm[1] * sg > 0 ? 1 : -1;
+          const either = Math.abs(nrm[1]) < 0.3;
+          let ol: Point[] = [];
+          for (let t = 0; t < (planned ? 6 : 1); t++) {
+            const side = !planned ? side0 : either ? (t < 3 ? side0 : -side0) : awaySide;
+            const head: Point = [c[0] + side * nrm[0] * off * sg, c[1] + side * nrm[1] * off * sg];
+            const turn = planned ? -sg * heads[Math.min(heads.length - 1, at)] + side * (spread + 0.3 * (t % 3)) : side * turn0;
+            ol = [head];
+            for (let s = 1; s < 3 * T.U; s += 1) {
+              const th0 = turn + (planned ? OLD_VALLEY.plannedWander : OLD_VALLEY.wander) * fbm(oSeed, s, 0, OLD_VALLEY.wanderCell, 3) * Math.min(1, s / 8);
+              const th = planned ? OLD_VALLEY.away * Math.tanh(th0 / OLD_VALLEY.away) : th0;
+              const q0 = ol[ol.length - 1];
+              const q: Point = [q0[0] + Math.sin(th), q0[1] + sg * Math.cos(th)];
+              ol.push(q);
+              if (!onMap(T, q, -2)) break;
+            }
+            if (!planned || ol.slice(3).every((q) => nearOnLine(pts, q[0], q[1]).d > wide)) break;
+          }
+          if (!onMap(T, ol[ol.length - 1], -1)) v.old = { line: ol, over: Math.round(g.r(OLD_VALLEY.over[0], OLD_VALLEY.over[1] + 0.99) - 0.49), at, half: g.r(OLD_VALLEY.half[0], OLD_VALLEY.half[1]), box: boxOf(ol, 18) };
+        }
+        vs.push(v);
+      }
+      // (no side valley comes near the Dry Fork: one that would is left out; an old valley never runs through another
+      // side valley: one whose course comes within a side valley's rock of another's is left out, and its side valley
+      // stands alone)
+      const crosses = (o: NonNullable<SideValley["old"]>, w: SideValley, by: number) => o.line.some((q) => inBox(w.box, q[0], q[1]) && nearOnLine(w.line, q[0], q[1]).d < Math.max(...w.half) + by);
+      const fork = vs.find((v) => v.planned)?.old;
+      const kept = fork ? vs.filter((w) => w.planned || !crosses(fork, w, MASSIF.clear)) : vs;
+      for (const v of kept) {
+        if (!v.old || v.planned) continue;
+        const o = v.old;
+        if (kept.some((w) => w !== v && crosses(o, w, SIDE_VALLEY.collar))) delete v.old;
+      }
+      return kept;
+    };
+    let drawn: SideValley[] = [];
+    for (let t = 0; t < SIDE_VALLEY.combTries; t++) {
+      drawn = drawWall();
+      if (!combOf(plan, drawn, wall).why) break;
     }
-    for (let m = 0; m < mouths.length; m++) {
-      const a = mouths[m];
-      const vf = lineAt(line, p.step, a);
-      const k = out.length;
-      const alcove = a !== anchor && g.f() < cfg.alcove;
-      const len = alcove ? g.r(SIDE_VALLEY.alcoveLen[0], SIDE_VALLEY.alcoveLen[1]) : g.r(cfg.len[0], cfg.len[1]);
-      const n = wallNormal(p, wall, a);
-      const cell = g.r(SIDE_VALLEY.turnCell[0], SIDE_VALLEY.turnCell[1]);
-      const most = rad(SIDE_VALLEY.off);
-      // (its course: a heading off the normal that turns by noise along it, held inside the normal's cone softly)
-      const course = (a0: number, seed: number, from: Point, n0: Point, steps: number, bend: number): { pts: Point[]; heads: number[] } => {
-        const pts: Point[] = [from];
-        const heads: number[] = [];
-        for (let s = 0; s < steps; s++) {
-          const th = most * Math.tanh((a0 + bend * fbm(seed, s, 0, cell, 2)) / most);
-          heads.push(th);
-          const d: Point = [n0[0] * Math.cos(th) - n0[1] * Math.sin(th), n0[0] * Math.sin(th) + n0[1] * Math.cos(th)];
-          const q = pts[pts.length - 1];
-          pts.push([q[0] + d[0], q[1] + d[1]]);
-        }
-        return { pts, heads };
-      };
-      // (its heading: none within `differ` of its neighbour's, nor running beside it within `COMB.parallel` for more
-      // than `COMB.run` tiles)
-      let best: { pts: Point[]; heads: number[]; angle: number } | null = null;
-      for (let t = 0; t < 8; t++) {
-        const angle = rad(g.r(-SIDE_VALLEY.angle, SIDE_VALLEY.angle));
-        if (Number.isFinite(prevAngle) && Math.abs(angle - prevAngle) < rad(SIDE_VALLEY.differ) && t < 7) continue;
-        const c = course(angle, wSeed + k * 7919, [a, vf], n, Math.round(len), rad(alcove ? 8 : SIDE_VALLEY.bend));
-        // (read as the comb measure reads it)
-        c.heads = c.heads.map((_, s) => headingAt(c.pts, s, n));
-        let run = 0;
-        let longest = 0;
-        if (prev) for (let s = 0; s < Math.min(prev.length, c.heads.length); s++) longest = Math.max(longest, (run = Math.abs(c.heads[s] - prev[s]) < rad(COMB.parallel) ? run + 1 : 0));
-        best = { ...c, angle };
-        if (longest <= COMB.run - 2) break;
-      }
-      const { pts, heads, angle } = best!;
-      if (!onMap(T, pts[0], 2) || !onMap(T, pts[pts.length - 1], 1)) continue;
-      prev = heads;
-      prevAngle = angle;
-      const hangR = alcove ? cfg.alcoveHang : wall === "far" || g.f() < cfg.tallShare ? cfg.hang : cfg.lowHang;
-      const foot = wall === "far" ? (a < p.plainFrom ? p.L + TERRACE.rise : plainLevel(p, a, vf) - 1) : levelAt(p, a, vf);
-      // (a far valley's floor rises a level or more to its head, under the map's top less two, where its spring's
-      // water may stand)
-      const drawn = Math.round(g.r(hangR[0], hangR[1] + 0.99) - 0.49);
-      const hang = wall === "far" ? Math.min(drawn, plan.top - 3 - foot) : drawn;
-      const riseK = Math.round(g.r(SIDE_VALLEY.rise[0], SIDE_VALLEY.rise[1] + 0.99) - 0.49);
-      const h0 = alcove ? g.r(SIDE_VALLEY.alcoveHalf[0], SIDE_VALLEY.alcoveHalf[1]) : g.r(cfg.half[0], cfg.half[1]);
-      const pinched = !alcove && wall === "far";
-      const pAt = Math.round(len * g.r(SIDE_VALLEY.pinchAt[0], SIDE_VALLEY.pinchAt[1]));
-      const pLen = g.r(SIDE_VALLEY.pinchLen[0], SIDE_VALLEY.pinchLen[1]);
-      const pHalf = g.r(SIDE_VALLEY.pinch[0], SIDE_VALLEY.pinch[1]);
-      const L = pts.length - 1;
-      const half = pts.map((_, s) => {
-        // (an alcove rounds off at its head; a valley wanders in width and narrows toward its head)
-        if (alcove) return Math.max(1.4, h0 * Math.sqrt(Math.max(0, 1 - (s / (L + 1.5)) ** 2)));
-        const base = Math.max(1.6, h0 * (1 + SIDE_VALLEY.widthVary * fbm(wSeed, s, k * 97 + 50, 6, 2)) * (1 - SIDE_VALLEY.taper * smoothstep(s / L)));
-        if (!pinched) return base;
-        const t = Math.abs(s - pAt) / (pLen / 2);
-        return t >= 1 ? base : pHalf + (base - pHalf) * smoothstep(t);
-      });
-      const rises = wall === "far" ? Math.max(0, Math.min(riseK, plan.top - 2 - foot - hang)) : riseK;
-      const v: SideValley = { wall, foot, mouth: a, line: pts, hang, rise: rises, half, pinch: pinched ? pAt : -1, kind: alcove ? "alcove" : "valley", box: boxOf(pts, 14) };
-      // its branch: a side valley of its own joining it partway up, off at a wide angle
-      if (!alcove && L >= SIDE_VALLEY.branchFrom && g.f() < SIDE_VALLEY.branchShare) {
-        const at = Math.round(L * g.r(SIDE_VALLEY.branchAt[0], SIDE_VALLEY.branchAt[1]));
-        const side = g.f() < 0.5 ? 1 : -1;
-        const th = heads[Math.min(heads.length - 1, at)] + side * rad(g.r(SIDE_VALLEY.branchAngle[0], SIDE_VALLEY.branchAngle[1]));
-        const bn: Point = [n[0] * Math.cos(th) - n[1] * Math.sin(th), n[0] * Math.sin(th) + n[1] * Math.cos(th)];
-        const bl = course(0, wSeed + k * 7919 + 4111, pts[at], bn, Math.round(g.r(SIDE_VALLEY.branchLen[0], SIDE_VALLEY.branchLen[1])), rad(SIDE_VALLEY.bend)).pts;
-        if (onMap(T, bl[bl.length - 1], 1)) {
-          v.branch = { line: bl, at, half: g.r(SIDE_VALLEY.branchHalf[0], SIDE_VALLEY.branchHalf[1]) };
-          v.box = boxOf([...pts, ...bl], 14);
-        }
-      }
-      if (!alcove && wall === "far" && (g.f() < OLD_VALLEY.share || a === anchor)) {
-        // the beheaded valley: heads beside the side valley's wall and falls away from the floor to an edge
-        const at = Math.round(L * g.r(OLD_VALLEY.at[0], OLD_VALLEY.at[1]));
-        const side = g.f() < 0.5 ? 1 : -1;
-        const c = pts[Math.min(L, at)];
-        const dn = pts[Math.min(L, at + 1)];
-        const dl = Math.hypot(dn[0] - c[0], dn[1] - c[1]) || 1;
-        const nrm: Point = [(dn[1] - c[1]) / dl, -(dn[0] - c[0]) / dl];
-        const off = half[Math.min(L, at)] + g.r(OLD_VALLEY.gap[0], OLD_VALLEY.gap[1]) + g.r(OLD_VALLEY.half[0], OLD_VALLEY.half[1]);
-        const head: Point = [c[0] + side * nrm[0] * off * sg, c[1] + side * nrm[1] * off * sg];
-        const turn = side * g.r(0.15, OLD_VALLEY.turn);
-        const oSeed = S(plan, `old.${k}`);
-        const ol: Point[] = [head];
-        for (let s = 1; s < 3 * T.U; s += 1) {
-          const th = turn + OLD_VALLEY.wander * fbm(oSeed, s, 0, OLD_VALLEY.wanderCell, 3) * Math.min(1, s / 8);
-          const q0 = ol[ol.length - 1];
-          const q: Point = [q0[0] + Math.sin(th), q0[1] + sg * Math.cos(th)];
-          ol.push(q);
-          if (!onMap(T, q, -2)) break;
-        }
-        if (!onMap(T, ol[ol.length - 1], -1)) v.old = { line: ol, over: Math.round(g.r(OLD_VALLEY.over[0], OLD_VALLEY.over[1] + 0.99) - 0.49), at, half: g.r(OLD_VALLEY.half[0], OLD_VALLEY.half[1]), box: boxOf(ol, 18) };
-      }
-      out.push(v);
+    // (no draw holds: the fewest side valleys the comb measure allows, the last down the wall left out first)
+    while (combOf(plan, drawn, wall).why) {
+      const k = drawn.map((v, j) => (v.planned ? -1 : j)).filter((j) => j >= 0).pop();
+      if (k === undefined) break;
+      drawn = drawn.filter((_, j) => j !== k);
     }
-  }
-  // (an old valley never runs through another side valley: one whose course comes within a side valley's rock of
-  // another's is left out, and its side valley stands alone)
-  for (const v of out) {
-    if (!v.old) continue;
-    const o = v.old;
-    if (out.some((w) => w !== v && o.line.some((q) => nearOnLine(w.line, q[0], q[1]).d < Math.max(...w.half) + SIDE_VALLEY.collar))) delete v.old;
+    out.push(...drawn);
   }
   return out;
 }
@@ -438,8 +543,10 @@ export function combOf(plan: PremisePlan, valleys: readonly SideValley[], wall: 
   return out;
 }
 
-/** The nearest point of a local polyline (a point a tile) to (u, v): its distance and its index (fractional). */
+/** The nearest point of a local polyline (a point a tile) to (u, v): its distance and its index (fractional). A line of
+ *  one point is that point (a valley's head, rounded off). */
 export function nearOnLine(line: readonly Point[], u: number, v: number): { d: number; s: number } {
+  if (line.length === 1) return { d: Math.hypot(line[0][0] - u, line[0][1] - v), s: 0 };
   let best = Infinity;
   let at = 0;
   for (let k = 0; k + 1 < line.length; k++) {
@@ -547,7 +654,7 @@ export function softUpland(up: ArrayLike<number>, W: number, H: number, seed: nu
 
 /** Stage 2's ground for a plan and its water (stage 1), the upland the theme's (`upland`, `reliefBetween` on the same
  *  water in the theme's style). The side valleys as drawn; the mend comes after the search. */
-export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array): PlainRelief {
+export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array, opts: { bench?: number } = {}): PlainRelief {
   const p = plainOf(plan)!;
   const { W, H } = plan;
   const N = W * H;
@@ -580,6 +687,19 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
   };
   const valleys = sideValleys(plan, p);
   const gulch = p.found ? valleys[p.found.valley] : null;
+  // (the gulch's rock: round the planned side valley and its Dry Fork's head, see `MASSIF`)
+  const pl = (() => {
+    const sv = valleys.find((v) => v.planned);
+    if (!sv) return null;
+    // (the col over the highest floor the search may read its narrows on: its lower half)
+    const want = floorAt(sv, (sv.line.length - 1) / 2) + GULCH.colOver;
+    const o = sv.old ?? null;
+    const head = o ? o.line.slice(0, MASSIF.oldLen + 1) : null;
+    const wide = Math.max(...sv.half) + MASSIF.out;
+    const oWide = o ? o.half + MASSIF.oldOut : 0;
+    const col: [Point, Point] | null = o ? [sv.line[Math.min(sv.line.length - 1, o.at)], o.line[0]] : null;
+    return { sv, want, rim: want + 1, o, head, wide, oWide, col, box: boxOf([...sv.line, ...(head ?? [])], Math.max(wide, oWide) + 8) };
+  })();
   const g = landRng(S(plan, "terrace"));
   const bulge = g.r(TERRACE_LAND.bulge[0], TERRACE_LAND.bulge[1]);
   const st = plan.frame.start;
@@ -587,6 +707,34 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
 
   const h = new Uint8Array(N);
   const floor = new Uint8Array(N);
+  // (the floor's own numbers per tile, kept so the terrace may grow without the walls made again)
+  const fl = { u: new Float64Array(N), v: new Float64Array(N), side: new Float64Array(N), vf: new Float64Array(N), lv: new Int16Array(N), vb: new Float64Array(N) };
+  const floorTile = (i: number, grow: number): void => {
+    const x = i % W;
+    const y = (i - x) / W;
+    const u = fl.u[i];
+    const v = fl.v[i];
+    const side = fl.side[i];
+    const vf = fl.vf[i];
+    // the terrace: from its strip past the levee's foot to the far wall, down the valley to its lip (`grow` tiles on
+    // where the start's bench needs it)
+    const across = Math.max(0, Math.min(1, (v - side) / Math.max(1, vf - side)));
+    let lip = p.plainFrom + TERRACE_LAND.lip + grow + bulge * Math.sin(Math.PI * across) + TERRACE_LAND.wander * fbm(sLip, v, 0, TERRACE_LAND.cell, 2);
+    // (its bench never within three tiles of the start's 5 × 5: the start stands on the terrace)
+    if (Math.abs(v - vS) < 6) lip = Math.max(lip, uS + 5 + TERRACE_LAND.step[1]);
+    const inside = Math.min(lip - u, v - side);
+    if (inside > 0) {
+      const step = inRange(TERRACE_LAND.step, fbm(sStep, x, y, 9, 2));
+      h[i] = p.L + (inside > step ? TERRACE.rise : 1);
+      floor[i] = 3;
+    } else if (v >= fl.vb[i]) {
+      h[i] = fl.lv[i] - 1;
+      floor[i] = 2;
+    } else {
+      h[i] = fl.lv[i];
+      floor[i] = 1;
+    }
+  };
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
@@ -601,26 +749,15 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
       let z: number;
       if (v >= vn && v <= vf) {
         // the floor
-        const lv = levelAt(p, u + calm * FLOOR_WARP.riser * fbm(sRiser, x, y, FLOOR_WARP.riserCell, 2), v);
-        const vb = vf - lineAt(p.swamp, p.step, u) + FLOOR_WARP.swamp * fbm(sSw, x, y, FLOOR_WARP.swampCell, 2);
-        // the terrace: from its strip past the levee's foot to the far wall, down the valley to its lip
-        const side = footAt(u) + inRange(TERRACE_LAND.strip, fbm(sStrip, u, 0, 9, 2));
-        const across = Math.max(0, Math.min(1, (v - side) / Math.max(1, vf - side)));
-        let lip = p.plainFrom + TERRACE_LAND.lip + bulge * Math.sin(Math.PI * across) + TERRACE_LAND.wander * fbm(sLip, v, 0, TERRACE_LAND.cell, 2);
-        // (its bench never within three tiles of the start's 5 × 5: the start stands on the terrace)
-        if (Math.abs(v - vS) < 6) lip = Math.max(lip, uS + 5 + TERRACE_LAND.step[1]);
-        const inside = Math.min(lip - u, v - side);
-        if (inside > 0) {
-          const step = inRange(TERRACE_LAND.step, fbm(sStep, x, y, 9, 2));
-          z = p.L + (inside > step ? TERRACE.rise : 1);
-          floor[i] = 3;
-        } else if (v >= vb) {
-          z = lv - 1;
-          floor[i] = 2;
-        } else {
-          z = lv;
-          floor[i] = 1;
-        }
+        fl.u[i] = u;
+        fl.v[i] = v;
+        fl.vf[i] = vf;
+        fl.lv[i] = levelAt(p, u + calm * FLOOR_WARP.riser * fbm(sRiser, x, y, FLOOR_WARP.riserCell, 2), v);
+        const sw = lineAt(p.swamp, p.step, u) * (u >= p.gulch.mouth && u <= p.red.swampTo ? 1 + RED_WASH.widen : 1);
+        fl.vb[i] = vf - sw + FLOOR_WARP.swamp * fbm(sSw, x, y, FLOOR_WARP.swampCell, 2);
+        fl.side[i] = footAt(u) + inRange(TERRACE_LAND.strip, fbm(sStrip, u, 0, 9, 2));
+        floorTile(i, 0);
+        continue;
       } else {
         // the walls: from the foot's level, crags and benches to the crest; past it the far wall's plateau, or the
         // theme's upland beyond the near wall
@@ -689,11 +826,26 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
           const c = top - rise(Math.max(0, e - Math.max(...sv.half) - SIDE_VALLEY.collar), 3, 2, 3, 3);
           if (c > z) z = c;
         }
+        // the gulch's rock, a level over its col, before the gulch and the Dry Fork are cut into it
+        let mass = Infinity;
+        let inGulch = false;
+        if (far && pl && inBox(pl.box, u0, v0)) {
+          const len = pl.sv.line.length - 1;
+          const q = nearOnLine(pl.sv.line, u0, v0);
+          const eg = q.s >= len - 0.01 ? nearOnLine([pl.sv.line[len]], u0, v0).d : q.d;
+          inGulch = eg <= halfAt(pl.sv, q.s) + 0.5;
+          const eo = pl.head ? nearOnLine(pl.head, u0, v0).d - pl.oWide : Infinity;
+          mass = Math.min(eg - pl.wide, eo);
+          const m = pl.rim - rise(Math.max(0, mass), 2, 2, 2, 2);
+          if (m > z) z = m;
+        }
         // (a valley's edges jag by noise: a curving cut on the grid steps unevenly, never a stair of one tread)
         const jag = SIDE_VALLEY.jag * fbm(sJag, x, y, SIDE_VALLEY.jagCell, 2);
         const wallOf = (fl: number, off: number, crag: number) => fl + rise(off + jag * Math.min(1, off / 2), crag, 1.2 + 1.2 * (fbm(sSide, x, y, 11, 2) + 1), crag, 2);
         for (const sv of valleys) {
           if (sv.wall !== (far ? "far" : "near")) continue;
+          // (none but the gulch's cut into its rock)
+          if (!sv.planned && mass <= MASSIF.keep) continue;
           // (in the plan's own frame, unwarped, as the search reads them)
           if (!inBox(sv.box, u0, v0) && !(sv.old && inBox(sv.old.box, u0, v0))) continue;
           const nq = nearOnLine(sv.line, u0, v0);
@@ -723,7 +875,8 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
           if (sv.old && inBox(sv.old.box, u0, v0)) {
             const ov = sv.old;
             const oq = nearOnLine(ov.line, u0, v0);
-            const flAt = floorAt(sv, ov.at);
+            // (the Dry Fork's bed a level under the col at its head)
+            const flAt = sv.planned && pl ? pl.want - 1 - ov.over : floorAt(sv, ov.at);
             const bed = flAt + ov.over - Math.min(6, oq.s / 7);
             // (an old valley: broad, its sides in low crags with benches between)
             const off0 = oq.s < 0.01 ? nearOnLine([ov.line[0]], u0, v0).d : oq.d;
@@ -733,9 +886,36 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
             if (cut < z) z = cut;
           }
         }
+        // (the col: a saddle at its level from the gulch's side to the Dry Fork's head, whose bed stands a level under it)
+        if (pl?.col && pl.o && !inGulch && mass <= 0 && nearOnLine(pl.col, u0, v0).d <= pl.o.half + 1 && nearOnLine(pl.o.line, u0, v0).d > pl.o.half) z = pl.want;
       }
       h[i] = Math.max(BED_FLOOR + 1, Math.min(sky, Math.round(z)));
     }
+  // the start's bench (D515, the gate's `start.level_land`): the terrace's top joined to the start, its water left out;
+  // where it holds less than `bench`, the terrace's lip moves on down the valley (`TERRACE_LAND.grow` at a time) until
+  // it does: the maker never makes what the start's check refuses (planning's verdict on round 2)
+  if (opts.bench) {
+    const s0 = Math.min(H - 1, Math.max(0, st.y)) * W + Math.min(W - 1, Math.max(0, st.x));
+    const benchOf = (): number => {
+      const z0 = p.L + TERRACE.rise;
+      if (h[s0] !== z0) return 0;
+      const seen = new Uint8Array(N);
+      const q = [s0];
+      seen[s0] = 1;
+      for (let k = 0; k < q.length; k++) {
+        const c = q[k];
+        const x = c % W;
+        for (const j of [x > 0 ? c - 1 : -1, x + 1 < W ? c + 1 : -1, c - W, c + W])
+          if (j >= 0 && j < N && !seen[j] && h[j] === z0 && !r.channel[j] && !r.lake[j] && !r.pool[j]) {
+            seen[j] = 1;
+            q.push(j);
+          }
+      }
+      return q.length;
+    };
+    for (let grow = TERRACE_LAND.grow; grow <= TERRACE_LAND.growMost && benchOf() < opts.bench; grow += TERRACE_LAND.grow)
+      for (let i = 0; i < N; i++) if (floor[i]) floorTile(i, grow);
+  }
   // the sloughs: dry beds a level under the plain
   for (const sl of p.sloughs) {
     for (let y = 0; y < H; y++)
@@ -753,12 +933,46 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
         }
       }
   }
+  // the red stream's wash across the plain to its join (`RED_WASH`)
+  const redLink = plan.links.find((l) => l.id === I.red);
+  if (p.red.end === "join" && redLink?.path) {
+    const cross = redLink.path.filter((q) => toLocal(T, q)[0] >= p.red.swampTo - 1);
+    if (cross.length > 1) {
+      const sWash = S(plan, "wash");
+      const pad = RED_WASH.reach[1] + 1;
+      const x0 = Math.max(0, Math.floor(Math.min(...cross.map((q) => q[0])) - pad));
+      const x1 = Math.min(W - 1, Math.ceil(Math.max(...cross.map((q) => q[0])) + pad));
+      const y0 = Math.max(0, Math.floor(Math.min(...cross.map((q) => q[1])) - pad));
+      const y1 = Math.min(H - 1, Math.ceil(Math.max(...cross.map((q) => q[1])) + pad));
+      for (let y = y0; y <= y1; y++)
+        for (let x = x0; x <= x1; x++) {
+          const i = y * W + x;
+          if (floor[i] !== 1) continue;
+          const q = pathDist(x + 0.5, y + 0.5, cross);
+          if (q.d > inRange(RED_WASH.reach, fbm(sWash, x, y, RED_WASH.cell, 2))) continue;
+          const [u, v] = toLocal(T, [x + 0.5, y + 0.5]);
+          const want = levelAt(p, u, v) - 1;
+          if (want < h[i]) {
+            h[i] = want;
+            floor[i] = 4;
+          }
+        }
+    }
+  }
   // the levees: the banks over the land where they stand
   const levee = leveeOf(plan, p);
   const banks = leveeBanks(W, H, levee);
   for (let i = 0; i < N; i++) if (banks.over[i] && floor[i]) h[i] = Math.min(sky, h[i] + banks.over[i]);
   // stage 1's ground as it is, every other tile at least at its guard
   for (let i = 0; i < N; i++) h[i] = r.fixed[i] ? r.heights[i] : Math.max(h[i], r.heights[i]);
+  // (no bank's foot runs straight along the grid past `levee.wanders`' measure: it steps out a tile where it would)
+  const beside = new Uint8Array(N);
+  const keep = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    keep[i] = r.fixed[i] || r.channel[i] || r.lake[i] || r.pool[i] ? 1 : 0;
+    beside[i] = floor[i] && !r.channel[i] && !r.lake[i] && !r.pool[i] ? 1 : 0;
+  }
+  breakBankRuns(W, H, h, banks.over, beside, keep, BANK_STRAIGHT - 2);
   return { heights: h, floor, valleys, bank: banks.over, levee };
 }
 
@@ -1144,10 +1358,11 @@ export function resiteGulch(plan: PremisePlan, f: GulchFound): PremisePlan {
   const nAt: Point = [sv.line[nK][0] + (sv.line[nK + 1][0] - sv.line[nK][0]) * nT, sv.line[nK][1] + (sv.line[nK + 1][1] - sv.line[nK][1]) * nT];
   const colTile: Point = [(f.col.i % W) + 0.5, Math.floor(f.col.i / W) + 0.5];
   const colLocal = toLocal(T, colTile);
-  // the Red Fall's path from the Red Spring down the gulch's line to its mouth, a point every 3 tiles
+  // the Red Fall's path from the Red Spring down the gulch's line to its mouth: out of the spring's pool, then a point a
+  // tile (a point every few tiles drew it as a ruled polyline up the gulch: it bends as the gulch bends)
   const fallPath: Point[] = [];
   const fallBed: number[] = [];
-  for (let s = headAt; s > 0; s -= 3) {
+  for (let s = headAt; s > 0; s -= s === headAt ? 3 : 1) {
     fallPath.push(map(sv.line[s]));
     fallBed.push(floorAt(sv, s));
   }
@@ -1165,9 +1380,20 @@ export function resiteGulch(plan: PremisePlan, f: GulchFound): PremisePlan {
   let low = Infinity;
   const redBed = newRed.map((q) => (low = Math.min(low, levelAt(p0, q[0], q[1]) - 2)));
   if (p0.red.end === "join" && Array.isArray(red.bed)) redBed[redBed.length - 1] = Math.min(redBed[redBed.length - 2] ?? Infinity, red.bed[red.bed.length - 1]);
-  // the Dry Fork: the way on from the col, a point every 4 tiles, ending on its edge
+  // the Dry Fork: the way on from the col, its first point the col, its second the way's tile `FORK_POUR` (where
+  // `fork.own` pours), then the way's stair eased (each point the mean of the way's tiles within `FORK_EASE` of it) a
+  // point every 2 tiles, ending on its edge (a point every 4 of the stair drew a ruled polyline)
   const wayPts = f.way.map((i) => [(i % W) + 0.5, Math.floor(i / W) + 0.5] as Point);
-  const fork: Point[] = wayPts.filter((_, k) => k % 4 === 0);
+  const eased = wayPts.map((_, k) => {
+    const a = Math.max(0, k - FORK_EASE);
+    const b = Math.min(wayPts.length - 1, k + FORK_EASE);
+    let x = 0;
+    let y = 0;
+    for (let j = a; j <= b; j++) [x, y] = [x + wayPts[j][0], y + wayPts[j][1]];
+    return [Math.round((100 * x) / (b - a + 1)) / 100, Math.round((100 * y) / (b - a + 1)) / 100] as Point;
+  });
+  const pourK = Math.min(FORK_POUR, wayPts.length - 1);
+  const fork: Point[] = [wayPts[0], ...(pourK > 0 ? [wayPts[pourK]] : []), ...eased.filter((_, k) => k > pourK + 1 && k < eased.length - 1 && k % 2 === 0)];
   const end = wayPts[wayPts.length - 1];
   const edge = edgeAt(W, end);
   const onEdge: Point = edge === "S" ? [end[0], 0] : edge === "N" ? [end[0], W] : edge === "W" ? [0, end[1]] : [W, end[1]];
@@ -1195,7 +1421,7 @@ export function resiteGulch(plan: PremisePlan, f: GulchFound): PremisePlan {
     gulch: { mouth: Math.round(uM * 100) / 100, h: f.crest - f.swamp, crest: f.crest, width: gw, length: Math.round(len * 100) / 100, head: map(head), narrows: { at: map(nAt), width: f.narrows.width, floor: f.narrows.floor }, rise: floorAt(sv, headAt) - f.crest },
     col: { at: colTile, level: f.col.level, side: colLocal[0] < nAt[0] ? "up" : "down" },
     fork: { path: fork, bed: [f.col.level - 1, Math.min(f.col.level - 1, forkEnd)], edge },
-    found: { valley: f.index, changed: f.changed, over: f.col.over, anchor: p0.found?.anchor ?? p0.gulch.mouth },
+    found: { valley: f.index, changed: f.changed, over: f.col.over, anchor: p0.found?.anchor ?? p0.gulch.mouth, anchorLen: p0.found?.anchorLen ?? p0.gulch.length },
     window: { ...p0.window, framed: f.framed },
   };
   const links = plan.links.map((l): Link => {
@@ -1632,15 +1858,16 @@ export interface PlainLand {
 }
 
 /** The land for one plan (the stage proper): the skeleton's water and the theme's upland, the relief, the search, the
- *  plan re-sited, its water again, the relief again on it and the mend. Or why the search found no gulch. */
-export function plainLandOf(spec: MapSpec, plan: PremisePlan, style: ReliefStyle): Omit<PlainLand, "frame" | "landFails" | "attempt" | "failed"> | { reason: string } {
+ *  plan re-sited, its water again, the relief again on it and the mend; the terrace grown to hold the start's bench of
+ *  `bench` level tiles (`plainRelief`). Or why the search found no gulch. */
+export function plainLandOf(spec: MapSpec, plan: PremisePlan, style: ReliefStyle, bench = 0): Omit<PlainLand, "frame" | "landFails" | "attempt" | "failed"> | { reason: string } {
   const t0 = performance.now();
   const sk = plainSkeleton(plan);
   const w1 = waterByNumber(sk);
   const t1 = performance.now();
   const upland = reliefBetween({ ...sk, ridges: [] }, w1, style);
   const t2 = performance.now();
-  const rl1 = plainRelief(sk, w1, upland);
+  const rl1 = plainRelief(sk, w1, upland, { bench });
   const t3 = performance.now();
   // (a gulch the skeleton's land holds is judged again in its own land: the plan re-sited to it, its red water drawn,
   // the relief made again round it; there it is measured afresh and the plan re-sited to that measure)
@@ -1653,7 +1880,7 @@ export function plainLandOf(spec: MapSpec, plan: PremisePlan, style: ReliefStyle
     const a = performance.now();
     const water = waterByNumber(plan2);
     const b = performance.now();
-    const rl = plainRelief(plan2, water, upland);
+    const rl = plainRelief(plan2, water, upland, { bench });
     tw += b - a;
     tr += performance.now() - b;
     const f2 = judgeGulch(plan2, rl, rl.heights, f.index);
@@ -1690,13 +1917,14 @@ export function plainLand(spec: MapSpec, theme: StyleTheme = "riverValley"): (Pl
   const failed: string[] = [];
   let last: (PlainLand & { held: boolean }) | null = null;
   for (let attempt = 0; attempt < PLAN_TRIES; attempt++) {
+    const ta = performance.now();
     const plan = poisonedPlain.draw(spec, attempt);
     if ("reason" in plan) {
       failed.push(plan.reason);
       continue;
     }
     const style = premiseStyle(theme, spec, attempt);
-    const land = plainLandOf(spec, plan, style.relief);
+    const land = plainLandOf(spec, plan, style.relief, Math.ceil(FLOOR_MARGIN * rules.levelLand));
     if ("reason" in land) {
       failed.push(land.reason);
       continue;
@@ -1705,6 +1933,8 @@ export function plainLand(spec: MapSpec, theme: StyleTheme = "riverValley"): (Pl
     const landFails = plainLandFailures({ spec, plan: land.plan, water: land.water, heights: land.heights, relief: land.relief });
     const frame = checkFrame(land.plan, land.water, land.heights, { bench: rules.levelLand, moist: rules.farmland + rules.forester, reach: rules.reachMin, zoom: VISTA_ZOOM, shallow: false });
     land.ms.checks = Math.round(performance.now() - t0);
+    // (the attempt's whole time: the plan's drawing, the land and its checks)
+    land.ms.total = Math.round(performance.now() - ta);
     const out = { ...land, frame, landFails, attempt, failed, held: false };
     last = out;
     if (landFails.length) {

@@ -148,3 +148,40 @@ export function bankRun(W: number, H: number, heights: ArrayLike<number>, bank: 
     }
   return best;
 }
+
+/** The maker's side of `bankRun` (planning's verdict on round 2: the maker never makes what its checks refuse): where a
+ *  bank's outer foot runs along one row or column for `every` sides, the foot steps a tile out there (the land beside
+ *  it raised to the bank's tile and made bank), so no straight run of the foot reaches `every` + 1. Tiles `keep` marks
+ *  (the water's own) are never touched. The tiles changed. */
+export function breakBankRuns(W: number, H: number, heights: Uint8Array, bank: Uint8Array, beside: ArrayLike<number>, keep: ArrayLike<number>, every: number): number {
+  let n = 0;
+  const side = (i: number, j: number) => (bank[i] > 0 && !(bank[j] > 0) && beside[j] > 0 && heights[i] > heights[j] ? heights[i] : -1);
+  for (const rows of [true, false])
+    for (const sg of [1, -1]) {
+      const nu = rows ? W : H;
+      const nv = rows ? H : W;
+      for (let v = 0; v < nv; v++) {
+        let run = 0;
+        let level = -1;
+        for (let u = 0; u < nu; u++) {
+          const x = rows ? u : v;
+          const y = rows ? v : u;
+          const x2 = x + (rows ? 0 : sg);
+          const y2 = y + (rows ? sg : 0);
+          const i = y * W + x;
+          const j = y2 * W + x2;
+          const up = x2 < 0 || y2 < 0 || x2 >= W || y2 >= H ? -1 : side(i, j);
+          run = up < 0 ? 0 : run > 0 && up === level ? run + 1 : 1;
+          level = up;
+          if (run >= every && !keep[j]) {
+            heights[j] = heights[i];
+            bank[j] = bank[i];
+            n++;
+            run = 0;
+            level = -1;
+          }
+        }
+      }
+    }
+  return n;
+}
