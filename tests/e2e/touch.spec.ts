@@ -17,6 +17,8 @@ import { expect, test, type CDPSession, type Page } from "@playwright/test";
 import { openEditor } from "./open";
 import { toolInHand, toolPutAway } from "./helpers";
 import { FINGER_LIFT, HOLD_MS } from "../../src/render3d/touch";
+import { FLIPPED, ORIENTATION_NAMES } from "../../src/render3d/model";
+import { footprint } from "../../src/core/forces/objects";
 
 interface P {
   x: number;
@@ -323,48 +325,90 @@ const objectsOf = (page: Page, template: string) =>
 /** Bring the dry, level patch with no object on it (7 tiles across) nearest the map's middle under `c`, at a distance
  *  of 48: what a finger puts there is never refused for the ground, so a step that doesn't come is the gesture's.
  *  `clear`: no water source's footprint (a few tiles from where it stands) within that many tiles of its middle either:
- *  a ridge 10 wide reaches about 10 out from its line, and refuses a source in its way. */
-async function onFlat(page: Page, c: P, clear = 0) {
+ *  a ridge 10 wide reaches about 10 out from its line, and refuses a source in its way.
+ *  (D148, generator 0.10.23: the patch is taken from the map, never from fixed tiles. Free is clear of every object's
+ *  whole footprint, the start's too, not only the tile it stands on: on 0.10.23's map the second patch, (44, 8), lay
+ *  under the underground ruins' 5 by 5 at (42, 4), and the relic's move there was refused, "a mine site is there". And
+ *  free is ground the view sees, with no roof or overhang over it: 0.10.23's (69, 69), on a tablet's Carve, stood behind
+ *  a hill 16 high at (65, 65), the pan landing exactly on its aim and the finger finding the hill.)
+ *  `make`: with none left, the nearest patch otherwise free is made level first (one step): 0.10.23's map has few level
+ *  patches, and a test's own edits before can take them all. */
+async function onFlat(page: Page, c: P, clear = 0, make = false): Promise<{ x: number; y: number }> {
   // (after any glide: a phone's view slides when a sheet or a tool changes, usePhone.ts)
   await still(page);
-  const t = await page.evaluate(([c, clear]) => {
+  // (every object's tiles, from the core's footprints: what stands on a tile refuses another object there)
+  const objects = await page.evaluate(() => {
+    const { W, H, entities: e } = window.dgm3d!.renderer.mapState()!;
+    const out: { template: string; x: number; y: number; orientation: number; flags: number }[] = [];
+    for (let k = 0; k < e.count; k++) out.push({ template: e.templates[e.template[k]], x: e.x[k], y: e.y[k], orientation: e.orientation[k], flags: e.flags[k] });
+    return { W, H, out };
+  });
+  const taken = objects.out.flatMap((o) => footprint(objects, { template: o.template, x: o.x, y: o.y, orientation: ORIENTATION_NAMES[o.orientation], flipped: (o.flags & FLIPPED) !== 0 }));
+  const t = await page.evaluate(async ([c, clear, taken, make]) => {
     const r = window.dgm3d!.renderer;
     const { W, H, heights, surface, entities: e } = r.mapState()!;
-    const taken = new Set<number>();
+    const held = new Set(taken);
     const sources: [number, number][] = [];
-    for (let k = 0; k < e.count; k++) {
-      taken.add(e.y[k] * W + e.x[k]);
-      if (/Source$/.test(e.templates[e.template[k]])) sources.push([e.x[k], e.y[k]]);
+    for (let k = 0; k < e.count; k++) if (/Source$/.test(e.templates[e.template[k]])) sources.push([e.x[k], e.y[k]]);
+    /** The patches round (x, y) that are free: dry (`wet`: and a tile round them), clear of objects, under no roof or
+     *  overhang (the column solid from the bottom to its top, no lower ground in it), `clear` of the sources, and level
+     *  (`level`), nearest the map's middle first. */
+    const patches = (level: boolean, wet: number) => {
+      const out: { x: number; y: number; d: number }[] = [];
+      for (let y = 6; y < H - 6; y++)
+        for (let x = 6; x < W - 6; x++) {
+          const h = heights[y * W + x];
+          let ok = true;
+          for (let dy = -3 - wet; dy <= 3 + wet && ok; dy++)
+            for (let dx = -3 - wet; dx <= 3 + wet && ok; dx++) {
+              const i = (y + dy) * W + x + dx;
+              if (surface.depth[i] > 0) ok = false;
+              if (Math.max(Math.abs(dx), Math.abs(dy)) > 3) continue;
+              if ((level && heights[i] !== h) || held.has(i)) ok = false;
+              for (let l = 0; l < heights[i] && ok; l++) if (r.hasTop(i, l)) ok = false;
+            }
+          if (ok && clear) ok = sources.every(([sx, sy]) => Math.max(Math.abs(sx - x), Math.abs(sy - y)) - 2 > clear);
+          if (ok) out.push({ x, y, d: (x - W / 2) ** 2 + (y - H / 2) ** 2 });
+        }
+      return out.sort((a, b) => a.d - b.d);
+    };
+    const free = patches(true, 0);
+    if (!free.length && make) {
+      // (none left: the nearest patch otherwise free, dry a tile round, made level at its middle's height)
+      const p = patches(false, 1)[0];
+      if (!p) return { none: true, free: 0, off: null };
+      const cells = [-3, -2, -1, 0, 1, 2, 3].map((dy) => [p.y + dy, p.x - 3, p.x + 3]);
+      await window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells, level: heights[p.y * W + p.x], exact: true } } as never, "Flatten");
+      return { made: { x: p.x, y: p.y } };
     }
-    let best: { x: number; y: number } | null = null;
-    let far = Infinity;
-    for (let y = 6; y < H - 6; y++)
-      for (let x = 6; x < W - 6; x++) {
-        const h = heights[y * W + x];
-        let ok = true;
-        for (let dy = -3; dy <= 3 && ok; dy++)
-          for (let dx = -3; dx <= 3 && ok; dx++) {
-            const i = (y + dy) * W + x + dx;
-            if (heights[i] !== h || surface.depth[i] > 0 || taken.has(i)) ok = false;
-          }
-        if (ok && clear) ok = sources.every(([sx, sy]) => Math.max(Math.abs(sx - x), Math.abs(sy - y)) - 2 > clear);
-        const d = (x - W / 2) ** 2 + (y - H / 2) ** 2;
-        if (ok && d < far) [far, best] = [d, { x, y }];
-      }
-    if (!best) return { none: true };
     r.setView({ distance: 48 });
     // (a pan moves the ground at the view's middle by the pixels asked; a tile above or below it, by about that: a few
-    // pans bring it there)
-    for (let k = 0; k < 6; k++) {
+    // pans bring it there; the first patch the finger then reaches, no hill between it and the eye, is the one)
+    let off: number | null = null;
+    for (const best of free) {
+      for (let k = 0; k < 6; k++) {
+        const at = window.dgmEditor!.tileToClient(best.x, best.y);
+        r.panPixels(c.x - at.x, c.y - at.y);
+      }
       const at = window.dgmEditor!.tileToClient(best.x, best.y);
-      r.panPixels(c.x - at.x, c.y - at.y);
+      off = Math.hypot(at.x - c.x, at.y - c.y);
+      const hit = r.pick(c.x, c.y);
+      if (hit && hit.x === best.x && hit.y === best.y) return { x: best.x, y: best.y, off };
     }
-    return best;
-  }, [c, clear] as const);
-  expect("none" in t, "a dry, level patch").toBe(false);
+    return { none: true, free: free.length, off };
+  }, [c, clear, taken, make] as const);
+  if ("made" in t) {
+    await settled(page);
+    await idle(page);
+    return onFlat(page, c, clear);
+  }
+  expect("none" in t, `a dry, level patch the view sees (${JSON.stringify(t)})`).toBe(false);
+  const { x, y, off } = t as { x: number; y: number; off: number };
+  // (the pan lands where it was aimed)
+  expect(off, "the patch's middle brought under the finger").toBeLessThan(2);
   await still(page);
-  expect(await tileAt(page, c)).toMatchObject(t!);
-  return t as { x: number; y: number };
+  expect(await tileAt(page, c)).toMatchObject({ x, y });
+  return { x, y };
 }
 
 /** Pick an object from the shelf (on a phone, from the objects' sheet, which closes to one row). */
@@ -818,7 +862,9 @@ for (const size of SIZES) {
       if (sheet) await handle.tap();
       await page.getByRole("group", { name: "Brush" }).getByRole("button", { name: "Ridge", exact: true }).click();
       if (sheet) await handle.tap();
-      const level = await onFlat(page, c, 13);
+      // (D148, generator 0.10.23: the crater and the blocks take the map's first level patch, the carve its last, and
+      // the water the carve brings out stands within a ridge's reach of it: the ridge's patch is made level if none is left)
+      const level = await onFlat(page, c, 13, true);
       // (a ridge needs a line 3 tiles long at least: drawn 4 across the level patch, whatever a tile's size on the screen)
       const [r0, r1] = await page.evaluate(({ x, y }) => [window.dgmEditor!.tileToClient(x - 2, y), window.dgmEditor!.tileToClient(x + 2, y)], level);
       await fingers.pause(400);
