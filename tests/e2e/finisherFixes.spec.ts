@@ -1,9 +1,10 @@
 // What a finisher saw go wrong (usability judges, 2026-10-24): the checks' Show marks the problem on the map (D330); Markers
 // labels the seeps, aquifers, drains, cores and reserves (D337); the seep's strength label shows whole (the page rule:
 // nothing is cut off).
+// Its maps are saved (`openSaved`): the page's own map of each fragment, as generator 0.10.26 made it.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openSaved } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -66,7 +67,7 @@ async function place(page: Page, item: string, taken: number[][], size = 5, apar
 test("the checks' Show marks the tiles the problem names, and Esc takes the marks off", async ({ page }) => {
   test.setTimeout(240_000);
   await page.setViewportSize({ width: 1600, height: 900 });
-  await openEditor(page, "s=1&z=96&d=n&t=riverValley");
+  await openSaved(page, "s=1&z=96&d=n&t=riverValley");
   await idle(page);
   // oaks on dry ground: "N living plants on soil that kills them"; beyond the start's wood (more than 25 tiles from it either
   // way, so past its 20 tiles' walk: since generator 0.10.17, D515, D148, oaks among the start's wood lower its fast share,
@@ -143,7 +144,7 @@ test("Markers labels the seeps, aquifers, drains and reserves, with a warning on
   // closing in on the three shows without its label (none of one, dev's run 43562178770); seed 3's three all get theirs.
   // Seed 2 since generator 0.10.17, D515, D148: seed 1's seep now lands where the view closing in on the three leaves it
   // no label, at the view's edge, as labels do there; seeds 2, 3 and 4 made the case)
-  await openEditor(page, "s=3&z=96&d=n&t=riverValley");
+  await openSaved(page, "s=3&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   // (north up, as the compass turns it: Top-down keeps the opening's turn (D492), and that follows the start's camera)
   await page.evaluate(() => window.dgm3d!.renderer.setView({ yaw: 0 }));
@@ -179,7 +180,7 @@ test("Markers labels the seeps, aquifers, drains and reserves, with a warning on
 test("Markers' notes never stand on one another, however crowded, and a crowd speaks as one label", async ({ page }) => {
   test.setTimeout(300_000);
   await page.setViewportSize({ width: 1600, height: 900 });
-  await openEditor(page, "s=1&z=96&d=n&t=riverValley");
+  await openSaved(page, "s=1&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   await idle(page);
   const taken: number[][] = [];
@@ -207,7 +208,7 @@ test("Markers' notes never stand on one another, however crowded, and a crowd sp
 test("a seep's strength label shows whole, even drained, beside the ×", async ({ page }) => {
   test.setTimeout(240_000);
   await page.setViewportSize({ width: 1280, height: 720 });
-  await openEditor(page, "s=1&z=96&d=n&t=riverValley");
+  await openSaved(page, "s=1&z=96&d=n&t=riverValley");
   await page.getByRole("button", { name: "Top-down" }).click();
   await idle(page);
   const at = await place(page, "Water seep", [], 4);

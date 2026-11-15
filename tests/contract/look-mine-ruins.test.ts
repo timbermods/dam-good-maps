@@ -90,9 +90,11 @@ import * as ed from "../../src/worker/session";
 // `36ed64bf…` before generator 0.10.24's round forms (the look round: no mesa, plateau, butte, cone or knoll is a circle, and
 // the weathering reaches in a disc, so no ring round one has square corners: a new land, D148);
 // `ca3cf458…` before generator 0.10.25 (the Lake Basin water settings, D527): the version in the file alone, D148);
-// `e59d652e…` before generator 0.10.26, D(new-leaks): a course's water leaves only by its own way, so its land is new: made
+// `e59d652e…` before generator 0.10.26's ruins to within a column (D527: its last field gives back the columns it grew past
+// the scrap asked: its ruins moved, D148);
+// `7084a1df…` before generator 0.10.27, D(new-leaks): a course's water leaves only by its own way, so its land is new: made
 // on its first attempt instead of its third, every check passing, D148)
-const LIVE_SHA = "714817133f50387a3434ea48969e8a4d4e3a512649422df52ab86c8762592ff1";
+const LIVE_SHA = "4a6c66b0a42d0c188b9c143f313c6777e6138848a84bd2d9cde43612dd2ffa02";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

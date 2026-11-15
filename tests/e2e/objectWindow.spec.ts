@@ -48,7 +48,7 @@ test("the object window has sliders with their values and segmented choices, nev
   await putAway(page);
 
   // a source picked on the map: Strength, Water and Power
-  // (tile 34,30 since generator 0.10.26, D148: on seed 4242's new land 30,30 is a mine site, a click there picks that, not the source)
+  // (tile 34,30 since generator 0.10.27, D148: on seed 4242's new land 30,30 is a mine site, a click there picks that, not the source)
   const p = await client(page, 34, 30);
   await shelf.getByRole("button", { name: /^Water source/ }).click();
   await page.mouse.move(p.x + 3, p.y);
@@ -103,7 +103,7 @@ test("trees, bushes and thorns have Size and Density, a tree an Age, and none a 
   // the same stroke, dense and sparse: the dense plants more; Mixed age plants grown trees and saplings
   await shelf.getByRole("button", { name: "Pine", exact: true }).click();
   await page.getByRole("slider", { name: "Size" }).fill("10");
-  // (the stroke at y=70 since generator 0.10.26, D148: on seed 1's new land trees already stand along y=50, "The stroke already holds as many as its density asks for")
+  // (the stroke at y=70 since generator 0.10.27, D148: on seed 1's new land trees already stand along y=50, "The stroke already holds as many as its density asks for")
   const a = await client(page, 40, 70);
   const b = await client(page, 56, 70);
   const stroke = async () => {
