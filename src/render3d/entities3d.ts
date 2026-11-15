@@ -1009,6 +1009,13 @@ const LITE_MODELS: Record<string, () => Model> = {
   BlueberryBush: () => new Model().add(new OctahedronGeometry(0.47, 0), BUSH_LEAVES, { y: 0.13, sy: 0.57 }),
 };
 for (const species of Object.keys(DRYING)) if (LITE_MODELS[species]) LITE_MODELS[`${species}.dying`] = () => dyingOf(species, LITE_MODELS[species]());
+/** The light look's models that stand for another key's: its bush draws no berries, so a bare one is the same bush,
+ *  in the same batch. */
+const LITE_SAME: Record<string, string> = { "BlueberryBush.bare": "BlueberryBush" };
+/** The light look's model key for a model key (`modelKeyOf`'s). */
+export function liteKeyOf(key: string): string {
+  return LITE_SAME[key] ?? key;
+}
 for (const species of Object.keys(DEAD_FORM)) {
   const dead = LITE_MODELS[`${species}.dead`];
   if (dead && LITE_MODELS[species]) LITE_MODELS[`${species}.dead`] = () => heightTo(dead(), DEAD_FORM[species].height * heightOf(LITE_MODELS[species]()));
@@ -1703,7 +1710,8 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
       else put(b, x + 0.5, z, -(y + 0.5), 0, 1, color);
       continue;
     }
-    const b = lite && LITE_MODELS[key] ? batch(`${key}.lite`, LITE_MODELS[key]) : batch(key, MODELS[key]);
+    const liteKey = liteKeyOf(key);
+    const b = lite && LITE_MODELS[liteKey] ? batch(`${liteKey}.lite`, LITE_MODELS[liteKey]) : batch(key, MODELS[key]);
     const centre = CENTRED[template];
     if (centre) {
       const o = ORIENTATION_NAMES[v.orientation[k]] as Orientation;

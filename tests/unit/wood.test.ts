@@ -7,7 +7,8 @@ import { describe, expect, it } from "vitest";
 import { growthOf, isSapling, treeLogs, woodDetail, woodWords } from "../../src/core/analysis/wood";
 import { F, parse, type JsonObject } from "../../src/core/format/json";
 import { bush, tree } from "../../src/core/format/entities";
-import { modelKeyOf, modelOf } from "../../src/render3d/entities3d";
+import { buildEntities, modelKeyOf, modelOf } from "../../src/render3d/entities3d";
+import { ShaderMaterial } from "three";
 import { model as highModel } from "../../src/render3d/high/models";
 import { cssColor, TREE_COLOURS, type Rgb } from "../../src/render3d/palette";
 import { lifeOf } from "../../src/worker/api";
@@ -73,6 +74,9 @@ describe("a bush's berries (Yielder:Gatherable)", () => {
     const cols = (m: { col: readonly number[] }) => new Set(Array.from({ length: m.col.length / 9 }, (_, t) => cssColor(m.col.slice(t * 9, t * 9 + 3) as unknown as Rgb)));
     expect(cols(modelOf("BlueberryBush")).has(berry)).toBe(true);
     expect(cols(modelOf("BlueberryBush.bare")).has(berry)).toBe(false);
+    // the light look's bush draws no berries: a bare one is the same bush, in its batch
+    const lite = buildEntities(v, new ShaderMaterial(), null, 0, true).group.children.map((c) => c.name);
+    expect(lite.filter((n) => /BlueberryBush/.test(n))).toEqual(["BlueberryBush.lite"]);
     for (const detail of ["near", "far"] as const) {
       const near = highModel("BlueberryBush", 0, detail, "alive").getAttribute("position").count;
       const bare = highModel("BlueberryBush", 0, detail, "bare").getAttribute("position").count;
