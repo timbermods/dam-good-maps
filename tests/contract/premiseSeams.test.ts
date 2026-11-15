@@ -3,7 +3,8 @@
 // fixtures: a width per channel point (`Link.halves`, `raster/channels.ts` `halfAt`); a backwater (`Body.backwater`:
 // `levels.ts` `route` gives its link no share, `waterChecks.ts` `levelsOf` reads it at its sill); a premise's own stage 1
 // and stage 2 (`PremiseDef.water`, `PremiseDef.land`) and the `ground` invariants (`StageContext.heights`); a wet link into
-// a dry link's bed (`Link.joins`: `route` gives the bed `wetFrom`, `raster/channels.ts` lays it wet from there down).
+// a dry link's bed (`Link.joins`: `route` gives the bed `wetFrom`, `raster/channels.ts` lays it wet from there down); a
+// course laid where the plan drew it (`Link.wander`: `raster/channels.ts` `wanderOf`).
 
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -13,9 +14,9 @@ import { generatePremise } from "../../src/core/premise/generate";
 import { waterTable } from "../../src/core/premise/levels";
 import { premiseLand } from "../../src/core/premise/map";
 import { lakeStair } from "../../src/core/premise/premises/lakeStair";
-import { halfAt } from "../../src/core/premise/raster/channels";
+import { halfAt, wanderOf } from "../../src/core/premise/raster/channels";
 import type { Body, Invariant, Link, PremiseDef, PremisePlan } from "../../src/core/premise/types";
-import { pathLength } from "../../src/core/premise/geom";
+import { pathDist, pathLength } from "../../src/core/premise/geom";
 import { levelsOf, WATER_CHECKS } from "../../src/core/premise/waterChecks";
 import { waterByNumber } from "../../src/core/premise/water";
 import { writeTimber } from "../../src/core/format/timber";
@@ -47,6 +48,28 @@ describe("a width per channel point (`Link.halves`)", () => {
     brook.halves = brook.path!.map((_, k) => (k % 2 ? 0.5 : brook.half ?? 1));
     const after = waterByNumber(plan).raster;
     expect(count(after)).toBeLessThan(count(before));
+  });
+});
+
+describe("a course laid where the plan drew it (`Link.wander`)", () => {
+  it("wanders a brook by its kind where the plan gives none, and lays it on its path where the plan gives 0", () => {
+    const plan: PremisePlan = JSON.parse(JSON.stringify(fixture));
+    const brook = plan.links.find((l) => l.id === "birchBrook")!;
+    expect(wanderOf(plan, brook)).toBeGreaterThanOrEqual(1);
+    expect(wanderOf(plan, { ...brook, wander: 0 })).toBe(0);
+    const li = plan.links.indexOf(brook) + 1;
+    // (the furthest a bed tile lies from the path: by its wander, a tile and more past its half-width; without, within it)
+    const furthest = (): number => {
+      const r = waterByNumber(plan).raster;
+      let far = 0;
+      for (let i = 0; i < r.W * r.H; i++) if (r.channel[i] === li && r.along[i] > 8 && r.along[i] < pathLength(brook.path!) - 8) far = Math.max(far, pathDist((i % r.W) + 0.5, Math.floor(i / r.W) + 0.5, brook.path!).d);
+      return far;
+    };
+    const wandered = furthest();
+    brook.wander = 0;
+    const laid = furthest();
+    expect(laid).toBeLessThanOrEqual((brook.half ?? 1) + 1.5);
+    expect(wandered).toBeGreaterThan(laid);
   });
 });
 

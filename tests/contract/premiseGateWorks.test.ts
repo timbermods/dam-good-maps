@@ -47,7 +47,7 @@ describe("The wall with one gate's works", () => {
     const card = gateCard(a.plan, "riverValley", a.ladder);
     expect(card.name).toBe("Wall with one gate");
     expect(card.style).toBe("River Valley");
-    // (planning's ruling of 2026-11-16: "your door" is said once, in the line)
+    // (planning's wording for the card: "your door" is said once, in the line)
     expect(card.landmark).toMatch(/-level fall from a cleft in the range into [^,]*$/);
     expect(card.line).toMatch(/pours over .* and runs down to .* at your door\. .* close .*'s inlet\.$/);
     expect(card.first).toMatch(/^Before the first badtide, build a levee across .*'s inlet/);

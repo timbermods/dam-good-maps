@@ -1080,8 +1080,10 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   rise or sink with it). The refusal note and the Size's "size N" word are kept apart, so neither clears the other, and a refusal stays
   while its preview is drawn. The level slice cuts the preview as it cuts the map, so a cave can be worked from inside. *Settings* (on the bar's 14 cells, two rows): **Size** 1 to 8
   (F and the mouse, or { and }; kept), **Shape** Square or Round, **Action** Add or Remove; remembered between visits. Its
-  land's answer is the brushes' (dust and the stone's thud, `juice`); the blocks' own pop-in and crumble are the
-  renderer's, to come. Once an edit lands, what it changed glows a moment (D488, `render3d/editGlow.ts`): the faces it
+  land's answer is the brushes' (dust and the stone's thud, `juice`); the blocks themselves grow and crumble (D240,
+  `render3d/blockPop.ts`): a block added grows out of the rock it stands on with a tiny overshoot, a block taken sinks
+  and shrinks into the ground with a puff of its stone's dust, a moment of the edit already drawn, off with reduced
+  motion. Once an edit lands, what it changed glows a moment (D488, `render3d/editGlow.ts`): the faces it
   opened, outlined, white for blocks added, red for the hollow a removal left, fading in about a second (still, then
   gone, with reduced motion).
 
@@ -1544,7 +1546,7 @@ Two looks (Map look 2, D147, D242, D250, D284):
   albedo and ripples carried by each column's outflow in two phases, as in every look; D334's light network, ribbons,
   swells and rolling light gone by D496 and D497) and crimson matte badwater over its poisoned bed (#38); soft shadows, warm sunlight, sky, rock
   strata and soil edges (#65; its ambient occlusion, tone curve and haze gave way to the game's light, fog and post
-  chain in every look, D497); trees and bushes
+  chain in every look, D497, and its strata to the game's cliff rock in every look, 2026-11-14); trees and bushes
   swaying in the wind, also on the shelf's icons and the placement ghost (#66, D241); and the map's edge cut through
   rock with a soil cap and the water's section (#67; its crowns, landings, froth, mist and splash rings removed with
   D201's amendment, 2026-10-29; its rough water below falls with D334's water terms, 2026-11-07). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in every look (D242 as amended 2026-10-29), the
@@ -1581,7 +1583,8 @@ GPU at about that window size), watches what each frame costs the GPU, steps dow
 frames stay too slow, and never back up in a session. The **Look** menu (on the 3D view; in the editor's header)
 chooses **Automatic**, **High** or **Standard** (a segmented choice, the page's own), and switches High's four parts
 (checkbox rows as the Show column's, a long name hanging under its own first letter); every effect is switchable too
-(`setHighEffect`). A browser drawing in software keeps the light look, with no choice. The camera never moves by
+(`setHighEffect`). A browser drawing in software keeps the light look, with no choice, drawn at one device pixel
+to a CSS pixel (its processor draws every pixel: a tablet's dense screen made each frame four times the work). The camera never moves by
 itself in either look (D265).
 
 ## 6a. Alive, not mechanical (D240)
@@ -1673,7 +1676,9 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   desktop's). A finger is a pointer of its own type, so the mouse, the pen (its pressure) and the keys keep everything
   above. **Two fingers** move the camera in one gesture: dragged they pan, pinched they zoom about the ground under their
   middle (it stays under it, as the wheel's does), twisted they turn the view about that ground, and two fingers side by
-  side dragged up or down together tilt it (in the top-down view that drag pans); let go moving, the view glides on and
+  side dragged up or down together tilt it (in the top-down view that drag pans). A browser tells one touch a finger at
+  a time, so the gesture takes a touch's move whole: one step once both fingers' moves are in (`Touches`), never a
+  step aside and back that a view held at the map's edge could not undo. Let go moving, the view glides on and
   slows to a stop (none with reduced motion). **One finger with nothing in hand** (the resting Select with nothing
   selected) pans; a **tap** reads the tile (the readout stays once the finger is gone) and is a click (an object, a
   source or the start is picked as by the mouse); a **double tap** glides in to half the distance about the spot,
@@ -1692,8 +1697,8 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   finger, and its lift applies nothing. A tap applies nothing: it leaves the preview where it aimed. Lake, Ridge and
   Canal draw their line above the finger from the press's aim; with a selection open (or, on a phone or a tablet, Select's settings
   open) the finger draws the selection, and a tap there is a click; with nothing in hand, a finger held still half a
-  second (`HOLD_MS`) draws one without (slice 3b; moved sooner, it pans; lifted sooner by its own events' times, it is a
-  tap, however late a busy page ran the timer). With an object or source picked and nothing
+  second (`HOLD_MS`) draws one without (slice 3b; moved sooner, it pans; held or not is told by the events' own times,
+  however late a busy page ran the timer: lifted sooner, it is a tap, and moved sooner, it pans). With an object or source picked and nothing
   else in hand, a press anywhere moves it to where the finger aims (`FingerPress`, modes aim, line, draw and move);
   where it can't go, the core's reason shows beside it before the lift (`moveProblem`, as a placement's), its footprint
   red, and the lift there moves nothing, the reason going with it (slice 6: nothing in hand, nothing
@@ -2065,7 +2070,8 @@ checks dot counts; every other row is information under Good to know, worded as 
     (below, "Remove unfed water and Fill"; `sim/stackWater.ts` `cavesOf` decides which maps).
     The **Caves and overhangs** view button, there from the start on such a map, marks the tiles the tools
     leave as they are (D40): what lies under a roof is never edited, the brushes shaping only a column's top
-    run (D280 (3), D487). Ground the Block tool digs and Erode hollows counts with them, on any map; once
+    run (D280 (3), D487). It also draws the air under the roofs through the rock, its floors (a tunnel's step drawn
+    as the floor's own), walls and mouths (docs/progress/3d-view.md, "The caves through the rock"). Ground the Block tool digs and Erode hollows counts with them, on any map; once
     the last hollow is undone the map is a heightfield again, its water and file as before.
   - **Steady state in temperate weather.** Delayed sources and badtide drains are off, seeps start off and stop
     above 0.8 deep (back on below 0.72; a pit only a seep feeds starts filled to 0.8), aquifers give no water (a drill starts unpowered), and a negative strength

@@ -210,6 +210,17 @@ async function roomy(page: Page, r: number, room = false): Promise<P> {
   return p!;
 }
 
+/** What stands over the map at each of `points` (a control there takes the finger, never the map): its class and words. */
+const covering = (page: Page, points: P[]) =>
+  page.evaluate(
+    (points) =>
+      points.flatMap((p) => {
+        const el = document.elementFromPoint(p.x, p.y);
+        return el === window.dgm3d!.renderer.canvas ? [] : [`${Math.round(p.x)},${Math.round(p.y)}: ${el ? `${el.tagName.toLowerCase()}.${el.className} "${(el.textContent ?? "").slice(0, 40)}"` : "off the page"}`];
+      }),
+    points,
+  );
+
 async function spot(page: Page, r: number, room = false): Promise<P | null> {
   return page.evaluate(([r, room]) => {
     const c = window.dgm3d!.renderer.canvas;
@@ -775,16 +786,20 @@ for (const size of SIZES) {
 
       // a force's line (Carve): the drag draws its line from where the press aimed, the band showing, and the lift carves
       // along it, one step
-      const plain = await onFlat(page, c);
+      // (the level patch brought into the room Carve's settings leave the map, after the slide for its sheet: they stand
+      // taller than the tools' before, and in a wider font, as CI's Linux draws, they covered the line's first press,
+      // which the page then took as a pan of its own, never the map's; the line drawn 6 tiles across the patch, on the
+      // map whatever the view's scale)
       await page.keyboard.press("Shift+Digit1");
       await toolInHand(page);
-      // (after the slide for Carve's sheet: drawn 6 tiles across the level patch, on the map whatever the view's scale)
       await still(page);
-      const [k0, k1] = await page.evaluate(({ x, y }) => [window.dgmEditor!.tileToClient(x - 3, y + 1), window.dgmEditor!.tileToClient(x + 3, y - 1)], plain);
+      const plain = await onFlat(page, await roomy(page, R, true));
+      const [k0, k1] = (await page.evaluate(({ x, y }) => [window.dgmEditor!.tileToClient(x - 3, y + 1), window.dgmEditor!.tileToClient(x + 3, y - 1)], plain)).map((k) => ({ x: k.x, y: k.y + FINGER_LIFT }));
+      expect(await covering(page, [k0, k1])).toEqual([]);
       await fingers.pause(400);
       const sc = await steps(page);
-      await fingers.down({ 1: { x: k0.x, y: k0.y + FINGER_LIFT } });
-      await fingers.drag({ 1: { x: k1.x, y: k1.y + FINGER_LIFT } });
+      await fingers.down({ 1: k0 });
+      await fingers.drag({ 1: k1 });
       expect(await pressing(page)).toBe(true);
       await expect.poll(async () => (await page.evaluate(() => window.dgmEditor!.gesture())).stroke ?? 0).toBeGreaterThan(1);
       await idle(page);

@@ -19,8 +19,9 @@
 // premise mode's settle from 128², about 4, `withSmallMapThreads`)
 // with enough water to share, within the machine's budget (`waterThreadBudget`: the page's thread, the water mesh
 // workers and the flow bake keep a core each, 7 threads of 12; a machine of 4 to 6 threads keeps 3). Everywhere else, and whenever it can't, WaterSim runs the single thread, and the
-// two hand over to each other between runs at any time with the same result. Node and the tools stay
-// single-threaded (the identity check installs a pool to compare).
+// two hand over to each other between runs at any time with the same result. The MCP server's generator takes the
+// page's policy in Node (`node`, mcp/src/jobs.ts); the other tools stay single-threaded (the identity check installs a
+// pool to compare).
 
 import { machineThreads, parallelWaterSupported, stackThreadsFor, threadsFor, waterThreadBudget } from "./parallelPolicy";
 import { RustStrip, rustWater, sameBits, type RustModel, type RustRules } from "./rustWater";
@@ -76,6 +77,9 @@ export interface ParallelOptions {
   /** The checks' worker's: of the budget it shares with the editor's (`shareWaterBudget`), it takes at most what the
    *  editor's half leaves (the editor's worker, generating or editing, always has half of it). */
   rest?: boolean;
+  /** A Node worker_threads coordinator (the MCP server's generator, mcp/src/jobs.ts): the page's policy (threads by
+   *  map size and water, within the machine's budget) where the browser's isolation check has no meaning. */
+  node?: boolean;
 }
 
 // ------------------------------------------------------------------------------------------ the barrier
@@ -470,7 +474,8 @@ export function sharedWaterBudget(): SharedArrayBuffer | null {
 export function installParallelWater(opts: ParallelOptions): boolean {
   if (pool) return !pool.broken;
   const forced = opts.threads ?? null;
-  if (forced === null && !parallelWaterSupported()) return false;
+  const supported = opts.node ? typeof SharedArrayBuffer === "function" && typeof Atomics?.wait === "function" : parallelWaterSupported();
+  if (forced === null && !supported) return false;
   if (forced !== null && forced < 2) return false;
   pool = new Pool(opts.spawn, forced, opts.rest);
   try {

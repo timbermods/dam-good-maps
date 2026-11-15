@@ -103,6 +103,11 @@ export interface Link {
    *  the dry one with its wadi). `to` names where the water leaves: the joined link's end. Absent, a link is read as
    *  before. */
   joins?: { link: string; at: number };
+  /** How far stage 1 lets the course wander from `path`, tiles (a seam, PREMISES §2.2 "Seams"): absent, by its kind
+   *  (`raster/channels.ts` `wanderOf`: a brook's 1 to 4.2). A premise that lays a brook's meanders itself gives 0, so
+   *  the bed lies where the plan drew it: wandered again, a bend the plan drew was straightened here and there, and the
+   *  plan's own reading of its straight reaches no longer told the laid water's. */
+  wander?: number;
   /** The mouth's full width where it differs from 2 × `half` (the bypass's 10). */
   mouth?: number;
   /** The bed's level at each point of `path`, or following the land `under` levels beneath it. */
