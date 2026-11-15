@@ -189,8 +189,12 @@ a premise or one still to come, may carry its own, lower playability floor.
   courses alone to the edge or the sea, the wet share on day 1, irrigable dry (dry land within a 24-tile canal of a
   course's clean water and at most 2 levels above it) and width by order. `--json` writes the rows;
   `tools/water-tree-sheet.py` lays before and after out with the start's numbers first, on `tools/ruled-water.ts
-  --frames --plain` frames. The 42 maps at 256² and River Valley 9, 0.10.28 → 0.10.29: courses 8.8 → 5.3, wider below
-  33 → 77 %, wet 30.2 → 22.6 %, irrigable dry 8.2 → 6.4 %, attempts 173 → 190, leaks 38 → 37.
+  --frames --plain` frames. Round 2 also reads joins through a lake (the paths ending in one lake against its outlet's
+  stretch below it) and the start's own water (trunk, tributary, lake, sea or other). The 42 maps at 256² and River
+  Valley 9, 0.10.28 → 0.10.30: courses 8.8 → 5.3, wider below 39 → 76 %, wet 30.2 → 24.2 %, irrigable dry 8.2 →
+  6.8 %, attempts 173 → 132, leaks 38 → 27. Irrigable dry comes mostly from courses 4 tiles wide or less (56 % of it
+  before the tree), the courses the tree removes: at most 6, 7 and 8 courses it reads 6.9, 7.2 and 7.3 % (8.7 % before,
+  seeds 1–3), so the course count (rule 3) and irrigable dry (rule 5) pull against each other.
 
 **Land first, story second** (planning's ruling of 2026-11-11, for every path: themes, premises, hand maps). Every
 landform is one geology makes, shaped by the shared natural relief. A premise is found in or cut into natural land by a

@@ -59,7 +59,7 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // and generator 0.10.25's version alone, its Lake Basin water settings moving no Canyon map, D148;
 // and generators 0.10.28's and 0.10.30's version alone (ruled water, D(ruled-water); the water tree, D(water-tree), moving
 // only maps above 128²), the map otherwise 0.10.25's, D148)
-const SHA = "89752145be65d058c8433761eaadb986477f661bcacebb1fb68a4864e0296071";
+const SHA = "46224938ced55308b7614c0090abfc0747ab63985b641ea5a0e423ca3c0366b6";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now

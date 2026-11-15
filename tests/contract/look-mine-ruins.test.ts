@@ -90,9 +90,9 @@ import * as ed from "../../src/worker/session";
 // `36ed64bf…` before generator 0.10.24's round forms (the look round: no mesa, plateau, butte, cone or knoll is a circle, and
 // the weathering reaches in a disc, so no ring round one has square corners: a new land, D148);
 // `ca3cf458…` before generator 0.10.25 (the Lake Basin water settings, D527): the version in the file alone, D148;
-// `e59d652e…` before generator 0.10.28's ruled water (D(ruled-water)) and 0.10.30's water tree (D(water-tree), which
+// `e59d652e…` (0.10.25) before generator 0.10.28's ruled water (D(ruled-water)) and 0.10.30's water tree (D(water-tree), which
 // moves only maps above 128²): the version in the file alone, D148
-const LIVE_SHA = "e59d652e84681c2a0c1109cbeada7bfe1c298a94deed631da4b60b1536b45dde";
+const LIVE_SHA = "dc80fb1070f8fec4c2f9856f17921c706307f58f5cc7fd10f2d38f553a5ee187";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
