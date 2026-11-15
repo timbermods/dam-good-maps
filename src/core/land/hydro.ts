@@ -96,7 +96,8 @@ const REACH_HEADS = 2;
  *    `seat[1]` times that (never a spur, which drains only itself);
  *  - `apart`: heads at least this share of the map's side apart (along the axes);
  *  - `floor`: the least share of an equal split a spring's flow takes (the rest by the land it drains);
- *  - the rivers of their own (a basin's outlet, D504) at most `√(area / 128²) − 1`;
+ *  - `basin` (round 4): the land draining to one outlet of the map's edge, this share of the map or more, where no course
+ *    runs yet, gets a spring of its own beyond the heads' count (a basin with area has its share and its course);
  *  - `width`: a course is as wide as `widthFor` makes it, to `width·√flow` past about 6.75 (a large river's width
  *    grows as the root of its water), at least `MIN_WIDTH`;
  *  - `grow`: below each join a course is this many tiles wider at least than the wider of the two that meet, as its
@@ -110,10 +111,15 @@ const REACH_HEADS = 2;
  *  - `rough`, `bays`: a channel wider than `MAX_WIDTH` has banks that come and go by `rough` of its half-width, bays
  *    and points about `bays` tiles long (round 2: its smooth banks read as ruled shore);
  *  - `brook` (round 3, planning's rule 5 over rule 3's count): beyond the larger courses, `count` brooks for each
- *    √(area / 128²), each `width` wide carrying `flow` (half the map's water at most, taken from the rest), heading on
- *    the land farthest from the moisture's reach, seated where `seat` of a spring's water gathers, at least `apart` of
- *    the side from every head and joining a larger course (never another brook) `len` of the side down or more; a
- *    brook's join widens the course below it by `grow`;
+ *    √(area / 128²), each `width` wide, heading on the land farthest from the moisture's reach, seated where `seat` of a
+ *    spring's water gathers, at least `apart` of the side from every head and joining a larger course (never another
+ *    brook) `len` of the side down or more; a brook's join widens the course below it by `grow`. Its spring fills its
+ *    bed (`0.75·width`, `run` at least) and comes out of its basin's water (round 4): the first course down from its
+ *    join that keeps `run` after it gives it, the main river keeping its lead; where none can, there is no brook;
+ *  - `run` (round 4): no course carries less, the water that runs its bed through the settle (a spring at 0.5 stood a
+ *    film 0.03 deep that never reached its join); the springs' least comes off the inflows, so the total is the theme's;
+ *  - `pool` (round 4): along a level reach a pool every `pool` tiles, three tiles a level under the bed, so water lasts
+ *    a drought along every course;
  *  - `deltaCap`: Delta's courses are this wide at most (round 3: its trunk read as a drowned valley 20 tiles wide).
  *  The trunk, the first course, is the land's own: the first that traces (round 3). Never on a sea's map (Islands). */
 export const TREE = { heads: [3, 1.5], seat: [0.0015, 4], apart: 0.15, floor: 0.4, grow: 3, width: 3, bank: 3, reach: 24, pick: 6, rough: 0.3, bays: 6, brook: { count: 5, apart: 0.08, width: 1.5, grow: 1, seat: 0.05, len: 0.1 }, run: 1, pool: 12, basin: 0.12, deltaCap: 10 } as const;
@@ -971,9 +977,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
         }
       cands.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
       maxHeads++;
-      const okB = pickTrace(cands.slice(0, 160).map(([, i]) => i), (i) => ({ cell: i, kind: "spring", flow: 0 }), false, false);
-      if (!okB) maxHeads--;
-      if (process.env.DGM_BASIN) console.log("BASIN", o % W, Math.floor(o / W), ((size.get(o) ?? 0) / N).toFixed(3), "cands", cands.length, okB ? `traced ${traced.at(-1)?.joins}` : "refused");
+      if (!pickTrace(cands.slice(0, 160).map(([, i]) => i), (i) => ({ cell: i, kind: "spring", flow: 0 }), false, false)) maxHeads--;
     }
   }
   // D333 (3): the water reaches the land (a readable story, D294: water in one corner leaves most of

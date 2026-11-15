@@ -122,8 +122,8 @@ export interface SettlerOptions {
    *  start's berries last the drought, are preferred (the D410 round; never a guard). */
   droughtFood?: ArrayLike<number> | null;
   /** On a water tree (land/hydro.ts), whose brooks' running reaches dry in a drought: the dry land near a place that
-   *  stays moist (`droughtFood`) weighs as much as its room, so the start and its berries keep to water that lasts
-   *  (the trunk, the lakes, a brook's pools; D(water-tree) (13)). */
+   *  stays moist (`droughtFood`) weighs on the whole of its score, a place with none of it a sixth of one with 60 tiles,
+   *  so the start and its berries keep to water that lasts (the lakes, the pools; D(water-tree) (14)). */
   foodFirst?: boolean;
   /** Where the start was expected (the guess the badwater hollows were planned from): among the
    *  places nearly as good as the best, the one nearest it, so the hollows keep the distance the
@@ -618,7 +618,6 @@ export function pickStart(
   // (a best score under zero, a start intention pulling hard against every place: the best alone)
   if (!good.length) good.push(top[0]);
   let c = good[rng.int(0, good.length)];
-  if (process.env.DGM_DBG && foodSum) { const fn = (t: any) => { const x = t.i % W, y = (t.i - x) / W; const x0 = Math.max(0, x - 14), y0 = Math.max(0, y - 14), x1 = Math.min(W, x + 15), y1 = Math.min(H, y + 15); return foodSum[y1 * (W + 1) + x1] - foodSum[y0 * (W + 1) + x1] - foodSum[y1 * (W + 1) + x0] + foodSum[y0 * (W + 1) + x0]; }; console.log("DBG top", top.map((t) => `${t.i % W},${Math.floor(t.i / W)} s${t.score.toFixed(2)} f${fn(t)}`).join(" | "), "near", JSON.stringify(opts.near), "cands", cands.length, "bestfood", Math.max(...cands.map(fn))); }
   const near = opts.near;
   if (near) {
     const d2 = (t: (typeof good)[number]) => {

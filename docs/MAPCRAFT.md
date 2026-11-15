@@ -198,7 +198,9 @@ a premise or one still to come, may carry its own, lower playability floor.
   rule 3 is order) adds brooks 2 wide toward the land farthest from the water and reads order (trunks, tributaries,
   brooks) and the sea only where a lake runs along a quarter of the border. Against dev 0.10.25, generator 0.10.31:
   irrigable dry 8.5 → 8.5 %, alone (not Islands) 5 → 1, attempts 209 → 224, leaks 40 → 43, `plants.drought` 13 → 26:
-  the brooks buy irrigable dry with attempts and the start's drought.
+  the brooks buy irrigable dry with attempts and the start's drought. Round 4 (0.10.32) takes a brook's water out of its
+  basin's budget, keeps the start on dry land that stays moist through the drought, and gives a basin with no course one
+  of its own; the tool reads the total source strength and Delta's fan.
 
 **Land first, story second** (planning's ruling of 2026-11-11, for every path: themes, premises, hand maps). Every
 landform is one geology makes, shaped by the shared natural relief. A premise is found in or cut into natural land by a

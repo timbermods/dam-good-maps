@@ -126,9 +126,6 @@ export const MAX_ATTEMPTS = 24;
 /** Places tried for the badwater hollows before the land is shown, each off the last that another's
  *  water reached (D348: they are never dug again after). */
 const HOLLOW_TRIES = 3;
-/** The water tree's start pool (D(water-tree) round 4): the nearest channel within `[0]` tiles of the start, cut two
- *  levels deeper `[1]` tiles round it. */
-const START_POOL = [14, 5] as const;
 /** Maps (in 100) whose badwater drains where the land takes it, unsteered (D476: on the rest one
  *  badwater course is routed into the theme's main water, as in the game; an aim, never tuned). */
 const OWN_DRAIN = 15;
@@ -1740,7 +1737,6 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   for (let k = 0; k < 3 && blocked.some((b) => b.back) && closeBackEdges(h, W, H, blocked, hy.rivers, g.hydro.exactInflows ? 4 : 2); k++) blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
   // (a tie with the exit on another edge: a lip there, D350)
   for (let k = 0; k < 3 && !blocked.length && closeSideEdges(h, W, H, hy.rivers, mouthArms); k++) blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
-  if (process.env.DGM_LEAK && blocked.length) console.log("LEAK", JSON.stringify(blocked.map((x: any) => ({ ...x, role: hy.rivers.find((r: any) => r.id === x.river)?.role, from: hy.rivers.find((r: any) => r.id === x.river)?.params.path[0].map(Math.round), to: hy.rivers.find((r: any) => r.id === x.river)?.params.path.at(-1).map(Math.round) }))).slice(0, 600));
   return { h, hy, keep, ramps, blocked };
 }
 
@@ -2034,39 +2030,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       }
     }
     cleanPitsAndSpikes(h, W, H, keep);
-  };
-  const poolStart = (p: StartPick) => {
-    let best = -1;
-    let bd = Infinity;
-    for (let dy = -START_POOL[0]; dy <= START_POOL[0]; dy++)
-      for (let dx = -START_POOL[0]; dx <= START_POOL[0]; dx++) {
-        const x = p.x + dx;
-        const y = p.y + dy;
-        if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1 || hy.water[y * W + x] !== 1) continue;
-        if (dx * dx + dy * dy < bd) {
-          bd = dx * dx + dy * dy;
-          best = y * W + x;
-        }
-      }
-    if (best < 0) return;
-    const bx = best % W;
-    const by = (best - bx) / W;
-    const seen = new Set([best]);
-    const q = [best];
-    for (let k = 0; k < q.length; k++) {
-      const c = q[k];
-      const x = c % W;
-      const y = (c - x) / W;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const xx = x + dx;
-        const yy = y + dy;
-        const n = yy * W + xx;
-        if (xx < 1 || yy < 1 || xx >= W - 1 || yy >= H - 1 || seen.has(n) || hy.water[n] !== 1 || Math.max(Math.abs(xx - bx), Math.abs(yy - by)) > START_POOL[1]) continue;
-        seen.add(n);
-        q.push(n);
-      }
-    }
-    for (const i of q) h[i] = Math.max(BED_FLOOR, h[i] - 2);
   };
   const startOf = (p: StartPick): StartFeature => ({
     id: featureId(seed, "start", "start/main"),
@@ -2430,9 +2393,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         levelStart(guess);
         guess = { ...guess, levelled: false, shore: undefined };
       }
-      // (the water tree, D(water-tree) round 4: the start's berries stand on water that lasts the drought: the stretch
-      // of channel nearest the start, `START_POOL` tiles round it, is cut two levels deeper, its lip the bed below it)
-      if (guess && hy.tree && !process.env.NOPOOL) poolStart(guess);
       // (and so have the second place and the places after it, the starts to fall back on once the
       // land is shown)
       if (second?.levelled) levelStart(second);
