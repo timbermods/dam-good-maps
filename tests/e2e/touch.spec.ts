@@ -335,7 +335,7 @@ const objectsOf = (page: Page, template: string) =>
  *  `make`: with none left, the nearest patch otherwise free is made level first (one step): 0.10.23's map has few level
  *  patches, and a test's own edits before can take them all.
  *  `room`: the levels kept free under the ceiling over all the ground within 12 tiles (a ridge's reach), so what is raised
- *  there is never refused for the ceiling (D148, generator 0.10.25: on a tablet held upright the first patch was at level
+ *  there is never refused for the ceiling (D148, generator 0.10.26: on a tablet held upright the first patch was at level
  *  19, and a ridge 6 high, refused above the ceiling at 22, made no step). */
 async function onFlat(page: Page, c: P, clear = 0, make = false, room = 0): Promise<{ x: number; y: number }> {
   // (after any glide: a phone's view slides when a sheet or a tool changes, usePhone.ts)

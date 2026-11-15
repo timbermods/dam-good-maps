@@ -32,7 +32,7 @@ function slide(path: { x: number; y: number }[], side: 1 | -1, power: number): v
 }
 
 /** Highlands 64², seed 2: twelve Pines planted in a row on dry free ground, (33..44, 26). (D148: D518's mends moved the
- *  land; on seed 1 the row's Slide is no longer kept, seed 2 carries the row as before. Row 26 for 27 since generator 0.10.25,
+ *  land; on seed 1 the row's Slide is no longer kept, seed 2 carries the row as before. Row 26 for 27 since generator 0.10.26,
  *  D(new-leaks): a course's water leaves only by its own way, so the land moved, D148: the Slide carries 8 of row 27's Pines,
  *  and every row from 24 to 30 but 27 carries more.) */
 async function planted(): Promise<void> {

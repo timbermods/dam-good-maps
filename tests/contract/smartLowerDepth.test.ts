@@ -6,7 +6,7 @@
 // what the build makes, and the project replays it.
 //
 // The page-and-build case opens River Valley 96² seed 3 from its saved fixture (tests/fixtures/projects, D148): dev's
-// land of generator 0.10.22, as #1163 saved it, so a land change moves nothing here. On 0.10.25's land the deepen stroke shows
+// land of generator 0.10.22, as #1163 saved it, so a land change moves nothing here. On 0.10.26's land the deepen stroke shows
 // 8 where the build makes 7 on two tiles, with dev's editor code too: an editor fault that land uncovered, held as a
 // failing test to come in issue #1181.
 

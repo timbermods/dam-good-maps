@@ -132,9 +132,14 @@ function leanCatchment(g: Genome, s: Settings, preset: (typeof THEME_PRESETS)['l
   // stamped, and no operation runs after land is shown. Keep the lake's outlet load modest.
   if (!g.hydro.exactInflows && !g.hydro.noInflows) g.hydro.inflows = Math.max(2, g.hydro.inflows);
   g.hydro.springs = Math.min(4, Math.max(3, g.hydro.springs));
-  // Modest flow through the bent inlet valleys keeps their shallow reaches readable.
-  g.hydro.flowMul = clamp(g.hydro.flowMul, 1.1, 1.3);
-  g.hydro.split *= 0.25;
+  // Modest flow through the bent inlet valleys keeps their shallow reaches readable. (D527: River flow
+  // Lush, above the theme's Strong, lifts the cap by the genome's own Lush-to-Strong step, 2.4 / 1.5: capped
+  // at 1.3, Lush made the same map as Strong on most seeds)
+  g.hydro.flowMul = clamp(g.hydro.flowMul, 1.1, s.water.riverFlow === 'lush' && preset.riverFlow !== 'lush' ? 1.3 * 1.6 : 1.3);
+  // (D527: River style Braided keeps the genome's braids, a river splitting round an island before the
+  // lake, on another river where the main has no reach for it; quartered, Braided made the same map as
+  // Meandering)
+  if (!g.hydro.braided) g.hydro.split *= 0.25;
   g.hydro.delta = 0;
   g.hydro.incise = 0;
   g.hydro.floor = Math.min(g.hydro.floor, 0.5);
