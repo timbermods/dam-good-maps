@@ -49,20 +49,21 @@ describe("the dry side's knobs and pits (`gateFlat.ts`)", () => {
     expect(flatPits(h, W, H, own)).toEqual([8 * W + 8]);
   });
 
-  it("lowers a small knob to a level over the flat and fills a pit to its lowest neighbour", () => {
+  it("takes a knob of four tiles or fewer away into the flat and fills a pit to its lowest neighbour", () => {
+    // (lowered to a level over the flat, a 2 × 2 still read as a dropped cube: planning's look verdict of 2026-11-15)
     const { h, own } = ground();
     put(h, 3, 3, 2, 2, 8);
     h[15 * W + 15] = 2;
     h[15 * W + 16] = 6;
     const done = mendFlat(h, W, H, own, 1);
-    expect(done).toEqual({ lowered: 1, aproned: 0, filled: 1 });
-    for (const i of [3 * W + 3, 3 * W + 4, 4 * W + 3, 4 * W + 4]) expect(h[i]).toBe(6);
+    expect(done).toEqual({ gone: 1, lowered: 0, aproned: 0, filled: 1 });
+    for (const i of [3 * W + 3, 3 * W + 4, 4 * W + 3, 4 * W + 4]) expect(h[i]).toBe(5);
     expect(h[15 * W + 15]).toBe(5);
     expect(flatKnobs(h, W, H, own)).toEqual([]);
     expect(flatPits(h, W, H, own)).toEqual([]);
   });
 
-  it("gives a larger knob, by the seed, an apron a level over the flat, 1 to 3 tiles wide and uneven, its top kept", () => {
+  it("lowers a larger knob to a level over the flat, or gives it, by the seed, an apron a level over the flat, 1 to 3 tiles wide and uneven, its top kept", () => {
     // (a seed for which the 3 × 3 knob takes an apron: half of them do)
     let seen = 0;
     for (let seed = 1; seed < 40; seed++) {
@@ -96,6 +97,14 @@ describe("the dry side's knobs and pits (`gateFlat.ts`)", () => {
     }
     expect(seen, "some seeds give an apron").toBeGreaterThan(5);
     expect(seen, "some seeds lower it").toBeLessThan(34);
+  });
+
+  it("leaves a rise of 12 tiles or more alone, however high", () => {
+    const { h, own } = ground();
+    put(h, 6, 6, 4, 3, 10);
+    const before = Uint8Array.from(h);
+    expect(mendFlat(h, W, H, own, 1)).toEqual({ gone: 0, lowered: 0, aproned: 0, filled: 0 });
+    expect(h).toEqual(before);
   });
 
   it("touches no tile off the ground it mends", () => {

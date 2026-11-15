@@ -3,17 +3,18 @@
 // dropped cubes, and one-tile pits). A knob is a rise of fewer than `KNOB.area` tiles standing `KNOB.over` levels or
 // more over the ground round it; a pit a tile lower than all four of its neighbours. Both are read on the basin's side
 // of the range, off the range's own ground, the water, the beds, the badwater's niche and the rise that carries the
-// ruins; the mend lowers a knob to a level over the flat or gives it an uneven apron a level over the flat, and fills a
-// pit to its lowest neighbour.
+// ruins; the mend takes a knob of four tiles or fewer away into the flat, lowers a larger one to a level over the flat or
+// gives it an uneven apron a level over the flat, and fills a pit to its lowest neighbour.
 
 import { fbm } from "../math/noise";
 import { hash32 } from "../math/hash";
 
-/** A knob: a rise under `area` tiles standing `over` levels or more over the ground round it. A knob of `lowerUpTo`
- *  tiles or fewer is lowered to a level over the flat; a larger one is lowered or keeps its height and gains an apron
- *  (by the seed, `apronShare` of them an apron): a step of one level over the flat, `apron` tiles wide by a noise of
- *  `apronCell` tiles, so its outline wanders. */
-export const KNOB = { area: 12, over: 2, lowerUpTo: 4, apronShare: 0.5, apron: [1, 3], apronCell: 3 } as const;
+/** A knob: a rise under `area` tiles standing `over` levels or more over the ground round it. A knob of `goneUpTo`
+ *  tiles or fewer is taken away, set to the flat round it (planning's look verdict of 2026-11-15: lowered to a level
+ *  over the flat, a 2 × 2 still read as a dropped cube); a larger one is lowered to a level over the flat or keeps its
+ *  height and gains an apron (by the seed, `apronShare` of them an apron): a step of one level over the flat, `apron`
+ *  tiles wide by a noise of `apronCell` tiles, so its outline wanders. */
+export const KNOB = { area: 12, over: 2, goneUpTo: 4, apronShare: 0.5, apron: [1, 3], apronCell: 3 } as const;
 
 export interface Knob {
   /** Its tiles. */
@@ -84,14 +85,14 @@ export function flatPits(h: ArrayLike<number>, W: number, H: number, own: ArrayL
   return out;
 }
 
-/** Mends the flat (`own`): each knob lowered to a level over the ground round it, or, a larger one by the seed, kept
- *  with an apron (`KNOB`): a step a level over that ground, its width wandering 1 to 3 tiles, on `own`'s tiles at the
+/** Mends the flat (`own`): each knob of `KNOB.goneUpTo` tiles or fewer set to the ground round it; each larger one
+ *  lowered to a level over that ground, or, by the seed, kept with an apron (`KNOB`): a step a level over that ground, its width wandering 1 to 3 tiles, on `own`'s tiles at the
  *  base's level only (a knob three levels tall or more stands three over the flat, on two such steps); then each pit
- *  filled to its lowest neighbour. Passes until neither is left (at most four). How many knobs were lowered, how many
- *  given an apron, and how many pits filled. */
-export function mendFlat(h: Uint8Array, W: number, H: number, own: ArrayLike<number>, seed: number): { lowered: number; aproned: number; filled: number } {
+ *  filled to its lowest neighbour. Passes until neither is left (at most four). How many knobs were taken away, how many
+ *  lowered, how many given an apron, and how many pits filled. */
+export function mendFlat(h: Uint8Array, W: number, H: number, own: ArrayLike<number>, seed: number): { gone: number; lowered: number; aproned: number; filled: number } {
   const N = W * H;
-  const done = { lowered: 0, aproned: 0, filled: 0 };
+  const done = { gone: 0, lowered: 0, aproned: 0, filled: 0 };
   const [w0, w1] = KNOB.apron;
   for (let pass = 0; pass < 4; pass++) {
     const knobs = flatKnobs(h, W, H, own);
@@ -101,7 +102,12 @@ export function mendFlat(h: Uint8Array, W: number, H: number, own: ArrayLike<num
         for (const i of k.tiles) h[i] = Math.min(h[i], k.base + 1);
         done.lowered++;
       };
-      if (k.tiles.length <= KNOB.lowerUpTo || hash32(seed, at, "apron") / 2 ** 32 >= KNOB.apronShare) {
+      if (k.tiles.length <= KNOB.goneUpTo) {
+        for (const i of k.tiles) h[i] = k.base;
+        done.gone++;
+        continue;
+      }
+      if (hash32(seed, at, "apron") / 2 ** 32 >= KNOB.apronShare) {
         lower();
         continue;
       }

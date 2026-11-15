@@ -1111,8 +1111,8 @@ export function gateLand(plan: PremisePlan, water: StageWater, style?: ReliefSty
   // no knobs and no pits on the dry side (planning's look verdict of 2026-11-15 on round 5: lone blocks two levels or
   // more over the playa, read as dropped cubes, and one-tile pits): `gateFlat.ts` `mendFlat` on the basin's ground
   const flat = mendFlat(heights, plan.W, plan.H, dryFlat(plan, water, niches, marks), seedOf(plan, "gate", "flat"));
-  if (flat.lowered + flat.aproned + flat.filled)
-    notes.push(`On the dry side ${flat.lowered} knob${flat.lowered === 1 ? "" : "s"} lowered, ${flat.aproned} given an apron, ${flat.filled} pit${flat.filled === 1 ? "" : "s"} filled`);
+  if (flat.gone + flat.lowered + flat.aproned + flat.filled)
+    notes.push(`On the dry side ${flat.gone} knob${flat.gone === 1 ? "" : "s"} taken away, ${flat.lowered} lowered, ${flat.aproned} given an apron, ${flat.filled} pit${flat.filled === 1 ? "" : "s"} filled`);
   return { water, heights, niches, laid, notes, ...(marks.rise ? { ruinsAt: [Math.floor(marks.rise[0]), Math.floor(marks.rise[1])] as [number, number] } : {}) };
 }
 

@@ -1789,19 +1789,20 @@ playa with sheer sides read as dropped cubes; `gateFlat.ts`). Last of the land s
 badwater's niche and the rise that carries the ruins with the ground round it), `mendFlat` reads each **knob**, a
 joined piece of ground under 12 tiles standing over the level round it whose top is two levels or more over that
 level (`flatKnobs`, `KNOB`), and each **pit**, a tile under all four of its neighbours (`flatPits`). A knob of four
-tiles or fewer is lowered to a level over the ground round it; a larger one is lowered or, for half of them by the
-seed, keeps its height (three levels at the most) on an apron: a step a level over the flat, grown out 1 to 3 tiles
+tiles or fewer is taken away, set to the ground round it (planning's look verdict of 2026-11-15: lowered to a level
+over it, 128² seed 5's two 2 × 2 knobs still read as dropped cubes); one of 5 to 11 tiles is lowered to a level over
+that ground or, for half of them by the seed, keeps its height (three levels at the most) on an apron: a step a level over the flat, grown out 1 to 3 tiles
 by a noise of 3 tiles so its outline wanders (spread over the whole width: read as it is, the noise laid an apron two
 wide all round, a ring), a knob three tall on two such steps, a tile the step closes round on three sides joining it;
 where the flat leaves the apron no room (the knob and its steps under 12 tiles), it is lowered instead. A pit is
 filled to its lowest neighbour. Measured (seeds 1 to 12 at 128², 192² and 256², the mode's maps): knobs 16 before, 0
 after (7 at 128², 2 at 192², 7 at 256², half of them pieces of the rim's terraces on the map's edge); one-tile pits 0
 before and after (none on dev's maps; round 5's frame of 128² seed 5 showed two); 13 maps changed, each on the same
-plan, every check passing, the start's numbers unchanged but the wood floor (four maps, −10 to +43); the other
-themes' and the lake stair's maps byte for byte the same. **Short:** larger blocks stay: 12 pieces of 12 to 39 tiles
-three levels or more over the flat on 10 of the 36 maps (13 on 11 after, an apron's stepped mound of three levels
-counted among them), such as 128² seed 5's 28 tiles five levels over the floor on its far edge, beside its lowered
-knobs.
+plan, every check passing, the start's numbers unchanged but the wood floor (five maps, −10 to +43); the other
+themes' and the lake stair's maps byte for byte the same. A rise of 12 tiles or more is left as it is (planning: a
+butte with some size is a landmark): 12 pieces of 12 to 39 tiles three levels or more over the flat stand on 10 of
+the 36 maps (13 on 11 after, an apron's stepped mound of three levels counted among them), such as 128² seed 5's 28
+tiles five levels over the floor on its far edge, where its two knobs were.
 
 **Measured, the brooks' round** (seeds 1 to 12 at 128², 192² and 256², 2026-11-14, before the look round): 36 of 36 make a map, every start check passing.
 The start's numbers over the 36, mean and least: level land 989 and 667 tiles (192² seed 5), wood 398 and 253 (192²
