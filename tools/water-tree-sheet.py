@@ -19,8 +19,9 @@ rw = import_module("ruled-water-sheet")
 
 
 def tree_line(t, rec):
-    return (f"courses {t['courses']} (alone {t['alone']})  ·  joins {t['joins']}, wider below {t['wider']}  ·  wet "
-            f"{100 * t['wetShare']:.1f} %  ·  irrigable dry {100 * t['irrigable']:.1f} %  ·  attempts {rec.get('attempts', '?')}, "
+    order = f"order {t['trunks']}/{t['tributaries']}/{t['brooks']}" if "trunks" in t else f"courses {t['courses']}"
+    return (f"{order} (alone {t['alone']})  ·  joins {t['joins']}, wider below {t['wider']}  ·  wet "
+            f"{100 * t['wetShare']:.1f} %  ·  irrigable {100 * t['irrigable']:.1f} %  ·  attempts {rec.get('attempts', '?')}, "
             f"leaks {rec.get('leaks', '?')}")
 
 

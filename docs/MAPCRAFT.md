@@ -194,7 +194,11 @@ a premise or one still to come, may carry its own, lower playability floor.
   Valley 9, 0.10.28 → 0.10.30: courses 8.8 → 5.3, wider below 39 → 76 %, wet 30.2 → 24.2 %, irrigable dry 8.2 →
   6.8 %, attempts 173 → 132, leaks 38 → 27. Irrigable dry comes mostly from courses 4 tiles wide or less (56 % of it
   before the tree), the courses the tree removes: at most 6, 7 and 8 courses it reads 6.9, 7.2 and 7.3 % (8.7 % before,
-  seeds 1–3), so the course count (rule 3) and irrigable dry (rule 5) pull against each other.
+  seeds 1–3), so the course count (rule 3) and irrigable dry (rule 5) pull against each other. Round 3 (rule 5 wins;
+  rule 3 is order) adds brooks 2 wide toward the land farthest from the water and reads order (trunks, tributaries,
+  brooks) and the sea only where a lake runs along a quarter of the border. Against dev 0.10.25, generator 0.10.31:
+  irrigable dry 8.5 → 8.5 %, alone (not Islands) 5 → 1, attempts 209 → 224, leaks 40 → 43, `plants.drought` 13 → 26:
+  the brooks buy irrigable dry with attempts and the start's drought.
 
 **Land first, story second** (planning's ruling of 2026-11-11, for every path: themes, premises, hand maps). Every
 landform is one geology makes, shaped by the shared natural relief. A premise is found in or cut into natural land by a
