@@ -154,6 +154,11 @@ export interface WaterTree {
   trunks: number;
   tributaries: number;
   brooks: number;
+  /** (f) The clean water sources' strength in all, the map's water (round 4: brooks come out of it, never on top). */
+  strength: number;
+  /** (g) The fan: the most ways out of any one system, each a run of its water along the border (the sea's and a head's
+   *  own mouth not counted); a delta's trunk that divides toward the sea leaves by two or more. */
+  fan: number;
   /** For a picture: 1 the centre line kept, 2 a join, 3 a join wider below. */
   marks: Uint8Array;
 }
@@ -347,6 +352,27 @@ export function waterTree(W: number, H: number, heights: ArrayLike<number>, dept
       y = Math.round(g.reduce((a, o) => a + o.y, 0) / g.length);
     return { x, y, kind: g.some((o) => onBorder(o.y * W + o.x)) ? "inflow" : "spring", flow: Math.round(g.reduce((a, o) => a + specifiedStrength(o.components), 0) * 100) / 100, fate };
   });
+  // ---- (f) the strength, (g) the fan
+  const strength = Math.round(srcs.reduce((a, o) => a + specifiedStrength(o.components), 0) * 100) / 100;
+  const mouth = new Uint8Array(N);
+  for (const o of srcs) if (onBorder(o.y * W + o.x)) for (let dy = -HEAD_GAP; dy <= HEAD_GAP; dy++) for (let dx = -HEAD_GAP; dx <= HEAD_GAP; dx++) {
+    const xx = o.x + dx, yy = o.y + dy;
+    if (xx >= 0 && yy >= 0 && xx < W && yy < H) mouth[yy * W + xx] = 1;
+  }
+  const ring: number[] = [];
+  for (let x = 0; x < W; x++) ring.push(x);
+  for (let y = 1; y < H; y++) ring.push(y * W + W - 1);
+  for (let x = W - 2; x >= 0; x--) ring.push((H - 1) * W + x);
+  for (let y = H - 2; y >= 1; y--) ring.push(y * W);
+  const outs = new Map<number, number>();
+  for (let k = 0; k < ring.length; k++) {
+    const i = ring[k], p = ring[(k + ring.length - 1) % ring.length];
+    const s0 = sys.of[i];
+    if (s0 < 0 || mouth[i] || !(count.get(s0)! >= 1)) continue;
+    if (sys.of[p] === s0 && !mouth[p]) continue;
+    outs.set(s0, (outs.get(s0) ?? 0) + 1);
+  }
+  const fan = Math.max(0, ...outs.values());
   // ---- (c) the centre line, its widths and joins
   const channel = new Uint8Array(N);
   for (let i = 0; i < N; i++) channel[i] = wet[i] && !wide[i] ? 1 : 0;
@@ -743,6 +769,8 @@ export function waterTree(W: number, H: number, heights: ArrayLike<number>, dept
     trunks,
     tributaries,
     brooks,
+    strength,
+    fan,
     marks,
   };
 }
@@ -773,7 +801,7 @@ const pct = (x: number) => `${(100 * x).toFixed(1)} %`;
 function row(name: string, m: WaterTree): string {
   return (
     `${name.padEnd(16)} courses ${String(m.courses).padStart(3)} (in ${m.inflows}, springs ${String(m.springs).padStart(2)}) joined ${String(m.joined).padStart(2)} alone ${String(m.alone).padStart(2)} (edge ${m.edge}, sea ${m.sea}) lost ${m.lost}  systems ${String(m.systems).padStart(2)}` +
-    `  spacing ${m.spacing.toFixed(1).padStart(5)}  wet ${pct(m.wetShare).padStart(7)}  irrigable ${pct(m.irrigable).padStart(7)}  width ${m.width.toFixed(1)} one ${pct(m.oneWidth)} thin ${pct(m.thin)} w1 ${m.w1.toFixed(1)} w2 ${m.w2.toFixed(1)}  joins ${m.joins} wider ${m.wider}  course ${m.courses ? Math.round(m.courseLen / m.courses) : 0}  start ${m.startOn}  order ${m.trunks}/${m.tributaries}/${m.brooks}`
+    `  spacing ${m.spacing.toFixed(1).padStart(5)}  wet ${pct(m.wetShare).padStart(7)}  irrigable ${pct(m.irrigable).padStart(7)}  width ${m.width.toFixed(1)} one ${pct(m.oneWidth)} thin ${pct(m.thin)} w1 ${m.w1.toFixed(1)} w2 ${m.w2.toFixed(1)}  joins ${m.joins} wider ${m.wider}  course ${m.courses ? Math.round(m.courseLen / m.courses) : 0}  start ${m.startOn}  order ${m.trunks}/${m.tributaries}/${m.brooks}  strength ${m.strength}  fan ${m.fan}`
   );
 }
 
