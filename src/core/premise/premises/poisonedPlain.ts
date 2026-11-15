@@ -375,7 +375,7 @@ function scarAt(r: Riser, v: number): number {
   const t = (v + (mean / 3) * fbm(r.seed ^ 0x2c1b3c6d, 0, v, mean, 1)) / mean;
   const k = Math.floor(t);
   const b = bow[0] + (bow[1] - bow[0]) * (0.5 + 0.5 * fbm(r.seed ^ 0x51ed270b, k * 7.31 + 0.37, 0.53, 1, 1));
-  return b * Math.sin(Math.PI * (t - k));
+  return b * sin(Math.PI * (t - k));
 }
 
 /** The plain's level at a local point: L, a level less past each riser. */

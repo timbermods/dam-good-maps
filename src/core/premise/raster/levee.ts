@@ -7,6 +7,7 @@
 // the outer edge of each step wanders by a tile's noise, so no bank's foot runs as a ruled line beside the channel.
 
 import { fbm } from "../../math/noise";
+import { hypot } from "../../math/portable";
 import { segDist } from "../geom";
 import type { Point } from "../types";
 
@@ -48,7 +49,7 @@ export function leveeBanks(W: number, H: number, f: LeveeForm): { over: Uint8Arr
   for (let k = 0; k + 1 < f.path.length; k++) {
     const a = f.path[k];
     const b = f.path[k + 1];
-    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const len = hypot(b[0] - a[0], b[1] - a[1]);
     if (len > 0) segs.push({ a, b, s0: run, len });
     run += len;
   }
@@ -103,7 +104,7 @@ export function longestStraight(pts: readonly Point[], near: number): number {
     for (let j = i + 1; j < pts.length; j++) {
       const b = pts[j];
       if (!(b[0] === b[0])) break;
-      const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const len = hypot(b[0] - a[0], b[1] - a[1]);
       if (!(len > best)) continue;
       let ok = true;
       for (let m = i + 1; m < j && ok; m++) {

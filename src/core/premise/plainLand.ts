@@ -32,6 +32,7 @@ import { ORIENTATIONS, type Orientation } from "../format/footprints";
 import { BED_FLOOR } from "../land/genome";
 import { smoothstep } from "../math/clamp";
 import { fbm } from "../math/noise";
+import { atan2, cos, exp, hypot, sin, sqrt, tanh } from "../math/portable";
 import { flowThrough } from "../sim/prefill";
 import { sillWidthFor } from "../sim/sill";
 import { gameSoil } from "../sim/soil";
@@ -262,7 +263,7 @@ export function sideValleys(plan: PremisePlan, p: PlainNumbers = plainOf(plan)!)
     const sg = wall === "far" ? 1 : -1;
     const cfg = wall === "far" ? SIDE_VALLEY : { ...SIDE_VALLEY, ...NEAR_VALLEY };
     const wSeed = S(plan, `wander.${wall}`);
-    const gapOf = () => cfg.apart * Math.max(SIDE_VALLEY.gap[0], Math.min(SIDE_VALLEY.gap[1], Math.exp(SIDE_VALLEY.gapSpread * gauss())));
+    const gapOf = () => cfg.apart * Math.max(SIDE_VALLEY.gap[0], Math.min(SIDE_VALLEY.gap[1], exp(SIDE_VALLEY.gapSpread * gauss())));
     // (the mouths: on the far wall from the plan's gulch, where the plan looks for it, both ways along the wall; on the
     // near wall from the terrace's head down)
     const anchor = wall === "far" ? (p.found?.anchor ?? p.gulch.mouth) : NaN;
@@ -319,16 +320,16 @@ export function sideValleys(plan: PremisePlan, p: PlainNumbers = plainOf(plan)!)
           const l0 = toLocal(T, f0);
           const l1 = toLocal(T, [f0[0] + gd[0], f0[1] + gd[1]]);
           const gl: Point = [l1[0] - l0[0], l1[1] - l0[1]];
-          back = Math.atan2(n[0] * gl[1] - n[1] * gl[0], n[0] * gl[0] + n[1] * gl[1]);
+          back = atan2(n[0] * gl[1] - n[1] * gl[0], n[0] * gl[0] + n[1] * gl[1]);
         }
         const course = (a0: number, seed: number, from: Point, n0: Point, steps: number, bend: number): { pts: Point[]; heads: number[] } => {
           const pts: Point[] = [from];
           const heads: number[] = [];
           for (let s = 0; s < steps; s++) {
             const ease = planned ? smoothstep(Math.min(1, s / MASSIF.narrows)) : 1;
-            const th = ease * most * Math.tanh((a0 + bend * fbm(seed, s, 0, cell, 2)) / most) + (1 - ease) * back;
+            const th = ease * most * tanh((a0 + bend * fbm(seed, s, 0, cell, 2)) / most) + (1 - ease) * back;
             heads.push(th);
-            const d: Point = [n0[0] * Math.cos(th) - n0[1] * Math.sin(th), n0[0] * Math.sin(th) + n0[1] * Math.cos(th)];
+            const d: Point = [n0[0] * cos(th) - n0[1] * sin(th), n0[0] * sin(th) + n0[1] * cos(th)];
             const q = pts[pts.length - 1];
             pts.push([q[0] + d[0], q[1] + d[1]]);
           }
@@ -342,7 +343,7 @@ export function sideValleys(plan: PremisePlan, p: PlainNumbers = plainOf(plan)!)
           if (Number.isFinite(prevAngle) && Math.abs(angle - prevAngle) < rad(SIDE_VALLEY.differ) && t < 7) continue;
           const c = course(angle, wSeed + k * 7919, [a, vf], n, Math.round(len), rad(alcove ? 8 : SIDE_VALLEY.bend));
           // (the gulch's rock keeps clear of the terrace's brook, whose spring stands in the far wall)
-          if (planned && t < 7 && c.pts.some((q) => Math.hypot(q[0] - brookAt[0], q[1] - brookAt[1]) < MASSIF.brook)) continue;
+          if (planned && t < 7 && c.pts.some((q) => hypot(q[0] - brookAt[0], q[1] - brookAt[1]) < MASSIF.brook)) continue;
           // (read as the comb measure reads it)
           c.heads = c.heads.map((_, s) => headingAt(c.pts, s, n));
           let run = 0;
@@ -381,7 +382,7 @@ export function sideValleys(plan: PremisePlan, p: PlainNumbers = plainOf(plan)!)
         const pHalf = g.r(pR[0], pR[1]);
         const half = pts.map((_, s) => {
           // (an alcove rounds off at its head; a valley wanders in width and narrows toward its head)
-          if (alcove) return Math.max(1.4, h0 * Math.sqrt(Math.max(0, 1 - (s / (L + 1.5)) ** 2)));
+          if (alcove) return Math.max(1.4, h0 * sqrt(Math.max(0, 1 - ((s / (L + 1.5)) * (s / (L + 1.5))))));
           const base = Math.max(1.6, h0 * (1 + SIDE_VALLEY.widthVary * fbm(wSeed, s, k * 97 + 50, 6, 2)) * (1 - SIDE_VALLEY.taper * smoothstep(s / L)));
           if (!pinched) return base;
           const t = Math.abs(s - pAt) / (pLen / 2);
@@ -395,7 +396,7 @@ export function sideValleys(plan: PremisePlan, p: PlainNumbers = plainOf(plan)!)
           const at = Math.round(L * g.r(SIDE_VALLEY.branchAt[0], SIDE_VALLEY.branchAt[1]));
           const side = g.f() < 0.5 ? 1 : -1;
           const th = heads[Math.min(heads.length - 1, at)] + side * rad(g.r(SIDE_VALLEY.branchAngle[0], SIDE_VALLEY.branchAngle[1]));
-          const bn: Point = [n[0] * Math.cos(th) - n[1] * Math.sin(th), n[0] * Math.sin(th) + n[1] * Math.cos(th)];
+          const bn: Point = [n[0] * cos(th) - n[1] * sin(th), n[0] * sin(th) + n[1] * cos(th)];
           const bl = course(0, wSeed + k * 7919 + 4111, pts[at], bn, Math.round(g.r(SIDE_VALLEY.branchLen[0], SIDE_VALLEY.branchLen[1])), rad(SIDE_VALLEY.bend)).pts;
           if (onMap(T, bl[bl.length - 1], 1)) {
             v.branch = { line: bl, at, half: g.r(SIDE_VALLEY.branchHalf[0], SIDE_VALLEY.branchHalf[1]) };
@@ -409,7 +410,7 @@ export function sideValleys(plan: PremisePlan, p: PlainNumbers = plainOf(plan)!)
           const side0 = g.f() < 0.5 ? 1 : -1;
           const c = pts[Math.min(L, at)];
           const dn = pts[Math.min(L, at + 1)];
-          const dl = Math.hypot(dn[0] - c[0], dn[1] - c[1]) || 1;
+          const dl = hypot(dn[0] - c[0], dn[1] - c[1]) || 1;
           const nrm: Point = [(dn[1] - c[1]) / dl, -(dn[0] - c[0]) / dl];
           const off = half[Math.min(L, at)] + g.r(OLD_VALLEY.gap[0], OLD_VALLEY.gap[1]) + g.r(OLD_VALLEY.half[0], OLD_VALLEY.half[1]);
           const turn0 = g.r(0.15, OLD_VALLEY.turn);
@@ -429,9 +430,9 @@ export function sideValleys(plan: PremisePlan, p: PlainNumbers = plainOf(plan)!)
             ol = [head];
             for (let s = 1; s < 3 * T.U; s += 1) {
               const th0 = turn + (planned ? OLD_VALLEY.plannedWander : OLD_VALLEY.wander) * fbm(oSeed, s, 0, OLD_VALLEY.wanderCell, 3) * Math.min(1, s / 8);
-              const th = planned ? OLD_VALLEY.away * Math.tanh(th0 / OLD_VALLEY.away) : th0;
+              const th = planned ? OLD_VALLEY.away * tanh(th0 / OLD_VALLEY.away) : th0;
               const q0 = ol[ol.length - 1];
-              const q: Point = [q0[0] + Math.sin(th), q0[1] + sg * Math.cos(th)];
+              const q: Point = [q0[0] + sin(th), q0[1] + sg * cos(th)];
               ol.push(q);
               if (!onMap(T, q, -2)) break;
             }
@@ -481,7 +482,7 @@ export const COMB = { gap: [0.4, 2.5], off: 35, chord: 4, parallel: 10, run: 12,
 const spreadOf = (xs: readonly number[]): number => {
   if (xs.length < 2) return 0;
   const m = xs.reduce((a, b) => a + b, 0) / xs.length;
-  return Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / xs.length) / (m || 1);
+  return sqrt(xs.reduce((a, b) => a + (b - m) * (b - m), 0) / xs.length) / (m || 1);
 };
 
 /** A side valley's heading at `s` tiles along it, radians off its wall's normal at its mouth (+ down the valley), read
@@ -490,7 +491,7 @@ function headingAt(line: readonly Point[], s: number, normal: Point): number {
   const a = line[Math.min(line.length - 1, s)];
   const b = line[Math.min(line.length - 1, s + COMB.chord)];
   const d: Point = [b[0] - a[0], b[1] - a[1]];
-  return Math.atan2(normal[0] * d[1] - normal[1] * d[0], normal[0] * d[0] + normal[1] * d[1]);
+  return atan2(normal[0] * d[1] - normal[1] * d[0], normal[0] * d[0] + normal[1] * d[1]);
 }
 
 /** A wall's normal into the wall at u (local). */
@@ -498,7 +499,7 @@ function wallNormal(p: PlainNumbers, wall: "far" | "near", u: number): Point {
   const line = wall === "far" ? p.far : p.near;
   const dv = (lineAt(line, p.step, u + 2) - lineAt(line, p.step, u - 2)) / 4;
   const sg = wall === "far" ? 1 : -1;
-  const l = Math.hypot(dv, 1);
+  const l = hypot(dv, 1);
   return [(-dv * sg) / l, sg / l];
 }
 
@@ -546,7 +547,7 @@ export function combOf(plan: PremisePlan, valleys: readonly SideValley[], wall: 
 /** The nearest point of a local polyline (a point a tile) to (u, v): its distance and its index (fractional). A line of
  *  one point is that point (a valley's head, rounded off). */
 export function nearOnLine(line: readonly Point[], u: number, v: number): { d: number; s: number } {
-  if (line.length === 1) return { d: Math.hypot(line[0][0] - u, line[0][1] - v), s: 0 };
+  if (line.length === 1) return { d: hypot(line[0][0] - u, line[0][1] - v), s: 0 };
   let best = Infinity;
   let at = 0;
   for (let k = 0; k + 1 < line.length; k++) {
@@ -564,7 +565,7 @@ export function nearOnLine(line: readonly Point[], u: number, v: number): { d: n
       at = k + t;
     }
   }
-  return { d: Math.sqrt(best), s: at };
+  return { d: sqrt(best), s: at };
 }
 
 // ------------------------------------------------------------------------------------------------- the relief
@@ -601,7 +602,7 @@ export function leveeOf(plan: PremisePlan, p: PlainNumbers = plainOf(plan)!): Le
     from: p.levee.from,
     to: p.levee.to,
     // (held inside 3 to 6 softly: a hard clamp would hold a width, and a bank beside a straight reach, straight)
-    width: (s, sd) => LEVEE_LAND.mid + 1.5 * Math.tanh((LEVEE_LAND.keep * (leveeWidth(p, s, side(sd)) - LEVEE_LAND.mid) + LEVEE_LAND.wander * fbm(wSeed, s, sd === "a" ? 0 : 300, LEVEE_LAND.cell, 1)) / 1.5),
+    width: (s, sd) => LEVEE_LAND.mid + 1.5 * tanh((LEVEE_LAND.keep * (leveeWidth(p, s, side(sd)) - LEVEE_LAND.mid) + LEVEE_LAND.wander * fbm(wSeed, s, sd === "a" ? 0 : 300, LEVEE_LAND.cell, 1)) / 1.5),
     over: (s, sd) => crestOver(p.levee[side(sd)], s),
     seed: S(plan, "levee"),
   };
@@ -719,7 +720,7 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
     // the terrace: from its strip past the levee's foot to the far wall, down the valley to its lip (`grow` tiles on
     // where the start's bench needs it)
     const across = Math.max(0, Math.min(1, (v - side) / Math.max(1, vf - side)));
-    let lip = p.plainFrom + TERRACE_LAND.lip + grow + bulge * Math.sin(Math.PI * across) + TERRACE_LAND.wander * fbm(sLip, v, 0, TERRACE_LAND.cell, 2);
+    let lip = p.plainFrom + TERRACE_LAND.lip + grow + bulge * sin(Math.PI * across) + TERRACE_LAND.wander * fbm(sLip, v, 0, TERRACE_LAND.cell, 2);
     // (its bench never within three tiles of the start's 5 × 5: the start stands on the terrace)
     if (Math.abs(v - vS) < 6) lip = Math.max(lip, uS + 5 + TERRACE_LAND.step[1]);
     const inside = Math.min(lip - u, v - side);
@@ -1016,7 +1017,7 @@ export function floorWidth(T: Turn, W: number, H: number, h: ArrayLike<number>, 
   const k = Math.max(0, Math.min(sv.line.length - 2, Math.floor(s)));
   const a = sv.line[k];
   const b = sv.line[k + 1];
-  const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+  const len = hypot(b[0] - a[0], b[1] - a[1]) || 1;
   const n: Point = [-(b[1] - a[1]) / len, (b[0] - a[0]) / len];
   const c: Point = [a[0] + (b[0] - a[0]) * (s - k), a[1] + (b[1] - a[1]) * (s - k)];
   const fl = floorAt(sv, s);
