@@ -112,7 +112,7 @@ export const PREMISE_SETTINGS: Record<PremiseId, readonly PremiseSetting[]> = {
     { key: "fd", path: "resources.forestDensity", role: "life", does: "How many trees, inside the stair's wood budget" },
     { key: "gs", path: "resources.groveSize", role: "life", does: "How big the stands of trees are" },
     { key: "sm", path: "resources.speciesMix", role: "life", does: "Which trees grow; left as it is, the theme's woods" },
-    { key: "bn", path: "resources.berriesNearStart", role: "life", does: "Berry bushes near the start" },
+    { key: "bn", path: "resources.berriesNearStart", role: "life", does: "The berry bushes placed near the start" },
     { key: "bb", path: "resources.berryBushes", role: "life", does: "How many berry bushes, inside the stair's budget" },
     { key: "ru", path: "resources.ruins", role: "life", does: "How much scrap lies in ruins" },
     { key: "rc", path: "resources.relics", role: "none", does: "Not on a lake stair yet" },
@@ -122,7 +122,6 @@ export const PREMISE_SETTINGS: Record<PremiseId, readonly PremiseSetting[]> = {
     { key: "es", path: "start.easyStart", role: "refuses", does: "Not offered with the lake stair yet; on, it makes no lake stair" },
     { key: "sw", path: "start.rules.waterWithin", role: "rules", does: "How far the start may walk to water" },
     { key: "sl", path: "start.rules.woodWithin20", role: "rules", does: "The wood the start needs within 20 tiles' walk" },
-    { key: "sb", path: "start.rules.bushesWithin20", role: "rules", does: "The berry bushes the start needs within 20 tiles' walk" },
     { key: "sr", path: "start.rules.ruinsWithin", role: "rules", does: "How far from the start ruins must stay" },
   ],
 };

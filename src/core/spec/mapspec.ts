@@ -1,7 +1,7 @@
 // MapSpec v1 (PLAN §19.1): everything that determines a generated map. The settings panel and the
 // URL codec produce one. Complete, never a diff.
 
-export const GENERATOR_VERSION = "0.10.24";
+export const GENERATOR_VERSION = "0.10.28";
 
 /** "any" (Surprise me, the default, D208, D209) draws from all six themes' ranges at once; a named
  *  theme only leans the generator toward that kind of land. */
@@ -107,7 +107,11 @@ export interface Settings {
     forestDensity: number; // 50–200 (%)
     groveSize: "scattered" | "normal" | "bigWoods";
     speciesMix: { pine: number; birch: number; oak: number; succulent: number }; // weights 0–100
-    berriesNearStart: number; // 20–100 (the generator aims at least at Minimum starting bushes)
+    /** Berries near start (D527): the berry bushes the generator places within 20 tiles' walk of the start, exactly
+     *  that many where the start's ground holds them, 20–200. The start is checked against its difficulty's floor
+     *  (`startBerriesLeast`), or against this where the player asks for fewer. Starting berries, the minimum
+     *  alone, folded into it: a minimum the placing already beat changed nothing. */
+    berriesNearStart: number;
     berryBushes: number; // 50–300 (%)
     ruins: number; // 25–300 (%)
     relics: "off" | "some";
@@ -120,12 +124,11 @@ export interface Settings {
      *  rest of the map keeps its variety. Absent or false: off, the map as ever (a spec without it, and
      *  every old link, reads as off; the page sets it only when on). */
     easyStart?: boolean;
-    /** The start requirements and targets (PLAN §5.6, D85). The first three reject a map:
-     *  water without stairs, Minimum starting wood and Minimum starting bushes. */
+    /** The start requirements and targets (PLAN §5.6, D85). The first two reject a map: water without stairs and
+     *  Minimum starting wood; the third, the berries, is Berries near start (`resources.berriesNearStart`). */
     rules: {
       waterWithin: number; // water without stairs: tiles' walk over the map's own ground and slopes to a shore a pump works from (4–40)
       woodWithin20: number; // Minimum starting wood: logs of grown trees within 20 tiles' walk (0–800; D164)
-      bushesWithin20: number; // Minimum starting bushes: living, within 20 tiles' walk (0–200)
       ruinsWithin: number; // target: no ruins within this many tiles
     };
   };
@@ -222,18 +225,29 @@ export const LOGS_PER_TREE = 2;
  *  within 12 / 20 / 28 tiles' walk, Minimum starting wood 250 / 200 / none of grown trees within 20
  *  tiles' walk ("how comfortable is it"; D227, replacing D164's 120 / 80 / 40: Hard keeps no minimum
  *  nearby beyond the starting-logs floor, which every map meets within 40 tiles' walk,
- *  `start.wood_floor`), Minimum starting bushes 40 / 30 / 30, badwater distance 30 / 15 / 8
- *  (`badwaterWithin`, the preset's Badwater distance, `hazards.badwaterDistance`). Berries near start never aims below Minimum starting bushes (Easy's 20 became 40).
- *  Hard's 30 (20 before; item 47: enough berries for an Iron Teeth start): its 13 beavers eat 2.67
- *  food a day each (the game's NeedModificationService) and start with 90 food; Iron Teeth's first
- *  harvest, Kohlrabi 3 days after a FarmHouse of 20 logs is planted, comes about day 6, so the
- *  berries ripe near the start (3 a bush) bridge 13 × 2.67 × 5 − 90 ≈ 84 food: 28 bushes, plus the
- *  breeding pod's berry a kit. Normal (130 food: 44, 15 bushes) and Easy (300 food) have room. */
-export const DIFFICULTY_RULES: Record<Difficulty, Settings["start"]["rules"] & { badwaterWithin: number; berriesTarget: number }> = {
+ *  `start.wood_floor`), badwater distance 30 / 15 / 8 (`badwaterWithin`, the preset's Badwater
+ *  distance, `hazards.badwaterDistance`), and Berries near start 40 / 48 / 60 (`berriesTarget`), the
+ *  bushes placed near the start (D527: Starting berries, the minimum alone, and the start's badwater
+ *  rule folded into those settings, each preset at the larger of the two). `bushesWithin20` is the
+ *  floor, the least living berry bushes within 20 tiles' walk the start is checked against, 40 / 30 /
+ *  30 (`startBerriesLeast`: lower where the player asks for fewer berries): Hard's 30 (20 before; item 47: enough berries for
+ *  an Iron Teeth start): its 13 beavers eat 2.67 food a day each (the game's NeedModificationService)
+ *  and start with 90 food; Iron Teeth's first harvest, Kohlrabi 3 days after a FarmHouse of 20 logs
+ *  is planted, comes about day 6, so the berries ripe near the start (3 a bush) bridge 13 × 2.67 × 5
+ *  − 90 ≈ 84 food: 28 bushes, plus the breeding pod's berry a kit. Normal (130 food: 44, 15 bushes)
+ *  and Easy (300 food) have room. */
+export const DIFFICULTY_RULES: Record<Difficulty, Settings["start"]["rules"] & { bushesWithin20: number; badwaterWithin: number; berriesTarget: number }> = {
   easy: { waterWithin: 12, woodWithin20: 250, bushesWithin20: 40, badwaterWithin: 30, ruinsWithin: 20, berriesTarget: 40 },
   normal: { waterWithin: 20, woodWithin20: 200, bushesWithin20: 30, badwaterWithin: 15, ruinsWithin: 15, berriesTarget: 48 },
   hard: { waterWithin: 28, woodWithin20: 0, bushesWithin20: 30, badwaterWithin: 8, ruinsWithin: 12, berriesTarget: 60 },
 };
+
+/** The least living berry bushes within 20 tiles' walk a map's start is checked against (`start.food`; D85 (3), D527 as
+ *  amended on #236, 6894653541): its difficulty's floor, or Berries near start where the player asks for fewer.
+ *  Raising Berries near start places more bushes; it never raises the bar a map must clear. */
+export function startBerriesLeast(spec: Pick<MapSpec, "designedFor" | "settings">): number {
+  return Math.min(DIFFICULTY_RULES[spec.designedFor].bushesWithin20, spec.settings.resources.berriesNearStart);
+}
 
 /** The wood a tree count of before D164 stands for: `LOGS_PER_TREE` logs a tree, within the
  *  setting's range. */
@@ -242,14 +256,20 @@ export function woodForTrees(trees: number): number {
 }
 
 /** A spec stored before D164 (a project file, a saved autosave) counts starting trees: its
- *  `treesWithin20` becomes `woodWithin20` by `woodForTrees`. A spec stored before D527 carries the
- *  start's badwater rule (`badwaterWithin`) beside Badwater distance: the larger of the two, which the
- *  generator kept, is Badwater distance. Changes the spec in place; anything else is left for the
- *  schema to judge. */
+ *  `treesWithin20` becomes `woodWithin20` by `woodForTrees`. A spec stored before D527 carries
+ *  Starting berries (`bushesWithin20`) beside Berries near start, and the start's badwater rule
+ *  (`badwaterWithin`) beside Badwater distance: the larger of each two is the one setting. Changes
+ *  the spec in place; anything else is left for the schema to judge. */
 export function upgradeSpec(spec: unknown): void {
-  const settings = (spec as { settings?: { hazards?: Record<string, unknown>; start?: { rules?: Record<string, unknown> } } } | null)?.settings;
+  const settings = (spec as { settings?: { resources?: Record<string, unknown>; hazards?: Record<string, unknown>; start?: { rules?: Record<string, unknown> } } } | null)?.settings;
   const rules = settings?.start?.rules;
   if (!rules || typeof rules !== "object") return;
+  if ("bushesWithin20" in rules) {
+    const least = rules.bushesWithin20;
+    delete rules.bushesWithin20;
+    const res = settings!.resources;
+    if (res && typeof res === "object" && typeof least === "number" && typeof res.berriesNearStart === "number") res.berriesNearStart = Math.max(res.berriesNearStart, least);
+  }
   if ("badwaterWithin" in rules) {
     const within = rules.badwaterWithin;
     delete rules.badwaterWithin;
@@ -403,7 +423,6 @@ function themeSettings(theme: ThemeId, designedFor: Difficulty, size: { x: numbe
       rules: {
         waterWithin: d.waterWithin,
         woodWithin20: d.woodWithin20,
-        bushesWithin20: d.bushesWithin20,
         ruinsWithin: d.ruinsWithin,
       },
     },

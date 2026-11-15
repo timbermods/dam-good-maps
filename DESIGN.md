@@ -322,7 +322,8 @@ than the room above the water bar. Where this section says otherwise, the verdic
   at once, only the rows below moving down); Your maps as square tiles, two to a row, each the map's stored 64px
   picture with its name and size under it, newest first, the open map marked, a click opening it.
 - **Difficulty replaces "Designed for":** no Easy/Normal/Hard. "Advanced: start rules" is **Difficulty**: Starting
-  wood, Max walk to water, Starting berries, Start area, No ruins within, at Normal's values. Every map is made for
+  wood, Max walk to water, Start area, No ruins within, at Normal's values (Starting berries folded into Berries near
+  start, D527). Every map is made for
   Normal until the milestone session removes difficulty from the core after M9b's release.
 - **No explanations under settings:** no grey line under any setting. Where the line gave the official maps' range,
   it is in the setting's tooltip as a short phrase after its purpose ("… · Official maps: 9–15").
@@ -928,7 +929,7 @@ API, every pinned hash, and every role and accessible name the tests use.
   for the settings it doesn't have (seed, theme, every slider and choice, the species shares; the sliders at a third of
   their strength) and shows the file's own size; "On this map" counts the map's objects (Mine sites, Ruins, Berry bushes,
   Trees, Water sources). The value column is 70px, so "200 bushes" fits whole: Starting wood "200 logs", Max walk to water
-  "20 tiles", Starting berries and Berries near start "30 bushes", Highest terrain "16 tiles". An opened file's sliders show no knobs. A name too long for the Name box ends in "…" until the
+  "20 tiles", Berries near start "48 bushes", Highest terrain "16 tiles". An opened file's sliders show no knobs. A name too long for the Name box ends in "…" until the
   field is in hand.
 - **The sources' labels keep clear** (editor polish, `docs/design/polish-labels-*.jpg`): no label stands on another or on an
   open panel (the Legend, the toggles, the corner, the water row, the bar, the objects list, the minimap, the

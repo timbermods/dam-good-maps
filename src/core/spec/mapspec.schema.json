@@ -86,7 +86,7 @@
                 "succulent": { "type": "integer", "minimum": 0, "maximum": 100 }
               }
             },
-            "berriesNearStart": { "type": "integer", "minimum": 20, "maximum": 100 },
+            "berriesNearStart": { "type": "integer", "minimum": 20, "maximum": 200 },
             "berryBushes": { "type": "integer", "minimum": 50, "maximum": 300 },
             "ruins": { "type": "integer", "minimum": 25, "maximum": 300 },
             "relics": { "enum": ["off", "some"] },
@@ -104,11 +104,10 @@
             "rules": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["waterWithin", "woodWithin20", "bushesWithin20", "ruinsWithin"],
+              "required": ["waterWithin", "woodWithin20", "ruinsWithin"],
               "properties": {
                 "waterWithin": { "type": "integer", "minimum": 4, "maximum": 40 },
                 "woodWithin20": { "type": "integer", "minimum": 0, "maximum": 800 },
-                "bushesWithin20": { "type": "integer", "minimum": 0, "maximum": 200 },
                 "ruinsWithin": { "type": "integer", "minimum": 0, "maximum": 60 }
               }
             }

@@ -390,19 +390,6 @@ export const EXPERIMENTS: Experiment[] = [
     delta: 60,
   },
   {
-    setting: "Minimum starting bushes",
-    target: "living berry bushes within 20 tiles' walk of the start (D85)",
-    theme: "riverValley",
-    values: ["10", "80"],
-    apply: (s, v) => {
-      s.settings.start.rules.bushesWithin20 = num(v);
-      s.settings.resources.berriesNearStart = 20;
-    },
-    metric: (m) => m.bushesNearStart,
-    expect: "up",
-    delta: 30,
-  },
-  {
     setting: "Start rules: no ruins within",
     target: "distance from the start to the nearest ruin column",
     theme: "riverValley",

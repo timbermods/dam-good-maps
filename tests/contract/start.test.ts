@@ -121,11 +121,12 @@ function check(s: Scene, rules: Partial<Rules> = {}, profile: "generate" | "expo
     designedFor: difficulty,
     theme: "riverValley",
     settings: {
-      start: { rules: { waterWithin: r.waterWithin, woodWithin20: r.woodWithin20, bushesWithin20: r.bushesWithin20, ruinsWithin: r.ruinsWithin }, area: "normal" },
+      start: { rules: { waterWithin: r.waterWithin, woodWithin20: r.woodWithin20, ruinsWithin: r.ruinsWithin }, area: "normal" },
       hazards: { badwaterDistance: r.badwaterWithin, badwater: "normal" },
       terrain: { buildableLand: "normal" },
       water: { sources: "normal", droughtReserve: "normal" },
-      resources: { ruins: 100, forestDensity: 100, berryBushes: 100 },
+      // (the floor, or Berries near start where it is fewer, D527)
+      resources: { ruins: 100, forestDensity: 100, berryBushes: 100, berriesNearStart: r.bushesWithin20 },
     },
   } as unknown as MapSpec;
   const model = waterModel(W, H, s.heights, s.objects);
@@ -159,6 +160,14 @@ describe("the three start requirements (PLAN §5.6, D85, D164)", () => {
     const spec = makeSpec({ seed: 1, designedFor: "easy" });
     spec.settings.start.rules.waterWithin = 33;
     expect(rulesFor(spec).waterWithin).toBe(33);
+    // D527 (as amended on #236): the floor is the difficulty's, 40 / 30 / 30, whatever Berries near start places (40 / 48
+    // / 60 by preset); raising it never raises the bar, and asking fewer than the floor lowers it
+    expect((["easy", "normal", "hard"] as const).map((d) => rulesFor(makeSpec({ seed: 1, designedFor: d })).bushesWithin20)).toEqual([40, 30, 30]);
+    spec.settings.resources.berriesNearStart = 77;
+    expect(rulesFor(spec).bushesWithin20).toBe(40);
+    spec.settings.resources.berriesNearStart = 25;
+    expect(rulesFor(spec).bushesWithin20).toBe(25);
+    expect(rulesFor(null, "normal").bushesWithin20).toBe(30);
   });
 
   it("a map that meets all three passes; the badwater distance is a rule when generating, the other start rules only targets", () => {
@@ -389,7 +398,7 @@ describe("the three start requirements (PLAN §5.6, D85, D164)", () => {
     expect(without["start.wood"].ok).toBe(false);
   });
 
-  it("bushes below the minimum or too far away fail, and Minimum starting bushes moves the result", () => {
+  it("bushes below the minimum or too far away fail, and Berries near start moves the result", () => {
     const s = scene();
     const taken = new Set<number>();
     plant(s, "Pine", spots(s, 45, 2, 18, taken));

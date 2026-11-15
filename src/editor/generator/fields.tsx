@@ -42,7 +42,7 @@ const PATHS: Record<string, string> = {
   rivers: "water.rivers", "river-style": "water.riverStyle", "river-flow": "water.riverFlow", reserve: "water.droughtReserve", lakes: "water.lakes", falls: "water.waterfalls", sources: "water.sources",
   badwater: "hazards.badwater", "badwater-distance": "hazards.badwaterDistance", thorns: "hazards.thornBelts", cores: "hazards.unstableCores",
   forest: "resources.forestDensity", groves: "resources.groveSize", "berries-start": "resources.berriesNearStart", berries: "resources.berryBushes", ruins: "resources.ruins", relics: "resources.relics", geothermal: "resources.geothermal", mines: "resources.mineSites",
-  "rule-wood": "start.rules.woodWithin20", "rule-water": "start.rules.waterWithin", "rule-bushes": "start.rules.bushesWithin20", "start-area": "start.area", "rule-ruins": "start.rules.ruinsWithin",
+  "rule-wood": "start.rules.woodWithin20", "rule-water": "start.rules.waterWithin", "start-area": "start.area", "rule-ruins": "start.rules.ruinsWithin",
 };
 
 /** The tooltip of a setting the idea does not use: the core's line where it is a tooltip's length (D351), else a phrase. */
@@ -73,7 +73,7 @@ export type FieldKey =
   | "rivers" | "riverStyle" | "riverFlow" | "reserve" | "lakes" | "falls" | "sources"
   | "badwater" | "badwaterDistance" | "thorns" | "cores"
   | "forest" | "groves" | "mix" | "berriesStart" | "berries" | "ruins" | "relics" | "geothermal" | "mines"
-  | "wood" | "walk" | "bushes" | "area" | "ruinsWithin";
+  | "wood" | "walk" | "area" | "ruinsWithin";
 
 export type GroupName = "Terrain" | "Water" | "Hazards" | "Resources" | "Difficulty";
 
@@ -83,7 +83,7 @@ export const GROUPS: readonly { name: GroupName; keys: readonly FieldKey[] }[] =
   { name: "Water", keys: ["rivers", "riverStyle", "riverFlow", "reserve", "lakes", "falls", "sources"] },
   { name: "Hazards", keys: ["badwater", "badwaterDistance", "thorns", "cores"] },
   { name: "Resources", keys: ["forest", "groves", "mix", "berriesStart", "berries", "ruins", "relics", "geothermal", "mines"] },
-  { name: "Difficulty", keys: ["wood", "walk", "bushes", "area", "ruinsWithin"] },
+  { name: "Difficulty", keys: ["wood", "walk", "area", "ruinsWithin"] },
 ];
 
 /** Every setting's control, by key. */
@@ -168,7 +168,7 @@ export function genFields(p: SettingsProps): Record<FieldKey, JSX.Element> {
     forest: num("forest", "Forest density", s.resources.forestDensity, 50, 200, (v) => set((c) => (c.resources.forestDensity = v)), { step: 5, unit: "%", bandKey: "forestDensity" }),
     groves: pick("groves", "Grove size", s.resources.groveSize, opts(GROVES, "Grove size"), (v) => set((c) => (c.resources.groveSize = v)), "groveSize"),
     mix: <MixSetting blank={blank} mix={s.resources.speciesMix} onChange={(m) => set((c) => (c.resources.speciesMix = m))} />,
-    berriesStart: num("berries-start", "Berries near start", s.resources.berriesNearStart, 20, 100, (v) => set((c) => (c.resources.berriesNearStart = v)), { unit: " bushes", bandKey: "berriesNearStart" }),
+    berriesStart: num("berries-start", "Berries near start", s.resources.berriesNearStart, 20, 200, (v) => set((c) => (c.resources.berriesNearStart = v)), { unit: " bushes", bandKey: "berriesNearStart" }),
     berries: num("berries", "Berry bushes elsewhere", s.resources.berryBushes, 50, 300, (v) => set((c) => (c.resources.berryBushes = v)), { step: 5, unit: "%", bandKey: "berryBushes" }),
     ruins: num("ruins", "Ruins and scrap", s.resources.ruins, 25, 300, (v) => set((c) => (c.resources.ruins = v)), { step: 5, unit: "%", bandKey: "ruins" }),
     relics: pick("relics", "Relics", s.resources.relics, opts(OFF_SOME, "Relics"), (v) => set((c) => (c.resources.relics = v)), "relics"),
@@ -176,7 +176,6 @@ export function genFields(p: SettingsProps): Record<FieldKey, JSX.Element> {
     mines: num("mines", "Mine sites", s.resources.mineSites, 2, 4, (v) => set((c) => (c.resources.mineSites = v)), { bandKey: "mineSites" }),
     wood: num("rule-wood", "Starting wood", s.start.rules.woodWithin20, 0, 800, (v) => set((c) => (c.start.rules.woodWithin20 = v)), { unit: " logs", bandKey: "woodWithin20" }),
     walk: num("rule-water", "Max walk to water", s.start.rules.waterWithin, 4, 40, (v) => set((c) => (c.start.rules.waterWithin = v)), { unit: " tiles", bandKey: "waterWithin" }),
-    bushes: num("rule-bushes", "Starting berries", s.start.rules.bushesWithin20, 0, 200, (v) => set((c) => (c.start.rules.bushesWithin20 = v)), { unit: " bushes", bandKey: "bushesWithin20" }),
     area: pick("start-area", "Start area", s.start.area, opts(AREAS, "Start area", { small: "Tight", large: "Roomy" }), (v) => set((c) => (c.start.area = v))),
     ruinsWithin: num("rule-ruins", "No ruins within", s.start.rules.ruinsWithin, 0, 60, (v) => set((c) => (c.start.rules.ruinsWithin = v)), { unit: " tiles", bandKey: "ruinsWithin" }),
   };

@@ -19,7 +19,7 @@ const allMin: Shape = (s) => {
   Object.assign(s.water, { rivers: 0, riverStyle: "straight", riverFlow: "trickle", droughtReserve: "scarce", lakes: "none", waterfalls: "off", sources: "placed" });
   Object.assign(s.hazards, { badwater: "off", badwaterDistance: 8, thornBelts: "off", unstableCores: "off" });
   Object.assign(s.resources, { forestDensity: 50, groveSize: "scattered", speciesMix: { pine: 0, birch: 0, oak: 0, succulent: 0 }, berriesNearStart: 20, berryBushes: 50, ruins: 25, relics: "off", geothermal: "off", mineSites: 2 });
-  Object.assign(s.start, { area: "small", rules: { waterWithin: 4, woodWithin20: 0, bushesWithin20: 0, ruinsWithin: 0 } });
+  Object.assign(s.start, { area: "small", rules: { waterWithin: 4, woodWithin20: 0, ruinsWithin: 0 } });
 };
 
 /** Every setting at its maximum. */
@@ -27,8 +27,8 @@ const allMax: Shape = (s) => {
   Object.assign(s.terrain, { relief: 100, verticality: 100, variety: 100, highestTerrain: 22, terracing: 100, buildableLand: "generous" });
   Object.assign(s.water, { rivers: 3, riverStyle: "braided", riverFlow: "lush", droughtReserve: "plenty", lakes: "many", waterfalls: "many", sources: "placed" });
   Object.assign(s.hazards, { badwater: "high", badwaterDistance: 60, thornBelts: "some", unstableCores: "on" });
-  Object.assign(s.resources, { forestDensity: 200, groveSize: "bigWoods", speciesMix: { pine: 100, birch: 100, oak: 100, succulent: 100 }, berriesNearStart: 100, berryBushes: 300, ruins: 300, relics: "some", geothermal: "some", mineSites: 4 });
-  Object.assign(s.start, { area: "large", rules: { waterWithin: 40, woodWithin20: 800, bushesWithin20: 200, ruinsWithin: 60 } });
+  Object.assign(s.resources, { forestDensity: 200, groveSize: "bigWoods", speciesMix: { pine: 100, birch: 100, oak: 100, succulent: 100 }, berriesNearStart: 200, berryBushes: 300, ruins: 300, relics: "some", geothermal: "some", mineSites: 4 });
+  Object.assign(s.start, { area: "large", rules: { waterWithin: 40, woodWithin20: 800, ruinsWithin: 60 } });
 };
 
 /** Wild land under the most water: the land cut apart by its rivers and lakes. */
@@ -46,9 +46,9 @@ const flatDry: Shape = (s) => {
 
 /** The most asked of the start, from the least the map grows, with badwater and ruins kept far. */
 const starvedStart: Shape = (s) => {
-  Object.assign(s.resources, { forestDensity: 50, groveSize: "scattered", speciesMix: { pine: 0, birch: 100, oak: 0, succulent: 0 }, berriesNearStart: 100, berryBushes: 50, ruins: 300, mineSites: 4 });
+  Object.assign(s.resources, { forestDensity: 50, groveSize: "scattered", speciesMix: { pine: 0, birch: 100, oak: 0, succulent: 0 }, berriesNearStart: 200, berryBushes: 50, ruins: 300, mineSites: 4 });
   Object.assign(s.hazards, { badwater: "high", badwaterDistance: 60 });
-  Object.assign(s.start, { area: "small", rules: { waterWithin: 4, woodWithin20: 800, bushesWithin20: 200, ruinsWithin: 60 } });
+  Object.assign(s.start, { area: "small", rules: { waterWithin: 4, woodWithin20: 800, ruinsWithin: 60 } });
 };
 
 /** A spec the panel allows: Highest terrain within its slider's reach, and a drought reserve the map
