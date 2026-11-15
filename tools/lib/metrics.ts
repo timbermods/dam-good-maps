@@ -60,7 +60,6 @@ export interface MapMetrics {
   waterDistance: number;
   treesPer10k: number;
   livingShare: number;
-  /** The median generated grove's trees, D516's dead stands left out (Grove size does not size them). */
   groveMedian: number;
   species: { pine: number; birch: number; oak: number; succulent: number };
   bushesNearStart: number;
@@ -234,9 +233,7 @@ export function measure(m: Measurable): MapMetrics {
       if (sd && e.x >= 0 && e.y >= 0 && e.x < W && e.y < H) ruinsNearest = Math.min(ruinsNearest, sd[e.y * W + e.x]);
     }
   }
-  // (the groves Grove size sizes: not D516's dead stands on the dry land, 15 to 60 trees whatever Grove size, stored as
-  // forests of `life: "dead"`; counted, they were half the features of a Big woods map and held its median, D148)
-  const groves = m.features.filter((f) => f.kind === "forest" && f.origin === "generated" && f.params.life !== "dead").map((f) => (f.kind === "forest" ? (f.params.groveSize ?? 0) : 0));
+  const groves = m.features.filter((f) => f.kind === "forest" && f.origin === "generated").map((f) => (f.kind === "forest" ? (f.params.groveSize ?? 0) : 0));
   groves.sort((p, q) => p - q);
   const groveMedian = groves.length ? groves[groves.length >> 1] : 0;
 
