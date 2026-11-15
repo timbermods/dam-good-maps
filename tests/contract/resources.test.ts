@@ -268,6 +268,48 @@ describe("the resource baseline (Kyler, 2026-09-25)", () => {
     expect(ruinRagged(disc, W, 77)).toEqual(ragged);
   });
 
+  it("topped up, ruin fields hold the scrap asked for to within a column, so every 5 % step of Ruins and scrap moves them (D527)", () => {
+    const plates = () => {
+      const g = flatGround();
+      for (let y = 0; y < g.H; y++) for (let x = 60; x < g.W; x++) (g.heights as Uint8Array)[y * g.W + x] = 5;
+      for (let y = 70; y < g.H; y++) for (let x = 24; x < 60; x++) (g.heights as Uint8Array)[y * g.W + x] = 3;
+      return g;
+    };
+    const W = 128;
+    const rngOf = (tiles: number[]) => stream(9, "field", tiles[0]);
+    const plan = (g: BaselineGround, scrap: number) => planRuinFields(g, scrap, { rng: stream(9, "ruins"), minStart: 0, fieldMedian: 32, follow: true, topUp: true, scrapOf: (tiles, t) => ruinColumns(tiles, W, rngOf(tiles), t).scrap });
+    let columns = -1;
+    // (a step of 5 % of 9,000 is 450 scrap, about ten columns; the steps up to three times it, as the slider's top asks)
+    for (let k = 0; k <= 40; k += 2) {
+      const ask = Math.round(9000 * (1 + 0.05 * k));
+      const g = plates();
+      const r = plan(g, ask);
+      const n = r.fields.reduce((a, f) => a + f.tiles.length, 0);
+      expect(r.scrap, `${ask}: placed`).toBeGreaterThanOrEqual(ask);
+      expect(r.scrap, `${ask}: placed`).toBeLessThanOrEqual(ask + 15 * 8);
+      expect(r.fields.reduce((a, f) => a + ruinColumns(f.tiles, W, rngOf(f.tiles), f.tallness).scrap, 0)).toBe(r.scrap);
+      expect(n, `${ask}: columns`).not.toBe(columns);
+      columns = n;
+      const owner = new Map<number, number>();
+      r.fields.forEach((f, j) => {
+        expect(new Set(f.tiles.map((i) => g.heights[i])).size).toBe(1);
+        for (const i of f.tiles) owner.set(i, j);
+      });
+      for (const [i, j] of owner)
+        for (const d of [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1]) {
+          const o = owner.get(i + d);
+          if (o !== undefined) expect(o).toBe(j);
+        }
+    }
+    // where the land holds no more, what it holds: a strip of dry ground asked for far more than it takes
+    const g = plates();
+    for (let i = 0; i < W * 100; i++) g.taken[i] = 1;
+    const r = plan(g, 200000);
+    expect(r.scrap).toBeGreaterThan(1000);
+    expect(r.scrap).toBeLessThan(200000);
+    expect(r.fields.reduce((a, f) => a + ruinColumns(f.tiles, W, rngOf(f.tiles), f.tallness).scrap, 0)).toBe(r.scrap);
+  });
+
   it("a mine site goes on flat dry ground in its band, on ground the colony walks to first", () => {
     const W = 96;
     const H = 96;

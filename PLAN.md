@@ -278,7 +278,7 @@ log(area) between small (50–100²), medium (128²), large (192²) and max (256
 | Species mix | weights for Pine, Birch, Oak, Succulent | 47 / 27 / 20 / 6 | The only species that load for both factions and in the editor. Succulents go on dry soil only. |
 | Berries near start | 20 – 100 | by difficulty (Easy 40, Normal 48, Hard 60) | The generation target, never below Minimum starting bushes (§5.6): living bushes within 20 tiles' walk of the start, in 2–3 patches beside water, grown within the colony's walk first (D97). |
 | Berry bushes elsewhere | 50% – 300% | 100% | Bushes per 10k tiles, size-aware (small 265, medium 92, large 40, max 44), each map within the official typical range (×0.98–1.07), in a few patches of about 44 along the banks. |
-| Ruins and scrap | 25% – 300% | 100% | Scrap per 1k tiles, size-aware (small 840, medium 705, large 236, max 235), each map within the official typical range (×0.75–1.41). |
+| Ruins and scrap | 25% – 300% | 100% | Scrap per 1k tiles, size-aware (small 840, medium 705, large 236, max 235), each map within the official typical range (×0.75–1.41). Placed to within a column, so every 5% step moves the ruins (D527, §9.7). |
 | Relics | Off, Some | Some | 1–3 small (13–70 tiles out), 1–2 medium (40–140) from 128² (0–1 below), one large (140+) from 192². |
 | Geothermal fields | Off, Some | Some | 30–120 tiles out, flat, dry, outside flood reach: 1 / 2 / 3 by size (under 128², from 128², from 192²). |
 | Mine sites | 2 – 4 | 2 / 2 / 3 / 3 by size | Every map has at least two the colony reaches from its start without crossing water or climbing a cliff, at least 24 tiles out (item 47, D325, D363; old links with 0 or 1 open with 2); maps under 80² need only one reached (D333 (7)). Flat 5×5 with a level ring, dry, 60+ tiles out where there is room (official 24–173, median 89), their ground levelled while the land is shaped (D363, `land/minePads.ts`). |
@@ -760,7 +760,11 @@ where the land's own processes make them. The builder's limits still fix what a 
 ### 9.7 Ruin fields
 
 - **Totals:** scrap follows the ruins setting × the size-aware median, each map within the official typical range for
-  the size (`src/core/resources/baseline.ts`); at most 5% of columns stand outside fields. **Shape:** fields of about
+  the size (`src/core/resources/baseline.ts`); at most 5% of columns stand outside fields. **To within a column**
+  (D527): the scrap no new field takes, less than a field's least size of 10 or no room left for one, grows the fields
+  already placed a column at a time in turn, on their own level and band with a band's gaps; where they have no room,
+  new fields come at half the spacing, then on moist ground too, until the land holds no more (on a 96² Islands map
+  about 2.6 to 3 times the median). **Shape:** fields of about
   19 / 32 / 39 / 42 columns by size, grown in an ellipse of aspect 1–2 with 4–10% holes, one tile of moat between
   fields. **Heights:** each field has its own tallness (the official storey shares tilted so a field averages 2.4 to
   3.8 storeys), placed by a mildly clumped key (neighbours differ by about 2 storeys), so a few towers of 6+ stand

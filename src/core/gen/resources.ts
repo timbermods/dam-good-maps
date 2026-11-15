@@ -210,6 +210,8 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     rng: ruinRng,
     // (D518, the look round: a field lies along its level's rim, never in a filled blob)
     follow: true,
+    // (D527: the scrap left under a field's least size grows the fields, so every step of Ruins and scrap moves them)
+    topUp: true,
     startDist: g.start ? startDist : null,
     minStart: near.ruinsClear,
     spacing: RUINS.minFieldSpacing,
