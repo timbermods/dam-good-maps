@@ -20,7 +20,7 @@ const LIST: Entry[] = [
   // Highlands
   ...[1, 3, 5, 7, 10, 23].map((seed): Entry => ["highlands", 48, seed]), // the collaboration tests, objectsRide
   ...[1, 3, 6, 12, 14].map((seed): Entry => ["highlands", 64, seed]),
-  ...[2, 3, 5, 21, 26, 4242].map((seed): Entry => ["highlands", 96, seed]),
+  ...[2, 3, 5, 21, 25, 26, 4242].map((seed): Entry => ["highlands", 96, seed]),
   ["highlands", 96, 3, "noforms"],
   ["highlands", 96, 57, "noforms"],
   ["highlands", 96, 4],
@@ -30,7 +30,7 @@ const LIST: Entry[] = [
   ...[1, 2, 3, 4, 5, 7, 11, 13, 22, 29].map((seed): Entry => ["riverValley", 64, seed]),
   ["riverValley", 64, 20, "noforms"],
   ["riverValley", 64, 29, "noforms"],
-  ...[1, 2, 3, 4, 8, 9, 11, 13, 15, 18, 21, 33, 98].map((seed): Entry => ["riverValley", 96, seed]),
+  ...[1, 2, 3, 4, 5, 8, 9, 11, 13, 15, 18, 21, 33, 98].map((seed): Entry => ["riverValley", 96, seed]),
   ...[3, 4, 11, 14, 4242].map((seed): Entry => ["riverValley", 128, seed]),
   // Canyon, Lake Basin, Delta, Islands
   ...[3, 9, 31].map((seed): Entry => ["canyon", 48, seed]),
