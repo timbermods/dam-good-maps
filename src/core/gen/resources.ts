@@ -361,7 +361,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   // cut to the wood still wanted (a grove cut to it stood as a runt of a few trees, and the fast wood's groves at a
   // fixed 2.5 times the median made a Scattered start's groves as big as a Big Woods one's). Big Woods' groves grow on
   // across broken ground to their size, on ground a beaver walks to from the start (`startGround`, the walk the
-  // planting keeps to; `growGroveAcross`); Scattered's stay small and apart, a tile of open ground between each and the
+  // planting keeps to; `growGroveAcross`); Scattered's stay small (at most 1.5 times the median: a draw of 12 or 21 trees read as a grove, not a scatter) and apart, a tile of open ground between each and the
   // start's other groves (`startGap`), so broken ground never joins them into one. At Normal the start's planting is as
   // it was, its wood and fast share unmoved.
   const sizeLean = spec.settings.resources.groveSize;
@@ -369,7 +369,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   const startGap = new Uint8Array(sizeLean === "scattered" ? N : 0);
   const sizeRng = stream(seed, "start-grove-size", candidate, attempt);
   let startSize = (): number =>
-    sizeLean === "scattered" ? Math.max(4, Math.min(grove.cap, Math.round(sizeRng.logNormal(grove.median, 0.45)))) : Math.max(6, Math.min(grove.cap, Math.round(sizeRng.logNormal(2 * grove.median, 0.45))));
+    sizeLean === "scattered" ? Math.max(4, Math.min(Math.round(1.5 * grove.median), Math.round(sizeRng.logNormal(grove.median, 0.45)))) : Math.max(6, Math.min(grove.cap, Math.round(sizeRng.logNormal(2 * grove.median, 0.45))));
   // `place` leans the species by where the grove grows (pine, birch, oak, succulent), on the mix
   const growGrove = (seedTile: number, size: number, living: boolean, within: Uint8Array | null = null, fill?: number, forWood = false, prefix = "forest/grove", place?: readonly number[], only?: "Pine" | "Birch"): number => {
     const allowed = new Uint8Array(N);
