@@ -302,6 +302,13 @@ export class SettleCache {
     return hit.water;
   }
 
+  /** A settle ended early (D(start-spring-stop)) takes the place its result would have taken, so the older settles
+   *  leave the cache as they did; nothing finds it. */
+  spend(): void {
+    this.last.unshift({ model: { W: -1, H: -1 } as WaterModel, emitters: "", water: null as unknown as CanonicalWater });
+    if (this.last.length > SettleCache.SIZE) this.last.length = SettleCache.SIZE;
+  }
+
   set(m: WaterModel, water: CanonicalWater): void {
     this.last.unshift({ model: { ...m, floor: m.floor.slice(), dam: m.dam ? m.dam.slice() : null }, emitters: JSON.stringify(m.emitters), water });
     if (this.last.length > SettleCache.SIZE) this.last.length = SettleCache.SIZE;
