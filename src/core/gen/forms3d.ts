@@ -7,6 +7,7 @@
 import type { BuildResult } from "../features/build";
 import { entityTiles } from "../features/edits";
 import { featureId } from "../features/ids";
+import { pointAtArc } from "../features/geometry";
 import type { Feature, RiverFeature } from "../features/schema";
 import { growForms, type FormPlan, type Forms, type FormsWanted } from "../land/forms3d";
 import type { Rng } from "../math/rng";
@@ -88,6 +89,24 @@ export function caveStream(seed: number, form: FormPlan, k: number, W: number): 
     locked: false,
     params: { path, width: 2, bedDepth: 1, bedProfile: { start: 0, steps: [] }, flow: form.flow!, style: "straight", entry: { spring: pts[0] }, exit: { river: form.river! }, badwater: false },
   };
+}
+
+/** Whether a spring cave's stream crosses a planned lake (`lake`: the land's planned water, 2 on a lake), on its course's
+ *  tiles or along its path as drawn: its course is the field's own ground, with no bed cut through the lake, so it would
+ *  run as a stream on the lake's surface, nothing a player should see; the forms stage drops that cave (planning's
+ *  ruling, 2026-11-15). */
+export function streamCrossesLake(stream: RiverFeature, course: readonly number[], lake: ArrayLike<number>, W: number, H: number): boolean {
+  if (course.some((i) => lake[i] === 2)) return true;
+  const path = stream.params.path;
+  let L = 0;
+  for (let k = 1; k < path.length; k++) L += Math.hypot(path[k][0] - path[k - 1][0], path[k][1] - path[k - 1][1]);
+  for (let s = 0; s <= L; s += 0.5) {
+    const [x, y] = pointAtArc(path, s).p;
+    const xi = Math.round(x);
+    const yi = Math.round(y);
+    if (xi >= 0 && yi >= 0 && xi < W && yi < H && lake[yi * W + xi] === 2) return true;
+  }
+  return false;
 }
 
 /** The water of a built map's stacked settle, as the sightlines read it: under water at height `z` on tile `i`. */

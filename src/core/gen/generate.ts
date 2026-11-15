@@ -89,7 +89,7 @@ import { planWeir } from "./weir";
 import { planPlug } from "./plug";
 import { badwaterBudget } from "../resources/badwater";
 import { finalChecks, finalCtx, foundIntention, settlerView, type IntentionResult } from "./intentions";
-import { caveStream, checkForm, formsWanted, growOn } from "./forms3d";
+import { caveStream, checkForm, formsWanted, growOn, streamCrossesLake } from "./forms3d";
 import { bareShare, DEAD_STANDS } from "./deadStands";
 import { description, toTimberFile } from "./pack";
 import { outcomesOf, PROMISES, promiseSides, type Outcomes } from "./outcomes";
@@ -3534,7 +3534,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       // (and no check, advisory ones included, fails that passed without the forms)
       const failing = new Set(v.report.checks.filter((c) => !c.ok).map((c) => c.id));
       const records: IntentionResult[] = grown.missed.map((m) => ({ id: m.id, ok: false, note: m.why, outcome: "dropped" as const }));
-      let plans = grown.forms.slice();
+      // (a spring cave whose stream would cross a planned lake is dropped before it is built: its course is the field's
+      // ground, no bed through the lake, so it would run on the lake's surface (planning's ruling, 2026-11-15))
+      const onLake = grown.forms.filter((p) => p.id === "spring-cave" && streamCrossesLake(caveStream(seed, p, 0, W), p.course!, hy.water, W, H));
+      for (const p of onLake) records.push({ id: p.id, ok: false, note: `${p.note}; its stream would cross a planned lake`, outcome: "dropped" });
+      let plans = grown.forms.filter((p) => !onLake.includes(p));
       // (the dead stands' bare land, D516, D518: the resource pass kept it to its share on the land it planted; a form that
       // moistens dry land under the same trees, a spring cave's water, shrinks the dry land, so the forms keep it too)
       const deadTrees = features.filter((f) => f.kind === "forest" && (f.role ?? "").startsWith("forest/dead/")).flatMap((f) => runsToTiles((f as ForestFeature).params.area, W));
