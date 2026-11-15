@@ -256,8 +256,9 @@ place of its bottom rule.
   areas, `viewport-fit=cover`). **The foot keeps clear of the browser's own bar** (iOS 26 Safari's floating address bar
   lay over the tool row, 2026-11-15): the root is `position: fixed`, inset 0, never a viewport unit's height, and what
   read the viewport's height reads that box's (`--room-h`); should the box still reach under a bar, `--bar-b` is how far
-  its foot lies below the visual viewport's (`ui/phoneRoot.ts`; 0 while a field has the focus or the page is
-  pinch-zoomed), and the foot's room is the larger of it and the home bar's inset (a tablet's root ends at the bar
+  its foot lies below the visual viewport's (`ui/phoneRoot.ts`; it keeps its last value while a field has the focus,
+  until the viewport has settled after one lets it go, while the page is pinch-zoomed, and for a reading past 140px or
+  a quarter of the room, so a keyboard never lifts the foot), and the foot's room is the larger of it and the home bar's inset (a tablet's root ends at the bar
   instead). `?viewport=on` shows the measures behind it in a box mid-screen, for a screenshot from a phone. Fields 16px so the browser never zooms on focus. A long press's tooltip shows its phrase without the key caps, which name keys a
   finger has none of, until a key is pressed on the page (a tablet with a keyboard). **Nothing cut at rest:** every control
   and card whole inside the room less its insets and inside its panel; a row or page that scrolls may show its next item

@@ -1046,18 +1046,52 @@ test.describe("a phone upright under a browser's own bar", () => {
     expect(held.sheetBottom!).toBeLessThanOrEqual(held.rowTop + 0.5);
     expect(held.sheetBottom!).toBeLessThanOrEqual(held.visible);
 
-    // a bar shorter than the home bar's inset: the inset keeps its room; a field with the focus (a keyboard up) never lifts
+    // a bar shorter than the home bar's inset: the inset keeps its room
     await bar(20);
     expect((await foot()).toolsBottom).toBe(844 - 34 - 4);
-    await bar(300);
-    await page.evaluate(() => {
+
+    // a reading past the cap (140px, or a quarter of the room) is not a browser's bar: the last good one holds
+    await bar(75);
+    await bar(200);
+    expect((await foot()).barB, "a 200px reading ignored").toBe("75px");
+    await bar(120);
+    expect((await foot()).barB, "a 120px reading taken").toBe("120px");
+    await bar(75);
+    const start = await foot();
+    expect(start.barB).toBe("75px");
+
+    // a field takes the focus and a keyboard comes up (the visual viewport shorter, by less than the cap, so only the hold
+    // keeps it out), then the field lets the focus go with the keyboard still up: the row never moves, before the viewport
+    // is restored or after it
+    const keyboard = await page.evaluate(async () => {
+      const w = window as unknown as { __bar?: number };
+      const vv = window.visualViewport!;
+      const moved = () => vv.dispatchEvent(new Event("resize"));
+      const at = () => ({
+        barB: getComputedStyle(document.documentElement).getPropertyValue("--bar-b").trim(),
+        toolsBottom: Math.max(...[...document.querySelectorAll(".tool-dock > .tool-bar button.icon-button")].map((b) => b.getBoundingClientRect().bottom)),
+      });
       const field = document.createElement("input");
-      field.className = "bar-test-field";
       document.body.append(field);
       field.focus();
+      const focused = at();
+      w.__bar = 75 + 60;
+      moved();
+      const typing = at();
+      field.blur();
+      const blurred = at();
+      await new Promise((r) => setTimeout(r, 150));
+      const keyboardStillUp = at();
+      w.__bar = 75;
+      moved();
+      field.remove();
+      const restored = at();
+      return { focused, typing, blurred, keyboardStillUp, restored };
     });
-    expect((await foot()).barB).toBe("0px");
-    await page.evaluate(() => document.querySelector<HTMLInputElement>(".bar-test-field")!.remove());
+    const still = { barB: "75px", toolsBottom: start.toolsBottom };
+    expect(keyboard).toEqual({ focused: still, typing: still, blurred: still, keyboardStillUp: still, restored: still });
+    await page.waitForTimeout(1200);
+    expect({ barB: (await foot()).barB, toolsBottom: (await foot()).toolsBottom }, "the viewport settled: where it started").toEqual(still);
 
     // the bar gone: back where it was
     await bar(0);

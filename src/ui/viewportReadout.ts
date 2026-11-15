@@ -3,8 +3,9 @@
 // foot still lies under a browser's bar on a real phone, this box says why. Mid-screen, never at the foot, where a bar
 // could cover it; it takes no taps. Not a control: nothing on the page opens it.
 
-/** Shows the box; returns how to update it with the fixed box's rect and `--bar-b`. */
-export function showReadout(): (room: DOMRect, bar: number) => void {
+/** Shows the box; returns how to update it with the fixed box's rect, `--bar-b` and the overlap read now (which
+ *  `--bar-b` takes only when it trusts it, ui/phoneRoot.ts), and how to remove it. */
+export function showReadout(): { update: (room: DOMRect, bar: number, read: number) => void; remove: () => void } {
   const box = document.createElement("pre");
   box.className = "viewport-readout";
   box.setAttribute("aria-hidden", "true");
@@ -32,7 +33,7 @@ export function showReadout(): (room: DOMRect, bar: number) => void {
   const version = [ua.match(/OS (\d+[_.]\d+(?:[_.]\d+)?)/)?.[0], ua.match(/Version\/[\d.]+/)?.[0], ua.match(/(?:Chrome|CriOS|Firefox|FxiOS)\/[\d.]+/)?.[0]]
     .filter(Boolean)
     .join(" ");
-  return (room, bar) => {
+  const update = (room: DOMRect, bar: number, read: number) => {
     const vv = window.visualViewport;
     const [t, r, b, l] = insets();
     const root = document.querySelector<HTMLElement>(".editor");
@@ -43,8 +44,13 @@ export function showReadout(): (room: DOMRect, bar: number) => void {
       `safe-area top ${n(t)} right ${n(r)} bottom ${n(b)} left ${n(l)}`,
       `fixed box ${rect(room)}`,
       `root ${rect(root?.getBoundingClientRect())}${root ? ` [${root.dataset.phone ?? (root.dataset.tablet !== undefined ? "tablet" : "desktop")}]` : ""}`,
-      `--bar-b ${bar}px  --room-h ${document.documentElement.style.getPropertyValue("--room-h")}`,
+      `--bar-b ${bar}px (read ${read}px)  --room-h ${document.documentElement.style.getPropertyValue("--room-h")}`,
       `standalone ${String((navigator as Navigator & { standalone?: boolean }).standalone)}  ${version || ua}`,
     ].join("\n");
   };
+  const remove = () => {
+    box.remove();
+    ruler.remove();
+  };
+  return { update, remove };
 }
