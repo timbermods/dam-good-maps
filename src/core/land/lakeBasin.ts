@@ -136,8 +136,9 @@ function leanCatchment(g: Genome, s: Settings, preset: (typeof THEME_PRESETS)['l
   // Lush, above the theme's Strong, lifts the cap by the genome's own Lush-to-Strong step, 2.4 / 1.5: capped
   // at 1.3, Lush made the same map as Strong on most seeds)
   g.hydro.flowMul = clamp(g.hydro.flowMul, 1.1, s.water.riverFlow === 'lush' && preset.riverFlow !== 'lush' ? 1.3 * 1.6 : 1.3);
-  // (D527: River style Braided keeps the genome's braids, its main river splitting round an island
-  // before the lake; quartered, Braided made the same map as Meandering)
+  // (D527: River style Braided keeps the genome's braids, a river splitting round an island before the
+  // lake, on another river where the main has no reach for it; quartered, Braided made the same map as
+  // Meandering)
   if (!g.hydro.braided) g.hydro.split *= 0.25;
   g.hydro.delta = 0;
   g.hydro.incise = 0;
