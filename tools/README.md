@@ -11,6 +11,7 @@ Command-line scripts for generating, checking, measuring and releasing. They run
 
 **Generate and check**
 - `gen.ts` (`npm run gen`) makes maps from the command line; `try.ts` (`npm run try`) builds and serves the site locally.
+- `fixture-projects.ts` (`npm run fixtures:projects`) writes the scenario tests' fixture projects (`tests/fixtures/projects/scenario-*.damgoodmaps`, opened by `tests/fixtureProjects.ts`; docs/RULES.md, "Standing rules"): the maps a test of an edit, a force or the session stands on, saved once so a land change moves none of them. It writes what is missing; `--all` rewrites every fixture from the generator now current, a name rewrites that one.
 - `first-visit-maps.ts` makes and checks the ready-made 128² maps a first visit opens (`public/first-visit/`, gitignored); the deploy runs it before each build and stops on a failed check (D343).
 - `mcp-build.ts` (`npm run mcp:build`) bundles the MCP server (`mcp/`, D141, D501) into one file and packs it as the Claude Desktop extension and the `npx` package in `mcp/dist/`; a release attaches both.
 - `premise-plan.ts` prints a premise's plan for a seed (stage 0, docs/PREMISES.md) and writes its water-story diagram as SVG (`--png` a pixel a tile too); `--seeds 1-12` draws several, `--try t` one layout try as far as it got, `--plan file.json` checks and draws a plan file such as `tests/fixtures/four-lakes.plan.json`.

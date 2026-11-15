@@ -199,6 +199,15 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
 - **A test that no longer checks what its name says,** because a decision of Kyler's changed the thing it tested, is
   updated to check the current decision, renamed if needed, and noted in the progress log. No need to ask first. Never
   weaken a test to make it pass.
+- **Scenario tests open saved fixture projects; only generator tests generate live (D148).** A test of an edit, a force, a
+  brush, the session, collaboration or the water on a given map opens the map from a project file saved once
+  (`tests/fixtures/projects/scenario-<theme>-<size>-<seed>[-<variant>].damgoodmaps`, opened by `tests/fixtureProjects.ts`:
+  `fixtureSession`, `fixtureProject`; `tests/fixtureEditor.ts`: `fixtureInEditor`, for the session worker), so a land change (a `GENERATOR_VERSION` bump) moves none of them
+  and no scenario needs a new seed or coordinate. A test whose subject is the generated map itself (the start's numbers, the
+  checks, the places, the generator's own outputs, the project round trip of every theme) generates live. A new scenario test
+  adds its map to the list in `tools/fixture-projects.ts` and runs `npm run fixtures:projects`; a deliberate refresh of every
+  map is `npm run fixtures:projects -- --all` (then the suite, and re-aim what moved). Keep fixtures few and small: the bytes
+  go in git, so scenarios share a map where they can.
 - **Dependency updates:** merge GitHub Actions updates and minor or patch npm updates when CI is green (CI's byte checks
   catch anything that changes a map). Hold major upgrades (TypeScript 7.0, @types/node 26, and any future major) for a
   deliberate upgrade step at a quiet time, such as housekeeping (ROADMAP.md, "Housekeeping"; D283), with the full nightly

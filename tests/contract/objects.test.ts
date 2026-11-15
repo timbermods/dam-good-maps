@@ -3,12 +3,15 @@
 // - Every new object passes the placement emulation (entities.placement, the loader's rules), on
 //   edited maps and on generated maps of all six themes; the Python validator agrees (npm run
 //   oracle).
+//
+// Generated live: the tests of what the generator places (every object on, the resource sites, the rise, the weir). The placement-by-hand tests open a fixture
+// (tests/fixtures/projects/scenario-riverValley-128-4242; `fixtureSession`), so a land change moves nothing there (D148).
 
 import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
 import { footprintCheck, moveProblem, planEntity, planMoveEntity } from "../../src/core/doc/placing";
 import { generate } from "../../src/core/gen/generate";
-import { decodeSpecFragment, makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
+import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
 import { validateFile } from "../../src/core/validate/checks";
 import { walkRegions } from "../../src/core/analysis/regions";
 import { walkWorld } from "../../src/core/analysis/walk";
@@ -18,15 +21,9 @@ import { objectTiles } from "../../src/core/features/objects";
 import { obstacleTiles, type ObstaclePlan } from "../../src/core/features/setpieces/obstaclePayoff";
 import { pumpableWithin, type DistrictPlan } from "../../src/core/features/setpieces/secondDistrict";
 import { levelRegions } from "../../src/core/math/grid";
+import { fixtureSession } from "../fixtureProjects";
 
 const uuid = (k: number) => `0b8e9a64-${String(1000 + k)}-4c2d-9e1f-2a3b4c5d6e7f`;
-
-function session(fragment: string): MapSession {
-  const d = decodeSpecFragment(fragment)!;
-  const r = generate(d.spec);
-  expect(r.report.passed).toBe(true);
-  return MapSession.fromGenerated(r);
-}
 
 /** A tile where an object from the shelf stands as it is, without levelling (its footprint check
  *  green, on level dry ground), scanning from the far corner of the start (every other row, from
@@ -46,7 +43,9 @@ function loadChecks(s: MapSession) {
 }
 
 describe("objects placed from the shelf (ROADMAP M7)", () => {
-  const s = session("s=4242&t=riverValley&z=128&d=n");
+  // (the map is a fixture, tests/fixtures/projects/scenario-riverValley-128-4242: the subject is placing by hand, not the generator, so a land change moves
+  // nothing here, D148; the generated-maps tests below generate live, being about what the generator places)
+  const s = fixtureSession("riverValley", 128, 4242);
   const W = 128;
 
   it("previews the footprint under the pointer: red with the reason where the click would be refused", () => {
