@@ -243,6 +243,7 @@ test("the game's bloom is drawn only when something can pass its knee, and skipp
         setView(v: unknown): void;
         setClock(h: number): void;
         renderNow(): void;
+        placeCamera(): void;
       };
       const g = r.gl.getContext();
       const read = () => {
@@ -320,13 +321,15 @@ test("the game's bloom is drawn only when something can pass its knee, and skipp
       const none = canvas();
       off();
       // panned sideways until the bowl has left the frame: its glow still reaches over the frame's edge, so the bloom
-      // is drawn while the start's box overlaps the frame, and not once it has gone
+      // is drawn while the start's box overlaps the frame, and not once it has gone. (The camera is placed at each step,
+      // never drawn: whether a frame blooms is the camera's alone, and a High frame drawn at each of the 100 and more
+      // steps took the test past 180 s on CI's software drawing, run 43676703173.)
       const right = r.camera().matrixWorld.elements.slice(0, 3);
       let edge: boolean | null = null;
       let gone: boolean | null = null;
       for (let s = 0; s < 30 && gone === null; s += 0.05) {
         r.setView({ mode: "orbit", yaw: -Math.PI / 6, pitch: 0.5, distance: 11, target: [at[0] - 1 - right[0] * s, at[1] + 3.2 - right[1] * s, at[2] - 1 - right[2] * s] });
-        r.renderNow();
+        r.placeCamera();
         if (edge === null && !r.fireShows()) edge = r.blooms();
         if (edge !== null && !r.fireBox(r.camera())) gone = r.blooms();
       }

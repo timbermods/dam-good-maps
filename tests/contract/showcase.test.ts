@@ -52,7 +52,7 @@ describe("Showcase mode (D488 (2))", () => {
     // next water 8 tiles' walk away, its dam a 4-tile one 30 tiles south-east holding 3,100; the second sibling's nearest water
     // is 14 tiles' walk from its start, the next 25, its landmark an 11-level mesa 40 tiles south, its dam a 7-tile one 20 tiles
     // south-west holding 5,400)
-    // (generator 0.10.23's ruled water, D(ruled-water), D148: the asked map is as it was; the other two moved and their beats were
+    // (generator 0.10.24's ruled water, D(ruled-water), D148: the asked map is as it was; the other two moved and their beats were
     // read off by hand again with `arcOf` and `showcaseSearch` at tries: 3: the first sibling has lost its valley (4 of 6 beats now), its
     // dam a 5-tile one 54 tiles east holding 3,200, its drowned village 52 tiles east; the second sibling's nearest water is 8 tiles'
     // walk from its start, the next 21, its landmark an 11-level mesa 38 tiles south, its dam a 4-tile one 51 tiles south-west)

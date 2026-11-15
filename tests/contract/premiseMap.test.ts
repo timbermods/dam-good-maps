@@ -52,7 +52,8 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // wash's banks in long treads, its dead stands in knots in their woods (a stand its ground holds short of 15 trees none),
 // a third of their trees young, its rolling and rises reweighed and its bend kept off the start, a new ground, D148; and
 // for the dead stands dense in their woods, each knot its own shape: its resources, D148; and for generator 0.10.21's
-// look round, D518: its ruin fields along their level's rim, a wash's banks jogging, the dead stands reading the dry land as the checks do, the version in its description, D148; and generator 0.10.22's version alone, the map otherwise 0.10.21's, D148; and for generator 0.10.23's ruled water, D(ruled-water), D148: a spring course beside a traced one joins it and the lakes' straight shores are notched, a new ground)
+// look round, D518: its ruin fields along their level's rim, a wash's banks jogging, the dead stands reading the dry land as the checks do, the version in its description, D148; and generator 0.10.22's version alone, the map otherwise 0.10.21's, D148;
+// and generator 0.10.23's version alone, its shown land kept for a rescue round moving only maps above 128², D148)
 const SHA = "edfee293ea18a4d6fe5dd4c231f1ceaafaa813b3d85ce4629d80d72e1c2b94a6";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;

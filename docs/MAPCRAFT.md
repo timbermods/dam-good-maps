@@ -174,7 +174,7 @@ a premise or one still to come, may carry its own, lower playability floor.
   with another channel's centre line within 12 tiles, heading the same way (|cos| ≥ 0.9) and more than 8 tiles farther
   by water than by air, in runs of 20 or more (and within 6, reported). `--gen` makes a set, `--frames` marks them
   (straight shore orange, side by side yellow), `tools/ruled-water-sheet.py` lays before and after out with the start's
-  numbers first. The 42 maps at 256² (seven themes, seeds 1 to 6), dev 0dec5dcf8 → generator 0.10.23: straight shore
+  numbers first. The 42 maps at 256² (seven themes, seeds 1 to 6), dev 0dec5dcf8 (generator 0.10.22) → this change (0.10.24): straight shore
   63.3 → 55.0 %, side by side 1,202 → 852 tiles (2.9 → 2.1 % of centre line; within 6: 94 → 89), attempts 245 → 218,
   leaks (a river's water leaves its course) 61 → 49; River Valley 9 side by side 262 → 131, Delta 3 28 → 0. The mends:
   a course traced beside one already traced joins it (`hydro.ts` `BESIDE`), Delta's arms step diagonally, a planned

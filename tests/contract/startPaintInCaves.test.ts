@@ -4,6 +4,9 @@
 // operations take a level (`planStart`'s `z`: a start feature's `z`, an opened map's StartingLocation at it) and
 // `paintObjects` a level per tile (`levels`), each held to the game's rule there (startFit.ts `startRoofProblem`,
 // objects.ts `standProblem`); without one, neither is ever put on the roof's top under the pointer.
+//
+// The generated map is a fixture (tests/fixtures/projects/scenario-riverValley-64-22; `fixtureSession`): the subject is the start and painted objects under a roof, not the
+// generator, so a land change moves nothing here (D148).
 
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
@@ -17,9 +20,8 @@ import type { StartFeature } from "../../src/core/features/schema";
 import { entityJson, startingLocation } from "../../src/core/format/entities";
 import { startEntranceTile, type Orientation } from "../../src/core/format/footprints";
 import { readTimber, writeTimber } from "../../src/core/format/timber";
-import { generate } from "../../src/core/gen/generate";
 import { tilesToRuns } from "../../src/core/math/grid";
-import { makeSpec } from "../../src/core/spec/mapspec";
+import { fixtureSession } from "../fixtureProjects";
 import { validateMap } from "../../src/core/validate/checks";
 import { CAVE, CAVE_W, caveFile, caveSession, caveVoxels, levelPatch } from "./caveMap";
 
@@ -103,10 +105,8 @@ describe("the start under a roof (D491): where the game keeps it, at its level",
     // keep a level patch, none of them under an overhang; seed 8 for 10 since generator 0.10.20's contour edges, D518, D148: seed 10's
     // map has no level patch now, and of seeds 1�60 only 1, 8, 9, 11, 18, 37, 43 and 48 have one, of which 8, 9, 18, 37 and 43 are
     // under no overhang; seed 8 is the first, and the whole file passes on each of them)
-    // (seed 22 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 8 has no level patch under no overhang now; of seeds 9, 18, 37, 43, 1, 11, 22, 29, 51, 73 and 76 the whole file passes on 22, 29, 51 and 73, seed 22 the first;
-    // seed 51 since generator 0.10.23's ruled water, D(ruled-water), D148: seed 22 has no level patch now, and of seeds 1–60 only seed 51 has one, at (20, 42), level 14, under no overhang; the whole file passes on it)
-    const r = generate(makeSpec({ seed: 51, theme: "riverValley", size: { x: 64, y: 64 } }));
-    const s = MapSession.fromGenerated(r, r.file);
+    // (seed 22 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 8 has no level patch under no overhang now; of seeds 9, 18, 37, 43, 1, 11, 22, 29, 51, 73 and 76 the whole file passes on 22, 29, 51 and 73, seed 22 the first)
+    const s = fixtureSession("riverValley", 64, 22);
     const M = s.size.x;
     const from = startMiddle(s)!;
     // a plateau over a level patch, and a chamber 5 × 5 × 5 dug into its west face at the patch's level, a roof over it
@@ -218,9 +218,8 @@ describe("painting objects under a roof (D491): a level per tile, the game's rul
 
 describe("a start a tunnel is dug under later (D491; #553's review): only a move or a placement checks its ground", () => {
   it("a generated map's start stays lockable and turns in place; moved, it is refused", () => {
-    // (seed 51, as above)
-    const r = generate(makeSpec({ seed: 51, theme: "riverValley", size: { x: 64, y: 64 } }));
-    const s = MapSession.fromGenerated(r, r.file);
+    // (seed 22, as above)
+    const s = fixtureSession("riverValley", 64, 22);
     const M = s.size.x;
     // the start on a plateau's open top, then a chamber dug under it from the plateau's west face, a roof three thick
     const { x, y, h } = levelPatch(s);

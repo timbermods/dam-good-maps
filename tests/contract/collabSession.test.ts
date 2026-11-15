@@ -2,6 +2,9 @@
 // beside their own map. Interleaved edits, claims ordered through the host, an undo blocked and freed, presence, a drop in
 // the middle of a stroke, a rejoin with a new "code" that carries on, and the host's whole-map change. The maps are compared
 // byte for byte at the settled points (the .timber the game loads, the project the app saves, the hashes).
+//
+// The maps are fixtures (tests/fixtures/projects, `mapProject` in collabFixtures.ts: Highlands 48² seeds 5 and 7): the subject is the session layer, not the generator, so a land change
+// moves nothing here (D148).
 
 import { beforeAll, describe, expect, test } from "vitest";
 import type { Command, PeerEvent } from "../../src/core/collab";

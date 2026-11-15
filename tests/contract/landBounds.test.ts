@@ -3,6 +3,8 @@
 // attempts do (D471's rescue rounds take over); it is never drawn again within its round (D348), and
 // a land not yet shown is the only one ever dropped mid-round. Each stage's progress says why the last
 // attempt failed, in a player's words, for the making dialog.
+//
+// Generates live, not from a fixture: its subject is the generator's rounds and stages, D148.
 import { describe, expect, it } from "vitest";
 import { failurePhrase } from "../../src/core/gen/failWords";
 import { generate, type GenProgressStage } from "../../src/core/gen/generate";

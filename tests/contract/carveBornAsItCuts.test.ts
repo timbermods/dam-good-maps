@@ -136,7 +136,7 @@ describe("Carve's river is born as it cuts (D371)", () => {
     ed.settleWater();
   });
 
-  // (seed 23 for 22 since generator 0.10.23's ruled water, D(ruled-water), D148: on seed 22 the cave pool at (26..28, 25..28) holds
+  // (seed 23 for 22 since generator 0.10.24's ruled water, D(ruled-water), D148: on seed 22 the cave pool at (26..28, 25..28) holds
   // 0.494 where the map's own held 0.533 once the carve is kept part way; seed 23 has caves too)
   it.each([21, 23])("undo stops it and puts the map's own water back; Esc skips to the end and hands on the water flowing then; a dry canyon flows none (seed %i)", async (seed) => {
     const { origin, ground, water, roofed } = await open(seed);

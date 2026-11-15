@@ -9,6 +9,9 @@
 // Where today's page still behaves otherwise, its own tests (tests/unit/remoteStroke.test.ts) keep asserting today's
 // behaviour until that step changes it (D148): planning's three rulings on #922's behaviours are asserted here, on the
 // queue, already.
+//
+// The maps are fixtures (tests/fixtures/projects, `mapProject` in collabFixtures.ts: River Valley 48² seeds 11 and 12): the subject is the edit queue, not the generator, so a land change
+// moves nothing here (D148).
 
 import { beforeAll, describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
@@ -99,7 +102,7 @@ describe("the edit queue against the worker: pinned scenarios", () => {
     // from (20, 40) since generator 0.10.20's contour edges, D518, D148: on River Valley 11's new land water stands on
     // the ring round (20, 26)'s working rectangle; from (20, 32) since generator 0.10.21's look round, D518, D148: the land's
     // long straight steps jog, so the ring round (20, 40) holds no water; (20, 32) holds the ground and has objects under it;
-    // from (20, 34) since generator 0.10.23's ruled water, D(ruled-water), D148: (20, 32) weathers nothing on the ruled land)
+    // from (20, 34) since generator 0.10.24's ruled water, D(ruled-water), D148: (20, 32) weathers nothing on the ruled land)
     const h = new Harness(P1);
     const id = h.press("naturalize", 5, { seed: 3 });
     await h.drag(line(20, 34, 12));

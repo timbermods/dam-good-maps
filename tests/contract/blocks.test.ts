@@ -4,15 +4,16 @@
 // would drop is refused with its count, which the query `blockFalls` gives first; undo gives back the
 // exact runs; the log replays onto the same runs through the project file; and the export writes the
 // ground as it stands. On the hand-made cave map (caveMap.ts) and on a generated map.
+//
+// The generated maps are fixtures (tests/fixtures/projects: River Valley 64² seeds 3 and 29, the latter without 3D forms; `fixtureSession`):
+// the subject is the tool, not the generator, so a land change moves nothing here (D148).
 
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import { blockFalls, type BlocksParams } from "../../src/core/doc/blockTool";
 import { MapSession } from "../../src/core/doc/session";
 import { masksOf } from "../../src/core/features/build";
-import { generate } from "../../src/core/gen/generate";
 import { decodeWorld } from "../../src/core/format/world";
-import { makeSpec } from "../../src/core/spec/mapspec";
 import { BLOCK_TOP_LAYER } from "../../src/core/terrain/blocks";
 import { entityTiles } from "../../src/core/features/edits";
 import { FOOTPRINTS, worldBlocks } from "../../src/core/format/footprints";
@@ -22,6 +23,7 @@ import type { BrushParams } from "../../src/core/features/raster/brush";
 import { mulberry } from "./brushRandom";
 import { CAVE_W as W, CAVE_H as H, caveSession } from "./caveMap";
 import { randomBrush, STROKE_TOOLS } from "./strokeRandom";
+import { fixtureSession } from "../fixtureProjects";
 
 const at = (x: number, y: number) => y * W + x;
 const op = (params: BlocksParams) => ({ op: "blocks" as const, params });
@@ -439,10 +441,10 @@ function randomBlocks(rand: () => number, r: number, heights?: ArrayLike<number>
 }
 
 describe("the Block tool on a generated map after strokes", () => {
-  const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 64, y: 64 } }));
+  const fresh = () => fixtureSession("riverValley", 64, 3);
 
   it("what blockFalls names is what the step changes, and no other tile moves", () => {
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fresh();
     s.setWaterMode("defer");
     const Wg = s.built.W;
     const Hg = s.built.H;
@@ -517,7 +519,7 @@ describe("the Block tool on a generated map after strokes", () => {
   });
 
   it("the start takes its level from its middle tile: a block over it is refused, one over another of its tiles taken", () => {
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fresh();
     s.setWaterMode("defer");
     const start = () => s.built.entities.find((e) => e.template === "StartingLocation")!;
     const { x: cx, y: cy, z: z0 } = start();
@@ -551,7 +553,7 @@ describe("the Block tool on a generated map after strokes", () => {
   });
 
   it("the block an object stands on stays: a slope's too", () => {
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fresh();
     const slope = s.built.entities.find((e) => e.template === "Slope");
     expect(slope).toBeDefined();
     const u = s.apply(op(remove("+z", [[slope!.x, slope!.y, slope!.z - 1]])));
@@ -786,11 +788,8 @@ describe("the Block tool on a generated map", () => {
   // seed 15 since D518's later mends (the rolling and rises reweighed, the dead stands dense in their woods), D148: seed
   // 174 holds none now, and of seeds 1–200 only seeds 15 and 148 hold one; seed 15 is the first, its spot at (20, 12), level 8;
   // seed 29 since generator 0.10.21's look round (D518: the land's long straight steps jog, so its edges moved), D148: seed 15 holds none now, and
-  // seed 29 is the first of seeds 1–200 with one, its spot at (48, 33), level 15;
-  // seed 164 since generator 0.10.23's ruled water, D(ruled-water), D148: seed 29 holds none now (spring courses join the traced ones, the lakes' shores are notched), and
-  // of seeds 1–300 only seeds 164, 179, 256, 263, 265 and 273 hold one; seed 164 is the first, its spot at (53, 14), level 8)
-  const spec = makeSpec({ seed: 164, theme: "riverValley", size: { x: 64, y: 64 } });
-  const r = generate(spec, { forms: false });
+  // seed 29 is the first of seeds 1–200 with one, its spot at (48, 33), level 15)
+  const fresh = () => fixtureSession("riverValley", 64, 29, "noforms");
 
   /** A dry tile with dry neighbours, no object near, on high enough ground, level out to the build-up 5 tiles east. */
   function spot(s: MapSession): { x: number; y: number } {
@@ -818,7 +817,7 @@ describe("the Block tool on a generated map", () => {
   }
 
   it("builds up, hollows a cave and exports the ground as it stands", () => {
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fresh();
     expect(s.mode).toBe("live");
     expect(s.columns.size).toBe(0);
     const { x, y } = spot(s);
@@ -857,7 +856,7 @@ describe("the Block tool on a generated map", () => {
   });
 
   it("saved, reopened and saved is the same file, and the log replays onto the same runs", () => {
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fresh();
     const { x, y } = spot(s);
     const Wg = s.built.W;
     const h = s.built.heights[y * Wg + x];

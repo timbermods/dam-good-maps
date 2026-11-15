@@ -3,6 +3,7 @@
 // map (planning, 2026-11-11). Joining `PREMISE_IDS` is the step that offers one to players.
 
 import type { PremiseDef } from "../types";
+import { PLAIN_ID, poisonedPlain } from "./poisonedPlain";
 import { GATE_ID, wallGate } from "./wallGate";
 
-export const DEV_PREMISES: Record<string, PremiseDef> = { [GATE_ID]: wallGate };
+export const DEV_PREMISES: Record<string, PremiseDef> = { [GATE_ID]: wallGate, [PLAIN_ID]: poisonedPlain };

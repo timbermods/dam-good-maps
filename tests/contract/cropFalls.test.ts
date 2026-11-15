@@ -22,21 +22,23 @@
 // blocks stay unheld four tiles east).
 // A crop whose edge
 // leaves every block held goes ahead, and its file's ground is all supported.
+//
+// The map is a fixture (tests/fixtures/projects/scenario-riverValley-128-3; `fixtureSession`): the subject is the crop, not the generator, so a land change
+// moves nothing here (D148).
 
 import { describe, expect, it } from "vitest";
 import { cropFalls, cropObjects } from "../../src/core/doc/crop";
 import { MapSession } from "../../src/core/doc/session";
 import { readTimber } from "../../src/core/format/timber";
 import { validateMap } from "../../src/core/validate/checks";
-import { map } from "./gateHelpers";
+import { fixtureSession } from "../fixtureProjects";
 
 const supported = (s: MapSession) => validateMap(readTimber(s.exportTimber().bytes), { profile: "import", loadOnly: true }).report.checks.find((c) => c.id === "terrain.supported")!;
 
 describe("a crop never leaves ground floating", () => {
   it("an edge that would leave blocks unheld is refused with how many and where; one that holds them all goes ahead", () => {
-    const r = map(3, 128);
     const session = () => {
-      const s = MapSession.fromGenerated(r, r.file);
+      const s = fixtureSession("riverValley", 128, 3);
       s.setWaterMode("defer");
       return s;
     };

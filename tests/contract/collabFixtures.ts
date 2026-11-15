@@ -1,4 +1,5 @@
-// Shared by the collaboration contract tests: a generated map, a host with two replicas, and a
+// Shared by the collaboration contract tests: a saved map (a fixture, tests/fixtures/projects, D148: the subject is the
+// collaboration, so a land change moves nothing here), a host with two replicas, and a
 // seeded stream of mixed edits from two authors (every brush, Select's sculpt actions, objects placed,
 // moved, changed and removed, and every released force), delivered the way the transport will:
 // the host orders, every replica applies the commit.
@@ -9,7 +10,6 @@ import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
 import { captureState, CollabHost, CollabReplica, hostNeedsWater, planKeptForce, settledHash, stable, type Command, type Commit, type ForceGesture, type PlayerId, type Reject, type Settled } from "../../src/core/collab";
 import type { BrushTool } from "../../src/core/features/raster/brush";
-import { generate } from "../../src/core/gen/generate";
 import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
 import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
 import { DEPOSIT_DEFAULTS } from "../../src/core/forces/deposit";
@@ -18,12 +18,13 @@ import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
 import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
 import { RIFT_DEFAULTS } from "../../src/core/forces/rift";
 import type { ForceRequest } from "../../src/core/forces/start";
-import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
+import type { ThemeId } from "../../src/core/spec/mapspec";
+import { fixtureProject } from "../fixtureProjects";
 import { rng } from "./forceEverywhere";
 
-/** A generated map as the project bytes the app saves. */
+/** A generated map as the project bytes the app saves: the fixture `scenario-<theme>-<size>-<seed>` (tools/fixture-projects.ts lists them). */
 export function mapProject(seed: number, theme: ThemeId, size: number): Uint8Array {
-  return MapSession.fromGenerated(generate(makeSpec({ seed, theme, size: { x: size, y: size } }))).project();
+  return fixtureProject(theme, size, seed);
 }
 
 /** Where two project files first differ as documents (their JSON may order a log entry's keys differently after a reopen), or "". */

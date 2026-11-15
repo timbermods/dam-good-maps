@@ -3,12 +3,15 @@
 // - Every new object passes the placement emulation (entities.placement, the loader's rules), on
 //   edited maps and on generated maps of all six themes; the Python validator agrees (npm run
 //   oracle).
+//
+// Generated live: the tests of what the generator places (every object on, the resource sites, the rise, the weir). The placement-by-hand tests open a fixture
+// (tests/fixtures/projects/scenario-riverValley-128-4242; `fixtureSession`), so a land change moves nothing there (D148).
 
 import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
 import { footprintCheck, moveProblem, planEntity, planMoveEntity } from "../../src/core/doc/placing";
 import { generate } from "../../src/core/gen/generate";
-import { decodeSpecFragment, makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
+import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
 import { validateFile } from "../../src/core/validate/checks";
 import { walkRegions } from "../../src/core/analysis/regions";
 import { walkWorld } from "../../src/core/analysis/walk";
@@ -18,15 +21,9 @@ import { objectTiles } from "../../src/core/features/objects";
 import { obstacleTiles, type ObstaclePlan } from "../../src/core/features/setpieces/obstaclePayoff";
 import { pumpableWithin, type DistrictPlan } from "../../src/core/features/setpieces/secondDistrict";
 import { levelRegions } from "../../src/core/math/grid";
+import { fixtureSession } from "../fixtureProjects";
 
 const uuid = (k: number) => `0b8e9a64-${String(1000 + k)}-4c2d-9e1f-2a3b4c5d6e7f`;
-
-function session(fragment: string): MapSession {
-  const d = decodeSpecFragment(fragment)!;
-  const r = generate(d.spec);
-  expect(r.report.passed).toBe(true);
-  return MapSession.fromGenerated(r);
-}
 
 /** A tile where an object from the shelf stands as it is, without levelling (its footprint check
  *  green, on level dry ground), scanning from the far corner of the start (every other row, from
@@ -46,7 +43,9 @@ function loadChecks(s: MapSession) {
 }
 
 describe("objects placed from the shelf (ROADMAP M7)", () => {
-  const s = session("s=4242&t=riverValley&z=128&d=n");
+  // (the map is a fixture, tests/fixtures/projects/scenario-riverValley-128-4242: the subject is placing by hand, not the generator, so a land change moves
+  // nothing here, D148; the generated-maps tests below generate live, being about what the generator places)
+  const s = fixtureSession("riverValley", 128, 4242);
   const W = 128;
 
   it("previews the footprint under the pointer: red with the reason where the click would be refused", () => {
@@ -104,7 +103,7 @@ describe("generated maps: every new object passes the placement emulation (ROADM
   // and Highlands height round, 0.8.8, D148: on its seed 3 the two belts planned would cut the start's
   // walkable land from 2,274 tiles to 1,134, so the walk rule leaves both out; seed 3 itself stays below;
   // Islands seed 6 since the opening shot, 0.10.2, D493, D148: its seeds 1–5 leave the thorn belt out; Islands seed 2
-  // since generator 0.10.6 (D498, badwater left the sea alone), D148: its seeds 1 and 6 leave the belt out, seeds 2–5 and 7–11 place it; Islands seed 5 since generator 0.10.11 (#726's shores, ramps and berries), D148: its seeds 2–4 leave the belt out, 5 and 7 place it; Islands seed 7 since generator 0.10.17's start floors, D515, D148: its seeds 5, 6, 8 and 9 leave the belt out, 7 and 10–12 place it; Islands seed 9 since generator 0.10.23's ruled water, D(ruled-water), D148: seeds 7, 8 and 10 leave the belt out now, 9, 11 and 12 place it)
+  // since generator 0.10.6 (D498, badwater left the sea alone), D148: its seeds 1 and 6 leave the belt out, seeds 2–5 and 7–11 place it; Islands seed 5 since generator 0.10.11 (#726's shores, ramps and berries), D148: its seeds 2–4 leave the belt out, 5 and 7 place it; Islands seed 7 since generator 0.10.17's start floors, D515, D148: its seeds 5, 6, 8 and 9 leave the belt out, 7 and 10–12 place it; Islands seed 9 since generator 0.10.24's ruled water, D(ruled-water), D148: seeds 7, 8 and 10 leave the belt out now, 9, 11 and 12 place it)
   const everyObject = (theme: ThemeId, seed = theme === "islands" ? 9 : theme === "canyon" ? 1 : 3, thorns = true) => {
     const spec = makeSpec({ seed, size: { x: 96, y: 96 }, theme });
     spec.settings.hazards.thornBelts = "some";

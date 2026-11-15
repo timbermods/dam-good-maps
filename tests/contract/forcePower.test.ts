@@ -139,7 +139,7 @@ describe("Craterize's gentlest is gentle on any ground: seeds 1 to 11 but 3 (D36
   // a fifth of the way, raising a valley or cutting a ridge by two or three levels, and the forces' last step then
   // dropped the corners of the land's own ridges down their cliffs. Now a crater weaker than its Size replaces the
   // land's relief only as far as its Power, and that step leaves the land's own ground where the force only brushed it;
-  // seed 11 for seed 3 since generator 0.10.23's ruled water, D(ruled-water), D148: seed 3's new land has a 9-level cliff
+  // seed 11 for seed 3 since generator 0.10.24's ruled water, D(ruled-water), D148: seed 3's new land has a 9-level cliff
   // running diagonally at (63, 102), and the gentlest crater's smoothing moves its corner one tile, so one tile changes
   // by 9 (the check allows 4); seed 11's gentlest changes 2 at most)
   for (const seed of [1, 2, 4, 5, 6, 7, 8, 9, 10, 11])

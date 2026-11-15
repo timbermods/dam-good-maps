@@ -26,9 +26,8 @@ import { settledHash } from "../../src/core/collab";
 import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
 import { planFill, unfedWater } from "../../src/core/doc/waterEdits";
-import { generate } from "../../src/core/gen/generate";
 import type { StackSettle } from "../../src/core/sim/stackWater";
-import { makeSpec } from "../../src/core/spec/mapspec";
+import { fixtureSession } from "../fixtureProjects";
 import { dig, hillsides, levelPatch } from "./caveMap";
 
 type Blocks = ReturnType<typeof dig>;
@@ -160,14 +159,14 @@ const HOLLOWS = OFFICIAL + "builtin_18_MapMetadataHollowsName.timber";
 // level patch now, and of seeds 1 to 150 only 8, 11, 15, 22, 24, 29, 30, 36, 43, 85, 96, 129, 139, 146, 148 and 150 do; seeds 30 and 36
 // have no hillside to hollow, the shortcut answers none of the Fill's edits on seed 8's and 4 on seed 29's, and seed 43 keeps
 // every check, its patch at (34, 53), level 11)
-// (seed 22 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 43 has no level patch now; of seeds 22, 29, 51, 73 and 76 the whole file passes on each, seed 22 the first;
-// seed 51 since generator 0.10.23's ruled water, D(ruled-water), D148: seed 22 has no level patch now, and of seeds 1 to 60 only seed 51 has one, at (20, 42), level 14; the whole file passes on it)
-const SEED = 51;
+// (seed 22 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 43 has no level patch now; of seeds 22, 29, 51, 73 and 76 the whole file passes on each, seed 22 the first)
+const SEED = 22;
+// (the generated map is a fixture, tests/fixtures/projects/scenario-riverValley-64-22: the subject is the settle after an edit, not the generator, so a land change moves
+// nothing here, D148)
 
 describe("random edits on a map with caves: the settle at once is the settle from cold (D453)", () => {
   it("a generated 64² map, hollowed", () => {
-    const r = generate(makeSpec({ seed: SEED, theme: "riverValley", size: { x: 64, y: 64 } }));
-    const make = () => MapSession.fromGenerated(r, r.file);
+    const make = () => fixtureSession("riverValley", 64, SEED);
     const f = hillsides(make())[0];
     expect(lockstep(make, dig(f.x, f.y, f.z, "-x"), 25, 11)).toBeGreaterThanOrEqual(5);
   }, 120_000);
@@ -188,14 +187,12 @@ describe("random edits on a map with caves: the settle at once is the settle fro
   }
 
   it("a generated 64² map holding a Fill: the stored lake's stop, the lake kept as it began", () => {
-    const r = generate(makeSpec({ seed: SEED, theme: "riverValley", size: { x: 64, y: 64 } }));
-    const make = () => MapSession.fromGenerated(r, r.file);
+    const make = () => fixtureSession("riverValley", 64, SEED);
     expect(lockstep(make, pitAndFill(), 25, 12)).toBeGreaterThanOrEqual(5);
   }, 120_000);
 
   it("a generated 64² map with a removal: the shortcut never stands for it, every settle the cold one", () => {
-    const r = generate(makeSpec({ seed: SEED, theme: "riverValley", size: { x: 64, y: 64 } }));
-    const make = () => MapSession.fromGenerated(r, r.file);
+    const make = () => fixtureSession("riverValley", 64, SEED);
     expect(lockstep(make, [...pitAndFill(), (s) => unfedWater(s).op!], 4, 13)).toBe(0);
   }, 120_000);
 

@@ -2,18 +2,21 @@
 // drought, its shore, the beds that dry out and the start's water, read from the Drought view's own last day. On a
 // few generated maps it matches the Drought view's last-day water tile for tile, marks the start's water, and leaves
 // the map's bytes as they were; plain terrain without water has no line (a map with caves has its line too: caveImport.test.ts).
+//
+// The maps are fixtures (tests/fixtures/projects: Lake Basin 64² seeds 3 and 4, River Valley 64² seeds 1, 3 and 7, Delta 64² seed 1;
+// `fixtureInEditor`): the subject is the line the weather run gives a given map, not the generator, so a land change moves nothing here (D148).
 
 import { describe, expect, it } from "vitest";
 import { droughtLine, startWaterMask, SIDE_EAST, SIDE_NORTH, SIDE_SOUTH, SIDE_WEST } from "../../src/core/sim/droughtLine";
 import { mapDroughtLine } from "../../src/core/doc/droughtLine";
 import { pumpShoreDistance, walkDistance, walkWorld, WATER_BODY } from "../../src/core/analysis/walk";
 import { components } from "../../src/core/analysis/regions";
-import { DIFFICULTY_RULES, makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
+import { DIFFICULTY_RULES, type ThemeId } from "../../src/core/spec/mapspec";
 import type { WaterView } from "../../src/render3d/model";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 const W = 64;
 
@@ -33,9 +36,8 @@ async function drought(seed: number, theme: ThemeId) {
   return runs.get(key)!;
 }
 async function runDrought(seed: number, theme: ThemeId) {
-  await runGenerate(makeSpec({ seed, theme, size: { x: W, y: W } }));
   ed.setAutoWater(false);
-  const open = ed.refine();
+  const open = fixtureInEditor(theme, W, seed);
   const bytes = ed.project().bytes;
   try {
     let lastDay: WaterView | null = null;
@@ -95,7 +97,7 @@ describe("the drought line (D133, D269)", () => {
   // entirely in 3, 7, 16, 17 and 20, and seed 7 is the first after seed 3, which stays in the list;
   // Lake Basin 3 for 1 since generator 0.10.21's look round (D518: the land's long straight steps jog), D148: no pool of Lake Basin 1
   // dries out now; of Lake Basin seeds 1–15 the pools dry out in 3, 7 and 8, and seed 3 is the first;
-  // River Valley 7 for 4 since generator 0.10.23's ruled water (spring courses join the course beside them, Delta's arms step,
+  // River Valley 7 for 4 since generator 0.10.24's ruled water (spring courses join the course beside them, Delta's arms step,
   // lakes' straight shores notch), D148: seed 7's river keeps 22 tiles of water on the last day now; of River Valley seeds 1–30
   // the river dries out entirely in 3, 4, 16, 17, 20 and 23, and seed 4 is the first after seed 3, which stays in the list)
   for (const [theme, seed] of [
@@ -245,13 +247,12 @@ describe("the drought line (D133, D269)", () => {
     // (River Valley 3 for 4 since generator 0.10.16's ground with grade, D148: seed 4's river dries out entirely, so its
     // line is empty; seed 3's keeps water; seed 1 since generator 0.10.20's contour edges, D518, D148: seed 3's river dries out
     // entirely now, its line empty; of seeds 1–30 seed 1 is the first whose line keeps water, 57 tiles of it)
-    await runGenerate(makeSpec({ seed: 1, theme: "riverValley", size: { x: W, y: W } }));
     ed.setAutoWater(false);
     const got: ed.DroughtLineNews[] = [];
     ed.watchDroughtLine((n) => got.push(n));
     try {
       // a map opening: an empty line for its version, until its own is worked out
-      const open = ed.refine();
+      const open = fixtureInEditor("riverValley", W, 1);
       expect(got.length).toBe(1);
       expect([got[0].version, got[0].line.line.count, got[0].line.bed.count, got[0].line.refused]).toEqual([open.info.version, 0, 0, null]);
       ed.showWeatherDay("drought", null);

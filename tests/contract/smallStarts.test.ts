@@ -1,3 +1,4 @@
+// Generates live, not from a fixture: its subject is what the generator makes (a small start prepared before the land is shown), D148.
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
@@ -14,7 +15,7 @@ describe("small starts prepared before the land is shown (D348, D363, D373)", ()
   // three again, so seed 2 stands for it, the first of Canyon 96² seeds 1–18 that passes on the land first shown and misses
   // an outcome: 2, 12 and 16 do; since D518's mends (wash treads, compact rises, dead-stand knots), D148: seed 2's land
   // moved and it meets all three, so seed 3 stands for it, the first of Canyon 96² seeds 1–20 that misses an outcome, its
-  // promise, and still passes on the land first shown: 3, 4, 6, 8 and 12 miss; since generator 0.10.23's ruled water (spring courses join the course
+  // promise, and still passes on the land first shown: 3, 4, 6, 8 and 12 miss; since generator 0.10.24's ruled water (spring courses join the course
   // beside them, lakes' straight shores notch), D148: Any 96² seed 31 misses an outcome now, so seed 32 stands for it, the first Any 96² seed after 31
   // that passes on the land first shown and meets all three; of Any 96² seeds 1–50 3, 12, 20, 31 and 49 miss an outcome)
   for (const [theme, seed, size, met] of [["any", 32, 96, true], ["islands", 4, 96, true], ["highlands", 14, 96, true], ["canyon", 3, 96, false], ["canyon", 9, 128, true]] as const)

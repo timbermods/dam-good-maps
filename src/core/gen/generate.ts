@@ -170,8 +170,10 @@ const SETTLE_BUDGET = 5;
  *  distance 60 spent 24 attempts, about four minutes, on a land shown at the land stage whose start
  *  never stood that far from its badwater, before the rescue round's fresh land made the map in 3).
  *  There a land is shown before its start is proved, so three attempts in a row on it that fail for
- *  the same reason, or 10 settles in a round, end the round as spent attempts do; the next draws fresh
- *  land, easing (D471's one exception to D348). At 128² and under the shown land was proved, and it
+ *  the same reason, or 10 settles in a round, end the round as spent attempts do; the next goes on
+ *  with it once, easing, and only a round after that draws fresh land (D471's one exception to D348:
+ *  Highlands 1 at 256², generator 0.10.20, failed its shown land's start three times and its map was a
+ *  rescue round's fresh land, 56,154 tiles off the land shown). At 128² and under the shown land was proved, and it
  *  keeps its attempts (bounding it there replaced lands that passed two attempts later). A caller
  *  that caps the attempts keeps the old way. */
 const SHOWN_SAME = 3;
@@ -748,9 +750,13 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
         continue;
       }
       // (a land shown before its start was proved failing the same way three times in a row, or its
-      // settles spent, ends the round as one whose attempts are spent does: the next draws fresh land,
-      // easing, D471's one exception to D348)
-      if (bounded && committed.shown && !a.stuck && (same >= SHOWN_SAME || land.settles - keptAt >= LAND_SETTLES)) break;
+      // settles spent, ends the round as one whose attempts are spent does: the next goes on with it
+      // once, easing, as a start that finds no place does, so the land shown stays the map; only after
+      // that does a round draw fresh land, D471's one exception to D348)
+      if (bounded && committed.shown && !a.stuck && (same >= SHOWN_SAME || land.settles - keptAt >= LAND_SETTLES)) {
+        if (!record.carried) record.carry = { land, committed };
+        break;
+      }
       if (a.stuck) break;
       continue;
     }

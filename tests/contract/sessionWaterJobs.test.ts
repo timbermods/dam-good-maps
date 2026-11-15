@@ -2,22 +2,23 @@
 // cancelled Drought or Badtide view, and a draft stroke's water when another map opens or the map closes. Without
 // it the helpers keep the old simulations' strips (Wasm memory never shrinks) until the garbage collector runs,
 // or until a later draft. From the merge review (investigation/merge-review, F5, F6).
+//
+// The map is a fixture (tests/fixtures/projects/riverValley-64-2; `fixtureInEditor`): the subject is the session's water jobs, not the
+// generator, so a land change moves nothing here (D148).
 
 import { Worker } from "node:worker_threads";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { makeSpec } from "../../src/core/spec/mapspec";
 import { WaterSim } from "../../src/core/sim/water";
 import { installParallelWater, parallelWaterThreads, uninstallParallelWater } from "../../src/core/sim/parallel";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 let helper: Worker;
 const jobs = () => new Promise<number>((r) => (helper.once("message", (m: { jobs: number }) => r(m.jobs)), helper.postMessage({ kind: "inspect" })));
 
 beforeEach(async () => {
   // (seed 2 on 0.10.6's maps, D148: seed 1 at 64 has caves now, whose water the stacked engine runs, never the helper threads)
-  await runGenerate(makeSpec({ seed: 2, theme: "riverValley", size: { x: 64, y: 64 } }));
-  ed.refine();
+  fixtureInEditor("riverValley", 64, 2);
   const url = new URL("../unit/threads/strip-helper.mjs", import.meta.url);
   installParallelWater({ threads: 2, spawn: () => ((helper = new Worker(url)), { postMessage: (m) => helper.postMessage(m), terminate: () => void helper.terminate() }) });
   while (parallelWaterThreads() < 2) await new Promise((r) => setTimeout(r, 10));
