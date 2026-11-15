@@ -279,8 +279,30 @@ function showHeld(bar: HTMLElement | null): void {
   const nearest = (clear: number) => stops.filter((s) => fits(s, clear)).sort((x, y) => Math.abs(x - now) - Math.abs(y - now))[0];
   const to = nearest(ROW_FADE) ?? nearest(0);
   if (to === undefined || Math.abs(to - now) < 0.5) return;
+  glide(bar, across, to);
+}
+
+function glide(bar: HTMLElement, across: boolean, to: number): void {
   const still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   bar.scrollTo({ [across ? "left" : "top"]: to, behavior: still ? "auto" : "smooth" });
+}
+
+/** A phone's tool row come to rest between two tools (a glide cut short as the room changed under it, about one pick in
+ *  a hundred on its side): it goes on to the nearest tool's start, so it stands on whole tools. */
+function restOnWhole(bar: HTMLElement): void {
+  const across = bar.scrollWidth > bar.clientWidth + 1;
+  if (!across && !(bar.scrollHeight > bar.clientHeight + 1)) return;
+  const cs = getComputedStyle(bar);
+  const pad0 = parseFloat(across ? cs.paddingLeft : cs.paddingTop) || 0;
+  const now = across ? bar.scrollLeft : bar.scrollTop;
+  const max = across ? bar.scrollWidth - bar.clientWidth : bar.scrollHeight - bar.clientHeight;
+  const b = bar.getBoundingClientRect();
+  const stops = [0, max, ...[...bar.querySelectorAll("button.icon-button")].map((t) => {
+    const r = t.getBoundingClientRect();
+    return Math.min(max, Math.max(0, (across ? r.left - b.left - bar.clientLeft : r.top - b.top - bar.clientTop) + now - pad0));
+  })];
+  const to = stops.sort((x, y) => Math.abs(x - now) - Math.abs(y - now))[0];
+  if (Math.abs(to - now) > 1) glide(bar, across, to);
 }
 
 /** The least a phone's tool may be along its row, CSS px: upright its width (a tool's name at 12px), on its side its
@@ -720,14 +742,40 @@ export function TopBar(p: TopBarProps) {
       fitToolRow(b);
       markRowEnds(b);
     };
-    const ends = () => markRowEnds(b);
+    // (still for a moment and no finger on it: it rests on a tool's start)
+    let idle = 0;
+    let held = false;
+    const rest = () => {
+      clearTimeout(idle);
+      idle = window.setTimeout(() => held || restOnWhole(b), 200);
+    };
+    const ends = () => {
+      markRowEnds(b);
+      rest();
+    };
+    const down = () => {
+      held = true;
+      clearTimeout(idle);
+    };
+    const up = () => {
+      if (!held) return;
+      held = false;
+      rest();
+    };
     fit();
     const watch = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(fit);
     watch?.observe(b);
     b.addEventListener("scroll", ends, { passive: true });
+    b.addEventListener("pointerdown", down, { passive: true });
+    window.addEventListener("pointerup", up, true);
+    window.addEventListener("pointercancel", up, true);
     return () => {
+      clearTimeout(idle);
       watch?.disconnect();
       b.removeEventListener("scroll", ends);
+      b.removeEventListener("pointerdown", down);
+      window.removeEventListener("pointerup", up, true);
+      window.removeEventListener("pointercancel", up, true);
       b.style.removeProperty("--tool-along");
       b.removeAttribute("data-more");
     };

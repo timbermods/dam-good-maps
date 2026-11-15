@@ -179,6 +179,8 @@ export async function phoneFaults(page: Page, insets: Insets): Promise<string[]>
       const s = getComputedStyle(a);
       return across ? /auto|scroll/.test(s.overflowX) && a.scrollWidth > a.clientWidth + 1 : /auto|scroll/.test(s.overflowY) && a.scrollHeight > a.clientHeight + 1;
     };
+    /** Each drawn control, what of it shows and the layer it is laid out in (its nearest positioned panel). */
+    const drawn: { el: HTMLElement; vis: Box; layer: Element }[] = [];
     for (const el of document.querySelectorAll<HTMLElement>(sel)) {
       if (el.closest("[hidden], .visually-hidden, [aria-hidden=true], [role=tooltip]") || el.classList.contains("visually-hidden")) continue;
       if (!el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true } as never)) continue;
@@ -198,6 +200,7 @@ export async function phoneFaults(page: Page, insets: Insets): Promise<string[]>
         vis = { left: Math.max(vis.left, pad.left), top: Math.max(vis.top, pad.top), right: Math.min(vis.right, pad.right), bottom: Math.min(vis.bottom, pad.bottom) };
       }
       const shows = vis.right - vis.left > 0.5 && vis.bottom - vis.top > 0.5;
+      if (shows) drawn.push({ el, vis, layer: [...ancestry(el.parentElement)].find((a) => /absolute|fixed/.test(getComputedStyle(a).position)) ?? document.body });
       // (scrolled out of a row or panel that scrolls: reachable, nothing of it drawn)
       if (!shows) {
         if (!cuts.some((c) => scrollsWay(c.by, c.side === "left" || c.side === "right"))) out.push(`${name(el)} off the screen`);
@@ -244,6 +247,18 @@ export async function phoneFaults(page: Page, insets: Insets): Promise<string[]>
         if (own && others.length) out.push(`${name(el)} partly covered at ${px(others[0].x)},${px(others[0].y)} by ${name(others[0].hit!)}`);
       }
     }
+    // no control's box over another's in the same panel (a chip or a button laid on the tiles beside it)
+    for (let i = 0; i < drawn.length; i++)
+      for (let j = i + 1; j < drawn.length; j++) {
+        const a = drawn[i];
+        const b = drawn[j];
+        if (a.layer !== b.layer || a.el.contains(b.el) || b.el.contains(a.el)) continue;
+        // (a scroller's sticky foot lies over what scrolls under it by design, as above)
+        if ([a.el, b.el].some((e) => [...ancestry(e)].some((x) => getComputedStyle(x).position === "sticky"))) continue;
+        const w = Math.min(a.vis.right, b.vis.right) - Math.max(a.vis.left, b.vis.left);
+        const h = Math.min(a.vis.bottom, b.vis.bottom) - Math.max(a.vis.top, b.vis.top);
+        if (w > 2 && h > 2) out.push(`${name(a.el)} and ${name(b.el)} lie over each other (${px(w)}×${px(h)})`);
+      }
     // one text laid over another (each text's own drawn lines, not its box), where both are drawn
     const texts: { el: HTMLElement; rs: DOMRect[] }[] = [];
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);

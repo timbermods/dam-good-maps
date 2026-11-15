@@ -1288,6 +1288,9 @@ for (const phone of PHONES) {
       await expect(page.locator(".first-run")).toBeVisible();
       const clear = async (state: string) => {
         await page.waitForTimeout(400);
+        // (the room measured once the editor has taken in the sheet: on a loaded machine 400 ms came before it, and the
+        // room's middle was still the whole screen's)
+        await page.waitForFunction(() => window.dgmEditor!.roomSettled(), null, { timeout: 10_000 });
         const { x, y } = await roomNow(page);
         const card = await page.evaluate(() => {
           const e = document.querySelector<HTMLElement>(".first-run");

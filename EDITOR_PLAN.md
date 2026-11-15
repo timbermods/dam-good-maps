@@ -253,7 +253,8 @@ place of its bottom rule.
   all of it in view; the hints in the room's left half at rest, stepping aside while a sheet or the panel is open.
   **Everywhere on a phone:** every control at least 44px, none off the screen, the page never zoomed or scrolled (the
   editor is the dynamic viewport's height and clips what would spill), the notch and the home bar kept clear (safe
-  areas, `viewport-fit=cover`), fields 16px so the browser never zooms on focus. **Nothing cut at rest:** every control
+  areas, `viewport-fit=cover`), fields 16px so the browser never zooms on focus. A long press's tooltip shows its phrase without the key caps, which name keys a
+  finger has none of, until a key is pressed on the page (a tablet with a keyboard). **Nothing cut at rest:** every control
   and card whole inside the room less its insets and inside its panel; a row or page that scrolls may show its next item
   in part only at an end where more lies and that is not a safe-area edge, or where it fades (a page of cards fades out
   over the home bar and a little above it); a row of tools stands on whole tools (`tests/e2e/phone.ts` `phoneFaults`,
