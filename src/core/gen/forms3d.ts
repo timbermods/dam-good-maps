@@ -8,6 +8,7 @@ import type { BuildResult } from "../features/build";
 import { entityTiles } from "../features/edits";
 import { featureId } from "../features/ids";
 import { pointAtArc } from "../features/geometry";
+import { sqrt } from "../math/portable";
 import type { Feature, RiverFeature } from "../features/schema";
 import { growForms, type FormPlan, type Forms, type FormsWanted } from "../land/forms3d";
 import type { Rng } from "../math/rng";
@@ -99,7 +100,11 @@ export function streamCrossesLake(stream: RiverFeature, course: readonly number[
   if (course.some((i) => lake[i] === 2)) return true;
   const path = stream.params.path;
   let L = 0;
-  for (let k = 1; k < path.length; k++) L += Math.hypot(path[k][0] - path[k - 1][0], path[k][1] - path[k - 1][1]);
+  for (let k = 1; k < path.length; k++) {
+    const dx = path[k][0] - path[k - 1][0];
+    const dy = path[k][1] - path[k - 1][1];
+    L += sqrt(dx * dx + dy * dy);
+  }
   for (let s = 0; s <= L; s += 0.5) {
     const [x, y] = pointAtArc(path, s).p;
     const xi = Math.round(x);
