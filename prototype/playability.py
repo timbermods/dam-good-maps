@@ -302,7 +302,8 @@ def rules_for(spec, difficulty, description=""):
         "difficulty": d,
         "water_within": r["waterWithin"] if r else base["water_dist"],
         "wood_within": r["woodWithin20"] if r else base["wood_r20"],
-        "bushes_within": r["bushesWithin20"] if r else base["bushes_r20"],
+        # (Berries near start is the start's least berries, D527)
+        "bushes_within": s["resources"]["berriesNearStart"] if s else base["bushes_r20"],
         # the Badwater distance setting and the start rule say the same thing: the stricter counts
         "badwater_within": max(s["hazards"]["badwaterDistance"], r["badwaterWithin"]) if s else base["badwater_min"],
         "ruins_within": r["ruinsWithin"] if r else base["ruin_min"],

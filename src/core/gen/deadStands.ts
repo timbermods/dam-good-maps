@@ -58,8 +58,11 @@ export const DEAD_STANDS = {
    *  where the land allows: its middle past the start's clear walk and within `view` tiles' walk. */
   wood: { per128: [2, 4] as const, trees: 250, radius: 20, near: 4, apart: 30, view: 60 },
   /** The rest of the dry land bare (#236, after 6819039430): at most `most` of the dry tiles within `reach` tiles of a
-   *  dead tree; a stand that would pass it is not grown, and after `misses` such the woods stop short of the aim. */
-  bare: { reach: 6, most: 0.245, misses: 8 },
+   *  dead tree; a stand that would pass it is not grown, and after `misses` such the woods stop short of the aim. The
+   *  stands are held `settle` under it: the water the map settles to after them moves the dry land's edge by a few
+   *  tiles (Delta 4 at 128² since generator 0.10.24: 20 dry tiles moistened and 4 dried of 7,121, which took its built
+   *  map to 24.52 %). */
+  bare: { reach: 6, most: 0.245, settle: 0.003, misses: 8 },
   /** An old giant among a stand's trees: an oak for every `oakEvery` trees, `oakMost` a stand at most. */
   oakEvery: 25,
   oakMost: 2,
@@ -609,7 +612,7 @@ export function planDeadStands(inp: DeadStandsInput): DeadStand[] {
           if (host >= 0) {
             const st = out[host];
             const both = [...st.tiles, ...st.young, ...grown.tiles];
-            if (both.length <= s.least + s.a + s.b - 2 && nnSpread(both, W) >= DEAD_STANDS.knot.least && overN + overBy(grown.tiles, false) <= B.most * dryN) {
+            if (both.length <= s.least + s.a + s.b - 2 && nnSpread(both, W) >= DEAD_STANDS.knot.least && overN + overBy(grown.tiles, false) <= (B.most - B.settle) * dryN) {
               claim(grown.tiles);
               for (const t of grown.tiles) (rng.float() < DEAD_STANDS.young ? st.young : st.tiles).push(t);
               st.tiles.sort((a, c) => a - c);
@@ -630,7 +633,7 @@ export function planDeadStands(inp: DeadStandsInput): DeadStand[] {
         }
         // (a stand that would pass the bare land's share is not grown, its ground left bare; the next try is nearer
         // the wood's trees, under the land they already stand over; after `misses` such, the woods are full)
-        if (overN + overBy(grown.tiles, false) > B.most * dryN) {
+        if (overN + overBy(grown.tiles, false) > (B.most - B.settle) * dryN) {
           for (const i of grown.area) allowed[i] = 0;
           allowed[seed] = 0;
           if (++missed >= B.misses) full = true;
