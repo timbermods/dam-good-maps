@@ -112,9 +112,7 @@ describe("Clear sources and the water (item 15)", () => {
     // map settles on the heightfield's engine now; of seeds 1–80 with a dry flat spot, seeds 6, 33, 44, 59 and 68 have stacked columns
     // and seeds 6, 33 and 44 pass (59 and 68 were not tried); seed 6's spot is at (60, 17), level 16; seed 33 since generator 0.10.21's look round
     // (D518: the land's long straight steps jog), D148: seed 6's map settles on the heightfield's engine now, and of seeds 6, 33, 44, 59, 68 and 2–5, 7 and 8
-    // only seed 33 holds a pit that drains on stacked columns; seed 2 since generator 0.10.23, D(new-leaks): a course's
-    // water leaves only by its own way, so the land moved, D148: seed 33's map has no dry flat spot now; seed 2's map has
-    // stacked columns, its spot at (38, 81), level 5, and its pit drains: of seeds 1 and 2, the first with stacked columns)
-    expect(await clearedPit(2)).toBe(true);
+    // only seed 33 holds a pit that drains on stacked columns)
+    expect(await clearedPit(33)).toBe(true);
   }, 120_000);
 });

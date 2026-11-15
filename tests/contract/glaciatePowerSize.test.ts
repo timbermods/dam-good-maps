@@ -16,11 +16,11 @@ import * as ed from "../../src/worker/session";
 import { fixtureInEditor } from "../fixtureEditor";
 
 const W = 128;
-const SEED = 31;
+const SEED = 28;
 /** Size's map and head (its own map since generator 0.10.11, see below). */
 const SIZE_SEED = 26;
-const SIZE_HEAD: [number, number] = [48, 28];
-const POWER_HEAD: [number, number] = [72, 76];
+const SIZE_HEAD: [number, number] = [56, 36];
+const POWER_HEAD: [number, number] = [8, 104];
 let at: [number, number] = [W >> 1, W >> 1];
 
 beforeAll(async () => {
@@ -67,14 +67,7 @@ beforeAll(async () => {
   // on seed 29 Power 0's walls are 4 (it needs 3 or fewer) and Power 100's stand 7 to Power 50's 7, as on the 60 heads nearest it,
   // and the first head found that keeps every check of Power, searching the highest heads of seeds 22 to 28, 30 and 21 at once,
   // is seed 28's (8, 104), level 16, the thirteenth of seed 28's taking the heads of level 16 first; on seed 26 (50, 30) and the three heads nearest it make no sections at
-  // Power 20, and Size's is (56, 36), level 11, the fifth nearest it, which keeps every check of Size at Power 20, 60 and 100.
-  // Both moved with generator 0.10.23, D(new-leaks): a course's water leaves only by its own way, so the land moved, D148:
-  // (8, 104) on seed 28 stands at level 13 now and its ice makes no sections; no head of seed 28's twenty at level 16, nor
-  // of the next twenty nearest (8, 104), keeps every check of Power (Power 100's walls and deepest cut short of Power 50's
-  // by the margins asked, its floor at level 1 like Power 50's), nor any of about 200 on seeds 21 to 27, 29 and 30; on seed 31
-  // the second head of level 16 nearest the middle, (72, 76), keeps them all. On seed 26 (56, 36), now level 14, makes no
-  // sections at Power 20, and none of the sixteen heads nearest it keeps every check of Size at Power 20; Size's is (48, 28), level 14, the eighteenth,
-  // which keeps every check of Size at Power 20, 60 and 100)
+  // Power 20, and Size's is (56, 36), level 11, the fifth nearest it, which keeps every check of Size at Power 20, 60 and 100)
   at = SIZE_HEAD;
 });
 

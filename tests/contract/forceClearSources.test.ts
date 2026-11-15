@@ -365,12 +365,8 @@ describe("forces clear sources (D474)", () => {
     // start floors (D515), D148: seed 5's dry spot, (65, 30), is a cliff's foot again, where the carve leaves the source's
     // tile as it was and both plays keep 49.0 near it; seed 6's is at (30, 30), the carve cuts under it, and the kept source
     // holds 48.3 of water near it to Clear's 27.8; of seeds 1–8 only 6 and 8 cut under the spot on a map without terrain
-    // above terrain; seed 5 since generator 0.10.23, D(new-leaks): a course's water leaves only by its own way, so the land
-    // moved, D148: seed 6's dry spot, (30, 30), is now where the carve cuts its tile a level only and both plays keep about
-    // the same water near it (9.1 to 7.7); seed 5's is at (32, 30), the carve cuts 10 levels under it, and the kept source
-    // holds 51.4 of water near it to Clear's 33.2; of seeds 1–12 on a map without terrain above terrain (5, 6, 9 and 12)
-    // seed 5 is the first that cuts under the spot)
-    await runGenerate(makeSpec({ seed: 5, theme: "highlands", size: { x: 96, y: 96 } }));
+    // above terrain)
+    await runGenerate(makeSpec({ seed: 6, theme: "highlands", size: { x: 96, y: 96 } }));
     ed.refine();
     const open = () => MapSession.open(decodeProject(ed.project().bytes));
     const b = open().built;

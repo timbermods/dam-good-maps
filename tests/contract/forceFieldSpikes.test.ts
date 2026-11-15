@@ -51,17 +51,14 @@ describe("a force wears the ground as the build does: a spike the generation gre
 
   // (the bug as found on generator 0.10.6's map: a spike at (9, 15) of level 14, and three more near it,
   // the crater's reach raising the ground round them a level; on 0.10.5's map these tiles are no spikes)
-  // (at (48, 28) since generator 0.10.23, D(new-leaks): a course's water leaves only by its own way, so the land moved,
-  // D148: (42, 30) stands at level 15 now, above the layer, where a force is refused; (48, 28), at level 10, is the tile
-  // at or under the layer nearest it, and the box round what the crater changes holds 2,352 tiles above the layer)
-  it("Highlands 64², seed 7: a Craterize (Power 44) at (48, 28) with the layer cut at level 11 leaves every tile above the layer as it was; its last frame is the map applied and reopened", async () => {
+  it("Highlands 64², seed 7: a Craterize (Power 44) at (42, 30) with the layer cut at level 11 leaves every tile above the layer as it was; its last frame is the map applied and reopened", async () => {
     const N = 64;
     await runGenerate(makeSpec({ seed: 7, theme: "highlands", size: { x: N, y: N } }));
     ed.refine();
     const cut = 11;
     const before = MapSession.open(decodeProject(ed.project().bytes)).built;
 
-    expect(ed.forceStart({ verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 44 }, origin: [48, 28], cut, natural: true }).errors).toEqual([]);
+    expect(ed.forceStart({ verb: "craterize", settings: { ...CRATER_DEFAULTS, power: 44 }, origin: [42, 30], cut, natural: true }).errors).toEqual([]);
     let shown: Uint8Array | null = null;
     for (let k = 0; k < 4000; k++) {
       const f = ed.forceAdvance(16);
