@@ -288,8 +288,10 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // canyon 3 and canyon 17 for canyon 2 and canyon 14 since the D518 mends of the land (the rolling ground's reweighed noise,
     // compact rises, a dry wash's broad flat broken up, the lake stair's bench bend 24 tiles off the start), D148: those two rivers
     // take no weir now; of Canyon and Highlands 96² seeds 1–20, 10 hold 0.6 or more (Canyon 3, 7, 10, 17; Highlands 2, 4, 9, 10, 12,
-    // 13) and none holds less)
-    for (const [theme, seed] of [["canyon", 7], ["canyon", 10], ["canyon", 3], ["canyon", 17], ["highlands", 2]] as [ThemeId, number][]) {
+    // 13) and none holds less; canyon 12 and canyon 13 for canyon 3 and canyon 17 since generator 0.10.25, D(new-leaks): a course's
+    // water leaves only by its own way, so the land moved, D148: those two rivers take no weir now; of Canyon and Highlands 96² seeds
+    // 1–20, 14 hold 0.6 or more (Canyon 7, 10, 12, 13, 18, 19; Highlands 2, 3, 7, 9, 13, 16, 18, 20) and none holds less)
+    for (const [theme, seed] of [["canyon", 7], ["canyon", 10], ["canyon", 12], ["canyon", 13], ["highlands", 2]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 96, y: 96 }, theme }));
       const w = r.features.find((g) => g.kind === "mapObject" && g.params.kind === "weir");
       if (!w || w.kind !== "mapObject") continue;
