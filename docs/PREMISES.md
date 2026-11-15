@@ -1955,7 +1955,8 @@ catch's +1,356 upland costs the lowland's 2,398).
 
 ### 5.4 The poisoned floodplain (a candidate, next after the wall with one gate)
 
-A candidate, not yet designed in full: planning's ruling of 2026-11-14, with Kyler's agreement, when the intention
+Designed in full in [design/poisoned-floodplain.md](design/poisoned-floodplain.md) (2026-11-15), which a builder
+builds from; this section is the sketch it grew from. A candidate by planning's ruling of 2026-11-14, with Kyler's agreement, when the intention
 badwater-rich was removed from the themes ([design/intentions-by-design.md](design/intentions-by-design.md) §5: a
 nudge cannot make it; a premise can). It is built after §5.1 and before §5.2. The verb is *turn*.
 
