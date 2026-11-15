@@ -43,7 +43,7 @@ export const HINT: Record<string, string> = {
   falls: "How many waterfalls the rivers make",
   sources: "Keep the water sources, or start with none",
   badwater: "Badwater on the map",
-  "badwater-distance": "How near the start badwater may come",
+  "badwater-distance": "Badwater's distance from the start",
   thorns: "Thorns that block some ways",
   cores: "How many unstable cores the map has: an advanced hazard",
   forest: "How thickly trees grow",
