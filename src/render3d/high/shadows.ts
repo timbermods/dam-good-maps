@@ -8,10 +8,12 @@
 // Water, falls and the effects cast none. Objects faded round the pointer (objectFade.ts) cast none while faded: the
 // depth pass drops them by the objects' own test, and is drawn again when the region moves. What the game's layer cut
 // takes away (D196: every caster's part above the slice, as the colour pass discards it) casts none either, and the map
-// is drawn again when the cut moves.
+// is drawn again when the cut moves. A part with a pattern (objectPatterns.ts: the ruins' ivy) casts only what its cut
+// keeps, as the game's cut-out casts.
 
-import { DepthTexture, DoubleSide, Matrix4, MeshDepthMaterial, NearestFilter, OrthographicCamera, RedFormat, UnsignedByteType, UnsignedIntType, Vector3, WebGLRenderTarget, type Scene, type Vector4, type WebGLRenderer } from "three";
+import { DepthTexture, DoubleSide, Matrix4, MeshDepthMaterial, NearestFilter, OrthographicCamera, RedFormat, UnsignedByteType, UnsignedIntType, Vector3, WebGLRenderTarget, type DataArrayTexture, type Scene, type Vector4, type WebGLRenderer } from "three";
 import { SUN } from "../materials";
+import { PATTERN_CUT } from "../objectPatterns";
 import { OBJECT_FADE_GLSL } from "../objectFade";
 
 /** The depth map's side (texels). Fitted to the map as the sun sees it, a texel is 0.06–0.09 of a tile over a 128² map
@@ -131,6 +133,8 @@ export class SunShadows {
 export interface ObjectFadeUniforms {
   objectFade: { value: Vector4 };
   objectHide: { value: number };
+  /** The objects' patterns (objectPatterns.ts). */
+  objectAtlas: { value: DataArrayTexture };
   /** The layer cut (materials.ts `slice`: 99 for none). */
   slice: { value: number };
 }
@@ -146,18 +150,26 @@ export function fadingDepth(u: ObjectFadeUniforms): MeshDepthMaterial {
     shader.uniforms.objectFade = u.objectFade;
     shader.uniforms.objectHide = u.objectHide;
     shader.uniforms.slice = u.slice;
+    shader.uniforms.objectAtlas = u.objectAtlas;
     shader.vertexShader = shader.vertexShader.replace(
       "void main() {",
       /* glsl */ `${OBJECT_FADE_GLSL}
       #ifdef USE_INSTANCING
         attribute vec3 grow;
+        attribute float lod;
+        attribute vec2 puv;
       #endif
       varying float vDropped;
       varying float vHeight;
+      varying vec3 vPattern;
       void main() {
         vDropped = 0.0;
+        vPattern = vec3(0.0);
         vec4 placed = vec4(position, 1.0);
         #ifdef USE_INSTANCING
+          // (a part with a pattern: entities3d.ts Model.card, as the object program reads it)
+          float layer = floor(lod / 4.0 + 0.01);
+          if (layer > 0.5) vPattern = vec3(puv, layer);
           vec3 at = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
           if (shadowDropped(vec2(at.x, -at.z), grow)) vDropped = 1.0;
           placed = instanceMatrix * placed;
@@ -169,9 +181,12 @@ export function fadingDepth(u: ObjectFadeUniforms): MeshDepthMaterial {
       "void main() {",
       /* glsl */ `varying float vDropped;
       varying float vHeight;
+      varying vec3 vPattern;
       uniform float slice;
+      uniform sampler2DArray objectAtlas;
       void main() {
-        if (vDropped > 0.5 || vHeight > slice + 0.02) discard;`,
+        if (vDropped > 0.5 || vHeight > slice + 0.02) discard;
+        if (vPattern.z > 0.5 && texture(objectAtlas, vec3(vPattern.xy, vPattern.z - 1.0)).a < ${PATTERN_CUT}) discard;`,
     );
   };
   // (one program per kind of mesh, as three.js's own depth material has)

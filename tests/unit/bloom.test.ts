@@ -3,8 +3,17 @@ import { bloomLevels, bloomLift, GAME_BLOOM, GAME_BLOOM_LOOKS, inverseTable, LAV
 import { LAVA } from "../../src/render3d/materials";
 import { paletteDefaults } from "../../src/render3d/high/models";
 import { GAME_LIGHT, GAME_SKY, gameAmbient, gamePostRgb, LIGHT, MINE, ownAlbedo, RUIN, START, TREE_COLOURS, type Rgb } from "../../src/render3d/palette";
+import { PATTERN_CUT, patternTexels } from "../../src/render3d/objectPatterns";
 
 const display = (v: number) => (v <= 0.0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055);
+
+/** The brightest texel of the objects' patterns that their cut keeps, as an albedo (by its sum). */
+function brightestKept(): readonly number[] {
+  const t = patternTexels();
+  let best = [0, 0, 0];
+  for (let k = 0; k < t.length; k += 4) if (t[k + 3] / 255 >= PATTERN_CUT && t[k] + t[k + 1] + t[k + 2] > (best[0] + best[1] + best[2]) * 255) best = [t[k] / 255, t[k + 1] / 255, t[k + 2] / 255];
+  return best;
+}
 
 describe("the game's bloom (D497 as amended 2026-11-08)", () => {
   it("takes the game's values (tools/game-bloom.py): threshold 1.5 as URP converts it, intensity 50, scatter 0.55, clamp 2, 6 levels", () => {
@@ -84,8 +93,8 @@ describe("the game's bloom (D497 as amended 2026-11-08)", () => {
       // (a slab band's shade at most 1.02 and the rebar unshaded: entities3d.ts band, rails)
       ["RUIN.slab", RUIN.slab.map((v) => v * 1.02)],
       ["RUIN.rust", RUIN.rust],
-      ["RUIN.ivy", RUIN.ivy],
-      ["RUIN.leaf", RUIN.leaf],
+      // (the ivy's pattern: its brightest texel the cut keeps, objectPatterns.ts)
+      ["the ivy's brightest texel", brightestKept()],
       // (the lantern's hood, its thatch at 1.03: entities3d.ts districtCenter)
       ["START.thatch.hood", START.thatch.map((v) => v * 1.03)],
       ...MINE.rubble.map((c, k) => [`MINE.rubble.${k}`, own(c)] as [string, readonly number[]]),

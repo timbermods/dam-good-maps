@@ -14,6 +14,7 @@ import { buildEntities, cutoutUnder, IVY_DENSE, IVY_LIGHT, IVY_MEDIUM, IVY_NONE,
 import { LOD_NEAR_PX, objectMaterial, sceneUniforms, terrainMaterial, overlayTexture } from "../../src/render3d/materials";
 import { chunkCount, meshChunk, type TerrainSource } from "../../src/render3d/mesh";
 import { LAND_GROW } from "../../src/render3d/objectFade";
+import { PATTERN, PATTERN_CUT, patternAlpha } from "../../src/render3d/objectPatterns";
 import { entityView, variantIndex, type EntityInput, type EntityView } from "../../src/render3d/model";
 import { CONTAMINATED_GROUND, CONTAMINATION, cssColor, GROUND, LIGHT, MINE, objectLegend, objectTop, ownAlbedo, RUIN, sunlitTop, type Rgb } from "../../src/render3d/palette";
 import { badwaterLit } from "./waterShown";
@@ -254,7 +255,8 @@ describe("ruins", () => {
   };
   const slabs = [0.97, 1, 1.02].map((k) => cssColor([RUIN.slab[0] * k, RUIN.slab[1] * k, RUIN.slab[2] * k]));
   const rusts = [cssColor(RUIN.rust), cssColor([RUIN.rust[0] * 0.95, RUIN.rust[1] * 0.95, RUIN.rust[2] * 0.95])];
-  const greens = [cssColor(RUIN.ivy), cssColor(RUIN.leaf)];
+  /** Whether a model's triangle `t` is the ivy's (a card with its pattern, entities3d.ts `Model.card`). */
+  const isIvy = (m: { pat: readonly number[] | null }, t: number) => m.pat?.[t * 3] === PATTERN.ivy;
 
   it("stay within their tile and their storey, in every variant and place, with and without ivy", () => {
     for (const v of ["A", "B", "C", "D", "E"])
@@ -273,11 +275,13 @@ describe("ruins", () => {
 
   it("are the game's (D178 as amended 2026-11-10): rebar posts at the corners, on each face a band of slab or rails storey by storey from the top, floors in B, C and D", () => {
     // the game's colours, the means of the texels its cut-out keeps in each part of its atlas (D496's rule): the rebar's
-    // rust, the slabs' tan, its ivy. (Until 2026-11-10 the means of five clusters over the whole texture: #6c3519,
-    // #816e45, a far block #553921, the ivy #282816.)
+    // rust, the slabs' tan, its ivy's leaves and stems. (Until 2026-11-10 the means of five clusters over the whole
+    // texture: #6c3519, #816e45, a far block #553921, the ivy #282816; until 2026-11-14 the ivy's leaves and stems
+    // together, #2a2f1a.)
     expect(cssColor(RUIN.rust)).toBe("#5d2f17");
     expect(cssColor(RUIN.slab)).toBe("#6c5a39");
-    expect(cssColor(RUIN.ivy)).toBe("#2a2f1a");
+    expect(cssColor(RUIN.ivy)).toBe("#262e18");
+    expect(cssColor(RUIN.ivyStem)).toBe("#3c3420");
     const floorFrom = [Infinity, 1, 2, 1, Infinity];
     for (let v = 0; v < 5; v++)
       for (let k = 0; k < RUIN_FACES[v].length; k++) {
@@ -429,42 +433,41 @@ describe("ruins", () => {
     expect(ruinOvergrown(poisoned, W, 1, 1, 0)).toBe(false);
     expect(ruinOvergrown(soil, W, 4, 1, 0)).toBe(false);
     expect(Array.from(ruinsOvergrown({ count: 2, templates: ["RuinColumnH4", "Pine"], template: Uint16Array.of(0, 1), x: Int16Array.of(1, 1), y: Int16Array.of(1, 1), z: Int16Array.of(0, 0) } as unknown as EntityView, soil, W))).toEqual([1, 0]);
-    // the game's ivy (its leaves' texels), a third the brighter green; flat leaves on the outside of the faces, more of
-    // them the more ivy, as much of a column seen from a side as the game's covers
-    expect(cssColor(RUIN.leaf)).toBe("#3c461f");
+    // the game's ivy: cards on the outside of the faces cut by their pattern (objectPatterns.ts), its albedo the
+    // pattern's alone, no fewer of them the more ivy
     for (const v of ["A", "B", "C", "D", "E"]) {
-      const green = (ivy: number) => {
+      const cards = (ivy: number) => {
         const md = modelOf(`scaffold.${v}`, 3, ivy);
-        let dark = 0;
-        let bright = 0;
+        let n = 0;
         for (let t = 0; t < md.pos.length / 9; t++) {
-          const c = colourAt(md, t);
-          if (!greens.includes(c)) continue;
-          if (c === cssColor(RUIN.ivy)) dark++;
-          else bright++;
+          if (!isIvy(md, t)) continue;
+          n++;
+          expect(colourAt(md, t)).toBe("#ffffff");
           for (const [x, , z] of corners(md, t)) expect(Math.max(Math.abs(x), Math.abs(z)), `${v} ${ivy}`).toBeGreaterThan(0.45);
         }
-        return { dark, bright, leaves: (dark + bright) / 2, all: dark + bright };
+        // (each card two triangles a side)
+        return n / 4;
       };
-      const [dense, medium, light, none] = [green(IVY_DENSE), green(IVY_MEDIUM), green(IVY_LIGHT), green(IVY_NONE)];
-      expect(none.leaves).toBe(0);
-      expect(light.leaves).toBeGreaterThan(0);
-      expect(medium.leaves).toBeGreaterThan(2 * light.leaves);
-      expect(dense.leaves).toBeGreaterThan(medium.leaves);
-      expect(dense.bright).toBeGreaterThan(dense.all * 0.15);
-      expect(dense.bright).toBeLessThan(dense.all * 0.6);
+      const [dense, medium, light, none] = [cards(IVY_DENSE), cards(IVY_MEDIUM), cards(IVY_LIGHT), cards(IVY_NONE)];
+      expect(none).toBe(0);
+      expect(light).toBeGreaterThan(0);
+      expect(medium).toBeGreaterThan(light);
+      // (how much each covers: the next test)
+      expect(dense).toBeGreaterThanOrEqual(medium);
     }
   });
 
   it("cover as much of each storey seen from a side as the game's ivy does", () => {
-    // (the share of each storey's side view, its whole tile across and its level high, that the ivy's leaves cover, the
-    // face behind seen through the frame: averaged over looking along x and along z, as the game's ivy models, numbers
-    // only: wet 4 high 0.74, 0.63, 0.38, 0.28 from the foot up; dry 0.66 at the foot, none above)
+    // (the share of each storey's side view, its whole tile across and its level high, that the ivy's cards cover where
+    // their pattern's cut keeps them, the face behind seen through the frame: averaged over looking along x and along
+    // z, as the game's ivy models, numbers only: wet 4 high 0.74, 0.63, 0.38, 0.28 from the foot up; dry 0.66 at the
+    // foot, none above)
     const cover = (v: string, h: number, wet: boolean): number[] => {
-      const tris: number[][][] = [];
+      const tris: { p: number[][]; uv: number[][] }[] = [];
       for (let lv = 0; lv < h; lv++) {
         const m = modelOf(`scaffold.${v}`, h - 1 - lv, ruinIvy(h, lv, wet));
-        for (let t = 0; t < m.pos.length / 9; t++) if (greens.includes(colourAt(m, t))) tris.push(corners(m, t).map(([x, y, z]) => [x, y + lv, z]));
+        for (let t = 0; t < m.pos.length / 9; t++)
+          if (isIvy(m, t)) tris.push({ p: corners(m, t).map(([x, y, z]) => [x, y + lv, z]), uv: [0, 1, 2].map((j) => [m.uv![(t * 3 + j) * 2], m.uv![(t * 3 + j) * 2 + 1]]) });
       }
       const N = 40;
       return Array.from({ length: h }, (_, lv) => {
@@ -474,12 +477,17 @@ describe("ruins", () => {
             for (let i = 0; i < N; i++) {
               const [s, y] = [-0.5 + (i + 0.5) / N, lv + (j + 0.5) / N];
               const inside = tris.some((q) => {
-                const [a, b, c] = q.map((p) => [p[axis], p[1]]);
+                const [a, b, c] = q.p.map((p) => [p[axis], p[1]]);
                 const d = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
                 if (Math.abs(d) < 1e-12) return false;
                 const w1 = ((b[0] - s) * (c[1] - y) - (b[1] - y) * (c[0] - s)) / d;
                 const w2 = ((c[0] - s) * (a[1] - y) - (c[1] - y) * (a[0] - s)) / d;
-                return w1 >= 0 && w2 >= 0 && w1 + w2 <= 1;
+                if (!(w1 >= 0 && w2 >= 0 && w1 + w2 <= 1)) return false;
+                // (where the pattern's cut keeps the card: its UV there)
+                const w0 = 1 - w1 - w2;
+                const u = w1 * q.uv[0][0] + w2 * q.uv[1][0] + w0 * q.uv[2][0];
+                const vv = w1 * q.uv[0][1] + w2 * q.uv[1][1] + w0 * q.uv[2][1];
+                return patternAlpha(PATTERN.ivy, u, vv) >= PATTERN_CUT;
               });
               if (inside) hit++;
             }
