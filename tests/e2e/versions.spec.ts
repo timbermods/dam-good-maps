@@ -167,11 +167,8 @@ test("an undo while the other version is held ends the flip: the open map comes 
   await page.setViewportSize({ width: 1600, height: 900 });
   await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
   const name = (await info(page)).name;
-  // (the wall on row 50 at x 38 to 42, dry ground at level 10, since generator 0.10.23, D(new-leaks): a course's water leaves
-  // only by its own way, D148: row 60 at x 60 to 70 stands at level 15 now, its last tile too (level 4 before), so
-  // raising it there changed nothing and the second step's land was the first's)
   await edit(page, [[40, 40, 44]], "Raise a tile");
-  await edit(page, [[50, 38, 42]], "Raise a wall");
+  await edit(page, [[60, 60, 70]], "Raise a wall");
   await edit(page, [[20, 20, 36]], "Raise a ridge");
   await idle(page);
   const landThree = await drawn(page);
@@ -239,9 +236,7 @@ test("holding B right after an edit holds the flip while the water settles, and 
   const veil = page.locator(".compare-veil");
 
   // an edit, and B at once: the water is still flowing in, and the other version stays on show
-  // (the wall on row 50 at x 38 to 42 since generator 0.10.23, D148: row 60 at x 60 to 70 stands at level 15 now, so the
-  // edit changed nothing; see the test above)
-  await edit(page, [[50, 38, 42]], "Raise a wall");
+  await edit(page, [[60, 60, 70]], "Raise a wall");
   await page.keyboard.down("b");
   await expect(veil).toHaveCount(1);
   const other = await drawn(page);

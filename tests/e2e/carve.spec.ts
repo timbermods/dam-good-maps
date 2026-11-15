@@ -31,7 +31,7 @@ async function clickTile(page: Page, x: number, y: number) {
  *  takes the click, and 24 tiles either side of it too (Aim's end). `drag`: for a line drawn from 24 tiles
  *  beside it, bending through its middle: the ground along the whole line holds no cave or overhang and none
  *  holds one up (a force leaves those as they are and refuses a line with a point on one, D487; the generated
- *  map's caves move whenever its land does). The spot itself is such ground either way. */
+ *  map's caves move whenever its land does). */
 async function highGround(page: Page, drag = false): Promise<[number, number]> {
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
@@ -57,10 +57,6 @@ async function highGround(page: Page, drag = false): Promise<[number, number]> {
           const i = y * m.W + x;
           if (m.surface.depth[i] > 0 || Math.hypot(x - s0, y - s1) < 20) continue;
           if (!onMap(x, y) || !onMap(x - 24, y) || !onMap(x + 24, y)) continue;
-          // (a click's own tile too, since generator 0.10.23, D(new-leaks): a course's water leaves only by its own way, so
-          // the land moved, D148: Highlands 96² seed 4242's highest ground by the middle, (48, 48), holds up an overhang
-          // now, and a carve clicked there is refused, so neither test's carve ran)
-          if (!clear(x, y)) continue;
           if (line) {
             // (the line as the drag test draws it: from beside the spot, through the bend, to the spot)
             const endX = x > 48 ? x - 24 : x + 24;
