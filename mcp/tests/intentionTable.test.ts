@@ -3,19 +3,22 @@
 // itself is held to the generator by Nightly alone (tools/intention-table.ts --check --theme, a theme a job).
 
 import { describe, expect, it } from "vitest";
-import { INTENTION_LEAST, INTENTION_SEEDS, INTENTION_SIDE, INTENTION_TABLE, intentionRefusal, offeredThemes, STYLE_THEMES } from "../../src/core/land/intentionTable";
+import { INTENTION_LEAST, INTENTION_SEEDS, INTENTION_SIDES, INTENTION_TABLE, intentionRefusal, offeredThemes, STYLE_THEMES } from "../../src/core/land/intentionTable";
 import { INTENTIONS } from "../../src/core/land/intentions";
 import { THEME_NAMES } from "../../src/core/spec/mapspec";
 import { callTool, TOOLS } from "../src/server";
 
 describe("the intention table", () => {
-  it("counts every intention on every theme, and offers each where it emerged on at least the least", () => {
+  it("counts every intention on every theme at every side, and offers each where it emerged on at least the least at every side", () => {
     const t = INTENTION_TABLE;
-    expect({ side: t.side, seeds: t.seeds, least: t.least }).toEqual({ side: INTENTION_SIDE, seeds: [...INTENTION_SEEDS], least: INTENTION_LEAST });
+    expect({ sides: t.sides, seeds: t.seeds, least: t.least }).toEqual({ sides: [...INTENTION_SIDES], seeds: [...INTENTION_SEEDS], least: INTENTION_LEAST });
+    expect(INTENTION_SIDES).toEqual([128, 256]);
+    expect(INTENTION_LEAST).toBe(8);
     expect(Object.keys(t.counts).sort()).toEqual([...INTENTIONS].sort());
     for (const id of INTENTIONS) {
       expect(Object.keys(t.counts[id]).sort()).toEqual([...STYLE_THEMES].sort());
-      expect(t.offered[id]).toEqual(STYLE_THEMES.filter((th) => t.counts[id][th] >= INTENTION_LEAST));
+      for (const th of STYLE_THEMES) expect(Object.keys(t.counts[id][th]).sort()).toEqual(INTENTION_SIDES.map(String).sort());
+      expect(t.offered[id]).toEqual(STYLE_THEMES.filter((th) => INTENTION_SIDES.every((s) => t.counts[id][th][String(s)] >= INTENTION_LEAST)));
     }
   });
 

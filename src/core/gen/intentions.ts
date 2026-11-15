@@ -94,14 +94,11 @@ export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro,
         }
       if (sides >= 2) gorge[i] = 1;
     }
-  // badwater, and the land in 4×4 blocks (two ways to grow)
-  const badT = new Uint8Array(N);
-  for (let i = 0; i < N; i++) if (D[i] >= 0.05 && C[i] >= 0.05) badT[i] = 1;
+  // the land in 4×4 blocks (two ways to grow)
   const B = 4;
   const bw = Math.ceil(W / B);
   const bh = Math.ceil(H / B);
-  const blocks = { B, bw, bh, n: new Float32Array(bw * bh), farm: new Float32Array(bw * bh), hs: new Float32Array(bw * bh), lowBad: new Float32Array(bw * bh) };
-  const dBad = distanceFrom(badT, W, H);
+  const blocks = { B, bw, bh, n: new Float32Array(bw * bh), farm: new Float32Array(bw * bh), hs: new Float32Array(bw * bh) };
   for (let i = 0; i < N; i++) {
     if (D[i] >= 0.05) continue;
     const x = i % W;
@@ -110,19 +107,8 @@ export function settlerView(h: Uint8Array, W: number, H: number, hy: Pick<Hydro,
     blocks.n[k]++;
     blocks.hs[k] += h[i];
     if (M[i] > 0 && C[i] < 0.05) blocks.farm[k]++;
-    // low land beside badwater: within 5 tiles of it and at most 1.5 over its surface there
-    if (dBad[i] <= 5) {
-      let surf = Infinity;
-      for (let dy = -5; dy <= 5; dy++)
-        for (let dx = -5; dx <= 5; dx++) {
-          const xx = x + dx;
-          const yy = y + dy;
-          if (xx >= 0 && yy >= 0 && xx < W && yy < H && badT[yy * W + xx]) surf = Math.min(surf, h[yy * W + xx] + D[yy * W + xx]);
-        }
-      if (h[i] <= surf + 1.5) blocks.lowBad[k]++;
-    }
   }
-  const view: SettlerView = { W, H, h, dJoin: distanceFrom(joinT, W, H), dFall: distanceFrom(fallT, W, H), farms, gorge, p75: sorted[Math.floor(0.75 * (N - 1))], dBad, blocks, opening: prepareOpening(h, W, H, D, falls) };
+  const view: SettlerView = { W, H, h, dJoin: distanceFrom(joinT, W, H), dFall: distanceFrom(fallT, W, H), farms, gorge, p75: sorted[Math.floor(0.75 * (N - 1))], blocks, opening: prepareOpening(h, W, H, D, falls) };
   return { ...view, prefer: (id, x, y, L, walk) => startPreference(id, view, x, y, L, walk) };
 }
 

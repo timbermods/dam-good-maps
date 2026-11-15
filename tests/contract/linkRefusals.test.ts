@@ -25,6 +25,13 @@ describe("share links the codec passes on that the generator cannot use", () => 
     expect(encodeSpecFragment(generate(d.spec).spec)).not.toMatch(/not-an-intention/);
   });
 
+  it("an old link naming a removed intention is read as no intention, with a reason (D475: no upgrade path)", () => {
+    // (badwater through the richest land left the set 2026-11-15, D138: a premise, not a nudge)
+    const d = decodeSpecFragment("s=5&t=riverValley&z=96&vr=2&in=badwater-rich")!;
+    expect(d.problems.some((p) => /intentions/.test(p))).toBe(true);
+    expect(d.spec.intentions).toBeUndefined();
+  });
+
   it("the schema's intention ids are the generator's", () => {
     const items = (MAPSPEC_SCHEMA.properties as Record<string, { items: { enum: string[] } }>).intentions.items.enum;
     expect(items).toEqual([...INTENTIONS]);

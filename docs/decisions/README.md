@@ -123,7 +123,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D26: Channel width
 - D47: Set-piece builders
 - D273: M9b's five outcomes
-- D138: Intentions, maps feel authored
+- D138: Intentions, maps feel authored (amended: by design where a nudge cannot; offered and drawn only where 8 of 12 emerge at 128² and 256²; badwater through the richest land removed)
 - D278: Candidate choice and speed
 - D363: Mine-site pads levelled
 - D307: Floodplain floods

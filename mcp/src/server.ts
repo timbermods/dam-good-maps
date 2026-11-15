@@ -11,7 +11,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema, type CallToolResult, typ
 import opsSchema from "../../src/core/doc/ops.schema.json" with { type: "json" };
 import specSchema from "../../src/core/spec/mapspec.schema.json" with { type: "json" };
 import { INTENTIONS, INTENTION_TEXT } from "../../src/core/land/intentions";
-import { INTENTION_LEAST, INTENTION_SEEDS, INTENTION_SIDE, offeredThemes } from "../../src/core/land/intentionTable";
+import { INTENTION_LEAST, INTENTION_SEEDS, offeredThemes, sidesWords } from "../../src/core/land/intentionTable";
 import { naturalSize as craterAcross } from "../../src/core/forces/craterize";
 import { naturalSize as eruptAcross } from "../../src/core/forces/erupt";
 import { DEFAULT_THEME, MAX_SIDE, MIN_SIDE, PREMISE_CHOICES, PREMISE_IDS, PREMISE_NAMES, shareLink, SIZE_PRESETS, THEME_NAMES, THEMES } from "../../src/core/spec/mapspec";
@@ -204,7 +204,7 @@ export const TOOLS: Tool[] = [
           type: "array",
           maxItems: 2,
           items: { enum: [...INTENTIONS] },
-          description: `Outcomes to steer toward, at most two. Each is offered only for the themes where it emerged on at least ${INTENTION_LEAST} of ${INTENTION_SEEDS.length} test maps (${INTENTION_SIDE} tiles); even there some maps miss it, and another theme is refused. ${INTENTIONS.map((id) => `${id}: ${INTENTION_TEXT[id]} ${offeredWords(id)}`).join(" ")}`,
+          description: `Outcomes to steer toward, at most two. Each is offered only for the themes where it emerged on at least ${INTENTION_LEAST} of ${INTENTION_SEEDS.length} test maps at ${sidesWords()} both; even there some maps miss it, and another theme is refused. ${INTENTIONS.map((id) => `${id}: ${INTENTION_TEXT[id]} ${offeredWords(id)}`).join(" ")}`,
         },
       },
     },

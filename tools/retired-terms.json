@@ -43,7 +43,8 @@
     { "term": "Back to settings", "retired": "D330", "instead": "the map stays in the editor: New map in the header opens the drawer with the settings beside it" },
     { "term": "poisoned soil", "retired": "D334", "instead": "contaminated ground: the game's orange-red veins, in every look (the High look's dark stain and its switch are retired)" },
     { "term": "Limits for this size", "retired": "Kyler, 2026-10-04", "instead": "the map generator shows every setting at once; each setting's guard (a drought reserve too big for the size is greyed) says what a size can hold" },
-    { "term": "Maturity", "retired": "D473", "instead": "Carve is one carve: Banks and Wander give it its flat land and bends; a carve saved with the setting opens as recorded" }
+    { "term": "Maturity", "retired": "D473", "instead": "Carve is one carve: Banks and Wander give it its flat land and bends; a carve saved with the setting opens as recorded" },
+    { "term": "badwater-rich", "retired": "D138, amended 2026-11-15", "instead": "no intention: badwater through the richest land is a premise, the poisoned floodplain (docs/PREMISES.md §5.4, docs/design/poisoned-floodplain.md)" }
   ],
   "about_patterns": "Retired interface text, as regular expressions over the same normalised text as the terms (lower case; ** and backticks dropped; camelCase split; spaces, hyphens and underscores as one space). Each has an example, which the planted-message test checks is caught.",
   "patterns": [

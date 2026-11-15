@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { drawGenome, EDITOR_TOP, GAME_TOP, LEANINGS, VT_HIGH, tallTop, type Genome } from "../../src/core/land/genome";
 import { ACTIVE, drawIntentions, clashes } from "../../src/core/land/intentions";
+import { offeredThemes, STYLE_THEMES } from "../../src/core/land/intentionTable";
 import { stream } from "../../src/core/math/rng";
 import { VT_DEFAULT } from "../../src/core/spec/mapspec";
 
@@ -90,5 +91,14 @@ describe("the genome", () => {
     expect(counts[0]).toBe(0);
     expect(counts[1]).toBeGreaterThan(200);
     expect(counts[2]).toBeGreaterThan(100);
+  });
+
+  // (D138 as amended 2026-11-15: a map draws an intention only on a theme the committed table offers it for; Any
+  // draws only one offered somewhere)
+  it("draws an intention only on the themes it is offered for", () => {
+    for (const theme of STYLE_THEMES)
+      for (let seed = 1; seed <= 100; seed++)
+        for (const id of drawIntentions(theme, 30, stream(seed, "test-intentions"))) expect(offeredThemes(id), `${id} on ${theme}`).toContain(theme);
+    for (let seed = 1; seed <= 100; seed++) for (const id of drawIntentions("any", 30, stream(seed, "test-intentions"))) expect(offeredThemes(id).length, id).toBeGreaterThan(0);
   });
 });
