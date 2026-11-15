@@ -34,7 +34,7 @@ concurrency:
   group: ci-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' && github.base_ref == 'dev' }}
 
-# Jobs run side by side: the tests (typecheck and the quick suite), the browser tests in fifteen shards, the
+# Jobs run side by side: the tests (typecheck and the quick suite), the browser tests in twenty shards, the
 # Python oracle, generation, and the cross-engine determinism check with the Rust build. They fail only on
 # breakage. The heaviest checks run nightly (nightly.yml): the long property runs, the full oracle and the
 # 100-seed batches.
@@ -235,18 +235,21 @@ jobs:
   # runner to itself, summed by `--list --shard=i/N`, gives the slowest shard 27 minutes of tests at fifteen (31 at
   # twelve to fourteen, past the 30 with the build). Alone, look-high took 0.44 of its time beside a neighbour; at 0.6
   # the slowest shard is about 16 minutes of tests, 18 to 20 a job. (Seven shards from 2026-10-27, eight from 2026-11-09, #893, each with two workers.)
+  # Twenty shards since 2026-11-15: at fifteen, shard 14 (the end of textClipping, timelapse, tooltips and touch.spec's
+  # eighteen tests at about a minute each) ran out its 30 minutes with every test passing, on a PR (run 43738242890) and
+  # on dev (43738527160). A quarter fewer tests a shard puts it near 22 minutes.
   browser:
     needs: changes
     # (not on a pull request into dev: the browser specs run on dev's tip once it merges; except one that can change what
     # the generator makes, `generator` from tools/ci-changes.mjs, which runs them before the merge, as a page PR runs `page`)
     if: needs.changes.outputs.heavy == 'true' && (!(github.event_name == 'pull_request' && github.base_ref == 'dev') || needs.changes.outputs.generator == 'true')
-    name: browser (${{ matrix.shard }}/15)
+    name: browser (${{ matrix.shard }}/20)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -257,8 +260,8 @@ jobs:
       - uses: ./.github/actions/playwright
         with:
           browsers: chromium
-      - name: Browser tests, shard ${{ matrix.shard }} of 15 (Node and Chromium produce the same bytes)
-        run: npx playwright test --shard=${{ matrix.shard }}/15
+      - name: Browser tests, shard ${{ matrix.shard }} of 20 (Node and Chromium produce the same bytes)
+        run: npx playwright test --shard=${{ matrix.shard }}/20
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
