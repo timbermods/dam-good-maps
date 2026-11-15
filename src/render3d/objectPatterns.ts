@@ -33,14 +33,24 @@
 // tint (the bush's colour, palette.ts `TREE_COLOURS.bush`), their lightness 0.67 to 1.38 times their mean (the 5th to
 // the 95th percentile), heaped as a mound over a low dome and as rosettes on cards round its shoulders and top; and its
 // yield, clusters of round berries about 0.06 m across (palette.ts `TREE_COLOURS.berry`), 0.54 to 1.39 of their mean.
+//
+// Layer 6, the ruins' concrete (`Ruins`, EnvironmentURP5; its atlas's bands of slab, 512 texels a metre, a row a storey,
+// read over its cut): over a band's upper part (down to 0.69 of the storey) cells of pale-edged stone about 0.11 m across
+// between dark cracks 1 to 5 cm wide, a tenth to a seventh of it crack (0.148, 0.131, 0.103), its lightness 0.42 / 0.78 /
+// 0.94 / 1.11 / 1.28 of the mean (the 5th, 25th, 50th, 75th and 95th percentile); under it, to the band's foot, the
+// stone weathered pale and nearly uncracked, 0.87 / 1.08 / 1.19 / 1.31 / 1.47, streaked paler up from its foot; its
+// cells (0.447, 0.363, 0.224), its palest (0.547, 0.482, 0.314). Ours: 256 texels a metre, tiling across, a storey a
+// unit up it (`CONCRETE_CRACKED_FROM`).
 
 import { RUIN } from "./palette";
 
 /** A layer's side in texels. */
 export const PATTERN_SIZE = 256;
 /** The layers, by the number a model's part gives (0 none). */
-export const PATTERN = { ivy: 1, thatch: 2, planks: 3, wood: 4, bush: 5 } as const;
-export const PATTERN_LAYERS = 5;
+export const PATTERN = { ivy: 1, thatch: 2, planks: 3, wood: 4, bush: 5, concrete: 6 } as const;
+export const PATTERN_LAYERS = 6;
+/** The layers never cut, a part in each its colour until the patterns are drawn (materials.ts `objectAtlasTexture`). */
+export const PATTERN_TILING: readonly number[] = [PATTERN.thatch, PATTERN.planks, PATTERN.wood, PATTERN.concrete];
 /** Where a pattern's alpha cuts the part away: the game's ivy's and bush's `_Cutoff` (the tiling layers are never cut). */
 export const PATTERN_CUT = 0.312;
 /** A texel is the part's albedo over its colour divided by this. */
@@ -63,7 +73,7 @@ export const PATTERN_KEPT_GLSL = /* glsl */ `
   }
 `;
 /** Metres of a part a unit of each tiling layer's UV, as the game's model maps its textures. */
-export const PATTERN_TILE = { thatch: 2.49, planks: 1.61, wood: 1.45 } as const;
+export const PATTERN_TILE = { thatch: 2.49, planks: 1.61, wood: 1.45, concrete: 1 } as const;
 
 /** The ivy's texels a metre. */
 const IVY_PX = 128;
@@ -675,6 +685,121 @@ function drawBush(): Canvas {
   return cv;
 }
 
+/** The concrete's layer, its rows a storey's height (v up, 1 at its top): about where its cracked upper part gives way
+ *  to its pale lower one, as the game's atlas rows do. */
+export const CONCRETE_CRACKED_FROM = 0.69;
+/** The game's concrete over its cut (`Ruins`, texels sorted by their lightness): its cracks' colour, its cells', its
+ *  palest; and the lightness (over the mean) each falls at. */
+const CRACK = [0.148, 0.131, 0.103];
+const CELL = [0.447, 0.363, 0.224];
+const PALE = [0.547, 0.482, 0.314];
+const [L_CRACK, L_CELL, L_PALE] = [0.38, 1.045, 1.36];
+
+/** Smooth noise (0–1) on a grid `step` texels apart, tiling the layer every way. */
+function noise(step: number, seed: number): (x: number, y: number) => number {
+  const n = S / step;
+  const at = (i: number, j: number) => hash(((i % n) + n) % n, ((j % n) + n) % n, seed);
+  return (x, y) => {
+    const fx = x / step;
+    const fy = y / step;
+    const i = Math.floor(fx);
+    const j = Math.floor(fy);
+    const tx = smooth(0, 1, fx - i);
+    const ty = smooth(0, 1, fy - j);
+    const a = at(i, j) + (at(i + 1, j) - at(i, j)) * tx;
+    const b = at(i, j + 1) + (at(i + 1, j + 1) - at(i, j + 1)) * tx;
+    return a + (b - a) * ty;
+  };
+}
+
+/** A grid of cells round jittered points, tiling the layer every way: for a texel, its cell and how far it is from the
+ *  nearest edge between cells (texels; the pair is reused, read it before the next call). */
+function cells(n: number, seed: number): (x: number, y: number) => [number, number] {
+  const c = S / n;
+  const px: number[] = [];
+  const py: number[] = [];
+  for (let j = 0; j < n; j++)
+    for (let i = 0; i < n; i++) {
+      px.push((i + 0.1 + 0.8 * hash(i, j, seed)) * c);
+      py.push((j + 0.1 + 0.8 * hash(i, j, seed + 1)) * c);
+    }
+  const out: [number, number] = [0, 0];
+  return (x, y) => {
+    const ci = Math.floor(x / c);
+    const cj = Math.floor(y / c);
+    let d1 = Infinity;
+    let d2 = Infinity;
+    let best = 0;
+    for (let j = cj - 1; j <= cj + 1; j++)
+      for (let i = ci - 1; i <= ci + 1; i++) {
+        const k = (((j % n) + n) % n) * n + (((i % n) + n) % n);
+        // (the point where this neighbour's copy of it lies, the grid wrapping)
+        const dx = px[k] + Math.floor(i / n) * S - x;
+        const dy = py[k] + Math.floor(j / n) * S - y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < d1) {
+          d2 = d1;
+          d1 = d;
+          best = k;
+        } else if (d < d2) d2 = d;
+      }
+    out[0] = best;
+    out[1] = (d2 - d1) / 2;
+    return out;
+  };
+}
+
+/** The ruins' concrete (layer 6, tiling across; a storey a unit, v up): over its upper part cells of stone 0.08 to
+ *  0.2 m across, lit at their rims, between wavering dark cracks of uneven width, some cells split by fainter ones;
+ *  under it, the line between wandering, the stone weathered pale with the cracks only faint, a few paler streaks
+ *  rising from its foot; mottled throughout. The texels' absolute colours, the game's. */
+function drawConcrete(): Tile {
+  const tl = new Tile();
+  const major = cells(7, 70);
+  const minor = cells(16, 72);
+  const [warpX, warpY] = [noise(16, 80), noise(16, 81)];
+  const [fineX, fineY] = [noise(8, 82), noise(8, 83)];
+  const width = noise(8, 84);
+  const blot = noise(32, 85);
+  const grain = noise(4, 86);
+  const line = noise(32, 87);
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      const v = (y + 0.5) / S;
+      // (the cracks wander: each texel looked up a little aside, broadly and finely)
+      const wx = x + 0.5 + 9 * (warpX(x, y) - 0.5) + 3 * (fineX(x, y) - 0.5);
+      const wy = y + 0.5 + 9 * (warpY(x, y) - 0.5) + 3 * (fineY(x, y) - 0.5);
+      const [cell, edge] = major(wx, wy);
+      const fine = minor(wx, wy)[1];
+      // (how cracked: 1 over the upper part, 0 under it, the line between wandering)
+      const from = CONCRETE_CRACKED_FROM + 0.06 * (line(x, 0) - 0.5);
+      const cracked = smooth(from - 0.02, from + 0.01, v);
+      // mottled, each cell its own tone; the lower part paler toward the band's foot
+      const mottle = 0.16 * (blot(x, y) - 0.5) + 0.1 * (grain(x, y) - 0.5) + 0.05 * (hash(x, y, 74) - 0.5);
+      const lower = 1.1 + 0.18 * smooth(from, 0.53, v);
+      let l = cracked * (0.9 + 0.22 * (hash(cell, 0, 75) - 0.5)) + (1 - cracked) * lower + mottle;
+      // each cell's rim lit beside its crack
+      l += cracked * 0.32 * Math.max(0, 1 - Math.abs(edge - 3.2) / 2.2);
+      // the cracks: wide here and narrow there (0.8 to 3 texels), dark to their core; fainter ones splitting some cells
+      const w = 0.8 + 1.8 * width(wx, wy) ** 1.5;
+      const crack = Math.max(0, 1 - edge / w);
+      l *= 1 - Math.min(1, crack * 1.3) * (cracked * 0.6 + (1 - cracked) * 0.14);
+      if (hash(cell, 1, 77) < 0.45) l *= 1 - Math.max(0, 1 - fine / 0.7) * (cracked * 0.3 + (1 - cracked) * 0.06);
+      // a few paler streaks rising from the foot of the lower part, fading as they rise
+      const s = x >> 1;
+      const reach = 0.04 + 0.08 * hash(s, 1, 79);
+      if (hash(s, 0, 78) > 0.95 && v > 0.47 && v < 0.47 + reach) l += 0.18 * (1 - cracked) * (1 - (v - 0.47) / reach);
+      // its colour, the game's at this lightness
+      const col =
+        l <= L_CELL
+          ? CRACK.map((c, i) => c + (CELL[i] - c) * Math.max(0, (l - L_CRACK) / (L_CELL - L_CRACK)))
+          : CELL.map((c, i) => c + (PALE[i] - c) * ((l - L_CELL) / (L_PALE - L_CELL)));
+      const dim = l < L_CRACK ? Math.max(0.5, l / L_CRACK) : 1;
+      tl.set(x, y, col[0] * dim, col[1] * dim, col[2] * dim);
+    }
+  return tl;
+}
+
 let made: Uint8Array | null = null;
 /** Every layer's texels, RGBA, layer by layer (made once). */
 export function patternTexels(): Uint8Array {
@@ -702,6 +827,16 @@ export function patternTexels(): Uint8Array {
   for (let k = 0; k < S * S; k++) {
     for (let c = 0; c < 3; c++) out[o + k * 4 + c] = byte(bush.rgb[k * 3 + c]);
     out[o + k * 4 + 3] = Math.round(Math.min(1, bush.a[k]) * 255);
+  }
+  // the concrete, never cut, over its mean on a band (from 0.53 of the storey up: its colour is the game's mean there)
+  const concrete = drawConcrete().rgb;
+  const mean = [0, 0, 0];
+  const from = Math.round(0.53 * S);
+  for (let k = from * S; k < S * S; k++) for (let c = 0; c < 3; c++) mean[c] += concrete[k * 3 + c] / ((S - from) * S);
+  const oc = (PATTERN.concrete - 1) * S * S * 4;
+  for (let k = 0; k < S * S; k++) {
+    for (let c = 0; c < 3; c++) out[oc + k * 4 + c] = byte(concrete[k * 3 + c] / mean[c]);
+    out[oc + k * 4 + 3] = 255;
   }
   return (made = out);
 }

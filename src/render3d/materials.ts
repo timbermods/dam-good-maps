@@ -79,7 +79,7 @@ import { SHORE_FILM, SHORE_FILM_TERRAIN_GLSL, SHORE_FILM_VERTEX_GLSL } from "./s
 import { EDGE_BAND, SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
 import { LIGHT_LEVELS, SUN_MARCH_STEP, SUN_MARCH_STEPS, type CaveLight } from "./caveLight";
 import { CUT_SLACK, VIEW_TAN } from "./cutWater";
-import { PATTERN, PATTERN_GAIN, PATTERN_KEPT_GLSL, PATTERN_LAYERS, PATTERN_SIZE as OBJECT_PATTERN_SIZE } from "./objectPatterns";
+import { PATTERN_GAIN, PATTERN_KEPT_GLSL, PATTERN_LAYERS, PATTERN_SIZE as OBJECT_PATTERN_SIZE, PATTERN_TILING } from "./objectPatterns";
 import { FALL } from "./waterMesh";
 import { RUN_LEVELS, type RunSoil } from "./runSoil";
 import { DITHER_GLSL, FADE_OFF, OBJECT_FADE_GLSL } from "./objectFade";
@@ -442,9 +442,11 @@ export function objectAtlasTexture(): DataArrayTexture {
   if (objectAtlas) return objectAtlas;
   const layer = OBJECT_PATTERN_SIZE * OBJECT_PATTERN_SIZE * 4;
   const data = new Uint8Array(layer * PATTERN_LAYERS);
-  // (the tiling layers, the thatch's to the wood's; the ivy and the bush cut away)
-  data.fill(Math.round(255 / PATTERN_GAIN), layer * (PATTERN.thatch - 1), layer * PATTERN.wood);
-  for (let k = layer * (PATTERN.thatch - 1) + 3; k < layer * PATTERN.wood; k += 4) data[k] = 255;
+  // (the tiling layers in their parts' colours; the ivy and the bush cut away)
+  for (const l of PATTERN_TILING) {
+    data.fill(Math.round(255 / PATTERN_GAIN), layer * (l - 1), layer * l);
+    for (let k = layer * (l - 1) + 3; k < layer * l; k += 4) data[k] = 255;
+  }
   const t = new DataArrayTexture(data, OBJECT_PATTERN_SIZE, OBJECT_PATTERN_SIZE, PATTERN_LAYERS);
   t.format = RGBAFormat;
   t.type = UnsignedByteType;

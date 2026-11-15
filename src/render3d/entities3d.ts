@@ -1316,6 +1316,10 @@ export const IVY_NONE = 0;
 export const IVY_LIGHT = 1;
 export const IVY_MEDIUM = 2;
 export const IVY_DENSE = 3;
+/** A storey's frame under its ivy, by how much it carries: shaded by it, as the game's stone and rebar are where its
+ *  ivy hangs over them (its concrete seen through the leaves about 0.9 of the bare stone's in the game's `cave` frame,
+ *  its brightest 0.7). */
+export const RUIN_IVY_SHADE = [1, 0.9, 0.78, 0.66];
 
 /** A triangle wound to face toward −Z (`toward` −1) or +Z (1). */
 function facing(m: Model, p: readonly number[][], toward: number, color: Rgb): void {
@@ -1326,8 +1330,9 @@ function facing(m: Model, p: readonly number[][], toward: number, color: Rgb): v
 
 /** A band of slab across a storey's north face (−Z; `onFace` turns it) from RUIN_BAND_LO to `hi`: whole across the
  *  face, or broken (`whole` false: one piece at a side or two round a gap, about half the face, as the game's broken
- *  rows are), each piece a slab with its lower edge cracked into teeth. `seed` picks the breaks. */
-function band(m: Model, whole: boolean, hi: number, seed: [number, number]): void {
+ *  rows are), each piece a slab with its lower edge cracked into teeth, and its upper edge too where the storey is the
+ *  column's top (`brokenOff`: the game's stubs there end raggedly). `seed` picks the breaks. */
+function band(m: Model, whole: boolean, hi: number, seed: [number, number], brokenOff = false): void {
   if (hi - RUIN_BAND_LO < 0.06) return;
   const r = jitter(seed[0], seed[1], 60);
   const edge = RUIN_POST + RUIN_POST_R;
@@ -1340,6 +1345,7 @@ function band(m: Model, whole: boolean, hi: number, seed: [number, number]): voi
         : [[-edge, -0.2 - 0.1 * jitter(seed[0], seed[1], 61)], [0.15 + 0.1 * jitter(seed[0], seed[1], 62), edge]];
   const col = shade(RUIN.slab, [0.97, 1, 1.02][(seed[0] + seed[1]) % 3]);
   const h = hi - RUIN_BAND_LO;
+  const from = m.pos.length / 3;
   for (const [a, b] of pieces) {
     m.add(box(b - a, h, RUIN_SLAB), col, { x: (a + b) / 2, y: RUIN_BAND_LO + h / 2, z: RUIN_FACE_Z });
     // its cracked lower edge: teeth hanging from it, seen from either side
@@ -1353,8 +1359,29 @@ function band(m: Model, whole: boolean, hi: number, seed: [number, number]): voi
         const z = RUIN_FACE_Z + (side * RUIN_SLAB) / 2;
         facing(m, [[x0, RUIN_BAND_LO, z], [x0 + w, RUIN_BAND_LO, z], [tip, RUIN_BAND_LO - d, z]], side, col);
       }
+      // broken off at the top: ragged humps rising from it, as high as the storey lets them
+      if (!brokenOff) continue;
+      const up = Math.min(0.03 + 0.08 * jitter(seed[0] * 8 + t, seed[1], 67), 0.99 - hi);
+      const peak = x0 + w * (0.25 + 0.5 * jitter(seed[0] * 8 + t, seed[1], 68));
+      if (up < 0.01) continue;
+      for (const side of [-1, 1]) {
+        const z = RUIN_FACE_Z + (side * RUIN_SLAB) / 2;
+        facing(m, [[x0, hi, z], [peak, hi + up, z], [x0 + w, hi, z]], side, col);
+      }
     }
   }
+  // the concrete's picture over it as the game's atlas lays it: across the face, a storey a unit up it (each face from
+  // its own place across the picture)
+  const u0 = jitter(seed[0], seed[1], 66);
+  concrete(m, from, (x, y) => [x + u0, y]);
+}
+
+/** The ruins' concrete (objectPatterns.ts layer 6) over the parts from vertex `from` on, at the places `at` gives each
+ *  corner (u across, v up). */
+function concrete(m: Model, from: number, at: (x: number, y: number, z: number) => readonly [number, number]): void {
+  const uv: number[] = [];
+  for (let v = from; v < m.pos.length / 3; v++) uv.push(...at(m.pos[v * 3], m.pos[v * 3 + 1], m.pos[v * 3 + 2]));
+  m.pattern(from, PATTERN.concrete, uv);
 }
 
 /** Two rebar rails across a storey's north face, at `ys`, each whole between the posts or broken off at one end. */
@@ -1430,7 +1457,7 @@ function frame(variant: number, k: number): Model {
     const face = pattern[f];
     const seed: [number, number] = [variant * 4 + f, k];
     onFace(m, f, () => {
-      if (face === "S" || face === "s") band(m, face === "S" && !top, top ? Math.min(0.78, stands - 0.04) : 1, seed);
+      if (face === "S" || face === "s") band(m, face === "S" && !top, top ? Math.min(0.78, stands - 0.04) : 1, seed, top);
       else if (face === "R") rails(m, top ? [0.3, 0.55].filter((y) => y < stands - 0.05) : RUIN_RAILS, seed);
     });
   }
@@ -1438,6 +1465,7 @@ function frame(variant: number, k: number): Model {
     // a floor slab at its foot, broken: three quarters of the tile (half of B's highest), turned by the storey
     const col = shade(RUIN.slab, 0.97);
     const s = RUIN_POST + RUIN_POST_R - 0.01;
+    const from = m.pos.length / 3;
     onFace(m, (variant + k) % 4, () => {
       if (variant === 1 && k === 1) m.add(box(2 * s, 0.04, s - 0.02), col, { y: 0.025, z: (-s - 0.02) / 2 });
       else {
@@ -1445,6 +1473,8 @@ function frame(variant: number, k: number): Model {
         m.add(box(s - 0.04, 0.04, s - 0.02), col, { x: (-s - 0.04) / 2, y: 0.025, z: (s + 0.02) / 2 });
       }
     });
+    // (seen from above: the cracked part of the picture, the floor's metre over a third of it)
+    concrete(m, from, (x, _y, z) => [0.3 * x + 0.17 * variant, 0.84 + 0.3 * z]);
   }
   return m;
 }
@@ -1687,7 +1717,7 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
       const moist = ruinOvergrown(soil, W, x, y, z);
       ruinStoreys(x, y, n, v.variant?.[k] ?? NO_VARIANT).forEach(({ variant, kind }, lv) => {
         const green = ruinIvy(n, lv, moist);
-        put(batch(`scaffold.${RUIN_VARIANT_IDS[variant]}${kind}`, () => frame(variant, kind)), x + 0.5, z + lv, -(y + 0.5), turn, 1);
+        put(batch(`scaffold.${RUIN_VARIANT_IDS[variant]}${kind}`, () => frame(variant, kind)), x + 0.5, z + lv, -(y + 0.5), turn, 1, RUIN_IVY_SHADE[green]);
         if (green) put(batch(ivyBatch(variant, kind, green), () => ivyModel(variant, kind, green)), x + 0.5, z + lv, -(y + 0.5), turn, 1);
       });
       continue;
