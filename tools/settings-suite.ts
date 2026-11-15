@@ -268,6 +268,8 @@ export const EXPERIMENTS: Experiment[] = [
     delta: 250,
   },
   {
+    // (D516's dead stands, 15 to 60 trees whatever Grove size, are left out of the median since generator 0.10.29: on
+    // 0.10.24's land they were half of a Big woods map's forests and held its median near theirs, D148)
     setting: "Grove size",
     target: "median grove 20 / 40 / 80 trees away from the start (a grove: trees within 2 tiles of each other; official median 40)",
     theme: "riverValley",
